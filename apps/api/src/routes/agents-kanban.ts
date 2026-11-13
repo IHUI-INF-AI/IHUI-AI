@@ -472,11 +472,9 @@ export const agentsKanbanRoutes: FastifyPluginAsync = async (server) => {
         (typeof payload.workspacePath === 'string' ? payload.workspacePath : undefined)
       let nextPayload = payload
 
-      // F-201(2026-11-13):抢锁与落库必须同进同出。抢到锁之后的任何异常(DB 写失败/返回空行)
-      // 若不给锁兜底,心跳(每 40s)会一直把 TTL 续下去 —— 一把无人持有又永不释放的幽灵锁。
-      let acquiredLockToken: string | undefined
       if (toStatus === 'in_progress' && workspace) {
-        const lockInfo = await acquireWorkspaceLock(workspace, `task:${id}`)
+        const holder = `task:${id}`
+        const lockInfo = await acquireWorkspaceLock(workspace, holder)
         if (!lockInfo) {
           const held = await getWorkspaceLock(workspace)
           return reply
@@ -488,125 +486,97 @@ export const agentsKanbanRoutes: FastifyPluginAsync = async (server) => {
               ),
             )
         }
-        acquiredLockToken = lockInfo.token
+        // token 存入 payload,离开 in_progress 时凭此释放
+        nextPayload = { ...payload, workspaceLockToken: lockInfo.token }
+        // P0-1:抢锁成功即启动心跳续期(TTL 120s / 间隔 40s),
+        // 防止长任务超过 TTL 后锁静默过期被抢;离开 in_progress 时停止
+        startLockHeartbeat(id, workspace, lockInfo.token)
+        broadcastSSEEvent({
+          type: 'workspace_lock_acquired',
+          taskId: id,
+          payload: { workspace, holder, task: id, teamId: current.teamId ?? undefined },
+          timestamp: new Date().toISOString(),
+        })
       }
 
-      /** 本次流转是否已成功落库;false ⇒ finally 必须归还本次抢到的锁 */
-      let persisted = false
-      try {
-        if (acquiredLockToken && workspace) {
-          // token 存入 payload,离开 in_progress 时凭此释放
-          nextPayload = { ...payload, workspaceLockToken: acquiredLockToken }
-          // P0-1:抢锁成功即启动心跳续期(TTL 120s / 间隔 40s),
-          // 防止长任务超过 TTL 后锁静默过期被抢;离开 in_progress 时停止
-          startLockHeartbeat(id, workspace, acquiredLockToken)
+      const leavingInProgress = fromStatus === 'in_progress' && toStatus !== 'in_progress'
+      if (leavingInProgress && workspace) {
+        const token =
+          typeof payload.workspaceLockToken === 'string' ? payload.workspaceLockToken : undefined
+        if (token) {
+          // P0-2:统一释放原语(停心跳 + 凭 token 释放 + 广播含释放结果)
+          // G-672:此分支已由 leavingInProgress 别名条件收窄 toStatus ≠ in_progress
+          await releaseLockToken(id, workspace, token, current.teamId, toStatus)
+          const { workspaceLockToken: _removed, ...rest } = payload
+          nextPayload = rest
+        } else {
+          // 历史 payload 无 token:至少停掉可能残留的心跳定时器
+          stopLockHeartbeat(id)
           broadcastSSEEvent({
-            type: 'workspace_lock_acquired',
+            type: 'workspace_lock_released',
             taskId: id,
-            payload: {
-              workspace,
-              holder: `task:${id}`,
-              task: id,
-              teamId: current.teamId ?? undefined,
-            },
+            payload: { workspace, task: id, teamId: current.teamId ?? undefined, released: false },
             timestamp: new Date().toISOString(),
           })
         }
-
-        const leavingInProgress = fromStatus === 'in_progress' && toStatus !== 'in_progress'
-        if (leavingInProgress && workspace) {
-          const token =
-            typeof payload.workspaceLockToken === 'string' ? payload.workspaceLockToken : undefined
-          if (token) {
-            // P0-2:统一释放原语(停心跳 + 凭 token 释放 + 广播含释放结果)
-            // G-672:此分支已由 leavingInProgress 别名条件收窄 toStatus ≠ in_progress
-            await releaseLockToken(id, workspace, token, current.teamId, toStatus)
-            const { workspaceLockToken: _removed, ...rest } = payload
-            nextPayload = rest
-          } else {
-            // 历史 payload 无 token:至少停掉可能残留的心跳定时器
-            stopLockHeartbeat(id)
-            broadcastSSEEvent({
-              type: 'workspace_lock_released',
-              taskId: id,
-              payload: {
-                workspace,
-                task: id,
-                teamId: current.teamId ?? undefined,
-                released: false,
-              },
-              timestamp: new Date().toISOString(),
-            })
-          }
-        }
-
-        // 合法流转 → 更新 DB
-        const updateData: Record<string, unknown> = {
-          status: toStatus,
-          updatedAt: new Date(),
-          updatedBy: request.userId ?? null,
-        }
-        if (nextPayload !== payload) {
-          updateData.payload = nextPayload
-        }
-        // 锁审计字段:进 in_progress 记录持有者,离开时清除
-        if (toStatus === 'in_progress' && workspace) {
-          updateData.lockedBy = `task:${id}`
-          updateData.lockedAt = new Date()
-        }
-        if (leavingInProgress) {
-          updateData.lockedBy = null
-          updateData.lockedAt = null
-        }
-        // 状态相关的副作用时间戳
-        if (toStatus === 'in_progress' && !current.startedAt) {
-          updateData.startedAt = new Date()
-        }
-        if (toStatus === 'done') {
-          updateData.completedAt = new Date()
-        }
-        if (toStatus === 'blocked' && reason) {
-          updateData.errorMessage = reason
-        }
-        // 从 blocked 恢复时清除错误信息
-        if (fromStatus === 'blocked' && toStatus !== 'blocked') {
-          updateData.errorMessage = null
-        }
-
-        const [updated] = await db
-          .update(agentTasks)
-          .set(updateData)
-          .where(eq(agentTasks.id, id))
-          .returning()
-
-        if (!updated) return reply.status(500).send(error(500, '状态流转失败'))
-        persisted = true
-        const task = toKanbanTask(updated)
-        // 广播状态变化事件
-        broadcastSSEEvent({
-          type: 'task_status_changed',
-          taskId: id,
-          payload: {
-            fromStatus,
-            toStatus,
-            reason,
-            task: task as unknown as Record<string, unknown>,
-          },
-          timestamp: new Date().toISOString(),
-        })
-
-        response.reason = reason
-        return reply.send(success(response))
-      } finally {
-        if (acquiredLockToken && workspace && !persisted) {
-          try {
-            // 状态并未真正进入 in_progress ⇒ 按 blocked 结算档归还(停心跳 + 凭 token 释放 + 广播)
-            await releaseLockToken(id, workspace, acquiredLockToken, current.teamId, 'blocked')
-          } catch {
-            // 释放失败不得掩盖原始异常;Redis TTL(120s)仍会兜底回收这把锁
-          }
-        }
       }
+
+      // 合法流转 → 更新 DB
+      const updateData: Record<string, unknown> = {
+        status: toStatus,
+        updatedAt: new Date(),
+        updatedBy: request.userId ?? null,
+      }
+      if (nextPayload !== payload) {
+        updateData.payload = nextPayload
+      }
+      // 锁审计字段:进 in_progress 记录持有者,离开时清除
+      if (toStatus === 'in_progress' && workspace) {
+        updateData.lockedBy = `task:${id}`
+        updateData.lockedAt = new Date()
+      }
+      if (leavingInProgress) {
+        updateData.lockedBy = null
+        updateData.lockedAt = null
+      }
+      // 状态相关的副作用时间戳
+      if (toStatus === 'in_progress' && !current.startedAt) {
+        updateData.startedAt = new Date()
+      }
+      if (toStatus === 'done') {
+        updateData.completedAt = new Date()
+      }
+      if (toStatus === 'blocked' && reason) {
+        updateData.errorMessage = reason
+      }
+      // 从 blocked 恢复时清除错误信息
+      if (fromStatus === 'blocked' && toStatus !== 'blocked') {
+        updateData.errorMessage = null
+      }
+
+      const [updated] = await db
+        .update(agentTasks)
+        .set(updateData)
+        .where(eq(agentTasks.id, id))
+        .returning()
+
+      if (!updated) return reply.status(500).send(error(500, '状态流转失败'))
+      const task = toKanbanTask(updated)
+      // 广播状态变化事件
+      broadcastSSEEvent({
+        type: 'task_status_changed',
+        taskId: id,
+        payload: {
+          fromStatus,
+          toStatus,
+          reason,
+          task: task as unknown as Record<string, unknown>,
+        },
+        timestamp: new Date().toISOString(),
+      })
+
+      response.reason = reason
+      return reply.send(success(response))
     },
   )
 

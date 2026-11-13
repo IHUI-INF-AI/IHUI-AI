@@ -265,32 +265,16 @@ export async function isCircleMember(circleId: string, userId: string): Promise<
 }
 
 /**
- * 按 id 读帖(用户读面)。
- * 传 viewer 时叠加可见性过滤(F-335):作者/关注者/管理员/公开帖各有口径。
- * F-176:始终带 status=1 —— 已下架/待审核/已软删的帖子按"不存在"处理(404),
- * 与列表读档(仅 status=1)对齐。管理端要读已下架行时用 findPostByIdForAdmin。
+ * 按 id 读帖。传 viewer 时叠加可见性过滤(F-335):作者/关注者/管理员/公开帖各有口径;
+ * 不传 viewer 保持旧口径(管理端审核、属主编辑/删除等内部路径)。
  */
 export async function findPostById(
   id: string,
   viewer?: PostViewer,
 ): Promise<CirclePost | undefined> {
-  const conds = [eq(circlePosts.id, id), eq(circlePosts.status, 1)]
   const vis = viewer ? postVisibilityCondition(viewer) : undefined
-  if (vis) conds.push(vis)
-  const rows = await dbRead
-    .select()
-    .from(circlePosts)
-    .where(and(...conds))
-    .limit(1)
-  return rows[0]
-}
-
-/**
- * 管理端按 id 读帖(F-176):不过滤 status,管理端审核/软删/评论审计仍可看到已下架内容。
- * 只有管理端与内部审计路径可以使用本函数,对外读面必须走 findPostById。
- */
-export async function findPostByIdForAdmin(id: string): Promise<CirclePost | undefined> {
-  const rows = await dbRead.select().from(circlePosts).where(eq(circlePosts.id, id)).limit(1)
+  const where = vis ? and(eq(circlePosts.id, id), vis) : eq(circlePosts.id, id)
+  const rows = await dbRead.select().from(circlePosts).where(where).limit(1)
   return rows[0]
 }
 
@@ -432,11 +416,6 @@ export async function findAsks(
   return { list, total: Number(totalRows[0]?.count ?? 0) }
 }
 
-/**
- * 按 id 读问答(用户读面)。
- * F-176:带 status=1 —— 已下架/已软删的问答按"不存在"处理(404),与列表读档对齐。
- * 管理端问答详情(admin-asks.ts)自行直查 db,不依赖本函数,故无需另开不过滤变体。
- */
 export async function findAskById(
   id: string,
 ): Promise<(Ask & { authorName: string | null }) | undefined> {
@@ -459,7 +438,7 @@ export async function findAskById(
     .select(cols)
     .from(asks)
     .leftJoin(users, eq(users.id, asks.userId))
-    .where(and(eq(asks.id, id), eq(asks.status, 1)))
+    .where(eq(asks.id, id))
     .limit(1)
   return rows[0]
 }
@@ -600,10 +579,7 @@ export async function acceptAnswer(
   userId: string,
 ): Promise<AskAnswer | undefined> {
   const answer = await findAnswerById(answerId)
-  // F-571:回答列表读路径只展示 status=1,写路径此前复用无 status 条件的详情查询,
-  // 已软删(status=-1)回答仍可被采纳 → 问题被标记已解决却无可采纳答案,
-  // 且会清空其它正常回答的 isAccepted。先按 status 闸掉所有写操作。
-  if (!answer || answer.status !== 1) return undefined
+  if (!answer) return undefined
   const ask = await findAskById(answer.askId)
   if (!ask || ask.userId !== userId) return undefined
 
@@ -613,13 +589,12 @@ export async function acceptAnswer(
     .set({ isAccepted: false })
     .where(and(eq(askAnswers.askId, ask.id), eq(askAnswers.isAccepted, true)))
 
-  // 置当前答案为 accepted(F-571:更新条件同样带 status,防副本读到旧值后的并发软删)
+  // 置当前答案为 accepted
   const rows = await db
     .update(askAnswers)
     .set({ isAccepted: true })
-    .where(and(eq(askAnswers.id, answerId), eq(askAnswers.status, 1)))
+    .where(eq(askAnswers.id, answerId))
     .returning()
-  if (!rows[0]) return undefined
 
   // 标记问题已解决
   await db.update(asks).set({ isResolved: true, updatedAt: new Date() }).where(eq(asks.id, ask.id))

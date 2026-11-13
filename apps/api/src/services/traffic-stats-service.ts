@@ -311,9 +311,8 @@ export async function computeTrafficLiveSnapshot(
  */
 const TRAFFIC_LIVE_TTL_MS = 5_000
 
-// F-344: 缓存与 in-flight 槽按 source 分键,否则并发/先后取不同 source 会互相串值
-const liveCacheBySource = new Map<TrafficSource, { atMs: number; value: TrafficLiveSnapshot }>()
-const liveInflightBySource = new Map<TrafficSource, Promise<TrafficLiveSnapshot>>()
+let liveCache: { atMs: number; value: TrafficLiveSnapshot } | null = null
+let liveInflight: Promise<TrafficLiveSnapshot> | null = null
 
 /**
  * 取一份"最多 TTL 毫秒前"的实时快照。**永不返回 0 冒充数据**:底层失败照样上抛,
@@ -324,26 +323,24 @@ export async function getTrafficLiveSnapshot(
   ttlMs: number = TRAFFIC_LIVE_TTL_MS,
 ): Promise<TrafficLiveSnapshot> {
   const nowMs = Date.now()
-  const cached = liveCacheBySource.get(source)
-  if (cached && nowMs - cached.atMs < ttlMs) return cached.value
-  const inflight = liveInflightBySource.get(source)
-  if (inflight) return inflight
-  const next = (async () => {
+  if (liveCache && nowMs - liveCache.atMs < ttlMs) return liveCache.value
+  if (liveInflight) return liveInflight
+  const inflight = (async () => {
     try {
       const value = await computeTrafficLiveSnapshot(source)
-      liveCacheBySource.set(source, { atMs: value.computedAtMs, value })
+      liveCache = { atMs: value.computedAtMs, value }
       return value
     } finally {
-      liveInflightBySource.delete(source)
+      liveInflight = null
     }
   })()
-  liveInflightBySource.set(source, next)
-  return next
+  liveInflight = inflight
+  return inflight
 }
 
 /** 仅测试用:清掉缓存,避免用例之间互相污染。 */
 export function __resetTrafficLiveCacheForTest(): void {
-  liveCacheBySource.clear()
-  liveInflightBySource.clear()
+  liveCache = null
+  liveInflight = null
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

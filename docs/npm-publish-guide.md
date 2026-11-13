@@ -204,7 +204,7 @@ npm 的配置优先级里**项目级 `.npmrc` 高于用户级**,所以 GitHub Ac
     "fullstack",
     "open-source"
   ],
-  "author": "IHUI-AI <lizong@aizhs.top>",
+  "author": "IHUI-AI <IHUI-AI@aizhs.top>",
   "license": "Apache-2.0",
   "homepage": "https://github.com/IHUI-INF-AI/IHUI-AI#readme",
   "repository": {
@@ -284,7 +284,7 @@ npm 的配置优先级里**项目级 `.npmrc` 高于用户级**,所以 GitHub Ac
     "prepublishOnly": "pnpm run build && pnpm run test"
   },
   "keywords": ["ihui", "ihui-ai", "ai", "llm", "typescript", "types", "shared-types", "fullstack"],
-  "author": "IHUI-AI <lizong@aizhs.top>",
+  "author": "IHUI-AI <IHUI-AI@aizhs.top>",
   "license": "Apache-2.0",
   "homepage": "https://github.com/IHUI-INF-AI/IHUI-AI#readme",
   "repository": {
@@ -326,7 +326,7 @@ npm 的配置优先级里**项目级 `.npmrc` 高于用户级**,所以 GitHub Ac
     "prepublishOnly": "pnpm run build"
   },
   "keywords": ["ihui", "design-tokens", "design-system", "tailwind", "css-variables", "react-native"],
-  "author": "IHUI-AI <lizong@aizhs.top>",
+  "author": "IHUI-AI <IHUI-AI@aizhs.top>",
   "license": "Apache-2.0",
   "homepage": "https://github.com/IHUI-INF-AI/IHUI-AI#readme",
   "repository": {
@@ -372,7 +372,7 @@ npm 的配置优先级里**项目级 `.npmrc` 高于用户级**,所以 GitHub Ac
     "prepublishOnly": "pnpm run build"
   },
   "keywords": ["ihui", "react", "ui", "components", "radix-ui", "tailwind", "shadcn", "design-system"],
-  "author": "IHUI-AI <lizong@aizhs.top>",
+  "author": "IHUI-AI <IHUI-AI@aizhs.top>",
   "license": "Apache-2.0",
   "homepage": "https://github.com/IHUI-INF-AI/IHUI-AI#readme",
   "repository": {

@@ -19,6 +19,9 @@ import { logger } from '@/lib/logger'
 // 2026-10-28 流式观感档续:断线续接(续生成)正文泵与主链同谱升 smooth ——
 // 续接首帧是"已生成前缀之后"的增量,此前每帧整坨蹦字,与主链逐字平滑观感断裂。
 import { createSmoothDeltaBatcher } from './smooth-delta-batcher'
+// X2(2026-11-13):早退(错误/中止)路径把已上屏的部分正文交给落库链,避免"已在屏上但没落库"悬空。
+// 服务端无按 messageId 更新正文的接口,只能以 assistant 角色新建持久化记录,metadata.partial 标识别。
+import { persistMessageSafe } from './persistence'
 
 /**
  * P1-6 断点续传(2026-09-13 立,PROJECT_PLAN.md 2549 行)
@@ -43,6 +46,14 @@ import { createSmoothDeltaBatcher } from './smooth-delta-batcher'
 const RESUME_HISTORY_LIMIT = 30
 /** 单次续接最长等待(与后端 5min 兜底对齐再留余量) */
 const RESUME_TIMEOUT_MS = 5 * 60_000
+
+// X1(2026-11-13):同轮 resume 并发去重锁。服务端 resume 是"重生非真续传",前端无法单方面
+// 实现真续传游标;曾试"按前缀去重重放段"但该启发式会篡改模型合法的重复前缀输出(模型先吐
+// "今天"再吐"今天天气真好"是合法续写,前缀匹配会错砍成"今天天气真好"),故弃用。
+// 退而守住真正健全、且前端可独力实现的那一维幂等:同一 messageId 不允许两个流并发 append
+// (React StrictMode dev 双触发 effect / 用户重复触发 resume 时,两条流交错写入同一消息 →
+// 内容重复且乱序)。在飞锁保证同一消息同一时刻只有一个续接流在跑,后到的直接放弃。
+const inflightResumeKeys = new Set<string>()
 
 export interface PendingResume {
   conversationId: string
@@ -110,6 +121,30 @@ function ensureMessagePresent(p: PendingResume, chatStore: ChatStore = useChatSt
   }))
 }
 
+/**
+ * X2(2026-11-13):早退时把已上屏的部分正文交给落库链,避免"已在屏上但没落库"悬空。
+ * 服务端无按 messageId 更新正文的接口,只能以 assistant 角色新建持久化记录,
+ * metadata 标 partial 供识别;失败由 persistMessageSafe 现有兜底(toast + failedDraft)。
+ */
+function persistPartial(p: PendingResume, chatStore: ChatStore): void {
+  const partial = chatStore.getState().messages.find((m) => m.id === p.messageId)?.content ?? ''
+  if (partial.trim().length > 0) {
+    // X2:早退已属异常路径,持久化本身再失败必须吞掉(记日志),绝不让悬空 reject
+    // 逃逸成 unhandled rejection 打断收尾 —— 早退流程的可见出口是降级 toast,不靠这里。
+    void persistMessageSafe(
+      p.conversationId,
+      partial,
+      'assistant',
+      { partial: true },
+      undefined,
+      undefined,
+      chatStore,
+    ).catch((err: unknown) => {
+      logger.warn('[Resume] 早退部分正文持久化失败(已尽力,不阻塞收尾):', err)
+    })
+  }
+}
+
 /** 组装续接上下文:最近 N 条历史(排除待续接消息本身)+ 末条 assistant 前缀 */
 function buildResumeMessages(
   p: PendingResume,
@@ -173,6 +208,33 @@ export async function resumePendingMessage(
   },
 ): Promise<void> {
   const chatStore = opts.chatStore ?? useChatStore
+
+  // X1:同一消息已在续接中 ⇒ 放弃后到的那次(React StrictMode 双触发 / 用户重复触发 resume)。
+  // 并发两条流交错 append 同一消息会造成内容重复 + 乱序,这是真实会发生且前端可独力防住的场景。
+  if (inflightResumeKeys.has(p.messageId)) {
+    logger.warn('[Resume] 该消息已在续接中,忽略并发的重复续接触发:', p.messageId)
+    return
+  }
+  inflightResumeKeys.add(p.messageId)
+  try {
+    await runResumePendingMessage(p, opts, chatStore)
+  } finally {
+    // 所有 return / throw 路径都释放,绝不泄漏在飞 key
+    inflightResumeKeys.delete(p.messageId)
+  }
+}
+
+/** 续接主体(持有 X1 在飞锁时执行)—— 外层 wrapper 负责 acquire/release,本函数只管业务 */
+async function runResumePendingMessage(
+  p: PendingResume,
+  opts: {
+    signal: AbortSignal
+    labels: ResumeLabels
+    paneId?: string | null
+    chatStore?: ChatStore
+  },
+  chatStore: ChatStore,
+): Promise<void> {
   const store = chatStore.getState()
 
   // ① 先问后端:该消息是否已经落库(落库 = 推理其实已完成,只是前端没收到尾事件)
@@ -267,6 +329,7 @@ export async function resumePendingMessage(
     if (!resp.ok || !resp.body) {
       const text = await resp.text().catch(() => '')
       notifyResumeFailed(p, text || `HTTP ${resp.status}`, opts.labels, opts.paneId, chatStore)
+      persistPartial(p, chatStore)
       return
     }
 
@@ -300,6 +363,7 @@ export async function resumePendingMessage(
             opts.paneId,
             chatStore,
           )
+          persistPartial(p, chatStore)
           return
         }
       }
@@ -324,6 +388,8 @@ export async function resumePendingMessage(
     }
   } catch (e) {
     batcher.flush()
+    // X2(2026-11-13):abort 与错误两路都把已上屏的部分正文交给落库链,避免"已在屏上没落库"悬空。
+    persistPartial(p, chatStore)
     if (isAbortError(e) || opts.signal.aborted) return
     notifyResumeFailed(
       p,

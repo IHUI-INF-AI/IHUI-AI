@@ -50,10 +50,6 @@ export interface ScrapeResult {
   raw?: string
 }
 
-/** F-440: 单页内容与页面缓存都必须有界,否则反复 navigate 大页面会累积至 OOM */
-const MAX_PAGE_CONTENT_CHARS = 512_000
-const MAX_CACHED_PAGES = 100
-
 export class BrowserAutomation extends EventEmitter {
   private pages = new Map<string, BrowserPage>()
 
@@ -71,7 +67,7 @@ export class BrowserAutomation extends EventEmitter {
         headers: { 'User-Agent': 'Clawdbot/1.0', ...options?.headers },
         signal: options?.timeout ? AbortSignal.timeout(options.timeout) : undefined,
       })
-      const content = (await response.text()).slice(0, MAX_PAGE_CONTENT_CHARS)
+      const content = await response.text()
       const title = content.match(/<title[^>]*>([^<]*)<\/title>/i)?.[1]
       const page: BrowserPage = {
         // 2026-07-21 安全审计加固:用 CSPRNG 替换 Math.random 生成页面 ID
@@ -80,11 +76,6 @@ export class BrowserAutomation extends EventEmitter {
         title,
         content,
         statusCode: response.status,
-      }
-      // F-440: 缓存按条数淘汰最旧页面
-      if (this.pages.size >= MAX_CACHED_PAGES) {
-        const oldest = this.pages.keys().next().value
-        if (oldest !== undefined) this.pages.delete(oldest)
       }
       this.pages.set(page.id, page)
       // 格②(2026-09-26):navigate 耗时经 elapsed-ms 出口,事件面同时透出 trusted 标记
@@ -144,7 +135,7 @@ export class BrowserAutomation extends EventEmitter {
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: new URLSearchParams(options.fields).toString(),
       })
-      const result = (await response.text()).slice(0, MAX_PAGE_CONTENT_CHARS)
+      const result = await response.text()
       this.emit('formFilled', { url: options.url, statusCode: response.status })
       return { success: true, submitted: response.ok, result }
     } catch (err) {

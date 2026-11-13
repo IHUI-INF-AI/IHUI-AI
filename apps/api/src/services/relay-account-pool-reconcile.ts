@@ -548,17 +548,16 @@ export async function reconcileCheckinSync(opts?: {
       const failedFromPush = push.failedIds.length
       out.pushFailed += failedFromPush
       if (!push.ok) {
-        // 整批失败(网络/HTTP):failedIds 为空时按本批全量落 pending;
-        // 部分失败只落失败 id。两种失败都保留 pending,交给下轮重推(F-239)。
+        // 整批失败(网络/HTTP):failedIds 为空时按本批全量落 pending
         const pendingIds =
           push.failedIds.length > 0 ? push.failedIds : payloads.map((p) => p.poolAccountId)
         await markCheckinSyncPending(pendingIds, 'cred', null, push.error ?? '对账补推失败')
-      } else {
-        // 只有整批成功才清 pending(F-239):此前按 failedIds 反推成功集合,
-        // 批次级失败时 failedIds 为空 ⇒ okIds 等于全量,刚落的 pending 同轮被抹掉。
-        const okIds = payloads.map((p) => p.poolAccountId)
-        if (okIds.length > 0) await clearCheckinSyncPending(okIds)
       }
+      // 成功的清 pending(push.ok 时 failedIds 为空;部分成功也按 id 精确清)
+      const okIds = payloads
+        .map((p) => p.poolAccountId)
+        .filter((id) => !push.failedIds.includes(id))
+      if (okIds.length > 0) await clearCheckinSyncPending(okIds)
     }
   }
 

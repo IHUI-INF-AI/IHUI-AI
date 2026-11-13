@@ -543,6 +543,14 @@ function runFontSafe(_flag, rev, fn = rewriteClassNameTokens, label = 'LAND-MINI
       held.push(`${f}(工作树读不到)`)
       continue
     }
+    // 与 land-web-style-tiers.mjs 同形(§0.6):staged deletion / 二进制文件让
+    // readWorktreeFile 返 null 而**不是抛**,不判就会在 maskComments(null)→'' 后崩于
+    // css.replace,整轮器物 exit 2「未判定」(2026-11-13 实测)。更坏的是把读不到
+    // 伪装成 changes=0 ⇒ 恒绿门成因①(§12e),所以失效方向必须是记 held 跳过。
+    if (src === null) {
+      held.push(`${f}(二进制/不可读)`)
+      continue
+    }
     const r = fn(src, rev)
     for (const s of r.skipped || []) {
       skipStats[s.reason] = (skipStats[s.reason] || 0) + 1
@@ -559,6 +567,11 @@ function runFontSafe(_flag, rev, fn = rewriteClassNameTokens, label = 'LAND-MINI
     if (apply) {
       watermark('clean', f)
       const cleaned = readWorktreeFile(ROOT, f)
+      // clean 后读不回(并发删除/二进制)⇒ 记 held 停手,绝不把 null 喂给改写函数。
+      if (cleaned === null) {
+        held.push(`${f}(clean 后读不回)`)
+        continue
+      }
       const rr = fn(cleaned, rev)
       if (rr.changes === 0) {
         watermark('inject', f)
@@ -671,6 +684,12 @@ function main() {
       held.push(`${f}(工作树读不到)`)
       continue
     }
+    // 同 runFontSafe:HEAD 树里有、工作树已被 staged 删掉的 CSS 必须记 held 跳过,
+    // 不能让 rewriteCss(null) 把整轮预演打崩(§12e 读不到不得伪装成 0 处)。
+    if (src === null) {
+      held.push(`${f}(二进制/不可读)`)
+      continue
+    }
     const r = rewriteCss(src, rev)
     if (r.changes === 0) continue
     if (dirty.has(f)) {
@@ -687,6 +706,11 @@ function main() {
       } else {
         watermark('clean', f)
         const cleaned = readWorktreeFile(ROOT, f)
+        // 同 font-safe 面:clean 后读不回就停手,不得让 rewriteCss(null) 崩掉整轮 --apply。
+        if (cleaned === null) {
+          held.push(`${f}(clean 后读不回)`)
+          continue
+        }
         const rr = rewriteCss(cleaned, rev)
         if (rr.changes === 0) {
           watermark('inject', f)

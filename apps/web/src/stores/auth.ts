@@ -67,6 +67,54 @@ interface AuthState {
   expireSession: () => void
 }
 
+/**
+ * persist 落盘的同步兜底(2026-11-12 立)。
+ *
+ * 病灶(真浏览器实测):登录成功后 `setToken` 已把内存态写成 isAuthenticated=true,
+ * 但 `localStorage['ihui-auth']` 要么不存在、要么被写成初始值
+ * `{"state":{"isAuthenticated":false,"user":null}}` —— persist 中间件的写入
+ * 没有跟着这次 `set()` 发生,而是在稍后某次初始化/hydrate 时用初始值写了一次。
+ * 后果:`admin/layout` 读到的 roleId 恒为 null,真管理员被弹到 /forbidden 或 /sso/login。
+ *
+ * 兜底只做一件事:把"当前内存态的持久化子集"同步写一份,不依赖 persist 的触发时机。
+ * 与 persist 的 partialize 逐字同源(isAuthenticated + user),不含任何 token ——
+ * 安全口径不变(localStorage 里永远没有 access/refresh token)。
+ * 幂等:重复写同一份内容无副作用;persist 之后再写一次也只会覆盖成同样的值。
+ */
+function persistAuthSnapshot(state: { isAuthenticated: boolean; user: AuthUser | null }): void {
+  if (typeof window === 'undefined') return
+  try {
+    // 单调性保护:已登录且有 user 的盘上快照,**不得**被"未登录"覆盖。
+    // 实测存在模块双实例(SSR bundle / client bundle 各一份 store),另一份实例的
+    // 初始化写入会把刚登好的态抹成 false/null,正是 admin 守卫读不到 roleId 的根因。
+    // 失效方向:宁可留一份稍旧的已登录快照(下次冷启动用它恢复),也不写未登录覆盖它。
+    const raw = window.localStorage.getItem('ihui-auth')
+    if (raw && !state.user) {
+      try {
+        const prev = JSON.parse(raw) as {
+          state?: { user?: unknown; isAuthenticated?: unknown }
+        }
+        // 盘上已是「已登录」或「有 user」的态 ⇒ 这次未登录写入一律不落。
+        // 双实例场景下,另一份 store 的初始化会带着 false/null 过来,
+        // 若放它写就会把刚登好的快照抹掉(setUser 已实测执行且 roleId=1,
+        // 盘上却仍是 false/null,就是这个覆盖)。
+        if (prev?.state?.user || prev?.state?.isAuthenticated === true) return
+      } catch {
+        // 旧值不可解析:按"无保护价值"处理,继续覆盖
+      }
+    }
+    window.localStorage.setItem(
+      'ihui-auth',
+      JSON.stringify({
+        state: { isAuthenticated: state.isAuthenticated, user: state.user },
+        version: 0,
+      }),
+    )
+  } catch {
+    // 隐私模式/配额超限:持久化失败不影响登录本身,内存态仍然可用
+  }
+}
+
 export const useAuthStore = create<AuthState>()(
   persist(
     (set, get) => ({
@@ -91,6 +139,7 @@ export const useAuthStore = create<AuthState>()(
         if (refreshOrPair === null || refreshOrPair === undefined) {
           clearRefreshTokenCookie()
           set({ token, isAuthenticated: !!token, refreshToken: null, expiresIn: null })
+          persistAuthSnapshot({ isAuthenticated: !!token, user: get().user })
           // 仅显式登出式调用(token 为空)才清 vault;token 有效但未带 refresh 的
           // 兼容调用保留既有 vault 值,避免误伤桌面端已落盘的 refreshToken。
           if (!token) syncDesktopRefreshToken(null)
@@ -105,6 +154,7 @@ export const useAuthStore = create<AuthState>()(
             refreshToken: refreshOrPair || null,
             expiresIn: null,
           })
+          persistAuthSnapshot({ isAuthenticated: !!token, user: get().user })
           syncDesktopRefreshToken(refreshOrPair || null)
           return
         }
@@ -115,6 +165,7 @@ export const useAuthStore = create<AuthState>()(
           refreshToken: refreshOrPair.refreshToken ?? null,
           expiresIn: refreshOrPair.expiresIn ?? null,
         })
+        persistAuthSnapshot({ isAuthenticated: !!token, user: get().user })
         syncDesktopRefreshToken(refreshOrPair.refreshToken ?? null)
       },
       setTokenWithPrefs: (token, refreshOrPair, autoLogin) => {
@@ -129,6 +180,7 @@ export const useAuthStore = create<AuthState>()(
         setAuthCookie(token, { maxAge: cookieMaxAge })
         setRefreshTokenCookie(refreshToken ?? null, { maxAge: cookieMaxAge })
         set({ token, isAuthenticated: !!token, refreshToken: refreshToken ?? null, expiresIn })
+        persistAuthSnapshot({ isAuthenticated: !!token, user: get().user })
         syncDesktopRefreshToken(refreshToken ?? null)
       },
       hydrateRefreshToken: () => {
@@ -141,7 +193,14 @@ export const useAuthStore = create<AuthState>()(
           set({ refreshToken: fromCookie })
         }
       },
-      setUser: (user) => set({ user }),
+      setUser: (user) => {
+        set({ user })
+        // roleId 随 user 一起来(admin 守卫靠它判权限),必须立刻落盘:
+        // 晚一步就会被 layout 的宽限期判成"角色还不知道"→ 弹 /forbidden。
+        // isAuthenticated 取"是否真有 user",**不读 get()** ——
+        // 实测 get() 可能落在另一份模块实例上读到初始 false,把刚登好的态写成未登录。
+        persistAuthSnapshot({ isAuthenticated: user !== null, user })
+      },
       logout: () => {
         // 标记先于凭据处置落盘(失效方向见 lib/session-marker.ts 头注):
         // httpOnly refresh cookie 由后端管理,而 refreshToken 不落 localStorage ——
@@ -201,6 +260,7 @@ export const useAuthStore = create<AuthState>()(
           isAuthenticated: false,
           user: null,
         })
+        persistAuthSnapshot({ isAuthenticated: false, user: null })
       },
     }),
     // 2026-07-21 安全审计加固:严禁把 token / refreshToken 持久化到 localStorage
@@ -216,13 +276,58 @@ export const useAuthStore = create<AuthState>()(
     // CJK 判据点名的正是它)。浏览器路径 createAuthPersistStorage 原样返回 ssrStorage,零行为变更。
     createPersistConfig<AuthState>(
       'ihui-auth',
-      (s) => ({
-        isAuthenticated: s.isAuthenticated,
-        user: s.user,
-      }),
+      (s) => {
+        // 双实例保护(2026-11-12 实测):本仓存在两份 store 模块实例(SSR bundle / client
+        // bundle 各一份)。未登录那份的初始化写入会把已登录那份刚写的 user 抹成 null,
+        // 而 admin/layout 读 roleId 依赖它 ⇒ 真管理员被弹 /forbidden。
+        // 这里做"只升不降":内存里有 user 就用内存的;**内存没有但盘上有,就保留盘上的**。
+        // 失效方向:宁可留一份稍旧的已登录快照,也绝不用空态覆盖它。
+        if (s.user) return { isAuthenticated: s.isAuthenticated, user: s.user }
+        if (typeof window !== 'undefined') {
+          try {
+            const raw = window.localStorage.getItem('ihui-auth')
+            if (raw) {
+              const prev = JSON.parse(raw) as {
+                state?: { user?: AuthUser | null; isAuthenticated?: boolean }
+              }
+              if (prev?.state?.user) {
+                return { isAuthenticated: true, user: prev.state.user }
+              }
+            }
+          } catch {
+            // 盘上值不可解析:按空态处理
+          }
+        }
+        return { isAuthenticated: s.isAuthenticated, user: s.user }
+      },
       createAuthPersistStorage<Partial<AuthState>>(
         ssrStorage as PersistStorage<Partial<AuthState>>,
       ),
+      // rehydrate 落定后校正内存态(2026-11-12 修双实例问题)。
+      //
+      // 实测:盘上快照已是 {"isAuthenticated":true,"user":{"roleId":1}},
+      // 但内存态停在初始 false/null —— admin/layout 读内存判权限,
+      // 于是真管理员被 client 侧 router.replace 弹回 /sso/login。
+      // 这里读一次盘(盘上有 user 就补进内存),不改任何业务判据。
+      () => () => {
+        if (typeof window === 'undefined') return
+        try {
+          const raw = window.localStorage.getItem('ihui-auth')
+          if (!raw) return
+          const parsed = JSON.parse(raw) as {
+            state?: { user?: AuthUser | null; isAuthenticated?: boolean }
+          }
+          const user = parsed?.state?.user
+          if (!user) return
+          const current = useAuthStore.getState()
+          if (current.user?.id === user.id && current.isAuthenticated) return
+          // 只补 user 与 isAuthenticated 标志位;token 不进 localStorage 也不从这里恢复,
+          // 仍由 bootstrap 的 /auth/refresh(cookie 链路)拿 —— 安全口径不变。
+          useAuthStore.setState({ user, isAuthenticated: true })
+        } catch {
+          // 盘上值不可解析:保持内存原值
+        }
+      },
     ),
   ),
 )

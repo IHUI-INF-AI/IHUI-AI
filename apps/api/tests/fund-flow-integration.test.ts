@@ -331,24 +331,6 @@ const { db, getRows, upsertLog } = vi.hoisted(() => {
             chained.then = (resolve: any, reject: any) => Promise.resolve(row).then(resolve, reject)
             return chained
           },
-          // F-82 ensureMargin 改用了 onConflictDoNothing() 无 target(按主键冲突跳过)。
-          // 内存表按 v 的主键列(id,否则 userId)判重:已存在 ⇒ 跳过返回 [],否则落行返回 [row]。
-          onConflictDoNothing: (opts?: any) => {
-            const targets: any[] = opts?.target
-              ? Array.isArray(opts.target)
-                ? opts.target
-                : [opts.target]
-              : []
-            const fields: string[] = targets.length
-              ? targets.map((c) => COL_TO_FIELD[(c as any).name] ?? (c as any).name)
-              : ['id' in v ? 'id' : 'userId' in v ? 'userId' : Object.keys(v)[0]!]
-            const dup = getRows(table).some((r) => fields.every((f) => r[f] === v[f]))
-            const row = dup ? undefined : doInsert(table, v)
-            const chained: any = { returning: () => Promise.resolve(row ? [{ ...row }] : []) }
-            chained.then = (resolve: any, reject: any) =>
-              Promise.resolve(undefined).then(resolve, reject)
-            return chained
-          },
         }
         // 普通路径 await tx.insert(t).values(v)(无 returning)→ 执行 insert,resolve undefined
         result.then = (resolve: any, reject: any) => {

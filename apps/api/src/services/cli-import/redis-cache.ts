@@ -11,11 +11,7 @@
  *
  * 设计:
  * - 单条 preview 以 JSON 字符串存 String key,TTL 10 分钟
- * - key 前缀 cli-import:preview:<ownerUuid>:<uuid>
- *   2026-11-13 F-74:早期 key 只有 <uuid>,任何登录用户拿到他人 previewId 就能
- *   commit 并把他人的明文 apiKey 落到自己账户。现在 owner 是 key 的一部分,
- *   同时 value 里也带 ownerUuid 做二次强校验,读取时两处任一不匹配都判为不存在。
- *   历史遗留的无 owner 数据(旧 key / 裸 ImportPreview value)一律不可读 —— fail-closed。
+ * - key 前缀 cli-import:preview:<uuid>
  * - Redis 不可用时降级为进程内 Map(单实例部署兜底)
  */
 import IORedis, { type Redis } from 'ioredis'
@@ -27,22 +23,11 @@ import type { ImportPreview } from '@ihui/types'
 const KEY_PREFIX = 'cli-import:preview:'
 const TTL_SEC = 10 * 60
 
-/** 缓存信封:owner 与数据一起落盘,读取时强校验。 */
-interface CachedPreview {
-  ownerUuid: string
-  preview: ImportPreview
-}
-
-/** 缓存 key 必须同时含 owner 与 previewId。 */
-function cacheKey(ownerUuid: string, previewId: string): string {
-  return `${KEY_PREFIX}${ownerUuid}:${previewId}`
-}
-
 // fallback 内存降级存储 LRU 上限(防止 Redis 不可用时 OOM,preview 单条较大,上限 1000)
 const FALLBACK_MAX = 1000
 const FALLBACK_CLEANUP_INTERVAL_MS = 5 * 60 * 1000
 
-const fallbackStore = new Map<string, { value: CachedPreview; expireAt: number }>()
+const fallbackStore = new Map<string, { value: ImportPreview; expireAt: number }>()
 
 /**
  * Map 写入并保持 LRU 上限。
@@ -90,20 +75,10 @@ function getRedis(): Redis | null {
 
 /**
  * 缓存一条 preview,返回时也已带 previewId。
- *
- * ownerUuid 是读取时的唯一凭据:没有 owner 写入的条目将无法被 loadPreview 取回,
- * 因此这里拒绝空 owner(不落缓存,由上层返回的 previewId 自然失效)。
  */
-export async function savePreview(preview: ImportPreview, ownerUuid: string): Promise<void> {
-  if (!ownerUuid) {
-    logger.warn('[cli-import/redis-cache] skip save without owner', {
-      previewId: preview.previewId,
-    })
-    return
-  }
-  const key = cacheKey(ownerUuid, preview.previewId)
-  const entry: CachedPreview = { ownerUuid, preview }
-  const payload = JSON.stringify(entry)
+export async function savePreview(preview: ImportPreview): Promise<void> {
+  const key = `${KEY_PREFIX}${preview.previewId}`
+  const payload = JSON.stringify(preview)
   const redis = getRedis()
   if (redis) {
     try {
@@ -118,41 +93,22 @@ export async function savePreview(preview: ImportPreview, ownerUuid: string): Pr
   setWithLRU(
     fallbackStore,
     key,
-    { value: entry, expireAt: Date.now() + TTL_SEC * 1000 },
+    { value: preview, expireAt: Date.now() + TTL_SEC * 1000 },
     FALLBACK_MAX,
   )
 }
 
 /**
- * 校验缓存信封:owner 不匹配、结构损坏、或历史裸对象(无 ownerUuid)一律视为不存在。
+ * 读取 preview;不存在或过期返回 undefined。
  */
-function unwrapPreview(raw: string, ownerUuid: string): ImportPreview | undefined {
-  let cached: CachedPreview
-  try {
-    cached = JSON.parse(raw) as CachedPreview
-  } catch {
-    return undefined
-  }
-  if (!cached || typeof cached !== 'object') return undefined
-  if (cached.ownerUuid !== ownerUuid) return undefined
-  if (!cached.preview || typeof cached.preview !== 'object') return undefined
-  return cached.preview
-}
-
-/**
- * 读取 preview;不存在、过期、或 owner 不匹配返回 undefined。
- */
-export async function loadPreview(
-  previewId: string,
-  ownerUuid: string,
-): Promise<ImportPreview | undefined> {
-  if (!previewId || !ownerUuid) return undefined
-  const key = cacheKey(ownerUuid, previewId)
+export async function loadPreview(previewId: string): Promise<ImportPreview | undefined> {
+  if (!previewId) return undefined
+  const key = `${KEY_PREFIX}${previewId}`
   const redis = getRedis()
   if (redis) {
     try {
       const raw = await redis.get(key)
-      if (raw) return unwrapPreview(raw, ownerUuid)
+      if (raw) return JSON.parse(raw) as ImportPreview
       // Redis 没命中,可能已过期或降级写入 fallback;查一下
     } catch (err) {
       logger.warn('[cli-import/redis-cache] get failed, fallback', {
@@ -166,16 +122,15 @@ export async function loadPreview(
     fallbackStore.delete(key)
     return undefined
   }
-  if (entry.value.ownerUuid !== ownerUuid) return undefined
-  return entry.value.preview
+  return entry.value
 }
 
 /**
- * 删除 preview(commit 后或显式取消)。只删本人 key。
+ * 删除 preview(commit 后或显式取消)。
  */
-export async function deletePreview(previewId: string, ownerUuid: string): Promise<void> {
-  if (!previewId || !ownerUuid) return
-  const key = cacheKey(ownerUuid, previewId)
+export async function deletePreview(previewId: string): Promise<void> {
+  if (!previewId) return
+  const key = `${KEY_PREFIX}${previewId}`
   const redis = getRedis()
   if (redis) {
     try {

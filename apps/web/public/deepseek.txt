@@ -170,4 +170,4 @@ Issue 与 PR 模板:
 # 文件结束
 # 本文件为 DeepSeek 开发者检索优化
 # 维护:IHUI AI Team
-# 联系:lizong@aizhs.top
+# 联系:contact@aizhs.top

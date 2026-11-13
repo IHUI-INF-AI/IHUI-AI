@@ -19,7 +19,6 @@ import re
 import time
 from collections.abc import AsyncIterator
 from collections.abc import AsyncIterator as AsyncIteratorType
-from collections.abc import Callable
 from contextlib import asynccontextmanager
 from contextlib import suppress as _ctx_suppress
 from pathlib import Path
@@ -280,62 +279,22 @@ from ..services.key_pool_selector import KeyPoolSelector
 _UNDECRYPTABLE_REPORTED: set[str] = set()
 
 
-def _b64_or_buffer(value: object) -> bytes:
-    """解密三字段(iv/ciphertext/tag)的兼容解码。
-
-    正常形态是 base64 字符串(与 apps/api/src/utils/crypto.ts encryptJSON 的
-    `iv.toString('base64')` 对应)。但真实号池实测(2026-11-12)存在 Node Buffer
-    被整只 JSON 序列化的历史行:`tag` 落库成 `{"type":"Buffer","data":[..]}`,
-    而非 base64 文本 —— 对它直接 base64.b64decode 必抛 TypeError
-    ("argument should be a bytes-like object ... not 'dict'"),导致该 key 被当成
-    "解密失败→视为未配置"整条剔除,号池腿永远不可用(swiftapi 两条即此形态)。
-
-    这里兼容两种形态,统一返回原始字节:
-    - str  → base64 解码(标准路径);
-    - dict {type:'Buffer',data:[int..]} → 按 data 数组逐字节还原;
-    - list → 视作裸字节数组还原。
-    其它形态抛 TypeError 交由调用方按"解密失败"处理。
-    """
-    if isinstance(value, str):
-        return base64.b64decode(value)
-    if isinstance(value, dict):
-        data = value.get("data")
-        if isinstance(data, list):
-            return bytes(bytearray(int(b) & 0xFF for b in data))
-        raise TypeError(f"无法识别的加密字段 dict(键={sorted(value.keys())})")
-    if isinstance(value, list):
-        return bytes(bytearray(int(b) & 0xFF for b in value))
-    raise TypeError(f"加密字段既非 base64 字符串也非 Buffer 数组(实际 {type(value).__name__})")
-
-
-def _try_decrypt_payload(api_key_enc: str | dict[str, Any] | None) -> tuple[str | None, str | None]:
+def _try_decrypt_payload(api_key_enc: str) -> tuple[str | None, str | None]:
     """解密的唯一实现(纯函数),返回 (plaintext, error)。两者恰有一个非 None。
 
     `plaintext is None 且 error is None` 只在本函数认定"这是明文而非密文"时出现错误,
     故约定:明文路径直接返回 (值, None);解密路径成功返回 (值, None)、失败返回 (None, 原因)。
-
-    `api_key_enc` 接受**未解析的 JSON 字符串**(库直读,ai_model_config / 号池常态),
-    也接受**已解析成 dict 的 payload**(部分驱动会把 JSON 列自动解码,此时 json.loads 会
-    TypeError)。两条入口都收口到同一解密逻辑,不再因形态差异整条 key 崩掉。
     """
-    # 先把输入统一解析成「加密 payload dict」;不是加密 dict 一律按明文早返回
-    if isinstance(api_key_enc, dict):
-        payload: Any = api_key_enc
-    elif not api_key_enc:
-        return None, "api_key_enc 为空"
-    else:
-        try:
-            payload = json.loads(api_key_enc)
-        except (json.JSONDecodeError, TypeError):
-            # 非 JSON 格式,视为明文(同时 strip 首尾引号/空白,防御 seed 脚本引号包裹)
-            return api_key_enc.strip().strip('"').strip("'"), None
-        if not isinstance(payload, dict):
-            # JSON 解析成功但不是加密 dict(可能是 JSON 字符串带引号)
+    try:
+        payload = json.loads(api_key_enc)
+        if not (isinstance(payload, dict) and all(k in payload for k in ("iv", "ciphertext", "tag"))):
+            # JSON 解析成功但不是加密 dict(可能是 JSON 字符串带引号)→ 返回解析后的值
             if isinstance(payload, str):
                 return payload.strip().strip('"').strip("'"), None
             return api_key_enc, None
-        if not all(k in payload for k in ("iv", "ciphertext", "tag")):
-            return api_key_enc, None
+    except (json.JSONDecodeError, TypeError):
+        # 非 JSON 格式,视为明文(同时 strip 首尾引号/空白,防御 seed 脚本引号包裹)
+        return api_key_enc.strip().strip('"').strip("'"), None
 
     key_str = settings.credentials_encryption_key
     if not key_str or len(key_str) < 32:
@@ -344,11 +303,9 @@ def _try_decrypt_payload(api_key_enc: str | dict[str, Any] | None) -> tuple[str 
         from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
         key = key_str.encode("utf-8")[:32]
-        assert isinstance(payload, dict)  # 供 mypy:到达此处 payload 必为加密 dict
-        # 三字段统一走 _b64_or_buffer:兼容 base64 文本与 Node Buffer JSON 两种落库形态
-        iv = _b64_or_buffer(payload["iv"])
-        ciphertext = _b64_or_buffer(payload["ciphertext"])
-        tag = _b64_or_buffer(payload["tag"])
+        iv = base64.b64decode(payload["iv"])
+        ciphertext = base64.b64decode(payload["ciphertext"])
+        tag = base64.b64decode(payload["tag"])
         plaintext = AESGCM(key).decrypt(iv, ciphertext + tag, None).decode("utf-8")
         # P0-5m(2026-07-30):strip 首尾引号(防御 seed 脚本把 key 用 JSON.stringify 包裹导致引号残留)
         return plaintext.strip().strip('"').strip("'"), None
@@ -718,22 +675,6 @@ def _normalize_provider_api_base(api_base: str | None) -> str | None:
     except Exception as e:  # noqa: BLE001 - 校验失败降级返回原值
         logger.warning("provider_config 归一失败(降级返回原值): %s", e)
         return api_base
-
-
-def _guard_api_base_ssrf(api_base: str | None) -> None:
-    """F-187: 调用前对 api_base 做解析级 SSRF 二次校验（防 DNS rebinding）。
-
-    保存时 apps/api 侧已过 ssrf-guard，这里在真正发起 litellm 调用前再校验一次，
-    拦住「保存后 DNS 改指内网/云元数据」的 rebinding。不安全 ⇒ 抛 ValueError，
-    由调用方按既有失败路径处理，绝不把内网地址透传给 litellm。
-    """
-    if not api_base:
-        return
-    from app.core.api_base_ssrf import is_safe_api_base
-
-    safe, reason = is_safe_api_base(api_base)
-    if not safe:
-        raise ValueError(f"api_base SSRF blocked: {reason}")
 
 
 def _explicit_provider_code_of(model: str) -> str:
@@ -1209,8 +1150,6 @@ def _assemble_auto_candidates(
     *,
     edge_first_local: bool,
     default_chain: list[str],
-    is_down: "Callable[[str], bool] | None" = None,
-    health_rank: "Callable[[str], int] | None" = None,
 ) -> "_AutoCandidatePlan":
     """auto 候选链组装(纯函数,票85② 从 _resolve_auto_model 提出)。
 
@@ -1219,16 +1158,6 @@ def _assemble_auto_candidates(
     边缘优先(edge_first_local=True,票85②):「探针实证可用」的本地模型插到
     **候选最前**(tier 升序,小模型省资源)—— 运维开这个开关本身就是偏好声明;
     云部署保持默认关,行为与旧版完全一致。
-
-    2026-11-12 补(真机实证,财务部一键代账恒空响应):入参 `available` 只按 **provider**
-    粒度过滤,模型级探测判死的条目仍躺在池里。实测 openai 余额耗尽 ⇒ `gpt-4o-mini`
-    在 model_health 里已是 `down`,却因为 tier 排序靠前被 cheap_pool 选进候选、又被
-    成本感知重排顶到首位 ⇒ 每轮 429 insufficient_quota ⇒ 用户只看到"本轮没有返回任何内容"。
-    `is_down` 注入模型级判据(生产传 model_health 的 filter_available 同源语义,TTL 一致),
-    判死的一律不进任何桶;**默认 None 时行为与旧版逐字一致**(纯函数便于单测,不碰真网络)。
-
-    `health_rank` 注入健康度分层(2026-11-12 补):返回 0=healthy / 1=未探测 / 2=其它,
-    候选与 relaxed 池各做一次**稳定排序**只重排不增删。默认 None ⇒ 不排序,行为不变。
     """
     free_pool: list[str] = []
     cheap_pool: list[dict[str, Any]] = []  # tier 1-3
@@ -1237,9 +1166,6 @@ def _assemble_auto_candidates(
         mid = m["id"]
         # 显式排除本部署不可用的 gpt-4o(openai 无额度 + agnes 无通道)
         if mid in _AUTO_ROUTE_EXCLUDED:
-            continue
-        # 模型级探测已判死(TTL 内):不进 auto 候选池(显式指定该模型仍可走)
-        if is_down is not None and is_down(mid):
             continue
         if any(mid.startswith(p) or mid.startswith(p.rstrip("/"))
                for p in _AUTO_FREE_PREFIXES):
@@ -1274,26 +1200,11 @@ def _assemble_auto_candidates(
     premium_top = min(premium_pool, key=lambda x: x["tier"])["id"] if premium_pool else ""
     if premium_top:
         candidates.append(premium_top)
-    # 去重保序
+    # 链兜底可能与 free 池成员重合(如 @cf/ 前缀),去重保序
     candidates = list(dict.fromkeys(candidates))
-    # 2026-11-12 立(真机实证):**健康度分层重排**。
-    # 起因:候选池里 healthy(探针实证 1-token 通)与 pending(从未探测)混排,tier 排序
-    # 把"没探过/额度已耗尽但探测结果过期"的模型排到实证可用模型之前。实测一键代账
-    # 连续落到 @cf(免费额度耗尽 429)与 gpt-4o-mini(openai 无余额 429),而池内
-    # agnes/agnes-3.0-flash 明明 healthy 却排在后面 —— 用户看到的就是"本轮没有返回任何内容"。
-    # 排序规则(稳定排序,同层内保持既有 tier 顺序,不改变"谁进池"):
-    #   0 = 运维预设(default_chain 成员):运维已选定的稳定档,永远第一顺位
-    #   1 = healthy(探针实证可用)
-    #   2 = pending/未知(没证据)
-    #   3 = 其它(degraded 等)
-    # 只重排、不增删:入池判据仍由 is_down 与 _AUTO_ROUTE_EXCLUDED 决定。
-    if health_rank is not None:
-        candidates.sort(key=lambda mid: health_rank(mid))
     # tool calling 放宽池(全被筛掉时的退路):free + cheap 前 3(旧版行为),
     # 边缘优先时本地实证可用者一并保留(边缘实例的 free/cheap 云池常不可用)。
     relaxed = list(dict.fromkeys(local_pool + free_pool + [c["id"] for c in cheap_pool[:3]]))
-    if health_rank is not None:
-        relaxed.sort(key=lambda mid: health_rank(mid))
     return _AutoCandidatePlan(
         candidates=candidates,
         local_pool=local_pool,
@@ -1309,17 +1220,7 @@ def _assemble_auto_candidates(
 # D208(2026-10-01)补:llm7/gpt-oss:20b 上游 InternalServerError(D150 真机探针实证,
 # 新注册用户默认链被 auto-route 重排选中后首条消息直接报错),从 auto 候选集排除;
 # 显式指定仍可走(手工选择行为不变)。
-# 2026-11-12 补:openai 全家在本部署无余额 —— gpt-4o-mini 实测恒 429
-# `insufficient_quota`("You have no credits remaining"),而它 tier 低、成本感知重排
-# 会把它顶到首位 ⇒ 财务部一键代账每轮直接失败。auto 路由整体排除 openai 族;
-# 显式指定(含用户在模型选择器里手动选)行为不变,仍由 FallbackRouter 兜底。
-_AUTO_ROUTE_EXCLUDED = (
-    "gpt-4o",
-    "openai/gpt-4o",
-    "gpt-4o-mini",
-    "openai/gpt-4o-mini",
-    "llm7/gpt-oss:20b",
-)
+_AUTO_ROUTE_EXCLUDED = ("gpt-4o", "openai/gpt-4o", "llm7/gpt-oss:20b")
 
 
 def _default_model_chain() -> list[str]:
@@ -1349,34 +1250,9 @@ def _infer_tier_from_model_id(model_id: str) -> int:
 
 
 def _supports_tool_calling(model_id: str) -> bool:
-    """是否支持 function calling —— **实测优先,关键词兜底**(2026-11-12 改)。
-
-    旧版纯关键词启发,把 `agnes/agnes-3.0-flash`(model_health 实测 `tools_ok=True`)、
-    `grok-4.7` 等真实可跑工具调用的模型全判成"不支持" ⇒ 带工具的请求(财务部一键代账/
-    报税/任何 agent 流)可用候选被砍到只剩一两枚额度耗尽的免费模型 ⇒ 每轮 429 ⇒
-    用户看到"本轮没有返回任何内容"。实测结论比字符串匹配可信,故顺序反转。
-
-    三档:
-    1. 有 TTL 内的实测结论(`tools_ok` 为 True/False)⇒ 直接采信,不再看关键词;
-    2. 无实测 ⇒ 回退旧的关键词启发(行为与改造前一致);
-    3. 任何异常(导入失败/状态读取问题)⇒ 回退关键词,绝不让判据本身打穿请求。
-    """
+    """根据 model_id 关键词推断是否支持 function calling。"""
     mid = (model_id or "").lower()
-    keyword_verdict = any(k in mid for k in _TOOL_CALLING_KEYWORDS)
-    try:
-        from ..services.model_health import STATUS_TTL_S as _TTL
-        from ..services.model_health import model_health as _mh
-
-        st = _mh.get_state(model_id)
-        if st is not None and (time.time() - st.checked_at) < _TTL:
-            probed = getattr(st, "tools_ok", None)
-            if probed is True:
-                return True
-            if probed is False:
-                return False
-    except Exception:  # noqa: BLE001 - 判据失败不得打穿请求,回退关键词
-        pass
-    return keyword_verdict
+    return any(k in mid for k in _TOOL_CALLING_KEYWORDS)
 
 
 
@@ -1432,7 +1308,6 @@ def _apply_cost_aware_routing(
     *,
     has_tools: bool,
     budget_usd: float | None,
-    health_rank: "Callable[[str], int] | None" = None,
 ) -> list[str]:
     """用 ModelRouter 对**已有候选池**做成本感知重排,返回新的候选顺序。
 
@@ -1443,12 +1318,6 @@ def _apply_cost_aware_routing(
       未给出时走语义化的实时入口 `route_live()`。
     - 开关关闭 / 候选不足 2 / 目录取不到 / 决策模型不在池内 / 任何异常
       ⇒ 原样返回入参列表(降级不阻塞)。
-
-    2026-11-12 补(真机实证,健康分层被推翻):`health_rank` 给出时,若池内存在
-    **实证 healthy**(rank=0)的候选,成本决策不得落到非 healthy 档 —— 实测
-    `pollinations/openai-fast`(healthy)被本函数改判成 `grok-4.7`(上游 404 已下线),
-    理由 `无满足要求的模型,降级到最强模型`;"最强"是纸面 tier,"实证能跑"才是硬证据。
-    healthy 层内仍允许按成本重排(省钱诉求保留),只是不许跨出这一层。
     """
     original = list(candidates)
     if len(original) < 2 or not _model_router_wiring_enabled():
@@ -1456,14 +1325,7 @@ def _apply_cost_aware_routing(
     try:
         from ..services.model_router import ModelRouter
 
-        # 健康层约束:只在 healthy 候选里做成本决策(无 healthy 时退回全池,与旧行为一致)
-        eligible = original
-        if health_rank is not None:
-            healthy = [m for m in original if health_rank(m) == 0]
-            if healthy:
-                eligible = healthy
-
-        pool = [models_by_id[mid] for mid in eligible if mid in models_by_id]
+        pool = [models_by_id[mid] for mid in original if mid in models_by_id]
         if len(pool) < 2:
             return original
         token_count = max(0, len(prompt_text) // 4)
@@ -1498,18 +1360,6 @@ def _apply_cost_aware_routing(
                 f"${budget_usd:g}" if budget_usd is not None else "none", decision.reason,
             )
         if picked == original[0]:
-            return original
-        # 2026-11-12 护栏(真机实证):健康分层已给出「实证可用且最快」的第一名时,
-        # 成本路由不得把它换掉。实测原第一位 pollinations/openai-fast(探针 healthy /
-        # stream_ok / ttft≈500ms)被换成 grok-4.7(reason="无满足要求的模型,降级到最强模型"),
-        # 而 grok 的真实流式端点随后返回 404 ⇒ 用户拿到的仍是"本轮没有返回任何内容"。
-        # 这里采信**实测信号(healthy + 更快)**而不是纸面 tier:成本优化只在
-        # "首位不是实证档"时才有权重排。
-        if health_rank is not None and health_rank(original[0]) == 0 and picked != original[0]:
-            logger.info(
-                "[auto-route] 成本感知路由试图把实证可用档 %r 换成 %r,维持健康排序(实证优先于纸面 tier)",
-                original[0], picked,
-            )
             return original
         return [picked] + [c for c in original if c != picked]
     except Exception as e:  # noqa: BLE001 - 路由失败绝不允许打穿到用户请求
@@ -1590,49 +1440,10 @@ async def _resolve_auto_model(
             return fallback
 
         # 分桶 + 组装候选链(纯函数 _assemble_auto_candidates,票85② 提出便于单测)
-        # model_health 的模型级 down 判据注进去(TTL 取该模块自己的 STATUS_TTL_S,
-        # 不在这里复制常量 —— §0.6 单一真相源):provider 级可用 ≠ 该模型能调,
-        # 余额耗尽/模型下线只有模型级探测知道。
-        from ..services.model_health import STATUS_TTL_S as _MODEL_HEALTH_TTL_S
-        from ..services.model_health import model_health as _model_health
-
-        def _model_state_age_ok(mid: str) -> Any:
-            st = _model_health.get_state(mid)
-            if st is None:
-                return None
-            import time as _time
-
-            if (_time.time() - st.checked_at) >= _MODEL_HEALTH_TTL_S:
-                return None  # 状态过期视同未探测
-            return st
-
-        def _model_down(mid: str) -> bool:
-            st = _model_state_age_ok(mid)
-            return st is not None and st.status == "down"
-
-        _preset_chain = set(_default_model_chain())
-
-        def _health_rank(mid: str) -> int:
-            """0=运维预设 / 1=实证 healthy / 2=未探测或过期 / 3=其它(degraded 等)。
-
-            运维预设排第一:那是运维**明确选定并持续维护**的稳定档,不能因为"探针还没
-            轮到它"就被排到未验证的免费模型之后(实测 pollinations/openai-fast 被判
-            healthy,真实调用却 MODEL_NOT_CONFIGURED:provider key 未配置)。实证 healthy
-            次之,没证据的再往后 —— 这个顺序表达的是**证据强度**,不是档位高低。
-            """
-            if mid in _preset_chain:
-                return 0
-            st = _model_state_age_ok(mid)
-            if st is None:
-                return 2
-            return 1 if st.status == "healthy" else 3
-
         plan = _assemble_auto_candidates(
             available,
             edge_first_local=settings.edge_first_local,
             default_chain=_default_model_chain(),
-            is_down=_model_down,
-            health_rank=_health_rank,
         )
         candidates = plan.candidates
         if plan.local_pool:
@@ -1660,22 +1471,10 @@ async def _resolve_auto_model(
             )
             if complexity in (TaskComplexity.COMPLEX, TaskComplexity.EXPERT):
                 if plan.premium_top:
-                    # 2026-11-12 改(真机实证):升级不得砍掉退路,也不得越过运维预设。
-                    # 旧写法 candidates = [plan.premium_top] 把候选池塌缩成一枚:那一枚不可用时
-                    # 整轮直接失败,池里其它档连试都不会试。实测财务部一键代账 prompt 命中
-                    # 「分析」+ has_tools ⇒ COMPLEX ⇒ candidates=['gpt-4o-mini'](openai 无余额
-                    # 恒 429),而池里排着实测可用的 agnes(带 tools 全通)却因无退路而全轮空响应。
-                    # 三条纪律:① 保留全部原候选作退路;② 运维预设档(默认链首位)在池内时排在
-                    # 高级档之前 —— "这台机实测能跑通"优先于"档位更高";③ 顺序 = [预设, 高级, 其余…]。
-                    _preset = _default_model_chain()[0]
-                    _rest = [c for c in candidates if c not in (plan.premium_top, _preset)]
-                    if _preset in candidates and _preset != plan.premium_top:
-                        candidates = [_preset, plan.premium_top, *_rest]
-                    else:
-                        candidates = [plan.premium_top, *_rest]
+                    candidates = [plan.premium_top]
                     logger.info(
-                        "[auto-route] 任务复杂度=%s,优先档=%s(预设首位=%s,退路 %d 个)",
-                        complexity.value, candidates[0], _preset, len(candidates) - 1,
+                        "[auto-route] 任务复杂度=%s,路由升级到高级模型 %s",
+                        complexity.value, candidates[0],
                     )
         except Exception as e:
             logger.debug("[auto-route] 复杂度评估失败,维持原路由(降级): %s", e)
@@ -1683,18 +1482,10 @@ async def _resolve_auto_model(
         # tool calling 场景:筛掉不支持 function calling 的模型
         if has_tools and candidates:
             len(candidates)
-            # 2026-11-12 立(真机实证,最后一环):运维预设档豁免关键词判据。
-            # `_TOOL_CALLING_KEYWORDS` 是"模型名里出现 gpt/claude/function 等字样"的启发式,
-            # 对 agnes/gemini/grok 这类**没被探针覆盖过**的新档一律判 False ⇒ 带工具的请求
-            # (财务部一键代账/报税/所有 agent 流)会把运维预先选定并长期维护的稳定档整个剔除,
-            # 只剩几枚额度耗尽的免费模型,每轮 429/404 ⇒ 用户看到"本轮没有返回任何内容"。
-            # 运维把它写进 LITELLM_MODEL 本身就是"这台机用它跑通"的声明,证据强于字符串匹配;
-            # provider 级 cap(supports_tools)仍照常校验,不放宽真正的能力约束。
-            _trusted_presets = set(_default_model_chain())
             tool_candidates: list[str] = []
             for c in candidates:
                 # 先用关键词启发(快路径),再调 provider_caps 二次确认(权威)
-                if not _supports_tool_calling(c) and c not in _trusted_presets:
+                if not _supports_tool_calling(c):
                     continue
                 # 从 model id 推断 provider_code,查 cap
                 provider_code = _model_to_provider_code(c)
@@ -1723,7 +1514,6 @@ async def _resolve_auto_model(
             prompt_text,
             has_tools=has_tools,
             budget_usd=budget_usd,
-            health_rank=_health_rank,
         )
 
         chosen = candidates[0] if candidates else fallback
@@ -1944,17 +1734,6 @@ def trim_messages(
             trimmed_turns = history + [current]
         else:
             trimmed_turns = turn_msgs[-max_keep:]
-
-    # 2026-11-12 修(真机实证):修剪不得把**所有** user 消息切掉。
-    # 长工具循环(实测 ai_bookkeeping 一轮 10 次工具调用 = 21 条 turn)必然超窗,
-    # 按 `turn_msgs[-max_keep:]` 截断后只剩 assistant/tool ⇒ 上游直接 400
-    # "No user query found in messages."(agnes 等 provider 强制要求存在 user 角色),
-    # 用户侧表现仍是"本轮没有返回任何内容"。窗口的目的是省 token,不是改变请求合法性。
-    # 兜底:若修剪结果里一条 user 都没有,把**本次请求的首条 user** 补回最前。
-    if not any(m.get("role") == "user" for m in trimmed_turns):
-        first_user = next((m for m in turn_msgs if m.get("role") == "user"), None)
-        if first_user is not None:
-            trimmed_turns = [first_user, *trimmed_turns]
 
     return system_msgs + trimmed_turns
 
@@ -2958,7 +2737,6 @@ class LLMGateway:
             call_kwargs: dict[str, Any] = {"model": real_model, "messages": trimmed_messages}
             call_kwargs["api_key"] = api_key
             if api_base:
-                _guard_api_base_ssrf(api_base)
                 call_kwargs["api_base"] = api_base
             # 按 provider capability 设默认 timeout(NVIDIA NIM=120s / Cloudflare=60s / 其他=30s)
             # 替代旧硬编码 nvidia 前缀 120s timeout 判断(P0 Phase A)
@@ -4198,13 +3976,11 @@ class LLMGateway:
                 call_kwargs["api_key"] = api_key
             if api_base:
                 # 批58:LLM_PROVIDER_CONFIG_ENABLED on 时经强类型配置归一(去末尾斜杠)
-                _base = (
+                call_kwargs["api_base"] = (
                     _normalize_provider_api_base(api_base)
                     if _llm_provider_config_enabled_from_env()
                     else api_base
                 )
-                _guard_api_base_ssrf(_base)
-                call_kwargs["api_base"] = _base
             call_kwargs.update(kwargs)
             # 批58:Responses header 注入 + 流式装配流选项(默认 off,on 时才追加)
             if _llm_responses_headers_enabled_from_env():
@@ -4237,7 +4013,33 @@ class LLMGateway:
             # 随 done 帧透传给端上判截断;缺席 = 上游没给,不造值。
             _finish_reason_seen: str | None = None
             try:
-                async for chunk in response:
+                # D-AI-2 首 token / 中间帧独立超时(2026-11-13):此前只有 litellm 请求级
+                # cap.default_timeout(L3973)整体闸,async for chunk 循环内无帧间超时 ——
+                # 上游"首字节前挂死"或"发了若干帧后停止推进"两种卡死形态都只能等整体
+                # timeout 兜底(慢且不区分阶段)。这里把 `async for chunk in response`
+                # 改为手动驱动 __anext__ + asyncio.wait_for 包超时:首帧(含 TTFT)用更短
+                # 的 _first_frame_timeout,后续帧用 _inter_frame_timeout。超时抛
+                # asyncio.TimeoutError,落入本函数下方已有的 except Exception 统一收口
+                # (partial_done/error 帧 + 流水 + 指标),不破坏现有整体 timeout 语义 ——
+                # 帧 timeout 是"更快触发"的更细粒度闸,整体 cap.default_timeout 仍在。
+                # _err_status_s 判据会把它归为 timeout 档(record_llm_outcome status='timeout')。
+                _first_frame_timeout = min(cap.default_timeout, 30.0)
+                _inter_frame_timeout = min(cap.default_timeout, 60.0)
+                _chunk_iter = response.__aiter__()
+                _awaiting_first_frame = True
+                while True:
+                    try:
+                        chunk = await asyncio.wait_for(
+                            _chunk_iter.__anext__(),
+                            timeout=(
+                                _first_frame_timeout
+                                if _awaiting_first_frame
+                                else _inter_frame_timeout
+                            ),
+                        )
+                    except StopAsyncIteration:
+                        break
+                    _awaiting_first_frame = False
                     if _is_stream_timeout_guard(chunk):
                         # 极速API 流式+tools 降级:45s 后仅回超时占位块。
                         # 放弃该流(下方 finally 关闭底层连接),改走非流式回退。
@@ -4561,6 +4363,20 @@ class LLMGateway:
                     "fallback_applied": False,
                     "reason": "stream_interrupted",
                     "model": used_model,
+                    # AIS 流式中断原因透出(2026-11-13):此前已发内容后的上游异常只回笼统
+                    # stream_interrupted,safe_msg/err_code(上面 L4291-4301 已算好,含脱敏)
+                    # 不透出 ⇒ 限流/内容过滤/HTTP 状态全部丢失,前端无法区分失败原因。
+                    # 与 native 腿(L3835-3843 补 error 帧)对齐:这里在 partial_done 上
+                    # 附带 errorCode + 已脱敏的 message,再补一条 error 帧作终态。
+                    # 脱敏红线:只透 safe_msg(必要时已替换为"含敏感信息已脱敏"形态),
+                    # 绝不透原始异常对象 / str(e)。
+                    "errorCode": err_code,
+                    "message": safe_msg,
+                }
+                yield {
+                    "type": "error",
+                    "message": safe_msg,
+                    "errorCode": err_code,
                 }
                 return
             # P0-5c:号池故障转移 — 标记失败 + 递归重试(最多 3 次,换 key 再试)
@@ -4592,7 +4408,14 @@ class LLMGateway:
                     "retryInMs": 0,
                     "httpStatus": _retry_status if isinstance(_retry_status, int) else None,
                 }
-                async for evt in self.astream(
+                # D-AI-1 取消传播修复(2026-11-13):这条 `async for evt in self.astream(...)`
+                # 是递归转发腿 —— 内层 astream 是**独立的异步生成器**,客户端断开时
+                # GeneratorExit 只关掉外层(本生成器),内层不会自动 aclose,上游连接留在
+                # 半读态白烧 token。与 native 腿(L3646/L3787)同形:谁借谁关,finally 里
+                # 显式 aclose_async_gen。函数级 import 理由同 L3644(core 不模块级依赖 services)。
+                from app.services.async_gen_close import aclose_async_gen
+
+                _retry_gen = self.astream(
                     messages,
                     model=model,
                     owner_uuid=owner_uuid,
@@ -4603,8 +4426,12 @@ class LLMGateway:
                     _combo_name=_combo_name,
                     _pool_retry=_pool_retry + 1,
                     **kwargs,
-                ):
-                    yield evt
+                )
+                try:
+                    async for evt in _retry_gen:
+                        yield evt
+                finally:
+                    await aclose_async_gen(_retry_gen, label="astream.key_pool_retry")
                 return
             # P3-3 OpenRouter 403 failover(2026-07-30):openrouter/<model> 返回 403 时,
             # 自动 failover 到 agnes/<model>(仅未发送 chunk 时,已发送 chunk 不可撤回)
@@ -4635,7 +4462,11 @@ class LLMGateway:
                         "backup_model": agnes_model,
                         "reason": "openrouter_403",
                     }
-                    async for evt in self.astream(
+                    # D-AI-1 取消传播修复(2026-11-13):openrouter→agnes failover 的转发腿,
+                    # 与上面 key-pool 重试腿同型同修 —— 内层 self.astream 是独立异步生成器,
+                    # 客户端断开时 GeneratorExit 只关外层,内层须显式 aclose,否则 agnes 上游
+                    # 连接留半读态白烧 token。复用 aclose_async_gen(本函数上方已 import)。
+                    _agnes_gen = self.astream(
                         messages,
                         model=agnes_model,
                         owner_uuid=owner_uuid,
@@ -4645,8 +4476,12 @@ class LLMGateway:
                         _call_route_primary=used_model,
                         _combo_name=_combo_name,
                         **kwargs,
-                    ):
-                        yield evt
+                    )
+                    try:
+                        async for evt in _agnes_gen:
+                            yield evt
+                    finally:
+                        await aclose_async_gen(_agnes_gen, label="astream.openrouter_failover")
                     return
             # 流式 fallback:仅在未发送任何 chunk 时尝试 fallback provider
             # (已发送 chunk 不可撤回,无法中途切换 provider)

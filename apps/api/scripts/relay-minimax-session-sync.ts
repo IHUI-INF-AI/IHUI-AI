@@ -93,30 +93,7 @@ export interface MinimaxSyncPayload {
   accounts: MinimaxSyncCandidate[]
   /** 客户端心跳时刻(编排器探测在跑/未知时带;不带 = 没证据,不写心跳) */
   clientActiveAt?: string | null
-  /**
-   * 本机 mcode 登录态 auth-state.json 的 status(非凭据;取数端读到才带)。
-   * 非可续态(非 authenticated/refreshing)⇒ 死票守卫:凭证列一律 skip(见 runSync),
-   * 防止退出登录后残留的死票每 10 分钟镜回池、覆盖池里已轮换出的新 rt。
-   * 不带(旧取数端/人工载荷)⇒ 放行,行为与既有完全一致。
-   */
-  clientAuthStatus?: string | null
   meta?: Record<string, unknown>
-}
-
-/**
- * 可续期登录态名单 —— 与 `scripts/lib/minimax-auth-extract.mjs` 的 `RENEWING_STATUSES`
- * 同一份镜像(tsx 不 import mjs,两处改一处必须同步;名单只有两个取值,漂移风险由测试锁)。
- */
-const RENEWING_CLIENT_AUTH = new Set(['authenticated', 'refreshing'])
-
-/**
- * 死票守卫判据(纯函数,测试直打):载荷缺省/空白 ⇒ false(放行,旧行为原样);
- * 可续态 ⇒ false(放行);已知死态(anonymous/logging_out/expired/error…)⇒ true
- * ⇒ runSync 对全部账号只记 skip、不写凭证列、不拨心跳。
- */
-export function clientAuthDeadOf(status: string | null | undefined): boolean {
-  const s = typeof status === 'string' ? status.trim() : ''
-  return s !== '' && !RENEWING_CLIENT_AUTH.has(s)
 }
 
 /** 池面单行切片(secrets 已解密;解不出 ⇒ null 并计入 undecryptable) */
@@ -438,10 +415,6 @@ export async function runSync(payloadText: string, dryRun: boolean): Promise<Min
   }
 
   let pool: { rows: PoolRowSlice[]; undecryptable: number } | null = null
-  // 死票守卫(载荷缺省 ⇒ 不拦,旧行为原样;判据单源 = clientAuthDeadOf)
-  const clientAuthStatus =
-    typeof payload.clientAuthStatus === 'string' ? payload.clientAuthStatus.trim() : ''
-  const authDead = clientAuthDeadOf(clientAuthStatus)
   // 心跳只拨给「本轮真认到的那一行」(一台机一个会话槽 ⇒ 每份载荷至多一行);
   // 整族都拨会把其余号的 client-first 让位判据洗成常亮(2026-11-05 同型缺陷已踩过一次)
   const heartbeatRowIds: string[] = []
@@ -460,18 +433,6 @@ export async function runSync(payloadText: string, dryRun: boolean): Promise<Min
     const recordKey = cstr(acc.recordKey)
     const label = uidIn || recordKeyLabel(recordKey)
     try {
-      // 死票守卫(2026-11-12,计划 §3):登录态非可续 ⇒ 客户端手里已没票,载荷凭证是
-      // 退出前的残影 —— 全部 skip(仅日志),heartbeatRowIds 不进人 ⇒ 心跳自然停摆,
-      // 30 分钟后永久保活档接管续票。缺省(clientAuthStatus 不带)⇒ 放行,行为不变。
-      if (authDead) {
-        summary.skipped++
-        summary.rows.push({
-          uid: label,
-          decision: `client-auth-${clientAuthStatus}`,
-          applied: false,
-        })
-        continue
-      }
       if (!token) {
         summary.failed++
         summary.rows.push({
@@ -713,6 +674,5 @@ export const __test__ = {
   buildMinimaxAutoImportInput,
   revivePatchOf,
   buildSecretsPatch,
-  clientAuthDeadOf,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

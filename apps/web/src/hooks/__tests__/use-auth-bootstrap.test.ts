@@ -13,7 +13,11 @@ import {
 // import 后以 `typeof _ns` 引用(类型等值,vi.mock 工厂内仅编译期解析,无运行时影响)。
 import type * as _apiClientNs from '@ihui/api-client'
 import type * as _cookieUtilsNs from '@/lib/cookie-utils'
-import { useAuthBootstrap, __test__ as bootstrapTest } from '@/hooks/use-auth-bootstrap'
+import {
+  useAuthBootstrap,
+  __test__ as bootstrapTest,
+  __resetAuthBootstrapSingleton,
+} from '@/hooks/use-auth-bootstrap'
 import { useAuthStore } from '@/stores/auth'
 import {
   hasSessionEstablished,
@@ -87,6 +91,8 @@ const markerInStorage = () => localStorage.getItem(SESSION_LOGGED_OUT_STORAGE_KE
 
 beforeEach(() => {
   vi.restoreAllMocks()
+  // 模块级单例在测试间共享,必须逐例复位,否则首个用例落定后其余都不再执行 bootstrap
+  __resetAuthBootstrapSingleton()
   localStorage.clear()
   __resetSessionLoggedOutMirrorForTest()
   __resetSessionEstablishedMirrorForTest()

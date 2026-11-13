@@ -127,7 +127,6 @@ import { notifyUpdates } from './updater.js';
 import { installCrashHandler } from './crash-handler.js';
 import { registerSkillPackageCommands } from './commands/skill-package.js';
 import { registerSkillsListCommand } from './commands/skills-catalog-view.js';
-import { goalIterate } from './commands/goal.js';
 import { needsFirstRunSetup, runFirstRunSetup } from './commands/first-run.js';
 // G-B49 C2(REA 对齐 WorkBuddy startup-profile.cjs / cbc-prewarm,取证见 W1-workbuddy-main.md 缺口⑪):
 // 启动画像(纯判据) + 预热命中读数(可断言) —— 接线仅在下文 direct-run 块,opt-in,零改动命令注册。
@@ -1076,77 +1075,6 @@ import { registryCommand } from './commands/registry-index.js';
 program.addCommand(registryCommand());
 
 // skills 子命令 — 列出/查看已加载的 skills(从 .ihui/.agents/.claude/.cursor/skills 平面加载)
-// 目标迭代闭环(2026-11-12):反复跑 runToolLoop 直到达成或轮次用尽。
-// 达成判据由用户以正则给出 —— "什么算做完"是业务语义,内置猜测只会按错误标准收敛。
-// 本地工作流编排(2026-11-12):从 JSON 声明跑一组命令,按 needs 拓扑排序、同层并行。
-// 与上面的 `workflows` 子命令不同 —— 那个是**服务端工作流**的客户端(打 API),
-// 本命令跑的是**本地声明的一组命令**(构建脚本的替代品),语义不重叠。
-program
-  .command('flow <declaration>')
-  .description('按 JSON 声明跑本地工作流(依赖拓扑 + 同层并行 + 失败隔离)')
-  .option('--verbose', '打印每步输出')
-  .action(async (declaration: string, opts: { verbose?: boolean }) => {
-    const { runDeclaredWorkflow, WorkflowDeclarationError } = await import('./commands/workflow-run.js');
-    try {
-      const res = await runDeclaredWorkflow({
-        declarationPath: declaration,
-        ...(opts.verbose === true ? { verbose: true } : {}),
-      });
-      console.info(res.succeeded ? chalk.green(`✅ ${res.summary}`) : chalk.red(`❌ ${res.summary}`));
-      if (!res.succeeded) {
-        console.error(chalk.dim(`  失败步骤:${res.failed.join(', ')}`));
-        process.exitCode = 1;
-      }
-    } catch (e) {
-      if (e instanceof WorkflowDeclarationError) {
-        errorExit(chalk.red(e.message));
-      }
-      throw e;
-    }
-  });
-
-const goalCmd = program.command('goal').description('目标迭代:反复执行直到满足判据或轮次用尽');
-
-goalCmd
-  .command('iterate <task>')
-  .description('反复执行任务,直到助手输出匹配 --done-when 或达到 --max-iterations')
-  .requiredOption('--done-when <regex>', '达成判据:助手输出匹配此正则即视为达成')
-  .option('--max-iterations <n>', '最多迭代轮次(默认 5)', '5')
-  .option('--model <id>', '模型 ID', 'gpt-4o')
-  .action(async (task: string, opts: { doneWhen: string; maxIterations: string; model: string }) => {
-    const maxIterations = Number.parseInt(opts.maxIterations, 10);
-    if (!Number.isInteger(maxIterations) || maxIterations < 1) {
-      errorExit(chalk.red(`--max-iterations 必须是 >= 1 的整数(收到 ${opts.maxIterations})`));
-    }
-
-    // 装配真实执行腿:setupAgentTools + runToolLoop(与 REPL 同源)
-    const { setupAgentTools, runToolLoop } = await import('./commands/agent.js');
-    const { ctx } = await setupAgentTools({ workspacePath: process.cwd(), silent: true });
-
-    const res = await goalIterate(
-      { task, doneWhen: opts.doneWhen, maxIterations, modelId: opts.model },
-      {
-        runIteration: async ({ messages: msgs }) => {
-          const r = await runToolLoop({
-            modelId: opts.model,
-            messages: msgs as never,
-            ctx,
-            maxIterations: 20,
-          });
-          return { stopReason: r.stopReason, assistantText: r.assistantText };
-        },
-      },
-    ).catch((e: unknown) => {
-      // 判据非法是**用户输入错误**,不是崩溃 —— 不能让它冒泡到全局 crash handler
-      // (那会打印 "Crash log: ... 请在 GitHub issue 附上",把参数写错说成程序 bug)。
-      errorExit(chalk.red(e instanceof Error ? e.message : String(e)));
-    });
-
-    if (res.outcomeKind === 'achieved') process.exitCode = 0;
-    else if (res.outcomeKind === 'exhausted' || res.outcomeKind === 'timed-out') process.exitCode = 2;
-    else process.exitCode = 130;
-  });
-
 const skillsCmd = program.command('skills').description(t('cliEntry.skillsCmdDesc'));
 
 // `list` 与 REPL `/skills` 同一展示/缓存出口(goal-b49 X3):格式化与缓存只有一份,

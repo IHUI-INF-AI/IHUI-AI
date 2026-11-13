@@ -1,0 +1,1510 @@
+{
+  "a11y": {
+    "images_without_alt": 0,
+    "landmarks": {
+      "banner": 1,
+      "navigation": 1
+    },
+    "lang": "zh-CN",
+    "unnamed_controls": 0,
+    "unnamed_examples": []
+  },
+  "assets": {
+    "background_images": [],
+    "fonts": [],
+    "images": [],
+    "inline_scripts": 10,
+    "requests": [
+      {
+        "bytes": 2103403,
+        "type": "link",
+        "url": "http://127.0.0.1:3080/plugins/"
+      },
+      {
+        "bytes": 15314,
+        "type": "script",
+        "url": "http://127.0.0.1:3080/plugins/"
+      },
+      {
+        "bytes": 210544,
+        "type": "other",
+        "url": "http://127.0.0.1:3080/assets/vendor-BUMdD3V7.js"
+      },
+      {
+        "bytes": 332876,
+        "type": "script",
+        "url": "http://127.0.0.1:3080/assets/index-BgUyXZcc.js"
+      },
+      {
+        "bytes": 500203,
+        "type": "link",
+        "url": "http://127.0.0.1:3080/plugins/"
+      },
+      {
+        "bytes": 8373,
+        "type": "link",
+        "url": "http://127.0.0.1:3080/assets/vendor-DV2921Zo.css"
+      },
+      {
+        "bytes": 21377,
+        "type": "link",
+        "url": "http://127.0.0.1:3080/assets/index-lh_YM6sT.css"
+      },
+      {
+        "bytes": 537,
+        "type": "link",
+        "url": "http://127.0.0.1:3080/manifest.webmanifest"
+      },
+      {
+        "bytes": 7564,
+        "type": "fetch",
+        "url": "http://127.0.0.1:3080/api/settings/describe"
+      },
+      {
+        "bytes": 414,
+        "type": "fetch",
+        "url": "http://127.0.0.1:3080/api/dynamicCordisRunner/syncInspectManifest"
+      },
+      {
+        "bytes": 462,
+        "type": "fetch",
+        "url": "http://127.0.0.1:3080/api/credentials/describe"
+      },
+      {
+        "bytes": 417,
+        "type": "fetch",
+        "url": "http://127.0.0.1:3080/api/dynamicCordisRunner/inventory"
+      },
+      {
+        "bytes": 800,
+        "type": "fetch",
+        "url": "http://127.0.0.1:3080/api/session/modelCatalog"
+      },
+      {
+        "bytes": 331,
+        "type": "fetch",
+        "url": "http://127.0.0.1:3080/open-in-app/apps"
+      },
+      {
+        "bytes": 484,
+        "type": "fetch",
+        "url": "http://127.0.0.1:3080/api/agentPresets/list"
+      },
+      {
+        "bytes": 463,
+        "type": "fetch",
+        "url": "http://127.0.0.1:3080/api/credentials/describe"
+      },
+      {
+        "bytes": 2037,
+        "type": "other",
+        "url": "http://127.0.0.1:3080/favicon.svg"
+      },
+      {
+        "bytes": 863,
+        "type": "fetch",
+        "url": "http://127.0.0.1:3080/api/session/list"
+      },
+      {
+        "bytes": 501,
+        "type": "fetch",
+        "url": "http://127.0.0.1:3080/api/permissionPresets/catalog"
+      },
+      {
+        "bytes": 417,
+        "type": "fetch",
+        "url": "http://127.0.0.1:3080/api/dynamicCordisRunner/inventory"
+      },
+      {
+        "bytes": 486,
+        "type": "fetch",
+        "url": "http://127.0.0.1:3080/api/agentPresets/list"
+      },
+      {
+        "bytes": 482,
+        "type": "fetch",
+        "url": "http://127.0.0.1:3080/api/agentPresets/list"
+      },
+      {
+        "bytes": 801,
+        "type": "fetch",
+        "url": "http://127.0.0.1:3080/api/session/modelCatalog"
+      },
+      {
+        "bytes": 7550,
+        "type": "fetch",
+        "url": "http://127.0.0.1:3080/api/settings/describe"
+      },
+      {
+        "bytes": 416,
+        "type": "fetch",
+        "url": "http://127.0.0.1:3080/api/dynamicCordisRunner/syncInspectManifest"
+      },
+      {
+        "bytes": 21520,
+        "type": "other",
+        "url": "http://127.0.0.1:3080/icon-192.png"
+      },
+      {
+        "bytes": 462,
+        "type": "fetch",
+        "url": "http://127.0.0.1:3080/api/credentials/describe"
+      },
+      {
+        "bytes": 465,
+        "type": "fetch",
+        "url": "http://127.0.0.1:3080/api/session/create"
+      },
+      {
+        "bytes": 483,
+        "type": "fetch",
+        "url": "http://127.0.0.1:3080/api/agentPresets/list"
+      },
+      {
+        "bytes": 778,
+        "type": "fetch",
+        "url": "http://127.0.0.1:3080/api/commands/list"
+      },
+      {
+        "bytes": 2678,
+        "type": "fetch",
+        "url": "http://127.0.0.1:3080/api/skills/list"
+      },
+      {
+        "bytes": 2037,
+        "type": "other",
+        "url": "http://127.0.0.1:3080/favicon-dark.svg"
+      },
+      {
+        "bytes": 300,
+        "type": "other",
+        "url": "http://127.0.0.1:3080/favicon.svg"
+      }
+    ],
+    "scripts": [
+      "http://127.0.0.1:3080/plugins/??@deepseek-ai/dsh-client-modules/client.js&rev=63b923339a28",
+      "http://127.0.0.1:3080/assets/index-BgUyXZcc.js"
+    ],
+    "stylesheets": [
+      "http://127.0.0.1:3080/assets/vendor-DV2921Zo.css",
+      "http://127.0.0.1:3080/assets/index-lh_YM6sT.css"
+    ]
+  },
+  "breakpoints": [
+    {
+      "count": 1,
+      "px": 372,
+      "query": "max-width 372px"
+    },
+    {
+      "count": 1,
+      "px": 400,
+      "query": "max-width 400px"
+    },
+    {
+      "count": 1,
+      "px": 440,
+      "query": "max-width 440px"
+    },
+    {
+      "count": 2,
+      "px": 460,
+      "query": "max-width 460px"
+    },
+    {
+      "count": 1,
+      "px": 480,
+      "query": "max-width 480px"
+    },
+    {
+      "count": 1,
+      "px": 520,
+      "query": "max-width 520px"
+    },
+    {
+      "count": 1,
+      "px": 540,
+      "query": "max-width 540px"
+    },
+    {
+      "count": 5,
+      "px": 560,
+      "query": "max-width 560px"
+    },
+    {
+      "count": 1,
+      "px": 600,
+      "query": "max-width 600px"
+    },
+    {
+      "count": 2,
+      "px": 620,
+      "query": "max-width 620px"
+    },
+    {
+      "count": 2,
+      "px": 720,
+      "query": "max-width 720px"
+    },
+    {
+      "count": 2,
+      "px": 760,
+      "query": "max-width 760px"
+    },
+    {
+      "count": 12,
+      "px": 767,
+      "query": "max-width 767px"
+    },
+    {
+      "count": 1,
+      "px": 768,
+      "query": "max-width 768px"
+    },
+    {
+      "count": 1,
+      "px": 768,
+      "query": "min-width 768px"
+    },
+    {
+      "count": 1,
+      "px": 900,
+      "query": "max-width 900px"
+    },
+    {
+      "count": 2,
+      "px": 1100,
+      "query": "max-width 1100px"
+    },
+    {
+      "count": 1,
+      "px": 1200,
+      "query": "max-width 1200px"
+    }
+  ],
+  "design": {
+    "backgrounds": [
+      {
+        "count": 6,
+        "value": "#ffffff"
+      },
+      {
+        "count": 2,
+        "value": "#f9fafb"
+      },
+      {
+        "count": 1,
+        "value": "#2631480f"
+      },
+      {
+        "count": 1,
+        "value": "#e4edfd"
+      },
+      {
+        "count": 1,
+        "value": "#f5f6f7"
+      },
+      {
+        "count": 1,
+        "value": "#4176e6"
+      },
+      {
+        "count": 1,
+        "value": "#0f1115"
+      }
+    ],
+    "css_variables": {
+      "--ds-ease-in-out": "cubic-bezier(.4, 0, .2, 1)",
+      "--ds-font-family-code": "var(--dsh-font-family-code-default)",
+      "--ds-transition-duration": ".2s",
+      "--ds-transition-duration-fast": ".1s",
+      "--ds-transition-duration-slow": ".3s",
+      "--dsh-font-family-code-default": "\"SF Mono\", \"JetBrains Mono\", \"Fira Code\", Consolas, \"Liberation Mono\", Menlo, Courier, \"PingFang SC\", \"Microsoft YaHei\"",
+      "--dsh-font-family-text-default": "-apple-system, BlinkMacSystemFont, \"Segoe UI\", \"PingFang SC\", \"Hiragino Sans GB\", \"Microsoft YaHei\", \"Helvetica Neue\", H",
+      "--dsw-corner-shape": "superellipse(1.5)",
+      "--dsw-focus-ring-width": "2px",
+      "--dsw-font-family": "var(--dsh-font-family-text-default)",
+      "--dsw-font-family-brand": "\"Montserrat\", var(--dsh-font-family-text-default)",
+      "--dsw-radius-lg": "16px",
+      "--dsw-radius-md": "12px",
+      "--dsw-radius-panel": "28px",
+      "--dsw-radius-sm": "8px",
+      "--dsw-radius-xl": "20px",
+      "--dsw-radius-xs": "4px",
+      "--shiki-background": "var(--dsw-alias-markdown-code-block)",
+      "--shiki-foreground": "var(--dsw-alias-label-primary)",
+      "--shiki-token-comment": "#868e96",
+      "--shiki-token-constant": "#1c7ed6",
+      "--shiki-token-function": "#6741d9",
+      "--shiki-token-keyword": "#d6336c",
+      "--shiki-token-link": "#1971c2",
+      "--shiki-token-parameter": "#e8590c",
+      "--shiki-token-punctuation": "#495057",
+      "--shiki-token-string": "#2f9e44",
+      "--shiki-token-string-expression": "#2b8a3e"
+    },
+    "font_faces": [
+      {
+        "family": "KaTeX_AMS",
+        "status": "unloaded",
+        "style": "normal",
+        "weight": "400"
+      },
+      {
+        "family": "KaTeX_Caligraphic",
+        "status": "unloaded",
+        "style": "normal",
+        "weight": "700"
+      },
+      {
+        "family": "KaTeX_Caligraphic",
+        "status": "unloaded",
+        "style": "normal",
+        "weight": "400"
+      },
+      {
+        "family": "KaTeX_Fraktur",
+        "status": "unloaded",
+        "style": "normal",
+        "weight": "700"
+      },
+      {
+        "family": "KaTeX_Fraktur",
+        "status": "unloaded",
+        "style": "normal",
+        "weight": "400"
+      },
+      {
+        "family": "KaTeX_Main",
+        "status": "unloaded",
+        "style": "normal",
+        "weight": "700"
+      },
+      {
+        "family": "KaTeX_Main",
+        "status": "unloaded",
+        "style": "italic",
+        "weight": "700"
+      },
+      {
+        "family": "KaTeX_Main",
+        "status": "unloaded",
+        "style": "italic",
+        "weight": "400"
+      },
+      {
+        "family": "KaTeX_Main",
+        "status": "unloaded",
+        "style": "normal",
+        "weight": "400"
+      },
+      {
+        "family": "KaTeX_Math",
+        "status": "unloaded",
+        "style": "italic",
+        "weight": "700"
+      },
+      {
+        "family": "KaTeX_Math",
+        "status": "unloaded",
+        "style": "italic",
+        "weight": "400"
+      },
+      {
+        "family": "KaTeX_SansSerif",
+        "status": "unloaded",
+        "style": "normal",
+        "weight": "700"
+      },
+      {
+        "family": "KaTeX_SansSerif",
+        "status": "unloaded",
+        "style": "italic",
+        "weight": "400"
+      },
+      {
+        "family": "KaTeX_SansSerif",
+        "status": "unloaded",
+        "style": "normal",
+        "weight": "400"
+      },
+      {
+        "family": "KaTeX_Script",
+        "status": "unloaded",
+        "style": "normal",
+        "weight": "400"
+      },
+      {
+        "family": "KaTeX_Size1",
+        "status": "unloaded",
+        "style": "normal",
+        "weight": "400"
+      },
+      {
+        "family": "KaTeX_Size2",
+        "status": "unloaded",
+        "style": "normal",
+        "weight": "400"
+      },
+      {
+        "family": "KaTeX_Size3",
+        "status": "unloaded",
+        "style": "normal",
+        "weight": "400"
+      },
+      {
+        "family": "KaTeX_Size4",
+        "status": "unloaded",
+        "style": "normal",
+        "weight": "400"
+      },
+      {
+        "family": "KaTeX_Typewriter",
+        "status": "unloaded",
+        "style": "normal",
+        "weight": "400"
+      },
+      {
+        "family": "Montserrat",
+        "status": "unloaded",
+        "style": "normal",
+        "weight": "400"
+      },
+      {
+        "family": "Montserrat",
+        "status": "unloaded",
+        "style": "normal",
+        "weight": "300"
+      },
+      {
+        "family": "Montserrat",
+        "status": "unloaded",
+        "style": "normal",
+        "weight": "500"
+      }
+    ],
+    "font_sizes": [
+      {
+        "count": 12,
+        "value": "14px"
+      },
+      {
+        "count": 6,
+        "value": "12px"
+      },
+      {
+        "count": 4,
+        "value": "13px"
+      },
+      {
+        "count": 1,
+        "value": "26px"
+      },
+      {
+        "count": 1,
+        "value": "20px"
+      }
+    ],
+    "font_weights": [
+      {
+        "count": 17,
+        "value": "400"
+      },
+      {
+        "count": 7,
+        "value": "500"
+      }
+    ],
+    "fonts": [
+      {
+        "count": 23,
+        "value": "-apple-system, BlinkMacSystemFont, \"Segoe UI\", \"PingFang SC\", \"Hiragino Sans GB\", \"Microsoft YaHei\", \"Helvetica Neue\", Helvetica, Arial, sans-serif, -apple-system, BlinkMacSystemFont, \"Segoe UI\", \"PingFang SC\", \"Hiragino Sans GB\", \"Microsoft YaHei\", \"Helvetica Neue\", Helvetica, Arial, sans-serif"
+      },
+      {
+        "count": 1,
+        "value": "\"SF Mono\", \"JetBrains Mono\", \"Fira Code\", Consolas, \"Liberation Mono\", Menlo, Courier, \"PingFang SC\", \"Microsoft YaHei\", \"SF Mono\", \"JetBrains Mono\", \"Fira Code\", Consolas, \"Liberation Mono\", Menlo, Courier, \"PingFang SC\", \"Microsoft YaHei\""
+      }
+    ],
+    "max_widths": [
+      {
+        "count": 2,
+        "value": "774.4px"
+      },
+      {
+        "count": 1,
+        "value": "200px"
+      },
+      {
+        "count": 1,
+        "value": "28px"
+      },
+      {
+        "count": 1,
+        "value": "60px"
+      },
+      {
+        "count": 1,
+        "value": "220px"
+      },
+      {
+        "count": 1,
+        "value": "360px"
+      }
+    ],
+    "radii": [
+      {
+        "count": 10,
+        "value": "8px"
+      },
+      {
+        "count": 9,
+        "value": "12px"
+      },
+      {
+        "count": 3,
+        "value": "999px"
+      },
+      {
+        "count": 2,
+        "value": "28px"
+      }
+    ],
+    "shadows": [
+      {
+        "count": 1,
+        "value": "rgba(0, 0, 0, 0.1) 0px 0px 0px 0.5px, rgba(0, 0, 0, 0.03) 0px 4px 16px 0px, rgba(0, 0, 0, 0.03) 0px 0px 24px 0px"
+      },
+      {
+        "count": 1,
+        "value": "rgba(0, 0, 0, 0.16) 0px 0px 0px 0.5px, rgba(0, 0, 0, 0.04) 0px 3px 8px 0px, rgba(0, 0, 0, 0.05) 0px 0px 20px 0px"
+      }
+    ],
+    "spacing": [
+      {
+        "count": 29,
+        "value": "8px"
+      },
+      {
+        "count": 27,
+        "value": "4px"
+      },
+      {
+        "count": 21,
+        "value": "6px"
+      },
+      {
+        "count": 19,
+        "value": "12px"
+      },
+      {
+        "count": 10,
+        "value": "2px"
+      },
+      {
+        "count": 10,
+        "value": "9px"
+      },
+      {
+        "count": 9,
+        "value": "7px"
+      },
+      {
+        "count": 7,
+        "value": "1px"
+      },
+      {
+        "count": 7,
+        "value": "24px"
+      },
+      {
+        "count": 5,
+        "value": "28px"
+      },
+      {
+        "count": 5,
+        "value": "20px"
+      },
+      {
+        "count": 4,
+        "value": "16px"
+      },
+      {
+        "count": 3,
+        "value": "10px"
+      },
+      {
+        "count": 3,
+        "value": "14px"
+      },
+      {
+        "count": 2,
+        "value": "5px"
+      },
+      {
+        "count": 2,
+        "value": "3px"
+      },
+      {
+        "count": 1,
+        "value": "32px"
+      }
+    ],
+    "text_colors": [
+      {
+        "count": 11,
+        "value": "#0f1115"
+      },
+      {
+        "count": 6,
+        "value": "#81858c"
+      },
+      {
+        "count": 3,
+        "value": "#61666b"
+      },
+      {
+        "count": 2,
+        "value": "#adb2b8"
+      },
+      {
+        "count": 1,
+        "value": "#0e3074"
+      },
+      {
+        "count": 1,
+        "value": "#ffffff"
+      }
+    ]
+  },
+  "forms": [],
+  "headings": [
+    {
+      "level": 2,
+      "text": "预览版说明"
+    }
+  ],
+  "health": {
+    "errors": [],
+    "failed_requests": []
+  },
+  "lang": "zh-CN",
+  "layouts": [
+    {
+      "blocks": [
+        {
+          "gap": 2,
+          "h": 112,
+          "pad": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "per_row": 1,
+          "tag": "nav",
+          "w": 264,
+          "y": 114
+        },
+        {
+          "h": 40,
+          "pad": [
+            10,
+            28,
+            0,
+            20
+          ],
+          "per_row": 1,
+          "tag": "header",
+          "w": 1160,
+          "y": 0
+        }
+      ],
+      "page_h": 900,
+      "page_w": 1440,
+      "type": {
+        "body": 14,
+        "h1": 0,
+        "h2": 20,
+        "h3": 0
+      },
+      "width": 1440
+    },
+    {
+      "blocks": [
+        {
+          "gap": 12,
+          "h": 132,
+          "pad": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "per_row": 1,
+          "tag": "nav",
+          "w": 35,
+          "y": 114
+        },
+        {
+          "h": 40,
+          "pad": [
+            10,
+            28,
+            0,
+            20
+          ],
+          "per_row": 1,
+          "tag": "header",
+          "w": 712,
+          "y": 0
+        }
+      ],
+      "page_h": 900,
+      "page_w": 768,
+      "type": {
+        "body": 14,
+        "h1": 0,
+        "h2": 20,
+        "h3": 0
+      },
+      "width": 768
+    },
+    {
+      "blocks": [
+        {
+          "h": 40,
+          "pad": [
+            10,
+            28,
+            0,
+            20
+          ],
+          "per_row": 1,
+          "tag": "header",
+          "w": 390,
+          "y": 0
+        }
+      ],
+      "page_h": 900,
+      "page_w": 390,
+      "type": {
+        "body": 14,
+        "h1": 0,
+        "h2": 20,
+        "h3": 0
+      },
+      "width": 390
+    }
+  ],
+  "links": [],
+  "meta": {
+    "description": "",
+    "icons": [
+      "http://127.0.0.1:3080/apple-touch-icon.png",
+      "http://127.0.0.1:3080/favicon-dark.svg",
+      "http://127.0.0.1:3080/favicon.svg"
+    ],
+    "og_image": "",
+    "og_title": "",
+    "theme_color": "rgb(255, 255, 255)"
+  },
+  "outline": [
+    {
+      "box": {
+        "h": 24,
+        "w": 220,
+        "x": 16,
+        "y": 24
+      },
+      "class": "hHd-Xa_brand hHd-Xa_wide",
+      "color": "#0f1115",
+      "depth": 9,
+      "font": "13.3333px 400",
+      "tag": "button"
+    },
+    {
+      "box": {
+        "h": 18,
+        "w": 24,
+        "x": 16,
+        "y": 27
+      },
+      "color": "#0f1115",
+      "depth": 13,
+      "font": "13.3333px 400",
+      "tag": "svg"
+    },
+    {
+      "box": {
+        "h": 24,
+        "w": 156,
+        "x": 45,
+        "y": 24
+      },
+      "color": "#0f1115",
+      "depth": 13,
+      "font": "18px 600",
+      "tag": "svg"
+    },
+    {
+      "box": {
+        "h": 28,
+        "w": 28,
+        "x": 244,
+        "y": 22
+      },
+      "class": "hHd-Xa_iconButton hHd-Xa_toggle",
+      "color": "#61666b",
+      "depth": 9,
+      "font": "13.3333px 400",
+      "tag": "button"
+    },
+    {
+      "box": {
+        "h": 16,
+        "w": 16,
+        "x": 250,
+        "y": 28
+      },
+      "color": "#61666b",
+      "depth": 10,
+      "font": "13.3333px 400",
+      "tag": "svg"
+    },
+    {
+      "background": "#ffffff",
+      "box": {
+        "h": 38,
+        "w": 256,
+        "x": 12,
+        "y": 66
+      },
+      "class": "hHd-Xa_newSession",
+      "color": "#0f1115",
+      "depth": 8,
+      "font": "14px 500",
+      "tag": "button",
+      "text": "新会话 Ctrl + Alt + N"
+    },
+    {
+      "box": {
+        "h": 14,
+        "w": 14,
+        "x": 109,
+        "y": 78
+      },
+      "color": "#0f1115",
+      "depth": 11,
+      "font": "14px 500",
+      "tag": "svg"
+    },
+    {
+      "box": {
+        "h": 112,
+        "w": 264,
+        "x": 8,
+        "y": 114
+      },
+      "class": "hHd-Xa_panelList",
+      "color": "#0f1115",
+      "depth": 8,
+      "display": "flex",
+      "flex": "column",
+      "font": "14px 400",
+      "tag": "nav"
+    },
+    {
+      "box": {
+        "h": 36,
+        "w": 264,
+        "x": 8,
+        "y": 114
+      },
+      "class": "hHd-Xa_panelRow",
+      "color": "#0f1115",
+      "depth": 9,
+      "font": "14px 400",
+      "tag": "button",
+      "text": "插件"
+    },
+    {
+      "box": {
+        "h": 16,
+        "w": 16,
+        "x": 20,
+        "y": 124
+      },
+      "color": "#0f1115",
+      "depth": 12,
+      "font": "14px 400",
+      "tag": "svg"
+    },
+    {
+      "box": {
+        "h": 36,
+        "w": 264,
+        "x": 8,
+        "y": 152
+      },
+      "class": "hHd-Xa_panelRow",
+      "color": "#0f1115",
+      "depth": 9,
+      "font": "14px 400",
+      "tag": "button",
+      "text": "自动化任务"
+    },
+    {
+      "box": {
+        "h": 16,
+        "w": 16,
+        "x": 20,
+        "y": 162
+      },
+      "color": "#0f1115",
+      "depth": 12,
+      "font": "14px 400",
+      "tag": "svg"
+    },
+    {
+      "box": {
+        "h": 36,
+        "w": 264,
+        "x": 8,
+        "y": 190
+      },
+      "class": "hHd-Xa_panelRow",
+      "color": "#0f1115",
+      "depth": 10,
+      "font": "14px 400",
+      "tag": "button",
+      "text": "更多"
+    },
+    {
+      "box": {
+        "h": 16,
+        "w": 16,
+        "x": 20,
+        "y": 200
+      },
+      "color": "#0f1115",
+      "depth": 12,
+      "font": "14px 400",
+      "tag": "svg"
+    },
+    {
+      "box": {
+        "h": 28,
+        "w": 28,
+        "x": 179,
+        "y": 240
+      },
+      "class": "bhn1Oq_searchButton",
+      "color": "#61666b",
+      "depth": 14,
+      "font": "13.3333px 400",
+      "tag": "button"
+    },
+    {
+      "box": {
+        "h": 14,
+        "w": 14,
+        "x": 186,
+        "y": 247
+      },
+      "color": "#61666b",
+      "depth": 15,
+      "font": "13.3333px 400",
+      "tag": "svg"
+    },
+    {
+      "box": {
+        "h": 28,
+        "w": 28,
+        "x": 211,
+        "y": 240
+      },
+      "class": "bhn1Oq_iconButton bhn1Oq_wide",
+      "color": "#61666b",
+      "depth": 14,
+      "font": "13.3333px 400",
+      "tag": "button"
+    },
+    {
+      "box": {
+        "h": 16,
+        "w": 16,
+        "x": 217,
+        "y": 246
+      },
+      "color": "#61666b",
+      "depth": 15,
+      "font": "13.3333px 400",
+      "tag": "svg"
+    },
+    {
+      "box": {
+        "h": 28,
+        "w": 28,
+        "x": 243,
+        "y": 240
+      },
+      "class": "bhn1Oq_iconButton",
+      "color": "#61666b",
+      "depth": 13,
+      "font": "13.3333px 400",
+      "tag": "button"
+    },
+    {
+      "box": {
+        "h": 16,
+        "w": 16,
+        "x": 249,
+        "y": 246
+      },
+      "color": "#61666b",
+      "depth": 14,
+      "font": "13.3333px 400",
+      "tag": "svg"
+    },
+    {
+      "box": {
+        "h": 578,
+        "w": 274,
+        "x": 4,
+        "y": 276
+      },
+      "class": "bhn1Oq_list",
+      "color": "#0f1115",
+      "depth": 13,
+      "font": "14px 400",
+      "role": "tree",
+      "tag": "div",
+      "text": "默认工作区 新会话"
+    },
+    {
+      "box": {
+        "h": 34,
+        "w": 264,
+        "x": 8,
+        "y": 276
+      },
+      "class": "YDXeBa_projectRow",
+      "color": "#0f1115",
+      "depth": 16,
+      "font": "14px 400",
+      "role": "treeitem",
+      "tag": "div",
+      "text": "默认工作区"
+    },
+    {
+      "box": {
+        "h": 16,
+        "w": 16,
+        "x": 20,
+        "y": 285
+      },
+      "color": "#4176e6",
+      "depth": 18,
+      "font": "14px 400",
+      "tag": "svg"
+    },
+    {
+      "background": "#2631480f",
+      "box": {
+        "h": 32,
+        "w": 264,
+        "x": 8,
+        "y": 312
+      },
+      "class": "YDXeBa_sessionRow YDXeBa_selected",
+      "color": "#0f1115",
+      "depth": 16,
+      "font": "14px 400",
+      "role": "treeitem",
+      "tag": "div",
+      "text": "新会话"
+    },
+    {
+      "box": {
+        "h": 32,
+        "w": 264,
+        "x": 8,
+        "y": 858
+      },
+      "class": "yHnPSG_trigger",
+      "color": "#0f1115",
+      "depth": 15,
+      "font": "14px 400",
+      "tag": "button",
+      "text": "更多"
+    },
+    {
+      "box": {
+        "h": 14,
+        "w": 14,
+        "x": 20,
+        "y": 867
+      },
+      "color": "#0f1115",
+      "depth": 16,
+      "font": "14px 400",
+      "tag": "svg"
+    },
+    {
+      "box": {
+        "h": 40,
+        "w": 1160,
+        "x": 280,
+        "y": 0
+      },
+      "class": "wSkVaW_header wSkVaW_headerBlank",
+      "color": "#0f1115",
+      "depth": 11,
+      "display": "grid",
+      "font": "16px 400",
+      "grid": "0px 1112px",
+      "tag": "header"
+    },
+    {
+      "box": {
+        "h": 28,
+        "w": 28,
+        "x": 1400,
+        "y": 11
+      },
+      "class": "_button_1ulci_2 _ghost_1ulci_46 _sm_1ulci_28 _1kL45W_button",
+      "color": "#61666b",
+      "depth": 16,
+      "font": "12px 400",
+      "tag": "button"
+    },
+    {
+      "box": {
+        "h": 15,
+        "w": 15,
+        "x": 1407,
+        "y": 18
+      },
+      "color": "#61666b",
+      "depth": 17,
+      "font": "12px 400",
+      "tag": "svg"
+    },
+    {
+      "box": {
+        "h": 25,
+        "w": 34,
+        "x": 727,
+        "y": 355
+      },
+      "color": "#0f1115",
+      "depth": 21,
+      "font": "26px 500",
+      "tag": "svg"
+    },
+    {
+      "box": {
+        "h": 28,
+        "w": 117,
+        "x": 473,
+        "y": 407
+      },
+      "class": "pXSMma_workspace",
+      "color": "#0f1115",
+      "depth": 17,
+      "font": "13px 500",
+      "tag": "button",
+      "text": "默认工作区"
+    },
+    {
+      "box": {
+        "h": 16,
+        "w": 16,
+        "x": 481,
+        "y": 413
+      },
+      "color": "#0f1115",
+      "depth": 18,
+      "font": "13px 500",
+      "tag": "svg"
+    },
+    {
+      "box": {
+        "h": 12,
+        "w": 12,
+        "x": 570,
+        "y": 415
+      },
+      "color": "#adb2b8",
+      "depth": 18,
+      "font": "13px 500",
+      "tag": "svg"
+    },
+    {
+      "box": {
+        "h": 28,
+        "w": 106,
+        "x": 594,
+        "y": 407
+      },
+      "class": "cubgiG_seat",
+      "color": "#0f1115",
+      "depth": 19,
+      "font": "13px 500",
+      "tag": "button",
+      "text": "标准模式"
+    },
+    {
+      "box": {
+        "h": 16,
+        "w": 16,
+        "x": 602,
+        "y": 413
+      },
+      "color": "#0f1115",
+      "depth": 20,
+      "font": "13px 500",
+      "tag": "svg"
+    },
+    {
+      "box": {
+        "h": 14,
+        "w": 14,
+        "x": 678,
+        "y": 414
+      },
+      "color": "#adb2b8",
+      "depth": 20,
+      "font": "13px 500",
+      "tag": "svg"
+    },
+    {
+      "box": {
+        "h": 52,
+        "w": 770,
+        "x": 469,
+        "y": 451
+      },
+      "class": "uV2eYG_input",
+      "color": "#0f1115",
+      "depth": 21,
+      "font": "14px 400",
+      "role": "textbox",
+      "tag": "div"
+    },
+    {
+      "background": "#f5f6f7",
+      "box": {
+        "h": 28,
+        "w": 28,
+        "x": 477,
+        "y": 520
+      },
+      "class": "uV2eYG_add",
+      "color": "#0f1115",
+      "depth": 21,
+      "font": "13.3333px 400",
+      "tag": "button"
+    },
+    {
+      "box": {
+        "h": 14,
+        "w": 14,
+        "x": 484,
+        "y": 527
+      },
+      "color": "#0f1115",
+      "depth": 22,
+      "font": "13.3333px 400",
+      "tag": "svg"
+    },
+    {
+      "box": {
+        "h": 28,
+        "w": 126,
+        "x": 517,
+        "y": 520
+      },
+      "class": "iWlSmW_trigger",
+      "color": "#61666b",
+      "depth": 24,
+      "font": "13px 500",
+      "tag": "button",
+      "text": "工作区内修改"
+    },
+    {
+      "box": {
+        "h": 14,
+        "w": 14,
+        "x": 525,
+        "y": 527
+      },
+      "color": "#61666b",
+      "depth": 26,
+      "font": "13px 500",
+      "tag": "svg"
+    },
+    {
+      "box": {
+        "h": 14,
+        "w": 14,
+        "x": 625,
+        "y": 527
+      },
+      "color": "#adb2b8",
+      "depth": 26,
+      "font": "13px 500",
+      "tag": "svg"
+    },
+    {
+      "box": {
+        "h": 28,
+        "w": 183,
+        "x": 995,
+        "y": 520
+      },
+      "class": "_7KE1Ra_trigger",
+      "color": "#61666b",
+      "depth": 24,
+      "font": "13px 400",
+      "tag": "button",
+      "text": "DeepSeek-V4.1-Flash High"
+    },
+    {
+      "box": {
+        "h": 14,
+        "w": 14,
+        "x": 1160,
+        "y": 527
+      },
+      "color": "#adb2b8",
+      "depth": 25,
+      "font": "13px 400",
+      "tag": "svg"
+    },
+    {
+      "background": "#4176e6",
+      "box": {
+        "h": 34,
+        "w": 34,
+        "x": 1202,
+        "y": 515
+      },
+      "class": "uV2eYG_primary",
+      "color": "#ffffff",
+      "depth": 21,
+      "font": "13.3333px 400",
+      "tag": "button"
+    },
+    {
+      "box": {
+        "h": 16,
+        "w": 16,
+        "x": 1211,
+        "y": 524
+      },
+      "color": "#ffffff",
+      "depth": 22,
+      "font": "13.3333px 400",
+      "tag": "svg"
+    },
+    {
+      "box": {
+        "h": 900,
+        "w": 1440,
+        "x": 0,
+        "y": 0
+      },
+      "class": "_root_14mp3_6",
+      "color": "#0f1115",
+      "depth": 2,
+      "font": "16px 400",
+      "role": "presentation",
+      "tag": "div",
+      "text": "预览版说明 DeepSeek Harness 目前的 0.2 版本仍处于预览阶段，还有许多地方需要持续改进和打磨，希望听取广大开发者和用户的反馈建议。现在，新的桌面端面向广泛用户，开发者相关的进阶功能可在配置中开启使用。预计 DeepSeek Harness 的产品功能以及插件 API 都会继续快速迭代、持续演化，并逐渐趋于稳定。 我们期待与全球用户和开发者一起，在开源、可复用、可组合的基础设施之"
+    },
+    {
+      "background": "#ffffff",
+      "box": {
+        "h": 344,
+        "w": 600,
+        "x": 420,
+        "y": 278
+      },
+      "class": "_dialog_14mp3_33 jLrgrW_dialog",
+      "color": "#0f1115",
+      "depth": 3,
+      "font": "16px 400",
+      "role": "dialog",
+      "tag": "div",
+      "text": "预览版说明 DeepSeek Harness 目前的 0.2 版本仍处于预览阶段，还有许多地方需要持续改进和打磨，希望听取广大开发者和用户的反馈建议。现在，新的桌面端面向广泛用户，开发者相关的进阶功能可在配置中开启使用。预计 DeepSeek Harness 的产品功能以及插件 API 都会继续快速迭代、持续演化，并逐渐趋于稳定。 我们期待与全球用户和开发者一起，在开源、可复用、可组合的基础设施之"
+    },
+    {
+      "box": {
+        "h": 28,
+        "w": 544,
+        "x": 448,
+        "y": 306
+      },
+      "class": "jLrgrW_title",
+      "color": "#0f1115",
+      "depth": 5,
+      "font": "20px 500",
+      "tag": "h2",
+      "text": "预览版说明"
+    },
+    {
+      "box": {
+        "h": 96,
+        "w": 544,
+        "x": 448,
+        "y": 354
+      },
+      "color": "#61666b",
+      "depth": 7,
+      "font": "14px 400",
+      "tag": "p",
+      "text": "DeepSeek Harness 目前的 0.2 版本仍处于预览阶段，还有许多地方需要持续改进和打磨，希望听取广大开发者和用户的反馈建议。现在，新的桌面端面向广泛用户，开发者相关的进阶功能可在配置中开启使用。预计 DeepSeek Harness 的产品功能以及插件 API 都会继续快速迭代、持续演化，并逐渐趋于稳定。"
+    },
+    {
+      "box": {
+        "h": 72,
+        "w": 544,
+        "x": 448,
+        "y": 462
+      },
+      "color": "#61666b",
+      "depth": 7,
+      "font": "14px 400",
+      "tag": "p",
+      "text": "我们期待与全球用户和开发者一起，在开源、可复用、可组合的基础设施之上，共同探索智能上限。欢迎大家用 DeepSeek Harness 将想法变成现实，与社区一起丰富插件生态。"
+    },
+    {
+      "background": "#0f1115",
+      "box": {
+        "h": 36,
+        "w": 120,
+        "x": 872,
+        "y": 558
+      },
+      "class": "_button_1ulci_2 _primary_1ulci_36 _md_1ulci_23 t1T8VW_primary",
+      "color": "#ffffff",
+      "depth": 7,
+      "font": "14px 400",
+      "tag": "button",
+      "text": "继续"
+    }
+  ],
+  "page": {
+    "h": 900,
+    "w": 1440
+  },
+  "text": "新会话 Ctrl + Alt + N 插件 自动化任务 更多 工作区 默认工作区 新会话 更多 探索未至之境 预览版 默认工作区 标准模式 描述你想要构建的内容, / 调用指令, @ 文件或对话 工作区内修改 DeepSeek-V4.1-Flash High 预览版说明 DeepSeek Harness 目前的 0.2 版本仍处于预览阶段，还有许多地方需要持续改进和打磨，希望听取广大开发者和用户的反馈建议。现在，新的桌面端面向广泛用户，开发者相关的进阶功能可在配置中开启使用。预计 DeepSeek Harness 的产品功能以及插件 API 都会继续快速迭代、持续演化，并逐渐趋于稳定。 我们期待与全球用户和开发者一起，在开源、可复用、可组合的基础设施之上，共同探索智能上限。欢迎大家用 DeepSeek Harness 将想法变成现实，与社区一起丰富插件生态。 继续",
+  "title": "DeepSeek Harness",
+  "unreadable_stylesheets": 0,
+  "url": "http://127.0.0.1:3080/",
+  "viewport": {
+    "h": 900,
+    "w": 1440
+  }
+}

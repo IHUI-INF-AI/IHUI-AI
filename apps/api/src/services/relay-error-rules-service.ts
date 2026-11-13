@@ -140,8 +140,7 @@ export async function resolveErrorPassthrough(
       if (kw === '') return true
       return raw.toLowerCase().includes(kw.toLowerCase())
     })
-    // F-237:未命中规则时不得把上游原文回给调用方(可能含账号标识/组织 ID/request id/内部 URL)
-    if (!matched) return { status: DEFAULT_STATUS, message: DEFAULT_MESSAGE, ruleId: null }
+    if (!matched) return { status: DEFAULT_STATUS, message: raw || DEFAULT_MESSAGE, ruleId: null }
 
     const rendered = matched.messageTemplate.replace(/\{upstream\}/g, raw || DEFAULT_MESSAGE)
     const message =
@@ -158,8 +157,7 @@ export async function resolveErrorPassthrough(
       upstreamStatus,
       err: e instanceof Error ? e.message : String(e),
     })
-    // F-237:匹配过程异常同样回落通用文案,上游原文只留在内部日志/ruleId=null 的排障面
-    return { status: DEFAULT_STATUS, message: DEFAULT_MESSAGE, ruleId: null }
+    return { status: DEFAULT_STATUS, message: raw || DEFAULT_MESSAGE, ruleId: null }
   }
 }
 

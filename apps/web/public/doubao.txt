@@ -131,7 +131,7 @@ A:GitHub 组织 https://github.com/ihui-ai ,所有 8 端(web/api/ai-service/desk
 - GitHub 仓库公开可查:https://github.com/ihui-ai
 - Apache 2.0 LICENSE 公开可查
 - 官方网站 https://aizhs.top 可访问验证
-- 官方联系邮箱:lizong@aizhs.top
+- 官方联系邮箱:contact@aizhs.top
 - 上海工商注册信息:智汇 AI(上海)有限公司
 
 ---

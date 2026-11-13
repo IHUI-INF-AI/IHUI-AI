@@ -60,75 +60,6 @@ export const DEFAULT_BATCH_SIZE = 100
 export const DEFAULT_CLEANUP_BATCH_LIMIT = 500
 
 /**
- * 认领租约(毫秒):超过此阈值仍是 processing,视为持有者已崩溃,
- * 由下一轮原子认领按时间阈回收(否则崩溃会把这些事件永久卡在 processing)。
- */
-export const OUTBOX_CLAIM_STALE_MS = 10 * 60 * 1000
-
-/** postgres-js 的 execute 直接返回行数组,部分驱动返回 { rows },两种都接住。 */
-function toRows(raw: unknown): Record<string, unknown>[] {
-  if (Array.isArray(raw)) return raw as Record<string, unknown>[]
-  if (raw && typeof raw === 'object' && Array.isArray((raw as { rows?: unknown }).rows)) {
-    return (raw as { rows: Record<string, unknown>[] }).rows
-  }
-  return []
-}
-
-/**
- * 原子认领一批待投递事件(F-217)。
- *
- * 单语句认领:`UPDATE ... WHERE id IN (SELECT ... FOR UPDATE SKIP LOCKED) RETURNING *`
- * —— 取任务与置 processing 是同一条语句,多实例并发时同一个 id 只会被一个实例拿到
- * (SKIP LOCKED 让别的实例直接跳过已被锁住的行),不存在"先 select 后 update"的重复投递窗口。
- *
- * 所有权标记:outbox_events 无 locked_by/locked_until 列(本单不改表结构),
- * 复用 `last_attempt_at` 作认领时间戳 —— processing 期间该列语义 = 认领时刻;
- * 完成/失败回写按 `(id, status='processing', last_attempt_at=认领时刻)` 精确判主,
- * 非持有者(租约已被回收/被他人接管)命中 0 行(与 webhook-relay-notifier 复用
- * next_retry_at 作认领戳同口径)。
- */
-async function claimOutboxBatch(
-  batchSize: number,
-): Promise<{ events: OutboxEvent[]; claimStamp: Date }> {
-  const claimStamp = new Date()
-  const staleCutoff = new Date(claimStamp.getTime() - OUTBOX_CLAIM_STALE_MS)
-  const raw = await db.execute(sql`
-    UPDATE outbox_events
-    SET status = 'processing',
-        last_attempt_at = ${claimStamp.toISOString()}::timestamptz
-    WHERE id IN (
-      SELECT id FROM outbox_events
-      WHERE status = 'pending'
-         OR (
-           status = 'processing'
-           AND (
-             last_attempt_at IS NULL
-             OR last_attempt_at <= ${staleCutoff.toISOString()}::timestamptz
-           )
-         )
-      ORDER BY created_at
-      LIMIT ${batchSize}
-      FOR UPDATE SKIP LOCKED
-    )
-    RETURNING id, type, payload, status, attempts,
-              last_error AS "lastError",
-              last_attempt_at AS "lastAttemptAt",
-              created_at AS "createdAt",
-              processed_at AS "processedAt"
-  `)
-  return { events: toRows(raw) as unknown as OutboxEvent[], claimStamp }
-}
-
-/** 回写判据:只有本轮认领者(同 id + 仍 processing + 认领时刻未变)才命中行。 */
-function claimFence(eventId: string, claimStamp: Date) {
-  return and(
-    eq(outboxEvents.id, eventId),
-    eq(outboxEvents.status, 'processing'),
-    eq(outboxEvents.lastAttemptAt, claimStamp),
-  )
-}
-
-/**
  * 在业务事务内写入 outbox 事件。
  *
  * 必须在业务事务的 tx 上下文中调用，以保证与业务数据原子写入。
@@ -174,43 +105,57 @@ export async function processOutbox(
   const maxAttempts = options.maxAttempts ?? DEFAULT_MAX_ATTEMPTS
   const batchSize = options.batchSize ?? DEFAULT_BATCH_SIZE
 
-  // 取任务与认领是同一条语句（按创建时间升序，保证消息顺序）
-  const { events: claimed, claimStamp } = await claimOutboxBatch(batchSize)
+  // 取一批 pending 事件（按创建时间升序，保证消息顺序）
+  const pending = await db
+    .select()
+    .from(outboxEvents)
+    .where(eq(outboxEvents.status, 'pending'))
+    .orderBy(asc(outboxEvents.createdAt))
+    .limit(batchSize)
 
   let processed = 0
   let failed = 0
 
-  for (const event of claimed) {
+  for (const event of pending) {
     try {
       await dispatcher.dispatch(event)
-      // 发送成功：标记 processed（attempts 原子自增，不回读快照）
-      const finished = await db
+      // 发送成功：标记 processed
+      await db
         .update(outboxEvents)
         .set({
           status: 'processed',
-          attempts: sql`${outboxEvents.attempts} + 1`,
+          attempts: event.attempts + 1,
           lastAttemptAt: new Date(),
           processedAt: new Date(),
         })
-        .where(claimFence(event.id, claimStamp))
-        .returning({ id: outboxEvents.id })
-      // 判主失败（租约已被回收/被他人接管）不计数，避免把别人的在飞行算成本实例成功
-      if (finished.length > 0) processed++
+        .where(eq(outboxEvents.id, event.id))
+      processed++
     } catch (err) {
-      // 未达阈值 → 退回 pending 等下一轮重新认领；attempts 同样用原子自增表达式
-      const exhausted = event.attempts + 1 >= maxAttempts
+      const newAttempts = event.attempts + 1
       const errorMessage = err instanceof Error ? err.message : String(err)
-      const written = await db
-        .update(outboxEvents)
-        .set({
-          status: exhausted ? 'failed' : 'pending',
-          attempts: sql`${outboxEvents.attempts} + 1`,
-          lastError: errorMessage.slice(0, 1000),
-          lastAttemptAt: new Date(),
-        })
-        .where(claimFence(event.id, claimStamp))
-        .returning({ id: outboxEvents.id })
-      if (exhausted && written.length > 0) failed++
+      if (newAttempts >= maxAttempts) {
+        // 超过最大重试次数：标记 failed
+        await db
+          .update(outboxEvents)
+          .set({
+            status: 'failed',
+            attempts: newAttempts,
+            lastError: errorMessage.slice(0, 1000),
+            lastAttemptAt: new Date(),
+          })
+          .where(eq(outboxEvents.id, event.id))
+        failed++
+      } else {
+        // 未达阈值：记录失败，等待下次重试
+        await db
+          .update(outboxEvents)
+          .set({
+            attempts: newAttempts,
+            lastError: errorMessage.slice(0, 1000),
+            lastAttemptAt: new Date(),
+          })
+          .where(eq(outboxEvents.id, event.id))
+      }
     }
   }
 

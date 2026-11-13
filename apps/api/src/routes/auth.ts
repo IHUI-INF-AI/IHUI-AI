@@ -830,11 +830,9 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
             invitation.status === 'unused' &&
             (!invitation.expiresAt || invitation.expiresAt > now)
           ) {
-            // F-15:markInvitationUsed 改为条件 UPDATE(仅 unused 可抢占),抢不到返回 undefined;
-            // 只有抢到的一方才发奖励,杜绝同一邀请码并发注册双发。
-            const claimed = await markInvitationUsed({ id: invitation.id, inviteeId: user.id })
+            await markInvitationUsed({ id: invitation.id, inviteeId: user.id })
 
-            if (claimed && invitation.rewardInvitee > 0) {
+            if (invitation.rewardInvitee > 0) {
               try {
                 await earnPoints(
                   user.id,
@@ -849,7 +847,7 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
               }
             }
 
-            if (claimed && invitation.rewardInviter > 0) {
+            if (invitation.rewardInviter > 0) {
               try {
                 await earnPoints(
                   invitation.inviterId,

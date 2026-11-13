@@ -13,7 +13,7 @@ import fp from 'fastify-plugin'
 
 /**
  * XSS 防护插件。
- * - preValidation：递归净化请求体/查询参数中的字符串，对 HTML 特殊字符做实体编码，
+ * - onRequest：递归净化请求体/查询参数中的字符串，对 HTML 特殊字符做实体编码，
  *   并剥离常见 XSS 向量（<script>、onXxx=、javascript:、data: 等）。
  * - onSend：补充浏览器侧防护头 X-XSS-Protection / X-Content-Type-Options。
  *
@@ -87,9 +87,7 @@ const xssProtectionPlugin: FastifyPluginAsync = async (server: FastifyInstance) 
   // 按安全最佳实践:HTML 实体编码只适用于会被回显到 HTML 上下文的内容
   // (text/html / application/x-www-form-urlencoded / multipart/form-data),
   // JSON 结构化数据由 JSON 自身转义保证安全,不应做 HTML 编码。
-  // F-75:onRequest 阶段 request.body 恒为 undefined(body 尚未解析),净化分支永不生效。
-  // 改挂 preValidation —— body 已解析、validation 之前,且早于 preHandler 的 sqli-guard。
-  server.addHook('preValidation', async (request: FastifyRequest) => {
+  server.addHook('onRequest', async (request: FastifyRequest) => {
     const rawContentType = request.headers['content-type'] ?? ''
     const contentType = rawContentType.toLowerCase()
     const isHtmlContext =

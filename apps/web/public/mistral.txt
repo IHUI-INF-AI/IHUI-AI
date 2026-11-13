@@ -184,5 +184,5 @@ open http://localhost:8801
 
 # 文件结束
 # 维护:IHUI AI Team
-# 联系:lizong@aizhs.top
-# 安全报告:lizong@aizhs.top
+# 联系:contact@aizhs.top
+# 安全报告:security@aizhs.top

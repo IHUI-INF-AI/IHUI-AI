@@ -553,11 +553,8 @@ export async function main(argv: string[]): Promise<number> {
     const verdictNow = new Date()
     for (const r of keepAlive) {
       // 让位要有声(§0.10):逐枚答出「这枚为什么这轮没刷」——结论走 verdict 单源,不在此复算
-      // providerCode 必须随行传入(2026-11-12):verdict 里"未判定是否让位"按
-      // hasLocalRenewingClient(providerCode) 分平台判,漏传 ⇒ 空串查不到 ⇒ 表把
-      // 实际让位的轮显示成"可接管",与 sweep 的真实决策当面对不上(实测 minimax 现场)。
       const v = scheduler.keepAliveForeverVerdictOf(
-        { providerCode: r.providerCode, extraMetadata: { [CLIENT_ACTIVE_AT_KEY]: r.clientActiveAt } },
+        { extraMetadata: { [CLIENT_ACTIVE_AT_KEY]: r.clientActiveAt } },
         verdictNow,
         probeMap.get(r.providerCode) ?? null,
       )

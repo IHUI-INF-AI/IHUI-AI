@@ -186,16 +186,6 @@ node --test scripts/tests/check-desktop-event-wiring.test.mjs
 
 **为什么不做成设置页按钮**：主窗口/admin 窗口都加载远程 `https://aizhs.top`，`capabilities/default.json` 的 BUG-17 加固（2026-11-06）已把 "spawn 子进程" 一族移出 remote 授权面，理由写明是"线上页（含任意 XSS）可直调"。在 Rust 里 spawn 一个能跑仓内脚本的进程属 RCE 级能力，挂到远程页按钮上等于把那轮 P0 加固反向推翻。托盘点击是**本机用户的直接操作**、由 Rust 主进程自己处理、不经过 webview，因此不构成新的远程攻击面。
 
-**仓内调用与三层归一**：交互逻辑只有 `scripts/client-oneclick-switch.mjs` 一份，三个入口全部指向它，没有第二份实现：
-
-- 仓内（推荐，须真终端；stdin 非 TTY 会 `exit 2` 拒绝静默切号）：`pnpm switch:oneclick`，即 `node scripts/client-oneclick-switch.mjs`；
-- 桌面双击：`scripts/client-oneclick-switch.cmd` → 桌面「AI 客户端一键切号.lnk」；
-- 桌面端托盘 `relay_switch`（操作员机在 `desktop-behavior.json` 显式开启）拉起的也是同一个 `.cmd`。
-
-桌面 `.lnk` 非必需：约 850 字节的指针、不进版本库，删了或换机都不影响功能，重建跑 `pwsh -NoProfile -File scripts/install-relay-shortcut.ps1`。非交互的程序化切号走 `node scripts/switch-client-account.mjs --to <uid> --provider <code>`。
-
-首屏「Trae / WorkBuddy / 商汤小浣熊(raccoon) / Loomy / Qoder 前五 + 其余按 `providerCode` 字母序沉底」只是本交互层的展示排序，不裁行、不改名、不动入参；号池只读出口 `apps/api/scripts/relay-pool-account-list.ts --counts` 的 `orderBy(providerCode)` 是 admin / CLI / 同步腿共用的机读稳定序，刻意不动。
-
 ## 重要提示
 
 - **要修改对话 UI（消息渲染、工具卡、审批、Plan/Terminal 等），请在 `apps/web` 进行**，不要在 `apps/desktop` 内另起炉灶。桌面端只是线上 web 站点的壳，改 `apps/web` 后**部署上线**即对 web 端与桌面端同时生效（无需重发桌面包）。

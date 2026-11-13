@@ -101,6 +101,48 @@ async function hasUsableRefreshCredential(): Promise<boolean> {
  *  2. 刷新成功 → setToken 恢复登录态
  *  3. 刷新失败(401) → 保持未登录(静默,不弹登录框)
  */
+/**
+ * bootstrap 的模块级单例调度(2026-11-12 修)。
+ *
+ * 病灶:`useAuthBootstrap()` 被 6 处组件各自调用(global-hooks-provider / MobileLoginGate /
+ * sidebar-chat-history / use-workbench-conversations / use-auth-gate / admin/layout)。
+ * 每次调用都是独立 useEffect ⇒ 冷启动时并发打出十几个 `/auth/refresh`:
+ *   · 后端 refresh token 单次轮转,先到者 v1→v2,后到者持 v1 撞重用检测;
+ *   · 宽限期(race)只吸收毫秒级并发,跨秒到达的请求仍被判 reuse → 家族吊销 → 全 401;
+ *   · 叠加 /auth/refresh 的 20 次/分钟限流 → 13 次后 429。
+ * 结果是真管理员冷启动被弹到 /sso/login(实测复现)。
+ *
+ * 修法:副作用提升到模块级,全应用只跑一次;各 hook 实例只订阅同一个 ready/error,
+ * 不再各发一次网络请求。forceAttempt 仍可显式再跑一次(受保护页 307 打回的现场需要)。
+ */
+interface BootstrapOutcome {
+  ready: boolean
+  error: string | null
+}
+let sharedOutcome: BootstrapOutcome = { ready: false, error: null }
+let inFlightBootstrap: Promise<void> | null = null
+/**
+ * 轮次号:每次 reset(测试隔离)或显式重跑时 +1。
+ * 旧轮次即使还在飞,也不得再 publish —— 否则会把新一轮的状态写脏。
+ */
+let bootstrapGeneration = 0
+const outcomeListeners = new Set<(o: BootstrapOutcome) => void>()
+
+function publishOutcome(next: BootstrapOutcome, generation: number): void {
+  if (generation !== bootstrapGeneration) return
+  sharedOutcome = next
+  for (const fn of outcomeListeners) fn(next)
+}
+
+/** 供测试与登出后重置单例状态(不导出到公共 API 面之外的使用者请勿调用)。 */
+export function __resetAuthBootstrapSingleton(): void {
+  bootstrapGeneration += 1
+  sharedOutcome = { ready: false, error: null }
+  inFlightBootstrap = null
+  // 监听器也要清:上一个用例卸载时若未走完 cleanup,残留监听会把旧结果写进新用例的 state
+  outcomeListeners.clear()
+}
+
 export function useAuthBootstrap(options?: UseAuthBootstrapOptions): UseAuthBootstrapReturn {
   const forceAttempt = options?.forceAttempt === true
   const token = useAuthStore((s) => s.token)
@@ -111,11 +153,30 @@ export function useAuthBootstrap(options?: UseAuthBootstrapOptions): UseAuthBoot
   const logout = useAuthStore((s) => s.logout)
   const fetchProfile = useUserStore((s) => s.fetchProfile)
 
-  const [ready, setReady] = React.useState(false)
-  const [error, setError] = React.useState<string | null>(null)
+  // ready/error 一律来自模块级单例,组件实例不再各持一份、各跑一次。
+  const [outcome, setOutcome] = React.useState<BootstrapOutcome>(sharedOutcome)
 
   React.useEffect(() => {
+    outcomeListeners.add(setOutcome)
+    // 挂载时若单例已落定,直接同步真值,避免慢实例读到过期快照
+    if (sharedOutcome.ready || sharedOutcome.error) setOutcome(sharedOutcome)
+    return () => {
+      outcomeListeners.delete(setOutcome)
+    }
+  }, [])
+
+  const ready = outcome.ready
+  const error = outcome.error
+
+  React.useEffect(() => {
+    // 单例已跑过或正在跑:不再发第二次 refresh。forceAttempt 例外。
+    if (!forceAttempt && (sharedOutcome.ready || inFlightBootstrap)) return
     let cancelled = false
+    const myGeneration = bootstrapGeneration
+    const setReady = (v: boolean) =>
+      publishOutcome({ ...sharedOutcome, ready: v }, myGeneration)
+    const setError = (v: string | null) =>
+      publishOutcome({ ...sharedOutcome, error: v }, myGeneration)
     async function bootstrap() {
       // 用户主动登出后,冷启动**不得**再用 httpOnly refresh cookie 静默登回。
       // 判据住在 @ihui/shared/auth/auto-login-policy(登出标记优先),这里只注入 web 的落盘实现;
@@ -217,6 +278,7 @@ export function useAuthBootstrap(options?: UseAuthBootstrapOptions): UseAuthBoot
           }
         }>('/auth/me')
         if (cancelled) return
+        if (cancelled) return
         if (res.success) {
           const u = res.data.user
           // 保留 roleId(后端 publicUser 已返回),admin layout 守卫需用它判断权限
@@ -298,12 +360,24 @@ export function useAuthBootstrap(options?: UseAuthBootstrapOptions): UseAuthBoot
         if (!cancelled) setReady(true)
       }
     }
-    bootstrap()
+    // 关键:把这一轮执行登记为全局 in-flight,其余实例看到它就直接跳过,
+    // 从根上消除"6 个组件各发一次 /auth/refresh"的并发轮转冲突。
+    // 用 token 对象标记"这一轮",避免 finally 里引用尚未赋值的 run
+    const runMarker = {}
+    inFlightBootstrap = runMarker as unknown as Promise<void>
+    void (async () => {
+      try {
+        await bootstrap()
+      } finally {
+        if (inFlightBootstrap === (runMarker as unknown as Promise<void>)) {
+          inFlightBootstrap = null
+        }
+      }
+    })()
     return () => {
       cancelled = true
     }
-    // 仅在挂载时执行一次
-  }, [])
+  }, [forceAttempt])
 
   return { ready, isAuthenticated, error }
 }

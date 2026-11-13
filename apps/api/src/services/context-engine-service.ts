@@ -22,9 +22,8 @@
  * 降级:enrich/getSources 调 ai-service 失败时,退化为本地逻辑(仅 @ 提及内容 / 内置源定义)。
  */
 
-import { opendir, realpath } from 'node:fs/promises'
-import type { Dir } from 'node:fs'
-import { isAbsolute, join, relative, resolve, sep } from 'node:path'
+import { readdirSync, statSync } from 'node:fs'
+import { join, relative, sep } from 'node:path'
 import { sql } from 'drizzle-orm'
 
 import { db } from '../db/index.js'
@@ -32,7 +31,6 @@ import { codebaseIndexService } from './codebase-index-service.js'
 import { findRecentFiles } from '../db/file-queries.js'
 import { aiServiceFetch } from '../utils/ai-service-fetch.js'
 import { mintInternalJwt } from '../utils/internal-jwt.js'
-import { getRegisteredWorkspaceRoots, isInsideRoot, realpathOrResolve } from '../utils/workspace-roots.js'
 import type {
   ContextMention,
   DatabaseColumn,
@@ -247,55 +245,6 @@ const IGNORE_DIRS = new Set([
   'coverage',
 ])
 
-/**
- * folder 扫描硬上限(条目数 + 单调时钟耗时双保险)。
- *
- * f-254:原实现用 `readdirSync/statSync` 递归扫完再把整份结果 `slice` —— 指向
- * `C:\Windows` / `/etc` 时同步 IO 把事件循环整段占住,且越界目录的内容照样被读。
- * 现在边扫边截断,到顶就停,单次请求的代价与目标目录规模解耦。
- */
-const FOLDER_SCAN_MAX_ENTRIES = 2000
-const FOLDER_SCAN_MAX_MS = 500
-
-/** workspacePath 入参非法(映射 400) */
-export class WorkspacePathInvalidError extends Error {
-  readonly statusCode = 400
-  constructor(message: string) {
-    super(message)
-    this.name = 'WorkspacePathInvalidError'
-  }
-}
-
-/** workspacePath 越界:不在调用者已登记的工作区内(映射 403) */
-export class WorkspacePathForbiddenError extends Error {
-  readonly statusCode = 403
-  constructor(message = 'workspacePath 越界:仅允许本人已登记工作区内的路径') {
-    super(message)
-    this.name = 'WorkspacePathForbiddenError'
-  }
-}
-
-/** 文件系统根(盘符根 / UNC 共享根 / POSIX 根)——工作区不可能是整盘 */
-function isFilesystemRoot(p: string): boolean {
-  if (/^[\\/]+$/.test(p)) return true
-  if (/^[A-Za-z]:[\\/]*$/.test(p)) return true
-  return /^[\\/]{2}[^\\/]+[\\/][^\\/]+[\\/]?$/.test(p)
-}
-
-/**
- * workspacePath 语法判据(路由 zod 与 service 共用这一份,§0.6 不另起一套):
- * 合法返回 `null`,非法返回给客户端看的文案。
- *
- * 只在这里拒绝 `..`/NUL/文件系统根;绝对路径本身不拒 —— 客户端契约传的就是
- * 绝对工作区路径,真正的收敛靠 `realpath` + 归属断言(见 searchFolders)。
- */
-export function workspacePathViolation(raw: string): string | null {
-  if (raw.includes('\0')) return 'workspacePath 含非法字符'
-  if (raw.split(/[\\/]+/).includes('..')) return 'workspacePath 不得包含 .. 段'
-  if (isFilesystemRoot(raw)) return 'workspacePath 不得为文件系统根目录'
-  return null
-}
-
 class ContextEngineService {
   private cache = new LRUCache<string, unknown>()
 
@@ -365,7 +314,7 @@ class ContextEngineService {
         break
       }
       case 'folder':
-        result = await this.searchFolders(query, workspacePath, limit, userId)
+        result = await this.searchFolders(query, workspacePath, limit)
         break
       case 'web':
         // web 检索为可选项,不强求;返回空数组(前端可走浏览器侧 WebSearch)
@@ -502,131 +451,66 @@ class ContextEngineService {
     }
   }
 
-  /**
-   * folder 检索:扫描工作区目录(限深度 2 层)。
-   *
-   * f-254:workspacePath 此前是纯客户端字符串,只受 512 长度限制 —— 传
-   * `workspacePath=C:\Windows` 就能把服务器任意目录的目录树枚举回来,而且扫完
-   * 才 slice(同步 IO 可放大成 DoS)。现在两道闸:
-   *   ① 语法闸(400):NUL / `..` 段 / 文件系统根直接拒;
-   *   ② 归属闸(403):realpath 归一后必须落在调用者 `workspace_permissions`
-   *      登记、且仍在服务端 `IHUI_WORKSPACE_ROOTS` 登记根内的工作区子树里。
-   *      符号链接在这里被 realpath 消解 —— 根外目标一律越界。
-   * 相对 workspacePath 按本人最近使用的工作区解析(列表已按 updatedAt DESC)。
-   */
+  /** folder 扫描:用 fs 扫描工作区目录(限深度 2 层防爆炸) */
   async searchFolders(
     query: string,
     workspacePath: string | undefined,
     limit: number,
-    userId: string,
   ): Promise<ContextMention[]> {
     if (!workspacePath) return []
-    const root = await this.resolveFolderRoot(workspacePath, userId)
-    const cacheKey = `folder:${root}:${query}:${limit}`
+    const cacheKey = `folder:${workspacePath}:${query}:${limit}`
     const cached = this.cache.get(cacheKey) as ContextMention[] | undefined
     if (cached) return cached
-    const entries = await this.scanFolders(root, 2, limit, query)
-    const result: ContextMention[] = entries.map((e) => ({
-      id: `folder:${e.path}`,
-      type: 'folder' as const,
-      label: e.name,
-      detail: relative(root, e.path).split(sep).join('/'),
-      insertText: `@${relative(root, e.path).split(sep).join('/')}/`,
-      meta: { path: e.path },
-    }))
-    this.cache.set(cacheKey, result)
-    return result
+    try {
+      const entries = this.scanFolders(workspacePath, 2)
+      const q = query.trim().toLowerCase()
+      const filtered = q
+        ? entries.filter(
+            (e) => e.name.toLowerCase().includes(q) || e.path.toLowerCase().includes(q),
+          )
+        : entries
+      const result: ContextMention[] = filtered.slice(0, limit).map((e) => ({
+        id: `folder:${e.path}`,
+        type: 'folder' as const,
+        label: e.name,
+        detail: relative(workspacePath, e.path).split(sep).join('/'),
+        insertText: `@${relative(workspacePath, e.path).split(sep).join('/')}/`,
+        meta: { path: e.path },
+      }))
+      this.cache.set(cacheKey, result)
+      return result
+    } catch {
+      return []
+    }
   }
 
-  /**
-   * folder 检索的路径闸:返回 realpath 归一后的扫描根。
-   *
-   * 「用户 ↔ 工作区」的唯一登记是 workspace_permissions 的 (userId, workspacePath)
-   * 记录(与 spec-service.assertRepoOwner / workspace-ai-service 的授权根同源);
-   * 再按 `IHUI_WORKSPACE_ROOTS` 收一道,白名单启用前落库的历史行不能成为绕过口。
-   * 任一道不过就抛 403,**不**退化成空列表 —— 越界与"没有结果"必须可区分。
-   */
-  private async resolveFolderRoot(workspacePath: string, userId: string): Promise<string> {
-    const violation = workspacePathViolation(workspacePath)
-    if (violation) throw new WorkspacePathInvalidError(violation)
-    if (!userId) throw new WorkspacePathForbiddenError()
-
-    const { listPermissionsByUser } = await import('../db/workspace-permission-queries.js')
-    const rows = await listPermissionsByUser(userId)
-    const registered = getRegisteredWorkspaceRoots()
-    const roots: string[] = []
-    for (const row of rows) {
-      const real = realpathOrResolve(row.workspacePath)
-      if (!registered.some((r) => isInsideRoot(real, r))) continue
-      if (!roots.includes(real)) roots.push(real)
-    }
-
-    const candidate = isAbsolute(workspacePath) ? workspacePath : resolve(roots[0] ?? '', workspacePath)
-    const real = realpathOrResolve(candidate)
-    if (roots.length === 0 || !roots.some((r) => isInsideRoot(real, r))) {
-      throw new WorkspacePathForbiddenError()
-    }
-    return real
-  }
-
-  /**
-   * 异步递归扫描目录(限深度 2 层),边扫边截断。
-   *
-   * 只用 `fs/promises.opendir` 流式遍历:条目数与单调时钟耗时都封顶,不再先
-   * 全量收集再 slice;每层目录 realpath 后必须仍在 root 内,符号链接目录即便
-   * 被列出也越不出根。IO 错误按原降级语义吞掉(该层跳过),但**授权失败在上游
-   * 已抛错**,不会在这里被吞成"空结果"。
-   */
-  private async scanFolders(
-    root: string,
-    maxDepth: number,
-    limit: number,
-    query: string,
-  ): Promise<FolderEntry[]> {
-    const startedAt = performance.now()
-    const needle = query.trim().toLowerCase()
+  /** 递归扫描目录(限深度),只返回目录条目 */
+  private scanFolders(root: string, maxDepth: number): FolderEntry[] {
     const result: FolderEntry[] = []
-    const pending: Array<{ dir: string; depth: number }> = [{ dir: root, depth: 0 }]
-    let visited = 0
-
-    while (pending.length > 0) {
-      if (result.length >= limit) break
-      if (visited >= FOLDER_SCAN_MAX_ENTRIES) break
-      if (performance.now() - startedAt >= FOLDER_SCAN_MAX_MS) break
-      const next = pending.shift()
-      if (!next || next.depth > maxDepth) continue
-
-      let handle: Dir
+    const walk = (dir: string, depth: number) => {
+      if (depth > maxDepth) return
+      let entries: string[]
       try {
-        handle = await opendir(next.dir)
+        entries = readdirSync(dir)
       } catch {
-        continue
+        return
       }
-      try {
-        for await (const entry of handle) {
-          if (result.length >= limit) break
-          if (++visited > FOLDER_SCAN_MAX_ENTRIES) break
-          if (performance.now() - startedAt >= FOLDER_SCAN_MAX_MS) break
-          if (!entry.isDirectory() || IGNORE_DIRS.has(entry.name)) continue
-          const full = join(next.dir, entry.name)
-          let realFull: string
-          try {
-            realFull = await realpath(full)
-          } catch {
-            continue
-          }
-          if (!isInsideRoot(realFull, root)) continue
-          // 遍历不看 q:父目录不命中不代表子目录不命中,过滤只决定"入不入结果"
-          if (!needle || full.toLowerCase().includes(needle)) {
-            result.push({ name: entry.name, path: full, isDirectory: true })
-          }
-          pending.push({ dir: full, depth: next.depth + 1 })
+      for (const name of entries) {
+        if (IGNORE_DIRS.has(name)) continue
+        const full = join(dir, name)
+        let st
+        try {
+          st = statSync(full)
+        } catch {
+          continue
         }
-      } finally {
-        // for await 正常结束会自动关闭;提前 break 时这里兜底
-        await handle.close().catch(() => {})
+        if (st.isDirectory()) {
+          result.push({ name, path: full, isDirectory: true })
+          walk(full, depth + 1)
+        }
       }
     }
+    walk(root, 0)
     return result
   }
 

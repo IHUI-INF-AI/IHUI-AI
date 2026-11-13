@@ -41,10 +41,6 @@
  *   --force       绕过限流与积压闸门。不得用无保护的 force 覆盖远端已有且 SHA 不同的
  *                 backup/* 与 lost-commit/*;远端 SHA 不同时拒绝覆盖并点名
  *   --json        配合 --check 用,输出 JSON 格式结果(给 CI/上层调用方)
- *   --prune-redundant  列出冗余 lost-commit/* tag(peel 后提交已在 remote-tracking refs 里)
- *   --bundle-archive=<绝对目录>  打离线冷归档 bundle(写完 list-heads + verify 双验)
- *   --if-changed  配合 --bundle-archive:集合指纹未变且归档在位则跳过(定时任务日常零写入)
- *   --apply       配合 --prune-redundant 真删;缺省只报不删
  *   --help        打印帮助并 exit 0
  *
  * 退出码:
@@ -67,9 +63,6 @@
  *   node scripts/sync-lost-commit-tags.mjs --fetch      # 拉回
  *   node scripts/sync-lost-commit-tags.mjs --auto-push  # 推送
  *   node scripts/sync-lost-commit-tags.mjs --auto-push --dry-run
- *   node scripts/sync-lost-commit-tags.mjs --prune-redundant            # 只报冗余数
- *   node scripts/sync-lost-commit-tags.mjs --prune-redundant --apply    # 真删冗余
- *   node scripts/sync-lost-commit-tags.mjs --bundle-archive=D:\backups\git-bundles --if-changed  # 冷归档
  *   HUSKY_SKIP_TAG_SYNC=1 git commit ...                # 紧急跳过
  *
  * 调用方:
@@ -78,17 +71,7 @@
  *   - 定时任务: 每周一检查 tag 完整性(见 docs/lost-commit-archive.md 防护机制)
  */
 import { execFileSync } from 'node:child_process'
-import { createHash } from 'node:crypto'
-import {
-  existsSync,
-  mkdirSync,
-  readdirSync,
-  readFileSync,
-  statSync,
-  unlinkSync,
-  writeFileSync,
-} from 'node:fs'
-import { isAbsolute, join, resolve, sep } from 'node:path'
+import { readFileSync, writeFileSync } from 'node:fs'
 // 2026-10-16 取材层收口(face-reader 棘轮:型 C 自拼 batch 零容忍 + 型 A 裸 git 只减不增):
 // 三处只读 git 派生全部改走共用层 —— for-each-ref / ls-remote 走 `gitRaw`(绝对路径 git +
 // safe.directory + quotepath + 显式 stdio + EBUSY 兜底),`cat-file --batch-check` 走
@@ -120,26 +103,15 @@ const KNOWN_FLAGS = new Set([
   '--fetch',
   '--auto-push',
   '--push',
-  '--prune-redundant',
-  '--bundle-archive',
-  '--if-changed',
-  '--apply',
   '--dry-run',
   '--force',
   '--json',
 ])
-// 2026-11-12 立:--bundle-archive=<绝对目录> 把 lost-commit/* 备份 tag 打成**冷归档 bundle**。
-// 立因:唯一备份面(指向远端不存在的提交)实测 596 提交 / 193,786 对象 / 7.8GB 未压缩,
-// 推 origin 既违背"增长产线停用"的机主令,也会把仓库撑爆 ⇒ 正解是离线单文件归档 + 可复验,
-// 而不是把 7.8GB 灌进远端。值走 `=` 形式(本器参数是 Set,不支持空格取值,拒绝静默吞下一个 token)。
-const bundleArg = [...args].find((a) => a.startsWith('--bundle-archive='))
-const unknownFlags = [...args].filter(
-  (a) => !KNOWN_FLAGS.has(a) && !a.startsWith('--bundle-archive='),
-)
+const unknownFlags = [...args].filter((a) => !KNOWN_FLAGS.has(a))
 if (unknownFlags.length > 0) {
   console.error(
     `❌ 未知参数:${unknownFlags.join(' ')}\n` +
-      `   本脚本只认 --check / --fetch / --auto-push(推送)/ --prune-redundant / --apply / --dry-run / --force / --json。\n` +
+      `   本脚本只认 --check / --fetch / --auto-push(推送)/ --dry-run / --force / --json。\n` +
       `   不接受缩写或同义词,是为了让拼错**当场失败**,而不是掉进默认分支假装执行。`,
   )
   process.exit(2)
@@ -148,48 +120,10 @@ const isHelp = args.has('--help') || args.has('-h')
 const isFetch = args.has('--fetch')
 // --push 是 --auto-push 的显式别名(文档里既写 `tag:sync:push` 又写 `--auto-push`,两种叫法都得能用)
 const isAutoPush = args.has('--auto-push') || args.has('--push')
-// --prune-redundant(2026-11-12 立):清理「指向的提交早已在远端分支里」的 lost-commit/* 备份 tag。
-// 备份 tag 一旦所指向的提交后来被别人合入/落到 origin,它就只剩"占名"价值(可达性判据仍绿),
-// 而悬空保活腿每天还在新增 ⇒ 不复位就单调增长(本仓实测 8,754 枚,其中 8,087 枚属此型)。
-// 删除是**只减引用、不动对象**,且仅在 peel 后提交可从 remote-tracking refs 到达时才删 ⇒ 不产生备份缺口。
-// 默认 dry-run;只有显式 --apply 才真删(§29:删除动作必须由人/显式开关拍板)。
-const isPrune = args.has('--prune-redundant')
-const isApply = args.has('--apply')
-const isBundle = Boolean(bundleArg)
-const isIfChanged = args.has('--if-changed')
-const bundleDir = isBundle ? bundleArg.slice('--bundle-archive='.length).trim() : ''
-const isCheck = args.has('--check') || (!isFetch && !isAutoPush && !isPrune && !isBundle)
+const isCheck = args.has('--check') || (!isFetch && !isAutoPush)
 const isDryRun = args.has('--dry-run')
 const isForce = args.has('--force')
 const isJson = args.has('--json')
-if (args.has('--bundle-archive')) {
-  console.error('❌ --bundle-archive 必须带值:--bundle-archive=<绝对目录>(本器不接受空格取值)')
-  process.exit(2)
-}
-if (isBundle && !bundleDir) {
-  console.error('❌ --bundle-archive= 目录为空')
-  process.exit(2)
-}
-if (isBundle && !isAbsolute(bundleDir)) {
-  console.error(`❌ --bundle-archive 需要绝对路径(归档落点不能随 cwd 漂):${bundleDir}`)
-  process.exit(2)
-}
-if (isIfChanged && !isBundle) {
-  console.error('❌ --if-changed 只能配合 --bundle-archive= 使用')
-  process.exit(2)
-}
-if (isApply && !isPrune) {
-  console.error('❌ --apply 只能配合 --prune-redundant 使用(其它模式没有"应用"语义,拒绝静默忽略)')
-  process.exit(2)
-}
-if (isPrune && (isFetch || isAutoPush)) {
-  console.error('❌ --prune-redundant 不能与 --fetch / --auto-push 同用(两种模式各自有独立的远端校准语义)')
-  process.exit(2)
-}
-if (isBundle && (isFetch || isAutoPush || isPrune)) {
-  console.error('❌ --bundle-archive 不能与 --fetch / --auto-push / --prune-redundant 同用(归档是只读打包,不掺远端校准与删 tag)')
-  process.exit(2)
-}
 // 2026-09-17 根治:--auto-push 只推"远端缺失"的 tag(增量),不再每次全量推 5000 个。
 //   旧行为: 每次 commit 后同步 `git push --atomic`(全部 tag) → 10+ 分钟阻塞 post-commit,
 //   表现 = "推送早已完成但终端一直挂着等"。新行为: ls-remote 比对 → 只推缺失项(通常 0~3 个),
@@ -351,12 +285,8 @@ function printHelp() {
   console.log('  --check       校验**全命名空间** tag 本地+远端一致性(名字 + SHA)(默认)')
   console.log('  --fetch       从 origin 拉回全部 tag(以 origin 为权威校准本地)')
   console.log('  --auto-push   把本地未上 origin 的 tag 推到 origin(post-commit 钩子调用)')
-  console.log('  --prune-redundant  列出"提交已在远端分支"的冗余 lost-commit/* tag(默认 dry-run)')
-  console.log('  --bundle-archive=<绝对目录>  把 lost-commit/* 备份 tag 打成离线 bundle 并双验')
-  console.log('  --if-changed  配合 --bundle-archive 用:集合指纹未变且归档在位则跳过')
   console.log('')
   console.log('标志:')
-  console.log('  --apply       配合 --prune-redundant 用,真删冗余 tag(不加则只报不删)')
   console.log('  --dry-run     配合 --auto-push 用,只打印不实际 push')
   console.log('  --force       绕过限流与积压闸门;不得覆盖远端已有且 SHA 不同的备份 tag')
   console.log('  --json        配合 --check 用,输出 JSON 格式')
@@ -549,287 +479,6 @@ function diffTagMaps(localMap, remoteMap) {
   const onlyRemoteBackup = onlyRemote.filter(isBackupNamespace)
   const onlyRemoteOther = onlyRemote.filter((t) => !isBackupNamespace(t))
   return { onlyLocal, onlyRemote, shaMismatch, onlyRemoteBackup, onlyRemoteOther }
-}
-
-/**
- * 远端可达提交集(所有 remote-tracking refs)。取不到 ⇒ null(调用方 fail-closed,绝不按空集删东西)。
- * 用 `--remotes` 而不是只看 origin/main:其他远端的跟踪分支同样是"已在远端存在"的证据。
- */
-function listRemoteReachableCommits() {
-  try {
-    const out = gitRaw(['rev-list', '--remotes'], process.cwd(), {
-      maxBuffer: 64 * 1024 * 1024,
-      timeout: 180000,
-    })
-    return new Set(out.split('\n').filter(Boolean))
-  } catch (e) {
-    console.error(
-      `${C.red}❌ git rev-list --remotes 失败,拿不到"哪些提交已在远端"的真值:${e?.message ?? e}${C.reset}`,
-    )
-    return null
-  }
-}
-
-/**
- * 纯函数:冗余备份 tag 清单。
- * 冗余 = ① 属 `lost-commit/` 命名空间;② peel 后提交可从 remote-tracking refs 到达;
- *        ③ 远端没有同名 tag(远端存在即由远端背书,不由本地删)。
- * 只吃已取好的三份真值,便于单测直接喂夹具。
- */
-export function redundantBackupTags(localMap, reachableCommits, remoteTagNames) {
-  const out = []
-  for (const [name, sha] of localMap) {
-    if (!name.startsWith('lost-commit/')) continue
-    if (remoteTagNames.has(name)) continue
-    // tag 名来自 for-each-ref,天然是合法 ref;这里仍挡住空白/控制字符,避免拼进 update-ref 输入时串行
-    if (/[\s\x00-\x1f]/.test(name)) continue
-    if (sha && reachableCommits.has(sha)) out.push(name)
-  }
-  out.sort()
-  return out
-}
-
-/**
- * 删 tag 同趟摘掉 gitdir 里的 `refs-manifest.json` 条目(2026-11-12 立,第二轮根因)。
- *
- * 立因:守护的「缺 ref 自愈」把 refs-manifest.json 当快照,发现清单里有、refs 里没有的
- * 嵌套 ref 就用 `git update-ref` 写回。而 backend tag 正是**故意删掉**的冗余 ref ⇒
- * 实测删 8,087 枚后 8 分钟内被原样回灌 8,759 枚(日志逐行 `- refs/tags/lost-commit/<sha> = …`),
- * 清理与自愈互相拉锯。清单是机器态(在 gitdir,不在仓内),所以这一步只能跟着删除动作走。
- *
- * 判据:清单不存在 = 该机没这套自愈 ⇒ 跳过;存在但读不动/形态不对 ⇒ **返回失败且一枚不删**
- * (先判后删:删是不可回滚的,清单写不进去就不该开始删)。
- */
-function pruneRefsManifest(deletedTagNames) {
-  try {
-    const gitDir = runGit(['rev-parse', '--absolute-git-dir']).trim()
-    const file = join(gitDir, 'refs-manifest.json')
-    if (!existsSync(file)) return { ok: true, skipped: true, file }
-    let map
-    try {
-      map = JSON.parse(readFileSync(file, 'utf8'))
-    } catch (e) {
-      return { ok: false, why: `refs 清单不可解析:${String(e?.message ?? e).slice(0, 120)}` }
-    }
-    if (!map || typeof map !== 'object' || Array.isArray(map)) {
-      return { ok: false, why: 'refs 清单形态不是对象' }
-    }
-    let removed = 0
-    for (const name of deletedTagNames) {
-      const key = `refs/tags/${name}`
-      if (Object.prototype.hasOwnProperty.call(map, key)) {
-        delete map[key]
-        removed += 1
-      }
-    }
-    if (removed) writeFileSync(file, JSON.stringify(map, null, 1) + '\n', 'utf8')
-    return { ok: true, removed, file }
-  } catch (e) {
-    return { ok: false, why: String(e?.message ?? e).slice(0, 160) }
-  }
-}
-
-/**
- * --prune-redundant:复位"备份 tag 单调增长"(2026-11-12 机主令)。
- * 默认只报不删;`--apply` 才真删。删除走单进程 `git update-ref --stdin`(8 千枚不必起 8 千个进程),
- * 删完复读一遍给出实删数与剩余数 —— 计数与判定同一趟读数,不靠"以为删了"。
- */
-function pruneRedundantMode() {
-  console.log(`${C.cyan}${C.bold}🧹 冗余 lost-commit/* tag 清理(默认 dry-run)${C.reset}`)
-
-  const localMap = listLocalTagMap()
-  const localLostCount = [...localMap.keys()].filter((t) => t.startsWith('lost-commit/')).length
-  if (localLostCount === 0) {
-    console.log(`  ${C.dim}本地无 lost-commit/* tag,无需清理${C.reset}`)
-    process.exit(0)
-  }
-
-  // 远端 tag 名字集:取不到 ⇒ exit 2(不能把"读不到远端"当成"远端没有")
-  const remoteMap = requireRemoteTagMap('prune-redundant')
-  const reachable = listRemoteReachableCommits()
-  if (reachable === null) {
-    console.error(`${C.red}❌ 取不到远端可达提交集 ⇒ 本轮不做任何删除(宁可停,绝不误删唯一备份)${C.reset}`)
-    process.exit(2)
-  }
-
-  const redundant = redundantBackupTags(localMap, reachable, new Set(remoteMap.keys()))
-  console.log(
-    `  ${C.dim}本地 lost-commit/*: ${localLostCount} 枚 | 冗余(提交已在远端分支): ${redundant.length} 枚 | 保留(唯一备份): ${localLostCount - redundant.length} 枚${C.reset}`,
-  )
-  if (redundant.length === 0) {
-    console.log(`  ${C.green}✅ 无冗余,无需清理${C.reset}`)
-    process.exit(0)
-  }
-  console.log(`  ${C.yellow}冗余样例:${C.reset} ${nameList(redundant)}`)
-
-  if (!isApply) {
-    console.log(
-      `\n${C.yellow}⚠️  dry-run:未删除任何 tag。确认后执行:${C.reset}\n   ${C.cyan}node scripts/sync-lost-commit-tags.mjs --prune-redundant --apply${C.reset}`,
-    )
-    process.exit(0)
-  }
-
-  // 先摘清单再删 ref:清单写不进去就不该开始删(删是不可回滚的,清单留着会让自愈把删掉的写回来)
-  const manifest = pruneRefsManifest(redundant)
-  if (!manifest.ok) {
-    console.error(`${C.red}❌ refs 清单摘除失败 ⇒ 本轮一枚不删:${C.reset} ${manifest.why}`)
-    process.exit(2)
-  }
-
-  const cmds = redundant.map((t) => `delete refs/tags/${t}`).join('\n') + '\n'
-  try {
-    runGit(['update-ref', '--stdin'], {
-      input: cmds,
-      stdio: ['pipe', 'pipe', 'pipe'],
-      timeout: 120000,
-    })
-  } catch (e) {
-    console.error(`${C.red}❌ 删除失败:${C.reset} ${String((e?.stderr || e?.message || e)).slice(0, 1200)}`)
-    process.exit(1)
-  }
-
-  // 复读:实删数 + 剩余数必须同一趟读数给出(不得拿"计划删"当"已删")
-  const afterMap = listLocalTagMap()
-  const afterLost = [...afterMap.keys()].filter((t) => t.startsWith('lost-commit/')).length
-  const still = redundant.filter((t) => afterMap.has(t))
-  console.log(
-    `\n${C.green}✅ 已删除 ${redundant.length - still.length} 枚冗余 tag;本地 lost-commit/* 剩余 ${afterLost} 枚${C.reset}`,
-  )
-  if (still.length > 0) {
-    console.error(`${C.red}❌ ${still.length} 枚未被删除(点名):${C.reset} ${nameList(still)}`)
-    process.exit(1)
-  }
-  if (manifest.skipped) {
-    console.log(`  ${C.dim}refs 清单:该机无 gitdir/refs-manifest.json,跳过(无自愈回灌面)${C.reset}`)
-  } else {
-    console.log(
-      `  ${C.dim}refs 清单:摘除 ${manifest.removed} 条(${manifest.file}),自愈不会再把这些 tag 写回${C.reset}`,
-    )
-  }
-  process.exit(0)
-}
-
-/**
- * --bundle-archive=<绝对目录> [--if-changed] [--dry-run]:把 lost-commit/* 备份 tag 打成离线 bundle。
- * 立因(2026-11-12):唯一备份面实测 596 提交 / 193,786 对象 / 7.8GB 未压缩 ——
- * 推 origin 既违背"增长产线停用"的机主令,也会把远端仓库撑爆;正解是**单文件冷归档 + 可复验**:
- *   ① 只有 peel 后提交不在 remote-tracking refs 里的 tag 才计入"唯一备份集";
- *   ② 集合指纹不变且旧归档在位时 --if-changed 直接跳过(定时任务日常零写入);
- *   ③ 写完立刻 `git bundle list-heads` + `git bundle verify` 双验,refs 数必须等于本地 tag 数;
- *      失败即删半成品,绝不把"写了一半的文件"当归档(§0.3)。
- * 归档目录禁止落在工作树内 —— 7.8GB 文件混进仓库树就是下一次误提交事故。
- */
-function bundleArchiveMode() {
-  const dir = resolve(bundleDir)
-  const repoRoot = resolve(process.cwd())
-  if (dir === repoRoot || dir.startsWith(repoRoot + sep)) {
-    console.error(`${C.red}❌ 归档目录不能落在仓库工作树内(会被误提交):${dir}${C.reset}`)
-    process.exit(2)
-  }
-
-  const localMap = listLocalTagMap()
-  const tags = [...localMap].filter(([name]) => name.startsWith('lost-commit/'))
-  console.log(`${C.cyan}${C.bold}🗄  lost-commit/* 冷归档(离线 bundle)${C.reset}`)
-  if (tags.length === 0) {
-    console.log(`  ${C.dim}本地无 lost-commit/* tag,无需归档${C.reset}`)
-    process.exit(0)
-  }
-
-  const reachable = listRemoteReachableCommits()
-  if (reachable === null) {
-    console.error(`${C.red}❌ 取不到远端可达提交集 ⇒ 无法判定"唯一备份集",本轮不归档${C.reset}`)
-    process.exit(2)
-  }
-  const unique = tags.filter(([, sha]) => !reachable.has(sha))
-  const uniqueCommits = new Set(unique.map(([, sha]) => sha)).size
-  if (unique.length === 0) {
-    console.log(`  ${C.dim}全部备份 tag 的提交都已在远端,无唯一备份需要归档${C.reset}`)
-    process.exit(0)
-  }
-
-  const setHash = createHash('sha256')
-    .update(unique.map(([n, s]) => `${n}:${s}`).sort().join('\n'))
-    .digest('hex')
-  console.log(
-    `  ${C.dim}备份 tag ${tags.length} 枚 | 唯一提交 ${uniqueCommits} 个 | 集合指纹 ${setHash.slice(0, 16)}${C.reset}`,
-  )
-
-  const manifestPath = join(dir, 'lost-commits.manifest.json')
-  let prev = null
-  try {
-    prev = JSON.parse(readFileSync(manifestPath, 'utf8'))
-  } catch {
-    /* 无台账 = 首轮 */
-  }
-  if (isIfChanged && prev && prev.setHash === setHash && prev.bundle && existsSync(prev.bundle)) {
-    console.log(`  ${C.dim}--if-changed:集合未变且归档在位 ⇒ 跳过(${prev.bundle})${C.reset}`)
-    process.exit(0)
-  }
-
-  const stamp = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14)
-  const bundlePath = join(dir, `lost-commits-${stamp}.bundle`)
-  if (isDryRun) {
-    console.log(`  ${C.yellow}--dry-run:将写入 ${bundlePath}(未写任何文件)${C.reset}`)
-    process.exit(0)
-  }
-
-  mkdirSync(dir, { recursive: true })
-  console.log(`  ${C.dim}打包中(读全量对象闭包,首次/集合变更时耗时较长)...${C.reset}`)
-  try {
-    runGit(['bundle', 'create', bundlePath, '--glob=refs/tags/lost-commit/*'], {
-      timeout: 1800000,
-      stdio: ['ignore', 'pipe', 'pipe'],
-    })
-    const heads = runGit(['bundle', 'list-heads', bundlePath], { timeout: 300000 })
-      .split('\n')
-      .filter(Boolean)
-    runGit(['bundle', 'verify', bundlePath], {
-      timeout: 1800000,
-      stdio: ['ignore', 'pipe', 'pipe'],
-    })
-    if (heads.length !== tags.length) {
-      throw new Error(`bundle refs=${heads.length} 与本地 lost-commit tag=${tags.length} 不一致`)
-    }
-    const bytes = statSync(bundlePath).size
-    const restore = `git fetch "${bundlePath}" "refs/tags/lost-commit/*:refs/tags/lost-commit/*"`
-    writeFileSync(
-      manifestPath,
-      JSON.stringify(
-        {
-          createdAt: new Date().toISOString(),
-          setHash,
-          bundle: bundlePath,
-          bundleBytes: bytes,
-          tags: tags.length,
-          uniqueCommits,
-          verified: true,
-          restore,
-        },
-        null,
-        2,
-      ) + '\n',
-    )
-    // 保留最近 2 份归档(bundle 名带 yyyymmddHHMMSS,字典序即时间序)
-    const olds = readdirSync(dir)
-      .filter((f) => /^lost-commits-\d{14}\.bundle$/.test(f))
-      .sort()
-    for (const f of olds.slice(0, Math.max(0, olds.length - 2))) unlinkSync(join(dir, f))
-    console.log(
-      `  ${C.green}✅ 已归档并复验:${bundlePath}(${(bytes / 1024 / 1024).toFixed(1)} MB,refs=${heads.length})${C.reset}`,
-    )
-    console.log(`  ${C.dim}恢复命令已写入台账:${manifestPath}${C.reset}`)
-  } catch (e) {
-    try {
-      if (existsSync(bundlePath)) unlinkSync(bundlePath)
-    } catch {
-      /* 半成品删不掉也不掩盖真正的失败原因 */
-    }
-    console.error(
-      `${C.red}❌ 归档失败(已删半成品,不动任何 tag):${C.reset} ${String(e?.stderr || e?.message || e).slice(0, 1200)}`,
-    )
-    process.exit(1)
-  }
-  process.exit(0)
 }
 
 /**
@@ -1364,16 +1013,6 @@ function main() {
     return
   }
 
-  if (isPrune) {
-    pruneRedundantMode()
-    return
-  }
-
-  if (isBundle) {
-    bundleArchiveMode()
-    return
-  }
-
   // 默认 check 模式
   checkMode()
 }
@@ -1398,7 +1037,6 @@ export const __test__ = {
   isBackupNamespace,
   diffTagSets,
   diffTagMaps,
-  redundantBackupTags,
   reachabilityBatch,
   listLocalTagMap,
   lsRemoteTagMap,

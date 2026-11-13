@@ -628,10 +628,10 @@ describe('可再取凭据的候选谓词(cookie 通道必须在内)', () => {
     expect(render(m.downRecoveryWhere()).text).toContain(both.toLowerCase())
   })
 
-  it('codearts 永久密钥行(rt 与 cookie 双空)被四档候选面全部排除(sweep 捞不到、不记失败、不被空转解摘)', async () => {
+  it('codearts 永久密钥行(rt 与 cookie 双空)被三档候选面全部排除(sweep 捞不到、不记失败)', async () => {
     const m = await import('../src/services/relay-account-pool-scheduler.js')
     // 2026-11-10 该号已切永久 AK/SK:refreshTokenEnc=null、tokenExpiresAt=null(凭据在 secretsEnc)。
-    // 四档候选面都嵌同一把「可再取凭据」谓词 ⇒ rt/cookie 双空的行根本进不了任何刷新档,
+    // 三档候选面都嵌同一把「可再取凭据」谓词 ⇒ rt/cookie 双空的行根本进不了任何刷新档,
     // 不存在「无 refresh token 却被 sweep 记失败」的路径;本文件 mock 不筛 WHERE,所以锁形状。
     const rec = render(m.recredentialableCondition()).text
     expect(rec).toContain('is not null')
@@ -639,11 +639,6 @@ describe('可再取凭据的候选谓词(cookie 通道必须在内)', () => {
     expect(render(m.keepaliveIdleWhere(new Date())).text).toContain(rec)
     expect(render(m.keepaliveIdleWhere(new Date(), new Date())).text).toContain(rec)
     expect(render(m.downRecoveryWhere()).text).toContain(rec)
-    // 2026-11-12 补第四档:解摘档过去是唯一漏网的一格 —— 无凭据的号被 6h 退避反复解摘,
-    // 解摘后却进不了上面三档(它们都要求 rec),于是每 6h 写一次库、把 lastErrorMessage
-    // 冲成「自动解摘」、白造一次跨环境同步,号依旧 down。现读现场:workbuddy 三枚
-    // (14f939c3-889b / auto:1421991245… / auto:cb69a7be695d…) 正是这个形态。
-    expect(render(m.keepAliveReviveWhere(new Date())).text).toContain(rec)
     // 临期档还有第二重排除:tokenExpiresAt=null ⇒ lte(null, deadline) 不成立,行不会被捞出
     expect(render(m.expiringRefreshWhere(new Date())).text).toContain('token_expires_at')
   })

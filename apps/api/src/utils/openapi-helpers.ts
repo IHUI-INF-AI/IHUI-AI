@@ -31,7 +31,7 @@ function readApiVersion(): string {
 }
 
 /** IHUI AI 平台统一联系邮箱。 */
-export const IHUI_CONTACT_EMAIL = 'lizong@aizhs.top'
+export const IHUI_CONTACT_EMAIL = 'api@aizhs.top'
 
 /** IHUI AI 平台统一文档/品牌信息。 */
 export const IHUI_OPENAPI_INFO = {

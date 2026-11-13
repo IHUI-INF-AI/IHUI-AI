@@ -317,7 +317,7 @@ const LANDING_HTML = `<!DOCTYPE html>
       <details><summary>支持退款吗?</summary><p>VIP 订阅为虚拟商品,支付后不支持退款,请确认后再购买</p></details>
       <details><summary>可以用微信支付吗?</summary><p>目前正在接入微信支付,当前支持支付宝扫码支付</p></details>
       <details><summary>VIP 权益会变吗?</summary><p>我们持续迭代 VIP 权益,已购用户享有新增权益,不会减少</p></details>
-      <details><summary>发票怎么开?</summary><p>支付后联系客服 lizong@aizhs.top 开具电子发票</p></details>
+      <details><summary>发票怎么开?</summary><p>支付后联系客服 IHUI-AI@aizhs.top 开具电子发票</p></details>
     </div>
   </section>
 

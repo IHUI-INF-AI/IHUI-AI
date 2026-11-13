@@ -17,7 +17,10 @@ const h = vi.hoisted(() => {
       state.toolCalls = state.toolCalls.map((t) => (t.id === toolCallId ? { ...t, ...updates } : t))
     },
   )
-  return { state, updateToolCall }
+  const addToolCall = vi.fn((_messageId: string, card: { id: string } & Partial<Row>): void => {
+    state.toolCalls = [...state.toolCalls, { ...card } as Row]
+  })
+  return { state, updateToolCall, addToolCall }
 })
 
 vi.mock('@/stores/chat', () => ({
@@ -25,6 +28,7 @@ vi.mock('@/stores/chat', () => ({
     getState: () => ({
       messages: [{ id: 'm1', toolCalls: h.state.toolCalls }],
       updateToolCall: h.updateToolCall,
+      addToolCall: h.addToolCall,
     }),
   },
 }))
@@ -41,6 +45,7 @@ const evt = (over: Partial<{ toolCallId: string; seq: number; partialText: strin
 describe('createToolDeltaHandler — D113 流中 diff 预览', () => {
   beforeEach(() => {
     h.updateToolCall.mockClear()
+    h.addToolCall.mockClear()
     h.state.toolCalls = [{ id: 'tc-1' }]
   })
 
@@ -81,9 +86,14 @@ describe('createToolDeltaHandler — D113 流中 diff 预览', () => {
     expect(h.updateToolCall).not.toHaveBeenCalled()
   })
 
-  it('列表里无该 toolCallId(start 帧未到)→ 不凭空造条目,零写入', () => {
-    createToolDeltaHandler('m1')(evt({ toolCallId: 'ghost' }))
-    expect(h.updateToolCall).not.toHaveBeenCalled()
+  it('早到帧:列表无该 toolCallId(start帧未到)→ A1 修复后自建占位卡接住 delta,不丢', () => {
+    // A1(2026-11-13):旧实现 `if (!tc) return` 会静默丢弃早到 delta,D113 实时 diff 整段丢。
+    // 修复后与 openai 路径对齐——自建占位卡并应用 delta,后续 tool-call-start 到达补全字段。
+    createToolDeltaHandler('m1')(evt({ toolCallId: 'ghost', partialText: '早到内容' }))
+    expect(h.addToolCall).toHaveBeenCalledWith(
+      'm1',
+      expect.objectContaining({ id: 'ghost', status: 'running', partialDiff: '早到内容' }),
+    )
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

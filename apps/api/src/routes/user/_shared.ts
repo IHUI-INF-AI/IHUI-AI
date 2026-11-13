@@ -39,7 +39,7 @@ export function parseIdParam(request: FastifyRequest, reply: FastifyReply) {
   return parsed.data.id
 }
 
-/** 知识库文章列表/详情是公开内容(首页教育概览需展示给所有用户),GET 不强制登录 */
+/** 知识库文章列表/详情是公开内容(首页教育概览需展示给所有用户),GET 跳过鉴权 */
 const isPublicKnowledgeGet = (req: FastifyRequest): boolean => {
   if (req.method !== 'GET') return false
   const path = (req.url.split('?')[0] ?? '').replace(/^\/api/, '')
@@ -48,16 +48,7 @@ const isPublicKnowledgeGet = (req: FastifyRequest): boolean => {
 
 /** 统一鉴权 preHandler:所有路由都需要登录(知识库 GET 列表/详情除外) */
 export async function userAuthPreHandler(request: FastifyRequest, reply: FastifyReply) {
-  if (isPublicKnowledgeGet(request)) {
-    // F-94:公开读不强制登录,但尽力解析身份 —— 作者凭 token 才能预览自己的草稿;
-    // 匿名或凭证失效时按公开口径继续(可见性条件在查询层收口,不在这里放行数据)。
-    try {
-      await authenticate(request)
-    } catch {
-      // 无凭证/凭证失效:匿名公开读
-    }
-    return
-  }
+  if (isPublicKnowledgeGet(request)) return
   try {
     await authenticate(request)
   } catch (e) {

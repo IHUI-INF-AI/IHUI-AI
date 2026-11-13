@@ -186,9 +186,7 @@ export async function markInvitationUsed(data: MarkUsedInput): Promise<Invitatio
       status: 'used',
       usedAt: new Date(),
     })
-    // F-15:占用必须是条件 UPDATE —— 仅当仍是 unused 才抢占成功。并发两个注册请求
-    // 只有一个能拿到 returning 行,抢不到的一方返回 undefined,调用方据此不发放奖励。
-    .where(and(eq(invitationCodes.id, data.id), eq(invitationCodes.status, 'unused')))
+    .where(eq(invitationCodes.id, data.id))
     .returning(invitationFields)
   return rows[0]
 }

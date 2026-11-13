@@ -1,0 +1,1002 @@
+{
+  "a11y": {
+    "images_without_alt": 0,
+    "landmarks": {
+      "banner": 1,
+      "navigation": 1
+    },
+    "lang": "zh-CN",
+    "unnamed_controls": 0,
+    "unnamed_examples": []
+  },
+  "assets": {
+    "images": []
+  },
+  "design": {
+    "backgrounds": [
+      {
+        "count": 6,
+        "value": "#ffffff"
+      },
+      {
+        "count": 2,
+        "value": "#f9fafb"
+      },
+      {
+        "count": 1,
+        "value": "#2631480f"
+      },
+      {
+        "count": 1,
+        "value": "#e4edfd"
+      },
+      {
+        "count": 1,
+        "value": "#f5f6f7"
+      },
+      {
+        "count": 1,
+        "value": "#4176e6"
+      },
+      {
+        "count": 1,
+        "value": "#0f1115"
+      }
+    ],
+    "font_sizes": [
+      {
+        "count": 12,
+        "value": "14px"
+      },
+      {
+        "count": 6,
+        "value": "12px"
+      },
+      {
+        "count": 4,
+        "value": "13px"
+      },
+      {
+        "count": 1,
+        "value": "26px"
+      },
+      {
+        "count": 1,
+        "value": "20px"
+      }
+    ],
+    "font_weights": [
+      {
+        "count": 17,
+        "value": "400"
+      },
+      {
+        "count": 7,
+        "value": "500"
+      }
+    ],
+    "fonts": [
+      {
+        "count": 23,
+        "value": "-apple-system, BlinkMacSystemFont, \"Segoe UI\", \"PingFang SC\", \"Hiragino Sans GB\", \"Microsoft YaHei\", \"Helvetica Neue\", Helvetica, Arial, sans-serif, -apple-system, BlinkMacSystemFont, \"Segoe UI\", \"PingFang SC\", \"Hiragino Sans GB\", \"Microsoft YaHei\", \"Helvetica Neue\", Helvetica, Arial, sans-serif"
+      },
+      {
+        "count": 1,
+        "value": "\"SF Mono\", \"JetBrains Mono\", \"Fira Code\", Consolas, \"Liberation Mono\", Menlo, Courier, \"PingFang SC\", \"Microsoft YaHei\", \"SF Mono\", \"JetBrains Mono\", \"Fira Code\", Consolas, \"Liberation Mono\", Menlo, Courier, \"PingFang SC\", \"Microsoft YaHei\""
+      }
+    ],
+    "max_widths": [
+      {
+        "count": 2,
+        "value": "774.4px"
+      },
+      {
+        "count": 1,
+        "value": "200px"
+      },
+      {
+        "count": 1,
+        "value": "28px"
+      },
+      {
+        "count": 1,
+        "value": "60px"
+      },
+      {
+        "count": 1,
+        "value": "220px"
+      },
+      {
+        "count": 1,
+        "value": "360px"
+      }
+    ],
+    "radii": [
+      {
+        "count": 10,
+        "value": "8px"
+      },
+      {
+        "count": 9,
+        "value": "12px"
+      },
+      {
+        "count": 3,
+        "value": "999px"
+      },
+      {
+        "count": 2,
+        "value": "28px"
+      }
+    ],
+    "shadows": [
+      {
+        "count": 1,
+        "value": "rgba(0, 0, 0, 0.1) 0px 0px 0px 0.5px, rgba(0, 0, 0, 0.03) 0px 4px 16px 0px, rgba(0, 0, 0, 0.03) 0px 0px 24px 0px"
+      },
+      {
+        "count": 1,
+        "value": "rgba(0, 0, 0, 0.16) 0px 0px 0px 0.5px, rgba(0, 0, 0, 0.04) 0px 3px 8px 0px, rgba(0, 0, 0, 0.05) 0px 0px 20px 0px"
+      }
+    ],
+    "spacing": [
+      {
+        "count": 29,
+        "value": "8px"
+      },
+      {
+        "count": 27,
+        "value": "4px"
+      },
+      {
+        "count": 21,
+        "value": "6px"
+      },
+      {
+        "count": 19,
+        "value": "12px"
+      },
+      {
+        "count": 10,
+        "value": "2px"
+      },
+      {
+        "count": 10,
+        "value": "9px"
+      },
+      {
+        "count": 9,
+        "value": "7px"
+      },
+      {
+        "count": 7,
+        "value": "1px"
+      },
+      {
+        "count": 7,
+        "value": "24px"
+      },
+      {
+        "count": 5,
+        "value": "28px"
+      },
+      {
+        "count": 5,
+        "value": "20px"
+      },
+      {
+        "count": 4,
+        "value": "16px"
+      },
+      {
+        "count": 3,
+        "value": "10px"
+      },
+      {
+        "count": 3,
+        "value": "14px"
+      },
+      {
+        "count": 2,
+        "value": "5px"
+      },
+      {
+        "count": 2,
+        "value": "3px"
+      },
+      {
+        "count": 1,
+        "value": "32px"
+      }
+    ],
+    "text_colors": [
+      {
+        "count": 11,
+        "value": "#0f1115"
+      },
+      {
+        "count": 6,
+        "value": "#81858c"
+      },
+      {
+        "count": 3,
+        "value": "#61666b"
+      },
+      {
+        "count": 2,
+        "value": "#adb2b8"
+      },
+      {
+        "count": 1,
+        "value": "#0e3074"
+      },
+      {
+        "count": 1,
+        "value": "#ffffff"
+      }
+    ]
+  },
+  "forms": [],
+  "headings": [
+    {
+      "level": 2,
+      "text": "预览版说明"
+    }
+  ],
+  "lang": "zh-CN",
+  "layouts": [
+    {
+      "blocks": [
+        {
+          "gap": 2,
+          "h": 112,
+          "pad": [0, 0, 0, 0],
+          "per_row": 1,
+          "tag": "nav",
+          "w": 264,
+          "y": 114
+        },
+        {
+          "h": 40,
+          "pad": [10, 28, 0, 20],
+          "per_row": 1,
+          "tag": "header",
+          "w": 1160,
+          "y": 0
+        }
+      ],
+      "page_h": 900,
+      "page_w": 1440,
+      "type": {
+        "body": 14,
+        "h1": 0,
+        "h2": 20,
+        "h3": 0
+      },
+      "width": 1440
+    },
+    {
+      "blocks": [
+        {
+          "gap": 12,
+          "h": 132,
+          "pad": [0, 0, 0, 0],
+          "per_row": 1,
+          "tag": "nav",
+          "w": 35,
+          "y": 114
+        },
+        {
+          "h": 40,
+          "pad": [10, 28, 0, 20],
+          "per_row": 1,
+          "tag": "header",
+          "w": 712,
+          "y": 0
+        }
+      ],
+      "page_h": 900,
+      "page_w": 768,
+      "type": {
+        "body": 14,
+        "h1": 0,
+        "h2": 20,
+        "h3": 0
+      },
+      "width": 768
+    },
+    {
+      "blocks": [
+        {
+          "h": 40,
+          "pad": [10, 28, 0, 20],
+          "per_row": 1,
+          "tag": "header",
+          "w": 390,
+          "y": 0
+        }
+      ],
+      "page_h": 900,
+      "page_w": 390,
+      "type": {
+        "body": 14,
+        "h1": 0,
+        "h2": 20,
+        "h3": 0
+      },
+      "width": 390
+    }
+  ],
+  "links": [],
+  "outline": [
+    {
+      "box": {
+        "h": 24,
+        "w": 220,
+        "x": 16,
+        "y": 24
+      },
+      "color": "#0f1115",
+      "depth": 9,
+      "font": "13.3333px 400",
+      "tag": "button"
+    },
+    {
+      "box": {
+        "h": 18,
+        "w": 24,
+        "x": 16,
+        "y": 27
+      },
+      "color": "#0f1115",
+      "depth": 13,
+      "font": "13.3333px 400",
+      "tag": "svg"
+    },
+    {
+      "box": {
+        "h": 24,
+        "w": 156,
+        "x": 45,
+        "y": 24
+      },
+      "color": "#0f1115",
+      "depth": 13,
+      "font": "18px 600",
+      "tag": "svg"
+    },
+    {
+      "box": {
+        "h": 28,
+        "w": 28,
+        "x": 244,
+        "y": 22
+      },
+      "color": "#61666b",
+      "depth": 9,
+      "font": "13.3333px 400",
+      "tag": "button"
+    },
+    {
+      "box": {
+        "h": 16,
+        "w": 16,
+        "x": 250,
+        "y": 28
+      },
+      "color": "#61666b",
+      "depth": 10,
+      "font": "13.3333px 400",
+      "tag": "svg"
+    },
+    {
+      "background": "#ffffff",
+      "box": {
+        "h": 38,
+        "w": 256,
+        "x": 12,
+        "y": 66
+      },
+      "color": "#0f1115",
+      "depth": 8,
+      "font": "14px 500",
+      "tag": "button",
+      "text": "新会话 Ctrl + Alt + N"
+    },
+    {
+      "box": {
+        "h": 14,
+        "w": 14,
+        "x": 109,
+        "y": 78
+      },
+      "color": "#0f1115",
+      "depth": 11,
+      "font": "14px 500",
+      "tag": "svg"
+    },
+    {
+      "box": {
+        "h": 112,
+        "w": 264,
+        "x": 8,
+        "y": 114
+      },
+      "color": "#0f1115",
+      "depth": 8,
+      "display": "flex",
+      "flex": "column",
+      "font": "14px 400",
+      "tag": "nav"
+    },
+    {
+      "box": {
+        "h": 36,
+        "w": 264,
+        "x": 8,
+        "y": 114
+      },
+      "color": "#0f1115",
+      "depth": 9,
+      "font": "14px 400",
+      "tag": "button",
+      "text": "插件"
+    },
+    {
+      "box": {
+        "h": 16,
+        "w": 16,
+        "x": 20,
+        "y": 124
+      },
+      "color": "#0f1115",
+      "depth": 12,
+      "font": "14px 400",
+      "tag": "svg"
+    },
+    {
+      "box": {
+        "h": 36,
+        "w": 264,
+        "x": 8,
+        "y": 152
+      },
+      "color": "#0f1115",
+      "depth": 9,
+      "font": "14px 400",
+      "tag": "button",
+      "text": "自动化任务"
+    },
+    {
+      "box": {
+        "h": 16,
+        "w": 16,
+        "x": 20,
+        "y": 162
+      },
+      "color": "#0f1115",
+      "depth": 12,
+      "font": "14px 400",
+      "tag": "svg"
+    },
+    {
+      "box": {
+        "h": 36,
+        "w": 264,
+        "x": 8,
+        "y": 190
+      },
+      "color": "#0f1115",
+      "depth": 10,
+      "font": "14px 400",
+      "tag": "button",
+      "text": "更多"
+    },
+    {
+      "box": {
+        "h": 16,
+        "w": 16,
+        "x": 20,
+        "y": 200
+      },
+      "color": "#0f1115",
+      "depth": 12,
+      "font": "14px 400",
+      "tag": "svg"
+    },
+    {
+      "box": {
+        "h": 28,
+        "w": 28,
+        "x": 179,
+        "y": 240
+      },
+      "color": "#61666b",
+      "depth": 14,
+      "font": "13.3333px 400",
+      "tag": "button"
+    },
+    {
+      "box": {
+        "h": 14,
+        "w": 14,
+        "x": 186,
+        "y": 247
+      },
+      "color": "#61666b",
+      "depth": 15,
+      "font": "13.3333px 400",
+      "tag": "svg"
+    },
+    {
+      "box": {
+        "h": 28,
+        "w": 28,
+        "x": 211,
+        "y": 240
+      },
+      "color": "#61666b",
+      "depth": 14,
+      "font": "13.3333px 400",
+      "tag": "button"
+    },
+    {
+      "box": {
+        "h": 16,
+        "w": 16,
+        "x": 217,
+        "y": 246
+      },
+      "color": "#61666b",
+      "depth": 15,
+      "font": "13.3333px 400",
+      "tag": "svg"
+    },
+    {
+      "box": {
+        "h": 28,
+        "w": 28,
+        "x": 243,
+        "y": 240
+      },
+      "color": "#61666b",
+      "depth": 13,
+      "font": "13.3333px 400",
+      "tag": "button"
+    },
+    {
+      "box": {
+        "h": 16,
+        "w": 16,
+        "x": 249,
+        "y": 246
+      },
+      "color": "#61666b",
+      "depth": 14,
+      "font": "13.3333px 400",
+      "tag": "svg"
+    },
+    {
+      "box": {
+        "h": 578,
+        "w": 274,
+        "x": 4,
+        "y": 276
+      },
+      "color": "#0f1115",
+      "depth": 13,
+      "font": "14px 400",
+      "role": "tree",
+      "tag": "div",
+      "text": "默认工作区 新会话"
+    },
+    {
+      "box": {
+        "h": 34,
+        "w": 264,
+        "x": 8,
+        "y": 276
+      },
+      "color": "#0f1115",
+      "depth": 16,
+      "font": "14px 400",
+      "role": "treeitem",
+      "tag": "div",
+      "text": "默认工作区"
+    },
+    {
+      "box": {
+        "h": 16,
+        "w": 16,
+        "x": 20,
+        "y": 285
+      },
+      "color": "#4176e6",
+      "depth": 18,
+      "font": "14px 400",
+      "tag": "svg"
+    },
+    {
+      "background": "#2631480f",
+      "box": {
+        "h": 32,
+        "w": 264,
+        "x": 8,
+        "y": 312
+      },
+      "color": "#0f1115",
+      "depth": 16,
+      "font": "14px 400",
+      "role": "treeitem",
+      "tag": "div",
+      "text": "新会话"
+    },
+    {
+      "box": {
+        "h": 32,
+        "w": 264,
+        "x": 8,
+        "y": 858
+      },
+      "color": "#0f1115",
+      "depth": 15,
+      "font": "14px 400",
+      "tag": "button",
+      "text": "更多"
+    },
+    {
+      "box": {
+        "h": 14,
+        "w": 14,
+        "x": 20,
+        "y": 867
+      },
+      "color": "#0f1115",
+      "depth": 16,
+      "font": "14px 400",
+      "tag": "svg"
+    },
+    {
+      "box": {
+        "h": 40,
+        "w": 1160,
+        "x": 280,
+        "y": 0
+      },
+      "color": "#0f1115",
+      "depth": 11,
+      "display": "grid",
+      "font": "16px 400",
+      "grid": "0px 1112px",
+      "tag": "header"
+    },
+    {
+      "box": {
+        "h": 28,
+        "w": 28,
+        "x": 1400,
+        "y": 11
+      },
+      "color": "#61666b",
+      "depth": 16,
+      "font": "12px 400",
+      "tag": "button"
+    },
+    {
+      "box": {
+        "h": 15,
+        "w": 15,
+        "x": 1407,
+        "y": 18
+      },
+      "color": "#61666b",
+      "depth": 17,
+      "font": "12px 400",
+      "tag": "svg"
+    },
+    {
+      "box": {
+        "h": 25,
+        "w": 34,
+        "x": 727,
+        "y": 355
+      },
+      "color": "#0f1115",
+      "depth": 21,
+      "font": "26px 500",
+      "tag": "svg"
+    },
+    {
+      "box": {
+        "h": 28,
+        "w": 117,
+        "x": 473,
+        "y": 407
+      },
+      "color": "#0f1115",
+      "depth": 17,
+      "font": "13px 500",
+      "tag": "button",
+      "text": "默认工作区"
+    },
+    {
+      "box": {
+        "h": 16,
+        "w": 16,
+        "x": 481,
+        "y": 413
+      },
+      "color": "#0f1115",
+      "depth": 18,
+      "font": "13px 500",
+      "tag": "svg"
+    },
+    {
+      "box": {
+        "h": 12,
+        "w": 12,
+        "x": 570,
+        "y": 415
+      },
+      "color": "#adb2b8",
+      "depth": 18,
+      "font": "13px 500",
+      "tag": "svg"
+    },
+    {
+      "box": {
+        "h": 28,
+        "w": 106,
+        "x": 594,
+        "y": 407
+      },
+      "color": "#0f1115",
+      "depth": 19,
+      "font": "13px 500",
+      "tag": "button",
+      "text": "标准模式"
+    },
+    {
+      "box": {
+        "h": 16,
+        "w": 16,
+        "x": 602,
+        "y": 413
+      },
+      "color": "#0f1115",
+      "depth": 20,
+      "font": "13px 500",
+      "tag": "svg"
+    },
+    {
+      "box": {
+        "h": 14,
+        "w": 14,
+        "x": 678,
+        "y": 414
+      },
+      "color": "#adb2b8",
+      "depth": 20,
+      "font": "13px 500",
+      "tag": "svg"
+    },
+    {
+      "box": {
+        "h": 52,
+        "w": 770,
+        "x": 469,
+        "y": 451
+      },
+      "color": "#0f1115",
+      "depth": 21,
+      "font": "14px 400",
+      "role": "textbox",
+      "tag": "div"
+    },
+    {
+      "background": "#f5f6f7",
+      "box": {
+        "h": 28,
+        "w": 28,
+        "x": 477,
+        "y": 520
+      },
+      "color": "#0f1115",
+      "depth": 21,
+      "font": "13.3333px 400",
+      "tag": "button"
+    },
+    {
+      "box": {
+        "h": 14,
+        "w": 14,
+        "x": 484,
+        "y": 527
+      },
+      "color": "#0f1115",
+      "depth": 22,
+      "font": "13.3333px 400",
+      "tag": "svg"
+    },
+    {
+      "box": {
+        "h": 28,
+        "w": 126,
+        "x": 517,
+        "y": 520
+      },
+      "color": "#61666b",
+      "depth": 24,
+      "font": "13px 500",
+      "tag": "button",
+      "text": "工作区内修改"
+    },
+    {
+      "box": {
+        "h": 14,
+        "w": 14,
+        "x": 525,
+        "y": 527
+      },
+      "color": "#61666b",
+      "depth": 26,
+      "font": "13px 500",
+      "tag": "svg"
+    },
+    {
+      "box": {
+        "h": 14,
+        "w": 14,
+        "x": 625,
+        "y": 527
+      },
+      "color": "#adb2b8",
+      "depth": 26,
+      "font": "13px 500",
+      "tag": "svg"
+    },
+    {
+      "box": {
+        "h": 28,
+        "w": 183,
+        "x": 995,
+        "y": 520
+      },
+      "color": "#61666b",
+      "depth": 24,
+      "font": "13px 400",
+      "tag": "button",
+      "text": "DeepSeek-V4.1-Flash High"
+    },
+    {
+      "box": {
+        "h": 14,
+        "w": 14,
+        "x": 1160,
+        "y": 527
+      },
+      "color": "#adb2b8",
+      "depth": 25,
+      "font": "13px 400",
+      "tag": "svg"
+    },
+    {
+      "background": "#4176e6",
+      "box": {
+        "h": 34,
+        "w": 34,
+        "x": 1202,
+        "y": 515
+      },
+      "color": "#ffffff",
+      "depth": 21,
+      "font": "13.3333px 400",
+      "tag": "button"
+    },
+    {
+      "box": {
+        "h": 16,
+        "w": 16,
+        "x": 1211,
+        "y": 524
+      },
+      "color": "#ffffff",
+      "depth": 22,
+      "font": "13.3333px 400",
+      "tag": "svg"
+    },
+    {
+      "box": {
+        "h": 900,
+        "w": 1440,
+        "x": 0,
+        "y": 0
+      },
+      "color": "#0f1115",
+      "depth": 2,
+      "font": "16px 400",
+      "role": "presentation",
+      "tag": "div",
+      "text": "预览版说明 DeepSeek Harness 目前的 0.2 版本仍处于预览阶段，还有许多地方需要持续改进和打磨，希望听取广大开发者和用户的反馈建议。现在，新的桌面端面向广泛用户，开发者相关的进阶功能可在配置中开启使用。预计 DeepSeek Harness 的产品功能以及插件 API 都会继续快速迭代、持续演化，并逐渐趋于稳定。 我们期待与全球用户和开发者一起，在开源、可复用、可组合的基础设施之"
+    },
+    {
+      "background": "#ffffff",
+      "box": {
+        "h": 344,
+        "w": 600,
+        "x": 420,
+        "y": 278
+      },
+      "color": "#0f1115",
+      "depth": 3,
+      "font": "16px 400",
+      "role": "dialog",
+      "tag": "div",
+      "text": "预览版说明 DeepSeek Harness 目前的 0.2 版本仍处于预览阶段，还有许多地方需要持续改进和打磨，希望听取广大开发者和用户的反馈建议。现在，新的桌面端面向广泛用户，开发者相关的进阶功能可在配置中开启使用。预计 DeepSeek Harness 的产品功能以及插件 API 都会继续快速迭代、持续演化，并逐渐趋于稳定。 我们期待与全球用户和开发者一起，在开源、可复用、可组合的基础设施之"
+    },
+    {
+      "box": {
+        "h": 28,
+        "w": 544,
+        "x": 448,
+        "y": 306
+      },
+      "color": "#0f1115",
+      "depth": 5,
+      "font": "20px 500",
+      "tag": "h2",
+      "text": "预览版说明"
+    },
+    {
+      "box": {
+        "h": 96,
+        "w": 544,
+        "x": 448,
+        "y": 354
+      },
+      "color": "#61666b",
+      "depth": 7,
+      "font": "14px 400",
+      "tag": "p",
+      "text": "DeepSeek Harness 目前的 0.2 版本仍处于预览阶段，还有许多地方需要持续改进和打磨，希望听取广大开发者和用户的反馈建议。现在，新的桌面端面向广泛用户，开发者相关的进阶功能可在配置中开启使用。预计 DeepSeek Harness 的产品功能以及插件 API 都会继续快速迭代、持续演化，并逐渐趋于稳定。"
+    },
+    {
+      "box": {
+        "h": 72,
+        "w": 544,
+        "x": 448,
+        "y": 462
+      },
+      "color": "#61666b",
+      "depth": 7,
+      "font": "14px 400",
+      "tag": "p",
+      "text": "我们期待与全球用户和开发者一起，在开源、可复用、可组合的基础设施之上，共同探索智能上限。欢迎大家用 DeepSeek Harness 将想法变成现实，与社区一起丰富插件生态。"
+    },
+    {
+      "background": "#0f1115",
+      "box": {
+        "h": 36,
+        "w": 120,
+        "x": 872,
+        "y": 558
+      },
+      "color": "#ffffff",
+      "depth": 7,
+      "font": "14px 400",
+      "tag": "button",
+      "text": "继续"
+    }
+  ],
+  "page": {
+    "h": 900,
+    "w": 1440
+  },
+  "text": "新会话 Ctrl + Alt + N 插件 自动化任务 更多 工作区 默认工作区 新会话 更多 探索未至之境 预览版 默认工作区 标准模式 描述你想要构建的内容, / 调用指令, @ 文件或对话 工作区内修改 DeepSeek-V4.1-Flash High 预览版说明 DeepSeek Harness 目前的 0.2 版本仍处于预览阶段，还有许多地方需要持续改进和打磨，希望听取广大开发者和用户的反馈建议。现在，新的桌面端面向广泛用户，开发者相关的进阶功能可在配置中开启使用。预计 DeepSeek Harness 的产品功能以及插件 API 都会继续快速迭代、持续演化，并逐渐趋于稳定。 我们期待与全球用户和开发者一起，在开源、可复用、可组合的基础设施之上，共同探索智能上限。欢迎大家用 DeepSeek Harness 将想法变成现实，与社区一起丰富插件生态。 继续",
+  "title": "DeepSeek Harness",
+  "url": "http://127.0.0.1:3080/",
+  "viewport": {
+    "h": 900,
+    "w": 1440
+  }
+}

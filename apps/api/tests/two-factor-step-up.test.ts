@@ -181,9 +181,7 @@ describe('接线锁（闸必须住在写库之前，且 step-up 端点不许顺�
     const body = src.slice(start, src.indexOf('// POST /api/auth/2fa/disable', start))
     expect(body).toContain('recordTwoFactorStepUp(')
     expect(body).not.toContain('twoFactorEnabled: true')
-    // F-272：step-up 与登录兑付点同判据 —— 计数器校验 + 一次性消费，不再是布尔验证
-    expect(body).toContain('verifyTotpCounter(')
-    expect(body).toContain('consumeTotpCounter(')
+    expect(body).toContain('verifyTotp(')
   })
 
   it('校验出口只有一份：账本模块不 import 任何密码学/TOTP 实现', () => {

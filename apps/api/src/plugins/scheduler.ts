@@ -70,6 +70,9 @@ export type ScheduledJobName =
   // 不进统计行,出勤率的分母只算"已签到的人",缺勤恒 0。判据与补录面见 services/edu-attendance-rule.ts
   // 与 services/edu-attendance-absent-job.ts(补录器不自判阈值,阈值一律走规则表现读)。
   | 'edu-attendance-absent-daily'
+  // 考勤 IM 同步(2026-11-13 立):遍历启用飞书/钉钉适配器的用户拉打卡/请假,产暂存批次走人工裁决/确认。
+  // 默认关(systemConfigs sync:attendance:enabled),端点核实后置 true 开闸;见 services/attendance-sync-job.ts。
+  | 'hr-attendance-sync-daily'
 
 export interface ScheduledJobDef {
   name: ScheduledJobName
@@ -106,6 +109,11 @@ export const SCHEDULED_JOBS: ScheduledJobDef[] = [
     name: 'activity-status-hourly',
     pattern: '0 * * * *',
     description: '活动到期自动关闭（每小时）',
+  },
+  {
+    name: 'hr-attendance-sync-daily',
+    pattern: '0 2 * * *',
+    description: '考勤 IM 同步（每日02:00，遍历启用适配器用户，默认关）',
   },
   {
     name: 'commission-settle-daily',

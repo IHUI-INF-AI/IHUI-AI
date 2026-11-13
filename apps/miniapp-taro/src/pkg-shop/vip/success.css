@@ -33,7 +33,7 @@
 
 .vs-title {
   display: block;
-  font-size: 44rpx;
+  font-size: var(--text-headline);
   font-weight: 700;
   color: var(--color-success-deep);
   text-align: center;

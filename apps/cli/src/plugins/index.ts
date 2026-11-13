@@ -47,6 +47,7 @@ export type {
   PluginDiagnosticCode,
   PluginDiagnosticSeverity,
   PluginLoadResult,
+  PluginInterfaceDeclaration,
 } from './types.js';
 
 export { PLUGIN_DIAGNOSTIC_CODES } from './types.js';
@@ -81,6 +82,25 @@ export type {
   ShadowedVersionReason,
 } from './multi-version.js';
 export { classifyContributions, contributionDiagnosticsOf } from './contribution-audit.js';
+/**
+ * 接口型工具(2026-11-13):清单 `interfaces[]` → 可调用 `Tool` 的编译面。
+ * 生产调用点 = `plugin-scan.ts`(经 `loader.ts` 的出口);此处按包口惯例一并公开,
+ * 供调用方按判别码读拒收原因,而不必自己解析清单。
+ */
+export {
+  PLUGIN_INTERFACE_PREFIX,
+  INTERFACE_REJECT_CODES,
+  compileDeclaredInterface,
+  compileDeclaredInterfaces,
+  compilePluginInterfaces,
+} from './interface-tools.js';
+export type {
+  DeclaredInterface,
+  DeclaredParam,
+  InterfaceCompileOutcome,
+  InterfaceRejectCode,
+  CompiledInterfaceTool,
+} from './interface-tools.js';
 export type {
   ContributionFinding,
   ContributionInput,

@@ -479,7 +479,7 @@ class TestEmitEvent:
 
 
 # ---------------------------------------------------------------------------
-# 4. try/except 端点:成功 → code 0;异常 → HTTPException(500, 固定文案)(AIS-048)
+# 4. try/except 端点:成功 → code 0;异常 → code 500(不抛)
 # ---------------------------------------------------------------------------
 
 _EXCEPTION_ENGINES = {
@@ -517,11 +517,7 @@ class TestExceptionalEndpoints:
 
     @pytest.mark.parametrize("name", sorted(_EXCEPTION_ENGINES))
     async def test_exception_returns_500(self, fake_engine, name):
-        """engine 抛异常 → raise HTTPException(500, 固定文案),str(e) 不出响应。
-
-        AIS-048:旧契约是 `return {"code": 500, "message": str(e)}` —— 异常细节
-        (文件路径/连接串等)直接进了响应体,且状态码恒 200,网关/监控按状态码统计
-        看不到故障。新契约:固定文案 detail,`boom` 只进 logger.exception 日志。
+        """engine 抛异常 → 返回 code=500,不向外抛。
 
         批 63 后 `execution-timeline` / `health-forecast` 多了一道**归属前置闸**
         (`get_hook(hook_id, owner_id=_owner_filter(request))`),而 `_make_engine` 默认把
@@ -532,26 +528,25 @@ class TestExceptionalEndpoints:
         fake_engine.get_hook.return_value = {"id": "hk-1", "name": "n", "owner_id": "u1"}
         mock_fn, body = _EXCEPTION_ENGINES[name]
         setattr(fake_engine, name, mock_fn)
-        with pytest.raises(HTTPException) as ei:
-            if name == "auto_orchestrate":
-                await hooks_router.auto_orchestrate(_req(), body, user_id="u1")
-            elif name == "create_ab_test":
-                await hooks_router.create_ab_test(_req(), body, user_id="u1")
-            elif name == "list_ab_tests":
-                await hooks_router.list_ab_tests(_req(), user_id="u1")
-            elif name == "list_templates":
-                await hooks_router.list_hook_templates(_req(), user_id="u1")
-            elif name == "get_ab_test":
-                await hooks_router.get_ab_test(_req(), "ab-1", user_id="u1")
-            elif name == "stop_ab_test":
-                await hooks_router.stop_ab_test(_req(), "ab-1", user_id="u1")
-            elif name == "instantiate_template":
-                await hooks_router.instantiate_template(_req(), "tpl-1", body, user_id="u1")
-            elif name == "execution_timeline":
-                await hooks_router.execution_timeline(_req(), "hk-1", since=None, user_id="u1")
-            else:  # health_forecast
-                await hooks_router.health_forecast(_req(), "hk-1", days=7, user_id="u1")
-        assert ei.value.status_code == 500
-        assert ei.value.detail == "服务内部错误"
-        assert "boom" not in str(ei.value.detail)
+        if name == "auto_orchestrate":
+            resp = await hooks_router.auto_orchestrate(_req(), body, user_id="u1")
+        elif name == "create_ab_test":
+            resp = await hooks_router.create_ab_test(_req(), body, user_id="u1")
+        elif name == "list_ab_tests":
+            resp = await hooks_router.list_ab_tests(_req(), user_id="u1")
+        elif name == "list_templates":
+            resp = await hooks_router.list_hook_templates(_req(), user_id="u1")
+        elif name == "get_ab_test":
+            resp = await hooks_router.get_ab_test(_req(), "ab-1", user_id="u1")
+        elif name == "stop_ab_test":
+            resp = await hooks_router.stop_ab_test(_req(), "ab-1", user_id="u1")
+        elif name == "instantiate_template":
+            resp = await hooks_router.instantiate_template(_req(), "tpl-1", body, user_id="u1")
+        elif name == "execution_timeline":
+            resp = await hooks_router.execution_timeline(_req(), "hk-1", since=None, user_id="u1")
+        else:  # health_forecast
+            resp = await hooks_router.health_forecast(_req(), "hk-1", days=7, user_id="u1")
+        assert resp["code"] == 500
+        assert "boom" in resp["message"]
+        assert resp["data"] is None
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

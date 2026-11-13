@@ -56,6 +56,7 @@ export {
   // 抛 TransientRefreshError,fetchApi 的 401 出口据 wasLastRefreshTransient 跳过
   // notifyUnauthorized —— 显式命名清单,漏导出端内拿到 undefined(守门 149 同一型)。
   TransientRefreshError,
+  RefreshRateLimitedError,
   wasLastRefreshTransient,
   isAbortError,
   // 2026-09-25 补能力:401 处理器注册口 —— 端内改走本包端点函数后仍能拿到"弹登录框"反馈

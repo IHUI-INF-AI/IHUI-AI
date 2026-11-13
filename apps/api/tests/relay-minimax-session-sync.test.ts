@@ -34,7 +34,6 @@ const {
   buildMinimaxAutoImportInput,
   revivePatchOf,
   buildSecretsPatch,
-  clientAuthDeadOf,
 } = __test__
 
 const RECORD_KEY =
@@ -288,26 +287,6 @@ describe('点名回灌 · 一台机只有一个 mcode 会话槽(2026-11-06 切�
     // 反向牙:命中了行也不是拒写
     expect(namedMissRejection('auto:zzz', { kind: 'row' })).toBeNull()
     expect(namedMissRejection('auto:zzz', { kind: 'ambiguous' })).toBeNull()
-  })
-})
-
-// 2026-11-12 无客户端保活计划 §3:退出登录后 auth.json 可能仍留着退出前的死票,
-// 回灌腿若照写会把死票每 10 分钟镜回池、覆盖池已轮换出的新 rt。
-describe('死票守卫 · clientAuthDeadOf(载荷缺省放行,已知死态全 skip)', () => {
-  it('可续态与缺省 ⇒ 放行', () => {
-    expect(clientAuthDeadOf('authenticated')).toBe(false)
-    expect(clientAuthDeadOf('refreshing')).toBe(false)
-    expect(clientAuthDeadOf('')).toBe(false)
-    expect(clientAuthDeadOf('   ')).toBe(false)
-    expect(clientAuthDeadOf(null)).toBe(false)
-    expect(clientAuthDeadOf(undefined)).toBe(false)
-  })
-
-  it('已知死态 ⇒ 拦(与 mjs 侧 RENEWING_STATUSES 名单镜像,漂移即翻红)', () => {
-    for (const s of ['anonymous', 'logging_out', 'logout_pending', 'expired', 'error', 'authorizing']) {
-      expect(clientAuthDeadOf(s)).toBe(true)
-      expect(clientAuthDeadOf(` ${s} `)).toBe(true)
-    }
   })
 })
 

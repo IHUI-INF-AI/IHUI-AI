@@ -1,0 +1,38 @@
+{
+  "states": [
+    {
+      "changed": [],
+      "file": "state-1.png",
+      "index": 0,
+      "kind": "menu",
+      "label": "更多",
+      "sha256": "0079172fe1de26249e8d0170e41c2499c41662d4719fd18096a6401dfe4693b3"
+    },
+    {
+      "changed": ["expanded"],
+      "file": "state-2.png",
+      "index": 1,
+      "kind": "menu",
+      "label": "搜索会话",
+      "sha256": "40577d54eac09176ee1804b9a3ee13d03ee49e9f24347910f06c51520f243f1b"
+    },
+    {
+      "changed": [],
+      "file": "state-3.png",
+      "index": 2,
+      "kind": "menu",
+      "label": "更多",
+      "sha256": "0079172fe1de26249e8d0170e41c2499c41662d4719fd18096a6401dfe4693b3"
+    },
+    {
+      "changed": [],
+      "file": "state-4.png",
+      "index": 3,
+      "kind": "menu",
+      "label": "默认工作区",
+      "sha256": "0079172fe1de26249e8d0170e41c2499c41662d4719fd18096a6401dfe4693b3"
+    }
+  ],
+  "url": "http://127.0.0.1:3080/",
+  "width": 1440
+}

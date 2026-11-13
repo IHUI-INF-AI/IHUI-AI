@@ -147,6 +147,10 @@ describe('租户头不得切库，缺省不得 fail-open', () => {
     }
     app.get('/api/private', capture)
     app.get('/api/health', capture)
+    // 2026-11-12:WS 面的替身路由(真实 /ws/* 是 websocket 路由,这里只需验证租户闸的放行面)
+    app.get('/ws/relay/chat', capture)
+    app.get('/ws/notifications', capture)
+    app.get('/wsXYZ/probe', capture)
     await app.ready()
   })
 
@@ -284,6 +288,39 @@ describe('租户头不得切库，缺省不得 fail-open', () => {
       expect(res.statusCode).toBe(200)
       expect(seen.handled).toBe(true)
       expect(seen.tenantDB).toBe(routed.defaultMarker)
+    } finally {
+      if (prev === undefined) delete process.env.TENANT_STRICT_MODE
+      else process.env.TENANT_STRICT_MODE = prev
+    }
+  })
+
+  /**
+   * 2026-11-12:WS 全族在严格缺省下不得被租户闸拦死。
+   *
+   * 事故形状(本机 8802 实测):浏览器 WebSocket 握手无法自带 header,租户标识只剩子域名
+   * 一条载体,而 api.aizhs.top 的 `api` 属保留子域 ⇒ 恒无标识 ⇒ 全族 WS 结构性 401。
+   * 本用例在**真实 Fastify 实例**上钉住修复:同类请求过闸到达 handler,同级兄弟路径仍被拒。
+   */
+  it('WS 路由免租户(严格缺省下可到达 handler)', async () => {
+    const prev = process.env.TENANT_STRICT_MODE
+    delete process.env.TENANT_STRICT_MODE
+    try {
+      for (const url of ['/ws/relay/chat?token=probe', '/ws/notifications?token=probe']) {
+        seen = blankObserved()
+        const res = await app.inject({ method: 'GET', url })
+        expect(res.statusCode, `${url} 必须过租户闸`).toBe(200)
+        expect(seen.handled).toBe(true)
+        // 免租户 ≠ 有租户:闸放行但不注入 tenantId,WS 面本就按 userId 隔离
+        expect(seen.tenantId).toBeUndefined()
+      }
+      // 反向牙:段边界外的兄弟路径仍必须 401,证明豁免不是「/ws 开头就放」
+      seen = blankObserved()
+      const sibling = await app.inject({ method: 'GET', url: '/wsXYZ/probe' })
+      expect(sibling.statusCode).toBe(401)
+      expect(seen.handled).toBe(false)
+      // 反向牙:普通受保护业务路径不受本次改动影响
+      const biz = await app.inject({ method: 'GET', url: '/api/private' })
+      expect(biz.statusCode).toBe(401)
     } finally {
       if (prev === undefined) delete process.env.TENANT_STRICT_MODE
       else process.env.TENANT_STRICT_MODE = prev

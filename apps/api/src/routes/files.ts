@@ -446,11 +446,7 @@ export const fileRoutes: FastifyPluginAsync = async (server) => {
       const filePath = resolveDiskPath(file.path)
       const result = await convertToMarkdownDetailed(filePath, file.name)
       if (!result.markdown) {
-        // F-146:体积超限在服务层「读入前」判定,路由层如实透传 413;其余失败仍 422
-        const status = result.statusCode ?? 422
-        return reply
-          .status(status)
-          .send(error(status, result.error ?? '不支持的文件类型或转换失败'))
+        return reply.status(422).send(error(422, result.error ?? '不支持的文件类型或转换失败'))
       }
 
       return reply.send(success({ markdown: result.markdown, fileName: file.name }))
@@ -495,9 +491,7 @@ export const fileRoutes: FastifyPluginAsync = async (server) => {
       if (!existsSync(assetDir)) mkdirSync(assetDir, { recursive: true })
       const result = await extractDocumentAssets(filePath, file.name, assetDir)
       if (result.error) {
-        // F-146:体积超限在服务层「读入前」判定,路由层如实透传 413
-        const status = result.statusCode ?? 422
-        return reply.status(status).send(error(status, result.error))
+        return reply.status(422).send(error(422, result.error))
       }
 
       const assets = result.assets.map((a) => ({
@@ -869,9 +863,6 @@ export const fileRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/files/upload/octet',
     {
-      // F-283:octet-stream 由 addContentTypeParser 接管,不显式声明会继承全局 2MiB,
-      // 在 handler 的 100MB 校验前就被静默 413。与同文件 multipart 路由同取单一出口。
-      bodyLimit: FILE_UPLOAD_BODY_LIMIT,
       schema: buildSchema({
         summary: '原始流上传文件',
         description: '通过 application/octet-stream 上传原始二进制流(支持 x-filename 头)',

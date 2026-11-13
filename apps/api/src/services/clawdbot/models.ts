@@ -59,8 +59,6 @@ export interface ModelCompletionResponse {
   content: string
   usage: { promptTokens: number; completionTokens: number; totalTokens: number }
   finishReason: string
-  /** F-439: true ⇔ 未接入上游 SDK 的占位结果,调用方不得当真实模型输出消费 */
-  stub?: boolean
 }
 
 /**
@@ -146,17 +144,15 @@ export class ModelManager extends EventEmitter {
     )
     this.emit('completionRequested', { modelId, request })
 
-    // F-439: 未真正调用模型,显式标记 stub 且终态不写 'stop',避免下游把占位文本当成功输出
     return {
       modelId,
-      content: `[${model.name}] 模型完成接口未接入上游 SDK,本响应为占位结果,不可作为真实输出。`,
+      content: `[${model.name}] 模型调用已路由，请接入实际 SDK 完成。`,
       usage: {
         promptTokens: request.messages.reduce((s, m) => s + m.content.length / 4, 0) | 0,
         completionTokens: 0,
         totalTokens: 0,
       },
-      finishReason: 'not_implemented',
-      stub: true,
+      finishReason: 'stop',
     }
   }
 

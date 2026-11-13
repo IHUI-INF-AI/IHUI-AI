@@ -204,17 +204,13 @@ export default function FinanceAiPage() {
                 placeholder={t('txPh')}
                 className="font-[weight:inherit] w-full resize-y rounded-md border border-input bg-background px-3 py-2 font-mono text-label leading-relaxed focus:outline-none focus:ring-1 focus:ring-primary"
               />
-              <p className="font-[weight:inherit] text-label text-muted-foreground">
-                {t('txHint')}
-              </p>
+              <p className="font-[weight:inherit] text-label text-muted-foreground">{t('txHint')}</p>
             </div>
             <Button size="lg" className="w-full gap-1.5" disabled={busy !== null} onClick={bookOk}>
               <MessageSquare className="h-4 w-4" />
               <span>{busy === 'bookkeeping' ? t('starting') : t('bookkeepingCta')}</span>
             </Button>
-            <p className="font-[weight:inherit] text-label text-muted-foreground">
-              {t('pluginHint')}
-            </p>
+            <p className="font-[weight:inherit] text-label text-muted-foreground">{t('pluginHint')}</p>
           </CardContent>
         </Card>
 
@@ -310,18 +306,14 @@ export default function FinanceAiPage() {
               <MessageSquare className="h-4 w-4" />
               <span>{busy === 'taxFiling' ? t('starting') : t('taxCta')}</span>
             </Button>
-            <p className="font-[weight:inherit] text-label text-muted-foreground">
-              {t('draftNote')}
-            </p>
+            <p className="font-[weight:inherit] text-label text-muted-foreground">{t('draftNote')}</p>
           </CardContent>
         </Card>
       </div>
 
       <div className="space-y-1">
         <AutomationCard busy={busy !== null} onLaunch={launchAutomation} />
-        <p className="font-[weight:inherit] px-1 text-label text-muted-foreground">
-          {t('automationTrust')}
-        </p>
+        <p className="font-[weight:inherit] px-1 text-label text-muted-foreground">{t('automationTrust')}</p>
       </div>
 
       <Card>

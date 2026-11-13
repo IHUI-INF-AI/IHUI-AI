@@ -23,6 +23,7 @@
  *   node scripts/plan-tasks.mjs --open --dispatchable --conflicts
  *                                                # 派单叠层:逐行点名"这行点名的文件此刻正被他在飞改动占着"
  *   node scripts/plan-tasks.mjs --open --dispatchable --exclude-inflight
+ *   node scripts/plan-tasks.mjs --open --dispatchable --exclude-stale-evidence
  *                                                # 同上一档的判据,但把那些行**暂移**出出单面(对方收口后自动回来;
  *                                                # 不判完成、不改勾选、"核验不了"档一律不剔)
  *                                                # 纯滞后副本(工作树 blob = 该路径某个历史版本)不算"别人在飞",
@@ -52,6 +53,7 @@
 
 import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
+import { execFileSync } from 'node:child_process'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { Undetermined, catBatch, gitRaw, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
 import { flagValue, describeFlagToken } from './lib/flag-value.mjs'
@@ -146,8 +148,11 @@ export function parseArgs(argv) {
   if (mcEq === undefined && mcFlag.valid && !/^\d+$/.test(mcFlag.value))
     flagIssues.push(`--max-commits 必须是正整数,实得:${JSON.stringify(mcFlag.value)}`)
   if (mcEq !== undefined && !/^\d+$/.test(mcEq.slice('--max-commits='.length)))
-    flagIssues.push(`--max-commits= 必须是正整数,实得:${JSON.stringify(mcEq.slice('--max-commits='.length))}`)
-  const maxCommits = Number.isFinite(Number(mcRaw)) && Number(mcRaw) > 0 ? Number(mcRaw) : F10_DEFAULT_MAX_COMMITS
+    flagIssues.push(
+      `--max-commits= 必须是正整数,实得:${JSON.stringify(mcEq.slice('--max-commits='.length))}`,
+    )
+  const maxCommits =
+    Number.isFinite(Number(mcRaw)) && Number(mcRaw) > 0 ? Number(mcRaw) : F10_DEFAULT_MAX_COMMITS
   // `--order` 时间排序档(2026-10-23,只在 --open 生效)。带值旗标一律走单源判据 `flagValue`
   // (G-322 那一族的正解),**必须显式给 late|early** —— 不给值 / 给了别的 ⇒ flagIssues ⇒ exit 2,
   // 绝不静默退回"不按时间排":静默退回会让"我要时间序"这次调用交出默认序的清单,而账面看起来
@@ -156,7 +161,11 @@ export function parseArgs(argv) {
   const orderEq = argv.find((x) => x.startsWith('--order='))
   const orderFlag = flagValue(argv, '--order')
   const orderRaw =
-    orderEq !== undefined ? orderEq.slice('--order='.length) : orderFlag.valid ? orderFlag.value : null
+    orderEq !== undefined
+      ? orderEq.slice('--order='.length)
+      : orderFlag.valid
+        ? orderFlag.value
+        : null
   if (orderEq !== undefined || orderFlag.valid) {
     if (orderRaw !== 'late' && orderRaw !== 'early')
       flagIssues.push(
@@ -186,6 +195,7 @@ export function parseArgs(argv) {
       '--dispatchable',
       '--conflicts',
       '--exclude-inflight',
+      '--exclude-stale-evidence',
       '--update-baseline',
       '--order',
       '--since',
@@ -218,13 +228,17 @@ export function parseArgs(argv) {
     order,
     conflicts: has('--conflicts'),
     excludeInflight: has('--exclude-inflight'),
+    excludeStaleEvidence: has('--exclude-stale-evidence'),
     selfTest: has('--self-test'),
     updateBaseline: has('--update-baseline'),
     face: sel.face,
     faceError: sel.error,
     // G-322:--root 给了却没收到合法值(无值是旧 `resolve(undefined)` 裸栈、空串静默落 cwd)
     // ⇒ 记成用法错,由 main 同 faceError 的既有通道拒绝;不带 --root 行为一字不变。
-    rootError: rootFlag.present && !rootFlag.valid ? `--root 需要一个目录参数 —— 紧邻的 token 实得:${describeFlagToken(rootFlag)}(不得静默退回仓库根)` : null,
+    rootError:
+      rootFlag.present && !rootFlag.valid
+        ? `--root 需要一个目录参数 —— 紧邻的 token 实得:${describeFlagToken(rootFlag)}(不得静默退回仓库根)`
+        : null,
     root: rootFlag.valid ? path.resolve(rootFlag.value) : ROOT,
   }
 }
@@ -325,7 +339,10 @@ export function fileConflictOverlay({ rows, dirtySet, headSet, lagJudge = null }
       try {
         res = lagJudge(key)
       } catch (e) {
-        res = { verdict: 'undetermined', reason: `惰判回调抛错:${String(e?.message ?? e).slice(0, 120)}` }
+        res = {
+          verdict: 'undetermined',
+          reason: `惰判回调抛错:${String(e?.message ?? e).slice(0, 120)}`,
+        }
       }
       judged.set(
         key,
@@ -495,6 +512,22 @@ export function excludeInflightRows(rows, cf) {
 /** 惰判预算:一次派单叠层最多对这么多条**命中**脏路径问祖先(每条 = 一次 hash-object + 一次祖先窗口取材)。
  *  超预算一律回 undetermined ⇒ 该路径留在"真在飞"继续让位并逐条报名 —— 宁可多让位,绝不静默少判(约束④)。
  *  上限对齐守门 84 暂存集的 MAX_FILES=300:再高会把一次派单扫描拖到分钟级,再低则常态命中都判不完。 */
+export function computeStaleFindingsFiles(root) {
+  try {
+    const script = path.join(root, 'scripts', 'check-findings-freshness.mjs')
+    const out = execFileSync(process.execPath, [script, '--json-only'], {
+      cwd: root,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    })
+    const data = JSON.parse(out)
+    if (!data || !Array.isArray(data.files)) return null
+    return data.files.filter((f) => f.expired).map((f) => f.file)
+  } catch {
+    return null
+  }
+}
+
 export const LAG_JUDGE_CAP = 300
 
 /**
@@ -534,7 +567,10 @@ export function makeLagJudge(root, { cap = LAG_JUDGE_CAP } = {}) {
     let blob
     try {
       const out = String(gitRaw(['hash-object', '--', key], top) ?? '')
-      const lines = out.split(/\r?\n/).map((l) => l.trim()).filter((l) => l !== '')
+      const lines = out
+        .split(/\r?\n/)
+        .map((l) => l.trim())
+        .filter((l) => l !== '')
       if (lines.length !== 1 || !/^[0-9a-f]{40,64}$/.test(lines[0]))
         return und(`hash-object 回 ${lines.length} 行(应恰 1 行 oid)⇒ 整条判取不到,不采信半截结果`)
       blob = lines[0]
@@ -569,7 +605,8 @@ const fieldsSpecRel = () => FIELDS_REL.split(path.sep).join('/')
 // 一次合并取材共用这一份 —— 三处各写一遍 `staged ? ':' : 'HEAD:'` 必然漂开,而漂开的表现是
 // "两条 spec 落在不同面",正是 §0.4 同面同轮要禁的形状。
 const planSpecOf = (face) => (face === 'staged' ? `:${PLAN_REL}` : `HEAD:${PLAN_REL}`)
-const fieldsSpecOf = (face) => (face === 'staged' ? `:${fieldsSpecRel()}` : `HEAD:${fieldsSpecRel()}`)
+const fieldsSpecOf = (face) =>
+  face === 'staged' ? `:${fieldsSpecRel()}` : `HEAD:${fieldsSpecRel()}`
 
 /** 只读一条文档。整面取不到 ⇒ 抛 Undetermined(调用方转 exit 2),绝不静默换面。
  *  `got`:调用方已按同一面取好的 catBatch 结果(见 `auditFace` 的一次派生);不给则自行取材。 */
@@ -607,7 +644,10 @@ export function readFieldsFace(root, face, got = null) {
       text = (got ?? catBatch(root, [spec], { maxBuffer: 1 << 26 })).get(spec)
     }
   } catch (e) {
-    return { ...loadFields(root, null), why: `侧车取材失败:${String(e?.message ?? e).split('\n')[0]}` }
+    return {
+      ...loadFields(root, null),
+      why: `侧车取材失败:${String(e?.message ?? e).split('\n')[0]}`,
+    }
   }
   if (text === null || text === undefined)
     return { ...loadFields(root, null), why: `${LABEL[face] ?? face} 取不到 ${rel}` }
@@ -822,7 +862,9 @@ function report(a, face) {
   console.log(`复合主键 ${a.composites} 组`)
   console.log(`  F1 同主键两态并存 : ${c.forks} 组 / 涉及未勾选行 ${c.forkOpenLines}`)
   console.log(`  F2 带作废声明未落账: ${c.voidRows} 行`)
-  console.log(`  F3 行号指针        : ${c.rotatedPointers} 处 —— 其中可自动收口 ${c.rotatedAuto} 处、无出口交人工 ${c.rotatedNoExit} 处`)
+  console.log(
+    `  F3 行号指针        : ${c.rotatedPointers} 处 —— 其中可自动收口 ${c.rotatedAuto} 处、无出口交人工 ${c.rotatedNoExit} 处`,
+  )
   console.log(
     `  F4 同一件事多条待办: ${c.dupOpenGroups} 组 / 副本 ${c.dupOpenCopies} 行(不进派单口径)`,
   )
@@ -879,7 +921,10 @@ function report(a, face) {
   console.log(
     `  F9 畸形号挂到正常号(前缀重复那族,单独点名、不与正常号同组): ${c.f9MalformedMasqueradeIds ?? f9Mal.length} 个编号` +
       (f9Mal.length
-        ? ` —— ${f9Mal.slice(0, 6).map((m) => m.key).join(' / ')}` +
+        ? ` —— ${f9Mal
+            .slice(0, 6)
+            .map((m) => m.key)
+            .join(' / ')}` +
           (f9Mal.length > 6 ? ` (另 ${f9Mal.length - 6} 个见 --json 的 malformedMasquerade)` : '') +
           `;逐行原文与修复出口见 F9b(counts.malformedIds)`
         : ''),
@@ -913,8 +958,7 @@ function report(a, face) {
         (a.f13Unjudged ? ` —— ⚠ 未判定:${a.f13Unjudged}` : ''),
     )
     for (const h of newHits.slice(0, 6)) console.log(`     ${f13HitLine(h)}`)
-    if (newHits.length > 6)
-      console.log(`     … 其余 ${newHits.length - 6} 枚见 --json 的 f13Hits`)
+    if (newHits.length > 6) console.log(`     … 其余 ${newHits.length - 6} 枚见 --json 的 f13Hits`)
   }
   console.log(`派单口径 —— 真·无人认领: ${c.claimable} 行`)
   console.log(
@@ -977,7 +1021,9 @@ function report(a, face) {
 function countReport(a, face) {
   const c = a.counts
   console.log(`判定面:${LABEL[face]} —— --count 快档:只数数,不跑年龄追溯(不派 blame)`)
-  console.log(`未完成 ${c.open} 条(条目行 ${a.rows} = 未勾选 ${c.open} + 已完成 ${a.doneRows};其中带租约 ${c.claimed})`)
+  console.log(
+    `未完成 ${c.open} 条(条目行 ${a.rows} = 未勾选 ${c.open} + 已完成 ${a.doneRows};其中带租约 ${c.claimed})`,
+  )
   console.log(
     `派单口径 —— 真·无人认领: ${c.claimable} 行(未勾选 ${c.open} = 已认领 ${c.claimed} + 其余排除 ${c.unclaimed - c.claimable} + 真待办 ${c.claimable})`,
   )
@@ -1000,7 +1046,9 @@ function listRows(rows, face, ages = null) {
     }
     const ts = ages.get(r.line)?.anchorTs
     const anchor =
-      typeof ts === 'number' ? new Date(ts).toISOString().slice(0, 16).replace('T', ' ') : '锚点未判定'
+      typeof ts === 'number'
+        ? new Date(ts).toISOString().slice(0, 16).replace('T', ' ')
+        : '锚点未判定'
     console.log(`  L${r.line}  ${anchor}  ${r.raw}`)
   }
 }
@@ -1390,7 +1438,10 @@ export function buildJsonFace(a, clip) {
       titleCount: g.titleCount,
       titles: g.titles.map((t) => ({ title: t.title, lines: t.lines })),
     })),
-    malformedMasquerade: (a.f9MalformedMasquerade ?? []).map((m) => ({ key: m.key, lines: m.lines })),
+    malformedMasquerade: (a.f9MalformedMasquerade ?? []).map((m) => ({
+      key: m.key,
+      lines: m.lines,
+    })),
     settled: (a.f9Settled ?? []).map((g) => ({
       key: g.key,
       titleCount: g.titleCount,
@@ -1493,7 +1544,9 @@ export function narrowF9Face(a, content) {
   a.f9Settled = settled
   a.counts.f9SettledGroups = settled.length
   // 两种成因分开报数:整组已完成 / 只剩一个活题面。合成一个数就说不清"为什么这组不判红"。
-  a.counts.f9SettledAllDone = split.history.filter((h) => h.reason === HISTORY_REASON.ALL_DONE).length
+  a.counts.f9SettledAllDone = split.history.filter(
+    (h) => h.reason === HISTORY_REASON.ALL_DONE,
+  ).length
   return a
 }
 
@@ -1604,9 +1657,7 @@ export function ratchetViolations(base, items, a) {
   const f9IsKeySet = Array.isArray(base.F9)
   const out = items
     // 键集形状下 F9 不吃"比数量"这条通用规则;整数旧形状照旧走通用规则(由 gate() 大声判"未迁移")
-    .filter(
-      ([k, , n]) => (k !== 'F9' || !f9IsKeySet) && typeof base[k] === 'number' && n > base[k],
-    )
+    .filter(([k, , n]) => (k !== 'F9' || !f9IsKeySet) && typeof base[k] === 'number' && n > base[k])
     .map(([k, label, n]) => `${k} ${label} 由基线 ${base[k]} 涨到 ${n}`)
   // F11 键集臂(2026-10-23 机主强制令):基线 F11 是键数组时不吃通用"比数量"规则(通用规则要求
   // typeof number,数组天然被滤掉),这里走与 F9 同型的精确档。没给 `a` ⇒ 这一维**无法判**而不是
@@ -1631,9 +1682,7 @@ export function ratchetViolations(base, items, a) {
   if (a) {
     const f = f9Ratchet(base, a)
     if (f.kind === 'red')
-      out.push(
-        `F9 撞号:出现基线键集里没有的编号 ${f.added.join(' ')}(共 ${f.added.length} 组)`,
-      )
+      out.push(`F9 撞号:出现基线键集里没有的编号 ${f.added.join(' ')}(共 ${f.added.length} 组)`)
     return out
   }
   const n = items.find(([k]) => k === 'F9')?.[2] ?? 0
@@ -1848,18 +1897,15 @@ export function gate(a, strict, root, before, beforeErr, baseOverride = null) {
       console.log(`❌ 差值棘轮:本次改动让状态分叉变多 —— ${grew.join(';')}`)
       // F9 上涨 ⇒ 逐组点名"编号 G-x 被 N 个不同标题共用"(票面要求的报名形态;只报数不点名
       // 等于让改的人自己再去跑一遍全量档找差异)。
-      for (const g of newCollisionGroups(a, before))
-        console.log(`   F9 新增撞号:${f9GroupLine(g)}`)
+      for (const g of newCollisionGroups(a, before)) console.log(`   F9 新增撞号:${f9GroupLine(g)}`)
       // F11 新增必须**逐行点名**(与 F9 同一条理由:只报数等于让改的人自己再跑一遍全量档)。
-      for (const r of a.newWaitingHumanRows ?? [])
-        console.log(`   F11 ${f11RowLine(r)}`)
+      for (const r of a.newWaitingHumanRows ?? []) console.log(`   F11 ${f11RowLine(r)}`)
       if ((a.newWaitingHumanRows ?? []).length)
         console.log(
           '   2026-10-23 机主强制令:等人拍板条目一律禁止。出路只有两条:agent 深度分析后直接按最优推荐方案执行并结清(决策与依据写进注记/commit message),或摘除本行把事实写进 commit message。不存在"保留待拍板"这一档,也不得改措辞绕过 v2 尺(改判据=§12f 红线)。',
         )
       // F12 新增同样逐行点名(2026-10-25 机主令,与 F11 同型)。
-      for (const r of a.newWaitingEnvRows ?? [])
-        console.log(`   F12 ${f12RowLine(r)}`)
+      for (const r of a.newWaitingEnvRows ?? []) console.log(`   F12 ${f12RowLine(r)}`)
       if ((a.newWaitingEnvRows ?? []).length)
         console.log(
           '   2026-10-25 机主令:等条件条目与待拍板同型禁止。出路只有三条:agent 当场做完结清;真卡在机主动作面(供值/资质/控制台/真机会话)的改归属为「归:机主X面」出桶;两者都不是的按观察类结清摘行。不存在"挂着等条件"这一档,也不得改措辞绕 v2 尺(§12f)。',
@@ -1879,9 +1925,7 @@ export function gate(a, strict, root, before, beforeErr, baseOverride = null) {
   // 读数清单里 F13=0 看起来就像"量到 0")= 把"没判"写成"判过",正是门 239 那句"两面逐字相同"
   // 的同型缺陷(2026-10-27 实测:blob 不同而结论说相同)。
   if (a.f13Unjudged)
-    console.log(
-      `⚠️ F13 未判定 —— ${a.f13Unjudged};这一维本轮没有判,不得读成"没有已勾行被捣回未勾"`,
-    )
+    console.log(`⚠️ F13 未判定 —— ${a.f13Unjudged};这一维本轮没有判,不得读成"没有已勾行被捣回未勾"`)
   else if (before && !Array.isArray(before.f13StockKeys))
     console.log(
       '⚠️ F13 未判定 —— 差值基准面没给"面内存量主键集"(f13StockKeys)⇒ 分不清存量与本次带回;' +
@@ -1991,7 +2035,9 @@ export function gate(a, strict, root, before, beforeErr, baseOverride = null) {
   if (f11Filter)
     baselineFace = {
       ...baselineFace,
-      waitingHumanRows: (a.waitingHumanRows ?? []).filter((r) => f11Attributed.includes(f11KeyOf(r))),
+      waitingHumanRows: (a.waitingHumanRows ?? []).filter((r) =>
+        f11Attributed.includes(f11KeyOf(r)),
+      ),
     }
   if (f12Filter)
     baselineFace = {
@@ -2038,7 +2084,9 @@ export function gate(a, strict, root, before, beforeErr, baseOverride = null) {
     console.log(
       '     定级理由见函数 absoluteLayerBlocks 头注(§12f:与提交无关的恒红门 = 全队跳钩子 = 全部守门作废);',
     )
-    console.log('     问责口径不变:`pnpm check:plan-task-state`(= --gate --strict)照判红;差值棘轮照旧 blocking。')
+    console.log(
+      '     问责口径不变:`pnpm check:plan-task-state`(= --gate --strict)照判红;差值棘轮照旧 blocking。',
+    )
   }
   // F5 与上面同层但方向相反:基线记的是"至少要有这么多条落账注记",**掉了**才判红。
   // 这一维专治"四条状态判据全绿而内容已被旧副本顶掉"(2026-09-26 一小时内实测发生两次)。
@@ -2240,10 +2288,12 @@ function selfTest() {
   )
   // "余量必须说出来"这条要用**真超过 head 的面**验(夹具只有 1 对 open 时 head=1 恰好不触发,
   //   那时这条断言会绿得毫无意义 —— 断言必须落在它真的会响的地方)。
-  const f4cThreeOpen = [70, 71, 72].map((n) => {
-    const s = `- [ ] ${n}. 流式中切换模型 → 终止后自动带入新模型`
-    return [s, s + ' 〔【归并】重复登记副本(2026-10-07):同主键的另一条登记,派单以那条为准。〕']
-  }).flat()
+  const f4cThreeOpen = [70, 71, 72]
+    .map((n) => {
+      const s = `- [ ] ${n}. 流式中切换模型 → 终止后自动带入新模型`
+      return [s, s + ' 〔【归并】重复登记副本(2026-10-07):同主键的另一条登记,派单以那条为准。〕']
+    })
+    .flat()
   const f4cBig = auditPlan(f4cThreeOpen.join('\n'))
   const f4cHead1 = f4cHumanLine(f4cBig.prefixNested, f4cBig.counts, 1)
   ok(
@@ -2257,7 +2307,11 @@ function selfTest() {
   //   变异"open.slice(0, head) → open.slice(0, 1)"(人读点名无视 head、少报)就是被它咬住的
   //   —— 2026-10-07 第一版只钉了"余量话术在不在",那样子"只报 1 对"输出仍是合法文案 ⇒ 放过了。
   const f4cHead3 = f4cHumanLine(f4cBig.prefixNested, f4cBig.counts, 3)
-  const f4cHead3Keys = [f4cBig.prefixNested.pairs[0].key, f4cBig.prefixNested.pairs[1].key, f4cBig.prefixNested.pairs[2].key]
+  const f4cHead3Keys = [
+    f4cBig.prefixNested.pairs[0].key,
+    f4cBig.prefixNested.pairs[1].key,
+    f4cBig.prefixNested.pairs[2].key,
+  ]
   ok(
     f4cHead3.includes('前 3 对') &&
       f4cHead3Keys.every((k) => f4cHead3.includes(k)) &&
@@ -2272,8 +2326,7 @@ function selfTest() {
   // ⚠ done 档的人数必须被钉住:2026-10-07 变异验证第一版把它漏了,
   //   变异"const done = f4c.pairs.filter(...) → []"(只报含活的那一半)因此 141/0 全绿放过。
   ok(
-    f4cHuman.includes('整对都已勾选 1 对') &&
-      f4cHuman.includes('含未勾选行 1 对'),
+    f4cHuman.includes('整对都已勾选 1 对') && f4cHuman.includes('含未勾选行 1 对'),
     `F4c 人读文案必须把"含未勾选行/整对已勾选"两档都报出来(只报含活的那一半 = 报数不报名),实测 ${JSON.stringify(f4cHuman)}`,
   )
   ok(
@@ -2281,7 +2334,9 @@ function selfTest() {
     'F4c 人读文案不得出现 undefined/[object Object](取错字段时的静默失效)',
   )
   ok(
-    f4cHumanLine({ pairs: [] }, { prefixNestedGroups: 0, prefixNestedPairs: 0 }).includes('量到了 0'),
+    f4cHumanLine({ pairs: [] }, { prefixNestedGroups: 0, prefixNestedPairs: 0 }).includes(
+      '量到了 0',
+    ),
     'F4c 空面必须明写"量到了 0"而不是静默不打印这一行(报数不报名同族)',
   )
   ok(
@@ -2308,7 +2363,8 @@ function selfTest() {
   // ── G-1058653:第二个副本指针形态(`副本指针(编号 …)` 行首族)也得出派单口径 ──
   // 病:那些行**逐字自述"只加指针不动勾选"**(= DUP_POINTER_RE 当初要认的那件事),只因措辞
   // 换了另一种就被派出去,现读 9/9 进派单口径。夹具用**逐字取自真实台账**的形态,不是自造形态。
-  const ptrRow = '- [ ] 副本指针(编号 62)：同主键第二份未勾选副本,只加指针不动勾选;当前状态见带 v3wave3 租约的那条(该条写明 ChatSearchBar 前提被推翻与 use-chat-search 投影现场)。'
+  const ptrRow =
+    '- [ ] 副本指针(编号 62)：同主键第二份未勾选副本,只加指针不动勾选;当前状态见带 v3wave3 租约的那条(该条写明 ChatSearchBar 前提被推翻与 use-chat-search 投影现场)。'
   const ptrFix = auditPlan(
     [
       '- [ ]（进行中@2026-09-27/someone） **62 ChatSearchBar 持有行**:带租约的那条。',
@@ -2374,7 +2430,9 @@ function selfTest() {
     ['带·后缀', '4·观察期'],
     ['带圈号', 'P1-①'],
   ]) {
-    const one = auditPlan(`- [ ] 副本指针(编号 ${id})：同主键第二份未勾选副本,只加指针不动勾选。\n- [ ] **D96 别的活票**:对照。`)
+    const one = auditPlan(
+      `- [ ] 副本指针(编号 ${id})：同主键第二份未勾选副本,只加指针不动勾选。\n- [ ] **D96 别的活票**:对照。`,
+    )
     ok(
       one.claimableRows.length === 1 && one.claimableRows[0].raw.includes('D96'),
       `编号段为${n}「${id}」的指针行仍须被逐出派单口径,实测留 ${one.claimableRows.length} 行`,
@@ -2629,10 +2687,7 @@ function selfTest() {
   ].join('\n')
   const t11Line = F7EFIX.split('\n')[0]
   const t11Key = compositeKeyOf(t11Line)
-  ok(
-    !!t11Key,
-    `F7e 夹具的 D-11 必须能取到复合主键(取不到=夹具写法与本尺脱节),实测 ${t11Key}`,
-  )
+  ok(!!t11Key, `F7e 夹具的 D-11 必须能取到复合主键(取不到=夹具写法与本尺脱节),实测 ${t11Key}`)
   // 夹具侧车刻意不落盘(§15b:判据夹具走 loadFields 的 text 入参,不碰真台账侧车)
   const f7efixFields = loadFields(
     ROOT,
@@ -2649,7 +2704,10 @@ function selfTest() {
   )
   const f7e = auditPlan(F7EFIX, { fields: f7efixFields })
   // 分母锁:侧车记录必须**真的命中**这一行(键对不上 ⇒ v2 静默回落散文,整组断言全部空转)
-  ok(f7efixFields.map.get(t11Key)?.owner === 'fixture web 前端持有人', 'F7e 夹具侧车必须命中的 D-11 的复合主键')
+  ok(
+    f7efixFields.map.get(t11Key)?.owner === 'fixture web 前端持有人',
+    'F7e 夹具侧车必须命中的 D-11 的复合主键',
+  )
   ok(
     // 反证:同一夹具不给侧车 ⇒ v2 回落散文 ⇒ 与 v1 影子同读数(证明正读数的变化全部来自侧车,不是换尺附带)
     (() => {
@@ -2818,7 +2876,9 @@ function selfTest() {
   ].join('\n')
   const f9 = auditPlan(F9FIX)
   ok(
-    f9.counts.collisionGroups === 1 && f9.collisions[0].key === 'G-262' && f9.collisions[0].titleCount === 2,
+    f9.counts.collisionGroups === 1 &&
+      f9.collisions[0].key === 'G-262' &&
+      f9.collisions[0].titleCount === 2,
     `F9 应恰好点名 G-262 被 2 个标题共用,实测 ${JSON.stringify(f9.collisions.map((g) => [g.key, g.titleCount]))}`,
   )
   // 反例 1:同题副本(标题逐字等值)是 F4 的病,不是撞号。
@@ -2837,9 +2897,8 @@ function selfTest() {
   )
   // 反例 3:一个实质标题 + 一个退化标题 ⇒ 只有 1 个标题,不算撞号。
   ok(
-    auditPlan(
-      '- [ ] **G-258 实质议题**:真标题。\n- [ ] **G-258(新登记)**:退化标题行',
-    ).counts.collisionGroups === 0,
+    auditPlan('- [ ] **G-258 实质议题**:真标题。\n- [ ] **G-258(新登记)**:退化标题行').counts
+      .collisionGroups === 0,
     `退化标题不得被算成第二个标题,实测 ${auditPlan('- [ ] **G-258 实质议题**:真标题。\n- [ ] **G-258(新登记)**:退化标题行').counts.collisionGroups}`,
   )
   // 修法不自伤:归并器 F4 指针追加在行尾(标题不变)、F1 翻勾产出 `**【归并】**` 前缀(标题被切为空)
@@ -2848,7 +2907,10 @@ function selfTest() {
     '- [x] ✅(2026-09-26) **D99 复合主键正例**:说明。\n' +
       '- [x] ✅(2026-09-27) **【归并】** 本行与已完成登记同题 ⇒ 只落状态、不删行。 **D99 复合主键正例**:旧副本。',
   )
-  ok(healForm.counts.collisionGroups === 0, `F1 归并产物不得算撞号,实测 ${healForm.counts.collisionGroups}`)
+  ok(
+    healForm.counts.collisionGroups === 0,
+    `F1 归并产物不得算撞号,实测 ${healForm.counts.collisionGroups}`,
+  )
   // ── F9 的"编号位"收窄(2026-09-28 G-417):行文引用与畸形号子串**不是**第二次登记 ──
   // 三条各守一个方向,且都自带"旧口径(全文窗口命中)一定会判红"的对照 —— 那才是变异自证:
   // 反向用例绿了,必须绿在"只看编号位"这一条上,而不是绿在"这一型本来就没被扫到"。
@@ -2862,11 +2924,9 @@ function selfTest() {
     '<!-- 已归档(2026-09-20):G-303 任务,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-20.md -->\n' +
     '- [ ] **G-303 真登记**:一件事。\n' +
     '- [x] ✅(2026-09-20) 归档说明:本条 G-303 的正文已搬入 .ihui-agent/archive/PROJECT_PLAN_2026-09-20.md。'
-  const narrowOf = (content) =>
-    narrowCollisionsToIdPosition(content, auditPlan(content).collisions)
+  const narrowOf = (content) => narrowCollisionsToIdPosition(content, auditPlan(content).collisions)
   ok(
-    narrowOf(f9TruePair).groups.length === 1 &&
-      narrowOf(f9TruePair).groups[0].titleCount === 2,
+    narrowOf(f9TruePair).groups.length === 1 && narrowOf(f9TruePair).groups[0].titleCount === 2,
     `两行编号位同号必须**仍然**判撞号(收窄不是放松),实测 ${JSON.stringify(narrowOf(f9TruePair).groups.map((g) => [g.key, g.titleCount]))}`,
   )
   ok(
@@ -2940,7 +3000,8 @@ function selfTest() {
   )
   const f9Thin = narrowF9Face(auditPlan(f9ThinForeign), f9ThinForeign)
   ok(
-    f9Thin.counts.collisionGroups === 1 && f9Thin.collisions[0].titles.some((t) => t.title === 'D160补注'),
+    f9Thin.counts.collisionGroups === 1 &&
+      f9Thin.collisions[0].titles.some((t) => t.title === 'D160补注'),
     `他号让位在"剥完给不出实质题面"时必须逐字退回原样(不许没收覆盖面),实测 ${JSON.stringify(f9Thin.collisions[0]?.titles?.map((t) => t.title))}`,
   )
   // ── F9 定级(2026-10-06 立 / 2026-10-29 按 G-455 改判据):按**活题面数**判 ─────────
@@ -2956,9 +3017,7 @@ function selfTest() {
     '- [x] **G-611 历史快照甲**:当年的一件事。\n' +
     '- [ ] **G-611 历史快照乙**:同一件事的另一份措辞。'
   // 真撞号:两个题面各自都有未勾行 ⇒ 无论判据怎么收窄都必须仍红(变异自证用这一条)。
-  const f9LivePair =
-    '- [ ] **G-612 活票甲**:一件事。\n' +
-    '- [ ] **G-612 活票乙**:完全另一件事。'
+  const f9LivePair = '- [ ] **G-612 活票甲**:一件事。\n' + '- [ ] **G-612 活票乙**:完全另一件事。'
   const f9SettledFace = narrowF9Face(auditPlan(f9AllDone), f9AllDone)
   ok(
     f9SettledFace.counts.collisionGroups === 0 &&
@@ -2993,13 +3052,27 @@ function selfTest() {
   )
   ok(
     splitF9SettledGroups(f9Mixed, [
-      { key: 'Y-1', titleCount: 2, titles: [{ title: '甲', lines: [999] }, { title: '乙', lines: [998] }] },
+      {
+        key: 'Y-1',
+        titleCount: 2,
+        titles: [
+          { title: '甲', lines: [999] },
+          { title: '乙', lines: [998] },
+        ],
+      },
     ]).groups.length === 1,
     'fail-closed:行号取不到对应行(面被换过/裁剪过)时必须仍判红,不得当成历史行放过',
   )
   ok(
     splitF9SettledGroups(f9AllDone, [
-      { key: 'Z-1', titleCount: 2, titles: [{ title: '甲', lines: [1] }, { title: '乙', lines: [2] }] },
+      {
+        key: 'Z-1',
+        titleCount: 2,
+        titles: [
+          { title: '甲', lines: [1] },
+          { title: '乙', lines: [2] },
+        ],
+      },
     ]).settled.length === 1,
     '纯函数自证:两条 `- [x]` 的组必须被认成历史行(否则上面那条正向用例是碰巧过的)',
   )
@@ -3031,7 +3104,16 @@ function selfTest() {
     staleRows: [],
     collisions: groups,
   })
-  const g1 = [{ key: 'G-262', titleCount: 2, titles: [{ title: '水印载荷按HEAD面补齐', lines: [2] }, { title: 'git进程积压另计', lines: [3] }] }]
+  const g1 = [
+    {
+      key: 'G-262',
+      titleCount: 2,
+      titles: [
+        { title: '水印载荷按HEAD面补齐', lines: [2] },
+        { title: 'git进程积压另计', lines: [3] },
+      ],
+    },
+  ]
   ok(
     grewViolations(f9face(1, g1), f9face(0, [])).some((x) => x.startsWith('F9')),
     '新增撞号组必须被差值棘轮点名',
@@ -3041,7 +3123,10 @@ function selfTest() {
     '清偿撞号(合并标题)不得判红 —— 否则没人敢修',
   )
   const newG = newCollisionGroups(f9face(1, g1), f9face(0, []))
-  ok(newG.length === 1 && newG[0].key === 'G-262', `newCollisionGroups 应点名 G-262,实测 ${JSON.stringify(newG.map((g) => g.key))}`)
+  ok(
+    newG.length === 1 && newG[0].key === 'G-262',
+    `newCollisionGroups 应点名 G-262,实测 ${JSON.stringify(newG.map((g) => g.key))}`,
+  )
   ok(newCollisionGroups(f9face(0, []), null).length === 0, '没有基准面时不得凭空数出新增撞号')
   // 恒红门检查:存量撞号(哪怕 --strict)只报数不判红 —— 定级理由见 lib findIdCollisions 头注。
   const f9log = console.log
@@ -3071,7 +3156,10 @@ function selfTest() {
   const kface = (gs) => f9face(gs.length, gs)
   ok(f9Ratchet({ F9: KEYS }, kface(KEYS.map(grp))).kind === 'ok', '基线含全部现键必须判绿')
   const rAdd = f9Ratchet({ F9: KEYS }, kface([...KEYS.map(grp), grp('Z-9')]))
-  ok(rAdd.kind === 'red' && rAdd.added.join() === 'Z-9', `新撞号键必须只点名 Z-9,实测 ${JSON.stringify(rAdd)}`)
+  ok(
+    rAdd.kind === 'red' && rAdd.added.join() === 'Z-9',
+    `新撞号键必须只点名 Z-9,实测 ${JSON.stringify(rAdd)}`,
+  )
   ok(
     f9Ratchet({ F9: KEYS }, kface([grp('D17', 3), grp('D30'), grp('G-262')])).kind === 'ok',
     '同键多挂一行(键集不变)不得移动读数 —— 这正是与计数锚的语义差',
@@ -3081,12 +3169,18 @@ function selfTest() {
     '等量换键(组数不变而键集变)必须红 —— 计数锚对这一型恒绿,本次迁移换来的就是它',
   )
   const rOld = f9Ratchet({ F9: 59 }, kface(KEYS.map(grp)))
-  ok(rOld.kind === 'unmigrated', `整数旧形状必须判"形状未迁移"而不是静默放行,实测 ${JSON.stringify(rOld)}`)
+  ok(
+    rOld.kind === 'unmigrated',
+    `整数旧形状必须判"形状未迁移"而不是静默放行,实测 ${JSON.stringify(rOld)}`,
+  )
   ok(
     f9Ratchet({ F9: KEYS }, { counts: { collisionGroups: 2 } }).kind === 'blind',
     '有组数却没带逐组明细 ⇒ 判"未判定",不记通过',
   )
-  ok(f9Ratchet({ F1: 0 }, kface([])).kind === 'absent', '基线缺 F9 键 ⇒ 不判该项(与 ratchet 同一条善意)')
+  ok(
+    f9Ratchet({ F1: 0 }, kface([])).kind === 'absent',
+    '基线缺 F9 键 ⇒ 不判该项(与 ratchet 同一条善意)',
+  )
   const pWiden = planF9BaselineRewrite({ F9: KEYS }, [...KEYS, 'Z-9'])
   ok(pWiden.action === 'refuse-widen', `扩大键集必须拒绝,实测 ${JSON.stringify(pWiden)}`)
   ok(
@@ -3117,7 +3211,9 @@ function selfTest() {
     '整数旧形状在两参调用方(converge)一侧文案不得变 —— 改动只能落在 F9 的新形状上',
   )
   ok(
-    ratchetViolations({ F9: KEYS }, probe(kface([...KEYS.map(grp), grp('Z-9')]))).join().includes('粗尺'),
+    ratchetViolations({ F9: KEYS }, probe(kface([...KEYS.map(grp), grp('Z-9')])))
+      .join()
+      .includes('粗尺'),
     '键集形状 + 未给判定面 ⇒ 退化成粗尺且必须自报',
   )
   ok(
@@ -3135,7 +3231,10 @@ function selfTest() {
     '- [x] ✅(2026-09-26) **D90 权威登记**:副本,同主键的另一条登记在 L2。',
   ].join('\n')
   const kp = auditPlan(keyedPair).rotated
-  ok(kp.length === 1 && kp[0].autoFixable === true, '两侧同复合主键(且都有主键)⇒ 那句「同主键登记」是真话,必须可自动收口')
+  ok(
+    kp.length === 1 && kp[0].autoFixable === true,
+    '两侧同复合主键(且都有主键)⇒ 那句「同主键登记」是真话,必须可自动收口',
+  )
   // 两边都**没有**主键:`compositeKeyOf` 一律返回 null,而 null===null 不是"同主键"。
   // 旧判据正是从这里放行,于是给一句"与本行正文逐字相同"写给一份孪生都没有的行(2026-09-28 实测:
   // 面上逐字相同份数 = 1 的那一行被认成可自动收口);而它随任何一次 append 自己长回红 —— 这一维在
@@ -3157,7 +3256,12 @@ function selfTest() {
   // 无主键**但确有逐字孪生**:出口那句"与本行正文逐字相同,可按正文检索"就是可核验的事实 ⇒ 必须允许。
   // 这一条同时是"上面收紧没有把自动档关掉"的反向对照(2026-09-28 由 --heal 收掉 21 行的正是这一型)。
   const twinLine = '- [ ] 无主键行:存活于 L2 的同编号登记。〔孪生〕'
-  const twinFixture = ['# 计划', '- [x] ✅(2026-09-26) **D91 权威登记**:正文。', twinLine, twinLine].join('\n')
+  const twinFixture = [
+    '# 计划',
+    '- [x] ✅(2026-09-26) **D91 权威登记**:正文。',
+    twinLine,
+    twinLine,
+  ].join('\n')
   const tw = auditPlan(twinFixture).rotated
   ok(
     tw.length === 2 && tw.every((x) => x.autoFixable === true),
@@ -3233,7 +3337,9 @@ function selfTest() {
       typeof newWaitingHumanRows(f11Face, {})[0] === 'undefined',
     '没有基准面 ⇒ 不判(返回空),绝不"全部算新增"(与 F8a/F9 同一条禁令)',
   )
-  const f11EditedSameKey = auditPlan('# 计划\n- [ ] **G-900 等人拍板**:需用户确认(补注@2026-10-23)。\n')
+  const f11EditedSameKey = auditPlan(
+    '# 计划\n- [ ] **G-900 等人拍板**:需用户确认(补注@2026-10-23)。\n',
+  )
   ok(
     f11EditedSameKey.counts.waitingHuman === 1,
     '改写行必须仍被 v2 尺判为等人拍板(否则"同主键不算新增"一例是空转)',
@@ -3250,7 +3356,10 @@ function selfTest() {
   )
   // 基线层四臂:absent(缺项不判)/ unmigrated(形状不对=关着,不得静默)/ blind(有数无名单)/ red-ok。
   ok(f11Ratchet({}, f11Face).kind === 'absent', '基线缺 F11 键 ⇒ 不判该项(缺项不判的既有善意)')
-  ok(f11Ratchet({ F11: 0 }, f11Face).kind === 'unmigrated', 'F11 写成整数 = 这一维关着,必须报未迁移')
+  ok(
+    f11Ratchet({ F11: 0 }, f11Face).kind === 'unmigrated',
+    'F11 写成整数 = 这一维关着,必须报未迁移',
+  )
   ok(
     f11Ratchet({ F11: [] }, { counts: { waitingHuman: 1 } }).kind === 'blind',
     '有行数却没名单 ⇒ 判"未判定",不冒红也不记绿',
@@ -3303,17 +3412,19 @@ function selfTest() {
       typeof newWaitingEnvRows(f12Face, {})[0] === 'undefined',
     'F12 没有基准面 ⇒ 不判(返回空),绝不"全部算新增"',
   )
-  const f12EditedSameKey = auditPlan('# 计划\n- [ ] **G-901 等条件**:等环境条件(补注@2026-10-25)。\n')
+  const f12EditedSameKey = auditPlan(
+    '# 计划\n- [ ] **G-901 等条件**:等环境条件(补注@2026-10-25)。\n',
+  )
   ok(
     f12EditedSameKey.counts.waitingEnv === 1,
     '改写行必须仍被 v2 尺判为等条件(否则"同主键不算新增"一例是空转)',
   )
-  ok(
-    newWaitingEnvRows(f12EditedSameKey, f12Face).length === 0,
-    'F12 同复合主键的行改写不得算新增',
-  )
+  ok(newWaitingEnvRows(f12EditedSameKey, f12Face).length === 0, 'F12 同复合主键的行改写不得算新增')
   ok(f12Ratchet({}, f12Face).kind === 'absent', 'F12 基线缺键 ⇒ 不判该项')
-  ok(f12Ratchet({ F12: 0 }, f12Face).kind === 'unmigrated', 'F12 写成整数 = 这一维关着,必须报未迁移')
+  ok(
+    f12Ratchet({ F12: 0 }, f12Face).kind === 'unmigrated',
+    'F12 写成整数 = 这一维关着,必须报未迁移',
+  )
   ok(
     f12Ratchet({ F12: [] }, { counts: { waitingEnv: 1 } }).kind === 'blind',
     'F12 有行数却没名单 ⇒ 判"未判定"',
@@ -3654,7 +3765,8 @@ function main() {
   //    与 F8/F11/F12 兜 0 同一条理由,不拿它冒充"判过")。
   // 锚点面取不到 ⇒ **不判**:读数落 0 但 `f13Unjudged` 点名原因,报告行与 gate 都如实写未判定,
   // 既不记绿也不冒红(§0.3);绝不回落工作树副本 —— 工作树那份正是本次要判的那一型(§0.4)。
-  if (preBefore) wireF13(preBefore, preBefore, { faceLabel: 'HEAD 锚点面', anchorLabel: 'HEAD 锚点面' })
+  if (preBefore)
+    wireF13(preBefore, preBefore, { faceLabel: 'HEAD 锚点面', anchorLabel: 'HEAD 锚点面' })
   wireF13(a, o.face === 'head' ? a : preBefore, {
     faceLabel: `被审面(${LABEL[o.face] ?? o.face})`,
     anchorLabel: `HEAD 锚点面`,
@@ -3673,17 +3785,27 @@ function main() {
     try {
       // 结论面与扫描面**同一瞬间**取:先钉 sha,再用 `<sha>:PROJECT_PLAN.md` —— 不得先扫历史再另开 HEAD。
       f10HeadSha = gitRaw(['rev-parse', 'HEAD'], o.root).trim()
-      conclusionFace = gitRaw(['show', `${f10HeadSha}:${PLAN_REL}`], o.root, { maxBuffer: 512 << 20 })
+      conclusionFace = gitRaw(['show', `${f10HeadSha}:${PLAN_REL}`], o.root, {
+        maxBuffer: 512 << 20,
+      })
     } catch (e) {
-      console.log(`⚠️ 无法判定 —— F10 结论面取不到:${e instanceof Undetermined ? e.message : String(e?.message ?? e).split('\n')[0]}`)
+      console.log(
+        `⚠️ 无法判定 —— F10 结论面取不到:${e instanceof Undetermined ? e.message : String(e?.message ?? e).split('\n')[0]}`,
+      )
       return 2
     }
     const t0 = Date.now()
     let scanned
     try {
-      scanned = scanReopenedFlipEvidence(o.root, { since: o.since, maxCommits: o.maxCommits, headSha: f10HeadSha })
+      scanned = scanReopenedFlipEvidence(o.root, {
+        since: o.since,
+        maxCommits: o.maxCommits,
+        headSha: f10HeadSha,
+      })
     } catch (e) {
-      console.log(`⚠️ 无法判定 —— F10 史证遍历失败:${e instanceof Undetermined ? e.message : String(e?.message ?? e).split('\n')[0]}`)
+      console.log(
+        `⚠️ 无法判定 —— F10 史证遍历失败:${e instanceof Undetermined ? e.message : String(e?.message ?? e).split('\n')[0]}`,
+      )
       return 2
     }
     const res = findReopenedFlipCandidates(conclusionFace, scanned.flipped)
@@ -3714,7 +3836,9 @@ function main() {
     try {
       oldBase = JSON.parse(raw)
     } catch (e) {
-      console.log(`⚠️ 无法判定 —— ${BASELINE_REL} 解析失败:${String(e?.message ?? e).split('\n')[0]}`)
+      console.log(
+        `⚠️ 无法判定 —— ${BASELINE_REL} 解析失败:${String(e?.message ?? e).split('\n')[0]}`,
+      )
       return 2
     }
     const plan = planF9BaselineRewrite(oldBase, f9KeySetOf(a))
@@ -3751,7 +3875,9 @@ function main() {
     try {
       check = JSON.parse(nextRaw)
     } catch (e) {
-      console.log(`❌ 拒绝写盘 —— 原位替换产出的 JSON 解析不过:${String(e?.message ?? e).split('\n')[0]}`)
+      console.log(
+        `❌ 拒绝写盘 —— 原位替换产出的 JSON 解析不过:${String(e?.message ?? e).split('\n')[0]}`,
+      )
       return 2
     }
     const sameKeys = JSON.stringify(Object.keys(check)) === JSON.stringify(Object.keys(oldBase))
@@ -3831,9 +3957,7 @@ function main() {
           `归属未判定 ${tally.undetermined ?? 0} 枚 ──`,
       )
       if (EV?.why)
-        console.log(
-          `   ⚠ 证据输入未判定(${EV.why})⇒ 这几枚**既不派也不冒充归他人**,先修取材再派单`,
-        )
+        console.log(`   ⚠ 证据输入未判定(${EV.why})⇒ 这几枚**既不派也不冒充归他人**,先修取材再派单`)
       const stale = slots.filter((s) => s.v.slot === 'stale-owner-label')
       if (stale.length > 0) {
         console.log(
@@ -3849,7 +3973,9 @@ function main() {
       if (undet.length > 0) {
         console.log(`  归属未判定 ${undet.length} 行(输入取不到,**不出单也不记成归他人**):`)
         for (const s of undet)
-          console.log(`    L${s.row.line}  ${s.v.detail}  「${s.v.holder ?? ownerLabelOf(s.row.raw)?.owner ?? ''}」`)
+          console.log(
+            `    L${s.row.line}  ${s.v.detail}  「${s.v.holder ?? ownerLabelOf(s.row.raw)?.owner ?? ''}」`,
+          )
       }
       // 行内自述"不再单独派单/走持有行"的副本:勾选一字未动(§1 F4 口径),但不再占派单名额。
       // 必须报名而不只报数 —— 拿数字的人会去 grep【归并】字面并据此判定"这一族不存在"。
@@ -3874,7 +4000,8 @@ function main() {
             `    ${p.id} 未勾 L${p.openLine}「${p.openTitle}」 ⇄ 已勾 L${p.doneLine}「${p.doneTitle}」`,
           )
         }
-        if (sid.pairs.length > 12) console.log(`    …另 ${sid.pairs.length - 12} 对见 --json 的 counts.sameIdDonePairs`)
+        if (sid.pairs.length > 12)
+          console.log(`    …另 ${sid.pairs.length - 12} 对见 --json 的 counts.sameIdDonePairs`)
       }
       // 同题多份未勾行混在派单清单里 ⇒ 两个会话各读一份、各领一张票,做完的事还被记两遍账。
       // 与上一格同口径:点名到行,不剔名额、不判红(剔名额就是 §1 禁止的"替人判定这条没人要")。
@@ -3892,7 +4019,9 @@ function main() {
             `    ${g.members.length} 份 @ L${g.members.map((m) => m.line).join(',L')}: ${g.members[0].title}`,
           )
         if (stg.length > 8)
-          console.log(`    …另 ${stg.length - 8} 组(全量读数跑 node scripts/check-plan-task-duplicates.mjs)`)
+          console.log(
+            `    …另 ${stg.length - 8} 组(全量读数跑 node scripts/check-plan-task-duplicates.mjs)`,
+          )
       }
     }
     // 文件归属叠层只在显式旗标下生效 —— 默认派单口径的输出面已有下游按行解析(归并器/自检),
@@ -3928,14 +4057,54 @@ function main() {
         }
         if (o.excludeInflight) {
           const { kept, dropped } = excludeInflightRows(rows, cf)
-          const who = dropped.slice(0, 10).map((r) => 'L' + r.line).join(' / ')
+          const who = dropped
+            .slice(0, 10)
+            .map((r) => 'L' + r.line)
+            .join(' / ')
           console.log(
             `  --exclude-inflight:暂移 ${dropped.length} 行(点名的文件此刻正被在飞改动占着)⇒ 出单 ${kept.length} 行` +
               `(对方收口后自动回来;这不是判"做完",也不改勾选)` +
-              (dropped.length ? ` —— ${who}${dropped.length > 10 ? ` …另 ${dropped.length - 10} 行` : ''}` : ''),
+              (dropped.length
+                ? ` —— ${who}${dropped.length > 10 ? ` …另 ${dropped.length - 10} 行` : ''}`
+                : ''),
           )
           rowsOut = kept
         }
+        if (o.excludeStaleEvidence) {
+          const staleFiles = computeStaleFindingsFiles(o.root)
+          if (staleFiles === null) {
+            console.log(
+              '  ⚠️ --exclude-stale-evidence 未判定:findings 新鲜度取不到 ⇒ 照派(不静默剔真活)',
+            )
+          } else if (staleFiles.length) {
+            const staleNames = new Set(staleFiles.map((sf) => sf.split('/').pop()))
+            const kept2 = []
+            const dropped2 = []
+            for (const r of rowsOut) {
+              let anchored = false
+              for (const n of staleNames) {
+                if ((r.raw || '').includes(n)) {
+                  anchored = true
+                  break
+                }
+              }
+              ;(anchored ? dropped2 : kept2).push(r)
+            }
+            console.log(
+              '  --exclude-stale-evidence:暂移 ' +
+                dropped2.length +
+                ' 行(证据锚定过期 findings:' +
+                staleFiles.join(', ') +
+                ')⇒ 出单 ' +
+                kept2.length +
+                ' 行(刷新对应 survey 后自动回来;不改勾选)',
+            )
+            rowsOut = kept2
+          } else {
+            console.log('  --exclude-stale-evidence:无过期 findings ⇒ 不降级')
+          }
+        }
+
         // 惰判读数(G-1105309 约束③④):放回的行逐行点名"哪条路径 proven@commit"(可复核,防为升而升);
         // 非 proven 的命中路径**逐条报名** —— 判不了 / 超 cap 的都留在"真在飞"继续让位,但绝不静默少判。
         if (cf.judgedList.length > 0) {
@@ -3953,7 +4122,9 @@ function main() {
             console.log(`    放回 L${r.line} ← ${why}(工作树 blob = 该路径祖先版本 proven)`)
           }
           for (const j of rest)
-            console.log(`    留在"真在飞"${j.path}:${j.verdict}${j.reason ? ` —— ${j.reason}` : ''}`)
+            console.log(
+              `    留在"真在飞"${j.path}:${j.verdict}${j.reason ? ` —— ${j.reason}` : ''}`,
+            )
         }
       }
     }
@@ -3976,7 +4147,8 @@ function main() {
             `${or.anchoredCount} 行按此刻排序(最近的在最前),` +
             `判不到锚点 ${or.unanchored.length} 行**恒排末尾**(不猜它新还是旧)`,
         )
-        for (const r of or.unanchored.slice(0, 10)) console.log(`    L${r.line} 无锚点 ${clip(r.raw)}`)
+        for (const r of or.unanchored.slice(0, 10))
+          console.log(`    L${r.line} 无锚点 ${clip(r.raw)}`)
         if (or.unanchored.length > 10)
           console.log(`    …另 ${or.unanchored.length - 10} 行无锚点,同样排在末尾`)
       }

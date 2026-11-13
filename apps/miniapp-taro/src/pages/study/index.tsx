@@ -2,7 +2,13 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-// 镜像 packages/app/src/features/study-progress/StudyProgressScreen.tsx
+// 非同源说明: 本页是「学习中心枢纽页」(统计卡「今日/累计/连续/已学」+ 5 入口 + 继续学习 + FAB),
+// 取数走 GET /api/study/info + /api/study/records(学习域),取词用 study.*。
+// 共享层 StudyProgressScreen 是「教育域学习进度」(统计卡「课程/累计/本周/连续」+ 课程进度条,
+// 取词用 studyProgress.* / eduProgressPage.*),两端统计口径与 UI 段落不同 ⇒ 不是同一产品对象,
+// 不参与镜像对账。原误配 StudyProgressScreen 的标记与登记表三元组已一并摘除(2026-11-13,
+// 仿 ai-career 摘除先例:登记假声明比缺一条覆盖更坏)。
+// StudyProgressScreen 的合法薄壳载体是 pkg-mirror3/study-progress/index(壳承载,见登记表)。
 
 import { aizhsUrl } from '@/constants/icon-urls'
 import { useI18n } from '@/i18n'
@@ -91,7 +97,7 @@ export default function StudyIndex() {
 
   return (
     <ThemeRoot>
-      {/* 对齐 RN StudyProgressScreen:容器底 surface.bg,paddingH 10dp→20rpx / paddingT 48dp→96rpx / paddingB 32dp→64rpx */}
+      {/* 样式数值移植自 RN 屏 StudyProgressScreen(容器底 surface.bg,paddingH 10dp→20rpx / paddingT 48dp→96rpx / paddingB 32dp→64rpx);措辞不用「对齐/镜像」—— 本页非 StudyProgressScreen 镜像对(见文件头非同源说明),避免触发镜像对账闸 */}
       <View className="min-h-screen bg-background px-[20rpx] pt-[96rpx] pb-[64rpx]">
         {/* 统计卡网格对齐 RN statGrid/statCard:gap 8dp→16rpx,卡片 p 14dp→28rpx / 圆角 12dp→24rpx / 边框 border.light / 数值 22dp→44rpx/700 success */}
         <View className="flex flex-wrap gap-[16rpx] mb-[32rpx]">

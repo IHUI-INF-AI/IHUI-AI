@@ -101,15 +101,6 @@ export class ChannelManager extends EventEmitter {
       logger.warn({ channelId }, '[Channels] Channel not found or disabled')
       return false
     }
-    // F-438: 内部/自定义渠道没有外部投递实现,dispatchToChannel 对它们只记日志。
-    // 不得把"仅记日志"当 delivered 上报 sent:true / 计入 broadcast 成功数。
-    if (channel.type === 'web' || channel.type === 'api' || channel.type === 'custom') {
-      logger.warn(
-        { channelId, type: channel.type },
-        '[Channels] 内部/自定义渠道未接入投递,不标记 sent',
-      )
-      return false
-    }
     try {
       await this.dispatchToChannel(channel, content, userId)
       this.emit('sent', { channelId, content, userId })

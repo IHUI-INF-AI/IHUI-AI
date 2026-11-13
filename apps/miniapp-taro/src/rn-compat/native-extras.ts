@@ -328,7 +328,17 @@ export function parse(url: string): {
   if (m?.[3]) {
     for (const kv of m[3].split('&')) {
       const [k, v] = kv.split('=')
-      if (k) queryParams[k] = decodeURIComponent(v ?? '')
+      // 深链 query 里可能出现非合法百分号编码(如 `?discount=100%`)⇒ 解码失败按原样回落
+      // (与 native-asset.ts decodeName 同型防御,炸整页不炸一个参数)
+      if (k) {
+        let decoded = v ?? ''
+        try {
+          decoded = decodeURIComponent(v ?? '')
+        } catch {
+          decoded = v ?? ''
+        }
+        queryParams[k] = decoded
+      }
     }
   }
   return { scheme: m?.[1], path: m?.[2] ?? '', queryParams }

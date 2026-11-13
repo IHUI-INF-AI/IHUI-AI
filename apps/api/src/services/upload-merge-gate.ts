@@ -42,7 +42,11 @@ export const UPLOAD_MERGE_ENV_KEY = 'UPLOAD_MERGE_MAX_CONCURRENCY'
 /** 同类喊话的节流窗口:首次立即,之后每个窗口至多一次且带累计数(不刷屏,同 cloud-run)。 */
 export const UPLOAD_MERGE_NOTICE_THROTTLE_MS = 60_000
 
-export type UploadMergeLimitSource = 'default' | 'env' | 'env-unlimited' | 'env-invalid-fallback'
+export type UploadMergeLimitSource =
+  | 'default'
+  | 'env'
+  | 'env-unlimited'
+  | 'env-invalid-fallback'
 
 export interface ResolvedUploadMergeLimit {
   /** 实际并发上限;unlimited 时为 Number.POSITIVE_INFINITY。 */
@@ -68,17 +72,11 @@ export function resolveUploadMergeLimit(
     raw,
   })
   if (raw === undefined || raw.trim() === '') {
-    return {
-      limit: PROTOCOL_UPLOAD_LIMITS.maxConcurrentUploads,
-      unlimited: false,
-      source: 'default',
-      raw: undefined,
-    }
+    return { limit: PROTOCOL_UPLOAD_LIMITS.maxConcurrentUploads, unlimited: false, source: 'default', raw: undefined }
   }
   const n = Number(raw)
   if (Number.isInteger(n) && n > 0) return { limit: n, unlimited: false, source: 'env', raw }
-  if (n === 0)
-    return { limit: Number.POSITIVE_INFINITY, unlimited: true, source: 'env-unlimited', raw }
+  if (n === 0) return { limit: Number.POSITIVE_INFINITY, unlimited: true, source: 'env-unlimited', raw }
   return fallbackDefault('env-invalid-fallback')
 }
 
@@ -170,10 +168,7 @@ interface UploadMergeStopFailedRecord {
  */
 export class UploadMergeStopFailedError extends Error {
   readonly pendingResources: readonly string[]
-  constructor(
-    pendingResources: readonly string[],
-    message = '启动/装配失败:自有子资源未全部终态,租约保锁待人工收口',
-  ) {
+  constructor(pendingResources: readonly string[], message = '启动/装配失败:自有子资源未全部终态,租约保锁待人工收口') {
     super(message)
     this.name = 'UploadMergeStopFailedError'
     this.pendingResources = [...pendingResources]
@@ -225,12 +220,7 @@ export function createUploadMergeGate(opts: CreateUploadMergeGateOptions = {}): 
   /** 生效上限的"出身"在闸的整个生命周期里只播报一次(它是构造期事实,不是反复发生的事件)。 */
   let startupAnnounced = false
 
-  function shout(
-    event: UploadMergeNoticeEvent,
-    level: 'info' | 'warn',
-    message: string,
-    fields: Record<string, unknown>,
-  ): void {
+  function shout(event: UploadMergeNoticeEvent, level: 'info' | 'warn', message: string, fields: Record<string, unknown>): void {
     const led = noticeLedger.get(event) ?? { count: 0, lastAtMs: 0 }
     led.count += 1
     const t = now()
@@ -266,30 +256,15 @@ export function createUploadMergeGate(opts: CreateUploadMergeGateOptions = {}): 
   function shoutStartupFacts(): void {
     // env 生效值随事实报出(不得静默);invalid 单独成事件 —— "没配"与"配坏了"必须可区分。
     if (resolved.source === 'env') {
-      shout(
-        'env-override',
-        'info',
-        `${UPLOAD_MERGE_ENV_KEY} 覆盖合并并发上限为 ${resolved.limit}`,
-        { envRaw: resolved.raw },
-      )
+      shout('env-override', 'info', `${UPLOAD_MERGE_ENV_KEY} 覆盖合并并发上限为 ${resolved.limit}`, { envRaw: resolved.raw })
     } else if (resolved.source === 'env-invalid-fallback') {
-      shout(
-        'env-invalid-fallback',
-        'warn',
-        `${UPLOAD_MERGE_ENV_KEY}="${resolved.raw}" 非法,回落默认档 ${resolved.limit}(只接受正整数,或 0 = 显式不限)`,
-        { envRaw: resolved.raw },
-      )
+      shout('env-invalid-fallback', 'warn', `${UPLOAD_MERGE_ENV_KEY}="${resolved.raw}" 非法,回落默认档 ${resolved.limit}(只接受正整数,或 0 = 显式不限)`, { envRaw: resolved.raw })
     }
   }
 
   function acquire(): Promise<UploadMergeSlotInfo> {
     if (resolved.source === 'env-unlimited') {
-      shout(
-        'unlimited-mode',
-        'warn',
-        `${UPLOAD_MERGE_ENV_KEY}=0 ⇒ 合并并发**不设上限**,磁盘 IO 与哈希计算不再受闸约束`,
-        { admitted: admittedTotal + 1 },
-      )
+      shout('unlimited-mode', 'warn', `${UPLOAD_MERGE_ENV_KEY}=0 ⇒ 合并并发**不设上限**,磁盘 IO 与哈希计算不再受闸约束`, { admitted: admittedTotal + 1 })
     } else if (!startupAnnounced) {
       startupAnnounced = true
       shoutStartupFacts()
@@ -306,12 +281,7 @@ export function createUploadMergeGate(opts: CreateUploadMergeGateOptions = {}): 
     const waiter: Waiter = { enqueuedAt, settle: () => {} }
     waiters.push(waiter) // 先入列再喊话:台账里的 queued 与 queueDepth 必须同形
     const depth = waiters.length
-    shout(
-      'queue-admission',
-      'warn',
-      `合并并发已满(上限 ${resolved.limit}),本次入队等待,队列深度 ${depth}`,
-      { queueDepth: depth, cumulativeQueued: queuedTotal },
-    )
+    shout('queue-admission', 'warn', `合并并发已满(上限 ${resolved.limit}),本次入队等待,队列深度 ${depth}`, { queueDepth: depth, cumulativeQueued: queuedTotal })
     return new Promise<UploadMergeSlotInfo>((settle) => {
       waiter.settle = settle
     })
@@ -431,12 +401,14 @@ export function createLayeredUploadMergeGate(
 ): LayeredUploadMergeGate {
   const resolved = resolveUploadMergeLimit(opts.env ?? process.env)
   const leaseMs = opts.leaseMs ?? resolveUploadMergeLease(opts.env ?? process.env).leaseMs
-  const renewIntervalMs = Math.max(1, Math.floor(leaseMs / 3))
+  const renewIntervalMs = Math.max(
+    1,
+    Math.floor(leaseMs / 3),
+  )
   const now = opts.now ?? Date.now
   const pollMs = opts.pollIntervalMs ?? 50
   const key = resolveUploadMergeSemaphoreKey(opts.env ?? process.env)
-  const owner =
-    opts.ownerToken ?? `pid-${process?.pid ?? 0}-${Math.random().toString(36).slice(2, 10)}`
+  const owner = opts.ownerToken ?? `pid-${process?.pid ?? 0}-${Math.random().toString(36).slice(2, 10)}`
   const notify = opts.notify ?? defaultLayerNotifier
   const throttleMs = opts.throttleMs ?? UPLOAD_MERGE_NOTICE_THROTTLE_MS
 
@@ -483,17 +455,9 @@ export function createLayeredUploadMergeGate(
   const stopFailedLedger: StopFailedLedgerEntry[] = []
   /** 台账 → facts 快照(拷贝,调用方拿不到内部句柄)。 */
   const stopFailedSnapshots = (): UploadMergeStopFailedRecord[] =>
-    stopFailedLedger.map(({ heartbeat: _hb, token: _tk, ...snap }) => ({
-      ...snap,
-      pendingResources: [...snap.pendingResources],
-    }))
+    stopFailedLedger.map(({ heartbeat: _hb, token: _tk, ...snap }) => ({ ...snap, pendingResources: [...snap.pendingResources] }))
 
-  function outerShout(
-    event: UploadMergeNoticeEvent,
-    level: 'info' | 'warn',
-    message: string,
-    fields: Record<string, unknown>,
-  ): void {
+  function outerShout(event: UploadMergeNoticeEvent, level: 'info' | 'warn', message: string, fields: Record<string, unknown>): void {
     const led = noticeLedger.get(event) ?? { count: 0, lastAtMs: 0 }
     led.count += 1
     const t = now()
@@ -509,12 +473,7 @@ export function createLayeredUploadMergeGate(
       level,
       event,
       message,
-      fields: {
-        gate: 'upload-merge',
-        activeLayer: 'redis',
-        limitSource: resolved.source,
-        ...fields,
-      },
+      fields: { gate: 'upload-merge', activeLayer: 'redis', limitSource: resolved.source, ...fields },
     })
   }
 
@@ -525,20 +484,9 @@ export function createLayeredUploadMergeGate(
       semaphoreInit = (async () => {
         try {
           const provided =
-            typeof opts.redis === 'function'
-              ? await (
-                  opts.redis as () =>
-                    MergeSemaphoreRedis | null | Promise<MergeSemaphoreRedis | null>
-                )()
-              : opts.redis
+            typeof opts.redis === 'function' ? await (opts.redis as () => MergeSemaphoreRedis | null | Promise<MergeSemaphoreRedis | null>)() : opts.redis
           if (!provided) return null
-          semaphore = createRedisMergeSemaphore({
-            redis: provided,
-            key,
-            limit: resolved.limit,
-            leaseMs,
-            now,
-          })
+          semaphore = createRedisMergeSemaphore({ redis: provided, key, limit: resolved.limit, leaseMs, now })
           return semaphore
         } catch (err) {
           degradeFromError(err)
@@ -556,34 +504,19 @@ export function createLayeredUploadMergeGate(
     semaphoreInit = null
     redisFailures += 1
     degradeReason = `redis-error: ${err instanceof Error ? err.message : String(err)}`
-    outerShout(
-      'degraded-to-in-process',
-      'warn',
-      `跨进程合并闸不可用,回落进程内闸(各实例各限 ${Number.isFinite(resolved.limit) ? resolved.limit : '∞'}):${degradeReason}`,
-      {
-        degradeReason,
-        redisFailures,
-      },
-    )
+    outerShout('degraded-to-in-process', 'warn', `跨进程合并闸不可用,回落进程内闸(各实例各限 ${Number.isFinite(resolved.limit) ? resolved.limit : '∞'}):${degradeReason}`, {
+      degradeReason,
+      redisFailures,
+    })
   }
 
   function announceLimit(): void {
     if (startupAnnounced) return
     startupAnnounced = true
     if (resolved.source === 'env') {
-      outerShout(
-        'env-override',
-        'info',
-        `${UPLOAD_MERGE_ENV_KEY} 覆盖合并并发上限为 ${resolved.limit}`,
-        { envRaw: resolved.raw },
-      )
+      outerShout('env-override', 'info', `${UPLOAD_MERGE_ENV_KEY} 覆盖合并并发上限为 ${resolved.limit}`, { envRaw: resolved.raw })
     } else if (resolved.source === 'env-invalid-fallback') {
-      outerShout(
-        'env-invalid-fallback',
-        'warn',
-        `${UPLOAD_MERGE_ENV_KEY}="${resolved.raw}" 非法,回落默认档 ${resolved.limit}(只接受正整数,或 0 = 显式不限)`,
-        { envRaw: resolved.raw },
-      )
+      outerShout('env-invalid-fallback', 'warn', `${UPLOAD_MERGE_ENV_KEY}="${resolved.raw}" 非法,回落默认档 ${resolved.limit}(只接受正整数,或 0 = 显式不限)`, { envRaw: resolved.raw })
     }
   }
 
@@ -606,12 +539,7 @@ export function createLayeredUploadMergeGate(
     }
     // 显式不限(env=0)⇒ 两层都不设界;外层这一层必须自己喊 unlimited(与进程内闸各自成话)。
     if (resolved.unlimited) {
-      outerShout(
-        'unlimited-mode',
-        'warn',
-        `${UPLOAD_MERGE_ENV_KEY}=0 ⇒ 合并并发**不设上限**(跨进程层同样不判额),磁盘 IO 与哈希计算不再受闸约束`,
-        {},
-      )
+      outerShout('unlimited-mode', 'warn', `${UPLOAD_MERGE_ENV_KEY}=0 ⇒ 合并并发**不设上限**(跨进程层同样不判额),磁盘 IO 与哈希计算不再受闸约束`, {})
       return task({ waitMs: 0 })
     }
 
@@ -623,12 +551,7 @@ export function createLayeredUploadMergeGate(
       degraded = true
       degradedUntilMs = now() + DEGRADE_RECOVERY_MS
       degradeReason = 'redis-provider-null'
-      outerShout(
-        'degraded-to-in-process',
-        'warn',
-        `跨进程合并闸未就绪(provider 返回 null),回落进程内闸`,
-        { degradeReason },
-      )
+      outerShout('degraded-to-in-process', 'warn', `跨进程合并闸未就绪(provider 返回 null),回落进程内闸`, { degradeReason })
       return inner.runExclusive(label, task, log)
     }
     announceLimit()
@@ -653,12 +576,7 @@ export function createLayeredUploadMergeGate(
       if (granted) break
       if (waited === 0) {
         outerQueued += 1
-        outerShout(
-          'queue-admission',
-          'warn',
-          `跨进程合并并发已满(上限 ${resolved.limit}),本次入队等待`,
-          { cumulativeQueued: outerQueued },
-        )
+        outerShout('queue-admission', 'warn', `跨进程合并并发已满(上限 ${resolved.limit}),本次入队等待`, { cumulativeQueued: outerQueued })
       }
       waited += 1
       await sleep(pollMs)
@@ -711,13 +629,7 @@ export function createLayeredUploadMergeGate(
         try {
           await sem.quarantine(
             slotToken,
-            JSON.stringify({
-              owner,
-              label,
-              pendingResources: record.pendingResources,
-              failedAtMs: record.failedAtMs,
-              state: 'stop-failed',
-            }),
+            JSON.stringify({ owner, label, pendingResources: record.pendingResources, failedAtMs: record.failedAtMs, state: 'stop-failed' }),
           )
         } catch {
           /* 隔离记录落盘失败不掩盖原错误;本实例台账( facts.stopFailedRecords)仍有这条 */
@@ -745,10 +657,7 @@ export function createLayeredUploadMergeGate(
         }
       }
       if (waitMs > 0 && log) {
-        log.warn(
-          { gate: 'upload-merge', activeLayer: 'redis', waitMs },
-          `${label}: 跨进程合并槽排队 ${waitMs}ms`,
-        )
+        log.warn({ gate: 'upload-merge', activeLayer: 'redis', waitMs }, `${label}: 跨进程合并槽排队 ${waitMs}ms`)
       }
     }
   }
@@ -813,39 +722,23 @@ export function createLayeredUploadMergeGate(
       record.releasedAtMs = now()
       outerActive = Math.max(0, outerActive - 1)
       releasedCount += 1
-      // F-266:收口成功后隔离记录已无诊断价值 ⇒ HDEL 字段 + ZREM 时间索引,不让它永远留在
-      // 共享 hash 里(缺陷本体就是"每次 stop-failed 都留一条 JSON、收口也不删",长跑实例单调增长)。
-      // 清理失败只记 warn,并退回既有"回写 released 终态":记录改由 TTL 与读侧惰性清理收敛 ——
-      // 清理是附加动作,绝不能改变"锁已放"这一事实。
+      // Redis 侧隔离记录同步终态:接管者读到的是"收口已完成"的记录,不是半路尸检报告。
       try {
-        if (semaphore) await semaphore.clearQuarantine(record.token)
-      } catch (err) {
-        logger.warn(
-          '合并槽收口后清理隔离记录失败,退回回写 released 终态(记录由 TTL/惰性清理收敛)',
-          {
-            gate: 'upload-merge',
-            slotToken: record.token,
-            reason: err instanceof Error ? err.message : String(err),
-          },
-        )
-        // Redis 侧状态回写终态:接管者读到的是"收口已完成"的记录,不是半路尸检报告。
-        try {
-          if (semaphore) {
-            await semaphore.quarantine(
-              record.token,
-              JSON.stringify({
-                owner: record.owner,
-                label: record.label,
-                pendingResources: record.pendingResources,
-                failedAtMs: record.failedAtMs,
-                state: 'released',
-                releasedAtMs: record.releasedAtMs,
-              }),
-            )
-          }
-        } catch {
-          /* 状态回写失败不改变放锁事实;槽位已释放,记录留在 stop-failed 态可容忍 */
+        if (semaphore) {
+          await semaphore.quarantine(
+            record.token,
+            JSON.stringify({
+              owner: record.owner,
+              label: record.label,
+              pendingResources: record.pendingResources,
+              failedAtMs: record.failedAtMs,
+              state: 'released',
+              releasedAtMs: record.releasedAtMs,
+            }),
+          )
         }
+      } catch {
+        /* 状态回写失败不改变放锁事实;槽位已释放,记录留在 stop-failed 态可容忍 */
       }
     }
     return releasedCount
@@ -874,12 +767,8 @@ function shouldEnableRedisLayer(env: Record<string, string | undefined>): boolea
 /** 懒建一条 ioredis 连接(仅非测试环境),给计数信号量当 EVAL 载体。 */
 async function makeProductionSemaphoreRedis(): Promise<MergeSemaphoreRedis | null> {
   const url = process.env.REDIS_URL || 'redis://localhost:8811'
-  const mod = (await import('ioredis')) as {
-    default?: new (url: string, opts: Record<string, unknown>) => MergeSemaphoreRedis
-  }
-  const Ctor =
-    mod.default ??
-    (mod as unknown as new (url: string, opts: Record<string, unknown>) => MergeSemaphoreRedis)
+  const mod = (await import('ioredis')) as { default?: new (url: string, opts: Record<string, unknown>) => MergeSemaphoreRedis }
+  const Ctor = mod.default ?? (mod as unknown as new (url: string, opts: Record<string, unknown>) => MergeSemaphoreRedis)
   // lazyConnect 由调用方首次命令触发;offline 队列关闭 ⇒ 未连接时命令快速 reject(被外层捕获并降级),
   // 而不是把取用挂进无限等待队列(那等于把"降级可见"换成"提交卡死")。
   return new Ctor(url, {
@@ -923,12 +812,7 @@ export function getUploadMergeGateFacts(): UploadMergeGateFacts {
  */
 export function resetUploadMergeGateForTests(
   env?: Record<string, string | undefined>,
-  opts?: {
-    redis?: UploadMergeSemaphoreProvider
-    pollIntervalMs?: number
-    leaseMs?: number
-    ownerToken?: string
-  },
+  opts?: { redis?: UploadMergeSemaphoreProvider; pollIntervalMs?: number; leaseMs?: number; ownerToken?: string },
 ): void {
   if (!env && !opts) {
     singleton = null

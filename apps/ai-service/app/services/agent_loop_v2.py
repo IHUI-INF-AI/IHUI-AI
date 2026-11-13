@@ -459,10 +459,30 @@ _DEFAULT_HIGH_RISK_TOOLS: frozenset[str] = frozenset({
     "edu_create_payment_record",
     "edu_send_fee_reminder",
     "edu_send_fee_reminder_batch",
+    # 两座 API 桥接的字符串转发入口(2026-11-13):能按 name 转发到任意已注册端点
+    # (实测 ais 桥 653 个,含大量写端点)。此处勘误 D143 那条旧注:"api_endpoint_call
+    # 是幻影、注册表 0 命中"在两桥落成后已失效 —— 现两者都经 register_external_tool
+    # 真注册(ais_endpoint_call 实测在 _TOOLS/_TOOL_HANDLERS)。转发入口的能力面=它
+    # 能触达的最危险端点,故判高危(命令类同级),否则 default 模式下模型可无审批直改
+    # 后端数据。只读查询走 *_endpoints_search(不在本表,免审批),不受影响。
+    "api_endpoint_call",
+    "ais_endpoint_call",
 })
 
 # 前缀高危:computer_* 系列(电脑控制)整体视为高危
 _HIGH_RISK_PREFIXES: tuple[str, ...] = ("computer_",)
+
+# 运行时注入的高危入口(2026-11-13 立,对齐守门 108"豁免必须带原因且逐条登记"):
+# 两座 API 桥接(api_tools_bridge / ai_service_bridge)的字符串转发入口经
+# register_external_tool 在 **lifespan 运行时**注入 _TOOLS,不进模块加载期读到的
+# 静态 _TOOLS 快照(test_high_risk_tool_list 读不到它们 ⇒ 判据盲区,不是幽灵名)。
+# 它们已进 _DEFAULT_HIGH_RISK_TOOLS(能触达任意写端点,能力面=最危险端点)。
+# 这个集只在测试不变量里登记"哪些高危名属运行时注入",作为判据盲区的显式豁免 ——
+# 它**不是**第二份高危名单,高危判定仍只认 _DEFAULT_HIGH_RISK_TOOLS / _HIGH_RISK_PREFIXES。
+BRIDGE_ENTRY_RUNTIME_TOOLS: frozenset[str] = frozenset({
+    "api_endpoint_call",
+    "ais_endpoint_call",
+})
 
 
 def _matches_high_risk_name(name: str) -> bool:

@@ -40,7 +40,7 @@ interface ReplayStream {
   droppedCount: number
   /**
    * G-998166:流已进入释放保留窗口(流结束/异常后的 disposed-stale 态)。
-   * disposed 表项对「复用型」取句柄路径不可见(命中即删),但 60s 重放窗口内的
+ * disposed 表项对「复用型」取句柄路径不可见(命中即删),但 60s 重放窗口内的
    * 只读重放(getEventsAfter / getReplayWindowStatus)仍然有效。
    */
   disposed: boolean
@@ -64,11 +64,6 @@ interface ReplayStream {
   abandoned: boolean
   /** G-714:首个触发放弃的条件(放弃必须可解释,不许只说"窗口没了")。 */
   abandonReason: ReplayAbandonReason | null
-  /**
-   * F-286:本代缓冲的归属会话标识 —— 由 registerStream 在开流时写入。
-   * 释放时若调用方带了 expectedOwner 且不等于它,说明同 key 已被新一代覆盖,必须静默跳过。
-   */
-  owner: string | null
 }
 
 /** 饱和边沿:entered = 刚进入饱和,exited = 刚解除饱和,null = 没有待消费的边沿。 */
@@ -127,12 +122,7 @@ function evictOldestStreamIfNeeded(): void {
       oldestKey = key
     }
   }
-  if (oldestKey) {
-    // F-291:淘汰时一并清掉待释放定时器,否则定时器仍持有该流对象、60s 后误触发删除。
-    const evicted = streams.get(oldestKey)
-    if (evicted?.releaseTimer) clearTimeout(evicted.releaseTimer)
-    streams.delete(oldestKey)
-  }
+  if (oldestKey) streams.delete(oldestKey)
 }
 
 /**
@@ -196,7 +186,7 @@ function evaluateReplayPressure(s: ReplayStream, now: number): void {
  * 开始记录一条流的缓冲(清空旧缓冲并取消其待释放定时器)。
  * replayKey = `${conversationId}:${messageId}`。
  */
-export function registerStream(replayKey: string, owner: string | null = null): void {
+export function registerStream(replayKey: string): void {
   const existing = streams.get(replayKey)
   if (existing?.releaseTimer) {
     clearTimeout(existing.releaseTimer)
@@ -218,7 +208,6 @@ export function registerStream(replayKey: string, owner: string | null = null): 
     pendingEdge: null,
     abandoned: false,
     abandonReason: null,
-    owner,
   })
 }
 
@@ -409,18 +398,10 @@ export function acquireLiveStream(replayKey: string): boolean {
   return true
 }
 
-/**
- * 调度释放:流结束/异常后保留 RELEASE_DELAY_MS 再删除(定时器)。
- *
- * F-286:expectedOwner 缺省 = 旧行为;显式传入时只有当前表项归属该会话才释放 ——
- * 旧会话 finally/宽限定时器的迟到清理不得杀掉同 key 新会话的缓冲。
- * 返回值表示本次调用是否作用在本代表项上(供状态层同步远端 expire)。
- */
-export function releaseStream(replayKey: string, expectedOwner?: string): boolean {
+/** 调度释放:流结束/异常后保留 RELEASE_DELAY_MS 再删除(定时器)。 */
+export function releaseStream(replayKey: string): void {
   const s = streams.get(replayKey)
-  if (!s) return false
-  if (expectedOwner !== undefined && s.owner !== expectedOwner) return false
-  if (s.releaseTimer) return true
+  if (!s || s.releaseTimer) return
   s.disposed = true
   s.releaseTimer = setTimeout(() => {
     const cur = streams.get(replayKey)
@@ -430,6 +411,5 @@ export function releaseStream(replayKey: string, expectedOwner?: string): boolea
       streams.delete(replayKey)
     }
   }, RELEASE_DELAY_MS)
-  return true
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -42,7 +42,7 @@ import {
   type LoginResult,
 } from '@ihui/api-client'
 import { useLoginForm, type LoginApiResult } from '@ihui/shared/hooks'
-import { apiFailureToText, toUserFriendlyMessage } from '@ihui/shared/utils'
+import { apiFailureToText } from '@ihui/shared/utils'
 import {
   LoginScreen as SharedLoginScreen,
   getTokens,
@@ -783,7 +783,7 @@ export function LoginScreen() {
           if (recent) setPhone(recent)
           showToast('info', t('login.carrierNotConfigured'))
         } else {
-          form.setError(toUserFriendlyMessage(err))
+          form.setError(err.message)
         }
       } else {
         form.setError(t('auth.loginFailed'))
@@ -948,10 +948,10 @@ export function LoginScreen() {
             form.setError(apiFailureToText(res, t('auth.loginFailed')))
           }
         } catch (err) {
-          const raw = err instanceof Error ? err.message : String(err)
-          // 用户取消授权(errCode=-2)不算错误,不弹错误提示;判定吃原始文本,显示走中文归一化
-          if (!raw.includes('取消') && !raw.includes('cancel') && !raw.includes('Cancel')) {
-            form.setError(toUserFriendlyMessage(err))
+          const msg = err instanceof Error ? err.message : String(err)
+          // 用户取消授权(errCode=-2)不算错误,不弹错误提示
+          if (!msg.includes('取消') && !msg.includes('cancel') && !msg.includes('Cancel')) {
+            form.setError(msg)
           }
         } finally {
           setThirdPartyLoadingPlatform(null)
@@ -995,11 +995,9 @@ export function LoginScreen() {
             await applyOAuthResult(redirectRes)
           }
         } catch (err) {
-          const raw = err instanceof Error ? err.message : String(err)
-          // 取消判定必须吃原始文本:本地化会把 cancel 归一成"操作失败",拿中文判会误弹。
-          // 显示一律走共享层中文归一化,不再把 fetch failed / aborted 这类英文漏给用户。
-          if (!raw.includes('取消') && !raw.includes('cancel') && !raw.includes('Cancel')) {
-            form.setError(toUserFriendlyMessage(err))
+          const msg = err instanceof Error ? err.message : String(err)
+          if (!msg.includes('取消') && !msg.includes('cancel') && !msg.includes('Cancel')) {
+            form.setError(msg)
           }
         } finally {
           setThirdPartyLoadingPlatform(null)
@@ -1026,11 +1024,9 @@ export function LoginScreen() {
             await applyOAuthResult(redirectRes)
           }
         } catch (err) {
-          const raw = err instanceof Error ? err.message : String(err)
-          // 取消判定必须吃原始文本:本地化会把 cancel 归一成"操作失败",拿中文判会误弹。
-          // 显示一律走共享层中文归一化,不再把 fetch failed / aborted 这类英文漏给用户。
-          if (!raw.includes('取消') && !raw.includes('cancel') && !raw.includes('Cancel')) {
-            form.setError(toUserFriendlyMessage(err))
+          const msg = err instanceof Error ? err.message : String(err)
+          if (!msg.includes('取消') && !msg.includes('cancel') && !msg.includes('Cancel')) {
+            form.setError(msg)
           }
         } finally {
           setThirdPartyLoadingPlatform(null)
@@ -1062,11 +1058,9 @@ export function LoginScreen() {
           }
           await applyOAuthResult(res)
         } catch (err) {
-          const raw = err instanceof Error ? err.message : String(err)
-          // 取消判定必须吃原始文本:本地化会把 cancel 归一成"操作失败",拿中文判会误弹。
-          // 显示一律走共享层中文归一化,不再把 fetch failed / aborted 这类英文漏给用户。
-          if (!raw.includes('取消') && !raw.includes('cancel') && !raw.includes('Cancel')) {
-            form.setError(toUserFriendlyMessage(err))
+          const msg = err instanceof Error ? err.message : String(err)
+          if (!msg.includes('取消') && !msg.includes('cancel') && !msg.includes('Cancel')) {
+            form.setError(msg)
           }
         } finally {
           setThirdPartyLoadingPlatform(null)

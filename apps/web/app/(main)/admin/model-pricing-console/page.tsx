@@ -238,7 +238,7 @@ export default function PricingConsolePage() {
             type="button"
             onClick={() => sweep.mutate()}
             disabled={sweep.isPending}
-            className="inline-flex items-center gap-1 rounded-md border px-3 py-1.5 text-xs hover:bg-muted disabled:opacity-50"
+            className="inline-flex items-center gap-1 rounded-sm border border-border px-3 py-1.5 text-xs hover:bg-muted disabled:opacity-50"
           >
             {sweep.isPending ? (
               <Loader2 className="size-3 animate-spin" />
@@ -251,7 +251,7 @@ export default function PricingConsolePage() {
             type="button"
             onClick={() => syncCatalog.mutate()}
             disabled={syncCatalog.isPending}
-            className="inline-flex items-center gap-1 rounded-md border px-3 py-1.5 text-xs hover:bg-muted disabled:opacity-50"
+            className="inline-flex items-center gap-1 rounded-sm border border-border px-3 py-1.5 text-xs hover:bg-muted disabled:opacity-50"
           >
             {syncCatalog.isPending ? (
               <Loader2 className="size-3 animate-spin" />
@@ -264,7 +264,9 @@ export default function PricingConsolePage() {
       </div>
 
       {notice ? (
-        <div className="rounded-md border bg-muted/40 px-3 py-2 text-xs">{notice}</div>
+        <div className="rounded-md border border-border bg-muted/40 px-3 py-2 text-xs">
+          {notice}
+        </div>
       ) : null}
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
@@ -327,13 +329,13 @@ export default function PricingConsolePage() {
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
                 placeholder="搜模型名"
-                className="h-8 w-56 rounded-md border bg-transparent pl-7 pr-2 text-xs"
+                className="h-8 w-56 rounded-sm border border-input bg-transparent pl-7 pr-2 text-xs"
               />
             </div>
             <select
               value={provider}
               onChange={(e) => setProvider(e.target.value)}
-              className="h-8 rounded-md border bg-transparent px-2 text-xs"
+              className="h-8 rounded-sm border border-input bg-transparent px-2 text-xs"
             >
               <option value="">全部渠道</option>
               {(ov?.byProvider ?? []).map((p) => (
@@ -395,7 +397,7 @@ export default function PricingConsolePage() {
                             <input
                               value={editIn}
                               onChange={(e) => setEditIn(e.target.value)}
-                              className="h-7 w-24 rounded border bg-transparent px-1 text-right"
+                              className="h-7 w-24 rounded-sm border border-input bg-transparent px-1 text-right"
                             />
                           ) : (
                             <>
@@ -411,7 +413,7 @@ export default function PricingConsolePage() {
                             <input
                               value={editOut}
                               onChange={(e) => setEditOut(e.target.value)}
-                              className="h-7 w-24 rounded border bg-transparent px-1 text-right"
+                              className="h-7 w-24 rounded-sm border border-input bg-transparent px-1 text-right"
                             />
                           ) : (
                             <>
@@ -449,14 +451,14 @@ export default function PricingConsolePage() {
                                 type="button"
                                 onClick={() => save.mutate(m)}
                                 disabled={save.isPending}
-                                className="rounded border px-2 py-0.5 hover:bg-muted"
+                                className="rounded border border-border px-2 py-0.5 hover:bg-muted"
                               >
                                 保存
                               </button>
                               <button
                                 type="button"
                                 onClick={() => setEditingId(null)}
-                                className="rounded border px-2 py-0.5 hover:bg-muted"
+                                className="rounded border border-border px-2 py-0.5 hover:bg-muted"
                               >
                                 取消
                               </button>
@@ -470,14 +472,14 @@ export default function PricingConsolePage() {
                                   setEditIn(String(m.inputPricePer1k))
                                   setEditOut(String(m.outputPricePer1k))
                                 }}
-                                className="rounded border px-2 py-0.5 hover:bg-muted"
+                                className="rounded border border-border px-2 py-0.5 hover:bg-muted"
                               >
                                 改价
                               </button>
                               <button
                                 type="button"
                                 onClick={() => setAuditModel(m.modelId)}
-                                className="rounded border px-2 py-0.5 hover:bg-muted"
+                                className="rounded border border-border px-2 py-0.5 hover:bg-muted"
                               >
                                 历史
                               </button>
@@ -508,7 +510,7 @@ export default function PricingConsolePage() {
             <button
               type="button"
               onClick={() => setAuditModel(null)}
-              className="rounded border px-2 py-0.5 text-xs hover:bg-muted"
+              className="rounded border border-border px-2 py-0.5 text-xs hover:bg-muted"
             >
               关闭
             </button>

@@ -198,7 +198,8 @@
   A: Real-time location data anonymized + encrypted in transit. Compliant with PIPL.
 
 ### Contact
-- **Unified contact email: lizong@aizhs.top** — one address for industry solutions, industry material requests and business enquiries. Mention your industry and topic; we reply within 24 hours.
+- Transportation industry: transportation@aizhs.top
+- General business: contact@aizhs.top
 - Official site: https://aizhs.top
 - GitHub: https://github.com/IHUI-INF-AI/IHUI-AI
 

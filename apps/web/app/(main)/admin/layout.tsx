@@ -80,6 +80,26 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     // 未登录:middleware 应已拦截,这里作为客户端兜底。
     // 但"曾登录过且未主动登出"时先给一次恢复宽限 —— 详见 RECOVER_GRACE_MS 头注。
     if (!isAuthenticated) {
+      // 最后一道:内存判未登录,但盘上快照仍是已登录(双实例下内存可能停在初始值)。
+      // middleware 已经放行到这里(说明 auth_token / refresh_token cookie 是在场的),
+      // 此时把盘上的会话写回内存,不跳登录。
+      // 失效方向:只在"盘上确实有已登录快照"时恢复,匿名访问照旧跳登录。
+      try {
+        const raw = window.localStorage.getItem('ihui-auth')
+        if (raw) {
+          const snap = JSON.parse(raw) as {
+            state?: { isAuthenticated?: boolean; user?: { id?: string } | null }
+          }
+          const snapUser = snap?.state?.user
+          if (snap?.state?.isAuthenticated && snapUser?.id) {
+            // 整份 user 原样写回(含 roleId —— admin 守卫判权限靠它)
+            useAuthStore.setState({ isAuthenticated: true, user: snapUser as never })
+            return
+          }
+        }
+      } catch {
+        // 盘上值不可解析:按未登录处理
+      }
       const toLogin = () => {
         router.replace('/sso/login?redirect=' + encodeURIComponent(window.location.pathname))
       }

@@ -1,0 +1,317 @@
+{
+  "id": "ev_15a0ea79889fdc9a3fb279e7d0b35d7e1eec9d52cbb0a0869a959e02d1ea0924",
+  "subject": {
+    "kind": "website",
+    "name": "http://127.0.0.1:3080/"
+  },
+  "operation": "web_site_capture",
+  "params": {
+    "include_html": false,
+    "max_height": 12000,
+    "noise_pass": true,
+    "visitor_view": true,
+    "widths": [1440, 768, 390]
+  },
+  "result": {
+    "counts": {
+      "forms": 0,
+      "headings": 1,
+      "images": 0,
+      "links": 0,
+      "outline": 52
+    },
+    "design": {
+      "backgrounds": [
+        {
+          "count": 6,
+          "value": "#ffffff"
+        },
+        {
+          "count": 2,
+          "value": "#f9fafb"
+        },
+        {
+          "count": 1,
+          "value": "#2631480f"
+        },
+        {
+          "count": 1,
+          "value": "#e4edfd"
+        },
+        {
+          "count": 1,
+          "value": "#f5f6f7"
+        },
+        {
+          "count": 1,
+          "value": "#4176e6"
+        },
+        {
+          "count": 1,
+          "value": "#0f1115"
+        }
+      ],
+      "font_sizes": [
+        {
+          "count": 12,
+          "value": "14px"
+        },
+        {
+          "count": 6,
+          "value": "12px"
+        },
+        {
+          "count": 4,
+          "value": "13px"
+        },
+        {
+          "count": 1,
+          "value": "26px"
+        },
+        {
+          "count": 1,
+          "value": "20px"
+        }
+      ],
+      "font_weights": [
+        {
+          "count": 17,
+          "value": "400"
+        },
+        {
+          "count": 7,
+          "value": "500"
+        }
+      ],
+      "fonts": [
+        {
+          "count": 23,
+          "value": "-apple-system, BlinkMacSystemFont, \"Segoe UI\", \"PingFang SC\", \"Hiragino Sans GB\", \"Microsoft YaHei\", \"Helvetica Neue\", Helvetica, Arial, sans-serif, -apple-system, BlinkMacSystemFont, \"Segoe UI\", \"PingFang SC\", \"Hiragino Sans GB\", \"Microsoft YaHei\", \"Helvetica Neue\", Helvetica, Arial, sans-serif"
+        },
+        {
+          "count": 1,
+          "value": "\"SF Mono\", \"JetBrains Mono\", \"Fira Code\", Consolas, \"Liberation Mono\", Menlo, Courier, \"PingFang SC\", \"Microsoft YaHei\", \"SF Mono\", \"JetBrains Mono\", \"Fira Code\", Consolas, \"Liberation Mono\", Menlo, Courier, \"PingFang SC\", \"Microsoft YaHei\""
+        }
+      ],
+      "max_widths": [
+        {
+          "count": 2,
+          "value": "774.4px"
+        },
+        {
+          "count": 1,
+          "value": "200px"
+        },
+        {
+          "count": 1,
+          "value": "28px"
+        },
+        {
+          "count": 1,
+          "value": "60px"
+        },
+        {
+          "count": 1,
+          "value": "220px"
+        },
+        {
+          "count": 1,
+          "value": "360px"
+        }
+      ],
+      "radii": [
+        {
+          "count": 10,
+          "value": "8px"
+        },
+        {
+          "count": 9,
+          "value": "12px"
+        },
+        {
+          "count": 3,
+          "value": "999px"
+        },
+        {
+          "count": 2,
+          "value": "28px"
+        }
+      ],
+      "shadows": [
+        {
+          "count": 1,
+          "value": "rgba(0, 0, 0, 0.1) 0px 0px 0px 0.5px, rgba(0, 0, 0, 0.03) 0px 4px 16px 0px, rgba(0, 0, 0, 0.03) 0px 0px 24px 0px"
+        },
+        {
+          "count": 1,
+          "value": "rgba(0, 0, 0, 0.16) 0px 0px 0px 0.5px, rgba(0, 0, 0, 0.04) 0px 3px 8px 0px, rgba(0, 0, 0, 0.05) 0px 0px 20px 0px"
+        }
+      ],
+      "spacing": [
+        {
+          "count": 29,
+          "value": "8px"
+        },
+        {
+          "count": 27,
+          "value": "4px"
+        },
+        {
+          "count": 21,
+          "value": "6px"
+        },
+        {
+          "count": 19,
+          "value": "12px"
+        },
+        {
+          "count": 10,
+          "value": "2px"
+        },
+        {
+          "count": 10,
+          "value": "9px"
+        },
+        {
+          "count": 9,
+          "value": "7px"
+        },
+        {
+          "count": 7,
+          "value": "1px"
+        },
+        {
+          "count": 7,
+          "value": "24px"
+        },
+        {
+          "count": 5,
+          "value": "28px"
+        },
+        {
+          "count": 5,
+          "value": "20px"
+        },
+        {
+          "count": 4,
+          "value": "16px"
+        },
+        {
+          "count": 3,
+          "value": "10px"
+        },
+        {
+          "count": 3,
+          "value": "14px"
+        },
+        {
+          "count": 2,
+          "value": "5px"
+        },
+        {
+          "count": 2,
+          "value": "3px"
+        },
+        {
+          "count": 1,
+          "value": "32px"
+        }
+      ],
+      "text_colors": [
+        {
+          "count": 11,
+          "value": "#0f1115"
+        },
+        {
+          "count": 6,
+          "value": "#81858c"
+        },
+        {
+          "count": 3,
+          "value": "#61666b"
+        },
+        {
+          "count": 2,
+          "value": "#adb2b8"
+        },
+        {
+          "count": 1,
+          "value": "#0e3074"
+        },
+        {
+          "count": 1,
+          "value": "#ffffff"
+        }
+      ]
+    },
+    "files": ["README.md", "capture.json"],
+    "html_bytes": 0,
+    "output_directory": "D:/IHUI-AI/.craft-work\\127-0-0-1\\capture",
+    "screenshots": [
+      {
+        "css_width": 1440,
+        "cut": false,
+        "file": "screenshot-1440.png",
+        "height": 900,
+        "noise_tiles": 0,
+        "sha256": "0079172fe1de26249e8d0170e41c2499c41662d4719fd18096a6401dfe4693b3",
+        "width": 1440
+      },
+      {
+        "css_width": 768,
+        "cut": false,
+        "file": "screenshot-768.png",
+        "height": 900,
+        "noise_tiles": 0,
+        "sha256": "a032b5a499d8279a39659cf9b4f50683586007a24087defdcef23114fbc19b6c",
+        "width": 768
+      },
+      {
+        "css_width": 390,
+        "cut": false,
+        "file": "screenshot-390.png",
+        "height": 900,
+        "noise_tiles": 0,
+        "sha256": "8426a5932cbfa2ca05cc21f328b8336dc1508164c03b9e21c1f1ef27645fd2bf",
+        "width": 390
+      }
+    ],
+    "title": "DeepSeek Harness",
+    "url": "http://127.0.0.1:3080/"
+  },
+  "summary": "Captured http://127.0.0.1:3080/: 3 screenshot(s), 52 outline items, 1 headings, 0 images, 0 links, 0 forms → D:/IHUI-AI/.craft-work\\127-0-0-1\\capture.",
+  "confidence": "observed",
+  "authority": "our-run",
+  "environment": {
+    "clean_room": true,
+    "engine": "cdp",
+    "engine_version": "1.3",
+    "host": "windows-x86_64"
+  },
+  "limitations": [
+    {
+      "code": "one_state",
+      "message": "One state of the page: menus, dialogs and content behind interactions are not opened."
+    },
+    {
+      "code": "visitor_view",
+      "message": "Clean room: only what a visitor sees was kept (screenshots, visible text, measured layout and styles); not the page's HTML, CSS rules, scripts, requests or errors."
+    }
+  ],
+  "coverage": {
+    "status": "complete",
+    "examined": 3,
+    "total": 3
+  },
+  "locations": [
+    {
+      "kind": "url",
+      "value": "http://127.0.0.1:3080/"
+    },
+    {
+      "kind": "path",
+      "value": "D:/IHUI-AI/.craft-work\\127-0-0-1\\capture"
+    }
+  ],
+  "links": []
+}
