@@ -334,13 +334,13 @@ describe('④ runImportCommit —— 失败不中断 + 进度回吐', () => {
         called += 1
         return ok()
       },
-      emptyContentReason: '会话内没有有效内容',
+      emptyContentReason: '无可导入的有效内容',
     })
     expect(called).toBe(0)
     expect(out).toEqual({
       imported: 0,
       failed: 1,
-      failureReasons: ['会话内没有有效内容'],
+      failureReasons: ['无可导入的有效内容'],
       committed: [],
     })
   })

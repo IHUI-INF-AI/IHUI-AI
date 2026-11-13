@@ -45,7 +45,7 @@
     "committing": "匯入中...({done}/{total})",
     "commitDone": "匯入完成:成功 {imported},失敗 {failed}",
     "commitFailed": "匯入失敗:{error}",
-    "noValidContent": "對話內沒有有效內容",
+    "noValidContent": "無可匯入的有效內容",
     "historyTitle": "匯入記錄",
     "historyEmpty": "暫無匯入記錄",
     "historyParsed": "解析",
