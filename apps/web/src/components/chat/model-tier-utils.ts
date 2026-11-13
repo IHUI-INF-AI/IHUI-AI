@@ -43,6 +43,10 @@ export interface ModelOption {
    *  - 0 = 免费模型
    *  - 优先取后端返回的 points_multiplier(后端 infer 5 档后映射为小数)或前端 tierToDisplayMultiplier */
   pointsMultiplier?: number
+  /** 真实单价(元/百万 token,2026-11-13 立):倍率只是官方对标档位,横比以单价为准。
+   *  由后端模型目录带出;缺省则选择器不显示单价行。 */
+  inputPricePerMillion?: number
+  outputPricePerMillion?: number
   /** 是否支持会员 2.5 折(显示 "会员2.5折" 红色徽章 + 升级权益 popover 触发) */
   memberDiscountEligible?: boolean
   /** 是否正式版(显示 "正式版" 灰色徽章) */
