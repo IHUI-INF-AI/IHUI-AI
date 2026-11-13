@@ -233,7 +233,8 @@ export const adminShopRoutes: FastifyPluginAsync = async (server) => {
         status: PRODUCT_INT[b.data.status],
       })
       .returning()
-    if (!row) return reply.status(500).send(error(500, '创建失败'))
+    // F-395:INSERT 返回空行 = 没落库,不得回 2xx 让后台以为保存成功
+    if (!row) return reply.status(409).send(error(409, '商品创建失败,请重试'))
     return reply.status(201).send(success({ id: String(row.id), ...mapProduct(row) }))
   })
 
@@ -254,17 +255,22 @@ export const adminShopRoutes: FastifyPluginAsync = async (server) => {
     if (!p.success) return reply.status(400).send(error(400, '参数错误'))
     const b = productBodySchema.partial().safeParse(request.body)
     if (!b.success) return reply.status(400).send(error(400, '参数错误'))
-    const set: Partial<typeof zhsProduct.$inferInsert> = { updatedAt: new Date() }
+    const set: Partial<typeof zhsProduct.$inferInsert> = {}
     if (b.data.name !== undefined) set.name = b.data.name
     if (b.data.price !== undefined) set.price = b.data.price
     if (b.data.type !== undefined) set.type = b.data.type
     if (b.data.status !== undefined) set.status = PRODUCT_INT[b.data.status]
+    // F-395:空对象 / 只有不可落库可选列 ⇒ 一行都不会变,不能回 200 假成功
+    if (Object.keys(set).length === 0)
+      return reply.status(400).send(error(400, '无可用更新字段'))
+    set.updatedAt = new Date()
     const [row] = await db
       .update(zhsProduct)
       .set(set)
       .where(eq(zhsProduct.id, Number(p.data.id)))
       .returning()
-    if (!row) return reply.status(404).send(error(404, '商品不存在'))
+    // F-395:UPDATE 返回空行 = 目标已被删除(并发),如实回 404
+    if (!row) return reply.status(404).send(error(404, '商品不存在或已被删除'))
     return reply.send(success({ id: String(row.id), ...mapProduct(row) }))
   })
 
@@ -280,7 +286,8 @@ export const adminShopRoutes: FastifyPluginAsync = async (server) => {
         .set({ status: PRODUCT_INT[b.data.status], updatedAt: new Date() })
         .where(eq(zhsProduct.id, Number(p.data.id)))
         .returning()
-      if (!row) return reply.status(404).send(error(404, '商品不存在'))
+      // F-395:上下架写后判空,目标不在了就别回 200
+      if (!row) return reply.status(404).send(error(404, '商品不存在或已被删除'))
       return reply.send(success({ id: String(row.id), status: productStatusFromInt(row.status) }))
     },
   )

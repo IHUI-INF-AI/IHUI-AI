@@ -20,9 +20,16 @@
  *
  * 不修改 plans 表结构,不依赖 user_subscriptions 表(不存在)。
  */
-import { eq, and, desc, sql, type SQL } from 'drizzle-orm'
+import { eq, and, desc, gt, sql, type SQL } from 'drizzle-orm'
 import { db, dbRead } from '../db/index.js'
-import { plans, orders, developerApiKeys, tokenFlows, userBillingGroups } from '@ihui/database'
+import {
+  plans,
+  orders,
+  developerApiKeys,
+  tokenFlows,
+  userBillingGroups,
+  apiSubscriptions,
+} from '@ihui/database'
 import { generateApiKey, hashSecret } from '../utils/api-key-hash.js'
 import { logger } from '../utils/logger.js'
 // 窗口型订阅(2026-09-16 立):套餐配了日/周/月限额时,额外创建订阅实例
@@ -332,6 +339,273 @@ async function applyKeyGrant(
     .where(eq(developerApiKeys.id, keyId))
 }
 
+// =============================================================================
+// 1.1 订阅有效期续期(F-373)— max(now, 当前到期) 起算 + 累计上限
+// =============================================================================
+
+const DAY_MS = 24 * 60 * 60 * 1000
+
+/** 累计有效期上限(年)。 */
+export const MAX_SUBSCRIPTION_YEARS = 5
+/** 累计有效期上限(天);导出便于测试与运营核对。 */
+export const MAX_SUBSCRIPTION_DAYS = MAX_SUBSCRIPTION_YEARS * 365
+
+/** 有效期未配置时的既有默认值(与 subscription-window-service 保持一致)。 */
+const DEFAULT_VALIDITY_DAYS = 30
+
+/**
+ * 「不过期」哨兵值,必须与 subscription-window-service 的 PERMANENT_END_AT 一致
+ * (该文件不在 F-373 修改范围,这里只复制其语义)。
+ */
+const PERMANENT_END_AT = new Date('9999-12-31T23:59:59.999Z')
+
+/** 有效期归一化:未配置 → 30 天;显式 0 = 永久;负数/非有限值 → 非法(null)。 */
+function normalizeValidityDays(raw: number | null | undefined): number | null {
+  if (raw === undefined || raw === null) return DEFAULT_VALIDITY_DAYS
+  if (!Number.isFinite(raw) || raw < 0) return null
+  return Math.floor(raw)
+}
+
+/** 单次续期的起止时刻。 */
+export interface RenewalPeriod {
+  allowed: boolean
+  reason?: 'invalid_validity'
+  /** 归一化后的有效期(天);0 = 永久 */
+  validityDays: number
+  /** 新周期起点 = max(now, 当前到期时刻) */
+  startAt: Date
+  /** 新周期到期时刻(已按累计上限截断) */
+  endAt: Date
+  /** 是否被累计上限截断 */
+  truncated: boolean
+}
+
+/**
+ * 计算一次续费后的到期时刻(纯函数,可单测)。
+ *
+ * F-373 规则:
+ * 1. 续费基准是 `max(now, 当前到期时刻)`,不是 now —— 未到期续费从原到期日顺延,
+ *    不会把已经买过、尚未用完的时间重复计费;
+ * 2. 显式 0 天 = 永久订阅,沿用既有哨兵语义,不参与累计上限截断;
+ * 3. 累计到期时刻不超过 `now + MAX_SUBSCRIPTION_DAYS`,超限即截断(由调用方告警)。
+ */
+export function computeRenewalPeriod(input: {
+  now: Date
+  validityDays?: number | null
+  currentEndAt?: Date | null
+}): RenewalPeriod {
+  const now = input.now
+  const validityDays = normalizeValidityDays(input.validityDays)
+  const currentEndAt =
+    input.currentEndAt && input.currentEndAt.getTime() > now.getTime() ? input.currentEndAt : null
+  const startAt = currentEndAt ?? now
+  if (validityDays === null) {
+    return {
+      allowed: false,
+      reason: 'invalid_validity',
+      validityDays: 0,
+      startAt,
+      endAt: startAt,
+      truncated: false,
+    }
+  }
+  if (validityDays === 0) {
+    return { allowed: true, validityDays: 0, startAt, endAt: PERMANENT_END_AT, truncated: false }
+  }
+  const capAt = new Date(now.getTime() + MAX_SUBSCRIPTION_DAYS * DAY_MS)
+  const rawEndAt = new Date(startAt.getTime() + validityDays * DAY_MS)
+  if (startAt.getTime() >= capAt.getTime()) {
+    // 当前到期已顶到上限:本次续期不再推进
+    return { allowed: true, validityDays, startAt, endAt: capAt, truncated: true }
+  }
+  const truncated = rawEndAt.getTime() > capAt.getTime()
+  return { allowed: true, validityDays, startAt, endAt: truncated ? capAt : rawEndAt, truncated }
+}
+
+/** 续费/叠加订阅入参。 */
+export interface SubscriptionRenewalInput {
+  userId: string
+  planId: string
+  planName: string
+  orderNo?: string | null
+  /** 有效期(天):0 = 永久;未配置/null = 30 天 */
+  validityDays?: number | null
+  dailyTokenLimit: number
+  weeklyTokenLimit: number
+  monthlyTokenLimit: number
+  /** 可注入的当前时刻(测试替身用;生产不传,取系统时间) */
+  now?: Date
+}
+
+/** 续费/叠加订阅结果。 */
+export interface SubscriptionRenewalResult {
+  ok: boolean
+  reason?: 'invalid_validity' | 'create_failed' | 'write_failed'
+  subscriptionId?: string
+  endAt?: Date
+  /** true = 本次续期被累计上限截断 */
+  truncated?: boolean
+}
+
+/** 锁行结果:同套餐走原地续期,其余走新建实例。 */
+type LockOutcome =
+  | { kind: 'create'; current: { id: string; endAt: Date } | null }
+  | { kind: 'same_plan'; result: SubscriptionRenewalResult }
+
+/** 上限截断告警(F-373):重复激活被收敛必须留痕。 */
+function warnRenewalTruncated(input: {
+  userId: string
+  planId: string
+  orderNo?: string | null
+  endAt: Date
+}): void {
+  logger.warn('[api-subscription] 订阅累计有效期超过上限,已按 5 年截断', {
+    userId: input.userId,
+    planId: input.planId,
+    orderNo: input.orderNo ?? null,
+    capDays: MAX_SUBSCRIPTION_DAYS,
+    endAt: input.endAt.toISOString(),
+  })
+}
+
+/**
+ * 续费/叠加订阅有效期(F-373)。
+ *
+ * - 同一 planId:`SELECT ... FOR UPDATE` 锁住用户当前活跃订阅行,在行上按
+ *   `max(now, endAt) + period` 延长并提交。并发回调因此串行:后到事务等前行提交后
+ *   才读取 endAt,不会各自基于旧值重复叠加,也不会覆盖前一笔的延长。
+ * - 跨 planId:剩余时长按 1:1 折算为保留时长,新套餐从旧订阅到期时刻起算
+ *   (沿用既有「顺延」交互),同样受累计上限约束。
+ * - 上限:任何路径的到期时刻不超过 `now + MAX_SUBSCRIPTION_DAYS`,超限截断并告警。
+ */
+export async function extendApiSubscriptionPeriod(
+  input: SubscriptionRenewalInput,
+): Promise<SubscriptionRenewalResult> {
+  const now = input.now ?? new Date()
+  const validityDays = normalizeValidityDays(input.validityDays)
+  if (validityDays === null) return { ok: false, reason: 'invalid_validity' }
+
+  let outcome: LockOutcome
+  try {
+    outcome = await db.transaction(async (tx): Promise<LockOutcome> => {
+      const [current] = await tx
+        .select({
+          id: apiSubscriptions.id,
+          planId: apiSubscriptions.planId,
+          endAt: apiSubscriptions.endAt,
+        })
+        .from(apiSubscriptions)
+        .where(
+          and(
+            eq(apiSubscriptions.userId, input.userId),
+            eq(apiSubscriptions.status, 'active'),
+            gt(apiSubscriptions.endAt, now),
+          ),
+        )
+        .orderBy(desc(apiSubscriptions.endAt))
+        .limit(1)
+        .for('update')
+      if (!current || (current.planId ?? null) !== input.planId) {
+        return { kind: 'create', current: current ? { id: current.id, endAt: current.endAt } : null }
+      }
+
+      const period = computeRenewalPeriod({ now, validityDays, currentEndAt: current.endAt })
+      if (!period.allowed) {
+        return { kind: 'same_plan', result: { ok: false, reason: 'invalid_validity' } }
+      }
+      if (period.truncated) {
+        warnRenewalTruncated({
+          userId: input.userId,
+          planId: input.planId,
+          orderNo: input.orderNo,
+          endAt: period.endAt,
+        })
+      }
+      if (period.endAt.getTime() <= current.endAt.getTime()) {
+        // 已顶到上限:幂等返回,不推进 endAt(重复激活无法继续延长)
+        return {
+          kind: 'same_plan',
+          result: {
+            ok: true,
+            subscriptionId: current.id,
+            endAt: current.endAt,
+            truncated: true,
+          },
+        }
+      }
+      await tx
+        .update(apiSubscriptions)
+        .set({ endAt: period.endAt })
+        .where(eq(apiSubscriptions.id, current.id))
+      return {
+        kind: 'same_plan',
+        result: {
+          ok: true,
+          subscriptionId: current.id,
+          endAt: period.endAt,
+          truncated: period.truncated,
+        },
+      }
+    })
+  } catch (e) {
+    logger.error('[api-subscription] 订阅续期失败', {
+      userId: input.userId,
+      planId: input.planId,
+      orderNo: input.orderNo ?? null,
+      err: e instanceof Error ? e.message : String(e),
+    })
+    return { ok: false, reason: 'write_failed' }
+  }
+
+  if (outcome.kind === 'same_plan') return outcome.result
+
+  // 无活跃订阅 / 跨套餐:新实例从 max(now, 旧到期) 起算,时长同样截断到上限内
+  const period = computeRenewalPeriod({
+    now,
+    validityDays,
+    currentEndAt: outcome.current?.endAt ?? null,
+  })
+  if (!period.allowed) return { ok: false, reason: 'invalid_validity' }
+  if (period.truncated) {
+    warnRenewalTruncated({
+      userId: input.userId,
+      planId: input.planId,
+      orderNo: input.orderNo,
+      endAt: period.endAt,
+    })
+  }
+  const grantDays =
+    period.validityDays === 0
+      ? 0
+      : Math.floor((period.endAt.getTime() - period.startAt.getTime()) / DAY_MS)
+  if (period.validityDays !== 0 && grantDays <= 0) {
+    return {
+      ok: true,
+      subscriptionId: outcome.current?.id,
+      endAt: period.endAt,
+      truncated: true,
+    }
+  }
+  const created = await createSubscriptionForOrder({
+    userId: input.userId,
+    planId: input.planId,
+    planName: input.planName,
+    orderNo: input.orderNo ?? null,
+    validityDays: period.validityDays === 0 ? 0 : grantDays,
+    dailyTokenLimit: input.dailyTokenLimit,
+    weeklyTokenLimit: input.weeklyTokenLimit,
+    monthlyTokenLimit: input.monthlyTokenLimit,
+    now: period.startAt,
+  })
+  if (!created) return { ok: false, reason: 'create_failed' }
+  return {
+    ok: true,
+    subscriptionId: created.id,
+    endAt: created.endAt,
+    truncated: period.truncated,
+  }
+}
+
 /**
  * 激活 API 订阅:把 plan 的 token 配额写入用户当前活跃 Key 的 token_balance。
  *
@@ -542,32 +816,34 @@ export async function activateApiSubscription(
   })
 
   // 5/6. 窗口型订阅实例 + 分组自动入组(两者相互独立,任一配置即执行,2026-09-16 立)。
-  //    - 幂等:createSubscriptionForOrder 以 orderNo 去重、assignUserToGroup 以 userId upsert,
-  //      回调重试不会重复建实例/重复入组。
-  //    - 续费顺延:已有活跃订阅时,新实例从旧订阅到期时刻开始,叠加时长而非覆盖。
+  //    - 幂等:extendApiSubscriptionPeriod 锁行原地续期(同套餐)/ createSubscriptionForOrder
+  //      以 orderNo 去重(新建)、assignUserToGroup 以 userId upsert,回调重试不会重复建实例。
+  //    - 顺延规则(F-373):新周期从 max(now, 当前到期) 起算,累计有效期不超过 5 年,
+  //      重复激活不会无限延长。
   //    - 失败仅告警:实例创建失败降级为"仅 Key 余额"模式;入组失败不影响发放,均不阻断到账。
   if (result.success && (hasWindowLimits || planRow.billingGroupCode)) {
     let subEndAt: Date | undefined
     if (hasWindowLimits) {
-      const sub = await createSubscriptionForOrder({
+      const renewal = await extendApiSubscriptionPeriod({
         userId,
         planId,
         planName: planRow.name,
         orderNo: orderNo ?? null,
-        // SDB-03:有效期语义(0 = 永久 / 未填 = 30 天)只在 createSubscriptionForOrder
-        // 判定,这里原样透传,避免第二份默认值把 0 吞掉。
+        // SDB-03:有效期语义(0 = 永久 / 未填 = 30 天)只在 computeRenewalPeriod 与
+        // createSubscriptionForOrder 判定,这里原样透传,避免第二份默认值把 0 吞掉。
         validityDays: planRow.validityDays,
         dailyTokenLimit: windowLimits.daily,
         weeklyTokenLimit: windowLimits.weekly,
         monthlyTokenLimit: windowLimits.monthly,
       })
-      if (sub) {
-        subEndAt = sub.endAt
+      if (renewal.ok) {
+        subEndAt = renewal.endAt
       } else {
-        logger.warn('[api-subscription] 订阅实例创建失败,降级为仅余额模式', {
+        logger.warn('[api-subscription] 订阅实例创建/续期失败,降级为仅余额模式', {
           userId,
           planId,
           orderNo,
+          reason: renewal.reason,
         })
       }
     }

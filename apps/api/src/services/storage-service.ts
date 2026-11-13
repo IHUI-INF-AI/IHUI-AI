@@ -23,6 +23,7 @@ import {
   readdirSync,
   statSync,
 } from 'node:fs'
+import { readFile as readFilePromised } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { env } from 'node:process'
 import IORedis, { type Redis } from 'ioredis'
@@ -119,6 +120,22 @@ export function readFile(fileId: string): Buffer | null {
   // ihui_oss_download_bytes_total:文件读取成功后计 downloaded bytes(字节)
   recordOssDownloadBytes(content.length)
   return content
+}
+
+/**
+ * 异步读取文件内容(不存在返回 null)。
+ * F-414:大文件读取(如工作簿 open)不得用 `readFileSync` 卡住事件循环。
+ */
+export async function readFileAsync(fileId: string): Promise<Buffer | null> {
+  try {
+    const content = await readFilePromised(filePath(fileId))
+    // ihui_oss_download_bytes_total:与同步读同口径,读成功即计下载字节
+    recordOssDownloadBytes(content.length)
+    return content
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException | undefined)?.code === 'ENOENT') return null
+    throw e
+  }
 }
 
 /** 删除文件（含元数据与缩略图）。返回是否删除了主文件。 */
