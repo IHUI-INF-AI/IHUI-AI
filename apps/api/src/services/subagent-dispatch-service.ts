@@ -1715,7 +1715,7 @@ export class SubagentDispatchService {
     // F-202「取消是持久化终态」:内存已被取消,或持久层已是 cancelled ⇒ 后续 completed/failed
     // 回写整体拒绝(既不改 DB 镜像,也不覆盖 hash),并把内存状态拉回 cancelled。
     // 只检查终态写入:普通状态迁移(pending→running/queued)不付这次读代价。
-    if (!this._isCancelled(runtime) && isTerminalDispatchStatus(String(d.status))) {
+    if (!this._isAborted(runtime) && isTerminalDispatchStatus(String(d.status))) {
       if ((await this._readPersistedStatus(id)) === 'cancelled') {
         d.status = 'cancelled'
         return false
@@ -1810,10 +1810,13 @@ export class SubagentDispatchService {
 
   /**
    * F-202:取消是不可逆终态 —— 在途执行返回后不得再改写它(更不得写回 completed/failed)。
-   * 判据只读记录自身状态,不另立第二个「cancelled 标志」(否则两处真相互相打架)。
+   * F-256:抢占(preempted)同理 —— 抢占必须中止执行,执行器所有「回写终态」前的守卫
+   * 都读这一份判据;否则被抢占任务跑完会把 preempted 覆写成 completed。
+   * 判据只读记录自身状态,不另立第二个「已中止」标志(否则两处真相互相打架)。
    */
-  private _isCancelled(runtime: DispatchRuntime): boolean {
-    return String(runtime.dispatch.status) === 'cancelled'
+  private _isAborted(runtime: DispatchRuntime): boolean {
+    const status = String(runtime.dispatch.status)
+    return status === 'cancelled' || status === 'preempted'
   }
 
   /** F-202:读持久层当前状态(纯内存降级时没有外部落点 ⇒ null = 无从判断,不阻断写入) */
@@ -2752,7 +2755,8 @@ export class SubagentDispatchService {
 
   /**
    * 容量判据(唯一出口):返回 null = 有槽位;否则返回被哪一档挡住。
-   * 计数口径与 `isActiveDispatchStatus` 同源(pending|running 占槽;queued 不占)。
+   * 计数口径由 `_capacityBlocked` 内部统一维护:真实在飞(inFlight)一律占槽,
+   * 其余记录按 `isActiveDispatchStatus`(pending|running 占槽;queued 不占)。
    * 先判全局硬上限,再判租户总上限,最后判租户内优先级上限 —— 三层都过才允许开跑。
    */
   private _capacityBlocked(
@@ -2763,9 +2767,14 @@ export class SubagentDispatchService {
   ): 'global' | 'tenant' | 'priority' | null {
     // 判「有没有槽位」时必须排除正在申请的那条记录(它已先入 Map,状态为 pending/queued):
     // 不排除 ⇒ 申请人把自己算进占用,租户优先级上限为 1 时任何单都进不来(自锁)。
-    const active = Array.from(this.runtimes.values()).filter(
-      (r) => r.dispatch.id !== excludeId && isActiveDispatchStatus(r.dispatch.status),
-    )
+    // F-256:容量按真实在飞集合核算 —— 抢占只把状态写成 preempted,执行器还没退出
+    // (仍会继续消耗 token)时**不得**视为已释放;inFlight 只在执行器 finally 才移除。
+    // 非在飞记录(如直接注入的运行中记录、尚未被本进程接管)仍按状态口径参与计数。
+    const active = Array.from(this.runtimes.values()).filter((r) => {
+      if (r.dispatch.id === excludeId) return false
+      if (this.inFlight.has(r.dispatch.id)) return true
+      return isActiveDispatchStatus(r.dispatch.status)
+    })
     if (active.length >= this._maxConcurrent) return 'global'
     const tenantActive = active.filter((r) => r.dispatch.ownerUserId === ownerUserId)
     if (tenantActive.length >= tenantConcurrencyLimit(ownerUserId)) return 'tenant'
@@ -2876,6 +2885,11 @@ export class SubagentDispatchService {
     const role = dispatch.agentRole ?? 'coder'
     const prompt = runtime.prompt ?? buildAgentPrompt(dispatch)
     runtime.prompt = prompt
+    // F-256:抢占/取消已 abort 过在途调用;resume 重新执行时必须换一个新的控制器,
+    // 否则沿用已中止的 signal 会让恢复后的第一次调用立即失败。
+    if (!runtime.abortController || runtime.abortController.signal.aborted) {
+      runtime.abortController = new AbortController()
+    }
     this.inFlight.add(id)
     const execution =
       preferDag && runtime.dag
@@ -2889,6 +2903,9 @@ export class SubagentDispatchService {
       })
       .finally(() => {
         this.inFlight.delete(id)
+        // F-256:真正退出才释放槽位 —— 抢占后任务仍在 inFlight 时容量不放行;
+        // 这里(并发唯一真实释放点)触发一次出队,避免被抢占腾出的槽位没人补位。
+        void this._drainQueue()
       })
     return true
   }
@@ -3042,6 +3059,12 @@ export class SubagentDispatchService {
     // 'preempted' 不在 DispatchStatus 内,真实域是 ExtendedDispatchStatus ⇒ 经扩展域视图写回
     statusWriteView(target.dispatch).status = 'preempted'
     target.completedAt = Date.now()
+    // F-256:抢占必须真正中止执行 —— 只改状态会让槽位「账面释放」而任务继续烧 token。
+    // 在途 ai-service 调用经同一 AbortSignal 立即中断(与 /cancel 同一条中止链)。
+    // 旧注入/降级记录可能没有控制器 ⇒ 无可中止的在途调用,不因缺字段抛错
+    target.abortController?.abort()
+    // 终态后不得再按 outbox 续跑(否则重启/重试会把已抢占的任务重新拉起)
+    target.outbox = undefined
     // F-255:抢占也是终态出口,必须走统一收尾(否则该记录永久留在内存)
     void this._finalize(target.dispatch.id, {
       level: 'warn',
@@ -3064,7 +3087,7 @@ export class SubagentDispatchService {
     if (!runtime) return
     const dispatch = runtime.dispatch
     // F-202:已被取消(取消先于执行器开跑)⇒ 不再发起任何调用,更不回写终态
-    if (this._isCancelled(runtime)) return
+    if (this._isAborted(runtime)) return
 
     // F1(2026-11-02)断点完成:进程可能在 AI 返回后、写终态前重启,但 checkpoint
     // 已经落 Redis(status=ok)。恢复时直接按已完成收尾,不再调一次 AI(不重复执行)。
@@ -3156,7 +3179,7 @@ export class SubagentDispatchService {
           : await callPromise
 
       // F-202:取消可能发生在本次调用在途期间 ⇒ 结果直接丢弃,不写 step、不写任何终态
-      if (this._isCancelled(runtime)) return
+      if (this._isAborted(runtime)) return
 
       const stepDuration = Date.now() - stepStart
       const tokenUsage = result.ok
@@ -3314,7 +3337,7 @@ export class SubagentDispatchService {
     const dispatch = runtime.dispatch
     const dag = runtime.dag
     // F-202:已取消 ⇒ 不启动 DAG 执行
-    if (this._isCancelled(runtime)) return
+    if (this._isAborted(runtime)) return
 
     dispatch.status = 'running'
     dispatch.updatedAt = nowIso()
@@ -3391,7 +3414,7 @@ export class SubagentDispatchService {
         }
 
         // F-202:整单已取消 ⇒ 同层其余节点不再发起新调用
-        if (this._isCancelled(runtime)) return
+        if (this._isAborted(runtime)) return
 
         // checkpoint 命中 → 跳过
         const cp = checkpoints.get(nodeId)
@@ -3475,7 +3498,7 @@ export class SubagentDispatchService {
                 ])
               : await callPromise
           // F-202:取消发生在在途调用期间 ⇒ 本节点结果丢弃,不再写节点状态/整单终态
-          if (this._isCancelled(runtime)) return
+          if (this._isAborted(runtime)) return
           stepDuration = Date.now() - stepStart
           tokenUsage = callResult.ok
             ? extractTokenUsage(callResult.data, callResult.finalOutput)
@@ -3594,7 +3617,7 @@ export class SubagentDispatchService {
 
     // 汇总结果
     // F-202:取消已落为终态 ⇒ DAG 收尾不再写 completed/failed(不得把 cancelled 改回去)
-    if (this._isCancelled(runtime)) return
+    if (this._isAborted(runtime)) return
     const allResults = Array.from(results.entries())
       .map(([nid, output]) => `[${nid}]: ${output}`)
       .join('\n')
@@ -3634,7 +3657,7 @@ export class SubagentDispatchService {
     if (!runtime) return
     const dispatch = runtime.dispatch
     // F-202:已取消 ⇒ 不启动多轮通信(不再继续烧 token)
-    if (this._isCancelled(runtime)) return
+    if (this._isAborted(runtime)) return
 
     // F1:与 runDispatch 同口径 —— 已有 ok checkpoint 就不再重跑 AI
     const completedCheckpoint = Array.from((await this._loadCheckpoints(id)).values())
@@ -3697,7 +3720,7 @@ export class SubagentDispatchService {
         runtime.abortController.signal,
       )
       // F-202:取消发生在通信轮次在途期间 ⇒ 结果丢弃,不写 step/终态
-      if (this._isCancelled(runtime)) return
+      if (this._isAborted(runtime)) return
       const stepDuration = Date.now() - stepStart
       const tokenUsage = result.ok
         ? extractTokenUsage(result.data, result.finalOutput)

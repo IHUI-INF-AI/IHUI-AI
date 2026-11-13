@@ -20,7 +20,7 @@
  *
  * 不修改 plans 表结构,不依赖 user_subscriptions 表(不存在)。
  */
-import { eq, and, desc, sql } from 'drizzle-orm'
+import { eq, and, desc, sql, type SQL } from 'drizzle-orm'
 import { db, dbRead } from '../db/index.js'
 import { plans, orders, developerApiKeys, tokenFlows, userBillingGroups } from '@ihui/database'
 import { generateApiKey, hashSecret } from '../utils/api-key-hash.js'
@@ -288,6 +288,50 @@ export async function getUserSubscriptionStatus(userId: string): Promise<UserSub
 // 1. activateApiSubscription — 激活订阅(写 token 配额到 Key)
 // =============================================================================
 
+/** 事务句柄(仅约束本文件写 Key 所需的 update 能力)。 */
+type KeyGrantTx = Parameters<Parameters<typeof db.transaction>[0]>[0]
+
+/**
+ * F-370:套餐模型白名单字段的唯一构造入口。
+ *
+ * 语义(与修复前一致):空数组/未配置 = 套餐不限制模型 = 不改动 Key 现状(全放行);
+ * 非空 = 覆盖式写入(最后购买的套餐定边界)。
+ */
+function modelWhitelistFields(keyAllowedModels: string[] | null): { allowedModels?: string[] } {
+  return keyAllowedModels && keyAllowedModels.length > 0
+    ? { allowedModels: keyAllowedModels }
+    : {}
+}
+
+/**
+ * F-370:Key 授信(额度 + 模型白名单)写库的唯一出口。
+ *
+ * 历史缺陷:allowedModels 写在「累加额度」单一分支的 set 里,于是 quota=-1(无限套餐)、
+ * Key 已是 -1、quota=0 三支只改余额/不写库,套餐 modelWhitelist 永不落库 ⇒
+ * 低价套餐照样可调旗舰模型。现在任何分支都只能经由本函数写 Key,
+ * 白名单随每次授信一起落库,新增额度分支也绕不过去。
+ *
+ * @param tokenBalance null = 本支不改余额(Key 已无限 / quota=0)
+ */
+async function applyKeyGrant(
+  tx: KeyGrantTx,
+  keyId: string,
+  tokenBalance: number | SQL | null,
+  keyAllowedModels: string[] | null,
+): Promise<void> {
+  const whitelistFields = modelWhitelistFields(keyAllowedModels)
+  // 余额与白名单都无变更时不发 SQL(保留「Key 已无限再购有限套餐不 update」的既有语义)。
+  if (tokenBalance === null && !whitelistFields.allowedModels) return
+  await tx
+    .update(developerApiKeys)
+    .set({
+      ...(tokenBalance !== null ? { tokenBalance } : {}),
+      ...whitelistFields,
+      updatedAt: new Date(),
+    })
+    .where(eq(developerApiKeys.id, keyId))
+}
+
 /**
  * 激活 API 订阅:把 plan 的 token 配额写入用户当前活跃 Key 的 token_balance。
  *
@@ -416,10 +460,8 @@ export async function activateApiSubscription(
       keyId = activeKey.id
       // 累加:quota=-1(无限) → 设为 -1;quota>0 → token_balance += quota(若已 -1 保持 -1)
       if (tokenQuota === -1) {
-        await tx
-          .update(developerApiKeys)
-          .set({ tokenBalance: -1, updatedAt: new Date() })
-          .where(eq(developerApiKeys.id, activeKey.id))
+        // 余额写 -1,白名单同样必须落库(F-370)
+        await applyKeyGrant(tx, activeKey.id, -1, keyAllowedModels)
         // SDB-05:无限额度也是"授予量",流水 quantity 记 -1,与有限额度正数区分;
         // 原先记 0 会让流水与"零发放"无法区分。
         appliedQuota = -1
@@ -427,6 +469,8 @@ export async function activateApiSubscription(
       } else if (tokenQuota > 0) {
         // 已是无限额度则保持,否则累加
         if (Number(activeKey.tokenBalance) === -1) {
+          // 余额不变,但白名单仍必须落库(F-370)
+          await applyKeyGrant(tx, activeKey.id, null, keyAllowedModels)
           // 已经无限,无需变更
           appliedQuota = 0
           balanceAfter = -1
@@ -434,19 +478,19 @@ export async function activateApiSubscription(
           // F-369(P1):余额必须由数据库侧原子累加,禁止用读到的余额做绝对值 SET ——
           // 否则并发窗口内 relay 已扣掉的额度会被静默恢复(免扣费/双花)。
           // CASE 兜底:已无限(-1)的行保持 -1,不会被加回有限值。
-          await tx
-            .update(developerApiKeys)
-            .set({
-              tokenBalance: sql`CASE WHEN ${developerApiKeys.tokenBalance} = -1 THEN -1 ELSE ${developerApiKeys.tokenBalance} + ${tokenQuota} END`,
-              allowedModels: keyAllowedModels,
-              updatedAt: new Date(),
-            })
-            .where(eq(developerApiKeys.id, activeKey.id))
+          await applyKeyGrant(
+            tx,
+            activeKey.id,
+            sql`CASE WHEN ${developerApiKeys.tokenBalance} = -1 THEN -1 ELSE ${developerApiKeys.tokenBalance} + ${tokenQuota} END`,
+            keyAllowedModels,
+          )
           // 审计用余额:FOR UPDATE 已锁行,快照即本次更新前的真值,不参与上面的写入。
           balanceAfter = Number(activeKey.tokenBalance) + tokenQuota
           appliedQuota = tokenQuota
         }
       } else {
+        // quota=0:余额不变,白名单同样要落库(F-370)
+        await applyKeyGrant(tx, activeKey.id, null, keyAllowedModels)
         appliedQuota = 0
         balanceAfter = Number(activeKey.tokenBalance)
       }
@@ -465,7 +509,8 @@ export async function activateApiSubscription(
           status: 'active',
           rateLimit: 60,
           tokenBalance: tokenQuota === -1 ? -1 : Math.max(tokenQuota, 0),
-          allowedModels: keyAllowedModels,
+          // F-370:新建 Key 同样经由唯一白名单构造入口
+          ...modelWhitelistFields(keyAllowedModels),
         })
         .returning({ id: developerApiKeys.id })
       if (!newKey) return { success: false, reason: 'create_key_failed' }

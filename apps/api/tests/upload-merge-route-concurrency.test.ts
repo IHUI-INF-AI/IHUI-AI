@@ -106,7 +106,9 @@ vi.mock('../src/db/index.js', () => {
       // 会话行的 uploadId 列本来就不参与磁盘路径(路径取自请求体)。
       select: vi.fn(() => createChain(BOOT.rows)),
       insert: vi.fn(() => createChain()),
-      update: vi.fn(() => createChain()),
+      // F-380 起 merge 走「条件迁移 uploading→merging + returning」原子闸:返回行即抢占成功。
+      // 本文件测的是并发闸本身,固定返回 1 行让四路都算抢到,才能复核闸的峰值。
+      update: vi.fn(() => createChain([{ uploadId: 'atomic-gate-fixture' }])),
       delete: vi.fn(() => createChain()),
     },
   }

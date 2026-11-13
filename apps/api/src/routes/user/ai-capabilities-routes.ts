@@ -7,7 +7,7 @@
  * 能力来源:合并 aiModelConfig + 写死 6 个基础能力(chat/translate/summarize/...)。
  * 注:GET list + GET categories 已由 frontend-stub-other-routes.ts 注册,此处仅 POST invoke + POST auto-match。
  */
-import type { FastifyPluginAsync } from 'fastify'
+import type { FastifyInstance, FastifyPluginAsync, FastifyRequest } from 'fastify'
 import { z } from 'zod'
 import { success, error } from '../../utils/response.js'
 import { callRealLlm } from '../../services/crew-llm-adapter.js'
@@ -81,6 +81,47 @@ const BASE_CAPABILITIES: CapabilityItem[] = [
   },
 ]
 
+/** F-157:平台 Key 大模型调用的准入结论。 */
+export interface PlatformKeyQuotaDecision {
+  allowed: boolean
+  statusCode?: number
+  message?: string
+  errorCode?: string
+}
+
+/**
+ * F-157:平台 Key 大模型调用的统一准入闸门(能力 invoke 与 /ai/career-advice 同口径)。
+ *
+ * 复用聊天同一份用户日配额数据源(server.aiCost.checkBudget → ai_budgets + ai_cost_records),
+ * 把「只有全局 100 次/分钟/IP」补成「每用户每日 token/成本预算」。
+ * 配额用尽 ⇒ 402,调用方必须在发起上游调用前返回,不得先调模型再补账。
+ * 装饰器未注册(裁剪部署/单测)或配额查询异常 ⇒ 放行:与 ai-chat-stream
+ * 「用量查询异常降级 allow」的既有约定一致,避免存储抖动封死全部调用。
+ */
+export async function checkPlatformKeyQuota(
+  server: FastifyInstance,
+  request: FastifyRequest,
+  userId: string,
+): Promise<PlatformKeyQuotaDecision> {
+  const aiCost = server.aiCost
+  if (!aiCost) return { allowed: true }
+  try {
+    const verdict = await aiCost.checkBudget('user', userId)
+    if (!verdict.allowed) {
+      request.log.warn({ userId, reason: verdict.reason }, 'F-157 平台 Key 调用日配额不足')
+      return {
+        allowed: false,
+        statusCode: 402,
+        message: `AI 日配额不足:${verdict.reason ?? '日 token/成本预算已用尽'}`,
+        errorCode: 'DAILY_QUOTA_EXHAUSTED',
+      }
+    }
+  } catch (e) {
+    request.log.warn({ err: e, userId }, 'F-157 日配额查询失败,降级放行')
+  }
+  return { allowed: true }
+}
+
 const aiCapabilitiesRoutes: FastifyPluginAsync = async (server) => {
   server.post('/v1/ai/capabilities/invoke', async (request, reply) => {
     const body = z
@@ -97,6 +138,12 @@ const aiCapabilitiesRoutes: FastifyPluginAsync = async (server) => {
     // 绝不静默回落成系统票(成本记在系统身份、无用户配额/计费)。
     const userId = request.userId
     if (!userId) return reply.status(401).send(error(401, 'Authentication required'))
+    // F-157:平台 Key 调用先过用户日配额闸;不足 402,且不发起上游调用。
+    const quota = await checkPlatformKeyQuota(server, request, userId)
+    if (!quota.allowed) {
+      const status = quota.statusCode ?? 402
+      return reply.status(status).send(error(status, quota.message ?? 'AI 配额不足', quota.errorCode))
+    }
     try {
       const llmResult = await callRealLlm({
         messages: [
