@@ -11870,7 +11870,7 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - **如实登记的余量**:① `/review` 的引导词此前从未生效,但**没有实测过它对模型输出的实际影响幅度**(要去真会话跑一轮审查才能定档),本票只把"指引没送到"这一格修成"送到了";② R9 判的是"文件在不在面上",**判不出"文件在但内容被写成空壳"** —— 那需要跑一次门体自身,不在本判据射程;③ 今天这类"恒红门逼全队跳门"的**总量没有被任何一道门统计过**(只有 `.ihui-agent/state/safe-commit-attestation.jsonl` 逐条留痕),周报票应从该文件量一次"这周跳了几次门、各因哪道门",否则修好三道也只是修好我看到的三道。
 - **现网回收与如实边界**:停滞已自愈 —— 06:46 另一会话提交台账后 `behind` 归零,本轮 `git-sync-converge` 把 06:4x 的 DIVERGED 收敛为 `8e898cc1e06` 并推送成功,线上标记 `IHUI_BUILD_SHA` 于 06:53 追平同一枚(用户当前看到的是最新代码)。**未证的一格**:`--alert-id` 尚未被任何 cron 会话真用过(工单刚改完,值守/核验两份票面已加了强制条款与"不得因被压下就 --force-alert 硬寄"),所以"巡检侧不再每小时复寄"目前只是判据推论,第一手证据 = 下一次真实异常时该标识在状态文件里只有一条近期 `ts`。
 - [ ] RP-3 P84 ai-service 索引面接 ignore 规则判据:骨架装配侧已装(枚 978b6f7854),索引枚举仍未过 `ignore_rules.filter_paths`。前置=先定"跟踪但被 `.gitignore` 覆盖"这一型路径(守门 236 的射程)的取舍口径,否则一口接进去会让这些文件静默从索引消失
-- [ ] RP-4 P85 代码检索改名检测:T12 实测对侧把 `compute_simhash`/`hamming_distance` 作为原生一等导出、而 `diffTree` 只有三桶无 rename ⇒ 本仓在 `codebase_indexer` 的快照差集上补一枚纯函数改名候选(同 content-hash 直判 + 海明距离阈值),改名不再重嵌入
+- [ ] RP-4 P85 代码检索改名检测:T12 实测对侧把 `compute_simhash`/`hamming_distance` 作为原生一等导出、而 `diffTree` 只有三桶无 rename ⇒ 本仓在 `codebase_indexer` 的快照差集上补一枚纯函数改名候选(同 content-hash 直判 + 海明距离阈值),改名不再重嵌入（进行中@2026-11-13/w1-rp4）
 <!-- 〔侧车孤儿账@2026-11-05〕本批给 RP-3/4/5/6/7 补复合主键后,2026-11-02 按旧形态登记的 5 条 T:<sha1> 兜底记录结构上失配(兜底键=行本体逐字哈希,行一改写即换键):T:1e0d69425146d735(RP-3) / T:0792fbaf19ec5d94(RP-4) / T:a100395432128196(RP-5) / T:d20cc14e7062d85a(RP-6) / T:c3bfc633cb11a1b8(RP-7),故门 234 orphan 124→129。T: 键按判据不充当归属权威、`--retire-orphans` 也不退 T: 键(见 scripts/plan-fields-extract.mjs 头注),这 5 条只能继续计入 orphan 报数、不进 verdict;趋势=一次性:这 5 行此后不再有兜底键,只有再改写行文本才会新增同型,后续补号的行须同批把侧车记录写成复合主键,不得再留 T: 键。另 1 条 O69 旧键(…⇒窗口只能)随行文裁短换键,属上一轮裁行的一次性孤儿。 -->
 - [ ] RP-6 P86 提交链缺一道「混合陈旧底稿」拦闸:门 84 R1 判的是「暂存 blob 逐字节等于某祖先版本」,而 worktree-preserving 收敛之后代码文件的工作树副本会常年滞后 HEAD,此时「陈旧底稿 + 本次新增」的混合体逐字节不等于任何祖先 ⇒ 结构上落在 R1 定义之外,实测这样一枚提交吞掉过他人已入库的 55 枚行(枚 6534b09698,已由枚 4710182cc9 回补)。出路是把判据从「整文件逐字节等祖先」换成「HEAD 有而暂存 blob 无的行必须逐行给出有意删除的理由(提交信息或具名台账)」
 ### 改动清单(45 文件:43 miniapp-taro + 1 守门脚本 + 1 台账)
@@ -12223,9 +12223,9 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 13A. **缺陷普查 DG DG-13** [P3] 部署门禁失败 → 回滚 → exit 0，按退出码记账的调用方会把失败轮记成成功（证据 docs/tickets/2026-11/findings-deploy-gates.md#DG-13）
 - [ ] 14A. **缺陷普查 DG DG-14** [P3] 元门档是「脚本名正则白名单」：新增门命名不命中即本地零通道，且没有门保证「每门至少一个阻断通道」（证据 docs/tickets/2026-11/findings-deploy-gates.md#DG-14）
 - [ ] 43D. **缺陷普查 DB DB-35** [P2] 多类敏感字段明文落库（PII 与第三方凭据）（证据 docs/tickets/2026-11/findings-db.md#DB-35）
-- [ ] 114E. **缺陷普查 AIS AIS-114** [P2] 运行中 interrupt 立即保存半批次 checkpoint（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-114）
-- [ ] 80G. **缺陷普查 API F-80** [P2] 智能体点赞/收藏计数可并发重复累加，且增删非事务导致永久漂移（证据 docs/tickets/2026-11/findings-api.md#F-80）
-- [ ] 141G. **缺陷普查 API F-141** [P2] 「会话导入知识库」幂等是纯 check-then-write，并发双请求重复入库 + 重复收 embedding 费（证据 docs/tickets/2026-11/findings-api.md#F-141）
+- [ ] 114E. **缺陷普查 AIS AIS-114** [P2] 运行中 interrupt 立即保存半批次 checkpoint（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-114）（进行中@2026-11-13/w1-ais114）
+- [ ] 80G. **缺陷普查 API F-80** [P2] 智能体点赞/收藏计数可并发重复累加，且增删非事务导致永久漂移（证据 docs/tickets/2026-11/findings-api.md#F-80）（进行中@2026-11-13/w1-f80）
+- [ ] 141G. **缺陷普查 API F-141** [P2] 「会话导入知识库」幂等是纯 check-then-write，并发双请求重复入库 + 重复收 embedding 费（证据 docs/tickets/2026-11/findings-api.md#F-141）（进行中@2026-11-13/w1-f141）
 - [ ] 157G. **缺陷普查 API F-157** [P2] 平台 Key 大模型调用无计量/无配额（绕过 token 扣费）（证据 docs/tickets/2026-11/findings-api.md#F-157）
 - [ ] 174G. **缺陷普查 API F-174** [P2] recordWatch 读改写累计时长：客户端可控且可致 int4 溢出永久 500（证据 docs/tickets/2026-11/findings-api.md#F-174）
 - [ ] 175G. **缺陷普查 API F-175** [P2] 技能同步 upsert 无唯一约束，并发 push 产生同 (author_id, slug) 重复行（证据 docs/tickets/2026-11/findings-api.md#F-175）
