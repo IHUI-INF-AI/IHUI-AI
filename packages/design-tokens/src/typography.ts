@@ -84,6 +84,14 @@ export const TYPE_STEPS = {
   displayLg: { size: 30, lineHeight: 38, weight: 700 },
 } as const satisfies Record<string, TypeStep>
 
+/**
+ * 落档口径(2026-11-13 收口):以上 15 档在小程序端由 `app.css` 的 `@theme` 注册成 `text-*`
+ * 工具类,Tailwind v4 会一并产出 font-size / line-height / font-weight 三连;源码里的
+ * `text-[length:Nrpx]` 只剩图标字形盒(非文字排版,刻意不落档)。本表四枚 plan_a 档上方的
+ * 处数是立项时快照、不是当前残留数,以 `git grep 'text-\\[length:'` 现读为准。
+ * 唯一字重例外:`pages/study/ai-tutor/index.tsx` 的标题保留 `font-semibold`,把 headline
+ * 档默认 700 显式覆盖回原稿 600(刻意零字重变化),勿按"冗余类"删除。
+ */
 /** 字重单一真相源 */
 export const FONT_WEIGHTS = {
   regular: 400,
