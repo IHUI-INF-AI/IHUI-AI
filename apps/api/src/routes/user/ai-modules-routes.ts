@@ -6,7 +6,7 @@
  * AI 模块 /ai/*, /ai-ext/*(8 个端点:index/team/chat 会话/ext reports + career-advice)。
  * 注:/ai/chat (POST) 和 /ai/history (GET) 已由 ai-user-model-chat.ts 真实实现。
  */
-import type { FastifyPluginAsync } from 'fastify'
+import type { FastifyPluginAsync, FastifyRequest } from 'fastify'
 import { z } from 'zod'
 import { eq, asc, sql } from 'drizzle-orm'
 import {
@@ -28,6 +28,10 @@ import { aiModelConfig } from '@ihui/database'
 import { authenticate } from '../../plugins/auth.js'
 import { aiServiceFetch, AiServiceTimeoutError } from '../../utils/ai-service-fetch.js'
 import { resolveDefaultChatModel } from '../../utils/retired-providers.js'
+import { resolveAiCost, recordAiCost } from '../../plugins/ai-cost.js'
+import { estimateTokens } from '../../services/context-manager-service.js'
+import type { TokenBalanceService } from '../../plugins/token-balance-service.js'
+import { checkPlatformKeyQuota } from './ai-capabilities-routes.js'
 import {
   findAiIndexBanners,
   findAiTeamMembers,
@@ -63,6 +67,48 @@ const careerAdviceSchema = z.object({
  */
 function hexNoHash(hex: string): string {
   return hex.replace('#', '').toUpperCase()
+}
+
+/**
+ * F-157:career-advice 的计量/扣费收口 —— 与 crew-llm-adapter(能力 invoke / 聊天)同口径:
+ * ai_cost_records 记成本(喂用户日配额),钱包扣同一个数(不在这里再算一遍)。
+ * 上游成本已经发生,扣费失败不回滚用户结果,只留审计日志。
+ */
+async function settleCareerAdviceUsage(input: {
+  request: FastifyRequest
+  userId: string
+  model: string
+  tokenBalance: TokenBalanceService | undefined
+  prompt: string
+  content: string
+  usage?: { prompt_tokens?: number; completion_tokens?: number }
+}): Promise<void> {
+  const { request, userId, model, tokenBalance, prompt, content, usage } = input
+  const promptTokens = usage?.prompt_tokens ?? estimateTokens(prompt)
+  const completionTokens = usage?.completion_tokens ?? estimateTokens(content)
+  try {
+    const { cost } = await recordAiCost({
+      userId,
+      model,
+      provider: model.includes('/') ? model.split('/')[0]! : 'unknown',
+      promptTokens,
+      completionTokens,
+      totalTokens: promptTokens + completionTokens,
+      requestType: 'career-advice',
+    })
+    const costCents = Math.ceil(cost)
+    if (tokenBalance && costCents > 0) {
+      const settlement = await tokenBalance.deductTokens(userId, costCents, 'ai_career_advice')
+      if (!settlement.success) {
+        request.log.warn(
+          { userId, model, costCents, remaining: settlement.remaining },
+          'F-157 career-advice 钱包扣费不足,已记账待审计',
+        )
+      }
+    }
+  } catch (e) {
+    request.log.warn({ err: e, userId, model }, 'F-157 career-advice 计量/扣费失败(不影响响应)')
+  }
 }
 
 const aiModulesRoutes: FastifyPluginAsync = async (server) => {
@@ -320,6 +366,47 @@ const aiModulesRoutes: FastifyPluginAsync = async (server) => {
       '请从升学方向、学科提升、兴趣发展、职业规划四个维度给出具体可执行的建议,800 字以内。',
     ].join('\n')
 
+    // F-157:平台 Key 调用必须计量/限额 —— 与能力 invoke 同口径,先过用户日配额闸;
+    // 配额不足 402,且不发起上游调用。
+    const userId = request.userId
+    if (!userId) return reply.status(401).send(error(401, 'Authentication required'))
+    const quota = await checkPlatformKeyQuota(server, request, userId)
+    if (!quota.allowed) {
+      const quotaStatus = quota.statusCode ?? 402
+      return reply
+        .status(quotaStatus)
+        .send(error(quotaStatus, quota.message ?? 'AI 配额不足', quota.errorCode))
+    }
+
+    const model = resolveDefaultChatModel()
+    const tokenBalance = server.tokenBalance
+    if (tokenBalance) {
+      // 与 callRealLlm 同口径:按 prompt 侧预估成本预检,余额不足 402,不发起上游调用。
+      try {
+        const wallet = await tokenBalance.getBalance(userId)
+        const estimated = await resolveAiCost({
+          model,
+          promptTokens: estimateTokens(prompt),
+          completionTokens: 0,
+        })
+        const estimatedCents = Math.ceil(estimated.cost)
+        if (wallet.balance <= 0 || estimatedCents > wallet.balance) {
+          return reply
+            .status(402)
+            .send(
+              error(
+                402,
+                `余额不足(当前 ${wallet.balance} 分,预估需 ${estimatedCents} 分),请充值后重试`,
+                'INSUFFICIENT_BALANCE',
+              ),
+            )
+        }
+      } catch (e) {
+        request.log.error({ err: e, userId }, 'F-157 career-advice 余额预检失败')
+        return reply.status(503).send(error(503, '计费服务暂不可用,请稍后重试'))
+      }
+    }
+
     // 2026-11-13 F-99:此前手写 fetch 只带 Content-Type,ai-service /api/llm/complete
     // 默认需 JWT ⇒ 恒 401,却被 catch 成 200 + 静态模板,功能长期静默失效。
     // 改走 aiServiceFetch(统一鉴权/超时/错误契约);失败如实返回错误,不再伪成功。
@@ -334,7 +421,7 @@ const aiModulesRoutes: FastifyPluginAsync = async (server) => {
           messages: [{ role: 'user', content: prompt }],
           // 2026-10-26 stepfun 永久退役 ⇒ 不再写死已退役档;经 utils/retired-providers.ts
           // 的统一解析入口取(与 crew-llm-adapter / conversation-title / semantic-summary 同源)。
-          model: resolveDefaultChatModel(),
+          model,
           max_tokens: 2500,
           temperature: 0.7,
         }),
@@ -355,6 +442,8 @@ const aiModulesRoutes: FastifyPluginAsync = async (server) => {
         content?: string
         output?: string
         reasoning?: string
+        model?: string
+        usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number }
       }
       // 优先 content;reasoning 模型可能把建议放 reasoning 字段(content 为空时回退)
       // reasoning 是模型的真实输出(个性化建议),非模板
@@ -369,6 +458,16 @@ const aiModulesRoutes: FastifyPluginAsync = async (server) => {
         request.log.warn({ data }, 'career-advice upstream returned empty content')
         return reply.status(502).send(error(502, 'AI 服务返回内容为空,请稍后重试'))
       }
+      // F-157:上游已产生成本 —— 先计量/扣费再返回,与能力 invoke 同口径。
+      await settleCareerAdviceUsage({
+        request,
+        userId,
+        model: data.model ?? model,
+        tokenBalance,
+        prompt,
+        content,
+        usage: data.usage,
+      })
       return reply.send(success({ content }))
     } catch (e) {
       if (e instanceof AiServiceTimeoutError) {

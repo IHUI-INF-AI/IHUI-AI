@@ -432,6 +432,13 @@ export const chunkedUploadRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(404).send(error(404, '上传会话不存在'))
     }
 
+    // 2026-11-13 修 F-380:只有 uploading 会话可进入合并。completed/cancelled/merging/
+    // 失败终态此前无前置判断 → 直接置 merging 再置 completed,可反复产出文件(配额重复计),
+    // 已取消的上传也会被「复活」。终态会话音落于此,**不进合并段、不写盘**。
+    if (session.status !== UPLOAD_SESSION_STATUS.uploading) {
+      return reply.status(409).send(error(409, `上传会话状态为 ${session.status}，无法合并`))
+    }
+
     // 历史超档行(本修复前创建)一律拒绝合并:合并阶段会按 1..totalChunks 逐片读盘,
     // 不设这道闸就等于把旧漏洞留在数据面上(2026-11-08 修 F-28)。
     if (session.totalChunks > PROTOCOL_UPLOAD_LIMITS.maxTotalChunks) {
@@ -463,13 +470,26 @@ export const chunkedUploadRoutes: FastifyPluginAsync = async (server) => {
         )
     }
 
-    // 更新 status=merging
-    await db
+    // 条件迁移 uploading → merging(F-380 的原子闸):并发 merge 只有一路能命中,
+    // 无返回行 = 会话已被完成/取消/他人抢占(上面那次读与这里之间状态变了),一律 409,
+    // **不得进入实际合并与后续写盘**。判据取 UPDATE 的返回行数(drizzle postgres-js
+    // 不提供 rowCount,与 db/registry-queries.ts 同口径用 returning().length)。
+    const claimed = await db
       .update(uploadSessions)
       .set({ status: UPLOAD_SESSION_STATUS.merging, updatedAt: new Date() })
       .where(
-        and(eq(uploadSessions.uploadId, uploadId), eq(uploadSessions.userId, request.userId ?? '')),
+        and(
+          eq(uploadSessions.uploadId, uploadId),
+          eq(uploadSessions.userId, request.userId ?? ''),
+          eq(uploadSessions.status, UPLOAD_SESSION_STATUS.uploading),
+        ),
       )
+      .returning({ uploadId: uploadSessions.uploadId })
+    if (claimed.length === 0) {
+      return reply
+        .status(409)
+        .send(error(409, '上传会话状态已变更(已完成、已取消或正在合并)，无法合并'))
+    }
 
     const fileId = randomUUID()
     const finalPath = join(PUBLIC_UPLOAD_DIR, fileId)
