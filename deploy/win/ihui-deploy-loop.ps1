@@ -909,6 +909,8 @@ function Invoke-PollOnce {
         # 「本轮确实部署完成」的唯一判据:子进程打出「部署完成,HEAD=」且 exit=0,
         # 完成时刻不早于本轮开始(排掉"上一轮的完成标记被本轮 behind=0 误读成自己的战果")。
         # 金丝雀观察窗与绿色态都只在这一个判据成立时才有意义。
+        # DG-13:子脚本健康门禁未过已回滚时以 exit=3 收口(非零=失败轮);因此下面窗口兜底/
+        # 成本熔断/绿色态三处按退出码记账的地方都落失败侧,不再把回滚轮记成成功或空转。
         $deployDoneThisRound = ($roundRc -eq 0 -and $null -ne $script:LastDeployDoneAt -and $script:LastDeployDoneAt -ge $roundStart)
         # ---- 部署窗口兜底收口(2026-10-26 立)----
         # 子进程自己写 success/failed/rolledback/noop;这里只处理"它漏了某个退出路径"的情况。
@@ -938,6 +940,7 @@ function Invoke-PollOnce {
         # 停的是"部署"这件事本身)。现在失败轮按 cost-caps.json 的 failChargeCapMinutes 封顶记账,
         # 实墙钟逐条留在台账 minutesWall —— 封顶不是免单:次数照记,连败照样撞 perHour/perDay 闸。
         # 配额数值(perDay / minutesPerDay)一个字没改:上调额度归机主侧人工阀。
+        # outcome 口径与 DG-13 同源:子脚本 exit=3(健康门禁未过已回滚)落在下面的 else 支 ⇒ fail。
         if ($roundMinutes -ge 1) {
             $roundOutcome = if ($deployDoneThisRound) { 'ok' } elseif ($roundRc -eq 0) { 'unknown' } else { 'fail' }
             $budgetOut = (& $guardNode (Join-Path $Root 'scripts\cost-breaker.mjs') --charge --kind deploy --minutes $roundMinutes --outcome $roundOutcome --note "deploy-loop rc=$roundRc" 2>&1 | Out-String)
