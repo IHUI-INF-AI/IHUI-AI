@@ -68,8 +68,8 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 | ---- | ---- | ------ |
 | 数据库表 | 639 | `dbTables` |
 | schema 文件 | 246 | `dbSchemaFiles` |
-| API 路由 | 4768 | `apiRoutes` |
-| 路由文件 | 694 | `apiRouteFiles` |
+| API 路由 | 4770 | `apiRoutes` |
+| 路由文件 | 692 | `apiRouteFiles` |
 | AI 服务路由 | 676 | `aiServiceRoutes` |
 | WebSocket 端点 | 40 | `wsEndpoints` |
 | 入库模型清单 | 100 | `llmModels` |
@@ -81,13 +81,13 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 5250 | `testFiles` |
+| 测试文件 | 5287 | `testFiles` |
 | CI 工作流 | 59 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
 | 工程守门 | 363 | `guardianGates` |
 | — blocking | 334 | `guardianBlocking` |
 | — warn | 31 | `guardianWarn` |
-| 跟踪文件 | 21387 | `trackedFiles` |
+| 跟踪文件 | 21423 | `trackedFiles` |
 
 上表由 `node scripts/sync-readme-numbers.mjs`(唯一写入口,索引面取数)生成,最后核对日期 2026-11-13。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
@@ -98,6 +98,19 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 ## Recent updates (auto-maintained)
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
+**2026-11-13**
+- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (231f9458798)
+- 🔧 Chore/Other:结清批次46 —— F-602/F-625/F-630/F-631/F-632 (03cda13b2fb)
+- 🐞 Fix:结清 F-602 语音笔记分面口径 + F-625 探针超时取消 + F-630 大屏日界重复平移 + F-631 账单归月上海日 + F-632 积分日历上海日 (c8bba3ff8a5)
+- 🔧 Chore/Other:结清批次37-45 —— F-382/388/389/393/396/392/406/441/450/417/422/461/466/475/492/494/496/498/504/507/508/511/513/514/518/519/520/529/537/552/538/549/553/554/555/562/569/578/579/589/591/598/606/607/608/621/622/623 共 45 行 (85c98e76bbc)
+- 🐞 Fix:结清 F-598 点赞幂等 + F-606 OTel query 脱敏 + F-607/F-608 Bulkhead 名额退还与复位解挂 + F-621 代理池原子计数 + F-622 代理日志脱敏 + F-623 提示词全文扫描 (14a0f49ec2f)
+- 🐞 Fix:结清 F-569 资源发布态闸 + F-578 访问趋势业务日 + F-579 食堂采购日 + F-589 缺勤分批写入 + F-591 收件箱归属 (4229823a4ba)
+- 🐞 Fix:结清 F-538 中转会话落库 + F-549 清理范围收敛 + F-553 归档分批删除 + F-554 快照保留与孤儿自清 + F-555 锁定双存储合并 + F-562 清理异步单趟 (f34475d3e4a)
+- 🐞 Fix:收口 ProcessGroupChild.kill 签名以对齐 ChildProcess,解除 typecheck:full 的 apps/cli 红 (a0cfa61ddd8)
+- 🐞 Fix:结清 F-519 死路由清理 + F-520 组织接口鉴权 + F-529 repo-wiki 模型校验 + F-537 PDF 失败如实 503 + F-552 缓存写失败隔离 (1c095a309c1)
+- 🐞 Fix:结清 F-508 USDT RPC 超时 + F-511 通知失败重试 + F-513 健康检查互斥合并写 + F-514 平台密钥调用计费 + F-518 引擎 RPC 可达回归锁 (041304b9856)
+- 🐞 Fix:结清 F-494 批处理先扣费后落键 + F-496 账号池退出码判定 + F-498 回调帧两段确认 + F-504 收藏按用户过滤 + F-507 工具超时取消 (5d949c01a9e)
+
 **2026-11-13**
 - 🔧 Chore/Other:结清 O69(调度轮 sweepLocalDevDbRotation 与镜像 10 例已入库)与 12A/DG-12(发布 tag 闸改发布件对账,同批提交) (6c2a28998f7)
 - 🐞 Fix:结清 F-422 Qoder 桥关停竞态 + F-461 WS 活动时间刷新 + F-466 live-chat 单用户连接上限 + F-475 chat 历史表上限 + F-492 生图 worker 租约归属 (c1252d160d6)
@@ -466,89 +479,6 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 - 🔧 Chore/Other:结清 F-049/F-050/F-051/F-055/F-057/F-059/F-108/F-110 八张缺陷普查工单 (1979716b829)
 - 🐞 Fix:结清 F-049/F-050/F-051/F-055/F-057/F-059/F-108/F-110 八张缺陷普查工单 (e9c1ed47a81)
 - 🔧 Chore/Other:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (184452a399d)
-
-**2026-11-12**
-- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (ab2ff127e8)
-- 🐞 Fix:跨环境同步按 email 翻译号池归属,根治 owner_user_id 悬空互推 (e5e2b5d637)
-- 🚀 Feature/Improvement:补 loomy/zcode/raccoon 客户端会话定时回捞腿,彻底永久保活 (c7c62ad7ed)
-- 🔧 Chore/Other:补录 tauri.localdev-cdp.json 删除意图通知书(旁路删除硬门) (978a160fde)
-- 🔧 Chore/Other:结清 F-079/F-120/F-121/F-122/F-129/F-130/F-131/F-132/F-133/F-134/F-135/F-137/F-138/F-139 十四张工单 (b439fbd2ba)
-- 🐞 Fix:同步 README 数字生成块到 HEAD 现算值(push 门 DN2;活文档闸对生成块值变更结构性误报,走官方留痕出口) (c42d0cd141)
-- 🐞 Fix:结清 F-079/F-120/F-121/F-122/F-129/F-130/F-131/F-132/F-133/F-134/F-135/F-137/F-138/F-139 十四张缺陷普查工单 (9870f31043)
-- 🔧 Chore/Other:结清 F-010/F-011/F-017/F-018/F-039/F-043/F-044/F-071/F-076/F-078/F-127/F-128 十二张工单 (85fe00904e)
-- 🐞 Fix:结清 F-010/F-011/F-017/F-018/F-039/F-043/F-044/F-071/F-076/F-078/F-127/F-128 十二张缺陷普查工单 (8ab82c6d32)
-- 🔧 Chore/Other:p1-evidence-gaps F-003 结构锁跟上 kill-tree.ts 收敛 (9d03ad51c6)
-- 🔧 Chore/Other:结清 API F-106(本次已修 f4fe4c8bfca) (b06d165926)
-- 🐞 Fix:F-121 playground compare 全模型失败退非零(--json 与人读两路同口径) (9f447cd2fe)
-- 🐞 Fix:F-120 report 输入加 64MB 上限,覆盖前留 .bak 并改原子写 (67f2297098)
-- 🐞 Fix:F-485 FAQ 排序补主键兜底且创建侧接受 sortOrder (c42c49de4d)
-- 🐞 Fix:F-483 评论列表 offset 直传 / F-484 点赞关注目标存在性校验 (29eee95a58)
-- 🐞 Fix:F-481 协议查询限定已到生效日的记录 (eccd0d80b9)
-- 🐞 Fix:F-480 公开轮播按 startAt/endAt 投放窗口过滤 (e5943359c8)
-- 🐞 Fix:F-131 plan init 改原子写,--force 覆盖前留 .bak 备份 (2a59557faf)
-- 🐞 Fix:F-139 hunk 越界判据按首段恰为 '..',误拒 ..env 等合法文件名 (c3bf12b473)
-- 📚 Docs:README 生成块数字对账 testFiles 5061->5065 / trackedFiles 21121->21126(归并带入 4 个新测试文件,DN5) (e4e667c2e3)
-- 🐞 Fix:F-067 编辑器审批请求加 60s 超时;F-066 closeSession 先中止在飞 prompt (05529b111d)
-- 🐞 Fix:F-299 /v1/responses 补挂 requireApiKeyQuota，Key 级小时/天配额生效 (7a32bd514b)
-- 🐞 Fix:F-294 鉴权层归一识别 max_output_tokens，堵 Responses 端 maxTokensPerReq/TPM 绕过 (1a05c5ba3b)
-- 🐞 Fix:F-066 ACP closeSession/SIGINT 先中止在飞 prompt 再关闭,信号带 130/143 退出码 (b3a863b54a)
-- 🐞 Fix:AIS-067/070 + 003 网关侧:原生 complete 先判业务错误再记账,号池重试加错误过滤与退避,原生流正常耗尽补合成 done 终帧 (dbe128ddb1)
-- 🐞 Fix:F-523 registry 两个生产者 Queue 补 onClose 关闭出口 (31763cc225)
-- 🐞 Fix:F-521/F-522 补算法备案与边缘探测的对称关停相 (6a54aac1e7)
-- 🐞 Fix:F-548 大 xlsx 列数统计改 reduce,规避 Math.max 展开参数溢出 (6d64363dd9)
-- 🐞 Fix:F-530 repoName 写入侧统一 trim,与读取侧归一化对齐 (cbe85b19b2)
-- 🐞 Fix:F-539 relay 会话/消息分页排序补主键 tie-breaker (2b1446f27d)
-- 🐞 Fix:F-525 会话导入去重条件补 collectionName,换集合导入不再被静默判重 (7088679017)
-- 🔧 Chore/Other:F-106 回归——比对本人声纹成功扣分 + 他人 voiceId 403 不扣分 (e94837bfe4)
-- 🐞 Fix:F-545/F-547 OSS callOss 与腾讯云/AWS STS fetch 加超时、判状态、错误体截断 (d02b64cdb6)
-- 🐞 Fix:F-543/F-544 转码取消只对未完成任务生效;stderr 尾部限长消除 O(n²) 扫描 (4a676d7a03)
-- 🐞 Fix:F-541 单元格地址校验收敛到 xlsx 规格(16384 列 × 1048576 行) (50c2cc44eb)
-- 🐞 Fix:F-505 直播 by-ids 逐项 uuid 校验,非法 id 400 而非 22P02 裸 500 (d67d690f5d)
-- 🐞 Fix:F-471 提现 method 上限对齐列宽 16 (c589373a32)
-- 🐞 Fix:F-470 /ai/users 手机号上限对齐列宽 20 (8550e358d2)
-- 🐞 Fix:F-469 素材 file_url 上限对齐列宽 500 (3b5a0428bf)
-- 🐞 Fix:F-468 视频任务 taskId 上限对齐列宽 36 (97a573f32d)
-- 🐞 Fix:F-463 角色用户解绑 roleId 补 uuid 闸 (942bae3f86)
-- 🐞 Fix:F-460/F-462 maskIdCard 短值 RangeError 与 maskPhone 短号泄漏 (7aa8f17591)
-- 🐞 Fix:F-459 发票更新 userId 收紧 uuid 校验 (8a01f5b2bf)
-- 🐞 Fix:F-106 声纹属主隔离——register 盖章 u{userId}_ 前缀、list 过滤、compare/delete 属主校验(免迁移方案) (f4fe4c8bfc)
-- 🐞 Fix:AIS-069 混元原生流累积并透传 tool_calls 与 finish_reason (530d5ca347)
-- 🐞 Fix:AIS-068 OpenAI/Anthropic 原生流识别 error 帧并上抛,不再静默空 done (3a2041fbdb)
-- 🐞 Fix:AIS-065 原生 complete 空 choices 抛 ProviderError 进 fallback,不再 IndexError/静默空回复 (311a622e12)
-- 🐞 Fix:F-065 同会话并发回合按会话串行排队,abort 存集合 cancel 全中止 (01e911ed45)
-- 📚 Docs:README 生成块数字对账 testFiles 5059->5061 / trackedFiles 21119->21121(本轮新增 2 个测试文件,DN5 清单不变式) (095390b0f6)
-- 🐞 Fix:共享 tsconfig 基座改动不得走无 TS 输入面档 (6649fbc21f)
-- 🐞 Fix:F-426/F-427 /v1/agents 分页全序排序 + call 端点补 UUID 闸 (4d3506e9e2)
-- 🐞 Fix:F-425 admin-api-platform 七处 :id 收紧为 uuid 形状闸 (9ff0b0fb87)
-- 🐞 Fix:F-425 workspace :id 收紧为 uuid 形状闸 (09a834e87b)
-- 🐞 Fix:F-429 API Key 更新/删除接入 2FA step-up (c625965fd8)
-- 🐞 Fix:F-391 创建 API Key 与充值补 2FA step-up 闸 (3f3f613d01)
-- 🐞 Fix:F-064/F-137 HTTP /message 请求体加 1MB 字节闸回 413、SSE 背压中止、显式 server 超时 (bbbe0fd2c0)
-- 🐞 Fix:同步 README 文档数字生成块到当前 HEAD 现算值 (7383bdb0da)
-- 🐞 Fix:补齐共享基座 packages/tsconfig/base.json 的 node_modules.* 防线 (ff2c5dc005)
-- 🔧 Chore/Other:补 f-101-102 测试溯源水印——commit-tree 绕过 pre-commit 落地漏注入,47p 水印门按 HEAD blob 判未覆盖 (2835d4b542)
-- 🔧 Chore/Other:结清 CLI F-119(本次已修 b682c7b9f76) (d2421b3d7f)
-- 🐞 Fix:F-119 share includeFiles=false 改为真实过滤工具结果消息(不再只追加省略文案) (b682c7b9f7)
-- 🔧 Chore/Other:隔离 Ghidra headless 工作目录 (87c8342df7)
-- 🔧 Chore/Other:结清 F-019/F-034/F-035/F-052/F-105/F-106 六张缺陷普查工单 (7f49095906)
-- 🐞 Fix:结清 F-019/F-034/F-035/F-052/F-105/F-106 六张缺陷普查工单 (56943ec875)
-- 🔧 Chore/Other:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (a7a8a41d2e)
-- 🔧 Chore/Other:结清 API 5 张已修工单(F-119/147/165/180/181,源码含修复标记) (bcd270a2a5)
-- 🐞 Fix:RouteParamSpec 补 items/properties 递归映射 + spec-drift 收编 AI_TASK_TEMPLATE_TOOLS (4d9649c703)
-- 🔧 Chore/Other:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (29fcde08e7)
-- 🔧 Chore/Other:结清 AIS-019(已修 e12f8a9550,属主下推收窄) (7c2775a800)
-- 🔧 Chore/Other:结清 9 张已修复漏勾工单(F-118,AIS-006/015/016/026/044/059/078/087) (2ef1687cfe)
-- 🔧 Chore/Other:结清 AIS 族 4 张已修工单(AIS-066/072/075/076) (0d6a51ffed)
-- 🐞 Fix:同步 README 文档数字生成块到当前 HEAD 现算值 (ae84ca0132)
-- 🐞 Fix:embed-types 支持 @ihui/types 内部传递引用,修掉 pre-push typecheck 门 (3987084c9d)
-- 🐞 Fix:把 node_modules.* 兄弟目录的防线补齐到全部 19 个 tsconfig + .gitignore (edb7ce7a33)
-- 🔧 Chore/Other:结清 F-099/F-109/F-111/F-118 四张缺陷普查工单 (ac614afb4d)
-- 🐞 Fix:结清 F-095/F-099/F-101/F-102/F-109/F-111/F-118 七张缺陷普查工单(后四张为回归钉补钉) (d0e2ab55f8)
-- 🔧 Chore/Other:派生产物按归并 HEAD 面重生成(be4abab323)—— web/miniapp ui-routes 补 finance-ai 路由输入哈希 (e2d4f59270)
-- 🐞 Fix:补 F-070 卸载 registry 前置闸真实缺口 + 补交 f-070/f-101-102 验收测试 (09ccdc45b5)
-- 🔧 Chore/Other:结清 F-049/F-050/F-051/F-055/F-057/F-059/F-108/F-110 八张缺陷普查工单 (1979716b82)
-- 🐞 Fix:结清 F-049/F-050/F-051/F-055/F-057/F-059/F-108/F-110 八张缺陷普查工单 (e9c1ed47a8)
-- 🔧 Chore/Other:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (184452a399)
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)
