@@ -42,4 +42,3 @@
 {"key":"teacher.detail.viewCourses","kind":"pending-product","reason":"端内「查看课程」/基准「查看全部课程」:入口按钮详略差,两值都不算错,待文案口径统一","expires":"2027-01-31"}
 {"key":"vipTrader.openNow","kind":"pending-product","reason":"两端渲染器不同(端内底部主 CTA vs 共享屏 CTA 兼确认弹窗按钮),仅同槽位无同屏凭据 ⇒ 未判定;且基准侧一键两角色需先拆键再谈对齐","expires":"2027-01-31"}
 {"key":"securitySettings.readOnlyHint","kind":"platform-adaptation","reason":"小程序端无独立「安全中心」页面,两步验证只能在 RN/App 端开关;端内提示只保留只读说明,不指向不存在的入口","expires":"2027-06-30"}
-{"key":"conversationImport.noValidContent","kind":"platform-adaptation","reason":"会话导入无有效内容的提示两端按各自界面语域微调:小程序「会话内没有有效内容」偏会话场景,RN「无可导入的有效内容」偏导入动作;语义一致(均指无可导入内容),非语义分歧,按平台适配登记","expires":"2027-06-30"}
