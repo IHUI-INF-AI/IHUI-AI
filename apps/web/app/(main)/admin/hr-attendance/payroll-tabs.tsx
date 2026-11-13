@@ -200,7 +200,13 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   )
 }
 
-function Badge({ tone, children }: { tone: 'ok' | 'warn' | 'danger' | 'muted'; children: React.ReactNode }) {
+function Badge({
+  tone,
+  children,
+}: {
+  tone: 'ok' | 'warn' | 'danger' | 'muted'
+  children: React.ReactNode
+}) {
   const cls =
     tone === 'ok'
       ? 'bg-success/10 text-success'
@@ -210,7 +216,7 @@ function Badge({ tone, children }: { tone: 'ok' | 'warn' | 'danger' | 'muted'; c
           ? 'bg-warning/10 text-warning'
           : 'bg-muted text-muted-foreground'
   return (
-    <span className={`inline-flex rounded px-1.5 py-0.5 text-label font-medium ${cls}`}>
+    <span className={`inline-flex rounded-md px-1.5 py-0.5 text-label font-medium ${cls}`}>
       {children}
     </span>
   )
@@ -326,10 +332,7 @@ export function MonthlyTab({ t }: { t: ReturnType<typeof useTranslations> }) {
           </thead>
           <tbody>
             {rows.map((r) => {
-              const leaveTotal = Object.values(r.leaveDays ?? {}).reduce(
-                (s, v) => s + Number(v),
-                0,
-              )
+              const leaveTotal = Object.values(r.leaveDays ?? {}).reduce((s, v) => s + Number(v), 0)
               return (
                 <tr key={r.id} className="border-t">
                   <td className="px-2 py-1">{r.employeeNo ?? '-'}</td>
@@ -425,8 +428,7 @@ export function PayrollTab({ t }: { t: ReturnType<typeof useTranslations> }) {
   const itemsQuery = useQuery({
     queryKey: ['hr', 'payroll', 'items', periodMonth],
     enabled: MONTH_RE.test(periodMonth),
-    queryFn: () =>
-      api<PayrollItemsResult>(`${PAYROLL_RESOURCE}/items?periodMonth=${periodMonth}`),
+    queryFn: () => api<PayrollItemsResult>(`${PAYROLL_RESOURCE}/items?periodMonth=${periodMonth}`),
   })
 
   const periodsQuery = useQuery({
@@ -550,7 +552,11 @@ export function PayrollTab({ t }: { t: ReturnType<typeof useTranslations> }) {
           {t('colPeriodMonth')}: {periodMonth}
         </span>
         {currentPeriod ? (
-          <Badge tone={currentStatus === 'draft' ? 'muted' : currentStatus === 'calculated' ? 'warn' : 'ok'}>
+          <Badge
+            tone={
+              currentStatus === 'draft' ? 'muted' : currentStatus === 'calculated' ? 'warn' : 'ok'
+            }
+          >
             {PERIOD_STATUS_LABEL[currentStatus] ?? currentStatus}
           </Badge>
         ) : (
@@ -604,7 +610,9 @@ export function PayrollTab({ t }: { t: ReturnType<typeof useTranslations> }) {
                     <td className="px-2 py-1">{fmtMoney(r.grossPay)}</td>
                     <td className="px-2 py-1">{fmtMoney(r.otAmount)}</td>
                     <td className="px-2 py-1 text-destructive">
-                      {Number(r.attendanceDeduction) > 0 ? `-${fmtMoney(r.attendanceDeduction)}` : '0.00'}
+                      {Number(r.attendanceDeduction) > 0
+                        ? `-${fmtMoney(r.attendanceDeduction)}`
+                        : '0.00'}
                     </td>
                     <td className="px-2 py-1">{fmtMoney(r.insurancePersonal)}</td>
                     <td className="px-2 py-1">{fmtMoney(r.housingFundPersonal)}</td>
@@ -613,9 +621,7 @@ export function PayrollTab({ t }: { t: ReturnType<typeof useTranslations> }) {
                     <td className="px-2 py-1">
                       <button
                         className="text-primary hover:underline"
-                        onClick={() =>
-                          setExpanded((prev) => ({ ...prev, [i]: !prev[i] }))
-                        }
+                        onClick={() => setExpanded((prev) => ({ ...prev, [i]: !prev[i] }))}
                       >
                         {expanded[i] ? t('hideDetail') : t('showDetail')}
                       </button>
