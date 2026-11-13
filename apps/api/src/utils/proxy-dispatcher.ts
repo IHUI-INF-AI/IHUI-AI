@@ -83,12 +83,16 @@ function getProxyAgent(): ProxyAgent | null {
 
 /**
  * NO_PROXY 命中判定:`*` 全匹配,其余按后缀匹配(与白名单同一套形状,不引入第三种语义)。
+ * 大小写两个变体(`NO_PROXY` / `no_proxy`)**都**参与匹配,任一命中即视为命中 ——
+ * 只看第一个已配置变体会把另一个变体里的真实命中吞掉(F-716)。
  * 只读"存在哪个变量名 + 是否命中",取值不外带。
  */
 function readNoProxy(hostname: string): { matched: boolean; varName: EgressNoProxyVarName | null } {
+  let firstConfigured: EgressNoProxyVarName | null = null
   for (const name of EGRESS_NO_PROXY_VAR_NAMES) {
     const raw = process.env[name]
     if (raw === undefined || raw.trim() === '') continue
+    if (firstConfigured === null) firstConfigured = name
     const entries = raw
       .split(',')
       .map((s) => s.trim().toLowerCase())
@@ -96,10 +100,10 @@ function readNoProxy(hostname: string): { matched: boolean; varName: EgressNoPro
     if (entries.includes('*')) return { matched: true, varName: name }
     if (entries.some((d) => hostname === d || hostname.endsWith(`.${d.replace(/^\./, '')}`)))
       return { matched: true, varName: name }
-    // 配了 NO_PROXY 但没命中:名字仍是事实,继续找另一个大小写档位
-    return { matched: false, varName: name }
+    // 本变体配了但没命中:不 return,继续扫另一个大小写档位(名字仍是事实)
   }
-  return { matched: false, varName: null }
+  // 两变体都没配 → null;配了但都没命中 → 如实报第一个已配置变体
+  return { matched: false, varName: firstConfigured }
 }
 
 function readCustomCa(): EgressCaState {
