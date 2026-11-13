@@ -23,8 +23,9 @@ import { createHash } from 'node:crypto'
 import { desc, eq, and, sql } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { knowledgeDoc, knowledgeChunk } from '@ihui/database'
-import { getEmbeddingProvider } from './embedding-provider.js'
+import { getEmbeddingProvider, type EmbeddingProvider } from './embedding-provider.js'
 import { parseDocument } from './document-parser.js'
+import { logger } from '../utils/logger.js'
 
 /** 文本切片: 500 字符, 50 字符重叠, 优先在分隔符处断开 */
 function splitText(text: string, chunkSize = 500, overlap = 50): string[] {
@@ -54,17 +55,52 @@ function splitText(text: string, chunkSize = 500, overlap = 50): string[] {
   return chunks
 }
 
+/** embedding 统一维度(OpenAI 标准),维度不符即视为生成失败,不得写 NULL 冒充成功 */
+const EMBEDDING_DIM = 1536
+
 /**
- * 调用当前 EmbeddingProvider 生成 embedding.
- * 失败或未配置时返回 null, 触发降级 (关键词匹配).
+ * F-526:embedding 生成失败(上游抛错 / 应答缺项 / 维度不符)。
+ *
+ * 旧实现在 catch 里 `return null`,随后把 NULL 向量当合法值写库并照常返回成功 ——
+ * key 失效、配额耗尽、上游 5xx、超时都表现为"入库成功",全库静默失去语义检索,
+ * 排查只能翻库看 `embedding IS NULL`。现在失败必须显式上抛,错误体携带失败块数,
+ * 调用方日志/响应都能看到 failed 计数。
  */
-async function getEmbedding(text: string): Promise<number[] | null> {
+export class EmbeddingGenerationError extends Error {
+  readonly code = 'EMBEDDING_GENERATION_FAILED'
+  readonly provider: string
+  readonly failedChunks: number
+  readonly totalChunks: number
+
+  constructor(provider: string, failedChunks: number, totalChunks: number, reason: string) {
+    super(
+      `embedding 生成失败(${provider}):${failedChunks}/${totalChunks} 块未取得 ` +
+        `${EMBEDDING_DIM} 维向量,本次整批不入库(failed=${failedChunks}):${reason}`,
+    )
+    this.name = 'EmbeddingGenerationError'
+    this.provider = provider
+    this.failedChunks = failedChunks
+    this.totalChunks = totalChunks
+  }
+}
+
+/**
+ * 检索侧 query embedding:失败/未配置返回 null 触发关键词降级(F-526:降级必须留日志)。
+ *
+ * 与入库侧不同,检索降级不会污染数据(只影响本次召回质量),故仍返回 null 走关键词路,
+ * 但绝不再空 catch —— 失败原因结构化落日志,避免"检索静默变笨"无从排查。
+ */
+async function getQueryEmbedding(text: string): Promise<number[] | null> {
   const provider = getEmbeddingProvider()
   if (!provider) return null
   try {
     const results = await provider.embed([text])
     return results[0] ?? null
-  } catch {
+  } catch (err) {
+    logger.warn('[knowledge-rag-service] query embedding 生成失败,降级关键词检索(F-526)', {
+      provider: provider.name,
+      error: err,
+    })
     return null
   }
 }
@@ -81,21 +117,57 @@ async function getEmbedding(text: string): Promise<number[] | null> {
 const EMBED_CONCURRENCY = 8
 const CHUNK_INSERT_BATCH = 500
 
-/** 受控并发生成 embedding(顺序与输入一一对应,失败按 null 落库走关键词降级) */
-async function embedWithConcurrency(chunks: string[]): Promise<(number[] | null)[]> {
-  const out = new Array<number[] | null>(chunks.length)
+/**
+ * F-526:入库侧单块 embedding —— 失败/维度不符一律抛错,绝不返回 null 让调用方当成功落库。
+ */
+async function embedForIngest(text: string, provider: EmbeddingProvider): Promise<number[]> {
+  const results = await provider.embed([text])
+  const vec = results[0]
+  if (!vec) throw new Error('provider 未返回该条向量')
+  if (vec.length !== EMBEDDING_DIM) {
+    throw new Error(`向量维度 ${vec.length} ≠ ${EMBEDDING_DIM}`)
+  }
+  return vec
+}
+
+/**
+ * 受控并发生成 embedding(顺序与输入一一对应)。
+ *
+ * F-526:失败不再吞成 null —— 逐块收集失败原因,由 `_ingestChunks` 决定整批失败,
+ * 保证 NULL 向量不会以"成功入库"的形态落库。provider 未配置仍按既有降级语义返回
+ * 空向量集(仅关键词可检索),但会留一条 warn 日志说明降级。
+ */
+async function embedWithConcurrency(chunks: string[]): Promise<{
+  embeddings: number[][]
+  failures: string[]
+  providerName: string | null
+}> {
+  const provider = getEmbeddingProvider()
+  const embeddings = new Array<number[]>(chunks.length)
+  const failures: string[] = []
+  if (!provider) {
+    logger.warn(
+      '[knowledge-rag-service] embedding provider 未配置,切片将以 NULL 向量入库且仅可关键词检索(F-526)',
+      { chunkCount: chunks.length },
+    )
+    return { embeddings, failures, providerName: null }
+  }
   let next = 0
   const worker = async (): Promise<void> => {
     while (true) {
       const i = next++
       if (i >= chunks.length) return
-      out[i] = await getEmbedding(chunks[i]!)
+      try {
+        embeddings[i] = await embedForIngest(chunks[i]!, provider)
+      } catch (err) {
+        failures.push(err instanceof Error ? err.message : String(err))
+      }
     }
   }
   await Promise.all(
     Array.from({ length: Math.min(EMBED_CONCURRENCY, chunks.length) }, () => worker()),
   )
-  return out
+  return { embeddings, failures, providerName: provider.name }
 }
 
 /**
@@ -287,15 +359,48 @@ class KnowledgeRagService {
 
     const contentHash = createHash('md5').update(text, 'utf8').digest('hex')
     // embedding 在事务外生成:外部 HTTP 调用不应占住数据库连接/事务。
-    const embeddings = await embedWithConcurrency(chunks)
+    const { embeddings, failures, providerName } = await embedWithConcurrency(chunks)
+    // F-526:任何一块没拿到 1536 维向量 ⇒ 整批失败,不写 NULL 向量冒充成功。
+    // 事务尚未开始,因此不会留下半截 doc/chunk;已有 doc(ingestFile 续写)则显式标 failed。
+    if (failures.length > 0) {
+      logger.error('[knowledge-rag-service] embedding 生成失败,整批拒绝入库(F-526)', {
+        provider: providerName,
+        ownerUuid,
+        docId: docId ?? null,
+        collectionName,
+        totalChunks: chunks.length,
+        failedChunks: failures.length,
+        failureSamples: failures.slice(0, 3),
+      })
+      if (docId !== undefined) {
+        try {
+          await db
+            .update(knowledgeDoc)
+            .set({ status: 'failed', updatedAt: new Date() })
+            .where(and(eq(knowledgeDoc.id, docId), eq(knowledgeDoc.ownerUuid, ownerUuid)))
+        } catch (markErr) {
+          logger.error('[knowledge-rag-service] embedding 失败后回写 status=failed 也失败', {
+            docId,
+            ownerUuid,
+            error: markErr,
+          })
+        }
+      }
+      throw new EmbeddingGenerationError(
+        providerName ?? 'unknown',
+        failures.length,
+        chunks.length,
+        failures[0] ?? 'unknown',
+      )
+    }
     const chunkRows = chunks.map((content, i) => ({
       docId: 0, // 事务内插入 doc 后回填
       collectionName,
       ownerUuid,
       chunkIndex: i,
       content,
-      // vector1536 customType toDriver 自动序列化为 '[...]',NULL 走 fallback
-      embedding: embeddings[i] && embeddings[i]!.length === 1536 ? embeddings[i]! : null,
+      // vector1536 customType toDriver 自动序列化为 '[...]';仅 provider 未配置的降级路径为 NULL
+      embedding: embeddings[i] ?? null,
     }))
 
     // F-387:调用方已带 docId ⇒ 直接挂到该 doc(唯一键路径),不插入新 doc、不反查标题。
@@ -619,7 +724,7 @@ class KnowledgeRagService {
     ownerUuid: string
   }): Promise<SearchHit[]> {
     const { query, collectionName = 'default', topK = 5, scoreThreshold = 0, ownerUuid } = opts
-    const queryEmbedding = await getEmbedding(query)
+    const queryEmbedding = await getQueryEmbedding(query)
 
     // 主路径:pgvector SQL 端 ANN 检索
     if (queryEmbedding && queryEmbedding.length === 1536) {

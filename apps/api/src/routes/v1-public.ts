@@ -2331,8 +2331,9 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
           cacheCreationTokens: cacheTokens.cacheCreationTokens,
           latencyMs: latency.latencyMs,
           status: 'success',
-          // 本行原本不写 metadata ⇒ 只新增 latencyTrusted 一键,不得顺手带进 modelMappingMeta
-          metadata: { latencyTrusted: latency.latencyTrusted },
+          // F-443:与流式(:metadata 带 modelMappingMeta)和缓存命中同源 —— 非流式成功流水
+          // 同样落映射元信息,否则同一请求在 stream/缓存/非流式三处无法按模型对账。
+          metadata: { ...(modelMappingMeta ?? {}), latencyTrusted: latency.latencyTrusted },
           mode,
           providerCode: usedChannel?.providerCode ?? modelToProviderCode(billingModel),
           configId: usedChannel?.configId,
