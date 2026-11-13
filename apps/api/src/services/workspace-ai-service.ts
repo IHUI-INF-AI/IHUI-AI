@@ -60,6 +60,18 @@ const BG_AGENTS_DIR = join(STORE_ROOT, 'background-agents')
 const ROUTINES_FILE = join(STORE_ROOT, 'routines.json')
 const PERSONAS_FILE = join(STORE_ROOT, 'personas.json')
 
+/**
+ * 最近工作区按 userId 分文件(F-278):此前是全局共享的 recent-workspaces.json,
+ * 任何登录用户 GET /fs/recent 都能读到别人最近打开的绝对路径。
+ * 文件名用 userId 的 SHA-256 前缀,避免把任意 userId 直接拼进路径(目录穿越/非法字符)。
+ * IHUI_STORE_ROOT 仅用于测试注入临时存储根,生产默认仍是 ~/.ihui。
+ */
+function recentWorkspacesFile(userId: string): string {
+  const root = process.env.IHUI_STORE_ROOT?.trim() || STORE_ROOT
+  const key = createHash('sha256').update(userId).digest('hex').slice(0, 32)
+  return join(root, 'recent-workspaces', `${key}.json`)
+}
+
 function ensureDir(dir: string): void {
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
 }
@@ -2805,6 +2817,11 @@ class PermissionManager {
     workspacePath: string
     tool: string
     args: Record<string, unknown>
+    /**
+     * 只读枚举场景(列表接口,如 /fs/recent、/fs/browse):本应转人工审计的 'ask'
+     * 不发起阻塞式确认,按「未被拒绝」放行;硬 deny(未配置/plan 非只读/规则拒绝)不变。
+     */
+    enumerateOnly?: boolean
   }): Promise<{
     allowed: boolean
     /**
@@ -2965,6 +2982,15 @@ class PermissionManager {
           matchedRule: gate.matchedRule,
         }
       }
+      if (params.enumerateOnly) {
+        return {
+          allowed: true,
+          mode: permModeWire,
+          configured: true,
+          reason: `只读枚举不发起人工审计(${gate.reason})`,
+          matchedRule: gate.matchedRule,
+        }
+      }
       const audit = await this.requestWorkspaceConfirmation({
         userId: params.userId,
         workspacePath: params.workspacePath,
@@ -3038,6 +3064,15 @@ class PermissionManager {
         mode: permModeWire,
         configured: true,
         reason: gate.reason,
+        matchedRule: gate.matchedRule,
+      }
+    }
+    if (params.enumerateOnly) {
+      return {
+        allowed: true,
+        mode: permModeWire,
+        configured: true,
+        reason: `只读枚举不发起人工审计(${gate.reason})`,
         matchedRule: gate.matchedRule,
       }
     }
@@ -3865,9 +3900,12 @@ class FSBridge {
     })
   }
 
-  /** 记录最近工作区 */
-  addRecent(meta: { path: string; name: string; techStack?: string[] }): void {
-    const file = join(STORE_ROOT, 'recent-workspaces.json')
+  /** 记录最近工作区(按 userId 隔离,F-278) */
+  addRecent(
+    userId: string,
+    meta: { path: string; name: string; techStack?: string[] },
+  ): void {
+    const file = recentWorkspacesFile(userId)
     const list = readJsonForUpdate<Array<{ path: string; name: string; lastOpened: number }>>(
       file,
       [],
@@ -3881,8 +3919,32 @@ class FSBridge {
     writeJson(file, filtered.slice(0, 20))
   }
 
-  loadRecent(): Array<{ path: string; name: string; lastOpened: number }> {
-    return readJson(join(STORE_ROOT, 'recent-workspaces.json'), [])
+  /**
+   * 读取该用户自己的最近工作区,并过滤「已配置权限但被明确拒绝」的条目(F-278)。
+   *
+   * 这里用 enumerateOnly 调 checkWorkspace:只读列表不因「需人工确认」而阻塞
+   * (否则 N 条 recent × 60s 人工审计会把 GET /fs/recent 拖死),但硬 deny 仍被过滤。
+   * 未配置权限的条目保留 —— /fs/open 先写 recent 再引导 setup,过滤掉会让首开工作区消失。
+   */
+  async loadRecent(userId: string): Promise<Array<{ path: string; name: string; lastOpened: number }>> {
+    const list = readJson<Array<{ path: string; name: string; lastOpened: number }>>(
+      recentWorkspacesFile(userId),
+      [],
+    )
+    if (!Array.isArray(list)) return []
+    const visible: Array<{ path: string; name: string; lastOpened: number }> = []
+    for (const item of list) {
+      if (!item || typeof item.path !== 'string' || !item.path) continue
+      const decision = await permissionManager.checkWorkspace({
+        userId,
+        workspacePath: item.path,
+        tool: 'fs.browse',
+        args: { path: item.path },
+        enumerateOnly: true,
+      })
+      if (decision.allowed || !decision.configured) visible.push(item)
+    }
+    return visible
   }
 
   detectTechStack(workspacePath: string): string[] {

@@ -480,9 +480,22 @@ export async function assignSession(
   return { session: rows[0] }
 }
 
+/**
+ * F-249:关闭会话后是否应递减坐席负载的唯一判据。
+ *
+ * 输入是带 `status <> 'closed'` 的 UPDATE 的 RETURNING 结果:
+ * 命中 0 行 = 会话不存在或已关闭(重复关闭/并发关闭),不递减;
+ * 命中 1 行且该行有 agentId,才递减一次。
+ */
+export function shouldDecrementAgentLoadOnClose(
+  updatedRows: ReadonlyArray<{ agentId?: string | null }>,
+): boolean {
+  return updatedRows.length > 0 && Boolean(updatedRows[0]?.agentId)
+}
+
 export async function closeSession(sessionId: string): Promise<CustomerServiceSession | undefined> {
-  // F-249:幂等关闭 —— 仅当状态非 closed 才更新并 RETURNING,
-  // 重复关闭命中 0 行,不会再次递减坐席负载。
+  // F-249:幂等关闭 —— 仅当状态非 closed 才更新并 RETURNING。
+  // 命中 0 行说明已关闭/不存在,返回 undefined,不进入递减分支。
   const rows = await db
     .update(customerServiceSessions)
     .set({ status: 'closed', endedAt: new Date(), updatedAt: new Date() })
@@ -495,7 +508,9 @@ export async function closeSession(sessionId: string): Promise<CustomerServiceSe
     .returning()
   const row = rows[0]
   if (!row) return undefined
-  if (row.agentId) await adjustAgentLoad(row.agentId, -1)
+  if (shouldDecrementAgentLoadOnClose(rows) && row.agentId) {
+    await adjustAgentLoad(row.agentId, -1)
+  }
   return row
 }
 

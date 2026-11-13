@@ -44,6 +44,7 @@ import {
   isSafeCheckpointId,
 } from '../services/atomic-rollback.js'
 import { requireAdmin, resolveAdminRoleId, ADMIN_ROLE_ID } from '../plugins/require-permission.js'
+import { getRegisteredWorkspaceRoots, isInsideRoot, realpathOrResolve } from '../utils/workspace-roots.js'
 
 // F-27:checkpointId 只允许 [A-Za-z0-9_-],拒绝 `..` 与路径分隔符(防越出快照目录任意读写)。
 const checkpointIdSchema = z
@@ -127,6 +128,27 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
     // 把整个 handler 用 try/catch 包裹,任何错误统一返回 400 + 中文消息
     try {
       const body = z.object({ path: z.string().optional() }).parse(request.body ?? {})
+      const rawPath = body.path?.trim()
+      // F-278:browse 此前只校验「落在登记根内」,不查 workspace_permissions,
+      // 被拒 fs.read 的工作区仍可枚举。现复用 checkWorkspace(只读枚举不阻塞人工审计)。
+      if (rawPath && request.userId) {
+        const target = realpathOrResolve(rawPath)
+        const root = getRegisteredWorkspaceRoots().find((r) => isInsideRoot(target, r))
+        if (root) {
+          const decision = await permissionManager.checkWorkspace({
+            userId: request.userId,
+            workspacePath: root,
+            tool: 'fs.browse',
+            args: { path: rawPath },
+            enumerateOnly: true,
+          })
+          // 未配置权限时放行:首开工作区必须先浏览目录才能完成 setup;
+          // 已配置但被明确拒绝 → 403,堵住枚举通道(响应结构不变)。
+          if (decision.configured && !decision.allowed) {
+            return reply.status(403).send(error(403, decision.reason))
+          }
+        }
+      }
       const entries = fsBridge.browse(body.path)
       return reply.send(success({ entries }))
     } catch (e) {
@@ -147,7 +169,7 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
       const workspaceRoot = fsBridge.assertWorkspaceRegistered(body.path)
       const name = body.name ?? body.path.split(/[\\/]/).pop() ?? 'workspace'
       const techStack = fsBridge.detectTechStack(workspaceRoot)
-      fsBridge.addRecent({ path: workspaceRoot, name, techStack })
+      fsBridge.addRecent(request.userId, { path: workspaceRoot, name, techStack })
       // 同步查询当前用户的权限配置,前端据此决定是否弹窗
       const { getPermission, touchLastAccessed } =
         await import('../db/workspace-permission-queries.js')
@@ -170,7 +192,8 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
   server.get('/fs/recent', async (request, reply) => {
     await requireAuth(request, reply)
     if (!request.userId) return
-    return reply.send(success({ workspaces: fsBridge.loadRecent() }))
+    const workspaces = await fsBridge.loadRecent(request.userId)
+    return reply.send(success({ workspaces }))
   })
 
   server.post('/fs/read', async (request, reply) => {
@@ -1326,11 +1349,27 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
   // 7. CodebaseIndex — 代码库索引
   // ===========================================================================
 
+  // F-401: codebase/vector/checkpoints 全族此前只有 requireAuth,非工作区成员凭
+  // workspacePath 即可读写他人代码索引/向量/检查点。统一挂工作区权限守卫(同文件
+  // fs.* 组已接),返回 true 表示已写 401/403 响应、调用方须立即 return。
+  const guardWorkspace = async (
+    request: FastifyRequest,
+    reply: FastifyReply,
+    workspacePath: string,
+    tool: string,
+  ): Promise<boolean> =>
+    (await assertWorkspacePermission(request, reply, {
+      workspacePath,
+      tool,
+      args: { workspacePath },
+    })) !== null
+
   server.post('/codebase/index', async (request, reply) => {
     await requireAuth(request, reply)
     if (!request.userId) return
     const body = workspacePathBody.parse(request.body)
     if (!body.workspacePath) return reply.status(400).send(error(400, 'workspacePath 不能为空'))
+    if (await guardWorkspace(request, reply, body.workspacePath, 'codebase.index')) return
     try {
       const index = codebaseIndexer.index(body.workspacePath)
       return reply.send(success(index))
@@ -1347,6 +1386,7 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
       .parse(request.query)
     if (!query.workspacePath || !query.q)
       return reply.status(400).send(error(400, 'workspacePath 和 q 不能为空'))
+    if (await guardWorkspace(request, reply, query.workspacePath, 'codebase.search')) return
     const results = codebaseIndexer.search(query.workspacePath, query.q, query.topK ?? 20)
     return reply.send(success({ results }))
   })
@@ -1356,6 +1396,7 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
     if (!request.userId) return
     const body = workspacePathBody.parse(request.body)
     if (!body.workspacePath) return reply.status(400).send(error(400, 'workspacePath 不能为空'))
+    if (await guardWorkspace(request, reply, body.workspacePath, 'codebase.incremental')) return
     try {
       const result = incrementalIndexer.incrementalUpdate(body.workspacePath)
       return reply.send(success(result))
@@ -1369,6 +1410,7 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
     if (!request.userId) return
     const query = workspacePathQuery.parse(request.query)
     if (!query.workspacePath) return reply.status(400).send(error(400, 'workspacePath 不能为空'))
+    if (await guardWorkspace(request, reply, query.workspacePath, 'codebase.status')) return
     return reply.send(success(incrementalIndexer.status(query.workspacePath)))
   })
 
@@ -1381,6 +1423,7 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
     if (!request.userId) return
     const body = workspacePathBody.parse(request.body)
     if (!body.workspacePath) return reply.status(400).send(error(400, 'workspacePath 不能为空'))
+    if (await guardWorkspace(request, reply, body.workspacePath, 'vector.index')) return
     try {
       const result = await vectorIndexer.indexWorkspace(body.workspacePath)
       return reply.send(success(result))
@@ -1397,6 +1440,7 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
       .parse(request.body)
     if (!body.workspacePath || !body.query)
       return reply.status(400).send(error(400, 'workspacePath 和 query 不能为空'))
+    if (await guardWorkspace(request, reply, body.workspacePath, 'vector.search')) return
     try {
       const results = await vectorIndexer.search(body)
       return reply.send(success({ results }))
@@ -1414,6 +1458,7 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
     if (!request.userId) return
     const query = workspacePathQuery.parse(request.query)
     if (!query.workspacePath) return reply.status(400).send(error(400, 'workspacePath 不能为空'))
+    if (await guardWorkspace(request, reply, query.workspacePath, 'checkpoints.list')) return
     return reply.send(success({ checkpoints: checkpointManager.list(query.workspacePath) }))
   })
 
@@ -1423,6 +1468,7 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
     const { id } = idParam.parse(request.params)
     const body = workspacePathBody.parse(request.body)
     if (!body.workspacePath) return reply.status(400).send(error(400, 'workspacePath 不能为空'))
+    if (await guardWorkspace(request, reply, body.workspacePath, 'checkpoints.rollback')) return
     const cp = checkpointManager.rollback(body.workspacePath, id)
     if (!cp) return reply.status(404).send(error(404, '检查点不存在'))
     return reply.send(success(cp))
@@ -1433,6 +1479,7 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
     if (!request.userId) return
     const body = workspacePathBody.parse(request.body)
     if (!body.workspacePath) return reply.status(400).send(error(400, 'workspacePath 不能为空'))
+    if (await guardWorkspace(request, reply, body.workspacePath, 'checkpoints.undo')) return
     const cp = checkpointManager.undoLast(body.workspacePath)
     if (!cp) return reply.status(404).send(error(404, '无检查点可撤销'))
     return reply.send(success(cp))
@@ -1538,6 +1585,12 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
     if (!request.userId) return
     const { requestId } = requestIdParam.parse(request.params)
     const body = z.object({ approved: z.boolean() }).parse(request.body)
+    // F-304: resolve 必须校验属主 —— 此前只认 requestId,任意登录用户可代他人批准
+    // 工具执行。PermissionRequest 带 userId,以登录身份比对,不采信 requestId 自报;
+    // 不存在与非属主统一 403,不泄露 requestId 是否存在。
+    const pending = permissionManager.getRequest(requestId)
+    if (!pending || pending.userId !== request.userId)
+      return reply.status(403).send(error(403, '无权处理该审批请求'))
     const resolved = permissionManager.resolve(requestId, body.approved)
     if (!resolved) return reply.status(400).send(error(400, '请求不存在或已处理'))
     return reply.send(success({ resolved: true }))
