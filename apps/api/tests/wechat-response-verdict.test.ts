@@ -24,6 +24,7 @@ import {
   getPhoneNumber,
   jscode2session,
   WechatApiError,
+  wechatAppCode2session,
 } from '../src/services/oauth-providers.js'
 
 // 2026-11 起 oauth 出网走 proxy-dispatcher(isProxiedUrl/proxiedFetch/directEgressFetch),
@@ -43,6 +44,8 @@ const originalFetch = globalThis.fetch
 beforeEach(() => {
   process.env.WX_MINI_APPID = 'wx-fixture-appid'
   process.env.WX_MINI_SECRET = 'fixture-secret'
+  process.env.WECHAT_MOBILE_APP_ID = 'wx-fixture-mobile'
+  process.env.WECHAT_MOBILE_SECRET = 'fixture-mobile-secret'
 })
 afterEach(() => {
   globalThis.fetch = originalFetch
@@ -124,6 +127,48 @@ describe('cgi-bin/token 与 getuserphonenumber 同一把尺', () => {
   it('手机号:正向对照', async () => {
     routeFetch({ errcode: 0, phone_info: { phoneNumber: '+8613800000000' } })
     await expect(getPhoneNumber('GOOD')).resolves.toBe('+8613800000000')
+  })
+})
+
+/**
+ * 移动应用登录(sns/oauth2/access_token + sns/userinfo)同一把尺。
+ * 立因(2026-11-13 线上现读):真机微信授权成功、服务端却统一回「登录已过期」——
+ * 因为这条腿把 body.errcode 丢掉了,40125(AppSecret 不匹配)与 40029(code 失效)
+ * 在日志里长得一模一样。以下三例子钉住"errcode 必须带着码抛"与"空 openid 不算成功"。
+ */
+describe('移动应用 code2session:上游拒绝必须带 errcode', () => {
+  function routeMobile(tokenBody: unknown, userBody: unknown = {}): void {
+    globalThis.fetch = vi.fn(async (url: string | URL) => {
+      const u = String(url)
+      if (u.includes('/sns/oauth2/access_token')) return json(tokenBody)
+      if (u.includes('/sns/userinfo')) return json(userBody)
+      throw new Error(`夹具没准备好的 URL:${u.slice(0, 60)}`)
+    }) as never
+  }
+
+  it('appsecret 不匹配(40125)⇒ 抛 WechatApiError 且带 40125(旧写法只剩一句泛化文案)', async () => {
+    routeMobile({ errcode: 40125, errmsg: 'invalid appsecret' })
+    await expect(wechatAppCode2session('FAKE')).rejects.toMatchObject({
+      name: 'WechatApiError',
+      errcode: 40125,
+    })
+  })
+
+  it('200 但缺 openid ⇒ 同样抛(不许用空串继续建绑定)', async () => {
+    routeMobile({ access_token: 'at' })
+    await expect(wechatAppCode2session('FAKE')).rejects.toBeInstanceOf(WechatApiError)
+  })
+
+  it('正向对照:token+userinfo 正常时拿到 openid', async () => {
+    routeMobile(
+      { access_token: 'at', openid: 'o-abc', unionid: 'u-abc' },
+      { openid: 'o-abc', unionid: 'u-abc', nickname: '微信用户' },
+    )
+    await expect(wechatAppCode2session('GOOD')).resolves.toMatchObject({
+      openId: 'o-abc',
+      unionId: 'u-abc',
+      nickname: '微信用户',
+    })
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
