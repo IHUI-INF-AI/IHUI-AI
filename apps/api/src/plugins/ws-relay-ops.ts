@@ -53,8 +53,13 @@ const wsRelayOpsPlugin: FastifyPluginAsync = async (server) => {
   const limiter = new WsUserConnectionLimiter(2)
   const sockets = new Set<WebSocket>()
 
-  function pushSnapshot(ws: WebSocket): void {
-    void buildRelayOpsSnapshot()
+  /**
+   * 推一帧快照(F-624):
+   * - 周期推送走 'cached' —— 进程内共享缓存,多 socket 只重建一次(默认 5s TTL);
+   * - refresh 走 'refresh' —— 受最小间隔节流 + 单飞去重,窗口内复用缓存帧。
+   */
+  function pushSnapshot(ws: WebSocket, isRefresh = false): void {
+    void buildRelayOpsSnapshot({ mode: isRefresh ? 'refresh' : 'cached' })
       .then((snapshot: RelayOpsSnapshot) => {
         if (ws.readyState === ws.OPEN) {
           ws.send(JSON.stringify({ event: 'relay-ops-snapshot', data: snapshot }))
@@ -99,7 +104,7 @@ const wsRelayOpsPlugin: FastifyPluginAsync = async (server) => {
       }
       try {
         const parsed = JSON.parse(text) as { type?: unknown }
-        if (parsed?.type === 'refresh') pushSnapshot(socket)
+        if (parsed?.type === 'refresh') pushSnapshot(socket, true)
       } catch {
         /* 非 JSON 消息忽略 */
       }
