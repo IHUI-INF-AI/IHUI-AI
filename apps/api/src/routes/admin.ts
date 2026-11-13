@@ -30,6 +30,14 @@ import {
 import { success, error, emptyToUndefined } from '../utils/response.js'
 import { syncLiteLLMPricing } from '../services/litellm-price-sync.js'
 import { upsertPricing } from '../services/pricing-service.js'
+import {
+  getPricingOverview,
+  listModelPricing,
+  listPriceAudits,
+  sweepNow,
+  syncPublicCatalog,
+  updateModelPrice,
+} from '../services/model-pricing-admin.js'
 import { booleanStringSchemaOptional } from '../utils/parse-boolean.js'
 import { hashPassword } from '../utils/password-crypto.js'
 import { db } from '../db/index.js'
@@ -130,6 +138,143 @@ export const adminRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(502).send(error(502, `LiteLLM 价表同步失败: ${stats.error}`))
       }
       return reply.send(success(stats))
+    },
+  )
+
+  // ===== 模型定价管理面(2026-11-13 立) =====
+  // 动机:定价从"一次性脚本"转为可持续管理 —— 可查、可筛、可调、可审计、可巡检。
+  // 所有价格单位统一为 分/千 token;返回里额外给 元/百万 token(×10)方便运营核对。
+
+  // GET /ai-pricing/overview - 定价概览(零价/兜底/未留痕一眼可见)
+  server.get(
+    '/ai-pricing/overview',
+    {
+      schema: {
+        summary: '模型定价概览',
+        description: '返回启用模型总数、零价数、兜底猜价数、未留痕数,以及按档位/渠道分布',
+        tags: ['admin'],
+      },
+    },
+    async (_request, reply) => {
+      const data = await getPricingOverview()
+      return reply.send(success(data))
+    },
+  )
+
+  // GET /ai-pricing/models - 定价列表(问题行优先排序)
+  server.get(
+    '/ai-pricing/models',
+    {
+      schema: {
+        summary: '模型定价列表(支持筛选)',
+        tags: ['admin'],
+      },
+    },
+    async (request, reply) => {
+      const q = request.query as Record<string, string | undefined>
+      const data = await listModelPricing({
+        q: q['q'],
+        providerCode: q['providerCode'],
+        tier: q['tier'],
+        onlyProblems: q['onlyProblems'] === 'true' || q['onlyProblems'] === '1',
+        enabled:
+          q['enabled'] === undefined ? undefined : q['enabled'] === 'true' || q['enabled'] === '1',
+        limit: q['limit'] ? Number(q['limit']) : undefined,
+        offset: q['offset'] ? Number(q['offset']) : undefined,
+      })
+      return reply.send(success(data))
+    },
+  )
+
+  // PATCH /ai-pricing/models/:id - 人工调价(同步写 ai_pricing + config + 审计)
+  server.patch(
+    '/ai-pricing/models/:id',
+    {
+      schema: {
+        summary: '人工调价(分/千 token,写审计)',
+        tags: ['admin'],
+      },
+    },
+    async (request, reply) => {
+      const params = request.params as { id: string }
+      const b = request.body as {
+        configId?: number
+        modelId?: string
+        inputPer1k?: number
+        outputPer1k?: number
+        note?: string
+      }
+      if (!b || typeof b.configId !== 'number' || !b.modelId) {
+        return reply.status(400).send(error(400, 'configId 与 modelId 必填'))
+      }
+      if (typeof b.inputPer1k !== 'number' || typeof b.outputPer1k !== 'number') {
+        return reply.status(400).send(error(400, 'inputPer1k / outputPer1k 必填(分/千 token)'))
+      }
+      if (b.inputPer1k < 0 || b.outputPer1k < 0) {
+        return reply.status(400).send(error(400, '价格不能为负'))
+      }
+      const result = await updateModelPrice({
+        modelRowId: Number(params.id),
+        configId: b.configId,
+        modelId: b.modelId,
+        inputPer1k: b.inputPer1k,
+        outputPer1k: b.outputPer1k,
+        operatorId: request.userId ?? null,
+        note: b.note ?? null,
+        applyPricing: upsertPricing,
+      })
+      return reply.send(success(result))
+    },
+  )
+
+  // POST /ai-pricing/sweep - 手动触发零价巡检(dryRun=true 只看不写)
+  server.post(
+    '/ai-pricing/sweep',
+    {
+      schema: {
+        summary: '零价模型巡检(自动定价/下架)',
+        tags: ['admin'],
+      },
+    },
+    async (request, reply) => {
+      const b = (request.body ?? {}) as { dryRun?: boolean }
+      const data = await sweepNow({ dryRun: b.dryRun === true, applyPricing: upsertPricing })
+      return reply.send(success(data))
+    },
+  )
+
+  // GET /ai-pricing/audits - 调价历史
+  server.get(
+    '/ai-pricing/audits',
+    {
+      schema: {
+        summary: '调价审计历史',
+        tags: ['admin'],
+      },
+    },
+    async (request, reply) => {
+      const q = request.query as Record<string, string | undefined>
+      const data = await listPriceAudits({
+        modelId: q['modelId'],
+        limit: q['limit'] ? Number(q['limit']) : undefined,
+        offset: q['offset'] ? Number(q['offset']) : undefined,
+      })
+      return reply.send(success(data))
+    },
+  )
+
+  // POST /ai-pricing/sync-catalog - 公示表(zhs_ai_model_info)增量同步
+  server.post(
+    '/ai-pricing/sync-catalog',
+    {
+      schema: {
+        summary: '公示表同步(只补缺失,不改已有行)',
+        tags: ['admin'],
+      },
+    },
+    async (_request, reply) => {
+      const data = await syncPublicCatalog()
+      return reply.send(success(data))
     },
   )
 
@@ -480,7 +625,11 @@ export const adminRoutes: FastifyPluginAsync = async (server) => {
           properties: {
             phone: { type: 'string', description: '手机号(可选,唯一)' },
             email: { type: 'string', format: 'email', description: '邮箱(可选,唯一)' },
-            password: { type: 'string', minLength: 6, description: '登录密码(明文,服务端 bcrypt 哈希)' },
+            password: {
+              type: 'string',
+              minLength: 6,
+              description: '登录密码(明文,服务端 bcrypt 哈希)',
+            },
             nickname: { type: 'string', minLength: 1, description: '昵称' },
             roleId: { type: 'integer', minimum: 0, description: '角色 ID(可选,默认 0)' },
             status: { type: 'integer', minimum: 0, description: '状态(可选,默认 1)' },
