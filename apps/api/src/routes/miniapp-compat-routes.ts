@@ -554,40 +554,60 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
     const userId = request.userId!
     // 若提供 lessonId,upsert lessonRecords 并追加 log
     if (parsed.data.lessonId) {
-      const conds = [
-        eq(lessonRecords.userId, userId),
-        eq(lessonRecords.lessonId, parsed.data.lessonId),
-      ]
-      if (parsed.data.videoId) conds.push(eq(lessonRecords.sectionId, parsed.data.videoId))
-      else conds.push(sql`${lessonRecords.sectionId} IS NULL`)
-      const existing = await db
-        .select()
-        .from(lessonRecords)
-        .where(and(...conds))
-        .limit(1)
-      let recordId = existing[0]?.id
-      if (!recordId) {
-        // F-213:首次观看无历史记录时必须插入,否则进度/时长静默丢失
-        const inserted = await db
+      const { lessonId, videoId } = parsed.data
+      const sectionId = videoId ?? null
+      // F-213:改单条 upsert,首次观看即落库(不再依赖"先查有行才 update")
+      const upsertSet = {
+        ...(parsed.data.position !== undefined ? { lastPosition: parsed.data.position } : {}),
+        updatedAt: new Date(),
+      }
+      const upsertValues = {
+        userId,
+        lessonId,
+        sectionId,
+        lastPosition: parsed.data.position ?? 0,
+        watchDuration: parsed.data.duration ?? 0,
+        status: parsed.data.position ? 1 : 0,
+      }
+      let recordId: string
+      if (sectionId) {
+        // 冲突键 = 唯一索引 lesson_records_user_lesson_section_unique(user_id, lesson_id, section_id)
+        const rows = await db
           .insert(lessonRecords)
-          .values({
-            userId,
-            lessonId: parsed.data.lessonId,
-            sectionId: parsed.data.videoId ?? null,
-            lastPosition: parsed.data.position ?? 0,
-            watchDuration: parsed.data.duration ?? 0,
-            status: parsed.data.position ? 1 : 0,
+          .values(upsertValues)
+          .onConflictDoUpdate({
+            target: [lessonRecords.userId, lessonRecords.lessonId, lessonRecords.sectionId],
+            set: upsertSet,
           })
           .returning({ id: lessonRecords.id })
-        recordId = inserted[0]!.id
+        recordId = rows[0]!.id
       } else {
-        await db
-          .update(lessonRecords)
-          .set({
-            ...(parsed.data.position !== undefined ? { lastPosition: parsed.data.position } : {}),
-            updatedAt: new Date(),
-          })
-          .where(eq(lessonRecords.id, recordId))
+        // section_id 可空,PG 唯一索引不把 NULL 视为相等 ⇒ ON CONFLICT 命中不到,保持"先查后写"
+        const existing = await db
+          .select({ id: lessonRecords.id })
+          .from(lessonRecords)
+          .where(
+            and(
+              eq(lessonRecords.userId, userId),
+              eq(lessonRecords.lessonId, lessonId),
+              sql`${lessonRecords.sectionId} IS NULL`,
+            ),
+          )
+          .limit(1)
+        const existingId = existing[0]?.id
+        if (existingId) {
+          await db
+            .update(lessonRecords)
+            .set(upsertSet)
+            .where(eq(lessonRecords.id, existingId))
+          recordId = existingId
+        } else {
+          const inserted = await db
+            .insert(lessonRecords)
+            .values(upsertValues)
+            .returning({ id: lessonRecords.id })
+          recordId = inserted[0]!.id
+        }
       }
       await db.insert(lessonRecordLogs).values({
         recordId,

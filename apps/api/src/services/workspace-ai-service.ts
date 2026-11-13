@@ -28,10 +28,12 @@ import {
   readFileSync,
   readdirSync,
   realpathSync,
+  renameSync,
   rmSync,
   statSync,
   writeFileSync,
 } from 'node:fs'
+import { logger } from '../utils/logger.js'
 import { homedir, platform } from 'node:os'
 import { basename, dirname, extname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 // 工作区登记根判据(单源):文件桥的 workspacePath 与 browse 的 path 都问它,不再各处自量
@@ -128,9 +130,27 @@ function readJsonForUpdate<T>(file: string, fallback: T, unread: string): T {
   return parsed as T
 }
 
+let writeJsonSeq = 0
+
+/**
+ * F-303:落盘改「临时文件 + rename」原子写 —— 直接 writeFileSync 目标文件时,
+ * 磁盘满 / Windows EBUSY / 只读挂载会在写了一半时抛错,留下半截 JSON(下次读出必崩)。
+ * 临时文件与目标同目录(同一分区),失败时尽力清理临时文件但保留原始错误。
+ */
 function writeJson(file: string, data: unknown): void {
   ensureDir(dirname(file))
-  writeFileSync(file, JSON.stringify(data, null, 2), 'utf-8')
+  const tmp = `${file}.${process.pid}.${++writeJsonSeq}.tmp`
+  try {
+    writeFileSync(tmp, JSON.stringify(data, null, 2), 'utf-8')
+    renameSync(tmp, file)
+  } catch (error) {
+    try {
+      rmSync(tmp, { force: true })
+    } catch {
+      // 清理失败不得掩盖原始写入错误
+    }
+    throw error
+  }
 }
 
 // =============================================================================
@@ -3551,14 +3571,33 @@ class RoutineManager {
     }
   }
 
+  /**
+   * F-303:定时器回调绝不能往外抛 —— 一步 setInterval 回调里的异常就是
+   * uncaughtException,直接打死 API 进程。两级隔离:
+   *   ① 单条 routine 的 runRoutine(含其 persist 写盘)失败只降级为 error 日志,不中断其它 routine;
+   *   ② tick 整体再兜一层,保证任何意外(含 ensureLoaded)都不逸出到定时器。
+   * persist 失败不吞在 persist 里:create/update/delete 等请求路径仍要把错误回给调用方。
+   */
   private tick(): void {
-    this.ensureLoaded()
-    const now = nowSec()
-    for (const r of this.routines.values()) {
-      if (!r.enabled || r.nextRun === null) continue
-      if (r.nextRun <= now) {
-        this.runRoutine(r)
+    try {
+      this.ensureLoaded()
+      const now = nowSec()
+      for (const r of this.routines.values()) {
+        if (!r.enabled || r.nextRun === null) continue
+        if (r.nextRun > now) continue
+        try {
+          this.runRoutine(r)
+        } catch (error) {
+          logger.error('例行程序触发失败,已跳过本轮', {
+            routineId: r.id,
+            error: error instanceof Error ? error.message : String(error),
+          })
+        }
       }
+    } catch (error) {
+      logger.error('例行程序调度 tick 失败,下一次心跳继续', {
+        error: error instanceof Error ? error.message : String(error),
+      })
     }
   }
 
