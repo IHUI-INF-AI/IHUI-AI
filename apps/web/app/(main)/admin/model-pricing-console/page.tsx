@@ -451,14 +451,14 @@ export default function PricingConsolePage() {
                                 type="button"
                                 onClick={() => save.mutate(m)}
                                 disabled={save.isPending}
-                                className="rounded border border-border px-2 py-0.5 hover:bg-muted"
+                                className="rounded-sm border border-border px-2 py-0.5 hover:bg-muted"
                               >
                                 保存
                               </button>
                               <button
                                 type="button"
                                 onClick={() => setEditingId(null)}
-                                className="rounded border border-border px-2 py-0.5 hover:bg-muted"
+                                className="rounded-sm border border-border px-2 py-0.5 hover:bg-muted"
                               >
                                 取消
                               </button>
@@ -472,14 +472,14 @@ export default function PricingConsolePage() {
                                   setEditIn(String(m.inputPricePer1k))
                                   setEditOut(String(m.outputPricePer1k))
                                 }}
-                                className="rounded border border-border px-2 py-0.5 hover:bg-muted"
+                                className="rounded-sm border border-border px-2 py-0.5 hover:bg-muted"
                               >
                                 改价
                               </button>
                               <button
                                 type="button"
                                 onClick={() => setAuditModel(m.modelId)}
-                                className="rounded border border-border px-2 py-0.5 hover:bg-muted"
+                                className="rounded-sm border border-border px-2 py-0.5 hover:bg-muted"
                               >
                                 历史
                               </button>
@@ -510,7 +510,7 @@ export default function PricingConsolePage() {
             <button
               type="button"
               onClick={() => setAuditModel(null)}
-              className="rounded border border-border px-2 py-0.5 text-xs hover:bg-muted"
+              className="rounded-sm border border-border px-2 py-0.5 text-xs hover:bg-muted"
             >
               关闭
             </button>
