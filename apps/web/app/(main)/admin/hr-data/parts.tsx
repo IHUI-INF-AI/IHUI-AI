@@ -45,7 +45,7 @@ function Badge({ tone, children }: { tone: string; children: React.ReactNode }) 
           ? 'bg-warning/10 text-warning'
           : 'bg-muted text-muted-foreground'
   return (
-    <span className={`inline-flex rounded px-1.5 py-0.5 text-label font-medium ${cls}`}>
+    <span className={`inline-flex rounded-md px-1.5 py-0.5 text-label font-medium ${cls}`}>
       {children}
     </span>
   )
