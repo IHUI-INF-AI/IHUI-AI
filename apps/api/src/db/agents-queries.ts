@@ -552,65 +552,67 @@ export async function deleteExamine(
 // thumbs / collect / use / unpublish
 // =============================================================================
 
-export async function findThumb(uuid: string, botId: string): Promise<{ id: string } | undefined> {
-  const rows = await dbRead
-    .select({ id: agentThumbs.id })
-    .from(agentThumbs)
-    .where(and(eq(agentThumbs.uuid, uuid), eq(agentThumbs.botId, botId)))
-    .limit(1)
-  return rows[0]
+/**
+ * 点赞/收藏切换(返回切换后是否已点赞/已收藏)。
+ *
+ * 「判存在 → 增删明细 → 改计数」必须在**同一事务**内,并持同键
+ * `pg_advisory_xact_lock` 串行化:否则并发双击时两个请求同时判空,
+ * 各插一行、各 +1;删除按**实际删行数**递减,历史遗留的同键重复行
+ * 也能一次收回(此前固定 -1 与删除行数脱钩,计数永久漂移)。
+ * 锁序与写法复用 `agent-chat-queries.ts` 的既有模式。
+ */
+export async function toggleThumb(uuid: string, botId: string): Promise<boolean> {
+  return db.transaction(async (tx) => {
+    await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${`agent_thumb:${uuid}:${botId}`}))`)
+    const removed = await tx
+      .delete(agentThumbs)
+      .where(and(eq(agentThumbs.uuid, uuid), eq(agentThumbs.botId, botId)))
+      .returning({ id: agentThumbs.id })
+    if (removed.length > 0) {
+      await tx
+        .update(agents)
+        .set({
+          likeCount: sql`GREATEST(COALESCE(${agents.likeCount}, 0) - ${removed.length}, 0)`,
+          updatedAt: new Date(),
+        })
+        .where(eq(agents.botId, botId))
+      return false
+    }
+    await tx.insert(agentThumbs).values({ uuid, botId })
+    await tx
+      .update(agents)
+      .set({ likeCount: sql`COALESCE(${agents.likeCount}, 0) + 1`, updatedAt: new Date() })
+      .where(eq(agents.botId, botId))
+    return true
+  })
 }
 
-export async function addThumb(uuid: string, botId: string): Promise<void> {
-  await db.insert(agentThumbs).values({ uuid, botId })
-  await db
-    .update(agents)
-    .set({ likeCount: sql`${agents.likeCount} + 1`, updatedAt: new Date() })
-    .where(eq(agents.botId, botId))
-}
-
-export async function removeThumb(uuid: string, botId: string): Promise<void> {
-  await db.delete(agentThumbs).where(and(eq(agentThumbs.uuid, uuid), eq(agentThumbs.botId, botId)))
-  await db
-    .update(agents)
-    .set({
-      likeCount: sql`GREATEST(COALESCE(${agents.likeCount}, 0) - 1, 0)`,
-      updatedAt: new Date(),
-    })
-    .where(eq(agents.botId, botId))
-}
-
-export async function findCollect(
-  uuid: string,
-  botId: string,
-): Promise<{ id: string } | undefined> {
-  const rows = await dbRead
-    .select({ id: agentCollects.id })
-    .from(agentCollects)
-    .where(and(eq(agentCollects.uuid, uuid), eq(agentCollects.botId, botId)))
-    .limit(1)
-  return rows[0]
-}
-
-export async function addCollect(uuid: string, botId: string): Promise<void> {
-  await db.insert(agentCollects).values({ uuid, botId })
-  await db
-    .update(agents)
-    .set({ collectCount: sql`${agents.collectCount} + 1`, updatedAt: new Date() })
-    .where(eq(agents.botId, botId))
-}
-
-export async function removeCollect(uuid: string, botId: string): Promise<void> {
-  await db
-    .delete(agentCollects)
-    .where(and(eq(agentCollects.uuid, uuid), eq(agentCollects.botId, botId)))
-  await db
-    .update(agents)
-    .set({
-      collectCount: sql`GREATEST(COALESCE(${agents.collectCount}, 0) - 1, 0)`,
-      updatedAt: new Date(),
-    })
-    .where(eq(agents.botId, botId))
+export async function toggleCollect(uuid: string, botId: string): Promise<boolean> {
+  return db.transaction(async (tx) => {
+    await tx.execute(
+      sql`SELECT pg_advisory_xact_lock(hashtext(${`agent_collect:${uuid}:${botId}`}))`,
+    )
+    const removed = await tx
+      .delete(agentCollects)
+      .where(and(eq(agentCollects.uuid, uuid), eq(agentCollects.botId, botId)))
+      .returning({ id: agentCollects.id })
+    if (removed.length > 0) {
+      await tx
+        .update(agents)
+        .set({
+          collectCount: sql`GREATEST(COALESCE(${agents.collectCount}, 0) - ${removed.length}, 0)`,
+          updatedAt: new Date(),
+        })
+        .where(eq(agents.botId, botId))
+      return false
+    }
+    await tx.insert(agentCollects).values({ uuid, botId })
+    await tx
+      .update(agents)
+      .set({ collectCount: sql`COALESCE(${agents.collectCount}, 0) + 1`, updatedAt: new Date() })
+      .where(eq(agents.botId, botId))
+    return true
+  })
 }
 
 export async function recordAgentUse(uuid: string, botId: string): Promise<void> {
