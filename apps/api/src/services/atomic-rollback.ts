@@ -49,6 +49,7 @@ async function classifyWorkspacePath(
 import type { Dirent } from 'node:fs'
 import { join, relative, resolve, sep, isAbsolute } from 'node:path'
 import { agentLoop } from './workspace-ai-service.js'
+import { logger } from '../utils/logger.js'
 
 // =============================================================================
 // 类型
@@ -107,6 +108,8 @@ export interface AtomicRollbackResult {
 const SNAPSHOT_DIR = join('.ihui', 'atomic-checkpoints')
 const MAX_FILE_BYTES = 1024 * 1024
 const MAX_FILES = 3000
+/** 快照保留份数上限:超出后按目录 mtime 从旧到新删除(F-554)。 */
+export const MAX_RETAINED_CHECKPOINTS = 5
 const SKIP_DIRS = new Set([
   'node_modules',
   '.git',
@@ -221,6 +224,76 @@ function resolveInsideRoot(rootAbs: string, rel: string): string | null {
   return abs
 }
 
+/**
+ * 清理超出保留份数的快照目录(F-554)。
+ * - 按目录 mtime 从旧到新删除,保留最近 `retain` 份;
+ * - `protectedIds`(刚创建、正在被使用的当前快照)与 mtime 最新的目录永不删除;
+ * - 单条删除失败只 warn 不打断,返回实际删除的 id。
+ */
+export async function pruneAtomicCheckpoints(
+  workspacePath: string,
+  protectedIds: Iterable<string> = [],
+  retain: number = MAX_RETAINED_CHECKPOINTS,
+): Promise<string[]> {
+  const root = snapshotRoot(workspacePath)
+  const keep = new Set(protectedIds)
+  let names: string[]
+  try {
+    names = await readdir(root)
+  } catch (error) {
+    const code = errnoOf(error)
+    if (code !== 'ENOENT' && code !== 'ENOTDIR') {
+      logger.warn('[atomic-rollback] 读取快照根失败,跳过清理', { error: String(error) })
+    }
+    return []
+  }
+
+  const dirs: { name: string; mtimeMs: number }[] = []
+  for (const name of names) {
+    // 只处理合法快照目录名,目录外的杂项文件不碰
+    if (!isSafeCheckpointId(name)) continue
+    const abs = resolveInsideRoot(root, name)
+    if (!abs) continue
+    try {
+      const st = await stat(abs)
+      if (!st.isDirectory()) continue
+      dirs.push({ name, mtimeMs: st.mtimeMs })
+    } catch (error) {
+      // 读不到状态就不能断定可以删,跳过并留痕
+      logger.warn('[atomic-rollback] 读取快照目录状态失败,跳过该项', {
+        id: name,
+        error: String(error),
+      })
+    }
+  }
+  if (dirs.length <= retain) return []
+
+  dirs.sort((a, b) => a.mtimeMs - b.mtimeMs)
+  // 最新的一个永远保留:并发创建时它可能就是另一路正在使用的"当前"快照
+  const newest = dirs[dirs.length - 1]
+  if (newest) keep.add(newest.name)
+
+  const keptCount = dirs.filter((d) => keep.has(d.name)).length
+  const excess = dirs.length - Math.max(retain, keptCount)
+  if (excess <= 0) return []
+
+  const removed: string[] = []
+  for (const victim of dirs.filter((d) => !keep.has(d.name)).slice(0, excess)) {
+    const abs = resolveInsideRoot(root, victim.name)
+    if (!abs) continue
+    try {
+      await rm(abs, { recursive: true, force: true })
+      removed.push(victim.name)
+    } catch (error) {
+      logger.warn('[atomic-rollback] 删除过期快照失败,已跳过', {
+        id: victim.name,
+        error: String(error),
+      })
+    }
+  }
+  return removed
+}
+
 /** 创建原子快照:全量有界文件备份到 .ihui/atomic-checkpoints/<id>/files/ */
 export async function createAtomicCheckpoint(
   workspacePath: string,
@@ -230,32 +303,50 @@ export async function createAtomicCheckpoint(
   const id = `ac-${Math.floor(Date.now() / 1000)}-${Math.random().toString(36).slice(2, 6)}`
   const dir = join(snapshotRoot(wsAbs), id)
   const filesDir = join(dir, 'files')
-  await mkdir(filesDir, { recursive: true })
+  let meta: AtomicCheckpointMeta
+  try {
+    await mkdir(filesDir, { recursive: true })
 
-  const { files, skipped } = await collectFiles(wsAbs)
-  const records: AtomicFileRecord[] = []
-  for (const rel of files) {
-    const abs = join(wsAbs, rel)
-    try {
-      const content = await readFile(abs)
-      const target = join(filesDir, rel)
-      await mkdir(join(target, '..'), { recursive: true })
-      await writeFile(target, content)
-      records.push({ path: rel, existed: true, hash: sha256(content), size: content.length })
-    } catch (e) {
-      skipped.push({ path: rel, reason: `读取失败: ${String(e).slice(0, 120)}` })
+    const { files, skipped } = await collectFiles(wsAbs)
+    const records: AtomicFileRecord[] = []
+    for (const rel of files) {
+      const abs = join(wsAbs, rel)
+      try {
+        const content = await readFile(abs)
+        const target = join(filesDir, rel)
+        await mkdir(join(target, '..'), { recursive: true })
+        await writeFile(target, content)
+        records.push({ path: rel, existed: true, hash: sha256(content), size: content.length })
+      } catch (e) {
+        skipped.push({ path: rel, reason: `读取失败: ${String(e).slice(0, 120)}` })
+      }
     }
+
+    meta = {
+      id,
+      createdAt: new Date().toISOString(),
+      description: params.description.slice(0, 500),
+      tool: params.tool ?? 'atomic-rollback',
+      files: records,
+      skipped,
+    }
+    await writeFile(join(dir, 'meta.json'), JSON.stringify(meta), 'utf-8')
+  } catch (error) {
+    // 先复制文件、后写 meta:中途失败会留下 listAtomicCheckpoints 看不见的孤儿目录,
+    // 必须在这里自己收拾干净,再抛出原错误(保持调用方看到的错误语义不变)。
+    try {
+      await rm(dir, { recursive: true, force: true })
+    } catch (cleanupError) {
+      logger.warn('[atomic-rollback] 快照创建失败后清理半成品目录失败', {
+        id,
+        error: String(cleanupError),
+      })
+    }
+    throw error
   }
 
-  const meta: AtomicCheckpointMeta = {
-    id,
-    createdAt: new Date().toISOString(),
-    description: params.description.slice(0, 500),
-    tool: params.tool ?? 'atomic-rollback',
-    files: records,
-    skipped,
-  }
-  await writeFile(join(dir, 'meta.json'), JSON.stringify(meta), 'utf-8')
+  // 成功落盘后才做保留期清理;清理失败只 warn,不影响本次快照可用性
+  await pruneAtomicCheckpoints(wsAbs, [id])
   return { meta, dir }
 }
 

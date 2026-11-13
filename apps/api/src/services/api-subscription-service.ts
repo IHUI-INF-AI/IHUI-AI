@@ -431,15 +431,19 @@ export async function activateApiSubscription(
           appliedQuota = 0
           balanceAfter = -1
         } else {
-          balanceAfter = Number(activeKey.tokenBalance) + tokenQuota
+          // F-369(P1):余额必须由数据库侧原子累加,禁止用读到的余额做绝对值 SET ——
+          // 否则并发窗口内 relay 已扣掉的额度会被静默恢复(免扣费/双花)。
+          // CASE 兜底:已无限(-1)的行保持 -1,不会被加回有限值。
           await tx
             .update(developerApiKeys)
             .set({
-              tokenBalance: balanceAfter,
+              tokenBalance: sql`CASE WHEN ${developerApiKeys.tokenBalance} = -1 THEN -1 ELSE ${developerApiKeys.tokenBalance} + ${tokenQuota} END`,
               allowedModels: keyAllowedModels,
               updatedAt: new Date(),
             })
             .where(eq(developerApiKeys.id, activeKey.id))
+          // 审计用余额:FOR UPDATE 已锁行,快照即本次更新前的真值,不参与上面的写入。
+          balanceAfter = Number(activeKey.tokenBalance) + tokenQuota
           appliedQuota = tokenQuota
         }
       } else {

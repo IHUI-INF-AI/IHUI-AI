@@ -19,7 +19,7 @@ export async function findAiFeedPosts(opts: {
       .select()
       .from(aiFeedPosts)
       .where(where)
-      .orderBy(desc(aiFeedPosts.createdAt))
+      .orderBy(desc(aiFeedPosts.createdAt), desc(aiFeedPosts.id))
       .limit(opts.pageSize)
       .offset((opts.page - 1) * opts.pageSize),
     db

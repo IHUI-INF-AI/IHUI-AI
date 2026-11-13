@@ -183,7 +183,7 @@ async function runWithPlain(policy: SandboxPolicy, commandLine: string, options:
 /** killProcessGroup 只依赖的最小 child 形状(spawn 返回值天然满足)。 */
 export interface ProcessGroupChild {
   pid?: number;
-  kill(signal: string): unknown;
+  kill(signal?: NodeJS.Signals | number): unknown;
   stdout?: { destroy(): void } | null;
   stderr?: { destroy(): void } | null;
 }

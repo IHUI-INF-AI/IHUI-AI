@@ -28,6 +28,7 @@
  */
 
 import { and, lt, lte, eq, inArray, isNotNull, sql } from 'drizzle-orm'
+import type { SQL } from 'drizzle-orm'
 import type { AnyPgTable, AnyPgColumn } from 'drizzle-orm/pg-core'
 import { db } from '../db/index.js'
 import {
@@ -147,29 +148,51 @@ export const AGENT_MEMORY_PROFILE_LABEL = 'agent_user_profile(180d)'
 const PURGE_BATCH_LIMIT = 1000
 
 /**
+ * 分批循环的批数上限(保护性):1000 行/批 × 10000 批 = 单表单次最多 1000 万行。
+ *
+ * 正常路径靠"末批不足即停"退出;这里防的是匹配集意外不收缩(例如判据写错、
+ * 并发持续写入让每批都满)导致任务无限循环、拖死 scheduler worker。
+ * 触顶时**抛出**而不是静默返回,让本表在 errors[] 里显形,不制造"清完了"的假绿;
+ * 剩余行次日同一阈值继续收,不会漏网。
+ */
+const PURGE_MAX_BATCHES = 10000
+
+/**
  * 从单表按时间戳字段**分批**删除过期记录,返回删除总行数。
  *
- * 为什么这两张表走分批、而上面四段仍是单条 DELETE:
+ * 为什么不能单条 `DELETE ... RETURNING`:
  * - `PgDeleteBase` 只有 `where` / `returning`,**没有 `.limit()`**(drizzle-orm 0.45.2 实测),
  *   所以"DELETE ... LIMIT n"这条最直白的路在类型层就不存在,只能先查主键再按主键删;
- * - `chat_messages` 是全仓写入量最大的表(每轮 AI 对话每条消息一行,还带 reasoning 全文),
- *   首次开闸时超期存量是"上线至今的全部对话",单条 DELETE 的持锁时长不可接受;
+ * - 四张流水表(audit_logs / messages / relay_messages / notifications)首次开闸时
+ *   超期存量都是"上线至今的全部行",单条 DELETE 会把整表过期行的主键一次物化进
+ *   内存百万级 UUID,并长时间持锁;`chat_messages` 与 `conversation_message_archives`
+ *   同理(全仓写入量最大的留存面);
  * - 形状与 `pii-retention-cleanup.ts` 的 `purgeExpired` 一致,不发明第二套批处理写法。
  *
- * 循环终止性:每批先按 `lt` 取主键,删完这批后再取 —— 匹配集严格收缩,
- * 且不依赖事务,单批失败由外层 try/catch 记入 errors[]。
+ * `extraCondition` 用于在时间戳判据之外附加过滤(notifications 只删已读),
+ * 与阈值是同一条 WHERE 的一部分,不改变各表既有保留期语义。
+ *
+ * 循环终止性:每批先取主键,删完这批后再取 —— 匹配集严格收缩,
+ * 且不依赖事务;单批失败直接抛出,由外层 try/catch 记入 errors[],不静默当成功。
  */
 async function purgeExpiredBatched(
   table: AnyPgTable & { id: AnyPgColumn },
   timestampCol: AnyPgColumn,
   threshold: Date,
+  extraCondition?: SQL,
 ): Promise<number> {
+  const condition = extraCondition
+    ? and(lt(timestampCol, threshold), extraCondition)
+    : lt(timestampCol, threshold)
   let deleted = 0
-  for (;;) {
+  for (let batch = 0; ; batch++) {
+    if (batch >= PURGE_MAX_BATCHES) {
+      throw new Error(`分批删除超过 ${PURGE_MAX_BATCHES} 批上限,已删 ${deleted} 行仍未收敛`)
+    }
     const rows = (await db
       .select({ id: table.id })
       .from(table)
-      .where(lt(timestampCol, threshold))
+      .where(condition)
       .limit(PURGE_BATCH_LIMIT)) as Array<{ id: string }>
     if (rows.length === 0) break
     await db.delete(table).where(
@@ -181,6 +204,8 @@ async function purgeExpiredBatched(
     deleted += rows.length
     // 末批不足上限 ⇒ 已是全部匹配行,不必再多查一次空批
     if (rows.length < PURGE_BATCH_LIMIT) break
+    // 满批 ⇒ 可能还有:让出事件循环,别让本任务独占 scheduler worker
+    await new Promise((resolve) => setTimeout(resolve, 0))
   }
   return deleted
 }
@@ -277,12 +302,9 @@ export async function archiveDailyData(): Promise<ArchiveResult> {
   let agentMemoriesPurged = 0
 
   try {
-    // 归档 audit_logs（90 天前）
-    const auditResult = await db
-      .delete(auditLogs)
-      .where(lt(auditLogs.createdAt, auditThreshold))
-      .returning({ id: auditLogs.id })
-    auditLogsArchived = auditResult.length
+    // 归档 audit_logs（90 天前）。
+    // 分批主键删除:积压时单条 DELETE ... RETURNING 会把全部过期主键一次读回内存。
+    auditLogsArchived = await purgeExpiredBatched(auditLogs, auditLogs.createdAt, auditThreshold)
   } catch (err) {
     errors.push(`audit_logs archive failed: ${err instanceof Error ? err.message : String(err)}`)
   }
@@ -294,11 +316,8 @@ export async function archiveDailyData(): Promise<ArchiveResult> {
     // `messages`(IM 表),**不是** chat_messages(AI 对话表)。这个错名有实际
     // 代价:读代码的人会以为"AI 对话记录已有 180 天清理",而它其实一张都没清 ——
     // 于是 chat_messages 成了全仓留存面里最容易被误判为"已治理"的那张表。
-    const msgResult = await db
-      .delete(messages)
-      .where(lt(messages.createdAt, messageThreshold))
-      .returning({ id: messages.id })
-    messagesArchived = msgResult.length
+    // 分批主键删除,与其余流水表同一形状(见 purgeExpiredBatched 注释)。
+    messagesArchived = await purgeExpiredBatched(messages, messages.createdAt, messageThreshold)
   } catch (err) {
     errors.push(`messages archive failed: ${err instanceof Error ? err.message : String(err)}`)
   }
@@ -310,11 +329,12 @@ export async function archiveDailyData(): Promise<ArchiveResult> {
     // 正文(`content` NOT NULL),且 logId 外键是 onDelete:'set null',意味着
     // llm_call_logs 那边把原文purge 掉之后,**同一份原文在这里依然完整存在**,
     // 30 天原文档治理等于被这个外键绕开。堵上这个口是本次整改的一部分。
-    const relayResult = await db
-      .delete(relayMessages)
-      .where(lt(relayMessages.createdAt, messageThreshold))
-      .returning({ id: relayMessages.id })
-    relayMessagesArchived = relayResult.length
+    // 分批主键删除:此前无清理路径 ⇒ 首次开闸积压最大,不能单条 DELETE 全量物化。
+    relayMessagesArchived = await purgeExpiredBatched(
+      relayMessages,
+      relayMessages.createdAt,
+      messageThreshold,
+    )
   } catch (err) {
     errors.push(
       `relay_messages archive failed: ${err instanceof Error ? err.message : String(err)}`,
@@ -322,12 +342,14 @@ export async function archiveDailyData(): Promise<ArchiveResult> {
   }
 
   try {
-    // 归档已读通知（30 天前，仅删除已读的）
-    const notifResult = await db
-      .delete(notifications)
-      .where(and(lt(notifications.createdAt, notifThreshold), eq(notifications.isRead, true)))
-      .returning({ id: notifications.id })
-    notificationsArchived = notifResult.length
+    // 归档已读通知（30 天前，仅删除已读的）。
+    // 分批主键删除;isRead 作为附加条件与时间阈值合并进同一条 WHERE,判据不变。
+    notificationsArchived = await purgeExpiredBatched(
+      notifications,
+      notifications.createdAt,
+      notifThreshold,
+      eq(notifications.isRead, true),
+    )
   } catch (err) {
     errors.push(`notifications archive failed: ${err instanceof Error ? err.message : String(err)}`)
   }

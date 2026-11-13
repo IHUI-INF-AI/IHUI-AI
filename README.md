@@ -98,13 +98,13 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 5227 | `testFiles` |
+| 测试文件 | 5238 | `testFiles` |
 | CI 工作流 | 59 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
 | 工程守门 | 363 | `guardianGates` |
 | — blocking | 334 | `guardianBlocking` |
 | — warn | 31 | `guardianWarn` |
-| 跟踪文件 | 21363 | `trackedFiles` |
+| 跟踪文件 | 21375 | `trackedFiles` |
 
 上表由 `node scripts/sync-readme-numbers.mjs`(唯一写入口,索引面取数)生成,最后核对日期 2026-11-13。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
@@ -5469,22 +5469,46 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-13**
-- 🔧 工程/其他:结清 189G —— F-189 重命名级联已在 a00d16ca08,本轮补 DELETE 守卫事务收口(锁→组行锁→计数→删同事务,f-189 回归 5/5,代码入 a84b0dc7347) (2be1811079)
-- 🔧 工程/其他:fix(api)+docs: F-171 课程问答 lessonId 下推 SQL WHERE(分页/total 以本课 published 问答为口径,f-171 回归 4/4)+F-189 分组删除守卫事务收口(锁→组行 FOR UPDATE→计数→删同事务,并发打标/抢删窗口封死,f-189 回归 5/5);README 块 testFiles 5226/trackedFiles 21361 随 DN5 按终态派生落账(零卷入他席在飞形态) (a84b0dc734)
-- 🔧 工程/其他:结清批次35 共5张(F-321/333/343/345/351) (6b6de7ea67)
-- 🐞 修复:结清 F-321 停留统计先归一再截断 + F-333 提现 PUT 状态机守卫 + F-343 保留期清理分批 + F-345 运行时流 done 帧协议 + F-351 资讯分页稳定排序 (543f21144e)
-- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (f1eea10ede)
-- 🐞 修复:F-164 返佣两级费率组合闸+记账封顶——PATCH 单/双字段非法组合一律 400 且 0 写,recordRelayCommission 每笔之和 ≤ sourceCostCents(level1 先取,余预算给 level2);回归 f-164 测试 17/17 绿;README 生成块随 DN5 用 sync-readme-numbers 官方通道刷新(testFiles 5217→5219/trackedFiles 21352→21354,并修复被吃掉的行首反引号) (8418d437bb)
-- 🔧 工程/其他:生成块数字对齐 HEAD 树现算(testFiles 5218 / trackedFiles 21353)并修复 trackedFiles 断字 (1e5db9591b)
-- 🔧 工程/其他:结清 164G/171G —— F-164 三级费率组合闸+记账封顶入库, F-171 lessonId 下推 WHERE 入库(证据见配对码提交) (277a22436a)
-- 🐞 修复:模型映射后复检 allowedModels,堵白名单绕过(低价套餐偷调高价模型) + 回归锁 5/5 (792bb030a6)
-- 🐞 修复:模型映射后复检 allowedModels,堵住白名单绕过 + 回归锁 (6a7113da6d)
-- 🔧 工程/其他:补齐 F-187/F-200 新增文件的溯源水印(守门 47p) (fd8574763b)
-- 🔧 工程/其他:结清批次34 共5张(F-297/313/314/317/320) (9d25b188ce)
-- 🐞 修复:结清 F-297 编辑写路径会话锁 + F-313 验证码降级读写一致 + F-314 邮件显式超时 + F-317 催费逾期口径 + F-320 巡检失败可观测 (d07c6c267c)
-- 🔧 工程/其他:结清 F-200 Crew 全失败谎报成功 + F-187 baseUrl SSRF(已修复并测试通过,代码入 a00d16ca08a) (d8b6411950)
-- 🐞 修复:F-200 Crew 全失败不再谎报成功 + F-187 v2 保存链与 ai-service api_base SSRF 二次校验 (a00d16ca08)
-- 🚀 新功能/改进:复现 Trae browser 状态查询族 + 补齐 goal/auto-review/asRpcError 验证闭环 (dd21ff3171)
+- 🔧 工程/其他:结清 O69(调度轮 sweepLocalDevDbRotation 与镜像 10 例已入库)与 12A/DG-12(发布 tag 闸改发布件对账,同批提交) (6c2a28998f7)
+- 🐞 修复:结清 F-422 Qoder 桥关停竞态 + F-461 WS 活动时间刷新 + F-466 live-chat 单用户连接上限 + F-475 chat 历史表上限 + F-492 生图 worker 租约归属 (c1252d160d6)
+
+**2026-11-13**
+- 🐞 修复:结清 F-422 Qoder 桥关停竞态 + F-461 WS 活动时间刷新 + F-466 live-chat 单用户连接上限 + F-475 chat 历史表上限 + F-492 生图 worker 租约归属 (28827339250)
+
+**2026-11-13**
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (e2b674edc9f)
+- 🐞 修复:结清 F-382 OSS 分片会话隔离 + F-388 关键词下推 + F-389 缓存键凭据指纹 + F-393 内容分类归属 + F-396 兑换码 Key 归属 (d8ffac6ef8e)
+
+**2026-11-13**
+- 🐞 修复:结清 F-392 引导凭据闭环 + F-406 提现手续费扣余额 + F-441 剧情增强并发记账 + F-450 代扣回调单事务 + F-417 xlsx 单趟渲染 (6e80aa927ce)
+
+**2026-11-13**
+- 🐞 修复:结清 F-382 OSS 分片会话隔离 + F-388 关键词下推 + F-389 缓存键凭据指纹 + F-393 内容分类归属 + F-396 兑换码 Key 归属 (a623f5c402a)
+
+**2026-11-13**
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (2a385166492)
+- 🔧 工程/其他:结清 F-450 —— 代扣回调建单/完成已并入外层事务(DB-02,commit 55efcffe136):placeOrder(tx)/completeOrder(tx)/rechargeToken(outerTx)/earnPoints(tx) 全链透传,消除半提交与重复发权益;f-450 回归锁 5/5 通过 (63c7cd22e13)
+- 📚 文档:生成块 2 维对齐 HEAD 面现算(testFiles 5226→5227 / trackedFiles 21361→21363) (fb34f051aea)
+- 🔧 工程/其他:为 apps/web/playwright.tail.config.ts 补齐溯源水印(门 47p 欠账) (61c31b13ab0)
+- 🐞 修复:branch-delete-with-backup 补自动留痕 —— 治"手工调用不留痕"的结构性缺口 (beb7d0463de)
+- 🔧 工程/其他:门 47p 自愈重新注入 streaming-tail-frame 水印 (44800c59c5b)
+- 🔧 工程/其他:补 D2 末帧/整体替换的浏览器侧集成冒烟(判别力边界已实测登记) (939ebb689aa)
+
+**2026-11-13**
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (b5e09bb17f4)
+- 🐞 修复:提现旁路写入口全部改调 commission-queries 单源服务——agent-withdrawal apply/approve/reject 补冻结+单号+状态守卫+退冻结,admin第5条写入口消除无守卫直写status(资金守恒同源);回归锁 f452-453 6/6 (d773e33e341)
+- 🔧 工程/其他:结清 F-452/F-453 —— 提现旁路写入口(finance-extended agent-withdrawal 三入口 + admin-extended 第5条)全部改调 commission-queries 单源服务 apply/approve/rejectWithdrawal,补冻结+单号+状态守卫+退冻结(资金守恒同源);回归锁 f452-453 6/6 (aada9610e56)
+- 🚀 新功能/改进:复现 WorkBuddy subagent journal 闭环(compact/append/merge)—— 逆向-复现-超越 (6a06e594008)
+- 🔧 工程/其他:结清批次36 共5张(F-352/353/367/369/372) (f89c5981fe5)
+- 🐞 修复:结清 F-352 定时清理集合化分批 + F-353 积分渠道事务 + F-367 清理器显式生命周期 + F-369 订阅配额原子累加 + F-372 日成本熔断 (33206206243)
+- 🐞 修复:ab_test_results schema 补 UNIQUE(variant_id,bucket) 表约束 + bucket NOT NULL,对齐已入库迁移 20261112000002,防 onConflict 42P10 + 回归锁 5/5 (d1b4766f6ba)
+- 🔧 工程/其他:结清 F-448 —— ab_test_results schema 侧补 UNIQUE(variant_id,bucket) 表约束 + bucket NOT NULL,对齐已入库迁移 20261112000002(证据:迁移 + 回归锁 f448 5/5) (72ec4aad2b7)
+- 🔧 工程/其他:结清 189G —— F-189 重命名级联已在 a00d16ca08,本轮补 DELETE 守卫事务收口(锁→组行锁→计数→删同事务,f-189 回归 5/5,代码入 a84b0dc7347) (2be18110794)
+
+**2026-11-13**
+- 🔧 工程/其他:fix(api)+docs: F-171 课程问答 lessonId 下推 SQL WHERE(分页/total 以本课 published 问答为口径,f-171 回归 4/4)+F-189 分组删除守卫事务收口(锁→组行 FOR UPDATE→计数→删同事务,并发打标/抢删窗口封死,f-189 回归 5/5);README 块 testFiles 5226/trackedFiles 21361 随 DN5 按终态派生落账(零卷入他席在飞形态) (a84b0dc7347)
+- 🔧 工程/其他:结清批次35 共5张(F-321/333/343/345/351) (6b6de7ea676)
+- 🐞 修复:结清 F-321 停留统计先归一再截断 + F-333 提现 PUT 状态机守卫 + F-343 保留期清理分批 + F-345 运行时流 done 帧协议 + F-351 资讯分页稳定排序 (543f21144ea)
 
 **2026-11-13**
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (f1eea10ede3)

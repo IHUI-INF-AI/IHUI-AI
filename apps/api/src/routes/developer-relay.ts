@@ -193,7 +193,17 @@ const developerRelayRoutes: FastifyPluginAsync = async (server) => {
     // F-391:创建 API Key 会下发明文 secret,与轮换同级敏感操作,已开 2FA 的账号须先完成 step-up
     const stepUp = await requireStepUpForTwoFactorUser({ userId, redis: request.server.redis })
     if (!stepUp.ok) {
-      return reply.status(401).send(error(401, stepUp.code === 'STEP_UP_REQUIRED' ? '该操作需要二次验证：请先调用 POST /auth/2fa/step-up 提交当前 TOTP 验证码（5 分钟内有效）' : '暂时无法确认该账号的两步验证状态，请稍后重试', stepUp.code))
+      return reply
+        .status(401)
+        .send(
+          error(
+            401,
+            stepUp.code === 'STEP_UP_REQUIRED'
+              ? '该操作需要二次验证：请先调用 POST /auth/2fa/step-up 提交当前 TOTP 验证码（5 分钟内有效）'
+              : '暂时无法确认该账号的两步验证状态，请稍后重试',
+            stepUp.code,
+          ),
+        )
     }
     const parsed = createKeyBodySchema.safeParse(request.body)
     if (!parsed.success)
@@ -274,7 +284,17 @@ const developerRelayRoutes: FastifyPluginAsync = async (server) => {
     // 2FA step-up 闸：已开 2FA 的账号，轮换并重新下发 secret 前须有窗内二次验证
     const stepUp = await requireStepUpForTwoFactorUser({ userId, redis: request.server.redis })
     if (!stepUp.ok) {
-      return reply.status(401).send(error(401, stepUp.code === 'STEP_UP_REQUIRED' ? '该操作需要二次验证：请先调用 POST /auth/2fa/step-up 提交当前 TOTP 验证码（5 分钟内有效）' : '暂时无法确认该账号的两步验证状态，请稍后重试', stepUp.code))
+      return reply
+        .status(401)
+        .send(
+          error(
+            401,
+            stepUp.code === 'STEP_UP_REQUIRED'
+              ? '该操作需要二次验证：请先调用 POST /auth/2fa/step-up 提交当前 TOTP 验证码（5 分钟内有效）'
+              : '暂时无法确认该账号的两步验证状态，请稍后重试',
+            stepUp.code,
+          ),
+        )
     }
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, '参数错误'))
@@ -512,7 +532,17 @@ const developerRelayRoutes: FastifyPluginAsync = async (server) => {
     // F-391:充值是钱包转账类资金操作,已开 2FA 的账号须先完成 step-up(与创建/轮换同一闸)
     const stepUp = await requireStepUpForTwoFactorUser({ userId, redis: request.server.redis })
     if (!stepUp.ok) {
-      return reply.status(401).send(error(401, stepUp.code === 'STEP_UP_REQUIRED' ? '该操作需要二次验证：请先调用 POST /auth/2fa/step-up 提交当前 TOTP 验证码（5 分钟内有效）' : '暂时无法确认该账号的两步验证状态，请稍后重试', stepUp.code))
+      return reply
+        .status(401)
+        .send(
+          error(
+            401,
+            stepUp.code === 'STEP_UP_REQUIRED'
+              ? '该操作需要二次验证：请先调用 POST /auth/2fa/step-up 提交当前 TOTP 验证码（5 分钟内有效）'
+              : '暂时无法确认该账号的两步验证状态，请稍后重试',
+            stepUp.code,
+          ),
+        )
     }
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, '参数错误'))
@@ -522,7 +552,11 @@ const developerRelayRoutes: FastifyPluginAsync = async (server) => {
 
     // 校验 Key 归属权
     const [existing] = await dbRead
-      .select({ id: developerApiKeys.id, userId: developerApiKeys.userId, name: developerApiKeys.name })
+      .select({
+        id: developerApiKeys.id,
+        userId: developerApiKeys.userId,
+        name: developerApiKeys.name,
+      })
       .from(developerApiKeys)
       .where(eq(developerApiKeys.id, p.data.id))
       .limit(1)
@@ -550,7 +584,10 @@ const developerRelayRoutes: FastifyPluginAsync = async (server) => {
           const mail = renderWalletRechargeEmail({
             userName: user.nickname ?? undefined,
             keyName: existing.name,
-            costYuan: (((parsed.data.tokenDelta ?? 0) + (parsed.data.costDeltaCents ?? 0)) / 100).toFixed(2),
+            costYuan: (
+              ((parsed.data.tokenDelta ?? 0) + (parsed.data.costDeltaCents ?? 0)) /
+              100
+            ).toFixed(2),
             creditTokens: parsed.data.tokenDelta ?? 0,
             newTokenBalance: result.tokenBalance,
             keysUrl: `${resolveWebOrigin()}/models/keys`,
@@ -604,7 +641,8 @@ const developerRelayRoutes: FastifyPluginAsync = async (server) => {
           disabled: { status: 403, msg: '兑换码已被禁用' },
           not_unused: { status: 409, msg: '兑换码状态异常' },
           no_active_key: { status: 404, msg: '您还没有可用的 API Key,请先创建' },
-          key_not_found: { status: 404, msg: '指定的 API Key 不存在' },
+          // F-396:不存在与不属于当前用户统一文案,不泄露他人 Key 是否存在
+          key_not_found: { status: 404, msg: '指定的 API Key 不存在或无权操作' },
         }
         const mapped = reasonMap[result.reason ?? ''] ?? {
           status: 400,

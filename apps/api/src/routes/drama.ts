@@ -42,9 +42,14 @@ export const dramaRoutes: FastifyPluginAsync = async (server) => {
     }
     const title = parsed.data.title ?? `剧本 ${id}`
     createStory(id, title)
-    const consistency = await checkConsistency(id)
-    const pacing = await analyzePacing(id)
-    const outline = await suggestChapterOutline(id, 1)
+    // F-441: 一致性与节奏互不依赖,同请求内并发;大纲复用同一份 pacing,
+    // 不再二次 analyzePacing(单请求 LLM 次数 4 → 3),userId 用于 ai_cost 归因。
+    const userId = request.userId
+    const [consistency, pacing] = await Promise.all([
+      checkConsistency(id, userId),
+      analyzePacing(id, userId),
+    ])
+    const outline = await suggestChapterOutline(id, 1, userId, pacing)
     return reply.send(success({ consistency, pacing, outline }))
   })
 

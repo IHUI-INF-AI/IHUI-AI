@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { eq, and, or, inArray, desc, sql } from 'drizzle-orm'
+import { eq, and, or, inArray, desc, sql, gt } from 'drizzle-orm'
 import { db } from './index.js'
 import {
   teams,
@@ -359,29 +359,46 @@ export async function findUserInvitations(userId: string): Promise<TeamInvitatio
 
 /**
  * 接受邀请：写入成员记录并将邀请置为 accepted。
+ *
+ * F-645:校验邀请、加成员、改状态必须在同一事务内完成,避免并发接受/已被撤销的邀请
+ * 仍能加成员;UPDATE 带 status='pending' 且未过期条件,影响 0 行即整体失败。
  */
 export async function acceptInvitation(
   invitation: TeamInvitation,
   userId: string,
 ): Promise<{ invitation: TeamInvitation; member: TeamMember | undefined }> {
-  // 若用户尚未在团队中，则插入成员
-  const existing = await findTeamMember(invitation.teamId, userId)
-  let member: TeamMember | undefined = existing
-  if (!existing) {
-    const rows = await db
-      .insert(teamMembers)
-      .values({ teamId: invitation.teamId, userId, role: 'member' })
+  return db.transaction(async (tx) => {
+    const updated = await tx
+      .update(teamInvitations)
+      .set({ status: 'accepted' })
+      .where(
+        and(
+          eq(teamInvitations.id, invitation.id),
+          eq(teamInvitations.status, 'pending'),
+          gt(teamInvitations.expiresAt, new Date()),
+        ),
+      )
       .returning()
-    member = rows[0]
-  }
+    const accepted = updated[0]
+    if (!accepted) throw new Error('邀请已失效或已被处理')
 
-  const updated = await db
-    .update(teamInvitations)
-    .set({ status: 'accepted' })
-  // status-guard-exempt: 入向终态(邀请接受→accepted),非出向
-    .where(eq(teamInvitations.id, invitation.id))
-    .returning()
-  return { invitation: updated[0] ?? invitation, member }
+    // 若用户尚未在团队中，则插入成员
+    const existing = await tx
+      .select()
+      .from(teamMembers)
+      .where(and(eq(teamMembers.teamId, accepted.teamId), eq(teamMembers.userId, userId)))
+      .limit(1)
+    let member: TeamMember | undefined = existing[0]
+    if (!member) {
+      const rows = await tx
+        .insert(teamMembers)
+        .values({ teamId: accepted.teamId, userId, role: 'member' })
+        .returning()
+      member = rows[0]
+    }
+
+    return { invitation: accepted, member }
+  })
 }
 
 /**
