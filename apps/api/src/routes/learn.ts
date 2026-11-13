@@ -114,7 +114,11 @@ import { buildSignedVideoUrl, verifyVideoToken } from '../services/video-sign.js
 import { db } from '../db/index.js'
 import { learnHomework, LESSON_DIFFICULTIES } from '@ihui/database'
 import { eduLessonTopicCategories } from '@ihui/database'
-import { eq, and, sql as dsql } from 'drizzle-orm'
+import { learnMaps, userFavorites } from '@ihui/database'
+import { eq, and, asc, sql as dsql } from 'drizzle-orm'
+
+/** F-504:学习地图收藏在 user_favorites 中的资源类型。 */
+const LEARN_MAP_FAVORITE_TYPE = 'learn_map'
 
 // =============================================================================
 // Zod schemas
@@ -966,8 +970,22 @@ export const learnRoutes: FastifyPluginAsync = async (server) => {
   // GET /learn/maps/favorites - 我收藏的学习地图（需登录）
   server.get('/learn/maps/favorites', async (request, reply) => {
     if (!(await checkAuth(request, reply))) return
-    const list = await findPublishedMaps()
-    return reply.send(success({ list }))
+    // F-504:归属只取 JWT 身份(request.userId),绝不回退成全量已发布地图;
+    // 无收藏时 join 结果自然为空数组。排序沿用列表原语义:sort 升序 + createdAt 降序。
+    const userId = request.userId!
+    const rows = await db
+      .select({ map: learnMaps })
+      .from(userFavorites)
+      .innerJoin(learnMaps, eq(userFavorites.resourceId, dsql`${learnMaps.id}::text`))
+      .where(
+        and(
+          eq(userFavorites.userId, userId),
+          eq(userFavorites.resourceType, LEARN_MAP_FAVORITE_TYPE),
+          eq(learnMaps.isPublished, true),
+        ),
+      )
+      .orderBy(asc(learnMaps.sort), desc(learnMaps.createdAt))
+    return reply.send(success({ list: rows.map((row) => row.map) }))
   })
 
   // ----- Lesson Rates (公开/需登录) -----
