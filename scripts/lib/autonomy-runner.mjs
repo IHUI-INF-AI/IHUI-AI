@@ -320,6 +320,24 @@ export function isNonTicketFailure(kind) {
   return NON_TICKET_FAILURE_KINDS.includes(kind)
 }
 
+/**
+ * 凭据过期型失败识别(2026-11-13 邮件风暴立,与 classifySessionFailure 同层单源)。
+ * 立因:apps/cli 的 ihui 登录 JWT(7 天)过期后,起会话每一轮 iterations=1/0 token 即死;
+ * 真判别码住在 **stdout 的 error 帧**(`登录已过期,请重新登录`),而 stderr 收尾自检那行
+ * `status=undetermined|untracked-files-over-cap` 会被签名表先接住并盖住真因 —— 只按 stderr
+ * 文本分型会把"要人重登"误标成"量不动/票坏"。判别面 = providerError(真因帧)+why 兜底;
+ * 只认逐字签名,不做模糊匹配;输入取不到 ⇒ false(未判定不误伤其它分型,失效方向=走通用腿级信)。
+ */
+export function isAuthExpiryFailure(providerError, why = '') {
+  const blob = `${String(providerError ?? '')}\n${String(why ?? '')}`
+  if (!blob.trim()) return false
+  return (
+    blob.includes('登录已过期') ||
+    blob.includes('请重新登录') ||
+    blob.includes('token 无效或已过期')
+  )
+}
+
 // ===========================================================================
 // 人工阀前置闸(2026-11-01 接线)
 // ===========================================================================
