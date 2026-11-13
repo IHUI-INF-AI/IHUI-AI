@@ -12329,7 +12329,7 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 444G. **缺陷普查 API F-444** [P2] GitHub PR/Issue 端点任意 owner/repo + 全站 PAT（证据 docs/tickets/2026-11/findings-api.md#F-444）
 - [ ] 445G. **缺陷普查 API F-445** [P3] /v1/models 全局缓存混入调用者私有 BYOK 模型（证据 docs/tickets/2026-11/findings-api.md#F-445）
 - [ ] 447G. **缺陷普查 API F-447** [P3] POST /v1/files 先落盘后入库，失败不回收（证据 docs/tickets/2026-11/findings-api.md#F-447）
-- [ ] 448G. **缺陷普查 API F-448** [P1] ab_test_results 唯一约束在 schema 与迁移间漂移，push/局部恢复后 upsert 必 42P10（证据 docs/tickets/2026-11/findings-api.md#F-448）
+
 - [ ] 450G. **缺陷普查 API F-450** [P1] 代扣回调外层事务内再开多个事务，幂等/回滚失效（已复核，P1）（证据 docs/tickets/2026-11/findings-api.md#F-450）
 - [ ] 451G. **缺陷普查 API F-451** [P2] 签约/解约事务内混用全局连接读写（证据 docs/tickets/2026-11/findings-api.md#F-451）
 - [ ] 452G. **缺陷普查 API F-452** [P1] 代理提现全链路不冻结、无单号、驳回无守卫（已复核，P1）（证据 docs/tickets/2026-11/findings-api.md#F-452）
