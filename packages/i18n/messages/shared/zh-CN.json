@@ -1102,6 +1102,13 @@
       "notSubscribed": "未订阅VIP",
       "subtitle": "管理您的VIP订阅与续费",
       "title": "订阅管理"
+    },
+    "avatar": {
+      "fromAlbum": "从相册选择",
+      "takePhoto": "拍照",
+      "formatHint": "支持 JPG / PNG，建议 200x200",
+      "sizeHint": "建议 200x200，不超过 2MB",
+      "uploading": "上传中..."
     }
   },
   "exam": {
@@ -1133,7 +1140,14 @@
     "ended": "已结束",
     "lecturer": "讲师",
     "startAt": "开始时间",
-    "viewerCount": "{count} 观看"
+    "viewerCount": "{count} 观看",
+    "subscribe": {
+      "count": "共",
+      "unit": "场",
+      "reminder": "开播提醒",
+      "reminderDesc": "开启后直播开始时提醒你",
+      "discover": "去发现"
+    }
   },
   "course": {
     "free": "免费",
@@ -1607,7 +1621,8 @@
         "chat": "无限 AI 对话",
         "model": "全部模型"
       }
-    }
+    },
+    "privileges": "会员特权"
   },
   "login": {
     "title": "登录",
@@ -1651,7 +1666,8 @@
     "avatarUrl": "头像链接",
     "avatarConfirm": "确认",
     "save": "保存",
-    "retry": "重试"
+    "retry": "重试",
+    "avatarUrlApply": "确认"
   },
   "changePhone": {
     "title": "换绑手机",
@@ -3144,7 +3160,9 @@
     "label2": "主体类型",
     "label3": "备案时间",
     "label4": "备案链接",
-    "label5": "备案范围"
+    "label5": "备案范围",
+    "scope": "备案范围",
+    "url": "备案网址"
   },
   "businessLicense": {
     "scopeTitle": "经营范围",

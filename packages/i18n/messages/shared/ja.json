@@ -1102,6 +1102,13 @@
       "notSubscribed": "VIP 未登録",
       "subtitle": "VIP サブスクリプションと更新を管理",
       "title": "サブスクリプション管理"
+    },
+    "avatar": {
+      "fromAlbum": "アルバムから選択",
+      "takePhoto": "写真を撮る",
+      "formatHint": "JPG / PNG 対応、200x200 推奨",
+      "sizeHint": "200x200 推奨、2MB 未満",
+      "uploading": "アップロード中..."
     }
   },
   "exam": {
@@ -1133,7 +1140,14 @@
     "ended": "終了",
     "lecturer": "講師",
     "startAt": "開始時間",
-    "viewerCount": "{count} 視聴"
+    "viewerCount": "{count} 視聴",
+    "subscribe": {
+      "count": "",
+      "unit": "本",
+      "reminder": "配信リマインダー",
+      "reminderDesc": "配信開始時にお知らせします",
+      "discover": "さがす"
+    }
   },
   "course": {
     "free": "無料",
@@ -1607,7 +1621,8 @@
         "chat": "AI会話無制限",
         "model": "全モデル"
       }
-    }
+    },
+    "privileges": "会員特典"
   },
   "login": {
     "title": "ログイン",
@@ -1651,7 +1666,8 @@
     "avatarUrl": "アバターURL",
     "avatarConfirm": "確認",
     "save": "保存",
-    "retry": "再試行"
+    "retry": "再試行",
+    "avatarUrlApply": "適用"
   },
   "changePhone": {
     "title": "電話番号変更",
@@ -3144,7 +3160,9 @@
     "label2": "主体タイプ",
     "label3": "備案時間",
     "label4": "備案リンク",
-    "label5": "備案範囲"
+    "label5": "備案範囲",
+    "scope": "備案範囲",
+    "url": "備案リンク"
   },
   "businessLicense": {
     "scopeTitle": "事業範囲",

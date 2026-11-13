@@ -1102,6 +1102,13 @@
       "notSubscribed": "VIP 미가입",
       "subtitle": "VIP 구독 및 갱신 관리",
       "title": "구독 관리"
+    },
+    "avatar": {
+      "fromAlbum": "앨범에서 선택",
+      "takePhoto": "사진 촬영",
+      "formatHint": "JPG / PNG 지원, 200x200 권장",
+      "sizeHint": "200x200 권장, 2MB 미만",
+      "uploading": "업로드 중..."
     }
   },
   "exam": {
@@ -1133,7 +1140,14 @@
     "ended": "종료",
     "lecturer": "강사",
     "startAt": "시작 시간",
-    "viewerCount": "{count}명 시청"
+    "viewerCount": "{count}명 시청",
+    "subscribe": {
+      "count": "",
+      "unit": "개",
+      "reminder": "시작 알림",
+      "reminderDesc": "라이브 시작 시 알려드립니다",
+      "discover": "둘러보기"
+    }
   },
   "course": {
     "free": "무료",
@@ -1607,7 +1621,8 @@
         "chat": "AI 대화 무제한",
         "model": "전체 모델"
       }
-    }
+    },
+    "privileges": "회원 특전"
   },
   "login": {
     "title": "로그인",
@@ -1651,7 +1666,8 @@
     "avatarUrl": "아바타 URL",
     "avatarConfirm": "확인",
     "save": "저장",
-    "retry": "재시도"
+    "retry": "재시도",
+    "avatarUrlApply": "적용"
   },
   "changePhone": {
     "title": "전화번호 변경",
@@ -3144,7 +3160,9 @@
     "label2": "주체 유형",
     "label3": "신고 시간",
     "label4": "신고 링크",
-    "label5": "신고 범위"
+    "label5": "신고 범위",
+    "scope": "신고 범위",
+    "url": "신고 링크"
   },
   "businessLicense": {
     "scopeTitle": "사업범위",

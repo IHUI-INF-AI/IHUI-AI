@@ -1102,6 +1102,13 @@
       "notSubscribed": "Not subscribed to VIP",
       "subtitle": "Manage your VIP subscription and renewal",
       "title": "Subscription Management"
+    },
+    "avatar": {
+      "fromAlbum": "Choose from album",
+      "takePhoto": "Take photo",
+      "formatHint": "JPG / PNG supported, 200x200 recommended",
+      "sizeHint": "200x200 recommended, under 2MB",
+      "uploading": "Uploading..."
     }
   },
   "exam": {
@@ -1133,7 +1140,14 @@
     "ended": "Ended",
     "lecturer": "Lecturer",
     "startAt": "Starts at",
-    "viewerCount": "{count} watching"
+    "viewerCount": "{count} watching",
+    "subscribe": {
+      "count": "",
+      "unit": "live",
+      "reminder": "Start reminder",
+      "reminderDesc": "Notify you when a live starts",
+      "discover": "Discover"
+    }
   },
   "course": {
     "free": "Free",
@@ -1607,7 +1621,8 @@
         "chat": "Unlimited AI Chat",
         "model": "All Models"
       }
-    }
+    },
+    "privileges": "Privileges"
   },
   "login": {
     "title": "Login",
@@ -1651,7 +1666,8 @@
     "avatarUrl": "Avatar URL",
     "avatarConfirm": "Confirm",
     "save": "Save",
-    "retry": "Retry"
+    "retry": "Retry",
+    "avatarUrlApply": "Apply"
   },
   "changePhone": {
     "title": "Change Phone",
@@ -3144,7 +3160,9 @@
     "label2": "Entity Type",
     "label3": "Filing Time",
     "label4": "Filing URL",
-    "label5": "Filing Scope"
+    "label5": "Filing Scope",
+    "scope": "Filing Scope",
+    "url": "Filing URL"
   },
   "businessLicense": {
     "scopeTitle": "Business scope",
