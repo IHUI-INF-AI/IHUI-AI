@@ -238,7 +238,7 @@ export default function PricingConsolePage() {
             type="button"
             onClick={() => sweep.mutate()}
             disabled={sweep.isPending}
-            className="inline-flex items-center gap-1 rounded-md border px-3 py-1.5 text-xs hover:bg-muted disabled:opacity-50"
+            className="inline-flex items-center gap-1 rounded-sm border px-3 py-1.5 text-xs hover:bg-muted disabled:opacity-50"
           >
             {sweep.isPending ? (
               <Loader2 className="size-3 animate-spin" />
@@ -251,7 +251,7 @@ export default function PricingConsolePage() {
             type="button"
             onClick={() => syncCatalog.mutate()}
             disabled={syncCatalog.isPending}
-            className="inline-flex items-center gap-1 rounded-md border px-3 py-1.5 text-xs hover:bg-muted disabled:opacity-50"
+            className="inline-flex items-center gap-1 rounded-sm border px-3 py-1.5 text-xs hover:bg-muted disabled:opacity-50"
           >
             {syncCatalog.isPending ? (
               <Loader2 className="size-3 animate-spin" />
@@ -327,13 +327,13 @@ export default function PricingConsolePage() {
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
                 placeholder="搜模型名"
-                className="h-8 w-56 rounded-md border bg-transparent pl-7 pr-2 text-xs"
+                className="h-8 w-56 rounded-sm border bg-transparent pl-7 pr-2 text-xs"
               />
             </div>
             <select
               value={provider}
               onChange={(e) => setProvider(e.target.value)}
-              className="h-8 rounded-md border bg-transparent px-2 text-xs"
+              className="h-8 rounded-sm border bg-transparent px-2 text-xs"
             >
               <option value="">全部渠道</option>
               {(ov?.byProvider ?? []).map((p) => (
@@ -395,7 +395,7 @@ export default function PricingConsolePage() {
                             <input
                               value={editIn}
                               onChange={(e) => setEditIn(e.target.value)}
-                              className="h-7 w-24 rounded border bg-transparent px-1 text-right"
+                              className="h-7 w-24 rounded-sm border bg-transparent px-1 text-right"
                             />
                           ) : (
                             <>
@@ -411,7 +411,7 @@ export default function PricingConsolePage() {
                             <input
                               value={editOut}
                               onChange={(e) => setEditOut(e.target.value)}
-                              className="h-7 w-24 rounded border bg-transparent px-1 text-right"
+                              className="h-7 w-24 rounded-sm border bg-transparent px-1 text-right"
                             />
                           ) : (
                             <>
