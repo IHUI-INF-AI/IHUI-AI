@@ -773,39 +773,73 @@ export interface ListRevisionsFilter {
   spaceId?: string
   action?: TeamKnowledgeAction
   limit?: number
+  /** F-527:没有 offset 就只能看到第一页,早期审计记录永远翻不到 */
+  offset?: number
 }
 
+export interface RevisionPage {
+  items: RevisionDTO[]
+  total: number
+  /** 本页之后是否还有更早的修订 */
+  hasMore: boolean
+  /** 实际生效的页大小(clamp 后),调用方据此算下一页 */
+  limit: number
+  offset: number
+}
+
+/**
+ * 审计流一律**倒序**(F-527):条目面按 revisionNo、空间面按 createdAt,最新在前。
+ *
+ * 旧形态条目面用 `asc(revisionNo) + limit`,修订超过一页时取到的恰好是最早的 N 条,
+ * 最近的改动被挡在窗外;两条流也都没有 offset,无法翻页。
+ */
 export async function listRevisions(
   actor: Actor,
   filter: ListRevisionsFilter,
-): Promise<RevisionDTO[]> {
+): Promise<RevisionPage> {
   if (!filter.itemId && !filter.spaceId) {
     throw new AppError('需要 itemId 或 spaceId 之一', 400, 'VALIDATION_FAILED')
   }
+
+  let conds: SQL[]
+  let orderKey: SQL
   if (filter.itemId) {
     await requireItemAccess(actor.userId, filter.itemId, 'viewer')
-    const conds = [eq(teamKnowledgeRevisions.itemId, filter.itemId)]
-    if (filter.action) conds.push(eq(teamKnowledgeRevisions.action, filter.action))
-    const rows = await db
-      .select()
-      .from(teamKnowledgeRevisions)
-      .where(and(...conds))
-      .orderBy(asc(teamKnowledgeRevisions.revisionNo))
-      .limit(clampLimit(filter.limit))
-    return rows.map(toRevisionDTO)
+    conds = [eq(teamKnowledgeRevisions.itemId, filter.itemId)]
+    orderKey = desc(teamKnowledgeRevisions.revisionNo)
+  } else {
+    const spaceId = filter.spaceId as string
+    await requireSpaceAccess(actor.userId, spaceId, 'viewer')
+    conds = [eq(teamKnowledgeRevisions.spaceId, spaceId)]
+    orderKey = desc(teamKnowledgeRevisions.createdAt)
   }
-
-  const spaceId = filter.spaceId as string
-  await requireSpaceAccess(actor.userId, spaceId, 'viewer')
-  const conds = [eq(teamKnowledgeRevisions.spaceId, spaceId)]
   if (filter.action) conds.push(eq(teamKnowledgeRevisions.action, filter.action))
+
+  const limit = clampLimit(filter.limit)
+  const offset = Math.max(0, Math.trunc(filter.offset ?? 0))
+
   const rows = await db
     .select()
     .from(teamKnowledgeRevisions)
     .where(and(...conds))
-    .orderBy(desc(teamKnowledgeRevisions.createdAt))
-    .limit(clampLimit(filter.limit))
-  return rows.map(toRevisionDTO)
+    .orderBy(orderKey)
+    .limit(limit)
+    .offset(offset)
+
+  // 总数与列表共用同一 where 装配(同 countItems 的口径),避免两套条件各算一遍
+  const [countRow] = await db
+    .select({ total: count() })
+    .from(teamKnowledgeRevisions)
+    .where(and(...conds))
+  const total = Number(countRow?.total ?? 0)
+
+  return {
+    items: rows.map(toRevisionDTO),
+    total,
+    hasMore: offset + rows.length < total,
+    limit,
+    offset,
+  }
 }
 
 // =============================================================================
