@@ -12240,7 +12240,6 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 174G. **缺陷普查 API F-174** [P2] recordWatch 读改写累计时长：客户端可控且可致 int4 溢出永久 500（证据 docs/tickets/2026-11/findings-api.md#F-174）
 - [ ] 175G. **缺陷普查 API F-175** [P2] 技能同步 upsert 无唯一约束，并发 push 产生同 (author_id, slug) 重复行（证据 docs/tickets/2026-11/findings-api.md#F-175）
 - [ ] 183G. **缺陷普查 API F-183** [P2] 熔断计数器 Redis 读改写非原子，并发下连续失败计数丢失、熔断难触发（证据 docs/tickets/2026-11/findings-api.md#F-183）
-- [ ] 184G. **缺陷普查 API F-184** [P1] Hook PATCH 绕过「script 仅管理员」闸，任意登录用户可拿到服务账号命令执行（证据 docs/tickets/2026-11/findings-api.md#F-184）
 - [ ] 186G. **缺陷普查 API F-186** [P2] BYOK「连通性测试」丢弃用户 apiKey/baseUrl，改用系统身份打平台 Key（证据 docs/tickets/2026-11/findings-api.md#F-186）
 - [ ] 187G. **缺陷普查 API F-187** [P2] 用户自定义 baseUrl 在 v1/v2 均无 SSRF 校验，原样成为 ai-service 的 api_base（证据 docs/tickets/2026-11/findings-api.md#F-187）
 - [ ] 189G. **缺陷普查 API F-189** [P3] LLM 分组重命名不回写 provider_group，删除守卫失效并产生孤儿 provider（证据 docs/tickets/2026-11/findings-api.md#F-189）
