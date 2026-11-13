@@ -18,6 +18,7 @@ import { View, Text } from '@tarojs/components'
 import { useEffect, useState, type CSSProperties } from 'react'
 import { useLaunch } from '@tarojs/taro'
 import { useI18n } from '@/i18n'
+import { rnRadius } from '@ihui/design-tokens'
 import {
   applyAppUpdate,
   dismissAppUpdate,
@@ -87,7 +88,7 @@ export function AppUpdateBanner() {
     width: 36,
     height: 36,
     flexShrink: 0,
-    borderRadius: 10,
+    borderRadius: rnRadius.lg,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'var(--color-brand-accent-light, rgba(99, 102, 241, 0.12))',
@@ -113,7 +114,7 @@ export function AppUpdateBanner() {
     width: 28,
     height: 28,
     flexShrink: 0,
-    borderRadius: 8,
+    borderRadius: rnRadius.lg,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'var(--color-surface-muted, rgba(0, 0, 0, 0.05))',
@@ -131,7 +132,7 @@ export function AppUpdateBanner() {
     paddingRight: 16,
     paddingTop: 8,
     paddingBottom: 8,
-    borderRadius: 8,
+    borderRadius: rnRadius.lg,
     backgroundColor: 'var(--color-primary, #4f46e5)',
     borderWidth: 1,
     borderColor: 'var(--color-border-medium, rgba(0, 0, 0, 0.08))',
@@ -152,12 +153,12 @@ export function AppUpdateBanner() {
           <Text style={titleStyle}>{t('appUpdate.title')}</Text>
           <Text style={bodyStyle}>{t('appUpdate.readyBody')}</Text>
         </View>
-        <View style={closeBtnStyle} onClick={handleClose}>
+        <View style={closeBtnStyle} hoverClass="opacity-60" onClick={handleClose}>
           <Text style={{ fontSize: 16, color: 'var(--color-text-secondary, #666666)' }}>×</Text>
         </View>
       </View>
       <View style={footerStyle}>
-        <View style={actionBtnStyle} onClick={handleUpdate}>
+        <View style={actionBtnStyle} hoverClass="opacity-80" onClick={handleUpdate}>
           <Text style={actionTextStyle}>{t('appUpdate.action')}</Text>
         </View>
       </View>
