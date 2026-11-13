@@ -41,8 +41,11 @@ export async function getUserBillingGroup(userId: string): Promise<UserBillingGr
     .limit(1)
 
   // 有关联且未过期 → 查组详情
+  // F-374:null 的 expiresAt 是「周期未设置」,不是「永久」。历史上缺失周期曾落 null,
+  // 这里按永久放行 ⇒ 一次误配即永久折扣且无回收路径。永久必须用显式远期到期时刻表达
+  // (与 subscription-window-service 的 9999 哨兵一致),因此 null 一律回退默认组。
   const now = new Date()
-  if (memberRow && (!memberRow.expiresAt || memberRow.expiresAt > now)) {
+  if (memberRow && memberRow.expiresAt && memberRow.expiresAt > now) {
     const [group] = await dbRead
       .select()
       .from(userBillingGroups)
@@ -111,8 +114,16 @@ export async function assignUserToGroup(
   userId: string,
   groupId: string,
   reason: string,
-  expiresAt?: Date,
+  expiresAt?: Date | null,
 ): Promise<void> {
+  // F-374:subscription 入组必须携带明确到期时刻。undefined/null = 周期未设置,
+  // 落库为 null 会被折扣判定当成「永久」;这里直接拒绝,要求调用方显式给到期日
+  // (永久套餐用 9999 哨兵,与 subscription-window-service 一致),绝不写 null 冒充永久。
+  if (reason === 'subscription' && !expiresAt) {
+    throw new Error(
+      'assignUserToGroup: subscription 入组缺少 expiresAt(缺失周期不得以 null 冒充永久)',
+    )
+  }
   await db
     .insert(userBillingGroupMembers)
     .values({

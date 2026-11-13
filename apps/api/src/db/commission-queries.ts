@@ -393,8 +393,10 @@ export async function createCommissionFlow(
     remark?: string
   },
   operatorId: string | null,
+  /** F-436:调用方已开事务时并入外层,不再另开独立嵌套事务(内层提前提交会让外层回滚失效)。 */
+  outerTx?: DbTx,
 ): Promise<CommissionFlow> {
-  return db.transaction(async (tx) => {
+  const run = async (tx: DbTx) => {
     const [flow] = await tx
       .insert(commissionFlows)
       .values(
@@ -415,8 +417,12 @@ export async function createCommissionFlow(
       .returning()
     // 仅当佣金状态为"已发放"(status=1)且 token 数量 > 0 时,同步到 userMargins.tokenQuantity
     // amount 类佣金(现金)不入 token 钱包;token 类佣金(普通用户父级返佣)进 token 钱包
+    // F-408:原实现只碰 userMargins、不写 token_flows ⇒ 账实断链(getTokenFlowTotals 累计获得
+    // 漏计、无 balanceAfter 无法对账)。改为 UPSERT 后同事务补 opType=4 流水(口径对齐
+    // relay-billing-service API Key 充值的钱包转出记账),含 quantity 与 balanceAfter。
+    // related_order_no 取订单 id:同单同 op_type 命中唯一索引 ⇒ 重复分佣整体回滚,不重复写流水。
     if (flow && input.token > 0) {
-      await tx
+      const [margin] = await tx
         .insert(userMargins)
         .values({
           userId: input.beneficiaryId,
@@ -430,9 +436,20 @@ export async function createCommissionFlow(
             updatedAt: new Date(),
           },
         })
+        .returning({ tokenQuantity: userMargins.tokenQuantity })
+      await tx.insert(tokenFlows).values({
+        userId: input.beneficiaryId,
+        opType: 4,
+        quantity: input.token,
+        balanceAfter: margin?.tokenQuantity ?? input.token,
+        remark: `佣金入账${input.orderId ? `:${input.orderId}` : ''}`,
+        relatedOrderNo: input.orderId ?? null,
+      })
     }
     return flow!
-  })
+  }
+  if (outerTx) return run(outerTx)
+  return db.transaction(run)
 }
 
 /** 递归查父链（最多 2 级） */

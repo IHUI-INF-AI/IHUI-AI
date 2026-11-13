@@ -846,6 +846,13 @@ export async function activateApiSubscription(
           reason: renewal.reason,
         })
       }
+    } else if (planRow.billingGroupCode) {
+      // F-374:无窗口限额时不建订阅实例,subEndAt 原为 undefined,入组时被写成
+      // expiresAt=null,折扣判定把 null 当「永久」⇒ 一次误配即永久折扣。这里用套餐
+      // 有效期显式推导到期时刻:0 天 = 永久(9999 哨兵),未配置 = 既有 30 天默认,
+      // 非法有效期则拿不到周期(后面拒绝入组),绝不再透传 undefined。
+      const period = computeRenewalPeriod({ now: new Date(), validityDays: planRow.validityDays })
+      if (period.allowed) subEndAt = period.endAt
     }
 
     // 6. 分组售卖闭环:套餐绑定计费分组时,激活即自动入组——用户立即应用分组倍率
@@ -861,7 +868,18 @@ export async function activateApiSubscription(
           .where(and(eq(userBillingGroups.name, groupName), eq(userBillingGroups.enabled, true)))
           .limit(1)
         if (group) {
-          await assignUserToGroup(userId, group.id, 'subscription', subEndAt)
+          if (!subEndAt) {
+            // F-374:拿不到明确周期时拒绝入组(写 null 会被当永久折扣),宁可不给折扣
+            logger.warn('[api-subscription] 套餐缺少有效订阅周期,拒绝写入计费分组', {
+              userId,
+              planId,
+              orderNo,
+              groupName,
+              reason: 'missing_period',
+            })
+          } else {
+            await assignUserToGroup(userId, group.id, 'subscription', subEndAt)
+          }
         } else {
           logger.warn('[api-subscription] 订阅分组不存在或未启用,跳过入组', {
             userId,
