@@ -20,10 +20,10 @@ import { clearTools, getTool, listTools, registerBrowserTools, type ToolContext 
 const ctx: ToolContext = { workspacePath: process.cwd() }
 
 describe('BROWSER_TOOLS 注册完整性', () => {
-  it('包含 11 个工具且命名唯一', () => {
+  it('包含 8 个工具且命名唯一', () => {
     const names = BROWSER_TOOLS.map((t) => t.name)
-    expect(names).toHaveLength(11)
-    expect(new Set(names).size).toBe(11)
+    expect(names).toHaveLength(8)
+    expect(new Set(names).size).toBe(8)
     expect(names).toEqual([
       'browser_navigate',
       'browser_snapshot',
@@ -32,9 +32,6 @@ describe('BROWSER_TOOLS 注册完整性', () => {
       'browser_type',
       'browser_press_key',
       'browser_evaluate',
-      'browser_get_bounding_box',
-      'browser_get_state',
-      'browser_get_attribute',
       'browser_close',
     ])
   })

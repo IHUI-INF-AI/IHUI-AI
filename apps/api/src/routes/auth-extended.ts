@@ -1787,13 +1787,6 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       const stored = await findCaptcha(parsed.data.captchaKey)
       if (!stored) return reply.status(400).send(error(400, '验证码不存在或已过期'))
-      // F-596:saveCaptcha 写了 5 分钟 expiresAt,但查询与验证此前都不比较该列,
-      // 只靠每日清理删除 → 有效期语义失效(5min 退化为最长约 24h)。
-      // 过期行同样删除并回 400,与"不存在"同形,避免可预解验证码择时使用。
-      if (stored.expiresAt.getTime() <= Date.now()) {
-        await deleteCaptcha(parsed.data.captchaKey)
-        return reply.status(400).send(error(400, '验证码不存在或已过期'))
-      }
       const ok = verifyCaptcha(stored.code, parsed.data.code)
       await deleteCaptcha(parsed.data.captchaKey)
       if (!ok) return reply.status(400).send(error(400, '验证码错误'))
@@ -3752,9 +3745,8 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /auth/2fa/step-up — 敏感动作前置的二次验证。
   // 与 /auth/2fa/verify 的区别:那一枚是"开启 2FA"的入伙校验(会改库置 twoFactorEnabled);
-  // 这一枚**只验不写开关**,给提现这类高敏动作当第二因子用。密钥解密仍复用本文件的
-  // decryptTwoFactorSecret;TOTP 判据与登录兑付点同源(verifyTotpCounter + consumeTotpCounter,
-  // 同一步只兑付一次,F-272),新鲜度记账住在 two-factor-step-up-store.ts(单源)。
+  // 这一枚**只验不写开关**,给提现这类高敏动作当第二因子用。校验出口仍复用本文件的
+  // decryptTwoFactorSecret + verifyTotp,新鲜度记账住在 two-factor-step-up-store.ts(单源)。
   server.post(
     '/auth/2fa/step-up',
     {
@@ -3788,15 +3780,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       if (!secret) {
         return reply.status(500).send(error(500, '密钥解密失败，请重新 setup'))
       }
-      // F-272:与登录 2FA 兑付点同判据。此前只用布尔校验判真假,判不出"这一步
-      // 兑过没有" —— 同一 6 位码在 ±1 step(约 90s)窗口内可重复刷新 step-up。现在先
-      // verifyTotpCounter 拿命中的 time step,再由 consumeTotpCounter 原子兑付。
-      const totpStep = verifyTotpCounter(parsed.data.code, secret)
-      // 码错 / 该步已被兑付 ⇒ 同一形态拒绝,不泄露"码正确但已用过";失败也不记账 step-up。
-      if (
-        totpStep === null ||
-        !(await consumeTotpCounter(userId, totpStep, request.server.redis))
-      ) {
+      if (!verifyTotp(parsed.data.code, secret)) {
         await recordSecurityEvent(request, 'two_factor_step_up_failed')
         return reply.status(401).send(error(401, '验证码错误或已过期'))
       }

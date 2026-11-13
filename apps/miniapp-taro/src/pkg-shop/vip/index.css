@@ -287,7 +287,7 @@
 }
 .number {
   /* 对齐 RN planAmount:22dp→44rpx / 700 / 品牌灰蓝 */
-  font-size: 44rpx;
+  font-size: var(--text-headline);
   font-weight: 700;
   color: var(--color-brand-accent-deep);
 }
@@ -387,7 +387,7 @@
 }
 .pp-plan-price {
   /* 对齐 RN BottomPopup 金额色:brandAccent 前景色 → var(--color-brand-accent-deep) */
-  font-size: 56rpx;
+  font-size: var(--text-display-xl);
   color: var(--color-brand-accent-deep);
   font-weight: 700;
   margin-bottom: var(--spacing-xs);

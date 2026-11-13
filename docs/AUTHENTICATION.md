@@ -1329,7 +1329,7 @@ if (res.success) {
 
 | 变量 | 默认值 | 说明 |
 | --- | --- | --- |
-| `JWT_SECRET` | (必填) | HS256 密钥,≥ 32 字符,禁弱默认值 |
+| `JWT_SECRET` | (必填) | HS256 密钥,≥ 32 字符,禁弱默认值。**`apps/web` 也必须配置同一份值**(见下) |
 | `JWT_ACCESS_TTL_SECONDS` | 900(15min) | access token TTL,范围 60-86400 |
 | `JWT_REFRESH_TTL_DAYS` | 30 | refresh token TTL(天) |
 | `JWT_WS_TTL_SECONDS` | 300(5min) | ws token TTL |
@@ -1338,4 +1338,25 @@ if (res.success) {
 | `JWT_KEY_ROTATION_GRACE_PERIOD_SEC` | 86400(1 天) | 密钥轮换宽限期 |
 | `TENANT_STRICT_MODE` | true(缺省即严格,fail-closed) | 严格租户模式(无租户标识 → 401;仅单租户本地开发显式设 false) |
 | `OAUTH_CODE_TTL_SECONDS` | 600(10min) | authorization code TTL |
+
+### `JWT_SECRET` 在 web 侧的第二个消费方(2026-11-12 补)
+
+除 `apps/api` 外,`apps/web` 的 middleware(`apps/web/proxy.ts`)也读这个变量:
+它用 Web Crypto 在 Edge runtime 里**独立验签** `auth_token`(不查库、不调 API),用于
+`/admin/*` 等服务端守卫。
+
+两条硬要求:
+
+1. **值必须与 `apps/api` 完全一致** —— 两边各算一次 HMAC,不一致必然验签失败;
+2. **必须由 `.env*` 文件注入** —— Edge middleware 不继承 shell 导出的变量
+   (实测:shell `export JWT_SECRET=...` 后 middleware 读到的仍是空串)。
+
+失败表现很容易被误判成别的问题:
+
+- 用户已成功登录、`auth_token` cookie 也在浏览器里;
+- 但 middleware 验签失败 → `/admin/*` 直接 307 到 `/sso/login`;
+- 客户端 bootstrap 随后又把会话恢复回来 → 表现为"刚进去就被弹出去""后台待一会儿就要重登"。
+
+2026-11-12 本机 dev 实测复现:未注入该变量时管理员访问 `/admin/hr-data` 稳定被踢;
+补进 `apps/web/.env.local` 后 middleware 侧 `verified=true`、页面正常停留。
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->

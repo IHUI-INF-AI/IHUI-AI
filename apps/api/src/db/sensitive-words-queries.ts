@@ -86,21 +86,16 @@ export async function findActiveSensitiveWords(): Promise<SensitiveWord[]> {
  * 过滤文本中的敏感词
  * @returns { filtered: string, hit: boolean, hits: Array<{ word, category, level }> }
  */
-export async function filterSensitiveContent(
-  text: string,
-  words?: SensitiveWord[],
-): Promise<{
+export async function filterSensitiveContent(text: string): Promise<{
   filtered: string
   hit: boolean
   hits: Array<{ word: string; category: string; level: number }>
 }> {
-  // F-597:允许调用方传入已取好的词表(sanitizeUgcInput 多字段共用一次查询),
-  // 避免每字段一次 findActiveSensitiveWords() 全表读(N+1)。单独调用时仍自行取一次。
-  const activeWords = words ?? (await findActiveSensitiveWords())
+  const words = await findActiveSensitiveWords()
   let filtered = text
   const hits: Array<{ word: string; category: string; level: number }> = []
 
-  for (const sw of activeWords) {
+  for (const sw of words) {
     if (text.includes(sw.word)) {
       hits.push({ word: sw.word, category: sw.category, level: sw.level })
       if (sw.level === 1) {
@@ -164,16 +159,13 @@ export async function sanitizeUgcInput(
   const fields: Record<string, SanitizeFieldResult> = {}
   const allHits: SensitiveHit[] = []
   let ok = true
-  // F-597:整请求只取一次词表,循环内复用,消除按字段重复的全表查询;
-  // 字段全空时跳过,避免无谓查库。
-  const words = Object.values(texts).some(Boolean) ? await findActiveSensitiveWords() : []
 
   for (const [field, raw] of Object.entries(texts)) {
     if (!raw) {
       fields[field] = { ok: true, text: raw, hits: [] }
       continue
     }
-    const { filtered, hits } = await filterSensitiveContent(raw, words)
+    const { filtered, hits } = await filterSensitiveContent(raw)
     const fieldHits = hits.map((h) => ({ ...h, field }))
     // level>=2 为临界/违规词:整体拒绝写入(防止多字段拆分绕过)
     if (fieldHits.some((h) => h.level >= 2)) ok = false

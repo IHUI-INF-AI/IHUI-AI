@@ -11,6 +11,7 @@ import {
   setUnauthorizedHandler,
   fetchApi as fetchApiShared,
   TransientRefreshError,
+  RefreshRateLimitedError,
 } from '@ihui/api-client'
 import type { ApiResult } from '@ihui/types'
 import { useAuthStore } from '@/stores/auth'
@@ -118,6 +119,8 @@ setTokenProvider({
       // refreshAccessTokenOnce 会 catch 住(进冷却 + 置 wasLastRefreshTransient,401 出口
       // 据此跳过 notifyUnauthorized),不外溢给调用方;同时**不能**清桌面 vault:凭据没被
       // 服务端否定,清了下次冷启动就真的无 token 可刷 —— 正是"自动登录总被清掉"的一条腿。
+      // 429 单独成类:限流窗口 1 分钟,必须退避而不能按 5s 冷却反复敲门(实测自锁)。
+      if (lastRefreshFailure === 'rate-limited') throw new RefreshRateLimitedError()
       if (lastRefreshFailure === 'transient') throw new TransientRefreshError()
       // rejected(401/403) = 本次拿到的 refreshToken 已失效:清空桌面 vault,避免每次启动重复失败空转。
       // 只清**本窗口实际用过的那一份**(CAS):桌面端多窗口共用 auth.json,另一窗口/页签可能

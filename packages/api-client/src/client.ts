@@ -139,12 +139,26 @@ export type FetchApiOptions = RequestInit & {
 let tokenProvider: TokenProvider = { getToken: () => null }
 // 401 自动续期的并发去重:多个请求同时 401 时只刷新一次,共享同一 promise
 let refreshInFlight: Promise<string | null> | null = null
+/** 最近一次成功刷新的结果与时刻,供 REFRESH_SUCCESS_REUSE_MS 窗口内短路 */
+let lastRefreshSuccessToken: string | null = null
+let lastRefreshSuccessAt = 0
 // 2026-09-04 根治刷新风暴:刷新失败后的冷却窗口(毫秒)。
 // refresh token 已失效时,每次 401 都会触发一次 refresh(后端单次轮转 + RFC 6749 §10.4
 // family 吊销),并发业务请求各 401 → 各触发一次 → 形成 6+ 次串行 /auth/refresh 风暴,
 // 且反复用已吊销 token 重放会加剧 family 吊销。失败后进入冷却,窗口内直接返回 null,
 // 由调用方按"登录过期"处理,不再空转重复刷新。
 const REFRESH_FAIL_COOLDOWN_MS = 5000
+/**
+ * 429 限流冷却:/auth/refresh 窗口是 1 分钟 20 次,冷却必须盖住整窗,
+ * 否则下一个失败请求会立刻再敲一次门把窗口继续顶满(实测自锁)。
+ */
+const REFRESH_RATE_LIMIT_COOLDOWN_MS = 65_000
+/**
+ * 刷新成功后复用窗口:窗口内 getToken() 仍是刚换到的那枚 ⇒ 直接复用,不再发请求。
+ * 取 10s 而非更久:access token 有效期 15 分钟,10s 只吸收"同一批并发/紧邻重试",
+ * 不会让真正过期的 token 被误复用。
+ */
+const REFRESH_SUCCESS_REUSE_MS = 10_000
 // 冷却期内共享的失败结果 promise(避免多个等待方各拿一份 null 后立即重试)
 let refreshFailCooldown: Promise<string | null> | null = null
 let refreshFailCooldownTimer: ReturnType<typeof setTimeout> | null = null
@@ -406,6 +420,24 @@ export class TransientRefreshError extends Error {
 }
 
 /**
+ * 续期被限流(HTTP 429)。
+ *
+ * 为什么要与 TransientRefreshError 分开(2026-11-12 实测):
+ * `/auth/refresh` 限流 20 次/分钟。被限流时响应体里**没有**新 accessToken,
+ * 若按"瞬时失败"处理,401 拦截器会立刻再触发一次续期 ⇒ 更限流 ⇒ 自锁。
+ * 真浏览器实测:一次页面加载打出 21 次 refresh(前 20 次 200、第 21 次 429),
+ * 此后每个 401 都再触发一次,页面永远停在未登录且用户看到"请先登录"。
+ *
+ * 单独成类是为了让上层**退避到限流窗口之外**,而不是按 5s 冷却反复敲门。
+ */
+export class RefreshRateLimitedError extends Error {
+  constructor(message = 'refresh rate limited (429)') {
+    super(message)
+    this.name = 'RefreshRateLimitedError'
+  }
+}
+
+/**
  * 最近一次刷新失败是否为瞬时性质。
  * 与 refreshInFlight/refreshFailCooldown 同步串行:消费点在 await 该轮刷新后同步读取,
  * 冷却窗口内不会有新一轮刷新改写本标志(5s 冷却 > 读取点的微任务间隙)。
@@ -441,6 +473,22 @@ export async function refreshAccessTokenOnce(): Promise<string | null> {
   // 失败冷却期内:直接返回共享的失败 promise,不重复发起 refresh
   if (refreshFailCooldown) return refreshFailCooldown
   if (refreshInFlight) return refreshInFlight
+  // 刚成功刷新过 ⇒ 直接返回那枚新 token(2026-11-12 修刷新风暴)。
+  //
+  // 病灶:refreshInFlight 只合并"同一时刻"的调用,挡不住"前一个刚落地、后一个立刻发起"。
+  // 真浏览器实测:一次页面加载里 6 个 useAuthBootstrap 使用方 + 若干 401 拦截器
+  // 在 15 秒内串行打出 21 次 /auth/refresh(全部 200),撞上 20 次/分钟限流后 429,
+  // 整个续期链自锁、页面永远停在未登录。
+  //
+  // 语义:refresh token 单次轮转,刚换到的新 access token 有效期 15 分钟,没有任何理由
+  // 在 10 秒内再换一次。窗口内直接复用,既省请求也避开限流。
+  if (
+    lastRefreshSuccessToken &&
+    Date.now() - lastRefreshSuccessAt < REFRESH_SUCCESS_REUSE_MS &&
+    tokenProvider.getToken() === lastRefreshSuccessToken
+  ) {
+    return lastRefreshSuccessToken
+  }
   // 2026-09-29 CAS 复核基线(台账票 G-814411):发起那一刻的 active provider
   // (tokenProvider 对象身份,即本包唯一的"当前生效凭据上下文",等价于上游的
   // generation + activeProvider)与旧 accessToken。刷新实现一并就地捕获 ——
@@ -466,11 +514,16 @@ export async function refreshAccessTokenOnce(): Promise<string | null> {
       if (currentToken !== oldTokenAtStart && currentToken !== newToken) return null
       // 刷新成功:清空冷却态(如有),返回新 token
       clearRefreshFailCooldown()
+      if (newToken) {
+        lastRefreshSuccessToken = newToken
+        lastRefreshSuccessAt = Date.now()
+      }
       return newToken
     })
     .catch((err) => {
       // 刷新失败:进入冷却窗口,阻止后续 401 在窗口内重复刷新
-      startRefreshFailCooldown()
+      // 429 需要退避到限流窗口之外(默认 5s 冷却敲不服 20 次/分钟的窗口)
+      startRefreshFailCooldown(err instanceof RefreshRateLimitedError ? REFRESH_RATE_LIMIT_COOLDOWN_MS : undefined)
       // 2026-10-09 分型:端内实现抛 TransientRefreshError = 网络/5xx 性质的失败,
       // 不构成"会话不可恢复" —— fetchApi 的 401 出口据此外置标志跳过 notifyUnauthorized,
       // 防止端内出口把瞬时失败当会话终结(写持久登出标记 → 30 天 refresh 凭据被永久废掉)。
@@ -484,13 +537,13 @@ export async function refreshAccessTokenOnce(): Promise<string | null> {
 }
 
 /** 启动失败冷却窗口:窗口内 refreshAccessTokenOnce 直接返回共享失败 promise */
-function startRefreshFailCooldown(): void {
+function startRefreshFailCooldown(ttlMs: number = REFRESH_FAIL_COOLDOWN_MS): void {
   if (refreshFailCooldown) return
   refreshFailCooldown = Promise.resolve(null)
   refreshFailCooldownTimer = setTimeout(() => {
     refreshFailCooldown = null
     refreshFailCooldownTimer = null
-  }, REFRESH_FAIL_COOLDOWN_MS)
+  }, ttlMs)
 }
 
 /** 清空失败冷却态(刷新成功时调用,避免成功后仍被冷却窗口短暂拦截) */
@@ -511,6 +564,8 @@ export function __resetRefreshStateForTest(): void {
   refreshInFlight = null
   clearRefreshFailCooldown()
   lastRefreshWasTransient = false
+  lastRefreshSuccessToken = null
+  lastRefreshSuccessAt = 0
 }
 
 /**
@@ -2473,6 +2528,22 @@ export interface ToolSummaryEvent {
   terminalCommands?: number
 }
 
+/**
+ * 非法 JSON `data:` 帧的丢弃计数(留痕,与 `_sseFrameSchemaFaults`/`watermarkDroppedFrames`
+ * 同口径:丢帧必须留痕,不冒充解析成功)。
+ *
+ * 判据(F5,2026-11-13):仅当 `data` **以 `{` 或 `[` 开头**(即本应是一个 JSON 帧)却
+ * `JSON.parse` 抛 SyntaxError 时才计——那是上游截断/畸形帧,丢弃绝不喷进正文。
+ * 不以 `{`/`[` 开头的纯文本 token 行(Vercel AI SDK 风格裸 token)**保留既有正文
+ * delta 兼容**,不计入此故障(见 tests/stream-chat-admission.test.ts "纯文本 delta
+ * 兼容是既有行为,本票不改变")。
+ */
+let _sseParseFaults = 0
+/** 读取非法 JSON 帧丢弃计数(供测试/诊断观测,只增不重置)。 */
+export function getStreamParseFaultCount(): number {
+  return _sseParseFaults
+}
+
 export function parseStreamLine(line: string): string | null {
   if (!line || line.startsWith(':')) return null
   let data = line
@@ -2570,7 +2641,16 @@ export function parseStreamLine(line: string): string | null {
           json?.text)
     return typeof delta === 'string' ? delta : null
   } catch (e) {
-    if (e instanceof SyntaxError) return data
+    if (e instanceof SyntaxError) {
+      // F5 修复(2026-11-13):本应是 JSON 帧(以 { 或 [ 开头)却解析失败 ⇒ 上游截断/畸形帧。
+      // 丢弃(return null)、不计入正文,避免把原始非法字符串当 delta 喷进回答气泡;留痕计数。
+      // 纯文本 token 行(不以 {/[ 开头)仍原样返回,保持既有正文 delta 兼容。
+      if (/^[\[{]/.test(data)) {
+        _sseParseFaults++
+        return null
+      }
+      return data
+    }
     throw e
   }
 }
@@ -2592,6 +2672,11 @@ function attachErrorMeta(err: Error, json: Record<string, unknown>): Error {
   if (typeof json.retryAfter === 'number') {
     ;(err as Error & { retryAfter: number }).retryAfter = json.retryAfter
   }
+  // F3 修复(2026-11-13):此函数只被 parseStreamLine 的**流内 error 帧**四分支调用,
+  // 区别于 HTTP 层错误(后者由 fetchApi/状态码路径产生,不经过这里)。这类帧是
+  // 确定性业务失败(如 402 配额耗尽),不是网络抖动,默认不可重连——除非帧显式带
+  // retryAfter(保留既有可重试语义)。标记挂在 err 上,由 runResumableSSEStream 识别。
+  ;(err as Error & { isStreamBusinessError?: boolean }).isStreamBusinessError = true
   return err
 }
 
@@ -4173,7 +4258,13 @@ export async function runResumableSSEStream(opts: ResumableSSEStreamOptions): Pr
       // 429 无 retryAfter 仍视为业务错误(不重连);401/403 永远是业务错误
       const isBusinessError =
         code === 401 || code === 403 || (code === 429 && info?.retryAfter === undefined)
-      if (isBusinessError || attempt >= maxRetries) throw err
+      // F3 修复(2026-11-13):流内业务 error 帧(attachErrorMeta 打标,区别于 HTTP 层错误)
+      // 默认是确定性业务失败,不是网络抖动 ⇒ 立即终态、不重连,避免反复重投白烧 token。
+      // 保留既有语义:该帧显式带 retryAfter 时仍走下方 Retry-After 协商重连。
+      const isStreamBusinessError =
+        (err as Error & { isStreamBusinessError?: boolean }).isStreamBusinessError === true &&
+        info?.retryAfter === undefined
+      if (isBusinessError || isStreamBusinessError || attempt >= maxRetries) throw err
       // P2-2 优先消费 Retry-After(秒转毫秒,上限 maxRetryDelayMs);
       // 无 retryAfter 时走指数退避:1s, 2s, 4s, 8s... 上限 30s(与 useAgentSSE 重连模式一致)
       const delay =
@@ -6444,8 +6535,14 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
     const code = info?.code
     // P2-2 口径保持:401/403/429 无 retryAfter 的业务错误分类,此处只影响
     // recoverable 标记,不再驱动重试(重试已前移进 runner)。
-    const isBusinessError =
+    const codeIsBusiness =
       code === 401 || code === 403 || (code === 429 && info?.retryAfter === undefined)
+    // F3 补全(2026-11-13):流内业务 error 帧(attachErrorMeta 打标,runner 已据它免重连)
+    // 在终态同样要落成 recoverable=false——否则 code 为 undefined 会算成"网络可重试但已
+    // 耗尽重连次数",前端对 402 配额耗尽这类确定性失败误显示"网络不稳定,可手动重试"。
+    const isStreamBusinessError =
+      (err as Error & { isStreamBusinessError?: boolean }).isStreamBusinessError === true
+    const isBusinessError = codeIsBusiness || isStreamBusinessError
     const message = err instanceof Error ? err.message : '网络异常'
     // G-816031:无论终态是业务错误还是重试耗尽,账目都要交出去(未判定逐条报名)。
     reportRecoveryGateLedger()

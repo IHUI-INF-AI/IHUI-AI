@@ -406,12 +406,6 @@ async function checkHealth(
     }
     const biz = env.base_resp?.status_code
     if (typeof biz !== 'number' || biz === 0) return { ok: true }
-    // 2062 = no active token plan subscription(2026-11-12 定):QUOTA_PATH 头注的本机
-    // 实弹已取证 —— 200 + 2062 是「鉴权通过、免费号无活跃套餐」的**已知正常态**,
-    // token 能过 OAuth 鉴权即健康。原把它与 1008/1039 一起记 "未判定" ⇒ health 永远
-    // unknown、last_error 每 30min 重写同款噪音且永不收敛(minimax:cn 实测连续挂
-    // 数小时)。会员号若套餐中途消失的漏检由转发层质量熔断兜二层,健康面不背这个锅。
-    if (biz === 2062) return { ok: true }
     if (biz === 1004) {
       return {
         ok: false,

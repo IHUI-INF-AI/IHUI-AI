@@ -51,6 +51,14 @@ export interface PluginManifest {
   author?: string;
   /** 扩展的工具名(由集成方按名解析;运行期那一半见 `declaration-consumers.ts`,解析不出就出声) */
   tools?: string[];
+  /**
+   * 插件**贡献的接口型工具**(2026-11-13 立):以纯数据声明的可调用后端端点。
+   *
+   * 与 `tools` 的分工:`tools` 是"我要涉及宿主已有的那枚工具"(hook matcher 可寻址它),
+   * 本字段是"我要新贡献一枚模型可直接调用的工具"。声明层是**数据**(不是回调、不是脚本),
+   * 装载器依旧绝不 import 插件代码。编译与拒收判据单源 = `interface-tools.ts`。
+   */
+  interfaces?: PluginInterfaceDeclaration[];
   /** 扩展的 Hook 标识(格式 "<event>:<matcher>" 或纯事件名) */
   hooks?: string[];
   /** 扩展的 slash command 名 */
@@ -110,6 +118,36 @@ export interface TurnContributorContext {
   [key: string]: unknown;
 }
 
+/**
+ * 插件贡献的一枚**接口型工具**声明(2026-11-13 立,纯数据)。
+ *
+ * 为什么不是回调:`loader.ts` 只读 JSON、从不 import 插件代码(`plugin-entry-channel-lock.test.ts`
+ * 的 ②③ 两条形状锁逐字钉着这一点)。所以"插件贡献工具"只能表达成**可校验的数据** ——
+ * 端点 + 参数 schema,由宿主编译成真工具并复用既有 `fetchApi` 通道。
+ *
+ * 编译/拒收判据唯一实现 = `interface-tools.ts`;本接口只是它的**公开形状**
+ * (字段全部可省,因为磁盘字节不可信,校验在编译层做 —— 类型层假装必填只会让人以为已校验)。
+ */
+export interface PluginInterfaceDeclaration {
+  /** 工具名:`<namespace>__<tool>`(或写全 `plugin__<namespace>__<tool>`),小写字母数字下划线 */
+  name?: string;
+  /** HTTP 方法,词表 GET/POST/PUT/PATCH/DELETE(大写,不折叠) */
+  method?: string;
+  /** 完整路径(含 `/api` 等前缀),`:param` 占位由宿主自动补成必填参数 */
+  path?: string;
+  /** 给模型看的说明 */
+  description?: string;
+  /**
+   * 危险档声明。**只能抬高不能压低**:与 method 推导值取更严的一侧
+   * (GET→read / POST·PUT·PATCH→write / DELETE→dangerous)。
+   */
+  access?: 'read' | 'write' | 'dangerous';
+  /** 业务参数声明(GET 走 query,写方法走 body) */
+  params?: Array<Record<string, unknown>>;
+  /** 路径参数的显式声明(缺省由 path 里的 `:x` 自动补成必填 string) */
+  pathParams?: Array<Record<string, unknown>>;
+}
+
 /** Plugin hook 上下文(传给 onHook 回调) */
 export interface PluginHookContext {
   /** 触发 hook 的工具名(preToolCall/postToolCall 场景) */
@@ -133,6 +171,15 @@ export interface LoadPluginsOptions {
    * 非 ENOENT 的读失由装载器如实报成诊断,不得当成"没有插件目录"。
    */
   stat?: (path: string) => Stats;
+  /**
+   * 宿主**已占用**的工具名(2026-11-13 立):接口型工具编译时用来判"这枚名字能不能用"。
+   *
+   * 由调用方注入(`commands/agent.ts` 在 `listTools()` 之后传),因为装载器自己看不见工具表 ——
+   * 让它去 import `tools/index.ts` 会把工具面依赖拉进装载链路(装载器必须保持"只读 JSON")。
+   * 缺席 ⇒ 只判本次清单之间的重名(仍然拦得住"同一个名字被两份清单贡献"),但不拦与宿主撞名,
+   * 那一步由 `registerTools` 的跨归属冲突规则兜底并报名。
+   */
+  takenToolNames?: readonly string[];
 }
 
 /**
@@ -194,6 +241,14 @@ export const PLUGIN_DIAGNOSTIC_CODES = [
    * 两条都在 `warning`:装载成功是事实,吃不下是另一回事,升档会把提示变成启动红旗(§12e)。
    */
   'plugin-declaration-unconsumed',
+  /**
+   * 插件声明的**接口型工具**被拒收(2026-11-13 立):声明在 `interfaces[]` 里,但编译不出可调用工具
+   * —— 名字不合三段形态 / method 不在词表 / path 不合法 / 参数形态坏 / 参数名撞路由身份键 / 与在册工具同名。
+   * 与 `plugin-declaration-unconsumed` **语义不同、文案不得复用** —— 那一条判的是"`tools[]` 引用了一个
+   * 宿主没有的名字"(声明背后没有实现),这一条判的是"插件自己贡献的工具声明没通过编译"。
+   * 装载仍是成功的(warning):插件照常装上,拒的只是那一条接口声明。
+   */
+  'plugin-interface-rejected',
   /**
    * 版本被压掉(#12 多版本共存):同名插件的另一个版本成为 active,本版本目录保留在盘但不装载。
    * 与 `plugin_ambiguous_name` **语义不同、文案不得复用** —— 那一条判的是"同名**同版本**两份抢一个身份"

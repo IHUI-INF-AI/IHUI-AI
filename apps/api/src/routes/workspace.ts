@@ -12,10 +12,11 @@ import {
   renameSync,
   unlinkSync,
 } from 'node:fs'
-import { isAbsolute, join, parse, resolve } from 'node:path'
+import { join } from 'node:path'
 import { pipeline } from 'node:stream/promises'
 import { Readable } from 'node:stream'
 import { randomUUID } from 'node:crypto'
+import { and, eq } from 'drizzle-orm'
 import { authenticate } from '../plugins/auth.js'
 import { db } from '../db/index.js'
 import { agentRuntimeSessions } from '@ihui/database'
@@ -31,7 +32,6 @@ import {
   listAllFilesByProject,
   findFileById,
   findFileByIdIncludeTrashed,
-  findFileOwnershipBatch,
   createFile,
   softDeleteFile,
   restoreFile,
@@ -47,12 +47,6 @@ import { batchWriteOutcome } from '../utils/batch-outcome.js'
 import { canAccessFile } from '../db/file-queries.js'
 import type { FileVersion } from '@ihui/database'
 import { getBulkhead } from '../plugins/resilience-extended.js'
-import {
-  getRegisteredWorkspaceRoots,
-  isInsideRoot,
-  realpathOrResolve,
-} from '../utils/workspace-roots.js'
-import { listPermissionsByUser } from '../db/workspace-permission-queries.js'
 // Workspace wire 类型(adjacent tagging,与 ACP 协议对齐)
 import type {
   BeginPromptData,
@@ -61,6 +55,7 @@ import type {
   SessionCreatedData,
   PromptStartedData,
   PromptCompletedData,
+  WorkspaceRequest,
   WorkspaceEvent,
 } from '@ihui/types'
 // 权限档 wire 清单唯一来源(G-164:此前本文件两处 z.enum 各抄了一份,加档位必漏)
@@ -82,87 +77,6 @@ const UPLOAD_DIR = process.env.UPLOAD_DIR ?? join(process.cwd(), 'uploads', 'pri
 
 function ensureUploadDir(): void {
   if (!existsSync(UPLOAD_DIR)) mkdirSync(UPLOAD_DIR, { recursive: true })
-}
-
-// =============================================================================
-// ACP 会话登记(F-280)
-// =============================================================================
-
-/**
- * F-280:这是**进程内最小会话登记,不是持久化**。
- *
- * 此前 begin/end 对任意 sessionId 都回成功(纯 stub)。现在只有 create 时真实
- * 校验过 workspaceRoot 并登记过的会话才被承认;begin/end 只认这份登记。
- * 跨实例/进程重启后登记自然消失 ⇒ 404 —— 这比"假成功"更真实,也无需新增表/迁移。
- * 条目带 TTL + 上限并惰性清理,避免长跑进程无界增长。
- */
-interface AcpSessionRecord {
-  sessionId: string
-  userId: string
-  /** realpath 归一后的工作区根,begin/end 比对用 */
-  workspaceRoot: string
-  createdAt: number
-}
-
-const ACP_SESSION_TTL_MS = 2 * 60 * 60 * 1000
-const ACP_SESSION_MAX_ENTRIES = 1000
-const acpSessions = new Map<string, AcpSessionRecord>()
-
-/** 惰性清理:过期条目删除,超出上限时按插入序淘汰最旧 */
-function pruneAcpSessions(now: number): void {
-  for (const [id, record] of acpSessions) {
-    if (now - record.createdAt > ACP_SESSION_TTL_MS) acpSessions.delete(id)
-  }
-  while (acpSessions.size > ACP_SESSION_MAX_ENTRIES) {
-    const oldest = acpSessions.keys().next().value
-    if (oldest === undefined) break
-    acpSessions.delete(oldest)
-  }
-}
-
-function readAcpSession(sessionId: string, now = Date.now()): AcpSessionRecord | undefined {
-  const record = acpSessions.get(sessionId)
-  if (!record) return undefined
-  if (now - record.createdAt > ACP_SESSION_TTL_MS) {
-    acpSessions.delete(sessionId)
-    return undefined
-  }
-  return record
-}
-
-/** 语法闸(400):非绝对路径 / 文件系统根 / `..` 回跳 / NUL */
-function acpWorkspaceRootSyntaxError(raw: string): string | null {
-  if (raw.includes('\0')) return '工作区路径包含非法字符'
-  if (!isAbsolute(raw)) return '工作区路径必须是绝对路径'
-  const resolved = resolve(raw)
-  if (parse(resolved).root === resolved) return '工作区路径不能是文件系统根目录'
-  if (raw.split(/[\\/]+/).includes('..')) return '工作区路径不得包含 .. 回跳'
-  return null
-}
-
-/**
- * 归属闸(403):realpath 归一后必须同时落在
- *   ① 服务端登记根 `IHUI_WORKSPACE_ROOTS`;
- *   ② 调用者本人 `workspace_permissions` 登记的工作区(并再按①收窄)。
- * 空白名单一律拒绝(fail-closed),与 utils/workspace-roots 同口径。
- */
-async function resolveAcpWorkspaceRoot(userId: string, raw: string): Promise<string | null> {
-  const registered = getRegisteredWorkspaceRoots()
-  if (registered.length === 0) return null
-  const real = realpathOrResolve(raw)
-  if (!registered.some((root) => isInsideRoot(real, root))) return null
-
-  const permissions = await listPermissionsByUser(userId)
-  const owned = permissions
-    .map((row) => realpathOrResolve(row.workspacePath))
-    .filter((candidate) => registered.some((root) => isInsideRoot(candidate, root)))
-  if (!owned.some((root) => isInsideRoot(real, root))) return null
-  return real
-}
-
-/** 日志面只保留数值/标识,绝不能带 prompt 或附件正文 */
-function acpAttachmentBytes(attachments: BeginPromptData['attachments']): number {
-  return (attachments ?? []).reduce((sum, item) => sum + Buffer.byteLength(item.content ?? ''), 0)
 }
 
 // =============================================================================
@@ -262,6 +176,15 @@ export const workspaceRoutes: FastifyPluginAsync = async (server) => {
   // F-425::id 最终进 uuid 列,非法字面量直达 SQL 会 22P02 ⇒ 500;收紧为 uuid 形状闸
   const idParam = z.object({ id: z.uuid({ error: '无效的 ID' }) })
 
+  /** ACP 会话归属谓词(§5「认证不等于授权」):不存在与不属于本人同形返回 false */
+  const ownsAcpSession = async (sessionId: string, userId: string): Promise<boolean> => {
+    const [row] = await db
+      .select({ id: agentRuntimeSessions.id })
+      .from(agentRuntimeSessions)
+      .where(and(eq(agentRuntimeSessions.id, sessionId), eq(agentRuntimeSessions.userId, userId)))
+      .limit(1)
+    return Boolean(row)
+  }
   // 鉴权失败统一处理
   const requireAuth = async (request: FastifyRequest, reply: FastifyReply) => {
     try {
@@ -575,15 +498,13 @@ export const workspaceRoutes: FastifyPluginAsync = async (server) => {
     }
 
     // 校验所有文件归属当前用户（且未被删除）
-    // F-79:一次 `id IN (...)` 查询取回全部目标行,再按请求顺序逐项判定(存在性→归属),
-    // 往返次数与文件数无关;403/404 文案与「首个不满足者即整体拒绝、零写入」语义逐字不变。
-    const ownedRows = await findFileOwnershipBatch(parsed.data.fileIds, false)
-    const projectUserByFileId = new Map(ownedRows.map((r) => [r.id, r.projectUserId]))
     for (const fid of parsed.data.fileIds) {
-      if (!projectUserByFileId.has(fid)) {
+      const file = await findFileById(fid)
+      if (!file) {
         return reply.status(404).send(error(404, `文件 ${fid} 不存在或已删除`))
       }
-      if (projectUserByFileId.get(fid) !== userId) {
+      const project = await findProjectById(file.projectId)
+      if (!project || project.userId !== userId) {
         return reply.status(403).send(error(403, '无权操作部分文件'))
       }
     }
@@ -609,14 +530,13 @@ export const workspaceRoutes: FastifyPluginAsync = async (server) => {
     }
 
     // 校验所有文件归属当前用户
-    // F-79:同 batch-delete,一次批量查询完成全部归属校验(含回收站文件)。
-    const ownedRows = await findFileOwnershipBatch(parsed.data.fileIds, true)
-    const projectUserByFileId = new Map(ownedRows.map((r) => [r.id, r.projectUserId]))
     for (const fid of parsed.data.fileIds) {
-      if (!projectUserByFileId.has(fid)) {
+      const file = await findFileByIdIncludeTrashed(fid)
+      if (!file) {
         return reply.status(404).send(error(404, `文件 ${fid} 不存在`))
       }
-      if (projectUserByFileId.get(fid) !== userId) {
+      const project = await findProjectById(file.projectId)
+      if (!project || project.userId !== userId) {
         return reply.status(403).send(error(403, '无权操作部分文件'))
       }
     }
@@ -870,7 +790,6 @@ export const workspaceRoutes: FastifyPluginAsync = async (server) => {
   server.post('/workspace/acp/sessions', async (request, reply) => {
     await requireAuth(request, reply)
     if (!request.userId) return
-    const userId = request.userId
 
     const parsed = createSessionSchemaACP.safeParse(request.body)
     if (!parsed.success) {
@@ -885,28 +804,16 @@ export const workspaceRoutes: FastifyPluginAsync = async (server) => {
     }
     // 跨界前归一:CreateSessionData.mode 只允许 wire 拼写,camel 入参不得原样泄进下游
     const data: CreateSessionData = { ...parsed.data, mode: modeWire }
-
-    // F-280:workspaceRoot 是客户端自报字符串,必须先过语法闸(400)与归属闸(403)。
-    // 归属闸 = 本人 workspace_permissions × 服务端 IHUI_WORKSPACE_ROOTS,realpath 归一后判定。
-    const syntaxError = acpWorkspaceRootSyntaxError(data.workspaceRoot)
-    if (syntaxError) {
-      return reply.status(400).send(error(400, syntaxError))
-    }
-    const workspaceRoot = await resolveAcpWorkspaceRoot(userId, data.workspaceRoot)
-    if (workspaceRoot === null) {
-      return reply.status(403).send(error(403, '工作区未在服务端登记或不属于当前用户'))
-    }
-
     const sessionId = randomUUID()
     const now = Date.now()
 
-    // F-432:会话行照旧落库(运行记录/审计);注意它**不是** begin/end 的续用依据,
-    // 续用只认下面的进程内登记 —— 跨实例/重启后登记消失即 404。
+    // F-432:会话必须真实落库后才能回 201。旧实现只生成 UUID,后续 begin/end
+    // 对任意 id 都回成功;现在以 agent_runtime_sessions 行为归属与存在性真相。
     try {
       await db.insert(agentRuntimeSessions).values({
         id: sessionId,
         botId: 'workspace-acp',
-        userId,
+        userId: request.userId,
         status: 'active',
         messages: [],
         metadata: {
@@ -919,10 +826,6 @@ export const workspaceRoutes: FastifyPluginAsync = async (server) => {
       request.log.error({ err: e, sessionId }, 'ACP 会话落库失败')
       return reply.status(500).send(error(500, '会话创建失败,请稍后重试'))
     }
-
-    // F-280:登记 { sessionId, userId, workspaceRoot, createdAt };TTL + 上限内自清理。
-    pruneAcpSessions(now)
-    acpSessions.set(sessionId, { sessionId, userId, workspaceRoot, createdAt: now })
 
     // wire 类型响应(adjacent tagging,与 ACP 协议对齐)
     const event: WorkspaceEvent = {
@@ -956,22 +859,20 @@ export const workspaceRoutes: FastifyPluginAsync = async (server) => {
         .status(400)
         .send(error(400, `非法权限档: ${String(parsed.data.mode)}(manual 无落库/会话语义,不接受)`))
     }
-    // F-280:只认进程内登记;不存在与不属于本人同形 404(不泄露存在性)
-    const record = readAcpSession(id)
-    if (!record || record.userId !== request.userId) {
+    // F-432:任意 id 不得回 prompt_started —— 必须先证明会话存在且属于当前用户
+    if (!(await ownsAcpSession(id, request.userId))) {
       return reply.status(404).send(error(404, '会话不存在或无权限'))
     }
-    // 客户端若自带 workspaceRoot,必须与会话登记一致,否则 400
-    if (
-      typeof body.workspaceRoot === 'string' &&
-      realpathOrResolve(body.workspaceRoot) !== record.workspaceRoot
-    ) {
-      return reply.status(400).send(error(400, 'workspaceRoot 与会话登记不一致'))
-    }
-    // 跨界前归一:BeginPromptData.mode 只允许 wire 拼写
+    // 跨界前归一:BeginPromptData.mode 只允许 wire 拼写,日志/转发的 wireReq 同样不得带 camel
     const data: BeginPromptData = { ...parsed.data, mode: modeWire }
     const promptId = randomUUID()
     const now = Date.now()
+
+    // 构造 WorkspaceRequest wire 类型(用于日志/转发)
+    const wireReq: WorkspaceRequest = {
+      type: 'begin_prompt',
+      data,
+    }
 
     const event: WorkspaceEvent = {
       type: 'prompt_started',
@@ -983,22 +884,7 @@ export const workspaceRoutes: FastifyPluginAsync = async (server) => {
       } satisfies PromptStartedData,
     }
 
-    // F-280:日志只留长度/数量等数值,不得出现 prompt 或附件正文
-    request.log.info(
-      {
-        event: 'prompt_started',
-        acp: {
-          type: 'begin_prompt',
-          sessionId: data.sessionId,
-          promptId,
-          mode: data.mode,
-          promptLength: data.prompt.length,
-          attachmentCount: data.attachments?.length ?? 0,
-          attachmentBytes: acpAttachmentBytes(data.attachments),
-        },
-      },
-      'ACP begin_prompt',
-    )
+    request.log.info({ wireReq, event: 'prompt_started' }, 'ACP begin_prompt')
     return reply.send(success(event))
   })
 
@@ -1015,23 +901,18 @@ export const workspaceRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
 
-    // F-280:与 begin 同口径,结束任意 id 也不得假报 prompt_completed
-    const record = readAcpSession(id)
-    if (!record || record.userId !== request.userId) {
+    // F-432:与 begin 同口径,结束任意 id 也不得假报 prompt_completed
+    if (!(await ownsAcpSession(id, request.userId))) {
       return reply.status(404).send(error(404, '会话不存在或无权限'))
-    }
-    if (
-      typeof body.workspaceRoot === 'string' &&
-      realpathOrResolve(body.workspaceRoot) !== record.workspaceRoot
-    ) {
-      return reply.status(400).send(error(400, 'workspaceRoot 与会话登记不一致'))
     }
     const data: EndPromptData = parsed.data
     const promptId = (body.promptId as string | undefined) ?? randomUUID()
     const now = Date.now()
 
-    // 会话随 end 结束:再次 begin/end 均 404(不做"已结束仍成功"的假象)
-    acpSessions.delete(id)
+    const wireReq: WorkspaceRequest = {
+      type: 'end_prompt',
+      data,
+    }
 
     const event: WorkspaceEvent = {
       type: 'prompt_completed',
@@ -1042,17 +923,7 @@ export const workspaceRoutes: FastifyPluginAsync = async (server) => {
       } satisfies PromptCompletedData,
     }
 
-    request.log.info(
-      {
-        event: 'prompt_completed',
-        acp: {
-          type: 'end_prompt',
-          sessionId: data.sessionId,
-          promptId,
-        },
-      },
-      'ACP end_prompt',
-    )
+    request.log.info({ wireReq, event: 'prompt_completed' }, 'ACP end_prompt')
     return reply.send(success(event))
   })
 }

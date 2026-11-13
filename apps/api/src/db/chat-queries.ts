@@ -1435,8 +1435,8 @@ export async function setMessageFlags(input: {
  *  - root = 目标自身已是再生版本(parentMessageId 非空)时取其 parentMessageId,否则取目标自身;
  *  - root 首次入族时补 sibling_index = 0(幂等:已标记就不动);
  *  - 新版本序号 = 族内现有最大值 + 1;
- *  - F-297:序号计算与写入在同一事务内,且先锁会话行 FOR UPDATE —— 与 createMessage /
- *    regenerate 同一并发纪律,同会话编辑按会话行粒度串行,不再依赖"调用方按会话串行"。
+ *  - 序号计算与写入之间不得有并发写同族 —— 与 regenerate 同一约束,故本函数在族内取序号后
+ *    立刻用同一事务外的串行点(调用方按会话串行),不引入新的竞态面。
  * 只有 assistant 消息可编辑为版本:用户消息的编辑走既有的 edit-rerun(编辑并重跑),两格不混。
  */
 /** 票64 编辑入口的拒绝身份:调用方按 `code` 分流成 400/404,不得回头比对错误文本
@@ -1471,53 +1471,40 @@ export async function editAiMessageAsVersion(input: {
   if (!target) throw new MessageEditRejectedError('not_found')
   if (target.role !== 'assistant') throw new MessageEditRejectedError('not_assistant')
 
-  return db.transaction(async (tx) => {
-    // F-297:与 createMessage / regenerate 同一并发纪律 —— 先锁会话行,再读族内 max。
-    // 无锁时两次并发编辑取到同一个 max,新版本序号撞号。
-    await tx
-      .select({ id: chatConversations.id })
-      .from(chatConversations)
-      .where(eq(chatConversations.id, target.conversationId))
-      .for('update')
-
-    const rootId = target.parentMessageId ?? target.id
-    if (target.parentMessageId) {
-      const root = await findMessageById(target.parentMessageId)
-      if (root && root.siblingIndex === null) {
-        await tx.update(chatMessages).set({ siblingIndex: 0 }).where(eq(chatMessages.id, root.id))
-      }
-    } else if (target.siblingIndex === null) {
-      await tx.update(chatMessages).set({ siblingIndex: 0 }).where(eq(chatMessages.id, target.id))
+  const rootId = target.parentMessageId ?? target.id
+  if (target.parentMessageId) {
+    const root = await findMessageById(target.parentMessageId)
+    if (root && root.siblingIndex === null) {
+      await db.update(chatMessages).set({ siblingIndex: 0 }).where(eq(chatMessages.id, root.id))
     }
+  } else if (target.siblingIndex === null) {
+    await db.update(chatMessages).set({ siblingIndex: 0 }).where(eq(chatMessages.id, target.id))
+  }
 
-    const family = await tx
-      .select({ siblingIndex: chatMessages.siblingIndex })
-      .from(chatMessages)
-      .where(or(eq(chatMessages.id, rootId), eq(chatMessages.parentMessageId, rootId)))
-    const nextIndex = family.reduce((maxIdx, row) => Math.max(maxIdx, row.siblingIndex ?? 0), 0) + 1
+  const family = await db
+    .select({ siblingIndex: chatMessages.siblingIndex })
+    .from(chatMessages)
+    .where(or(eq(chatMessages.id, rootId), eq(chatMessages.parentMessageId, rootId)))
+  const nextIndex = family.reduce((maxIdx, row) => Math.max(maxIdx, row.siblingIndex ?? 0), 0) + 1
 
-    const rows = await tx
-      .insert(chatMessages)
-      .values({
-        conversationId: target.conversationId,
-        role: target.role,
-        content: input.content,
-        reasoning: target.reasoning,
-        turnOrdinal: target.turnOrdinal,
-        parentMessageId: rootId,
-        siblingIndex: nextIndex,
-        // metadata 原样继承再补一条编辑来源:前端要能说明"这一版是从哪一版改出来的",
-        // 而不是只剩一个匿名版本(丢来源就等于丢可追溯性)。
-        metadata: { ...(target.metadata ?? {}), editedFromMessageId: target.id },
-      })
-      .returning()
-    const created = rows[0]
-    if (!created) throw new Error('编辑落库失败')
-    // F-297:新版本与目标同轮次,已收口轮次的字节累计当场少算一条;
-    // 现存行集已变,只能按全量重算(reset),不能沿旧断点续加。
-    await rollHistoryProjection(tx, target.conversationId, { reset: true })
-    return { message: created, rootId, siblingIndex: nextIndex }
-  })
+  const rows = await db
+    .insert(chatMessages)
+    .values({
+      conversationId: target.conversationId,
+      role: target.role,
+      content: input.content,
+      reasoning: target.reasoning,
+      turnOrdinal: target.turnOrdinal,
+      parentMessageId: rootId,
+      siblingIndex: nextIndex,
+      // metadata 原样继承再补一条编辑来源:前端要能说明"这一版是从哪一版改出来的",
+      // 而不是只剩一个匿名版本(丢来源就等于丢可追溯性)。
+      metadata: { ...(target.metadata ?? {}), editedFromMessageId: target.id },
+    })
+    .returning()
+  const created = rows[0]
+  if (!created) throw new Error('编辑落库失败')
+  return { message: created, rootId, siblingIndex: nextIndex }
 }
 
 export async function deleteMessage(id: string): Promise<string[]> {
@@ -1654,14 +1641,6 @@ export async function editMessageAndTruncateAfter(
   }
 
   return db.transaction(async (tx) => {
-    // F-297:先锁会话行再删 —— 与流式回调(createMessage 同锁)按会话行串行,
-    // 避免 DELETE 之后才落库的回复成为截断残留。
-    await tx
-      .select({ id: chatConversations.id })
-      .from(chatConversations)
-      .where(eq(chatConversations.id, conversationId))
-      .for('update')
-
     const updated = await tx
       .update(chatMessages)
       .set({ content })

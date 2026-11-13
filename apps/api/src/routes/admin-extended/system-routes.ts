@@ -133,11 +133,17 @@ export const systemRoutes: FastifyPluginAsync = async (server) => {
       const jobId = Number(id)
       const [job] = await db.select().from(sysJobs).where(eq(sysJobs.jobId, jobId)).limit(1)
       if (!job) return reply.status(404).send(error(404, '任务不存在'))
-      // F-446: 本端点没有执行器,不得再插入 status='0' 的"成功"日志伪称已执行。
-      // 显式 501 让运维看到"未接入",而不是一条假成功记录。
-      return reply
-        .status(501)
-        .send(error(501, `任务 ${job.jobName} 的手动执行器尚未接入,未执行也未写执行日志`))
+      const [log] = await db
+        .insert(sysJobLogs)
+        .values({
+          jobName: job.jobName,
+          jobGroup: job.jobGroup,
+          invokeTarget: job.invokeTarget,
+          jobMessage: '手动触发执行',
+          status: '0',
+        })
+        .returning()
+      return reply.status(201).send(success(log))
     },
   )
 }

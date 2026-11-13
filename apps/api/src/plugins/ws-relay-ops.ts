@@ -110,18 +110,16 @@ const wsRelayOpsPlugin: FastifyPluginAsync = async (server) => {
       }
     })
 
-    // 断连收口(F-226):'error' 与随后的 'close' 都会触发本函数,
-    // 用 released 守卫保证同一连接只归还一次槽位,避免连接上限被低估。
-    let released = false
-    const handleDisconnect = (): void => {
-      if (released) return
-      released = true
+    socket.on('close', () => {
       clearInterval(timer)
       sockets.delete(socket)
       limiter.release(userId)
-    }
-    socket.on('close', handleDisconnect)
-    socket.on('error', handleDisconnect)
+    })
+    socket.on('error', () => {
+      clearInterval(timer)
+      sockets.delete(socket)
+      limiter.release(userId)
+    })
   })
 
   // 优雅关闭:清空全部连接(对齐 ws-broadcast 的停机语义)

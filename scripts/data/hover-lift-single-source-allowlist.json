@@ -36,6 +36,12 @@
       "liftCalls": 1,
       "reason": "画布节点拖拽面板条目是工具 chrome(drag handle),hover 投影是给抓取 affordance,不是容器卡",
       "until": "2027-11-03"
+    },
+    {
+      "file": "apps/web/src/components/ai/ai-side-panel.tsx",
+      "liftCalls": 2,
+      "reason": "AI 悬浮球(FAB)hover 的 translate-y/scale 本就读取全站唯一源 --lift-offset/--lift-scale(globals.css),投影取 elevation-xl 档;悬浮 chrome 身份非容器卡,与按钮/浮层族同型入账",
+      "until": "2027-11-13"
     }
   ]
 }

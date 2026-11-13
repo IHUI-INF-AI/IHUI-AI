@@ -45,25 +45,14 @@ function snapshotProvider(): string | null {
 type PersistStatus = 'unconfigured' | 'ok' | 'degraded'
 
 let dirty = false
-/** 脏代际：每次账面变更 +1；落库成功只在代际未变时清 dirty（期间有新写不误清）。 */
-let dirtySeq = 0
 let lastPersistError: string | null = null
 let persistStatus: PersistStatus = 'unconfigured'
-/** 同一时刻只允许一条落库在飞；在飞期间的新请求记一笔，本条写完后补写。 */
-let saveInFlight = false
-let saveRequested = false
-/** 失败退避：重试定时器与当前指数档位（失败不得紧循环、周期腿仍可直接接上重试）。 */
-let retryTimer: ReturnType<typeof setTimeout> | null = null
-let retryAttempt = 0
+let saveChain: Promise<void> = Promise.resolve()
 let savedTakenAt = -1
-
-const RETRY_BASE_MS = 1_000
-const RETRY_MAX_MS = 30_000
 
 /** host 构造位回调:声明提升让 onDirty 能引用后面初始化的 saveIfDirty。 */
 function markSuperAgentDirty(): void {
   dirty = true
-  dirtySeq += 1
 }
 
 export let superAgentHost = new SuperAgentHost(undefined, undefined, {
@@ -81,89 +70,35 @@ setTenantConcurrencyLimitResolver((ownerUserId) =>
   ownerUserId ? superAgentHost.maxWorkersFor(ownerUserId) : undefined,
 )
 
-/**
- * 落库一次；返回是否真的写了库（同 takenAt ⇒ 无新内容，返回 false）。
- *
- * 纪律：读取时的 dirty 只作本次输入，**写库前不得清模块级 dirty**；仅当本次落库期间
- * 没有新的账面变更（代际未变）才在成功后清脏，避免把并发新写误清。
- */
-async function doSave(): Promise<boolean> {
+async function doSave(): Promise<void> {
   const provider = snapshotProvider()
   if (!provider) {
     persistStatus = 'unconfigured'
-    return false
+    return
   }
-  const seq = dirtySeq
   const snap = superAgentHost.snapshot()
   // 与已存快照同 takenAt(默认时钟即 Date.now)⇒ 无新内容，不写。
-  if (snap.takenAt <= savedTakenAt) return false
+  if (snap.takenAt <= savedTakenAt) return
   await upsertUserPermissionSnapshot(provider, snap)
   savedTakenAt = snap.takenAt
   persistStatus = 'ok'
   lastPersistError = null
-  retryAttempt = 0
-  if (dirtySeq === seq) dirty = false
-  return true
 }
 
-function clearRetryTimer(): void {
-  if (retryTimer !== null) {
-    clearTimeout(retryTimer)
-    retryTimer = null
-  }
-}
-
-/** 有界指数退避：1s 起、封顶 30s；返回本次排到的延迟（已排过则 0）。 */
-function scheduleRetry(): number {
-  if (retryTimer !== null) return 0
-  const delay = Math.min(RETRY_MAX_MS, RETRY_BASE_MS * 2 ** Math.min(retryAttempt, 5))
-  retryAttempt += 1
-  const timer = setTimeout(() => {
-    retryTimer = null
-    saveIfDirty()
-  }, delay)
-  // Node 下不钉住事件循环；浏览器宿主本就不该跑此服务。
-  if (typeof timer === 'object' && timer !== null && 'unref' in timer) {
-    ;(timer as { unref(): void }).unref()
-  }
-  retryTimer = timer
-  return delay
-}
-
-/** 串行写链：脏则写，失败点名、把脏标回并按退避重排（不得静默、不得紧循环）。 */
+/** 串行写链：脏则写，失败点名并把状态挂出来（不得静默）。 */
 function saveIfDirty(): void {
   if (!dirty) return
-  if (saveInFlight) {
-    // 同一时刻只允许一条在飞（定时周期与退避重试不得并发双写）。
-    saveRequested = true
-    return
-  }
-  // 周期腿的显式请求优先：撤掉已排的退避定时器，避免同一笔写两次。
-  clearRetryTimer()
-  saveInFlight = true
-  void drainSaves()
-}
-
-async function drainSaves(): Promise<void> {
-  try {
-    for (;;) {
-      saveRequested = false
-      await doSave()
-      if (!saveRequested) break
-    }
-  } catch (e) {
-    lastPersistError = e instanceof Error ? e.message : String(e)
-    persistStatus = 'degraded'
-    // 失败必须把脏标回：否则后续周期因 dirty=false 直接 return，重启丢最后一批状态。
-    dirty = true
-    const retryInMs = scheduleRetry()
-    logger.warn('super-agent 快照持久失败；账面仍在内存，退避后自动重试', {
-      err: lastPersistError,
-      retryInMs,
+  dirty = false
+  saveChain = saveChain
+    .then(doSave)
+    .then(() => saveIfDirty())
+    .catch((e: unknown) => {
+      lastPersistError = e instanceof Error ? e.message : String(e)
+      persistStatus = 'degraded'
+      logger.warn('super-agent 快照持久失败；账面仍在内存，供值/修库后自动恢复写入', {
+        err: lastPersistError,
+      })
     })
-  } finally {
-    saveInFlight = false
-  }
 }
 
 async function upsertUserPermissionSnapshot(provider: string, snap: unknown): Promise<void> {
@@ -565,7 +500,5 @@ export function stopSuperAgentPumpLoop(): void {
     clearInterval(interval)
     interval = null
   }
-  // 停循环即停退避重试，避免停机后仍有落库定时器在飞。
-  clearRetryTimer()
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -37,11 +37,6 @@ import {
   type ChatSyncRole,
   type ChatSyncTerminalReason,
 } from '@ihui/types'
-import {
-  createBackpressureSkipLedger,
-  isWsBackpressured,
-  sendWithBackpressure,
-} from './ws-backpressure.js'
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -323,9 +318,6 @@ const wsBroadcastPlugin: FastifyPluginAsync = async (server) => {
   // 2026-08-02 P1 安全审计:单用户并发连接数限制(防资源耗尽)
   const userConnectionLimiter = new WsUserConnectionLimiter(8)
   const sendFailures = createSendFailureLedger(Date.now)
-  // F-116:写队列超水位的跳过台账(首喊 + 60s 复读)。跳过**不改**上面那本丢帧账 ——
-  // 跳过的连接仍在表里,不是"断开",两件事不能混记。
-  const backpressureSkips = createBackpressureSkipLedger()
 
   /**
    * 本机直投:把一帧交给本进程注册表里该 userId 的连接(逐连接按角色门控,收窄语义不变)。
@@ -352,17 +344,6 @@ const wsBroadcastPlugin: FastifyPluginAsync = async (server) => {
       const connRole = connRoles.get(ws) ?? 'all'
       if (cls !== null && connRole !== 'all' && connRole !== cls) {
         gated += 1
-        continue
-      }
-      if (isWsBackpressured(ws)) {
-        // F-116:写队列超阈值 ⇒ 跳过本帧并计数,不摘线。广播帧是"可丢的现状同步",
-        // 断线会让客户端整条通道重建,代价远大于缺一帧(端侧下次打开时会重新同步)。
-        if (backpressureSkips.record()) {
-          server.log.warn(
-            { userId, skippedFramesTotal: backpressureSkips.total() },
-            'ws-broadcast 连接写队列超阈值,已跳过本帧(首次或超 60s 复读)',
-          )
-        }
         continue
       }
       delivered += 1
@@ -395,8 +376,13 @@ const wsBroadcastPlugin: FastifyPluginAsync = async (server) => {
         }
         // ③ 不抛错:广播主流程继续把这一帧发给其余连接。
       }
-      // F-116:发送统一走带背压闸的单点;callback 收异步错误,catch 收同步抛出。
-      sendWithBackpressure(ws, msg, noteDropped)
+      try {
+        ws.send(msg, (err) => {
+          if (err) noteDropped()
+        })
+      } catch {
+        noteDropped()
+      }
     }
     return { matched: conns.size, delivered, gated }
   }

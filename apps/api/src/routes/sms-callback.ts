@@ -110,7 +110,6 @@ async function handleCallback(
   let statusCount = 0
   let replyCount = 0
   let unsubscribeCount = 0
-  let unsubscribeFailed = 0
 
   for (const item of items) {
     const kind = hint === 'unknown' ? classifyTencentCallback(item) : hint
@@ -153,27 +152,11 @@ async function handleCallback(
           source: 'reply',
         })
         if (ok) unsubscribeCount += 1
-        else unsubscribeFailed += 1
       }
       continue
     }
 
     logger.warn('短信回调类型无法判别 ⇒ 丢弃', { phone: maskPhone(meta.phone) })
-  }
-
-  // 退订黑名单是合规硬要求:写不进去就不能回 200。腾讯把 5xx 当可重试错误、把 200 当
-  // 「已处理」;回 200 等于告诉厂商这条退订已经落库,重试也不会再来 —— 用户会继续收到
-  // 营销短信。同批其它条目已尽力处理,失败的那条由厂商整条重试(退订写入本身是
-  // ON CONFLICT 幂等 upsert,重做不会产生重复行)。
-  if (unsubscribeFailed > 0) {
-    logger.error('短信退订回执写入失败 ⇒ 回 500 让厂商重试', {
-      unsubscribeFailed,
-      statusCount,
-      replyCount,
-      unsubscribeCount,
-    })
-    reply.status(500).send({ result: 1, errmsg: 'unsubscribe persist failed' })
-    return
   }
 
   logger.info('短信回调已处理', { statusCount, replyCount, unsubscribeCount })

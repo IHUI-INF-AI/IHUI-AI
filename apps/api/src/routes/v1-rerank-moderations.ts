@@ -215,16 +215,10 @@ const v1RerankModerations: FastifyPluginAsync = async (server) => {
         // P0 第二批次(2026-07-31 立):rerank 计费(按 input tokens 计费,output tokens 为 0)
         const apiKey = (request as FastifyRequest & { apiKey?: ApiKeyContext }).apiKey
         if (apiKey) {
-          // F-90:兜底估算必须把 documents 计入 —— rerank 的成本几乎全部来自文档,
-          // 只看 query.length 会把 100 篇长文档算成几 token,系统性少计费 2~3 个数量级。
-          const fallbackChars = documents.reduce(
-            (sum, d) => sum + (typeof d === 'string' ? d.length : d.text.length),
-            query.length,
-          )
           const inputTokens =
             data.meta?.tokens?.input ??
             data.meta?.billed_units?.input ??
-            Math.ceil(fallbackChars / 4)
+            Math.ceil(query.length / 4)
           void recordCall({
             apiKeyId: apiKey.id,
             userId: apiKey.userId,

@@ -1596,9 +1596,6 @@ export async function completeAccountPhone(
 
 // =============================================================================
 // 共享到运营池标记(2026-11-07 立,李总指令)
-// 2026-11-12 机主令改口:所有号池里的号默认同步运营生产 ⇒ 新建行默认 shared=true
-// (schema 默认值 + 库列默认值均已改 true);setAccountShared 现主要用于「显式关闭共享」。
-// 存量不共享行已由批量补齐收口,本函数仍是改该标记的唯一正当出口(含 cred bump + 签到同步)。
 // =============================================================================
 
 export interface SetSharedResult {
@@ -1622,18 +1619,12 @@ export interface SetSharedResult {
 export async function setAccountShared(
   accountId: string,
   shared: boolean,
-  actorUserId?: string | null,
 ): Promise<SetSharedResult> {
   const target = shared === true
-  // F-161 属主边界:有操作者时只允许「本人行 or 全局行(owner 为空)」;
-  // 未传操作者的内部/CLI 调用按最小权限收敛为仅全局行。个人行越权 ⇒ 落空 404。
-  const ownerScope = actorUserId
-    ? or(eq(aiRelayAccountPool.ownerUserId, actorUserId), isNull(aiRelayAccountPool.ownerUserId))
-    : isNull(aiRelayAccountPool.ownerUserId)
   const [row] = await dbRead
     .select()
     .from(aiRelayAccountPool)
-    .where(and(eq(aiRelayAccountPool.id, accountId), ownerScope))
+    .where(eq(aiRelayAccountPool.id, accountId))
     .limit(1)
   if (!row) {
     return {
@@ -1662,7 +1653,7 @@ export async function setAccountShared(
       credVersion: sql`${aiRelayAccountPool.credVersion} + 1`,
       updatedAt: new Date(),
     })
-    .where(and(eq(aiRelayAccountPool.id, row.id), ownerScope))
+    .where(eq(aiRelayAccountPool.id, row.id))
     .returning()
   if (!written) {
     return {

@@ -29,8 +29,8 @@ export const FALLBACK_CONTACTS: ContactItem[] = [
   {
     icon: 'mail',
     label: '商务邮箱',
-    value: 'lizong@aizhs.top',
-    href: 'mailto:lizong@aizhs.top',
+    value: 'support@aizhs.top',
+    href: 'mailto:support@aizhs.top',
   },
   {
     icon: 'globe',

@@ -122,28 +122,22 @@ const apiLoggerPlugin: FastifyPluginAsync = async (server: FastifyInstance) => {
 
   // 内存缓冲区
   let buffer: BufferedLog[] = []
-  // F-611:用「在途 Promise」替代布尔互斥。布尔互斥下 onClose 的 flush() 若在途会
-  // 直接返回,等待期间新入缓冲的条目永不落库(重启/发布窗口尾部日志丢失)。
-  let inFlight: Promise<void> | null = null
+  let flushing = false
 
   /** 批量 flush 缓冲区到 DB。 */
   async function flush(): Promise<void> {
-    // 在途则等待其完成,而非直接返回(让 onClose 能补一轮处理新入缓冲的条目)。
-    if (inFlight) return inFlight
-    if (buffer.length === 0) return
+    if (flushing || buffer.length === 0) return
+    flushing = true
     const batch = buffer
     buffer = []
-    inFlight = (async () => {
-      try {
-        await addApiLogsBatch(batch)
-      } catch (e) {
-        logger.warn('[api-logger] flush failed', { error: e })
-        // flush 失败丢弃当前批次,避免无限累积(日志写入失败不影响业务)
-      } finally {
-        inFlight = null
-      }
-    })()
-    return inFlight
+    try {
+      await addApiLogsBatch(batch)
+    } catch (e) {
+      logger.warn('[api-logger] flush failed', { error: e })
+      // flush 失败丢弃当前批次,避免无限累积(日志写入失败不影响业务)
+    } finally {
+      flushing = false
+    }
   }
 
   // 定时 flush
@@ -155,9 +149,6 @@ const apiLoggerPlugin: FastifyPluginAsync = async (server: FastifyInstance) => {
   // 进程退出时强制 flush
   server.addHook('onClose', async () => {
     clearInterval(timer)
-    // F-611:第一轮若在途则等待其完成;等待期间新入缓冲的条目由第二轮补落库,
-    // 否则布尔互斥下会直接返回,尾部日志丢失。
-    await flush()
     await flush()
   })
 

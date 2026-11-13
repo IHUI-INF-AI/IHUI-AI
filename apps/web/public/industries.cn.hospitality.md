@@ -209,7 +209,8 @@
   A:数据脱敏 + 加密 + 用户授权,符合《个人信息保护法》。
 
 ### 联系
-- **统一联系邮箱:lizong@aizhs.top** —— 各行业方案、行业资料与商务合作全部走这一个地址;来信注明所在行业与诉求,24 小时内回复。
+- 酒店餐饮行业:hospitality@aizhs.top
+- 通用商务:contact@aizhs.top
 - 官网:https://aizhs.top
 - GitHub:https://github.com/IHUI-INF-AI/IHUI-AI
 

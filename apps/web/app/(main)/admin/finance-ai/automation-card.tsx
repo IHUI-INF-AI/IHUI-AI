@@ -123,9 +123,7 @@ export function AutomationCard({ busy, onLaunch }: Props) {
               id="auto-mode"
               value={submitMode}
               onChange={(e) =>
-                setSubmitMode(
-                  e.target.value === 'user_confirmed' ? 'user_confirmed' : 'manual_gate',
-                )
+                setSubmitMode(e.target.value === 'user_confirmed' ? 'user_confirmed' : 'manual_gate')
               }
               className="font-[weight:inherit] h-9 w-full rounded-md border border-input bg-background px-2 text-body focus:outline-none focus:ring-1 focus:ring-primary"
             >
@@ -155,18 +153,11 @@ export function AutomationCard({ busy, onLaunch }: Props) {
             className="font-[weight:inherit] w-full resize-y rounded-md border border-input bg-background px-3 py-2 font-mono text-label leading-relaxed focus:outline-none focus:ring-1 focus:ring-primary"
           />
         </div>
-        <Button
-          size="lg"
-          className="w-full gap-1.5"
-          disabled={busy || selected.size === 0}
-          onClick={submit}
-        >
+        <Button size="lg" className="w-full gap-1.5" disabled={busy || selected.size === 0} onClick={submit}>
           <MessageSquare className="h-4 w-4" />
           <span>{busy ? t('starting') : t('automationCta')}</span>
         </Button>
-        <p className="font-[weight:inherit] text-label text-muted-foreground">
-          {t('browserPrereq')}
-        </p>
+        <p className="font-[weight:inherit] text-label text-muted-foreground">{t('browserPrereq')}</p>
       </CardContent>
     </Card>
   )

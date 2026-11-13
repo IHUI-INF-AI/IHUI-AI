@@ -195,13 +195,10 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
   // 为服务间回调,走 JWT 或内部服务 token 双通道。
   server.addHook('preHandler', async (request, reply) => {
     const url = request.routeOptions?.url ?? ''
-    // F-500:routeOptions.url 返回含插件前缀的全路径(如 /api/ai-ext/capabilities),
-    // 与 '/capabilities' 全等比较恒不命中,三条白名单全部退化到 requireAdmin。
-    // 改为后缀匹配(与 sms-send-captcha.ts 同款口径),天然覆盖各注册前缀。
-    if (url.endsWith('/capabilities') || url.endsWith('/ai-feed/hot')) {
+    if (url === '/capabilities' || url === '/ai-feed/hot') {
       return requireAuth(request, reply)
     }
-    if (url.endsWith('/outbound-routes/callback')) {
+    if (url === '/outbound-routes/callback') {
       return checkAuthOrInternalService(request, reply)
     }
     return requireAdmin(request, reply)

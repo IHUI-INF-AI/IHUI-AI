@@ -28,6 +28,9 @@ import {
 export interface ModelOption {
   value: string
   label: string
+  /** 模型所属通道(2026-11-12 立):'pool' = 个人号池模型(走 /ws/relay/chat),
+   *  缺省/undefined = 平台模型(走 agent runtime)。选中时随 onChange 第二参下传。 */
+  channel?: 'platform' | 'pool'
   /** 模型 id（可选，2026-08-31 补：Auto-Model 徽章等按 id 匹配的场景使用） */
   id?: string
   /** 每百万 token 真实单价(2026-11-13 类型契约补齐):能力摘要行横比用,
@@ -44,6 +47,10 @@ export interface ModelOption {
    *  - 0 = 免费模型
    *  - 优先取后端返回的 points_multiplier(后端 infer 5 档后映射为小数)或前端 tierToDisplayMultiplier */
   pointsMultiplier?: number
+  /** 真实单价(元/百万 token,2026-11-13 立):倍率只是官方对标档位,横比以单价为准。
+   *  由后端模型目录带出;缺省则选择器不显示单价行。 */
+  inputPricePerMillion?: number
+  outputPricePerMillion?: number
   /** 是否支持会员 2.5 折(显示 "会员2.5折" 红色徽章 + 升级权益 popover 触发) */
   memberDiscountEligible?: boolean
   /** 是否正式版(显示 "正式版" 灰色徽章) */

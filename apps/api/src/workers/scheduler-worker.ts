@@ -29,6 +29,7 @@ import { codebaseIndexService } from '../services/codebase-index-service.js'
 import { expireVipMembers } from '../services/vip-expire-service.js'
 import { autoCloseExpiredActivities } from '../services/activity-status-service.js'
 import { calibrateCommissionSettlement } from '../services/commission-settle-service.js'
+import { runAttendanceSyncJob } from '../services/attendance-sync-job.js'
 import {
   markInactiveAgents,
   cleanupOldHeatStats,
@@ -546,6 +547,26 @@ export function startSchedulerWorker(server: FastifyInstance): Worker {
                 errors: result.errors.length,
               },
               'activity status hourly done',
+            )
+            try {
+              server.recordJobExecution(name, 'success')
+            } catch {
+              /* 指标采集失败不影响业务 */
+            }
+            return result
+          }
+          case 'hr-attendance-sync-daily': {
+            // 考勤 IM 同步:遍历启用适配器用户,产暂存批次。默认关(enabled=false 时空跑即返)。
+            const result = await runAttendanceSyncJob()
+            server.log.info(
+              {
+                enabled: result.enabled,
+                scannedUsers: result.scannedUsers,
+                syncedBatches: result.syncedBatches,
+                skippedNotImplemented: result.skippedNotImplemented,
+                errors: result.errors.length,
+              },
+              'hr attendance sync daily done',
             )
             try {
               server.recordJobExecution(name, 'success')

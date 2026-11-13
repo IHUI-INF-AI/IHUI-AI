@@ -534,12 +534,15 @@ describe('rn-compat FlatList 受控 scrollTop prop 同步', () => {
     let root: Root | null = null
     const onRef: Ref<Handle> = () => undefined
     function Harness({ scrollTop }: { scrollTop?: number }) {
-      return createElement(FlatList as never, {
-        data: [],
-        renderItem: () => null,
-        ...(scrollTop === undefined ? {} : { scrollTop }),
-        ref: onRef,
-      } as never)
+      return createElement(
+        FlatList as never,
+        {
+          data: [],
+          renderItem: () => null,
+          ...(scrollTop === undefined ? {} : { scrollTop }),
+          ref: onRef,
+        } as never,
+      )
     }
     const container = shimDoc.createElement('div') as unknown as HTMLElement
     root = createRoot(container)
@@ -549,9 +552,7 @@ describe('rn-compat FlatList 受控 scrollTop prop 同步', () => {
     return {
       rerender: async (next: number | undefined) => {
         await act(async () => {
-          root!.render(
-            createElement(Harness, next === undefined ? {} : { scrollTop: next }),
-          )
+          root!.render(createElement(Harness, next === undefined ? {} : { scrollTop: next }))
         })
       },
       unmount: async () => {

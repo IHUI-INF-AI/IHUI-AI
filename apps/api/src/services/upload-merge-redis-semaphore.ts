@@ -93,12 +93,7 @@ export function resolveUploadMergeLease(
   }
   const n = Number(raw)
   if (Number.isInteger(n) && n >= UPLOAD_MERGE_LEASE_MIN_MS) {
-    return {
-      leaseMs: n,
-      renewIntervalMs: Math.floor(n / UPLOAD_MERGE_RENEW_DIVISOR),
-      source: 'env',
-      raw,
-    }
+    return { leaseMs: n, renewIntervalMs: Math.floor(n / UPLOAD_MERGE_RENEW_DIVISOR), source: 'env', raw }
   }
   return invalidFallback()
 }
@@ -142,80 +137,25 @@ redis.call('ZREMRANGEBYSCORE', KEYS[1], '-inf', tonumber(ARGV[1]))
 return redis.call('ZCARD', KEYS[1])
 `.trim()
 
-/** 隔离记录保留窗口(ms,F-266)。取值依据:stop-failed 期间租约靠 renew 心跳(leaseMs/3 =
- *  40s)续保,隔离记录本身不随租约到期消失 —— 它是留给"接管方 / 值班交接"的尸检报告,
- *  读取时点通常在下一次分片合并或下一次人工收口。窗口太短(分钟级)会把跨班次的记录抹掉、
- *  接管方读不到;太长则让 hash 与索引单调增长(正是 F-266 的病灶)。取 7 天:覆盖"跨周末 /
- *  小长假"这一最长常见运维空窗,同时给每次写入的 EXPIRE 留出同一量级的兜底。 */
-export const UPLOAD_MERGE_QUARANTINE_RETENTION_MS = 7 * 24 * 60 * 60 * 1000
-/** HSCAN 单批 COUNT(F-266):一次 EVAL 只回一小批,读侧不再一次性拉全量 ——
- *  "存量越大、单次传输越大"的正反馈由此掐断。64 足以摊薄 RTT,又不会一批就接近全量。 */
-export const UPLOAD_MERGE_QUARANTINE_SCAN_COUNT = 64
-
 /**
- * QUARANTINE-WRITE(G-998089 + F-266):把一条隔离记录落进租约侧的共享 hash(字段 = slot token,
- * 值 = 调用方序列化的 JSON),并给 hash 续 TTL。stop-failed(子资源未终态、保锁待人工收口)的
- * 持有方写,接管方(下一个拿到槽的进程)读 —— 只留在失败方进程内存里的记录对接管者等于不存在。
- * numKeys=1;ARGV: field, value, TTL(秒)。签名保持"字段/值在前",与既有调用面兼容。
+ * QUARANTINE-WRITE(G-998089):把一条隔离记录落进租约侧的共享 hash(字段 = slot token,
+ * 值 = 调用方序列化的 JSON)。stop-failed(子资源未终态、保锁待人工收口)的持有方写,
+ * 接管方(下一个拿到槽的进程)读 —— "前一个持有者为什么死在半路"必须跨进程可读,
+ * 只留在失败方进程内存里的记录对接管者等于不存在。
  */
 export const MERGE_SEMAPHORE_QUARANTINE_WRITE_LUA = `
 redis.call('HSET', KEYS[1], ARGV[1], ARGV[2])
-redis.call('EXPIRE', KEYS[1], tonumber(ARGV[3]))
 return 1
 `.trim()
 
-/** QUARANTINE-INDEX(F-266):把字段记进按写入时间排序的 zset 索引,并给索引续 TTL。
- *  numKeys=1(索引键);ARGV: 写入时间戳(ms), field, TTL(秒)。
- *  与 HSET 分成两条 EVAL 而不合并:两条各自带 TTL,任一条失败都不会留下"无 TTL 的永久存量";
- *  索引一条失败时字段仍可被读到(HSCAN 覆盖),只是少了按窗口清理的依据,由 hash TTL 兜底,
- *  不影响合并结果。 */
-export const MERGE_SEMAPHORE_QUARANTINE_INDEX_LUA = `
-redis.call('ZADD', KEYS[1], tonumber(ARGV[1]), ARGV[2])
-redis.call('EXPIRE', KEYS[1], tonumber(ARGV[3]))
-return 1
-`.trim()
-
-/** QUARANTINE-SCAN(F-266):读侧游标批量 —— 一次只回一批(HSCAN COUNT),返回
- *  [cursor, [field, value, ...]];cursor 回 '0' 结束。 */
-export const MERGE_SEMAPHORE_QUARANTINE_SCAN_LUA = `
-local res = redis.call('HSCAN', KEYS[1], ARGV[1], 'COUNT', tonumber(ARGV[2]))
-return { res[1], res[2] }
-`.trim()
-
-/** QUARANTINE-READ-LEGACY(G-998089):仅当 Redis 侧不认识上面的 HSCAN 脚本(极老代理 /
- *  测试替身)时兜底,保持"读得到记录"的旧行为;正常路径不会走到这里。 */
+/** QUARANTINE-READ(G-998089):回全部隔离记录(HGETALL,拍平成 [field,value,...])。 */
 export const MERGE_SEMAPHORE_QUARANTINE_READ_LUA = `
 return redis.call('HGETALL', KEYS[1])
-`.trim()
-
-/** QUARANTINE-CLEAR(F-266):收口成功后删字段 + 摘时间索引,一步完成,不留"已收口但仍在
- *  hash 里"的存量(缺陷本体就是这类永不删除的字段)。 */
-export const MERGE_SEMAPHORE_QUARANTINE_CLEAR_LUA = `
-redis.call('HDEL', KEYS[1], ARGV[1])
-redis.call('ZREM', KEYS[2], ARGV[1])
-return 1
-`.trim()
-
-/** QUARANTINE-PURGE(F-266):读侧惰性清理 —— 把写入时间早于保留窗口的条目批量 HDEL +
- *  ZREM。刻意不引入全局定时器(未清理的 interval 会让测试进程挂住),接管方每次读顺手
- *  收一遍即可;窗口内的条目一律保留,zset 里没有索引的老存量字段也不动(仍可被 HSCAN 读到)。 */
-export const MERGE_SEMAPHORE_QUARANTINE_PURGE_LUA = `
-local stale = redis.call('ZRANGEBYSCORE', KEYS[2], '-inf', ARGV[1])
-for i = 1, #stale do
-  redis.call('HDEL', KEYS[1], stale[i])
-  redis.call('ZREM', KEYS[2], stale[i])
-end
-return #stale
 `.trim()
 
 /** 隔离记录键:租约键的姊妹键(同前缀同环境段,互不串)。 */
 function resolveUploadMergeQuarantineKey(slotsKey: string): string {
   return `${slotsKey}:quarantine`
-}
-
-/** 隔离记录的时间索引键(zset:member=字段名,score=写入时间戳 ms),F-266 新增。 */
-function resolveUploadMergeQuarantineIndexKey(slotsKey: string): string {
-  return `${slotsKey}:quarantine:index`
 }
 
 export interface AcquireResult {
@@ -237,8 +177,6 @@ export interface RedisMergeSemaphore {
   quarantine(owner: string, payloadJson: string): Promise<void>
   /** G-998089:读全部隔离记录(字段=slot token → 值=JSON 串);空对象 = 无记录。 */
   readQuarantines(): Promise<Record<string, string>>
-  /** F-266:收口成功后清掉该条隔离记录(HDEL 字段 + ZREM 时间索引);失败由调用方 warn。 */
-  clearQuarantine(owner: string): Promise<void>
 }
 
 function toNumber(v: unknown): number {
@@ -246,9 +184,8 @@ function toNumber(v: unknown): number {
 }
 
 /**
- * 计数信号量。`redis` 由调用方(层叠闸)提供并保证可达;租约类 EVAL 失败原样抛出,
- * 交由上层决定"回落进程内闸 + 首次 warn"。隔离记录的读写是例外(F-266):它只是诊断
- * 附加物,失败降级为"读写不到记录",绝不改变合并结果、也不抛新错。
+ * 计数信号量。`redis` 由调用方(层叠闸)提供并保证可达;本层不吞错 ——
+ * 任何 EVAL 失败都原样抛出,交由上层决定"回落进程内闸 + 首次 warn"。
  */
 export function createRedisMergeSemaphore(opts: {
   redis: MergeSemaphoreRedis
@@ -256,16 +193,9 @@ export function createRedisMergeSemaphore(opts: {
   limit: number
   leaseMs: number
   now?: () => number
-  /** F-266:隔离记录保留窗口(ms);缺省 `UPLOAD_MERGE_QUARANTINE_RETENTION_MS`。 */
-  quarantineRetentionMs?: number
 }): RedisMergeSemaphore {
   const { redis, key, limit, leaseMs } = opts
   const now = opts.now ?? Date.now
-  const quarantineKey = resolveUploadMergeQuarantineKey(key)
-  const quarantineIndexKey = resolveUploadMergeQuarantineIndexKey(key)
-  const quarantineRetentionMs = opts.quarantineRetentionMs ?? UPLOAD_MERGE_QUARANTINE_RETENTION_MS
-  // EXPIRE 以秒为单位;向上取整避免窗口被截短,下限 1s 防止误配成 0 让键立刻过期。
-  const quarantineTtlSec = Math.max(1, Math.ceil(quarantineRetentionMs / 1000))
 
   return {
     key,
@@ -287,14 +217,7 @@ export function createRedisMergeSemaphore(opts: {
       return { granted, active }
     },
     async renew(owner: string): Promise<boolean> {
-      const res = await redis.eval(
-        MERGE_SEMAPHORE_RENEW_LUA,
-        1,
-        key,
-        String(now()),
-        String(leaseMs),
-        owner,
-      )
+      const res = await redis.eval(MERGE_SEMAPHORE_RENEW_LUA, 1, key, String(now()), String(leaseMs), owner)
       return toNumber(res) === 1
     },
     async release(owner: string): Promise<void> {
@@ -305,87 +228,22 @@ export function createRedisMergeSemaphore(opts: {
       return toNumber(res)
     },
     async quarantine(owner: string, payloadJson: string): Promise<void> {
-      try {
-        await redis.eval(
-          MERGE_SEMAPHORE_QUARANTINE_WRITE_LUA,
-          1,
-          quarantineKey,
-          owner,
-          payloadJson,
-          String(quarantineTtlSec),
-        )
-      } catch {
-        // F-266:隔离记录是诊断附加物 —— 写失败(Redis 不可达 / 老替身不认识新脚本)降级为
-        // 原行为:不抛新错、不改变合并结果;失败方本实例的内存台账仍有这条记录。
-        return
-      }
-      try {
-        await redis.eval(
-          MERGE_SEMAPHORE_QUARANTINE_INDEX_LUA,
-          1,
-          quarantineIndexKey,
-          String(now()),
-          owner,
-          String(quarantineTtlSec),
-        )
-      } catch {
-        /* 时间索引写入失败:字段仍在(hash 已带 TTL),读取不受影响,只是少了按窗口清理的依据 */
-      }
+      await redis.eval(
+        MERGE_SEMAPHORE_QUARANTINE_WRITE_LUA,
+        1,
+        resolveUploadMergeQuarantineKey(key),
+        owner,
+        payloadJson,
+      )
     },
     async readQuarantines(): Promise<Record<string, string>> {
-      // F-266:读之前先惰性清理超窗条目(失败静默:清理是附加动作,不能把读取变成失败)。
-      try {
-        await redis.eval(
-          MERGE_SEMAPHORE_QUARANTINE_PURGE_LUA,
-          2,
-          quarantineKey,
-          quarantineIndexKey,
-          String(now() - quarantineRetentionMs),
-        )
-      } catch {
-        /* 惰性清理失败不影响读取 */
-      }
+      const res = await redis.eval(MERGE_SEMAPHORE_QUARANTINE_READ_LUA, 1, resolveUploadMergeQuarantineKey(key))
       const out: Record<string, string> = {}
-      try {
-        // HSCAN 游标分批:每批至多 COUNT 条,不再一次性拉全量。
-        let cursor = '0'
-        do {
-          const res = (await redis.eval(
-            MERGE_SEMAPHORE_QUARANTINE_SCAN_LUA,
-            1,
-            quarantineKey,
-            cursor,
-            String(UPLOAD_MERGE_QUARANTINE_SCAN_COUNT),
-          )) as unknown
-          if (!Array.isArray(res)) break
-          cursor = String(res[0] ?? '0')
-          const flat = Array.isArray(res[1]) ? (res[1] as unknown[]) : []
-          for (let i = 0; i + 1 < flat.length; i += 2) out[String(flat[i])] = String(flat[i + 1])
-        } while (cursor !== '0')
-        return out
-      } catch {
-        // HSCAN 不可用(极老代理 / 测试替身不认识新脚本)⇒ 退回整键读,调用方拿到的记录集合不变;
-        // Redis 彻底不可用时同样不抛新错,返回已读到的部分(通常为空)。
-        try {
-          const legacy = await redis.eval(MERGE_SEMAPHORE_QUARANTINE_READ_LUA, 1, quarantineKey)
-          if (Array.isArray(legacy)) {
-            for (let i = 0; i + 1 < legacy.length; i += 2)
-              out[String(legacy[i])] = String(legacy[i + 1])
-          }
-        } catch {
-          /* Redis 不可用:降级为"读不到记录",不抛错 */
-        }
-        return out
+      if (Array.isArray(res)) {
+        // HGETALL 拍平回复:[field1, value1, field2, value2, ...]
+        for (let i = 0; i + 1 < res.length; i += 2) out[String(res[i])] = String(res[i + 1])
       }
-    },
-    async clearQuarantine(owner: string): Promise<void> {
-      await redis.eval(
-        MERGE_SEMAPHORE_QUARANTINE_CLEAR_LUA,
-        2,
-        quarantineKey,
-        quarantineIndexKey,
-        owner,
-      )
+      return out
     },
   }
 }

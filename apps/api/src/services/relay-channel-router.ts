@@ -778,34 +778,15 @@ export async function selectChannelCandidates(
     return { baseUrl, configId: cfg.id, providerCode: keyData.providerCode }
   }
 
-  /** 本次选路中解密失败的 Key 数(F-179:单 Key 坏密文只淘汰该条,不连坐整条模型链路)。 */
-  let decryptFailures = 0
-
   const pushCandidate = (keyData: KeyPoolRow, groupId: string, groupName: string) => {
     if (seen.has(keyData.id)) return
     const target = resolveCandidateTarget(keyData)
     if (!target) return
-    // 先去重再解密:解密结果对同一 Key 是确定的,失败后不必在同一次选路的其他组里重试/重复告警
     seen.add(keyData.id)
-    let apiKey: string
-    try {
-      apiKey = decryptApiKey(keyData.apiKeyEnc)
-    } catch (err) {
-      // F-179(2026-11-13):密文损坏/密钥轮换只淘汰这一条候选,其余 Key 照常参与路由。
-      // 只记非敏感定位(keyPoolId/providerCode)与错误类型;JSON.parse 的 message 会带输入片段,
-      // 因此不落 message、更不落密文/明文(AGENTS 日志纪律)。
-      decryptFailures += 1
-      console.warn(
-        `[relay-router] skip key ${keyData.id} (provider=${keyData.providerCode}): api key decrypt failed` +
-          ` (${err instanceof Error ? err.name : typeof err})`,
-        { keyPoolId: keyData.id, providerCode: keyData.providerCode },
-      )
-      return
-    }
     ordered.push({
       candidate: {
         keyPoolId: keyData.id,
-        apiKey,
+        apiKey: decryptApiKey(keyData.apiKeyEnc),
         baseUrl: target.baseUrl,
         providerCode: target.providerCode,
         configId: target.configId,
@@ -855,14 +836,6 @@ export async function selectChannelCandidates(
       if (ordered.length >= limit) break
       pushCandidate(keyData, '', '(default)')
     }
-  }
-
-  // F-179:一条候选都没组装出来、且原因是有 Key 解密失败 ⇒ 整体失败要显式可辨,
-  // 不得静默返回空数组被当成"没配渠道";错误信息只带计数,不含任何密文/明文片段。
-  if (ordered.length === 0 && decryptFailures > 0) {
-    throw new Error(
-      `relay channel routing: 无可用候选（${decryptFailures} 个可用 Key 密文解密失败，已跳过）`,
-    )
   }
 
   // 9. 渠道配额检查:超限剔除(最多顺序检查前 6 个,避免放大查询)
