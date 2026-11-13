@@ -19,7 +19,7 @@ export async function findOpenclawItems(opts: {
       .select()
       .from(openclawItems)
       .where(where)
-      .orderBy(desc(openclawItems.createdAt))
+      .orderBy(desc(openclawItems.createdAt), desc(openclawItems.id))
       .limit(opts.pageSize)
       .offset((opts.page - 1) * opts.pageSize),
     db
