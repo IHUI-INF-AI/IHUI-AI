@@ -1,3 +1,9 @@
+<!--
+  © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+  Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+  [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+-->
+
 # Web 流式对话 · 前端消费主链路审计（A-consumer）
 
 审计对象：`apps/web/src/hooks/use-chat/` 消费侧
@@ -6,12 +12,12 @@
 
 ## 覆盖情况
 
-| 文件 | 覆盖 |
-|---|---|
-| stream-runtime.ts | **全读（60行）** |
-| stream-handlers.ts | **全读（361行）** |
-| send-message.ts | **片段**（285-344 入口防重、690-779 controller/代际/超时；onDone/onDelta/onToolCall/onError/finally 仅 grep 定位行号，**未逐行读 900-1960**）|
-| send-answer.ts | **仅 grep 行号**（115/147/163/486/512/645/678/718-750），**未读正文** |
+| 文件               | 覆盖                                                                                                                                          |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| stream-runtime.ts  | **全读（60行）**                                                                                                                              |
+| stream-handlers.ts | **全读（361行）**                                                                                                                             |
+| send-message.ts    | **片段**（285-344 入口防重、690-779 controller/代际/超时；onDone/onDelta/onToolCall/onError/finally 仅 grep 定位行号，**未逐行读 900-1960**） |
+| send-answer.ts     | **仅 grep 行号**（115/147/163/486/512/645/678/718-750），**未读正文**                                                                         |
 
 **重要边界澄清**：SSE/WS 帧解析（`data:` 行切分、`JSON.parse`、event→handler 分发、WS 重连）**不在本仓消费侧**，全部封装在 `packages/api-client` 的 `streamChat()`（`client.ts`）。本侧（send-message/send-answer）只是 `streamChat` 的回调接线方。因此问题 1/2/6 的解析完整性、帧边界、reader 关闭**主体在 api-client，本次未审**，见"未覆盖"。
 
@@ -20,20 +26,24 @@
 ## 一、确凿缺陷
 
 ### C1 · P1 · tool-delta 早到帧被静默丢弃（stream-handlers.ts:193-207）
+
 ```ts
 // createToolDeltaHandler
 const tc = message?.toolCalls?.find((t) => t.id === event.toolCallId)
-if (!tc) return          // ← tool-call-start 尚未建卡时，partialDiff 直接丢
+if (!tc) return // ← tool-call-start 尚未建卡时，partialDiff 直接丢
 ```
+
 **复现**：`tool-delta`（D113 文件写工具 diff 预览帧）先于 `tool-call-start` 到达，或 resume/回放场景下 delta 与 start 非严格有序。
 **影响**：该 toolCallId 的流中 diff 预览首片丢失；若 start 永不补发（服务端只发 delta 帧的工具路径），整段 partialDiff 预览全丢，用户看不到"改文件中"的实时 diff，直到 tool-result 才一次性出结果。
 **对比**：同文件 `createOpenAiToolCallHandler`(221) 在 `!existing` 时**会建卡**，两个 handler 对"卡不存在"的处理策略不一致——openai 路径自建，D113 路径丢弃。D113 头注只写了"仅 running 态渲染"，未覆盖"卡未建"这一态。
 
 ### C2 · P2 · OpenAI toolCallId 合成键可跨工具碰撞（stream-handlers.ts:229-231）
+
 ```ts
 const toolCallId = delta.id || idByIndex.get(delta.index) || `openai-${delta.index}`
 idByIndex.set(delta.index, toolCallId)
 ```
+
 `delta.index` 来自 OpenAI 首片的数组下标；若上游某片 `id` 为空且 `index` 也 undefined，多张卡都合成 `openai-undefined`，`idByIndex` 用 `undefined` 作键互相覆盖，后续 delta 全部归到同一张卡。低概率（依赖上游畸形帧）但一旦命中，参数预览串台。`idByIndex` 也无本轮结束清空（跨轮残留，靠 id 存在性兜底，影响有限）。
 
 ---
@@ -41,9 +51,11 @@ idByIndex.set(delta.index, toolCallId)
 ## 二、不完整实现
 
 ### I1 · tool-delta 与 openai-toolcall 对"卡不存在"语义分叉
+
 见 C1。建议 D113 路径对齐 openai 路径：`!tc` 时按 toolCallId 建占位 running 卡（toolName 未知可空），或至少记录丢弃计数便于排查。
 
 ### I2 · 超时定时器命名与实际值不一致（send-message.ts:747-760）
+
 变量名 `timeout15sId`/`abortedByTimeout15s`，实际 `setTimeout(..., 30000)`（30s，2026-07-27 由 15s 调到 30s）。仅命名债，不影响行为，但会误导后续维护者以为有两档 15/60，实为 30/60。**非 bug**。
 
 ---
@@ -75,3 +87,4 @@ idByIndex.set(delta.index, toolCallId)
 确凿缺陷 **2 条**：C1(P1) 早到 tool-delta 丢预览、C2(P2) 合成 id 碰撞。
 P0：**0 条**。消费侧状态机/竞态/资源清理设计有代际守卫 + abortController 双保险，无 P0。
 **最大缺口**：真正的问题 1/2/6（帧解析、JSON 失败、reader 关闭）全在 `packages/api-client` 的 `streamChat`，本次时间预算内未审，建议下一轮定向审计 `client.ts streamChat`。
+<!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
