@@ -1,0 +1,22 @@
+// HEADER_PLACEHOLDER_LINE_1
+// HEADER_PLACEHOLDER_LINE_2
+// HEADER_PLACEHOLDER_LINE_3
+
+/**
+ * F-667:把 PG 计数聚合(bigint / numeric)归一成 JSON 可用的 number。
+ *
+ * 为什么需要它(2026-11-13):token 计数列(llm_call_logs.total_tokens、
+ * token_flows.quantity 等)是 int4,`sum(...)` 提升到 int8 后若末端再 `::int`
+ * 截回 int4,任一聚合窗口合计 > 2,147,483,647 时 PG 直接抛 22003
+ * (integer out of range),统计/配额/商城列表接口整体 500。
+ *
+ * 去掉末端 `::int` 后,postgres.js 会把 bigint 以**字符串**返回(`sql<number>`
+ * 只是类型断言,不做运行时转换),接口契约就会从 number 变成 string。故聚合出口
+ * 统一走本函数:SQL 只到 `::bigint`,JS 侧转 number。token 量级远小于 2^53,
+ * Number 转换不丢精度。
+ */
+export function toSafeCount(value: unknown): number {
+  if (value === null || value === undefined) return 0
+  const n = Number(value)
+  return Number.isFinite(n) ? n : 0
+}
