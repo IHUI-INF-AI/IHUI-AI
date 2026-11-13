@@ -58,7 +58,7 @@ const DEFAULT_PROXY_HOSTS = [
 let installed = false
 
 /** F-622:日志脱敏 —— 代理地址只留「协议+主机」,账密/路径/查询串一律不落日志(与 relay-proxy-pool 同款口径)。 */
-function maskProxyUrlForLog(raw: string): string {
+export function maskProxyUrlForLog(raw: string): string {
   try {
     const u = new URL(raw)
     return `${u.protocol}//${u.host}`
