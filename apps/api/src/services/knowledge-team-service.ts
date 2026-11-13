@@ -240,18 +240,22 @@ async function requireItemAccess(
 }
 
 /** 审计落库:写内容不写审计等于没写(§5「鉴权面」同族的"判据要在有人跑它时才成立") */
-async function writeRevision(input: {
-  itemId: string
-  spaceId: string
-  revisionNo: number
-  action: TeamKnowledgeAction
-  actorUserId: string
-  actorRole: TeamKnowledgeRole
-  before: ContentSummary | null
-  after: ContentSummary | null
-  changeNote?: string | null
-}): Promise<void> {
-  await db.insert(teamKnowledgeRevisions).values({
+async function writeRevision(
+  input: {
+    itemId: string
+    spaceId: string
+    revisionNo: number
+    action: TeamKnowledgeAction
+    actorUserId: string
+    actorRole: TeamKnowledgeRole
+    before: ContentSummary | null
+    after: ContentSummary | null
+    changeNote?: string | null
+  },
+  tx?: Parameters<Parameters<typeof db.transaction>[0]>[0],
+): Promise<void> {
+  const executor = tx ?? db
+  await executor.insert(teamKnowledgeRevisions).values({
     itemId: input.itemId,
     spaceId: input.spaceId,
     revisionNo: input.revisionNo,
@@ -581,44 +585,67 @@ export class RevisionConflictError extends AppError {
 export async function reviseItem(actor: Actor, input: ReviseItemInput): Promise<ItemDTO> {
   const { item, access } = await requireItemAccess(actor.userId, input.itemId, 'editor')
 
-  if (input.expectedRevision !== undefined && input.expectedRevision !== item.revision) {
-    throw new RevisionConflictError(item.revision, input.expectedRevision)
-  }
+  // F-142:乐观基线 = 显式传入的 expectedRevision,未传时退回读到的那一版。
+  // 真正的冲突判定下沉到 UPDATE 的 WHERE revision = 基线 + rowCount —— 旧形态只在内存比较,
+  // UPDATE 不带 revision 条件 ⇒ 两名成员同时提交时后写静默覆盖先写、内容丢失。
+  const baseRevision =
+    input.expectedRevision !== undefined ? input.expectedRevision : item.revision
 
   const before = summarize(item.title, item.status, item.content)
   const nextTitle = input.title ?? item.title
   const nextContent = input.content ?? item.content ?? {}
   const nextStatus = item.status
-  const nextRevision = item.revision + 1
+  const nextRevision = baseRevision + 1
 
-  const [row] = await db
-    .update(teamKnowledgeItems)
-    .set({
-      title: nextTitle,
-      content: nextContent,
-      plainText: input.plainText ?? item.plainText,
-      tags: input.tags ? dedupeTags(input.tags) : item.tags,
-      revision: nextRevision,
-      updatedBy: actor.userId,
-      updatedAt: new Date(),
-    })
-    .where(eq(teamKnowledgeItems.id, item.id))
-    .returning()
-  if (!row) throw new AppError('知识条目修正失败', 500, 'ITEM_UPDATE_FAILED')
+  // F-142:update + writeRevision 放同一事务 —— 旧形态审计失败则正文已改无审计。
+  return db.transaction(async (tx) => {
+    const [row] = await tx
+      .update(teamKnowledgeItems)
+      .set({
+        title: nextTitle,
+        content: nextContent,
+        plainText: input.plainText ?? item.plainText,
+        tags: input.tags ? dedupeTags(input.tags) : item.tags,
+        revision: nextRevision,
+        updatedBy: actor.userId,
+        updatedAt: new Date(),
+      })
+      // 乐观锁:仅当 DB 里 revision 仍是基线才改;被并发改过 ⇒ 0 行 ⇒ 冲突
+      .where(and(eq(teamKnowledgeItems.id, item.id), eq(teamKnowledgeItems.revision, baseRevision)))
+      .returning()
+    if (!row) {
+      // 裁决时重读当前真值,供调用方收敛重试
+      const cur = await readCurrentRevision(item.id)
+      throw new RevisionConflictError(cur, baseRevision)
+    }
 
-  await writeRevision({
-    itemId: item.id,
-    spaceId: item.spaceId,
-    revisionNo: nextRevision,
-    action: 'revise',
-    actorUserId: actor.userId,
-    actorRole: access.role,
-    before,
-    after: summarize(nextTitle, nextStatus, nextContent),
-    changeNote: input.changeNote ?? null,
+    await writeRevision(
+      {
+        itemId: item.id,
+        spaceId: item.spaceId,
+        revisionNo: nextRevision,
+        action: 'revise',
+        actorUserId: actor.userId,
+        actorRole: access.role,
+        before,
+        after: summarize(nextTitle, nextStatus, nextContent),
+        changeNote: input.changeNote ?? null,
+      },
+      tx,
+    )
+
+    return toItemDTO(row)
   })
+}
 
-  return toItemDTO(row)
+/** 读条目当前 revision(F-142 冲突裁决时取真值)。 */
+async function readCurrentRevision(itemId: string): Promise<number> {
+  const [row] = await db
+    .select({ revision: teamKnowledgeItems.revision })
+    .from(teamKnowledgeItems)
+    .where(eq(teamKnowledgeItems.id, itemId))
+    .limit(1)
+  return row?.revision ?? 0
 }
 
 export interface SetItemStatusInput {
@@ -632,35 +659,46 @@ export async function setItemStatus(actor: Actor, input: SetItemStatusInput): Pr
   if (item.status === input.status) return toItemDTO(item)
 
   const before = summarize(item.title, item.status, item.content)
-  const nextRevision = item.revision + 1
+  // F-142:乐观基线 = 读到的那一版,UPDATE 带 revision 条件防并发覆盖
+  const baseRevision = item.revision
+  const nextRevision = baseRevision + 1
 
-  const [row] = await db
-    .update(teamKnowledgeItems)
-    .set({
-      status: input.status,
-      revision: nextRevision,
-      updatedBy: actor.userId,
-      updatedAt: new Date(),
-    })
-    .where(eq(teamKnowledgeItems.id, item.id))
-    .returning()
-  if (!row) throw new AppError('知识条目状态变更失败', 500, 'ITEM_UPDATE_FAILED')
+  // F-142:update + writeRevision 放同一事务,UPDATE 带 revision 条件(rowCount 判冲突)
+  return db.transaction(async (tx) => {
+    const [row] = await tx
+      .update(teamKnowledgeItems)
+      .set({
+        status: input.status,
+        revision: nextRevision,
+        updatedBy: actor.userId,
+        updatedAt: new Date(),
+      })
+      .where(and(eq(teamKnowledgeItems.id, item.id), eq(teamKnowledgeItems.revision, baseRevision)))
+      .returning()
+    if (!row) {
+      const cur = await readCurrentRevision(item.id)
+      throw new RevisionConflictError(cur, baseRevision)
+    }
 
-  await writeRevision({
-    itemId: item.id,
-    spaceId: item.spaceId,
-    revisionNo: nextRevision,
-    // 归档与发布的动词分开,draft→published 之外的流转统一记 revise 会丢信息
-    action:
-      input.status === 'published' ? 'publish' : input.status === 'archived' ? 'archive' : 'revise',
-    actorUserId: actor.userId,
-    actorRole: access.role,
-    before,
-    after: summarize(row.title, row.status, row.content),
-    changeNote: input.changeNote ?? null,
+    await writeRevision(
+      {
+        itemId: item.id,
+        spaceId: item.spaceId,
+        revisionNo: nextRevision,
+        // 归档与发布的动词分开,draft→published 之外的流转统一记 revise 会丢信息
+        action:
+          input.status === 'published' ? 'publish' : input.status === 'archived' ? 'archive' : 'revise',
+        actorUserId: actor.userId,
+        actorRole: access.role,
+        before,
+        after: summarize(row.title, row.status, row.content),
+        changeNote: input.changeNote ?? null,
+      },
+      tx,
+    )
+
+    return toItemDTO(row)
   })
-
-  return toItemDTO(row)
 }
 
 export interface ListItemsFilter {
