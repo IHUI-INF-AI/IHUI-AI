@@ -607,7 +607,8 @@ export const adminResourceRoutes: FastifyPluginAsync = async (server) => {
       if (!parsed.success) {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
-      const resource = await findResourceById(parsed.data.id)
+      // F-569:admin 后台需读草稿/下线资源,显式放行;公开出口保持缺省过滤。
+      const resource = await findResourceById(parsed.data.id, { includeUnpublished: true })
       if (!resource) return reply.status(404).send(error(404, '资源不存在'))
       return reply.send(success({ resource }))
     },
@@ -640,7 +641,7 @@ export const adminResourceRoutes: FastifyPluginAsync = async (server) => {
       if (!parsed.success) {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
-      const existing = await findResourceById(idParsed.data.id)
+      const existing = await findResourceById(idParsed.data.id, { includeUnpublished: true })
       if (!existing) return reply.status(404).send(error(404, '资源不存在'))
       const resource = await updateResource(idParsed.data.id, parsed.data)
       return reply.send(success({ resource }))
@@ -656,7 +657,7 @@ export const adminResourceRoutes: FastifyPluginAsync = async (server) => {
       if (!parsed.success) {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
-      const existing = await findResourceById(parsed.data.id)
+      const existing = await findResourceById(parsed.data.id, { includeUnpublished: true })
       if (!existing) return reply.status(404).send(error(404, '资源不存在'))
       await deleteResource(parsed.data.id)
       return reply.send(success({ ok: true }))
@@ -676,7 +677,7 @@ export const adminResourceRoutes: FastifyPluginAsync = async (server) => {
       if (!parsed.success) {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
-      const existing = await findResourceById(idParsed.data.id)
+      const existing = await findResourceById(idParsed.data.id, { includeUnpublished: true })
       if (!existing) return reply.status(404).send(error(404, '资源不存在'))
       const resource = await publishResource(idParsed.data.id, parsed.data.isPublished)
       return reply.send(success({ resource }))

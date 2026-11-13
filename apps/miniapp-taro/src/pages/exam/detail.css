@@ -73,7 +73,7 @@
 }
 
 .exam-detail-stat-value {
-  font-size: 34rpx;
+  font-size: var(--text-title-lg);
   font-weight: 700;
   color: var(--color-primary);
 }

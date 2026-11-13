@@ -144,14 +144,30 @@ export async function deletePreview(previewId: string): Promise<void> {
 
 /**
  * 定期清理过期 fallback 条目(long-running server 有效)。
- * unref 避免定时器阻止进程退出;模块加载即启动,资源占用可忽略(每 5 分钟扫一次 Map)。
  * 与 loadPreview 处的懒清理互补,防止长期不访问的 preview 累积导致 OOM。
+ *
+ * F-367:定时器改为显式生命周期 —— 模块 import 不再产生副作用,
+ * 由 API 进程入口调用 startFallbackCleanup();worker 进程不调用,避免空转。
  */
-const cleanupTimer = setInterval(() => {
-  const now = Date.now()
-  for (const [k, v] of fallbackStore) {
-    if (now > v.expireAt) fallbackStore.delete(k)
-  }
-}, FALLBACK_CLEANUP_INTERVAL_MS)
-cleanupTimer.unref?.()
+let cleanupTimer: NodeJS.Timeout | null = null
+
+/** 启动 fallback 清理定时器(幂等)。 */
+export function startFallbackCleanup(): void {
+  if (cleanupTimer) return
+  cleanupTimer = setInterval(() => {
+    const now = Date.now()
+    for (const [k, v] of fallbackStore) {
+      if (now > v.expireAt) fallbackStore.delete(k)
+    }
+  }, FALLBACK_CLEANUP_INTERVAL_MS)
+  // unref 避免定时器阻止进程退出
+  cleanupTimer.unref?.()
+}
+
+/** 停止 fallback 清理定时器(幂等)。 */
+export function stopFallbackCleanup(): void {
+  if (!cleanupTimer) return
+  clearInterval(cleanupTimer)
+  cleanupTimer = null
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

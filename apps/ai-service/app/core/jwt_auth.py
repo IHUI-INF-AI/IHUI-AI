@@ -165,10 +165,17 @@ class JWTAuthMiddleware(BaseHTTPMiddleware):
             if cookie_token:
                 auth_header = f"Bearer {cookie_token}"
             else:
-                return JSONResponse(
-                    status_code=401,
-                    content={"code": 401, "message": "Authentication required"},
-                )
+                # Anthropic 官方 SDK 形态客户端(Claude Code / Craft Anything 等)只发
+                # `x-api-key`,不发 Authorization。与 apps/api 的 api-key-auth.ts 双头口径
+                # 对齐:x-api-key 的值同样按 JWT 走验签,绝不匿名放行。
+                xkey_token = request.headers.get("x-api-key", "").strip()
+                if xkey_token:
+                    auth_header = f"Bearer {xkey_token}"
+                else:
+                    return JSONResponse(
+                        status_code=401,
+                        content={"code": 401, "message": "Authentication required"},
+                    )
 
         token = auth_header[7:].strip()
         payload = self._verify_token(token)

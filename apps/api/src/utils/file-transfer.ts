@@ -18,7 +18,7 @@ import { Readable } from 'node:stream'
 import { extname } from 'node:path'
 import type { ReadableStream as WebReadableStream } from 'node:stream/web'
 import { logger } from './logger.js'
-import { ensureSafeFetchUrl } from './ssrf-guard.js'
+import { ensureSafeFetchUrl, safeFetch } from './ssrf-guard.js'
 
 // =============================================================================
 // 常量
@@ -135,18 +135,17 @@ export async function downloadFileFromUrl(url: string): Promise<DownloadResult |
     // 但它是已导出的通用工具,任何一个新路由接上它就直接得到一枚"服务端替我出连 +
     // 落盘"的原语(内网元数据、只绑回环的管理端口都在射程)。闸必须住在工具自己这里,
     // 而不是指望每个未来的调用方都记得自己判一遍。
-    await ensureSafeFetchUrl(url)
-
+    // 2026-11-13(F-707):裸 fetch + redirect:'follow' 只校验首跳,302 落点会被传输层
+    // 直接连过去 ⇒ 改走 ssrf-guard 的 safeFetch(manual 逐跳复检 + 连接期同一次解析)。
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), DOWNLOAD_TIMEOUT_MS)
 
-    const resp = await fetch(url, {
+    const resp = await safeFetch(url, {
       headers: {
         'User-Agent': DEFAULT_USER_AGENT,
         Accept: '*/*',
       },
       signal: controller.signal,
-      redirect: 'follow',
     })
 
     clearTimeout(timeout)

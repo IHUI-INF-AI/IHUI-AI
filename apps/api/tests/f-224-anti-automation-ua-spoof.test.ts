@@ -232,7 +232,11 @@ describe('F-224 白名单 UA 不得豁免封禁与扫描器判定', () => {
     // 白名单只作为频率统计的开关存在,不得出现在 return 前置判定里
     expect(src).toMatch(/const healthCheckUa = isHealthCheckUa\(ua\)/)
     expect(src).not.toMatch(/if \(isHealthCheckUa\([^)]*\)\)\s*(?:\{\s*)?return/)
-    expect(src).toMatch(/if \(!healthCheckUa\) \{/)
+    // 健康检查 UA 与频率挑战白名单合流为频率段开关(2026-11-13 立 ANTI_AUTOMATION_ALLOWLIST):
+    // 两者都只在该 if 内跳过频率统计,不得在频率段之前提前 return 放行。
+    expect(src).toMatch(/if \(!healthCheckUa && !isRateAllowlisted\(ip\)\) \{/)
+    // 旧的单条件频率开关应已不存在(健康检查 UA 不再是唯一开关)
+    expect(src).not.toMatch(/if \(!healthCheckUa\) \{/)
     // 通用可伪造词已移除
     expect(src).not.toMatch(/'monitor'/)
     expect(src).not.toMatch(/'uptime'/)

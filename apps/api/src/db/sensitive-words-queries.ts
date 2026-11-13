@@ -35,7 +35,7 @@ export async function findSensitiveWords(params: {
       .select()
       .from(sensitiveWords)
       .where(where)
-      .orderBy(desc(sensitiveWords.createdAt))
+      .orderBy(desc(sensitiveWords.createdAt), desc(sensitiveWords.id))
       .limit(pageSize)
       .offset(offset),
     dbRead

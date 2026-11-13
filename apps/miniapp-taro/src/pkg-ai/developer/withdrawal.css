@@ -35,7 +35,7 @@
   color: var(--color-muted-foreground);
 }
 .summary-value {
-  font-size: 34rpx;
+  font-size: var(--text-title-lg);
   font-weight: 600;
   color: var(--color-foreground);
   margin-top: var(--spacing-xs);

@@ -449,6 +449,9 @@ const aiModulesRoutes: FastifyPluginAsync = async (server) => {
         sections,
         generatedAt,
       })
+      if (!pdfResult.ok) {
+        return reply.status(503).send(error(503, '报告 PDF 生成失败,请稍后重试'))
+      }
       return reply
         .header('Content-Type', 'application/pdf')
         .header('Content-Disposition', `attachment; filename="${filenameBase}.pdf"`)

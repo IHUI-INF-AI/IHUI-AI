@@ -52,16 +52,46 @@ export const TYPE_STEPS = {
   strong: { size: 15, lineHeight: 22, weight: 500 },
   /** 卡片标题 / 区段标题 */
   title: { size: 16, lineHeight: 24, weight: 600 },
+  /**
+   * 17 / 大号数值(2026-11-13 产品定档 plan_a):小程序 commission-overview 4 处裸写
+   * `text-[length:34rpx]`(=17px)落在 title 16 与 subtitle 18 之间的缝里,无档可落。
+   * 行高按 size×1.4 取整 = 24,字重 600(与 title 同,数值强调用 semibold)。
+   */
+  titleLg: { size: 17, lineHeight: 24, weight: 600 },
   /** 次级标题 */
   subtitle: { size: 18, lineHeight: 26, weight: 600 },
+  /**
+   * 19 / 小号区块标题(2026-11-13 plan_a):ai/special 1 处裸写 38rpx(=19px),
+   * 介于 subtitle 18 与 heading 20;行高 size×1.4 取整 = 28,字重 700(与 heading 同)。
+   */
+  headingSm: { size: 19, lineHeight: 28, weight: 700 },
   /** 区块标题 */
   heading: { size: 20, lineHeight: 28, weight: 700 },
+  /**
+   * 22 / 数据面板大数字(2026-11-13 plan_a):study / coupon-list / user 等 9 处裸写
+   * 44rpx(=22px)用于统计大数字,介于 heading 20 与 display 24;行高 size×1.4 取整 = 30,
+   * 字重 700(与 heading/display 同,大数字用 bold)。
+   */
+  headline: { size: 22, lineHeight: 30, weight: 700 },
   /** 页面主标题 */
   display: { size: 24, lineHeight: 32, weight: 700 },
+  /**
+   * 28 / 特大展示数字(2026-11-13 plan_a):about / developer-withdrawal 3 处裸写
+   * 56rpx(=28px),介于 display 24 与 displayLg 30;行高 size×1.3 取整 = 36,字重 700。
+   */
+  displayXl: { size: 28, lineHeight: 36, weight: 700 },
   /** 特大展示标题 */
   displayLg: { size: 30, lineHeight: 38, weight: 700 },
 } as const satisfies Record<string, TypeStep>
 
+/**
+ * 落档口径(2026-11-13 收口):以上 15 档在小程序端由 `app.css` 的 `@theme` 注册成 `text-*`
+ * 工具类,Tailwind v4 会一并产出 font-size / line-height / font-weight 三连;源码里的
+ * `text-[length:Nrpx]` 只剩图标字形盒(非文字排版,刻意不落档)。本表四枚 plan_a 档上方的
+ * 处数是立项时快照、不是当前残留数,以 `git grep 'text-\\[length:'` 现读为准。
+ * 唯一字重例外:`pages/study/ai-tutor/index.tsx` 的标题保留 `font-semibold`,把 headline
+ * 档默认 700 显式覆盖回原稿 600(刻意零字重变化),勿按"冗余类"删除。
+ */
 /** 字重单一真相源 */
 export const FONT_WEIGHTS = {
   regular: 400,

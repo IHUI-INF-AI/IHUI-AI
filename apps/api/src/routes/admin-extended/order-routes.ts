@@ -10,11 +10,18 @@ import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
 import { eq } from 'drizzle-orm'
 import { db } from '../../db/index.js'
-import { eduOrders, orders, withdrawalFlows } from '@ihui/database'
+import { eduOrders, orders } from '@ihui/database'
 import { requireAdmin } from '../../plugins/require-permission.js'
 import { success, error, parseOrThrow } from '../../utils/response.js'
 import { idParamSchema } from './_shared.js'
 import { isUuidString } from '../../utils/uuid.js'
+import { logAction } from '../../services/audit-service.js'
+// F-453:此第 5 条提现写入口原先直接 status=2|3、where 只有 id——无冻结释放、无退款、无
+// 前置状态断言:0→2 后回调只处理 0/1(payment-extended:147),冻结永久沉淀;reject 把终态
+// 改回 3 使 token 永久丢失;且可把任意终态改写。保留路由契约(前端两处审批仍调
+// /admin/shop/withdrawals/:id/:action),但改调 commission-queries 单源服务,与主链路同一份
+// 资金守恒逻辑:approve 只允许 0→1、reject 只允许 0→3 并退还冻结(带「冻结够才退」守卫)。
+import { approveWithdrawal, rejectWithdrawal } from '../../db/commission-queries.js'
 
 const updateOrderSchema = z.strictObject({
   status: z.enum(['pending', 'paid', 'cancelled', 'refunded']).optional(),
@@ -67,16 +74,24 @@ export const orderRoutes: FastifyPluginAsync = async (server) => {
       return reply
         .status(409)
         .send(
-          error(
-            409,
-            `订单状态为 ${existing.status},已产生资金流,禁止物理删除;请走退款/作废流程`,
-          ),
+          error(409, `订单状态为 ${existing.status},已产生资金流,禁止物理删除;请走退款/作废流程`),
         )
     }
     const [row] = await db.delete(eduOrders).where(eq(eduOrders.id, id)).returning()
     if (!row) return reply.status(404).send(error(404, '订单不存在'))
     // Phase 3: 同步删除统一 orders 表
     await db.delete(orders).where(eq(orders.id, id))
+    // F-130:物理删除是资金凭证的终点,必须留痕(谁、删了哪条、删除前状态)。
+    const ua = request.headers['user-agent']
+    await logAction({
+      userId: request.userId,
+      action: 'order.delete',
+      resourceType: 'order',
+      resourceId: id,
+      details: { status: existing.status },
+      ip: request.ip,
+      userAgent: typeof ua === 'string' ? ua.slice(0, 512) : undefined,
+    })
     return reply.send(success({ id, deleted: Boolean(row) }))
   })
   server.post(
@@ -84,16 +99,34 @@ export const orderRoutes: FastifyPluginAsync = async (server) => {
     { preHandler: requireAdmin },
     async (request: FastifyRequest, reply: FastifyReply) => {
       const { id } = parseOrThrow(idParamSchema, request.params)
+      // F-464: 同资源 PUT/DELETE 都有 uuid 闸,ship 漏了 ⇒ 非 uuid 字面量直达 uuid 列报 500
+      if (!isUuidString(id)) return reply.status(400).send(error(400, 'id 格式不正确'))
+      const [existing] = await db
+        .select({ status: eduOrders.status, remark: eduOrders.remark })
+        .from(eduOrders)
+        .where(eq(eduOrders.id, id))
+        .limit(1)
+      if (!existing) return reply.status(404).send(error(404, '订单不存在'))
+      // F-464: 仅已支付订单可发货,且不得重复发货/覆盖用户原始备注
+      if (existing.status !== 'paid') {
+        return reply
+          .status(409)
+          .send(error(409, `订单状态为 ${existing.status},仅已支付订单可发货`))
+      }
+      if (existing.remark?.startsWith('已发货')) {
+        return reply.status(409).send(error(409, '订单已发货,不可重复发货'))
+      }
       const now = new Date()
       const shipRemark = `已发货 ${now.toISOString()}`
+      const mergedRemark = existing.remark ? `${existing.remark} | ${shipRemark}` : shipRemark
       const [row] = await db
         .update(eduOrders)
-        .set({ remark: shipRemark, updatedAt: now })
+        .set({ remark: mergedRemark, updatedAt: now })
         .where(eq(eduOrders.id, id))
         .returning()
       if (!row) return reply.status(404).send(error(404, '订单不存在'))
       // Phase 3: 同步发货备注到统一 orders 表
-      await db.update(orders).set({ remark: shipRemark, updatedAt: now }).where(eq(orders.id, id))
+      await db.update(orders).set({ remark: mergedRemark, updatedAt: now }).where(eq(orders.id, id))
       return reply.send(success(row))
     },
   )
@@ -105,14 +138,19 @@ export const orderRoutes: FastifyPluginAsync = async (server) => {
         z.object({ id: z.string().min(1), action: z.enum(['approve', 'reject']) }),
         request.params,
       )
-      const status = action === 'approve' ? 2 : 3
-      const [row] = await db
-        .update(withdrawalFlows)
-        .set({ status, processedAt: new Date() })
-        .where(eq(withdrawalFlows.id, id))
-        .returning()
-      if (!row) return reply.status(404).send(error(404, '提现记录不存在'))
-      return reply.send(success(row))
+      // F-453:改调统一提现服务(单源资金守恒),不再直接写 status。
+      // approve:仅 pending(0)→processing(1) 条件 UPDATE;冻结释放交给支付回调。
+      // reject:仅 pending(0)→failed(3),事务内退还冻结(token+=amount / frozen-=amount,带守卫)。
+      // rejectReason 为空时补兜底文案(服务不要求必填,但留痕更可读)。
+      const operatorId = request.userId ?? null
+      const updated =
+        action === 'approve'
+          ? await approveWithdrawal(id, operatorId)
+          : await rejectWithdrawal(id, '管理端驳回', operatorId)
+      if (!updated) {
+        return reply.status(409).send(error(409, '提现记录不存在或已被处理(仅待审核可审批/驳回)'))
+      }
+      return reply.send(success(updated))
     },
   )
 }

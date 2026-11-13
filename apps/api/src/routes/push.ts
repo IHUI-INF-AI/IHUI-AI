@@ -40,6 +40,9 @@ function resolveDevicePlatform(deviceType: string | undefined): 'ios' | 'android
   return 'web'
 }
 
+/** F-682:单次群发收件人上限,超出部分截断并在响应中如实标注。 */
+const PUSH_RECIPIENT_LIMIT = 10000
+
 // =============================================================================
 // 用户端路由（注册/注销设备 token）
 // =============================================================================
@@ -175,11 +178,20 @@ export const adminPushRoutes: FastifyPluginAsync = async (server) => {
 
     // 2. 按 memberIds(user uuid)查询激活的设备 token
     if (memberIds && memberIds.length > 0) {
+      // F-682:收件人查询必须有上限,避免超大群发把结果集与内存一次打满;
+      // 多取 1 条用于判断是否被截断,并在响应中如实标注(不静默截断)。
       const rows = await db
         .select({ token: deviceTokens.token })
         .from(deviceTokens)
         .where(and(inArray(deviceTokens.userId, memberIds), eq(deviceTokens.isActive, true)))
-      const activeTokens = rows.map((r) => r.token)
+        .limit(PUSH_RECIPIENT_LIMIT + 1)
+      const truncated = rows.length > PUSH_RECIPIENT_LIMIT
+      if (truncated) {
+        console.warn(
+          `[push] 收件人超过上限 ${PUSH_RECIPIENT_LIMIT},已截断: memberIds=${memberIds.length}`,
+        )
+      }
+      const activeTokens = rows.slice(0, PUSH_RECIPIENT_LIMIT).map((r) => r.token)
       if (activeTokens.length === 0) {
         return reply.send(
           success({
@@ -204,6 +216,7 @@ export const adminPushRoutes: FastifyPluginAsync = async (server) => {
           success: successCount,
           failed: results.length - successCount,
           results,
+          ...(truncated ? { truncated: true, note: '收件人超过上限,已截断' } : {}),
         }),
       )
     }

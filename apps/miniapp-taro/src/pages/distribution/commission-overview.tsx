@@ -140,7 +140,7 @@ export default function CommissionOverview({ reloadTick }: { reloadTick: number 
       <View className="mt-[20rpx] p-[28rpx] rounded-xl border border-[var(--color-border)] bg-card">
         <View className="flex flex-row items-start justify-between">
           <View className="flex flex-col items-center flex-1">
-            <Text className="text-[length:34rpx] font-semibold text-foreground whitespace-nowrap">
+            <Text className="text-title-lg text-foreground whitespace-nowrap">
               {formatPrice(info.totalCommission ?? 0)}
             </Text>
             <Text className="mt-[8rpx] text-caption text-muted-foreground">
@@ -148,7 +148,7 @@ export default function CommissionOverview({ reloadTick }: { reloadTick: number 
             </Text>
           </View>
           <View className="flex flex-col items-center flex-1">
-            <Text className="text-[length:34rpx] font-semibold text-foreground whitespace-nowrap">
+            <Text className="text-title-lg text-foreground whitespace-nowrap">
               {formatPrice(info.withdrawnCommission ?? 0)}
             </Text>
             <Text className="mt-[8rpx] text-caption text-muted-foreground">
@@ -156,7 +156,7 @@ export default function CommissionOverview({ reloadTick }: { reloadTick: number 
             </Text>
           </View>
           <View className="flex flex-col items-center flex-1">
-            <Text className="text-[length:34rpx] font-semibold text-[var(--color-success)] whitespace-nowrap">
+            <Text className="text-title-lg text-[var(--color-success)] whitespace-nowrap">
               {formatPrice(info.pendingCommission ?? 0)}
             </Text>
             <Text className="mt-[8rpx] text-caption text-muted-foreground">

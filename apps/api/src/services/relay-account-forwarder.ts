@@ -904,6 +904,9 @@ async function* readSseDataLines(
   }
   const decoder = new TextDecoder()
   let buffer = ''
+  // F-677:是否读到上游流末尾(done=true)。非正常结束(抛错 / 消费者提前 break,
+  // 如命中 [DONE])必须 cancel,否则 undici/代理连接要等对端自然结束才能归还。
+  let reachedEnd = false
   try {
     while (true) {
       const { done, value } = await reader.read()
@@ -916,14 +919,22 @@ async function* readSseDataLines(
         if (line.trimStart().startsWith('data:')) yield line
       }
     }
+    reachedEnd = true
     buffer += decoder.decode()
     const tail = buffer.replace(/\r$/, '').trimStart()
     if (tail.startsWith('data:')) yield tail
   } finally {
     signal?.removeEventListener('abort', onAbort)
-    // F-671:提前 break(命中 [DONE])也必须 cancel —— 只 releaseLock 会让 tee 的另一支
-    // 持续缓冲;客户端断开时 reader.cancel() 才会真正停止上游读取。
-    await reader.cancel().catch(() => {})
+    // F-677:非正常结束才 cancel(正常读到流末尾 / abort 已取消的不重复取消);
+    // 只 releaseLock 会让 body 既未读完也未取消,连接不能立即归还。
+    if (!reachedEnd) await reader.cancel().catch(() => {})
+    // releaseLock 必须在 cancel 之后(同一次 finally 内):顺序反过来会让
+    // cancel 撞上「锁被占用」,提前释放又拿不到取消权。
+    try {
+      reader.releaseLock()
+    } catch {
+      /* 流已取消/仍有在途读:锁随流回收,无需补偿 */
+    }
   }
 }
 

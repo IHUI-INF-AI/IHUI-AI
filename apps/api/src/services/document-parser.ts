@@ -284,22 +284,129 @@ export async function parseDocument(opts: {
 
   // XLSX / XLSM:exceljs 优先,xlsx 库降级
   if (mime === XLSX_MIME || mime === XLSX_MIME_ALT) {
-    const result = await parseXlsx(buffer)
+    // F-417:入库只取 text,显式声明避免生成 markdown 副本
+    const result = await parseXlsx(buffer, { formats: ['text'] })
     return result.text
   }
 
   // XLS 老格式:xlsx 库独占
   if (mime === XLS_MIME) {
-    const result = await parseXls(buffer)
+    const result = await parseXls(buffer, { formats: ['text'] })
     return result.text
   }
 
   // CSV:手写解析
   if (mime === CSV_MIME) {
-    const result = await parseCsv(buffer)
+    const result = await parseCsv(buffer, { formats: ['text'] })
     return result.text
   }
 
   throw new UnsupportedFormatError(mime || '(no mime)')
+}
+
+// ============================================================================
+// 结构化信封入口(借鉴 Qoder previewEngine + previewFallback,加法式新增)
+// 复用上面已有的 parseDocument + loadAnydoc + describeAnydocError 路径,
+// 不改动任何现有逻辑。5 个 parseDocument 调用方零影响。
+// ============================================================================
+
+import type { ParseEnvelope, PreviewEngine, PreviewFallback } from './preview-envelope.js'
+import { FALLBACK_CODE, FALLBACK_CATEGORY, classifyAnydocError } from './preview-envelope.js'
+
+/** 由 MIME 推断默认引擎(未降级时)。 */
+function engineForMime(mime: string): PreviewEngine {
+  if (mime === PDF_MIME) return 'anydoc'
+  if (mime === DOCX_MIME) return 'anydoc'
+  if (
+    [
+      PPTX_MIME,
+      PPT_MIME,
+      DOC_MIME,
+      ODT_MIME,
+      ODS_MIME,
+      ODP_MIME,
+      RTF_MIME,
+      RTF_MIME_ALT,
+      EPUB_MIME,
+    ].includes(mime)
+  )
+    return 'anydoc'
+  if (mime === XLSX_MIME || mime === XLSX_MIME_ALT) return 'exceljs'
+  if (mime === XLS_MIME) return 'xlsx-legacy'
+  if (mime === CSV_MIME) return 'csv'
+  if (mime === HTML_MIME) return 'html-text'
+  if (mime === MD_MIME || mime === TEXT_MIME || mime === TSV_MIME || mime === JSON_MIME)
+    return 'raw-text'
+  return 'raw-text'
+}
+
+/**
+ * 结构化解析:返回 ParseEnvelope(text + previewEngine + fallbacks + elapsedMs)。
+ * 与 parseDocument 共享全部降级逻辑,只是把降级事件结构化收集而非丢进日志。
+ * 调用方(如知识库入库)可据此做格式健康度统计 / 用户引导路由。
+ */
+export async function parseDocumentWithEnvelope(opts: {
+  buffer: Buffer
+  mimeType?: string
+  filename: string
+}): Promise<ParseEnvelope> {
+  const { buffer, filename } = opts
+  const provided = (opts.mimeType ?? '').toLowerCase().trim()
+  const mime =
+    provided && provided !== 'application/octet-stream' ? provided : detectByExt(filename)
+  const fallbacks: PreviewFallback[] = []
+  const t0 = Date.now()
+
+  // ---- anydoc 主路径 ----
+  const anydoc = await loadAnydoc()
+  if (anydoc && ANYDOC_MIMES.has(mime)) {
+    const fmt = anydoc.formatFromPath(filename)
+    try {
+      const md = await anydoc.toMarkdownBytes(new Uint8Array(buffer), fmt ?? null)
+      if (md && md.trim()) {
+        return { text: md, previewEngine: 'anydoc', fallbacks, elapsedMs: Date.now() - t0 }
+      }
+      // 输出为空
+      const emptyFb: PreviewFallback = {
+        category: FALLBACK_CATEGORY.Malformed,
+        code: FALLBACK_CODE.EmptyOutput,
+        detail: 'anydoc 输出为空',
+        title: '解析结果为空',
+      }
+      fallbacks.push(emptyFb)
+      if (!ANYDOC_FALLBACK_MIMES.has(mime)) {
+        throw new Error('解析结果为空(文档可能无文本内容)')
+      }
+      logger.warn('[document-parser:envelope] anydoc 输出为空,降级旧实现', { mime })
+    } catch (e) {
+      const code = (e as AnydocError)?.code
+      const detail = (e as Error).message
+      const fb = classifyAnydocError(code, detail)
+      if (fb) fallbacks.push(fb)
+      if (code === 'needsOcr') throw new Error(describeAnydocError(e))
+      if (!ANYDOC_FALLBACK_MIMES.has(mime)) {
+        logger.error('[document-parser:envelope] anydoc 转换失败', {
+          mime,
+          code: code ?? 'unknown',
+          error: detail,
+        })
+        throw new Error(describeAnydocError(e))
+      }
+      logger.error('[document-parser:envelope] anydoc 转换失败,降级旧实现', {
+        mime,
+        code: code ?? 'unknown',
+        error: detail,
+      })
+    }
+  }
+
+  // ---- 降级到旧实现 ----
+  // 若原本在 anydoc 集内(PDF/DOCX)且已产生降级记录,则实际生效引擎是降级引擎。
+  let engine: PreviewEngine = engineForMime(mime)
+  if (mime === PDF_MIME) engine = 'unpdf'
+  else if (mime === DOCX_MIME) engine = 'mammoth'
+
+  const text = await parseDocument({ buffer, mimeType: mime, filename })
+  return { text, previewEngine: engine, fallbacks, elapsedMs: Date.now() - t0 }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

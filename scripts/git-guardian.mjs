@@ -12322,7 +12322,11 @@ export function sweepMiniappStyleTiers(opts = {}) {
       ? runner
       : () => {
           try {
-            const out = execFileSync(process.execPath, [script, '--apply'], {
+            // --font-safe:字号等值腿(裸 rpx / text-[length:Nrpx] → 命名档,像素零变化)。
+            // 2026-11-13 补:此前只传 --apply,字号腿长期只有手工跑 —— 同源门每天新长的字号分叉无人收
+            // (RN 侧 sweepRnStyleTiers 早已开 --include-font-size,小程序漏了这一腿 ⇒ 三端落档节律不齐)。
+            // 该腿自带归属避让/水印/幂等三件套,等值才换、档外值一律不动,属安全子集。
+            const out = execFileSync(process.execPath, [script, '--apply', '--font-safe'], {
               cwd: WORKTREE,
               encoding: 'utf8',
               windowsHide: true, // §5b 派生进程纪律

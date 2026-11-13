@@ -8,6 +8,7 @@ import { sql } from 'drizzle-orm'
 import { dbRead, db } from '../../db/index.js'
 import { success, error } from '../../utils/response.js'
 import { requireAdmin } from '../../plugins/require-permission.js'
+import { booleanStringSchemaOptional } from '../../utils/parse-boolean.js'
 
 /**
  * /api/admin/relay/data-management 数据管理(2026-09-17 立,补强 56,对标竞品 /data-management)。
@@ -48,7 +49,9 @@ function firstRow<T extends Record<string, unknown>>(r: unknown): T | undefined 
 const cleanupSchema = z.object({
   table: z.string().refine((v) => v in CLEANABLE, 'table 不在可清理白名单'),
   keepDays: z.coerce.number().int().min(1).max(3650),
-  dryRun: z.coerce.boolean().default(false),
+  // F-162:z.coerce.boolean() 把字符串 "false"/"0" 解析为 true ⇒ dryRun 误判、真实清理被当预览。
+  // 改用严格布尔 schema(白名单解析,非法值失败),缺省视为 false。
+  dryRun: booleanStringSchemaOptional.default(false),
 })
 
 const adminRelayDataManagementRoutes: FastifyPluginAsync = async (server) => {
@@ -99,11 +102,21 @@ const adminRelayDataManagementRoutes: FastifyPluginAsync = async (server) => {
       if (dryRun || wouldDelete === 0) {
         return reply.send(success({ table, keepDays, wouldDelete, deleted: 0, dryRun }))
       }
-      const delResult = await db.execute(
-        sql`WITH del AS (DELETE FROM ${sql.identifier(meta.table)} WHERE created_at < now() - (${keepDays} || ' days')::interval RETURNING 1) SELECT count(*)::int AS n FROM del`,
-      )
-      const deleted = Number(firstRow<CountRow>(delResult)?.n ?? 0)
-      request.log.warn(`[data-management] 清理完成 table= keepDays= deleted=`)
+      // F-162:原 SQL 为全表条件 DELETE(无 LIMIT),大表长事务、锁表与 WAL 膨胀,且不可回滚地一次删光历史。
+      // 改为按 ctid 分批 DELETE(LIMIT 单批上限),循环到本批删空为止——单次请求最多删 BATCH 行,
+      // 避免一次长事务锁表;超量可再次调用(与注释「单批上限 50000」自述对齐)。
+      const BATCH = 50_000
+      let deleted = 0
+      for (;;) {
+        const delResult = await db.execute(
+          sql`WITH del AS (DELETE FROM ${sql.identifier(meta.table)} WHERE ctid IN (SELECT ctid FROM ${sql.identifier(meta.table)} WHERE created_at < now() - (${keepDays} || ' days')::interval LIMIT ${BATCH}) RETURNING 1) SELECT count(*)::int AS n FROM del`,
+        )
+        const batchDeleted = Number(firstRow<CountRow>(delResult)?.n ?? 0)
+        deleted += batchDeleted
+        if (batchDeleted < BATCH) break // 本批删空(不足 BATCH 行)⇒ 已无可清理行,退出
+      }
+      // F-162:日志模板原样未插值(审计恒为空),补齐占位符取值
+      request.log.warn(`[data-management] 清理完成 table=${meta.table} keepDays=${keepDays} deleted=${deleted}`)
       return reply.send(success({ table, keepDays, wouldDelete, deleted, dryRun: false }))
     } catch (e) {
       request.log.error(e)

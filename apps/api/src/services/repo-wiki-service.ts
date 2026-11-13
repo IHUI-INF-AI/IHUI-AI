@@ -21,6 +21,8 @@
 import { db } from '../db/index.js'
 import { repoWikiDocs } from '@ihui/database'
 import { aiServiceFetch } from '../utils/ai-service-fetch.js'
+import { isRetiredModel } from '../utils/retired-providers.js'
+import { AppError } from '../errors/AppError.js'
 import { logger } from './clawdbot/logger.js'
 
 // =============================================================================
@@ -37,8 +39,8 @@ const MAX_TOTAL_CHARS = 120 * 1024
 const MAX_MODULE_DOCS = 6
 /** LLM 调用超时(120s) */
 const LLM_TIMEOUT_MS = 120_000
-/** 默认模型(可用 env AI_REPO_WIKI_MODEL 覆盖) */
-const DEFAULT_MODEL = process.env.AI_REPO_WIKI_MODEL || 'gpt-4o-mini'
+/** 缺省模型(env AI_REPO_WIKI_MODEL 未设时的兜底) */
+const DEFAULT_MODEL = 'gpt-4o-mini'
 /** 目录树最多行数(防超大仓库撑爆 prompt) */
 const MAX_TREE_LINES = 500
 
@@ -104,10 +106,11 @@ export interface GenerateRepoWikiResult {
   edges: RepoWikiModuleEdge[]
 }
 
-/** LLM 调用函数签名(可注入 mock) */
+/** LLM 调用函数签名(可注入 mock);F-529:第三参为本次实际使用的 model */
 export type WikiLlmCaller = (
   systemPrompt: string,
   userContent: string,
+  model: string,
 ) => Promise<{ content: string; model: string | null }>
 
 // =============================================================================
@@ -424,12 +427,25 @@ function isAbortError(err: unknown): boolean {
 }
 
 /**
+ * F-529:解析本次实际使用的模型。
+ * 请求显式传入优先(trim 后原样透传);非法(退役 provider,复用退役守卫)→ 400;
+ * 未传才回落 AI_REPO_WIKI_MODEL / 缺省模型。
+ */
+function resolveRepoWikiModel(requested?: string | null): string {
+  const explicit = requested?.trim()
+  if (!explicit) return process.env.AI_REPO_WIKI_MODEL?.trim() || DEFAULT_MODEL
+  if (isRetiredModel(explicit)) {
+    throw new AppError(`不支持的模型:${explicit}`, 400, 'INVALID_MODEL')
+  }
+  return explicit
+}
+
+/**
  * 默认 LLM 调用:经 ai-service /api/llm/complete(非流式)。
  * 响应契约:{content, model, usage, stub, error?, error_message?}。
  * HTTP/服务层失败直接 throw(调用方决定是否阻断)。
  */
-const defaultWikiLlmCaller: WikiLlmCaller = async (systemPrompt, userContent) => {
-  const model = process.env.AI_REPO_WIKI_MODEL || DEFAULT_MODEL
+const defaultWikiLlmCaller: WikiLlmCaller = async (systemPrompt, userContent, model) => {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), LLM_TIMEOUT_MS)
   try {
@@ -462,7 +478,7 @@ const defaultWikiLlmCaller: WikiLlmCaller = async (systemPrompt, userContent) =>
     }
     const content = (json.content ?? '').trim()
     if (!content) throw new Error('LLM 返回内容为空')
-    return { content, model: json.model ?? model }
+    return { content, model: json.model || model }
   } catch (e) {
     if (isAbortError(e)) throw new Error('LLM 调用超时(120s)')
     throw e
@@ -486,6 +502,8 @@ export async function generateRepoWiki(
   deps?: { callLlm?: WikiLlmCaller },
 ): Promise<GenerateRepoWikiResult> {
   const callLlm = deps?.callLlm ?? defaultWikiLlmCaller
+  // F-529:请求 model 优先;非法模型 400;未传才用默认模型。
+  const model = resolveRepoWikiModel(input.model)
 
   // 1. 预算分组
   const budget = budgetRepoFiles(input.files)
@@ -498,6 +516,7 @@ export async function generateRepoWiki(
   const overview = await callLlm(
     OVERVIEW_SYSTEM_PROMPT,
     buildOverviewUserContent(input.repoName, input.files, budget),
+    model,
   )
 
   // P1-8(2026-09-13 立):模块依赖图——纯静态解析(不依赖 LLM),只追加到 overview 正文末尾。
@@ -511,8 +530,12 @@ export async function generateRepoWiki(
   const moduleDocs: Array<{ module: RepoWikiModule; content: string; model: string | null }> = []
   for (const m of targetModules) {
     try {
-      const result = await callLlm(MODULE_SYSTEM_PROMPT, buildModuleUserContent(input.repoName, m))
-      moduleDocs.push({ module: m, content: result.content, model: result.model })
+      const result = await callLlm(
+        MODULE_SYSTEM_PROMPT,
+        buildModuleUserContent(input.repoName, m),
+        model,
+      )
+      moduleDocs.push({ module: m, content: result.content, model: result.model || model })
     } catch (e) {
       logger.warn(
         { repoName: input.repoName, module: m.name, err: (e as Error).message },
@@ -536,7 +559,8 @@ export async function generateRepoWiki(
         modulePath: null,
         title: `${repoNameNormalized} 仓库总览`,
         content: overviewContent,
-        model: overview.model,
+        // F-529:落库 model 用实际生效模型(上游回报优先),计费口径与之一致。
+        model: overview.model || model,
         fileCount: budget.fileCount,
       },
       ...moduleDocs.map((d) => ({

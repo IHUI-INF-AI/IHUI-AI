@@ -41,7 +41,7 @@
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
-import { buildEntries, parseTokenTables } from './sync-css-tokens.mjs'
+import { buildEntries, cssStepName, parseTokenTables } from './sync-css-tokens.mjs'
 import { catBatch, gitRaw, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
 import { maskComments } from './lib/code-mask.mjs'
 
@@ -71,6 +71,39 @@ const TW_SPACING_CLASSES = ['p', 'px', 'py', 'pt', 'pb', 'pl', 'pr', 'm', 'mx', 
 const PROJECT_SPACING_KEYS = ['none', '2xs', 'xs', 'xs-loose', 'sm', 'sm-loose', 'md', 'lg', 'xl', '2xl', '3xl', '4xl', '5xl', '6xl']
 const PROJECT_RADIUS_KEYS = ['xs', 'sm', 'md', 'lg', 'xl', '2xl']
 
+/**
+ * 项目字号档类名后缀(脱机兜底)。真仓路径恒走 `table.typeKeys`(由 TYPE_STEPS 经 cssStepName
+ * 派生,§0.6 单一真相源),这里只服务未带档表键的 self-test / 镜像测试调用。
+ * 2026-11-13 补齐 15 档:旧清单只有 10 档,plan_a 新增的 title-lg / heading-sm /
+ * headline / display-xl 与既有 body-sm 全部漏登记,报告会把 projectRef 静默读小。
+ */
+const PROJECT_TEXT_KEYS_FALLBACK = [
+  'badge',
+  'caption',
+  'label',
+  'body-sm',
+  'body',
+  'strong',
+  'title',
+  'title-lg',
+  'subtitle',
+  'heading',
+  'heading-sm',
+  'headline',
+  'display',
+  'display-xl',
+  'display-lg',
+]
+
+/**
+ * 长名在前是刻意的:正则交替最左优先,若 `title` 排在 `title-lg` 前,`text-title-lg` 会被
+ * 吞成 `text-title` 半截匹配(计数仍为 1,但档名归错)。按长度降序即可让二者各自精确命中。
+ */
+function projectTextKeys(table) {
+  const keys = table?.typeKeys?.length ? table.typeKeys : PROJECT_TEXT_KEYS_FALLBACK
+  return [...keys].sort((a, b) => b.length - a.length)
+}
+
 const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
 /**
@@ -98,8 +131,11 @@ export function scanText(text, table) {
   // ── 字号:项目档类 / Tailwind 默认类 / 任意值 ──
   // 项目字号档名与 Tailwind 默认字号档名**刻意不共用一张表**:`text-sm`/`text-lg` 是 v4 默认档,
   // 归 default 桶(改项目档不跟随);`text-body`/`text-title` 才是项目档。
-  const PROJECT_TEXT_KEYS = ['badge', 'caption', 'label', 'body', 'strong', 'title', 'subtitle', 'heading', 'display', 'display-lg']
-  for (const m of text.matchAll(new RegExp(`\\btext-(${PROJECT_TEXT_KEYS.map((k) => esc(k)).join('|')})\\b`, 'g'))) {
+  // 2026-11-13:项目档名不再手写,改由 TYPE_STEPS 派生(table.typeKeys),新增档自动进射程。
+  const projectKeys = projectTextKeys(table)
+  for (const m of text.matchAll(
+    new RegExp(`\\btext-(${projectKeys.map((k) => esc(k)).join('|')})\\b`, 'g'),
+  )) {
     void m
     out.textProject++
   }
@@ -129,7 +165,13 @@ export function scanText(text, table) {
     out.spaceDefaultNumeric++
   }
   // 字面量:style 对象 / CSS 属性里的 rpx 长度
-  const litRe = /\b(padding|paddingHorizontal|paddingVertical|paddingTop|paddingBottom|paddingLeft|paddingRight|margin|marginTop|marginBottom|marginLeft|marginRight|marginHorizontal|marginVertical|gap|rowGap|columnGap|fontSize|lineHeight|width|height|minWidth|minHeight|maxWidth|maxHeight|top|right|bottom|left|borderRadius)\s*:\s*'?(\d+(?:\.\d+)?)rpx'?/g
+  // 2026-11-13 修误报:属性名前加负向后行断言 (?<![\w-])。原 \b 在 `-` 与字母之间也成立,
+  // 导致 CSS 自定义属性/连写属性里的词被误当成独立属性 —— 如 `--line-height: 48rpx` 命中
+  // `height`、`padding-top: N` 命中 `top`。design-tokens 新增 4 档(80e4814fdc)在 app.css 写
+  // `--text-*-line-height: 48rpx`,每档被误计 +1,共 +4 假裸字面量 ⇒ 302p mpTierLiteral
+  // 600→602(其中 +4 误报,被后两枚真回收抵掉 −2)。断言把"前缀是连字符/字母数字"的伪属性名
+  // 一律排除,只认真正的属性起始位(JS style 对象与顶层 CSS 属性)。
+  const litRe = /(?<![\w-])(padding|paddingHorizontal|paddingVertical|paddingTop|paddingBottom|paddingLeft|paddingRight|margin|marginTop|marginBottom|marginLeft|marginRight|marginHorizontal|marginVertical|gap|rowGap|columnGap|fontSize|lineHeight|width|height|minWidth|minHeight|maxWidth|maxHeight|top|right|bottom|left|borderRadius)\s*:\s*'?(\d+(?:\.\d+)?)rpx'?/g
   for (const m of text.matchAll(litRe)) {
     const prop = m[1]
     const px = Number(m[2]) / 2
@@ -254,7 +296,9 @@ function loadTierTable() {
   const entries = buildEntries(tables)
   const spacingPx = new Set(Object.values(tables.SPACING_STEPS).map(Number))
   const typeSizes = new Set(Object.values(tables.TYPE_STEPS).map((v) => Number(v.size)))
-  return { entries, spacingPx, typeSizes }
+  // 档名与 tokens.css 的 `--text-*` 中段同源(cssStepName 同一把尺),报告器据此认项目档类。
+  const typeKeys = Object.keys(tables.TYPE_STEPS).map(cssStepName)
+  return { entries, spacingPx, typeSizes, typeKeys }
 }
 
 const SELF_TEST_CASES = [
@@ -262,6 +306,11 @@ const SELF_TEST_CASES = [
     name: '项目字号档类计入 project',
     text: 'className="text-body text-title"',
     expect: (c) => c.textProject === 2 && c.textDefault === 0,
+  },
+  {
+    name: '2026-11-13 新四档 + body-sm 必须计入 project(漏登记会静默读小)',
+    text: 'className="text-title-lg text-heading-sm text-headline text-display-xl text-body-sm"',
+    expect: (c) => c.textProject === 5 && c.textDefault === 0 && c.textArbitrary === 0,
   },
   {
     name: 'Tailwind 默认字号档计入 default(不是 project)',
@@ -302,7 +351,29 @@ const SELF_TEST_CASES = [
 ]
 
 function runSelfTest() {
-  const table = { spacingPx: new Set([0, 2, 4, 6, 8, 10, 12, 16, 20, 24, 32, 40, 48, 64]), typeSizes: new Set([10, 11, 12, 14, 15, 16, 18, 20, 24, 30]) }
+  // typeKeys 与真仓 loadTierTable() 同形(TYPE_STEPS 经 cssStepName 派生);此处手写以保持纯函数层不读盘。
+  const typeKeys = [
+    'badge',
+    'caption',
+    'label',
+    'body-sm',
+    'body',
+    'strong',
+    'title',
+    'title-lg',
+    'subtitle',
+    'heading',
+    'heading-sm',
+    'headline',
+    'display',
+    'display-xl',
+    'display-lg',
+  ]
+  const table = {
+    spacingPx: new Set([0, 2, 4, 6, 8, 10, 12, 16, 20, 24, 32, 40, 48, 64]),
+    typeSizes: new Set([10, 11, 12, 14, 15, 16, 18, 20, 24, 30]),
+    typeKeys,
+  }
   let pass = 0
   let fail = 0
   for (const c of SELF_TEST_CASES) {

@@ -121,7 +121,7 @@ export interface HealthRevival {
 
 interface RowOutcome {
   uid: string
-  decision: SyncReason | 'auto-import'
+  decision: SyncReason | 'auto-import' | `client-auth-${string}`
   applied: boolean
   error?: string
 }

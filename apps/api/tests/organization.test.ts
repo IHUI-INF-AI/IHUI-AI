@@ -164,14 +164,16 @@ describe('organization routes', () => {
   })
 
   describe('带认证', () => {
-    it('GET /api/organizations/list 返回 200', async () => {
+    // F-520(2026-11-13):list 原先只 authenticate,任意登录用户可枚举全部组织;
+    // 现与同文件其余管理面一致要求管理员,普通成员 403。
+    it('GET /api/organizations/list 普通成员返回 403', async () => {
+      authClaims.current = { ...authClaims.current, roleId: 0 }
       const res = await server.inject({
         method: 'GET',
         url: '/api/organizations/list',
         headers: AUTH_HEADERS,
       })
-      expect(res.statusCode).toBe(200)
-      expect(res.json().code).toBe(0)
+      expect(res.statusCode).toBe(403)
     })
 
     it('POST /api/organizations 返回 201', async () => {

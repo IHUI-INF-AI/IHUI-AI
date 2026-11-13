@@ -4,7 +4,7 @@
 
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
-import { inArray, sql } from 'drizzle-orm'
+import { and, eq, inArray, sql } from 'drizzle-orm'
 import { users } from '@ihui/database'
 import type { UnreadCount } from '@ihui/types'
 import { authenticate } from '../plugins/auth.js'
@@ -413,10 +413,13 @@ export const notificationRoutes: FastifyPluginAsync = async (server) => {
       // 异步广播策略:先查出所有用户,然后批量入队 notification 队列
       // 由 Worker 异步完成 DB 落库 + WebSocket 推送,避免大用户量时阻塞请求
       // 队列不可用时降级为同步直写(向后兼容)
+      // F-639:收件人只看 status=1(排除 0=禁用 / 3=注销),不再向注销账号投递。
+      let syncWriteStarted = false
       try {
         const allUsers = await db
           .select({ id: users.id, email: users.email, nickname: users.nickname })
           .from(users)
+          .where(eq(users.status, 1))
         if (allUsers.length === 0) {
           return reply.send(success({ sentCount: 0 }))
         }
@@ -448,12 +451,16 @@ export const notificationRoutes: FastifyPluginAsync = async (server) => {
         }
 
         // 降级:队列不可用时同步直写(原逻辑)
+        syncWriteStarted = true
         const created = await broadcastNotification(parsed.data)
         for (const n of created) {
           server.pushNotification(n.userId, n)
         }
         return reply.send(success({ sentCount: created.length, async: false }))
       } catch (e) {
+        // F-639:同步直写已开始后仍抛错 ⇒ 已有部分批次落库,不能再无幂等键地重跑一遍全量
+        // (会重复投递)。如实 500,让调用方看到真实失败。
+        if (syncWriteStarted) throw e
         request.log.warn({ err: e }, 'broadcast notification failed, fallback to sync')
         // 最终降级:同步直写
         const created = await broadcastNotification(parsed.data)
@@ -539,6 +546,7 @@ export const notificationRoutes: FastifyPluginAsync = async (server) => {
       }[]
 
       if (userIds !== null) {
+        // F-639:显式指定收件人同样只认有效账号(status=1),禁用/注销用户不投递。
         targetUsers = await db
           .select({
             id: users.id,
@@ -547,7 +555,7 @@ export const notificationRoutes: FastifyPluginAsync = async (server) => {
             nickname: users.nickname,
           })
           .from(users)
-          .where(inArray(users.id, userIds))
+          .where(and(inArray(users.id, userIds), eq(users.status, 1)))
       } else {
         const rolesList = roleFilter!
         const numericRoleIds = rolesList.filter((r) => /^\d+$/.test(r)).map(Number)

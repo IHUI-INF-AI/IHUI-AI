@@ -15,7 +15,8 @@
  * 2. 检测 AgentSettlement 超时未结算记录（createdAt 早于阈值且 unsettled），自动结算为 settled。
  * 3. Redis 缓存已处理记录 id（SET + TTL），避免同一记录被重复检测/处理。
  * 4. 任一检测环节异常计入连续失败计数；连续 4 次失败触发 Canary 回滚
- *    （每 30s 一次 × 4 = 2 分钟，与旧架构 canary_monitor_bridge 阈值一致）。
+ *    （每 30s 一次 × 4 = 2 分钟，与旧架构 canary_monitor_bridge 阈值一致）；
+ *    缓存写入失败只告警，不计入失败轮次。
  * 5. 成功完成一轮检测重置失败计数与触发标志。
  *
  * 多实例部署时由 BullMQ 保证同一调度周期只在一个 worker 实例执行，
@@ -192,21 +193,35 @@ async function filterUnprocessed<T extends { id: string }>(
   return unprocessed
 }
 
-/** 将处理过的 id 加入 Redis SET 并续期 TTL。 */
+/**
+ * 将处理过的 id 加入 Redis SET 并续期 TTL。
+ * 缓存写失败只告警：去重是优化项，不能据此判定业务检测失败。
+ */
 async function markProcessed(redis: Redis, key: string, ids: string[]): Promise<void> {
   if (ids.length === 0) return
-  const pipe = redis.pipeline()
-  for (const id of ids) pipe.sadd(key, id)
-  pipe.expire(key, PROCESSED_TTL)
-  await pipe.exec()
+  try {
+    const pipe = redis.pipeline()
+    for (const id of ids) pipe.sadd(key, id)
+    pipe.expire(key, PROCESSED_TTL)
+    await pipe.exec()
+  } catch (err) {
+    logger.warn('[expiration-monitor] mark processed cache write failed, ignored', {
+      key,
+      error: err,
+    })
+  }
 }
 
 // ---------- Canary 联动 ----------
 
-/** 检测成功：重置失败计数与触发标志。 */
+/** 检测成功：重置失败计数与触发标志。缓存写失败只告警，不影响检测结论。 */
 async function recordSuccess(redis: Redis): Promise<void> {
-  await redis.set(FAIL_STREAK_KEY, '0')
-  await redis.del(TRIGGERED_KEY)
+  try {
+    await redis.set(FAIL_STREAK_KEY, '0')
+    await redis.del(TRIGGERED_KEY)
+  } catch (err) {
+    logger.warn('[expiration-monitor] reset cache state failed, ignored', { error: err })
+  }
 }
 
 /**
@@ -288,18 +303,12 @@ export async function startExpirationMonitor(): Promise<ExpirationMonitorResult>
   }
 
   // AgentSettlement 检测
+  let checkedSettlement = 0
+  let expiredSettlement = 0
   try {
     const r = await detectExpiredAgentSettlement(redis, now)
-    await recordSuccess(redis)
-    return {
-      checkedAgentBuy: checkedBuy,
-      expiredAgentBuy: expiredBuy,
-      checkedAgentSettlement: r.checked,
-      expiredAgentSettlement: r.expired,
-      failStreak: 0,
-      canaryTriggered: false,
-      healthy: true,
-    }
+    checkedSettlement = r.checked
+    expiredSettlement = r.expired
   } catch (err) {
     logger.error('[expiration-monitor] detect AgentSettlement failed', { error: err })
     const { triggered, streak } = await recordFailureAndMaybeRollback(
@@ -315,6 +324,18 @@ export async function startExpirationMonitor(): Promise<ExpirationMonitorResult>
       canaryTriggered: triggered,
       healthy: false,
     }
+  }
+
+  // 检测成功后独立重置缓存状态：即使 Redis 写入失败也不影响本轮健康结论
+  await recordSuccess(redis)
+  return {
+    checkedAgentBuy: checkedBuy,
+    expiredAgentBuy: expiredBuy,
+    checkedAgentSettlement: checkedSettlement,
+    expiredAgentSettlement: expiredSettlement,
+    failStreak: 0,
+    canaryTriggered: false,
+    healthy: true,
   }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

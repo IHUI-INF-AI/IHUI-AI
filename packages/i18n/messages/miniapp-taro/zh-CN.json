@@ -45,7 +45,7 @@
     "committing": "导入中...({done}/{total})",
     "commitDone": "导入完成:成功 {imported},失败 {failed}",
     "commitFailed": "导入失败:{error}",
-    "noValidContent": "会话内没有有效内容",
+    "noValidContent": "无可导入的有效内容",
     "historyTitle": "导入历史",
     "historyEmpty": "暂无导入记录",
     "historyParsed": "解析",

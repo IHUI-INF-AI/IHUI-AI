@@ -34,7 +34,7 @@
 }
 .special-banner-title {
   display: block;
-  font-size: 38rpx;
+  font-size: var(--text-heading-sm);
   font-weight: 700;
   color: var(--color-foreground);
   line-height: 1.4;
@@ -177,7 +177,7 @@
   justify-content: center;
   background: var(--color-background);
   border-radius: var(--radius-md);
-  font-size: 44rpx;
+  font-size: var(--text-headline);
   flex-shrink: 0;
 }
 .special-card-body {
@@ -241,7 +241,7 @@
   color: var(--color-muted-foreground);
 }
 .special-empty-icon {
-  font-size: 56rpx;
+  font-size: var(--text-display-xl);
   margin-bottom: var(--spacing-sm);
 }
 .special-empty-text {

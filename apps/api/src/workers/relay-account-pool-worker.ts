@@ -76,47 +76,173 @@ const UNJUDGED_WARN_WINDOW_MS = Number(
 )
 
 interface ClientSyncOutcome {
+  /** 归一化结果:0=成功,2=未判定(脚本约定),其它=失败 ⇒ 抛错交给 BullMQ 重试 */
   code: number
   applied: number
   skipped: number
   stderr: string
+  /** 本轮涉及的账号 uid(取脚本 JSON 的 rows[].uid;失败轮脚本可能不回传) */
+  accountIds: string[]
+  /** 子进程真实退出码(超时/信号/派生失败时为 null) */
+  exitCode: number | null
+  /** 终止信号(F-496:非空即失败,不再当未判定) */
+  signal: string | null
+  timedOut: boolean
+  /** 退出码 0 但 stdout 不是合法 JSON(F-496:按失败处理,不再静默归零) */
+  parseFailed: boolean
+  durationMs: number
+}
+
+/**
+ * 子进程硬超时(毫秒)= 既有 540s 口径:外层窗口必须 ≥ 编排器两段内层之和
+ * (捕获 240s + 落库 240s),加启动/心跳探测 60s,且刻意 < 600s 的每 10 分钟节拍,
+ * 不让一轮跨拍叠罗汉。原值 180s 比两段之和还小,曾留下孤儿子进程。
+ * 数值单源在 scripts/lib/sync-stage-timeouts.mjs;同值由
+ * scripts/tests/sync-stage-timeouts.test.mjs 逐字钉住。
+ */
+const CLIENT_SYNC_TIMEOUT_MS = 540_000
+
+/** spawn 结果(内部形态);超时由显式定时器标记,才能与「自己崩了」区分开 */
+interface ChildRunResult {
+  exitCode: number | null
+  signal: string | null
+  out: string
+  err: string
+  timedOut: boolean
+  spawnError: string | null
+  durationMs: number
 }
 
 /** 子进程跑回灌编排器;凭据只在父子进程管道里流动,输出面已由脚本脱敏 */
 async function runClientSessionSync(scriptName: string): Promise<ClientSyncOutcome> {
   const script = resolvePath(REPO_ROOT, 'scripts', scriptName)
-  const result = await new Promise<{ code: number; out: string; err: string }>((resolve) => {
+  const startedAt = Date.now()
+  const result = await new Promise<ChildRunResult>((resolve) => {
+    let settled = false
+    const finish = (r: ChildRunResult): void => {
+      if (!settled) {
+        settled = true
+        resolve(r)
+      }
+    }
     const child = spawn(process.execPath, [script, '--json'], {
       cwd: REPO_ROOT,
       windowsHide: true,
       // 显式 stdio(§12g);凭据走 stdin,stdout 只回 JSON 汇总。
-      // 外层窗口必须 ≥ 编排器两段内层之和(捕获 240s + 落库 240s)。原值 180s 比两段之和还小,
-      // 而它自己的注释写着「比编排器内层(120s)宽」—— 那个前提从写下那天起就不成立:外层先杀父,
-      // Windows 上又不连带杀孙,实测留下过孤儿子进程。抬到 540s(= 480 + 启动/心跳探测 60,
-      // 且刻意 <600s 的每 10 分钟节拍,不让一轮跨拍叠罗汉)即是这一格的结构性收口。
-      // 数值单源在 scripts/lib/sync-stage-timeouts.mjs;不做跨语言 import(ts 引仓库根 .mjs 会出
-      // include 根),同值由 scripts/tests/sync-stage-timeouts.test.mjs 逐字钉住 —— 靠测试不靠约定。
-      timeout: 540_000,
+      // 超时改由下方显式定时器负责:spawn 自带的 timeout 只留下 SIGTERM,
+      // 分不清「超时被杀」与「自己崩了」,而 F-496 的判据需要这个区分。
       stdio: ['ignore', 'pipe', 'pipe'],
     })
     let out = ''
     let err = ''
+    let timedOut = false
     child.stdout.on('data', (d: Buffer) => (out += d))
     child.stderr.on('data', (d: Buffer) => (err += d))
-    child.on('error', (e) => resolve({ code: 2, out, err: e.message }))
-    child.on('exit', (code, signal) => resolve({ code: signal ? 2 : (code ?? 2), out, err }))
+    const timer = setTimeout(() => {
+      timedOut = true
+      child.kill('SIGTERM')
+    }, CLIENT_SYNC_TIMEOUT_MS)
+    child.on('error', (e) => {
+      clearTimeout(timer)
+      finish({
+        exitCode: null,
+        signal: null,
+        out,
+        err: err ? `${err}\n${e.message}` : e.message,
+        timedOut,
+        spawnError: e.message,
+        durationMs: Date.now() - startedAt,
+      })
+    })
+    // 用 close 而非 exit:等 stdio 全部关闭再解析,避免 stdout 尾段没读完被误判成解析失败
+    child.on('close', (code, signal) => {
+      clearTimeout(timer)
+      finish({
+        exitCode: code ?? null,
+        signal: signal ?? null,
+        out,
+        err,
+        timedOut,
+        spawnError: null,
+        durationMs: Date.now() - startedAt,
+      })
+    })
   })
-  let summary: { applied?: number; skipped?: number } = {}
+  let summary: { applied?: number; skipped?: number; rows?: unknown[] } = {}
+  let parsedOk = false
   try {
-    summary = JSON.parse(result.out) as { applied?: number; skipped?: number }
+    const parsed: unknown = JSON.parse(result.out)
+    if (parsed !== null && typeof parsed === 'object') {
+      summary = parsed as typeof summary
+      parsedOk = true
+    }
   } catch {
-    /* 输出不是合法 JSON ⇒ 按零计数 + stderr 透出 */
+    /* 输出不是合法 JSON:退出码 0 时按失败处理(F-496),不再静默归零 */
   }
+  const accountIds = (Array.isArray(summary.rows) ? summary.rows : [])
+    .map((row) =>
+      row !== null && typeof row === 'object' && typeof (row as { uid?: unknown }).uid === 'string'
+        ? (row as { uid: string }).uid
+        : '',
+    )
+    .filter((uid) => uid !== '')
+  // 归一化:派生失败/信号/超时恒为失败;否则退出码原样保留;
+  // 退出码 0 但输出不可解析也算失败。
+  const code =
+    result.spawnError !== null || result.timedOut || result.signal !== null
+      ? 1
+      : result.exitCode === 0
+        ? parsedOk
+          ? 0
+          : 1
+        : (result.exitCode ?? 1)
   return {
-    code: result.code,
+    code,
     applied: summary.applied ?? 0,
     skipped: summary.skipped ?? 0,
     stderr: result.err.slice(0, 400),
+    accountIds,
+    exitCode: result.exitCode,
+    signal: result.signal,
+    timedOut: result.timedOut,
+    parseFailed:
+      !parsedOk &&
+      result.exitCode === 0 &&
+      result.spawnError === null &&
+      !result.timedOut &&
+      result.signal === null,
+    durationMs: result.durationMs,
+  }
+}
+
+/**
+ * F-496:子进程非成功结果的显式失败信号。
+ * 带结构化字段,worker 日志与 BullMQ failed 面可直接读,不必再解析字符串。
+ */
+class RelayClientSyncError extends Error {
+  readonly code: number
+  readonly exitCode: number | null
+  readonly signal: string | null
+  readonly timedOut: boolean
+  readonly parseFailed: boolean
+  readonly durationMs: number
+  readonly accountIds: string[]
+
+  constructor(platform: string, outcome: ClientSyncOutcome) {
+    super(
+      `${platform} 子进程失败: code=${outcome.code} ` +
+        `exitCode=${outcome.exitCode ?? '-'} signal=${outcome.signal ?? '-'} ` +
+        `timedOut=${outcome.timedOut} parseFailed=${outcome.parseFailed} ` +
+        `耗时=${outcome.durationMs}ms`,
+    )
+    this.name = 'RelayClientSyncError'
+    this.code = outcome.code
+    this.exitCode = outcome.exitCode
+    this.signal = outcome.signal
+    this.timedOut = outcome.timedOut
+    this.parseFailed = outcome.parseFailed
+    this.durationMs = outcome.durationMs
+    this.accountIds = outcome.accountIds
   }
 }
 
@@ -383,7 +509,25 @@ export function startRelayAccountPoolWorker(server: FastifyInstance): Worker {
             )
           }
         } else if (outcome.code !== 0) {
-          server.log.error({ code: outcome.code, stderr: outcome.stderr }, `${job.name} 落库失败`)
+          // F-496:非 0 退出 / 被信号终止 / 超时 / 输出不可解析 ⇒ 必须抛错,
+          // 否则 BullMQ 把这一轮记成 completed,账号池状态停在坏读数上且不会重试。
+          // 账号 id 取脚本回传的 rows[].uid;失败轮脚本可能不回传,退化为平台名,保证字段恒在。
+          server.log.error(
+            {
+              accountId: outcome.accountIds[0] ?? job.name,
+              accountIds: outcome.accountIds,
+              platform: job.name,
+              code: outcome.code,
+              exitCode: outcome.exitCode,
+              signal: outcome.signal,
+              timedOut: outcome.timedOut,
+              parseFailed: outcome.parseFailed,
+              durationMs: outcome.durationMs,
+              stderr: outcome.stderr,
+            },
+            `${job.name} 子进程失败,交由 BullMQ 记 failed 并重试`,
+          )
+          throw new RelayClientSyncError(job.name, outcome)
         } else {
           server.log.info(
             { applied: outcome.applied, skipped: outcome.skipped },

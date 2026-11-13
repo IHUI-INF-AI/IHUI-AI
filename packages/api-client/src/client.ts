@@ -813,7 +813,29 @@ export function deriveFailureFromBody(
     if (typeof parsed.errorCode === 'string') errorCode = parsed.errorCode
     else if (nestedErrorCode) errorCode = nestedErrorCode
   }
+  // 429 人机验证挑战降级(2026-11-13 立,治「做不了的 CAPTCHA」死锁)。
+  //
+  // 后端 anti-automation 越过挑战阈值后回 `429 + errorCode:'challenge_required'`,
+  // message 是「请求频率过高,需完成人机验证」。但首方客户端(web/桌面/移动/CLI)
+  // **没有任何 CAPTCHA 实现**(见 apps/api/src/plugins/anti-automation.ts、
+  // apps/mobile-rn/src/lib/config.ts 的注释),用户只见文案、无控件可完成 ⇒ 死锁。
+  //
+  // 判据用机器可读 errorCode 优先,再兜一条中文文案正则(后端尚未全量带 errorCode 的窗口期);
+  // 非此型(普通 429 限流,如「验证码请求过于频繁」)一律不误伤。
+  if (status === 429 && isChallengeSignal(errorCode, message)) {
+    return { message: '请求过于频繁,请稍后再试', errorCode: 'challenge_required' }
+  }
   return { message, errorCode }
+}
+
+/**
+ * 是否为「需人机验证」信号:机器可读 errorCode 优先,中文文案正则兜底。
+ * 文案正则只匹配 anti-automation 那条原话,不误伤普通 429 限流文案。
+ */
+function isChallengeSignal(errorCode: string | undefined, message: string): boolean {
+  if (errorCode === 'challenge_required') return true
+  // 覆盖 anti-automation「需完成人机验证」与 sms-send-captcha「先完成人机验证」两种措辞
+  return /频率过高.{0,12}人机验证|完成人机验证/.test(message.trim())
 }
 
 // ===================== 响应体入站 strict 校验 + 读前 scrub(b76-01 票1) =====================

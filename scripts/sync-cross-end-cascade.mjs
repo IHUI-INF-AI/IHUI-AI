@@ -194,12 +194,15 @@ const STAGES = [
   {
     name: 'land-miniapp',
     kind: 'land',
-    desc: '小程序端非色档落档自愈',
+    desc: '小程序端非色档落档自愈(字号腿同开,与守护/land-rn 逐字同口径)',
     script: 'land-miniapp-style-tiers.mjs',
     base: [],
-    apply: ['--apply'],
+    // 2026-11-13:与守护 sweepMiniappStyleTiers、cascade land-rn 腿同口径补 --font-safe(器物有字号等值腿
+    // 而这里只传 --apply ⇒ 字号轴在 CI 预演面与落盘面都不跟随;可证零变化的预演面见 land-miniapp 头注)。
+    apply: ['--apply', '--font-safe'],
     // 三处写出口(:551/:666/:676)各自在 if(apply)(:543/:664) 内,落点账本 :359 `if(!apply)return`。
-    preview: ['--json'],
+    // preview 同步补腿开关(否则字号轴在预演面隐身,与 land-rn 同理)。
+    preview: ['--json', '--font-safe'],
     write: true,
     timeoutMs: 20 * 60 * 1000,
   },

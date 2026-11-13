@@ -10,7 +10,8 @@ import { extendTailwindMerge } from 'tailwind-merge'
  * 2026-11-11 实证:裸 twMerge 下 `cn('text-label font-medium text-foreground/80')` 里
  * `text-label` 与 `text-foreground/80` 被判同组冲突、后者胜出,`text-label` 被**静默吃掉**,
  * 提示词模板 chips 的字号从上线起就没生效过(真机 DOM 里没有 text-label)。
- * 名单与 tokens.css `@theme` 的 `--text-*` 逐一对应(11 档),新增字号档必须同步进这张表。
+ * 名单与 tokens.css `@theme` 的 `--text-*` 逐一对应(15 档),新增字号档必须同步进这张表
+ * (2026-11-13 补入 title-lg / heading-sm / headline / display-xl 四档)。
  */
 const twMerge = extendTailwindMerge({
   extend: {
@@ -24,9 +25,13 @@ const twMerge = extendTailwindMerge({
         'text-body',
         'text-strong',
         'text-title',
+        'text-title-lg',
         'text-subtitle',
+        'text-heading-sm',
         'text-heading',
+        'text-headline',
         'text-display',
+        'text-display-xl',
         'text-display-lg',
       ],
     },

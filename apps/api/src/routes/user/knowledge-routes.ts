@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * 知识库 /knowledge/*(8 个端点:3 个公开 GET + 1 个 like + 4 个 CRUD)。
+ * 知识库 /knowledge/*(9 个端点:3 个公开 GET + like/unlike 2 个 + 4 个 CRUD)。
  */
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
@@ -15,7 +15,7 @@ import {
   updateKnowledge,
   deleteKnowledge,
 } from '../../db/knowledge-queries.js'
-import { toggleLike } from '../../db/resource-likes-queries.js'
+import { likeResource, unlikeResource } from '../../db/resource-likes-queries.js'
 import { parsePagination, parseIdParam } from './_shared.js'
 
 const knowledgeRoutes: FastifyPluginAsync = async (server) => {
@@ -45,10 +45,18 @@ const knowledgeRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ knowledge }))
   })
 
+  // F-598:点赞/取消拆成两个幂等端点,重试或并发点赞不会被反转成取消。
   server.post('/knowledge/:id/like', async (request, reply) => {
     const id = parseIdParam(request, reply)
     if (id === null) return
-    const result = await toggleLike('knowledge', id, request.userId!)
+    const result = await likeResource('knowledge', id, request.userId!)
+    return reply.send(success({ success: true, liked: result.liked }))
+  })
+
+  server.post('/knowledge/:id/unlike', async (request, reply) => {
+    const id = parseIdParam(request, reply)
+    if (id === null) return
+    const result = await unlikeResource('knowledge', id, request.userId!)
     return reply.send(success({ success: true, liked: result.liked }))
   })
 
