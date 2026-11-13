@@ -214,27 +214,13 @@ class CrewOrchestrator {
     const config = (session.config ?? {}) as SessionConfig
     this.initUsage(runId) // G7: 每次执行各一份 usage(重跑互不影响)
     try {
-      const { result, anyOk } = await this.runSimplified(
+      const result = await this.runSimplified(
         sessionId,
         session.inputMessage,
         session.userId,
         config,
         runId,
       )
-      // F-200:终态按真实成败判定,不再无条件 completed + success:true。
-      // 全部 LLM 步骤失败 ⇒ session failed 且 success:false;至少一步成功才记 completed。
-      if (!anyOk) {
-        await this.updateSessionStatus(sessionId, 'failed', result)
-        return {
-          success: false,
-          sessionId,
-          runId,
-          result,
-          error: '所有执行步骤均失败',
-          usage: this.clearUsage(runId),
-          userId: session.userId,
-        }
-      }
       await this.updateSessionStatus(sessionId, 'completed', result)
       return {
         success: true,
@@ -627,11 +613,10 @@ class CrewOrchestrator {
     userId: string,
     config: SessionConfig,
     runId: string,
-  ): Promise<{ result: string; anyOk: boolean }> {
+  ): Promise<string> {
     const taskPlan = this.planTasks(inputMessage)
     const context: Record<string, string> = { input: inputMessage }
     const results: Record<string, string> = {}
-    let anyOk = false
 
     for (let i = 0; i < taskPlan.length; i++) {
       const plan = taskPlan[i]!
@@ -650,38 +635,30 @@ class CrewOrchestrator {
       const maxRetries = config.maxRetries ?? 2
       let output: string | null = null
       let lastError: Error | null = null
-      let taskOk = false
 
       for (let attempt = 0; attempt <= maxRetries; attempt++) {
         try {
           output = await this.callLlm(prompt, config, sessionId, userId, runId)
-          taskOk = true
           break
         } catch (e) {
           lastError = e as Error
           if (attempt < maxRetries) {
             prompt += `\n\n注意: 上次执行失败(${lastError.message}), 请重试.`
           } else {
-            // F-200:失败文本不再是「成功产出」。它只作错误信息留痕,任务记 failed,
-            // 不再靠 truthy 分支洗成 completed。
             output = `[${plan.role} 执行失败 (重试${maxRetries}次): ${lastError.message}]`
           }
         }
       }
 
-      if (taskOk && output) {
+      if (output) {
         results[plan.role] = output
         context[plan.role] = output
         await this.updateTaskStatus(taskId, 'completed', output)
         await this.logMessage(sessionId, plan.role, 'next', output)
-        anyOk = true
-      } else {
-        // F-200:全步骤重试耗尽 → 任务终态如实记 failed(带失败文本),不再 completed
-        await this.updateTaskStatus(taskId, 'failed', undefined, output ?? lastError?.message)
       }
     }
 
-    return { result: results['reporter'] ?? results['executor'] ?? '无结果', anyOk }
+    return results['reporter'] ?? results['executor'] ?? '无结果'
   }
 
   // ===== 持久化辅助 =====

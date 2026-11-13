@@ -204,7 +204,7 @@ export function SharedDemoScreen() {
             followingCount={56}
             fansCount={1280}
             isFollowing={false}
-            email="lisihan@example.com"
+            email="lisihan@aizhs.top"
             phone="186****9808"
             colorScheme={resolvedTheme}
             onFollowPress={() => console.info('user:follow')}
@@ -218,7 +218,7 @@ export function SharedDemoScreen() {
             title="技术总监"
             company="智汇科技"
             phone="13800138000"
-            email="zhangming@example.com"
+            email="zhangming@aizhs.top"
             wechat="zm_ai_pro"
             location="深圳·南山"
             bio="专注 AI 智能体与企业智能化解决方案"

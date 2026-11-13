@@ -300,13 +300,13 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                     {
                       '@type': 'ContactPoint',
                       contactType: 'customer support',
-                      email: 'lizong@aizhs.top',
+                      email: 'support@aizhs.top',
                       availableLanguage: ['zh-Hans', 'zh-Hant', 'en', 'ko', 'ja'],
                     },
                     {
                       '@type': 'ContactPoint',
                       contactType: 'sales',
-                      email: 'lizong@aizhs.top',
+                      email: 'contact@aizhs.top',
                       availableLanguage: ['zh-Hans', 'zh-Hant', 'en'],
                     },
                   ],

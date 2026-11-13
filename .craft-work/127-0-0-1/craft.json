@@ -1,0 +1,24 @@
+{
+  "version": 5,
+  "name": "127.0.0.1",
+  "request": "复刻 DeepSeek Harness 桌面端界面：左侧会话/任务列表可新建与切换，中间是对话区含消息气泡与输入框（含模型选择器、附件、发送按钮），右侧是工作区文件树可点击预览，底部有可折叠的终端/日志面板；支持浅色与深色主题；要求布局、配色、字体层级、间距与交互状态对齐参考截图，用 React + TypeScript + Tailwind 实现，并能在本地构建运行。",
+  "target": {
+    "kind": "website",
+    "url": "http://127.0.0.1:3080/?token=WwcSKLKfx9VdInv6ASpqVh5E3xmjWGzgiohvR0m6BtU"
+  },
+  "stack": "Builder's choice",
+  "status": "needs_you",
+  "note": "Claude Code stopped: Failed to authenticate. API Error: 401 Invalid API Key. Sign in to Claude Code: open a terminal and run `claude auth login` (or start `claude` and type /login), then try again.",
+  "created_ms": 1794547535571,
+  "updated_ms": 1794547744930,
+  "checks": [],
+  "agent_session": "390f07ae-576f-4338-b358-572ac341ddde",
+  "agent_session_by": "claude-code",
+  "agent_session_deep": false,
+  "capture_deep": false,
+  "allowed_actions": [],
+  "last_reply": "",
+  "asset_budget_usd": 5.0,
+  "generate_assets": false,
+  "builder": "Claude Code"
+}

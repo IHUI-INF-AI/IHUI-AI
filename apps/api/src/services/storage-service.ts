@@ -859,14 +859,6 @@ export async function completeMultipartUpload(
   if (!session) throw new Error('分片上传会话不存在或已过期')
   if (session.userId !== userId) throw new Error('无权操作此分片上传会话')
 
-  // F-546: parts 数组无上限 + etag 原样拼进 XML。服务端二次校验(不依赖入口 schema):
-  // 限制分片数,并把 etag 限定为 OSS 十六进制摘要(可带连字符),字符集中不含 XML 元字符
-  // ⇒ 同时消除了 XML 注入与超长 etag 的内存放大。
-  if (parts.length > 10000) throw new Error('分片数量超过上限 10000')
-  for (const p of parts) {
-    if (!/^[A-Fa-f0-9-]{1,128}$/.test(p.etag)) throw new Error('分片 ETag 格式非法')
-  }
-
   // 构造 CompleteMultipartUpload XML body
   const sortedParts = [...parts].sort((a, b) => a.partNumber - b.partNumber)
   const xmlBody = `<?xml version="1.0" encoding="UTF-8"?>\n<CompleteMultipartUpload>${sortedParts

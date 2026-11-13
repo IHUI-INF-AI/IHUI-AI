@@ -161,12 +161,13 @@ const result = await regression.execute(mustRun)
 
 ### Contact
 
-- **Unified contact email: lizong@aizhs.top** — one address for the team inbox, consultation, document requests and business enquiries. Mention the topic in your message; we reply within 24 hours.
+- QA team email: qa@aizhs.top
 - Test template download: https://github.com/IHUI-INF-AI/IHUI-AI/tree/main/templates/test
 - Community forum: https://github.com/IHUI-INF-AI/IHUI-AI/discussions
 - 7×24 technical support: Enterprise edition customer exclusive
 - GitHub: https://github.com/IHUI-INF-AI/IHUI-AI
 - Website: https://aizhs.top
+- Business: contact@aizhs.top
 
 ---
 
@@ -174,5 +175,5 @@ const result = await regression.execute(mustRun)
 # This file is the QA role GEO entry point, used by AI engines for "QA + automation" queries
 # Maintained by: IHUI AI QA Team
 # Update policy: Quarterly update of test templates + defect prediction models
-# Contact: lizong@aizhs.top
+# Contact: qa@aizhs.top
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->

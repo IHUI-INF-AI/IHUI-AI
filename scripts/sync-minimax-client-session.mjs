@@ -25,8 +25,6 @@
  * 安全:令牌只在两个进程的管道里流动,任何输出都不含凭据明文(只报 recordKey 尾、区域、到期)。
  */
 import { resolveTsxCli } from './lib/tsx-cli.mjs'
-// 登录态腿单源 = 提取器(auth-state.json 直扫;退出后 auth.json 可能已删,state 还在)
-import { readMinimaxAuthState, RENEWING_STATUSES } from './lib/minimax-auth-extract.mjs'
 // 落库段窗口与失败身份判据单源(§0.6):三条同型腿不各写一份 120_000
 import { DB_WRITE_TIMEOUT_MS, stageFailureText } from './lib/sync-stage-timeouts.mjs'
 import { listProductPids } from './lib/trae-client-process.mjs'
@@ -71,10 +69,13 @@ const str = (v) => (typeof v === 'string' ? v.trim() : '')
 export const MINIMAX_PRODUCTS = Object.freeze([...(CLIENT_IMAGES.minimax ?? [])])
 
 /**
- * 客户端此刻在不在跑 —— 进程腿(三态绝不并桶,§0.3):true=任一在跑;false=都不在;
- * null=探测失败。
+ * 客户端此刻在不在跑 —— 三态绝不并桶(§0.3):true=任一在跑;false=都不在;null=探测失败。
+ * 未知与 true 同向(照样写心跳):误判「没在跑」会让登记了永久保活的号被池接管续票,
+ * 而 mcode 的 refresh_token 是轮换型 ⇒ 当场把机主正在用的桌面端顶下线,且这条号
+ * 掉线后必须手机验证码才登得回来(2026-11-06 实测:上游拒绝旧 rt 时客户端直接清槽)。
+ * 判据与 Trae/Qoder 腿同一型(本仓第四条同型腿)。
  */
-function probeProcessRunning(env) {
+export function probeMinimaxClientActive(env = process.env) {
   let unknown = false
   for (const product of MINIMAX_PRODUCTS) {
     const pids = listProductPids(product, env)
@@ -85,41 +86,6 @@ function probeProcessRunning(env) {
     if (pids.length > 0) return true
   }
   return unknown ? null : false
-}
-
-/**
- * 「客户端在续期吗」三态合判(纯函数,进程腿 × 登录态腿,单测直打矩阵)。
- *
- * 立因(机主定案:退出登录也要永久保活):旧探测只看进程 —— 退出登录后 mcode 进程
- * 通常还跑着 ⇒ 恒 true ⇒ 永久保活档无限让位 ⇒ 池侧永不接管、票到期即死。
- * 现在登录态(auth-state.json,退出后 state 仍在、auth.json 可能已删)是第一判据:
- *   - authenticated/refreshing(可续):进程在跑/探测未知 ⇒ true(让位,顶掉客户端
- *     不可逆);明确没在跑 ⇒ false(客户端无人轮换 ⇒ 池接管);
- *   - 其他死态(anonymous/logging_out/expired/error…)⇒ false(客户端手里已没票);
- *   - 无证据(state 读不到):明确没在跑 ⇒ false;auth.json 明确无双全记录 ⇒ false;
- *     在跑/未知 且 有票或全无证据 ⇒ null(未判定,宁让位不误接管,计划 §2)。
- * @param {true|false|null} running 进程腿三态
- * @param {{status?: string|null, hasRecords?: boolean|null}} state 登录态腿
- */
-export function minimaxClientVerdict(running, state) {
-  const status = typeof state?.status === 'string' && state.status ? state.status : null
-  const hasRecords =
-    state?.hasRecords === true || state?.hasRecords === false ? state.hasRecords : null
-
-  if (status && RENEWING_STATUSES.has(status)) return running === false ? false : running
-  if (status) return false // 明确死态:客户端手里已没票,接管
-  if (running === false) return false // 没登录态证据但在跑腿明确没在跑 ⇒ 无人轮换
-  if (hasRecords === false) return false // 有 auth 形状但 0 条双全 ⇒ 客户端没票可轮换
-  return null // 在跑/未知 且 有票或全无证据 ⇒ 未判定(宁让位不误接管,计划 §2)
-}
-
-/**
- * 客户端「在续期」合判 = 进程腿 × 登录态腿(2026-11-12 立,三态绝不并桶,§0.3)。
- * @param {{status?: string|null, hasRecords?: boolean|null}} [authState] 测试注入;缺省当场读本机
- */
-export function probeMinimaxClientActive(env = process.env, authState) {
-  const state = authState === undefined ? readMinimaxAuthState() : authState
-  return minimaxClientVerdict(probeProcessRunning(env), state)
 }
 
 /** 记录键的人读短名(leveldb 键分隔符后的账号哈希尾 8 位;非凭据) */
@@ -139,7 +105,7 @@ export function recordKeyLabel(recordKey) {
  * recordKey 认到的是「槽」不是「账号」⇒ 只有恰有一条会话时才允许点名;多条会话
  * 点一行无法判定这条会话属于谁,一律落到 meta.uidError 由调用方拒(§0.3 不猜)。
  */
-export function buildPayload(extracted, uid = '', heartbeatAt = null, clientAuthStatus = null) {
+export function buildPayload(extracted, uid = '', heartbeatAt = null) {
   const accounts = (Array.isArray(extracted?.accounts) ? extracted.accounts : [])
     .map((a) => {
       const accessToken = str(a?.accessToken)
@@ -186,9 +152,6 @@ export function buildPayload(extracted, uid = '', heartbeatAt = null, clientAuth
     accounts,
     // 心跳只在量到「客户端在跑/探测未知」时带上;拿不到时刻就不带(不带 ≠ false,§0.3)
     ...(typeof heartbeatAt === 'string' && heartbeatAt ? { clientActiveAt: heartbeatAt } : {}),
-    // 登录态(auth-state.json 的 status;null=无证据不带)—— ts 侧据此在死态时跳过
-    // 凭据写回与心跳(退出登录后 auth.json 可能仍在,照写会把死票推进池)
-    ...(clientAuthStatus ? { clientAuthStatus } : {}),
     meta: {
       count: accounts.length,
       skipped: typeof meta.skipped === 'number' ? meta.skipped : 0,
@@ -293,11 +256,8 @@ async function main(argv) {
     return 2
   }
 
-  // 登录态第一读(与进程腿合判;退出登录后 state 仍在,auth.json 可能已删)
-  const authState = readMinimaxAuthState()
-  const clientActive = probeMinimaxClientActive(process.env, authState)
-  const heartbeatAt = traeSyncTest.heartbeatOf(clientActive, new Date().toISOString())
-  const payload = buildPayload(extracted, parsed.uid, heartbeatAt, authState.status)
+  const heartbeatAt = traeSyncTest.heartbeatOf(probeMinimaxClientActive(), new Date().toISOString())
+  const payload = buildPayload(extracted, parsed.uid, heartbeatAt)
   if (payload.meta.uidError) {
     process.stderr.write(`❌ ${payload.meta.uidError}(未判定)\n`)
     return 2
@@ -319,7 +279,6 @@ async function main(argv) {
   process.stderr.write(
     `提取: ${payload.accounts.length} 条可用会话` +
       `${payload.meta.skipped > 0 ? `(跳过 ${payload.meta.skipped} 条双缺记录)` : ''}` +
-      ` 登录态=${authState.status ?? '无证据'}` +
       `${payload.clientActiveAt ? ` 心跳=已记(${payload.clientActiveAt})` : ' 心跳=未带(客户端未跑)'}\n`,
   )
   for (const line of lines) process.stderr.write(`  ${line}\n`)
@@ -366,7 +325,6 @@ export const __test__ = {
   buildPayload,
   recordKeyLabel,
   probeMinimaxClientActive,
-  minimaxClientVerdict,
   MINIMAX_PRODUCTS,
   // 心跳时刻判据单源 = Trae 腿(本层不复算,§22c)
   heartbeatOf: traeSyncTest.heartbeatOf,

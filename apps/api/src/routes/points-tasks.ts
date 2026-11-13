@@ -17,7 +17,6 @@ import { db } from '../db/index.js'
 import { authenticate } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
 import { todayString, shiftDate } from '../utils/checkin-helpers.js'
-import { bizDayStartUtc } from '../utils/biz-day.js'
 import {
   findTodaySignIn,
   findRecentSignInRecords,
@@ -161,24 +160,25 @@ function weekStartOf(dateStr: string): string {
 }
 
 /**
- * 日键 → 该上海日 00:00 对应的 UTC 时刻。
+ * 业务日区间 [今天 0 点, 明天 0 点)(Date,用于 timestamptz 区间比较)。
  *
  * F-20:修前是 `new Date(today + 'T00:00:00Z')` —— 把**上海日键**当 UTC 日界用。
  * 于是本文件的"今日任务/签到进度"窗口实际是 UTC 日(北京时间 08:00 才翻页),
  * 与同文件 `todayString()`(bizDayKey,上海日键)口径不一致:00:00–08:00 之间
  * 查的是"昨天"的边界,进度恒为 0 / 重复计数。
  *
- * 日界算法只在 utils/biz-day.ts 有一份(守门 246),这里不自己算偏移:以该日
- * 00:00Z(= 上海当日 08:00,必落同一上海日)为锚点,交给 bizDayStartUtc 求上海 00:00
- * (与 routes/admin/export-csv.ts 的 bizDayBounds 同一形状)。
+ * 修法不能靠"拼字符串换成 +08:00" —— 那会把时区算术再抄一份(本仓已收口到
+ * utils/biz-day.ts)。这里按日键的日历字段构造 UTC 时刻:上海 00:00 == 前一日 16:00Z。
  */
-function dayStartUtc(dayKey: string): Date {
-  return bizDayStartUtc(0, new Date(`${dayKey}T00:00:00.000Z`))
-}
-
-/** 业务日区间 [今天 0 点, 明天 0 点)(左闭右开;导出供 tests/f-20 行为用例直接钉区间) */
-export function dayBounds(today: string): { from: Date; to: Date } {
-  return { from: dayStartUtc(today), to: dayStartUtc(shiftDate(today, 1)) }
+function dayBounds(today: string): { from: Date; to: Date } {
+  const [y, m, d] = today.split('-').map((v) => Number.parseInt(v, 10)) as [number, number, number]
+  const startOfDayUtc = (yy: number, mm: number, dd: number): Date =>
+    new Date(Date.UTC(yy, mm - 1, dd) - 8 * 3600 * 1000)
+  const next = new Date(Date.UTC(y, m - 1, d + 1))
+  return {
+    from: startOfDayUtc(y, m, d),
+    to: startOfDayUtc(next.getUTCFullYear(), next.getUTCMonth() + 1, next.getUTCDate()),
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -233,7 +233,7 @@ async function computeProgressCtx(userId: string, today: string): Promise<TaskPr
       examRecords,
       and(
         eq(examRecords.userId, userId),
-        gte(examRecords.submittedAt, dayStartUtc(weekStart)),
+        gte(examRecords.submittedAt, new Date(weekStart + 'T00:00:00Z')),
         lt(examRecords.submittedAt, to),
       ),
     ),

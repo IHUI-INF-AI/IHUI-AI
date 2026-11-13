@@ -252,15 +252,7 @@ export async function findArticlesByIds(ids: string[]): Promise<NewsArticle[]> {
   return db
     .select()
     .from(newsArticles)
-    // F-177:推荐/排行批量取文章必须同时排除 status=0 的下架稿,
-    // 否则已下架文章仍出现在推荐位且带正文(列表只按 isPublished 过滤会漏 status)。
-    .where(
-      and(
-        inArray(newsArticles.id, ids),
-        eq(newsArticles.isPublished, true),
-        eq(newsArticles.status, 1),
-      ),
-    )
+    .where(and(inArray(newsArticles.id, ids), eq(newsArticles.isPublished, true)))
     .orderBy(desc(newsArticles.publishedAt))
 }
 

@@ -314,13 +314,6 @@ export async function fetchWithTimeout(
 ): Promise<Response> {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeoutMs)
-  // F-51:调用方 signal(如客户端断开的 controller)必须真正传导到出站请求 ——
-  // 此前 options.signal 被本函数换掉后静默丢弃,"中止"只剩"不再发下一次",在途那次仍打满超时。
-  const callerSignal = options.signal ?? undefined
-  if (callerSignal) {
-    if (callerSignal.aborted) controller.abort()
-    else callerSignal.addEventListener('abort', () => controller.abort(), { once: true })
-  }
   // 一趟只算一次事实,决策与事实同源
   const egress = collectEgressFacts(url)
   // G-749(2026-10-03):头与正文的归一提到两侧共用 —— 直连侧此前是裸 fetch 直发
@@ -1171,106 +1164,28 @@ export function volcengineSign(
   }
 }
 
-/**
- * F-51:火山异步任务轮询的**唯一**上界定义处。
- *
- * 改造前是 `maxPolls=60 × intervalMs=5000` + 单次 fetch 超时 60s ⇒ 一趟 HTTP 请求线程
- * 最坏可挂 60×(5+60)s,且完全不感知客户端断开。现在三层同时生效,任一层到点即停:
- *   1) `maxTotalMs`:整段轮询的硬 deadline(含每次 sleep 与每次请求);
- *   2) `requestTimeoutMs`:单次 GetResult 请求超时;
- *   3) `VOLCENGINE_POLL_MAX_POLLS`:次数上界,由 `maxTotalMs/intervalMs` 推导,避免两处数字漂移。
- * 最坏占用因此 ≤ maxTotalMs + 一次请求收尾,不再是 60 轮累加。
- */
-export const VOLCENGINE_POLL_LIMITS = {
-  /** 两次轮询之间的等待 */
-  intervalMs: 5_000,
-  /** 单次 GetResult 请求超时(原 60s) */
-  requestTimeoutMs: 20_000,
-  /** 单次 HTTP 请求内整段轮询的总时长上界(原约 300s+) */
-  maxTotalMs: 120_000,
-} as const
-
-/** 次数上界由总时长推导,与 deadline 双保险。 */
-export const VOLCENGINE_POLL_MAX_POLLS = Math.ceil(
-  VOLCENGINE_POLL_LIMITS.maxTotalMs / VOLCENGINE_POLL_LIMITS.intervalMs,
-)
-
-/** F-51:可被客户端断开提前唤醒的 sleep —— 返回时可能是睡满,也可能是被 abort。 */
-function sleepOrAbort(ms: number, signal: AbortSignal): Promise<void> {
-  return new Promise((resolve) => {
-    if (signal.aborted) return resolve()
-    const timer = setTimeout(() => {
-      signal.removeEventListener('abort', onAbort)
-      resolve()
-    }, ms)
-    const onAbort = (): void => {
-      clearTimeout(timer)
-      resolve()
-    }
-    signal.addEventListener('abort', onAbort, { once: true })
-  })
-}
-
 export async function pollVolcengineTask(
   accessKey: string,
   secretKey: string,
   reqKey: string,
   taskId: string,
   reply: FastifyReply,
-  maxPolls = VOLCENGINE_POLL_MAX_POLLS,
-  intervalMs = VOLCENGINE_POLL_LIMITS.intervalMs,
+  maxPolls = 60,
+  intervalMs = 5000,
 ): Promise<Record<string, unknown> | null> {
   const pollParams = { Action: 'CVSync2AsyncGetResult', Version: '2022-08-31' }
   const pollBody = { req_key: reqKey, task_id: taskId }
-  const startedAt = Date.now()
-  // 客户端断开即中止:同一个 controller 同时管 sleep 与在途请求。
-  const disconnect = new AbortController()
-  const onClose = (): void => {
-    // 响应已写完才 close 属正常结束(轮询期间不 send),只有提前 close 才是客户端断开。
-    if (reply.raw.writableEnded) return
-    disconnect.abort()
-  }
-  reply.raw.once('close', onClose)
-  const stoppedByClient = (): null => {
-    reply.log.warn(
-      { reqKey, taskId, elapsedMs: Date.now() - startedAt },
-      '火山异步任务轮询因客户端断开而中止,不再请求上游',
+  for (let i = 0; i < maxPolls; i++) {
+    await new Promise((r) => setTimeout(r, intervalMs))
+    const signed = volcengineSign(pollParams, pollBody, accessKey, secretKey)
+    const resp = await fetchWithTimeout(
+      signed.url,
+      { method: 'POST', headers: signed.headers, body: signed.body },
+      60_000,
     )
-    // 连接已断,不能再写 reply。
-    return null
-  }
-  try {
-    // 监听器注册前连接就已断(close 已发过)时,不让本次轮询空转到上界。
-    if (reply.raw.destroyed) return stoppedByClient()
-    for (let i = 0; i < maxPolls; i++) {
-      const remaining = VOLCENGINE_POLL_LIMITS.maxTotalMs - (Date.now() - startedAt)
-      if (remaining <= 0) break
-      await sleepOrAbort(Math.min(intervalMs, remaining), disconnect.signal)
-      if (disconnect.signal.aborted) return stoppedByClient()
-      const signed = volcengineSign(pollParams, pollBody, accessKey, secretKey)
-      let resp: Response
-      try {
-        resp = await fetchWithTimeout(
-          signed.url,
-          {
-            method: 'POST',
-            headers: signed.headers,
-            body: signed.body,
-            signal: disconnect.signal,
-          },
-          Math.min(VOLCENGINE_POLL_LIMITS.requestTimeoutMs, remaining),
-        )
-      } catch (e) {
-        // 仅"因客户端断开而 abort"在此收束;其余失败(含单次超时)照旧上抛给路由 502。
-        if (disconnect.signal.aborted) return stoppedByClient()
-        throw e
-      }
-      const data = (await resp.json().catch(() => ({}))) as Record<string, unknown>
-      const dataBlock = data.data as Record<string, unknown> | undefined
-      if (dataBlock?.status === 'done') return data
-    }
-  } finally {
-    reply.raw.off('close', onClose)
+    const data = (await resp.json().catch(() => ({}))) as Record<string, unknown>
+    const dataBlock = data.data as Record<string, unknown> | undefined
+    if (dataBlock?.status === 'done') return data
   }
   reply.status(504).send(error(504, '异步任务轮询超时'))
   return null
@@ -1408,81 +1323,12 @@ export interface UsageStat {
   lastCallAt: number
 }
 
-/** 终态:任务一旦进入这些状态即从内存移除(结果已在当次响应中交付)。 */
-const TERMINAL_TASK_STATUSES: ReadonlySet<string> = new Set(['succeeded', 'failed', 'cancelled'])
-/** 兜底 TTL:覆盖未回写终态(上游失联/进程重启)的孤儿任务,仅在写入时顺带清扫。 */
-const TASK_STORE_TTL_MS = parseInt(process.env.AI_TASK_STORE_TTL_MS ?? '', 10) || 2 * 60 * 60 * 1000
-const TENCENT_ACTIVE_JOB_TTL_MS =
-  parseInt(process.env.AI_TENCENT_JOB_TTL_MS ?? '', 10) || 6 * 60 * 60 * 1000
-
-const trackedTaskObjects = new WeakSet<object>()
-
-/**
- * 2026-11 F-44:拦截 status 赋值,任务进入终态即从 taskStore 删除,
- * 避免模块级 Map 只增不删、列表请求遍历全表。
- */
-function trackTaskLifecycle(task: AsyncTask): AsyncTask {
-  if (trackedTaskObjects.has(task)) return task
-  const proxy = new Proxy(task, {
-    set(target, prop, value) {
-      const ok = Reflect.set(target, prop, value)
-      if (ok && prop === 'status' && TERMINAL_TASK_STATUSES.has(String(value))) {
-        taskStore.delete(target.taskId)
-      }
-      return ok
-    },
-  })
-  trackedTaskObjects.add(proxy)
-  return proxy
-}
-
-class AsyncTaskStore extends Map<string, AsyncTask> {
-  override set(taskId: string, task: AsyncTask): this {
-    this.sweep(Date.now())
-    return super.set(taskId, trackTaskLifecycle(task))
-  }
-
-  /** 写入时顺带清扫:终态旁路 + 超过 TTL 未更新的任务(不使用定时器)。 */
-  sweep(now: number): void {
-    for (const [taskId, task] of super.entries()) {
-      if (TERMINAL_TASK_STATUSES.has(task.status) || now - task.updatedAt > TASK_STORE_TTL_MS) {
-        super.delete(taskId)
-      }
-    }
-  }
-}
-
-/** 腾讯云 3D 作业无终态回写路径,只能按提交时间兜底到期回收。 */
-class TencentActiveJobStore extends Map<string, Record<string, unknown>> {
-  override set(jobId: string, job: Record<string, unknown>): this {
-    this.sweep(Date.now())
-    return super.set(jobId, job)
-  }
-
-  sweep(now: number): void {
-    for (const [jobId, info] of super.entries()) {
-      const submittedAt = typeof info.submitTime === 'number' ? info.submitTime : now
-      if (now - submittedAt > TENCENT_ACTIVE_JOB_TTL_MS) super.delete(jobId)
-    }
-  }
-}
-
-export const taskStore = new AsyncTaskStore()
+export const taskStore = new Map<string, AsyncTask>()
 export const aigcStore = new Map<string, AigcRecord>()
 export const timbreStore = new Map<string, Timbre>()
 export const usageStore = new Map<string, UsageStat>()
 export const n8nAgentStore = new Map<string, Record<string, unknown>>()
-export const tencentActiveJobs = new TencentActiveJobStore()
-
-/** 仅测试用:TTL 常量与清空入口(生产路径不使用定时器)。 */
-export const __taskStoreTest = {
-  TASK_STORE_TTL_MS,
-  TENCENT_ACTIVE_JOB_TTL_MS,
-  reset(): void {
-    taskStore.clear()
-    tencentActiveJobs.clear()
-  },
-}
+export const tencentActiveJobs = new Map<string, Record<string, unknown>>()
 
 export function genId(prefix: string): string {
   // 2026-07-21 安全审计加固:用 CSPRNG 替换 Math.random 生成追踪 ID
@@ -1520,8 +1366,7 @@ export function createTask(
     updatedAt: now,
   }
   taskStore.set(task.taskId, task)
-  // 返回 Map 内的受跟踪对象(创建即赋终态的同步分支也能触发回收)
-  return taskStore.get(task.taskId) ?? task
+  return task
 }
 
 export async function cloneTimbre(

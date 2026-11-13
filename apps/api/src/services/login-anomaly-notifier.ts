@@ -92,20 +92,6 @@ const K_NOTIFIED = (userId: string, eventHash: string) => `anomaly:notified:${us
 
 const memAttempts = new Map<string, { count: number; expiresAt: number }>()
 const memNotified = new Map<string, number>()
-/** F-312: 内存降级去重表的上限,避免 Redis 长期不可用时按 userId+ip 无限增长 */
-const MEM_NOTIFIED_MAX = 10_000
-
-function trimMemNotified(): void {
-  const now = Date.now()
-  for (const [key, expiresAt] of memNotified) {
-    if (now > expiresAt) memNotified.delete(key)
-  }
-  while (memNotified.size > MEM_NOTIFIED_MAX) {
-    const oldest = memNotified.keys().next().value
-    if (oldest === undefined) break
-    memNotified.delete(oldest)
-  }
-}
 
 /* -------------------------------------------------------------------------- */
 /* Redis 客户端注入(模块级单例)                                                */
@@ -145,11 +131,14 @@ export async function notifyLoginAnomaly(input: LoginAnomalyInput): Promise<void
     return
   }
 
-  // 3. 构建通知文案
+  // 3. 标记已通知(设置 TTL)
+  await markNotified(userId, eventHash)
+
+  // 4. 构建通知文案
   const title = buildNotificationTitle(eventType)
   const content = buildNotificationContent(input)
 
-  // 4. 并行发送通知(失败不抛错,各通道独立 try-catch,返回是否真正送达)
+  // 5. 并行发送通知(失败不抛错,各通道独立 try-catch)
   // 短信只接两个有固定文案模板的事件:新设备登录、频繁登录失败。
   // remote_login 无对应模板(腾讯通知模板文案固定,硬套会发错内容)。
   const smsTemplate =
@@ -158,27 +147,14 @@ export async function notifyLoginAnomaly(input: LoginAnomalyInput): Promise<void
       : eventType === 'frequent_login_failure'
         ? 'security-limit'
         : null
-  const results = await Promise.allSettled([
+  await Promise.allSettled([
     sendInAppNotification(userId, title, content, input),
     sendEmailNotification(input, title, content),
     sendWebhookNotification(input, title, content),
     smsTemplate
       ? sendSecuritySmsNotification(userId, smsTemplate, `login:${userId}:${eventHash}`)
-      : Promise.resolve(false),
+      : Promise.resolve(),
   ])
-
-  // F-312: 6h 去重键只能在至少一个通道真正送达后写入。全通道失败时不写,
-  // 留待下一次登录重试,避免基础设施抖动期间安全告警被静默吞掉。
-  const delivered = results.some((r) => r.status === 'fulfilled' && r.value === true)
-  if (delivered) {
-    await markNotified(userId, eventHash)
-  } else {
-    logger.warn('login-anomaly: all channels failed, keep dedup open for retry', {
-      userId,
-      eventType,
-      eventHash,
-    })
-  }
 }
 
 /* -------------------------------------------------------------------------- */
@@ -296,14 +272,12 @@ async function checkDedup(userId: string, eventHash: string): Promise<boolean> {
 async function markNotified(userId: string, eventHash: string): Promise<void> {
   const key = K_NOTIFIED(userId, eventHash)
   if (!redisClient) {
-    if (memNotified.size >= MEM_NOTIFIED_MAX) trimMemNotified()
     memNotified.set(key, Date.now() + DEDUP_TTL_SEC * 1000)
     return
   }
   try {
     await redisClient.set(key, '1', 'EX', DEDUP_TTL_SEC)
   } catch (e) {
-    if (memNotified.size >= MEM_NOTIFIED_MAX) trimMemNotified()
     memNotified.set(key, Date.now() + DEDUP_TTL_SEC * 1000)
     logger.warn('login-anomaly: markNotified failed, used mem', { err: e })
   }
@@ -360,7 +334,7 @@ async function sendInAppNotification(
   title: string,
   content: string,
   input: LoginAnomalyInput,
-): Promise<boolean> {
+): Promise<void> {
   try {
     await db.insert(notifications).values({
       userId,
@@ -375,10 +349,8 @@ async function sendInAppNotification(
         timestamp: new Date().toISOString(),
       },
     })
-    return true
   } catch (e) {
     logger.warn('login-anomaly: in-app notification failed', { err: e, userId })
-    return false
   }
 }
 
@@ -388,18 +360,16 @@ async function sendSecuritySmsNotification(
   userId: string,
   templateKey: 'new-device' | 'security-limit',
   bizId: string,
-): Promise<boolean> {
+): Promise<void> {
   try {
     const { sendNoticeSmsToUser } = await import('./sms-notify.js')
     await sendNoticeSmsToUser(userId, templateKey, { bizType: 'security', bizId, force: true })
-    return true
   } catch (e) {
     logger.warn('login-anomaly: sms notify failed', {
       userId,
       templateKey,
       error: (e as Error).message,
     })
-    return false
   }
 }
 
@@ -408,8 +378,8 @@ async function sendEmailNotification(
   input: LoginAnomalyInput,
   title: string,
   content: string,
-): Promise<boolean> {
-  if (!input.userEmail) return false
+): Promise<void> {
+  if (!input.userEmail) return
   try {
     const rendered = renderSecurityLoginEmail({
       device: input.deviceFingerprint || input.eventType,
@@ -426,13 +396,11 @@ async function sendEmailNotification(
       scene: 'notification',
       userId: input.userId,
     })
-    return true
   } catch (e) {
     logger.warn('login-anomaly: email notification failed', {
       err: e,
       userId: input.userId,
     })
-    return false
   }
 }
 
@@ -444,7 +412,7 @@ async function sendWebhookNotification(
   input: LoginAnomalyInput,
   title: string,
   content: string,
-): Promise<boolean> {
+): Promise<void> {
   try {
     const securityEvent: RelayWebhookEvent = 'security.login_anomaly'
     await notifyRelayEvent({
@@ -461,13 +429,11 @@ async function sendWebhookNotification(
         metadata: input.metadata,
       },
     })
-    return true
   } catch (e) {
     logger.warn('login-anomaly: webhook notification failed', {
       err: e,
       userId: input.userId,
     })
-    return false
   }
 }
 

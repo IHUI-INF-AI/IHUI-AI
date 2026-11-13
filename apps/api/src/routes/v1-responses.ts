@@ -243,9 +243,6 @@ function extractStreamText(line: string): string | null {
 // 流式 Responses API 输出
 // =============================================================================
 
-/** F-296:上游失败时回给客户端的固定文案(上游原文、request-id、内部地址一律不出响应) */
-const RESPONSES_STREAM_ERROR_TEXT = 'Upstream service temporarily unavailable, please retry later.'
-
 /**
  * 流式调用 ai-service 上游,逐行解析并转为 Responses API SSE 事件写出。
  * 模仿 v1-public.ts 的 streamChatCompletion,但输出 Responses API SSE 格式:
@@ -303,21 +300,6 @@ async function streamResponses(
     raw.write(`data: ${JSON.stringify(data)}\n\n`)
   }
 
-  /** F-296:发 response.failed 协议级错误事件(错误不进 output_text.delta) */
-  const writeFailedEvent = (code: string, clientMessage: string): void => {
-    writeEvent('response.failed', {
-      type: 'response.failed',
-      response: {
-        id: responseId,
-        object: 'response',
-        status: 'failed',
-        model: opts.model,
-        output: [],
-        error: { code, message: clientMessage },
-      },
-    })
-  }
-
   // response.created 事件(发送首个 token 前)
   writeEvent('response.created', {
     type: 'response.created',
@@ -349,48 +331,51 @@ async function streamResponses(
 
     if (!resp.ok || !resp.body) {
       const errText = await resp.text().catch(() => '')
-      // F-296:原文只进日志与计费 errorMessage,绝不进响应体
       streamError = `upstream ${resp.status}: ${errText.slice(0, 200)}`
-      request.log.warn(
-        { upstreamStatus: resp.status, upstreamBody: errText.slice(0, 500) },
-        '[v1/responses] 流式上游失败,已改发 response.failed 事件',
-      )
-      writeFailedEvent('upstream_error', RESPONSES_STREAM_ERROR_TEXT)
-      return
-    }
-    const reader = resp.body.getReader()
-    const decoder = new TextDecoder()
-    let buffer = ''
+      // 把上游错误作为 delta 发出(让客户端可见错误信息)
+      const errorDelta = `[error] ${streamError}`
+      responseText += errorDelta
+      writeEvent('response.output_text.delta', {
+        type: 'response.output_text.delta',
+        output_index: 0,
+        content_index: 0,
+        delta: errorDelta,
+      })
+    } else {
+      const reader = resp.body.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ''
 
-    const processLine = (line: string): void => {
-      const text = extractStreamText(line)
-      if (text) {
-        if (ttftSample === null) ttftSample = opts.sw.stop()
-        responseText += text
-        // F-89:真实文本才计入计费 token
-        billableCompletionChars += text.length
-        writeEvent('response.output_text.delta', {
-          type: 'response.output_text.delta',
-          output_index: 0,
-          content_index: 0,
-          delta: text,
-        })
+      const processLine = (line: string): void => {
+        const text = extractStreamText(line)
+        if (text) {
+          if (ttftSample === null) ttftSample = opts.sw.stop()
+          responseText += text
+          // F-89:真实文本才计入计费 token
+          billableCompletionChars += text.length
+          writeEvent('response.output_text.delta', {
+            type: 'response.output_text.delta',
+            output_index: 0,
+            content_index: 0,
+            delta: text,
+          })
+        }
       }
-    }
 
-    for (;;) {
-      const { done, value } = await reader.read()
-      if (done) break
-      buffer += decoder.decode(value, { stream: true })
-      let nl: number
-      while ((nl = buffer.indexOf('\n')) !== -1) {
-        const line = buffer.slice(0, nl).replace(/\r$/, '')
-        buffer = buffer.slice(nl + 1)
-        processLine(line)
+      for (;;) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buffer += decoder.decode(value, { stream: true })
+        let nl: number
+        while ((nl = buffer.indexOf('\n')) !== -1) {
+          const line = buffer.slice(0, nl).replace(/\r$/, '')
+          buffer = buffer.slice(nl + 1)
+          processLine(line)
+        }
       }
-    }
-    if (buffer.trim()) {
-      processLine(buffer)
+      if (buffer.trim()) {
+        processLine(buffer)
+      }
     }
 
     // response.completed 事件(末尾,带完整 output + status)
@@ -419,13 +404,19 @@ async function streamResponses(
       },
     })
   } catch (e) {
-    const isAbort = (e as Error).name === 'AbortError'
-    streamError = isAbort ? 'client disconnected' : (e as Error).message
-    // F-296:异常同样走 response.failed,不再用 status:"failed" 的 response.completed 冒充收尾
-    if (!isAbort) {
-      request.log.warn({ err: e }, '[v1/responses] 流式处理异常,已改发 response.failed 事件')
-      writeFailedEvent('server_error', RESPONSES_STREAM_ERROR_TEXT)
-    }
+    const msg = (e as Error).name === 'AbortError' ? 'client disconnected' : (e as Error).message
+    streamError = msg
+    writeEvent('response.completed', {
+      type: 'response.completed',
+      response: {
+        id: responseId,
+        object: 'response',
+        status: 'failed',
+        model: opts.model,
+        output: [],
+        error: { message: msg },
+      },
+    })
   } finally {
     request.raw.off('close', onClose)
     raw.end()

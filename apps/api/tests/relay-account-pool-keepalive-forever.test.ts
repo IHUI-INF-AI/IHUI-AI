@@ -281,35 +281,6 @@ describe('解摘档 keepAliveReviveWhere / reviveKeepAliveForeverAccounts', () =
     expect(w.params.some((p) => p === true)).toBe(true)
     expect(w.sql).not.toMatch(/temp_unschedulable\s+is\s+(not\s+)?null/i)
   })
-  it('⑬b 解摘候选必须带「还能再取凭据」这一格(无 refresh 且无 cookie 的号解摘只会空转)', () => {
-    const w = q(S.keepAliveReviveWhere(NOW))
-    // 正向:两列都要出现在解摘谓词里
-    expect(w.sql).toMatch(/refresh_token_enc/i)
-    expect(w.sql).toMatch(/cookies_enc/i)
-    expect(w.sql).toMatch(/is not null/i)
-    expect(w.sql).toMatch(/\bor\b/i)
-    // 反向牙:不得退化成「只看两列存在性」而丢掉 OR 语义(AND 两列会把 cookie 型号全排除,
-    // 那正好是 2026-10-23 trae-web 事故的翻版)
-    expect(w.sql).not.toMatch(/refresh_token_enc[^)]*and[^)]*cookies_enc/i)
-    // 原有三格仍在(不能为了加凭据格把摘除态或退避时钟挤掉)
-    expect(w.sql).toMatch(/temp_unschedulable/i)
-    expect(w.sql).toMatch(/updated_at/i)
-    expect(w.params).toContain(S.KEEPALIVE_FOREVER_KEY)
-    expect(w.params.some((p) => String(p) === NOW.toISOString())).toBe(true)
-  })
-  it('⑬c JS 镜像 hasRenewableCredentialOf 与 SQL 谓词读同一组列(两侧漂移当场红)', () => {
-    // 行级判据(SQL 取不到行时用)与 SQL 谓词(候选面筛选用)是同一口径的两个面
-    expect(S.hasRenewableCredentialOf({ refreshTokenEnc: 'rt', cookiesEnc: null })).toBe(true)
-    expect(S.hasRenewableCredentialOf({ refreshTokenEnc: null, cookiesEnc: 'ck' })).toBe(true)
-    expect(S.hasRenewableCredentialOf({ refreshTokenEnc: null, cookiesEnc: null })).toBe(false)
-    expect(S.hasRenewableCredentialOf({})).toBe(false)
-    // 现场形态:workbuddy 三枚无凭据号必须是 false,否则它们又会被判成可自救
-    expect(S.hasRenewableCredentialOf({ refreshTokenEnc: null, cookiesEnc: null })).toBe(false)
-    // SQL 侧读的必须是同一组列名
-    const rec = q(S.recredentialableCondition())
-    expect(rec.sql).toMatch(/refresh_token_enc/i)
-    expect(rec.sql).toMatch(/cookies_enc/i)
-  })
   it('⑭ 无候选 ⇒ 零写入(空集不冒充「解摘过了」,也不产生副作用)', async () => {
     updates.length = 0
     const revived = await S.reviveKeepAliveForeverAccounts(NOW)

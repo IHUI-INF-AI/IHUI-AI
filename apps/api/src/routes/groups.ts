@@ -59,13 +59,6 @@ const groupsRoutes: FastifyPluginAsync = async (server) => {
     }
     const conditions = [eq(userGroups.status, 'active')]
     if (parsed.data.type) conditions.push(eq(userGroups.type, parsed.data.type))
-    // F-487: 普通登录用户不得跨组枚举;只看自己拥有或自己所在的组(管理员维持全量)
-    if (!isSystemAdmin(request, { includeInternalChannel: false })) {
-      const uid = request.userId!
-      conditions.push(
-        sql`(${userGroups.ownerId} = ${uid} OR EXISTS (SELECT 1 FROM ${userGroupMembers} WHERE ${userGroupMembers.groupId} = ${userGroups.id} AND ${userGroupMembers.userId} = ${uid}))`,
-      )
-    }
     const list = await db
       .select()
       .from(userGroups)
@@ -161,18 +154,6 @@ const groupsRoutes: FastifyPluginAsync = async (server) => {
       .where(eq(userGroups.id, idParsed.data.id))
       .limit(1)
     if (!group) return reply.status(404).send(error(404, '用户组不存在'))
-    // F-487: 成员列表需属主或本组成员身份,不得任意登录用户按 groupId 枚举
-    const uid = request.userId!
-    if (!isSystemAdmin(request, { includeInternalChannel: false }) && group.ownerId !== uid) {
-      const [membership] = await db
-        .select({ id: userGroupMembers.id })
-        .from(userGroupMembers)
-        .where(
-          and(eq(userGroupMembers.groupId, idParsed.data.id), eq(userGroupMembers.userId, uid)),
-        )
-        .limit(1)
-      if (!membership) return reply.status(403).send(error(403, '无权查看此用户组成员'))
-    }
     // 投影 join users:成员行本身无昵称/头像(2026-11-01 G-998102 AiGroup 票:共享屏成员卡
     // 需要 name),只加字段不减字段,既有消费方(userId/role)不受影响
     const list = await db

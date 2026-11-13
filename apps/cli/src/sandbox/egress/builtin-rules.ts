@@ -44,17 +44,11 @@ function internalDomainRules(): EgressRule[] {
 /** 零配置即生效的内置行(advisory)。 */
 export const BUILTIN_EGRESS_RULES: readonly EgressRule[] = internalDomainRules();
 
-/**
- * 内置兜底策略:默认放行(名字与网段都没点名时不编造限制),**默认开地址证据**(F-077:
- * 判定只产结论不钉 IP 时,`127.0.0.1.nip.io` 这类名字会走 default-allow 冒绿 —— 开证据后
- * 判据路径真的问 DNS,解析进内网即 deny)。回退键 `IHUI_EGRESS_ADDRESS_PROOF=0`
- * (装配见 `policy-source.ts`,认不出的取值落更严一侧)。advisory 档不变:拦截升档仍由
- * `IHUI_EGRESS_ENFORCE=1` 或机主点名决定。
- */
+/** 内置兜底策略:默认放行(名字与网段都没点名时不编造限制),不开地址证据,advisory 档。 */
 export const BUILTIN_EGRESS_POLICY: EgressPolicy = {
   rules: BUILTIN_EGRESS_RULES,
   defaultDecision: 'allow',
-  addressProof: true,
+  addressProof: false,
   enforcement: 'advisory',
   source: 'builtin',
 };

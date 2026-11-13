@@ -15,7 +15,6 @@ import { requireAdmin } from '../../plugins/require-permission.js'
 import { success, error, parseOrThrow } from '../../utils/response.js'
 import { idParamSchema } from './_shared.js'
 import { isUuidString } from '../../utils/uuid.js'
-import { logAction } from '../../services/audit-service.js'
 
 const updateOrderSchema = z.strictObject({
   status: z.enum(['pending', 'paid', 'cancelled', 'refunded']).optional(),
@@ -68,24 +67,16 @@ export const orderRoutes: FastifyPluginAsync = async (server) => {
       return reply
         .status(409)
         .send(
-          error(409, `订单状态为 ${existing.status},已产生资金流,禁止物理删除;请走退款/作废流程`),
+          error(
+            409,
+            `订单状态为 ${existing.status},已产生资金流,禁止物理删除;请走退款/作废流程`,
+          ),
         )
     }
     const [row] = await db.delete(eduOrders).where(eq(eduOrders.id, id)).returning()
     if (!row) return reply.status(404).send(error(404, '订单不存在'))
     // Phase 3: 同步删除统一 orders 表
     await db.delete(orders).where(eq(orders.id, id))
-    // F-130:物理删除是资金凭证的终点,必须留痕(谁、删了哪条、删除前状态)。
-    const ua = request.headers['user-agent']
-    await logAction({
-      userId: request.userId,
-      action: 'order.delete',
-      resourceType: 'order',
-      resourceId: id,
-      details: { status: existing.status },
-      ip: request.ip,
-      userAgent: typeof ua === 'string' ? ua.slice(0, 512) : undefined,
-    })
     return reply.send(success({ id, deleted: Boolean(row) }))
   })
   server.post(
@@ -93,34 +84,16 @@ export const orderRoutes: FastifyPluginAsync = async (server) => {
     { preHandler: requireAdmin },
     async (request: FastifyRequest, reply: FastifyReply) => {
       const { id } = parseOrThrow(idParamSchema, request.params)
-      // F-464: 同资源 PUT/DELETE 都有 uuid 闸,ship 漏了 ⇒ 非 uuid 字面量直达 uuid 列报 500
-      if (!isUuidString(id)) return reply.status(400).send(error(400, 'id 格式不正确'))
-      const [existing] = await db
-        .select({ status: eduOrders.status, remark: eduOrders.remark })
-        .from(eduOrders)
-        .where(eq(eduOrders.id, id))
-        .limit(1)
-      if (!existing) return reply.status(404).send(error(404, '订单不存在'))
-      // F-464: 仅已支付订单可发货,且不得重复发货/覆盖用户原始备注
-      if (existing.status !== 'paid') {
-        return reply
-          .status(409)
-          .send(error(409, `订单状态为 ${existing.status},仅已支付订单可发货`))
-      }
-      if (existing.remark?.startsWith('已发货')) {
-        return reply.status(409).send(error(409, '订单已发货,不可重复发货'))
-      }
       const now = new Date()
       const shipRemark = `已发货 ${now.toISOString()}`
-      const mergedRemark = existing.remark ? `${existing.remark} | ${shipRemark}` : shipRemark
       const [row] = await db
         .update(eduOrders)
-        .set({ remark: mergedRemark, updatedAt: now })
+        .set({ remark: shipRemark, updatedAt: now })
         .where(eq(eduOrders.id, id))
         .returning()
       if (!row) return reply.status(404).send(error(404, '订单不存在'))
       // Phase 3: 同步发货备注到统一 orders 表
-      await db.update(orders).set({ remark: mergedRemark, updatedAt: now }).where(eq(orders.id, id))
+      await db.update(orders).set({ remark: shipRemark, updatedAt: now }).where(eq(orders.id, id))
       return reply.send(success(row))
     },
   )

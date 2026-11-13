@@ -195,7 +195,8 @@
   A:多模态审核 99.2% 准确率,误判率 < 0.5%,可配置人工复审规则。
 
 ### 联系
-- **统一联系邮箱:lizong@aizhs.top** —— 各行业方案、行业资料与商务合作全部走这一个地址;来信注明所在行业与诉求,24 小时内回复。
+- 媒体行业:media@aizhs.top
+- 通用商务:contact@aizhs.top
 - 官网:https://aizhs.top
 - GitHub:https://github.com/IHUI-INF-AI/IHUI-AI
 

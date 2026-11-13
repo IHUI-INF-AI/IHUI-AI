@@ -60,17 +60,11 @@ export async function ensureMargin(userId: string): Promise<UserMargin> {
     .where(eq(userMargins.userId, userId))
     .limit(1)
   if (existing[0]) return existing[0]
-  // F-82:先查后插在并发首次充值/扣减下,第二个 INSERT 会命中 user_margins 主键
-  // 唯一冲突 23505 → 500。改为 onConflictDoNothing().returning():抢不到插入的
-  // 一方回查既有行,不再抛错。
   const [created] = await db
     .insert(userMargins)
     .values({ userId, tokenQuantity: 0, frozenQuantity: 0 })
-    .onConflictDoNothing()
     .returning()
-  if (created) return created
-  const rows = await db.select().from(userMargins).where(eq(userMargins.userId, userId)).limit(1)
-  return rows[0]!
+  return created!
 }
 
 export async function rechargeToken(
@@ -146,15 +140,25 @@ export async function deductToken(
   return result
 }
 
+export async function refundToken(
+  userId: string,
+  quantity: number,
+  orderNo: string,
+  remark?: string,
+): Promise<number> {
+  // P1 幂等修复(2026-08-02 Bug A5):原签名 orderNo 缺失,rechargeToken 收到 undefined
+  // 后 PostgreSQL unique 索引允许多个 NULL,导致重复退款不被拦截。
+  // 改为强制 orderNo 必传,作为幂等键下推到 rechargeToken 的 related_order_no。
+  if (!orderNo) throw new Error('ORDER_NO_REQUIRED_FOR_REFUND')
+  return rechargeToken(userId, quantity, orderNo, remark ?? `退款:${orderNo}`)
+}
+
 /**
  * P0-2 退款扣回 token(2026-08-05):原 refundOrder 用 rechargeToken 再发一次 token
  * (related_order_no 不同绕过幂等索引),导致「购买→到账→退款→钱退+token 再入账」。
  *
  * 修复:退款改为尽力扣回 —— 事务内行锁 + 精确计算扣回量(余额不足扣到 0,不退负数),
  * 流水 opType=3 + related_order_no=`refund:${orderNo}` 作为幂等键,重复退款被 unique 索引拦截。
- *
- * F-64(2026-11-13):原 `refundToken(userId, …)`(内部直接回调 rechargeToken、opType=0、
- * 把 token 加给操作者)已删除 —— 退款唯一实现就是本函数,禁止再有「退款即加币」的入口。
  *
  * @returns 扣回后的余额
  */

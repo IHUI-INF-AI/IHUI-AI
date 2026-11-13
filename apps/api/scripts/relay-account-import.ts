@@ -56,8 +56,7 @@ const {
 } = await import('../src/services/relay-account-pool-service.js')
 const { db, dbRead, closeDbPools } = await import('../src/db/index.js')
 const { registerAllRelayAdapters } = await import('../src/services/upstream-adapters/index.js')
-const { getRelayAdapter, isRefreshableProviderCode } =
-  await import('../src/services/relay-upstream-adapters.js')
+const { getRelayAdapter } = await import('../src/services/relay-upstream-adapters.js')
 const { healthStatusOf } = await import('../src/services/relay-account-pool-scheduler.js')
 const { fetchCodeartsAccountPhone } =
   await import('../src/services/upstream-adapters/codearts-adapter.js')
@@ -357,12 +356,16 @@ async function main(argv: string[]): Promise<number> {
 
   let rawText: string
   try {
-    const firstFile = opts.files[0]
-    if (!opts.stdin && !firstFile) {
-      process.stderr.write('❌ 读取输入失败(未判定): 缺少导入文件参数\n')
-      return 2
+    if (opts.stdin) {
+      rawText = readStdin()
+    } else {
+      const first = opts.files[0]
+      if (first === undefined) {
+        process.stderr.write('❌ 未提供输入文件,且未指定 --stdin\n')
+        return 2
+      }
+      rawText = readFileSync(resolvePath(first), 'utf8')
     }
-    rawText = opts.stdin ? readStdin() : readFileSync(resolvePath(firstFile as string), 'utf8')
   } catch (e) {
     process.stderr.write(`❌ 读取输入失败(未判定): ${e instanceof Error ? e.message : String(e)}\n`)
     return 2
@@ -515,20 +518,12 @@ async function exportProvider(opts: CliOptions): Promise<number> {
  * 单份 JSON {providers:{<code>:{accounts:[...]}}, exportedAt} —— 12 平台只付一次 SSH 握手。
  */
 async function exportAllProviders(): Promise<number> {
-  // 能力判据依赖适配器注册表;注册是幂等的,这里必须先跑一遍(健康检查路径同样在用时注册)。
-  registerAllRelayAdapters()
-  // refreshable = 适配器能力判据(isRefreshableProviderCode 单一真相源):
-  // 下游「本机重新提取兜底」(scripts/relay-account-local-reextract.mjs)据此决定
-  // 哪些平台的临期行只能靠重登本机客户端换票,而不是自行拼刷新协议。
-  const providers: Record<
-    string,
-    { accounts: Array<Record<string, unknown>>; refreshable: boolean }
-  > = {}
+  const providers: Record<string, { accounts: Array<Record<string, unknown>> }> = {}
   const rejectedAll: Array<{ providerCode: string; uid: string; reason: string }> = []
   let total = 0
   for (const p of RELAY_PROVIDERS) {
     const built = await buildExportAccounts(p)
-    providers[p] = { accounts: built.accounts, refreshable: isRefreshableProviderCode(p) }
+    providers[p] = { accounts: built.accounts }
     total += built.accounts.length
     for (const r of built.rejected) rejectedAll.push({ providerCode: p, ...r })
   }

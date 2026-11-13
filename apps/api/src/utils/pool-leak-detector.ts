@@ -101,8 +101,6 @@ const DEFAULT_MAX_RECORDS = 200
  */
 export class PoolLeakDetector {
   private readonly outstanding = new Map<number, CheckOutRecord>()
-  /** F-327: 已上报过泄漏的 connId。scan 只标记不删 outstanding,否则 forceRelease 永远找不到 */
-  private readonly reportedLeaks = new Set<number>()
   private readonly history: CheckOutRecord[] = []
   private readonly leakWarnings: CheckOutRecord[] = []
   private readonly maxRecords: number
@@ -161,7 +159,6 @@ export class PoolLeakDetector {
 
     rec.checkedInAt = Date.now()
     this.outstanding.delete(connId)
-    this.reportedLeaks.delete(connId)
     this.addToHistory(rec)
     this.totalCheckin++
   }
@@ -177,10 +174,7 @@ export class PoolLeakDetector {
     const newLeaks: CheckOutRecord[] = []
 
     for (const [connId, rec] of this.outstanding) {
-      // F-327: 同一 connId 只上报一次;保留在 outstanding,让 forceRelease* 能真正回收泄漏连接
-      if (this.reportedLeaks.has(connId)) continue
       if (now - rec.checkedOutAt > thresholdMs) {
-        this.reportedLeaks.add(connId)
         newLeaks.push(rec)
         this.leakWarnings.push(rec)
         this.totalLeaked++
@@ -190,6 +184,11 @@ export class PoolLeakDetector {
             `age=${Math.round((now - rec.checkedOutAt) / 1000)}s > ${this.leakTimeoutSec}s ` +
             `context=${rec.context.slice(0, 80)}`,
         )
+
+        // 从 outstanding 中移除（视为已泄漏，不再跟踪归还）
+        this.outstanding.delete(connId)
+        // 忽略 connId 未使用警告（已通过迭代器删除）
+        void connId
       }
     }
 
@@ -212,7 +211,6 @@ export class PoolLeakDetector {
 
     rec.checkedInAt = Date.now()
     this.outstanding.delete(connId)
-    this.reportedLeaks.delete(connId)
     this.addToHistory(rec)
     this.totalForceReleased++
     return true

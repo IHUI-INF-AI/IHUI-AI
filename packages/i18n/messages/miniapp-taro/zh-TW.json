@@ -7233,5 +7233,23 @@
     "video": {
       "error": "編排失敗"
     }
+  },
+  "financeAi": {
+    "automationPrompt": "【財務部·國標平臺自動化】申報/取數期間 {period},提交閘門檔位 {mode}(manual_gate=停在提交前一步由我親自點擊;user_confirmed=先向我複述目標·期間·應繳額並明示確認後才執行提交步)。請呼叫 ai_tax_filing phase=automation(targets={targets}{portals})產出分步計畫,再用內建瀏覽器工具(browser_*;頁面在本工作臺,經 tool-delegate 執行)逐步在當前對話執行並逐步匯報進度(每完成一步報:第幾目標·第幾步);登入態、驗證碼、人臉、U 盾等環節暫停等我完成後繼續;TARGET_NOT_CONNECTED 時指導我連線後從斷點續跑;缺入口地址先問我、絕不猜 URL;平臺校驗差異、申報數字要能指回草案或平臺收據。",
+    "promptBookkeeping": "【財務部 · AI 一鍵記帳】會計期間 {period}。",
+    "promptWithPayload": "業務流水：{payload}",
+    "promptAskUpload": "若下方資料不足，請先向使用者索取業務流水，或解析使用者在對話中上傳的發票與銀行回單；不要編造金額。",
+    "phaseBookkeeping": "請依 classify → voucher → trial_balance → close → report 分階段呼叫 ai_bookkeeping，每完成一階段回報進度（第幾階段／共 5 階段）與該階段結果；試算不平衡時如實說明差異，絕對不要為了配平而改數。",
+    "promptTaxFiling": "【財務部 · AI 一鍵報稅】",
+    "phaseTaxFiling": "請依 compute → validate → draft 分階段呼叫 ai_tax_filing。",
+    "promptTaxDraftNote": "產物為申報表草案，正式申報須納稅主體與執業資格人員複核；缺漏要素先問使用者，不得編造；validate 勾稽發現的問題須逐條列出。",
+    "fieldPeriod": "申報期間 {period}",
+    "fieldSales": "銷售額 {value}",
+    "fieldOutputTax": "銷項稅額 {value}",
+    "fieldInputTax": "進項稅額 {value}",
+    "fieldProfit": "利潤總額 {value}",
+    "taxpayerGeneral": "納稅人類型：一般納稅人",
+    "taxpayerSmall": "納稅人類型：小規模納稅人",
+    "fieldWages": "薪資表：{payload}"
   }
 }

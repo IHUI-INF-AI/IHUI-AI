@@ -38,12 +38,7 @@ const articlesRoutes: FastifyPluginAsync = async (server) => {
     const id = parseIdParam(request, reply)
     if (id === null) return
     const article = await findArticleById(id)
-    // F-98:公开详情只允许已发布(status=1)且未下线稿件。此前按 id 直查,任意登录用户
-    // 可读他人未发布/下线全文,且草稿也累加 view_count 可被刷量。非发布态按不存在处理。
-    if (!article || !article.isPublished || article.status !== 1) {
-      return reply.status(404).send(error(404, '文章不存在'))
-    }
-    await incrementArticleViewCount(id)
+    if (article) await incrementArticleViewCount(id)
     return reply.send(success({ article }))
   })
 

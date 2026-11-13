@@ -33,11 +33,6 @@ import { normalizeVisitPath } from '@ihui/shared/utils/visit-url'
 const PAGE_DWELL_WINDOW_HOURS = 24
 /** 排行最多返回多少页(与 visit_logs 排行 TOP 对齐,略放宽以便对得上)。 */
 const PAGE_DWELL_TOP_N = 12
-/**
- * 取回阶段名额:归一在 TS 侧做,若 SQL 按原始 label 只取 TOP_N,动态路由
- * (`/course/123`、`/course/456`)会挤占名额。先放大取回,归一合并后再截 TOP_N。
- */
-const PAGE_DWELL_FETCH_LIMIT = Math.min(PAGE_DWELL_TOP_N * 10, 200)
 /** 进程内快照 TTL:事件表无 created_at 索引,放宽到 15 秒压库负载。 */
 const PAGE_DWELL_LIVE_TTL_MS = 15_000
 
@@ -86,32 +81,16 @@ async function computePageDwellLiveSnapshot(): Promise<PageDwellLiveSnapshot> {
     )
     .groupBy(LABEL_EXPR)
     .orderBy(sql`avg(${PAGE_TIME_NUMERIC}) desc nulls last`)
-    .limit(PAGE_DWELL_FETCH_LIMIT)
+    .limit(PAGE_DWELL_TOP_N)
 
-  // 归一后同一 URL 可能来自多行(如 /course/123 与 /course/456 ⇒ /course/:id):
-  // 时长按样本数加权合并(总秒数相加 / 总样本数),不是两行均值再平均。
-  const merged = new Map<string, { totalSec: number; samples: number }>()
+  const rows: PageDwellLiveRow[] = []
   for (const r of grouped) {
     const url = normalizeVisitPath(r.label)
     if (!url) continue
     const avgRaw = r.avgSec
     if (avgRaw === null || avgRaw === undefined) continue
-    const n = Number(r.n ?? 0)
-    if (!Number.isFinite(n) || n <= 0) continue
-    const totalSec = n * Number(avgRaw)
-    const prev = merged.get(url)
-    if (prev) {
-      prev.totalSec += totalSec
-      prev.samples += n
-    } else {
-      merged.set(url, { totalSec, samples: n })
-    }
+    rows.push({ url, avgDwellSec: Number(avgRaw), samples: Number(r.n ?? 0) })
   }
-
-  const rows: PageDwellLiveRow[] = [...merged.entries()]
-    .map(([url, v]) => ({ url, avgDwellSec: v.totalSec / v.samples, samples: v.samples }))
-    .sort((a, b) => b.avgDwellSec - a.avgDwellSec)
-    .slice(0, PAGE_DWELL_TOP_N)
   return { rows, computedAtMs: Date.now() }
 }
 

@@ -385,59 +385,25 @@ export const adminShopRoutes: FastifyPluginAsync = async (server) => {
     return reply.status(201).send(success({ id: row.id }))
   })
 
-  // F-333:PUT 降级为受限 patch —— 只允许 pending 单改账户信息(channel/account)。
-  // 金额、归属、状态不可变;状态流转只走 approve/reject 端点。
-  const withdrawalPatchSchema = z
-    .object({
-      channel: z.enum(['alipay', 'wechat', 'bank']).optional(),
-      account: z.string().max(255).optional(),
-    })
-    .strict()
-  const WITHDRAWAL_IMMUTABLE_FIELDS = [
-    'status',
-    'user',
-    'userId',
-    'amount',
-    'originalAmount',
-  ] as const
-
   server.put('/shop/withdrawals/:id', async (request: FastifyRequest, reply: FastifyReply) => {
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, '参数错误'))
     if (!isUuidString(p.data.id)) return reply.status(400).send(error(400, 'id 格式不正确'))
-    const raw =
-      typeof request.body === 'object' && request.body !== null
-        ? (request.body as Record<string, unknown>)
-        : {}
-    // 不可变字段即便值与原值相同也一律 400,避免"看似允许改"的歧义
-    const touched = WITHDRAWAL_IMMUTABLE_FIELDS.filter((k) => k in raw)
-    if (touched.length > 0)
-      return reply.status(400).send(error(400, `不可修改字段:${touched.join(',')}`))
-    const b = withdrawalPatchSchema.safeParse(raw)
+    const b = withdrawalBodySchema.safeParse(request.body)
     if (!b.success) return reply.status(400).send(error(400, '参数错误'))
-    const patch: { accountInfo?: { account: string }; method?: string; updatedAt: Date } = {
-      updatedAt: new Date(),
-    }
-    if (b.data.account !== undefined) patch.accountInfo = { account: b.data.account }
-    if (b.data.channel !== undefined) patch.method = b.data.channel
-    // 条件 UPDATE 只命中 pending,防止并发审批后被 patch 覆盖
     const [row] = await db
       .update(withdrawalFlows)
-      .set(patch)
-      .where(
-        and(eq(withdrawalFlows.id, p.data.id), eq(withdrawalFlows.status, WITHDRAWAL_INT.pending)),
-      )
+      .set({
+        userId: b.data.user,
+        amount: b.data.amount,
+        method: b.data.channel,
+        accountInfo: { account: b.data.account },
+        status: WITHDRAWAL_INT[b.data.status],
+        updatedAt: new Date(),
+      })
+      .where(eq(withdrawalFlows.id, p.data.id))
       .returning()
-    if (!row) return reply.status(409).send(error(409, '状态已变化,仅待审核提现单可修改'))
-    request.log.info(
-      {
-        action: 'admin.shop.withdrawal.patch',
-        withdrawalId: row.id,
-        fields: Object.keys(b.data),
-        adminId: request.userId ?? null,
-      },
-      '管理端修改提现账户信息',
-    )
+    if (!row) return reply.status(404).send(error(404, '记录不存在'))
     return reply.send(success({ id: row.id }))
   })
 

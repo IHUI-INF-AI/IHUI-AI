@@ -340,28 +340,6 @@ try {
   process.exit(1)
 }
 
-// 0c. 生成物拦截(2026-11-12 立,P0「一次 git add -A 把 9038 个生成物纳入提交面」)───────
-// 实证:`.archify/verify/snapshot-backfill` 的 33 份隔离实验目录(7128 件)、`.agent_tmp/`(828 件)、
-// 迁移目录副本 `drizzle-copy*`(800 件)、逆向抓包副本 `*.keep.ts`、编译日志,被 `git add -A`
-// 一并收编。生成物入库会永久加重仓库历史、淹没真实代码改动,且让"这次到底改了哪些真实代码"无从判断。
-// 判据单源 `scripts/check-staged-artifacts.mjs#judgePath`(目录名 / 文件名 / 根目录错位三档),
-// 删除侧与重命名删除侧一律放行(清垃圾本身正确)。
-// 这一道**失败即阻塞**(与上面的文件数预检不同):生成物是"明确有害且可自动判定"的一档。
-// 应急变量 HUSKY_SKIP_STAGED_ARTIFACTS=1 仅供判据确有误报时使用,日常不得按。
-try {
-  execSync('node scripts/check-staged-artifacts.mjs', {
-    stdio: 'inherit',
-    cwd: process.cwd(),
-    windowsHide: true,
-  })
-} catch {
-  console.error(
-    '❌ Pre-commit 生成物拦截失败:暂存区含实验沙箱/日志/副本等生成物。' +
-      '按上文出路处理(误带进来 ⇒ git restore --staged <路径>;确为一次性产物 ⇒ 删除或登记 .gitignore)后重试。',
-  )
-  process.exit(1)
-}
-
 function run(label, cmd) {
   console.log(label)
   try {

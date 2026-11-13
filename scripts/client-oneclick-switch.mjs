@@ -15,9 +15,6 @@
  *  - 名单与枚数一律取 apps/api/scripts/relay-pool-account-list.ts(唯一只读列池出口);
  *  - 写回一律派 scripts/switch-client-account.mjs(唯一切号编排口);
  *  - 本文件不查库、不碰凭据、不发明任何可用性判据 —— 只有"序号 → 该行 uid"的映射。
- *  - 首屏平台顺序在本层排(机主 2026-11-13 钦定前五 + 其余字母序),号池只读出口的
- *    orderBy(providerCode) 一字不动 —— 那是 admin/CLI/同步腿共用的机读面稳定序,
- *    不跟着某个窗口的展示偏好走(§0.6)。
  *  - 非交互环境(stdin 不是 TTY)⇒ exit 2 并说明,绝不静默往下走(§0.3)。
  *  - 切号是有副作用的动作(会改本机客户端登录态),每次派发前逐字回显将要执行的命令并要求确认。
  *  - 序号打错可重问 3 次;连续打错 ⇒ rc=1(业务失败),与"非 TTY / 取不到数"的 rc=2(未判定)分档
@@ -25,13 +22,7 @@
  *  - 名单一律带 --mask:双击出来的是会被截图的窗口,手机号全不许在那种格子里裸着(uid 留全值作映射)。
  *  - 两屏之间分两次取数,所以每屏都标注取数时刻 —— 池正被别的会话改时,首屏枚数会过期。
  *
- * 入口三层,逻辑只有本文件一份:
- *  - 仓内直接调用(推荐):pnpm switch:oneclick,或 node scripts/client-oneclick-switch.mjs
- *    (须在真终端里跑 —— 本入口要求 stdin 是 TTY,非交互环境会 exit 2 未判定);
- *  - 桌面双击壳:scripts/client-oneclick-switch.cmd → 桌面「AI 客户端一键切号.lnk」。
- *    .lnk 只是 850 字节的指针,删了/换机都不影响功能,重建跑 install-relay-shortcut.ps1;
- *  - 桌面端托盘项 relay_switch(操作员机显式开启)拉起的也是同一个 .cmd。
- * 非交互的程序化切号别走本入口,直接派 scripts/switch-client-account.mjs --to <uid> --provider <code>。
+ * 桌面双击入口 = scripts/client-oneclick-switch.cmd(→ 本文件)。
  */
 import fs from 'node:fs'
 import path from 'node:path'
@@ -48,19 +39,13 @@ const SWITCH_MJS = path.join(ROOT, 'scripts', 'switch-client-account.mjs')
  * 每个平台「切号后旧对话还能不能接着用」的结论矩阵(2026-11-10 全平台实测/取证后固化)。
  *
  * 三型:
- *   rebind —— 会话按 uid 绑在本地(现有两平台:Trae、WorkBuddy):本器真重绑。
- *              Trae 含 SQLCipher 正库解密→改 user_id→重加密→逐页自证;
- *              WorkBuddy 见 scripts/lib/workbuddy-chat-carry.mjs(2026-11-12 补)。
+ *   rebind —— 会话按 uid 绑在本地(全平台只有 Trae 这一型):本器真重绑,
+ *              含 SQLCipher 正库解密→改 user_id→重加密→逐页自证。
  *   local  —— 会话表/记录里**没有账号维度**,切号后历史天然仍在(7 平台实测:
  *              qoder chat_sessions 239 行无账号列、minimax local_runtime_sessions 25 行、
  *              codearts/zcode/opencode session 表同型、loomy IndexedDB 无账号键、codex 按日期分目录)。
  *              另有切前/切后连续性对账兜底(会话条数变了就判 continuity-broken)。
  *   cloud  —— 会话在云端且绑账号、本地 0 字节(仅豆包),本地无迁移路径。
- *
- * 2026-11-12 改判:workbuddy 原登记为 local(注在 58 行的旧文案是错的)。本机现读推翻:
- * workbuddy.db 的 sessions 表**有 user_id 列**,客户端取列表/取详情/做软删全带
- * `AND (user_id = ? OR user_id = '')` ⇒ 切号只换登录态时旧号会话在新号下查询不命中。
- * 机主实报「切号没法携带对话记录」正是这一档,已按 rebind 补实现。
  */
 const CHAT_CARRY = Object.freeze({
   trae: { kind: 'rebind', text: '旧号对话会随新号重绑(含加密正库),切完直接接着聊' },
@@ -70,12 +55,7 @@ const CHAT_CARRY = Object.freeze({
   zcode: { kind: 'local', text: '任务/会话在本地 ~/.zcode、不带账号维度,切号后历史仍在' },
   loomy: { kind: 'local', text: '对话在本地 IndexedDB、不带账号维度,切号后历史仍在' },
   opencode: { kind: 'local', text: '会话在本地 opencode.db、不带账号维度,切号后历史仍在' },
-  workbuddy: {
-    kind: 'rebind',
-    text:
-      '旧号对话会随新号重绑(会话表 sessions.user_id + spaces + automations + 侧边栏快照分片),' +
-      '切完打开客户端即可看到旧对话;正文按会话 id 存 projects/*.jsonl,不随账号变',
-  },
+  workbuddy: { kind: 'local', text: '登录态热切生效(10~20ms);对话由客户端本地管理,切号不致丢' },
   codex: { kind: 'local', text: '会话按日期存 ~/.codex/sessions、不带账号维度,切号后历史仍在' },
   doubao: {
     kind: 'cloud',
@@ -179,39 +159,6 @@ export async function askOrdinal(rl, promptText, length, report = (t) => err(t))
   return { fail: true }
 }
 
-/**
- * 首屏平台顺序(机主 2026-11-13 钦定):Trae 1 / WorkBuddy 2 / 商汤小浣熊(raccoon) 3 /
- * Loomy 4 / Qoder 5;其余按 providerCode 字母序稳定沉底。
- *
- * 只排"给人看的序号",不改号池只读出口:relay-pool-account-list.ts --counts 的
- * orderBy(providerCode) 是 admin / CLI / 同步腿共用的机读面,动它会把展示偏好渗进
- * 数据契约(§0.6 单一真相源)。本层排序不裁行、不合并、不改 providerCode ——
- * 未登记的平台(含今后新接入的)一律按字母序落到尾部组,绝不因为没背过就藏掉一行。
- *
- * 其余为什么选字母序而非"池内枚数降序":枚数随导入/保活天天变,按枚数排会让同一个
- * 平台在不同天拿到不同序号,双击的人记不住;字母序稳定、可预测,且不引入第二份顺序表。
- */
-export const PINNED_PLATFORM_ORDER = Object.freeze([
-  'trae',
-  'workbuddy',
-  'raccoon', // 商汤小浣熊
-  'loomy',
-  'qoder',
-])
-
-/** 稳定排序:钦定前五按登记序,其余按字母序;返回新数组,不动入参 */
-export function orderPlatformRows(rows) {
-  const rank = (code) => {
-    const i = PINNED_PLATFORM_ORDER.indexOf(code)
-    return i === -1 ? PINNED_PLATFORM_ORDER.length : i
-  }
-  return [...rows].sort((a, b) => {
-    const diff = rank(a.providerCode) - rank(b.providerCode)
-    if (diff !== 0) return diff
-    return String(a.providerCode).localeCompare(String(b.providerCode))
-  })
-}
-
 export function fmtCountRow(r, i) {
   return `  [${i + 1}] ${r.providerCode}  池内 ${r.total} 行(启用 ${r.enabled})`
 }
@@ -270,17 +217,12 @@ async function main() {
       err(`❌ ${counts.error}\n`)
       return 2
     }
-    const counted = counts.data.counts
-    if (!Array.isArray(counted) || counted.length === 0) {
+    const rows = counts.data.counts
+    if (!Array.isArray(rows) || rows.length === 0) {
       out('号池 0 行 —— 先用 relay-account-pool 导入再来切\n')
       return 0
     }
-    // 只排首屏给人看的序号;后面的 --provider 取值仍用排完那一行的 providerCode,不按下标猜平台
-    const rows = orderPlatformRows(counted)
-    out(
-      `号池里各客户端的号(按平台;前 5 位为固定顺序,其余按字母序;` +
-        `取数时刻=${counts.data.asOf ?? '?'}):\n`,
-    )
+    out(`号池里各客户端的号(按平台;取数时刻=${counts.data.asOf ?? '?'}):\n`)
     for (const [i, r] of rows.entries()) out(`${fmtCountRow(r, i)}\n`)
     const p = await askOrdinal(rl, '输入序号选客户端(回车取消): ', rows.length)
     if (p.cancel) return 0
@@ -403,8 +345,6 @@ export const __test__ = {
   fmtCountRow,
   fmtAccountRow,
   fmtQuotaLine,
-  PINNED_PLATFORM_ORDER,
-  orderPlatformRows,
   POOL_LIST_TS,
   SWITCH_MJS,
 }

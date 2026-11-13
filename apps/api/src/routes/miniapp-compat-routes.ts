@@ -2781,15 +2781,7 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ list }))
   })
 
-  // F-212:键数必须有上限。旧 schema 的 z.record 不限键数,配合逐键 Promise.all 会让
-  // 「数万键」的单请求变成数万次 DB 往返,单请求即可打爆连接池;且键值仍受既有
-  // z.string().min(1).max(100) 约束。超限在入口 400,不触达数据库。
-  const MAX_NOTIFICATION_PREF_KEYS = 100
-  const notificationSettingsBodySchema = z
-    .record(z.string().min(1).max(100), z.unknown())
-    .refine((body) => Object.keys(body).length <= MAX_NOTIFICATION_PREF_KEYS, {
-      message: `通知偏好键数过多,最多支持 ${MAX_NOTIFICATION_PREF_KEYS} 个键`,
-    })
+  const notificationSettingsBodySchema = z.record(z.string().min(1).max(100), z.unknown())
 
   server.put('/settings/notification', async (request, reply) => {
     if (!(await checkAuth(request, reply))) return
@@ -2800,35 +2792,25 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
     const body = parsed.data
     const userId = request.userId!
     const requestedKeys = Object.keys(body)
-    // F-212:单条批量 upsert(一次 INSERT ... ON CONFLICT ... RETURNING),不再逐键往返;
-    // 键数已由上面的 schema 封顶。值必须走 excluded.value —— 多行各带各的 value,
-    // 不能在 set 里复用同一个快照值。
-    // 仍用 .returning({ id, key }) 回库确认「真正落库的键集合」(守门 134):不得把请求侧
-    // requestedKeys.length 当 affected,也不得无条件回 { success: true } —— 那样「写失败」
-    // 与「写成功」在响应上完全同形。missedIds 逐条点名没落库的键。
-    const rows = Object.entries(body).map(([key, value]) => ({
-      userId,
-      group: USER_PREFERENCE_GROUPS.notifications,
-      key,
-      value: value === null || value === undefined ? null : String(value),
-    }))
-    let writtenKeys: string[] = []
-    if (rows.length > 0) {
-      try {
-        const written = await db
+    // 逐键 upsert 后用 .returning({ id, key }) 回库确认「真正落库的键集合」(守门 134):
+    // 不得把请求侧 requestedKeys.length 当 affected,也不得无条件回 { success: true } ——
+    // 那样「写失败」与「写成功」在响应上完全同形。missedIds 逐条点名没落库的键。
+    const results = await Promise.all(
+      Object.entries(body).map(([key, value]) => {
+        const v = value === null || value === undefined ? null : String(value)
+        return db
           .insert(userPreferences)
-          .values(rows)
+          .values({ userId, group: USER_PREFERENCE_GROUPS.notifications, key, value: v })
           .onConflictDoUpdate({
             target: [userPreferences.userId, userPreferences.group, userPreferences.key],
-            set: { value: sql`excluded.value`, updatedAt: new Date() },
+            set: { value: v, updatedAt: new Date() },
           })
           .returning({ id: userPreferences.id, key: userPreferences.key })
-        writtenKeys = written.map((row) => row.key)
-      } catch {
-        // 批量语句整体失败 ⇒ 一个键也没落库,回 success:false 而不是伪成功。
-        writtenKeys = []
-      }
-    }
+          .then((rows) => rows[0]?.key ?? null)
+          .catch(() => null)
+      }),
+    )
+    const writtenKeys = results.filter((k): k is string => k !== null)
     const writtenSet = new Set(writtenKeys)
     const missedIds = requestedKeys.filter((k) => !writtenSet.has(k))
     return reply.send(
@@ -3031,7 +3013,7 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(
       success({
         content:
-          '隐私政策\n\n我们重视您的隐私。本隐私政策说明我们如何收集、使用和保护您的个人信息。\n\n1. 信息收集：我们收集您在注册、使用服务时提供的信息，包括但不限于昵称、头像、联系方式等。\n2. 信息使用：您的信息仅用于提供服务、优化体验和客户支持。\n3. 信息保护：我们采用业界标准的安全措施保护您的个人信息。\n4. 联系我们：如您对隐私政策有任何疑问，请发送邮件至 lizong@aizhs.top。\n\n更新日期：2026 年 1 月 1 日',
+          '隐私政策\n\n我们重视您的隐私。本隐私政策说明我们如何收集、使用和保护您的个人信息。\n\n1. 信息收集：我们收集您在注册、使用服务时提供的信息，包括但不限于昵称、头像、联系方式等。\n2. 信息使用：您的信息仅用于提供服务、优化体验和客户支持。\n3. 信息保护：我们采用业界标准的安全措施保护您的个人信息。\n4. 联系我们：如您对隐私政策有任何疑问，请发送邮件至 IHUI-AI@aizhs.top。\n\n更新日期：2026 年 1 月 1 日',
       }),
     )
   })
@@ -3060,7 +3042,7 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(
       success({
         phone: '400-000-0000',
-        email: 'lizong@aizhs.top',
+        email: 'IHUI-AI@aizhs.top',
         address: '中国北京',
       }),
     )

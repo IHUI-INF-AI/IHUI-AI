@@ -7233,5 +7233,23 @@
     "video": {
       "error": "编排失败"
     }
+  },
+  "financeAi": {
+    "automationPrompt": "【财务部·国标平台自动化】申报/データ取得期间 {period},提交闸门档位 {mode}(manual_gate=停在提交前一步由我亲自点击;user_confirmed=先向我复述目标·期间·应缴额并明示确认后才执行提交步)。请调用 ai_tax_filing phase=automation(targets={targets}{portals})产出分步计划,然后用内置浏览器工具(browser_*;页面在本工作台,经 tool-delegate 执行)逐步在当前会话执行并逐步汇报进度(每完成一步报:第几目标·第几步);登录态、验证码、人脸、U 盾等环节暂停等我完成后继续;TARGET_NOT_CONNECTED 时指导我连接后从断点续跑;缺入口地址先问我、绝不猜 URL;平台校验差异、申报数字要能指回草案或平台回执。",
+    "promptBookkeeping": "【财务部 · AI 一键代账】会计期间 {period}。",
+    "promptWithPayload": "业务流水：{payload}",
+    "promptAskUpload": "若下方资料不足，请先向用户索取业务流水，或解析用户在会话中上传的发票与银行回单；不要编造金额。",
+    "phaseBookkeeping": "请按 classify → voucher → trial_balance → close → report 分阶段调用 ai_bookkeeping，每完成一阶段汇报进度（第几阶段/共 5 阶段）与该阶段结果；试算不平衡时如实说明差异，绝对不要为了配平而改数。",
+    "promptTaxFiling": "【财务部 · AI 一键报税】",
+    "phaseTaxFiling": "请按 compute → validate → draft 分阶段调用 ai_tax_filing。",
+    "promptTaxDraftNote": "产物为申报表草案，正式申报须纳税主体与执业资格人员复核；缺失要素先问用户，不得编造；validate 勾稽发现的问题须逐条列出。",
+    "fieldPeriod": "申报期间 {period}",
+    "fieldSales": "销售额 {value}",
+    "fieldOutputTax": "销项税额 {value}",
+    "fieldInputTax": "进项税额 {value}",
+    "fieldProfit": "利润总额 {value}",
+    "taxpayerGeneral": "纳税人类型：一般纳税人",
+    "taxpayerSmall": "纳税人类型：小规模纳税人",
+    "fieldWages": "工资表：{payload}"
   }
 }

@@ -74,17 +74,9 @@ export interface StreamSession {
   replayAbandoned: boolean
   /** G-714 ④:上一次观测到的饱和态(边沿只在翻转时被消费一次)。 */
   replaySaturated: boolean
-  /**
-   * F-286:本会话唯一归属标识(进程内单调计数 + 副本前缀)。
-   * 迟到清理(finally / graceTimer)凭它复核,不得按 replayKey 盲删新一代的缓冲与元数据。
-   */
-  owner: string
 }
 
 const sessions = new Map<string, StreamSession>()
-
-/** F-286:会话归属标识单调计数(进程内唯一,配 SSE_REPLICA_ID 前缀跨副本可辨)。 */
-let sessionOwnerSeq = 0
 
 /** 实际写出:有连接直写;断线/已结束丢弃(事件已在 replay buffer,可经重放找回)。 */
 function write(session: StreamSession, str: string): void {
@@ -240,21 +232,19 @@ export function createSession(
     finished: false,
     replayAbandoned: false,
     replaySaturated: false,
-    owner: `${SSE_REPLICA_ID}:${++sessionOwnerSeq}`,
   }
   if (replayKey) {
     const old = sessions.get(replayKey)
     if (old && !old.finished) old.controller.abort()
     sessions.set(replayKey, session)
     const store = getSseStateStore()
-    store.registerStream(replayKey, session.owner) // 清旧缓冲 + 取消其待释放定时器(redis 下远端 DEL)
+    store.registerStream(replayKey) // 清旧缓冲 + 取消其待释放定时器(redis 下远端 DEL)
     // 跨副本可见的会话元数据(归属副本 + 上游会话 ID,steer 转发等场景)
     store.upsertSessionMeta({
       replayKey,
       replicaId: SSE_REPLICA_ID,
       upstreamSessionId,
       createdAt: Date.now(),
-      owner: session.owner,
     })
   }
   return session
@@ -274,12 +264,11 @@ export function detachOnClose(session: StreamSession): void {
     return
   }
   if (session.graceTimer) return
-  const owner = session.owner // F-286:定时器闭包捕获本会话归属,迟到释放只作用于自己那一代
   session.graceTimer = setTimeout(() => {
     session.graceTimer = null
     if (session.finished) return
     session.controller.abort()
-    getSseStateStore().releaseStream(key, owner)
+    getSseStateStore().releaseStream(key)
   }, SSE_GRACE_PERIOD_MS)
 }
 
@@ -326,9 +315,8 @@ export function finishSession(session: StreamSession): void {
   if (session.replayKey) {
     if (sessions.get(session.replayKey) === session) sessions.delete(session.replayKey)
     const store = getSseStateStore()
-    // F-286:带归属复核 —— 同 key 已被新会话接管时,旧请求的收尾不得清掉新会话的缓冲与元数据
-    store.releaseStream(session.replayKey, session.owner)
-    store.deleteSessionMeta(session.replayKey, session.owner)
+    store.releaseStream(session.replayKey)
+    store.deleteSessionMeta(session.replayKey)
   }
 }
 

@@ -18,7 +18,6 @@ import { success, error } from '../utils/response.js'
 import { config } from '../config/index.js'
 import { getWsAutoRecoveryManager } from './ws-auto-recovery.js'
 import { removeIfSame, removeIfDead } from '../utils/connection-registry.js'
-import { createBackpressureSkipLedger, sendWithBackpressure } from './ws-backpressure.js'
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -85,35 +84,6 @@ const wsNotificationsPlugin: FastifyPluginAsync = async (server) => {
     }
   }
 
-  // F-116:写队列超水位的跳过台账(首喊 + 60s 复读,与 ws-broadcast 丢帧台账同档)
-  const backpressureSkips = createBackpressureSkipLedger()
-
-  /**
-   * 向本机单条连接投递一帧(F-116)。
-   *
-   * 处置取「跳过本帧 + 计数」而不是摘线:通知是可重拉的下行事件(客户端下次打开时
-   * 重新拉取),而写队列堆积可能只是短暂不读,直接断开会误伤正常用户。
-   * 真正死亡(写失败)才摘线 —— `ws.send` 的失败走 callback,同步 try/catch 看不见。
-   */
-  const deliverToConnection = (userId: string, ws: WebSocket, msg: string): void => {
-    const outcome = sendWithBackpressure(ws, msg, () => dropConnection(userId, ws))
-    if (outcome === 'skipped') {
-      if (backpressureSkips.record()) {
-        server.log.warn(
-          { userId, skippedFramesTotal: backpressureSkips.total() },
-          'ws-notifications 连接写队列超阈值,已跳过本帧(首次或超 60s 复读)',
-        )
-      }
-      return
-    }
-    if (outcome !== 'sent') return
-    try {
-      server.recordNoticeDelivered(userId)
-    } catch {
-      /* 指标采集失败不影响业务 */
-    }
-  }
-
   // Pub/Sub 频道命名：notify:<userId>
   const channelFor = (userId: string) => `notify:${userId}`
 
@@ -175,8 +145,17 @@ const wsNotificationsPlugin: FastifyPluginAsync = async (server) => {
         /* 指标采集失败不影响业务 */
       }
       for (const ws of conns) {
-        // F-116:背压闸 + callback 错误摘线(送达指标也在同一出口上报)
-        deliverToConnection(userId, ws, msg)
+        try {
+          ws.send(msg)
+          // 上报通知送达
+          try {
+            server.recordNoticeDelivered(userId)
+          } catch {
+            /* 指标采集失败不影响业务 */
+          }
+        } catch {
+          dropConnection(userId, ws)
+        }
       }
     })
     await subscriber.psubscribe('notify:*')
@@ -205,7 +184,16 @@ const wsNotificationsPlugin: FastifyPluginAsync = async (server) => {
       /* 指标采集失败不影响业务 */
     }
     for (const ws of conns) {
-      deliverToConnection(userId, ws, msg)
+      try {
+        ws.send(msg)
+        try {
+          server.recordNoticeDelivered(userId)
+        } catch {
+          /* 指标采集失败不影响业务 */
+        }
+      } catch {
+        dropConnection(userId, ws)
+      }
     }
   }
 
@@ -223,15 +211,12 @@ const wsNotificationsPlugin: FastifyPluginAsync = async (server) => {
         if (publisher) {
           // F-113: publish 返回 Promise,同步 try/catch 抓不到拒绝;
           // 失败必须回落本机直推,不能 void 掉了事。
-          void Promise.resolve(
-            publisher.publish(channelFor(userId), JSON.stringify(payload)),
-          ).catch((err) => {
-            server.log.warn(
-              { err, userId },
-              'ws notification publish failed, fallback to local delivery',
-            )
-            deliverLocally(userId, payload)
-          })
+          void Promise.resolve(publisher.publish(channelFor(userId), JSON.stringify(payload))).catch(
+            (err) => {
+              server.log.warn({ err, userId }, 'ws notification publish failed, fallback to local delivery')
+              deliverLocally(userId, payload)
+            },
+          )
           return
         }
       } catch {

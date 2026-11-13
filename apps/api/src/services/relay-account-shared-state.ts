@@ -318,25 +318,6 @@ end
 return v
 `
 
-/**
- * 占用脚本:F-240 —— INCR 与 PEXPIRE 必须同一次往返完成。分成两条命令时,
- * INCR 成功而 PEXPIRE 失败会留下「已计数、无 TTL」的键,调用方再降级内存计数
- * 就是双占坑(Redis 永久偏高 + 内存各一)。本脚本内超上限也当场 DECR 回滚,
- * 回滚不再是一次可能失败的独立命令。
- * 续 TTL 只在占坑成功时做(与改造前一致):被回绝的尝试不续命,
- * 否则满载期的连续拒绝会让安全网 TTL 永不到期,漏放的计数无法自愈。
- * 返回:>=1 = 占坑后的计数;0 = 已达上限(本轮无坑,脚本内已回滚)。
- */
-const GLOBAL_INFLIGHT_ACQUIRE_SCRIPT = `
-local v = redis.call('incr', KEYS[1])
-if v > tonumber(ARGV[2]) then
-  redis.call('decr', KEYS[1])
-  return 0
-end
-redis.call('pexpire', KEYS[1], ARGV[1])
-return v
-`
-
 export interface GlobalInflightHandle {
   /** 本次占坑凭据(仅日志/排障用;释放走 handle.release,幂等) */
   token: string
@@ -350,7 +331,6 @@ export interface GlobalInflightHandle {
  * 尝试占用一枚全局在途额度(前提:调用方已确认 cap >= 1 —— 关闭档由调用方
  * 按 policy.maxInFlightGlobal <= 0 自行跳过,不会走到这里)。
  * 达上限 ⇒ 回滚增量并返回 null(调用方按"该候选本轮跳过"处理)。
- * Redis 侧占用走单条 Lua(F-240):INCR+PEXPIRE 要么同时生效、要么都不生效。
  * Redis 命令失败 ⇒ 降级进程内计数(跨实例不等价,但与无闸现状同向,绝不抛错)。
  */
 export async function tryAcquireGlobalInflight(cap: number): Promise<GlobalInflightHandle | null> {
@@ -359,44 +339,18 @@ export async function tryAcquireGlobalInflight(cap: number): Promise<GlobalInfli
   const redis = getRedis()
   if (redis) {
     try {
-      if (typeof redis.eval === 'function') {
-        // F-240:一条 Lua 内完成 INCR+PEXPIRE(+超限回滚),不存在
-        // 「计数已加、TTL 未设」的中间态,失败即整条未生效。
-        const v = (await redis.eval(
-          GLOBAL_INFLIGHT_ACQUIRE_SCRIPT,
-          1,
-          KEY_GLOBAL_INFLIGHT,
-          GLOBAL_INFLIGHT_TTL_MS,
-          cap,
-        )) as number
-        if (v < 1) return null
-      } else {
-        // 极少数不支持 EVAL 的 Redis 代理:退回两段式,但 PEXPIRE 失败必须先
-        // 撤销已成功的 INCR 再把错误交给外层(否则 Redis 与内存各计一次 = 双占坑)。
-        const v = await redis.incr(KEY_GLOBAL_INFLIGHT)
-        if (v > cap) {
-          // 超上限:撤销本次增量再回绝。回滚失败不改变"本轮无坑"的结论
-          // (TTL 安全网兜底),但必须喊出来。
-          try {
-            await redis.decr(KEY_GLOBAL_INFLIGHT)
-          } catch (e) {
-            logRedisError('tryAcquireGlobalInflight.rollback', e)
-          }
-          return null
-        }
+      const v = await redis.incr(KEY_GLOBAL_INFLIGHT)
+      if (v > cap) {
+        // 超上限:撤销本次增量再回绝。回滚失败不改变"本轮无坑"的结论
+        // (TTL 安全网兜底),但必须喊出来。
         try {
-          await redis.pexpire(KEY_GLOBAL_INFLIGHT, GLOBAL_INFLIGHT_TTL_MS)
+          await redis.decr(KEY_GLOBAL_INFLIGHT)
         } catch (e) {
-          try {
-            const left = await redis.decr(KEY_GLOBAL_INFLIGHT)
-            // 回滚后归零的键是本次 INCR 新建的,删掉才不留下无 TTL 的残键
-            if (left <= 0) await redis.del(KEY_GLOBAL_INFLIGHT)
-          } catch (re) {
-            logRedisError('tryAcquireGlobalInflight.rollback', re)
-          }
-          throw e
+          logRedisError('tryAcquireGlobalInflight.rollback', e)
         }
+        return null
       }
+      await redis.pexpire(KEY_GLOBAL_INFLIGHT, GLOBAL_INFLIGHT_TTL_MS)
       let done = false
       return {
         token,

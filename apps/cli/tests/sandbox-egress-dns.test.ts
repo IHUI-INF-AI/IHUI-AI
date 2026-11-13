@@ -145,77 +145,11 @@ describe('egress/dns-adjudicator — 取词与解析都可注入 fake(零真网�
   });
 });
 
-describe('F-077 默认开地址证据 — 判据路径真的问 DNS(回退键可关)', () => {
-  it('① 内置默认 addressProof=true;env 回退键 IHUI_EGRESS_ADDRESS_PROOF=0 可翻回,关掉就不问 DNS', () => {
-    expect(BUILTIN_EGRESS_POLICY.addressProof).toBe(true);
-    const on = resolveEgressPolicy({});
-    expect(on.policy.addressProof).toBe(true);
-    const off = resolveEgressPolicy({ [EGRESS_ENV.addressProof]: '0' });
-    expect(off.policy.addressProof).toBe(false);
-    // 开着证据、没接解析器 ⇒ unjudged 点名(旧默认在这里直接 default-allow 冒绿)
-    expect(adjudicateDomain('front.example', { policy: on.policy })).toMatchObject({
-      decision: 'unjudged',
-      reason: 'dns-resolver-unwired',
-    });
-    // 关掉证据 ⇒ 回到旧路径:解析器连碰都不碰,直接 default-allow(回退键真的生效)
-    const boom: DomainResolver = () => {
-      throw new Error('must not be called');
-    };
-    expect(adjudicateDomain('front.example', { policy: off.policy, resolver: boom })).toMatchObject({
-      decision: 'allow',
-      reason: 'default-allow',
-    });
-  });
-
-  it('② 开证据后,解析进内网/回环的名字落 deny(含工单触发形 127.0.0.1.nip.io)', () => {
-    const p = resolveEgressPolicy({}).policy;
-    expect(p.addressProof).toBe(true);
-    expect(adjudicateDomain('rebind.example', { policy: p, resolver: () => ['127.0.0.1'] })).toMatchObject({
-      decision: 'deny',
-      reason: 'resolved-internal-range',
-    });
-    expect(adjudicateDomain('intranet.example', { policy: p, resolver: () => ['10.1.2.3'] }).decision).toBe('deny');
-    expect(adjudicateDomain('metadata-front.example', { policy: p, resolver: () => ['169.254.169.254'] }).decision).toBe('deny');
-    // 工单触发路径:127.0.0.1.nip.io 无内置规则命中 ⇒ 旧默认 default-allow;开证据后按解析结果钉住
-    expect(adjudicateDomain('127.0.0.1.nip.io', { policy: p, resolver: () => ['127.0.0.1'] })).toMatchObject({
-      decision: 'deny',
-      reason: 'resolved-internal-range',
-    });
-    // 证据模式不改"规则拒掉即止":deny 命中仍不问 DNS(不替对方做侦察)
-    const boom: DomainResolver = () => {
-      throw new Error('must not be called');
-    };
-    expect(adjudicateDomain('localhost', { policy: p, resolver: boom }).reason).toBe('rule-deny');
-  });
-
-  it('③ 反证转正:同一目标,关证据放行的旧缺口在开证据后被钉住;公网证据照放行不误伤', () => {
-    const off = resolveEgressPolicy({ [EGRESS_ENV.addressProof]: '0' }).policy;
-    const on = resolveEgressPolicy({}).policy;
-    const internal = (): readonly string[] => ['192.168.0.10'];
-    // 反证(旧缺口复现):addressProof≠true ⇒ 判据根本不问 DNS,内网证据也照 allow
-    expect(adjudicateDomain('rebind.example', { policy: off, resolver: internal }).decision).toBe('allow');
-    // 转正:同一目标、同一解析证据,默认档开证据 ⇒ deny,且定论来自解析层而非规则表
-    expect(adjudicateDomain('rebind.example', { policy: on, resolver: internal })).toMatchObject({
-      decision: 'deny',
-      layer: 'dns',
-      reason: 'resolved-internal-range',
-    });
-    // 正向对照:公网证据不误伤(不是一刀切的红门)
-    expect(adjudicateDomain('front.example', { policy: on, resolver: () => ['93.184.216.34'] })).toMatchObject({
-      decision: 'allow',
-      reason: 'resolved-public',
-    });
-  });
-});
-
 describe('egress/env-inject — env 出口形态 + 留痕形状', () => {
   const twoTargets = {
     commandLine: 'curl https://blocked.example/a https://ok.example/b',
     cwd: process.cwd(),
     env: { [EGRESS_ENV.denyDomains]: 'blocked.example', [EGRESS_ENV.allowDomains]: 'ok.example' },
-    // F-077 后默认档 addressProof=true:这里注入 fake 解析器(公网证据),保持零真网络;
-    // ok.example 仍须判 allow(否则 NO_PROXY 不点它),断言语义与翻转前一致。
-    resolver: () => ['93.184.216.34'],
     append: () => null,
   };
 

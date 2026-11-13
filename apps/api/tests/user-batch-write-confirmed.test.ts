@@ -118,25 +118,6 @@ vi.mock('../src/db/workspace-queries.js', async (importOriginal) => {
     findFileById: mockFindFileById,
     findFileByIdIncludeTrashed: mockFindFileByIdIncludeTrashed,
     findProjectById: mockFindProjectById,
-    // F-79:批量归属校验改为一次 IN 查询;用同一组替身数据拼出等价的归属行,
-    // 让 403/404 分支与「校验全过」用例维持原语义。
-    findFileOwnershipBatch: vi.fn(
-      async (
-        fileIds: string[],
-        includeTrashed: boolean,
-      ): Promise<Array<{ id: string; projectUserId: string | null }>> => {
-        const rows: Array<{ id: string; projectUserId: string | null }> = []
-        for (const id of fileIds) {
-          const file = includeTrashed
-            ? await mockFindFileByIdIncludeTrashed(id)
-            : await mockFindFileById(id)
-          if (!file) continue
-          const project = await mockFindProjectById(file.projectId)
-          rows.push({ id, projectUserId: project?.userId ?? null })
-        }
-        return rows
-      },
-    ),
   }
 })
 

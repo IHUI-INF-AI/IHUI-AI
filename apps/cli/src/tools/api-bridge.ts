@@ -167,7 +167,9 @@ const PATH_PARAM: ToolParameter = {
 export const API_BRIDGE_TOOLS: Tool[] = [
   {
     name: 'api_list_endpoints',
-    description: `检索后端 API 端点目录(离线读静态清单,零网络;共 ${CATALOG_SIZE} 个端点,清单生成于 ${CATALOG_BUILT_AT})。返回「序号 METHOD 路径 [域]」。标准用法:本工具定位端点 → api_describe_endpoint 看来源与路径参数 → api_read/api_write/api_delete 调用。`,
+    description: `检索 **apps/api(Fastify)后端**的端点目录(离线读静态清单,零网络;共 ${CATALOG_SIZE} 个端点,清单生成于 ${CATALOG_BUILT_AT})。返回「序号 METHOD 路径 [域]」。标准用法:本工具定位端点 → api_describe_endpoint 看来源与路径参数 → api_read/api_write/api_delete 调用。
+
+⚠️ 本清单**只覆盖 apps/api**。本仓还有第二套后端 **ai-service**(FastAPI,知识库/RAG/编排/agents/llm/mcp/memory/computer-use/sandbox 等 79 个能力域),它在 ai_* 族里(ai_list_endpoints / ai_read / ai_write / ai_delete)。在本目录里搜不到时,先换 ai_list_endpoints 再搜,不要断言「项目没有这个接口」。`,
     parameters: {
       q: {
         type: 'string',

@@ -75,21 +75,12 @@ describe('CLI 句柄族 ↔ 契约对账', () => {
     }
   })
 
-  it('除只读动词外，每个动词必须声明目标元素（handle 或成对的 from/to）', () => {
-    // 判据的本意是「非只读动词必须明确作用于某个元素句柄」——不能盲打。
-    // 2026-11-12 扩展:双目标动词（drag）用 from/to 成对表达同一意图,
-    // 强制它再造一个叫 handle 的字段只会让调用方猜"哪个算 handle"。
-    // 因此允许两种形态之一,但**不允许两者都缺**。
+  it('除两条只读动词外，每个动词都必须把 handle 列为必填', () => {
     const readonlyNames = new Set(PAGE_READONLY_ACTIONS.map(toolNameOf))
     for (let i = 0; i < PAGE_ACTIONS.length; i++) {
       const { tool, label } = slotAt(i)
       if (!tool || readonlyNames.has(label)) continue
-      const hasHandle = tool.required.includes('handle')
-      const hasTargetPair = tool.required.includes('from') && tool.required.includes('to')
-      expect(
-        hasHandle || hasTargetPair,
-        `${label} 必须要求 handle 或成对的 from/to（实际 required=${JSON.stringify(tool.required)}）`,
-      ).toBe(true)
+      expect(tool.required, `${label} 必须要求 handle`).toContain('handle')
     }
   })
 })

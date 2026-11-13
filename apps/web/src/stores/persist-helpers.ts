@@ -24,11 +24,22 @@ export function createPersistConfig<T>(
   partialize?: (state: T) => Partial<T>,
   /** 默认与改造前逐字同值；仅桌面端加密通道需要换掉它（见 lib/chat-persist-crypto.ts） */
   storage: PersistStorage<Partial<T>> = ssrStorage as PersistStorage<Partial<T>>,
+  /**
+   * rehydrate 完成(或失败)后的回调(2026-11-12 加)。
+   *
+   * 立因:auth store 的双实例问题实测——盘上快照已经是
+   * `{"isAuthenticated":true,"user":{"roleId":1}}`,但内存态停在初始的 false/null,
+   * admin/layout 读内存 ⇒ 真管理员被弹 /sso/login。
+   * 需要这个钩子在 rehydrate 落定后做一次内存态校正。
+   * 其余 store 不传即为 undefined,行为与改造前逐字一致。
+   */
+  onRehydrateStorage?: () => (state: T | undefined, error: unknown) => void,
 ) {
   return {
     name,
     storage,
     ...(partialize ? { partialize } : {}),
+    ...(onRehydrateStorage ? { onRehydrateStorage } : {}),
   }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

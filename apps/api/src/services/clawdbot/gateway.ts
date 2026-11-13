@@ -68,14 +68,6 @@ export class ClawdbotGateway extends EventEmitter {
   private reconnectTimer: NodeJS.Timeout | null = null
   private manuallyDisconnected = false
 
-  /**
-   * socket 代次(F-501):每次开新 socket / 主动断开时递增。
-   * connecting 窗口的重复 connect、shutdown→initialize 竞态下旧 socket 迟到的
-   * open/message/close 回调,都据此判定「已过期」并丢弃,防止旧代回调改写新代
-   * connected/wsClient 状态,或再排一条重连接管(双 socket 泄漏)。
-   */
-  private socketGeneration = 0
-
   configure(config: Partial<GatewayConfig>): void {
     this.config = { ...DEFAULT_CONFIG, ...config }
   }
@@ -104,13 +96,7 @@ export class ClawdbotGateway extends EventEmitter {
   }
 
   async connect(): Promise<void> {
-    // F-501:除 connected 外再防 connecting/已排定重连的双开 —— 原判据只看 this.connected,
-    // connecting 窗口内的第二次 connect(shutdown→initialize 竞态、管理员重复
-    // POST /clawdbot/initialize)会开出第二条 socket:wsClient 被覆盖、旧 socket 泄漏
-    // 仍会 emit message/回写状态。
     if (this.connected) return
-    if (this.state === 'connecting') return
-    if (this.state === 'reconnecting' && this.reconnectTimer) return
     this.manuallyDisconnected = false
     this.state = 'connecting'
     const url = this.resolveWsUrl()
@@ -119,31 +105,17 @@ export class ClawdbotGateway extends EventEmitter {
   }
 
   private openSocket(url: string): void {
-    const generation = ++this.socketGeneration
     let ws: WebSocket
     try {
       ws = new WebSocket(url)
     } catch (err) {
       logger.error({ url, err: err as Error }, '[Gateway] WebSocket 创建失败,触发重连')
-      // 只有当代 socket 创建失败才排重连,过期代的失败不再派生连接(F-501)
-      if (generation === this.socketGeneration) this.scheduleReconnect()
+      this.scheduleReconnect()
       return
     }
     this.wsClient = ws
-    /** 当前回调是否仍属于在册的当代 socket(代次 + 引用双校验,F-501) */
-    const isCurrent = (): boolean => generation === this.socketGeneration && this.wsClient === ws
 
     ws.on('open', () => {
-      if (!isCurrent()) {
-        // 过期代 socket 的 open:不得回写新代状态,就地关掉防泄漏(F-501)
-        logger.debug('[Gateway] 过期代 socket open 已丢弃(代次已推进)')
-        try {
-          ws.close()
-        } catch {
-          /* ignore */
-        }
-        return
-      }
       this.connected = true
       this.state = 'connected'
       this.reconnectAttempts = 0
@@ -165,10 +137,6 @@ export class ClawdbotGateway extends EventEmitter {
     })
 
     ws.on('message', (data) => {
-      if (!isCurrent()) {
-        // 过期代 socket 的消息:已被新代顶替,不得再向上分发(F-501)
-        return
-      }
       try {
         const buf = Array.isArray(data) ? Buffer.concat(data) : Buffer.from(data as Uint8Array)
         const parsed = JSON.parse(buf.toString('utf8')) as GatewayMessage
@@ -180,19 +148,11 @@ export class ClawdbotGateway extends EventEmitter {
     })
 
     ws.on('error', (err) => {
-      if (!isCurrent()) {
-        return
-      }
       logger.warn({ err }, '[Gateway] WebSocket error')
       // 不直接改 state;close 事件会跟着触发并处理重连
     })
 
     ws.on('close', (code, reason) => {
-      if (!isCurrent()) {
-        // 迟到的旧代 close:不得清掉新代 connected/wsClient,也不得再排重连(F-501)
-        logger.debug({ code }, '[Gateway] 过期代 socket close 已丢弃(代次已推进)')
-        return
-      }
       this.connected = false
       this.wsClient = null
       logger.info({ code, reason: reason.toString() }, '[Gateway] WebSocket closed')
@@ -222,18 +182,13 @@ export class ClawdbotGateway extends EventEmitter {
 
   async disconnect(): Promise<void> {
     this.manuallyDisconnected = true
-    // F-501:先作废代次并摘掉监听,再 close —— 旧 socket 迟到的 close/error 回调
-    // 不再改写状态、不再清新代 wsClient,也不会再排一条重连接管。
-    this.socketGeneration++
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer)
       this.reconnectTimer = null
     }
     if (this.wsClient) {
-      const ws = this.wsClient
-      ws.removeAllListeners()
       try {
-        ws.close(1000, 'client disconnect')
+        this.wsClient.close(1000, 'client disconnect')
       } catch {
         /* already closed */
       }

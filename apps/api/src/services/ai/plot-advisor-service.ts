@@ -41,18 +41,9 @@ export interface StoryState {
 }
 
 const stories = new Map<string, StoryState>()
-/** F-437: 内存态按 storyId 无界增长会 OOM,设条数上限并淘汰最旧 */
-const MAX_STORIES = 500
 
 /** 创建/初始化 story 状态。 */
 export function createStory(storyId: string, title: string): StoryState {
-  // F-437: 同 id 直接复用既有上下文,不再无条件覆盖(避免并发/他人剧情被冲掉)
-  const existing = stories.get(storyId)
-  if (existing) return existing
-  if (stories.size >= MAX_STORIES) {
-    const oldest = stories.keys().next().value
-    if (oldest !== undefined) stories.delete(oldest)
-  }
   const state: StoryState = {
     storyId,
     title,

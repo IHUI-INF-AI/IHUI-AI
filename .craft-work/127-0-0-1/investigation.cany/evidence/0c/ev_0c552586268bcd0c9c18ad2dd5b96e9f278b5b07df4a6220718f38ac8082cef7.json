@@ -1,0 +1,57 @@
+{
+  "id": "ev_0c552586268bcd0c9c18ad2dd5b96e9f278b5b07df4a6220718f38ac8082cef7",
+  "subject": {
+    "kind": "website",
+    "name": "http://127.0.0.1:3080/"
+  },
+  "operation": "web_site_open",
+  "params": {
+    "height": 900,
+    "url": "http://127.0.0.1:3080/",
+    "width": 1440
+  },
+  "result": {
+    "browser": "Chrome/157.0.8103.39",
+    "facts": {
+      "forms": 0,
+      "height": 900,
+      "images": 0,
+      "lang": "zh-CN",
+      "links": 0,
+      "ready": "complete",
+      "title": "DeepSeek Harness",
+      "url": "http://127.0.0.1:3080/",
+      "width": 1440
+    },
+    "health": null,
+    "title": "DeepSeek Harness",
+    "url": "http://127.0.0.1:3080/"
+  },
+  "summary": "Opened http://127.0.0.1:3080/: \"DeepSeek Harness\".",
+  "confidence": "observed",
+  "authority": "our-run",
+  "environment": {
+    "clean_room": true,
+    "engine": "cdp",
+    "engine_version": "1.3",
+    "host": "windows-x86_64"
+  },
+  "limitations": [
+    {
+      "code": "private_profile",
+      "message": "A fresh private browser: pages behind a login show their signed-out state."
+    }
+  ],
+  "coverage": {
+    "status": "complete",
+    "examined": 1,
+    "total": 1
+  },
+  "locations": [
+    {
+      "kind": "url",
+      "value": "http://127.0.0.1:3080/"
+    }
+  ],
+  "links": []
+}

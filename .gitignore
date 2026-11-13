@@ -717,6 +717,9 @@ docs/engineering/ai-compliance-readiness-*.md
 # 二者都不是源码,留在工作树只会污染 git status(每个 pytest 用例一个临时目录)。
 .box-agent/
 .pytest_tmp_*/
+# 同族连字符变体(2026-11-13 实测 apps/ai-service/.pytest-tmp/ 以 621 个未跟踪临时文件裸奔,
+# 单目录占掉 IDE 变更面板近 2/3 条目):手工传 --basetemp=.pytest-tmp/rpN 的落点,纯 pytest 临时沙箱。
+.pytest-tmp/
 
 # 凭据隔离(根治并发污染 2026-11-12)
 发布平台登录账号配置.md

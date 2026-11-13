@@ -114,8 +114,7 @@ async function getRulesForModel(dbModelId: string): Promise<TieredPricingRule[]>
  */
 function findCurrentTierIndex(rules: TieredPricingRule[], currentTokens: number): number {
   if (rules.length === 0) return -1
-  // F-308: 用量低于最低档门槛时不得套用最低档倍率(原价 1),未命中返回 -1
-  let idx = -1
+  let idx = 0
   for (let i = 0; i < rules.length; i++) {
     if (rules[i]!.fromTokens <= currentTokens) {
       idx = i
@@ -189,16 +188,6 @@ export async function getCurrentTierMultiplier(
   }
 
   const currentIdx = findCurrentTierIndex(rules, currentTokens)
-  // F-308: 未达最低档门槛 → 原价计费,下一档为规则表首条
-  if (currentIdx < 0) {
-    const nextTier = rules[0]!
-    return {
-      multiplier: 1,
-      currentTokens,
-      nextTierThreshold: nextTier.fromTokens,
-      nextTierMultiplier: parseMultiplier(nextTier.multiplier),
-    }
-  }
   const currentTier = rules[currentIdx]!
 
   const nextTier = currentIdx + 1 < rules.length ? rules[currentIdx + 1]! : null
@@ -238,12 +227,11 @@ export async function getTieredProgress(
   }
 
   const currentIdx = findCurrentTierIndex(rules, currentTokens)
-  // F-308: 未达最低档门槛时无当前档,进度条按原价,下一档为规则表首条
-  const nextTier = rules[currentIdx + 1] ?? null
+  const nextTier = currentIdx + 1 < rules.length ? rules[currentIdx + 1]! : null
 
   return {
     model: dbModelId,
-    currentTierMultiplier: currentIdx < 0 ? 1 : parseMultiplier(rules[currentIdx]!.multiplier),
+    currentTierMultiplier: parseMultiplier(rules[currentIdx]!.multiplier),
     currentTokens,
     tiers: rules.map((r, i) => ({
       fromTokens: r.fromTokens,

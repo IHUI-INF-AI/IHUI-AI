@@ -6154,20 +6154,6 @@ const KEEPALIVE_FOREVER_FAILURE_COOLDOWN_MS = 60 * 60 * 1000
 const KEEPALIVE_FOREVER_ALERT_INTERVAL_MS = Number(
   process.env.IHUI_KEEPALIVE_FOREVER_ALERT_INTERVAL_MS || 6 * 60 * 60 * 1000,
 )
-/**
- * 「临期窗口必须跟得上节拍」的余量(2026-11-13 立)。
- *
- * 立因:器物(scripts/relay-account-keepalive.mjs)把临期窗口钉死在 90 分钟 —— 那是按
- * 1 小时**成功**节测算的。而 alert 档的派发节流是 6 小时(T10 的反向牙:防坏票每小时
- * 撞上游鉴权点)。两个数一旦相乘就出洞:token 寿命 10 小时的 codearts 号,6 小时节拍 +
- * 90 分钟窗口 ⇒ 两轮之间必然跨过到期点(实测 16:02 续期 ⇒ 次日 02:02 到期,下一轮
- * 04:02 才刷,中间约 2 小时不可调度)。
- *
- * 修法**不动节流**(派发频率与撞上游次数一字不变,只让窗口按本轮真实 window 传下去),
- * 让「该刷的号」在它自己的节拍里一定被覆盖。判据仍只有调度层一份
- * (RELAY_ACCOUNT_REFRESH_AHEAD_MS),本层只给值不复算。
- */
-const KEEPALIVE_FOREVER_AHEAD_MARGIN_MS = 30 * 60 * 1000
 
 export function sweepKeepAliveForever(opts = {}) {
   const {
@@ -6217,11 +6203,7 @@ export function sweepKeepAliveForever(opts = {}) {
   const run =
     typeof runner === 'function'
       ? runner
-      : (ctx = {}) => {
-          const aheadMs =
-            Number(ctx.refreshAheadMs) > 0
-              ? Number(ctx.refreshAheadMs)
-              : window + KEEPALIVE_FOREVER_AHEAD_MARGIN_MS
+      : () => {
           try {
             const out = execFileSync(process.execPath, [script, '--once', '--json'], {
               cwd: WORKTREE,
@@ -6230,8 +6212,6 @@ export function sweepKeepAliveForever(opts = {}) {
               timeout: 10 * 60 * 1000,
               maxBuffer: 1 << 22,
               stdio: ['ignore', 'pipe', 'pipe'],
-              // 窗口 = 本轮真实节流窗口 + 余量(见 KEEPALIVE_FOREVER_AHEAD_MARGIN_MS 立因)
-              env: { ...process.env, RELAY_ACCOUNT_REFRESH_AHEAD_MS: String(aheadMs) },
             })
             return { ok: true, out: String(out ?? ''), status: 0 }
           } catch (e) {
@@ -6244,7 +6224,7 @@ export function sweepKeepAliveForever(opts = {}) {
             }
           }
         }
-  const r = run({ windowMs: window, refreshAheadMs: window + KEEPALIVE_FOREVER_AHEAD_MARGIN_MS })
+  const r = run()
   beatRoundLock()
   const text = String(r.out ?? '')
   const line = text
@@ -7004,17 +6984,11 @@ export async function sweepDanglingCommitAutotag(opts = {}) {
     logger = log,
     runner = null,
     scriptFile = null,
-    enabled,
     notify = notifyGuardRed,
   } = opts
   const script =
     scriptFile ??
     join(dirname(fileURLToPath(import.meta.url)), 'lib', 'dangling-commit-autotag.mjs')
-  // 增长闸默认关(2026-11-05 机主令):显式 enabled=false 时连子进程都不派生(ecd93149b9 摘了
-  // enabled 形参却没同步测试 A16 ⇒ 本器补回形参;生产不传 ⇒ 仍由器物自身的开关判据兜底)。
-  if (enabled === false) {
-    return { ran: false, state: 'disabled', why: '增长产线停用' }
-  }
   if (!existsSync(script)) {
     logger(
       'ℹ️ 悬空 commit 保活:器物不在位(scripts/lib/dangling-commit-autotag.mjs)⇒ 本轮跳过,不记为已探测',

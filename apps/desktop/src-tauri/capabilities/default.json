@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "IHUI AI 默认能力(main + admin 窗口共用,admin 为 lazy create)。2026-09-16 桌面端薄壳化:窗口加载 https://aizhs.top 线上前端,remote 授权使线上页面获得 IPC(托盘/更新器/深链等)。2026-10-31 安全强化第 10 批 R6:checkin/qoder/workbuddy 全族 33 项凭据采集与设备重置命令移出 remote 授权面。2026-11-06 BUG-17 根治:键鼠注入/截屏/剪贴板/文件读写这一高危族同样移出 remote 授权面 —— 此前线上页面(含任意 XSS)可直调截全屏、读剪贴板、模拟键鼠点确认、读写文件,Rust 侧唯一闸是环境变量 IHUI_DESKTOP_COMPUTER_CONTROL=1,而本地 IPC 绕开 API 层服务端审批门。Rust 命令本体保留(本地 origin 通道仍可用),仅撤销远程 webview 授权;线上 agent-control 若需恢复,须另接一次性票据 + 本地二次确认(见遗留风险/范围外待转派)。2026-11-10 DBG-38 复核:allow-read-text-file、allow-read-binary-file、allow-write-text-file、allow-list-dir、allow-stat-file、allow-clipboard-get 这些无路径 scope 权限不在本 remote 能力(urls 只有 http://tauri.localhost 与 https://aizhs.top/*,不含 www)。它们只在同目录 local-fs-io.json,且该文件没有 remote;Tauri 仅在 capability.local(默认 true)时写入 ExecutionContext::Local,远程 origin 对不上。https://aizhs.top 与 https://www.aizhs.top 因此调不到这些命令。本面其余非文件权限不动。2026-11-12 F-060 收尾:恢复 allow-checkin-workbuddy-web-login-probe 与 allow-checkin-workbuddy-web-login-probe-cookie 到本 remote 面 —— R6 移除对 probe 的理由(凭据采集、web 面零消费方)不成立,checkin 主页自 2026-10-18 起消费该探针做「登录→自动入库」闭环,且移除把本地通道一并打死;F-060 已把会话 Cookie 从 probe 回包剥离(凭据不出 Rust),本面只放行账号列表探测;probe_cookie 走用户粘贴的 Cookie(本就在 JS 手里,不新增泄漏面),该命令此前从未登记进 build.rs 命令表,同批补齐(F-047:两处缺一即失效)。",
+  "description": "IHUI AI 默认能力(main + admin 窗口共用,admin 为 lazy create)。2026-09-16 桌面端薄壳化:窗口加载 https://aizhs.top 线上前端,remote 授权使线上页面获得 IPC(托盘/更新器/深链等)。2026-10-31 安全强化第 10 批 R6:checkin/qoder/workbuddy 全族 33 项凭据采集与设备重置命令移出 remote 授权面。2026-11-06 BUG-17 根治:键鼠注入/截屏/剪贴板/文件读写这一高危族同样移出 remote 授权面 —— 此前线上页面(含任意 XSS)可直调截全屏、读剪贴板、模拟键鼠点确认、读写文件,Rust 侧唯一闸是环境变量 IHUI_DESKTOP_COMPUTER_CONTROL=1,而本地 IPC 绕开 API 层服务端审批门。Rust 命令本体保留(本地 origin 通道仍可用),仅撤销远程 webview 授权;线上 agent-control 若需恢复,须另接一次性票据 + 本地二次确认(见遗留风险/范围外待转派)。2026-11-10 DBG-38 复核:allow-read-text-file、allow-read-binary-file、allow-write-text-file、allow-list-dir、allow-stat-file、allow-clipboard-get 这些无路径 scope 权限不在本 remote 能力(urls 只有 http://tauri.localhost 与 https://aizhs.top/*,不含 www)。它们只在同目录 local-fs-io.json,且该文件没有 remote;Tauri 仅在 capability.local(默认 true)时写入 ExecutionContext::Local,远程 origin 对不上。https://aizhs.top 与 https://www.aizhs.top 因此调不到这些命令。本面其余非文件权限不动。",
   "windows": ["main", "admin"],
   "remote": {
     "urls": ["http://tauri.localhost", "https://aizhs.top/*"]
@@ -54,9 +54,6 @@
     "allow-embedded-browser-open",
     "allow-embedded-browser-close",
     "allow-embedded-browser-state",
-    "allow-checkin-workbuddy-web-import",
-    "allow-checkin-workbuddy-web-login-probe",
-    "allow-checkin-workbuddy-web-login-probe-cookie",
     "allow-embedded-browser-new-tab",
     "allow-embedded-browser-devtools",
     "allow-toggle-devtools",

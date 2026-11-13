@@ -28,7 +28,7 @@
 
 import { randomBytes } from 'node:crypto'
 import type { Redis } from 'ioredis'
-import { and, eq, ne } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import { db, dbRead } from '../db/index.js'
 import { agentTasks, chatConversations } from '@ihui/database'
 import { coerceKnownOr } from '@ihui/types'
@@ -640,11 +640,6 @@ interface DispatchRuntime {
   lastUsedAt?: number
   /** 宿主已占槽的任务(见 ExtendedDispatchInput.capacityReserved);排空/恢复判据沿用同一语义 */
   capacityReserved?: boolean
-  /**
-   * F-202:取消时要能中止在途 ai-service 调用 —— 复用 fetch 既有的 AbortSignal 能力,
-   * 不另造中断机制。每条派单一个,取消即 abort(请求立即中断,不再继续烧 token)。
-   */
-  abortController: AbortController
 }
 
 /** ai-service 返回的 OrchestrationResult 形状(子集,含 token 用量) */
@@ -1119,7 +1114,6 @@ async function callAiService(
   prompt: string,
   sessionId?: string,
   cwd?: string,
-  signal?: AbortSignal,
 ): Promise<AiCallResult> {
   let path = ''
   let body: Record<string, unknown> = {}
@@ -1143,13 +1137,13 @@ async function callAiService(
     path = '/api/v1/ai/agent/run-decomposed'
     body = withSession({ task: prompt, strategy: 'dag' })
   } else if (mode === 'debate') {
-    return callAiServiceDebate(agentRole, prompt, sessionId, cwd, signal)
+    return callAiServiceDebate(agentRole, prompt, sessionId, cwd)
   } else if (mode === 'vote') {
-    return callAiServiceVote(agentRole, prompt, sessionId, cwd, signal)
+    return callAiServiceVote(agentRole, prompt, sessionId, cwd)
   } else if (mode === 'critique') {
-    return callAiServiceCritique(agentRole, prompt, cwd, signal)
+    return callAiServiceCritique(agentRole, prompt, cwd)
   } else if (mode === 'with_communication') {
-    return callAiServiceWithCommunication(agentRole, prompt, undefined, sessionId, cwd, signal)
+    return callAiServiceWithCommunication(agentRole, prompt, undefined, sessionId, cwd)
   } else {
     return {
       ok: false,
@@ -1158,21 +1152,16 @@ async function callAiService(
     }
   }
 
-  return callAiServiceEndpoint(path, body, signal)
+  return callAiServiceEndpoint(path, body)
 }
 
 /** 通用 ai-service POST 调用 */
 async function callAiServiceEndpoint(
   path: string,
   body: Record<string, unknown>,
-  signal?: AbortSignal,
 ): Promise<AiCallResult> {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), AI_SERVICE_TIMEOUT_MS)
-  // F-202:外部取消(派单 cancel)经同一 AbortController 立刻中止在途请求
-  const onAbort = (): void => controller.abort()
-  if (signal?.aborted) controller.abort()
-  else signal?.addEventListener('abort', onAbort, { once: true })
   try {
     const res = await aiServiceSystemFetch(path, {
       method: 'POST',
@@ -1219,7 +1208,6 @@ async function callAiServiceEndpoint(
     }
   } finally {
     clearTimeout(timer)
-    signal?.removeEventListener('abort', onAbort)
   }
 }
 
@@ -1231,14 +1219,13 @@ async function callAiServiceDebate(
   prompt: string,
   sessionId?: string,
   cwd?: string,
-  signal?: AbortSignal,
 ): Promise<AiCallResult> {
   const parallelBody = {
     items: ALL_ROLES.map((r) => ({ agent: r, input: prompt })),
     ...(sessionId ? { session_id: sessionId } : {}),
     ...workerExecFields(cwd),
   }
-  const parallelRes = await callAiServiceEndpoint('/api/v1/ai/agent/parallel', parallelBody, signal)
+  const parallelRes = await callAiServiceEndpoint('/api/v1/ai/agent/parallel', parallelBody)
   if (!parallelRes.ok) return parallelRes
 
   const parallelData = parallelRes.data
@@ -1263,16 +1250,12 @@ async function callAiServiceDebate(
     ...allResults.map((r, i) => `--- Agent ${i + 1} (${r.agent}) ---\n${r.output}`),
   ].join('\n')
 
-  const arbiterRes = await callAiServiceEndpoint(
-    '/api/v1/ai/agent/run-decomposed',
-    {
-      task: arbitrationPrompt,
-      strategy: 'dag',
-      ...(sessionId ? { session_id: sessionId } : {}),
-      ...workerExecFields(cwd),
-    },
-    signal,
-  )
+  const arbiterRes = await callAiServiceEndpoint('/api/v1/ai/agent/run-decomposed', {
+    task: arbitrationPrompt,
+    strategy: 'dag',
+    ...(sessionId ? { session_id: sessionId } : {}),
+    ...workerExecFields(cwd),
+  })
   if (!arbiterRes.ok) return arbiterRes
 
   const winnerMatch = arbiterRes.finalOutput.match(/\[winner:\s*([^\]]+)\]/i)
@@ -1304,14 +1287,13 @@ async function callAiServiceVote(
   prompt: string,
   sessionId?: string,
   cwd?: string,
-  signal?: AbortSignal,
 ): Promise<AiCallResult> {
   const parallelBody = {
     items: ALL_ROLES.map((r) => ({ agent: r, input: prompt })),
     ...(sessionId ? { session_id: sessionId } : {}),
     ...workerExecFields(cwd),
   }
-  const parallelRes = await callAiServiceEndpoint('/api/v1/ai/agent/parallel', parallelBody, signal)
+  const parallelRes = await callAiServiceEndpoint('/api/v1/ai/agent/parallel', parallelBody)
   if (!parallelRes.ok) return parallelRes
 
   const parallelData = parallelRes.data
@@ -1342,7 +1324,7 @@ async function callAiServiceVote(
     ...(sessionId ? { session_id: sessionId } : {}),
     ...workerExecFields(cwd),
   }
-  const voteRes = await callAiServiceEndpoint('/api/v1/ai/agent/parallel', voteBody, signal)
+  const voteRes = await callAiServiceEndpoint('/api/v1/ai/agent/parallel', voteBody)
   if (!voteRes.ok) return voteRes
 
   const votes: Array<{ voter: string; candidate: string; score: number }> = []
@@ -1407,7 +1389,6 @@ async function callAiServiceCritique(
   primaryRole: SubagentRole,
   prompt: string,
   cwd?: string,
-  signal?: AbortSignal,
 ): Promise<AiCallResult> {
   // 尝试调 ai-service /agents/debate with mode=critique
   const debatePath = '/api/v1/ai/agents/debate'
@@ -1421,10 +1402,6 @@ async function callAiServiceCritique(
 
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), AI_SERVICE_TIMEOUT_MS * 3)
-  // F-202:外部取消(派单 cancel)直接中止在途 critique 请求
-  const onAbort = (): void => controller.abort()
-  if (signal?.aborted) controller.abort()
-  else signal?.addEventListener('abort', onAbort, { once: true })
   try {
     const res = await aiServiceSystemFetch(debatePath, {
       method: 'POST',
@@ -1525,7 +1502,6 @@ async function callAiServiceCritique(
     }
   } finally {
     clearTimeout(timer)
-    signal?.removeEventListener('abort', onAbort)
   }
 }
 
@@ -1548,7 +1524,6 @@ async function callAiServiceWithCommunication(
   redisClient?: Redis | null,
   sessionId?: string,
   cwd?: string,
-  signal?: AbortSignal,
 ): Promise<AiCallResult> {
   const roles = ALL_ROLES
   const messages: CommunicationMessage[] = []
@@ -1594,15 +1569,11 @@ async function callAiServiceWithCommunication(
     })
 
     // 并行调 ai-service
-    const parallelRes = await callAiServiceEndpoint(
-      '/api/v1/ai/agent/parallel',
-      {
-        items: agentInputs,
-        ...(sessionId ? { session_id: sessionId } : {}),
-        ...workerExecFields(cwd),
-      },
-      signal,
-    )
+    const parallelRes = await callAiServiceEndpoint('/api/v1/ai/agent/parallel', {
+      items: agentInputs,
+      ...(sessionId ? { session_id: sessionId } : {}),
+      ...workerExecFields(cwd),
+    })
 
     if (!parallelRes.ok) {
       // 第 1 轮失败 → 直接返回失败
@@ -1711,18 +1682,9 @@ export class SubagentDispatchService {
   private async _persistDispatch(id: string): Promise<boolean> {
     const runtime = this.runtimes.get(id)
     if (!runtime) return false
-    const d = runtime.dispatch
-    // F-202「取消是持久化终态」:内存已被取消,或持久层已是 cancelled ⇒ 后续 completed/failed
-    // 回写整体拒绝(既不改 DB 镜像,也不覆盖 hash),并把内存状态拉回 cancelled。
-    // 只检查终态写入:普通状态迁移(pending→running/queued)不付这次读代价。
-    if (!this._isCancelled(runtime) && isTerminalDispatchStatus(String(d.status))) {
-      if ((await this._readPersistedStatus(id)) === 'cancelled') {
-        d.status = 'cancelled'
-        return false
-      }
-    }
     // 2026-08-06: agent_tasks 联动同步(带 agentId 的派单在状态终态时写回轨迹)
     await this._syncAgentTask(runtime)
+    const d = runtime.dispatch
     // 无 Redis = 纯内存降级:没有外部落点需要同步,视为已落盘(否则降级模式永远不可淘汰)
     if (!this.redisClient) return true
     try {
@@ -1807,24 +1769,6 @@ export class SubagentDispatchService {
   }
 
   // ---------- F-255(2026-11-08)终态收尾与有界保留 ----------
-
-  /**
-   * F-202:取消是不可逆终态 —— 在途执行返回后不得再改写它(更不得写回 completed/failed)。
-   * 判据只读记录自身状态,不另立第二个「cancelled 标志」(否则两处真相互相打架)。
-   */
-  private _isCancelled(runtime: DispatchRuntime): boolean {
-    return String(runtime.dispatch.status) === 'cancelled'
-  }
-
-  /** F-202:读持久层当前状态(纯内存降级时没有外部落点 ⇒ null = 无从判断,不阻断写入) */
-  private async _readPersistedStatus(id: string): Promise<string | null> {
-    if (!this.redisClient) return null
-    try {
-      return await this.redisClient.hget(`${REDIS_KEY_DISPATCH}${id}`, 'status')
-    } catch {
-      return null
-    }
-  }
 
   /**
    * **所有终态出口的唯一收尾点**。
@@ -2199,14 +2143,6 @@ export class SubagentDispatchService {
         )
         return
       }
-      // F-202:取消是持久化终态 —— agent_tasks 已是 cancelled 时,完成/失败回写一律不覆盖。
-      // 这一层是「条件更新命中 0 行」的读侧判据;写侧另由下面的 WHERE 条件兜住并发窗口。
-      if (terminalStatus !== 'cancelled' && taskRow?.status === 'cancelled') {
-        logger.warn(
-          `[subagent-dispatch] agent_tasks ${taskId} 已 cancelled,拒绝被 ${terminalStatus} 覆盖`,
-        )
-        return
-      }
       // P0-2(2026-09-11):终态前统一释放工作区锁(停心跳 + 凭 token 释放 +
       // 清 lockedBy 审计字段 + 广播 workspace_lock_released),防止锁悬挂
       await releaseTaskLockByTaskId(taskId, releaseOutcome)
@@ -2241,13 +2177,7 @@ export class SubagentDispatchService {
           completedAt: runtime.completedAt ? new Date(runtime.completedAt) : undefined,
           updatedAt: new Date(),
         })
-        // F-202:条件更新 —— 写 completed/failed 时要求 DB 当前状态不是 cancelled;
-        // 已被取消(命中 0 行)⇒ 不覆盖终态。写 cancelled 本身不受此限(取消要能落库)。
-        .where(
-          terminalStatus === 'cancelled'
-            ? eq(agentTasks.id, taskId)
-            : and(eq(agentTasks.id, taskId), ne(agentTasks.status, 'cancelled')),
-        )
+        .where(eq(agentTasks.id, taskId))
       // P0-2:终态广播 SSE(原先 dispatch 写库不广播,看板需手动刷新才能看到)
       broadcastSSEEvent({
         type: status === 'completed' ? 'task_completed' : 'task_failed',
@@ -2569,7 +2499,6 @@ export class SubagentDispatchService {
       terminalAt,
       terminalPersisted: isTerminalDispatchStatus(status),
       lastUsedAt: usedAt,
-      abortController: new AbortController(),
     }
   }
 
@@ -2962,7 +2891,6 @@ export class SubagentDispatchService {
       dagNodeStatus: new Map(),
       artifacts: new Map(),
       capacityReserved: input.capacityReserved,
-      abortController: new AbortController(),
     }
     this.runtimes.set(pending.id, runtime)
     // 2026-08-06: 派单轨迹持久化 — 带 agentId 的派单写入 agent_tasks(agents 详情页 5 Tab 运行时数据源)
@@ -3063,8 +2991,6 @@ export class SubagentDispatchService {
     const runtime = this.runtimes.get(id)
     if (!runtime) return
     const dispatch = runtime.dispatch
-    // F-202:已被取消(取消先于执行器开跑)⇒ 不再发起任何调用,更不回写终态
-    if (this._isCancelled(runtime)) return
 
     // F1(2026-11-02)断点完成:进程可能在 AI 返回后、写终态前重启,但 checkpoint
     // 已经落 Redis(status=ok)。恢复时直接按已完成收尾,不再调一次 AI(不重复执行)。
@@ -3129,14 +3055,7 @@ export class SubagentDispatchService {
       const stepStart = Date.now()
 
       // 超时监控(用 Promise.race)
-      const callPromise = callAiService(
-        mode,
-        role,
-        prompt,
-        dispatch.sessionId,
-        dispatch.directory,
-        runtime.abortController.signal,
-      )
+      const callPromise = callAiService(mode, role, prompt, dispatch.sessionId, dispatch.directory)
       const result =
         timeoutMs > 0
           ? await Promise.race([
@@ -3154,9 +3073,6 @@ export class SubagentDispatchService {
               ),
             ])
           : await callPromise
-
-      // F-202:取消可能发生在本次调用在途期间 ⇒ 结果直接丢弃,不写 step、不写任何终态
-      if (this._isCancelled(runtime)) return
 
       const stepDuration = Date.now() - stepStart
       const tokenUsage = result.ok
@@ -3313,8 +3229,6 @@ export class SubagentDispatchService {
     if (!runtime || !runtime.dag) return
     const dispatch = runtime.dispatch
     const dag = runtime.dag
-    // F-202:已取消 ⇒ 不启动 DAG 执行
-    if (this._isCancelled(runtime)) return
 
     dispatch.status = 'running'
     dispatch.updatedAt = nowIso()
@@ -3390,9 +3304,6 @@ export class SubagentDispatchService {
           return
         }
 
-        // F-202:整单已取消 ⇒ 同层其余节点不再发起新调用
-        if (this._isCancelled(runtime)) return
-
         // checkpoint 命中 → 跳过
         const cp = checkpoints.get(nodeId)
         if (cp && cp.status === 'ok') {
@@ -3449,14 +3360,7 @@ export class SubagentDispatchService {
         while (attempt < maxAttempts) {
           attempt++
           const stepStart = Date.now()
-          const callPromise = callAiService(
-            'parallel',
-            node.agentRole,
-            nodePrompt,
-            undefined,
-            undefined,
-            runtime.abortController.signal,
-          )
+          const callPromise = callAiService('parallel', node.agentRole, nodePrompt)
           callResult =
             timeoutMs > 0
               ? await Promise.race([
@@ -3474,8 +3378,6 @@ export class SubagentDispatchService {
                   ),
                 ])
               : await callPromise
-          // F-202:取消发生在在途调用期间 ⇒ 本节点结果丢弃,不再写节点状态/整单终态
-          if (this._isCancelled(runtime)) return
           stepDuration = Date.now() - stepStart
           tokenUsage = callResult.ok
             ? extractTokenUsage(callResult.data, callResult.finalOutput)
@@ -3593,8 +3495,6 @@ export class SubagentDispatchService {
     }
 
     // 汇总结果
-    // F-202:取消已落为终态 ⇒ DAG 收尾不再写 completed/failed(不得把 cancelled 改回去)
-    if (this._isCancelled(runtime)) return
     const allResults = Array.from(results.entries())
       .map(([nid, output]) => `[${nid}]: ${output}`)
       .join('\n')
@@ -3633,8 +3533,6 @@ export class SubagentDispatchService {
     const runtime = this.runtimes.get(id)
     if (!runtime) return
     const dispatch = runtime.dispatch
-    // F-202:已取消 ⇒ 不启动多轮通信(不再继续烧 token)
-    if (this._isCancelled(runtime)) return
 
     // F1:与 runDispatch 同口径 —— 已有 ok checkpoint 就不再重跑 AI
     const completedCheckpoint = Array.from((await this._loadCheckpoints(id)).values())
@@ -3693,11 +3591,7 @@ export class SubagentDispatchService {
         prompt,
         this.redisClient,
         dispatch.sessionId,
-        undefined,
-        runtime.abortController.signal,
       )
-      // F-202:取消发生在通信轮次在途期间 ⇒ 结果丢弃,不写 step/终态
-      if (this._isCancelled(runtime)) return
       const stepDuration = Date.now() - stepStart
       const tokenUsage = result.ok
         ? extractTokenUsage(result.data, result.finalOutput)
@@ -3822,16 +3716,7 @@ export class SubagentDispatchService {
     return { ok: true, dispatch: runtime.dispatch }
   }
 
-  /**
-   * 取消派单:pending/running/queued 可取消(queued 取消即从真队列移除)。
-   *
-   * F-202:取消必须**落持久化终态** —— 旧实现只改内存标志,执行器跑完又把 `completed`
-   * 覆盖回去(用户以为取消了,实际继续烧 token)。现在:
-   *  ① 先 abort 在途 ai-service 调用(复用既有 AbortSignal,不再继续产生用量);
-   *  ② 终态统一走 `_finalize`(落 Redis hash + agent_tasks 镜像);
-   *  ③ 完成路径的回写在落盘前再判一次 cancelled(见 `_persistDispatch` / `_syncAgentTask`)。
-   * 重复取消幂等:已终态直接 false,不产生第二次写。
-   */
+  /** 取消派单:pending/running/queued 可取消(queued 取消即从真队列移除) */
   cancel(id: string): boolean {
     const runtime = this.runtimes.get(id)
     if (!runtime) return false
@@ -3843,8 +3728,6 @@ export class SubagentDispatchService {
     runtime.completedAt = Date.now()
     // 终态:清掉 outbox 重试意图(否则下轮启动会把已取消的派单当"待重试"恢复)
     runtime.outbox = undefined
-    // F-202:在途请求立即中断(有则生效;已结束则无副作用)
-    runtime.abortController.abort()
     // F-255:取消是终态出口,统一走 _finalize(该方法内部落盘+日志+TTL+淘汰)
     void this._finalize(id, { level: 'info', event: 'dispatch_cancelled' })
     return true

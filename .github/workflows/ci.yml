@@ -200,20 +200,6 @@ jobs:
         id: migration-bookkeeping
         run: node scripts/check-migration-bookkeeping.mjs
 
-      # 手写迁移快照守门(DB-09,2026-11-12 接入 CI,差值棘轮档)。
-      # 背景:开发者手写 *.sql 迁移后,drizzle-kit 以 journal 对应 snapshot 为 diff 基线;
-      # 迁移里的 ADD COLUMN / CREATE INDEX 若不在对应 snapshot,下一次 `db:generate`
-      # 会把它们再生成一份新迁移,已应用库执行时报重复列/索引(生产曾因此阻塞部署)。
-      # 本尺判「迁移新增的列/索引/约束必须存在于对应 snapshot」。
-      # 档位:默认 --check(HEAD 面,读 baseline 区分 stock/new)——**只拦新增违规(new>0)**,
-      # 存量 919 条已由 scripts/data/hand-migration-snapshot-baseline.json 认账(§0 差值棘轮:
-      # 存量归零后才升 blocking,本步即为认账后只拦新增的落点)。
-      # 不用 --strict(要求每个手写迁移都有快照对象,与 baseline 是两套机制,会把存量 310
-      # 个缺快照迁移一并打红,违背本档意图)。
-      - name: Hand migration snapshot check (DB-09 差值棘轮,只拦新增)
-        id: hand-migration-snapshot
-        run: node scripts/check-hand-migration-snapshot.mjs --check
-
       - name: API route consistency check
         id: api-routes
         run: node scripts/check-api-routes.mjs

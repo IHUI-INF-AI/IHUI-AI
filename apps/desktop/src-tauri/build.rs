@@ -73,12 +73,6 @@ fn main() {
             // 2026-10-16 内嵌浏览器改版:外部 Chrome 的 open_in_chrome/close_in_chrome 已删除
             // (三处调用点全部改走内嵌浏览器),登录窗开/关统一用 embedded_browser_*。
             "checkin_workbuddy_web_login_probe",
-            // F-060:粘贴 Cookie 探测命令此前从未进过本表(远程页解析不到授权条目,
-            // 与 probe 同批补齐;F-047 教训:本表与 default.json 的 allow-* 两处缺一即失效)
-            "checkin_workbuddy_web_login_probe_cookie",
-            // F-060:jar 探测路径的入库命令(与 capabilities/default.json 的
-            // allow-checkin-workbuddy-web-import 同批登记,F-047 教训:两处缺一即失效)
-            "checkin_workbuddy_web_import",
             "checkin_reset_device_ids",
             "checkin_get_public_ip",
             "checkin_one_click_reset",
