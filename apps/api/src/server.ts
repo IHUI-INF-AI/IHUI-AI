@@ -117,7 +117,11 @@ import tenantDbPlugin from './plugins/tenant-db.js'
 import { tokenBalanceService } from './plugins/token-balance-service.js'
 import { resilienceToolkit } from './plugins/resilience-toolkit.js'
 import canaryRouterPlugin from './plugins/canary-router.js'
-import { startAutoRollbackMonitor } from './services/auto-rollback.js'
+import {
+  startAutoRollbackMonitor,
+  stopAutoRollbackMonitor,
+} from './services/auto-rollback.js'
+import { registerPoolTrackerCleanup } from './db/index.js'
 // D30 无人值守修复闭环(2026-09-26 立,计划行 659):PAT 基础,与 D15 installation 体系解耦。
 // 内部 env 门控:IHUI_AUTOMATIONS_ENABLED 未开启时 startAutomationsScheduler() 直接返回,
 // 零定时器/零网络;关闭走下方 onClose 钩子优雅停。
@@ -463,6 +467,11 @@ export async function buildServer(): Promise<FastifyInstance> {
 
   // 启动金丝雀自动回滚监控（CANARY_ENABLED=true 时生效，默认空操作）
   startAutoRollbackMonitor()
+  // F-524:关停相位必须落在 buildServer() 内,worker 只走 server.close() 的 onClose,
+  // 若 stop 留在 index.ts 的关停相位,worker 侧的 ref 定时器永远停不掉。
+  server.addHook('onClose', async () => {
+    stopAutoRollbackMonitor()
+  })
 
   // D30 无人值守修复闭环:env 门控启动(IHUI_AUTOMATIONS_ENABLED=true 才生效);
   // 未开启 = 完全不启动(零定时器、零网络)。onClose 钩子负责优雅关停。
@@ -489,6 +498,10 @@ export async function buildServer(): Promise<FastifyInstance> {
       stopSuperAgentPumpLoop()
     })
   }
+
+  // F-524:poolTracker onClose 清理同样必须在 buildServer() 内注册,worker 不执行 index.ts 的
+  // 关停相位;此前 worker 进程的 DB 连接/定时器无清理路径。
+  registerPoolTrackerCleanup(server)
 
   return server
 }

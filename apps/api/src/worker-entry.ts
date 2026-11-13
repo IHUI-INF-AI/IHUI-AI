@@ -9,8 +9,15 @@ import { buildServer } from './server.js'
 import { startWorkers } from './workers/index.js'
 import { startSchedulerWorker } from './workers/scheduler-worker.js'
 import { initOtel } from './plugins/otel.js'
-import { ensurePaymentMockGateway, isPaymentMockEnabled } from './services/payment-mock-gateway.js'
+import {
+  ensurePaymentMockGateway,
+  isPaymentMockEnabled,
+  type PaymentMockGatewayHandle,
+} from './services/payment-mock-gateway.js'
 import { declareProcessRole } from './utils/process-role.js'
+
+/** F-524:worker 关停时等待 server.close() 的上限,超时告警后强制退出。 */
+const SERVER_CLOSE_TIMEOUT_MS = 10_000
 
 /**
  * Worker 独立进程入口。
@@ -43,8 +50,11 @@ async function startWorkerProcess(): Promise<void> {
   // 票 G-998162:本地真 HTTP mock 支付网关(联调验证档)。仅 IHUI_PAY_MOCK=1 时启动,
   // 不设环境变量时零影响。provider baseURL 注入走 WX_API_BASE(??= origin,显式配置优先);
   // 生产代码路径与联调完全一致,联调时删掉 IHUI_PAY_MOCK 开关即可。
+  // F-524:句柄必须保存下来,shutdown 才有关闭路径(否则监听端口/连接钉住进程)。
+  let gatewayHandle: PaymentMockGatewayHandle | null = null
   if (isPaymentMockEnabled()) {
-    const gateway = await ensurePaymentMockGateway()
+    gatewayHandle = await ensurePaymentMockGateway()
+    const gateway = gatewayHandle
     if (gateway) {
       server.log.info(
         { origin: gateway.origin, external: gateway.external },
@@ -91,9 +101,30 @@ async function startWorkerProcess(): Promise<void> {
   const shutdown = async (signal: string) => {
     workersRunning = false
     server.log.info({ signal }, 'Worker process shutting down...')
-    await Promise.allSettled([...workers.map((w) => w.close()), schedulerWorker.close()])
+    await Promise.allSettled([
+      ...workers.map((w) => w.close()),
+      schedulerWorker.close(),
+      // F-524:mock 网关此前未保存句柄,worker 关停时没有关闭路径
+      gatewayHandle?.close(),
+    ])
     healthServer.close()
-    await server.close()
+    // F-524:server.close() 无超时会让关停无限挂起(进程中仍有 ref 句柄时尤其明显);
+    // 超时只告警,继续 process.exit(0),保持 SIGTERM/SIGINT 行为不变。
+    // 超时定时器本身 unref,且 process.exit(0) 紧随其后,无需 clearTimeout
+    const closeTimeout = new Promise<'timeout'>((resolve) => {
+      const closeTimer = setTimeout(() => resolve('timeout'), SERVER_CLOSE_TIMEOUT_MS)
+      closeTimer.unref()
+    })
+    const closeResult = await Promise.race([
+      server.close().then(() => 'closed' as const),
+      closeTimeout,
+    ])
+    if (closeResult === 'timeout') {
+      server.log.warn(
+        { timeoutMs: SERVER_CLOSE_TIMEOUT_MS },
+        'Worker server.close() timed out, forcing exit',
+      )
+    }
     process.exit(0)
   }
   process.on('SIGTERM', () => shutdown('SIGTERM'))
