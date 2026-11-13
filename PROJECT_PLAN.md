@@ -12301,7 +12301,6 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 379G. **缺陷普查 API F-379** [P2] R002/R005 所需字段入口未提供，规则空转（证据 docs/tickets/2026-11/findings-api.md#F-379）
 - [ ] 380G. **缺陷普查 API F-380** [P2] merge 入口不校验会话状态，可对已完成/已取消会话反复合并（证据 docs/tickets/2026-11/findings-api.md#F-380）
 - [ ] 382G. **缺陷普查 API F-382** [P2] OSS 分片会话用进程内 Map 且 TTL 不 Abort，跨用户清理（证据 docs/tickets/2026-11/findings-api.md#F-382）
-- [ ] 385G. **缺陷普查 API F-385** [P1] 模型映射后不复检 allowedModels，绕过白名单与计费口径（P1）（证据 docs/tickets/2026-11/findings-api.md#F-385）
 - [ ] 386G. **缺陷普查 API F-386** [P2] RAG 知识块无边界拼入 system prompt，间接提示注入（证据 docs/tickets/2026-11/findings-api.md#F-386）
 - [ ] 387G. **缺陷普查 API F-387** [P2] ingestFile 用标题反查 docId，空文本仍返回成功（证据 docs/tickets/2026-11/findings-api.md#F-387）
 - [ ] 388G. **缺陷普查 API F-388** [P3] 关键词过滤在 LIMIT 之后内存执行，分页返回不足（证据 docs/tickets/2026-11/findings-api.md#F-388）
