@@ -30,6 +30,10 @@ export interface ModelOption {
   label: string
   /** 模型 id（可选，2026-08-31 补：Auto-Model 徽章等按 id 匹配的场景使用） */
   id?: string
+  /** 每百万 token 真实单价(2026-11-13 类型契约补齐):能力摘要行横比用,
+   *  model-selector 的 pricePerMillionText 已读取,此前接口未登记导致 TS2339。 */
+  inputPricePerMillion?: number
+  outputPricePerMillion?: number
   descriptionKey?: string
   /** 厂商代码,用于 BrandIcon 显示 */
   vendor?: string
