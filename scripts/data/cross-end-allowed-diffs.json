@@ -28,9 +28,9 @@
       "platform": "both",
       "owner": "cross-end-ui",
       "expires": "2027-03-27",
-      "count": 6,
+      "count": 2,
       "reason": "两端盒档读数仍有差;本批只登记为允许差异,不改 UI 结构与视觉取值;到期前必须由 owner 复核收敛或续期。",
-      "evidence": "check-cross-end-ui-parity --json: Carousel diffCount=6(onlyMiniapp=6 / onlyRn=0)"
+      "evidence": "check-cross-end-ui-parity --json: Carousel diffCount=6(onlyMiniapp=6 / onlyRn=0)；2026-11-13 复核收紧:额度 6→2(门现值 diffCount=2,白名单不超量防空壳),由 owner cross-end-ui 现读 check-cross-end-ui-parity 收口"
     },
     {
       "component": "DrawerComponent",
@@ -58,9 +58,9 @@
       "platform": "both",
       "owner": "cross-end-ui",
       "expires": "2027-03-27",
-      "count": 18,
+      "count": 16,
       "reason": "两端盒档读数仍有差;本批只登记为允许差异,不改 UI 结构与视觉取值;到期前必须由 owner 复核收敛或续期。",
-      "evidence": "check-cross-end-ui-parity --json: InputArea diffCount=18(onlyMiniapp=10 / onlyRn=8;2026-11-04 merge 面重读)"
+      "evidence": "check-cross-end-ui-parity --json: InputArea diffCount=18(onlyMiniapp=10 / onlyRn=8;2026-11-04 merge 面重读)；2026-11-13 复核收紧:额度 18→16(门现值 diffCount=16,白名单不超量防空壳),由 owner cross-end-ui 现读 check-cross-end-ui-parity 收口"
     },
     {
       "component": "InputArea",
@@ -108,9 +108,9 @@
       "platform": "both",
       "owner": "cross-end-ui",
       "expires": "2027-03-27",
-      "count": 6,
+      "count": 5,
       "reason": "两端盒档读数仍有差;本批只登记为允许差异,不改 UI 结构与视觉取值;到期前必须由 owner 复核收敛或续期。",
-      "evidence": "check-cross-end-ui-parity --json: ModelConfigDialog diffCount=6(onlyMiniapp=1 / onlyRn=5)"
+      "evidence": "check-cross-end-ui-parity --json: ModelConfigDialog diffCount=6(onlyMiniapp=1 / onlyRn=5)；2026-11-13 复核收紧:额度 6→5(门现值 diffCount=5,白名单不超量防空壳),由 owner cross-end-ui 现读 check-cross-end-ui-parity 收口"
     },
     {
       "component": "ModelConfigDialog",
@@ -128,9 +128,9 @@
       "platform": "both",
       "owner": "cross-end-ui",
       "expires": "2027-03-27",
-      "count": 6,
+      "count": 5,
       "reason": "两端盒档读数仍有差;本批只登记为允许差异,不改 UI 结构与视觉取值;到期前必须由 owner 复核收敛或续期。",
-      "evidence": "check-cross-end-ui-parity --json: ModelList diffCount=6(onlyMiniapp=5 / onlyRn=1)"
+      "evidence": "check-cross-end-ui-parity --json: ModelList diffCount=6(onlyMiniapp=5 / onlyRn=1)；2026-11-13 复核收紧:额度 6→5(门现值 diffCount=5,白名单不超量防空壳),由 owner cross-end-ui 现读 check-cross-end-ui-parity 收口"
     },
     {
       "component": "ModelList",
@@ -148,9 +148,9 @@
       "platform": "both",
       "owner": "cross-end-ui",
       "expires": "2027-03-27",
-      "count": 7,
+      "count": 4,
       "reason": "两端盒档读数仍有差;本批只登记为允许差异,不改 UI 结构与视觉取值;到期前必须由 owner 复核收敛或续期。",
-      "evidence": "check-cross-end-ui-parity --json: NavBar diffCount=7(onlyMiniapp=1 / onlyRn=6)"
+      "evidence": "check-cross-end-ui-parity --json: NavBar diffCount=7(onlyMiniapp=1 / onlyRn=6)；2026-11-13 复核收紧:额度 7→4(门现值 diffCount=4,白名单不超量防空壳),由 owner cross-end-ui 现读 check-cross-end-ui-parity 收口"
     },
     {
       "component": "NavBar",
@@ -208,9 +208,9 @@
       "platform": "both",
       "owner": "cross-end-ui",
       "expires": "2027-03-27",
-      "count": 7,
+      "count": 6,
       "reason": "两端盒档读数仍有差;本批只登记为允许差异,不改 UI 结构与视觉取值;到期前必须由 owner 复核收敛或续期。",
-      "evidence": "check-cross-end-ui-parity --json: VoiceInput diffCount=7(onlyMiniapp=1 / onlyRn=6)"
+      "evidence": "check-cross-end-ui-parity --json: VoiceInput diffCount=7(onlyMiniapp=1 / onlyRn=6)；2026-11-13 复核收紧:额度 7→6(门现值 diffCount=6,白名单不超量防空壳),由 owner cross-end-ui 现读 check-cross-end-ui-parity 收口"
     },
     {
       "component": "VoiceInput",
