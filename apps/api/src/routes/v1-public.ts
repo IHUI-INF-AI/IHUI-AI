@@ -64,7 +64,15 @@ import {
 // 用户级并发限制(H,2026-09-16 立;G-727 收口泄漏面:占用与登记同笔完成)
 import { acquireUserConcurrencyForResponse } from '../services/user-concurrency-service.js'
 // 渠道直连转发器(2026-09-12 立):公开链路接通渠道路由 + 逐请求 failover
-import { forwardToChannel, pipeChannelStream } from '../services/relay-upstream-forwarder.js'
+import {
+  forwardToChannel,
+  pipeChannelStream,
+  type ForwardResult,
+} from '../services/relay-upstream-forwarder.js'
+import {
+  mapForwardFailureToHttp,
+  type ForwardFailureHttp,
+} from '../services/relay-forward-failure.js'
 // F-178:渠道配额用量回写 —— checkQuota 读 ai_relay_channel_daily_usage,
 // 但 recordUsage 此前在转发层零调用,聚合恒 0 ⇒ 日/月配额永不生效。
 import { recordUsage } from '../services/channel-quota-service.js'
@@ -1925,6 +1933,9 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
       let usedChannel: SelectedChannelKey | null = null
       let resp: Response | null = null
       let poolFailure: string | null = null
+      // F-678:失败结果原样留底,最终按 lastHttpStatus 决定对外状态码
+      let channelFailure: ForwardResult = null
+      let channelRejection: ForwardFailureHttp | null = null
       if (mode === 'relay') {
         try {
           const baseBody: Record<string, unknown> = {
@@ -1989,6 +2000,7 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
             usedChannel = fwd.channel
           } else {
             poolFailure = fwd?.reason ?? 'no channel configured'
+            channelFailure = fwd ?? null
           }
         } catch (e) {
           // 渠道链路异常 → 回退 ai-service
@@ -2008,6 +2020,17 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
             }),
             { status: 502, headers: { 'Content-Type': 'application/json' } },
           )
+        }
+      }
+
+      // F-678:上游对本次请求的明确拒绝(400/401/404/429)换 ai-service 也不会变好 ⇒ 不回落,
+      // 最终按 lastHttpStatus 原样回状态码;错误体只用我们自己的截断文案,不透传上游响应头。
+      // 只有「无可用上游(无 lastHttpStatus)/ 5xx / 网络错」才继续下面的 ai-service 兜底(最终仍 503)。
+      if (!resp) {
+        const mapped = mapForwardFailureToHttp(channelFailure)
+        if (mapped.status >= 400 && mapped.status < 500) {
+          channelRejection = mapped
+          resp = new Response(null, { status: mapped.status })
         }
       }
 
@@ -2052,6 +2075,11 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
       }
 
       if (!resp.ok) {
+        // F-678:4xx 拒绝按上游状态码回(429 带上游给的 Retry-After);其余保持既有 503
+        const failureStatus = channelRejection?.status ?? 503
+        const failureMessage = channelRejection
+          ? (poolFailure ?? 'upstream rejected the request').slice(0, 200)
+          : `AI service unavailable (${resp.status})`
         if (apiKey) {
           const latency = persistableLatency(sw.stop())
           void recordCall({
@@ -2066,7 +2094,7 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
             totalTokens: 0,
             latencyMs: latency.latencyMs,
             status: 'error',
-            errorMessage: `AI service unavailable (${resp.status})`,
+            errorMessage: failureMessage,
             mode,
             providerCode: modelToProviderCode(resolvedModel),
             clientIp: request.ip,
@@ -2074,7 +2102,8 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
             preDeducted: preDeduction,
           }).catch(() => {})
         }
-        return reply.status(503).send(error(503, `AI service unavailable (${resp.status})`))
+        if (channelRejection?.retryAfter) reply.header('Retry-After', channelRejection.retryAfter)
+        return reply.status(failureStatus).send(error(failureStatus, failureMessage))
       }
 
       const rawJson = (await resp.json()) as Record<string, unknown>

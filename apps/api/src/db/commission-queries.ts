@@ -18,6 +18,7 @@ import {
   type WithdrawalFlow,
 } from '@ihui/database'
 import { withAudit, withAuditBoth } from '../utils/audit.js'
+import { toSafeCount } from '../utils/safe-count.js'
 import type { DbTx } from './payment-queries.js'
 
 // ============================================================================
@@ -46,12 +47,16 @@ export async function getTokenFlowTotals(
 ): Promise<{ totalEarned: number; totalUsed: number }> {
   const rows = await db
     .select({
-      totalEarned: sql<number>`COALESCE(sum(CASE WHEN ${tokenFlows.opType} IN (0,3,4,5,6) THEN ${tokenFlows.quantity} ELSE 0 END)::int, 0)`,
-      totalUsed: sql<number>`COALESCE(sum(CASE WHEN ${tokenFlows.opType} = 1 THEN ${tokenFlows.quantity} ELSE 0 END)::int, 0)`,
+      // F-667:token 合计可能超 int4 上限,聚合只到 bigint,再由 JS 侧归一成 number
+      totalEarned: sql<number>`COALESCE(sum(CASE WHEN ${tokenFlows.opType} IN (0,3,4,5,6) THEN ${tokenFlows.quantity} ELSE 0 END)::bigint, 0)`,
+      totalUsed: sql<number>`COALESCE(sum(CASE WHEN ${tokenFlows.opType} = 1 THEN ${tokenFlows.quantity} ELSE 0 END)::bigint, 0)`,
     })
     .from(tokenFlows)
     .where(eq(tokenFlows.userId, userId))
-  return { totalEarned: rows[0]?.totalEarned ?? 0, totalUsed: rows[0]?.totalUsed ?? 0 }
+  return {
+    totalEarned: toSafeCount(rows[0]?.totalEarned),
+    totalUsed: toSafeCount(rows[0]?.totalUsed),
+  }
 }
 
 export async function ensureMargin(userId: string): Promise<UserMargin> {
@@ -354,7 +359,8 @@ export async function commissionSummary(beneficiaryId: string, windowDays = 7) {
   const rows = await db
     .select({
       totalAmount: sql<number>`coalesce(sum(${commissionFlows.amount}), 0)::int`,
-      totalToken: sql<number>`coalesce(sum(${commissionFlows.token}), 0)::int`,
+      // F-667:token 合计可能超 int4 上限,聚合只到 bigint,再由 JS 侧归一成 number
+      totalToken: sql<number>`coalesce(sum(${commissionFlows.token}), 0)::bigint`,
     })
     .from(commissionFlows)
     .where(
@@ -366,7 +372,7 @@ export async function commissionSummary(beneficiaryId: string, windowDays = 7) {
     )
   return {
     totalAmount: rows[0]?.totalAmount ?? 0,
-    totalToken: rows[0]?.totalToken ?? 0,
+    totalToken: toSafeCount(rows[0]?.totalToken),
     commissionDay: windowDays,
   }
 }

@@ -25,6 +25,7 @@ import {
   llmCallLogs,
 } from '@ihui/database'
 import type { ApiKeyGroup } from '@ihui/database'
+import { toSafeCount } from '../utils/safe-count.js'
 
 // =============================================================================
 // 类型定义
@@ -139,7 +140,8 @@ export async function getGroupMembers(groupId: string): Promise<GroupMemberUsage
   const usageRows = await dbRead
     .select({
       apiKeyId: llmCallLogs.apiKeyId,
-      usedTokens: sql<number>`coalesce(sum(${llmCallLogs.totalTokens}), 0)::int`,
+      // F-667:token 合计可能超 int4 上限,聚合只到 bigint,再由 JS 侧归一成 number
+      usedTokens: sql<number>`coalesce(sum(${llmCallLogs.totalTokens}), 0)::bigint`,
       usedCostCents: sql<number>`coalesce(sum(${llmCallLogs.costCents}), 0)::int`,
     })
     .from(llmCallLogs)
@@ -155,7 +157,10 @@ export async function getGroupMembers(groupId: string): Promise<GroupMemberUsage
   const usageMap = new Map<string, { usedTokens: number; usedCostCents: number }>()
   for (const u of usageRows) {
     if (u.apiKeyId) {
-      usageMap.set(u.apiKeyId, { usedTokens: u.usedTokens, usedCostCents: u.usedCostCents })
+      usageMap.set(u.apiKeyId, {
+        usedTokens: toSafeCount(u.usedTokens),
+        usedCostCents: u.usedCostCents,
+      })
     }
   }
 
