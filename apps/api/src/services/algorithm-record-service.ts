@@ -34,19 +34,30 @@ const ALGORITHM_RECOMMEND_SOURCE_URL = 'https://www.cac.gov.cn/2022-08/12/c_1661
 const UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36'
 
-async function fetchText(url: string): Promise<string> {
+// F-652:单次抓取超时(默认 20s,可由 SyncOptions.timeoutMs 注入)。
+export const ALGORITHM_SYNC_DEFAULT_TIMEOUT_MS = 20_000
+// F-652:单个公告页最多处理的附件数,防止单页挂无限附件把一轮拖成数小时。
+export const ALGORITHM_SYNC_MAX_ATTACHMENTS_PER_PAGE = 50
+// F-652:发现源最多处理的公告页/批次数。
+export const ALGORITHM_SYNC_MAX_DISCOVERY_PAGES = 50
+
+type SyncLog = Pick<Console, 'info' | 'warn' | 'error' | 'debug'>
+
+async function fetchText(url: string, timeoutMs: number): Promise<string> {
   const res = await fetch(url, {
     headers: { 'User-Agent': UA, Accept: 'text/html,*/*' },
     redirect: 'follow',
+    signal: AbortSignal.timeout(timeoutMs),
   })
   if (!res.ok) throw new Error(`fetch failed ${res.status}: ${url}`)
   return res.text()
 }
 
-async function fetchBytes(url: string): Promise<Buffer> {
+async function fetchBytes(url: string, timeoutMs: number): Promise<Buffer> {
   const res = await fetch(url, {
     headers: { 'User-Agent': UA },
     redirect: 'follow',
+    signal: AbortSignal.timeout(timeoutMs),
   })
   if (!res.ok) throw new Error(`download failed ${res.status}: ${url}`)
   return Buffer.from(await res.arrayBuffer())
@@ -246,18 +257,24 @@ async function importFromPage(
   kind: RecordKind,
   pageUrl: string,
   fallbackBatch: string | null,
-  log: Pick<Console, 'info' | 'warn' | 'error'>,
+  log: SyncLog,
+  timeoutMs: number,
 ): Promise<ImportStats[]> {
-  const html = await fetchText(pageUrl)
+  const html = await fetchText(pageUrl, timeoutMs)
   const links = extractDownloadLinks(html)
   if (links.length === 0) {
     log.warn(`[algorithm-record] ${pageUrl} 未发现 downloadfile 附件`)
     return []
   }
+  if (links.length > ALGORITHM_SYNC_MAX_ATTACHMENTS_PER_PAGE) {
+    log.warn(
+      `[algorithm-record] ${pageUrl} 附件 ${links.length} 个,超过单页上限 ${ALGORITHM_SYNC_MAX_ATTACHMENTS_PER_PAGE},本轮只处理前 ${ALGORITHM_SYNC_MAX_ATTACHMENTS_PER_PAGE} 个`,
+    )
+  }
   const stats: ImportStats[] = []
-  for (const link of links) {
+  for (const link of links.slice(0, ALGORITHM_SYNC_MAX_ATTACHMENTS_PER_PAGE)) {
     try {
-      const buf = await fetchBytes(link)
+      const buf = await fetchBytes(link, timeoutMs)
       const batch = fallbackBatch ?? extractBatchFromText(decodeURIComponent(link))
       const s = await importOneDocx({ kind, batch, sourceUrl: link, buffer: buf })
       log.info(
@@ -277,13 +294,36 @@ async function importFromPage(
 }
 
 export interface SyncOptions {
-  log?: Pick<Console, 'info' | 'warn' | 'error'>
+  log?: SyncLog
   kinds?: RecordKind[]
+  /** 单次抓取超时(毫秒),默认 ALGORITHM_SYNC_DEFAULT_TIMEOUT_MS。 */
+  timeoutMs?: number
 }
+
+// F-652:in-flight 单飞守卫 —— 定时器每 6h 触发,上一轮未结束时下一轮直接跳过,
+// 避免重复下载/upsert 与内存翻倍。finally 释放。
+let syncInFlight = false
 
 /** 全量同步:算法推荐(主公告页自动发现全部批次) + 深度合成(种子批次) + 深度合成发现源。 */
 export async function syncAlgorithmRecords(opts: SyncOptions = {}): Promise<ImportStats[]> {
   const log = opts.log ?? console
+  if (syncInFlight) {
+    log.debug('[algorithm-record] 上一轮同步尚未结束,跳过本轮')
+    return []
+  }
+  syncInFlight = true
+  try {
+    return await runAlgorithmRecordSync(opts, log)
+  } finally {
+    syncInFlight = false
+  }
+}
+
+async function runAlgorithmRecordSync(
+  opts: SyncOptions,
+  log: SyncLog,
+): Promise<ImportStats[]> {
+  const timeoutMs = opts.timeoutMs ?? ALGORITHM_SYNC_DEFAULT_TIMEOUT_MS
   const kinds = opts.kinds ?? [ALGORITHM_RECOMMEND_KIND, DEEP_SYNTHESIS_KIND]
   const all: ImportStats[] = []
 
@@ -295,6 +335,7 @@ export async function syncAlgorithmRecords(opts: SyncOptions = {}): Promise<Impo
         ALGORITHM_RECOMMEND_SOURCE_URL,
         null,
         log,
+        timeoutMs,
       )
       all.push(...s)
     } catch (e) {
@@ -312,6 +353,7 @@ export async function syncAlgorithmRecords(opts: SyncOptions = {}): Promise<Impo
           seed.sourceUrl,
           seed.batch ?? null,
           log,
+          timeoutMs,
         )
         all.push(...found)
       } catch (e) {
@@ -322,7 +364,10 @@ export async function syncAlgorithmRecords(opts: SyncOptions = {}): Promise<Impo
     }
     // ② 深度合成发现源(beian 系统公告列表,自动发现未列入种子的新批次)
     try {
-      const res = await fetch(DEEP_SYNTHESIS_DISCOVERY_URL, { headers: { 'User-Agent': UA } })
+      const res = await fetch(DEEP_SYNTHESIS_DISCOVERY_URL, {
+        headers: { 'User-Agent': UA },
+        signal: AbortSignal.timeout(timeoutMs),
+      })
       if (res.ok) {
         const json = (await res.json()) as { datas?: { title?: string; content?: string }[] }
         const pages = (json.datas ?? [])
@@ -332,13 +377,18 @@ export async function syncAlgorithmRecords(opts: SyncOptions = {}): Promise<Impo
               /www\.cac\.gov\.cn/.test(n.content ?? ''),
           )
           .map((n) => (n.content ?? '').trim())
+        if (pages.length > ALGORITHM_SYNC_MAX_DISCOVERY_PAGES) {
+          log.warn(
+            `[algorithm-record] 深度合成发现源 ${pages.length} 页,超过上限 ${ALGORITHM_SYNC_MAX_DISCOVERY_PAGES},本轮只处理前 ${ALGORITHM_SYNC_MAX_DISCOVERY_PAGES} 页`,
+          )
+        }
         const seen = new Set<string>()
-        for (const p of pages) {
+        for (const p of pages.slice(0, ALGORITHM_SYNC_MAX_DISCOVERY_PAGES)) {
           const key = p.split('/c_')[1]?.slice(0, 12) ?? p
           if (seen.has(key)) continue
           seen.add(key)
           try {
-            const found = await importFromPage(DEEP_SYNTHESIS_KIND, p, null, log)
+            const found = await importFromPage(DEEP_SYNTHESIS_KIND, p, null, log, timeoutMs)
             all.push(...found)
           } catch (e) {
             log.error(`[algorithm-record] 深度合成发现源页面失败 ${p}: ${(e as Error).message}`)

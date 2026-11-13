@@ -17,7 +17,8 @@
  *     utils/distributed-lock.ts 的 owner+token 校验,但这里只需要「拿不到就跳过」
  *     的非阻塞语义,不排队等待)。
  * (d) 全局在途并发闸(2026-10-29 立,O93,对标 pool.max_in_flight_global):
- *     relay:pool:inflight:global 的 INCR/DECR 原子计数,每次 acquire 续 TTL 安全网;
+ *     relay:pool:inflight:global 的 INCR/DECR 原子计数,acquire 时写 TTL 安全网,
+ *     并在 handle 持有期间定时续期(F-619:长流跑过 TTL 时计数不得中途清零);
  *     达上限即回绝(调用方像冷却一样换下一候选,不排队);Redis 不可用 ⇒ 进程内计数兜底。
  *
  * 双档范式与 utils/code-store.ts、services/account-lockout.ts 完全一致:
@@ -29,6 +30,7 @@ import { randomBytes } from 'node:crypto'
 import IORedis, { type Redis } from 'ioredis'
 import { config } from '../config/index.js'
 import { logger } from '../utils/logger.js'
+import { DEFAULT_SOCKET_IDLE_TIMEOUT_MS } from './relay-socket-transport.js'
 
 // =============================================================================
 // Redis 客户端(与 code-store 同范式:快失败 + 离线队列必须关,否则降级是纸面的)
@@ -296,10 +298,69 @@ export async function tryAcquireSharedLock(
 // =============================================================================
 
 /**
- * 计数键的安全网 TTL:每次 acquire 续期。进程崩溃漏放的腿靠它自愈,
- * 闸永不因一次泄漏而永久卡死(失效方向 = 到期自动放,不是人工救火)。
+ * 计数键的安全网 TTL(F-619,2026-11-13 修)。
+ *
+ * 旧值固定 120s 且只在 acquire 时续期:cap=10、10 条 >120s 的长流同时开始后没有新请求,
+ * 120s 后键被 Redis 自然清掉 ⇒ 计数归零,第 121s 起新请求继续放行,全局闸中途失效。
+ *
+ * 新口径 = 「上游超时上限 + 缓冲」:上限取号池链路里最长的一档
+ * (relay-socket-transport 的上游空闲超时 —— 长思考/长流静默的容忍上限),
+ * 缓冲留出一次续期心跳的余量。真正的保险是 handle 持有期间的定时续期
+ * (GLOBAL_INFLIGHT_HEARTBEAT_MS);TTL 仍保留「进程崩溃漏放的腿自愈」的作用,
+ * 失效方向依然是到期自动放,不是人工救火。
  */
-const GLOBAL_INFLIGHT_TTL_MS = 120_000
+export const GLOBAL_INFLIGHT_TTL_BUFFER_MS = 60_000
+export const GLOBAL_INFLIGHT_TTL_MS = DEFAULT_SOCKET_IDLE_TIMEOUT_MS + GLOBAL_INFLIGHT_TTL_BUFFER_MS
+/**
+ * 续期心跳间隔(F-619):持有期间每个间隔把计数键 TTL 重新顶到 GLOBAL_INFLIGHT_TTL_MS。
+ * 必须显著小于 TTL,留出 Redis 抖动/重试与事件循环延迟的余量。
+ */
+export const GLOBAL_INFLIGHT_HEARTBEAT_MS = 60_000
+
+/** acquire 的可选覆盖项(测试/排障用;生产一律走上面的单源常量)。 */
+export interface GlobalInflightOptions {
+  /** 安全网 TTL 覆盖;<=0/非有限数 ⇒ 回落 GLOBAL_INFLIGHT_TTL_MS */
+  ttlMs?: number
+  /** 续期心跳间隔覆盖;<=0 ⇒ 关闭续期(只留 acquire 时的 TTL) */
+  heartbeatMs?: number
+  /** 定时器注入(测试可手动推进);默认全局 setInterval */
+  setIntervalFn?: (fn: () => void, ms: number) => unknown
+  /** 清定时器(与 setIntervalFn 配套);默认全局 clearInterval */
+  clearIntervalFn?: (handle: unknown) => void
+}
+
+function resolveTtlMs(opts?: GlobalInflightOptions): number {
+  const v = opts?.ttlMs
+  return typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : GLOBAL_INFLIGHT_TTL_MS
+}
+
+function resolveHeartbeatMs(ttlMs: number, opts?: GlobalInflightOptions): number {
+  const v = opts?.heartbeatMs
+  if (typeof v === 'number' && Number.isFinite(v)) return v > 0 ? v : 0
+  // TTL 被覆写时心跳要跟着缩,否则心跳间隔可能长过 TTL(续期永远来不及)
+  return Math.max(1_000, Math.min(GLOBAL_INFLIGHT_HEARTBEAT_MS, Math.floor(ttlMs / 3)))
+}
+
+function startInflightHeartbeat(
+  renew: () => void,
+  heartbeatMs: number,
+  opts?: GlobalInflightOptions,
+): unknown {
+  if (!(heartbeatMs > 0)) return null
+  const setFn = opts?.setIntervalFn ?? ((fn: () => void, ms: number) => setInterval(fn, ms))
+  const handle = setFn(renew, heartbeatMs)
+  // 心跳不得单独吊住进程退出(与 relay-socket-transport 的定时器同口径)
+  ;(handle as { unref?: () => void } | null)?.unref?.()
+  return handle
+}
+
+function stopInflightHeartbeat(handle: unknown, opts?: GlobalInflightOptions): void {
+  if (handle === null || handle === undefined) return
+  const clearFn =
+    opts?.clearIntervalFn ??
+    ((h: unknown) => clearInterval(h as ReturnType<typeof setInterval>))
+  clearFn(handle)
+}
 
 /** 进程内兜底计数(Redis 不可用/命令失败时才生效;与 cooldownFallback 同语义) */
 let globalInflightFallback = 0
@@ -353,9 +414,14 @@ export interface GlobalInflightHandle {
  * Redis 侧占用走单条 Lua(F-240):INCR+PEXPIRE 要么同时生效、要么都不生效。
  * Redis 命令失败 ⇒ 降级进程内计数(跨实例不等价,但与无闸现状同向,绝不抛错)。
  */
-export async function tryAcquireGlobalInflight(cap: number): Promise<GlobalInflightHandle | null> {
+export async function tryAcquireGlobalInflight(
+  cap: number,
+  opts?: GlobalInflightOptions,
+): Promise<GlobalInflightHandle | null> {
   if (!Number.isFinite(cap) || cap < 1) return null
   const token = randomBytes(8).toString('hex')
+  const ttlMs = resolveTtlMs(opts)
+  const heartbeatMs = resolveHeartbeatMs(ttlMs, opts)
   const redis = getRedis()
   if (redis) {
     try {
@@ -366,7 +432,7 @@ export async function tryAcquireGlobalInflight(cap: number): Promise<GlobalInfli
           GLOBAL_INFLIGHT_ACQUIRE_SCRIPT,
           1,
           KEY_GLOBAL_INFLIGHT,
-          GLOBAL_INFLIGHT_TTL_MS,
+          ttlMs,
           cap,
         )) as number
         if (v < 1) return null
@@ -385,7 +451,7 @@ export async function tryAcquireGlobalInflight(cap: number): Promise<GlobalInfli
           return null
         }
         try {
-          await redis.pexpire(KEY_GLOBAL_INFLIGHT, GLOBAL_INFLIGHT_TTL_MS)
+          await redis.pexpire(KEY_GLOBAL_INFLIGHT, ttlMs)
         } catch (e) {
           try {
             const left = await redis.decr(KEY_GLOBAL_INFLIGHT)
@@ -398,12 +464,27 @@ export async function tryAcquireGlobalInflight(cap: number): Promise<GlobalInfli
         }
       }
       let done = false
+      // F-619:持有期间定时把 TTL 顶回去。长流跑多久,计数就续多久;
+      // release 之后(done=true)即使有已排队的回调也不再多发一次 PEXPIRE。
+      const renew = (): void => {
+        if (done) return
+        try {
+          void Promise.resolve(redis.pexpire(KEY_GLOBAL_INFLIGHT, ttlMs)).catch((e: unknown) => {
+            logRedisError('globalInflight.renew', e)
+          })
+        } catch (e) {
+          logRedisError('globalInflight.renew', e)
+        }
+      }
+      const heartbeat = startInflightHeartbeat(renew, heartbeatMs, opts)
       return {
         token,
         backend: 'redis',
         release: async () => {
           if (done) return
           done = true
+          // 先停心跳再减计数:避免 release 之后又被续期出一个长 TTL 的空键
+          stopInflightHeartbeat(heartbeat, opts)
           try {
             await redis.eval(GLOBAL_INFLIGHT_RELEASE_SCRIPT, 1, KEY_GLOBAL_INFLIGHT)
           } catch (e) {

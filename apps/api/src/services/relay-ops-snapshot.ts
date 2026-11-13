@@ -300,7 +300,8 @@ async function buildUsageSection(): Promise<RelayOpsSnapshot['usage']> {
 }
 
 // ===== 快照组装入口(单帧;段级容错,一段失败不拖垮整帧) =====
-export async function buildRelayOpsSnapshot(): Promise<RelayOpsSnapshot> {
+/** 单帧组装:每次调用都会打库重建(不加缓存;供缓存层与既有调用方使用) */
+async function buildRelayOpsSnapshotFrame(): Promise<RelayOpsSnapshot> {
   const [alerts, channels, usage] = await Promise.all([
     (async (): Promise<RelayOpsSnapshot['alerts']> => {
       try {
@@ -320,5 +321,116 @@ export async function buildRelayOpsSnapshot(): Promise<RelayOpsSnapshot> {
     channels,
     usage,
   }
+}
+
+// ===== 共享缓存(F-624:多 socket 复用同一帧 + refresh 节流/单飞) =====
+
+/** 快照默认 TTL:5s。推送间隔 15s,窗口内所有连接只重建一次。 */
+const DEFAULT_SNAPSHOT_TTL_MS = 5_000
+/** refresh 最小间隔:1s。窗口内的 refresh 直接复用缓存帧,不重复打库。 */
+const DEFAULT_REFRESH_MIN_INTERVAL_MS = 1_000
+
+export interface RelayOpsSnapshotCacheOptions {
+  /** 注入时钟(毫秒);测试用,生产默认 Date.now */
+  now?: () => number
+  /** 缓存有效期(毫秒),默认 5s */
+  ttlMs?: number
+  /** refresh 最小间隔(毫秒),默认 1s */
+  refreshMinIntervalMs?: number
+  /** 重建函数,默认 buildRelayOpsSnapshot(测试可注入计数桩) */
+  build?: () => Promise<RelayOpsSnapshot>
+}
+
+export interface RelayOpsSnapshotCache {
+  /** 缓存未过期直接复用;过期后由首个请求重建,并发请求共享同一 in-flight Promise */
+  get: () => Promise<RelayOpsSnapshot>
+  /** 手动刷新:受最小间隔节流;并发 refresh 单飞复用同一 in-flight Promise */
+  refresh: () => Promise<RelayOpsSnapshot>
+}
+
+/** 创建一份共享缓存(时钟/间隔可注入,便于锁死节流窗口) */
+export function createRelayOpsSnapshotCache(
+  options: RelayOpsSnapshotCacheOptions = {},
+): RelayOpsSnapshotCache {
+  const now = options.now ?? Date.now
+  const ttlMs = options.ttlMs ?? DEFAULT_SNAPSHOT_TTL_MS
+  const refreshMinIntervalMs = options.refreshMinIntervalMs ?? DEFAULT_REFRESH_MIN_INTERVAL_MS
+  const build = options.build ?? buildRelayOpsSnapshotFrame
+
+  let cached: RelayOpsSnapshot | null = null
+  let cachedAt = 0
+  let inFlight: Promise<RelayOpsSnapshot> | null = null
+  let lastBuildStartedAt = Number.NEGATIVE_INFINITY
+
+  function rebuild(): Promise<RelayOpsSnapshot> {
+    // 单飞:已有在途重建时所有调用方复用同一 Promise,不重复打库
+    if (inFlight) return inFlight
+    lastBuildStartedAt = now()
+    const pending = build().then((snapshot) => {
+      cached = snapshot
+      cachedAt = now()
+      return snapshot
+    })
+    inFlight = pending
+    // 成功/失败都释放在途标记;失败不写缓存,下次请求重试
+    const settle = (): void => {
+      if (inFlight === pending) inFlight = null
+    }
+    void pending.then(settle, settle)
+    return pending
+  }
+
+  return {
+    get(): Promise<RelayOpsSnapshot> {
+      const snapshot = cached
+      // 惰性过期:窗口内直接复用,过期后由本次请求触发一次重建
+      if (snapshot !== null && now() - cachedAt < ttlMs) return Promise.resolve(snapshot)
+      return rebuild()
+    },
+    refresh(): Promise<RelayOpsSnapshot> {
+      if (inFlight) return inFlight
+      const snapshot = cached
+      // 节流:最小间隔内不重建,直接复用上一帧
+      if (snapshot !== null && now() - lastBuildStartedAt < refreshMinIntervalMs) {
+        return Promise.resolve(snapshot)
+      }
+      return rebuild()
+    },
+  }
+}
+
+/** 进程内共享缓存:所有 WS 连接共用同一份快照(多 socket 只重建一次) */
+const sharedSnapshotCache = createRelayOpsSnapshotCache()
+
+/** 读取共享快照(缓存命中直接复用,过期后首个请求重建) */
+export function getRelayOpsSnapshot(): Promise<RelayOpsSnapshot> {
+  return sharedSnapshotCache.get()
+}
+
+/** 手动刷新共享快照(受最小间隔节流 + 单飞去重) */
+export function refreshRelayOpsSnapshot(): Promise<RelayOpsSnapshot> {
+  return sharedSnapshotCache.refresh()
+}
+
+export type RelayOpsSnapshotMode = 'raw' | 'cached' | 'refresh'
+
+export interface RelayOpsSnapshotBuildOptions {
+  /**
+   * 快照读取模式(F-624):
+   * - 'raw'(默认):直接重建一帧,不加缓存(既有调用方与单测保持原语义);
+   * - 'cached':复用进程内共享缓存,过期后由首个请求重建;
+   * - 'refresh':手动刷新,受最小间隔节流 + 单飞去重。
+   */
+  mode?: RelayOpsSnapshotMode
+}
+
+/** 快照入口:raw 直接重建(兼容既有调用方),cached/refresh 走共享缓存 */
+export function buildRelayOpsSnapshot(
+  options: RelayOpsSnapshotBuildOptions = {},
+): Promise<RelayOpsSnapshot> {
+  const mode = options.mode ?? 'raw'
+  if (mode === 'cached') return getRelayOpsSnapshot()
+  if (mode === 'refresh') return refreshRelayOpsSnapshot()
+  return buildRelayOpsSnapshotFrame()
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

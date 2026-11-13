@@ -205,6 +205,38 @@ export interface DocDetail extends DocSummary {
   contentHash: string | null
 }
 
+/**
+ * F-387:文件解析结果为空/全空白。
+ *
+ * 旧实现把它当成功返回 `{ docId: 0, chunkCount: 0 }`,文档在列表里显示"已索引"却零切片,
+ * 排障时无法区分"解析失败"与"真的没内容"。空内容必须作为失败上抛,由路由返回明确错误码。
+ */
+export class EmptyDocumentTextError extends Error {
+  readonly code = 'EMPTY_DOCUMENT_TEXT'
+  constructor() {
+    super('文件解析结果为空,未写入知识库')
+    this.name = 'EmptyDocumentTextError'
+  }
+}
+
+/** F-387:目标 docId 不属于调用者或已删除 —— 不得把切片挂到他人/已删文档上。 */
+export class KnowledgeDocNotFoundError extends Error {
+  readonly code = 'KNOWLEDGE_DOC_NOT_FOUND'
+  constructor(docId: number) {
+    super(`知识文档不存在或无权访问: ${docId}`)
+    this.name = 'KnowledgeDocNotFoundError'
+  }
+}
+
+/** F-387:按标题反查命中多篇 —— 标题不是唯一键,必须报歧义,不得随机取一条。 */
+export class AmbiguousDocTitleError extends Error {
+  readonly code = 'DOC_TITLE_AMBIGUOUS'
+  constructor(title: string, count: number) {
+    super(`同名知识文档 ${count} 篇,无法按标题确定 docId: ${title}`)
+    this.name = 'AmbiguousDocTitleError'
+  }
+}
+
 class KnowledgeRagService {
   /**
    * 文本入库的**唯一实现**(切片 + embedding + 写 knowledge_doc + knowledge_chunk)。
@@ -232,6 +264,11 @@ class KnowledgeRagService {
      * 传 undefined 时行为与修复前逐字节一致(纯文本/文件入库路径不受影响)。
      */
     dedupeKey?: string
+    /**
+     * F-387:调用方已确定的文档主键。给定时直接把切片挂到该 doc 上(事务内校验
+     * 归属与 status),不再插入新 doc,更不按标题反查 —— 标题不是唯一键。
+     */
+    docId?: number
   }): Promise<{ docId: number; chunkCount: number; deduped: boolean }> {
     const {
       ownerUuid,
@@ -242,6 +279,7 @@ class KnowledgeRagService {
       sourcePath = null,
       metadataJson = null,
       dedupeKey,
+      docId,
     } = opts
     if (!text || !text.trim()) return { docId: 0, chunkCount: 0, deduped: false }
     const chunks = splitText(text)
@@ -259,6 +297,53 @@ class KnowledgeRagService {
       // vector1536 customType toDriver 自动序列化为 '[...]',NULL 走 fallback
       embedding: embeddings[i] && embeddings[i]!.length === 1536 ? embeddings[i]! : null,
     }))
+
+    // F-387:调用方已带 docId ⇒ 直接挂到该 doc(唯一键路径),不插入新 doc、不反查标题。
+    if (docId !== undefined) {
+      return db.transaction(async (tx) => {
+        const [target] = await tx
+          .select({ id: knowledgeDoc.id })
+          .from(knowledgeDoc)
+          .where(
+            and(
+              eq(knowledgeDoc.id, docId),
+              eq(knowledgeDoc.ownerUuid, ownerUuid),
+              eq(knowledgeDoc.status, 'active'),
+            ),
+          )
+          .limit(1)
+        if (!target) throw new KnowledgeDocNotFoundError(docId)
+
+        // 续写已有切片时接在最大 chunkIndex 之后,避免序号与既有切片重叠。
+        const [last] = await tx
+          .select({ chunkIndex: knowledgeChunk.chunkIndex })
+          .from(knowledgeChunk)
+          .where(eq(knowledgeChunk.docId, docId))
+          .orderBy(desc(knowledgeChunk.chunkIndex))
+          .limit(1)
+        const offset = last ? last.chunkIndex + 1 : 0
+
+        for (let i = 0; i < chunkRows.length; i += CHUNK_INSERT_BATCH) {
+          const batch = chunkRows.slice(i, i + CHUNK_INSERT_BATCH).map((row, j) => ({
+            ...row,
+            docId,
+            chunkIndex: offset + i + j,
+          }))
+          await tx.insert(knowledgeChunk).values(batch)
+        }
+        await tx
+          .update(knowledgeDoc)
+          .set({
+            collectionName,
+            sourceType,
+            contentHash,
+            chunkCount: offset + chunks.length,
+            updatedAt: new Date(),
+          })
+          .where(and(eq(knowledgeDoc.id, docId), eq(knowledgeDoc.ownerUuid, ownerUuid)))
+        return { docId, chunkCount: chunks.length, deduped: false }
+      })
+    }
 
     const result = await db.transaction(async (tx) => {
       if (dedupeKey) {
@@ -422,12 +507,38 @@ class KnowledgeRagService {
     }
   }
 
-  /** 文件入库:解析多格式文件 → 走 ingestText 切片 + embedding
+  /**
+   * F-387:按标题反查 docId 的唯一合法出口。
    *
-   * 设计:
-   * - 复用 ingestText 全部逻辑(切片 / embedding / 入库),仅前置文件解析
-   * - 错误透传 UnsupportedFormatError / FileTooLargeError(由路由层转 400)
-   * - 解析后空文本 → 返回 0(与 ingestText 行为一致)
+   * 标题不是唯一键,命中多篇时无法确定切片该挂给谁 —— 旧实现在 ingestFile 里
+   * `orderBy(desc(createdAt)).limit(1)` 随机取最新一条,同名文档会互相串档。
+   * 因此这里一旦发现重名就抛 {@link AmbiguousDocTitleError},由调用方要求显式 docId。
+   */
+  async resolveDocIdByTitle(ownerUuid: string, title: string): Promise<number | null> {
+    const rows = await db
+      .select({ id: knowledgeDoc.id })
+      .from(knowledgeDoc)
+      .where(
+        and(
+          eq(knowledgeDoc.ownerUuid, ownerUuid),
+          eq(knowledgeDoc.title, title),
+          eq(knowledgeDoc.status, 'active'),
+        ),
+      )
+      .limit(2)
+    if (rows.length > 1) throw new AmbiguousDocTitleError(title, rows.length)
+    return rows[0]?.id ?? null
+  }
+
+  /** 文件入库:解析多格式文件 → 切片 + embedding + 写入 knowledge_doc/knowledge_chunk
+   *
+   * F-387 修复要点:
+   * - **docId 主键贯穿**:调用方已有 docId 就直接挂到该 doc(事务内校验归属),
+   *   不再用标题反查结果定位文档;没有 docId 时由 `_ingestChunks` 插入并**返回**新 docId,
+   *   彻底移除 `where(title)` + `orderBy(createdAt)` 这段非唯一键反查。
+   * - **空文本即失败**:解析结果为空/全空白时抛 {@link EmptyDocumentTextError},
+   *   不再返回 `{ docId: 0, chunkCount: 0 }` 的伪成功。
+   * - 错误透传 UnsupportedFormatError / FileTooLargeError(由路由层转 400)。
    */
   async ingestFile(opts: {
     ownerUuid: string
@@ -436,11 +547,28 @@ class KnowledgeRagService {
     mimeType: string
     filename: string
     collectionName?: string
+    /** F-387:调用方已确定的文档主键;给定即直接使用,不再按标题反查。 */
+    docId?: number
   }): Promise<{ docId: number; chunkCount: number }> {
-    const { ownerUuid, title, buffer, mimeType, filename, collectionName = 'default' } = opts
+    const {
+      ownerUuid,
+      title,
+      buffer,
+      mimeType,
+      filename,
+      collectionName = 'default',
+      docId,
+    } = opts
     const text = await parseDocument({ buffer, mimeType, filename })
     if (!text || !text.trim()) {
-      return { docId: 0, chunkCount: 0 }
+      // 目标文档已存在时把"入库失败"如实回写,避免列表里继续显示已索引但零切片。
+      if (docId !== undefined) {
+        await db
+          .update(knowledgeDoc)
+          .set({ status: 'failed', updatedAt: new Date() })
+          .where(and(eq(knowledgeDoc.id, docId), eq(knowledgeDoc.ownerUuid, ownerUuid)))
+      }
+      throw new EmptyDocumentTextError()
     }
     // sourceType 用 mimeType 简化值:pdf/docx/markdown/text/html/xlsx/xls/csv
     const sourceType = mimeType?.startsWith('application/pdf')
@@ -461,24 +589,16 @@ class KnowledgeRagService {
                     ? 'text'
                     : 'file'
 
-    // 复用 ingestText 入库(切片 + embedding + 写入 knowledge_doc + knowledge_chunk)
-    const chunkCount = await this.ingestText({ ownerUuid, title, text, collectionName })
-    // 拿到刚插入的 docId(ingestText 已用 contentHash 唯一标识,但同名文件重新上传会创建新 doc)
-    const [latest] = await db
-      .select({ id: knowledgeDoc.id, sourceType: knowledgeDoc.sourceType })
-      .from(knowledgeDoc)
-      .where(and(eq(knowledgeDoc.ownerUuid, ownerUuid), eq(knowledgeDoc.title, title)))
-      .orderBy(desc(knowledgeDoc.createdAt))
-      .limit(1)
-    if (latest) {
-      // 覆盖 sourceType(text → file/具体类型),保持入库即所见即所得
-      await db
-        .update(knowledgeDoc)
-        .set({ sourceType, updatedAt: new Date() })
-        .where(eq(knowledgeDoc.id, latest.id))
-      return { docId: latest.id, chunkCount }
-    }
-    return { docId: 0, chunkCount }
+    // 切片/embedding/写库与 ingestText 共用同一条路径;docId 由该方法返回或直接沿用。
+    const result = await this._ingestChunks({
+      ownerUuid,
+      title,
+      text,
+      sourceType,
+      collectionName,
+      docId,
+    })
+    return { docId: result.docId, chunkCount: result.chunkCount }
   }
 
   /** 语义检索 (pgvector ANN)
