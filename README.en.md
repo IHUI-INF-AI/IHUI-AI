@@ -99,6 +99,12 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-13**
+- 🐞 Fix:修复15源码文件溯源水印载荷丢失+清理4文件死变量 (26aa10cbde9)
+
+**2026-11-13**
+- 🐞 Fix:修复24源码文件溯源水印载荷丢失(hr/db/i18n/craft)+清理import类型注解 (41cd9760853)
+
+**2026-11-13**
 - 🐞 Fix:修复源码文件溯源水印载荷丢失+清理死代码 (2af1a280cc2)
 
 **2026-11-13**
@@ -242,33 +248,6 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 - 🐞 Fix:流式输出显示全链修复(D1-D6)——码点切批/末帧不丢/三端跟底/样式隔离 (4bdc41ba942)
 - 📚 Docs:Y-38 补全取证结论——卡点定死为「无在册 zcode 号」+ 进程未加载引擎 + 判读口径纠正 (5a7680ce7a5)
 - 🐞 Fix:门 41 补 preserve/ 备份豁免 + 门 263 两处存量 ruff 清偿 (1b33002a4ef)
-
-**2026-11-13**
-- 🐞 Fix:F-20 积分任务日界 / F-23 支付宝退款整数分比较 (9e63bf2ec48)
-
-**2026-11-13**
-- 🐞 Fix:AIS-077 知识卡注入面属主裁剪 + AIS-046 审计接口分工说明 (4fa66bc12b9)
-- 🔧 Chore/Other:一键切号排序补 4 道变异判据 + 桌面 README 沉淀三层入口 + 补 2 枚并发提交具名追认 (eccf5d6d6fc)
-- 🐞 Fix:假数据与告警收件人收口（mock 用户迁到 example.com，凭据巡检告警改官方邮箱） (a795b74ba4a)
-- 🐞 Fix:收口剩余旧邮箱残留（README 正文/发布说明/脱敏示例/告警收件人） (5f7ce8307a6)
-- 🐞 Fix:收口剩余旧邮箱残留（README 正文/发布说明/脱敏示例/告警收件人） (13b775477a9)
-- 🐞 Fix:自愈锚点挂到每次提交，任务被禁用/删除/改写后自动复原 (874eb3d45a8)
-- 🔧 Chore/Other:README 生成块数字对账 —— trackedFiles 21245 / testFiles 5130(索引面现算) (2c644690f76)
-- 🐞 Fix:推送侧三处收口 —— 47p 范围派生兜底、两枚 tmp 脚本水印、302p 基线对账 (18449f0db15)
-- 🐞 Fix:对外邮箱与发件身份统一为 lizong@aizhs.top (8d2ad98f623)
-- 🔧 Chore/Other:补签并发零弹窗提交的不可变护栏具名追认(1 枚收口) (fbf88335dbf)
-- 🔧 Chore/Other:违禁桶兜底清扫——HEAD面等条件/待拍板未勾行自动摘除(两道机主禁令的执行器物化,留痕f12-purge;复翻席请同步摘形态,事实内容按各批结清提交保留) (58dc4eefefb)
-- 🐞 Fix:计划任务零弹窗闭环 — 隐藏包装 + 全盘自愈巡检 + 微信托盘看门狗 (ca4e7d1892f)
-- 🐞 Fix:install-git-hooks 测试的 git 派生补显式 stdio,消门 193 判红 (284b2a2b803)
-- 🔧 Chore/Other:补 3 条不可变护栏具名追认(收敛合并与他席旁路落地) (46294235176)
-- 🔧 Chore/Other:收敛前置补录两条删除意图通知书(checkin_* 权限文件) (b50b0b95e3b)
-- 🚀 Feature/Improvement:一键切号首屏平台顺序钦定(Trae/WorkBuddy/小浣熊/Loomy/Qoder)并加仓内 switch:oneclick 入口 (27f9b236b06)
-- 🐞 Fix:临期窗口跟随派发节拍,消除 alert 档 6h 漏刷空窗 (33f7f4b521d)
-- 🚀 Feature/Improvement:生成物拦截补推送侧 --rev 面 + 钩子安装器单测 (f6b3537365c)
-- 🐞 Fix:tmp-diag-trae-token 清未用导入与非空收窄, 消 TS6133/TS2769 (123f8f2a665)
-- 🐞 Fix:偿还 mypy 存量 20 条类型债务(签到引擎族,全为类型收窄无行为变更) (045d8717695)
-- 🐞 Fix:tmp-probe-exchg 载荷类型收回 TraeTokenPayload, 消同族类型不兼容 (8352346ead0)
-- 🔧 Chore/Other:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (b244888ad08)
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)
