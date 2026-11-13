@@ -298,6 +298,14 @@ export const ADMIN_NAV: AdminNavItem[] = [
   { href: '/admin/ai-cost', labelKey: 'aiCost', icon: Coins },
   // P3-9 模型定价看板(labelKey 复用 web nav.pricing 存量键,清孤儿键)
   { href: '/admin/model-pricing', labelKey: 'pricing', icon: BadgeDollarSign },
+  // 定价管控台(2026-11-13 立):零价/兜底总览 + 内联改价 + 调价审计 + 巡检/公示同步
+  // 用 dynamicLabel 直出中文,不复用 nav.pricing(否则与上一项同名),也不新增语言包键
+  {
+    href: '/admin/model-pricing-console',
+    labelKey: 'pricing',
+    icon: ShieldAlert,
+    dynamicLabel: '定价管控台',
+  },
   { href: '/admin/agent-governance', labelKey: 'agentGovernance', icon: Gauge },
   // G6 企业治理控制台(2026-10-30 立):组织统账 + 策略编辑/留痕(/api/org/*)
   { href: '/admin/org-governance', labelKey: 'orgGovernance', icon: Building2 },

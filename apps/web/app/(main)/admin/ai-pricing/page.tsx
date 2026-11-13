@@ -7,7 +7,7 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, Coins, Loader2, Pencil, Plus } from 'lucide-react'
+import { ArrowLeft, Coins, Loader2, Pencil, Plus, ShieldAlert } from 'lucide-react'
 import { fetchApi } from '@/lib/api'
 import {
   Button,
@@ -236,6 +236,13 @@ export default function AdminAiPricingPage() {
           token=分/千token · 按次/按张/按视频=分(入库单位),展示按 元/百万token · 元/次|张|秒
         </span>
         <div className="ml-auto flex items-center gap-2">
+          {/* 定价管控台入口(2026-11-13):本页是逐条维护价目,管控台负责"问题模型总览 + 巡检 + 审计" */}
+          <Link
+            href="/admin/model-pricing-console"
+            className="inline-flex items-center gap-1 rounded-md border px-3 py-1.5 text-xs hover:bg-muted"
+          >
+            <ShieldAlert className="h-3 w-3" /> 定价管控台
+          </Link>
           <SearchInput
             value={search}
             onChange={(e) => {

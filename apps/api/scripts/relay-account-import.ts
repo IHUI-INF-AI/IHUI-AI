@@ -45,8 +45,13 @@ config({ path: resolvePath(API_DIR, '.env') })
 
 const { eq, and, sql } = await import('drizzle-orm')
 const { aiRelayAccountPool } = await import('@ihui/database')
-const { isRelayProviderCode, RELAY_PROVIDERS, validateAccountExport, resolveRelayCredentialSlots } =
-  await import('../src/services/relay-account-format.js')
+const {
+  isRelayProviderCode,
+  RELAY_PROVIDERS,
+  validateAccountExport,
+  resolveRelayCredentialSlots,
+  extractUid,
+} = await import('../src/services/relay-account-format.js')
 const {
   importAccounts,
   decryptAccountCredentials,
@@ -60,6 +65,7 @@ const { getRelayAdapter } = await import('../src/services/relay-upstream-adapter
 const { healthStatusOf } = await import('../src/services/relay-account-pool-scheduler.js')
 const { fetchCodeartsAccountPhone } =
   await import('../src/services/upstream-adapters/codearts-adapter.js')
+const { fetchTraeAccountPhone } = await import('../src/services/upstream-adapters/trae-adapter.js')
 const { pickProxyForAccount } = await import('../src/services/relay-proxy-pool.js')
 
 interface CliOptions {
@@ -618,6 +624,43 @@ async function importOne(opts: CliOptions, rawText: string): Promise<number> {
     }
     if (filled || missed) {
       process.stderr.write(`ℹ️ codearts 手机号点查:取到 ${filled} 枚,未取到 ${missed} 枚\n`)
+    }
+  }
+
+  // Trae 会话里没有手机号(2026-11-13 实证:JWT 票面只有 id/tenant_id,账号导出 JSON 也无
+  // phone),但客户端档案端点 GetUserInfo 有掩码号(NonPlainTextMobile,前3后2)⇒ 与 codearts
+  // 同腿点查:拿账号 token 点查,取到补进载荷 `phone`(format 层 trae 的 PHONE_KEYS 本就认
+  // phone,掩码形态照采进统一名并落 phoneMask 待全号归位);取不到只点名枚数,不阻断导入。
+  // 枚数外不输出任何号码形态(PII:号码只进 name 列本身)。
+  if (providerCode === 'trae' && rawAccounts.length > 0) {
+    let filled = 0
+    let missed = 0
+    for (const acc of rawAccounts) {
+      const a = acc as Record<string, unknown>
+      const existing = String(a['phone'] ?? '').trim()
+      if (existing) continue
+      const token = String(a['token'] ?? '').trim()
+      if (!token) {
+        missed++
+        continue
+      }
+      try {
+        const phone = await fetchTraeAccountPhone({
+          token,
+          expectedUid: String(a['uid'] ?? '').trim() || extractUid(token) || undefined,
+        })
+        if (phone) {
+          a['phone'] = phone
+          filled++
+        } else {
+          missed++
+        }
+      } catch {
+        missed++
+      }
+    }
+    if (filled || missed) {
+      process.stderr.write(`ℹ️ trae 手机号点查:取到 ${filled} 枚,未取到 ${missed} 枚\n`)
     }
   }
 
