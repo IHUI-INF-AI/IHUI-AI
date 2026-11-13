@@ -274,6 +274,27 @@ export function startLiteLLMPriceSyncScheduler(): void {
         error: err instanceof Error ? err.message : err,
       })
     }
+    // 零价巡检(2026-11-13 立):价表同步完紧接着清一遍「启用但零价」的模型。
+    // 这是防回潮的关键一环 —— 新渠道同步/审批上架随时会引入零价行,只靠人工补价必然漏。
+    // 解析失败会下架(不能定价就不能卖),与 sweepUnpricedModels 的语义一致。
+    try {
+      const { db } = await import('../db/index.js')
+      const { upsertPricing } = await import('./pricing-service.js')
+      const { sweepUnpricedModels } = await import('./model-price-resolver.js')
+      const swept = await sweepUnpricedModels(
+        db as unknown as { execute: (q: unknown) => Promise<unknown> },
+        upsertPricing,
+      )
+      if (swept.unresolved.length > 0) {
+        logger.warn(
+          `[model-price-sweep] ${swept.unresolved.length} 个模型无法定价已下架: ${swept.unresolved.slice(0, 10).join(', ')}`,
+        )
+      }
+    } catch (err) {
+      logger.warn(
+        `[model-price-sweep] 巡检异常: ${err instanceof Error ? err.message : String(err)}`,
+      )
+    }
   }
   firstRunTimer = setTimeout(() => {
     void run()
