@@ -6383,12 +6383,16 @@ class AgentLoopV2:
     async def pause(self) -> str | None:
         """暂停当前 loop。
 
-        若 loop 正在运行:设置 _pause_requested 标志,loop 在下一轮 iteration 开始前
-        检测到并保存 checkpoint(status=paused),通过 AgentLoopResult.checkpoint_id 返回。
-        若 loop 未运行:从最近一次 _messages 状态保存 checkpoint 并返回 checkpoint_id。
+        先置 _pause_requested(循环在 _wait_interruptible / 轮次边界自行收口),
+        再用"此刻的 _messages"立刻落一份快照并返回其 id,让控制面当场拿到
+        checkpoint_id。AIS-114:这份快照可能落在工具批中途(assistant 的 tool_calls
+        还没有配对结果),所以必须带上本轮续跑元数据(phase=tools_interrupted +
+        回执版本)—— 续跑据此走零执行预检/回执重放,不跳过整轮也不盲目重跑。
+        它不是权威续跑点:权威点是循环真正停下时在轮次边界落的那一份(按 session
+        取最新),比这份多带最近完成的一轮。
 
         Returns:
-            checkpoint_id(若保存成功)或 None(无活动 loop 且无历史状态)
+            checkpoint_id(若保存成功)或 None(无历史状态)
         """
         # W9#6(2026-09-18):过渡事件先行 —— 前端在 done 落定前即可呈现"正在暂停"
         await self._events.emit(
@@ -6401,18 +6405,19 @@ class AgentLoopV2:
                 iteration=self._current_iteration,
                 messages=self._messages,
                 status="paused",
+                metadata=self._resume_interrupted_metadata(),
             )
         return None
 
     async def cancel(self) -> str | None:
         """取消当前 loop。
 
-        若 loop 正在运行:设置 _cancel_requested 标志,loop 在下一轮 iteration 开始前
-        检测到并保存 checkpoint(status=cancelled),通过 AgentLoopResult.checkpoint_id 返回。
-        若 loop 未运行:从最近一次 _messages 状态保存 checkpoint 并返回 checkpoint_id。
+        先置 _cancel_requested,再立刻用"此刻的 _messages"落一份快照并返回其 id
+        (与 pause 同一形状,差异只在 status)。工具批中途的快照同样必须带续跑
+        元数据,否则续跑会跳过整轮或盲目重跑(见 pause 的说明)。
 
         Returns:
-            checkpoint_id(若保存成功)或 None(无活动 loop 且无历史状态)
+            checkpoint_id(若保存成功)或 None(无历史状态)
         """
         # W9#6(2026-09-18):过渡事件先行 —— 前端在 done 落定前即可呈现"正在取消"
         await self._events.emit(
@@ -6425,6 +6430,7 @@ class AgentLoopV2:
                 iteration=self._current_iteration,
                 messages=self._messages,
                 status="cancelled",
+                metadata=self._resume_interrupted_metadata(),
             )
         return None
 

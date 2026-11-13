@@ -8,6 +8,8 @@
 2. 有副作用工具执行前落 attempting、执行后落 settled;只读工具不制造 attempting。
 3. 意图写不进耐久后端时有副作用工具**不执行**(fail-closed),返回真实错误不是成功。
 4. 纯内存 manager 回执关闭(不假装跨进程可恢复),不产生任何回执写入。
+5. 运行中 pause/cancel 立即落盘的半批次快照带 phase=tools_interrupted 元数据,
+   续跑才会走零执行预检而不是跳过整轮重跑(AIS-114)。
 """
 
 from __future__ import annotations
@@ -222,3 +224,58 @@ async def test_round_done_and_interrupted_metadata_phases() -> None:
     assert done is not None
     assert done["resume_round"]["phase"] == RESUME_ROUND_PHASE_ROUND_DONE
     assert json.dumps(done)  # 必须可序列化落 checkpoint metadata
+
+
+@pytest.mark.parametrize(
+    ("method", "status"),
+    [("pause", "paused"), ("cancel", "cancelled")],
+)
+@pytest.mark.asyncio
+async def test_interrupt_mid_tool_batch_saves_resumable_eager_checkpoint(
+    method: str, status: str
+) -> None:
+    """AIS-114:工具批中途 interrupt 的立即快照必须带本轮续跑元数据。
+
+    不带元数据时续跑只看得到"assistant(tool_calls) 无配对结果"的半批次历史,
+    会按旧路径跳到下一轮 —— 已完成的结果丢掉、有副作用的调用被重发。
+    """
+    loop = _make_loop()
+    mgr = _DurableFakeManager()
+    loop._checkpoint_manager = mgr  # type: ignore[assignment]
+    messages: list[dict[str, Any]] = [
+        {"role": "user", "content": "跑一个工具"},
+        {"role": "assistant", "content": None, "tool_calls": []},
+    ]
+    tc = ToolCall(id="c1", name="echo_tool", args={"q": "hi"})
+    loop._messages = messages
+    loop._current_iteration = 3
+    await loop._begin_resume_round(3, messages, [tc])
+    assert loop._resume_round is not None
+
+    checkpoint_id = await getattr(loop, method)()
+
+    assert checkpoint_id is not None
+    cp = mgr.saved[checkpoint_id]
+    assert cp["status"] == status
+    assert len(cp["messages"]) == len(messages)
+    meta = cp["metadata"]["resume_round"]
+    assert meta["phase"] == RESUME_ROUND_PHASE_TOOLS_INTERRUPTED
+    assert meta["iteration"] == 3
+    assert meta["assistant_index"] == 1
+    assert meta["tool_call_ids"] == ["c1"]
+    assert json.dumps(cp["metadata"])  # 必须可序列化落 checkpoint metadata
+
+
+@pytest.mark.asyncio
+async def test_interrupt_outside_tool_batch_writes_no_resume_round() -> None:
+    """不在工具轮内(没有半批次)时不得伪造续跑元数据。"""
+    loop = _make_loop()
+    mgr = _DurableFakeManager()
+    loop._checkpoint_manager = mgr  # type: ignore[assignment]
+    loop._messages = [{"role": "user", "content": "上一轮已完成"}]
+    loop._current_iteration = 1
+
+    checkpoint_id = await loop.pause()
+
+    assert checkpoint_id is not None
+    assert "resume_round" not in mgr.saved[checkpoint_id]["metadata"]
