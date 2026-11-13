@@ -77,11 +77,90 @@ export const NEST_SCAN_DEFAULTS = { maxDepth: 4, entryBudget: 1500 }
  */
 export function chooseScratchRoot({ moduleDir = HERE, platform = process.platform, env = process.env } = {}) {
   const override = env && env.IHUI_SCRATCH_DIR
-  if (override) return normalize(override)
+  if (override) {
+    assertSanctionedScratchOverride(override, { platform, env, moduleDir })
+    return normalize(override)
+  }
   if (platform !== 'win32') return normalize(join(tmpdir(), SCRATCH_DIR_NAME))
   const devEnvOverride = env && env.IHUI_DEVENV_ROOT
   if (devEnvOverride) return normalize(join(devEnvOverride, 'Temp', SCRATCH_DIR_NAME))
   return normalize(join(deriveDevEnvRoot(moduleDir), 'Temp', SCRATCH_DIR_NAME))
+}
+
+/**
+ * 2026-11-13(盘根外流根治,与 G-286 同族纪律):`IHUI_SCRATCH_DIR` 逃生舱此前被**无条件**
+ * 采信(优先级最高、一行 `return`)。实测代价:HKCU\Environment 与 HKLM Session Manager\
+ * Environment 双双持久化过 `IHUI_SCRATCH_DIR=C:\Users\Administrator\AppData\Local\Temp\
+ * ihui-scratch`(注册表现读,仓内无任何生产者写它),于是一个多月里所有走 mkScratch 的东西
+ * ——守门判面、旁路落地夹具、测试临时树——静默外流到**系统盘**:既违 §15b「项目外落点唯一
+ * 制」,又违 §26「缓存/临时一律离 C 盘」,而整套 TEMP 治理(§5f/§26 + check-temp-landing)
+ * 只看守 TEMP/TMP/TMPDIR 三键,仓自定义的这条路径 env 无人放哨 ⇒ 病状是安静。
+ * 镜像测试 `scripts/tests/scratch-dir.test.mjs` #2「不跟随进程 TEMP」在带此 env 的现场
+ * 当场判红,就是这条外流的可复现读数(2026-11-13 实测 not ok)。
+ *
+ * 判据(纯函数,输入全显式,§22c 构造面可证):win32 上 override 若
+ *   ① 按 win32 解析为真相对路径(parse().root 为空)⇒ 拒 —— 相对落点跟着调用方 cwd 漂,
+ *      与本文件"选址与工作树同盘、不赌环境脸色"的立身之本同型;或
+ *   ② 落在 Windows 系统盘(env.SystemRoot/windir 的盘符)且系统盘 ≠ 仓根所在盘 ⇒ 拒。
+ * 拒绝的姿态是**抛错点名**(当前值 / 系统盘 / 仓根盘 / 出路),不是静默换路径 ——
+ * §0.10:失效方向必须是"多要一次定向说明",静默回落等于把"env 被谁设歪"重新藏回安静里,
+ * 那正是本轮事故的成因形态;G-286 嵌套守卫选抛错而不选换路径,是同一条纪律。
+ * 三个刻意留口:
+ *   · 单盘机(仓根就在系统盘)不伤:sysDrive === repoDrive 时第二判不成立;
+ *   · POSIX 臂不校验:CI runner 的 /tmp 是设计落点(本文件头注已证 EACCES),
+ *     校验只对 §26 的病灶(Windows C 盘污染)成立;
+ *   · `IHUI_SCRATCH_DIR_ALLOW_SYSTEM_ROOT=1` 显式放行(真需要钉系统盘的环境点名授权);
+ *   · SystemRoot/windir 取不到 ⇒ 拦截依据缺失,放行但**不产账面**(未判定不猜红,§0.3)。
+ */
+export function assertSanctionedScratchOverride(override, { platform, env, moduleDir } = {}) {
+  const verdict = classifyScratchOverride(override, { platform, env, moduleDir })
+  if (verdict.verdict === 'ok' || verdict.verdict === 'unchecked') return
+  if (verdict.verdict === 'system-drive-allowed') return
+  if (verdict.verdict === 'relative') {
+    throw new Error(
+      `IHUI_SCRATCH_DIR 必须是绝对路径(相对值会跟随调用方 cwd 漂移,与本选址纪律同型违例):` +
+        `"${verdict.value}" —— 出路:把它指到绝对路径(推荐与仓库同盘的 <仓根>\\.DevEnv\\Temp\\${SCRATCH_DIR_NAME},` +
+        `即直接删掉本变量走仓内推导臂),判据见 scripts/lib/scratch-dir.mjs`,
+    )
+  }
+  throw new Error(
+    `IHUI_SCRATCH_DIR 被设歪:钉在 Windows 系统盘 ${verdict.systemDrive} 而仓库在 ${verdict.repoDrive}(§15b 唯一批准落点 / §26 缓存临时离 C 盘)。` +
+      `当前值:"${verdict.value}"。仓内推导臂的合法落点是与本仓同盘的 <仓根>\\.DevEnv\\Temp\\${SCRATCH_DIR_NAME}。` +
+      `出路:① 删掉该环境变量(注册表 HKCU\\Environment / HKLM\\...\\Session Manager\\Environment 两处都要查,` +
+      `改完重启相关常驻体才吃到新值);② 真需要钉系统盘时设 IHUI_SCRATCH_DIR_ALLOW_SYSTEM_ROOT=1 并在票面写明为什么。` +
+      `本函数拒绝的是"静默采信",不会替你换路径(G-286 同一条纪律),判据单一真相源 = scripts/lib/scratch-dir.mjs`,
+  )
+}
+
+/**
+ * 合规闸的**判据本体**(纯函数,零 IO;`assertSanctionedScratchOverride` 与人读尺子
+ * `check-temp-landing.mjs` 的 path-env 维共用这一份 —— §0.6 单一真相源:同一条判据写第二份
+ * 必然漂移,而这两处的采样面不同(一个在被拒那一刻、一个在巡检轮里),漂移了没人能发现)。
+ *
+ * 返回形态(逐态都有明确的“谁在记账”):
+ *   · {verdict:'ok', value}                —— 采信(同盘/非系统盘/单盘机/POSIX/显式放行)
+ *   · {verdict:'system-drive-allowed', …}  —— 钉系统盘但被 ALLOW 旗标点名放行
+ *   · {verdict:'relative', value}          —— 真相对路径(必拒)
+ *   · {verdict:'system-drive', …}          —— 钉系统盘且仓在别的盘(必拒)
+ *   · {verdict:'unchecked', value, why}    —— 输入不足(SystemRoot/windir 取不到),未判定:
+ *     既不记绿也不拦(§0.3),调用方若拿它记账必须把这一态单列,不得折进 'ok'。
+ */
+export function classifyScratchOverride(override, { platform, env, moduleDir } = {}) {
+  const value = String(override)
+  if (platform !== 'win32') return { verdict: 'ok', value, reason: 'non-win32' }
+  const rooted = parse(value).root
+  if (rooted === '') return { verdict: 'relative', value }
+  if (env && env.IHUI_SCRATCH_DIR_ALLOW_SYSTEM_ROOT === '1') {
+    return { verdict: 'system-drive-allowed', value }
+  }
+  const sysRoot = env && (env.SystemRoot || env.windir) ? String(env.SystemRoot || env.windir) : ''
+  const systemDrive = sysRoot ? parse(sysRoot).root.toUpperCase() : null
+  if (!systemDrive) return { verdict: 'unchecked', value, why: 'env 里没有 SystemRoot/windir ⇒ 拦截依据缺失,未判定' }
+  const repoDrive = parse(resolve(moduleDir ?? HERE, '..', '..')).root.toUpperCase()
+  if (systemDrive === repoDrive) return { verdict: 'ok', value, reason: 'single-drive-box' }
+  const targetDrive = rooted.toUpperCase()
+  if (targetDrive !== systemDrive) return { verdict: 'ok', value, reason: 'other-drive' }
+  return { verdict: 'system-drive', value, systemDrive, repoDrive, targetDrive }
 }
 
 /**
