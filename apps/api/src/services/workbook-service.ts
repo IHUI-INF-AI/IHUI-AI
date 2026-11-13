@@ -32,8 +32,10 @@
  */
 
 import { createHash, randomBytes } from 'node:crypto'
+import { extname } from 'node:path'
 import ExcelJS from 'exceljs'
 import { generateFileId, getFileInfo, readFile, saveFile } from './storage-service.js'
+import * as storageService from './storage-service.js'
 
 // =============================================================================
 // 协议常量与错误码
@@ -44,8 +46,17 @@ export const WORKBOOK_PROTOCOL_VERSION = 1
 
 /** 单会话空闲超时(毫秒):过期句柄一律判「未判定」,不猜它当时是什么状态。 */
 const SESSION_IDLE_TTL_MS = 30 * 60 * 1000
-/** 同时存活的会话上限(全局):超出即淘汰最久未用者,被淘者再拿句柄只会读到「未判定」。 */
-const MAX_SESSIONS = 64
+/**
+ * 单主体同时存活的会话上限(F-414)。
+ *
+ * 逐出只在**本主体**的会话桶内发生:旧实现是全局 64 条按 lastUsedAt 淘汰,
+ * 一个人循环 POST /open 就能把别人的未保存会话挤出表(对方拿到 410、改动丢失)。
+ */
+export const MAX_SESSIONS_PER_SUBJECT = 3
+/** 单份工作簿 open 的体积上限(F-414):超限在读取前拒,不把整本读进内存。 */
+export const MAX_WORKBOOK_OPEN_BYTES = 20 * 1024 * 1024
+/** open 接受的扩展名:只认 exceljs 能解析的 OOXML 工作簿(legacy .xls 不在列)。 */
+export const WORKBOOK_ALLOWED_EXTENSIONS = ['.xlsx', '.xlsm'] as const
 /** 单次读取区域的最大单元格数(对照件有同类响应尺寸闸,见取证册 §2.1)。 */
 const MAX_RANGE_CELLS = 20_000
 /** 单次写入的最大单元格数。 */
@@ -73,6 +84,7 @@ export type WorkbookErrorCode =
   | 'WORKBOOK_FORMAT_UNSUPPORTED'
   | 'WORKBOOK_FORMULA_OVERWRITE'
   | 'WORKBOOK_RANGE_TOO_LARGE'
+  | 'WORKBOOK_FILE_TOO_LARGE'
   | 'WORKBOOK_SOURCE_CHANGED'
   | 'WORKBOOK_UNJUDGED'
 
@@ -169,6 +181,8 @@ interface WorkbookSession {
 
 /** 会话表(进程内;重启即空,句柄随之判「未判定」,不假装能续)。 */
 const _sessions = new Map<string, WorkbookSession>()
+/** 主体 → 该主体名下的句柄集合:逐出只在本桶内发生(F-414)。 */
+const _handlesBySubject = new Map<string, Set<string>>()
 
 // =============================================================================
 // 地址与区域解析
@@ -424,21 +438,55 @@ function readCell(cell: ExcelJS.Cell): WorkbookCellRead {
 // 会话生命周期
 // =============================================================================
 
-function pruneSessions(now: number): void {
-  for (const [k, s] of _sessions) {
-    if (now - s.lastUsedAt > SESSION_IDLE_TTL_MS) _sessions.delete(k)
+function removeSession(handle: string): void {
+  const s = _sessions.get(handle)
+  if (!s) return
+  _sessions.delete(handle)
+  const bucket = _handlesBySubject.get(s.subjectId)
+  if (!bucket) return
+  bucket.delete(handle)
+  if (bucket.size === 0) _handlesBySubject.delete(s.subjectId)
+}
+
+/**
+ * 过期清理(TTL):删掉空闲超时的会话。只动进程内会话表,不碰盘上文件。
+ * 返回清理条数(测试/运维可直接调用;open / 取句柄时也会惰性调用)。
+ */
+export function sweepExpiredWorkbookSessions(now: number = Date.now()): number {
+  let removed = 0
+  for (const [handle, s] of _sessions) {
+    if (now - s.lastUsedAt > SESSION_IDLE_TTL_MS) {
+      removeSession(handle)
+      removed++
+    }
   }
-  while (_sessions.size > MAX_SESSIONS) {
-    let oldestKey: string | null = null
+  return removed
+}
+
+function pruneSessions(now: number): void {
+  sweepExpiredWorkbookSessions(now)
+}
+
+/**
+ * 超额逐出:只在 `subjectId` 自己的会话桶里按 lastUsedAt 淘汰最旧者(F-414)。
+ * 这里**没有**任何全局 FIFO —— 跨主体逐出会让单用户挤掉他人未保存的会话。
+ */
+function evictWithinSubject(subjectId: string): void {
+  const bucket = _handlesBySubject.get(subjectId)
+  if (!bucket) return
+  while (bucket.size > MAX_SESSIONS_PER_SUBJECT) {
+    let oldestHandle: string | null = null
     let oldest = Infinity
-    for (const [k, s] of _sessions) {
+    for (const handle of bucket) {
+      const s = _sessions.get(handle)
+      if (!s) continue
       if (s.lastUsedAt < oldest) {
         oldest = s.lastUsedAt
-        oldestKey = k
+        oldestHandle = handle
       }
     }
-    if (oldestKey === null) break
-    _sessions.delete(oldestKey)
+    if (oldestHandle === null) break
+    removeSession(oldestHandle)
   }
 }
 
@@ -573,6 +621,16 @@ export interface OpenWorkbookData {
   protocolVersion: number
 }
 
+/**
+ * 异步读取工作簿字节(F-414):open 不再同步整文件读入,避免大档卡住事件循环。
+ * 服务层单测的 storage 桩可能只提供同步 `readFile`(既有用例形态);用 `in` 探测能力,
+ * 不直接读缺失的导出(桩在缺键属性访问时会抛错),生产实现恒走异步 I/O。
+ */
+async function readWorkbookBytes(fileId: string): Promise<Buffer | null> {
+  if ('readFileAsync' in storageService) return storageService.readFileAsync(fileId)
+  return readFile(fileId)
+}
+
 /** open:打开**已存在**的工作簿(按 storage 文件 id);归属由承载层入参显式给定。 */
 export async function openWorkbook(params: {
   subjectId: string
@@ -590,9 +648,39 @@ export async function openWorkbook(params: {
     // 归属不符 ⇒ 与"不存在"同形回话(可枚举性收口);主体只认入参,不从元数据反推
     return fail('WORKBOOK_FILE_NOT_FOUND', '工作簿文件不存在')
   }
-  const bytes = readFile(fileId)
+
+  // F-414 ①:扩展名白名单先于读盘 —— 只认 exceljs 能解析的 OOXML 工作簿。
+  const meta = (info.metadata ?? {}) as { name?: unknown }
+  const declaredName = typeof meta.name === 'string' ? meta.name : ''
+  const ext = extname(declaredName).toLowerCase()
+  if (!(WORKBOOK_ALLOWED_EXTENSIONS as readonly string[]).includes(ext)) {
+    return fail(
+      'WORKBOOK_FORMAT_UNSUPPORTED',
+      `扩展名不在白名单内:${ext || '(缺失)'};仅接受 ${WORKBOOK_ALLOWED_EXTENSIONS.join(' / ')}`,
+      { name: declaredName || null, allowedExtensions: [...WORKBOOK_ALLOWED_EXTENSIONS] },
+    )
+  }
+
+  // F-414 ②:大小闸在读取前(getFileInfo 内部 statSync)⇒ 超限不读字节、不建模。
+  if (Number.isFinite(info.size) && info.size > MAX_WORKBOOK_OPEN_BYTES) {
+    return fail(
+      'WORKBOOK_FILE_TOO_LARGE',
+      `工作簿超过上限:${info.size} > ${MAX_WORKBOOK_OPEN_BYTES} 字节`,
+      { size: info.size, limit: MAX_WORKBOOK_OPEN_BYTES },
+    )
+  }
+
+  const bytes = await readWorkbookBytes(fileId)
   if (!bytes) {
     return fail('WORKBOOK_UNJUDGED', '元数据在、字节读不到:不判定,请人工核文件', { fileId })
+  }
+  // stat 与读取之间文件可能被换大(TOCTOU)⇒ 读后再核一次,口径与首次闸相同。
+  if (bytes.length > MAX_WORKBOOK_OPEN_BYTES) {
+    return fail(
+      'WORKBOOK_FILE_TOO_LARGE',
+      `工作簿超过上限:${bytes.length} > ${MAX_WORKBOOK_OPEN_BYTES} 字节`,
+      { size: bytes.length, limit: MAX_WORKBOOK_OPEN_BYTES },
+    )
   }
 
   let workbook: ExcelJS.Workbook
@@ -606,12 +694,11 @@ export async function openWorkbook(params: {
 
   const { cells, truncated } = indexFormulaCells(workbook)
   const handle = randomBytes(16).toString('hex')
-  const meta = (info.metadata ?? {}) as { name?: unknown }
   const session: WorkbookSession = {
     handle,
     subjectId,
     sourceFileId: fileId,
-    sourceName: typeof meta.name === 'string' && meta.name ? meta.name : `${fileId}.xlsx`,
+    sourceName: declaredName || `${fileId}.xlsx`,
     sourceSha256: sha256(bytes),
     workbook,
     formulaCells: cells,
@@ -622,7 +709,12 @@ export async function openWorkbook(params: {
     savedFileIds: [],
   }
   _sessions.set(handle, session)
+  const bucket = _handlesBySubject.get(subjectId)
+  if (bucket) bucket.add(handle)
+  else _handlesBySubject.set(subjectId, new Set([handle]))
   pruneSessions(Date.now())
+  // F-414 ③:超配额只在**本主体**内逐出最久未用者,绝不动别人的会话。
+  evictWithinSubject(subjectId)
 
   return {
     ok: true,
@@ -870,13 +962,14 @@ export function closeWorkbook(params: {
   if (!take.ok) return take.error
   const s = take.session
   const savedFileIds = [...s.savedFileIds]
-  _sessions.delete(s.handle)
+  removeSession(s.handle)
   return { ok: true, data: { closed: true, savedFileIds } }
 }
 
 /** 测试/运维用:清空会话表(不影响盘上文件)。 */
 export function resetWorkbookSessions(): void {
   _sessions.clear()
+  _handlesBySubject.clear()
 }
 
 function sanitizeName(raw: string | undefined, fallback: string): string {
@@ -893,6 +986,11 @@ export const __test__ = {
   formulaOf,
   readCell,
   sessions: _sessions,
+  handlesBySubject: _handlesBySubject,
+  MAX_SESSIONS_PER_SUBJECT,
+  MAX_WORKBOOK_OPEN_BYTES,
+  WORKBOOK_ALLOWED_EXTENSIONS,
+  SESSION_IDLE_TTL_MS,
   MAX_TOUCHED_CELLS,
   MAX_WRITE_CELLS,
 }

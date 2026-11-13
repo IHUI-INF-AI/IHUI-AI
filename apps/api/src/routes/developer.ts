@@ -717,7 +717,9 @@ const developerRoutes: FastifyPluginAsync = async (server) => {
       .from(userMargins)
       .where(eq(userMargins.userId, userId))
       .limit(1)
-    const available = (margin?.tokenQuantity ?? 0) - (margin?.frozenQuantity ?? 0)
+    // F-410:申请即扣减 tokenQuantity、等额转 frozenQuantity,可用余额就是 tokenQuantity
+    // (冻结额已从 tokenQuantity 移出,不再减 frozen 否则双重扣)。
+    const available = margin?.tokenQuantity ?? 0
 
     const [incomeRow] = await db
       .select({ total: sql<number>`coalesce(sum(${tokenFlows.quantity}), 0)::int` })
@@ -832,19 +834,38 @@ const developerRoutes: FastifyPluginAsync = async (server) => {
             .for('update')
             .limit(1)
           const balance = margin?.tokenQuantity ?? 0
-          const frozen = margin?.frozenQuantity ?? 0
-          if (balance - frozen < amount) {
+          // F-410:申请即从可用余额扣除(冻结只是记账),否则被冻结的 token 仍留在
+          // tokenQuantity 里、会被钱包消费路径(token-balance-service/relay 结算)继续花掉
+          // ——一边提现打款、一边消费同一笔,账实脱钩。对齐 applyWithdrawal(F-406)口径:
+          // 申请即扣减 tokenQuantity、等额转 frozenQuantity,DB 级 WHERE 防超发。
+          if (balance < amount) {
             throw Object.assign(new Error('可用余额不足'), { statusCode: 400 })
           }
+          let balanceAfter: number
           if (margin) {
-            await tx
+            const [updated] = await tx
               .update(userMargins)
-              .set({ frozenQuantity: frozen + amount, updatedAt: new Date() })
-              .where(eq(userMargins.userId, userId))
+              .set({
+                tokenQuantity: sql`${userMargins.tokenQuantity} - ${amount}`,
+                frozenQuantity: sql`${userMargins.frozenQuantity} + ${amount}`,
+                updatedAt: new Date(),
+              })
+              .where(
+                and(
+                  eq(userMargins.userId, userId),
+                  sql`${userMargins.tokenQuantity} >= ${amount}`,
+                ),
+              )
+              .returning({ tokenQuantity: userMargins.tokenQuantity })
+            if (!updated) {
+              throw Object.assign(new Error('可用余额不足'), { statusCode: 400 })
+            }
+            balanceAfter = updated.tokenQuantity
           } else {
             await tx
               .insert(userMargins)
               .values({ userId, tokenQuantity: 0, frozenQuantity: amount })
+            balanceAfter = 0
           }
           const [created] = await tx
             .insert(tokenFlows)
@@ -852,7 +873,7 @@ const developerRoutes: FastifyPluginAsync = async (server) => {
               userId,
               opType: 1,
               quantity: -amount,
-              balanceAfter: balance - amount,
+              balanceAfter,
               remark: '提现申请',
             })
             .returning()

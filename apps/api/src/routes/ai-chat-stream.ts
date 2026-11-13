@@ -52,7 +52,10 @@ import {
 } from '../utils/semantic-summary.js'
 import { persistMessageArchive } from '../utils/conversation-archive.js'
 import { loadRepoWikiContext } from '../services/repo-wiki-context.js'
-import { loadKnowledgeContext } from '../services/knowledge-chat-context.js'
+import {
+  clampKnowledgeBlock,
+  loadKnowledgeContext,
+} from '../services/knowledge-chat-context.js'
 // G6 企业治理面(2026-10-30 立):模型准入检查点(ORG_POLICIES_ENABLED 关=直通,行为逐字节不变)
 import { guardModelAdmission } from '../services/org-policy-service.js'
 // 批次 3(2026-11-06):预算停止 / 上下文账本 / 压缩边界的落库出口。
@@ -957,10 +960,8 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
       // 与 wiki_context 合计限制在 20000 字符内:知识块超长时截断,防撑爆上下文窗口
       if (knowledgeBlock) {
         const wikiLen = wiki?.content?.length ?? 0
-        const budget = 20000 - wikiLen
-        if (knowledgeBlock.length > budget) {
-          knowledgeBlock = budget > 0 ? knowledgeBlock.slice(0, budget) : ''
-        }
+        // F-386: 预算不足时保留收尾数据边界声明,不让截断削掉边界
+        knowledgeBlock = clampKnowledgeBlock(knowledgeBlock, 20000 - wikiLen)
       }
       // 折叠知识块进 system_prompt 末尾(用户自定义 systemPrompt 在前,knowledge 在后)
       let finalSystemPrompt: string | undefined = opts.systemPrompt

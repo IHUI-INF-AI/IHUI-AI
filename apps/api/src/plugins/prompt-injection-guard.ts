@@ -18,8 +18,14 @@ const INJECTION_PATTERNS = [
   /override\s+(your|the)\s+(instructions?|rules?|guidelines?)/i,
 ]
 
+/** 返回命中的第一条注入规则文本(用于日志留痕);未命中返回 null */
+export function matchPromptInjection(text: string): string | null {
+  const hit = INJECTION_PATTERNS.find((pattern) => pattern.test(text))
+  return hit ? String(hit) : null
+}
+
 export function detectPromptInjection(text: string): boolean {
-  return INJECTION_PATTERNS.some((pattern) => pattern.test(text))
+  return matchPromptInjection(text) !== null
 }
 
 function scanValue(data: unknown): string[] {
