@@ -12232,7 +12232,7 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 
 - [ ] 419G. **缺陷普查 API F-419** [P2] 权限授权「读-改-写」非原子，并发撤销可被复活（证据 docs/tickets/2026-11/findings-api.md#F-419）（进行中@2026-11-13/w3-f419）
 - [ ] 434G. **缺陷普查 API F-434** [P2] customer_service_sessions.status 默认值 waiting 与「唯一真相源」枚举互斥（证据 docs/tickets/2026-11/findings-api.md#F-434）
-- [ ] 442G. **缺陷普查 API F-442** [P2] GitHub 令牌为全站单文件，任意登录用户可覆盖/删除（证据 docs/tickets/2026-11/findings-api.md#F-442）
+- [ ] 442G. **缺陷普查 API F-442** [P2] GitHub 令牌为全站单文件，任意登录用户可覆盖/删除（证据 docs/tickets/2026-11/findings-api.md#F-442）（进行中@2026-11-13/w3-f442）
 - [ ] 444G. **缺陷普查 API F-444** [P2] GitHub PR/Issue 端点任意 owner/repo + 全站 PAT（证据 docs/tickets/2026-11/findings-api.md#F-444）
 - [ ] 457G. **缺陷普查 API F-457** [P3] 状态码 3/4 语义分裂导致后台统计缺项（证据 docs/tickets/2026-11/findings-api.md#F-457）
 - [ ] 458G. **缺陷普查 API F-458** [P3] 金额 sum()::int 溢出扩散（新查询点）（证据 docs/tickets/2026-11/findings-api.md#F-458）
