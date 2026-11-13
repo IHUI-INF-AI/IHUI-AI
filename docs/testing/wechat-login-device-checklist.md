@@ -1,0 +1,99 @@
+# RN 端微信一键登录 · 真机验证清单
+
+> 适用于 `apps/mobile-rn` 的微信 App 内一键登录（`react-native-wechat-lib` → `POST /api/auth/login/wechat`）。
+> 服务端配置已于 2026-11-13 完成：生产 `.env` 含 `WECHAT_MOBILE_APP_ID=wx85fa429a9331b5c8` + `WECHAT_MOBILE_SECRET`，公网 `/api/auth/login/wechat` 已从 501 未配置转为 401（进入微信交换阶段）。
+> 本清单覆盖服务端配置生效后的**客户端真机链路**验证。
+
+## 前置检查（开测前逐项确认）
+
+- [ ] **微信开放平台后台 · 移动应用已审核通过**
+  位置：open.weixin.qq.com → 管理中心 → 移动应用 → `wx85fa429a9331b5c8`
+  预期：应用状态为「已通过」；若为「审核中/未通过」，登录必失败（errcode 40125 / appid 无权限）。
+
+- [ ] **应用包名一致**
+  开放平台后台登记的 Android 包名 = `zh.ai.sq`，与 `apps/mobile-rn/android/app/build.gradle` 的 `applicationId` 一致。
+  预期：逐字相等。不一致会导致拉起微信后回调不到 App。
+
+- [ ] **应用签名一致（Android 最常见失败点）**
+  开放平台后台登记的「应用签名」= 正式发布 APK 的签名 MD5（微信后台填的是**无冒号小写** 32 位）。
+  取签名方法：微信开放平台「资源中心 → 移动应用 → 签名生成工具」，或 `keytool -list -v -keystore <发布keystore> | grep MD5`。
+  预期：与后台登记值逐字一致。**用 debug 签名打测试包会签名不匹配，拉起微信提示「应用未安装/未授权」。**
+
+- [ ] **iOS Universal Link 配置**（仅 iOS）
+  `apps/mobile-rn/app.json` 的 `extra.WX_UNIVERSAL_LINK` 已配为 `https://aizhs.top/`。
+  预期：该域名在微信开放平台后台的「Universal Link」字段登记一致，且 `apple-app-site-association` 可访问。
+
+- [ ] **两端 AppID 一致**
+  RN 端 `apps/mobile-rn/app.json` 的 `extra.WX_APP_APPID` = 后端 `WECHAT_MOBILE_APP_ID` = `wx85fa429a9331b5c8`。
+  预期：逐字一致。不一致会「能拉起授权但换 token 失败」。
+
+- [ ] **真机已安装微信**
+  预期：`isWechatInstalled()` 返回 true。未装微信时 App 内微信按钮应诚实降级（不假装成功）。
+
+---
+
+## 阶段 A · 开发/预览包验证
+
+- [ ] **A1. 构建并安装到真机**
+  `pnpm --filter @ihui/mobile-rn start`（Expo，端口 8805），真机装 dev/preview 包。
+  预期：App 正常启动，登录页渲染出微信登录按钮。
+
+- [ ] **A2. 点微信登录按钮 → 拉起微信**
+  预期：跳转到微信 App，弹出「授权确认」页（`snsapi_userinfo` scope）。
+
+- [ ] **A3. 微信内点「允许」→ 回到 App**
+  预期：`sendWechatAuth()` 拿到 code，App 自动调 `loginByWechat(code)`。
+  失败排查：若报「invalid code」，多为 code 已被使用/过期，重试一次；若持续失败，检查手机系统时间。
+
+- [ ] **A4. 登录成功进入主界面**
+  预期：后端返回 JWT，`rnAuthStore` 写入登录态，跳转到已登录界面。抓包应见 `POST /api/auth/login/wechat` 返回 **200**（非 401/501）。
+
+- [ ] **A5. 二次登录（已绑定账号）**
+  退出后再次微信登录。预期：走 `findThirdPartyAccount('wechat', openId)` 绑定分支，直接登录既有账号（非新建）。
+
+- [ ] **A6. 首次登录（未绑定账号）**
+  用一个从未登录过的微信号。预期：后端 `createUser` 新建账号并返回 JWT，昵称取微信昵称（兜底「微信用户」）。
+
+---
+
+## 阶段 B · 生产正式包验证
+
+- [ ] **B1. 用正式发布签名打生产包**
+  `eas build` 或本地 `assembleRelease`，**必须用与开放平台后台登记签名一致的发布 keystore**。
+  预期：APK/AAB 构建成功。
+
+- [ ] **B2. 生产包登录（Android）**
+  真机安装正式包，走完 A2→A4。
+  预期：公网 `https://aizhs.top/api/auth/login/wechat` 返回 200，登录成功。
+
+- [ ] **B3. 生产包登录（iOS，如有）**
+  TestFlight/正式包走 A2→A4。预期同上。
+
+- [ ] **B4. 后端无「未配置」错误**
+  生产日志中 `/login/wechat` 不出现 `501 微信移动应用登录未配置`，也不出现 `invalid appid/secret`（40125/40013）。
+  预期：仅可能出现业务级 401（用户拒绝授权）或 200（成功）。
+
+---
+
+## 阶段 C · 常见问题排查
+
+| 现象 | 可能原因 | 处理 |
+|------|----------|------|
+| 微信按钮点了没反应 | 未装微信 / `isWechatAvailable()` 为 false | 确认真机装了微信；确认 `registerApp` 成功 |
+| 拉起微信提示「该应用未安装/未授权」 | **应用签名不匹配**（最常见） | 用发布 keystore 签名核对后台登记值 |
+| 拉起微信提示「appid 无效」 | 两端 AppID 不一致 / 移动应用未过审 | 核对 `WX_APP_APPID` 与后台一致、应用已审核通过 |
+| 授权后回调不到 App | 包名不匹配 / Android intent-filter 缺失 | 核对包名；检查 `AndroidManifest` 的 wx scheme |
+| 后端返回 401 invalid code | code 被用过/过期 / 手机时间偏差 | 重试；校准系统时间 |
+| 后端返回 501 未配置 | 服务端缺 `WECHAT_MOBILE_*` | 已于 2026-11-13 配好；若复现检查对应环境 `.env` |
+| 后端返回 40125/40013 | appid/secret 错误 | 核对后端 `WECHAT_MOBILE_APP_ID/SECRET` |
+
+---
+
+## 成功标准（全部满足即功能可用）
+
+- [ ] 微信开放平台移动应用已过审，包名+签名与发布包一致
+- [ ] 开发包能完整走通 拉起→授权→回调→JWT 登录
+- [ ] 生产正式包（发布签名）登录返回 200
+- [ ] 已绑定账号二次登录复用既有账号；首次登录自动建号
+- [ ] 后端日志无 501 未配置、无 40125/40013 凭据错误
+- [ ] Android 与 iOS（如适用）均验证通过

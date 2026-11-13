@@ -235,7 +235,9 @@ curl -s http://127.0.0.1:8802/api/health/ready
 |---|---|
 | `IHUI-PG` / `IHUI-REDIS` | PostgreSQL 18 / Redis 7 |
 | `IHUI-AI-SERVICE` | FastAPI 8803(uvicorn 源码直跑) |
-| `IHUI-API` | Fastify 8802(pwsh → tsx,目录 `D:\IHUI-AI\apps\api`) |
+| `IHUI-API-ROUTER` | **API 公网入口**：监听 127.0.0.1:8802,反代到当前活跃色(读 `deploy\run\api-bluegreen.json`) |
+| `IHUI-API-BLUE` / `IHUI-API-GREEN` | 蓝绿后端(8842 / 8843,pwsh → tsx,目录 `D:\DevEnv\ihui-prod\apps\api`);活跃色 Running、备用色 Stopped |
+| `IHUI-API` | **已退役(2026-10-28)**:蓝绿前的旧单体,SCM 保留 Manual/Stopped;**勿拉起**(会与 ROUTER 抢 8802) |
 | web(8801) | Next.js;由 `ihui-deploy.ps1` 拉起的常驻 Node 进程(非 nssm),重启机后由 deployloop 首轮部署恢复 |
 | `IHUI-DEPLOYLOOP` | **自动部署循环**:`pwsh -File ihui-deploy-loop.ps1 -Daemon -IntervalSeconds 60`,每 60s 轮询 origin/main |
 | `IHUI-GIT-GUARD` | git 写入守门(防并发破坏) |
