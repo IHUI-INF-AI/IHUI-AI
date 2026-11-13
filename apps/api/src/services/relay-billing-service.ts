@@ -541,6 +541,22 @@ function stripLiteLLMPrefix(model: string): string {
 }
 
 /**
+ * F-194(2026-11-13):计费口径单一来源。
+ *
+ * 模型映射(Key 级 > 用户级 > 全局)与官方名改写之后,真正发给上游的是 resolvedModel;
+ * 预扣/结算/流水/缓存键必须全部用它,否则同一次调用会"按映射后价预扣、按原始模型价结算"。
+ * 原始请求 model 只用于对外响应回显与 metadata 审计。
+ * resolvedModel 缺失(未映射/解析失败)时回退原始 model。
+ */
+export function resolveBillingModel(
+  requestedModel: string,
+  resolvedModel?: string | null,
+): string {
+  const upstreamModel = (resolvedModel ?? '').trim()
+  return upstreamModel.length > 0 ? upstreamModel : requestedModel
+}
+
+/**
  * 计算单次调用成本(分)。
  *
  * 查找顺序:
@@ -1231,6 +1247,22 @@ async function recordCallInternal(input: RecordCallInput): Promise<RecordCallRes
   if (input.status === 'error') {
     if (costCentsToDeduct > 0) metadata.noChargeReason = `status=${input.status}`
     costCentsToDeduct = 0
+  }
+
+  // F-727(2026-11-13):Batch 任务的 50% 折扣此前只写在 metadata.discount
+  // (batch-worker.ts),recordCall 从不读取 ⇒ 实际按全价扣费。这里按凭证折扣结算
+  // 并留审计字段;只认 (0,1] 区间的有限数,缺失/非法一律按原价(不改变其他调用方)。
+  const rawDiscount = input.metadata?.discount
+  const discount =
+    typeof rawDiscount === 'number' &&
+    Number.isFinite(rawDiscount) &&
+    rawDiscount > 0 &&
+    rawDiscount <= 1
+      ? rawDiscount
+      : 1
+  if (discount < 1 && costCentsToDeduct > 0) {
+    costCentsToDeduct = Math.round(costCentsToDeduct * discount)
+    metadata.discountApplied = discount
   }
 
   // P0 中转站造血能力批次(2026-08-01):8 个审计/统计字段写入顶层列
@@ -1931,6 +1963,14 @@ export interface PreDeduction {
   userId: string
   tokens: number
   cents: number
+  /**
+   * F-723(2026-11-13):预扣时的扣款池凭证。结算严格按此凭证落库,
+   * 不再以"结算时刻"的 Key 组归属重新选池(请求期间 Key 被移出/加入组,
+   * 会把退款/补扣打到错误账户)。可选字段:历史调用方未带 target 时回退到
+   * getKeyGroup 的现状逻辑,保证向后兼容。
+   */
+  target?: 'group' | 'personal'
+  groupId?: string
 }
 
 /**
@@ -2055,7 +2095,14 @@ export async function preDeductQuota(input: PreDeductInput): Promise<PreDeductio
           ? 0
           : Math.max(0, groupInfo.sharedCostBalanceCents - (updated.sharedCostBalanceCents ?? 0))
       if (actualTokens <= 0 && actualCents <= 0) return null
-      return { ...base, tokens: actualTokens, cents: actualCents }
+      // F-723:凭证记录"组池"目标 + 具体 groupId,供结算按凭证落库
+      return {
+        ...base,
+        tokens: actualTokens,
+        cents: actualCents,
+        target: 'group',
+        groupId: groupInfo.groupId,
+      }
     }
 
     // 个人余额
@@ -2086,7 +2133,8 @@ export async function preDeductQuota(input: PreDeductInput): Promise<PreDeductio
         ? 0
         : Math.max(0, row.costBalanceCents - (updated.costBalanceCents ?? 0))
     if (actualTokens <= 0 && actualCents <= 0) return null
-    return { ...base, tokens: actualTokens, cents: actualCents }
+    // F-723:凭证记录"个人池"目标
+    return { ...base, tokens: actualTokens, cents: actualCents, target: 'personal' }
   } catch (err) {
     // 计费熔断(F):定价不可用必须向上穿透(fail-closed),不得降级为"无预扣"放行
     if (err instanceof BillingUnavailableError) throw err
@@ -2137,8 +2185,17 @@ async function applySettlementDelta(
       return { tokenExpr, centsExpr }
     }
 
-  const groupInfo = await getKeyGroup(pre.apiKeyId)
-  if (groupInfo && groupInfo.enabled) {
+  // F-723(2026-11-13):结算严格按预扣凭证记录的目标池落库,不再重新解析 Key 的
+  // 当前组归属(请求期间 Key 被移出/加入组会导致跨账户退款/补扣)。
+  // 凭证缺失时回退到 getKeyGroup 的现状逻辑,保证向后兼容。
+  let groupInfo: { groupId: string } | null
+  if (pre.target) {
+    groupInfo = pre.target === 'group' && pre.groupId ? { groupId: pre.groupId } : null
+  } else {
+    const resolved = await getKeyGroup(pre.apiKeyId)
+    groupInfo = resolved && resolved.enabled ? { groupId: resolved.groupId } : null
+  }
+  if (groupInfo) {
     const { tokenExpr, centsExpr } = buildSet(apiKeyGroups.sharedTokenBalance)(
       apiKeyGroups.sharedCostBalanceCents,
     )

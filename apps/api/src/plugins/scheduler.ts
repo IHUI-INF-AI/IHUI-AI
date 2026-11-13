@@ -381,7 +381,133 @@ declare module 'fastify' {
   }
 }
 
-const schedulerPlugin: FastifyPluginAsync = async (server) => {
+// ============================================================================
+// 调度注册有界化(F-222)
+// ============================================================================
+// 病灶:装配期逐条 `await upsertJobScheduler`(29 条),而 connection 是
+// `maxRetriesPerRequest: null` —— Redis 未就绪/宕机时 BullMQ 命令只挂起、不 reject,
+// 插件体永远不 resolve ⇒ 进程既不 listen 也不报错(readiness 恒失败,且无错误日志)。
+// 修法:每条命令掐表;超时或报错即整体降级为"调度未注册"(warn),装配照常完成。
+// 只给注册动作加上界,job 定义、worker 分发、队列名一律不动。
+
+/** 单条 upsert 命令的上限(ms)。超时即判定 Redis 不可用,放弃本轮全部注册。 */
+export const SCHEDULER_REGISTER_TIMEOUT_MS = 5_000
+
+export interface SchedulerRegisterLog {
+  warn(obj: unknown, msg: string): void
+}
+
+/** 注册所需的最小队列表面积(真实 Queue 与测试假队列都满足)。 */
+export interface SchedulerUpsertQueue {
+  upsertJobScheduler(
+    jobSchedulerId: string,
+    repeatOpts: { every?: number; pattern?: string },
+    jobTemplate: {
+      name: string
+      data: SchedulerJobData
+      opts: { removeOnComplete: { count: number }; removeOnFail: { count: number } }
+    },
+  ): Promise<unknown>
+}
+
+export interface SchedulerRegisterResult {
+  /** 成功登记的任务条数。 */
+  registered: number
+  /** true = 未完成整轮注册(Redis 不可用),调度整体未注册。 */
+  degraded: boolean
+  reason?: 'timeout' | 'error'
+  /** 触发降级时正在注册的任务名。 */
+  job?: string
+}
+
+export interface SchedulerPluginOptions {
+  /** 单条注册命令的超时上限(ms),默认 SCHEDULER_REGISTER_TIMEOUT_MS。 */
+  registerTimeoutMs?: number
+}
+
+type UpsertOutcome<T> =
+  | { ok: true; value: T }
+  | { ok: false; kind: 'timeout' }
+  | { ok: false; kind: 'error'; error: unknown }
+
+async function upsertWithTimeout<T>(
+  pending: Promise<T>,
+  timeoutMs: number,
+): Promise<UpsertOutcome<T>> {
+  // 掐表之后原 Promise 仍可能迟到 reject(超时后 Redis 才真正报错):
+  // 先挂空 catch,保证不变成 unhandledRejection。
+  pending.catch(() => {})
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const timeout = new Promise<UpsertOutcome<T>>((resolve) => {
+    timer = setTimeout(() => resolve({ ok: false, kind: 'timeout' }), timeoutMs)
+  })
+  try {
+    return await Promise.race([
+      pending.then((value): UpsertOutcome<T> => ({ ok: true, value })),
+      timeout,
+    ])
+  } catch (error) {
+    return { ok: false, kind: 'error', error }
+  } finally {
+    if (timer) clearTimeout(timer)
+  }
+}
+
+/**
+ * 注册全部 repeatable 调度。任何一条超时/报错即整体降级并 warn,**绝不抛出**。
+ * 一旦失败就停止逐条重试(29 条 × 超时会把启动拖成分钟级)。
+ */
+export async function registerScheduledJobs(
+  queue: SchedulerUpsertQueue,
+  log: SchedulerRegisterLog,
+  options: { timeoutMs?: number; jobs?: readonly ScheduledJobDef[] } = {},
+): Promise<SchedulerRegisterResult> {
+  const timeoutMs = options.timeoutMs ?? SCHEDULER_REGISTER_TIMEOUT_MS
+  const jobs = options.jobs ?? SCHEDULED_JOBS
+  let registered = 0
+
+  for (const job of jobs) {
+    const outcome = await upsertWithTimeout(
+      // every（毫秒）与 pattern（cron）二选一；秒级任务用 every。
+      // 包一层 async:命令同步抛错也落进 catch 分支,而不是逃出装配。
+      (async () =>
+        queue.upsertJobScheduler(
+          job.name,
+          job.every ? { every: job.every } : { pattern: job.pattern ?? '' },
+          {
+            name: job.name,
+            data: { description: job.description },
+            opts: {
+              removeOnComplete: { count: 200 },
+              removeOnFail: { count: 500 },
+            },
+          },
+        ))(),
+      timeoutMs,
+    )
+
+    if (!outcome.ok) {
+      log.warn(
+        {
+          job: job.name,
+          registered,
+          total: jobs.length,
+          timeoutMs,
+          ...(outcome.kind === 'error' ? { err: outcome.error } : {}),
+        },
+        outcome.kind === 'timeout'
+          ? 'scheduler registration timed out; repeatable jobs not registered (startup continues)'
+          : 'scheduler registration failed; repeatable jobs not registered (startup continues)',
+      )
+      return { registered, degraded: true, reason: outcome.kind, job: job.name }
+    }
+    registered += 1
+  }
+
+  return { registered, degraded: false }
+}
+
+const schedulerPlugin: FastifyPluginAsync<SchedulerPluginOptions> = async (server, opts) => {
   const connection: ConnectionOptions = {
     url: config.REDIS_URL,
     maxRetriesPerRequest: null,
@@ -389,25 +515,13 @@ const schedulerPlugin: FastifyPluginAsync = async (server) => {
 
   const schedulerQueue = new Queue<SchedulerJobData>(SCHEDULER_QUEUE_NAME, { connection })
 
+  // 先 decorate:即便注册降级,queue 句柄(onClose 关闭)与其它插件读 server.schedulerQueue 都成立。
+  server.decorate('schedulerQueue', schedulerQueue)
+
   // 注册 repeatable jobs。BullMQ 按 (name + repeat pattern) 生成 repeat key 幂等去重，
   // 多次启动 / 多实例注册同一 pattern 不会重复触发。
-  for (const job of SCHEDULED_JOBS) {
-    // every（毫秒）与 pattern（cron）二选一；秒级任务用 every
-    await schedulerQueue.upsertJobScheduler(
-      job.name,
-      job.every ? { every: job.every } : { pattern: job.pattern ?? '' },
-      {
-        name: job.name,
-        data: { description: job.description },
-        opts: {
-          removeOnComplete: { count: 200 },
-          removeOnFail: { count: 500 },
-        },
-      },
-    )
-  }
-
-  server.decorate('schedulerQueue', schedulerQueue)
+  // 有界注册(F-222):Redis 不可用时降级为"调度未注册",不阻塞启动。
+  await registerScheduledJobs(schedulerQueue, server.log, { timeoutMs: opts.registerTimeoutMs })
 
   // 启动扫描(b76-12e G-998160):onReady 时补排一轮 pending outbox 事件。
   // 幂等:worker 进程与 API 进程各跑一次也无害,processed 的事件不会被重复取出。
