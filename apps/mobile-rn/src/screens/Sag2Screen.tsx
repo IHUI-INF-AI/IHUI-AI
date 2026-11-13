@@ -7,8 +7,8 @@
  *
  * 单一真相源:UI = `packages/app/src/features/sag2/Sag2Screen.tsx`(共享屏,零数据腿);
  * 数据 = `@ihui/api-client` 的 sag2 端点(与 web `sag2-lexical.ts` 同构投影)。
- * 本壳只做三件事:① 把 api-client 返回归一成共享屏 props 形状;② 绑定 `sag2Lexical.`
- * 命名空间;③ 注入导航 onBack。端内不自写第二份检索 UI。
+ * 本壳只做三件事:① 把 api-client 返回归一成共享屏 props 形状;② 透传 t(共享屏用全键
+ * `sag2Lexical.xxx`);③ 注入导航 onBack。端内不自写第二份检索 UI。
  *
  * 平台边界:web 的「本地文件夹登记/扫描/监听」依赖宿主磁盘,移动端不承载(见共享屏头注)。
  */
@@ -100,11 +100,10 @@ export function Sag2Screen() {
   const { resolvedTheme } = useTheme()
   const navigation = useNavigation()
 
-  // 共享屏用裸键,这里绑定 sag2Lexical 命名空间(web/小程序同一套词条)
-  const nsT = useCallback(
-    (key: string, options?: Record<string, string | number>) => t(`sag2Lexical.${key}`, options),
-    [t],
-  )
+  // 共享屏用全键(sag2Lexical.xxx,与样板 AboutScreen 用 about.xxx 同款),端壳直接透传 t。
+  // 旧形态在壳里绑 `sag2Lexical.` 前缀,而还原度门按共享源文本的裸键首段判命名空间 ⇒ 把
+  // bm25/title 误判成顶层 ns 而报 packAbsent。改全键后门能识别 sag2Lexical 命名空间。
+  const nsT = t
 
   const [status, setStatus] = useState<Sag2StatusView | null>(null)
   const [mode, setMode] = useState<Sag2Mode>('deep')

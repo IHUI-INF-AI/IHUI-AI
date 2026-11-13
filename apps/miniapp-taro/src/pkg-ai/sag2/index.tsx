@@ -103,11 +103,10 @@ export default function Sag2() {
   const { t } = useI18n()
   const { resolvedTheme } = useTheme()
 
-  // 共享屏用裸键,这里绑定 sag2Lexical 命名空间(web / RN / 小程序同一套词条)
-  const nsT = useCallback(
-    (key: string, options?: Record<string, string | number>) => t(`sag2Lexical.${key}`, options),
-    [t],
-  )
+  // 共享屏用全键(sag2Lexical.xxx,与样板 AboutScreen 用 about.xxx 同款),端壳直接透传 t。
+  // 旧形态在壳里绑 `sag2Lexical.` 前缀,而还原度门按共享源文本的裸键首段判命名空间 ⇒ 把
+  // bm25/title 误判成顶层 ns 而报 packAbsent(词包整块缺失)。改全键后门能识别 sag2Lexical。
+  const nsT = t
 
   const [status, setStatus] = useState<Sag2StatusView | null>(null)
   const [mode, setMode] = useState<Sag2Mode>('deep')
