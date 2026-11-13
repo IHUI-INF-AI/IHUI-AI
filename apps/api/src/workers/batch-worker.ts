@@ -324,7 +324,7 @@ async function processOpenAIBatch(
   await updateBatchTaskStatus(redis, taskId, 'in_progress')
 
   // 3. 读取输入 JSONL
-  const inputContent = await getBatchInput(redis, task.input_file_id)
+  const inputContent = await getBatchInput(redis, task._apiKeyId, task.input_file_id)
   if (!inputContent) {
     const errMsg = `Input file not found: ${task.input_file_id}`
     await updateBatchTaskStatus(redis, taskId, 'failed', { _errorMessage: errMsg })

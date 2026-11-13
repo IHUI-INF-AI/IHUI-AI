@@ -80,7 +80,7 @@ export interface AnthropicMessagesResponse {
   role: 'assistant'
   model: string
   content: Array<AnthropicTextBlock | AnthropicToolUseBlock>
-  stop_reason: 'end_turn' | 'max_tokens' | 'tool_use' | 'stop_sequence'
+  stop_reason: 'end_turn' | 'max_tokens' | 'tool_use' | 'stop_sequence' | 'refusal'
   stop_sequence: string | null
   usage: { input_tokens: number; output_tokens: number }
 }
@@ -369,7 +369,8 @@ const FINISH_REASON_MAP: Record<string, AnthropicMessagesResponse['stop_reason']
   length: 'max_tokens',
   tool_calls: 'tool_use',
   function_call: 'tool_use',
-  content_filter: 'end_turn',
+  // F-295:内容过滤是"拒答",不是"正常说完";Anthropic 语义用 refusal。
+  content_filter: 'refusal',
 }
 
 /**
@@ -465,6 +466,10 @@ export interface StreamState {
   textBlockOpen: boolean
   /** F-307:按 tool_calls[].index 分开维护各自独立的 tool_use block */
   toolBlocks: Map<number, ToolBlockState>
+  /** F-295:本流是否已按上游 finish_reason 收尾(路由据此区分"真没发"的补尾) */
+  finished: boolean
+  /** F-295:未知 finish_reason / 兜底的日志出口(路由注入 request.log.warn) */
+  warn?: (message: string) => void
 }
 
 export function createStreamState(model: string): StreamState {
@@ -481,6 +486,7 @@ export function createStreamState(model: string): StreamState {
     currentToolUseName: '',
     textBlockOpen: false,
     toolBlocks: new Map(),
+    finished: false,
   }
 }
 
@@ -619,7 +625,13 @@ export function openAIStreamChunkToAnthropicEvents(
       state.textBlockOpen = false
     }
     state.contentBlockStarted = false
-    const stopReason = FINISH_REASON_MAP[choice.finish_reason] ?? 'end_turn'
+    state.finished = true
+    // F-295:未知值不硬编码成 end_turn —— 走既有兜底,但必须留痕,便于定位上游新枚举。
+    const mappedStopReason = FINISH_REASON_MAP[choice.finish_reason]
+    if (mappedStopReason === undefined) {
+      state.warn?.(`[anthropic-adapter] 未知 finish_reason=${JSON.stringify(choice.finish_reason)},已按 end_turn 兜底`)
+    }
+    const stopReason = mappedStopReason ?? 'end_turn'
     // 估算 output_tokens(1 token ≈ 4 字符,与 v1-public 流式估算一致)
     const estimatedOutputTokens = Math.max(1, Math.ceil(state.outputChars / 4))
     events.push({
@@ -652,6 +664,7 @@ export function serializeAnthropicSSEEvent(event: AnthropicSSEEvent): string {
  * 支持:
  * - Vercel AI SDK: 0:"text"
  * - SSE data: {choices:[{delta:{content}}]} / {delta:{content}} / {content} / {token} / string
+ * - SSE data: {"type":"done","finishReason":"..."} → 带 finish_reason 的收尾 chunk(F-295)
  * - data: [DONE] → 返回 null
  */
 export function parseUpstreamLineToOpenAIChunk(
@@ -686,6 +699,21 @@ export function parseUpstreamLineToOpenAIChunk(
       const json = JSON.parse(data) as unknown
       if (typeof json === 'string') return makeTextChunk(json, model, null)
       if (isRecord(json)) {
+        // F-295:ai-service 的 `event: done` 帧把上游结束原因放在 finishReason 里。
+        // 旧实现没有这一支 ⇒ done 帧被丢弃 ⇒ 路由补 stop ⇒ 截断(length)/内容过滤
+        // (content_filter)被洗成 end_turn。这里转成带 finish_reason 的收尾 chunk,
+        // 由 openAIStreamChunkToAnthropicEvents 统一映射;缺席不造值(留给路由兜底并留痕)。
+        if (json.type === 'done') {
+          const rawFinishReason =
+            typeof json.finishReason === 'string' ? json.finishReason.trim() : ''
+          return rawFinishReason
+            ? {
+                id: `chatcmpl-${Date.now()}`,
+                model,
+                choices: [{ index: 0, delta: {}, finish_reason: rawFinishReason }],
+              }
+            : null
+        }
         if (typeof json.content === 'string') return makeTextChunk(json.content, model, null)
         if (typeof json.token === 'string') return makeTextChunk(json.token, model, null)
         const delta = json.delta as unknown

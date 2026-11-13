@@ -24,7 +24,6 @@ import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { eq, and, isNull, desc, sql } from 'drizzle-orm'
 import { z } from 'zod'
-import { config } from '../config/index.js'
 import {
   fetchProviderHealth,
   isProviderHardUnavailable,
@@ -2544,16 +2543,12 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
         }
         const batchFileId = `file-${randomUUID()}`
         const content = buffer.toString('utf8')
-        let batchRedis: { disconnect: () => void } | null = null
         try {
-          const { saveBatchInput, saveBatchInputOwner } = await import('../queue/batch-queue.js')
-          const IORedis = (await import('ioredis')).default
-          const redis = new IORedis(config.REDIS_URL, { maxRetriesPerRequest: 2 })
-          batchRedis = redis
-          await saveBatchInput(redis, batchFileId, content)
-          // F-279:输入文件与上传它的 API Key 绑定。此前 `batch:input:<fileId>` 是全局键,
-          // 任一 Key 拿到 fileId 即可创建 batch 读取他人 JSONL prompts。创建端据此校验归属。
-          await saveBatchInputOwner(redis, batchFileId, apiKey.id)
+          const { saveBatchInput, getBatchInputRedis } = await import('../queue/batch-queue.js')
+          // F-279:复用 server.redis(由 redis 插件 onClose 统一 quit),不再每请求 new IORedis
+          // —— 后者异常路径会泄漏连接与重连定时器。键按 apiKeyId 分区,他人 fileId 读不到。
+          const redis = getBatchInputRedis(server)
+          await saveBatchInput(redis, apiKey.id, batchFileId, content)
           return reply.status(201).send({
             id: batchFileId,
             object: 'file',
@@ -2565,9 +2560,6 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
           })
         } catch {
           return reply.status(500).send(error(500, 'Batch file save failed'))
-        } finally {
-          // 无论保存成功/抛错都要断开:ioredis 默认自动重连,泄漏一条会持续占用连接与重连定时器
-          batchRedis?.disconnect()
         }
       }
 

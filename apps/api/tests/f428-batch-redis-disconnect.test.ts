@@ -3,10 +3,11 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * F-428:/v1/files purpose=batch 的错误路径必须断开 ioredis 连接。
+ * F-428 / F-279:batch 输入文件保存路径的 Redis 连接。
  *
- * 该路由依赖 API Key 鉴权 + quota + DB,做端到端需要完整应用与数据库;
- * 这里锁住关键结构:连接变量在 try 外声明,disconnect 放在 finally。
+ * 历史:该路径曾每请求 `new IORedis` + finally disconnect(F-428 当时锁的是"别漏 disconnect")。
+ * F-279 起改为复用 server.redis(redis 插件 onClose 统一 quit):既不再每请求新建连接,
+ * 也就不得在请求内 disconnect 共享连接。
  */
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
@@ -17,22 +18,22 @@ const src = readFileSync(
   'utf-8',
 )
 
-describe('F-428 batch 保存路径的 Redis 连接释放', () => {
-  it('连接变量在 try 外声明,disconnect 在 finally 内', () => {
-    const start = src.indexOf("if (purpose === 'batch')")
-    expect(start).toBeGreaterThan(-1)
-    const block = src.slice(start, src.indexOf('const filename = data.filename', start))
-    expect(block).toContain('let batchRedis')
-    expect(block).toContain('batchRedis = redis')
-    const finallyAt = block.lastIndexOf('finally {')
-    expect(finallyAt).toBeGreaterThan(-1)
-    expect(block.slice(finallyAt)).toContain('batchRedis?.disconnect()')
+function batchBlock(): string {
+  const start = src.indexOf("if (purpose === 'batch')")
+  expect(start).toBeGreaterThan(-1)
+  return src.slice(start, src.indexOf('const filename = data.filename', start))
+}
+
+describe('F-428/F-279 batch 保存路径复用共享 Redis', () => {
+  it('不再每请求 new IORedis,改从 server.redis 取连接', () => {
+    const block = batchBlock()
+    expect(block).toContain('getBatchInputRedis(server)')
+    expect(block.includes('new IORedis(')).toBe(false)
   })
 
-  it('成功路径不再单独提前 disconnect(统一由 finally 释放)', () => {
-    const start = src.indexOf("if (purpose === 'batch')")
-    const block = src.slice(start, src.indexOf('const filename = data.filename', start))
-    expect(block.includes('redis.disconnect()')).toBe(false)
+  it('共享连接不得在请求内 disconnect(由 redis 插件 onClose 统一释放)', () => {
+    const block = batchBlock()
+    expect(block.includes('.disconnect(')).toBe(false)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
