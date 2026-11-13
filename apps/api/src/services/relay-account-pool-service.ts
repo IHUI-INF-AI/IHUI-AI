@@ -2167,6 +2167,18 @@ export interface UserPoolModelItem {
   accountCount: number
   /** preset = 全局登记行(有展示名/定价);upstream = 上游模型清单现拉 */
   source: 'preset' | 'upstream'
+  /**
+   * 积分消耗倍数(2026-11-13 立):预设行取 ai_model_config_models.points_multiplier;
+   * 上游补缺行没有登记价,缺省不下发(前端按免费档兜底)。小数口径(如 0.15 = 0.15x)。
+   */
+  pointsMultiplier?: number
+  /**
+   * 真实单价(2026-11-13 立):元/百万 token,进/出各一。
+   * 倍率是抽象档位,用户横比模型时必须以这两个数为准 —— 二者同时下发才能避免
+   * "倍率低的模型实际更贵" 的误导。预设行缺价(0 或空)时不下发。
+   */
+  inputPricePerMillion?: number
+  outputPricePerMillion?: number
 }
 
 interface UserPoolModelCacheEntry {
@@ -2322,6 +2334,9 @@ export async function listUserPoolModels(
       providerCode: aiModelConfig.providerCode,
       modelId: aiModelConfigModels.modelId,
       displayName: aiModelConfigModels.displayName,
+      pointsMultiplier: aiModelConfigModels.pointsMultiplier,
+      inputPricePer1k: aiModelConfigModels.inputPricePer1k,
+      outputPricePer1k: aiModelConfigModels.outputPricePer1k,
     })
     .from(aiModelConfigModels)
     .innerJoin(aiModelConfig, eq(aiModelConfigModels.configId, aiModelConfig.id))
@@ -2334,11 +2349,29 @@ export async function listUserPoolModels(
     )
     .orderBy(aiModelConfig.providerCode, aiModelConfigModels.modelId)
 
-  const presetByProvider = new Map<string, Array<{ id: string; name: string }>>()
+  const presetByProvider = new Map<
+    string,
+    Array<{ id: string; name: string; points?: number; inM?: number; outM?: number }>
+  >()
   for (const row of presetRows) {
     if (!row.modelId) continue
     const list = presetByProvider.get(row.providerCode) ?? []
-    list.push({ id: row.modelId, name: row.displayName || row.modelId })
+    // numeric 列在 pg 驱动下可能回字符串:统一转 number,非法值视为未登记(不下发)
+    const pts = row.pointsMultiplier === null ? undefined : Number(row.pointsMultiplier)
+    // 分/1k token → 元/百万 token:× 1000 / 100 = ×10
+    const toPerMillion = (v: unknown): number | undefined => {
+      if (v === null || v === undefined) return undefined
+      const n = Number(v)
+      if (!Number.isFinite(n) || n <= 0) return undefined
+      return Math.round(n * 10 * 1e4) / 1e4
+    }
+    list.push({
+      id: row.modelId,
+      name: row.displayName || row.modelId,
+      points: pts !== undefined && Number.isFinite(pts) ? pts : undefined,
+      inM: toPerMillion(row.inputPricePer1k),
+      outM: toPerMillion(row.outputPricePer1k),
+    })
     presetByProvider.set(row.providerCode, list)
   }
 
@@ -2392,6 +2425,9 @@ export async function listUserPoolModels(
         provider: code,
         accountCount: hit.count,
         source: 'preset',
+        ...(preset.points !== undefined ? { pointsMultiplier: preset.points } : {}),
+        ...(preset.inM !== undefined ? { inputPricePerMillion: preset.inM } : {}),
+        ...(preset.outM !== undefined ? { outputPricePerMillion: preset.outM } : {}),
       })
     }
     for (const upstreamId of info.ids) {

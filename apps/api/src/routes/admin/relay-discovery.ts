@@ -217,7 +217,7 @@ const relayDiscoveryRoutes: FastifyPluginAsync = async (server) => {
 
       // 查关联的 aiModelConfig(configId 由 scan 时记录,这里通过 providerCode 反查第一个 enabled 的 config)
       const [configRow] = await dbRead
-        .select({ id: aiModelConfig.id })
+        .select({ id: aiModelConfig.id, providerCode: aiModelConfig.providerCode })
         .from(aiModelConfig)
         .where(
           and(
@@ -264,6 +264,35 @@ const relayDiscoveryRoutes: FastifyPluginAsync = async (server) => {
       } else {
         // 不存在,插入新行
         const upstreamPrice = discovery.upstreamPrice as { input?: number; output?: number } | null
+        // 上游没给价(或给 0)时,走统一定价解析器兜底(2026-11-13):绝不允许零价上架 —— 那等于白送额度。
+        // 解析器多源价表 + 家族插值 + 渠道兜底,并返回 tier/source 写进 metadata 供审计。
+        let priceIn = Number(upstreamPrice?.input ?? 0)
+        let priceOut = Number(upstreamPrice?.output ?? 0)
+        let priceSource: Record<string, unknown> | null = null
+        if (!(priceIn > 0) || !(priceOut > 0)) {
+          try {
+            const { getPriceSources, resolveModelPrice, PROFIT_FACTOR } =
+              await import('../../services/model-price-resolver.js')
+            const resolved = resolveModelPrice(
+              normalizedModelId,
+              await getPriceSources(),
+              configRow.providerCode,
+            )
+            if (resolved) {
+              priceIn = Math.round(resolved.inputPer1k * PROFIT_FACTOR * 1e6) / 1e6
+              priceOut = Math.round(resolved.outputPer1k * PROFIT_FACTOR * 1e6) / 1e6
+              priceSource = {
+                tier: resolved.tier,
+                source: resolved.source,
+                refModel: resolved.refModel ?? null,
+                profitFactor: PROFIT_FACTOR,
+                resolvedAt: new Date().toISOString(),
+              }
+            }
+          } catch (e) {
+            request.log.warn({ err: e }, '[relay-discovery] 统一定价解析失败,按上游原值入库')
+          }
+        }
         const [inserted] = await db
           .insert(aiModelConfigModels)
           .values({
@@ -271,12 +300,13 @@ const relayDiscoveryRoutes: FastifyPluginAsync = async (server) => {
             modelId: normalizedModelId,
             displayName: discovery.modelName ?? normalizedModelId,
             contextLength: discovery.contextLength ?? 32000,
-            inputPricePer1k: upstreamPrice?.input ?? 0,
-            outputPricePer1k: upstreamPrice?.output ?? 0,
+            inputPricePer1k: priceIn,
+            outputPricePer1k: priceOut,
             enabled: true,
             isRelayPublic: true,
             relayPriceMultiplier: parsed.data.relayPriceMultiplier ?? '1.0000',
             relayDisplayName: parsed.data.relayDisplayName ?? null,
+            ...(priceSource ? { metadata: { priceSource } } : {}),
           })
           .returning({ id: aiModelConfigModels.id })
         approvedModelRowId = inserted!.id
