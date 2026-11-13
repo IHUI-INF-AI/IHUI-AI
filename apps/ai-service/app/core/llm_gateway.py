@@ -4013,7 +4013,33 @@ class LLMGateway:
             # 随 done 帧透传给端上判截断;缺席 = 上游没给,不造值。
             _finish_reason_seen: str | None = None
             try:
-                async for chunk in response:
+                # D-AI-2 首 token / 中间帧独立超时(2026-11-13):此前只有 litellm 请求级
+                # cap.default_timeout(L3973)整体闸,async for chunk 循环内无帧间超时 ——
+                # 上游"首字节前挂死"或"发了若干帧后停止推进"两种卡死形态都只能等整体
+                # timeout 兜底(慢且不区分阶段)。这里把 `async for chunk in response`
+                # 改为手动驱动 __anext__ + asyncio.wait_for 包超时:首帧(含 TTFT)用更短
+                # 的 _first_frame_timeout,后续帧用 _inter_frame_timeout。超时抛
+                # asyncio.TimeoutError,落入本函数下方已有的 except Exception 统一收口
+                # (partial_done/error 帧 + 流水 + 指标),不破坏现有整体 timeout 语义 ——
+                # 帧 timeout 是"更快触发"的更细粒度闸,整体 cap.default_timeout 仍在。
+                # _err_status_s 判据会把它归为 timeout 档(record_llm_outcome status='timeout')。
+                _first_frame_timeout = min(cap.default_timeout, 30.0)
+                _inter_frame_timeout = min(cap.default_timeout, 60.0)
+                _chunk_iter = response.__aiter__()
+                _awaiting_first_frame = True
+                while True:
+                    try:
+                        chunk = await asyncio.wait_for(
+                            _chunk_iter.__anext__(),
+                            timeout=(
+                                _first_frame_timeout
+                                if _awaiting_first_frame
+                                else _inter_frame_timeout
+                            ),
+                        )
+                    except StopAsyncIteration:
+                        break
+                    _awaiting_first_frame = False
                     if _is_stream_timeout_guard(chunk):
                         # 极速API 流式+tools 降级:45s 后仅回超时占位块。
                         # 放弃该流(下方 finally 关闭底层连接),改走非流式回退。
@@ -4337,6 +4363,20 @@ class LLMGateway:
                     "fallback_applied": False,
                     "reason": "stream_interrupted",
                     "model": used_model,
+                    # AIS 流式中断原因透出(2026-11-13):此前已发内容后的上游异常只回笼统
+                    # stream_interrupted,safe_msg/err_code(上面 L4291-4301 已算好,含脱敏)
+                    # 不透出 ⇒ 限流/内容过滤/HTTP 状态全部丢失,前端无法区分失败原因。
+                    # 与 native 腿(L3835-3843 补 error 帧)对齐:这里在 partial_done 上
+                    # 附带 errorCode + 已脱敏的 message,再补一条 error 帧作终态。
+                    # 脱敏红线:只透 safe_msg(必要时已替换为"含敏感信息已脱敏"形态),
+                    # 绝不透原始异常对象 / str(e)。
+                    "errorCode": err_code,
+                    "message": safe_msg,
+                }
+                yield {
+                    "type": "error",
+                    "message": safe_msg,
+                    "errorCode": err_code,
                 }
                 return
             # P0-5c:号池故障转移 — 标记失败 + 递归重试(最多 3 次,换 key 再试)
@@ -4368,7 +4408,14 @@ class LLMGateway:
                     "retryInMs": 0,
                     "httpStatus": _retry_status if isinstance(_retry_status, int) else None,
                 }
-                async for evt in self.astream(
+                # D-AI-1 取消传播修复(2026-11-13):这条 `async for evt in self.astream(...)`
+                # 是递归转发腿 —— 内层 astream 是**独立的异步生成器**,客户端断开时
+                # GeneratorExit 只关掉外层(本生成器),内层不会自动 aclose,上游连接留在
+                # 半读态白烧 token。与 native 腿(L3646/L3787)同形:谁借谁关,finally 里
+                # 显式 aclose_async_gen。函数级 import 理由同 L3644(core 不模块级依赖 services)。
+                from app.services.async_gen_close import aclose_async_gen
+
+                _retry_gen = self.astream(
                     messages,
                     model=model,
                     owner_uuid=owner_uuid,
@@ -4379,8 +4426,12 @@ class LLMGateway:
                     _combo_name=_combo_name,
                     _pool_retry=_pool_retry + 1,
                     **kwargs,
-                ):
-                    yield evt
+                )
+                try:
+                    async for evt in _retry_gen:
+                        yield evt
+                finally:
+                    await aclose_async_gen(_retry_gen, label="astream.key_pool_retry")
                 return
             # P3-3 OpenRouter 403 failover(2026-07-30):openrouter/<model> 返回 403 时,
             # 自动 failover 到 agnes/<model>(仅未发送 chunk 时,已发送 chunk 不可撤回)
@@ -4411,7 +4462,11 @@ class LLMGateway:
                         "backup_model": agnes_model,
                         "reason": "openrouter_403",
                     }
-                    async for evt in self.astream(
+                    # D-AI-1 取消传播修复(2026-11-13):openrouter→agnes failover 的转发腿,
+                    # 与上面 key-pool 重试腿同型同修 —— 内层 self.astream 是独立异步生成器,
+                    # 客户端断开时 GeneratorExit 只关外层,内层须显式 aclose,否则 agnes 上游
+                    # 连接留半读态白烧 token。复用 aclose_async_gen(本函数上方已 import)。
+                    _agnes_gen = self.astream(
                         messages,
                         model=agnes_model,
                         owner_uuid=owner_uuid,
@@ -4421,8 +4476,12 @@ class LLMGateway:
                         _call_route_primary=used_model,
                         _combo_name=_combo_name,
                         **kwargs,
-                    ):
-                        yield evt
+                    )
+                    try:
+                        async for evt in _agnes_gen:
+                            yield evt
+                    finally:
+                        await aclose_async_gen(_agnes_gen, label="astream.openrouter_failover")
                     return
             # 流式 fallback:仅在未发送任何 chunk 时尝试 fallback provider
             # (已发送 chunk 不可撤回,无法中途切换 provider)
