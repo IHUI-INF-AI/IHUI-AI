@@ -289,13 +289,13 @@ export default function LessonListItem({
           </Text>
           {/* VIP 角标 */}
           {vipVisible && (
-            <Text className="ml-sm text-badge px-[12rpx] py-[4rpx] rounded bg-warning/20 text-warning font-medium">
+            <Text className="ml-sm text-badge px-[12rpx] py-[4rpx] rounded-md bg-warning/20 text-warning font-medium">
               VIP
             </Text>
           )}
           {/* 分类徽章 */}
           {categoryVisible && data.category && (
-            <Text className="ml-sm text-badge px-[12rpx] py-[4rpx] rounded bg-muted text-muted-foreground">
+            <Text className="ml-sm text-badge px-[12rpx] py-[4rpx] rounded-md bg-muted text-muted-foreground">
               {data.category}
             </Text>
           )}
@@ -332,7 +332,7 @@ export default function LessonListItem({
         <Text className="text-label text-warning font-medium mr-sm">¥{data.price}</Text>
       )}
       {data.isFree && (
-        <Text className="text-badge px-[12rpx] py-[4rpx] rounded bg-primary/10 text-primary mr-sm">
+        <Text className="text-badge px-[12rpx] py-[4rpx] rounded-md bg-primary/10 text-primary mr-sm">
           {tt('lesson.preview', '试看')}
         </Text>
       )}

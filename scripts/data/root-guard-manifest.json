@@ -3,13 +3,13 @@
   "version": 1,
   "sealedAt": "2026-11-13T16:32:34.322Z",
   "sealedBy": "root-guard --seal",
-  "reason": "盘根外流根治同枚:git-guardian.mjs 盘面巡检格新增 H3 内容对账消费侧,须按本枚索引面重封清单(不重封则部署环对签出面 fail-closed,门 267 报红)",
+  "reason": "盘根外流根治同枚:git-guardian.mjs 盘面巡检格新增 H3 内容对账消费侧,须按本枚索引面重封清单(不重封则部署环对签出面 fail-closed,门 267 报红)；并入对侧 16:04Z 重封理由: 并入 fd5b05b9c33(guard 反向对账/棘轮门)后 guardian-runner 变更,按 HEAD 面重封以解除部署 fail-closed；修正轮 2026-11-13T18:49:28.348Z:file 封一律按并集结果树 T1 实测哈希重封(1 条;裁决首轮\"同键取 ours\"误保旧封 1 条,已改为可机械验证的\"以结果树内容为准\")",
   "targets": [
     {
       "id": "guardian-runner",
       "path": "scripts/guardian-runner.mjs",
       "mode": "file",
-      "sha256": "ed68a159d96425938295ca5cc7f69814cdfdb93460caf411e980d00ca3b8d965"
+      "sha256": "8961bc242c692a837bcc9a5d9219f80dac905273a403cad911cb63bb70439d85"
     },
     {
       "id": "judgement-libs",

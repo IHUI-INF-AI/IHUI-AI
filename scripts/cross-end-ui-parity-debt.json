@@ -1,46 +1,46 @@
 {
   "schema": 3,
-  "recordedAt": "2026-10-22T22:24:12.203Z",
+  "recordedAt": "2026-11-13T11:29:49.359Z",
   "face": "head",
   "gate": "scripts/check-cross-end-ui-parity.mjs --json",
   "waiversSource": "scripts/cross-end-ui-parity-baseline.json",
   "dimensions": ["diffCount", "radiusCount", "elementRadiusCount", "langMismatch"],
-  "uncoveredFindingKeys": [],
-  "pairCount": 19,
-  "onlyMiniappNames": 72,
-  "onlyRnNames": 400,
-  "total": 123,
-  "waivedTotal": 123,
+  "uncoveredFindingKeys": ["geometry", "geoUnreadable", "cssVar"],
+  "pairCount": 20,
+  "onlyMiniappNames": 74,
+  "onlyRnNames": 422,
+  "total": 121,
+  "waivedTotal": 121,
   "openTotal": 0,
   "families": [
     {
-      "name": "BottomActionBar",
-      "debt": 20,
+      "name": "InputArea",
+      "debt": 19,
       "waived": true,
       "waiverUntil": "2027-03-27",
       "waiverExpired": false,
       "waiverMissingExpiry": false,
       "geometry": 16,
-      "radiusFile": 3,
+      "radiusFile": 2,
       "radiusElement": 0,
-      "radiusOnlyMiniapp": 1,
+      "radiusOnlyMiniapp": 0,
       "radiusOnlyRn": 2,
       "elementOnlyMiniapp": 0,
-      "elementOnlyRn": 13,
+      "elementOnlyRn": 8,
       "lang": "className vs stylesheet",
       "langMismatch": 1
     },
     {
-      "name": "InputArea",
-      "debt": 18,
+      "name": "BottomActionBar",
+      "debt": 17,
       "waived": true,
       "waiverUntil": "2027-03-27",
       "waiverExpired": false,
       "waiverMissingExpiry": false,
-      "geometry": 15,
-      "radiusFile": 2,
+      "geometry": 13,
+      "radiusFile": 3,
       "radiusElement": 0,
-      "radiusOnlyMiniapp": 0,
+      "radiusOnlyMiniapp": 1,
       "radiusOnlyRn": 2,
       "elementOnlyMiniapp": 0,
       "elementOnlyRn": 13,
@@ -65,53 +65,19 @@
       "langMismatch": 1
     },
     {
-      "name": "VoiceInput",
-      "debt": 12,
-      "waived": true,
-      "waiverUntil": "2027-03-27",
-      "waiverExpired": false,
-      "waiverMissingExpiry": false,
-      "geometry": 8,
-      "radiusFile": 3,
-      "radiusElement": 0,
-      "radiusOnlyMiniapp": 1,
-      "radiusOnlyRn": 2,
-      "elementOnlyMiniapp": 0,
-      "elementOnlyRn": 5,
-      "lang": "className vs stylesheet",
-      "langMismatch": 1
-    },
-    {
       "name": "LoginPopUp",
-      "debt": 9,
+      "debt": 10,
       "waived": true,
       "waiverUntil": "2027-03-27",
       "waiverExpired": false,
       "waiverMissingExpiry": false,
-      "geometry": 8,
+      "geometry": 9,
       "radiusFile": 0,
       "radiusElement": 0,
       "radiusOnlyMiniapp": 0,
       "radiusOnlyRn": 0,
       "elementOnlyMiniapp": 0,
-      "elementOnlyRn": 12,
-      "lang": "className vs stylesheet",
-      "langMismatch": 1
-    },
-    {
-      "name": "NavBar",
-      "debt": 9,
-      "waived": true,
-      "waiverUntil": "2027-03-27",
-      "waiverExpired": false,
-      "waiverMissingExpiry": false,
-      "geometry": 7,
-      "radiusFile": 1,
-      "radiusElement": 0,
-      "radiusOnlyMiniapp": 1,
-      "radiusOnlyRn": 0,
-      "elementOnlyMiniapp": 0,
-      "elementOnlyRn": 0,
+      "elementOnlyRn": 13,
       "lang": "className vs stylesheet",
       "langMismatch": 1
     },
@@ -133,13 +99,47 @@
       "langMismatch": 1
     },
     {
-      "name": "ModelList",
+      "name": "ModelConfigDialog",
+      "debt": 8,
+      "waived": true,
+      "waiverUntil": "2027-03-27",
+      "waiverExpired": false,
+      "waiverMissingExpiry": false,
+      "geometry": 5,
+      "radiusFile": 3,
+      "radiusElement": 0,
+      "radiusOnlyMiniapp": 3,
+      "radiusOnlyRn": 0,
+      "elementOnlyMiniapp": 3,
+      "elementOnlyRn": 0,
+      "lang": "className vs className",
+      "langMismatch": 0
+    },
+    {
+      "name": "VoiceInput",
       "debt": 8,
       "waived": true,
       "waiverUntil": "2027-03-27",
       "waiverExpired": false,
       "waiverMissingExpiry": false,
       "geometry": 6,
+      "radiusFile": 1,
+      "radiusElement": 0,
+      "radiusOnlyMiniapp": 0,
+      "radiusOnlyRn": 1,
+      "elementOnlyMiniapp": 0,
+      "elementOnlyRn": 5,
+      "lang": "className vs stylesheet",
+      "langMismatch": 1
+    },
+    {
+      "name": "ModelList",
+      "debt": 7,
+      "waived": true,
+      "waiverUntil": "2027-03-27",
+      "waiverExpired": false,
+      "waiverMissingExpiry": false,
+      "geometry": 5,
       "radiusFile": 1,
       "radiusElement": 0,
       "radiusOnlyMiniapp": 1,
@@ -150,10 +150,10 @@
       "langMismatch": 1
     },
     {
-      "name": "Carousel",
+      "name": "BottomFadeMask",
       "debt": 6,
       "waived": true,
-      "waiverUntil": "2027-03-27",
+      "waiverUntil": "2027-11-11",
       "waiverExpired": false,
       "waiverMissingExpiry": false,
       "geometry": 6,
@@ -163,24 +163,7 @@
       "radiusOnlyRn": 0,
       "elementOnlyMiniapp": 0,
       "elementOnlyRn": 0,
-      "lang": "className vs className",
-      "langMismatch": 0
-    },
-    {
-      "name": "ModelConfigDialog",
-      "debt": 6,
-      "waived": true,
-      "waiverUntil": "2027-03-27",
-      "waiverExpired": false,
-      "waiverMissingExpiry": false,
-      "geometry": 6,
-      "radiusFile": 0,
-      "radiusElement": 0,
-      "radiusOnlyMiniapp": 0,
-      "radiusOnlyRn": 0,
-      "elementOnlyMiniapp": 3,
-      "elementOnlyRn": 0,
-      "lang": "className vs className",
+      "lang": "none vs none",
       "langMismatch": 0
     },
     {
@@ -197,6 +180,23 @@
       "radiusOnlyRn": 1,
       "elementOnlyMiniapp": 0,
       "elementOnlyRn": 16,
+      "lang": "className vs stylesheet",
+      "langMismatch": 1
+    },
+    {
+      "name": "NavBar",
+      "debt": 5,
+      "waived": true,
+      "waiverUntil": "2027-03-27",
+      "waiverExpired": false,
+      "waiverMissingExpiry": false,
+      "geometry": 4,
+      "radiusFile": 0,
+      "radiusElement": 0,
+      "radiusOnlyMiniapp": 0,
+      "radiusOnlyRn": 0,
+      "elementOnlyMiniapp": 0,
+      "elementOnlyRn": 1,
       "lang": "className vs stylesheet",
       "langMismatch": 1
     },
@@ -218,10 +218,44 @@
       "langMismatch": 0
     },
     {
-      "name": "AgentRuntimePanel",
-      "debt": 1,
+      "name": "Carousel",
+      "debt": 3,
       "waived": true,
       "waiverUntil": "2027-03-27",
+      "waiverExpired": false,
+      "waiverMissingExpiry": false,
+      "geometry": 2,
+      "radiusFile": 0,
+      "radiusElement": 0,
+      "radiusOnlyMiniapp": 0,
+      "radiusOnlyRn": 0,
+      "elementOnlyMiniapp": 0,
+      "elementOnlyRn": 0,
+      "lang": "className vs mixed",
+      "langMismatch": 1
+    },
+    {
+      "name": "ScreenStates",
+      "debt": 2,
+      "waived": true,
+      "waiverUntil": "2027-03-31",
+      "waiverExpired": false,
+      "waiverMissingExpiry": false,
+      "geometry": 1,
+      "radiusFile": 0,
+      "radiusElement": 0,
+      "radiusOnlyMiniapp": 0,
+      "radiusOnlyRn": 0,
+      "elementOnlyMiniapp": 3,
+      "elementOnlyRn": 7,
+      "lang": "className vs stylesheet",
+      "langMismatch": 1
+    },
+    {
+      "name": "SectionHeader",
+      "debt": 2,
+      "waived": true,
+      "waiverUntil": "2027-06-30",
       "waiverExpired": false,
       "waiverMissingExpiry": false,
       "geometry": 1,
@@ -231,67 +265,67 @@
       "radiusOnlyRn": 0,
       "elementOnlyMiniapp": 0,
       "elementOnlyRn": 0,
-      "lang": "className vs className",
-      "langMismatch": 0
+      "lang": "className vs stylesheet",
+      "langMismatch": 1
     }
   ],
   "webRn": {
-    "recordedAt": "2026-11-06T16:04:00.383Z",
+    "recordedAt": "2026-11-13T11:29:49.359Z",
     "state": "judged",
     "dimensions": ["widthHeight", "padding", "spacing", "radius", "fontSize"],
     "uncoveredKeys": [],
     "pairCount": 279,
-    "judgedPairs": 124,
-    "findings": 123,
-    "unregistered": 123,
+    "judgedPairs": 121,
+    "findings": 120,
+    "unregistered": 120,
     "dimCoverage": {
-      "widthHeight": 96,
-      "padding": 120,
-      "spacing": 119,
-      "radius": 111,
-      "fontSize": 72
+      "widthHeight": 93,
+      "padding": 117,
+      "spacing": 116,
+      "radius": 108,
+      "fontSize": 69
     },
-    "oneSided": 582,
-    "undetermined": 155,
-    "pending": 13,
+    "oneSided": 586,
+    "undetermined": 158,
+    "pending": 15,
     "allowedDiff": {
       "matched": 0,
       "shrunk": 0,
       "expired": 0,
       "over": 0,
       "invalid": 0,
-      "unregistered": 123
+      "unregistered": 120
     },
     "automationCeiling": {
-      "cells": 498,
-      "followable": 19,
-      "needsAdjudication": 479,
-      "pairsWithFollowable": 19,
+      "cells": 483,
+      "followable": 18,
+      "needsAdjudication": 465,
+      "pairsWithFollowable": 18,
       "byDim": {
         "widthHeight": {
-          "cells": 95,
+          "cells": 92,
           "followable": 3
         },
         "padding": {
-          "cells": 120,
+          "cells": 116,
           "followable": 2
         },
         "radius": {
-          "cells": 98,
-          "followable": 9
+          "cells": 96,
+          "followable": 7
         },
         "fontSize": {
-          "cells": 72,
+          "cells": 69,
           "followable": 1
         },
         "spacing": {
-          "cells": 113,
-          "followable": 4
+          "cells": 110,
+          "followable": 5
         }
       },
       "byStrength": {
         "single-tier": 5,
-        "residual": 14
+        "residual": 13
       },
       "items": [
         {
@@ -317,17 +351,6 @@
           "rnFile": "apps/mobile-rn/src/screens/EduParentScreen.tsx"
         },
         {
-          "pair": "settings/icp-record",
-          "dim": "widthHeight",
-          "web": 16,
-          "rn": 50,
-          "webTierCount": 1,
-          "rnTierCount": 1,
-          "strength": "single-tier",
-          "webFile": "apps/web/app/(main)/settings/icp-record/page.tsx",
-          "rnFile": "packages/app/src/features/icp-record/IcpRecordScreen.tsx"
-        },
-        {
           "pair": "settings/notifications",
           "dim": "widthHeight",
           "web": 16,
@@ -348,6 +371,17 @@
           "strength": "single-tier",
           "webFile": "apps/web/app/(main)/tools/pdf/page.tsx",
           "rnFile": "apps/mobile-rn/src/screens/PdfToolsScreen.tsx"
+        },
+        {
+          "pair": "wallet/withdraw",
+          "dim": "widthHeight",
+          "web": 16,
+          "rn": 50,
+          "webTierCount": 1,
+          "rnTierCount": 1,
+          "strength": "single-tier",
+          "webFile": "apps/web/app/(main)/wallet/withdraw/page.tsx",
+          "rnFile": "packages/app/src/features/withdraw/WithdrawScreen.tsx"
         },
         {
           "pair": "agents/featured",
@@ -427,15 +461,15 @@
           "rnFile": "apps/mobile-rn/src/screens/DataRightsScreen.tsx"
         },
         {
-          "pair": "settings/usage",
-          "dim": "radius",
-          "web": 4,
-          "rn": 8,
+          "pair": "settings/icp-record",
+          "dim": "spacing",
+          "web": 6,
+          "rn": 12,
           "webTierCount": 2,
           "rnTierCount": 2,
           "strength": "residual",
-          "webFile": "apps/web/app/(main)/settings/usage/page.tsx",
-          "rnFile": "packages/app/src/features/usage/UsageScreen.tsx"
+          "webFile": "apps/web/app/(main)/settings/icp-record/page.tsx",
+          "rnFile": "packages/app/src/features/icp-record/IcpRecordScreen.tsx"
         },
         {
           "pair": "student/my-asks",
@@ -491,22 +525,11 @@
           "strength": "residual",
           "webFile": "apps/web/app/(main)/user/ask/page.tsx",
           "rnFile": "packages/app/src/features/ask-list/AskListScreen.tsx"
-        },
-        {
-          "pair": "wallet/withdraw",
-          "dim": "radius",
-          "web": 6,
-          "rn": 4,
-          "webTierCount": 2,
-          "rnTierCount": 2,
-          "strength": "residual",
-          "webFile": "apps/web/app/(main)/wallet/withdraw/page.tsx",
-          "rnFile": "packages/app/src/features/withdraw/WithdrawScreen.tsx"
         }
       ],
       "why": "其余记录是集合级歧义(一侧多候选或一侧无读数)⇒ 任何落档腿都必须 held 不猜,不得当成可自动修"
     },
-    "total": 2028,
+    "total": 1971,
     "families": [
       {
         "name": "edu-ai/map",
@@ -575,50 +598,6 @@
         "rn": "apps/mobile-rn/src/screens/CheckinAssistantScreen.tsx"
       },
       {
-        "name": "distribution",
-        "debt": 29,
-        "judgedDims": 5,
-        "adjudicated": "unknown",
-        "per": {
-          "widthHeight": 12,
-          "padding": 3,
-          "spacing": 7,
-          "radius": 1,
-          "fontSize": 6
-        },
-        "status": {
-          "widthHeight": "diff",
-          "padding": "diff",
-          "spacing": "diff",
-          "radius": "diff",
-          "fontSize": "diff"
-        },
-        "web": "apps/web/app/(main)/distribution/page.tsx",
-        "rn": "packages/app/src/features/distribution/DistributionScreen.tsx"
-      },
-      {
-        "name": "distribution/team",
-        "debt": 29,
-        "judgedDims": 5,
-        "adjudicated": "unknown",
-        "per": {
-          "widthHeight": 9,
-          "padding": 8,
-          "spacing": 2,
-          "radius": 4,
-          "fontSize": 6
-        },
-        "status": {
-          "widthHeight": "diff",
-          "padding": "diff",
-          "spacing": "diff",
-          "radius": "diff",
-          "fontSize": "diff"
-        },
-        "web": "apps/web/app/(main)/distribution/team/page.tsx",
-        "rn": "packages/app/src/features/team/TeamScreen.tsx"
-      },
-      {
         "name": "agents/categories",
         "debt": 28,
         "judgedDims": 5,
@@ -639,6 +618,50 @@
         },
         "web": "apps/web/app/(main)/agents/categories/page.tsx",
         "rn": "apps/mobile-rn/src/screens/AgentCategoriesScreen.tsx"
+      },
+      {
+        "name": "distribution",
+        "debt": 28,
+        "judgedDims": 5,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 11,
+          "padding": 3,
+          "spacing": 7,
+          "radius": 1,
+          "fontSize": 6
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "diff",
+          "fontSize": "diff"
+        },
+        "web": "apps/web/app/(main)/distribution/page.tsx",
+        "rn": "packages/app/src/features/distribution/DistributionScreen.tsx"
+      },
+      {
+        "name": "distribution/team",
+        "debt": 28,
+        "judgedDims": 5,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 9,
+          "padding": 8,
+          "spacing": 2,
+          "radius": 3,
+          "fontSize": 6
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "diff",
+          "fontSize": "diff"
+        },
+        "web": "apps/web/app/(main)/distribution/team/page.tsx",
+        "rn": "packages/app/src/features/team/TeamScreen.tsx"
       },
       {
         "name": "learn/map",
@@ -949,28 +972,6 @@
         "rn": "apps/mobile-rn/src/screens/MemoryNewScreen.tsx"
       },
       {
-        "name": "settings/usage",
-        "debt": 22,
-        "judgedDims": 5,
-        "adjudicated": "unknown",
-        "per": {
-          "widthHeight": 6,
-          "padding": 3,
-          "spacing": 4,
-          "radius": 2,
-          "fontSize": 7
-        },
-        "status": {
-          "widthHeight": "diff",
-          "padding": "diff",
-          "spacing": "diff",
-          "radius": "diff",
-          "fontSize": "diff"
-        },
-        "web": "apps/web/app/(main)/settings/usage/page.tsx",
-        "rn": "packages/app/src/features/usage/UsageScreen.tsx"
-      },
-      {
         "name": "wallet",
         "debt": 22,
         "judgedDims": 5,
@@ -991,28 +992,6 @@
         },
         "web": "apps/web/app/(main)/wallet/page.tsx",
         "rn": "packages/app/src/features/wallet/WalletScreen.tsx"
-      },
-      {
-        "name": "app-permissions",
-        "debt": 21,
-        "judgedDims": 4,
-        "adjudicated": "unknown",
-        "per": {
-          "widthHeight": 4,
-          "padding": 7,
-          "spacing": 4,
-          "radius": 4,
-          "fontSize": 6
-        },
-        "status": {
-          "widthHeight": "one-sided",
-          "padding": "diff",
-          "spacing": "diff",
-          "radius": "diff",
-          "fontSize": "diff"
-        },
-        "web": "apps/web/app/(main)/app-permissions/page.tsx",
-        "rn": "packages/app/src/features/app-permission/AppPermissionScreen.tsx"
       },
       {
         "name": "business-license",
@@ -1145,6 +1124,50 @@
         },
         "web": "apps/web/app/(main)/user/ask/page.tsx",
         "rn": "packages/app/src/features/ask-list/AskListScreen.tsx"
+      },
+      {
+        "name": "user/subscription",
+        "debt": 21,
+        "judgedDims": 5,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 7,
+          "padding": 5,
+          "spacing": 2,
+          "radius": 3,
+          "fontSize": 4
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "diff",
+          "fontSize": "diff"
+        },
+        "web": "apps/web/app/(main)/user/subscription/page.tsx",
+        "rn": "packages/app/src/features/subscriptions/SubscriptionsScreen.tsx"
+      },
+      {
+        "name": "vip",
+        "debt": 21,
+        "judgedDims": 5,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 9,
+          "padding": 4,
+          "spacing": 1,
+          "radius": 2,
+          "fontSize": 5
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "diff",
+          "fontSize": "diff"
+        },
+        "web": "apps/web/app/(main)/vip/page.tsx",
+        "rn": "packages/app/src/features/vip/VipScreen.tsx"
       },
       {
         "name": "ai-world/create",
@@ -1299,28 +1322,6 @@
         },
         "web": "apps/web/app/(main)/publish/calendar/page.tsx",
         "rn": "apps/mobile-rn/src/screens/PublishCalendarScreen.tsx"
-      },
-      {
-        "name": "user/subscription",
-        "debt": 20,
-        "judgedDims": 5,
-        "adjudicated": "unknown",
-        "per": {
-          "widthHeight": 7,
-          "padding": 5,
-          "spacing": 2,
-          "radius": 2,
-          "fontSize": 4
-        },
-        "status": {
-          "widthHeight": "diff",
-          "padding": "diff",
-          "spacing": "diff",
-          "radius": "diff",
-          "fontSize": "diff"
-        },
-        "web": "apps/web/app/(main)/user/subscription/page.tsx",
-        "rn": "packages/app/src/features/subscriptions/SubscriptionsScreen.tsx"
       },
       {
         "name": "agents/featured",
@@ -1587,28 +1588,6 @@
         "rn": "packages/app/src/features/feedback/FeedbackScreen.tsx"
       },
       {
-        "name": "member/subscription",
-        "debt": 18,
-        "judgedDims": 5,
-        "adjudicated": "unknown",
-        "per": {
-          "widthHeight": 6,
-          "padding": 3,
-          "spacing": 3,
-          "radius": 3,
-          "fontSize": 3
-        },
-        "status": {
-          "widthHeight": "diff",
-          "padding": "diff",
-          "spacing": "diff",
-          "radius": "diff",
-          "fontSize": "diff"
-        },
-        "web": "apps/web/app/(main)/member/subscription/page.tsx",
-        "rn": "packages/app/src/features/subscriptions/SubscriptionsScreen.tsx"
-      },
-      {
         "name": "memory",
         "debt": 18,
         "judgedDims": 5,
@@ -1741,6 +1720,28 @@
         "rn": "packages/app/src/features/coupon/CouponScreen.tsx"
       },
       {
+        "name": "member/subscription",
+        "debt": 17,
+        "judgedDims": 5,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 6,
+          "padding": 3,
+          "spacing": 3,
+          "radius": 2,
+          "fontSize": 3
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "diff",
+          "fontSize": "diff"
+        },
+        "web": "apps/web/app/(main)/member/subscription/page.tsx",
+        "rn": "packages/app/src/features/subscriptions/SubscriptionsScreen.tsx"
+      },
+      {
         "name": "self-healing",
         "debt": 17,
         "judgedDims": 5,
@@ -1805,28 +1806,6 @@
         },
         "web": "apps/web/app/(main)/settings/data-export/page.tsx",
         "rn": "apps/mobile-rn/src/screens/DataRightsScreen.tsx"
-      },
-      {
-        "name": "settings/icp-record",
-        "debt": 17,
-        "judgedDims": 5,
-        "adjudicated": "unknown",
-        "per": {
-          "widthHeight": 2,
-          "padding": 7,
-          "spacing": 3,
-          "radius": 1,
-          "fontSize": 4
-        },
-        "status": {
-          "widthHeight": "diff",
-          "padding": "diff",
-          "spacing": "diff",
-          "radius": "diff",
-          "fontSize": "diff"
-        },
-        "web": "apps/web/app/(main)/settings/icp-record/page.tsx",
-        "rn": "packages/app/src/features/icp-record/IcpRecordScreen.tsx"
       },
       {
         "name": "settings/security-log",
@@ -1959,28 +1938,6 @@
         },
         "web": "apps/web/app/(main)/member/addresses/page.tsx",
         "rn": "apps/mobile-rn/src/screens/AddressesScreen.tsx"
-      },
-      {
-        "name": "vip",
-        "debt": 16,
-        "judgedDims": 5,
-        "adjudicated": "unknown",
-        "per": {
-          "widthHeight": 5,
-          "padding": 5,
-          "spacing": 1,
-          "radius": 1,
-          "fontSize": 4
-        },
-        "status": {
-          "widthHeight": "diff",
-          "padding": "diff",
-          "spacing": "diff",
-          "radius": "diff",
-          "fontSize": "diff"
-        },
-        "web": "apps/web/app/(main)/vip/page.tsx",
-        "rn": "packages/app/src/features/vip/VipScreen.tsx"
       },
       {
         "name": "agent-teams",
@@ -2179,6 +2136,28 @@
         },
         "web": "apps/web/app/(main)/image-gen/gallery/page.tsx",
         "rn": "packages/app/src/features/image-gen-gallery/ImageGenGalleryScreen.tsx"
+      },
+      {
+        "name": "member/benefits",
+        "debt": 14,
+        "judgedDims": 5,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 5,
+          "padding": 0,
+          "spacing": 3,
+          "radius": 1,
+          "fontSize": 5
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "same",
+          "spacing": "diff",
+          "radius": "diff",
+          "fontSize": "diff"
+        },
+        "web": "apps/web/app/(main)/member/benefits/page.tsx",
+        "rn": "packages/app/src/features/vip-benefit/VipBenefitScreen.tsx"
       },
       {
         "name": "student/my-circles",
@@ -2423,28 +2402,6 @@
         "rn": "packages/app/src/features/follow/FollowScreen.tsx"
       },
       {
-        "name": "wallet/withdraw",
-        "debt": 13,
-        "judgedDims": 5,
-        "adjudicated": "unknown",
-        "per": {
-          "widthHeight": 3,
-          "padding": 1,
-          "spacing": 3,
-          "radius": 2,
-          "fontSize": 4
-        },
-        "status": {
-          "widthHeight": "diff",
-          "padding": "diff",
-          "spacing": "diff",
-          "radius": "diff",
-          "fontSize": "diff"
-        },
-        "web": "apps/web/app/(main)/wallet/withdraw/page.tsx",
-        "rn": "packages/app/src/features/withdraw/WithdrawScreen.tsx"
-      },
-      {
         "name": "workspace/permissions",
         "debt": 13,
         "judgedDims": 5,
@@ -2533,50 +2490,6 @@
         "rn": "packages/app/src/features/note-list/NoteListScreen.tsx"
       },
       {
-        "name": "member/benefits",
-        "debt": 12,
-        "judgedDims": 5,
-        "adjudicated": "unknown",
-        "per": {
-          "widthHeight": 3,
-          "padding": 1,
-          "spacing": 3,
-          "radius": 0,
-          "fontSize": 5
-        },
-        "status": {
-          "widthHeight": "diff",
-          "padding": "diff",
-          "spacing": "diff",
-          "radius": "same",
-          "fontSize": "diff"
-        },
-        "web": "apps/web/app/(main)/member/benefits/page.tsx",
-        "rn": "packages/app/src/features/vip-benefit/VipBenefitScreen.tsx"
-      },
-      {
-        "name": "member/favorites",
-        "debt": 12,
-        "judgedDims": 4,
-        "adjudicated": "unknown",
-        "per": {
-          "widthHeight": 6,
-          "padding": 3,
-          "spacing": 2,
-          "radius": 1,
-          "fontSize": 5
-        },
-        "status": {
-          "widthHeight": "diff",
-          "padding": "diff",
-          "spacing": "diff",
-          "radius": "diff",
-          "fontSize": "one-sided"
-        },
-        "web": "apps/web/app/(main)/member/favorites/page.tsx",
-        "rn": "packages/app/src/features/favorite/FavoriteScreen.tsx"
-      },
-      {
         "name": "points",
         "debt": 12,
         "judgedDims": 4,
@@ -2619,6 +2532,28 @@
         },
         "web": "apps/web/app/(main)/search/page.tsx",
         "rn": "packages/app/src/features/search/SearchScreen.tsx"
+      },
+      {
+        "name": "settings/icp-record",
+        "debt": 12,
+        "judgedDims": 4,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 1,
+          "padding": 6,
+          "spacing": 2,
+          "radius": 1,
+          "fontSize": 3
+        },
+        "status": {
+          "widthHeight": "one-sided",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "diff",
+          "fontSize": "diff"
+        },
+        "web": "apps/web/app/(main)/settings/icp-record/page.tsx",
+        "rn": "packages/app/src/features/icp-record/IcpRecordScreen.tsx"
       },
       {
         "name": "settings/notifications",
@@ -2753,6 +2688,28 @@
         "rn": "apps/mobile-rn/src/screens/SubagentsScreen.tsx"
       },
       {
+        "name": "subscriptions",
+        "debt": 11,
+        "judgedDims": 4,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 6,
+          "padding": 2,
+          "spacing": 1,
+          "radius": 2,
+          "fontSize": 4
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "diff",
+          "fontSize": "one-sided"
+        },
+        "web": "apps/web/app/(main)/subscriptions/page.tsx",
+        "rn": "packages/app/src/features/subscriptions/SubscriptionsScreen.tsx"
+      },
+      {
         "name": "workspace",
         "debt": 11,
         "judgedDims": 4,
@@ -2863,16 +2820,16 @@
         "rn": "packages/app/src/features/account-cancel/AccountCancelScreen.tsx"
       },
       {
-        "name": "subscriptions",
+        "name": "wallet/withdraw",
         "debt": 10,
         "judgedDims": 4,
         "adjudicated": "unknown",
         "per": {
-          "widthHeight": 6,
+          "widthHeight": 2,
           "padding": 2,
-          "spacing": 1,
+          "spacing": 5,
           "radius": 1,
-          "fontSize": 4
+          "fontSize": 5
         },
         "status": {
           "widthHeight": "diff",
@@ -2881,8 +2838,8 @@
           "radius": "diff",
           "fontSize": "one-sided"
         },
-        "web": "apps/web/app/(main)/subscriptions/page.tsx",
-        "rn": "packages/app/src/features/subscriptions/SubscriptionsScreen.tsx"
+        "web": "apps/web/app/(main)/wallet/withdraw/page.tsx",
+        "rn": "packages/app/src/features/withdraw/WithdrawScreen.tsx"
       },
       {
         "name": "context/compression",
@@ -3215,6 +3172,5 @@
         "rn": "apps/mobile-rn/src/screens/TokenValueScreen.tsx"
       }
     ]
-  },
-  "axis1PreservedFrom": "2026-10-22T22:24:12.203Z"
+  }
 }
