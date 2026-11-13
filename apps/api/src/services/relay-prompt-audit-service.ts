@@ -22,7 +22,7 @@ import { logger } from '../utils/logger.js'
  *
  * 安全设计:
  * - **仅关键字子串匹配**(大小写不敏感),不支持正则 → 规避 ReDoS;
- * - 匹配前截断文本(默认前 8000 字符),防止超大输入拖慢链路;
+ * - 全文分块滑动扫描(8KB 窗口 + `最长关键词长度-1` 重叠),不截断,不产生全文多份副本;
  * - 命中记录写库失败不影响调用结果(fire-and-forget + catch);
  * - 规则查询异常按"无规则"处理(放行),保证审计不阻断业务。
  */
@@ -43,6 +43,46 @@ export interface PromptAuditResult {
 
 const MAX_SCAN_CHARS = 8000
 const SNIPPET_CONTEXT_CHARS = 60
+
+/**
+ * F-623:分块滑动扫描全文,返回每个关键词在原文中的首个命中位置(未命中不出现)。
+ *
+ * 窗口 8KB,步长 = 窗口 - (最长关键词长度 - 1):任一长度 ≤ 最长关键词的命中,
+ * 必然被「起点不大于它、且离它最近」的那个窗口完整覆盖(含跨窗口边界的半个词),
+ * 因此前置填充多少字符都无法把违规内容挤出扫描面。
+ * 每次只切一个窗口再转小写,最长关键词之外的文本不会被复制成多份大字符串。
+ */
+export function scanKeywordFirstHit(
+  text: string,
+  keywords: readonly string[],
+): Map<number, number> {
+  const result = new Map<number, number>()
+  const needles = keywords.map((k) => k.toLowerCase())
+  const maxLen = needles.reduce((m, k) => Math.max(m, k.length), 0)
+  if (text === '' || maxLen === 0) return result
+  if (maxLen >= MAX_SCAN_CHARS) {
+    // 极端配置(关键词本身长于单窗口):分块无法覆盖,退化为全文一次性匹配。
+    const lower = text.toLowerCase()
+    for (let i = 0; i < needles.length; i++) {
+      if (needles[i] === '') continue
+      const idx = lower.indexOf(needles[i])
+      if (idx >= 0) result.set(i, idx)
+    }
+    return result
+  }
+  const step = MAX_SCAN_CHARS - (maxLen - 1)
+  for (let start = 0; start < text.length; start += step) {
+    const end = Math.min(start + MAX_SCAN_CHARS, text.length)
+    const window = text.slice(start, end).toLowerCase()
+    for (let i = 0; i < needles.length; i++) {
+      if (result.has(i) || needles[i] === '') continue
+      const idx = window.indexOf(needles[i])
+      if (idx >= 0) result.set(i, start + idx)
+    }
+    if (result.size === needles.length || end >= text.length) break
+  }
+  return result
+}
 
 export async function listPromptAuditRules(): Promise<RelayPromptAuditRule[]> {
   const rows = await dbRead
@@ -142,8 +182,6 @@ export async function auditPrompt(
 ): Promise<PromptAuditResult> {
   const raw = (text ?? '').trim()
   if (raw === '') return { action: 'pass', hits: [] }
-  const scanTarget = raw.slice(0, MAX_SCAN_CHARS)
-  const lower = scanTarget.toLowerCase()
 
   let rules: RelayPromptAuditRule[] = []
   try {
@@ -159,14 +197,21 @@ export async function auditPrompt(
   }
   if (rules.length === 0) return { action: 'pass', hits: [] }
 
+  const activeRules = rules
+    .map((rule) => ({ rule, keyword: (rule.keyword ?? '').trim() }))
+    .filter((x) => x.keyword !== '')
+  if (activeRules.length === 0) return { action: 'pass', hits: [] }
+
+  // F-623:全文分块滑动扫描 —— 命中任意位置都拦截,前置填充无法绕过。
+  const firstHits = scanKeywordFirstHit(raw, activeRules.map((x) => x.keyword))
+
   const hits: PromptAuditHit[] = []
   let block = false
   let warn = false
-  for (const r of rules) {
-    const kw = (r.keyword ?? '').trim()
-    if (kw === '') continue
-    const idx = lower.indexOf(kw.toLowerCase())
-    if (idx < 0) continue
+  for (let i = 0; i < activeRules.length; i++) {
+    const idx = firstHits.get(i)
+    if (idx === undefined) continue
+    const { rule: r, keyword: kw } = activeRules[i]!
     hits.push({
       ruleId: r.id,
       ruleName: r.name,
@@ -189,7 +234,7 @@ export async function auditPrompt(
         model: ctx.model ?? null,
         keyword: kw,
         actionTaken: r.action,
-        snippet: scanTarget.slice(from, idx + kw.length + SNIPPET_CONTEXT_CHARS),
+        snippet: raw.slice(from, idx + kw.length + SNIPPET_CONTEXT_CHARS),
       })
       .catch((e: unknown) => {
         logger.warn('[prompt-audit] 命中记录写入失败', {
