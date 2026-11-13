@@ -133,7 +133,7 @@ const SAMPLE = (() => {
 })()
 
 export default function MarkdownStreamE2EPage() {
-  const [mode, setMode] = useState<'pending' | 'smoothness' | 'lifecycle'>('pending')
+  const [mode, setMode] = useState<'pending' | 'smoothness' | 'lifecycle' | 'tail'>('pending')
   const [content, setContent] = useState('')
   const [streaming, setStreaming] = useState(false)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -144,7 +144,7 @@ export default function MarkdownStreamE2EPage() {
 
   useEffect(() => {
     const m = new URLSearchParams(window.location.search).get('mode')
-    setMode(m === 'lifecycle' ? 'lifecycle' : 'smoothness')
+    setMode(m === 'lifecycle' ? 'lifecycle' : m === 'tail' ? 'tail' : 'smoothness')
   }, [])
 
   const stopAll = useCallback(() => {
@@ -254,18 +254,70 @@ export default function MarkdownStreamE2EPage() {
     }
   }, [mode])
 
+  /**
+   * tail 驱动器 —— 专测 D2 的两条「等不到下一帧」路径(2026-11-13 补)。
+   *
+   * ① **末帧同窗口**:最后两帧挤进同一个 16ms 节流窗口且其后无帧(流收尾的常见形态)。
+   *    旧实现在这里写的是倒数第二版,收尾文字永久缺席。判据 = 停笔 1s 后 DOM 文本里
+   *    必须含末帧独有的哨兵串 `TAIL-END-SENTINEL`。
+   * ② **整体替换**:非前缀延长(切会话/回放/清空)。旧实现让它白等一个节流窗口;
+   *    现在必须立刻上屏。判据 = 替换后同一拍内 DOM 不含旧内容。
+   *
+   * 两条都只靠浏览器里真实渲染的 textContent 判定,不看内部状态。
+   */
+  const startTail = useCallback(() => {
+    if (startedRef.current) return
+    startedRef.current = true
+    if (intervalRef.current) clearInterval(intervalRef.current)
+
+    const BASE = '流式正文'.repeat(6)
+    setContent(BASE)
+    setStreaming(true)
+
+    /**
+     * 关键:末帧必须在**流式仍在进行**时验证。
+     *
+     * 不能用 finish() 收笔 —— 那会把 isStreaming 翻成 false,而 2026-11-12 的修复里
+     * 另有一条"streaming 翻 false 时冲刺上屏"的路径,它会把末帧补上,于是这条 case
+     * 对 trailing timer 的缺陷**失去判别力**(实测:去掉 timer 读 ref 的修复,用例照样绿)。
+     * 保持 streaming=true,末帧上屏就只能靠 trailing timer 自己落盘。
+     */
+    setTimeout(() => {
+      setContent(`${BASE}TAIL-END-SENTINEL`)
+      // eslint-disable-next-line no-console
+      console.log('[harness] tail frame pushed (streaming still true)')
+    }, 20)
+
+    // 不再收笔:让 e2e 在 streaming 仍为 true 的稳态下读 DOM
+
+    // 整体替换腿:换成一屏完全不同的短内容,记下它是否在同一拍可见
+    setTimeout(() => {
+      const REPLACED = 'REPLACED-VIEW-CONTENT'
+      setContent(REPLACED)
+      // 同一宏任务内读一次,验证"不排队";next paint 后再读一次
+      const w = window as unknown as { __REPLACE_IMMEDIATE?: string }
+      w.__REPLACE_IMMEDIATE = document.body.textContent ?? ''
+      requestAnimationFrame(() => {
+        const w2 = window as unknown as { __REPLACE_NEXT?: string }
+        w2.__REPLACE_NEXT = document.body.textContent ?? ''
+      })
+    }, 1200)
+  }, [])
+
   // 统一 auto-start:mode 定位后 300ms 起跑(pending 不放行,防 smoothness 抢跑)
   useEffect(() => {
     if (mode === 'pending') return
-    const fn = mode === 'lifecycle' ? startLifecycle : startSmoothness
+    const fn =
+      mode === 'lifecycle' ? startLifecycle : mode === 'tail' ? startTail : startSmoothness
     const t = setTimeout(fn, 300)
     return () => clearTimeout(t)
-  }, [mode, startLifecycle, startSmoothness])
+  }, [mode, startLifecycle, startSmoothness, startTail])
 
   useEffect(() => stopAll, [stopAll])
 
   const start = () => {
     if (mode === 'lifecycle') startLifecycle()
+    else if (mode === 'tail') startTail()
     else if (mode === 'smoothness') startSmoothness()
   }
 
