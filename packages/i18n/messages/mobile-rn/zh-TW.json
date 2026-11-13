@@ -5058,7 +5058,8 @@
     "analysisPendingVar": "（待補充：{name}）",
     "analysisEstimate": "預計約 {tokens} tokens · 難度 {difficulty}",
     "analysisPickFirst": "請先選擇一個場景",
-    "analysisSubmit": "發起分析"
+    "analysisSubmit": "發起分析",
+      "noValidContent": "無可匯入的有效內容"
   },
   "permissionTier": {
     "label": "權限檔",

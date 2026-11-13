@@ -5058,7 +5058,8 @@
     "analysisPendingVar": "(to be supplied: {name})",
     "analysisEstimate": "About {tokens} tokens · {difficulty}",
     "analysisPickFirst": "Pick a scenario first",
-    "analysisSubmit": "Start analysis"
+    "analysisSubmit": "Start analysis",
+      "noValidContent": "No importable content found"
   },
   "permissionTier": {
     "label": "Permission tier",

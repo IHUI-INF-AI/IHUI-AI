@@ -5058,7 +5058,8 @@
     "analysisPendingVar": "（要補充：{name}）",
     "analysisEstimate": "約 {tokens} tokens・難易度 {difficulty}",
     "analysisPickFirst": "まずシナリオを選択してください",
-    "analysisSubmit": "分析を開始"
+    "analysisSubmit": "分析を開始",
+      "noValidContent": "インポート可能な有効な内容がありません"
   },
   "permissionTier": {
     "label": "権限モード",
