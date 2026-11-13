@@ -79,7 +79,7 @@
 }
 .cd-title {
   display: block;
-  font-size: 44rpx;
+  font-size: var(--text-headline);
   color: var(--color-foreground);
   font-weight: 600;
   margin-bottom: var(--spacing-xs-loose);
