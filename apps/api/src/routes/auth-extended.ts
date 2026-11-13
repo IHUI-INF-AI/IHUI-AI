@@ -106,6 +106,7 @@ import {
   deleteSession,
   listActiveScopeMeta,
   findThirdPartyAccount,
+  adoptLegacyTenantBinding,
   listUserBindings,
   createThirdPartyBinding,
   removeBinding,
@@ -156,6 +157,7 @@ import {
   wecomPcCode2session,
   isWecomConfigured,
   isWecomSuiteConfigured,
+  resolveWecomTenant,
   isDingtalkConfigured,
   buildDingtalkAuthUrl,
   exchangeDingtalkCode,
@@ -1612,7 +1614,24 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       const session = isWecomConfigured()
         ? await wecomPcCode2session(code)
         : await wecomCode2session(code)
-      const binding = await findThirdPartyAccount('enterpriseWechat', session.openUserId)
+      // F-271:绑定键必须带租户(corpId)。suite 模式下 open_userid 只在**本企业内**唯一,
+      // 只按 open_userid 查绑定 ⇒ B 企业同值用户可登入 A 企业的本地账号。
+      // 租户判据(含白名单/空值拒绝)单源在 services/oauth-providers.resolveWecomTenant。
+      const tenantId = resolveWecomTenant(session.corpId)
+      if (!tenantId) {
+        request.log.warn(
+          { corpId: session.corpId, mode: isWecomConfigured() ? 'self-built' : 'suite' },
+          '企微登录租户校验失败 ⇒ 拒绝签发会话',
+        )
+        return reply.status(403).send(error(403, '企业微信租户校验失败'))
+      }
+      let binding = await findThirdPartyAccount('enterpriseWechat', session.openUserId, tenantId)
+      if (!binding && isWecomConfigured()) {
+        // 自建应用是单租户部署:把 tenant_id='' 的存量绑定改判为当前 corpId 后再查。
+        // suite 模式不走这一步(多企业共用凭据,老行属于谁无法判定 ⇒ 宁要重绑)。
+        await adoptLegacyTenantBinding('enterpriseWechat', session.openUserId, tenantId)
+        binding = await findThirdPartyAccount('enterpriseWechat', session.openUserId, tenantId)
+      }
       if (!binding) {
         return reply.send(
           success({
@@ -1620,6 +1639,8 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
             openId: session.openUserId,
             unionId: session.openUserId,
             nick: `企微用户${session.userId.slice(-4)}`,
+            // 绑定侧要把它落进 user_third_party_accounts.tenant_id,否则下一次登录查不到自己
+            corpId: tenantId,
           }),
         )
       }
@@ -3163,6 +3184,8 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
     let nickname: string | undefined
     let avatar: string | undefined
     let email: string | undefined
+    /** F-271:租户维度。只有企业微信会填(corpId),其余平台保持 undefined ⇒ 旧绑定键语义不变。 */
+    let tenantId: string | undefined
 
     try {
       switch (platform) {
@@ -3226,6 +3249,16 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
           const session = isWecomConfigured()
             ? await wecomPcCode2session(code)
             : await wecomCode2session(code)
+          // F-271:租户维度进绑定键(与 /auth/login/enterprise/pc/wxCode 同一判据)。
+          const tenant = resolveWecomTenant(session.corpId)
+          if (!tenant) {
+            request.log.warn(
+              { platform, corpId: session.corpId },
+              '[oauth/enterpriseWechat] 租户校验失败 ⇒ 拒绝',
+            )
+            return reply.status(403).send(error(403, '企业微信租户校验失败'))
+          }
+          tenantId = tenant
           openId = session.openUserId || session.userId
           break
         }
@@ -3394,7 +3427,8 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, `${platform} 授权返回异常,请重新登录`))
     }
 
-    const binding = await findThirdPartyAccount(platform, openId)
+    // F-271:查/建绑定都必须带租户(tenantId 仅企业微信有值;其余平台 undefined ⇒ 旧口径)。
+    const binding = await findThirdPartyAccount(platform, openId, tenantId)
     let user
     if (binding) {
       user = await findUserById(binding.userId)
@@ -3408,7 +3442,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
         roleId: 0,
         status: 1,
       })
-      await createThirdPartyBinding({ userId: user.id, openId, unionId, platform })
+      await createThirdPartyBinding({ userId: user.id, openId, unionId, platform, tenantId })
     }
 
     // 2026-10-31 安全强化第 10 批 R10：第二因子闸（单源）。此前本支路直接发 token，

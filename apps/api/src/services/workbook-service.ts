@@ -32,10 +32,13 @@
  */
 
 import { createHash, randomBytes } from 'node:crypto'
+import { readFileSync as readDiskFileSync, statSync } from 'node:fs'
+import { readFile as readDiskFile } from 'node:fs/promises'
 import { extname } from 'node:path'
 import ExcelJS from 'exceljs'
 import { deleteFile, generateFileId, getFileInfo, readFile, saveFile } from './storage-service.js'
 import * as storageService from './storage-service.js'
+import { findUploadedFile } from './upload-file-registry.js'
 
 // =============================================================================
 // 协议常量与错误码
@@ -97,6 +100,8 @@ export type WorkbookErrorCode =
   | 'WORKBOOK_SOURCE_CHANGED'
   | 'WORKBOOK_SAVE_LIMIT_EXCEEDED'
   | 'WORKBOOK_SAVE_BYTES_EXCEEDED'
+  /** F-540:同一会话正在保存,写入/关闭被拒(稍后重试,不是数据损坏)。 */
+  | 'WORKBOOK_SAVING'
   | 'WORKBOOK_UNJUDGED'
 
 /** 统一结果信封:成功 ok=true;失败 ok=false + 具名错误码。 */
@@ -169,6 +174,12 @@ interface WorkbookSession {
   /** 归属主体(承载层注入;句柄级授权判据)。 */
   subjectId: string
   sourceFileId: string
+  /**
+   * 源文件在盘上的绝对路径(F-536)。
+   * - `null` ⇒ 源档是 storage-service 的文件(本层保存产物),按 `sourceFileId` 读;
+   * - 非空 ⇒ 源档是用户经 `/api/files/*` 上传的普通文件,按路径读。
+   */
+  sourcePath: string | null
   sourceName: string
   /** 打开时原档 sha256(保存前后各复验一次)。 */
   sourceSha256: string
@@ -197,6 +208,12 @@ interface WorkbookSession {
   saveCount: number
   /** 本会话累计成功写出的字节(F-415 配额:按写出量计,覆盖写也计数)。 */
   savedBytes: number
+  /**
+   * 保存互斥(F-540):非 `null` = 有保存正在执行/排队。
+   * `saveWorkbook` 在整段异步序列化期间持锁;同步的 `writeCells`/`closeWorkbook` 见到它就拒,
+   * 避免 `await writeBuffer()` 让出事件循环时被并发改写(响应里的 staleFormulaCells 与实际新档分叉)。
+   */
+  saveBarrier: Promise<void> | null
 }
 
 /** 会话表(进程内;重启即空,句柄随之判「未判定」,不假装能续)。 */
@@ -695,7 +712,59 @@ async function readWorkbookBytes(fileId: string): Promise<Buffer | null> {
   return readFile(fileId)
 }
 
-/** open:打开**已存在**的工作簿(按 storage 文件 id);归属由承载层入参显式给定。 */
+/** 按绝对路径读上传文件字节(F-536);不存在 ⇒ null(与 storage 侧同口径,不抛)。 */
+async function readDiskFileOrNull(path: string): Promise<Buffer | null> {
+  try {
+    return await readDiskFile(path)
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException | undefined)?.code === 'ENOENT') return null
+    throw e
+  }
+}
+
+/** 同步版(保存前后的 sha256 自证用,窗口极短且必须与落盘序列同序)。 */
+function readDiskFileOrNullSync(path: string): Buffer | null {
+  try {
+    return readDiskFileSync(path)
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException | undefined)?.code === 'ENOENT') return null
+    throw e
+  }
+}
+
+/**
+ * 取会话的保存互斥(F-540)。
+ *
+ * 为什么需要:保存里 `await s.workbook.xlsx.writeBuffer()` 会让出事件循环;同一 handle 上并发的
+ * `/write` 会在这个窗口里改内存模型并往 `staleFormulaHits` 里塞新命中,于是保存响应里的
+ * `staleFormulaCells` 描述的是"写之后"的状态,而落盘字节是"写之前"的快照 —— agent 据此误判。
+ *
+ * 为什么不用应用层锁对象:这里就是**同一进程内的会话级互斥**,锁的粒度恰好是会话,且只覆盖
+ * "读模型 → 序列化 → 落盘 → 推进槽位"这一整段临界区;不做跨进程锁(会话本来就是进程内的)。
+ * 排队者失败不传染:前一次保存抛错时 `finally` 仍会释放,等待者继续。
+ */
+async function acquireSaveBarrier(s: WorkbookSession): Promise<() => void> {
+  while (s.saveBarrier) {
+    try {
+      await s.saveBarrier
+    } catch {
+      // 前一位的失败不该把排队者一起判死
+    }
+  }
+  let release!: () => void
+  s.saveBarrier = new Promise<void>((resolveBarrier) => {
+    release = resolveBarrier
+  })
+  return () => {
+    s.saveBarrier = null
+    release()
+  }
+}
+
+/**
+ * open:打开**已存在**的工作簿(按文件 id);归属由承载层入参显式给定。
+ * 支持两种来源(F-536):本层 /save 的产物(storage sidecar)与 /api/files/* 的普通上传(上传登记)。
+ */
 export async function openWorkbook(params: {
   subjectId: string
   fileId: string
@@ -705,17 +774,41 @@ export async function openWorkbook(params: {
   if (!USER_ID_RE.test(subjectId)) return fail('WORKBOOK_INVALID_INPUT', 'subjectId 形态非法')
   if (!USER_ID_RE.test(fileId)) return fail('WORKBOOK_INVALID_INPUT', 'fileId 形态非法')
 
-  const info = getFileInfo(fileId)
-  if (!info) return fail('WORKBOOK_FILE_NOT_FOUND', '工作簿文件不存在')
-  const owner = (info.metadata as { ownerId?: unknown } | undefined)?.ownerId
-  if (typeof owner !== 'string' || owner !== subjectId) {
-    // 归属不符 ⇒ 与"不存在"同形回话(可枚举性收口);主体只认入参,不从元数据反推
-    return fail('WORKBOOK_FILE_NOT_FOUND', '工作簿文件不存在')
+  // F-536:源档有两个合法来源,归属判据随来源而定,不能只认 save 写出的 sidecar。
+  //   ① storage-service 的文件(本层 /save 的产物):sidecar `ownerId` = 主体;
+  //   ② 用户经 /api/files/* 上传的普通文件:归属查上传登记(registerUploadedFile 记录的 ownerId)。
+  //      —— 此前只查 ①,普通上传的 xlsx 必然 404("打开已有工作簿"主用例不可用)。
+  // 两条路径的归属判据都只认登记侧的值,绝不从客户端自报或文件内容反推(AGENTS §5)。
+  const storageInfo = getFileInfo(fileId)
+  let sourcePath: string | null = null
+  let declaredName = ''
+  let sourceSize = 0
+  if (storageInfo) {
+    const owner = (storageInfo.metadata as { ownerId?: unknown } | undefined)?.ownerId
+    if (typeof owner !== 'string' || owner !== subjectId) {
+      // 归属不符 ⇒ 与"不存在"同形回话(可枚举性收口);主体只认入参,不从元数据反推
+      return fail('WORKBOOK_FILE_NOT_FOUND', '工作簿文件不存在')
+    }
+    const meta = (storageInfo.metadata ?? {}) as { name?: unknown }
+    declaredName = typeof meta.name === 'string' ? meta.name : ''
+    sourceSize = storageInfo.size
+  } else {
+    const uploaded = findUploadedFile(fileId)
+    if (!uploaded || uploaded.ownerId !== subjectId) {
+      // 未登记 / 不是你的 ⇒ 同样回"不存在"(不给上传目录留枚举缝)
+      return fail('WORKBOOK_FILE_NOT_FOUND', '工作簿文件不存在')
+    }
+    sourcePath = uploaded.storedPath
+    declaredName = uploaded.name
+    // 以后者为准:登记里的 size 只是上传当时的值,盘上真实大小才是本次要读的字节数
+    try {
+      sourceSize = statSync(sourcePath).size
+    } catch {
+      return fail('WORKBOOK_FILE_NOT_FOUND', '工作簿文件不存在')
+    }
   }
 
   // F-414 ①:扩展名白名单先于读盘 —— 只认 exceljs 能解析的 OOXML 工作簿。
-  const meta = (info.metadata ?? {}) as { name?: unknown }
-  const declaredName = typeof meta.name === 'string' ? meta.name : ''
   const ext = extname(declaredName).toLowerCase()
   if (!(WORKBOOK_ALLOWED_EXTENSIONS as readonly string[]).includes(ext)) {
     return fail(
@@ -726,15 +819,15 @@ export async function openWorkbook(params: {
   }
 
   // F-414 ②:大小闸在读取前(getFileInfo 内部 statSync)⇒ 超限不读字节、不建模。
-  if (Number.isFinite(info.size) && info.size > MAX_WORKBOOK_OPEN_BYTES) {
+  if (Number.isFinite(sourceSize) && sourceSize > MAX_WORKBOOK_OPEN_BYTES) {
     return fail(
       'WORKBOOK_FILE_TOO_LARGE',
-      `工作簿超过上限:${info.size} > ${MAX_WORKBOOK_OPEN_BYTES} 字节`,
-      { size: info.size, limit: MAX_WORKBOOK_OPEN_BYTES },
+      `工作簿超过上限:${sourceSize} > ${MAX_WORKBOOK_OPEN_BYTES} 字节`,
+      { size: sourceSize, limit: MAX_WORKBOOK_OPEN_BYTES },
     )
   }
 
-  const bytes = await readWorkbookBytes(fileId)
+  const bytes = sourcePath ? await readDiskFileOrNull(sourcePath) : await readWorkbookBytes(fileId)
   if (!bytes) {
     return fail('WORKBOOK_UNJUDGED', '元数据在、字节读不到:不判定,请人工核文件', { fileId })
   }
@@ -762,6 +855,7 @@ export async function openWorkbook(params: {
     handle,
     subjectId,
     sourceFileId: fileId,
+    sourcePath,
     sourceName: declaredName || `${fileId}.xlsx`,
     sourceSha256: sha256(bytes),
     workbook,
@@ -774,6 +868,7 @@ export async function openWorkbook(params: {
     savedSlotFileId: null,
     saveCount: 0,
     savedBytes: 0,
+    saveBarrier: null,
   }
   _sessions.set(handle, session)
   const bucket = _handlesBySubject.get(subjectId)
@@ -873,6 +968,15 @@ export function writeCells(params: {
   const take = takeSession(params?.handle, params?.subjectId)
   if (!take.ok) return take.error
   const s = take.session
+  // F-540:保存正在序列化 → 拒写(409,可重试)。同步命令无法排队等待,拒比"写进旧快照"诚实:
+  // 一旦在 writeBuffer() 期间改写模型,保存响应里的 staleFormulaCells 与实际落盘字节就分叉了。
+  if (s.saveBarrier) {
+    return fail(
+      'WORKBOOK_SAVING',
+      '该会话正在保存中,本次写入未执行(保存完成后重试;或改用新的 handle)',
+      { handle: s.handle },
+    )
+  }
   const ws = s.workbook.getWorksheet(params.sheet)
   if (!ws) return fail('WORKBOOK_INVALID_INPUT', `工作表不存在: ${params.sheet}`)
   const list = Array.isArray(params.cells) ? params.cells : []
@@ -957,6 +1061,21 @@ export async function saveWorkbook(params: {
   if (!take.ok) return take.error
   const s = take.session
 
+  // F-540:整段"读模型 → writeBuffer → 落盘 → 推进槽位"持会话级互斥。
+  // 并发的第二次 save 在这里排队(按到达顺序串行),不会两份输出互相顶掉计数与槽位。
+  const releaseBarrier = await acquireSaveBarrier(s)
+  try {
+    return await saveWorkbookInner(s, params)
+  } finally {
+    releaseBarrier()
+  }
+}
+
+/** 保存的实际步骤(调用方已持有 `s.saveBarrier`,见 saveWorkbook)。 */
+async function saveWorkbookInner(
+  s: WorkbookSession,
+  params: { subjectId: string; handle: string; name?: string },
+): Promise<WorkbookResult<SaveWorkbookData>> {
   if (s.saveCount >= MAX_SAVES_PER_SESSION) {
     return fail(
       'WORKBOOK_SAVE_LIMIT_EXCEEDED',
@@ -972,7 +1091,8 @@ export async function saveWorkbook(params: {
     )
   }
 
-  const before = readFile(s.sourceFileId)
+  // F-536:源档可能来自 storage(本层保存产物)或用户上传(按绝对路径读)
+  const before = s.sourcePath ? readDiskFileOrNullSync(s.sourcePath) : readFile(s.sourceFileId)
   if (!before) {
     return fail('WORKBOOK_UNJUDGED', '原档字节读不到:无法自证未覆盖,拒绝保存', {
       sourceFileId: s.sourceFileId,
@@ -992,6 +1112,12 @@ export async function saveWorkbook(params: {
   }
 
   const buffer = Buffer.from(await s.workbook.xlsx.writeBuffer())
+  if (_sessions.get(s.handle) !== s) {
+    // F-540:await 期间会话被 close/逐出 ⇒ 不落盘(避免盘上多出一份没人认领的输出)
+    return fail('WORKBOOK_HANDLE_UNDETERMINED', '会话在保存期间被关闭:本次未落盘,请重新 open', {
+      handle: s.handle,
+    })
+  }
   if (s.savedBytes + buffer.length > MAX_SAVED_BYTES_PER_SESSION) {
     return fail(
       'WORKBOOK_SAVE_BYTES_EXCEEDED',
@@ -1038,7 +1164,7 @@ export async function saveWorkbook(params: {
     })
   }
 
-  const after = readFile(s.sourceFileId)
+  const after = s.sourcePath ? readDiskFileOrNullSync(s.sourcePath) : readFile(s.sourceFileId)
   const afterSha = after ? sha256(after) : ''
   if (!after || afterSha !== s.sourceSha256) {
     // 新档已落,但原档被动过 ⇒ 本层最不该发生的事,必须点名而不是吞下;半成品先删
@@ -1092,6 +1218,10 @@ export function closeWorkbook(params: {
   const take = takeSession(params?.handle, params?.subjectId)
   if (!take.ok) return take.error
   const s = take.session
+  // F-540:保存进行中不得销毁会话(否则保存侧会在已摘掉的会话上继续推进槽位)
+  if (s.saveBarrier) {
+    return fail('WORKBOOK_SAVING', '该会话正在保存中,请保存完成后再关闭', { handle: s.handle })
+  }
   const savedFileIds = [...s.savedFileIds]
   removeSession(s.handle)
   return { ok: true, data: { closed: true, savedFileIds } }

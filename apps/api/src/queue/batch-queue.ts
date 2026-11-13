@@ -12,6 +12,7 @@
  * - Redis CRUD(key = `batch:task:<taskId>`,TTL 30 天)
  * - 入队 addBatchTask(redis 保存任务 + batchQueue.add)
  * - 输入文件存取(OpenAI JSONL,key = `batch:input:<apiKeyId>:<fileId>`)
+ * - 逐条断点存取(F-495,key = `batch:item:<taskId>:<index>`):崩溃重跑从断点继续
  *
  * 设计要点:
  * - 类型 + Redis 函数从 v1-batches.ts 移入此模块,避免 worker → route 循环依赖
@@ -43,6 +44,14 @@ export const BATCH_KEY_PREFIX = 'batch:task:'
 
 /** Redis 输入文件 key 前缀(完整键 = `batch:input:<apiKeyId>:<fileId>`,TTL 30 天) */
 export const BATCH_INPUT_KEY_PREFIX = 'batch:input:'
+
+/**
+ * F-495:逐条断点 key 前缀(完整键 = `batch:item:<taskId>:<index>`,TTL 30 天)。
+ *
+ * 任务体(`batch:task:`)本身是"整份读改写",不适合承载每条结果(大任务会退化成
+ * O(n²) 重写);断点因此按条目独立成键:一条一次 SET,重跑按 index 命中即跳过。
+ */
+export const BATCH_ITEM_KEY_PREFIX = 'batch:item:'
 
 export const BATCH_TTL_SECONDS = 30 * 24 * 60 * 60 // 30 天 = 2,592,000 秒
 
@@ -192,6 +201,59 @@ export async function getTask<T extends BatchTask>(
     return JSON.parse(raw) as T
   } catch {
     return null
+  }
+}
+
+/** F-495:读取单条断点(该条已成功调用上游并落库过结果)。不存在/损坏 ⇒ null(按未处理重跑)。 */
+export async function getBatchItemCheckpoint<T>(
+  redis: Redis,
+  taskId: string,
+  index: number,
+): Promise<T | null> {
+  const raw = await redis.get(`${BATCH_ITEM_KEY_PREFIX}${taskId}:${index}`)
+  if (!raw) return null
+  try {
+    return JSON.parse(raw) as T
+  } catch {
+    return null
+  }
+}
+
+/** F-495:落单条断点(必须在拿到上游结果后立刻写,重跑据此跳过该条)。 */
+export async function saveBatchItemCheckpoint(
+  redis: Redis,
+  taskId: string,
+  index: number,
+  value: unknown,
+): Promise<void> {
+  await redis.set(
+    `${BATCH_ITEM_KEY_PREFIX}${taskId}:${index}`,
+    JSON.stringify(value),
+    'EX',
+    BATCH_TTL_SECONDS,
+  )
+}
+
+/**
+ * F-495:任务完成后清断点(结果已整份进 `_outputContent`/`results`,断点只是过程数据)。
+ * 失败不抛:断点带 TTL,清不掉最多多占 30 天。
+ */
+export async function clearBatchItemCheckpoints(
+  redis: Redis,
+  taskId: string,
+  total: number,
+): Promise<void> {
+  const CHUNK = 500
+  for (let start = 0; start < total; start += CHUNK) {
+    const keys: string[] = []
+    for (let i = start; i < Math.min(start + CHUNK, total); i++) {
+      keys.push(`${BATCH_ITEM_KEY_PREFIX}${taskId}:${i}`)
+    }
+    try {
+      await redis.del(...keys)
+    } catch {
+      return
+    }
   }
 }
 

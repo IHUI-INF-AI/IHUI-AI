@@ -14,12 +14,15 @@
  * 数据来源:
  * - model_price_history: 调价快照(只增不改,审计追溯)
  * - price_discount_schedules: 限时折扣调度(预设生效/失效)
- * - llm_call_logs: 调用流水(costCents = 用户实付,metadata.multiplier = 倍率,upstream = costCents/multiplier)
+ * - llm_call_logs: 调用流水(costCents = 用户实付,metadata.multiplier = 倍率,
+ *   relay 行 upstream = costCents/multiplier;BYOK 行 upstream = metadata.upstreamCostCents)
  *
- * 利润率定义:
+ * 利润率定义(F-662:只对 relay 行成立;BYOK 行单列抽成,不混入均值):
  * - revenue = costCents(用户实付,= llm_call_logs.cost_cents)
  * - cost = costCents / multiplier(上游成本,从 metadata.multiplier 反推)
  * - marginRate = (revenue - cost) / revenue
+ * - BYOK 行 cost_cents 是平台抽成、multiplier 恒为 1,不能反推成本;其真实上游成本
+ *   读 metadata.upstreamCostCents,与抽成一起单列输出。
  *
  * 调价建议策略:
  * - marginRate < 0.10 (< 10%) → 建议提价(+0.20 倍率)
@@ -64,16 +67,31 @@ export interface PricingSuggestion {
   avgCostCentsPerCall: number
   avgRevenueCentsPerCall: number
   marginRate: number
+  /**
+   * F-662:同期 BYOK 调用次数。BYOK 的 revenue = 平台抽成、上游成本由用户自付,
+   * 与 relay 行的「实付/上游成本」不同口径,故不进入利润率分母,单列出来供运营看。
+   */
+  byokCallCount: number
+  /** BYOK 行平均平台抽成(分/次);无 BYOK 调用为 0 */
+  avgByokFeeCentsPerCall: number
+  /** BYOK 行平均真实上游成本(分/次,读 metadata.upstreamCostCents);无数据为 0 */
+  avgByokUpstreamCostCentsPerCall: number
 }
 
 /** 7d 聚合行(dbRead 结果;numeric 可能以字符串返回) */
 export interface PricingAggregateRow {
   modelId: string
-  /** 平均单次实付(分);null 表示窗口内没有任何「成功且 cost_cents 非空」的调用 */
+  /** 平均单次实付(分,仅 relay 行);null 表示窗口内没有「成功、cost_cents 非空且非 BYOK」的调用 */
   avgRevenueCents: number | string | null
-  /** 平均倍率;NULL/非法值按 1.0 处理 */
+  /** 平均倍率(仅 relay 行);NULL/非法值按 1.0 处理 */
   avgMultiplier: number | string | null
   callCount?: number | string | null
+  /** 窗口内 BYOK 调用次数 */
+  byokCallCount?: number | string | null
+  /** BYOK 行平均平台抽成(分/次) */
+  avgByokFeeCents?: number | string | null
+  /** BYOK 行平均真实上游成本(分/次) */
+  avgByokUpstreamCostCents?: number | string | null
 }
 
 // =============================================================================
@@ -99,6 +117,13 @@ function stripLiteLLMPrefix(model: string): string {
 function parseMultiplier(value: unknown): number {
   const n = Number(value)
   return Number.isFinite(n) && n > 0 ? n : 1
+}
+
+/** 解析 numeric/null 聚合值;缺失或非数字返回 null(与 0 区分)。 */
+function parseNullableNumber(value: unknown): number | null {
+  if (value === null || value === undefined || value === '') return null
+  const n = Number(value)
+  return Number.isFinite(n) ? n : null
 }
 
 /**
@@ -246,6 +271,13 @@ export function buildPricingSuggestion(
   const cost = revenue / avgMultiplier
   const marginRate = revenue > 0 ? (revenue - cost) / revenue : 0
 
+  // F-662:BYOK 行不参与上面的 relay 利润率(它们的 revenue 是抽成、cost 由用户自付),
+  // 这里把真实上游成本(metadata.upstreamCostCents)与抽成单列出来,口径不混。
+  const rawByokCount = Number(row.byokCallCount ?? 0)
+  const byokCallCount = Number.isFinite(rawByokCount) ? Math.max(0, Math.trunc(rawByokCount)) : 0
+  const byokFeeCents = parseNullableNumber(row.avgByokFeeCents) ?? 0
+  const byokUpstreamCostCents = parseNullableNumber(row.avgByokUpstreamCostCents) ?? 0
+
   let suggestedMultiplier = currentMultiplier
   let reason: string
   if (!hasRevenueData) {
@@ -273,17 +305,23 @@ export function buildPricingSuggestion(
     avgCostCentsPerCall: Math.round(cost * 1e6) / 1e6,
     avgRevenueCentsPerCall: Math.round(revenue * 1e6) / 1e6,
     marginRate: Number(marginRate.toFixed(4)),
+    byokCallCount,
+    avgByokFeeCentsPerCall: Math.round(byokFeeCents * 1e6) / 1e6,
+    avgByokUpstreamCostCentsPerCall: Math.round(byokUpstreamCostCents * 1e6) / 1e6,
   }
 }
 
 /**
  * 动态调价建议:查最近 7d llm_call_logs,按 model 聚合利润率,给出调价建议。
  *
- * 聚合逻辑:
- * - revenue = AVG(cost_cents)(用户实付,保留小数精度,不在 SQL 里取整)
- * - multiplier = AVG((metadata->>'multiplier')::numeric)(本次调用所用倍率,防 NULL 用 1.0)
- * - cost = revenue / multiplier(上游成本反推)
+ * 聚合逻辑(F-662 起 relay / BYOK 分账):
+ * - revenue = AVG(cost_cents) FILTER (仅 relay 行)(用户实付,保留小数精度)
+ * - multiplier = AVG((metadata->>'multiplier')::numeric) FILTER (仅 relay 行)
+ * - cost = revenue / multiplier(上游成本反推,只对 relay 行成立)
  * - marginRate = (revenue - cost) / revenue
+ * - BYOK 行不参与上式:其 cost_cents 是平台抽成、metadata.multiplier 恒为 1,
+ *   真实上游成本在 metadata.upstreamCostCents;强行用 multiplier 反推会把利润率算成 0。
+ *   它们单独聚合成 byokCallCount / avgByokFeeCents / avgByokUpstreamCostCents。
  *
  * 建议策略:
  * - marginRate < 0.10 → 建议提价(currentMultiplier + 0.20)
@@ -295,19 +333,30 @@ export function buildPricingSuggestion(
 export async function getPricingSuggestions(): Promise<PricingSuggestion[]> {
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
 
-  // 按模型聚合:平均实付、平均倍率(从 metadata 反推上游成本)
+  // 按模型聚合:平均实付、平均倍率(仅 relay 行);BYOK 行单列抽成与真实上游成本。
   // F-634:平均实付保留 numeric 小数,不得 ::int 截断(否则 avg<0.5 分的模型 revenue 变 0);
   // 不 COALESCE 成 0,让 NULL 可区分「确实没有数据」与「有数据但均值为 0」。
-  // NULLIF 防除零;COALESCE 防 metadata 缺失 multiplier
+  // NULLIF 防除零;COALESCE 防 metadata 缺失 multiplier。
   const rows = await dbRead
     .select({
       modelId: llmCallLogs.model,
-      avgRevenueCents: sql<number | null>`avg(${llmCallLogs.costCents})::numeric`,
+      avgRevenueCents: sql<number | null>`(avg(${llmCallLogs.costCents}) filter (
+        where coalesce(${llmCallLogs.metadata}->>'byokMode', 'false') <> 'true'
+      ))::numeric`,
       avgMultiplier: sql<number>`coalesce(
-        avg(coalesce(nullif(${llmCallLogs.metadata}->>'multiplier', '')::numeric, 1.0)),
+        avg(coalesce(nullif(${llmCallLogs.metadata}->>'multiplier', '')::numeric, 1.0))
+          filter (where coalesce(${llmCallLogs.metadata}->>'byokMode', 'false') <> 'true'),
         1.0
       )::numeric::float4`,
       callCount: sql<number>`count(*)::int`,
+      byokCallCount: sql<number>`count(*) filter (where ${llmCallLogs.metadata}->>'byokMode' = 'true')::int`,
+      // BYOK 行的"收入"= 平台抽成(cost_cents),真实上游成本读 metadata.upstreamCostCents。
+      avgByokFeeCents: sql<number | null>`(avg(${llmCallLogs.costCents}) filter (
+        where ${llmCallLogs.metadata}->>'byokMode' = 'true'
+      ))::numeric`,
+      avgByokUpstreamCostCents: sql<number | null>`(avg(
+        nullif(${llmCallLogs.metadata}->>'upstreamCostCents', '')::numeric
+      ) filter (where ${llmCallLogs.metadata}->>'byokMode' = 'true'))::numeric`,
     })
     .from(llmCallLogs)
     .where(

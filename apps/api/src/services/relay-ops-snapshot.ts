@@ -20,6 +20,7 @@
  */
 import { and, eq, inArray, sql, gte, lte } from 'drizzle-orm'
 import { dbRead } from '../db/index.js'
+import { toSafeAmount } from '../db/commission-queries.js'
 import { bizDayStartUtc } from '../utils/biz-day.js'
 import {
   aiRelayChannelGroups,
@@ -131,7 +132,8 @@ async function aggregatePeriod(start: Date, end: Date): Promise<RelayOpsPeriodAg
   const rows = await dbRead
     .select({
       callCount: sql<number>`count(*)::int`,
-      totalTokens: sql<number>`coalesce(sum(${llmCallLogs.totalTokens}), 0)::bigint::int`,
+      // F-574:原 `::bigint::int` 会把累计 token 再截回 int4,越过 2^31 即 500。
+      totalTokens: sql<number>`coalesce(sum(${llmCallLogs.totalTokens}), 0)::bigint`,
       totalCostCents: sumRelayCostCentsSql(),
       errorCount: sql<number>`count(*) filter (where ${llmCallLogs.status} = 'error')::int`,
       avgLatencyMs: sql<number>`coalesce(avg(${llmCallLogs.latencyMs}), 0)::int`,
@@ -143,8 +145,8 @@ async function aggregatePeriod(start: Date, end: Date): Promise<RelayOpsPeriodAg
   const callCount = r.callCount
   return {
     callCount,
-    totalTokens: r.totalTokens,
-    totalCostCents: Number(r.totalCostCents),
+    totalTokens: toSafeAmount(r.totalTokens),
+    totalCostCents: toSafeAmount(r.totalCostCents),
     errorCount: r.errorCount,
     errorRate: callCount > 0 ? r.errorCount / callCount : 0,
     avgLatencyMs: r.avgLatencyMs,
@@ -165,7 +167,7 @@ async function aggregateRange(start: Date, end: Date): Promise<RelayOpsRangeAggr
   const callCount = r.callCount
   return {
     callCount,
-    totalCostCents: Number(r.totalCostCents),
+    totalCostCents: toSafeAmount(r.totalCostCents),
     errorRate: callCount > 0 ? r.errorCount / callCount : 0,
   }
 }
