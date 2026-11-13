@@ -769,6 +769,54 @@ async function streamChatCompletion(
   const onClose = () => controller.abort()
   request.raw.on('close', onClose)
 
+  /**
+   * F-722(2026-11-14):渠道流式「已写出帧之后」异常/客户端断连的就地结算出口。
+   *
+   * 旧实现只 `raw.end()` 后 return —— recordCall 从未执行 ⇒ opts.preDeducted 永久沉淀
+   * (预扣不退、llm_call_logs 无该行,既不能退款也不能审计)。客户端断连是高频事件,
+   * 沉淀量按流量线性累积。
+   *
+   * 结算口径:抛错时 pipeChannelStream 的 stats 未回填,拿不到可确认的已用 token,
+   * 因此按 0 计费 —— `settlePreDeduction` 全额退回预扣,同时落一行 error 流水
+   * (原因与渠道写进 metadata)。绝不按"已写出多少字符"倒推补扣:那是猜的用量。
+   */
+  const settleAbortedChannelStream = (params: {
+    reason: string
+    channel: SelectedChannelKey | null
+    clientDisconnected: boolean
+  }): void => {
+    if (!opts.apiKeyId || !opts.userId) return
+    const latency = persistableLatency(opts.sw.stop())
+    void recordCall({
+      apiKeyId: opts.apiKeyId,
+      userId: opts.userId,
+      model,
+      prompt: opts.promptText ?? '',
+      response: null,
+      promptTokens: 0,
+      completionTokens: 0,
+      totalTokens: 0,
+      latencyMs: latency.latencyMs,
+      status: 'error',
+      errorMessage: params.reason,
+      metadata: {
+        stream: true,
+        // 已向客户端写出过帧后中断:区别于"零帧返回"的上游失败
+        abortedMidStream: true,
+        ...(params.clientDisconnected ? { clientDisconnected: true } : {}),
+        ...(params.channel ? { channel: params.channel.groupName } : {}),
+        ...(opts.modelMappingMeta ?? {}),
+        latencyTrusted: latency.latencyTrusted,
+      },
+      mode: opts.mode ?? 'relay',
+      providerCode: params.channel?.providerCode ?? opts.providerCode,
+      configId: params.channel?.configId,
+      keyPoolId: params.channel?.keyPoolId,
+      clientIp: opts.clientIp,
+      preDeducted: opts.preDeducted ?? null,
+    }).catch(() => {})
+  }
+
   // ==========================================================================
   // 渠道直连优先(2026-09-12 立):渠道路由 + 逐请求 failover + 两段式计费。
   // BYOK 模式不走渠道(用户自有 key 由 ai-service 处理)。
@@ -960,6 +1008,10 @@ async function streamChatCompletion(
             httpStatus: stats.httpStatus,
             ttftMs: stats.ttftMs ?? undefined,
             preDeducted: opts.preDeducted ?? null,
+            // F-720:Qoder 类积分上游的 credits 必须进计费链路 —— 此前只序列化进回包/SSE 帧,
+            // 从未传给 recordCall ⇒ 该维度完全未计费(上游 token 恒 0 时等于零成本跑量)。
+            upstreamCredits: stats.upstreamCredits ?? undefined,
+            creditsUnit: 'qoder_credits',
           })
             .then((call) =>
               // F-178:每次渠道调用后回写实际 token 与结算成本,让 checkQuota 的
@@ -995,6 +1047,13 @@ async function streamChatCompletion(
         raw.write('data: [DONE]\n\n')
         request.raw.off('close', onClose)
         raw.end()
+        // F-722:已写出帧后异常不得就地 return —— 必须结算(退回预扣 + 落流水),
+        // 否则预扣永久沉淀、台账缺行,退款与审计都无从下手。
+        settleAbortedChannelStream({
+          reason: msg,
+          channel: streamedChannel,
+          clientDisconnected: msg === 'client disconnected',
+        })
         return
       }
       // 尚未写出任何帧 → 回退 ai-service（客户端无感）;
@@ -1013,6 +1072,12 @@ async function streamChatCompletion(
     raw.write('data: [DONE]\n\n')
     request.raw.off('close', onClose)
     raw.end()
+    // F-722 同源缺口:这条分支同样"写完就 return",预扣凭证在这里也会被丢掉。
+    settleAbortedChannelStream({
+      reason: workbuddyNoUpstreamMessage(poolFailure),
+      channel: null,
+      clientDisconnected: false,
+    })
     return
   }
 
@@ -2364,6 +2429,10 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
           clientIp: request.ip,
           httpStatus: resp.status,
           preDeducted: preDeduction,
+          // F-720:非流式同样要把上游声明的 credits 带进计费链路(usage.credits 或顶层
+          // x_qoder_credits 两处都认,usedChannel / ai-service 回退两种分支都不会漏)。
+          upstreamCredits: usageCredits ?? undefined,
+          creditsUnit: 'qoder_credits',
         })
           .then((call) => {
             // F-538:非流式完成链路接会话历史写入口(幂等键 = llm_call_logs.id)。

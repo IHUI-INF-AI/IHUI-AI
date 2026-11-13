@@ -719,7 +719,8 @@ export const adminCustomerServiceRoutes: FastifyPluginAsync = async (server) => 
         db
           .select({ c: sql<number>`count(*)::int` })
           .from(customerServiceSessions)
-          .where(eq(customerServiceSessions.status, 'waiting'))
+          // F-434:排队中 = 真相源里的 pending(响应字段名 waiting 保持前端契约不变)
+          .where(eq(customerServiceSessions.status, 'pending'))
           .then((r) => r[0]),
         db
           .select({ c: sql<number>`count(*)::int` })

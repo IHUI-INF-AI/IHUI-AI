@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { eq, and, or, desc, asc, sql, inArray, isNull, isNotNull } from 'drizzle-orm'
+import { eq, and, or, desc, asc, sql, inArray, isNull, isNotNull, lt } from 'drizzle-orm'
 import type { NotificationPartition } from '@ihui/types'
 import { db } from './index.js'
 import {
@@ -89,6 +89,149 @@ export async function createNotification(input: {
   const row = rows[0]
   if (!row) throw new Error('创建通知失败')
   return row
+}
+
+/** SQLSTATE 取码(postgres-js 把错误码挂在 code 上;非 DB 异常返回 undefined)。 */
+function pgErrorCode(err: unknown): string | undefined {
+  const code = (err as { code?: unknown } | null)?.code
+  return typeof code === 'string' ? code : undefined
+}
+
+let warnedMissingIdemSchema = false
+
+/** F-512:迁移未执行时的降级只告警一次(每进程),避免刷屏。 */
+function warnMissingIdemSchemaOnce(detail: string): void {
+  if (warnedMissingIdemSchema) return
+  warnedMissingIdemSchema = true
+  console.warn(
+    `[notification] 投递幂等结构未就绪(${detail}),降级为修复前行为;请执行 ` +
+      'packages/database/drizzle/20261114120000_notifications_delivery_idempotency.sql',
+  )
+}
+
+/**
+ * F-512:带幂等键的创建通知 —— 队列重投不重复落库。
+ *
+ * `ON CONFLICT (user_id, idempotency_key) DO NOTHING`:
+ * - 首投插入并 `created=true`;
+ * - 重投命中唯一索引 ⇒ 不插入,回查既有行并 `created=false`(调用方据此跳过重复推送/发信)。
+ *
+ * 迁移未落地的库有两种退化(都**只告警一次**,保持投递可用 —— 宁可暂时不去重,
+ * 也不能让"代码先上线、迁移后执行"的窗口把站内信全部打成 500):
+ * - `42703` 缺列 idempotency_key ⇒ 按修复前的列集插入;
+ * - `42P10` 有列无唯一索引 ⇒ 带键普通插入(键落库但暂不去重)。
+ */
+export async function createNotificationIdempotent(input: {
+  userId: string
+  type: string
+  title: string
+  content?: string
+  data?: Record<string, unknown>
+  idempotencyKey: string
+}): Promise<{ notification: Notification; created: boolean }> {
+  const baseValues = {
+    userId: input.userId,
+    type: input.type,
+    title: input.title,
+    content: input.content ?? null,
+    data: input.data ?? null,
+  }
+  // 初值只为让"catch 里必 return/throw"的路径在类型层无歧义(TS 对 try 内赋值偏保守)
+  let rows: Notification[] = []
+  try {
+    rows = await db
+      .insert(notifications)
+      .values({ ...baseValues, idempotencyKey: input.idempotencyKey })
+      .onConflictDoNothing({
+        target: [notifications.userId, notifications.idempotencyKey],
+      })
+      .returning()
+  } catch (err) {
+    const code = pgErrorCode(err)
+    if (code === '42703') {
+      // 列都没有 ⇒ 也无法按 idempotency_key 回查,直接按修复前的"首投"语义返回
+      warnMissingIdemSchemaOnce('缺列 idempotency_key')
+      const plain = await db.insert(notifications).values(baseValues).returning()
+      const plainRow = plain[0]
+      if (!plainRow) throw new Error('创建通知失败')
+      return { notification: plainRow, created: true }
+    }
+    if (code !== '42P10') throw err
+    warnMissingIdemSchemaOnce('缺唯一索引 notifications_user_idem_uq')
+    rows = await db
+      .insert(notifications)
+      .values({ ...baseValues, idempotencyKey: input.idempotencyKey })
+      .returning()
+  }
+  const row = rows[0]
+  if (row) return { notification: row, created: true }
+
+  const existing = await db
+    .select()
+    .from(notifications)
+    .where(
+      and(
+        eq(notifications.userId, input.userId),
+        eq(notifications.idempotencyKey, input.idempotencyKey),
+      ),
+    )
+    .limit(1)
+  const found = existing[0]
+  if (!found) throw new Error('创建通知失败')
+  return { notification: found, created: false }
+}
+
+/**
+ * F-512:抢占邮件出口(跨实例互斥)。返回 true = 本次可发信。
+ *
+ * 条件:`email_sent_at IS NULL`(未送达)且 claim 为空或已过期(上次发信途中进程被杀)。
+ * 同一条通知并发重投时只有一个 UPDATE 命中,其余拿到 0 行 ⇒ 不重复发信。
+ * 缺列(迁移未执行)⇒ 放行并告警一次,等于回到修复前语义,不让发信整体不可用。
+ */
+export async function claimNotificationEmail(
+  id: string,
+  staleMs: number = 5 * 60_000,
+): Promise<boolean> {
+  const now = new Date()
+  try {
+    const rows = await db
+      .update(notifications)
+      .set({ emailClaimedAt: now })
+      .where(
+        and(
+          eq(notifications.id, id),
+          isNull(notifications.emailSentAt),
+          or(
+            isNull(notifications.emailClaimedAt),
+            lt(notifications.emailClaimedAt, new Date(now.getTime() - staleMs)),
+          ),
+        ),
+      )
+      .returning({ id: notifications.id })
+    return rows.length > 0
+  } catch (err) {
+    if (pgErrorCode(err) !== '42703') throw err
+    warnMissingIdemSchemaOnce('缺列 email_claimed_at/email_sent_at')
+    return true
+  }
+}
+
+/** 释放本次抢占(发信失败/无可用通道):让下一次重投能再抢,而不是白等过期窗口。 */
+export async function releaseNotificationEmailClaim(id: string): Promise<void> {
+  try {
+    await db.update(notifications).set({ emailClaimedAt: null }).where(eq(notifications.id, id))
+  } catch (err) {
+    if (pgErrorCode(err) !== '42703') throw err
+  }
+}
+
+/** 标记邮件已送达:此后再重投只补站内信,不再发信。 */
+export async function markNotificationEmailSent(id: string): Promise<void> {
+  try {
+    await db.update(notifications).set({ emailSentAt: new Date() }).where(eq(notifications.id, id))
+  } catch (err) {
+    if (pgErrorCode(err) !== '42703') throw err
+  }
 }
 
 export async function findNotificationById(

@@ -24,6 +24,7 @@
  */
 import { eq, and, sql, desc, lte, type SQL } from 'drizzle-orm'
 import { db, dbRead } from '../db/index.js'
+import { toSafeAmount } from '../db/commission-queries.js'
 import { roundCents } from './relay-billing-service.js'
 import { relayCommissionRecords, systemConfigs, users, developerApiKeys } from '@ihui/database'
 import type { NewRelayCommissionRecord, RelayCommissionRecord } from '@ihui/database'
@@ -618,7 +619,8 @@ export async function getCommissionStats(): Promise<CommissionStats> {
     .select({
       status: relayCommissionRecords.status,
       count: sql<number>`count(*)::int`,
-      sumCents: sql<number>`coalesce(sum(${relayCommissionRecords.commissionCents}), 0)::int`,
+      // F-574:返佣金额为"分",全量累计可能越过 int4 上限(22003),改 bigint + 应用层收敛。
+      sumCents: sql<number>`coalesce(sum(${relayCommissionRecords.commissionCents}), 0)::bigint`,
     })
     .from(relayCommissionRecords)
     .groupBy(relayCommissionRecords.status)
@@ -630,31 +632,31 @@ export async function getCommissionStats(): Promise<CommissionStats> {
   let releasedCount = 0
   for (const r of statusRows) {
     if (r.status === 'frozen') {
-      frozenCents = r.sumCents
+      frozenCents = toSafeAmount(r.sumCents)
       frozenCount = r.count
     } else if (r.status === 'released') {
-      releasedCents = r.sumCents
+      releasedCents = toSafeAmount(r.sumCents)
       releasedCount = r.count
     } else if (r.status === 'expired') {
-      expiredCents = r.sumCents
+      expiredCents = toSafeAmount(r.sumCents)
     }
   }
 
   // 按时间窗口聚合(今日/7d/30d,不限状态,统计创建时间)
   const timeRows = await dbRead
     .select({
-      todayCents: sql<number>`coalesce(sum(${relayCommissionRecords.commissionCents}) filter (where ${relayCommissionRecords.createdAt} >= ${todayStart}), 0)::int`,
-      last7dCents: sql<number>`coalesce(sum(${relayCommissionRecords.commissionCents}) filter (where ${relayCommissionRecords.createdAt} >= ${last7d}), 0)::int`,
-      last30dCents: sql<number>`coalesce(sum(${relayCommissionRecords.commissionCents}) filter (where ${relayCommissionRecords.createdAt} >= ${last30d}), 0)::int`,
+      todayCents: sql<number>`coalesce(sum(${relayCommissionRecords.commissionCents}) filter (where ${relayCommissionRecords.createdAt} >= ${todayStart}), 0)::bigint`,
+      last7dCents: sql<number>`coalesce(sum(${relayCommissionRecords.commissionCents}) filter (where ${relayCommissionRecords.createdAt} >= ${last7d}), 0)::bigint`,
+      last30dCents: sql<number>`coalesce(sum(${relayCommissionRecords.commissionCents}) filter (where ${relayCommissionRecords.createdAt} >= ${last30d}), 0)::bigint`,
     })
     .from(relayCommissionRecords)
 
   const timeRow = timeRows[0] ?? { todayCents: 0, last7dCents: 0, last30dCents: 0 }
 
   return {
-    todayCents: timeRow.todayCents,
-    last7dCents: timeRow.last7dCents,
-    last30dCents: timeRow.last30dCents,
+    todayCents: toSafeAmount(timeRow.todayCents),
+    last7dCents: toSafeAmount(timeRow.last7dCents),
+    last30dCents: toSafeAmount(timeRow.last30dCents),
     frozenCents,
     releasedCents,
     expiredCents,

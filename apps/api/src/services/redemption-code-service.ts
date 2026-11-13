@@ -19,6 +19,7 @@
 import { randomBytes, randomUUID } from 'crypto'
 import { eq, and, sql, desc, ne, type SQL } from 'drizzle-orm'
 import { db, dbRead } from '../db/index.js'
+import { toSafeAmount } from '../db/commission-queries.js'
 import { redemptionCodes, developerApiKeys } from '@ihui/database'
 import type { RedemptionCode } from '@ihui/database'
 
@@ -393,7 +394,8 @@ export async function getStats(): Promise<CodesStats> {
     .select({
       status: redemptionCodes.status,
       count: sql<number>`count(*)::int`,
-      faceValueSum: sql<number>`coalesce(sum(${redemptionCodes.faceValueCents}), 0)::int`,
+      // F-574:面值是"分",全量累计越过 int4 上限会抛 22003,必须 bigint + 应用层收敛。
+      faceValueSum: sql<number>`coalesce(sum(${redemptionCodes.faceValueCents}), 0)::bigint`,
       tokenSum: sql<number>`coalesce(sum(${redemptionCodes.tokenAmount}), 0)::bigint`,
     })
     .from(redemptionCodes)
@@ -415,7 +417,8 @@ export async function getStats(): Promise<CodesStats> {
     else if (row.status === 'used') stats.used += row.count
     else if (row.status === 'expired') stats.expired += row.count
     else if (row.status === 'disabled') stats.disabled += row.count
-    stats.totalFaceValueCents += row.faceValueSum
+    // F-574:int8 由驱动返回字符串,统一经 toSafeAmount 收敛并钳制安全整数范围。
+    stats.totalFaceValueCents += toSafeAmount(row.faceValueSum)
     // F-668: 去掉末端 ::int 后 PG 返回 int8 字符串,必须 Number() 转换,否则字符串拼接。
     stats.totalTokenAmount += Number(row.tokenSum)
   }

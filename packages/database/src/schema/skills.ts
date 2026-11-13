@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { pgTable, uuid, varchar, text, integer, boolean, timestamp } from 'drizzle-orm/pg-core'
+import { pgTable, uuid, varchar, text, integer, boolean, timestamp, uniqueIndex } from 'drizzle-orm/pg-core'
 import { users } from './users.js'
 
 /**
@@ -38,7 +38,14 @@ export const skills = pgTable('skills', {
   syncSource: varchar('sync_source', { length: 20 }).default('web'),
   // 软删除(tombstone):多端同步删除语义
   deletedAt: timestamp('deleted_at', { withTimezone: true }),
-})
+}, (t) => ({
+  // F-175:(author_id, slug) 是 CLI push/db-sync 的逻辑主键,此前只有普通查找、无唯一约束,
+  // 「先查后插」的 upsert 在并发 push 下会落重复行。唯一索引是并发裁决者,
+  // 应用侧 upsert 走 ON CONFLICT (author_id, slug) DO UPDATE。
+  // 迁移:20261114091000_skills_author_slug_uniq.sql。
+  // author_id / slug 可空:PG 唯一索引把 NULL 视为互不相等,手工创建的无 slug 技能不受影响。
+  authorSlugUniq: uniqueIndex('skills_author_slug_uniq').on(t.authorId, t.slug),
+}))
 
 export type Skill = typeof skills.$inferSelect
 export type NewSkill = typeof skills.$inferInsert

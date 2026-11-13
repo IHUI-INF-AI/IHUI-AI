@@ -313,6 +313,29 @@ export function isWecomSuiteConfigured(): boolean {
   return Boolean(env.WECOM_SECRET && env.WECOM_SUITE_ID)
 }
 
+/**
+ * 解析企微租户 corpId(F-271),返回 null 即「不得登录」。
+ *
+ * 为什么必须有这道:suite 模式一次授权给多家企业,B 企业的 `open_userid` 与 A 企业**可以同值**;
+ * 绑定键若只取 open_userid,就变成"跨租户同名即同人"。租户维度只解决"查得到谁",还得挡住
+ * "这个租户本来就不该由本部署签发会话"。判据分两种口径,都不 fail-open:
+ *   ① `WECOM_ALLOWED_CORP_IDS`(逗号分隔)配置了就只认名单内的 corpId;
+ *   ② 未配置时按当前运行模式:自建应用只认 `WECOM_CORP_ID`(gettoken 用的就是它),
+ *      suite 模式接受 API 返回的非空 corpid(每家企业各自成租户,名单收窄交给 ①)。
+ * 空/缺失 corpId 一律拒绝 —— 拿不到租户就无法判定这份 open_userid 属于谁。
+ */
+export function resolveWecomTenant(corpId: string | undefined | null): string | null {
+  const tenant = String(corpId ?? '').trim()
+  if (!tenant) return null
+  const allowList = String(env.WECOM_ALLOWED_CORP_IDS ?? '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+  if (allowList.length > 0) return allowList.includes(tenant) ? tenant : null
+  if (isWecomConfigured()) return tenant === env.WECOM_CORP_ID ? tenant : null
+  return tenant
+}
+
 let cachedWecomAccessToken: { token: string; expiresAt: number } | null = null
 
 /** 获取企业微信自建应用 access_token(corpid + corpsecret) */

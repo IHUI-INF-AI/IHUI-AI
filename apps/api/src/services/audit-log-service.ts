@@ -209,6 +209,10 @@ function toRows(raw: unknown): Record<string, unknown>[] {
  * P0 修复:用 pg_advisory_xact_lock 串行化审计日志写入,防止并发 check-then-act
  * 导致链分叉(两个并发调用读到相同 prevHash)。advisory lock 在事务结束时自动释放。
  *
+ * F-274:链尾按**单调序号 seq** 取,不再按 timestamp —— 多实例/NTP 回拨下
+ * "本地毫秒时间戳最大"不等于"最后写入",同毫秒并发时 timestamp 也没有 tie-breaker
+ * (id 是随机 uuid)。seq 由库分配且写入被 advisory lock 串行化 ⇒ 顺序即链序。
+ *
  * @returns 新日志 id;落库失败(表未建等)返回 undefined
  */
 export async function recordAuditLog(params: RecordAuditLogParams): Promise<string | undefined> {
@@ -223,7 +227,7 @@ export async function recordAuditLog(params: RecordAuditLogParams): Promise<stri
       let prevHash = GENESIS_HASH
       try {
         const raw = await tx.execute(sql`
-          SELECT current_hash FROM audit_logs_chain ORDER BY timestamp DESC LIMIT 1
+          SELECT current_hash FROM audit_logs_chain ORDER BY seq DESC LIMIT 1
         `)
         const h = toRows(raw)[0]?.['current_hash']
         prevHash = h === null || h === undefined ? GENESIS_HASH : String(h)
@@ -435,9 +439,9 @@ export async function recordToolLedgerAuditIngest(
  *
  * 任一不匹配 → 返回篡改位置 + 原因。
  *
- * @param logs 按时间升序排列的日志链
+ * @param logs 按链序(seq)升序排列的日志链
  * @param mode 输入形态(缺省 `span`,即"这是一段连续的链")。**判链之前必须先问这一维**:
- *   链是全局的(`recordAuditLog` 取链尾用 `ORDER BY timestamp DESC LIMIT 1` 全表),
+ *   链是全局的(`recordAuditLog` 取链尾用 `ORDER BY seq DESC LIMIT 1` 全表),
  *   而按用户查回来的只是子序列 —— 把子序列当区间判,任何与别人行交错的用户都会
  *   被报"prev_hash 链断裂",而那个"断裂"根本不是篡改(数据是好的,只是没全带进来)。
  *   `subset` 档因此照常重算每条 HMAC(内容自洽照判),但邻接不成立**只计数不判红**,

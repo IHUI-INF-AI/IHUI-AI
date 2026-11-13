@@ -33,6 +33,7 @@ import {
   MAX_MULTIPART_UPLOAD_SIZE,
 } from '../utils/file-type-validator.js'
 import { FILE_UPLOAD_BODY_LIMIT } from '../config/body-limits.js'
+import { registerUploadedFile } from '../services/upload-file-registry.js'
 
 const ADMIN_ROLE_ID = 1
 
@@ -185,6 +186,36 @@ export const fileRoutes: FastifyPluginAsync = async (server) => {
   const PRIVATE_ASSETS_DIR = join(process.cwd(), 'uploads', 'private', 'assets')
   const PRIVATE_UPLOAD_ROOT = join(process.cwd(), 'uploads', 'private')
 
+  /**
+   * 登记刚写入的上传文件归属(F-536)。
+   *
+   * 为什么必须有:上传只管落盘、不写归属,而 `/workbook/open` 的归属判据此前只认
+   * `/workbook/save` 写的 sidecar ⇒ 普通上传的 xlsx 永远打不开。登记失败不回滚上传
+   * (文件已落盘、URL 已可用),但会被记为 warn —— 该文件随后 open 会 fail-closed。
+   */
+  const registerUpload = (params: {
+    request: FastifyRequest
+    fileId: string
+    name: string
+    mimeType: string
+    storedPath: string
+  }): void => {
+    try {
+      registerUploadedFile({
+        fileId: params.fileId,
+        ownerId: params.request.userId!,
+        name: params.name,
+        mimeType: params.mimeType,
+        storedPath: params.storedPath,
+      })
+    } catch (e) {
+      params.request.log.warn(
+        { err: (e as Error).message, fileId: params.fileId },
+        '上传归属登记失败:该文件随后无法被 /api/workbook/open 打开',
+      )
+    }
+  }
+
   /** 源文件是否落在私有目录(uploads/private 及其子目录)下。 */
   const isPrivateSourcePath = (p: string): boolean => {
     const root = resolve(PRIVATE_UPLOAD_ROOT)
@@ -251,6 +282,13 @@ export const fileRoutes: FastifyPluginAsync = async (server) => {
         const fileId = randomUUID()
         const filePath = join(UPLOAD_DIR, fileId)
         writeFileSync(filePath, finalBuffer)
+        registerUpload({
+          request,
+          fileId,
+          name: safeFilename,
+          mimeType: validation.mimeType,
+          storedPath: filePath,
+        })
 
         return reply.status(201).send(
           success({
@@ -835,6 +873,13 @@ export const fileRoutes: FastifyPluginAsync = async (server) => {
         const storedName = `${fileId}.${validation.extension}`
         const filePath = join(UPLOAD_DIR, storedName)
         writeFileSync(filePath, buffer)
+        registerUpload({
+          request,
+          fileId,
+          name: safeFilename,
+          mimeType: validation.mimeType,
+          storedPath: filePath,
+        })
 
         return reply.status(201).send(
           success({
@@ -910,6 +955,13 @@ export const fileRoutes: FastifyPluginAsync = async (server) => {
         const fileId = randomUUID()
         const filePath = join(UPLOAD_DIR, fileId)
         writeFileSync(filePath, buffer)
+        registerUpload({
+          request,
+          fileId,
+          name: safeFilename,
+          mimeType: validation.mimeType,
+          storedPath: filePath,
+        })
 
         return reply.status(201).send(
           success({

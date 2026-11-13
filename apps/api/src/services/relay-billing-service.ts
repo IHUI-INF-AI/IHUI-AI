@@ -42,6 +42,9 @@ import {
 } from './subscription-window-service.js'
 // Key 级限流窗口 + IP ACL(B/C,2026-09-16 立)
 import { checkKeyRateWindows, incrKeyRateWindows } from './key-rate-window-service.js'
+// F-724:TPM 每分钟 token 窗口的落账(此前只在 api-key-auth 的 finish 钩子里读 request.usage,
+// 而全仓无任何赋值点 ⇒ 永不记录。现改由计费链路按实际计费 token 统一写。)
+import { recordTpmUsage } from './api-key-tpm-service.js'
 // 余额不足邮件通知(E,2026-09-16 立)
 import { checkAndNotifyLowBalance } from './mail-relay-notifier.js'
 // Relay 返佣(2026-07-31 立,扣费后异步触发,失败不影响主链路)
@@ -246,6 +249,16 @@ export interface RecordCallInput {
    * settlePreDeduction 按实际用量「补差价 / 退差额」,保证总扣减 = 实际用量。
    */
   preDeducted?: PreDeduction | null
+  /**
+   * F-720(2026-11-14):上游按「积分」计费的渠道(Qoder 等)返回的真实扣减量。
+   *
+   * 这类上游的 usage token 字段恒 0,唯一真实计量是 credits —— 此前 credits 只被
+   * 序列化进回包 usage,从未进入计费链路 ⇒ 该维度完全未计费(零成本跑量)。
+   * 传入后 calculateCost 会把它换算成金额并入 totalCostCents,明细落 metadata。
+   */
+  upstreamCredits?: number | null
+  /** 积分单位标签(审计用),默认 'qoder_credits' */
+  creditsUnit?: string
 }
 
 export interface RecordCallResult {
@@ -297,6 +310,15 @@ export interface CalculateCostResult {
    * 本字段单独暴露分时段因子,便于日志与账单归因。
    */
   peakMultiplier?: number
+  /**
+   * F-720:积分维度成本(分)。仅上游按 credits 计费且传了 upstreamCredits 时 > 0,
+   * 已按倍率链换算并入 totalCostCents(不是额外叠加项)。
+   */
+  creditsCostCents?: number
+  /** F-720:本次计入的积分数量(= 上游声明的扣减量) */
+  creditsApplied?: number
+  /** F-720:采用的积分单价(分/积分),供审计回溯换算依据 */
+  creditsUnitCents?: number
 }
 
 /** calculateCost 第 4 个参数:cache 折扣计费选项 + 多模态计费选项(2026-09-13) */
@@ -315,11 +337,26 @@ export interface CalculateCostCacheOptions {
   callType?: 'chat' | 'image' | 'video'
   /** 多模态计费单位数:image=张数;video=次数或秒数(默认 1) */
   units?: number
+  /**
+   * F-720:上游积分扣减量(Qoder 类上游 token 恒 0,credits 才是真实计量)。
+   * 定价行 billingMode='per_credit' 时按其 perUnitPrice(分/积分)计价;
+   * 否则按 docs/credit-pricing.md 已确立的口径「1 积分 = 1 分」换算。
+   */
+  credits?: number | null
 }
 
 /** per_call 上下文分档阈值(与上游报价页对齐):256K=262144,512K=524288 */
 const PER_CALL_TIER_LE256K = 262144
 const PER_CALL_TIER_LE512K = 524288
+
+/**
+ * F-720:积分单价默认值(分/积分)。
+ *
+ * 依据 docs/credit-pricing.md §8「积分 = 1 分钱(¥0.01)的内部记账单位」——
+ * 这是仓内已确立的口径,不在这里另拍一个新汇率。管理员若要为某模型单独定价,
+ * 在 ai_pricing 里把 billingMode 设为 'per_credit' 并填 perUnitPrice(分/积分)即可覆盖。
+ */
+const CREDITS_UNIT_CENTS = 1
 
 /**
  * 金额(分)保留 6 位小数(2026-09-13)。
@@ -816,6 +853,26 @@ export async function calculateCost(
   const callType = options?.callType ?? 'chat'
   const units = Math.max(0, Math.ceil(options?.units ?? 1))
 
+  // ── 积分维度成本(F-720,2026-11-14)──
+  // Qoder 类上游 usage 的 token 字段恒 0,真实扣减量在 credits(x_qoder_credits /
+  // usage.credits)。此前 credits 只进回包 usage,不进计费 ⇒ 该维度完全未计费。
+  // 单价:① 定价行 billingMode='per_credit' 的 perUnitPrice(分/积分);
+  //      ② 否则按 docs/credit-pricing.md 已确立的口径「1 积分 = 1 分钱」。
+  // 与 token 成本并存:token 有真值时两者相加,credits 上游(token=0)时即唯一成本。
+  const credits = Math.max(0, options?.credits ?? 0)
+  const creditsUnitCents =
+    credits > 0
+      ? pricingRow?.billingMode === 'per_credit' && Number(pricingRow.perUnitPrice) > 0
+        ? Number(pricingRow.perUnitPrice)
+        : CREDITS_UNIT_CENTS
+      : 0
+  const creditsCostCents = credits > 0 ? roundCents(creditsUnitCents * credits * multiplier) : 0
+  // 审计字段:仅在确有积分扣减时挂上(缺失即"本次无积分维度",与 0 区分)
+  const creditsPart =
+    credits > 0 ? { creditsApplied: credits, creditsUnitCents, creditsCostCents } : {}
+  // per_credit 是"按积分计价"的 token 模式变体,不参与下方 per_image/per_video/per_call 分支
+  const creditsPricedRow = pricingRow?.billingMode === 'per_credit'
+
   if (pricingRow) {
     baseInputPricePer1k = pricingRow.inputTokenPrice
     baseOutputPricePer1k = pricingRow.outputTokenPrice
@@ -830,10 +887,10 @@ export async function calculateCost(
   // ── 多模态计费分支(2026-09-13):per_image / per_video / per_call ──
   // 仅当定价行声明了对应 billingMode 且请求 callType 匹配时生效;
   // 不匹配(如 image 端点打到 token 价模型)回退 token 计费,调用方应保证定价行正确。
-  if (pricingRow && billingMode !== 'token') {
+  if (pricingRow && billingMode !== 'token' && !creditsPricedRow) {
     if (billingMode === 'per_image' && callType === 'image') {
       const unit = pricingRow.perUnitPrice ?? 0
-      const total = Math.max(0, roundCents(unit * units * multiplier))
+      const total = Math.max(0, roundCents(unit * units * multiplier + creditsCostCents))
       return {
         inputCostCents: 0,
         outputCostCents: 0,
@@ -847,6 +904,7 @@ export async function calculateCost(
         source,
         billingMode,
         unitsApplied: units,
+        ...creditsPart,
       }
     }
 
@@ -854,7 +912,7 @@ export async function calculateCost(
       const unit = pricingRow.perUnitPrice ?? 0
       const vUnit = pricingRow.videoUnit === 'second' ? 'second' : 'call'
       const applied = vUnit === 'second' ? units : 1
-      const total = Math.max(0, roundCents(unit * applied * multiplier))
+      const total = Math.max(0, roundCents(unit * applied * multiplier + creditsCostCents))
       return {
         inputCostCents: 0,
         outputCostCents: 0,
@@ -868,6 +926,7 @@ export async function calculateCost(
         source,
         billingMode,
         unitsApplied: applied,
+        ...creditsPart,
       }
     }
 
@@ -876,7 +935,7 @@ export async function calculateCost(
       // promptTokens 为 0 → 命中 le256k 档(即基础档价),不额外惩罚
       const picked = pickPerCallPrice(pricingRow.tieredCallPrices, promptTokens)
       if (picked) {
-        const total = Math.max(0, roundCents(picked.price * units * multiplier))
+        const total = Math.max(0, roundCents(picked.price * units * multiplier + creditsCostCents))
         return {
           inputCostCents: 0,
           outputCostCents: 0,
@@ -891,6 +950,7 @@ export async function calculateCost(
           billingMode,
           unitsApplied: units,
           callTier: picked.tier,
+          ...creditsPart,
         }
       }
       // 三档价未配置 → 回退 token 计费(避免免费敞口),调用方可据此告警
@@ -931,8 +991,11 @@ export async function calculateCost(
   const cacheReadCostCents = roundCents(rawCacheReadCost * multiplier)
   const cacheCreationCostCents = roundCents(rawCacheCreationCost * multiplier)
   const outputCostCents = roundCents(rawOutputCost * multiplier * reasoningOutputMultiplier)
-  const totalCostCents =
+  const tokenCostCents =
     inputCostCents + cacheReadCostCents + cacheCreationCostCents + outputCostCents
+
+  // 积分维度成本已在上方按同一倍率链算好(creditsCostCents),此处只做合计。
+  const totalCostCents = roundCents(tokenCostCents + creditsCostCents)
 
   return {
     inputCostCents,
@@ -947,6 +1010,7 @@ export async function calculateCost(
     source,
     billingMode: 'token',
     unitsApplied: 0,
+    ...creditsPart,
   }
 }
 
@@ -1233,7 +1297,13 @@ async function recordCallInternal(input: RecordCallInput): Promise<RecordCallRes
   // - 真实 usage 不丢弃,写入 metadata.cacheSavedTokens 供统计,与真实上游调用分开。
   // 因此所有"扣 token / 累计用量 / 结算"表达式统一用 billableTokens;llm_call_logs 的
   // token 列在命中时写 0,避免与真实调用混成一个数。
-  const billableTokens = isCacheHit ? 0 : input.totalTokens
+  //
+  // F-728(2026-11-14):失败调用(status='error',零产出)同理 —— 此前只把「金额」置 0,
+  // token 仍照传 ⇒ 两段式按预估 token 结算,失败调用照样吃 token 配额(与"失败不计费"
+  // 承诺矛盾)。现在 token 与金额同口径归零,原始用量写入 metadata.raw*供审计。
+  // 'partial'(流中断但已产出)不受影响:已产出的 token 按实际计费。
+  const failureZeroed = input.status === 'error'
+  const billableTokens = isCacheHit || failureZeroed ? 0 : input.totalTokens
 
   // 中转站模式:全额成本(上游 × 中转站倍率),平台扣全额
   // BYOK 模式:平台只收 platformFeeCents(上游原价 × 抽成率),不碰大厂成本 upstreamCostCents
@@ -1275,6 +1345,8 @@ async function recordCallInternal(input: RecordCallInput): Promise<RecordCallRes
         cacheCreationTokens: input.cacheCreationTokens,
         callType: input.callType,
         units: input.billingUnits,
+        // F-720:积分维度并入同一次定价计算(totalCostCents 已含 credits 成本)
+        credits: failureZeroed ? 0 : (input.upstreamCredits ?? 0),
       },
       input.userId,
     )
@@ -1330,11 +1402,29 @@ async function recordCallInternal(input: RecordCallInput): Promise<RecordCallRes
     if (relayCost.unitsApplied > 0) metadata.unitsApplied = relayCost.unitsApplied
     if (relayCost.callTier) metadata.callTier = relayCost.callTier
   }
+  // F-720:积分维度审计 —— 上游声明了多少 credits、按什么单价换算成多少分。
+  // 即便未计费(failureZeroed)也留底,避免"credits 有值但账单无痕"。
+  if (typeof input.upstreamCredits === 'number' && input.upstreamCredits > 0) {
+    metadata.upstreamCredits = input.upstreamCredits
+    metadata.creditsUnit = input.creditsUnit ?? 'qoder_credits'
+    if (relayCost?.creditsApplied !== undefined) {
+      metadata.creditsApplied = relayCost.creditsApplied
+      metadata.creditsUnitCents = relayCost.creditsUnitCents
+      metadata.creditsCostCents = relayCost.creditsCostCents
+    }
+  }
   if (mode === 'byok') {
     metadata.byokMode = true
     metadata.upstreamCostCents = upstreamCostCents
     metadata.platformFeeCents = platformFeeCents
     metadata.commissionRate = commissionRate
+  }
+
+  // F-728:失败调用的原始用量留底(token 列按 0 落,避免与真实计费混成一个数)
+  if (failureZeroed && input.totalTokens > 0) {
+    metadata.rawPromptTokens = input.promptTokens
+    metadata.rawCompletionTokens = input.completionTokens
+    metadata.rawTotalTokens = input.totalTokens
   }
 
   // 失败调用不计费(2026-09-13):上游错误(4xx/5xx)时平台未获得服务。
@@ -1378,11 +1468,13 @@ async function recordCallInternal(input: RecordCallInput): Promise<RecordCallRes
       rawRetained: rawCols.rawRetained,
       // F-181:缓存命中时 token 列写 0,与真实上游调用分开;被省下的真实 usage
       // 已写入 metadata.cacheSavedTokens,不会丢量。
-      promptTokens: isCacheHit ? 0 : input.promptTokens,
-      completionTokens: isCacheHit ? 0 : input.completionTokens,
+      // F-728:失败调用同口径写 0(原始用量在 metadata.raw*),否则"失败不计费"
+      // 只看金额成立、token 配额仍被吃掉。
+      promptTokens: isCacheHit || failureZeroed ? 0 : input.promptTokens,
+      completionTokens: isCacheHit || failureZeroed ? 0 : input.completionTokens,
       totalTokens: billableTokens,
-      cacheReadTokens: isCacheHit ? 0 : (input.cacheReadTokens ?? 0),
-      cacheCreationTokens: isCacheHit ? 0 : (input.cacheCreationTokens ?? 0),
+      cacheReadTokens: isCacheHit || failureZeroed ? 0 : (input.cacheReadTokens ?? 0),
+      cacheCreationTokens: isCacheHit || failureZeroed ? 0 : (input.cacheCreationTokens ?? 0),
       latencyMs: input.latencyMs,
       status: input.status,
       errorMessage: input.errorMessage ?? null,
@@ -1478,10 +1570,8 @@ async function recordCallInternal(input: RecordCallInput): Promise<RecordCallRes
         }
       }
     }
-    // Key 级限流窗口计数(B,2026-09-16):F-620 后准入已在 checkQuota 原子占位,
-    // 本请求（同一次 ALS scope）内的补计直接跳过,不会二次 +1;保留调用仅覆盖
-    // 未经准入占位的调用方(内部自查限额,全 NULL 零写入)。
-    void incrKeyRateWindows(input.apiKeyId).catch(() => {})
+    // F-724:窗口补计已收敛到本函数公共尾部(F-620 后主链路由准入原子占位计数,
+    // 这里的补计只覆盖未经准入的调用方,且对同一请求幂等)。
     // 读取结算后余额供返回值/余额告警使用(组池优先)
     if (groupInfoForDeduct && groupInfoForDeduct.enabled) {
       const [g] = await dbRead
@@ -1590,10 +1680,37 @@ async function recordCallInternal(input: RecordCallInput): Promise<RecordCallRes
     newCostBalanceCents = updated?.costBalanceCents ?? -1
   }
 
-  // F-181:请求次数照计。有预扣的命中已在上面计过(不会双计);无预扣(无限额度/BYOK)
-  // 的命中走组池/个人分支,需要在这里补一次,否则"缓存命中不计 token"会变成"连次数也不计"。
-  if (isCacheHit && !hasPreDeduction) {
-    void incrKeyRateWindows(input.apiKeyId).catch(() => {})
+  // ── F-724 / F-725:限流计数与订阅窗口的**唯一出口**(2026-11-14)──
+  // 这三件事此前散落:窗口补计只在两段式预扣分支里(F-620 后主链路改由准入原子占位,
+  // 补计只对"未经准入的调用方"有意义)、TPM 计数全仓无写入点、订阅窗口只在两段式累加。
+  // 收敛到这里后:
+  //   - 任何计费入口(含 /v1/messages、/v1/responses、多模态、batch、BYOK)都会补计窗口;
+  //   - TPM 按实际计费 token 落账,checkTpmQuota 终于有数可读;
+  //   - 非两段式入口也开始消耗订阅窗口额度(与两段式互斥去重)。
+  // 幂等:incrKeyRateWindows 对同一请求(已由准入原子占位)直接返回,不会二次 +1。
+  void incrKeyRateWindows(input.apiKeyId).catch(() => {})
+  if (billableTokens > 0) {
+    // TPM 按实际计费 token 计(失败调用 billableTokens=0,不占 TPM 配额)
+    void recordTpmUsage(input.apiKeyId, billableTokens).catch((err) => {
+      logger.warn('[billing] TPM usage record failed', {
+        apiKeyId: input.apiKeyId,
+        error: err instanceof Error ? err.message : String(err),
+      })
+    })
+  }
+  if (!hasPreDeduction) {
+    // 两段式已在 settlePreDeductionStrict 内累加窗口用量;非两段式必须在这里补,
+    // 否则订阅用户只走 /v1/messages、/v1/responses 就永远不消耗订阅额度。
+    void consumeSubscriptionWindowUsage(
+      input.userId,
+      billableTokens,
+      costCentsToDeduct,
+    ).catch((err) => {
+      logger.warn('[billing] 订阅窗口用量累加失败(不影响计费)', {
+        userId: input.userId,
+        error: err instanceof Error ? err.message : String(err),
+      })
+    })
   }
 
   // 4. 异步触发 relay 返佣(2026-07-31 立,被邀请人消费 → 邀请人返佣)
