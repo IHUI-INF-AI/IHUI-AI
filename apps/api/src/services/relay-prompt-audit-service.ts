@@ -64,8 +64,9 @@ export function scanKeywordFirstHit(
     // 极端配置(关键词本身长于单窗口):分块无法覆盖,退化为全文一次性匹配。
     const lower = text.toLowerCase()
     for (let i = 0; i < needles.length; i++) {
-      if (needles[i] === '') continue
-      const idx = lower.indexOf(needles[i])
+      const needle = needles[i]
+      if (!needle) continue
+      const idx = lower.indexOf(needle)
       if (idx >= 0) result.set(i, idx)
     }
     return result
@@ -75,8 +76,9 @@ export function scanKeywordFirstHit(
     const end = Math.min(start + MAX_SCAN_CHARS, text.length)
     const window = text.slice(start, end).toLowerCase()
     for (let i = 0; i < needles.length; i++) {
-      if (result.has(i) || needles[i] === '') continue
-      const idx = window.indexOf(needles[i])
+      const needle = needles[i]
+      if (!needle || result.has(i)) continue
+      const idx = window.indexOf(needle)
       if (idx >= 0) result.set(i, start + idx)
     }
     if (result.size === needles.length || end >= text.length) break
