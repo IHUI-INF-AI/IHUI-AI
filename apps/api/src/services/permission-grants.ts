@@ -24,11 +24,13 @@ import type {
   ApprovalGrantScope,
 } from '@ihui/shared/permission'
 
-import {
-  USER_PREFERENCE_GROUPS,
-  findUserPreferences,
-  upsertUserPreference,
-} from '../db/user-preferences-queries.js'
+import { USER_PREFERENCE_GROUPS, findUserPreferences } from '../db/user-preferences-queries.js'
+import { db } from '../db/index.js'
+import { userPreferences } from '@ihui/database'
+import { and, eq } from 'drizzle-orm'
+
+/** 授权写回必须落在这个事务连接上,否则行锁与写语句不在同一事务里,锁形同虚设。 */
+type GrantsTx = Parameters<Parameters<typeof db.transaction>[0]>[0]
 
 const GRANTS_KEY = 'grants'
 const MAX_HISTORY_PER_USER = 200
@@ -53,6 +55,19 @@ function isGrant(value: unknown): value is ApprovalGrant {
   )
 }
 
+/** 把存储里的原始 JSON 解析成合法授权行(纯函数,无副作用,不写回)。 */
+function parseGrants(value: string | null | undefined, now: number): ApprovalGrant[] {
+  if (!value) return []
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(value)
+  } catch {
+    return []
+  }
+  if (!Array.isArray(parsed)) return []
+  return parsed.filter(isGrant).filter((g) => g.expiresAt > now)
+}
+
 /** 读取并过滤掉过期/畸形行;到期行同时从存储里清走(不留垃圾)。 */
 export async function loadPermissionGrants(
   userId: string,
@@ -60,27 +75,89 @@ export async function loadPermissionGrants(
 ): Promise<ApprovalGrant[]> {
   const { list } = await findUserPreferences(userId, USER_PREFERENCE_GROUPS.permission)
   const row = list.find((r) => r.key === GRANTS_KEY)
-  if (!row?.value) return []
 
-  let parsed: unknown
-  try {
-    parsed = JSON.parse(row.value)
-  } catch {
-    return []
-  }
-  if (!Array.isArray(parsed)) return []
-
-  const all = parsed.filter(isGrant)
-  const active = all.filter((g) => g.expiresAt > now)
-  if (active.length !== all.length) {
-    await upsertUserPreference(
-      userId,
-      USER_PREFERENCE_GROUPS.permission,
-      GRANTS_KEY,
-      JSON.stringify(active),
-    )
+  const active = parseGrants(row?.value, now)
+  // 原值里确有"过期/畸形"行才写回,避免每次读都产生无谓写入。
+  const rawCount = (() => {
+    if (!row?.value) return 0
+    try {
+      const v: unknown = JSON.parse(row.value)
+      return Array.isArray(v) ? v.length : 0
+    } catch {
+      return 0
+    }
+  })()
+  if (row?.value && active.length !== rawCount) {
+    // 清理过期/畸形行的写回也必须走行锁:否则 GET 拿旧快照写回,会把并发新建的授权一起覆盖掉。
+    await withGrantsLock(userId, (tx, current) => writeGrants(tx, userId, current))
   }
   return active
+}
+
+/**
+ * 事务内锁读当前授权整行(F-419):
+ * `SELECT ... FOR UPDATE` 锁住 (userId, permission, grants) 这一行,把 load→filter→写
+ * 的读-改-写收进**同一事务**,并发 create/revoke/清理在此串行化 —— 撤销不会再被并发创建
+ * 用旧快照复活,新授权也不会被旧快照覆盖。写回必须用回调给出的 `tx`。
+ * 有意走 db(写主库)而非 dbRead:加锁写路径必须落在主库。
+ * 锁内不调用 loadPermissionGrants(它会写回,与锁行冲突会自锁)。
+ */
+async function withGrantsLock<T>(
+  userId: string,
+  work: (tx: GrantsTx, current: ApprovalGrant[]) => Promise<T>,
+): Promise<T> {
+  return db.transaction(async (tx) => {
+    const lockRow = async (): Promise<string | null | undefined> =>
+      (
+        await tx
+          .select({ value: userPreferences.value })
+          .from(userPreferences)
+          .where(
+            and(
+              eq(userPreferences.userId, userId),
+              eq(userPreferences.group, USER_PREFERENCE_GROUPS.permission),
+              eq(userPreferences.key, GRANTS_KEY),
+            ),
+          )
+          .for('update')
+      )[0]?.value
+
+    let value = await lockRow()
+    if (value === undefined) {
+      // 首授时整行还不存在 ⇒ `FOR UPDATE` 锁不到任何行,两个并发首授会读到同一个空快照。
+      // 先占位插入空授权行再锁读,让后续读写有真行可锁(幂等,已存在则什么都不做)。
+      await tx
+        .insert(userPreferences)
+        .values({
+          userId,
+          group: USER_PREFERENCE_GROUPS.permission,
+          key: GRANTS_KEY,
+          value: '[]',
+        })
+        .onConflictDoNothing({
+          target: [userPreferences.userId, userPreferences.group, userPreferences.key],
+        })
+      value = await lockRow()
+    }
+    return work(tx, parseGrants(value, Date.now()))
+  })
+}
+
+/** 事务内写回整行授权。 */
+async function writeGrants(tx: GrantsTx, userId: string, grants: ApprovalGrant[]): Promise<void> {
+  const value = JSON.stringify(grants)
+  await tx
+    .insert(userPreferences)
+    .values({
+      userId,
+      group: USER_PREFERENCE_GROUPS.permission,
+      key: GRANTS_KEY,
+      value,
+    })
+    .onConflictDoUpdate({
+      target: [userPreferences.userId, userPreferences.group, userPreferences.key],
+      set: { value, updatedAt: new Date() },
+    })
 }
 
 export interface CreateGrantInput {
@@ -122,43 +199,33 @@ export async function createPermissionGrant(
     expiresAt: now + ttl * 1000,
     grantedBy: userId,
   }
-  const existing = await loadPermissionGrants(userId, now)
-  // 同 (tool, matchPattern, scope, 对应 id) 只保留一条:重复授权刷新 TTL,不叠行。
-  const deduped = existing.filter(
-    (g) =>
-      !(
-        g.tool === grant.tool &&
-        g.matchPattern === grant.matchPattern &&
-        g.scope === grant.scope &&
-        g.workspaceId === grant.workspaceId &&
-        g.agentId === grant.agentId
-      ),
-  )
-  await upsertUserPreference(
-    userId,
-    USER_PREFERENCE_GROUPS.permission,
-    GRANTS_KEY,
-    JSON.stringify([...deduped, grant]),
-  )
+  // 读-改-写在同一把行锁内完成(F-419):并发撤销在同一事务窗口被串行化,不会丢。
+  await withGrantsLock(userId, (tx, existing) => {
+    // 同 (tool, matchPattern, scope, 对应 id) 只保留一条:重复授权刷新 TTL,不叠行。
+    const deduped = existing.filter(
+      (g) =>
+        !(
+          g.tool === grant.tool &&
+          g.matchPattern === grant.matchPattern &&
+          g.scope === grant.scope &&
+          g.workspaceId === grant.workspaceId &&
+          g.agentId === grant.agentId
+        ),
+    )
+    return writeGrants(tx, userId, [...deduped, grant])
+  })
   return grant
 }
 
 /** 撤销接口的存储落地。返回是否确有该行被删除(不存在 → false,由路由给 404)。 */
-export async function revokePermissionGrant(
-  userId: string,
-  grantId: string,
-  now = Date.now(),
-): Promise<boolean> {
-  const existing = await loadPermissionGrants(userId, now)
-  const next = existing.filter((g) => g.id !== grantId)
-  if (next.length === existing.length) return false
-  await upsertUserPreference(
-    userId,
-    USER_PREFERENCE_GROUPS.permission,
-    GRANTS_KEY,
-    JSON.stringify(next),
-  )
-  return true
+export async function revokePermissionGrant(userId: string, grantId: string): Promise<boolean> {
+  // 读-改-写在同一把行锁内完成(F-419):并发创建不再用旧快照覆盖已撤销的行。
+  return withGrantsLock(userId, async (tx, existing) => {
+    const next = existing.filter((g) => g.id !== grantId)
+    if (next.length === existing.length) return false
+    await writeGrants(tx, userId, next)
+    return true
+  })
 }
 
 /** 记录一次真实的人工结论,供自动复核比对(同主体/同工作区/同规则/同目标)。 */
