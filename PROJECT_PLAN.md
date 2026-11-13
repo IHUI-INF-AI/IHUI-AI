@@ -12236,7 +12236,6 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 444G. **缺陷普查 API F-444** [P2] GitHub PR/Issue 端点任意 owner/repo + 全站 PAT（证据 docs/tickets/2026-11/findings-api.md#F-444）
 - [ ] 495G. **缺陷普查 API F-495** [P3] 批处理 worker 崩溃重跑无断点，重复消耗上游（证据 docs/tickets/2026-11/findings-api.md#F-495）
 - [ ] 512G. **缺陷普查 API F-512** [P3] notification-worker 无幂等键，重投会重复落库 + 重复发信（证据 docs/tickets/2026-11/findings-api.md#F-512）
-- [ ] 524G. **缺陷普查 API F-524** [P3] worker 入口不执行 index 关停相位：auto-rollback 非 unref 定时器与 mock 网关在 worker 侧无停止路径（证据 docs/tickets/2026-11/findings-api.md#F-524）
 - [ ] 536G. **缺陷普查 API F-536** [P2] /workbook/open 的归属判据依赖只有 /save 会写的元数据，普通上传的 xlsx 恒 404（证据 docs/tickets/2026-11/findings-api.md#F-536）
 - [ ] 540G. **缺陷普查 API F-540** [P3] workbook save 与 write 无会话级互斥，await writeBuffer() 期间可被并发改写（证据 docs/tickets/2026-11/findings-api.md#F-540）
 - [ ] 574G. **缺陷普查 API F-574** [P2] sum(金额)::int 溢出的 11 处新实例（F-22/F-458 未列）（证据 docs/tickets/2026-11/findings-api.md#F-574）
