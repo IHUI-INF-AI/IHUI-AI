@@ -12228,7 +12228,6 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 114E. **缺陷普查 AIS AIS-114** [P2] 运行中 interrupt 立即保存半批次 checkpoint（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-114）
 - [ ] 80G. **缺陷普查 API F-80** [P2] 智能体点赞/收藏计数可并发重复累加，且增删非事务导致永久漂移（证据 docs/tickets/2026-11/findings-api.md#F-80）
 - [ ] 84G. **缺陷普查 API F-84** [P3] ilike 通配符系统性未转义（搜索扫描放大 + 直播回调后缀匹配可能批量误改）（证据 docs/tickets/2026-11/findings-api.md#F-84）
-- [ ] 123G. **缺陷普查 API F-123** [P2] 热搜 GitHub 采集 .each 里不 await 异步写库，失败被当成功、计数虚高（证据 docs/tickets/2026-11/findings-api.md#F-123）
 - [ ] 132G. **缺陷普查 API F-132** [P3] POST /admin/users 请求契约自相矛盾：schema 要求 passwordHash，handler 只认 password（证据 docs/tickets/2026-11/findings-api.md#F-132）
 - [ ] 141G. **缺陷普查 API F-141** [P2] 「会话导入知识库」幂等是纯 check-then-write，并发双请求重复入库 + 重复收 embedding 费（证据 docs/tickets/2026-11/findings-api.md#F-141）
 - [ ] 142G. **缺陷普查 API F-142** [P2] 团队知识修订的乐观锁是「先读后判」，UPDATE 不带 revision 条件；审计与正文非事务（证据 docs/tickets/2026-11/findings-api.md#F-142）
