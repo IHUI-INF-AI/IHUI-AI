@@ -381,7 +381,7 @@ describe('edge cases', () => {
       expect(body.code).toBe(0)
       expect(body.data.list).toHaveLength(1)
       expect(body.data.list[0].category).toBe('account')
-      expect(vi.mocked(findHelpArticles)).toHaveBeenCalledWith('account')
+      expect(vi.mocked(findHelpArticles)).toHaveBeenCalledWith('account', true)
     })
 
     it('GET /api/help/articles?category=invalid 非法分类返回 400', async () => {

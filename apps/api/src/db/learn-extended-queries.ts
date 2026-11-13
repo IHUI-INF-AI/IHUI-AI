@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { eq, and, desc, asc, sql, ilike } from 'drizzle-orm'
+import { eq, and, desc, asc, sql, ilike, type SQL } from 'drizzle-orm'
 import { db } from './index.js'
 import {
   learnHomework,
@@ -408,17 +408,32 @@ export interface CompanyStudyReportQuery {
 }
 
 /**
+ * 企业学习报表的**唯一**过滤口径 —— 汇总卡片与报名趋势共用这一份条件,
+ * 否则「汇总 ≠ 趋势求和」,运营看到的数字对不上(F-149)。
+ * - 课程只统计启用态 status=1;
+ * - search 按课程标题模糊匹配;
+ * - 时间范围按报名时间 lesson_sign_ups.created_at 过滤,含两端边界。
+ */
+function companyStudyConditions(query: CompanyStudyReportQuery): SQL[] {
+  const { startDate, endDate, search } = query
+  const conds: SQL[] = [eq(lessons.status, 1)]
+  if (search) conds.push(ilike(lessons.title, `%${search}%`))
+  if (startDate && endDate) {
+    conds.push(sql`${lessonSignUps.createdAt} >= ${startDate}::timestamptz`)
+    conds.push(sql`${lessonSignUps.createdAt} <= ${endDate}::timestamptz`)
+  }
+  return conds
+}
+
+/**
  * 企业学习报表:聚合统计课程总数、报名总数、完成总数、平均进度、活跃学员数。
- * 支持按时间段与课程标题搜索筛选。
+ * 支持按时间段与课程标题搜索筛选,过滤口径与趋势图完全一致。
  */
 export async function findCompanyStudyReport(
   query: CompanyStudyReportQuery,
 ): Promise<Record<string, unknown>> {
-  const { startDate, endDate, search } = query
-  let searchCond: ReturnType<typeof ilike> | undefined
-  if (search) {
-    searchCond = ilike(lessons.title, `%${search}%`)
-  }
+  const { startDate, endDate } = query
+  const whereCond = and(...companyStudyConditions(query))
 
   const rows = await db
     .select({
@@ -432,7 +447,7 @@ export async function findCompanyStudyReport(
     })
     .from(lessons)
     .leftJoin(lessonSignUps, eq(lessons.id, lessonSignUps.lessonId))
-    .where(searchCond)
+    .where(whereCond)
 
   const summary = rows[0] ?? {
     totalLessons: 0,
@@ -454,12 +469,8 @@ export async function findCompanyStudyReport(
         completed: sql<number>`count(*) FILTER (WHERE ${lessonSignUps.status} = 2)::int`,
       })
       .from(lessonSignUps)
-      .where(
-        and(
-          sql`${lessonSignUps.createdAt} >= ${startDate}::timestamptz`,
-          sql`${lessonSignUps.createdAt} <= ${endDate}::timestamptz`,
-        ),
-      )
+      .innerJoin(lessons, eq(lessons.id, lessonSignUps.lessonId))
+      .where(whereCond)
       .groupBy(sql`to_char(${lessonSignUps.createdAt}::date, 'YYYY-MM-DD')`)
       .orderBy(sql`to_char(${lessonSignUps.createdAt}::date, 'YYYY-MM-DD')`)
     trend = trendRows as { date: string; signups: number; completed: number }[]
