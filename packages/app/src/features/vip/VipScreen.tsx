@@ -291,7 +291,7 @@ export function VipScreen({
                 </View>
                 {overlay.plan.originalPrice ? (
                   <View style={styles.overlayPlanRow}>
-                    <Text style={styles.overlayPlanMeta}>{t('pay.originalPrice')}</Text>
+                    <Text style={styles.overlayPlanMeta}>{t('common.originalPrice')}</Text>
                     <Text style={styles.overlayPlanStrike}>¥{overlay.plan.originalPrice}</Text>
                   </View>
                 ) : null}

@@ -5469,6 +5469,9 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-13**
+- 🚀 新功能/改进:微信开放平台移动应用配置(WECHAT_MOBILE_APP_ID/SECRET,RN App一键登录/login/wechat) (7ae66424c1)
+
+**2026-11-13**
 - 🔧 工程/其他:gitignore 收敛 — ai-service哨兵残留(20枚精确清单)+PowerShell ModuleAnalysisCache缓存 (1a3e665e45)
 
 **2026-11-13**
