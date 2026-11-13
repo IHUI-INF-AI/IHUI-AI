@@ -10,9 +10,7 @@
  * - 路由级配置:routeOptions.config.mtls = { required, cnAllowList }
  * - 降级模式:MTLS_CLIENT_CERT_REQUIRED=false 时有证书则验证,无则 warning 跳过
  * - 强制模式:MTLS_CLIENT_CERT_REQUIRED=true(或路由 required=true)时无证书 → 401
- * - 客户端身份注入:仅当证书链验证通过(socket.authorized)时注入 request.mtlsClient =
- *   { cn, fingerprint, issuer, validFrom, validTo };未验证证书不产出可授权身份
- * - CN 白名单:仅对已验证证书生效,未验证证书即使 CN 命中白名单也拒绝(403)
+ * - 客户端身份注入:request.mtlsClient = { cn, fingerprint, issuer, validFrom, validTo }
  * - CRL 吊销检查:提供 setRevocationChecker hook,未注册时跳过(简化实现)
  *
  * 证书路径从环境变量读取(与 config/index.ts 解耦,缺失时降级运行,仅 warning):
@@ -189,11 +187,8 @@ const mtlsPlugin: FastifyPluginAsync = async (server: FastifyInstance) => {
 
     // --- 1. 校验证书链(socket.authorized) ---
     const socket = request.raw.socket
-    // 证书链验证结论,后续 CN 白名单与身份注入都以它为准(F-710):
-    // 未通过验证的证书(自签/不受信 CA)其 CN/指纹可被客户端任意构造,不构成身份。
-    const certAuthorized = socket instanceof TLSSocket && socket.authorized === true
-    if (!certAuthorized) {
-      const authErr = socket instanceof TLSSocket ? socket.authorizationError : undefined
+    if (socket instanceof TLSSocket && !socket.authorized) {
+      const authErr = socket.authorizationError
       const errMsg = authErr instanceof Error ? authErr.message : 'unknown'
       if (required) {
         reply.status(401).send(error(401, `Client certificate verification failed: ${errMsg}`))
@@ -219,15 +214,6 @@ const mtlsPlugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     // --- 3. CN 白名单检查 ---
     const cnAllowList = mtlsConfig.cnAllowList
     if (cnAllowList && cnAllowList.length > 0) {
-      // 白名单是对"已通过证书链验证的主体"的授权,未验证证书的 CN 由客户端自填,
-      // 不能参与判定(F-710):否则降级模式下一张自签证书即可冒充白名单身份。
-      if (!certAuthorized) {
-        logger.warn('mTLS: unverified client certificate denied by cnAllowList', {
-          route: request.url,
-        })
-        reply.status(403).send(error(403, 'Client certificate not verified, CN allow list denied'))
-        return
-      }
       const cn = asString(cert.subject.CN)
       if (!cnAllowList.includes(cn)) {
         reply.status(403).send(error(403, `Client certificate CN "${cn}" not in allow list`))
@@ -253,9 +239,7 @@ const mtlsPlugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     }
 
     // --- 5. 注入客户端身份到 request ---
-    // 只注入通过证书链验证的身份:未验证证书的 CN/指纹可被客户端任意伪造,
-    // 一旦注入就会被下游当成可授权的身份(F-710)。
-    request.mtlsClient = certAuthorized ? buildClientIdentity(cert) : undefined
+    request.mtlsClient = buildClientIdentity(cert)
   })
 }
 

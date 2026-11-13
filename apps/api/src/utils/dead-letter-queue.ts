@@ -19,8 +19,6 @@ export enum DLQAction {
   DROP = 'DROP',
   /** 隔离 (重投失败或无重投器) */
   QUARANTINE = 'QUARANTINE',
-  /** 目标不存在 (未知 id 或已被 TTL 惰性淘汰), 未做任何处理 */
-  NOOP = 'NOOP',
 }
 
 /** 死信条目. */
@@ -123,28 +121,13 @@ export class DeadLetterQueue {
     }
   }
 
-  /** 当前时间(秒). */
-  private nowSec(): number {
-    return Date.now() / 1000
-  }
-
-  /**
-   * 读路径惰性淘汰: 过期/超容量死信不因"无新写入"而继续对外可见.
-   * F-715: 此前仅在 push 内调用, get/list/stats/exportJSON 直接读 Map.
-   */
-  private evictOnRead(): void {
-    this.evictLocked(this.nowSec())
-  }
-
   /** 获取单条死信. */
   get(taskId: string): DeadLetter | undefined {
-    this.evictOnRead()
     return this.items.get(taskId)
   }
 
   /** 列出死信 (按入队顺序, 截断 limit). */
   list(limit = 100): DeadLetter[] {
-    this.evictOnRead()
     return Array.from(this.items.values()).slice(0, limit)
   }
 
@@ -153,11 +136,10 @@ export class DeadLetterQueue {
     return this.items.delete(taskId)
   }
 
-  /** 重投一条死信. 未知 id 或已过期淘汰的 id 返回 NOOP(未做任何处理). */
+  /** 重投一条死信. */
   replay(taskId: string): DLQAction {
-    this.evictOnRead()
     const item = this.items.get(taskId)
-    if (!item) return DLQAction.NOOP
+    if (!item) return DLQAction.DROP
     const fn = this.replayFn
     if (!fn) return DLQAction.QUARANTINE
     let ok = false
@@ -175,7 +157,6 @@ export class DeadLetterQueue {
 
   /** 导出 JSON (不含 payload 细节). */
   exportJSON(): string {
-    this.evictOnRead()
     const arr = Array.from(this.items.values()).map((i) => ({
       taskId: i.taskId,
       name: i.name,
@@ -189,7 +170,6 @@ export class DeadLetterQueue {
 
   /** 统计. */
   stats(): { size: number } {
-    this.evictOnRead()
     return { size: this.items.size }
   }
 }

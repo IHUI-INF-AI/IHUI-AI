@@ -84,9 +84,9 @@ describe('DeadLetterQueue replay', () => {
     expect(q.get('t1')).toBeDefined()
   })
 
-  it('不存在的 taskId 返回 NOOP (F-715: 未知 id 不再重载为 DROP)', () => {
+  it('不存在的 taskId 返回 DROP', () => {
     const q = new DeadLetterQueue({ maxAttempts: 1 })
-    expect(q.replay('missing')).toBe(DLQAction.NOOP)
+    expect(q.replay('missing')).toBe(DLQAction.DROP)
   })
 })
 

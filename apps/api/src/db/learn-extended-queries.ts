@@ -412,15 +412,22 @@ export interface CompanyStudyReportQuery {
  * 否则「汇总 ≠ 趋势求和」,运营看到的数字对不上(F-149)。
  * - 课程只统计启用态 status=1;
  * - search 按课程标题模糊匹配;
- * - 时间范围按报名时间 lesson_sign_ups.created_at 过滤,含两端边界。
+ * - 时间范围按**上海业务日**过滤(F-150,2026-11-13):'YYYY-MM-DD' 此前直接 ::timestamptz
+ *   按会话时区(UTC)解释 ⇒ 东八区 00:00–08:00 的报名归前一天,且 `<= endDate`(当日 00:00)
+ *   把最后一天几乎整天排除;现改为「上海日 00:00 闭区间,次日 00:00 开区间」,与
+ *   learn-record-queries 的 AT TIME ZONE 'Asia/Shanghai' 口径同形。
  */
 function companyStudyConditions(query: CompanyStudyReportQuery): SQL[] {
   const { startDate, endDate, search } = query
   const conds: SQL[] = [eq(lessons.status, 1)]
   if (search) conds.push(ilike(lessons.title, `%${search}%`))
   if (startDate && endDate) {
-    conds.push(sql`${lessonSignUps.createdAt} >= ${startDate}::timestamptz`)
-    conds.push(sql`${lessonSignUps.createdAt} <= ${endDate}::timestamptz`)
+    conds.push(
+      sql`${lessonSignUps.createdAt} >= (${startDate}::timestamp AT TIME ZONE 'Asia/Shanghai')`,
+    )
+    conds.push(
+      sql`${lessonSignUps.createdAt} < (((${endDate}::date) + 1)::timestamp AT TIME ZONE 'Asia/Shanghai')`,
+    )
   }
   return conds
 }
@@ -464,15 +471,15 @@ export async function findCompanyStudyReport(
   if (startDate && endDate) {
     const trendRows = await db
       .select({
-        date: sql<string>`to_char(${lessonSignUps.createdAt}::date, 'YYYY-MM-DD')`,
+        date: sql<string>`to_char(${lessonSignUps.createdAt} AT TIME ZONE 'Asia/Shanghai', 'YYYY-MM-DD')`,
         signups: sql<number>`count(*)::int`,
         completed: sql<number>`count(*) FILTER (WHERE ${lessonSignUps.status} = 2)::int`,
       })
       .from(lessonSignUps)
       .innerJoin(lessons, eq(lessons.id, lessonSignUps.lessonId))
       .where(whereCond)
-      .groupBy(sql`to_char(${lessonSignUps.createdAt}::date, 'YYYY-MM-DD')`)
-      .orderBy(sql`to_char(${lessonSignUps.createdAt}::date, 'YYYY-MM-DD')`)
+      .groupBy(sql`to_char(${lessonSignUps.createdAt} AT TIME ZONE 'Asia/Shanghai', 'YYYY-MM-DD')`)
+      .orderBy(sql`to_char(${lessonSignUps.createdAt} AT TIME ZONE 'Asia/Shanghai', 'YYYY-MM-DD')`)
     trend = trendRows as { date: string; signups: number; completed: number }[]
   }
 

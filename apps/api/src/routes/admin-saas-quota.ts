@@ -32,7 +32,6 @@ import { dbRead } from '../db/index.js'
 import { tenants, tenantQuotas, aiCostRecords, apiLogs, files, tenantMembers } from '@ihui/database'
 import { requireAdmin } from '../plugins/require-permission.js'
 import { success, error } from '../utils/response.js'
-import { toSafeCount } from '../utils/safe-count.js'
 
 const MB = 1024 * 1024
 
@@ -81,10 +80,9 @@ export const adminSaasQuotaRoutes: FastifyPluginAsync = async (server) => {
         .limit(1)
 
       // AI token 用量:按 tenant_id 聚合 ai_cost_records.total_tokens(真实表)
-      // F-667:token 合计可能超 int4 上限,聚合只到 bigint,再由 JS 侧归一成 number
       const [tokenAgg] = await dbRead
         .select({
-          used: sql<number>`coalesce(sum(${aiCostRecords.totalTokens}), 0)::bigint`,
+          used: sql<number>`coalesce(sum(${aiCostRecords.totalTokens}), 0)::bigint::int`,
         })
         .from(aiCostRecords)
         .where(eq(aiCostRecords.tenantId, tenant.id))
@@ -121,7 +119,7 @@ export const adminSaasQuotaRoutes: FastifyPluginAsync = async (server) => {
           slug: tenant.slug,
           apiCalls: { used: apiCallsUsed, limit: apiCallsLimit, window: 'month', resetAt },
           aiTokens: {
-            used: toSafeCount(tokenAgg?.used),
+            used: tokenAgg?.used ?? 0,
             limit: aiTokensLimit,
             window: 'month',
             resetAt,

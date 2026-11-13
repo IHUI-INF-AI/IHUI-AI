@@ -389,7 +389,6 @@
         "src/pkg-ai/ranking/detail.config.ts",
         "src/pkg-ai/ranking/detail.tsx",
         "src/pkg-ai/ranking/index.tsx",
-        "src/pkg-ai/sag2/index.tsx",
         "src/pkg-content/activity-detail-shared/index.config.ts",
         "src/pkg-content/activity-detail-shared/index.tsx",
         "src/pkg-content/activity/index.config.ts",
