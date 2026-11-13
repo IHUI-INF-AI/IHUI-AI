@@ -1544,7 +1544,7 @@ export function ChatScreen() {
         }
         // 失败轮要"可辨认":此前只 toast,那条空 assistant 气泡既不进上下文也不给出口,
         // 界面上看成一轮"回答完了"。标记后由 renderMessage 渲染错误卡片 + 重试。
-        setMessages((prev) => applyStreamError(prev, formatted.message))
+        setMessages((prev) => applyStreamError(prev, formatted.message, formatted.errorCode))
         setIsStreaming(false)
         abortRef.current = null
         if (formatted.severity === 'auth') {
