@@ -85,7 +85,7 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | ---- | ---- | ------ |
 | 数据库表 | 650 | `dbTables` |
 | schema 文件 | 252 | `dbSchemaFiles` |
-| API 路由 | 4791 | `apiRoutes` |
+| API 路由 | 4797 | `apiRoutes` |
 | 路由文件 | 697 | `apiRouteFiles` |
 | AI 服务路由 | 676 | `aiServiceRoutes` |
 | WebSocket 端点 | 43 | `wsEndpoints` |
@@ -101,10 +101,10 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | 测试文件 | 5336 | `testFiles` |
 | CI 工作流 | 59 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
-| 工程守门 | 363 | `guardianGates` |
-| — blocking | 334 | `guardianBlocking` |
-| — warn | 31 | `guardianWarn` |
-| 跟踪文件 | 21668 | `trackedFiles` |
+| 工程守门 | 368 | `guardianGates` |
+| — blocking | 335 | `guardianBlocking` |
+| — warn | 32 | `guardianWarn` |
+| 跟踪文件 | 21673 | `trackedFiles` |
 
 上表由 `node scripts/sync-readme-numbers.mjs`(唯一写入口,索引面取数)生成,最后核对日期 2026-11-13。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。

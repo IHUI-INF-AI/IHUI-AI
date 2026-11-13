@@ -765,3 +765,6 @@ tmp-*.png
 # 根级并行会话产物(框架保留给chat,非本仓跟踪对象)2026-11-13
 /BRIDGE_CAPABILITY_MAP.md
 /login-page.png
+
+# findings 新鲜度门(check-findings-freshness.mjs)生成的快照缓存,每次运行重写,非交付源码
+scripts/data/findings-staleness.json
