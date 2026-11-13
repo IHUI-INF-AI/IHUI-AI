@@ -1102,6 +1102,13 @@
       "notSubscribed": "Not subscribed to VIP",
       "subtitle": "Manage your VIP subscription and renewal",
       "title": "Subscription Management"
+    },
+    "avatar": {
+      "fromAlbum": "Choose from album",
+      "takePhoto": "Take photo",
+      "formatHint": "JPG / PNG supported, 200x200 recommended",
+      "sizeHint": "200x200 recommended, under 2MB",
+      "uploading": "Uploading..."
     }
   },
   "exam": {
@@ -1133,7 +1140,14 @@
     "ended": "Ended",
     "lecturer": "Lecturer",
     "startAt": "Starts at",
-    "viewerCount": "{count} watching"
+    "viewerCount": "{count} watching",
+    "subscribe": {
+      "count": "",
+      "unit": "live",
+      "reminder": "Start reminder",
+      "reminderDesc": "Notify you when a live starts",
+      "discover": "Discover"
+    }
   },
   "course": {
     "free": "Free",
@@ -1607,7 +1621,8 @@
         "chat": "Unlimited AI Chat",
         "model": "All Models"
       }
-    }
+    },
+    "privileges": "Privileges"
   },
   "login": {
     "title": "Login",
@@ -1651,7 +1666,8 @@
     "avatarUrl": "Avatar URL",
     "avatarConfirm": "Confirm",
     "save": "Save",
-    "retry": "Retry"
+    "retry": "Retry",
+    "avatarUrlApply": "Apply"
   },
   "changePhone": {
     "title": "Change Phone",
@@ -3144,7 +3160,9 @@
     "label2": "Entity Type",
     "label3": "Filing Time",
     "label4": "Filing URL",
-    "label5": "Filing Scope"
+    "label5": "Filing Scope",
+    "scope": "Filing Scope",
+    "url": "Filing URL"
   },
   "businessLicense": {
     "scopeTitle": "Business scope",
@@ -3479,5 +3497,65 @@
     "categoryTotal": "{total} articles",
     "categoryPublishedAt": "Published {date}",
     "categoryViewCount": "{count} views"
+  },
+  "sag2Lexical": {
+    "title": "SAG2 Lexical Multi-hop Retrieval",
+    "globalSearchTitle": "Global search",
+    "globalSearchPlaceholder": "Search the local knowledge base (Ctrl/Cmd + K)",
+    "globalSearchEmpty": "No hits: no indexed file contains these terms",
+    "globalSearchHint": "↑↓ select · Enter open · Esc close",
+    "filter_all": "All",
+    "filter_text": "Text",
+    "filter_office": "Documents",
+    "fromPalette": "From global search",
+    "extractRaster": "Raster",
+    "extractOcr": "OCR",
+    "extractAsr": "ASR",
+    "missing": "missing",
+    "subtitle": "Zero-model indexing · query-time association · citations to source",
+    "ready": "Index ready",
+    "empty": "Index empty",
+    "version": "Version",
+    "documents": "Docs",
+    "chunks": "Chunks",
+    "terms": "Terms",
+    "judgeProvider": "Judge",
+    "foldersTitle": "Local folders",
+    "folderPath": "Folder path",
+    "folderPlaceholder": "e.g. D://docs or /Users/me/docs",
+    "registerFolder": "Add & scan",
+    "scanFolders": "Scan all",
+    "foldersList": "Registered",
+    "noFolders": "No folder registered yet",
+    "removeFolder": "Unregister",
+    "watchFolder": "Auto watch",
+    "scanSummary": "{changed} added · {unchanged} unchanged · {unsupported} unsupported · {failed} failed",
+    "docsTitle": "Document registry",
+    "docsPath": "Path",
+    "docsContent": "Content",
+    "pathPlaceholder": "kb/example.txt",
+    "contentPlaceholder": "Paste or type document text…",
+    "add": "Add / update",
+    "remove": "Remove",
+    "added": "Registered (zero model calls while indexing)",
+    "unchanged": "File hash unchanged, rebuild skipped",
+    "removed": "Chunks removed",
+    "queryTitle": "Retrieval",
+    "queryPlaceholder": "Ask a question spanning multiple documents…",
+    "quick": "Quick search",
+    "deep": "Multi-hop",
+    "fuse": "RRF fuse",
+    "emptyResult": "No results yet — register a document first",
+    "loading": "Working…",
+    "error": "Request failed",
+    "modelCalls": "0 model calls",
+    "judgeOff": "Evidence judge not executed (lexical-only)",
+    "trace": "Retrieval trace",
+    "tracePool": "Pool",
+    "traceTerms": "Terms",
+    "citations": "Citation anchors",
+    "score": "Score",
+    "bm25": "BM25",
+    "hop": "Hop"
   }
 }

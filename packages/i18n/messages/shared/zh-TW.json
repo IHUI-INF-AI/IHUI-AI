@@ -1102,6 +1102,13 @@
       "notSubscribed": "未訂閱 VIP",
       "subtitle": "管理您的 VIP 訂閱與續費",
       "title": "訂閱管理"
+    },
+    "avatar": {
+      "fromAlbum": "從相簿選擇",
+      "takePhoto": "拍照",
+      "formatHint": "支援 JPG / PNG,建議 200x200",
+      "sizeHint": "建議 200x200,不超過 2MB",
+      "uploading": "上傳中..."
     }
   },
   "exam": {
@@ -1133,7 +1140,14 @@
     "ended": "已結束",
     "lecturer": "講師",
     "startAt": "開始時間",
-    "viewerCount": "{count} 觀看"
+    "viewerCount": "{count} 觀看",
+    "subscribe": {
+      "count": "共",
+      "unit": "場",
+      "reminder": "開播提醒",
+      "reminderDesc": "開啟後直播開始時提醒你",
+      "discover": "去發現"
+    }
   },
   "course": {
     "free": "免費",
@@ -1607,7 +1621,8 @@
         "chat": "無限 AI 對話",
         "model": "全部模型"
       }
-    }
+    },
+    "privileges": "會員特權"
   },
   "login": {
     "title": "登入",
@@ -1651,7 +1666,8 @@
     "avatarUrl": "頭像連結",
     "avatarConfirm": "確認",
     "save": "儲存",
-    "retry": "重試"
+    "retry": "重試",
+    "avatarUrlApply": "確認"
   },
   "changePhone": {
     "title": "換綁手機",
@@ -3144,7 +3160,9 @@
     "label2": "主體類型",
     "label3": "備案時間",
     "label4": "備案鏈接",
-    "label5": "備案範圍"
+    "label5": "備案範圍",
+    "scope": "備案範圍",
+    "url": "備案網址"
   },
   "businessLicense": {
     "scopeTitle": "經營範圍",
@@ -3479,5 +3497,65 @@
     "categoryTotal": "共 {total} 篇",
     "categoryPublishedAt": "發佈於 {date}",
     "categoryViewCount": "{count} 次瀏覽"
+  },
+  "sag2Lexical": {
+    "title": "SAG2 詞法多跳檢索",
+    "globalSearchTitle": "全域檢索",
+    "globalSearchPlaceholder": "搜尋本地知識庫（Ctrl/Cmd + K）",
+    "globalSearchEmpty": "沒有命中：索引裡沒有包含這些詞的檔案",
+    "globalSearchHint": "↑↓ 選擇 · Enter 開啟 · Esc 關閉",
+    "filter_all": "全部",
+    "filter_text": "文字",
+    "filter_office": "文件",
+    "fromPalette": "來自全域檢索",
+    "extractRaster": "柵格化",
+    "extractOcr": "OCR",
+    "extractAsr": "轉寫",
+    "missing": "缺件",
+    "subtitle": "零模型建庫 · 查詢時關聯 · 引用可直達原文",
+    "ready": "索引就緒",
+    "empty": "索引為空",
+    "version": "版本",
+    "documents": "文件",
+    "chunks": "區塊",
+    "terms": "詞項",
+    "judgeProvider": "判定器",
+    "foldersTitle": "本地資料夾",
+    "folderPath": "資料夾路徑",
+    "folderPlaceholder": "例如 D://docs 或 /Users/me/docs",
+    "registerFolder": "登記並掃描",
+    "scanFolders": "掃描全部",
+    "foldersList": "已登記",
+    "noFolders": "還沒有登記資料夾",
+    "removeFolder": "註銷",
+    "watchFolder": "自動監聽",
+    "scanSummary": "{changed} 新增 · {unchanged} 未變 · {unsupported} 不支援 · {failed} 失敗",
+    "docsTitle": "文件登記",
+    "docsPath": "路徑",
+    "docsContent": "正文",
+    "pathPlaceholder": "kb/example.txt",
+    "contentPlaceholder": "貼上或輸入文件正文…",
+    "add": "登記 / 更新",
+    "remove": "移除",
+    "added": "已登記（建庫零模型呼叫）",
+    "unchanged": "檔案 hash 未變，略過重建",
+    "removed": "已移除區塊數",
+    "queryTitle": "檢索",
+    "queryPlaceholder": "輸入問題，可跨文件多跳關聯…",
+    "quick": "快速搜尋",
+    "deep": "多跳檢索",
+    "fuse": "RRF 融合",
+    "emptyResult": "暫無結果，請先登記文件",
+    "loading": "處理中…",
+    "error": "請求失敗",
+    "modelCalls": "模型呼叫 0 次",
+    "judgeOff": "證據判斷未執行（純詞法判定）",
+    "trace": "檢索軌跡",
+    "tracePool": "候選池",
+    "traceTerms": "擴展詞",
+    "citations": "引用錨點",
+    "score": "得分",
+    "bm25": "BM25",
+    "hop": "跳"
   }
 }

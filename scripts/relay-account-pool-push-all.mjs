@@ -14,7 +14,7 @@
  * 用法:
  *   node scripts/relay-account-pool-push-all.mjs
  *     [--provider <code>]        只推该平台(缺省全池)
- *     [--prod-owner <users.id>]  生产侧归属(缺省沿用本机 pool-owner)
+ *     [--prod-owner <users.id>]  生产侧归属(= 生产 users.id;缺省按 email 从本机 pool-owner 翻译)
  *     [--prod-host <alias>]      SSH 别名(默认 ssh.aizhs.top)
  *     [--prod-checkout <path>]   生产 checkout 根(默认 D:\DevEnv\ihui-prod)
  *     [--keep-export]            保留本机导出目录(调试用;默认删)
@@ -25,8 +25,14 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { runProcess } from './relay-account-pool.mjs'
-import { UUID_LIKE_RE, maskPoolOwner, resolveDefaultPoolOwner } from './lib/pool-owner.mjs'
+import { fetchLocalOwnerIdEmailMap, fetchProdOwnerEmailMap, runProcess } from './relay-account-pool.mjs'
+import {
+  POOL_OWNER_TRANSLATE_REASON_TEXT,
+  UUID_LIKE_RE,
+  maskPoolOwner,
+  resolveDefaultPoolOwner,
+  translatePoolOwnerToTargetId,
+} from './lib/pool-owner.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const API_DIR = path.join(ROOT, 'apps', 'api')
@@ -125,12 +131,44 @@ async function main(argv) {
     process.stderr.write('❌ 未找到 tsx(apps/api/node_modules/tsx);请先在仓根跑 pnpm install\n')
     return 2
   }
-  const owner = options.prodOwner || resolveDefaultPoolOwner().owner
+  // 生产归属:显式 --prod-owner 视为生产 users.id;否则本机 pool-owner 里的 users.id 必须
+  // 按 email 翻成生产 users.id(两端 id 各自库生成,原样透传会造生产悬空行,2026-11-12 亲踩)。
+  // 翻译不出 ⇒ 在任何导出/传输前 exit 2,不制造需要事后清理的悬空行。
+  let owner = options.prodOwner
   if (!owner) {
-    process.stderr.write(
-      '❌ 生产归属未判定:带 --prod-owner <users.id>,或在本机 ~/.wb-switch/pool-owner 写入本人 users.id\n',
+    const localOwner = resolveDefaultPoolOwner().owner
+    if (!localOwner) {
+      process.stderr.write(
+        '❌ 生产归属未判定:带 --prod-owner <users.id>,或在本机 ~/.wb-switch/pool-owner 写入本人 users.id\n',
+      )
+      return 2
+    }
+    const local = await fetchLocalOwnerIdEmailMap()
+    if (local.error) {
+      process.stderr.write(`❌ 本机归属对照不可用:${local.error} ⇒ 不导出、不传输\n`)
+      return 2
+    }
+    const prod = await fetchProdOwnerEmailMap(options)
+    if (prod.error) {
+      process.stderr.write(`❌ 生产归属对照不可用:${prod.error} ⇒ 不导出、不传输\n`)
+      return 2
+    }
+    const r = translatePoolOwnerToTargetId({
+      ownerId: localOwner,
+      idToEmail: local.map,
+      targetEmailToId: prod.map,
+    })
+    if (r.reason !== 'ok') {
+      process.stderr.write(
+        `❌ 生产归属无法翻译(${POOL_OWNER_TRANSLATE_REASON_TEXT[r.reason] ?? r.reason}):` +
+          `本机 pool-owner=${maskPoolOwner(localOwner)} ⇒ 不导出、不传输,避免在生产造悬空行\n`,
+      )
+      return 2
+    }
+    owner = r.owner
+    process.stdout.write(
+      `ℹ️ 生产归属已按 email 翻译:${maskPoolOwner(localOwner)} → ${maskPoolOwner(owner)}(${r.email})\n`,
     )
-    return 2
   }
 
   const stamp = `${Date.now().toString(36)}-${process.pid}`
@@ -138,7 +176,9 @@ async function main(argv) {
   const exportName = path.basename(exportDir)
   const remoteDir = `${PROD_TEMP}\\${exportName}`
   const sshOpts = ['-o', 'BatchMode=yes', '-o', 'ConnectTimeout=20']
-  process.stdout.write(`归属=个人池 ${maskPoolOwner(owner)}(生产侧显式 --owner)\n`)
+  process.stdout.write(
+    `归属=个人池 ${maskPoolOwner(owner)}(${options.prodOwner ? '生产侧显式 --owner' : '按 email 从本机 pool-owner 翻译'})\n`,
+  )
 
   let remotePrepared = false
   // 能力探针与本地导出并行(SSH 握手约 8s,不串行进关键路径);单平台导出时探针结果用不上。

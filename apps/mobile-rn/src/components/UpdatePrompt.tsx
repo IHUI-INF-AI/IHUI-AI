@@ -15,7 +15,7 @@
  */
 
 import * as React from 'react'
-import { ActivityIndicator, AppState, StyleSheet, Text, View } from 'react-native'
+import { ActivityIndicator, Animated, AppState, StyleSheet, Text, View } from 'react-native'
 import { RefreshCw, X } from 'lucide-react-native'
 import { ELEVATION_STEPS, rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { tokens } from '../theme/active-tokens'
@@ -47,9 +47,20 @@ const RECHECK_MIN_INTERVAL_MS = 30 * 60 * 1000
 
 export function UpdatePrompt(): React.JSX.Element | null {
   const { t } = useI18n()
-  const { state, dismissed, downloadProgress: progress } = useOtaUpdate()
+  const { state, dismissed, downloadProgress: progress, mandatory } = useOtaUpdate()
   // 整包(APK)通道的状态;与 OTA 是两份独立 store,由下面的渲染顺序决定谁占浮层
   const apk = useApkUpdate()
+
+  // APK 卡的挂载保持:isApkPromptVisible 变 false(关闭/状态推进)后,APK 卡要播完滑出动画才能卸载,
+  // 否则看不到"滑回去"。apkRender 在可见时为 true、退场结束(onExited)才置 false(与 OTA 卡的 render 对称)。
+  const [apkRender, setApkRender] = React.useState(isApkPromptVisible(apk))
+  const handleApkExited = React.useCallback(() => setApkRender(false), [])
+  React.useEffect(() => {
+    // 与 isApkPromptVisible 同判据但内联,避免把整个 apk 对象塞进依赖数组(exhaustive-deps)
+    const visible =
+      apk.state === 'available' || apk.state === 'downloading' || apk.state === 'installing'
+    if (visible && !apk.dismissed) setApkRender(true)
+  }, [apk.state, apk.dismissed])
 
   React.useEffect(() => {
     const timer = setTimeout(() => {
@@ -103,6 +114,32 @@ export function UpdatePrompt(): React.JSX.Element | null {
   const applying = state === 'installing' || starting
   const downloading = state === 'downloading'
 
+  // 顶部下滑横幅(2026-11-13 改):原实现是 bottom:18% 浮层、无滑入动画,机主反馈"应该在顶部滑下来挂住"。
+  // 这里把定位改到顶部,并用 Animated 做下滑入场 / 上滑退场。render 控制挂载:退场动画结束前不卸载,
+  // 否则 dismissed 一变 true 卡片会瞬间消失,看不到"滑回去"。
+  const shouldShow = (state === 'ready' || downloading) && !dismissed
+  const [render, setRender] = React.useState(shouldShow)
+  // 初始即置于屏幕外上方:首帧就不会在屏幕内闪一下,再滑入挂住
+  const slideAnim = React.useRef(new Animated.Value(-320)).current
+  const cardH = React.useRef(0)
+  React.useEffect(() => {
+    if (shouldShow) setRender(true)
+  }, [shouldShow])
+  React.useEffect(() => {
+    if (!render) return
+    const off = -(cardH.current || 320)
+    if (shouldShow) {
+      slideAnim.setValue(off)
+      Animated.timing(slideAnim, { toValue: 0, duration: 300, useNativeDriver: true }).start()
+    } else {
+      Animated.timing(slideAnim, { toValue: off, duration: 200, useNativeDriver: true }).start(
+        ({ finished }) => {
+          if (finished) setRender(false)
+        },
+      )
+    }
+  }, [render, shouldShow, slideAnim])
+
   // 重启窗口(2026-10-27 机主实拍「点完更新直接调到灰屏页,一直不动」):
   // 进程重启前有一段空白,没有任何反馈 ⇒ 被当成卡死。改成整幅「正在重启…」遮罩,
   // 点下去必须有反应,直到新包接管(常驻上限见 ota-update 的 reload 看门狗)。
@@ -123,12 +160,48 @@ export function UpdatePrompt(): React.JSX.Element | null {
 
   // 整包更新优先于热更(2026-11-04):APK 能带新的原生面,热更只能改 JS。
   // 两者**互斥显示** —— 同一处浮层位置不能叠两张卡(见 components/ApkUpdatePrompt.tsx 头注)。
-  if (isApkPromptVisible(apk)) return <ApkUpdatePromptView apk={apk} />
+  // apkRender 保持挂载:退场滑出动画播放期间仍渲染,结束后由 onExited 解除(与 OTA 卡的 render 对称)。
+  if (apkRender || isApkPromptVisible(apk)) {
+    return <ApkUpdatePromptView apk={apk} onExited={handleApkExited} />
+  }
+
+  // 服务端下发的强制更新(RN 服务端开关驱动,2026-11-13 立):非关闭全屏阻塞。
+  // 默认 mandatory=false 永远走上面的顶部横幅(可关闭);仅当后端把本次更新标记为 mandatory,
+  // 才升级为盖满窗口的阻塞层 —— 没有关闭 X、[更新] 是唯一出口,用户不能绕过强制生效。
+  // 行为零副作用:不接后端的项目 mandatory 恒为 false,这里分支永不进入。
+  // (仅当 ready 才阻塞;downloading 阶段仍用上面的顶部横幅带读条,避免下载途中就把人卡死。)
+  if (mandatory && state === 'ready') {
+    return (
+      <View
+        style={styles.mandatoryOverlay}
+        accessibilityRole="alert"
+        accessibilityLabel={t('appUpdate.title')}
+      >
+        <View style={styles.mandatoryCard}>
+          <View style={styles.iconBadge}>
+            <RefreshCw size={28} color={tokens.brandAccent.deep} />
+          </View>
+          <Text style={styles.mandatoryTitle}>{t('appUpdate.title')}</Text>
+          <Text style={styles.mandatoryBody}>{t('appUpdate.readyBody')}</Text>
+          <Tappable
+            onPress={() => void handleUpdate()}
+            style={styles.actionBtn}
+            pressedStyle={styles.actionBtnPressed}
+            accessibilityRole="button"
+            accessibilityLabel={t('appUpdate.action')}
+          >
+            <Text style={styles.actionText}>{t('appUpdate.action')}</Text>
+          </Tappable>
+        </View>
+      </View>
+    )
+  }
 
   // 没有更新卡占浮层时,提醒一次"开启自动安装"(一次性动作,开了之后整条链才真正 0 点击)
   if (state !== 'ready' && !downloading) return <AutoInstallGuide />
 
-  if ((state !== 'ready' && !downloading) || dismissed) return null
+  // 退场动画播放期间 render 仍为 true,待滑出结束才卸载;此处据此放行 OTA 卡
+  if (!render) return null
 
   // 当前跑的是哪个包(内置/热更 + 短 id):更新前后各看一眼,「生效没生效」不再靠猜
   const rb = runningBundle()
@@ -147,7 +220,14 @@ export function UpdatePrompt(): React.JSX.Element | null {
    * 配色仍全部取 token:品牌实底只出现在主钮(`brand.cta` ↔ `brand.ctaForeground` 成对)。
    */
   return (
-    <View style={styles.card} accessibilityRole="alert" accessibilityLabel={t('appUpdate.title')}>
+    <Animated.View
+      style={[styles.card, { transform: [{ translateY: slideAnim }] }]}
+      onLayout={(e) => {
+        cardH.current = e.nativeEvent.layout.height
+      }}
+      accessibilityRole="alert"
+      accessibilityLabel={t('appUpdate.title')}
+    >
       <View style={styles.header}>
         <View style={styles.iconBadge}>
           <RefreshCw size={16} color={tokens.brandAccent.deep} />
@@ -191,17 +271,19 @@ export function UpdatePrompt(): React.JSX.Element | null {
           </Tappable>
         )}
       </View>
-    </View>
+    </Animated.View>
   )
 }
 
 const styles = StyleSheet.create({
   card: {
     position: 'absolute',
+    top: rnSpacing.sm,
     left: rnSpacing.lg,
     right: rnSpacing.lg,
-    // GlobalFloatBox(右下角浮窗)在 bottom 9%;提示卡片抬高避开
-    bottom: '18%',
+    // 2026-11-13:从 bottom:18% 浮层改为顶部横幅 —— 机主期望"从顶部滑下来挂住"。
+    // 顶部绝对定位相对 App.tsx 的 SafeAreaView(edges=['top']),top 已是状态栏下沿,无需再加 safe area。
+    // 滑入/滑出动画由组件内的 Animated translateY 驱动(初始在屏幕外上方,滑到 0 挂住)。
     gap: rnSpacing.md,
     padding: rnSpacing.lg,
     borderRadius: rnRadius.lg,
@@ -309,5 +391,41 @@ const styles = StyleSheet.create({
     ...ELEVATION_STEPS.lg,
   },
   applyingText: { color: tokens.text.primary, fontSize: rnType.body.size, fontWeight: '500' },
+  // 强制更新全屏阻塞(服务端 mandatory 开关驱动):盖满窗口、无关闭钮、[更新] 是唯一出口
+  mandatoryOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: tokens.overlay.loading,
+    padding: rnSpacing.lg,
+  },
+  mandatoryCard: {
+    width: '100%',
+    maxWidth: 360,
+    gap: rnSpacing.lg,
+    alignItems: 'center',
+    padding: rnSpacing.xl,
+    borderRadius: rnRadius.lg,
+    backgroundColor: tokens.surface.card,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: tokens.border.medium,
+    // 投影:强制阻塞卡片 → 档位 lg
+    ...ELEVATION_STEPS.lg,
+  },
+  mandatoryTitle: {
+    color: tokens.text.primary,
+    fontSize: rnType.strong.size,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  mandatoryBody: {
+    color: tokens.text.secondary,
+    fontSize: rnType.body.size,
+    textAlign: 'center',
+  },
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

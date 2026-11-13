@@ -392,8 +392,7 @@ export function ModelCapsSummary({ opt }: { opt: ModelOption }) {
   })
   // 后端可能追加分段错误字段(类型未固定声明),存在即优先展示
   const caps = opt.capsVerified as
-    | (CapsVerified & { tools_error?: string; context_error?: string })
-    | undefined
+    (CapsVerified & { tools_error?: string; context_error?: string }) | undefined
   return (
     <span className="flex min-w-0 items-center overflow-hidden whitespace-nowrap text-[10px] leading-tight">
       {segments.map((seg, index) => {

@@ -25,3 +25,26 @@ data/
 # 脚本侧已加 finally 清理(失败项也删),这一条是第二道:脚本被 Ctrl-C 掐掉、
 # 或换别的 e2e 脚本再落产物时兜底。点开头=只在仓根生效,不误伤别处的同名文件。
 /scripts/.e2e_*
+
+
+# 运行时哨兵残留(内容 blat 的进程锁,随机 8 字符名):精确列出,不写宽泛通配以免误伤合法单段文件
+/1iwp_vv3
+/4whea42r
+/6dekulx_
+/6myi9kkt
+/8cy4djaj
+/9244ddqi
+/9brbkjfj
+/hvg5k38w
+/k1wblag2
+/lv09mub6
+/okwigf9y
+/q2v1sfh0
+/s9jwbhu8
+/towcfirs
+/uktyf8tf
+/umxajbzh
+/vc7cgz7f
+/vz1tuj_a
+/ya4_6zp1
+/ytydawsg

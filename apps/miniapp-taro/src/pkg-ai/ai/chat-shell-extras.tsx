@@ -25,6 +25,7 @@ import LineIcon from '@/components/LineIcon'
 import { InputArea, SkillsPopup, MaterialPopup } from '@/components'
 import ScrollEdgeFades from '@/components/ScrollEdgeFades'
 import ChatMessageItem from './ChatMessageItem'
+import { NoticeLog } from './notice-log'
 import MessageVersionMenu from './message-version-menu'
 import ContextUsageStrip from './context-usage-strip'
 import CompactionBoundaryStrip from './compaction-boundary-strip'
@@ -59,6 +60,8 @@ export function buildChatShellProps(ctx: ChatShellCtx): ChatScreenProps {
     currentModel,
     models,
     modelsLoading,
+    // 提示留痕(页内独立 state):只读消费,记录规则全在 shared,壳不判去重/上限
+    notices,
     modelDrawerVisible,
     setModelDrawerVisible,
     openModelDrawer,
@@ -742,7 +745,14 @@ export function buildChatShellProps(ctx: ChatShellCtx): ChatScreenProps {
       showThinkingPlaceholder: true,
       thinkingNode: <ChatThinkingPlaceholder t={t} />,
       tailNodes: businessFormTails.tailNodes,
-      orphanTailNode: businessFormTails.orphanTailNode,
+      // 留痕放最后:它随时间增长,末尾是最自然的位置,也不会把既有业务表单尾巴挤走
+      // (Fragment 拼接而非覆盖 —— businessFormTails 的尾巴仍要照常渲染)
+      orphanTailNode: (
+        <>
+          {businessFormTails.orphanTailNode}
+          <NoticeLog notices={notices} />
+        </>
+      ),
     },
     headerNode,
     topSlot,

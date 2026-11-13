@@ -61,6 +61,10 @@ import { TurnStatusLine } from './turn-status-line'
 // 挂在消息流尾部（与 TurnStatusLine 同一挂载位置），避免改 MessageItem 的工具卡区域。
 import { SessionBudgetStopNotice } from '../budget-stop-notice'
 import { CompactionBoundaryReview } from '../compaction-boundary-review'
+// 2026-11:对话内「提示留痕」—— sonner 光条 4s 即消,用户无法回看/复盘。
+// 挂在消息流尾部(与 TurnStatusLine 同位置,对齐 RN 的 `messageListSlots.orphanTailNode`),
+// 把本次会话弹出过的提示按时间列出来。记录不进后端上下文,只是客户端可视 trace。
+import { ChatNoticeLog } from '../notice-log'
 // G-828(2026-10-04):窗口化的纯判据(区间 + 窗口外占位高度)单点住在 ../windowing,
 // 本组件不再手算 `offsets[len] - offsets[end+1]`。
 import { listItemEntranceMotion, windowPaddings } from '../windowing'
@@ -806,6 +810,10 @@ export function MessageList({
         <TurnStatusLine />
         {/* 内联提问卡等尾部插槽:跟随最后一条消息,处于滚动区之内(非浮层) */}
         {trailing}
+        {/* 2026-11 提示留痕:本次会话弹出过的 toast 按时间留在流尾(可回看/可复制)。
+            位置刻意放在 `trailing` 之后、`bottomRef` 之前 —— 与 RN 的 orphanTailNode 同语义:
+            随内容滚动、恒在最后一条消息之后,不遮挡输入区。 */}
+        <ChatNoticeLog conversationId={conversationId} />
         <div ref={bottomRef} />
       </div>
     </div>

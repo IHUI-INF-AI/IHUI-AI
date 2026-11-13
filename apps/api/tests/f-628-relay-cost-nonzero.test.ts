@@ -105,7 +105,7 @@ describe('聚合 SQL:成本列下推 + bigint 防溢出', () => {
   })
 })
 
-describe('6 个读取点不再裸读 metadata->>\'costCents\'', () => {
+describe("6 个读取点不再裸读 metadata->>'costCents'", () => {
   const files = [
     'src/routes/admin/relay-logs.ts',
     'src/routes/developer-relay.ts',
@@ -127,10 +127,7 @@ describe('6 个读取点不再裸读 metadata->>\'costCents\'', () => {
   }
 
   it('relay-cost 模块自身保留 ::bigint 聚合', () => {
-    const text = readFileSync(
-      new URL('../src/services/relay-cost.ts', import.meta.url),
-      'utf8',
-    )
+    const text = readFileSync(new URL('../src/services/relay-cost.ts', import.meta.url), 'utf8')
     expect(text).toContain('sum(cost_cents)')
     expect(text).toContain('::bigint')
   })

@@ -5058,7 +5058,8 @@
     "analysisPendingVar": "（待补充：{name}）",
     "analysisEstimate": "预计约 {tokens} tokens · 难度 {difficulty}",
     "analysisPickFirst": "请先选择一个场景",
-    "analysisSubmit": "发起分析"
+    "analysisSubmit": "发起分析",
+      "noValidContent": "无可导入的有效内容"
   },
   "permissionTier": {
     "label": "权限档",

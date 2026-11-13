@@ -16,14 +16,18 @@
  */
 import { apiOrThrow } from '@/lib/api'
 
-/** 任务触发 kind(与 ai-service task-run 白名单逐字一致) */
-export type WorkbuddyTaskKind = 'growth' | 'travel' | 'activity' | 'blackcat'
+/** 任务触发 kind(与 ai-service TaskRunIn.kind 的 Literal 七值逐字一致) */
+export type WorkbuddyTaskKind =
+  'growth' | 'travel' | 'activity' | 'blackcat' | 'redeem' | 'lottery' | 'all'
 
 export const WORKBUDDY_TASK_KINDS: readonly WorkbuddyTaskKind[] = [
   'growth',
   'travel',
   'activity',
   'blackcat',
+  'redeem',
+  'lottery',
+  'all',
 ]
 
 /** 单条任务(progress/target/奖励族:null = 引擎没给,不是 0) */

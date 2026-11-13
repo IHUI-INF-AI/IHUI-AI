@@ -93,7 +93,9 @@ vi.mock('../src/services/edge-access.js', () => ({
   latestEdgeSnapshot: () => null,
   edgeSeries: () => [],
 }))
-vi.mock('../src/services/traffic-stats-service.js', () => ({ getTrafficLiveSnapshot: async () => null }))
+vi.mock('../src/services/traffic-stats-service.js', () => ({
+  getTrafficLiveSnapshot: async () => null,
+}))
 vi.mock('../src/db/visit-tracking-queries.js', () => ({
   getPageUsageLiveSnapshot: async () => null,
 }))

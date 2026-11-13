@@ -183,6 +183,8 @@ export * from './delivery-ack'
 export * from './output-style'
 // 冷启动分两半：列表没量到不显示成空，深链时刻没量到不恢复路径。
 export * from './cold-start'
+// 对话内提示留痕：去重/上限/编解码三端共用一份，存储适配器由各端注入。
+export * from './notice-log'
 // 流式跟底唯一判据源(RN / 小程序共用):回退即交还滚动权、触底即恢复、内容增长贴底。
 // web 的完整滚动权账目另有一份(要处理 wheel/touch/keyboard 归因与布局撑高歧义),此处不复制它。
 export * from './stream-follow'

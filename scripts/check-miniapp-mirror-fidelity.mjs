@@ -89,6 +89,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { catBatch, gitRaw, gitErrText } from './lib/face-reader.mjs'
 import {
   directSharedUsage,
+  renderedSharedSymbol,
   shellRefsOf,
   shellTargetRel,
   mismatchedShellBinding,
@@ -300,6 +301,14 @@ export function hostingFormOf({ spec, pageText, readShell }) {
   const refs = shellRefsOf(pageText || '')
   if (refs.size === 0) {
     if (directSharedUsage(pageText, name)) return { form: 'hosted', why: '', via: 'direct' }
+    // B 类拆子页:渲染的是该屏模块导出的一个 section(非整屏本体) ⇒ form='section',
+    // 真单一源委托、但**分母须由调用方缩到该 section 真消费的键**(symbol 名回传给调用方)。
+    // 直接判 hosted 会把整屏键集记满 = 假绿(section 收 props、t() 在父页时其它 section 键也会被算进)。
+    const rendered = renderedSharedSymbol(pageText, name, null)
+    if (rendered) {
+      if (rendered.via === 'direct') return { form: 'hosted', why: '', via: 'direct' }
+      return { form: 'section', why: '', via: 'section', symbol: rendered.name }
+    }
     return { form: 'hand', why: '' }
   }
   const shells = new Map()
@@ -348,6 +357,58 @@ export function gapOfPair({ sharedKeys, mpKeys, aliasSame, retractedOf }) {
   const missing = unrecovered.filter((k) => !retracted.includes(k))
   const scope = sharedKeys.length - retracted.length
   return { unrecovered, retracted, missing, scope, covered: scope - missing.length }
+}
+
+/**
+ * B 类拆子页的**诚实分母**(2026-11-13 立,port_all_23 B 类拍板)。
+ *
+ * form='section' 的页渲染的是共享屏模块导出的**一个 section**,不是整屏。若照搬整屏分母,
+ * language 子页会被摊上密码/通知/资料等其它 section 的键 → 假缺口 21/21;反过来若直接
+ * 判 hosted 记满,整屏其它 section 的键就被误算「已还原」→ 假绿。两种都不诚实。
+ *
+ * 诚实分母 = **该 section 符号函数体内真消费的键** ∩ 整屏业务键。两种 section 形态都要覆盖:
+ *   · 自消费型(AvatarEditor / VipLevelsSection):section 体里有 `t('ns.key')` ⇒ 直接收。
+ *   · props 传入型(SettingsLanguageSection / SettingsThemeSection):section 体零 t(),
+ *     文案全由父页 `title={t(...)}` / items 传入 ⇒ section 体收 0 键,此时**回退到「页面自己
+ *     消费且属整屏」的键**(页面里那几个 `t('settings.language')`),分母非空也不冒满还原。
+ * 提不到 section 体(读不到共享屏正文/符号不在)⇒ 返回 null,调用方按未判定交回逐键那把尺
+ * (§0.3:取不到不折绿)。
+ */
+export function sectionScopeKeys({ sharedScreenText, symbol, sharedKeys, pageKeys }) {
+  if (!sharedScreenText || !symbol) return null
+  const idx = sharedScreenText.indexOf(`export function ${symbol}`)
+  if (idx < 0) return null
+  const braceStart = sharedScreenText.indexOf('{', idx)
+  if (braceStart < 0) return null
+  // 平衡括号截出该 section 函数体(跳过字符串/模板字面量,防体里 '}' 误截)。
+  let depth = 0
+  let inStr = null
+  let end = -1
+  for (let i = braceStart; i < sharedScreenText.length; i++) {
+    const c = sharedScreenText[i]
+    if (inStr) {
+      if (c === '\\') i++
+      else if (c === inStr) inStr = null
+      continue
+    }
+    if (c === '"' || c === "'" || c === '`') inStr = c
+    else if (c === '{') depth++
+    else if (c === '}') {
+      depth--
+      if (depth === 0) {
+        end = i + 1
+        break
+      }
+    }
+  }
+  if (end < 0) return null
+  const body = sharedScreenText.slice(idx, end)
+  const bodyKeys = new Set(extractUsedKeys(body))
+  const inBody = sharedKeys.filter((k) => bodyKeys.has(k))
+  if (inBody.length > 0) return inBody
+  // props 传入型回退:页面自己消费且属整屏业务键的那几个(分母非空、又不冒满还原)。
+  const pageSet = new Set(pageKeys || [])
+  return sharedKeys.filter((k) => pageSet.has(k))
 }
 
 /**
@@ -448,7 +509,7 @@ export function computeFidelity(face) {
     for (const p of miniapp) {
       if (!p.file) continue
       if (!mirroredSpecs(p).has(s.spec)) continue
-      const { form, why } = hostingFormOf({ spec: s.spec, pageText: p.text, readShell })
+      const { form, why, symbol } = hostingFormOf({ spec: s.spec, pageText: p.text, readShell })
       const mpKeys = consumedKeys(`${p.text || ''}\n${p.cssText || ''}\n${localModulesOf(p)}`)
       // 承载页的文案由共享源本体渲染 ⇒ 无键可缺;断链/手写页照旧逐键数,一分不宽。
       // 同值别名单独记一列并从缺口中扣除:两套命名空间同一句译文 = 页面真渲染了这句。
@@ -462,11 +523,23 @@ export function computeFidelity(face) {
               mpValues,
               pageExtraValuesOf(p),
             ).filter((k) => !mpKeys.has(k))
+      // B 类 section 型:分母缩到该 section 真消费的键(自消费型=section 体 t() 键;
+      // props 传入型=section 体 0 键时回退页面自消费键)。提不到 section 体 ⇒ 逐键那把尺照旧,
+      // 绝不冒满还原(防假绿)。hosted/hand/broken/other 分母不变。
+      const sectionKeys =
+        form === 'section'
+          ? sectionScopeKeys({
+              sharedScreenText: sharedText,
+              symbol,
+              sharedKeys,
+              pageKeys: [...mpKeys],
+            })
+          : null
       const { retracted, missing, scope, covered } =
         form === 'hosted'
           ? { retracted: [], missing: [], scope: sharedKeys.length, covered: sharedKeys.length }
           : gapOfPair({
-              sharedKeys,
+              sharedKeys: form === 'section' && sectionKeys ? sectionKeys : sharedKeys,
               mpKeys,
               aliasSame,
               retractedOf: (k) => retractedOf(p.route, s.spec, k),
@@ -532,6 +605,8 @@ export function computeFidelity(face) {
     hand: rows.filter((r) => r.form === 'hand').length,
     other: rows.filter((r) => r.form === 'other').length,
     broken: rows.filter((r) => r.form === 'broken').length,
+    // B 类拆子页(section 型真单一源、诚实缩分母):单列报数,让「缺多少/为什么不是 hosted」可解释。
+    section: rows.filter((r) => r.form === 'section').length,
     rows,
   }
 }

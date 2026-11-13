@@ -845,7 +845,7 @@ const EMPTY_STATUS: Omit<PoolStatusView, 'ok' | 'error'> = {
 /** 点查单账号签到状态(GET /internal/checkin/pool-status;ai-service 不可达 → ok:false) */
 export async function fetchPoolStatus(
   platform: CheckinPlatform,
-  target: { poolAccountId: string; uid: string },
+  target: { poolAccountId: string; uid: string; ownerUserId?: string | null },
   fetchImpl: typeof fetch = fetch,
 ): Promise<PoolStatusView> {
   const secret = config.AI_CALLBACK_SECRET
@@ -861,7 +861,9 @@ export async function fetchPoolStatus(
   }
   try {
     const resp = await fetchImpl(
-      `${config.AI_SERVICE_URL.replace(/\/+$/, '')}/internal/checkin/pool-status?platform=${encodeURIComponent(platform)}&poolAccountId=${encodeURIComponent(target.poolAccountId)}&uid=${encodeURIComponent(target.uid)}`,
+      `${config.AI_SERVICE_URL.replace(/\/+$/, '')}/internal/checkin/pool-status?platform=${encodeURIComponent(platform)}&poolAccountId=${encodeURIComponent(target.poolAccountId)}&uid=${encodeURIComponent(target.uid)}${
+        target.ownerUserId ? `&ownerUserId=${encodeURIComponent(target.ownerUserId)}` : ''
+      }`,
       {
         method: 'GET',
         headers: authHeaders,

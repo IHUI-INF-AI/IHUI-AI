@@ -1815,8 +1815,10 @@ export function buildAcpAgentApp(opts: AcpServerOptions): acp.AgentApp {
     .onRequest('session/load', (ctx) => agent.loadSession(ctx.params, ctx.client))
     .onRequest('session/prompt', (ctx) => agent.prompt(ctx.params, ctx.client))
     .onRequest('session/close', (ctx) => {
-      agent.closeSession?.(ctx.params);
-      return {};
+      rpcMethod(async (p: acp.CloseSessionRequest) => {
+        agent.closeSession?.(p);
+        return {};
+      })(ctx.params);
     })
     // ACP 标准会话生命周期(补齐 SDK 1.3.0 已定义、本仓原先未注册的四个方法)。
     // 用 SDK 三参数重载:方法名 + params parser + handler。
@@ -1949,17 +1951,17 @@ export function buildAcpAgentApp(opts: AcpServerOptions): acp.AgentApp {
     .onRequest<RepairSessionParams, RepairSessionResponse>(
       'x.ai/session/repair',
       castParams<RepairSessionParams>(),
-      (ctx) => agent.repairSession(ctx.params),
+      (ctx) => rpcMethod((p: RepairSessionParams) => agent.repairSession(p))(ctx.params),
     )
     .onRequest<RewindPointsParams, { points: RewindPoint[] }>(
       'x.ai/rewind/points',
       castParams<RewindPointsParams>(),
-      (ctx) => agent.rewindPoints(ctx.params),
+      (ctx) => rpcMethod((p: RewindPointsParams) => agent.rewindPoints(p))(ctx.params),
     )
     .onRequest<RewindExecuteParams, RewindResponse>(
       'x.ai/rewind/execute',
       castParams<RewindExecuteParams>(),
-      (ctx) => agent.rewindExecute(ctx.params),
+      (ctx) => rpcMethod((p: RewindExecuteParams) => agent.rewindExecute(p))(ctx.params),
     )
     // P1-6 ACP MCP 私有扩展方法(x.ai/mcp/* 命名空间)
     // 让 Zed/VSCode 等编辑器能通过 ACP 直接查询 MCP server 状态 / 调用 MCP 工具。
@@ -1967,22 +1969,22 @@ export function buildAcpAgentApp(opts: AcpServerOptions): acp.AgentApp {
     .onRequest<McpListServersParams, McpListServersResponse>(
       'x.ai/mcp/listServers',
       castParams<McpListServersParams>(),
-      (ctx) => agent.listMcpServers(ctx.params),
+      (ctx) => rpcMethod((p: McpListServersParams) => agent.listMcpServers(p))(ctx.params),
     )
     .onRequest<McpServerStatusParams, McpServerStatusResponse>(
       'x.ai/mcp/serverStatus',
       castParams<McpServerStatusParams>(),
-      (ctx) => agent.mcpServerStatus(ctx.params),
+      (ctx) => rpcMethod((p: McpServerStatusParams) => agent.mcpServerStatus(p))(ctx.params),
     )
     .onRequest<McpCallToolParams, McpCallToolResponse>(
       'x.ai/mcp/callTool',
       castParams<McpCallToolParams>(),
-      (ctx) => agent.mcpCallTool(ctx.params),
+      (ctx) => rpcMethod((p: McpCallToolParams) => agent.mcpCallTool(p))(ctx.params),
     )
     .onRequest<McpReconnectParams, McpReconnectResponse>(
       'x.ai/mcp/reconnect',
       castParams<McpReconnectParams>(),
-      (ctx) => agent.mcpReconnect(ctx.params),
+      (ctx) => rpcMethod((p: McpReconnectParams) => agent.mcpReconnect(p))(ctx.params),
     )
     .onNotification('session/cancel', (ctx) => agent.cancel(ctx.params));
 }

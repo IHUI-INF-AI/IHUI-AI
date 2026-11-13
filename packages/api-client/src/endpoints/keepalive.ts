@@ -155,6 +155,14 @@ export async function listKeepaliveEvents(params?: {
   return fetchApi(`/api/keepalive/events${suffix}`)
 }
 
+/** 保活成功率统计 — GET /api/keepalive/stats?days=7(1-90) */
+export async function getKeepaliveStats(
+  days = 7,
+): Promise<ApiResult<{ days: number; by_source: Record<string, KeepaliveRateBucket> }>> {
+  const query = new URLSearchParams({ days: String(days) })
+  return fetchApi(`/api/keepalive/stats?${query.toString()}`)
+}
+
 export async function runKeepalive(params?: {
   ref?: string
   force?: boolean

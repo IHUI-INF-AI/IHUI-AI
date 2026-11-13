@@ -9,6 +9,7 @@ import { useEffect } from 'react'
 import type { ComponentProps, ReactNode } from 'react'
 import { toUserFriendlyMessage } from '@ihui/shared'
 import { rnRadiusFor } from '@ihui/design-tokens'
+import { recordNotice } from '@/lib/notice-log-store'
 
 /**
  * Sonner Toaster + toast 统一入口(2026-07-24 立)。
@@ -90,12 +91,50 @@ const toastProxy = Object.assign(
 export { toastProxy as toast }
 export type ToasterProps = ComponentProps<typeof SonnerToaster>
 
+/**
+ * 从 toast 实参里取出「要留痕的那句话」。
+ *
+ * 只认 4 类用户可见提示(message/success/error/warning/info):`loading` 是进度态、
+ * `dismiss` 是撤销动作、`promise`/`custom` 是自绘内容,都不该进对话留痕。
+ * 有 description 时拼在正文后(留痕是给"回头查"用的,少一半信息等于没留)。
+ */
+function noticeTextFor(
+  method: ToastMethod,
+  args: unknown[],
+): { kind: 'success' | 'error' | 'warning' | 'info'; text: string } | null {
+  const kind = method === 'message' ? 'info' : method
+  if (kind !== 'success' && kind !== 'error' && kind !== 'warning' && kind !== 'info') return null
+  const raw = args[0]
+  const main =
+    typeof raw === 'string' ? raw : raw instanceof Error ? toUserFriendlyMessage(raw) : ''
+  if (!main.trim()) return null
+  const data = args[1]
+  let extra = ''
+  if (typeof data === 'string') extra = data
+  else if (data && typeof data === 'object' && 'description' in data) {
+    const desc = (data as { description?: unknown }).description
+    if (typeof desc === 'string') extra = desc
+  }
+  const text = extra.trim() ? `${main.trim()} · ${extra.trim()}` : main.trim()
+  return { kind, text }
+}
+
 export function Toaster(props: ToasterProps) {
   useEffect(() => {
     const handler = (e: Event) => {
       const { method, args } = (e as CustomEvent).detail as { method: ToastMethod; args: unknown[] }
       // error/warning 自动中文化(2026-08-01 立)
       const finalArgs = method === 'error' || method === 'warning' ? localizeErrorArgs(args) : args
+      // 2026-11 对话内留痕:在**唯一出口**记一份,432 处 toast 调用点无需逐个改。
+      // 用中文化之后的文案(用户看到什么就留什么),且记失败绝不影响 toast 本身。
+      try {
+        const notice = noticeTextFor(method, finalArgs)
+        if (notice) recordNotice(notice.kind, notice.text)
+      } catch (err) {
+        if (process.env.NODE_ENV !== 'production') {
+          console.warn('[toaster] 留痕记录失败(不影响提示本身):', err)
+        }
+      }
       const fn = (sonnerToast as unknown as Record<string, (...a: unknown[]) => unknown>)[method]
       if (typeof fn === 'function') {
         fn.apply(sonnerToast, finalArgs)

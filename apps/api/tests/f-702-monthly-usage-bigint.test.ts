@@ -36,15 +36,16 @@ vi.mock('../src/db/index.js', () => {
 import { getUsageSummaries, normalizeMonthlyUsage } from '../src/services/channel-quota-service.js'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
-const SERVICE_SRC = readFileSync(join(HERE, '..', 'src', 'services', 'channel-quota-service.ts'), 'utf8')
+const SERVICE_SRC = readFileSync(
+  join(HERE, '..', 'src', 'services', 'channel-quota-service.ts'),
+  'utf8',
+)
 
 /** 截出月度聚合的 select 片段（以 monthStartStr 为当月查询的锚点）。 */
 function monthlySelectSrc(): string {
   // 文件里两处 monthStartStr 条件：getRawMonthlyUsage（配额读）与 getUsageSummaries 月度块，
   // 本票只锁后者（Dashboard 三条聚合），故取最后一处。
-  const gteIdx = SERVICE_SRC.lastIndexOf(
-    'gte(aiRelayChannelDailyUsage.usageDate, monthStartStr)',
-  )
+  const gteIdx = SERVICE_SRC.lastIndexOf('gte(aiRelayChannelDailyUsage.usageDate, monthStartStr)')
   expect(gteIdx).toBeGreaterThan(-1)
   const selectIdx = SERVICE_SRC.lastIndexOf('.select({', gteIdx)
   expect(selectIdx).toBeGreaterThan(-1)
@@ -88,7 +89,12 @@ describe('F-702 normalizeMonthlyUsage 映射', () => {
   })
 
   it('0 行/空字段兜底 0，不产生 NaN/null', () => {
-    for (const row of [undefined, null, {}, { callCount: null, totalTokens: null, totalCostCents: null }]) {
+    for (const row of [
+      undefined,
+      null,
+      {},
+      { callCount: null, totalTokens: null, totalCostCents: null },
+    ]) {
       const result = normalizeMonthlyUsage(row)
       expect(result).toEqual({ callCount: 0, totalTokens: 0, totalCostCents: 0 })
       for (const value of Object.values(result)) {

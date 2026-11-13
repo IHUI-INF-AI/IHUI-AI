@@ -1102,6 +1102,13 @@
       "notSubscribed": "未订阅VIP",
       "subtitle": "管理您的VIP订阅与续费",
       "title": "订阅管理"
+    },
+    "avatar": {
+      "fromAlbum": "从相册选择",
+      "takePhoto": "拍照",
+      "formatHint": "支持 JPG / PNG，建议 200x200",
+      "sizeHint": "建议 200x200，不超过 2MB",
+      "uploading": "上传中..."
     }
   },
   "exam": {
@@ -1133,7 +1140,14 @@
     "ended": "已结束",
     "lecturer": "讲师",
     "startAt": "开始时间",
-    "viewerCount": "{count} 观看"
+    "viewerCount": "{count} 观看",
+    "subscribe": {
+      "count": "共",
+      "unit": "场",
+      "reminder": "开播提醒",
+      "reminderDesc": "开启后直播开始时提醒你",
+      "discover": "去发现"
+    }
   },
   "course": {
     "free": "免费",
@@ -1607,7 +1621,8 @@
         "chat": "无限 AI 对话",
         "model": "全部模型"
       }
-    }
+    },
+    "privileges": "会员特权"
   },
   "login": {
     "title": "登录",
@@ -1651,7 +1666,8 @@
     "avatarUrl": "头像链接",
     "avatarConfirm": "确认",
     "save": "保存",
-    "retry": "重试"
+    "retry": "重试",
+    "avatarUrlApply": "确认"
   },
   "changePhone": {
     "title": "换绑手机",
@@ -3144,7 +3160,9 @@
     "label2": "主体类型",
     "label3": "备案时间",
     "label4": "备案链接",
-    "label5": "备案范围"
+    "label5": "备案范围",
+    "scope": "备案范围",
+    "url": "备案网址"
   },
   "businessLicense": {
     "scopeTitle": "经营范围",
@@ -3479,5 +3497,65 @@
     "categoryTotal": "共 {total} 篇",
     "categoryPublishedAt": "发布于 {date}",
     "categoryViewCount": "{count} 次浏览"
+  },
+  "sag2Lexical": {
+    "title": "SAG2 词法多跳检索",
+    "globalSearchTitle": "全局检索",
+    "globalSearchPlaceholder": "搜索本地知识库（Ctrl/Cmd + K）",
+    "globalSearchEmpty": "没有命中：索引里没有包含这些词的文件",
+    "globalSearchHint": "↑↓ 选择 · Enter 打开 · Esc 关闭",
+    "filter_all": "全部",
+    "filter_text": "文本",
+    "filter_office": "文档",
+    "fromPalette": "来自全局检索",
+    "extractRaster": "栅格化",
+    "extractOcr": "OCR",
+    "extractAsr": "转写",
+    "missing": "缺件",
+    "subtitle": "零模型建库 · 查询时关联 · 引用可直达原文",
+    "ready": "索引就绪",
+    "empty": "索引为空",
+    "version": "版本",
+    "documents": "文档",
+    "chunks": "块",
+    "terms": "词项",
+    "judgeProvider": "判定器",
+    "foldersTitle": "本地文件夹",
+    "folderPath": "文件夹路径",
+    "folderPlaceholder": "例如 D://docs 或 /Users/me/docs",
+    "registerFolder": "登记并扫描",
+    "scanFolders": "扫描全部",
+    "foldersList": "已登记",
+    "noFolders": "还没有登记文件夹",
+    "removeFolder": "注销",
+    "watchFolder": "自动监听",
+    "scanSummary": "{changed} 新增 · {unchanged} 未变 · {unsupported} 不支持 · {failed} 失败",
+    "docsTitle": "文档登记",
+    "docsPath": "路径",
+    "docsContent": "正文",
+    "pathPlaceholder": "kb/example.txt",
+    "contentPlaceholder": "粘贴或输入文档正文…",
+    "add": "登记 / 更新",
+    "remove": "移除",
+    "added": "已登记（建库零模型调用）",
+    "unchanged": "文件 hash 未变，跳过重建",
+    "removed": "已移除块数",
+    "queryTitle": "检索",
+    "queryPlaceholder": "输入问题，可跨文档多跳关联…",
+    "quick": "快速搜索",
+    "deep": "多跳检索",
+    "fuse": "RRF 融合",
+    "emptyResult": "暂无结果，请先登记文档",
+    "loading": "处理中…",
+    "error": "请求失败",
+    "modelCalls": "模型调用 0 次",
+    "judgeOff": "证据判断未执行（纯词法判定）",
+    "trace": "检索轨迹",
+    "tracePool": "候选池",
+    "traceTerms": "扩展词",
+    "citations": "引用锚点",
+    "score": "得分",
+    "bm25": "BM25",
+    "hop": "跳"
   }
 }

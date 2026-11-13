@@ -296,12 +296,9 @@ async function boot(opts: { withAuth?: boolean } = {}): Promise<FastifyInstance>
   if (opts.withAuth) {
     if (!authRoutesProbe.ok) throw new Error('auth 路由不可装载:' + authRoutesProbe.reason)
     await app.register(cookie)
-    app.decorate(
-      'riskEngine',
-      {
-        evaluateRisk: () => ({ action: 'ALLOW' as const, hits: [], totalScore: 0 }),
-      } as unknown as RiskRuleEngine,
-    )
+    app.decorate('riskEngine', {
+      evaluateRisk: () => ({ action: 'ALLOW' as const, hits: [], totalScore: 0 }),
+    } as unknown as RiskRuleEngine)
     app.register(authRoutesProbe.authRoutes, { prefix: '/api/auth' })
     app.register(authRoutesProbe.authExtendedRoutes, { prefix: '/api' })
   }
