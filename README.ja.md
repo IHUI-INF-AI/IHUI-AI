@@ -2227,6 +2227,9 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-13**
+- 🐞 修正:notice-log.test 补 6 处非空断言,消 noUncheckedIndexedAccess TS2532 (949d0173ed)
+
+**2026-11-13**
 - 📚 ドキュメント:派生产物 changelog 同步(2026-11-13) (a043340146)
 - 📚 ドキュメント:生成块 trackedFiles 对齐 HEAD 面现算(21338→21339) (593905e70d)
 - 📚 ドキュメント:门 41 存量 24 分支逐枚内容级取证 —— 全部必须保留,0 枚可收口 (46542d1d84)
@@ -2608,9 +2611,6 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 
 **2026-11-13**
 - 📚 ドキュメント:多语言 README 派生产物同步 (01bde91ef0)
-
-**2026-11-13**
-- 🚀 機能/改善:sag2 特性面板(mobile-rn/packages app/types + api-client sag2-lexical 端点) (02cdf68286)
 <!-- END RECENT UPDATES -->
 
 <p align="center">
