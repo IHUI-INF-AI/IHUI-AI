@@ -9405,7 +9405,11 @@ async def anthropic_messages_endpoint(request: Request) -> dict[str, Any] | JSON
     openai_req = protocol_converter.convert_request(
         payload, ProtocolType.ANTHROPIC, ProtocolType.OPENAI
     )
+    # 外部 Anthropic 形态客户端(Craft Anything 等)透传的 model 名可能不是本池可解析
+    # 的 id(如 claude-sonnet-4-5);此时优先回落 anthropic_compat_default_model。
     model = openai_req.get("model") or payload.get("model") or settings.litellm_model
+    if model and "/" not in model and settings.anthropic_compat_default_model:
+        model = settings.anthropic_compat_default_model
     messages = openai_req.get("messages", [])
     kwargs: dict[str, Any] = {}
     for k in ("tools", "tool_choice", "temperature", "max_tokens"):

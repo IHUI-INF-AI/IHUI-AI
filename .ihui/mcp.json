@@ -11,6 +11,13 @@
         "GHIDRA_INSTALL_DIR": "D:\\DevEnv\\ghidra_12.1.4",
         "JAVA_HOME": "C:\\Program Files\\Java\\jdk-21-temp\\jdk-21.0.2+13"
       }
+    },
+    {
+      "name": "craft-anything",
+      "transport": "stdio",
+      "command": "E:\\ct-craft-anything\\ca-0.5.0\\craft-anything-0.5.0-windows-x64-portable\\craft-anything-cli.exe",
+      "args": ["mcp", "--all-tools", "--allow-run"],
+      "requestTimeoutMs": 600000
     }
   ]
 }
