@@ -12230,7 +12230,6 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 358G. **缺陷普查 API F-358** [P3] orders 缺 paid_at / created_at 索引，财务与 BI 聚合每次全表扫（证据 docs/tickets/2026-11/findings-api.md#F-358）
 - [ ] 376G. **缺陷普查 API F-376** [P2] 预算告警 6 小时冷却为「先查后异步写」，并发下重复告警（证据 docs/tickets/2026-11/findings-api.md#F-376）（进行中@2026-11-13/w3-f376）
 
-- [ ] 419G. **缺陷普查 API F-419** [P2] 权限授权「读-改-写」非原子，并发撤销可被复活（证据 docs/tickets/2026-11/findings-api.md#F-419）（进行中@2026-11-13/w3-f419）
 - [ ] 434G. **缺陷普查 API F-434** [P2] customer_service_sessions.status 默认值 waiting 与「唯一真相源」枚举互斥（证据 docs/tickets/2026-11/findings-api.md#F-434）
 - [ ] 495G. **缺陷普查 API F-495** [P3] 批处理 worker 崩溃重跑无断点，重复消耗上游（证据 docs/tickets/2026-11/findings-api.md#F-495）
 - [ ] 512G. **缺陷普查 API F-512** [P3] notification-worker 无幂等键，重投会重复落库 + 重复发信（证据 docs/tickets/2026-11/findings-api.md#F-512）
