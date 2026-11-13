@@ -23,8 +23,10 @@
  * 失败诚实:入库失败**必写 conversation_imports 留痕**(status='failed' + errorMessage),
  * 且响应非 200。理由与 /commit 同源 —— status 三态若只有 success 可达,前端失败徽标
  * 就是死 UI,而"点了按钮不知道成没成"比"明确失败"更糟。
- * 幂等:靠 knowledge_doc.content_hash 查重(该列无唯一索引,须显式先查后写),
- * 重复点同一会话返回既有 doc 且 deduped=true,不产生第二批重复 chunk。
+ * 幂等:靠 knowledge_doc.content_hash + 服务层两段闸(F-141)。该列**没有**唯一索引,
+ * 光靠"先查后写"在并发双请求下必双写,故 ingestConversation 另加:同进程单飞表(同键并发
+ * 只跑一次 embedding)+ 写库事务内 `pg_advisory_xact_lock` 串行化并锁内复查。
+ * 重复点同一会话返回既有 doc 且 deduped=true,不产生第二批重复 chunk,也不重复付 embedding。
  *
  * 既有端点契约零改动:本文件是**新增路由文件**,conversation-import.ts 的
  * parse / commit / history 三端点一字未动。

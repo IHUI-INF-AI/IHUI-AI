@@ -134,6 +134,21 @@ export const KNOWLEDGE_ACTIVE_DOC_EXISTS_SQL = `EXISTS (
  */
 export const CONVERSATION_IMPORT_SOURCE_TYPE = 'conversation_import'
 
+/** F-141:会话入库的幂等键前缀(advisory lock 键与同进程单飞键共用同一份取值,不另造第二套)。 */
+const CONVERSATION_INGEST_DEDUPE_PREFIX = 'knowledge_ingest'
+
+/**
+ * F-141:同进程单飞表(键 = 幂等键)。
+ *
+ * 双击「加入知识库」/ 前端重试会把两条一模一样的请求几乎同时打到同一个实例;只靠写库前的
+ * 复查,两条请求都会先把 embedding 跑完(钱已经花掉)。这里让后到者复用在途 Promise,
+ * 整条 embedding + 写库只跑一次。条目在 task 落定时按身份比对删除,不会随请求数增长。
+ */
+const inFlightConversationIngest = new Map<
+  string,
+  Promise<{ docId: number; chunkCount: number; deduped: boolean }>
+>()
+
 /**
  * 把会话消息拼成一份可入库的转录文本。
  *
@@ -211,7 +226,13 @@ class KnowledgeRagService {
     collectionName?: string
     sourcePath?: string | null
     metadataJson?: string | null
-  }): Promise<{ docId: number; chunkCount: number }> {
+    /**
+     * F-141:幂等键。给定后写库事务先取 `pg_advisory_xact_lock` 串行化同键写入,
+     * 锁内再查一次同键 active 文档;命中则放弃本次插入、返回既有 doc(deduped=true)。
+     * 传 undefined 时行为与修复前逐字节一致(纯文本/文件入库路径不受影响)。
+     */
+    dedupeKey?: string
+  }): Promise<{ docId: number; chunkCount: number; deduped: boolean }> {
     const {
       ownerUuid,
       title,
@@ -220,10 +241,11 @@ class KnowledgeRagService {
       collectionName = 'default',
       sourcePath = null,
       metadataJson = null,
+      dedupeKey,
     } = opts
-    if (!text || !text.trim()) return { docId: 0, chunkCount: 0 }
+    if (!text || !text.trim()) return { docId: 0, chunkCount: 0, deduped: false }
     const chunks = splitText(text)
-    if (chunks.length === 0) return { docId: 0, chunkCount: 0 }
+    if (chunks.length === 0) return { docId: 0, chunkCount: 0, deduped: false }
 
     const contentHash = createHash('md5').update(text, 'utf8').digest('hex')
     // embedding 在事务外生成:外部 HTTP 调用不应占住数据库连接/事务。
@@ -238,7 +260,29 @@ class KnowledgeRagService {
       embedding: embeddings[i] && embeddings[i]!.length === 1536 ? embeddings[i]! : null,
     }))
 
-    const docId = await db.transaction(async (tx) => {
+    const result = await db.transaction(async (tx) => {
+      if (dedupeKey) {
+        // F-141:先查后写这段在多实例/多请求下必然双写 —— 两边 pre-check 都查不到对方,
+        // 各自插入一份 doc + 一整套 chunk。事务级 advisory lock 把「复查 + 插入」收成
+        // 一段互斥临界区:xact 锁随事务提交释放,后到者拿到锁时前者必已提交,复查必命中。
+        // 用 hashtext 而非自增 id:锁键只需同键互斥,32 位哈希偶发碰撞的代价只是多串行一次。
+        await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${dedupeKey}))`)
+        const [dup] = await tx
+          .select({ id: knowledgeDoc.id, chunkCount: knowledgeDoc.chunkCount })
+          .from(knowledgeDoc)
+          .where(
+            and(
+              eq(knowledgeDoc.ownerUuid, ownerUuid),
+              eq(knowledgeDoc.contentHash, contentHash),
+              eq(knowledgeDoc.sourceType, sourceType),
+              eq(knowledgeDoc.collectionName, collectionName),
+              eq(knowledgeDoc.status, 'active'),
+            ),
+          )
+          .limit(1)
+        if (dup) return { docId: dup.id, chunkCount: dup.chunkCount, deduped: true }
+      }
+
       const [doc] = await tx
         .insert(knowledgeDoc)
         .values({
@@ -262,9 +306,9 @@ class KnowledgeRagService {
         }))
         await tx.insert(knowledgeChunk).values(batch)
       }
-      return doc.id
+      return { docId: doc.id, chunkCount: chunks.length, deduped: false }
     })
-    return { docId, chunkCount: chunks.length }
+    return result
   }
 
   /** 文本入库, 返回切片数量 */
@@ -300,11 +344,14 @@ class KnowledgeRagService {
    *   没有任何消费点按值分支(其余 sourceType 命中全属 registry 域),且该列是
    *   varchar(20) 无 CHECK 枚举约束 ⇒ 新增取值零迁移、零破坏。将来要按来源过滤/展示
    *   时这个值就是唯一抓手;若图省事写 `text`,事后无法与"用户手打的纯文本"区分。
-   * - **幂等靠 contentHash**:`content_hash` 列早就在(ingestText 一直在写),但**没有**
-   *   唯一索引,重复入库不会被 DB 挡住 ⇒ 这里显式"先查后写"。查的是
-   *   (ownerUuid, contentHash, sourceType, status='active') 四元组:同会话重复点
-   *   「加入知识库」直接命中已有 doc 返回,不产生第二批重复 chunk;会话内容变了
-   *   (hash 变)则视为新知识追加一篇,符合"重新导入更新知识"的直觉。
+   * - **幂等靠 contentHash + 两段闸(F-141)**:`content_hash` 列早就在(ingestText
+   *   一直在写),但**没有**唯一索引,重复入库不会被 DB 挡住。原先只做一次"先查后写" ——
+   *   并发双请求两边都查不到对方,各自入库,doc/chunk 双份、embedding 收两遍钱。
+   *   现在:① 同进程内按幂等键单飞,并发第二个请求直接复用第一个的 Promise(不重复 embedding);
+   *   ② 写库事务里 `pg_advisory_xact_lock` + 锁内复查,跨实例也不会产出第二份 doc/chunk。
+   *   查的是 (ownerUuid, contentHash, sourceType, collectionName, status='active') 五元组:
+   *   同会话重复点「加入知识库」直接命中已有 doc 返回;会话内容变了(hash 变)则视为新知识
+   *   追加一篇,符合"重新导入更新知识"的直觉。
    * - **失败向上抛**,由路由层写 conversation_imports 留痕(见 conversation-knowledge.ts),
    *   绝不在此静默吞掉。
    */
@@ -341,7 +388,14 @@ class KnowledgeRagService {
       return { docId: existing[0].id, chunkCount: existing[0].chunkCount, deduped: true }
     }
 
-    const { docId, chunkCount } = await this._ingestChunks({
+    // F-141:两段闸。① 同进程单飞 —— 并发的第二个请求复用在途 Promise,embedding 只跑一遍;
+    // ② dedupeKey 透给 _ingestChunks,由事务内 advisory lock + 锁内复查兜住跨实例并发。
+    const dedupeKey = `${CONVERSATION_INGEST_DEDUPE_PREFIX}:${ownerUuid}:${collectionName}:${contentHash}`
+    const running = inFlightConversationIngest.get(dedupeKey)
+    // 搭车者没有新建任何东西 ⇒ 对它而言这次是判重,deduped 如实置 true。
+    if (running) return running.then((r) => ({ ...r, deduped: true }))
+
+    const task = this._ingestChunks({
       ownerUuid,
       title,
       text,
@@ -355,8 +409,17 @@ class KnowledgeRagService {
         messageCount: messages.length,
         ingestedVia: 'conversation-import',
       }),
+      dedupeKey,
     })
-    return { docId, chunkCount, deduped: false }
+    inFlightConversationIngest.set(dedupeKey, task)
+    try {
+      return await task
+    } finally {
+      // 只删自己那一条:期间可能有同键的新一轮请求已经把它覆盖掉。
+      if (inFlightConversationIngest.get(dedupeKey) === task) {
+        inFlightConversationIngest.delete(dedupeKey)
+      }
+    }
   }
 
   /** 文件入库:解析多格式文件 → 走 ingestText 切片 + embedding
