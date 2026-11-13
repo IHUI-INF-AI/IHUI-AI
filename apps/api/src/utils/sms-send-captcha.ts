@@ -93,6 +93,9 @@ function reject(reply: FastifyReply): void {
   reply.status(429).header('X-Challenge-Required', 'captcha').header('Retry-After', '60').send({
     code: 429,
     message: '验证码请求过于频繁,请先完成人机验证',
+    // 与 anti-automation 同型:首方客户端无 CAPTCHA 实现,做不了本验证。
+    // api-client 的 deriveFailureFromBody 见此 errorCode 即改写为「请稍后再试」,避免死锁。
+    errorCode: 'challenge_required',
     captchaEndpoint: CHALLENGE_ENDPOINT,
   })
 }
