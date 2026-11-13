@@ -201,11 +201,27 @@ test('T9 形状锁:H1 三桶不得并回一个数组', () => {
   assert.match(src, /verdict = violationCount \? 'red' : undetermined\.length \? 'undetermined' : 'green'/, 'verdict 顺序:违规 > 未判定 > 绿')
 })
 
-test('T10 消费侧:git-guardian 的未判定分支必须逐维报名(旧写法只印 worktree 一维)', () => {
+test('T10 消费侧:git-guardian 的未判定分支必须逐维报名(旧写法只印 worktree 一维;H3 起内容维单列)', () => {
   const g = readFileSync(join(REPO, 'scripts', 'git-guardian.mjs'), 'utf8')
   assert.match(g, /parsed\.verdict === 'undetermined'/, '守护仍须识别未判定')
-  assert.match(g, /盘根维 \$\{uN\}、worktree 维 \$\{wN\};不适用盘根 \$\{nN\}/, '三族要各自量出来,不得只报一维')
+  assert.match(
+    g,
+    /盘根维 \$\{uN\}、申报内容维 \$\{cuN\}、worktree 维 \$\{wN\};不适用盘根 \$\{nN\}/,
+    '四族要各自量出来,不得只报一维(2026-11-13 H3 起 declaredContentUndetermined 也必须有人念)',
+  )
   assert.doesNotMatch(g, /worktree 维度未判定=\$\{parsed\.counts\.worktreeUndetermined\}/, '旧的"只印一维"写法不得回来(它把没申报写成已判过)')
+})
+
+test('T10b 消费侧:违规 kind 词汇表两侧对齐 —— H3 新 kind 有专属措辞,不得落"未识别类别"兜底', () => {
+  const g = readFileSync(join(REPO, 'scripts', 'git-guardian.mjs'), 'utf8')
+  assert.match(
+    g,
+    /'stray-content-in-declared-dir': \(v\) =>/,
+    'LABEL 必须认识 H3 的 kind(否则信文把"申报目录内项目外流"喊成"请核对尺子与本守护是否同代")',
+  )
+  assert.match(g, /未识别的违规类别 kind=/, '"未识别类别单独报名"的兜底必须还在(新 kind 再来时不许被顺手当旧型渲染)')
+  const src = readFileSync(GATE, 'utf8')
+  assert.match(src, /kind: 'stray-content-in-declared-dir'/, '生产方产出的 kind 字面量与消费方词汇表逐字同形')
 })
 
 test('T13 消费侧:告警去重身份用档位而不是原始计数(实测 34 封、30 分钟一封的成因)', () => {
@@ -215,8 +231,8 @@ test('T13 消费侧:告警去重身份用档位而不是原始计数(实测 34 �
   // **身份走档位而不是原始计数**这个方向,不是那个函数的名字 ⇒ 跟着现役单源走。
   assert.match(
     g,
-    /dedupKey: `stray=\$\{alertCountTier\(c\.diskRootStray\)\};wtOutside=\$\{alertCountTier\(c\.worktreeOutside\)\}/,
-    '身份必须走档位函数(现役单源 alertCountTier)',
+    /dedupKey: `stray=\$\{alertCountTier\(c\.diskRootStray\)\};content=\$\{alertCountTier\(c\.declaredContentStray\)\};wtOutside=\$\{alertCountTier\(c\.worktreeOutside\)\}/,
+    '身份必须走档位函数(现役单源 alertCountTier),且 H3 的 declaredContentStray 必须在身份里(2026-11-13 加入 —— 摘掉 content= 段就等于新维又开始静默)',
   )
   assert.doesNotMatch(g, /stray=\$\{parsed\.counts\.diskRootStray\}/, '原始计数不得再进身份 —— 它在多会话并行时每轮都变,4 小时窗口形同虚设')
   assert.match(g, /export function alertCountTier\(n\)/, '档位函数在位(现役单源 alertCountTier)')

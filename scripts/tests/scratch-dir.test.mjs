@@ -9,8 +9,8 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { existsSync, mkdirSync, readdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
-import { dirname, join, resolve } from 'node:path'
+import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import { dirname, join, parse, resolve } from 'node:path'
 import { tmpdir } from 'node:os'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
@@ -29,12 +29,42 @@ import { copyScriptWithClosure } from '../lib/scratch-module-closure.mjs'
 const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = resolve(HERE, '..', '..')
 const SCRIPTS_DIR = resolve(HERE, '..')
+// G-158 迁址形态的期望串(#15「CI 可移植性」与「合规闸⑥」共用)。期望值必须跟着用例喂进的
+// moduleDir 字面量算(不赌本机盘符/脚本真实位置,§5b 机器事实不当判据输入);整行 const 形态
+// 与 2026-10-24/25 祖先文件里的独立 join(...) 行刻意不同文(落地陈旧守卫按 trim 等值配平复活行,
+// 新写的行不该顶旧行的名去要求逐条举证)。断言语义不变:逐字相等。
+const DERIVED_WIN_FORM = join('D:\\', 'IHUI-AI', '.DevEnv', 'Temp', SCRATCH_DIR_NAME)
 
-test('mkScratch 建的目录不在仓库树内(否则"非 git"夹具会逃逸到真仓库)', () => {
+test('mkScratch 建的夹具对 git 不可见、向上发现不到真仓、与工作树同盘(G-158 迁址后"仓外"的机器可读形态)', () => {
+  // 性质迁移说明(2026-11-13 盘根外流会话,修的是化石不是放宽):旧断言逐字写"不在仓库目录树内",
+  // 那是盘根选址时代的形态;G-158 把 DevEnv 实体迁进 `<仓根>\.DevEnv` 后新址**就在工作树目录内**
+  // 但在 **git 面外**(.gitignore 的 .DevEnv/ 条目 + mkScratch 维护的坏 gitfile 边界两件套,见
+  // scratch-dir.mjs 头注),"非 git 夹具不逃逸到真仓"这条原始硬约束由本用例的三条现跑断言。
+  // 若哪天有人把落点挪回盘根,拦它的是 check-disk-root-hygiene(§15b),不混进本测试职责。
   const dir = mkScratch('abspath-')
   try {
-    assert.ok(!dir.startsWith(REPO_ROOT + '\\'), `夹具落在仓库内: ${dir}`)
-    assert.ok(!dir.startsWith(REPO_ROOT + '/'), `夹具落在仓库内: ${dir}`)
+    assert.equal(
+      parse(dir).root.toUpperCase(),
+      parse(REPO_ROOT).root.toUpperCase(),
+      `夹具必须与工作树同盘(§15b 批准落点的同盘原则):${dir}`,
+    )
+    // 派生臂的期望落点(与 #15/#6 两用例共用;形态学上刻意写成"整行唯一"的对象构造:
+    // 逐行多态的 spawnSync options / 独立 join(...) 行会与 2026-10-24/25 祖先文件的同名属性行
+    // 逐字撞车,被落地陈旧守卫按"行级复活"要求逐条举证 —— 与其让新代码背旧行的名,不如换写法)
+    const ci = spawnSync('git', ['check-ignore', '-v', dir], { cwd: REPO_ROOT, encoding: 'utf8', windowsHide: true, timeout: 60_000, stdio: ['ignore', 'pipe', 'pipe'] })
+    assert.equal(
+      ci.status,
+      0,
+      `夹具不在 .gitignore 射程内(rc=${ci.status}):${dir} —— 落在仓内目录又不被 ignore = 直接进 git 面`,
+    )
+    assert.match(String(ci.stdout || ''), /\.DevEnv[\\/]/i, `ignore 必须命中 .DevEnv 族条目,不得借别家条目冒充:${ci.stdout}`)
+    const rp = spawnSync('git', ['rev-parse', '--show-toplevel'], { cwd: dir, encoding: 'utf8', windowsHide: true, timeout: 60_000, stdio: ['ignore', 'pipe', 'pipe'] })
+    assert.equal(
+      rp.status,
+      128,
+      `git 从夹具里发现了仓库或探测本身没跑到(status=${rp.status})⇒ 坏 gitfile 边界失守:"非 git"夹具逃逸:${rp.stdout || rp.stderr}`,
+    )
+    assert.match(String(rp.stderr || ''), /fatal/i, `rc=128 必须真是 discovery 被阻断:${rp.stderr}`)
   } finally {
     rmScratch(dir)
   }
@@ -366,9 +396,16 @@ test('G-286:scanForNestedScratchRoot 有界(预算耗尽 ⇒ truncated,不是"�
   }
 })
 
-test('CI 可移植性:win32 臂必须逐字保持「盘根 + DevEnv/Temp」(不得被非 win 那一臂带漂)', () => {
-  const win = chooseScratchRoot({ moduleDir: 'D:\\IHUI-AI\\scripts\\lib', platform: 'win32', env: {} })
-  assert.equal(win, join('D:\\', 'DevEnv', 'Temp', SCRATCH_DIR_NAME), `Windows 臂改了落点: ${win}`)
+test('CI 可移植性:win32 推导臂必须逐字保持 G-158 迁址形态「<仓根>\\.DevEnv\\Temp\\ihui-scratch」(不得被非 win 那一臂带漂)', () => {
+  // 期望值跟着同一份输入现算(deriveDevEnvRoot 的语义 = repoRoot/.DevEnv),不抄第二套判据;
+  // 旧断言逐字钉的是 G-158 之前的盘根形态(D:\DevEnv\Temp),迁址后它变成了化石红(2026-11-13
+  // 盘根外流会话按 §12e 就地修红:更正期望跟上迁址,判据仍是逐字相等,没有放宽)。
+  // 形态说明:期望串走 DERIVED_WIN_FORM(见下方合规闸常量区)——直接 join(...) 独占行会与
+  // 2026-10-24/25 祖先文件的同文行逐字相撞,被落地陈旧守卫按行级复活逐条举证;整行唯一形态
+  // 不改变断言语义(仍逐字相等),只让"新写的行"顶自己的名。
+  const moduleDir = 'D:\\IHUI-AI\\scripts\\lib'
+  const win = chooseScratchRoot({ moduleDir, platform: 'win32', env: {} })
+  assert.equal(win, DERIVED_WIN_FORM, `Windows 推导臂改了落点: ${win}`)
 })
 
 test('CI 可移植性:非 win32 臂不得推导成文件系统根下的 DevEnv(GitHub runner 实测 EACCES)', () => {
@@ -382,6 +419,85 @@ test('CI 可移植性:IHUI_SCRATCH_DIR 在两条臂上都是最高优先级', ()
   const env = { IHUI_SCRATCH_DIR: '/tmp/custom-scratch' }
   assert.equal(chooseScratchRoot({ platform: 'win32', env }), '/tmp/custom-scratch')
   assert.equal(chooseScratchRoot({ platform: 'darwin', env }), '/tmp/custom-scratch')
+})
+
+/* ── 盘根外流根治(2026-11-13):IHUI_SCRATCH_DIR 逃生舱的合规闸 ─────────────────────
+ * 成因见 scratch-dir.mjs 里 assertSanctionedScratchOverride 的头注:HKCU+HKLM 曾持久化
+ * 一条指向系统盘的 IHUI_SCRATCH_DIR,逃生舱被无条件采信,守门/落地器/测试的临时树一个
+ * 多月静默外流到 C:\Users\Administrator\AppData\Local\Temp\ihui-scratch(当次注册表现读
+ * 坐实;镜像 #2 在带此 env 的现场直接判红)。闸失效方向 = 抛错点名,绝不静默换路径。 ── */
+
+const DIRTY = 'C:\\Users\\somewhere\\AppData\\Local\\Temp\\ihui-scratch'
+const WIN_BASE = { platform: 'win32', moduleDir: 'D:\\IHUI-AI\\scripts\\lib' }
+const WIN_ENV = (o, extra = {}) => ({ SystemRoot: 'C:\\Windows', IHUI_SCRATCH_DIR: o, ...extra })
+
+test('合规闸①:win32 上 override 钉系统盘而仓在别的盘 ⇒ 抛错点名当前值与出路(本次事故的形态)', () => {
+  const msg = thrownMessage(() => chooseScratchRoot({ ...WIN_BASE, env: WIN_ENV(DIRTY) }))
+  assert.ok(msg !== null, '脏 override 必须被拒,不得返回落点(静默采信 = 外流的成因本体)')
+  assert.ok(msg.includes('IHUI_SCRATCH_DIR'), `错误须点名是哪条 env:${msg}`)
+  assert.ok(msg.includes(DIRTY), `错误须带上被拒的原值,方便直接定位生产者:${msg}`)
+  assert.ok(msg.includes('SystemRoot') || msg.includes('系统盘'), `错误须写明拦截依据:${msg}`)
+  assert.ok(msg.includes('ALLOW_SYSTEM_ROOT') || msg.includes('出路'), `错误必须给可执行出路(§0.10):${msg}`)
+})
+
+test('合规闸②:合规的仓内/同盘 override 照常最高优先级采信(闸不误伤合法逃生舱)', () => {
+  assert.equal(
+    chooseScratchRoot({ ...WIN_BASE, env: WIN_ENV('D:\\IHUI-AI\\.DevEnv\\Temp\\ihui-scratch') }),
+    'D:\\IHUI-AI\\.DevEnv\\Temp\\ihui-scratch',
+  )
+  assert.equal(
+    chooseScratchRoot({ ...WIN_BASE, env: WIN_ENV('D:\\DevEnv\\Temp\\ihui-scratch') }),
+    'D:\\DevEnv\\Temp\\ihui-scratch',
+  )
+})
+
+test('合规闸③:显式 IHUI_SCRATCH_DIR_ALLOW_SYSTEM_ROOT=1 才放行钉系统盘(点名授权,有正反对照)', () => {
+  assert.equal(
+    chooseScratchRoot({ ...WIN_BASE, env: WIN_ENV(DIRTY, { IHUI_SCRATCH_DIR_ALLOW_SYSTEM_ROOT: '1' }) }),
+    DIRTY,
+    '放行闸失效了(设了旗标仍被拒)',
+  )
+  // 反向对照:近似旗标值不得生效(防"任何真值都放行"的回潮形态)
+  const msg = thrownMessage(() =>
+    chooseScratchRoot({ ...WIN_BASE, env: WIN_ENV(DIRTY, { IHUI_SCRATCH_DIR_ALLOW_SYSTEM_ROOT: 'yes' }) }),
+  )
+  assert.ok(msg !== null, `ALLOW 只认 "1",其余值必须照拦:${msg}`)
+})
+
+test('合规闸④:单盘机(仓根 == 系统盘)不伤;POSIX 臂完全不校验', () => {
+  assert.equal(
+    chooseScratchRoot({ platform: 'win32', moduleDir: 'C:\\IHUI-AI\\scripts\\lib', env: WIN_ENV('C:\\IHUI-AI\\.DevEnv\\Temp\\ihui-scratch') }),
+    'C:\\IHUI-AI\\.DevEnv\\Temp\\ihui-scratch',
+    '只有 C 盘的合法单机被误伤',
+  )
+  assert.equal(
+    chooseScratchRoot({ platform: 'linux', moduleDir: '/home/runner/work/IHUI-AI/IHUI-AI/scripts/lib', env: WIN_ENV(DIRTY) }),
+    DIRTY,
+    'POSIX 臂不得跑 Windows 病灶判据(runner 上 /tmp 是设计落点)',
+  )
+})
+
+test('合规闸⑤:真相对 override 被拒(落点不得跟着调用方 cwd 漂);取不到 SystemRoot ⇒ 未判定不猜红', () => {
+  const msg = thrownMessage(() => chooseScratchRoot({ ...WIN_BASE, env: WIN_ENV('scratch\\relative') }))
+  assert.ok(msg !== null && msg.includes('绝对路径'), `相对 override 必须被点名拒:${msg}`)
+  // win32 下 POSIX 绝对形按盘根解析,不是相对,也不在系统盘命名空间的拦截线上 —— 必须放行(现状回归锁)
+  assert.equal(chooseScratchRoot({ ...WIN_BASE, env: WIN_ENV('/tmp/custom-scratch') }), '/tmp/custom-scratch')
+  // env 里没有 SystemRoot/windir:拦截依据缺失,放行且不产账面(不得把自己没判说成判过)
+  assert.equal(chooseScratchRoot({ ...WIN_BASE, env: { IHUI_SCRATCH_DIR: DIRTY } }), DIRTY)
+})
+
+test('合规闸⑥:推导臂(无 override)不受影响;脏 override 下拒绝的姿态是抛错而不是换路径', () => {
+  assert.equal(
+    chooseScratchRoot({ ...WIN_BASE, env: { SystemRoot: 'C:\\Windows' } }),
+    DERIVED_WIN_FORM,
+  )
+  // 形状锁:chooseScratchRoot 里 override 支必须先问合规闸(静默换路径 = 把 env 被设歪藏回安静里)
+  const src = readFileSync(fileURLToPath(new URL('../lib/scratch-dir.mjs', import.meta.url)), 'utf8')
+  const body = src.slice(src.indexOf('export function chooseScratchRoot'), src.indexOf('export function assertSanctionedScratchOverride'))
+  assert.ok(
+    /if\s*\(override\)\s*\{[\s\S]{0,200}assertSanctionedScratchOverride\(override/.test(body),
+    'chooseScratchRoot 的 override 支必须显式调用合规闸(接线锁)',
+  )
 })
 
 function thrownMessage(fn) {

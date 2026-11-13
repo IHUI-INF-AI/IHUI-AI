@@ -66,7 +66,7 @@
  *   node scripts/check-disk-root-hygiene.mjs --self-test  # 自检
  * 测试通道:--root <dir>(替身盘根)、--wt-file <file>(替身 porcelain 输出)、--config <file>。
  */
-import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
+import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, statSync, symlinkSync, utimesSync, writeFileSync } from 'node:fs'
 import { dirname, join, parse, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 // 合法落点必须由**运行时解析**给出(见头注 ②):盘符字面量只能是别的机器的申报,
@@ -78,6 +78,9 @@ import { resolveGitdir } from './lib/gitdir.mjs'
 // stderr 直接透到父进程,本门的 stdout 逐行读数会被 git 的杂音污染;③ 无 timeout,
 // 索引锁住时无界挂起。
 import { gitRaw } from './lib/face-reader.mjs'
+// H3 自检要真构造"申报目录里的未知超龄件"(判据含 mtime 语义,构造面必须能改时刻);
+// 夹具一律走 §15b 唯一出口,不在仓树里手搓临时目录。
+import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = resolve(HERE, '..')
@@ -180,6 +183,91 @@ export function auditDiskRoot(rootDir, allowlist) {
 }
 
 /**
+ * H3(2026-11-13 立,盘根外流根治会话):**申报目录的内容对账**。
+ *
+ * 立因(实测,H1 的结构性盲区):H1 只比盘根**一级条目名**。config 把 `D:\tmp` 整目录申报
+ * 放行(理由 = WorkBuddy mcp/ext 日志活跃写入点,成立),于是本会话现读到它一级之下堆着
+ * **56 件本项目会话残渣**(gate30a 性能日志、b64 取证件、merge-msg/commit_msg、verify_*.py
+ * 探针、stt.wav/tts.mp3、red.b64 当日仍在新增 …)——名字不在任何清单、体积 26 MB 上下,
+ * 而尺子读数逐字为零。粗粒度目录申报 = 外流藏身处:申报了目录,就等于把目录里的一切
+ * 免判,而"项目产物不外流"要判的恰恰是后者。本轮把 C:\ 纳入 H1 扫描面时,同一格在
+ * C:\DevEnv\Temp 又复现一次(10-17 会话的 verify_*.py 探针 13 件,挂在**批准目录名**下)。
+ *
+ * 判据(声明式封闭集,与 H1 同一哲学):`config.roots[<盘>].contents[<一级条目名>]`
+ * 逐目录给出 `allow`(具名内容清单)+ 可选 `graceHours`(默认 24)。
+ *   · 不在 allow 且 mtime 超宽限 ⇒ violation `stray-content-in-declared-dir`(能整改:
+ *     要么收走自己的手痕,要么按 H1 的显式审批通道把合法落点具名进清单 —— 不恒红,§5e-1)。
+ *   · 宽限内只计数 `inGrace`(活跃写入期不喊人,防 WorkBuddy/滚动日志造风暴 —— 同
+ *     2026-10-03"永久红必须从配置侧解"换来的教训,但方向反过来:不是申报整目录,
+ *     而是给未知项一个明确的到期窗口)。
+ *   · 目录不可读 ⇒ undetermined 单列(不记绿也不冒红,§0.3)。
+ *   · **申报条目本身是 junction/链接 ⇒ 整维 skipped-reparse**:递归穿 junction 会吞掉
+ *     真实目标里别人的现场(§26 头号危险),而 C:\tmp → D:\DevEnv\Temp\c-root-tmp 这类
+ *     封口的目标树由 §26 的封口台账与 D 盘自己的申报管,不在这里隔空执法。
+ *   · 只扫一级、不递归(递归会把"子目录里的子目录"卷进同一份扁平清单,清单必然腐烂)。
+ */
+export function auditDeclaredDirContents(rootDir, entryName, decl, now = Date.now()) {
+  const violations = []
+  const undetermined = []
+  const skippedReparse = false
+  const dir = join(rootDir, entryName)
+  let st = null
+  try {
+    st = lstatSync(dir)
+  } catch (e) {
+    undetermined.push({
+      kind: 'undetermined',
+      root: dir,
+      why: `申报目录读不到(${e && e.code ? e.code : String(e)}) ⇒ H3 该格未判定`,
+    })
+    return { violations, undetermined, inGrace: [], skippedReparse }
+  }
+  if (st.isSymbolicLink()) return { violations, undetermined, inGrace: [], skippedReparse: true }
+  if (!st.isDirectory()) {
+    undetermined.push({ kind: 'undetermined', root: dir, why: '申报条目不是目录 ⇒ H3 无法做内容对账' })
+    return { violations, undetermined, inGrace: [], skippedReparse }
+  }
+  let entries
+  try {
+    entries = readdirSync(dir, { withFileTypes: true })
+  } catch (e) {
+    undetermined.push({
+      kind: 'undetermined',
+      root: dir,
+      why: `申报目录一级不可枚举(${e && e.code ? e.code : String(e)})`,
+    })
+    return { violations, undetermined, inGrace: [], skippedReparse }
+  }
+  const allow = new Set((decl?.allow ?? []).map((s) => String(s).toLowerCase()))
+  const graceMs = (typeof decl?.graceHours === 'number' && decl.graceHours >= 0 ? decl.graceHours : 24) * 3600_000
+  const inGrace = []
+  for (const d of entries) {
+    if (d.isSymbolicLink()) continue // 链接不追(§26),也不当内容违规点名:目标属它自己那层管
+    const path = join(dir, d.name)
+    const low = d.name.toLowerCase()
+    let m = null
+    try {
+      m = statSync(path)
+    } catch {
+      undetermined.push({ kind: 'undetermined', root: path, why: '子项 stat 读不到 ⇒ 该条未判定' })
+      continue
+    }
+    if (allow.has(low)) continue
+    // age 先 clamp 再判窗口:文件系统 mtime 以 100ns 取整,可比 Date.now() 的毫秒截断**更"新"**,
+    // 于是 now - mtimeMs 会出**负数**;不 clamp 的 graceMs=0(零宽限档)会被负值误判成"宽限内",
+    // 用例当场暴露(2026-11-13 本会话自检红过一次)。负 age 的一切语义 = 刚写,归 0。
+    const ageMs = Math.max(0, now - m.mtimeMs)
+    const ageHours = Math.floor(ageMs / 3600_000)
+    if (ageMs < graceMs) {
+      inGrace.push({ entry: d.name, path, ageHours })
+      continue
+    }
+    violations.push({ kind: 'stray-content-in-declared-dir', entry: d.name, path, ageHours })
+  }
+  return { violations, undetermined, inGrace, skippedReparse }
+}
+
+/**
  * H2:worktree 登记面对账。三层豁免(结构性 → 运行时派生 → 配置盘符),返回违规数组。
  * `derived` 省略 ⇒ 只按配置字面量判(**仅测试通道**这么用);生产档传 null 时由 main()
  * 先把整维降级成未判定,不会走到这里。
@@ -270,6 +358,89 @@ export function selfTest() {
     const r = auditDiskRoot(dir, entries)
     assert(r.violations.length === 0, `白名单全覆盖时违规应为 0,实得 ${r.violations.length}`)
     assert(r.undetermined.length === 0, '白名单全覆盖时未判定应为 0')
+  })
+
+  /* H3(2026-11-13 盘根外流根治):申报目录内容对账。判据含 mtime 语义,四态都得有构造面。 */
+
+  t('H3 超龄未知件点名(带路径与 age),具名件放行,未知新件只计数不点名', () => {
+    const fix = mkScratch('h3-')
+    try {
+      const declared = join(fix, 'declared')
+      mkdirSync(declared)
+      const mk = (name) => {
+        writeFileSync(join(declared, name), 'x')
+        return join(declared, name)
+      }
+      mk('unknown-old.txt')
+      mk('known.log')
+      mk('unknown-new.txt')
+      // 老化 unknown-old 与 known(具名放行必须与年龄无关),unknown-new 保持当下
+      const old = new Date(Date.now() - 48 * 3600_000)
+      utimesSync(join(declared, 'unknown-old.txt'), old, old)
+      utimesSync(join(declared, 'known.log'), old, old)
+      const r = auditDeclaredDirContents(fix, 'declared', { allow: ['known.log'] })
+      assert(
+        r.violations.length === 1 && r.violations[0].entry === 'unknown-old.txt',
+        `必须且只点名超龄未知件,实得 ${JSON.stringify(r.violations.map((v) => v.entry))}`,
+      )
+      assert(r.violations[0].kind === 'stray-content-in-declared-dir', '违规 kind 必须是 stray-content-in-declared-dir')
+      assert(r.violations[0].ageHours >= 47, `age 必须量出来(≥47h),实得 ${r.violations[0].ageHours}`)
+      assert(r.inGrace.length === 1 && r.inGrace[0].entry === 'unknown-new.txt', `新件必须只计数,实得 ${JSON.stringify(r.inGrace)}`)
+      assert(r.undetermined.length === 0, '可读目录不得落未判定')
+      // 变异对照:把未知件也写进具名清单 ⇒ 0 点名(证明点名来自清单缺失,不是"有文件就红")
+      const r2 = auditDeclaredDirContents(fix, 'declared', { allow: ['known.log', 'unknown-old.txt'] })
+      assert(r2.violations.length === 0 && r2.inGrace.length === 1, `具名单生效失败,实得 ${JSON.stringify(r2)}`)
+    } finally {
+      rmScratch(fix)
+    }
+  })
+
+  t('H3 申报目录读不到 ⇒ 未判定单列,绝不折成"没违规"(§0.3 / 头注①)', () => {
+    const fix = mkScratch('h3-miss-')
+    try {
+      const r = auditDeclaredDirContents(fix, 'no-such-dir', { allow: [] })
+      assert(r.violations.length === 0, '读不到时不得冒红')
+      assert(r.undetermined.length === 1 && r.undetermined[0].kind === 'undetermined', `必须落 1 条未判定,实得 ${JSON.stringify(r)}`)
+    } finally {
+      rmScratch(fix)
+    }
+  })
+
+  t('H3 graceHours=0 ⇒ 全部未知项即时点名(窗口是可申报的,不是硬编码 24h)', () => {
+    const fix = mkScratch('h3-grace-')
+    try {
+      const declared = join(fix, 'declared')
+      mkdirSync(declared)
+      writeFileSync(join(declared, 'fresh-unknown.txt'), 'x')
+      const r = auditDeclaredDirContents(fix, 'declared', { allow: [], graceHours: 0 })
+      assert(r.violations.length === 1 && r.inGrace.length === 0, `grace=0 必须当场点名,实得 ${JSON.stringify(r)}`)
+    } finally {
+      rmScratch(fix)
+    }
+  })
+
+  t('H3 申报条目是链接 ⇒ skipped-reparse 整维跳过,不穿透封口目标(§26)', () => {
+    const fix = mkScratch('h3-link-')
+    try {
+      const target = join(fix, 'target')
+      mkdirSync(target)
+      writeFileSync(join(target, 'in-target.txt'), 'x')
+      try {
+        symlinkSync(target, join(fix, 'linked'), 'junction')
+      } catch (e) {
+        if (e && (e.code === 'EPERM' || e.code === 'EEXIST')) {
+          console.log(`  ℹ 本机建不了链接夹具(${e.code})⇒ skipped-reparse 这一维本自检未判定,不计为通过`)
+          return
+        }
+        throw e
+      }
+      const r = auditDeclaredDirContents(fix, 'linked', { allow: [] })
+      assert(r.skippedReparse === true, '链接本体必须置 skippedReparse')
+      assert(r.violations.length === 0, `穿透链接去点名目标内容 = 越权执法,实得 ${JSON.stringify(r.violations)}`)
+      assert(r.undetermined.length === 0, 'skipped 不是未判定')
+    } finally {
+      rmScratch(fix)
+    }
   })
 
   t('H2 主工作树豁免(配置盘符与本机不同形时,仍靠结构性第一条豁免)', () => {
@@ -382,6 +553,10 @@ async function main() {
 
   const all = []
   const rootUndetermined = []
+  const contentStray = []
+  const contentUndetermined = []
+  const contentGrace = []
+  const contentSkippedReparse = []
   // 三态分开:违规 / 未判定(该量而量不到,拒绝出合格证) / 本机不适用(声明来自另一份
   // checkout 的盘,这台机根本没有它)。**不适用不得降级成未判定**,否则在任一 checkout
   // 上另一台机的盘根都会把整轮结论拖成"没判过";但也不得并进"已判干净" —— 它单独报名。
@@ -416,6 +591,20 @@ async function main() {
       if (here && root !== here) notApplicable.push({ root, why: `${u.why};本机没有这块盘 ⇒ 该维在本机不适用(声明来自另一份 checkout)` })
       else rootUndetermined.push({ root, ...u })
     }
+    // H3(盘根外流根治@2026-11-13):申报目录的**内容**对账。只量 allow 里真实申报过的
+    // 键(条目本身未申报的由 H1 点名,不重复扫);其余三桶各自独立,不得互相顶账。
+    const allowSet = new Set(conf.allow ?? [])
+    for (const [entryName, decl] of Object.entries(conf.contents ?? {})) {
+      if (!allowSet.has(entryName)) continue
+      const c = auditDeclaredDirContents(root, entryName, decl)
+      for (const v of c.violations) contentStray.push({ root, ...v })
+      for (const u of c.undetermined) {
+        if (here && root !== here) notApplicable.push({ root, why: `H3:${u.why}` })
+        else contentUndetermined.push({ root, ...u })
+      }
+      for (const g of c.inGrace) contentGrace.push({ root, ...g })
+      if (c.skippedReparse) contentSkippedReparse.push({ root, entry: entryName })
+    }
   }
 
   const policy = confAll.worktreePolicy
@@ -436,9 +625,10 @@ async function main() {
   const wtViolations = wtUndetermined ? [] : auditWorktreeRegistry(porcelain, policy, derived)
   const undetermined = [
     ...rootUndetermined,
+    ...contentUndetermined,
     ...(wtUndetermined ? [{ kind: 'undetermined', root: '(worktree 登记面)', why: wtWhy }] : []),
   ]
-  const violationCount = all.length + wtViolations.length
+  const violationCount = all.length + contentStray.length + wtViolations.length
   // verdict 顺序:有真违规才 red;否则有未判定就 undetermined(拒绝出合格证);全绿才 green。
   // notApplicable **不参与** verdict(它既不是指控也不是合格证,是一句"这一维本机没得量")。
   const verdict = violationCount ? 'red' : undetermined.length ? 'undetermined' : 'green'
@@ -453,12 +643,16 @@ async function main() {
         verdict,
         counts: {
           diskRootStray: all.length,
+          declaredContentStray: contentStray.length,
           worktreeOutside: wtViolations.length,
           diskRootUndetermined: rootUndetermined.length,
+          declaredContentUndetermined: contentUndetermined.length,
           worktreeUndetermined: wtUndetermined ? 1 : 0,
           diskRootNotApplicable: notApplicable.length,
+          declaredContentInGrace: contentGrace.length,
+          declaredContentSkippedReparse: contentSkippedReparse.length,
         },
-        violations: [...all, ...wtViolations],
+        violations: [...all, ...contentStray, ...wtViolations],
         undetermined,
         notApplicable,
       }),
@@ -470,6 +664,11 @@ async function main() {
   console.log('── 盘根卫生(warn 尺子,巡检档)──')
   for (const v of all) {
     console.log(`  🚨 盘根外流: ${v.path || rootJoined(v.root, v.entry)}`)
+  }
+  for (const v of contentStray) {
+    console.log(
+      `  🚨 申报目录内项目外流: ${v.path} (超龄 ${v.ageHours}h) ⇒ 收走手痕,或把合法落点具名申报进 config.roots[*].contents 并随 commit 审批`,
+    )
   }
   for (const v of wtViolations) {
     const remedy = v.prunable
@@ -483,12 +682,22 @@ async function main() {
   for (const n of notApplicable) {
     console.log(`  ℹ️ 不适用: ${n.root} —— ${n.why}`)
   }
+  if (contentGrace.length) {
+    console.log(
+      `  ℹ️ 申报目录内宽限中(未知项 mtime 未超 graceHours,只报数不点名):${contentGrace.length} 处` +
+        (contentGrace.length <= 6 ? ` [${contentGrace.map((g) => g.entry).join(', ')}]` : ''),
+    )
+  }
+  for (const s of contentSkippedReparse) {
+    console.log(`  ℹ️ H3 跳过重解析点(§26 不穿透):${rootJoined(s.root, s.entry)} 是链接,其目标由封口台账/目标盘自己那层管`)
+  }
   if (verdict === 'green') {
-    console.log('  ✅ 盘根白名单对账 0 违规;worktree 登记面全部落在合法落点(主工作树/仓内 .worktrees)')
+    console.log('  ✅ 盘根白名单对账 0 违规;申报目录内容对账 0 外流;worktree 登记面全部落在合法落点(主工作树/仓内 .worktrees)')
   }
   console.log(
-    `\n读数:盘根外流 ${all.length} / worktree 落点外 ${wtViolations.length} / 未判定 ${undetermined.length}` +
-      `(盘根 ${rootUndetermined.length}、worktree 维 ${wtUndetermined ? 1 : 0})/ 不适用 ${notApplicable.length}`,
+    `\n读数:盘根外流 ${all.length} / 申报目录内项目外流 ${contentStray.length}(宽限 ${contentGrace.length}、跳过链接 ${contentSkippedReparse.length})` +
+      ` / worktree 落点外 ${wtViolations.length} / 未判定 ${undetermined.length}` +
+      `(盘根 ${rootUndetermined.length}、内容维 ${contentUndetermined.length}、worktree 维 ${wtUndetermined ? 1 : 0})/ 不适用 ${notApplicable.length}`,
   )
   if (argv.strict && verdict !== 'green') {
     console.error('\n--strict:存在违规或未判定 ⇒ exit 1(问责档;未判定不出合格证)')
