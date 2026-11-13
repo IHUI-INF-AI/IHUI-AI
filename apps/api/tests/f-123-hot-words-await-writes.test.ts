@@ -95,7 +95,7 @@ describe('F-123 GitHub Trending 采集等待写入', () => {
     expect(inserted.length).toBe(3)
   })
 
-  it('③ 写入抛错时该源标 error,而不是 success + 0 条', async () => {
+  it('③ 写入抛错时逐条计 failed、其余继续写,该源标 error', async () => {
     stubFetch(3)
     failOn = 'owner1/repo1'
 
@@ -103,9 +103,13 @@ describe('F-123 GitHub Trending 采集等待写入', () => {
     const gh = results.find((r) => r.source === 'github-trending')
 
     expect(gh?.status).toBe('error')
-    expect(gh?.count).toBe(0)
-    // 失败点之前的写入是真发生的(不是"整批静默丢弃")
+    expect(gh?.inserted).toBe(2)
+    expect(gh?.failed).toBe(1)
+    expect(gh?.count).toBe(2)
+    expect(gh?.errors?.[0]).toContain('owner1/repo1')
+    // 失败点前后的写入都真发生(不是"整批静默丢弃")
     expect(inserted).toContain('owner0/repo0')
     expect(inserted).not.toContain('owner1/repo1')
+    expect(inserted).toContain('owner2/repo2')
   })
 })
