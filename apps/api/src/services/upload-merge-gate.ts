@@ -457,6 +457,9 @@ export function createLayeredUploadMergeGate(
   let outerMaxWaitMs = 0
   let outerLastWaitMs = 0
   let redisFailures = 0
+  /** F-686:降级冷却窗口。到期后 runExclusive 半开重试跨进程闸,不再"一次瞬时故障永久降级到进程重启"。 */
+  const DEGRADE_RECOVERY_MS = 30_000
+  let degradedUntilMs = 0
   let degraded = false
   let degradeReason = ''
   let crossProcessActive: number | null = null
@@ -540,8 +543,6 @@ export function createLayeredUploadMergeGate(
         } catch (err) {
           degradeFromError(err)
           return null
-        } finally {
-          // 初始化完成后允许后续(如降级恢复)重建;保留 semaphoreInit 引用不重置以省重复连接。
         }
       })()
     }
@@ -550,6 +551,9 @@ export function createLayeredUploadMergeGate(
 
   function degradeFromError(err: unknown): void {
     degraded = true
+    degradedUntilMs = now() + DEGRADE_RECOVERY_MS
+    // F-686:清掉已 resolve 为 null 的初始化句柄,让冷却到期后的半开能真正重建连接。
+    semaphoreInit = null
     redisFailures += 1
     degradeReason = `redis-error: ${err instanceof Error ? err.message : String(err)}`
     outerShout(
@@ -590,8 +594,16 @@ export function createLayeredUploadMergeGate(
   ): Promise<T> {
     // 未配置 Redis ⇒ 纯透传进程内闸,行为与本票之前一致(它自己已负责超限喊话/排队/台账)。
     if (!hasProvider) return inner.runExclusive(label, task, log)
-    // 已降级 ⇒ 之后一律走进程内闸(它兜住排队语义,不因跨进程协调坏掉而挡用户)。
-    if (degraded) return inner.runExclusive(label, task, log)
+    // 已降级 ⇒ 冷却窗口内走进程内闸;到期半开:清态并重建跨进程信号量(F-686:
+    // 一次瞬时 Redis 故障不应永久降级到进程重启)。
+    if (degraded) {
+      if (now() < degradedUntilMs) return inner.runExclusive(label, task, log)
+      degraded = false
+      degradeReason = ''
+      degradedUntilMs = 0
+      semaphoreInit = null
+      semaphore = null
+    }
     // 显式不限(env=0)⇒ 两层都不设界;外层这一层必须自己喊 unlimited(与进程内闸各自成话)。
     if (resolved.unlimited) {
       outerShout(
@@ -609,6 +621,7 @@ export function createLayeredUploadMergeGate(
       // "provider returned null"。ensureSemaphore 抛错路径已在 degradeFromError 里喊过。
       if (degraded) return inner.runExclusive(label, task, log)
       degraded = true
+      degradedUntilMs = now() + DEGRADE_RECOVERY_MS
       degradeReason = 'redis-provider-null'
       outerShout(
         'degraded-to-in-process',

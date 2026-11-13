@@ -45,6 +45,8 @@ export interface TranscodeJob {
   completedAt?: Date
   /** 转码结果文件大小（字节） */
   outputSize?: number
+  /** F-683:创建任务时请求的分辨率(720p/1080p...),startTranscodeJob 需透传给 buildFfmpegArgs */
+  resolution?: string
   /**
    * G-998115(b76-08a):退出归因三态 —— 宿主主动回收(cancel)写 expected 且首因锁定;
    * close 时没有归因记录 ⇒ unexpected(判据不接受"非零 code 即异常"的反面:被我们
@@ -298,6 +300,7 @@ export async function createTranscodeJob(input: TranscodeInput): Promise<Transco
     outputDir,
     outputPath,
     preset: input.preset,
+    resolution: input.resolution,
     status: 'pending',
     progress: 0,
     createdAt: new Date(),
@@ -315,6 +318,7 @@ export async function startTranscodeJob(jobId: string): Promise<TranscodeJob> {
   const jobWithResolution: TranscodeInput = {
     inputPath: job.inputPath,
     preset: job.preset,
+    resolution: job.resolution,
   }
   const args = buildFfmpegArgs(jobWithResolution, job.outputPath)
 

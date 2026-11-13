@@ -4596,6 +4596,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
         const { totalIncome, paidStudentCount } = await loadPaymentIncomeSummary(
           tx,
           parsed.data.classId ?? null,
+          parsed.data.termId ?? null,
         )
 
         // 欠费人数和欠费总额（从 enrollment 表计算）

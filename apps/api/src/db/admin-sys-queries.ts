@@ -697,7 +697,13 @@ export async function findConfigById(id: number): Promise<SysConfig | undefined>
 }
 
 export async function findConfigByKey(key: string): Promise<SysConfig | undefined> {
-  const rows = await db.select().from(sysConfigs).where(eq(sysConfigs.configKey, key)).limit(1)
+  // F-435: 无唯一约束时可能有多行同 key,固定排序让 limit(1) 结果确定(取最新一条)。
+  const rows = await db
+    .select()
+    .from(sysConfigs)
+    .where(eq(sysConfigs.configKey, key))
+    .orderBy(desc(sysConfigs.createdAt), desc(sysConfigs.configId))
+    .limit(1)
   return rows[0]
 }
 

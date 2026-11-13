@@ -66,6 +66,9 @@ export async function findRate(
         eq(zhsExchangeRate.status, 1),
       ),
     )
+    // F-397: 同一 (from,to,status) 可能存在多行,原 LIMIT 1 无 ORDER BY 结果不确定;
+    // 固定取最近更新的一条(再以主键兜底),保证折算金额可复现。
+    .orderBy(desc(zhsExchangeRate.updatedAt), desc(zhsExchangeRate.id))
     .limit(1)
   return (rows[0] as ExchangeRateRow) ?? null
 }

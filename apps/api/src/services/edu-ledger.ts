@@ -888,6 +888,7 @@ export async function recordRefund(input: {
 export async function loadPaymentIncomeSummary(
   executor: LedgerExecutor,
   classId?: string | null,
+  termId?: string | null,
 ): Promise<{ totalIncome: number; paidStudentCount: number }> {
   const payConds: SQL[] = [isNull(eduPaymentRecord.deletedAt), eq(eduPaymentRecord.status, 'paid')]
   const refundConds: SQL[] = [
@@ -897,6 +898,18 @@ export async function loadPaymentIncomeSummary(
   if (classId) {
     payConds.push(eq(eduPaymentRecord.classId, classId))
     refundConds.push(eq(eduRefundRecord.classId, classId))
+  }
+  // F-319: 缴费/退费流水都没有 term_id 列,学期维度只能经归属报名(edu_enrollment.term_id)
+  // 解析。enrollment_id 可空(历史/回填归不出的流水),这类流水不归任何特定学期,按学期
+  // 查询时不计入 —— 与欠费侧(按 termId 过滤报名行)保持同一口径,避免收入/已缴人数仍是全库。
+  if (termId) {
+    const termEnrollments = await executor
+      .select({ id: eduEnrollment.id })
+      .from(eduEnrollment)
+      .where(and(eq(eduEnrollment.termId, termId), isNull(eduEnrollment.deletedAt)))
+    const ids = termEnrollments.map((r) => r.id)
+    payConds.push(ids.length ? inArray(eduPaymentRecord.enrollmentId, ids) : sql`false`)
+    refundConds.push(ids.length ? inArray(eduRefundRecord.enrollmentId, ids) : sql`false`)
   }
 
   const [payment] = await executor

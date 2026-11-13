@@ -113,7 +113,9 @@ const userBillingGroupsRoutes: FastifyPluginAsync = async (server) => {
         .values({
           name: rest.name,
           description: rest.description,
-          defaultMultiplier: rest.defaultMultiplier?.toFixed(2) ?? '1.00',
+          // F-575: numeric(5,2) 由 PG 按十进制舍入，勿用 toFixed(2)（二进制舍入方向不一致，
+          // 如 (1.005).toFixed(2)==="1.00" 而列存 1.01）。toString 保留原值交 PG 决定精度。
+          defaultMultiplier: rest.defaultMultiplier?.toString() ?? '1.00',
           rateLimitQpm: rest.rateLimitQpm ?? 10,
           isDefault: isDefault ?? false,
           sortOrder: rest.sortOrder ?? 0,
@@ -146,7 +148,7 @@ const userBillingGroupsRoutes: FastifyPluginAsync = async (server) => {
     if (parsed.data.name !== undefined) setClause.name = parsed.data.name
     if (parsed.data.description !== undefined) setClause.description = parsed.data.description
     if (parsed.data.defaultMultiplier !== undefined)
-      setClause.defaultMultiplier = parsed.data.defaultMultiplier.toFixed(2)
+      setClause.defaultMultiplier = parsed.data.defaultMultiplier.toString()
     if (parsed.data.rateLimitQpm !== undefined) setClause.rateLimitQpm = parsed.data.rateLimitQpm
     if (parsed.data.isDefault !== undefined) setClause.isDefault = parsed.data.isDefault
     if (parsed.data.sortOrder !== undefined) setClause.sortOrder = parsed.data.sortOrder
@@ -281,7 +283,7 @@ const userBillingGroupsRoutes: FastifyPluginAsync = async (server) => {
       .values({
         groupId: p.data.id,
         modelId: parsed.data.modelId,
-        multiplier: parsed.data.multiplier.toFixed(2),
+        multiplier: parsed.data.multiplier.toString(),
       })
       .onConflictDoUpdate({
         target: [
@@ -289,7 +291,7 @@ const userBillingGroupsRoutes: FastifyPluginAsync = async (server) => {
           userBillingGroupModelMultipliers.modelId,
         ],
         set: {
-          multiplier: parsed.data.multiplier.toFixed(2),
+          multiplier: parsed.data.multiplier.toString(),
         },
       })
       .returning()
