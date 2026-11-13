@@ -69,7 +69,7 @@ let initPromise: Promise<void> | null = null
 
 async function ensureTables(): Promise<void> {
   if (!initPromise) {
-    initPromise = (async () => {
+    const created = (async () => {
       await db.execute(sql`
         CREATE TABLE IF NOT EXISTS canary_configs (
           id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -102,6 +102,12 @@ async function ensureTables(): Promise<void> {
         )
       `)
     })()
+    // F-657:建表失败不缓存 rejected promise,复位后让下一次调用重试;
+    // 已经等待同一个 promise 的并发调用者仍会收到原始错误(不吞错)。
+    initPromise = created.catch((err) => {
+      initPromise = null
+      throw err
+    })
   }
   return initPromise
 }

@@ -213,7 +213,13 @@ function cryptoSha256(s: string): string {
   return createHash('sha256').update(s).digest('hex')
 }
 
-async function getGetuiAuthToken(): Promise<string | null> {
+/** F-682:个推 token 进程内缓存,提前 60s 视为过期;并发未命中共享同一次请求。 */
+const GETUI_TOKEN_REFRESH_AHEAD_MS = 60000
+const GETUI_TOKEN_FALLBACK_TTL_MS = 23 * 60 * 60 * 1000
+let cachedGetuiAuthToken: { token: string; expireAt: number } | null = null
+let getuiAuthTokenInFlight: Promise<string | null> | null = null
+
+async function requestGetuiAuthToken(): Promise<string | null> {
   const appId = env.GETUI_APP_ID
   const appKey = env.GETUI_APP_KEY
   const masterSecret = env.GETUI_MASTER_SECRET
@@ -228,11 +234,34 @@ async function getGetuiAuthToken(): Promise<string | null> {
       body: JSON.stringify({ sign, timestamp, appkey: appKey }),
     })
     if (!resp.ok) return null
-    const data = (await resp.json()) as { data?: { token?: string } }
-    return data.data?.token ?? null
+    const data = (await resp.json()) as { data?: { token?: string; expire_time?: number } }
+    const token = data.data?.token ?? null
+    if (!token) return null
+    const expireTime = Number(data.data?.expire_time)
+    const expireAt =
+      Number.isFinite(expireTime) && expireTime > Date.now()
+        ? expireTime
+        : Date.now() + GETUI_TOKEN_FALLBACK_TTL_MS
+    cachedGetuiAuthToken = { token, expireAt }
+    return token
   } catch {
     return null
   }
+}
+
+async function getGetuiAuthToken(): Promise<string | null> {
+  if (
+    cachedGetuiAuthToken &&
+    cachedGetuiAuthToken.expireAt - GETUI_TOKEN_REFRESH_AHEAD_MS > Date.now()
+  ) {
+    return cachedGetuiAuthToken.token
+  }
+  if (getuiAuthTokenInFlight) return getuiAuthTokenInFlight
+  const pending = requestGetuiAuthToken().finally(() => {
+    getuiAuthTokenInFlight = null
+  })
+  getuiAuthTokenInFlight = pending
+  return pending
 }
 
 async function sendGetui(target: PushTarget, message: PushMessage): Promise<PushResult> {
@@ -302,11 +331,32 @@ export async function sendPush(target: PushTarget, message: PushMessage): Promis
   }
 }
 
+/** F-682:批量扇出并发上限,避免群发时一次性打满上游与本地连接。 */
+const PUSH_BATCH_CONCURRENCY = 5
+
+async function runWithConcurrency<T, R>(
+  items: readonly T[],
+  limit: number,
+  worker: (item: T) => Promise<R>,
+): Promise<R[]> {
+  const results = new Array<R>(items.length)
+  let cursor = 0
+  const runner = async (): Promise<void> => {
+    while (cursor < items.length) {
+      const index = cursor++
+      results[index] = await worker(items[index] as T)
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, runner))
+  return results
+}
+
 /** 批量推送（逐条调用，避免批量 API 差异）。 */
 export async function sendPushBatch(
   targets: PushTarget[],
   message: PushMessage,
 ): Promise<PushResult[]> {
-  return Promise.all(targets.map((t) => sendPush(t, message)))
+  if (targets.length === 0) return []
+  return runWithConcurrency(targets, PUSH_BATCH_CONCURRENCY, (t) => sendPush(t, message))
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
