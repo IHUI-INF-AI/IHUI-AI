@@ -1946,20 +1946,22 @@ export function runSelfTest() {
     '㉱ 装车锁:简写提取式必须真在 readGeometry 体内,且这条锁自己要有牙' +
       '(判据写在别处 = 提交链上永不生效;正则不转义 = 看着断言其实恒假)',
     (() => {
+      // MAIN 是 readGeometry 的唯一权威实现(2026-11-13 撤 GEO 死副本后);单文件取源即可。
       const src = readFileSync(MAIN_SOURCE_PATH, 'utf8')
       const from = src.indexOf('export function readGeometry')
-      const until = src.indexOf('return { values, named }', from)
+      const until = src.indexOf('return { values, named, unreadable', from)
       const body = src.slice(from, until > from ? until : from + 6000)
       const has = (s) =>
         /if \(vals\.length < 2\) continue/.test(s) &&
-        /push\(toPx\(one\[1\], one\[2\], side\)\)/.test(s)
+        /push\(toPx\(one\[1\], one\[2\], side\)/.test(s)
       // 牙:把简写循环整段摘掉后同一条判据必须翻红(否则它就是支恒真断言,比没有更糟)。
       // 用**索引切片**而不是正则 —— 目标文本里本身嵌着正则字面量,再套一层正则必然引号地狱,
       // 而"写复杂的变异表达式"正是本仓记过的"断言看着有、其实恒真"那一型。
-      const mk = 'for (const m of code.matchAll(/(?:^|\\n)[\\t ]*([a-z][a-z-]*)'
-      const s = body.indexOf(mk)
-      const e = body.indexOf('\n  }\n', s)
-      const noLoop = s < 0 || e < 0 ? body : body.slice(0, s) + body.slice(e + 5)
+      // 锚点取 vals.length<2 那行(唯一、无转义),回溯循环头、前切循环体闭合,整段摘除。
+      const v = body.indexOf('if (vals.length < 2) continue')
+      const ls = body.lastIndexOf('for (const m of code.matchAll', v)
+      const le = body.indexOf('\n  }\n', v)
+      const noLoop = v < 0 || ls < 0 || le < 0 ? body : body.slice(0, ls) + body.slice(le + 5)
       return from > 0 && has(body) && noLoop !== body && !has(noLoop)
     })(),
   )
