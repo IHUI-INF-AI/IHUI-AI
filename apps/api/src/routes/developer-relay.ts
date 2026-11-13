@@ -97,6 +97,22 @@ const rechargeBodySchema = z
     message: 'tokenDelta 或 costDeltaCents 至少填一个',
   })
 
+/**
+ * F-576:充值成功邮件的展示口径。
+ *
+ * 金额只有一个来源 = 订单金额 `costDeltaCents`(分→元,两位小数);
+ * `tokenDelta` 是到账额度条数,量纲不同,只作为独立的「到账额度」文案,绝不参与金额加法。
+ */
+export function buildWalletRechargeMailAmounts(input: {
+  costDeltaCents?: number
+  tokenDelta?: number
+}): { costYuan: string; creditTokens: number } {
+  return {
+    costYuan: ((input.costDeltaCents ?? 0) / 100).toFixed(2),
+    creditTokens: input.tokenDelta ?? 0,
+  }
+}
+
 /** 兑换码兑换 body(P0-5 刮刮卡式裂变充值,2026-07-31 立) */
 const redeemBodySchema = z.object({
   /** 兑换码(IHUI-XXXX-XXXX-XXXX,自动 normalize 去空格/转大写) */
@@ -581,14 +597,12 @@ const developerRelayRoutes: FastifyPluginAsync = async (server) => {
           ])
         const user = await findUserById(userId)
         if (user?.email) {
+          const mailAmounts = buildWalletRechargeMailAmounts(parsed.data)
           const mail = renderWalletRechargeEmail({
             userName: user.nickname ?? undefined,
             keyName: existing.name,
-            costYuan: (
-              ((parsed.data.tokenDelta ?? 0) + (parsed.data.costDeltaCents ?? 0)) /
-              100
-            ).toFixed(2),
-            creditTokens: parsed.data.tokenDelta ?? 0,
+            costYuan: mailAmounts.costYuan,
+            creditTokens: mailAmounts.creditTokens,
             newTokenBalance: result.tokenBalance,
             keysUrl: `${resolveWebOrigin()}/models/keys`,
           })
