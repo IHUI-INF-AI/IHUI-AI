@@ -2227,6 +2227,11 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-13**
+- 📚 문서:派生产物 changelog 同步(2026-11-13) (a043340146)
+- 📚 문서:生成块 trackedFiles 对齐 HEAD 面现算(21338→21339) (593905e70d)
+- 📚 문서:门 41 存量 24 分支逐枚内容级取证 —— 全部必须保留,0 枚可收口 (46542d1d84)
+
+**2026-11-13**
 - 🔧 기타:README changelog+数字现算同步 + sag2壳注释对齐全键透传 + parity账本刷新 (ca2efb656e)
 
 **2026-11-13**
@@ -2606,9 +2611,6 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 **2026-11-13**
 - 🚀 기능/개선:sag2 特性面板(mobile-rn/packages app/types + api-client sag2-lexical 端点) (02cdf68286)
-
-**2026-11-13**
-- 📚 문서:合并后钩子自动维护派生产物 + 导航/api-client 跟踪改动 (97ae9418d9)
 <!-- END RECENT UPDATES -->
 
 <p align="center">

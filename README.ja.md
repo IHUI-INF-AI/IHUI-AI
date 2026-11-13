@@ -2227,6 +2227,11 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-13**
+- 📚 ドキュメント:派生产物 changelog 同步(2026-11-13) (a043340146)
+- 📚 ドキュメント:生成块 trackedFiles 对齐 HEAD 面现算(21338→21339) (593905e70d)
+- 📚 ドキュメント:门 41 存量 24 分支逐枚内容级取证 —— 全部必须保留,0 枚可收口 (46542d1d84)
+
+**2026-11-13**
 - 🔧 その他:README changelog+数字现算同步 + sag2壳注释对齐全键透传 + parity账本刷新 (ca2efb656e)
 
 **2026-11-13**
@@ -2606,9 +2611,6 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 
 **2026-11-13**
 - 🚀 機能/改善:sag2 特性面板(mobile-rn/packages app/types + api-client sag2-lexical 端点) (02cdf68286)
-
-**2026-11-13**
-- 📚 ドキュメント:合并后钩子自动维护派生产物 + 导航/api-client 跟踪改动 (97ae9418d9)
 <!-- END RECENT UPDATES -->
 
 <p align="center">
