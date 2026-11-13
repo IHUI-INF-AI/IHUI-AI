@@ -1282,11 +1282,6 @@
       "miniapp": "pkg-ai/dev-enter/cover/index"
     },
     {
-      "shared": "packages/app/src/features/study-progress/StudyProgressScreen.tsx",
-      "rn": "apps/mobile-rn/src/screens/StudyProgressScreen.tsx",
-      "miniapp": "pages/study/index"
-    },
-    {
       "shared": "packages/app/src/features/finance-ai/FinanceAiHubScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/FinanceAiHubScreen.tsx",
       "miniapp": "pkg-user/finance-ai-hub/index"

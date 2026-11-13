@@ -27,7 +27,8 @@ export interface RankingProps {
 const MEDALS = ['medal', 'medal', 'medal'] as const
 
 function getValue(item: RankingItem): number {
-  return item.score || item.value || item.commission || item.minutes || 0
+  // ?? 而非 ||:0 分是榜上合法值,|| 链会把 0 吞成后备字段(与 RN/web 榜单同源语义)
+  return item.score ?? item.value ?? item.commission ?? item.minutes ?? 0
 }
 
 function getName(item: RankingItem): string {

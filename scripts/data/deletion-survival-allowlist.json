@@ -535,6 +535,11 @@
       "path": "apps/mobile-rn/src/screens/aboutPageSections.ts",
       "reason": "门 30c+39 双红件,2026-10-31 复核按【摘除】处置(非豁免):共享真相源 packages/app/src/features/about/(AboutScreen.tsx/about-icons.ts/about-styles.ts)在位,apps/mobile-rn/src/screens/AboutScreen.tsx:24 注释明说「富版提升为真相源,端内实现与分段数据表(aboutPageSections.ts)一并删除」;端内无任何真实 import(grep 命中均为注释文字);c247b0a7f7 已第三次删除此死件(检出滞后把轮 55 的正当删除带回),7a47524b07 自动收编第四次带回。按门 30c 修法①(走本仓唯一删除档 LAND_REMOVE_PATHS)摘除;门 39 的 V1 红同源同消。问责复跑:node scripts/check-verbatim-resurrection.mjs 与 node scripts/check-rn-app-migration.mjs;若需重建,先消费共享真相源 packages/app 出口,不得在端内重建。",
       "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/web/src/lib/relay-chat-stream.ts",
+      "reason": "侧父 e646f3f(本侧 HEAD)处于断链态:send-message.ts:57 仍 import @/lib/relay-chat-stream 而文件不在;远端 origin/main tip 两元素并存自洽(1b2184d 的删除已被对侧后续提交恢复,import 与文件成对在场)。本轮合并把它带回 = 修复本侧断链,恢复正确;不恢复则 web typecheck TS2307。",
+      "reviewBy": "2027-06-30"
     }
   ]
 }
