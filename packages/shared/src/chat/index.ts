@@ -155,7 +155,19 @@ export * from './projection-watermark'
 export * from './send-admission'
 // 对标 Qoder 借鉴清单第 10 项(命名错误码分类处置):errorCode → 可执行下一步 + 能不能重试。
 // 码表仍是 error-catalog.ts 那一份(§0.6 不建第二套),本层只补「动作」这一维。
-export * from './stream-error-disposition'
+// __test__ 只给单测用。本模块与 utils/smooth-delta-batcher 都有同名 __test__,
+// 两条 export * 链在包根相撞(TS2308)。此处显式列举公共符号,把 __test__ 留在源文件里。
+export {
+  STREAM_ERRORS_NAMESPACE,
+  STREAM_ERROR_ACTIONS,
+  isStreamErrorAction,
+  streamErrorActionLabelKey,
+  isRetryableAction,
+  resolveStreamErrorDisposition,
+  isRetryableErrorCode,
+  uncoveredErrorCodes,
+} from './stream-error-disposition'
+export type { StreamErrorAction, StreamErrorDisposition } from './stream-error-disposition'
 // 会话历史日期分桶(自然日/自然周(周一起)/自然月(1 号起)/更早 + 时间锚点回退链)的
 // 唯一实现:web 侧栏与小程序历史页共用。此前两端各写一套,web 改好后小程序仍是滚动 7 天。
 export * from './conversation-date-group'
@@ -173,3 +185,6 @@ export * from './output-style'
 export * from './cold-start'
 // 对话内提示留痕：去重/上限/编解码三端共用一份，存储适配器由各端注入。
 export * from './notice-log'
+// 流式跟底唯一判据源(RN / 小程序共用):回退即交还滚动权、触底即恢复、内容增长贴底。
+// web 的完整滚动权账目另有一份(要处理 wheel/touch/keyboard 归因与布局撑高歧义),此处不复制它。
+export * from './stream-follow'

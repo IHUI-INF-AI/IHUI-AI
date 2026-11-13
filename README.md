@@ -98,13 +98,13 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 5139 | `testFiles` |
+| 测试文件 | 5201 | `testFiles` |
 | CI 工作流 | 59 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
 | 工程守门 | 363 | `guardianGates` |
 | — blocking | 334 | `guardianBlocking` |
 | — warn | 31 | `guardianWarn` |
-| 跟踪文件 | 21271 | `trackedFiles` |
+| 跟踪文件 | 21351 | `trackedFiles` |
 上表由 `node scripts/sync-readme-numbers.mjs`(唯一写入口,索引面取数)生成,最后核对日期 2026-11-12。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
 <!-- END GENERATED NUMBERS -->
@@ -5965,8 +5965,8 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🔧 工程/其他:结清 O69/RP-3/RP-4/RP-79 四票(整行删除) (653b4e1b53)
 - 🔧 工程/其他:结清 Y-25 豆包键源退化档(整行删除) (cfc40787bf)
 - 🚀 新功能/改进:键源退化档根治——提取器派生账号级稳定 uid(uid_tt 族) (2d7728faa0)
-| 测试文件 | 5051 | `testFiles` |
-| 跟踪文件 | 21111 | `trackedFiles` |
+| 测试文件 | 5201 | `testFiles` |
+| 跟踪文件 | 21351 | `trackedFiles` |
 - 🔧 工程/其他:.gitignore 补凭据隔离+恢复核查临时件兜底,根治并发污染 (b66962b673)
 - 🔧 工程/其他:RP-76/77/78/81 认领释放号对齐远端(isolate: 与 origin 同一批摘牌的另一枚释放号,正文逐字相同) (52ca336fbb)
 - 🐞 修复:长上下文针测把 relay 错误帧与"上游无此模型服务"分开处理 (db5c3dc0c6)
@@ -6243,10 +6243,10 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🔧 工程/其他:自动落 2 枚小程序壳承载页(共 4 枚待产) (15ff9a606d)
 - 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (4ebde26fef)
 - 📚 文档:deploy-feedback 自动登记(deploy_outcome;端到端反馈闭环第二切片,O65 自进化系列) (a1678371fb)
-| 跟踪文件 | 21052 | `trackedFiles` |
+| 跟踪文件 | 21351 | `trackedFiles` |
 > ⚠️ 未判定 1 项:`guardianGates`(runner 里有 1 个重复 id ⇒ 撞号,条目数不可信)
-| 测试文件 | 5018 | `testFiles` |
-| 跟踪文件 | 21065 | `trackedFiles` |
+| 测试文件 | 5201 | `testFiles` |
+| 跟踪文件 | 21351 | `trackedFiles` |
 - 🔧 工程/其他:固化在飞README/守卫改动(并行会话成果), 为merge远端腾干净树 (4fa2fab3ff)
 - 🔧 工程/其他:违禁桶兜底清扫——HEAD面等条件/待拍板未勾行自动摘除(两道机主禁令的执行器物化,留痕f12-purge;复翻席请同步摘形态,事实内容按各批结清提交保留) (ef6741060a)
 - 🐞 修复:告警降噪补全与出口去重修复 (7bfb45a4c5)
@@ -7372,19 +7372,19 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - `scripts/check-web-rn-style-tiers.mjs`
 **wire-strictness**
 - `scripts/check-wire-strictness.mjs`
-| 测试文件 | 5012 | `testFiles` |
-| 跟踪文件 | 21054 | `trackedFiles` |
-| 测试文件 | 5064 | `testFiles` |
-| 跟踪文件 | 21125 | `trackedFiles` |
-| 测试文件 | 5065 | `testFiles` |
-| 跟踪文件 | 21126 | `trackedFiles` |
+| 测试文件 | 5201 | `testFiles` |
+| 跟踪文件 | 21351 | `trackedFiles` |
+| 测试文件 | 5201 | `testFiles` |
+| 跟踪文件 | 21351 | `trackedFiles` |
+| 测试文件 | 5201 | `testFiles` |
+| 跟踪文件 | 21351 | `trackedFiles` |
 | WebSocket 端点 | 40 | `wsEndpoints` |
 | CLI 命令文件 | 78 | `cliCommandFiles` |
 | CLI 工具文件 | 107 | `cliToolFiles` |
-| 测试文件 | 5129 | `testFiles` |
+| 测试文件 | 5201 | `testFiles` |
 | 工程守门 | 363 | `guardianGates` |
 | — blocking | 334 | `guardianBlocking` |
-| 跟踪文件 | 21237 | `trackedFiles` |
+| 跟踪文件 | 21351 | `trackedFiles` |
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (ab2ff127e8)
 - 🐞 修复:跨环境同步按 email 翻译号池归属,根治 owner_user_id 悬空互推 (e5e2b5d637)
 - 🚀 新功能/改进:补 loomy/zcode/raccoon 客户端会话定时回捞腿,彻底永久保活 (c7c62ad7ed)

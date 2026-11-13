@@ -4,9 +4,10 @@
 
 /** ElasticSearch 全文检索服务 - 大数据量表启用 ES 索引,PostgreSQL 兜底(迁移自 edu service search-service) */
 
-import { and, desc, eq, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, gt, or, sql, type SQL } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { searchContents } from '@ihui/database'
+import { logger } from '../utils/logger.js'
 
 // =============================================================================
 // 类型定义
@@ -88,6 +89,10 @@ interface EsClient {
     delete(params: { index: string; ignore_unavailable?: boolean }): Promise<unknown>
     create(params: { index: string; body?: unknown }): Promise<unknown>
     refresh(params: { index: string }): Promise<unknown>
+    exists(params: { index: string }): Promise<boolean>
+    existsAlias(params: { name: string }): Promise<boolean>
+    getAlias(params: { name: string }): Promise<unknown>
+    updateAliases(params: { body: { actions: Array<Record<string, unknown>> } }): Promise<unknown>
   }
 }
 
@@ -333,6 +338,37 @@ export class SearchEsService {
     })
   }
 
+  /**
+   * 把线上别名(与旧物理索引同名)原子切到新索引,返回切换前别名指向的旧索引名。
+   * 若别名尚不存在(新集群 / 旧版具名物理索引),先让出索引名再建别名。
+   */
+  private async switchAliasTo(newIndex: string): Promise<string[]> {
+    const client = this.esClient!
+    const aliasExists = await client.indices.existsAlias({ name: ES_INDEX_NAME })
+    if (aliasExists) {
+      const raw = await client.indices.getAlias({ name: ES_INDEX_NAME })
+      const body = (((raw as { body?: unknown })?.body ?? raw) ?? {}) as Record<string, unknown>
+      const oldIndices = Object.keys(body)
+      const actions: Array<Record<string, unknown>> = [
+        ...oldIndices.map((index) => ({ remove: { index, alias: ES_INDEX_NAME } })),
+        { add: { index: newIndex, alias: ES_INDEX_NAME } },
+      ]
+      await client.indices.updateAliases({ body: { actions } })
+      return oldIndices
+    }
+
+    // 旧版把物理索引直接命名为 ES_INDEX_NAME,而 ES 不允许索引与别名同名:
+    // 此时新索引已全量就绪,先删旧物理索引让出名字,再挂别名(数据以 PostgreSQL 为准)。
+    const legacyExists = await client.indices.exists({ index: ES_INDEX_NAME })
+    if (legacyExists) {
+      await client.indices.delete({ index: ES_INDEX_NAME, ignore_unavailable: true })
+    }
+    await client.indices.updateAliases({
+      body: { actions: [{ add: { index: newIndex, alias: ES_INDEX_NAME } }] },
+    })
+    return []
+  }
+
   /** 全量重建索引(从 PostgreSQL 拉所有 searchContents 批量写入 ES) */
   async reindexAll(): Promise<{ indexed: number; table: string }> {
     await this.ensureClientReady()
@@ -340,14 +376,10 @@ export class SearchEsService {
       return { indexed: 0, table: 'disabled' }
     }
 
-    // 删除旧索引(若存在)并新建
-    try {
-      await this.esClient!.indices.delete({ index: ES_INDEX_NAME, ignore_unavailable: true })
-    } catch {
-      /* 索引不存在时忽略 */
-    }
+    // 先建临时物理索引灌数据,成功后再切别名:任何中途失败都不会动线上索引
+    const physicalIndex = `${ES_INDEX_NAME}_v${Date.now()}`
     await this.esClient!.indices.create({
-      index: ES_INDEX_NAME,
+      index: physicalIndex,
       body: {
         mappings: {
           properties: {
@@ -366,47 +398,81 @@ export class SearchEsService {
       },
     })
 
-    // 分批拉取 PostgreSQL 数据
-    let offset = 0
+    // 分批拉取 PostgreSQL 数据(keyset 分页:createdAt + id 唯一 tie-break,避免漏/重)
+    let lastCreatedAt: Date | null = null
+    let lastId: string | null = null
     let total = 0
-    while (true) {
-      const batch = await db
-        .select()
-        .from(searchContents)
-        .orderBy(desc(searchContents.createdAt))
-        .limit(REINDEX_BATCH_SIZE)
-        .offset(offset)
-      if (batch.length === 0) break
+    let drained = false
+    try {
+      while (true) {
+        const cursor: SQL | undefined =
+          lastCreatedAt !== null && lastId !== null
+            ? or(
+                gt(searchContents.createdAt, lastCreatedAt),
+                and(eq(searchContents.createdAt, lastCreatedAt), gt(searchContents.id, lastId)),
+              )
+            : undefined
+        const batch: Array<typeof searchContents.$inferSelect> = await db
+          .select()
+          .from(searchContents)
+          .where(cursor)
+          .orderBy(asc(searchContents.createdAt), asc(searchContents.id))
+          .limit(REINDEX_BATCH_SIZE)
+        if (batch.length === 0) break
 
-      const operations: Array<Record<string, unknown>> = []
-      for (const row of batch) {
-        operations.push({
-          index: { _index: ES_INDEX_NAME, _id: `${row.topicType}:${row.topicId}` },
-        })
-        operations.push({
-          topicId: row.topicId,
-          topicType: row.topicType,
-          topicTitle: row.topicTitle,
-          topicSummary: row.topicSummary ?? '',
-          searchText: row.searchText,
-          authorId: row.authorId ?? null,
-          viewCount: row.viewCount,
-          likeCount: row.likeCount,
-          commentCount: row.commentCount,
-          docType: ES_DOC_TYPE,
-        })
+        const operations: Array<Record<string, unknown>> = []
+        for (const row of batch) {
+          operations.push({
+            index: { _index: physicalIndex, _id: `${row.topicType}:${row.topicId}` },
+          })
+          operations.push({
+            topicId: row.topicId,
+            topicType: row.topicType,
+            topicTitle: row.topicTitle,
+            topicSummary: row.topicSummary ?? '',
+            searchText: row.searchText,
+            authorId: row.authorId ?? null,
+            viewCount: row.viewCount,
+            likeCount: row.likeCount,
+            commentCount: row.commentCount,
+            docType: ES_DOC_TYPE,
+          })
+        }
+        const bulkResp = await this.esClient!.bulk({ body: operations })
+        if (bulkResp?.errors) {
+          throw new Error(`ES bulk index partial failure after ${total} docs`)
+        }
+        total += batch.length
+        const lastRow: typeof searchContents.$inferSelect = batch[batch.length - 1]!
+        lastCreatedAt = lastRow.createdAt
+        lastId = lastRow.id
+        if (batch.length < REINDEX_BATCH_SIZE) break
       }
-      const bulkResp = await this.esClient!.bulk({ body: operations })
-      if (bulkResp?.errors) {
-        throw new Error(`ES bulk index partial failure at offset ${offset}`)
+
+      await this.esClient!.indices.refresh({ index: physicalIndex })
+
+      const oldIndices = await this.switchAliasTo(physicalIndex)
+      drained = true
+      // 别名已指向新索引,旧物理索引删除失败不致命
+      for (const oldIndex of oldIndices) {
+        try {
+          await this.esClient!.indices.delete({ index: oldIndex, ignore_unavailable: true })
+        } catch (e) {
+          logger.warn('[search-es] 删除旧索引失败', { index: oldIndex, error: e })
+        }
       }
-      total += batch.length
-      offset += batch.length
-      if (batch.length < REINDEX_BATCH_SIZE) break
+      return { indexed: total, table: ES_INDEX_NAME }
+    } catch (e) {
+      // 数据未灌完 / 别名切换失败 ⇒ 新索引不可用,清理掉避免残留(别名始终未动)
+      if (!drained) {
+        try {
+          await this.esClient!.indices.delete({ index: physicalIndex, ignore_unavailable: true })
+        } catch {
+          /* best-effort 清理 */
+        }
+      }
+      throw e
     }
-
-    await this.esClient!.indices.refresh({ index: ES_INDEX_NAME })
-    return { indexed: total, table: ES_INDEX_NAME }
   }
 
   /** 统计 ES 索引文档数 */

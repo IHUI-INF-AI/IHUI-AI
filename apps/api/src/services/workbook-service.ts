@@ -50,6 +50,16 @@ const MAX_SESSIONS = 64
 const MAX_RANGE_CELLS = 20_000
 /** 单次写入的最大单元格数。 */
 const MAX_WRITE_CELLS = 500
+/**
+ * 会话累计改动格的去重记录上限(F-265)。
+ *
+ * 记录只服务两件事:同一格不重复判、后续写入不重扫历史格。每个新格在写入当次就与
+ * 全部公式格比过,命中结果已折叠进 `staleFormulaHits`,因此到顶后按 FIFO 淘汰最旧记录
+ * **不丢任何已判定的受影响公式**(公式格索引在 open 时建成,写值不会把非公式格变成
+ * 公式格、也不允许覆盖公式格 ⇒ 本会话内依赖集不变)。
+ * 5 万 ≈ 100 次满批(MAX_WRITE_CELLS=500);单条记录 ~40 字符,内存上限约 2MB/会话。
+ */
+const MAX_TOUCHED_CELLS = 50_000
 /** 依赖扫描的公式格上限;超限 ⇒ 判「没扫完」,保守带 recalc 标记(不是"没影响")。 */
 const MAX_FORMULA_SCAN_CELLS = 20_000
 /** 单表扫描的格子上限;超过则该表整表判「扫不动」⇒ 保守 unjudged。 */
@@ -143,8 +153,16 @@ interface WorkbookSession {
   formulaCells: FormulaCellIndex[]
   /** 公式扫描是否没扫完(超大表 / 超上限)。 */
   scanTruncated: boolean
-  /** 本会话累计写入的格子(算受影响公式集用)。 */
-  touched: Array<{ sheet: string; row: number; column: number }>
+  /**
+   * 本会话累计写入的格子(去重键,见 `touchedKeyOf`;只用于"判过就不再判")。
+   * Set 保留插入顺序 ⇒ 到顶后天然按 FIFO 淘汰。F-265。
+   */
+  touched: Set<string>
+  /**
+   * 已判定受影响的公式格(键 = `formulaCells` 下标,只增不改 ⇒ 同一公式保留"首次命中"的 via,
+   * 与逐批全量比较的结果逐字一致)。F-265:比较改为增量,不再 formulaCells × 全部 touched。
+   */
+  staleFormulaHits: Map<number, StaleFormulaCell>
   lastUsedAt: number
   savedFileIds: string[]
 }
@@ -454,46 +472,67 @@ function takeSession(handle: string, subjectId: string): SessionTake {
   return { ok: true, session: s }
 }
 
-/** 本次改动波及到哪些公式格(不重算,只点名;判不完同样点名)。 */
+/** 改动格的去重键:sheet 名可含空格/中文/冒号,用 NUL 分隔,避免拼接歧义。 */
+function touchedKeyOf(sheet: string, row: number, column: number): string {
+  return `${sheet}\u0000${row}:${column}`
+}
+
+/** 单格对单个公式格的判据(优先级与原全量实现一致:unjudged → 整列 → 单格/区间)。 */
+function hitVia(
+  f: FormulaCellIndex,
+  t: { sheet: string; row: number; column: number },
+): StaleFormulaCell['via'] | null {
+  if (f.unjudged) return f.sheet === t.sheet ? 'unjudged-pattern' : null
+  for (const cr of f.colRefs) {
+    const sheet = cr.sheet ?? f.sheet
+    if (sheet === t.sheet && t.column >= cr.fromCol && t.column <= cr.toCol) return 'col-ref'
+  }
+  for (const r of f.refs) {
+    const sheet = r.sheet ?? f.sheet
+    if (sheet !== t.sheet) continue
+    if (t.row >= r.fromRow && t.row <= r.toRow && t.column >= r.fromCol && t.column <= r.toCol) {
+      return r.fromRow === r.toRow && r.fromCol === r.toCol ? 'cell-ref' : 'range-ref'
+    }
+  }
+  return null
+}
+
+/**
+ * 记录本批写入格(F-265):同一格只判一次,且只与「本批新增」格比对 ——
+ * 单个新格对公式格是一次 O(formulaCells) 的**单层**扫描,已判定过的公式格不再重扫。
+ *
+ * 输出等价性:旧实现是"每个公式格 × 全部 touched 取最早命中";这里按写入顺序逐格补判、
+ * 命中即归档且不覆盖,得到的公式集合与 via 与旧实现逐字相同,只是复杂度从
+ * O(formulaCells × touched 总量) 降为 O(formulaCells × 本批新增数)。
+ */
+function recordTouched(s: WorkbookSession, sheet: string, row: number, column: number): void {
+  const key = touchedKeyOf(sheet, row, column)
+  if (s.touched.has(key)) return
+  s.touched.add(key)
+  for (let i = 0; i < s.formulaCells.length; i++) {
+    if (s.staleFormulaHits.has(i)) continue
+    const f = s.formulaCells[i]
+    if (!f) continue
+    const via = hitVia(f, { sheet, row, column })
+    if (via) s.staleFormulaHits.set(i, { sheet: f.sheet, address: f.address, formula: f.formula, via })
+  }
+  // FIFO 淘汰最旧记录。命中结果已在写入当次折叠进 staleFormulaHits ⇒ 淘汰只放弃
+  // "去重凭证",不影响受影响公式判定,无需退化全量重扫(F-265)。
+  while (s.touched.size > MAX_TOUCHED_CELLS) {
+    const oldest = s.touched.values().next()
+    if (oldest.done) break
+    s.touched.delete(oldest.value)
+  }
+}
+
+/** 已判定结果按 formulaCells 下标排序回放(与旧实现"按公式格顺序输出"逐字一致)。 */
 function affectedFormulaCells(s: WorkbookSession): {
   stale: StaleFormulaCell[]
   scanTruncated: boolean
 } {
   const stale: StaleFormulaCell[] = []
-  for (const f of s.formulaCells) {
-    let hit: StaleFormulaCell | null = null
-    for (const t of s.touched) {
-      if (f.unjudged) {
-        if (f.sheet === t.sheet) {
-          hit = { sheet: f.sheet, address: f.address, formula: f.formula, via: 'unjudged-pattern' }
-          break
-        }
-        continue
-      }
-      for (const cr of f.colRefs) {
-        const sheet = cr.sheet ?? f.sheet
-        if (sheet === t.sheet && t.column >= cr.fromCol && t.column <= cr.toCol) {
-          hit = { sheet: f.sheet, address: f.address, formula: f.formula, via: 'col-ref' }
-          break
-        }
-      }
-      if (hit) break
-      for (const r of f.refs) {
-        const sheet = r.sheet ?? f.sheet
-        if (sheet !== t.sheet) continue
-        if (
-          t.row >= r.fromRow &&
-          t.row <= r.toRow &&
-          t.column >= r.fromCol &&
-          t.column <= r.toCol
-        ) {
-          const via = r.fromRow === r.toRow && r.fromCol === r.toCol ? 'cell-ref' : 'range-ref'
-          hit = { sheet: f.sheet, address: f.address, formula: f.formula, via }
-          break
-        }
-      }
-      if (hit) break
-    }
+  for (const i of [...s.staleFormulaHits.keys()].sort((a, b) => a - b)) {
+    const hit = s.staleFormulaHits.get(i)
     if (hit) stale.push(hit)
   }
   return {
@@ -577,7 +616,8 @@ export async function openWorkbook(params: {
     workbook,
     formulaCells: cells,
     scanTruncated: truncated,
-    touched: [],
+    touched: new Set<string>(),
+    staleFormulaHits: new Map<number, StaleFormulaCell>(),
     lastUsedAt: Date.now(),
     savedFileIds: [],
   }
@@ -716,7 +756,7 @@ export function writeCells(params: {
   // -- 落写(整批一次,无部分写) --
   for (const p of planned) {
     ws.getCell(p.row, p.column).value = p.value
-    s.touched.push({ sheet: params.sheet, row: p.row, column: p.column })
+    recordTouched(s, params.sheet, p.row, p.column)
   }
   const view = recalcView(s)
   return { ok: true, data: { sheet: params.sheet, writtenCells: planned.length, ...view } }
@@ -853,5 +893,7 @@ export const __test__ = {
   formulaOf,
   readCell,
   sessions: _sessions,
+  MAX_TOUCHED_CELLS,
+  MAX_WRITE_CELLS,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -19,7 +19,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Request, Depends
+from fastapi import APIRouter, Depends, HTTPException, Request
 
 from app.core.jwt_auth import resolve_request_role_id
 from app.services.meta_learner import meta_learner

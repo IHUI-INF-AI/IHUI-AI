@@ -87,6 +87,8 @@ export function buildChatShellProps(ctx: ChatShellCtx): ChatScreenProps {
     budgetStop,
     scrollTop,
     scrollToBottom,
+    handleListScroll,
+    handleReachBottom,
     earlierHasMore,
     loadingEarlier,
     handleLoadEarlier,
@@ -737,6 +739,9 @@ export function buildChatShellProps(ctx: ChatShellCtx): ChatScreenProps {
       className: 'msg-list',
       scrollTop,
       scrollWithAnimation: true,
+      // D4:跟底的两个入口挂在这里,判据在页内(shared/chat/stream-follow),共享列表只透传。
+      onScroll: handleListScroll,
+      onEndReached: handleReachBottom,
       showThinkingPlaceholder: true,
       thinkingNode: <ChatThinkingPlaceholder t={t} />,
       tailNodes: businessFormTails.tailNodes,

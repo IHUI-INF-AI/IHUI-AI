@@ -20,21 +20,16 @@ import fp from 'fastify-plugin'
  * 阈值是上界保护值、不是从生产流量分布量出来的（本机无该维度历史序列）——
  * 真要按分位数收口，得先有连接数直方图，别把拍的数当量出来的数。
  *
- * 监控探活（kube-probe/prometheus 等）与健康路径豁免，避免误伤自身监控。
+ * 健康路径（/health、/metrics 等，按 URL 判定）豁免，避免误伤监控探活。
+ * F-208：UA **不是**豁免依据 —— User-Agent 完全由客户端控制，早期实现按 UA 关键词整条
+ * 跳过计数，攻击者伪造该头即可无限开慢连接、单 IP 上限形同不存在。现在 UA 不参与任何
+ * 放行判定，计数一律按真实维度（IP）执行并受 MAX_CONN_PER_IP 约束。
  * 部署无关：无论 Linux/docker 还是 Windows+CF Tunnel，应用层都统一生效，
  * 拉平两端在连接耗尽防护上的厚度。
  */
 
 const MAX_CONN_PER_IP = Number(process.env.IHUI_HTTP_CONN_PER_IP ?? 100)
 const HEALTH_PATHS = ['/health', '/metrics', '/ready', '/api/health', '/api/metrics']
-const HEALTH_UA_KEYWORDS = [
-  'kube-probe',
-  'elb-healthchecker',
-  'prometheus',
-  'uptime',
-  'health-check',
-  'gthealthcheck',
-]
 
 /**
  * 全局活跃连接硬顶的取值 —— 抽成纯函数是为了让「0 = 关闭」这一档能被测试钉住：
@@ -107,10 +102,13 @@ const httpConnGuardPlugin: FastifyPluginAsync = async (server) => {
     if (!ip) return
 
     const url = (request.url.split('?')[0] ?? '').toLowerCase()
-    const ua = (request.headers['user-agent'] ?? '').toLowerCase()
+    // 只有「路径」这一条服务端事实可豁免（监控探活并发极低，不会占满阈值）。
+    // F-208：UA 是客户端可控头，连读都不读 —— 任何按 UA 放行的判定都可被伪造。
     if (HEALTH_PATHS.some((p) => url.startsWith(p))) return
-    if (HEALTH_UA_KEYWORDS.some((k) => ua.includes(k))) return
 
+    // 计数一律按真实维度 IP 执行。本插件没有令牌维度可用：根级 preHandler 早于路由级
+    // authenticate，此时的 request.userId 恒未填充（与 anti-automation.ts 同一结论），
+    // 拿它当键会退化成所有人共用一个桶，反而放开上限。
     if (!tryAcquireSlot(ip, request.id)) {
       reply
         .code(429)
@@ -154,8 +152,8 @@ export const __test__ = {
   resolveMaxConnections,
   reset: () => activeByIp.clear(),
   activeIpCount: () => activeByIp.size,
+  activeCountForIp: (ip: string) => activeByIp.get(ip)?.size ?? 0,
   MAX_CONN_PER_IP,
   HEALTH_PATHS,
-  HEALTH_UA_KEYWORDS,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

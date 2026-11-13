@@ -2,16 +2,26 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { eq, and, desc, sql, ilike } from 'drizzle-orm'
+import { eq, and, or, desc, sql, ilike } from 'drizzle-orm'
 import { db } from './index.js'
 import { knowledgeBase, type KnowledgeBase } from '@ihui/database'
+
+/**
+ * 公开展示口径(schema:isPublished=已发布, status 1=启用 0=禁用)。
+ * 列表与详情共用这一个谓词(F-94):详情若另抄一份条件,漏掉任何一半都会把
+ * 草稿/下线内容放给匿名读者。
+ */
+export const knowledgePublicVisibilityCond = and(
+  eq(knowledgeBase.isPublished, true),
+  eq(knowledgeBase.status, 1),
+)
 
 export async function findPublishedKnowledge(opts: {
   page: number
   pageSize: number
   search?: string
 }): Promise<{ list: KnowledgeBase[]; total: number; page: number; pageSize: number }> {
-  const conds = [eq(knowledgeBase.isPublished, true), eq(knowledgeBase.status, 1)]
+  const conds = [knowledgePublicVisibilityCond]
   if (opts.search) conds.push(ilike(knowledgeBase.title, `%${opts.search}%`))
   const where = and(...conds)
   const [list, totalRows] = await Promise.all([
@@ -30,8 +40,22 @@ export async function findPublishedKnowledge(opts: {
   return { list, total: totalRows[0]?.count ?? 0, page: opts.page, pageSize: opts.pageSize }
 }
 
-export async function findKnowledgeById(id: string): Promise<KnowledgeBase | undefined> {
-  const rows = await db.select().from(knowledgeBase).where(eq(knowledgeBase.id, id)).limit(1)
+/**
+ * 按 id 读详情。F-94:匿名/其他用户只能读公开展示口径内的条目,作者本人可读自己的草稿
+ * (含 status=0 的下线条目,供作者预览)。不满足可见性时按"不存在"返回 undefined。
+ */
+export async function findKnowledgeById(
+  id: string,
+  opts?: { viewerId?: string },
+): Promise<KnowledgeBase | undefined> {
+  const visibility = opts?.viewerId
+    ? or(knowledgePublicVisibilityCond, eq(knowledgeBase.authorId, opts.viewerId))
+    : knowledgePublicVisibilityCond
+  const rows = await db
+    .select()
+    .from(knowledgeBase)
+    .where(and(eq(knowledgeBase.id, id), visibility))
+    .limit(1)
   return rows[0]
 }
 

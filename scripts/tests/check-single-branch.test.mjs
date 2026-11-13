@@ -154,6 +154,20 @@ test('T6 备份引用永不判红且不看时刻（§5b 禁删备份 / §22 要�
     '窗口收到 0 也不得把备份引用判红',
   )
   assert.equal(inFlightExempt('origin/ihui-backup/main-x', new Map(), NOW, 48), 'backup')
+  // 2026-11-13:`preserve/` 并入备份类。它的提交信息恒为
+  // `preserve: snapshot uncommitted work in <path>`(删 worktree 前的**未提交**工作快照),
+  // 与 backup/ 同为防丢内容的保全引用;此前未纳入 ⇒ 36 枚长期挂红名单,而门给的
+  // 合并/删除/等窗口三条出路对它一条都不成立 ⇒ 恒红门(§12f)。这行锁住"别再加回去"。
+  assert.equal(
+    inFlightExempt('preserve/wt-navbar-barrel-20261110', ancient, NOW, 0),
+    'backup',
+    'preserve/ 是未提交工作快照,与 backup/ 同级:不得判红、也不得因窗口到 0 而被判红',
+  )
+  assert.equal(
+    inFlightExempt('origin/preserve/wt-x', new Map(), NOW, 48),
+    'backup',
+    'origin/ 镜像同样豁免',
+  )
   assert.equal(
     inFlightExempt('feature/other', new Map([['feature/other', 1700000000]]), NOW, 48),
     null,
