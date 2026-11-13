@@ -1,0 +1,9 @@
+// 该文件曾是本机一次性 e2e 调试配置,已废弃 —— 不要使用,也不要 `playwright test -c` 指它。
+//
+// 为什么不删除:它被会话引用锁保护,删除会被运行时拦下。留成这份说明比留一份能跑的
+// 硬编码本机路径配置安全 —— 后者会被误当成项目配置拿去跑,而它绑死了某一台机器的
+// Chrome 路径与端口。
+//
+// 正式入口:apps/web/playwright.config.ts 的 `public` project 已包含
+// e2e/streaming-tail-frame.spec.ts(harness 路由走假鉴权,无需登录态)。
+export {}
