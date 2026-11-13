@@ -5468,6 +5468,9 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-13**
+- 📚 文档:多语言 README 派生产物同步(sag2 页面路由后) (64fde60eb1)
+
+**2026-11-13**
 - 🚀 新功能/改进:小程序 sag2 词法多跳检索工作台(pkg-ai 路由页 + drawer-nav 导航 + 跨端屏登记 + ota 测试) (1a2ebbe23a)
 
 **2026-11-13**
