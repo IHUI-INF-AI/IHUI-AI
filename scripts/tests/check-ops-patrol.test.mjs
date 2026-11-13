@@ -527,6 +527,28 @@ test('P5b 构建失败归因:三态不并桶,undetermined 不得冒充 landed/in
   assert.doesNotMatch(none, /疑似在飞/)
 })
 
+test('P5b 退出码记账:DG-13 回滚轮(exit=3)必须判红,exit=0 才判绿(正反例同跑)', () => {
+  const base = mkScratch('dg13-exit-')
+  try {
+    const greenLog = join(base, 'green.log')
+    const rolledLog = join(base, 'rolled.log')
+    writeFileSync(greenLog, '———— 部署轮询结束(exit=0) ————\n', 'utf8')
+    writeFileSync(
+      rolledLog,
+      '[09:20:00] === 门禁未过已回滚,旧版本在线 ===\n———— 部署轮询结束(exit=3) ————\n',
+      'utf8',
+    )
+    const green = mod.checkDeployLoopOutcome({ logFile: greenLog })
+    const rolled = mod.checkDeployLoopOutcome({ logFile: rolledLog })
+    assert.equal(green.state, 'ok')
+    assert.equal(rolled.state, 'finding', '回滚轮被读成通过 ⇒ 按退出码记账的调用方会把失败轮记成成功')
+    assert.match(rolled.detail, /已自动回滚/)
+    assert.doesNotMatch(rolled.detail, /收尾 exit=0/)
+  } finally {
+    rmScratch(base)
+  }
+})
+
 // ── 2026-10-01 补:备份产出的「归属」与失败通报的「下游可见性」 ────────────────
 const { heartbeatRows, checkUndeliveredAlertMarkers } = mod.__test__
 const cadence = await import(pathToFileURL(join(REPO, 'scripts', 'pg-backup-cadence-audit.mjs')).href)
