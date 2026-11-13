@@ -69,6 +69,26 @@ const fallbackStore = new Map<
   { failures: number; lockedUntil: number; lastFailAt: number }
 >()
 
+/** F-558:Redis 故障期降级存储的容量上限,防随机账号名撑爆内存。 */
+const MAX_FALLBACK_ENTRIES = 10_000
+
+/**
+ * F-558:主动过期 + 容量淘汰。删除「失败窗口已过且锁定已解除」的条目,
+ * 超上限时按 Map 插入顺序淘汰最旧。仅作用于本进程降级账本,不影响 Redis 主账本。
+ */
+function pruneFallbackStore(now: number): void {
+  for (const [key, rec] of fallbackStore) {
+    if (now - rec.lastFailAt > FAILURE_WINDOW_SEC * 1000 && rec.lockedUntil <= now) {
+      fallbackStore.delete(key)
+    }
+  }
+  while (fallbackStore.size > MAX_FALLBACK_ENTRIES) {
+    const oldest = fallbackStore.keys().next().value
+    if (oldest === undefined) break
+    fallbackStore.delete(oldest)
+  }
+}
+
 /** 账号标识归一:去空白 + 小写(免锁定名单匹配用,大小写变体不产生平行项) */
 function normalizeAccount(account: string): string {
   return account.trim().toLowerCase()
@@ -101,6 +121,7 @@ function lockoutIdentity(account: string, userId?: string | number | null): stri
 
 function fallbackRecordFailure(identity: string): number {
   const now = Date.now()
+  pruneFallbackStore(now)
   const existing = fallbackStore.get(identity)
   if (!existing) {
     fallbackStore.set(identity, { failures: 1, lockedUntil: 0, lastFailAt: now })
@@ -136,6 +157,7 @@ function fallbackClearFailures(identity: string): void {
  */
 function fallbackRaiseFailures(identity: string, target: number): void {
   const now = Date.now()
+  pruneFallbackStore(now)
   const existing = fallbackStore.get(identity)
   if (!existing) {
     fallbackStore.set(identity, {
@@ -191,10 +213,19 @@ export async function recordLoginFailure(
   const failKey = `${KEY_PREFIX_FAIL}${identity}`
   const lockKey = `${KEY_PREFIX_LOCK}${identity}`
   try {
-    const count = await redis.incr(failKey)
-    if (count === 1) {
-      await redis.expire(failKey, FAILURE_WINDOW_SEC)
-    }
+    // F-557:INCR 与首次建 TTL 必须原子。旧实现两条命令,EXPIRE 因错误/崩溃未执行
+    // 时会留下永不过期的失败键,且此后 INCR 因 count!==1 永不补 TTL。
+    // 用 Lua 在 Redis 内一次完成「自增 + 首次计数时设 TTL」。
+    const count = Number(
+      await redis.eval(
+        "local c = redis.call('INCR', KEYS[1])\n" +
+          "if c == 1 then redis.call('EXPIRE', KEYS[1], ARGV[1]) end\n" +
+          'return c',
+        1,
+        failKey,
+        FAILURE_WINDOW_SEC,
+      ),
+    )
     const effective = Math.max(count, localCount)
     if (effective > count) {
       // 故障期 fallback 计得更多:回填 Redis(best-effort,失败只告警)

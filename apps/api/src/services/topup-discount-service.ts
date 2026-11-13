@@ -127,11 +127,14 @@ export async function calculateTopupBonus(
   const config = await getTopupConfig()
   const sortedTiers = [...config.tiers].sort((a, b) => b.minAmount - a.minAmount)
   const matched = sortedTiers.find((t) => amount >= t.minAmount)
+  // F-633: 全程用「分」计算,不再先把到账额取整到整「元」再用元差折分 ——
+  // 带角分充值时取整残差会被当成赠送(multiplier=1 时甚至凭空送 0.5 元)。
+  const amountCents = Math.round(amount * 100)
   if (!matched) {
-    return { multiplier: 1, bonus: 0, actualCredit: Math.round(amount) }
+    return { multiplier: 1, bonus: 0, actualCredit: amountCents / 100 }
   }
-  const actualCredit = Math.round(amount * matched.multiplier) + matched.bonus
-  return { multiplier: matched.multiplier, bonus: matched.bonus, actualCredit }
+  const actualCreditCents = Math.round(amountCents * matched.multiplier) + matched.bonus * 100
+  return { multiplier: matched.multiplier, bonus: matched.bonus, actualCredit: actualCreditCents / 100 }
 }
 
 // =============================================================================

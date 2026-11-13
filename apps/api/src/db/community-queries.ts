@@ -47,7 +47,7 @@ export async function findCircles(
       .select()
       .from(circles)
       .where(where)
-      .orderBy(desc(circles.postCount), desc(circles.createdAt))
+      .orderBy(desc(circles.postCount), desc(circles.createdAt), desc(circles.id))
       .limit(opts.pageSize)
       .offset((opts.page - 1) * opts.pageSize),
     dbRead
@@ -233,7 +233,7 @@ export async function findCirclePosts(
       .from(circlePosts)
       .leftJoin(users, eq(users.id, circlePosts.userId))
       .where(where)
-      .orderBy(desc(circlePosts.isPinned), desc(circlePosts.createdAt))
+      .orderBy(desc(circlePosts.isPinned), desc(circlePosts.createdAt), desc(circlePosts.id))
       .limit(opts.pageSize)
       .offset((opts.page - 1) * opts.pageSize),
     dbRead
@@ -421,7 +421,7 @@ export async function findAsks(
       .from(asks)
       .leftJoin(users, eq(users.id, asks.userId))
       .where(where)
-      .orderBy(desc(asks.createdAt))
+      .orderBy(desc(asks.createdAt), desc(asks.id))
       .limit(opts.pageSize)
       .offset((opts.page - 1) * opts.pageSize),
     dbRead
@@ -556,7 +556,7 @@ export async function findAskAnswers(
       .from(askAnswers)
       .leftJoin(users, eq(users.id, askAnswers.userId))
       .where(where)
-      .orderBy(desc(askAnswers.isAccepted), desc(askAnswers.likeCount), asc(askAnswers.createdAt))
+      .orderBy(desc(askAnswers.isAccepted), desc(askAnswers.likeCount), asc(askAnswers.createdAt), asc(askAnswers.id))
       .limit(opts.pageSize)
       .offset((opts.page - 1) * opts.pageSize),
     dbRead

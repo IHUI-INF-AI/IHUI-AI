@@ -207,7 +207,10 @@ export async function checkBudgetAlerts(server: FastifyInstance): Promise<Budget
       if (!agg) continue
 
       const dailyTokens = toNumber(agg.dailyTokens)
-      const monthlyCost = toNumber(agg.monthlyCost)
+      // F-661: ai_cost_records.cost 单位为「分」,而 monthlyCostLimit 单位为「元」;
+      // 直接相除会让花到上限 1% 就报 100% critical。先统一到元再比较/展示。
+      const monthlyCostCents = toNumber(agg.monthlyCost)
+      const monthlyCost = monthlyCostCents / 100
       const dailyLimit = budget.dailyTokenLimit
       const monthlyLimit = toNumber(budget.monthlyCostLimit)
 

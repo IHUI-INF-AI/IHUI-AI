@@ -1388,6 +1388,24 @@ function toNormalized(req: UpstreamForwardRequest, rawModel: string): Normalized
   if (req.repetitionPenalty !== undefined) norm.repetitionPenalty = req.repetitionPenalty
   if (req.logitBias !== undefined) norm.logitBias = req.logitBias
   if (req.affinityKey) norm.conversationId = req.affinityKey
+  // F-672: 参数覆盖(bodyOverride)是转发前对最终 body 的改写,此前账号池腿完全忽略,
+  // 导致 set/delete/append/regex_replace 策略对账号池流量全部失效(渠道腿已生效)。
+  // 归一完成后把覆盖结果并回(与渠道腿一致,仅 model/stream 强制回填防协议字段被劫持),
+  // messages 若被覆盖则沿用既有 content 缺省归一。
+  if (req.bodyOverride) {
+    const rest: Record<string, unknown> = { ...req.bodyOverride }
+    delete rest['messages']
+    Object.assign(norm, rest)
+    norm.model = rawModel
+    norm.stream = req.stream
+    const overrideMessages = req.bodyOverride['messages']
+    if (Array.isArray(overrideMessages)) {
+      norm.messages = (overrideMessages as Array<Record<string, unknown>>).map((m) => ({
+        content: null,
+        ...m,
+      })) as NormalizedChatRequest['messages']
+    }
+  }
   return norm
 }
 

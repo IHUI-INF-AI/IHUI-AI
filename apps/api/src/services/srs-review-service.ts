@@ -127,7 +127,10 @@ export async function submitReview(
   const result = sm2Calculate(currentState, quality)
   const now = new Date()
 
-  await db
+  // F-684: 「读-算-写」加乐观锁(以读取时的 repetition 作为版本条件)。并发提交或
+  // 客户端重试带来的陈旧状态写入会被 .returning() 判定为 0 行并抛错,不再静默
+  // 用旧状态覆盖已完成的一次 SM-2 升级;调用方重试即可读到新状态。
+  const updated = await db
     .update(examWrongQuestion)
     .set({
       easeFactor: result.easeFactor,
@@ -137,7 +140,18 @@ export async function submitReview(
       lastReviewAt: now,
       updatedAt: now,
     })
-    .where(and(eq(examWrongQuestion.userId, userId), eq(examWrongQuestion.questionId, questionId)))
+    .where(
+      and(
+        eq(examWrongQuestion.userId, userId),
+        eq(examWrongQuestion.questionId, questionId),
+        eq(examWrongQuestion.repetition, wrong.repetition),
+      ),
+    )
+    .returning({ id: examWrongQuestion.id })
+
+  if (updated.length === 0) {
+    throw new Error('复习状态已被并发更新,请重试')
+  }
 
   return {
     success: true,
@@ -179,13 +193,19 @@ export async function getReviewStats(userId: string): Promise<SRSReviewStats> {
   const avgEaseFactor = Number(avgRows[0]?.avg ?? 2.5)
 
   // streak:基于 lastReviewAt 日期去重,从今天/昨天倒推连续链
+  // F-685: 日集合统一在 JS 侧用 formatDay(进程本地时区)生成,不再混用 SQL 的
+  // to_char(DB 会话时区,默认 UTC)。否则两套键可差一天,北京时间 0-8 点的复习
+  // 不计入今日,连续天数断链或恒 0。
   const dateRows = await db
-    .select({
-      d: sql<string>`distinct to_char(${examWrongQuestion.lastReviewAt}, 'YYYY-MM-DD')`,
-    })
+    .select({ lastReviewAt: examWrongQuestion.lastReviewAt })
     .from(examWrongQuestion)
     .where(and(eq(examWrongQuestion.userId, userId), isNotNull(examWrongQuestion.lastReviewAt)))
-  const reviewDates = new Set(dateRows.map((r) => r.d).filter(Boolean))
+  const reviewDates = new Set(
+    dateRows
+      .map((r) => r.lastReviewAt)
+      .filter((d): d is Date => d != null)
+      .map((d) => formatDay(new Date(d))),
+  )
 
   let streak = 0
   const today = new Date()

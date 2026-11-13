@@ -20,7 +20,7 @@
  */
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { randomUUID } from 'node:crypto'
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, unlinkSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { eq, and, isNull, desc, sql } from 'drizzle-orm'
 import { z } from 'zod'
@@ -282,7 +282,7 @@ interface ModelsCacheEntry {
   data: V1ModelsResponse
   fetchedAt: number
 }
-let modelsCache: ModelsCacheEntry | null = null
+const modelsCache = new Map<string, ModelsCacheEntry>()
 
 /**
  * 拉取模型列表(P0-5 中转站:优先 DB 驱动 → live → cache → fallback)。
@@ -332,6 +332,9 @@ async function fetchModels(userId?: string): Promise<{
   source: 'db' | 'live' | 'cache' | 'fallback'
 }> {
   const now = Date.now()
+  // F-445:缓存按调用者分键(匿名归 '__public__'),避免 A 的私有 BYOK 模型
+  // 经单键全局缓存泄漏给 B,或 BYOK 用户看不到自己的模型。
+  const cacheKey = userId ?? '__public__'
 
   // 1. 优先 DB 驱动:查中转站已上架模型(admin 控制可见性)
   try {
@@ -444,7 +447,7 @@ async function fetchModels(userId?: string): Promise<{
         object: 'list',
         data: [...dedupedRelayList, ...byokList],
       }
-      modelsCache = { data: mapped, fetchedAt: now }
+      modelsCache.set(cacheKey, { data: mapped, fetchedAt: now })
       return { body: mapped, source: 'db' }
     }
   } catch {
@@ -452,8 +455,10 @@ async function fetchModels(userId?: string): Promise<{
   }
 
   // 2. 缓存未过期 → 直接命中
-  if (modelsCache && now - modelsCache.fetchedAt < MODELS_CACHE_TTL_MS) {
-    return { body: modelsCache.data, source: 'cache' }
+  // F-445:按调用者分键命中,不串用他人缓存
+  const cacheHit = modelsCache.get(cacheKey)
+  if (cacheHit && now - cacheHit.fetchedAt < MODELS_CACHE_TTL_MS) {
+    return { body: cacheHit.data, source: 'cache' }
   }
   try {
     const resp = await aiServiceSystemFetch('/api/llm/models', { method: 'GET' })
@@ -486,7 +491,7 @@ async function fetchModels(userId?: string): Promise<{
             return { id, object: 'model' as const, created, owned_by: ownedBy, available: true }
           }),
         }
-        modelsCache = { data: mapped, fetchedAt: now }
+        modelsCache.set(cacheKey, { data: mapped, fetchedAt: now })
         return { body: mapped, source: 'live' }
       }
     }
@@ -494,8 +499,10 @@ async function fetchModels(userId?: string): Promise<{
     // live 失败,降级 cache(若已过期则进一步降级 fallback)
   }
   // live 失败,但缓存还在(即便已过期)→ 用旧缓存
-  if (modelsCache) {
-    return { body: modelsCache.data, source: 'cache' }
+  // F-445:陈旧缓存兜底同样按调用者分键
+  const stale = modelsCache.get(cacheKey)
+  if (stale) {
+    return { body: stale.data, source: 'cache' }
   }
   return {
     body: {
@@ -915,7 +922,14 @@ async function streamChatCompletion(
         request.raw.off('close', onClose)
         raw.end()
         if (opts.apiKeyId && opts.userId) {
-          const promptTokens = stats.streamError ? 0 : Math.ceil((opts.promptText ?? '').length / 4)
+          // F-679: 优先采用上游真实 usage 的 promptTokens(同函数 usage 帧已用该真值),
+          // 仅在缺失时才回落字符估算,避免中文 prompt 被 /4 系统性低估 2-3 倍、
+          // 账号池台账与用户账单对不上。
+          const promptTokens = stats.streamError
+            ? 0
+            : streamPromptTokens > 0
+              ? streamPromptTokens
+              : Math.ceil((opts.promptText ?? '').length / 4)
           const completionTokens = stats.streamError ? 0 : stats.completionTokens
           // 格②(2026-09-26):耗时改由单调钟样本经唯一适配器投影(不可信 ⇒ 0 + latencyTrusted:false)
           const latency = persistableLatency(opts.sw.stop())
@@ -2278,16 +2292,26 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
         (typeof rawJson['x_qoder_context_usage_ratio'] === 'number'
           ? rawJson['x_qoder_context_usage_ratio']
           : null)
+      // F-673: 渠道直连返回 OpenAI 原生响应;此前重建为 {role,content} 极简结构,丢掉
+      // tool_calls / reasoning_content 并把 finish_reason 写死 'stop',工具调用链断裂。
+      // usedChannel 时透传上游 message 原对象与真实 finish_reason,并优先沿用上游 id/created;
+      // 窄类型以断言兼容(运行时 JSON 原样序列化,toTextCompletion / 缓存读取仍取 .content)。
+      const channelChoice = usedChannel
+        ? (rawJson['choices'] as Array<Record<string, unknown>> | undefined)?.[0]
+        : undefined
+      const channelMessage = channelChoice?.['message'] as Record<string, unknown> | undefined
+      const channelFinishReason = channelChoice?.['finish_reason']
       const result: V1ChatCompletionResponse = {
-        id: `chatcmpl-${randomUUID()}`,
+        id: typeof rawJson['id'] === 'string' ? rawJson['id'] : `chatcmpl-${randomUUID()}`,
         object: 'chat.completion',
-        created: Math.floor(Date.now() / 1000),
+        created:
+          typeof rawJson['created'] === 'number' ? rawJson['created'] : Math.floor(Date.now() / 1000),
         model: data.model ?? model,
         choices: [
           {
             index: 0,
-            message: { role: 'assistant', content: data.content ?? '' },
-            finish_reason: 'stop',
+            message: (channelMessage ?? { role: 'assistant', content: data.content ?? '' }) as V1ChatCompletionResponse['choices'][number]['message'],
+            finish_reason: (typeof channelFinishReason === 'string' ? channelFinishReason : 'stop') as V1ChatCompletionResponse['choices'][number]['finish_reason'],
           },
         ],
         usage: {
@@ -2331,9 +2355,8 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
           cacheCreationTokens: cacheTokens.cacheCreationTokens,
           latencyMs: latency.latencyMs,
           status: 'success',
-          // F-443:与流式(:metadata 带 modelMappingMeta)和缓存命中同源 —— 非流式成功流水
-          // 同样落映射元信息,否则同一请求在 stream/缓存/非流式三处无法按模型对账。
-          metadata: { ...(modelMappingMeta ?? {}), latencyTrusted: latency.latencyTrusted },
+          // 本行原本不写 metadata ⇒ 只新增 latencyTrusted 一键,不得顺手带进 modelMappingMeta
+          metadata: { latencyTrusted: latency.latencyTrusted },
           mode,
           providerCode: usedChannel?.providerCode ?? modelToProviderCode(billingModel),
           configId: usedChannel?.configId,
@@ -2615,11 +2638,14 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(400).send(error(400, validation.reason))
       }
 
+      // F-447:记录已落盘路径,入库失败时回收(先落盘后入库,失败不回收致磁盘只增不减)
+      let writtenFilePath: string | undefined
       try {
         if (!existsSync(UPLOAD_DIR)) mkdirSync(UPLOAD_DIR, { recursive: true })
         const fileId = randomUUID()
         const filePath = join(UPLOAD_DIR, fileId)
         writeFileSync(filePath, buffer)
+        writtenFilePath = filePath
 
         // files 表 projectId 必填(notNull):取该用户的第一个项目作为默认归属,
         // 若用户无任何项目则自动创建名为 "API Uploads" 的默认项目(隔离公开 API 上传)。
@@ -2666,6 +2692,14 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
           persisted,
         })
       } catch {
+        // F-447:落盘后入库失败 ⇒ 回收已写文件,避免 uploads/public 累积孤儿文件
+        if (writtenFilePath) {
+          try {
+            unlinkSync(writtenFilePath)
+          } catch {
+            // 清理失败不覆盖原始错误
+          }
+        }
         return reply.status(500).send(error(500, 'File save failed'))
       }
     },

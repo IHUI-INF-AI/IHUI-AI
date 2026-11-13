@@ -285,8 +285,9 @@ const updateOAuthAppSchema = z.object({
 
 const updateSettlementSchema = z.object({
   status: z.string().max(20).optional(),
-  commissionRate: z.number().min(0).optional(),
-  commissionAmount: z.number().int().min(0).optional(),
+  // F-669: commission_rate / commission_amount 均为 int4,小数会被静默取整、超限 500。
+  commissionRate: z.number().int().min(0).max(100).optional(),
+  commissionAmount: z.number().int().min(0).max(2147483647).optional(),
 })
 
 const createNeedTaskSchema = z.object({
@@ -1179,9 +1180,10 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
         agentId: z.string().uuid().nullable().optional(),
         buyRecordId: z.string().uuid().nullable().optional(),
         orderNo: z.string().nullable().optional(),
-        amount: z.number().optional(),
-        commissionRate: z.number().optional(),
-        commissionAmount: z.number().optional(),
+        // F-669: 三列均为 int4,入参必须整数且在 int4 范围内;commissionRate 语义为百分比。
+        amount: z.number().int().min(0).max(2147483647).optional(),
+        commissionRate: z.number().int().min(0).max(100).optional(),
+        commissionAmount: z.number().int().min(0).max(2147483647).optional(),
         status: z.string().optional(),
       })
       .safeParse(request.body)

@@ -28,6 +28,7 @@ import {
   updateProject,
   deleteProject,
   listFilesByProject,
+  listAllFilesByProject,
   findFileById,
   findFileByIdIncludeTrashed,
   findFileOwnershipBatch,
@@ -409,7 +410,9 @@ export const workspaceRoutes: FastifyPluginAsync = async (server) => {
     }
 
     // 删除项目关联的文件（磁盘）
-    const projectFiles = await listFilesByProject(id)
+    // F-431:删项目会级联删除 files 行(含回收站软删行),磁盘清理必须覆盖回收站,
+    // 否则这些 blob 永久成孤儿;GET 列表仍用 listFilesByProject(不含回收站)。
+    const projectFiles = await listAllFilesByProject(id)
     for (const f of projectFiles) {
       try {
         if (existsSync(f.path)) unlinkSync(f.path)

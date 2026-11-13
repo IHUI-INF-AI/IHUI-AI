@@ -840,13 +840,20 @@ class KnowledgeRagService {
     return results.map((r, i) => `[${i + 1}] ${r.content}`).join('\n\n')
   }
 
-  /** 列出文档 */
-  async listDocs(ownerUuid: string): Promise<DocSummary[]> {
+  /** 列出文档(F-534:分页 + 稳定排序,避免全量返回与非唯一键翻页丢行) */
+  async listDocs(
+    ownerUuid: string,
+    opts: { limit?: number; offset?: number } = {},
+  ): Promise<DocSummary[]> {
+    const limit = Math.min(Math.max(opts.limit ?? 100, 1), 200)
+    const offset = Math.max(opts.offset ?? 0, 0)
     const rows = await db
       .select()
       .from(knowledgeDoc)
       .where(and(eq(knowledgeDoc.ownerUuid, ownerUuid), eq(knowledgeDoc.status, 'active')))
-      .orderBy(desc(knowledgeDoc.createdAt))
+      .orderBy(desc(knowledgeDoc.createdAt), desc(knowledgeDoc.id))
+      .limit(limit)
+      .offset(offset)
     return rows.map((d) => ({
       id: d.id,
       title: d.title,

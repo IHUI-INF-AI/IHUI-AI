@@ -137,7 +137,10 @@ function sleep(ms: number): Promise<void> {
  */
 export class DistributedLock {
   private stats = { acquired: 0, released: 0, expired: 0, renewed: 0 }
+  // F-709: watchdog 以 token 为键(而非锁名)。watchdogTokens 记录 name -> token,
+  // 供同名锁重获取时定位并清理上一把锁遗留的 interval。
   private readonly watchdogs = new Map<string, ReturnType<typeof setInterval>>()
+  private readonly watchdogTokens = new Map<string, string>()
 
   constructor(private readonly redis: Redis) {}
 
@@ -189,7 +192,8 @@ export class DistributedLock {
    * 释放锁 (需提供获取时返回的 token)。
    */
   async release(name: string, token: string): Promise<LockState> {
-    this.stopWatchdog(name)
+    // F-709: 只停本 token 的 watchdog,旧句柄不再按锁名误清新锁的续约表。
+    this.stopWatchdog(token)
     const res = (await this.redis.eval(RELEASE_SCRIPT, 1, name, token)) as number
     if (res === 1) {
       this.stats.released++
@@ -276,27 +280,36 @@ export class DistributedLock {
 
   /** 启动 watchdog：定时续约，锁丢失时自动停止。 */
   private startWatchdog(lock: AcquiredLock, intervalMs: number): void {
+    // F-709: 同名锁再次获取前先清理上一把锁遗留的 interval,避免旧 timer 失引用后
+    // 永不 clearInterval、每周期仍发一次 EVAL。
+    const previousToken = this.watchdogTokens.get(lock.name)
+    if (previousToken) this.stopWatchdog(previousToken)
     const timer = setInterval(async () => {
       try {
         const ok = await lock.renew(lock.ttlMs)
         if (!ok) {
-          this.stopWatchdog(lock.name)
+          this.stopWatchdog(lock.token)
           this.stats.expired++
         }
       } catch {
-        this.stopWatchdog(lock.name)
+        this.stopWatchdog(lock.token)
       }
     }, intervalMs)
     // 不阻塞进程退出
     timer.unref?.()
-    this.watchdogs.set(lock.name, timer)
+    this.watchdogs.set(lock.token, timer)
+    this.watchdogTokens.set(lock.name, lock.token)
   }
 
-  private stopWatchdog(name: string): void {
-    const timer = this.watchdogs.get(name)
+  private stopWatchdog(token: string): void {
+    const timer = this.watchdogs.get(token)
     if (timer) {
       clearInterval(timer)
-      this.watchdogs.delete(name)
+      this.watchdogs.delete(token)
+    }
+    // 同步清理 name -> token 映射,避免残留已停止的旧 token。
+    for (const [name, t] of this.watchdogTokens) {
+      if (t === token) this.watchdogTokens.delete(name)
     }
   }
 }

@@ -18,7 +18,22 @@ import {
 // =============================================================================
 
 export async function findHotWordList(): Promise<HotWord[]> {
-  return db.select().from(hotWords).orderBy(asc(hotWords.sort), desc(hotWords.createdAt))
+  // F-609: search-aspect 每次搜索把 sort + 1(越大越热),列表必须 desc(sort);
+  // 此前 asc(sort) 把最冷门词排最前。管理端仍要全量(含下架词)供运营维护,故不加过滤。
+  return db.select().from(hotWords).orderBy(desc(hotWords.sort), desc(hotWords.createdAt))
+}
+
+/**
+ * F-609:面向 C 端搜索建议的热搜词查询 —— 只取已上架(active)、按热度降序、限量返回。
+ * 管理端 /search/hot-words 需要看到全部词(含下架),仍用 findHotWordList()。
+ */
+export async function findActiveHotWords(limit: number): Promise<HotWord[]> {
+  return db
+    .select()
+    .from(hotWords)
+    .where(eq(hotWords.status, 'active'))
+    .orderBy(desc(hotWords.sort), desc(hotWords.createdAt))
+    .limit(Math.max(1, Math.min(200, Math.trunc(limit))))
 }
 
 export interface CreateHotWordInput {

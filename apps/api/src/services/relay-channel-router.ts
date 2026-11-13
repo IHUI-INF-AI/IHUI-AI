@@ -280,9 +280,17 @@ async function writeCircuitState(keyPoolId: string, state: CircuitState): Promis
 }
 
 // session-affinity:定期清理过期亲和性条目(防止一次性用户导致内存泄漏)
-// unref 确保定时器不会阻止进程退出;stopRelayChannelRouterSweep 供 index.ts shutdown 显式清理
+// F-368:此前定时器在模块顶层 if 块内自启动,API 进程(index.ts)与 worker 进程
+// (worker-entry.ts)各自 import 本模块即各跑一份;worker 侧的 sessionAffinityMap
+// 是进程内对象、不参与 relay 路由,那份清理器纯属浪费。现改为显式 start/stop 成对
+// 函数:由 API 入口在启动期调用 startRelayChannelRouterSweep(),worker 不再自启动。
+// 与同文件既有 stopRelayChannelRouterSweep()(shutdown 相)形成闭环,API 行为不变。
 let sweepTimer: ReturnType<typeof setInterval> | null = null
-if (typeof setInterval !== 'undefined') {
+
+/** 启动亲和性清理定时器(幂等)。仅应由 API 进程入口(index.ts)调用一次。 */
+export function startRelayChannelRouterSweep(): void {
+  if (sweepTimer) return
+  if (typeof setInterval === 'undefined') return
   sweepTimer = setInterval(() => {
     const now = Date.now()
     for (const [key, val] of sessionAffinityMap) {

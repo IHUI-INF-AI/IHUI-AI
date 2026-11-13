@@ -155,7 +155,7 @@ export const adminMonitoringRoutes: FastifyPluginAsync = async (server) => {
         endpoint: apiLogs.path,
         method: apiLogs.method,
         calls: count(),
-        errorRate: sql<number>`coalesce(avg(case when ${apiLogs.statusCode} >= 400 then 1 else 0 end) * 100, 0)`,
+        errorRate: sql<number>`coalesce(avg(case when ${apiLogs.statusCode} >= 400 then 1 else 0 end) * 100, 0)::float8`,
       })
       .from(apiLogs)
       .groupBy(apiLogs.method, apiLogs.path)
@@ -478,11 +478,11 @@ export const adminMonitoringRoutes: FastifyPluginAsync = async (server) => {
 
     const [stats] = await db
       .select({
-        totalRevenue: sql<number>`coalesce(sum(${orders.amount}), 0) / 100.0`,
+        totalRevenue: sql<number>`coalesce(sum(${orders.amount}), 0)::float8 / 100.0`,
         totalOrders: count(),
         paidOrders: sql<number>`(count(*) filter (where ${orders.status} = 'paid'))::int`,
-        refundedAmount: sql<number>`coalesce(sum(case when ${orders.status} = 'refunded' then ${orders.amount} else 0 end), 0) / 100.0`,
-        avgOrderAmount: sql<number>`coalesce(avg(${orders.amount}), 0) / 100.0`,
+        refundedAmount: sql<number>`coalesce(sum(case when ${orders.status} = 'refunded' then ${orders.amount} else 0 end), 0)::float8 / 100.0`,
+        avgOrderAmount: sql<number>`coalesce(avg(${orders.amount}), 0)::float8 / 100.0`,
       })
       .from(orders)
       .where(gte(orders.createdAt, sql`now() - interval '${sql.raw(interval)}'`))
@@ -491,7 +491,7 @@ export const adminMonitoringRoutes: FastifyPluginAsync = async (server) => {
       .select({
         type: sql<string>`coalesce(${orders.orderType}::text, 'unknown')`,
         count: count(),
-        amount: sql<number>`coalesce(sum(${orders.amount}), 0) / 100.0`,
+        amount: sql<number>`coalesce(sum(${orders.amount}), 0)::float8 / 100.0`,
       })
       .from(orders)
       .where(gte(orders.createdAt, sql`now() - interval '${sql.raw(interval)}'`))
@@ -500,7 +500,7 @@ export const adminMonitoringRoutes: FastifyPluginAsync = async (server) => {
     const byMonth = await db
       .select({
         month: sql<string>`to_char(${orders.createdAt}, 'YYYY-MM')`,
-        revenue: sql<number>`coalesce(sum(${orders.amount}), 0) / 100.0`,
+        revenue: sql<number>`coalesce(sum(${orders.amount}), 0)::float8 / 100.0`,
         orders: count(),
       })
       .from(orders)

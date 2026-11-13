@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { eq, and, gte, lt, lte } from 'drizzle-orm'
+import { eq, and, gte, lt, lte, asc } from 'drizzle-orm'
 import { db } from './index.js'
 import { orders, eduOrders, type Order } from '@ihui/database'
 import { generateOutTradeNo } from '../services/wechat-pay.js'
@@ -163,12 +163,17 @@ export async function updateOrderStatus(
   return outerTx ? run(outerTx) : db.transaction(run)
 }
 
+/** F-566:单轮关单取数上限,避免全量拉超期 pending 单拖死 scheduler worker。 */
+const EXPIRED_ORDER_BATCH_LIMIT = 200
+
 export async function queryPendingOrders() {
   const thirtyMinAgo = new Date(Date.now() - 30 * 60 * 1000)
   return db
     .select()
     .from(orders)
     .where(and(eq(orders.status, 'pending'), lt(orders.createdAt, thirtyMinAgo)))
+    .orderBy(asc(orders.createdAt))
+    .limit(EXPIRED_ORDER_BATCH_LIMIT)
 }
 
 /**

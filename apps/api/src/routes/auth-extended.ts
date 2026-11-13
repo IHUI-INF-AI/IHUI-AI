@@ -9,7 +9,7 @@ import { hashPassword, verifyPassword } from '../utils/password-crypto.js'
 import { verifyLoginPassword } from '../utils/login-verify.js'
 import { createHash, randomBytes } from 'node:crypto'
 import { secretsEqual } from '../plugins/internal-service-token.js'
-import { eq } from 'drizzle-orm'
+import { eq, and } from 'drizzle-orm'
 import { generateShortCode } from '../utils/crypto-random.js'
 import {
   signAccessToken,
@@ -3947,19 +3947,23 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
           }
         }
       } else if (backupCode) {
-        // backup code 路径:校验通过后立即从数组移除(单次使用)
+        // F-567:校验与消费必须是原子的条件更新。旧实现「先校验后按 id 覆盖数组」,
+        // 同一恢复码的两个并发请求都能读到含该 hash 的数组并各自写回 removing,
+        // 导致单码换多会话。这里用「整个数组相等」做 CAS:只有 WHERE 命中
+        // (该 hash 仍在原数组)才消费,returning 为空即视为并发重放并拒绝。
         const hashes = user.twoFactorBackupCodes ?? []
         if (verifyBackupCode(backupCode, hashes)) {
           const usedHash = hashBackupCode(backupCode)
           const remaining = hashes.filter((h) => h !== usedHash)
-          await db
+          const consumed = await db
             .update(users)
             .set({
               twoFactorBackupCodes: remaining,
               updatedAt: new Date(),
             })
-            .where(eq(users.id, userId))
-          verified = true
+            .where(and(eq(users.id, userId), eq(users.twoFactorBackupCodes, hashes)))
+            .returning({ id: users.id })
+          if (consumed.length > 0) verified = true
         }
       }
 

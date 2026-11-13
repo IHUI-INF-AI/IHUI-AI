@@ -143,8 +143,11 @@ function launchOnce(): Promise<QoderBridgeEndpoint> {
   const key = crypto.randomBytes(16).toString('hex')
 
   return new Promise<QoderBridgeEndpoint>((resolve, reject) => {
-    const proc = spawn(exe, [BRIDGE_SCRIPT, '--port', '0', '--key', key, '--cwd', BRIDGE_CWD], {
-      env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
+    // F-658:密钥不再放进子进程 argv(同机同用户可读进程命令行),改走环境变量
+    // QODER_BRIDGE_KEY —— 桥脚本 arg('key', process.env.QODER_BRIDGE_KEY) 本就支持该
+    // 回退,且其自重启分支继承 env,行为等价且不再泄漏到进程列表。
+    const proc = spawn(exe, [BRIDGE_SCRIPT, '--port', '0', '--cwd', BRIDGE_CWD], {
+      env: { ...process.env, ELECTRON_RUN_AS_NODE: '1', QODER_BRIDGE_KEY: key },
       stdio: ['ignore', 'pipe', 'pipe'],
       windowsHide: true,
     })
