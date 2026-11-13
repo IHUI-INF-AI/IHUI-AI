@@ -4,6 +4,7 @@
 
 import { eq, and, desc, asc, sql, ilike, or, type SQL } from 'drizzle-orm'
 import { db, dbRead } from './index.js'
+import { isUuidString } from '../utils/uuid.js'
 import {
   circles,
   circleMembers,
@@ -92,18 +93,45 @@ export async function findCircleBySlug(
 }
 
 /**
- * 根据 id 或 slug 查询圈子。优先按 UUID 查找，再按 slug 查找。
+ * 圈子 slug 形态判据(票面口径 `^[a-z0-9-]{1,64}$`;`circles.slug` 列宽 120 仅留余量)。
+ * 只允许小写字母/数字/连字符 —— `%`、空格、中文、大写、超长一律视为非法,不进 SQL。
+ */
+export const CIRCLE_SLUG_RE = /^[a-z0-9-]{1,64}$/
+
+/** 路径参数解析结果:`id` 段按主键查,`slug` 段按 slug 查。 */
+export type CircleIdentifier = { kind: 'id'; value: string } | { kind: 'slug'; value: string }
+
+/**
+ * F-336:圈子路径参数的**唯一**判定口径。
+ *
+ * 规则:纯数字或 UUID 形态 → 按 id;合法 slug(`CIRCLE_SLUG_RE`)→ 按 slug;
+ * 其余(含 `%`、空格、超长、大写等)→ `null`,调用方据此回 400,且不产生任何查询。
+ *
+ * 注:`circles.id` 是 uuid 列,纯数字串不可能是合法 uuid 字面量,查询层会对
+ * "id 但不是 uuid" 直接判不存在,避免 Postgres 22P02 把 404 变成 500。
+ */
+export function parseCircleIdentifier(raw: string): CircleIdentifier | null {
+  if (/^\d+$/.test(raw)) return { kind: 'id', value: raw }
+  if (isUuidString(raw)) return { kind: 'id', value: raw }
+  if (CIRCLE_SLUG_RE.test(raw)) return { kind: 'slug', value: raw }
+  return null
+}
+
+/**
+ * 根据 id 或 slug 查询圈子。判定口径见 `parseCircleIdentifier`。
  */
 export async function findCircleByIdOrSlug(
   idOrSlug: string,
   opts: FindCircleOpts = {},
 ): Promise<Circle | undefined> {
-  // UUID 格式：直接按 id 查
-  const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-  if (uuidRe.test(idOrSlug)) {
-    return findCircleById(idOrSlug, opts)
+  const ident = parseCircleIdentifier(idOrSlug)
+  if (!ident) return undefined
+  if (ident.kind === 'id') {
+    // 纯数字 id 不是 uuid 字面量:喂给 `uuid` 列会抛 22P02 ⇒ 直接判不存在(404,不查询)。
+    if (!isUuidString(ident.value)) return undefined
+    return findCircleById(ident.value, opts)
   }
-  return findCircleBySlug(idOrSlug, opts)
+  return findCircleBySlug(ident.value, opts)
 }
 
 /**
