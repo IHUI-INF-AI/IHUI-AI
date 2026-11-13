@@ -66,6 +66,16 @@ export interface PricingSuggestion {
   marginRate: number
 }
 
+/** 7d 聚合行(dbRead 结果;numeric 可能以字符串返回) */
+export interface PricingAggregateRow {
+  modelId: string
+  /** 平均单次实付(分);null 表示窗口内没有任何「成功且 cost_cents 非空」的调用 */
+  avgRevenueCents: number | string | null
+  /** 平均倍率;NULL/非法值按 1.0 处理 */
+  avgMultiplier: number | string | null
+  callCount?: number | string | null
+}
+
 // =============================================================================
 // 辅助函数
 // =============================================================================
@@ -210,10 +220,67 @@ export async function getActiveDiscounts(): Promise<PriceDiscountSchedule[]> {
 // =============================================================================
 
 /**
+ * 由聚合行 + 当前倍率算出定价建议(纯函数,不触库)。
+ *
+ * 精度口径(F-634,2026-11-13):
+ * - revenue 用**未截断**的平均值参与 marginRate 计算与阈值判断;
+ * - 只在最终输出字段上 round(1e-6 / 4 位小数),聚合阶段不得取整到分。
+ *   低价模型 avg(cost_cents)=0.4 分若先 ::int 变 0,会被误判成"无有效收入",
+ *   永远拿不到提价/降价建议。
+ * - `avgRevenueCents === null` 才是"确实没有数据";`0` 是"有数据但均值为 0"。
+ */
+export function buildPricingSuggestion(
+  row: PricingAggregateRow,
+  currentMultiplier: number,
+): PricingSuggestion {
+  const parsedRevenue = Number(row.avgRevenueCents)
+  const hasRevenueData =
+    row.avgRevenueCents !== null &&
+    row.avgRevenueCents !== undefined &&
+    Number.isFinite(parsedRevenue)
+  const revenue = hasRevenueData ? parsedRevenue : 0
+
+  const parsedMultiplier = Number(row.avgMultiplier)
+  const avgMultiplier =
+    Number.isFinite(parsedMultiplier) && parsedMultiplier > 0 ? parsedMultiplier : 1
+  const cost = revenue / avgMultiplier
+  const marginRate = revenue > 0 ? (revenue - cost) / revenue : 0
+
+  let suggestedMultiplier = currentMultiplier
+  let reason: string
+  if (!hasRevenueData) {
+    reason = '近 7 天无有效收入数据,维持当前倍率'
+  } else if (revenue <= 0) {
+    reason = '近 7 天有调用但平均单次收入为 0 分,维持当前倍率'
+  } else if (marginRate < 0.1) {
+    // 利润率 < 10%,建议提价 +0.20
+    suggestedMultiplier = Math.round((currentMultiplier + 0.2) * 100) / 100
+    reason = `利润率 ${(marginRate * 100).toFixed(1)}% 偏低(< 10%),建议提价以覆盖渠道成本`
+  } else if (marginRate > 0.5) {
+    // 利润率 > 50%,建议降价 -0.10 抢占市场
+    suggestedMultiplier = Math.max(0.01, Math.round((currentMultiplier - 0.1) * 100) / 100)
+    reason = `利润率 ${(marginRate * 100).toFixed(1)}% 较高(> 50%),建议降价抢占市场`
+  } else {
+    reason = `利润率 ${(marginRate * 100).toFixed(1)}% 处于合理区间(10%-50%),维持当前倍率`
+  }
+
+  return {
+    modelId: row.modelId,
+    currentMultiplier,
+    suggestedMultiplier,
+    reason,
+    // 保留 6 位小数:低价模型平均单次成本/收入在整数分下恒显示 0(2026-09-13)
+    avgCostCentsPerCall: Math.round(cost * 1e6) / 1e6,
+    avgRevenueCentsPerCall: Math.round(revenue * 1e6) / 1e6,
+    marginRate: Number(marginRate.toFixed(4)),
+  }
+}
+
+/**
  * 动态调价建议:查最近 7d llm_call_logs,按 model 聚合利润率,给出调价建议。
  *
  * 聚合逻辑:
- * - revenue = AVG(cost_cents)(用户实付)
+ * - revenue = AVG(cost_cents)(用户实付,保留小数精度,不在 SQL 里取整)
  * - multiplier = AVG((metadata->>'multiplier')::numeric)(本次调用所用倍率,防 NULL 用 1.0)
  * - cost = revenue / multiplier(上游成本反推)
  * - marginRate = (revenue - cost) / revenue
@@ -229,11 +296,13 @@ export async function getPricingSuggestions(): Promise<PricingSuggestion[]> {
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
 
   // 按模型聚合:平均实付、平均倍率(从 metadata 反推上游成本)
+  // F-634:平均实付保留 numeric 小数,不得 ::int 截断(否则 avg<0.5 分的模型 revenue 变 0);
+  // 不 COALESCE 成 0,让 NULL 可区分「确实没有数据」与「有数据但均值为 0」。
   // NULLIF 防除零;COALESCE 防 metadata 缺失 multiplier
   const rows = await dbRead
     .select({
       modelId: llmCallLogs.model,
-      avgRevenueCents: sql<number>`coalesce(avg(${llmCallLogs.costCents}), 0)::numeric::int`,
+      avgRevenueCents: sql<number | null>`avg(${llmCallLogs.costCents})::numeric`,
       avgMultiplier: sql<number>`coalesce(
         avg(coalesce(nullif(${llmCallLogs.metadata}->>'multiplier', '')::numeric, 1.0)),
         1.0
@@ -253,40 +322,8 @@ export async function getPricingSuggestions(): Promise<PricingSuggestion[]> {
 
   const suggestions: PricingSuggestion[] = []
   for (const row of rows) {
-    const revenue = Number(row.avgRevenueCents ?? 0)
-    const avgMultiplier = Number(row.avgMultiplier ?? 1) || 1
-    const cost = avgMultiplier > 0 ? revenue / avgMultiplier : revenue
-    const marginRate = revenue > 0 ? (revenue - cost) / revenue : 0
-
     const currentMultiplier = await getCurrentMultiplier(row.modelId)
-
-    let suggestedMultiplier = currentMultiplier
-    let reason: string
-    if (revenue <= 0) {
-      reason = '近 7 天无有效收入数据,维持当前倍率'
-      suggestedMultiplier = currentMultiplier
-    } else if (marginRate < 0.1) {
-      // 利润率 < 10%,建议提价 +0.20
-      suggestedMultiplier = Math.round((currentMultiplier + 0.2) * 100) / 100
-      reason = `利润率 ${(marginRate * 100).toFixed(1)}% 偏低(< 10%),建议提价以覆盖渠道成本`
-    } else if (marginRate > 0.5) {
-      // 利润率 > 50%,建议降价 -0.10 抢占市场
-      suggestedMultiplier = Math.max(0.01, Math.round((currentMultiplier - 0.1) * 100) / 100)
-      reason = `利润率 ${(marginRate * 100).toFixed(1)}% 较高(> 50%),建议降价抢占市场`
-    } else {
-      reason = `利润率 ${(marginRate * 100).toFixed(1)}% 处于合理区间(10%-50%),维持当前倍率`
-    }
-
-    suggestions.push({
-      modelId: row.modelId,
-      currentMultiplier,
-      suggestedMultiplier,
-      reason,
-      // 保留 6 位小数:低价模型平均单次成本/收入在整数分下恒显示 0(2026-09-13)
-      avgCostCentsPerCall: Math.round(cost * 1e6) / 1e6,
-      avgRevenueCentsPerCall: Math.round(revenue * 1e6) / 1e6,
-      marginRate: Number(marginRate.toFixed(4)),
-    })
+    suggestions.push(buildPricingSuggestion(row, currentMultiplier))
   }
 
   // 按利润率升序(利润率最低的排前面,最需要关注)

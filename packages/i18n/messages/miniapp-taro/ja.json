@@ -45,7 +45,7 @@
     "committing": "インポート中...({done}/{total})",
     "commitDone": "インポート完了: 成功 {imported}、失敗 {failed}",
     "commitFailed": "インポートに失敗しました:{error}",
-    "noValidContent": "会話に有効な内容がありません",
+    "noValidContent": "インポート可能な有効な内容がありません",
     "historyTitle": "インポート履歴",
     "historyEmpty": "インポート履歴はまだありません",
     "historyParsed": "解析",

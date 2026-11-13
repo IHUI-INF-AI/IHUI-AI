@@ -332,6 +332,8 @@ const wsBroadcastPlugin: FastifyPluginAsync = async (server) => {
   ): BroadcastResult => {
     const conns = connections.get(userId)
     if (!conns || conns.size === 0) return { matched: 0, delivered: 0, gated: 0 }
+    // F-461:向存活连接投递即视为活动,刷新 ws-auto-recovery 的活动时间(内存时间戳,轻量)。
+    getWsAutoRecoveryManager().recordActivity?.()
     const msg = JSON.stringify({ event, data })
     let delivered = 0
     let gated = 0
@@ -643,6 +645,8 @@ const wsBroadcastPlugin: FastifyPluginAsync = async (server) => {
     connRoles.set(socket, role)
 
     socket.on('message', (data: Buffer) => {
+      // F-461:入站消息刷新活动时间(内存时间戳),避免活跃连接被误判僵尸而反复恢复。
+      getWsAutoRecoveryManager().recordActivity?.()
       if (data.toString() === 'ping') socket.send('pong')
     })
 

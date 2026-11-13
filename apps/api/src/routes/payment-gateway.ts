@@ -770,9 +770,10 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
             }
             try {
               if (!result.order.userId) throw new Error('order has no userId')
-              const tokenQuantity = await getBalance(result.order.userId)
+              // F-404:返佣基数由 commission-service 内部按本单充值流水(orderNo+opType=0)取增量，
+              // 不再用 getBalance 的钱包总余额(含历史)——消除小额复购对历史余额反复抽佣。
               await feedbackInvite(
-                { id: result.order.userId, tokenQuantity },
+                { id: result.order.userId },
                 {
                   id: result.order.id,
                   amount: result.order.amount,
@@ -1279,9 +1280,9 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
             }
             try {
               if (!result.order.userId) throw new Error('order has no userId')
-              const tokenQuantity = await getBalance(result.order.userId)
+              // F-404:返佣基数由服务内按本单充值流水取增量,不再用钱包总余额。
               await feedbackInvite(
-                { id: result.order.userId, tokenQuantity },
+                { id: result.order.userId },
                 {
                   id: result.order.id,
                   amount: result.order.amount,
@@ -1393,9 +1394,7 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
       // 直接 409,不得再调支付宝——否则两个请求都读到 paid,各调一次支付宝就是真实资金双出。
       const claim = await claimRefund(outTradeNo)
       if (!claim.success) {
-        return reply
-          .status(409)
-          .send(error(409, claim.reason ?? '订单状态已变更,退款未落库'))
+        return reply.status(409).send(error(409, claim.reason ?? '订单状态已变更,退款未落库'))
       }
       if (isAlipayConfigured()) {
         let result: { success: boolean }
@@ -1611,9 +1610,9 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
           }
           try {
             if (!result.order.userId) throw new Error('order has no userId')
-            const tokenQuantity = await getBalance(result.order.userId)
+            // F-404:返佣基数由服务内按本单充值流水取增量,不再用钱包总余额。
             await feedbackInvite(
-              { id: result.order.userId, tokenQuantity },
+              { id: result.order.userId },
               {
                 id: result.order.id,
                 amount: result.order.amount,
@@ -1782,9 +1781,9 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
             }
             try {
               if (!result.order.userId) throw new Error('order has no userId')
-              const tokenQuantity = await getBalance(result.order.userId)
+              // F-404:返佣基数由服务内按本单充值流水取增量,不再用钱包总余额。
               await feedbackInvite(
-                { id: result.order.userId, tokenQuantity },
+                { id: result.order.userId },
                 {
                   id: result.order.id,
                   amount: result.order.amount,

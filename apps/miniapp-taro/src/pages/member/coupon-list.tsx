@@ -95,9 +95,7 @@ export default function CouponListPage() {
               >
                 <View className="w-[192rpx] bg-[var(--color-success-light)] flex flex-col items-center justify-center py-[32rpx]">
                   <View className="flex items-baseline">
-                    <Text className="text-[length:44rpx] font-bold text-[var(--color-success)]">
-                      {c.amount}
-                    </Text>
+                    <Text className="text-headline text-[var(--color-success)]">{c.amount}</Text>
                     <Text className="text-caption ml-[4rpx] text-muted-foreground">
                       {tt('member.couponList.unit', '元')}
                     </Text>

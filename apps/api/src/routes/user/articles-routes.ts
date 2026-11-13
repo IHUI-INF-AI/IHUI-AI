@@ -3,7 +3,8 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * 文章模块 /article/*(9 个端点,like/favorite 用 resource_likes 表 toggleLike)。
+ * 文章模块 /article/*(11 个端点,like/favorite 用 resource_likes 表;
+ * F-598:like 与 unlike、favorite 与 unfavorite 各自为幂等端点)。
  */
 import type { FastifyPluginAsync } from 'fastify'
 import { success, error } from '../../utils/response.js'
@@ -17,7 +18,7 @@ import {
   findPublishedNewsCategories,
   findMyArticles,
 } from '../../db/news-queries.js'
-import { toggleLike } from '../../db/resource-likes-queries.js'
+import { likeResource, unlikeResource } from '../../db/resource-likes-queries.js'
 import { parsePagination, parseIdParam } from './_shared.js'
 
 const articlesRoutes: FastifyPluginAsync = async (server) => {
@@ -90,17 +91,32 @@ const articlesRoutes: FastifyPluginAsync = async (server) => {
     return reply.status(201).send(success({ success: true, article }))
   })
 
+  // F-598:点赞/取消拆成两个幂等端点,重试或并发点赞不会被反转成取消。
   server.post('/article/like', async (request, reply) => {
     const body = (request.body as { id?: string } | null) ?? {}
     if (!body.id) return reply.status(400).send(error(400, '缺少 id'))
-    const result = await toggleLike('article', body.id, request.userId!)
+    const result = await likeResource('article', body.id, request.userId!)
+    return reply.send(success({ success: true, liked: result.liked }))
+  })
+
+  server.post('/article/unlike', async (request, reply) => {
+    const body = (request.body as { id?: string } | null) ?? {}
+    if (!body.id) return reply.status(400).send(error(400, '缺少 id'))
+    const result = await unlikeResource('article', body.id, request.userId!)
     return reply.send(success({ success: true, liked: result.liked }))
   })
 
   server.post('/article/favorite', async (request, reply) => {
     const body = (request.body as { id?: string } | null) ?? {}
     if (!body.id) return reply.status(400).send(error(400, '缺少 id'))
-    const result = await toggleLike('article_favorite', body.id, request.userId!)
+    const result = await likeResource('article_favorite', body.id, request.userId!)
+    return reply.send(success({ success: true, liked: result.liked }))
+  })
+
+  server.post('/article/unfavorite', async (request, reply) => {
+    const body = (request.body as { id?: string } | null) ?? {}
+    if (!body.id) return reply.status(400).send(error(400, '缺少 id'))
+    const result = await unlikeResource('article_favorite', body.id, request.userId!)
     return reply.send(success({ success: true, liked: result.liked }))
   })
 

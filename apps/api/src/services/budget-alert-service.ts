@@ -149,6 +149,25 @@ function pickMaxPercent(daily: number, monthly: number): number {
 }
 
 // ---------------------------------------------------------------------------
+// 导出的限额读取(供 ai-cost 计费前置检查复用同一阈值来源)
+// ---------------------------------------------------------------------------
+
+/**
+ * 读取用户在 aiBudgets 配置的日成本上限(与告警扫描同表同列,不另抄阈值)。
+ * 未配置或 <= 0 返回 null,调用方视为不做成本熔断。
+ */
+export async function getUserDailyCostLimit(userId: string): Promise<number | null> {
+  const [row] = await db
+    .select({ dailyCostLimit: aiBudgets.dailyCostLimit })
+    .from(aiBudgets)
+    .where(and(eq(aiBudgets.scope, 'user'), eq(aiBudgets.scopeKey, userId)))
+    .limit(1)
+
+  const limit = toNumber(row?.dailyCostLimit)
+  return limit > 0 ? limit : null
+}
+
+// ---------------------------------------------------------------------------
 // 主入口
 // ---------------------------------------------------------------------------
 

@@ -25,9 +25,12 @@ import {
 } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { env } from 'node:process'
+import IORedis, { type Redis } from 'ioredis'
 // ihui_oss_download_bytes_total:storage-service 不持有 fastify 实例,走模块级桥接
 import { recordOssDownloadBytes } from '../plugins/business-metrics.js'
 import { safeFetch } from '../utils/ssrf-guard.js'
+import { config } from '../config/index.js'
+import { logger } from '../utils/logger.js'
 
 const BASE_DIR = env.STORAGE_DIR ?? 'storage'
 const UPLOADS_DIR = join(BASE_DIR, 'uploads')
@@ -721,8 +724,15 @@ async function callOss(
 }
 
 // =============================================================================
-// 分片上传会话管理(内存 Map + TTL 清理)
+// 分片上传会话管理(Redis 为主存 + 本实例进程内索引)
 // UploadId(UUID v4) 为客户端可见的会话 ID,内部映射到 OSS 的 UploadId
+//
+// F-382 修复要点:
+// - 会话 key = 实例标识 + userId + sessionId,读取必须按 (userId, sessionId) 精确取,
+//   天然隔离跨用户命中;
+// - 写 Redis 时带 TTL;本实例索引只保存本进程创建的会话,清理不会误删别的实例;
+// - 过期清理先调 OSS AbortMultipartUpload 再删会话,失败只 warn 不阻塞;
+// - Redis 不可用时回退进程内 Map,并通过 isMultipartSessionStoreDegraded() 显式标注降级。
 // =============================================================================
 
 interface MultipartSession {
@@ -734,16 +744,211 @@ interface MultipartSession {
   createdAt: number
 }
 
-const multipartSessions = new Map<string, MultipartSession>()
-const SESSION_TTL_MS = 60 * 60 * 1000 // 1 小时
+/** 会话逻辑有效期(与原实现一致:1 小时)。 */
+export const MULTIPART_SESSION_TTL_MS = 60 * 60 * 1000
+/**
+ * Redis 物理 TTL 比逻辑有效期多留 15 分钟清理窗口:
+ * 若两者相等,键会先于清理任务消失,OSS 侧分片就永远拿不到 AbortMultipartUpload
+ * (正是 F-382 的病灶)。逻辑过期仍以 createdAt + MULTIPART_SESSION_TTL_MS 判定。
+ */
+const MULTIPART_SESSION_REDIS_TTL_MS = MULTIPART_SESSION_TTL_MS + 15 * 60 * 1000
 
-function cleanupExpiredSessions(): void {
-  const now = Date.now()
-  for (const [id, session] of multipartSessions) {
-    if (now - session.createdAt > SESSION_TTL_MS) {
-      multipartSessions.delete(id)
+/** 实例标识:清理只覆盖本实例创建的会话,多实例之间互不干扰。 */
+const INSTANCE_ID = `${env.HOSTNAME ?? 'local'}-${process.pid}-${randomUUID().slice(0, 8)}`
+const SESSION_KEY_PREFIX = `oss:multipart:${INSTANCE_ID}:`
+
+/**
+ * 本实例会话索引(进程内)。
+ * - Redis 在线时:仅作为本实例清理扫描表 + 写入失败时的兜底副本;
+ * - Redis 不可用时:即权威存储(降级),仍按 userId 分键,不会读到他人会话。
+ */
+const sessionIndex = new Map<string, MultipartSession>()
+
+let redisClient: Redis | null = null
+let degraded = false
+
+/** 是否已降级到进程内存储。降级必须可被调用方观测,不得静默。 */
+export function isMultipartSessionStoreDegraded(): boolean {
+  return degraded
+}
+
+function markDegraded(reason: string, error?: unknown): void {
+  if (!degraded) {
+    logger.warn('[storage-service] 分片会话存储降级为进程内 Map(多实例不共享)', {
+      reason,
+      error: String((error as Error)?.message ?? error ?? ''),
+    })
+  }
+  degraded = true
+}
+
+function getRedis(): Redis | null {
+  if (redisClient) return redisClient
+  try {
+    redisClient = new IORedis(config.REDIS_URL, {
+      maxRetriesPerRequest: 1,
+      // Redis 不可达时必须立即报错,否则命令排队挂死,内存兜底永远走不到。
+      enableOfflineQueue: false,
+      commandTimeout: 2000,
+    })
+    redisClient.on('error', (err) => {
+      markDegraded('redis error', err)
+    })
+  } catch (e) {
+    markDegraded('redis 初始化失败', e)
+    redisClient = null
+  }
+  return redisClient
+}
+
+/** 会话存储键:实例标识 + userId + sessionId,跨用户不可能命中。 */
+function sessionStorageKey(userId: string, sessionId: string): string {
+  return `${SESSION_KEY_PREFIX}${encodeURIComponent(userId)}:${sessionId}`
+}
+
+function parseSession(raw: string): MultipartSession | null {
+  try {
+    const s = JSON.parse(raw) as MultipartSession
+    if (
+      !s ||
+      typeof s.sessionId !== 'string' ||
+      typeof s.ossUploadId !== 'string' ||
+      typeof s.key !== 'string' ||
+      typeof s.bucket !== 'string' ||
+      typeof s.userId !== 'string' ||
+      typeof s.createdAt !== 'number'
+    ) {
+      return null
+    }
+    return s
+  } catch {
+    return null
+  }
+}
+
+function isSessionExpired(session: MultipartSession, now = Date.now()): boolean {
+  return now - session.createdAt > MULTIPART_SESSION_TTL_MS
+}
+
+async function saveMultipartSession(session: MultipartSession): Promise<void> {
+  const storageKey = sessionStorageKey(session.userId, session.sessionId)
+  sessionIndex.set(storageKey, session)
+  const redis = getRedis()
+  if (!redis) {
+    markDegraded('redis 客户端不可用')
+    return
+  }
+  try {
+    await redis.set(storageKey, JSON.stringify(session), 'PX', MULTIPART_SESSION_REDIS_TTL_MS)
+  } catch (e) {
+    markDegraded('写入 redis 失败,本会话仅进程内可见', e)
+  }
+}
+
+async function deleteMultipartSession(session: MultipartSession): Promise<void> {
+  const storageKey = sessionStorageKey(session.userId, session.sessionId)
+  sessionIndex.delete(storageKey)
+  const redis = getRedis()
+  if (!redis) return
+  try {
+    await redis.del(storageKey)
+  } catch (e) {
+    markDegraded('删除 redis 会话失败', e)
+  }
+}
+
+/** 按 (userId, sessionId) 精确读取;不存在、属主不符或已过期均返回 null。 */
+async function getMultipartSession(
+  userId: string,
+  sessionId: string,
+): Promise<MultipartSession | null> {
+  const storageKey = sessionStorageKey(userId, sessionId)
+  const redis = getRedis()
+  if (redis) {
+    try {
+      const raw = await redis.get(storageKey)
+      if (raw) {
+        const session = parseSession(raw)
+        if (!session || session.userId !== userId || session.sessionId !== sessionId) return null
+        if (isSessionExpired(session)) {
+          // 过期会话不能只删记录,先回收 OSS 侧分片(失败仅告警)。
+          void abortOssMultipartSession(session)
+          await deleteMultipartSession(session)
+          return null
+        }
+        return session
+      }
+      // Redis 在线且查无:以 Redis 为准,清掉本进程可能残留的陈旧副本。
+      // 降级状态下该 null 不可信(写入失败时 Redis 里本来就没有),继续走内存兜底。
+      if (!degraded) {
+        sessionIndex.delete(storageKey)
+        return null
+      }
+    } catch (e) {
+      markDegraded('读取 redis 失败,回退进程内', e)
     }
   }
+  const mem = sessionIndex.get(storageKey)
+  if (!mem) return null
+  if (mem.userId !== userId || mem.sessionId !== sessionId) return null
+  if (isSessionExpired(mem)) {
+    sessionIndex.delete(storageKey)
+    return null
+  }
+  return mem
+}
+
+/** 调 OSS AbortMultipartUpload;失败只记 warn,不阻塞本地会话清理。 */
+async function abortOssMultipartSession(session: MultipartSession): Promise<void> {
+  if (!getOssConfig()) return
+  try {
+    await callOss('DELETE', session.key, {
+      queryParams: { uploadId: session.ossUploadId },
+    })
+  } catch (e) {
+    logger.warn('[storage-service] 过期分片会话 AbortMultipartUpload 失败', {
+      sessionId: session.sessionId,
+      error: String((e as Error)?.message ?? e),
+    })
+  }
+}
+
+/**
+ * 清理本实例的过期会话:先 Abort OSS 分片,再删除会话。
+ * 只有 sessionIndex 中的条目会被扫描 —— 不会碰到其它实例/其它用户的在途会话。
+ * 返回清理条数。
+ */
+export async function cleanupExpiredMultipartSessions(): Promise<number> {
+  const now = Date.now()
+  let cleaned = 0
+  for (const session of Array.from(sessionIndex.values())) {
+    if (!isSessionExpired(session, now)) continue
+    await abortOssMultipartSession(session)
+    await deleteMultipartSession(session)
+    cleaned++
+  }
+  return cleaned
+}
+
+/** 仅供测试:清空进程内会话索引与降级标记。 */
+export function _resetMultipartSessionStateForTests(): void {
+  sessionIndex.clear()
+  degraded = false
+}
+
+/**
+ * 周期清理(只扫本实例索引)。没有既有调度器可挂,故在首次初始化时注册,
+ * unref 保证不阻止进程退出;无论如何 initiate 处还有一次惰性清理兜底。
+ */
+const CLEANUP_INTERVAL_MS = 10 * 60 * 1000
+let cleanupTimer: ReturnType<typeof setInterval> | null = null
+
+function ensureCleanupTimer(): void {
+  if (cleanupTimer) return
+  cleanupTimer = setInterval(() => {
+    void cleanupExpiredMultipartSessions()
+  }, CLEANUP_INTERVAL_MS)
+  if (typeof cleanupTimer.unref === 'function') cleanupTimer.unref()
 }
 
 // =============================================================================
@@ -762,7 +967,9 @@ export async function initiateMultipartUpload(
   userId: string,
   opts: { filename: string; contentType?: string },
 ): Promise<MultipartInitResult> {
-  cleanupExpiredSessions()
+  // 惰性清理(本实例清单):不阻塞本次初始化,过期会话在后台 Abort + 删除。
+  void cleanupExpiredMultipartSessions()
+  ensureCleanupTimer()
 
   const config = getOssConfig()
   if (!config) throw new Error('OSS 配置缺失')
@@ -791,9 +998,9 @@ export async function initiateMultipartUpload(
     throw new Error(`OSS InitiateMultipartUpload 响应无 UploadId: ${result.body}`)
   }
 
-  // 生成 sessionId(UUID v4)并存储映射
+  // 生成 sessionId(UUID v4)并存储映射(Redis 主存,带 TTL)
   const sessionId = randomUUID()
-  multipartSessions.set(sessionId, {
+  await saveMultipartSession({
     sessionId,
     ossUploadId,
     key,
@@ -817,9 +1024,8 @@ export async function uploadMultipartPart(
   data: Buffer,
   userId: string,
 ): Promise<MultipartUploadResult> {
-  const session = multipartSessions.get(sessionId)
+  const session = await getMultipartSession(userId, sessionId)
   if (!session) throw new Error('分片上传会话不存在或已过期')
-  if (session.userId !== userId) throw new Error('无权操作此分片上传会话')
 
   if (partNumber < 1 || partNumber > 10000) {
     throw new Error('partNumber 必须在 1-10000 之间')
@@ -855,9 +1061,8 @@ export async function completeMultipartUpload(
   parts: Array<{ partNumber: number; etag: string }>,
   userId: string,
 ): Promise<MultipartCompleteResult> {
-  const session = multipartSessions.get(sessionId)
+  const session = await getMultipartSession(userId, sessionId)
   if (!session) throw new Error('分片上传会话不存在或已过期')
-  if (session.userId !== userId) throw new Error('无权操作此分片上传会话')
 
   // 构造 CompleteMultipartUpload XML body
   const sortedParts = [...parts].sort((a, b) => a.partNumber - b.partNumber)
@@ -878,8 +1083,8 @@ export async function completeMultipartUpload(
   const config = getOssConfig()
   const url = `https://${session.bucket}.${config?.endpoint ?? ''}/${session.key}`
 
-  // 清理会话
-  multipartSessions.delete(sessionId)
+  // 清理会话(Redis + 本实例索引)
+  await deleteMultipartSession(session)
 
   return {
     url,
@@ -891,14 +1096,13 @@ export async function completeMultipartUpload(
 
 /** 取消分片上传:调 OSS AbortMultipartUpload,清理会话。 */
 export async function abortMultipartUpload(sessionId: string, userId: string): Promise<void> {
-  const session = multipartSessions.get(sessionId)
+  const session = await getMultipartSession(userId, sessionId)
   if (!session) throw new Error('分片上传会话不存在或已过期')
-  if (session.userId !== userId) throw new Error('无权操作此分片上传会话')
 
   await callOss('DELETE', session.key, {
     queryParams: { uploadId: session.ossUploadId },
   })
 
-  multipartSessions.delete(sessionId)
+  await deleteMultipartSession(session)
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -243,13 +243,22 @@ class ProbeFailError extends Error {
   }
 }
 
-async function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
+async function withTimeout<T>(
+  p: Promise<T>,
+  ms: number,
+  label: string,
+  controller?: AbortController,
+): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined
   try {
     return await Promise.race([
       p,
       new Promise<never>((_, reject) => {
-        timer = setTimeout(() => reject(new ProbeTimeoutError(`${label} 超时(>${ms}ms)`)), ms)
+        timer = setTimeout(() => {
+          // 放弃等待前先中止底层请求:否则 fetch 句柄滞留,探针结果与真实状态错位
+          controller?.abort()
+          reject(new ProbeTimeoutError(`${label} 超时(>${ms}ms)`))
+        }, ms)
       }),
     ])
   } finally {
@@ -382,14 +391,16 @@ async function chatViaSingleRequest(
   model: string,
   stream: boolean,
   timeoutMs: number,
+  signal?: AbortSignal,
 ): Promise<string> {
   const httpReq = adapter.buildChatRequest(ctx, makeProbeRequest(model, stream))
+  const timeoutSignal = AbortSignal.timeout(timeoutMs)
   const res = await globalThis.fetch(httpReq.url, {
     method: httpReq.method,
     headers: httpReq.headers,
     body:
       httpReq.rawBody ?? (httpReq.body !== undefined ? JSON.stringify(httpReq.body) : undefined),
-    signal: AbortSignal.timeout(timeoutMs),
+    signal: signal ? AbortSignal.any([signal, timeoutSignal]) : timeoutSignal,
   })
   if (!res.ok) {
     const text = await res.text().catch(() => '')
@@ -466,11 +477,13 @@ async function chatViaExecuteChat(
   model: string,
   stream: boolean,
   timeoutMs: number,
+  signal?: AbortSignal,
 ): Promise<string> {
   const executeChat = adapter.executeChat
   if (!executeChat) throw new ProbeFailError('server', '适配器未实现 executeChat')
+  const timeoutSignal = AbortSignal.timeout(timeoutMs)
   const result = await executeChat.call(adapter, ctx, makeProbeRequest(model, stream), {
-    signal: AbortSignal.timeout(timeoutMs),
+    signal: signal ? AbortSignal.any([signal, timeoutSignal]) : timeoutSignal,
     proxyUrl: ctx.row.proxyUrl,
   })
   if (stream) {
@@ -496,13 +509,15 @@ async function probeChat(
 ): Promise<ProbeStepOutcome> {
   const t0 = Date.now()
   const label = stream ? '流式 SSE 首包' : '非流式 chat'
+  const controller = new AbortController()
   try {
     const detail = await withTimeout(
       adapter.executeChat
-        ? chatViaExecuteChat(adapter, ctx, model, stream, timeoutMs)
-        : chatViaSingleRequest(adapter, ctx, model, stream, timeoutMs),
+        ? chatViaExecuteChat(adapter, ctx, model, stream, timeoutMs, controller.signal)
+        : chatViaSingleRequest(adapter, ctx, model, stream, timeoutMs, controller.signal),
       timeoutMs + 5_000, // 兜底:覆盖收尾(如 Trae stop)不受 signal 约束的等待
       label,
+      controller,
     )
     return passStep(Date.now() - t0, detail)
   } catch (err) {
@@ -516,12 +531,14 @@ async function probeHealth(
   timeoutMs: number,
 ): Promise<ProbeStepOutcome> {
   const t0 = Date.now()
+  const controller = new AbortController()
   try {
-    // checkHealth 契约无 signal:用超时竞速兜底,探针本身不挂死
+    // checkHealth 契约新增可选 signal:超时即中止底层 fetch,不留悬挂句柄
     const res = await withTimeout(
-      adapter.checkHealth(ctx, { proxyUrl: ctx.row.proxyUrl }),
+      adapter.checkHealth(ctx, { proxyUrl: ctx.row.proxyUrl, signal: controller.signal }),
       timeoutMs,
       '健康检查',
+      controller,
     )
     const ms = Date.now() - t0
     if (!res.ok) {

@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { eq, and, desc, asc, sql, ilike } from 'drizzle-orm'
+import { eq, and, desc, asc, sql, ilike, inArray } from 'drizzle-orm'
 import { db } from './index.js'
 import {
   eduPointChannels,
@@ -293,17 +293,34 @@ export async function findRelations(
   return { list, total: totalRows[0]?.count ?? 0, page, pageSize }
 }
 
-/** 全量覆盖某积分规则关联的渠道列表。 */
+/**
+ * 全量覆盖某积分规则关联的渠道列表。
+ * F-353:校验 + delete + insert 收进同一事务;任一 channelId 不存在则抛 400,
+ * 不删不插(旧的先删后插在失败/并发时会清空配置或落成并集)。
+ */
 export async function updatePointRelations(
   pointId: string,
   channelIds: string[],
 ): Promise<{ pointId: string; channelIds: string[] }> {
-  await db.delete(eduPointChannelRelations).where(eq(eduPointChannelRelations.pointId, pointId))
-  if (channelIds.length > 0) {
-    await db
-      .insert(eduPointChannelRelations)
-      .values(channelIds.map((channelId) => ({ pointId, channelId })))
-  }
+  await db.transaction(async (tx) => {
+    if (channelIds.length > 0) {
+      const rows = await tx
+        .select({ id: eduPointChannels.id })
+        .from(eduPointChannels)
+        .where(inArray(eduPointChannels.id, channelIds))
+      const found = new Set(rows.map((row) => row.id))
+      const missing = channelIds.filter((id) => !found.has(id))
+      if (missing.length > 0) {
+        throw new AppError(`渠道不存在: ${missing.join(', ')}`, 400, 'VALIDATION_FAILED')
+      }
+    }
+    await tx.delete(eduPointChannelRelations).where(eq(eduPointChannelRelations.pointId, pointId))
+    if (channelIds.length > 0) {
+      await tx
+        .insert(eduPointChannelRelations)
+        .values(channelIds.map((channelId) => ({ pointId, channelId })))
+    }
+  })
   return { pointId, channelIds }
 }
 
@@ -392,9 +409,7 @@ type PointTx = Parameters<Parameters<typeof db.transaction>[0]>[0]
  * 事务提交/回滚时自动释放;不同会员互不阻塞,也无需新表/新约束。
  */
 async function lockMemberPointLedger(tx: PointTx, memberId: string): Promise<void> {
-  await tx.execute(
-    sql`SELECT pg_advisory_xact_lock(hashtext(${`edu_point_ledger:${memberId}`}))`,
-  )
+  await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${`edu_point_ledger:${memberId}`}))`)
 }
 
 /** 查询某条积分记录(用于 fallback 回溯原记录)。 */

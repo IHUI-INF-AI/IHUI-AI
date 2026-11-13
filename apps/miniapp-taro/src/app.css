@@ -442,6 +442,20 @@ progress {
   --radius-lg: 0.5rem;
   --radius-xl: 0.75rem;
   --radius-2xl: 1rem;
+
+  /* 以下 12 档为 tokens.css 中存在而本区尚缺,由 sync-design-tokens.mjs 自动补入(勿手改) */
+  --text-title-lg: 34rpx;
+  --text-title-lg--line-height: 48rpx;
+  --text-title-lg--font-weight: 600;
+  --text-heading-sm: 38rpx;
+  --text-heading-sm--line-height: 56rpx;
+  --text-heading-sm--font-weight: 700;
+  --text-headline: 44rpx;
+  --text-headline--line-height: 60rpx;
+  --text-headline--font-weight: 700;
+  --text-display-xl: 56rpx;
+  --text-display-xl--line-height: 72rpx;
+  --text-display-xl--font-weight: 700;
 }
 
 /* ===== 阿里妈妈方圆体 VF — 统一项目字体 (对齐原项目) =====
@@ -708,7 +722,7 @@ iframe#webpack-dev-server-client-overlay {
   /* 2026-11-11 收口:此处曾有 --shadow-2xs/xs/sm/md/lg/xl/2xl 七个别名(第二套档名),
      全仓已统一为 --shadow-elevation-*(唯一源 elevation.ts),别名删除、不得回填。 */
 
-/* ===== Tailwind v3 alpha 通道三元组(自动同步自 tokens.css,勿手动编辑;
+  /* ===== Tailwind v3 alpha 通道三元组(自动同步自 tokens.css,勿手动编辑;
      给 bg/text/border-*-/<透明度> 用,见 packages/design-tokens/src/tailwind-alpha-plugin.js)===== */
   --color-foreground-rgb: 10, 10, 10;
   --color-primary-rgb: 0, 0, 0;
