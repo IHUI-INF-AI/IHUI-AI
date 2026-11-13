@@ -1,9 +1,9 @@
 {
   "$comment": "O6501 根护栏清单:改动本清单内目标须先 --unlock 再 --seal;部署环对非 0 退出 fail-closed。",
   "version": 1,
-  "sealedAt": "2026-11-13T00:00:00.000Z",
+  "sealedAt": "2026-11-13T15:17:14.104Z",
   "sealedBy": "root-guard --seal",
-  "reason": "重封:guardian-runner/git-guardian HEAD存量陈旧哈希 + 流式P1提交链(改AGENTS.md触发seal)",
+  "reason": "复核 2a66f32e8a5 对 git-guardian.mjs 的改动(为 sweepMiniappStyleTiers 补 --font-safe 安全子集, 5+/1-), 按 HEAD 面重封 O6501 根护栏清单以解锁部署",
   "targets": [
     {
       "id": "guardian-runner",
@@ -28,7 +28,7 @@
       "id": "git-guardian",
       "path": "scripts/git-guardian.mjs",
       "mode": "file",
-      "sha256": "d110220d21c1c9d978c9d76e4186180c8a00101b9a4e2063be3f96631ce63ff4"
+      "sha256": "d1c6664031d3a1b03397e80aa0fa81a5e889c951e7a0a508f23337edab95101d"
     },
     {
       "id": "gate-scope",
