@@ -483,8 +483,11 @@ export async function checkQuota(
     }
   }
 
-  // === Key 级限流窗口(B,2026-09-16 立):5h/1d/7d 每窗口最大请求数(NULL 不限) ===
-  // 全 NULL(存量 Key)时 checkKeyRateWindows 直接放行,零额外查询。
+  // === Key 级限流窗口(B,2026-09-16 立;F-620 改为准入原子占位) ===
+  // checkKeyRateWindows 现在在单事务内对三窗口执行
+  // 「INSERT ... ON CONFLICT DO UPDATE ... WHERE request_count < limit RETURNING」:
+  // 判定与计数同一条语句完成,并发不超发;请求进入即计数,失败请求也计。
+  // 全 NULL(存量 Key)时直接放行,零额外查询;同一请求内重复预检复用首次结果。
   const keyWindowLimits = {
     '5h': row.rateLimit5h,
     '1d': row.rateLimit1d,
@@ -1475,9 +1478,9 @@ async function recordCallInternal(input: RecordCallInput): Promise<RecordCallRes
         }
       }
     }
-    // Key 级限流窗口计数(B,2026-09-16):成功调用后窗口请求数 +1。
-    // fire-and-forget(不 await 不阻塞返回),内部自查限额配置,全 NULL 零写入;
-    // 失败静默(仅告警)——窗口是附加约束,余额/熔断已兜底,计数丢失只影响精度。
+    // Key 级限流窗口计数(B,2026-09-16):F-620 后准入已在 checkQuota 原子占位,
+    // 本请求（同一次 ALS scope）内的补计直接跳过,不会二次 +1;保留调用仅覆盖
+    // 未经准入占位的调用方(内部自查限额,全 NULL 零写入)。
     void incrKeyRateWindows(input.apiKeyId).catch(() => {})
     // 读取结算后余额供返回值/余额告警使用(组池优先)
     if (groupInfoForDeduct && groupInfoForDeduct.enabled) {

@@ -43,21 +43,26 @@ const productStatusFromInt = (s: number | null): ProductStatus => (s === 1 ? 'on
 
 const withdrawalStatusSchema = z.enum(['pending', 'approved', 'rejected', 'completed', 'failed'])
 type WithdrawalStatus = z.infer<typeof withdrawalStatusSchema>
+// F-457:withdrawal_flows.status 全仓唯一口径(schema 注释):0=pending 1=processing 2=completed
+// 3=failed(驳回/终态失败)。此前这里把 rejected 写 4,与主链路驳回(rejectWithdrawal 写 3)分裂
+// ⇒ 主链路驳回单在商城后台显示 failed、按 rejected 筛选查不到、资金统计四类计数之和 < 总数。
+// 写侧一律落 3;4 仅作为历史遗留数据在读取/筛选时兼容,不再写入。
 const WITHDRAWAL_INT: Record<WithdrawalStatus, number> = {
   pending: 0,
   approved: 1,
   completed: 2,
   failed: 3,
-  rejected: 4,
+  rejected: 3,
 }
+/** 驳回/失败的终态集合:3=现行口径,4=旧版商城后台写入的历史数据 */
+const WITHDRAWAL_REJECTED_INTS = [3, 4] as const
 const WITHDRAWAL_STATUS_LIST = ['pending', 'approved', 'rejected', 'completed', 'failed'] as const
 const isWithdrawalStatus = (s: string): s is WithdrawalStatus =>
   (WITHDRAWAL_STATUS_LIST as readonly string[]).includes(s)
 const withdrawalStatusFromInt = (s: number): WithdrawalStatus => {
   if (s === 1) return 'approved'
   if (s === 2) return 'completed'
-  if (s === 3) return 'failed'
-  if (s === 4) return 'rejected'
+  if (s === 3 || s === 4) return 'rejected'
   return 'pending'
 }
 
@@ -329,8 +334,12 @@ export const adminShopRoutes: FastifyPluginAsync = async (server) => {
     if (!q.success) return reply.status(400).send(error(400, '参数错误'))
     const { page, pageSize, status, user, outBillNo, userName, minAmount, maxAmount } = q.data
     const conds: (SQL | undefined)[] = []
-    if (status && isWithdrawalStatus(status))
-      conds.push(eq(withdrawalFlows.status, WITHDRAWAL_INT[status]))
+    if (status && isWithdrawalStatus(status)) {
+      // F-457:rejected/failed 都是同一终态(3),筛选须同时覆盖历史 4,否则旧驳回单仍查不到
+      if (status === 'rejected' || status === 'failed')
+        conds.push(inArray(withdrawalFlows.status, [...WITHDRAWAL_REJECTED_INTS]))
+      else conds.push(eq(withdrawalFlows.status, WITHDRAWAL_INT[status]))
+    }
     if (outBillNo) conds.push(ilike(withdrawalFlows.partnerTradeNo, `%${outBillNo}%`))
     if (minAmount !== undefined) conds.push(sql`${withdrawalFlows.amount} >= ${minAmount}`)
     if (maxAmount !== undefined) conds.push(sql`${withdrawalFlows.amount} <= ${maxAmount}`)
