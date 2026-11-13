@@ -12234,7 +12234,6 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 434G. **缺陷普查 API F-434** [P2] customer_service_sessions.status 默认值 waiting 与「唯一真相源」枚举互斥（证据 docs/tickets/2026-11/findings-api.md#F-434）
 - [ ] 442G. **缺陷普查 API F-442** [P2] GitHub 令牌为全站单文件，任意登录用户可覆盖/删除（证据 docs/tickets/2026-11/findings-api.md#F-442）（进行中@2026-11-13/w3-f442）
 - [ ] 444G. **缺陷普查 API F-444** [P2] GitHub PR/Issue 端点任意 owner/repo + 全站 PAT（证据 docs/tickets/2026-11/findings-api.md#F-444）
-- [ ] 458G. **缺陷普查 API F-458** [P3] 金额 sum()::int 溢出扩散（新查询点）（证据 docs/tickets/2026-11/findings-api.md#F-458）
 - [ ] 495G. **缺陷普查 API F-495** [P3] 批处理 worker 崩溃重跑无断点，重复消耗上游（证据 docs/tickets/2026-11/findings-api.md#F-495）
 - [ ] 512G. **缺陷普查 API F-512** [P3] notification-worker 无幂等键，重投会重复落库 + 重复发信（证据 docs/tickets/2026-11/findings-api.md#F-512）
 - [ ] 524G. **缺陷普查 API F-524** [P3] worker 入口不执行 index 关停相位：auto-rollback 非 unref 定时器与 mock 网关在 worker 侧无停止路径（证据 docs/tickets/2026-11/findings-api.md#F-524）
@@ -12243,7 +12242,6 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 574G. **缺陷普查 API F-574** [P2] sum(金额)::int 溢出的 11 处新实例（F-22/F-458 未列）（证据 docs/tickets/2026-11/findings-api.md#F-574）
 - [ ] 586G. **缺陷普查 API F-587** [P2] 订阅实例的 orderNo 幂等靠副本读 + 非唯一索引，异常吞成 null（证据 docs/tickets/2026-11/findings-api.md#F-587）
 - [ ] 587G. **缺陷普查 API F-588** [P3] AI 预算 upsert 无唯一约束，并发激活产生重复预算行（证据 docs/tickets/2026-11/findings-api.md#F-588）
-- [ ] 648G. **缺陷普查 API F-649** [P2] 修复任务状态用“进程内文件快照 + 跨实例互斥锁”，多实例互相覆盖/重复修复（证据 docs/tickets/2026-11/findings-api.md#F-649）
 - [ ] 661G. **缺陷普查 API F-662** [P3] 定价建议用 metadata.multiplier 反推成本，BYOK 行 multiplier 恒 1 且真实上游成本键被忽略（证据 docs/tickets/2026-11/findings-api.md#F-662）
 - [ ] 675G. **缺陷普查 API F-676** [P3] 429 的 Retry-After 只有账号池腿采用，渠道腿固定 60s 冷却（证据 docs/tickets/2026-11/findings-api.md#F-676）
 - [ ] 718G. **缺陷普查 API F-719** [P1] 兑换码/单边 token 充值只加 tokenBalance，而准入要求 costBalanceCents≠0 ⇒ 付费充值不可用（证据 docs/tickets/2026-11/findings-api.md#F-719）
