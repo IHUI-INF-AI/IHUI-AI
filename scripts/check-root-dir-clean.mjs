@@ -209,11 +209,6 @@ const ALLOWED_FILES = new Set([
   // 测试临时产物(Pytest quick fail 日志,后台进程持有)
   'tmp-qfr-err.log',
   'tmp-qfr-out.log',
-  // 2026-11-13 显式审批:裸域 aizhs.top 403 事故交接与回归手册。放根目录是刻意的 ——
-  // 它记录的事件横跨 Cloudflare/EdgeOne/源站三层,任何单一子目录都会让下一个人找错地方;
-  // 且它已被 HANDOFF 命名惯例引用,改名会让既有指引失效。内容为诊断结论 + 重放命令,
-  // 不含任何凭据明文(仅环形指纹)。事件结清后可连同本行一起删除。
-  'HANDOFF-aizhs-apex-403.md',
 ])
 
 /** 根目录合法目录(monorepo 标准结构 + 运行时目录) */
