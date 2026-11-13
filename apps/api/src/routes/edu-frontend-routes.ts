@@ -280,17 +280,19 @@ export const eduFrontendRoutes: FastifyPluginAsync = async (server) => {
     if (!idParsed.success) {
       return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
     }
+    // F-171(2026-11-13):lessonId 下推到 SQL WHERE,分页与 total 都以「该课程的问答」为口径;
+    // 此前是"全站取一页 → 内存 filter → total=当前页条数",课程问答少时被挤出显示为空。
     const result = await findAllCommunityPosts({
       page: parsed.data.page,
       pageSize: parsed.data.pageSize,
       search: undefined,
       status: 'published',
+      lessonId: idParsed.data.id,
     })
-    const filtered = result.list.filter((p) => p.lessonId === idParsed.data.id)
     return reply.send(
       success({
-        list: filtered,
-        total: filtered.length,
+        list: result.list,
+        total: result.total,
         page: parsed.data.page,
         pageSize: parsed.data.pageSize,
       }),

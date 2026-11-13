@@ -657,11 +657,17 @@ export async function findAllCommunityPosts(params: {
   pageSize: number
   search?: string
   status?: string
+  /**
+   * F-171(2026-11-13):按课程过滤落 SQL WHERE(此前调用方先取全站一页再内存
+   * filter,目标课程问答被挤出显示为空、total 也只有当前页条数)。
+   */
+  lessonId?: string
 }): Promise<{ list: CommunityPostRow[]; total: number }> {
-  const { page, pageSize, search, status } = params
-  const conditions = []
+  const { page, pageSize, search, status, lessonId } = params
+  const conditions: SQL[] = []
   if (search) conditions.push(ilike(learnCommunityPost.title, `%${search}%`))
   if (status) conditions.push(eq(learnCommunityPost.status, status))
+  if (lessonId) conditions.push(eq(learnCommunityPost.lessonId, lessonId))
   const where = conditions.length > 0 ? and(...conditions) : undefined
 
   const rows = await db
