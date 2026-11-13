@@ -70,8 +70,19 @@ function main() {
   const silent = args.includes('--silent')
 
   if (!isGitRepo()) {
-    console.error('❌ install-git-hooks:当前目录不是 git 工作树 —— 未判定(exit 2)')
-    return 2
+    // 净面构建场景:生产 deployloop 用 `git archive` 导出源码(无 .git)做 clean-build,
+    // 这种目录装不了钩子、也不需要装(钩子供开发者 commit 用,构建产物不需要)。
+    // 默认安装模式 ⇒ 静默跳过(exit 0),绝不能 exit 2 —— 否则 pnpm postinstall 整体失败,
+    // 拖垮整个净面构建(2026-11-13 实测:web BUILD_ID 卡死在 10-30,横幅改动上不了生产的根因)。
+    // --check 对账模式 ⇒ 仍报未判定(exit 2),因为对账语义要求"取不到输入不得报绿"。
+    if (checkOnly) {
+      console.error('❌ install-git-hooks:当前目录不是 git 工作树 —— 未判定(exit 2)')
+      return 2
+    }
+    if (!silent) {
+      console.log('⏭ install-git-hooks:非 git 工作树(净面构建),跳过钩子安装')
+    }
+    return 0
   }
 
   const missing = REQUIRED_HOOKS.filter((name) => !existsSync(join(ROOT, HOOKS_DIR, name)))
