@@ -578,6 +578,9 @@ function runFontSafe(_flag, rev, fn = rewriteClassNameTokens, label = 'LAND-MINI
           mode: 'font-safe',
           scanned: files.length,
           files: results.length,
+          // cascade 的待落探针(PENDING_PROBES.land-miniapp)认 changedFiles(默认档 summary :703 同名),
+          // font-safe 档此前漏这个字段 ⇒ 级联层判 unjudged。补齐与默认档同形状。
+          changedFiles: results.length,
           changes: total,
           held: held.length,
           applied: apply,
