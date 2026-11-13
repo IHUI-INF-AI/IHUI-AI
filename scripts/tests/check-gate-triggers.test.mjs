@@ -187,35 +187,23 @@ test('T6 通道维:真仓工作树面判定且新增无通道=0;空 scratch 仓 
   }
 })
 
-// ── T5 形状锁:本门体自己派生 git 的每一处都带 windowsHide(门 52 判生产代码) ──
-// 立因:门 52 现读点名本门两处漏 windowsHide。判据用门 52 的 `__test__.scanSource`,不在这里复制尺子。
-test('T5 形状锁:门体两处派生 git 都带 windowsHide;逐处摘掉即翻红(阳性对照)', () => {
+// ── T5 形状锁:门体不得直接派生 git(统一走 gitRaw,stdio 两态由门 193 的层写死) ──
+// 立因:门 52 曾点名本门两处漏 windowsHide;本门改为 `git()` → `face-reader.gitRaw` 后,
+// "带 windowsHide" 这件事已由统一取材层保证,门体里不该再出现裸 spawn。
+// 判据仍用门 52 的 `__test__.scanSource`,不在这里复制尺子;阳性对照改用合成样本(不依赖门体形态)。
+test('T5 形状锁:门体无裸派生 git;门 52 判据对裸 spawn 阳性对照仍会点名', () => {
   const src = readFileSync(SCRIPT, 'utf8')
   const hits = (text) =>
     V.scanSource(text, 'scripts/check-gate-triggers.mjs').filter((x) => x.kind === 'visible-spawn')
-  const TAG = 'windowsHide: true'
-  const MUT = 'hideWindows: true' // 与 TAG 等长:摘掉这一处 windowsHide 而不让后面的偏移漂移
-  const dropAt = (text, idxs) => {
-    const re = new RegExp(TAG.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g')
-    const at = []
-    let m
-    while ((m = re.exec(text)) !== null) at.push(m.index)
-    assert.ok(at.length >= 2, `阳性对照需要 ≥2 处 ${TAG} 可摘,实得 ${at.length}`)
-    let out = ''
-    let prev = 0
-    for (let i = 0; i < at.length; i++) {
-      out += text.slice(prev, at[i]) + (idxs.includes(i) ? MUT : TAG)
-      prev = at[i] + TAG.length
-    }
-    return out + text.slice(prev)
-  }
   assert.deepEqual(
     hits(src).map((x) => x.line),
     [],
-    `门体自身仍有漏 windowsHide 的派生点:${JSON.stringify(hits(src))}`,
+    `门体仍有裸派生(应改走 gitRaw):${JSON.stringify(hits(src))}`,
   )
-  assert.equal(hits(dropAt(src, [0])).length, 1, '摘掉第一处 windowsHide ⇒ 判据必须点名这一处')
-  assert.equal(hits(dropAt(src, [1])).length, 1, '摘掉第二处 windowsHide ⇒ 判据必须点名这一处')
-  assert.equal(hits(dropAt(src, [0, 1])).length, 2, '两处都摘 ⇒ 判据必须点名两处')
+  // 阳性对照:两处不带 windowsHide 的 spawn ⇒ 判据必须逐处点名(证明"判据本身有牙")。
+  const sample =
+    "const a = spawnSync('git', ['status'], { cwd: '.' })\n" +
+    "const b = spawnSync('git', ['rev-parse'], { cwd: '.' })\n"
+  assert.equal(hits(sample).length, 2, '阳性对照失效:门 52 的 scanSource 认不出裸 spawn')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
