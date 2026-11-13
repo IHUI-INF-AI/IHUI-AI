@@ -508,7 +508,7 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
       }
       const { phone } = parsed.data
 
-      // G-192:按「手机号 + IP」频控(计数覆盖取码尝试,含后续 60 秒重发拦截)
+      // G-192 / F-287:按「手机号」与「IP」两把独立计数频控(计数覆盖取码尝试,含后续 60 秒重发拦截)
       const quota = await consumeSendQuota(phone, request.ip)
       if (!quota.allowed) {
         return reply
@@ -546,7 +546,7 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
         extractSmsSendGuard(request.headers, request.ip),
       )
       if (!delivery.sent) {
-        // 没发出去就退还本标识 + IP 的取码配额,避免通道抖动一次就锁住用户 10 分钟
+        // 没发出去就把「手机号」「IP」两把取码配额一起退还,避免通道抖动一次就锁住用户 10 分钟
         await refundSendQuota(phone, request.ip)
         request.log.warn({ reason: delivery.reason, scene: parsed.data.scene }, '验证码投递失败')
         // IP/设备防刷命中与云侧失败必须区分:前者是客户端该退避,后者是通道问题
@@ -1311,9 +1311,18 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
             error(501, '微信移动应用登录未配置,请配置 WECHAT_MOBILE_APP_ID/WECHAT_MOBILE_SECRET'),
           )
       }
-      const session = await wechatAppCode2session(parsed.data.code).catch(() => null)
+      // 上游真因必须落日志:微信对无效 code / 密钥不匹配都回 HTTP 200 + errcode
+      // (40029/40163/40125),旧写法 `.catch(() => null)` 把它吞成一句「invalid code」,
+      // 线上只能看到客户端统一的「登录已过期」,无法区分是 code 过期还是 AppSecret 不对。
+      const session = await wechatAppCode2session(parsed.data.code).catch((err: unknown) => {
+        request.log.warn(
+          { err: err instanceof Error ? err.message : String(err) },
+          '微信移动应用登录失败(上游明细)',
+        )
+        return null
+      })
       if (!session) {
-        return reply.status(401).send(error(401, '微信登录失败: invalid code'))
+        return reply.status(401).send(error(401, '微信登录失败:授权码无效或已过期,请重试'))
       }
       const binding = await findThirdPartyAccount('wechat', session.openId)
       let user
@@ -1432,7 +1441,7 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
       }
       const { email } = parsed.data
 
-      // G-192:按「邮箱 + IP」频控(与 /send-code 同口径)
+      // G-192 / F-287:按「邮箱」与「IP」两把独立计数频控(与 /send-code 同口径)
       const quota = await consumeSendQuota(email, request.ip)
       if (!quota.allowed) {
         return reply
@@ -1806,7 +1815,7 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
       }
       const { phone } = parsed.data
 
-      // G-192:按「手机号 + IP」频控(与 /send-code 同口径)
+      // G-192 / F-287:按「手机号」与「IP」两把独立计数频控(与 /send-code 同口径)
       const quota = await consumeSendQuota(phone, request.ip)
       if (!quota.allowed) {
         return reply
@@ -1840,7 +1849,7 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
         extractSmsSendGuard(request.headers, request.ip),
       )
       if (!delivery.sent) {
-        // 没发出去就退还本标识 + IP 的取码配额,避免通道抖动一次就锁住用户 10 分钟
+        // 没发出去就把「手机号」「IP」两把取码配额一起退还,避免通道抖动一次就锁住用户 10 分钟
         await refundSendQuota(phone, request.ip)
         request.log.warn({ reason: delivery.reason, scene: parsed.data.scene }, '验证码投递失败')
         // IP/设备防刷命中与云侧失败必须区分:前者是客户端该退避,后者是通道问题

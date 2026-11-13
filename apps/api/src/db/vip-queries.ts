@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { eq, and, gt, gte, desc, sql } from 'drizzle-orm'
+import { eq, and, ne, gt, gte, desc, sql } from 'drizzle-orm'
 import { db, dbRead } from './index.js'
 import { vipLevels, userVips, users } from '@ihui/database'
 
@@ -157,30 +157,66 @@ export async function listUserVips(page: number, limit: number, filterUserId?: s
   return { items: rows, total: count }
 }
 
+/**
+ * F-248:取消单笔 VIP 后是否应把 users.isVip 清 0 的纯函数镜像(离线可断言,不碰 DB)。
+ *
+ * 判据与 F-232 到期降级同源 —— 只有「本次确实取消了这张仍有效的卡」且「该用户已无其它
+ * 有效 VIP(status=1 且 end_time > now)」才降级;仍持有其它有效卡的用户不得被降级。
+ *
+ * - cancelledVip 为空:目标不存在,0 命中、不降级;
+ * - 记录已非 status=1:本次是幂等重放/已过期,条件 UPDATE 不会打字,0 命中、不降级;
+ * - 命中 1 张但用户仍有其它有效 VIP:不降级。
+ *
+ * 生产实现由 `cancelUserVip` 的同一事务落地,两者语义必须一致;该函数只用于回归测试
+ * 锁定判据,不参与线上写路径。
+ */
+export function planVipCancelDowngrade(
+  cancelledVip: { userId: string; status: number } | null | undefined,
+  otherActiveVipCount: number,
+): { hits: number; downgrade: boolean } {
+  if (!cancelledVip || cancelledVip.status !== 1) return { hits: 0, downgrade: false }
+  return { hits: 1, downgrade: otherActiveVipCount <= 0 }
+}
+
 export async function cancelUserVip(id: string): Promise<number> {
-  // F-248:取消 VIP 同时回写 users.isVip —— 仅当该用户已无其它有效 VIP 时才清零,
-  // 避免「只改 user_vips.status」导致被取消用户仍享 VIP 权益。
-  const [target] = await db
-    .select({ userId: userVips.userId })
-    .from(userVips)
-    .where(eq(userVips.id, id))
-    .limit(1)
-  if (!target) return 0
-  await db.update(userVips).set({ status: 2, updatedAt: new Date() }).where(eq(userVips.id, id))
-  const remaining = await db
-    .select({ id: userVips.id })
-    .from(userVips)
-    .where(
-      and(
-        eq(userVips.userId, target.userId),
-        eq(userVips.status, 1),
-        gt(userVips.endTime, new Date()),
-      ),
-    )
-    .limit(1)
-  if (remaining.length === 0) {
-    await db.update(users).set({ isVip: 0 }).where(eq(users.id, target.userId))
-  }
-  return 1
+  // F-248:取消 VIP 同时回写 users.isVip —— 只在同一事务内确认该用户已无其它有效 VIP 时清零,
+  // 避免「只改 user_vips.status」导致被取消用户仍享 VIP 权益(agent-service / token-balance-service
+  // / commission-queries 仍按 users.isVip 判定)。返回实际命中数,0 行变更对调用方可见。
+  const now = new Date()
+  return db.transaction(async (tx) => {
+    const [target] = await tx
+      .select({ userId: userVips.userId, status: userVips.status })
+      .from(userVips)
+      .where(eq(userVips.id, id))
+      .limit(1)
+    if (!target) return 0
+
+    // 其它有效 VIP 计数:排除本次取消的这张卡,判据与 F-232 到期降级一致(未过期)
+    const [countRow] = await tx
+      .select({ count: sql<number>`count(*)::int` })
+      .from(userVips)
+      .where(
+        and(
+          eq(userVips.userId, target.userId),
+          ne(userVips.id, id),
+          eq(userVips.status, 1),
+          gt(userVips.endTime, now),
+        ),
+      )
+    const plan = planVipCancelDowngrade(target, countRow?.count ?? 0)
+    if (plan.hits === 0) return 0
+
+    const cancelledRows = await tx
+      .update(userVips)
+      .set({ status: 2, updatedAt: now })
+      .where(and(eq(userVips.id, id), eq(userVips.status, 1)))
+      .returning({ id: userVips.id })
+    if (cancelledRows.length === 0) return 0
+
+    if (plan.downgrade) {
+      await tx.update(users).set({ isVip: 0 }).where(eq(users.id, target.userId))
+    }
+    return cancelledRows.length
+  })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

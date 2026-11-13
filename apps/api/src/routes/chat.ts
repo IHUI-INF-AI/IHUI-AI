@@ -114,6 +114,19 @@ import {
 // 2026-10-26 stepfun 永久退役 ⇒ 本入口不得再解析出退役档(故不再直接读 env)。
 const FALLBACK_MODEL = resolveDefaultChatModel()
 
+// F-298:上游错误原文只许进服务端日志,不得回传客户端(可能含 provider 账号/组织/
+// 内部地址/DB 约束文本)。截断上限取 512 —— 与 api-logger 对 path 的截断同一量级:
+// 足以看清 upstream 错误码与 request-id,又不把整页 HTML 错误页/大响应灌进日志。
+const UPSTREAM_LOG_BODY_LIMIT = 512
+const COMPRESS_FAILED_MESSAGE = '对话压缩失败,请稍后重试'
+const COMPRESS_UPSTREAM_ERROR_CODE = 'COMPRESS_UPSTREAM_ERROR'
+
+function truncateUpstreamLogBody(text: string): string {
+  return text.length > UPSTREAM_LOG_BODY_LIMIT
+    ? `${text.slice(0, UPSTREAM_LOG_BODY_LIMIT)}…(truncated, total ${text.length} chars)`
+    : text
+}
+
 // =============================================================================
 // Coze conversation_id 自动管理（迁移自 coze_zhs_py/api/chat.py）
 // =============================================================================
@@ -2007,19 +2020,34 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
       })
       if (!resp.ok) {
         const errText = await resp.text().catch(() => '')
+        request.log.warn(
+          {
+            upstreamStatus: resp.status,
+            upstreamBody: truncateUpstreamLogBody(errText),
+          },
+          '对话压缩调用上游失败(原文仅写服务端日志,不回客户端)',
+        )
         return reply
           .status(502)
-          .send(error(502, `AI service error: HTTP ${resp.status} ${errText}`))
+          .send(error(502, COMPRESS_FAILED_MESSAGE, COMPRESS_UPSTREAM_ERROR_CODE))
       }
       aiResult = (await resp.json()) as typeof aiResult
     } catch (e) {
-      return reply.status(502).send(error(502, `AI service error: ${(e as Error).message}`))
+      request.log.warn(
+        { err: e },
+        '对话压缩调用上游异常(原文仅写服务端日志,不回客户端)',
+      )
+      return reply.status(502).send(error(502, COMPRESS_FAILED_MESSAGE, COMPRESS_UPSTREAM_ERROR_CODE))
     } finally {
       clearTimeout(timeout)
     }
 
     if (aiResult.error) {
-      return reply.status(502).send(error(502, `AI service error: ${aiResult.error}`))
+      request.log.warn(
+        { upstreamError: truncateUpstreamLogBody(String(aiResult.error)) },
+        '对话压缩上游返回业务错误(原文仅写服务端日志,不回客户端)',
+      )
+      return reply.status(502).send(error(502, COMPRESS_FAILED_MESSAGE, COMPRESS_UPSTREAM_ERROR_CODE))
     }
 
     const content = aiResult.content ?? ''

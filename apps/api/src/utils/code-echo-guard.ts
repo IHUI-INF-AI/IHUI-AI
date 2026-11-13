@@ -21,7 +21,13 @@
 import { BlockList, isIP } from 'node:net'
 import type { FastifyReply, FastifyRequest } from 'fastify'
 import { config } from '../config/index.js'
-import { incrWindow, refundWindows, resetCounters, windowRemainingMs } from './window-counter.js'
+import {
+  incrWindow,
+  refundWindows,
+  resetCounters,
+  windowRemainingMs,
+  type WindowSpec,
+} from './window-counter.js'
 import { logger } from './logger.js'
 
 // ---------------------------------------------------------------------------
@@ -131,10 +137,10 @@ export function sendCodePreSerialization(
 }
 
 // ---------------------------------------------------------------------------
-// 按「标识 + IP」的发送频控与告警
+// 按「IP」「标识」两把独立计数的发送频控与告警
 // ---------------------------------------------------------------------------
 
-/** 同一标识 + IP 在窗口内最多允许 5 次取码(与既有 60 秒重发间隔叠加生效)。 */
+/** 同一 IP、同一标识各自在窗口内最多允许 5 次取码(与既有 60 秒重发间隔叠加生效)。 */
 export const SEND_QUOTA_MAX_ATTEMPTS = 5
 /** 统计窗口:10 分钟。 */
 export const SEND_QUOTA_WINDOW_MS = 10 * 60 * 1000
@@ -147,52 +153,90 @@ export interface SendQuotaResult {
   retryAfterSec: number
 }
 
+/** 两把**独立**计数键。
+ *
+ * F-287:过去这里是联合键 `echo:q:<identifier>|<ip>`,换个号码就得到一份全新计数 ——
+ * 「同一 IP 反复换号」这条路径实际上没有任何闸(10 分钟可放大到约 50 次/IP)。
+ * 现在拆成 IP 维度与标识维度各记各的账,**任一**超限即拒:
+ *   - 换 identifier 绕不过 `echo:q:ip:<ip>`;
+ *   - 换 IP 绕不过 `echo:q:id:<identifier>`。
+ * 某一维度缺值(拿不到 IP / 空标识)时该维度不计数,避免所有缺值请求挤进同一个桶互相压制。
+ */
+function codeQuotaKeys(
+  identifier: string,
+  ip: string | undefined,
+): { ipKey: string | null; idKey: string | null } {
+  const normalizedIp = normalizeIp(ip)
+  return {
+    ipKey: normalizedIp ? `echo:q:ip:${normalizedIp}` : null,
+    idKey: identifier ? `echo:q:id:${identifier}` : null,
+  }
+}
+
 /**
  * 消耗一次取码配额。计数覆盖「取码尝试」而非仅「成功发码」——
  * 否则攻击者可以靠 60 秒重发间隔之外的失败尝试白嫖配额。
  *
- * 2026-10-22 迁到共享窗口计数:原来这张 Map 住在进程内,**一次部署就把 5 次/10 分钟的预算清零**,
- * 而它是「同一 IP 反复换号取码」这条路径上唯一的闸。窗口与告警节流都交给 utils/window-counter。
+ * 2026-10-22 迁到共享窗口计数:原来这张 Map 住在进程内,**一次部署就把 5 次/10 分钟的预算清零**。
+ * 窗口与告警节流都交给 utils/window-counter。TTL 语义未变:两键同为 10 分钟、从各自首次命中起算。
  */
 export async function consumeSendQuota(
   identifier: string,
   ip: string | undefined,
 ): Promise<SendQuotaResult> {
-  const key = `${identifier}|${normalizeIp(ip)}`
-  const attemptsKey = `echo:q:${key}`
-  const attempts = await incrWindow(attemptsKey, SEND_QUOTA_WINDOW_MS)
-  if (attempts <= SEND_QUOTA_MAX_ATTEMPTS) {
+  const { ipKey, idKey } = codeQuotaKeys(identifier, ip)
+  const dimensions: Array<{ dim: 'ip' | 'id'; key: string; attempts: number }> = []
+  if (ipKey) {
+    const attempts = await incrWindow(ipKey, SEND_QUOTA_WINDOW_MS)
+    dimensions.push({ dim: 'ip', key: ipKey, attempts })
+  }
+  if (idKey) {
+    const attempts = await incrWindow(idKey, SEND_QUOTA_WINDOW_MS)
+    dimensions.push({ dim: 'id', key: idKey, attempts })
+  }
+
+  const exceeded = dimensions.filter((d) => d.attempts > SEND_QUOTA_MAX_ATTEMPTS)
+  if (exceeded.length === 0) {
     return { allowed: true, retryAfterSec: 0 }
   }
 
   // 恰好落在第 N 次拦截那一下才告警:比原来的 alerted 布尔更省一个键,且每窗口只响一次
-  const blocks = await incrWindow(`echo:block:${key}`, SEND_QUOTA_WINDOW_MS)
+  const blocked = exceeded[0]!
+  const blocks = await incrWindow(blocked.key.replace('echo:q:', 'echo:block:'), SEND_QUOTA_WINDOW_MS)
   if (blocks === SEND_ALERT_AFTER_BLOCKS) {
-    logger.warn('验证码发送频控触发:同一标识+IP 在窗口内反复取码', {
+    logger.warn('验证码发送频控触发:同一 IP / 同一标识在窗口内反复取码', {
       identifier,
       ip: normalizeIp(ip),
-      attempts,
+      dimensions: exceeded.map((d) => d.dim),
+      attempts: Math.max(...exceeded.map((d) => d.attempts)),
       windowMinutes: SEND_QUOTA_WINDOW_MS / 60_000,
     })
   }
 
-  const remainingMs = await windowRemainingMs(attemptsKey, SEND_QUOTA_WINDOW_MS)
+  // 两维同时超限时按更晚到期的那个给 Retry-After,避免让客户端提前重试后再被另一维挡一次
+  let remainingMs = 0
+  for (const d of exceeded) {
+    remainingMs = Math.max(remainingMs, await windowRemainingMs(d.key, SEND_QUOTA_WINDOW_MS))
+  }
   return { allowed: false, retryAfterSec: Math.max(1, Math.ceil(remainingMs / 1000)) }
 }
 
 /** 退还一次已消费的取码配额(投递失败时用):没发出去就不该占用「5 次/10 分钟」的预算,
- *  否则云侧故障一次,用户既收不到码也立刻重试不了。 */
+ *  否则云侧故障一次,用户既收不到码也立刻重试不了。
+ *  F-287:消费了几把键就退几把 —— 只退其中一把会留下「IP 已放行、标识仍被扣」的错账。 */
 export async function refundSendQuota(
   identifier: string,
   ip: string | undefined,
 ): Promise<void> {
-  await refundWindows([
-    {
-      key: `echo:q:${identifier}|${normalizeIp(ip)}`,
-      windowMs: SEND_QUOTA_WINDOW_MS,
-      max: SEND_QUOTA_MAX_ATTEMPTS,
-    },
-  ])
+  const { ipKey, idKey } = codeQuotaKeys(identifier, ip)
+  const specs: WindowSpec[] = []
+  if (ipKey) {
+    specs.push({ key: ipKey, windowMs: SEND_QUOTA_WINDOW_MS, max: SEND_QUOTA_MAX_ATTEMPTS })
+  }
+  if (idKey) {
+    specs.push({ key: idKey, windowMs: SEND_QUOTA_WINDOW_MS, max: SEND_QUOTA_MAX_ATTEMPTS })
+  }
+  await refundWindows(specs)
 }
 
 /** 测试用:清空频控计数。计数已搬到共享存储,所以必须**内存与 Redis 两面一起清** ——

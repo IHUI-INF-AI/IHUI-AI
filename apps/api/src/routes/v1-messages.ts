@@ -199,6 +199,8 @@ async function streamAnthropicMessages(
   })
 
   const state = createStreamState(opts.model)
+  // F-295:适配器对未知 finish_reason 的留痕出口(进程内 console 会丢上下文,统一走请求日志)
+  state.warn = (message) => request.log.warn(message)
   /** 累计响应文本用于估算 token(P0-5 流式无准确 usage) */
   let responseText = ''
   /** F-89:只累计真实产出的文本(不含 `[error] ...` 文案),用于判 partial/error 与计费 */
@@ -287,10 +289,10 @@ async function streamAnthropicMessages(
       if (chunk) writeEvents(openAIStreamChunkToAnthropicEvents(chunk, state))
     }
 
-    // 若上游未发 finish_reason,补一个 stop 收尾(防止客户端挂起)
-    if (state.messageStarted && !state.contentBlockStarted) {
-      // 已经收尾了,跳过
-    } else if (state.messageStarted) {
+    // F-295:上游 done 帧带 finishReason 时适配器已如实收尾(state.finished)。
+    // 这里只兜"上游真没发"的一格 —— 必须留痕,否则截断/过滤会被静默当成正常结束。
+    if (state.messageStarted && !state.finished) {
+      request.log.warn('[v1/messages] 上游流未提供 finishReason,已按 stop 兜底收尾')
       const stopChunk = {
         id: `chatcmpl-${randomUUID()}`,
         model: opts.model,
