@@ -7239,5 +7239,13 @@
     "video": {
       "error": "編成失敗"
     }
+  },
+  "score": {
+    "excellent": "優秀",
+    "high": "良好",
+    "medium": "普通",
+    "low": "要改善",
+    "title": "学習スコア",
+    "empty": "スコアはありません"
   }
 }
