@@ -785,6 +785,15 @@ export interface PoolChatModel {
   accountCount: number
   /** preset = 平台登记模型(有展示名/定价);upstream = 上游清单现拉 */
   source: 'preset' | 'upstream'
+  /**
+   * 积分消耗倍数(小数口径,如 0.15 = 0.15x;0 = 免费档)。
+   * 仅预设行下发;上游补缺行无登记价,缺省 ⇒ 前端按免费档展示。
+   */
+  pointsMultiplier?: number
+  /** 真实单价(元/百万 token,输入侧)。与 outputPricePerMillion 同时存在时展示 */
+  inputPricePerMillion?: number
+  /** 真实单价(元/百万 token,输出侧) */
+  outputPricePerMillion?: number
 }
 
 /**
