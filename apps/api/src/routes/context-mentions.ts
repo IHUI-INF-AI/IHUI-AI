@@ -22,13 +22,31 @@ import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
 import { authenticate } from '../plugins/auth.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
-import { contextEngineService } from '../services/context-engine-service.js'
+import { contextEngineService, workspacePathViolation } from '../services/context-engine-service.js'
 import { getConversationAccess } from '../db/chat-conversation-access.js'
+
+/**
+ * workspacePath 语法闸(f-254):含 NUL / `..` 段 / 文件系统根 ⇒ 400。
+ * 判据本体在 service 单源(workspacePathViolation),这里只负责把 400 提前到
+ * schema 阶段,避免非法入参进到服务层。归属(403)在服务层用 realpath + 登记工作区判。
+ */
+const workspacePathSchema = z
+  .transform(emptyToUndefined)
+  .pipe(
+    z
+      .string()
+      .max(512)
+      .superRefine((v, ctx) => {
+        const violation = workspacePathViolation(v)
+        if (violation) ctx.addIssue({ code: 'custom', message: violation })
+      })
+      .optional(),
+  )
 
 const mentionQuerySchema = z.object({
   q: z.transform(emptyToUndefined).pipe(z.string().max(255).optional()),
   type: z.enum(['file', 'database', 'symbol', 'folder', 'web']).default('file'),
-  workspacePath: z.transform(emptyToUndefined).pipe(z.string().max(512).optional()),
+  workspacePath: workspacePathSchema,
   limit: z.coerce.number().int().min(1).max(50).default(20),
 })
 
@@ -146,6 +164,12 @@ export const contextMentionRoutes: FastifyPluginAsync = async (server) => {
       })
       return reply.send(success({ mentions, total: mentions.length }))
     } catch (e) {
+      // f-254:workspacePath 越界(403)/ 非法(400)必须如实回给客户端,
+      // 不能被统一兜底成 500("检索失败")—— 否则越界与后端故障不可区分。
+      const statusCode = (e as Error & { statusCode?: number }).statusCode
+      if (statusCode === 400 || statusCode === 403) {
+        return reply.status(statusCode).send(error(statusCode, (e as Error).message))
+      }
       request.log.error(e)
       return reply.status(500).send(error(500, '检索失败'))
     }
