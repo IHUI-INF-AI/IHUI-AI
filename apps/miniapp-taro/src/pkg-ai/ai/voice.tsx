@@ -236,9 +236,7 @@ export default function VoicePage() {
   return (
     <ThemeRoot className="flex flex-col h-screen bg-background">
       <View className="flex items-center justify-between pt-[120rpx] px-[32rpx] pb-[24rpx] bg-card">
-        <Text className="text-title-lg text-foreground">
-          {tt('ai.voice.title', 'AI 语音对话')}
-        </Text>
+        <Text className="text-title-lg text-foreground">{tt('ai.voice.title', 'AI 语音对话')}</Text>
         <Text className="text-body-sm leading-[normal] text-muted-foreground" onClick={onClear}>
           {tt('ai.voice.clearChat', '清空对话')}
         </Text>
