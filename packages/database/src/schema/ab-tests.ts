@@ -19,6 +19,7 @@ import {
   jsonb,
   timestamp,
   index,
+  unique,
 } from 'drizzle-orm/pg-core'
 
 export const abTests = pgTable(
@@ -73,7 +74,7 @@ export const abTestResults = pgTable(
     id: uuid('id').primaryKey().notNull(),
     testId: uuid('test_id').notNull(),
     variantId: uuid('variant_id').notNull(),
-    bucket: varchar('bucket', { length: 64 }),
+    bucket: varchar('bucket', { length: 64 }).notNull(),
     samples: integer('samples').default(0).notNull(),
     conversions: integer('conversions').default(0).notNull(),
     revenue: integer('revenue').default(0).notNull(),
@@ -82,6 +83,15 @@ export const abTestResults = pgTable(
   (t) => ({
     testIdx: index('idx_ab_test_results_test').on(t.testId),
     variantIdx: index('idx_ab_test_results_variant').on(t.variantId),
+    // F-448:UNIQUE(variant_id,bucket) 与首定义迁移 0043 及修复迁移
+    // 20261112000002 对齐——此前 schema 把唯一约束丢了(bucket 可空、无约束),
+    // routes/ab-testing.ts 两处 onConflictDoUpdate({ target:[variantId,bucket] })
+    // 在 drizzle-kit push / 按 20260831 重建的库上必撞 42P10,同一 variant+bucket
+    // 还会重复计数。约束名沿用既成事实:ab_test_results_variant_bucket_uniq。
+    variantBucketUniq: unique('ab_test_results_variant_bucket_uniq').on(
+      t.variantId,
+      t.bucket,
+    ),
   }),
 )
 
