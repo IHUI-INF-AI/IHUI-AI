@@ -74,6 +74,43 @@ const RATE_BLOCK_SEC = 900
 /** 滑动窗口(毫秒)。 */
 const WINDOW_MS = 60_000
 
+/**
+ * 频率挑战白名单(2026-11-13 立,治「公网固定出口 + 客户端无 CAPTCHA 实现」的登录卡死)。
+ *
+ * 背景:anti-automation 的 429 CAPTCHA(`X-Challenge-Required`)要求客户端渲染
+ * `/api/security/challenge` 的验证控件,但桌面/移动/CLI 首方客户端**没有任何实现**
+ * (见 tests/first-party-user-agent.test.ts、apps/mobile-rn/src/lib/config.ts 的注释)。
+ * 于是公网固定出口 IP(家庭宽带 / 小型办公室 NAT / 自有服务器)一旦撞上挑战阈值,
+ * 用户侧只剩一句「请求频率过高,需完成人机验证」却无控件可完成 —— 死锁。
+ *
+ * 用法:环境变量 `ANTI_AUTOMATION_ALLOWLIST`,逗号分隔 IPv4 或 CIDR,如
+ *   ANTI_AUTOMATION_ALLOWLIST=203.0.113.7,198.51.100.0/24
+ * 缺省为空 ⇒ 不改变任何既有行为(默认关闭,零破坏面)。
+ *
+ * 安全边界(刻意收窄,只豁免误伤、不打开后门):
+ *   - 仅跳过第 3 步「频率统计 + 429 挑战 + 频率 403 封禁」;
+ *   - **不**豁免第 1 步扫描器判定、**不**豁免第 2 步「已被封禁 IP」。
+ *     真已被封(封禁表)与主动扫 /.env /admin 的客户端,白名单照样拦。
+ *     ⇒ 白名单只把「正常人类 IP 被频率误判」捞出来,不成为绕过封禁的通道。
+ * 失效方向:解析失败的条目一律忽略(安全跳过),绝不因配置错就放行全部。
+ */
+/**
+ * 现读环境变量(遵循 §0「凡数字一律现读」):每次首次用到时读 process.env,
+ * 而非模块加载时读死 —— 便于运维热切换 env + 重启即生效,也便于测试注入。
+ */
+let allowlistCache: readonly string[] | null = null
+function allowlist(): readonly string[] {
+  if (allowlistCache) return allowlistCache
+  allowlistCache = (process.env.ANTI_AUTOMATION_ALLOWLIST ?? '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0)
+  return allowlistCache
+}
+function resetAllowlistCacheForTest(): void {
+  allowlistCache = null
+}
+
 /** 读整数型环境变量;缺失或非法(<=0 / NaN)时用默认值。 */
 function readIntEnv(name: string, fallback: number): number {
   const raw = process.env[name]
@@ -179,7 +216,10 @@ const antiAutomationPlugin: FastifyPluginAsync = async (server: FastifyInstance)
     //
     //    健康检查 UA 的唯一豁免就在这里:不计数、不触发 429/403。
     //    上面的封禁查询与扫描器判定已经执行过,伪造 UA 换不来任何放行。
-    if (!healthCheckUa) {
+    //
+    //    白名单(ANTI_AUTOMATION_ALLOWLIST)同在此处豁免:命中则跳过频率挑战/频率封禁,
+    //    但扫描器与「已被封禁」判定已在上方照常执行 —— 白名单不是封禁的旁路。
+    if (!healthCheckUa && !isRateAllowlisted(ip)) {
       const threshold = aaCfg?.threshold ?? DEFAULT_THRESHOLD
       const now = Date.now()
       const ipCount = await incrCounter(redis, K_FREQ(ip), now, WINDOW_MS)
@@ -229,6 +269,10 @@ const antiAutomationPlugin: FastifyPluginAsync = async (server: FastifyInstance)
           .send({
             code: 429,
             message: '请求频率过高,需完成人机验证',
+            // 机器可读信号:首方客户端(web/桌面/移动/CLI)没有 CAPTCHA 实现,无法完成本挑战。
+            // api-client 的 deriveFailureFromBody 见此 errorCode 即改写为「请稍后再试」,
+            // 而不是把「需完成人机验证」原样上屏 —— 否则用户只见文案、无控件可完成,死锁。
+            errorCode: 'challenge_required',
             challengeEndpoint: '/api/security/challenge',
           })
         return
@@ -277,6 +321,51 @@ async function resolveUserIdForRate(request: FastifyRequest): Promise<string | u
 
 function isScannerPath(path: string): boolean {
   return SCANNER_PATTERNS.some((p) => path.includes(p))
+}
+
+/**
+ * 解析 IPv4 → uint32;非法(段数错/越界/非数字/IPv6)返回 null。
+ * 本插件是国安级前置防线,不反向依赖计费模块(relay-billing-service 的 ipInCidr),
+ * 故此处自包含一份最小解析 —— 与 services/relay-billing-service.ts:parseIPv4 语义一致。
+ */
+function parseIPv4(ip: string): number | null {
+  const parts = ip.split('.')
+  if (parts.length !== 4) return null
+  let out = 0
+  for (const p of parts) {
+    if (!/^\d{1,3}$/.test(p)) return null
+    const n = Number(p)
+    if (n < 0 || n > 255) return null
+    out = (out << 8) | n
+  }
+  return out >>> 0
+}
+
+/**
+ * IP 是否命中频率挑战白名单(精确 IPv4 或 CIDR)。
+ * 解析失败的条目一律忽略(安全跳过):配置错绝不升级成「放行全部」。
+ * 仅匹配 IPv4 —— 挑战白名单面向自有公网出口,IPv6 由运营者显式加 /128 或按需扩展。
+ */
+function isRateAllowlisted(ip: string): boolean {
+  const entries = allowlist()
+  if (entries.length === 0) return false
+  const target = parseIPv4(ip)
+  if (target === null) return false
+  for (const entry of entries) {
+    const [base, prefixRaw] = entry.split('/')
+    const baseInt = parseIPv4(base ?? '')
+    if (baseInt === null) continue
+    if (prefixRaw === undefined) {
+      if (target === baseInt) return true
+      continue
+    }
+    const prefix = Number(prefixRaw)
+    if (!Number.isInteger(prefix) || prefix < 0 || prefix > 32) continue
+    if (prefix === 0) return true
+    const mask = prefix === 32 ? 0xffffffff : (0xffffffff << (32 - prefix)) >>> 0
+    if ((target & mask) === (baseInt & mask)) return true
+  }
+  return false
 }
 
 /**
@@ -373,6 +462,10 @@ export const __test__ = {
   readIntEnv,
   resolveUserIdForRate,
   thresholds: () => ({ DEFAULT_THRESHOLD, BLOCK_THRESHOLD }),
+  /** 频率挑战白名单匹配(默认关闭,配置后命中才豁免频率判定)。 */
+  isRateAllowlisted,
+  /** 重置白名单缓存:测试改 ANTI_AUTOMATION_ALLOWLIST 后须调用以生效。 */
+  resetAllowlistCacheForTest,
   /** 内存降级计数(Redis 缺失时走的分支),用于 F-46 回归测试。 */
   incrCounter,
   memFreqSize: __memFreqSizeForTest,

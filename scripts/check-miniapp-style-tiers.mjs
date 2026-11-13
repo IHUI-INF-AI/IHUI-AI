@@ -129,7 +129,13 @@ export function scanText(text, table) {
     out.spaceDefaultNumeric++
   }
   // 字面量:style 对象 / CSS 属性里的 rpx 长度
-  const litRe = /\b(padding|paddingHorizontal|paddingVertical|paddingTop|paddingBottom|paddingLeft|paddingRight|margin|marginTop|marginBottom|marginLeft|marginRight|marginHorizontal|marginVertical|gap|rowGap|columnGap|fontSize|lineHeight|width|height|minWidth|minHeight|maxWidth|maxHeight|top|right|bottom|left|borderRadius)\s*:\s*'?(\d+(?:\.\d+)?)rpx'?/g
+  // 2026-11-13 修误报:属性名前加负向后行断言 (?<![\w-])。原 \b 在 `-` 与字母之间也成立,
+  // 导致 CSS 自定义属性/连写属性里的词被误当成独立属性 —— 如 `--line-height: 48rpx` 命中
+  // `height`、`padding-top: N` 命中 `top`。design-tokens 新增 4 档(80e4814fdc)在 app.css 写
+  // `--text-*-line-height: 48rpx`,每档被误计 +1,共 +4 假裸字面量 ⇒ 302p mpTierLiteral
+  // 600→602(其中 +4 误报,被后两枚真回收抵掉 −2)。断言把"前缀是连字符/字母数字"的伪属性名
+  // 一律排除,只认真正的属性起始位(JS style 对象与顶层 CSS 属性)。
+  const litRe = /(?<![\w-])(padding|paddingHorizontal|paddingVertical|paddingTop|paddingBottom|paddingLeft|paddingRight|margin|marginTop|marginBottom|marginLeft|marginRight|marginHorizontal|marginVertical|gap|rowGap|columnGap|fontSize|lineHeight|width|height|minWidth|minHeight|maxWidth|maxHeight|top|right|bottom|left|borderRadius)\s*:\s*'?(\d+(?:\.\d+)?)rpx'?/g
   for (const m of text.matchAll(litRe)) {
     const prop = m[1]
     const px = Number(m[2]) / 2
