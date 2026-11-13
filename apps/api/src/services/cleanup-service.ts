@@ -17,8 +17,8 @@
  */
 
 import type { Dirent } from 'node:fs'
-import { readdir, stat, unlink } from 'node:fs/promises'
-import { join, resolve, sep } from 'node:path'
+import { lstat, readdir, realpath, unlink } from 'node:fs/promises'
+import { isAbsolute, join, relative, resolve, sep } from 'node:path'
 
 /** 文件最大保留时长（小时）。 */
 const MAX_AGE_HOURS = 24
@@ -53,6 +53,30 @@ function isProtectedPath(filePath: string): boolean {
     const protectedRoot = resolve(prefix)
     return absolute === protectedRoot || absolute.startsWith(protectedRoot + sep)
   })
+}
+
+/**
+ * 判定 target 是否位于 root 之内(含 root 本身)。
+ * 用 path.relative 而非字符串 startsWith,避免 uploads-backup 之类同前缀被误判。
+ */
+function isWithin(root: string, target: string): boolean {
+  const rel = relative(root, target)
+  return rel === '' || (!rel.startsWith('..') && !isAbsolute(rel))
+}
+
+/** 待清理目录所属的删除边界根(首个路径段):uploads/chunks → uploads。 */
+function boundaryRootOf(dir: string): string {
+  return resolve(dir.split(/[\\/]/)[0]!)
+}
+
+/** 解析边界根的 realpath;目录尚不存在时退回绝对路径,不中断整轮清理。 */
+async function resolveBoundaryRoot(dir: string): Promise<string> {
+  const absolute = boundaryRootOf(dir)
+  try {
+    return await realpath(absolute)
+  } catch {
+    return absolute
+  }
 }
 
 export interface CleanupStats {
@@ -103,12 +127,16 @@ async function walkFiles(
       const visited = await Promise.all(
         batch.map(async (entry) => {
           const fullPath = join(dir, entry.name)
-          // 不跟随符号链接(既不下钻也不删除)，避免越出清理目录边界。
+          // 符号链接一律不跟随:既不下钻目录链接,也不删除链接(链接指向可能在清理根之外)。
+          if (entry.isSymbolicLink()) return null
           if (!entry.isDirectory() && !entry.isFile()) return null
           if (exclude(fullPath)) return null
           if (entry.isDirectory()) return { kind: 'dir' as const, path: fullPath }
           try {
-            const info = await stat(fullPath)
+            // lstat 不跟随链接:即使 dirent 类型缺失或竞态把链接当成普通文件,
+            // 也在这里再判一次并跳过。
+            const info = await lstat(fullPath)
+            if (info.isSymbolicLink() || !info.isFile()) return null
             return {
               kind: 'file' as const,
               entry: { path: fullPath, mtime: info.mtimeMs, size: info.size },
@@ -136,7 +164,28 @@ function getTotalSize(files: FileEntry[]): number {
 }
 
 /** 删除单个文件：失败只记录(限量)并 warn，不中断整轮清理。 */
-async function safeDelete(filePath: string, errors: string[]): Promise<boolean> {
+async function safeDelete(
+  filePath: string,
+  boundaryRoot: string,
+  errors: string[],
+): Promise<boolean> {
+  // 删除前 realpath 校验:真实路径必须仍在删除边界根内,防止链接/挂载把删除带出 uploads。
+  let realPath: string
+  try {
+    realPath = await realpath(filePath)
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code !== 'ENOENT') {
+      console.warn('[cleanup] realpath 失败，已跳过删除', filePath, (e as Error).message)
+    }
+    return false
+  }
+  if (!isWithin(boundaryRoot, realPath)) {
+    if (errors.length < MAX_RECORDED_ERRORS) {
+      errors.push(`${filePath}: realpath 越界(${realPath})，已跳过删除`)
+    }
+    console.warn('[cleanup] 路径越界，已跳过删除', filePath, '->', realPath)
+    return false
+  }
   try {
     await unlink(filePath)
     return true
@@ -172,6 +221,8 @@ export async function runFileCleanup(): Promise<CleanupResult> {
   for (const dir of TARGET_DIRS) {
     const remaining: FileEntry[] = []
     let totalSize = 0
+    // 本轮删除边界:uploads/chunks → uploads,outputs → outputs。
+    const boundaryRoot = await resolveBoundaryRoot(dir)
 
     // 1. 单趟遍历：边删过期文件边累计剩余文件与总大小(供容量清理使用)
     await walkFiles(
@@ -179,7 +230,7 @@ export async function runFileCleanup(): Promise<CleanupResult> {
       async (entry) => {
         result.scanned += 1
         if (entry.mtime < ageCutoff) {
-          if (await safeDelete(entry.path, result.errors)) result.deletedByAge += 1
+          if (await safeDelete(entry.path, boundaryRoot, result.errors)) result.deletedByAge += 1
           return
         }
         remaining.push(entry)
@@ -193,7 +244,7 @@ export async function runFileCleanup(): Promise<CleanupResult> {
       remaining.sort((a, b) => a.mtime - b.mtime)
       for (const f of remaining) {
         if (totalSize <= MAX_TOTAL_SIZE_BYTES) break
-        if (await safeDelete(f.path, result.errors)) {
+        if (await safeDelete(f.path, boundaryRoot, result.errors)) {
           totalSize -= f.size
           result.deletedBySize += 1
         }
