@@ -25,7 +25,7 @@
   background: var(--color-card);
 }
 .nav-title {
-  font-size: 34rpx;
+  font-size: var(--text-title-lg);
   font-weight: 600;
   color: var(--color-foreground);
 }
