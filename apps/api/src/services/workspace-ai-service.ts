@@ -57,8 +57,15 @@ const execAsync = promisify(exec)
 const STORE_ROOT = join(homedir(), '.ihui')
 const SWARMS_DIR = join(STORE_ROOT, 'swarms')
 const BG_AGENTS_DIR = join(STORE_ROOT, 'background-agents')
-const ROUTINES_FILE = join(STORE_ROOT, 'routines.json')
 const PERSONAS_FILE = join(STORE_ROOT, 'personas.json')
+
+/**
+ * 例行程序存储文件(F-301)。IHUI_STORE_ROOT 仅用于测试注入临时存储根,生产默认 ~/.ihui。
+ * 路径延迟求值:测试在模块导入后才设置环境变量,不能在模块顶层把路径钉死。
+ */
+function routinesFile(): string {
+  return join(process.env.IHUI_STORE_ROOT?.trim() || STORE_ROOT, 'routines.json')
+}
 
 /**
  * 最近工作区按 userId 分文件(F-278):此前是全局共享的 recent-workspaces.json,
@@ -3391,6 +3398,12 @@ export const personaRegistry = new PersonaRegistry()
 
 export interface Routine {
   id: string
+  /**
+   * 属主(F-301)。旧 routines.json 记录没有该字段(JSON 里也没有创建者信息,
+   * 无法回填),一律按 orphan 处理:任何用户都不算属主,list 不返回、get/update/
+   * delete/trigger 一律按「不存在」404,避免被任意登录用户读写。
+   */
+  userUuid: string
   name: string
   prompt: string
   cronExpression: string
@@ -3407,11 +3420,18 @@ class RoutineManager {
   private routines = new Map<string, Routine>()
   private timer: NodeJS.Timeout | null = null
   private blockedWrite: string | null = null
+  private loadedFrom: string | null = null
 
-  constructor() {
+  /** 懒加载:存储根可能在模块导入后由测试注入(IHUI_STORE_ROOT),路径变化时重读。 */
+  private ensureLoaded(): void {
+    const file = routinesFile()
+    if (this.loadedFrom === file) return
+    this.loadedFrom = file
+    this.routines.clear()
+    this.blockedWrite = null
     try {
       const saved = readJsonForUpdate<Routine[] | null>(
-        ROUTINES_FILE,
+        file,
         null,
         '例行程序读不到,不能按空名单覆盖',
       )
@@ -3422,24 +3442,38 @@ class RoutineManager {
     }
   }
 
-  list(): Routine[] {
-    return Array.from(this.routines.values())
+  /** 属主判定:旧记录缺 userUuid → orphan,不属于任何人。 */
+  private owns(routine: Routine | null | undefined, userId: string): routine is Routine {
+    if (!routine || typeof routine.userUuid !== 'string' || routine.userUuid === '') return false
+    return routine.userUuid === userId
   }
 
-  get(id: string): Routine | null {
-    return this.routines.get(id) ?? null
+  list(userId: string): Routine[] {
+    this.ensureLoaded()
+    return Array.from(this.routines.values()).filter((r) => this.owns(r, userId))
   }
 
-  create(params: {
-    name: string
-    prompt: string
-    cronExpression: string
-    workspacePath: string
-    modelId?: string
-  }): Routine {
+  get(id: string, userId: string): Routine | null {
+    this.ensureLoaded()
+    const r = this.routines.get(id)
+    return this.owns(r, userId) ? r : null
+  }
+
+  create(
+    params: {
+      name: string
+      prompt: string
+      cronExpression: string
+      workspacePath: string
+      modelId?: string
+    },
+    userId: string,
+  ): Routine {
+    this.ensureLoaded()
     const id = randomUUID().slice(0, 12)
     const routine: Routine = {
       id,
+      userUuid: userId,
       name: params.name,
       prompt: params.prompt,
       cronExpression: params.cronExpression,
@@ -3457,10 +3491,15 @@ class RoutineManager {
     return routine
   }
 
-  update(id: string, updates: Partial<Omit<Routine, 'id' | 'createdAt'>>): Routine | null {
-    const r = this.routines.get(id)
+  update(
+    id: string,
+    userId: string,
+    updates: Partial<Omit<Routine, 'id' | 'createdAt' | 'userUuid'>>,
+  ): Routine | null {
+    this.ensureLoaded()
+    const r = this.get(id, userId)
     if (!r) return null
-    const updated = { ...r, ...updates, id: r.id, createdAt: r.createdAt }
+    const updated = { ...r, ...updates, id: r.id, createdAt: r.createdAt, userUuid: r.userUuid }
     if (updates.cronExpression && updates.cronExpression !== r.cronExpression) {
       updated.nextRun = this.nextRunTime(updates.cronExpression)
     }
@@ -3469,15 +3508,24 @@ class RoutineManager {
     return updated
   }
 
-  delete(id: string): boolean {
+  delete(id: string, userId: string): boolean {
+    this.ensureLoaded()
+    if (!this.get(id, userId)) return false
     const deleted = this.routines.delete(id)
     if (deleted) this.persist()
     return deleted
   }
 
-  trigger(id: string): string | null {
-    const r = this.routines.get(id)
-    if (!r || !r.enabled) return null
+  /** 用户手动触发:仅属主可触发(F-301)。调度器内部走 runRoutine,不受此限。 */
+  trigger(id: string, userId: string): string | null {
+    this.ensureLoaded()
+    const r = this.get(id, userId)
+    if (!r) return null
+    return this.runRoutine(r)
+  }
+
+  private runRoutine(r: Routine): string | null {
+    if (!r.enabled) return null
     const agentId = backgroundAgentManager.start({
       prompt: r.prompt,
       workspacePath: r.workspacePath,
@@ -3504,11 +3552,12 @@ class RoutineManager {
   }
 
   private tick(): void {
+    this.ensureLoaded()
     const now = nowSec()
     for (const r of this.routines.values()) {
       if (!r.enabled || r.nextRun === null) continue
       if (r.nextRun <= now) {
-        this.trigger(r.id)
+        this.runRoutine(r)
       }
     }
   }
@@ -3565,7 +3614,7 @@ class RoutineManager {
 
   private persist(): void {
     if (this.blockedWrite) throw new Error(this.blockedWrite)
-    writeJson(ROUTINES_FILE, Array.from(this.routines.values()))
+    writeJson(routinesFile(), Array.from(this.routines.values()))
   }
 }
 

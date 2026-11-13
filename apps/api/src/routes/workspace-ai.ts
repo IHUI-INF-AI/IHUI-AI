@@ -1691,10 +1691,24 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
     modelId: z.string().optional(),
   })
 
+  // F-301:PATCH 只允许改这些可编辑字段。此前用 z.record 任意键直通 service 的
+  // {...r, ...updates},可改 id/createdAt/userUuid/nextRun/lastResult 等(把 nextRun
+  // 设成过去即可每 tick 触发)。strict 让未知字段直接 400。
+  const updateRoutineSchema = z
+    .object({
+      name: z.string().min(1).optional(),
+      prompt: z.string().min(1).optional(),
+      cronExpression: z.string().min(1).optional(),
+      workspacePath: z.string().min(1).optional(),
+      modelId: z.string().optional(),
+      enabled: z.boolean().optional(),
+    })
+    .strict()
+
   server.get('/routines', async (request, reply) => {
     await requireAuth(request, reply)
     if (!request.userId) return
-    return reply.send(success({ routines: routineManager.list() }))
+    return reply.send(success({ routines: routineManager.list(request.userId) }))
   })
 
   server.post('/routines', async (request, reply) => {
@@ -1703,7 +1717,7 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
     const parsed = createRoutineSchema.safeParse(request.body)
     if (!parsed.success)
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    const routine = routineManager.create(parsed.data)
+    const routine = routineManager.create(parsed.data, request.userId)
     return reply.status(201).send(success(routine))
   })
 
@@ -1711,7 +1725,7 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
     await requireAuth(request, reply)
     if (!request.userId) return
     const { id } = idParam.parse(request.params)
-    const routine = routineManager.get(id)
+    const routine = routineManager.get(id, request.userId)
     if (!routine) return reply.status(404).send(error(404, '例行程序不存在'))
     return reply.send(success(routine))
   })
@@ -1720,10 +1734,11 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
     await requireAuth(request, reply)
     if (!request.userId) return
     const { id } = idParam.parse(request.params)
-    const body = z.record(z.string(), z.unknown()).safeParse(request.body ?? {})
-    if (!body.success) return reply.status(400).send(error(400, '参数错误'))
+    const body = updateRoutineSchema.safeParse(request.body ?? {})
+    if (!body.success)
+      return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
     try {
-      const updated = routineManager.update(id, body.data)
+      const updated = routineManager.update(id, request.userId, body.data)
       if (!updated) return reply.status(404).send(error(404, '例行程序不存在'))
       return reply.send(success(updated))
     } catch (e) {
@@ -1735,7 +1750,7 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
     await requireAuth(request, reply)
     if (!request.userId) return
     const { id } = idParam.parse(request.params)
-    const deleted = routineManager.delete(id)
+    const deleted = routineManager.delete(id, request.userId)
     if (!deleted) return reply.status(404).send(error(404, '例行程序不存在'))
     return reply.send(success({ deleted }))
   })
@@ -1744,7 +1759,7 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
     await requireAuth(request, reply)
     if (!request.userId) return
     const { id } = idParam.parse(request.params)
-    const agentId = routineManager.trigger(id)
+    const agentId = routineManager.trigger(id, request.userId)
     if (!agentId) return reply.status(404).send(error(404, '例行程序不存在或未启用'))
     return reply.send(success({ agentId }))
   })

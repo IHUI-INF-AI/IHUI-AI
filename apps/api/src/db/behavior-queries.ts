@@ -20,9 +20,18 @@ export interface RecordWatchInput {
 }
 
 /**
+ * 累计观看时长上限(F-174)。`watch_duration` 是 int4(上限 2147483647),
+ * 取 2_000_000_000 留 ~1.47 亿秒余量:无论客户端怎么刷,LEAST 的结果都稳稳落在
+ * int4 内,不会出现 22003 numeric overflow —— 那会让该用户的行为统计接口永久 500。
+ */
+const WATCH_DURATION_CEILING = 2_000_000_000
+
+/**
  * 记录/更新浏览。同一用户对同一目标已有记录则累加时长并更新位置。
- * 单条 upsert 完成读改写:并发首写由 ON CONFLICT 吃掉唯一冲突,已有行按
- * `excluded.watch_duration` 原子累加,不做 SELECT 快照后覆盖写。
+ * 单条 upsert:并发首写由 ON CONFLICT 吃掉唯一冲突,已有行按 `excluded.watch_duration`
+ * 原子累加(列自增,不做 SELECT 快照后覆盖写),并用 LEAST 截顶到 int4 安全值。
+ * 加法两侧先转 bigint:存量行若已接近 int4 上限,`int4 + int4` 会在 LEAST 生效前
+ * 就抛 22003,cast 之后中间结果不可能溢出,截顶才真正有效。
  * 返回 { id, updated }(updated=false 表示本次为首次插入)。
  */
 export async function recordWatch(
@@ -47,7 +56,7 @@ export async function recordWatch(
         behaviorWatchRecords.topicType,
       ],
       set: {
-        watchDuration: sql`${behaviorWatchRecords.watchDuration} + excluded.watch_duration`,
+        watchDuration: sql`LEAST(${behaviorWatchRecords.watchDuration}::bigint + excluded.watch_duration, ${WATCH_DURATION_CEILING})::int`,
         lastPosition,
         ...(input.topicTitle ? { topicTitle: input.topicTitle } : {}),
         updatedAt: new Date(),

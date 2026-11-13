@@ -271,6 +271,8 @@ async function streamAnthropicMessages(
     const reader = resp.body.getReader()
     const decoder = new TextDecoder()
     let buffer = ''
+    // F-293:多个工具调用各自独占一个 tool_use block,index 由本流内的计数器分配
+    const toolIndexRef = { next: 0 }
 
     for (;;) {
       const { done, value } = await reader.read()
@@ -280,12 +282,12 @@ async function streamAnthropicMessages(
       while ((nl = buffer.indexOf('\n')) !== -1) {
         const line = buffer.slice(0, nl).replace(/\r$/, '')
         buffer = buffer.slice(nl + 1)
-        const chunk = parseUpstreamLineToOpenAIChunk(line, opts.model)
+        const chunk = parseUpstreamLineToOpenAIChunk(line, opts.model, toolIndexRef)
         if (chunk) writeEvents(openAIStreamChunkToAnthropicEvents(chunk, state))
       }
     }
     if (buffer.trim()) {
-      const chunk = parseUpstreamLineToOpenAIChunk(buffer, opts.model)
+      const chunk = parseUpstreamLineToOpenAIChunk(buffer, opts.model, toolIndexRef)
       if (chunk) writeEvents(openAIStreamChunkToAnthropicEvents(chunk, state))
     }
 
@@ -559,7 +561,25 @@ const v1MessagesRoutes: FastifyPluginAsync = async (server) => {
           error_message?: string
           /** 上游若给出结束原因(ai-service 摊平形状 / OpenAI 形状两形都收),必须如实带走 */
           finish_reason?: string | null
-          choices?: Array<{ finish_reason?: string | null }>
+          choices?: Array<{
+            finish_reason?: string | null
+            message?: {
+              tool_calls?: Array<{
+                id?: string
+                type?: string
+                function?: { name?: string; arguments?: string }
+              }>
+            }
+          }>
+          /**
+           * F-293:ai-service /api/llm/complete 命中 function calling 时把完整工具调用
+           * 摊平在顶层 tool_calls(OpenAI 形状);此前本路由只取 content,整条工具链丢失。
+           */
+          tool_calls?: Array<{
+            id?: string
+            type?: string
+            function?: { name?: string; arguments?: string }
+          }>
         }
 
         if (data.error) {
@@ -605,13 +625,34 @@ const v1MessagesRoutes: FastifyPluginAsync = async (server) => {
         const totalTokens = promptTokens + completionTokens
 
         // 构造 OpenAI 风格响应 → 转 Anthropic
+        // F-293:把上游 tool_calls 原样带进 message,由 openAIResponseToAnthropic 转成
+        // tool_use content block(id/name/input)。丢弃它会让 stop_reason=tool_use 却无块,
+        // Anthropic 客户端拿到的是"协议非法"的空工具回复。
+        // 两形都收:ai-service 摊平在顶层;OpenAI 兼容形状在 choices[0].message。
+        const rawToolCalls = data.tool_calls ?? data.choices?.[0]?.message?.tool_calls
+        const upstreamToolCalls = Array.isArray(rawToolCalls)
+          ? rawToolCalls
+              .filter((tc) => Boolean(tc && (tc.function?.name || tc.id)))
+              .map((tc) => ({
+                id: tc.id ?? '',
+                type: 'function' as const,
+                function: {
+                  name: tc.function?.name ?? '',
+                  arguments: tc.function?.arguments ?? '',
+                },
+              }))
+          : []
         const openaiResp: OpenAIChatResponse = {
           id: `chatcmpl-${randomUUID()}`,
           model: data.model ?? body.model,
           choices: [
             {
               index: 0,
-              message: { role: 'assistant', content: data.content ?? '' },
+              message: {
+                role: 'assistant',
+                content: data.content ?? '',
+                ...(upstreamToolCalls.length > 0 ? { tool_calls: upstreamToolCalls } : {}),
+              },
               // 结束原因**如实化**(2026-09-28 立):这里原先无条件写 `'stop'`,于是上游给的
               // `finish_reason: 'length'`(输出达 max_tokens 被截断)会被洗成 `stop`,经
               // openAIResponseToAnthropic 的映射变成对外 `stop_reason: 'end_turn'` —— 客户端

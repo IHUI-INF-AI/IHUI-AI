@@ -8,9 +8,13 @@ import Fastify, { type FastifyInstance } from 'fastify'
 vi.hoisted(() => {
   process.env.DATABASE_URL ??= 'postgresql://test:test@localhost:5432/test'
   process.env.JWT_SECRET ??= 'test-jwt-secret-for-vitest-at-least-32-chars'
+  // F-281:/live/notify/* 需共享密钥头;未配置密钥时端点 fail-closed 503。
+  process.env.TENCENT_LIVE_CALLBACK_KEY ??= 'test-live-notify-secret'
 })
 
 import { liveRoutes, adminLiveRoutes } from '../live.js'
+
+const NOTIFY_SECRET_HEADERS = { 'x-live-notify-secret': 'test-live-notify-secret' }
 
 describe('Live Extended API', () => {
   let app: FastifyInstance
@@ -41,6 +45,7 @@ describe('Live Extended API', () => {
       const res = await app.inject({
         method: 'POST',
         url: '/api/live/notify/stream-begin',
+        headers: NOTIFY_SECRET_HEADERS,
         payload: { streamId: 'test-stream', eventType: 'notify' },
       })
       expect(res.statusCode).toBe(200)
@@ -50,6 +55,7 @@ describe('Live Extended API', () => {
       const res = await app.inject({
         method: 'POST',
         url: '/api/live/notify/stream-end',
+        headers: NOTIFY_SECRET_HEADERS,
         payload: { streamId: 'test-stream', eventType: 'notify' },
       })
       expect(res.statusCode).toBe(200)
@@ -59,6 +65,7 @@ describe('Live Extended API', () => {
       const res = await app.inject({
         method: 'POST',
         url: '/api/live/notify/stream-begin',
+        headers: NOTIFY_SECRET_HEADERS,
       })
       expect([400, 200]).toContain(res.statusCode)
     })

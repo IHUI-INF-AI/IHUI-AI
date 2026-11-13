@@ -32,13 +32,15 @@ import { error, success } from '../utils/response.js'
 import { config } from '../config/index.js'
 import { buildSseCorsHeaders } from '../plugins/cors-origin.js'
 import {
-  bindConversationWorkspace,
   createMessage,
   findConversationById,
   patchConversationMetadata,
   replaceMessages,
   setConversationAdditionalDirectories,
 } from '../db/chat-queries.js'
+// F-300(2026-11-13):绑定时刻落 {messageId, mode, workspacePath} —— 路径过登记根
+// realpath 归一、档位取服务端权限行,回调只按 messageId 读(不再读会话级 workspacePath)。
+import { bindMessagePermissionStamp } from '../services/message-permission-stamp.js'
 import { aiServiceFetch, aiServiceFetchStream } from '../utils/ai-service-fetch.js'
 // G-998168 票5:首帧耗时分段归因 —— 所有计时一律走 elapsed-ms 唯一出口(格②),
 // 裸 performance.now() 差值在端内是判红项。
@@ -1241,7 +1243,7 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
           // conversationId + 前端占位 messageId,与 ai-callback metadata 回显同源),
           // worker 落 assistant 消息时原子取走并归并进 metadata.elementPack。
           // 便宜预筛(subagent_ 子串)挡住 chunk 热路径,不为捕获付逐帧 JSON.parse;
-          // 捕获失败只 warn,绝不打断透传主链路(与 bindConversationWorkspace 同纪律)。
+          // 捕获失败只 warn,绝不打断透传主链路(与 bindMessagePermissionStamp 同纪律)。
           // 降级流(无 metadata,无 replayKey)没有关联键,整帧跳过 —— 与 replay buffer 同策略。
           if (
             replayKey &&
@@ -1432,13 +1434,15 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(404).send(error(404, '会话不存在'))
       }
 
-      // G-165:把"这次对话绑哪个工作区"记进会话 metadata,供异步回调侧查**服务端自己的**
-      // 权限记录给助手消息盖章(web 档位徽章因此可跨刷新/跨端存在)。
-      // 幂等(值没变不写),且绝不阻塞流式主链路 —— 失败只 warn。
-      if (workspacePath && metadata?.conversationId && request.userId) {
-        void bindConversationWorkspace(
+      // F-300:把"这条回答在哪一档权限下生成"在**请求处理时**落成不可变事实
+      // (按 messageId 索引),回调侧按键读取 —— 不再依赖会话级 workspacePath,
+      // 客户端伪造路径也拿不到更宽的徽章。
+      // 幂等(同一 messageId 首发即定),且绝不阻塞流式主链路 —— 失败只 warn。
+      if (workspacePath && metadata?.conversationId && metadata?.messageId && request.userId) {
+        void bindMessagePermissionStamp(
           metadata.conversationId,
           request.userId,
+          metadata.messageId,
           workspacePath,
         ).catch((e: unknown) => {
           request.log.warn(
