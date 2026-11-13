@@ -132,7 +132,8 @@ import { getKeyGroup } from '../src/services/api-key-group-service.js'
 import { notifyRelayEvent } from '../src/services/webhook-relay-notifier.js'
 
 const dialect = new PgDialect()
-const compile = (expr: unknown) => dialect.sqlToQuery(expr as Parameters<PgDialect['sqlToQuery']>[0])
+const compile = (expr: unknown) =>
+  dialect.sqlToQuery(expr as Parameters<PgDialect['sqlToQuery']>[0])
 
 /**
  * 按编译后的 CASE 推演扣费结果(离线无 Postgres 的退化口径):

@@ -115,6 +115,45 @@ export function maskPoolOwner(owner) {
   return `${s.slice(0, 8)}***`
 }
 
+/** id→email 映射 ⇒ email(小写)→id 反查表(目标环境落库翻译用;空 email 行丢弃)。 */
+export function invertOwnerMap(map) {
+  const out = {}
+  for (const [id, email] of Object.entries(map ?? {})) {
+    const e = String(email ?? '').trim().toLowerCase()
+    if (e) out[e] = id
+  }
+  return out
+}
+
+/**
+ * 跨环境归属 id 翻译(2026-11-12 email 身份键收口,纯函数)。
+ *
+ * 背景:两端 users.id 各自库生成(同一人两端 id 不同、email 相同),源环境 id 原样
+ * 透传给目标环境导入器 ⇒ 目标端悬空归属行(机主看不见、审计脏;2026-11-12 codearts
+ * 亲踩)。翻译键 = email:源 id →(源 id→email 表)→ email →(目标 email→id 表)→ 目标 id。
+ * 翻译不出 ⇒ reason 点名缺哪一环,由调用方 fail-closed 处置(绝不透传、绝不落 null/运营池)。
+ * @param {{ownerId?: string|null, idToEmail?: Record<string,string>|null, targetEmailToId?: Record<string,string>|null}} input
+ * @returns {{owner: string|null, email: string, reason: 'ok'|'missing-owner'|'no-email'|'no-target'}}
+ */
+export function translatePoolOwnerToTargetId({ ownerId, idToEmail, targetEmailToId } = {}) {
+  const id = String(ownerId ?? '').trim()
+  if (!id) return { owner: null, email: '', reason: 'missing-owner' }
+  const email = String(idToEmail?.[id] ?? '').trim()
+  if (!email) return { owner: null, email: '', reason: 'no-email' }
+  const key = email.toLowerCase()
+  const target = String(targetEmailToId?.[key] ?? '').trim()
+  if (!target) return { owner: null, email: key, reason: 'no-target' }
+  return { owner: target, email: key, reason: 'ok' }
+}
+
+/** 翻译失败原因 ⇒ 人读措辞(与 translatePoolOwnerToTargetId 的 reason 一一对应,不许调用方另写)。 */
+export const POOL_OWNER_TRANSLATE_REASON_TEXT = Object.freeze({
+  ok: '',
+  'missing-owner': '源归属为空(未判定)',
+  'no-email': '本机 users 表查不到该归属',
+  'no-target': '目标 users 表里没有该 email 对应的用户',
+})
+
 export const __test__ = {
   POOL_OWNER_SEGMENTS,
   UUID_LIKE_RE,
@@ -124,5 +163,8 @@ export const __test__ = {
   readPoolOwnerFile,
   resolveDefaultPoolOwner,
   maskPoolOwner,
+  invertOwnerMap,
+  translatePoolOwnerToTargetId,
+  POOL_OWNER_TRANSLATE_REASON_TEXT,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

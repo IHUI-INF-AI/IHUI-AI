@@ -337,7 +337,11 @@ describe('minimax getQuota(2026-10-27 实弹实证:coding_plan/remains 信封)',
     mockFetch.mockResolvedValue({
       status: 200,
       ok: true,
-      text: async () => JSON.stringify({ model_remains: [{ model: 'M2.7', foo: 1 }], base_resp: { status_code: 0 } }),
+      text: async () =>
+        JSON.stringify({
+          model_remains: [{ model: 'M2.7', foo: 1 }],
+          base_resp: { status_code: 0 },
+        }),
     })
     const q = await minimaxAdapter.getQuota!(makeCtx())
     expect(q.ok).toBe(false)

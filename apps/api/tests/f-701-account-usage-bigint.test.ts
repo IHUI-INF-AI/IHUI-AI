@@ -32,13 +32,8 @@ vi.mock('../src/db/index.js', () => {
       from: () => chain,
       where: () => chain,
       groupBy: () => chain,
-      then: (
-        resolve: (value: unknown) => unknown,
-        reject: (reason: unknown) => unknown,
-      ) => {
-        const pending = h.throwError
-          ? Promise.reject(h.throwError)
-          : Promise.resolve(h.rows)
+      then: (resolve: (value: unknown) => unknown, reject: (reason: unknown) => unknown) => {
+        const pending = h.throwError ? Promise.reject(h.throwError) : Promise.resolve(h.rows)
         return pending.then(resolve, reject)
       },
     }
@@ -77,9 +72,7 @@ function renderSql(fragment: unknown): string {
 
 function aggregateSql(): Record<string, string> {
   if (!h.cols) throw new Error('没有捕获到聚合 select 列')
-  return Object.fromEntries(
-    Object.entries(h.cols).map(([key, value]) => [key, renderSql(value)]),
-  )
+  return Object.fromEntries(Object.entries(h.cols).map(([key, value]) => [key, renderSql(value)]))
 }
 
 function readSource(relPath: string): string {
@@ -92,7 +85,8 @@ const source = readSource('../src/services/relay-account-usage.ts')
 function summariesBlock(): string {
   const start = source.indexOf('export async function getAccountUsageSummaries')
   const end = source.indexOf('export interface AccountUsageResult')
-  if (start < 0 || end < 0 || end <= start) throw new Error('定位不到 getAccountUsageSummaries 函数体')
+  if (start < 0 || end < 0 || end <= start)
+    throw new Error('定位不到 getAccountUsageSummaries 函数体')
   return source.slice(start, end)
 }
 
@@ -157,10 +151,7 @@ describe('F-701 catch 分支 — 真实故障留痕,不再静默降级', () => {
     const map = await getAccountUsageSummaries(['acc-1'])
     expect(map.size).toBe(0)
     expect(logger.error).toHaveBeenCalledTimes(1)
-    const [msg, meta] = vi.mocked(logger.error).mock.calls[0] as [
-      string,
-      Record<string, unknown>,
-    ]
+    const [msg, meta] = vi.mocked(logger.error).mock.calls[0] as [string, Record<string, unknown>]
     expect(msg).toContain('getAccountUsageSummaries')
     expect(meta).toMatchObject({
       fn: 'getAccountUsageSummaries',

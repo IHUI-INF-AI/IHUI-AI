@@ -1102,6 +1102,13 @@
       "notSubscribed": "VIP 미가입",
       "subtitle": "VIP 구독 및 갱신 관리",
       "title": "구독 관리"
+    },
+    "avatar": {
+      "fromAlbum": "앨범에서 선택",
+      "takePhoto": "사진 촬영",
+      "formatHint": "JPG / PNG 지원, 200x200 권장",
+      "sizeHint": "200x200 권장, 2MB 미만",
+      "uploading": "업로드 중..."
     }
   },
   "exam": {
@@ -1133,7 +1140,14 @@
     "ended": "종료",
     "lecturer": "강사",
     "startAt": "시작 시간",
-    "viewerCount": "{count}명 시청"
+    "viewerCount": "{count}명 시청",
+    "subscribe": {
+      "count": "",
+      "unit": "개",
+      "reminder": "시작 알림",
+      "reminderDesc": "라이브 시작 시 알려드립니다",
+      "discover": "둘러보기"
+    }
   },
   "course": {
     "free": "무료",
@@ -1607,7 +1621,8 @@
         "chat": "AI 대화 무제한",
         "model": "전체 모델"
       }
-    }
+    },
+    "privileges": "회원 특전"
   },
   "login": {
     "title": "로그인",
@@ -1651,7 +1666,8 @@
     "avatarUrl": "아바타 URL",
     "avatarConfirm": "확인",
     "save": "저장",
-    "retry": "재시도"
+    "retry": "재시도",
+    "avatarUrlApply": "적용"
   },
   "changePhone": {
     "title": "전화번호 변경",
@@ -3144,7 +3160,9 @@
     "label2": "주체 유형",
     "label3": "신고 시간",
     "label4": "신고 링크",
-    "label5": "신고 범위"
+    "label5": "신고 범위",
+    "scope": "신고 범위",
+    "url": "신고 링크"
   },
   "businessLicense": {
     "scopeTitle": "사업범위",
@@ -3479,5 +3497,65 @@
     "categoryTotal": "총 {total}건",
     "categoryPublishedAt": "{date} 게시",
     "categoryViewCount": "{count}회 조회"
+  },
+  "sag2Lexical": {
+    "title": "SAG2 어휘 멀티홉 검색",
+    "globalSearchTitle": "전역 검색",
+    "globalSearchPlaceholder": "로컬 지식베이스 검색 (Ctrl/Cmd + K)",
+    "globalSearchEmpty": "결과 없음: 이 단어를 포함한 파일이 없습니다",
+    "globalSearchHint": "↑↓ 선택 · Enter 열기 · Esc 닫기",
+    "filter_all": "전체",
+    "filter_text": "텍스트",
+    "filter_office": "문서",
+    "fromPalette": "전역 검색에서",
+    "extractRaster": "래스터",
+    "extractOcr": "OCR",
+    "extractAsr": "전사",
+    "missing": "미설치",
+    "subtitle": "모델 없는 색인 · 질의 시 연관 · 원문 인용",
+    "ready": "색인 준비됨",
+    "empty": "색인 비어 있음",
+    "version": "버전",
+    "documents": "문서",
+    "chunks": "청크",
+    "terms": "용어",
+    "judgeProvider": "판정기",
+    "foldersTitle": "로컬 폴더",
+    "folderPath": "폴더 경로",
+    "folderPlaceholder": "예: D://docs 또는 /Users/me/docs",
+    "registerFolder": "등록 후 스캔",
+    "scanFolders": "전체 스캔",
+    "foldersList": "등록됨",
+    "noFolders": "등록된 폴더가 없습니다",
+    "removeFolder": "등록 해제",
+    "watchFolder": "자동 감시",
+    "scanSummary": "{changed} 추가 · {unchanged} 변경 없음 · {unsupported} 미지원 · {failed} 실패",
+    "docsTitle": "문서 등록",
+    "docsPath": "경로",
+    "docsContent": "본문",
+    "pathPlaceholder": "kb/example.txt",
+    "contentPlaceholder": "문서 본문을 붙여넣거나 입력…",
+    "add": "등록 / 갱신",
+    "remove": "삭제",
+    "added": "등록 완료(색인 시 모델 호출 0회)",
+    "unchanged": "파일 hash 불변, 재구성 생략",
+    "removed": "삭제된 청크 수",
+    "queryTitle": "검색",
+    "queryPlaceholder": "여러 문서에 걸친 질문을 입력…",
+    "quick": "빠른 검색",
+    "deep": "멀티홉",
+    "fuse": "RRF 융합",
+    "emptyResult": "결과가 없습니다. 먼저 문서를 등록하세요",
+    "loading": "처리 중…",
+    "error": "요청 실패",
+    "modelCalls": "모델 호출 0회",
+    "judgeOff": "증거 판정 미실행(어휘 전용)",
+    "trace": "검색 추적",
+    "tracePool": "후보 풀",
+    "traceTerms": "확장어",
+    "citations": "인용 앵커",
+    "score": "점수",
+    "bm25": "BM25",
+    "hop": "홉"
   }
 }

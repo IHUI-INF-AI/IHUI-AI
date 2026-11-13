@@ -218,6 +218,16 @@ import ModelPickerList, { type ModelListItem } from '../components/ModelPickerLi
 import type { AgentListItem } from '../components/AgentList'
 import { BottomPops, appAlert } from '../components/BottomPops'
 import { FloatBox, type FloatBoxType } from '../components/FloatBox'
+import { NoticeLog, appendNotice, type ChatNotice } from '../components/chat/NoticeLog'
+// 留痕的持久化编解码在 shared(与 web 同一份契约),存储落到本端 AsyncStorage
+import {
+  clearNoticeLog,
+  loadNoticeLog,
+  mergeNotices,
+  noticeLogStorageKey,
+  saveNoticeLog,
+} from '@ihui/shared/chat/notice-log'
+import { noticeLogStorage } from '../lib/notice-log-storage'
 import { useAuth } from '../context/AuthContext'
 import { useChatInput } from '../hooks/useChatInput'
 // D153b / D154(2026-09-30 立)per-user 广播消费面:会话元数据覆盖 + MCP 状态行。
@@ -256,7 +266,7 @@ import { parseMessageContent } from '../utils/message-parse'
 import { API_BASE_URL } from '../lib/config'
 
 import { rnGeometry, rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
-import type { ChatModelType } from '@ihui/types'
+import type { ChatModelType, OnToast } from '@ihui/types'
 import { Tappable } from '@ihui/ui-native'
 import { useHostPorts } from '../host/use-host-ports'
 
@@ -859,15 +869,129 @@ export function ChatScreen() {
   const [toastVisible, setToastVisible] = useState(false)
   const [toastType, setToastType] = useState<FloatBoxType>('info')
   const [toastMessage, setToastMessage] = useState('')
+  // 对话内「提示留痕」:每次 toast 额外落一条可回看的系统提示条。
+  // 独立 state ⇒ 不进后端上下文/历史,只作客户端可视 trace(见 NoticeLog 头注)。
+  const [notices, setNotices] = useState<ChatNotice[]>([])
+  const noticeIdRef = useRef(0)
+  /**
+   * 会话内唯一前缀。**必须带它**:留痕会跨重启持久化,而计数器每次冷启都从 1 开始,
+   * 若 id 只用 `notice-${n}`,重启后的新记录会和磁盘上的旧记录撞 id,
+   * 合并时把旧记录覆盖掉(用户看不到「上次那条」)。
+   */
+  const noticeSessionRef = useRef(
+    `s${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`,
+  )
+  /** 落一条对话内提示留痕(独立 state,不进后端上下文/历史) */
+  const recordNotice = useCallback((kind: FloatBoxType, text: string): void => {
+    const id = `${noticeSessionRef.current}-${++noticeIdRef.current}`
+    const ts = Date.now()
+    setNotices((prev) => appendNotice(prev, { id, kind, text, ts }))
+  }, [])
   const showToast = useCallback(
-    (type: FloatBoxType, message: string): void => {
+    (type: FloatBoxType, message: string, opts?: { record?: boolean }): void => {
       setToastType(type)
       setToastMessage(message)
       setToastVisible(true)
+      // record=false:该提示已有更持久的落点(如发送失败的错误卡片),不再重复记一条
+      if (opts?.record !== false) recordNotice(type, message)
     },
-    [setToastType, setToastMessage, setToastVisible],
+    [setToastType, setToastMessage, setToastVisible, recordNotice],
+  )
+  // 共享屏经 onToast 端口弹出的 toast(走全局 host-toast)同样落一条对话留痕
+  const handleOnToast = useCallback<OnToast>(
+    (message, options) => {
+      onToast(message, options)
+      recordNotice(options?.kind ?? 'info', message)
+    },
+    [onToast, recordNotice],
   )
   const hideToast = useCallback((): void => setToastVisible(false), [])
+
+  // ── 提示留痕的跨重启持久化(2026-11) ───────────────────────────────────
+  // 用户诉求:「关掉 App 再打开还能看到」。存储键按会话分区,未绑定会话落 draft 键
+  // (新会话整场都没有 conversationId,见 shared 模块头注);去重/上限/编解码全在 shared。
+  const noticeScopeKey = noticeLogStorageKey(conversationId)
+  /**
+   * 最新作用域键:异步读回返回时用来判定「这期间会话已被切走」,过期的结果直接丢弃。
+   * 在 effect 里同步而非渲染期赋值 —— 渲染期写 ref 在并发渲染下可能留下陈旧值。
+   */
+  const noticeScopeKeyRef = useRef(noticeScopeKey)
+  useEffect(() => {
+    noticeScopeKeyRef.current = noticeScopeKey
+  }, [noticeScopeKey])
+  /**
+   * 已就绪(已读回或已主动清空)的键。**写盘必须等它就位**:
+   * 否则首帧 `notices = []` 会先一步把磁盘上的旧记录清成空 —— 用户重启后什么也看不到。
+   */
+  const noticeReadyKeyRef = useRef<string | null>(null)
+
+  /**
+   * 读回某会话的留痕并上屏。主动调用(不用 effect 驱动),避免与「清空/切会话」竞态。
+   * 读失败不静默:dev 明确告警,prod 降级为纯内存(留痕是辅助能力,不能拖垮聊天页)。
+   */
+  const hydrateNotices = useCallback((cid: string | null): void => {
+    const key = noticeLogStorageKey(cid)
+    void loadNoticeLog(noticeLogStorage, cid)
+      .then((loaded) => {
+        // 期间会话被切走 / 被清空 ⇒ 本次结果已过期,丢弃(否则旧会话的记录会"复活")
+        if (noticeScopeKeyRef.current !== key) return
+        noticeReadyKeyRef.current = key
+        if (loaded.length === 0) return
+        setNotices((prev) => mergeNotices(loaded, prev))
+      })
+      .catch((err: unknown) => {
+        if (noticeScopeKeyRef.current !== key) return
+        noticeReadyKeyRef.current = key
+        if (__DEV__) console.warn('[notice-log] 读回失败,本次留痕仅存活于内存:', err)
+      })
+  }, [])
+
+  /** 主动清空留痕:占住新键 + 抹掉新旧两个会话的盘上记录(「清空对话」是破坏性语义) */
+  const resetNotices = useCallback(
+    (nextConversationId: string | null): void => {
+      setNotices([])
+      noticeReadyKeyRef.current = noticeLogStorageKey(nextConversationId)
+      const keys: Array<string | null> = [conversationId, nextConversationId]
+      for (const cid of keys) {
+        void clearNoticeLog(noticeLogStorage, cid).catch((err: unknown) => {
+          if (__DEV__) console.warn('[notice-log] 清除失败(不影响本次使用):', err)
+        })
+      }
+    },
+    [conversationId],
+  )
+
+  /**
+   * 新建对话:只归零 **draft** 键,不动任何已绑定会话的记录。
+   *
+   * 与 `resetNotices` 的区别是语义而非实现:新建对话只是"从当前会话走开",并不删除它 ——
+   * 用户从抽屉里新建后，再回历史会话仍应看到那条会话当时的提示。若这里也清当前会话的键，
+   * 就变成了"新建一次、抹掉一个历史会话的痕迹"，属于过度删除。
+   */
+  const resetDraftNotices = useCallback((): void => {
+    setNotices([])
+    noticeReadyKeyRef.current = noticeLogStorageKey(null)
+    void clearNoticeLog(noticeLogStorage, null).catch((err: unknown) => {
+      if (__DEV__) console.warn('[notice-log] 清除 draft 失败(不影响本次使用):', err)
+    })
+  }, [])
+
+  // 挂载时读回一次;后续切会话由 loadConversationMessages / 新建对话显式读回
+  const noticeBootRef = useRef(false)
+  useEffect(() => {
+    if (noticeBootRef.current) return
+    noticeBootRef.current = true
+    hydrateNotices(conversationId)
+  }, [conversationId, hydrateNotices])
+
+  // 记录变化即写盘(空列表 = 显式清空)
+  useEffect(() => {
+    if (noticeReadyKeyRef.current !== noticeScopeKey) return
+    void saveNoticeLog(noticeLogStorage, conversationId, notices).catch((err: unknown) => {
+      if (__DEV__) console.warn('[notice-log] 写盘失败,本次留痕仅在内存:', err)
+    })
+  }, [notices, noticeScopeKey, conversationId])
+
   // 录音不可用桥接的落点:reason→文案与 HomeScreen handleVoiceUnavailable 逐字一致
   voiceUnavailableBridge.current = useCallback(
     (reason: 'permission-denied' | 'record-failed', message: string): void => {
@@ -1438,7 +1562,8 @@ export function ChatScreen() {
             { text: t('common.cancel'), style: 'cancel' },
           ])
         } else {
-          showToast('error', formatted.message)
+          // 失败轮已由 applyStreamError 落成对话内错误卡片(可回看 + 重试),不再重复记一条提示
+          showToast('error', formatted.message, { record: false })
         }
       },
       // G-166:交代帧在本屏此前 0 注册 —— 后端发了 citations / injection_applied,
@@ -2008,6 +2133,8 @@ export function ChatScreen() {
         style: 'destructive',
         onPress: () => {
           setMessages([])
+          // 清空对话是破坏性语义:内存清空 + 盘上记录一并抹掉(见 resetNotices)
+          resetNotices(null)
           setMaterialCards([])
           setPrompt('')
           terminateStream()
@@ -2712,6 +2839,8 @@ export function ChatScreen() {
   }
   const handleDrawerCreateNewChat = (): void => {
     setMessages([])
+    // 新会话:只归零 draft 键(上一个未绑定会话的残留),不碰任何历史会话的留痕
+    resetDraftNotices()
     setPrompt('')
     setMaterialCards([])
     setCompactionInfo(null)
@@ -2787,6 +2916,9 @@ export function ChatScreen() {
           }
         })
         setMessages(loaded)
+        // 切会话:上一会话的提示留痕不带到新会话(先清屏,待 id 就位后从盘上读回本会话的)
+        setNotices([])
+        noticeReadyKeyRef.current = null
         setPrompt('')
         setMaterialCards([])
         // D135:切会话,执行帧快照整体清。历史回放缺口被点名,而不是被读成"已还原":
@@ -2795,6 +2927,8 @@ export function ChatScreen() {
         setExecutionVizById({})
         // 记录当前对话 DB id(供收藏 batchOperateConversations 使用)
         setConversationId(id)
+        // 本会话的留痕从盘上读回(跨重启仍在,正是用户要的「关掉再打开还能看到」)
+        hydrateNotices(id)
         requestAnimationFrame(() => {
           listRef.current?.scrollToEnd({ animated: true })
         })
@@ -2802,7 +2936,7 @@ export function ChatScreen() {
         showToast('error', t('chat.historyLoadFail'))
       }
     },
-    [showToast, t],
+    [showToast, t, hydrateNotices],
   )
 
   // 从 ProfileScreen Drawer 跳转时携带 conversationId,自动加载对应对话
@@ -3160,10 +3294,13 @@ export function ChatScreen() {
             // 批次 3:硬停止提示条挂在消息列表尾部(最后一条消息之后、脚注之前),
             // 不是请求失败卡 —— 它在流成功收口后仍常驻,直到下一轮开始或换会话。
             messageListSlots={{
-              orphanTailNode: budgetStop ? <BudgetStopNotice stop={budgetStop} /> : null,
-              // D3(2026-11-12 修"流式输出不跟底"):内容增长时列表自动贴底。
-              // 贴底机制在共享 ChatMessageList(followStream);此前本屏的 scrollToEnd
-              // 只挂在历史加载/压缩两处,onDelta 每 token 更新正文但无人滚动 ⇒ 新内容长在视口下方。
+              // 尾部常驻:硬停止提示条 + 本次会话的 toast 留痕记录(随列表滚动、可回看)
+              orphanTailNode: (
+                <>
+                  {budgetStop ? <BudgetStopNotice stop={budgetStop} /> : null}
+                  <NoticeLog notices={notices} />
+                </>
+              ),
               followStream: true,
             }}
             itemSeparatorComponent={null}
@@ -3197,7 +3334,7 @@ export function ChatScreen() {
             onInputVoiceEnd={() => {}}
             colorScheme={resolvedTheme}
             onNavigate={onNavigate}
-            onToast={onToast}
+            onToast={handleOnToast}
             statusSlot={
               /* D135:任务进度状态条(plan/tool 执行帧折叠结果的可读出口,对齐 web / N8n 位置:输入区上方) */
               <TaskStatusBar

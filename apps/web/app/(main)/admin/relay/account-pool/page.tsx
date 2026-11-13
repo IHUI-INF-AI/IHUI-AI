@@ -628,6 +628,13 @@ export default function AdminRelayAccountPoolPage() {
   const [completePhone, setCompletePhone] = React.useState('')
   const [matchOpen, setMatchOpen] = React.useState(false)
   const [matchText, setMatchText] = React.useState('')
+  // 认领/释放参数面板:claim 收 note,release 收 force(后端参数完整暴露,不再静默丢参)
+  const [claimDialog, setClaimDialog] = React.useState<{
+    ids: string[]
+    action: 'claim' | 'release'
+  } | null>(null)
+  const [claimNote, setClaimNote] = React.useState('')
+  const [releaseForce, setReleaseForce] = React.useState(false)
 
   const qs = React.useMemo(() => {
     const p = new URLSearchParams({ page: String(page), pageSize: String(PAGE_SIZE) })
@@ -1042,11 +1049,19 @@ export default function AdminRelayAccountPoolPage() {
   })
 
   const claimMut = useMutation({
-    mutationFn: async (vars: { ids: string[]; action: 'claim' | 'release' }) => {
+    mutationFn: async (vars: {
+      ids: string[]
+      action: 'claim' | 'release'
+      note?: string
+      force?: boolean
+    }) => {
+      const body =
+        vars.action === 'claim' ? { note: vars.note || undefined } : { force: vars.force === true }
       const results = await Promise.allSettled(
         vars.ids.map(async (id) => {
           const r = await fetchApi<unknown>(`/api/admin/relay/accounts/${id}/${vars.action}`, {
             method: 'POST',
+            body: JSON.stringify(body),
           })
           if (!r.success) throw new Error(r.error)
         }),
@@ -1059,10 +1074,17 @@ export default function AdminRelayAccountPoolPage() {
       if (d.failed === 0) toast.success(`已${label} ${d.total} 个账号`)
       else toast.error(`${label}:成功 ${d.total - d.failed} / 失败 ${d.failed}`)
       setSelectedIds([])
+      setClaimDialog(null)
       invalidate()
     },
     onError: (e: Error) => toast.error(e.message || '操作失败'),
   })
+
+  const openClaimDialog = (ids: string[], action: 'claim' | 'release') => {
+    setClaimNote('')
+    setReleaseForce(false)
+    setClaimDialog({ ids, action })
+  }
 
   const openEdit = (k: AccountRow) => {
     setEditing(k)
@@ -1440,7 +1462,7 @@ export default function AdminRelayAccountPoolPage() {
                 size="sm"
                 variant="outline"
                 disabled={claimMut.isPending}
-                onClick={() => claimMut.mutate({ ids: selectedIds, action: 'claim' })}
+                onClick={() => openClaimDialog(selectedIds, 'claim')}
               >
                 批量认领
               </Button>
@@ -1448,7 +1470,7 @@ export default function AdminRelayAccountPoolPage() {
                 size="sm"
                 variant="outline"
                 disabled={claimMut.isPending}
-                onClick={() => claimMut.mutate({ ids: selectedIds, action: 'release' })}
+                onClick={() => openClaimDialog(selectedIds, 'release')}
               >
                 批量释放
               </Button>
@@ -2014,10 +2036,7 @@ export default function AdminRelayAccountPoolPage() {
                                 className="px-2 text-label"
                                 disabled={claimMut.isPending}
                                 onClick={() =>
-                                  claimMut.mutate({
-                                    ids: [k.id],
-                                    action: claimed ? 'release' : 'claim',
-                                  })
+                                  openClaimDialog([k.id], claimed ? 'release' : 'claim')
                                 }
                               >
                                 {claimed ? '释放' : '认领'}
@@ -2622,6 +2641,67 @@ export default function AdminRelayAccountPoolPage() {
               )}
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={claimDialog !== null} onOpenChange={(o) => !o && setClaimDialog(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {claimDialog?.action === 'claim' ? '批量认领账号' : '批量释放认领'}
+            </DialogTitle>
+          </DialogHeader>
+          {claimDialog?.action === 'claim' ? (
+            <div className="space-y-2">
+              <Label htmlFor="claim-note">备注(可选,最多 500 字)</Label>
+              <Input
+                id="claim-note"
+                value={claimNote}
+                maxLength={500}
+                onChange={(e) => setClaimNote(e.target.value)}
+                placeholder="认领原因,记录到账号认领信息"
+              />
+            </div>
+          ) : (
+            <div className="flex items-start gap-2">
+              <Checkbox
+                id="release-force"
+                checked={releaseForce}
+                onCheckedChange={(v) => setReleaseForce(v === true)}
+              />
+              <div className="space-y-1">
+                <Label htmlFor="release-force">强制释放他人认领</Label>
+                <p className="font-[weight:inherit] text-label text-muted-foreground">
+                  默认仅能释放本人认领的账号;勾选后可强制释放他人认领(操作会记 warn 审计日志)。
+                </p>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setClaimDialog(null)}>
+              取消
+            </Button>
+            <Button
+              disabled={claimMut.isPending || !claimDialog}
+              onClick={() => {
+                if (!claimDialog) return
+                claimMut.mutate({
+                  ids: claimDialog.ids,
+                  action: claimDialog.action,
+                  note: claimNote.trim() || undefined,
+                  force: releaseForce,
+                })
+              }}
+            >
+              {claimMut.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : claimDialog?.action === 'claim' ? (
+                '确认认领'
+              ) : (
+                '确认释放'
+              )}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 

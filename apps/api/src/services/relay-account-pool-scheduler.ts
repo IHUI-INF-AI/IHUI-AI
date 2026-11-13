@@ -382,6 +382,14 @@ export function keepAliveReviveWhere(before: Date) {
   return and(
     keepAliveForeverCondition(),
     eq(aiRelayAccountPool.tempUnschedulable, true),
+    // 2026-11-12 补「解摘的前提是解摘后真能续上」:
+    // 无 refreshToken 且无 cookie 的号,解摘后既进不了临期刷新(expiringRefreshWhere)、
+    // 也进不了 down 恢复(downRecoveryWhere)——两档候选都要求 recredentialableCondition。
+    // 于是解摘纯属空转:每 6h 写一次库、把 lastErrorMessage 冲成「自动解摘」、白造一次
+    // 跨环境同步,而号依旧 down。判据复用既有单源(§0.6),不另写第二份。
+    // 反例现场:workbuddy 三枚(14f939c3-889b / auto:1421991245… / auto:cb69a7be695d…)
+    // 均 refresh_token_enc IS NULL ∧ cookies_enc IS NULL,上游 401 后永久刷不动。
+    recredentialableCondition(),
     lt(aiRelayAccountPool.updatedAt, sql`${before.toISOString()}::timestamptz`),
   )
 }
@@ -651,6 +659,28 @@ export function recredentialableCondition() {
 }
 
 /**
+ * JS 侧镜像:`recredentialableCondition()` 的行级同口径判据(2026-11-12 立)。
+ *
+ * 为什么要有两份:SQL 谓词用于**候选面筛选**(还没取到行),行级判据用于**已取到一行后
+ * 判它能不能续**。二者是同一口径的两个面,不是第二份真相源 —— 与
+ * `keepAliveForeverOf` / `keepAliveForeverCondition` 同一模式,由测试锁「读同一组列」。
+ *
+ * 判据刻意只认这两列:`workbuddy` 适配器 `refreshToken()` 要 `credentials.refreshToken`,
+ * `trae` 的 web 号走 cookie→换票;两者皆空 ⇒ 任何平台都刷不动,解摘/重试只会空转。
+ */
+export function hasRenewableCredentialOf(row: {
+  refreshTokenEnc?: unknown
+  cookiesEnc?: unknown
+}): boolean {
+  // `?: unknown` ⇒ 字段可能缺失(undefined),而 drizzle 查询又可能返回 null;
+  // 宽松 `!= null` 被eqeqeq:always 拦,显式两判等价且类型安全。
+  return (
+    (row.refreshTokenEnc !== null && row.refreshTokenEnc !== undefined) ||
+    (row.cookiesEnc !== null && row.cookiesEnc !== undefined)
+  )
+}
+
+/**
  * 「这枚号现在能不能被调度选中」的唯一判据(2026-10-23 立)。
  *
  * 立因:巡检把上游明确拒收判成 `healthStatus='down'` 并收敛到期列,而选号 WHERE 只看了
@@ -790,9 +820,7 @@ export function accountRefreshLockName(accountId: string): string {
  * 走主库(不用读副本):这条路径就是「刚有人写过、必须看到最新版本」,副本延迟会让
  * 调用方拿着旧票再打一次上游。
  */
-export async function readAccountForRefresh(
-  accountId: string,
-): Promise<AiRelayAccountPool | null> {
+export async function readAccountForRefresh(accountId: string): Promise<AiRelayAccountPool | null> {
   try {
     const [row] = await db
       .select()
@@ -952,7 +980,12 @@ async function refreshOneLocked(
     if (shouldPushAfterRefresh(row.providerCode, result.token)) {
       void pushClientSession(
         buildPushPayload({
-          row: { providerCode: row.providerCode, uid: row.uid, name: row.name, secretsEncDecoded: secretsDecoded },
+          row: {
+            providerCode: row.providerCode,
+            uid: row.uid,
+            name: row.name,
+            secretsEncDecoded: secretsDecoded,
+          },
           token: result.token,
           refreshToken: result.refreshToken ?? credentials.refreshToken,
           expiresAt: result.expiresAt,
@@ -1067,6 +1100,7 @@ export type ClientRunningProbe = (
 
 export async function sweepAccountPool(
   clientRunningProbe?: ClientRunningProbe,
+  options?: { ids?: string[] },
 ): Promise<AccountPoolSweepResult> {
   const lock = await tryAcquireSharedLock(SWEEP_LOCK_NAME, SWEEP_LOCK_TTL_MS)
   if (!lock) {
@@ -1085,7 +1119,7 @@ export async function sweepAccountPool(
     }
   }
   try {
-    return await runSweepOnce(clientRunningProbe)
+    return await runSweepOnce(clientRunningProbe, options?.ids)
   } finally {
     await lock.release().catch(() => {})
   }
@@ -1093,7 +1127,11 @@ export async function sweepAccountPool(
 
 async function runSweepOnce(
   clientRunningProbe?: ClientRunningProbe,
+  ids?: string[],
 ): Promise<AccountPoolSweepResult> {
+  // 点名单轮(管理面 body.ids):只处理点名的行;未点名 ⇒ 整池单轮(旧行为)。
+  // 点名时四档候选全部加 id 条件,全局对账/清理腿跳过 —— 局部巡检不得顺带全池动作。
+  const scope = ids && ids.length > 0 ? [...new Set(ids)] : null
   const out: AccountPoolSweepResult = {
     refreshed: 0,
     refreshFailed: 0,
@@ -1138,13 +1176,14 @@ async function runSweepOnce(
   }
 
   // ── 0. 台账保留期清理(24h 节流;每 5 分钟一轮 sweep 但不会每轮 delete) ──
-  await maybePurgeUsageLedger()
+  if (!scope) await maybePurgeUsageLedger()
 
   // ── 1. 临期刷新(并发上限 SWEEP_CONCURRENCY) ──
+  const expiringWhere = expiringRefreshWhere(deadline)
   const expiring = await dbRead
     .select()
     .from(aiRelayAccountPool)
-    .where(expiringRefreshWhere(deadline))
+    .where(scope ? and(expiringWhere, inArray(aiRelayAccountPool.id, scope)) : expiringWhere)
     .limit(BATCH_LIMIT)
   await runWithConcurrency(expiring, SWEEP_CONCURRENCY, async (row) => {
     const verdict = await deferOfRow(row)
@@ -1205,10 +1244,11 @@ async function runSweepOnce(
         : new Date(now.getTime() - keepaliveDays * 24 * 60 * 60 * 1000)
     const foreverCutoff =
       foreverHours === null ? undefined : new Date(now.getTime() - foreverHours * 60 * 60 * 1000)
+    const idleWhere = keepaliveIdleWhere(idleCutoff, foreverCutoff)
     const idles = await dbRead
       .select()
       .from(aiRelayAccountPool)
-      .where(keepaliveIdleWhere(idleCutoff, foreverCutoff))
+      .where(scope ? and(idleWhere, inArray(aiRelayAccountPool.id, scope)) : idleWhere)
       .limit(KEEPALIVE_MAX_PER_SWEEP)
     out.keepalive = idles.length
     if (idles.length > 0) {
@@ -1246,22 +1286,21 @@ async function runSweepOnce(
 
   // ── 2. unknown 健康定级(并发上限 SWEEP_CONCURRENCY;未判定结果按退避复检) ──
   const recheckBefore = new Date(Date.now() - UNKNOWN_RECHECK_MS)
+  const unknownConds = [
+    eq(aiRelayAccountPool.isEnabled, true),
+    eq(aiRelayAccountPool.healthStatus, 'unknown'),
+    // 未摘除的,或摘除但已重新启用的
+    eq(aiRelayAccountPool.tempUnschedulable, false),
+    // 新导入(healthCheckedAt 为空)立即受检;上一轮判「未判定」的按退避等待
+    or(
+      isNull(aiRelayAccountPool.healthCheckedAt),
+      lt(aiRelayAccountPool.healthCheckedAt, recheckBefore),
+    ),
+  ]
   const unknowns = await dbRead
     .select()
     .from(aiRelayAccountPool)
-    .where(
-      and(
-        eq(aiRelayAccountPool.isEnabled, true),
-        eq(aiRelayAccountPool.healthStatus, 'unknown'),
-        // 未摘除的,或摘除但已重新启用的
-        eq(aiRelayAccountPool.tempUnschedulable, false),
-        // 新导入(healthCheckedAt 为空)立即受检;上一轮判「未判定」的按退避等待
-        or(
-          isNull(aiRelayAccountPool.healthCheckedAt),
-          lt(aiRelayAccountPool.healthCheckedAt, recheckBefore),
-        ),
-      ),
-    )
+    .where(and(...unknownConds, ...(scope ? [inArray(aiRelayAccountPool.id, scope)] : [])))
     .limit(BATCH_LIMIT)
   await runWithConcurrency(unknowns, SWEEP_CONCURRENCY, async (row) => {
     const adapter = getRelayAdapter(row.providerCode)
@@ -1297,7 +1336,10 @@ async function runSweepOnce(
           ...(outcome.ok === false && outcome.authFailed === true ? { tokenExpiresAt: now } : {}),
         })
         .where(
-          and(eq(aiRelayAccountPool.id, row.id), eq(aiRelayAccountPool.credVersion, row.credVersion)),
+          and(
+            eq(aiRelayAccountPool.id, row.id),
+            eq(aiRelayAccountPool.credVersion, row.credVersion),
+          ),
         )
         .returning({ id: aiRelayAccountPool.id })
       if (applied.length === 0) {
@@ -1314,7 +1356,12 @@ async function runSweepOnce(
   })
 
   // ── 3. down 账号恢复尝试(可按 cookie 或 refreshToken 再取凭据,且未超失败阈值) ──
-  const downs = await dbRead.select().from(aiRelayAccountPool).where(downRecoveryWhere()).limit(10)
+  const downWhere = downRecoveryWhere()
+  const downs = await dbRead
+    .select()
+    .from(aiRelayAccountPool)
+    .where(scope ? and(downWhere, inArray(aiRelayAccountPool.id, scope)) : downWhere)
+    .limit(10)
   for (const row of downs) {
     if (row.refreshFailureCount >= REFRESH_FAILURE_LIMIT) continue
     const verdict = await deferOfRow(row)
@@ -1337,31 +1384,35 @@ async function runSweepOnce(
 
   // ── 4. O64 号池↔签到对账收敛(断链自愈;失败不中断 sweep,下轮继续) ──
   // 结果走日志留痕,不进返回键集(见接口处注记:两条分支同键 + 全标量契约)。
-  try {
-    const reconciled = await reconcileCheckinSync()
-    logger.info(
-      '[relay-account-pool] O64 对账收敛完成',
-      reconciled as unknown as Record<string, unknown>,
-    )
-  } catch (e) {
-    logger.warn('[relay-account-pool] 对账收敛器异常(不影响巡检)', {
-      error: e instanceof Error ? e.message.slice(0, 200) : '未知错误',
-    })
+  if (!scope) {
+    try {
+      const reconciled = await reconcileCheckinSync()
+      logger.info(
+        '[relay-account-pool] O64 对账收敛完成',
+        reconciled as unknown as Record<string, unknown>,
+      )
+    } catch (e) {
+      logger.warn('[relay-account-pool] 对账收敛器异常(不影响巡检)', {
+        error: e instanceof Error ? e.message.slice(0, 200) : '未知错误',
+      })
+    }
   }
 
   // ── 4.5 O64 断链待推重推:retryPendingCheckinSyncs 直接读 pending 标记重推;
   //    reconcile(步骤4)仅按"缺/版本落后"补推、读不到 extraMetadata.checkinSync.pending,
   //    覆盖不到响应丢失但已同步/state 待推/无引擎平台等 sticky-pending。两者同在分布式锁内、幂等、互不冲突。
-  try {
-    const retried = await retryPendingCheckinSyncs()
-    logger.info(
-      '[relay-account-pool] O64 断链待推重推完成',
-      retried as unknown as Record<string, unknown>,
-    )
-  } catch (e) {
-    logger.warn('[relay-account-pool] 待推重推异常(不影响巡检)', {
-      error: e instanceof Error ? e.message.slice(0, 200) : '未知错误',
-    })
+  if (!scope) {
+    try {
+      const retried = await retryPendingCheckinSyncs()
+      logger.info(
+        '[relay-account-pool] O64 断链待推重推完成',
+        retried as unknown as Record<string, unknown>,
+      )
+    } catch (e) {
+      logger.warn('[relay-account-pool] 待推重推异常(不影响巡检)', {
+        error: e instanceof Error ? e.message.slice(0, 200) : '未知错误',
+      })
+    }
   }
 
   if (egress.proxied + egress.direct > 0) {
@@ -1374,7 +1425,7 @@ async function runSweepOnce(
   // ── 6. 低频签到 enabled 对账腿(2026-11-09 立;按间隔自节流,内部自吞异常) ──
   // 与每轮的 4/4.5 两条腿互补:那两条按 poolAccountId + 版本差收敛,本腿按
   // derive_account_identity 同一身份键复核 enabled,专治「号池侧从未变化」的初始态漂移。
-  await maybeReconcileCheckinEnabledState(now)
+  if (!scope) await maybeReconcileCheckinEnabledState(now)
 
   // ── 5. refresh 绝对寿命预警(60 天):池内最早 refresh_expires_at < 7 天即告急 ──
   // 该列只在适配器真实回传 refreshExpiresIn 时写入;null 行不参与统计(未知 ≠ 永不失效)。

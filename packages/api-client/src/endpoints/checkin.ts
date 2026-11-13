@@ -31,6 +31,7 @@ import type {
   CheckinCreditsHistoryResponse,
   CheckinCreditsQueryResponse,
   CheckinDeleteResponse,
+  CheckinDeviceMapUpdateResponse,
   CheckinGroupUpdateResponse,
   CheckinJwtUpdateResponse,
   CheckinNameUpdateResponse,
@@ -44,6 +45,7 @@ import type {
   UpdateCheckinAccountGroupIn,
   UpdateCheckinAccountJwtIn,
   UpdateCheckinAccountNameIn,
+  UpdateCheckinDeviceMapIn,
 } from '@ihui/types'
 import { fetchAiServiceJson } from '../client.js'
 
@@ -144,6 +146,109 @@ export async function updateCheckinAccountName(
     await fetchAiServiceJson<ManualCheckinResponse>(
       `/api/checkin/accounts/${encodeURIComponent(String(accountId))}/checkin`,
       { method: 'POST' },
+    ),
+  )
+}
+
+/** 整体替换设备指纹 map(≤16KB;平台相关键,后端原样落库) */
+export async function updateCheckinAccountDeviceMap(
+  accountId: number,
+  deviceMap: Record<string, unknown>,
+): Promise<CheckinDeviceMapUpdateResponse> {
+  const body: UpdateCheckinDeviceMapIn = { device_map: deviceMap }
+  return unwrap<CheckinDeviceMapUpdateResponse>(
+    await fetchAiServiceJson<CheckinDeviceMapUpdateResponse>(
+      `/api/checkin/accounts/${encodeURIComponent(String(accountId))}/device_map`,
+      { method: 'PATCH', body: JSON.stringify(body) },
+    ),
+  )
+}
+
+/**
+ * 任务族 kind 全集(与 ai-service `TaskRunIn.kind` 的 Literal 逐字一致)。
+ * 目前只有 WorkBuddy 账号有任务族实现;其余平台返回 ok:false + reason(不冒充空列表)。
+ */
+export type CheckinTaskKind =
+  'growth' | 'travel' | 'activity' | 'blackcat' | 'redeem' | 'lottery' | 'all'
+
+/** GET /accounts/{id}/tasks 响应(只读清单;上游形态读不懂 ⇒ unjudged=true) */
+export interface CheckinTaskListResponse {
+  ok: boolean
+  kind: 'list'
+  tasks: Array<Record<string, unknown>>
+  reason: string | null
+  unjudged: boolean
+}
+
+/** POST /accounts/{id}/task-run 响应(delta 读不出 = null,绝不用 0 冒充) */
+export interface CheckinTaskRunResponse {
+  ok: boolean
+  kind: string
+  accepted: string[]
+  claimed: string[]
+  credit_delta: number | null
+  energy_delta: number | null
+  reason?: string | null
+  unjudged: boolean
+}
+
+/** POST /accounts/{id}/autopilot 响应(全量自动驾驶一轮摘要) */
+export interface CheckinAutopilotResponse {
+  ok: boolean
+  reason?: string
+  dry_run: boolean
+  total_tasks: number
+  claimed_already: string[]
+  plan: Array<Record<string, unknown>>
+  executed: Array<Record<string, unknown>>
+  claimed: string[]
+  credits: number
+  undone: Array<Record<string, unknown>>
+  unregistered: string[]
+  pending_platform: string[]
+  subscribe_status_refreshed: boolean
+  subscribe_status: Record<string, unknown> | null
+  read_failed: boolean
+}
+
+/** WorkBuddy 任务族清单(只读;非 WorkBuddy 账号 ok:false + reason) */
+export async function getCheckinAccountTasks(accountId: number): Promise<CheckinTaskListResponse> {
+  return unwrap<CheckinTaskListResponse>(
+    await fetchAiServiceJson<CheckinTaskListResponse>(
+      `/api/checkin/accounts/${encodeURIComponent(String(accountId))}/tasks`,
+    ),
+  )
+}
+
+/** 执行一个任务族(kind=all = 全族一轮;dry_run 只读预演;出站暂停/冷却中 429) */
+export async function runCheckinAccountTask(
+  accountId: number,
+  kind: CheckinTaskKind,
+  dryRun = false,
+): Promise<CheckinTaskRunResponse> {
+  return unwrap<CheckinTaskRunResponse>(
+    await fetchAiServiceJson<CheckinTaskRunResponse>(
+      `/api/checkin/accounts/${encodeURIComponent(String(accountId))}/task-run`,
+      { method: 'POST', body: JSON.stringify({ kind, dry_run: dryRun }) },
+    ),
+  )
+}
+
+/** 全量自动驾驶一轮(幂等;dry_run 只出计划零写侧;claim=false 只执行不领奖) */
+export async function runCheckinAccountAutopilot(
+  accountId: number,
+  options?: { dryRun?: boolean; claim?: boolean },
+): Promise<CheckinAutopilotResponse> {
+  return unwrap<CheckinAutopilotResponse>(
+    await fetchAiServiceJson<CheckinAutopilotResponse>(
+      `/api/checkin/accounts/${encodeURIComponent(String(accountId))}/autopilot`,
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          dry_run: options?.dryRun ?? false,
+          claim: options?.claim ?? true,
+        }),
+      },
     ),
   )
 }

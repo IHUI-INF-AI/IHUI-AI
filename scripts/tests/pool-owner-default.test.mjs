@@ -244,4 +244,126 @@ test('⑩ 默认归属取到时必须回显来源;取不到时不得冒充个人
   assert.match(missed, /文件读不出来/)
   assert.ok(!missed.includes('归属=个人池'), '取不到 ⇒ 不得把结论说成个人池')
 })
+
+/**
+ * 推送腿归属翻译(2026-11-12 根因锁):本机 users.id 与生产 users.id 各自库生成,
+ * 原样透传 = 生产悬空行(codearts 亲踩)。这里必须证明"送给生产 --owner 的是生产 id"。
+ */
+const LOCAL_ADMIN = 'd83b566e-00e3-46c8-8057-4ff285e825a5'
+const PROD_ADMIN = OWNER_UUID
+const ADMIN_EMAIL = '502319984@qq.com'
+
+/** 跑一次带推送的 main:导入/推送/归属对照全部注入替身,绝不真连库、真起 SSH。 */
+async function runMainPush(argv, home, { localMap, prodMap } = {}) {
+  const calls = []
+  const pushes = []
+  const out = []
+  const err = []
+  const counts = { localMapCalls: 0, prodMapCalls: 0 }
+  const origOut = process.stdout.write.bind(process.stdout)
+  const origErr = process.stderr.write.bind(process.stderr)
+  const sink = (lines) => (chunk, enc, cb) => {
+    lines.push(String(chunk))
+    if (typeof enc === 'function') enc()
+    else if (typeof cb === 'function') cb()
+    return true
+  }
+  process.stdout.write = sink(out)
+  process.stderr.write = sink(err)
+  let exit = -1
+  try {
+    exit = await Cli.main(argv, {
+      runImporter: async (payloadText, providerCode, options, decision) => {
+        calls.push({ payloadText, providerCode, options, decision })
+        return { code: 0, error: null }
+      },
+      pushProd: async (payloadText, providerCode, options) => {
+        pushes.push({ payloadText, providerCode, options })
+        return { code: 0, error: null }
+      },
+      resolveDefaultOwner: ownerResolverFor(home),
+      resolveLocalOwnerIdMap: async () => {
+        counts.localMapCalls++
+        return { map: localMap ?? null, error: localMap ? null : 'stub 无表' }
+      },
+      resolveProdOwnerEmailMap: async () => {
+        counts.prodMapCalls++
+        return { map: prodMap ?? null, error: prodMap ? null : 'stub 无表' }
+      },
+    })
+  } finally {
+    process.stdout.write = origOut
+    process.stderr.write = origErr
+  }
+  return { exit, calls, pushes, counts, stdout: out.join(''), stderr: err.join('') }
+}
+
+test('⑪ 归属翻译纯函数:按 email 把本机 id 翻成对端 id;每一环缺失具名', () => {
+  const idToEmail = { [LOCAL_ADMIN]: ' 502319984@QQ.com ' }
+  const targetEmailToId = { [ADMIN_EMAIL]: PROD_ADMIN }
+  assert.deepEqual(
+    PoolOwner.translatePoolOwnerToTargetId({ ownerId: LOCAL_ADMIN, idToEmail, targetEmailToId }),
+    { owner: PROD_ADMIN, email: ADMIN_EMAIL, reason: 'ok' },
+    'email 大小写/空白必须归一后再查对端',
+  )
+  const reasonOf = (input) => PoolOwner.translatePoolOwnerToTargetId(input).reason
+  assert.equal(reasonOf({ ownerId: '', idToEmail, targetEmailToId }), 'missing-owner')
+  assert.equal(
+    reasonOf({ ownerId: 'ffffffff-0000-0000-0000-000000000000', idToEmail, targetEmailToId }),
+    'no-email',
+  )
+  assert.equal(reasonOf({ ownerId: LOCAL_ADMIN, idToEmail, targetEmailToId: {} }), 'no-target')
+})
+
+test('⑫ 推送腿:本机 id 必须翻成生产 id 再交给生产 --owner(不再透传)', async () => {
+  const { home, file } = mkHome(`${LOCAL_ADMIN}\n`)
+  try {
+    const r = await runMainPush(['--file', file, '--provider', 'trae', '--no-health'], home, {
+      localMap: { [LOCAL_ADMIN]: ADMIN_EMAIL },
+      prodMap: { [ADMIN_EMAIL]: PROD_ADMIN },
+    })
+    assert.equal(r.exit, 0)
+    assert.equal(r.calls.length, 1, '本机仍须落库')
+    assert.equal(r.calls[0].decision.owner, LOCAL_ADMIN, '本机落库用本机 users.id')
+    assert.equal(r.pushes.length, 1, '本机成功后才推生产')
+    assert.equal(r.pushes[0].options.prodOwner, PROD_ADMIN, '生产 --owner 必须是生产 users.id')
+    assert.notEqual(r.pushes[0].options.prodOwner, LOCAL_ADMIN, '透传本机 id 就是悬空行根因')
+    assert.match(r.stderr, /生产归属已按 email 翻译/)
+  } finally {
+    rmScratch(home)
+  }
+})
+
+test('⑬ 翻译不出 ⇒ fail-closed:不推生产、exit 1、点名跳过(绝不造悬空行)', async () => {
+  const { home, file } = mkHome(`${LOCAL_ADMIN}\n`)
+  try {
+    const r = await runMainPush(['--file', file, '--provider', 'trae', '--no-health'], home, {
+      localMap: { [LOCAL_ADMIN]: ADMIN_EMAIL },
+      prodMap: {},
+    })
+    assert.equal(r.exit, 1, '生产腿失败必须以非 0 收口,不得静默当成功')
+    assert.equal(r.calls.length, 1, '本机入池不受影响')
+    assert.equal(r.pushes.length, 0, '翻译不出时禁止推送(透传即造悬空行)')
+    assert.match(r.stderr, /生产推送跳过:owner 无法翻译/)
+    assert.match(r.stderr, /目标 users 表里没有该 email 对应的用户/)
+  } finally {
+    rmScratch(home)
+  }
+})
+
+test('⑭ 显式 --prod-owner 优先:不取任何对照表,原样作为生产归属', async () => {
+  const { home, file } = mkHome(`${LOCAL_ADMIN}\n`)
+  try {
+    const r = await runMainPush(
+      ['--file', file, '--provider', 'trae', '--no-health', '--prod-owner', PROD_ADMIN],
+      home,
+      {},
+    )
+    assert.equal(r.exit, 0)
+    assert.equal(r.pushes[0].options.prodOwner, PROD_ADMIN)
+    assert.deepEqual(r.counts, { localMapCalls: 0, prodMapCalls: 0 }, '显式归属不该再查表/连 SSH')
+  } finally {
+    rmScratch(home)
+  }
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

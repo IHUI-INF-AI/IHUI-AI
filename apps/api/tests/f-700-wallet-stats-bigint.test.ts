@@ -38,7 +38,16 @@ vi.mock('../src/db/index.js', () => {
         return Promise.resolve(result).then(resolve)
       },
     }
-    for (const m of ['select', 'from', 'where', 'orderBy', 'limit', 'offset', 'innerJoin', 'groupBy']) {
+    for (const m of [
+      'select',
+      'from',
+      'where',
+      'orderBy',
+      'limit',
+      'offset',
+      'innerJoin',
+      'groupBy',
+    ]) {
       chain[m] = vi.fn(() => chain)
     }
     return chain
@@ -119,11 +128,9 @@ describe('F-700 钱包统计 bigint 溢出', () => {
     beforeEach(() => {
       vi.clearAllMocks()
       dbQueue.items.length = 0
-      mockRequireAdmin
-        .mockReset()
-        .mockImplementation(async (request: { userId?: string }) => {
-          request.userId = ADMIN_USER
-        })
+      mockRequireAdmin.mockReset().mockImplementation(async (request: { userId?: string }) => {
+        request.userId = ADMIN_USER
+      })
     })
 
     it('超大累计值以字符串返回时,响应仍为 number 且不溢出', async () => {
@@ -134,7 +141,14 @@ describe('F-700 钱包统计 bigint 溢出', () => {
         [{ total: '5000000000' }], // adjustSum
         [{ count: '2147483649', amount: '3000000000' }], // todayRecharge
         [{ count: '12345678901', amount: '3000000001' }], // todayWithdraw
-        [{ date: '2026-11-11', recharge: '3000000000', withdraw: '2147483648', commission: '4000000000' }], // daily
+        [
+          {
+            date: '2026-11-11',
+            recharge: '3000000000',
+            withdraw: '2147483648',
+            commission: '4000000000',
+          },
+        ], // daily
         [{ count: '3000000000' }], // activeWallets
       )
       const res = await server.inject({ method: 'GET', url: `${PREFIX}/stats` })

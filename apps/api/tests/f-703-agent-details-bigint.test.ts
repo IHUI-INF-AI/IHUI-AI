@@ -85,9 +85,7 @@ function detailRouteBlock(): string {
 describe('F-703 SQL 形状:token 累计不得窄回 ::int', () => {
   it('totalInputTokens / totalOutputTokens 走 ::bigint', () => {
     const block = detailRouteBlock()
-    const tokenLines = block
-      .split('\n')
-      .filter((line) => /model(Input|Output)Token/.test(line))
+    const tokenLines = block.split('\n').filter((line) => /model(Input|Output)Token/.test(line))
     expect(tokenLines.length).toBeGreaterThanOrEqual(2)
     for (const line of tokenLines) {
       expect(line, line).toContain('::bigint')

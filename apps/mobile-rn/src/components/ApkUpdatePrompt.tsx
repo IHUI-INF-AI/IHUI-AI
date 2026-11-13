@@ -22,7 +22,7 @@
  */
 
 import * as React from 'react'
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native'
+import { ActivityIndicator, Animated, StyleSheet, Text, View } from 'react-native'
 import { Download, X } from 'lucide-react-native'
 import { ELEVATION_STEPS, rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { tokens } from '../theme/active-tokens'
@@ -65,9 +65,46 @@ function formatEta(seconds: number): string {
   return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`
 }
 
-export function ApkUpdatePromptView({ apk }: { apk: ApkStore }): React.JSX.Element | null {
+export function ApkUpdatePromptView({
+  apk,
+  onExited,
+}: {
+  apk: ApkStore
+  /** 退场动画结束后回调,用于通知父组件解除挂载保持(与 OTA 卡的 render 对称) */
+  onExited?: () => void
+}): React.JSX.Element | null {
   const { t } = useI18n()
-  if (!isApkPromptVisible(apk)) return null
+
+  // 顶部下滑入场(2026-11-13):与 OTA 卡一致,从屏幕外上方滑入挂住顶部。
+  // 必须放在条件 return 之前,否则触发 rules-of-hooks(钩子调用顺序不一致)。
+  // 初始即置于屏幕外上方:首帧就不会在屏幕内闪一下,再滑入挂住。
+  // render 控制挂载:退场(shouldShow 变 false)时先滑出、结束后才卸载,与 OTA 卡的 render 对称。
+  const slideAnim = React.useRef(new Animated.Value(-320)).current
+  const cardH = React.useRef(0)
+  const shouldShow = isApkPromptVisible(apk)
+  const [render, setRender] = React.useState(shouldShow)
+  React.useEffect(() => {
+    if (shouldShow) setRender(true)
+  }, [shouldShow])
+  React.useEffect(() => {
+    if (!render) return
+    const off = -(cardH.current || 320)
+    if (shouldShow) {
+      slideAnim.setValue(off)
+      Animated.timing(slideAnim, { toValue: 0, duration: 300, useNativeDriver: true }).start()
+    } else {
+      Animated.timing(slideAnim, { toValue: off, duration: 200, useNativeDriver: true }).start(
+        ({ finished }) => {
+          if (finished) {
+            setRender(false)
+            onExited?.()
+          }
+        },
+      )
+    }
+  }, [render, shouldShow, slideAnim, onExited])
+
+  if (!render) return null
 
   const downloading = apk.state === 'downloading'
   const installing = apk.state === 'installing'
@@ -92,7 +129,14 @@ export function ApkUpdatePromptView({ apk }: { apk: ApkStore }): React.JSX.Eleme
         : t('appUpdate.readyBody')
 
   return (
-    <View style={styles.card} accessibilityRole="alert" accessibilityLabel={title}>
+    <Animated.View
+      style={[styles.card, { transform: [{ translateY: slideAnim }] }]}
+      onLayout={(e) => {
+        cardH.current = e.nativeEvent.layout.height
+      }}
+      accessibilityRole="alert"
+      accessibilityLabel={title}
+    >
       <View style={styles.header}>
         <View style={styles.iconBadge}>
           {installing ? (
@@ -190,17 +234,18 @@ export function ApkUpdatePromptView({ apk }: { apk: ApkStore }): React.JSX.Eleme
           </Tappable>
         )}
       </View>
-    </View>
+    </Animated.View>
   )
 }
 
 const styles = StyleSheet.create({
   // 位置/层级与 OTA 卡完全一致(两者互斥,不会同屏出现):见 UpdatePrompt.tsx 的渲染顺序
+  // 2026-11-13:同改为顶部横幅(bottom:18% → top),下滑挂住逻辑见 ApkUpdatePromptView 内的 Animated
   card: {
     position: 'absolute',
+    top: rnSpacing.sm,
     left: rnSpacing.lg,
     right: rnSpacing.lg,
-    bottom: '18%',
     gap: rnSpacing.md,
     padding: rnSpacing.lg,
     borderRadius: rnRadius.lg,
