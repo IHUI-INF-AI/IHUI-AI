@@ -11,6 +11,8 @@
 
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
+import { appendFileSync, existsSync, readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { checkpointAvailabilityEvent } from '@ihui/types'
 // 权限档唯一真源(G-161):授权入参必须先归一再判定,认不出即 400
 import { PERMISSION_MODES, normalizePermissionMode } from '@ihui/types/permission-mode'
@@ -35,6 +37,13 @@ import {
   SubagentWorkspaceAccessError,
   SubagentLinkError,
 } from '../services/workspace-ai-service.js'
+import { buildChangeRequestSnapshot } from '../services/change-request-service.js'
+import {
+  assertSafeWorktreeBranch,
+  buildWorktreeCmd,
+  parseWorktreePorcelain,
+  worktreeSlug,
+} from '../services/worktree-ledger.js'
 import { detectWorkspaceIssues, repairWorkspaceIssue } from '../services/self-healing.js'
 import {
   createAtomicCheckpoint,
@@ -865,6 +874,162 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
     }
   })
 
+  // F-Forge(2026-11-13):工作树台账(list / create)。
+  // 安全边界:分支名严格白名单校验;工作树路径**服务端派生**且固定在
+  // `<workspace>/.ihui-worktrees/<slug>`(不跨登记根、不接受客户端路径);
+  // 只放行 `git worktree` 一个子命令,读用 read-only,建用 workspace-write。
+  server.post('/git/worktrees', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    try {
+      const parsed = z
+        .discriminatedUnion('action', [
+          z.object({ action: z.literal('list'), workspacePath: z.string().min(1) }),
+          z.object({
+            action: z.literal('create'),
+            workspacePath: z.string().min(1),
+            branch: z.string().min(1).max(120),
+            base: z.string().min(1).max(120),
+          }),
+        ])
+        .parse(request.body ?? {})
+      if (!(await isAllowedWorkspace(request, reply, parsed.workspacePath, 'git_worktree_write'))) return
+
+      const listBranches = async () => {
+        const raw = await fsBridge.run({
+          command: buildGitCmd(['branch', '--format=%(refname:short)']),
+          workspacePath: parsed.workspacePath,
+          mode: 'read-only',
+          timeoutMs: 8000,
+        })
+        return raw.stdout
+          .split('\n')
+          .map((s) => s.trim())
+          .filter(Boolean)
+      }
+
+      if (parsed.action === 'list') {
+        const [rawWorktrees, branches] = await Promise.all([
+          fsBridge.run({
+            command: buildWorktreeCmd(['worktree', 'list', '--porcelain']),
+            workspacePath: parsed.workspacePath,
+            mode: 'read-only',
+            timeoutMs: 8000,
+          }),
+          listBranches(),
+        ])
+        return reply.send(
+          success({ worktrees: parseWorktreePorcelain(rawWorktrees.stdout), branches }),
+        )
+      }
+
+      assertSafeWorktreeBranch(parsed.branch)
+      assertSafeWorktreeBranch(parsed.base)
+      if (parsed.branch === parsed.base) throw new Error('分支名不能与基线分支相同')
+      const branches = await listBranches()
+      if (!branches.includes(parsed.base)) throw new Error('基线分支在本地不存在')
+      if (branches.includes(parsed.branch)) {
+        return reply.status(409).send(error(409, 'branch-exists'))
+      }
+      const relativePath = `.ihui-worktrees/${worktreeSlug(parsed.branch)}`
+      const created = await fsBridge.run({
+        command: buildWorktreeCmd(['worktree', 'add', relativePath, '-b', parsed.branch, parsed.base]),
+        workspacePath: parsed.workspacePath,
+        mode: 'workspace-write',
+        timeoutMs: 30_000,
+      })
+      if (created.exitCode !== 0) {
+        return reply.status(400).send(error(400, (created.stderr || '工作树创建失败').slice(0, 300)))
+      }
+      // 本地排除(只改 .git/info/exclude,不动受版本控制的 .gitignore)
+      try {
+        const excludePath = join(parsed.workspacePath, '.git', 'info', 'exclude')
+        const current = existsSync(excludePath) ? readFileSync(excludePath, 'utf8') : ''
+        if (!current.split('\n').some((l) => l.trim() === '.ihui-worktrees/')) {
+          appendFileSync(excludePath, `${current.endsWith('\n') || current === '' ? '' : '\n'}.ihui-worktrees/\n`)
+        }
+      } catch {
+        // 排除失败不影响工作树本身可用
+      }
+      return reply.send(
+        success({ path: join(parsed.workspacePath, '.ihui-worktrees', worktreeSlug(parsed.branch)), branch: parsed.branch }),
+      )
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : '工作树操作失败'
+      return reply.status(400).send(error(400, msg.slice(0, 300)))
+    }
+  })
+
+  // F-Forge(2026-11-13):变更请求台账 —— 一次拉全仓库进行中的变更请求(非只有当前分支)。
+  // 与 /git/status 的分工:那个回答"当前分支有没有 PR",这里回答"这个仓库有哪些进行中的变更请求"。
+  server.post('/change-requests', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    try {
+      const body = z.object({ workspacePath: z.string().min(1) }).parse(request.body ?? {})
+      if (!(await isAllowedWorkspace(request, reply, body.workspacePath, 'change_requests'))) return
+      const runGit = async (args: string[]): Promise<string> => {
+        const result = await fsBridge.run({
+          command: buildGitCmd(args),
+          workspacePath: body.workspacePath,
+          mode: 'read-only',
+          timeoutMs: 8000,
+        })
+        return result.stdout ?? ''
+      }
+      const readBranches = async () => {
+        let currentBranch: string | null = null
+        try {
+          const raw = (await runGit(['rev-parse', '--abbrev-ref', 'HEAD'])).trim()
+          currentBranch = raw && raw !== 'HEAD' ? raw : null
+        } catch {
+          currentBranch = null
+        }
+        let defaultBranch: string | null = null
+        try {
+          const m = /^refs\/remotes\/origin\/(.+)$/.exec(
+            (await runGit(['symbolic-ref', 'refs/remotes/origin/HEAD'])).trim(),
+          )
+          if (m) defaultBranch = m[1] ?? null
+        } catch {
+          defaultBranch = null
+        }
+        if (!defaultBranch) {
+          try {
+            const hm = /HEAD branch:\s*(\S+)/.exec(await runGit(['remote', 'show', 'origin']))
+            if (hm) defaultBranch = hm[1] ?? null
+          } catch {
+            defaultBranch = null
+          }
+        }
+        return { currentBranch, defaultBranch }
+      }
+      const snapshot = await buildChangeRequestSnapshot(
+        {
+          readRemoteUrl: async () => {
+            const raw = await runGit(['remote', '-v'])
+            for (const line of raw.split('\n')) {
+              const m = /^(\S+)\s+(\S+)\s+\((?:fetch|push)\)\s*$/.exec(line.trim())
+              if (m) return m[2] ?? null
+            }
+            return null
+          },
+          detectRepo: () => githubClient.detectRemote(body.workspacePath),
+          readBranches,
+          hasCredentials: () => !!githubClient.loadToken(),
+          listPullRequests: async (repo) =>
+            githubClient.listPRs({ owner: repo.owner, repo: repo.repo, state: 'open' }),
+          listCheckRuns: async (params) => githubClient.listCheckRuns(params),
+        },
+      )
+      return reply.send(success(snapshot))
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : '变更请求加载失败'
+      server.log.warn({ err: msg }, 'change-requests 失败')
+      return reply.status(400).send(error(400, msg.slice(0, 300)))
+    }
+  })
+
   server.post('/github/token', async (request, reply) => {
     await requireAuth(request, reply)
     if (!request.userId) return
@@ -1022,21 +1187,22 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
     const parsed = createSwarmSchema.safeParse(request.body)
     if (!parsed.success)
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    const plan = swarmManager.create(parsed.data)
+    const plan = swarmManager.create({ ownerId: request.userId, ...parsed.data })
     return reply.status(201).send(success(plan))
   })
 
   server.get('/swarms', async (request, reply) => {
     await requireAuth(request, reply)
     if (!request.userId) return
-    return reply.send(success({ swarms: swarmManager.list() }))
+    return reply.send(success({ swarms: swarmManager.list(request.userId) }))
   })
 
   server.get('/swarms/:swarmId', async (request, reply) => {
     await requireAuth(request, reply)
     if (!request.userId) return
     const { swarmId } = swarmIdParam.parse(request.params)
-    const plan = swarmManager.get(swarmId)
+    // F-402:非属主按 404 处理(与「不存在」同形,防跨用户枚举)。
+    const plan = swarmManager.get(swarmId, request.userId)
     if (!plan) return reply.status(404).send(error(404, 'Swarm 不存在'))
     return reply.send(success(plan))
   })
@@ -1046,7 +1212,7 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
     if (!request.userId) return
     const { swarmId } = swarmIdParam.parse(request.params)
     try {
-      const plan = await swarmManager.execute(swarmId)
+      const plan = await swarmManager.execute(swarmId, request.userId)
       return reply.send(success(plan))
     } catch (e) {
       return reply.status(404).send(error(404, (e as Error).message))
@@ -1057,7 +1223,7 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
     await requireAuth(request, reply)
     if (!request.userId) return
     const { swarmId } = swarmIdParam.parse(request.params)
-    const canceled = swarmManager.cancel(swarmId)
+    const canceled = swarmManager.cancel(swarmId, request.userId)
     if (!canceled) return reply.status(404).send(error(404, 'Swarm 不存在'))
     return reply.send(success({ canceled: true }))
   })
