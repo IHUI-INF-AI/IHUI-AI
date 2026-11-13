@@ -99,6 +99,9 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-13**
+- 🐞 Fix:miniapp-taro 补 sag2Lexical 整块命名空间(5语言x58键),消 mirror-pack-namespace-missing (4efe4c0b29)
+
+**2026-11-13**
 - 🐞 Fix:合并后重生成 knip-taro-entries + 补 sag2 镜像承载键(搬运 30 枚,基准侧查无 130 枚未代拟) (657c779919)
 
 **2026-11-13**
@@ -199,9 +202,6 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 
 **2026-11-13**
 - 🔧 Chore/Other:收录 install-git-hooks 镜像测试 + README 数字同步 (5f6211b843)
-
-**2026-11-13**
-- 🚀 Feature/Improvement:号池同步任务注册器融合远程隐藏启动器(wscript SW_HIDE 零黑窗)+ 本机 reextract 兜底任务同走隐藏包装;PROJECT_PLAN 清偿逐字副本并保留取号器 B41 行 (d7060ca78f)
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)

@@ -5468,6 +5468,9 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-13**
+- 🐞 修复:miniapp-taro 补 sag2Lexical 整块命名空间(5语言x58键),消 mirror-pack-namespace-missing (4efe4c0b29)
+
+**2026-11-13**
 - 🐞 修复:合并后重生成 knip-taro-entries + 补 sag2 镜像承载键(搬运 30 枚,基准侧查无 130 枚未代拟) (657c779919)
 
 **2026-11-13**
@@ -5568,9 +5571,6 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 
 **2026-11-13**
 - 🚀 新功能/改进:号池同步任务注册器融合远程隐藏启动器(wscript SW_HIDE 零黑窗)+ 本机 reextract 兜底任务同走隐藏包装;PROJECT_PLAN 清偿逐字副本并保留取号器 B41 行 (d7060ca78f)
-
-**2026-11-13**
-- 🚀 新功能/改进:跨端更新提示样式重构 + 对话内提示留痕 notice-log(miniapp-taro/mobile-rn 同批,remote-locales 文案随动) (96a0e7a504)
 <!-- END RECENT UPDATES -->
 ## 守门脚本索引(已接线门点名 · R4 对账)
 <!-- 2026-11-12: 门 89 R4 要求「已接线的门必须在 AGENTS.md/README.md 点名」。

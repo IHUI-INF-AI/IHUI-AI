@@ -2227,6 +2227,9 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-13**
+- 🐞 修正:miniapp-taro 补 sag2Lexical 整块命名空间(5语言x58键),消 mirror-pack-namespace-missing (4efe4c0b29)
+
+**2026-11-13**
 - 🐞 修正:合并后重生成 knip-taro-entries + 补 sag2 镜像承载键(搬运 30 枚,基准侧查无 130 枚未代拟) (657c779919)
 
 **2026-11-13**
@@ -2582,9 +2585,6 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 
 **2026-11-13**
 - 🚀 機能/改善:多语言文案同步 + api-client sag2-lexical 端点(shared/web 五语系) (58b76bade1)
-
-**2026-11-13**
-- 🔧 その他:并发会话本地改动落盘(web/api/ai-service/miniapp/mobile-rn/docs/notice-log 等) (7c9a379d40)
 <!-- END RECENT UPDATES -->
 
 <p align="center">
