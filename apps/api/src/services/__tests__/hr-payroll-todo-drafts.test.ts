@@ -1,6 +1,6 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-// [IHUI-AI-PROVENANCE]:watermarked
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { describe, expect, it } from 'vitest'
 
@@ -80,9 +80,27 @@ describe('buildPayrollTodoDrafts 各类问题的待办映射', () => {
           failedCount: 2,
           problems: ['实发合计不为负:...', '实发不超过应发:...'],
           results: [
-            { id: 'net_non_negative', label: '实发合计不为负', passed: false, actual: '-100', expected: '>= 0' },
-            { id: 'net_not_exceed_gross', label: '实发不超过应发', passed: false, actual: '1200/1000', expected: '<= 应发' },
-            { id: 'gross_positive', label: '应发合计为正', passed: true, actual: '1000', expected: '> 0' },
+            {
+              id: 'net_non_negative',
+              label: '实发合计不为负',
+              passed: false,
+              actual: '-100',
+              expected: '>= 0',
+            },
+            {
+              id: 'net_not_exceed_gross',
+              label: '实发不超过应发',
+              passed: false,
+              actual: '1200/1000',
+              expected: '<= 应发',
+            },
+            {
+              id: 'gross_positive',
+              label: '应发合计为正',
+              passed: true,
+              actual: '1000',
+              expected: '> 0',
+            },
           ],
         },
       }),
@@ -104,7 +122,13 @@ describe('buildPayrollTodoDrafts 各类问题的待办映射', () => {
           failedCount: 1,
           problems: ['实发不超过应发:...'],
           results: [
-            { id: 'net_not_exceed_gross', label: '实发不超过应发', passed: false, actual: 'x', expected: 'y' },
+            {
+              id: 'net_not_exceed_gross',
+              label: '实发不超过应发',
+              passed: false,
+              actual: 'x',
+              expected: 'y',
+            },
           ],
         },
       }),
@@ -121,3 +145,4 @@ describe('buildPayrollTodoDrafts 各类问题的待办映射', () => {
     expect(a[0]?.dedupeKey).not.toBe(b[0]?.dedupeKey)
   })
 })
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

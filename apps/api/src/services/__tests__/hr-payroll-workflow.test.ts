@@ -1,6 +1,6 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-// [IHUI-AI-PROVENANCE]:watermarked
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { describe, expect, it } from 'vitest'
 
@@ -85,7 +85,11 @@ describe('summarizePayrollRun 执行结果翻译', () => {
       okResults[0]!,
       okResults[1]!,
       { stepIndex: 2, ok: true, output: { data: { rows: [] } } },
-      { stepIndex: 3, ok: true, output: { data: { inserted: 0, skippedNoConfig: 0, totalGross: 0 } } },
+      {
+        stepIndex: 3,
+        ok: true,
+        output: { data: { inserted: 0, skippedNoConfig: 0, totalGross: 0 } },
+      },
       { stepIndex: 4, ok: true, output: { data: { rows: [] } } },
     ]
     const s = summarizePayrollRun(results)
@@ -123,7 +127,11 @@ describe('summarizePayrollRun 执行结果翻译', () => {
       okResults[0]!,
       okResults[1]!,
       okResults[2]!,
-      { stepIndex: 3, ok: true, output: { data: { inserted: 0, skippedNoConfig: 0, totalGross: 0 } } },
+      {
+        stepIndex: 3,
+        ok: true,
+        output: { data: { inserted: 0, skippedNoConfig: 0, totalGross: 0 } },
+      },
       { stepIndex: 4, ok: true, output: { data: { rows: [] } } },
     ]
     const s = summarizePayrollRun(results)
@@ -159,7 +167,9 @@ describe('summarizePayrollRun × 结果自检联动', () => {
       {
         stepIndex: 3,
         ok: true,
-        output: { data: { inserted: 2, skippedNoConfig: 0, totalGross: -12350, totalNet: -16156.25 } },
+        output: {
+          data: { inserted: 2, skippedNoConfig: 0, totalGross: -12350, totalNet: -16156.25 },
+        },
       },
       okSteps[4]!,
     ]
@@ -170,10 +180,7 @@ describe('summarizePayrollRun × 结果自检联动', () => {
   })
 
   it('流程本身失败 ⇒ 不做自检(避免把"没跑完"误报成"算错了")', () => {
-    const failed = [
-      okSteps[0]!,
-      { stepIndex: 1, ok: false, error: 'endpoint failed: 500' },
-    ]
+    const failed = [okSteps[0]!, { stepIndex: 1, ok: false, error: 'endpoint failed: 500' }]
     const s = summarizePayrollRun(failed)
     expect(s.ok).toBe(false)
     expect(s.selfCheck).toBeNull()
@@ -186,3 +193,4 @@ describe('summarizePayrollRun × 结果自检联动', () => {
     expect(s.selfCheck?.results.some((r) => r.id === 'gross_mom_within_tolerance')).toBe(true)
   })
 })
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

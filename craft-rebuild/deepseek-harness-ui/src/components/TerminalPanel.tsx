@@ -1,37 +1,35 @@
-import { useState } from "react";
-import { IconChevronDown, IconTerminal } from "../icons";
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import { useState } from 'react'
+import { IconChevronDown, IconTerminal } from '../icons'
 
 interface LogLine {
-  level: "info" | "warn" | "error" | "cmd";
-  text: string;
+  level: 'info' | 'warn' | 'error' | 'cmd'
+  text: string
 }
 
 const bootLines: LogLine[] = [
-  { level: "cmd", text: "$ harness --workspace 默认工作区" },
-  { level: "info", text: "[harness] loading settings... ok" },
-  { level: "info", text: "[harness] session catalog: 1 session(s)" },
+  { level: 'cmd', text: '$ harness --workspace 默认工作区' },
+  { level: 'info', text: '[harness] loading settings... ok' },
+  { level: 'info', text: '[harness] session catalog: 1 session(s)' },
   {
-    level: "info",
-    text: "[harness] model: DeepSeek-V4.1-Flash High (standard)",
+    level: 'info',
+    text: '[harness] model: DeepSeek-V4.1-Flash High (standard)',
   },
-  { level: "info", text: "[harness] ready in 342ms" },
-];
+  { level: 'info', text: '[harness] ready in 342ms' },
+]
 
-export function TerminalPanel({
-  open,
-  onToggle,
-}: {
-  open: boolean;
-  onToggle: () => void;
-}) {
-  const [lines] = useState<LogLine[]>(bootLines);
-  const [input, setInput] = useState("");
+export function TerminalPanel({ open, onToggle }: { open: boolean; onToggle: () => void }) {
+  const [lines] = useState<LogLine[]>(bootLines)
+  const [input, setInput] = useState('')
 
   return (
     <div
       data-shell-bottom
       className={`flex flex-col border-t border-black/5 bg-bg-subtle text-xs ${
-        open ? "h-[220px]" : "h-[36px]"
+        open ? 'h-[220px]' : 'h-[36px]'
       }`}
     >
       <button
@@ -42,11 +40,8 @@ export function TerminalPanel({
         <IconTerminal size={14} />
         <span className="text-[13px] font-medium">终端 / 日志</span>
         <span className="ml-auto flex items-center gap-1 text-[11px] text-ink-faint">
-          {open ? "折叠" : "展开"}
-          <IconChevronDown
-            size={14}
-            className={open ? "" : "rotate-180"}
-          />
+          {open ? '折叠' : '展开'}
+          <IconChevronDown size={14} className={open ? '' : 'rotate-180'} />
         </span>
       </button>
       {open && (
@@ -56,13 +51,13 @@ export function TerminalPanel({
               <div
                 key={i}
                 className={`py-0.5 ${
-                  l.level === "cmd"
-                    ? "text-ink"
-                    : l.level === "warn"
-                    ? "text-amber-500"
-                    : l.level === "error"
-                    ? "text-red-500"
-                    : "text-ink-dim"
+                  l.level === 'cmd'
+                    ? 'text-ink'
+                    : l.level === 'warn'
+                      ? 'text-amber-500'
+                      : l.level === 'error'
+                        ? 'text-red-500'
+                        : 'text-ink-dim'
                 }`}
               >
                 {l.text}
@@ -81,5 +76,6 @@ export function TerminalPanel({
         </>
       )}
     </div>
-  );
+  )
 }
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -1,6 +1,6 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-// [IHUI-AI-PROVENANCE]:watermarked
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
@@ -54,7 +54,9 @@ export const hrPayrollRoutes: FastifyPluginAsync = async (server) => {
     async (request, reply) => {
       const parsed = calcSchema.safeParse(request.body)
       if (!parsed.success) {
-        reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误', 'VALIDATION_FAILED'))
+        reply
+          .status(400)
+          .send(error(400, parsed.error.issues[0]?.message ?? '参数错误', 'VALIDATION_FAILED'))
         return
       }
       const userId = (request.user as { id?: string } | undefined)?.id
@@ -114,19 +116,25 @@ export const hrPayrollRoutes: FastifyPluginAsync = async (server) => {
       schema: buildSchema({
         tags: ['人事-薪资'],
         summary: '变更薪资周期状态',
-        description: 'approved 之后的周期默认不可重算(除非显式 overwriteApproved);paid 之后完全锁定。',
+        description:
+          'approved 之后的周期默认不可重算(除非显式 overwriteApproved);paid 之后完全锁定。',
       }),
     },
     async (request, reply) => {
       const body = request.body as { periodMonth?: string; status?: string }
-      const parsedPeriod = z.string().regex(/^\d{4}-\d{2}$/).safeParse(body.periodMonth)
+      const parsedPeriod = z
+        .string()
+        .regex(/^\d{4}-\d{2}$/)
+        .safeParse(body.periodMonth)
       if (!parsedPeriod.success) {
         reply.status(400).send(error(400, '请提供 periodMonth(YYYY-MM)', 'VALIDATION_FAILED'))
         return
       }
       const parsedStatus = statusSchema.safeParse({ status: body.status })
       if (!parsedStatus.success) {
-        reply.status(400).send(error(400, '状态只能是 draft/calculated/approved/paid', 'VALIDATION_FAILED'))
+        reply
+          .status(400)
+          .send(error(400, '状态只能是 draft/calculated/approved/paid', 'VALIDATION_FAILED'))
         return
       }
       const [period] = await db
@@ -187,7 +195,9 @@ export const hrPayrollRoutes: FastifyPluginAsync = async (server) => {
         .object({ periodMonth: z.string().regex(/^\d{4}-\d{2}$/, '月份格式必须是 YYYY-MM') })
         .safeParse(request.body)
       if (!parsed.success) {
-        reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误', 'VALIDATION_FAILED'))
+        reply
+          .status(400)
+          .send(error(400, parsed.error.issues[0]?.message ?? '参数错误', 'VALIDATION_FAILED'))
         return
       }
       try {
@@ -203,3 +213,4 @@ export const hrPayrollRoutes: FastifyPluginAsync = async (server) => {
     },
   )
 }
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -1,67 +1,61 @@
-import { useState } from "react";
-import { useShell } from "../context";
-import {
-  IconBolt,
-  IconChevronDown,
-  IconFolder,
-  IconMore,
-  IconPlus,
-  IconSend,
-} from "../icons";
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import { useState } from 'react'
+import { useShell } from '../context'
+import { IconBolt, IconChevronDown, IconFolder, IconPlus, IconSend } from '../icons'
 
 function formatTime(ts: number) {
-  const d = new Date(ts);
-  const h = d.getHours().toString().padStart(2, "0");
-  const m = d.getMinutes().toString().padStart(2, "0");
-  return `${h}:${m}`;
+  const d = new Date(ts)
+  const h = d.getHours().toString().padStart(2, '0')
+  const m = d.getMinutes().toString().padStart(2, '0')
+  return `${h}:${m}`
 }
 
 const MODELS = [
-  "DeepSeek-V4.1-Flash High",
-  "DeepSeek-V4.1-Flash",
-  "DeepSeek-V4.1-Pro",
-  "DeepSeek-V3.2",
-];
-const MODES = ["标准模式", "快速模式", "深度思考模式"];
-const WORKSPACES = ["默认工作区", "示例项目", "文档站"];
-const ATTACHMENTS = ["@ 文件", "/ 指令", "工作区上下文"];
+  'DeepSeek-V4.1-Flash High',
+  'DeepSeek-V4.1-Flash',
+  'DeepSeek-V4.1-Pro',
+  'DeepSeek-V3.2',
+]
+const MODES = ['标准模式', '快速模式', '深度思考模式']
+const WORKSPACES = ['默认工作区', '示例项目', '文档站']
+const ATTACHMENTS = ['@ 文件', '/ 指令', '工作区上下文']
 
 export function ChatView() {
-  const { sessions, activeSessionId, messages, send } = useShell();
-  const session = sessions.find((s) => s.id === activeSessionId);
-  const [draft, setDraft] = useState("");
-  const [modelOpen, setModelOpen] = useState(false);
-  const [modeOpen, setModeOpen] = useState(false);
-  const [wsOpen, setWsOpen] = useState(false);
-  const [filesOpen, setFilesOpen] = useState(false);
-  const [chatMoreOpen, setChatMoreOpen] = useState(false);
+  const { sessions, activeSessionId, messages, send } = useShell()
+  const session = sessions.find((s) => s.id === activeSessionId)
+  const [draft, setDraft] = useState('')
+  const [modelOpen, setModelOpen] = useState(false)
+  const [modeOpen, setModeOpen] = useState(false)
+  const [wsOpen, setWsOpen] = useState(false)
+  const [filesOpen, setFilesOpen] = useState(false)
 
   const closeAll = () => {
-    setModelOpen(false);
-    setModeOpen(false);
-    setWsOpen(false);
-    setFilesOpen(false);
-  };
+    setModelOpen(false)
+    setModeOpen(false)
+    setWsOpen(false)
+    setFilesOpen(false)
+  }
 
   const submit = () => {
-    if (!draft.trim()) return;
-    send(draft);
-    setDraft("");
-  };
+    if (!draft.trim()) return
+    send(draft)
+    setDraft('')
+  }
 
   return (
     <div
       className="relative flex h-full min-w-0 flex-1 flex-col bg-bg"
       onClick={() => {
-        if (modelOpen || modeOpen || wsOpen || filesOpen) closeAll();
+        if (modelOpen || modeOpen || wsOpen || filesOpen) closeAll()
       }}
     >
       {/* Empty state: hero + composer */}
       <div className="flex flex-1 flex-col items-center justify-center gap-6 overflow-y-auto px-4 py-6">
         <div className="flex w-full max-w-[774.4px] flex-col items-center gap-4">
-          <h1 className="text-center text-[26px] font-medium text-ink">
-            探索未至之境
-          </h1>
+          <h1 className="text-center text-[26px] font-medium text-ink">探索未至之境</h1>
 
           <button
             type="button"
@@ -81,9 +75,9 @@ export function ChatView() {
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  submit();
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault()
+                  submit()
                 }
               }}
               data-composer-input
@@ -101,11 +95,11 @@ export function ChatView() {
                 aria-haspopup="true"
                 aria-expanded={filesOpen}
                 onClick={(e) => {
-                  e.stopPropagation();
-                  setFilesOpen((v) => !v);
-                  setModelOpen(false);
-                  setModeOpen(false);
-                  setWsOpen(false);
+                  e.stopPropagation()
+                  setFilesOpen((v) => !v)
+                  setModelOpen(false)
+                  setModeOpen(false)
+                  setWsOpen(false)
                 }}
                 className="flex h-7 w-7 items-center justify-center rounded-full bg-bg-muted text-ink hover:bg-bg-chip"
               >
@@ -119,23 +113,18 @@ export function ChatView() {
                 aria-haspopup="true"
                 aria-expanded={wsOpen}
                 onClick={(e) => {
-                  e.stopPropagation();
-                  setWsOpen((v) => !v);
-                  setModeOpen(false);
-                  setFilesOpen(false);
-                  setModelOpen(false);
+                  e.stopPropagation()
+                  setWsOpen((v) => !v)
+                  setModeOpen(false)
+                  setFilesOpen(false)
+                  setModelOpen(false)
                 }}
                 className="flex h-7 items-center gap-1 rounded-full px-2.5 text-[13px] font-medium text-ink ring-1 ring-black/10 hover:bg-bg-subtle"
               >
                 <IconFolder size={16} />
-                <span className="max-w-[120px] truncate">
-                  {session?.workspace ?? "默认工作区"}
-                </span>
+                <span className="max-w-[120px] truncate">{session?.workspace ?? '默认工作区'}</span>
                 <span className="text-[11px] text-ink-faint">· 工作区内修改</span>
-                <IconChevronDown
-                  size={14}
-                  className="text-ink-faint"
-                />
+                <IconChevronDown size={14} className="text-ink-faint" />
               </button>
 
               <button
@@ -145,11 +134,11 @@ export function ChatView() {
                 aria-haspopup="true"
                 aria-expanded={modeOpen}
                 onClick={(e) => {
-                  e.stopPropagation();
-                  setModeOpen((v) => !v);
-                  setWsOpen(false);
-                  setFilesOpen(false);
-                  setModelOpen(false);
+                  e.stopPropagation()
+                  setModeOpen((v) => !v)
+                  setWsOpen(false)
+                  setFilesOpen(false)
+                  setModelOpen(false)
                 }}
                 className="flex h-7 items-center gap-1 rounded-full px-2.5 text-[13px] font-medium text-ink ring-1 ring-black/10 hover:bg-bg-subtle"
               >
@@ -165,17 +154,15 @@ export function ChatView() {
                 aria-haspopup="true"
                 aria-expanded={modelOpen}
                 onClick={(e) => {
-                  e.stopPropagation();
-                  setModelOpen((v) => !v);
-                  setModeOpen(false);
-                  setFilesOpen(false);
-                  setWsOpen(false);
+                  e.stopPropagation()
+                  setModelOpen((v) => !v)
+                  setModeOpen(false)
+                  setFilesOpen(false)
+                  setWsOpen(false)
                 }}
                 className="ml-auto flex h-7 items-center gap-1 rounded-full px-2.5 text-[13px] text-ink-dim ring-1 ring-black/10 hover:bg-bg-subtle"
               >
-                <span className="max-w-[160px] truncate">
-                  DeepSeek-V4.1-Flash High
-                </span>
+                <span className="max-w-[160px] truncate">DeepSeek-V4.1-Flash High</span>
                 <IconChevronDown size={14} className="text-ink-faint" />
               </button>
 
@@ -183,8 +170,8 @@ export function ChatView() {
                 type="button"
                 aria-label="发送"
                 onClick={(e) => {
-                  e.stopPropagation();
-                  submit();
+                  e.stopPropagation()
+                  submit()
                 }}
                 disabled={!draft.trim()}
                 className="flex h-[34px] w-[34px] items-center justify-center rounded-full bg-accent text-on-accent disabled:opacity-40"
@@ -202,9 +189,7 @@ export function ChatView() {
                 className="absolute bottom-9 left-8 z-10 flex flex-col gap-1 rounded-md bg-bg p-1 ring-1 ring-black/10 shadow-lg"
                 onClick={(e) => e.stopPropagation()}
               >
-                <div className="px-2 py-1 text-xs text-ink-faint">
-                  添加文件或调用指令
-                </div>
+                <div className="px-2 py-1 text-xs text-ink-faint">添加文件或调用指令</div>
                 {ATTACHMENTS.map((x) => (
                   <button
                     key={x}
@@ -235,9 +220,7 @@ export function ChatView() {
                     role="menuitem"
                     onClick={() => setWsOpen(false)}
                     className={`rounded-sm px-3 py-1 text-left text-xs ${
-                      w === "默认工作区"
-                        ? "bg-bg-chip text-ink"
-                        : "text-ink-dim hover:bg-bg-subtle"
+                      w === '默认工作区' ? 'bg-bg-chip text-ink' : 'text-ink-dim hover:bg-bg-subtle'
                     }`}
                   >
                     {w}
@@ -262,9 +245,7 @@ export function ChatView() {
                     role="menuitem"
                     onClick={() => setModeOpen(false)}
                     className={`rounded-sm px-3 py-1 text-left text-xs ${
-                      m === "标准模式"
-                        ? "bg-bg-chip text-ink"
-                        : "text-ink-dim hover:bg-bg-subtle"
+                      m === '标准模式' ? 'bg-bg-chip text-ink' : 'text-ink-dim hover:bg-bg-subtle'
                     }`}
                   >
                     {m}
@@ -289,9 +270,9 @@ export function ChatView() {
                     role="menuitem"
                     onClick={() => setModelOpen(false)}
                     className={`rounded-sm px-3 py-1.5 text-left text-xs ${
-                      m === "DeepSeek-V4.1-Flash High"
-                        ? "bg-bg-chip text-ink"
-                        : "text-ink-dim hover:bg-bg-subtle"
+                      m === 'DeepSeek-V4.1-Flash High'
+                        ? 'bg-bg-chip text-ink'
+                        : 'text-ink-dim hover:bg-bg-subtle'
                     }`}
                   >
                     {m}
@@ -309,27 +290,25 @@ export function ChatView() {
           {messages.map((m) => (
             <div
               key={m.id}
-              className={`flex flex-col gap-1 ${
-                m.role === "user" ? "items-end" : "items-start"
-              }`}
+              className={`flex flex-col gap-1 ${m.role === 'user' ? 'items-end' : 'items-start'}`}
             >
               <div
                 className={`max-w-[480px] rounded-md px-3 py-2 text-sm ${
-                  m.role === "user"
-                    ? "bg-accent text-on-accent"
-                    : "bg-bg-subtle text-ink ring-1 ring-black/5"
+                  m.role === 'user'
+                    ? 'bg-accent text-on-accent'
+                    : 'bg-bg-subtle text-ink ring-1 ring-black/5'
                 }`}
               >
                 {m.content}
               </div>
               <span className="px-1 text-[11px] text-ink-faint">
-                {m.role === "user" ? "你" : "Harness"} · {formatTime(m.at)}
+                {m.role === 'user' ? '你' : 'Harness'} · {formatTime(m.at)}
               </span>
             </div>
           ))}
         </div>
       )}
-
     </div>
-  );
+  )
 }
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

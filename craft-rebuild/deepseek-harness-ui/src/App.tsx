@@ -1,21 +1,21 @@
-import { useState } from "react";
-import { useShell } from "./context";
-import { Sidebar } from "./components/Sidebar";
-import { ChatView } from "./components/ChatView";
-import { FilesView } from "./components/FilesView";
-import { TerminalPanel } from "./components/TerminalPanel";
-import { PreviewDialog } from "./components/PreviewDialog";
-import { IconPanelCollapse } from "./icons";
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import { useState } from 'react'
+import { Sidebar } from './components/Sidebar'
+import { ChatView } from './components/ChatView'
+import { FilesView } from './components/FilesView'
+import { TerminalPanel } from './components/TerminalPanel'
+import { PreviewDialog } from './components/PreviewDialog'
+import { IconPanelCollapse } from './icons'
 
 export function App() {
-  const { activeSessionId, setActiveSessionId, sessions } = useShell();
-  const session = sessions.find((s) => s.id === activeSessionId);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false)
   // 原版首屏：右侧文件树与底部终端默认折叠，对话区占满
-  const [rightOpen, setRightOpen] = useState(false);
-  const [termOpen, setTermOpen] = useState(false);
-  const [preview, setPreview] = useState(true);
-  const [moreOpen, setMoreOpen] = useState(false);
+  const [rightOpen, setRightOpen] = useState(false)
+  const [termOpen, setTermOpen] = useState(false)
+  const [preview, setPreview] = useState(true)
 
   return (
     <div className="relative flex h-full flex-col overflow-hidden bg-bg text-ink">
@@ -24,7 +24,7 @@ export function App() {
         <button
           type="button"
           data-workspace-toggle
-          aria-label={rightOpen ? "折叠工作区" : "展开工作区"}
+          aria-label={rightOpen ? '折叠工作区' : '展开工作区'}
           onClick={() => setRightOpen((v) => !v)}
           className="pointer-events-auto flex h-7 w-7 items-center justify-center rounded-sm text-ink-dim hover:bg-bg-muted"
         >
@@ -57,9 +57,7 @@ export function App() {
           <div className="min-h-0 flex-1">
             <ChatView />
           </div>
-          {termOpen && (
-            <TerminalPanel open onToggle={() => setTermOpen(false)} />
-          )}
+          {termOpen && <TerminalPanel open onToggle={() => setTermOpen(false)} />}
         </main>
 
         {/* Right: files */}
@@ -75,5 +73,6 @@ export function App() {
 
       {preview && <PreviewDialog onDismiss={() => setPreview(false)} />}
     </div>
-  );
+  )
 }
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
