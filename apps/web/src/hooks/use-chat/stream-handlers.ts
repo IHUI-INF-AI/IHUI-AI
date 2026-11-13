@@ -196,9 +196,25 @@ export function createToolDeltaHandler(
 ) {
   return (event: ToolDeltaEvent) => {
     if (!event.toolCallId) return
-    const message = chatStore.getState().messages.find((m) => m.id === assistantMessageId)
+    const store = chatStore.getState()
+    const message = store.messages.find((m) => m.id === assistantMessageId)
     const tc = message?.toolCalls?.find((t) => t.id === event.toolCallId)
-    if (!tc) return
+    // A1(2026-11-13):tool-delta 早于 tool-call-start 到达(resume/回放乱序)时,
+    // 旧实现 `if (!tc) return` 会静默丢弃该帧,D113 文件写工具的实时 diff 预览整段丢。
+    // 与 openai 路径(createOpenAiToolCallHandler L236 对"卡不存在"自建卡)对齐:
+    // 自建一张 running 占位卡接住 delta(ToolDeltaEvent 不带工具名/入参,只能占位,
+    // 后续 tool-call-start 到达时补全 toolName/args),delta 内容本身已保住不丢。
+    if (!tc) {
+      store.addToolCall(assistantMessageId, {
+        id: event.toolCallId,
+        toolName: '',
+        args: {},
+        status: 'running',
+        partialDiff: event.partialText,
+        partialSeq: event.seq,
+      })
+      return
+    }
     if (event.seq <= (tc.partialSeq ?? 0)) return
     chatStore.getState().updateToolCall(assistantMessageId, event.toolCallId, {
       partialDiff: (tc.partialDiff ?? '') + event.partialText,
@@ -226,8 +242,7 @@ export function createOpenAiToolCallHandler(
   // 用稳定合成 id,保证同一 index 的多片始终落在同一张卡上。
   const idByIndex = new Map<number, string>()
   return (delta: OpenAiToolCallDelta) => {
-    const toolCallId =
-      delta.id || idByIndex.get(delta.index) || `openai-${delta.index}`
+    const toolCallId = delta.id || idByIndex.get(delta.index) || `openai-${delta.index}`
     idByIndex.set(delta.index, toolCallId)
     const store = chatStore.getState()
     const message = store.messages.find((m) => m.id === assistantMessageId)
