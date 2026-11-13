@@ -18,6 +18,8 @@ import {
   RefreshCw,
   Search,
   ShieldCheck,
+  TrendingUp,
+  Wallet,
   XCircle,
 } from 'lucide-react'
 
@@ -34,6 +36,25 @@ interface Overview {
   untraced: number
   byTier: Record<string, number>
   byProvider: Array<{ providerCode: string; total: number; zero: number; fallback: number }>
+}
+
+interface ProfitBucket {
+  bucket: string
+  calls: number
+  costedCalls: number
+  revenueCents: number
+  costedRevenueCents: number
+  costCents: number
+  profitCents: number
+  margin: number
+}
+
+interface ProfitReport {
+  from: string
+  to: string
+  groupBy: 'day' | 'model' | 'provider'
+  totals: Omit<ProfitBucket, 'bucket'> & { costCoverage: number }
+  rows: ProfitBucket[]
 }
 
 interface Item {
@@ -81,6 +102,16 @@ const tierLabel: Record<string, string> = {
   manual: '人工设定',
 }
 
+/** 分 → 元展示(利润看板统一口径:后端全部按分返回)。 */
+function fmtYuan(cents: number): string {
+  return `¥${(cents / 100).toFixed(2)}`
+}
+
+/** 0~1 → 百分比。 */
+function fmtPct(v: number): string {
+  return `${(v * 100).toFixed(1)}%`
+}
+
 function StatCard(props: {
   icon: React.ReactNode
   label: string
@@ -120,6 +151,15 @@ export default function PricingConsolePage() {
   const [editIn, setEditIn] = React.useState('')
   const [editOut, setEditOut] = React.useState('')
   const [auditModel, setAuditModel] = React.useState<string | null>(null)
+  const [profitDays, setProfitDays] = React.useState(30)
+
+  const profitRange = React.useCallback((days: number) => {
+    const to = new Date()
+    const from = new Date(to.getTime() - (days - 1) * 86400_000)
+    const fmt = (d: Date) =>
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    return `from=${fmt(from)}&to=${fmt(to)}`
+  }, [])
 
   const overview = useQuery({
     queryKey: ['pricing-overview'],
@@ -157,6 +197,30 @@ export default function PricingConsolePage() {
       if (!r.success) throw new Error(r.error)
       return r.data
     },
+  })
+
+  const profit = useQuery({
+    queryKey: ['pricing-profit', profitDays],
+    queryFn: async () => {
+      const r = await fetchApi<ProfitReport>(
+        `${BASE}/profit?groupBy=day&${profitRange(profitDays)}`,
+      )
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
+    refetchInterval: 60_000,
+  })
+
+  const profitModels = useQuery({
+    queryKey: ['pricing-profit-models', profitDays],
+    queryFn: async () => {
+      const r = await fetchApi<ProfitReport>(
+        `${BASE}/profit?groupBy=model&limit=10&${profitRange(profitDays)}`,
+      )
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
+    refetchInterval: 60_000,
   })
 
   const sweep = useMutation({
@@ -316,6 +380,117 @@ export default function PricingConsolePage() {
           tone="ok"
         />
       </div>
+
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm">利润看板(估算)</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            <span className="text-muted-foreground">时间窗口</span>
+            {[7, 30, 90].map((d) => (
+              <button
+                key={d}
+                onClick={() => setProfitDays(d)}
+                className={`rounded-sm border px-2 py-0.5 ${
+                  profitDays === d
+                    ? 'border-primary text-primary'
+                    : 'border-border text-muted-foreground'
+                }`}
+              >
+                近 {d} 天
+              </button>
+            ))}
+            <span className="ml-auto text-muted-foreground">
+              成本覆盖率 {profit.data ? fmtPct(profit.data.totals.costCoverage) : '—'}
+              {profit.data && profit.data.totals.costCoverage < 1
+                ? ' · 覆盖不足部分只计收入、不计毛利'
+                : ''}
+            </span>
+          </div>
+
+          {profit.isLoading ? (
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Loader2 className="size-4 animate-spin" /> 加载利润数据…
+            </div>
+          ) : profit.isError ? (
+            <div className="text-xs text-red-600">{(profit.error as Error).message}</div>
+          ) : profit.data ? (
+            <>
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+                <StatCard
+                  icon={<Wallet className="size-5" />}
+                  label="实收"
+                  value={fmtYuan(profit.data.totals.revenueCents)}
+                  hint={`${profit.data.totals.calls} 次调用`}
+                  tone="ok"
+                />
+                <StatCard
+                  icon={<Coins className="size-5" />}
+                  label="采购成本(估算)"
+                  value={fmtYuan(profit.data.totals.costCents)}
+                  hint={`已留痕 ${profit.data.totals.costedCalls} 次`}
+                  tone="warn"
+                />
+                <StatCard
+                  icon={<TrendingUp className="size-5" />}
+                  label="毛利(估算)"
+                  value={fmtYuan(profit.data.totals.profitCents)}
+                  hint="仅统计成本已知调用"
+                  tone={profit.data.totals.profitCents >= 0 ? 'ok' : 'bad'}
+                />
+                <StatCard
+                  icon={<ShieldCheck className="size-5" />}
+                  label="毛利率(估算)"
+                  value={fmtPct(profit.data.totals.margin)}
+                  hint="毛利 ÷ 已留痕收入"
+                  tone={profit.data.totals.margin >= 0 ? 'ok' : 'bad'}
+                />
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="text-left text-muted-foreground">
+                      <th className="px-2 py-1">模型</th>
+                      <th className="px-2 py-1">调用</th>
+                      <th className="px-2 py-1">实收</th>
+                      <th className="px-2 py-1">成本(估算)</th>
+                      <th className="px-2 py-1">毛利(估算)</th>
+                      <th className="px-2 py-1">毛利率</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(profitModels.data?.rows ?? []).map((r) => (
+                      <tr key={r.bucket} className="border-t">
+                        <td className="px-2 py-1 font-mono">{r.bucket}</td>
+                        <td className="px-2 py-1">{r.calls}</td>
+                        <td className="px-2 py-1">{fmtYuan(r.revenueCents)}</td>
+                        <td className="px-2 py-1">{fmtYuan(r.costCents)}</td>
+                        <td
+                          className={`px-2 py-1 ${
+                            r.profitCents < 0 ? 'text-red-600 dark:text-red-400' : ''
+                          }`}
+                        >
+                          {fmtYuan(r.profitCents)}
+                        </td>
+                        <td className="px-2 py-1">{fmtPct(r.margin)}</td>
+                      </tr>
+                    ))}
+                    {(profitModels.data?.rows ?? []).length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="px-2 py-2 text-muted-foreground">
+                          该时间窗口暂无调用记录
+                        </td>
+                      </tr>
+                    ) : null}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          ) : null}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader className="pb-2">
