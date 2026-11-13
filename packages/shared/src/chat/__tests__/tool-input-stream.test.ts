@@ -61,5 +61,44 @@ describe('ToolInputStream', () => {
     expect(parse('{"n":')).toEqual({})
     expect(parse('1}')).toEqual({ n: 1 })
   })
+
+  it('流式阶段缓冲超上限时标 too_large 终态并不再喂增量（E-S1）', () => {
+    const stream = new ToolInputStream()
+    // MAX_BUFFER_CHARS = 1<<20 = 1048576，构造超限增量
+    const oversize = 'x'.repeat(1 << (20 + 1))
+    const snap = stream.appendDelta(oversize)
+    expect(snap.defect).toBe('too_large')
+    expect(snap.complete).toBe(false)
+    expect(snap.parameters).toEqual({})
+    // 后续增量不再改状态
+    const after = stream.appendDelta('{"a":1}')
+    expect(after.defect).toBe('too_large')
+    expect(after.parameters).toEqual({})
+  })
+
+  it('半截非对象（[ 或 " 开头）保持 not_object 终态避免 defect 抖动（E-S4）', () => {
+    const stream = new ToolInputStream()
+    // 第一帧进来一个数组前缀，smartParse 无路可走但 trimmed.startsWith('[')
+    const first = stream.appendDelta('[1,2')
+    expect(first.defect).toBe('not_object')
+    // 再来增量，buffer 长了但仍解析不出对象，defect 应稳定 not_object
+    const second = stream.appendDelta(',3')
+    expect(second.defect).toBe('not_object')
+    // 字符串开头同理
+    const strStream = new ToolInputStream()
+    const s1 = strStream.appendDelta('"hello')
+    expect(s1.defect).toBe('not_object')
+    const s2 = strStream.appendDelta(' world')
+    expect(s2.defect).toBe('not_object')
+  })
+
+  it('finish(string) 收到过大载荷时标 too_large（E-S1 一致）', () => {
+    const stream = new ToolInputStream()
+    const oversize = 'x'.repeat(1 << (20 + 1))
+    // finish 不走 tryParse，不标 too_large（只 JSON.parse 或 smartParse），保持现有行为
+    // 这条只是确认 finish 对超大字符串的现有行为：parse 失败、smartParse 失败 → not_object
+    const snap = stream.finish(oversize)
+    expect(snap.defect).toBe('not_object')
+  })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

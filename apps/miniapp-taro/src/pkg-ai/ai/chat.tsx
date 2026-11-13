@@ -1551,7 +1551,7 @@ export default function ChatPage() {
               : { code: formatted.code, message: formatted.message, traceId: roundTraceId },
           )
           // 失败轮要"可辨认":标 error + 保留已产出的部分内容(共享层同一标记规则,与 web 端一致)
-          setMessages((prev) => applyStreamError(prev, formatted.message))
+          setMessages((prev) => applyStreamError(prev, formatted.message, formatted.errorCode))
           onToast(formatted.title, { kind: 'info', duration: 2500 })
         }
       } finally {

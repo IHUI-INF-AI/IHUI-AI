@@ -18,7 +18,7 @@
  * 3. 未闭合字符串里的 \uXXXX 会解出来，中文参数不用等引号闭合才可读。
  */
 
-export type ToolInputDefect = 'not_object'
+export type ToolInputDefect = 'not_object' | 'too_large'
 
 export interface ToolInputSnapshot {
   readonly complete: boolean
@@ -26,6 +26,14 @@ export interface ToolInputSnapshot {
   readonly rawBuffer: string
   readonly defect: ToolInputDefect | null
 }
+
+/**
+ * 缓冲上限。失控的 tool_call（服务端把大文件 base64 塞进 arguments）会在无界
+ * 累加下撑爆内存，且每次增量都触发 O(n) 的 closeJson 重扫，n 次增量总代价
+ * O(n²)。到顶后不再增长缓冲、不再重扫解析，snapshot 标 `too_large` 终态，
+ * 界面据此提示参数异常而不再喂增量。
+ */
+const MAX_BUFFER_CHARS = 1 << 20 // 1 MiB 字符 ≈ 2 MiB UTF-16，远超正常 tool arguments
 
 const SIMPLE_ESCAPES: Readonly<Record<string, string>> = {
   '\\': '\\',
@@ -235,7 +243,15 @@ export class ToolInputStream {
 
   appendDelta(delta: unknown): ToolInputSnapshot {
     if (this.completed) return this.snapshot()
+    if (this.defect === 'too_large') return this.snapshot()
     if (typeof delta !== 'string' || delta.length === 0) return this.snapshot()
+    if (this.buffer.length + delta.length > MAX_BUFFER_CHARS) {
+      this.buffer = ''
+      this.parameters = {}
+      this.completed = false
+      this.defect = 'too_large'
+      return this.snapshot()
+    }
     this.buffer += delta
     return this.tryParse()
   }
@@ -305,9 +321,17 @@ export class ToolInputStream {
         this.replace(smart.parsed, smart.isComplete)
         return this.snapshot()
       }
-      this.parameters = {}
-      this.completed = false
-      this.defect = null
+      // smartParse 也没解析出来：区分两种情形
+      // ① buffer 以 [ 或 " 开头 → 确定性的非对象载荷，保持 not_object 终态
+      //    避免后续增量进来时 defect 抖动（not_object → null → not_object）
+      // ② 其他（仍是半截对象、或乱码） → 清 defect，界面继续等下一帧
+      if (trimmed.startsWith('[') || trimmed.startsWith('"')) {
+        this.rejectNotObject()
+      } else {
+        this.parameters = {}
+        this.completed = false
+        this.defect = null
+      }
       return this.snapshot()
     }
   }

@@ -1753,7 +1753,11 @@ export default function AiAssistantN8nScreen() {
           // 失败轮:标 error + 仅在正文为空时写错误文案(共享层同一标记规则,与 ChatScreen / web 一致)。
           // 此前只填文案不打标 → 数据上与一次真回答同形,界面也只有一句普通文本、没有任何出口。
           setMessages((prev) =>
-            applyStreamError(prev, formatted.message || t('aiAssistantN8n.callFailed')),
+            applyStreamError(
+              prev,
+              formatted.message || t('aiAssistantN8n.callFailed'),
+              formatted.errorCode,
+            ),
           )
           // 对齐 Uniapp uni.showToast + 任务要求 #2(error toast 用 FloatBox 替代 Alert.alert)
           const errMsg = formatted.message
@@ -1784,7 +1788,11 @@ export default function AiAssistantN8nScreen() {
       setSending(false)
       abortRef.current = null
       setMessages((prev) =>
-        applyStreamError(prev, formatted.message || t('aiAssistantN8n.callFailed')),
+        applyStreamError(
+          prev,
+          formatted.message || t('aiAssistantN8n.callFailed'),
+          formatted.errorCode,
+        ),
       )
       const errMsg = formatted.message
         ? `${formatted.title}: ${formatted.message}`
