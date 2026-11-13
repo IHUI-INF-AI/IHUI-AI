@@ -7239,5 +7239,13 @@
     "video": {
       "error": "Compose failed"
     }
+  },
+  "score": {
+    "excellent": "Excellent",
+    "high": "Good",
+    "medium": "Average",
+    "low": "Needs improvement",
+    "title": "Learning Score",
+    "empty": "No scores yet"
   }
 }

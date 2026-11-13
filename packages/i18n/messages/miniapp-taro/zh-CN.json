@@ -7239,5 +7239,13 @@
     "video": {
       "error": "编排失败"
     }
+  },
+  "score": {
+    "excellent": "优秀",
+    "high": "良好",
+    "medium": "中等",
+    "low": "待提升",
+    "title": "学习评分",
+    "empty": "暂无评分"
   }
 }

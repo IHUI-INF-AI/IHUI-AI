@@ -7239,5 +7239,13 @@
     "video": {
       "error": "편성 실패"
     }
+  },
+  "score": {
+    "excellent": "우수",
+    "high": "양호",
+    "medium": "보통",
+    "low": "개선 필요",
+    "title": "학습 점수",
+    "empty": "점수가 없습니다"
   }
 }
