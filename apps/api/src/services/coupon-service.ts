@@ -367,11 +367,57 @@ async function rewardReferrerTx(
 // 2. redeemCoupon — 核销券(调用前预检)
 // =============================================================================
 
+/** 券适用范围:relay=中转站 / subscription=订阅(all 表示两者皆可) */
+export type CouponScope = 'relay' | 'subscription'
+
+/** 券不可用的内部原因码(预览与核销共用同一套词汇) */
+export type CouponUnusableReason =
+  'disabled' | 'not_started' | 'expired' | 'scope_not_applicable' | 'model_not_applicable'
+
+export interface CouponUsableContext {
+  /** 本单业务范围;缺省时不校验 applicableScope(如后台/内部调用) */
+  scope?: CouponScope
+  /** 本次模型;提供时才校验 applicableModels */
+  model?: string
+  /** 判定基准时间(测试可注入) */
+  now?: Date
+}
+
+/**
+ * 「券行已定位 ⇒ 现在能不能用」的唯一判据:null = 可用,否则返回第一个不满足的原因。
+ *
+ * F-310:此前 enabled/startsAt/applicableScope 只在支付页预览列表判定,
+ * `redeemCoupon` 只校验归属/unused/expiresAt/applicableModels ⇒ 停用券、未生效券、
+ * 跨业务范围券都能被绕过前端直接核销。预览与核销现共用本函数,不再各写一套分支。
+ */
+export function assertCouponUsable(
+  coupon: PromoCoupon,
+  context: CouponUsableContext = {},
+): CouponUnusableReason | null {
+  const now = context.now ?? new Date()
+  if (!coupon.enabled) return 'disabled'
+  if (coupon.startsAt && coupon.startsAt > now) return 'not_started'
+  if (coupon.expiresAt < now) return 'expired'
+  if (
+    context.scope &&
+    coupon.applicableScope !== 'all' &&
+    coupon.applicableScope !== context.scope
+  ) {
+    return 'scope_not_applicable'
+  }
+  if (context.model && coupon.applicableModels && coupon.applicableModels.length > 0) {
+    if (!coupon.applicableModels.includes(context.model)) return 'model_not_applicable'
+  }
+  return null
+}
+
 export interface RedeemContext {
   /** 本次消费(分),用于满减校验 */
   spendCents: number
   /** 本次模型,用于 applicableModels 校验 */
   model?: string
+  /** 本单业务范围,用于 applicableScope 校验(核销入口必须传,否则跨业务券可核销) */
+  scope?: CouponScope
   /**
    * 核销到哪张订单(orders.id)。
    * 2026-10-30 补:原实现只翻状态、不记订单号,订单侧无法反查"这一单用了哪张券"
@@ -472,20 +518,16 @@ export async function redeemCoupon(
     return { success: false, reason: uc.status === 'used' ? 'already_used' : 'not_unused' }
   }
 
-  // 4. 校验未过期
-  const now = new Date()
-  if (coupon.expiresAt < now) {
-    return { success: false, reason: 'expired' }
+  // 4. 启用/生效时间/过期/业务范围/适用模型 —— 与预览共用同一判据(F-310)
+  const unusable = assertCouponUsable(coupon, {
+    scope: context.scope,
+    model: context.model,
+  })
+  if (unusable) {
+    return { success: false, reason: unusable }
   }
 
-  // 5. 校验适用模型
-  if (coupon.applicableModels && coupon.applicableModels.length > 0 && context.model) {
-    if (!coupon.applicableModels.includes(context.model)) {
-      return { success: false, reason: 'model_not_applicable' }
-    }
-  }
-
-  // 6. 算 discountCents —— 与「预览」共用 calcCouponDiscount,此处只搬结果
+  // 5. 算 discountCents —— 与「预览」共用 calcCouponDiscount,此处只搬结果
   // (算法若分两份,迟早出现"页面显示减 5 元、实付只减 3 元")
   const calc = calcCouponDiscount(coupon, context.spendCents)
   if (calc.reason) {
