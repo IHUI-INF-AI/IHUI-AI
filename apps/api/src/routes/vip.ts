@@ -20,6 +20,7 @@ import {
   listUserVips,
   cancelUserVip,
   updateVipLevel,
+  VIP_MAX_QUANTITY,
 } from '../db/vip-queries.js'
 import { createOrder, findOrderByNo, updateOrderStatus } from '../db/payment-queries.js'
 import {
@@ -316,7 +317,8 @@ export const vipRoutes: FastifyPluginAsync = async (server) => {
   const vipOrderBody = z.object({
     vipLevelId: z.string().min(1),
     paymentMethod: z.string().optional().default('wechat'),
-    quantity: z.number().int().positive().optional().default(1),
+    // F-148:quantity 决定实付金额,必须有服务端上限,不能只靠前端;0/负数由 min(1) 拒绝。
+    quantity: z.number().int().min(1).max(VIP_MAX_QUANTITY).optional().default(1),
     openId: z.string().optional(),
   })
   server.post('/vip/order', async (request, reply) => {
@@ -337,6 +339,8 @@ export const vipRoutes: FastifyPluginAsync = async (server) => {
         orderType: 2,
         productId: level.id,
         payType: paymentMethod,
+        // F-148:quantity 必须落库 —— 支付回调按 orders.quantity 履约(延长对应期数)。
+        quantity,
       },
       request.userId ?? null,
     )
@@ -394,6 +398,8 @@ export const vipRoutes: FastifyPluginAsync = async (server) => {
                 vipLevelId: order.productId,
                 orderId: order.id,
                 paidAt: paidOrder.paidAt ?? new Date(),
+                // F-148:履约期数来自订单,缺省 1(历史订单 quantity 默认 1)。
+                quantity: order.quantity ?? 1,
               })
             } catch {
               // 已发过卡会唯一约束冲突,忽略
@@ -421,6 +427,8 @@ export const vipRoutes: FastifyPluginAsync = async (server) => {
                 vipLevelId: order.productId,
                 orderId: order.id,
                 paidAt: paidOrder.paidAt ?? new Date(),
+                // F-148:履约期数来自订单,缺省 1(历史订单 quantity 默认 1)。
+                quantity: order.quantity ?? 1,
               })
             } catch {
               // 已发过卡会唯一约束冲突,忽略

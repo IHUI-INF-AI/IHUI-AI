@@ -634,6 +634,9 @@ export async function activateOrderSubscription(order: Order): Promise<void> {
       vipLevelId: order.productId,
       orderId: order.id,
       paidAt: order.paidAt ?? undefined,
+      // F-148:下单时 amount = price * quantity,履约必须按同一 quantity 延长对应期数,
+      // 否则买 N 份只发 1 期(超收)。历史订单 quantity 有默认值 1。
+      quantity: order.quantity ?? 1,
     })
     // P0-2b: 订阅激活后自动应用 VIP 等级配额(upsert aiBudgets)
     try {

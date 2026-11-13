@@ -258,12 +258,23 @@ export async function deleteHelpCategory(id: string): Promise<void> {
 // Help Articles
 // =============================================================================
 
-export async function findHelpArticles(category?: string): Promise<HelpArticle[]> {
-  const where = category ? eq(helpArticles.category, category) : undefined
+/**
+ * 查询帮助文章列表。
+ *
+ * `publishedOnly=true` 时仅返回已发布文章（公开端点必须传 true，否则草稿全文会匿名可读）；
+ * 默认 false 保持管理端"列出全部(含草稿)"的既有语义。
+ */
+export async function findHelpArticles(
+  category?: string,
+  publishedOnly = false,
+): Promise<HelpArticle[]> {
+  const conds = []
+  if (category) conds.push(eq(helpArticles.category, category))
+  if (publishedOnly) conds.push(eq(helpArticles.isPublished, true))
   return dbRead
     .select()
     .from(helpArticles)
-    .where(where)
+    .where(conds.length > 0 ? and(...conds) : undefined)
     .orderBy(asc(helpArticles.sortOrder), desc(helpArticles.createdAt))
 }
 
