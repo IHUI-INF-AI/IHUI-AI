@@ -12,7 +12,16 @@ import { aiServiceFetch, aiServiceFetchStream } from '../utils/ai-service-fetch.
 import { toUserFriendlyMessage } from '@ihui/shared'
 import { logger } from '../utils/logger.js'
 
+/**
+ * F-461:消息收发时刷新 ws-auto-recovery 的活动时间(内存时间戳,轻量、不落库)。
+ * `?.()` 兼容既有测试里只 mock 了 setFastify/registerPlugin 的 manager。
+ */
+const touchActivity = (): void => {
+  getWsAutoRecoveryManager().recordActivity?.()
+}
+
 const send = (socket: WebSocket, obj: unknown): void => {
+  touchActivity()
   try {
     socket.send(JSON.stringify(obj))
   } catch {
@@ -209,6 +218,7 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
       let paused = false
 
       socket.on('message', async (data: Buffer) => {
+        touchActivity()
         const raw = data.toString()
         if (raw === 'ping') {
           socket.send('pong')
@@ -385,6 +395,7 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
       })
 
       socket.on('message', async (data: Buffer) => {
+        touchActivity()
         const raw = data.toString()
         if (raw === 'ping') {
           socket.send('pong')
@@ -482,6 +493,7 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
       let asrBuffer = Buffer.alloc(0)
 
       socket.on('message', async (data: Buffer) => {
+        touchActivity()
         // 优先解析为 JSON 控制消息;解析失败则视为二进制 PCM 帧(ASR 输入)
         let msg: Record<string, unknown> | null = null
         try {
@@ -601,6 +613,7 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
       let controller: AbortController | null = null
 
       socket.on('message', async (data: Buffer) => {
+        touchActivity()
         const raw = data.toString()
         if (raw === 'ping') {
           socket.send('pong')
@@ -755,6 +768,7 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
         let controller: AbortController | null = null
 
         socket.on('message', async (data: Buffer) => {
+          touchActivity()
           const raw = data.toString()
           if (raw === 'ping') {
             socket.send('pong')
@@ -921,6 +935,7 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
       send(socket, { event: 'ready', user: userId })
 
       socket.on('message', async (data: Buffer) => {
+        touchActivity()
         const raw = data.toString()
         if (raw === 'ping') {
           socket.send('pong')
@@ -1002,6 +1017,7 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
       send(socket, { code: 0, event: 'auth.ok', user: userId })
 
       socket.on('message', async (data: Buffer) => {
+        touchActivity()
         const raw = data.toString()
         if (raw === 'ping') {
           send(socket, { code: 0, event: 'pong', ts: Date.now() })
@@ -1120,6 +1136,7 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
       }
 
       socket.on('message', async (data: Buffer) => {
+        touchActivity()
         const raw = data.toString()
         if (raw === 'ping') {
           socket.send('pong')
