@@ -45,7 +45,7 @@ import {
 import { applyParamOpsToBody } from '../services/relay-param-ops-config.js'
 import { error } from '../utils/response.js'
 // F-293:工具帧解析与 /v1/messages 共用同一份(上游 tool-call-start → OpenAI tool_calls)
-import { parseUpstreamLineToOpenAIChunk } from '../services/anthropic-adapter.js'
+import { parseUpstreamLineToOpenAIChunk, type OpenAIChatChunk } from '../services/anthropic-adapter.js'
 // /v1 网关专用:ai-service 调用注入系统 access token(2026-09-13 修 jwt_auth 401)
 import { aiServiceSystemFetch } from '../utils/ai-service-fetch.js'
 // 格②(2026-09-26):耗时一律走单调钟出口,落库形态经唯一适配器投影
@@ -113,7 +113,22 @@ interface ResponsesOutputFunctionCall {
   status: 'in_progress' | 'completed'
 }
 
-type ResponsesOutputItem = ResponsesOutputMessage | ResponsesOutputFunctionCall
+/**
+ * Responses API 输出 reasoning 项(F-726)。
+ *
+ * 上游导流模型的思维链(reasoning_content)不能丢:Responses 协议把它作为
+ * output 里独立的 reasoning 项,摘要文本放在 summary[].text。
+ */
+interface ResponsesOutputReasoning {
+  type: 'reasoning'
+  id: string
+  summary: Array<{ type: 'summary_text'; text: string }>
+}
+
+type ResponsesOutputItem =
+  | ResponsesOutputMessage
+  | ResponsesOutputFunctionCall
+  | ResponsesOutputReasoning
 
 /** OpenAI Chat Completions 形状的工具调用(ai-service 摊平返回的形状) */
 interface UpstreamToolCall {
@@ -387,6 +402,35 @@ async function streamResponses(
   const toolCallItems: ResponsesOutputFunctionCall[] = []
   const toolIndexRef = { next: 0 }
   let textEmitted = false
+  /** F-726:上游流式 usage 真值(null = 上游没给,按字符估算兜底) */
+  let upstreamPromptTokens: number | null = null
+  let upstreamCompletionTokens: number | null = null
+  let streamCacheReadTokens = 0
+  let streamCacheCreationTokens = 0
+  /** F-726:思维链内容(reasoning_content)不得丢弃 */
+  const reasoningItemId = `rs-${randomUUID()}`
+  let reasoningText = ''
+  let reasoningEmitted = false
+
+  /** F-726:解析一帧上游 usage 并累计(末帧可能单独成帧) */
+  const applyUpstreamUsage = (usage: NonNullable<OpenAIChatChunk['usage']>): void => {
+    if (typeof usage.prompt_tokens === 'number') upstreamPromptTokens = usage.prompt_tokens
+    if (typeof usage.completion_tokens === 'number') {
+      upstreamCompletionTokens = usage.completion_tokens
+    }
+    const cached = usage.prompt_tokens_details?.cached_tokens ?? 0
+    const cacheRead = Math.max(cached, usage.cache_read_input_tokens ?? 0)
+    if (cacheRead > 0) streamCacheReadTokens = cacheRead
+    if (typeof usage.cache_creation_input_tokens === 'number') {
+      streamCacheCreationTokens = usage.cache_creation_input_tokens
+    }
+  }
+
+  /** 计费/用量口径:有上游真值用真值,缺失才按字符估算 */
+  const resolveTokens = (): { promptTokens: number; completionTokens: number } => ({
+    promptTokens: upstreamPromptTokens ?? Math.ceil(opts.promptText.length / 4),
+    completionTokens: upstreamCompletionTokens ?? Math.ceil(billableCompletionChars / 4),
+  })
 
   /** 发送 SSE 事件(OpenAI Responses API 流式格式:event + data 双行) */
   const writeEvent = (eventType: string, data: Record<string, unknown>): void => {
@@ -457,14 +501,41 @@ async function streamResponses(
       // F-293:工具帧先过共享解析器(OpenAI tool_calls 形状)→ Responses 的独立
       // function_call 输出项。此前工具帧不被识别,整条流只剩文本,工具调用静默丢失。
       const chunk = parseUpstreamLineToOpenAIChunk(line, opts.model, toolIndexRef)
-      const toolCalls = chunk?.choices?.[0]?.delta?.tool_calls
+      // F-726:usage 帧(常为末帧且 choices 为空)先并入统计,不能被后续分支吞掉
+      if (chunk?.usage) applyUpstreamUsage(chunk.usage)
+      const delta = chunk?.choices?.[0]?.delta
+      // F-726:思维链增量 → reasoning 输出项 + 摘要增量事件,内容不丢弃
+      if (typeof delta?.reasoning_content === 'string' && delta.reasoning_content.length > 0) {
+        if (ttftSample === null) ttftSample = opts.sw.stop()
+        reasoningText += delta.reasoning_content
+        billableCompletionChars += delta.reasoning_content.length
+        if (!reasoningEmitted) {
+          reasoningEmitted = true
+          writeEvent('response.output_item.added', {
+            type: 'response.output_item.added',
+            output_index: 0,
+            item: { type: 'reasoning', id: reasoningItemId, summary: [] },
+          })
+        }
+        writeEvent('response.reasoning_summary_text.delta', {
+          type: 'response.reasoning_summary_text.delta',
+          item_id: reasoningItemId,
+          output_index: 0,
+          summary_index: 0,
+          delta: delta.reasoning_content,
+        })
+      }
+      const toolCalls = delta?.tool_calls
       if (toolCalls && toolCalls.length > 0) {
         for (const tc of toolCalls) {
           const args = tc.function?.arguments ?? ''
           // 逐片 args 帧(arguments 为空)只用于提前开块,不产协议事件;
           // 聚合帧才带完整入参,补发 delta + done。
           if (!args) continue
-          const outputIndex = (textEmitted ? 1 : 0) + toolCallItems.length
+          const outputIndex =
+            (reasoningEmitted ? 1 : 0) + (textEmitted ? 1 : 0) + toolCallItems.length
+          // F-726:tool_use 入参同样是输出 token,计入估算兜底
+          billableCompletionChars += args.length
           const item: ResponsesOutputFunctionCall = {
             type: 'function_call',
             id: `fc-${randomUUID()}`,
@@ -504,7 +575,7 @@ async function streamResponses(
         billableCompletionChars += text.length
         writeEvent('response.output_text.delta', {
           type: 'response.output_text.delta',
-          output_index: 0,
+          output_index: reasoningEmitted ? 1 : 0,
           content_index: 0,
           delta: text,
         })
@@ -529,6 +600,14 @@ async function streamResponses(
     // response.completed 事件(末尾,带完整 output + status)
     // F-293:纯工具回合没有正文,不再硬塞一条空 message;工具调用作为 function_call 项列出
     const completedOutput: ResponsesOutputItem[] = []
+    // F-726:思维链作为独立 reasoning 项输出(与流内的 reasoning 增量同一 item_id)
+    if (reasoningText !== '') {
+      completedOutput.push({
+        type: 'reasoning',
+        id: reasoningItemId,
+        summary: [{ type: 'summary_text', text: reasoningText }],
+      })
+    }
     if (responseText !== '' || toolCallItems.length === 0) {
       completedOutput.push({
         type: 'message',
@@ -545,6 +624,7 @@ async function streamResponses(
       })
     }
     completedOutput.push(...toolCallItems)
+    const completedTokens = resolveTokens()
     writeEvent('response.completed', {
       type: 'response.completed',
       response: {
@@ -553,6 +633,15 @@ async function streamResponses(
         status: streamError ? 'failed' : 'completed',
         model: opts.model,
         output: completedOutput,
+        // F-726:用量口径与计费同源(上游 usage 优先,缺失才估算)
+        usage: {
+          input_tokens: completedTokens.promptTokens,
+          output_tokens: completedTokens.completionTokens,
+          total_tokens: completedTokens.promptTokens + completedTokens.completionTokens,
+          ...(streamCacheReadTokens > 0
+            ? { input_tokens_details: { cached_tokens: streamCacheReadTokens } }
+            : {}),
+        },
       },
     })
   } catch (e) {
@@ -569,9 +658,8 @@ async function streamResponses(
 
     // 计费:流式结束后聚合 token 用量写入计费
     if (opts.apiKeyId && opts.userId) {
-      const promptTokens = Math.ceil(opts.promptText.length / 4)
-      // F-89:用真实产出文本估算;上游错误文案不计 token
-      const completionTokens = Math.ceil(billableCompletionChars / 4)
+      // F-726:优先用上游流式 usage 真值(含 cache 字段),缺失才按字符估算
+      const { promptTokens, completionTokens } = resolveTokens()
       const totalTokens = promptTokens + completionTokens
       // F-89:已产出 token 后中断记 partial(按实际结算),零产出才记 error(免单)
       const status: 'success' | 'partial' | 'error' = streamError
@@ -591,6 +679,9 @@ async function streamResponses(
         promptTokens,
         completionTokens,
         totalTokens,
+        // F-726:cache 命中/写入按上游真值计入计费(缺失为 0)
+        cacheReadTokens: streamCacheReadTokens,
+        cacheCreationTokens: streamCacheCreationTokens,
         latencyMs: latency.latencyMs,
         status,
         errorMessage: streamError,

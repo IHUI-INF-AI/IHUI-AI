@@ -102,10 +102,6 @@ vi.mock('../src/db/index.js', () => {
       'onConflict',
       'doNothing',
       'doUpdate',
-      // F-585:`for` 是 drizzle 的 `FOR UPDATE` 行锁出口 —— order-service 的 lockOrderRow
-      // (F-12)在发积分/写 Outbox 前锁 orders 行;completeOrder 补齐该副作用后,
-      // real 实现会走到这一档。缺它则链上抛 "for is not a function"。
-      'for',
     ]) {
       c[m] = vi.fn(() => c)
     }
