@@ -379,6 +379,8 @@ export interface ListSpacesFilter {
   teamId: string
   includeArchived?: boolean
   limit?: number
+  /** F-528:分页偏移,配合 limit 让 >50 个空间可翻页访问。 */
+  offset?: number
 }
 
 export async function listSpaces(actor: Actor, filter: ListSpacesFilter): Promise<SpaceDTO[]> {
@@ -403,8 +405,10 @@ export async function listSpaces(actor: Actor, filter: ListSpacesFilter): Promis
             eq(teamKnowledgeSpaces.status, 'active'),
           ),
     )
-    .orderBy(desc(teamKnowledgeSpaces.updatedAt))
+    // F-528:updatedAt 非唯一,加 id 作 tiebreak 保证翻页稳定;并暴露 offset 翻页。
+    .orderBy(desc(teamKnowledgeSpaces.updatedAt), asc(teamKnowledgeSpaces.id))
     .limit(clampLimit(filter.limit))
+    .offset(Math.max(0, Math.trunc(filter.offset ?? 0)))
 
   // 逐空间算生效角色(空间数量级为个位数到几十;要扩再引入批量 join,不预优化)
   const out: SpaceDTO[] = []
@@ -514,37 +518,44 @@ export async function createItem(actor: Actor, input: CreateItemInput): Promise<
   const { access } = await requireSpaceAccess(actor.userId, input.spaceId, 'editor')
   const status = input.status ?? 'draft'
 
-  const [row] = await db
-    .insert(teamKnowledgeItems)
-    .values({
-      spaceId: input.spaceId,
-      kind: input.kind,
-      title: input.title,
-      content: input.content,
-      plainText: input.plainText ?? '',
-      tags: dedupeTags(input.tags),
-      status,
-      revision: 1,
-      sourceRef: input.sourceRef ?? null,
-      createdBy: actor.userId,
-      updatedBy: actor.userId,
-    })
-    .returning()
-  if (!row) throw new AppError('知识条目创建失败', 500, 'ITEM_CREATE_FAILED')
+  // F-532:主表插入与 create 审计写入必须同一事务 —— 审计(唯一键冲突等)失败时
+  // 不得留下「无 create 审计」的孤儿条目(与 F-142 的 update 路径同口径)。
+  return db.transaction(async (tx) => {
+    const [row] = await tx
+      .insert(teamKnowledgeItems)
+      .values({
+        spaceId: input.spaceId,
+        kind: input.kind,
+        title: input.title,
+        content: input.content,
+        plainText: input.plainText ?? '',
+        tags: dedupeTags(input.tags),
+        status,
+        revision: 1,
+        sourceRef: input.sourceRef ?? null,
+        createdBy: actor.userId,
+        updatedBy: actor.userId,
+      })
+      .returning()
+    if (!row) throw new AppError('知识条目创建失败', 500, 'ITEM_CREATE_FAILED')
 
-  await writeRevision({
-    itemId: row.id,
-    spaceId: row.spaceId,
-    revisionNo: 1,
-    action: 'create',
-    actorUserId: actor.userId,
-    actorRole: access.role,
-    before: null,
-    after: summarize(row.title, row.status, row.content),
-    changeNote: input.changeNote ?? null,
+    await writeRevision(
+      {
+        itemId: row.id,
+        spaceId: row.spaceId,
+        revisionNo: 1,
+        action: 'create',
+        actorUserId: actor.userId,
+        actorRole: access.role,
+        before: null,
+        after: summarize(row.title, row.status, row.content),
+        changeNote: input.changeNote ?? null,
+      },
+      tx,
+    )
+
+    return toItemDTO(row)
   })
-
-  return toItemDTO(row)
 }
 
 export interface ReviseItemInput {

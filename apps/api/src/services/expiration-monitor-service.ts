@@ -175,36 +175,54 @@ async function detectExpiredAgentSettlement(
 
 // ---------- 缓存工具 ----------
 
-/** 过滤掉 Redis processed SET 中已存在的 id，返回未处理子集。 */
+/**
+ * 过滤掉 Redis processed ZSET 中仍在处理窗口内的 id，返回未处理子集(F-560)。
+ * 用 ZSET(score=处理时间戳)替代 SET:成员可各自按时间淘汰,不再靠「整键 TTL」模拟窗口。
+ * 兼容从旧 SET key 迁移:命令类型不符时降级为「全部视为未处理」,由 DB 侧条件更新兜底,不抛错。
+ */
 async function filterUnprocessed<T extends { id: string }>(
   redis: Redis,
   key: string,
   rows: T[],
 ): Promise<T[]> {
   if (rows.length === 0) return []
-  const pipe = redis.pipeline()
-  for (const r of rows) pipe.sismember(key, r.id)
-  const results = await pipe.exec()
-  if (!results) return rows
-  const unprocessed: T[] = []
-  for (const [i, row] of rows.entries()) {
-    const entry = results[i]
-    if (!entry) continue
-    // sismember 返回 0/1，1 表示已处理
-    if (Number(entry[1]) !== 1) unprocessed.push(row)
+  try {
+    const pipe = redis.pipeline()
+    for (const r of rows) pipe.zscore(key, r.id)
+    const results = await pipe.exec()
+    if (!results) return rows
+    const unprocessed: T[] = []
+    for (const [i, row] of rows.entries()) {
+      const entry = results[i]
+      if (!entry) continue
+      // zscore 返回 score 字符串(已处理且在窗口内)或 null(未处理/已淘汰)
+      if (entry[1] === null || entry[1] === undefined) unprocessed.push(row)
+    }
+    return unprocessed
+  } catch (err) {
+    logger.warn('[expiration-monitor] processed cache read failed, treat all as unprocessed', {
+      key,
+      error: err,
+    })
+    return rows
   }
-  return unprocessed
 }
 
 /**
- * 将处理过的 id 加入 Redis SET 并续期 TTL。
+ * 将处理过的 id 以「当前时间戳为 score」写入 ZSET,并清除窗口外的历史成员(F-560)。
+ * 旧实现用 SET + 整键 EXPIRE:25h 内只要发生一次处理就刷新整键 TTL,历史成员全部保留,
+ * 内存随时间线性增长。改为 ZSET + ZREMRANGEBYSCORE,成员按各自处理时间过期。
  * 缓存写失败只告警：去重是优化项，不能据此判定业务检测失败。
  */
 async function markProcessed(redis: Redis, key: string, ids: string[]): Promise<void> {
   if (ids.length === 0) return
   try {
+    const now = Date.now()
     const pipe = redis.pipeline()
-    for (const id of ids) pipe.sadd(key, id)
+    for (const id of ids) pipe.zadd(key, now, id)
+    // 只保留最近 PROCESSED_TTL 窗口内的成员
+    pipe.zremrangebyscore(key, '-inf', now - PROCESSED_TTL * 1000)
+    // 整键 TTL 仅作兜底(长时间无处理时回收空 key),不再用来模拟窗口
     pipe.expire(key, PROCESSED_TTL)
     await pipe.exec()
   } catch (err) {

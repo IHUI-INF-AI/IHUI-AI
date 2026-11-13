@@ -472,24 +472,40 @@ export async function reviveKeepAliveForeverAccounts(
     .from(aiRelayAccountPool)
     .where(keepAliveReviveWhere(before))
     .limit(KEEPALIVE_MAX_PER_SWEEP)
+  // F-654:只把「写库成功」的行返回给调用方记「已解摘 N 个」。此前把查到的候选行
+  // 全量返回且吞掉写失败,DB 抖动时日志谎报成功、账号实际仍被摘且每轮重复失败无告警。
+  const revived: typeof stale = []
+  let failed = 0
   for (const row of stale) {
-    await db
-      .update(aiRelayAccountPool)
-      .set({
-        tempUnschedulable: false,
-        refreshFailureCount: 0,
-        // 刻意**不写** healthStatus:解摘的语义是「解除调度封锁」,不是「判它健康」。
-        // 保留 down 反而更正确 —— downRecoveryWhere 不看健康白名单,会立刻按再凭证通道重试,
-        // 刷成功时由 refreshOne 把 down 收回 unknown(既有口径),失败则继续累计并再摘。
-        // 2026-11-01 实测:凭空写 unknown 会把这条既有不变量洗掉,还与既有测试
-        // 「按 healthStatus 键存在性识别健康写入」的选取器撞形,把定级读数顶成解摘留痕。
-        lastErrorMessage: `永久保活自动解摘(摘除满 ${backoffHours}h,重新纳入续期):前因 ${(row.lastErrorMessage ?? '未知').slice(0, 200)}`,
-        updatedAt: now,
+    try {
+      await db
+        .update(aiRelayAccountPool)
+        .set({
+          tempUnschedulable: false,
+          refreshFailureCount: 0,
+          // 刻意**不写** healthStatus:解摘的语义是「解除调度封锁」,不是「判它健康」。
+          // 保留 down 反而更正确 —— downRecoveryWhere 不看健康白名单,会立刻按再凭证通道重试,
+          // 刷成功时由 refreshOne 把 down 收回 unknown(既有口径),失败则继续累计并再摘。
+          // 2026-11-01 实测:凭空写 unknown 会把这条既有不变量洗掉,还与既有测试
+          // 「按 healthStatus 键存在性识别健康写入」的选取器撞形,把定级读数顶成解摘留痕。
+          lastErrorMessage: `永久保活自动解摘(摘除满 ${backoffHours}h,重新纳入续期):前因 ${(row.lastErrorMessage ?? '未知').slice(0, 200)}`,
+          updatedAt: now,
+        })
+        .where(eq(aiRelayAccountPool.id, row.id))
+      revived.push(row)
+    } catch (e) {
+      failed += 1
+      logger.warn('[relay-account-pool] 永久保活自动解摘写库失败(不计入已解摘)', {
+        providerCode: row.providerCode,
+        uid: row.uid,
+        error: e instanceof Error ? e.message.slice(0, 200) : String(e),
       })
-      .where(eq(aiRelayAccountPool.id, row.id))
-      .catch(() => {})
+    }
   }
-  return stale
+  if (failed > 0) {
+    logger.warn('[relay-account-pool] 永久保活自动解摘部分失败', { failed, total: stale.length })
+  }
+  return revived
 }
 
 /**

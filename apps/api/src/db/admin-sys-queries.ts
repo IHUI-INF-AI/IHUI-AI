@@ -171,9 +171,26 @@ export async function deleteRoleMenuByRole(roleId: number): Promise<void> {
 
 export async function deleteMenuWithCascade(id: string): Promise<SysMenu | undefined> {
   return db.transaction(async (tx) => {
-    await tx.delete(sysRoleMenu).where(eq(sysRoleMenu.menuId, id))
-    const rows = await tx.delete(sysMenus).where(eq(sysMenus.id, id)).returning()
-    return rows[0]
+    // F-641:递归收集整棵子树再删。此前只删目标行,子节点因 parent_id 无外键残留,
+    // 从树上消失且后台再也无法选中/删除,role_menu 授权行也越删越脏。
+    // seen 防脏数据成环导致队列无限增长。
+    const ids: string[] = []
+    const seen = new Set<string>()
+    const queue = [id]
+    while (queue.length > 0) {
+      const parentId = queue.shift()!
+      if (seen.has(parentId)) continue
+      seen.add(parentId)
+      ids.push(parentId)
+      const children = await tx
+        .select({ id: sysMenus.id })
+        .from(sysMenus)
+        .where(eq(sysMenus.parentId, parentId))
+      for (const c of children) if (!seen.has(c.id)) queue.push(c.id)
+    }
+    await tx.delete(sysRoleMenu).where(inArray(sysRoleMenu.menuId, ids))
+    const rows = await tx.delete(sysMenus).where(inArray(sysMenus.id, ids)).returning()
+    return rows.find((r) => r.id === id)
   })
 }
 

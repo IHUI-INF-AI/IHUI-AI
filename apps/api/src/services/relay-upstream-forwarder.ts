@@ -481,6 +481,26 @@ export async function forwardToChannel(req: UpstreamForwardRequest): Promise<For
         break
       }
 
+      // F-674:渠道腿此前只看 resp.ok,200 text/html / 错误 JSON 也记 key 健康并当成功
+      // 透传,坏渠道长期判健康永不熔断。非流式 chat 必须校验协议体可解析且含 choices,
+      // 否则按 server 失败 failover(与账号池腿的 JSON 解析判据对齐)。
+      if (!req.stream && endpoint === 'chat') {
+        let protocolOk = false
+        try {
+          const probe = (await resp.clone().json()) as Record<string, unknown> | null
+          protocolOk = !!probe && Array.isArray(probe['choices']) && probe['choices'].length > 0
+        } catch {
+          protocolOk = false
+        }
+        if (!protocolOk) {
+          lastHttpStatus = 502
+          lastError = 'upstream invalid chat protocol body'
+          await resp.body?.cancel().catch(() => {})
+          await recordChannelResult(channel.keyPoolId, false, breakerLatency).catch(() => {})
+          continue
+        }
+      }
+
       // F-617:成功只认 2xx;上面 4xx 分支不记成功也不记失败
       // F-337:流式请求若由调用方在流结束后判定成败(deferStreamSuccess),这里不预记成功——
       // 否则那记成功会把连续失败计数清零,流内错误帧永远推不开熔断。

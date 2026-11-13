@@ -394,7 +394,7 @@ export async function getStats(): Promise<CodesStats> {
       status: redemptionCodes.status,
       count: sql<number>`count(*)::int`,
       faceValueSum: sql<number>`coalesce(sum(${redemptionCodes.faceValueCents}), 0)::int`,
-      tokenSum: sql<number>`coalesce(sum(${redemptionCodes.tokenAmount}), 0)::bigint::int`,
+      tokenSum: sql<number>`coalesce(sum(${redemptionCodes.tokenAmount}), 0)::bigint`,
     })
     .from(redemptionCodes)
     .groupBy(redemptionCodes.status)
@@ -416,7 +416,8 @@ export async function getStats(): Promise<CodesStats> {
     else if (row.status === 'expired') stats.expired += row.count
     else if (row.status === 'disabled') stats.disabled += row.count
     stats.totalFaceValueCents += row.faceValueSum
-    stats.totalTokenAmount += row.tokenSum
+    // F-668: 去掉末端 ::int 后 PG 返回 int8 字符串,必须 Number() 转换,否则字符串拼接。
+    stats.totalTokenAmount += Number(row.tokenSum)
   }
 
   return stats

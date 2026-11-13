@@ -460,7 +460,15 @@ export async function planAtomicRollback(
       restoreBytes += rec.size
       continue
     }
-    const cur = sha256(await readFile(abs))
+    let cur: string
+    try {
+      cur = sha256(await readFile(abs))
+    } catch {
+      // F-565:stat 可读但 readFile 失败(EACCES/被并发删除)时,不能整体 500。
+      // 归入 uncovered,沿用 F-564 既有的「读不到不按快照覆盖」语义。
+      unread.push({ path: rec.path, reason: '当前文件内容读取失败,不能按快照覆盖' })
+      continue
+    }
     if (cur === rec.hash) {
       unchanged++
     } else {
@@ -476,7 +484,12 @@ export async function planAtomicRollback(
     if (snapshotPaths.has(rel) || held.has(rel)) continue
     const abs = resolveInsideRoot(wsAbs, rel)
     if (!abs) continue
-    remove.push({ path: rel, currentHash: sha256(await readFile(abs)) })
+    try {
+      remove.push({ path: rel, currentHash: sha256(await readFile(abs)) })
+    } catch {
+      // F-565:本地新增文件读取失败时,无法留痕 currentHash,不能安全删除,归入 uncovered。
+      unread.push({ path: rel, reason: '当前文件内容读取失败,不能安全删除' })
+    }
   }
 
   // F-564:两条采集路径的漏采都要计入;存在漏采时 partial=true,不能宣称完整覆盖

@@ -205,11 +205,10 @@ const PUBLIC_PREFIXES = [
   // P2 修复(2026-08-06):移除 '/api/vip/' 前缀豁免——该前缀下无服务端回调,
   // 全部写端点(purchase/order/levels CRUD/users cancel)均需 authenticate 鉴权,
   // 已登录请求走下方 Bearer JWT / auth_token cookie 豁免,未登录应返 401 而非绕过 CSRF。
-  // 2026-07-28 加固:本地工作区文件浏览是 read-only(列目录结构/打开文件夹),
-  // 由 fsBridge 处理,无副作用;同时已有 requireAuth 鉴权(workspace-ai.ts:84),
-  // CSRF 校验在此是冗余(主要防 csrf 利用已登录 cookie,但 browse 无副作用可攻击),
-  // 跨端口 fetch 8801->8802 cookie 传递链路脆弱,直接豁免避免误伤合法用户
-  '/api/workspace/fs/',
+  // F-614:此前按前缀整个豁免 /api/workspace/fs/,但该前缀下已有 write/edit/delete/run
+  // 四个 POST 状态变更/命令执行端点(workspace-ai.ts),「只读浏览」的理由并不成立。
+  // 删除该前缀豁免:只读 GET 由下方 Bearer JWT / auth_token cookie 的已登录豁免覆盖,
+  // 写端点必须带 CSRF token(或 Bearer),不再被前缀绕过。
   // 同源嵌入代理(2026-09-02 立,WorkPanel 内嵌浏览器):无状态开放代理,仅取回并重写目标页,
   // 不写库/不改状态/不读本站 cookie;POST 仅供嵌入式第三方页面表单提交(iframe 拿不到 CSRF token)。
   // 若依赖已登录豁免,反而会在嵌入第三方站点时把本站 cookie 带到请求里,语义更差;

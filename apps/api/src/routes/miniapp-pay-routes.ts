@@ -172,7 +172,9 @@ export const miniappPayRoutes: FastifyPluginAsync = async (server) => {
       await dbRead.select().from(orders).where(eq(orders.orderNo, params.data.orderNo)).limit(1)
     )[0]
     if (!order) return reply.status(404).send(error(404, '订单不存在'))
-    if (order.userId && order.userId !== userId) {
+    // F-655:无主订单(userId=null,注销用户订单)必须拒绝,不能把「归属未知」当放行;
+    // 与支付接口严格 !== 口径一致,否则可改无主待支付订单金额并核销/退还其上优惠券。
+    if (!order.userId || order.userId !== userId) {
       return reply.status(403).send(error(403, '无权操作此订单'))
     }
     if (order.status !== 'pending') {

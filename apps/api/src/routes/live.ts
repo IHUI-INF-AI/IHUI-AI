@@ -65,6 +65,7 @@ const R = {
   401: { type: 'object', properties: { code: { type: 'number' }, message: { type: 'string' } } },
   403: { type: 'object', properties: { code: { type: 'number' }, message: { type: 'string' } } },
   404: { type: 'object', properties: { code: { type: 'number' }, message: { type: 'string' } } },
+  501: { type: 'object', properties: { code: { type: 'number' }, message: { type: 'string' } } },
 }
 
 // =============================================================================
@@ -793,13 +794,12 @@ export const adminLiveRoutes: FastifyPluginAsync = async (server) => {
     if (!body.streamName) {
       return reply.status(400).send(error(400, 'streamName 不能为空'))
     }
-    return reply.send(
-      success({
-        streamName: body.streamName,
-        pushUrl: `rtmp://push.example.com/live/${body.streamName}`,
-        playUrl: `rtmp://play.example.com/live/${body.streamName}`,
-      }),
-    )
+    // F-506:tencent-live-service 目前只提供 callback 验签/事件处理,无创建直播流能力;
+    // 原实现返回 push/play.example.com 假地址并报 200「创建成功」⇒ 改为 501 + stub 标记,
+    // 避免后台把占位响应误判为真实流已创建。
+    return reply
+      .status(501)
+      .send(error(501, '腾讯云直播流创建尚未接入(stub):当前无创建能力'))
   })
 
   // GET /live/tencent/streams - 查询腾讯云直播流列表
@@ -808,14 +808,10 @@ export const adminLiveRoutes: FastifyPluginAsync = async (server) => {
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-    return reply.send(
-      success({
-        page: parsed.data.page,
-        pageSize: parsed.data.pageSize,
-        total: 0,
-        list: [],
-      }),
-    )
+    // F-506:列表恒 total:0 同为桩;改为 501 + stub 标记,不再假报成功/空列表。
+    return reply
+      .status(501)
+      .send(error(501, '腾讯云直播流列表尚未接入(stub):当前无查询能力'))
   })
 
   // GET /live/tencent/callback-templates - 获取回调模板列表

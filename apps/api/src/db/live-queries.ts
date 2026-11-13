@@ -367,7 +367,12 @@ export interface LiveStatistics {
 /** 直播统计：频道总数/正在直播数/已发布数/总浏览数。 */
 export async function getLiveStatistics(): Promise<LiveStatistics> {
   const [totalRows, livingRows, publishedRows, viewRows] = await Promise.all([
-    db.select({ count: sql<number>`count(*)::int` }).from(liveChannels),
+    db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(liveChannels)
+      // F-696: total 与 living/published/viewSum 统一口径(排除禁用频道),
+      // 否则统计关系自相矛盾、前端图表不可信。
+      .where(eq(liveChannels.status, 1)),
     db
       .select({ count: sql<number>`count(*)::int` })
       .from(liveChannels)

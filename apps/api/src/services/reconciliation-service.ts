@@ -94,6 +94,15 @@ export async function reconcileAlipay(billDate: string): Promise<ReconcileResult
   try {
     const billUrl = await downloadBillUrl(billDate, 'trade')
     const resp = await fetch(billUrl)
+    // F-551:网关 5xx/404/维护页 HTML 不得被当成「平台无交易」。
+    // 判 HTTP 状态与内容类型,异常抛给 catch 写进 ReconcileResult.error,由调度层按 failed 记账。
+    if (!resp.ok) {
+      throw new Error(`支付宝账单下载失败: HTTP ${resp.status}`)
+    }
+    const contentType = resp.headers.get('content-type') ?? ''
+    if (/text\/html|application\/json/i.test(contentType)) {
+      throw new Error(`支付宝账单返回非账单内容: ${contentType || '(缺失 content-type)'}`)
+    }
     const csvText = await resp.text()
 
     const remoteTrades = parseAlipayBill(csvText)
@@ -165,26 +174,34 @@ export async function autoCloseExpiredOrders(): Promise<{
   const closed: string[] = []
   const failed: Array<{ orderNo: string; error: string }> = []
 
-  for (const order of pending) {
-    try {
-      // 调用对应支付渠道关单接口
-      if (order.paymentMethod === 'alipay') {
-        await aliCloseOrder(order.orderNo)
-      } else if (
-        order.paymentMethod === 'wechat' ||
-        order.paymentMethod === 'wechat_android' ||
-        order.paymentMethod === 'wechat_course'
-      ) {
-        await wxCloseOrder(order.orderNo)
-      }
-      // F-230:关渠道单与本地改状态之间隔着数百 ms~秒的外部调用,期间用户可能刚完成支付
-      // 并把订单置为 paid。必须用条件 UPDATE(fromStatus='pending')抢占:
-      // 返回 undefined = 状态已不是 pending(已支付/已处理),不得覆盖为 cancelled。
-      const updated = await updateOrderStatus(order.orderNo, 'cancelled', 'pending')
-      if (updated) closed.push(order.orderNo)
-    } catch (e) {
-      failed.push({ orderNo: order.orderNo, error: (e as Error).message })
-    }
+  // F-566:渠道关单是有外部延迟的串行调用,积压时单轮可能超 10 分钟导致 job 排队。
+  // 改为有界并发(每批 8):批内并行、批间串行,既缩短单轮又不放大渠道压力。
+  const CLOSE_CONCURRENCY = 8
+  for (let i = 0; i < pending.length; i += CLOSE_CONCURRENCY) {
+    const batch = pending.slice(i, i + CLOSE_CONCURRENCY)
+    await Promise.all(
+      batch.map(async (order) => {
+        try {
+          // 调用对应支付渠道关单接口
+          if (order.paymentMethod === 'alipay') {
+            await aliCloseOrder(order.orderNo)
+          } else if (
+            order.paymentMethod === 'wechat' ||
+            order.paymentMethod === 'wechat_android' ||
+            order.paymentMethod === 'wechat_course'
+          ) {
+            await wxCloseOrder(order.orderNo)
+          }
+          // F-230:关渠道单与本地改状态之间隔着数百 ms~秒的外部调用,期间用户可能刚完成支付
+          // 并把订单置为 paid。必须用条件 UPDATE(fromStatus='pending')抢占:
+          // 返回 undefined = 状态已不是 pending(已支付/已处理),不得覆盖为 cancelled。
+          const updated = await updateOrderStatus(order.orderNo, 'cancelled', 'pending')
+          if (updated) closed.push(order.orderNo)
+        } catch (e) {
+          failed.push({ orderNo: order.orderNo, error: (e as Error).message })
+        }
+      }),
+    )
   }
 
   return { scanned: pending.length, closed, failed }
