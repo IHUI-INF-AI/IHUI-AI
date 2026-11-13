@@ -493,9 +493,10 @@ export async function closeSession(sessionId: string): Promise<CustomerServiceSe
       ),
     )
     .returning()
-  if (rows.length === 0) return undefined
-  if (rows[0].agentId) await adjustAgentLoad(rows[0].agentId, -1)
-  return rows[0]
+  const row = rows[0]
+  if (!row) return undefined
+  if (row.agentId) await adjustAgentLoad(row.agentId, -1)
+  return row
 }
 
 // =============================================================================

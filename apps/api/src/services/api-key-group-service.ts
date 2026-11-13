@@ -313,11 +313,12 @@ export async function acceptInvite(inviteCode: string, apiKeyId: string): Promis
         ),
       )
       .returning({ groupId: apiKeyGroupInvites.groupId })
-    if (rows.length === 0) return null
+    const row = rows[0]
+    if (!row) return null
     await tx
       .insert(apiKeyGroupMembers)
-      .values({ groupId: rows[0].groupId, apiKeyId, role: 'member' })
-    return rows[0]
+      .values({ groupId: row.groupId, apiKeyId, role: 'member' })
+    return row
   })
 
   if (!claimed) throw new Error('邀请码已被使用或已过期')
