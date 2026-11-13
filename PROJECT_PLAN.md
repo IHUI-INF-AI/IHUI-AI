@@ -12243,7 +12243,6 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 536G. **缺陷普查 API F-536** [P2] /workbook/open 的归属判据依赖只有 /save 会写的元数据，普通上传的 xlsx 恒 404（证据 docs/tickets/2026-11/findings-api.md#F-536）
 - [ ] 540G. **缺陷普查 API F-540** [P3] workbook save 与 write 无会话级互斥，await writeBuffer() 期间可被并发改写（证据 docs/tickets/2026-11/findings-api.md#F-540）
 - [ ] 574G. **缺陷普查 API F-574** [P2] sum(金额)::int 溢出的 11 处新实例（F-22/F-458 未列）（证据 docs/tickets/2026-11/findings-api.md#F-574）
-- [ ] 584G. **缺陷普查 API F-585** [P2] completeOrder 路径不发积分、不写 order.paid outbox（证据 docs/tickets/2026-11/findings-api.md#F-585）
 - [ ] 586G. **缺陷普查 API F-587** [P2] 订阅实例的 orderNo 幂等靠副本读 + 非唯一索引，异常吞成 null（证据 docs/tickets/2026-11/findings-api.md#F-587）
 - [ ] 587G. **缺陷普查 API F-588** [P3] AI 预算 upsert 无唯一约束，并发激活产生重复预算行（证据 docs/tickets/2026-11/findings-api.md#F-588）
 - [ ] 619G. **缺陷普查 API F-620** [P2] Key 三窗口限流预检读副本 + 先查后计，并发与失败请求均超发（证据 docs/tickets/2026-11/findings-api.md#F-620）
