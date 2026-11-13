@@ -29,6 +29,7 @@ import {
   tokenFlows,
   userBillingGroups,
   apiSubscriptions,
+  outboxEvents,
 } from '@ihui/database'
 import { generateApiKey, hashSecret } from '../utils/api-key-hash.js'
 import { logger } from '../utils/logger.js'
@@ -92,12 +93,49 @@ export interface UserSubscriptionStatus {
   windows: SubscriptionWindowStatus[]
 }
 
-/** 激活结果。 */
+/**
+ * 事务提交后的附属步骤告警码(F-375)。
+ *
+ * - subscription_window_failed:窗口型订阅实例创建/续期失败(配额窗口缺失)
+ * - billing_group_missing_period:套餐缺少有效周期,拒绝写入计费分组(折扣缺失)
+ * - billing_group_not_found:套餐绑定的计费分组不存在/未启用
+ * - billing_group_assign_failed:入组写库抛错(折扣缺失)
+ * - compensation_register_failed:补偿任务本身登记失败,需人工介入
+ */
+export type PostCommitWarningCode =
+  | 'subscription_window_failed'
+  | 'billing_group_missing_period'
+  | 'billing_group_not_found'
+  | 'billing_group_assign_failed'
+  | 'compensation_register_failed'
+
+/** 单条附属步骤告警(F-375)。 */
+export interface PostCommitWarning {
+  code: PostCommitWarningCode
+  step: 'subscription_window' | 'billing_group' | 'compensation'
+  message: string
+}
+
+/**
+ * 激活结果。
+ *
+ * F-375:`success=true` 不再等价于「全部权益已到账」。主事务(Key 授信 + 发放流水)
+ * 提交后仍有附属步骤(订阅实例、计费分组),任一步失败时返回
+ * `status='partial'` + `warnings`(调用方应对应 202 部分成功,而不是纯成功码),
+ * 并把待补偿动作登记为 outbox 事件(`compensationEventId`)。
+ * 省略 status 的既有返回值语义等同 `ok`,成功路径字段保持不变。
+ */
 export interface ActivateResult {
   success: boolean
   keyId?: string
   tokenQuota?: number
   reason?: string
+  /** ok = 全部附属步骤成功;partial = 主事务已提交但附属权益缺失(见 warnings) */
+  status?: 'ok' | 'partial'
+  /** 附属步骤失败明细;空/未设置表示没有失败 */
+  warnings?: PostCommitWarning[]
+  /** 已登记的补偿任务(outbox_events.id);null = 无需补偿或登记失败 */
+  compensationEventId?: string | null
 }
 
 // =============================================================================
@@ -607,6 +645,64 @@ export async function extendApiSubscriptionPeriod(
 }
 
 /**
+ * 需要重试补偿的告警码(F-375):仅"执行期失败"——重放有机会成功。
+ * 配置类问题(缺周期 / 分组不存在或未启用)重试不会自愈,只出告警。
+ */
+const COMPENSABLE_WARNING_CODES: ReadonlySet<PostCommitWarningCode> = new Set([
+  'subscription_window_failed',
+  'billing_group_assign_failed',
+])
+
+/**
+ * 登记激活补偿任务(F-375)。
+ *
+ * 主事务提交后附属步骤失败时,把「还需补做的动作」落成 outbox_events(status=pending),
+ * 由既有 outbox 排空链路(plugins/scheduler.ts 的 outbox-drain-every-30s)认领并留痕,
+ * 运营/后续消费者可据此重放——这正是「重放被流水幂等挡掉、无法自愈」的补偿入口。
+ *
+ * 登记本身失败不能静默:返回 null,调用方据此追加 compensation_register_failed 告警,
+ * 让响应仍为 partial 而不是纯成功。
+ */
+async function registerActivationCompensation(input: {
+  userId: string
+  planId: string
+  orderNo?: string | null
+  keyId?: string
+  tokenQuota?: number
+  warnings: PostCommitWarning[]
+}): Promise<string | null> {
+  try {
+    const [row] = await db
+      .insert(outboxEvents)
+      .values({
+        type: 'subscription.activation.compensation',
+        payload: {
+          userId: input.userId,
+          planId: input.planId,
+          orderNo: input.orderNo ?? null,
+          keyId: input.keyId ?? null,
+          tokenQuota: input.tokenQuota ?? 0,
+          warnings: input.warnings,
+          registeredAt: new Date().toISOString(),
+        },
+        status: 'pending',
+        attempts: 0,
+      })
+      .returning({ id: outboxEvents.id })
+    return row?.id ?? null
+  } catch (e) {
+    logger.error('[api-subscription] 附属步骤失败且补偿任务登记失败,需人工核对', {
+      userId: input.userId,
+      planId: input.planId,
+      orderNo: input.orderNo ?? null,
+      warnings: input.warnings,
+      err: e instanceof Error ? e.message : String(e),
+    })
+    return null
+  }
+}
+
+/**
  * 激活 API 订阅:把 plan 的 token 配额写入用户当前活跃 Key 的 token_balance。
  *
  * 流程:
@@ -820,30 +916,53 @@ export async function activateApiSubscription(
   //      以 orderNo 去重(新建)、assignUserToGroup 以 userId upsert,回调重试不会重复建实例。
   //    - 顺延规则(F-373):新周期从 max(now, 当前到期) 起算,累计有效期不超过 5 年,
   //      重复激活不会无限延长。
-  //    - 失败仅告警:实例创建失败降级为"仅 Key 余额"模式;入组失败不影响发放,均不阻断到账。
+  //    - F-375:这些步骤跑在主事务提交之后,失败已无法回滚。因此每步失败都必须
+  //      收集为 warnings 并在末尾登记补偿任务(outbox_events),让调用方拿到
+  //      status='partial' 而不是纯成功;绝不再"打一行 warn 后照常返回成功"。
+  //      成功路径的返回值结构保持不变(不写 status/warnings/compensationEventId)。
+  const postCommitWarnings: PostCommitWarning[] = []
   if (result.success && (hasWindowLimits || planRow.billingGroupCode)) {
     let subEndAt: Date | undefined
     if (hasWindowLimits) {
-      const renewal = await extendApiSubscriptionPeriod({
-        userId,
-        planId,
-        planName: planRow.name,
-        orderNo: orderNo ?? null,
-        // SDB-03:有效期语义(0 = 永久 / 未填 = 30 天)只在 computeRenewalPeriod 与
-        // createSubscriptionForOrder 判定,这里原样透传,避免第二份默认值把 0 吞掉。
-        validityDays: planRow.validityDays,
-        dailyTokenLimit: windowLimits.daily,
-        weeklyTokenLimit: windowLimits.weekly,
-        monthlyTokenLimit: windowLimits.monthly,
-      })
-      if (renewal.ok) {
-        subEndAt = renewal.endAt
-      } else {
-        logger.warn('[api-subscription] 订阅实例创建/续期失败,降级为仅余额模式', {
+      try {
+        const renewal = await extendApiSubscriptionPeriod({
+          userId,
+          planId,
+          planName: planRow.name,
+          orderNo: orderNo ?? null,
+          // SDB-03:有效期语义(0 = 永久 / 未填 = 30 天)只在 computeRenewalPeriod 与
+          // createSubscriptionForOrder 判定,这里原样透传,避免第二份默认值把 0 吞掉。
+          validityDays: planRow.validityDays,
+          dailyTokenLimit: windowLimits.daily,
+          weeklyTokenLimit: windowLimits.weekly,
+          monthlyTokenLimit: windowLimits.monthly,
+        })
+        if (renewal.ok) {
+          subEndAt = renewal.endAt
+        } else {
+          postCommitWarnings.push({
+            code: 'subscription_window_failed',
+            step: 'subscription_window',
+            message: `订阅实例创建/续期失败:${renewal.reason ?? 'unknown'}`,
+          })
+          logger.error('[api-subscription] 订阅实例创建/续期失败,已转入补偿', {
+            userId,
+            planId,
+            orderNo,
+            reason: renewal.reason,
+          })
+        }
+      } catch (e) {
+        postCommitWarnings.push({
+          code: 'subscription_window_failed',
+          step: 'subscription_window',
+          message: `订阅实例创建/续期异常:${e instanceof Error ? e.message : String(e)}`,
+        })
+        logger.error('[api-subscription] 订阅实例创建/续期异常,已转入补偿', {
           userId,
           planId,
           orderNo,
-          reason: renewal.reason,
+          err: e instanceof Error ? e.message : String(e),
         })
       }
     } else if (planRow.billingGroupCode) {
@@ -870,6 +989,11 @@ export async function activateApiSubscription(
         if (group) {
           if (!subEndAt) {
             // F-374:拿不到明确周期时拒绝入组(写 null 会被当永久折扣),宁可不给折扣
+            postCommitWarnings.push({
+              code: 'billing_group_missing_period',
+              step: 'billing_group',
+              message: `套餐缺少有效订阅周期,未写入计费分组 ${groupName}`,
+            })
             logger.warn('[api-subscription] 套餐缺少有效订阅周期,拒绝写入计费分组', {
               userId,
               planId,
@@ -881,13 +1005,23 @@ export async function activateApiSubscription(
             await assignUserToGroup(userId, group.id, 'subscription', subEndAt)
           }
         } else {
+          postCommitWarnings.push({
+            code: 'billing_group_not_found',
+            step: 'billing_group',
+            message: `计费分组 ${groupName} 不存在或未启用`,
+          })
           logger.warn('[api-subscription] 订阅分组不存在或未启用,跳过入组', {
             userId,
             groupName,
           })
         }
       } catch (e) {
-        logger.warn('[api-subscription] 订阅入组失败(不影响到账)', {
+        postCommitWarnings.push({
+          code: 'billing_group_assign_failed',
+          step: 'billing_group',
+          message: `计费分组入组失败:${e instanceof Error ? e.message : String(e)}`,
+        })
+        logger.error('[api-subscription] 订阅入组失败,已转入补偿', {
           userId,
           groupName,
           err: e instanceof Error ? e.message : String(e),
@@ -896,7 +1030,31 @@ export async function activateApiSubscription(
     }
   }
 
-  return result
+  if (!result.success || postCommitWarnings.length === 0) return result
+
+  // F-375:执行期失败(重放可能成功)才登记补偿;配置缺失(缺周期/分组不存在)重试也不会自愈,
+  // 只以 warnings 暴露,避免给 outbox 灌入永远无法成功的任务。
+  const needsCompensation = postCommitWarnings.some((w) => COMPENSABLE_WARNING_CODES.has(w.code))
+  let compensationEventId: string | null = null
+  if (needsCompensation) {
+    compensationEventId = await registerActivationCompensation({
+      userId,
+      planId,
+      orderNo,
+      keyId: result.keyId,
+      tokenQuota: result.tokenQuota,
+      warnings: postCommitWarnings,
+    })
+    if (!compensationEventId) {
+      postCommitWarnings.push({
+        code: 'compensation_register_failed',
+        step: 'compensation',
+        message: '补偿任务登记失败,需人工核对附属权益(订阅实例/计费分组)',
+      })
+    }
+  }
+  // 附属权益缺失 ⇒ 返回显式的部分成功状态(对应 HTTP 202),不再让调用方当成纯成功。
+  return { ...result, status: 'partial', warnings: postCommitWarnings, compensationEventId }
 }
 
 // =============================================================================
