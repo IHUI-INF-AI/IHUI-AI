@@ -84,25 +84,25 @@ function StatusHeader({
   const ready = status?.ready ?? false
   return (
     <View style={styles.header}>
-      <Text style={styles.title}>{t('title')}</Text>
-      <Text style={styles.subtitle}>{t('subtitle')}</Text>
+      <Text style={styles.title}>{t('sag2Lexical.title')}</Text>
+      <Text style={styles.subtitle}>{t('sag2Lexical.subtitle')}</Text>
       <View style={styles.badgeRow}>
         <View style={[styles.badge, ready ? styles.badgeReady : styles.badgeMuted]}>
           <Text style={[styles.badgeText, ready ? styles.badgeReadyText : styles.badgeMutedText]}>
-            {ready ? t('ready') : t('empty')}
+            {ready ? t('sag2Lexical.ready') : t('sag2Lexical.empty')}
           </Text>
         </View>
         <Text style={styles.meta}>
-          {t('version')} {status?.version ?? '—'}
+          {t('sag2Lexical.version')} {status?.version ?? '—'}
         </Text>
         <Text style={styles.meta}>
-          {t('documents')} {status?.documents ?? '—'}
+          {t('sag2Lexical.documents')} {status?.documents ?? '—'}
         </Text>
         <Text style={styles.meta}>
-          {t('chunks')} {status?.chunks ?? '—'}
+          {t('sag2Lexical.chunks')} {status?.chunks ?? '—'}
         </Text>
         <Text style={styles.meta}>
-          {t('terms')} {status?.terms ?? '—'}
+          {t('sag2Lexical.terms')} {status?.terms ?? '—'}
         </Text>
       </View>
       {status && status.extractors.length > 0 ? (
@@ -111,11 +111,11 @@ function StatusHeader({
             <View key={e.label} style={styles.probe}>
               <Text style={styles.probeText}>
                 {e.label === 'raster'
-                  ? t('extractRaster')
+                  ? t('sag2Lexical.extractRaster')
                   : e.label === 'ocr'
-                    ? t('extractOcr')
-                    : t('extractAsr')}{' '}
-                {e.installed ? e.engine : t('missing')}
+                    ? t('sag2Lexical.extractOcr')
+                    : t('sag2Lexical.extractAsr')}{' '}
+                {e.installed ? e.engine : t('sag2Lexical.missing')}
               </Text>
             </View>
           ))}
@@ -123,7 +123,7 @@ function StatusHeader({
       ) : null}
       {status ? (
         <Text style={styles.judgeProvider}>
-          {t('judgeProvider')} {status.judgeProvider}
+          {t('sag2Lexical.judgeProvider')} {status.judgeProvider}
         </Text>
       ) : null}
     </View>
@@ -162,7 +162,7 @@ function SearchPanel({
           onPress={() => onModeChange('quick')}
         >
           <Text style={[styles.modeText, mode === 'quick' && styles.modeTextActive]}>
-            {t('quick')}
+            {t('sag2Lexical.quick')}
           </Text>
         </Pressable>
         <Pressable
@@ -170,7 +170,7 @@ function SearchPanel({
           onPress={() => onModeChange('deep')}
         >
           <Text style={[styles.modeText, mode === 'deep' && styles.modeTextActive]}>
-            {t('deep')}
+            {t('sag2Lexical.deep')}
           </Text>
         </Pressable>
       </View>
@@ -179,34 +179,36 @@ function SearchPanel({
         style={styles.input}
         value={query}
         onChangeText={onQueryChange}
-        placeholder={t('queryPlaceholder')}
+        placeholder={t('sag2Lexical.queryPlaceholder')}
         placeholderTextColor={styles.meta.color}
         multiline
       />
       <Pressable style={styles.primaryBtn} onPress={onSearch} disabled={loading}>
         <Text style={styles.primaryBtnText}>
-          {loading ? t('loading') : t(mode === 'quick' ? 'quick' : 'deep')}
+          {loading ? t('sag2Lexical.loading') : t(mode === 'quick' ? 'quick' : 'deep')}
         </Text>
       </Pressable>
 
       {/* 纯词法判定(modelCalls=0)时如实展示,不把 BM25 分数伪装成模型证据。 */}
-      {modelCalls === 0 ? <Text style={styles.modelCalls}>{t('modelCalls')}</Text> : null}
+      {modelCalls === 0 ? (
+        <Text style={styles.modelCalls}>{t('sag2Lexical.modelCalls')}</Text>
+      ) : null}
       {!judgeExecuted && mode === 'deep' ? (
         <View style={styles.judgeOff}>
           <Text style={styles.judgeOffText}>
-            {t('judgeOff')}（{judgeMode}）
+            {t('sag2Lexical.judgeOff')}（{judgeMode}）
           </Text>
         </View>
       ) : null}
 
       {rows.length === 0 ? (
-        <Text style={styles.emptyResult}>{t('emptyResult')}</Text>
+        <Text style={styles.emptyResult}>{t('sag2Lexical.emptyResult')}</Text>
       ) : (
         <View style={styles.resultList}>
           {rows.map((r) => (
             <View key={r.key} style={styles.resultCard}>
               <Text style={styles.resultPath}>
-                {r.title || r.path} · {t('bm25')} {r.bm25.toFixed(3)}
+                {r.title || r.path} · {t('sag2Lexical.bm25')} {r.bm25.toFixed(3)}
               </Text>
               <Highlighted text={r.snippet} spans={r.highlights} highlightStyle={styles.hit} />
               {r.hop > 0 ? <Text style={styles.hop}>hop {r.hop}</Text> : null}
@@ -219,7 +221,7 @@ function SearchPanel({
       {mode === 'deep' && deepRows.length > 0 ? (
         <View style={styles.fuseBlock}>
           <Pressable style={styles.fuseBtn} onPress={onFuse}>
-            <Text style={styles.fuseBtnText}>{t('fuse')}</Text>
+            <Text style={styles.fuseBtnText}>{t('sag2Lexical.fuse')}</Text>
           </Pressable>
           {fused ? (
             <View style={styles.fuseResult}>
@@ -240,7 +242,7 @@ function SearchPanel({
       {/* 引用锚点:可直达原文(文件 hash + byte range 由后端下发) */}
       {citations.length > 0 ? (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{t('citations')}</Text>
+          <Text style={styles.sectionTitle}>{t('sag2Lexical.citations')}</Text>
           {citations.map((c, i) => (
             <View key={`${c.path}:${i}`} style={styles.citation}>
               <Text style={styles.citationTitle}>
@@ -250,7 +252,7 @@ function SearchPanel({
                 {c.passage}
               </Text>
               <Text style={styles.meta}>
-                {t('score')} {c.score.toFixed(3)} · hop {c.hop}
+                {t('sag2Lexical.score')} {c.score.toFixed(3)} · hop {c.hop}
               </Text>
             </View>
           ))}
@@ -260,16 +262,17 @@ function SearchPanel({
       {/* 检索轨迹:多跳的候选池 + 扩展词 + 判定器状态,全程可追溯 */}
       {trace.length > 0 ? (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{t('trace')}</Text>
+          <Text style={styles.sectionTitle}>{t('sag2Lexical.trace')}</Text>
           {trace.map((h) => (
             <View key={h.hop} style={styles.traceHop}>
               <Text style={styles.traceHopTitle}>
-                hop {h.hop} · {t('tracePool')} {h.poolSize}
+                hop {h.hop} · {t('sag2Lexical.tracePool')} {h.poolSize}
               </Text>
               <Text style={styles.meta}>{h.candidates.slice(0, 8).join(' / ')}</Text>
               {h.terms.length > 0 ? (
                 <Text style={styles.meta}>
-                  {t('traceTerms')}: {h.terms.map((x) => `${x.term}(${x.kind})`).join(', ')}
+                  {t('sag2Lexical.traceTerms')}:{' '}
+                  {h.terms.map((x) => `${x.term}(${x.kind})`).join(', ')}
                 </Text>
               ) : null}
               <Text style={styles.meta}>
@@ -315,7 +318,7 @@ export function Sag2Screen({
     <View style={styles.screen}>
       <View style={styles.navBar}>
         <BackChevron onPress={onBack} colorScheme={colorScheme} />
-        <Text style={styles.navTitle}>{t('title')}</Text>
+        <Text style={styles.navTitle}>{t('sag2Lexical.title')}</Text>
       </View>
       {error ? <ErrorState message={error} colorScheme={colorScheme} /> : null}
       {notice ? (
@@ -345,7 +348,7 @@ export function Sag2Screen({
           styles={styles}
         />
         {status === null && !loading ? (
-          <EmptyState title={t('empty')} colorScheme={colorScheme} />
+          <EmptyState title={t('sag2Lexical.empty')} colorScheme={colorScheme} />
         ) : null}
       </ScrollView>
     </View>
