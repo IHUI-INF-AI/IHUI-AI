@@ -227,37 +227,25 @@ export async function wechatAppCode2session(code: string): Promise<WechatAppSess
     `https://api.weixin.qq.com/sns/oauth2/access_token?appid=${env.WECHAT_MOBILE_APP_ID}&secret=${env.WECHAT_MOBILE_SECRET}&code=${code}&grant_type=authorization_code`,
   )
   if (!tokenRes.ok) throw new Error(`wechat app token failed: ${tokenRes.status}`)
-  const tokenData = (await tokenRes.json()) as {
-    access_token?: string
-    refresh_token?: string
-    openid?: string
-    unionid?: string
-    errcode?: number
-    errmsg?: string
-  }
-  if (!tokenData.access_token || !tokenData.openid) {
-    throw new Error(`微信移动应用授权码无效: ${tokenData.errmsg ?? tokenData.errcode ?? ''}`)
-  }
+  const tokenData = (await tokenRes.json()) as Record<string, unknown>
+  // 微信拒绝一次性 code / 密钥不匹配时回的是 HTTP 200 + body.errcode(40029/40163/40125),
+  // 旧写法只判 access_token 存在与否、把 errcode 丢进一条泛化文案 ⇒ 线上只能看到
+  // 「登录已过期」而拿不到真因(与 jscode2session 那格同一缺陷族:200 不等于成功)。
+  const accessToken = requireWechatField('微信移动应用 code2session', tokenData, 'access_token')
+  const tokenOpenId = requireWechatField('微信移动应用 code2session', tokenData, 'openid')
   const userRes = await oauthFetch(
-    `https://api.weixin.qq.com/sns/userinfo?access_token=${tokenData.access_token}&openid=${tokenData.openid}`,
+    `https://api.weixin.qq.com/sns/userinfo?access_token=${accessToken}&openid=${tokenOpenId}`,
   )
-  const wxUser = (await userRes.json()) as {
-    openid?: string
-    unionid?: string
-    nickname?: string
-    headimgurl?: string
-    errcode?: number
-    errmsg?: string
-  }
-  if (wxUser.errcode) {
-    throw new Error(`微信移动应用用户信息获取失败: ${wxUser.errmsg ?? wxUser.errcode}`)
-  }
+  const wxUser = (await userRes.json()) as Record<string, unknown>
+  const userOpenId = requireWechatField('微信移动应用 userinfo', wxUser, 'openid')
+  const unionId = wxUser.unionid ?? tokenData.unionid
   return {
-    openId: wxUser.openid ?? tokenData.openid ?? '',
-    unionId: wxUser.unionid ?? tokenData.unionid ?? '',
-    refreshToken: tokenData.refresh_token,
-    nickname: wxUser.nickname,
-    avatar: wxUser.headimgurl,
+    openId: userOpenId,
+    unionId: typeof unionId === 'string' ? unionId : '',
+    refreshToken:
+      typeof tokenData.refresh_token === 'string' ? tokenData.refresh_token : undefined,
+    nickname: typeof wxUser.nickname === 'string' ? wxUser.nickname : undefined,
+    avatar: typeof wxUser.headimgurl === 'string' ? wxUser.headimgurl : undefined,
   }
 }
 
