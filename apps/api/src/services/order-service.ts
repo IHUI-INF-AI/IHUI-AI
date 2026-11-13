@@ -122,7 +122,7 @@ async function notifyPaymentSuccessSms(order: Order): Promise<void> {
  */
 export async function completeOrder(
   orderNo: string,
-  _tradeNo?: string,
+  tradeNo?: string,
   tx?: DbTx,
 ): Promise<OrderOperationResult> {
   const order = await findOrderByNo(orderNo, tx)
@@ -135,6 +135,8 @@ export async function completeOrder(
       const refetched = await findOrderByNo(orderNo, tx)
       if (refetched && refetched.status === 'paid') {
         await rechargeIfTokenOrder(refetched, tx)
+        // F-585:幂等补发积分 + order.paid Outbox(锁内查重,重复调用恰好一次)
+        await awardPointsAndEmitOutbox(refetched, tradeNo, tx)
         return { success: true, order: refetched }
       }
       return { success: false, reason: '订单状态不可完成' }
@@ -143,6 +145,13 @@ export async function completeOrder(
     await rechargeIfTokenOrder(updated, tx)
     // B4: 学费订单(orderType=9)自动入账(幂等:receiptNo=orderNo 查重)
     await applyEduTuitionOrder(updated, tx)
+    // F-585:此前 completeOrder 只做 token 充值/学费入账,**从不发积分、从不写 order.paid
+    // Outbox** —— 而 admin-extended/order-routes 的注释早已声称"paid → completeOrder
+    // (token 充值/学费入账/积分/Outbox)"。于是走 completeOrder 的支付渠道(微信/支付宝
+    // 回调、管理员补单、企业券核销、连续包月代扣)用户拿不到消费积分,下游(BI/佣金/
+    // 通知)也永远收不到 order.paid 事件。现补齐:与 saga 路径共用同一把行锁 + 同一套
+    // 锁内查重,两条路径并发时仍然恰好一次。
+    await awardPointsAndEmitOutbox(updated, tradeNo, tx)
     // business_orders_total{type,status="paid"} / business_payments_total{channel,status="success"}:
     // 只在**真实发生的那一次** pending→paid 条件 UPDATE 之后计(上方 `!updated` 的并发竞态
     // 与下面 status 已是 paid 的幂等重放分支都不计)——与 completeOrderWithSaga 里
@@ -158,6 +167,8 @@ export async function completeOrder(
     // 幂等重试:订单已支付,重新尝试 token 充值(unique 索引保证幂等)
     await rechargeIfTokenOrder(order, tx)
     await applyEduTuitionOrder(order, tx)
+    // F-585:崩溃窗口恢复 —— 订单已 paid 但积分/Outbox 未落地时,由下一次重试补齐
+    await awardPointsAndEmitOutbox(order, tradeNo, tx)
     return { success: true, order }
   }
   return { success: false, reason: `订单状态(${order.status})不可完成` }
@@ -314,28 +325,30 @@ async function hasOrderPaidOutbox(tx: DbTx, orderNo: string): Promise<boolean> {
 }
 
 /**
- * P1-5(2026-08-06):已支付订单副作用重放 —— 崩溃窗口恢复/重试时补执行。
- * 各步骤幂等,可安全重复调用:
- * 1. token 充值:rechargeToken 内部 (related_order_no, op_type) unique 索引拦截重复;
- * 2. 积分发放:先查 point_transactions 是否已有 referenceId=orderNo 的 earn 流水,有则跳过;
- * 3. Outbox:先查 order.paid 事件是否已存在(按 payload->>'orderNo' 匹配),有则跳过。
- * F-12(2026-11-12):2/3 收进同一事务并先对 orders 行 FOR UPDATE —— 与胜利方 saga 并发
- * 时靠行锁串行,锁内查重才真正恰好一次(原「事务外先查后插」会与胜利方未提交写入交错)。
- * 任一步失败抛出,由 paymentIdempotency 失败分支释放锁,让回调平台重试。
+ * F-585(2026-11-14):已支付订单的「消费积分 + order.paid Outbox」唯一出口。
+ *
+ * 为什么抽这一支:`completeOrder`(微信/支付宝回调、管理员补单、企业券核销、连续包月代扣)
+ * 与 `completeOrderWithSaga`/`replayPaidSideEffects` 是两条独立的履约路径,而只有后者发过
+ * 积分和 Outbox ⇒ 走 completeOrder 的订单用户拿不到消费积分、下游收不到 order.paid 事件。
+ * 现在两条路径共用本函数,判据只有一份,不存在"改一处漏另一处"。
+ *
+ * 幂等:
+ * - 先对 orders 行 FOR UPDATE,与并发的另一条路径串行化(F-12 的同一把锁);
+ * - 积分按 (referenceId=orderNo, type='earn') 查重,Outbox 按 payload->>'orderNo' 查重;
+ * - 传 externalTx 时在该事务内执行(与外层履约原子),否则自开事务。
+ *
+ * @param order  已 paid 的订单
+ * @param tradeNo 第三方交易号(写入 outbox payload,可空)
+ * @param externalTx 外层事务;调用方已持事务时传入,避免嵌套开新事务
  */
-async function replayPaidSideEffects(order: Order, tradeNo?: string): Promise<void> {
-  // ⓪ 学费订单入账(幂等:receipt_no 唯一索引 + 账目出口重算)。
-  // 此前这一支**不在重放清单里** —— 而 applyEduTuitionOrder 只在正常回调路径被调,
-  // 于是"回调进来了、进程在入账前被杀"的窗口里,这笔学费永久不入账,
-  // 而订单本身是 paid 状态、再也不会重放 ⇒ 学员明明付了钱,系统继续算他欠费并催缴。
-  await applyEduTuitionOrder(order)
-
-  // ① token 充值(幂等:unique 索引)
-  await rechargeIfTokenOrder(order)
-
+async function awardPointsAndEmitOutbox(
+  order: Order,
+  tradeNo?: string,
+  externalTx?: DbTx,
+): Promise<void> {
   const pointsToAward = Math.max(0, Math.floor(order.amount / 100))
-  await db.transaction(async (tx) => {
-    // F-12:行锁先行 —— 回调(胜利方 saga)与重放双开的串行化点
+  const run = async (tx: DbTx): Promise<void> => {
+    // F-12:行锁先行 —— 与其他履约路径串行化
     await lockOrderRow(tx, order.orderNo)
 
     // ② 积分发放(锁内幂等:referenceId 查重,后到者见先行者已提交的流水)
@@ -367,7 +380,36 @@ async function replayPaidSideEffects(order: Order, tradeNo?: string): Promise<vo
         tx,
       )
     }
-  })
+  }
+  if (externalTx) {
+    await run(externalTx)
+    return
+  }
+  await db.transaction(run)
+}
+
+/**
+ * P1-5(2026-08-06):已支付订单副作用重放 —— 崩溃窗口恢复/重试时补执行。
+ * 各步骤幂等,可安全重复调用:
+ * 1. token 充值:rechargeToken 内部 (related_order_no, op_type) unique 索引拦截重复;
+ * 2. 积分发放:先查 point_transactions 是否已有 referenceId=orderNo 的 earn 流水,有则跳过;
+ * 3. Outbox:先查 order.paid 事件是否已存在(按 payload->>'orderNo' 匹配),有则跳过。
+ * F-12(2026-11-12):2/3 收进同一事务并先对 orders 行 FOR UPDATE —— 与胜利方 saga 并发
+ * 时靠行锁串行,锁内查重才真正恰好一次(原「事务外先查后插」会与胜利方未提交写入交错)。
+ * 任一步失败抛出,由 paymentIdempotency 失败分支释放锁,让回调平台重试。
+ */
+async function replayPaidSideEffects(order: Order, tradeNo?: string): Promise<void> {
+  // ⓪ 学费订单入账(幂等:receipt_no 唯一索引 + 账目出口重算)。
+  // 此前这一支**不在重放清单里** —— 而 applyEduTuitionOrder 只在正常回调路径被调,
+  // 于是"回调进来了、进程在入账前被杀"的窗口里,这笔学费永久不入账,
+  // 而订单本身是 paid 状态、再也不会重放 ⇒ 学员明明付了钱,系统继续算他欠费并催缴。
+  await applyEduTuitionOrder(order)
+
+  // ① token 充值(幂等:unique 索引)
+  await rechargeIfTokenOrder(order)
+
+  // ②③ 积分发放 + order.paid Outbox —— 与 completeOrder 共用同一出口(F-585)
+  await awardPointsAndEmitOutbox(order, tradeNo)
 }
 
 /** Saga 编排结果。 */
