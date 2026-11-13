@@ -174,6 +174,33 @@ describe('repairWorkspaceIssue', () => {
     expect(result.ok).toBe(false)
   })
 
+    it('dependency:dryRun 计划用固定 argv;未登记根时真实执行落审计 fail 而非抛出(F-267)', async () => {
+    const saved = process.env.IHUI_WORKSPACE_ROOTS
+    delete process.env.IHUI_WORKSPACE_ROOTS
+    try {
+      const ws = makeWorkspace()
+      writeFileSync(join(ws, 'package.json'), '{}', 'utf-8')
+      const planned = await repairWorkspaceIssue({
+        workspacePath: ws,
+        kind: 'dependency',
+        dryRun: true,
+      })
+      expect(planned.steps[1]?.command).toBe('pnpm install --ignore-scripts --no-frozen-lockfile')
+      const done = await repairWorkspaceIssue({
+        workspacePath: ws,
+        kind: 'dependency',
+        dryRun: false,
+      })
+      expect(done.ok).toBe(false)
+      const install = done.steps.find((s) => s.step === '依赖安装')
+      expect(install?.status).toBe('fail')
+      expect(install?.output).toContain('未启用')
+    } finally {
+      if (saved === undefined) delete process.env.IHUI_WORKSPACE_ROOTS
+      else process.env.IHUI_WORKSPACE_ROOTS = saved
+    }
+  })
+
   it('port:forceKillPid 缺省 → planned 且 ok=false(不误杀)', async () => {
     const server = createServer()
     await new Promise<void>((resolveListen) => server.listen(0, '127.0.0.1', resolveListen))
