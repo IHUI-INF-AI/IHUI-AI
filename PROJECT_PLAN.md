@@ -12234,8 +12234,6 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 150G. **缺陷普查 API F-150** [P3] 报表趋势按 UTC 切日、且 endDate 被截到当天 00:00（丢最后一天）（证据 docs/tickets/2026-11/findings-api.md#F-150）
 - [ ] 157G. **缺陷普查 API F-157** [P2] 平台 Key 大模型调用无计量/无配额（绕过 token 扣费）（证据 docs/tickets/2026-11/findings-api.md#F-157）
 - [ ] 162G. **缺陷普查 API F-162** [P2] 数据清理声称「单批上限 50000 行」，实际 DELETE 无 LIMIT，可一次删光整表历史（证据 docs/tickets/2026-11/findings-api.md#F-162）
-- [ ] 164G. **缺陷普查 API F-164** [P2] 返佣两级费率各自 ≤1，合计可达 200%，释放时直接给上级 Key 余额加钱（证据 docs/tickets/2026-11/findings-api.md#F-164）
-- [ ] 171G. **缺陷普查 API F-171** [P2] /api/edu/courses/:id/qa 先按全站分页再内存过滤，分页与 total 均失真（证据 docs/tickets/2026-11/findings-api.md#F-171）
 - [ ] 174G. **缺陷普查 API F-174** [P2] recordWatch 读改写累计时长：客户端可控且可致 int4 溢出永久 500（证据 docs/tickets/2026-11/findings-api.md#F-174）
 - [ ] 175G. **缺陷普查 API F-175** [P2] 技能同步 upsert 无唯一约束，并发 push 产生同 (author_id, slug) 重复行（证据 docs/tickets/2026-11/findings-api.md#F-175）
 - [ ] 183G. **缺陷普查 API F-183** [P2] 熔断计数器 Redis 读改写非原子，并发下连续失败计数丢失、熔断难触发（证据 docs/tickets/2026-11/findings-api.md#F-183）
