@@ -12327,8 +12327,8 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 
 - [ ] 450G. **缺陷普查 API F-450** [P1] 代扣回调外层事务内再开多个事务，幂等/回滚失效（已复核，P1）（证据 docs/tickets/2026-11/findings-api.md#F-450）
 - [ ] 451G. **缺陷普查 API F-451** [P2] 签约/解约事务内混用全局连接读写（证据 docs/tickets/2026-11/findings-api.md#F-451）
-- [ ] 452G. **缺陷普查 API F-452** [P1] 代理提现全链路不冻结、无单号、驳回无守卫（已复核，P1）（证据 docs/tickets/2026-11/findings-api.md#F-452）
-- [ ] 453G. **缺陷普查 API F-453** [P1] 第 5 条管理端写入口不释放冻结、不退款（已复核，P1）（证据 docs/tickets/2026-11/findings-api.md#F-453）
+
+
 - [ ] 454G. **缺陷普查 API F-454** [P2] finance-extended 审批允许 1→2 二次释放冻结（证据 docs/tickets/2026-11/findings-api.md#F-454）
 - [ ] 455G. **缺陷普查 API F-455** [P2] admin-shop 新增/删除提现单绕过资金（证据 docs/tickets/2026-11/findings-api.md#F-455）
 - [ ] 457G. **缺陷普查 API F-457** [P3] 状态码 3/4 语义分裂导致后台统计缺项（证据 docs/tickets/2026-11/findings-api.md#F-457）
