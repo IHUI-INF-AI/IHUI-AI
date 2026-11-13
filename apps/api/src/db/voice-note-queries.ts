@@ -69,7 +69,6 @@ export async function listVoiceNotes(
       ? isNotNull(chatVoiceNotes.archivedAt)
       : isNull(chatVoiceNotes.archivedAt),
   )
-  if (opts.groupKey) conds.push(eq(chatVoiceNotes.groupKey, opts.groupKey))
   if (opts.conversationId) conds.push(eq(chatVoiceNotes.conversationId, opts.conversationId))
   // 检索落在 SQL 谓词上(标题 + 正文两列),而不是"把整桶拉到前端再 filter":
   // 后者命中与否取决于本地恰好存了多少条,是假检索。
@@ -77,7 +76,12 @@ export async function listVoiceNotes(
     const term = asLikeTerm(opts.q.trim())
     conds.push(or(ilike(chatVoiceNotes.title, term), ilike(chatVoiceNotes.transcript, term))!)
   }
-  const where = and(...conds)
+  const where = opts.groupKey
+    ? and(...conds, eq(chatVoiceNotes.groupKey, opts.groupKey))
+    : and(...conds)
+  // 分面口径与 list/total 一致,只去掉 groupKey 维(分组本身就是按它分的):
+  // 否则筛选后角标数会大于 total,出现"列表 0 条但分组显示 10 条"。
+  const facetWhere = and(...conds)
 
   const [rows, countRows] = await Promise.all([
     db
@@ -101,7 +105,7 @@ export async function listVoiceNotes(
           count: sql<number>`count(*)::int`,
         })
         .from(chatVoiceNotes)
-        .where(eq(chatVoiceNotes.userId, userId))
+        .where(facetWhere)
         .groupBy(chatVoiceNotes.groupKey)
         .orderBy(asc(chatVoiceNotes.groupKey))
     : undefined
