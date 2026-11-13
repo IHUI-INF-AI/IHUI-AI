@@ -5,15 +5,17 @@
 /**
  * 公开 GET 接口的边缘缓存头对账(2026-10-21 立,承 PUBLIC-ACCESS-PERF-AUDIT §P1.3)。
  *
- * 它钉的是三件事,缺一都算没锁住:
- *  ① 入选的公开接口**到端**带 `public, s-maxage=60, stale-while-revalidate=60`
+ * 它钉的是四件事,缺一都算没锁住:
+ *  ① 入选的公开接口**到端**带私有缓存档 `private, max-age=60, stale-while-revalidate=60`
  *     (取值 import 自 utils/public-edge-cache.ts,本文件不抄第二份 —— §22c);
  *     并且用 `app.listen(0)` 起真实 socket 再 fetch 一遍,证明头不是 inject 的伪像;
  *  ② 带身份语义的接口**不得**带 public:`/api/agents` 的游客视图与登录视图逐字节不同
  *     (未发布行 + 未脱敏字段),共享边缘一旦缓存它就是把登录视图喂给游客 ——
  *     这条断言既是排除清单的凭据,也是"判据有牙"的阳性对照;
- *  ③ 非 2xx 与"降级"响应不得进共享缓存:404 协议缺失、以及 status/incidents 的
- *     `degraded:true` 分支都必须没有 Cache-Control(下一次请求要立刻回源重试)。
+ *  ③ 非 2xx 与"降级"响应不得进缓存:404 协议缺失、以及 status/incidents 的
+ *     `degraded:true` 分支都必须没有 Cache-Control(下一次请求要立刻回源重试);
+ *  ④ F-289:边缘缓存键不含 Origin ⇒ 任何 `public`/`s-maxage` 共享条目都可能被异源访客命中,
+ *     所以入选面只吃浏览器私有缓存(异源再压到 `private, no-store`),正反例在最后一个 it 里。
  *
  * 隔离:全程 mock db(不连生产 PG 8810 / Redis 8811,AGENTS §5),鉴权出口 mock,
  * ai-service 健康探测 mock(不发真实网络请求)。
@@ -130,7 +132,11 @@ vi.mock('../../lib/llm-provider-health.js', async (importOriginal) => {
   }
 })
 
-import { PUBLIC_EDGE_CACHE_CONTROL, withPublicEdgeCache } from '../../utils/public-edge-cache.js'
+import {
+  CROSS_ORIGIN_CACHE_CONTROL,
+  PUBLIC_READ_CACHE_CONTROL,
+  withPublicEdgeCache,
+} from '../../utils/public-edge-cache.js'
 import { systemRoutes } from '../system.js'
 import { carouselPublicRoutes } from '../carousel.js'
 import { articleRoutes } from '../articles.js'
@@ -237,12 +243,13 @@ describe('公开 GET 接口的边缘缓存头', () => {
     mockListAgents.mockReset().mockResolvedValue({ list: [], total: 0, page: 1, pageSize: 12 })
   })
 
-  it('公开面无一例外带 s-maxage=60 的 public 档(inject 面)', async () => {
+  it('公开面无一例外只吃浏览器私有缓存:不得出现 public/s-maxage(F-289 共享条目会被异源命中)', async () => {
     const seen: string[] = []
     for (const url of PUBLIC_CACHED_GETS) {
       const res = await app.inject({ method: 'GET', url })
       expect(res.statusCode, `${url} 游客必须读得到(非 401/403/500)`).toBe(200)
-      expect(cacheControlOf(res), `${url} 应带公开边缘缓存档`).toBe(PUBLIC_EDGE_CACHE_CONTROL)
+      expect(cacheControlOf(res), `${url} 应带私有缓存档`).toBe(PUBLIC_READ_CACHE_CONTROL)
+      expect(cacheControlOf(res), `${url} 不得开共享缓存`).not.toMatch(/public|s-maxage/)
       seen.push(url)
     }
     expect(seen.length).toBeGreaterThanOrEqual(10)
@@ -259,7 +266,7 @@ describe('公开 GET 接口的边缘缓存头', () => {
           `[wire-evidence] ${address}${url} → cache-control: ${res.headers.get('cache-control')}`,
         )
         expect(res.status, url).toBe(200)
-        expect(res.headers.get('cache-control'), url).toBe(PUBLIC_EDGE_CACHE_CONTROL)
+        expect(res.headers.get('cache-control'), url).toBe(PUBLIC_READ_CACHE_CONTROL)
       }
     } finally {
       await live.close()
@@ -327,8 +334,8 @@ describe('公开 GET 接口的边缘缓存头', () => {
       expect(guest.statusCode, url).toBe(200)
       expect(member.statusCode, url).toBe(200)
       expect(member.body, `${url} 登录态与游客内容必须一致`).toBe(guest.body)
-      expect(cacheControlOf(guest), url).toBe(PUBLIC_EDGE_CACHE_CONTROL)
-      expect(cacheControlOf(member), url).toBe(PUBLIC_EDGE_CACHE_CONTROL)
+      expect(cacheControlOf(guest), url).toBe(PUBLIC_READ_CACHE_CONTROL)
+      expect(cacheControlOf(member), url).toBe(PUBLIC_READ_CACHE_CONTROL)
       // 响应里不得出现身份字段(入选面都是聚合/公开投影)
       expect(guest.body).not.toContain(MEMBER_USER_ID)
     }
@@ -348,7 +355,7 @@ describe('公开 GET 接口的边缘缓存头', () => {
       })
       expect(forged.statusCode, url).toBe(200)
       expect(forged.body, `${url} 不得信客户端自报身份`).toBe(bare.body)
-      expect(cacheControlOf(forged), url).toBe(PUBLIC_EDGE_CACHE_CONTROL)
+      expect(cacheControlOf(forged), url).toBe(PUBLIC_READ_CACHE_CONTROL)
     }
   })
 
@@ -366,7 +373,7 @@ describe('公开 GET 接口的边缘缓存头', () => {
       url: '/api/agreements/current?type=user-agreement',
     })
     expect(found.statusCode).toBe(200)
-    expect(cacheControlOf(found)).toBe(PUBLIC_EDGE_CACHE_CONTROL)
+    expect(cacheControlOf(found)).toBe(PUBLIC_READ_CACHE_CONTROL)
 
     // status/incidents 的 degraded:true 是"查不到所以列表为空",不得进共享缓存
     dbState.rejectSelect = true
@@ -387,7 +394,7 @@ describe('公开 GET 接口的边缘缓存头', () => {
       },
     }
     const ok = withPublicEdgeCache(reply)
-    expect(headers['Cache-Control']).toBe(PUBLIC_EDGE_CACHE_CONTROL)
+    expect(headers['Cache-Control']).toBe(PUBLIC_READ_CACHE_CONTROL)
     expect(ok).toBe(reply)
 
     const errHeaders: Record<string, string> = {}
@@ -402,12 +409,15 @@ describe('公开 GET 接口的边缘缓存头', () => {
     expect(errHeaders['Cache-Control']).toBeUndefined()
   })
 
-  it('公开档的取值口径:s-maxage 必须有、且不得写成 private/no-store(反向锁死退化)', () => {
-    expect(PUBLIC_EDGE_CACHE_CONTROL).toMatch(/^public, s-maxage=\d+, stale-while-revalidate=\d+$/)
-    expect(PUBLIC_EDGE_CACHE_CONTROL).not.toMatch(/private|no-store|no-cache/)
+  it('缓存档的取值口径:private + max-age 必须有,public/s-maxage 一律不许(F-289 反向锁死退化)', () => {
+    expect(PUBLIC_READ_CACHE_CONTROL).toMatch(/^private, max-age=\d+, stale-while-revalidate=\d+$/)
+    expect(PUBLIC_READ_CACHE_CONTROL).not.toMatch(/public|s-maxage/)
+    // 异源响应连浏览器缓存都不留
+    expect(CROSS_ORIGIN_CACHE_CONTROL).toBe('private, no-store')
+    expect(CROSS_ORIGIN_CACHE_CONTROL).not.toMatch(/public|s-maxage/)
   })
 
-  it('跨源不进共享缓存:Origin≠Host ⇒ 不打 public;Origin==Host 或无 Origin ⇒ 照旧打(2026-10-28 实测承因)', () => {
+  it('F-289 缓存键按 Origin 分区:异源各自 no-store、同源/无 Origin 只吃浏览器私有档,任何一面都不进共享缓存', () => {
     const mk = (requestHeaders: Record<string, string | undefined>) => {
       const headers: Record<string, string> = {}
       const reply = {
@@ -420,37 +430,48 @@ describe('公开 GET 接口的边缘缓存头', () => {
       }
       return { reply, headers }
     }
-    // 桌面端 WebView 的固定 Origin 与本站 Host 不同 ⇒ 正是实测被串味的那一档
+    // 正例①(不同 Origin 各自独立):两枚异源响应都压到 no-store ⇒ 边缘不会有任何条目,
+    // 也就不可能出现"跨源请求命中同源建立的条目"。
     const cross = mk({ origin: 'http://tauri.localhost', host: 'www.aizhs.top' })
     withPublicEdgeCache(cross.reply)
     expect(
       cross.headers['Cache-Control'],
-      '跨源响应不得进共享缓存(否则边缘会把上一位访客的 ACAO 喂给本站)',
-    ).toBeUndefined()
+      '异源响应不得留下可被复用的缓存(否则边缘会把上一位访客的 ACAO 喂给本站)',
+    ).toBe(CROSS_ORIGIN_CACHE_CONTROL)
 
+    const crossOther = mk({ origin: 'https://evil.example', host: 'www.aizhs.top' })
+    withPublicEdgeCache(crossOther.reply)
+    expect(crossOther.headers['Cache-Control']).toBe(CROSS_ORIGIN_CACHE_CONTROL)
+    expect(crossOther.headers['Cache-Control']).not.toMatch(/public|s-maxage/)
+
+    // 正例②(同 Origin 命中):Origin == Host 的请求只进自己的浏览器私有缓存,
+    // 缓存键天然是 (URL, Origin),同 Origin 复访命中自己那条。
     const same = mk({ origin: 'https://www.aizhs.top', host: 'www.aizhs.top' })
     withPublicEdgeCache(same.reply)
-    expect(same.headers['Cache-Control']).toBe(PUBLIC_EDGE_CACHE_CONTROL)
+    expect(same.headers['Cache-Control']).toBe(PUBLIC_READ_CACHE_CONTROL)
 
     // 端口不同也是跨源;Host 带端口时不得误判同源
     const ported = mk({ origin: 'https://www.aizhs.top:444', host: 'www.aizhs.top' })
     withPublicEdgeCache(ported.reply)
-    expect(ported.headers['Cache-Control']).toBeUndefined()
+    expect(ported.headers['Cache-Control']).toBe(CROSS_ORIGIN_CACHE_CONTROL)
 
+    // 正例③(无 Origin 行为明确):服务端/小程序/同源浏览器 GET 不发 Origin ⇒ 私有档,
+    // 明确不是 public(共享边缘不建条目,桌面端就不可能命中它)。
     const none = mk({ host: 'www.aizhs.top' })
     withPublicEdgeCache(none.reply)
-    expect(none.headers['Cache-Control']).toBe(PUBLIC_EDGE_CACHE_CONTROL)
+    expect(none.headers['Cache-Control']).toBe(PUBLIC_READ_CACHE_CONTROL)
+    expect(none.headers['Cache-Control']).not.toMatch(/public|s-maxage/)
 
     // 退化方向:解析不出的一律算跨源(宁可少缓存一次,不可把别人的凭据域喂给本站)
     const junk = mk({ origin: 'not-a-url', host: 'www.aizhs.top' })
     withPublicEdgeCache(junk.reply)
-    expect(junk.headers['Cache-Control']).toBeUndefined()
+    expect(junk.headers['Cache-Control']).toBe(CROSS_ORIGIN_CACHE_CONTROL)
     const noHost = mk({ origin: 'http://tauri.localhost' })
     withPublicEdgeCache(noHost.reply)
-    expect(noHost.headers['Cache-Control']).toBeUndefined()
+    expect(noHost.headers['Cache-Control']).toBe(CROSS_ORIGIN_CACHE_CONTROL)
   })
 
-  it('真实 socket 上同样成立:带跨源 Origin 拿不到 public,无 Origin 照旧拿得到', async () => {
+  it('真实 socket 上同样成立:异源拿 no-store、无 Origin 拿私有档,两臂都没有 public', async () => {
     const live = await createApp()
     const address = await live.listen({ port: 0, host: '127.0.0.1' })
     try {
@@ -462,8 +483,12 @@ describe('公开 GET 接口的边缘缓存头', () => {
         `[wire-evidence] 跨源臂 cache-control=${cross.headers.get('cache-control')} / 无 Origin 臂 cache-control=${plain.headers.get('cache-control')}`,
       )
       expect(cross.status).toBe(200)
-      expect(cross.headers.get('cache-control'), '跨源臂不得带 public 档').toBeNull()
-      expect(plain.headers.get('cache-control')).toBe(PUBLIC_EDGE_CACHE_CONTROL)
+      expect(cross.headers.get('cache-control'), '跨源臂连浏览器缓存都不留').toBe(
+        CROSS_ORIGIN_CACHE_CONTROL,
+      )
+      expect(plain.headers.get('cache-control')).toBe(PUBLIC_READ_CACHE_CONTROL)
+      expect(cross.headers.get('cache-control')).not.toContain('public')
+      expect(plain.headers.get('cache-control')).not.toContain('public')
     } finally {
       await live.close()
     }
