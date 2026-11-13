@@ -172,6 +172,63 @@ async function redisOp<T>(fn: (r: Redis) => Promise<T>): Promise<T | null> {
 const CIRCUIT_REDIS_TTL_S = 600 // 熔断状态键 TTL(10 分钟无更新自动消失 = 状态自愈为 closed)
 const AFFINITY_REDIS_TTL_S = SESSION_AFFINITY_TTL_MS / 1000
 
+// F-183:熔断状态读改写原子化。旧形态 hgetall → 内存改 → hset 存在覆盖窗口——并发失败读同一值
+// 互相覆盖,坏上游持续 5xx 时 failureCount 到不了阈值、熔断迟迟不打开。
+// 用单条 Lua 在 Redis 侧原子完成「成功重置 / 失败累加 + 达阈值转 open + TTL 续期」,消除覆盖窗口。
+// 脚本 KEYS[1]=熔断 hash 键;ARGV[1]=threshold,ARGV[2]=openDurationMs,ARGV[3]=nowMs,ARGV[4]=success(1/0)。
+// 返回:写入后的 {state,failureCount,lastFailureAt,halfOpenAt},供内存镜像双写。
+const CIRCUIT_LUA = `
+local key = KEYS[1]
+local threshold = tonumber(ARGV[1])
+local openDurationMs = tonumber(ARGV[2])
+local now = tonumber(ARGV[3])
+local success = ARGV[4] == '1'
+local st = redis.call('HGET', key, 'state')
+if not st or st == '' then st = 'closed' end
+local halfOpenAt = redis.call('HGET', key, 'halfOpenAt')
+if not halfOpenAt or halfOpenAt == '' then halfOpenAt = nil end
+if success then
+  local lastFailureAt = redis.call('HGET', key, 'lastFailureAt')
+  if not lastFailureAt or lastFailureAt == '' then lastFailureAt = now end
+  redis.call('HSET', key, 'state', 'closed', 'failureCount', 0, 'lastFailureAt', lastFailureAt, 'halfOpenAt', '')
+else
+  local fc = tonumber(redis.call('HGET', key, 'failureCount')) or 0
+  fc = fc + 1
+  local newState = st
+  local newHalfOpenAt = halfOpenAt or ''
+  if st == 'half-open' or fc >= threshold then
+    newState = 'open'
+    newHalfOpenAt = ''
+  end
+  redis.call('HSET', key, 'state', newState, 'failureCount', fc, 'lastFailureAt', now, 'halfOpenAt', newHalfOpenAt)
+end
+redis.call('EXPIRE', key, tonumber(ARGV[5]))
+return redis.call('HGETALL', key)
+`
+let circuitCommandReady = false
+function ensureCircuitCommand(r: Redis): void {
+  if (circuitCommandReady) return
+  r.defineCommand('circuitRecord', {
+    numberOfKeys: 1,
+    lua: CIRCUIT_LUA,
+  })
+  circuitCommandReady = true
+}
+
+// F-183:ioredis 自定义命令无内置类型,经模块扩展补声明(HGETALL 返回扁平字符串数组)。
+declare module 'ioredis' {
+  interface Redis {
+    circuitRecord(
+      key: string,
+      threshold: string,
+      openDurationMs: string,
+      nowMs: string,
+      success: string,
+      ttlS: string,
+    ): Promise<string[]>
+  }
+}
+
 function circuitToRedis(state: CircuitState): Record<string, string> {
   return {
     state: state.state,
@@ -330,7 +387,35 @@ export async function recordChannelResult(
     pushRecentCall(keyPoolId, { success, latencyMs, ts: Date.now() })
   }
 
-  // 获取当前状态(Redis 优先)
+  // F-183:成功/失败状态转换走单条原子 Lua,消除 hgetall→改→hset 的并发覆盖窗口。
+  // Redis 不可用时 redisOp 返回 null → 走内存镜像降级(与原降级路径一致)。
+  const now = Date.now()
+  const circuitKey = `relay:circuit:${keyPoolId}`
+  const atomic = await redisOp(async (r) => {
+    ensureCircuitCommand(r)
+    return r.circuitRecord(
+      circuitKey,
+      String(CIRCUIT_FAILURE_THRESHOLD),
+      String(CIRCUIT_OPEN_DURATION_MS),
+      String(now),
+      success ? '1' : '0',
+      String(CIRCUIT_REDIS_TTL_S),
+    )
+  })
+
+  if (atomic) {
+    // Lua 返回 HGETALL 扁平数组 [field1,value1,field2,value2,...] → 组装成对象回写内存镜像
+    const flat = atomic as string[]
+    const raw: Record<string, string> = {}
+    for (let i = 0; i < flat.length; i += 2) raw[flat[i]!] = flat[i + 1]!
+    const parsed = circuitFromRedis(raw)
+    if (parsed) {
+      circuitMap.set(keyPoolId, parsed)
+      return
+    }
+  }
+
+  // Redis 不可用/解析失败 → 降级为内存读改写(单实例近似,无跨实例互斥)
   const state = await readCircuitState(keyPoolId)
 
   if (success) {
@@ -344,7 +429,7 @@ export async function recordChannelResult(
 
   // 失败:failureCount++,更新 lastFailureAt
   state.failureCount++
-  state.lastFailureAt = Date.now()
+  state.lastFailureAt = now
   // half-open 失败 → 立即转 open;或连续失败达阈值 → open
   if (state.state === 'half-open' || state.failureCount >= CIRCUIT_FAILURE_THRESHOLD) {
     state.state = 'open'
