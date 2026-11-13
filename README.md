@@ -5469,6 +5469,23 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-13**
+- 🐞 修复:mobile-rn conversationImport 补 noValidContent 5 语言词包 (50f565629d)
+
+**2026-11-13**
+- 🐞 修复:mobile-rn conversationImport 补 noValidContent 5 语言词包 (d1734c00a7)
+
+**2026-11-13**
+- 🚀 新功能/改进:镜像fidelity改section型尺子 + 几何白名单收紧 + cover孤儿css清理 (186e54cc85)
+
+**2026-11-13**
+- 📚 文档:真机清单补注入溯源水印(守门47p) (c7d3c3d7b6)
+- 📚 文档:生成块 2 维对齐 HEAD 面现算(testFiles 5226→5227 / trackedFiles 21361→21363) (fb34f051ae)
+- 🔧 工程/其他:为 apps/web/playwright.tail.config.ts 补齐溯源水印(门 47p 欠账) (61c31b13ab)
+- 🐞 修复:branch-delete-with-backup 补自动留痕 —— 治"手工调用不留痕"的结构性缺口 (beb7d0463d)
+- 🔧 工程/其他:门 47p 自愈重新注入 streaming-tail-frame 水印 (44800c59c5)
+- 🔧 工程/其他:补 D2 末帧/整体替换的浏览器侧集成冒烟(判别力边界已实测登记) (939ebb689a)
+
+**2026-11-13**
 - 🔧 工程/其他:结清 189G —— F-189 重命名级联已在 a00d16ca08,本轮补 DELETE 守卫事务收口(锁→组行锁→计数→删同事务,f-189 回归 5/5,代码入 a84b0dc7347) (2be1811079)
 - 🔧 工程/其他:fix(api)+docs: F-171 课程问答 lessonId 下推 SQL WHERE(分页/total 以本课 published 问答为口径,f-171 回归 4/4)+F-189 分组删除守卫事务收口(锁→组行 FOR UPDATE→计数→删同事务,并发打标/抢删窗口封死,f-189 回归 5/5);README 块 testFiles 5226/trackedFiles 21361 随 DN5 按终态派生落账(零卷入他席在飞形态) (a84b0dc734)
 - 🔧 工程/其他:结清批次35 共5张(F-321/333/343/345/351) (6b6de7ea67)
