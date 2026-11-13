@@ -7,7 +7,7 @@
  * 迁移自旧架构 pdf_service.py（reportlab + PyPDF2）。
  *
  * 设计：
- * - 无 PDF 库时降级为 stub（返回最小 PDF 占位 Buffer，仅记录日志）
+ * - 无 PDF 库 / 渲染异常时返回 ok:false 的显式失败结果，由调用方转错误响应（不再用空白 PDF 冒充成功）
  * - 生产环境安装 pdfkit/pdf-lib 后自动激活真实生成
  * - 跟随 email-service 的动态导入模式，避免未安装依赖时崩溃
  */
@@ -139,6 +139,8 @@ export interface ReportPDFInput {
 }
 
 export interface PDFResult {
+  /** 是否产出真实 PDF；false 时调用方必须按失败处理，禁止发送 buffer。 */
+  ok: boolean
   buffer: Buffer
   stub: boolean
   error?: string
@@ -158,15 +160,16 @@ async function loadPdfKit(): Promise<PDFKitModule | null> {
 export async function generateCertificatePDF(input: CertificatePDFInput): Promise<PDFResult> {
   const mod = await loadPdfKit()
   if (!mod) {
-    return stub(
-      `[certificate-stub] ${input.certificateNo} ${input.title} -> ${input.recipientName}`,
-    )
+    logger.warn('[pdf-service] certificate skipped: pdfkit not installed', {
+      certificateNo: input.certificateNo,
+    })
+    return failure('PDF 生成组件未安装')
   }
   return new Promise<PDFResult>((resolve) => {
     try {
       const doc = new mod.default({ size: 'A4', margin: 50 })
       const buf = new WritableBuffer()
-      buf.on('finish', () => resolve({ buffer: buf.getBuffer(), stub: false }))
+      buf.on('finish', () => resolve({ ok: true, buffer: buf.getBuffer(), stub: false }))
       doc.pipe(buf as unknown as NodeJS.WritableStream)
 
       doc
@@ -180,7 +183,7 @@ export async function generateCertificatePDF(input: CertificatePDFInput): Promis
       doc.end()
     } catch (err) {
       logger.error('[pdf-service] generateCertificatePDF error:', { err: err as Error })
-      resolve(stub(`[certificate-stub-error] ${input.certificateNo} ${input.title}`))
+      resolve(failure('证书 PDF 渲染失败'))
     }
   })
 }
@@ -189,13 +192,16 @@ export async function generateCertificatePDF(input: CertificatePDFInput): Promis
 export async function generateInvoicePDF(input: InvoicePDFInput): Promise<PDFResult> {
   const mod = await loadPdfKit()
   if (!mod) {
-    return stub(`[invoice-stub] ${input.invoiceNo} ${input.title} ${input.amount}`)
+    logger.warn('[pdf-service] invoice skipped: pdfkit not installed', {
+      invoiceNo: input.invoiceNo,
+    })
+    return failure('PDF 生成组件未安装')
   }
   return new Promise<PDFResult>((resolve) => {
     try {
       const doc = new mod.default({ size: 'A4', margin: 50 })
       const buf = new WritableBuffer()
-      buf.on('finish', () => resolve({ buffer: buf.getBuffer(), stub: false }))
+      buf.on('finish', () => resolve({ ok: true, buffer: buf.getBuffer(), stub: false }))
       doc.pipe(buf as unknown as NodeJS.WritableStream)
 
       doc
@@ -216,7 +222,7 @@ export async function generateInvoicePDF(input: InvoicePDFInput): Promise<PDFRes
       doc.end()
     } catch (err) {
       logger.error('[pdf-service] generateInvoicePDF error:', { err: err as Error })
-      resolve(stub(`[invoice-stub-error] ${input.invoiceNo} ${input.title}`))
+      resolve(failure('发票 PDF 渲染失败'))
     }
   })
 }
@@ -225,14 +231,15 @@ export async function generateInvoicePDF(input: InvoicePDFInput): Promise<PDFRes
 export async function generateReportPDF(input: ReportPDFInput): Promise<PDFResult> {
   const mod = await loadPdfKit()
   if (!mod) {
-    return stub(`[report-stub] ${input.title} (${input.sections.length} sections)`)
+    logger.warn('[pdf-service] report skipped: pdfkit not installed', { title: input.title })
+    return failure('PDF 生成组件未安装')
   }
   return new Promise<PDFResult>((resolve) => {
     try {
       // A4 = 595 x 842 pt,margin 50,可用宽度 495
       const doc = new mod.default({ size: 'A4', margin: 50 })
       const buf = new WritableBuffer()
-      buf.on('finish', () => resolve({ buffer: buf.getBuffer(), stub: false }))
+      buf.on('finish', () => resolve({ ok: true, buffer: buf.getBuffer(), stub: false }))
       doc.pipe(buf as unknown as NodeJS.WritableStream)
 
       // 注册中文字体(注册后 doc.font(name) 切换)
@@ -341,9 +348,9 @@ export async function generateReportPDF(input: ReportPDFInput): Promise<PDFResul
 
       doc.end()
     } catch (err) {
-      // pdfkit 实例化/调用失败(字体缺失/WritableBuffer 接口不全等),降级到 stub 避免阻塞导出链路
+      // pdfkit 实例化/调用失败(字体缺失/WritableBuffer 接口不全等):显式失败,不再用空白 PDF 冒充成功
       logger.error('[pdf-service] generateReportPDF error:', { err: err as Error })
-      resolve(stub(`[report-stub-error] ${input.title} (${input.sections.length} sections)`))
+      resolve(failure('报表 PDF 渲染失败'))
     }
   })
 }
@@ -422,12 +429,12 @@ class WritableBuffer extends Writable {
   }
 }
 
-/** 生成 stub PDF（最小合法 PDF 占位）。 */
-function stub(log: string): PDFResult {
-  console.info(log)
-  // 最小 PDF 占位（单页空白）
-  const content =
-    '%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 595 842]>>endobj\nxref\n0 4\ntrailer<</Size 4/Root 1 0 R>>\n%%EOF'
-  return { buffer: Buffer.from(content), stub: true }
+/**
+ * 生成失败结果：ok:false 显式标记，调用方必须返回错误而不是发送空白 PDF。
+ * error 只用固定文案，不透出内部异常/栈（细节已由 logger 记录）。
+ */
+function failure(error: string): PDFResult {
+  logger.warn('[pdf-service] PDF generation failed', { error })
+  return { ok: false, buffer: Buffer.alloc(0), stub: true, error }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

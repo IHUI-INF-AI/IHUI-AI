@@ -179,6 +179,8 @@ import { adminZoneRoutes } from './admin-zone.js'
 import { adminDemandSquareRoutes } from './admin-demand-square.js'
 import { zhsLegacyRoutes } from './zhs-legacy.js'
 import { zhsOrganizationRoutes, adminZhsOrganizationRoutes } from './zhs-organization.js'
+// F-520(2026-11-13):organization.ts 此前是死文件,现补 requireAdmin 后正式注册
+import { organizationRoutes } from './organization.js'
 import { userAgentFreeTimesRoutes, adminUserAgentFreeTimesRoutes } from './user-agent-free-times.js'
 import { serviceCatalogRoutes, adminServiceCatalogRoutes } from './service-catalog.js'
 import { serviceInquiryRoutes } from './service-inquiry.js'
@@ -941,6 +943,8 @@ export function registerRoutes(server: FastifyInstance) {
   // ZHS 组织机构管理：/api/organization/* + /api/admin/organization/*
   server.register(zhsOrganizationRoutes, { prefix: '/api/organization' })
   server.register(adminZhsOrganizationRoutes, { prefix: '/api/admin/organization' })
+  // F-520(2026-11-13):/api/organizations/*(全部端点经 requireAdmin 收口)
+  server.register(organizationRoutes, { prefix: '/api' })
   // 智能体免费试用次数：/api/agent-free-times/* + /api/admin/agent-free-times/*
   server.register(userAgentFreeTimesRoutes, { prefix: '/api/agent-free-times' })
   server.register(adminUserAgentFreeTimesRoutes, { prefix: '/api/admin/agent-free-times' })
