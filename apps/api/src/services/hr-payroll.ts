@@ -1,6 +1,6 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-// [IHUI-AI-PROVENANCE]:watermarked
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { and, eq, isNull, lte, or, gte, sql } from 'drizzle-orm'
 
@@ -149,10 +149,7 @@ async function resolveSalaryConfig(
       and(
         eq(hrSalaryConfig.employeeId, employeeId),
         lte(hrSalaryConfig.effectiveFrom, monthEnd),
-        or(
-          isNull(hrSalaryConfig.effectiveTo),
-          gte(hrSalaryConfig.effectiveTo, monthStart),
-        ),
+        or(isNull(hrSalaryConfig.effectiveTo), gte(hrSalaryConfig.effectiveTo, monthStart)),
       ),
     )
     .orderBy(sql`${hrSalaryConfig.effectiveFrom} DESC`)
@@ -165,7 +162,10 @@ async function resolveInsuranceRates(
   year: number,
   regionName?: string | undefined,
 ): Promise<typeof hrInsuranceRateConfig.$inferSelect | null> {
-  const filters = [eq(hrInsuranceRateConfig.effectiveYear, year), eq(hrInsuranceRateConfig.enabled, true)]
+  const filters = [
+    eq(hrInsuranceRateConfig.effectiveYear, year),
+    eq(hrInsuranceRateConfig.enabled, true),
+  ]
   if (regionName) filters.push(eq(hrInsuranceRateConfig.regionName, regionName))
   const rows = await db
     .select()
@@ -336,10 +336,16 @@ export async function buildPayroll(params: {
 
     if (insurance) {
       // 缴费基数夹取上下限
-      if (insurance.insuranceBaseMin !== null && insuranceBase < Number(insurance.insuranceBaseMin)) {
+      if (
+        insurance.insuranceBaseMin !== null &&
+        insuranceBase < Number(insurance.insuranceBaseMin)
+      ) {
         insuranceBase = Number(insurance.insuranceBaseMin)
       }
-      if (insurance.insuranceBaseMax !== null && insuranceBase > Number(insurance.insuranceBaseMax)) {
+      if (
+        insurance.insuranceBaseMax !== null &&
+        insuranceBase > Number(insurance.insuranceBaseMax)
+      ) {
         insuranceBase = Number(insurance.insuranceBaseMax)
       }
       const pension = Number(insurance.pensionPersonal ?? 0)
@@ -375,7 +381,8 @@ export async function buildPayroll(params: {
     let specialDeduction = 0
     if (taxProfile) {
       // 子女教育:每孩每月 2000(2023 起),按分摊比例
-      const childDeduction = taxProfile.childrenCount * 2000 * Number(taxProfile.childrenDeductionRatio ?? 1)
+      const childDeduction =
+        taxProfile.childrenCount * 2000 * Number(taxProfile.childrenDeductionRatio ?? 1)
       // 3 岁以下婴幼儿:每孩每月 2000
       const infantDeduction = taxProfile.infantCount * 2000
       // 赡养老人:独生 3000/月,非独生按分摊额
@@ -401,7 +408,14 @@ export async function buildPayroll(params: {
     // ---- 步骤 8:计税所得与个税 ----
     // 月度简化口径:应发 − 社保个人 − 公积金个人 − 专项附加 − 起征点
     const taxableIncome = round2(
-      Math.max(0, grossPay - insurancePersonal - housingFundPersonal - specialDeduction - TAX_THRESHOLD_MONTHLY),
+      Math.max(
+        0,
+        grossPay -
+          insurancePersonal -
+          housingFundPersonal -
+          specialDeduction -
+          TAX_THRESHOLD_MONTHLY,
+      ),
     )
     const incomeTax = calcIncomeTax(taxableIncome)
 
@@ -467,9 +481,7 @@ export async function buildPayroll(params: {
     const [existing] = await db
       .select({ id: hrPayrollItem.id })
       .from(hrPayrollItem)
-      .where(
-        and(eq(hrPayrollItem.periodId, period.id), eq(hrPayrollItem.employeeId, employeeId)),
-      )
+      .where(and(eq(hrPayrollItem.periodId, period.id), eq(hrPayrollItem.employeeId, employeeId)))
       .limit(1)
 
     if (existing) {
@@ -597,3 +609,4 @@ export async function listPayrollItems(periodMonth: string): Promise<
     .limit(1000)
   return rows
 }
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

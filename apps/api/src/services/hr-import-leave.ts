@@ -1,6 +1,6 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-// [IHUI-AI-PROVENANCE]:watermarked
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { and, eq, inArray, isNull, sql } from 'drizzle-orm'
 import ExcelJS from 'exceljs'
@@ -239,7 +239,11 @@ function findHeader<T extends object>(
     if (score > best.score) best = { score, index: i, mapping }
   }
   if (best.index < 0 || best.score < 2) {
-    throw new AppError('无法识别表头,请确认文件包含工号与日期列', 400, 'IMPORT_HEADER_NOT_RECOGNIZED')
+    throw new AppError(
+      '无法识别表头,请确认文件包含工号与日期列',
+      400,
+      'IMPORT_HEADER_NOT_RECOGNIZED',
+    )
   }
   return {
     headers: (matrix[best.index] ?? []).map((h) => h.trim()),
@@ -291,7 +295,10 @@ export function parseLeaveMatrix(matrix: string[][]): {
       // 按起止日期天数推算(含首尾)
       const s = new Date(`${startDate}T00:00:00Z`).getTime()
       const e = new Date(`${endDate}T00:00:00Z`).getTime()
-      totalDays = Number.isFinite(s) && Number.isFinite(e) ? Math.max(1, Math.round((e - s) / 86400000) + 1) : 1
+      totalDays =
+        Number.isFinite(s) && Number.isFinite(e)
+          ? Math.max(1, Math.round((e - s) / 86400000) + 1)
+          : 1
     }
     rows.push({
       rowNumber: i + 1,
@@ -326,7 +333,10 @@ export function parseOvertimeMatrix(matrix: string[][]): {
   mapping: Partial<Record<string, keyof HrOvertimeImportFields>>
   rows: ParsedOvertimeRow[]
 } {
-  const { headers, mapping, startRow } = findHeader<HrOvertimeImportFields>(matrix, OVERTIME_HEADERS)
+  const { headers, mapping, startRow } = findHeader<HrOvertimeImportFields>(
+    matrix,
+    OVERTIME_HEADERS,
+  )
   const rows: ParsedOvertimeRow[] = []
   for (let i = startRow; i < matrix.length; i++) {
     const cells = matrix[i] ?? []
@@ -403,7 +413,10 @@ export function parseOutgoingMatrix(matrix: string[][]): {
   mapping: Partial<Record<string, keyof HrOutgoingImportFields>>
   rows: ParsedOutgoingRow[]
 } {
-  const { headers, mapping, startRow } = findHeader<HrOutgoingImportFields>(matrix, OUTGOING_HEADERS)
+  const { headers, mapping, startRow } = findHeader<HrOutgoingImportFields>(
+    matrix,
+    OUTGOING_HEADERS,
+  )
   const rows: ParsedOutgoingRow[] = []
   for (let i = startRow; i < matrix.length; i++) {
     const cells = matrix[i] ?? []
@@ -432,9 +445,10 @@ export function parseOutgoingMatrix(matrix: string[][]): {
       } else {
         const sMs = new Date(`${startDate}T00:00:00Z`).getTime()
         const eMs = new Date(`${endDate}T00:00:00Z`).getTime()
-        const days = Number.isFinite(sMs) && Number.isFinite(eMs)
-          ? Math.max(1, Math.round((eMs - sMs) / 86400000) + 1)
-          : 1
+        const days =
+          Number.isFinite(sMs) && Number.isFinite(eMs)
+            ? Math.max(1, Math.round((eMs - sMs) / 86400000) + 1)
+            : 1
         minutes = days * 480
       }
     }
@@ -663,7 +677,11 @@ export async function confirmLeaveImport(params: {
     const reason = String(payload.reason ?? '导入的请假记录')
 
     const [existing] = await db
-      .select({ id: hrLeaveRequest.id, totalDays: hrLeaveRequest.totalDays, leaveType: hrLeaveRequest.leaveType })
+      .select({
+        id: hrLeaveRequest.id,
+        totalDays: hrLeaveRequest.totalDays,
+        leaveType: hrLeaveRequest.leaveType,
+      })
       .from(hrLeaveRequest)
       .where(
         and(
@@ -892,7 +910,9 @@ export async function matchAndStageOvertimeRows(params: {
       ? await db
           .select()
           .from(hrOvertimeRecord)
-          .where(and(inArray(hrOvertimeRecord.employeeId, empIds), isNull(hrOvertimeRecord.deletedAt)))
+          .where(
+            and(inArray(hrOvertimeRecord.employeeId, empIds), isNull(hrOvertimeRecord.deletedAt)),
+          )
       : []
   const byKey = new Map<string, (typeof existing)[number]>(
     existing.map((r) => [`${r.employeeId}|${r.date}`, r]),
@@ -987,7 +1007,6 @@ export async function matchAndStageOvertimeRows(params: {
   return { matched, conflict, notFound }
 }
 
-
 /**
  * 外出匹配与暂存。
  * 匹配键:员工 + 开始日期(同一天同一人只应有一张外出单;多段外出需合并成一张单)。
@@ -1019,7 +1038,9 @@ export async function matchAndStageOutgoingRows(params: {
       ? await db
           .select()
           .from(hrOutgoingRecord)
-          .where(and(inArray(hrOutgoingRecord.employeeId, empIds), isNull(hrOutgoingRecord.deletedAt)))
+          .where(
+            and(inArray(hrOutgoingRecord.employeeId, empIds), isNull(hrOutgoingRecord.deletedAt)),
+          )
       : []
   const byKey = new Map<string, (typeof existing)[number]>(
     existing.map((r) => [`${r.employeeId}|${r.startDate}`, r]),
@@ -1058,7 +1079,9 @@ export async function matchAndStageOutgoingRows(params: {
         raw: row.raw,
         parsed,
         matchStatus: 'duplicate',
-        diffDetail: [{ field: 'startDate', systemValue: null, importValue: row.normalized.startDate }],
+        diffDetail: [
+          { field: 'startDate', systemValue: null, importValue: row.normalized.startDate },
+        ],
       })
       continue
     }
@@ -1068,17 +1091,30 @@ export async function matchAndStageOutgoingRows(params: {
     if (!sys) {
       matched++
       staged.push({
-        batchId, rowNumber: row.rowNumber, employeeNo, raw: row.raw, parsed, matchStatus: 'matched',
+        batchId,
+        rowNumber: row.rowNumber,
+        employeeNo,
+        raw: row.raw,
+        parsed,
+        matchStatus: 'matched',
       })
       continue
     }
 
     const diffs: { field: string; systemValue: string | null; importValue: string | null }[] = []
     if (sys.endDate !== row.normalized.endDate) {
-      diffs.push({ field: 'endDate', systemValue: sys.endDate, importValue: row.normalized.endDate })
+      diffs.push({
+        field: 'endDate',
+        systemValue: sys.endDate,
+        importValue: row.normalized.endDate,
+      })
     }
     if (sys.minutes !== row.normalized.minutes) {
-      diffs.push({ field: 'minutes', systemValue: String(sys.minutes), importValue: String(row.normalized.minutes) })
+      diffs.push({
+        field: 'minutes',
+        systemValue: String(sys.minutes),
+        importValue: String(row.normalized.minutes),
+      })
     }
     if (sys.status !== row.normalized.status) {
       diffs.push({ field: 'status', systemValue: sys.status, importValue: row.normalized.status })
@@ -1086,13 +1122,23 @@ export async function matchAndStageOutgoingRows(params: {
     if (diffs.length > 0) {
       conflict++
       staged.push({
-        batchId, rowNumber: row.rowNumber, employeeNo, raw: row.raw, parsed,
-        matchStatus: 'conflict', diffDetail: diffs,
+        batchId,
+        rowNumber: row.rowNumber,
+        employeeNo,
+        raw: row.raw,
+        parsed,
+        matchStatus: 'conflict',
+        diffDetail: diffs,
       })
     } else {
       matched++
       staged.push({
-        batchId, rowNumber: row.rowNumber, employeeNo, raw: row.raw, parsed, matchStatus: 'matched',
+        batchId,
+        rowNumber: row.rowNumber,
+        employeeNo,
+        raw: row.raw,
+        parsed,
+        matchStatus: 'matched',
       })
     }
   }
@@ -1103,7 +1149,6 @@ export async function matchAndStageOutgoingRows(params: {
   }
   return { matched, conflict, notFound }
 }
-
 
 /**
  * 外出确认写入。
@@ -1145,7 +1190,10 @@ export async function confirmOutgoingImport(params: {
       skipped++
       continue
     }
-    const payload = ((row.resolved ? row.finalValue : null) ?? row.parsed ?? {}) as Record<string, unknown>
+    const payload = ((row.resolved ? row.finalValue : null) ?? row.parsed ?? {}) as Record<
+      string,
+      unknown
+    >
     const employeeNo = String(payload.employeeNo ?? row.employeeNo ?? '')
     const emp = employeeNo ? empByNo.get(employeeNo) : undefined
     const startDate = normalizeDateCell(String(payload.startDate ?? ''))
@@ -1178,8 +1226,17 @@ export async function confirmOutgoingImport(params: {
       await db
         .update(hrOutgoingRecord)
         .set({
-          endDate, startTime, endTime, minutes, destination, reason, status,
-          source: 'import', externalId, operatedBy: operatedBy ?? null, updatedAt: new Date(),
+          endDate,
+          startTime,
+          endTime,
+          minutes,
+          destination,
+          reason,
+          status,
+          source: 'import',
+          externalId,
+          operatedBy: operatedBy ?? null,
+          updatedAt: new Date(),
         })
         .where(eq(hrOutgoingRecord.id, existing.id))
       updated++
@@ -1187,8 +1244,17 @@ export async function confirmOutgoingImport(params: {
       await db.insert(hrOutgoingRecord).values({
         employeeId: emp.id,
         departmentId: emp.departmentId,
-        startDate, endDate, startTime, endTime, minutes, destination, reason, status,
-        source: 'import', externalId, operatedBy: operatedBy ?? null,
+        startDate,
+        endDate,
+        startTime,
+        endTime,
+        minutes,
+        destination,
+        reason,
+        status,
+        source: 'import',
+        externalId,
+        operatedBy: operatedBy ?? null,
       })
       inserted++
     }
@@ -1225,3 +1291,4 @@ export async function assertHrDepartment(departmentId: string): Promise<void> {
     .limit(1)
   if (!d) throw new AppError('部门不存在', 404, 'HR_DEPARTMENT_NOT_FOUND')
 }
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
