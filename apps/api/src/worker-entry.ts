@@ -10,6 +10,7 @@ import { startWorkers } from './workers/index.js'
 import { startSchedulerWorker } from './workers/scheduler-worker.js'
 import { initOtel } from './plugins/otel.js'
 import { ensurePaymentMockGateway, isPaymentMockEnabled } from './services/payment-mock-gateway.js'
+import { declareProcessRole } from './utils/process-role.js'
 
 /**
  * Worker 独立进程入口。
@@ -29,6 +30,10 @@ import { ensurePaymentMockGateway, isPaymentMockEnabled } from './services/payme
  */
 async function startWorkerProcess(): Promise<void> {
   initOtel()
+
+  // F-302:本进程不是例行程序调度器的属主。buildServer() 会载入 API 的 route/service,
+  // 不先声明角色的话,任何模块级调度器都会在 worker 各起一份(同一 cron 双执行)。
+  declareProcessRole('worker')
 
   const server = await buildServer()
 
