@@ -7986,6 +7986,7 @@ const checks = [
     mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_MIRROR_SURFACE_PARITY',
     stagedTriggers: [
+      'packages/api-client/src/client.ts',
       'packages/shared/src/chat/send-admission.ts',
       'packages/shared/src/sse/contract.ts',
       'scripts/check-mirror-surface-parity.mjs',
@@ -8012,6 +8013,7 @@ const checks = [
     // §0.2:存量 CRLF 非零(实测暂存面有他人未提交的 apps/api/*.ts 带 CRLF)⇒ 先 warn 只报数。
     // 升 blocking 的前置 = 存量归零 —— 否则就是一道与提交内容无关的恒红门,
     // 结局是逼人 --no-verify 而废掉全部守门。本轮先立判据、先让问题可见。
+    mode: 'warn',
     skipEnv: 'HUSKY_SKIP_LINE_ENDINGS',
     stagedTriggers: ['**'],
     onFailHint: [
@@ -8183,7 +8185,9 @@ const pushGateChecks = [
     id: '301',
     label: '🗺️ web↔小程序共享屏承载路由门(新增缺承载/路由不存在/冲突即红)',
     script: 'check-web-mp-route-carriers.mjs',
+    args: [],
     mode: 'blocking',
+    stagedTriggers: [
       'apps/web/',
       'apps/miniapp-taro/src/app.config.ts',
       'packages/app/src/features/',
@@ -8192,6 +8196,7 @@ const pushGateChecks = [
       'scripts/data/web-mp-route-carrier-ledger.jsonl',
       'scripts/data/web-mp-route-carrier-legal.jsonl',
       'scripts/check-web-mp-route-carriers.mjs',
+    ],
     skipEnv: 'HUSKY_SKIP_WEB_MP_ROUTE_CARRIERS',
     onFailHint: [
       '  💡 红 = 共享屏有 web 路由但小程序缺承载/路由不存在/别名冲突。',
@@ -8242,17 +8247,22 @@ const pushGateChecks = [
     mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_GEN_TOOL_NAME_SETS',
   },
+  {
     id: '308p',
     label: '🏗️ RN 宿主薄壳骨架预演(push blocking,不落盘)',
     script: 'gen-rn-shell-scaffold.mjs',
     args: ['--all'],
     mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_GEN_RN_SHELL_SCAFFOLD',
+  },
+  {
     id: '305p',
     label: '🪝 钩子链引用完整性(push blocking:钩子链入口/闭包缺失即拦)',
     script: 'check-hook-chain-refs.mjs',
     args: ['--strict'],
+    mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_HOOK_CHAIN_REFS',
+  },
 ]
 
 // === CLI 解析 ===
