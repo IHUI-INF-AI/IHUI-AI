@@ -2192,8 +2192,9 @@ export interface WorkbuddyWebLoginAccount {
 
 /** WorkBuddy 网页登录探测结果(与 Rust `WebLoginProbe` tag= status 逐态对齐)。
  *  2026-10-18:`not_logged_in` 带 message(Cookie 无效/已过期的原因,如实告知用户)。
- *  2026-11-12 F-060:ok 回包**不再含 cookie**(会话 Cookie 不出 Rust:jar 路径由
- *  Rust 现读现投后端,粘贴路径入库用 JS 侧本地草稿)。 */
+ *  F-060(2026-11-12):探测回包不再携带会话 Cookie —— jar 路径入库改由 Rust
+ *  `checkin_workbuddy_web_import` 现读 jar 直投后端,粘贴路径用前端本地草稿,
+ *  前端不再消费 `probe.cookie`。类型同步收窄,避免写出空 jwt 的假链。 */
 export type WorkbuddyWebLoginProbe =
   | { status: 'no_window' }
   | { status: 'no_cookie' }
