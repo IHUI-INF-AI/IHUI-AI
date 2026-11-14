@@ -62,7 +62,7 @@ function basename(p: string): string {
   return idx === -1 ? norm : norm.slice(idx + 1)
 }
 
-interface FileRef {
+export interface FileRef {
   path: string
   name: string
   icon: 'read' | 'write' | 'edit'
@@ -83,7 +83,7 @@ function fileAction(toolName: string): 'changedFile' | 'createdFile' | 'deletedF
   return 'changedFile'
 }
 
-function extractRefs(toolCalls: ToolCall[] | undefined): FileRef[] {
+export function extractRefs(toolCalls: ToolCall[] | undefined): FileRef[] {
   const seen = new Set<string>()
   const out: FileRef[] = []
   if (!toolCalls) return out
