@@ -5470,6 +5470,9 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-14**
+- 🚀 新功能/改进:新增 3 个未跟踪文件 (da1823aa1d)
+
+**2026-11-14**
 - 🔧 工程/其他:收尾提交 plan-heal/tag-sync 副产物 (f05491e678)
 
 **2026-11-14**
