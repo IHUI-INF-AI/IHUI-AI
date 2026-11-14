@@ -7750,7 +7750,7 @@ const checks = [
     ].join('\n'),
   },
   {
-    id: '320',
+    id: '322',
     label: '🪞 跨包镜像结构字段对账(blocking:api-client 零依赖镜像 shared 的字段集/可选性/枚举必须逐字一致)',
     script: 'check-mirror-surface-parity.mjs',
     args: [],
