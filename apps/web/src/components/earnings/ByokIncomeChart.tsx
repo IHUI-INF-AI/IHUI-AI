@@ -12,6 +12,7 @@ import * as React from 'react'
 import { useTranslations } from 'next-intl'
 
 import { Card, CardContent } from '@ihui/ui-react'
+import { formatCny } from '@/lib/display-currency'
 import type { ByokIncomePoint } from '@/hooks/use-earnings'
 
 interface Props {
@@ -35,7 +36,7 @@ export function ByokIncomeChart({ data, loading }: Props) {
             <p className="text-label text-muted-foreground">{t('byokTrendDesc')}</p>
           </div>
           <p className="text-body font-bold text-emerald-600 dark:text-emerald-400">
-            ¥{total.toFixed(2)}
+            {formatCny(total, { digits: 2 })}
           </p>
         </div>
 
@@ -74,7 +75,7 @@ export function ByokIncomeChart({ data, loading }: Props) {
                     {isHover && (
                       <div className="absolute bottom-full left-1/2 z-10 mb-1 -translate-x-1/2 whitespace-nowrap rounded-md border bg-popover px-2 py-1 text-label shadow-elevation-md">
                         <span className="font-medium text-emerald-600 dark:text-emerald-400">
-                          ¥{p.amount.toFixed(2)}
+                          {formatCny(p.amount, { digits: 2 })}
                         </span>
                         <span className="ml-1 text-muted-foreground">{p.date.slice(5)}</span>
                       </div>

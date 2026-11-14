@@ -26,7 +26,7 @@ import {
   TableCell,
 } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
-import { formatPrice } from '@ihui/shared/utils/format'
+import { formatCnyCents } from '@/lib/display-currency'
 
 interface TeamCenterData {
   totalInvitees: number
@@ -51,7 +51,7 @@ interface ListData {
 
 const PAGE_SIZE = 20
 
-const fmtYuan = (cents: number) => `¥${formatPrice(cents)}`
+const fmtYuan = (cents: number) => formatCnyCents(cents, { digits: 2 })
 
 export default function DistributionTeamPage() {
   const t = useTranslations('distribution')

@@ -28454,10 +28454,10 @@
     "status_cancelled": "已撤回"
   },
   "costGuard": {
-    "estimateLine": "本次預計 ≈{tokens} tokens（約 ${cost}）",
+    "estimateLine": "本次預計 ≈{tokens} tokens（約 {cost}）",
     "fallbackPrice": "兜底價僅供參考",
     "actualLine": "實際 {actual} tokens（預估 {estimate}）",
-    "negotiationLine": "本次預計 ≈{tokens} tokens（約 ${cost}）,超過預算閾值",
+    "negotiationLine": "本次預計 ≈{tokens} tokens（約 {cost}）,超過預算閾值",
     "negotiationFallback": "本次消耗估算超過預算閾值",
     "confirmSend": "仍然發送",
     "confirmCancel": "取消"
