@@ -99,6 +99,9 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-14**
+- 🚀 Feature/Improvement:新增 3 个未跟踪文件 (da1823aa1d)
+
+**2026-11-14**
 - 🔧 Chore/Other:收尾提交 plan-heal/tag-sync 副产物 (f05491e678)
 
 **2026-11-14**
@@ -805,17 +808,6 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 - 🐞 Fix:branch-delete-with-backup 补自动留痕 —— 治"手工调用不留痕"的结构性缺口 (beb7d0463de)
 - 🔧 Chore/Other:门 47p 自愈重新注入 streaming-tail-frame 水印 (44800c59c5b)
 - 🔧 Chore/Other:补 D2 末帧/整体替换的浏览器侧集成冒烟(判别力边界已实测登记) (939ebb689aa)
-
-**2026-11-13**
-- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (b5e09bb17f4)
-- 🐞 Fix:提现旁路写入口全部改调 commission-queries 单源服务——agent-withdrawal apply/approve/reject 补冻结+单号+状态守卫+退冻结,admin第5条写入口消除无守卫直写status(资金守恒同源);回归锁 f452-453 6/6 (d773e33e341)
-- 🔧 Chore/Other:结清 F-452/F-453 —— 提现旁路写入口(finance-extended agent-withdrawal 三入口 + admin-extended 第5条)全部改调 commission-queries 单源服务 apply/approve/rejectWithdrawal,补冻结+单号+状态守卫+退冻结(资金守恒同源);回归锁 f452-453 6/6 (aada9610e56)
-- 🚀 Feature/Improvement:复现 WorkBuddy subagent journal 闭环(compact/append/merge)—— 逆向-复现-超越 (6a06e594008)
-- 🔧 Chore/Other:结清批次36 共5张(F-352/353/367/369/372) (f89c5981fe5)
-- 🐞 Fix:结清 F-352 定时清理集合化分批 + F-353 积分渠道事务 + F-367 清理器显式生命周期 + F-369 订阅配额原子累加 + F-372 日成本熔断 (33206206243)
-- 🐞 Fix:ab_test_results schema 补 UNIQUE(variant_id,bucket) 表约束 + bucket NOT NULL,对齐已入库迁移 20261112000002,防 onConflict 42P10 + 回归锁 5/5 (d1b4766f6ba)
-- 🔧 Chore/Other:结清 F-448 —— ab_test_results schema 侧补 UNIQUE(variant_id,bucket) 表约束 + bucket NOT NULL,对齐已入库迁移 20261112000002(证据:迁移 + 回归锁 f448 5/5) (72ec4aad2b7)
-- 🔧 Chore/Other:结清 189G —— F-189 重命名级联已在 a00d16ca08,本轮补 DELETE 守卫事务收口(锁→组行锁→计数→删同事务,f-189 回归 5/5,代码入 a84b0dc7347) (2be18110794)
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)

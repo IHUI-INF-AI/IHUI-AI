@@ -2227,6 +2227,9 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-14**
+- 🚀 機能/改善:新增 3 个未跟踪文件 (da1823aa1d)
+
+**2026-11-14**
 - 🔧 その他:收尾提交 plan-heal/tag-sync 副产物 (f05491e678)
 
 **2026-11-14**
@@ -2548,9 +2551,6 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 
 **2026-11-13**
 - 🐞 修正:install-git-hooks 净面构建下默认模式跳过(exit 0) (de317e445d)
-
-**2026-11-13**
-- 🐞 修正:mobile-rn conversationImport 补 noValidContent 5 语言词包 (50f565629d)
 <!-- END RECENT UPDATES -->
 
 <p align="center">

@@ -2227,6 +2227,9 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-14**
+- 🚀 기능/개선:新增 3 个未跟踪文件 (da1823aa1d)
+
+**2026-11-14**
 - 🔧 기타:收尾提交 plan-heal/tag-sync 副产物 (f05491e678)
 
 **2026-11-14**
@@ -2548,9 +2551,6 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 **2026-11-13**
 - 🐞 수정:install-git-hooks 净面构建下默认模式跳过(exit 0) (de317e445d)
-
-**2026-11-13**
-- 🐞 수정:mobile-rn conversationImport 补 noValidContent 5 语言词包 (50f565629d)
 <!-- END RECENT UPDATES -->
 
 <p align="center">
