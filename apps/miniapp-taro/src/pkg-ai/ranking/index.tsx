@@ -136,12 +136,18 @@ export default function RankingIndex() {
     const myEpoch = epochRef.current
     const next = page + 1
     setLoading(true)
-    void fetchPage(next, fileType, keyword).then(() => {
-      // 会话已切换:旧请求回包不得把 page 覆盖回旧值,也不得关掉新会话的 loading
-      if (myEpoch !== epochRef.current) return
-      setPage(next)
-      setLoading(false)
-    })
+    void fetchPage(next, fileType, keyword)
+      .then(() => {
+        // 会话已切换:旧请求回包不得把 page 覆盖回旧值,也不得关掉新会话的 loading
+        if (myEpoch !== epochRef.current) return
+        setPage(next)
+        setLoading(false)
+      })
+      .catch(() => {
+        // 取数失败时同样收起 loading,避免"加载中"卡死(会话切换则忽略旧回包)
+        if (myEpoch !== epochRef.current) return
+        setLoading(false)
+      })
   }, [loading, hasMore, page, fileType, keyword, fetchPage])
 
   useReachBottom(onScrollToLower)

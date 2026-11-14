@@ -3616,7 +3616,9 @@
     "terminal": {
       "waitingInput": "Waiting for input",
       "mobileUnsupported": "Terminal is not supported on mobile"
-    }
+    },
+    "questionNoSession": "Cannot locate the session — this question cannot be answered",
+    "questionFailed": "Submit failed, please retry"
   },
   "tabBar": {
     "community": "Community",

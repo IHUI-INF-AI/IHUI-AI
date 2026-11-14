@@ -3616,7 +3616,9 @@
     "terminal": {
       "waitingInput": "입력 대기",
       "mobileUnsupported": "모바일 터미널 미지원"
-    }
+    },
+    "questionNoSession": "세션을 찾을 수 없어 답변할 수 없습니다",
+    "questionFailed": "제출 실패, 다시 시도하세요"
   },
   "tabBar": {
     "community": "커뮤니티",

@@ -3616,7 +3616,9 @@
     "terminal": {
       "waitingInput": "入力待ち",
       "mobileUnsupported": "端末ではターミナル未対応"
-    }
+    },
+    "questionNoSession": "セッションを特定できないため回答できません",
+    "questionFailed": "送信に失敗しました。再試行してください"
   },
   "tabBar": {
     "community": "コミュニティ",

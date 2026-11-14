@@ -3616,7 +3616,9 @@
     "terminal": {
       "waitingInput": "等待输入",
       "mobileUnsupported": "终端功能暂不支持移动端"
-    }
+    },
+    "questionNoSession": "无法定位会话，此题无法作答",
+    "questionFailed": "提交失败，请重试"
   },
   "tabBar": {
     "community": "智汇社区",
