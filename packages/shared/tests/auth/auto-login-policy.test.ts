@@ -111,10 +111,15 @@ describe('classifyRefreshFailureStatus(刷新失败分型)', () => {
     expect(classifyRefreshFailureStatus(0)).toBe('transient')
   })
 
-  it('其余 4xx 一律瞬时(只有 401/403 才构成"凭据被否定")', () => {
-    expect(classifyRefreshFailureStatus(400)).toBe('transient')
+  it('其余 4xx 分型:400 裸态=匿名(静默收束)、429=限流(防重试死循环),只有 401/403 才构成"凭据被否定"', () => {
+    // 2026-11-14:代码有意把 400 裸态(请求里压根没带 refreshToken)与 429 从 transient 里
+    // 拆成独立态 —— 判 transient 会让匿名冷启动无限重试(实测一次页面加载 21 次 refresh
+    // 撞 20 次/分钟限流后 429 自锁),判 rejected 对匿名访客又是空操作。故:
+    expect(classifyRefreshFailureStatus(400)).toBe('anonymous') // 无 errorCode = 匿名调用
     expect(classifyRefreshFailureStatus(404)).toBe('transient')
-    expect(classifyRefreshFailureStatus(429)).toBe('transient')
+    expect(classifyRefreshFailureStatus(429)).toBe('rate-limited')
+    // 400 带 errorCode(非 stale)仍按 transient:有错误码说明是真实业务拒绝,不是匿名
+    expect(classifyRefreshFailureStatus(400, 'SOME_OTHER_CODE')).toBe('transient')
   })
 
   it('陈旧副本(REFRESH_TOKEN_STALE)虽随 401 到达,但服务端未否定凭据 ⇒ 瞬时、不结束会话', () => {
