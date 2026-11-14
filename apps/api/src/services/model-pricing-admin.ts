@@ -22,7 +22,7 @@
 import { sql } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { logger } from '../utils/logger.js'
-import { sweepUnpricedModels, PROFIT_FACTOR } from './model-price-resolver.js'
+import { repricePlaceholderModels, PROFIT_FACTOR } from './model-price-resolver.js'
 
 function rowsOf<T>(r: unknown): T[] {
   if (Array.isArray(r)) return r as T[]
@@ -378,7 +378,11 @@ export async function listPriceAudits(query: {
   return { items: rowsOf<Record<string, unknown>>(listRes), total }
 }
 
-/** 手动触发零价巡检(与定时任务同一个出口) */
+/**
+ * 手动触发零价/占位价巡检(与定时任务同一个出口)。
+ * 2026-11-14 起只走 repricePlaceholderModels:三源 exact/alias 权威命中才定价,
+ * 拿不到权威价的一律下架 —— 不再使用家族插值/中位数猜测。
+ */
 export async function sweepNow(args: {
   dryRun: boolean
   applyPricing: (a: {
@@ -387,8 +391,8 @@ export async function sweepNow(args: {
     outputTokenPrice: number
     billingMode: 'token'
   }) => Promise<unknown>
-}): Promise<Awaited<ReturnType<typeof sweepUnpricedModels>>> {
-  return sweepUnpricedModels(
+}): Promise<Awaited<ReturnType<typeof repricePlaceholderModels>>> {
+  return repricePlaceholderModels(
     db as unknown as { execute: (q: unknown) => Promise<unknown> },
     args.applyPricing,
     {
@@ -1021,13 +1025,17 @@ export interface PublishPricingCheck {
   reason?: string
 }
 
-/** 上架前定价校验:输入/输出售价均 <= 0 时拒绝上架。 */
+/**
+ * 上架前定价校验(2026-11-14 立;同日扩展占位价拦截)。
+ * 拒绝:任一方向售价 <= 0、或无权威来源留痕的 1分/2分 占位价、或 -100000 哨兵价。
+ */
 export async function assertPricedForPublish(modelRowId: number): Promise<PublishPricingCheck> {
   const res = await db.execute(sql`
     select
       model_id,
       coalesce(input_price_per_1k, 0) as pin,
-      coalesce(output_price_per_1k, 0) as pout
+      coalesce(output_price_per_1k, 0) as pout,
+      metadata->'priceSource'->>'tier' as tier
     from ai_model_config_models
     where id = ${modelRowId}
   `)
@@ -1043,15 +1051,30 @@ export async function assertPricedForPublish(modelRowId: number): Promise<Publis
   if (/:free\b/i.test(modelId)) {
     return { ok: true, modelId, inputPricePer1k: pin, outputPricePer1k: pout }
   }
-  if (pin <= 0 && pout <= 0) {
+  // 任一方向 <=0 都是缺口(此前只拦"两个都为 0",漏掉半个价为 0 的行)
+  if (pin <= 0 || pout <= 0) {
     return {
       ok: false,
       modelId,
       inputPricePer1k: pin,
       outputPricePer1k: pout,
       reason:
-        `模型 ${modelId} 售价为 0(输入 ${pin} 分/千 token,输出 ${pout} 分/千 token),` +
+        `模型 ${modelId} 售价存在非正数(输入 ${pin} 分/千 token,输出 ${pout} 分/千 token),` +
         '请先定价再上架 —— 零价上架会让所有调用按 0 记账,造成漏计费',
+    }
+  }
+  // 1分/2分 是 2026-07-30 批量写入的占位默认价(跨厂商全同价),不是真实单价。
+  // 除非该行带有 exact/alias 权威命中留痕(极端巧合下的真价),否则禁止上架。
+  const tier = row['tier'] ? String(row['tier']) : ''
+  if (pin === 1 && pout === 2 && tier !== 'exact' && tier !== 'alias') {
+    return {
+      ok: false,
+      modelId,
+      inputPricePer1k: pin,
+      outputPricePer1k: pout,
+      reason:
+        `模型 ${modelId} 仍是 1分/2分 占位价(无权威价来源留痕),` +
+        '请先执行「修复占位价」或人工按上游真实价调价再上架',
     }
   }
   return { ok: true, modelId, inputPricePer1k: pin, outputPricePer1k: pout }
@@ -1130,7 +1153,12 @@ export async function getUnpricedAlerts(days = 30): Promise<UnpricedAlertReport>
       ) as estimated_cost_cents
     from price p
     left join usage u on u.mid = p.mid
-    where coalesce(p.pin, 0) <= 0 and coalesce(p.pout, 0) <= 0
+    where (
+        coalesce(p.pin, 0) <= 0
+        or coalesce(p.pout, 0) <= 0
+        -- 1分/2分 是 2026-07-30 批量写入的占位价(跨厂商全同价),同样算定价缺口
+        or (coalesce(p.pin, 0) = 1 and coalesce(p.pout, 0) = 2)
+      )
       and p.mid not like '%:free'
       and (p.is_relay_public = true or coalesce(u.calls, 0) > 0)
     order by estimated_cost_cents desc, calls desc
@@ -1176,8 +1204,8 @@ export async function syncConfigPricesFromPricing(): Promise<ConfigPriceSyncResu
   const scanRes = await db.execute(sql`
     select count(*)::int as n
     from ai_model_config_models m
-    where coalesce(m.input_price_per_1k, 0) = 0
-      and coalesce(m.output_price_per_1k, 0) = 0
+    where coalesce(m.input_price_per_1k, 0) <= 0
+      and coalesce(m.output_price_per_1k, 0) <= 0
       and lower(m.model_id) not like '%:free'
   `)
   const scanned = asNum(rowsOf<{ n: number }>(scanRes)[0]?.n)
@@ -1189,7 +1217,9 @@ export async function syncConfigPricesFromPricing(): Promise<ConfigPriceSyncResu
         input_token_price as pin,
         output_token_price as pout
       from ai_pricing
-      where (input_token_price > 0 or output_token_price > 0)
+      where input_token_price > 0
+        and output_token_price > 0
+        and not (input_token_price = 1 and output_token_price = 2)
         and lower(model_id) not like '%:free'
       order by lower(model_id), effective_at desc nulls last
     )
@@ -1199,8 +1229,8 @@ export async function syncConfigPricesFromPricing(): Promise<ConfigPriceSyncResu
         updated_at = now()
     from src s
     where lower(m.model_id) = s.mid
-      and coalesce(m.input_price_per_1k, 0) = 0
-      and coalesce(m.output_price_per_1k, 0) = 0
+      and coalesce(m.input_price_per_1k, 0) <= 0
+      and coalesce(m.output_price_per_1k, 0) <= 0
     returning m.id
   `)
   const updated = rowsOf<Record<string, unknown>>(updRes).length

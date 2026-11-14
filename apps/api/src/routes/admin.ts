@@ -47,6 +47,7 @@ import {
   updateModelPrice,
 } from '../services/model-pricing-admin.js'
 import { booleanStringSchemaOptional } from '../utils/parse-boolean.js'
+import { repricePlaceholderModels } from '../services/model-price-resolver.js'
 import { hashPassword } from '../utils/password-crypto.js'
 import { db } from '../db/index.js'
 import { orders, users, projects } from '@ihui/database'
@@ -277,6 +278,30 @@ export const adminRoutes: FastifyPluginAsync = async (server) => {
     async (_request, reply) => {
       const result = await syncConfigPricesFromPricing()
       return reply.send(success(result))
+    },
+  )
+
+  // POST /ai-pricing/reprice-placeholders - 占位价重定价(2026-11-14 立)
+  // 只接受三源价表 exact/alias 命中;动态路由与无权威价的模型一律下架,禁止插值/中位数。
+  server.post(
+    '/ai-pricing/reprice-placeholders',
+    {
+      schema: {
+        summary: '占位价重定价(权威命中或下架)',
+        description:
+          '修复 ai_pricing 里 1分/2分 占位价与 -100000 哨兵价:三源价表 exact/alias 命中则写入' +
+          '权威价(成本×3),否则下架并删除占位定价行。dryRun=true 只看不写。',
+        tags: ['admin'],
+      },
+    },
+    async (request, reply) => {
+      const b = (request.body ?? {}) as { dryRun?: boolean }
+      const data = await repricePlaceholderModels(
+        db as unknown as { execute: (q: unknown) => Promise<unknown> },
+        upsertPricing,
+        { dryRun: b.dryRun === true },
+      )
+      return reply.send(success(data))
     },
   )
 

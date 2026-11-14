@@ -15,6 +15,9 @@
 import cron, { type ScheduledTask } from 'node-cron'
 import { logger } from '../utils/logger.js'
 import { getUnpricedAlerts, syncConfigPricesFromPricing } from '../services/model-pricing-admin.js'
+import { repricePlaceholderModels } from '../services/model-price-resolver.js'
+import { upsertPricing } from '../services/pricing-service.js'
+import { db } from '../db/index.js'
 
 let task: ScheduledTask | null = null
 
@@ -28,14 +31,27 @@ export function startPricingGuardScheduler(): void {
     '0 9 * * *',
     async () => {
       try {
-        // 先以 ai_pricing 权威价回填配置零价行,再巡检 —— 否则会把"实际有价、配置为 0"
-        // 的模型重复报成缺口(2026-11-14 实测 565 行属此类)。
+        // 1) 先把占位价(1分/2分)与负价哨兵修正为权威价,拿不到权威价的下架。
+        //    这一步必须排在配置价同步之前,否则占位价会被下一段当成"已有价"而放过。
+        const repriced = await repricePlaceholderModels(
+          db as unknown as { execute: (q: unknown) => Promise<unknown> },
+          upsertPricing,
+        )
+        logger.info('[pricing-guard] 占位价重定价', {
+          scanned: repriced.scanned,
+          repriced: repriced.repriced,
+          delisted: repriced.delisted.length,
+          byTier: repriced.byTier,
+        })
+        // 2) 再以 ai_pricing 权威价回填配置零价行,否则会把"实际有价、配置为 0"
+        //    的模型重复报成缺口(2026-11-14 实测 565 行属此类)。
         const synced = await syncConfigPricesFromPricing()
         logger.info('[pricing-guard] 配置价预同步', {
           scanned: synced.scanned,
           updated: synced.updated,
           skipped: synced.skipped,
         })
+        // 3) 最后巡检
         const r = await getUnpricedAlerts(7)
         if (r.publishedUnpriced > 0 || r.callingUnpriced > 0) {
           logger.warn('[pricing-guard] 零价模型告警', {

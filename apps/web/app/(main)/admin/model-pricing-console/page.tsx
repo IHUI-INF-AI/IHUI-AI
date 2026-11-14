@@ -316,6 +316,39 @@ export default function PricingConsolePage() {
     onError: (e: Error) => setNotice(`配置价同步失败:${e.message}`),
   })
 
+  const repricePlaceholders = useMutation({
+    mutationFn: async (dryRun: boolean) => {
+      const r = await fetchApi<{
+        scanned: number
+        repriced: number
+        delisted: string[]
+        byTier: Record<string, number>
+        dryRun: boolean
+      }>(`${BASE}/reprice-placeholders`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dryRun }),
+      })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
+    onSuccess: (d) => {
+      const tiers = Object.entries(d.byTier)
+        .map(([k, v]) => `${k}=${v}`)
+        .join(' / ')
+      setNotice(
+        `${d.dryRun ? '[预演] ' : ''}占位价重定价:扫描 ${d.scanned} 个模型,权威定价 ${d.repriced} 个${tiers ? `(${tiers})` : ''},下架 ${d.delisted.length} 个`,
+      )
+      if (!d.dryRun) {
+        void qc.invalidateQueries({ queryKey: ['pricing-unpriced-alerts'] })
+        void qc.invalidateQueries({ queryKey: ['pricing-profit'] })
+        void qc.invalidateQueries({ queryKey: ['pricing-profit-groups'] })
+        void qc.invalidateQueries({ queryKey: ['pricing-channel-cost'] })
+      }
+    },
+    onError: (e: Error) => setNotice(`占位价重定价失败:${e.message}`),
+  })
+
   const backfillCalls = useMutation({
     mutationFn: async () => {
       const r = await fetchApi<{
@@ -712,6 +745,32 @@ export default function PricingConsolePage() {
                 <RefreshCw className="size-3" />
               )}
               同步配置价
+            </button>
+            <button
+              type="button"
+              onClick={() => repricePlaceholders.mutate(true)}
+              disabled={repricePlaceholders.isPending}
+              className="inline-flex items-center gap-1 rounded-sm border border-border px-2 py-0.5 hover:bg-muted disabled:opacity-50"
+            >
+              {repricePlaceholders.isPending ? (
+                <Loader2 className="size-3 animate-spin" />
+              ) : (
+                <RefreshCw className="size-3" />
+              )}
+              预演占位价修复
+            </button>
+            <button
+              type="button"
+              onClick={() => repricePlaceholders.mutate(false)}
+              disabled={repricePlaceholders.isPending}
+              className="inline-flex items-center gap-1 rounded-sm border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-amber-700 hover:bg-amber-500/20 disabled:opacity-50 dark:text-amber-400"
+            >
+              {repricePlaceholders.isPending ? (
+                <Loader2 className="size-3 animate-spin" />
+              ) : (
+                <RefreshCw className="size-3" />
+              )}
+              修复占位价(无权威价则下架)
             </button>
           </div>
 
