@@ -16,6 +16,8 @@ import {
   updateExchangeRate,
   deleteExchangeRate,
 } from '../db/exchange-rate-queries.js'
+// 实时汇率快照(2026-11-14 立):展示层换算唯一出口,与静态库表 CRUD 并存
+import { getFxSnapshot } from '../services/fx-rate-service.js'
 
 const idParamSchema = z.object({ id: z.coerce.number().int().positive() })
 
@@ -50,6 +52,12 @@ const rateQuerySchema = z.object({
 
 /** 公共路由：查询汇率（不需要管理员权限） */
 export const exchangeRatePublicRoutes: FastifyPluginAsync = async (server) => {
+  // GET /exchange-rates/live — 实时汇率快照(USD/CNY/USDT)
+  // 供前端「美元 / 人民币 / USDT 一键切换」按即时汇率换算;上游全挂时返回兜底值并标 stale。
+  server.get('/exchange-rates/live', async (_request, reply) => {
+    return reply.send(success(await getFxSnapshot()))
+  })
+
   // GET /exchange-rates/rate?from=USD&to=CNY — 查询两个货币之间的汇率
   server.get('/exchange-rates/rate', async (request, reply) => {
     const parsed = rateQuerySchema.safeParse(request.query)

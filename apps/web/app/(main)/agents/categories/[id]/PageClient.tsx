@@ -13,6 +13,7 @@ import { useLocale, useTranslations } from 'next-intl'
 import { Loader2, ArrowLeft, Sparkles } from 'lucide-react'
 
 import { apiOrThrow } from '@/lib/api'
+import { formatCnyCents } from '@/lib/display-currency'
 import { Card, CardContent } from '@ihui/ui-react'
 import { CategoryHeader, AgentAvatar } from '@ihui/rn-app/pilot'
 import { cn } from '@/lib/utils'
@@ -179,7 +180,7 @@ export default function AgentCategoryDetailPage() {
                               : 'text-primary',
                           )}
                         >
-                          {agent.isFree ? t('free') : `¥${(agent.price / 100).toFixed(2)}`}
+                          {agent.isFree ? t('free') : formatCnyCents(agent.price, { digits: 2 })}
                         </span>
                       </div>
                     </div>

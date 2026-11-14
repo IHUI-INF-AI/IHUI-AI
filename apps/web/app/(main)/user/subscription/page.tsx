@@ -16,6 +16,7 @@ import { useTranslations } from 'next-intl'
 import { fetchApi, apiOrThrow } from '@/lib/api'
 import { pushError } from '@/stores/error-banner'
 import { formatDate } from '@/lib/date-utils'
+import { formatCnyCents } from '@/lib/display-currency'
 import { useSubscriptionStatus, useSignContract } from '@/hooks/use-subscription'
 import { ContractManager } from '@/components/billing/ContractManager'
 import { BackButton, AuthGatePrompt } from '@/components/common'
@@ -55,10 +56,7 @@ interface SubscriptionStatus {
 }
 
 function formatPrice(cents: number): string {
-  return new Intl.NumberFormat('zh-CN', {
-    style: 'currency',
-    currency: 'CNY',
-  }).format(cents / 100)
+  return formatCnyCents(cents, { digits: 2 })
 }
 
 export default function SubscriptionPage() {

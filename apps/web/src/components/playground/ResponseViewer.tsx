@@ -22,6 +22,8 @@ import {
   Button,
 } from '@ihui/ui-react'
 import { MarkdownViewer } from '@/components/media/MarkdownViewer'
+// 展示货币换算(2026-11-14 立):成本按实时汇率折算
+import { formatCnyCents } from '@/lib/display-currency'
 import { generateCurlCode, generateNodejsCode, generatePythonCode } from '@/lib/playground-api'
 import type {
   CodeLanguage,
@@ -134,7 +136,11 @@ export function ResponseViewer({
                 <StatChip
                   icon={<Coins className="h-3 w-3" />}
                   label={t('costLabel')}
-                  value={response.costCents > 0 ? `¥${(response.costCents / 100).toFixed(4)}` : '—'}
+                  value={
+                    response.costCents > 0
+                      ? formatCnyCents(response.costCents, { digits: 4 })
+                      : '—'
+                  }
                 />
               </div>
             )}

@@ -17,6 +17,7 @@ import { apiOrThrow } from '@/lib/api'
 import { useAnalytics } from '@/hooks/use-analytics'
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
+import { formatCnyCents } from '@/lib/display-currency'
 
 interface VipLevel {
   id: string
@@ -53,8 +54,7 @@ interface PayStatusResult {
 
 type PaymentMethod = 'wechat' | 'alipay'
 
-const formatCNY = (cents: number) =>
-  new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'CNY' }).format(cents / 100)
+const formatCNY = (cents: number) => formatCnyCents(cents, { digits: 2 })
 
 function DetailsContent() {
   const t = useTranslations('vip')

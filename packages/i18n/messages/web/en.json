@@ -28479,10 +28479,10 @@
     "status_cancelled": "cancelled"
   },
   "costGuard": {
-    "estimateLine": "Est. ≈{tokens} tokens (~${cost})",
+    "estimateLine": "Est. ≈{tokens} tokens (~{cost})",
     "fallbackPrice": "fallback price, for reference only",
     "actualLine": "Actual {actual} tokens (est. {estimate})",
-    "negotiationLine": "Est. ≈{tokens} tokens (~${cost}), over budget threshold",
+    "negotiationLine": "Est. ≈{tokens} tokens (~{cost}), over budget threshold",
     "negotiationFallback": "Estimated usage is over the budget threshold",
     "confirmSend": "Send anyway",
     "confirmCancel": "Cancel"

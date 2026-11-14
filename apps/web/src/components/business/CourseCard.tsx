@@ -10,6 +10,7 @@ import Link from 'next/link'
 import { User, Clock, Star } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { toMediaImageUrl } from '@/lib/media-proxy'
+import { formatCny } from '@/lib/display-currency'
 import { ProgressBar } from '@/components/common'
 
 interface CourseCardProps {
@@ -101,12 +102,12 @@ function CourseCardImpl({
           <div className="flex items-baseline gap-2">
             {price !== undefined && (
               <span className="text-lg font-bold text-primary">
-                {typeof price === 'number' ? `¥${price}` : price}
+                {typeof price === 'number' ? formatCny(price, { digits: 0 }) : price}
               </span>
             )}
             {originalPrice !== undefined && (
               <span className="text-body text-muted-foreground line-through">
-                {typeof originalPrice === 'number' ? `¥${originalPrice}` : originalPrice}
+                {typeof originalPrice === 'number' ? formatCny(originalPrice, { digits: 0 }) : originalPrice}
               </span>
             )}
           </div>
