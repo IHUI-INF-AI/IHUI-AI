@@ -241,6 +241,23 @@ test('B7 承载体判据只认「具名导入的本地绑定出现在 JSX」,不
     ),
     false,
   )
+  // 正例(2026-11-14 立):深子路径导入也要认 —— 消费方已全面迁到
+  // `@ihui/rn-app/features/x/XScreen`,判据只锚桶导入会漏判真实承载体(门302 aligned 虚降)。
+  assert.equal(
+    G.rendersSharedIn(
+      "import { AccountCancelScreen as SharedAccountCancelScreen } from '@ihui/rn-app/features/account-cancel/AccountCancelScreen'\nexport function P(){return <SharedAccountCancelScreen />}",
+      'AccountCancelScreen',
+    ),
+    true,
+  )
+  // 反例:`@ihui/rn-app-xxx` 之类无关包不得误吞(`rn-app` 后须紧跟引号或 `/`)
+  assert.equal(
+    G.rendersSharedIn(
+      "import { PlanListScreen as SharedPlanListScreen } from '@ihui/rn-app-other'\nexport function P(){return <SharedPlanListScreen />}",
+      'PlanListScreen',
+    ),
+    false,
+  )
   // 反例:渲染的是另一个组件(前缀相同也不算)
   assert.equal(
     G.rendersSharedIn(
