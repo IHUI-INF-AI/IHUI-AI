@@ -36,6 +36,9 @@ import { OverflowShadow } from './overflow-shadow'
 import { IconButton } from '@ihui/ui-react'
 import { Tooltip } from '@/components/feedback'
 import { useWorkPanelStore } from '@/stores/work-panel'
+import { useIDEWorkspace } from '@/stores/ide-workspace'
+import { parseMarkdownFileLink } from '@/lib/markdown-file-link'
+import { openWorkspaceFileInIde } from '@/lib/workspace-file-open'
 // D129:点开图片的唯一出口(外链 window.open / 其余进工作面板);助手侧与用户气泡共用一份判断
 import { openImageSource } from '@/lib/open-image-source'
 // CSP img-src 收窄后,所有外部 http(s) 图片必须走同源代理 /api/media/image,否则被 CSP 拦
@@ -121,6 +124,15 @@ interface MarkdownStreamProps {
   isStreaming?: boolean
   /** 代码块默认折叠行数阈值，超过该行数默认折叠，<=0 表示不折叠 */
   collapseLines?: number
+  /** 行内文件名引用解析(2026-11-14,对标 DSH producedFileMentions):
+   *  只在本轮真实产出/交付路径里解析;歧义/未知一律保持普通 code。 */
+  fileMention?: FileMention
+}
+
+/** 行内 code 文件引用的解析与打开出口(由消息层按本轮 toolCalls 提供)。 */
+export interface FileMention {
+  resolve(value: string): { path: string; label: string } | undefined
+  open(path: string): void
 }
 
 // 复制到剪贴板 hook
@@ -863,6 +875,30 @@ function isOfficeLink(href: string): boolean {
   return OFFICE_EXT.test(href)
 }
 
+/** 目标末段含扩展名才算"像文件"的链接(站内路由 / 锚点 / 目录链接不接管)。 */
+const FILE_LIKE_TARGET = /[^/?#]+\.[^/?#]+$/
+
+/**
+ * 2026-11-14(对标 DSH deliverable-file-references 的可点文件引用):
+ * 相对路径 / Windows 绝对路径 / file:// 由 workspace 语境解析成磁盘路径;
+ * http(s)/mailto/# 不接管;解析失败(逃逸、非法、无法归一)保持原文不可点。
+ */
+function resolveWorkspaceFileTarget(
+  href: string,
+  workspacePath: string,
+): ReturnType<typeof parseMarkdownFileLink> {
+  if (!FILE_LIKE_TARGET.test(href)) return null
+  if (/^(https?:|mailto:|#)/i.test(href)) return null
+  // IHUI 的 `/files/...`、`/uploads/...` 是应用已提供的 HTTP 路由(产物下载/预览),
+  // 不是本地工作区文件:必须保持原有 anchor 语义(含产物卡反向聚焦/WorkPanel)。
+  if (href.startsWith('/')) return null
+  try {
+    return parseMarkdownFileLink(href, { workspacePath: workspacePath || undefined })
+  } catch {
+    return null
+  }
+}
+
 function MarkdownLink({
   href,
   children,
@@ -874,9 +910,30 @@ function MarkdownLink({
   isStreaming?: boolean
 }) {
   const hrefStr = typeof href === 'string' ? href : undefined
+  const workspacePath = useIDEWorkspace((s) => s.workspacePath)
   if (!hrefStr) {
     // 无 href 的链接:渲染为 span(避免 a11y 警告)
     return <span>{children}</span>
+  }
+
+  // 工作区文件引用:相对/绝对磁盘路径落到 IDE;有对应产物卡时仍优先反向聚焦产物卡。
+  const fileTarget = resolveWorkspaceFileTarget(hrefStr, workspacePath)
+  if (fileTarget) {
+    return (
+      <button
+        type="button"
+        title={fileTarget.path}
+        data-testid="markdown-workspace-file-link"
+        className="mx-0.5 inline-flex items-baseline gap-0.5 text-primary underline decoration-primary/40 underline-offset-2 hover:decoration-primary"
+        onClick={(e) => {
+          if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey) return
+          if (tryFocusArtifactFromLink(hrefStr)) return
+          openWorkspaceFileInIde(fileTarget.path, fileTarget.line, fileTarget.column)
+        }}
+      >
+        {children}
+      </button>
+    )
   }
 
   const isSafeUrl = /^(https?:|mailto:|\/|#)/.test(hrefStr)
@@ -1065,7 +1122,17 @@ const ActiveBlock = React.memo(function ActiveBlock({
   )
 })
 
-export function MarkdownStream({ content, isStreaming, collapseLines = 5 }: MarkdownStreamProps) {
+export function MarkdownStream({
+  content,
+  isStreaming,
+  collapseLines = 5,
+  fileMention,
+}: MarkdownStreamProps) {
+  // G-737 同型纪律:解析上下文不进 components 身份 —— toolCalls 流式增长会让
+  // fileMention 引用逐拍变化,若进 deps,稳定前缀的 memo 每拍失效、整段重 parse。
+  // 用 ref 在渲染 pass 前同步,身份仍只由 collapseLines 决定。
+  const fileMentionRef = React.useRef<FileMention | undefined>(fileMention)
+  fileMentionRef.current = fileMention
   // 流式内容随平滑 batcher 逐帧增长;渲染层只做"同帧合并 + 轻节流",
   // 不再对长内容降级到 400ms(那会在长回答上重新引入整坨蹦),
   // 也不再走 useDeferredValue(其注释自承会让流式光标滞后、与正文节拍打架)。
@@ -1211,6 +1278,22 @@ export function MarkdownStream({ content, isStreaming, collapseLines = 5 }: Mark
                 sessionStreamedRef.current && streamedCodeTextsRef.current.has(codeText)
               }
             />
+          )
+        }
+
+        // 行内 code:命中本轮产出/交付路径时变成可点文件引用(歧义/未知保持普通 code)
+        const mention = fileMentionRef.current?.resolve(codeText)
+        if (mention) {
+          return (
+            <button
+              type="button"
+              title={mention.path}
+              data-testid="inline-file-mention"
+              onClick={() => fileMentionRef.current?.open(mention.path)}
+              className="rounded bg-muted px-1.5 py-0.5 font-mono text-[0.85em] underline decoration-dotted underline-offset-2 hover:bg-muted/70"
+            >
+              {children}
+            </button>
           )
         }
 

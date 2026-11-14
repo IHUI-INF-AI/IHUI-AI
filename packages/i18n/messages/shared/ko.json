@@ -60,6 +60,7 @@
     "toolCreateAutomation": "자동화 생성",
     "toolSummarizeArtifacts": "산출물 요약",
     "toolPresentFiles": "파일 제공",
+    "presentedTitle": "{count}개 파일을 전달했습니다",
     "activityMcp": "{mcp} MCP 호출",
     "activityPlugin": "{plugin} 플러그인 호출",
     "activityPlanning": "계획 수립 중",
