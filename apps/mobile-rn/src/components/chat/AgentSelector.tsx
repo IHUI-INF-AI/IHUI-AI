@@ -4,6 +4,7 @@
 
 // 纯抽取:从 ChatScreen 抽出「选择 Agent」弹窗(D114)。零行为/视觉变更。
 
+import { t as tStatic } from '../../i18n'
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native'
 import { Sparkles, X } from 'lucide-react-native'
 import { tokens } from '../../theme/active-tokens'
@@ -144,8 +145,13 @@ export function AgentSelector({
       <Tappable style={styles.modalMask} onPress={onClose}>
         <Pressable style={listDialogStyle} onPress={(e) => e.stopPropagation()}>
           <View style={styles.listDialogHeader}>
-            <Text style={styles.listDialogTitle}>选择 Agent</Text>
-            <Tappable hitSlop={8} onPress={onClose} style={styles.listDialogClose}>
+            <Text style={styles.listDialogTitle}>{tStatic('uiText.selectAgent')}</Text>
+            <Tappable
+              hitSlop={8}
+              onPress={onClose}
+              style={styles.listDialogClose}
+              accessibilityRole="button"
+            >
               <X size={20} color={tokens.text.primary} />
             </Tappable>
           </View>
@@ -154,7 +160,7 @@ export function AgentSelector({
             <View style={styles.personaWrap}>
               <View style={styles.personaLabelRow}>
                 <Sparkles size={12} color={tokens.brandAccent.deep} />
-                <Text style={styles.personaLabel}>当前人格</Text>
+                <Text style={styles.personaLabel}>{tStatic('uiText.currentPersona')}</Text>
               </View>
               <Text style={styles.personaName} numberOfLines={1}>
                 {personaItem.name}

@@ -43,6 +43,7 @@ import {
   resolveScrollViewBox,
   resolveTextLineClamp,
 } from './props-resolution'
+import { createPressHandlers } from './press-handlers'
 /**
  * 纯类型别名一律 `import type`(编译期擦除,不进运行时图):`./index` 会 `export * from './primitives'`,
  * 值层若互相 require 就是环 —— 类型层没有这个问题。
@@ -94,6 +95,24 @@ export interface RNCompatProps {
   onLongPress?: (e: GestureResponderEvent) => void
   onPressIn?: (e: GestureResponderEvent) => void
   onPressOut?: (e: GestureResponderEvent) => void
+  /**
+   * 触点族(2026-11-14 补派发)。它与上面三格是**同一个物理动作的两套名字**:
+   *   - `onTouchStart/Move/End/Cancel` 是 Taro 小程序真有的原生事件;
+   *   - `onPressIn/onPressOut`        是 RN 的按压生命周期。
+   *
+   * 旧状态:两组都声明了,却一列都没派发(compat View 只接 onClick/onLongPress)。
+   * 后果不是"少个按压态",是三件真事同时断:
+   *   ① ui-native 的 Tappable(全仓 361 个调用点)靠 onPressIn/onPressOut 改内部 pressed
+   *      ⇒ 小程序端 pressed 恒 false,**整端按压反馈为 0**;
+   *   ② 共享层"按住说话"(ChatVoiceTurn / ChatComposer / SearchInput)靠同一对事件起停录音
+   *      ⇒ 小程序端按下去不开始、松手不结束;
+   *   ③ 函数形态 `style` / `children` 只能按 `{pressed:false}` 求值一次。
+   * 现在由 Pressable 用 `createPressHandlers` 把 touch 翻译成 pressIn/pressOut(语义差异见该文件头注)。
+   */
+  onTouchStart?: (e: GestureResponderEvent) => void
+  onTouchMove?: (e: GestureResponderEvent) => void
+  onTouchEnd?: (e: GestureResponderEvent) => void
+  onTouchCancel?: (e: GestureResponderEvent) => void
   onLayout?: (e: LayoutChangeEvent) => void
   onFocus?: (e: NativeSyntheticEvent<{ target: number }>) => void
   onBlur?: (e: NativeSyntheticEvent<{ target: number }>) => void
@@ -180,8 +199,39 @@ const VIEW_BASE: ViewStyle = {
   minWidth: 0,
 }
 
-function merged(style: unknown, base: ViewStyle): ViewStyle {
-  return { ...base, ...flattenStyle(style) }
+/**
+ * 合并 RN 基线与调用方样式,并按 className 让位。
+ *
+ * RN 侧 className(NativeWind) 与 style 是同一优先级按源码顺序合并;小程序侧 className
+ * 走 wxss、style 走内联,**内联恒赢**。若把 VIEW_BASE 的 flexDirection:'column' /
+ * alignItems:'stretch' / padding:0 / margin:0 原样序列化成内联,调用方的
+ * `flex-row` / `items-center` / `px-3 py-2` 会被无声覆盖(横排变竖排、间距归零)。
+ * 因此对 className 已声明的同类属性摘掉基线里对应键,让 wxss 生效;调用方 style
+ * 显式给的同名键仍然赢(与 RN 的 style 优先级一致)。
+ */
+const CLASS_OVERRIDE_RULES: ReadonlyArray<readonly [RegExp, readonly string[]]> = [
+  [/(?:^|\s)flex-(?:row|col)(?:-reverse)?(?:\s|$)/, ['flexDirection']],
+  [/(?:^|\s)items-/, ['alignItems']],
+  [/(?:^|\s)justify-/, ['justifyContent']],
+  [/(?:^|\s)(?:p|px|py|pt|pr|pb|pl)-/, ['padding']],
+  [/(?:^|\s)(?:m|mx|my|mt|mr|mb|ml)-/, ['margin']],
+]
+
+function merged(style: unknown, base: ViewStyle, className?: string): ViewStyle {
+  const flat = flattenStyle(style)
+  if (!className) return { ...base, ...flat }
+  const skipped = new Set<string>()
+  for (const [rule, keys] of CLASS_OVERRIDE_RULES) {
+    if (rule.test(className)) {
+      for (const k of keys) skipped.add(k)
+    }
+  }
+  if (skipped.size === 0) return { ...base, ...flat }
+  const effectiveBase: ViewStyle = {}
+  for (const [k, v] of Object.entries(base)) {
+    if (!skipped.has(k)) effectiveBase[k] = v
+  }
+  return { ...effectiveBase, ...flat }
 }
 
 // 事件位形状一律**从 Taro 组件自己的 props 反解**(ComponentProps),不自己写签名:
@@ -245,13 +295,13 @@ type SelectorRect = { left?: number; top?: number; width?: number; height?: numb
 let layoutProbeSeq = 0
 let scrollProbeSeq = 0
 
-function useLayoutBridge(p: RNBaseProps): string | undefined {
+function useLayoutBridge(p: RNBaseProps, needsId = false): string | undefined {
   const onLayout =
     typeof p.onLayout === 'function'
       ? (p.onLayout as (event: LayoutChangeEvent) => void)
       : undefined
   const autoId = useRef<string | null>(null)
-  if (onLayout && typeof p.id !== 'string' && autoId.current === null) {
+  if ((onLayout || needsId) && typeof p.id !== 'string' && autoId.current === null) {
     autoId.current = `rn-layout-${++layoutProbeSeq}`
   }
   const probeId = typeof p.id === 'string' ? p.id : (autoId.current ?? undefined)
@@ -294,26 +344,117 @@ function useLayoutBridge(p: RNBaseProps): string | undefined {
   return probeId
 }
 
-export function View(props: RNBaseProps): ReactElement
-export function View(props: RNCompatProps): ReactElement
-export function View(props: RNCompatProps) {
+/**
+ * 测量句柄(2026-11-14)。
+ *
+ * 此前 `ViewInstance.measureInWindow` **只在类型上下存在、运行时没有实现**,而且 View 不是
+ * forwardRef ⇒ `useRef<View>(null)` 在小程序端恒为 null。共享屏
+ * `components/category/CategoryDropdown.tsx:118` 正是靠
+ * `triggerRef.current?.measureInWindow((x, y, w, h) => …)` 取锚点算下拉面板位置,
+ * 于是小程序端下拉的定位信息**永远拿不到**(面板贴错位置或走兜底)。
+ *
+ * 实现走 weapp 的 createSelectorQuery:给节点一个稳定 id(与 onLayout 探针同一个 id 位),
+ * 量出 boundingClientRect 后再回调。`setNativeProps` 在小程序无等价物 ⇒ 空实现并如实注释,
+ * 不假装生效。rect 取不到时**不回调**(与 onLayout 同一纪律:不派发 0 尺寸假数据)。
+ */
+function useMeasureHandle(ref: ForwardedRef<ViewInstance>, measureId: string | undefined) {
+  useImperativeHandle(
+    ref,
+    () => ({
+      measureInWindow: (cb) => measureRect(measureId, (r) => cb(r.left, r.top, r.width, r.height)),
+      // RN 的 measure 给 (x, y) = **相对父节点**、(pageX, pageY) = **页面坐标**。
+      // weapp 的选择器只能给出**可视区坐标**(boundingClientRect.left/top),没有父相对 API
+      // ⇒ x/y 如实退化为可视区坐标(见 PLATFORM-LIMITS §6),但 pageX/pageY 必须真算:
+      // 拿视口 scrollOffset 补偿,不能把 left/top 直接冒充页面坐标(滚动后那是错的)。
+      measure: (cb) =>
+        measureRect(measureId, (r) =>
+          measurePageOffset((offset) =>
+            cb(r.left, r.top, r.width, r.height, r.left + offset.x, r.top + offset.y),
+          ),
+        ),
+      // 小程序没有 setNativeProps 通道(样式只能走 state/props 重渲染),保留签名占位不装假映射
+      setNativeProps: () => undefined,
+    }),
+    [measureId],
+  )
+}
+
+/** 视口滚动量:把可视区坐标换算成页面坐标(pageX/pageY)用。取不到就按 0 算并如实退化为可视区。 */
+function measurePageOffset(cb: (offset: { x: number; y: number }) => void): void {
+  const query = Taro.createSelectorQuery()
+  if (typeof query.selectViewport !== 'function') {
+    cb({ x: 0, y: 0 })
+    return
+  }
+  query
+    .selectViewport()
+    .scrollOffset((raw: unknown) => {
+      const offset = raw as { scrollLeft?: number; scrollTop?: number } | null
+      cb({
+        x: typeof offset?.scrollLeft === 'number' ? offset.scrollLeft : 0,
+        y: typeof offset?.scrollTop === 'number' ? offset.scrollTop : 0,
+      })
+    })
+    .exec()
+}
+
+function measureRect(
+  measureId: string | undefined,
+  cb: (r: { left: number; top: number; width: number; height: number }) => void,
+): void {
+  if (!measureId || typeof Taro.createSelectorQuery !== 'function') return
+  Taro.createSelectorQuery()
+    .select(`#${measureId}`)
+    .boundingClientRect((raw: unknown) => {
+      const rect = raw as SelectorRect
+      if (!rect) return
+      if (typeof rect.width !== 'number' || typeof rect.height !== 'number') return
+      cb({
+        left: typeof rect.left === 'number' ? rect.left : 0,
+        top: typeof rect.top === 'number' ? rect.top : 0,
+        width: rect.width,
+        height: rect.height,
+      })
+    })
+    .exec()
+}
+
+function ViewInner(props: RNCompatProps, ref: ForwardedRef<ViewInstance>) {
   // 实现体按**兜底面**读(id 等各屏自定义键不在闭合面上)。RNCompatProps 是 interface,
   // 结构上不满足 `{[k:string]: unknown}` 的索引签名要求(TS 只给匿名对象类型隐式索引),
   // 所以这一支只能取闭合面 + 断言;运行时形状同一个对象,零改动。
   const p = props as RNBaseProps
   const onClick = clickHandler(p)
-  const probeId = useLayoutBridge(p)
+  // 挂了 ref 才需要 id:没 ref 的 View 不必为测量多生成一个选择器(节点 id 是全局开销)
+  const probeId = useLayoutBridge(p, ref !== null && ref !== undefined)
+  useMeasureHandle(ref, probeId)
   return (
     <TaroView
       className={typeof p.className === 'string' ? p.className : undefined}
-      style={toTaroStyle(merged(p.style, VIEW_BASE))}
+      style={toTaroStyle(
+        merged(p.style, VIEW_BASE, typeof p.className === 'string' ? p.className : undefined),
+      )}
       id={probeId}
       onClick={onClick}
       onLongPress={p.onLongPress as EventHandler}
+      onTouchStart={p.onTouchStart as TaroViewProps['onTouchStart']}
+      onTouchMove={p.onTouchMove as TaroViewProps['onTouchMove']}
+      onTouchEnd={p.onTouchEnd as TaroViewProps['onTouchEnd']}
+      onTouchCancel={p.onTouchCancel as TaroViewProps['onTouchCancel']}
     >
       {p.children}
     </TaroView>
   )
+}
+
+/**
+ * forwardRef 是**行为修复**而不是类型糖(与 ScrollView/FlatList/TextInput 同一条理由):
+ * 共享层写 `<View ref={r}>` 再 `r.current.measureInWindow(cb)`,普通函数组件在小程序端 ref 恒 null,
+ * 整条测量链静默失效(CategoryDropdown 的下拉定位就是这样拿不到锚点的)。
+ */
+export const View = forwardRef(ViewInner) as unknown as {
+  (props: RNBaseProps & { ref?: Ref<ViewInstance> }): ReactElement
+  (props: RNCompatProps & { ref?: Ref<ViewInstance> }): ReactElement
 }
 
 /**
@@ -376,18 +517,40 @@ export interface PressableProps extends Omit<RNCompatProps, 'style' | 'children'
 export type RNPressableProps = PressableProps
 
 export function Pressable(props: RNPressableProps) {
-  const pressedStyle = props.style as ((state: { pressed: boolean }) => ViewStyle) | undefined
-  const childrenFn = props.children as ((state: { pressed: boolean }) => ReactNode) | undefined
-  const resolved =
-    typeof pressedStyle === 'function' ? pressedStyle({ pressed: false }) : pressedStyle
+  const { style, children, onPressIn, onPressOut, ...rest } = props
+  const styleFn = typeof style === 'function' ? style : undefined
+  const childrenFn = typeof children === 'function' ? children : undefined
+  /**
+   * 按压态由这一层持有(2026-11-14)。旧实现把函数形态按 `{pressed:false}` 求值一次就定死,
+   * 于是 Tappable 的 pressed 永远是 false、"按住说话"收不到起停 —— 详见 RNCompatProps.onTouchStart 注释。
+   * `down` 必须放 ref:setPressed 会触发重渲染、闭包会重建,闭包变量存不住"按下中"。
+   */
+  const [pressed, setPressed] = useState(false)
+  const down = useRef(false)
+  /**
+   * 只有真需要按压态时才绑触点:函数形态 style/children,或调用方传了 onPressIn/onPressOut。
+   * 两者都没有时一个事件也不挂 —— 不给 weapp 每个可点节点白加 bindtouchstart/end。
+   */
+  const needPressState = Boolean(styleFn || childrenFn || onPressIn || onPressOut)
+  const handlers = createPressHandlers({
+    down,
+    disabled: props.disabled === true,
+    onPressIn,
+    onPressOut,
+    setPressed,
+  })
+  const resolved = styleFn ? styleFn({ pressed }) : style
   // 取反分支后 props.children 仍是「ReactNode | 函数」联合(TypeScript 无法把它收窄到非函数支),
   // 故显式断言成 ReactNode —— 运行时分支已保证走到这里的不是函数。
-  const child =
-    typeof childrenFn === 'function'
-      ? childrenFn({ pressed: false })
-      : (props.children as ReactNode)
+  const child = childrenFn ? childrenFn({ pressed }) : (children as ReactNode)
   return (
-    <View {...props} style={resolved}>
+    <View
+      {...rest}
+      style={resolved}
+      onTouchStart={needPressState ? handlers.onTouchStart : undefined}
+      onTouchEnd={needPressState ? handlers.onTouchEnd : undefined}
+      onTouchCancel={needPressState ? handlers.onTouchCancel : undefined}
+    >
       {child}
     </View>
   )
@@ -411,7 +574,13 @@ export function Image(props: RNBaseProps) {
     <TaroImage
       src={uri ?? ''}
       mode={RESIZE_MODE_TO_TARO[resizeMode] ?? 'aspectFill'}
-      style={toTaroStyle(merged(props.style, VIEW_BASE))}
+      style={toTaroStyle(
+        merged(
+          props.style,
+          VIEW_BASE,
+          typeof props.className === 'string' ? props.className : undefined,
+        ),
+      )}
       className={typeof props.className === 'string' ? props.className : undefined}
       onClick={clickHandler(props)}
       /**
@@ -436,6 +605,37 @@ export function Image(props: RNBaseProps) {
  * 用 WeakMap:页面卸载后不留下任何引用，不会把已销毁的回调钉在内存里。
  */
 const lastScrollAt = new WeakMap<object, number>()
+
+/**
+ * 把 Taro 的滚动事件补成 RN 形状(2026-11-14)。
+ *
+ * 为什么必须补:共享屏是按 RN 契约写的 —— `packages/app/src/features/article-list/ArticleListScreen.tsx:102`
+ * 与 `square/SquareScreen.tsx:83` 都用 `e.nativeEvent.contentOffset.y > 200` 决定「回到顶部」按钮是否出现,
+ * `_shared/BannerCarousel.tsx:67` 用 `e.nativeEvent.contentOffset.x / slideWidth` 算圆点索引。
+ * 而 TaroScrollView 的事件载荷只有 `detail.scrollTop/scrollLeft`,**没有 `nativeEvent`** ⇒
+ * 读取当场 TypeError(或按钮恒不出现)。类型抓不到:共享层把事件形参声明成 `any` 传下来的。
+ *
+ * 保留原始 `detail` 不删:`chat/ChatMessageList.tsx` 的 `readScrollEventTop` 是「双形状归一」,
+ * 原生形状与小程序形状两种读法都必须继续成立,替换成只认一种会让小程序侧反过来读不到。
+ */
+function toRnScrollEvent(event: unknown): unknown {
+  if (!event || typeof event !== 'object') return event
+  const e = event as { nativeEvent?: unknown; detail?: Record<string, unknown> }
+  if (e.nativeEvent) return event // 已是 RN 形状(自定义事件/测试夹具),不重复包装
+  const d = e.detail ?? {}
+  const num = (v: unknown): number => (typeof v === 'number' ? v : 0)
+  return {
+    ...e,
+    nativeEvent: {
+      contentOffset: { x: num(d.scrollLeft), y: num(d.scrollTop) },
+      contentSize: { width: num(d.scrollWidth), height: num(d.scrollHeight) },
+      // 小程序不给视口尺寸。这里填 0 而不是编造一个值:消费面若据此算"距底部"会得到保守结果,
+      // 但凭空写个数会让判据看起来成立、结论却是错的(与本仓「不把没量到渲染成 0 事实」同纪律)。
+      layoutMeasurement: { width: 0, height: 0 },
+      zoomScale: 1,
+    },
+  }
+}
 
 function throttledScroll(
   handler: ScrollEventHandler | undefined,
@@ -473,6 +673,39 @@ function ScrollViewInner(props: RNBaseProps, ref: ForwardedRef<ScrollViewHandle>
   const horizontal = props.horizontal === true
   const base: ViewStyle = horizontal ? { flexDirection: 'row' } : {}
   const throttleMs = typeof props.scrollEventThrottle === 'number' ? props.scrollEventThrottle : 16
+  /**
+   * onMomentumScrollEnd 承接(2026-11-14)。
+   *
+   * TaroScrollView 没有"惯性滚动结束"这个事件(只有 onScroll/onScrollToUpper/onScrollToLower),
+   * 而共享层的轮播靠它同步圆点:`_shared/BannerCarousel.tsx:67` 在 onMomentumScrollEnd 里算索引
+   * ⇒ 此前该回调**从未被调用**,用户滑到第 2 张,圆点还停在 1(只有自动播时才跟着走)。
+   *
+   * 近似方案:每次 onScroll 重置一个 120ms 定时器,静止 120ms 视为"滚动停止",用最后一次的
+   * 偏移合成 RN 形状事件派发。为什么不更精确:weapp 没有 `decelerationRate` 可读,也没有
+   * 滚动状态机;120ms 是"两次 onScroll 之间明显无新事件"的经验阈值,对翻页/停下都够用。
+   */
+  const momentumHandler = props.onMomentumScrollEnd as ((e: unknown) => void) | undefined
+  const momentumTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const lastScrollEvent = useRef<unknown>(null)
+  useEffect(
+    () => () => {
+      if (momentumTimer.current) clearTimeout(momentumTimer.current)
+    },
+    [],
+  )
+  const userScroll = throttledScroll(props.onScroll as ScrollEventHandler, throttleMs)
+  const onScrollInternal: NonNullable<ScrollEventHandler> | undefined =
+    userScroll || momentumHandler
+      ? (event) => {
+          const rnEvent = toRnScrollEvent(event)
+          lastScrollEvent.current = rnEvent
+          userScroll?.(rnEvent as never)
+          if (momentumHandler) {
+            if (momentumTimer.current) clearTimeout(momentumTimer.current)
+            momentumTimer.current = setTimeout(() => momentumHandler(lastScrollEvent.current), 120)
+          }
+        }
+      : undefined
   const [imperative, setImperative] = useState<{
     top?: number
     left?: number
@@ -576,8 +809,23 @@ function ScrollViewInner(props: RNBaseProps, ref: ForwardedRef<ScrollViewHandle>
   )
   const scrollNode = (
     <TaroScrollView
-      scrollX={horizontal}
-      scrollY={!horizontal}
+      /**
+       * scrollEnabled 承接(2026-11-14):RN 的 `scrollEnabled={false}` 在共享层是**真在用的**
+       * —— `features/income/IncomeScreen.tsx:181` 把它挂在内嵌列表上,目的是让外层页面独占纵向手势。
+       * weapp 没有 scrollEnabled,等价物是把对应轴的 scrollX/scrollY 关掉;此前该 prop 被整体忽略
+       * ⇒ 内嵌列表继续吃手势,与外层滚动互相抢(表现为"划一下页面不跟手,偶尔只动了里面那块")。
+       */
+      scrollX={horizontal && props.scrollEnabled !== false}
+      scrollY={!horizontal && props.scrollEnabled !== false}
+      /**
+       * pagingEnabled 承接(2026-11-14):RN 轮播靠它一屏一停。共享层 `_shared/BannerCarousel.tsx:80`
+       * 传了 `pagingEnabled`,此前被丢弃 ⇒ 用户可以把轮播**停在第 1、2 张中间**,松手不回弹,
+       * 看起来像"图片错位"。Taro 的 ScrollView 有同名属性(映射到 weapp 的 paging-enabled,
+       * 需 enhanced=true —— 本节点已开)。
+       */
+      pagingEnabled={props.pagingEnabled === true}
+      // 分页场景下 RN 的快速停手语义;共享层未直接用 decelerationRate,这里只在显式要求时才开
+      fastDeceleration={props.fastDeceleration === true}
       enhanced
       // 命令式滚动承载(2026-11-05):RN 端 `FlatList.scrollToEnd` 是 ref 方法,小程序侧没有
       // 对应实例方法 ⇒ 由 FlatList 适配层改写成 scrollTop 递增 + scrollWithAnimation,经此透传。
@@ -592,12 +840,18 @@ function ScrollViewInner(props: RNBaseProps, ref: ForwardedRef<ScrollViewHandle>
       onRefresherRefresh={rc?.onRefresh ? () => rc.onRefresh?.() : undefined}
       className={typeof props.className === 'string' ? props.className : undefined}
       // viewportBox.innerStyle:flex 场景补 height/width:100%,给原生 scroll-view 一个确定基准
-      style={toTaroStyle(merged(props.style, { ...VIEW_BASE, ...base, ...viewportBox.innerStyle }))}
+      style={toTaroStyle(
+        merged(
+          props.style,
+          { ...VIEW_BASE, ...base, ...viewportBox.innerStyle },
+          typeof props.className === 'string' ? props.className : undefined,
+        ),
+      )}
       // threshold 测量用的稳定 id(共享屏自带 id 时优先用调用方的)
       id={measureId}
       // RN 的 scrollEventThrottle 在小程序没有原生对应档(旧写法把它当 Taro prop 直传,组件不认 ⇒ TS2769)
       // ⇒ 由这一层按同样的节奏收口:两次回调之间至少隔 throttleMs,超出窗口的直接吞掉
-      onScroll={throttledScroll(props.onScroll as ScrollEventHandler, throttleMs)}
+      onScroll={onScrollInternal}
       lowerThreshold={lowerThreshold}
       onScrollToLower={props.onEndReached as ScrollToLowerEventHandler}
     >
@@ -752,21 +1006,51 @@ function FlatListInner<T = unknown>(props: RNFlatListProps<T>, ref: ForwardedRef
   const Footer = renderListSlot(props.ListFooterComponent)
   const Empty = renderListSlot(props.ListEmptyComponent)
   const Separator = props.ItemSeparatorComponent
-  const rows: T[][] = []
+  /**
+   * inverted 承接(2026-11-14):RN 的聊天列表靠 `inverted` 让"最新在底部、列表贴着输入框长"。
+   * 共享层 `chat/ChatRoomScreen.tsx:226`、`letter-chat/LetterChatScreen.tsx:94` 都挂了它,
+   * 此前被丢弃 ⇒ 消息少时列表**贴顶**,内容增长方向反了,进场第一眼看不到最新那条。
+   * 小程序没有 inverted,等价做法是把渲染顺序倒过来;但 renderItem/keyExtractor 收到的
+   * `index` 必须仍是**逻辑下标**(RN 只翻视觉,不翻 index),所以先把 (item, index) 成对记下来再倒序。
+   */
+  const indexed = data.map((item, index) => ({ item, index }))
+  const ordered = props.inverted === true ? [...indexed].reverse() : indexed
+  const rows: { item: T; index: number }[][] = []
   if (numColumns > 1) {
-    for (let i = 0; i < data.length; i += numColumns) rows.push(data.slice(i, i + numColumns))
+    for (let i = 0; i < ordered.length; i += numColumns) rows.push(ordered.slice(i, i + numColumns))
   }
-  const cell = (item: T, index: number) => (
+  const cell = (entry: { item: T; index: number }) => (
     <View
-      key={keyExtractor ? keyExtractor(item, index) : String(index)}
+      key={keyExtractor ? keyExtractor(entry.item, entry.index) : String(entry.index)}
       style={numColumns > 1 ? { flexGrow: 1, flexBasis: `${100 / numColumns}%` } : undefined}
     >
-      {renderItem?.({ item, index, separators: LIST_SEPARATORS })}
+      {renderItem?.({ item: entry.item, index: entry.index, separators: LIST_SEPARATORS })}
     </View>
   )
+  /**
+   * FlatList 直接挂 `refreshing` / `onRefresh`(而不是塞 <RefreshControl> 子元素)也是 RN 合法写法,
+   * 共享层 `shop/CartScreen.tsx:168-169` 就是这么写的。此前两个 prop 都被丢弃 ⇒ 购物车下拉
+   * **不触发刷新回调**(用户看到默认圆圈转一下又弹回,以为没生效)。这里补成 RN 语义等价的
+   * refreshControl 元素,交给 ScrollView 的 refresher 三件套统一承接(与 113 处子元素写法同一条路)。
+   */
+  const refreshControl =
+    props.refreshControl ??
+    (typeof props.onRefresh === 'function'
+      ? createElement(RefreshControl, {
+          refreshing: props.refreshing === true,
+          onRefresh: props.onRefresh as () => void,
+        })
+      : undefined)
   return (
     <ScrollView
       {...props}
+      /**
+       * columnWrapperStyle 承接(2026-11-14):RN 用它给多列行设 `gap`/`justifyContent`。
+       * 共享层 6 个两列栅格页(AigcList / ImageGen 系列 / PointsMall / StudyIndex)都传了它,
+       * 此前被丢弃 ⇒ 同一行两张卡片**贴在一起**,与 RN 端观感不一致。
+       * 落地位置在下面的行容器(本层自己负责分行,所以这一格由本层消费,不再往 ScrollView 传)。
+       */
+      refreshControl={refreshControl}
       // onScroll 显式透传(2026-11-12):RN FlatList 合法消费 onScroll;此前只靠 {...props}
       // 摊入,兼容面 ScrollView 的 throttle 收口路径不变,这里让声明面自文档化、审计可寻。
       onScroll={props.onScroll as never}
@@ -777,14 +1061,17 @@ function FlatListInner<T = unknown>(props: RNFlatListProps<T>, ref: ForwardedRef
       {data.length === 0 ? Empty : null}
       {numColumns > 1
         ? rows.map((row, rowIndex) => (
-            <View key={rowIndex} style={{ flexDirection: 'row' }}>
-              {row.map((item, col) => cell(item, rowIndex * numColumns + col))}
+            <View
+              key={rowIndex}
+              style={[{ flexDirection: 'row' }, flattenStyle(props.columnWrapperStyle as never)]}
+            >
+              {row.map((entry) => cell(entry))}
             </View>
           ))
-        : data.map((item, index) => (
-            <View key={keyExtractor ? keyExtractor(item, index) : String(index)}>
-              {index > 0 ? Separator?.() : null}
-              {renderItem?.({ item, index, separators: LIST_SEPARATORS })}
+        : ordered.map((entry, seq) => (
+            <View key={keyExtractor ? keyExtractor(entry.item, entry.index) : String(entry.index)}>
+              {seq > 0 ? Separator?.() : null}
+              {renderItem?.({ item: entry.item, index: entry.index, separators: LIST_SEPARATORS })}
             </View>
           ))}
       {Footer}
@@ -860,6 +1147,18 @@ function TextInputInner(props: RNBaseProps, ref: ForwardedRef<TextInputHandle>) 
           )?.({ nativeEvent: { target: -1, text: String(e.detail?.value ?? '') } })
       : undefined,
   }
+  /**
+   * 回车提交承接(2026-11-14)。
+   *
+   * RN 侧 `onSubmitEditing` + `returnKeyType` 是搜索/发消息/验证码的**主入口**:
+   * 共享层现读 11 处 onSubmitEditing(SearchInput、SearchScreen、LetterChat、LiveDetail…)、
+   * 22 处 returnKeyType。此前两者都只声明在类型上、运行时不读 ⇒ 用户按回车**什么都不发生**,
+   * 键盘右下角永远写着"完成/换行"而不是"搜索/发送",所有这类链路只能靠再点一次按钮兜底。
+   * weapp 的等价物是 `confirm-type` + `bindconfirm`,这里按同一语义接上。
+   */
+  const confirmType = RETURN_KEY_TO_CONFIRM[(props.returnKeyType as string) ?? ''] ?? 'done'
+  const onSubmitEditing = props.onSubmitEditing as
+    ((e: { nativeEvent: { text: string } }) => void) | undefined
   const common = {
     value: (props.value as string) ?? '',
     placeholder: (props.placeholder as string) ?? '',
@@ -872,7 +1171,19 @@ function TextInputInner(props: RNBaseProps, ref: ForwardedRef<TextInputHandle>) 
     // 受控焦点:focus()/blur() 改的是这一位,和 autoFocus 取或,避免首次挂载把焦点抢回来
     focus: focused || props.autoFocus === true,
     className: typeof props.className === 'string' ? props.className : undefined,
-    style: toTaroStyle(merged(props.style, VIEW_BASE)),
+    style: toTaroStyle(
+      merged(
+        props.style,
+        VIEW_BASE,
+        typeof props.className === 'string' ? props.className : undefined,
+      ),
+    ),
+    confirmType,
+    // RN 的 onConfirm 只在"键盘确认键"触发,与 onSubmitEditing 同义;取当前输入值随事件带出
+    onConfirm: onSubmitEditing
+      ? (e: { detail?: { value?: string } }) =>
+          onSubmitEditing({ nativeEvent: { text: String(e.detail?.value ?? '') } })
+      : undefined,
     ...focusBridge,
   }
   if (multiline) {
@@ -910,6 +1221,22 @@ export const TextInput = forwardRef(TextInputInner) as unknown as (
 
 function keyTypeOf(keyboardType: string): string {
   return keyboardType === 'default' ? 'text' : keyboardType
+}
+
+/**
+ * RN `returnKeyType` → weapp `confirm-type`。
+ *
+ * weapp 只认五档(send/search/next/go/done),RN 的其余取值(none/previous/emergency-call/…)
+ * 在小程序键盘上没有对应能力 ⇒ 统一退 `done`(最接近 RN 的"完成")。
+ * 不映射会更糟:缺省 `done` 也对,但"搜索"场景的键盘会写成"完成",用户不知道回车能提交。
+ */
+const RETURN_KEY_TO_CONFIRM: Record<string, 'send' | 'search' | 'next' | 'go' | 'done'> = {
+  send: 'send',
+  search: 'search',
+  next: 'next',
+  go: 'go',
+  done: 'done',
+  default: 'done',
 }
 
 export function Switch(props: RNBaseProps) {
