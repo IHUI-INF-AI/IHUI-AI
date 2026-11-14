@@ -16703,6 +16703,8 @@
     "phaseExecuting": "실행 중",
     "phaseDone": "완료됨",
     "viewPullRequest": "풀 리퀘스트 보기"
+    "revisionLabel": "수정 의견",
+    "revisionPlaceholder": "어디를 조정할지 입력하세요. 비워두면 에이전트가 조정할 점을 설명합니다"
   },
   "floatingChat": {
     "openclaw": {
