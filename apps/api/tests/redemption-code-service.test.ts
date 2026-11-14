@@ -15,6 +15,8 @@
  * 测试文件豁免 any(mock 类型断言必需,AGENTS.md §3)。
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import type * as Crypto from 'crypto'
 
 // =============================================================================
@@ -101,6 +103,20 @@ vi.mock('../src/db/index.js', () => {
 })
 
 vi.mock('@ihui/database', () => ({
+  // F-719:redemption-code-service 经 toSafeAmount 间接引入 commission-queries,
+  // 后者在模块顶层构造 users/orders/commission_flows 的查询片段 —— 缺这些导出会让
+  // 整个测试文件在 import 阶段就崩(存量缺陷,与本次修法无关),这里补最小桩。
+  users: {
+    id: 'id',
+    nickname: 'nickname',
+    avatar: 'avatar',
+    phone: 'phone',
+    isVip: 'is_vip',
+    createdAt: 'created_at',
+  },
+  orders: { userId: 'user_id', status: 'status', amount: 'amount' },
+  commissionFlows: { amount: 'amount', invitedUserId: 'invited_user_id', status: 'status' },
+  tokenFlows: { userId: 'user_id', opType: 'op_type', quantity: 'quantity' },
   redemptionCodes: {
     id: 'id',
     code: 'code',
@@ -276,14 +292,42 @@ describe('redemption-code-service — 兑换码核心 service', () => {
       }
       // tx.update(redemptionCodes) 抢占码
       mockDbUpdate.mockReturnValueOnce(updateChain([claimedRow]))
-      // tx.update(developerApiKeys) 内联充值(tokenBalance 累加 CASE WHEN)
-      mockDbUpdate.mockReturnValueOnce(updateChain([{ tokenBalance: 600 }]))
+      // tx.update(developerApiKeys) 内联充值(tokenBalance 累加 CASE WHEN + F-719 成本列)
+      mockDbUpdate.mockReturnValueOnce(updateChain([{ tokenBalance: 600, costBalanceCents: 990 }]))
 
       const result = await redeemCode('ihui-aaaa-bbbb-cccc', 'user-1', 'key-1')
 
       expect(result.success).toBe(true)
       expect(result.tokenAmount).toBe(500)
       expect(result.newTokenBalance).toBe(600)
+      // F-719:成本列按实付面值同步,准入 checkQuota 才有 costBalanceCents > 0
+      expect(result.costAmountCents).toBe(990)
+      expect(result.newCostBalanceCents).toBe(990)
+    })
+
+    it('F-719:充值 UPDATE 的 .set 同时包含 tokenBalance 与 costBalanceCents 两列', async () => {
+      const claimedRow = {
+        id: 'code-1',
+        code: 'IHUI-AAAA-BBBB-CCCC',
+        faceValueCents: 990,
+        tokenAmount: 1_000_000,
+        status: 'used',
+      }
+      mockDbUpdate.mockReturnValueOnce(updateChain([claimedRow]))
+      mockDbUpdate.mockReturnValueOnce(
+        updateChain([{ tokenBalance: 1_000_000, costBalanceCents: 990 }]),
+      )
+
+      const result = await redeemCode('IHUI-AAAA-BBBB-CCCC', 'user-1', 'key-1')
+      expect(result.success).toBe(true)
+
+      // mockDbUpdate 第 2 次调用是充值 UPDATE,取它交给 .set 的列
+      const second = mockDbUpdate.mock.results[1] as unknown as {
+        value: { set: { mock: { calls: Array<[Record<string, unknown>]> } } }
+      }
+      const setArg = second.value.set.mock.calls[0]?.[0] ?? {}
+      expect(setArg.tokenBalance).toBeDefined()
+      expect(setArg.costBalanceCents).toBeDefined()
     })
 
     it('未传 apiKeyId 时查用户最新 active Key', async () => {
@@ -468,6 +512,100 @@ describe('redemption-code-service — 兑换码核心 service', () => {
 
       await expect(disableCode('nonexistent')).rejects.toThrow('code_not_found')
     })
+  })
+})
+
+// =============================================================================
+// F-719(2026-11-13):兑换码/单边 token 充值只加 tokenBalance,而准入 checkQuota
+// 两列都要过 ⇒ 付费充值后仍 402 no_balance_cost。
+// 口径:兑换码按**实付面值** faceValueCents 同步成本列;到账 token 数 tokenAmount 是赠送口径,
+// 不得计入成本列。单边钱包充值按既有「1 token = 1 cent」把实付一侧同步到另一列。
+// =============================================================================
+
+function readSource(relPath: string): string {
+  return readFileSync(fileURLToPath(new URL(relPath, import.meta.url)), 'utf8')
+}
+
+/** 与 .set 中 CASE WHEN 表达式等价的纯函数:-1 是无限额度哨兵,其余累加 */
+function credit(current: number, delta: number): number {
+  return current === -1 ? -1 : current + delta
+}
+
+/** 与 relay-billing-service.checkQuota 个人余额分支等价的准入判据 */
+function admitted(
+  tokenBalance: number,
+  costBalanceCents: number,
+  estimatedTokens: number,
+): boolean {
+  if (tokenBalance === -1 && costBalanceCents === -1) return true
+  if (tokenBalance !== -1 && tokenBalance < estimatedTokens) return false
+  if (costBalanceCents !== -1 && costBalanceCents <= 0) return false
+  return true
+}
+
+describe('F-719 兑换/充值同时入账两种币种', () => {
+  const serviceSource = readSource('../src/services/redemption-code-service.ts')
+  const billingSource = readSource('../src/services/relay-billing-service.ts')
+
+  it('兑换 .set 同时写 tokenBalance 与 costBalanceCents（不再只加一列）', () => {
+    expect(serviceSource).toMatch(
+      /tokenBalance: sql`CASE WHEN \$\{developerApiKeys\.tokenBalance\}/,
+    )
+    expect(serviceSource).toMatch(
+      /costBalanceCents: sql`CASE WHEN \$\{developerApiKeys\.costBalanceCents\}/,
+    )
+  })
+
+  it('成本列累加实付面值 faceValueCents，而不是 tokenAmount（赠送额度不当收费额度）', () => {
+    expect(serviceSource).toMatch(
+      /costBalanceCents: sql`CASE WHEN[^`]*\$\{claimed\.faceValueCents\}[^`]*`/,
+    )
+    expect(serviceSource).not.toMatch(
+      /costBalanceCents: sql`CASE WHEN[^`]*\$\{claimed\.tokenAmount\}[^`]*`/,
+    )
+  })
+
+  it('两列 CASE WHEN 均带 -1 无限额度哨兵保护', () => {
+    expect(serviceSource).toMatch(/\$\{developerApiKeys\.tokenBalance\} = -1 THEN -1/)
+    expect(serviceSource).toMatch(/\$\{developerApiKeys\.costBalanceCents\} = -1 THEN -1/)
+  })
+
+  it('准入侧仍以 costBalanceCents <= 0 拒绝（证明「同步该列」是修对方向）', () => {
+    expect(billingSource).toMatch(
+      /if \(row\.costBalanceCents !== -1 && row\.costBalanceCents <= 0\)/,
+    )
+    expect(billingSource).toContain("reason: 'no_balance_cost'")
+  })
+
+  it('单边钱包充值：只充 token / 只充成本都同步另一列', () => {
+    expect(billingSource).toMatch(
+      /const creditedTokenDelta = tokenDelta > 0 \? tokenDelta : costDeltaCents/,
+    )
+    expect(billingSource).toMatch(
+      /const creditedCostDeltaCents = costDeltaCents > 0 \? costDeltaCents : tokenDelta/,
+    )
+  })
+
+  it('正例：新 Key(0,0) 兑换面值 990 分 / 100 万 token ⇒ 两列均 > 0，准入放行', () => {
+    const tokenBalance = credit(0, 1_000_000)
+    const costBalanceCents = credit(0, 990)
+    expect(tokenBalance).toBe(1_000_000)
+    expect(costBalanceCents).toBe(990)
+    expect(admitted(tokenBalance, costBalanceCents, 100_000)).toBe(true)
+  })
+
+  it('反例：未充值的新 Key(0,0) 仍被拒', () => {
+    expect(admitted(0, 0, 100_000)).toBe(false)
+  })
+
+  it('面值 0 的纯赠送码不抬高成本余额 ⇒ 仍不算已充值', () => {
+    expect(credit(0, 0)).toBe(0)
+    expect(admitted(credit(0, 1_000_000), credit(0, 0), 100_000)).toBe(false)
+  })
+
+  it('-1 无限额度哨兵不因兑换变成溢出数值', () => {
+    expect(credit(-1, 1_000_000)).toBe(-1)
+    expect(credit(-1, 990)).toBe(-1)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
