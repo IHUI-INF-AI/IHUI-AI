@@ -34,7 +34,7 @@ import {
   pendingPromptTextFromMessage,
   pendingPromptTextFromStorage,
 } from '../../../lib/pending-prompt'
-import { pickRetryTarget } from './chat-send-utils'
+import { pickRetryTarget, planChatSyncSurfaceMerge } from './chat-send-utils'
 import {
   branchTargetServerId,
   failureReasonText,
@@ -74,8 +74,14 @@ import {
   type ExtQueueItem,
 } from '../../../lib/ext-queue-ops'
 import type { FollowUpMode } from '@ihui/shared/chat/queue-interactions'
-import type { PlanStep, TerminalTask } from '@ihui/types'
+import type { ChatSyncEvent, ChatSyncTerminalState, PlanStep, TerminalTask } from '@ihui/types'
 import type { ChatMessage } from './types'
+// G-20261114 多端实时同步:订阅本账号的 chat-sync 三型帧(此前扩展端零消费,
+// 发得出消息却收不到其它端的对话)。判据全在共享 store / 契约内核,端内零复算。
+import { subscribeChatSync } from '@ihui/api-client'
+import { chatSyncStore } from '@ihui/shared/chat'
+import { getApiBaseUrl } from '../../../lib/config'
+import { getToken } from '../../../lib/token'
 
 interface Ctx {
   onLogout: () => void
@@ -156,6 +162,57 @@ export default function ChatPage() {
   /** 本地消息 id → 后端 chat_messages.id(只有持久化成功的消息才有) */
   const [serverIds, setServerIds] = useState<Record<string, string>>({})
   const [branching, setBranching] = useState(false)
+
+  // ── G-20261114 多端实时同步(两条 effect:订阅帧 / 投影到本页)────────────
+  // 帧判据全在共享层:chatSyncStore 按 (messageId, rev) 做幂等四态、gap 排 resync、
+  // 终态粘性;本页只算最小变更集,零复算。
+  useEffect(() => {
+    if (!conversationId) return
+    const config = { baseUrl: getApiBaseUrl(), tokenProvider: () => getToken() }
+    const sub = subscribeChatSync(config, conversationId, (evt) => {
+      chatSyncStore.applyEvent(evt.data as ChatSyncEvent)
+    })
+    return () => sub.close()
+  }, [conversationId])
+
+  useEffect(() => {
+    if (!conversationId) return
+    type ProjectedRow = ChatMessage & { terminal?: ChatSyncTerminalState }
+    const project = (): void => {
+      // 本端流式单播面是权威;WS snapshot 回放会把正在累积的前缀覆盖回去
+      // (web 的 localStreamEcho / RN 的 paused 同一条纪律)。
+      if (streaming) return
+      const surfaces = chatSyncStore.messagesOf(conversationId)
+      if (surfaces.length === 0) return
+      setMessages((prev) => {
+        const plan = planChatSyncSurfaceMerge(prev, surfaces)
+        if (!plan) return prev
+        const next: ProjectedRow[] = prev.slice()
+        for (const update of plan.updates) {
+          const row = next[update.index]
+          if (!row) continue
+          next[update.index] = {
+            ...row,
+            content: update.content,
+            ...(update.reasoning !== undefined ? { reasoning: update.reasoning } : {}),
+            ...(update.terminal !== undefined ? { terminal: update.terminal } : {}),
+          }
+        }
+        for (const surface of plan.appends) {
+          next.push({
+            id: surface.id,
+            role: surface.role as ChatMessage['role'],
+            content: surface.content,
+            ...(surface.reasoning !== undefined ? { reasoning: surface.reasoning } : {}),
+            ...(surface.terminal !== undefined ? { terminal: surface.terminal } : {}),
+          } as ProjectedRow)
+        }
+        return next
+      })
+    }
+    project()
+    return chatSyncStore.subscribe(project)
+  }, [conversationId, streaming])
 
   // ===== D38 队列语义完整交互(G-42,H18 扩展格)=====
   // 端内排队 state:本端无 web 式 chat store,队列数组即 ChatPage 本地 state;
@@ -433,7 +490,10 @@ export default function ChatPage() {
     setError('')
     setNotice('')
     const userLocalId = `u-${Date.now()}`
-    const assistantLocalId = `a-${Date.now()}`
+    // G-20261114:与 web 同用 UUID 占位。后端 SSE 生成腿现在把它直接建成
+    // chat_messages.id,广播 / rev 账本 / resync 快照 / 历史四处坐标系从此同源;
+    // 旧的 `a-${Date.now()}` 既不是合法 uuid 也没上行,其它端无从认领这条消息。
+    const assistantLocalId = crypto.randomUUID()
     const next: ChatMessage[] = [
       ...messages,
       { id: userLocalId, role: 'user', content: text },
@@ -493,6 +553,11 @@ export default function ChatPage() {
       signal: controller.signal,
       // 2026-08-16 修复:显式声明流式,避免后端/中间件对 request.stream 做严格字段检测时关闭 SSE。
       stream: true,
+      // G-20261114:把本轮占位 UUID 与会话坐标上送。后端 /api/ai/chat/stream 的
+      // replayKey 与 chat-sync 帧发射器都以这两格为门槛;缺了它们,扩展端只是本地
+      // 单播流,其它端永远看不到本端发起的对话。userId 刻意不传 —— 服务端只认
+      // 承载层认证身份(票71 越权纪律),客户端自报值不得决定帧投递对象。
+      ...(cid ? { metadata: { conversationId: cid, messageId: assistantLocalId } } : {}),
       // 跨端统一 88% 阈值自动压缩:从模型 ID 推断 contextLimit,后端压缩后通过 SSE 回调提示用户
       contextLimit: getModelContextCapacity(model),
       onCompaction: (info) => {
@@ -553,7 +618,12 @@ export default function ChatPage() {
         window.clearTimeout(timeoutId)
         setStreaming(false)
         if (cid && !streamFailed) {
-          void persistTurnMessage(assistantLocalId, cid, assistantText, 'assistant')
+          // G-20261114:assistant 消息由后端 SSE 生成腿以 metadata.messageId 幂等建行、
+          // 并随每帧 snapshot 全量写回,ai-callback worker 再权威收口(web 2026-08-21
+          // 已删掉同一处前端持久化)。本端不再二次 POST /messages —— 那会生成第二个
+          // DB uuid,历史里出现两条同内容回复。分叉所需的 serverId 就是本轮占位
+          // UUID,与 chat_messages.id 同源。
+          setServerIds((cur) => ({ ...cur, [assistantLocalId]: assistantLocalId }))
         }
       },
       // ===== W6 新增回调:与 web 端 use-chat 对齐,补齐工具/用量/计划/终端 =====
