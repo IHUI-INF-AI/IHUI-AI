@@ -62,6 +62,8 @@ interface ChannelCostRow {
   calls: number
   errorCalls: number
   costedCalls: number
+  zeroRevenueCalls: number
+  zeroRevenueCostCents: number
   revenueCents: number
   costedRevenueCents: number
   costCents: number
@@ -640,6 +642,12 @@ export default function PricingConsolePage() {
                   : ''}
               </div>
 
+              <div className="text-[10px] text-muted-foreground">
+                成本按模型采购价反推。「零实收」= 实收为 0 但仍消耗上游 token
+                的调用(套餐内/免费额度/内部调用),它们没有收入却产生成本,是负毛利的主要来源;
+                BYOK 与缓存命中不计上游成本。
+              </div>
+
               <div className="overflow-x-auto">
                 <table className="w-full text-xs">
                   <thead>
@@ -648,6 +656,7 @@ export default function PricingConsolePage() {
                         {channelGroupBy === 'provider' ? '上游渠道' : '上游 Key 池'}
                       </th>
                       <th className="px-2 py-1">调用(失败)</th>
+                      <th className="px-2 py-1">零实收(成本)</th>
                       <th className="px-2 py-1">实收</th>
                       <th className="px-2 py-1">采购成本</th>
                       <th className="px-2 py-1">毛利</th>
@@ -665,6 +674,18 @@ export default function PricingConsolePage() {
                             <span className="text-red-600 dark:text-red-400">({r.errorCalls})</span>
                           ) : null}
                         </td>
+                        <td className="px-2 py-1">
+                          {r.zeroRevenueCalls > 0 ? (
+                            <>
+                              {r.zeroRevenueCalls}
+                              <span className="text-[10px] text-muted-foreground">
+                                ({fmtYuan(r.zeroRevenueCostCents)})
+                              </span>
+                            </>
+                          ) : (
+                            <span className="text-muted-foreground">0</span>
+                          )}
+                        </td>
                         <td className="px-2 py-1">{fmtYuan(r.revenueCents)}</td>
                         <td className="px-2 py-1">{fmtYuan(r.costCents)}</td>
                         <td
@@ -680,7 +701,7 @@ export default function PricingConsolePage() {
                     ))}
                     {channelCost.data.rows.length === 0 ? (
                       <tr>
-                        <td colSpan={7} className="px-2 py-2 text-muted-foreground">
+                        <td colSpan={8} className="px-2 py-2 text-muted-foreground">
                           该时间窗口暂无调用记录
                         </td>
                       </tr>
