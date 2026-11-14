@@ -12452,3 +12452,5 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] B42 [deploy-feedback] [deploy_outcome/alert_firing] build-fail /deploy/build-fail 部署异常 ⇒ 排查链路并修复（登记@2026-11-14/deploy-feedback;来源:deploy_outcome;证据:dims=web action=build-fail 窗口=1440min count=2 first=2026-11-13T15:44:33.095Z last=2026-11-14T02:19:18.683Z route=/deploy/build-fail cause="构建失败,未切流,保持当前在线版本:workspace 包 @ihui/ui-react dist 重建失败(exit 2)"）
 
 - [ ] B43 [deploy-feedback] [deploy_outcome/alert_firing] rollback /deploy/rollback 部署异常 ⇒ 排查链路并修复（登记@2026-11-14/deploy-feedback;来源:deploy_outcome;证据:dims=llm action=rollback 窗口=1440min count=1 first=2026-11-14T14:05:38.356Z last=2026-11-14T14:05:38.356Z route=/deploy/rollback cause="健康门禁未过,新构建整份退回上一可用包"）
+
+- [ ] B44 [deploy-feedback] [deploy_outcome/alert_firing] swap-fail /deploy/swap-fail 部署异常 ⇒ 排查链路并修复（登记@2026-11-14/deploy-feedback;来源:deploy_outcome;证据:dims=(none) action=swap-fail 窗口=1440min count=1 first=2026-11-13T20:01:52.084Z last=2026-11-13T20:01:52.084Z route=/deploy/swap-fail cause="灰度对照判据判红(闸 rc=9)⇒ 未切流,保持当前在线版本"）
