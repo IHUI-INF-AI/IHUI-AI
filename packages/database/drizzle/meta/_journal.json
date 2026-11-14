@@ -2787,20 +2787,62 @@
     {
       "version": "7",
       "idx": 400,
+      "when": 1794389160000,
+      "tag": "20261106160000_fix_missing_indexes_batch2",
+      "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 401,
+      "when": 1794389220000,
+      "tag": "20261112000001_api_subscriptions_order_no_uniq",
+      "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 402,
+      "when": 1794389280000,
+      "tag": "20261112000002_ab_test_results_variant_bucket_uniq",
+      "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 403,
+      "when": 1794389340000,
+      "tag": "20261112180000_relay_pool_shared_to_ops_default_true",
+      "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 404,
+      "when": 1794389400000,
+      "tag": "20261113190000_model_price_audit",
+      "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 405,
+      "when": 1794620858582,
+      "tag": "20261114140000_model_cost_price",
+      "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 406,
       "when": 1794643200000,
       "tag": "20261114160000_relay_account_pool_provider_uid_unique",
       "breakpoints": true
     },
     {
       "version": "7",
-      "idx": 401,
+      "idx": 407,
       "when": 1794646800000,
       "tag": "20261114191000_audit_logs_chain_prev_hash_idx",
       "breakpoints": true
     },
     {
       "version": "7",
-      "idx": 402,
+      "idx": 408,
       "when": 1794650400000,
       "tag": "20261114091500_audit_logs_chain_seq",
       "breakpoints": true

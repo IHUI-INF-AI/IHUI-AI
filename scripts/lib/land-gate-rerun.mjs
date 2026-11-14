@@ -345,6 +345,100 @@ export function countUntriggered(entries) {
   }
 }
 
+// ─── 跨行函数签名的「函数体 {」窗口判据(2026-11-15 修 withTimeout 假红) ───────
+// 病根(已取证,勿推翻):旧 body 只在**声明那一行**用 `/\)\s*(?::[^)]*)?\{/` 判体;TS 重载族
+// 的实现体 `{` 若落在声明行之后(apps/web/src/lib/tauri-bridge.ts 的 withTimeout,实现 `{`
+// 在声明行后第 4 行),三枚全被判成"不带体" ⇒ `bodies.length===1 && last.body` 不成立 ⇒
+// 合法 2 签名 + 1 实现被判成重复定义(假红),union-converge 落地后自判失败。这是判据缺陷,
+// 不是合并错误,禁用 IHUI_LAND_SKIP_AFFECTED_GATES=1 之类绕过。
+//
+// 修法:对每条 function 声明,从声明行向后开一个**明确窗口**(到下一条第 0 列顶层声明 /
+// 文件末 / 合理上限),在窗口内用「圆/尖/花括号配平」找**作为语句块起始的 `{`**。
+//  · 复用 maskCommentsStringsAndRegex 遮罩后的等长 lines:注释/字符串/正则已被抹成空格,
+//    不再自造一台注释/字符串解析(§3 共享层),行号/列号逐字照旧。
+//  · 只认「参数列表 ) 闭合之后、且 round/angle/curly 全 0 深度、且是该行最后一个非空字符」
+//    的 `{`:`Promise<{a:number}>` 的对象花括号在 angle>0 内,`: {a:number}` 的内联对象
+//    花括号不是行尾 ⇒ 都不会被读成函数体。
+//  · fail-closed(方向见下):窗口判定**只会把 body 从 false 抬成 true**(找到明确体),
+//    绝不会 true→false。故 `bodies.length` 只增不减 ⇒ 不可能把「两份都带体」洗成
+//    「恰好一份带体」⇒ 结构上不会放宽成假绿;拿不准(内联对象/窗口内没找到明确 `{`)时
+//    body 保持原声明行判据,宁可继续判红。
+//  · 只对 JS/TS 的 function 档(pi===0)开这一格;class / const / let / Python 分支逐字不变。
+const SIG_WINDOW_MAX_LINES = 40
+
+/** 窗口右边界:下一条第 0 列顶层声明 / 文件末 / 上限,三者取最先到的。 */
+function signatureWindowEnd(lines, startIdx, patterns) {
+  const hard = Math.min(lines.length - 1, startIdx + SIG_WINDOW_MAX_LINES)
+  for (let i = startIdx + 1; i <= hard; i++) {
+    const l = lines[i]
+    const t = l.trimStart()
+    if (t === '' || t.startsWith('//') || t.startsWith('#') || t.startsWith('*') || t.startsWith('/*'))
+      continue
+    if (l !== t) continue // 有缩进 ⇒ 非顶层
+    if (patterns.some((p) => p.test(l))) return i - 1
+  }
+  return hard
+}
+
+/**
+ * 窗口内是否存在「作为函数体语句块起始的 {」。返回 true / false:
+ *  false = 没找到明确体 或 形态拿不准 ⇒ 调用方保持原声明行判据(fail-closed)。
+ * 配平 round(圆)/angle(尖,泛型)/curly(花,对象字面量);`=>` 的 `>` 不当泛型闭合。
+ */
+function findFunctionBodyInWindow(lines, startIdx, endIdx) {
+  let round = 0
+  let angle = 0
+  let curly = 0
+  let sawParamOpen = false
+  let paramsClosed = false
+  const last = Math.min(endIdx, lines.length - 1)
+  for (let i = startIdx; i <= last; i++) {
+    const line = lines[i]
+    for (let j = 0; j < line.length; j++) {
+      const c = line[j]
+      const nc = line[j + 1]
+      if (c === '=' && nc === '>') {
+        j++ // `=>` 的 `>` 不是泛型闭合,整组跳过
+        continue
+      }
+      if (c === '<' && nc !== '=' && (j === 0 || line[j - 1] !== '<')) {
+        angle++
+        continue
+      }
+      if (c === '>') {
+        if (angle > 0) angle--
+        continue
+      }
+      if (c === '(') {
+        round++
+        if (!sawParamOpen && round === 1) sawParamOpen = true
+        continue
+      }
+      if (c === ')') {
+        if (round > 0) round--
+        if (sawParamOpen && round === 0 && !paramsClosed) paramsClosed = true
+        continue
+      }
+      if (c === '{') {
+        const topLevel = round === 0 && angle === 0 && curly === 0
+        if (topLevel && paramsClosed) {
+          // 语句块起始的标准形态:`{` 是该行最后一个非空字符(其后换行写函数体)。
+          // `{ a: number }` / `: {` 之类内联对象返回类型不是这个形态 ⇒ 拿不准,
+          // 直接放弃整个窗口判定(返回 false),让调用方保持原声明行判据(fail-closed)。
+          return line.slice(j + 1).trim() === ''
+        }
+        curly++
+        continue
+      }
+      if (c === '}') {
+        if (curly > 0) curly--
+        continue
+      }
+    }
+  }
+  return false
+}
+
 /**
  * 同名函数族重复定义扫描(简单判据,票面允许):同一文件**顶层**同名 def/class/function/
  * export const 出现 ≥2 次 ⇒ 命中。这正是 f57e0c9983 那一型:行级归并把两侧各自重写的
@@ -386,9 +480,17 @@ export function scanDuplicateDefinitions(text, ext) {
       const m = patterns[pi].exec(l)
       if (m) {
         if (!seen.has(m[1])) seen.set(m[1], [])
+        // 声明行内的原判据(fail-closed 基线,既有语义逐字不动)。
+        const lineBody = /\)\s*(?::[^)]*)?\{/.test(t) || /\{\s*\}\s*$/.test(t)
+        let body = lineBody
+        // 跨行签名:仅 JS/TS 的 function 档、且声明行内未能判体时,开窗口找明确的函数体 {。
+        // 见 findFunctionBodyInWindow 头注:只会把 body 从 false 抬成 true(fail-closed,不制造假绿)。
+        if (pi === 0 && !PY_EXTS.includes(ext) && !lineBody) {
+          body = findFunctionBodyInWindow(lines, idx, signatureWindowEnd(lines, idx, patterns))
+        }
         seen.get(m[1]).push({
           line: idx + 1,
-          body: /\)\s*(?::[^)]*)?\{/.test(t) || /\{\s*\}\s*$/.test(t),
+          body,
           fn: pi === 0,
         })
         break
