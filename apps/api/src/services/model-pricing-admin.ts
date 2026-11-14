@@ -844,6 +844,10 @@ export interface ChannelCostRow {
   calls: number
   errorCalls: number
   costedCalls: number
+  /** 实收为 0 的成功调用数(套餐内/免费额度/内部调用),负毛利的主要来源 */
+  zeroRevenueCalls: number
+  /** 这些零实收调用对应的采购成本(分) */
+  zeroRevenueCostCents: number
   revenueCents: number
   costedRevenueCents: number
   costCents: number
@@ -877,6 +881,8 @@ function toChannelRow(r: Record<string, unknown>): ChannelCostRow {
     calls,
     errorCalls: asNum(r['error_calls']),
     costedCalls,
+    zeroRevenueCalls: asNum(r['zero_revenue_calls']),
+    zeroRevenueCostCents: asNum(r['zero_revenue_cost_cents']),
     revenueCents: asNum(r['revenue_cents']),
     costedRevenueCents,
     costCents,
@@ -909,6 +915,11 @@ export async function getChannelCostReport(args: {
     count(*) filter (
       where status in ('success', 'partial') and metadata ? 'providerCostCents'
     )::int as costed_calls,
+    count(*) filter (
+      where status in ('success', 'partial') and coalesce(cost_cents, 0) = 0
+    )::int as zero_revenue_calls,
+    coalesce(sum(case when status in ('success', 'partial') and coalesce(cost_cents, 0) = 0
+      and metadata ? 'providerCostCents' then (metadata->>'providerCostCents')::numeric else 0 end), 0)::numeric as zero_revenue_cost_cents,
     coalesce(sum(case when status in ('success', 'partial') then cost_cents else 0 end), 0)::numeric as revenue_cents,
     coalesce(sum(case when status in ('success', 'partial') and metadata ? 'providerCostCents' then cost_cents else 0 end), 0)::numeric as costed_revenue_cents,
     coalesce(sum(case when status in ('success', 'partial') and metadata ? 'providerCostCents' then (metadata->>'providerCostCents')::numeric else 0 end), 0)::numeric as cost_cents
@@ -947,6 +958,8 @@ export async function getChannelCostReport(args: {
       calls: totals.calls,
       errorCalls: totals.errorCalls,
       costedCalls: totals.costedCalls,
+      zeroRevenueCalls: totals.zeroRevenueCalls,
+      zeroRevenueCostCents: totals.zeroRevenueCostCents,
       revenueCents: totals.revenueCents,
       costedRevenueCents: totals.costedRevenueCents,
       costCents: totals.costCents,
