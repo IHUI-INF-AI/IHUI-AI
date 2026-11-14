@@ -78,14 +78,14 @@ interface UnpricedAlertRow {
   configId: number
   isRelayPublic: boolean
   calls: number
-  missedRevenueCents: number
+  estimatedCostCents: number
 }
 
 interface UnpricedAlertReport {
   days: number
   publishedUnpriced: number
   callingUnpriced: number
-  missedRevenueCents: number
+  estimatedCostCents: number
   rows: UnpricedAlertRow[]
 }
 
@@ -493,9 +493,9 @@ export default function PricingConsolePage() {
               <span className="font-medium"> {unpricedAlerts.data.publishedUnpriced} </span>
               个模型在架但零价,
               <span className="font-medium"> {unpricedAlerts.data.callingUnpriced} </span>
-              个零价模型仍被调用;按当前价应计未计{' '}
+              个零价模型仍被调用;零价调用已烧掉上游成本{' '}
               <span className="text-amber-600 dark:text-amber-500">
-                {fmtYuan(unpricedAlerts.data.missedRevenueCents)}
+                {fmtYuan(unpricedAlerts.data.estimatedCostCents)}
               </span>
               。上架接口已拦截零价,以下是历史遗留,请在「模型价目」里逐个定价。
             </div>
@@ -510,7 +510,7 @@ export default function PricingConsolePage() {
                     {r.isRelayPublic ? ' [在架]' : ''}
                   </span>
                   <span>
-                    {r.calls} 次 · {fmtYuan(r.missedRevenueCents)}
+                    {r.calls} 次 · 成本 {fmtYuan(r.estimatedCostCents)}
                   </span>
                 </div>
               ))}
