@@ -7,7 +7,7 @@ import { useI18n } from '@/i18n'
 import { View, Text } from '@tarojs/components'
 import LineIcon from '@/components/LineIcon'
 import Taro, { useRouter, useShareAppMessage, useShareTimeline } from '@tarojs/taro'
-import { useState, useEffect, useCallback } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { get, getCourseDetail, post, type Course } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
 import { ScreenSkeleton, ErrorState } from '@/components/ScreenStates.taro'
@@ -59,6 +59,13 @@ export default function CourseDetail() {
   const [loadError, setLoadError] = useState('')
   const [enrolled, setEnrolled] = useState(false)
   const [enrolling, setEnrolling] = useState(false)
+  // 购买成功后的延迟返回:页面若先被用户退掉,定时器不能再多退一层
+  const navTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => {
+    return () => {
+      if (navTimerRef.current) clearTimeout(navTimerRef.current)
+    }
+  }, [])
 
   const loadDetail = useCallback(
     async (id: string | number) => {
@@ -114,7 +121,8 @@ export default function CourseDetail() {
       // 又被引到微信/支付宝再付一次（重复收费）。已支付/免费都在本页收口。
       if (res?.status === 'paid' || res?.status === 'free') {
         onToast(t('common.success'), { kind: 'success' })
-        setTimeout(() => {
+        if (navTimerRef.current) clearTimeout(navTimerRef.current)
+        navTimerRef.current = setTimeout(() => {
           void Taro.navigateBack()
         }, 600)
         return

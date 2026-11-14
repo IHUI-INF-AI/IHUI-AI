@@ -7313,5 +7313,13 @@
     "score": "Score",
     "bm25": "BM25",
     "hop": "Hop"
+  },
+  "toastFallback": {
+    "shareFeature": "Share",
+    "serviceUnavailable": "Support is coming soon",
+    "feedbackUnavailable": "Feedback is coming soon",
+    "feedbackOpenFailed": "Failed to open feedback. Please try again.",
+    "navigationNotWired": "Navigation is not available",
+    "pageUnsupported": "This page is not supported yet"
   }
 }

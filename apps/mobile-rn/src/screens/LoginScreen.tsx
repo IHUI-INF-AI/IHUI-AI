@@ -62,7 +62,7 @@ import {
 import { tokens } from '../theme/active-tokens'
 import { isSessionLoggedOut } from '../lib/token'
 import { shouldAttemptAutoLogin } from '../lib/auto-login-policy'
-import { useI18n } from '../i18n'
+import { useI18n, t as tStatic } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import { orderThirdPartyOptionsByRegion, useLoginRegionPlan } from '../hooks/use-login-region-plan'
 import { FloatBox, type FloatBoxType } from '../components/FloatBox'
@@ -1317,16 +1317,14 @@ export function LoginScreen() {
               <Text style={styles.agreementModalTitle}>{t('login.agreeTermsTitle')}</Text>
             </View>
             <View style={styles.agreementModalBody}>
-              <Text style={styles.agreementModalText}>
-                您尚未同意服务条款和隐私政策。点击登录/注册按钮即表示您同意以下条款:
-              </Text>
+              <Text style={styles.agreementModalText}>{tStatic('uiText.loginTermsNotice')}</Text>
               <View style={styles.agreementModalLinks}>
                 <Text style={styles.agreementModalLink} onPress={openAgreementFromModal}>
-                  服务条款
+                  {tStatic('agreement.titleTermsOfService')}
                 </Text>
                 <Text style={styles.agreementModalLinkSeparator}>{t('auth.and')}</Text>
                 <Text style={styles.agreementModalLink} onPress={openPrivacyFromModal}>
-                  隐私政策
+                  {tStatic('agreement.privacyPolicy')}
                 </Text>
               </View>
             </View>

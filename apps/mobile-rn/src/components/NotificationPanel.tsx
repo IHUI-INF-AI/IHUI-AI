@@ -18,7 +18,7 @@ import { tokens } from '../theme/active-tokens'
 import { useNotificationStore } from '../stores/notification'
 import { formatShortDateTime } from '../utils/date-utils'
 import { Bell, X } from 'lucide-react-native'
-import { useI18n } from '../i18n'
+import { useI18n, t as tStatic } from '../i18n'
 import { ELEVATION_STEPS, rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { Tappable } from '@ihui/ui-native'
 
@@ -57,7 +57,7 @@ export default function NotificationPanel() {
         >
           <View className="flex-row items-center justify-between px-4 py-3">
             <Text className="text-[15px] font-semibold text-gray-900 dark:text-neutral-100">
-              通知
+              {tStatic('notificationList.title')}
             </Text>
             <View className="flex-row items-center gap-2">
               <TouchableOpacity
@@ -105,7 +105,7 @@ export default function NotificationPanel() {
             )}
             ListEmptyComponent={
               <Text className="py-10 text-center text-gray-400 dark:text-neutral-500 text-[13px]">
-                暂无通知
+                {tStatic('notificationList.empty')}
               </Text>
             }
             contentContainerStyle={{ padding: rnSpacing.sm }}

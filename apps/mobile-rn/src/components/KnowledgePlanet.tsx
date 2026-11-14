@@ -238,7 +238,7 @@ export function KnowledgePlanet({
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <View style={styles.headerIcon} />
-          <Text style={styles.headerTitle}>知识星球</Text>
+          <Text style={styles.headerTitle}>{t('webViewPortal.knowledgePlanet')}</Text>
         </View>
         <MoreLink
           label={t('knowledgePlanet.enter')}
@@ -293,7 +293,7 @@ export function KnowledgePlanet({
         }
         ListEmptyComponent={
           <View style={styles.emptyWrap}>
-            <Text style={styles.emptyText}>暂无内容</Text>
+            <Text style={styles.emptyText}>{t('common.emptyContent')}</Text>
           </View>
         }
       />

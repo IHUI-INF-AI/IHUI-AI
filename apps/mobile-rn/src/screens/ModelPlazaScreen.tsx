@@ -201,7 +201,7 @@ export default function ModelPlazaScreen() {
           activeOpacity={0.8}
         >
           <Text style={viewMode === 'shared' ? styles.tabTextActive : styles.tabText}>
-            模型广场
+            {t('modelPlaza.title')}
           </Text>
         </TouchableOpacity>
         <TouchableOpacity

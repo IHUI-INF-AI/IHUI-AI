@@ -60,7 +60,7 @@ import { scrollJumpInsetPx } from '@ihui/shared/ui/scroll-jump-spec'
 import type { CarouselItem } from '@ihui/ui-native'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
-import { useI18n } from '../i18n'
+import { useI18n, t as tStatic } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { rpx } from '../utils/rpx'
 import { FREE_RESOURCE_URL } from '../constants/links'
@@ -730,7 +730,7 @@ export function AgentScreen() {
             activeOpacity={0.8}
           >
             <Text style={viewMode === 'shared' ? styles.tabTextActive : styles.tabText}>
-              智能体
+              {tStatic('chat.navAgent')}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -739,7 +739,7 @@ export function AgentScreen() {
             activeOpacity={0.8}
           >
             <Text style={viewMode === 'local' ? styles.tabTextActive : styles.tabText}>
-              模型选择
+              {tStatic('home.modelSelectTitle')}
             </Text>
           </TouchableOpacity>
         </View>
@@ -747,7 +747,9 @@ export function AgentScreen() {
           {viewMode === 'shared' ? (
             <SharedAgentScreen
               t={t}
-              onRetry={() => { void load(); }}
+              onRetry={() => {
+                void load()
+              }}
               colorScheme={resolvedTheme}
               items={items.slice(0, visibleCount)}
               loading={loading}
@@ -774,7 +776,8 @@ export function AgentScreen() {
               {selectedModelIds.length > 0 ? (
                 <View style={styles.modelSelectionBar}>
                   <Text style={styles.modelSelectionText} numberOfLines={1}>
-                    已选模型:{selectedModelName}
+                    {tStatic('uiText.selectedModel')}
+                    {selectedModelName}
                   </Text>
                   <TouchableOpacity
                     style={styles.modelStartBtn}
@@ -924,7 +927,11 @@ const styles = StyleSheet.create({
   },
   tabActive: { backgroundColor: tokens.brand.cta },
   tabText: { fontSize: rnType.bodySm.size, color: tokens.text.secondary },
-  tabTextActive: { fontSize: rnType.bodySm.size, color: tokens.brand.ctaForeground, fontWeight: '600' },
+  tabTextActive: {
+    fontSize: rnType.bodySm.size,
+    color: tokens.brand.ctaForeground,
+    fontWeight: '600',
+  },
   viewport: { minHeight: 400, paddingHorizontal: rpx(20) },
   // 已选模型操作条(模型选择视图下方,消费 selectedModelIds)
   modelSelectionBar: {
@@ -949,7 +956,11 @@ const styles = StyleSheet.create({
     borderRadius: rnRadius.sm,
     backgroundColor: tokens.brand.cta,
   },
-  modelStartBtnText: { fontSize: rnType.bodySm.size, color: tokens.brand.ctaForeground, fontWeight: '600' },
+  modelStartBtnText: {
+    fontSize: rnType.bodySm.size,
+    color: tokens.brand.ctaForeground,
+    fontWeight: '600',
+  },
   loadMoreBtn: {
     marginTop: rpx(12),
     marginBottom: rpx(24),

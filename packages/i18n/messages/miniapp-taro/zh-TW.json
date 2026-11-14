@@ -7313,5 +7313,13 @@
     "score": "得分",
     "bm25": "BM25",
     "hop": "跳"
+  },
+  "toastFallback": {
+    "shareFeature": "分享功能",
+    "serviceUnavailable": "客服功能尚未開放",
+    "feedbackUnavailable": "意見回饋功能尚未開放",
+    "feedbackOpenFailed": "意見回饋頁開啟失敗,請稍後重試",
+    "navigationNotWired": "導覽未接入",
+    "pageUnsupported": "此頁面暫未支援"
   }
 }

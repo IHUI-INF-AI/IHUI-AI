@@ -7313,5 +7313,13 @@
     "score": "スコア",
     "bm25": "BM25",
     "hop": "ホップ"
+  },
+  "toastFallback": {
+    "shareFeature": "共有",
+    "serviceUnavailable": "サポート機能は近日公開",
+    "feedbackUnavailable": "フィードバック機能は近日公開",
+    "feedbackOpenFailed": "フィードバック画面を開けませんでした。再度お試しください",
+    "navigationNotWired": "画面遷移は未接続です",
+    "pageUnsupported": "このページはまだ対応していません"
   }
 }

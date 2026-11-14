@@ -3,6 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 // 平台特有:依赖 @tarojs/components 输入组件与 Taro 导航,不适合共享层。
+import { t as tStatic } from '@/i18n'
 import { useI18n } from '@/i18n'
 import { View, Text, Input } from '@tarojs/components'
 import { useDidShow } from '@tarojs/taro'
@@ -96,7 +97,9 @@ export default function AiTutor() {
     <ThemeRoot>
       <View className="min-h-screen bg-background">
         <View className="flex flex-row items-center px-[20rpx] pt-[24rpx] pb-[16rpx] gap-[16rpx]">
-          <Text className="text-headline font-semibold text-foreground">AI 助教</Text>
+          <Text className="text-headline font-semibold text-foreground">
+            {tStatic('uiText.aiTutor')}
+          </Text>
         </View>
 
         <View className="flex flex-row px-[20rpx] py-[16rpx] gap-[12rpx]">

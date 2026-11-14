@@ -5,6 +5,7 @@
 // 纯抽取:从 ChatScreen renderMessage 抽出「终端任务 / 工具调用」最小可视态(D113 流中 diff /
 // D119 并行工具后续票面的挂载点)。零行为/视觉变更。
 
+import { t as tStatic } from '../../i18n'
 import { useState } from 'react'
 import { Platform, StyleSheet, Text, View } from 'react-native'
 import { tokens } from '../../theme/active-tokens'
@@ -153,7 +154,7 @@ function ToolCallRow({ call }: { call: ToolCallItem }) {
       {partialDiff ? (
         <View style={styles.toolDiffBlock}>
           <View style={styles.toolDiffLabelRow}>
-            <Text style={styles.toolDiffLabel}>流中 diff 预览</Text>
+            <Text style={styles.toolDiffLabel}>{tStatic('uiText.streamDiffPreview')}</Text>
             <Text style={styles.toolDiffToggle}>
               {expanded ? t('teacher.detail.collapse') : t('teacher.detail.expand')}
             </Text>

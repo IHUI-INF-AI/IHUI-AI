@@ -24,7 +24,7 @@
 import { tokens } from '../theme/active-tokens'
 import { formatDate } from '@ihui/shared/utils/date-utils'
 import { CategoryInlineBar } from '@ihui/rn-app'
-import { useI18n } from '../i18n'
+import { useI18n, t as tStatic } from '../i18n'
 import { FileText, Image as ImageIcon, Library, Music, Video, X } from 'lucide-react-native'
 import {
   FlatList,
@@ -265,11 +265,11 @@ export default function MaterialList({
 
   const footer = loading ? (
     <View style={styles.footer}>
-      <Text style={styles.loadingMore}>加载中...</Text>
+      <Text style={styles.loadingMore}>{tStatic('about.loading')}</Text>
     </View>
   ) : !hasMore && items.length > 0 ? (
     <View style={styles.footer}>
-      <Text style={styles.noMore}>没有更多了</Text>
+      <Text style={styles.noMore}>{tStatic('common.noMore')}</Text>
     </View>
   ) : null
 
@@ -278,7 +278,7 @@ export default function MaterialList({
       {/* 标题头(对齐原版 material-header;onClose 提供时右侧渲染 X——弹窗场景免外部再造头部。
           守门 131:按压态落子 View 数组形态,不传函数形态 style) */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>我的创作</Text>
+        <Text style={styles.headerTitle}>{tStatic('common.myCreation')}</Text>
         {onClose ? (
           <Pressable
             hitSlop={8}

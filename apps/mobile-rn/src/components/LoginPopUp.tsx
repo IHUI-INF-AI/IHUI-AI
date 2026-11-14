@@ -1,4 +1,4 @@
-import { useI18n } from '../i18n'
+import { useI18n, t as tStatic } from '../i18n'
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
@@ -392,9 +392,9 @@ export function LoginPopUp({
                     ) : null}
                   </View>
                   <Text style={styles.agreementText}>
-                    <Text style={styles.agreementLink}>《用户协议》</Text>
-                    <Text style={styles.agreementSeparator}> 与 </Text>
-                    <Text style={styles.agreementLink}>《隐私政策》</Text>
+                    <Text style={styles.agreementLink}>{tStatic('uiText.userAgreementTitle')}</Text>
+                    <Text style={styles.agreementSeparator}> {tStatic('uiText.and')} </Text>
+                    <Text style={styles.agreementLink}>{tStatic('uiText.privacyPolicyTitle')}</Text>
                   </Text>
                 </Tappable>
               ) : null}
@@ -522,7 +522,7 @@ function ProfileForm({
             </View>
           )}
         </Pressable>
-        <Text style={styles.changeAvatar}>更换头像</Text>
+        <Text style={styles.changeAvatar}>{tStatic('user.profile.avatar')}</Text>
       </View>
 
       {/* 昵称 */}
@@ -543,7 +543,7 @@ function ProfileForm({
       {nicknameError ? (
         <Text style={styles.errorText}>{nicknameError}</Text>
       ) : (
-        <Text style={styles.hintText}>最多 3 个汉字或 6 个字母/数字</Text>
+        <Text style={styles.hintText}>{tStatic('uiText.nicknameLengthHint')}</Text>
       )}
 
       {/* 角色 + 升级入口 */}
@@ -560,7 +560,7 @@ function ProfileForm({
           >
             {({ pressed }) => (
               <View style={[styles.face, pressed ? styles.upgradeButtonPressed : null]}>
-                <Text style={styles.upgradeLabel}>立即升级</Text>
+                <Text style={styles.upgradeLabel}>{tStatic('lp.upgradeA11y')}</Text>
               </View>
             )}
           </Pressable>
@@ -613,7 +613,7 @@ function ProfileForm({
           >
             {({ pressed }) => (
               <View style={[styles.face, pressed ? styles.footerButtonPressed : null]}>
-                <Text style={styles.footerLabel}>保存信息</Text>
+                <Text style={styles.footerLabel}>{tStatic('lp.saveA11y')}</Text>
               </View>
             )}
           </Pressable>
@@ -626,7 +626,9 @@ function ProfileForm({
           >
             {({ pressed }) => (
               <View style={[styles.face, pressed ? styles.footerButtonPressed : null]}>
-                <Text style={[styles.footerLabel, styles.footerLabelLogout]}>登出</Text>
+                <Text style={[styles.footerLabel, styles.footerLabelLogout]}>
+                  {tStatic('lp.logoutA11y')}
+                </Text>
               </View>
             )}
           </Pressable>

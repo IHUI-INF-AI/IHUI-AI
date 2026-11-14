@@ -656,7 +656,10 @@ export default function UserIndex() {
     // 且 fail 回退到同一条坏路径 ⇒ 三处悬浮按钮 + 本页反馈项点了全无反应。
     Taro.navigateTo({
       url: '/pkg-user/user/feedback?pageType=list',
-      fail: () => onToast('反馈页打开失败,请稍后重试', { kind: 'error' }),
+      fail: () =>
+        onToast(tt('toastFallback.feedbackOpenFailed', '反馈页打开失败,请稍后重试'), {
+          kind: 'error',
+        }),
     })
   }
 

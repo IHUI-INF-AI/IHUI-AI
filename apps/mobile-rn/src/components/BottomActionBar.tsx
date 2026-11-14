@@ -35,7 +35,7 @@ import {
 } from 'react-native'
 import { appAlert } from './BottomPops'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { useI18n } from '../i18n'
+import { useI18n, t as tStatic } from '../i18n'
 import { formatShortDuration } from '@ihui/shared/utils'
 import { TextField } from '@ihui/rn-app'
 import { useUiTextField } from '../lib/use-ui-text-field'
@@ -658,7 +658,7 @@ function ChatInputBar(props: BottomActionBarProps) {
           <View style={styles.recordingOverlay} pointerEvents="none">
             <RecordingWave />
             <Text style={styles.recordingDuration}>{formatShortDuration(recordingDuration)}</Text>
-            <Text style={styles.recordingHint}>松开结束</Text>
+            <Text style={styles.recordingHint}>{tStatic('uiText.releaseToFinish')}</Text>
           </View>
         ) : null}
 

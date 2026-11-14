@@ -14,6 +14,7 @@
  * - 4 变体差异:index 基础单按钮 / indexs 双按钮 / levelIndex 等级权益+levelText / privateAdvisory 5 项权益
  * - 浅色优雅风,主题 token 入口;圆角守门(AGENTS.md §4,无 rounded-full);无分割线(gap 间距)
  */
+import { t as tStatic } from '../i18n'
 import { useEffect, useRef, useState } from 'react'
 import { scaleText } from '@ihui/rn-app'
 import {
@@ -247,7 +248,8 @@ export function IntroducePopup({
               style={[styles.levelBadgeText, scaleText(styles.levelBadgeText)]}
               allowFontScaling={false}
             >
-              当前等级 Lv.{level}
+              {tStatic('uiText.currentLevel')}
+              {level}
             </Text>
           </View>
         ) : null}

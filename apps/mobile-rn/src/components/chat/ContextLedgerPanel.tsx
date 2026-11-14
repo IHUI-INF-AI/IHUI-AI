@@ -12,6 +12,7 @@
  *  - 已用/限额/百分比全部取服务端字段,端内不重算除法(压缩分母与百分比裁剪各有守门);
  *  - 面板默认收起,点标题展开;查询失败时上层保持 ledger 为 null,本组件零占位。
  */
+import { t as tStatic } from '../../i18n'
 import { useState } from 'react'
 import { StyleSheet, Text, View } from 'react-native'
 import { rnGeometry, rnRadius } from '@ihui/design-tokens'
@@ -75,7 +76,9 @@ export function ContextLedgerPanel({ ledger, turnIndex }: ContextLedgerPanelProp
         onPress={() => setExpanded((value) => !value)}
       >
         <View style={styles.headerText}>
-          <Text style={styles.title}>上下文账本 · {turnLabel}</Text>
+          <Text style={styles.title}>
+            {tStatic('uiText.contextLedgerLabel')} {turnLabel}
+          </Text>
           <Text style={styles.summary}>
             {`已用 ${formatTokenCount(ledger.usedTokens)} / ${formatTokenCount(ledger.contextLimit)} tokens · ${formatPercent(ledger.percentage)} · ${contextLedgerTokenizerLabel(ledger.tokenizer)}`}
           </Text>
@@ -93,7 +96,7 @@ export function ContextLedgerPanel({ ledger, turnIndex }: ContextLedgerPanelProp
             </View>
           ))}
           {identity && (!identity.usedMatches || !identity.balanceMatches) ? (
-            <Text style={styles.warn}>账本口径校验未通过,以上数据仅供粗看。</Text>
+            <Text style={styles.warn}>{tStatic('uiText.ledgerCheckFailed')}</Text>
           ) : null}
         </View>
       ) : null}
