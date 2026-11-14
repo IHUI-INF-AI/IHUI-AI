@@ -36,6 +36,8 @@ import { execFileSync } from 'node:child_process'
 import { readFileSync, statSync } from 'node:fs'
 import { dirname, extname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { selectFace, Undetermined } from './lib/face-reader.mjs'
+import { blobsAtFace } from './lib/gate-body-provenance.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 export const ROOT = resolve(HERE, '..')
@@ -172,6 +174,17 @@ function main(argv = process.argv.slice(2)) {
   }
   if (argv.includes('--self-test')) return selfTest() ? 0 : 1
 
+  // 判面层接线(守门 312):--staged 时经 selectFace 按索引读,不再是裸读工作区。
+  const { face, error } = selectFace({
+    staged: argv.includes('--staged'),
+    worktree: argv.includes('--worktree'),
+    def: 'staged',
+  })
+  if (error) {
+    console.log(`⏭ 未判定:[check-line-endings] ${error}`)
+    return 2
+  }
+
   let files
   if (argv.includes('--staged')) {
     try {
@@ -192,12 +205,17 @@ function main(argv = process.argv.slice(2)) {
   const unreadable = []
   for (const f of files) {
     if (shouldSkip(f)) continue
-    const r = inspectFile(resolve(ROOT, f))
-    if (r.error) {
-      unreadable.push(`${f}(${r.error})`)
+    // 按 face 读文件内容(索引/工作树/HEAD),而非裸读工作区
+    let text = null
+    try {
+      text = blobsAtFace(ROOT, face, [f]).get(f)?.text
+      if (text === null || text === undefined) throw new Undetermined(`${f} 不在 ${face} 面`)
+    } catch (e) {
+      unreadable.push(`${f}(${e instanceof Error ? e.message : String(e)})`)
       continue
     }
-    if (r.crlfLines && r.crlfLines.length > 0) bad.push({ file: f, lines: r.crlfLines })
+    const crlfLines = findCrlfLines(text)
+    if (crlfLines.length > 0) bad.push({ file: f, lines: crlfLines })
   }
 
   if (unreadable.length > 0) {

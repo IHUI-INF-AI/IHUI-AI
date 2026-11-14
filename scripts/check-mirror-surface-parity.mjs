@@ -34,6 +34,8 @@
 import { readFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { selectFace } from './lib/face-reader.mjs'
+import { blobsAtFace } from './lib/gate-body-provenance.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 export const ROOT = resolve(HERE, '..')
@@ -178,23 +180,25 @@ export function compareEnums(sharedValues, mirrorValues, label = '') {
   return errors
 }
 
-/** 读文件;读不到返回 null(调用方判未判定,不猜) */
-export function readSource(file, root = ROOT) {
+/** 读文件;读不到返回 null(调用方判未判定,不猜)。face 缺省走工作树。 */
+export function readSource(file, root = ROOT, face = 'worktree') {
   try {
-    return readFileSync(join(root, file), 'utf8')
+    if (face === 'worktree') return readFileSync(join(root, file), 'utf8')
+    const hit = blobsAtFace(root, face, [file]).get(file)
+    return hit && hit.exists ? hit.text : null
   } catch {
     return null
   }
 }
 
-/** 主判据:返回 { ok, errors, undetermined } */
-export function inspect(root = ROOT) {
+/** 主判据:返回 { ok, errors, undetermined }。face 缺省走工作树(镜像测试兼容)。 */
+export function inspect(root = ROOT, face = 'worktree') {
   const errors = []
   const undetermined = []
 
   for (const pair of MIRROR_PAIRS) {
-    const sharedSrc = readSource(pair.shared.file, root)
-    const mirrorSrc = readSource(pair.mirror.file, root)
+    const sharedSrc = readSource(pair.shared.file, root, face)
+    const mirrorSrc = readSource(pair.mirror.file, root, face)
     if (sharedSrc === null) {
       undetermined.push(`${pair.id}: 共享层 ${pair.shared.file} 读不到`)
       continue
@@ -217,8 +221,8 @@ export function inspect(root = ROOT) {
   }
 
   for (const pair of MIRROR_ENUM_PAIRS) {
-    const sharedSrc = readSource(pair.shared.file, root)
-    const mirrorSrc = readSource(pair.mirror.file, root)
+    const sharedSrc = readSource(pair.shared.file, root, face)
+    const mirrorSrc = readSource(pair.mirror.file, root, face)
     if (sharedSrc === null || mirrorSrc === null) {
       undetermined.push(`${pair.id}: 枚举对账取材失败(一侧文件读不到)`)
       continue
@@ -395,7 +399,18 @@ function main(argv = process.argv.slice(2)) {
   }
   if (argv.includes('--self-test')) return selfTest() ? 0 : 1
 
-  const r = inspect()
+  // 判面层接线(守门 312):直跑经 selectFace 按面读被审面(head/staged/worktree)。
+  const { face, error } = selectFace({
+    staged: argv.includes('--staged'),
+    worktree: argv.includes('--worktree'),
+    def: 'worktree',
+  })
+  if (error) {
+    console.log(`⏭ 未判定:[check-mirror-surface-parity] ${error}`)
+    return 2
+  }
+
+  const r = inspect(ROOT, face)
   if (argv.includes('--json')) {
     console.log(JSON.stringify(r, null, 2))
     return r.ok ? 0 : r.undetermined.length > 0 && r.errors.length === 0 ? 2 : 1
