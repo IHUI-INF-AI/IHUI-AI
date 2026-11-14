@@ -158,6 +158,20 @@ def _encode_image(
 
         with Image.open(io.BytesIO(raw)) as probe:
             source_width, source_height = probe.size
+            # EXIF Orientation:手机照片常见 6/8 —— 不转正会让模型看到躺倒的图,
+            # 坐标换算也随之错位。带方向标签时先转正成 PNG 再交给降采样。
+            try:
+                orientation = int(probe.getexif().get(0x0112, 0) or 0)
+            except Exception:  # noqa: BLE001 - EXIF 损坏按无方向处理
+                orientation = 0
+            if orientation not in (0, 1):
+                from PIL import ImageOps
+
+                fixed = ImageOps.exif_transpose(probe)
+                buffer = io.BytesIO()
+                fixed.save(buffer, format="PNG")
+                raw = buffer.getvalue()
+                media_type = "image/png"
     except Exception as e:  # noqa: BLE001 - 打不开就是坏图
         return None, {
             "errorCode": "IMAGE_INVALID",
