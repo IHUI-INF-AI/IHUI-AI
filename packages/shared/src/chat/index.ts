@@ -127,6 +127,16 @@ export * from './user-broadcast-store'
 // 帧 → 每会话消息面(幂等/四态/todo resync 全引用 @ihui/types 契约,本层零复算);
 // 小程序端 `stores/chat-sync.ts` 与 RN 端下一个 hook 包装共用这一份,端内不写第二套判据。
 export * from './chat-sync-store'
+// 票 B02 / 票71 跨端 resync 编排内核(零平台依赖:fetch/merge/drop 由端内注入);
+// web / taro / RN / extension 共用同一份失败分类 / 退避重试 / 在飞去重,端内不写第二套。
+export * from './chat-sync-resync'
+// 票 B02 / 票71 phase 2:store 驱动的 resync 泵(调度层唯一实现)。
+// web 用 React effect 驱动(既有 hook),taro / RN / extension 三端改用本泵,
+// 端内只注入 fetchSnapshot —— 调度语义(微任务合并/失败不自动重跑/停止即让路)四端同源。
+export * from './chat-sync-resync-pump'
+// 票 B02 / 票71 phase 2:gap-resync 的传输面(端点路径 + ApiResult 失败分型唯一真相)。
+// 四端只交 request 实现,不再各抄一份路径字符串(抄四份必然漂移)。
+export * from './chat-sync-snapshot'
 // D76 产物归属 turn 派生层(分型判据 + originating turn 序列 + 轮次序号 + 产物锚点→轮下标;
 // 纯函数零平台依赖,web 渲染层 artifact-turn-badge 原样 re-export,残余票 2026-09-25 自端内提取)
 export * from './artifact-turn'

@@ -146,6 +146,8 @@ export interface ChatSyncStore {
   pendingResyncs(): readonly ChatSyncResyncRequest[]
   /** 一次 resync 拉回后并回(复用契约 `mergeChatSyncResyncSnapshot`),真应用了才摘待办 */
   mergeResyncSnapshot(snapshot: ChatSyncMessageSnapshot): ChatSyncResyncMergeOutcome
+  /** 服务端明确说补不齐(404/409)⇒ 摘除该待 resync 坐标(否则下次挂载又问同一条死消息) */
+  dropResyncRequest(conversationId: string, messageId: string): void
   /** 已知会话 id(插入顺序) */
   conversationIds(): readonly string[]
   counters(): ChatSyncStoreCounters
@@ -360,6 +362,13 @@ export function createChatSyncStore(
 
     conversationIds() {
       return Object.freeze(Array.from(states.keys()))
+    },
+
+    dropResyncRequest(conversationId, messageId) {
+      const key = resyncKey(conversationId, messageId)
+      if (!pending.has(key)) return
+      pending.delete(key)
+      publish()
     },
 
     counters() {
