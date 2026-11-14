@@ -2227,6 +2227,16 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-14**
+- 🚀 기능/개선:以 ai_pricing 权威价回填配置零价行 (476127d306)
+- 🐞 수정:诊断臂 [7b] DB 迁移落后维从未真判过——函数注册晚于 -diagnose 顶层执行点(第三次落地,范围收窄) (c4be376fd5)
+- 🐞 수정:零价护栏豁免上游真免费模型(:free) (88cfcfeba1)
+- 🚀 기능/개선:工作区指令链补齐服务端腿 —— CLAUDE.md/本地叠加 + 轮内深层发现 (a5c6090a05)
+- 🚀 기능/개선:补齐 check-plan-claims-vs-head 门——批量预取治本 6.5min→15s + §1021 --self-test (99060ab1ee)
+- 🐞 수정:流式打字机切批升到字素簇边界 —— ZWJ/肤色/旗帜 emoji 不再拆裂(D1b) (a143634115)
+- 🔧 기타:重封根护栏清单(git-guardian 变更后漂移) (ad06d9d1f8)
+- 🚀 기능/개선:present_files 显式交付声明 + 交付清单 presentedFiles (904e129c14)
+
+**2026-11-14**
 - 🚀 기능/개선:新增 3 个未跟踪文件 (da1823aa1d)
 
 **2026-11-14**
@@ -2548,9 +2558,6 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 **2026-11-13**
 - 🚀 기능/개선:新增 titleLg/headingSm/headline/displayXl 四个字号档(产品定档 plan_a) (80e4814fdc)
-
-**2026-11-13**
-- 🐞 수정:install-git-hooks 净面构建下默认模式跳过(exit 0) (de317e445d)
 <!-- END RECENT UPDATES -->
 
 <p align="center">

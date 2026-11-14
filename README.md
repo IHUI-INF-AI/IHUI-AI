@@ -5470,6 +5470,16 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-14**
+- 🚀 新功能/改进:以 ai_pricing 权威价回填配置零价行 (476127d306)
+- 🐞 修复:诊断臂 [7b] DB 迁移落后维从未真判过——函数注册晚于 -diagnose 顶层执行点(第三次落地,范围收窄) (c4be376fd5)
+- 🐞 修复:零价护栏豁免上游真免费模型(:free) (88cfcfeba1)
+- 🚀 新功能/改进:工作区指令链补齐服务端腿 —— CLAUDE.md/本地叠加 + 轮内深层发现 (a5c6090a05)
+- 🚀 新功能/改进:补齐 check-plan-claims-vs-head 门——批量预取治本 6.5min→15s + §1021 --self-test (99060ab1ee)
+- 🐞 修复:流式打字机切批升到字素簇边界 —— ZWJ/肤色/旗帜 emoji 不再拆裂(D1b) (a143634115)
+- 🔧 工程/其他:重封根护栏清单(git-guardian 变更后漂移) (ad06d9d1f8)
+- 🚀 新功能/改进:present_files 显式交付声明 + 交付清单 presentedFiles (904e129c14)
+
+**2026-11-14**
 - 🚀 新功能/改进:新增 3 个未跟踪文件 (da1823aa1d)
 
 **2026-11-14**
