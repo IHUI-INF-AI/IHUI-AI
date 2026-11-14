@@ -72,12 +72,6 @@ export interface ClaimMutex {
 const CLAIM_LOCK_PREFIX = 'ihui:automation-repair:claim:'
 const CLAIM_LOCK_TTL_MS = 120_000
 
-/**
- * 任务租约时长。claimed/running 落租约,执行期间心跳续租;进程 OOM/重启后
- * 超出租约的任务由 runCycle 回收为 pending,不再永久卡死。
- */
-export const REPAIR_TASK_LEASE_MS = 15 * 60_000
-
 /** 生产实现:包一层仓内既有 DistributedLock(Redis SET NX PX + Lua 原子释放)。 */
 export function createDistributedClaimMutex(redis: Redis): ClaimMutex {
   const locker = new DistributedLock(redis)
@@ -111,15 +105,14 @@ export function createFailClosedClaimMutex(): ClaimMutex {
 /**
  * 合法迁移:
  * pending → claimed(认领) | claimed → running(开工) | claimed → pending(释放回队列)
- * running → fixed | running → failed | running → pending(租约到期回收)
- * failed → claimed(重试,受 maxAttempts 约束)
+ * running → fixed | running → failed | failed → claimed(重试,受 maxAttempts 约束)
  * fixed 为终态。表外迁移一律拒绝。
  */
 const ALLOWED_TRANSITIONS: Readonly<Partial<Record<RepairTaskState, readonly RepairTaskState[]>>> =
   {
     pending: ['claimed'],
     claimed: ['running', 'pending'],
-    running: ['fixed', 'failed', 'pending'],
+    running: ['fixed', 'failed'],
     failed: ['claimed'],
     fixed: [],
   }
@@ -170,8 +163,6 @@ export interface RepairTaskStore {
   ): { task: RepairTaskRecord; created: boolean }
   /** 校验状态机后落迁移;非法迁移抛 InvalidRepairTransitionError。 */
   transition(key: string, to: RepairTaskState, by: string, note?: string): RepairTaskRecord
-  /** 续租心跳:claimed/running 期间刷新 leaseUntil/heartbeatAt;非在途返回 null。 */
-  renewLease(key: string): RepairTaskRecord | null
 }
 
 interface StoreFileShape {
@@ -186,60 +177,6 @@ function nodeErrorCode(err: unknown): string | undefined {
   if (!err || typeof err !== 'object' || !('code' in err)) return undefined
   const code = (err as { code: unknown }).code
   return typeof code === 'string' ? code : undefined
-}
-
-/** 由当前记录推导迁移后的记录(纯函数;文件存储与共享权威源共用同一份规则)。 */
-function applyTransition(
-  task: RepairTaskRecord,
-  to: RepairTaskState,
-  by: string,
-  note?: string,
-): RepairTaskRecord {
-  if (!isTransitionAllowed(task.state, to)) {
-    throw new InvalidRepairTransitionError(task.key, task.state, to)
-  }
-  const entry: RepairTaskTransition = {
-    from: task.state,
-    to,
-    at: nowIso(),
-    by,
-    ...(note ? { note } : {}),
-  }
-  // 租约只在在途状态(claimed/running)有效;进入其它状态一律清空,回收判据唯一
-  const inFlight = to === 'claimed' || to === 'running'
-  return {
-    ...task,
-    state: to,
-    attempts: to === 'running' ? task.attempts + 1 : task.attempts,
-    updatedAt: entry.at,
-    leaseUntil: inFlight ? new Date(Date.now() + REPAIR_TASK_LEASE_MS).toISOString() : null,
-    heartbeatAt: inFlight ? entry.at : null,
-    history: [...task.history, entry],
-  }
-}
-
-/** 新任务记录的构造(摄入路径唯一实现)。 */
-function buildTaskRecord(
-  item: ScanItem,
-  repo: string,
-  maxAttempts: number,
-  by: string,
-): RepairTaskRecord {
-  return {
-    key: item.key,
-    source: item.source,
-    repo,
-    title: item.title,
-    goal: buildRepairGoal(item, repo),
-    url: item.url,
-    issueNumber: item.issueNumber,
-    state: 'pending',
-    attempts: 0,
-    maxAttempts,
-    createdAt: nowIso(),
-    updatedAt: nowIso(),
-    history: [{ from: 'pending', to: 'pending', at: nowIso(), by, note: '摄入(初始 pending)' }],
-  }
 }
 
 export function createRepairTaskStore(filePath: string, audit?: AuditLogger): RepairTaskStore {
@@ -304,7 +241,21 @@ export function createRepairTaskStore(filePath: string, audit?: AuditLogger): Re
       const s = ensureLoaded()
       const existing = s.tasks[item.key]
       if (existing) return { task: existing, created: false }
-      const created = buildTaskRecord(item, repo, maxAttempts, by)
+      const created: RepairTaskRecord = {
+        key: item.key,
+        source: item.source,
+        repo,
+        title: item.title,
+        goal: buildRepairGoal(item, repo),
+        url: item.url,
+        issueNumber: item.issueNumber,
+        state: 'pending',
+        attempts: 0,
+        maxAttempts,
+        createdAt: nowIso(),
+        updatedAt: nowIso(),
+        history: [{ from: 'pending', to: 'pending', at: nowIso(), by, note: '摄入(初始 pending)' }],
+      }
       s.tasks[item.key] = created
       persist()
       audit?.info('[automation-repair] 任务摄入', { key: item.key, source: item.source })
@@ -314,8 +265,18 @@ export function createRepairTaskStore(filePath: string, audit?: AuditLogger): Re
       const s = ensureLoaded()
       const task = s.tasks[key]
       if (!task) throw new Error(`修复任务不存在:${key}`)
+      if (!isTransitionAllowed(task.state, to)) {
+        throw new InvalidRepairTransitionError(key, task.state, to)
+      }
       const from = task.state
-      const next = applyTransition(task, to, by, note)
+      const entry: RepairTaskTransition = { from, to, at: nowIso(), by, ...(note ? { note } : {}) }
+      const next: RepairTaskRecord = {
+        ...task,
+        state: to,
+        attempts: to === 'running' ? task.attempts + 1 : task.attempts,
+        updatedAt: entry.at,
+        history: [...task.history, entry],
+      }
       s.tasks[key] = next
       persist()
       // 每次迁移都进审计流水(who/when/结论摘要);摘要已由调用方脱敏,这里再兜底洗一遍
@@ -327,128 +288,6 @@ export function createRepairTaskStore(filePath: string, audit?: AuditLogger): Re
         note: redactSecrets(note ?? '', []),
       })
       return next
-    },
-    renewLease(key) {
-      const s = ensureLoaded()
-      const task = s.tasks[key]
-      if (!task || (task.state !== 'claimed' && task.state !== 'running')) return null
-      const at = nowIso()
-      const next: RepairTaskRecord = {
-        ...task,
-        leaseUntil: new Date(Date.now() + REPAIR_TASK_LEASE_MS).toISOString(),
-        heartbeatAt: at,
-      }
-      s.tasks[key] = next
-      persist()
-      return next
-    },
-  }
-}
-
-// ---------------------------------------------------------------------------
-// F-649:跨实例共享权威状态(Redis Hash;锁只做执行互斥,状态以本接口为准)
-// ---------------------------------------------------------------------------
-
-/**
- * 任务状态的唯一权威源。多实例部署下所有状态读写都以本接口为准,每进程内存
- * 最多只是只读镜像;因此不会出现"B 的过期快照整文件覆盖 A 的完成状态"。
- */
-export interface SharedRepairTaskState {
-  load(key: string): Promise<RepairTaskRecord | null>
-  list(states?: readonly RepairTaskState[]): Promise<RepairTaskRecord[]>
-  /** 原子"不存在才创建":同 key 并发摄入只有一个 created=true。 */
-  createIfAbsent(task: RepairTaskRecord): Promise<{ task: RepairTaskRecord; created: boolean }>
-  /**
-   * 原子条件迁移:仅当当前状态仍属于 expected 时才调用 mutate 并落库。
-   * 返回 null = 快照已过期(其它实例先改了),调用方必须按共享源现状态重新判定。
-   */
-  transition(
-    key: string,
-    expected: readonly RepairTaskState[],
-    mutate: (current: RepairTaskRecord) => RepairTaskRecord,
-  ): Promise<RepairTaskRecord | null>
-  renewLease(key: string): Promise<RepairTaskRecord | null>
-}
-
-const SHARED_TASKS_HASH = 'ihui:automation-repair:tasks'
-const SHARED_CAS_RETRIES = 5
-
-// Lua: 仅当字段旧值仍等于本次读到的快照时才写入 —— 读-改-写的原子条件写(CAS)。
-const CAS_HASH_FIELD_SCRIPT = `
-if redis.call('HGET', KEYS[1], ARGV[1]) == ARGV[2] then
-  redis.call('HSET', KEYS[1], ARGV[1], ARGV[3])
-  return 1
-end
-return 0
-`
-
-/** 生产实现:Redis Hash 为权威源,状态迁移走乐观 CAS(快照值比对)。 */
-export function createRedisSharedTaskState(
-  redis: Redis,
-  audit?: AuditLogger,
-): SharedRepairTaskState {
-  const parse = (raw: string | null | undefined): RepairTaskRecord | null => {
-    if (!raw) return null
-    try {
-      return JSON.parse(raw) as RepairTaskRecord
-    } catch {
-      return null
-    }
-  }
-
-  const cas = async (
-    key: string,
-    expected: readonly RepairTaskState[],
-    mutate: (current: RepairTaskRecord) => RepairTaskRecord,
-  ): Promise<RepairTaskRecord | null> => {
-    for (let i = 0; i < SHARED_CAS_RETRIES; i++) {
-      const raw = await redis.hget(SHARED_TASKS_HASH, key)
-      const current = parse(raw)
-      if (!raw || !current) return null
-      if (!expected.includes(current.state)) return null
-      const next = mutate(current)
-      const ok = (await redis.eval(
-        CAS_HASH_FIELD_SCRIPT,
-        1,
-        SHARED_TASKS_HASH,
-        key,
-        raw,
-        JSON.stringify(next),
-      )) as number
-      if (ok === 1) return next
-    }
-    audit?.warn('[automation-repair] 共享状态条件写重试耗尽', { key })
-    return null
-  }
-
-  return {
-    async load(key) {
-      return parse(await redis.hget(SHARED_TASKS_HASH, key))
-    },
-    async list(states) {
-      const all = await redis.hgetall(SHARED_TASKS_HASH)
-      const tasks: RepairTaskRecord[] = []
-      for (const raw of Object.values(all)) {
-        const task = parse(raw)
-        if (task && (!states || states.includes(task.state))) tasks.push(task)
-      }
-      return tasks
-    },
-    async createIfAbsent(task) {
-      const created = await redis.hsetnx(SHARED_TASKS_HASH, task.key, JSON.stringify(task))
-      if (created === 1) return { task, created: true }
-      return {
-        task: parse(await redis.hget(SHARED_TASKS_HASH, task.key)) ?? task,
-        created: false,
-      }
-    },
-    transition: cas,
-    async renewLease(key) {
-      return cas(key, ['claimed', 'running'], (current) => ({
-        ...current,
-        leaseUntil: new Date(Date.now() + REPAIR_TASK_LEASE_MS).toISOString(),
-        heartbeatAt: nowIso(),
-      }))
     },
   }
 }
@@ -619,8 +458,6 @@ export function createAppRepairReporter(deps: AppRepairReporterDeps): AppRepairR
 export interface AutomationRepairServiceDeps {
   repo: string
   store: RepairTaskStore
-  /** F-649:跨实例共享权威状态;缺省 = 单进程文件存储(仅测试/单实例) */
-  shared?: SharedRepairTaskState
   mutex: ClaimMutex
   /** 三源条目提供器(issue/code-scanning/workflow-run 归一为 ScanItem[]) */
   itemsProvider: () => Promise<ScanItem[]>
@@ -649,8 +486,6 @@ export interface AutomationRepairService {
   runCycle(): Promise<{ ingested: number; results: RepairRunReport[] }>
   listTasks(state?: RepairTaskState): RepairTaskRecord[]
   getTask(key: string): RepairTaskRecord | null
-  /** F-649:从共享权威源刷新本地只读镜像(装配后调用一次;各异步入口亦会刷新)。 */
-  hydrate(): Promise<void>
 }
 
 export function createAutomationRepairService(
@@ -662,80 +497,11 @@ export function createAutomationRepairService(
   const maxAttempts = deps.maxAttempts ?? 3
   const audit = deps.audit
   const secrets = deps.secrets ?? []
-  /** F-649:共享权威源存在时,进程内文件存储仅作单进程后备,不再承担多实例状态 */
-  const shared = deps.shared ?? null
-  /** 共享模式下仅供同步读取接口(listTasks/getTask)的只读镜像;每次异步读写后刷新 */
-  const mirror = new Map<string, RepairTaskRecord>()
   /** 兜底脱敏:执行摘要/错误可能带环境变量派生秘密,落盘/审计前统一洗 */
   const safe = (text: string): string => redactSecrets(text, secrets)
 
-  const remember = (task: RepairTaskRecord | null | undefined): void => {
-    if (task) mirror.set(task.key, task)
-  }
-  const rememberAll = (tasks: readonly RepairTaskRecord[]): void => {
-    for (const task of tasks) mirror.set(task.key, task)
-  }
-
-  async function readTask(key: string): Promise<RepairTaskRecord | null> {
-    if (!shared) return store.get(key)
-    const task = await shared.load(key)
-    remember(task)
-    return task
-  }
-
-  async function readTasks(states: readonly RepairTaskState[]): Promise<RepairTaskRecord[]> {
-    if (!shared) return states.flatMap((state) => store.list(state))
-    const tasks = await shared.list(states)
-    rememberAll(tasks)
-    return tasks
-  }
-
-  /**
-   * 条件迁移:共享模式下只有"当前状态仍在 expected 内"才落库,返回 null 表示
-   * 快照已过期(其它实例先改了);调用方必须重新读权威源判定,绝不整份覆盖。
-   */
-  async function transitionTask(
-    key: string,
-    expected: readonly RepairTaskState[],
-    to: RepairTaskState,
-    by: string,
-    note?: string,
-  ): Promise<RepairTaskRecord | null> {
-    if (!shared) {
-      const next = store.transition(key, to, by, note)
-      remember(next)
-      return next
-    }
-    const next = await shared.transition(key, expected, (current) =>
-      applyTransition(current, to, by, note),
-    )
-    if (next) {
-      remember(next)
-      const entry = next.history.at(-1)
-      audit?.info('[automation-repair] 状态迁移', {
-        key,
-        from: entry?.from,
-        to: next.state,
-        by,
-        note: redactSecrets(note ?? '', []),
-      })
-    }
-    return next
-  }
-
-  async function renewTaskLease(key: string): Promise<RepairTaskRecord | null> {
-    if (!shared) {
-      const next = store.renewLease(key)
-      remember(next)
-      return next
-    }
-    const next = await shared.renewLease(key)
-    remember(next)
-    return next
-  }
-
   async function claim(key: string): Promise<RepairClaimResult> {
-    const task = await readTask(key)
+    const task = store.get(key)
     if (!task) return { ok: false, reason: 'not_found' }
     const pre = claimabilityOf(task)
     if (!pre.claimable) return { ok: false, reason: pre.reason }
@@ -746,20 +512,12 @@ export function createAutomationRepairService(
       return { ok: false, reason: 'locked_by_other' }
     }
     try {
-      // 拿锁后以权威源现状态做条件写:同进程二次校验 + 跨实例 CAS,重复认领必有一个落空
-      let claimed: RepairTaskRecord | null
-      try {
-        claimed = await transitionTask(key, ['pending', 'failed'], 'claimed', owner, '认领(权威状态条件写)')
-      } catch (err) {
-        if (!(err instanceof InvalidRepairTransitionError)) throw err
-        claimed = null
-      }
-      if (!claimed) {
-        const fresh = await readTask(key)
-        if (!fresh) return { ok: false, reason: 'not_found' }
-        const recheck = claimabilityOf(fresh)
-        return { ok: false, reason: recheck.claimable ? 'in_progress' : recheck.reason }
-      }
+      // 拿锁后二次校验:check→lock 窗口内可能已被别的 worker 认领完并释放
+      const fresh = store.get(key)
+      if (!fresh) return { ok: false, reason: 'not_found' }
+      const recheck = claimabilityOf(fresh)
+      if (!recheck.claimable) return { ok: false, reason: recheck.reason }
+      const claimed = store.transition(key, 'claimed', owner, '认领(互斥锁内二次校验通过)')
       return { ok: true, task: claimed }
     } finally {
       await mutex.unlock(key, token)
@@ -767,7 +525,7 @@ export function createAutomationRepairService(
   }
 
   async function runNext(): Promise<RepairRunReport | null> {
-    const candidates = await readTasks(['pending', 'failed'])
+    const candidates = [...store.list('pending'), ...store.list('failed')]
     for (const candidate of candidates) {
       const claimed = await claim(candidate.key)
       if (!claimed.ok || !claimed.task) continue
@@ -776,48 +534,8 @@ export function createAutomationRepairService(
     return null
   }
 
-  /** 回收超租约任务:claimed/running 且租约到期 ⇒ 置回 pending,下一轮可重新领取。 */
-  async function reclaimExpiredLeases(): Promise<number> {
-    const now = Date.now()
-    const expired = (await readTasks(['claimed', 'running'])).filter((task) => {
-      const explicit = task.leaseUntil ? Date.parse(task.leaseUntil) : Number.NaN
-      // 升级前写入的旧快照没有租约字段:以 updatedAt 兜底推算,避免历史卡死任务永远留在原地
-      const leaseUntil = Number.isNaN(explicit)
-        ? Date.parse(task.updatedAt) + REPAIR_TASK_LEASE_MS
-        : explicit
-      return Number.isFinite(leaseUntil) && leaseUntil < now
-    })
-    let reclaimed = 0
-    for (const task of expired) {
-      try {
-        const next = await transitionTask(
-          task.key,
-          [task.state],
-          'pending',
-          'system:lease-reclaim',
-          `租约到期回收(${task.state},leaseUntil=${task.leaseUntil ?? 'legacy'})`,
-        )
-        if (next) reclaimed++
-      } catch (err) {
-        audit?.warn('[automation-repair] 超租约任务回收失败', {
-          key: task.key,
-          err: safe(String(err)),
-        })
-      }
-    }
-    if (reclaimed > 0) {
-      audit?.warn('[automation-repair] 回收超租约任务', { count: reclaimed })
-    }
-    return reclaimed
-  }
-
   async function executeClaimed(task: RepairTaskRecord): Promise<RepairRunReport> {
-    const running = await transitionTask(task.key, ['claimed'], 'running', owner, '开始执行')
-    if (!running) {
-      // 条件写落空 = 已被其它实例接管/回收,绝不重复执行同一任务
-      audit?.warn('[automation-repair] 任务已被其它实例接管,跳过执行', { key: task.key })
-      return { key: task.key, ok: false, summary: '任务已被其它实例接管,跳过重复执行', report: null }
-    }
+    const running = store.transition(task.key, 'running', owner, '开始执行')
     const fixTask: FixTask = {
       key: running.key,
       source: running.source,
@@ -827,24 +545,16 @@ export function createAutomationRepairService(
       url: running.url,
       issueNumber: running.issueNumber,
     }
-    // 长任务按关键 await 续租:执行前与执行后各刷一次,避免租约在执行期间先行到期
-    await renewTaskLease(task.key)
     let result: FixResult
     try {
       result = await executor.execute(fixTask)
     } catch (err) {
       result = { ok: false, summary: '', error: safe(String(err)) }
     }
-    await renewTaskLease(task.key)
     let summary = safe(result.summary || (result.ok ? '执行成功' : '执行失败'))
     if (!result.ok && result.error) summary = `${summary} ${safe(result.error)}`.trim()
     const finalState: RepairTaskState = result.ok ? 'fixed' : 'failed'
-    const finalized = await transitionTask(task.key, ['running'], finalState, owner, summary.slice(0, 300))
-    if (!finalized) {
-      // 终态未落库(租约已被回收/他实例接管):不写状态也不回帖,避免重复回帖
-      audit?.warn('[automation-repair] 终态条件写落空,跳过回帖', { key: task.key })
-      return { key: running.key, ok: result.ok, summary, report: null }
-    }
+    store.transition(task.key, finalState, owner, summary.slice(0, 300))
 
     // ---- 回帖出口(仅 App 通道;issueNumber=null 的告警/失败 run 面无 issue ⇒ 不回帖)----
     let report: RepairReportResult | null = null
@@ -865,41 +575,24 @@ export function createAutomationRepairService(
     return { key: running.key, ok: result.ok, summary, report }
   }
 
-  async function ingestPending(): Promise<number> {
-    const items = await itemsProvider().catch((err) => {
-      audit?.warn('[automation-repair] 三源扫描失败,本轮摄入跳过', { err: safe(String(err)) })
-      return [] as ScanItem[]
-    })
-    let created = 0
-    for (const item of items) {
-      if (!shared) {
-        const r = store.ingest(item, repo, maxAttempts, 'system:ingest')
-        remember(r.task)
-        if (r.created) created++
-        continue
-      }
-      // 共享源原子"不存在才创建":多实例同时摄入同一 issue 也只产生一条记录
-      const r = await shared.createIfAbsent(
-        buildTaskRecord(item, repo, maxAttempts, 'system:ingest'),
-      )
-      remember(r.task)
-      if (r.created) {
-        created++
-        audit?.info('[automation-repair] 任务摄入', { key: item.key, source: item.source })
-      }
-    }
-    return created
-  }
-
   return {
     repo,
-    ingestPending,
+    async ingestPending() {
+      const items = await itemsProvider().catch((err) => {
+        audit?.warn('[automation-repair] 三源扫描失败,本轮摄入跳过', { err: safe(String(err)) })
+        return [] as ScanItem[]
+      })
+      let created = 0
+      for (const item of items) {
+        const r = store.ingest(item, repo, maxAttempts, 'system:ingest')
+        if (r.created) created++
+      }
+      return created
+    },
     claim,
     runNext,
     async runCycle() {
-      // 先回收上一轮因进程中断而超租约的任务,再进入正常摄入/领取
-      await reclaimExpiredLeases()
-      const ingested = await ingestPending()
+      const ingested = await this.ingestPending()
       const results: RepairRunReport[] = []
       for (let i = 0; i < batchLimit; i++) {
         const r = await runNext()
@@ -908,14 +601,8 @@ export function createAutomationRepairService(
       }
       return { ingested, results }
     },
-    async hydrate() {
-      if (shared) rememberAll(await shared.list())
-    },
-    listTasks: (state) =>
-      shared
-        ? [...mirror.values()].filter((task) => !state || task.state === state)
-        : store.list(state),
-    getTask: (key) => (shared ? (mirror.get(key) ?? null) : store.get(key)),
+    listTasks: (state) => store.list(state),
+    getTask: (key) => store.get(key),
   }
 }
 
@@ -961,8 +648,6 @@ export async function buildRepairService(
     const mutex = input.redis
       ? createDistributedClaimMutex(input.redis)
       : createFailClosedClaimMutex()
-    // F-649:有 Redis 时任务状态以共享 Hash 为唯一权威;文件快照只剩单实例后备角色
-    const shared = input.redis ? createRedisSharedTaskState(input.redis, audit) : null
 
     // 三源扫描仍复用既有 PAT 只读面(读不产生写副作用);写出口一律 App(见 reporter)
     const github: GitHubClient = createGitHubClient({
@@ -1005,10 +690,9 @@ export async function buildRepairService(
         ? createAgentExecutor({ agentId: cfg.agentId })
         : createStubExecutor())
 
-    const service = createAutomationRepairService({
+    return createAutomationRepairService({
       repo: cfg.repo,
       store,
-      ...(shared ? { shared } : {}),
       mutex,
       itemsProvider,
       executor,
@@ -1017,9 +701,6 @@ export async function buildRepairService(
       batchLimit: cfg.batchLimit,
       audit,
     })
-    // 装配即预热本地只读镜像,GET 列表/详情在首轮定时任务前也能读到共享态
-    await service.hydrate()
-    return service
   } catch (err) {
     console.warn('[automation-repair] 装配失败(拒启,fail-closed):', String(err))
     return null

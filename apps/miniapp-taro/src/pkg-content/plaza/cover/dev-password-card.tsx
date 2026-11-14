@@ -29,9 +29,13 @@ export default function DevPasswordCard({
         <Text className="flex-1 min-w-0 text-body text-foreground overflow-hidden ihui-ellipsis whitespace-nowrap">
           {value || '-'}
         </Text>
-        <Text className="pl-[16rpx] shrink-0 text-body text-[var(--color-brand)]" onClick={onCopy}>
-          {copyLabel}
-        </Text>
+        <View
+          className="pl-[16rpx] shrink-0 text-body text-[var(--color-brand)]"
+          hoverClass="opacity-60"
+          onClick={onCopy}
+        >
+          <Text>{copyLabel}</Text>
+        </View>
       </View>
     </View>
   )

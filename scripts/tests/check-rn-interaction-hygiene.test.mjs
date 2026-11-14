@@ -28,6 +28,11 @@ const run = (args) =>
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'pipe'],
     maxBuffer: 1 << 28,
+    // 门体自证层(scripts/lib/gate-body-provenance.mjs)在"正在执行的门体 ≠ 被判修订里的那份"
+    // 时会 exit 2 拒绝出结论 —— 那是防止拿新一代判据去判旧一代树的正当保护。
+    // 本镜像测试恰好总在**门体刚被改动**时跑,所以必须显式声明按工作树门体判,
+    // 否则每一轮改门都会让整册镜像变成"未判定"(那会把保护读成缺陷)。
+    env: { ...process.env, IHUI_GATE_BODY_SOURCE: 'worktree' },
   })
 
 /**
@@ -180,7 +185,8 @@ test('⑩ 跳过变量名一致且失效方向是"多要一次说明"', () => {
     cwd: ROOT,
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'pipe'],
-    env: { ...process.env, [SKIP_ENV]: '1' },
+    // 与 run() 同理:本册总在门体刚被改动时跑,须显式声明按工作树门体判。
+    env: { ...process.env, [SKIP_ENV]: '1', IHUI_GATE_BODY_SOURCE: 'worktree' },
   })
   assert.equal(r.status, 0)
   assert.match(r.stderr, /已跳过/, '跳门必须显式留痕,不得静默记绿(§0.10)')

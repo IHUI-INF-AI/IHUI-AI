@@ -20,6 +20,7 @@ import {
 import { useAuth } from '../context/AuthContext'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { toFriendlyOr } from '@ihui/shared/utils'
 
 type Nav = NativeStackNavigationProp<RootStackParamList>
 
@@ -101,8 +102,8 @@ export default function AiCareerScreen() {
         setResult(res.data.content)
         appAlert(t('career.doneTitle'), t('career.doneBody'), [{ text: t('common.ok') }])
       } catch (err) {
-        setError(err instanceof Error ? err.message : t('career.submitFail'))
-        appAlert(t('common.error'), err instanceof Error ? err.message : t('career.submitFail'), [
+        setError(toFriendlyOr(err, t('career.submitFail')))
+        appAlert(t('common.error'), toFriendlyOr(err, t('career.submitFail')), [
           { text: t('common.ok') },
         ])
       } finally {

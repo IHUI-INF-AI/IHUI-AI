@@ -419,7 +419,7 @@
 
 ### 业务邮箱
 
-- [ ] `IHUI-AI@aizhs.top` 邮箱已配置
+- [ ] `lizong@aizhs.top` 邮箱已配置
 - [ ] 邮件转发到用户主邮箱
 - [ ] 邮件 DKIM / SPF / DMARC 已配置
 

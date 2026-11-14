@@ -8,7 +8,6 @@ import {
   FlatList,
   Image,
   Modal,
-  Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -38,6 +37,7 @@ import {
   PressableCard,
   ScreenSkeleton,
 } from '../../components/ScreenStates'
+import { Tappable } from '@ihui/ui-native'
 
 export type {
   TeamMemberStatus,
@@ -227,7 +227,7 @@ export function TeamScreen({
 
       {sortBar ? (
         <View style={styles.sortRow}>
-          <Pressable
+          <Tappable
             onPress={sortBar.onSelectOrder}
             accessibilityRole="button"
             style={[styles.sortPill, sortBar.active === 'orderNum' ? styles.sortPillActive : null]}
@@ -240,8 +240,8 @@ export function TeamScreen({
             >
               {sortBar.orderLabel}
             </Text>
-          </Pressable>
-          <Pressable
+          </Tappable>
+          <Tappable
             onPress={() => setDateSheetOpen(true)}
             accessibilityRole="button"
             style={[styles.sortPill, sortBar.active === 'date' ? styles.sortPillActive : null]}
@@ -256,9 +256,9 @@ export function TeamScreen({
             </Text>
             <ChevronDown
               size={14}
-              color={sortBar.active === 'date' ? tk.brand.foreground : tk.text.tertiary}
+              color={sortBar.active === 'date' ? tk.brand.foreground : tk.text.secondary}
             />
-          </Pressable>
+          </Tappable>
         </View>
       ) : null}
 
@@ -276,7 +276,7 @@ export function TeamScreen({
             value={keyword ?? ''}
             onChangeText={onKeywordChange}
             placeholder={t('team.searchPlaceholder')}
-            placeholderTextColor={tk.text.tertiary}
+            placeholderTextColor={tk.text.secondary}
             style={styles.searchInput}
             returnKeyType="search"
           />
@@ -292,7 +292,7 @@ export function TeamScreen({
           onRequestClose={() => setDateSheetOpen(false)}
         >
           <View style={styles.modalRoot}>
-            <Pressable
+            <Tappable
               style={styles.modalScrim}
               onPress={() => setDateSheetOpen(false)}
               accessibilityRole="button"
@@ -302,7 +302,7 @@ export function TeamScreen({
               <Text style={styles.modalTitle}>{dateSheetTitle ?? sortBar.dateLabel}</Text>
               <ScrollView style={styles.modalList}>
                 {(dateOptions ?? []).map((date) => (
-                  <Pressable
+                  <Tappable
                     key={date}
                     onPress={() => {
                       setDateSheetOpen(false)
@@ -322,11 +322,11 @@ export function TeamScreen({
                     >
                       {date}
                     </Text>
-                  </Pressable>
+                  </Tappable>
                 ))}
               </ScrollView>
               {clearDateLabel ? (
-                <Pressable
+                <Tappable
                   style={styles.modalCancel}
                   onPress={() => {
                     setDateSheetOpen(false)
@@ -335,7 +335,7 @@ export function TeamScreen({
                   accessibilityRole="button"
                 >
                   <Text style={styles.modalClearText}>{clearDateLabel}</Text>
-                </Pressable>
+                </Tappable>
               ) : null}
             </View>
           </View>
@@ -451,7 +451,7 @@ export function TeamScreen({
                       <Text style={styles.metricJoinText} numberOfLines={1}>
                         {memberMetrics.joinTime}: {item.createdAtLabel ?? ''}
                       </Text>
-                      <Pressable
+                      <Tappable
                         onPress={() => onPressMember?.(item.id)}
                         accessibilityRole="button"
                         style={styles.viewSubordinatesBtn}
@@ -459,7 +459,7 @@ export function TeamScreen({
                         <Text style={styles.viewSubordinatesText}>
                           {memberMetrics.viewSubordinates}
                         </Text>
-                      </Pressable>
+                      </Tappable>
                     </View>
                   </>
                 ) : (
@@ -551,13 +551,13 @@ function TeamTreeSection({
         <View style={styles.treeStateRow}>
           <Text style={styles.treeError}>{t('distribution.treeLoadFailed')}</Text>
           {onRetryTree ? (
-            <Pressable onPress={onRetryTree} accessibilityRole="button" style={styles.treeRetryBtn}>
+            <Tappable onPress={onRetryTree} accessibilityRole="button" style={styles.treeRetryBtn}>
               {({ pressed }) => (
                 <Text style={[styles.treeRetryText, pressed && styles.treeRetryBtnPressed]}>
                   {t('distribution.treeRetry')}
                 </Text>
               )}
-            </Pressable>
+            </Tappable>
           ) : null}
         </View>
       ) : nodes.length === 0 ? (
@@ -614,7 +614,7 @@ function TreeNodeRow({
     <View>
       <View style={[styles.treeRow, { marginLeft: indent }]}>
         {canExpand ? (
-          <Pressable
+          <Tappable
             onPress={() => onToggle(node.id)}
             hitSlop={8}
             accessibilityRole="button"
@@ -626,11 +626,11 @@ function TreeNodeRow({
             ) : (
               <ChevronRight size={14} color={iconColor} />
             )}
-          </Pressable>
+          </Tappable>
         ) : (
           <View style={styles.treeArrowSpacer} />
         )}
-        <Pressable
+        <Tappable
           style={styles.treeNodeBody}
           onPress={onPressNode ? () => onPressNode(node.id) : undefined}
           disabled={!onPressNode}
@@ -656,7 +656,7 @@ function TreeNodeRow({
           <View style={styles.treeLevelBadge}>
             <Text style={styles.treeLevelText}>{t('distribution.treeLevelLabel', { level })}</Text>
           </View>
-        </Pressable>
+        </Tappable>
       </View>
       {expanded
         ? children.map((child) => (
@@ -680,7 +680,7 @@ function TreeNodeRow({
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.bg },
-    errorText: { fontSize: rnType.body.size, color: tk.danger.DEFAULT },
+    errorText: { fontSize: rnType.body.size, color: tk.danger.deepText },
     header: { paddingHorizontal: rnSpacing['sm-loose'], paddingBottom: rnSpacing.sm },
     backBtn: { marginBottom: rnSpacing.sm },
     title: { fontSize: rnType.display.size, fontWeight: '700', color: tk.text.primary },
@@ -693,7 +693,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     statsRow: { flexDirection: 'row', justifyContent: 'space-between', flexWrap: 'wrap' },
     statItem: { alignItems: 'center', flex: 1, minWidth: 64 },
-    statValue: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.success.DEFAULT },
+    statValue: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.success.deepText },
     statLabel: {
       marginTop: rnSpacing.sm,
       fontSize: rnType.badge.size,
@@ -712,7 +712,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: rnSpacing.sm,
       fontSize: rnType.heading.size,
       fontWeight: '700',
-      color: tk.success.DEFAULT,
+      color: tk.success.deepText,
     },
     sortRow: {
       flexDirection: 'row',
@@ -751,7 +751,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingVertical: rnSpacing.lg,
       textAlign: 'center',
       fontSize: rnType.body.size,
-      color: tk.text.tertiary,
+      color: tk.text.medium,
     },
     listBody: { padding: rnSpacing['md-loose'], paddingBottom: rnSpacing['3xl'] },
     separator: { height: 8 },
@@ -795,10 +795,10 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: rnSpacing.xs,
     },
     metricPair: { flexDirection: 'row', alignItems: 'baseline', gap: rnSpacing.xs },
-    metricLabel: { fontSize: rnType.caption.size, color: tk.text.tertiary },
+    metricLabel: { fontSize: rnType.caption.size, color: tk.text.medium },
     metricValue: { fontSize: rnType.body.size, fontWeight: '600', color: tk.text.primary },
     metricFooterRow: { flexDirection: 'row', alignItems: 'center', marginTop: rnSpacing.xs },
-    metricJoinText: { flex: 1, fontSize: rnType.caption.size, color: tk.text.tertiary },
+    metricJoinText: { flex: 1, fontSize: rnType.caption.size, color: tk.text.medium },
     viewSubordinatesBtn: {
       marginLeft: rnSpacing.sm,
       paddingHorizontal: rnSpacing.md,
@@ -818,9 +818,9 @@ function createStyles(tk: AppThemeTokens) {
     },
     relationDirect: { backgroundColor: tk.success.light },
     relationText: { fontSize: rnType.badge.size, color: tk.text.secondary },
-    memberMeta: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.tertiary },
+    memberMeta: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.medium },
     memberRight: { alignItems: 'flex-end' },
-    contributionText: { fontSize: rnType.body.size, fontWeight: '600', color: tk.success.DEFAULT },
+    contributionText: { fontSize: rnType.body.size, fontWeight: '600', color: tk.success.deepText },
     statusBadge: {
       marginTop: rnSpacing.sm,
       paddingHorizontal: rnSpacing['xs-loose'],
@@ -847,8 +847,8 @@ function createStyles(tk: AppThemeTokens) {
     treeTitle: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
     treeMeta: { fontSize: rnType.caption.size, color: tk.text.secondary },
     treeStateRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.sm },
-    treeEmpty: { fontSize: rnType.caption.size, color: tk.text.tertiary },
-    treeError: { flex: 1, fontSize: rnType.caption.size, color: tk.danger.DEFAULT },
+    treeEmpty: { fontSize: rnType.caption.size, color: tk.text.medium },
+    treeError: { flex: 1, fontSize: rnType.caption.size, color: tk.danger.deepText },
     treeRetryBtn: {
       paddingHorizontal: rnSpacing['sm-loose'],
       paddingVertical: rnSpacing.xs,
@@ -856,7 +856,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.success.light,
     },
     treeRetryBtnPressed: { opacity: 0.7 },
-    treeRetryText: { fontSize: rnType.caption.size, fontWeight: '600', color: tk.success.DEFAULT },
+    treeRetryText: { fontSize: rnType.caption.size, fontWeight: '600', color: tk.success.deepText },
     treeRow: { flexDirection: 'row', alignItems: 'center', marginTop: rnSpacing.xs },
     treeArrow: { width: 20, alignItems: 'center' },
     treeArrowSpacer: { width: 20 },
@@ -877,7 +877,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     treeNameBox: { flex: 1, marginLeft: rnSpacing.sm, marginRight: rnSpacing.sm },
     treeName: { fontSize: rnType.body.size, fontWeight: '600', color: tk.text.primary },
-    treeUsername: { marginTop: 1, fontSize: rnType.badge.size, color: tk.text.tertiary },
+    treeUsername: { marginTop: 1, fontSize: rnType.badge.size, color: tk.text.medium },
     treeLevelBadge: {
       paddingHorizontal: rnSpacing['xs-loose'],
       paddingVertical: 1,

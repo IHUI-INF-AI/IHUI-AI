@@ -16,6 +16,7 @@ import { rpx } from '../../utils/rpx'
 import { formatShortDateTime } from '../../utils/date-utils'
 import { useDialogHeightStyle } from '../../lib/use-dialog-height'
 import { Tappable } from '@ihui/ui-native'
+import { toFriendlyOr } from '@ihui/shared/utils'
 
 /** durationMs → `m:ss`;0/负值视为「无时长」(回空串,行上只留创建时间) */
 function formatDuration(durationMs: number): string {
@@ -102,7 +103,7 @@ const styles = StyleSheet.create({
   notesRowMeta: {
     marginTop: rpx(8),
     fontSize: rnType.label.size,
-    color: tokens.text.tertiary,
+    color: tokens.text.medium,
   },
   loadingText: {
     textAlign: 'center',
@@ -115,7 +116,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     paddingVertical: rnSpacing['2xl'],
     fontSize: rnType.bodySm.size,
-    color: tokens.text.tertiary,
+    color: tokens.text.medium,
   },
   errorText: {
     textAlign: 'center',
@@ -200,7 +201,7 @@ export function NotesPanel({
       if (!res.success) throw new Error(res.error || t('chat.notes.loadFailShort'))
       setNotes(res.data?.list ?? [])
     } catch (e) {
-      setError(e instanceof Error ? e.message : t('chat.notes.loadFailShort'))
+      setError(toFriendlyOr(e, t('chat.notes.loadFailShort')))
     } finally {
       setLoading(false)
     }

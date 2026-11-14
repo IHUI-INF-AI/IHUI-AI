@@ -16,8 +16,6 @@
  */
 
 import { callRealLlm, type LlmMessage } from '../crew-llm-adapter.js'
-import { recordAiCost } from '../../plugins/ai-cost.js'
-import { resolveDefaultChatModel } from '../../utils/retired-providers.js'
 
 export interface Character {
   id: string
@@ -43,9 +41,18 @@ export interface StoryState {
 }
 
 const stories = new Map<string, StoryState>()
+/** F-437: 内存态按 storyId 无界增长会 OOM,设条数上限并淘汰最旧 */
+const MAX_STORIES = 500
 
 /** 创建/初始化 story 状态。 */
 export function createStory(storyId: string, title: string): StoryState {
+  // F-437: 同 id 直接复用既有上下文,不再无条件覆盖(避免并发/他人剧情被冲掉)
+  const existing = stories.get(storyId)
+  if (existing) return existing
+  if (stories.size >= MAX_STORIES) {
+    const oldest = stories.keys().next().value
+    if (oldest !== undefined) stories.delete(oldest)
+  }
   const state: StoryState = {
     storyId,
     title,
@@ -156,46 +163,8 @@ function checkConsistencyRuleBased(story: StoryState): ConsistencyIssue[] {
   return issues
 }
 
-/**
- * F-441: LLM 调用失败也要留成本审计痕迹(成功路径由 callRealLlm 按真实 usage 记账)。
- * tokens/cost 记 0 —— 上游未返回可计费用量,不虚构消耗;仅登记失败状态与来源便于对账。
- * 记账失败不能反噬降级主流程。
- */
-async function recordLlmFailure(
-  userId: string | undefined,
-  scene: 'consistency' | 'pacing' | 'outline',
-  error: unknown,
-): Promise<void> {
-  if (!userId) return
-  const model = resolveDefaultChatModel()
-  try {
-    await recordAiCost({
-      userId,
-      model,
-      provider: model.includes('/') ? model.split('/')[0]! : 'unknown',
-      promptTokens: 0,
-      completionTokens: 0,
-      totalTokens: 0,
-      cost: 0,
-      requestType: 'plot-advisor',
-      status: 'error',
-      metadata: JSON.stringify({
-        source: 'plot-advisor',
-        scene,
-        error: String((error as Error)?.message ?? error).slice(0, 300),
-      }),
-    })
-  } catch {
-    // 降级路径不因记账失败中断
-  }
-}
-
 /** 角色一致性检查(LLM 驱动,规则降级)。 */
-export async function checkConsistency(
-  storyId: string,
-  /** F-441: 传 userId 后 callRealLlm 才会落 ai_cost */
-  userId?: string,
-): Promise<ConsistencyIssue[]> {
+export async function checkConsistency(storyId: string): Promise<ConsistencyIssue[]> {
   const story = getStory(storyId)
   if (!story) return []
 
@@ -234,12 +203,11 @@ export async function checkConsistency(
         ),
       },
     ]
-    const result = await callRealLlm({ messages, temperature: 0.1, maxTokens: 1000, userId })
+    const result = await callRealLlm({ messages, temperature: 0.1, maxTokens: 1000 })
     const parsed = extractJson(result.content) as ConsistencyIssue[] | null
     if (Array.isArray(parsed)) return parsed
-  } catch (e) {
-    // LLM 不可用,记失败后降级到规则检查
-    await recordLlmFailure(userId, 'consistency', e)
+  } catch {
+    // LLM 不可用,降级到规则检查
   }
 
   return checkConsistencyRuleBased(story)
@@ -278,7 +246,7 @@ function analyzePacingRuleBased(story: StoryState): PacingAnalysis {
 }
 
 /** 情节节奏分析(LLM 驱动,规则降级)。 */
-export async function analyzePacing(storyId: string, userId?: string): Promise<PacingAnalysis> {
+export async function analyzePacing(storyId: string): Promise<PacingAnalysis> {
   const story = getStory(storyId)
   if (!story) {
     return {
@@ -312,7 +280,7 @@ export async function analyzePacing(storyId: string, userId?: string): Promise<P
         }),
       },
     ]
-    const result = await callRealLlm({ messages, temperature: 0.2, maxTokens: 800, userId })
+    const result = await callRealLlm({ messages, temperature: 0.2, maxTokens: 800 })
     const parsed = extractJson(result.content) as { score?: number; suggestions?: string[] } | null
     if (parsed && typeof parsed.score === 'number' && Array.isArray(parsed.suggestions)) {
       return {
@@ -322,9 +290,8 @@ export async function analyzePacing(storyId: string, userId?: string): Promise<P
         suggestions: parsed.suggestions,
       }
     }
-  } catch (e) {
-    // LLM 不可用,记失败后降级到规则统计
-    await recordLlmFailure(userId, 'pacing', e)
+  } catch {
+    // LLM 不可用,降级到规则统计
   }
 
   return ruleBased
@@ -349,16 +316,10 @@ function suggestChapterOutlineRuleBased(analysis: PacingAnalysis, chapterNumber:
 export async function suggestChapterOutline(
   storyId: string,
   chapterNumber: number,
-  userId?: string,
-  /**
-   * F-441: 路由层已算好的节奏分析。传入后不再重复调用 analyzePacing —— 同一请求
-   * 只发一次节奏 LLM,大纲与 pacing 用的是同一份结果(去重 + 语义自洽)。
-   */
-  pacing?: PacingAnalysis,
 ): Promise<string[]> {
   const story = getStory(storyId)
   if (!story) return []
-  const analysis = pacing ?? (await analyzePacing(storyId, userId))
+  const analysis = await analyzePacing(storyId)
 
   try {
     const messages: LlmMessage[] = [
@@ -379,12 +340,11 @@ export async function suggestChapterOutline(
         }),
       },
     ]
-    const result = await callRealLlm({ messages, temperature: 0.3, maxTokens: 600, userId })
+    const result = await callRealLlm({ messages, temperature: 0.3, maxTokens: 600 })
     const parsed = extractJson(result.content) as string[] | null
     if (Array.isArray(parsed) && parsed.length > 0) return parsed
-  } catch (e) {
-    // LLM 不可用,记失败后降级到规则建议
-    await recordLlmFailure(userId, 'outline', e)
+  } catch {
+    // LLM 不可用,降级到规则建议
   }
 
   return suggestChapterOutlineRuleBased(analysis, chapterNumber)

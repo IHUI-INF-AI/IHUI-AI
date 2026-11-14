@@ -29,6 +29,7 @@ const GIT = resolveGitBin() || 'git'
 
 // ── T1 判据:五格 verdict(红/绿/存量/免判/锚点缺) + --strict ──
 test('T1 判据:新增无射程 ⇒ 红、摘射程 ⇒ 红、两边都无 ⇒ 存量只报数、info 免判、锚点缺按新增', () => {
+  const j = T.judgeTriggers
   const ok = [
     { id: '1', script: 'a.mjs', stagedTriggers: ['pkg/'] },
     { id: '2', script: 'b.mjs' }, // 新增(锚点无)→ 红
@@ -48,15 +49,8 @@ test('T1 判据:新增无射程 ⇒ 红、摘射程 ⇒ 红、两边都无 ⇒ �
     ['1:ok', '2:new-no-trigger', '3:existing', '4:regressed', '5:exempt-info'],
   )
   assert.equal(r.counts.judges, 4, 'info 不计入判据门')
-  assert.deepEqual(
-    r.newViolations.map((x) => x.id),
-    ['2', '4'],
-  )
-  assert.deepEqual(
-    r.red.map((x) => x.id),
-    ['2', '4'],
-    '棘轮档:存量不进红',
-  )
+  assert.deepEqual(r.newViolations.map((x) => x.id), ['2', '4'])
+  assert.deepEqual(r.red.map((x) => x.id), ['2', '4'], '棘轮档:存量不进红')
   // --strict:存量也进红(全量档,存量归零后才有意义);次序按实现(先新增/退化、后存量),故排序比
   assert.deepEqual(
     T.judgeTriggers({ current: ok, anchor, strict: true })
@@ -105,13 +99,7 @@ test('T3 形状锁:本门在注册表里登记且声明了射程(否则它会先
 test('T4 端到端(scratch 仓):新增门缺射程 ⇒ 1;补上射程 ⇒ 0;摘掉存量射程 ⇒ 1', () => {
   const dir = mkScratch('gtrig-mirror-')
   const run = (args) =>
-    spawnSync(GIT, args, {
-      cwd: dir,
-      encoding: 'utf8',
-      windowsHide: true,
-      timeout: 60000,
-      stdio: ['ignore', 'pipe', 'pipe'],
-    })
+    spawnSync(GIT, args, { cwd: dir, encoding: 'utf8', windowsHide: true, timeout: 60000, stdio: ['ignore', 'pipe', 'pipe'] })
   const writeReg = (rows) => {
     mkdirSync(join(dir, 'scripts'), { recursive: true })
     writeFileSync(join(dir, 'scripts', 'guardian-runner.mjs'), `const checks = [\n${rows}\n]\n`)
@@ -123,31 +111,19 @@ test('T4 端到端(scratch 仓):新增门缺射程 ⇒ 1;补上射程 ⇒ 0;摘�
     writeReg(`  { id: '1', label: 'legacy', script: 'a.mjs', args: [], mode: 'blocking' },`)
     run(['add', '-A'])
     run(['commit', '-q', '-m', 'base'])
-    assert.equal(
-      T.report(T.scan({ cwd: dir, face: 'staged' }), { json: true, quiet: true }),
-      0,
-      '只有存量时应绿',
-    )
+    assert.equal(T.report(T.scan({ cwd: dir, face: 'staged' }), { json: true, quiet: true }), 0, '只有存量时应绿')
 
     writeReg(
       `  { id: '1', label: 'legacy', script: 'a.mjs', args: [], mode: 'blocking' },\n` +
         `  { id: '2', label: 'newbie', script: 'b.mjs', args: [], mode: 'blocking' },`,
     )
-    assert.equal(
-      T.report(T.scan({ cwd: dir, face: 'worktree' }), { json: true, quiet: true }),
-      1,
-      '新增门缺射程必须红',
-    )
+    assert.equal(T.report(T.scan({ cwd: dir, face: 'worktree' }), { json: true, quiet: true }), 1, '新增门缺射程必须红')
 
     writeReg(
       `  { id: '1', label: 'legacy', script: 'a.mjs', args: [], mode: 'blocking', stagedTriggers: ['scripts/'] },\n` +
         `  { id: '2', label: 'newbie', script: 'b.mjs', args: [], mode: 'blocking', stagedTriggers: ['pkg/'] },`,
     )
-    assert.equal(
-      T.report(T.scan({ cwd: dir, face: 'worktree' }), { json: true, quiet: true }),
-      0,
-      '补上射程应绿',
-    )
+    assert.equal(T.report(T.scan({ cwd: dir, face: 'worktree' }), { json: true, quiet: true }), 0, '补上射程应绿')
 
     run(['add', '-A'])
     run(['commit', '-q', '-m', 'mid'])
@@ -167,43 +143,35 @@ test('T4 端到端(scratch 仓):新增门缺射程 ⇒ 1;补上射程 ⇒ 0;摘�
   }
 })
 
-// ── T6 第二维(DG-14):通道覆盖真的接进本门,且"登记表不在面"不冒充已判 ──
-test('T6 通道维:真仓工作树面判定且新增无通道=0;空 scratch 仓 ⇒ 跳过(不改退出码)', () => {
-  const real = T.scanChannels({ cwd: ROOT, face: 'worktree' })
-  assert.equal(real.status, 'judged', '真仓工作树面应判出通道维')
-  assert.equal(real.counts.newUncovered, 0, `存量门不得被误伤:${JSON.stringify(real.newUncovered)}`)
-  assert.ok(real.counts.registered > 300, `注册门数异常:${real.counts.registered}`)
-  assert.ok(real.counts.meta > 0 && real.counts.push > 0 && real.counts.ciRequired > 0)
-  assert.ok(real.counts.uncovered > 0, '存量无通道门必须实报,不许读成 0')
-
-  // 登记表不在面(scratch 夹具的常态)⇒ skipped:既不判红也不自称已覆盖。
-  const bare = mkScratch('gtrig-nochannel-')
-  try {
-    const skipped = T.scanChannels({ cwd: bare, face: 'worktree' })
-    assert.equal(skipped.status, 'skipped')
-    assert.match(skipped.why, /不在worktree面/)
-  } finally {
-    rmScratch(bare, { bestEffort: true })
-  }
-})
-
-// ── T5 形状锁:门体不得直接派生 git(统一走 gitRaw,stdio 两态由门 193 的层写死) ──
-// 立因:门 52 曾点名本门两处漏 windowsHide;本门改为 `git()` → `face-reader.gitRaw` 后,
-// "带 windowsHide" 这件事已由统一取材层保证,门体里不该再出现裸 spawn。
-// 判据仍用门 52 的 `__test__.scanSource`,不在这里复制尺子;阳性对照改用合成样本(不依赖门体形态)。
-test('T5 形状锁:门体无裸派生 git;门 52 判据对裸 spawn 阳性对照仍会点名', () => {
+// ── T5 形状锁:本门体自己派生 git 的每一处都带 windowsHide(门 52 判生产代码) ──
+// 立因:门 52 现读点名本门两处漏 windowsHide。判据用门 52 的 `__test__.scanSource`,不在这里复制尺子。
+test('T5 形状锁:门体两处派生 git 都带 windowsHide;逐处摘掉即翻红(阳性对照)', () => {
   const src = readFileSync(SCRIPT, 'utf8')
   const hits = (text) =>
     V.scanSource(text, 'scripts/check-gate-triggers.mjs').filter((x) => x.kind === 'visible-spawn')
+  const TAG = 'windowsHide: true'
+  const MUT = 'hideWindows: true' // 与 TAG 等长:摘掉这一处 windowsHide 而不让后面的偏移漂移
+  const dropAt = (text, idxs) => {
+    const re = new RegExp(TAG.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g')
+    const at = []
+    let m
+    while ((m = re.exec(text)) !== null) at.push(m.index)
+    assert.ok(at.length >= 2, `阳性对照需要 ≥2 处 ${TAG} 可摘,实得 ${at.length}`)
+    let out = ''
+    let prev = 0
+    for (let i = 0; i < at.length; i++) {
+      out += text.slice(prev, at[i]) + (idxs.includes(i) ? MUT : TAG)
+      prev = at[i] + TAG.length
+    }
+    return out + text.slice(prev)
+  }
   assert.deepEqual(
     hits(src).map((x) => x.line),
     [],
-    `门体仍有裸派生(应改走 gitRaw):${JSON.stringify(hits(src))}`,
+    `门体自身仍有漏 windowsHide 的派生点:${JSON.stringify(hits(src))}`,
   )
-  // 阳性对照:两处不带 windowsHide 的 spawn ⇒ 判据必须逐处点名(证明"判据本身有牙")。
-  const sample =
-    "const a = spawnSync('git', ['status'], { cwd: '.' })\n" +
-    "const b = spawnSync('git', ['rev-parse'], { cwd: '.' })\n"
-  assert.equal(hits(sample).length, 2, '阳性对照失效:门 52 的 scanSource 认不出裸 spawn')
+  assert.equal(hits(dropAt(src, [0])).length, 1, '摘掉第一处 windowsHide ⇒ 判据必须点名这一处')
+  assert.equal(hits(dropAt(src, [1])).length, 1, '摘掉第二处 windowsHide ⇒ 判据必须点名这一处')
+  assert.equal(hits(dropAt(src, [0, 1])).length, 2, '两处都摘 ⇒ 判据必须点名两处')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

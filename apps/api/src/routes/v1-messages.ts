@@ -165,6 +165,9 @@ function upstreamFinishReason(data: UpstreamFinishReasonCarrier): string | null 
 // 流式 Anthropic Messages 输出
 // =============================================================================
 
+/** F-296:上游失败时回给客户端的固定文案(上游原文、request-id、内部地址一律不出响应) */
+const STREAM_UPSTREAM_ERROR_TEXT = 'Upstream service temporarily unavailable, please retry later.'
+
 /**
  * 流式调用 ai-service 上游,逐行解析并转为 Anthropic SSE 事件写出。
  * 模仿 v1-public.ts 的 streamChatCompletion,但输出 Anthropic SSE 格式。
@@ -196,8 +199,6 @@ async function streamAnthropicMessages(
   })
 
   const state = createStreamState(opts.model)
-  // F-295:适配器对未知 finish_reason 的留痕出口(进程内 console 会丢上下文,统一走请求日志)
-  state.warn = (message) => request.log.warn(message)
   /** 累计响应文本用于估算 token(P0-5 流式无准确 usage) */
   let responseText = ''
   /** F-89:只累计真实产出的文本(不含 `[error] ...` 文案),用于判 partial/error 与计费 */
@@ -214,21 +215,14 @@ async function streamAnthropicMessages(
   ) => {
     for (const ev of events) {
       raw.write(serializeAnthropicSSEEvent(ev))
-      if (ev.type !== 'content_block_delta') continue
-      // 累计真实产出用于"上游没给 usage"时的估算兜底
-      if (ev.delta.type === 'text_delta') {
+      // 累计 text_delta 文本用于计费估算
+      if (ev.type === 'content_block_delta' && ev.delta.type === 'text_delta') {
         // P0 中转站造血能力批次(2026-08-01):记录首 token 时间用于 TTFT
         // 格②(2026-09-26):改为在首 token 处 stop 一次,与总耗时各自独立成样本
         if (ttftSample === null) ttftSample = opts.sw.stop()
         responseText += ev.delta.text
         // F-89:错误文案不计 token(否则上游 500 零产出也会被当成"已产出"而计费)
         if (countTowardBilling) billableCompletionChars += ev.delta.text.length
-      } else if (ev.delta.type === 'input_json_delta') {
-        // F-726:tool_use 入参也是输出 token,旧实现只累计 text_delta ⇒ 纯工具请求几乎零计费
-        if (countTowardBilling) billableCompletionChars += ev.delta.partial_json.length
-      } else if (ev.delta.type === 'thinking_delta') {
-        // F-726:thinking 同样是模型输出,不能从计费口径里漏掉
-        if (countTowardBilling) billableCompletionChars += ev.delta.thinking.length
       }
     }
   }
@@ -236,6 +230,16 @@ async function streamAnthropicMessages(
   const controller = new AbortController()
   const onClose = () => controller.abort()
   request.raw.on('close', onClose)
+
+  /** F-296:发 Anthropic 协议级 `event: error` 并终止,不再走 message_delta/message_stop 伪正常收尾 */
+  const writeProtocolError = (clientMessage: string): void => {
+    raw.write(
+      `event: error\ndata: ${JSON.stringify({
+        type: 'error',
+        error: { type: 'api_error', message: clientMessage },
+      })}\n\n`,
+    )
+  }
 
   try {
     const resp = await aiServiceSystemFetch('/api/llm/complete/stream', {
@@ -252,41 +256,19 @@ async function streamAnthropicMessages(
 
     if (!resp.ok || !resp.body) {
       const errText = await resp.text().catch(() => '')
+      // F-296:原文只进日志与计费 errorMessage,绝不进响应体
       streamError = `upstream ${resp.status}: ${errText.slice(0, 200)}`
-      // 发一个 error text block + 结束
-      const errChunk = {
-        id: `chatcmpl-${randomUUID()}`,
-        model: opts.model,
-        choices: [
-          {
-            index: 0,
-            delta: { content: `[error] ${streamError}` },
-            finish_reason: null as string | null,
-          },
-        ],
-      }
-      writeEvents(openAIStreamChunkToAnthropicEvents(errChunk, state), false)
-      // 关闭
-      const stopChunk = {
-        id: `chatcmpl-${randomUUID()}`,
-        model: opts.model,
-        choices: [
-          {
-            index: 0,
-            delta: {},
-            finish_reason: 'stop' as string | null,
-          },
-        ],
-      }
-      writeEvents(openAIStreamChunkToAnthropicEvents(stopChunk, state), false)
+      request.log.warn(
+        { upstreamStatus: resp.status, upstreamBody: errText.slice(0, 500) },
+        '[v1/messages] 流式上游失败,已改发协议级 error 事件',
+      )
+      writeProtocolError(STREAM_UPSTREAM_ERROR_TEXT)
       return
     }
 
     const reader = resp.body.getReader()
     const decoder = new TextDecoder()
     let buffer = ''
-    // F-293:多个工具调用各自独占一个 tool_use block,index 由本流内的计数器分配
-    const toolIndexRef = { next: 0 }
 
     for (;;) {
       const { done, value } = await reader.read()
@@ -296,19 +278,19 @@ async function streamAnthropicMessages(
       while ((nl = buffer.indexOf('\n')) !== -1) {
         const line = buffer.slice(0, nl).replace(/\r$/, '')
         buffer = buffer.slice(nl + 1)
-        const chunk = parseUpstreamLineToOpenAIChunk(line, opts.model, toolIndexRef)
+        const chunk = parseUpstreamLineToOpenAIChunk(line, opts.model)
         if (chunk) writeEvents(openAIStreamChunkToAnthropicEvents(chunk, state))
       }
     }
     if (buffer.trim()) {
-      const chunk = parseUpstreamLineToOpenAIChunk(buffer, opts.model, toolIndexRef)
+      const chunk = parseUpstreamLineToOpenAIChunk(buffer, opts.model)
       if (chunk) writeEvents(openAIStreamChunkToAnthropicEvents(chunk, state))
     }
 
-    // F-295:上游 done 帧带 finishReason 时适配器已如实收尾(state.finished)。
-    // 这里只兜"上游真没发"的一格 —— 必须留痕,否则截断/过滤会被静默当成正常结束。
-    if (state.messageStarted && !state.finished) {
-      request.log.warn('[v1/messages] 上游流未提供 finishReason,已按 stop 兜底收尾')
+    // 若上游未发 finish_reason,补一个 stop 收尾(防止客户端挂起)
+    if (state.messageStarted && !state.contentBlockStarted) {
+      // 已经收尾了,跳过
+    } else if (state.messageStarted) {
       const stopChunk = {
         id: `chatcmpl-${randomUUID()}`,
         model: opts.model,
@@ -323,22 +305,12 @@ async function streamAnthropicMessages(
       writeEvents(openAIStreamChunkToAnthropicEvents(stopChunk, state))
     }
   } catch (e) {
-    const msg = (e as Error).name === 'AbortError' ? 'client disconnected' : (e as Error).message
-    streamError = msg
-    if (state.messageStarted && state.contentBlockStarted) {
-      // 已开始,补一个 stop 收尾
-      const stopChunk = {
-        id: `chatcmpl-${randomUUID()}`,
-        model: opts.model,
-        choices: [
-          {
-            index: 0,
-            delta: {},
-            finish_reason: 'stop' as string | null,
-          },
-        ],
-      }
-      writeEvents(openAIStreamChunkToAnthropicEvents(stopChunk, state))
+    const isAbort = (e as Error).name === 'AbortError'
+    streamError = isAbort ? 'client disconnected' : (e as Error).message
+    // F-296:异常同样走协议级 error,不再补 message_delta/message_stop 冒充正常结束
+    if (!isAbort) {
+      request.log.warn({ err: e }, '[v1/messages] 流式处理异常,已改发协议级 error 事件')
+      writeProtocolError(STREAM_UPSTREAM_ERROR_TEXT)
     }
   } finally {
     request.raw.off('close', onClose)
@@ -346,10 +318,9 @@ async function streamAnthropicMessages(
 
     // P0-5 中转站计费:流式结束后聚合 token 用量写入计费
     if (opts.apiKeyId && opts.userId) {
-      // F-726:优先用上游流式 usage 真值(含 cache 字段),缺失才按字符估算
-      const promptTokens = state.usage.inputTokens ?? Math.ceil(opts.promptText.length / 4)
+      const promptTokens = Math.ceil(opts.promptText.length / 4)
       // F-89:用真实产出文本估算;上游错误文案不计 token
-      const completionTokens = state.usage.outputTokens ?? Math.ceil(billableCompletionChars / 4)
+      const completionTokens = Math.ceil(billableCompletionChars / 4)
       const totalTokens = promptTokens + completionTokens
       // F-89:已产出 token 后中断记 partial(按实际结算),零产出才记 error(免单)
       const status: 'success' | 'partial' | 'error' = streamError
@@ -369,9 +340,6 @@ async function streamAnthropicMessages(
         promptTokens,
         completionTokens,
         totalTokens,
-        // F-726:cache 命中/写入按上游真值计入计费(缺失为 0)
-        cacheReadTokens: state.usage.cacheReadInputTokens,
-        cacheCreationTokens: state.usage.cacheCreationInputTokens,
         latencyMs: latency.latencyMs,
         status,
         errorMessage: streamError,
@@ -589,25 +557,7 @@ const v1MessagesRoutes: FastifyPluginAsync = async (server) => {
           error_message?: string
           /** 上游若给出结束原因(ai-service 摊平形状 / OpenAI 形状两形都收),必须如实带走 */
           finish_reason?: string | null
-          choices?: Array<{
-            finish_reason?: string | null
-            message?: {
-              tool_calls?: Array<{
-                id?: string
-                type?: string
-                function?: { name?: string; arguments?: string }
-              }>
-            }
-          }>
-          /**
-           * F-293:ai-service /api/llm/complete 命中 function calling 时把完整工具调用
-           * 摊平在顶层 tool_calls(OpenAI 形状);此前本路由只取 content,整条工具链丢失。
-           */
-          tool_calls?: Array<{
-            id?: string
-            type?: string
-            function?: { name?: string; arguments?: string }
-          }>
+          choices?: Array<{ finish_reason?: string | null }>
         }
 
         if (data.error) {
@@ -653,34 +603,13 @@ const v1MessagesRoutes: FastifyPluginAsync = async (server) => {
         const totalTokens = promptTokens + completionTokens
 
         // 构造 OpenAI 风格响应 → 转 Anthropic
-        // F-293:把上游 tool_calls 原样带进 message,由 openAIResponseToAnthropic 转成
-        // tool_use content block(id/name/input)。丢弃它会让 stop_reason=tool_use 却无块,
-        // Anthropic 客户端拿到的是"协议非法"的空工具回复。
-        // 两形都收:ai-service 摊平在顶层;OpenAI 兼容形状在 choices[0].message。
-        const rawToolCalls = data.tool_calls ?? data.choices?.[0]?.message?.tool_calls
-        const upstreamToolCalls = Array.isArray(rawToolCalls)
-          ? rawToolCalls
-              .filter((tc) => Boolean(tc && (tc.function?.name || tc.id)))
-              .map((tc) => ({
-                id: tc.id ?? '',
-                type: 'function' as const,
-                function: {
-                  name: tc.function?.name ?? '',
-                  arguments: tc.function?.arguments ?? '',
-                },
-              }))
-          : []
         const openaiResp: OpenAIChatResponse = {
           id: `chatcmpl-${randomUUID()}`,
           model: data.model ?? body.model,
           choices: [
             {
               index: 0,
-              message: {
-                role: 'assistant',
-                content: data.content ?? '',
-                ...(upstreamToolCalls.length > 0 ? { tool_calls: upstreamToolCalls } : {}),
-              },
+              message: { role: 'assistant', content: data.content ?? '' },
               // 结束原因**如实化**(2026-09-28 立):这里原先无条件写 `'stop'`,于是上游给的
               // `finish_reason: 'length'`(输出达 max_tokens 被截断)会被洗成 `stop`,经
               // openAIResponseToAnthropic 的映射变成对外 `stop_reason: 'end_turn'` —— 客户端

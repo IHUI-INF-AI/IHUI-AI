@@ -33,6 +33,7 @@ import { useAuth } from '../context/AuthContext'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { rpx } from '../utils/rpx'
+import { toFriendlyOr } from '@ihui/shared/utils'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -145,7 +146,7 @@ export function DistributionScreen() {
       await Asset.create(localUri)
       showFloat(t('dist.savedAlbum'), 'success')
     } catch (err) {
-      showFloat(err instanceof Error ? err.message : t('dist.saveFail'), 'warning')
+      showFloat(toFriendlyOr(err, t('dist.saveFail')), 'warning')
     } finally {
       setSavingQr(false)
     }

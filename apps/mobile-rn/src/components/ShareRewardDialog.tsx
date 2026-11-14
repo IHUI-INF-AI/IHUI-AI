@@ -387,7 +387,7 @@ const styles = StyleSheet.create({
   footnote: {
     fontSize: FOOTNOTE_FONT_SIZE,
     lineHeight: FOOTNOTE_FONT_SIZE + 4,
-    color: tokens.text.tertiary,
+    color: tokens.text.medium,
     textAlign: 'center',
     marginBottom: rnSpacing.lg,
   } as TextStyle,

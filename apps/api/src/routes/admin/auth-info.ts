@@ -19,17 +19,6 @@ import {
 
 import { requireAdmin } from '../../plugins/require-permission.js'
 import { isUuidString } from '../../utils/uuid.js'
-import { encryptField, decryptField } from '../../utils/crypto.js'
-
-// P0 隐私修复：idCard 以密文落库（见 auth-identity 的 /auth/realname/submit），
-// 后台任何返回该字段的路径都必须先解密，否则响应里是整段加密荷载。
-function withDecryptedIdCard(row: typeof userAuthInfo.$inferSelect) {
-  return {
-    ...row,
-    idCard: row.idCard ? decryptField(row.idCard) : row.idCard,
-  }
-}
-
 const authInfoRoutes: FastifyPluginAsync = async (server) => {
   server.addHook('preHandler', requireAdmin)
   server.get('/auth-info', async (request, reply) => {
@@ -53,7 +42,7 @@ const authInfoRoutes: FastifyPluginAsync = async (server) => {
           .from(userAuthInfo)
           .where(where)
       )[0]?.c ?? 0
-    return reply.send(success({ list: list.map(withDecryptedIdCard), total, page, pageSize }))
+    return reply.send(success({ list, total, page, pageSize }))
   })
   server.get('/auth-info/:id', async (request, reply) => {
     const p = idParamSchema.safeParse(request.params)
@@ -65,7 +54,7 @@ const authInfoRoutes: FastifyPluginAsync = async (server) => {
       .where(eq(userAuthInfo.userUuid, p.data.id))
       .limit(1)
     if (!row) return reply.status(404).send(error(404, '记录不存在'))
-    return reply.send(success(withDecryptedIdCard(row)))
+    return reply.send(success(row))
   })
   server.post('/auth-info', async (request, reply) => {
     const b = createAuthInfoSchema.safeParse(request.body)
@@ -76,13 +65,12 @@ const authInfoRoutes: FastifyPluginAsync = async (server) => {
         userUuid: b.data.userUuid,
         phone: b.data.phone ?? null,
         realName: b.data.realName ?? null,
-        idCard: b.data.idCard ? encryptField(b.data.idCard) : (b.data.idCard ?? null),
+        idCard: b.data.idCard ?? null,
         authStatus: b.data.authStatus ?? 'unverified',
         authSource: b.data.authSource ?? null,
       })
       .returning()
-    if (!row) return reply.status(500).send(error(500, '创建失败'))
-    return reply.status(201).send(success(withDecryptedIdCard(row)))
+    return reply.status(201).send(success(row))
   })
   server.put('/auth-info/:id', async (request, reply) => {
     const p = idParamSchema.safeParse(request.params)
@@ -101,7 +89,7 @@ const authInfoRoutes: FastifyPluginAsync = async (server) => {
       .where(eq(userAuthInfo.userUuid, p.data.id))
       .returning()
     if (!row) return reply.status(404).send(error(404, '记录不存在'))
-    return reply.send(success(withDecryptedIdCard(row)))
+    return reply.send(success(row))
   })
   server.delete('/auth-info/:id', async (request, reply) => {
     const p = idParamSchema.safeParse(request.params)

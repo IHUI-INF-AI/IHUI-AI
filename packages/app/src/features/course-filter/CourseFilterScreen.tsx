@@ -245,7 +245,7 @@ function createStyles(tk: AppThemeTokens) {
     // 某一轴在服务端当前没有可选值时的如实提示(不是错误态,故用 tertiary 而非 danger)
     axisNotice: {
       fontSize: rnType.label.size,
-      color: tk.text.tertiary,
+      color: tk.text.medium,
       marginBottom: rnSpacing['xs-loose'],
     },
     chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: rnSpacing['xs-loose'] },
@@ -276,10 +276,10 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'space-between',
       alignItems: 'center',
     },
-    errorText: { fontSize: rnType.body.size, color: tk.danger.DEFAULT },
+    errorText: { fontSize: rnType.body.size, color: tk.danger.deepText },
     retryText: { fontSize: rnType.body.size, color: tk.brand.DEFAULT },
     center: { alignItems: 'center', paddingVertical: rnSpacing['3xl'] },
-    emptyText: { fontSize: rnType.body.size, color: tk.text.tertiary, marginTop: rnSpacing.sm },
+    emptyText: { fontSize: rnType.body.size, color: tk.text.medium, marginTop: rnSpacing.sm },
     card: {
       padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.lg,

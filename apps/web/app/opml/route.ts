@@ -191,7 +191,7 @@ export async function GET() {
     <dateCreated>${BUILD_DATE}</dateCreated>
     <dateModified>${BUILD_DATE}</dateModified>
     <ownerName>IHUI AI Team</ownerName>
-    <ownerEmail>contact@aizhs.top</ownerEmail>
+    <ownerEmail>lizong@aizhs.top</ownerEmail>
     <docs>http://opml.org/spec2.opml</docs>
   </head>
   <body>

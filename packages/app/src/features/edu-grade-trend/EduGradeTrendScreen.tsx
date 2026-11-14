@@ -367,7 +367,7 @@ function createStyles(tk: AppThemeTokens) {
     subtitle: {
       marginTop: rnSpacing.xs,
       fontSize: rnType.caption.size,
-      color: tk.text.tertiary,
+      color: tk.text.medium,
     },
     /* 科目筛选胶囊 */
     filterRow: {
@@ -437,7 +437,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     examDate: {
       fontSize: rnType.caption.size,
-      color: tk.text.tertiary,
+      color: tk.text.medium,
     },
     /* 得分率条:标签定宽 + 轨道占满 + 读数右对齐,三列对齐不靠猜 */
     barRow: {
@@ -492,7 +492,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     weakBadgeText: {
       fontSize: rnType.caption.size,
-      color: tk.danger.DEFAULT,
+      color: tk.danger.deepText,
     },
     weakStats: {
       flexDirection: 'row',

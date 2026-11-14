@@ -648,7 +648,8 @@ const styles = StyleSheet.create({
   } as ViewStyle,
   navIcon: {
     fontSize: rnType.heading.size,
-    color: tokens.gray.black,
+    // 底是 surface.bg(暗色 #242424):恒定黑图标在暗色主题下 1.06 ⇒ 换随主题翻面的主文字档。
+    color: tokens.text.primary,
   } as TextStyle,
   // 需求赛道筛选弹层样式(圆角守门:仅 8/12)
   categoryMask: {
@@ -704,7 +705,7 @@ const styles = StyleSheet.create({
     color: tokens.gray[900],
     marginBottom: rpx(8),
   } as TextStyle,
-  identitySubtext: { fontSize: rnType.bodySm.size, color: tokens.text.tertiary },
+  identitySubtext: { fontSize: rnType.bodySm.size, color: tokens.text.medium },
   identityButtons: { flexDirection: 'row', gap: rpx(24), width: '100%' },
   identityBtn: {
     flex: 1,
@@ -736,7 +737,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginBottom: rpx(4),
   },
-  identityFooterText: { fontSize: rnType.label.size, color: tokens.text.tertiary },
+  identityFooterText: { fontSize: rnType.label.size, color: tokens.text.medium },
   noticeList: { width: '100%', marginTop: rpx(24), gap: rpx(24) },
   noticeItem: {
     fontSize: rnType.bodySm.size,

@@ -15,7 +15,6 @@ import { requireAdmin } from '../plugins/require-permission.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
 import { dedupeIds } from '../utils/batch-outcome.js'
 import { isUuidString } from '../utils/uuid.js'
-import { encryptField, decryptField } from '../utils/crypto.js'
 import {
   userAuthInfo,
   userMargins,
@@ -38,11 +37,6 @@ const paginationSchema = z.object({
 })
 
 const idParamSchema = z.object({ id: z.string() })
-
-// idCard 已加密落库，输出键名沿用 card；空值保持 null。
-function decryptCard(card: string | null): string | null {
-  return card ? decryptField(card) : null
-}
 
 const blacklistQuerySchema = paginationSchema.extend({
   type: z.transform(emptyToUndefined).pipe(z.enum(['user', 'ip', 'device']).optional()),
@@ -169,8 +163,9 @@ export const adminAuthEduRoutes: FastifyPluginAsync = async (server) => {
     const q = paginationSchema.safeParse(request.query)
     if (!q.success) return reply.status(400).send(error(400, '参数错误'))
     const { page, pageSize, search } = q.data
-    // idCard 是密文列，模糊匹配永远为空；uuid 列也不接受任意串的 ilike/eq（非 uuid 会触发 22P02）。
-    const where = search ? ilike(userAuthInfo.realName, `%${search}%`) : undefined
+    const where = search
+      ? or(ilike(userAuthInfo.realName, `%${search}%`), ilike(userAuthInfo.idCard, `%${search}%`))
+      : undefined
     const rows = await db
       .select()
       .from(userAuthInfo)
@@ -188,7 +183,7 @@ export const adminAuthEduRoutes: FastifyPluginAsync = async (server) => {
     const list = rows.map((r) => ({
       id: r.userUuid,
       userUuid: r.userUuid,
-      card: decryptCard(r.idCard),
+      card: r.idCard,
       belong: r.authSource,
       title: r.realName,
       message: r.rejectReason,
@@ -211,7 +206,7 @@ export const adminAuthEduRoutes: FastifyPluginAsync = async (server) => {
       success({
         id: r.userUuid,
         userUuid: r.userUuid,
-        card: decryptCard(r.idCard),
+        card: r.idCard,
         belong: r.authSource,
         title: r.realName,
         message: r.rejectReason,
@@ -240,7 +235,7 @@ export const adminAuthEduRoutes: FastifyPluginAsync = async (server) => {
       .values({
         userUuid: body.data.userUuid,
         realName: body.data.title ?? null,
-        idCard: body.data.card ? encryptField(body.data.card) : (body.data.card ?? null),
+        idCard: body.data.card ?? null,
         authSource: body.data.belong ?? null,
         rejectReason: body.data.message ?? null,
       })
@@ -250,7 +245,7 @@ export const adminAuthEduRoutes: FastifyPluginAsync = async (server) => {
       success({
         id: row.userUuid,
         userUuid: row.userUuid,
-        card: decryptCard(row.idCard),
+        card: row.idCard,
         belong: row.authSource,
         title: row.realName,
         message: row.rejectReason,
@@ -278,9 +273,7 @@ export const adminAuthEduRoutes: FastifyPluginAsync = async (server) => {
       .update(userAuthInfo)
       .set({
         ...(body.data.title !== undefined && { realName: body.data.title }),
-        ...(body.data.card !== undefined && {
-          idCard: body.data.card === null ? null : encryptField(body.data.card),
-        }),
+        ...(body.data.card !== undefined && { idCard: body.data.card }),
         ...(body.data.belong !== undefined && { authSource: body.data.belong }),
         ...(body.data.message !== undefined && { rejectReason: body.data.message }),
         updatedAt: new Date(),
@@ -292,7 +285,7 @@ export const adminAuthEduRoutes: FastifyPluginAsync = async (server) => {
       success({
         id: row.userUuid,
         userUuid: row.userUuid,
-        card: decryptCard(row.idCard),
+        card: row.idCard,
         belong: row.authSource,
         title: row.realName,
         message: row.rejectReason,

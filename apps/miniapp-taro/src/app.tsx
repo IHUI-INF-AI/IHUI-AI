@@ -36,6 +36,7 @@ import { createTaroStreamTransport } from './utils/taro-stream-transport'
 import { useUiControlBridge } from './hooks/use-ui-control-bridge'
 import { useUserBroadcastSync } from './hooks/use-user-broadcast-sync'
 import { HostToastLayer } from './host/HostToastLayer'
+import { installNavigationGuard } from './host/patch-navigation'
 import { AppUpdateRoot } from './components/AppUpdateBanner'
 import { BASE_URL, assertApiBaseConfigured } from './utils/api-config'
 import { taroDeviceFingerprintCollector } from './lib/device-fingerprint'
@@ -322,6 +323,7 @@ function UserBroadcastHandler() {
 }
 
 function App({ children }: PropsWithChildren<unknown>) {
+  installNavigationGuard()
   return (
     <I18nProvider>
       <NetworkStatusHandler />

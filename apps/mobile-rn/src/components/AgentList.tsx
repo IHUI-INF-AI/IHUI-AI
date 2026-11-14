@@ -332,7 +332,7 @@ const styles = StyleSheet.create({
   // 人格副标题:小字号 rpx(11)+ tertiary 色,单行截断,行距紧凑(仅 +1 marginTop)
   subtitle: {
     fontSize: rpx(11),
-    color: tokens.text.tertiary,
+    color: tokens.text.medium,
     marginTop: 1,
   },
   newBadge: {
@@ -374,13 +374,13 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     paddingVertical: rnSpacing['sm-loose'],
     fontSize: rnType.bodySm.size,
-    color: tokens.text.tertiary,
+    color: tokens.text.medium,
   },
   emptyText: {
     textAlign: 'center',
     paddingVertical: rnSpacing['2xl'],
     fontSize: rnType.bodySm.size,
-    color: tokens.text.tertiary,
+    color: tokens.text.medium,
   },
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

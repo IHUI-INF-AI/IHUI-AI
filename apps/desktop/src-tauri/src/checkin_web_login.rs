@@ -22,11 +22,13 @@
 //!    **真实登录页**(扫码/账号密码);
 //! 2. `checkin_workbuddy_web_login_probe()`:读内嵌窗 cookie jar → 过滤
 //!    workbuddy.cn 域族 → Rust 侧直调 `/console/accounts` 验证登录态并取 uid/昵称;
-//! 3. 验证通过 → 返回 {status:"ok", cookie, accounts},前端自动入库并
-//!    `embedded_browser_close` 收尾。
-//!    F-060 残留:整串 cookie 仍是入库契约的一部分(`checkin/page.tsx` 的
-//!    `jwt: probe.cookie`),要收窄回传面必须与前端同批改,单侧删字段会让
-//!    WorkBuddy 网页登录导入写出空 jwt。本文件只先收掉 `expect` 建客户端的 panic。
+//! 3. 验证通过 → 返回 {status:"ok", accounts, cookie_checkin_ok}(**F-060:
+//!    cookie 不再随 IPC 回传**),前端改调 `checkin_workbuddy_web_import`,
+//!    由 Rust 从 cookie jar 现读 cookie 直接 POST 后端入库,成功后
+//!    `embedded_browser_close` 收尾。粘贴路径同理:cookie 只在前端粘贴草稿里,
+//!    probe 回包不含它,入库用前端本地草稿直传(等价于旧 `jwt: probe.cookie`)。
+//!    嵌入模式(签到页在内嵌浏览器里,无 IPC)则由看护方直接在 Rust 侧完成导入,
+//!    `#wb_import=` 只回「已导入 N 条 + 逐条失败 + cookie_checkin_ok」,不带凭据。
 //!
 //! 窗口开/关**不在此文件**:统一走 `embedded_browser` 模块(单一真相源,免得
 //! 同一个窗口有两套建窗代码)。本文件只负责「探针 + 判据」。
@@ -83,7 +85,10 @@ pub fn cookie_header_from_jar(cookies: &[tauri::webview::Cookie<'static>]) -> Op
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+/// WorkBuddy 网页账号(uid 必填,nickname 是服务端明文;探测回包与入库入参同形)。
+/// F-060 起作为 `checkin_workbuddy_web_import` 的入参类型:前端只描述
+/// **给谁入库**,不携带任何凭据 —— 凭据(jar cookie)由 Rust 现读。
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct WbWebAccount {
     pub uid: String,
     pub nickname: String,
@@ -218,12 +223,12 @@ pub enum WebLoginProbe {
     /// 有 cookie 但服务端说未登录(登录中/会话失效)。`message` 带原因
     /// (2026-10-18:粘贴路径要把「Cookie 无效/已过期」如实告知用户)。
     NotLoggedIn { message: String },
-    /// 验证通过:cookie + 账号齐全,前端可自动回填。
+    /// 验证通过:账号齐全,前端据此发起入库。
     /// `cookie_checkin_ok`:网页登录态能否驱动签到接口(实测;None=网络原因未判定)。
-    /// `cookie`(F-060):前端入库契约消费该字段(`jwt: probe.cookie`),故仍随 IPC
-    /// 回传;收窄为"只留 Rust"需前后端同批改,单侧删字段会写出空 jwt。
+    /// **F-060:回包不携带 cookie** —— 两条探测命令(jar 探测/粘贴探测)共用本枚举,
+    /// cookie 留在 Rust:jar 路径改走 `checkin_workbuddy_web_import` 由 Rust 现读
+    /// jar 直 POST 后端;粘贴路径的 cookie 前端本地草稿本来就持有,不依赖回包。
     Ok {
-        cookie: String,
         accounts: Vec<WbWebAccount>,
         cookie_checkin_ok: Option<bool>,
     },
@@ -246,6 +251,179 @@ fn shared_client() -> Result<&'static reqwest::Client, String> {
         .get_or_init(|| build_client(reqwest::Client::builder()))
         .as_ref()
         .map_err(|e| e.clone())
+}
+
+// ---------------------------------------------------------------------------
+// F-060:jar 探测路径的入库 —— cookie 只在 Rust 内部从 jar 流向后端
+// ---------------------------------------------------------------------------
+
+/// `checkin_workbuddy_web_import` 回包:只回入库条数与逐条失败文案,
+/// **不含 cookie**(F-060,与 `WebLoginProbe::Ok` 同规)。
+#[derive(Debug, Clone, Serialize)]
+pub struct WbWebImportResult {
+    pub imported: usize,
+    pub failures: Vec<String>,
+}
+
+/// 入库 POST 目标基址白名单(F-060 的出向闸):命令持有 jar cookie 的读出权,
+/// 基址若可被任意指定,cookie 就会被定向送出 —— 只放
+/// ①本域 https(aizhs.top 与其子域,与 `is_trusted_return_host` 同口径)
+/// ②回环 http(开发期 localhost:8801 / 127.0.0.1:8803;回环之外的 http 明文不放)。
+pub fn is_allowed_import_base(base: &str) -> bool {
+    let Ok(u) = Url::parse(base.trim().trim_end_matches('/')) else {
+        return false;
+    };
+    if !u.username().is_empty() || u.password().is_some() {
+        return false; // user:pass@host 形态一律不认
+    }
+    // 不直接点名 url::Host(本 crate 未直接声明 url 依赖,tauri::Url 只给到 host_str)
+    let Some(host) = u.host_str() else {
+        return false;
+    };
+    let host = host.trim_start_matches('[').trim_end_matches(']');
+    match u.scheme() {
+        "https" => host == "aizhs.top" || host.ends_with(".aizhs.top"),
+        "http" => {
+            host == "localhost"
+                || host
+                    .parse::<std::net::IpAddr>()
+                    .map(|ip| ip.is_loopback())
+                    .unwrap_or(false)
+        }
+        _ => false,
+    }
+}
+
+/// 后端失败响应 → 展示文案(纯函数,单测覆盖)。ai-service 的错误信封是
+/// `{success:false, error|detail|message:"…"}`;取不到就退 HTTP 状态码。
+/// 只取信封里的短文案,**绝不回吐请求体**(请求体含 jar cookie)。
+pub fn import_error_message(status: u16, body: &str) -> String {
+    if let Ok(v) = serde_json::from_str::<serde_json::Value>(body) {
+        for key in ["error", "detail", "message"] {
+            match v.get(key) {
+                Some(serde_json::Value::String(s)) if !s.trim().is_empty() => return s.clone(),
+                Some(serde_json::Value::Array(arr)) => {
+                    let texts: Vec<String> = arr
+                        .iter()
+                        .filter_map(|x| x.as_str().map(str::to_string))
+                        .collect();
+                    if !texts.is_empty() {
+                        return texts.join("; ");
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+    format!("HTTP {status}")
+}
+
+/// 逐条 POST `<基址>/api/checkin/accounts` 入库:cookie 作 `jwt`、用户会话作
+/// Bearer,请求体逐字段与前端 `createCheckinAccount` 同形(name=昵称,缺省取
+/// uid 前 8 位)。聚合口径与前端导入体一致:逐条独立、失败行 `<昵称或uid>: <原因>`。
+/// **目标裁决不在本函数**(白名单/出站门在 `wb_import_from_jar` 与命令入口)。
+pub async fn post_checkin_accounts(
+    api_base: &str,
+    group: &str,
+    cookie_header: &str,
+    access_token: &str,
+    accounts: &[WbWebAccount],
+) -> WbWebImportResult {
+    let url = format!("{}/api/checkin/accounts", api_base.trim_end_matches('/'));
+    let mut out = WbWebImportResult {
+        imported: 0,
+        failures: Vec::new(),
+    };
+    let client = shared_client().ok();
+    for acc in accounts {
+        let display = if acc.nickname.is_empty() {
+            acc.uid.clone()
+        } else {
+            acc.nickname.clone()
+        };
+        let name = if acc.nickname.is_empty() {
+            acc.uid.chars().take(8).collect::<String>()
+        } else {
+            acc.nickname.clone()
+        };
+        let body = serde_json::json!({
+            "name": name,
+            "jwt": cookie_header,
+            "device_map": { "login_type": "web", "uid": acc.uid, "nickname": acc.nickname },
+            "group": group,
+            "platform": "workbuddy",
+        });
+        let Some(client) = client else {
+            out.failures.push(format!("{display}: HTTP 客户端初始化失败"));
+            continue;
+        };
+        let resp = client
+            .post(&url)
+            .header("accept", "application/json")
+            .header("content-type", "application/json")
+            .header("authorization", format!("Bearer {access_token}"))
+            .header("x-requested-with", "XMLHttpRequest")
+            .body(serde_json::to_string(&body).unwrap_or_else(|_| "{}".to_string()))
+            .send()
+            .await;
+        match resp {
+            Ok(r) if r.status().is_success() => out.imported += 1,
+            Ok(r) => {
+                let status = r.status().as_u16();
+                let text = r.text().await.unwrap_or_default();
+                out.failures
+                    .push(format!("{display}: {}", import_error_message(status, &text)));
+            }
+            Err(e) => out.failures.push(format!("{display}: 请求失败({e})")),
+        }
+    }
+    out
+}
+
+/// F-060 入库主流程(jar 探测命令与嵌入看护共用):**cookie 现读现用,
+/// 终点只到白名单基址,全程不进前端**。
+///
+/// 顺序:基址白名单 → 会话非空 → 出站门 → cookie jar 现读 → 逐条 POST。
+/// 读 jar 必须在内嵌登录窗关闭**之前**调用(关窗后 webview 没了就读不到)。
+pub async fn wb_import_from_jar(
+    app: &tauri::AppHandle,
+    accounts: &[WbWebAccount],
+    group: &str,
+    access_token: &str,
+    api_base: &str,
+) -> Result<WbWebImportResult, IpcError> {
+    if !is_allowed_import_base(api_base) {
+        return Err(IpcError::permission(format!(
+            "导入基址不在白名单内: {api_base}"
+        )));
+    }
+    if access_token.trim().is_empty() {
+        return Err(IpcError::permission(
+            "缺少用户登录态(access_token),无法入库,请重新登录后重试",
+        ));
+    }
+    let target = format!("{}/api/checkin/accounts", api_base.trim_end_matches('/'));
+    if let Err(denied) = crate::egress_gate::guard_egress_target(&target) {
+        return Err(IpcError::permission(format!(
+            "出口门拒绝该目标: {denied}"
+        )));
+    }
+    let url = Url::parse(&format!("{WB_WEB_ORIGIN}/"))
+        .map_err(|e| IpcError::internal(format!("URL 解析失败: {e}")))?;
+    let win = active_webview(app).ok_or_else(|| {
+        IpcError::not_found(
+            "内嵌浏览器窗口不在,读不到 WorkBuddy 登录 Cookie(请先完成网页登录)",
+        )
+    })?;
+    let cookies = win
+        .cookies_for_url(url)
+        .map_err(|e| IpcError::internal(format!("读取登录 Cookie 失败: {e}")))?;
+    let Some(cookie_header) = cookie_header_from_jar(&cookies) else {
+        return Err(IpcError::not_found(
+            "内嵌浏览器 cookie jar 里没有 WorkBuddy 登录 Cookie,请先完成网页登录",
+        ));
+    };
+    Ok(post_checkin_accounts(api_base, group, &cookie_header, access_token, accounts).await)
 }
 
 // ---------------------------------------------------------------------------
@@ -295,7 +473,6 @@ pub async fn checkin_workbuddy_web_login_probe(app: tauri::AppHandle) -> Result<
 
     match probe_cookie_accounts(&cookie_header).await {
         Ok(outcome) => Ok(WebLoginProbe::Ok {
-            cookie: cookie_header,
             accounts: outcome.accounts,
             cookie_checkin_ok: outcome.cookie_checkin_ok,
         }),
@@ -322,12 +499,28 @@ pub async fn checkin_workbuddy_web_login_probe_cookie(
     }
     match probe_cookie_accounts(&cookie_header).await {
         Ok(outcome) => Ok(WebLoginProbe::Ok {
-            cookie: cookie_header,
             accounts: outcome.accounts,
             cookie_checkin_ok: outcome.cookie_checkin_ok,
         }),
         Err(msg) => Ok(WebLoginProbe::NotLoggedIn { message: msg }),
     }
+}
+
+/// F-060:jar 探测路径的**入库命令**(探测回包已不再携带 cookie)。
+/// 前端只带「给谁入库 + 用户会话 + 后端基址」三样,cookie 由 Rust 从内嵌浏览器
+/// cookie jar 现读,直 POST `<基址>/api/checkin/accounts`;白名单/会话/读 jar
+/// 失败以 `IpcError` 上抛,逐条入库失败在 `failures` 里如实聚合(口径与前端
+/// 旧导入体一致)。请求体形状、鉴权头与前端 `createCheckinAccount` 逐字段等价,
+/// 后端鉴权(`Authorization: Bearer`)不降级。
+#[tauri::command]
+pub async fn checkin_workbuddy_web_import(
+    app: tauri::AppHandle,
+    accounts: Vec<WbWebAccount>,
+    group: String,
+    access_token: String,
+    api_base: String,
+) -> Result<WbWebImportResult, IpcError> {
+    wb_import_from_jar(&app, &accounts, &group, &access_token, &api_base).await
 }
 
 // ================== 单测(纯判据区) ==================
@@ -386,12 +579,11 @@ mod tests {
     }
 
     #[test]
-    fn ok_probe_serialization_matches_frontend_contract() {
-        // F-060:前端 `importWbProbeAccounts` 用 `jwt: probe.cookie` 入库,
-        // 故 cookie 必须仍在 IPC 载荷里(单侧删字段会写出空 jwt)。
-        let raw = "session_id=SECRET-TOKEN-abc123; wb_uid=u-1; wb_uin=330100052422";
+    fn ok_probe_serialization_hides_cookie_per_f060() {
+        // F-060:jar 探测回包**不得含 cookie** —— 前端契约是
+        // {status, accounts, cookie_checkin_ok},入库改走
+        // checkin_workbuddy_web_import(cookie 留在 Rust)。
         let probe = WebLoginProbe::Ok {
-            cookie: raw.to_string(),
             accounts: vec![WbWebAccount {
                 uid: "u-1".to_string(),
                 nickname: "李总".to_string(),
@@ -400,9 +592,152 @@ mod tests {
         };
         let json = serde_json::to_value(&probe).expect("WebLoginProbe 应可序列化");
         assert_eq!(json["status"], "ok");
-        assert_eq!(json["cookie"], raw, "前端入库契约依赖该字段");
+        assert!(
+            json.get("cookie").is_none(),
+            "F-060:cookie 不得出现在探测回包里:{json}"
+        );
         assert_eq!(json["accounts"][0]["uid"], "u-1");
         assert_eq!(json["cookie_checkin_ok"], true);
+    }
+
+    #[test]
+    fn import_base_whitelist_only_aizhs_https_and_loopback_http() {
+        // 白名单是 cookie 的出向闸:放行本域 https 与回环 http,其余(含明文本域、
+        // 外域、内网 http、带凭据 URL、javascript:)一律不认。
+        assert!(is_allowed_import_base("https://aizhs.top"));
+        assert!(is_allowed_import_base("https://aizhs.top/"));
+        assert!(is_allowed_import_base("https://ai.aizhs.top"));
+        assert!(is_allowed_import_base("http://127.0.0.1:8803"));
+        assert!(is_allowed_import_base("http://localhost:8801"));
+        assert!(is_allowed_import_base("http://[::1]:8803"));
+        assert!(!is_allowed_import_base(""));
+        assert!(!is_allowed_import_base("http://aizhs.top"));
+        assert!(!is_allowed_import_base("https://aizhs.top.evil.com"));
+        assert!(!is_allowed_import_base("http://aizhs.top.evil.com"));
+        assert!(!is_allowed_import_base("https://evil.example"));
+        assert!(!is_allowed_import_base("http://10.0.0.5:8803"));
+        assert!(!is_allowed_import_base("https://user:pass@aizhs.top"));
+        assert!(!is_allowed_import_base("javascript:alert(1)"));
+    }
+
+    #[test]
+    fn import_error_message_reads_envelope_then_status() {
+        assert_eq!(
+            import_error_message(409, r#"{"success":false,"error":"此账号已存在"}"#),
+            "此账号已存在"
+        );
+        assert_eq!(
+            import_error_message(400, r#"{"detail":"参数非法"}"#),
+            "参数非法"
+        );
+        assert_eq!(import_error_message(500, "<html>boom</html>"), "HTTP 500");
+        // 信封里塞不进请求体外带:没文案就退状态码,不吐原始 body
+        assert_eq!(import_error_message(422, r#"{"other":1}"#), "HTTP 422");
+    }
+
+    /// 极简回放服务:按序回每个连接回一条预置响应,把收到的原始请求收进 `seen`。
+    fn spawn_import_echo_server(
+        responses: Vec<(u16, &'static str)>,
+    ) -> (String, std::sync::Arc<std::sync::Mutex<Vec<String>>>) {
+        use std::io::{Read, Write};
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("回环端口可绑");
+        let addr = listener.local_addr().expect("本地地址可读");
+        let seen = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+        let seen2 = seen.clone();
+        std::thread::spawn(move || {
+            for (code, body) in responses {
+                let Ok((mut sock, _)) = listener.accept() else {
+                    break;
+                };
+                sock.set_read_timeout(Some(Duration::from_secs(5))).ok();
+                let mut buf: Vec<u8> = Vec::new();
+                let mut chunk = [0u8; 4096];
+                loop {
+                    match sock.read(&mut chunk) {
+                        Ok(0) => break,
+                        Ok(n) => {
+                            buf.extend_from_slice(&chunk[..n]);
+                            let Some(pos) = buf.windows(4).position(|w| w == b"\r\n\r\n") else {
+                                continue;
+                            };
+                            let head = String::from_utf8_lossy(&buf[..pos]).to_string();
+                            let content_len = head
+                                .lines()
+                                .find_map(|l| {
+                                    let (k, v) = l.split_once(':')?;
+                                    if k.trim().eq_ignore_ascii_case("content-length") {
+                                        v.trim().parse::<usize>().ok()
+                                    } else {
+                                        None
+                                    }
+                                })
+                                .unwrap_or(0);
+                            if buf.len() >= pos + 4 + content_len {
+                                seen2
+                                    .lock()
+                                    .expect("seen 锁")
+                                    .push(String::from_utf8_lossy(&buf[..pos + 4 + content_len]).to_string());
+                                break;
+                            }
+                        }
+                        Err(_) => break,
+                    }
+                }
+                let resp = format!(
+                    "HTTP/1.1 {code} X\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{body}",
+                    body.len()
+                );
+                let _ = sock.write_all(resp.as_bytes());
+                let _ = sock.flush();
+            }
+        });
+        (format!("http://{addr}"), seen)
+    }
+
+    #[tokio::test]
+    async fn jar_import_posts_cookie_and_bearer_to_backend_result_has_no_cookie() {
+        // F-060 主证据:cookie 只出现在「Rust → 后端」的请求体里(等价于旧
+        // jwt:<cookie> 的前端 POST),回包只回 {imported, failures},无 cookie 键。
+        let (base, seen) = spawn_import_echo_server(vec![
+            (201, r#"{"success":true,"data":{"id":1}}"#),
+            (409, r#"{"success":false,"error":"此账号已存在"}"#),
+        ]);
+        let cookie = "session_id=SECRET-WB-COOKIE; wb_uid=u-1";
+        let accounts = vec![
+            WbWebAccount {
+                uid: "uid-000001".to_string(),
+                nickname: "李总".to_string(),
+            },
+            WbWebAccount {
+                uid: "uid-000002".to_string(),
+                nickname: String::new(),
+            },
+        ];
+        let out = post_checkin_accounts(&base, "默认分组", cookie, "user-access-token", &accounts).await;
+        assert_eq!(out.imported, 1, "201 应计成功");
+        assert_eq!(
+            out.failures,
+            vec!["uid-000002: 此账号已存在".to_string()],
+            "失败聚合口径与前端一致:<昵称或uid>: <原因>"
+        );
+        // 回包不含 cookie,也不含任何凭据片段
+        let wire = serde_json::to_value(&out).expect("结果可序列化");
+        assert!(wire.get("cookie").is_none(), "F-060:回包不得有 cookie 键");
+        assert!(!wire.to_string().contains("SECRET-WB-COOKIE"));
+        let seen = seen.lock().expect("seen 锁");
+        assert_eq!(seen.len(), 2, "两条账号各发一次 POST");
+        let head0 = seen[0].to_ascii_lowercase();
+        assert!(
+            head0.contains("authorization: bearer user-access-token"),
+            "必须带用户会话 Bearer(后端鉴权不降级)"
+        );
+        assert!(seen[0].contains("SECRET-WB-COOKIE"), "cookie 走请求体进后端");
+        assert!(seen[0].contains(r#""platform":"workbuddy""#));
+        assert!(seen[0].contains(r#""group":"默认分组""#));
+        assert!(seen[0].contains(r#""name":"李总""#));
+        assert!(seen[0].contains(r#""uid":"uid-000001""#));
+        // 无昵称的账号 name 取 uid 前 8 位(与前端 acc.uid.slice(0, 8) 同口径)
+        assert!(seen[1].contains(r#""name":"uid-0000""#));
     }
 
     #[test]

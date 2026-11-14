@@ -162,7 +162,15 @@
     "tasksUsageCancel": "usage: /tasks cancel <id>",
     "tasksUsageBlock": "usage: /tasks block <id>",
     "taskCancelledFeedback": "✓ 작업 #{id} 취소됨: {content}",
-    "taskBlockedFeedback": "✓ 작업 #{id} 차단됨: {content}"
+    "taskBlockedFeedback": "✓ 작업 #{id} 차단됨: {content}",
+    "questionAsk": "AI가 묻습니다: {prompt}",
+    "questionAskCustom": "  답변을 입력하세요 (빈 줄 = 이 질문 닫기)",
+    "questionAskHint": "  답변을 입력하세요 (빈 줄 = 이 질문 닫기)",
+    "questionAnswered": "답변함: {answer}",
+    "questionResolved": "질문이 종료되었습니다",
+    "questionNoSession": "세션 키가 없어 답변을 제출할 수 없습니다",
+    "questionFailed": "답변 제출 실패, 다시 시도하세요",
+    "questionLegacy": "이 서버는 블로킹 질문을 지원하지 않아 답변이 반영되지 않았습니다"
   },
   "waiting": {
     "agent": {
@@ -584,5 +592,8 @@
     "rejectedTitle": "거부된 항목:",
     "statusTitle": "유효한 지식 카드({total}개):",
     "statusEmpty": "(유효한 지식 카드가 없습니다. 먼저 ihui wiki compile을 실행하세요)"
+  },
+  "chat": {
+    "admissionAhead": "앞에 {n}건 있습니다"
   }
 }

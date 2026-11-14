@@ -20,14 +20,16 @@ const { decryptAccountCredentials } = await import(
 const rows = (await db.select().from(aiRelayAccountPool)) as unknown as Record<string, unknown>[]
 for (const r of rows.filter((x) => x.providerCode === 'trae')) {
   let cred: Record<string, unknown> = {}
-  try { cred = decryptAccountCredentials(r as never) as unknown as Record<string, unknown> } catch {}
-  const cookies = Array.isArray(cred.cookies) ? cred.cookies as unknown[] : []
+  try {
+    cred = decryptAccountCredentials(r as never) as unknown as Record<string, unknown>
+  } catch {}
+  const cookies = Array.isArray(cred.cookies) ? (cred.cookies as unknown[]) : []
   const extra = (r.extraMetadata ?? {}) as Record<string, unknown>
   const isDead = r.uid === '2257723987855312'
   console.log(
     `${String(r.healthStatus).padEnd(8)} ${String(r.uid).padEnd(22)} name=${String(r.name).padEnd(14)}` +
-    ` rt=${cred.refreshToken ? 'Y(' + String(cred.refreshToken).length + ')' : '-'} cookieN=${cookies.length}` +
-    ` mtime=${String(extra.sessionMtime ?? extra.updatedAt ?? '-')}`,
+      ` rt=${cred.refreshToken ? 'Y(' + String(cred.refreshToken).length + ')' : '-'} cookieN=${cookies.length}` +
+      ` mtime=${String(extra.sessionMtime ?? extra.updatedAt ?? '-')}`,
   )
   if (isDead && cookies.length) {
     for (const c of cookies as Record<string, unknown>[]) {

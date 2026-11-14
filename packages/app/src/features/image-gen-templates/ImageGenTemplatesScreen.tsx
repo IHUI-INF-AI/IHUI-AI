@@ -180,7 +180,7 @@ export function ImageGenTemplatesScreen({
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor={tk.text.tertiary}
+            tintColor={tk.text.secondary}
           />
         }
         ListHeaderComponent={
@@ -312,7 +312,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.card,
       gap: rnSpacing.sm,
     },
-    errorText: { fontSize: rnType.bodySm.size, color: tk.danger.DEFAULT },
+    errorText: { fontSize: rnType.bodySm.size, color: tk.danger.deepText },
     retryBtn: {
       alignSelf: 'flex-start',
       paddingHorizontal: rnSpacing['md-loose'],
@@ -358,7 +358,7 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.md,
       backgroundColor: tk.surface.muted,
     },
-    metaText: { fontSize: rnType.caption.size, color: tk.text.tertiary },
+    metaText: { fontSize: rnType.caption.size, color: tk.text.medium },
     overlay: {
       flex: 1,
       justifyContent: 'center',
@@ -379,7 +379,7 @@ function createStyles(tk: AppThemeTokens) {
       lineHeight: rnType.bodySm.lineHeight,
       color: tk.text.secondary,
     },
-    sheetLabel: { fontSize: rnType.label.size, color: tk.text.tertiary },
+    sheetLabel: { fontSize: rnType.label.size, color: tk.text.medium },
     sheetContentBox: {
       padding: rnSpacing['sm-loose'],
       borderRadius: rnRadius.sm,

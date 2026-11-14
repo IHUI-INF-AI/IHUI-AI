@@ -271,7 +271,7 @@ export function WorkflowDetailScreen({
               <Text style={styles.wfDesc}>{wf.description || '-'}</Text>
               <View style={styles.metaRow}>
                 <View style={styles.metaItem}>
-                  <Zap size={12} color={tk.text.tertiary} strokeWidth={2} />
+                  <Zap size={12} color={tk.text.secondary} strokeWidth={2} />
                   <Text style={styles.metaText}>{t(TRIGGER_KEYS[wf.triggerType])}</Text>
                 </View>
                 <View
@@ -301,7 +301,7 @@ export function WorkflowDetailScreen({
                 value={editName}
                 onChangeText={setEditName}
                 placeholder={t('workflowsPage.fieldName')}
-                placeholderTextColor={tk.text.tertiary}
+                placeholderTextColor={tk.text.secondary}
               />
               <Text style={styles.fieldLabel}>{t('workflowsPage.fieldDesc')}</Text>
               <TextField
@@ -311,7 +311,7 @@ export function WorkflowDetailScreen({
                 onChangeText={setEditDesc}
                 multiline
                 placeholder={t('workflowsPage.fieldDesc')}
-                placeholderTextColor={tk.text.tertiary}
+                placeholderTextColor={tk.text.secondary}
               />
               <Text style={styles.fieldLabel}>{t('workflowsPage.fieldTrigger')}</Text>
               <View style={styles.chipRow}>
@@ -393,7 +393,7 @@ export function WorkflowDetailScreen({
                   setActionErr(null)
                 }}
               >
-                <Trash2 size={13} color={tk.danger.DEFAULT} strokeWidth={2} />
+                <Trash2 size={13} color={tk.danger.deepText} strokeWidth={2} />
                 <Text style={styles.dangerBtnText}>{t('workflowsPage.deleteWorkflow')}</Text>
               </TouchableOpacity>
             </View>
@@ -529,7 +529,7 @@ export function WorkflowDetailScreen({
                 >
                   <ChevronLeft
                     size={13}
-                    color={instPage <= 1 ? tk.text.tertiary : tk.text.medium}
+                    color={instPage <= 1 ? tk.text.secondary : tk.text.medium}
                     strokeWidth={2.4}
                   />
                   <Text style={[styles.pageBtnText, instPage <= 1 && styles.pageBtnDisabled]}>
@@ -551,7 +551,7 @@ export function WorkflowDetailScreen({
                   </Text>
                   <ChevronRight
                     size={13}
-                    color={instPage >= totalPages ? tk.text.tertiary : tk.text.medium}
+                    color={instPage >= totalPages ? tk.text.secondary : tk.text.medium}
                     strokeWidth={2.4}
                   />
                 </TouchableOpacity>
@@ -604,7 +604,7 @@ export function WorkflowDetailScreen({
                 onChangeText={setStepsText}
                 multiline
                 autoCorrect={false}
-                placeholderTextColor={tk.text.tertiary}
+                placeholderTextColor={tk.text.secondary}
               />
             ) : steps.length === 0 ? (
               <Text style={styles.emptyText}>{t('workflowsPage.noSteps')}</Text>
@@ -719,7 +719,7 @@ function createStyles(tk: ReturnType<typeof getTokens>) {
       borderRadius: rnRadius.sm,
       backgroundColor: tk.danger.light,
     },
-    dangerBtnText: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tk.danger.DEFAULT },
+    dangerBtnText: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tk.danger.deepText },
     btnDisabled: { opacity: 0.6 },
     confirmBox: {
       gap: rnSpacing.sm,
@@ -727,8 +727,8 @@ function createStyles(tk: ReturnType<typeof getTokens>) {
       borderRadius: rnRadius.md,
       backgroundColor: tk.danger.light,
     },
-    confirmText: { fontSize: rnType.label.size, color: tk.danger.DEFAULT, lineHeight: 17 },
-    errorText: { fontSize: rnType.label.size, color: tk.danger.DEFAULT, lineHeight: 17 },
+    confirmText: { fontSize: rnType.label.size, color: tk.danger.deepText, lineHeight: 17 },
+    errorText: { fontSize: rnType.label.size, color: tk.danger.deepText, lineHeight: 17 },
     errorBox: {
       flex: 1,
       alignItems: 'center',
@@ -820,7 +820,7 @@ function createStyles(tk: ReturnType<typeof getTokens>) {
     },
     pageBtn: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing['2xs'] },
     pageBtnText: { fontSize: rnType.label.size, color: tk.text.medium },
-    pageBtnDisabled: { color: tk.text.tertiary },
+    pageBtnDisabled: { color: tk.text.medium },
     pageInfo: { fontSize: rnType.label.size, color: tk.text.secondary },
     sectionHead: {
       flexDirection: 'row',
@@ -837,7 +837,7 @@ function createStyles(tk: ReturnType<typeof getTokens>) {
       borderTopWidth: StyleSheet.hairlineWidth,
       borderTopColor: tk.border.light,
     },
-    stepIndex: { fontSize: rnType.caption.size, color: tk.text.tertiary, width: 26 },
+    stepIndex: { fontSize: rnType.caption.size, color: tk.text.medium, width: 26 },
     stepBody: { flex: 1, gap: rnSpacing['2xs'] },
     stepName: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tk.text.primary },
     stepInput: { fontSize: rnType.caption.size, color: tk.text.secondary, lineHeight: 15 },

@@ -16,6 +16,7 @@ import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { BackChevron } from '@ihui/rn-app'
+import { toFriendlyOr } from '@ihui/shared/utils'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -94,7 +95,7 @@ export function PdfToolsScreen() {
       setMarkdown(converted.data.markdown)
       setOutName(converted.data.fileName)
     } catch (e) {
-      appAlert(e instanceof Error ? e.message : t('pdfTools.convertFailed'))
+      appAlert(toFriendlyOr(e, t('pdfTools.convertFailed')))
     } finally {
       setConverting(false)
     }

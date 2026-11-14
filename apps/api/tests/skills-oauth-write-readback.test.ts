@@ -28,19 +28,7 @@ vi.mock('../src/db/index.js', () => {
   const makeChain = () => {
     const chain: Record<string, unknown> = {}
     const terminal = () => Promise.resolve(queue.shift())
-    // F-175:upsert 落库改为单语句 INSERT ... ON CONFLICT (author_id, slug) DO UPDATE,
-    // 链上多一个 onConflictDoUpdate 节;mock 必须放行,**调用序不变**
-    // (select 判存 → 写 → 回读),本文件钉的仍是"返回回读行而不是写面回声"。
-    for (const m of [
-      'set',
-      'values',
-      'where',
-      'from',
-      'limit',
-      'offset',
-      'orderBy',
-      'onConflictDoUpdate',
-    ]) {
+    for (const m of ['set', 'values', 'where', 'from', 'limit', 'offset', 'orderBy']) {
       chain[m] = () => chain
     }
     chain.returning = terminal
@@ -72,13 +60,22 @@ beforeAll(() => {
 
 describe('G-815962 写后回读 · skills upsert 复活路径', () => {
   it('复活成功 ⇒ 返回活行面回读到的记录(不是 update().returning() 的回声)', async () => {
-    const existing = { id: 'row-1', authorId: AUTHOR, slug: SLUG, deletedAt: new Date('2026-09-01') }
+    const existing = {
+      id: 'row-1',
+      authorId: AUTHOR,
+      slug: SLUG,
+      deletedAt: new Date('2026-09-01'),
+    }
     const echoedByReturning = { ...existing, deletedAt: null, updatedAt: new Date('2026-09-02') }
     // 回读行刻意与 returning() 回声不同字段值:引用等值断言才能证明"返回的是回读行"
     const readBackRow = { ...existing, deletedAt: null, updatedAt: new Date('2026-09-03') }
 
-
-    console.error('DEBUG-test same-array=', (globalThis as Record<string, unknown>).__g815962q === queue, 'len=', queue.length)
+    console.error(
+      'DEBUG-test same-array=',
+      (globalThis as Record<string, unknown>).__g815962q === queue,
+      'len=',
+      queue.length,
+    )
     // 直连 await 的 select 出队必须是数组(调用方做 rows[0] / stillLive.length)
     queue.push([existing], [echoedByReturning], [readBackRow])
 
@@ -95,7 +92,12 @@ describe('G-815962 写后回读 · skills upsert 复活路径', () => {
   })
 
   it('写成功但活行面看不见(软删未清干净)⇒ 当场抛错,反向对照', async () => {
-    const existing = { id: 'row-2', authorId: AUTHOR, slug: SLUG, deletedAt: new Date('2026-09-01') }
+    const existing = {
+      id: 'row-2',
+      authorId: AUTHOR,
+      slug: SLUG,
+      deletedAt: new Date('2026-09-01'),
+    }
     const echoedByReturning = { ...existing, deletedAt: null }
     queue.push([existing], [echoedByReturning], []) // 回读空 ⇒ 复活没生效
     await expect(

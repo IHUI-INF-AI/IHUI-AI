@@ -567,7 +567,7 @@ function makeStyles() {
       marginTop: rnSpacing.xs,
     },
     scoreValue: { fontSize: rnType.displayLg.size, fontWeight: '700' },
-    scoreMax: { fontSize: rnType.body.size, color: tokens.text.tertiary },
+    scoreMax: { fontSize: rnType.body.size, color: tokens.text.medium },
     scoreLevel: { marginLeft: rnSpacing.sm, fontSize: rnType.body.size, fontWeight: '600' },
     track: {
       height: 6,
@@ -577,7 +577,7 @@ function makeStyles() {
       marginTop: rnSpacing['xs-loose'],
     },
     trackFill: { height: '100%', borderRadius: rnRadius.xs },
-    statusOn: { fontSize: rnType.body.size, fontWeight: '600', color: tokens.success.DEFAULT },
+    statusOn: { fontSize: rnType.body.size, fontWeight: '600', color: tokens.success.deepText },
     input: {
       height: 42,
       paddingHorizontal: rnSpacing.md,
@@ -610,7 +610,7 @@ function makeStyles() {
     dangerButtonText: {
       fontSize: rnType.strong.size,
       fontWeight: '600',
-      color: tokens.danger.DEFAULT,
+      color: tokens.danger.deepText,
     },
     // QR 码必须恒定亮底(跟随暗色主题会让多数扫码器识别失败),故取亮色板的书面白,不走当前主题。
     qrWrap: {
@@ -648,8 +648,8 @@ function makeStyles() {
     rowLast: { borderBottomWidth: 0 },
     rowMain: { flex: 1, gap: rnSpacing['2xs'] },
     rowPrimary: { fontSize: rnType.body.size, color: tokens.text.primary },
-    rowSecondary: { fontSize: rnType.label.size, color: tokens.text.tertiary },
-    revoke: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tokens.danger.DEFAULT },
+    rowSecondary: { fontSize: rnType.label.size, color: tokens.text.medium },
+    revoke: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tokens.danger.deepText },
     linkRow: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -668,7 +668,7 @@ function makeStyles() {
       gap: rnSpacing['xs-loose'],
       paddingHorizontal: rnSpacing.xs,
     },
-    footerText: { flex: 1, fontSize: rnType.label.size, color: tokens.text.tertiary },
+    footerText: { flex: 1, fontSize: rnType.label.size, color: tokens.text.medium },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

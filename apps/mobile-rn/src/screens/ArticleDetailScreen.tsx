@@ -313,7 +313,7 @@ const styles = StyleSheet.create({
     color: tokens.text.secondary,
   } as TextStyle,
   actionIconActive: {
-    color: tokens.danger.bright,
+    color: tokens.danger.deepText,
   } as TextStyle,
   actionCount: {
     fontSize: rnType.bodySm.size,
@@ -362,7 +362,7 @@ const styles = StyleSheet.create({
   commentClose: {
     fontSize: rnType.display.size,
     lineHeight: rnType.subtitle.lineHeight,
-    color: tokens.text.tertiary,
+    color: tokens.text.medium,
     fontWeight: '300',
   } as TextStyle,
   commentLoading: {
@@ -382,7 +382,7 @@ const styles = StyleSheet.create({
   } as ViewStyle,
   commentEmptyText: {
     fontSize: rnType.bodySm.size,
-    color: tokens.text.tertiary,
+    color: tokens.text.medium,
   } as TextStyle,
   commentItem: {
     flexDirection: 'row',
@@ -418,7 +418,7 @@ const styles = StyleSheet.create({
   } as TextStyle,
   commentTime: {
     fontSize: rnType.caption.size,
-    color: tokens.text.tertiary,
+    color: tokens.text.medium,
     marginTop: rnSpacing.xs,
   } as TextStyle,
   commentInputRow: {

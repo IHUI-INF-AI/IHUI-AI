@@ -255,7 +255,7 @@ export function PointsScreen({
               <View style={styles.card}>
                 <Text style={styles.cardTitle}>{t('points.signIn.history')}</Text>
                 {history.loading ? (
-                  <ActivityIndicator style={styles.txState} color={tk.text.tertiary} />
+                  <ActivityIndicator style={styles.txState} color={tk.text.secondary} />
                 ) : history.failed ? (
                   <View style={styles.txState}>
                     <Text style={styles.errorText}>{t('points.signIn.historyLoadFailed')}</Text>
@@ -341,7 +341,7 @@ export function PointsScreen({
             <View style={styles.card}>
               <Text style={styles.cardTitle}>{t('points.txTitle')}</Text>
               {txLoading ? (
-                <ActivityIndicator style={styles.txState} color={tk.text.tertiary} />
+                <ActivityIndicator style={styles.txState} color={tk.text.secondary} />
               ) : txFailed ? (
                 <View style={styles.txState}>
                   <Text style={styles.errorText}>{t('points.loadFailed')}</Text>
@@ -410,8 +410,8 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.primary,
     },
     body: { padding: rnSpacing.md, gap: rnSpacing['sm-loose'], paddingBottom: rnSpacing['3xl'] },
-    subtitle: { fontSize: rnType.label.size, color: tk.text.tertiary },
-    errorText: { fontSize: rnType.bodySm.size, color: tk.danger.DEFAULT },
+    subtitle: { fontSize: rnType.label.size, color: tk.text.medium },
+    errorText: { fontSize: rnType.bodySm.size, color: tk.danger.deepText },
     retry: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tk.text.primary },
     textButton: { paddingVertical: rnSpacing.xs, paddingHorizontal: rnSpacing.sm },
     statGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: rnSpacing.sm },
@@ -426,7 +426,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.card,
       gap: rnSpacing['2xs'],
     },
-    statLabel: { fontSize: rnType.caption.size, color: tk.text.tertiary },
+    statLabel: { fontSize: rnType.caption.size, color: tk.text.medium },
     statValue: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.text.primary },
     card: {
       padding: rnSpacing.lg,
@@ -477,8 +477,8 @@ function createStyles(tk: AppThemeTokens) {
     txSource: { fontSize: rnType.bodySm.size, color: tk.text.primary },
     txRight: { alignItems: 'flex-end', gap: rnSpacing['2xs'] },
     txAmount: { fontSize: rnType.body.size, fontWeight: '700' },
-    txIn: { color: tk.success.DEFAULT },
-    txOut: { color: tk.danger.DEFAULT },
+    txIn: { color: tk.success.deepText },
+    txOut: { color: tk.danger.deepText },
     moreBtn: {
       height: 40,
       borderRadius: rnRadius.sm,

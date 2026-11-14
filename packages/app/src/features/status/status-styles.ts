@@ -50,7 +50,7 @@ export function createStatusStyles(tk: AppThemeTokens) {
     cardTitle: { fontSize: rnType.title.size, fontWeight: '700', color: tk.text.primary },
     metaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: rnSpacing['md-loose'] },
     metaItem: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.xs },
-    metaLabel: { fontSize: rnType.caption.size, color: tk.text.tertiary },
+    metaLabel: { fontSize: rnType.caption.size, color: tk.text.medium },
     metaValue: { fontSize: rnType.caption.size, color: tk.text.secondary },
     badge: {
       flexDirection: 'row',
@@ -70,11 +70,11 @@ export function createStatusStyles(tk: AppThemeTokens) {
     },
     rowMain: { flex: 1, gap: rnSpacing['2xs'] },
     rowTitle: { fontSize: rnType.body.size, color: tk.text.primary },
-    rowSub: { fontSize: rnType.caption.size, color: tk.text.tertiary },
+    rowSub: { fontSize: rnType.caption.size, color: tk.text.medium },
     rowMeta: { alignItems: 'flex-end', gap: rnSpacing['2xs'] },
     incidentRow: { gap: rnSpacing['xs-loose'], paddingVertical: rnSpacing.sm },
     incidentDesc: { fontSize: rnType.bodySm.size, color: tk.text.primary, lineHeight: 19 },
-    incidentTime: { fontSize: rnType.caption.size, color: tk.text.tertiary },
+    incidentTime: { fontSize: rnType.caption.size, color: tk.text.medium },
     noticeBox: {
       flexDirection: 'row',
       alignItems: 'center',

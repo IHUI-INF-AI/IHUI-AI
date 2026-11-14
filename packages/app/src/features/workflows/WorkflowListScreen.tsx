@@ -183,7 +183,7 @@ export function WorkflowListScreen({
               value={name}
               onChangeText={setName}
               placeholder={t('workflowsPage.fieldName')}
-              placeholderTextColor={tk.text.tertiary}
+              placeholderTextColor={tk.text.secondary}
             />
 
             <Text style={styles.fieldLabel}>{t('workflowsPage.fieldDesc')}</Text>
@@ -194,7 +194,7 @@ export function WorkflowListScreen({
               onChangeText={setDesc}
               multiline
               placeholder={t('workflowsPage.fieldDesc')}
-              placeholderTextColor={tk.text.tertiary}
+              placeholderTextColor={tk.text.secondary}
             />
 
             <Text style={styles.fieldLabel}>{t('workflowsPage.fieldTrigger')}</Text>
@@ -222,7 +222,7 @@ export function WorkflowListScreen({
               onChangeText={setStepsJson}
               multiline
               autoCorrect={false}
-              placeholderTextColor={tk.text.tertiary}
+              placeholderTextColor={tk.text.secondary}
             />
 
             {formErr ? <Text style={styles.formErr}>{formErr}</Text> : null}
@@ -310,17 +310,17 @@ export function WorkflowListScreen({
                 <Text style={styles.descText}>{w.description || '-'}</Text>
                 <View style={styles.metaRow}>
                   <View style={styles.metaItem}>
-                    <Zap size={12} color={tk.text.tertiary} strokeWidth={2} />
+                    <Zap size={12} color={tk.text.secondary} strokeWidth={2} />
                     <Text style={styles.metaText}>{t(TRIGGER_KEYS[w.triggerType])}</Text>
                   </View>
                   <View style={styles.metaItem}>
-                    <ListChecks size={12} color={tk.text.tertiary} strokeWidth={2} />
+                    <ListChecks size={12} color={tk.text.secondary} strokeWidth={2} />
                     <Text style={styles.metaText}>
                       {t('workflowsPage.stepsCount', { count: stepCount })}
                     </Text>
                   </View>
                   <View style={styles.metaItem}>
-                    <Clock size={12} color={tk.text.tertiary} strokeWidth={2} />
+                    <Clock size={12} color={tk.text.secondary} strokeWidth={2} />
                     <Text style={styles.metaText}>{formatDateTime(w.createdAt)}</Text>
                   </View>
                 </View>
@@ -441,8 +441,8 @@ function createStyles(tk: ReturnType<typeof getTokens>) {
     chipActive: { backgroundColor: tk.brand.cta, borderColor: tk.brand.cta },
     chipText: { fontSize: rnType.label.size, color: tk.text.secondary },
     chipActiveText: { color: tk.brand.ctaForeground, fontWeight: '600' },
-    formErr: { fontSize: rnType.label.size, color: tk.danger.DEFAULT },
-    errorText: { fontSize: rnType.bodySm.size, color: tk.danger.DEFAULT },
+    formErr: { fontSize: rnType.label.size, color: tk.danger.deepText },
+    errorText: { fontSize: rnType.bodySm.size, color: tk.danger.deepText },
     formActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: rnSpacing.sm },
     primaryBtn: {
       paddingHorizontal: rnSpacing.lg,

@@ -161,6 +161,8 @@ async function computeVisitSource(
     .from(visitLogs)
     .where(sql`${visitLogs.createdAt} >= now() - make_interval(hours => ${hours})`)
     .groupBy(visitLogs.referer)
+    // F-318: cap 前必须按 pv 降序,否则 LIMIT 取到的是"任意 500 组",totalPv 与分类桶只覆盖随机子集
+    .orderBy(sql`count(*) desc`)
     .limit(SOURCE_REFERER_ROW_CAP)
 
   const value = buildVisitSource((rows as unknown as SourceRefererRow[]) ?? [], selfHostSuffixes())

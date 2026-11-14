@@ -56,7 +56,7 @@ export function CourseEnrollScreen({
           value={keyword}
           onChangeText={onKeywordChange}
           placeholder={t('courseEnroll.searchPlaceholder')}
-          placeholderTextColor={tk.text.tertiary}
+          placeholderTextColor={tk.text.secondary}
           returnKeyType="search"
           onSubmitEditing={onSearch}
         />
@@ -146,7 +146,7 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.primary,
     },
     subtitle: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.secondary },
-    userText: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.tertiary },
+    userText: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.medium },
     searchRow: {
       flexDirection: 'row',
       paddingHorizontal: rnSpacing['sm-loose'],
@@ -175,13 +175,13 @@ function createStyles(tk: AppThemeTokens) {
       paddingHorizontal: rnSpacing['sm-loose'],
       paddingVertical: rnSpacing.xs,
       fontSize: rnType.body.size,
-      color: tk.success.DEFAULT,
+      color: tk.success.deepText,
     },
     errorText: {
       paddingHorizontal: rnSpacing['sm-loose'],
       paddingVertical: rnSpacing.xs,
       fontSize: rnType.body.size,
-      color: tk.danger.DEFAULT,
+      color: tk.danger.deepText,
     },
     list: { flex: 1, paddingHorizontal: rnSpacing['sm-loose'] },
     card: {
@@ -227,7 +227,7 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
     },
-    enrollBtnDisabled: { backgroundColor: tk.text.tertiary },
+    enrollBtnDisabled: { backgroundColor: tk.text.secondary },
     enrollBtnText: { color: tk.surface.light, fontSize: rnType.body.size, fontWeight: '600' },
   })
 }

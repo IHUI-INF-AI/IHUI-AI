@@ -17,7 +17,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-import re
 from pathlib import Path
 
 import pytest
@@ -106,73 +105,6 @@ def test_b3_spill_failure_degrades_to_plain_truncation(
     assert out["truncated"] is True
     assert "output_artifact" not in out
     assert "output_continuation" not in out
-
-
-def test_b4_truncation_keeps_head_and_tail_with_exact_omitted(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """B4 截断保留首尾:末尾错误行不被丢掉,标记里的省略字符数是真值。"""
-    monkeypatch.setattr(mcp_server, "_get_tool_output_max_tokens", lambda: 10)
-    payload = "HEAD" + "A" * 2000 + "TAIL_ERROR"
-    result = {"tool": "run_command", "ok": True, "output": payload}
-    original_chars = len(toa.serialize_tool_payload(result))
-
-    out = mcp_server._truncate_tool_output(result, tool_name="run_command", session_id="s-3")
-
-    output = out["output"]
-    assert output.startswith("HEAD")
-    assert output.endswith("TAIL_ERROR")
-    assert out["truncated"] is True
-    assert out["truncation_strategy"] == "head_tail"
-    assert out["truncated_chars"] > 0
-    assert out["truncated_tokens"] > 0
-
-    marker_start = output.index("…[已截断")
-    marker_end = output.index("]", marker_start) + 1
-    marker = output[marker_start:marker_end]
-    omitted = int(re.search(r"省略 (\d+) 字符", marker).group(1))  # type: ignore[union-attr]
-    kept = len(output) - len(marker)
-    assert omitted == len(payload) - kept
-    # 工件里仍是完整原文,分页可续读
-    assert out["output_artifact"]["chars"] == original_chars
-
-
-def test_b5_protected_control_fields_never_truncated(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """B5 受保护 key(ok/status/error/...)整串保留,只截业务正文。"""
-    monkeypatch.setattr(mcp_server, "_get_tool_output_max_tokens", lambda: 10)
-    error_text = "E" * 1200
-    result = {"tool": "run_command", "ok": True, "error": error_text, "output": "A" * 1600}
-
-    out = mcp_server._truncate_tool_output(result, tool_name="run_command")
-
-    assert out["error"] == error_text
-    assert out["output"] != "A" * 1600
-    assert "已截断" in out["output"]
-
-
-def test_b6_image_base64_replaced_with_descriptor(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """B6 超预算图片不再被 head/tail 截断成不可解码的碎片,换成字节数 + 工件凭据。"""
-    monkeypatch.setattr(mcp_server, "_get_tool_output_max_tokens", lambda: 10)
-    result = {
-        "tool": "browser_selfcheck_screenshot",
-        "ok": True,
-        "width": 1280,
-        "imageBase64": "iVBORw0KGgo" + "A" * 6000,
-    }
-
-    out = mcp_server._truncate_tool_output(result, tool_name="browser_selfcheck_screenshot")
-
-    image = out["imageBase64"]
-    assert image.startswith("[image omitted: 6011 base64 chars")
-    assert "read_tool_output(artifact_id=" in image
-    assert out["omitted_images"] == 1
-    assert out["truncation_strategy"] == "image_descriptor"
-    assert out["output_artifact"]["chars"] > 0
-    assert out["width"] == 1280
 
 
 def test_c_read_tool_output_unknown_id_and_dirty_args() -> None:

@@ -45,7 +45,6 @@ import type {
 } from '@ihui/types'
 import { checkAuth, checkAuthOrInternalService } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
-import { encryptCredential, decryptCredential } from '../utils/crypto.js'
 import { fetchWithinDeadline, withBody } from '../utils/fetch-deadline.js'
 import { normalizeOutboundLocale, t } from '../services/i18n-outbound.js'
 import {
@@ -608,13 +607,10 @@ function dbRowToAdapter(row: typeof imAdapters.$inferSelect): ImAdapterConfig {
   return {
     platform: row.platform as ImPlatform,
     enabled: row.enabled,
-    // DB-35:webhookSecret/botToken/appSecret 落库为 enc:v1: 密文,读出时解密;
-    // 存量明文(非前缀)原样透传。appId/callbackUrl/useLarkCli 不是秘密,保持明文。
-    webhookSecret:
-      typeof cred.webhookSecret === 'string' ? decryptCredential(cred.webhookSecret) : undefined,
-    botToken: typeof cred.botToken === 'string' ? decryptCredential(cred.botToken) : undefined,
+    webhookSecret: typeof cred.webhookSecret === 'string' ? cred.webhookSecret : undefined,
+    botToken: typeof cred.botToken === 'string' ? cred.botToken : undefined,
     appId: typeof cred.appId === 'string' ? cred.appId : undefined,
-    appSecret: typeof cred.appSecret === 'string' ? decryptCredential(cred.appSecret) : undefined,
+    appSecret: typeof cred.appSecret === 'string' ? cred.appSecret : undefined,
     callbackUrl: typeof cred.callbackUrl === 'string' ? cred.callbackUrl : undefined,
     useLarkCli: typeof cred.useLarkCli === 'boolean' ? cred.useLarkCli : undefined,
   }
@@ -716,13 +712,10 @@ export function resolveWebhookAdapter<T extends WebhookCandidate>(
 /** ImAdapterConfig → DB insert(凭证合并到 credentialsJson) */
 function adapterToDbRow(userId: string, config: ImAdapterUpsertInput) {
   const credentialsJson: Record<string, unknown> = {}
-  // DB-35:只加密秘密字段(JSONB 无长度上限,不传 maxStoredLength)
-  if (config.webhookSecret !== undefined)
-    credentialsJson.webhookSecret = encryptCredential(config.webhookSecret)
-  if (config.botToken !== undefined) credentialsJson.botToken = encryptCredential(config.botToken)
+  if (config.webhookSecret !== undefined) credentialsJson.webhookSecret = config.webhookSecret
+  if (config.botToken !== undefined) credentialsJson.botToken = config.botToken
   if (config.appId !== undefined) credentialsJson.appId = config.appId
-  if (config.appSecret !== undefined)
-    credentialsJson.appSecret = encryptCredential(config.appSecret)
+  if (config.appSecret !== undefined) credentialsJson.appSecret = config.appSecret
   if (config.callbackUrl !== undefined) credentialsJson.callbackUrl = config.callbackUrl
   if (config.useLarkCli !== undefined) credentialsJson.useLarkCli = config.useLarkCli
   return {
@@ -1381,10 +1374,7 @@ export const imGatewayRoutes: FastifyPluginAsync = async (server) => {
           return {
             userId: r.userId,
             enabled: r.enabled,
-            webhookSecret:
-              typeof cred.webhookSecret === 'string'
-                ? decryptCredential(cred.webhookSecret)
-                : undefined,
+            webhookSecret: typeof cred.webhookSecret === 'string' ? cred.webhookSecret : undefined,
           }
         }),
         signatureHeader: meta.signatureHeader,

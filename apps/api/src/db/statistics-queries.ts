@@ -30,16 +30,6 @@ import { lessonRecords } from '@ihui/database'
 // 聚合统计查询
 // =============================================================================
 
-/**
- * 统计口径(F-603:全文件唯一一把尺子,新增指标一律引用,不得各写一套)。
- *  - 业务用户 = `users.isSystemAdmin = false`：排除系统内置/机器人账号
- *    (users 表无独立 isBot/isSystem 列,`is_system` 只存在于 rbac.roles,故以该既有字段为准)。
- *  - 已发布课程 = `lessons.isPublished = true` 且 `lessons.status = 1`(上架)：
- *    课程数/浏览量等课程指标同口径,未发布/下架课程不计入。
- */
-const businessUserWhere = eq(users.isSystemAdmin, false)
-const publishedLessonWhere = and(eq(lessons.isPublished, true), eq(lessons.status, 1))
-
 export interface LearnStatistics {
   lessonTotal: number
   lessonPublished: number
@@ -49,8 +39,6 @@ export interface LearnStatistics {
 
 /**
  * 学习统计：课程数/已发布课程/报名数/总浏览量。
- * 浏览量(`viewSum`)与已发布课程(`lessonPublished`)同口径:`publishedLessonWhere`,
- * 未发布/下架课程的浏览不计入总浏览(F-603)。
  */
 export async function getLearnStatistics(): Promise<LearnStatistics> {
   const [totalRows, pubRows, signupRows, viewRows] = await Promise.all([
@@ -58,12 +46,12 @@ export async function getLearnStatistics(): Promise<LearnStatistics> {
     db
       .select({ count: sql<number>`count(*)::int` })
       .from(lessons)
-      .where(publishedLessonWhere),
+      .where(and(eq(lessons.isPublished, true), eq(lessons.status, 1))),
     db.select({ count: sql<number>`count(*)::int` }).from(lessonSignUps),
     db
       .select({ sum: sql<number>`coalesce(sum(${lessons.viewCount}), 0)::int` })
       .from(lessons)
-      .where(publishedLessonWhere),
+      .where(eq(lessons.status, 1)),
   ])
   return {
     lessonTotal: totalRows[0]?.count ?? 0,
@@ -117,11 +105,10 @@ export interface ContentStatistics {
 
 /**
  * 内容统计：用户数/圈子帖子数/公告数/帮助文章数。
- * 用户数与用户中心同口径:`businessUserWhere`,系统内置/机器人账号不计入(F-603)。
  */
 export async function getContentStatistics(): Promise<ContentStatistics> {
   const [memberRows, postRows, announcementRows, articleRows] = await Promise.all([
-    db.select({ count: sql<number>`count(*)::int` }).from(users).where(businessUserWhere),
+    db.select({ count: sql<number>`count(*)::int` }).from(users),
     db
       .select({ count: sql<number>`count(*)::int` })
       .from(circlePosts)
@@ -154,7 +141,6 @@ export interface OverviewStatistics {
  * DB-25:/statistics/overview 每次请求都会打 8 条 count(*),而任意登录用户都能触发。
  * 总览是聚合看板,60s 内的陈旧数据不影响决策,这里做进程内 TTL 缓存:
  * 同一实例 60s 内只回落一次,重复请求直接读缓存。多实例各自缓存,最坏滞后仍为 60s。
- * 用户数与内容统计/用户中心同口径(`businessUserWhere`),系统内置账号不计入(F-603)。
  */
 const OVERVIEW_CACHE_TTL_MS = 60_000
 let overviewCache: { at: number; data: OverviewStatistics } | null = null
@@ -179,7 +165,7 @@ export async function getOverviewStatistics(): Promise<OverviewStatistics> {
     announcementRows,
     articleRows,
   ] = await Promise.all([
-    db.select({ count: sql<number>`count(*)::int` }).from(users).where(businessUserWhere),
+    db.select({ count: sql<number>`count(*)::int` }).from(users),
     db.select({ count: sql<number>`count(*)::int` }).from(lessons),
     db.select({ count: sql<number>`count(*)::int` }).from(examPapers),
     db.select({ count: sql<number>`count(*)::int` }).from(lessonSignUps),
@@ -227,7 +213,7 @@ export async function findStatisticsSnapshots(
       .select()
       .from(statisticsSnapshots)
       .where(where)
-      .orderBy(desc(statisticsSnapshots.createdAt), desc(statisticsSnapshots.id))
+      .orderBy(desc(statisticsSnapshots.createdAt))
       .limit(opts.pageSize)
       .offset((opts.page - 1) * opts.pageSize),
     db
@@ -425,8 +411,8 @@ export async function getUserCenterStats(
 
 /** 用户中心统计：平台用户数 + 教育会员数 + VIP 数 + 普通用户数 + 禁用用户数。 */
 export async function getUserCenterStatistics(): Promise<UserCenterStatistics> {
-  // 与内容统计/总览共用同一用户口径:排除 system admin(internal 账号,不计入业务用户统计)
-  const excludeAdmin = businessUserWhere
+  // 排除 system admin(internal 账号,不计入业务用户统计)
+  const excludeAdmin = sql`${users.isSystemAdmin} = false`
   const [userRows, memberRows, vipRows, normalRows, disabledRows] = await Promise.all([
     db
       .select({ count: sql<number>`count(*)::int` })
@@ -475,7 +461,7 @@ export async function findVisitLogList(
       .select()
       .from(visitLogs)
       .where(where)
-      .orderBy(desc(visitLogs.createdAt), desc(visitLogs.id))
+      .orderBy(desc(visitLogs.createdAt))
       .limit(opts.pageSize)
       .offset((opts.page - 1) * opts.pageSize),
     db

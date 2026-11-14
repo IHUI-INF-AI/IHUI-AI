@@ -148,7 +148,9 @@ export function FinanceAiHubScreen({
           {t(k('title'))}
         </Text>
       </View>
-      <ScrollView contentContainerStyle={styles.scroll}>
+      {/* keyboardShouldPersistTaps="handled":本屏滚动区内有代账/问答两类输入框,
+          缺省 'never' 会让键盘弹起后的第一下点击只收键盘(不触发按钮),用户要点两次。 */}
+      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         <Text style={styles.intro}>{t(k('intro'))}</Text>
 
         {/* ── AI 一键代账 ── */}
@@ -164,7 +166,7 @@ export function FinanceAiHubScreen({
             value={bookkeeping.period}
             onChangeText={(v) => onBookkeepingChange({ period: v })}
             placeholder="2026-11"
-            placeholderTextColor={tk.text.tertiary}
+            placeholderTextColor={tk.text.secondary}
             accessibilityLabel={t(k('periodLabel'))}
           />
           <Text style={styles.fieldLabel}>{t(k('txLabel'))}</Text>
@@ -173,7 +175,7 @@ export function FinanceAiHubScreen({
             value={bookkeeping.tx}
             onChangeText={(v) => onBookkeepingChange({ tx: v })}
             placeholder={t(k('txPh'))}
-            placeholderTextColor={tk.text.tertiary}
+            placeholderTextColor={tk.text.secondary}
             multiline
             accessibilityLabel={t(k('txLabel'))}
           />
@@ -202,7 +204,7 @@ export function FinanceAiHubScreen({
             value={tax.period}
             onChangeText={(v) => onTaxChange({ period: v })}
             placeholder="2026-11"
-            placeholderTextColor={tk.text.tertiary}
+            placeholderTextColor={tk.text.secondary}
             accessibilityLabel={t(k('periodLabel'))}
           />
           <Text style={styles.fieldLabel}>{t(k('taxpayerLabel'))}</Text>
@@ -240,7 +242,7 @@ export function FinanceAiHubScreen({
             value={tax.sales}
             onChangeText={(v) => onTaxChange({ sales: v })}
             placeholder={t(k('txPh'))}
-            placeholderTextColor={tk.text.tertiary}
+            placeholderTextColor={tk.text.secondary}
             keyboardType="decimal-pad"
             accessibilityLabel={t(k('fieldSalesLabel'))}
           />
@@ -251,7 +253,7 @@ export function FinanceAiHubScreen({
                 style={styles.input}
                 value={tax.outputTax}
                 onChangeText={(v) => onTaxChange({ outputTax: v })}
-                placeholderTextColor={tk.text.tertiary}
+                placeholderTextColor={tk.text.secondary}
                 keyboardType="decimal-pad"
                 accessibilityLabel={t(k('fieldOutputTaxLabel'))}
               />
@@ -260,7 +262,7 @@ export function FinanceAiHubScreen({
                 style={styles.input}
                 value={tax.inputTax}
                 onChangeText={(v) => onTaxChange({ inputTax: v })}
-                placeholderTextColor={tk.text.tertiary}
+                placeholderTextColor={tk.text.secondary}
                 keyboardType="decimal-pad"
                 accessibilityLabel={t(k('fieldInputTaxLabel'))}
               />
@@ -271,7 +273,7 @@ export function FinanceAiHubScreen({
             style={styles.input}
             value={tax.profit}
             onChangeText={(v) => onTaxChange({ profit: v })}
-            placeholderTextColor={tk.text.tertiary}
+            placeholderTextColor={tk.text.secondary}
             keyboardType="decimal-pad"
             accessibilityLabel={t(k('fieldProfitLabel'))}
           />
@@ -281,7 +283,7 @@ export function FinanceAiHubScreen({
             value={tax.wages}
             onChangeText={(v) => onTaxChange({ wages: v })}
             placeholder={t(k('wagesPh'))}
-            placeholderTextColor={tk.text.tertiary}
+            placeholderTextColor={tk.text.secondary}
             multiline
             accessibilityLabel={t(k('wagesLabel'))}
           />
@@ -360,7 +362,7 @@ export function FinanceAiHubScreen({
             value={automation.province}
             onChangeText={(v) => onAutomationChange({ province: v })}
             placeholder="henan / guangdong"
-            placeholderTextColor={tk.text.tertiary}
+            placeholderTextColor={tk.text.secondary}
             autoCapitalize="none"
             accessibilityLabel={t(k('provinceLabel'))}
           />
@@ -370,7 +372,7 @@ export function FinanceAiHubScreen({
             value={automation.portalRaw}
             onChangeText={(v) => onAutomationChange({ portalRaw: v })}
             placeholder={t(k('portalPh'))}
-            placeholderTextColor={tk.text.tertiary}
+            placeholderTextColor={tk.text.secondary}
             multiline
             autoCapitalize="none"
             accessibilityLabel={t(k('portalLabel'))}

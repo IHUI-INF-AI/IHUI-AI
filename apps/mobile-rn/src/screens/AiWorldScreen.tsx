@@ -213,12 +213,14 @@ export function AiWorldScreen() {
   // 初次进入榜单 tab 时拉 leaderboards 元数据,并把 category 校正到有效值
   useEffect(() => {
     if (tab !== 'rankings' || leaderboards.length > 0) return
+    let cancelled = false
     void (async () => {
       try {
         const res = await fetchApi<{ leaderboards: LeaderboardInfo[] }>(
           '/api/ai-world/rankings/leaderboards',
         )
-        if (!res.success) return
+        // 已离开 AI 世界页就丢弃这份元数据:用户看不到榜单,也避免卸载后 setState
+        if (cancelled || !res.success) return
         setLeaderboards(res.data.leaderboards)
         const current = res.data.leaderboards.find((l) => l.leaderboard === activeLeaderboard)
         if (current && !current.categories.includes(activeRankCategory)) {
@@ -228,6 +230,9 @@ export function AiWorldScreen() {
         // 元数据失败不阻塞:rankings 端点仍可用默认 lmsys/overall
       }
     })()
+    return () => {
+      cancelled = true
+    }
   }, [tab, leaderboards.length, activeLeaderboard, activeRankCategory])
 
   // —— 搜索/分类:防抖调分条目端点;清空则回到 feed 模式 ——

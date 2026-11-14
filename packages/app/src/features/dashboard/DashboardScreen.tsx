@@ -158,7 +158,7 @@ function createStyles(tk: AppThemeTokens) {
     container: { flex: 1, backgroundColor: tk.surface.bg },
     content: { padding: rnSpacing.lg, paddingBottom: rnSpacing['2xl'], gap: rnSpacing.lg },
     errorWrap: { gap: rnSpacing.sm },
-    errorText: { fontSize: rnType.body.size, color: tk.danger.DEFAULT },
+    errorText: { fontSize: rnType.body.size, color: tk.danger.deepText },
     retryBtn: {
       alignSelf: 'flex-start',
       paddingVertical: rnSpacing['xs-loose'],

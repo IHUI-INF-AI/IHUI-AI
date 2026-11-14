@@ -41,7 +41,7 @@ export function CertVerifyScreen({
         value={certNo}
         onChangeText={setCertNo}
         placeholder={t('certVerify.placeholder')}
-        placeholderTextColor={tk.text.tertiary}
+        placeholderTextColor={tk.text.secondary}
         returnKeyType="search"
         onSubmitEditing={() => canSubmit && onVerify(certNo.trim())}
       />
@@ -126,7 +126,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.brand.cta,
       alignItems: 'center',
     },
-    btnDisabled: { backgroundColor: tk.text.tertiary },
+    btnDisabled: { backgroundColor: tk.text.secondary },
     verifyText: { color: tk.surface.light, fontSize: rnType.title.size, fontWeight: '600' },
     muted: {
       marginTop: rnSpacing.md,
@@ -134,7 +134,7 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.secondary,
       textAlign: 'center',
     },
-    error: { marginTop: rnSpacing.md, fontSize: rnType.body.size, color: tk.danger.DEFAULT },
+    error: { marginTop: rnSpacing.md, fontSize: rnType.body.size, color: tk.danger.deepText },
     resultCard: {
       marginTop: rnSpacing.lg,
       padding: rnSpacing.md,
@@ -144,8 +144,8 @@ function createStyles(tk: AppThemeTokens) {
     validCard: { borderColor: tk.success.DEFAULT, backgroundColor: tk.success.light },
     invalidCard: { borderColor: tk.danger.DEFAULT, backgroundColor: tk.danger.light },
     resultTitle: { fontSize: rnType.subtitle.size, fontWeight: '600' },
-    validText: { color: tk.success.DEFAULT },
-    invalidText: { color: tk.danger.DEFAULT },
+    validText: { color: tk.success.deepText },
+    invalidText: { color: tk.danger.deepText },
     resultName: {
       marginTop: rnSpacing.sm,
       fontSize: rnType.title.size,

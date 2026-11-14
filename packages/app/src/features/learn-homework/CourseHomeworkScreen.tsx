@@ -120,7 +120,7 @@ export function CourseHomeworkScreen({
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         {items.length === 0 ? (
           <View style={styles.emptyCard}>
-            <ClipboardList size={28} color={tk.text.tertiary} strokeWidth={1.6} />
+            <ClipboardList size={28} color={tk.text.secondary} strokeWidth={1.6} />
             <Text style={styles.emptyText}>{t('learnHomework.empty')}</Text>
           </View>
         ) : (
@@ -148,7 +148,7 @@ export function CourseHomeworkScreen({
                     <View style={styles.metaRow}>
                       {due ? (
                         <View style={styles.metaInline}>
-                          <Clock size={12} color={tk.text.tertiary} strokeWidth={2} />
+                          <Clock size={12} color={tk.text.secondary} strokeWidth={2} />
                           <Text style={styles.metaText}>
                             {t('learnHomework.deadlineLabel', { deadline: due })}
                           </Text>
@@ -190,7 +190,7 @@ export function CourseHomeworkScreen({
                       value={answerUrl}
                       onChangeText={onChangeAnswer}
                       placeholder={t('learnHomework.answerPlaceholder')}
-                      placeholderTextColor={tk.text.tertiary}
+                      placeholderTextColor={tk.text.secondary}
                       autoCapitalize="none"
                       autoCorrect={false}
                       keyboardType="url"
@@ -282,7 +282,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     emptyText: {
       fontSize: rnType.label.size,
-      color: tk.text.tertiary,
+      color: tk.text.medium,
     },
     /* 作业卡 */
     card: {
@@ -328,7 +328,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     metaText: {
       fontSize: rnType.caption.size,
-      color: tk.text.tertiary,
+      color: tk.text.medium,
     },
     badge: {
       paddingHorizontal: rnSpacing.xs,

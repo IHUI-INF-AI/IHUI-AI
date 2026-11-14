@@ -1153,14 +1153,14 @@ html[data-workbench-immersive='true'] aside[data-main-sidebar] {
 /* 聚焦反馈(2026-11-11 用户二次定档:不要描边,要「轻微浮起 + 四面同向阴影 + 一点科技紫光」):
  * 描边保持常态灰(--color-input),不做任何变色;
  * 只用对称(0 偏移)的双层辉光表达浮起:近层 8px + 远层 22px,同一紫色。
- * 紫取 violet-500 #8b5cf6:设计令牌里没有可用的紫色变量(--color-brand-accent-deep 是青蓝
- * #4a7a96,不满足"科技紫"),故此处按单点字面量处理,透明度压到 10%/18% 保持"轻微"。
- * 豁免类别:聚焦效果光(非 elevation 层级投影),2026-11-11 用户定档单点保留原值。*/
+ * 紫取 violet-500 #8b5cf6 = 单一源头既有令牌 --chart-5(tokens.css),透明度用 color-mix 承担(10%/18%),
+ * 保持「轻微」且颜色不散写字面量 ⇒ 守门器 effect-light 豁免认可(2026-11-13 收口)。
+ * 豁免类别:聚焦效果光(非 elevation 层级投影),2026-11-11 用户定档。*/
 .ai-input-shell--idle:focus-within {
   border-color: var(--color-input);
   box-shadow:
-    0 0 8px 0 rgb(139 92 246 / 0.1),
-    0 0 22px -2px rgb(139 92 246 / 0.18);
+    0 0 8px 0 color-mix(in srgb, var(--chart-5) 10%, transparent),
+    0 0 22px -2px color-mix(in srgb, var(--chart-5) 18%, transparent);
 }
 .ai-input-shell--high-risk {
   border-color: var(--color-border-medium);

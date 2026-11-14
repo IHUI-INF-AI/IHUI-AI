@@ -131,7 +131,7 @@ function createStyles(tk: AppThemeTokens) {
     errorText: {
       paddingHorizontal: rnSpacing['sm-loose'],
       fontSize: rnType.body.size,
-      color: tk.danger.DEFAULT,
+      color: tk.danger.deepText,
     },
     listBody: { padding: rnSpacing['sm-loose'] },
     card: {
@@ -149,7 +149,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     cardTitle: { flex: 1, fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
     cardCourse: { fontSize: rnType.body.size, color: tk.text.secondary, marginTop: rnSpacing.sm },
-    cardDate: { fontSize: rnType.caption.size, color: tk.text.tertiary, marginTop: rnSpacing.sm },
+    cardDate: { fontSize: rnType.caption.size, color: tk.text.medium, marginTop: rnSpacing.sm },
     statusBadge: {
       paddingHorizontal: rnSpacing.sm,
       paddingVertical: rnSpacing.xs,

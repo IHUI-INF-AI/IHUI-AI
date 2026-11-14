@@ -492,14 +492,18 @@ export default function HistoryPage() {
 
   const onRefresh = useCallback(() => {
     setRefreshing(true)
-    void load().then((result) => {
-      setRefreshing(false)
-      // 兜底态不报「刷新成功」—— 那是对失败的假交代(§5e「失败必须响」同一条禁令),
-      // 此时上方的兜底提示条就是可见反馈;服务端拿到才照 HEAD 的原有行为提示成功。
-      if (result?.source === 'server') {
-        onToast(tt('ai.historyPage.refreshSuccess', '刷新成功'), { kind: 'info' })
-      }
-    })
+    void load()
+      .then((result) => {
+        setRefreshing(false)
+        // 兜底态不报「刷新成功」—— 那是对失败的假交代(§5e「失败必须响」同一条禁令),
+        // 此时上方的兜底提示条就是可见反馈;服务端拿到才照 HEAD 的原有行为提示成功。
+        if (result?.source === 'server') {
+          onToast(tt('ai.historyPage.refreshSuccess', '刷新成功'), { kind: 'info' })
+        }
+      })
+      .catch(() => {
+        setRefreshing(false)
+      })
   }, [load, tt])
 
   /**
@@ -628,16 +632,19 @@ export default function HistoryPage() {
           if (!res.confirm) return
           const snapshot = list
           setList(snapshot.filter((x) => x.id !== h.id))
-          void deleteServerConversation({ remove: () => deleteConversation(h.id) }).then(
-            (outcome) => {
+          void deleteServerConversation({ remove: () => deleteConversation(h.id) })
+            .then((outcome) => {
               if (outcome.ok) {
                 onToast(t('success.deleted'), { kind: 'info' })
                 return
               }
               setList(snapshot)
               onToast(tt('ai.historyPage.deleteFailed', '删除失败,请重试'), { kind: 'error' })
-            },
-          )
+            })
+            .catch(() => {
+              setList(snapshot)
+              onToast(tt('ai.historyPage.deleteFailed', '删除失败,请重试'), { kind: 'error' })
+            })
         },
       })
     },

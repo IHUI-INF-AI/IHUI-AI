@@ -172,7 +172,7 @@ export function PlanFormScreen({
             value={title}
             onChangeText={setTitle}
             placeholder={t('planPage.formTitlePlaceholder')}
-            placeholderTextColor={tk.text.tertiary}
+            placeholderTextColor={tk.text.secondary}
             maxLength={128}
           />
 
@@ -184,7 +184,7 @@ export function PlanFormScreen({
             onChangeText={setGoal}
             multiline
             placeholder={t('planPage.formGoalPlaceholder')}
-            placeholderTextColor={tk.text.tertiary}
+            placeholderTextColor={tk.text.secondary}
           />
 
           <Text style={styles.fieldLabel}>{t('planPage.formScopeLabel')}</Text>
@@ -195,7 +195,7 @@ export function PlanFormScreen({
             onChangeText={setScope}
             multiline
             placeholder={t('planPage.formScopePlaceholder')}
-            placeholderTextColor={tk.text.tertiary}
+            placeholderTextColor={tk.text.secondary}
           />
 
           <Text style={styles.fieldLabel}>{t('planPage.formConstraintsLabel')}</Text>
@@ -206,7 +206,7 @@ export function PlanFormScreen({
             onChangeText={setConstraints}
             multiline
             placeholder={t('planPage.formConstraintsPlaceholder')}
-            placeholderTextColor={tk.text.tertiary}
+            placeholderTextColor={tk.text.secondary}
           />
 
           <Text style={styles.fieldLabel}>{t('planPage.formTagsLabel')}</Text>
@@ -216,7 +216,7 @@ export function PlanFormScreen({
             value={tagsInput}
             onChangeText={setTagsInput}
             placeholder={t('planPage.formTagsPlaceholder')}
-            placeholderTextColor={tk.text.tertiary}
+            placeholderTextColor={tk.text.secondary}
             autoCapitalize="none"
           />
 
@@ -245,7 +245,7 @@ export function PlanFormScreen({
                   value={step.title}
                   onChangeText={(v) => updateStep(i, { title: v })}
                   placeholder={t('planPage.stepTitlePlaceholder')}
-                  placeholderTextColor={tk.text.tertiary}
+                  placeholderTextColor={tk.text.secondary}
                 />
                 <TouchableOpacity
                   style={[styles.iconBtn, i === 0 && styles.iconBtnDisabled]}
@@ -288,7 +288,7 @@ export function PlanFormScreen({
                 onChangeText={(v) => updateStep(i, { description: v })}
                 multiline
                 placeholder={t('planPage.stepDescPlaceholder')}
-                placeholderTextColor={tk.text.tertiary}
+                placeholderTextColor={tk.text.secondary}
               />
               <View style={styles.chipRow}>
                 {PLAN_STEP_STATUS_OPTIONS.map((opt) => (

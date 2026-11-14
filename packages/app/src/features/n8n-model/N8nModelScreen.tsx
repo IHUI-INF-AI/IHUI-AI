@@ -3,19 +3,12 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useMemo } from 'react'
-import {
-  View,
-  Text,
-  Pressable,
-  TouchableOpacity,
-  FlatList,
-  StyleSheet,
-  RefreshControl,
-} from 'react-native'
+import { View, Text, TouchableOpacity, FlatList, StyleSheet, RefreshControl } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { N8nModelItem, N8nModelScreenProps, N8nModelTab } from '../../types'
 
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { Tappable } from '@ihui/ui-native'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, ScreenSkeleton } from '../../components/ScreenStates'
 import { TextField } from '../../components/TextField'
@@ -76,7 +69,7 @@ export function N8nModelScreen({
           value={keyword}
           onChangeText={onKeywordChange}
           placeholder={t('n8nModel.searchPlaceholder')}
-          placeholderTextColor={tk.text.tertiary}
+          placeholderTextColor={tk.text.secondary}
         />
       </View>
 
@@ -126,7 +119,15 @@ export function N8nModelScreen({
           renderItem={({ item }) => {
             return (
               <View style={styles.card}>
-                <Pressable onPress={() => onOpen?.(item)} disabled={!onOpen}>
+                {/* 按压态走 Tappable(2026-11-14 修正):原先写成 `style={({pressed}) => ...}` 函数形态,
+                    而 Pressable 被 nativewind 的 cssInterop 注册过,`{...函数}` === `{}` —— 该元素整份
+                    内联样式会被清空,按压反馈不生效且布局退回默认。Tappable 内部持 pressed、以数组形态
+                    交给原生 Pressable,是本仓唯一正解。原元素本就不带样式(几何由外层 styles.card 给)。 */}
+                <Tappable
+                  onPress={() => onOpen?.(item)}
+                  disabled={!onOpen}
+                  accessibilityRole="button"
+                >
                   <View style={styles.cardHead}>
                     <View style={styles.cardTitleRow}>
                       <View
@@ -173,11 +174,9 @@ export function N8nModelScreen({
                         ) : null}
                       </>
                     ) : null}
-                    {item.updatedAt ? (
-                      <Text style={styles.metaText}>{item.updatedAt}</Text>
-                    ) : null}
+                    {item.updatedAt ? <Text style={styles.metaText}>{item.updatedAt}</Text> : null}
                   </View>
-                </Pressable>
+                </Tappable>
                 <View style={styles.cardActions}>
                   <TouchableOpacity
                     style={[
@@ -273,7 +272,7 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.xl,
       backgroundColor: tk.danger.light,
     },
-    errorText: { flex: 1, fontSize: rnType.body.size, color: tk.danger.DEFAULT },
+    errorText: { flex: 1, fontSize: rnType.body.size, color: tk.danger.deepText },
     retryText: {
       fontSize: rnType.body.size,
       fontWeight: '600',
@@ -298,7 +297,7 @@ function createStyles(tk: AppThemeTokens) {
       marginRight: rnSpacing.sm,
     },
     dotRun: { backgroundColor: tk.success.DEFAULT },
-    dotStop: { backgroundColor: tk.text.tertiary },
+    dotStop: { backgroundColor: tk.text.secondary },
     cardName: { flex: 1, fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
     badge: {
       fontSize: rnType.caption.size,
@@ -307,7 +306,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingVertical: 3,
       borderRadius: rnRadius.md,
     },
-    badgeRun: { color: tk.success.DEFAULT, backgroundColor: tk.success.light },
+    badgeRun: { color: tk.success.deepText, backgroundColor: tk.success.light },
     badgeStop: { color: tk.text.secondary, backgroundColor: tk.surface.card },
     cardDesc: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.medium },
     cardUrl: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.brand.DEFAULT },
@@ -317,7 +316,7 @@ function createStyles(tk: AppThemeTokens) {
       gap: rnSpacing.md,
       marginTop: rnSpacing['sm-loose'],
     },
-    metaText: { fontSize: rnType.caption.size, color: tk.text.tertiary },
+    metaText: { fontSize: rnType.caption.size, color: tk.text.medium },
     cardActions: { flexDirection: 'row', gap: rnSpacing['sm-loose'], marginTop: rnSpacing.md },
     actionBtn: {
       paddingHorizontal: rnSpacing['sm-loose'],

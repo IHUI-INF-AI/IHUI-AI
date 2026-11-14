@@ -43,9 +43,13 @@ export default function TagInput({
           className="flex items-center mr-sm mb-[12rpx] px-[20rpx] py-xs rounded-md bg-primary/10"
         >
           <Text className="text-label text-primary mr-xs">{tag}</Text>
-          <Text className="text-label text-primary" onClick={() => removeTag(idx)}>
-            ×
-          </Text>
+          <View
+            className="text-label text-primary"
+            hoverClass="opacity-60"
+            onClick={() => removeTag(idx)}
+          >
+            <Text>×</Text>
+          </View>
         </View>
       ))}
       <FocusInput

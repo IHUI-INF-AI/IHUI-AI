@@ -2,6 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
+
 /**
  * UpdatePrompt 的 mandatory 强制更新行为取证(2026-11-13,#5 展示面)。
  *
@@ -90,12 +91,7 @@ vi.mock('@ihui/design-tokens', () => ({
 // accessibilityLabel 必须映射到 aria-label:共享 RN mock 的 mk() 做了这件事(替身 API 面纪律),
 // 这里自建的 Tappable 替身同样要补,否则 getByLabelText 检索不到 [更新]/关闭钮。
 vi.mock('@ihui/ui-native', () => ({
-  Tappable: (props: {
-    children?: ReactNode
-    onPress?: () => void
-    accessibilityLabel?: string
-    [k: string]: unknown
-  }) => {
+  Tappable: (props: { children?: ReactNode; onPress?: () => void; accessibilityLabel?: string; [k: string]: unknown }) => {
     const { children, onPress, accessibilityLabel, ...rest } = props
     const extra: Record<string, unknown> = {}
     if (typeof accessibilityLabel === 'string') extra['aria-label'] = accessibilityLabel

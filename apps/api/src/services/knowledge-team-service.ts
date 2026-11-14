@@ -18,7 +18,7 @@
  */
 
 import { createHash } from 'node:crypto'
-import { and, asc, count, desc, eq, ilike, or, sql, type SQL } from 'drizzle-orm'
+import { and, asc, desc, eq } from 'drizzle-orm'
 import {
   teamKnowledgeItems,
   teamKnowledgeRevisions,
@@ -36,7 +36,6 @@ import {
 } from '@ihui/database'
 import { db } from '../db/index.js'
 import { AppError } from '../errors/AppError.js'
-import { asContainsTerm } from '../utils/like-escape.js'
 
 // =============================================================================
 // 类型(本票的 DTO 出口;跨端复用需先经 packages/types 主入口 barrel,
@@ -240,22 +239,18 @@ async function requireItemAccess(
 }
 
 /** 审计落库:写内容不写审计等于没写(§5「鉴权面」同族的"判据要在有人跑它时才成立") */
-async function writeRevision(
-  input: {
-    itemId: string
-    spaceId: string
-    revisionNo: number
-    action: TeamKnowledgeAction
-    actorUserId: string
-    actorRole: TeamKnowledgeRole
-    before: ContentSummary | null
-    after: ContentSummary | null
-    changeNote?: string | null
-  },
-  tx?: Parameters<Parameters<typeof db.transaction>[0]>[0],
-): Promise<void> {
-  const executor = tx ?? db
-  await executor.insert(teamKnowledgeRevisions).values({
+async function writeRevision(input: {
+  itemId: string
+  spaceId: string
+  revisionNo: number
+  action: TeamKnowledgeAction
+  actorUserId: string
+  actorRole: TeamKnowledgeRole
+  before: ContentSummary | null
+  after: ContentSummary | null
+  changeNote?: string | null
+}): Promise<void> {
+  await db.insert(teamKnowledgeRevisions).values({
     itemId: input.itemId,
     spaceId: input.spaceId,
     revisionNo: input.revisionNo,
@@ -379,8 +374,6 @@ export interface ListSpacesFilter {
   teamId: string
   includeArchived?: boolean
   limit?: number
-  /** F-528:分页偏移,配合 limit 让 >50 个空间可翻页访问。 */
-  offset?: number
 }
 
 export async function listSpaces(actor: Actor, filter: ListSpacesFilter): Promise<SpaceDTO[]> {
@@ -405,10 +398,8 @@ export async function listSpaces(actor: Actor, filter: ListSpacesFilter): Promis
             eq(teamKnowledgeSpaces.status, 'active'),
           ),
     )
-    // F-528:updatedAt 非唯一,加 id 作 tiebreak 保证翻页稳定;并暴露 offset 翻页。
-    .orderBy(desc(teamKnowledgeSpaces.updatedAt), asc(teamKnowledgeSpaces.id))
+    .orderBy(desc(teamKnowledgeSpaces.updatedAt))
     .limit(clampLimit(filter.limit))
-    .offset(Math.max(0, Math.trunc(filter.offset ?? 0)))
 
   // 逐空间算生效角色(空间数量级为个位数到几十;要扩再引入批量 join,不预优化)
   const out: SpaceDTO[] = []
@@ -518,44 +509,37 @@ export async function createItem(actor: Actor, input: CreateItemInput): Promise<
   const { access } = await requireSpaceAccess(actor.userId, input.spaceId, 'editor')
   const status = input.status ?? 'draft'
 
-  // F-532:主表插入与 create 审计写入必须同一事务 —— 审计(唯一键冲突等)失败时
-  // 不得留下「无 create 审计」的孤儿条目(与 F-142 的 update 路径同口径)。
-  return db.transaction(async (tx) => {
-    const [row] = await tx
-      .insert(teamKnowledgeItems)
-      .values({
-        spaceId: input.spaceId,
-        kind: input.kind,
-        title: input.title,
-        content: input.content,
-        plainText: input.plainText ?? '',
-        tags: dedupeTags(input.tags),
-        status,
-        revision: 1,
-        sourceRef: input.sourceRef ?? null,
-        createdBy: actor.userId,
-        updatedBy: actor.userId,
-      })
-      .returning()
-    if (!row) throw new AppError('知识条目创建失败', 500, 'ITEM_CREATE_FAILED')
+  const [row] = await db
+    .insert(teamKnowledgeItems)
+    .values({
+      spaceId: input.spaceId,
+      kind: input.kind,
+      title: input.title,
+      content: input.content,
+      plainText: input.plainText ?? '',
+      tags: dedupeTags(input.tags),
+      status,
+      revision: 1,
+      sourceRef: input.sourceRef ?? null,
+      createdBy: actor.userId,
+      updatedBy: actor.userId,
+    })
+    .returning()
+  if (!row) throw new AppError('知识条目创建失败', 500, 'ITEM_CREATE_FAILED')
 
-    await writeRevision(
-      {
-        itemId: row.id,
-        spaceId: row.spaceId,
-        revisionNo: 1,
-        action: 'create',
-        actorUserId: actor.userId,
-        actorRole: access.role,
-        before: null,
-        after: summarize(row.title, row.status, row.content),
-        changeNote: input.changeNote ?? null,
-      },
-      tx,
-    )
-
-    return toItemDTO(row)
+  await writeRevision({
+    itemId: row.id,
+    spaceId: row.spaceId,
+    revisionNo: 1,
+    action: 'create',
+    actorUserId: actor.userId,
+    actorRole: access.role,
+    before: null,
+    after: summarize(row.title, row.status, row.content),
+    changeNote: input.changeNote ?? null,
   })
+
+  return toItemDTO(row)
 }
 
 export interface ReviseItemInput {
@@ -596,67 +580,44 @@ export class RevisionConflictError extends AppError {
 export async function reviseItem(actor: Actor, input: ReviseItemInput): Promise<ItemDTO> {
   const { item, access } = await requireItemAccess(actor.userId, input.itemId, 'editor')
 
-  // F-142:乐观基线 = 显式传入的 expectedRevision,未传时退回读到的那一版。
-  // 真正的冲突判定下沉到 UPDATE 的 WHERE revision = 基线 + rowCount —— 旧形态只在内存比较,
-  // UPDATE 不带 revision 条件 ⇒ 两名成员同时提交时后写静默覆盖先写、内容丢失。
-  const baseRevision =
-    input.expectedRevision !== undefined ? input.expectedRevision : item.revision
+  if (input.expectedRevision !== undefined && input.expectedRevision !== item.revision) {
+    throw new RevisionConflictError(item.revision, input.expectedRevision)
+  }
 
   const before = summarize(item.title, item.status, item.content)
   const nextTitle = input.title ?? item.title
   const nextContent = input.content ?? item.content ?? {}
   const nextStatus = item.status
-  const nextRevision = baseRevision + 1
+  const nextRevision = item.revision + 1
 
-  // F-142:update + writeRevision 放同一事务 —— 旧形态审计失败则正文已改无审计。
-  return db.transaction(async (tx) => {
-    const [row] = await tx
-      .update(teamKnowledgeItems)
-      .set({
-        title: nextTitle,
-        content: nextContent,
-        plainText: input.plainText ?? item.plainText,
-        tags: input.tags ? dedupeTags(input.tags) : item.tags,
-        revision: nextRevision,
-        updatedBy: actor.userId,
-        updatedAt: new Date(),
-      })
-      // 乐观锁:仅当 DB 里 revision 仍是基线才改;被并发改过 ⇒ 0 行 ⇒ 冲突
-      .where(and(eq(teamKnowledgeItems.id, item.id), eq(teamKnowledgeItems.revision, baseRevision)))
-      .returning()
-    if (!row) {
-      // 裁决时重读当前真值,供调用方收敛重试
-      const cur = await readCurrentRevision(item.id)
-      throw new RevisionConflictError(cur, baseRevision)
-    }
-
-    await writeRevision(
-      {
-        itemId: item.id,
-        spaceId: item.spaceId,
-        revisionNo: nextRevision,
-        action: 'revise',
-        actorUserId: actor.userId,
-        actorRole: access.role,
-        before,
-        after: summarize(nextTitle, nextStatus, nextContent),
-        changeNote: input.changeNote ?? null,
-      },
-      tx,
-    )
-
-    return toItemDTO(row)
-  })
-}
-
-/** 读条目当前 revision(F-142 冲突裁决时取真值)。 */
-async function readCurrentRevision(itemId: string): Promise<number> {
   const [row] = await db
-    .select({ revision: teamKnowledgeItems.revision })
-    .from(teamKnowledgeItems)
-    .where(eq(teamKnowledgeItems.id, itemId))
-    .limit(1)
-  return row?.revision ?? 0
+    .update(teamKnowledgeItems)
+    .set({
+      title: nextTitle,
+      content: nextContent,
+      plainText: input.plainText ?? item.plainText,
+      tags: input.tags ? dedupeTags(input.tags) : item.tags,
+      revision: nextRevision,
+      updatedBy: actor.userId,
+      updatedAt: new Date(),
+    })
+    .where(eq(teamKnowledgeItems.id, item.id))
+    .returning()
+  if (!row) throw new AppError('知识条目修正失败', 500, 'ITEM_UPDATE_FAILED')
+
+  await writeRevision({
+    itemId: item.id,
+    spaceId: item.spaceId,
+    revisionNo: nextRevision,
+    action: 'revise',
+    actorUserId: actor.userId,
+    actorRole: access.role,
+    before,
+    after: summarize(nextTitle, nextStatus, nextContent),
+    changeNote: input.changeNote ?? null,
+  })
+
+  return toItemDTO(row)
 }
 
 export interface SetItemStatusInput {
@@ -670,46 +631,35 @@ export async function setItemStatus(actor: Actor, input: SetItemStatusInput): Pr
   if (item.status === input.status) return toItemDTO(item)
 
   const before = summarize(item.title, item.status, item.content)
-  // F-142:乐观基线 = 读到的那一版,UPDATE 带 revision 条件防并发覆盖
-  const baseRevision = item.revision
-  const nextRevision = baseRevision + 1
+  const nextRevision = item.revision + 1
 
-  // F-142:update + writeRevision 放同一事务,UPDATE 带 revision 条件(rowCount 判冲突)
-  return db.transaction(async (tx) => {
-    const [row] = await tx
-      .update(teamKnowledgeItems)
-      .set({
-        status: input.status,
-        revision: nextRevision,
-        updatedBy: actor.userId,
-        updatedAt: new Date(),
-      })
-      .where(and(eq(teamKnowledgeItems.id, item.id), eq(teamKnowledgeItems.revision, baseRevision)))
-      .returning()
-    if (!row) {
-      const cur = await readCurrentRevision(item.id)
-      throw new RevisionConflictError(cur, baseRevision)
-    }
+  const [row] = await db
+    .update(teamKnowledgeItems)
+    .set({
+      status: input.status,
+      revision: nextRevision,
+      updatedBy: actor.userId,
+      updatedAt: new Date(),
+    })
+    .where(eq(teamKnowledgeItems.id, item.id))
+    .returning()
+  if (!row) throw new AppError('知识条目状态变更失败', 500, 'ITEM_UPDATE_FAILED')
 
-    await writeRevision(
-      {
-        itemId: item.id,
-        spaceId: item.spaceId,
-        revisionNo: nextRevision,
-        // 归档与发布的动词分开,draft→published 之外的流转统一记 revise 会丢信息
-        action:
-          input.status === 'published' ? 'publish' : input.status === 'archived' ? 'archive' : 'revise',
-        actorUserId: actor.userId,
-        actorRole: access.role,
-        before,
-        after: summarize(row.title, row.status, row.content),
-        changeNote: input.changeNote ?? null,
-      },
-      tx,
-    )
-
-    return toItemDTO(row)
+  await writeRevision({
+    itemId: item.id,
+    spaceId: item.spaceId,
+    revisionNo: nextRevision,
+    // 归档与发布的动词分开,draft→published 之外的流转统一记 revise 会丢信息
+    action:
+      input.status === 'published' ? 'publish' : input.status === 'archived' ? 'archive' : 'revise',
+    actorUserId: actor.userId,
+    actorRole: access.role,
+    before,
+    after: summarize(row.title, row.status, row.content),
+    changeNote: input.changeNote ?? null,
   })
+
+  return toItemDTO(row)
 }
 
 export interface ListItemsFilter {
@@ -721,52 +671,29 @@ export interface ListItemsFilter {
   offset?: number
 }
 
-/**
- * 条目列表/计数的**唯一**条件装配点(F-388)。
- *
- * 关键词必须下沉到 SQL:先 `limit/offset` 再在内存筛,命中稀疏时该页不足甚至为空,
- * 翻页出现空洞,调用方按返回长度算出的总数也与实际不符。
- * `ilike` 不区分大小写,与原先 `toLowerCase().includes()` 等价;
- * 通配符转义走 `utils/like-escape.ts` 单源,`%`/`_`/`\` 一律按字面量匹配。
- */
-function buildItemConditions(filter: ListItemsFilter): SQL | undefined {
-  const conds: SQL[] = [eq(teamKnowledgeItems.spaceId, filter.spaceId)]
-  if (filter.kind) conds.push(eq(teamKnowledgeItems.kind, filter.kind))
-  if (filter.status) conds.push(eq(teamKnowledgeItems.status, filter.status))
-  const kw = filter.keyword?.trim()
-  if (kw) {
-    const like = asContainsTerm(kw)
-    const kwCond = or(
-      ilike(teamKnowledgeItems.title, like),
-      ilike(teamKnowledgeItems.plainText, like),
-      // tags 是 jsonb 数组:摊平成文本再按逗号连接,与原先 tags.join(',') 语义一致
-      sql`array_to_string(array(select jsonb_array_elements_text(${teamKnowledgeItems.tags})), ',') ilike ${like}`,
-    )
-    if (kwCond) conds.push(kwCond)
-  }
-  return and(...conds)
-}
-
 export async function listItems(actor: Actor, filter: ListItemsFilter): Promise<ItemDTO[]> {
   await requireSpaceAccess(actor.userId, filter.spaceId, 'viewer')
+  const conds = [eq(teamKnowledgeItems.spaceId, filter.spaceId)]
+  if (filter.kind) conds.push(eq(teamKnowledgeItems.kind, filter.kind))
+  if (filter.status) conds.push(eq(teamKnowledgeItems.status, filter.status))
   const rows = await db
     .select()
     .from(teamKnowledgeItems)
-    .where(buildItemConditions(filter))
+    .where(and(...conds))
     .orderBy(desc(teamKnowledgeItems.updatedAt))
     .limit(clampLimit(filter.limit))
     .offset(Math.max(0, filter.offset ?? 0))
-  return rows.map(toItemDTO)
-}
-
-/** 与 listItems 共用同一 where 装配,避免总数与列表按两套条件各算一遍 */
-export async function countItems(actor: Actor, filter: ListItemsFilter): Promise<number> {
-  await requireSpaceAccess(actor.userId, filter.spaceId, 'viewer')
-  const [row] = await db
-    .select({ total: count() })
-    .from(teamKnowledgeItems)
-    .where(buildItemConditions(filter))
-  return Number(row?.total ?? 0)
+  // 关键词过滤在内存做:条目正文是 jsonb,LIKE 它没有稳定语义(键序/嵌套都会变)
+  const kw = filter.keyword?.trim().toLowerCase()
+  const filtered = kw
+    ? rows.filter(
+        (r) =>
+          r.title.toLowerCase().includes(kw) ||
+          r.plainText.toLowerCase().includes(kw) ||
+          (Array.isArray(r.tags) ? r.tags.join(',').toLowerCase().includes(kw) : false),
+      )
+    : rows
+  return filtered.map(toItemDTO)
 }
 
 export async function getItem(actor: Actor, itemId: string): Promise<ItemDTO> {
@@ -784,73 +711,39 @@ export interface ListRevisionsFilter {
   spaceId?: string
   action?: TeamKnowledgeAction
   limit?: number
-  /** F-527:没有 offset 就只能看到第一页,早期审计记录永远翻不到 */
-  offset?: number
 }
 
-export interface RevisionPage {
-  items: RevisionDTO[]
-  total: number
-  /** 本页之后是否还有更早的修订 */
-  hasMore: boolean
-  /** 实际生效的页大小(clamp 后),调用方据此算下一页 */
-  limit: number
-  offset: number
-}
-
-/**
- * 审计流一律**倒序**(F-527):条目面按 revisionNo、空间面按 createdAt,最新在前。
- *
- * 旧形态条目面用 `asc(revisionNo) + limit`,修订超过一页时取到的恰好是最早的 N 条,
- * 最近的改动被挡在窗外;两条流也都没有 offset,无法翻页。
- */
 export async function listRevisions(
   actor: Actor,
   filter: ListRevisionsFilter,
-): Promise<RevisionPage> {
+): Promise<RevisionDTO[]> {
   if (!filter.itemId && !filter.spaceId) {
     throw new AppError('需要 itemId 或 spaceId 之一', 400, 'VALIDATION_FAILED')
   }
-
-  let conds: SQL[]
-  let orderKey: SQL
   if (filter.itemId) {
     await requireItemAccess(actor.userId, filter.itemId, 'viewer')
-    conds = [eq(teamKnowledgeRevisions.itemId, filter.itemId)]
-    orderKey = desc(teamKnowledgeRevisions.revisionNo)
-  } else {
-    const spaceId = filter.spaceId as string
-    await requireSpaceAccess(actor.userId, spaceId, 'viewer')
-    conds = [eq(teamKnowledgeRevisions.spaceId, spaceId)]
-    orderKey = desc(teamKnowledgeRevisions.createdAt)
+    const conds = [eq(teamKnowledgeRevisions.itemId, filter.itemId)]
+    if (filter.action) conds.push(eq(teamKnowledgeRevisions.action, filter.action))
+    const rows = await db
+      .select()
+      .from(teamKnowledgeRevisions)
+      .where(and(...conds))
+      .orderBy(asc(teamKnowledgeRevisions.revisionNo))
+      .limit(clampLimit(filter.limit))
+    return rows.map(toRevisionDTO)
   }
+
+  const spaceId = filter.spaceId as string
+  await requireSpaceAccess(actor.userId, spaceId, 'viewer')
+  const conds = [eq(teamKnowledgeRevisions.spaceId, spaceId)]
   if (filter.action) conds.push(eq(teamKnowledgeRevisions.action, filter.action))
-
-  const limit = clampLimit(filter.limit)
-  const offset = Math.max(0, Math.trunc(filter.offset ?? 0))
-
   const rows = await db
     .select()
     .from(teamKnowledgeRevisions)
     .where(and(...conds))
-    .orderBy(orderKey)
-    .limit(limit)
-    .offset(offset)
-
-  // 总数与列表共用同一 where 装配(同 countItems 的口径),避免两套条件各算一遍
-  const [countRow] = await db
-    .select({ total: count() })
-    .from(teamKnowledgeRevisions)
-    .where(and(...conds))
-  const total = Number(countRow?.total ?? 0)
-
-  return {
-    items: rows.map(toRevisionDTO),
-    total,
-    hasMore: offset + rows.length < total,
-    limit,
-    offset,
-  }
+    .orderBy(desc(teamKnowledgeRevisions.createdAt))
+    .limit(clampLimit(filter.limit))
+  return rows.map(toRevisionDTO)
 }
 
 // =============================================================================

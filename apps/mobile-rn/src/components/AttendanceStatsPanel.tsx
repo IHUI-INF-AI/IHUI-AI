@@ -206,7 +206,7 @@ function createPanelStyles(tk: ReturnType<typeof getTokens>) {
     scopeText: {
       flexShrink: 0,
       fontSize: rnType.caption.size,
-      color: tk.text.tertiary,
+      color: tk.text.medium,
       marginLeft: 'auto',
     },
     dim: { fontSize: rnType.caption.size, color: tk.text.secondary },

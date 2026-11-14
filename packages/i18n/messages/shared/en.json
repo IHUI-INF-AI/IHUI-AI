@@ -368,7 +368,7 @@
       "ch9Title": "Chapter 9 Dispute Resolution",
       "ch9Body": "These terms are governed by the laws of the People's Republic of China. Disputes arising from these terms shall first be resolved through negotiation; if negotiation fails, the matter shall be submitted to the Beijing Arbitration Commission for arbitration under its arbitration rules.",
       "ch10Title": "Chapter 10 Contact",
-      "ch10Body": "If you have any questions about these terms, please contact: support@ihui.ai."
+      "ch10Body": "If you have any questions about these terms, please contact: lizong@aizhs.top."
     },
     "usagePolicy": {
       "title": "Usage Policy",
@@ -598,6 +598,10 @@
       "submit": "Send",
       "timeoutNoInput": "No input received within {{seconds}} seconds",
       "mobileUnsupported": "This command needs keyboard input. Mobile can't answer it - handle it on desktop or stop this run."
+    },
+    "compactionNotice": "Context auto-compacted: {before} → {after} ({removed} messages removed)",
+    "truncation": {
+      "maxLengthNotice": "Response truncated at the length limit — send \"continue\" to resume"
     }
   },
   "richAnchorProbe": {
@@ -2979,7 +2983,8 @@
       "title": "Execution",
       "toolSummary": "Tool summary: {calls} calls",
       "terminal": "Terminal task: {status}",
-      "usage": "Usage: {n} tokens"
+      "usage": "Usage: {n} tokens",
+      "memoryRemembered": "Remembered {n} item(s)"
     },
     "switchAgent": {
       "confirm": "Confirm Switch"

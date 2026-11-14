@@ -287,7 +287,7 @@ function createStyles(tk: AppThemeTokens) {
     coverFallbackText: {
       fontSize: rnType.label.size,
       textAlign: 'center',
-      color: tk.text.tertiary,
+      color: tk.text.medium,
     },
     statusBadge: {
       position: 'absolute',
@@ -313,7 +313,7 @@ function createStyles(tk: AppThemeTokens) {
     time: {
       marginTop: rnSpacing.xs,
       fontSize: rnType.badge.size,
-      color: tk.text.tertiary,
+      color: tk.text.medium,
     },
   } satisfies Record<string, ViewStyle | TextStyle | ImageStyle>)
 }

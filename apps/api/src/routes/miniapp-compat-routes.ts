@@ -554,68 +554,34 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
     const userId = request.userId!
     // 若提供 lessonId,upsert lessonRecords 并追加 log
     if (parsed.data.lessonId) {
-      const { lessonId, videoId } = parsed.data
-      const sectionId = videoId ?? null
-      // F-213:改单条 upsert,首次观看即落库(不再依赖"先查有行才 update")
-      const upsertSet = {
-        ...(parsed.data.position !== undefined ? { lastPosition: parsed.data.position } : {}),
-        updatedAt: new Date(),
-      }
-      const upsertValues = {
-        userId,
-        lessonId,
-        sectionId,
-        lastPosition: parsed.data.position ?? 0,
-        watchDuration: parsed.data.duration ?? 0,
-        status: parsed.data.position ? 1 : 0,
-      }
-      let recordId: string
-      if (sectionId) {
-        // 冲突键 = 唯一索引 lesson_records_user_lesson_section_unique(user_id, lesson_id, section_id)
-        const rows = await db
-          .insert(lessonRecords)
-          .values(upsertValues)
-          .onConflictDoUpdate({
-            target: [lessonRecords.userId, lessonRecords.lessonId, lessonRecords.sectionId],
-            set: upsertSet,
+      const conds = [
+        eq(lessonRecords.userId, userId),
+        eq(lessonRecords.lessonId, parsed.data.lessonId),
+      ]
+      if (parsed.data.videoId) conds.push(eq(lessonRecords.sectionId, parsed.data.videoId))
+      else conds.push(sql`${lessonRecords.sectionId} IS NULL`)
+      const existing = await db
+        .select()
+        .from(lessonRecords)
+        .where(and(...conds))
+        .limit(1)
+      const recordId = existing[0]?.id
+      if (recordId) {
+        await db
+          .update(lessonRecords)
+          .set({
+            ...(parsed.data.position !== undefined ? { lastPosition: parsed.data.position } : {}),
+            updatedAt: new Date(),
           })
-          .returning({ id: lessonRecords.id })
-        recordId = rows[0]!.id
-      } else {
-        // section_id 可空,PG 唯一索引不把 NULL 视为相等 ⇒ ON CONFLICT 命中不到,保持"先查后写"
-        const existing = await db
-          .select({ id: lessonRecords.id })
-          .from(lessonRecords)
-          .where(
-            and(
-              eq(lessonRecords.userId, userId),
-              eq(lessonRecords.lessonId, lessonId),
-              sql`${lessonRecords.sectionId} IS NULL`,
-            ),
-          )
-          .limit(1)
-        const existingId = existing[0]?.id
-        if (existingId) {
-          await db
-            .update(lessonRecords)
-            .set(upsertSet)
-            .where(eq(lessonRecords.id, existingId))
-          recordId = existingId
-        } else {
-          const inserted = await db
-            .insert(lessonRecords)
-            .values(upsertValues)
-            .returning({ id: lessonRecords.id })
-          recordId = inserted[0]!.id
-        }
+          .where(eq(lessonRecords.id, recordId))
+        await db.insert(lessonRecordLogs).values({
+          recordId,
+          userId,
+          action: parsed.data.action ?? 'heartbeat',
+          position: parsed.data.position ?? 0,
+          duration: parsed.data.duration ?? 0,
+        })
       }
-      await db.insert(lessonRecordLogs).values({
-        recordId,
-        userId,
-        action: parsed.data.action ?? 'heartbeat',
-        position: parsed.data.position ?? 0,
-        duration: parsed.data.duration ?? 0,
-      })
     }
     return reply.send(success({}))
   })
@@ -2815,7 +2781,15 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ list }))
   })
 
-  const notificationSettingsBodySchema = z.record(z.string().min(1).max(100), z.unknown())
+  // F-212:键数必须有上限。旧 schema 的 z.record 不限键数,配合逐键 Promise.all 会让
+  // 「数万键」的单请求变成数万次 DB 往返,单请求即可打爆连接池;且键值仍受既有
+  // z.string().min(1).max(100) 约束。超限在入口 400,不触达数据库。
+  const MAX_NOTIFICATION_PREF_KEYS = 100
+  const notificationSettingsBodySchema = z
+    .record(z.string().min(1).max(100), z.unknown())
+    .refine((body) => Object.keys(body).length <= MAX_NOTIFICATION_PREF_KEYS, {
+      message: `通知偏好键数过多,最多支持 ${MAX_NOTIFICATION_PREF_KEYS} 个键`,
+    })
 
   server.put('/settings/notification', async (request, reply) => {
     if (!(await checkAuth(request, reply))) return
@@ -2826,25 +2800,35 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
     const body = parsed.data
     const userId = request.userId!
     const requestedKeys = Object.keys(body)
-    // 逐键 upsert 后用 .returning({ id, key }) 回库确认「真正落库的键集合」(守门 134):
-    // 不得把请求侧 requestedKeys.length 当 affected,也不得无条件回 { success: true } ——
-    // 那样「写失败」与「写成功」在响应上完全同形。missedIds 逐条点名没落库的键。
-    const results = await Promise.all(
-      Object.entries(body).map(([key, value]) => {
-        const v = value === null || value === undefined ? null : String(value)
-        return db
+    // F-212:单条批量 upsert(一次 INSERT ... ON CONFLICT ... RETURNING),不再逐键往返;
+    // 键数已由上面的 schema 封顶。值必须走 excluded.value —— 多行各带各的 value,
+    // 不能在 set 里复用同一个快照值。
+    // 仍用 .returning({ id, key }) 回库确认「真正落库的键集合」(守门 134):不得把请求侧
+    // requestedKeys.length 当 affected,也不得无条件回 { success: true } —— 那样「写失败」
+    // 与「写成功」在响应上完全同形。missedIds 逐条点名没落库的键。
+    const rows = Object.entries(body).map(([key, value]) => ({
+      userId,
+      group: USER_PREFERENCE_GROUPS.notifications,
+      key,
+      value: value === null || value === undefined ? null : String(value),
+    }))
+    let writtenKeys: string[] = []
+    if (rows.length > 0) {
+      try {
+        const written = await db
           .insert(userPreferences)
-          .values({ userId, group: USER_PREFERENCE_GROUPS.notifications, key, value: v })
+          .values(rows)
           .onConflictDoUpdate({
             target: [userPreferences.userId, userPreferences.group, userPreferences.key],
-            set: { value: v, updatedAt: new Date() },
+            set: { value: sql`excluded.value`, updatedAt: new Date() },
           })
           .returning({ id: userPreferences.id, key: userPreferences.key })
-          .then((rows) => rows[0]?.key ?? null)
-          .catch(() => null)
-      }),
-    )
-    const writtenKeys = results.filter((k): k is string => k !== null)
+        writtenKeys = written.map((row) => row.key)
+      } catch {
+        // 批量语句整体失败 ⇒ 一个键也没落库,回 success:false 而不是伪成功。
+        writtenKeys = []
+      }
+    }
     const writtenSet = new Set(writtenKeys)
     const missedIds = requestedKeys.filter((k) => !writtenSet.has(k))
     return reply.send(
@@ -3047,7 +3031,7 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(
       success({
         content:
-          '隐私政策\n\n我们重视您的隐私。本隐私政策说明我们如何收集、使用和保护您的个人信息。\n\n1. 信息收集：我们收集您在注册、使用服务时提供的信息，包括但不限于昵称、头像、联系方式等。\n2. 信息使用：您的信息仅用于提供服务、优化体验和客户支持。\n3. 信息保护：我们采用业界标准的安全措施保护您的个人信息。\n4. 联系我们：如您对隐私政策有任何疑问，请发送邮件至 IHUI-AI@aizhs.top。\n\n更新日期：2026 年 1 月 1 日',
+          '隐私政策\n\n我们重视您的隐私。本隐私政策说明我们如何收集、使用和保护您的个人信息。\n\n1. 信息收集：我们收集您在注册、使用服务时提供的信息，包括但不限于昵称、头像、联系方式等。\n2. 信息使用：您的信息仅用于提供服务、优化体验和客户支持。\n3. 信息保护：我们采用业界标准的安全措施保护您的个人信息。\n4. 联系我们：如您对隐私政策有任何疑问，请发送邮件至 lizong@aizhs.top。\n\n更新日期：2026 年 1 月 1 日',
       }),
     )
   })
@@ -3076,7 +3060,7 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(
       success({
         phone: '400-000-0000',
-        email: 'IHUI-AI@aizhs.top',
+        email: 'lizong@aizhs.top',
         address: '中国北京',
       }),
     )

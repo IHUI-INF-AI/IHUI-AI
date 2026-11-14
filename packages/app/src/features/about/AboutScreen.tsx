@@ -36,6 +36,10 @@ export interface SharedAboutScreenProps extends AboutScreenProps {
   onOpenPortal?: () => void
   /** 合规/帮助入口:各端把 ABOUT_ENTRY_IDS 映射到本端在册出口后传入,顺序即渲染顺序 */
   entries?: readonly AboutEntry[]
+  /** 版权页脚成品文案;缺省不渲染(各端取词面不同,屏内不猜键名) */
+  copyrightText?: string
+  /** 应用版本号;缺省不渲染 hero 版本行 */
+  appVersion?: string
 }
 
 type Styles = ReturnType<typeof createAboutStyles>
@@ -94,6 +98,8 @@ export function AboutScreen({
   onRegister,
   onOpenPortal,
   entries = [],
+  copyrightText,
+  appVersion,
   onNavigate,
   onToast,
 }: SharedAboutScreenProps) {
@@ -117,6 +123,11 @@ export function AboutScreen({
           <Chip label={t('about.heroBadge')} tone="accent" color={accent} styles={styles} />
           <Text style={styles.heroTitle}>{t('about.heroTitle')}</Text>
           <Text style={styles.bodyText}>{t('about.heroSubtitle')}</Text>
+          {/* 版本行(2026-11-14 从 miniapp pkg-about/about 上移):原先只在该端渲染,
+              而两端 hero 段其余内容完全同源 ⇒ 缺此槽位就只能整页手抄。appVersion 缺省不渲染。 */}
+          {appVersion ? (
+            <Text style={styles.versionText}>{t('about.version', { version: appVersion })}</Text>
+          ) : null}
         </View>
 
         <View style={styles.card}>
@@ -208,10 +219,19 @@ export function AboutScreen({
               onPress={entry.onPress}
             >
               <Text style={styles.itemLabel}>{entry.label}</Text>
-              <ChevronRight size={15} color={tk.text.tertiary} strokeWidth={2} />
+              <ChevronRight size={15} color={tk.text.secondary} strokeWidth={2} />
             </TouchableOpacity>
           ))}
         </View>
+
+        {/* 版权页脚(2026-11-14 从 miniapp pkg-about/about 上移):原先只在小程序页有,
+            而该页的 about.copyright 键在全部词包里都不存在 ⇒ 实际渲染的是裸键。
+            承载改由调用方传 copyrightText(已解析的成品文案),屏内不猜键名。 */}
+        {copyrightText ? (
+          <View style={styles.footer}>
+            <Text style={styles.footerText}>{copyrightText}</Text>
+          </View>
+        ) : null}
       </ScrollView>
     </View>
   )

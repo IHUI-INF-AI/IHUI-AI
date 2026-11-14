@@ -42,7 +42,7 @@ import {
   type LoginResult,
 } from '@ihui/api-client'
 import { useLoginForm, type LoginApiResult } from '@ihui/shared/hooks'
-import { apiFailureToText } from '@ihui/shared/utils'
+import { apiFailureToText, toUserFriendlyMessage } from '@ihui/shared/utils'
 import {
   LoginScreen as SharedLoginScreen,
   getTokens,
@@ -352,6 +352,8 @@ export function LoginScreen() {
   const navigation = useNavigation<LoginNavigationProp>()
   const { returnUrl, setReturnUrl } = useAuth()
   const fullUserRef = useRef<AuthUser | null>(null)
+  // 同步重入锁:setState 在回调内读取仍是旧值,快速双击会在 loading 翻转前发出两次登录请求
+  const loginInFlightRef = useRef(false)
 
   // ===== FloatBox 非阻塞错误提示(对齐 uniapp uni.showToast,替代阻塞式 Alert.alert) =====
   const [toastVisible, setToastVisible] = useState(false)
@@ -650,6 +652,8 @@ export function LoginScreen() {
       form.setError('auth.invalidCredentials')
       return
     }
+    if (loginInFlightRef.current) return
+    loginInFlightRef.current = true
     setEmailLoading(true)
     form.clearError()
     try {
@@ -670,6 +674,7 @@ export function LoginScreen() {
       form.setError(t('auth.loginFailed'))
     } finally {
       setEmailLoading(false)
+      loginInFlightRef.current = false
     }
   }, [email, emailCode, form, navigateAfterLogin, persistLoginHistory, t])
 
@@ -708,6 +713,8 @@ export function LoginScreen() {
       form.setError('auth.invalidCredentials')
       return
     }
+    if (loginInFlightRef.current) return
+    loginInFlightRef.current = true
     setPhoneLoading(true)
     form.clearError()
     try {
@@ -729,6 +736,7 @@ export function LoginScreen() {
       form.setError(t('auth.loginFailed'))
     } finally {
       setPhoneLoading(false)
+      loginInFlightRef.current = false
     }
   }, [phone, phoneCode, form, navigateAfterLogin, persistLoginHistory, t])
 
@@ -783,7 +791,7 @@ export function LoginScreen() {
           if (recent) setPhone(recent)
           showToast('info', t('login.carrierNotConfigured'))
         } else {
-          form.setError(err.message)
+          form.setError(toUserFriendlyMessage(err))
         }
       } else {
         form.setError(t('auth.loginFailed'))
@@ -948,10 +956,10 @@ export function LoginScreen() {
             form.setError(apiFailureToText(res, t('auth.loginFailed')))
           }
         } catch (err) {
-          const msg = err instanceof Error ? err.message : String(err)
-          // 用户取消授权(errCode=-2)不算错误,不弹错误提示
-          if (!msg.includes('取消') && !msg.includes('cancel') && !msg.includes('Cancel')) {
-            form.setError(msg)
+          const raw = err instanceof Error ? err.message : String(err)
+          // 用户取消授权(errCode=-2)不算错误,不弹错误提示;判定吃原始文本,显示走中文归一化
+          if (!raw.includes('取消') && !raw.includes('cancel') && !raw.includes('Cancel')) {
+            form.setError(toUserFriendlyMessage(err))
           }
         } finally {
           setThirdPartyLoadingPlatform(null)
@@ -995,9 +1003,11 @@ export function LoginScreen() {
             await applyOAuthResult(redirectRes)
           }
         } catch (err) {
-          const msg = err instanceof Error ? err.message : String(err)
-          if (!msg.includes('取消') && !msg.includes('cancel') && !msg.includes('Cancel')) {
-            form.setError(msg)
+          const raw = err instanceof Error ? err.message : String(err)
+          // 取消判定必须吃原始文本:本地化会把 cancel 归一成"操作失败",拿中文判会误弹。
+          // 显示一律走共享层中文归一化,不再把 fetch failed / aborted 这类英文漏给用户。
+          if (!raw.includes('取消') && !raw.includes('cancel') && !raw.includes('Cancel')) {
+            form.setError(toUserFriendlyMessage(err))
           }
         } finally {
           setThirdPartyLoadingPlatform(null)
@@ -1024,9 +1034,11 @@ export function LoginScreen() {
             await applyOAuthResult(redirectRes)
           }
         } catch (err) {
-          const msg = err instanceof Error ? err.message : String(err)
-          if (!msg.includes('取消') && !msg.includes('cancel') && !msg.includes('Cancel')) {
-            form.setError(msg)
+          const raw = err instanceof Error ? err.message : String(err)
+          // 取消判定必须吃原始文本:本地化会把 cancel 归一成"操作失败",拿中文判会误弹。
+          // 显示一律走共享层中文归一化,不再把 fetch failed / aborted 这类英文漏给用户。
+          if (!raw.includes('取消') && !raw.includes('cancel') && !raw.includes('Cancel')) {
+            form.setError(toUserFriendlyMessage(err))
           }
         } finally {
           setThirdPartyLoadingPlatform(null)
@@ -1058,9 +1070,11 @@ export function LoginScreen() {
           }
           await applyOAuthResult(res)
         } catch (err) {
-          const msg = err instanceof Error ? err.message : String(err)
-          if (!msg.includes('取消') && !msg.includes('cancel') && !msg.includes('Cancel')) {
-            form.setError(msg)
+          const raw = err instanceof Error ? err.message : String(err)
+          // 取消判定必须吃原始文本:本地化会把 cancel 归一成"操作失败",拿中文判会误弹。
+          // 显示一律走共享层中文归一化,不再把 fetch failed / aborted 这类英文漏给用户。
+          if (!raw.includes('取消') && !raw.includes('cancel') && !raw.includes('Cancel')) {
+            form.setError(toUserFriendlyMessage(err))
           }
         } finally {
           setThirdPartyLoadingPlatform(null)
@@ -1498,7 +1512,8 @@ const styles = StyleSheet.create({
   agreementModalTitle: {
     fontSize: rpx(36),
     fontWeight: 'bold',
-    color: tokens.gray.black,
+    // 卡底是 surface.card(暗色 #1A1A1A):恒定黑字在暗色主题下只有 1.21 对比度 ⇒ 用随主题翻面的主文字档。
+    color: tokens.text.primary,
     textAlign: 'center',
   },
   agreementModalBody: {
@@ -1508,7 +1523,7 @@ const styles = StyleSheet.create({
   agreementModalText: {
     fontSize: rpx(28),
     lineHeight: rpx(50), // 对齐历史 line-height 1.8
-    color: tokens.gray.black,
+    color: tokens.text.primary,
     textAlign: 'center',
     marginBottom: rpx(20),
   },
@@ -1519,12 +1534,12 @@ const styles = StyleSheet.create({
   },
   agreementModalLink: {
     fontSize: rpx(28),
-    color: tokens.gray.black,
+    color: tokens.text.primary,
     textDecorationLine: 'underline',
   },
   agreementModalLinkSeparator: {
     fontSize: rpx(28),
-    color: tokens.gray.black,
+    color: tokens.text.primary,
     marginHorizontal: rpx(8),
   },
   agreementModalFooter: {
@@ -1544,7 +1559,7 @@ const styles = StyleSheet.create({
   },
   agreementModalCancelText: {
     fontSize: rpx(32),
-    color: tokens.gray.black,
+    color: tokens.text.primary,
   },
   agreementModalConfirmBtn: {
     flex: 1,
@@ -1566,13 +1581,13 @@ const styles = StyleSheet.create({
     borderRadius: rnRadius.sm,
     paddingHorizontal: rpx(20),
     fontSize: rpx(30),
-    color: tokens.gray.black,
+    color: tokens.text.primary,
     backgroundColor: tokens.surface.inputBg,
   },
   twoFactorErr: {
     marginTop: rpx(12),
     fontSize: rpx(24),
-    color: tokens.danger.DEFAULT,
+    color: tokens.danger.deepText,
   },
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

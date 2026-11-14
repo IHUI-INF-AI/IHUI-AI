@@ -9,6 +9,8 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import fs from 'node:fs'
+import os from 'node:os'
 import path from 'node:path'
 
 import { __test__ as S } from '../sync-minimax-client-session.mjs'
@@ -211,5 +213,110 @@ test('⑩ 心跳面:时刻只在"客户端在跑或未知"时带上,清单派生
   // 映像名清单派生自 local-login 的 CLIENT_IMAGES.minimax(换发行版只改那一处)
   assert.deepEqual([...S.MINIMAX_PRODUCTS], [...CLIENT_IMAGES.minimax])
   assert.ok(S.MINIMAX_PRODUCTS.length > 0, '候选映像名不得为空(空清单 = 心跳恒判不到在跑)')
+})
+
+// 2026-11-12 机主定案「退出登录也要永久保活」:旧探测只看进程 ⇒ 退出后进程还活着 ⇒
+// 恒让位 ⇒ 池永不接管、票到期即死。合判矩阵 = 进程腿 × 登录态腿,这里锁死接管方向。
+test('⑪ 合判矩阵:退出登录(死态)后进程还在也必须 false(池接管续票)', () => {
+  // 可续态:在跑 ⇒ true(让位);探测未知 ⇒ null(多让);明确没在跑 ⇒ false(无人轮换,接管)
+  assert.equal(S.minimaxClientVerdict(true, { status: 'authenticated', hasRecords: true }), true)
+  assert.equal(S.minimaxClientVerdict(null, { status: 'authenticated', hasRecords: true }), null)
+  assert.equal(S.minimaxClientVerdict(false, { status: 'authenticated', hasRecords: true }), false)
+  assert.equal(S.minimaxClientVerdict(true, { status: 'refreshing', hasRecords: true }), true)
+
+  // 死态(退出登录的各阶段):无论进程在否 ⇒ false —— 这是本次改造的核心格
+  for (const status of ['anonymous', 'logging_out', 'logout_pending', 'expired', 'error']) {
+    assert.equal(S.minimaxClientVerdict(true, { status, hasRecords: true }), false, status)
+    assert.equal(S.minimaxClientVerdict(null, { status, hasRecords: true }), false, status)
+    assert.equal(S.minimaxClientVerdict(false, { status, hasRecords: false }), false, status)
+  }
+
+  // 登录态无证据:明确没在跑 ⇒ false;在跑但无双全票 ⇒ false;
+  // 在跑且有票/全无证据 ⇒ 维持三态原值(宁让位不误接管)
+  assert.equal(S.minimaxClientVerdict(false, { status: null, hasRecords: true }), false)
+  assert.equal(S.minimaxClientVerdict(true, { status: null, hasRecords: false }), false)
+  assert.equal(S.minimaxClientVerdict(true, { status: null, hasRecords: true }), null)
+  assert.equal(S.minimaxClientVerdict(null, { status: null, hasRecords: null }), null)
+  // 空/畸形状态一律当无证据(不猜)
+  assert.equal(S.minimaxClientVerdict(true, { status: '', hasRecords: true }), null)
+  assert.equal(S.minimaxClientVerdict(true, { status: 'authenticated', hasRecords: null }), true)
+})
+
+test('⑪b probe 接线:进程腿注入与登录态合判走同一纯函数(缺省读本机)', () => {
+  // IHUI_TRAE_PROCESS_CONTROL=0 ⇒ listProductPids 恒 [] ⇒ 进程腿「明确没在跑」
+  const envOff = { IHUI_TRAE_PROCESS_CONTROL: '0' }
+  assert.equal(S.probeMinimaxClientActive(envOff, { status: 'authenticated' }), false)
+  assert.equal(S.probeMinimaxClientActive(envOff, { status: 'anonymous' }), false)
+  assert.equal(S.probeMinimaxClientActive(envOff, { status: null, hasRecords: null }), false)
+})
+
+// 退出后 auth.json 可能被客户端删掉而 auth-state.json 还在 —— 只扫 auth.json 的
+// discoverAuthFiles 会把「明确退出」误读成「无证据」,readMinimaxAuthState 必须分扫两文件。
+test('⑫ readMinimaxAuthState:state 与 auth 分扫,三态如实,零凭据回显', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'mcode-auth-state-'))
+  try {
+    const dir = path.join(tmp, 'auth', 'prod', 'cn', 'mcode-public')
+    fs.mkdirSync(dir, { recursive: true })
+
+    // 两文件都无 ⇒ 全无证据
+    let r = E.readMinimaxAuthState({ roots: [tmp] })
+    assert.deepEqual(r, { status: null, hasRecords: null, stateFiles: [] })
+
+    // auth.json 在但 records 空 ⇒ hasRecords=false(有形状没票)
+    fs.writeFileSync(path.join(dir, 'auth.json'), JSON.stringify({ records: {} }))
+    r = E.readMinimaxAuthState({ roots: [tmp] })
+    assert.equal(r.status, null)
+    assert.equal(r.hasRecords, false)
+
+    // 双全记录 ⇒ hasRecords=true;state 死态 ⇒ status 如实
+    fs.writeFileSync(
+      path.join(dir, 'auth.json'),
+      JSON.stringify({ records: { k: { accessToken: 'SECRET-ACC', refreshToken: 'SECRET-RT' } } }),
+    )
+    fs.writeFileSync(path.join(dir, 'auth-state.json'), JSON.stringify({ status: 'anonymous' }))
+    r = E.readMinimaxAuthState({ roots: [tmp] })
+    assert.equal(r.status, 'anonymous')
+    assert.equal(r.hasRecords, true)
+    assert.equal(r.stateFiles.length, 1)
+    // 零凭据:结果里绝无令牌明文
+    assert.equal(JSON.stringify(r).includes('SECRET'), false)
+
+    // 可续态优先(多区域时任一 authenticated/refreshing 即算)
+    fs.writeFileSync(path.join(dir, 'auth-state.json'), JSON.stringify({ status: 'authenticated' }))
+    assert.equal(E.readMinimaxAuthState({ roots: [tmp] }).status, 'authenticated')
+
+    // 真实退出形:auth.json 已删、state 还在 ⇒ status 保留、hasRecords 回无证据
+    fs.rmSync(path.join(dir, 'auth.json'))
+    r = E.readMinimaxAuthState({ roots: [tmp] })
+    assert.equal(r.status, 'authenticated')
+    assert.equal(r.hasRecords, null)
+
+    // 根不存在(candidateRoots 过滤)⇒ 全无证据,不炸
+    assert.deepEqual(E.readMinimaxAuthState({ roots: ['C:/no-such-mcode-root'] }), {
+      status: null,
+      hasRecords: null,
+      stateFiles: [],
+    })
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true })
+  }
+})
+
+test('⑬ 载荷带 clientAuthStatus(缺省不带);非认证 ⇒ 合判 false ⇒ 心跳不带(不写心跳)', () => {
+  const acc = [{ accessToken: 'acc-1', recordKey: RECORD_KEY }]
+  const withStatus = S.buildPayload({ accounts: acc }, '', null, 'anonymous')
+  assert.equal(withStatus.clientAuthStatus, 'anonymous')
+  const noStatus = S.buildPayload({ accounts: acc }, '', null, null)
+  assert.equal('clientAuthStatus' in noStatus, false)
+
+  // 非认证链锁:死态即使进程在跑 ⇒ 合判 false ⇒ heartbeatOf(false) = null ⇒ 载荷不带
+  // clientActiveAt ⇒ ts 侧 touchClientHeartbeat 收 null 不写 ⇒ 30 分钟后 C 档接管
+  const verdict = S.minimaxClientVerdict(true, { status: 'anonymous', hasRecords: true })
+  assert.equal(verdict, false)
+  const beat = S.heartbeatOf(verdict, '2026-11-12T00:00:00.000Z')
+  assert.equal(beat, null)
+  const payload = S.buildPayload({ accounts: acc }, '', beat, 'anonymous')
+  assert.equal('clientActiveAt' in payload, false)
+  assert.equal(payload.clientAuthStatus, 'anonymous')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

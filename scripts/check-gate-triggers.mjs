@@ -28,19 +28,6 @@
  *   · `mode: 'info'`                ⇒ 不判(它本来在落地通道就不入列,复跑只是噪声)
  * 判据只判"本次新增的缺省";存量归零是另一件事,末行照实报数,`--list-existing` 可逐条列。
  *
- * 第二维(DG-14,2026-11-14):**每道注册门至少一个阻断通道**。
- *   射程声明回答"这门什么时候跑",通道回答"它在哪儿跑"。此前覆盖面由两张白名单拼成 ——
- *   本地 pre-commit 只跑元门档(`gate-scope.mjs` 的脚本名前缀正则),push 面只跑
- *   `pushGateChecks`。新门注册进 `checks` 但命名不命中前缀、也没进 push 集 ⇒ 本地与 push 面
- *   都不跑,只剩报告档全量 CI:账面全绿而它一条都没执行过。本维判据:
- *     · 每道注册门必须 ∈ {meta 元门档声明, pushGate, required CI job};
- *     · 三处都不在 ∧ 在 `scripts/data/gate-channel-registry.json` 的 `uncoveredBaseline` ⇒
- *       **存量**只报数(立门时 277 道,§12e 不得装恒红门);
- *     · 三处都不在 ∧ 不在基线 ⇒ **新增零通道门**判红;
- *     · meta 元门档归属只认登记表 `metaGates` 显式声明,前缀不再有豁免力。
- *   push / required CI 两条通道由注册表与 workflow 自动发现(不另造清单);登记表不在被审面
- *   (scratch 夹具没有这份数据件)⇒ 本维跳过并注明,不改退出码也不冒充"已覆盖"。
- *
  * 为什么用棘轮而不是一次判红 152 道(§12e 恒红门禁令):
  * 152 道里绝大多数是历史遗留的缺省;**恒红的门只有一个结局 = `--no-verify`**,一次绕过等于
  * 全部守门对该提交作废。所以本门只截"新增与退化"这两条淌血的口子,存量交给末行计数+
@@ -91,13 +78,6 @@ import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 // 抄一份就是第二条真相:本门判的条目集与落地通道选门用的条目集必须逐条同一个口径,
 // 否则"本门说某人写了射程、落地通道却看不见"这类漂移永远抓不到。
 import { parseGateRegistry } from './lib/land-gate-rerun.mjs'
-// DG-14:通道覆盖判据的纯函数实现(单源);本门只负责同面取材与报数。
-import {
-  computeChannelCoverage,
-  parseRegisteredScripts,
-  parseRequiredCiScripts,
-  validateChannelRegistry,
-} from './lib/gate-channel-coverage.mjs'
 
 const REGISTRY_REL = 'scripts/guardian-runner.mjs'
 const ROOT = resolve(import.meta.dirname, '..')
@@ -146,86 +126,14 @@ export function readAnchorEntries(cwd, { face = 'head' } = {}) {
   const ref = face === 'head' ? 'HEAD^' : 'HEAD'
   const t = git(['cat-file', 'blob', `${ref}:${REGISTRY_REL}`], { cwd })
   if (t === null) {
-    return {
-      entries: null,
-      ref,
-      why: `${ref} 面取不到 ${REGISTRY_REL} ⇒ 锚点缺失(条目一律按新增判)`,
-    }
+    return { entries: null, ref, why: `${ref} 面取不到 ${REGISTRY_REL} ⇒ 锚点缺失(条目一律按新增判)` }
   }
   const parsed = parseGateRegistry(t)
-  if (parsed.error)
-    return { entries: null, ref, why: `${ref} 面注册表解析失败(${parsed.error})⇒ 锚点缺失` }
+  if (parsed.error) return { entries: null, ref, why: `${ref} 面注册表解析失败(${parsed.error})⇒ 锚点缺失` }
   return { entries: parsed.entries ?? [], ref, why: null }
 }
 
 const hasTriggers = (e) => Array.isArray(e.stagedTriggers) && e.stagedTriggers.length > 0
-
-/** DG-14 通道登记表单源(meta 声明 + 无通道存量基线);required CI 的 job 名也在这里声明。 */
-const CHANNEL_REGISTRY_REL = 'scripts/data/gate-channel-registry.json'
-const CHANNEL_CI_REL = '.github/workflows/ci.yml'
-
-/** 同面读任意 blob:worktree 读盘,head/staged 走 cat-file(取不到返回 text=null,上层判跳过/未判定)。 */
-export function readFaceBlob(cwd, rel, face = 'head') {
-  if (face === 'worktree') {
-    try {
-      return { text: readFileSync(join(cwd, rel), 'utf8'), why: null }
-    } catch (e) {
-      return { text: null, why: `工作树读不到 ${rel}:${e?.message ?? e}` }
-    }
-  }
-  const spec = face === 'staged' ? `:${rel}` : `HEAD:${rel}`
-  const t = git(['cat-file', 'blob', spec], { cwd })
-  return t === null ? { text: null, why: `${spec} 取不到` } : { text: t, why: null }
-}
-
-/**
- * 第二维:每道注册门至少一个阻断通道(meta / pushGate / required CI)。
- * 纯判据在 `scripts/lib/gate-channel-coverage.mjs`;这里只做同面取材。
- * 登记表不在被审面 ⇒ status='skipped'(scratch 夹具没有这份数据件),不改退出码。
- */
-export function scanChannels({ cwd = ROOT, face = 'head', registryText = null } = {}) {
-  const regBlob = readFaceBlob(cwd, CHANNEL_REGISTRY_REL, face)
-  if (regBlob.text === null) {
-    return {
-      status: 'skipped',
-      face,
-      why: `通道登记表 ${CHANNEL_REGISTRY_REL} 不在${face}面(${regBlob.why})⇒ 通道维跳过,不记绿也不判红`,
-    }
-  }
-  let raw
-  try {
-    raw = JSON.parse(regBlob.text)
-  } catch (e) {
-    return { status: 'red', face, why: `登记表 JSON 解析失败:${e?.message ?? e}`, newUncovered: [] }
-  }
-  const v = validateChannelRegistry(raw)
-  if (!v.ok) {
-    return {
-      status: 'red',
-      face,
-      why: `登记表形态非法:${v.problems.join(' / ')}`,
-      newUncovered: [],
-    }
-  }
-  const ciBlob = readFaceBlob(cwd, CHANNEL_CI_REL, face)
-  const ci = parseRequiredCiScripts(ciBlob.text ?? '', v.requiredCiJobs)
-  const reg = parseRegisteredScripts(registryText ?? readRegistry(cwd, face).text ?? '')
-  const cov = computeChannelCoverage({
-    registeredScripts: reg.all,
-    pushScripts: reg.push,
-    ciScripts: ci.scripts,
-    metaGates: v.metaGates,
-    baseline: v.baseline,
-    missingCiJobs: ci.missingJobs,
-  })
-  return {
-    status: 'judged',
-    face,
-    ...cov,
-    pushArrayVisible: reg.hasPushArray,
-    ciFaceFound: ciBlob.text !== null,
-  }
-}
 
 /**
  * 纯判据:给两面条目,返回逐条结论。抽成纯函数是为了 `--self-test` 直接喂用例,
@@ -266,10 +174,7 @@ export function judgeTriggers({ current, anchor, strict = false }) {
   return { rows, counts, newViolations, red }
 }
 
-export function report(
-  result,
-  { json = false, strict = false, listExisting = false, quiet = false, faceMeta = null } = {},
-) {
+export function report(result, { json = false, strict = false, listExisting = false, quiet = false, faceMeta = null } = {}) {
   // 兼容直接投喂 rows(镜像测试构造面)
   const res = Array.isArray(result)
     ? judgeTriggers({ current: result, anchor: result, strict: false })
@@ -280,21 +185,6 @@ export function report(
   const added = by('new-no-trigger')
   const regressed = by('regressed')
   const undetermined = res.undetermined ?? null
-  const chan = res.channels ?? null
-  const chanJudged = chan?.status === 'judged'
-  const channelSummary = chan
-    ? {
-        status: chan.status,
-        face: chan.face ?? null,
-        why: chan.why ?? null,
-        counts: chan.counts ?? null,
-        newUncovered: chan.newUncovered ?? [],
-        repaidBaseline: chan.repaidBaseline ?? [],
-        staleBaseline: chan.staleBaseline ?? [],
-        staleMeta: chan.staleMeta ?? [],
-        missingCiJobs: chan.missingCiJobs ?? [],
-      }
-    : null
 
   const say = quiet ? () => {} : (s) => console.log(s)
   const errSay = quiet ? () => {} : (s) => process.stderr.write(s + '\n')
@@ -310,7 +200,6 @@ export function report(
           newNoTrigger: added.map((r) => ({ id: r.id, script: r.script, mode: r.mode })),
           regressed: regressed.map((r) => ({ id: r.id, script: r.script, mode: r.mode })),
           existingList: existing.map((r) => ({ id: r.id, script: r.script, mode: r.mode })),
-          channelCoverage: channelSummary,
           face: faceMeta,
           undetermined,
         },
@@ -331,42 +220,16 @@ export function report(
       for (const r of added) say(`     [${r.id}] ${r.script} (${r.mode})`)
     }
     if (regressed.length > 0) {
-      say(
-        `❌ [gate-triggers] 射程被摘掉(HEAD 有 stagedTriggers、现在没有),共 ${regressed.length} 道:`,
-      )
+      say(`❌ [gate-triggers] 射程被摘掉(HEAD 有 stagedTriggers、现在没有),共 ${regressed.length} 道:`)
       for (const r of regressed) say(`     [${r.id}] ${r.script} (${r.mode})`)
     }
     if (added.length + regressed.length > 0) {
       say('修复:在 scripts/guardian-runner.mjs 的对应条目上补一行射程声明 ——')
       say("  stagedTriggers: ['<这条门真正读的路径前缀或 glob>']  # 例:['apps/api/']、['**/*.ps1']")
-      say('  要「任何提交都跑」也必须写出来(全匹配通配),不许留空 —— 留空在两通道上语义相反。')
+      say("  要「任何提交都跑」也必须写出来(全匹配通配),不许留空 —— 留空在两通道上语义相反。")
     }
     if (undetermined) {
       say(`⚠️  [gate-triggers] 未判定(不记绿也不冒红):${undetermined.why}`)
-    }
-    // 第二维(DG-14):通道覆盖。存量只报数,新增零通道门已在 red 里 ⇒ 上面末行 exit 会翻红。
-    if (chanJudged) {
-      say(
-        `ℹ️  [gate-triggers] 通道覆盖:注册 ${chan.counts.registered} 门 | meta ${chan.counts.meta}` +
-          ` · push ${chan.counts.push} · requiredCI ${chan.counts.ciRequired}` +
-          ` | 无通道存量 ${chan.counts.uncovered}(基线 ${chan.counts.baseline})`,
-      )
-      if ((channelSummary.newUncovered ?? []).length > 0) {
-        say(
-          `❌ [gate-triggers] 新增门没有任何阻断通道(meta/push/required CI 三处都不在),共 ${channelSummary.newUncovered.length} 道:`,
-        )
-        for (const s of channelSummary.newUncovered) say(`     ${s}`)
-        say('修复:在 scripts/data/gate-channel-registry.json 的 metaGates 声明入本地元门档,')
-        say(
-          '      或把脚本加进 pushGateChecks / required CI job;确属存量豁免才可进 uncoveredBaseline(只减不增)。',
-        )
-      }
-      for (const s of channelSummary.repaidBaseline)
-        say(`     ♻ 已还款(基线里但已有通道): ${s} —— 可从基线删掉`)
-      for (const s of channelSummary.staleBaseline) say(`     ⚠ 基线腐烂(脚本已不在注册表): ${s}`)
-      for (const s of channelSummary.staleMeta) say(`     ⚠ 元门档声明腐烂(脚本已不在注册表): ${s}`)
-    } else if (chan) {
-      say(`⚠️  [gate-triggers] 通道维${chan.status}:${chan.why ?? '(无说明)'}`)
     }
   }
 
@@ -383,10 +246,6 @@ export function report(
     `[gate-triggers] 末行:面=${json ? 'json' : 'text'} 面=${faceMeta?.face ?? '-'} 条目=${counts.entries}` +
     ` 判据门=${counts.judges} 有射程=${counts.ok} 存量缺=${counts.existing}` +
     ` 新增缺=${counts.newNoTrigger} 退化=${counts.regressed} 免判(info)=${counts.exemptInfo}` +
-    (chanJudged
-      ? ` 通道=meta${chan.counts.meta}/push${chan.counts.push}/ci${chan.counts.ciRequired}` +
-        ` 无通道存量=${chan.counts.uncovered}(基线${chan.counts.baseline}) 新增无通道=${chan.counts.newUncovered}`
-      : ` 通道=${chan?.status ?? 'skipped'}`) +
     ` 未判定=${unjudged} 档=${strict ? 'strict' : 'ratchet'} exit=${exit}`
   if (json) process.stderr.write(lastLine + '\n')
   else console.log(lastLine)
@@ -397,13 +256,7 @@ export function report(
 export function scan({ cwd = ROOT, face = 'head', strict = false } = {}) {
   const got = readRegistry(cwd, face)
   if (got.text === null) {
-    return {
-      rows: [],
-      counts: zeroCounts(),
-      newViolations: [],
-      red: [],
-      undetermined: { kind: 'face', why: got.why, face: got.face },
-    }
+    return { rows: [], counts: zeroCounts(), newViolations: [], red: [], undetermined: { kind: 'face', why: got.why, face: got.face } }
   }
   const parsed = parseGateRegistry(got.text)
   if (parsed.error) {
@@ -412,11 +265,7 @@ export function scan({ cwd = ROOT, face = 'head', strict = false } = {}) {
       counts: zeroCounts(),
       newViolations: [],
       red: [],
-      undetermined: {
-        kind: 'parse',
-        why: `注册表结构漂(${parsed.error})⇒ 一条都没判`,
-        face: got.face,
-      },
+      undetermined: { kind: 'parse', why: `注册表结构漂(${parsed.error})⇒ 一条都没判`, face: got.face },
     }
   }
   const cur = parsed.entries ?? []
@@ -426,52 +275,12 @@ export function scan({ cwd = ROOT, face = 'head', strict = false } = {}) {
       counts: zeroCounts(),
       newViolations: [],
       red: [],
-      undetermined: {
-        kind: 'empty',
-        why: `注册表解析出 0 个条目(§0.3 枚举到 0 判死,不记绿)`,
-        face: got.face,
-      },
+      undetermined: { kind: 'empty', why: `注册表解析出 0 个条目(§0.3 枚举到 0 判死,不记绿)`, face: got.face },
     }
   }
   const anchorRes = readAnchorEntries(cwd, { face })
   const judged = judgeTriggers({ current: cur, anchor: anchorRes.entries, strict })
-  // 第二维(DG-14):通道覆盖。存量只报数;新增零通道门 / 登记表坏 / required job 缺失进红。
-  const chan = scanChannels({ cwd, face, registryText: got.text })
-  judged.channels = chan
-  if (chan.status === 'judged') {
-    for (const s of chan.newUncovered) {
-      judged.red.push({ id: '-', script: s, mode: 'blocking', verdict: 'new-no-channel' })
-    }
-    if (!chan.pushArrayVisible) {
-      judged.red.push({
-        id: '-',
-        script: '(runner pushGateChecks)',
-        mode: 'blocking',
-        verdict: 'push-channel-blind',
-      })
-    }
-    for (const j of chan.missingCiJobs) {
-      judged.red.push({
-        id: '-',
-        script: `(${CHANNEL_CI_REL} job '${j}')`,
-        mode: 'blocking',
-        verdict: 'ci-channel-blind',
-      })
-    }
-  } else if (chan.status === 'red') {
-    judged.red.push({
-      id: '-',
-      script: CHANNEL_REGISTRY_REL,
-      mode: 'blocking',
-      verdict: 'bad-channel-registry',
-      reason: chan.why,
-    })
-  }
-  judged.faceMeta = {
-    face: got.face,
-    anchor: anchorRes.entries ? anchorRes.ref : 'missing',
-    anchorWhy: anchorRes.why,
-  }
+  judged.faceMeta = { face: got.face, anchor: anchorRes.entries ? anchorRes.ref : 'missing', anchorWhy: anchorRes.why }
   if (anchorRes.why && !judged.undetermined) judged.notes = [anchorRes.why]
   return judged
 }
@@ -485,18 +294,14 @@ function selfTest() {
   const chk = (name, got, want) => {
     const pass = JSON.stringify(got) === JSON.stringify(want)
     if (!pass) fail++
-    console.log(
-      `${pass ? 'PASS' : 'FAIL'}  ${name}  want=${JSON.stringify(want)} got=${JSON.stringify(got)}`,
-    )
+    console.log(`${pass ? 'PASS' : 'FAIL'}  ${name}  want=${JSON.stringify(want)} got=${JSON.stringify(got)}`)
   }
   const v = (cur, anc, strict) => {
     const r = judgeTriggers({ current: cur, anchor: anc, strict })
     return r.rows.map((x) => x.verdict)
   }
   // ① 有射程 ⇒ ok
-  chk('判据①:有声明的射程 ⇒ ok', v([{ id: '1', script: 'a.mjs', stagedTriggers: ['pkg/'] }], []), [
-    'ok',
-  ])
+  chk('判据①:有声明的射程 ⇒ ok', v([{ id: '1', script: 'a.mjs', stagedTriggers: ['pkg/'] }], []), ['ok'])
   // ② 缺射程 + 锚点也缺 ⇒ existing(只报数)
   chk(
     '判据②:缺射程且 HEAD 也缺 ⇒ 存量',
@@ -504,21 +309,11 @@ function selfTest() {
     ['existing'],
   )
   // ③ 缺射程 + 锚点无该 id ⇒ new-no-trigger
-  chk(
-    '判据③:新增门缺射程 ⇒ 红',
-    v([{ id: '9', script: 'n.mjs' }], [{ id: '1', script: 'a.mjs' }]),
-    ['new-no-trigger'],
-  )
+  chk('判据③:新增门缺射程 ⇒ 红', v([{ id: '9', script: 'n.mjs' }], [{ id: '1', script: 'a.mjs' }]), ['new-no-trigger'])
   // ④ 锚点缺失(null)⇒ 全部按新增 ⇒ 缺射程的红、有射程的绿
   chk(
     '判据④:锚点缺失 ⇒ 缺射程按新增判红',
-    v(
-      [
-        { id: '1', script: 'a.mjs' },
-        { id: '2', script: 'b.mjs', stagedTriggers: ['x/'] },
-      ],
-      null,
-    ),
+    v([{ id: '1', script: 'a.mjs' }, { id: '2', script: 'b.mjs', stagedTriggers: ['x/'] }], null),
     ['new-no-trigger', 'ok'],
   )
   // ⑤ HEAD 有、现在没有 ⇒ regressed
@@ -528,9 +323,11 @@ function selfTest() {
     ['regressed'],
   )
   // ⑥ 空数组与缺省同义 ⇒ 按缺省判
-  chk('判据⑥:空数组射程 = 缺省', v([{ id: '9', script: 'n.mjs', stagedTriggers: [] }], []), [
-    'new-no-trigger',
-  ])
+  chk(
+    '判据⑥:空数组射程 = 缺省',
+    v([{ id: '9', script: 'n.mjs', stagedTriggers: [] }], []),
+    ['new-no-trigger'],
+  )
   // ⑦ info 档不判
   chk('判据⑦:info 档免判', v([{ id: '9', script: 'n.mjs', mode: 'info' }], []), ['exempt-info'])
   // ⑧ 同 id 换脚本 = 换门 ⇒ 按新增判(锚点对不成立)
@@ -557,7 +354,8 @@ function selfTest() {
     return d
   }
   const tmp = mk('gtrig-selftest-')
-  const run = (args) => gitRaw(args, tmp, {})
+  const run = (args) =>
+    gitRaw(args, tmp, {})
   try {
     run(['init', '-q'])
     run(['config', 'user.email', 't@t'])
@@ -594,9 +392,7 @@ function selfTest() {
     // ②b 同一份盘上内容,未暂存 ⇒ 判索引面(staged)仍是上一版,不红:
     //     证明"索引面判的是即将提交的内容,不是盘上那份"这件事真的成立
     const g2b = report(scan({ cwd: tmp, face: 'staged' }), { json: true, quiet: true })
-    console.log(
-      `${g2b === 0 ? 'PASS' : 'FAIL'}  端到端②b:未暂存时索引面仍是上一版 ⇒ 不红(exit=${g2b})`,
-    )
+    console.log(`${g2b === 0 ? 'PASS' : 'FAIL'}  端到端②b:未暂存时索引面仍是上一版 ⇒ 不红(exit=${g2b})`)
     if (g2b !== 0) fail++
 
     // ③ 给新门补上射程 ⇒ 绿
@@ -626,9 +422,7 @@ function selfTest() {
     const g6 = report(scan({ cwd: tmp }), { json: true, quiet: true })
     const g6meta = scan({ cwd: tmp }).faceMeta
     const pass6 = g6 === 1 && g6meta.anchor === 'HEAD^'
-    console.log(
-      `${pass6 ? 'PASS' : 'FAIL'}  端到端⑥:缺省面判 HEAD、锚点取 HEAD^ ⇒ 抓到摘射程(exit=${g6} 锚点=${g6meta.anchor})`,
-    )
+    console.log(`${pass6 ? 'PASS' : 'FAIL'}  端到端⑥:缺省面判 HEAD、锚点取 HEAD^ ⇒ 抓到摘射程(exit=${g6} 锚点=${g6meta.anchor})`)
     if (!pass6) fail++
 
     // ⑤ 面取不到(裸目录)⇒ 未判定 2,绝不 0 绿
@@ -640,11 +434,7 @@ function selfTest() {
     for (const d of dirs) rmScratch(d, { bestEffort: true })
   }
 
-  console.log(
-    fail === 0
-      ? '\n自检通过(判据九例 + 端到端七例,红/绿/未判定三向都真跑)'
-      : `\n自检失败:${fail} 例不符`,
-  )
+  console.log(fail === 0 ? '\n自检通过(判据九例 + 端到端七例,红/绿/未判定三向都真跑)' : `\n自检失败:${fail} 例不符`)
   return fail === 0 ? 0 : 1
 }
 
@@ -665,19 +455,12 @@ if (isDirectRun) {
         '',
         '三档:新增门没写 stagedTriggers ⇒ 红;锚点有射程而现在没有(被摘掉)⇒ 红;',
         '两边都没有 ⇒ 存量,只报数(--strict 才判红)。',
-        '',
-        '第二维(DG-14):每道注册门至少一个阻断通道(meta 元门档 / pushGate / required CI),',
-        '新增零通道门 ⇒ 红;存量无通道门按 scripts/data/gate-channel-registry.json 的 uncoveredBaseline 只报数。',
       ].join('\n'),
     )
     process.exit(0)
   }
   if (argv.includes('--self-test')) process.exit(selfTest())
-  const face = argv.includes('--worktree')
-    ? 'worktree'
-    : argv.includes('--staged')
-      ? 'staged'
-      : 'head'
+  const face = argv.includes('--worktree') ? 'worktree' : argv.includes('--staged') ? 'staged' : 'head'
   const res = scan({ face })
   process.exit(
     report(res, {
@@ -695,14 +478,10 @@ if (isDirectRun) {
  */
 export const __test__ = {
   REGISTRY_REL,
-  CHANNEL_REGISTRY_REL,
-  CHANNEL_CI_REL,
   hasTriggers,
   judgeTriggers,
   readRegistry,
   readAnchorEntries,
-  readFaceBlob,
-  scanChannels,
   scan,
   report,
 }

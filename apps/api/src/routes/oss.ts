@@ -29,7 +29,11 @@ import {
   completeMultipartUpload,
   abortMultipartUpload,
 } from '../services/storage-service.js'
-import { getOssStsProvider, buildSessionName, generateObjectKey } from '../services/oss-sts-service.js'
+import {
+  getOssStsProvider,
+  buildSessionName,
+  generateObjectKey,
+} from '../services/oss-sts-service.js'
 import { OSS_DRIVER_TYPES } from '../plugins/business-metrics.js'
 
 // =============================================================================
@@ -260,14 +264,17 @@ export const ossRoutes: FastifyPluginAsync = async (server) => {
     },
   )
 
-  // GET /oss/download/:id - 下载代理(简化:返回驱动信息,实际下载由 files.ts 处理)
+  // GET /oss/download/:id - 下载代理(未实现)
+  // F-282:真实流式下载尚未实现。旧实现以 200 回传驱动 config(且读走"含 credentials
+  // 仅 admin"的 findOssDriverById、不校验 isEnabled/管理员)⇒ 任意登录用户可读未启用
+  // 驱动配置。此处按 501 如实返回"未实现",既不查驱动表,也不回传任何 config/credentials。
   server.get(
     '/oss/download/:id',
     {
       schema: {
-        summary: '下载代理(返回驱动信息)',
+        summary: '下载代理(未实现)',
         tags: ['oss'],
-        response: buildResponseSchema(400, 404),
+        response: buildResponseSchema(400, 501),
       },
     },
     async (request, reply) => {
@@ -275,18 +282,7 @@ export const ossRoutes: FastifyPluginAsync = async (server) => {
       if (!parsed.success) {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
-      const driver = await findOssDriverById(parsed.data.id)
-      if (!driver) {
-        return reply.status(404).send(error(404, '驱动不存在'))
-      }
-      return reply.send(
-        success({
-          driverId: driver.id,
-          driver: driver.driver,
-          config: driver.config,
-          message: '请通过 /files 接口完成下载',
-        }),
-      )
+      return reply.status(501).send(error(501, '下载代理尚未实现，请通过 /files 接口下载'))
     },
   )
 

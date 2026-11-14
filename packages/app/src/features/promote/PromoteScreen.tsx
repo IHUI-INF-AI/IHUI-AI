@@ -172,10 +172,10 @@ export function PromoteScreen({
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.bg },
-    emptyText: { fontSize: rnType.body.size, color: tk.text.tertiary, marginTop: rnSpacing.sm },
+    emptyText: { fontSize: rnType.body.size, color: tk.text.medium, marginTop: rnSpacing.sm },
     errorText: {
       fontSize: rnType.body.size,
-      color: tk.danger.DEFAULT,
+      color: tk.danger.deepText,
       textAlign: 'center',
       marginTop: rnSpacing.sm,
     },
@@ -191,7 +191,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     statsRow: { flexDirection: 'row', justifyContent: 'space-between', flexWrap: 'wrap' },
     statItem: { alignItems: 'center', flex: 1, minWidth: 80 },
-    statValue: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.success.DEFAULT },
+    statValue: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.success.deepText },
     statLabel: {
       marginTop: rnSpacing.sm,
       fontSize: rnType.caption.size,
@@ -206,7 +206,7 @@ function createStyles(tk: AppThemeTokens) {
       borderColor: tk.border.light,
     },
     linkLabel: { fontSize: rnType.body.size, fontWeight: '600', color: tk.text.medium },
-    linkText: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.success.DEFAULT },
+    linkText: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.success.deepText },
     linkActions: { flexDirection: 'row', gap: rnSpacing.sm, marginTop: rnSpacing['sm-loose'] },
     linkBtn: {
       flex: 1,
@@ -216,12 +216,14 @@ function createStyles(tk: AppThemeTokens) {
     },
     copyBtn: { backgroundColor: tk.brand.cta },
     shareBtn: { backgroundColor: tk.surface.card },
-    linkBtnText: { fontSize: rnType.body.size, color: tk.surface.light },
+    // 分享钮底是 surface.card(亮白/暗深),与 linkBtn 同用一档文字时原先取 surface.light —— 亮色主题下
+    // 白字压白卡 1.00、暗色主题下 1.21。改用随主题翻面的主文字档后两端各自达标。
+    linkBtnText: { fontSize: rnType.body.size, color: tk.text.primary },
     copyBtnText: { fontSize: rnType.body.size, color: tk.brand.ctaForeground },
     codeText: {
       marginTop: rnSpacing['sm-loose'],
       fontSize: rnType.caption.size,
-      color: tk.text.tertiary,
+      color: tk.text.medium,
     },
     sectionTitle: {
       paddingHorizontal: rnSpacing['sm-loose'],
@@ -257,12 +259,12 @@ function createStyles(tk: AppThemeTokens) {
     },
     recordInfo: { flex: 1, marginRight: rnSpacing.sm },
     recordName: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
-    recordDate: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.tertiary },
+    recordDate: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.medium },
     recordRight: { alignItems: 'flex-end' },
     recordContribution: {
       fontSize: rnType.body.size,
       fontWeight: '600',
-      color: tk.success.DEFAULT,
+      color: tk.success.deepText,
     },
     recordStatus: {
       marginTop: rnSpacing.sm,

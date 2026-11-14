@@ -41,6 +41,10 @@ export function StudyRecordScreen({
   colorScheme = 'light',
   onNavigate,
   onToast,
+  renderItem,
+  renderListHeader,
+  renderListFooter,
+  onEndReached,
 }: StudyRecordScreenProps) {
   assertRequiredPort('onNavigate', onNavigate)
   assertRequiredPort('onToast', onToast)
@@ -128,11 +132,20 @@ export function StudyRecordScreen({
           contentContainerStyle={styles.listBody}
           ItemSeparatorComponent={() => <View style={styles.separator} />}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-          ListHeaderComponent={stats ? renderStats(stats) : null}
+          ListHeaderComponent={
+            <>
+              {stats ? renderStats(stats) : null}
+              {renderListHeader ? renderListHeader() : null}
+            </>
+          }
+          ListFooterComponent={renderListFooter ? () => <>{renderListFooter()}</> : null}
+          onEndReached={onEndReached}
+          onEndReachedThreshold={0.3}
           ListEmptyComponent={
             <EmptyState title={t('studyRecord.empty')} colorScheme={colorScheme} />
           }
           renderItem={({ item }) => {
+            if (renderItem) return <>{renderItem(item)}</>
             const title = item.courseTitle || item.lessonTitle || t('studyRecord.untitled')
             return (
               <View style={styles.card}>
@@ -179,7 +192,7 @@ function createStyles(tk: AppThemeTokens) {
     errorText: {
       paddingHorizontal: rnSpacing['sm-loose'],
       fontSize: rnType.body.size,
-      color: tk.danger.DEFAULT,
+      color: tk.danger.deepText,
     },
     listBody: { padding: rnSpacing['md-loose'], paddingBottom: rnSpacing['3xl'] },
     separator: { height: 8 },
@@ -238,7 +251,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: rnSpacing.sm,
     },
     cardMeta: { fontSize: rnType.caption.size, color: tk.text.secondary },
-    cardTime: { fontSize: rnType.caption.size, color: tk.text.tertiary },
+    cardTime: { fontSize: rnType.caption.size, color: tk.text.medium },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

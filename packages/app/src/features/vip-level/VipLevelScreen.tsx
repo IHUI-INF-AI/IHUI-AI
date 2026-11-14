@@ -84,7 +84,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     body: { padding: rnSpacing['md-loose'] },
     title: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.text.primary },
-    levelName: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.success.DEFAULT },
+    levelName: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.success.deepText },
     row: {
       flexDirection: 'row',
       justifyContent: 'space-between',
@@ -92,7 +92,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingVertical: rnSpacing['sm-loose'],
     },
     label: { fontSize: rnType.body.size, color: tk.text.secondary },
-    price: { fontSize: rnType.heading.size, fontWeight: '600', color: tk.danger.DEFAULT },
+    price: { fontSize: rnType.heading.size, fontWeight: '600', color: tk.danger.deepText },
     value: { fontSize: rnType.body.size, color: tk.text.primary, fontWeight: '500' },
     benefitsTitle: {
       marginTop: rnSpacing.lg,

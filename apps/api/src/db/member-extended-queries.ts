@@ -4,7 +4,6 @@
 
 import { eq, and, desc, asc, sql, ilike } from 'drizzle-orm'
 import { db } from './index.js'
-import { asContainsTerm } from '../utils/like-escape.js'
 import {
   memberGroups,
   memberPosts,
@@ -36,7 +35,7 @@ export async function findGroupList(
   const pageSize = query.pageSize ?? 50
   const conds = []
   if (query.status) conds.push(eq(memberGroups.status, query.status))
-  if (query.keyword) conds.push(ilike(memberGroups.name, asContainsTerm(query.keyword)))
+  if (query.keyword) conds.push(ilike(memberGroups.name, `%${query.keyword}%`))
   const where = conds.length ? and(...conds) : undefined
   const [list, totalRows] = await Promise.all([
     db
@@ -121,7 +120,7 @@ export async function findPostList(
   const pageSize = query.pageSize ?? 50
   const conds = []
   if (query.status) conds.push(eq(memberPosts.status, query.status))
-  if (query.keyword) conds.push(ilike(memberPosts.name, asContainsTerm(query.keyword)))
+  if (query.keyword) conds.push(ilike(memberPosts.name, `%${query.keyword}%`))
   const where = conds.length ? and(...conds) : undefined
   const [list, totalRows] = await Promise.all([
     db
@@ -204,7 +203,7 @@ export async function findTagList(
   const page = query.page ?? 1
   const pageSize = query.pageSize ?? 50
   const conds = []
-  if (query.keyword) conds.push(ilike(memberTags.name, asContainsTerm(query.keyword)))
+  if (query.keyword) conds.push(ilike(memberTags.name, `%${query.keyword}%`))
   const where = conds.length ? and(...conds) : undefined
   const [list, totalRows] = await Promise.all([
     db
@@ -283,7 +282,7 @@ export async function findTypeList(
   const pageSize = query.pageSize ?? 50
   const conds = []
   if (query.status) conds.push(eq(memberTypes.status, query.status))
-  if (query.keyword) conds.push(ilike(memberTypes.name, asContainsTerm(query.keyword)))
+  if (query.keyword) conds.push(ilike(memberTypes.name, `%${query.keyword}%`))
   const where = conds.length ? and(...conds) : undefined
   const [list, totalRows] = await Promise.all([
     db
@@ -368,7 +367,7 @@ export async function findCompanyTypeList(
   const pageSize = query.pageSize ?? 50
   const conds = []
   if (query.status) conds.push(eq(companyTypes.status, query.status))
-  if (query.keyword) conds.push(ilike(companyTypes.name, asContainsTerm(query.keyword)))
+  if (query.keyword) conds.push(ilike(companyTypes.name, `%${query.keyword}%`))
   const where = conds.length ? and(...conds) : undefined
   const [list, totalRows] = await Promise.all([
     db
@@ -442,7 +441,7 @@ export async function enableCompanyType(id: string): Promise<CompanyType | undef
   const rows = await db
     .update(companyTypes)
     .set({ status: 'active', updatedAt: new Date() })
-  // status-guard-exempt: 入向操作写点(enable→active),非出向
+    // status-guard-exempt: 入向操作写点(enable→active),非出向
     .where(eq(companyTypes.id, id))
     .returning()
   return rows[0]
@@ -453,7 +452,7 @@ export async function disableCompanyType(id: string): Promise<CompanyType | unde
   const rows = await db
     .update(companyTypes)
     .set({ status: 'inactive', updatedAt: new Date() })
-  // status-guard-exempt: 入向操作写点(disable→inactive),非出向
+    // status-guard-exempt: 入向操作写点(disable→inactive),非出向
     .where(eq(companyTypes.id, id))
     .returning()
   return rows[0]

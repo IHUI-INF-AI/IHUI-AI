@@ -132,7 +132,7 @@ export function TagDetailScreen({
       <View style={styles.container}>
         {header}
         <View style={[styles.card, styles.emptyBox]}>
-          <Tag size={40} color={tk.text.tertiary} strokeWidth={2} />
+          <Tag size={40} color={tk.text.secondary} strokeWidth={2} />
           <Text style={styles.emptyText}>{t('tagsPage.notFound')}</Text>
           <Text style={styles.metaLine}>{t('tagsPage.backToList')}</Text>
         </View>
@@ -176,7 +176,7 @@ export function TagDetailScreen({
               return (
                 <View key={type} style={{ gap: rnSpacing['2xs'] }}>
                   <View style={styles.groupHead}>
-                    <Icon size={14} color={tk.text.tertiary} strokeWidth={2} />
+                    <Icon size={14} color={tk.text.secondary} strokeWidth={2} />
                     <Text style={styles.groupLabel}>
                       {t(GROUP_LABEL_KEYS[type] ?? 'tagsPage.groupOther')}
                     </Text>
@@ -185,7 +185,7 @@ export function TagDetailScreen({
                   <View style={[styles.resourceList, styles.card]}>
                     {items.map((r) => (
                       <View key={r.id} style={styles.resourceRow}>
-                        <Icon size={16} color={tk.text.tertiary} strokeWidth={2} />
+                        <Icon size={16} color={tk.text.secondary} strokeWidth={2} />
                         <Text style={styles.resourceId} numberOfLines={1}>
                           {r.resourceId.slice(0, 8)}
                         </Text>

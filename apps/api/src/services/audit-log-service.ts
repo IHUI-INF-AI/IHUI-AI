@@ -155,38 +155,18 @@ export function computeAuditHash(
     resourceId: string | null
     result: string | null
     metadata: Record<string, unknown> | null
-    /** v2 起纳入哈希的证据列(F-275);v1 存量行不传,保持原 8 字段口径。 */
-    ip?: string | null
-    userAgent?: string | null
   },
-  version: 1 | 2 = 1,
 ): string {
-  const payload = canonicalStringify(
-    version === 2
-      ? [
-          prevHash,
-          log.timestamp,
-          log.userId ?? '',
-          log.action,
-          log.resourceType ?? '',
-          log.resourceId ?? '',
-          log.result ?? '',
-          log.metadata ?? {},
-          // F-275:把 ip / user_agent 证据列纳入哈希输入,改证据列即破坏链。
-          log.ip ?? '',
-          log.userAgent ?? '',
-        ]
-      : [
-          prevHash,
-          log.timestamp,
-          log.userId ?? '',
-          log.action,
-          log.resourceType ?? '',
-          log.resourceId ?? '',
-          log.result ?? '',
-          log.metadata ?? {},
-        ],
-  )
+  const payload = canonicalStringify([
+    prevHash,
+    log.timestamp,
+    log.userId ?? '',
+    log.action,
+    log.resourceType ?? '',
+    log.resourceId ?? '',
+    log.result ?? '',
+    log.metadata ?? {},
+  ])
   return hmacSHA256(getAuditSecret(), payload)
 }
 
@@ -209,10 +189,6 @@ function toRows(raw: unknown): Record<string, unknown>[] {
  * P0 修复:用 pg_advisory_xact_lock 串行化审计日志写入,防止并发 check-then-act
  * 导致链分叉(两个并发调用读到相同 prevHash)。advisory lock 在事务结束时自动释放。
  *
- * F-274:链尾按**单调序号 seq** 取,不再按 timestamp —— 多实例/NTP 回拨下
- * "本地毫秒时间戳最大"不等于"最后写入",同毫秒并发时 timestamp 也没有 tie-breaker
- * (id 是随机 uuid)。seq 由库分配且写入被 advisory lock 串行化 ⇒ 顺序即链序。
- *
  * @returns 新日志 id;落库失败(表未建等)返回 undefined
  */
 export async function recordAuditLog(params: RecordAuditLogParams): Promise<string | undefined> {
@@ -227,7 +203,7 @@ export async function recordAuditLog(params: RecordAuditLogParams): Promise<stri
       let prevHash = GENESIS_HASH
       try {
         const raw = await tx.execute(sql`
-          SELECT current_hash FROM audit_logs_chain ORDER BY seq DESC LIMIT 1
+          SELECT current_hash FROM audit_logs_chain ORDER BY timestamp DESC LIMIT 1
         `)
         const h = toRows(raw)[0]?.['current_hash']
         prevHash = h === null || h === undefined ? GENESIS_HASH : String(h)
@@ -235,24 +211,15 @@ export async function recordAuditLog(params: RecordAuditLogParams): Promise<stri
         prevHash = GENESIS_HASH
       }
 
-      // F-275:新行改用 v2 哈希(把 ip / user_agent 证据列纳入输入)。metadata 与
-      // INSERT 其余列保持原样,不改表结构、不写版本标记 —— 兼容判定放在 verify 侧:
-      // 对每行同时试 v1/v2,存量行匹配 v1、新行匹配 v2,零迁移、零读端改动。
-      const currentHash = computeAuditHash(
-        prevHash,
-        {
-          timestamp,
-          userId: params.userId ?? null,
-          action: params.action,
-          resourceType: params.resourceType ?? null,
-          resourceId: params.resourceId ?? null,
-          result: params.result ?? null,
-          metadata: params.metadata ?? null,
-          ip: params.ip ?? null,
-          userAgent: params.userAgent ?? null,
-        },
-        2,
-      )
+      const currentHash = computeAuditHash(prevHash, {
+        timestamp,
+        userId: params.userId ?? null,
+        action: params.action,
+        resourceType: params.resourceType ?? null,
+        resourceId: params.resourceId ?? null,
+        result: params.result ?? null,
+        metadata: params.metadata ?? null,
+      })
 
       const metadataJson = JSON.stringify(params.metadata ?? {})
       const insertRaw = await tx.execute(sql`
@@ -439,9 +406,9 @@ export async function recordToolLedgerAuditIngest(
  *
  * 任一不匹配 → 返回篡改位置 + 原因。
  *
- * @param logs 按链序(seq)升序排列的日志链
+ * @param logs 按时间升序排列的日志链
  * @param mode 输入形态(缺省 `span`,即"这是一段连续的链")。**判链之前必须先问这一维**:
- *   链是全局的(`recordAuditLog` 取链尾用 `ORDER BY seq DESC LIMIT 1` 全表),
+ *   链是全局的(`recordAuditLog` 取链尾用 `ORDER BY timestamp DESC LIMIT 1` 全表),
  *   而按用户查回来的只是子序列 —— 把子序列当区间判,任何与别人行交错的用户都会
  *   被报"prev_hash 链断裂",而那个"断裂"根本不是篡改(数据是好的,只是没全带进来)。
  *   `subset` 档因此照常重算每条 HMAC(内容自洽照判),但邻接不成立**只计数不判红**,
@@ -480,12 +447,8 @@ export function verifyAuditLogIntegrity(
       adjacencyBreaks += 1
     }
 
-    // 检查 2:current_hash 重算。
-    // F-275:v1 为历史 8 字段口径,v2 追加 ip / user_agent 证据列。每行同时试两版,
-    // 命中任一即视为自洽 —— 存量行匹配 v1、改造后新行匹配 v2,无需迁移/版本列。
-    // 攻击者改动新行的 ip/user_agent(或把 current_hash 换回 v1 值),两版都不匹配
-    // (v1 值与 v2 存储值不同,且 HMAC 需密钥无法离线重算),链仍判红。
-    const hashInput = {
+    // 检查 2:current_hash 重算
+    const recomputed = computeAuditHash(log.prevHash, {
       timestamp: log.timestamp,
       userId: log.userId,
       action: log.action,
@@ -493,14 +456,7 @@ export function verifyAuditLogIntegrity(
       resourceId: log.resourceId,
       result: log.result,
       metadata: log.metadata,
-    }
-    const recomputedV1 = computeAuditHash(log.prevHash, hashInput, 1)
-    const recomputedV2 = computeAuditHash(
-      log.prevHash,
-      { ...hashInput, ip: log.ip, userAgent: log.userAgent },
-      2,
-    )
-    const recomputed = recomputedV1 === log.currentHash ? recomputedV1 : recomputedV2
+    })
     if (recomputed !== log.currentHash) {
       return {
         valid: false,
@@ -673,7 +629,12 @@ export interface RawTextColumns {
  * - token 计数、成本、apiKeyId 等归因/计费列与本法无关,调用方照常写。
  */
 export function buildRawTextColumns(
-  input: { apiKeyId: string | null; prompt: string; response: string | null; userId?: string | null },
+  input: {
+    apiKeyId: string | null
+    prompt: string
+    response: string | null
+    userId?: string | null
+  },
   policy: RawRetentionPolicy = resolveRawRetentionPolicy(),
 ): RawTextColumns {
   // 2026-10-03 数据出域合规整改:新增**按用户**关闭原文留存(此前只有按 key 的
@@ -681,7 +642,8 @@ export function buildRawTextColumns(
   // 必须给出用户自己能按的"不留存"开关,而不能只让运维改 env)。
   // 语义与按 key 一致:命中即"写入即不留",窗口为零(而不是等清除器来抹),
   // 归因/计费列(token 数、成本、apiKeyId、userId)完全不受影响。
-  const userOptOut = input.userId !== null && input.userId !== undefined && isRawRetentionOptedOut(input.userId)
+  const userOptOut =
+    input.userId !== null && input.userId !== undefined && isRawRetentionOptedOut(input.userId)
   const disabled =
     userOptOut ||
     policy.all ||

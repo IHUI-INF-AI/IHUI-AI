@@ -169,10 +169,10 @@ function createStyles(tk: AppThemeTokens) {
       paddingHorizontal: rnSpacing.sm,
       paddingVertical: rnSpacing['2xs'],
     },
-    vipBadgeText: { color: tk.surface.light, fontSize: rnType.body.size, fontWeight: '700' },
+    vipBadgeText: { color: tk.warning.onAmber, fontSize: rnType.body.size, fontWeight: '700' },
     title: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
     expireWrap: { alignItems: 'flex-end', gap: rnSpacing.xs },
-    daysText: { fontSize: rnType.body.size, color: tk.warning.DEFAULT, fontWeight: '600' },
+    daysText: { fontSize: rnType.body.size, color: tk.warning.amberText, fontWeight: '600' },
     expireText: { fontSize: rnType.body.size, color: tk.text.secondary },
     benefitsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: rnSpacing['xs-loose'] },
     benefitTag: {

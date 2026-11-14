@@ -122,7 +122,7 @@ export function LlmSettingsScreen({
           />
         ) : providers.length === 0 ? (
           <EmptyState
-            icon={<KeyRound size={26} color={tk.text.tertiary} />}
+            icon={<KeyRound size={26} color={tk.text.secondary} />}
             title={t('llmSettings.empty')}
             desc={t('llmSettings.emptyDesc')}
             colorScheme={colorScheme}
@@ -196,7 +196,7 @@ export function LlmSettingsScreen({
                   value={apiKey}
                   onChangeText={onApiKeyChange}
                   placeholder={t('byok.keyPlaceholder')}
-                  placeholderTextColor={tk.text.tertiary}
+                  placeholderTextColor={tk.text.secondary}
                   secureTextEntry={!keyVisible}
                   autoCapitalize="none"
                   autoCorrect={false}
@@ -228,16 +228,16 @@ export function LlmSettingsScreen({
                 ) : null}
                 {verifyState === 'success' ? (
                   <View style={styles.centerRow}>
-                    <Check size={16} color={tk.success.DEFAULT} />
-                    <Text style={[styles.label, { color: tk.success.DEFAULT }]}>
+                    <Check size={16} color={tk.success.deepText} />
+                    <Text style={[styles.label, { color: tk.success.deepText }]}>
                       {t('byok.verifySuccess')}
                     </Text>
                   </View>
                 ) : null}
                 {verifyState === 'failed' || verifyState === 'unavailable' ? (
                   <View style={styles.centerRow}>
-                    <X size={16} color={tk.danger.DEFAULT} />
-                    <Text style={[styles.label, { color: tk.danger.DEFAULT }]}>
+                    <X size={16} color={tk.danger.deepText} />
+                    <Text style={[styles.label, { color: tk.danger.deepText }]}>
                       {verifyMsg || t('byok.verifyFailed')}
                     </Text>
                   </View>
@@ -247,7 +247,7 @@ export function LlmSettingsScreen({
 
             {wizardStep === 3 ? (
               <View style={styles.formCard}>
-                <Check size={24} color={tk.success.DEFAULT} />
+                <Check size={24} color={tk.success.deepText} />
                 <Text style={styles.cardName}>{t('byok.doneTitle')}</Text>
                 <Text style={styles.label}>{t('byok.doneDesc')}</Text>
               </View>
@@ -332,9 +332,9 @@ function createStyles(tk: AppThemeTokens) {
     },
     cardHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     cardName: { ...rnType.title, color: tk.text.primary },
-    cardUrl: { fontSize: rnType.label.size, color: tk.text.tertiary },
-    badgeOn: { fontSize: rnType.label.size, color: tk.success.DEFAULT, fontWeight: '600' },
-    badgeOff: { fontSize: rnType.label.size, color: tk.text.tertiary },
+    cardUrl: { fontSize: rnType.label.size, color: tk.text.medium },
+    badgeOn: { fontSize: rnType.label.size, color: tk.success.deepText, fontWeight: '600' },
+    badgeOff: { fontSize: rnType.label.size, color: tk.text.medium },
     wizardContainer: { flex: 1, backgroundColor: tk.surface.bg, paddingTop: rnSpacing.xl },
     stepRow: { flexDirection: 'row', gap: rnSpacing.sm, paddingHorizontal: rnSpacing.lg },
     stepDot: { flex: 1, height: 4, borderRadius: rnRadius.xs, backgroundColor: tk.surface.muted },

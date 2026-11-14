@@ -27,7 +27,7 @@
  * 刷新连续失败 REFRESH_FAILURE_LIMIT 次 → tempUnschedulable=true(自动摘除,admin 可见原因)。
  * 与 relay-channel-router 的进程级熔断互补:这里是「账号凭证生命周期」,那里是「渠道调用质量」。
  */
-import { and, eq, gt, gte, isNotNull, isNull, lt, lte, or, inArray, sql } from 'drizzle-orm'
+import { and, eq, gt, isNotNull, isNull, lt, lte, or, inArray, sql } from 'drizzle-orm'
 import { db, dbRead } from '../db/index.js'
 import { aiRelayAccountPool, type AiRelayAccountPool } from '@ihui/database'
 import { decryptAccountCredentials, type AccountCredentials } from './relay-account-pool-service.js'
@@ -371,59 +371,6 @@ export function keepaliveIdleWhere(cutoff: Date, foreverCutoff?: Date) {
 }
 
 /**
- * 摘除来源标记(2026-11-13 F-647):`extraMetadata.unschedulableSource`。
- *
- * 立因:`tempUnschedulable` 一列同时承载巡检自动摘除与管理员人工止血,而巡检的成功
- * 回写无脑写 `tempUnschedulable=false` ⇒ 人工摘除的号会在 5 分钟内被下一轮换票顺手
- * 撤销,止血失效。来源标记落进既有 jsonb 列(不新增 schema):管理面人工摘除写
- * `'manual'`,巡检自动摘除写 `'auto'`。历史行没有标记,按「未达自动摘除失败阈值」
- * 反推为人工 —— 自动摘除必然累计到 REFRESH_FAILURE_LIMIT。
- */
-export const UNSCHEDULABLE_SOURCE_KEY = 'unschedulableSource'
-export type UnschedulableSource = 'manual' | 'auto'
-
-/** 读来源标记:只认两个合法字面量;缺失/坏形态 ⇒ null(不宽松转换)。 */
-export function unschedulableSourceOf(row: { extraMetadata?: unknown }): UnschedulableSource | null {
-  const meta = row.extraMetadata
-  if (meta === null || typeof meta !== 'object' || Array.isArray(meta)) return null
-  const raw = (meta as Record<string, unknown>)[UNSCHEDULABLE_SOURCE_KEY]
-  return raw === 'manual' || raw === 'auto' ? raw : null
-}
-
-/**
- * 这枚号的摘除是不是人工做的(唯一判据)。
- * 人工摘除只能由人解除;换票成功、永久保活解摘等自动通道一律不得撤旗。
- */
-export function isManuallyUnschedulable(row: {
-  tempUnschedulable?: boolean | null
-  refreshFailureCount?: number | null
-  extraMetadata?: unknown
-}): boolean {
-  if (row.tempUnschedulable !== true) return false
-  const source = unschedulableSourceOf(row)
-  if (source === 'manual') return true
-  if (source === 'auto') return false
-  return (row.refreshFailureCount ?? 0) < REFRESH_FAILURE_LIMIT
-}
-
-/**
- * 「自动摘除」的 SQL 判据:只有巡检自己摘的号才允许被自动解摘/恢复。
- * 缺标记的历史行只有在失败计数达到自动摘除阈值时才当作自动摘除。
- */
-function autoUnschedulableCondition() {
-  return and(
-    eq(aiRelayAccountPool.tempUnschedulable, true),
-    or(
-      sql`${aiRelayAccountPool.extraMetadata}->>'unschedulableSource' = 'auto'`,
-      and(
-        sql`${aiRelayAccountPool.extraMetadata}->>'unschedulableSource' is null`,
-        gte(aiRelayAccountPool.refreshFailureCount, REFRESH_FAILURE_LIMIT),
-      ),
-    ),
-  )
-}
-
-/**
  * 永久保活号的解摘候选 where(导出供镜像测试锁形状)。
  *
  * 为什么需要这一档:`refreshOne` 连续失败 3 次会置 `tempUnschedulable=true`,而四档候选
@@ -434,8 +381,7 @@ function autoUnschedulableCondition() {
 export function keepAliveReviveWhere(before: Date) {
   return and(
     keepAliveForeverCondition(),
-    // F-647:只解摘巡检自己摘的号;人工摘除(标记 manual)必须等人来解。
-    autoUnschedulableCondition(),
+    eq(aiRelayAccountPool.tempUnschedulable, true),
     // 2026-11-12 补「解摘的前提是解摘后真能续上」:
     // 无 refreshToken 且无 cookie 的号,解摘后既进不了临期刷新(expiringRefreshWhere)、
     // 也进不了 down 恢复(downRecoveryWhere)——两档候选都要求 recredentialableCondition。
@@ -472,40 +418,24 @@ export async function reviveKeepAliveForeverAccounts(
     .from(aiRelayAccountPool)
     .where(keepAliveReviveWhere(before))
     .limit(KEEPALIVE_MAX_PER_SWEEP)
-  // F-654:只把「写库成功」的行返回给调用方记「已解摘 N 个」。此前把查到的候选行
-  // 全量返回且吞掉写失败,DB 抖动时日志谎报成功、账号实际仍被摘且每轮重复失败无告警。
-  const revived: typeof stale = []
-  let failed = 0
   for (const row of stale) {
-    try {
-      await db
-        .update(aiRelayAccountPool)
-        .set({
-          tempUnschedulable: false,
-          refreshFailureCount: 0,
-          // 刻意**不写** healthStatus:解摘的语义是「解除调度封锁」,不是「判它健康」。
-          // 保留 down 反而更正确 —— downRecoveryWhere 不看健康白名单,会立刻按再凭证通道重试,
-          // 刷成功时由 refreshOne 把 down 收回 unknown(既有口径),失败则继续累计并再摘。
-          // 2026-11-01 实测:凭空写 unknown 会把这条既有不变量洗掉,还与既有测试
-          // 「按 healthStatus 键存在性识别健康写入」的选取器撞形,把定级读数顶成解摘留痕。
-          lastErrorMessage: `永久保活自动解摘(摘除满 ${backoffHours}h,重新纳入续期):前因 ${(row.lastErrorMessage ?? '未知').slice(0, 200)}`,
-          updatedAt: now,
-        })
-        .where(eq(aiRelayAccountPool.id, row.id))
-      revived.push(row)
-    } catch (e) {
-      failed += 1
-      logger.warn('[relay-account-pool] 永久保活自动解摘写库失败(不计入已解摘)', {
-        providerCode: row.providerCode,
-        uid: row.uid,
-        error: e instanceof Error ? e.message.slice(0, 200) : String(e),
+    await db
+      .update(aiRelayAccountPool)
+      .set({
+        tempUnschedulable: false,
+        refreshFailureCount: 0,
+        // 刻意**不写** healthStatus:解摘的语义是「解除调度封锁」,不是「判它健康」。
+        // 保留 down 反而更正确 —— downRecoveryWhere 不看健康白名单,会立刻按再凭证通道重试,
+        // 刷成功时由 refreshOne 把 down 收回 unknown(既有口径),失败则继续累计并再摘。
+        // 2026-11-01 实测:凭空写 unknown 会把这条既有不变量洗掉,还与既有测试
+        // 「按 healthStatus 键存在性识别健康写入」的选取器撞形,把定级读数顶成解摘留痕。
+        lastErrorMessage: `永久保活自动解摘(摘除满 ${backoffHours}h,重新纳入续期):前因 ${(row.lastErrorMessage ?? '未知').slice(0, 200)}`,
+        updatedAt: now,
       })
-    }
+      .where(eq(aiRelayAccountPool.id, row.id))
+      .catch(() => {})
   }
-  if (failed > 0) {
-    logger.warn('[relay-account-pool] 永久保活自动解摘部分失败', { failed, total: stale.length })
-  }
-  return revived
+  return stale
 }
 
 /**
@@ -844,9 +774,6 @@ export function downRecoveryWhere() {
     eq(aiRelayAccountPool.isEnabled, true),
     inArray(aiRelayAccountPool.healthStatus, ['down', 'degraded']),
     recredentialableCondition(),
-    // F-647:人工摘除的号不自动拉回恢复轮;无标记的历史行仍按原口径进恢复
-    // (行级 isManuallyUnschedulable 会兜住它们的撤旗,见 refreshOne 成功回写)。
-    sql`${aiRelayAccountPool.extraMetadata}->>'unschedulableSource' is distinct from 'manual'`,
   )
 }
 
@@ -1024,10 +951,8 @@ async function refreshOneLocked(
         credVersion: sql`${aiRelayAccountPool.credVersion} + 1`,
         lastRefreshAt: now,
         refreshFailureCount: 0,
-        // 刷新成功即解除「凭证失效」型摘除;健康状态回 unknown 等巡检定级。
-        // F-647:人工摘除不在此列 —— 换票成功只证明票还能换,不证明止血可以撤;
-        // 只有巡检自己摘的号(含历史行按失败计数反推)才允许自动清理摘除态。
-        ...(isManuallyUnschedulable(row) ? {} : { tempUnschedulable: false }),
+        // 刷新成功即解除「凭证失效」型摘除;健康状态回 unknown 等巡检定级
+        tempUnschedulable: false,
         healthStatus: row.healthStatus === 'down' ? 'unknown' : row.healthStatus,
         lastErrorMessage: null,
         updatedAt: now,
@@ -1101,9 +1026,7 @@ async function refreshOneLocked(
         ...(authRejected ? { tokenExpiresAt: failedAt } : {}),
         ...(enteringRemove
           ? {
-              // F-647:自动摘除必须自带来源标记,否则下一轮换票成功会把人工止血一起撤掉。
               extraMetadata: sql`coalesce(${aiRelayAccountPool.extraMetadata}, '{}'::jsonb) || jsonb_build_object(
-                'unschedulableSource', 'auto',
                 'keepalive', jsonb_build_object(
                   'lastFailureAt', ${failedAt.toISOString()}::text,
                   'failureCount', ${failures}::int,

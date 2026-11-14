@@ -195,7 +195,7 @@ export function SelfMediaScreen({
                           <Text
                             style={[
                               styles.categoryBadgeText,
-                              { color: skill.available ? tk.success.deep : tk.text.tertiary },
+                              { color: skill.available ? tk.success.deep : tk.text.secondary },
                             ]}
                           >
                             {skill.category}
@@ -214,7 +214,7 @@ export function SelfMediaScreen({
                           value={prompt}
                           onChangeText={onPromptChange}
                           placeholder={skill.examples[0] || t('selfMedia.promptPlaceholder')}
-                          placeholderTextColor={tk.text.tertiary}
+                          placeholderTextColor={tk.text.secondary}
                           multiline
                           textAlignVertical="top"
                           style={styles.promptInput}
@@ -489,7 +489,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     resultDuration: {
       fontSize: rnType.badge.size, // text-[10px]
-      color: tk.text.tertiary, // text-gray-400
+      color: tk.text.medium, // text-gray-400
     },
     resultShare: {
       fontSize: rnType.label.size, // text-xs
@@ -517,7 +517,7 @@ function createStyles(tk: AppThemeTokens) {
     recordMeta: {
       fontSize: rnType.badge.size, // text-[10px]
       marginTop: rnSpacing.xs, // mt-1
-      color: tk.text.tertiary, // text-gray-400
+      color: tk.text.medium, // text-gray-400
     },
   } satisfies Record<string, ViewStyle | TextStyle>)
 }

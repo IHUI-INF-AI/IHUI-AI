@@ -162,7 +162,15 @@
     "tasksUsageCancel": "usage: /tasks cancel <id>",
     "tasksUsageBlock": "usage: /tasks block <id>",
     "taskCancelledFeedback": "✓ 任務 #{id} 已取消: {content}",
-    "taskBlockedFeedback": "✓ 任務 #{id} 已阻塞: {content}"
+    "taskBlockedFeedback": "✓ 任務 #{id} 已阻塞: {content}",
+    "questionAsk": "AI 在問你:{prompt}",
+    "questionAskCustom": "  直接輸入你的答案(留空 Enter = 關閉這個提問)",
+    "questionAskHint": "  直接輸入你的答案(留空 Enter = 關閉這個提問)",
+    "questionAnswered": "已答覆:{answer}",
+    "questionResolved": "該提問已結算",
+    "questionNoSession": "無會話主鍵,無法提交答覆",
+    "questionFailed": "答覆提交失敗,請重試",
+    "questionLegacy": "服務端不支援阻塞式提問,本次答覆未生效"
   },
   "waiting": {
     "agent": {
@@ -584,5 +592,8 @@
     "rejectedTitle": "被拒絕條目:",
     "statusTitle": "有效知識卡片({total} 張):",
     "statusEmpty": "(尚無有效知識卡片,請先執行 ihui wiki compile)"
+  },
+  "chat": {
+    "admissionAhead": "前面還有 {n} 位"
   }
 }

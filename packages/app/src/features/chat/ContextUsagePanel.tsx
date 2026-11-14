@@ -164,7 +164,7 @@ export function ContextUsagePanel({
                       {
                         backgroundColor: seg.observed
                           ? segmentColor(tk, seg.key)
-                          : tk.text.tertiary,
+                          : tk.text.secondary,
                       },
                     ]}
                   />

@@ -31,7 +31,6 @@ import {
   type LearnHomeworkRecord,
   type LearnCommunityPost,
 } from '@ihui/database'
-import { encryptInvoiceTitleFields, decryptInvoiceTitleFields } from '../utils/pii-field.js'
 
 // =============================================================================
 // Homework (课程作业)
@@ -294,12 +293,11 @@ export async function updateInvoiceApplicationStatus(
  * 查询某用户的发票抬头列表,默认抬头优先,按 createdAt 倒序。
  */
 export async function findInvoiceTitleList(userId: string): Promise<LearnInvoiceTitle[]> {
-  const rows = await db
+  return db
     .select()
     .from(learnInvoiceTitles)
     .where(eq(learnInvoiceTitles.userId, userId))
     .orderBy(desc(learnInvoiceTitles.isDefault), desc(learnInvoiceTitles.createdAt))
-  return rows.map((r) => decryptInvoiceTitleFields(r))
 }
 
 export async function findInvoiceTitleById(id: string): Promise<LearnInvoiceTitle | undefined> {
@@ -308,9 +306,7 @@ export async function findInvoiceTitleById(id: string): Promise<LearnInvoiceTitl
     .from(learnInvoiceTitles)
     .where(eq(learnInvoiceTitles.id, id))
     .limit(1)
-  const row = rows[0]
-  if (!row) return undefined
-  return decryptInvoiceTitleFields(row)
+  return rows[0]
 }
 
 export interface CreateInvoiceTitleInput {
@@ -335,26 +331,23 @@ export async function createInvoiceTitle(
       .set({ isDefault: false })
       .where(eq(learnInvoiceTitles.userId, data.userId))
   }
-  const pii = encryptInvoiceTitleFields({
-    taxNo: data.taxNo,
-    bank: data.bank,
-    bankAccount: data.bankAccount,
-    address: data.address,
-    phone: data.phone,
-  })
   const rows = await db
     .insert(learnInvoiceTitles)
     .values({
       userId: data.userId,
       title: data.title,
       type: data.type,
-      ...pii,
+      taxNo: data.taxNo,
+      bank: data.bank,
+      bankAccount: data.bankAccount,
+      address: data.address,
+      phone: data.phone,
       isDefault: data.isDefault,
     })
     .returning()
   const row = rows[0]
   if (!row) throw new Error('创建发票抬头失败')
-  return decryptInvoiceTitleFields(row)
+  return row
 }
 
 export interface UpdateInvoiceTitleInput {
@@ -382,30 +375,22 @@ export async function updateInvoiceTitle(
         .where(eq(learnInvoiceTitles.userId, existing.userId))
     }
   }
-  const pii = encryptInvoiceTitleFields({
-    taxNo: data.taxNo,
-    bank: data.bank,
-    bankAccount: data.bankAccount,
-    address: data.address,
-    phone: data.phone,
-  })
   const rows = await db
     .update(learnInvoiceTitles)
     .set({
       ...(data.title !== undefined ? { title: data.title } : {}),
       ...(data.type !== undefined ? { type: data.type } : {}),
-      ...(pii.taxNo !== undefined ? { taxNo: pii.taxNo } : {}),
-      ...(pii.bank !== undefined ? { bank: pii.bank } : {}),
-      ...(pii.bankAccount !== undefined ? { bankAccount: pii.bankAccount } : {}),
-      ...(pii.address !== undefined ? { address: pii.address } : {}),
-      ...(pii.phone !== undefined ? { phone: pii.phone } : {}),
+      ...(data.taxNo !== undefined ? { taxNo: data.taxNo } : {}),
+      ...(data.bank !== undefined ? { bank: data.bank } : {}),
+      ...(data.bankAccount !== undefined ? { bankAccount: data.bankAccount } : {}),
+      ...(data.address !== undefined ? { address: data.address } : {}),
+      ...(data.phone !== undefined ? { phone: data.phone } : {}),
       ...(data.isDefault !== undefined ? { isDefault: data.isDefault } : {}),
       updatedAt: new Date(),
     })
     .where(eq(learnInvoiceTitles.id, id))
     .returning()
-  const row = rows[0]
-  return row ? decryptInvoiceTitleFields(row) : undefined
+  return rows[0]
 }
 
 export async function deleteInvoiceTitle(id: string): Promise<void> {
@@ -427,22 +412,15 @@ export interface CompanyStudyReportQuery {
  * 否则「汇总 ≠ 趋势求和」,运营看到的数字对不上(F-149)。
  * - 课程只统计启用态 status=1;
  * - search 按课程标题模糊匹配;
- * - 时间范围按**上海业务日**过滤(F-150,2026-11-13):'YYYY-MM-DD' 此前直接 ::timestamptz
- *   按会话时区(UTC)解释 ⇒ 东八区 00:00–08:00 的报名归前一天,且 `<= endDate`(当日 00:00)
- *   把最后一天几乎整天排除;现改为「上海日 00:00 闭区间,次日 00:00 开区间」,与
- *   learn-record-queries 的 AT TIME ZONE 'Asia/Shanghai' 口径同形。
+ * - 时间范围按报名时间 lesson_sign_ups.created_at 过滤,含两端边界。
  */
 function companyStudyConditions(query: CompanyStudyReportQuery): SQL[] {
   const { startDate, endDate, search } = query
   const conds: SQL[] = [eq(lessons.status, 1)]
   if (search) conds.push(ilike(lessons.title, `%${search}%`))
   if (startDate && endDate) {
-    conds.push(
-      sql`${lessonSignUps.createdAt} >= (${startDate}::timestamp AT TIME ZONE 'Asia/Shanghai')`,
-    )
-    conds.push(
-      sql`${lessonSignUps.createdAt} < (((${endDate}::date) + 1)::timestamp AT TIME ZONE 'Asia/Shanghai')`,
-    )
+    conds.push(sql`${lessonSignUps.createdAt} >= ${startDate}::timestamptz`)
+    conds.push(sql`${lessonSignUps.createdAt} <= ${endDate}::timestamptz`)
   }
   return conds
 }
@@ -486,15 +464,15 @@ export async function findCompanyStudyReport(
   if (startDate && endDate) {
     const trendRows = await db
       .select({
-        date: sql<string>`to_char(${lessonSignUps.createdAt} AT TIME ZONE 'Asia/Shanghai', 'YYYY-MM-DD')`,
+        date: sql<string>`to_char(${lessonSignUps.createdAt}::date, 'YYYY-MM-DD')`,
         signups: sql<number>`count(*)::int`,
         completed: sql<number>`count(*) FILTER (WHERE ${lessonSignUps.status} = 2)::int`,
       })
       .from(lessonSignUps)
       .innerJoin(lessons, eq(lessons.id, lessonSignUps.lessonId))
       .where(whereCond)
-      .groupBy(sql`to_char(${lessonSignUps.createdAt} AT TIME ZONE 'Asia/Shanghai', 'YYYY-MM-DD')`)
-      .orderBy(sql`to_char(${lessonSignUps.createdAt} AT TIME ZONE 'Asia/Shanghai', 'YYYY-MM-DD')`)
+      .groupBy(sql`to_char(${lessonSignUps.createdAt}::date, 'YYYY-MM-DD')`)
+      .orderBy(sql`to_char(${lessonSignUps.createdAt}::date, 'YYYY-MM-DD')`)
     trend = trendRows as { date: string; signups: number; completed: number }[]
   }
 

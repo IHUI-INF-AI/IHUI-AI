@@ -18,6 +18,7 @@ import {
 import { appAlert } from '../components/BottomPops'
 import { useTheme } from '../context/ThemeContext'
 import { useI18n } from '../i18n'
+import { toFriendlyOr } from '@ihui/shared/utils'
 
 /**
  * 连接器管理屏(RN 端),对应 Web 端 /connectors。
@@ -67,7 +68,7 @@ export function ConnectorsScreen() {
       }
       setEntries(res.data?.connectors ?? [])
     } catch (e) {
-      setError(e instanceof Error ? e.message : t('connectors.loadFailed'))
+      setError(toFriendlyOr(e, t('connectors.loadFailed')))
       setEntries([])
     } finally {
       setLoading(false)
@@ -97,7 +98,7 @@ export function ConnectorsScreen() {
         } catch (e) {
           appAlert(
             t('common.loadFailed'),
-            e instanceof Error ? e.message : t('connectors.actionFailed'),
+            toFriendlyOr(e, t('connectors.actionFailed')),
           )
         } finally {
           setBusyKey('')
@@ -122,7 +123,7 @@ export function ConnectorsScreen() {
         } catch (e) {
           appAlert(
             t('connectors.syncFailed'),
-            e instanceof Error ? e.message : t('connectors.syncFailed'),
+            toFriendlyOr(e, t('connectors.syncFailed')),
           )
         } finally {
           setBusyKey('')
@@ -149,7 +150,7 @@ export function ConnectorsScreen() {
               } catch (e) {
                 appAlert(
                   t('common.loadFailed'),
-                  e instanceof Error ? e.message : t('connectors.actionFailed'),
+                  toFriendlyOr(e, t('connectors.actionFailed')),
                 )
               } finally {
                 setBusyKey('')

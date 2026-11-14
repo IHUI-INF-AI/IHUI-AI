@@ -102,7 +102,7 @@ $webColorSvcNames = @("IHUI-WEB-BLUE", "IHUI-WEB-GREEN")
 $apiRouterSvcName = "IHUI-API-ROUTER"; $apiColorSvcNames = @("IHUI-API-BLUE", "IHUI-API-GREEN")
 
 # ── 邮件出口配置(与 ihui-deploy.ps1 / alert-webhook-bridge.cjs 同源)──────────────
-$NotifyEmailTo       = EnvOr 'ALERT_EMAIL_TO' '502319984@qq.com'
+$NotifyEmailTo       = EnvOr 'ALERT_EMAIL_TO' 'lizong@aizhs.top'
 $BrandNotifyScript   = Join-Path $Root 'apps\api\scripts\notify-deploy-failure.ts'
 $BrandTsxEntry       = Join-Path $Root 'apps\api\node_modules\tsx\dist\cli.mjs'
 $BrandNotifyMsgDir   = Join-Path $Root '.ihui-agent\tmp\monitor-notify'

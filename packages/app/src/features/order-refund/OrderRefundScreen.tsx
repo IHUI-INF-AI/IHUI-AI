@@ -178,7 +178,7 @@ export function OrderRefundScreen({
                     value={reason}
                     onChangeText={onReasonChange}
                     placeholder={t('orderRefund.reasonPlaceholder')}
-                    placeholderTextColor={tk.text.tertiary}
+                    placeholderTextColor={tk.text.secondary}
                     multiline
                   />
                   {submitError ? <Text style={styles.errorText}>{submitError}</Text> : null}
@@ -235,9 +235,9 @@ function createStyles(tk: AppThemeTokens) {
     },
     subtitle: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.secondary },
     errorWrap: { paddingHorizontal: rnSpacing['sm-loose'], paddingVertical: rnSpacing.sm },
-    errorText: { fontSize: rnType.body.size, color: tk.danger.DEFAULT },
+    errorText: { fontSize: rnType.body.size, color: tk.danger.deepText },
     successWrap: { paddingHorizontal: rnSpacing['sm-loose'], paddingVertical: rnSpacing.sm },
-    successText: { fontSize: rnType.body.size, color: tk.success.DEFAULT },
+    successText: { fontSize: rnType.body.size, color: tk.success.deepText },
     outlineBtn: {
       marginTop: rnSpacing.sm,
       paddingVertical: rnSpacing['xs-loose'],
@@ -247,7 +247,7 @@ function createStyles(tk: AppThemeTokens) {
       borderColor: tk.success.DEFAULT,
       alignSelf: 'flex-start',
     },
-    outlineBtnText: { fontSize: rnType.body.size, color: tk.success.DEFAULT },
+    outlineBtnText: { fontSize: rnType.body.size, color: tk.success.deepText },
     card: {
       padding: rnSpacing.md,
       borderRadius: rnRadius.lg,
@@ -270,7 +270,7 @@ function createStyles(tk: AppThemeTokens) {
       marginLeft: rnSpacing.sm,
       fontSize: rnType.subtitle.size,
       fontWeight: '600',
-      color: tk.success.DEFAULT,
+      color: tk.success.deepText,
     },
     cardMetaRow: {
       flexDirection: 'row',

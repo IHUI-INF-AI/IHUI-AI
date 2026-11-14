@@ -65,15 +65,16 @@ export default function VipUpgradeToast({
             {tt('vip.upgradeNow', '升级')}
           </Text>
         </View>
-        <Text
+        <View
           className="text-label text-warning ml-sm"
+          hoverClass="opacity-60"
           onClick={() => {
             setShow(false)
             onClose?.()
           }}
         >
-          ×
-        </Text>
+          <Text>×</Text>
+        </View>
       </View>
     </View>
   )

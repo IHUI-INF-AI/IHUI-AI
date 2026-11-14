@@ -78,13 +78,10 @@ import {
   evaluateLoginRisk,
   evaluateRisk,
   recentRiskHitsByIp,
-  type RiskContext,
-  type RiskEvaluationResult,
 } from '../services/risk-engine-service.js'
 import { verifyTurnstile } from '../services/turnstile-service.js'
 import { db } from '../db/index.js'
-import { userDevices, orders, withdrawalFlows } from '@ihui/database'
-import { and, count, desc, eq, gte } from 'drizzle-orm'
+import { userDevices } from '@ihui/database'
 import {
   recordAuthLoginAttempt,
   recordAuthLoginSuccess,
@@ -366,17 +363,6 @@ type QrLoginState =
 const LOGIN_LAST_IP_KEY = (userId: string): string => `login:last-ip:${userId}`
 const LOGIN_LAST_IP_TTL_SEC = 90 * 24 * 60 * 60
 
-// ── F-379:登录入口补齐 R002/R005 所需字段 ──
-// R002(高频退款)/R005(大额提现)读取的字段此前在登录入口从未赋值 ⇒ 两条规则空转。
-// 这里把「登录时刻的账号行为快照」一并放进上下文:
-//   - recentRefundCount / recentRefundWindowSec:近 24h 已退款订单数(查得无记录即显式 0);
-//   - withdrawalAmountFen:最近一笔提现申请金额;avgWithdrawalFen:已完成提现均值(无历史即显式 0)。
-// 查询失败时保持 undefined ⇒ 引擎记为「未判定」并计数,不得按 0 当作通过。
-const LOGIN_REFUND_WINDOW_SEC = 24 * 60 * 60
-const LOGIN_WITHDRAWAL_SAMPLE_SIZE = 50
-/** withdrawal_flows.status: 2 = completed */
-const WITHDRAWAL_STATUS_COMPLETED = 2
-
 function ipRegionKey(ip: string): string {
   const v4 = /^(\d{1,3}\.\d{1,3})\./.exec(ip)
   if (v4) return v4[1]!
@@ -391,64 +377,12 @@ function headerValue(request: FastifyRequest, name: string): string | undefined 
   return Array.isArray(raw) ? raw[0] : raw
 }
 
-async function attachLoginBehaviorRiskSignals(
-  ctx: RiskContext,
-  request: FastifyRequest,
-  userId: string,
-): Promise<void> {
-  try {
-    const refundSince = new Date(Date.now() - LOGIN_REFUND_WINDOW_SEC * 1000)
-    const rows = await db
-      .select({ c: count() })
-      .from(orders)
-      .where(
-        and(
-          eq(orders.userId, userId),
-          eq(orders.status, 'refunded'),
-          gte(orders.refundTime, refundSince),
-        ),
-      )
-    ctx.recentRefundCount = Number(rows[0]?.c ?? 0)
-    ctx.recentRefundWindowSec = LOGIN_REFUND_WINDOW_SEC
-  } catch (e) {
-    request.log.warn({ err: e }, 'login risk: refund history unavailable (R002 undetermined)')
-  }
-
-  try {
-    const rows = await db
-      .select({ amount: withdrawalFlows.originalAmount, status: withdrawalFlows.status })
-      .from(withdrawalFlows)
-      .where(eq(withdrawalFlows.userId, userId))
-      .orderBy(desc(withdrawalFlows.createdAt))
-      .limit(LOGIN_WITHDRAWAL_SAMPLE_SIZE)
-    ctx.withdrawalAmountFen = rows[0]?.amount ?? 0
-    const completed = rows.filter((r) => r.status === WITHDRAWAL_STATUS_COMPLETED)
-    ctx.avgWithdrawalFen = completed.length
-      ? Math.round(completed.reduce((sum, r) => sum + r.amount, 0) / completed.length)
-      : 0
-  } catch (e) {
-    request.log.warn({ err: e }, 'login risk: withdrawal history unavailable (R005 undetermined)')
-  }
-}
-
-/** F-379:未判定规则必须留痕(计数 + 规则/缺失字段),不能静默当通过。 */
-function logUndeterminedLoginRisk(request: FastifyRequest, risk: RiskEvaluationResult): void {
-  if (!risk.undeterminedCount) return
-  request.log.warn(
-    {
-      undeterminedCount: risk.undeterminedCount,
-      undetermined: risk.undetermined,
-    },
-    '登录风控存在未判定规则(上下文字段缺失，不计为通过)',
-  )
-}
-
 async function buildLoginRiskContext(
   request: FastifyRequest,
   userId: string,
-): Promise<RiskContext> {
+): Promise<Record<string, unknown>> {
   const ip = request.ip
-  const ctx: RiskContext = {
+  const ctx: Record<string, unknown> = {
     userId,
     ip,
     userAgent: headerValue(request, 'user-agent'),
@@ -467,7 +401,6 @@ async function buildLoginRiskContext(
   } catch (e) {
     request.log.warn({ err: e }, 'login risk: last-login-ip lookup failed')
   }
-  await attachLoginBehaviorRiskSignals(ctx, request, userId)
   return ctx
 }
 
@@ -575,7 +508,7 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
       }
       const { phone } = parsed.data
 
-      // G-192 / F-287:按「手机号」与「IP」两把独立计数频控(计数覆盖取码尝试,含后续 60 秒重发拦截)
+      // G-192:按「手机号 + IP」频控(计数覆盖取码尝试,含后续 60 秒重发拦截)
       const quota = await consumeSendQuota(phone, request.ip)
       if (!quota.allowed) {
         return reply
@@ -613,7 +546,7 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
         extractSmsSendGuard(request.headers, request.ip),
       )
       if (!delivery.sent) {
-        // 没发出去就把「手机号」「IP」两把取码配额一起退还,避免通道抖动一次就锁住用户 10 分钟
+        // 没发出去就退还本标识 + IP 的取码配额,避免通道抖动一次就锁住用户 10 分钟
         await refundSendQuota(phone, request.ip)
         request.log.warn({ reason: delivery.reason, scene: parsed.data.scene }, '验证码投递失败')
         // IP/设备防刷命中与云侧失败必须区分:前者是客户端该退避,后者是通道问题
@@ -830,9 +763,11 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
             invitation.status === 'unused' &&
             (!invitation.expiresAt || invitation.expiresAt > now)
           ) {
-            await markInvitationUsed({ id: invitation.id, inviteeId: user.id })
+            // F-15:markInvitationUsed 改为条件 UPDATE(仅 unused 可抢占),抢不到返回 undefined;
+            // 只有抢到的一方才发奖励,杜绝同一邀请码并发注册双发。
+            const claimed = await markInvitationUsed({ id: invitation.id, inviteeId: user.id })
 
-            if (invitation.rewardInvitee > 0) {
+            if (claimed && invitation.rewardInvitee > 0) {
               try {
                 await earnPoints(
                   user.id,
@@ -847,7 +782,7 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
               }
             }
 
-            if (invitation.rewardInviter > 0) {
+            if (claimed && invitation.rewardInviter > 0) {
               try {
                 await earnPoints(
                   invitation.inviterId,
@@ -956,12 +891,8 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
       const { account, password } = parsed.data
       const ip = request.ip
 
-      // F-556:先按标识解析用户 —— 用户名/手机号/邮箱指向同一用户时,失败计数与
-      // 锁定窗口按同一个 userId 归并;解析不到时服务层回退到规范化账号串。
-      const user = await findUserByAccount(account)
-
       // 账号/IP 锁定检查（防密码爆破）
-      const lockRemaining = await getLockRemainingMs(account, ip, user?.id)
+      const lockRemaining = await getLockRemainingMs(account, ip)
       if (lockRemaining > 0) {
         const retryAfterSec = Math.ceil(lockRemaining / 1000)
         recordAuthLoginFailed(ip)
@@ -977,6 +908,7 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
           )
       }
 
+      const user = await findUserByAccount(account)
       // 等代价校验 + 单一失败出口(为什么必须合:见 verifyLoginPassword 的说明)。
       // 原先"账号不存在"是一条独立的短返回:不跑 argon2、文案不带剩余次数、也永不升 429,
       // 于是"这个人存不存在"同时从耗时与响应形状两个面漏出去。
@@ -984,7 +916,7 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
       // 条件里的 `!user.passwordHash` 只做**类型收窄**(下面透明升级要非空哈希):
       // 等代价校验已在上一行无条件跑过,这一格不再产生第二条可分辨的出口。
       if (!user || !user.passwordHash || !ok) {
-        const remaining = await recordLoginFailure(account, ip, user?.id)
+        const remaining = await recordLoginFailure(account, ip)
         if (remaining === 0) {
           recordAuthLoginFailed(ip)
           recordAuthLoginAnomaly('lockout')
@@ -1012,7 +944,7 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
       }
 
       // 登录成功 → 清空失败计数
-      await clearLoginFailures(account, ip, user.id)
+      await clearLoginFailures(account, ip)
 
       // 2026-07-24 国安级升级:透明升级老 bcrypt 哈希到 argon2id(抗 GPU/ASIC)
       // 登录成功后自动迁移,用户无感知,无需强制重置密码。
@@ -1027,7 +959,6 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
 
       // 风控评估：异常 IP / 异地登录检测（F-377:补齐 IP 信誉与异地上下文）
       const risk = evaluateLoginRisk(await buildLoginRiskContext(request, String(user.id)))
-      logUndeterminedLoginRisk(request, risk)
       if (risk.action === 'DENY') {
         recordAuthLoginAnomaly('deny')
         request.log.warn({ userId: user.id, ip: request.ip, hits: risk.hits }, '登录被风控拒绝')
@@ -1210,7 +1141,6 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
 
       // 风控评估（F-377:补齐 IP 信誉与异地上下文）
       const risk = evaluateLoginRisk(await buildLoginRiskContext(request, String(user.id)))
-      logUndeterminedLoginRisk(request, risk)
       if (risk.action === 'DENY') {
         recordAuthLoginAnomaly('deny')
         request.log.warn({ userId: user.id, ip: request.ip, hits: risk.hits }, '登录被风控拒绝')
@@ -1381,18 +1311,21 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
             error(501, '微信移动应用登录未配置,请配置 WECHAT_MOBILE_APP_ID/WECHAT_MOBILE_SECRET'),
           )
       }
-      // 上游真因必须落日志:微信对无效 code / 密钥不匹配都回 HTTP 200 + errcode
-      // (40029/40163/40125),旧写法 `.catch(() => null)` 把它吞成一句「invalid code」,
-      // 线上只能看到客户端统一的「登录已过期」,无法区分是 code 过期还是 AppSecret 不对。
-      const session = await wechatAppCode2session(parsed.data.code).catch((err: unknown) => {
+      // 诊断(2026-11-13):此前 .catch(()=>null) 把微信真实 errcode 吞掉,
+      // 客户端对所有 401 一律提示「登录已过期」,掩盖了真因(code 无效/签名不符/secret 错)。
+      // 这里把 WechatApiError 的 errcode 落到日志,供真机排障定位。
+      const session = await wechatAppCode2session(parsed.data.code).catch((e) => {
         request.log.warn(
-          { err: err instanceof Error ? err.message : String(err) },
-          '微信移动应用登录失败(上游明细)',
+          {
+            err: e instanceof Error ? e.message : String(e),
+            errcode: (e as { errcode?: number })?.errcode,
+          },
+          '微信移动应用 code 换 session 失败',
         )
         return null
       })
       if (!session) {
-        return reply.status(401).send(error(401, '微信登录失败:授权码无效或已过期,请重试'))
+        return reply.status(401).send(error(401, '微信登录失败: invalid code'))
       }
       const binding = await findThirdPartyAccount('wechat', session.openId)
       let user
@@ -1511,7 +1444,7 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
       }
       const { email } = parsed.data
 
-      // G-192 / F-287:按「邮箱」与「IP」两把独立计数频控(与 /send-code 同口径)
+      // G-192:按「邮箱 + IP」频控(与 /send-code 同口径)
       const quota = await consumeSendQuota(email, request.ip)
       if (!quota.allowed) {
         return reply
@@ -1885,7 +1818,7 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
       }
       const { phone } = parsed.data
 
-      // G-192 / F-287:按「手机号」与「IP」两把独立计数频控(与 /send-code 同口径)
+      // G-192:按「手机号 + IP」频控(与 /send-code 同口径)
       const quota = await consumeSendQuota(phone, request.ip)
       if (!quota.allowed) {
         return reply
@@ -1919,7 +1852,7 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
         extractSmsSendGuard(request.headers, request.ip),
       )
       if (!delivery.sent) {
-        // 没发出去就把「手机号」「IP」两把取码配额一起退还,避免通道抖动一次就锁住用户 10 分钟
+        // 没发出去就退还本标识 + IP 的取码配额,避免通道抖动一次就锁住用户 10 分钟
         await refundSendQuota(phone, request.ip)
         request.log.warn({ reason: delivery.reason, scene: parsed.data.scene }, '验证码投递失败')
         // IP/设备防刷命中与云侧失败必须区分:前者是客户端该退避,后者是通道问题

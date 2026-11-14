@@ -11,7 +11,7 @@
  */
 
 import { useCallback, useMemo, useState } from 'react'
-import { Alert } from 'react-native'
+import { appAlert } from '../components/BottomPops'
 import { useFocusEffect, useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { deleteConversation, fetchApi, setConversationPinned } from '@ihui/api-client'
@@ -158,15 +158,23 @@ export function ConversationHistoryScreen() {
   )
 
   const onDelete = useCallback((id: string) => {
-    Alert.alert('删除会话', '删除后不可恢复，确定删除？', [
+    appAlert('删除会话', '删除后不可恢复，确定删除？', [
       { text: '取消', style: 'cancel' },
       {
         text: '删除',
         style: 'destructive',
         onPress: () => {
-          void deleteConversation(id).then((res: ApiResult<unknown>) => {
-            if (res.success) setList((prev) => prev.filter((x) => x.id !== id))
-          })
+          void deleteConversation(id)
+            .then((res: ApiResult<unknown>) => {
+              if (res.success) {
+                setList((prev) => prev.filter((x) => x.id !== id))
+              } else {
+                appAlert('删除失败', res.error || '会话删除失败，请稍后重试')
+              }
+            })
+            .catch(() => {
+              appAlert('删除失败', '会话删除失败，请稍后重试')
+            })
         },
       },
     ])

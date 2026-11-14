@@ -115,7 +115,7 @@ export default function MemberHelpPage() {
 
       <div className="flex justify-center pt-2">
         <Button asChild variant="outline" size="sm" className="shrink-0 whitespace-nowrap">
-          <Link href="mailto:support@aizhs.top">
+          <Link href="mailto:lizong@aizhs.top">
             <Mail className="h-4 w-4 shrink-0" />
             <span className="whitespace-nowrap">联系客服</span>
           </Link>

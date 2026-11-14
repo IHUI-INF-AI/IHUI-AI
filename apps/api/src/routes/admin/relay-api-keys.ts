@@ -19,7 +19,6 @@ import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { eq, desc, ilike, and, sql, type SQL } from 'drizzle-orm'
 import { db, dbRead } from '../../db/index.js'
-import { toSafeAmount } from '../../db/commission-queries.js'
 import { developerApiKeys, tenants } from '@ihui/database'
 import { success, error, emptyToUndefined } from '../../utils/response.js'
 import { requireAdmin } from '../../plugins/require-permission.js'
@@ -187,19 +186,13 @@ const relayApiKeysRoutes: FastifyPluginAsync = async (server) => {
           tenantSlug: tenants.slug,
           keyCount: sql<number>`count(*)::int`,
           tokenUsedTotal: sql<number>`coalesce(sum(${developerApiKeys.tokenUsedTotal}), 0)::float8`,
-          // F-574:租户累计消耗为"分",全租户合计越过 int4 上限会让整表 500,改 bigint 后收敛。
-          costUsedTotalCents: sql<number>`coalesce(sum(${developerApiKeys.costUsedTotalCents}), 0)::bigint`,
+          costUsedTotalCents: sql<number>`coalesce(sum(${developerApiKeys.costUsedTotalCents}), 0)::int`,
         })
         .from(developerApiKeys)
         .leftJoin(tenants, eq(developerApiKeys.tenantId, tenants.id))
         .groupBy(developerApiKeys.tenantId, tenants.name, tenants.slug)
         .orderBy(desc(developerApiKeys.tenantId))
-      // F-574:int8 由驱动以字符串返回,逐行收敛回 number,避免 JSON 里泄漏字符串。
-      return reply.send(
-        success({
-          list: rows.map((r) => ({ ...r, costUsedTotalCents: toSafeAmount(r.costUsedTotalCents) })),
-        }),
-      )
+      return reply.send(success({ list: rows }))
     } catch (e) {
       request.log.error(e)
       return reply.status(500).send(error(500, '按租户统计失败'))

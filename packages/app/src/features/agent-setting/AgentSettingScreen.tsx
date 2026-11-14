@@ -51,7 +51,7 @@ export function AgentSettingScreen({
           style={styles.input}
           value={setting.name}
           onChangeText={(v) => onChange({ name: v })}
-          placeholderTextColor={tk.text.tertiary}
+          placeholderTextColor={tk.text.secondary}
         />
         <Text style={styles.label}>{t('agentSetting.model')}</Text>
         <TextField
@@ -59,7 +59,7 @@ export function AgentSettingScreen({
           style={styles.input}
           value={setting.model}
           onChangeText={(v) => onChange({ model: v })}
-          placeholderTextColor={tk.text.tertiary}
+          placeholderTextColor={tk.text.secondary}
         />
         <Text style={styles.label}>
           {t('agentSetting.temperature')}: {setting.temperature.toFixed(2)}
@@ -70,7 +70,7 @@ export function AgentSettingScreen({
           keyboardType="numeric"
           value={String(setting.temperature)}
           onChangeText={(v) => onChange({ temperature: Number(v) || 0 })}
-          placeholderTextColor={tk.text.tertiary}
+          placeholderTextColor={tk.text.secondary}
         />
         <View style={styles.switchRow}>
           <Text style={styles.label}>{t('agentSetting.enabled')}</Text>

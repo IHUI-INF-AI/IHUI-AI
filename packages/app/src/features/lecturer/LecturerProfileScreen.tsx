@@ -179,7 +179,7 @@ function ChannelCard({
           <Image source={{ uri: channel.coverImage }} style={styles.cover} resizeMode="cover" />
         ) : (
           <View style={[styles.cover, styles.coverPlaceholder]}>
-            <PlayCircle size={32} color={tk.text.tertiary} strokeWidth={1.5} />
+            <PlayCircle size={32} color={tk.text.secondary} strokeWidth={1.5} />
           </View>
         )}
         {channel.isLive ? (
@@ -197,7 +197,7 @@ function ChannelCard({
           {channel.lecturerName ?? t('lecturer.unknownLecturer')}
         </Text>
         <View style={styles.channelMetaRow}>
-          <Eye size={13} color={tk.text.tertiary} strokeWidth={2} />
+          <Eye size={13} color={tk.text.secondary} strokeWidth={2} />
           <Text style={styles.channelMeta}>
             {t('lecturer.viewCount', { count: channel.viewCount })}
           </Text>
@@ -320,7 +320,7 @@ function createStyles(tk: AppThemeTokens) {
     liveBadgeText: {
       fontSize: rnType.caption.size,
       fontWeight: '500',
-      color: tk.surface.light,
+      color: tk.surface.onBrand,
     },
     channelBody: {
       padding: rnSpacing.md,
@@ -342,7 +342,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     channelMeta: {
       fontSize: rnType.caption.size,
-      color: tk.text.tertiary,
+      color: tk.text.medium,
     },
   } satisfies Record<string, ViewStyle | TextStyle | ImageStyle>)
 }

@@ -128,7 +128,7 @@ export const adminMonitoringRoutes: FastifyPluginAsync = async (server) => {
     const [stats] = await db
       .select({
         totalCalls: count(),
-        todayCalls: sql<number>`(count(*) filter (where ${apiLogs.createdAt} >= current_date))::int`,
+        todayCalls: sql<string>`count(*) filter (where ${apiLogs.createdAt} >= current_date)`,
         // F-706:率是百分数(avg*100),两位小数足够;判空在 SQL 侧 coalesce,精度在 SQL 侧定档。
         errorRate: sql<string>`coalesce(avg(case when ${apiLogs.statusCode} >= 400 then 1 else 0 end) * 100, 0)::numeric(10,2)`,
         avgLatency: sql<string>`coalesce(avg(${apiLogs.duration}), 0)::numeric(10,2)`,
@@ -155,7 +155,7 @@ export const adminMonitoringRoutes: FastifyPluginAsync = async (server) => {
         endpoint: apiLogs.path,
         method: apiLogs.method,
         calls: count(),
-        errorRate: sql<number>`coalesce(avg(case when ${apiLogs.statusCode} >= 400 then 1 else 0 end) * 100, 0)::float8`,
+        errorRate: sql<number>`coalesce(avg(case when ${apiLogs.statusCode} >= 400 then 1 else 0 end) * 100, 0)`,
       })
       .from(apiLogs)
       .groupBy(apiLogs.method, apiLogs.path)
@@ -168,9 +168,9 @@ export const adminMonitoringRoutes: FastifyPluginAsync = async (server) => {
     const [stats] = await db
       .select({
         totalAuth: count(),
-        todayAuth: sql<number>`(count(*) filter (where ${oauthAuditLogs.createdAt} >= current_date))::int`,
-        activeApps: sql<number>`count(distinct ${oauthAuditLogs.clientId})::int`,
-        anomalyEvents: sql<number>`(count(*) filter (where ${oauthAuditLogs.status} != 'success'))::int`,
+        todayAuth: sql<number>`count(*) filter (where ${oauthAuditLogs.createdAt} >= current_date)`,
+        activeApps: sql<number>`count(distinct ${oauthAuditLogs.clientId})`,
+        anomalyEvents: sql<number>`count(*) filter (where ${oauthAuditLogs.status} != 'success')`,
       })
       .from(oauthAuditLogs)
     return reply.send(
@@ -371,9 +371,9 @@ export const adminMonitoringRoutes: FastifyPluginAsync = async (server) => {
     const [stats] = await db
       .select({
         total: count(),
-        today: sql<number>`(count(*) filter (where ${webhookEvents.createdAt} >= current_date))::int`,
-        processing: sql<number>`(count(*) filter (where ${webhookEvents.status} = 'pending'))::int`,
-        failed: sql<number>`(count(*) filter (where ${webhookEvents.status} = 'failed'))::int`,
+        today: sql<number>`count(*) filter (where ${webhookEvents.createdAt} >= current_date)`,
+        processing: sql<number>`count(*) filter (where ${webhookEvents.status} = 'pending')`,
+        failed: sql<number>`count(*) filter (where ${webhookEvents.status} = 'failed')`,
       })
       .from(webhookEvents)
     return reply.send(success(stats ?? { total: 0, today: 0, processing: 0, failed: 0 }))
@@ -398,9 +398,9 @@ export const adminMonitoringRoutes: FastifyPluginAsync = async (server) => {
         id: sql<string>`md5(${apiLogs.method} || ${apiLogs.path})`,
         endpoint: apiLogs.path,
         method: apiLogs.method,
-        avgLatency: sql<number>`coalesce(avg(${apiLogs.duration}), 0)::int`,
+        avgLatency: sql<number>`coalesce(avg(${apiLogs.duration}), 0)`,
         calls: count(),
-        errorRate: sql<number>`coalesce(avg(case when ${apiLogs.statusCode} >= 400 then 1 else 0 end) * 100, 0)::float8`,
+        errorRate: sql<number>`coalesce(avg(case when ${apiLogs.statusCode} >= 400 then 1 else 0 end) * 100, 0)`,
       })
       .from(apiLogs)
       .groupBy(apiLogs.method, apiLogs.path)
@@ -414,7 +414,7 @@ export const adminMonitoringRoutes: FastifyPluginAsync = async (server) => {
       .select({
         cpu: sql<number>`0`,
         memory: sql<number>`0`,
-        qps: sql<number>`coalesce((count(*) filter (where ${apiLogs.createdAt} >= now() - interval '1 second'))::int, 0)`,
+        qps: sql<number>`coalesce(count(*) filter (where ${apiLogs.createdAt} >= now() - interval '1 second'), 0)`,
         avgResponse: sql<number>`coalesce(avg(${apiLogs.duration}), 0)`,
       })
       .from(apiLogs)
@@ -478,11 +478,11 @@ export const adminMonitoringRoutes: FastifyPluginAsync = async (server) => {
 
     const [stats] = await db
       .select({
-        totalRevenue: sql<number>`coalesce(sum(${orders.amount}), 0)::float8 / 100.0`,
+        totalRevenue: sql<number>`coalesce(sum(${orders.amount}), 0) / 100.0`,
         totalOrders: count(),
-        paidOrders: sql<number>`(count(*) filter (where ${orders.status} = 'paid'))::int`,
-        refundedAmount: sql<number>`coalesce(sum(case when ${orders.status} = 'refunded' then ${orders.amount} else 0 end), 0)::float8 / 100.0`,
-        avgOrderAmount: sql<number>`coalesce(avg(${orders.amount}), 0)::float8 / 100.0`,
+        paidOrders: sql<number>`count(*) filter (where ${orders.status} = 'paid')`,
+        refundedAmount: sql<number>`coalesce(sum(case when ${orders.status} = 'refunded' then ${orders.amount} else 0 end), 0) / 100.0`,
+        avgOrderAmount: sql<number>`coalesce(avg(${orders.amount}), 0) / 100.0`,
       })
       .from(orders)
       .where(gte(orders.createdAt, sql`now() - interval '${sql.raw(interval)}'`))
@@ -491,7 +491,7 @@ export const adminMonitoringRoutes: FastifyPluginAsync = async (server) => {
       .select({
         type: sql<string>`coalesce(${orders.orderType}::text, 'unknown')`,
         count: count(),
-        amount: sql<number>`coalesce(sum(${orders.amount}), 0)::float8 / 100.0`,
+        amount: sql<number>`coalesce(sum(${orders.amount}), 0) / 100.0`,
       })
       .from(orders)
       .where(gte(orders.createdAt, sql`now() - interval '${sql.raw(interval)}'`))
@@ -500,7 +500,7 @@ export const adminMonitoringRoutes: FastifyPluginAsync = async (server) => {
     const byMonth = await db
       .select({
         month: sql<string>`to_char(${orders.createdAt}, 'YYYY-MM')`,
-        revenue: sql<number>`coalesce(sum(${orders.amount}), 0)::float8 / 100.0`,
+        revenue: sql<number>`coalesce(sum(${orders.amount}), 0) / 100.0`,
         orders: count(),
       })
       .from(orders)

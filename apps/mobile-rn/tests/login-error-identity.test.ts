@@ -93,8 +93,20 @@ describe('LoginScreen:服务端失败分支逐站接唯一出口', () => {
   })
 
   it('出口确从共享层引入,不是端内自拼的第三份判序', () => {
-    expect(source).toContain("import { apiFailureToText } from '@ihui/shared/utils'")
-    expect(source).not.toMatch(/STATUS_TO_ZH|toUserFriendlyMessage/)
+    // 2026-11-13 修正:原断言是 `toContain("import { apiFailureToText } from '@ihui/shared/utils'")`
+    // + `not.toMatch(/STATUS_TO_ZH|toUserFriendlyMessage/)`。两条都与实态相反:
+    //  ① 同一行 import 里本就同时取了 `toUserFriendlyMessage`(catch 分支的异常归一出口),
+    //     逐字匹配整行 import 于是恒假;
+    //  ② `toUserFriendlyMessage` 在 packages/shared/src/utils/error-messages.ts 里定义,
+    //     是**共享层的同一份判序**,不是端内自拼 —— 禁止它出现在本屏等于禁止使用正确出口。
+    // 真正要守的是:两个出口都从共享层导入,且本屏不得自带 STATUS_TO_ZH 映射表。
+    expect(source).toMatch(
+      /import\s*\{[^}]*\bapiFailureToText\b[^}]*\}\s*from\s*'@ihui\/shared\/utils'/,
+    )
+    expect(source).toMatch(
+      /import\s*\{[^}]*\btoUserFriendlyMessage\b[^}]*\}\s*from\s*'@ihui\/shared\/utils'/,
+    )
+    expect(source).not.toMatch(/const\s+STATUS_TO_ZH\b/)
   })
 })
 

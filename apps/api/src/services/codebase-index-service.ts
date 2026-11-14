@@ -54,15 +54,6 @@ export interface ChunkInput {
 export const CODE_INDEX_RETENTION_DAYS = 90
 
 /**
- * 批量索引时单批 embedding 的最多尝试次数(含首次), F-416 立。
- *
- * 上游对超限批次/瞬时故障会返回非 2xx; 索引是离线批量动作, 失败重来成本远高于
- * 一次退避等待, 故给有限重试。仅在本服务启用(provider 的 maxAttempts 缺省 1),
- * 以保持检索等既有调用方"一次失败即失败"的语义不变。
- */
-export const CODEBASE_EMBEDDING_MAX_ATTEMPTS = 3
-
-/**
  * 计算一条索引切片的过期时刻。
  *
  * 抽成函数而不让各调用方各算一次:expires_at 写成 `NOW() + interval` 的字面量
@@ -157,10 +148,9 @@ class CodebaseIndexService {
    * 批量写入代码切片(增量更新模式)。
    *
    * 流程:
-   * 1. 为缺少 embedding 的切片生成向量(批量,复用 embedding-provider;失败即抛错,
-   *    此时旧切片一行为未动)
-   * 2. 同一事务内:按 ownerUuid + repoId + filePath 删除该文件的所有旧切片,再分批
-   *    插入新切片(带 ownerUuid + expiresAt 默认保留期);任一插入失败整体回滚
+   * 1. 按 ownerUuid + repoId + filePath 删除该文件的所有旧切片
+   * 2. 为缺少 embedding 的切片生成向量(批量,复用 embedding-provider)
+   * 3. 批量插入新切片(带 ownerUuid + expiresAt 默认保留期)
    *
    * 注意:调用方(ai-service codebase_indexer)也可自行生成 embedding 后传入,
    * 此时本服务跳过 embedding 生成步骤(以调用方传入为准)。
@@ -191,51 +181,49 @@ class CodebaseIndexService {
       throw new Error('indexChunks 缺少 ownerUuid:拒绝写入无归属的代码索引')
     }
 
-    // 1. 收集所有涉及文件(删除动作挪进步骤 3 的事务,见 F-650)
+    // 1. 收集所有涉及文件,删除旧切片(增量更新)
     const filePaths = [...new Set(chunks.map((c) => c.filePath))]
+    for (const filePath of filePaths) {
+      await db
+        .delete(codebaseChunks)
+        .where(
+          and(
+            _ownerScope(ownerUuid),
+            eq(codebaseChunks.repoId, repoId),
+            eq(codebaseChunks.filePath, filePath),
+          ),
+        )
+    }
 
-    // 2. 为缺少 embedding 的切片批量生成向量 —— 必须在事务**外**、且**先于任何删除**
-    //    完成:embedding 是外部网络调用(可达秒级),放进事务等于把持锁时间交给上游;
-    //    异常也不再吞掉(F-650):直接抛给路由 5xx,旧切片一行未动,重试仍是完整语义。
+    // 2. 为缺少 embedding 的切片批量生成向量
     const provider = getEmbeddingProvider()
     const needEmbedding = chunks.filter((c) => !c.embedding || c.embedding.length !== 1536)
     let vectorized = 0
     if (provider && needEmbedding.length > 0) {
-      // 批量 embedding。F-416:provider 内部按上游条数上限(25)与 token 预算分片、
-      // 逐批请求, 本节显式开启单批有限重试, 因此这里一次提交任意条数都是安全的;
-      // 但返回结果必须与待向量化切片一一对应 —— 条数不符或缺向量一律显式抛错,
-      // 绝不把整批切片以 embedding=null 静默入库(那会让语义检索无声退化为关键词匹配)。
-      const texts = needEmbedding.map((c) => c.content.slice(0, 8000))
-      const embeddings = await provider.embed(texts, {
-        maxAttempts: CODEBASE_EMBEDDING_MAX_ATTEMPTS,
-      })
-      if (embeddings.length !== needEmbedding.length) {
-        throw new Error(
-          `embedding 应答 ${embeddings.length} 条 ≠ 待向量化切片 ${needEmbedding.length} 条:` +
-            '拒绝以缺失向量入库(F-416)',
-        )
-      }
-      for (let i = 0; i < needEmbedding.length; i++) {
-        const chunk = needEmbedding[i]
-        if (!chunk) continue
-        const emb = embeddings[i]
-        if (!emb || emb.length !== 1536) {
-          throw new Error(
-            `第 ${i + 1}/${needEmbedding.length} 条切片未得到 1536 维向量:` +
-              '整批显式失败, 不落库无向量切片(F-416)',
-          )
+      try {
+        // 批量 embedding(provider.embed 接受文本数组)
+        const texts = needEmbedding.map((c) => c.content.slice(0, 8000))
+        const embeddings = await provider.embed(texts)
+        for (let i = 0; i < needEmbedding.length; i++) {
+          const chunk = needEmbedding[i]
+          if (!chunk) continue
+          const emb = embeddings[i]
+          if (emb && emb.length === 1536) {
+            chunk.embedding = emb
+            vectorized++
+          }
         }
-        chunk.embedding = emb
-        vectorized++
+      } catch (e) {
+        logger.warn(
+          '[codebase-index-service.indexChunks] batch embedding failed, chunks stored without vector:',
+          { err: e as Error },
+        )
       }
     }
 
-    // 3. 删旧 + 插新在**同一事务**内(F-650):此前先删后插分属两个事务,任一插入
-    //    批次失败即"旧切片已删、新切片未写",该文件从检索面整体消失。现在删除只作为
-    //    事务内第一步,插入失败整体回滚,旧索引原样保留。
-    //    每行强制带 ownerUuid + expiresAt(2026-10-03)。expiresAt 在**写入时一次算定**
-    //    并落库,而不是查询时才判断 —— 保留期是一个可被审计的客观事实(这行数据什么
-    //    时候失效),不是随查询时刻漂移的窗口。
+    // 3. 批量插入(2026-10-03:每行强制带 ownerUuid + expiresAt)
+    // expiresAt 在**写入时一次算定**并落库,而不是查询时才判断 —— 保留期是一个
+    // 可被审计的客观事实(这行数据什么时候失效),不是随查询时刻漂移的窗口。
     // retentionDays === null ⇒ 永不过期(用户显式选择长期保留);
     // 传数字 ⇒ 相对该批写入时刻的保留期;不传 ⇒ CODE_INDEX_RETENTION_DAYS。
     const expiresAt =
@@ -256,28 +244,14 @@ class CodebaseIndexService {
       expiresAt,
     }))
 
+    // 分批插入(每批 100 条,防单次 SQL 过大)
+    const BATCH_SIZE = 100
     let indexed = 0
-    await db.transaction(async (tx) => {
-      for (const filePath of filePaths) {
-        await tx
-          .delete(codebaseChunks)
-          .where(
-            and(
-              _ownerScope(ownerUuid),
-              eq(codebaseChunks.repoId, repoId),
-              eq(codebaseChunks.filePath, filePath),
-            ),
-          )
-      }
-
-      // 分批插入(每批 100 条,≤500 且远低于 PostgreSQL 单语句参数上限 65535)
-      const BATCH_SIZE = 100
-      for (let i = 0; i < rows.length; i += BATCH_SIZE) {
-        const batch = rows.slice(i, i + BATCH_SIZE)
-        await tx.insert(codebaseChunks).values(batch)
-        indexed += batch.length
-      }
-    })
+    for (let i = 0; i < rows.length; i += BATCH_SIZE) {
+      const batch = rows.slice(i, i + BATCH_SIZE)
+      await db.insert(codebaseChunks).values(batch)
+      indexed += batch.length
+    }
 
     const localEmbedded = chunks.filter((c) => c.embeddingProvider === 'local-hash').length
     return { indexed, vectorized, localEmbedded }

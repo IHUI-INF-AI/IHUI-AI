@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { getCommissionList, type CommissionRecord } from '@ihui/api-client'
+import { apiFailureToText } from '@ihui/shared/utils'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import { DistributionOrderListScreen as SharedDistributionOrderListScreen } from '@ihui/rn-app'
@@ -45,6 +46,9 @@ export default function DistributionOrderListScreen() {
   const [hasMore, setHasMore] = useState(true)
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
+  // 取数失败要单独留一条通道:旧代码把 success:false 折算成空数组,用户看到的是
+  // 「暂无订单数据」,会把"接口挂了"误读成"我本来就没有订单"。
+  const [error, setError] = useState('')
   // XUI-069:翻页/切 tab/搜索会并发发请求,旧响应不得覆盖新状态。
   const reqSeqRef = useRef(0)
 
@@ -54,20 +58,45 @@ export default function DistributionOrderListScreen() {
       if (reset) setLoading(true)
       else setLoadingMore(true)
       const statusParam = activeTab === 'all' ? undefined : statusText(activeTab)
-      const res = await getCommissionList({
-        page: nextPage,
-        pageSize: PAGE_SIZE,
-        status: statusParam,
-      })
-      if (seq !== reqSeqRef.current) return
-      const list = res.success ? (res.data?.list ?? []) : []
-      setOrders((prev) => (reset ? list : [...prev, ...list]))
-      setHasMore(list.length >= PAGE_SIZE)
-      setPage(nextPage)
-      setLoading(false)
-      setLoadingMore(false)
+      try {
+        const res = await getCommissionList({
+          page: nextPage,
+          pageSize: PAGE_SIZE,
+          status: statusParam,
+        })
+        if (seq !== reqSeqRef.current) return
+        // success:false 不是"没有数据",是"这次没取到":进错误态;首屏/切 tab 失败时还要清掉
+        // 上一档的旧列表,否则错误态被旧数据挡住,用户会以为看到的还是当前档的数据
+        if (!res.success) {
+          setError(apiFailureToText(res, t('common.loadFailed')))
+          if (reset) {
+            setOrders([])
+            setHasMore(false)
+          }
+          return
+        }
+        const list = res.data?.list ?? []
+        setError('')
+        setOrders((prev) => (reset ? list : [...prev, ...list]))
+        setHasMore(list.length >= PAGE_SIZE)
+        setPage(nextPage)
+      } catch {
+        if (seq !== reqSeqRef.current) return
+        // 网络异常同样不能静默留空/留旧数据,否则用户以为订单被删了或看到别的档位
+        setError(t('common.loadFailed'))
+        if (reset) {
+          setOrders([])
+          setHasMore(false)
+        }
+      } finally {
+        // 被更新的请求顶掉时不复位,免得把新请求的 loading 提前关掉
+        if (seq === reqSeqRef.current) {
+          setLoading(false)
+          setLoadingMore(false)
+        }
+      }
     },
-    [activeTab],
+    [activeTab, t],
   )
 
   useEffect(() => {
@@ -102,6 +131,8 @@ export default function DistributionOrderListScreen() {
       loading={loading}
       loadingMore={loadingMore}
       hasMore={hasMore}
+      errorText={error}
+      onRetry={() => void loadPage(1, true)}
       onSearch={onSearch}
       onKeywordChange={setKeyword}
       onTabChange={(tab) => setActiveTab(tab as TabValue)}

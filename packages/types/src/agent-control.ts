@@ -55,6 +55,10 @@ export type BrowserPageControlActionType =
   | 'page_hover'
   | 'page_press_key'
   | 'page_pick_at_point'
+  // 2026-11-12:与 @ihui/dom-actions 的 PageActionType 双向同形(编译期 Assert 钉死)
+  | 'page_scroll'
+  | 'page_wait_for'
+  | 'page_drag'
 
 export interface BrowserScreenshotParams {
   /** 截图区域:'viewport'(当前视口) | 'fullpage'(整页) | 'element'(指定元素) */

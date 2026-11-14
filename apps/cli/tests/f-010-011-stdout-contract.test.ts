@@ -17,6 +17,7 @@
  * 3. 源码里不得再有 `console.info(chalk.red(...)) + process.exit` 这一形态
  *    (它是 F-010 的指纹;改成 errorExit 后应当零命中)。
  */
+import type * as __node_osType from 'node:os'
 import { mkdtempSync, readFileSync } from 'node:fs'
 import * as os from 'node:os';
 import path from 'node:path';
@@ -27,7 +28,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const scratch = vi.hoisted(() => ({ dir: '' }));
 
 vi.mock('node:os', async () => {
-  const actual = await vi.importActual<typeof import('node:os')>('node:os');
+  const actual = await vi.importActual<typeof __node_osType>('node:os');
   return { ...actual, homedir: () => scratch.dir };
 });
 
