@@ -1933,6 +1933,10 @@ export async function adjustBalance(
  *
  * @param tokenDelta / costDeltaCents 必须为正整数(>0)
  * @throws {Error & {statusCode}} 余额不足 400 / Key 不存在 404
+ *
+ * F-719(2026-11-13):允许单边充值,但入账必须同时覆盖 token 与 cost 两列 ——
+ * 只填一侧时按「1 token = 1 cent」把实付额度同步到另一列,否则该 Key 永远过不了
+ * checkQuota 的 costBalanceCents > 0 闸,付了钱也用不了。
  */
 export async function rechargeApiKeyFromWallet(
   userId: string,
@@ -1951,6 +1955,12 @@ export async function rechargeApiKeyFromWallet(
   }
   // 1 token = 1 cent:cost 额度(分)需等额 token 支付
   const totalTokensNeeded = tokenDelta + costDeltaCents
+  // F-719(2026-11-13):单边充值(只填 tokenDelta 或只填 costDeltaCents)会把另一列留在 0,
+  // 而准入 checkQuota 两列都要过(costBalanceCents > 0),已付费的 Key 首调即 402。
+  // 按本函数既有「1 token = 1 cent」口径,把**实付一侧**同步到另一列(赠送/空转不服费不叠加);
+  // 两侧都有值时各按其值,钱包仍按 totalTokensNeeded 扣。
+  const creditedTokenDelta = tokenDelta > 0 ? tokenDelta : costDeltaCents
+  const creditedCostDeltaCents = costDeltaCents > 0 ? costDeltaCents : tokenDelta
   return db.transaction(async (tx) => {
     // ① 行锁用户钱包
     const [margin] = await tx
@@ -1976,7 +1986,7 @@ export async function rechargeApiKeyFromWallet(
         opType: TOKEN_FLOW_OP.CONSUME,
         quantity: -totalTokensNeeded,
         balanceAfter: newWalletBalance,
-        remark: `Relay API Key 充值:${apiKeyId}(token+${tokenDelta}, cost+${costDeltaCents})`,
+        remark: `Relay API Key 充值:${apiKeyId}(token+${creditedTokenDelta}, cost+${creditedCostDeltaCents})`,
       })
     }
     // ③ API Key 加余额(行锁;tokenBalance/costBalanceCents = -1 无限额度则不动)
@@ -1991,9 +2001,10 @@ export async function rechargeApiKeyFromWallet(
       .limit(1)
     if (!keyRow) throw Object.assign(new Error('API Key 不存在'), { statusCode: 404 })
     const setClause: Record<string, unknown> = { updatedAt: new Date() }
-    if (keyRow.tokenBalance !== -1) setClause.tokenBalance = keyRow.tokenBalance + tokenDelta
+    if (keyRow.tokenBalance !== -1)
+      setClause.tokenBalance = keyRow.tokenBalance + creditedTokenDelta
     if (keyRow.costBalanceCents !== -1)
-      setClause.costBalanceCents = keyRow.costBalanceCents + costDeltaCents
+      setClause.costBalanceCents = keyRow.costBalanceCents + creditedCostDeltaCents
     const [updated] = await tx
       .update(developerApiKeys)
       .set(setClause)
