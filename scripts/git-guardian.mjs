@@ -2325,6 +2325,10 @@ function auditDiskRootHygiene() {
           `申报目录内项目外流: ${v.path}(超龄 ${v.ageHours}h;收走手痕,或具名申报进 config 的 contents 清单)`,
         'worktree-outside-sanctioned-root': (v) =>
           `worktree 落点外: ${v.path}${v.prunable ? '(prunable)' : ''}`,
+        // Y-71(临时派生检出寿命闸@2026-11-14):孤儿壳 = .git 链接已断,git prune 与
+        // worktree 登记面双盲。账龄已量出 ⇒ 措辞带账龄,出路给归属席自决(不自动回收)。
+        'orphan-worktree-shell': (v) =>
+          `孤儿壳(派生检出 .git 链接已断): ${v.path}(账龄 ${v.ageHours}h,断链目标 ${v.brokenGitdir};归属席确认无人用后 rm -rf 该壳 + git worktree prune)`,
       }
       const lines = (parsed.violations || [])
         .map((v) =>
@@ -2345,11 +2349,11 @@ function auditDiskRootHygiene() {
         {
           severity: 'warning',
           // 〈原 10 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l1865(门 103 C1 收口)〉首意: 去重身份只取"违规类别 + **计数分档**",明细行不进指纹(2026-10-03 立;
-          dedupKey: `stray=${alertCountTier(c.diskRootStray)};content=${alertCountTier(c.declaredContentStray)};wtOutside=${alertCountTier(c.worktreeOutside)};held=${alertHeldTier(noteUndeterminedStreak(join(WORKTREE, '.ihui-agent', 'state', 'disk-root-stray-first.json')).firstMs).tier}`,
+          dedupKey: `stray=${alertCountTier(c.diskRootStray)};content=${alertCountTier(c.declaredContentStray)};wtOutside=${alertCountTier(c.worktreeOutside)};orphan=${alertCountTier(c.orphanWorktreeShell)};held=${alertHeldTier(noteUndeterminedStreak(join(WORKTREE, '.ihui-agent', 'state', 'disk-root-stray-first.json')).firstMs).tier}`,
         },
       )
       log(
-        `⚠️ 盘根卫生判红:外流 ${Number(c.diskRootStray) || 0} / 申报目录内 ${Number(c.declaredContentStray) || 0} / worktree 落点外 ${Number(c.worktreeOutside) || 0}` +
+        `⚠️ 盘根卫生判红:外流 ${Number(c.diskRootStray) || 0} / 申报目录内 ${Number(c.declaredContentStray) || 0} / worktree 落点外 ${Number(c.worktreeOutside) || 0} / 孤儿壳 ${Number(c.orphanWorktreeShell) || 0}` +
           `(未判定 盘根 ${uN}、内容 ${cuN}、worktree ${wN};不适用 ${nN})`,
       )
       return
@@ -2357,7 +2361,7 @@ function auditDiskRootHygiene() {
     // 已判干净 ⇒ 摘掉外流持续计时起点(与上面 dedupKey 的 held 档成套,否则起点会背着历史时长)
     clearUndeterminedStreak(join(WORKTREE, '.ihui-agent', 'state', 'disk-root-stray-first.json'))
     log(
-      `✅ 盘根卫生:0 违规(白名单对账 + 申报目录内容对账 + worktree 落点全在 ${join(WORKTREE, '.worktrees')})` +
+      `✅ 盘根卫生:0 违规(白名单对账 + 申报目录内容对账 + worktree 落点全在 ${join(WORKTREE, '.worktrees')} + 孤儿壳 0)` +
         (nN ? `;另有 ${nN} 个声明盘根在本机不适用(不是"已判干净",是"本机没有这块盘")` : ''),
     )
   } catch (e) {
