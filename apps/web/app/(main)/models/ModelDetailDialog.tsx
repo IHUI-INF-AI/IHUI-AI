@@ -29,6 +29,7 @@ import {
   DialogTitle,
 } from '@ihui/ui-react'
 import { BrandIcon } from '@/components/ai/brand-icon'
+import { formatUsd } from '@/lib/display-currency'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import { useChatStore } from '@/stores/chat'
 
@@ -195,7 +196,7 @@ export function ModelDetailDialog({
                   ? '—'
                   : model.inputPrice === 0
                     ? t('free')
-                    : `$${model.inputPrice.toFixed(2)}`
+                    : `${formatUsd(model.inputPrice)}${t('perMillion')}`
               }
             />
             <DetailStat
@@ -206,7 +207,7 @@ export function ModelDetailDialog({
                   ? '—'
                   : outputPrice === 0
                     ? t('free')
-                    : `$${outputPrice.toFixed(2)}${isOutputEstimated ? '*' : ''}`
+                    : `${formatUsd(outputPrice)}${isOutputEstimated ? '*' : ''}${t('perMillion')}`
               }
               hint={isOutputEstimated ? t('detail.estimatedHint') : undefined}
             />
@@ -232,7 +233,7 @@ export function ModelDetailDialog({
                       ? '—'
                       : relayInputPrice === 0
                         ? t('free')
-                        : `$${relayInputPrice.toFixed(2)}`}
+                        : `${formatUsd(relayInputPrice)}${t('perMillion')}`}
                   </div>
                 </div>
                 <div>
@@ -244,7 +245,7 @@ export function ModelDetailDialog({
                       ? '—'
                       : relayOutputPrice === 0
                         ? t('free')
-                        : `$${relayOutputPrice.toFixed(2)}`}
+                        : `${formatUsd(relayOutputPrice)}${t('perMillion')}`}
                   </div>
                 </div>
               </div>

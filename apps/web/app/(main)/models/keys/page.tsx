@@ -7,6 +7,7 @@ import { Copy, Key, Plus, Trash2 } from 'lucide-react'
 
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { BackButton } from '@/components/common'
+import { formatCny } from '@/lib/display-currency'
 
 /** i18n 静态映射表 — 用于消除 `t(`keys.statusLabels.${var}`)` 动态拼接 */
 const KEYS_STATUS_KEY: Record<string, string> = {
@@ -122,7 +123,8 @@ export default async function KeysPage() {
                             />
                           </div>
                           <span className="text-label text-muted-foreground">
-                            ¥{k.used.toFixed(1)} / ¥{k.total}
+                            {formatCny(k.used, { digits: 1 })} /{' '}
+                            {formatCny(k.total, { digits: 1 })}
                           </span>
                         </div>
                       </td>

@@ -7,6 +7,7 @@ import { Activity, ArrowUpRight, Bot, DollarSign, Key, Zap } from 'lucide-react'
 
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { BackButton } from '@/components/common'
+import { formatCny } from '@/lib/display-currency'
 
 /** i18n 静态映射表 — 用于消除 `t(`overview.recentCalls.statusLabels.${var}`)` 动态拼接 */
 const OVERVIEW_RECENTCALLS_STATUS_KEY: Record<string, string> = {
@@ -22,8 +23,8 @@ export default async function OverviewPage() {
       key: 'balance',
       icon: DollarSign,
       label: t('overview.stats.balance'),
-      value: '¥ 128.50',
-      change: '+¥ 50.00',
+      value: formatCny(128.5, { digits: 2 }),
+      change: `+${formatCny(50, { digits: 2 })}`,
       changeType: 'up' as const,
     },
     {
@@ -38,7 +39,7 @@ export default async function OverviewPage() {
       key: 'todayCost',
       icon: Zap,
       label: t('overview.stats.todayCost'),
-      value: '¥ 3.42',
+      value: formatCny(3.42, { digits: 2 }),
       change: '-8.2%',
       changeType: 'down' as const,
     },
@@ -53,26 +54,26 @@ export default async function OverviewPage() {
   ]
 
   const recentCalls = [
-    { time: '14:32:05', model: 'GPT-4o', tokens: '2,453', cost: '¥ 0.061', status: 'success' },
+    { time: '14:32:05', model: 'GPT-4o', tokens: '2,453', cost: 0.061, status: 'success' },
     {
       time: '14:28:51',
       model: 'Claude 3.5 Sonnet',
       tokens: '1,872',
-      cost: '¥ 0.056',
+      cost: 0.056,
       status: 'success',
     },
     {
       time: '14:25:33',
       model: 'Gemini 2.0 Flash',
       tokens: '3,201',
-      cost: '¥ 0.032',
+      cost: 0.032,
       status: 'success',
     },
-    { time: '14:21:08', model: 'DeepSeek V3', tokens: '1,205', cost: '¥ 0.003', status: 'success' },
-    { time: '14:18:42', model: 'Qwen Max', tokens: '985', cost: '¥ 0.016', status: 'success' },
-    { time: '14:15:27', model: 'GPT-4o mini', tokens: '654', cost: '¥ 0.001', status: 'success' },
-    { time: '14:12:11', model: 'Grok 3', tokens: '1,532', cost: '¥ 0.046', status: 'failed' },
-    { time: '14:08:54', model: 'GLM-4.5', tokens: '892', cost: '¥ 0.005', status: 'success' },
+    { time: '14:21:08', model: 'DeepSeek V3', tokens: '1,205', cost: 0.003, status: 'success' },
+    { time: '14:18:42', model: 'Qwen Max', tokens: '985', cost: 0.016, status: 'success' },
+    { time: '14:15:27', model: 'GPT-4o mini', tokens: '654', cost: 0.001, status: 'success' },
+    { time: '14:12:11', model: 'Grok 3', tokens: '1,532', cost: 0.046, status: 'failed' },
+    { time: '14:08:54', model: 'GLM-4.5', tokens: '892', cost: 0.005, status: 'success' },
   ]
 
   const quickActions = [
@@ -171,7 +172,7 @@ export default async function OverviewPage() {
                     <td className="px-4 py-2.5 font-mono text-muted-foreground">{c.time}</td>
                     <td className="px-4 py-2.5 font-medium">{c.model}</td>
                     <td className="px-4 py-2.5 text-muted-foreground">{c.tokens}</td>
-                    <td className="px-4 py-2.5">{c.cost}</td>
+                    <td className="px-4 py-2.5">{formatCny(c.cost)}</td>
                     <td className="px-4 py-2.5">
                       <span
                         className={
