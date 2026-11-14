@@ -12,6 +12,7 @@ import { formatRelativeTime } from '@/lib/date-utils'
 import { Tooltip } from '@/components/feedback'
 import { CitationBar } from '@/components/ai/progress-sections/citation-bar'
 import { TruncatedText } from '@/components/common/TruncatedText'
+import { openWorkspaceFileInIde } from '@/lib/workspace-file-open'
 import type { DeliverableFileChange, TaskDeliverables } from '@/types/agent-delivery'
 
 /**
@@ -56,9 +57,15 @@ export function DeliveryFileChangeList({ files }: { files: DeliverableFileChange
   return (
     <div className="space-y-0.5">
       {files.map((f, i) => (
-        <div
+        // 2026-11-14(对标 DSH 交付卡可打开):存在的文件行可点开 IDE;
+        // delete 行没有可打开的目标,用 disabled 明确"不可点",不挂死按钮。
+        <button
           key={`${f.kind}-${f.path}-${i}`}
-          className="flex items-center gap-1.5 rounded-sm px-1 py-0.5 text-label transition-colors hover:bg-accent/40"
+          type="button"
+          title={f.path}
+          disabled={f.kind === 'delete'}
+          onClick={() => openWorkspaceFileInIde(f.path)}
+          className="flex w-full items-center gap-1.5 rounded-sm px-1 py-0.5 text-left text-label transition-colors hover:bg-accent/40 disabled:cursor-default disabled:hover:bg-transparent"
           data-testid={`delivery-review-file-${i}`}
         >
           <span
@@ -99,7 +106,7 @@ export function DeliveryFileChangeList({ files }: { files: DeliverableFileChange
           <span className="shrink-0 tabular-nums text-[10px] text-rose-600 dark:text-rose-400">
             -{f.deletions}
           </span>
-        </div>
+        </button>
       ))}
     </div>
   )
@@ -179,9 +186,12 @@ export function DeliveryReviewPanel({ deliverables, loading = false }: DeliveryR
           </div>
           <div className="space-y-0.5">
             {deliverables.presentedFiles.map((f, i) => (
-              <div
+              <button
                 key={`${f.path}-${i}`}
-                className="flex items-center gap-1.5 rounded-sm px-1 py-0.5 text-label transition-colors hover:bg-accent/40"
+                type="button"
+                title={f.path}
+                onClick={() => openWorkspaceFileInIde(f.path)}
+                className="flex w-full items-center gap-1.5 rounded-sm px-1 py-0.5 text-left text-label transition-colors hover:bg-accent/40"
                 data-testid={`delivery-review-presented-${i}`}
               >
                 <TruncatedText value={f.path} className="min-w-0 flex-1 text-[11px]" mono />
@@ -193,7 +203,7 @@ export function DeliveryReviewPanel({ deliverables, loading = false }: DeliveryR
                     {f.description}
                   </span>
                 )}
-              </div>
+              </button>
             ))}
           </div>
         </div>
