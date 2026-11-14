@@ -464,6 +464,24 @@ modules:
       - '.'
       - './package.json'
 
+  # 2026-11-15 新建:ACP 客户端薄 SDK。只按公开 NDJSON/JSON-RPC 线协议实现,
+  # 零运行时依赖(devDeps 仅 catalog/workspace),故 requires 为空。
+  # managed 暂 false:新模块先按"未收口只报数"登记,待消费方接入后再评估翻正。
+  - id: 'packages/agent-sdk'
+    package: '@ihui/agent-sdk'
+    layer: 'platform'
+    exported: true
+    managed: false
+    roots:
+      - 'packages/agent-sdk'
+    requires: []
+    public_entrypoints:
+      - '.'
+      - './package.json'
+    # 契约工件 = 唯一公共出口 barrel(E2 判据面);不额外造文档。
+    contract_files:
+      - 'src/index.ts'
+
   - id: 'packages/dom-actions'
     package: '@ihui/dom-actions'
     layer: 'platform'
