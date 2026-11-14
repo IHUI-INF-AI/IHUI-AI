@@ -1150,4 +1150,63 @@ export async function getUnpricedAlerts(days = 30): Promise<UnpricedAlertReport>
     rows: all.slice(0, 50),
   }
 }
+
+// =============================================================================
+// 12. 配置价回填:以 ai_pricing 为权威价(2026-11-14 立)
+// =============================================================================
+// 事故背景:实际计费走 ai_pricing(pricingSource=ai_pricing),但 ai_model_config_models
+// 的 input/output_price_per_1k 长期为 0 ⇒ 价目/看板/巡检看到「零价模型」,与真实计费不符。
+// 本函数把 ai_pricing 的权威价同步回配置行,**只填零价行,不覆盖手工价**。
+//
+// 不瞎定的三条硬规则:
+//   1) 只认 ai_pricing 里的非零价(平台真实计费依据),不做任何插值/中位数/猜测;
+//   2) 上游真免费模型(model_id 含 ":free")永不回填,零价是合法状态;
+//   3) 仍解析不出价的模型由 sweep 下架,不上架、不白送。
+
+export interface ConfigPriceSyncResult {
+  /** 零价配置行(排除 :free) */
+  scanned: number
+  /** 本次从 ai_pricing 同步成功的行数 */
+  updated: number
+  /** ai_pricing 也无价的剩余行(需 sweep 或下架) */
+  skipped: number
+}
+
+export async function syncConfigPricesFromPricing(): Promise<ConfigPriceSyncResult> {
+  const scanRes = await db.execute(sql`
+    select count(*)::int as n
+    from ai_model_config_models m
+    where coalesce(m.input_price_per_1k, 0) = 0
+      and coalesce(m.output_price_per_1k, 0) = 0
+      and lower(m.model_id) not like '%:free'
+  `)
+  const scanned = asNum(rowsOf<{ n: number }>(scanRes)[0]?.n)
+
+  const updRes = await db.execute(sql`
+    with src as (
+      select distinct on (lower(model_id))
+        lower(model_id) as mid,
+        input_token_price as pin,
+        output_token_price as pout
+      from ai_pricing
+      where (input_token_price > 0 or output_token_price > 0)
+        and lower(model_id) not like '%:free'
+      order by lower(model_id), effective_at desc nulls last
+    )
+    update ai_model_config_models m
+    set input_price_per_1k = s.pin,
+        output_price_per_1k = s.pout,
+        updated_at = now()
+    from src s
+    where lower(m.model_id) = s.mid
+      and coalesce(m.input_price_per_1k, 0) = 0
+      and coalesce(m.output_price_per_1k, 0) = 0
+    returning m.id
+  `)
+  const updated = rowsOf<Record<string, unknown>>(updRes).length
+  logger.info(
+    `[model-pricing-admin] 配置价回填 scanned=${scanned} updated=${updated} skipped=${Math.max(0, scanned - updated)}`,
+  )
+  return { scanned, updated, skipped: Math.max(0, scanned - updated) }
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
