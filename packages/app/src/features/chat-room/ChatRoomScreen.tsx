@@ -20,7 +20,14 @@ import { SearchInput } from '../../components/SearchInput'
 import { EmptyState } from '../../components/ScreenStates'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 
-import { rnCssLight, rnGeometry, rnRadius, rnRadiusFor, rnSpacing, rnType } from '@ihui/design-tokens'
+import {
+  rnCssLight,
+  rnGeometry,
+  rnRadius,
+  rnRadiusFor,
+  rnSpacing,
+  rnType,
+} from '@ihui/design-tokens'
 
 // ── 类型定义(强类型,禁用 any;内联定义对齐 MessageChatScreen 模式) ──
 
@@ -237,6 +244,7 @@ export function ChatRoomScreen({
         >
           <View style={styles.previewOverlay}>
             <TouchableOpacity
+              accessibilityRole="button"
               style={styles.previewClose}
               onPress={() => setPreviewUrl(null)}
               activeOpacity={0.8}

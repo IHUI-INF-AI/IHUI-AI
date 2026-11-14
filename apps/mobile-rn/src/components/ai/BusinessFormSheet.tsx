@@ -278,7 +278,10 @@ function FormPanel({
 
       <Modal visible={open} transparent animationType="fade" onRequestClose={onClose}>
         <Tappable style={s.backdrop} onPress={onClose}>
-          <View style={[s.sheet, dialogHeightStyle]}>
+          {/* 卡片是遮罩 Pressable 的子节点:RN responder 由内向外询问,纯 View 不抢占
+              ⇒ 点卡片标题栏/空白区会冒泡到遮罩,把正在填写的表单误关。同仓其它弹层
+              (ChatTemplatesScreen / LoginScreen / VoicePanel)都为此加了吞点击护栏。 */}
+          <View style={[s.sheet, dialogHeightStyle]} onStartShouldSetResponder={() => true}>
             <View style={s.chrome}>
               <Text style={s.title}>{t(`${NS}.aria.${kind}`)}</Text>
               {statusText ? <Text style={s.chipStatus}>{statusText}</Text> : null}
