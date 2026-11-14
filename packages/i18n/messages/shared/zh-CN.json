@@ -59,6 +59,7 @@
     "toolCreateArtifact": "生成交付物",
     "toolCreateAutomation": "创建自动化",
     "toolSummarizeArtifacts": "汇总任务产物",
+    "toolPresentFiles": "交付文件",
     "activityMcp": "调用 {mcp} MCP",
     "activityPlugin": "调用 {plugin} 插件",
     "activityPlanning": "规划进度",

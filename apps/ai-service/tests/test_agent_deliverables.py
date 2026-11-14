@@ -125,8 +125,11 @@ def test_build_shape_and_output_truncation():
     c.record_tool_call("c1", "get_weather", {}, None)
     data = c.build("x" * 800)
     assert set(data.keys()) == {
-        "citations", "filesChanged", "toolsSummary", "outputSummary", "generatedAt",
+        "citations", "filesChanged", "presentedFiles",
+        "toolsSummary", "outputSummary", "generatedAt",
     }
+    # 无显式交付声明时也必须带键(跨端宽松守卫按空数组兜底)
+    assert data["presentedFiles"] == []
     assert data["outputSummary"] == "x" * 500
     assert data["toolsSummary"] == {"total": 1, "byTool": {"get_weather": 1}}
     # generatedAt 必须是可解析的 ISO8601(带时区)

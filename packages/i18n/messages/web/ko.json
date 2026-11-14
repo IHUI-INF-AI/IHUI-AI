@@ -13925,6 +13925,7 @@
     "toolsSummary": "도구 호출:",
     "filesChanged": "파일 변경",
     "filesEmpty": "파일 변경 기록이 없습니다",
+    "presentedFiles": "전달 파일",
     "kindAdd": "추가",
     "kindDelete": "삭제",
     "kindUpdate": "수정",

@@ -13922,6 +13922,7 @@
     "toolsSummary": "Tool calls:",
     "filesChanged": "File Changes",
     "filesEmpty": "No file changes",
+    "presentedFiles": "Delivered files",
     "kindAdd": "Add",
     "kindDelete": "Delete",
     "kindUpdate": "Update",
