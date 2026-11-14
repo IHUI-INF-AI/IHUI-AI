@@ -12220,20 +12220,8 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 43D. **缺陷普查 DB DB-35** [P2] 多类敏感字段明文落库（PII 与第三方凭据）（证据 docs/tickets/2026-11/findings-db.md#DB-35）
 - [ ] 175G. **缺陷普查 API F-175** [P2] 技能同步 upsert 无唯一约束，并发 push 产生同 (author_id, slug) 重复行（证据 docs/tickets/2026-11/findings-api.md#F-175）（进行中@2026-11-13/w4-f175）
 - [ ] 274G. **缺陷普查 API F-274** [P2] 审计链链尾按 timestamp 取，跨实例时钟偏差/同毫秒取错前驱，链分叉或误报（证据 docs/tickets/2026-11/findings-api.md#F-274）
-- [ ] 305G. **缺陷普查 API F-305** [P3] 会话质量统计：visit_logs 无可用索引，三腿各扫全表且非同一快照（证据 docs/tickets/2026-11/findings-api.md#F-305）
-- [ ] 354G. **缺陷普查 API F-354** [P3] news_tops / news_recommends 缺 (news_id) 唯一约束，先查后插竞态，列表不去重（证据 docs/tickets/2026-11/findings-api.md#F-354）
-- [ ] 358G. **缺陷普查 API F-358** [P3] orders 缺 paid_at / created_at 索引，财务与 BI 聚合每次全表扫（证据 docs/tickets/2026-11/findings-api.md#F-358）
 
-- [ ] 495G. **缺陷普查 API F-495** [P3] 批处理 worker 崩溃重跑无断点，重复消耗上游（证据 docs/tickets/2026-11/findings-api.md#F-495）
-- [ ] 586G. **缺陷普查 API F-587** [P2] 订阅实例的 orderNo 幂等靠副本读 + 非唯一索引，异常吞成 null（证据 docs/tickets/2026-11/findings-api.md#F-587）
-- [ ] 587G. **缺陷普查 API F-588** [P3] AI 预算 upsert 无唯一约束，并发激活产生重复预算行（证据 docs/tickets/2026-11/findings-api.md#F-588）
-- [ ] 675G. **缺陷普查 API F-676** [P3] 429 的 Retry-After 只有账号池腿采用，渠道腿固定 60s 冷却（证据 docs/tickets/2026-11/findings-api.md#F-676）
 - [ ] 718G. **缺陷普查 API F-719** [P1] 兑换码/单边 token 充值只加 tokenBalance，而准入要求 costBalanceCents≠0 ⇒ 付费充值不可用（证据 docs/tickets/2026-11/findings-api.md#F-719）
-- [ ] 719G. **缺陷普查 API F-720** [P2] Qoder 类积分上游的 credits 不进计费 ⇒ 该维度完全未计费（证据 docs/tickets/2026-11/findings-api.md#F-720）
-- [ ] 723G. **缺陷普查 API F-724** [P2] 限流计数与计费链路脱钩：窗口计数只在两段式 +1，TPM 计数从未写入（证据 docs/tickets/2026-11/findings-api.md#F-724）
-- [ ] 724G. **缺陷普查 API F-725** [P2] 订阅窗口用量只在两段式结算里累加 ⇒ /v1/messages、/v1/responses 永不消耗订阅额度（证据 docs/tickets/2026-11/findings-api.md#F-725）
-- [ ] 727G. **缺陷普查 API F-728** [P2] 失败/中断调用只退金额不退 token，且 v1-responses 把错误文案计入输出 token（证据 docs/tickets/2026-11/findings-api.md#F-728）
-- [ ] 2H. **缺陷普查 SDB SDB-02** [P2] api_subscriptions.order_no 幂等键无唯一约束，先查后插（读副本）可并发重复建订阅（证据 docs/tickets/2026-11/findings-services-db.md#SDB-02）
 - [ ] 〔归:机主收款地址面｜等:—〕 RP-37 `USDT_TRC20_ADDRESS` 仍空:地址值是机主掌握的收款信息(七份 env 备份从未有非空值;同族 `USDT_ERC20_ADDRESS` 早有值),而 sponsor 页 `CryptoDonation.tsx:36` 已硬编码 `TMtTpPEMduWurHLi6Fe8XjfcP5Y5AMMnbG` 并上线(枚 ff5ea30d1c87ee76499b9cd3848145c5f030309a)⇒ 同一信息已交付两处、env 一处为空。校验面已收口:TRON 正则 + `assertUsdtAddressFormat` 两调用点共用,新增 14 例绿(含 ERC20 不误拒/400/500 两失败路径/脏地址不落库);fail-closed 37 例绿。余两格归配置面:① env 填哪个地址(现成 sponsor 值或专用充值地址);② 两套 ERC20 地址(现读 sponsor 值与 env 值前缀不同)收敛为 env 权威。〔结清@2026-10-24/主会话-强制令:校验与失败路径已绿,余为地址值配置格〕
 <!-- 〔RP-79 裁并锚 @2026-11-03:同号双行 2→1(保留剩余面行,原 git-sync 守卫行全文并入);本行原为 Z-1 重复登记,已被 HEAD 85f1c08855 删除,此处仅作 plan-union-merge 冲突锚,无任务语义〕 -->
 - [x] RP-61 〔千段租约〕 本机=lichunchuan-4d8db25b 段=RP-52~RP-61(取号器专用行:占用面只取本行主键=段尾号 ⇒ 无租约感知的 max+1 落在段外;段内连号自段首起、由持有机取号器递增;段满由取号器另立下一段,占段撞号由 CAS 终止,不是让号自我循环)
