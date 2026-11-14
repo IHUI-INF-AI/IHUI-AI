@@ -187,6 +187,7 @@ export function MessageInput({
       <View style={[styles.inputRow, isFocused && styles.inputRowFocused]}>
         {/* 语音/键盘切换按钮 */}
         <TouchableOpacity
+          accessibilityRole="button"
           style={styles.iconBtn}
           onPress={onVoiceToggle}
           hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
@@ -246,6 +247,7 @@ export function MessageInput({
         <View style={styles.rightActions}>
           {isFocused ? (
             <TouchableOpacity
+              accessibilityRole="button"
               style={styles.iconBtn}
               onPress={onFullscreenToggle}
               hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
@@ -259,6 +261,7 @@ export function MessageInput({
           ) : null}
           {showAddFileBtn && !isFocused ? (
             <TouchableOpacity
+              accessibilityRole="button"
               style={styles.iconBtn}
               onPress={onAddImage}
               hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
@@ -268,6 +271,7 @@ export function MessageInput({
           ) : null}
           {showAddFileBtn && isFocused ? (
             <TouchableOpacity
+              accessibilityRole="button"
               style={styles.iconBtn}
               onPress={onAddFile}
               hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
@@ -277,6 +281,7 @@ export function MessageInput({
           ) : null}
           {text.length > 0 && !isStreaming ? (
             <TouchableOpacity
+              accessibilityRole="button"
               style={styles.iconBtn}
               onPress={onClear}
               hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}

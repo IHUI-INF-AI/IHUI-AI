@@ -13,6 +13,7 @@ import * as api from '@/api'
 import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import { useUserStore } from '@/stores/user'
 import { aizhsUrl, bspappUrl } from '@/constants/icon-urls'
+import { MINI_TAB_PAGE_LIST } from '@/constants/tab-bar-pages'
 import { saveImageToPhotosAlbum } from '@/utils/save-album'
 import './index.css'
 import ThemeRoot from '@/components/ThemeRoot'
@@ -224,9 +225,15 @@ export default function DistributionIndex() {
     if (item.action === 'qrcode') {
       onGetQrCode()
     } else if (item.url) {
-      Taro.navigateTo({ url: item.url }).catch(() => {
-        Taro.switchTab({ url: item.url! }).catch(() => {})
-      })
+      // tabBar 页只能 switchTab、普通页只能 navigateTo。旧写法盲试两次:普通页
+      // navigateTo 失败后又用 switchTab 打同一非 tab 路径,必然再失败且被静默吞掉,
+      // 用户点宫格项「点了没反应」。这里按唯一名单判定,失败一律给反馈。
+      const url = item.url
+      const path = url.replace(/^\//, '').split('?')[0] ?? ''
+      const nav = (MINI_TAB_PAGE_LIST as readonly string[]).includes(path)
+        ? Taro.switchTab({ url })
+        : Taro.navigateTo({ url })
+      nav.catch(() => onToast(tt('distribution.index.navFailed', '页面未配置'), { kind: 'error' }))
     }
   }
 

@@ -37,7 +37,7 @@ import { CategoryInlineBar } from '../../components/category/CategoryInlineBar'
 import { Lightbulb, Play, Flame, Bot, Clapperboard, Plus } from 'lucide-react-native'
 import type { AppIcon, StudyTrackCategory, StudyVideoItem } from '@ihui/types'
 
-import { rnGeometry, rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { ELEVATION_STEPS, rnGeometry, rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { Tappable } from '@ihui/ui-native'
 export type { StudyTrackCategory, StudyVideoItem }
 
@@ -414,15 +414,18 @@ function createStyles(tk: AppThemeTokens) {
       width: rnGeometry.fabBox,
       height: rnGeometry.fabBox,
       /**
-       * 正方 FAB 用相对式正圆:宽高同值(rnGeometry.fabBox=56)且半径恒为短边一半,
-       * 属守门 77 的 B9 / 守门 11 的 C7 明文承认的"几何正圆"例外,不写死 28
-       * (28 超 2xl=16 的定档上限)。视觉与原 56×56 / 半径 28 完全一致。
+       * 正方 FAB 用几何表达式取半边(design-tokens/geometry.js 的明文口径):
+       * RN 的 borderRadius 只吃 number,字符串 `'50%'` 会被 Yoga 静默丢弃 ⇒
+       * 56×56 的 FAB 退化成直角方形。这里不写死 28(28 超 2xl=16 的定档上限),
+       * 由 rnGeometry.fabBox / 2 取半边,与守门 77 的 B9「几何正圆」例外同形。
        */
-      borderRadius: '50%',
+      borderRadius: rnGeometry.fabBox / 2,
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: tk.brand.cta,
-      elevation: 4,
+      // elevation 只在 Android 生效;单写它会让 iOS 上这枚 FAB 完全没有投影。
+      // 取唯一层级档(四元组 + elevation 同档携带),两端同一层级,不另写裸值。
+      ...ELEVATION_STEPS.md,
     } as ViewStyle,
     searchBar: {
       paddingHorizontal: rnSpacing['sm-loose'],
