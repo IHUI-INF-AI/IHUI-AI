@@ -26,6 +26,7 @@ from pydantic import BaseModel, Field
 # 本路由只搬运已取到的**类型化**信号(最后一个带 error_type 的工具结果),不从 error 散文反推。
 from ..core.agent_failure_vocabulary import failure_signal as _failure_signal
 from ..core.budget_reason import normalize_budget_reason, scope_for_budget_reason
+from ..core.goal_round_prompt import render_goal_round_prompt
 from ..core.jwt_auth import require_request_user_id, resolve_request_role_id
 from ..core.sse_buffer import REPLAY_HIT, sse_buffer
 
@@ -1963,8 +1964,20 @@ async def execute_agent_stream(
                             if _should_goal_rerun(result, decision) and not getattr(
                                 loop, "_cancel_requested", False
                             ):
+                                # 2026-11-14(对标 DSH dsh-goal-round-driver.renderGoalRoundPrompt):
+                                # 续跑不能只复读原始目标 —— 必须带轮次、事实来源与证据收口纪律,
+                                # 否则模型会把"上一轮说过了"当成"这一轮做完了"。
+                                _round_state = getattr(decision, "round_state", None)
+                                _round_no = int(getattr(_round_state, "rounds", 0) or 0) + 1
                                 result = await loop.run(
-                                    [{"role": "user", "content": req.goal}]
+                                    [
+                                        {
+                                            "role": "user",
+                                            "content": render_goal_round_prompt(
+                                                req.goal, _round_no
+                                            ),
+                                        }
+                                    ]
                                 )
                                 frame_success = result.success
                                 frame_stop_reason = result.stop_reason
