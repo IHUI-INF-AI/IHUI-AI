@@ -172,6 +172,25 @@ describe('ACP x.ai/mcp/serverStatus', () => {
     expect(resp.server!.dead).toBe(true);
     expect(resp.server!.alive).toBe(false);
     expect(resp.server!.consecutiveFailures).toBe(3);
+    // 归一化投影:dead 必须投影成 failed + checkConfig(不是 starting)
+    expect(resp.projection?.runtimeStatus).toBe('failed');
+    expect(resp.projection?.actionRequired).toBe('checkConfig');
+  });
+
+  it('已连接 server → 投影 connected + none(可直接展示,不必再翻译布尔)', async () => {
+    const client = makeConnectedClient('srv1', vi.fn().mockResolvedValue({}));
+    registerManagedClient(client);
+    await client.ensureConnected();
+
+    const resp = await agent.mcpServerStatus({ serverName: 'srv1' });
+    expect(resp.projection?.serverName).toBe('srv1');
+    expect(resp.projection?.runtimeStatus).toBe('connected');
+    expect(resp.projection?.actionRequired).toBe('none');
+  });
+
+  it('未注册 server → projection 缺省(不臆造状态)', async () => {
+    const resp = await agent.mcpServerStatus({ serverName: 'not-exist' });
+    expect(resp.projection).toBeUndefined();
   });
 });
 
