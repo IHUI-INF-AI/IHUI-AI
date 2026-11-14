@@ -60,6 +60,7 @@
     "toolCreateAutomation": "自動化を作成",
     "toolSummarizeArtifacts": "成果物を要約",
     "toolPresentFiles": "ファイルを提示",
+    "presentedTitle": "{count} 件のファイルを納品しました",
     "activityMcp": "{mcp} MCP を呼び出し",
     "activityPlugin": "{plugin} プラグインを呼び出し",
     "activityPlanning": "計画を立案中",

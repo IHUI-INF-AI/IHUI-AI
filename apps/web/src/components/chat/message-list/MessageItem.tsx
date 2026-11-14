@@ -37,7 +37,10 @@ import type { ChatMessage } from '@/stores/chat'
 import type { InlineDiffInfo } from '@/components/ai/types'
 import { CommunityPublishDialog } from '@/components/chat/community-publish-dialog'
 import CheckpointRewindPanel from '@/components/checkpoint/CheckpointRewindPanel'
-import { MarkdownStream } from '@/components/ai/markdown-stream'
+import { MarkdownStream, type FileMention } from '@/components/ai/markdown-stream'
+import { extractRefs } from './file-chips'
+import { resolveFileMention } from '@/lib/file-mention'
+import { openWorkspaceFileInIde } from '@/lib/workspace-file-open'
 // D04(2026-10-24 接线):模型输出里的白名单动作锚点(<action>/<detail>/<link>…)走
 // chat 侧唯一受控渲染器(与 t.rich 共用同一张表),**不**打开裸 HTML 通道。
 import { RichAnchorText } from '@/components/chat/rich-anchor-text'
@@ -286,6 +289,43 @@ const MessageItem = React.memo(function MessageItem({
   // D22(2026-09-19 立):system 角色独立渲染分支 — /chat 请求侧已拒绝 system(防上下文注入),
   // 渲染侧仅服务历史会话回放/恢复场景后端下发的只读 system 条目:居中灰字提示条,无操作栏。
   const isSystem = m.role === 'system'
+  // 2026-11-14(对标 DSH producedFileMentions):行内 code 文件引用只认本轮真实产出/交付。
+  // 产出 = 成功的写/改工具;交付 = present_files 的 files;artifacts 同属产物。
+  // 歧义/未知由 resolveFileMention 保持惰性(不按后缀或 cwd 猜),点了才落 IDE。
+  const fileMention = React.useMemo<FileMention | undefined>(() => {
+    if (isUser) return undefined
+    const paths: string[] = []
+    const successful = (m.toolCalls ?? []).filter((tc) => tc.status === 'success')
+    for (const ref of extractRefs(successful)) {
+      if (ref.action === 'changedFile' || ref.action === 'createdFile') paths.push(ref.path)
+    }
+    for (const tc of successful) {
+      if (tc.toolName === 'present_files') {
+        const files = tc.args?.files
+        if (Array.isArray(files)) {
+          for (const file of files) {
+            const path =
+              typeof file === 'string'
+                ? file
+                : file && typeof (file as { path?: unknown }).path === 'string'
+                  ? String((file as { path: string }).path)
+                  : ''
+            if (path.trim()) paths.push(path.trim())
+          }
+        }
+      }
+      for (const artifact of tc.summary_data?.artifacts ?? []) {
+        if (artifact && typeof artifact.path === 'string' && artifact.path.trim()) {
+          paths.push(artifact.path.trim())
+        }
+      }
+    }
+    if (paths.length === 0) return undefined
+    return {
+      resolve: (value: string) => resolveFileMention(value, paths),
+      open: (path: string) => openWorkspaceFileInIde(path),
+    }
+  }, [isUser, m.toolCalls])
   // #17 折叠中间步骤区总数(四类区段)。2026-11-05 上移到此:showTyping 必须复用它。
   // 「活动组 StreamGroup」挂在 showTyping 三元表达式的 else 分支里 —— 助手正文为空
   // 且流式时若恒走 typing 占位,工具卡/计划/终端/子代理整段都不进 DOM,逐分片
@@ -1188,6 +1228,7 @@ const MessageItem = React.memo(function MessageItem({
             content={m.content}
             isStreaming={streamingThis}
             collapseLines={codeCollapseLines}
+            fileMention={fileMention}
           />
         )}
       </ErrorBoundary>

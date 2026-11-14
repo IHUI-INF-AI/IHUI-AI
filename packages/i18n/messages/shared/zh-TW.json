@@ -60,6 +60,7 @@
     "toolCreateAutomation": "建立自動化",
     "toolSummarizeArtifacts": "彙整任務產物",
     "toolPresentFiles": "交付檔案",
+    "presentedTitle": "已交付 {count} 個檔案",
     "activityMcp": "呼叫 {mcp} MCP",
     "activityPlugin": "呼叫 {plugin} 外掛",
     "activityPlanning": "規劃進度",
