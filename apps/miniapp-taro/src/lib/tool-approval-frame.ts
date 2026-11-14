@@ -96,6 +96,51 @@ export function parseQuestionLine(line: string): QuestionCardPayload | null {
   }
 }
 
+// ===== D135(2026-11-14):AI 主动提问结算(question-resolved 帧)的端内认领层 =====
+// 与 question 帧同纪律:共享 sse-parse 不认领该帧,api-client 的解析腿住在 streamChat
+// 闭包内不导出 ⇒ 本端复用同一条 onRawLine 旁路自行认领。载荷逐字对齐 api-client
+// client.ts:4778 的 tryParseQuestionResolved(只做结构校验,未知 status 一律忽略)。
+const QUESTION_RESOLVED_FRAME_TYPE = 'question-resolved'
+
+/** 只认这四个状态;旧/坏帧不能伪造终态(与 api-client QUESTION_RESOLVED_STATUSES 同值域)。 */
+const QUESTION_RESOLVED_STATUSES = ['answered', 'timeout', 'withdrawn', 'interrupted'] as const
+
+export type QuestionResolvedStatus = (typeof QUESTION_RESOLVED_STATUSES)[number]
+
+export interface QuestionResolvedPayload {
+  questionId: string
+  status: QuestionResolvedStatus
+  selectedOptionIds: string[]
+  customText?: string
+}
+
+/** 一行 SSE 文本 → 提问结算载荷;非本族帧/字段不合法/未知 status ⇒ null(丢弃,不猜终态)。 */
+export function parseQuestionResolvedLine(line: string): QuestionResolvedPayload | null {
+  const payload = dataPayloadOfLine(line)
+  if (!payload || !payload.includes(`"${QUESTION_RESOLVED_FRAME_TYPE}"`)) return null
+  let json: Record<string, unknown>
+  try {
+    json = JSON.parse(payload) as Record<string, unknown>
+  } catch {
+    return null
+  }
+  if (json?.type !== QUESTION_RESOLVED_FRAME_TYPE) return null
+  const questionId = json.questionId
+  if (typeof questionId !== 'string' || questionId === '') return null
+  const status = json.status
+  if (typeof status !== 'string') return null
+  if (!(QUESTION_RESOLVED_STATUSES as readonly string[]).includes(status)) return null
+  const resolvedStatus = status as QuestionResolvedStatus
+  const rawSelected = Array.isArray(json.selectedOptionIds) ? json.selectedOptionIds : []
+  const selectedOptionIds: string[] = []
+  for (const id of rawSelected) {
+    if (typeof id === 'string') selectedOptionIds.push(id)
+  }
+  const result: QuestionResolvedPayload = { questionId, status: resolvedStatus, selectedOptionIds }
+  if (typeof json.customText === 'string') result.customText = json.customText
+  return result
+}
+
 /**
  * 一行 SSE 文本 → 审批请求视图;不是这一族帧(或 approval_id 缺失/空)⇒ null(丢弃,不猜)。
  *

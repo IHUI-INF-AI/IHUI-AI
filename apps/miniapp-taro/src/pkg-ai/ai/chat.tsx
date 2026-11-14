@@ -45,6 +45,8 @@ import {
   // postFormResponse 从 @ihui/api-client 导出,端内不另起传输层)。
   buildFormResponseEvent,
   postFormResponse,
+  // D135(2026-11-14):阻塞式提问答复 HTTP 出口 —— 与 web/RN 同一传输层,端内不另起。
+  fetchAiServiceJson,
 } from '@ihui/api-client'
 import { formatTokenCount } from '@ihui/shared/utils'
 // D4(2026-11-12 修"逐 token setData 风暴"):打字机合帧泵与 web/RN 同源(三端单一真相源)
@@ -75,6 +77,8 @@ import { useRemoteChatSyncMessages } from '@/stores/chat-sync'
 // 本屏只做两件事 —— 用投影决定「这条族消息当前显示哪一版」、把版本菜单挂在该条之后;
 // 判族/位置读数一律不在此复算(§3 共享层优先 + §4 跨端禁两份对账)。
 import { projectActiveMessages } from '@ihui/shared/chat/message-version-family'
+// D135(2026-11-14):小程序提问卡阻塞式答复编排(纯逻辑,判定层走 shared 单一真相源)
+import { respondMiniQuestion } from './question-card-core'
 import { effectiveMode } from '@ihui/shared/chat/queue-interactions'
 import { useSideQueue } from './side-queue-host'
 // 255fa96933 摘除端内手写轻对话页时的能力安置腿(§7:删除不得静默丢弃):
@@ -257,13 +261,28 @@ export default function ChatPage() {
   const [businessForms, setBusinessForms] = useState<readonly BusinessFormView[]>([])
   // BUG-67:AI 主动提问卡(question 帧)。载荷由 api/index.ts 的 onRawLine 旁路认领后
   // 经 onQuestion 回调落到这里;同 questionId 幂等覆盖(断线重连回放不重复挂卡)。
+  // D135(2026-11-14):补齐 header/expiresAt/sessionId 三字段 —— 阻塞式答复需 sessionId,
+  // 倒计时超时需 expiresAt,新帧小标题需 header(旧帧均没有 ⇒ 全部可选)。
   const [pendingQuestion, setPendingQuestion] = useState<{
     questionId: string
     prompt: string
     options: Array<{ id: string; label: string }>
     allowCustom: boolean
     allowMultiple: boolean
+    header?: string
+    expiresAt?: string | number
+    /** 阻塞式提问所属的 ai-service 流会话 ID(旧帧没有 ⇒ 无阻塞式通道,如实走 legacy) */
+    sessionId?: string
   } | null>(null)
+  // ── D135(2026-11-14):提问卡本地作答态 + 防重锁 ──
+  const [questionAnswer, setQuestionAnswer] = useState<{
+    selectedIds: string[]
+    customText: string
+  }>({ selectedIds: [], customText: '' })
+  const [questionPhase, setQuestionPhase] = useState<
+    'idle' | 'submitting' | 'answered' | 'withdrawn' | 'timeout' | 'failed'
+  >('idle')
+  const questionSubmitLockRef = useRef(false)
   // 上行在途标记(防重复提交;与 approvalSending 同纪律,按条目 requestId 标记)
   const [formSendingRequestId, setFormSendingRequestId] = useState<string | null>(null)
   // ── G-403(2026-10-07):消息级 usage 缓存两维(onUsage 帧 → 归因条)──
@@ -1474,10 +1493,17 @@ export default function ChatPage() {
                 return [...prev, entry]
               })
             },
-            // BUG-67:AI 主动提问(question 帧)→ 页级挂起态 → ./chat-shell-extras 的
-            // overlaySlot 提问卡。选项点击把回答写回输入框,用户点发送即续流;消费端不新起 answer 端点。
+            // BUG-67 + D135(2026-11-14):AI 主动提问(question 帧)→ 页级挂起态 →
+            // chat-shell-extras 的 overlaySlot 提问卡。帧带 sessionId 时走阻塞式答复
+            // (投 /question-response,不新增用户消息、不发起新一轮);无 sessionId 时回退
+            // 旧链路(选项写回输入框→用户点发送续流)。同 questionId 幂等覆盖。
             onQuestion: (q) => {
               setPendingQuestion((prev) => (prev?.questionId === q.questionId ? prev : q))
+            },
+            // D135:结算帧 —— 一个 questionId 只结算一次,到达即摘卡(与 web/RN 同语义)。
+            // 挂起态匹配才清,不误抹别的提问。
+            onQuestionResolved: (event) => {
+              setPendingQuestion((prev) => (prev?.questionId === event.questionId ? null : prev))
             },
             onRetryScheduled: (evt) =>
               pushStreamActivity(
@@ -2132,6 +2158,98 @@ export default function ChatPage() {
     [versionList, messages, businessForms, formSendingRequestId, handleBusinessFormAction, tt],
   )
 
+  // ── D135(2026-11-14):提问卡本地作答回调(须在 shellCtx 之前声明,避免 TDZ) ──
+  // 保持 ref 最新(pendingQuestion/questionAnswer 可能在回调闭包里过期)
+  const pendingQuestionRef = useRef(pendingQuestion)
+  pendingQuestionRef.current = pendingQuestion
+  const questionAnswerRef = useRef(questionAnswer)
+  questionAnswerRef.current = questionAnswer
+
+  // 选项点选:多选切换、单选独占;自由输入并入 customText。
+  const selectQuestionOption = useCallback((optId: string): void => {
+    setQuestionAnswer((prev) => {
+      const pq = pendingQuestionRef.current
+      if (!pq) return prev
+      if (pq.allowMultiple) {
+        return {
+          ...prev,
+          selectedIds: prev.selectedIds.includes(optId)
+            ? prev.selectedIds.filter((x) => x !== optId)
+            : [...prev.selectedIds, optId],
+        }
+      }
+      return { ...prev, selectedIds: [optId] }
+    })
+  }, [])
+
+  // 自由输入变更
+  const setQuestionCustomText = useCallback((text: string): void => {
+    setQuestionAnswer((prev) => ({ ...prev, customText: text }))
+  }, [])
+
+  // 重置卡片(切换帧/关闭时调用)
+  const resetQuestionCard = useCallback((): void => {
+    setQuestionAnswer({ selectedIds: [], customText: '' })
+    setQuestionPhase('idle')
+    questionSubmitLockRef.current = false
+  }, [])
+
+  // 摘卡:同时清状态和作答态
+  const dismissQuestionCard = useCallback((): void => {
+    setPendingQuestion(null)
+    resetQuestionCard()
+  }, [resetQuestionCard])
+
+  // 提交/撤回一个阻塞式答复(双击只发一次;终态后卡片只读)
+  const submitQuestion = useCallback(
+    async (action: 'answer' | 'withdraw'): Promise<void> => {
+      const entry = pendingQuestionRef.current
+      if (!entry || questionSubmitLockRef.current || questionPhase !== 'idle') return
+      if (
+        action === 'answer' &&
+        questionAnswerRef.current.selectedIds.length === 0 &&
+        !questionAnswerRef.current.customText.trim()
+      )
+        return
+      questionSubmitLockRef.current = true
+      setQuestionPhase('submitting')
+      const outcome = await respondMiniQuestion({
+        entry,
+        action,
+        answer: questionAnswerRef.current,
+        phase: 'idle',
+        submitLock: false,
+        sendLegacyAnswer: async (text: string) => {
+          await sendMessageRef.current?.(text)
+        },
+        postJson: fetchAiServiceJson,
+      })
+      if (outcome === null) {
+        questionSubmitLockRef.current = false
+        setQuestionPhase('idle')
+        return
+      }
+      if (outcome.kind === 'failed') {
+        questionSubmitLockRef.current = false
+        setQuestionPhase('failed')
+        return
+      }
+      // blocking 或 legacy:legacy 已摘卡,blocking 置终态(等结算帧再摘)
+      if (outcome.kind === 'blocking') {
+        setQuestionPhase(outcome.status === 'withdrawn' ? 'withdrawn' : outcome.status)
+      } else {
+        // legacy 回退:已通过 sendLegacyAnswer 续流,摘卡
+        dismissQuestionCard()
+      }
+    },
+    [questionPhase, dismissQuestionCard],
+  )
+
+  // 帧到达时重置作答态(不同 questionId 不复用旧选中)
+  useEffect(() => {
+    resetQuestionCard()
+  }, [pendingQuestion?.questionId, resetQuestionCard])
+
   // 最终壳:页内 JSX 只剩「ThemeRoot + 共享 ChatScreen 入口」两枚;
   // 视觉节点在 ./chat-shell-extras 装配进共享屏槽位(status/queue/input/overlay...)。
   // 页内保留 SSE/数据/判定逻辑,壳层不判端。
@@ -2201,6 +2319,13 @@ export default function ChatPage() {
     openModelDrawer,
     openSkillsPopup,
     pendingQuestion,
+    // D135(2026-11-14):提问卡阻塞式作答回调(overlaySlot 提问卡消费)
+    questionAnswer,
+    questionPhase,
+    selectQuestionOption,
+    setQuestionCustomText,
+    submitQuestion,
+    dismissQuestionCard,
     reasoningPopupContent,
     reasoningPopupVisible,
     scrollToBottom,
@@ -2243,6 +2368,7 @@ export default function ChatPage() {
     versionList,
     workspaceTier,
   }
+
   return (
     <ThemeRoot className="page">
       <SharedChatScreen {...buildChatShellProps(shellCtx)} />
