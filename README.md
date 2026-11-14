@@ -5470,6 +5470,9 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-14**
+- 🔧 工程/其他:补齐溯源水印覆盖 + audit-app-text-contrast 同族配对 (fd8cb9c30a)
+
+**2026-11-14**
 - 🚀 新功能/改进:以 ai_pricing 权威价回填配置零价行 (476127d306)
 - 🐞 修复:诊断臂 [7b] DB 迁移落后维从未真判过——函数注册晚于 -diagnose 顶层执行点(第三次落地,范围收窄) (c4be376fd5)
 - 🐞 修复:零价护栏豁免上游真免费模型(:free) (88cfcfeba1)

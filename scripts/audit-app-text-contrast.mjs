@@ -389,11 +389,11 @@ function run() {
         // 明暗三元分支(如 `dark ? tk.x : tk.y`)无法静态归一 ⇒ 如实标出交人工复核,
         // 不硬套一档(硬套会放假红,比漏检更贵,AGENTS.md §0.2)
         const themeBranchy = /(?:dark|isDark)\s*\?|colorScheme\s*===\s*'dark'/.test(line)
-        const rec = { file: rel, line: i + 1, field: u.field, kind: u.kind, themeBranch: themeBranchy, declaredPair: declared || null, snippet: line.trim().slice(0, 150) }
+        const declared = declaredPairOf(u.field, light, dark)
+        const rec = { file: rel, line: i + 1, field: u.field, kind: u.kind, themeBranch: themeBranchy, snippet: line.trim().slice(0, 150) }
         if (u.kind === 'bg' || isBackgroundFamily(u.field)) continue
         if (isInverseFamily(u.field)) { inverse.push(rec); continue }
         // 同族声明配对优先:该 token 的合法承载面就是它的 `*Bg` 兄弟档
-        const declared = declaredPairOf(u.field, light, dark)
         const j = declared
           ? judge(u.field, u.kind, light, dark, [declared])
           : judge(u.field, u.kind, light, dark)

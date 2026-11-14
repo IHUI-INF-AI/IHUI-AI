@@ -912,7 +912,6 @@ export async function startREPL(opts: ReplOptions): Promise<void> {
    * CLI 是单线程交互:流式输出与 stdin 同时活着。这里用"有值 = 正在等答案"做状态位,
    * 让 `rl.on('line')` 把输入路由到答复而不是插话缓冲区(见那里的分支注释)。
    */
-  const pendingQuestionRef: { current: PendingQuestionForCli | null } = { current: null }
 
   /**
    * 提交提问答复。判据来自共享层 `interpretQuestionResponse`(端内不复制三档归宿):
@@ -1140,6 +1139,16 @@ interface PendingQuestionForCli {
   allowCustom: boolean;
   allowMultiple: boolean;
 }
+
+/**
+ * 模块级待答提问槽(2026-11-13)。
+ *
+ * 为什么必须在模块级:`onQuestion` 回调住在 `sendToAgent`(流消费侧),
+ * 而输入的读取口在 `startRepl` 的 `rl.on('line')` —— 跨函数作用域。
+ * 单 REPL 进程同时只有一条活跃流,所以一个模块级槽是正确抽象;
+ * 若将来支持多会话并发,这里要改成按 sessionId 键的表。
+ */
+const pendingQuestionRef: { current: PendingQuestionForCli | null } = { current: null }
 
 export async function handleSlashCommand(input: string, state: ReplState, rl: readline.Interface): Promise<void> {
   const [cmdRaw, ...args] = input.slice(1).split(/\s+/);
