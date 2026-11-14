@@ -2,30 +2,23 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-/**
- * AI 主动提问 · 上行答复判据(共享层唯一实现,2026-11-13 下沉)。
- *
- * 立此模块的因由:这套判据原本住在 `apps/web/src/hooks/use-chat/question-response.ts`,
- * 而 extension / cli / miniapp-taro / mobile-rn 要接同一件事时必须各抄一份。
- * 抄开的后果与 `ahead` 那次同型 —— **两侧各自绿、漂移无人发现**。
- * 所以把**纯判据**(不顺网、不碰 store)提到共享层,各端只保留"怎么发请求"的平台适配。
- *
- * 三条判据的来源(逐条来自服务端行为,不是约定俗成):
- *  ① **404 ⇒ legacy**:旧服务端没有这个阻塞式端点 ⇒ 必须回退旧链路(把答复当普通新消息发)。
- *  ② **duplicate 优先于 accepted**:同一问的第二发被服务端幂等吃掉时,绝不能再发起新一轮
- *     —— 否则用户看到同一段回答生成两遍。
- *  ③ **accepted=false 但带终态(timeout/withdrawn)**:这一问已有结论(超时/被撤回),
- *     同样不发起新一轮;把它当失败重试 = 对着一个已经关闭的提问反复作答。
- *
- * 单一真相源纪律(§0.6):各端不得复制本文件的判据;要改行为只能改这里。
- */
+// AskUserQuestion 阻塞式问答 —— 判定层（2026-11-08 立，2026-11-14 上收 shared）。
+//
+// 原实现在 apps/web/src/hooks/use-chat/question-response.ts；RN 腿（D135 最小可视态
+// 补齐交互）需要同一份判据，按 §0.6 单一真相源上收 shared，web 与 RN 共用。
+//
+// 本模块**不取数、不发 HTTP、不碰 store**：三件纯事——
+//  1. 类型契约（QuestionAnswerPayload / QuestionResponseOutcome）
+//  2. 响应形状处置（interpretQuestionResponse）
+//  3. 旧链路答复文本构造（buildLegacyAnswerText）
+// 「blocking 之后怎么落 store、legacy 怎么回退」由各端编排层负责（web send-answer.ts
+// / RN InlineQuestionSheet），这样判据可单测、链路可回退。
 
-/** 上行动作:作答 or 撤回 */
+/** 用户动作:answer 提交答复 / withdraw 撤回 */
 export type QuestionResponseAction = 'answer' | 'withdraw'
 
-/** 服务端认可的终态。与 ai-service `question-response` 的 status 值域一致。 */
-export const QUESTION_RESPONSE_TERMINAL_STATUSES = ['answered', 'timeout', 'withdrawn'] as const
-export type QuestionResponseStatus = (typeof QUESTION_RESPONSE_TERMINAL_STATUSES)[number]
+/** 服务端终态:answered / timeout / withdrawn(interrupted 由 ai-service 独有,不进本集合) */
+export type QuestionResponseStatus = 'answered' | 'timeout' | 'withdrawn'
 
 /** 内联卡提交的结构化答复(与端点 body 同形,便于直接透传/单测断言) */
 export interface QuestionAnswerPayload {
@@ -44,7 +37,7 @@ export interface QuestionResponseData {
 
 /**
  * 响应形状 → 处置结果。
- * - `blocking`:服务端(或幂等副本)认下这一问,前端只把卡片置终态,**不发起新一轮**
+ * - `blocking`:服务端(或幂等副本)认下这一问,前端只把卡片置终态,不发起新一轮
  * - `legacy`:这不是阻塞式提问(404 / 200 但没有 accepted),退回旧链路
  * - `failed`:网络/5xx,调用方先回退旧链路一次并给可重试提示
  */
@@ -53,35 +46,31 @@ export type QuestionResponseOutcome =
   | { kind: 'legacy' }
   | { kind: 'failed'; message: string }
 
-/** ai-service 阻塞式答复端点路径 */
+/** 终态集合(interrupted 由 ai-service 独有,不进本集合) */
+const TERMINAL_STATUSES = new Set<QuestionResponseStatus>(['answered', 'timeout', 'withdrawn'])
+
+/** ai-service 阻塞式答复端点(与 `POST /llm/complete/stream/:sessionId/question-response` 对齐) */
 export function questionResponsePath(sessionId: string): string {
   return `/llm/complete/stream/${encodeURIComponent(sessionId)}/question-response`
 }
 
-export function isTerminalQuestionStatus(value: unknown): value is QuestionResponseStatus {
-  return (
-    typeof value === 'string' &&
-    (QUESTION_RESPONSE_TERMINAL_STATUSES as readonly string[]).includes(value)
-  )
+function isTerminalStatus(value: unknown): value is QuestionResponseStatus {
+  return typeof value === 'string' && TERMINAL_STATUSES.has(value as QuestionResponseStatus)
 }
 
 /**
  * 纯判据(可单测):HTTP 状态 + 响应体 → 处置结果。
- *
- * `httpStatus` 缺省 = 网络层没拿到状态码。本函数对它的处置是**返回 legacy**,
- * 理由与直觉相反但是实测口径:调用方(`postQuestionResponse`)在 `!result.success`
- * 且非 404 时**已提前**返回 `failed`,走不到这里 —— 能进来就说明 HTTP 层有响应,
- * 只是状态码没被透传(旧版 fetch 包装)。这一格按 legacy 处理,让调用方走"当普通消息重发"
- * 的保守路径,而不是把一次形状缺失判成网络失败去重试。
- * 真正的网络失败由调用方在外层 `catch` 判 failed,本函数不重复判。
+ * `status` 缺省 = 网络层没拿到状态码(按 failed)。
  */
 export function interpretQuestionResponse(
   httpStatus: number | undefined,
   data: unknown,
 ): QuestionResponseOutcome {
+  // 网络层没拿到状态码 = 请求根本没到服务端,按 failed(调用方给可重试提示 + 回退一次)
+  if (httpStatus === undefined) return { kind: 'failed', message: 'network error' }
   if (httpStatus === 404) return { kind: 'legacy' }
   const body = (data && typeof data === 'object' ? data : {}) as QuestionResponseData
-  const status = isTerminalQuestionStatus(body.status) ? body.status : undefined
+  const status = isTerminalStatus(body.status) ? body.status : undefined
   // duplicate 优先:同一问的第二发被服务端幂等吃掉时,绝不能再发起新一轮
   if (body.duplicate === true) {
     return { kind: 'blocking', status: status ?? 'answered', duplicate: true }
@@ -97,38 +86,18 @@ export function interpretQuestionResponse(
 }
 
 /**
- * 旧链路的答复文本:选项 label(按选项顺序)+ 自由输入,逗号合并(与旧弹窗同形)。
- * 撤回 ⇒ 空串(调用方据此不发消息)。
+ * 旧链路的答复文本:选项 label(按 id 顺序)+ 自由输入,逗号合并(与旧弹窗同形)。
+ * `options` 形状与 PendingQuestion.options 同族,不依赖具体 store 类型(§0.6 跨端可复用)。
  */
 export function buildLegacyAnswerText(
-  options: ReadonlyArray<{ id: string; label: string }>,
+  question: { options: Array<{ id: string; label: string }> },
   response: QuestionAnswerPayload,
 ): string {
   if (response.action === 'withdraw') return ''
-  const labels = options
+  const labels = question.options
     .filter((opt) => response.selectedOptionIds.includes(opt.id))
     .map((opt) => opt.label)
   const custom = (response.customText ?? '').trim()
   return [...labels, custom].filter(Boolean).join(', ')
-}
-
-/** 端点请求体(各端 POST 时逐字用这一份,避免字段名漂移) */
-export function buildQuestionResponseBody(
-  response: QuestionAnswerPayload,
-): Record<string, unknown> {
-  return {
-    questionId: response.questionId,
-    action: response.action,
-    selectedOptionIds: response.selectedOptionIds,
-    ...(response.customText ? { customText: response.customText } : {}),
-  }
-}
-
-export const __test__ = {
-  questionResponsePath,
-  isTerminalQuestionStatus,
-  interpretQuestionResponse,
-  buildLegacyAnswerText,
-  buildQuestionResponseBody,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
