@@ -439,4 +439,124 @@ export async function syncPublicCatalog(): Promise<{
   )
   return { scanned: src.length, inserted, existing: skipped }
 }
+
+// =============================================================================
+// 7. getProfitReport 利润看板(2026-11-14 立)
+// =============================================================================
+// 口径(唯一数据源 = llm_call_logs,不在本服务重算单价):
+// - 收入 revenueCents = cost_cents,即对用户实收;
+// - 成本 costCents = metadata->>'providerCostCents',仅成本已知的调用计入;
+// - 毛利 profitCents = 成本已知行的收入 − 成本;成本未知行只计入收入、不计利润,
+//   绝不把"成本未知"当"零成本"虚增毛利;
+// - costCoverage = 成本已知调用数 / 总调用数,低于 100% 说明部分模型缺定价留痕。
+
+export type ProfitGroupBy = 'day' | 'model' | 'provider'
+
+export interface ProfitBucket {
+  bucket: string
+  calls: number
+  /** 成本已知的调用数 */
+  costedCalls: number
+  /** 对用户实收总额(分,含全部调用) */
+  revenueCents: number
+  /** 成本已知行对应的收入(分) */
+  costedRevenueCents: number
+  /** 采购成本(分,仅成本已知行) */
+  costCents: number
+  /** 毛利(分)= 成本已知行收入 − 成本 */
+  profitCents: number
+  /** 毛利率(0~1,分母为成本已知行收入) */
+  margin: number
+}
+
+export interface ProfitReport {
+  from: string
+  to: string
+  groupBy: ProfitGroupBy
+  totals: Omit<ProfitBucket, 'bucket'> & { costCoverage: number }
+  rows: ProfitBucket[]
+}
+
+function toProfitBucket(r: Record<string, unknown>): ProfitBucket {
+  const costedRevenueCents = asNum(r['costed_revenue_cents'])
+  const costCents = asNum(r['cost_cents'])
+  const profitCents = costedRevenueCents - costCents
+  return {
+    bucket: String(r['bucket'] ?? ''),
+    calls: asNum(r['calls']),
+    costedCalls: asNum(r['costed_calls']),
+    revenueCents: asNum(r['revenue_cents']),
+    costedRevenueCents,
+    costCents,
+    profitCents,
+    margin: costedRevenueCents > 0 ? profitCents / costedRevenueCents : 0,
+  }
+}
+
+export async function getProfitReport(args: {
+  from: string
+  to: string
+  groupBy?: ProfitGroupBy
+  limit?: number
+}): Promise<ProfitReport> {
+  const groupBy: ProfitGroupBy = args.groupBy ?? 'day'
+  const rawLimit = Number(args.limit ?? 30)
+  const limit = Math.min(Math.max(Number.isFinite(rawLimit) ? Math.trunc(rawLimit) : 30, 1), 200)
+  const bucketExpr =
+    groupBy === 'model'
+      ? sql`coalesce(model, 'unknown')`
+      : groupBy === 'provider'
+        ? sql`coalesce(provider_code, 'unknown')`
+        : sql`to_char(created_at at time zone 'Asia/Shanghai', 'YYYY-MM-DD')`
+
+  const whereExpr = sql`
+    created_at >= ${args.from}::date
+    and created_at < (${args.to}::date + interval '1 day')
+    and status in ('success', 'partial')
+  `
+
+  const totalRes = await db.execute(sql`
+    select
+      count(*)::int as calls,
+      count(*) filter (where metadata ? 'providerCostCents')::int as costed_calls,
+      coalesce(sum(cost_cents), 0)::numeric as revenue_cents,
+      coalesce(sum(case when metadata ? 'providerCostCents' then cost_cents else 0 end), 0)::numeric as costed_revenue_cents,
+      coalesce(sum(case when metadata ? 'providerCostCents' then (metadata->>'providerCostCents')::numeric else 0 end), 0)::numeric as cost_cents
+    from llm_call_logs
+    where ${whereExpr}
+  `)
+
+  const rowsRes = await db.execute(sql`
+    select
+      ${bucketExpr} as bucket,
+      count(*)::int as calls,
+      count(*) filter (where metadata ? 'providerCostCents')::int as costed_calls,
+      coalesce(sum(cost_cents), 0)::numeric as revenue_cents,
+      coalesce(sum(case when metadata ? 'providerCostCents' then cost_cents else 0 end), 0)::numeric as costed_revenue_cents,
+      coalesce(sum(case when metadata ? 'providerCostCents' then (metadata->>'providerCostCents')::numeric else 0 end), 0)::numeric as cost_cents
+    from llm_call_logs
+    where ${whereExpr}
+    group by 1
+    order by revenue_cents desc
+    limit ${limit}
+  `)
+
+  const totals = toProfitBucket(rowsOf<Record<string, unknown>>(totalRes)[0] ?? {})
+  return {
+    from: args.from,
+    to: args.to,
+    groupBy,
+    totals: {
+      calls: totals.calls,
+      costedCalls: totals.costedCalls,
+      revenueCents: totals.revenueCents,
+      costedRevenueCents: totals.costedRevenueCents,
+      costCents: totals.costCents,
+      profitCents: totals.profitCents,
+      margin: totals.margin,
+      costCoverage: totals.calls > 0 ? totals.costedCalls / totals.calls : 0,
+    },
+    rows: rowsOf<Record<string, unknown>>(rowsRes).map(toProfitBucket),
+  }
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
