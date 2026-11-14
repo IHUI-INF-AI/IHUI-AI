@@ -52,6 +52,8 @@ const TOOL_DISPLAY_KEYS: Readonly<Record<string, string>> = {
   // G2 Automations 产品闭环(2026-10-30 立):对话式创建定时自动化
   create_automation: 'toolCreateAutomation',
   summarize_artifacts: 'toolSummarizeArtifacts',
+  // 显式交付声明(2026-11-14):命令/文档转换产物不进 filesChanged,由模型点名交付
+  present_files: 'toolPresentFiles',
   image_generation: 'toolImageGeneration',
   image_edit: 'toolImageEdit',
   video_generation: 'toolVideoGeneration',

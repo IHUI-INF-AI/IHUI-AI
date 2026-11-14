@@ -18,6 +18,8 @@
   "filesChanged": [{"path": str, "kind": "add"|"delete"|"update",
                     "stepIds": [tool_call_id,...],
                     "additions": int, "deletions": int}],  # 按 path 合并,上限 100
+  "presentedFiles": [{"path": str, "description": str|None,
+                      "stepIds": [tool_call_id,...]}],      # 模型显式声明,上限 20
   "toolsSummary": {"total": int, "byTool": {tool_name: count}},
   "outputSummary": str,     # final_output 前 500 字符
   "generatedAt": str,       # ISO8601 UTC
@@ -40,6 +42,8 @@ logger = logging.getLogger(__name__)
 # 契约上限
 _MAX_CITATIONS = 20
 _MAX_FILES_CHANGED = 100
+_MAX_PRESENTED_FILES = 20
+_MAX_PRESENT_DESCRIPTION = 200
 _MAX_OUTPUT_SUMMARY = 500
 # 进程内 LRU 存储容量(会话数)
 _MAX_SESSIONS = 256
@@ -58,6 +62,8 @@ class DeliverablesCollector:
         self._citation_seen: set[tuple[str, str, str]] = set()
         # filesChanged:path -> 合并条目(保持首现顺序)
         self._files: OrderedDict[str, dict[str, Any]] = OrderedDict()
+        # presentedFiles:casefold(path) -> 显式交付声明(保持首现顺序)
+        self._presented: OrderedDict[str, dict[str, Any]] = OrderedDict()
         # toolsSummary
         self._tools_total = 0
         self._by_tool: dict[str, int] = {}
@@ -170,6 +176,44 @@ class DeliverablesCollector:
         except Exception as e:
             logger.warning("deliverables record_citation 失败(降级,不阻塞): %s", e)
 
+    def record_presented(
+        self, path: str, description: str = "", step_ids: list[str] | None = None
+    ) -> None:
+        """登记一个模型显式声明的交付物(present_files 的聚合出口)。
+
+        与 filesChanged 分开:这里没有 before/after,不能伪造增删行数;同路径
+        (忽略大小写)保首现并合并 stepIds,描述只补空(后到的非空描述不覆盖
+        先到的说明)。仅登记,不做任何文件系统判定。
+        """
+        try:
+            p = str(path or "").strip()
+            if not p:
+                return
+            desc = " ".join(str(description or "").split())[:_MAX_PRESENT_DESCRIPTION]
+            key = p.casefold()
+            ids = [str(s) for s in (step_ids or []) if str(s or "").strip()]
+            existing = self._presented.get(key)
+            if existing is not None:
+                if desc and not existing["description"]:
+                    existing["description"] = desc
+                step_ids_ref = existing["stepIds"]
+                for sid in ids:
+                    if sid not in step_ids_ref:
+                        step_ids_ref.append(sid)
+                return
+            if len(self._presented) >= _MAX_PRESENTED_FILES:
+                logger.debug(
+                    "deliverables presentedFiles 达上限 %d,忽略新 path", _MAX_PRESENTED_FILES
+                )
+                return
+            self._presented[key] = {
+                "path": p,
+                "description": desc,
+                "stepIds": ids,
+            }
+        except Exception as e:
+            logger.warning("deliverables record_presented 失败(降级,不阻塞): %s", e)
+
     def build(self, output_summary: str) -> dict[str, Any]:
         """产出契约形状 dict(深拷贝,外部修改不污染聚合状态)。"""
         try:
@@ -190,6 +234,14 @@ class DeliverablesCollector:
                     }
                     for f in self._files.values()
                 ],
+                "presentedFiles": [
+                    {
+                        "path": p["path"],
+                        **({"description": p["description"]} if p["description"] else {}),
+                        "stepIds": list(p["stepIds"]),
+                    }
+                    for p in self._presented.values()
+                ],
                 "toolsSummary": {
                     "total": self._tools_total,
                     "byTool": dict(self._by_tool),
@@ -203,6 +255,7 @@ class DeliverablesCollector:
             return {
                 "citations": [],
                 "filesChanged": [],
+                "presentedFiles": [],
                 "toolsSummary": {"total": 0, "byTool": {}},
                 "outputSummary": "",
                 "generatedAt": datetime.now(UTC).isoformat(),

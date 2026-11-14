@@ -85,6 +85,7 @@ type FetchEnvelope = Awaited<ReturnType<typeof fetchApi>>
 const validDeliverables: TaskDeliverables = {
   citations: [{ source: 'wiki', label: '架构页', url: 'https://aizhs.top/wiki/1' }],
   filesChanged: [{ path: 'src/a.ts', kind: 'add', stepIds: ['s1'], additions: 10, deletions: 0 }],
+  presentedFiles: [],
   toolsSummary: { total: 3, byTool: { read_file: 2, grep: 1 } },
   outputSummary: '已完成交付',
   generatedAt: '2026-09-20T08:00:00.000Z',
