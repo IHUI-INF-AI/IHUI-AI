@@ -10,6 +10,7 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { spawnSync } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -248,4 +249,55 @@ test('L6 同形锁:三枚 lander 的腿短名取自同名常量、leg 走 regist
   assert.equal(bodies[1], bodies[0], '三枚的 landingKeys 实现必须逐字同文(防三处漂移)')
   assert.equal(bodies[2], bodies[0])
   assert.equal(land.LEG_NAME, 'land-miniapp-style-tiers')
+})
+
+// ─── 2026-11-13:工作树「HEAD 有、盘上没有」(staged deletion / 二进制)不得打崩器物 ───
+// 立因:cover/index.css 被别席 staged 删除后,listCssFiles() 仍从 HEAD 枚举到它,
+// readWorktreeFile() 返 null 而非抛 → maskComments(null) 返 '' → css.replace 抛 TypeError,
+// 默认档整轮 exit 2「未判定」。守卫必须在两条主循环 + 两条 --apply 读回处都在位。
+// 证伪标准:拿掉守卫,下面 T13/T14 必须在真实仓上立刻变红(exit 2),不许只靠查源码文本。
+
+const MISSING_CSS = 'apps/miniapp-taro/src/__ihui_never_exists__.css'
+const MISSING_TSX = 'apps/miniapp-taro/src/__ihui_never_exists__.tsx'
+
+test('T13 CSS 面:工作树读不到的文件记 held 跳过,整轮仍可判定(不得崩在 null.replace)', () => {
+  const r = spawnSync(process.execPath, [SCRIPT, '--json', '--file', MISSING_CSS], {
+    cwd: ROOT,
+    encoding: 'utf8',
+  })
+  assert.equal(r.status, 0, `默认档必须可判定,stderr=${r.stderr}`)
+  const j = JSON.parse(r.stdout.trim())
+  assert.equal(j.held, 1, '失效方向只能是 held,绝不能把读不到伪装成 changes=0(§12e 恒绿门成因①)')
+  assert.equal(j.changes, 0)
+  assert.equal(j.scanned, 1)
+})
+
+test('T14 字号面:--font-safe 同样不得被 null 正文打崩', () => {
+  const r = spawnSync(process.execPath, [SCRIPT, '--json', '--font-safe', '--file', MISSING_TSX], {
+    cwd: ROOT,
+    encoding: 'utf8',
+  })
+  assert.equal(r.status, 0, `字号面必须可判定,stderr=${r.stderr}`)
+  const j = JSON.parse(r.stdout.trim())
+  assert.equal(j.held, 1)
+  assert.equal(j.changes, 0)
+  assert.equal(j.scanned, 1)
+})
+
+test('T15 守卫承重且与 land-web 正典同形;纯函数喂 null 确实会抛 ⇒ 守卫不是摆设', () => {
+  const src = readFileSync(SCRIPT, 'utf8')
+  const web = readFileSync(join(ROOT, 'scripts', 'land-web-style-tiers.mjs'), 'utf8')
+  const guard =
+    /if \(src === null\) \{\s*\n\s*held\.push\(`\$\{f\}\(二进制\/不可读\)`\)\s*\n\s*continue\s*\n\s*\}/
+  assert.equal(
+    [...src.matchAll(new RegExp(guard.source, 'g'))].length,
+    2,
+    'CSS 面 + 字号面两条主读取循环都要有守卫',
+  )
+  assert.match(web, guard, '守卫形态必须与 land-web-style-tiers.mjs 正典逐字同形(§0.6)')
+  const cleanGuard = /held\.push\(`\$\{f\}\(clean 后读不回\)`\)/g
+  assert.equal([...src.matchAll(cleanGuard)].length, 2, '两条 --apply 的 clean 后读回也要守卫')
+  // 承重复核:守卫一旦被删,纯函数立刻抛 TypeError ⇒ T13/T14 必红
+  assert.throws(() => land.rewriteCss(null, REV), TypeError)
+  assert.throws(() => land.rewriteClassNameTokens(null, REV), TypeError)
 })

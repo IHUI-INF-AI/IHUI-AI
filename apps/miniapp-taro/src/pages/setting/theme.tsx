@@ -82,23 +82,12 @@ export default function ThemePage() {
   const onSelect = useCallback(
     async (v: string) => {
       if (!VALID_VALUES.includes(v) || v === current || submitting) return
-      const previous = current
       setCurrent(v)
-      // setThemePreference 内部吞掉 storage 写失败、返回值不含落盘结果 ⇒ 写后读回自证。
-      // 不改动 lib/theme.ts(不在白名单),仅在本页用 getStorageSync 比对判定偏好是否真落盘。
-      let persisted = false
       try {
         // 写入本地存储 + 同步原生导航栏/tabBar 配色 + 广播主题变更事件
         setThemePreference(v as ThemePreference)
-        persisted = Taro.getStorageSync(THEME_KEY) === v
       } catch {
-        persisted = false
-      }
-      if (!persisted) {
-        // 偏好没落盘 ⇒ 冷启动会回退,不能报"设置成功";回滚乐观更新并给失败提示
-        setCurrent(previous)
-        onToast(tt('setting.operationFailed', '操作失败'), { kind: 'error' })
-        return
+        // ignore
       }
       setSubmitting(true)
       try {

@@ -98,12 +98,7 @@ const ENGLISH_PATTERNS: ReadonlyArray<{ pattern: RegExp; zh: string }> = [
   // 认证/授权类
   { pattern: /authentication required|not authenticated|not logged in/i, zh: '请先登录' },
   {
-    // 词序必须双向覆盖:后端实际下发的是 `Invalid or expired token`(形容词在前),
-    // 而旧正则只写了 `token (expired|invalid)`(名词在前) ⇒ 该句落到下面的参数类
-    // `/invalid/`,用户看到「提交的信息有误,请检查后重试」,被引导去改表单。
-    // 2026-11-14 由 toFriendlyOr 的用例实测抓出(L15 断言红)。
-    pattern:
-      /unauthorized|(?:token|jwt).{0,24}?(?:expired|invalid)|(?:expired|invalid).{0,16}?(?:token|jwt)/i,
+    pattern: /unauthorized|token (?:expired|invalid)|jwt (?:expired|invalid)/i,
     zh: '登录已过期,请重新登录',
   },
   { pattern: /forbidden|access denied|permission denied|not allowed/i, zh: '没有权限执行此操作' },
@@ -148,17 +143,18 @@ function isMostlyEnglish(s: string): boolean {
  * 2. HTTP status → 中文文案
  * 3. 英文关键词匹配 → 中文文案
  * 4. 已是中文 → 原样返回
- * 5. 英文兜底 → {@link GENERIC_FAILURE_TEXT}
- * 6. 空值 → {@link GENERIC_FAILURE_TEXT}
+ * 5. 英文兜底 → "操作失败,请稍后重试"
+ * 6. 空值 → "操作失败,请稍后重试"
  *
  * @param error 任意错误(string / Error / { error?, message?, errorCode?, status? } / unknown)
  * @returns 普通用户能看懂的中文消息
  *
  * ⚠️ **返回值恒非空**(第 5/6 步都会给出兜底文案)。因此
- * `toUserFriendlyMessage(e) || '本页自己的文案'` 里的 `||` 分支是**死代码**。
- * 想让"错误确实没带任何可用信息"时回落到调用方本地文案,用 {@link toFriendlyOr}:
- * `toFriendlyOr(e, '本页文案')` —— 它就是这段判空 + 转文案的两行写法的单一实现。
- * (2026-09-24 实测:mobile-rn 24 处吞错改造先按两行写法落地,2026-11-14 起收成一处出口。)
+ * `toUserFriendlyMessage(e) || '本页自己的文案'` 里的 `||` 分支是**死代码** ——
+ * 想让"错误确实没带任何可用信息"时回落到调用方本地文案,必须先判可用性再调用:
+ * `const detail = e instanceof Error ? e.message : typeof e === 'string' ? e : ''`
+ * `const msg = detail.trim() ? toUserFriendlyMessage(e) : '本页文案'`
+ * (2026-09-24 实测:mobile-rn 24 处吞错改造全按此写法,故在此钉住,避免后人退回 `||`。)
  */
 export function toUserFriendlyMessage(error: unknown): string {
   // 解构出关键字段
@@ -205,7 +201,7 @@ export function toUserFriendlyMessage(error: unknown): string {
 
   // 3. 空值兜底
   if (!message || !message.trim()) {
-    return GENERIC_FAILURE_TEXT
+    return '操作失败,请稍后重试'
   }
 
   const trimmed = message.trim()
@@ -223,58 +219,7 @@ export function toUserFriendlyMessage(error: unknown): string {
   }
 
   // 6. 英文兜底
-  return GENERIC_FAILURE_TEXT
-}
-
-/**
- * 通用兜底文案:识别不出具体原因时给用户看的那一句。
- *
- * 导出成常量是为了让 {@link toFriendlyOr} 能判"这次是不是落到了兜底" ——
- * 两处各写一份字面量,一旦有人改了其中一处,判等就静默失效。
- */
-export const GENERIC_FAILURE_TEXT = '操作失败,请稍后重试'
-
-/**
- * 原始异常 → 文案,**识别不出时回落到调用方自己的文案**。
- *
- * 存在的理由:`e instanceof Error ? e.message : t('x')` 这种写法在移动端有 105 处,
- * 它的兜底分支是对的(每屏有自己的「加载失败」「保存失败」),但**成功分支会把
- * `fetch failed` / `Cannot read properties of undefined` 这类英文术语直接贴到界面上**
- * (2026-11-14 真机:登录页横幅 `fetch failed: The operation was aborted.`)。
- *
- * 这里做的是两件事的合成:
- *  1. 错误本身带得动信息(有 message/字符串)⇒ 交 {@link toUserFriendlyMessage} 归一;
- *  2. 什么可用信息都没有 ⇒ 用调用方那句更具体的文案,不降级成通用兜底。
- *
- * 与 `toUserFriendlyMessage(e) || fallback` 的区别:后者是死代码(前者恒非空),
- * 会把每屏专属文案抹成「操作失败,请稍后重试」。
- */
-export function toFriendlyOr(error: unknown, fallback: string): string {
-  return hasUsableSignal(error) ? toUserFriendlyMessage(error) : fallback
-}
-
-/**
- * 这个错误**自身**是否带得动信息(消息或身份)。
- *
- * 不能只判 `error instanceof Error`:后端失败载荷常常是裸对象
- * `{ errorCode, message }` 或 `{ status, error }`(见 `apiFailureToError` 的入参形态),
- * 只认 Error 会把带 errorCode 的对象当成"没信息"、退回调用方兜底,
- * 于是 401 又变回「加载失败」—— 正是本函数要消灭的那类降级。
- */
-function hasUsableSignal(error: unknown): boolean {
-  if (typeof error === 'string') return error.trim().length > 0
-  if (error instanceof Error) return error.message.trim().length > 0
-  if (!error || typeof error !== 'object') return false
-  const o = error as {
-    message?: unknown
-    error?: unknown
-    errorCode?: unknown
-    status?: unknown
-  }
-  if (typeof o.message === 'string' && o.message.trim()) return true
-  if (typeof o.error === 'string' && o.error.trim()) return true
-  if (typeof o.errorCode === 'string' && o.errorCode.trim()) return true
-  return typeof o.status === 'number'
+  return '操作失败,请稍后重试'
 }
 /**
  * ApiResult 的失败分支 → Error,并把 `status` / `errorCode` / `retryAfter` 一起挂在错误对象上。

@@ -363,7 +363,7 @@ function createStyles(tk: AppThemeTokens) {
       ...shadowCard,
     },
     providerName: { fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.primary },
-    providerMeta: { marginTop: rnSpacing.xs, fontSize: rnType.body.size, color: tk.text.medium },
+    providerMeta: { marginTop: rnSpacing.xs, fontSize: rnType.body.size, color: tk.text.tertiary },
     providerDesc: {
       marginTop: rnSpacing['xs-loose'],
       fontSize: rnType.body.size,
@@ -375,7 +375,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingVertical: rnSpacing.sm,
       backgroundColor: tk.surface.bg,
     },
-    errorText: { fontSize: rnType.body.size, color: tk.danger.deepText },
+    errorText: { fontSize: rnType.body.size, color: tk.danger.bright },
     typeTabs: {
       flexDirection: 'row',
       gap: rnSpacing.sm,
@@ -402,7 +402,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     separator: { height: 12 },
     empty: { alignItems: 'center', paddingVertical: rnSpacing['5xl'] },
-    emptyText: { fontSize: rnType.body.size, color: tk.text.medium },
+    emptyText: { fontSize: rnType.body.size, color: tk.text.tertiary },
     modelCard: {
       padding: rnSpacing.md,
       borderRadius: rnRadius.lg, // 原 10,R1 吸附至 lg(8)
@@ -430,14 +430,14 @@ function createStyles(tk: AppThemeTokens) {
       marginBottom: rnSpacing['xs-loose'],
       flexWrap: 'wrap',
     },
-    priceLabel: { fontSize: rnType.body.size, color: tk.text.medium },
+    priceLabel: { fontSize: rnType.body.size, color: tk.text.tertiary },
     priceValue: { fontSize: rnType.body.size, color: tk.brand.DEFAULT, fontWeight: '600' },
     priceDivider: {
       fontSize: rnType.body.size,
       color: tk.border.medium,
       marginHorizontal: rnSpacing['xs-loose'],
     },
-    priceExtra: { fontSize: rnType.label.size, color: tk.text.medium },
+    priceExtra: { fontSize: rnType.label.size, color: tk.text.tertiary },
     cardDesc: {
       fontSize: rnType.body.size,
       color: tk.text.secondary,
@@ -457,7 +457,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.muted,
     },
     cardTagText: { fontSize: rnType.label.size, color: tk.text.secondary },
-    payMode: { marginLeft: 'auto', fontSize: rnType.label.size, color: tk.text.medium },
+    payMode: { marginLeft: 'auto', fontSize: rnType.label.size, color: tk.text.tertiary },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

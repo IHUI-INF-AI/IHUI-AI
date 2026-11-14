@@ -19,7 +19,7 @@ export async function findOpenclawItems(opts: {
       .select()
       .from(openclawItems)
       .where(where)
-      .orderBy(desc(openclawItems.createdAt))
+      .orderBy(desc(openclawItems.createdAt), desc(openclawItems.id))
       .limit(opts.pageSize)
       .offset((opts.page - 1) * opts.pageSize),
     db
@@ -31,12 +31,7 @@ export async function findOpenclawItems(opts: {
 }
 
 export async function findOpenclawItemById(id: string): Promise<OpenclawItem | undefined> {
-  // F-604:列表按 status=1 过滤,详情此前只按 id,禁用条目可按 id 直读。详情与列表同口径。
-  const rows = await db
-    .select()
-    .from(openclawItems)
-    .where(and(eq(openclawItems.id, id), eq(openclawItems.status, 1)))
-    .limit(1)
+  const rows = await db.select().from(openclawItems).where(eq(openclawItems.id, id)).limit(1)
   return rows[0]
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

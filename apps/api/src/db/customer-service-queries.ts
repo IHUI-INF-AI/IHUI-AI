@@ -403,7 +403,7 @@ export async function findWaitingSessions(): Promise<CustomerServiceSession[]> {
   return db
     .select()
     .from(customerServiceSessions)
-    .where(eq(customerServiceSessions.status, 'pending'))
+    .where(eq(customerServiceSessions.status, 'waiting'))
     .orderBy(asc(customerServiceSessions.queuePosition), asc(customerServiceSessions.createdAt))
 }
 
@@ -416,7 +416,7 @@ export async function findActiveSessionsByAgent(
     .where(
       and(
         eq(customerServiceSessions.agentId, agentId),
-        eq(customerServiceSessions.status, 'open'),
+        eq(customerServiceSessions.status, 'active'),
       ),
     )
 }
@@ -431,7 +431,7 @@ export async function createSession(data: CreateSessionInput): Promise<CustomerS
   const waitingCount = await db
     .select({ count: sql<number>`count(*)::int` })
     .from(customerServiceSessions)
-    .where(eq(customerServiceSessions.status, 'pending'))
+    .where(eq(customerServiceSessions.status, 'waiting'))
   const position = (waitingCount[0]?.count ?? 0) + 1
 
   const rows = await db
@@ -440,8 +440,7 @@ export async function createSession(data: CreateSessionInput): Promise<CustomerS
       sessionId: genSessionId(),
       userId: data.userId,
       source: data.source ?? 'web',
-      // F-434:状态词以 @ihui/types 的 CUSTOMER_SERVICE_STATUSES 为唯一真相源(旧 waiting 已废弃)
-      status: 'pending',
+      status: 'waiting',
       queuePosition: position,
     })
     .returning()
@@ -450,26 +449,25 @@ export async function createSession(data: CreateSessionInput): Promise<CustomerS
   return row
 }
 
-/** 为等待中的会话分配坐席：置 open、记录 startedAt、增加坐席负载。 */
+/** 为等待中的会话分配坐席：置 active、记录 startedAt、增加坐席负载。 */
 export async function assignSession(
   sessionId: string,
   agentId: string,
 ): Promise<{ session?: CustomerServiceSession; reason?: 'not_found' | 'not_waiting' }> {
-  // F-247:原子认领 —— 仅当状态仍为 pending 时才更新并 RETURNING,
+  // F-247:原子认领 —— 仅当状态仍为 waiting 时才更新并 RETURNING,
   // 命中 0 行即被并发坐席抢走,不再重复 +1,杜绝 TOCTOU 双派单与负载泄漏。
   const rows = await db
     .update(customerServiceSessions)
     .set({
       agentId,
-      // F-434:认领后的状态词是 `open`(唯一真相源里的"处理中";旧 active 已废弃)
-      status: 'open',
+      status: 'active',
       startedAt: new Date(),
       updatedAt: new Date(),
     })
     .where(
       and(
         eq(customerServiceSessions.sessionId, sessionId),
-        eq(customerServiceSessions.status, 'pending'),
+        eq(customerServiceSessions.status, 'waiting'),
       ),
     )
     .returning()
@@ -482,22 +480,9 @@ export async function assignSession(
   return { session: rows[0] }
 }
 
-/**
- * F-249:关闭会话后是否应递减坐席负载的唯一判据。
- *
- * 输入是带 `status <> 'closed'` 的 UPDATE 的 RETURNING 结果:
- * 命中 0 行 = 会话不存在或已关闭(重复关闭/并发关闭),不递减;
- * 命中 1 行且该行有 agentId,才递减一次。
- */
-export function shouldDecrementAgentLoadOnClose(
-  updatedRows: ReadonlyArray<{ agentId?: string | null }>,
-): boolean {
-  return updatedRows.length > 0 && Boolean(updatedRows[0]?.agentId)
-}
-
 export async function closeSession(sessionId: string): Promise<CustomerServiceSession | undefined> {
-  // F-249:幂等关闭 —— 仅当状态非 closed 才更新并 RETURNING。
-  // 命中 0 行说明已关闭/不存在,返回 undefined,不进入递减分支。
+  // F-249:幂等关闭 —— 仅当状态非 closed 才更新并 RETURNING,
+  // 重复关闭命中 0 行,不会再次递减坐席负载。
   const rows = await db
     .update(customerServiceSessions)
     .set({ status: 'closed', endedAt: new Date(), updatedAt: new Date() })
@@ -510,9 +495,7 @@ export async function closeSession(sessionId: string): Promise<CustomerServiceSe
     .returning()
   const row = rows[0]
   if (!row) return undefined
-  if (shouldDecrementAgentLoadOnClose(rows) && row.agentId) {
-    await adjustAgentLoad(row.agentId, -1)
-  }
+  if (row.agentId) await adjustAgentLoad(row.agentId, -1)
   return row
 }
 

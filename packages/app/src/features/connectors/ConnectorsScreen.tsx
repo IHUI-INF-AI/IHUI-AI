@@ -244,7 +244,7 @@ function createStyles(tk: AppThemeTokens) {
     badgeOff: { backgroundColor: tk.surface.muted },
     badgeOnText: { fontSize: rnGeometry.textCaption, color: tk.brand.foreground },
     badgeOffText: { fontSize: rnGeometry.textCaption, color: tk.text.secondary },
-    meta: { marginTop: rnSpacing.xs, fontSize: rnGeometry.textCaption, color: tk.text.medium },
+    meta: { marginTop: rnSpacing.xs, fontSize: rnGeometry.textCaption, color: tk.text.tertiary },
     itemError: { marginTop: rnSpacing.sm, fontSize: rnGeometry.textCaption, color: tk.error.text },
     actions: { marginTop: rnSpacing.md, flexDirection: 'row', alignItems: 'center' },
     actionBtn: {

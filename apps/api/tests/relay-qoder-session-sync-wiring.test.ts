@@ -50,7 +50,10 @@ test('③ spawn 指向回灌脚本且显式 stdio + windowsHide', () => {
     'spawn 必须显式接管 stdio(§12g)',
   )
   assert.match(spawnBlock, /windowsHide:\s*true/)
-  assert.match(spawnBlock, /timeout:\s*\d/, '必须有超时,防子进程挂死拖住 worker')
+  // 2026-11-13 F-496:超时改由显式定时器执行(才能区分「超时被杀」与「自己崩了」),
+  // 判据不放宽(仍必须有超时),并额外钉住单一来源常量。
+  assert.match(spawnBlock, /setTimeout\(/, '必须有超时,防子进程挂死拖住 worker')
+  assert.match(spawnBlock, /CLIENT_SYNC_TIMEOUT_MS/)
 })
 
 test('④ 退出码 2(未判定)走 warn 不 throw —— 不许把常态当失败重试', () => {

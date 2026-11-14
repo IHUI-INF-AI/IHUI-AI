@@ -45,6 +45,8 @@ export interface WsAutoRecoveryOptions {
 
 export interface WsRecoveryStatus {
   startedAt: number | null
+  /** 最近一次活动时间(消息收发刷新,F-461) */
+  lastActivityAt: number
   pluginsRegistered: string[]
   recoveryAttempts: number
   lastRecoveryReason: string | null
@@ -143,6 +145,14 @@ export class WsAutoRecoveryManager {
     }
   }
 
+  /**
+   * 记录一次活动(F-461):由 ws 插件在消息收发路径调用,只更新内存时间戳,不落库。
+   * 此前该时间戳仅在建连/清僵尸时赋值,连接持续活跃 15 分钟仍被判僵尸并误恢复。
+   */
+  recordActivity(): void {
+    this.lastActivityAt = Date.now()
+  }
+
   registerPlugin(name: string, hooks: WsPluginHooks): void {
     this.plugins.set(name, hooks)
     this.log('info', `plugin registered: ${name}`)
@@ -226,21 +236,22 @@ export class WsAutoRecoveryManager {
   }
 
   private async runServiceCheck(): Promise<void> {
-    const inactiveMs = Date.now() - this.lastActivityAt
-    let hasConnections = false
+    // F-461:只看「距最近一次真实消息活动」,僵尸连接不算有连接,避免误恢复。
+    let hasLiveConnections = false
     for (const hooks of this.plugins.values()) {
-      if (hooks.getConnections().size > 0) {
-        hasConnections = true
+      if (flattenSockets(hooks.getConnections()).some((ws) => !isZombie(ws))) {
+        hasLiveConnections = true
         break
       }
     }
-    if (hasConnections && inactiveMs > this.options.maxInactiveMs) {
-      this.log(
-        'warn',
-        `service inactive ${inactiveMs}ms with active connections, triggering recovery`,
-      )
-      await this.triggerRecovery('service inactive too long')
-    }
+    if (!hasLiveConnections) return
+    const inactiveMs = Date.now() - this.lastActivityAt
+    if (inactiveMs <= this.options.maxInactiveMs) return
+    this.log(
+      'warn',
+      `service inactive ${inactiveMs}ms with active connections, triggering recovery`,
+    )
+    await this.triggerRecovery('service inactive too long')
   }
 
   private async runConnectionCheck(): Promise<void> {
@@ -316,6 +327,8 @@ export class WsAutoRecoveryManager {
       if (hooks.cleanup) await this.safeCleanup(hooks)
     }
     this.consecutiveErrors = 0
+    // F-461:恢复后重置活动时间,避免下一轮检查(默认 30s)再次命中而快速耗尽恢复配额。
+    this.lastActivityAt = Date.now()
   }
 
   getStatusReport(): WsRecoveryStatus {
@@ -325,6 +338,7 @@ export class WsAutoRecoveryManager {
     }
     return {
       startedAt: this.startedAt,
+      lastActivityAt: this.lastActivityAt,
       pluginsRegistered: Array.from(this.plugins.keys()),
       recoveryAttempts: this.recoveryAttempts,
       lastRecoveryReason: this.lastRecoveryReason,

@@ -132,7 +132,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: rnType.body.size,
     fontWeight: '600',
-    color: tk.text.medium,
+    color: tk.text.tertiary,
     paddingHorizontal: rnSpacing.md,
     paddingVertical: rnSpacing.sm,
     textTransform: 'uppercase',

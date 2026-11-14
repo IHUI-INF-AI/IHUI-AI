@@ -73,46 +73,6 @@
       "expires": "2027-03-31",
       "reason": "RN 帮助域只有 Help 列表路由,详情答案由共享 HelpScreen 的 expandedId 内联展开承载,没有独立 HelpDetail 路由。",
       "evidence": "apps/mobile-rn/src/navigation/RootNavigator.tsx:169 与 :1142 只有 HelpScreen 路由;apps/mobile-rn/src/screens/HelpScreen.tsx:9 值导入共享 HelpScreen、:112 传 expandedId、:114 onToggle;共享 HelpScreen packages/app/src/features/help/HelpScreen.tsx:170 内联渲染 answer;features/help-detail/HelpDetailScreen.tsx 的 item/loading/error/onBack/onRetry 无 RN 宿主。"
-    },
-    {
-      "shared": "ApiKeysScreen",
-      "verdict": "semantic-different",
-      "owner": "api-keys",
-      "expires": "2027-03-31",
-      "reason": "RN ApiKeysScreen 是平台独占本地实现(无参函数组件,自管 list/name/permissions/permsOpen 等 RN 原生态 + Modal/StyleSheet/Navigation),不消费共享屏;共享屏是受控 props 组件 ApiKeysScreenProps,契约承载不了 RN 的导航与弹层交互,不建薄壳。",
-      "evidence": "apps/mobile-rn/src/screens/ApiKeysScreen.tsx:75 export default function ApiKeysScreen()(无 props)、:25 仅从 @ihui/rn-app 取 TextField、:80 useNavigation、:88 permsOpen 本地弹层态;共享 packages/app/src/features/api-keys/ApiKeysScreen.tsx:58 export function ApiKeysScreen({...}: ApiKeysScreenProps) 为受控 props 组件;RN 壳未被守门判为消费共享屏(无 features/api-keys 导入)。"
-    },
-    {
-      "shared": "GroupsScreen",
-      "verdict": "semantic-different",
-      "owner": "groups",
-      "expires": "2027-03-31",
-      "reason": "RN GroupsScreen 是平台独占本地实现(无参函数组件,自管 list/load/对话几何 DIALOG_HEIGHT_RATIOS 等原生态),不消费共享屏;共享屏是受控 props 组件 GroupsScreenProps,契约承载不了 RN 的 Modal 与几何自适应,不建薄壳。",
-      "evidence": "apps/mobile-rn/src/screens/GroupsScreen.tsx:60 export default function GroupsScreen()(无 props)、:22 仅从 @ihui/rn-app 取 TextField、:1 引 ../lib/dialog-geometry、:2 useDialogMaxHeightStyle、:23 Modal;共享 packages/app/src/features/groups/GroupsScreen.tsx:92 export function GroupsScreen({...}: GroupsScreenProps) 为受控 props 组件;RN 壳未被守门判为消费共享屏。"
-    },
-    {
-      "shared": "PatrolScreen",
-      "verdict": "semantic-different",
-      "owner": "patrol",
-      "expires": "2027-03-31",
-      "reason": "RN PatrolScreen 头注自述为 mobile-rn 原生实现(不跨端 import web 文件),消费 patrol 端点的 listPatrolTasks/createPatrolTask/updatePatrolTask/deletePatrolTask/runPatrolTaskNow/listPatrolRuns 并统一 try/catch 取 e.message;共享屏是受控 props 组件,契约承载不了 RN 独占的巡逻任务编排,不建薄壳。",
-      "evidence": "apps/mobile-rn/src/screens/PatrolScreen.tsx:6 头注『主动巡逻 Agent 屏(mobile-rn 原生实现,对应 Web 端 /patrol)』、:10 列 patrol 端点且『不跨端 import web 文件』、:87 export function PatrolScreen()(无 props)、:33 仅从 @ihui/rn-app 取 TextField;共享 packages/app/src/features/patrol/PatrolScreen.tsx 为受控 props 组件。"
-    },
-    {
-      "shared": "RepoWikiScreen",
-      "verdict": "semantic-different",
-      "owner": "repo-wiki",
-      "expires": "2027-03-31",
-      "reason": "RN RepoWikiScreen 头注自述为 mobile-rn 原生实现(不跨端 import web 文件),消费 repo-wiki 端点 listRepoWiki/getRepoWikiDoc/deleteRepoWikiDoc 且失败即 throw、统一 try/catch;共享屏是受控 props 组件,契约承载不了 RN 独占的文档浏览交互,不建薄壳。",
-      "evidence": "apps/mobile-rn/src/screens/RepoWikiScreen.tsx:6 头注『Repo Wiki 文档浏览屏(mobile-rn 原生实现,对应 Web 端 /repo-wiki)』、:10 列端点且『不跨端 import web 文件』、:20 仅从 @ihui/rn-app 取 TextField、:45 export function RepoWikiScreen()(无 props);共享 packages/app/src/features/repo-wiki/RepoWikiScreen.tsx 为受控 props 组件。"
-    },
-    {
-      "shared": "TeamKnowledgeScreen",
-      "verdict": "semantic-different",
-      "owner": "team-knowledge",
-      "expires": "2027-03-31",
-      "reason": "RN TeamKnowledgeScreen 头注自述为 D29 团队级知识引擎屏(mobile-rn 原生实现,不跨端 import web 文件),消费 team-knowledge 端点的 listKnowledgeSpaces/createKnowledgeSpace/listKnowledgeSpaceMembers/listKnowledgeSpaceItems/createKnowledgeSpaceItem/setKnowledgeItemStatus;共享屏是受控 props 组件,契约承载不了 RN 独占的知识空间编排,不建薄壳。",
-      "evidence": "apps/mobile-rn/src/screens/TeamKnowledgeScreen.tsx:6 头注『D29 团队级知识引擎屏(mobile-rn 原生实现,对应 Web 端 /team-knowledge)』、:11 列六个端点且『不跨端 import web 文件』、:20 仅从 @ihui/rn-app 取 TextField、:64 export function TeamKnowledgeScreen()(无 props);共享 packages/app/src/features/team-knowledge/TeamKnowledgeScreen.tsx 为受控 props 组件。"
     }
   ]
 }

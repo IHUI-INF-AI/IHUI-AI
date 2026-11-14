@@ -18,7 +18,7 @@
  */
 
 import { createHash } from 'node:crypto'
-import { and, asc, desc, eq } from 'drizzle-orm'
+import { and, asc, count, desc, eq, ilike, or, sql, type SQL } from 'drizzle-orm'
 import {
   teamKnowledgeItems,
   teamKnowledgeRevisions,
@@ -36,6 +36,7 @@ import {
 } from '@ihui/database'
 import { db } from '../db/index.js'
 import { AppError } from '../errors/AppError.js'
+import { asContainsTerm } from '../utils/like-escape.js'
 
 // =============================================================================
 // 类型(本票的 DTO 出口;跨端复用需先经 packages/types 主入口 barrel,
@@ -671,29 +672,52 @@ export interface ListItemsFilter {
   offset?: number
 }
 
-export async function listItems(actor: Actor, filter: ListItemsFilter): Promise<ItemDTO[]> {
-  await requireSpaceAccess(actor.userId, filter.spaceId, 'viewer')
-  const conds = [eq(teamKnowledgeItems.spaceId, filter.spaceId)]
+/**
+ * 条目列表/计数的**唯一**条件装配点(F-388)。
+ *
+ * 关键词必须下沉到 SQL:先 `limit/offset` 再在内存筛,命中稀疏时该页不足甚至为空,
+ * 翻页出现空洞,调用方按返回长度算出的总数也与实际不符。
+ * `ilike` 不区分大小写,与原先 `toLowerCase().includes()` 等价;
+ * 通配符转义走 `utils/like-escape.ts` 单源,`%`/`_`/`\` 一律按字面量匹配。
+ */
+function buildItemConditions(filter: ListItemsFilter): SQL | undefined {
+  const conds: SQL[] = [eq(teamKnowledgeItems.spaceId, filter.spaceId)]
   if (filter.kind) conds.push(eq(teamKnowledgeItems.kind, filter.kind))
   if (filter.status) conds.push(eq(teamKnowledgeItems.status, filter.status))
+  const kw = filter.keyword?.trim()
+  if (kw) {
+    const like = asContainsTerm(kw)
+    const kwCond = or(
+      ilike(teamKnowledgeItems.title, like),
+      ilike(teamKnowledgeItems.plainText, like),
+      // tags 是 jsonb 数组:摊平成文本再按逗号连接,与原先 tags.join(',') 语义一致
+      sql`array_to_string(array(select jsonb_array_elements_text(${teamKnowledgeItems.tags})), ',') ilike ${like}`,
+    )
+    if (kwCond) conds.push(kwCond)
+  }
+  return and(...conds)
+}
+
+export async function listItems(actor: Actor, filter: ListItemsFilter): Promise<ItemDTO[]> {
+  await requireSpaceAccess(actor.userId, filter.spaceId, 'viewer')
   const rows = await db
     .select()
     .from(teamKnowledgeItems)
-    .where(and(...conds))
+    .where(buildItemConditions(filter))
     .orderBy(desc(teamKnowledgeItems.updatedAt))
     .limit(clampLimit(filter.limit))
     .offset(Math.max(0, filter.offset ?? 0))
-  // 关键词过滤在内存做:条目正文是 jsonb,LIKE 它没有稳定语义(键序/嵌套都会变)
-  const kw = filter.keyword?.trim().toLowerCase()
-  const filtered = kw
-    ? rows.filter(
-        (r) =>
-          r.title.toLowerCase().includes(kw) ||
-          r.plainText.toLowerCase().includes(kw) ||
-          (Array.isArray(r.tags) ? r.tags.join(',').toLowerCase().includes(kw) : false),
-      )
-    : rows
-  return filtered.map(toItemDTO)
+  return rows.map(toItemDTO)
+}
+
+/** 与 listItems 共用同一 where 装配,避免总数与列表按两套条件各算一遍 */
+export async function countItems(actor: Actor, filter: ListItemsFilter): Promise<number> {
+  await requireSpaceAccess(actor.userId, filter.spaceId, 'viewer')
+  const [row] = await db
+    .select({ total: count() })
+    .from(teamKnowledgeItems)
+    .where(buildItemConditions(filter))
+  return Number(row?.total ?? 0)
 }
 
 export async function getItem(actor: Actor, itemId: string): Promise<ItemDTO> {

@@ -172,7 +172,7 @@ export function SearchInput({
         ff.focusBorder,
       ]}
     >
-      <Search size={ICON_FONT_SIZE} color={tokens.text.secondary} />
+      <Search size={ICON_FONT_SIZE} color={tokens.text.tertiary} />
 
       {isVoiceMode ? (
         <Pressable
@@ -208,7 +208,7 @@ export function SearchInput({
           value={value}
           onChangeText={onChangeText}
           placeholder={placeholder}
-          placeholderTextColor={tokens.text.secondary}
+          placeholderTextColor={tokens.text.tertiary}
           onFocus={ff.onFocus}
           onBlur={ff.onBlur}
           onSubmitEditing={handleSubmit}
@@ -222,7 +222,7 @@ export function SearchInput({
 
       {showClear ? (
         <Tappable
-          style={[styles.clearButton, { backgroundColor: tokens.text.secondary }]}
+          style={[styles.clearButton, { backgroundColor: tokens.text.tertiary }]}
           onPress={handleClear}
           hitSlop={CLEAR_BUTTON_HIT_SLOP}
           accessibilityLabel="清除"

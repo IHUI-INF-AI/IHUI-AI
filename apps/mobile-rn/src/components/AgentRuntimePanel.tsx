@@ -60,7 +60,7 @@ export function AgentRuntimePanel({ sessionId: initialSessionId }: LegacyAgentRu
           {t('agent.runtimeTitle')}
         </Text>
         {sessionId ? (
-          <Text className="ml-2 text-xs" style={{ color: tokens.text.medium }} numberOfLines={1}>
+          <Text className="ml-2 text-xs" style={{ color: tokens.text.tertiary }} numberOfLines={1}>
             #{sessionId.slice(0, 8)}
           </Text>
         ) : null}
@@ -74,7 +74,7 @@ export function AgentRuntimePanel({ sessionId: initialSessionId }: LegacyAgentRu
           className="rounded-md px-2 py-1 active:opacity-60"
           style={{ backgroundColor: tokens.surface.muted }}
         >
-          <Text className="text-xs" style={{ color: tokens.text.medium }}>
+          <Text className="text-xs" style={{ color: tokens.text.tertiary }}>
             {t('agent.runtimeClear')}
           </Text>
         </Pressable>
@@ -87,7 +87,7 @@ export function AgentRuntimePanel({ sessionId: initialSessionId }: LegacyAgentRu
             className="mb-3 rounded-md border p-3"
             style={{ borderColor: tokens.border.light, backgroundColor: tokens.surface.muted }}
           >
-            <Text className="mb-1.5 text-xs font-medium" style={{ color: tokens.text.medium }}>
+            <Text className="mb-1.5 text-xs font-medium" style={{ color: tokens.text.tertiary }}>
               {t('agent.runtimePlan')}
             </Text>
             <Text className="text-xs leading-relaxed" style={{ color: tokens.text.secondary }}>
@@ -118,7 +118,7 @@ export function AgentRuntimePanel({ sessionId: initialSessionId }: LegacyAgentRu
 
         {output ? (
           <View className="mb-3">
-            <Text className="mb-1.5 text-xs font-medium" style={{ color: tokens.text.medium }}>
+            <Text className="mb-1.5 text-xs font-medium" style={{ color: tokens.text.tertiary }}>
               {t('agent.runtimeOutput')}
             </Text>
             <Text className="text-sm leading-relaxed" style={{ color: tokens.text.secondary }}>
@@ -143,7 +143,7 @@ export function AgentRuntimePanel({ sessionId: initialSessionId }: LegacyAgentRu
 
         {!plan && !output && !error && !permission ? (
           <View className="items-center py-8">
-            <Text className="text-sm" style={{ color: tokens.text.medium }}>
+            <Text className="text-sm" style={{ color: tokens.text.tertiary }}>
               {t('agent.runtimeEmpty')}
             </Text>
           </View>

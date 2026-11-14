@@ -82,7 +82,10 @@ export const gamificationRoutes: FastifyPluginAsync = async (server) => {
       return reply
         .status(statusCode)
         .send(
-          error(statusCode, statusCode < 500 ? '操作失败,请稍后重试' : '服务暂时不可用,请稍后重试'),
+          error(
+            statusCode,
+            statusCode < 500 ? '操作失败,请稍后重试' : '服务暂时不可用,请稍后重试',
+          ),
         )
     }
   })

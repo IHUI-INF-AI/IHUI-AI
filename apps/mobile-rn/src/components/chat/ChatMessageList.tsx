@@ -13,6 +13,7 @@ import {
   Bookmark,
   BookmarkCheck,
   Copy,
+  Lightbulb,
   MessageSquare,
   Pin,
   PinOff,
@@ -42,7 +43,12 @@ import {
   PermissionTierRow,
   SteerNoticeList,
 } from '../../components/ChatDisclosure'
-import { isErrorTurn, resendTargetText } from '@ihui/shared/chat'
+import {
+  buildStreamErrorLabelSet,
+  buildStreamErrorView,
+  isErrorTurn,
+  resendTargetText,
+} from '@ihui/shared/chat'
 import type { ChatMessage } from '@ihui/shared'
 import type { ChatScreenMessage } from '@ihui/rn-app'
 import { ToolCallCard } from './ToolCallCard'
@@ -139,6 +145,21 @@ const styles = StyleSheet.create({
     fontSize: rnType.body.size,
     lineHeight: 21,
     color: tokens.error.text,
+  },
+  // 错误卡目录化:具体建议行(灯泡图标 + 建议文案),比正文略小一档、左缩进对齐图标。
+  msgErrorNextStep: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: rnSpacing['xs-loose'],
+    paddingHorizontal: rnSpacing.md,
+    paddingBottom: rnSpacing['xs-loose'],
+  },
+  msgErrorNextStepText: {
+    flex: 1,
+    fontSize: rnType.label.size,
+    lineHeight: 18,
+    color: tokens.error.text,
+    opacity: 0.85,
   },
   msgErrorRetry: {
     flexDirection: 'row',
@@ -251,7 +272,7 @@ const styles = StyleSheet.create({
   },
   thinkingToggle: {
     fontSize: rnType.caption.size,
-    color: tokens.text.medium,
+    color: tokens.text.tertiary,
     marginLeft: rnSpacing.sm,
   },
   thinkingContent: {
@@ -274,7 +295,7 @@ const styles = StyleSheet.create({
   },
   execRowText: {
     fontSize: rpx(12),
-    color: tokens.text.medium,
+    color: tokens.text.tertiary,
   },
 })
 
@@ -421,29 +442,58 @@ export function ChatMessageItem({
           style={[styles.msgBubble, isUser ? styles.msgBubbleUser : styles.msgBubbleAi]}
         >
           {isFailed ? (
-            // 失败轮:错误卡片(警示头 + 正文 + 重试出口),整块替换正文 —— 与 web D22 /
-            // miniapp 同一形态,跨端一致:失败不产出内容,也不能看起来像一次正常回答。
-            <View style={styles.msgErrorCard}>
-              <View style={styles.msgErrorHeader}>
-                <AlertTriangle size={14} color={tokens.error.text} />
-                <Text style={styles.msgErrorTitle}>{t('chatAlert.errorTitle')}</Text>
-              </View>
-              <Text style={styles.msgErrorBody} selectable>
-                {item.content}
-              </Text>
-              {retryable ? (
-                <TouchableOpacity
-                  style={styles.msgErrorRetry}
-                  hitSlop={8}
-                  onPress={retryLastTurn}
-                  accessibilityRole="button"
-                  accessibilityLabel={t('chatAlert.errorRetry')}
-                >
-                  <RefreshCw size={14} color={tokens.error.text} />
-                  <Text style={styles.msgErrorRetryText}>{t('chatAlert.errorRetry')}</Text>
-                </TouchableOpacity>
-              ) : null}
-            </View>
+            // 失败轮:错误卡片(警示头 + 正文 + 目录建议 + 重试出口),整块替换正文。
+            // D-AI-3(2026-11-13,错误卡目录化):按 msg.errorCode 查 shared 目录表出
+            // 具体标题 + 建议动作;未收录码回落通用文案,不喷键名。与 web / miniapp 同一拼装层。
+            (() => {
+              const labels = buildStreamErrorLabelSet({
+                tStream: (k) => t(`streamErrors.${k}`),
+                tCatalog: (k) => t(`ai.pane.errorCatalog.${k}`),
+              })
+              const view = buildStreamErrorView({
+                errorCode: (item as { errorCode?: string }).errorCode,
+                fallbackTitle: '',
+                fallbackMessage: item.content ?? '',
+                labels,
+              })
+              const catalogHit = view.action !== null || view.retryable !== null
+              const cardTitle = catalogHit && view.title ? view.title : t('chatAlert.errorTitle')
+              const nextStepDetail = view.detail
+              const actionButtonLabel =
+                view.actionLabel ?? (view.retryable ? t('chatAlert.errorRetry') : null)
+              return (
+                <View style={styles.msgErrorCard} testID={`message-error-card-${item.id}`}>
+                  <View style={styles.msgErrorHeader} testID={`message-error-title-${item.id}`}>
+                    <AlertTriangle size={14} color={tokens.error.text} />
+                    <Text style={styles.msgErrorTitle}>{cardTitle}</Text>
+                  </View>
+                  <Text style={styles.msgErrorBody} selectable>
+                    {item.content}
+                  </Text>
+                  {catalogHit && nextStepDetail ? (
+                    <View
+                      style={styles.msgErrorNextStep}
+                      testID={`message-error-nextstep-${item.id}`}
+                    >
+                      <Lightbulb size={13} color={tokens.error.text} />
+                      <Text style={styles.msgErrorNextStepText}>{nextStepDetail}</Text>
+                    </View>
+                  ) : null}
+                  {retryable && actionButtonLabel ? (
+                    <TouchableOpacity
+                      style={styles.msgErrorRetry}
+                      hitSlop={8}
+                      onPress={retryLastTurn}
+                      accessibilityRole="button"
+                      accessibilityLabel={actionButtonLabel}
+                    >
+                      <RefreshCw size={14} color={tokens.error.text} />
+                      <Text style={styles.msgErrorRetryText}>{actionButtonLabel}</Text>
+                    </TouchableOpacity>
+                  ) : null}
+                </View>
+              )
+            })()
           ) : thinkingView ? (
             <View style={styles.thinkingBlock}>
               <Tappable

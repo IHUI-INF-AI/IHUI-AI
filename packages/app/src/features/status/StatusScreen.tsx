@@ -257,12 +257,12 @@ export function StatusScreen({
           </View>
           <View style={styles.metaRow}>
             <View style={styles.metaItem}>
-              <Clock size={13} color={tk.text.secondary} strokeWidth={2} />
+              <Clock size={13} color={tk.text.tertiary} strokeWidth={2} />
               <Text style={styles.metaLabel}>{t('statusPage.uptimeLabel')}</Text>
               <Text style={styles.metaValue}>{formatUptime(overview.uptime)}</Text>
             </View>
             <View style={styles.metaItem}>
-              <Server size={13} color={tk.text.secondary} strokeWidth={2} />
+              <Server size={13} color={tk.text.tertiary} strokeWidth={2} />
               <Text style={styles.metaLabel}>{t('statusPage.updatedAtLabel')}</Text>
               <Text style={styles.metaValue}>{formatDateTime(overview.timestamp)}</Text>
             </View>

@@ -141,16 +141,46 @@ export async function findResources(
   return { list, total: totalRows[0]?.count ?? 0, page, pageSize }
 }
 
-/** Admin 用：按 ID 查询资源(不限状态,不自增浏览量)。 */
-export async function findResourceById(id: string): Promise<Resource | undefined> {
-  const rows = await db.select().from(resources).where(eq(resources.id, id)).limit(1)
+export interface FindResourceByIdOpts {
+  /**
+   * F-569:仅供 admin/后台内部路径显式放行草稿与下线资源。
+   * 公开出口(详情/批量)必须保持缺省 false,与列表 `isPublished=true AND status=1` 同口径。
+   */
+  includeUnpublished?: boolean
+}
+
+/** 按 ID 查询资源(默认只返回已发布+启用,不自增浏览量)。 */
+export async function findResourceById(
+  id: string,
+  opts: FindResourceByIdOpts = {},
+): Promise<Resource | undefined> {
+  const conds = [eq(resources.id, id)]
+  if (!opts.includeUnpublished) {
+    conds.push(eq(resources.isPublished, true), eq(resources.status, 1))
+  }
+  const rows = await db
+    .select()
+    .from(resources)
+    .where(and(...conds))
+    .limit(1)
   return rows[0]
 }
 
-/** 按 ID 列表批量查询资源(列表不返回 intro)。 */
-export async function findResourcesByIds(ids: string[]): Promise<Resource[]> {
+/** 按 ID 列表批量查询资源(列表不返回 intro;默认只返回已发布+启用)。 */
+export async function findResourcesByIds(
+  ids: string[],
+  opts: FindResourceByIdOpts = {},
+): Promise<Resource[]> {
   if (ids.length === 0) return []
-  return db.select().from(resources).where(inArray(resources.id, ids)).orderBy(desc(resources.id))
+  const conds = [inArray(resources.id, ids)]
+  if (!opts.includeUnpublished) {
+    conds.push(eq(resources.isPublished, true), eq(resources.status, 1))
+  }
+  return db
+    .select()
+    .from(resources)
+    .where(and(...conds))
+    .orderBy(desc(resources.id))
 }
 
 export interface CreateResourceInput {

@@ -52,11 +52,10 @@ export async function getUserBillingGroup(userId: string): Promise<UserBillingGr
   }
 
   // 无关联/已过期/组已禁用 → 回退到系统默认组
-  // F-590:回退默认组必须同样排除已停用的组,否则停用默认组仍会被当作有效计费组。
   const [defaultGroup] = await dbRead
     .select()
     .from(userBillingGroups)
-    .where(and(eq(userBillingGroups.isDefault, true), eq(userBillingGroups.enabled, true)))
+    .where(eq(userBillingGroups.isDefault, true))
     .limit(1)
   return defaultGroup ?? null
 }

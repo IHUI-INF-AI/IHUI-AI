@@ -121,9 +121,9 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: rnSpacing.sm,
       fontSize: rnType.title.size,
       fontWeight: '600',
-      color: tk.danger.deepText,
+      color: tk.danger.DEFAULT,
     },
-    statusOk: { color: tk.success.deepText },
+    statusOk: { color: tk.success.DEFAULT },
     uploadItem: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -139,8 +139,8 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    uploadBtnText: { fontSize: rnType.display.size, color: tk.text.medium },
-    errorText: { fontSize: rnType.body.size, color: tk.danger.deepText, marginTop: rnSpacing.sm },
+    uploadBtnText: { fontSize: rnType.display.size, color: tk.text.tertiary },
+    errorText: { fontSize: rnType.body.size, color: tk.danger.DEFAULT, marginTop: rnSpacing.sm },
     submitBtn: {
       marginTop: rnSpacing.md,
       height: 50,

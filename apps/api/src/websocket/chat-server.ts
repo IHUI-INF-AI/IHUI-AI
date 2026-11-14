@@ -23,7 +23,7 @@ import { recordLiveDanmaku } from '../plugins/business-metrics.js'
 
 export const HISTORY_PAGE_SIZE = 50
 const MAX_CONTENT_LENGTH = 2000
-const MAX_ROOMS = 1000
+export const MAX_ROOMS = 1000
 const MAX_CONN_PER_ROOM = 500
 // P2 修复(2026-08-06):live-chat WS 消息频率限制(防刷屏)。
 // 与 plugins/ws-chat.ts 的 WsRateLimiter 保持一致:每用户滑动窗口 60 条/分钟,
@@ -117,6 +117,20 @@ export class LiveChatServer {
     MESSAGE_RATE_LIMIT,
     MESSAGE_RATE_WINDOW_MS,
   )
+
+  /**
+   * F-466:房间数硬上限准入判断。
+   * 已有该房间、未达上限、或已达上限但存在可回收空房时允许;否则拒绝 ——
+   * 修复「房间数超 MAX_ROOMS 且无可回收空房时仍照建」导致 rooms Map 无界增长。
+   */
+  canJoinRoom(roomId: string): boolean {
+    if (this.rooms.has(roomId)) return true
+    if (this.rooms.size < MAX_ROOMS) return true
+    for (const room of this.rooms.values()) {
+      if (room.isEmpty()) return true
+    }
+    return false
+  }
 
   join(roomId: string, ws: WebSocket): LiveChatRoom {
     let room = this.rooms.get(roomId)

@@ -118,6 +118,16 @@ const TRAE_ENT_USAGE_URL = endpoint(
   'TRAE_ENT_USAGE_URL',
   'https://api.trae.cn/trae/api/v2/pay/web_user_ent_usage',
 )
+/** 客户端档案端点(线上实证 2026-11-13:`x-cloudide-token` + {IDEVersion} ⇒ 200
+ * Result{UserID,ScreenName,NonPlainTextMobile,…};Trae 上游只下发掩码手机号
+ * (前3后2,如 181******25),不存在明文号端点。只读,不进调度轮询。
+ * 同款调用另见 scripts/trae-backfill-profile.mjs(本机切号腿,独立运行不依赖本模块)。 */
+const TRAE_GET_USER_INFO_URL = endpoint(
+  'TRAE_GET_USER_INFO_URL',
+  'https://api.trae.cn/cloudide/api/v3/trae/GetUserInfo',
+)
+/** GetUserInfo 请求的 IDEVersion(与客户端同款调用逐字一致) */
+const GET_USER_INFO_IDE_VERSION = '1.107.1'
 
 const WEB_ORIGIN = 'https://solo.trae.cn'
 const WEB_USER_AGENT =
@@ -575,6 +585,52 @@ function withStopCleanup(
   })()
 }
 
+/**
+ * Trae 手机号点查(2026-11-13 立,与 CodeArts `fetchCodeartsAccountPhone` 同腿形制):
+ * 会话载荷与 JWT 票面都没有手机号(实证:票面只有 id/tenant_id,账号导出 JSON 也无
+ * phone),但客户端档案端点 `GetUserInfo` 回 `NonPlainTextMobile`(上游只下发掩码号,
+ * 前3后2)⇒ 导入编排层点查补进载荷 `phone`;format 层手机号判据全号与掩码两档都采信,
+ * 掩码形态随即落 `extraMetadata.phoneMask` 走 complete-phone/match-phone 补全对账链。
+ * 返回 null = 无手机号候选,或档案 UserID 与 expectedUid 不符(拒绝张冠李戴);
+ * HTTP/解析异常一律抛,由调用方计"未取到"、不阻断导入(与 codearts 腿同一口径)。
+ * PII:返回值就是掩码手机号本身,调用方只许落账号统一名,绝不写日志/错误 message。
+ */
+export async function fetchTraeAccountPhone(input: {
+  token: string
+  expectedUid?: string
+  fetchImpl?: typeof fetch
+}): Promise<string | null> {
+  const token = String(input.token ?? '').trim()
+  if (!token) return null
+  const res = await (input.fetchImpl ?? fetch)(TRAE_GET_USER_INFO_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-cloudide-token': token },
+    body: JSON.stringify({ IDEVersion: GET_USER_INFO_IDE_VERSION }),
+  })
+  const text = await res.text().catch(() => '')
+  if (!res.ok) {
+    throw new Error(`Trae 档案点查 HTTP ${res.status}: ${text.slice(0, 200)}`)
+  }
+  let r: Record<string, unknown> | null = null
+  try {
+    const parsed: unknown = JSON.parse(text)
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      const o = parsed as Record<string, unknown>
+      const result = o['Result'] ?? o['result']
+      if (result && typeof result === 'object' && !Array.isArray(result)) {
+        r = result as Record<string, unknown>
+      }
+    }
+  } catch {
+    /* 非 JSON ⇒ 按取不到处理 */
+  }
+  if (!r) return null
+  const expected = String(input.expectedUid ?? '').trim()
+  if (expected && String(r['UserID'] ?? '').trim() !== expected) return null
+  const mobile = typeof r['NonPlainTextMobile'] === 'string' ? r['NonPlainTextMobile'].trim() : ''
+  return mobile || null
+}
+
 // =============================================================================
 // 适配器
 // =============================================================================
@@ -864,6 +920,7 @@ export const traeAdapter: RelayUpstreamAdapter = {
             Referer: `${WEB_LOGIN_ORIGIN}/`,
             'User-Agent': WEB_USER_AGENT,
           },
+          signal: opts?.signal,
         })
         if (!res.ok) {
           const text = await res.text().catch(() => '')
@@ -897,6 +954,7 @@ export const traeAdapter: RelayUpstreamAdapter = {
           Authorization: `Cloud-IDE-JWT ${ctx.credentials.token}`,
           Accept: 'application/json',
         },
+        signal: opts?.signal,
       })
       if (!res.ok) {
         const text = await res.text().catch(() => '')
@@ -911,6 +969,7 @@ export const traeAdapter: RelayUpstreamAdapter = {
               Authorization: `Cloud-IDE-JWT ${ctx.credentials.token}`,
               Accept: 'application/json',
             },
+            signal: opts?.signal,
           })
           if (fallback.ok) return { ok: true }
           const fbRejected = fallback.status === 401 || fallback.status === 403

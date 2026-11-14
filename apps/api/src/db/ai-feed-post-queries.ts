@@ -19,7 +19,7 @@ export async function findAiFeedPosts(opts: {
       .select()
       .from(aiFeedPosts)
       .where(where)
-      .orderBy(desc(aiFeedPosts.createdAt))
+      .orderBy(desc(aiFeedPosts.createdAt), desc(aiFeedPosts.id))
       .limit(opts.pageSize)
       .offset((opts.page - 1) * opts.pageSize),
     db
@@ -36,9 +36,7 @@ export async function findAiFeedPostById(id: string): Promise<AiFeedPost | undef
   const rows = await db
     .select()
     .from(aiFeedPosts)
-    .where(
-      and(eq(aiFeedPosts.id, id), eq(aiFeedPosts.isPublished, true), eq(aiFeedPosts.status, 1)),
-    )
+    .where(and(eq(aiFeedPosts.id, id), eq(aiFeedPosts.isPublished, true), eq(aiFeedPosts.status, 1)))
     .limit(1)
   return rows[0]
 }

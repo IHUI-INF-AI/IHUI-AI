@@ -145,7 +145,7 @@ export function AIMultimodalScreen({
           value={input}
           onChangeText={onInputChange}
           placeholder={t('aiMultimodal.inputPlaceholder')}
-          placeholderTextColor={tk.text.secondary}
+          placeholderTextColor={tk.text.tertiary}
           multiline
         />
         <TouchableOpacity
@@ -178,7 +178,7 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.primary,
     },
     subtitle: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.secondary },
-    userText: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.medium },
+    userText: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.tertiary },
     modeRow: {
       flexDirection: 'row',
       paddingHorizontal: rnSpacing['sm-loose'],
@@ -195,12 +195,12 @@ function createStyles(tk: AppThemeTokens) {
     modeBtnDisabled: { opacity: 0.45 },
     modeBtnText: { textAlign: 'center', fontSize: rnType.body.size, color: tk.text.medium },
     modeBtnTextActive: { color: tk.surface.light, fontWeight: '600' },
-    modeBtnTextDisabled: { color: tk.text.medium },
+    modeBtnTextDisabled: { color: tk.text.tertiary },
     modeDisabledHint: {
       paddingHorizontal: rnSpacing['sm-loose'],
       paddingBottom: rnSpacing.sm,
       fontSize: rnType.label.size,
-      color: tk.text.medium,
+      color: tk.text.tertiary,
     },
     modelRow: { paddingHorizontal: rnSpacing['sm-loose'], paddingBottom: rnSpacing.sm },
     modelLabel: {
@@ -210,7 +210,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     modelEmpty: {
       fontSize: rnType.body.size,
-      color: tk.text.medium,
+      color: tk.text.tertiary,
       paddingVertical: rnSpacing['xs-loose'],
     },
     modelChip: {
@@ -242,7 +242,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingHorizontal: rnSpacing['sm-loose'],
       paddingVertical: rnSpacing.xs,
       fontSize: rnType.body.size,
-      color: tk.danger.deepText,
+      color: tk.danger.DEFAULT,
     },
     inputRow: {
       flexDirection: 'row',
@@ -273,7 +273,7 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    sendBtnDisabled: { backgroundColor: tk.text.secondary },
+    sendBtnDisabled: { backgroundColor: tk.text.tertiary },
     sendText: { color: tk.surface.light, fontSize: rnType.title.size, fontWeight: '600' },
     clearBtn: {
       paddingHorizontal: rnSpacing.md,

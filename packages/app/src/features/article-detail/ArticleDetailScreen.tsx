@@ -99,7 +99,7 @@ function createStyles(tk: AppThemeTokens) {
       marginBottom: rnSpacing['xs-loose'],
     },
     author: { fontSize: rnType.body.size, color: tk.text.secondary, fontWeight: '500' },
-    meta: { fontSize: rnType.caption.size, color: tk.text.medium },
+    meta: { fontSize: rnType.caption.size, color: tk.text.tertiary },
     statRow: { flexDirection: 'row', gap: rnSpacing.md, marginBottom: rnSpacing.md },
     stat: {
       fontSize: rnType.caption.size,

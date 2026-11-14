@@ -503,7 +503,7 @@ function createStyles(tk: AppThemeTokens) {
     popularPrice: {
       fontSize: rnType.body.size,
       fontWeight: '600',
-      color: tk.success.deepText,
+      color: tk.success.DEFAULT,
     } as TextStyle,
     popularStudents: {
       fontSize: rnType.label.size,
@@ -529,7 +529,7 @@ function createStyles(tk: AppThemeTokens) {
     } as ViewStyle,
     errorText: {
       fontSize: rnType.body.size,
-      color: tk.danger.deepText,
+      color: tk.danger.DEFAULT,
       textAlign: 'center',
     } as TextStyle,
     courseList: {
@@ -596,7 +596,7 @@ function createStyles(tk: AppThemeTokens) {
     priceFree: {
       fontSize: rnType.title.size,
       fontWeight: '600',
-      color: tk.success.deepText,
+      color: tk.success.DEFAULT,
     } as TextStyle,
     pricePaid: {
       fontSize: rnType.title.size,

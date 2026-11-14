@@ -91,11 +91,7 @@ async function main() {
     if (!apply) throw new Error(`push 不支持平台: ${req.provider}`)
     // 注意:镜像写回绝不关端/拉起 —— 只就地换凭据;客户端在跑时由 apply* 内部
     // 守卫决定拒写(WriteError),绝不强杀用户正在用的客户端。
-    // extract 门面必须注入(2026-11-12 实测):apply* 的落点定位要按平台枚举候选根
-    // (如 minimax 的 minimaxCandidateRoots),缺它则 push 必崩
-    // `Cannot read properties of undefined` ⇒ 新票永远写不回 auth.json(签到票面断供)。
-    const extract = await localLogin.__test__.loadExtract()
-    const result = await apply(req.payload, { closeClient: false, relaunch: false, extract })
+    const result = await apply(req.payload, { closeClient: false, relaunch: false })
     process.stdout.write(JSON.stringify({ ok: true, provider: result?.provider ?? req.provider, file: result?.file ?? '' }))
     return
   }

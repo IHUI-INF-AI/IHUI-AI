@@ -183,7 +183,7 @@ function makeStyles() {
     statRow: { flexDirection: 'row', gap: rnSpacing.md, marginTop: rnSpacing['xs-loose'] },
     statCell: { flex: 1, gap: rnSpacing['2xs'] },
     statValue: { fontSize: rnType.display.size, fontWeight: '700', color: tokens.brand.DEFAULT },
-    statLabel: { fontSize: rnType.label.size, color: tokens.text.medium },
+    statLabel: { fontSize: rnType.label.size, color: tokens.text.tertiary },
     muted: { fontSize: rnType.bodySm.size, color: tokens.text.secondary },
     row: {
       flexDirection: 'row',
@@ -211,7 +211,7 @@ function makeStyles() {
     errorText: {
       paddingVertical: rnSpacing.lg,
       fontSize: rnType.body.size,
-      color: tokens.danger.deepText,
+      color: tokens.danger.DEFAULT,
     },
   })
 }

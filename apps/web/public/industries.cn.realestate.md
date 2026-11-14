@@ -202,7 +202,8 @@
   A:支持 12 语种(中英日韩法德西俄阿等),小语种需定制音色。
 
 ### 联系
-- **统一联系邮箱:lizong@aizhs.top** —— 各行业方案、行业资料与商务合作全部走这一个地址;来信注明所在行业与诉求,24 小时内回复。
+- 房地产行业:realestate@aizhs.top
+- 通用商务:contact@aizhs.top
 - 官网:https://aizhs.top
 - GitHub:https://github.com/IHUI-INF-AI/IHUI-AI
 

@@ -105,7 +105,7 @@ export function CircleChatScreen({
           value={input}
           onChangeText={onInputChange}
           placeholder={t('circleChat.placeholder')}
-          placeholderTextColor={tk.text.secondary}
+          placeholderTextColor={tk.text.tertiary}
         />
         <TouchableOpacity
           style={[styles.sendBtn, !input.trim() || sending ? styles.sendBtnDisabled : null]}
@@ -153,7 +153,7 @@ function createStyles(tk: AppThemeTokens) {
     msgTextOther: { color: tk.text.primary },
     msgTime: { marginTop: rnSpacing.sm, fontSize: rnType.badge.size },
     msgTimeUser: { color: tk.surface.light },
-    msgTimeOther: { color: tk.text.medium },
+    msgTimeOther: { color: tk.text.tertiary },
     inputRow: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -188,7 +188,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     error: {
       fontSize: rnType.body.size,
-      color: tk.danger.deepText,
+      color: tk.danger.DEFAULT,
       textAlign: 'center',
       marginBottom: rnSpacing.sm,
     },

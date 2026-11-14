@@ -138,7 +138,7 @@
 
 ## 七、联系商务
 
-- **邮箱**:lizong@aizhs.top
+- **邮箱**:enterprise@ihui-ai.com
 - **电话**:+86 400-XXX-XXXX(工作日 9:00-18:00)
 - **官网**:<https://ihui-ai.com/enterprise>
 - **线下洽谈**:北京市朝阳区智汇大厦 18 层 / 上海市浦东新区张江园区 A 座

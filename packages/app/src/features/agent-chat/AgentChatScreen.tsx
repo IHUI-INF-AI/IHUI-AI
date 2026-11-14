@@ -98,7 +98,7 @@ export function AgentChatScreen({
             <View style={[styles.msg, item.role === 'user' ? styles.msgUser : styles.msgAssistant]}>
               {pending && item.content === '' ? (
                 // 首包(delta)到达前的流式加载态;文本到达后立即换成增量内容
-                <ActivityIndicator size="small" color={tk.text.secondary} />
+                <ActivityIndicator size="small" color={tk.text.tertiary} />
               ) : (
                 <Text
                   style={[
@@ -121,7 +121,7 @@ export function AgentChatScreen({
           value={input}
           onChangeText={onInputChange}
           placeholder={t('agentChat.placeholder')}
-          placeholderTextColor={tk.text.secondary}
+          placeholderTextColor={tk.text.tertiary}
         />
         {streaming === true && onStopStreaming ? (
           <TouchableOpacity
@@ -129,7 +129,7 @@ export function AgentChatScreen({
             onPress={onStopStreaming}
             accessibilityLabel={t('agentChat.stop')}
           >
-            <Text style={styles.stopBtnText}>{t('agentChat.stop')}</Text>
+            <Text style={styles.sendBtnText}>{t('agentChat.stop')}</Text>
           </TouchableOpacity>
         ) : (
           <TouchableOpacity
@@ -206,8 +206,6 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
     },
     sendBtnText: { color: tk.surface.light, fontSize: rnType.title.size, fontWeight: '600' },
-    /** 停止钮底是 surface.muted(不是 brand.cta):共用 sendBtnText 会让白字压浅灰/同深灰,故单列一档。 */
-    stopBtnText: { color: tk.text.primary, fontSize: rnType.title.size, fontWeight: '600' },
     sendError: {
       fontSize: rnType.caption.size,
       color: tk.error.text,

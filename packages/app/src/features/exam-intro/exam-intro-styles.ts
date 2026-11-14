@@ -86,7 +86,7 @@ export function createExamIntroStyles(tk: AppThemeTokens) {
     historyStatus: { fontSize: rnType.bodySm.size, color: tk.text.primary, fontWeight: '500' },
     historyMeta: { fontSize: rnType.label.size, color: tk.text.secondary },
     historyScore: { fontSize: rnType.bodySm.size, color: tk.text.primary, fontWeight: '600' },
-    historyScoreFailed: { color: tk.danger.deepText },
+    historyScoreFailed: { color: tk.danger.bright },
     emptyText: {
       fontSize: rnType.bodySm.size,
       color: tk.text.secondary,
@@ -102,7 +102,7 @@ export function createExamIntroStyles(tk: AppThemeTokens) {
     startText: { fontSize: rnType.title.size, fontWeight: '600', color: tk.brand.ctaForeground },
     errorText: {
       fontSize: rnType.bodySm.size,
-      color: tk.danger.deepText,
+      color: tk.danger.bright,
       marginTop: rnSpacing.sm,
     },
     stateBox: { alignItems: 'center', paddingVertical: rnSpacing.xl },

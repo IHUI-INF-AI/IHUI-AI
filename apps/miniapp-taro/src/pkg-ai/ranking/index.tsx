@@ -63,12 +63,9 @@ export default function RankingIndex() {
   const [keyword, setKeyword] = useState('')
   const [page, setPage] = useState(1)
   const [hasMore, setHasMore] = useState(true)
-  /** 请求会话标识:每次 reload(切 tab / 搜索 / 下拉刷新)递增,在途旧请求回包一律丢弃 */
-  const epochRef = useRef(0)
 
   const fetchPage = useCallback(
     async (curPage: number, ft: FileType, kw: string): Promise<boolean> => {
-      const myEpoch = epochRef.current
       setFailed(false)
       try {
         // 数据源 = AI World 工具库(ai_world_items kind='tool');原 /ranking/list 后端从未注册,
@@ -80,9 +77,6 @@ export default function RankingIndex() {
           search: kw || undefined,
           order: 'hot',
         })) as { items?: ToolItem[]; total?: number } | undefined
-        // 会话已切换(reload 递增了 epoch):旧分类/关键词的在途回包直接丢弃,
-        // 不碰 list/hasMore/failed,避免旧数据被追加进新列表
-        if (myEpoch !== epochRef.current) return false
         const newList = res?.items || []
         setList((prev) => (curPage === 1 ? newList : [...prev, ...newList]))
         const total = res?.total ?? newList.length
@@ -90,7 +84,6 @@ export default function RankingIndex() {
         setHasMore(more)
         return more
       } catch {
-        if (myEpoch !== epochRef.current) return false
         setList([])
         setHasMore(false)
         setFailed(true)
@@ -102,12 +95,10 @@ export default function RankingIndex() {
 
   const reload = useCallback(
     async (ft: FileType, kw: string) => {
-      const myEpoch = ++epochRef.current
       setLoading(true)
       setPage(1)
       await fetchPage(1, ft, kw)
-      // 仅当本会话仍是最新时才收 loading,避免旧 reload 抢先关掉新会话的加载态
-      if (myEpoch === epochRef.current) setLoading(false)
+      setLoading(false)
     },
     [fetchPage],
   )
@@ -133,12 +124,9 @@ export default function RankingIndex() {
 
   const onScrollToLower = useCallback(() => {
     if (loading || !hasMore) return
-    const myEpoch = epochRef.current
     const next = page + 1
     setLoading(true)
     void fetchPage(next, fileType, keyword).then(() => {
-      // 会话已切换:旧请求回包不得把 page 覆盖回旧值,也不得关掉新会话的 loading
-      if (myEpoch !== epochRef.current) return
       setPage(next)
       setLoading(false)
     })

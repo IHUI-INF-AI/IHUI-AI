@@ -148,7 +148,7 @@ export function WalletScreen({
               </View>
             ) : flows.loading ? (
               <View style={styles.flowState}>
-                <ActivityIndicator color={tk.text.secondary} />
+                <ActivityIndicator color={tk.text.tertiary} />
                 <Text style={styles.muted}>{t('wallet.loading')}</Text>
               </View>
             ) : flows.error ? (
@@ -256,7 +256,7 @@ function createStyles(tk: AppThemeTokens) {
     errorText: {
       paddingHorizontal: rnSpacing['sm-loose'],
       fontSize: rnType.body.size,
-      color: tk.danger.deepText,
+      color: tk.danger.DEFAULT,
     },
     body: { padding: rnSpacing['sm-loose'] },
     center: { alignItems: 'center', paddingVertical: rnSpacing['5xl'] },
@@ -269,7 +269,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.light,
       marginBottom: rnSpacing.md,
     },
-    cardLabel: { fontSize: rnType.body.size, color: tk.text.medium },
+    cardLabel: { fontSize: rnType.body.size, color: tk.text.tertiary },
     cardValue: {
       marginTop: rnSpacing.sm,
       fontSize: rnType.heading.size,
@@ -319,12 +319,12 @@ function createStyles(tk: AppThemeTokens) {
     flowTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     flowType: { fontSize: rnType.body.size, fontWeight: '600', color: tk.text.primary },
     flowAmount: { fontSize: rnType.body.size, fontWeight: '700' },
-    flowIn: { color: tk.success.deepText },
-    flowOut: { color: tk.danger.deepText },
+    flowIn: { color: tk.success.DEFAULT },
+    flowOut: { color: tk.danger.DEFAULT },
     flowNeutral: { color: tk.text.secondary },
     flowMeta: { fontSize: rnType.label.size, color: tk.text.secondary },
     flowState: { alignItems: 'center', paddingVertical: rnSpacing.lg, gap: rnSpacing.sm },
-    flowErrorText: { fontSize: rnType.label.size, color: tk.danger.deepText, textAlign: 'center' },
+    flowErrorText: { fontSize: rnType.label.size, color: tk.danger.DEFAULT, textAlign: 'center' },
     retryBtn: { paddingHorizontal: rnSpacing.md, paddingVertical: rnSpacing.xs },
     retryText: { fontSize: rnType.label.size, fontWeight: '600', color: tk.text.primary },
     loginBtn: {

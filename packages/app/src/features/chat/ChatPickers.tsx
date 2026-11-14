@@ -347,7 +347,7 @@ function createStyles(tokens: AppThemeTokens) {
     },
     closeGlyph: {
       fontSize: rnType.title.size,
-      color: tokens.text.medium,
+      color: tokens.text.tertiary,
     },
     body: {
       flexGrow: 0,
@@ -402,7 +402,7 @@ function createStyles(tokens: AppThemeTokens) {
     },
     rowDescription: {
       fontSize: rnType.label.size,
-      color: tokens.text.medium,
+      color: tokens.text.tertiary,
     },
     badge: {
       alignSelf: 'flex-start',
@@ -411,7 +411,7 @@ function createStyles(tokens: AppThemeTokens) {
       borderRadius: rnRadius.md,
       backgroundColor: tokens.surface.muted,
       fontSize: rnType.caption.size,
-      color: tokens.text.medium,
+      color: tokens.text.tertiary,
     },
     check: {
       fontSize: rnType.body.size,
@@ -452,7 +452,7 @@ function createStyles(tokens: AppThemeTokens) {
     },
     removeText: {
       fontSize: rnType.caption.size,
-      color: tokens.danger.deepText,
+      color: tokens.danger.DEFAULT,
     },
   })
 }

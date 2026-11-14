@@ -709,9 +709,9 @@ describe('useAuth 跨端共享 hook — miniapp-taro 端集成测试', () => {
       expect(result.current.refreshToken).toBe('taro-rt')
       expect(result.current.isAuthenticated).toBe(true)
       expect(result.current.user).toEqual(mockUser)
-      // 验证 Taro.storage 被写入(仅 access token;refresh token 按安全契约只存内存、不落明文盘)
+      // 验证 Taro.storage 被写入
       expect(taroStorage[TOKEN_KEY]).toBe('taro-at')
-      expect(taroStorage[REFRESH_TOKEN_KEY]).toBeUndefined()
+      expect(taroStorage[REFRESH_TOKEN_KEY]).toBe('taro-rt')
 
       // logout:清 Taro.storage + 缓存,hook 读取 isAuthenticated=false
       await act(async () => {

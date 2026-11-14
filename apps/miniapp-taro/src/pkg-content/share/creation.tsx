@@ -22,7 +22,6 @@ import {
   type ShareLandingContent,
 } from '@ihui/rn-app/features/share-landing/ShareLandingScreen'
 import { renderShareVideo, renderShareAudio } from './creation-media'
-import { toFriendlyOr } from '@ihui/shared/utils'
 
 /** 接口原始记录:UI 内容之外的业务字段(agentId 供「再生成」跳转)留在端内 */
 export interface ShareCreationRecord extends ShareLandingContent {
@@ -75,7 +74,7 @@ export default function ShareCreationPage() {
       setAgentId(record.agentId || '')
     } catch (e) {
       logger.error('share/index', '获取分享内容', e)
-      setError(toFriendlyOr(e, t('share.creation.loadFailed')))
+      setError(e instanceof Error ? e.message : t('share.creation.loadFailed'))
     } finally {
       setLoading(false)
     }

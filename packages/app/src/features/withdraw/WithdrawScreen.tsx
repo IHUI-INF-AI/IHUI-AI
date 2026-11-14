@@ -94,7 +94,7 @@ export function WithdrawScreen({
             value={amount}
             onChangeText={onAmountChange}
             placeholder={tx.amountPlaceholder ?? t('withdraw.amountPlaceholder')}
-            placeholderTextColor={tk.text.secondary}
+            placeholderTextColor={tk.text.tertiary}
             keyboardType="decimal-pad"
           />
 
@@ -126,7 +126,7 @@ export function WithdrawScreen({
                 value={accountInfo ?? ''}
                 onChangeText={(text: string) => onAccountInfoChange?.(text)}
                 placeholder={tx.accountPlaceholder ?? '请输入收款账户'}
-                placeholderTextColor={tk.text.secondary}
+                placeholderTextColor={tk.text.tertiary}
               />
             </>
           ) : null}
@@ -140,7 +140,7 @@ export function WithdrawScreen({
                 value={bankCardId}
                 onChangeText={onBankCardIdChange}
                 placeholder={tx.bankCardPlaceholder ?? t('withdraw.bankCardPlaceholder')}
-                placeholderTextColor={tk.text.secondary}
+                placeholderTextColor={tk.text.tertiary}
               />
             </>
           ) : null}
@@ -239,8 +239,8 @@ function createStyles(tk: AppThemeTokens) {
       fontSize: rnType.title.size,
       color: tk.text.primary,
     },
-    errorText: { ...rnType.body, color: tk.danger.deepText, marginTop: rnSpacing.xs },
-    successText: { ...rnType.body, color: tk.success.deepText, marginTop: rnSpacing.xs },
+    errorText: { ...rnType.body, color: tk.danger.DEFAULT, marginTop: rnSpacing.xs },
+    successText: { ...rnType.body, color: tk.success.DEFAULT, marginTop: rnSpacing.xs },
     submitBtn: {
       marginTop: rnSpacing.xl,
       // 高度 50 是移动端触控目标;web Button 档 lg=40 属桌面形态,平台差异保留
@@ -250,9 +250,9 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    btnDisabled: { backgroundColor: tk.text.secondary },
+    btnDisabled: { backgroundColor: tk.text.tertiary },
     submitText: { ...rnType.title, color: tk.brand.ctaForeground },
-    hint: { ...rnType.caption, color: tk.text.medium, marginTop: rnSpacing.sm },
+    hint: { ...rnType.caption, color: tk.text.tertiary, marginTop: rnSpacing.sm },
     recordsRow: { marginTop: rnSpacing.md, alignItems: 'center' },
     recordsText: { ...rnType.body, color: tk.brand.DEFAULT },
   })

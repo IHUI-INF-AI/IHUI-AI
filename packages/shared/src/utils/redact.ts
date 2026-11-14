@@ -251,7 +251,7 @@ export function redactUrl(input: string): string {
 }
 
 /**
- * 邮箱脱敏:`lizong@aizhs.top` → `c***@aizhs.top`。
+ * 邮箱脱敏:`chunchuan.li@aizhs.top` → `c***@aizhs.top`。
  * 保留域名(交接单需要知道"涉及哪个域"),账号部分一律掩码。
  */
 export function redactEmails(text: string): string {

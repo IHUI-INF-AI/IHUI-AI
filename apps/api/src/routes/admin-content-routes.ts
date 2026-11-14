@@ -92,6 +92,20 @@ function parseJson<T>(raw: string, fallback: T): T {
   }
 }
 
+/**
+ * 本文件的分类由路由路径固定（about-us/contact/mobile-adapter/recommendation）。
+ * payload 若显式带 category/categoryId，必须与之一致，避免借写接口跨分类串改。
+ */
+function assertCategoryConsistency(body: unknown, expected: string): void {
+  const raw = (body ?? {}) as Record<string, unknown>
+  for (const key of ['category', 'categoryId']) {
+    const v = raw[key]
+    if (v !== undefined && v !== null && v !== '' && v !== expected) {
+      throw new AppError('分类与请求路径不一致', 400, 'CATEGORY_MISMATCH')
+    }
+  }
+}
+
 export const adminContentOpsRoutes: FastifyPluginAsync = async (server) => {
   server.addHook('preHandler', requireAdmin)
 
@@ -142,7 +156,11 @@ export const adminContentOpsRoutes: FastifyPluginAsync = async (server) => {
 
   server.get('/about-us/:id', async (request, reply) => {
     const { id } = validate(idParamSchema, request.params)
-    const [d] = await db.select().from(docs).where(eq(docs.id, id)).limit(1)
+    const [d] = await db
+      .select()
+      .from(docs)
+      .where(and(eq(docs.id, id), eq(docs.category, 'about-us')))
+      .limit(1)
     if (!d) return reply.status(404).send(error(404, '记录不存在'))
     const m = parseJson<{
       phone: string
@@ -163,6 +181,7 @@ export const adminContentOpsRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.post('/about-us', async (request, reply) => {
+    assertCategoryConsistency(request.body, 'about-us')
     const b = validate(aboutUsBodySchema, request.body)
     const [row] = await db
       .insert(docs)
@@ -183,6 +202,7 @@ export const adminContentOpsRoutes: FastifyPluginAsync = async (server) => {
 
   server.put('/about-us/:id', async (request, reply) => {
     const { id } = validate(idParamSchema, request.params)
+    assertCategoryConsistency(request.body, 'about-us')
     const b = validate(aboutUsBodySchema, request.body)
     const [row] = await db
       .update(docs)
@@ -196,7 +216,7 @@ export const adminContentOpsRoutes: FastifyPluginAsync = async (server) => {
         }),
         updatedAt: new Date(),
       })
-      .where(eq(docs.id, id))
+      .where(and(eq(docs.id, id), eq(docs.category, 'about-us')))
       .returning()
     if (!row) return reply.status(404).send(error(404, '记录不存在'))
     return reply.send(success(row))
@@ -204,8 +224,12 @@ export const adminContentOpsRoutes: FastifyPluginAsync = async (server) => {
 
   server.delete('/about-us/:id', async (request, reply) => {
     const { id } = validate(idParamSchema, request.params)
-    const removed = await db.delete(docs).where(eq(docs.id, id)).returning({ id: docs.id })
-    return reply.send(success({ id, deleted: removed.length > 0 }))
+    const removed = await db
+      .delete(docs)
+      .where(and(eq(docs.id, id), eq(docs.category, 'about-us')))
+      .returning({ id: docs.id })
+    if (removed.length === 0) return reply.status(404).send(error(404, '记录不存在'))
+    return reply.send(success({ id, deleted: true }))
   })
 
   // ----- /advertise（carousels 表）-----
@@ -338,7 +362,11 @@ export const adminContentOpsRoutes: FastifyPluginAsync = async (server) => {
 
   server.get('/contact/:id', async (request, reply) => {
     const { id } = validate(idParamSchema, request.params)
-    const [f] = await db.select().from(feedbacks).where(eq(feedbacks.id, id)).limit(1)
+    const [f] = await db
+      .select()
+      .from(feedbacks)
+      .where(and(eq(feedbacks.id, id), eq(feedbacks.type, 'contact')))
+      .limit(1)
     if (!f) return reply.status(404).send(error(404, '记录不存在'))
     const m = parseJson<{ introduction: string; corporateCulture: string }>(f.content, {
       introduction: '',
@@ -350,6 +378,7 @@ export const adminContentOpsRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.post('/contact', async (request, reply) => {
+    assertCategoryConsistency(request.body, 'contact')
     const b = validate(contactBodySchema, request.body)
     const userId = request.userId
     if (!userId) return reply.status(401).send(error(401, '未登录'))
@@ -370,6 +399,7 @@ export const adminContentOpsRoutes: FastifyPluginAsync = async (server) => {
 
   server.put('/contact/:id', async (request, reply) => {
     const { id } = validate(idParamSchema, request.params)
+    assertCategoryConsistency(request.body, 'contact')
     const b = validate(contactBodySchema, request.body)
     const [row] = await db
       .update(feedbacks)
@@ -380,7 +410,7 @@ export const adminContentOpsRoutes: FastifyPluginAsync = async (server) => {
         }),
         updatedAt: new Date(),
       })
-      .where(eq(feedbacks.id, id))
+      .where(and(eq(feedbacks.id, id), eq(feedbacks.type, 'contact')))
       .returning()
     if (!row) return reply.status(404).send(error(404, '记录不存在'))
     return reply.send(success(row))
@@ -390,9 +420,10 @@ export const adminContentOpsRoutes: FastifyPluginAsync = async (server) => {
     const { id } = validate(idParamSchema, request.params)
     const removed = await db
       .delete(feedbacks)
-      .where(eq(feedbacks.id, id))
+      .where(and(eq(feedbacks.id, id), eq(feedbacks.type, 'contact')))
       .returning({ id: feedbacks.id })
-    return reply.send(success({ id, deleted: removed.length > 0 }))
+    if (removed.length === 0) return reply.status(404).send(error(404, '记录不存在'))
+    return reply.send(success({ id, deleted: true }))
   })
 
   // ----- /mobile-adapter（systemConfigs 表，category='mobile-adapter'）-----
@@ -417,7 +448,11 @@ export const adminContentOpsRoutes: FastifyPluginAsync = async (server) => {
 
   server.get('/mobile-adapter/:id', async (request, reply) => {
     const { id } = validate(idParamSchema, request.params)
-    const [c] = await db.select().from(systemConfigs).where(eq(systemConfigs.id, id)).limit(1)
+    const [c] = await db
+      .select()
+      .from(systemConfigs)
+      .where(and(eq(systemConfigs.id, id), eq(systemConfigs.category, 'mobile-adapter')))
+      .limit(1)
     if (!c) return reply.status(404).send(error(404, '记录不存在'))
     const m = parseJson<{
       resolution: string
@@ -430,6 +465,7 @@ export const adminContentOpsRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.put('/mobile-adapter/mode', async (request, reply) => {
+    assertCategoryConsistency(request.body, 'mobile-adapter')
     const { mode } = validate(modeBodySchema, request.body)
     await db
       .insert(systemConfigs)
@@ -469,7 +505,11 @@ export const adminContentOpsRoutes: FastifyPluginAsync = async (server) => {
 
   server.get('/recommendation-config/:id', async (request, reply) => {
     const { id } = validate(idParamSchema, request.params)
-    const [c] = await db.select().from(systemConfigs).where(eq(systemConfigs.id, id)).limit(1)
+    const [c] = await db
+      .select()
+      .from(systemConfigs)
+      .where(and(eq(systemConfigs.id, id), eq(systemConfigs.category, 'recommendation')))
+      .limit(1)
     if (!c) return reply.status(404).send(error(404, '记录不存在'))
     const m = parseJson<{
       position: string
@@ -490,6 +530,7 @@ export const adminContentOpsRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.post('/recommendation-config', async (request, reply) => {
+    assertCategoryConsistency(request.body, 'recommendation')
     const b = validate(recommendBodySchema, request.body)
     const [row] = await db
       .insert(systemConfigs)
@@ -519,8 +560,12 @@ export const adminContentOpsRoutes: FastifyPluginAsync = async (server) => {
 
   server.put('/recommendation-config/:id', async (request, reply) => {
     const { id } = validate(idParamSchema, request.params)
+    assertCategoryConsistency(request.body, 'recommendation')
     const b = validate(recommendBodySchema, request.body)
-    const [existing] = await db.select().from(systemConfigs).where(eq(systemConfigs.id, id))
+    const [existing] = await db
+      .select()
+      .from(systemConfigs)
+      .where(and(eq(systemConfigs.id, id), eq(systemConfigs.category, 'recommendation')))
     if (!existing) return reply.status(404).send(error(404, '记录不存在'))
     const prev = parseJson<{ isEnabled: boolean }>(existing.value, { isEnabled: false })
     await db
@@ -535,7 +580,7 @@ export const adminContentOpsRoutes: FastifyPluginAsync = async (server) => {
         }),
         updatedAt: new Date(),
       })
-      .where(eq(systemConfigs.id, id))
+      .where(and(eq(systemConfigs.id, id), eq(systemConfigs.category, 'recommendation')))
     return reply.send(
       success({
         id,
@@ -550,7 +595,10 @@ export const adminContentOpsRoutes: FastifyPluginAsync = async (server) => {
 
   server.put('/recommendation-config/:id/toggle', async (request, reply) => {
     const { id } = validate(idParamSchema, request.params)
-    const [existing] = await db.select().from(systemConfigs).where(eq(systemConfigs.id, id))
+    const [existing] = await db
+      .select()
+      .from(systemConfigs)
+      .where(and(eq(systemConfigs.id, id), eq(systemConfigs.category, 'recommendation')))
     if (!existing) return reply.status(404).send(error(404, '记录不存在'))
     const prev = parseJson<{
       position: string
@@ -570,7 +618,7 @@ export const adminContentOpsRoutes: FastifyPluginAsync = async (server) => {
         }),
         updatedAt: new Date(),
       })
-      .where(eq(systemConfigs.id, id))
+      .where(and(eq(systemConfigs.id, id), eq(systemConfigs.category, 'recommendation')))
     return reply.send(success({ id, isEnabled }))
   })
 
@@ -578,9 +626,10 @@ export const adminContentOpsRoutes: FastifyPluginAsync = async (server) => {
     const { id } = validate(idParamSchema, request.params)
     const removed = await db
       .delete(systemConfigs)
-      .where(eq(systemConfigs.id, id))
+      .where(and(eq(systemConfigs.id, id), eq(systemConfigs.category, 'recommendation')))
       .returning({ id: systemConfigs.id })
-    return reply.send(success({ id, deleted: removed.length > 0 }))
+    if (removed.length === 0) return reply.status(404).send(error(404, '记录不存在'))
+    return reply.send(success({ id, deleted: true }))
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

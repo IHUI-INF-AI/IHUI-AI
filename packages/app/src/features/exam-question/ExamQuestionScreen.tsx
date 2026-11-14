@@ -142,7 +142,7 @@ export function ExamQuestionScreen({
               ? t('examQuestion.subjectivePlaceholder')
               : t('examQuestion.answerPlaceholder')
           }
-          placeholderTextColor={tk.text.secondary}
+          placeholderTextColor={tk.text.tertiary}
           multiline={q.type === 'subjective'}
           maxLength={q.type === 'subjective' ? 1000 : undefined}
           textAlignVertical={q.type === 'subjective' ? 'top' : 'center'}
@@ -247,17 +247,17 @@ function createStyles(tk: AppThemeTokens) {
       flexShrink: 0,
       fontSize: rnType.caption.size,
       fontWeight: '600',
-      color: tk.text.medium,
+      color: tk.text.tertiary,
       fontVariant: ['tabular-nums'],
     },
-    timerUrgent: { color: tk.danger.deepText },
+    timerUrgent: { color: tk.danger.DEFAULT },
     progress: {
       marginTop: rnSpacing.md,
       fontSize: rnType.body.size,
-      color: tk.success.deepText,
+      color: tk.success.DEFAULT,
       fontWeight: '600',
     },
-    qType: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.medium },
+    qType: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.tertiary },
     qContent: {
       marginTop: rnSpacing.sm,
       fontSize: rnType.subtitle.size,
@@ -274,7 +274,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     optionSelected: { borderColor: tk.success.DEFAULT, backgroundColor: tk.success.light },
     optionText: { fontSize: rnType.title.size, color: tk.text.medium },
-    optionTextSelected: { color: tk.success.deepText, fontWeight: '500' },
+    optionTextSelected: { color: tk.success.DEFAULT, fontWeight: '500' },
     input: {
       minHeight: 46,
       paddingHorizontal: rnSpacing.md,

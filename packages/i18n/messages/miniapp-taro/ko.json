@@ -5142,7 +5142,6 @@
   "courseScreen": {
     "title": "전체 강좌",
     "searchPlaceholder": "강좌 검색",
-    "search": "검색",
     "empty": "강좌가 없습니다",
     "free": "무료",
     "studentCount": "{count}명 학습",
@@ -6669,9 +6668,7 @@
     "enroll": "지금 신청",
     "pay": "¥{amount} 결제",
     "lessons": "강좌 목차",
-    "completed": "수강 완료",
-    "learning": "학습 중",
-    "locked": "잠김"
+    "completed": "수강 완료"
   },
   "earnCommission": {
     "title": "커미션 플랜",

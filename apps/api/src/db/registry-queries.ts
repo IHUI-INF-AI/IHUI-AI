@@ -358,46 +358,30 @@ export async function upsertRegistryItem(
   const hash = await computePayloadHash(raw.payload)
   const now = new Date()
 
-  // 先查是否已存在,同时取出版本号(用于 sync_log.old_version)
-  const existing = await dbRead
-    .select({ id: registryItems.id, version: registryItems.version })
-    .from(registryItems)
-    .where(
-      and(
-        eq(registryItems.sourceType, raw.sourceType),
-        eq(registryItems.source, raw.source),
-        eq(registryItems.sourceId, raw.sourceId),
-      ),
-    )
-    .limit(1)
-  const inserted = existing.length === 0
-  const oldVersion = existing[0]?.version ?? null
+  // F-643:存在性/版本判定必须与写入同源同事务。原先判定读 dbRead(只读副本)、
+  // 写入走主库 db,副本延迟窗口内 inserted 虚高 / oldVersion 失真(审计链断档)。
+  // 现在判定与写入同在主库事务内;inserted 再由主库原子返回的 xmax 判定。
+  return await db.transaction(async (tx) => {
+    // 同时取出版本号(用于 sync_log.old_version)
+    const existing = await tx
+      .select({ id: registryItems.id, version: registryItems.version })
+      .from(registryItems)
+      .where(
+        and(
+          eq(registryItems.sourceType, raw.sourceType),
+          eq(registryItems.source, raw.source),
+          eq(registryItems.sourceId, raw.sourceId),
+        ),
+      )
+      .limit(1)
+    const oldVersion = existing[0]?.version ?? null
 
-  await db
-    .insert(registryItems)
-    .values({
-      sourceType: raw.sourceType,
-      source: raw.source,
-      sourceId: raw.sourceId,
-      name: raw.name,
-      description: raw.description,
-      version: raw.version,
-      author: raw.author,
-      homepage: raw.homepage,
-      repoUrl: raw.repoUrl,
-      downloadUrl: raw.downloadUrl,
-      categories: raw.categories,
-      tags: raw.tags,
-      payload: raw.payload,
-      payloadHash: hash,
-      heatScore: heat,
-      qualityScore: quality,
-      latestSyncedAt: now,
-      updatedAt: now,
-    })
-    .onConflictDoUpdate({
-      target: [registryItems.sourceType, registryItems.source, registryItems.sourceId],
-      set: {
+    const written = await tx
+      .insert(registryItems)
+      .values({
+        sourceType: raw.sourceType,
+        source: raw.source,
+        sourceId: raw.sourceId,
         name: raw.name,
         description: raw.description,
         version: raw.version,
@@ -413,10 +397,31 @@ export async function upsertRegistryItem(
         qualityScore: quality,
         latestSyncedAt: now,
         updatedAt: now,
-      },
-    })
+      })
+      .onConflictDoUpdate({
+        target: [registryItems.sourceType, registryItems.source, registryItems.sourceId],
+        set: {
+          name: raw.name,
+          description: raw.description,
+          version: raw.version,
+          author: raw.author,
+          homepage: raw.homepage,
+          repoUrl: raw.repoUrl,
+          downloadUrl: raw.downloadUrl,
+          categories: raw.categories,
+          tags: raw.tags,
+          payload: raw.payload,
+          payloadHash: hash,
+          heatScore: heat,
+          qualityScore: quality,
+          latestSyncedAt: now,
+          updatedAt: now,
+        },
+      })
+      .returning({ inserted: sql<boolean>`(xmax = 0)` })
 
-  return { inserted, hash, oldVersion, sanitized: stats }
+    return { inserted: written[0]?.inserted === true, hash, oldVersion, sanitized: stats }
+  })
 }
 
 /**
@@ -521,123 +526,128 @@ export async function batchUpsertRegistryItems(
     }
   }
 
-  // 1. 批量查 existing(inArray 不支持多列,用 OR 拼接复合键条件)
-  const conditions = uniqueItems.map((item) =>
-    and(
-      eq(registryItems.sourceType, item.raw.sourceType),
-      eq(registryItems.source, item.raw.source),
-      eq(registryItems.sourceId, item.raw.sourceId),
-    ),
-  )
-  const existingRows = await dbRead
-    .select({
-      id: registryItems.id,
-      version: registryItems.version,
-      sourceType: registryItems.sourceType,
-      source: registryItems.source,
-      sourceId: registryItems.sourceId,
-    })
-    .from(registryItems)
-    .where(or(...conditions))
+  // F-643:判定(批量查 existing)与写入必须同源同事务 —— 原先判定读 dbRead(只读副本)、
+  // 写入走主库 db,副本延迟窗口内同版本条目会被误判成新增/漏跳过,
+  // inserted/skipped/oldVersion 全部失真。现在判定与写入同在主库事务内。
+  return await db.transaction(async (tx) => {
+    // 1. 批量查 existing(inArray 不支持多列,用 OR 拼接复合键条件)
+    const conditions = uniqueItems.map((item) =>
+      and(
+        eq(registryItems.sourceType, item.raw.sourceType),
+        eq(registryItems.source, item.raw.source),
+        eq(registryItems.sourceId, item.raw.sourceId),
+      ),
+    )
+    const existingRows = await tx
+      .select({
+        id: registryItems.id,
+        version: registryItems.version,
+        sourceType: registryItems.sourceType,
+        source: registryItems.source,
+        sourceId: registryItems.sourceId,
+      })
+      .from(registryItems)
+      .where(or(...conditions))
 
-  const existingMap = new Map<string, { id: string; version: string | null }>()
-  for (const row of existingRows) {
-    existingMap.set(`${row.sourceType}:${row.source}:${row.sourceId}`, {
-      id: row.id,
-      version: row.version,
-    })
-  }
-
-  // 2. 计算每条的状态 + 准备批量 upsert
-  const oldVersions: BatchUpsertResult['oldVersions'] = []
-  const hashList: string[] = []
-  const valuesToUpsert: Array<typeof registryItems.$inferInsert> = []
-  let inserted = 0
-  let updated = 0
-  let skipped = 0
-  const now = new Date()
-
-  for (const item of uniqueItems) {
-    const key = `${item.raw.sourceType}:${item.raw.source}:${item.raw.sourceId}`
-    const existing = existingMap.get(key)
-    const oldVersion = existing?.version ?? null
-
-    oldVersions.push({
-      sourceType: item.raw.sourceType,
-      source: item.raw.source,
-      sourceId: item.raw.sourceId,
-      oldVersion,
-      newVersion: item.raw.version ?? null,
-    })
-    hashList.push(item.hash)
-
-    // 幂等检查:非 force 且版本未变 → skipped,不加入 upsert 批次
-    if (!options?.force && existing && oldVersion === item.raw.version) {
-      skipped++
-      continue
+    const existingMap = new Map<string, { id: string; version: string | null }>()
+    for (const row of existingRows) {
+      existingMap.set(`${row.sourceType}:${row.source}:${row.sourceId}`, {
+        id: row.id,
+        version: row.version,
+      })
     }
 
-    valuesToUpsert.push({
-      sourceType: item.raw.sourceType,
-      source: item.raw.source,
-      sourceId: item.raw.sourceId,
-      name: item.raw.name,
-      description: item.raw.description,
-      version: item.raw.version,
-      author: item.raw.author,
-      homepage: item.raw.homepage,
-      repoUrl: item.raw.repoUrl,
-      downloadUrl: item.raw.downloadUrl,
-      categories: item.raw.categories,
-      tags: item.raw.tags,
-      payload: item.raw.payload,
-      payloadHash: item.hash,
-      heatScore: item.heat,
-      qualityScore: item.quality,
-      latestSyncedAt: now,
-      updatedAt: now,
-    })
-    if (existing) updated++
-    else inserted++
-  }
+    // 2. 计算每条的状态 + 准备批量 upsert
+    const oldVersions: BatchUpsertResult['oldVersions'] = []
+    const hashList: string[] = []
+    const valuesToUpsert: Array<typeof registryItems.$inferInsert> = []
+    let inserted = 0
+    let updated = 0
+    let skipped = 0
+    const now = new Date()
 
-  // 3. 批量 upsert(一次 DB 往返)
-  if (valuesToUpsert.length > 0) {
-    await db
-      .insert(registryItems)
-      .values(valuesToUpsert)
-      .onConflictDoUpdate({
-        target: [registryItems.sourceType, registryItems.source, registryItems.sourceId],
-        set: {
-          name: sql`EXCLUDED.name`,
-          description: sql`EXCLUDED.description`,
-          version: sql`EXCLUDED.version`,
-          author: sql`EXCLUDED.author`,
-          homepage: sql`EXCLUDED.homepage`,
-          repoUrl: sql`EXCLUDED.repo_url`,
-          downloadUrl: sql`EXCLUDED.download_url`,
-          categories: sql`EXCLUDED.categories`,
-          tags: sql`EXCLUDED.tags`,
-          payload: sql`EXCLUDED.payload`,
-          payloadHash: sql`EXCLUDED.payload_hash`,
-          heatScore: sql`EXCLUDED.heat_score`,
-          qualityScore: sql`EXCLUDED.quality_score`,
-          latestSyncedAt: sql`EXCLUDED.latest_synced_at`,
-          updatedAt: sql`EXCLUDED.updated_at`,
-        },
+    for (const item of uniqueItems) {
+      const key = `${item.raw.sourceType}:${item.raw.source}:${item.raw.sourceId}`
+      const existing = existingMap.get(key)
+      const oldVersion = existing?.version ?? null
+
+      oldVersions.push({
+        sourceType: item.raw.sourceType,
+        source: item.raw.source,
+        sourceId: item.raw.sourceId,
+        oldVersion,
+        newVersion: item.raw.version ?? null,
       })
-  }
+      hashList.push(item.hash)
 
-  return {
-    inserted,
-    updated,
-    skipped,
-    failed: rejected,
-    oldVersions,
-    hashList,
-    deduped,
-    sanitized: stats,
-  }
+      // 幂等检查:非 force 且版本未变 → skipped,不加入 upsert 批次
+      if (!options?.force && existing && oldVersion === item.raw.version) {
+        skipped++
+        continue
+      }
+
+      valuesToUpsert.push({
+        sourceType: item.raw.sourceType,
+        source: item.raw.source,
+        sourceId: item.raw.sourceId,
+        name: item.raw.name,
+        description: item.raw.description,
+        version: item.raw.version,
+        author: item.raw.author,
+        homepage: item.raw.homepage,
+        repoUrl: item.raw.repoUrl,
+        downloadUrl: item.raw.downloadUrl,
+        categories: item.raw.categories,
+        tags: item.raw.tags,
+        payload: item.raw.payload,
+        payloadHash: item.hash,
+        heatScore: item.heat,
+        qualityScore: item.quality,
+        latestSyncedAt: now,
+        updatedAt: now,
+      })
+      if (existing) updated++
+      else inserted++
+    }
+
+    // 3. 批量 upsert(一次 DB 往返)
+    if (valuesToUpsert.length > 0) {
+      await tx
+        .insert(registryItems)
+        .values(valuesToUpsert)
+        .onConflictDoUpdate({
+          target: [registryItems.sourceType, registryItems.source, registryItems.sourceId],
+          set: {
+            name: sql`EXCLUDED.name`,
+            description: sql`EXCLUDED.description`,
+            version: sql`EXCLUDED.version`,
+            author: sql`EXCLUDED.author`,
+            homepage: sql`EXCLUDED.homepage`,
+            repoUrl: sql`EXCLUDED.repo_url`,
+            downloadUrl: sql`EXCLUDED.download_url`,
+            categories: sql`EXCLUDED.categories`,
+            tags: sql`EXCLUDED.tags`,
+            payload: sql`EXCLUDED.payload`,
+            payloadHash: sql`EXCLUDED.payload_hash`,
+            heatScore: sql`EXCLUDED.heat_score`,
+            qualityScore: sql`EXCLUDED.quality_score`,
+            latestSyncedAt: sql`EXCLUDED.latest_synced_at`,
+            updatedAt: sql`EXCLUDED.updated_at`,
+          },
+        })
+    }
+
+    return {
+      inserted,
+      updated,
+      skipped,
+      failed: rejected,
+      oldVersions,
+      hashList,
+      deduped,
+      sanitized: stats,
+    }
+  })
 }
 
 // =============================================================================
@@ -772,13 +782,14 @@ export async function cleanupOldSyncLogs(daysToKeep: number = 90): Promise<numbe
 /**
  * 查询单个条目的当前版本(供 worker 对比 oldVersion 用)。
  * 按 (sourceType, source, sourceId) 复合键查询。
+ * F-643:版本判定读主库 —— 该值用于和待写入版本比较,读副本延迟会产生错误决策。
  */
 export async function getRegistryItemVersion(
   sourceType: string,
   source: string,
   sourceId: string,
 ): Promise<string | null> {
-  const rows = await dbRead
+  const rows = await db
     .select({ version: registryItems.version })
     .from(registryItems)
     .where(

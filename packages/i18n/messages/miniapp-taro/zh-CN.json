@@ -5142,7 +5142,6 @@
   "courseScreen": {
     "title": "全部课程",
     "searchPlaceholder": "搜索课程",
-    "search": "搜索",
     "empty": "暂无课程",
     "free": "免费",
     "studentCount": "{count} 人学过",
@@ -6669,9 +6668,7 @@
     "enroll": "立即报名",
     "pay": "支付 ¥{amount}",
     "lessons": "课程目录",
-    "completed": "已学完",
-    "learning": "学习中",
-    "locked": "未解锁"
+    "completed": "已学完"
   },
   "earnCommission": {
     "title": "分佣计划",

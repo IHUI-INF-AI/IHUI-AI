@@ -1536,23 +1536,16 @@ export function HomeScreen() {
     }
   }
 
-  // isCancelled:卸载守卫。首页是 tab 根页,首屏三请求常在切走之后才回来;
-  // 无守卫时 `setRecommends`/`setLoading(false)` 落在已卸载的组件上 ⇒ 白写一次状态
-  // (React 18 已不再告警,但这仍是"卸载后写状态"的真缺陷)。与 Resources/Settings/News
-  // 等 6 处同一形态,差异只在首页多一层 refresh 入口,所以守卫做成实参而不是闭包变量。
-  const load = async (refresh = false, isCancelled: () => boolean = () => false) => {
-    if (!isCancelled()) {
-      if (refresh) setRefreshing(true)
-      else setLoading(true)
-      setError('')
-    }
+  const load = async (refresh = false) => {
+    if (refresh) setRefreshing(true)
+    else setLoading(true)
+    setError('')
     try {
       const [courseRes, liveRes, progressRes] = await Promise.all([
         getCourses({ page: 1, pageSize: 6 }),
         getLiveList({ page: 1, pageSize: 3 }),
         getAllStudyProgress({ page: 1, pageSize: 3 }),
       ])
-      if (isCancelled()) return
       if (courseRes.success) setRecommends(toRecommend(courseRes.data.list))
       if (liveRes.success) setLives(toLiveItem(liveRes.data.list))
       if (progressRes.success) setProgress(toProgressItem(progressRes.data.list))
@@ -1563,26 +1556,20 @@ export function HomeScreen() {
     } catch (error) {
       // 原始异常(如 Failed to fetch)只做诊断,不进 UI:首页红字直出英文原文即此型
       console.warn('[home] 首页数据加载失败', error)
-      if (isCancelled()) return
       setError(toUserFriendlyMessage(error))
     } finally {
-      if (!isCancelled()) {
-        setLoading(false)
-        setRefreshing(false)
-      }
+      setLoading(false)
+      setRefreshing(false)
     }
   }
 
   useEffect(() => {
-    let cancelled = false
-    // 守卫按值传:load 内部两次跨 await 写状态,卸载后一律不写
-    void load(false, () => cancelled)
+    void load()
     // 真实模型列表(fetchModels → /llm/models,与 web ModelSelector fetchSelectorModels 同源;
     // 按 provider 分组;category 透传 —— 弹窗分类 tab 过滤依赖它,缺失按 web normalizeCategory 兜底 chat。
     // description 显示代次档位(厂商名与分组标题重复,无信息量);组内按 latest→standard→legacy 排序)
     void fetchModels()
       .then((res) => {
-        if (cancelled) return
         const list = res?.models ?? []
         if (list.length > 0) {
           const grouped = new Map<string, ModelListItem[]>()
@@ -1621,9 +1608,6 @@ export function HomeScreen() {
         }
       })
       .catch(() => undefined)
-    return () => {
-      cancelled = true
-    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -1658,27 +1642,18 @@ export function HomeScreen() {
   }, [])
 
   // ── 智能体列表加载(仅供输入区「技能」弹窗;首页不再渲染商品列表,AI 应用商店页承载) ──
-  const loadAgentList = useCallback(
-    async (isCancelled: () => boolean = () => false): Promise<void> => {
-      const res = await getAgents({
-        status: 'published',
-        pageSize: 20,
-      })
-      // 跨 await 写状态:卸载后不再落盘(与上面 load 同一纪律)
-      if (isCancelled()) return
-      if (res.success) {
-        setAgentItems((res.data.list ?? []).map(toAgentShopItem))
-      }
-    },
-    [],
-  )
+  const loadAgentList = useCallback(async (): Promise<void> => {
+    const res = await getAgents({
+      status: 'published',
+      pageSize: 20,
+    })
+    if (res.success) {
+      setAgentItems((res.data.list ?? []).map(toAgentShopItem))
+    }
+  }, [])
 
   useEffect(() => {
-    let cancelled = false
-    void loadAgentList(() => cancelled)
-    return () => {
-      cancelled = true
-    }
+    void loadAgentList()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -2434,7 +2409,7 @@ const shellStyles = {
   materialCardClose: {
     fontSize: rnType.title.size,
     lineHeight: rnType.bodySm.lineHeight,
-    color: tokens.text.medium,
+    color: tokens.text.tertiary,
     fontWeight: '400',
     marginLeft: rpx(12),
     paddingHorizontal: rpx(4),
@@ -2462,7 +2437,7 @@ const shellStyles = {
   materialSheetClose: {
     fontSize: 22,
     lineHeight: rnType.title.lineHeight,
-    color: tokens.text.medium,
+    color: tokens.text.tertiary,
     fontWeight: '300',
     paddingHorizontal: rpx(8),
   } as const,
@@ -2500,7 +2475,7 @@ const shellStyles = {
   detailDialogClose: {
     fontSize: 22,
     lineHeight: rnType.title.lineHeight,
-    color: tokens.text.medium,
+    color: tokens.text.tertiary,
     fontWeight: '300',
     paddingHorizontal: rpx(8),
   } as const,
@@ -2523,7 +2498,7 @@ const shellStyles = {
   detailDialogFieldLabel: {
     width: rpx(140),
     fontSize: rnType.bodySm.size,
-    color: tokens.text.medium,
+    color: tokens.text.tertiary,
   } as const,
   detailDialogFieldValue: {
     flex: 1,
@@ -2585,7 +2560,7 @@ const shellStyles = {
   modelModalClose: {
     fontSize: 22,
     lineHeight: rnType.title.lineHeight,
-    color: tokens.text.medium,
+    color: tokens.text.tertiary,
     fontWeight: '300',
     paddingHorizontal: rpx(8),
   } as const,
@@ -2604,7 +2579,7 @@ const shellStyles = {
   } as const,
   modelModalSubtitle: {
     fontSize: rnType.label.size,
-    color: tokens.text.medium,
+    color: tokens.text.tertiary,
     marginTop: rnSpacing['2xs'],
   } as const,
   modelModalTabRow: {
@@ -2690,7 +2665,7 @@ const shellStyles = {
   modelSearchClear: {
     fontSize: rnType.subtitle.size,
     lineHeight: rnType.body.lineHeight,
-    color: tokens.text.medium,
+    color: tokens.text.tertiary,
     paddingHorizontal: rpx(8),
   } as const,
   // ── 分享领智汇值弹窗(2026-10-15 重构为共享组件 ShareRewardDialog,样式随组件) ──
@@ -2731,7 +2706,7 @@ const shellStyles = {
   qrCloseText: {
     fontSize: rnType.display.size,
     lineHeight: rnType.subtitle.lineHeight,
-    color: tokens.text.medium,
+    color: tokens.text.tertiary,
     fontWeight: '300',
   } as const,
 }

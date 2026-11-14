@@ -59,15 +59,6 @@ export interface VipTraderScreenProps {
   colorScheme?: 'light' | 'dark'
   /** 宿主轻提示端口(展示字段 toast 与本回调无关,不得复用) */
   onToast: OnToast
-  /**
-   * 三个入口行的跳转回调(2026-11-14 补)。此前这三个 TouchableOpacity 只有
-   * activeOpacity 视觉、**没有任何手势属性**,点下去毫无反应 —— 用户侧就是三个死按钮。
-   * 语义:团队 / 统计 / 提现。宿主不传时入口保持 disabled(不再假装可点),
-   * 传了才响应,不在共享层猜路由。
-   */
-  onPressTeam?: () => void
-  onPressStats?: () => void
-  onPressWithdraw?: () => void
 }
 
 const TRADER_PRICE = 9980
@@ -114,9 +105,6 @@ export function VipTraderScreen({
   onRetry,
   colorScheme = 'light',
   onToast,
-  onPressTeam,
-  onPressStats,
-  onPressWithdraw,
 }: VipTraderScreenProps & { onRetry?: () => void }) {
   assertRequiredPort('onToast', onToast)
 
@@ -180,41 +168,16 @@ export function VipTraderScreen({
         </View>
       )}
 
-      {/* 三个入口:宿主没给回调时 disabled —— 不留"看起来能点但点不动"的假按钮 */}
       <View style={styles.entryRow}>
-        <TouchableOpacity
-          style={styles.entryBtn}
-          activeOpacity={0.8}
-          onPress={onPressTeam}
-          disabled={!onPressTeam}
-          accessibilityRole="button"
-          accessibilityLabel={t('vipTrader.entryTeam')}
-          accessibilityState={{ disabled: !onPressTeam }}
-        >
+        <TouchableOpacity style={styles.entryBtn} activeOpacity={0.8}>
           <Users size={20} color={tk.text.medium} />
           <Text style={styles.entryText}>{t('vipTrader.entryTeam')}</Text>
         </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.entryBtn}
-          activeOpacity={0.8}
-          onPress={onPressStats}
-          disabled={!onPressStats}
-          accessibilityRole="button"
-          accessibilityLabel={t('vipTrader.entryStats')}
-          accessibilityState={{ disabled: !onPressStats }}
-        >
+        <TouchableOpacity style={styles.entryBtn} activeOpacity={0.8}>
           <BarChart3 size={20} color={tk.text.medium} />
           <Text style={styles.entryText}>{t('vipTrader.entryStats')}</Text>
         </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.entryBtn}
-          activeOpacity={0.8}
-          onPress={onPressWithdraw}
-          disabled={!onPressWithdraw}
-          accessibilityRole="button"
-          accessibilityLabel={t('vipTrader.entryWithdraw')}
-          accessibilityState={{ disabled: !onPressWithdraw }}
-        >
+        <TouchableOpacity style={styles.entryBtn} activeOpacity={0.8}>
           <CreditCard size={20} color={tk.text.medium} />
           <Text style={styles.entryText}>{t('vipTrader.entryWithdraw')}</Text>
         </TouchableOpacity>
@@ -281,8 +244,8 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.md,
       backgroundColor: rnCssLight.vipGoldTint,
     },
-    heroBadgeText: { fontSize: rnType.caption.size, fontWeight: '600', color: tk.warning.amberText },
-    heroPrice: { fontSize: rnType.display.size, fontWeight: '700', color: tk.warning.amberText },
+    heroBadgeText: { fontSize: rnType.caption.size, fontWeight: '600', color: tk.warning.amber },
+    heroPrice: { fontSize: rnType.display.size, fontWeight: '700', color: tk.warning.amber },
     heroDesc: {
       marginTop: rnSpacing.sm,
       fontSize: rnType.body.size,
@@ -326,7 +289,7 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'space-between',
     },
     sectionTitle: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
-    sectionCount: { fontSize: rnType.caption.size, color: tk.text.medium },
+    sectionCount: { fontSize: rnType.caption.size, color: tk.text.tertiary },
     featureList: { paddingHorizontal: rnSpacing['sm-loose'], paddingTop: rnSpacing['sm-loose'] },
     featureGap: { height: 12 },
     featureItem: {
@@ -377,7 +340,7 @@ function createStyles(tk: AppThemeTokens) {
       fontWeight: '700',
       color: tk.text.primary,
     },
-    footHint: { fontSize: rnType.caption.size, color: tk.text.medium },
+    footHint: { fontSize: rnType.caption.size, color: tk.text.tertiary },
     buyBtn: {
       paddingHorizontal: rnSpacing['xl'],
       height: 44,
@@ -386,7 +349,7 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    buyBtnDone: { backgroundColor: tk.text.secondary },
+    buyBtnDone: { backgroundColor: tk.text.tertiary },
     buyBtnText: { fontSize: rnType.title.size, fontWeight: '600', color: tk.surface.light },
   })
 }

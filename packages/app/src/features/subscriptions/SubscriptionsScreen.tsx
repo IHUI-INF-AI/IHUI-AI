@@ -3,7 +3,6 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
-import { Tappable } from '@ihui/ui-native'
 
 import { useMemo } from 'react'
 import {
@@ -14,6 +13,7 @@ import {
   RefreshControl,
   StyleSheet,
   Image,
+  Pressable,
   Switch,
 } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
@@ -94,13 +94,9 @@ export function SubscriptionsScreen({
       )
       // 仅壳注入 onPressItem 时直播行可点(通用形态不被污染)
       return onPressItem ? (
-        // 整行可点却没有按压态(2026-11-13)。按压态必须走 Tappable(2026-11-14 修正):
-        // 原先写 `style={({pressed}) => ...}`,而 Pressable 被 nativewind 的 cssInterop 注册过,
-        // `{...函数}` === `{}` ⇒ 该元素整份内联样式被清空,按压反馈不生效且布局退回默认。
-        // Tappable 内部持 pressed、以数组形态交给原生 Pressable,是本仓唯一正解。
-        <Tappable onPress={() => onPressItem(item)} accessibilityRole="button">
+        <Pressable onPress={() => onPressItem(item)} accessibilityRole="button">
           {row}
-        </Tappable>
+        </Pressable>
       ) : (
         row
       )
@@ -208,7 +204,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingHorizontal: rnSpacing['sm-loose'],
       paddingVertical: rnSpacing.sm,
       fontSize: rnType.body.size,
-      color: tk.danger.deepText,
+      color: tk.danger.DEFAULT,
     },
     listBody: { padding: rnSpacing['sm-loose'], paddingBottom: rnSpacing['3xl'] },
     separator: { height: 12 },

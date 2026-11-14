@@ -47,8 +47,11 @@ if [ "$_ref_n" -gt 0 ] && [ "$_ref_n" -eq "$_tag_n" ]; then
   #      tag 的 `^{commit}` 解引用为其自身);解不出 commit ⇒ 拦(指向非提交对象不构成发版来源)。
   #   ② 祖先判据:`git merge-base --is-ancestor <commit> origin/main`(退出 0 = 在该链上,
   #      含相等;非 0 一律按拦下处理,fail-closed);origin/main 解析不到 ⇒ 判据不可证成 ⇒ 拦。
-  #   ③ 发布 tag(desktop-v* / cli-v*):除 ① ② 外追加工作树必须干净 —— `git status --porcelain`
-  #      非空即拦,避免用 tag 把未提交草稿一起推走。
+#   ③ 发布 tag(desktop-v* / cli-v*):除 ① ② 外追加「发布件对账」——被 tag 提交树上的发布
+#      关键路径(apps/desktop/package.json、apps/cli/package.json、src-tauri/tauri.conf.json、
+#      desktop-latest.generated.ts)逐 blob 必须等于 HEAD 树,不等即拦;HEAD 侧取不到该路径 ⇒
+#      无法对账,fail-closed 拦。DG-12 修正(2026-11-13):不再判整树 porcelain 干净——共享
+#      工作树下他人 WIP 与发布提交无关,旧判据会把日常发布永久拦死。
   # 唯一豁免 = §22 备份命名空间 `lost-commit/*`、`backup/*`、`backup-*`:实测本机 22137 枚
   #   lost-commit + 200 枚 backup,sample(40/20 枚)里各有 23/11 枚**不是** origin/main 的祖先
   #   —— 它们按定义就是"丢了但被备份"的提交,严格祖先判据会把唯一不能破的既有流程拦死;
@@ -99,11 +102,27 @@ if [ "$_ref_n" -gt 0 ] && [ "$_ref_n" -eq "$_tag_n" ]; then
       continue
     fi
     if [ "$_tg_is_release" -eq 1 ]; then
-      if [ -n "$(git status --porcelain 2>/dev/null)" ]; then
-        printf '%s\n' "❌ 发布 tag ${_tg_name} 推送时工作树不干净(git status --porcelain 非空)⇒ 拒绝推送" >&2
-        printf '%s\n' "   规则:发布 tag 必须打在与 origin/main 相同或为其祖先的提交上,且工作树干净(避免把未提交草稿随 tag 送走)。" >&2
-        _tg_bad=1
-      fi
+      # DG-12 修正(2026-11-13):原判据「整树 git status --porcelain 非空即拦」把
+      #   「发布提交是否干净」实现成「当前工作树是否干净」;多会话共享工作树下两者不等价,
+      #   他人 WIP(实测 216 条)会永久阻断发布 tag 推送。工作树脏并不等于草稿会被 tag 送走
+      #   ——tag 推送只携带 tag 指向提交的树对象。
+      # 新判据:tag commit 树上的发布关键路径(版本/更新器烘焙)必须逐 blob 等于 HEAD 树,
+      #   拦的是「发布材料漂移」(发旧版发布件),而不是「别人没提交的文件」。
+      # tag 指向 HEAD 提交时两树逐字节相同 ⇒ 恒过(正常发布节拍不受扰)。
+      _tg_release_paths="apps/desktop/package.json apps/cli/package.json apps/desktop/src-tauri/tauri.conf.json apps/web/src/config/desktop-latest.generated.ts"
+      for _tg_p in $_tg_release_paths; do
+        _tg_h="$(git rev-parse --quiet --verify "HEAD:${_tg_p}" 2>/dev/null)"
+        _tg_t="$(git rev-parse --quiet --verify "${_tg_commit}:${_tg_p}" 2>/dev/null)"
+        if [ -z "$_tg_h" ]; then
+          # HEAD 面取不到该路径 ⇒ 判据不可证成,不放行也不假绿:点名后拦(fail-closed)
+          printf '%s\n' "❌ 发布 tag ${_tg_name}:HEAD 树取不到发布关键路径 ${_tg_p} ⇒ 无法对账,拒绝推送" >&2
+          _tg_bad=1
+        elif [ "$_tg_t" != "$_tg_h" ]; then
+          printf '%s\n' "❌ 发布 tag ${_tg_name} 指向提交 ${_tg_commit} 的发布件与 HEAD 树不一致:${_tg_p}(tag 侧 ${_tg_t:-<缺>} ≠ HEAD ${_tg_h})⇒ 拒绝推送" >&2
+          printf '%s\n' "   规则:发布 tag 必须打在发布材料(版本号/更新器烘焙)与 HEAD 一致的提交上;他人工作树脏不再阻断发布(DG-12)。" >&2
+          _tg_bad=1
+        fi
+      done
     fi
   done <<EOF
 $PUSH_REFS

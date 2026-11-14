@@ -19,6 +19,8 @@ export interface ToolExecContext {
   userId: string
   sessionId?: string
   permissions: string[]
+  /** F-507:超时后置 aborted,底层 fetch/子进程/查询应按此取消;调用方也可传入以外部取消 */
+  signal?: AbortSignal
 }
 
 export interface ToolExecResult {
@@ -78,8 +80,24 @@ export class ToolRunner extends EventEmitter {
     this.checkPermissions(tool.def, ctx)
     const sw = startStopwatch()
     this.execCount.set(name, (this.execCount.get(name) ?? 0) + 1)
+    // F-507:每次执行独享 AbortController,超时时取消底层;外部 signal 只做透传/联动
+    const controller = new AbortController()
+    const external = ctx.signal
+    const onExternalAbort = () => controller.abort()
+    if (external) {
+      if (external.aborted) controller.abort()
+      else external.addEventListener('abort', onExternalAbort, { once: true })
+    }
     try {
-      const result = await this.withTimeout(tool.handler(params, ctx), tool.def.timeout)
+      const result = await this.withTimeout(
+        tool.handler(params, { ...ctx, signal: controller.signal }),
+        tool.def.timeout,
+        () => {
+          controller.abort()
+          logger.warn({ tool: name, timeout: tool.def.timeout }, '[ToolRunner] 超时取消,cancelled')
+          this.emit('cancelled', { name, reason: 'timeout', timeoutMs: tool.def.timeout })
+        },
+      )
       const sample = sw.stop()
       this.emit('executed', { name, success: true })
       return {
@@ -101,6 +119,8 @@ export class ToolRunner extends EventEmitter {
         latencyTrusted: sample.trustworthy,
         timedOut: code === 'timeout',
       }
+    } finally {
+      external?.removeEventListener('abort', onExternalAbort)
     }
   }
 
@@ -110,12 +130,13 @@ export class ToolRunner extends EventEmitter {
     if (!has) throw new ToolExecutorError('权限不足', 'forbidden')
   }
 
-  private withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  private withTimeout<T>(promise: Promise<T>, ms: number, onTimeout?: () => void): Promise<T> {
     return new Promise<T>((resolve, reject) => {
-      const timer = setTimeout(
-        () => reject(new ToolExecutorError(`工具执行超时(${ms}ms)`, 'timeout')),
-        ms,
-      )
+      const timer = setTimeout(() => {
+        // F-507:先取消底层,再按既有超时错误形态返回;迟到结果由下面的 then 丢弃
+        onTimeout?.()
+        reject(new ToolExecutorError(`工具执行超时(${ms}ms)`, 'timeout'))
+      }, ms)
       promise.then(
         (v) => {
           clearTimeout(timer)

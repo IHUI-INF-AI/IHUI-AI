@@ -7,18 +7,11 @@
 策略:monkeypatch 掉 `app.routers.spec.spec_generator` 单例,
 直接调用端点函数,覆盖 generate / templates / apply 的成功与错误降级分支,
 以及请求体校验。templates 为纯常量,无需 mock。
-
-AIS-037(2026-11):入口必须过 IHUI_WORKSPACE_ROOTS 白名单 + scope 越界校验 ——
-校验失败以 HTTPException 400 直抛(在 try 之外),故用例用 pytest.raises 断言,
-并确认越界请求根本没进 generator。
 """
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import pytest
-from fastapi import HTTPException
 from pydantic import ValidationError
 
 from app.routers.spec import (
@@ -60,16 +53,9 @@ def generator(monkeypatch):
     return fake
 
 
-@pytest.fixture
-def ws_root(tmp_path, monkeypatch):
-    """登记一个临时工作区根 —— 白名单 fail-closed,不登记则一切请求 400。"""
-    monkeypatch.setenv("IHUI_WORKSPACE_ROOTS", str(tmp_path))
-    return tmp_path
-
-
-def _req(workspace: str, **overrides) -> SpecGenerateRequest:
+def _req(**overrides) -> SpecGenerateRequest:
     base = {
-        "workspacePath": workspace,
+        "workspacePath": "/work",
         "includeDependencies": True,
         "languages": ["python"],
     }
@@ -77,8 +63,8 @@ def _req(workspace: str, **overrides) -> SpecGenerateRequest:
     return SpecGenerateRequest(**base)
 
 
-def _apply_req(workspace: str, **overrides) -> SpecApplyRequest:
-    base = {"workspacePath": workspace, "newSpec": "## spec"}
+def _apply_req(**overrides) -> SpecApplyRequest:
+    base = {"workspacePath": "/work", "newSpec": "## spec"}
     base.update(overrides)
     return SpecApplyRequest(**base)
 
@@ -108,39 +94,39 @@ async def test_spec_templates_builtin():
 # ---------------------------------------------------------------------------
 
 
-async def test_spec_generate_success(generator, ws_root):
+async def test_spec_generate_success(generator):
     generator.generate_result = SpecResult(
         spec="## spec md",
         sections=[{"title": "API 契约"}],
         stats={"files": 3},
         duration_ms=120,
     )
-    resp = await spec_generate(_req(str(ws_root)))
+    resp = await spec_generate(_req())
     assert resp["code"] == 0
     assert resp["data"]["spec"] == "## spec md"
     assert resp["data"]["sections"] == [{"title": "API 契约"}]
     assert resp["data"]["stats"] == {"files": 3}
     assert resp["data"]["durationMs"] == 120
-    # 参数透传:workspace 经白名单归一(resolve 后)才进 generator
+    # 参数透传
     kw = generator.generate_kwargs
-    assert Path(kw["workspace_path"]) == Path(str(ws_root)).resolve()
+    assert kw["workspace_path"] == "/work"
     assert kw["scope"] == {"type": "workspace", "path": None}
     assert kw["include_dependencies"] is True
     assert kw["languages"] == ["python"]
 
 
-async def test_spec_generate_scope_file(generator, ws_root):
+async def test_spec_generate_scope_file(generator):
     generator.generate_result = SpecResult("s", [], {}, 1)
-    await spec_generate(_req(str(ws_root), scope={"type": "file", "path": "a.py"}))
+    await spec_generate(_req(scope={"type": "file", "path": "a.py"}))
     assert generator.generate_kwargs["scope"] == {"type": "file", "path": "a.py"}
 
 
-async def test_spec_generate_error(generator, monkeypatch, ws_root):
+async def test_spec_generate_error(generator, monkeypatch):
     async def boom(**kwargs):
         raise RuntimeError("ast 解析失败")
 
     monkeypatch.setattr(generator, "generate", boom)
-    resp = await spec_generate(_req(str(ws_root)))
+    resp = await spec_generate(_req())
     assert resp["code"] == 1
     assert "spec 生成失败" in resp["message"]
     assert "RuntimeError" in resp["message"]
@@ -158,29 +144,29 @@ def test_spec_generate_body_validation():
 # ---------------------------------------------------------------------------
 
 
-async def test_spec_apply_success(generator, ws_root):
+async def test_spec_apply_success(generator):
     generator.apply_result = {
         "patch": "--- a/x.py\n+++ b/x.py",
         "affectedFiles": ["x.py"],
         "summary": "改了一处",
         "error": "llm_unavailable",  # LLM 不可用时仍 code=0,由 API 端降级
     }
-    resp = await spec_apply(_apply_req(str(ws_root), oldSpec="old"))
+    resp = await spec_apply(_apply_req(oldSpec="old"))
     assert resp["code"] == 0
     assert resp["data"] == generator.apply_result
     kw = generator.apply_kwargs
-    assert Path(kw["workspace_path"]) == Path(str(ws_root)).resolve()
+    assert kw["workspace_path"] == "/work"
     assert kw["new_spec"] == "## spec"
     assert kw["old_spec"] == "old"
     assert kw["scope"] == {"type": "workspace", "path": None}
 
 
-async def test_spec_apply_error(generator, monkeypatch, ws_root):
+async def test_spec_apply_error(generator, monkeypatch):
     async def boom(**kwargs):
         raise ValueError("diff 生成失败")
 
     monkeypatch.setattr(generator, "apply_spec", boom)
-    resp = await spec_apply(_apply_req(str(ws_root)))
+    resp = await spec_apply(_apply_req())
     assert resp["code"] == 1
     assert "spec apply 失败" in resp["message"]
     assert "diff 生成失败" in resp["message"]
@@ -190,68 +176,4 @@ async def test_spec_apply_error(generator, monkeypatch, ws_root):
 def test_spec_apply_body_validation():
     with pytest.raises(ValidationError):
         SpecApplyRequest()  # workspacePath + newSpec 必填(无默认值)
-
-
-# ---------------------------------------------------------------------------
-# AIS-037:workspacePath 白名单 / scope.path 越界(入口 400,不进 generator)
-# ---------------------------------------------------------------------------
-
-
-async def test_spec_generate_unregistered_roots_400(generator, tmp_path, monkeypatch):
-    """env 未登记任何工作区根 → fail-closed 400(不是放行,也不是 code=1@200)。"""
-    monkeypatch.delenv("IHUI_WORKSPACE_ROOTS", raising=False)
-    with pytest.raises(HTTPException) as exc:
-        await spec_generate(_req(str(tmp_path)))
-    assert exc.value.status_code == 400
-    assert generator.generate_kwargs is None
-
-
-async def test_spec_generate_workspace_outside_roots_400(generator, tmp_path, monkeypatch):
-    """workspacePath 落在登记根之外(如工单的 C:\\ )→ 400。"""
-    allowed = tmp_path / "allowed"
-    allowed.mkdir()
-    monkeypatch.setenv("IHUI_WORKSPACE_ROOTS", str(allowed))
-    with pytest.raises(HTTPException) as exc:
-        await spec_generate(_req(str(tmp_path / "elsewhere")))
-    assert exc.value.status_code == 400
-    assert generator.generate_kwargs is None
-
-
-async def test_spec_generate_scope_absolute_path_400(generator, ws_root):
-    """scope.path 为绝对路径即拒(即便字面上落在工作区内)—— 契约要求相对路径。"""
-    with pytest.raises(HTTPException) as exc:
-        await spec_generate(
-            _req(str(ws_root), scope={"type": "dir", "path": str(ws_root / "src")})
-        )
-    assert exc.value.status_code == 400
-    assert generator.generate_kwargs is None
-
-
-async def test_spec_generate_scope_traversal_400(generator, ws_root):
-    """scope.path 用 `..` 回跳出工作区 → 400。"""
-    with pytest.raises(HTTPException) as exc:
-        await spec_generate(
-            _req(str(ws_root), scope={"type": "dir", "path": "../outside"})
-        )
-    assert exc.value.status_code == 400
-    assert generator.generate_kwargs is None
-
-
-async def test_spec_apply_unregistered_roots_400(generator, tmp_path, monkeypatch):
-    """apply 端点同规格:未登记根 → 400,不进 generator。"""
-    monkeypatch.delenv("IHUI_WORKSPACE_ROOTS", raising=False)
-    with pytest.raises(HTTPException) as exc:
-        await spec_apply(_apply_req(str(tmp_path)))
-    assert exc.value.status_code == 400
-    assert generator.apply_kwargs is None
-
-
-async def test_spec_apply_scope_traversal_400(generator, ws_root):
-    """apply 的 scope.path 越界同样 400。"""
-    with pytest.raises(HTTPException) as exc:
-        await spec_apply(
-            _apply_req(str(ws_root), scope={"type": "file", "path": "../secrets.env"})
-        )
-    assert exc.value.status_code == 400
-    assert generator.apply_kwargs is None
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

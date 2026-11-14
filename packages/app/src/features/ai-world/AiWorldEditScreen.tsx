@@ -157,7 +157,7 @@ export function AiWorldEditScreen({
               <ActivityIndicator
                 style={styles.categoriesLoading}
                 size="small"
-                color={tk.text.secondary}
+                color={tk.text.tertiary}
               />
             ) : categoriesError ? (
               <View style={styles.inlineError}>
@@ -265,7 +265,7 @@ function createAiWorldEditStyles(tk: AppThemeTokens) {
     },
     headerTitle: { fontSize: rnType.subtitle.size, fontWeight: '700', color: tk.text.primary },
     scroll: { padding: rnSpacing.md, paddingBottom: rnSpacing['3xl'], gap: rnSpacing['sm-loose'] },
-    subtitle: { fontSize: rnType.label.size, color: tk.text.medium },
+    subtitle: { fontSize: rnType.label.size, color: tk.text.tertiary },
     muted: { fontSize: rnType.label.size, color: tk.text.secondary },
     card: {
       gap: rnSpacing.md,
@@ -293,7 +293,7 @@ function createAiWorldEditStyles(tk: AppThemeTokens) {
     textarea: { minHeight: 120, lineHeight: 21 },
     categoriesLoading: { alignSelf: 'flex-start', paddingVertical: rnSpacing.xs },
     inlineError: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing['sm-loose'] },
-    errorText: { fontSize: rnType.label.size, color: tk.danger.deepText },
+    errorText: { fontSize: rnType.label.size, color: tk.danger.DEFAULT },
     retryText: { fontSize: rnType.label.size, fontWeight: '600', color: tk.text.primary },
     chipRow: {
       flexDirection: 'row',

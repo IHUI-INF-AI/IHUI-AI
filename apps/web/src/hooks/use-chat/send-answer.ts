@@ -795,7 +795,7 @@ export function createSubmitQuestionResponse(
         chatStore.getState().clearPendingQuestion()
         return
       }
-      await sendLegacyAnswer(buildLegacyAnswerText(pending.options, response))
+      await sendLegacyAnswer(buildLegacyAnswerText(pending, response))
     }
 
     const sessionId = store.aiStreamSessionId

@@ -33,8 +33,6 @@ export function StudyPlanScreen({
   onBack,
   colorScheme = 'light',
   onToast,
-  renderItem,
-  renderFooter,
 }: StudyPlanScreenProps) {
   assertRequiredPort('onToast', onToast)
 
@@ -44,13 +42,13 @@ export function StudyPlanScreen({
   const statusBadgeStyle = (status: PlanStatus) => {
     switch (status) {
       case 'active':
-        return { color: tk.success.deepText, backgroundColor: tk.success.light }
+        return { color: tk.success.DEFAULT, backgroundColor: tk.success.light }
       case 'paused':
         return { color: tk.warning.amberText, backgroundColor: tk.warning.amberLight }
       case 'completed':
         return { color: tk.success.deepText, backgroundColor: tk.success.lighter }
       case 'overdue':
-        return { color: tk.danger.deepText, backgroundColor: tk.danger.light }
+        return { color: tk.danger.DEFAULT, backgroundColor: tk.danger.light }
       default:
         return { color: tk.text.secondary, backgroundColor: tk.surface.muted }
     }
@@ -91,7 +89,6 @@ export function StudyPlanScreen({
             <EmptyState title={t('studyPlan.empty')} colorScheme={colorScheme} />
           ) : (
             items.map((item) => {
-              if (renderItem) return <View key={item.id}>{renderItem(item)}</View>
               const clamped = clampPercent(item.progress)
               return (
                 <PressableCard
@@ -131,8 +128,6 @@ export function StudyPlanScreen({
           )}
         </ScrollView>
       )}
-
-      {renderFooter ? <View style={styles.footer}>{renderFooter()}</View> : null}
     </View>
   )
 }
@@ -151,7 +146,7 @@ function createStyles(tk: AppThemeTokens) {
     errorText: {
       paddingHorizontal: rnSpacing['sm-loose'],
       fontSize: rnType.body.size,
-      color: tk.danger.deepText,
+      color: tk.danger.DEFAULT,
     },
     listBody: { padding: rnSpacing['md-loose'] },
     card: {
@@ -207,16 +202,9 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: rnSpacing.sm,
       gap: rnSpacing.sm,
     },
-    lessonsText: { fontSize: rnType.caption.size, color: tk.text.medium },
+    lessonsText: { fontSize: rnType.caption.size, color: tk.text.tertiary },
     progressText: { fontSize: rnType.body.size, fontWeight: '600', color: tk.text.primary },
-    deadlineText: { fontSize: rnType.caption.size, color: tk.text.medium },
-    footer: {
-      paddingHorizontal: rnSpacing.lg,
-      paddingTop: rnSpacing.md,
-      borderTopWidth: StyleSheet.hairlineWidth,
-      borderTopColor: tk.border.light,
-      backgroundColor: tk.surface.bg,
-    },
+    deadlineText: { fontSize: rnType.caption.size, color: tk.text.tertiary },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -8,13 +8,19 @@ import { View, Text, Button } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { useState } from 'react'
 import ThemeRoot from '@/components/ThemeRoot'
-import { MessageCircle, Palette, Film, Bot, Headset, Users } from 'lucide-react-native'
-import type { VipBenefitCardItem, VipPlanOption } from '@ihui/types'
-import { VipBenefitsSection, VipPlansSection } from '@ihui/rn-app/features/vip/VipSections'
+import LineIcon, { type IconName } from '@/components/LineIcon'
+import { formatPrice } from '@ihui/shared/utils/format'
 import CompareTable from './compare-table'
 
-// 套餐方案(对标原 vip/details.vue 月度¥39.9/30天 + 年度¥299/365天)。
-// 卡面渲染已下沉共享 VipPlansSection;本页只保留取词与升级跳转。
+// 套餐方案(对标原 vip/details.vue 月度¥39.9/30天 + 年度¥299/365天;
+// price 单位为「分」,与 GET /vip/levels 的库里列同源(0037_vip_captcha.sql 种 3990/29900),
+// 展示一律走 formatPrice(守门 248:分→元只许这一个出口)
+interface VipPlan {
+  type: 'monthly' | 'yearly'
+  price: number
+  days: number
+  benefits: string[]
+}
 
 export default function VipDetailsPage() {
   const { t } = useI18n()
@@ -25,72 +31,56 @@ export default function VipDetailsPage() {
   }
   const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'yearly'>('yearly')
 
-  // 权益详情:视图段委托共享 VipBenefitsSection(压掉手抄副本),本端只保留取词
-  const BENEFIT_DETAILS: VipBenefitCardItem[] = [
+  // 权益详情(对标原 vip/details.vue 权益图标 + 标题 + 描述)
+  const BENEFIT_DETAILS = [
     {
-      key: 'chat',
-      icon: MessageCircle,
+      icon: 'message-circle',
       title: tt('vip.details.benefit.chat', '无限 AI 对话'),
       desc: tt('vip.details.benefit.chatDesc', '畅享顶级模型,不限次数'),
     },
     {
-      key: 'draw',
-      icon: Palette,
+      icon: 'palette',
       title: tt('vip.details.benefit.draw', 'AI 绘图'),
       desc: tt('vip.details.benefit.drawDesc', '100次/天,高清无水印'),
     },
     {
-      key: 'video',
-      icon: Film,
+      icon: 'film',
       title: tt('vip.details.benefit.video', '视频生成'),
       desc: tt('vip.details.benefit.videoDesc', '60分钟视频生成时长'),
     },
     {
-      key: 'model',
-      icon: Bot,
+      icon: 'bot',
       title: tt('vip.details.benefit.model', '全部模型'),
       desc: tt('vip.details.benefit.modelDesc', '解锁所有付费模型'),
     },
     {
-      key: 'support',
-      icon: Headset,
+      icon: 'headphones',
       title: tt('vip.details.benefit.support', '优先客服'),
       desc: tt('vip.details.benefit.supportDesc', '7×24 小时专属服务'),
     },
     {
-      key: 'group',
-      icon: Users,
+      icon: 'users',
       title: tt('vip.details.benefit.group', '专属社群'),
       desc: tt('vip.details.benefit.groupDesc', 'VIP 会员专属交流群'),
     },
   ]
 
-  const planName = (type: 'monthly' | 'yearly') =>
-    type === 'yearly'
-      ? tt('vip.details.yearlyPlan', '年度会员')
-      : tt('vip.details.monthlyPlan', '月度会员')
-
-  // 套餐档位:数据仍由本端取词,卡面渲染委托共享 VipPlansSection。
-  // price 为「元」,与共享 VipPlanOption 契约一致(共享卡按元展示)。
-  const PLAN_OPTIONS: VipPlanOption[] = [
+  const PLANS: VipPlan[] = [
     {
-      id: 'monthly',
-      name: planName('monthly'),
-      price: 39.9,
-      period: `30${t('page.vip.dayUnit')}`,
-      features: [
+      type: 'monthly',
+      price: 3990,
+      days: 30,
+      benefits: [
         t('vip.details.features.chatCount') + ': ' + t('vip.details.features.vipColumn'),
         t('vip.details.features.drawCount'),
         t('vip.details.features.prioritySupport'),
       ],
     },
     {
-      id: 'yearly',
-      name: planName('yearly'),
-      price: 299,
-      period: `365${t('page.vip.dayUnit')}`,
-      badge: t('developer.subscribe.recommended'),
-      features: [
+      type: 'yearly',
+      price: 29900,
+      days: 365,
+      benefits: [
         tt('vip.details.monthlyAllBenefits', '月度会员所有权益'),
         t('vip.details.features.exclusiveGroup'),
         t('vip.details.features.modelAccess'),
@@ -100,18 +90,20 @@ export default function VipDetailsPage() {
   ]
 
   const goUpgrade = () => {
-    const plan = PLAN_OPTIONS.find((p) => p.id === selectedPlan) ?? PLAN_OPTIONS[0]
+    const plan = PLANS.find((p) => p.type === selectedPlan) ?? PLANS[0]
     if (!plan) return
-    // 升级页现读自行拉取档位,这里只透传档位标识与天数(price 为元,与升级页同口径)
+    // price 透传「分」,与 /vip/levels 的 price 列同单位(升级页现读不消费该参数,自行拉取档位)
     Taro.navigateTo({
-      url: `/pkg-shop/vip/upgrade?plan=${plan.id}&price=${Math.round(plan.price * 100)}&days=${plan.id === 'yearly' ? 365 : 30}`,
+      url: `/pkg-shop/vip/upgrade?plan=${plan.type}&price=${plan.price}&days=${plan.days}`,
     })
   }
 
-  /** 共享套餐卡的选中态回调:把 id 折回本页维度的联合类型 */
-  const selectPlanById = (id: string) => {
-    if (id === 'monthly' || id === 'yearly') setSelectedPlan(id)
-  }
+  const selectPlan = (type: 'monthly' | 'yearly') => setSelectedPlan(type)
+
+  const planName = (type: 'monthly' | 'yearly') =>
+    type === 'yearly'
+      ? tt('vip.details.yearlyPlan', '年度会员')
+      : tt('vip.details.monthlyPlan', '月度会员')
 
   return (
     <ThemeRoot className="min-h-screen bg-background pb-[140rpx]">
@@ -125,19 +117,83 @@ export default function VipDetailsPage() {
         </Text>
       </View>
 
-      {/* 权益详情:整段视图委托共享 VipBenefitsSection(三端同一份实现) */}
-      <VipBenefitsSection t={t} items={BENEFIT_DETAILS} colorScheme="light" />
+      <View className="mx-[20rpx]">
+        <Text className="block text-title font-bold text-foreground mb-[16rpx]">
+          {tt('vip.details.benefitsTitle', '权益详情')}
+        </Text>
+        <View className="flex flex-col gap-[24rpx]">
+          {BENEFIT_DETAILS.map((b) => (
+            <View
+              key={b.title}
+              className="flex items-start bg-card border-[length:2rpx] border-border rounded-lg p-[28rpx]"
+            >
+              <View className="w-[64rpx] h-[64rpx] rounded-lg bg-[var(--color-gold-muted)] flex items-center justify-center mr-[24rpx] shrink-0">
+                <LineIcon name={b.icon as IconName} size={36} color="var(--color-warning)" />
+              </View>
+              <View className="flex-1 flex flex-col">
+                <Text className="text-title font-bold text-foreground">{b.title}</Text>
+                <Text className="mt-[16rpx] text-body text-muted-foreground leading-[36rpx]">
+                  {b.desc}
+                </Text>
+              </View>
+            </View>
+          ))}
+        </View>
+      </View>
 
-      {/* 套餐选择:整段委托共享 VipPlansSection(角标/逐条权益槽位已下沉,三端同一份实现) */}
-      <VipPlansSection
-        plans={{
-          title: t('vip.plans'),
-          options: PLAN_OPTIONS,
-          selectedId: selectedPlan,
-          onSelect: selectPlanById,
-        }}
-        colorScheme="light"
-      />
+      {/* 套餐选择(对标原项目月度/年度卡片) */}
+      <View className="m-[24rpx]">
+        <Text className="block text-title font-bold text-foreground mb-[16rpx]">
+          {t('vip.plans')}
+        </Text>
+        <View className="flex gap-[20rpx]">
+          {PLANS.map((p) => {
+            const active = selectedPlan === p.type
+            return (
+              <View
+                key={p.type}
+                className={`flex-1 relative bg-card border-[length:2rpx] rounded-xl py-[28rpx] px-[24rpx] ${active ? 'border-warning bg-[var(--color-warning-tint)]' : 'border-border'}`}
+                hoverClass="opacity-60"
+                onClick={() => selectPlan(p.type)}
+              >
+                {p.type === 'yearly' ? (
+                  <Text className="absolute top-[-2rpx] right-[-2rpx] bg-warning text-[var(--color-black-85)] text-badge py-[4rpx] px-[12rpx] rounded-tr-xl rounded-bl-md">
+                    {t('developer.subscribe.recommended')}
+                  </Text>
+                ) : null}
+                <View className="flex flex-col mb-[16rpx]">
+                  <Text className="text-strong font-bold text-foreground">{planName(p.type)}</Text>
+                  <Text className="text-label text-muted-foreground mt-[6rpx]">
+                    {p.days}
+                    {t('page.vip.dayUnit')}
+                  </Text>
+                </View>
+                <View className="flex items-start mb-[20rpx]">
+                  <Text className="text-body-sm text-[var(--color-danger)] font-semibold leading-none mt-[8rpx]">
+                    ¥
+                  </Text>
+                  <Text className="text-heading text-[var(--color-danger)] font-semibold leading-none ml-[4rpx]">
+                    {formatPrice(p.price)}
+                  </Text>
+                </View>
+                <View className="flex flex-col gap-[10rpx]">
+                  {p.benefits.map((b, i) => (
+                    <View key={i} className="flex items-start">
+                      <LineIcon
+                        name="check"
+                        size={24}
+                        color="var(--color-muted-foreground)"
+                        className="mr-[12rpx]"
+                      />
+                      <Text className="flex-1 text-label text-foreground leading-[1.4]">{b}</Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            )
+          })}
+        </View>
+      </View>
 
       {/* 会员对比表(镜像 RN VipCompareScreen 的 table:四列表头 + 后端三档取值,同目录 ./compare-table) */}
       <View className="mx-[32rpx] my-[32rpx]">

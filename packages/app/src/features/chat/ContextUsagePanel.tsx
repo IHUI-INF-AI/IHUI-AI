@@ -41,7 +41,7 @@ const SEGMENT_LABEL_KEYS: Record<AttributionKey, `chat.contextUsage.${SegmentLab
 function segmentColor(tk: AppThemeTokens, key: AttributionKey): string {
   switch (key) {
     case 'system':
-      return tk.brandAccent.deep
+      return tk.brandAccent.DEFAULT
     case 'toolSchema':
       return tk.warning.amber
     case 'skill':
@@ -164,7 +164,7 @@ export function ContextUsagePanel({
                       {
                         backgroundColor: seg.observed
                           ? segmentColor(tk, seg.key)
-                          : tk.text.secondary,
+                          : tk.text.tertiary,
                       },
                     ]}
                   />

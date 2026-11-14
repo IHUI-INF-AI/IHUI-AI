@@ -263,8 +263,8 @@ Key 级窗口(5h/1d/7d)与余额熔断都挂在**单把 key**上;多把 key 只�
 | 可疑活动上报          | **有,且匿名可用**:`POST /api/security/report`(无认证,同 IP 5 次/分钟限流)—— 落点 `apps/api/src/routes/security.ts:181-215`,限流常量 `:236-237`。它是"**你举报别人**",不是"你为自己被处置申诉" |
 
 因此,当前唯一可用的**双向**通道是人工邮件渠道(与漏洞披露共用同一入口,见仓库根
-[`SECURITY.md`](../../SECURITY.md) 的"报告渠道"):`lizong@aizhs.top`,
-SLA 内无回复时升级 `lizong@aizhs.top`(`SECURITY.md:28,50`)。
+[`SECURITY.md`](../../SECURITY.md) 的"报告渠道"):`security@aizhs.top`,
+SLA 内无回复时升级 `community@aizhs.top`(`SECURITY.md:28,50`)。
 **这两者是安全/滥用事件的通报邮箱,平台未承诺"申诉必然受理或翻案"。**
 
 若你是被误伤的接入方,建议在邮件里带上:`apiKeyId`、命中时间(UTC+8)、

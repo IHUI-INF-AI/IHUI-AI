@@ -164,7 +164,7 @@
 | 使用政策 | 有 | `https://aizhs.top/legal/usage-policy` | 200 |
 
 > 隐私政策 URL 硬编码位置：[prepare-store-bundle.mjs](file:///d:/IHUI-AI/scripts/prepare-store-bundle.mjs#L311)。这是**所有平台表单共用字段**，属于"一处错、家家错"。
-> 隐私政策正文另有 App 内实现：`apps/mobile-rn/src/constants/privacyPolicy.ts`（主体：吉林省爱智汇人工智能科技有限公司；生效日：2025-06-20；邮箱：lizong@aizhs.top）。
+> 隐私政策正文另有 App 内实现：`apps/mobile-rn/src/constants/privacyPolicy.ts`（主体：吉林省爱智汇人工智能科技有限公司；生效日：2025-06-20；邮箱：IHUI-AI@aizhs.top）。
 
 ---
 

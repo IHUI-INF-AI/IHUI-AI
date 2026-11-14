@@ -5,6 +5,7 @@
 import { useMemo } from 'react'
 import {
   Image,
+  Pressable,
   View,
   Text,
   TouchableOpacity,
@@ -21,7 +22,6 @@ import { BannerCarousel } from '../_shared/BannerCarousel'
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 import type { CoursePlanetScreenProps } from '@ihui/types'
-import { Tappable } from '@ihui/ui-native'
 export type { CoursePlanetScreenProps }
 
 /** 课程菜单项（由薄壳注入 8 项分类；label 已是展示文案） */
@@ -108,7 +108,7 @@ export function CoursePlanetScreen({
             <RefreshControl
               refreshing={refreshing}
               onRefresh={onRefresh}
-              tintColor={tk.text.secondary}
+              tintColor={tk.text.tertiary}
             />
           }
           showsVerticalScrollIndicator={false}
@@ -137,9 +137,8 @@ export function CoursePlanetScreen({
           {menuItems?.length ? (
             <View style={styles.menuGrid}>
               {menuItems.map((item) => (
-                <Tappable
+                <Pressable
                   key={item.id}
-                  // 功能宫格每格都是主入口,按下无反馈会被读成没点上(2026-11-13)。
                   style={styles.menuItem}
                   onPress={() => onMenuPress?.(item)}
                   accessibilityRole="button"
@@ -151,7 +150,7 @@ export function CoursePlanetScreen({
                   <Text style={styles.menuLabel} numberOfLines={1}>
                     {item.label}
                   </Text>
-                </Tappable>
+                </Pressable>
               ))}
             </View>
           ) : null}

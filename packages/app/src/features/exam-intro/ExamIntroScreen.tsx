@@ -2,11 +2,10 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { ActivityIndicator, ScrollView, Text, View } from 'react-native'
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native'
 import { ChevronLeft } from 'lucide-react-native'
 import { getTokens } from '../../theme/tokens'
 import { createExamIntroStyles } from './exam-intro-styles'
-import { Tappable } from '@ihui/ui-native'
 
 export interface ExamIntroStat {
   label: string
@@ -69,9 +68,9 @@ export function ExamIntroScreen({
   return (
     <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
       <View style={styles.headerRow}>
-        <Tappable style={styles.backBtn} onPress={onBack} accessibilityRole="button">
+        <Pressable style={styles.backBtn} onPress={onBack} accessibilityRole="button">
           <ChevronLeft size={18} color={tk.text.secondary} />
-        </Tappable>
+        </Pressable>
         <Text style={styles.headerTitle} numberOfLines={1}>
           {headerTitle}
         </Text>
@@ -85,9 +84,9 @@ export function ExamIntroScreen({
       ) : state === 'error' ? (
         <View style={styles.stateBox}>
           <Text style={styles.stateText}>{errorText}</Text>
-          <Tappable style={styles.retryBtn} onPress={onRetry} accessibilityRole="button">
+          <Pressable style={styles.retryBtn} onPress={onRetry} accessibilityRole="button">
             <Text style={styles.retryText}>{retryText}</Text>
-          </Tappable>
+          </Pressable>
         </View>
       ) : (
         <>
@@ -151,14 +150,14 @@ export function ExamIntroScreen({
             </View>
           ) : null}
 
-          <Tappable
+          <Pressable
             style={[styles.startBtn, starting ? styles.startBtnDisabled : null]}
             onPress={onStart}
             disabled={starting}
             accessibilityRole="button"
           >
             <Text style={styles.startText}>{starting ? startingText : startText}</Text>
-          </Tappable>
+          </Pressable>
           {errorText ? <Text style={styles.errorText}>{errorText}</Text> : null}
         </>
       )}

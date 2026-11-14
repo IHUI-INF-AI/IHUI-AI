@@ -37,7 +37,7 @@ const BORDER_WIDTH_CLASS: Record<number, string> = { 1: 'border' }
 
 export type InputProps = ComponentProps<typeof TaroInput>
 
-export function Input({ className, style, onFocus, onBlur, cursorSpacing, ...props }: InputProps) {
+export function Input({ className, style, onFocus, onBlur, ...props }: InputProps) {
   const ff = useFieldFocus()
   // 聚焦态描边只在 focused 时介入(与 RN `style={[style, focused ? {borderColor} : null]}` 同语义);
   // 取色仍只来自 useFieldFocus,本文件不再手写墨档取色 —— 第二份取色正是 AGENTS §4 要拦的形态。
@@ -69,7 +69,6 @@ export function Input({ className, style, onFocus, onBlur, cursorSpacing, ...pro
         ff.onBlur()
         onBlur?.(e)
       }}
-      cursorSpacing={cursorSpacing ?? 24}
       {...props}
     />
   )

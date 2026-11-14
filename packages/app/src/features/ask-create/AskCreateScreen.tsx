@@ -7,7 +7,6 @@ import {
   ActivityIndicator,
   ScrollView,
   StyleSheet,
-  Switch,
   Text,
   TouchableOpacity,
   View,
@@ -31,29 +30,6 @@ import { useAskDraft } from './ask-draft'
  */
 export type { AskCreateScreenProps }
 
-/** 分类选项:宿主已把 i18n key 取词成 label 再传,共享屏不碰 i18n */
-export interface AskCategoryOption {
-  key: string
-  label: string
-}
-
-/**
- * 本端注入的可选受控段(2026-11-13 收敛):分类/悬赏/匿名/字数计数器。
- * 全部 optional —— miniapp 宿主真传,不传即整段不渲染 ⇒ RN wrapper 零行为变化。
- */
-type AskCreateHostSegments = {
-  categories?: AskCategoryOption[]
-  category?: string
-  onCategoryChange?: (key: string) => void
-  rewards?: number[]
-  reward?: number
-  onRewardChange?: (value: number) => void
-  anonymous?: boolean
-  onAnonymousChange?: (value: boolean) => void
-  titleMax?: number
-  contentMax?: number
-}
-
 export function AskCreateScreen({
   t,
   title,
@@ -70,17 +46,7 @@ export function AskCreateScreen({
   onToast,
   media,
   draft,
-  categories,
-  category,
-  onCategoryChange,
-  rewards,
-  reward,
-  onRewardChange,
-  anonymous,
-  onAnonymousChange,
-  titleMax,
-  contentMax,
-}: AskCreateScreenProps & AskCreateHostSegments) {
+}: AskCreateScreenProps) {
   assertRequiredPort('onToast', onToast)
   assertRequiredPort('media', media)
 
@@ -140,14 +106,8 @@ export function AskCreateScreen({
         value={title}
         onChangeText={handleTitleChange}
         placeholder={t('askCreate.titlePlaceholder')}
-        placeholderTextColor={tk.text.secondary}
+        placeholderTextColor={tk.text.tertiary}
       />
-      {/* 字数计数器(可选):titleMax 未传则不渲染,RN 保持原样 */}
-      {typeof titleMax === 'number' ? (
-        <Text style={styles.counter}>
-          {title.length}/{titleMax}
-        </Text>
-      ) : null}
       <Text style={styles.label}>{t('askCreate.contentLabel')}</Text>
       <TextField
         colorScheme={colorScheme}
@@ -155,15 +115,10 @@ export function AskCreateScreen({
         value={content}
         onChangeText={handleContentChange}
         placeholder={t('askCreate.contentPlaceholder')}
-        placeholderTextColor={tk.text.secondary}
+        placeholderTextColor={tk.text.tertiary}
         multiline
         textAlignVertical="top"
       />
-      {typeof contentMax === 'number' ? (
-        <Text style={styles.counter}>
-          {content.length}/{contentMax}
-        </Text>
-      ) : null}
       <Text style={styles.label}>{t('askCreate.tagsLabel')}</Text>
       <TextField
         colorScheme={colorScheme}
@@ -171,68 +126,8 @@ export function AskCreateScreen({
         value={tags}
         onChangeText={handleTagsChange}
         placeholder={t('askCreate.tagsPlaceholder')}
-        placeholderTextColor={tk.text.secondary}
+        placeholderTextColor={tk.text.tertiary}
       />
-      {/* 分类段(可选):传了 categories 才渲染。有 onCategoryChange 时按 chip 条直选,
-          否则降级为只读取值行(category 仅作回显,交互由宿主另接)。 */}
-      {categories && categories.length > 0 ? (
-        <View>
-          <Text style={styles.label}>{t('ask.create.categoryLabel')}</Text>
-          <View style={styles.chipRow}>
-            {categories.map((opt) => {
-              const active = category === opt.key
-              return (
-                <TouchableOpacity
-                  key={opt.key}
-                  style={[styles.chip, active && styles.chipActive]}
-                  onPress={() => onCategoryChange?.(opt.key)}
-                  disabled={!onCategoryChange}
-                >
-                  <Text style={[styles.chipText, active && styles.chipTextActive]}>
-                    {opt.label}
-                  </Text>
-                </TouchableOpacity>
-              )
-            })}
-          </View>
-        </View>
-      ) : null}
-      {/* 悬赏积分段(可选):rewards 未传则不渲染 */}
-      {rewards && rewards.length > 0 ? (
-        <View>
-          <Text style={styles.label}>{t('ask.create.rewardLabel')}</Text>
-          <View style={styles.chipRow}>
-            {rewards.map((value) => {
-              const active = reward === value
-              return (
-                <TouchableOpacity
-                  key={value}
-                  style={[styles.chip, styles.chipReward, active && styles.chipActive]}
-                  onPress={() => onRewardChange?.(value)}
-                  disabled={!onRewardChange}
-                >
-                  <Text style={[styles.chipText, active && styles.chipTextActive]}>{value}</Text>
-                </TouchableOpacity>
-              )
-            })}
-          </View>
-        </View>
-      ) : null}
-      {/* 匿名发布段(可选):onAnonymousChange 未传则不渲染 */}
-      {onAnonymousChange ? (
-        <View style={styles.switchRow}>
-          <View style={styles.switchInfo}>
-            <Text style={styles.label}>{t('ask.create.anonymousLabel')}</Text>
-            <Text style={styles.switchDesc}>{t('ask.create.anonymousDesc')}</Text>
-          </View>
-          <Switch
-            value={anonymous === true}
-            onValueChange={onAnonymousChange}
-            trackColor={{ false: tk.border.medium, true: tk.brand.DEFAULT }}
-            thumbColor={tk.surface.light}
-          />
-        </View>
-      ) : null}
       {/* 配图共享段:文案键取 RN 既有发布图文案,不新增词条 */}
       <Text style={styles.label}>{t('publishNew.formatImage')}</Text>
       <AskImageField
@@ -273,7 +168,7 @@ function createStyles(tk: AppThemeTokens) {
       padding: rnSpacing.lg,
     },
     muted: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.secondary },
-    error: { fontSize: rnType.body.size, color: tk.danger.deepText, marginBottom: rnSpacing.sm },
+    error: { fontSize: rnType.body.size, color: tk.danger.DEFAULT, marginBottom: rnSpacing.sm },
     title: {
       marginTop: rnSpacing.sm,
       fontSize: rnType.heading.size,
@@ -301,39 +196,8 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.brand.cta,
       alignItems: 'center',
     },
-    submitDisabled: { backgroundColor: tk.text.secondary },
+    submitDisabled: { backgroundColor: tk.text.tertiary },
     submitText: { color: tk.surface.light, fontSize: rnType.title.size, fontWeight: '600' },
-    counter: {
-      marginTop: rnSpacing.sm,
-      fontSize: rnType.caption.size,
-      color: tk.text.medium,
-      textAlign: 'right',
-    },
-    chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: rnSpacing.sm, marginTop: rnSpacing.sm },
-    chip: {
-      paddingHorizontal: rnSpacing.md,
-      paddingVertical: rnSpacing.sm,
-      borderRadius: rnRadius.sm,
-      borderWidth: 1,
-      borderColor: tk.border.medium,
-      backgroundColor: tk.surface.muted,
-    },
-    chipActive: { borderColor: tk.brand.cta, backgroundColor: tk.surface.light },
-    chipText: { fontSize: rnType.body.size, color: tk.text.primary },
-    chipTextActive: { color: tk.brand.cta, fontWeight: '600' },
-    chipReward: { minWidth: 56, alignItems: 'center' },
-    switchRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      marginTop: rnSpacing.md,
-    },
-    switchInfo: { flex: 1, paddingRight: rnSpacing.md },
-    switchDesc: {
-      marginTop: rnSpacing.xs,
-      fontSize: rnType.caption.size,
-      color: tk.text.medium,
-    },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

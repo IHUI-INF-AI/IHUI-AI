@@ -13,7 +13,7 @@ from __future__ import annotations
 import types
 
 import pytest
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
 from app.routers import orchestration
@@ -219,49 +219,39 @@ async def test_get_decisions_passes_limit(_mock_services):
 
 
 # =============================================================================
-# 编排中枢端点:错误分支(service 抛异常 → HTTPException(500, 固定文案))(AIS-048)
+# 编排中枢端点:错误分支(service 抛异常 → code=500)
 # =============================================================================
 
 
 async def test_get_hub_status_service_error(_mock_services):
     hub, _, _ = _mock_services
     hub.get_status = _async_raise(RuntimeError("hub down"))
-    with pytest.raises(HTTPException) as ei:
-        await get_hub_status()
-    # AIS-048:固定文案 detail,原文(hub down)只进 logger.exception 日志
-    assert ei.value.status_code == 500
-    assert ei.value.detail == "服务内部错误"
-    assert "hub down" not in str(ei.value.detail)
+    resp = await get_hub_status()
+    assert resp == {"code": 500, "message": "hub down", "data": None}
 
 
 async def test_get_events_service_error(_mock_services):
     hub, _, _ = _mock_services
     hub.get_event_feed = _async_raise(ValueError("bad filter"))
-    with pytest.raises(HTTPException) as ei:
-        await get_events()
-    assert ei.value.status_code == 500
-    assert ei.value.detail == "服务内部错误"
-    assert "bad filter" not in str(ei.value.detail)
+    resp = await get_events()
+    assert resp["code"] == 500
+    assert resp["message"] == "bad filter"
+    assert resp["data"] is None
 
 
 async def test_emit_event_service_error(_mock_services):
     hub, _, _ = _mock_services
     hub.emit = _async_raise(Exception("emit failed"))
-    with pytest.raises(HTTPException) as ei:
-        await emit_event(EmitEventBody(event_type="x", source_pillar="y"))
-    assert ei.value.status_code == 500
-    assert ei.value.detail == "服务内部错误"
-    assert "emit failed" not in str(ei.value.detail)
+    resp = await emit_event(EmitEventBody(event_type="x", source_pillar="y"))
+    assert resp["code"] == 500
+    assert resp["data"] is None
 
 
 async def test_toggle_playbook_service_error(_mock_services):
     hub, _, _ = _mock_services
     hub.decision_engine.enable_playbook = _async_raise(Exception("boom"))
-    with pytest.raises(HTTPException) as ei:
-        await toggle_playbook("pb", types.SimpleNamespace(enabled=True))
-    assert ei.value.status_code == 500
-    assert ei.value.detail == "服务内部错误"
-    assert "boom" not in str(ei.value.detail)
+    resp = await toggle_playbook("pb", types.SimpleNamespace(enabled=True))
+    assert resp["code"] == 500
 
 
 # =============================================================================
@@ -294,11 +284,8 @@ async def test_record_budget_usage_passes_args(_mock_services):
 async def test_record_budget_usage_service_error(_mock_services):
     _, gov, _ = _mock_services
     gov.record_usage = _async_raise(Exception("record fail"))
-    with pytest.raises(HTTPException) as ei:
-        await record_budget_usage(RecordUsageBody(pillar="rag", model="m"))
-    assert ei.value.status_code == 500
-    assert ei.value.detail == "服务内部错误"
-    assert "record fail" not in str(ei.value.detail)
+    resp = await record_budget_usage(RecordUsageBody(pillar="rag", model="m"))
+    assert resp["code"] == 500
 
 
 async def test_check_budget_success(_mock_services):
@@ -310,11 +297,8 @@ async def test_check_budget_success(_mock_services):
 async def test_check_budget_service_error(_mock_services):
     _, gov, _ = _mock_services
     gov.check_budget = _async_raise(Exception("check fail"))
-    with pytest.raises(HTTPException) as ei:
-        await check_budget(CheckBudgetBody(pillar="rag"))
-    assert ei.value.status_code == 500
-    assert ei.value.detail == "服务内部错误"
-    assert "check fail" not in str(ei.value.detail)
+    resp = await check_budget(CheckBudgetBody(pillar="rag"))
+    assert resp["code"] == 500
 
 
 async def test_budget_summary_trend_pillar_reset(_mock_services):
@@ -382,11 +366,8 @@ async def test_get_metrics_prometheus_returns_raw_text(_mock_services):
 async def test_get_metrics_prometheus_service_error(_mock_services):
     _, _, tele = _mock_services
     tele.get_metrics = _async_raise(Exception("metrics fail"))
-    with pytest.raises(HTTPException) as ei:
-        await get_metrics(format="prometheus")
-    assert ei.value.status_code == 500
-    assert ei.value.detail == "服务内部错误"
-    assert "metrics fail" not in str(ei.value.detail)
+    resp = await get_metrics(format="prometheus")
+    assert resp == {"code": 500, "message": "metrics fail", "data": None}
 
 
 async def test_telemetry_health_dashboard_traces(_mock_services):

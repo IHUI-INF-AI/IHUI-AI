@@ -14,13 +14,9 @@
  * 任何常驻 worker,故障被完全掩盖:号池保活(临期刷新 / 空闲保活 / 健康定级 / 签到对账)
  * 连续 7 天完全没执行,日志上却"看起来安静"。
  *
- * 判据:队列名 = 基础名 + 库身份后缀。**默认隔离**:只有显式认定为主库的进程才保持既有
- * 队列名零扰动(否则滚动发布期新旧实例会互相看不见对方的作业),其余一律加库名后缀。
- * 主库的认定只有两条显式路径(F-243:不再从库名关键词反推):
- *   ① 库名 === `RELAY_PRIMARY_DB_NAME`(默认 `ihui`)或命中白名单 `production` / `railway`;
- *   ② 显式 `RELAY_DB_ROLE=primary`(进程级声明「我连的就是主库」)。
- * 三条规则按顺序短路:
- *   1. 显式 `RELAY_QUEUE_SUFFIX`(人工强隔离)> 2. 显式认定主库 > 3. 其余默认隔离。
+ * 判据:队列名 = 基础名 + 库身份后缀。只有「一次性/隔离库」才加后缀,主库保持既有队列名
+ * 零扰动(否则滚动发布期新旧实例会互相看不见对方的作业)。三条规则按顺序短路:
+ *   1. 显式 `RELAY_QUEUE_SUFFIX`(人工强隔离)> 2. 隔离库名特征 > 3. 原名。
  *
  * 适用范围(2026-10-31 推广):本模块是**全仓所有 BullMQ 队列名**的唯一解析出口。
  * 取证件 `.ihui-agent/tmp/queue-proof/PROOF.md` §3b 量到同族事故在 email / notification /
@@ -36,16 +32,9 @@
 /** 主库名(生产/主库同名时不加后缀,保持既有队列名零扰动) */
 export const PRIMARY_DB_NAME = (process.env.RELAY_PRIMARY_DB_NAME ?? '').trim() || 'ihui'
 
-/**
- * 白名单库名:除 `PRIMARY_DB_NAME` 之外,显式认定为主库的库名(F-243)。
- *
- * 只有这里列出的名字才配走主队列原名;没列出来的一律按非主库隔离
- * (`ihui_staging` / `preview` / `backup` / `local` 等都不再被"猜"成主库)。
- */
-const PRIMARY_DB_NAME_WHITELIST: readonly string[] = ['production', 'railway']
-
-/** 显式声明「本进程连的就是主库」的角色值(F-243;不靠库名关键词猜) */
-const PRIMARY_DB_ROLE = 'primary'
+/** 一次性/隔离库的命名特征:e2e / test / ci / tmp / perf5 / sandbox 等 */
+const ISOLATED_DB_PATTERN =
+  /(^|[_-])(e2e|e2e2e|test|testing|ci|tmp|temp|perf\d*|sandbox|scratch)([_-]|$)/i
 
 /** 号池队列的基础名(与 relay-account-pool-worker 的导出常量同值,那边是基础名,这里只做解析) */
 const RELAY_ACCOUNT_POOL_QUEUE_BASE = 'relay-account-pool-queue'
@@ -85,14 +74,6 @@ interface ResolveOpts {
   dbName?: string | null
   explicitSuffix?: string | null
   primaryDbName?: string
-  /** 库角色(默认读 `RELAY_DB_ROLE`;`primary` = 无条件认主库) */
-  dbRole?: string | null
-}
-
-/** 主库认定:只看显式声明与白名单,**不**从库名关键词反推(F-243) */
-function isPrimaryDatabase(dbName: string, primaryDbName: string, dbRole: string): boolean {
-  if (dbRole === PRIMARY_DB_ROLE) return true
-  return dbName === primaryDbName || PRIMARY_DB_NAME_WHITELIST.includes(dbName)
 }
 
 /**
@@ -128,7 +109,6 @@ function resolve(base: string, opts: ResolveOpts = {}): QueueIsolation {
   const explicitSuffix = (opts.explicitSuffix ?? process.env.RELAY_QUEUE_SUFFIX ?? '').trim()
   const dbName = opts.dbName === undefined ? dbNameFromUrl(process.env.DATABASE_URL) : opts.dbName
   const primaryDbName = (opts.primaryDbName ?? PRIMARY_DB_NAME).trim() || PRIMARY_DB_NAME
-  const dbRole = (opts.dbRole ?? process.env.RELAY_DB_ROLE ?? '').trim().toLowerCase()
 
   if (explicitSuffix) {
     return {
@@ -138,13 +118,11 @@ function resolve(base: string, opts: ResolveOpts = {}): QueueIsolation {
       reason: 'explicit-suffix',
     }
   }
-  // 规则 2:显式认定主库才走原名(RELAY_DB_ROLE=primary / 白名单库名 / 主库名)
-  if (dbName !== null && !isPrimaryDatabase(dbName, primaryDbName, dbRole)) {
-    // 规则 3:其余一律默认隔离 —— `ihui_staging` / `preview` / `backup` / `local` 等
-    // 不含关键词的独立非主库也绝不消费主库队列(F-243 修复点)。
+  // 规则 2:隔离库名特征 × 非主库名(主库自己就叫 ihui_e2e 时不加后缀)
+  if (dbName && dbName !== primaryDbName && ISOLATED_DB_PATTERN.test(dbName)) {
     return { queue: joinQueueName(base, dbName), dbName, isolated: true, reason: 'isolated-db' }
   }
-  // 主库 / 解析不出库名(不猜)⇒ 原名,零扰动
+  // 规则 3:主库/远端生产库(如 production、railway)一律原名,零扰动
   return { queue: base, dbName, isolated: false, reason: 'primary' }
 }
 

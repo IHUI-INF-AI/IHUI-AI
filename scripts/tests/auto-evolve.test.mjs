@@ -28,6 +28,7 @@ import {
   classifySessionFailure,
   isNonTicketFailure,
   lastProviderError,
+  isAuthExpiryFailure,
   splitRotateStandoff,
   refreshAutonomyCandidates,
   decideParkedRound,
@@ -1018,7 +1019,12 @@ const runCli = (argv) =>
 
 test('Ⓔ 清单必须覆盖发射侧真传的 argv(少一枚就冻腿,红要落在加旗标那一枚)', () => {
   const known = ae.knownFlags()
-  const guardian = readFileSync(new URL('../../scripts/git-guardian.mjs', import.meta.url), 'utf8')
+  const guardianFull = readFileSync(new URL('../../scripts/git-guardian.mjs', import.meta.url), 'utf8')
+  // 锚点收窗(2026-11-13):上游给守护新增的 ['--json','--apply'] spawn 抢中了"文件第一处同形匹配",
+  // 本锁必须盯着 auto-evolve 真派发那一段 —— 锚到 '--no-triage' 出现处开窗,判据一条不放宽。
+  const tri = guardianFull.indexOf("'--no-triage'")
+  assert.ok(tri >= 0, "守护侧检索不到 '--no-triage' ⇒ 派发 argv 形态整体变了,本锁喊响")
+  const guardian = guardianFull.slice(Math.max(0, tri - 3000), tri + 3000)
   const m = guardian.match(
     /spawn\(\s*process\.execPath,\s*\[\s*script,\s*'(--[a-z-]+)'(?:,\s*'(--[a-z-]+)')?\s*\]/,
   )
@@ -1867,6 +1873,48 @@ test('⓮ 被上限掐死的一班归 cancelled:killed / 到顶 SIGTERM / 早退
     timeoutBlock[1],
     /failureKind = 'ok'/,
     "超时那一档不得再把归类留在 'ok'(初始化那行在分支之外,不算命中 —— 这正是判代码面而不是判全文的理由)",
+  )
+})
+
+// Ⓢ 2026-11-13 邮件风暴收口:腿级失败不吃日预算 + 登录过期单独成身份。
+test('Ⓢa 形状锁:腿级分型块必须排在 dispatched 记账之前', () => {
+  const src = readFileSync(new URL('../../scripts/auto-evolve.mjs', import.meta.url), 'utf8')
+  const leg = src.indexOf(
+    "if (isNonTicketFailure(res.failureKind) || res.action === 'runner-undetermined')",
+  )
+  const disp = src.indexOf('      dispatched++')
+  assert.ok(leg > 0 && disp > leg, '腿级分型若排在真派记账之后,风暴会吃光日预算并整日误报"预算耗尽"(真派发=0)')
+  // 窗口在 dispatched++ 处截断 ⇒ 只审腿级分支本体;真派记账的新家就在分支之后,不在射程内。
+  const nprog = src.indexOf("if (res.action === 'session-no-progress')", leg)
+  const body = src.slice(leg, Math.min(disp >= 0 && disp > leg ? disp : Infinity, nprog))
+  assert.ok(
+    !body.includes('dispatched++') && !body.includes("action: 'dispatched'"),
+    '腿级分支体内不得出现真派记账动作(叙述性提及不计)',
+  )
+  assert.ok(body.includes('isAuthExpiryFailure(res.providerError'), '腿级体内必须做 auth 分流')
+})
+
+test('Ⓢb auth 判据:命中三签名 / 不命中即 false(未判定不误伤其它分型)', () => {
+  assert.equal(isAuthExpiryFailure('登录已过期,请重新登录'), true)
+  assert.equal(isAuthExpiryFailure(null, '当前 token 无效或已过期,请重新登录:ihui login'), true)
+  assert.equal(isAuthExpiryFailure('token 无效或已过期'), true)
+  assert.equal(isAuthExpiryFailure('ENOENT'), false)
+  assert.equal(isAuthExpiryFailure(''), false)
+  assert.equal(isAuthExpiryFailure(), false)
+  assert.equal(isAuthExpiryFailure('网络连接失败'), false, 'transport 型不得混进 auth 身份')
+})
+
+test('Ⓢc auth 告警身份接线:单独 id + 24h 窗口 + 出口 dedupe-hours 对齐', () => {
+  const src = readFileSync(new URL('../../scripts/auto-evolve.mjs', import.meta.url), 'utf8')
+  assert.ok(src.includes("const ESCAPE_AUTH_ALERT_ID = 'auto-evolve:runner-auth-expired'"), 'auth 身份常量缺席')
+  assert.ok(
+    src.includes('id === ESCAPE_AUTH_ALERT_ID') && src.includes('ESCAPE_AUTH_THROTTLE_MS'),
+    '节流判据没接 auth 窗口(会退回 1h 刷屏)',
+  )
+  assert.ok(src.includes('{ dedupeHours: 24 }'), '出口 --dedupe-hours 未与 24h 身份窗口对齐')
+  assert.ok(
+    /opts\.dedupeHours !== undefined[\s\S]{0,220}ESCAPE_BUDGET_ALERT_ID/.test(src),
+    'opts.dedupeHours 与 budget 特例的优先序坏了(budget 调用必须逐字节等价)',
   )
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

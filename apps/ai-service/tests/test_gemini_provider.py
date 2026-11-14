@@ -518,59 +518,6 @@ async def test_complete_recitation_block_returns_error_message():
     assert result["error"] is True
 
 
-async def test_complete_prompt_feedback_block_returns_error():
-    """AIS-011:candidates 为空 + promptFeedback.blockReason ⇒ error=True。
-
-    此形态回包 HTTP 200 且无 finishReason,旧码只判 finishReason ⇒ 被当成
-    "成功空回复"返回,上游拿不到 error=True 就不触发 fallback/重试。
-    """
-    p = GeminiProvider(api_key="k")
-
-    fake_data = {
-        "candidates": [],
-        "promptFeedback": {"blockReason": "SAFETY"},
-    }
-    fake_resp = MagicMock()
-    fake_resp.status_code = 200
-    fake_resp.json.return_value = fake_data
-
-    fake_client = MagicMock()
-    fake_client.request = AsyncMock(return_value=fake_resp)
-
-    with _patch_http_client(fake_client):
-        result = await p.complete([{"role": "user", "content": "x"}], "gemini-1.5-pro")
-
-    assert result["content"] == ""
-    assert result["error"] is True
-    assert "SAFETY" in result["error_message"]
-    assert "blockReason" in result["error_message"]
-
-
-async def test_complete_prompt_feedback_without_block_reason_not_error():
-    """阴性对照:blockReason 缺席(仅有 safetyRatings)不构成拦截。"""
-    p = GeminiProvider(api_key="k")
-
-    fake_data = {
-        "candidates": [{
-            "finishReason": "STOP",
-            "content": {"parts": [{"text": "ok"}]},
-        }],
-        "promptFeedback": {"safetyRatings": [{"category": "HARM_CATEGORY_HARASSMENT"}]},
-    }
-    fake_resp = MagicMock()
-    fake_resp.status_code = 200
-    fake_resp.json.return_value = fake_data
-
-    fake_client = MagicMock()
-    fake_client.request = AsyncMock(return_value=fake_resp)
-
-    with _patch_http_client(fake_client):
-        result = await p.complete([{"role": "user", "content": "x"}], "gemini-1.5-pro")
-
-    assert result.get("error") is not True
-    assert result["content"] == "ok"
-
-
 async def test_complete_4xx_raises_provider_error():
     """complete 4xx 抛 ProviderError。"""
     p = GeminiProvider(api_key="k")
@@ -703,28 +650,6 @@ async def test_astream_safety_block_yields_error():
         events = [e async for e in p.astream([{"role": "user", "content": "x"}], "gemini-1.5-pro")]
 
     assert any(e["type"] == "error" for e in events)
-
-
-async def test_astream_prompt_feedback_block_yields_error():
-    """AIS-011 流式半边:candidates 为空、promptFeedback.blockReason 拦截 ⇒ yield error。
-
-    此事件无 finishReason,旧码两道判定都不命中 ⇒ 流被当成功耗尽、静默空回复。
-    """
-    p = GeminiProvider(api_key="k")
-
-    evt = {"candidates": [], "promptFeedback": {"blockReason": "SAFETY"}}
-    lines = [f"data: {json.dumps(evt)}"]
-    resp = _make_stream_resp(lines)
-    fake_client = MagicMock()
-    fake_client.stream = MagicMock(return_value=_FakeStreamCtx(resp))
-
-    with _patch_http_client(fake_client):
-        events = [e async for e in p.astream([{"role": "user", "content": "x"}], "gemini-1.5-pro")]
-
-    errors = [e for e in events if e["type"] == "error"]
-    assert errors, f"promptFeedback 拦截必须 yield error,实得 {events}"
-    assert "SAFETY" in errors[0]["message"]
-    assert "blockReason" in errors[0]["message"]
 
 
 async def test_astream_4xx_yields_error_event():

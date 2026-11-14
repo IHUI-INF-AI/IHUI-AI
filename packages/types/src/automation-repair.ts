@@ -47,6 +47,13 @@ export interface RepairTaskRecord {
   maxAttempts: number
   createdAt: string
   updatedAt: string
+  /**
+   * 租约到期时间(ISO)。claimed/running 期间由租约心跳刷新;进程中断后
+   * runCycle 依据该字段回收为 pending。仅存于进程内 JSON 快照,不落数据库。
+   */
+  leaseUntil?: string | null
+  /** 最近一次租约心跳时间(ISO) */
+  heartbeatAt?: string | null
   /** 迁移审计流水(append-only) */
   history: RepairTaskTransition[]
 }
