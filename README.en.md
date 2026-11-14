@@ -99,6 +99,20 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-14**
+- 🚀 Feature/Improvement:逆向 Qoder 6 子系统——判定可落地性(补 4 块技能进化前提基建 + 审计/修订/墓碑层) (3458dca803e)
+- 🐞 Fix:诊断臂 [7b] DB 迁移落后维从未真判过——函数注册晚于 -diagnose 顶层执行点(第三次落地,范围收窄) (c4be376fd5e)
+- 🐞 Fix:零价护栏豁免上游真免费模型(:free) (88cfcfeba11)
+- 🚀 Feature/Improvement:工作区指令链补齐服务端腿 —— CLAUDE.md/本地叠加 + 轮内深层发现 (a5c6090a05f)
+- 🐞 Fix:流式打字机切批升到字素簇边界 —— ZWJ/肤色/旗帜 emoji 不再拆裂(D1b) (a1436341157)
+- 🔧 Chore/Other:重封根护栏清单(git-guardian 变更后漂移) (ad06d9d1f83)
+- 🐞 Fix:补两处契约缺口——SendAdmissionReceipt.ahead 与 ProcessGroupChild.kill 签名 (0dc7a156231)
+- 📚 Docs:生成块四维数字回归 HEAD 面现算(apiRoutes 4800->4814/apiRouteFiles 699->697/testFiles 5254->5450/trackedFiles 21591->21820) (6ad68f44c67)
+- 📚 Docs:生成块按现算刷新(trackedFiles 21820/testFiles 5450/gates 368)——唯一写入口块面回植 (f0746f71e7b)
+- 📚 Docs:归正 sag2/articles 两行登记(回滚 807d0817 携 stale 副本的旧基线降级) (84469fbcd22)
+- 🐞 Fix:Sag2Screen chip sm→md、card md→lg(150 最后 2 族,补齐首轮构造遗漏) (cf31c0d2e43)
+- 🐞 Fix:150 余 7 族/315 余 1 族定向清零(control 档 12 处 + Sag2 badge borderColor) (ceb0e44331e)
+
+**2026-11-14**
 - 🚀 Feature/Improvement:补齐 check-plan-claims-vs-head 门——批量预取治本 6.5min→15s + §1021 --self-test (99060ab1ee5)
 - 🚀 Feature/Improvement:present_files 显式交付声明 + 交付清单 presentedFiles (904e129c14f)
 - 🔧 Chore/Other:重封根护栏清单(merge round2 后 gate-scope 漂移) (4b0fc5a3e6d)
@@ -454,23 +468,6 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 
 **2026-11-13**
 - 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (f1eea10ede3)
-
-**2026-11-13**
-- 🐞 Fix:F-164 返佣两级费率组合闸+记账封顶——PATCH 单/双字段非法组合一律 400 且 0 写,recordRelayCommission 每笔之和 ≤ sourceCostCents(level1 先取,余预算给 level2);回归 f-164 测试 17/17 绿;README 生成块随 DN5 用 sync-readme-numbers 官方通道刷新(testFiles 5217→5219/trackedFiles 21352→21354,并修复被吃掉的行首反引号) (8418d437bba)
-- 🔧 Chore/Other:生成块数字对齐 HEAD 树现算(testFiles 5218 / trackedFiles 21353)并修复 trackedFiles 断字 (1e5db9591b5)
-- 🔧 Chore/Other:结清 164G/171G —— F-164 三级费率组合闸+记账封顶入库, F-171 lessonId 下推 WHERE 入库(证据见配对码提交) (277a22436ab)
-- 🐞 Fix:模型映射后复检 allowedModels,堵白名单绕过(低价套餐偷调高价模型) + 回归锁 5/5 (792bb030a61)
-- 🐞 Fix:模型映射后复检 allowedModels,堵住白名单绕过 + 回归锁 (6a7113da6d5)
-- 📚 Docs:生成块 trackedFiles 对齐 HEAD 面现算(21338→21339) (593905e70db)
-- 🔧 Chore/Other:补齐 F-187/F-200 新增文件的溯源水印(守门 47p) (fd8574763b6)
-- 🔧 Chore/Other:结清批次34 共5张(F-297/313/314/317/320) (9d25b188cec)
-- 🐞 Fix:结清 F-297 编辑写路径会话锁 + F-313 验证码降级读写一致 + F-314 邮件显式超时 + F-317 催费逾期口径 + F-320 巡检失败可观测 (d07c6c267c4)
-- 🔧 Chore/Other:结清 F-200 Crew 全失败谎报成功 + F-187 baseUrl SSRF(已修复并测试通过,代码入 a00d16ca08a) (d8b6411950d)
-- 🐞 Fix:F-200 Crew 全失败不再谎报成功 + F-187 v2 保存链与 ai-service api_base SSRF 二次校验 (a00d16ca08a)
-- 🚀 Feature/Improvement:复现 Trae browser 状态查询族 + 补齐 goal/auto-review/asRpcError 验证闭环 (dd21ff31715)
-- 📚 Docs:门 41 存量 24 分支逐枚内容级取证 —— 全部必须保留,0 枚可收口 (46542d1d849)
-- 🔧 Chore/Other:结清批次33 共5张(F-286/296/307/309/310) (45fea84f70b)
-- 🐞 Fix:结清 F-286 迟到释放带归属 + F-296 流式错误协议化 + F-307 并行工具块 + F-309 定价生效时刻 + F-310 券核销共判据 (fce802dd86f)
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)
