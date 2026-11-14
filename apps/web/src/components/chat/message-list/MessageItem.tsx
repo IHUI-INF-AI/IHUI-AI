@@ -1540,6 +1540,7 @@ const MessageItem = React.memo(function MessageItem({
                           audioUrl={effectiveAudioUrl}
                           videoUrl={effectiveVideoUrl}
                           taskId={effectiveTaskId}
+                          imagePreview={tc.image_preview}
                           summaryData={effectiveSummaryData}
                           serverSource={tc.serverSource}
                           serverId={tc.serverId}

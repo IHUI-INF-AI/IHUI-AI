@@ -83,6 +83,25 @@ async def test_read_image_returns_metadata_and_stashes_payload(workspace) -> Non
 
 
 @pytest.mark.asyncio
+async def test_read_image_preview_is_peek_only_and_not_in_tool_body(workspace) -> None:
+    """g12:缩略图只经 SSE 事件副本下发前端,不进 tool 正文;peek 不消费视觉注入。"""
+    path = _write_image(workspace)
+
+    result = await _tool_read_image({"file_path": str(path)})
+
+    preview = delivery.peek_image_preview(result)
+    assert preview.startswith("data:image/jpeg;base64,")
+    # 缩略图不写进工具结果(否则会进模型上下文 / SSE result 字段)
+    assert "preview" not in result
+    assert "base64" not in str(result)
+    # peek 不消费:vision 注入仍取得到;取走后再 peek 为空
+    assert delivery.peek_image_preview(result) == preview
+    images = delivery.take_images([result["image"]["content_id"]])
+    assert len(images) == 1
+    assert delivery.peek_image_preview(result) == ""
+
+
+@pytest.mark.asyncio
 async def test_read_image_rejects_path_outside_workspace(workspace) -> None:
     outside = workspace.parent / "outside.png"
     outside.write_bytes(_PNG_BYTES)

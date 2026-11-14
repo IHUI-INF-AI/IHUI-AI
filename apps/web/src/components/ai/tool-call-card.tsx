@@ -124,6 +124,9 @@ interface ToolCallCardProps {
   videoUrl?: string
   /** 异步长任务 task_id(2026-09-09 立):媒体工具提交成功但产物未就绪时,渲染"任务进行中" */
   taskId?: string
+  /** g12(2026-11-15):read_image 缩略图 data URL(SSE tool-result 顶层)。
+   * 仅 success 且非空时在结果 JSON 上方渲染;点击新窗看原图,不进媒体画廊。 */
+  imagePreview?: string
   /** summarize_artifacts 工具返回的摘要数据(优先于 result 渲染) */
   summaryData?: {
     plans?: Array<{ id: string; title: string; status: string; steps?: string[] }>
@@ -1409,6 +1412,7 @@ export const ToolCallCard = React.memo(function ToolCallCard({
   audioUrl,
   videoUrl,
   taskId,
+  imagePreview,
   summaryData,
   serverSource,
   serverId,
@@ -1773,6 +1777,35 @@ export const ToolCallCard = React.memo(function ToolCallCard({
                           testId="tool-call-error"
                         />
                       </div>
+                    )}
+                    {/* g12(2026-11-15):read_image 缩略图(仅成功且有预览),置于结果 JSON 上方。
+                        Chrome 禁止顶层导航到 data: URL,点击时先转 blob URL 再开新窗(用完释放)。 */}
+                    {status === 'success' && imagePreview && (
+                      <button
+                        type="button"
+                        aria-label={rowTitle}
+                        data-testid="tool-call-image-preview"
+                        className="w-fit overflow-hidden rounded-sm border border-border/40"
+                        onClick={() => {
+                          try {
+                            const base64 = imagePreview.slice(imagePreview.indexOf(',') + 1)
+                            const binary = atob(base64)
+                            const bytes = new Uint8Array(binary.length)
+                            for (let i = 0; i < binary.length; i += 1) {
+                              bytes[i] = binary.charCodeAt(i)
+                            }
+                            const url = URL.createObjectURL(
+                              new Blob([bytes], { type: 'image/jpeg' }),
+                            )
+                            window.open(url, '_blank', 'noopener')
+                            window.setTimeout(() => URL.revokeObjectURL(url), 60_000)
+                          } catch {
+                            window.open(imagePreview, '_blank', 'noopener')
+                          }
+                        }}
+                      >
+                        <img src={imagePreview} alt="" className="max-h-40 max-w-full" />
+                      </button>
                     )}
                     {result !== undefined && (
                       <div>

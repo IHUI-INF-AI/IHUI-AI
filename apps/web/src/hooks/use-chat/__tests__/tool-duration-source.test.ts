@@ -157,4 +157,35 @@ describe('createToolCallHandler 的耗时接线', () => {
     expect(lastUpdates().durationMs).toBe(800)
   })
 })
+
+describe('createToolCallHandler 的 read_image 缩略图透传(g12)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('tool-result 带 image_preview → 写入 ToolCall 同名字段(仅卡片预览)', () => {
+    const handler = createToolCallHandler('msg-img-1')
+    handler({
+      type: 'tool-result',
+      toolCallId: 'tc-img-1',
+      toolName: 'read_image',
+      result: { ok: true },
+      image_preview: 'data:image/jpeg;base64,AAAA',
+    })
+    expect(lastUpdates().image_preview).toBe('data:image/jpeg;base64,AAAA')
+    // 缩略图不进 result:result 仍是后端原样载荷
+    expect(lastUpdates().result).toEqual({ ok: true })
+  })
+
+  it('未携带 image_preview → 不写字段(旧帧不产生空预览)', () => {
+    const handler = createToolCallHandler('msg-img-2')
+    handler({
+      type: 'tool-result',
+      toolCallId: 'tc-img-2',
+      toolName: 'read_image',
+      result: { ok: true },
+    })
+    expect('image_preview' in lastUpdates()).toBe(false)
+  })
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

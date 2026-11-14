@@ -157,6 +157,25 @@ class BoundedTtlDict:
                 self._store[key] = (now, value)
             return value
 
+    def peek(self, key: str, default: Any = None) -> Any:
+        """读一眼但**不续期、不弹出**(与 `get` 的差别只在不动条目的时序与归属)。
+
+        给"旁路观测"用:前端缩略图预览这类消费方看一眼内容即可,若走 `get` 会
+        续期(让本该过期的条目永生),若走 `pop` 会让主链(模型 vision 注入)取不到图。
+        过期判据与 `get`/`__contains__` 同一口径:过期即视为不在,顺手清掉。
+        """
+        now = self._clock()
+        with self._lock:
+            entry = self._store.get(key)
+            if entry is None:
+                return default
+            written_at, value = entry
+            if is_expired(written_at, self._ttl, now):
+                self._store.pop(key, None)
+                self.expired_swept += 1
+                return default
+            return value
+
     def pop(self, key: str, default: Any = None) -> Any:
         with self._lock:
             entry = self._store.pop(key, None)

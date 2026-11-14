@@ -7173,6 +7173,15 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                     _mv = exec_result.get(_mf)
                                     if isinstance(_mv, str) and _mv and not _mv.startswith("data:"):
                                         tc_result_evt[_mf] = _mv
+                                # g12(2026-11-15):read_image 的缩略图经事件顶层下发前端卡片。
+                                # 只 peek(不消费暂存、不续期):视觉注入仍由 take_images 单点消费;
+                                # 缩略图也**不进**模型 tool 正文(result_json 从 exec_result 生成,
+                                # 本字段只写事件副本),避免上下文膨胀与截断护栏。
+                                from app.services.tool_image_delivery import peek_image_preview
+
+                                _image_preview = peek_image_preview(exec_result)
+                                if _image_preview:
+                                    tc_result_evt["image_preview"] = _image_preview
                             yield _sse(SSE_TOOL_RESULT, tc_result_evt)
                             # 更新 tool_calls_history 中对应记录(正常分支:含真实 durationMs)
                             _hist_idx = len(tool_calls_history) - 1
