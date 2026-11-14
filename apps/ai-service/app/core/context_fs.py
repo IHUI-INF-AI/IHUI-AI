@@ -71,7 +71,7 @@ _DRIVE_PREFIX = re.compile(r"^[A-Za-z]:([\\/]|$)")
 
 
 def _emit(verdict: str, namespace: str | None, canonical_path: str | None,
-          reason: str, detail: str) -> dict:
+          reason: str, detail: str) -> dict[str, str | None]:
     """唯一返回出口(§0.6):把 verdict 与 canonical_path/reason 的一致性钉死。
 
     立因:对照允许「解析成功但鉴权没跑」的半态;本仓显式拒绝半态(超越轴②)。
@@ -81,7 +81,7 @@ def _emit(verdict: str, namespace: str | None, canonical_path: str | None,
     刻意不做什么:不在这里做二次解析/鉴权(解析与鉴权已在调用方一次完成),
           本出口只负责「结构化 verdict 不变量」这一件事,不碰文件系统。
     """
-    def _half(why: str) -> dict:
+    def _half(why: str) -> dict[str, str | None]:
         return {
             "verdict": Verdict.UNJUDGED.value,
             "namespace": namespace,
@@ -107,14 +107,14 @@ def _emit(verdict: str, namespace: str | None, canonical_path: str | None,
     }
 
 
-def _allowed_namespaces(policy: dict) -> frozenset[str] | None:
+def _allowed_namespaces(policy: dict[str, object]) -> frozenset[str] | None:
     """从 policy 取白名单;形状不认/取不到返回 None(§0.3 不默认放行)。"""
     allowed = policy.get("allowed_namespaces")
     if not isinstance(allowed, (list, tuple, set, frozenset)) or not allowed:
         return None
     if not all(isinstance(x, str) and x for x in allowed):
         return None
-    return frozenset(allowed)
+    return frozenset(x for x in allowed if isinstance(x, str))
 
 
 def _has_control_char(text: str) -> bool:
@@ -137,7 +137,7 @@ def _is_symlink_escape_segment(seg: str) -> bool:
     return seg in (".", "~") or "->" in seg or seg.endswith(".lnk") or "symlink" in seg.lower()
 
 
-def resolve_context_uri(uri: object, roots: object, policy: object) -> dict:
+def resolve_context_uri(uri: object, roots: object, policy: object) -> dict[str, str | None]:
     """解析并鉴权 ``context://`` 虚拟 URI(纯函数,一次调用产出结构化 verdict)。
 
     立因:对照的虚拟路径只解决「统一命名空间」,解析与鉴权分两步且允许半态。
