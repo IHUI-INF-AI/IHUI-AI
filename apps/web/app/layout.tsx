@@ -13,8 +13,18 @@ import {
   type LocaleCode,
 } from '@/lib/locale-cookie'
 import { Toaster } from '@/components/common'
-// 实时汇率预热(2026-11-14 立):任意页面首屏即拉取,供全站金额换算
+// 实时汇率预热 + 展示货币首帧口径播种(2026-11-14 立):任意页面首屏即拉取,
+// 供全站金额按即时汇率换算;SSR 口径经 cookie 从本文件传入。
 import { CurrencyRuntime } from '@/components/common/CurrencyRuntime'
+import {
+  DISPLAY_CURRENCY_KEY,
+  FX_SNAPSHOT_COOKIE,
+  normalizeDisplayCurrency,
+  parseFxSnapshot,
+  resolveDisplayCurrencyByLanguage,
+  setFxSnapshot,
+  setServerDisplayCurrency,
+} from '@/lib/display-currency'
 
 import './globals.css'
 // 2026-09-06 修复:KaTeX 数学公式样式改由 JS import 引入(替代 globals.css 的 CSS @import,
@@ -233,7 +243,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   // API —— src/i18n/request.ts 已因同一原因构建期落回默认 locale。静态导出下不读 cookie,首帧 lang 用
   // DEFAULT_LOCALE,挂载后由 I18nProvider 纠正;服务端模式(next build + next start)行为不变。
   const isStaticExport = process.env.EXPORT_STATIC === 'true' || process.env.GITHUB_PAGES === 'true'
-  const cookieLocale = isStaticExport ? undefined : (await cookies()).get(LOCALE_COOKIE)?.value
+  const cookieStore = isStaticExport ? null : await cookies()
+  const cookieLocale = cookieStore?.get(LOCALE_COOKIE)?.value
   const locale: LocaleCode = isSupportedLocale(cookieLocale) ? cookieLocale : DEFAULT_LOCALE
   // 逐请求 CSP nonce 的**消费端**(2026-10-30 立机制,2026-10-31 补消费):proxy.ts 把同一份
   // nonce 同时写进请求头 x-nonce 与响应头 CSP;Next 只给**它自己**生成的脚本打标,本文件里
@@ -241,10 +252,35 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   // unsafe-inline)下这两段被浏览器拦掉,表现为主题闪烁 + --z-* / sidebar 宽度等 CSS 变量不生效。
   // 静态导出无请求期(headers() 不可用):那一侧的 CSP 由托管层配静态策略(见 build-static.mjs
   // 里 proxy.ts 的移出说明),这里与上面 cookies 同一短路口径。
-  const nonce = isStaticExport ? undefined : ((await headers()).get('x-nonce') ?? undefined)
+  const requestHeaders = isStaticExport ? null : await headers()
+  const nonce = requestHeaders?.get('x-nonce') ?? undefined
+  // 展示货币(2026-11-14 立):偏好由 CurrencySwitcher 镜像进 cookie,这里决定 SSR 首屏口径,
+  // 否则刷新后服务端只能按 CNY 直出,与客户端所选币种不一致。
+  // auto = 跟随浏览器语言:服务端按 Accept-Language 判定(en* → USD,其余 → CNY),
+  // 客户端水合前从 <html data-currency-effective> 读同一值 ⇒ 两侧首帧一致。
+  // 汇率快照 cookie 让 SSR 直出的静态金额也能换算;缺失时回落原币种(不猜汇率)。
+  const selectedDisplayCurrency = normalizeDisplayCurrency(
+    isStaticExport ? undefined : cookieStore?.get(DISPLAY_CURRENCY_KEY)?.value,
+  )
+  const effectiveDisplayCurrency = resolveDisplayCurrencyByLanguage(
+    selectedDisplayCurrency,
+    isStaticExport ? undefined : requestHeaders?.get('accept-language'),
+  )
+  const initialFxRates = isStaticExport
+    ? null
+    : parseFxSnapshot(cookieStore?.get(FX_SNAPSHOT_COOKIE)?.value)
+  // 服务端组件层(与本文件同一模块实例)也播种:SSR 里由服务端组件直接格式化的金额同口径。
+  // 客户端组件层由 CurrencyRuntime 经 props 再播种一次(两层是不同模块实例)。
+  setServerDisplayCurrency(selectedDisplayCurrency, effectiveDisplayCurrency)
+  setFxSnapshot(initialFxRates)
 
   return (
-    <html lang={locale} suppressHydrationWarning>
+    <html
+      lang={locale}
+      data-currency={selectedDisplayCurrency}
+      data-currency-effective={effectiveDisplayCurrency}
+      suppressHydrationWarning
+    >
       <body className="font-sans antialiased">
         {/*
           Bootstrap script(React hydrate 前同步执行):
@@ -558,7 +594,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             <QueryProvider>
               <TooltipProvider>
                 <GlobalHooksProvider>
-                  <CurrencyRuntime />
+                  <CurrencyRuntime
+                    initialCurrency={selectedDisplayCurrency}
+                    initialEffective={effectiveDisplayCurrency}
+                    initialRates={initialFxRates}
+                  />
                   {/*
                     GlobalShell 提供真全局骨架:左侧 Sidebar + 内容槽 + 右侧 AISidePanel + PWA 提示。
                     所有路由组((main)/(marketing)/(auth)/sso/h5/forbidden)共享同一套全局组件,

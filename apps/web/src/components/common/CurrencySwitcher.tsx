@@ -7,9 +7,8 @@ import * as React from 'react'
 import { useExchangeRates } from '@/hooks/use-exchange-rates'
 import {
   formatRateLine,
+  getActiveCurrency,
   getSelectedCurrency,
-  markDisplayCurrencyHydrated,
-  resolveEffectiveCurrency,
   setSelectedCurrency,
   type CurrencyCode,
 } from '@/lib/display-currency'
@@ -18,25 +17,21 @@ import { cn } from '@/lib/utils'
 /**
  * 展示货币一键切换(2026-11-14 立)。
  *
- * USD / CNY / USDT 三段切换;偏好持久化到 localStorage。切换后整页 reload:
- * 全站金额既有 SSR 直出、也有纯函数格式化,reload 是让所有展示点同时生效的
- * 最小可靠方案(见 @/lib/display-currency 头注)。
+ * USD / CNY / USDT 三段切换;偏好写入 localStorage + cookie(见 @/lib/display-currency)。
+ * 切换后整页 reload:布局已按 cookie 决定 SSR 口径,汇率快照也在 cookie 里,
+ * 因此重载后全站金额(含服务端直出的静态价格)会同时按新币种渲染。
  *
  * 计费不受影响:平台仍以 CNY 为扣费基准,这里只换展示币种。
  */
 const OPTIONS: CurrencyCode[] = ['USD', 'CNY', 'USDT']
 
 export function CurrencySwitcher({ className }: { className?: string }) {
+  // 订阅汇率查询:数据到达后触发重渲染,标题里的实时汇率与生效币种随之更新。
+  // 首帧口径由根布局写入的 cookie(data-currency / data-currency-effective)播种,
+  // 服务端与客户端首帧一致,不会水合错位。
   const { data } = useExchangeRates()
-  // 首帧固定按 CNY 渲染(与服务端一致);挂载后再读取本地偏好,避免水合错位
-  const [selected, setSelected] = React.useState<CurrencyCode | 'auto'>('auto')
-  const [mounted, setMounted] = React.useState(false)
-  React.useEffect(() => {
-    markDisplayCurrencyHydrated()
-    setSelected(getSelectedCurrency())
-    setMounted(true)
-  }, [])
-  const active = mounted ? resolveEffectiveCurrency(selected) : 'CNY'
+  const selected = getSelectedCurrency()
+  const active = getActiveCurrency()
   const rateLine = formatRateLine()
   const staleHint = data?.stale ? ' · 非实时(上游不可用)' : ''
   const title = `展示货币(实际扣费以人民币结算) · ${
