@@ -157,6 +157,87 @@ export function deriveSanctioned() {
   }
 }
 
+// Y-71(临时派生检出寿命闸@2026-11-14):**孤儿壳**维。
+// 立因(实测):git 的回收面只遍历 `git worktree list`,H2 也只读这份 porcelain —— 二者都
+// 看不见"目录还在、`.git` 指针文件还在、但它指向的 gitdir 已不存在"的壳:git 已经不认它
+// (不在 list 里)⇒ `git worktree prune` 无能为力;H2 读的是 git 的账面 ⇒ 也不报。
+// §12d 的例外「派生检出到 scratch 用完即 prune」被曲解成「建了不 prune」时,这种壳正是
+// 长期躺尸的形态。merge-wt/d1b-wt/ihui-wt-replay 那批躺尸(11-14 复盘)就是这一族。
+// 判据:目录里有 `.git` **文件**(linked worktree 指针,不是主仓的 `.git` 目录),指针指向的
+// gitdir 不存在 ⇒ 孤儿壳。mtime 账龄 = 量化"躺了多久":孤儿壳账龄 ≥ 48h 才点名(它是残骸,
+// 不会"正在被用",不像落点外的活检出必须先核实归属);账龄 < 48h 只计数 inGrace(可能是
+// 某个刚死、尚在宽限的检出,防刚 prune 完主仓那侧、盘面还没回收的短暂窗口造风暴)。
+// ⚠️ 只报数不自动回收(warn,§12e):孤儿壳虽是残骸,删除动作仍归归属席自决或人工确认后
+// `worktree remove --force + prune`;本尺子只把"躺了多久"量出来挂 guardian 到人信。
+// 扫描面 = 本仓 sanctioned scratch 下的派生检出落点(§26 只在申报/合法落点内扫,不越权
+// 全盘递归)。深度封顶 4:派生检出不会埋得更深,封顶防在超大目录树上空转。
+const ORPHAN_LEASE_MAX_AGE_HOURS = 48
+const ORPHAN_SHELL_SCAN_ROOTS = ['.box-agent-scratch', '.DevEnv/Temp', '.worktrees']
+const ORPHAN_SHELL_MAX_DEPTH = 4
+
+export function scanOrphanWorktreeShells(
+  repoRoot,
+  { maxAgeHours = ORPHAN_LEASE_MAX_AGE_HOURS, now = Date.now(), scanRoots: scanRootsOverride } = {},
+) {
+  const violations = []
+  const inGrace = []
+  const roots = (scanRootsOverride ?? ORPHAN_SHELL_SCAN_ROOTS)
+    .map((r) => join(repoRoot, r))
+    .filter((r) => existsSync(r))
+  if (!roots.length) return { violations, inGrace }
+  for (const scanRoot of roots) {
+    walkOrphanShells(scanRoot, scanRoot, 0, {
+      violations,
+      inGrace,
+      maxAgeHours,
+      now,
+    })
+  }
+  return { violations, inGrace }
+}
+
+function walkOrphanShells(dir, scanRoot, depth, acc) {
+  let entries = []
+  try {
+    entries = readdirSync(dir, { withFileTypes: true })
+  } catch {
+    return
+  }
+  // 有 `.git` 文件 ⇒ 这是一个 linked worktree 落点,判它是不是孤儿壳(不再往下递归:
+  // 检出内部不该再套检出,§26 不穿透)
+  if (entries.some((e) => e.name === '.git' && e.isFile())) {
+    const gf = join(dir, '.git')
+    let content = ''
+    try {
+      content = readFileSync(gf, 'utf8').trim()
+    } catch {
+      content = ''
+    }
+    if (content.startsWith('gitdir:')) {
+      const target = content.slice('gitdir:'.length).trim()
+      const abs = resolve(dir, target)
+      if (!existsSync(abs)) {
+        let ageHours = 0
+        try {
+          ageHours = Math.max(0, (acc.now - statSync(dir).mtimeMs) / 3600_000)
+        } catch {
+          ageHours = 0
+        }
+        const rec = { path: dir, brokenGitdir: abs, ageHours: Math.floor(ageHours) }
+        if (ageHours >= acc.maxAgeHours) acc.violations.push({ kind: 'orphan-worktree-shell', ...rec })
+        else acc.inGrace.push(rec)
+      }
+    }
+    return
+  }
+  if (depth >= ORPHAN_SHELL_MAX_DEPTH) return
+  for (const e of entries) {
+    if (!e.isDirectory()) continue
+    if (e.name === '.git' || e.name === 'node_modules') continue
+    walkOrphanShells(join(dir, e.name), scanRoot, depth + 1, acc)
+  }
+}
+
 /**
  * H1:盘根一级条目对账。
  * 返回 `{ violations, undetermined }` —— **两桶不得并**(头注 ①):盘根读不到是"没看清",
@@ -517,6 +598,68 @@ export function selfTest() {
     assert(v.length === 1 && v[0].path === 'G:/elsewhere/wt', `实得 ${JSON.stringify(v)}`)
   })
 
+  // Y-71:H4 孤儿壳判据。用 mkScratch 造真目录树(带断链 .git 文件),走 scanOrphanWorktreeShells。
+  t('H4 孤儿壳:.git 指向不存在的 gitdir ⇒ 点名;账龄超阈才违规,宽限内只计数', () => {
+    const dir = mkScratch('hyg-h4-')
+    try {
+      const scanRoot = join(dir, 'scratch-root')
+      // 造一个孤儿壳:.git 文件指向不存在的 gitdir
+      const orphan = join(scanRoot, 'dead-wt')
+      mkdirSync(orphan, { recursive: true })
+      writeFileSync(join(orphan, '.git'), 'gitdir: ' + join(dir, 'no-such-gitdir') + '\n')
+      // 把孤儿壳 mtime 拨到 72h 前(超 48h 阈)⇒ 违规
+      const old = new Date(Date.now() - 72 * 3600_000)
+      utimesSync(orphan, old, old)
+      // 造一个链接有效的检出(.git 指向真实存在的 gitdir)⇒ 不是孤儿壳
+      const realGitdir = join(dir, 'real-gitdir')
+      mkdirSync(realGitdir, { recursive: true })
+      const valid = join(scanRoot, 'live-wt')
+      mkdirSync(valid, { recursive: true })
+      writeFileSync(join(valid, '.git'), 'gitdir: ' + realGitdir + '\n')
+      // 造一个宽限内孤儿壳(mtime 拨到 1h 前)⇒ inGrace 不点名
+      const fresh = join(scanRoot, 'fresh-wt')
+      mkdirSync(fresh, { recursive: true })
+      writeFileSync(join(fresh, '.git'), 'gitdir: ' + join(dir, 'gone-fresh') + '\n')
+
+      const r = scanOrphanWorktreeShells(dir, { scanRoots: ['scratch-root'] })
+      assert(r.violations.length === 1, `应点名 1 个超龄孤儿壳,实得 ${JSON.stringify(r)}`)
+      assert(r.violations[0].path === orphan, `点名对象错了:${r.violations[0]?.path}`)
+      assert(r.violations[0].ageHours >= 72, `账龄必须量出来(>=72h),实得 ${r.violations[0]?.ageHours}`)
+      assert(r.violations[0].brokenGitdir.includes('no-such-gitdir'), '必须记断链目标')
+      // 宽限内的孤儿壳只计数
+      assert(r.inGrace.some((g) => g.path === fresh), `宽限孤儿壳必须只计数:${JSON.stringify(r.inGrace)}`)
+      // 链接有效的检出不是孤儿壳(既不在违规也不在宽限)
+      assert(!r.violations.some((v) => v.path === valid), '链接有效不得误判孤儿壳')
+      assert(!r.inGrace.some((g) => g.path === valid), '链接有效不得进宽限')
+    } finally {
+      rmScratch(dir)
+    }
+  })
+
+  t('H4 主仓式 .git 目录(非文件)不判孤儿壳', () => {
+    const dir = mkScratch('hyg-h4b-')
+    try {
+      const scanRoot = join(dir, 'scratch-root')
+      const mainLike = join(scanRoot, 'main-like')
+      mkdirSync(join(mainLike, '.git'), { recursive: true }) // .git 是**目录** = 主仓式
+      writeFileSync(join(mainLike, 'f.txt'), 'x')
+      const r = scanOrphanWorktreeShells(dir, { scanRoots: ['scratch-root'] })
+      assert(r.violations.length === 0 && r.inGrace.length === 0, `主仓式 .git 目录不得判孤儿壳:${JSON.stringify(r)}`)
+    } finally {
+      rmScratch(dir)
+    }
+  })
+
+  t('H4 扫描根不存在 ⇒ 0 违规(不越权、不空转)', () => {
+    const dir = mkScratch('hyg-h4c-')
+    try {
+      const r = scanOrphanWorktreeShells(dir, { scanRoots: ['no-such-root'] })
+      assert(r.violations.length === 0 && r.inGrace.length === 0, `不存在的扫描根须 0:${JSON.stringify(r)}`)
+    } finally {
+      rmScratch(dir)
+    }
+  })
+
   t('currentDriveRoot 与 config.roots 的键同形(反斜杠收尾)', () => {
     const r = currentDriveRoot(join(REPO_ROOT, 'scripts'))
     // 右侧必须走同一个归一出口(normalizeRootKey),不得手抄归一式 —— 2026-10-12 盘符
@@ -623,12 +766,17 @@ async function main() {
   const wtUndetermined = porcelain === null || porcelain === undefined || derivedMissing
   const wtWhy = derivedMissing ? '派生合法落点失败(resolveGitdir 不可用)⇒ 不判红,免得把外置 gitdir 喊成待回收' : 'git worktree list 取不到'
   const wtViolations = wtUndetermined ? [] : auditWorktreeRegistry(porcelain, policy, derived)
+  // Y-71:孤儿壳维(盘上像检出但 .git 链接已断,git prune 与 H2 双盲)。账龄超阈才计违规,
+  // 宽限内只计数(可能是刚死、盘面尚未回收的短暂窗口,防造风暴)。
+  const orphanScan = scanOrphanWorktreeShells(REPO_ROOT)
+  const orphanViolations = orphanScan.violations
+  const orphanInGrace = orphanScan.inGrace
   const undetermined = [
     ...rootUndetermined,
     ...contentUndetermined,
     ...(wtUndetermined ? [{ kind: 'undetermined', root: '(worktree 登记面)', why: wtWhy }] : []),
   ]
-  const violationCount = all.length + contentStray.length + wtViolations.length
+  const violationCount = all.length + contentStray.length + wtViolations.length + orphanViolations.length
   // verdict 顺序:有真违规才 red;否则有未判定就 undetermined(拒绝出合格证);全绿才 green。
   // notApplicable **不参与** verdict(它既不是指控也不是合格证,是一句"这一维本机没得量")。
   const verdict = violationCount ? 'red' : undetermined.length ? 'undetermined' : 'green'
@@ -645,6 +793,8 @@ async function main() {
           diskRootStray: all.length,
           declaredContentStray: contentStray.length,
           worktreeOutside: wtViolations.length,
+          orphanWorktreeShell: orphanViolations.length,
+          orphanWorktreeShellInGrace: orphanInGrace.length,
           diskRootUndetermined: rootUndetermined.length,
           declaredContentUndetermined: contentUndetermined.length,
           worktreeUndetermined: wtUndetermined ? 1 : 0,
@@ -652,7 +802,7 @@ async function main() {
           declaredContentInGrace: contentGrace.length,
           declaredContentSkippedReparse: contentSkippedReparse.length,
         },
-        violations: [...all, ...contentStray, ...wtViolations],
+        violations: [...all, ...contentStray, ...wtViolations, ...orphanViolations],
         undetermined,
         notApplicable,
       }),
@@ -675,6 +825,19 @@ async function main() {
       ? '⇒ 登记项已失效:git worktree prune'
       : '⇒ 先核实归属(可能是他人在飞的隔离检出),确认无人使用才 worktree remove + prune'
     console.log(`  🚨 worktree 落点外: ${v.path}${v.prunable ? ' (prunable)' : ''} ${remedy}`)
+  }
+  // Y-71:孤儿壳点名(账龄超阈)。出路措辞按"残骸 vs 需核实"分档:孤儿壳的 gitdir 已断,
+  // git 已不认它 ⇒ 不是"正在被用"的活检出,但删除仍归归属席自决,不自动回收。
+  for (const v of orphanViolations) {
+    console.log(
+      `  🚨 孤儿壳(派生检出 .git 链接已断,git prune 与 worktree 登记面双盲): ${v.path}` +
+        ` (账龄 ${v.ageHours}h,断链目标 ${v.brokenGitdir}) ⇒ 归属席自决:确认无人使用后 rm -rf 该壳 + git worktree prune;本尺子不自动回收`,
+    )
+  }
+  if (orphanInGrace.length) {
+    console.log(
+      `  ℹ️ 孤儿壳宽限中(账龄未超 ${ORPHAN_LEASE_MAX_AGE_HOURS}h,只报数不点名):${orphanInGrace.length} 处`,
+    )
   }
   for (const u of undetermined) {
     console.log(`  ⚠️ 未判定: ${u.root} —— ${u.why}`)

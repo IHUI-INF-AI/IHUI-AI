@@ -227,8 +227,15 @@ test('T10b 消费侧:违规 kind 词汇表两侧对齐 —— H3 新 kind 有专
     'LABEL 必须认识 H3 的 kind(否则信文把"申报目录内项目外流"喊成"请核对尺子与本守护是否同代")',
   )
   assert.match(g, /未识别的违规类别 kind=/, '"未识别类别单独报名"的兜底必须还在(新 kind 再来时不许被顺手当旧型渲染)')
+  // Y-71:H4 孤儿壳新 kind 必须有专属措辞 + 生产方字面量与消费方逐字同形(防落兜底)
+  assert.match(
+    g,
+    /'orphan-worktree-shell': \(v\) =>/,
+    'LABEL 必须认识 H4 孤儿壳的 kind(否则信文把孤儿壳喊成"请核对尺子与本守护是否同代")',
+  )
   const src = readFileSync(GATE, 'utf8')
   assert.match(src, /kind: 'stray-content-in-declared-dir'/, '生产方产出的 kind 字面量与消费方词汇表逐字同形')
+  assert.match(src, /kind: 'orphan-worktree-shell'/, 'H4 孤儿壳 kind 字面量两侧逐字同形')
 })
 
 test('T13 消费侧:告警去重身份用档位而不是原始计数(实测 34 封、30 分钟一封的成因)', () => {
