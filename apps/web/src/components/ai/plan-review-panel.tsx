@@ -77,6 +77,11 @@ interface PlanReviewPanelProps {
   /** 修改(回退到草稿)时触发(兼容既有审批回调) */
   onModify?: () => void
   /**
+   * 「修改」时把评审意见交给调用方发回同一会话(留空 = 请 Agent 自行说明要调整的地方)。
+   * 与 onModify 并存:后者是既有审批回调,新回调才是真正打通重规划闭环的出口。
+   */
+  onRevise?: (feedback: string) => void
+  /**
    * D98④:PR 入口复用 D15 数据 —— 调用方传入环境面板同一 PR URL
    * (snapshot.pullRequest.url),本面板只做跳转展示,不另建 PR 数据面/查询。
    * 缺省不渲染入口(既有调用方零改动)。
@@ -117,12 +122,15 @@ export function PlanReviewPanel({
   onPhaseChange,
   onApprove,
   onModify,
+  onRevise,
   pullRequestUrl,
   pullRequestNumber,
 }: PlanReviewPanelProps) {
   const t = useTranslations('planReview')
   // 非受控默认从 review 起步(计划产出即进入评审)
   const [internalPhase, setInternalPhase] = React.useState<PlanPhase>('review')
+  // 评审意见:只在 review 阶段收集,打回后清空(重规划失败再回评审时不携带旧意见)
+  const [feedback, setFeedback] = React.useState('')
   const phase = controlledPhase ?? internalPhase
   const phaseIdx = PLAN_PHASES.indexOf(phase)
 
@@ -130,11 +138,15 @@ export function PlanReviewPanel({
     (target: PlanPhase) => {
       if (!canTransitionPlanPhase(phase, target)) return
       if (target === 'approved' || target === 'executing') onApprove?.()
-      if (target === 'draft' && phase === 'review') onModify?.()
+      if (target === 'draft' && phase === 'review') {
+        onModify?.()
+        onRevise?.(feedback)
+        setFeedback('')
+      }
       onPhaseChange?.(target)
       if (controlledPhase === undefined) setInternalPhase(target)
     },
-    [phase, onApprove, onModify, onPhaseChange, controlledPhase],
+    [phase, onApprove, onModify, onRevise, feedback, onPhaseChange, controlledPhase],
   )
 
   const actions = PHASE_ACTIONS[phase]
@@ -226,6 +238,17 @@ export function PlanReviewPanel({
               ))}
             </ol>
           </>
+        )}
+        {/* 评审意见:只有评审阶段可填;点「修改」时随打回一起发回同一会话 */}
+        {phase === 'review' && (
+          <textarea
+            data-testid="plan-revision-feedback"
+            aria-label={t('revisionLabel')}
+            placeholder={t('revisionPlaceholder')}
+            value={feedback}
+            onChange={(e) => setFeedback(e.target.value)}
+            className="min-h-[64px] w-full resize-y rounded-lg border bg-background px-3 py-2 text-body outline-none transition-colors placeholder:text-muted-foreground focus:border-primary"
+          />
         )}
       </div>
       {/* 阶段动作条:批准/修改/回退/开始执行/标记完成,随 phase 切换 */}
