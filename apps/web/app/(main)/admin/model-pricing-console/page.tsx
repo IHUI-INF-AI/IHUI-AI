@@ -152,6 +152,7 @@ export default function PricingConsolePage() {
   const [editOut, setEditOut] = React.useState('')
   const [auditModel, setAuditModel] = React.useState<string | null>(null)
   const [profitDays, setProfitDays] = React.useState(30)
+  const [profitGroupBy, setProfitGroupBy] = React.useState<'model' | 'provider'>('model')
 
   const profitRange = React.useCallback((days: number) => {
     const to = new Date()
@@ -212,10 +213,10 @@ export default function PricingConsolePage() {
   })
 
   const profitModels = useQuery({
-    queryKey: ['pricing-profit-models', profitDays],
+    queryKey: ['pricing-profit-groups', profitDays, profitGroupBy],
     queryFn: async () => {
       const r = await fetchApi<ProfitReport>(
-        `${BASE}/profit?groupBy=model&limit=10&${profitRange(profitDays)}`,
+        `${BASE}/profit?groupBy=${profitGroupBy}&limit=10&${profitRange(profitDays)}`,
       )
       if (!r.success) throw new Error(r.error)
       return r.data
@@ -401,6 +402,20 @@ export default function PricingConsolePage() {
                 近 {d} 天
               </button>
             ))}
+            <span className="ml-3 text-muted-foreground">分组</span>
+            {(['model', 'provider'] as const).map((g) => (
+              <button
+                key={g}
+                onClick={() => setProfitGroupBy(g)}
+                className={`rounded-sm border px-2 py-0.5 ${
+                  profitGroupBy === g
+                    ? 'border-primary text-primary'
+                    : 'border-border text-muted-foreground'
+                }`}
+              >
+                {g === 'model' ? '按模型' : '按渠道'}
+              </button>
+            ))}
             <span className="ml-auto text-muted-foreground">
               成本覆盖率 {profit.data ? fmtPct(profit.data.totals.costCoverage) : '—'}
               {profit.data && profit.data.totals.costCoverage < 1
@@ -452,7 +467,7 @@ export default function PricingConsolePage() {
                 <table className="w-full text-xs">
                   <thead>
                     <tr className="text-left text-muted-foreground">
-                      <th className="px-2 py-1">模型</th>
+                      <th className="px-2 py-1">{profitGroupBy === 'model' ? '模型' : '渠道'}</th>
                       <th className="px-2 py-1">调用</th>
                       <th className="px-2 py-1">实收</th>
                       <th className="px-2 py-1">成本(估算)</th>
