@@ -354,10 +354,6 @@ const toChatScreenMessage = (m: ChatMessageWithSteer): ChatScreenMessageWithReas
   pinnedAt: m.pinnedAt ?? null,
   bookmarkedAt: m.bookmarkedAt ?? null,
   flagTargetId: m.id,
-  // 失败轮透传:error + errorCode —— 错误卡目录化(D-AI-3)用 errorCode 出目录标题 +
-  // 具体建议动作;缺了这两个,目录化判据在 mobile-rn 静默退化成兜底文案。
-  error: m.error,
-  errorCode: m.errorCode,
   // 推理过程随消息一起透传(历史/流式消息均可能带 reasoning,渲染思考过程展开块用)
   reasoning: m.reasoning,
   // G-166:交代字段同样透传(历史消息由 metadata 水合,流式消息由 SSE 回调累积)
@@ -1548,7 +1544,7 @@ export function ChatScreen() {
         }
         // 失败轮要"可辨认":此前只 toast,那条空 assistant 气泡既不进上下文也不给出口,
         // 界面上看成一轮"回答完了"。标记后由 renderMessage 渲染错误卡片 + 重试。
-        setMessages((prev) => applyStreamError(prev, formatted.message, formatted.errorCode))
+        setMessages((prev) => applyStreamError(prev, formatted.message))
         setIsStreaming(false)
         abortRef.current = null
         if (formatted.severity === 'auth') {

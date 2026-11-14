@@ -29,7 +29,8 @@ type SegmenterCtor = new (
   options?: { granularity?: 'grapheme' | 'word' | 'sentence' },
 ) => { segment(input: string): Iterable<{ segment: string }> }
 
-function splitGraphemes(text: string): string[] {
+/** 按字素簇切分(供切批层复用:流式打字机切点须落字素簇边界,与 BUG-52 同源)。 */
+export function splitGraphemes(text: string): string[] {
   // 不依赖 lib 的 Intl.Segmenter 类型声明,避免 tsconfig lib 版本差异导致 tsc 报错。
   const Segmenter = (Intl as unknown as { Segmenter?: SegmenterCtor }).Segmenter
   if (typeof Segmenter === 'function') {

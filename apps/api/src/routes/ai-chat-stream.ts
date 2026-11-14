@@ -33,12 +33,10 @@ import { config } from '../config/index.js'
 import { buildSseCorsHeaders } from '../plugins/cors-origin.js'
 import {
   createMessage,
-  ensureChatSyncStreamMessage,
   findConversationById,
   patchConversationMetadata,
   replaceMessages,
   setConversationAdditionalDirectories,
-  writeChatSyncStreamSnapshot,
 } from '../db/chat-queries.js'
 // F-300(2026-11-13):绑定时刻落 {messageId, mode, workspacePath} —— 路径过登记根
 // realpath 归一、档位取服务端权限行,回调只按 messageId 读(不再读会话级 workspacePath)。
@@ -84,7 +82,6 @@ import {
 } from '../utils/sse-stream-registry.js'
 import { getReplayWindowStatus, isStreamActive } from '../utils/sse-replay-buffer.js'
 import { appendElementPackFrame } from '../db/element-pack-queries.js'
-import { isChatSyncMessageId } from '../db/chat-sync-rev-queries.js'
 // 票71 剩余缺口①:广播入参类型取 ws-broadcast 的发射契约(单源,不另抄形状)。
 // import type 编译后擦除 ⇒ 路由不因类型依赖把插件运行时(ioredis/rooms)拉进本模块。
 import type {
@@ -134,9 +131,7 @@ function terminalReasonFromFinishReason(finishReason: string | undefined): ChatS
  *  1. **帧形状只来自 @ihui/types 的构造器**:本文件不手拼帧、不写第二份帧名/字段常量;
  *     广播入口复用 ws-broadcast 的三枚装饰器(rev 分配仍由载体唯一负责)。
  *  2. **只报全量 snapshot,不报 delta**:snapshot 自包含(契约 §2 第 3 条),丢一帧由下一帧
- *     直接覆盖,不需要端侧缓存重投;delta 链一断就是 gap。
- *     G-20261114:流中占位行已由 created 帧幂等建进 chat_messages、并随每帧 snapshot
- *     全量写回,所以 resync 在流进行中就能拉到权威快照(下面这段旧注记已失效)。
+ *     直接覆盖,不需要端侧缓存重投;delta 链一断就是 gap(而流未落库时 resync 拉不到快照)。
  *  3. **按字符阈值聚合,不用定时器**:每累计 `minChars` 个字符发一帧,流收尾 flush 尾巴。
  *     帧数 ≈ 内容长度/阈值,确定性可测;定时器会让"最后一帧"与终态帧的先后依赖调度。
  *
@@ -144,13 +139,6 @@ function terminalReasonFromFinishReason(finishReason: string | undefined): ChatS
  * 不投影渲染面"在 `apps/web/src/stores/chat.ts` 的 applyChatSync 里(SSE 面是生成端的权威本)。
  */
 export const CHAT_SYNC_STREAM_FRAME_MIN_CHARS = 64
-
-/**
- * G-20261114:形态判定收在 `../db/chat-sync-rev-queries.js` 的
- * `isChatSyncMessageId`(服务端唯一出口):created/patched/terminal 三条腿与
- * ai-callback-worker 的降级落库共用,不存在「生成腿拦了、终态腿 / worker 照用」
- * 的门禁代差。22P02 静默丢帧链与 fail-closed 理由见该函数头注。
- */
 
 export interface ChatSyncStreamFrameEmitter {
   appendContent(delta: string): void
@@ -160,24 +148,13 @@ export interface ChatSyncStreamFrameEmitter {
    * 终态帧必须排在它之后(终态 rev = 链头)。
    */
   flush(): Promise<void>
-  /**
-   * G-20261114:本次流是否真的发过 created(含 DB 占位行落地)。
-   * terminal 腿据此判定「这条消息是否参与 chat-sync」—— 零 delta / created 失败时
-   * 整条腿从未存在,发 terminal 只会让端侧排 gap → resync 404,并让 worker 换 id。
-   * 必须在 flush() 的 chain resolve 之后读(createdApplied 在异步链里置位)。
-   */
-  hasCreated(): boolean
 }
 
 function createChatSyncStreamFrameEmitter(input: {
   conversationId: string
   messageId: string
   memberUserIds: readonly string[]
-  broadcastCreated: (
-    input: ChatMessageCreatedBroadcastInput,
-    /** true = 随 snapshot 幂等重发:首次 created 已落地,不重建 DB 行 */
-    repeat?: boolean,
-  ) => unknown
+  broadcastCreated: (input: ChatMessageCreatedBroadcastInput) => unknown
   broadcastPatched: (input: ChatMessagePatchedBroadcastInput) => Promise<unknown>
   minChars?: number
   /** 诊断出口(帧发射失败);不得反噬主链 —— 下一帧 snapshot 天然自愈 */
@@ -189,12 +166,6 @@ function createChatSyncStreamFrameEmitter(input: {
   let sentContent = ''
   let sentReasoning = ''
   let createdSent = false
-  /**
-   * G-20261114:created 腿(含 chat_messages 占位行建行)是否真正落地。
-   * broadcastCreated 现在不只是发一帧,还负责让 rev 账本的 FK 有行可指;
-   * 它失败时发 patched 只会撞 FK / 给端侧制造 gap ⇒ 一律压住,等下个 delta 重试。
-   */
-  let createdApplied = false
   /** 帧链:rev 分配是服务端账户,乱序发帧会把端侧 rev 链打乱 ⇒ 逐帧串行 */
   let chain: Promise<void> = Promise.resolve()
 
@@ -209,13 +180,6 @@ function createChatSyncStreamFrameEmitter(input: {
   const enqueueCreated = (): void => {
     if (createdSent) return
     createdSent = true
-    // G-20261114:created 帧同时是 chat_messages 流式占位行的建行依据,不能只声明
-    // "这条消息存在"(空 content 会在 created 与首个 snapshot 之间留下 DB 空气泡:
-    // 另一台设备恰在此刻拉历史就看到一条空回复)。故带上入队时刻的全量初面。
-    // 捕获快照而非在 chain 执行时读闭包:chain 是异步漂移的,后者会让"初面"
-    // 混进后续 delta,与捕获时刻的语义不再同形。
-    const initialContent = content
-    const initialReasoning = reasoning
     chain = chain.then(async () => {
       try {
         await input.broadcastCreated({
@@ -223,10 +187,10 @@ function createChatSyncStreamFrameEmitter(input: {
           memberUserIds: input.memberUserIds,
           messageId: input.messageId,
           role: 'assistant',
-          content: initialContent,
-          ...(initialReasoning.length > 0 ? { reasoning: initialReasoning } : {}),
+          // 初面只声明"这条消息存在";内容由后续 snapshot 帧推进。空串不是缺省:
+          // created 的载荷是完整初面,此刻服务端确实还没有内容。
+          content: '',
         })
-        createdApplied = true
       } catch (err) {
         // 广播失败 ⇒ 允许下一个 delta 重试(否则端侧永远等不到可应用的行)
         createdSent = false
@@ -245,30 +209,6 @@ function createChatSyncStreamFrameEmitter(input: {
     chain = chain.then(async () => {
       // 排队期间已被上一帧覆盖(两次入队捕获同一快照)⇒ 消耗 rev 但不改内容是无意义帧
       if (nextContent === sentContent && nextReasoning === sentReasoning) return
-      // created 腿(含 DB 占位行)未落地 ⇒ 端侧没有可应用的行、rev 账本 FK 也必撞。
-      // 压住不发,由下一个 delta / flush 重试 created 后全量自愈(不静默吞帧:onError 已出声)。
-      if (!createdApplied) return
-      // G-20261114:created 只发一次时,晚订阅 / WS 断线重连的旁观端会永久卡在
-      // 「消息不存在 ⇒ gap」。契约内核对 snapshot 同样要求 surface 存在,
-      // 「snapshot 可跨 gap」只跨 rev 跳号、不跨缺行。故随每枚 snapshot
-      // 幂等重发一次带全量内容的 created:已有行的端判 duplicate 不覆盖,
-      // 缺行的端一步补齐 created + 全量正文。首次已建 DB 行,重发不写库。
-      try {
-        await input.broadcastCreated(
-          {
-            conversationId: input.conversationId,
-            memberUserIds: input.memberUserIds,
-            messageId: input.messageId,
-            role: 'assistant',
-            content: nextContent,
-            ...(nextReasoning.length > 0 ? { reasoning: nextReasoning } : {}),
-          },
-          true,
-        )
-      } catch (err) {
-        // 重发失败不阻断 snapshot(下一帧还会重发);只出声,绝不静默吞。
-        report('created', err)
-      }
       try {
         await input.broadcastPatched({
           conversationId: input.conversationId,
@@ -304,18 +244,9 @@ function createChatSyncStreamFrameEmitter(input: {
       maybeSend()
     },
     flush() {
-      // G-20261114:坐标齐备就要发 created,哪怕零 delta(上游错误 / 客户端中止)。
-      // terminal 是流级终态,错误路径必须让另一端知道「生成结束了」;若因无内容
-      // 而不建行,端侧收 terminal 时消息不存在 ⇒ gap → resync 404、账本无行
-      // rev=0、worker 降级 createMessage 换第二个 uuid(根因 1 的旁路)。
-      // 空初面由 worker 的 updateMessage 补内容;旧实现 worker 本就会落一条
-      // assistant 行,这里只是把它的 id 统一到广播坐标系,不新增空气泡种类。
-      if (!createdSent) enqueueCreated()
+      if (!createdSent && (content.length > 0 || reasoning.length > 0)) enqueueCreated()
       enqueuePatched()
       return chain
-    },
-    hasCreated() {
-      return createdApplied
     },
   }
 }
@@ -934,58 +865,19 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
     // message:created/patched 帧投递到任意在线用户的连接上(跨用户内容投递)。
     // 正常调用方两值恒同(web/taro 都传本登录态),行为面零变化;被改判的只有伪造值。
     const chatSyncMemberUserId = request.userId
-    // G-20261114:messageId 现在直接作 chat_messages.id / rev 账本 FK,形态必须先判。
-    // 非法值 ⇒ 整条 chat-sync 腿降级并出声(SSE 主链与其余写路径零变化)。
-    const chatSyncMessageId = opts.metadata?.messageId
-    const chatSyncIdUsable = isChatSyncMessageId(chatSyncMessageId)
-    if (chatSyncMessageId && !chatSyncIdUsable) {
-      request.log.warn(
-        { messageId: chatSyncMessageId, conversationId: opts.metadata?.conversationId },
-        'chat-sync 降级:metadata.messageId 非合法 uuid,不建流式占位行/不发帧',
-      )
-    }
     const chatSyncFrame =
       replayKey &&
       opts.metadata?.conversationId &&
-      chatSyncMessageId &&
-      chatSyncIdUsable &&
+      opts.metadata?.messageId &&
       chatSyncMemberUserId &&
       typeof server.broadcastChatMessageCreated === 'function' &&
       typeof server.broadcastChatMessagePatched === 'function'
         ? createChatSyncStreamFrameEmitter({
             conversationId: opts.metadata.conversationId,
-            messageId: chatSyncMessageId,
+            messageId: opts.metadata.messageId,
             memberUserIds: [chatSyncMemberUserId],
-            broadcastCreated: async (frame, repeat) => {
-              // 首次:先建 DB 占位行,再发 created。frame.messageId 就是
-              // chat_messages.id;反序会让紧随其后的 patched 的 rev 分配撞 FK 违例。
-              // 归属已由本路由 isConversationOwnedBy 在写路径前核过,此处不再反推身份。
-              // repeat(随 snapshot 幂等重发)不写库:行已在,每帧一次事务是纯浪费;
-              // 内容由紧随其后的 broadcastPatched 全量写回。
-              if (!repeat) {
-                await ensureChatSyncStreamMessage({
-                  id: frame.messageId,
-                  conversationId: frame.conversationId,
-                  content: frame.content,
-                  ...(frame.reasoning !== undefined ? { reasoning: frame.reasoning } : {}),
-                })
-              }
-              return server.broadcastChatMessageCreated(frame)
-            },
-            broadcastPatched: async (frame) => {
-              // 顺序铁律:先把 snapshot 全量写回 DB 行,再让载体分配 rev/广播。
-              // 反序时端侧拿到 rev=N 立刻 gap-resync 会读到 rev<N 的旧内容 ⇒ 正文倒退。
-              // 契约 §2「rev=N 的 snapshot 自包含 ≤N 全部内容」由这一写兑现。
-              if ((frame.kind ?? 'snapshot') === 'snapshot' && typeof frame.content === 'string') {
-                await writeChatSyncStreamSnapshot({
-                  id: frame.messageId,
-                  conversationId: frame.conversationId,
-                  content: frame.content,
-                  ...(frame.reasoning !== undefined ? { reasoning: frame.reasoning } : {}),
-                })
-              }
-              return server.broadcastChatMessagePatched(frame)
-            },
+            broadcastCreated: (frame) => server.broadcastChatMessageCreated(frame),
+            broadcastPatched: (frame) => server.broadcastChatMessagePatched(frame),
             onError: (phase, err) => {
               request.log.warn(
                 {
@@ -1442,19 +1334,13 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
       finishSession(session)
       ;(session.raw ?? raw).end()
       // 票 B02 生产端终态切片:终态帧走 WS 房间广播(at-least-once),与 SSE 字节流正交,
-      // 故在响应收尾之后 fire-and-forget。坐标缺一(降级流 / 无 metadata)或 messageId
-      // 非合法 uuid ⇒ 本就不参与 chat-sync,不发帧;发射失败只出声,不回写已完成的响应。
-      // G-20261114 两道门禁:
-      //  ① 三条腿共用 isChatSyncMessageId(非法 id 会让 readChatSyncRev 打 PG uuid 列
-      //     抛 22P02,又被 fire-and-forget 吞成静默失败);
-      //  ② 三型帧同进同退 —— created 未落地(零 delta / 建行失败)时 terminal 也不发,
-      //     否则端侧排 gap → resync 404、账本无行返 rev=0、worker 降级换第二个 uuid。
+      // 故在响应收尾之后 fire-and-forget。坐标缺一(降级流 / 无 metadata)⇒ 本就不参与
+      // chat-sync(与 replayKey 同一条门槛),不发帧;发射失败只出声,绝不回写已完成的响应。
       //
       // 票71 剩余缺口①(2026-10-31):先冲掉 created/patched 的尾巴,再发终态 ——
       // 终态的 rev = 终结时的链头(只读账本),排在未落地的 patched 之前会让端侧把终态判 stale。
-      const emitter = chatSyncFrame || null
-      const flushedFrames: Promise<void> = emitter ? emitter.flush() : Promise.resolve()
-      if (terminalReason !== null && replayKey && isChatSyncMessageId(opts.metadata?.messageId)) {
+      const flushedFrames: Promise<void> = chatSyncFrame ? chatSyncFrame.flush() : Promise.resolve()
+      if (terminalReason !== null && replayKey) {
         // 收尾时刻快照:let 在 then 闭包里会丢窄化(闭包可能在后续赋值后才执行)
         const reason = terminalReason
         const conversationId = opts.metadata?.conversationId
@@ -1471,23 +1357,14 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
           typeof server.broadcastChatMessageTerminal === 'function'
         ) {
           void flushedFrames
-            .then(async () => {
-              // 三型帧同进同退:flush 的 chain 已 resolve,此时 hasCreated() 才是终态。
-              // 零 delta / created 失败 ⇒ 这条消息在实时链路里从未存在,发终态只会
-              // 让端侧排 gap → 404、worker 降级落库换第二个 uuid(根因 1 的旁路)。
-              if (!emitter?.hasCreated()) return
-              const payload = {
+            .then(() =>
+              server.broadcastChatMessageTerminal({
                 conversationId,
                 memberUserIds: [memberUserId],
                 messageId,
                 reason,
-              }
-              // G-20261114:终态帧只发一枚时,WS 抖动单独丢它 ⇒ 另一端永久
-              // 「生成中」。连发两枚(at-least-once),端侧 duplicate / 终态粘性
-              // 天然吸收;两枚都在 flushedFrames 之后,rev 链头不变。
-              await server.broadcastChatMessageTerminal(payload)
-              return server.broadcastChatMessageTerminal(payload)
-            })
+              }),
+            )
             .catch((err: unknown) => {
               request.log.warn(
                 { err, conversationId, messageId, reason },

@@ -180,31 +180,6 @@ describe('① patched 帧 ⇒ 页级消息更新(经 hook 投影)', () => {
     rerender({ paused: false })
     expect(result.current).toHaveLength(1)
   })
-
-  it('terminal 帧经 hook 投影到页级行(另一端不再停在「生成中」)', () => {
-    sub = attachUserBroadcast(makeDeps())
-    const { result } = renderHook(() => {
-      const [messages, setMessages] = useState<ChatMessage[]>([])
-      useRemoteChatSyncMessages({ conversationId: C1, setMessages })
-      return messages
-    })
-
-    act(() => {
-      feed(createdFrame())
-      feed(
-        toUserBroadcastFrame(
-          messageTerminalEvent({ conversationId: C1, messageId: M1, rev: 0, reason: 'stop' }),
-        ),
-      )
-    })
-    // 只断言 store 里的 terminal 是不够的:帧进 store 而页面零投影时,这条会红。
-    expect(result.current).toHaveLength(1)
-    expect(result.current[0]).toMatchObject({
-      id: M1,
-      content: 'A',
-      terminal: { rev: 0, reason: 'stop' },
-    })
-  })
 })
 
 describe('② 重复帧幂等:不重复发布/不重复追加', () => {
@@ -300,7 +275,7 @@ describe('③ 未知帧:点名计数且不写状态', () => {
     ])
   })
 
-  it('terminal 帧:进内核并落终态标记,不再判 unwired(G-20261114)', () => {
+  it('terminal 帧:本票不投影终态,但必须点名(静默丢 = 最高频失效型)', () => {
     const deps = makeDeps()
     sub = attachUserBroadcast(deps)
     feed(createdFrame())
@@ -311,12 +286,9 @@ describe('③ 未知帧:点名计数且不写状态', () => {
         messageTerminalEvent({ conversationId: C1, messageId: M1, rev: 0, reason: 'stop' }),
       ),
     )
-    expect(chatSyncRnStoreApi.getState().messagesOf(C1)[0]?.terminal).toEqual({
-      rev: 0,
-      reason: 'stop',
-    })
-    expect(chatSyncRnStoreApi.getState().counters()).toMatchObject({ unwired: 0, applied: 2 })
-    expect(deps.undetermined).toEqual([])
+    expect(chatSyncRnStoreApi.getState().messagesOf(C1)[0]?.terminal).toBeUndefined()
+    expect(chatSyncRnStoreApi.getState().counters()).toMatchObject({ unwired: 1 })
+    expect(deps.undetermined).toEqual([{ event: 'message:terminal', reason: 'terminal' }])
   })
 
   it('多会话按 room.conversationId 分桶:切会话不串、不重订', () => {
@@ -378,24 +350,6 @@ describe('④ 投影层纯函数(不依赖 React)', () => {
     const next = applyChatSyncSurfaceMerge(local, plan!)
     expect(next[0]).toMatchObject({ id: 'svr-4', content: 'AB', pinnedAt: '2026-10-31' })
     expect(next).not.toBe(local)
-  })
-
-  it('终态投影:terminal 进 update 且 apply 保留;不带 terminal 的 snapshot 零变化', () => {
-    const terminal = { rev: 0, reason: 'stop' } as const
-    const local: ChatMessage[] = [{ id: 'svr-5', role: 'assistant', content: '全文' }]
-    const plan = planChatSyncSurfaceMerge(local, [
-      { id: 'svr-5', role: 'assistant', content: '全文', terminal },
-    ])
-    // 内容没变也要发 update —— 终态是独立状态位,不是 content 的附属字段。
-    expect(plan?.updates).toEqual([{ index: 0, content: '全文', terminal }])
-    const next = applyChatSyncSurfaceMerge(local, plan!)
-    expect(next[0]?.terminal).toEqual(terminal)
-
-    // 反向牙:同样内容但不带 terminal ⇒ 零变化。若实现把终态清成 undefined,
-    // 这里就会误判出一条 update(另一端又回到「生成中」)。
-    expect(
-      planChatSyncSurfaceMerge(next, [{ id: 'svr-5', role: 'assistant', content: '全文' }]),
-    ).toBeNull()
   })
 })
 
