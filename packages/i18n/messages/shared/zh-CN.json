@@ -2685,6 +2685,664 @@
             }
           }
         }
+      },
+      "errorCatalog": {
+        "102": {
+          "title": "请求时间校验失败",
+          "action": "校准系统时间后重试"
+        },
+        "121": {
+          "title": "组织数据正在迁移",
+          "action": "迁移完成后重试"
+        },
+        "47902": {
+          "title": "本轮对话次数已达上限",
+          "action": "稍后再试或升级套餐"
+        },
+        "ACCOUNT_RESTRICTED": {
+          "title": "账户受限",
+          "action": "联系管理员"
+        },
+        "PROVIDER_BUSY": {
+          "title": "服务提供商繁忙",
+          "action": "请稍后重试"
+        },
+        "CREDIT_APPROVAL_REQUIRED": {
+          "title": "这次消耗需要你确认",
+          "action": "确认后再重试，未确认不会调用生图"
+        },
+        "ALREADY_CLAIMED": {
+          "title": "该任务已被他人认领",
+          "action": "改领其他任务，或等对方释放后再试"
+        },
+        "API_BRIDGE_ERROR": {
+          "title": "接口桥接调用失败",
+          "action": "稍后重试"
+        },
+        "BAD_PARAMS": {
+          "title": "参数不完整或无效",
+          "action": "修改后重试"
+        },
+        "BOARD_FULL": {
+          "title": "团队任务表已满",
+          "action": "清理已完成条目后再添加"
+        },
+        "BUDGET_EXHAUSTED": {
+          "title": "额度已用尽",
+          "action": "稍后再试或换用免费模型"
+        },
+        "CAPTURE_FAILED": {
+          "title": "工具执行失败",
+          "action": "重试"
+        },
+        "CDP_DISABLED": {
+          "title": "浏览器调试通道不可用",
+          "action": "开启后重试"
+        },
+        "CDP_UNAVAILABLE": {
+          "title": "浏览器调试通道不可用",
+          "action": "开启后重试"
+        },
+        "CHAT_MODE_TOOL_BLOCKED": {
+          "title": "当前对话模式已拦截该操作",
+          "action": "切换到构建模式后重试"
+        },
+        "CONCURRENT_MODIFICATION": {
+          "title": "文件已被并发修改",
+          "action": "重新读取后再写，或确认后强制覆盖"
+        },
+        "CONCURRENCY_LIMIT_EXCEEDED": {
+          "title": "请求过于频繁",
+          "action": "稍后重试"
+        },
+        "CONTEXT_TOO_LONG": {
+          "title": "上下文过长",
+          "action": "精简上下文"
+        },
+        "CRON_NOT_SUPPORTED": {
+          "title": "定时配置无效",
+          "action": "修改定时配置后重试"
+        },
+        "DANGEROUS_COMMAND": {
+          "title": "该操作已被安全策略拦截",
+          "action": "修改后重试"
+        },
+        "DANGEROUS_COMMAND_BLOCKED": {
+          "title": "该操作已被安全策略拦截",
+          "action": "修改后重试"
+        },
+        "DELEGATE_ERROR": {
+          "title": "子任务执行失败",
+          "action": "重试"
+        },
+        "DELEGATE_NO_RESULT": {
+          "title": "子任务执行失败",
+          "action": "重试"
+        },
+        "DELEGATE_TIMEOUT": {
+          "title": "请求超时",
+          "action": "重试"
+        },
+        "DEP_MISSING": {
+          "title": "依赖缺失",
+          "action": "安装依赖后重试"
+        },
+        "DOWNLOAD_FAILED": {
+          "title": "网络请求失败",
+          "action": "检查网络后重试"
+        },
+        "DUAL_MODE": {
+          "title": "参数不完整或无效",
+          "action": "修改后重试"
+        },
+        "EMPTY_AUDIO": {
+          "title": "参数不完整或无效",
+          "action": "修改后重试"
+        },
+        "EMPTY_DIFF": {
+          "title": "参数不完整或无效",
+          "action": "修改后重试"
+        },
+        "EMPTY_OLD_STRING": {
+          "title": "参数不完整或无效",
+          "action": "修改后重试"
+        },
+        "EMPTY_RESULT": {
+          "title": "没有可展示的结果",
+          "action": "修改后重试"
+        },
+        "EMPTY_TASKS": {
+          "title": "参数不完整或无效",
+          "action": "修改后重试"
+        },
+        "ENCODING_ERROR": {
+          "title": "文件读写失败",
+          "action": "检查文件后重试"
+        },
+        "ENGINE_ERROR": {
+          "title": "服务内部处理错误",
+          "action": "重试"
+        },
+        "ENGINE_UNAVAILABLE": {
+          "title": "模型服务暂时不可用",
+          "action": "换模型或稍后重试"
+        },
+        "EXECUTION_EXCEPTION": {
+          "title": "服务内部处理错误",
+          "action": "重试"
+        },
+        "EXECUTION_FAILED": {
+          "title": "服务内部处理错误",
+          "action": "重试"
+        },
+        "EXECUTOR_DISABLED": {
+          "title": "该功能已停用",
+          "action": "联系管理员"
+        },
+        "EXEC_POLICY_DENIED": {
+          "title": "该操作已被安全策略拦截",
+          "action": "修改后重试"
+        },
+        "COMMAND_POLICY_DENIED": {
+          "title": "这条命令被策略拒绝",
+          "action": "换一条命令，或让管理员调整策略"
+        },
+        "COMMAND_POLICY_UNDETERMINED": {
+          "title": "这条命令的策略还没判出来",
+          "action": "先不要执行，等策略可读后再试"
+        },
+        "EXEC_POLICY_NEEDS_APPROVAL": {
+          "title": "需要确认后才会执行",
+          "action": "去确认"
+        },
+        "FALLBACK_FAILED": {
+          "title": "模型服务暂时不可用",
+          "action": "换模型或稍后重试"
+        },
+        "FETCH_FAILED": {
+          "title": "网络请求失败",
+          "action": "检查网络后重试"
+        },
+        "FILE_NOT_FOUND": {
+          "title": "未找到目标资源",
+          "action": "检查后重试"
+        },
+        "FILE_TOO_LARGE": {
+          "title": "文件过大",
+          "action": "精简文件后重试"
+        },
+        "FORBIDDEN": {
+          "title": "无权更新该任务",
+          "action": "先认领该任务，或联系当前持有者"
+        },
+        "FORM_CHANNEL_UNAVAILABLE": {
+          "title": "业务表单请求仅在对话流内可用",
+          "action": "请勿重试该工具;需要这些信息时,直接在回复里向用户提问"
+        },
+        "GENERATION_FAILED": {
+          "title": "生成失败",
+          "action": "重试"
+        },
+        "GITHUB_API_ERROR": {
+          "title": "外部服务调用失败",
+          "action": "稍后重试"
+        },
+        "IMAGE_FETCH_FAILED": {
+          "title": "网络请求失败",
+          "action": "检查网络后重试"
+        },
+        "IMAGE_TOO_LARGE": {
+          "title": "图片过大",
+          "action": "压缩图片后重试"
+        },
+        "INTERNAL_AUTH_UNAVAILABLE": {
+          "title": "登录已过期",
+          "action": "重新登录"
+        },
+        "INTERNAL_ERROR": {
+          "title": "服务内部处理错误",
+          "action": "重试"
+        },
+        "INVALID_ARGS": {
+          "title": "参数不完整或无效",
+          "action": "修改后重试"
+        },
+        "INVALID_ARGUMENT": {
+          "title": "参数不完整或无效",
+          "action": "修改后重试"
+        },
+        "INVALID_CHART_TYPE": {
+          "title": "参数不完整或无效",
+          "action": "修改后重试"
+        },
+        "INVALID_CONFIG": {
+          "title": "参数不完整或无效",
+          "action": "修改后重试"
+        },
+        "INVALID_DATA": {
+          "title": "参数不完整或无效",
+          "action": "修改后重试"
+        },
+        "INVALID_OUTPUT_DIR": {
+          "title": "参数不完整或无效",
+          "action": "修改后重试"
+        },
+        "INVALID_PARAMS": {
+          "title": "参数不完整或无效",
+          "action": "修改后重试"
+        },
+        "INVALID_PR": {
+          "title": "参数不完整或无效",
+          "action": "修改后重试"
+        },
+        "INVALID_PROVIDER": {
+          "title": "模型服务暂时不可用",
+          "action": "换模型或稍后重试"
+        },
+        "INVALID_REPO": {
+          "title": "参数不完整或无效",
+          "action": "修改后重试"
+        },
+        "INVALID_STATUS": {
+          "title": "任务状态无效",
+          "action": "改用 pending、claimed、done 或 blocked"
+        },
+        "INVALID_TRIGGER": {
+          "title": "定时配置无效",
+          "action": "修改定时配置后重试"
+        },
+        "IS_A_DIRECTORY": {
+          "title": "参数不完整或无效",
+          "action": "修改后重试"
+        },
+        "LLM_ERROR": {
+          "title": "模型服务暂时不可用",
+          "action": "换模型或稍后重试"
+        },
+        "LLM_FAILED": {
+          "title": "模型服务暂时不可用",
+          "action": "换模型或稍后重试"
+        },
+        "MEDIA_COUNT_EXCEEDED": {
+          "title": "媒体文件数量超出限制",
+          "action": "精简附件后重试"
+        },
+        "MEMORY_DREAM_FAILED": {
+          "title": "记忆梦境整理失败",
+          "action": "请稍后重试"
+        },
+        "MEMORY_FORGET_FAILED": {
+          "title": "记忆遗忘清理失败",
+          "action": "请稍后重试"
+        },
+        "MEMORY_PROCEDURAL_SAVE_FAILED": {
+          "title": "工具用法记忆保存失败",
+          "action": "请稍后重试"
+        },
+        "MEMORY_RECALL_FAILED": {
+          "title": "记忆检索失败",
+          "action": "请稍后重试"
+        },
+        "MEMORY_SAVE_FAILED": {
+          "title": "记忆保存失败",
+          "action": "请稍后重试"
+        },
+        "MEMORY_TOPICS_FAILED": {
+          "title": "记忆主题生成失败",
+          "action": "请稍后重试"
+        },
+        "MISSING_DATA": {
+          "title": "缺少必填参数",
+          "action": "补充参数后重试"
+        },
+        "MISSING_PARAMS": {
+          "title": "缺少必填参数",
+          "action": "补充参数后重试"
+        },
+        "MISSING_PATH_PARAM": {
+          "title": "缺少必填参数",
+          "action": "补充参数后重试"
+        },
+        "MISSING_SECRET": {
+          "title": "未配置可用的模型服务",
+          "action": "先配置模型服务"
+        },
+        "MISSING_TITLE": {
+          "title": "缺少必填参数",
+          "action": "补充参数后重试"
+        },
+        "MODEL_NOT_CONFIGURED": {
+          "title": "未配置可用的模型服务",
+          "action": "先配置模型服务"
+        },
+        "MODEL_REFUSED": {
+          "title": "当前模型拒绝了本次请求",
+          "action": "换模型"
+        },
+        "MODEL_RETIRED": {
+          "title": "模型已永久退役,不再提供调用",
+          "action": "改用模型列表中在架的档位"
+        },
+        "MODEL_STREAM_IDLE": {
+          "title": "连接超时,响应已中断",
+          "action": "重试"
+        },
+        "MULTIPLE_MATCHES": {
+          "title": "参数不完整或无效",
+          "action": "修改后重试"
+        },
+        "NEEDS_INPUT_TIMEOUT": {
+          "title": "命令等待输入超时",
+          "action": "补答后重试"
+        },
+        "NESTING_DEPTH_EXCEEDED": {
+          "title": "结构层级超出可处理范围",
+          "action": "简化后重试"
+        },
+        "NETWORK_APPROVAL_DENIED": {
+          "title": "需要确认后才会执行",
+          "action": "去确认"
+        },
+        "NETWORK_ERROR": {
+          "title": "网络请求失败",
+          "action": "检查网络后重试"
+        },
+        "NOT_A_DIRECTORY": {
+          "title": "参数不完整或无效",
+          "action": "修改后重试"
+        },
+        "NOT_FOUND": {
+          "title": "未找到目标资源",
+          "action": "检查后重试"
+        },
+        "NO_FILE_VERSIONS": {
+          "title": "文件版本不可用",
+          "action": "选择版本后重试"
+        },
+        "OLD_STRING_NOT_FOUND": {
+          "title": "未找到目标资源",
+          "action": "检查后重试"
+        },
+        "PATH_NOT_ALLOWED": {
+          "title": "路径不在允许的范围内",
+          "action": "更换路径后重试"
+        },
+        "PATH_NOT_IN_WORKSPACE": {
+          "title": "路径不在允许的范围内",
+          "action": "更换路径后重试"
+        },
+        "PERMISSION_DENIED": {
+          "title": "没有执行该操作的权限",
+          "action": "联系管理员"
+        },
+        "PROVIDER_ERROR": {
+          "title": "模型服务暂时不可用",
+          "action": "换模型或稍后重试"
+        },
+        "PROVIDER_NOT_CONFIGURED": {
+          "title": "未配置可用的模型服务",
+          "action": "先配置模型服务"
+        },
+        "PROVIDER_QUOTA_EXHAUSTED": {
+          "title": "额度已用尽",
+          "action": "稍后再试或换用免费模型"
+        },
+        "PR_NOT_FOUND": {
+          "title": "未找到目标资源",
+          "action": "检查后重试"
+        },
+        "RATE_LIMITED": {
+          "title": "请求过于频繁",
+          "action": "稍后重试"
+        },
+        "REQUEST_TIMEOUT": {
+          "title": "请求超时",
+          "action": "重试"
+        },
+        "RESOURCE_NOT_REGISTERED": {
+          "title": "未找到目标资源",
+          "action": "检查后重试"
+        },
+        "RISK_CONFIRM_REQUIRED": {
+          "title": "需要确认后才会执行",
+          "action": "去确认"
+        },
+        "SCHEME_REJECTED": {
+          "title": "该地址不被允许访问",
+          "action": "更换地址后重试"
+        },
+        "SCREENSHOT_FAILED": {
+          "title": "工具执行失败",
+          "action": "重试"
+        },
+        "SENSITIVE_FILE_BLOCKED": {
+          "title": "该操作已被安全策略拦截",
+          "action": "修改后重试"
+        },
+        "SSRF_BLOCKED": {
+          "title": "该地址不被允许访问",
+          "action": "更换地址后重试"
+        },
+        "STEP_FAILED": {
+          "title": "工具执行失败",
+          "action": "重试"
+        },
+        "SUBAGENT_FAILED": {
+          "title": "子任务执行失败",
+          "action": "重试"
+        },
+        "TASK_CLOSED": {
+          "title": "该任务已结束或受阻",
+          "action": "选择其他任务"
+        },
+        "TASK_FAILED": {
+          "title": "子任务执行失败",
+          "action": "重试"
+        },
+        "TASK_NOT_FOUND": {
+          "title": "未找到该任务",
+          "action": "刷新任务列表后重试"
+        },
+        "TEXT_TOO_LONG": {
+          "title": "上下文过长",
+          "action": "精简上下文"
+        },
+        "TIMEOUT": {
+          "title": "请求超时",
+          "action": "重试"
+        },
+        "TOKEN_EXPIRED": {
+          "title": "登录已过期",
+          "action": "重新登录"
+        },
+        "TOOL_FAILED": {
+          "title": "工具执行失败",
+          "action": "重试"
+        },
+        "TOOL_MODE_UNAVAILABLE": {
+          "title": "该工具在当前运行模式不可用",
+          "action": "在网页端绑定工作区后重试,或改用等价的本地工具"
+        },
+        "TOOL_NOT_FOUND": {
+          "title": "未找到目标资源",
+          "action": "检查后重试"
+        },
+        "TOO_LARGE": {
+          "title": "文件过大",
+          "action": "精简文件后重试"
+        },
+        "TRIAL_QUOTA_EXCEEDED": {
+          "title": "额度已用尽",
+          "action": "稍后再试或换用免费模型"
+        },
+        "UNKNOWN_API_TOOL": {
+          "title": "未找到目标资源",
+          "action": "检查后重试"
+        },
+        "UNSUPPORTED_FORMAT": {
+          "title": "不支持该文件格式",
+          "action": "更换文件格式后重试"
+        },
+        "UNSUPPORTED_IMAGE_FORMAT": {
+          "title": "不支持该文件格式",
+          "action": "更换文件格式后重试"
+        },
+        "VERSION_NOT_FOUND": {
+          "title": "文件版本不可用",
+          "action": "选择版本后重试"
+        },
+        "VERSION_SELECTOR_REQUIRED": {
+          "title": "文件版本不可用",
+          "action": "选择版本后重试"
+        },
+        "VERSION_TOO_LOW": {
+          "title": "版本过低",
+          "action": "升级到最新版本"
+        },
+        "VIDEO_FETCH_FAILED": {
+          "title": "网络请求失败",
+          "action": "检查网络后重试"
+        },
+        "WRITE_FAILED": {
+          "title": "文件读写失败",
+          "action": "检查文件后重试"
+        },
+        "DELETE_FAILED": {
+          "title": "文件删除失败",
+          "action": "释放文件占用后重试"
+        },
+        "SNAPSHOT_UNREADABLE": {
+          "title": "快照内容不可读",
+          "action": "改用其他版本或放弃回滚"
+        },
+        "FILE_SCAN_PENDING": {
+          "title": "安全检查进行中",
+          "action": "等待安全检查完成后重试"
+        },
+        "FILE_SCAN_FAILED": {
+          "title": "安全检查失败",
+          "action": "稍后重试"
+        },
+        "FILE_SCAN_TIMEOUT": {
+          "title": "安全检查超时",
+          "action": "稍后重试"
+        },
+        "FILE_SCAN_UNSCANNABLE": {
+          "title": "该文件无法进行安全检查",
+          "action": "更换文件格式后重试"
+        },
+        "FILE_SCAN_BLOCKED": {
+          "title": "文件未通过安全检查",
+          "action": "更换文件后重试"
+        },
+        "file_scan_failed": {
+          "title": "安全检查失败",
+          "action": "稍后重试"
+        },
+        "file_content_rejected": {
+          "title": "文件内容未通过安全检查",
+          "action": "更换文件后重试"
+        },
+        "FILE_NOT_READY": {
+          "title": "文件尚未就绪",
+          "action": "稍候片刻再重试"
+        },
+        "file_not_ready": {
+          "title": "文件尚未就绪",
+          "action": "稍后重试"
+        },
+        "FILE_INTEGRITY_FAILED": {
+          "title": "文件完整性校验失败",
+          "action": "重新下载后重试"
+        },
+        "FILE_DISK_SPACE": {
+          "title": "本地磁盘空间不足",
+          "action": "清理磁盘空间后重试"
+        },
+        "FILE_STORAGE_INVALID": {
+          "title": "本地文件缓存不可用",
+          "action": "检查本地存储后重试"
+        },
+        "CHAT_SESSION_HISTORY_MISSING": {
+          "title": "会话历史缺失",
+          "action": "重新打开会话后重试"
+        },
+        "speaking_banned": {
+          "title": "当前处于禁言状态",
+          "action": "联系管理员了解详情"
+        },
+        "member_capacity_exceeded": {
+          "title": "成员数量已达上限",
+          "action": "移除部分成员或升级套餐"
+        },
+        "context_limit": {
+          "title": "请求内容过大",
+          "action": "精简内容后重试"
+        },
+        "invalid_arguments": {
+          "title": "提交的信息有误",
+          "action": "检查后重试"
+        },
+        "ADVISOR_BUDGET_EXHAUSTED": {
+          "title": "本次会话的顾问咨询次数已用尽",
+          "action": "在新会话里继续，或联系管理员提高咨询上限"
+        },
+        "ADVISOR_IDENTITY_REQUIRED": {
+          "title": "顾问咨询缺少属主与会话标识",
+          "action": "重新登录后再发起咨询"
+        },
+        "ADVISOR_MODEL_UNAVAILABLE": {
+          "title": "指定的顾问咨询模型调用失败",
+          "action": "改用其他模型，或稍后重试"
+        },
+        "ADVISOR_PROMPT_EMPTY": {
+          "title": "顾问咨询内容为空",
+          "action": "补上要咨询的问题后重试"
+        },
+        "ADVISOR_PROMPT_TOO_LONG": {
+          "title": "顾问咨询内容超出长度上限",
+          "action": "精简或拆分问题后重新咨询"
+        },
+        "BAD_MAX_TOKENS": {
+          "title": "maxTokens 参数不是整数",
+          "action": "填入一个正整数后重新渲染目录树"
+        },
+        "INSTANCE_NOT_VISIBLE": {
+          "title": "工作流实例不存在或对你不可见",
+          "action": "核对实例 ID，或改用该实例所属的账号"
+        },
+        "PRINCIPAL_REQUIRED": {
+          "title": "缺少调用者身份，已拒绝操作他人的设备",
+          "action": "重新登录后由本人重新发起该操作"
+        },
+        "RENDER_FAILED": {
+          "title": "目录树渲染失败",
+          "action": "缩小目录范围或调低 maxTokens 后重试"
+        },
+        "SCHEDULER_ERROR": {
+          "title": "定时任务列表读取失败",
+          "action": "稍后重试；持续失败请联系管理员检查调度服务"
+        },
+        "WORKFLOW_NOT_TRIGGERABLE": {
+          "title": "该工作流当前无法触发",
+          "action": "确认工作流存在、已启用且没有实例正在运行后重试"
+        },
+        "ADD_JOB_FAILED": {
+          "title": "定时任务注册失败",
+          "action": "稍后重试；持续失败请联系管理员检查调度服务"
+        },
+        "INVALID_CALLBACK": {
+          "title": "任务回调配置无效",
+          "action": "检查回调类型与参数后重试"
+        },
+        "SCHEDULER_UNAVAILABLE": {
+          "title": "调度器未启动",
+          "action": "稍后重试；持续失败请联系管理员启动调度服务"
+        },
+        "UNREADABLE": {
+          "title": "文件不可读",
+          "action": "检查文件权限与占用后重试"
+        }
       }
     },
     "messageVersion": {
