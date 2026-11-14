@@ -238,15 +238,22 @@ export function extractTokenUses(line) {
     // (否则会把同一行前一个键的形态套到当前取值上 —— 实测踩过)。
     const before = line.slice(Math.max(0, m.index - 80), m.index)
     const seg = before.slice(Math.max(before.lastIndexOf(','), before.lastIndexOf(';')) + 1)
-    const keyCtx = /([A-Za-z_$][\w$]*)\s*[:=]\s*\{?\s*(?:\([^)]*\)\s*=>\s*)?$/.exec(seg)
+    // 取值可能被包装:`withAlpha(<token>, 0.08)`、`` `${<token>}1A` ``、`{...cond ? a : b}`
+    // 都要能穿透到真正的键上,否则会把"带 alpha 的底"当成纯前景色(实测踩过)。
+    const wrapped = /(?:withAlpha|rgba?|hsla?)\(\s*$/.test(seg) || /`[^`]*\$\{\s*$/.test(seg)
+    const segKey = wrapped
+      ? (() => { const b = line.slice(0, Math.max(0, m.index)); const w = b.lastIndexOf('('); const t = b.lastIndexOf('`'); const cut = Math.max(w, t); return b.slice(Math.max(b.lastIndexOf(',', cut), b.lastIndexOf(';', cut)) + 1, cut) })()
+      : seg
+    const keyCtx = /([A-Za-z_$][\w$]*)\s*[:=]\s*\{?\s*(?:\([^)]*\)\s*=>\s*)?$/.exec(segKey)
     const keyName = keyCtx ? keyCtx[1] : null
 
-    // 底色位:显式底色键、`xxxBg` / `xxxBackground` 变量名 —— 它在做"底",不当前景判
+    // 底色位:显式底色键 / `xxxBg` 变量名 / withAlpha 包裹 —— 它在做"底",不当前景判。
+    // 注意 `fill` 不是底色:lucide 的 `fill={...}` 是图形填充色(前景),`backgroundColor` 才是底。
     const varName = /(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=[^;]*$/.exec(seg)
     const targetIsBg = !!varName && /(?:Bg|Background)$/.test(varName[1])
-    const keyIsBg = !!keyName && (/^(bg|fill|shadowColor|border|borderColor|backgroundColor|bgColor)$/.test(keyName)
+    const keyIsBg = !!keyName && (/^(bg|shadowColor|border|borderColor|backgroundColor|bgColor|trackColor|thumbColor)$/.test(keyName)
       || /(?:Bg|Background)$/.test(keyName))
-    if (targetIsBg || keyIsBg) {
+    if (targetIsBg || keyIsBg || /withAlpha\s*\(\s*$/.test(seg)) {
       out.push({ field: path, kind: 'bg', offset: m.index })
       continue
     }

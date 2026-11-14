@@ -2227,6 +2227,9 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-14**
+- 🐞 修正:audit-app-text-contrast TDZ 修复 + repl pendingQuestionRef 提升模块级 (56780a1d7f)
+
+**2026-11-14**
 - 🔧 その他:补齐溯源水印覆盖 + audit-app-text-contrast 同族配对 (fd8cb9c30a)
 
 **2026-11-14**
@@ -2554,10 +2557,6 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 
 **2026-11-13**
 - 🚀 機能/改善:18rpx(9px)→text-badge(10px),产品定档 plan_a 收尾 (a66404aeaa)
-
-**2026-11-13**
-- 🐞 修正:登录 429 人机验证挑战降级为友好退避,杜绝「做不了的 CAPTCHA」死锁 (4242eb014a)
-- 🚀 機能/改善:font-safe 腿自动落档 ai/special.tsx 38rpx→text-heading-sm(等值,零视觉变化) (5be8da1c2c)
 <!-- END RECENT UPDATES -->
 
 <p align="center">
