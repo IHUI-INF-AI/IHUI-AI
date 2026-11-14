@@ -85,7 +85,7 @@ export function AgentEditScreen({
           value={form.name}
           onChangeText={(v) => onChange('name', v)}
           placeholder={t('agentEdit.namePlaceholder')}
-          placeholderTextColor={tk.text.secondary}
+          placeholderTextColor={tk.text.tertiary}
           maxLength={100}
         />
 
@@ -96,7 +96,7 @@ export function AgentEditScreen({
           value={form.description}
           onChangeText={(v) => onChange('description', v)}
           placeholder={t('agentEdit.descPlaceholder')}
-          placeholderTextColor={tk.text.secondary}
+          placeholderTextColor={tk.text.tertiary}
           multiline
           textAlignVertical="top"
         />
@@ -108,7 +108,7 @@ export function AgentEditScreen({
           value={form.avatar}
           onChangeText={(v) => onChange('avatar', v)}
           placeholder={t('agentEdit.avatarPlaceholder')}
-          placeholderTextColor={tk.text.secondary}
+          placeholderTextColor={tk.text.tertiary}
           autoCapitalize="none"
         />
 
@@ -119,7 +119,7 @@ export function AgentEditScreen({
           value={form.cover}
           onChangeText={(v) => onChange('cover', v)}
           placeholder={t('agentEdit.coverPlaceholder')}
-          placeholderTextColor={tk.text.secondary}
+          placeholderTextColor={tk.text.tertiary}
           autoCapitalize="none"
         />
 
@@ -154,7 +154,7 @@ export function AgentEditScreen({
               value={form.price}
               onChangeText={(v) => onChange('price', v)}
               placeholder="0"
-              placeholderTextColor={tk.text.secondary}
+              placeholderTextColor={tk.text.tertiary}
               keyboardType="numeric"
               editable={!form.isFree}
             />
@@ -167,7 +167,7 @@ export function AgentEditScreen({
               value={form.sort}
               onChangeText={(v) => onChange('sort', v)}
               placeholder="0"
-              placeholderTextColor={tk.text.secondary}
+              placeholderTextColor={tk.text.tertiary}
               keyboardType="numeric"
             />
           </View>
@@ -192,7 +192,7 @@ export function AgentEditScreen({
           value={form.remark}
           onChangeText={(v) => onChange('remark', v)}
           placeholder={t('agentEdit.remarkPlaceholder')}
-          placeholderTextColor={tk.text.secondary}
+          placeholderTextColor={tk.text.tertiary}
           multiline
           textAlignVertical="top"
         />
@@ -333,7 +333,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.muted,
     },
     selectValue: { flex: 1, fontSize: rnType.title.size, color: tk.text.primary },
-    selectPlaceholder: { flex: 1, fontSize: rnType.title.size, color: tk.text.medium },
+    selectPlaceholder: { flex: 1, fontSize: rnType.title.size, color: tk.text.tertiary },
     selectHint: { fontSize: rnType.caption.size, color: tk.brand.DEFAULT },
     toggleRow: {
       marginTop: rnSpacing.md,

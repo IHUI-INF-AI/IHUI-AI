@@ -125,15 +125,7 @@ describe('D64④ miniapp 子任务帧消费链路', () => {
     it('流式执行过程列表渲染出口在位(pushStreamActivity 写入 streamActivities)', async () => {
       const src = await readFile(join(HERE, '../src/pkg-ai/ai/chat.tsx'), 'utf-8')
       expect(src).toContain('const [streamActivities, setStreamActivities]')
-      // 2026-11-13 改判:原断言锁的是**具体实现形态**(直接 setStreamActivities 追加),
-      // 而写入已收敛到唯一出口 commitActivities(为了 state 与镜像 ref 同批更新,
-      // 让工具行能按 toolCallId 原位 upsert)。这里改锁语义:
-      //   ① pushStreamActivity 仍存在且仍写 streamActivities(经 commitActivities);
-      //   ② 追加行为仍在(不是被改成覆盖)。
-      expect(src).toContain('const pushStreamActivity = useCallback(')
-      expect(src).toContain('const commitActivities = useCallback(')
-      expect(src).toContain('setStreamActivities(next)')
-      expect(src).toMatch(/commitActivities\(\(prev\) => \[\.\.\.prev, \{ id, text \}\]\)/)
+      expect(src).toContain('setStreamActivities((prev) => [...prev, { id, text }]')
     })
   })
 

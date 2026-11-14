@@ -942,8 +942,7 @@
       "agree": "동의",
       "disagree": "반대"
     },
-    "loadFailed": "불러오기 실패",
-    "admissionAhead": "앞에 {n}건 있습니다"
+    "loadFailed": "불러오기 실패"
   },
   "settings": {
     "title": "설정",
@@ -3707,7 +3706,6 @@
   "activity": {
     "empty": "활동이 없습니다",
     "endTime": "종료 시간",
-    "joining": "제출 중…",
     "loadFailed": "불러오기 실패",
     "participants": "참여 인원",
     "startTime": "시작 시간",
@@ -5061,7 +5059,7 @@
     "analysisEstimate": "약 {tokens} tokens · 난이도 {difficulty}",
     "analysisPickFirst": "먼저 시나리오를 선택하세요",
     "analysisSubmit": "분석 시작",
-    "noValidContent": "가져올 수 있는 유효한 내용이 없습니다"
+      "noValidContent": "가져올 수 있는 유효한 내용이 없습니다"
   },
   "permissionTier": {
     "label": "권한 등급",
@@ -7543,7 +7541,6 @@
     "wrongBookTitle": "틀림"
   },
   "activities": {
-    "cancelJoin": "참여 취소",
     "join": "지금 참여",
     "notFound": "찾을 수 없음"
   },

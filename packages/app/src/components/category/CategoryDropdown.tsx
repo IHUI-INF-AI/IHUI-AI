@@ -322,7 +322,7 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.primary,
     },
     triggerTextPlaceholder: {
-      color: tk.text.medium,
+      color: tk.text.tertiary,
     },
     countWrap: {
       height: 16,

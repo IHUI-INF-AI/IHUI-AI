@@ -13,7 +13,7 @@
  *  - 面板默认收起,点标题展开;查询失败时上层保持 ledger 为 null,本组件零占位。
  */
 import { useState } from 'react'
-import { StyleSheet, Text, View } from 'react-native'
+import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { rnGeometry, rnRadius } from '@ihui/design-tokens'
 import type { ContextLedger, ContextLedgerCategory } from '@ihui/shared'
 import { formatTokenCount } from '@ihui/shared/utils/format'
@@ -25,7 +25,6 @@ import {
 } from '../../utils/context-ledger'
 import { tokens } from '../../theme/active-tokens'
 import { rpx } from '../../utils/rpx'
-import { Tappable } from '@ihui/ui-native'
 
 export interface ContextLedgerPanelProps {
   ledger: ContextLedger
@@ -65,12 +64,9 @@ export function ContextLedgerPanel({ ledger, turnIndex }: ContextLedgerPanelProp
   const turnLabel = `第 ${turnIndex + 1} 轮`
   return (
     <View style={styles.card} testID="context-ledger-panel">
-      <Tappable
+      <Pressable
         accessibilityRole="button"
         accessibilityState={{ expanded }}
-        // 按压反馈(2026-11-13 修):折叠卡片的展开/收起是整块可点面,原来 style 是静态对象 ⇒
-        // 手指按下去界面毫无变化,用户会怀疑没点上而连点。与同族 CompactionBoundaryNote 的
-        // `opacity: pressed ? 0.7 : 1` 保持同一观感(§4 hover/active 只用轻微颜色/透明度变化)。
         style={styles.header}
         onPress={() => setExpanded((value) => !value)}
       >
@@ -81,7 +77,7 @@ export function ContextLedgerPanel({ ledger, turnIndex }: ContextLedgerPanelProp
           </Text>
         </View>
         <Text style={styles.toggle}>{expanded ? '收起' : '展开'}</Text>
-      </Tappable>
+      </Pressable>
       {expanded ? (
         <View style={styles.body}>
           {rows.map((row) => (

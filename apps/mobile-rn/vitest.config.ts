@@ -166,6 +166,18 @@ export default defineConfig({
       // app-root-background-focused-route / video-immersive-band 同型收集期失败。
       // src/lib/__tests__/ota-update.test.ts 的局部 vi.mock 工厂仍优先生效,替身只兜宿主层。
       'expo-updates': resolve(__dirname, 'tests/__mocks__/expo-updates.ts'),
+      // expo-audio 与 expo-blur / expo-updates 同一死法(D-AI-3 补,2026-11-13):真包入口
+      // 链式 import 'expo'(主包)的 winter runtime(expo/src/winter/runtime.ts 顶部
+      // require('./ImportMetaRegistry')),pnpm 严格布局下 vitest 解析期命中不了 ⇒ 任何
+      // transitively import 它的测试文件(chat-error-card-catalog-wiring 经
+      // ChatMessageList → VoiceBubble → platform/audio → expo-audio)在**收集期**整体
+      // 加载失败。收口在配置层,替身见 tests/__mocks__/expo-audio.ts。
+      'expo-audio': resolve(__dirname, 'tests/__mocks__/expo-audio.ts'),
+      // react-native-video 是原生模块,入口是 Flow 源码(`typeof` 注解),vitest 下
+      // 不替身 → `SyntaxError: Unexpected token 'typeof'`(与 react-native-restart 同型);
+      // chat-error-card-catalog-wiring 经 ChatMessageList → VideoPlayer 命中,
+      // 收集期整体失败。替身见 tests/__mocks__/react-native-video.ts。
+      'react-native-video': resolve(__dirname, 'tests/__mocks__/react-native-video.ts'),
       // react-native-restart 与本端其它原生包同一死法,但它是 2026-09-24 才加进 active-tokens.ts
       // 的依赖而**没同步本文件** ⇒ 既无 alias 也不在 inline:被外部化后由 Node 解析,其内部
       // require('react-native') 绕过 alias 命中真实 RN 的 Flow 源码 →

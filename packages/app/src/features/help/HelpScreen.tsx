@@ -79,7 +79,7 @@ export function HelpScreen({
             value={searchValue ?? ''}
             onChangeText={onSearchChange}
             placeholder={searchPlaceholder ?? t('help.searchPlaceholder')}
-            placeholderTextColor={tk.text.secondary}
+            placeholderTextColor={tk.text.tertiary}
             onFocus={() => setSearchFocused(true)}
             onBlur={() => setSearchFocused(false)}
             autoCapitalize="none"
@@ -107,7 +107,7 @@ export function HelpScreen({
                 value={feedbackName ?? ''}
                 onChangeText={onFeedbackNameChange}
                 placeholder={t('feedback.namePlaceholder')}
-                placeholderTextColor={tk.text.secondary}
+                placeholderTextColor={tk.text.tertiary}
                 autoCapitalize="none"
                 autoCorrect={false}
               />
@@ -117,7 +117,7 @@ export function HelpScreen({
                 value={feedbackContact ?? ''}
                 onChangeText={onFeedbackContactChange}
                 placeholder={t('feedback.contactPlaceholder')}
-                placeholderTextColor={tk.text.secondary}
+                placeholderTextColor={tk.text.tertiary}
                 autoCapitalize="none"
                 autoCorrect={false}
               />
@@ -127,7 +127,7 @@ export function HelpScreen({
                 value={feedbackContent ?? ''}
                 onChangeText={onFeedbackContentChange}
                 placeholder={t('feedback.contentPlaceholder')}
-                placeholderTextColor={tk.text.secondary}
+                placeholderTextColor={tk.text.tertiary}
                 multiline
               />
               <Text style={styles.feedbackTip}>{t('feedback.tip')}</Text>
@@ -187,7 +187,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     title: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.text.primary },
     errorBar: { paddingHorizontal: rnSpacing['sm-loose'], paddingVertical: rnSpacing.sm },
-    errorText: { fontSize: rnType.body.size, color: tk.danger.deepText },
+    errorText: { fontSize: rnType.body.size, color: tk.danger.DEFAULT },
     searchWrap: {
       paddingHorizontal: rnSpacing['sm-loose'],
       paddingTop: rnSpacing.sm,
@@ -220,7 +220,7 @@ function createStyles(tk: AppThemeTokens) {
       fontWeight: '700',
       color: tk.text.primary,
     },
-    toggle: { fontSize: rnType.heading.size, color: tk.success.deepText, marginLeft: rnSpacing.sm },
+    toggle: { fontSize: rnType.heading.size, color: tk.success.DEFAULT, marginLeft: rnSpacing.sm },
     answerText: {
       marginTop: rnSpacing.sm,
       fontSize: rnType.body.size,
@@ -262,7 +262,7 @@ function createStyles(tk: AppThemeTokens) {
     feedbackTip: {
       marginTop: rnSpacing.md,
       fontSize: rnType.label.size,
-      color: tk.text.medium,
+      color: tk.text.tertiary,
       lineHeight: rnType.label.lineHeight,
     },
     feedbackBtn: {
@@ -279,7 +279,7 @@ function createStyles(tk: AppThemeTokens) {
       fontWeight: '600',
       color: tk.brand.ctaForeground,
     },
-    feedbackOk: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.success.deepText },
+    feedbackOk: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.success.DEFAULT },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

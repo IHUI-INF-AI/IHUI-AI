@@ -131,7 +131,7 @@ export function EduShopScreen({
             />
           ) : courses.length === 0 && !coursesLoading ? (
             <EmptyState
-              icon={<Package size={26} color={tk.text.secondary} />}
+              icon={<Package size={26} color={tk.text.tertiary} />}
               title={t('eduShop.emptyCourses')}
               colorScheme={colorScheme}
             />
@@ -335,7 +335,7 @@ function createStyles(tk: AppThemeTokens) {
       gap: rnSpacing.sm,
     },
     courseTitle: { flex: 1, ...rnType.title, color: tk.text.primary },
-    meta: { fontSize: rnType.label.size, color: tk.text.medium },
+    meta: { fontSize: rnType.label.size, color: tk.text.tertiary },
     priceRow: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -345,11 +345,11 @@ function createStyles(tk: AppThemeTokens) {
     price: { ...rnType.title, color: tk.brand.cta },
     originalPrice: {
       fontSize: rnType.label.size,
-      color: tk.text.medium,
+      color: tk.text.tertiary,
       textDecorationLine: 'line-through',
       marginLeft: rnSpacing.sm,
     },
-    freeBadge: { ...rnType.body, color: tk.success.deepText, fontWeight: '600' },
+    freeBadge: { ...rnType.body, color: tk.success.DEFAULT, fontWeight: '600' },
     statusBadge: { fontSize: rnType.label.size, color: tk.text.secondary },
     buyBtn: {
       flexDirection: 'row',
@@ -390,7 +390,7 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.sm,
       backgroundColor: tk.danger.DEFAULT,
     },
-    dangerBtnText: { fontSize: rnType.body.size, color: tk.surface.onBrand, fontWeight: '600' },
+    dangerBtnText: { fontSize: rnType.body.size, color: tk.surface.light, fontWeight: '600' },
     modalOverlay: {
       flex: 1,
       backgroundColor: rnCssLight.black50,

@@ -15,8 +15,7 @@
  * 存储:Redis key=captcha:{challengeId} → JSON{answer,type} TTL 5min。
  * 频率限制:同一 IP 1 分钟内最多 10 次挑战请求。
  *
- * 降级:Redis 不可用时读写、删除/消费两侧同步降级到内存(F-313),
- *      否则 Redis 抖动期间会出现"写内存、读 Redis"导致验证码/一次性 token 全失效。
+ * 降级:Redis 不可用时回退内存。
  */
 
 import { randomBytes, randomInt } from 'node:crypto'
@@ -206,27 +205,35 @@ export class CaptchaService {
   /** 校验临时 token 是否有效(单次校验不消费,token 自然过期)。 */
   async verifyToken(token: string): Promise<boolean> {
     if (!token) return false
-    if (this.redis) {
-      try {
-        const r = await this.redis.exists(K_TOKEN(token))
-        if (r === 1) return true
-      } catch (e) {
-        logger.warn('captcha: verifyToken failed, used mem', { err: e })
+    if (!this.redis) {
+      const v = CaptchaService.memTokens.get(token)
+      if (!v) return false
+      if (v <= Date.now()) {
+        CaptchaService.memTokens.delete(token)
+        return false
       }
+      return true
     }
-    // Redis 未命中或异常:读内存兜底(F-313)
-    return CaptchaService.readMemToken(token)
+    try {
+      const r = await this.redis.exists(K_TOKEN(token))
+      return r === 1
+    } catch (e) {
+      logger.warn('captcha: verifyToken failed', { err: e })
+      return false
+    }
   }
 
-  /** 消费 token(一次性使用场景):两侧都删,任一命中即视为已消费。 */
+  /** 消费 token(一次性使用场景)。 */
   async consumeToken(token: string): Promise<void> {
     if (!token) return
-    CaptchaService.memTokens.delete(token)
-    if (!this.redis) return
+    if (!this.redis) {
+      CaptchaService.memTokens.delete(token)
+      return
+    }
     try {
       await this.redis.del(K_TOKEN(token))
     } catch (e) {
-      logger.warn('captcha: consumeToken failed, mem only', { err: e })
+      logger.warn('captcha: consumeToken failed', { err: e })
     }
   }
 
@@ -269,18 +276,13 @@ export class CaptchaService {
       setWithLRU(CaptchaService.memRate, ip, cur, MEM_RATE_MAX)
       return cur.count <= RATE_LIMIT_PER_MIN
     }
-    const key = K_RATE(ip)
     try {
+      const key = K_RATE(ip)
       const count = await this.redis.incr(key)
       if (count === 1) await this.redis.expire(key, RATE_LIMIT_WINDOW_SEC)
       return count <= RATE_LIMIT_PER_MIN
     } catch (e) {
-      // fail-open:Redis 全站故障时 fail-closed 会把登录全锁死;留结构化告警供运维定位。
-      logger.warn('captcha: rate limit check failed, allow', {
-        key,
-        reason: 'redis-error',
-        err: e,
-      })
+      logger.warn('captcha: rate limit check failed, allow', { err: e })
       return true
     }
   }
@@ -314,31 +316,33 @@ export class CaptchaService {
   }
 
   private async loadChallenge(id: string): Promise<{ answer: string; type: ChallengeType } | null> {
-    if (this.redis) {
-      try {
-        const raw = await this.redis.get(K_CHALLENGE(id))
-        if (raw) return JSON.parse(raw) as { answer: string; type: ChallengeType }
-      } catch (e) {
-        logger.warn('captcha: loadChallenge failed, used mem', { err: e })
+    if (!this.redis) {
+      const v = CaptchaService.memChallenges.get(id)
+      if (!v || v.expiresAt < Date.now()) {
+        if (v) CaptchaService.memChallenges.delete(id)
+        return null
       }
+      return { answer: v.answer, type: v.type }
     }
-    // Redis 未命中或异常:读内存兜底(F-313)
-    const v = CaptchaService.memChallenges.get(id)
-    if (!v || v.expiresAt < Date.now()) {
-      if (v) CaptchaService.memChallenges.delete(id)
+    try {
+      const raw = await this.redis.get(K_CHALLENGE(id))
+      if (!raw) return null
+      return JSON.parse(raw) as { answer: string; type: ChallengeType }
+    } catch (e) {
+      logger.warn('captcha: loadChallenge failed', { err: e })
       return null
     }
-    return { answer: v.answer, type: v.type }
   }
 
   private async deleteChallenge(id: string): Promise<void> {
-    // 两侧都删,任一命中即视为已消费(单次使用语义不依赖 Redis 可用性)。
-    CaptchaService.memChallenges.delete(id)
-    if (!this.redis) return
+    if (!this.redis) {
+      CaptchaService.memChallenges.delete(id)
+      return
+    }
     try {
       await this.redis.del(K_CHALLENGE(id))
     } catch (e) {
-      logger.warn('captcha: deleteChallenge failed, mem only', { err: e })
+      logger.warn('captcha: deleteChallenge failed', { err: e })
     }
   }
 
@@ -365,17 +369,6 @@ export class CaptchaService {
   >()
   private static readonly memTokens = new Map<string, number>()
   private static readonly memRate = new Map<string, { count: number; expiresAt: number }>()
-
-  /** 读内存兜底 token;过期即删,不续期。 */
-  private static readMemToken(token: string): boolean {
-    const expiresAt = CaptchaService.memTokens.get(token)
-    if (expiresAt === undefined) return false
-    if (expiresAt <= Date.now()) {
-      CaptchaService.memTokens.delete(token)
-      return false
-    }
-    return true
-  }
 
   /**
    * 定期清理过期内存降级条目(long-running server 有效)。

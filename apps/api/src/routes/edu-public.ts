@@ -391,6 +391,9 @@ export async function sendStudentReport(
     sections: flattenReportToSections(data),
     generatedAt: new Date(),
   })
+  if (!pdfResult.ok) {
+    return reply.status(503).send(error(503, '学习报告 PDF 生成失败,请稍后重试'))
+  }
   return reply
     .header('Content-Type', 'application/pdf')
     .header(

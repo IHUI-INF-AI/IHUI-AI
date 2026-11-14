@@ -393,7 +393,7 @@ function makeStyles() {
       gap: rnSpacing.sm,
       paddingVertical: rnSpacing['5xl'],
     },
-    errorText: { fontSize: rnType.bodySm.size, color: tokens.danger.deepText },
+    errorText: { fontSize: rnType.bodySm.size, color: tokens.danger.DEFAULT },
     retry: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tokens.text.primary },
     muted: { fontSize: rnType.label.size, color: tokens.text.secondary },
     rowTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
@@ -411,7 +411,7 @@ function makeStyles() {
     },
     statusText: { fontSize: rnType.caption.size, fontWeight: '600', color: tokens.text.secondary },
     rowMeta: { flexDirection: 'row', justifyContent: 'space-between', gap: rnSpacing.sm },
-    metaText: { fontSize: rnType.caption.size, color: tokens.text.medium },
+    metaText: { fontSize: rnType.caption.size, color: tokens.text.tertiary },
     pager: {
       flexDirection: 'row',
       alignItems: 'center',

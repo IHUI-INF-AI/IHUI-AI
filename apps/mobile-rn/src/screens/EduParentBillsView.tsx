@@ -26,7 +26,6 @@ import {
 } from '../lib/edu-parent-bills'
 import { EduParentBillsCard } from './EduParentBillsCard'
 import { EduParentStateView, createParentStyles } from './EduParentUi'
-import { toFriendlyOr } from '@ihui/shared/utils'
 
 interface Props {
   colorScheme: AppThemeMode
@@ -83,7 +82,7 @@ export function EduParentBillsView({ colorScheme, childRefs, onOpenChild }: Prop
       )
       setGroups(aggregateParentBills(childRefs, results))
     } catch (e) {
-      setError(toFriendlyOr(e, t('common.loadFailed')))
+      setError(e instanceof Error ? e.message : 'load failed')
     }
   }, [childRefs])
 

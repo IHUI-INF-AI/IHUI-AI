@@ -10,7 +10,6 @@
  * 公开导出面由 ./app.ts 这个 barrel 用 export * 原样递出,与拆分前逐名等值 —— 消费端不得因此改动。
  * 要加类型请加到对应域文件;不要让类型回到 app.ts(app.ts 只允许再导出)。
  */
-import type { ReactNode } from 'react'
 
 import type { AppIcon, TFunction } from './app-shared.js'
 import type { OnNavigate, OnToast } from './app-host-ports.js'
@@ -49,18 +48,6 @@ export interface StudyPlanScreenProps {
   colorScheme?: 'light' | 'dark'
   /** 宿主轻提示端口(展示字段 toast 与本回调无关,不得复用) */
   onToast: OnToast
-  /**
-   * 自定义卡片渲染(可选,2026-11-14 增补)。
-   * 为什么要有:小程序 study/plan 的卡片比共享卡片多「目标分钟 / 自定义页脚」两段,
-   * 而这两段是端内本地概念(课程名 vs 目标),共享契约不该为了少数端把它改名。
-   * 给了就用调用方节点,不给走默认卡片(零回归)。
-   */
-  renderItem?: (item: StudyPlanItem) => ReactNode
-  /**
-   * 固定底栏(可选,2026-11-14 增补)。承载「新增计划」等页面级主操作。
-   * 为什么要有:共享屏原先滚动区直接收尾,没有底栏槽位 ⇒ 带主操作按钮的端只能整页手抄。
-   */
-  renderFooter?: () => ReactNode
 }
 
 /** 课程目录项(平台注入,字段对齐 mobile-rn CourseCatalogScreen CatalogItem) */
@@ -245,22 +232,6 @@ export interface StudyRecordScreenProps {
   onNavigate: OnNavigate
   /** 宿主轻提示端口(展示字段 toast 与本回调无关,不得复用) */
   onToast: OnToast
-  /**
-   * 自定义卡片渲染(可选,2026-11-14 增补)。
-   * 为什么要有:小程序 study/record 的卡片带「今日已学分钟 / 进度条」两格本端独有字段,
-   * 共享默认卡片没有这两格 ⇒ 该端只能整页手抄。
-   */
-  renderItem?: (item: StudyRecordItem) => ReactNode
-  /**
-   * 统计卡与列表之间的自定义区(可选,2026-11-14 增补)。承载状态筛选 tab 等页面级控件。
-   * 为什么要有:小程序该页在统计卡下方有「全部/进行中/已完成/已暂停」筛选条,
-   * 共享屏 ListHeaderComponent 只放统计卡,没有第二槽位 ⇒ 筛选条无处挂。
-   */
-  renderListHeader?: () => ReactNode
-  /** 触底加载更多(可选,2026-11-14 增补)。给了就接 FlatList.onEndReached */
-  onEndReached?: () => void
-  /** 列表尾部自定义区(可选;承载「没有更多了」等) */
-  renderListFooter?: () => ReactNode
 }
 
 /** 批次 16(2026-07-29):考试历史/考试结果/模型收益/Token 价值 */
@@ -456,18 +427,6 @@ export interface CourseScreenProps {
   onPageChange: (page: number) => void
   onPressItem: (id: string) => void
   colorScheme?: 'light' | 'dark'
-  /**
-   * 提交搜索(可选,2026-11-14 增补)。给了就渲染独立搜索按钮,回车也触发它。
-   * 为什么要有:小程序 pkg-learn/course/list 是"输入 + 点搜索"再取数,
-   * 而共享屏原先只有受控输入(边打边变) ⇒ 缺此槽位就只能整页手抄。
-   */
-  onSearch?: () => void
-  /**
-   * 触底加载更多(可选,2026-11-14 增补)。给了就接 FlatList.onEndReached。
-   * 为什么要有:小程序该页是无限滚动追加,共享屏原先只有翻页器;
-   * 两种分页模型都要能承载,否则追加式页面无法收敛。
-   */
-  onEndReached?: () => void
 }
 
 /** 课程详情数据 */
@@ -492,16 +451,6 @@ export interface CourseDetailLesson {
   lessonId: string
   title: string
   isCompleted: boolean
-  /**
-   * 锁住 / 当前学习位置(2026-11-14 增补,可选)。
-   * 为什么要有:`@ihui/shared/social/course-lessons` 的 `CourseLessonRow` 带这两态
-   * (小程序端一直在用),共享屏原先只有 `isCompleted` ⇒ 渲染不出"锁住"与"高亮当前节"。
-   * 缺省 false,RN 现有调用点零回归。
-   */
-  locked?: boolean
-  current?: boolean
-  /** 时长文案(后端给才有) */
-  duration?: string
 }
 
 /** CourseDetailScreen props */
@@ -932,29 +881,7 @@ export interface LearnDevelopEntry {
   title: string
   desc: string
   onPress: () => void
-  /**
-   * 元信息行(可选,2026-11-14 增补)。如「12 门课 · 进度 60%」。
-   * 为什么要有:小程序该页的路径卡在 desc 之下还有一行课程数/进度元信息,
-   * 共享卡原先只有 title + desc 两行 ⇒ 该端只能整页手抄。
-   */
-  meta?: string
-  /** 进度百分比(0-100,可选);给了才渲染进度条 */
-  progress?: number
 }
-
-/** 推荐课程横卡(2026-11-14 增补;承载「封面 + 标题 + 讲师 + 价格」这一型) */
-export interface LearnDevelopCourseCard {
-  id: string
-  title: string
-  /** 封面地址;缺省渲染占位图标 */
-  coverUrl?: string
-  teacher?: string
-  /** 价格(元);0 显示「免费」 */
-  price?: number | null
-}
-
-/** 课程区四态 */
-export type LearnDevelopCourseSection = 'loading' | 'error' | 'empty' | 'ready'
 
 export interface LearnDevelopScreenProps {
   t: TFunction
@@ -965,26 +892,6 @@ export interface LearnDevelopScreenProps {
   colorScheme?: 'light' | 'dark'
   /** 宿主导航端口(逻辑 target 由宿主映射;屏内不得直接调用平台导航) */
   onNavigate: OnNavigate
-  /**
-   * 隐藏内置 header(可选,2026-11-14 增补)。
-   * 为什么要有:小程序该页依赖原生导航栏,页内不渲染返回键与大标题;
-   * 共享屏强制渲染 header ⇒ 不隐藏会双标题/双返回。
-   */
-  hideHeader?: boolean
-  /** 导航卡区小标题(可选);缺省不渲染 */
-  entriesTitle?: string
-  /** 推荐课程区小标题(可选);缺省不渲染课程区 */
-  coursesTitle?: string
-  /** 推荐课程(可选);与 coursesSection 配合渲染 */
-  courses?: LearnDevelopCourseCard[]
-  /** 课程区状态;缺省 'ready'。'error' 时渲染重试按钮(需给 onRetry) */
-  coursesSection?: LearnDevelopCourseSection
-  /** 课程区重试回调 */
-  onRetry?: () => void
-  /** 课程区空态文案;缺省用词包 */
-  coursesEmptyLabel?: string
-  /** 点击课程 */
-  onCoursePress?: (id: string) => void
 }
 
 export interface SubPackageEntry {

@@ -146,10 +146,8 @@ export default function NewsScreenWrapper() {
 
   /** 已读集合:进页读一次,点击时乐观写入(与本端存储 key 对齐小程序 news_read_ids) */
   useEffect(() => {
-    let cancelled = false
     void AsyncStorage.getItem('news_read_ids').then((raw) => {
-      // 已离开资讯页就丢弃这份已读表:用户看不到列表,不必再回填,也避免卸载后 setState
-      if (cancelled || !raw) return
+      if (!raw) return
       try {
         const arr: unknown = JSON.parse(raw)
         if (Array.isArray(arr)) setReadIds(arr.map(String))
@@ -157,9 +155,6 @@ export default function NewsScreenWrapper() {
         // 脏数据忽略,不阻塞列表
       }
     })
-    return () => {
-      cancelled = true
-    }
   }, [])
 
   const showFloat = useCallback((message: string, type: FloatBoxType = 'info') => {

@@ -22,6 +22,7 @@ import {
   Text,
   ScrollView,
   TextInput,
+  Pressable,
   StyleSheet,
   type TextStyle,
   type ViewStyle,
@@ -29,9 +30,8 @@ import {
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { EmptyState, ErrorState } from '../../components/ScreenStates'
 import { BackChevron } from '../../components/BackChevron'
-import { rnRadius, rnRadiusFor, rnSpacing, rnType } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import type { Sag2ScreenProps, Sag2StatusView } from '@ihui/types'
-import { Tappable } from '@ihui/ui-native'
 
 export type { Sag2ScreenProps }
 
@@ -157,24 +157,22 @@ function SearchPanel({
     <View style={styles.panel}>
       {/* 模式切换:快速 = 离线 BM25;深度 = 多跳 + 引用锚点 */}
       <View style={styles.modeRow}>
-        <Tappable
+        <Pressable
           style={[styles.modeBtn, mode === 'quick' && styles.modeBtnActive]}
-          pressedStyle={styles.pressed}
           onPress={() => onModeChange('quick')}
         >
           <Text style={[styles.modeText, mode === 'quick' && styles.modeTextActive]}>
             {t('sag2Lexical.quick')}
           </Text>
-        </Tappable>
-        <Tappable
+        </Pressable>
+        <Pressable
           style={[styles.modeBtn, mode === 'deep' && styles.modeBtnActive]}
-          pressedStyle={styles.pressed}
           onPress={() => onModeChange('deep')}
         >
           <Text style={[styles.modeText, mode === 'deep' && styles.modeTextActive]}>
             {t('sag2Lexical.deep')}
           </Text>
-        </Tappable>
+        </Pressable>
       </View>
 
       <TextInput
@@ -185,16 +183,11 @@ function SearchPanel({
         placeholderTextColor={styles.meta.color}
         multiline
       />
-      <Tappable
-        style={styles.primaryBtn}
-        pressedStyle={styles.pressed}
-        onPress={onSearch}
-        disabled={loading}
-      >
+      <Pressable style={styles.primaryBtn} onPress={onSearch} disabled={loading}>
         <Text style={styles.primaryBtnText}>
           {loading ? t('sag2Lexical.loading') : t(mode === 'quick' ? 'quick' : 'deep')}
         </Text>
-      </Tappable>
+      </Pressable>
 
       {/* 纯词法判定(modelCalls=0)时如实展示,不把 BM25 分数伪装成模型证据。 */}
       {modelCalls === 0 ? (
@@ -227,9 +220,9 @@ function SearchPanel({
       {/* 融合:只在深度结果非空时可触发 */}
       {mode === 'deep' && deepRows.length > 0 ? (
         <View style={styles.fuseBlock}>
-          <Tappable style={styles.fuseBtn} pressedStyle={styles.pressed} onPress={onFuse}>
+          <Pressable style={styles.fuseBtn} onPress={onFuse}>
             <Text style={styles.fuseBtnText}>{t('sag2Lexical.fuse')}</Text>
-          </Tappable>
+          </Pressable>
           {fused ? (
             <View style={styles.fuseResult}>
               <Text style={styles.meta}>
@@ -333,11 +326,7 @@ export function Sag2Screen({
           <Text style={styles.noticeText}>{notice}</Text>
         </View>
       ) : null}
-      <ScrollView
-        style={styles.body}
-        contentContainerStyle={styles.bodyContent}
-        keyboardShouldPersistTaps="handled"
-      >
+      <ScrollView style={styles.body} contentContainerStyle={styles.bodyContent}>
         <StatusHeader t={t} status={status} styles={styles} />
         <SearchPanel
           t={t}
@@ -408,10 +397,8 @@ function createStyles(tk: AppThemeTokens) {
     badge: {
       paddingHorizontal: rnSpacing.sm,
       paddingVertical: rnSpacing.xs,
-      // chip 角色(§4 圆角角色表:tag/badge/pill 归 chip)= md
-      borderRadius: rnRadiusFor.chip,
+      borderRadius: rnRadius.sm,
       borderWidth: 1,
-      borderColor: tk.border.medium,
     } as ViewStyle,
     badgeReady: { backgroundColor: tk.brand.DEFAULT, borderColor: tk.brand.DEFAULT } as ViewStyle,
     badgeMuted: { backgroundColor: tk.surface.muted, borderColor: tk.border.medium } as ViewStyle,
@@ -430,13 +417,11 @@ function createStyles(tk: AppThemeTokens) {
     judgeProvider: { fontSize: rnType.caption.size, color: tk.text.secondary } as TextStyle,
 
     panel: { gap: rnSpacing.sm } as ViewStyle,
-    pressed: { opacity: 0.6 } as ViewStyle,
     modeRow: { flexDirection: 'row', gap: rnSpacing.sm } as ViewStyle,
     modeBtn: {
       flex: 1,
       paddingVertical: rnSpacing.sm,
-      // control 角色(按钮类)= sm
-      borderRadius: rnRadiusFor.control,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tk.border.medium,
       alignItems: 'center',
@@ -450,8 +435,7 @@ function createStyles(tk: AppThemeTokens) {
     input: {
       borderWidth: 1,
       borderColor: tk.border.medium,
-      // control 角色(输入框)= sm
-      borderRadius: rnRadiusFor.control,
+      borderRadius: rnRadius.md,
       paddingHorizontal: rnSpacing.md,
       paddingVertical: rnSpacing.sm,
       fontSize: rnType.body.size,
@@ -463,8 +447,7 @@ function createStyles(tk: AppThemeTokens) {
     primaryBtn: {
       backgroundColor: tk.brand.cta,
       paddingVertical: rnSpacing.sm,
-      // control 角色(按钮类)= sm
-      borderRadius: rnRadiusFor.control,
+      borderRadius: rnRadius.md,
       alignItems: 'center',
     } as ViewStyle,
     primaryBtnText: {
@@ -485,8 +468,7 @@ function createStyles(tk: AppThemeTokens) {
     resultCard: {
       borderWidth: 1,
       borderColor: tk.border.light,
-      // card 角色 = lg
-      borderRadius: rnRadiusFor.card,
+      borderRadius: rnRadius.md,
       padding: rnSpacing.sm,
       gap: rnSpacing.xs,
       backgroundColor: tk.surface.card,

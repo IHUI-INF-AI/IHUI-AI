@@ -1006,10 +1006,61 @@ export async function sendTemplatedSms(
     }
   }
 
+  if (!options.skipRateLimit) {
+    const blocked = await tryConsumeWindows(
+      TEMPLATED_RATE_WINDOWS[category].map((w) => ({
+        key: `sms:${category}:${w.windowMs}:${phone}`,
+        windowMs: w.windowMs,
+        max: w.max,
+      })),
+    )
+    if (blocked > 0) {
+      await recordSmsDelivery({
+        provider: resolved.channel ?? 'none',
+        category,
+        templateKey,
+        templateId: resolved.templateId,
+        phone,
+        status: 'suppressed',
+        reason: `rate_limited:${TEMPLATED_RATE_WINDOWS[category][blocked - 1]?.windowMs ?? ''}`,
+        bizType: options.bizType,
+        bizId: options.bizId,
+      } satisfies SmsDeliveryLogEntry)
+      return { success: false, error: 'rate_limited' }
+    }
+  }
+
+  // 全局日上限放在最后一道:单号频控/黑名单已经挡掉的请求不消耗全局额度,
+  // 否则 200 个已退订号码就能把当天的营销额度全部空转掉。
+  if (category === 'marketing') {
+    // 解析失败必须回落默认值,不能反过来把上限关掉 —— 这一档是费用/合规兜底
+    const cap = parsePositiveInt(
+      env.SMS_MARKETING_GLOBAL_DAILY_CAP,
+      100,
+      'SMS_MARKETING_GLOBAL_DAILY_CAP',
+    )
+    const blocked = await tryConsumeWindows([
+      { key: 'sms:marketing:global', windowMs: 86_400_000, max: cap },
+    ])
+    if (blocked > 0) {
+      logger.warn('营销短信触发全局日上限 ⇒ 拦截', { cap })
+      await recordSmsDelivery({
+        provider: resolved.channel ?? 'none',
+        category,
+        templateKey,
+        templateId: resolved.templateId,
+        phone,
+        status: 'suppressed',
+        reason: 'global_daily_cap',
+        bizType: options.bizType,
+        bizId: options.bizId,
+      } satisfies SmsDeliveryLogEntry)
+      return { success: false, error: 'global_daily_cap' }
+    }
+  }
+
   // 并发去重:同一 bizType+bizId 正在发送途中时,后来的请求直接按"已发"处理,
   // 不再等它落库(否则两个请求都会穿过上面的 hasSmsDeliveryForBiz 检查)。
-  // 2026-11 F-235:去重判定必须排在配额扣减之前 —— 命中重复的请求一条都没发出去,
-  // 不该把单号窗口与营销全局日额度烧掉。check 与 add 之间不能有 await,否则并发会同时穿过。
   const bizKey = options.bizType && options.bizId ? `${options.bizType}\u0000${options.bizId}` : ''
   if (bizKey && inflightTemplatedBiz.has(bizKey)) {
     await recordSmsDelivery({
@@ -1032,65 +1083,7 @@ export async function sendTemplatedSms(
     }
   }
   if (bizKey) inflightTemplatedBiz.add(bizKey)
-
-  // 2026-11 F-235:本次实际扣减过的窗口记账。云侧明确没发出去(或通道抛错)时原样退还,
-  // 否则一次通道故障就把用户当日通知额度扣光、把营销全局日额度空转掉。
-  const consumedSpecs: WindowSpec[] = []
-  let sentOk = false
   try {
-    if (!options.skipRateLimit) {
-      const specs = TEMPLATED_RATE_WINDOWS[category].map((w) => ({
-        key: `sms:${category}:${w.windowMs}:${phone}`,
-        windowMs: w.windowMs,
-        max: w.max,
-      }))
-      const blocked = await tryConsumeWindows(specs)
-      if (blocked > 0) {
-        await recordSmsDelivery({
-          provider: resolved.channel ?? 'none',
-          category,
-          templateKey,
-          templateId: resolved.templateId,
-          phone,
-          status: 'suppressed',
-          reason: `rate_limited:${TEMPLATED_RATE_WINDOWS[category][blocked - 1]?.windowMs ?? ''}`,
-          bizType: options.bizType,
-          bizId: options.bizId,
-        } satisfies SmsDeliveryLogEntry)
-        return { success: false, error: 'rate_limited' }
-      }
-      consumedSpecs.push(...specs)
-    }
-
-    // 全局日上限放在最后一道:单号频控/黑名单已经挡掉的请求不消耗全局额度,
-    // 否则 200 个已退订号码就能把当天的营销额度全部空转掉。
-    if (category === 'marketing') {
-      // 解析失败必须回落默认值,不能反过来把上限关掉 —— 这一档是费用/合规兜底
-      const cap = parsePositiveInt(
-        env.SMS_MARKETING_GLOBAL_DAILY_CAP,
-        100,
-        'SMS_MARKETING_GLOBAL_DAILY_CAP',
-      )
-      const specs: WindowSpec[] = [{ key: 'sms:marketing:global', windowMs: 86_400_000, max: cap }]
-      const blocked = await tryConsumeWindows(specs)
-      if (blocked > 0) {
-        logger.warn('营销短信触发全局日上限 ⇒ 拦截', { cap })
-        await recordSmsDelivery({
-          provider: resolved.channel ?? 'none',
-          category,
-          templateKey,
-          templateId: resolved.templateId,
-          phone,
-          status: 'suppressed',
-          reason: 'global_daily_cap',
-          bizType: options.bizType,
-          bizId: options.bizId,
-        } satisfies SmsDeliveryLogEntry)
-        return { success: false, error: 'global_daily_cap' }
-      }
-      consumedSpecs.push(...specs)
-    }
-
     // 单档投递:通道与模板成对给出。腾讯走专用固定文案模板;阿里云按是否回填了用途模板,
     // 在「专用模板」与「{content} 兜底通知模板」之间选;代理只发兜底正文。
     const sendOnce = (ch: SmsChannel, tid: string | undefined): Promise<SmsDeliveryResult> => {
@@ -1160,8 +1153,6 @@ export async function sendTemplatedSms(
       templateId = next.templateId
     }
 
-    sentOk = delivery.sent
-    if (!sentOk) await refundWindows(consumedSpecs)
     return {
       success: delivery.sent,
       error: delivery.reason,
@@ -1169,10 +1160,6 @@ export async function sendTemplatedSms(
       requestId: delivery.requestId,
       templateId: templateId ?? delivery.templateId,
     }
-  } catch (e) {
-    // 通道异常(如 SDK 抛错)与"云侧明确失败"同口径:没发出去就不该留下次数,错误原样上抛。
-    if (!sentOk) await refundWindows(consumedSpecs)
-    throw e
   } finally {
     if (bizKey) inflightTemplatedBiz.delete(bizKey)
   }

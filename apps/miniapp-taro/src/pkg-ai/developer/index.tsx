@@ -364,7 +364,7 @@ export default function DeveloperIndex() {
                   <View className="flex items-center gap-[16rpx]">
                     {/* RN setBtn: px 16rpx py 6rpx radius 6dp=12rpx bg brand(→primary) 白字 12dp=24rpx */}
                     <Text
-                      className="text-label px-[16rpx] py-[6rpx] rounded-md text-cta-foreground bg-cta font-medium active:opacity-80"
+                      className="text-label px-[16rpx] py-[6rpx] rounded-md text-cta-foreground bg-cta font-medium"
                       onClick={() => onEdit(agent)}
                     >
                       {status === 2
@@ -372,13 +372,12 @@ export default function DeveloperIndex() {
                         : tt('developer.index.editBtn', '设置')}
                     </Text>
                     {/* RN offlineBtn: 14dp=28rpx brandAccent(→brand-accent) 下划线文字钮 */}
-                    <View
+                    <Text
                       className="text-body text-[var(--color-brand-accent-deep)] font-medium underline"
                       onClick={() => onDelete(agent)}
-                      hoverClass="opacity-60"
                     >
-                      <Text>{tt('developer.index.deleteBtn', '删除')}</Text>
-                    </View>
+                      {tt('developer.index.deleteBtn', '删除')}
+                    </Text>
                   </View>
                 </View>
               </View>

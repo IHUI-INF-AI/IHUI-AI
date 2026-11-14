@@ -362,30 +362,50 @@ export async function findAllNotificationsForAdmin(
   return { list, total: Number(totalRows[0]?.count ?? 0) }
 }
 
+/** F-639:群发写入单批行数上限 —— 每行 4 个绑定参数,500 行远低于 PG 的 65535 参数上限。 */
+export const BROADCAST_INSERT_CHUNK_SIZE = 500
+
 /**
- * 群发系统通知给所有用户。
+ * 群发系统通知给有效用户(status=1,排除 0=禁用 / 3=注销)。
  * 返回创建的通知列表（含 userId，便于路由层逐条推送 WebSocket）。
+ * F-639:按 BROADCAST_INSERT_CHUNK_SIZE 分批写入;任一批失败立即抛出(带批次与已写入行数),
+ * 不再把整批失败静默当成成功 —— 调用方必须看到真实结果。
  */
 export async function broadcastNotification(input: {
   title: string
   content: string
   type: string
 }): Promise<Notification[]> {
-  const allUsers = await db.select({ id: users.id }).from(users)
-  if (allUsers.length === 0) return []
+  const recipients = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(eq(users.status, 1))
+  if (recipients.length === 0) return []
 
-  const rows = await db
-    .insert(notifications)
-    .values(
-      allUsers.map((u) => ({
-        userId: u.id,
-        title: input.title,
-        content: input.content,
-        type: input.type,
-      })),
-    )
-    .returning()
-  return rows
+  const created: Notification[] = []
+  for (let offset = 0; offset < recipients.length; offset += BROADCAST_INSERT_CHUNK_SIZE) {
+    const batch = recipients.slice(offset, offset + BROADCAST_INSERT_CHUNK_SIZE)
+    try {
+      const rows = await db
+        .insert(notifications)
+        .values(
+          batch.map((u) => ({
+            userId: u.id,
+            title: input.title,
+            content: input.content,
+            type: input.type,
+          })),
+        )
+        .returning()
+      created.push(...rows)
+    } catch (e) {
+      const batchNo = Math.floor(offset / BROADCAST_INSERT_CHUNK_SIZE) + 1
+      throw new Error(
+        `群发通知分批写入失败(第 ${batchNo} 批,已写入 ${created.length}/${recipients.length} 行):${(e as Error).message}`,
+      )
+    }
+  }
+  return created
 }
 
 // =============================================================================

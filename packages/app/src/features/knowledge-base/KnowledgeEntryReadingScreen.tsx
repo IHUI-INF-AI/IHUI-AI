@@ -159,13 +159,13 @@ export function KnowledgeEntryReadingScreen({
           <View style={styles.metaRow}>
             <Text style={styles.metaLabel}>{t('knowledgeBase.updatedAt')}</Text>
             <View style={styles.metaInline}>
-              <Calendar size={13} color={tk.text.secondary} strokeWidth={2} />
+              <Calendar size={13} color={tk.text.tertiary} strokeWidth={2} />
               <Text style={styles.metaValue}>{formatDate(article.updatedAt)}</Text>
             </View>
           </View>
           <View style={styles.metaRow}>
             <View style={styles.metaInline}>
-              <Eye size={13} color={tk.text.secondary} strokeWidth={2} />
+              <Eye size={13} color={tk.text.tertiary} strokeWidth={2} />
               <Text style={styles.metaValue}>
                 {t('knowledgeBase.viewCount', { count: article.viewCount ?? 0 })}
               </Text>
@@ -313,7 +313,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     metaLabel: {
       fontSize: rnType.caption.size,
-      color: tk.text.medium,
+      color: tk.text.tertiary,
     },
     metaValue: {
       fontSize: rnType.label.size,
@@ -350,7 +350,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     contentEmpty: {
       fontSize: rnType.label.size,
-      color: tk.text.medium,
+      color: tk.text.tertiary,
     },
     /* 目录 */
     tocCard: {
@@ -404,7 +404,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     navLabel: {
       fontSize: rnType.caption.size,
-      color: tk.text.medium,
+      color: tk.text.tertiary,
     },
     navTitleRight: {
       textAlign: 'right',

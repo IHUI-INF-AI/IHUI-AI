@@ -149,27 +149,7 @@ const EXT_SIDEPANEL = 'apps/extension/entrypoints/sidepanel/SidepanelApp.tsx'
 /** 参与引用扫描的源文件后缀(资源字面量可能出现在这些地方) */
 const SCAN_EXT_RE = /\.(ts|tsx|js|jsx|mjs|cjs|json|css|scss|html|wxml)$/
 /** 磁盘面枚举时跳过的目录(构建产物与依赖树里没有「源」可判) */
-/**
- * 枚举跳过的目录。
- *
- * `.tmp-*`(2026-11-13 补):仓根 .gitignore 第 375 行就写着 `.tmp-*`,那是**本机构建/迁移
- * 的临时快照**(现读有一枚 `apps/miniapp-taro/.tmp-member-budget-20261017`,里面是整棵页面
- * 拷贝)。它不属于源码、不入库、随时会被重建,却因为磁盘枚举没有同样的排除规则而进了扫描面
- * —— 于是门会拿它拷贝里的旧 `login.js` 去要一枚 `triangle-alert.svg`,报出一条
- * "引用方与被引用方都不在仓"的假缺口。判据面收窄到真实源码(与 .gitignore 同一口径),
- * 不做静默跳过:下面 R1 的报数里会单列"被忽略目录已排除 N 处"。
- */
-const SKIP_DIRS = new Set([
-  'node_modules',
-  'dist',
-  'dist-alipay',
-  '.swc',
-  '.turbo',
-  '.git',
-  'coverage',
-])
-/** 前缀式跳过(目录名本身带变量尾缀,不能进上面的精确集)。 */
-const SKIP_DIR_PREFIXES = ['.tmp-', '.tmp', 'tmp-build-']
+const SKIP_DIRS = new Set(['node_modules', 'dist', 'dist-alipay', '.swc', '.turbo', '.git', 'coverage'])
 /** 产物目录:孤儿判据(G2-R2)只看这两个生成器自己的落点,别碰别人的素材库 */
 const ARTIFACT_DIRS = [ICON_ASSET_DIR, TABBAR_ASSET_DIR]
 
@@ -286,7 +266,6 @@ function walkDir(abs, relPrefix, out) {
   }
   for (const c of entries) {
     if (SKIP_DIRS.has(c.name)) continue
-    if (c.isDirectory() && SKIP_DIR_PREFIXES.some((p) => c.name.startsWith(p))) continue
     const childAbs = join(abs, c.name)
     const childRel = `${relPrefix}/${c.name}`
     if (c.isSymbolicLink()) continue // junction/软链:不穿透、不收录

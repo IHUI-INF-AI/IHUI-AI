@@ -16,9 +16,6 @@
  *  T9 上一轮「结论行取不到」(no-result-line)同样只冷却 1 小时 —— 2026-11-05 实测:派发器
  *     ETIMEDOUT 落的正是这个名,原判据只认 undetermined,于是兜底续票空窗 4.4 小时;
  *  T10 反向牙:state=alert(号掉线,器物已自行喊过人)仍按 6 小时,压成 1 小时就是拿坏票撞上游。
- *  T11 临期窗口必须跟得上节拍(2026-11-13):T10 保留了 6h 节流,而器物原把窗口钉死 90min
- *     (按 1h 节拍算)⇒ 6h 档两轮之间必然跨过到期点,短寿命号(token 寿命 10h 的 codearts
- *     实测漏刷约 2h)。修法不动节流,只把窗口按本轮真实 window + 余量传给器物。
  */
 import test from 'node:test'
 import assert from 'node:assert/strict'
@@ -168,39 +165,5 @@ test('T10 alert 反向牙:号掉线仍按 6 小时,不许压成每小时撞一�
   h.opts.now = NOW + 7 * HOUR
   const late = sweepKeepAliveForever(h.opts)
   assert.equal(late.ran, true, '满 6 小时窗口仍要给下一次机会')
-})
-
-test('T11 临期窗口跟得上节拍:6h 档必须把 ahead 放大到 ≥6h(否则短寿命号漏刷)', (t) => {
-  const dir = mkScratch('keepalive-ahead')
-  t.after(() => rmScratch(dir))
-  const seen = []
-  const alertOut =
-    'KEEPALIVE-RESULT state=alert registered=1 refreshed=1 refreshFailed=0 keepalive=1 heartbeat=0 alerts=1 mailed=1'
-  let out = alertOut
-  const opts = {
-    now: NOW,
-    tickFile: join(dir, 'tick.json'),
-    logger: () => {},
-    notify: () => {},
-    runner: (ctx) => {
-      seen.push(ctx)
-      return { ok: true, out, status: 0 }
-    },
-  }
-  // 第一轮:无台账 ⇒ 1h 窗口 ⇒ ahead 至少覆盖 1 小时、且远小于 6 小时
-  sweepKeepAliveForever(opts)
-  assert.equal(seen[0].windowMs, HOUR)
-  assert.ok(seen[0].refreshAheadMs >= HOUR, `1h 节拍窗口不足(${seen[0].refreshAheadMs})`)
-  assert.ok(seen[0].refreshAheadMs < 6 * HOUR, '1h 档不该无谓放大窗口(多刷好票)')
-  // 上一轮 alert ⇒ 下一轮按 6h 节流,窗口必须跟着放大到覆盖整轮
-  out = alertOut
-  opts.now = NOW + 7 * HOUR
-  const r = sweepKeepAliveForever(opts)
-  assert.equal(r.ran, true)
-  assert.equal(seen[1].windowMs, 6 * HOUR)
-  assert.ok(
-    seen[1].refreshAheadMs >= 6 * HOUR,
-    `6h 节流下窗口仍小于节拍 ⇒ 到期点落在两轮之间(${seen[1].refreshAheadMs})`,
-  )
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

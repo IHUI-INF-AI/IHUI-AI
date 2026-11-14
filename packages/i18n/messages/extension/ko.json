@@ -243,17 +243,7 @@
     "modelCategoryGuard": "안전 필터",
     "modelCategoryOcr": "문자 인식",
     "modelCategoryOther": "기타",
-    "modelHistoryToggle": "이전 모델",
-    "admissionAhead": "앞에 {n}건 있습니다",
-    "questionTitle": "AI가 확인을 요청합니다",
-    "questionSubmit": "제출",
-    "questionSubmitting": "제출 중…",
-    "questionWithdraw": "이 질문 닫기",
-    "questionCustomPlaceholder": "직접 입력할 수도 있습니다…",
-    "questionMultiHint": "복수 선택 가능",
-    "questionNoSession": "세션을 찾을 수 없어 답변할 수 없습니다",
-    "questionFailed": "제출 실패, 다시 시도하세요",
-    "questionExpired": "이 질문은 더 이상 유효하지 않습니다"
+    "modelHistoryToggle": "이전 모델"
   },
   "settings": {
     "language": "인터페이스 언어",

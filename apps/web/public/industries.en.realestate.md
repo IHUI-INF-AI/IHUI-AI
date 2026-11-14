@@ -202,7 +202,8 @@
   A: Supports 12 languages (zh/en/ja/ko/fr/de/es/ru/ar etc.). Custom voice for minor languages.
 
 ### Contact
-- **Unified contact email: lizong@aizhs.top** — one address for industry solutions, industry material requests and business enquiries. Mention your industry and topic; we reply within 24 hours.
+- Real estate industry: realestate@aizhs.top
+- General business: contact@aizhs.top
 - Official site: https://aizhs.top
 - GitHub: https://github.com/IHUI-INF-AI/IHUI-AI
 

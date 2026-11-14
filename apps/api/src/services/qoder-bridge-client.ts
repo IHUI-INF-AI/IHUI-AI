@@ -63,6 +63,11 @@ let starting: Promise<QoderBridgeEndpoint | null> | null = null
 let stopped = false
 let lastError = ''
 
+/** 启动段互斥锁：spawn 串行化；stop 可据此等待在途启动收敛 */
+let startGate: Promise<void> = Promise.resolve()
+
+const BRIDGE_STOPPED = 'QODER_BRIDGE_STOPPED: 桥已关停'
+
 function isFile(p: string): boolean {
   try {
     return fs.statSync(p).isFile()
@@ -219,38 +224,89 @@ function launchOnce(): Promise<QoderBridgeEndpoint> {
   })
 }
 
+/** 杀进程：先 SIGTERM，3s 后补 SIGKILL（幂等，异常吞掉） */
+function killProcess(proc: ChildProcess | null): void {
+  if (!proc) return
+  try {
+    proc.kill('SIGTERM')
+  } catch {
+    /* ignore */
+  }
+  setTimeout(() => {
+    try {
+      proc.kill('SIGKILL')
+    } catch {
+      /* ignore */
+    }
+  }, 3000).unref?.()
+}
+
+/**
+ * 抢启动锁执行一次 spawn。
+ * 进入前与启动完成后各校验一次 stopped：关停后不再拉起，已拉起的立即杀掉。
+ */
+async function launchWithGate(): Promise<QoderBridgeEndpoint> {
+  const prev = startGate
+  let release!: () => void
+  startGate = new Promise<void>((r) => {
+    release = r
+  })
+  await prev
+  try {
+    if (stopped) throw new Error(BRIDGE_STOPPED)
+    const ep = await launchOnce()
+    if (stopped) {
+      // 等 READY 期间被 stop：进程已起，必须就地杀掉
+      const p = child
+      child = null
+      killProcess(p)
+      throw new Error(BRIDGE_STOPPED)
+    }
+    return ep
+  } finally {
+    release()
+  }
+}
+
 /**
  * 确保桥可用（幂等，可并发调用）。
  * 已就绪直接返回；启动中就复用同一个 Promise；失败按次数上限重试。
+ * 关停后返回 null 且不再 spawn。
  */
 export async function ensureQoderBridge(): Promise<QoderBridgeEndpoint | null> {
   if (stopped) return null
   if (endpoint) return endpoint
   if (starting) return starting
 
-  starting = (async () => {
+  const task = (async () => {
     for (let attempt = 1; attempt <= MAX_START_ATTEMPTS; attempt++) {
+      if (stopped) return null
       try {
-        const ep = await launchOnce()
+        const ep = await launchWithGate()
         endpoint = ep
         lastError = ''
         console.info(`[qoder-bridge] ready pid=${ep.pid} ${ep.baseUrl}`)
         return ep
       } catch (e) {
+        // 关停导致的失败不算启动错误，也不再重试
+        if (stopped) return null
         lastError = e instanceof Error ? e.message : String(e)
         console.warn(`[qoder-bridge] 启动失败(${attempt}/${MAX_START_ATTEMPTS}): ${lastError}`)
         if (attempt < MAX_START_ATTEMPTS) {
           await new Promise((r) => setTimeout(r, Math.min(2000 * attempt, 6000)))
+          if (stopped) return null
         }
       }
     }
     return null
   })()
+  starting = task
 
   try {
-    return await starting
+    return await task
   } finally {
-    starting = null
+    // stop 后可能已被重启流程替换，避免旧 Promise 清掉新的
+    if (starting === task) starting = null
   }
 }
 
@@ -267,25 +323,21 @@ export function startQoderBridge(): void {
   })
 }
 
-/** 关停桥进程（进程退出钩子调用） */
+/** 关停桥进程（进程退出钩子调用；幂等，重复调用不报错） */
 export function stopQoderBridge(): void {
   stopped = true
   endpoint = null
   const p = child
   child = null
-  if (!p) return
-  try {
-    p.kill('SIGTERM')
-  } catch {
-    /* ignore */
-  }
-  setTimeout(() => {
-    try {
-      p.kill('SIGKILL')
-    } catch {
-      /* ignore */
-    }
-  }, 3000).unref?.()
+  killProcess(p)
+  // 在途启动收敛后补杀一次：防止 stop 与 spawn 交错留下存活进程
+  void startGate.then(() => {
+    if (!stopped) return
+    const leftover = child
+    child = null
+    endpoint = null
+    killProcess(leftover)
+  })
 }
 
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

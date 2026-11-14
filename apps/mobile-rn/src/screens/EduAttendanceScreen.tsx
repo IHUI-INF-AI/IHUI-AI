@@ -55,7 +55,6 @@ import {
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
-import { toFriendlyOr } from '@ihui/shared/utils'
 
 // 状态档三枚出口已提到端内单源(屏与统计面板共用,互相 import 会成环)——
 // 三屏(本人/孩子)仍从本文件取,实现只有一份,这里只 re-export。
@@ -174,7 +173,7 @@ function EduAttendanceScreen() {
       // 统计失败只由面板常驻回显,不把整页拖成错误态(与小程序侧同一条纪律)。
       void loadStats(list)
     } catch (e) {
-      setError(toFriendlyOr(e, t('common.loadFailed')))
+      setError(e instanceof Error ? e.message : 'load failed')
     } finally {
       setLoading(false)
     }

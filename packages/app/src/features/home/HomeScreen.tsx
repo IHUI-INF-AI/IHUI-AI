@@ -187,7 +187,7 @@ export function HomeScreen({
             />
             {lives.length === 0 ? (
               <View style={[styles.card, styles.emptyCenter]}>
-                <Video size={18} color={tk.text.secondary} />
+                <Video size={18} color={tk.text.tertiary} />
                 <Text style={styles.emptyHint}>{t('live.empty')}</Text>
               </View>
             ) : (
@@ -233,7 +233,7 @@ export function HomeScreen({
             />
             {recommends.length === 0 ? (
               <View style={[styles.card, styles.emptyCenter]}>
-                <BookOpen size={18} color={tk.text.secondary} />
+                <BookOpen size={18} color={tk.text.tertiary} />
                 <Text style={styles.emptyHint}>{t('course.empty')}</Text>
               </View>
             ) : (
@@ -315,7 +315,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     dot: { marginRight: rnSpacing.sm, width: 8, height: 8, borderRadius: rnRadius.xs },
     dotOn: { backgroundColor: tk.success.DEFAULT },
-    dotOff: { backgroundColor: tk.text.secondary },
+    dotOff: { backgroundColor: tk.text.tertiary },
     bellBtn: { position: 'relative', padding: rnSpacing.xs },
     badge: {
       position: 'absolute',
@@ -340,7 +340,7 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.lg,
       backgroundColor: tk.error.bg,
     },
-    errorText: { flex: 1, fontSize: rnType.bodySm.size, color: tk.danger.deepText },
+    errorText: { flex: 1, fontSize: rnType.bodySm.size, color: tk.danger.DEFAULT },
     errorRetry: {
       marginLeft: rnSpacing.md,
       paddingHorizontal: rnSpacing['sm-loose'],
@@ -397,12 +397,12 @@ function createStyles(tk: AppThemeTokens) {
     tagText: { fontSize: rnType.label.size, fontWeight: '600', color: '#FFFFFF' },
     tagUpcomingText: { color: '#1A1A1A' },
     metaText: { marginTop: rnSpacing.xs, fontSize: rnType.bodySm.size, color: tk.text.secondary },
-    metaTertiary: { marginTop: rnSpacing.xs, fontSize: rnType.label.size, color: tk.text.medium },
+    metaTertiary: { marginTop: rnSpacing.xs, fontSize: rnType.label.size, color: tk.text.tertiary },
     priceText: {
       marginLeft: rnSpacing.sm,
       fontSize: rnType.strong.size,
       fontWeight: '600',
-      color: tk.success.deepText,
+      color: tk.success.DEFAULT,
     },
     mutedText: { fontSize: rnType.bodySm.size, lineHeight: 19, color: tk.text.secondary },
     progressBar: {

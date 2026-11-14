@@ -25,7 +25,6 @@ import {
   releaseExpiredCommissions,
   getCommissionConfig,
   setCommissionConfig,
-  CommissionInvalidRatesError,
 } from '../../services/relay-commission-service.js'
 
 const recordsQuerySchema = paginationSchema.extend({
@@ -50,11 +49,6 @@ const settingsBodySchema = z
     (d) => d.level1Rate !== undefined || d.level2Rate !== undefined || d.frozenDays !== undefined,
     { message: '至少填写一个配置项(level1Rate / level2Rate / frozenDays)' },
   )
-  // F-164(2026-11-13):两级费率同时提交时,跨字段约束之和 ≤ 1;
-  // 只改其中一级时由 service 层按生效组合终闸(抛 CommissionInvalidRatesError → 400)。
-  .refine((d) => (d.level1Rate ?? 0) + (d.level2Rate ?? 0) <= 1, {
-    message: 'level1Rate 与 level2Rate 之和不得超过 1(100%)',
-  })
 
 const adminRelayCommissionRoutes: FastifyPluginAsync = async (server) => {
   server.addHook('preHandler', requireAdmin)
@@ -137,10 +131,6 @@ const adminRelayCommissionRoutes: FastifyPluginAsync = async (server) => {
       const config = await setCommissionConfig(parsed.data, userId)
       return reply.send(success(config))
     } catch (e) {
-      // F-164:生效组合非法(如只改一级但与存量另一级之和 > 100%)⇒ 400,不得混进 500
-      if (e instanceof CommissionInvalidRatesError) {
-        return reply.status(400).send(error(400, e.message))
-      }
       request.log.error(e)
       return reply.status(500).send(error(500, '修改返佣配置失败'))
     }

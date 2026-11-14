@@ -37,8 +37,18 @@ const CONTENT_FAULT_CODES: ReadonlySet<string> = new Set([
   'fault.request.invalid',
 ])
 
-/** 确定性 4xx:请求本身就不会被第二次接受(重试无意义)。 */
-const CONTENT_FAULT_STATUS: ReadonlySet<number> = new Set([400, 404, 413, 422])
+/**
+ * 确定性 4xx:请求本身就不会被第二次接受(裸重投无意义)。
+ *
+ * 含 401/403(E-P1):鉴权失败不归瞬态。resume 阶梯的语义是「重投同一批 delta」,
+ * 不带新的凭据/授权,对 401(令牌过期)和 403(账户受限)都注定再拒——重试阶梯
+ * 会去重投一枪必然再 401 的请求。两条的正确出路都不是 resume:
+ *   401 ⇒ relogin(拿新令牌后再发,走 disposition 侧 TOKEN_EXPIRED→relogin);
+ *   403 ⇒ contactAdmin(账户受限用户自助救不回,走 authForbidden→contactAdmin)。
+ * 与 stream-error-disposition 的 authForbidden 分类对齐:那侧判不可重试,这侧
+ * 就不该把它当瞬态送进 resume 阶梯。
+ */
+const CONTENT_FAULT_STATUS: ReadonlySet<number> = new Set([400, 401, 403, 404, 413, 422])
 
 /**
  * 判定一个 fault 是否确定性内容故障(上游 isDeterministicContentFault 的同形判定)。
@@ -131,7 +141,7 @@ export function resolveStreamRecoveryDecision(
  * `apps/web/src/hooks/use-agent-stream.ts` 的 tryReconnect。
  */
 export function shouldSkipResumeLadder(tracker: StreamFaultFlightTracker): boolean {
-  return resolveStreamRecoveryDecision(tracker)?.strategy === 'force-snapshot';
+  return resolveStreamRecoveryDecision(tracker)?.strategy === 'force-snapshot'
 }
 
 /**

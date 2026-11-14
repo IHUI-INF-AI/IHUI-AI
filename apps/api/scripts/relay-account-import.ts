@@ -45,8 +45,13 @@ config({ path: resolvePath(API_DIR, '.env') })
 
 const { eq, and, sql } = await import('drizzle-orm')
 const { aiRelayAccountPool } = await import('@ihui/database')
-const { isRelayProviderCode, RELAY_PROVIDERS, validateAccountExport, resolveRelayCredentialSlots } =
-  await import('../src/services/relay-account-format.js')
+const {
+  isRelayProviderCode,
+  RELAY_PROVIDERS,
+  validateAccountExport,
+  resolveRelayCredentialSlots,
+  extractUid,
+} = await import('../src/services/relay-account-format.js')
 const {
   importAccounts,
   decryptAccountCredentials,
@@ -56,11 +61,11 @@ const {
 } = await import('../src/services/relay-account-pool-service.js')
 const { db, dbRead, closeDbPools } = await import('../src/db/index.js')
 const { registerAllRelayAdapters } = await import('../src/services/upstream-adapters/index.js')
-const { getRelayAdapter, isRefreshableProviderCode } =
-  await import('../src/services/relay-upstream-adapters.js')
+const { getRelayAdapter } = await import('../src/services/relay-upstream-adapters.js')
 const { healthStatusOf } = await import('../src/services/relay-account-pool-scheduler.js')
 const { fetchCodeartsAccountPhone } =
   await import('../src/services/upstream-adapters/codearts-adapter.js')
+const { fetchTraeAccountPhone } = await import('../src/services/upstream-adapters/trae-adapter.js')
 const { pickProxyForAccount } = await import('../src/services/relay-proxy-pool.js')
 
 interface CliOptions {
@@ -357,12 +362,16 @@ async function main(argv: string[]): Promise<number> {
 
   let rawText: string
   try {
-    const firstFile = opts.files[0]
-    if (!opts.stdin && !firstFile) {
-      process.stderr.write('❌ 读取输入失败(未判定): 缺少导入文件参数\n')
-      return 2
+    if (opts.stdin) {
+      rawText = readStdin()
+    } else {
+      const first = opts.files[0]
+      if (first === undefined) {
+        process.stderr.write('❌ 未提供输入文件,且未指定 --stdin\n')
+        return 2
+      }
+      rawText = readFileSync(resolvePath(first), 'utf8')
     }
-    rawText = opts.stdin ? readStdin() : readFileSync(resolvePath(firstFile as string), 'utf8')
   } catch (e) {
     process.stderr.write(`❌ 读取输入失败(未判定): ${e instanceof Error ? e.message : String(e)}\n`)
     return 2
@@ -515,20 +524,12 @@ async function exportProvider(opts: CliOptions): Promise<number> {
  * 单份 JSON {providers:{<code>:{accounts:[...]}}, exportedAt} —— 12 平台只付一次 SSH 握手。
  */
 async function exportAllProviders(): Promise<number> {
-  // 能力判据依赖适配器注册表;注册是幂等的,这里必须先跑一遍(健康检查路径同样在用时注册)。
-  registerAllRelayAdapters()
-  // refreshable = 适配器能力判据(isRefreshableProviderCode 单一真相源):
-  // 下游「本机重新提取兜底」(scripts/relay-account-local-reextract.mjs)据此决定
-  // 哪些平台的临期行只能靠重登本机客户端换票,而不是自行拼刷新协议。
-  const providers: Record<
-    string,
-    { accounts: Array<Record<string, unknown>>; refreshable: boolean }
-  > = {}
+  const providers: Record<string, { accounts: Array<Record<string, unknown>> }> = {}
   const rejectedAll: Array<{ providerCode: string; uid: string; reason: string }> = []
   let total = 0
   for (const p of RELAY_PROVIDERS) {
     const built = await buildExportAccounts(p)
-    providers[p] = { accounts: built.accounts, refreshable: isRefreshableProviderCode(p) }
+    providers[p] = { accounts: built.accounts }
     total += built.accounts.length
     for (const r of built.rejected) rejectedAll.push({ providerCode: p, ...r })
   }
@@ -623,6 +624,43 @@ async function importOne(opts: CliOptions, rawText: string): Promise<number> {
     }
     if (filled || missed) {
       process.stderr.write(`ℹ️ codearts 手机号点查:取到 ${filled} 枚,未取到 ${missed} 枚\n`)
+    }
+  }
+
+  // Trae 会话里没有手机号(2026-11-13 实证:JWT 票面只有 id/tenant_id,账号导出 JSON 也无
+  // phone),但客户端档案端点 GetUserInfo 有掩码号(NonPlainTextMobile,前3后2)⇒ 与 codearts
+  // 同腿点查:拿账号 token 点查,取到补进载荷 `phone`(format 层 trae 的 PHONE_KEYS 本就认
+  // phone,掩码形态照采进统一名并落 phoneMask 待全号归位);取不到只点名枚数,不阻断导入。
+  // 枚数外不输出任何号码形态(PII:号码只进 name 列本身)。
+  if (providerCode === 'trae' && rawAccounts.length > 0) {
+    let filled = 0
+    let missed = 0
+    for (const acc of rawAccounts) {
+      const a = acc as Record<string, unknown>
+      const existing = String(a['phone'] ?? '').trim()
+      if (existing) continue
+      const token = String(a['token'] ?? '').trim()
+      if (!token) {
+        missed++
+        continue
+      }
+      try {
+        const phone = await fetchTraeAccountPhone({
+          token,
+          expectedUid: String(a['uid'] ?? '').trim() || extractUid(token) || undefined,
+        })
+        if (phone) {
+          a['phone'] = phone
+          filled++
+        } else {
+          missed++
+        }
+      } catch {
+        missed++
+      }
+    }
+    if (filled || missed) {
+      process.stderr.write(`ℹ️ trae 手机号点查:取到 ${filled} 枚,未取到 ${missed} 枚\n`)
     }
   }
 

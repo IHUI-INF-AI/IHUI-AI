@@ -26,8 +26,7 @@ export async function findVideoTasksByUser(
       .select()
       .from(videoGenerationTasks)
       .where(eq(videoGenerationTasks.userUuid, userUuid))
-      // F-356: createdAt 同毫秒并列时补 id 兜底,保证 LIMIT/OFFSET 翻页全序稳定
-      .orderBy(desc(videoGenerationTasks.createdAt), desc(videoGenerationTasks.id))
+      .orderBy(desc(videoGenerationTasks.createdAt))
       .limit(opts.pageSize)
       .offset((opts.page - 1) * opts.pageSize),
     db

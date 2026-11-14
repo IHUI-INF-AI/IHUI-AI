@@ -27,11 +27,15 @@ const CLIENT_MSG_ID = '22222222-2222-2222-2222-222222222222'
 // mock 面(与被测模块的导入面一一对应;缺导出 named import 为 undefined)
 // ---------------------------------------------------------------------------
 
-const { mockAppendFrame, mockConsumeFrames, mockFindConversationById } = vi.hoisted(() => ({
-  mockAppendFrame: vi.fn(async () => true),
-  mockConsumeFrames: vi.fn(async (): Promise<Record<string, unknown>[]> => []),
-  mockFindConversationById: vi.fn(),
-}))
+const { mockAppendFrame, mockConsumeFrames, mockFindConversationById, mockReadFrames } = vi.hoisted(
+  () => ({
+    mockAppendFrame: vi.fn(async () => true),
+    mockConsumeFrames: vi.fn(async (): Promise<Record<string, unknown>[]> => []),
+    // F-498:worker 改为「先读(不删)→ 落库 → 确认删除」,读取面独立可配
+    mockReadFrames: vi.fn(async (): Promise<Record<string, unknown>[]> => []),
+    mockFindConversationById: vi.fn(),
+  }),
+)
 
 vi.mock('../src/db/element-pack-queries.js', () => ({
   appendElementPackFrame: mockAppendFrame,
@@ -54,7 +58,20 @@ vi.mock('../src/db/chat-queries.js', () => ({
   findMessageById: vi.fn(),
 }))
 
-vi.mock('../src/db/index.js', () => ({ db: {}, dbRead: {} }))
+// F-498:worker 读取暂存帧走 db.select(只读,不删),确认删除才走 consumeElementPackFrames
+vi.mock('../src/db/index.js', () => ({
+  db: {
+    select: () => ({
+      from: () => ({
+        where: async () => {
+          const frames = await mockReadFrames()
+          return frames.length > 0 ? [{ frames }] : []
+        },
+      }),
+    }),
+  },
+  dbRead: {},
+}))
 
 vi.mock('../src/plugins/auth.js', () => ({
   checkAuth: vi.fn(async (req: { userId?: string }) => {
@@ -261,11 +278,13 @@ describe('D64⑤ worker 元素包归并(aiCallback job)', () => {
     vi.clearAllMocks()
     mockConsumeFrames.mockReset()
     mockConsumeFrames.mockResolvedValue([])
+    mockReadFrames.mockReset()
+    mockReadFrames.mockResolvedValue([])
   })
 
-  it('取走帧非空 ⇒ metadata.elementPack.frames 并入 update 路径,prevMeta 保留', async () => {
+  it('读取到帧非空 ⇒ metadata.elementPack.frames 并入 update 路径,prevMeta 保留', async () => {
     mockUpdateMessage.mockResolvedValueOnce({ id: 'db-1' })
-    mockConsumeFrames.mockResolvedValueOnce([SPAWN_FRAME, END_FRAME])
+    mockReadFrames.mockResolvedValueOnce([SPAWN_FRAME, END_FRAME])
 
     await capturedHandler.fn!({
       data: {
@@ -293,7 +312,7 @@ describe('D64⑤ worker 元素包归并(aiCallback job)', () => {
   it('update 失败回退 createMessage ⇒ 元素包随创建一次性落库', async () => {
     mockUpdateMessage.mockRejectedValueOnce(new Error('消息不存在'))
     mockCreateMessage.mockResolvedValueOnce({ id: 'db-2' })
-    mockConsumeFrames.mockResolvedValueOnce([SPAWN_FRAME])
+    mockReadFrames.mockResolvedValueOnce([SPAWN_FRAME])
 
     await capturedHandler.fn!({
       data: {
@@ -331,9 +350,9 @@ describe('D64⑤ worker 元素包归并(aiCallback job)', () => {
     expect(patch.metadata.elementPack).toBeUndefined()
   })
 
-  it('取走失败(DB 抖动)⇒ 只 warn,消息照常落库', async () => {
+  it('读取失败(DB 抖动)⇒ 只 warn,消息照常落库', async () => {
     mockUpdateMessage.mockResolvedValueOnce({ id: 'db-4' })
-    mockConsumeFrames.mockRejectedValueOnce(new Error('db down'))
+    mockReadFrames.mockRejectedValueOnce(new Error('db down'))
 
     await capturedHandler.fn!({
       data: {

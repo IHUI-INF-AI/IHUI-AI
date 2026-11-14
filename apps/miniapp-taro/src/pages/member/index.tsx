@@ -303,13 +303,12 @@ export default function MemberIndexPage() {
         {error ? (
           <View className="mx-[20rpx] mb-[24rpx] p-[24rpx] bg-card border-[length:2rpx] border-border rounded-lg flex items-center justify-between">
             <Text className="flex-1 text-body-sm leading-[normal] text-destructive">{error}</Text>
-            <View
+            <Text
               className="flex-shrink-0 ml-[16rpx] text-body-sm leading-[normal] font-semibold text-[var(--color-primary)]"
-              hoverClass="opacity-60"
               onClick={() => gate.waitUntilReady(load)}
             >
-              <Text>{tt('vip.retry', '重试')}</Text>
-            </View>
+              {tt('vip.retry', '重试')}
+            </Text>
           </View>
         ) : null}
 

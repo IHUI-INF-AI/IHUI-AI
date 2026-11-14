@@ -312,7 +312,7 @@ export async function findPayments(
     .select()
     .from(eduPayments)
     .where(conds.length ? and(...conds) : undefined)
-    .orderBy(desc(eduPayments.createdAt), desc(eduPayments.id))
+    .orderBy(desc(eduPayments.id))
     .limit(pageSize)
     .offset((page - 1) * pageSize)
 
@@ -530,7 +530,7 @@ export async function findRefunds(
     .select()
     .from(eduRefunds)
     .where(conds.length ? and(...conds) : undefined)
-    .orderBy(desc(eduRefunds.createdAt), desc(eduRefunds.id))
+    .orderBy(desc(eduRefunds.id))
     .limit(pageSize)
     .offset((page - 1) * pageSize)
 
@@ -557,7 +557,7 @@ export async function findInvoiceTitles(
     .select()
     .from(eduInvoiceTitles)
     .where(and(...conds))
-    .orderBy(desc(eduInvoiceTitles.createdAt), desc(eduInvoiceTitles.id))
+    .orderBy(desc(eduInvoiceTitles.id))
 }
 
 export interface CreateInvoiceTitleInput {
@@ -733,7 +733,7 @@ export async function findInvoiceApplications(
     .select()
     .from(eduInvoiceApplications)
     .where(conds.length ? and(...conds) : undefined)
-    .orderBy(desc(eduInvoiceApplications.createdAt), desc(eduInvoiceApplications.id))
+    .orderBy(desc(eduInvoiceApplications.id))
     .limit(pageSize)
     .offset((page - 1) * pageSize)
 

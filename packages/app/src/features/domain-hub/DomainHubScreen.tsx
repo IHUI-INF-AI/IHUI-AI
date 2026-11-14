@@ -79,7 +79,7 @@ export function DomainHubScreen({
             <Text numberOfLines={1} style={styles.rowLabel}>
               {item.label}
             </Text>
-            <ChevronRight size={rnGeometry.glyphSm} color={tk.text.secondary} />
+            <ChevronRight size={rnGeometry.glyphSm} color={tk.text.tertiary} />
           </TouchableOpacity>
         ))}
       </ScrollView>

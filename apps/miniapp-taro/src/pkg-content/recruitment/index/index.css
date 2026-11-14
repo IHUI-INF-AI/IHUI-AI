@@ -37,7 +37,7 @@
   flex-direction: column;
 }
 .recruit-title {
-  font-size: 44rpx;
+  font-size: var(--text-headline);
   font-weight: bold;
   color: var(--color-foreground);
 }

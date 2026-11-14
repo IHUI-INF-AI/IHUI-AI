@@ -60,7 +60,7 @@ export function KnowledgePlanetScreen({
               </Text>
             ) : null}
             <View style={styles.planetMeta}>
-              <Users size={14} color={tk.text.secondary} />
+              <Users size={14} color={tk.text.tertiary} />
               <Text style={styles.planetMembers}>
                 {t('knowledgePlanet.memberCount', { count: planet.memberCount })}
               </Text>
@@ -168,7 +168,7 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.primary,
     } as TextStyle,
     itemSummary: { fontSize: rnType.body.size, color: tk.text.secondary } as TextStyle,
-    itemDate: { fontSize: rnType.caption.size, color: tk.text.medium } as TextStyle,
+    itemDate: { fontSize: rnType.caption.size, color: tk.text.tertiary } as TextStyle,
     planetCard: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -202,7 +202,7 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       gap: rnSpacing.xs,
     } as ViewStyle,
-    planetMembers: { fontSize: rnType.caption.size, color: tk.text.medium } as TextStyle,
+    planetMembers: { fontSize: rnType.caption.size, color: tk.text.tertiary } as TextStyle,
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

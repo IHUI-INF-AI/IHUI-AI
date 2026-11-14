@@ -81,9 +81,6 @@ export function ChatVoiceTurn({
   const [pressed, setPressed] = useState(false)
 
   const busy = phase === 'processing' || phase === 'speaking'
-  /** 按下态整块翻面(底→品牌实底、字→品牌前景):只翻底不翻字时,亮色主题下
-   *  `text.primary`(#0A0A0A) 压在 `surface.dark`(#262626) 上只有 1.31 对比度。 */
-  const pressedOn = pressed && !busy && !disabled
   const showWave = phase === 'listening'
   const showTimer = phase === 'listening' && typeof elapsedMs === 'number'
   const showTranscript = typeof transcript === 'string' && transcript !== '' && phase !== 'idle'
@@ -132,12 +129,12 @@ export function ChatVoiceTurn({
         <View
           style={[
             styles.talkButton,
-            pressedOn ? styles.talkButtonPressed : null,
+            pressed && !busy && !disabled ? styles.talkButtonPressed : null,
             disabled || busy ? styles.talkButtonDisabled : null,
           ]}
         >
-          <Text style={[styles.talkGlyph, pressedOn ? styles.talkOnCta : null]}>{'◉'}</Text>
-          <Text style={[styles.talkText, pressedOn ? styles.talkOnCta : null]}>
+          <Text style={styles.talkGlyph}>{'◉'}</Text>
+          <Text style={styles.talkText}>
             {phase === 'processing' ? t('chat.thinking') : t('voice.holdToTalk')}
           </Text>
         </View>
@@ -311,17 +308,8 @@ function createStyles(tokens: AppThemeTokens) {
       borderRadius: rnRadius.sm,
       backgroundColor: tokens.surface.muted,
     },
-    /**
-     * 按下态底取品牌实底(亮 #000 / 暗 #FFF),不再用 `surface.dark`:
-     * 后者在亮色主题下是 #262626,与常态 muted 底的差别用户看不出来,却把压在上面的
-     * `text.primary` 从 18.16 打到 1.31(近黑压近黑)。换品牌实底后配套 `talkOnCta` 翻字。
-     */
     talkButtonPressed: {
-      backgroundColor: tokens.brand.cta,
-    },
-    /** 与 talkButtonPressed 配套的字色:两处文字共用一档,避免只翻一处留下半黑半白。 */
-    talkOnCta: {
-      color: tokens.brand.ctaForeground,
+      backgroundColor: tokens.surface.dark,
     },
     talkButtonDisabled: {
       opacity: 0.6,
@@ -381,7 +369,7 @@ function createStyles(tokens: AppThemeTokens) {
     },
     closeGlyph: {
       fontSize: rnType.title.size,
-      color: tokens.text.medium,
+      color: tokens.text.tertiary,
     },
     tones: {
       gap: rnSpacing.sm,

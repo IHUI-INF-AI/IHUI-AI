@@ -179,7 +179,7 @@ function createStyles(tk: AppThemeTokens) {
     name: { fontSize: rnType.subtitle.size, fontWeight: '600', color: tk.text.primary },
     titleText: { fontSize: rnType.body.size, color: tk.brand.DEFAULT },
     company: { fontSize: rnType.body.size, color: tk.text.secondary },
-    location: { fontSize: rnType.caption.size, color: tk.text.medium },
+    location: { fontSize: rnType.caption.size, color: tk.text.tertiary },
     qrWrap: {
       width: 48,
       height: 48,

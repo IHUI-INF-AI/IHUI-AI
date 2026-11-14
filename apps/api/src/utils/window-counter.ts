@@ -60,46 +60,19 @@ return n
 interface LocalWindow {
   count: number
   windowStart: number
-  /** 该键被要求过的最长窗口(ms)。窗口长度不是全局常量,清扫必须按条目自己记的值判过期,
-   *  否则宽窗(24h)的键会被窄窗(60s)的判据误清。 */
-  windowMs: number
 }
 const localStore = new Map<string, LocalWindow>()
 /** 内存兜底也必须有死亡机制,否则 Redis 长期不可用时这张表会单调涨到 OOM。 */
 const LOCAL_MAX_KEYS = 20_000
-/** 兜底表满且无过期条目可清时 `incrWindow` 的返回值:大于任何业务上限,
- *  调用方(如 `attempts <= max`)据此按限流不可用处理 —— fail-closed,而不是替别人清零配额。 */
-export const LOCAL_CAPACITY_EXCEEDED_COUNT = Number.MAX_SAFE_INTEGER
-
-/** 取该键在本窗口内的条目;顺手把见过的最大窗口记进条目,供全局清扫判过期。 */
-function activeLocalWindow(key: string, windowMs: number, now: number): LocalWindow | null {
-  const w = localStore.get(key)
-  if (!w) return null
-  if (now - w.windowStart > windowMs) return null
-  if (windowMs > w.windowMs) w.windowMs = windowMs
-  return w
-}
-
-/** 全局清扫过期条目。过期只在键再次命中时才被发现 ⇒ 没人再来的过期键会一直占着名额,
- *  写满 2 万后新键只能靠淘汰活跃条目腾位置(F-219:Redis 故障期可据此重置他人配额)。 */
-function sweepExpiredLocalWindows(now: number): void {
-  for (const [key, w] of localStore) if (now - w.windowStart > w.windowMs) localStore.delete(key)
-}
-
-/** 为新键腾位置:先清过期;清完仍不够 ⇒ 返回 false,由调用方 fail-closed。
- *  **绝不**淘汰仍活跃的条目 —— 那等于把别人的窗口计数清零。 */
-function reserveLocalSlots(now: number, needed: number): boolean {
-  if (localStore.size + needed <= LOCAL_MAX_KEYS) return true
-  sweepExpiredLocalWindows(now)
-  return localStore.size + needed <= LOCAL_MAX_KEYS
-}
 
 function localIncr(key: string, windowMs: number, now: number): number {
-  const existing = activeLocalWindow(key, windowMs, now)
-  if (!existing) {
-    // 键已在表里(只是过期)时 set 是覆盖,不会涨;只有真正的新键才需要名额。
-    if (!localStore.has(key) && !reserveLocalSlots(now, 1)) return LOCAL_CAPACITY_EXCEEDED_COUNT
-    localStore.set(key, { count: 1, windowStart: now, windowMs })
+  const existing = localStore.get(key)
+  if (!existing || now - existing.windowStart > windowMs) {
+    if (localStore.size >= LOCAL_MAX_KEYS) {
+      const oldest = localStore.keys().next().value
+      if (oldest !== undefined) localStore.delete(oldest)
+    }
+    localStore.set(key, { count: 1, windowStart: now })
     return 1
   }
   existing.count += 1
@@ -254,30 +227,21 @@ function localTryConsumeWindows(specs: WindowSpec[], now: number): number {
   for (let i = 0; i < specs.length; i++) {
     const s = specs[i]
     if (!s) continue
-    const active = activeLocalWindow(s.key, s.windowMs, now)
+    const w = localStore.get(s.key)
+    const active = w && now - w.windowStart <= s.windowMs ? w : null
     if (active && active.count >= s.max) return i + 1
   }
-
-  // 容量预检整批做:名额不够时一档都不加,不留下"前几档加了、后一档没加"的半截状态。
-  // 名额紧张时才清扫(全表扫描不进热路径);清扫后必须**重算**缺额:刚刚被清掉的
-  // "存在但已过期"的键,这一轮同样要占一个新名额。
-  const countAbsent = (): number => {
-    const keys = new Set<string>()
-    for (const s of specs) if (!localStore.has(s.key)) keys.add(s.key)
-    return keys.size
-  }
-  if (localStore.size + countAbsent() > LOCAL_MAX_KEYS) {
-    sweepExpiredLocalWindows(now)
-    // 清完仍不够且全是活跃窗口 ⇒ 返回 1(fail-closed,调用方按被限流处理),绝不淘汰活跃条目。
-    if (localStore.size + countAbsent() > LOCAL_MAX_KEYS) return 1
-  }
-
   for (const s of specs) {
-    const active = activeLocalWindow(s.key, s.windowMs, now)
+    const w = localStore.get(s.key)
+    const active = w && now - w.windowStart <= s.windowMs ? w : null
     if (active) {
       active.count += 1
     } else {
-      localStore.set(s.key, { count: 1, windowStart: now, windowMs: s.windowMs })
+      if (localStore.size >= LOCAL_MAX_KEYS) {
+        const oldest = localStore.keys().next().value
+        if (oldest !== undefined) localStore.delete(oldest)
+      }
+      localStore.set(s.key, { count: 1, windowStart: now })
     }
   }
   return 0

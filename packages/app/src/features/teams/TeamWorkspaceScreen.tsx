@@ -294,7 +294,7 @@ export function TeamWorkspaceScreen({
                         accessibilityLabel={t('teamsPage.removeMember')}
                         onPress={() => onRemoveMember(m.userId)}
                       >
-                        <Text style={[styles.textBtnText, { color: tk.danger.deepText }]}>
+                        <Text style={[styles.textBtnText, { color: tk.danger.DEFAULT }]}>
                           {t('teamsPage.removeMember')}
                         </Text>
                       </TouchableOpacity>
@@ -317,7 +317,7 @@ export function TeamWorkspaceScreen({
                   value={invitee}
                   onChangeText={onInviteeChange}
                   placeholder={t('teamsPage.inviteePlaceholder')}
-                  placeholderTextColor={tk.text.secondary}
+                  placeholderTextColor={tk.text.tertiary}
                   autoCapitalize="none"
                   style={styles.input}
                 />
@@ -371,7 +371,7 @@ export function TeamWorkspaceScreen({
                       accessibilityRole="button"
                       onPress={() => onCancelInvitation(inv.id)}
                     >
-                      <Text style={[styles.textBtnText, { color: tk.danger.deepText }]}>
+                      <Text style={[styles.textBtnText, { color: tk.danger.DEFAULT }]}>
                         {t('teamsPage.cancelInvite')}
                       </Text>
                     </TouchableOpacity>
@@ -393,7 +393,7 @@ export function TeamWorkspaceScreen({
                 value={settingsForm.name}
                 onChangeText={(v) => onSettingsChange({ name: v })}
                 placeholder={t('teamsPage.namePlaceholder')}
-                placeholderTextColor={tk.text.secondary}
+                placeholderTextColor={tk.text.tertiary}
                 maxLength={128}
                 style={styles.input}
               />
@@ -403,7 +403,7 @@ export function TeamWorkspaceScreen({
                 value={settingsForm.description}
                 onChangeText={(v) => onSettingsChange({ description: v })}
                 placeholder={t('teamsPage.descriptionPlaceholder')}
-                placeholderTextColor={tk.text.secondary}
+                placeholderTextColor={tk.text.tertiary}
                 maxLength={2000}
                 multiline
                 style={styles.inputMultiline}
@@ -460,7 +460,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     infoName: { fontSize: rnType.subtitle.size, fontWeight: '700', color: tk.text.primary },
     infoDesc: { fontSize: rnType.bodySm.size, color: tk.text.secondary },
-    infoMeta: { fontSize: rnType.caption.size, color: tk.text.medium },
+    infoMeta: { fontSize: rnType.caption.size, color: tk.text.tertiary },
     tabBody: { gap: rnSpacing.sm },
     rowCard: {
       flexDirection: 'row',
@@ -489,7 +489,7 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.primary,
       flexShrink: 1,
     },
-    rowSub: { fontSize: rnType.caption.size, color: tk.text.medium },
+    rowSub: { fontSize: rnType.caption.size, color: tk.text.tertiary },
     rowActions: { flexDirection: 'row', gap: rnSpacing.xs },
     badge: {
       paddingHorizontal: rnSpacing['xs-loose'],
@@ -564,7 +564,7 @@ function createStyles(tk: AppThemeTokens) {
       borderColor: tk.danger.light,
       backgroundColor: tk.surface.light,
     },
-    dangerTitle: { fontSize: rnType.body.size, fontWeight: '700', color: tk.danger.deepText },
+    dangerTitle: { fontSize: rnType.body.size, fontWeight: '700', color: tk.danger.DEFAULT },
     dangerDesc: { fontSize: rnType.label.size, color: tk.text.secondary },
     deleteBtn: {
       alignSelf: 'flex-start',
@@ -574,9 +574,9 @@ function createStyles(tk: AppThemeTokens) {
       borderWidth: 1,
       borderColor: tk.danger.DEFAULT,
     },
-    deleteBtnText: { fontSize: rnType.body.size, fontWeight: '600', color: tk.danger.deepText },
-    errorText: { fontSize: rnType.bodySm.size, color: tk.danger.deepText },
-    emptyText: { fontSize: rnType.body.size, color: tk.text.medium },
+    deleteBtnText: { fontSize: rnType.body.size, fontWeight: '600', color: tk.danger.DEFAULT },
+    errorText: { fontSize: rnType.bodySm.size, color: tk.danger.DEFAULT },
+    emptyText: { fontSize: rnType.body.size, color: tk.text.tertiary },
     retryBtn: {
       marginTop: rnSpacing.md,
       paddingHorizontal: rnSpacing['sm-loose'],

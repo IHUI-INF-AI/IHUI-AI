@@ -312,7 +312,7 @@ export function PdfToolsHubScreen({
       accessibilityLabel={label}
       onPress={onPress}
     >
-      <Upload size={28} color={tk.text.secondary} strokeWidth={2} />
+      <Upload size={28} color={tk.text.tertiary} strokeWidth={2} />
       <Text style={styles.uploadText}>{label}</Text>
     </TouchableOpacity>
   )
@@ -333,7 +333,7 @@ export function PdfToolsHubScreen({
         accessibilityLabel={t('pdfToolsPage.removeFile')}
         onPress={onRemove}
       >
-        <Trash2 size={16} color={tk.text.secondary} strokeWidth={2} />
+        <Trash2 size={16} color={tk.text.tertiary} strokeWidth={2} />
       </TouchableOpacity>
     </View>
   )
@@ -349,7 +349,7 @@ export function PdfToolsHubScreen({
     if (state.error) {
       return (
         <View style={styles.noticeBox}>
-          <AlertTriangle size={18} color={tk.warning.amberText} strokeWidth={2} />
+          <AlertTriangle size={18} color={tk.warning.amber} strokeWidth={2} />
           <View style={styles.noticeMain}>
             <Text style={styles.noticeTitle}>{t('pdfToolsPage.notAvailableTitle')}</Text>
             <Text style={styles.noticeText}>{t('pdfToolsPage.notAvailableDesc')}</Text>
@@ -398,7 +398,7 @@ export function PdfToolsHubScreen({
               accessibilityLabel={t('pdfToolsPage.moveUp')}
               onPress={() => moveMergeItem(index, -1)}
             >
-              <ChevronUp size={16} color={tk.text.secondary} strokeWidth={2} />
+              <ChevronUp size={16} color={tk.text.tertiary} strokeWidth={2} />
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.iconBtn}
@@ -407,7 +407,7 @@ export function PdfToolsHubScreen({
               accessibilityLabel={t('pdfToolsPage.moveDown')}
               onPress={() => moveMergeItem(index, 1)}
             >
-              <ChevronDown size={16} color={tk.text.secondary} strokeWidth={2} />
+              <ChevronDown size={16} color={tk.text.tertiary} strokeWidth={2} />
             </TouchableOpacity>
           </View>
           <TouchableOpacity
@@ -417,7 +417,7 @@ export function PdfToolsHubScreen({
             accessibilityLabel={t('pdfToolsPage.removeFile')}
             onPress={() => setMergeItems((prev) => prev.filter((x) => x.id !== it.id))}
           >
-            <Trash2 size={16} color={tk.text.secondary} strokeWidth={2} />
+            <Trash2 size={16} color={tk.text.tertiary} strokeWidth={2} />
           </TouchableOpacity>
         </View>
       ))}
@@ -476,7 +476,7 @@ export function PdfToolsHubScreen({
             value={ranges}
             onChangeText={setRanges}
             placeholder="1-3,5,7-10"
-            placeholderTextColor={tk.text.secondary}
+            placeholderTextColor={tk.text.tertiary}
             autoCapitalize="none"
           />
         </View>
@@ -537,7 +537,7 @@ export function PdfToolsHubScreen({
           onChangeText={setWmText}
           maxLength={200}
           placeholder={t('pdfToolsPage.wmPlaceholder')}
-          placeholderTextColor={tk.text.secondary}
+          placeholderTextColor={tk.text.tertiary}
         />
       </View>
       <View style={styles.field}>
@@ -561,7 +561,7 @@ export function PdfToolsHubScreen({
           onChangeText={setWmColor}
           autoCapitalize="none"
           placeholder="#888888"
-          placeholderTextColor={tk.text.secondary}
+          placeholderTextColor={tk.text.tertiary}
         />
       </View>
       <View style={styles.field}>

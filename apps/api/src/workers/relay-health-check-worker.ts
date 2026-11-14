@@ -11,10 +11,15 @@
  *
  * 与 registry-sync-worker 同模式：server.redisForQueue 连接 + onClose 优雅关闭。
  */
-import type { FastifyInstance } from 'fastify'
+import type { FastifyBaseLogger, FastifyInstance } from 'fastify'
+import type { Redis } from 'ioredis'
 import { Queue, Worker } from 'bullmq'
-import { checkAllKeys } from '../services/relay-health-check-service.js'
+import {
+  checkAllKeys,
+  type HealthCheckSummary,
+} from '../services/relay-health-check-service.js'
 import { queueNameWithDbIdentity } from '../services/relay-queue-name.js'
+import { DistributedLock } from '../utils/distributed-lock.js'
 
 /**
  * 队列名(2026-10-31 起经库身份解析)。本文件是这一族的**唯一取名处**:
@@ -34,6 +39,93 @@ export const RELAY_HEALTH_CHECK_QUEUE_NAME = queueNameWithDbIdentity(
 
 /** 每 5 分钟巡检一次（cron 表达式见 CRON_PATTERN） */
 const CRON_PATTERN = '*/5 * * * *'
+
+/**
+ * 巡检全局互斥锁（F-513）。锁名带库身份，隔离栈不会挡住主库巡检。
+ * 租约 2 分钟 + watchdog 自动续约：覆盖任意长巡检，进程崩溃则由 TTL 自愈。
+ */
+const HEALTH_CHECK_LOCK_TTL_MS = 120_000
+export const HEALTH_CHECK_LOCK_NAME = `relay-health-check-lock:${RELAY_HEALTH_CHECK_QUEUE_NAME}`
+
+/** Redis 不可用时的进程内互斥（跨实例不等价，但强于无锁） */
+let inProcessTickRunning = false
+
+interface TickLock {
+  release(): Promise<void>
+}
+
+/** 进程内兜底：已有 tick 在跑就返回 null（调用方跳过本次）。 */
+function acquireInProcessLock(): TickLock | null {
+  if (inProcessTickRunning) return null
+  inProcessTickRunning = true
+  return {
+    release: async () => {
+      inProcessTickRunning = false
+    },
+  }
+}
+
+/**
+ * 执行一次巡检 tick（F-513）：先抢全局锁，抢不到直接跳过本轮。
+ *
+ * Redis 抢锁命令失败（非业务异常）⇒ 降级进程内互斥并 warn；
+ * 锁在 finally 释放，释放失败只告警，残留由 TTL 兜底（业务已提交，不得重跑）。
+ */
+export async function runHealthCheckTick(
+  redis: Redis | null | undefined,
+  log: Pick<FastifyBaseLogger, 'info' | 'warn'>,
+): Promise<HealthCheckSummary | null> {
+  let lock: TickLock | null
+  if (!redis) {
+    log.warn('relay-health-check: Redis 不可用,降级为进程内互斥')
+    lock = acquireInProcessLock()
+  } else {
+    try {
+      const acquired = await new DistributedLock(redis).tryLock(
+        HEALTH_CHECK_LOCK_NAME,
+        undefined,
+        { ttlMs: HEALTH_CHECK_LOCK_TTL_MS, watchdog: true },
+      )
+      lock = acquired
+        ? {
+            release: async () => {
+              await acquired.release()
+            },
+          }
+        : null
+    } catch (err) {
+      log.warn({ err }, 'relay-health-check: Redis 抢锁失败,降级为进程内互斥')
+      lock = acquireInProcessLock()
+    }
+  }
+
+  if (!lock) {
+    log.info('relay-health-check: 另一实例正在巡检,跳过本 tick')
+    return null
+  }
+
+  try {
+    const result = await checkAllKeys()
+    log.info(
+      {
+        total: result.total,
+        healthy: result.healthy,
+        degraded: result.degraded,
+        down: result.down,
+        disabled: result.disabled,
+        recovered: result.recovered,
+      },
+      'relay-health-check done',
+    )
+    return result
+  } finally {
+    try {
+      await lock.release()
+    } catch (err) {
+      log.warn({ err }, 'relay-health-check: 释放巡检锁失败,等待 TTL 兜底')
+    }
+  }
+}
 
 export function startRelayHealthCheckWorker(server: FastifyInstance): Worker {
   const connection = server.redisForQueue
@@ -71,19 +163,8 @@ export function startRelayHealthCheckWorker(server: FastifyInstance): Worker {
         server.log.warn({ jobName: job.name }, 'relay-health-check: unknown job')
         return null
       }
-      const result = await checkAllKeys()
-      server.log.info(
-        {
-          total: result.total,
-          healthy: result.healthy,
-          degraded: result.degraded,
-          down: result.down,
-          disabled: result.disabled,
-          recovered: result.recovered,
-        },
-        'relay-health-check done',
-      )
-      return result
+      // F-513: 多实例/重叠 tick 由全局锁互斥，抢不到即跳过本 tick
+      return runHealthCheckTick(connection, server.log)
     },
     { connection, concurrency: 1, lockDuration: 300_000 },
   )

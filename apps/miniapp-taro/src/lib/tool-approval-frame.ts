@@ -26,11 +26,6 @@
  */
 import { projectToolApprovalDecisionInfo, projectToolApprovalEnvFacts } from '@ihui/api-client'
 import type { ToolApprovalEvent } from '@ihui/api-client'
-// 差距①:准入回执判据的唯一出口在共享层,本文件只调用、不复算(§0.6 单一真相源)。
-import {
-  readSendAdmissionReceipt,
-  type SendAdmissionReceipt,
-} from '@ihui/shared/chat/send-admission'
 
 /** 帧名(SSE data 里的 type 值);与 @ihui/shared/sse/contract.ts 的 SSE_EVENTS.TOOL_APPROVAL 同字。 */
 export const TOOL_APPROVAL_FRAME_TYPE = 'tool-approval'
@@ -147,36 +142,5 @@ export function parseToolApprovalLine(line: string): ToolApprovalEvent | null {
         }
       : {}),
   }
-}
-
-// ===== 差距①(2026-11-13 立):发送准入回执(admission)帧的端内认领层 =====
-// 共享 @ihui/shared/utils/sse-parse 的 SSEEvent 联合类型不含 'admission',parseSSEChunk
-// 也不认领该帧(web 走 api-client 的 hasSendAdmission 解析开关);本端复用同一条 onRawLine
-// 旁路自行认领 —— 与 tool-approval / question 同一条先例,不是新造通道。
-//
-// **判据不在本文件**:四档值域、inputId 必填、形状校验全部走共享层
-// `readSendAdmissionReceipt`(唯一出口)。本函数只做"这一行是不是 admission 帧"的
-// 入口筛选,拿到 json 后原样交给共享判据 —— 端内不复制第二份判据(§0.6)。
-const ADMISSION_FRAME_TYPE = 'admission'
-
-/**
- * 一行 SSE 文本 → 准入回执;不是这一族帧(或形状不认)⇒ null(丢弃,不猜)。
- *
- * 为什么先自己判一次 `type` 再交给共享判据:共享判据只看载荷形状(inputId + disposition),
- * 不看帧名;若把任意 data 行都塞给它,别的帧只要碰巧带这两个键就会被误认成回执。
- */
-export function parseAdmissionLine(line: string): SendAdmissionReceipt | null {
-  const payload = dataPayloadOfLine(line)
-  if (!payload) return null
-  // 零成本直返:绝大多数行不是这一族
-  if (!payload.includes(ADMISSION_FRAME_TYPE)) return null
-  let json: Record<string, unknown>
-  try {
-    json = JSON.parse(payload) as Record<string, unknown>
-  } catch {
-    return null
-  }
-  if (json?.type !== ADMISSION_FRAME_TYPE) return null
-  return readSendAdmissionReceipt(json)
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

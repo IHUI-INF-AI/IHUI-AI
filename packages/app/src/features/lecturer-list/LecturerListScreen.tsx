@@ -125,7 +125,7 @@ export function LecturerListScreen({
               {t('teacher.list.studentCount', { n: item.students })}
             </Text>
           </View>
-          <ChevronRight size={18} color={tk.text.secondary} />
+          <ChevronRight size={18} color={tk.text.tertiary} />
         </View>
       )}
     </Pressable>
@@ -157,14 +157,14 @@ export function LecturerListScreen({
         }
         ListHeaderComponent={
           <View style={styles.searchWrap}>
-            <Search size={16} color={tk.text.secondary} />
+            <Search size={16} color={tk.text.tertiary} />
             <TextField
               colorScheme={colorScheme}
               style={styles.searchInput}
               value={searchText}
               onChangeText={setSearchText}
               placeholder={t('teacher.list.searchPlaceholder')}
-              placeholderTextColor={tk.text.secondary}
+              placeholderTextColor={tk.text.tertiary}
               returnKeyType="search"
               onSubmitEditing={() => onSearch(searchText.trim())}
             />
@@ -328,7 +328,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     meta: {
       fontSize: rnType.label.size,
-      color: tk.text.medium,
+      color: tk.text.tertiary,
     },
     /* 加载更多 */
     footer: {

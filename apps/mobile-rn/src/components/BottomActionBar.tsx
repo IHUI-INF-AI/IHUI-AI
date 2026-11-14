@@ -928,7 +928,7 @@ const styles = StyleSheet.create({
   } as TextStyle,
   modelArrow: {
     fontSize: rnType.badge.size,
-    color: tokens.text.medium,
+    color: tokens.text.tertiary,
   } as TextStyle,
   configBtn: {
     width: 28,

@@ -44,8 +44,6 @@ const FILE_TOOLS: ReadonlySet<string> = new Set([
   'resolve_conflict',
   'review_pr',
   'token6688_upload_file',
-  // 显式交付声明(2026-11-14):登记最终交付物,归文件类(不是"思考"类)
-  'present_files',
 ])
 
 /** 图片类:图像 / 视频 / 音乐 / 语音 / 视觉分析 / 截图 */

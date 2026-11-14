@@ -265,7 +265,7 @@ export function AiWorldScreen({
                 <RefreshControl
                   refreshing={rankLoading}
                   onRefresh={onRetryRankings}
-                  tintColor={colorScheme === 'dark' ? tk.text.secondary : tk.text.secondary}
+                  tintColor={colorScheme === 'dark' ? tk.text.tertiary : tk.text.secondary}
                 />
               }
               ListEmptyComponent={
@@ -289,7 +289,7 @@ export function AiWorldScreen({
                 value={search}
                 onChangeText={onSearchChange}
                 placeholder={t('aiWorld.searchPlaceholder')}
-                placeholderTextColor={tk.text.secondary}
+                placeholderTextColor={tk.text.tertiary}
                 returnKeyType="search"
               />
               {filterActive || filterLoading ? (
@@ -324,7 +324,7 @@ export function AiWorldScreen({
               <RefreshControl
                 refreshing={refreshing || filterLoading}
                 onRefresh={onRefresh}
-                tintColor={colorScheme === 'dark' ? tk.text.secondary : tk.text.secondary}
+                tintColor={colorScheme === 'dark' ? tk.text.tertiary : tk.text.secondary}
               />
             }
             ListEmptyComponent={
@@ -507,7 +507,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     tabText: {
       fontSize: rnType.body.size,
-      color: tk.text.inverse,
+      color: tk.text.secondary,
     },
     tabTextActive: {
       fontSize: rnType.body.size,
@@ -600,7 +600,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     coverFallbackText: {
       fontSize: rnType.label.size,
-      color: tk.text.medium,
+      color: tk.text.tertiary,
     },
     entryBody: {
       marginLeft: rnSpacing.md,
@@ -624,7 +624,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     entryMeta: {
       fontSize: rnType.label.size,
-      color: tk.text.medium,
+      color: tk.text.tertiary,
     },
     /* 榜单行 */
     rankCard: {
@@ -654,7 +654,7 @@ function createStyles(tk: AppThemeTokens) {
     rankTextTop3: {
       fontSize: rnType.body.size,
       fontWeight: '600',
-      color: tk.warning.amberText,
+      color: tk.warning.amber,
     },
     rankTextNormal: {
       fontSize: rnType.body.size,
@@ -673,7 +673,7 @@ function createStyles(tk: AppThemeTokens) {
     rankProvider: {
       marginTop: rnSpacing['2xs'],
       fontSize: rnType.label.size,
-      color: tk.text.medium,
+      color: tk.text.tertiary,
     },
     rankScoreCol: {
       marginLeft: rnSpacing.sm,
@@ -682,12 +682,12 @@ function createStyles(tk: AppThemeTokens) {
     rankScore: {
       fontSize: rnType.body.size,
       fontWeight: '600',
-      color: tk.warning.amberText,
+      color: tk.warning.DEFAULT,
     },
     rankVotes: {
       marginTop: rnSpacing['2xs'],
       fontSize: rnType.caption.size,
-      color: tk.text.medium,
+      color: tk.text.tertiary,
     },
   } satisfies Record<string, ViewStyle | TextStyle>)
 }

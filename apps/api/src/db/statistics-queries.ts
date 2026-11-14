@@ -213,7 +213,7 @@ export async function findStatisticsSnapshots(
       .select()
       .from(statisticsSnapshots)
       .where(where)
-      .orderBy(desc(statisticsSnapshots.createdAt))
+      .orderBy(desc(statisticsSnapshots.createdAt), desc(statisticsSnapshots.id))
       .limit(opts.pageSize)
       .offset((opts.page - 1) * opts.pageSize),
     db
@@ -461,7 +461,7 @@ export async function findVisitLogList(
       .select()
       .from(visitLogs)
       .where(where)
-      .orderBy(desc(visitLogs.createdAt))
+      .orderBy(desc(visitLogs.createdAt), desc(visitLogs.id))
       .limit(opts.pageSize)
       .offset((opts.page - 1) * opts.pageSize),
     db

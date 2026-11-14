@@ -194,7 +194,8 @@
   A: 멀티모달 심사 99.2% 정확도, 오판율 < 0.5%, 수기 재심사 규칙 설정 가능.
 
 ### 연락처
-- **통합 연락 이메일: lizong@aizhs.top** — 업종별 솔루션, 업종 자료 요청, 비즈니스 협의 모두 이 주소로 보내 주세요. 업종과 문의 유형을 적어 주시면 24시간 이내 회신합니다.
+- 미디어 산업: media@aizhs.top
+- 일반 연락: contact@aizhs.top
 - 공식 사이트: https://aizhs.top
 - GitHub: https://github.com/IHUI-INF-AI/IHUI-AI
 

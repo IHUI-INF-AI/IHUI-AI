@@ -113,13 +113,9 @@ describe('B 接线自证:屏内三环都在位', () => {
   })
 
   it('每轮开始复位上一轮的 trace(旧账不得挂到新消息上)', () => {
-    // 判据只要求"复位发生在开新轮之后",不要求两行物理相邻 ——
-    // 该段后来插入了流式批处理器(streamBatchersRef)等语句,把"相邻行"当判据
-    // 会让任何无关插行都翻红(判据腐烂后只剩删断言这一条路,反而更松)。
-    const openRoundAt = SCREEN.indexOf('abortRef.current = controller')
-    expect(openRoundAt, '开新轮的 AbortController 赋值不在位').toBeGreaterThan(-1)
-    const resetAt = SCREEN.indexOf('roundTraceIdRef.current = undefined', openRoundAt)
-    expect(resetAt, '复位语句必须出现在开新轮之后(不见即未接线)').toBeGreaterThan(openRoundAt)
+    expect(SCREEN).toMatch(
+      /abortRef\.current = controller\s*\n\s*roundTraceIdRef\.current = undefined/,
+    )
   })
 
   it('失败轮把 trace 交给 logger:没见过就不写这个键(绝不写空串/undefined 顶掉"无键"这一态)', () => {

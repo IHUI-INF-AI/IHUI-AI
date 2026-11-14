@@ -218,7 +218,7 @@ export default function LearnMapScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: tokens.surface.bg },
   body: { padding: rnSpacing.md, paddingBottom: rnSpacing['3xl'], gap: rnSpacing['sm-loose'] },
-  subtitle: { fontSize: rnType.label.size, color: tokens.text.medium },
+  subtitle: { fontSize: rnType.label.size, color: tokens.text.tertiary },
   stateBox: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -234,7 +234,7 @@ const styles = StyleSheet.create({
     borderColor: tokens.danger.DEFAULT,
     backgroundColor: tokens.surface.card,
   },
-  errorText: { fontSize: rnType.bodySm.size, color: tokens.danger.deepText },
+  errorText: { fontSize: rnType.bodySm.size, color: tokens.danger.DEFAULT },
   retryBtn: {
     alignSelf: 'flex-start',
     paddingHorizontal: rnSpacing['md-loose'],
@@ -264,7 +264,7 @@ const styles = StyleSheet.create({
   },
   summaryMain: { flex: 1, gap: rnSpacing['2xs'] },
   summaryLabel: { fontSize: rnType.strong.size, fontWeight: '600', color: tokens.text.primary },
-  summaryHint: { fontSize: rnType.caption.size, color: tokens.text.medium },
+  summaryHint: { fontSize: rnType.caption.size, color: tokens.text.tertiary },
   card: {
     borderRadius: rnRadius.lg,
     borderWidth: 1,
@@ -291,14 +291,14 @@ const styles = StyleSheet.create({
   cardTitle: { fontSize: rnType.strong.size, fontWeight: '600', color: tokens.text.primary },
   cardDesc: { fontSize: rnType.bodySm.size, lineHeight: 19, color: tokens.text.secondary },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.xs },
-  metaText: { fontSize: rnType.caption.size, color: tokens.text.medium },
+  metaText: { fontSize: rnType.caption.size, color: tokens.text.tertiary },
   expandBox: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: rnSpacing['2xs'],
     paddingTop: rnSpacing['2xs'],
   },
-  expandText: { fontSize: rnType.caption.size, color: tokens.text.medium },
+  expandText: { fontSize: rnType.caption.size, color: tokens.text.tertiary },
   nodesBox: {
     gap: rnSpacing['sm-loose'],
     marginHorizontal: rnSpacing['md-loose'],

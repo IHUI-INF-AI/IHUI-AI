@@ -14,7 +14,7 @@
  * - 4 变体差异:index 基础单按钮 / indexs 双按钮 / levelIndex 等级权益+levelText / privateAdvisory 5 项权益
  * - 浅色优雅风,主题 token 入口;圆角守门(AGENTS.md §4,无 rounded-full);无分割线(gap 间距)
  */
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import { scaleText } from '@ihui/rn-app'
 import {
   Image,
@@ -208,33 +208,28 @@ export function IntroducePopup({
   const listItems = benefits ?? config.benefits
   const moreBenefitsText = moreBenefits ?? config.moreBenefits
   const [closing, setClosing] = useState(false)
-  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  useEffect(() => {
-    return () => {
-      if (closeTimerRef.current) clearTimeout(closeTimerRef.current)
-    }
-  }, [])
-
-  // close 动作:对齐 Uniapp close() 延迟关闭动画;统一出口,避免重复 onClose 与卸载后 setState
-  const scheduleClose = () => {
-    if (closing) return
-    setClosing(true)
-    closeTimerRef.current = setTimeout(() => {
-      setClosing(false)
-      onClose()
-    }, 200)
-  }
 
   const handleButton = (action: ButtonAction) => {
     if (action === 'confirm') {
       onConfirm?.()
       return
     }
-    scheduleClose()
+    // close 动作:对齐 Uniapp close() 延迟关闭动画
+    setClosing(true)
+    setTimeout(() => {
+      setClosing(false)
+      onClose()
+    }, 200)
   }
 
-  const requestClose = scheduleClose
+  const requestClose = () => {
+    if (closing) return
+    setClosing(true)
+    setTimeout(() => {
+      setClosing(false)
+      onClose()
+    }, 200)
+  }
 
   const renderButtons = () => {
     const showLevelBadge = variant === 'levelIndex' && typeof level === 'number'
@@ -501,14 +496,14 @@ const styles = StyleSheet.create({
     marginTop: rnSpacing['sm-loose'],
     fontSize: MORE_FONT_SIZE,
     lineHeight: MORE_FONT_SIZE + 4,
-    color: tokens.danger.deepText,
+    color: tokens.danger.DEFAULT,
     textAlign: 'center',
   } as TextStyle,
   copyright: {
     marginTop: rnSpacing.sm,
     fontSize: COPYRIGHT_FONT_SIZE,
     lineHeight: COPYRIGHT_FONT_SIZE + 2,
-    color: tokens.text.medium,
+    color: tokens.text.tertiary,
     textAlign: 'center',
   } as TextStyle,
   footer: {

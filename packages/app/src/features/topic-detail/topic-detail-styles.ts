@@ -37,7 +37,7 @@ export function createTopicDetailStyles(tk: AppThemeTokens) {
       lineHeight: rnType.bodySm.lineHeight,
       color: tk.text.secondary,
     },
-    followers: { fontSize: rnType.label.size, color: tk.text.medium },
+    followers: { fontSize: rnType.label.size, color: tk.text.tertiary },
     followBtn: {
       paddingHorizontal: rnSpacing.lg,
       paddingVertical: rnSpacing['xs-loose'],
@@ -59,7 +59,7 @@ export function createTopicDetailStyles(tk: AppThemeTokens) {
       paddingVertical: rnSpacing['sm-loose'],
       backgroundColor: tk.surface.card,
     },
-    publishText: { flex: 1, fontSize: rnType.bodySm.size, color: tk.text.medium },
+    publishText: { flex: 1, fontSize: rnType.bodySm.size, color: tk.text.tertiary },
     publishBtn: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tk.brand.DEFAULT },
     listContent: { padding: rnSpacing.md, paddingBottom: rnSpacing.xl, gap: rnSpacing.sm },
     post: {
@@ -78,7 +78,7 @@ export function createTopicDetailStyles(tk: AppThemeTokens) {
     },
     userInfo: { flex: 1, gap: rnSpacing['2xs'] },
     author: { fontSize: rnType.bodySm.size, fontWeight: '500', color: tk.text.primary },
-    time: { fontSize: rnType.caption.size, color: tk.text.medium },
+    time: { fontSize: rnType.caption.size, color: tk.text.tertiary },
     postTitle: { fontSize: rnType.strong.size, fontWeight: '600', color: tk.text.primary },
     postContent: { fontSize: rnType.bodySm.size, lineHeight: 19, color: tk.text.secondary },
     imgRow: { flexDirection: 'row', gap: rnSpacing['xs-loose'] },
@@ -92,8 +92,8 @@ export function createTopicDetailStyles(tk: AppThemeTokens) {
     imgMoreText: { fontSize: rnType.body.size, fontWeight: '600', color: tk.text.secondary },
     postFooter: { flexDirection: 'row', gap: rnSpacing.lg },
     stat: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.xs },
-    statNum: { fontSize: rnType.label.size, color: tk.text.medium },
-    stateText: { fontSize: rnType.bodySm.size, color: tk.text.medium },
+    statNum: { fontSize: rnType.label.size, color: tk.text.tertiary },
+    stateText: { fontSize: rnType.bodySm.size, color: tk.text.tertiary },
     footer: { alignItems: 'center', paddingVertical: rnSpacing.md },
   } satisfies Record<string, ViewStyle | TextStyle>)
 }

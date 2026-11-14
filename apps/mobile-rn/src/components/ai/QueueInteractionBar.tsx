@@ -414,7 +414,7 @@ const styles = StyleSheet.create({
   },
   modeLabel: {
     fontSize: rnType.caption.size,
-    color: tokens.text.medium,
+    color: tokens.text.tertiary,
   },
   modeText: {
     fontSize: rnType.label.size,
@@ -427,6 +427,6 @@ const styles = StyleSheet.create({
   },
   degradedNote: {
     fontSize: rnType.caption.size,
-    color: tokens.warning.amberText,
+    color: tokens.warning.DEFAULT,
   },
 })

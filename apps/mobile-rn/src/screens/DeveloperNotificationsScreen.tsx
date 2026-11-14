@@ -15,7 +15,6 @@ import { appAlert } from '../components/BottomPops'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
-import { toFriendlyOr } from '@ihui/shared/utils'
 
 // type 别名(非 interface):具隐式索引签名,可直接喂给 Record<string, boolean> 乐观态
 type NotificationPrefs = {
@@ -44,7 +43,7 @@ function DeveloperNotificationsScreen() {
       if (!res.success || !res.data) throw new Error(res.error || 'load failed')
       setValues(res.data)
     } catch (e) {
-      setError(toFriendlyOr(e, t('common.loadFailed')))
+      setError(e instanceof Error ? e.message : 'load failed')
     } finally {
       setLoading(false)
     }
@@ -69,7 +68,7 @@ function DeveloperNotificationsScreen() {
         setValues(values) // 回滚
         void appAlert(
           t('common.error'),
-          toFriendlyOr(e, t('developerNotifications.title')),
+          e instanceof Error ? e.message : t('developerNotifications.title'),
         )
       } finally {
         setPendingKey(null)

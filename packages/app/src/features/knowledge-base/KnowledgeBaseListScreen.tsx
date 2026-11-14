@@ -155,14 +155,14 @@ export function KnowledgeBaseListScreen({
           ListHeaderComponent={
             <View style={styles.listHeader}>
               <View style={styles.searchWrap}>
-                <Search size={16} color={tk.text.secondary} strokeWidth={2} />
+                <Search size={16} color={tk.text.tertiary} strokeWidth={2} />
                 <TextField
                   colorScheme={colorScheme}
                   style={styles.searchInput}
                   value={keyword}
                   onChangeText={onKeywordChange}
                   placeholder={t('common.searchPlaceholder')}
-                  placeholderTextColor={tk.text.secondary}
+                  placeholderTextColor={tk.text.tertiary}
                   returnKeyType="search"
                   accessibilityLabel={t('common.search')}
                 />
@@ -206,7 +206,7 @@ export function KnowledgeBaseListScreen({
           ListFooterComponent={
             loadingMore ? (
               <View style={styles.footer}>
-                <ActivityIndicator size="small" color={tk.text.secondary} />
+                <ActivityIndicator size="small" color={tk.text.tertiary} />
               </View>
             ) : null
           }
@@ -377,7 +377,7 @@ function createStyles(tk: AppThemeTokens) {
     metaText: {
       flexShrink: 0,
       fontSize: rnType.caption.size,
-      color: tk.text.medium,
+      color: tk.text.tertiary,
     },
     footer: {
       paddingVertical: rnSpacing.md,

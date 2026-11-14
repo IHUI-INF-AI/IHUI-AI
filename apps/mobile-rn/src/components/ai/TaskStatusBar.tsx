@@ -39,19 +39,19 @@ type StatusGlyph = { icon: 'check' | 'x' | 'dash' | 'loader'; color: string }
 /** 整体态势图标与颜色(lucide-react-native,禁 emoji) */
 const KIND_GLYPH: Record<TaskStatusKind, StatusGlyph> = {
   running: { icon: 'loader', color: tokens.brand.DEFAULT },
-  completed: { icon: 'check', color: tokens.success.deepText },
-  failed: { icon: 'x', color: tokens.danger.deepText },
-  interrupted: { icon: 'dash', color: tokens.warning.amberText },
+  completed: { icon: 'check', color: tokens.success.DEFAULT },
+  failed: { icon: 'x', color: tokens.danger.DEFAULT },
+  interrupted: { icon: 'dash', color: tokens.warning.DEFAULT },
   idle: { icon: 'dash', color: tokens.text.secondary },
 }
 
 /** 步骤级图标与颜色(与 web PlanStepsCard 同一套语义) */
 const STEP_GLYPH: Record<PlanStepStatus, StatusGlyph> = {
-  pending: { icon: 'dash', color: tokens.text.medium },
+  pending: { icon: 'dash', color: tokens.text.tertiary },
   in_progress: { icon: 'loader', color: tokens.brand.DEFAULT },
-  completed: { icon: 'check', color: tokens.success.deepText },
-  failed: { icon: 'x', color: tokens.danger.deepText },
-  skipped: { icon: 'dash', color: tokens.text.medium },
+  completed: { icon: 'check', color: tokens.success.DEFAULT },
+  failed: { icon: 'x', color: tokens.danger.DEFAULT },
+  skipped: { icon: 'dash', color: tokens.text.tertiary },
 }
 
 function StatusIcon({ glyph, spinning }: { glyph: StatusGlyph; spinning: boolean }) {
@@ -197,12 +197,12 @@ const styles = StyleSheet.create({
     color: tokens.text.secondary,
     fontVariant: ['tabular-nums'],
   },
-  diffAdded: { color: tokens.success.deepText, fontVariant: ['tabular-nums'] },
-  diffRemoved: { color: tokens.danger.deepText, fontVariant: ['tabular-nums'] },
+  diffAdded: { color: tokens.success.DEFAULT, fontVariant: ['tabular-nums'] },
+  diffRemoved: { color: tokens.danger.DEFAULT, fontVariant: ['tabular-nums'] },
   detail: { paddingHorizontal: rnSpacing.md, paddingBottom: rnSpacing.sm, gap: rnSpacing.xs },
   stepRow: { flexDirection: 'row', alignItems: 'flex-start', gap: rnSpacing['xs-loose'] },
   stepTitle: { flex: 1, fontSize: rnType.label.size, color: tokens.text.secondary },
-  stepTitleDone: { color: tokens.text.medium },
+  stepTitleDone: { color: tokens.text.tertiary },
   stepTitleActive: { color: tokens.text.primary, fontWeight: '500' },
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
