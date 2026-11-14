@@ -91,11 +91,7 @@ function auditQueryFailed(operation: string, error: unknown): never {
   logger.error(`[audit-queries] ${operation} failed`, {
     error: (error as Error).message,
   })
-  throw new AppError(
-    '审计链查询失败:数据库不可用,本次结果不完整',
-    503,
-    'AUDIT_CHAIN_UNAVAILABLE',
-  )
+  throw new AppError('审计链查询失败:数据库不可用,本次结果不完整', 503, 'AUDIT_CHAIN_UNAVAILABLE')
 }
 
 const SELECT_COLS = sql.raw(
@@ -300,7 +296,39 @@ export async function countAuditLogs(filters: AuditLogFilters): Promise<number> 
   }
 }
 
-/** 取最近一条日志的 current_hash(链尾);表空或不存在返回 "0"*64 创世哈希。 */
+/**
+ * 链尾查询(可整条交给 execute 的 SQL,非片段):取"链上叶",不是取"最新一行"。
+ *
+ * 叶 = 没有任何后续行把自己的 current_hash 当作 prev_hash 的行(`prev_hash = c.current_hash`
+ * 的反向 NOT EXISTS)。为什么不能像 `getLastAuditLogHash` 那样直接按 seq 取最大:原始保留退出
+ * (raw-retention opt-out)与子集归档会**从链中间删行**,删完最新一行未必是叶 —— 按最新取会接到
+ * 一条已被引用的枝上,写出去就是"两根叶 + prev_hash 链断裂"(F-274,见
+ * tests/audit-chain-subset-mode.test.ts ④ 的反例用例)。
+ *
+ * 排序口径与桩实现 `leavesOf` 同序(插入顺序取最后一片 ⇒ 真实表里即 seq 最大),因此刻意
+ * **不用 `ORDER BY timestamp DESC`**:F-274 立的就是"时间可撞、可被 NTP 回拨,seq 才是链序",
+ * 该形态在用例里被列为禁止项。多叶并存时取 seq 最大那一片,保证写入端与 verify 端口径一致。
+ *
+ * 为什么导出成 SQL 常量而不是再包一个 async 函数:`insertAuditLog` 必须把它放进**自己的写事务**
+ * 里跑(`tx.execute(...)`),顺序固定为 advisory lock → 取叶 → INSERT;而 `getLastAuditLogHash`
+ * 走的是非事务 `dbRead`。并发写若在读尾与写入之间插队,会把同一个 prev_hash 接到两条新链上。
+ *
+ * 表不存在时由调用方 catch 降级为创世哈希(见 audit-log-service.insertAuditLog),本常量不吞异常。
+ */
+export const SELECT_CHAIN_TAIL_SQL: SQL = sql`
+  SELECT c.current_hash
+  FROM ${sql.raw(TABLE)} c
+  WHERE NOT EXISTS (SELECT 1 FROM ${sql.raw(TABLE)} k WHERE k.prev_hash = c.current_hash)
+  ORDER BY c.seq DESC
+  LIMIT 1
+`
+
+/**
+ * 取最近一条日志的 current_hash(链尾);表空或不存在返回 "0"*64 创世哈希。
+ * F-274:链尾按单调序号 seq 取(理由见 selectAuditLogChain),不按 timestamp。
+ * 注意:本函数走非事务 dbRead,只适合**读端展示**;写入端的链尾必须用
+ * `SELECT_CHAIN_TAIL_SQL` 在同一事务内取叶(理由见该常量)。
+ */
 export async function getLastAuditLogHash(): Promise<string> {
   const GENESIS = '0'.repeat(64)
   try {
