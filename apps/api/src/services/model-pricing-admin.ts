@@ -1038,6 +1038,11 @@ export async function assertPricedForPublish(modelRowId: number): Promise<Publis
   const modelId = String(row['model_id'] ?? '')
   const pin = asNum(row['pin'])
   const pout = asNum(row['pout'])
+  // 上游真免费模型(OpenRouter 的 ":free" 后缀)零价是合法状态,必须放行,
+  // 否则运营无法上架免费模型 —— 护栏只针对"该收费却没定价"的漏计费。
+  if (/:free\b/i.test(modelId)) {
+    return { ok: true, modelId, inputPricePer1k: pin, outputPricePer1k: pout }
+  }
   if (pin <= 0 && pout <= 0) {
     return {
       ok: false,
@@ -1126,6 +1131,7 @@ export async function getUnpricedAlerts(days = 30): Promise<UnpricedAlertReport>
     from price p
     left join usage u on u.mid = p.mid
     where coalesce(p.pin, 0) <= 0 and coalesce(p.pout, 0) <= 0
+      and p.mid not like '%:free'
       and (p.is_relay_public = true or coalesce(u.calls, 0) > 0)
     order by estimated_cost_cents desc, calls desc
   `)
