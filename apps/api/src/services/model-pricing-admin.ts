@@ -101,7 +101,12 @@ export async function listModelPricing(query: ListModelPricingQuery): Promise<{
         and not exists (
           select 1 from ai_pricing p
           where p.model_id = lower(m.model_id)
-            and (p.input_token_price > 0 or p.output_token_price > 0)
+            and (
+              p.input_token_price > 0
+              or p.output_token_price > 0
+              or (p.billing_mode in ('per_image', 'per_video') and coalesce(p.per_unit_price, 0) > 0)
+              or (p.billing_mode = 'per_call' and p.tiered_call_prices is not null)
+            )
         )
       )
       or (m.metadata->'priceSource'->>'tier') in ('provider-fallback', 'global-fallback')
@@ -1152,6 +1157,7 @@ export async function getUnpricedAlerts(days = 30): Promise<UnpricedAlertReport>
         coalesce(input_price_per_1k, 0) as pin,
         coalesce(output_price_per_1k, 0) as pout,
         coalesce(metadata->'priceSource'->>'tier', '') as tier,
+        coalesce((metadata->'priceSource'->>'perUnitPrice')::numeric, 0) as unit_price,
         coalesce(
           cost_input_price_per_1k,
           coalesce(input_price_per_1k, 0)
@@ -1198,6 +1204,8 @@ export async function getUnpricedAlerts(days = 30): Promise<UnpricedAlertReport>
       and p.mid not like '%:free'
       -- 厂商官方明确免费的模型(priceSource.tier=official-free)零价是合法状态
       and p.tier <> 'official-free'
+      -- 非 token 计费(按张/按秒/按次)的单位价才是真实售价,配置行 token 价 0 不算缺口
+      and not (p.tier = 'official' and p.unit_price > 0)
       and (p.is_relay_public = true or coalesce(u.calls, 0) > 0)
     order by estimated_cost_cents desc, calls desc
   `)
