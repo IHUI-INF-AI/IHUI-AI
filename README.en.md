@@ -99,6 +99,9 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-14**
+- 🔧 Chore/Other:收尾提交 plan-heal/tag-sync 副产物 (f05491e678)
+
+**2026-11-14**
 - 🔧 Chore/Other:收拢本地工作区改动(全量提交) (1be9d1e2c7)
 - 🔧 Chore/Other:重封根护栏清单(merge round2 后 gate-scope 漂移) (4b0fc5a3e6)
 - 🐞 Fix:补两处契约缺口——SendAdmissionReceipt.ahead 与 ProcessGroupChild.kill 签名 (0dc7a15623)
@@ -813,11 +816,6 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 - 🐞 Fix:ab_test_results schema 补 UNIQUE(variant_id,bucket) 表约束 + bucket NOT NULL,对齐已入库迁移 20261112000002,防 onConflict 42P10 + 回归锁 5/5 (d1b4766f6ba)
 - 🔧 Chore/Other:结清 F-448 —— ab_test_results schema 侧补 UNIQUE(variant_id,bucket) 表约束 + bucket NOT NULL,对齐已入库迁移 20261112000002(证据:迁移 + 回归锁 f448 5/5) (72ec4aad2b7)
 - 🔧 Chore/Other:结清 189G —— F-189 重命名级联已在 a00d16ca08,本轮补 DELETE 守卫事务收口(锁→组行锁→计数→删同事务,f-189 回归 5/5,代码入 a84b0dc7347) (2be18110794)
-
-**2026-11-13**
-- 🔧 Chore/Other:fix(api)+docs: F-171 课程问答 lessonId 下推 SQL WHERE(分页/total 以本课 published 问答为口径,f-171 回归 4/4)+F-189 分组删除守卫事务收口(锁→组行 FOR UPDATE→计数→删同事务,并发打标/抢删窗口封死,f-189 回归 5/5);README 块 testFiles 5226/trackedFiles 21361 随 DN5 按终态派生落账(零卷入他席在飞形态) (a84b0dc7347)
-- 🔧 Chore/Other:结清批次35 共5张(F-321/333/343/345/351) (6b6de7ea676)
-- 🐞 Fix:结清 F-321 停留统计先归一再截断 + F-333 提现 PUT 状态机守卫 + F-343 保留期清理分批 + F-345 运行时流 done 帧协议 + F-351 资讯分页稳定排序 (543f21144ea)
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)

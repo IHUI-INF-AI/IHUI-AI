@@ -5470,6 +5470,9 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-14**
+- 🔧 工程/其他:收尾提交 plan-heal/tag-sync 副产物 (f05491e678)
+
+**2026-11-14**
 - 🔧 工程/其他:收拢本地工作区改动(全量提交) (1be9d1e2c7)
 - 🔧 工程/其他:重封根护栏清单(merge round2 后 gate-scope 漂移) (4b0fc5a3e6)
 - 🐞 修复:补两处契约缺口——SendAdmissionReceipt.ahead 与 ProcessGroupChild.kill 签名 (0dc7a15623)
