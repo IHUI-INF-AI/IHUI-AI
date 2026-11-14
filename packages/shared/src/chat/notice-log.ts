@@ -144,32 +144,32 @@ export interface NoticeLogStorage {
 
 /** 读回某会话的留痕(坏数据降级为空;存储层异常照常向上抛,由调用方决定告警策略) */
 export async function loadNoticeLog(
-  storage: NoticeLogStorage,
+  store: NoticeLogStorage,
   conversationId: string | null | undefined,
 ): Promise<ChatNotice[]> {
-  const raw = await storage.getItem(noticeLogStorageKey(conversationId))
+  const raw = await store.getItem(noticeLogStorageKey(conversationId))
   return parseNoticeLog(raw)
 }
 
 /** 写入某会话的留痕(空列表 = 显式清空) */
 export async function saveNoticeLog(
-  storage: NoticeLogStorage,
+  store: NoticeLogStorage,
   conversationId: string | null | undefined,
   list: readonly ChatNotice[],
 ): Promise<void> {
-  await storage.setItem(noticeLogStorageKey(conversationId), serializeNoticeLog(list))
+  await store.setItem(noticeLogStorageKey(conversationId), serializeNoticeLog(list))
 }
 
 /** 删除某会话的留痕键(适配器没提供 removeItem 时退化为写空列表) */
 export async function clearNoticeLog(
-  storage: NoticeLogStorage,
+  store: NoticeLogStorage,
   conversationId: string | null | undefined,
 ): Promise<void> {
   const key = noticeLogStorageKey(conversationId)
-  if (storage.removeItem) {
-    await storage.removeItem(key)
+  if (store.removeItem) {
+    await store.removeItem(key)
     return
   }
-  await storage.setItem(key, serializeNoticeLog([]))
+  await store.setItem(key, serializeNoticeLog([]))
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
