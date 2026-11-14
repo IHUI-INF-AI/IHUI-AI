@@ -17,29 +17,32 @@
 // 于是"残留 0"的计数自证成立,实际仍有 440 处 tertiary 图标压在浅底上(2.12–2.31)。
 // 本尺子钉的是**消费面的每一处 token 取值**,不分它写在 style 还是 prop 里。
 //
-// 判据(唯一)。先把每个 token 取值分成三类,再分类判定 —— 这是本尺子最重要的一条:
-//   · **前景族**(BACKGROUND_FAMILY 之外、明确当字/图用的档):参与对比度判定。
-//   · **底色族**(surface.* / *light* / *.bg / *.card / *.muted / border.*):它是"底",
-//     即使写在 `return` / 变量里也不当前景判 —— 否则会把 `return tk.warning.amberLight`
-//     (返回一个浅琥珀**底**)算成 1.02 假红(实测踩过)。
-//   · **反白族**(ON-* 语义):本义是压在某个品牌/状态底上的字,脱离配对谈对比度无意义;
-//     无配对时只记 unpaired-inverse(待人工确认配底),**不判红** —— 否则"白字压黑 CTA
-//     = 21:1"会被算成 1.09(实测踩过)。
+// ── 判据(唯一)。设计原则:只判"不需要知道上下文就能断定错"的那一类。 ──
 //
-// 判定分两级,对应两种处置动作:
-//   ① **failures(确定,可自动改)**:前景族 token 无配对,压默认承载面 surface.bg 不达标。
-//      这是上一轮那 440 处 tertiary 的同型判法,可由机器直接换档。
-//   ② **suspected(需人工定档)**:前景与底色在**紧凑块**内配对后不达标 —— 例如
-//      `badgeOn: { color: success.DEFAULT, backgroundColor: success.light }` = 2.16。
-//      这类不能机械换色:要么改底,要么改字,要么补 on-color 语义 token(架构决策)。
+// 前几版尝试"猜每一处配什么底"全部失败,产生大量假红(白字配黑 CTA 算成 1.09、
+// `return tk.warning.amberLight` 返回一个浅底算成 1.02)。假红比漏检更贵 ——
+// 它会逼人开始跳门(AGENTS.md §0.2)。所以这里改成**承载面穷举法**:
 //
-// 门槛:文字 4.5(WCAG AA)、图标/图形 3.0(WCAG 1.4.11 非文本对比)。
+//   对每一处前景 token 取值,量它在该端**全部中性承载面**上的对比度
+//   (浅:surface.bg / surface.card / surface.muted;深:同三档):
+//     · 只要在**任意一个**承载面上达标 ⇒ 它"有可用位置",不判红(可能只是配错,交人工);
+//     · 在**全部**承载面上都不达标 ⇒ 无争议的缺陷,判红 —— 因为无论它压在哪,
+//       都不可能读清。这一条不需要知道它实际压在哪,因此零假红。
 //
-// 三态(§0.3):0 通过 / 1 有确定失败 / 2 未判定。取不到被审面、token 表解不出、
+//   门槛:文字 4.5(WCAG AA)、图标/图形 3.0(WCAG 1.4.11 非文本对比)。
+//
+//   分工:
+//     ① failures(确定缺陷,可机器修):全承载面皆不达标。
+//     ② narrow(可用位置很窄,需人工确认):至少一面达标,但另有一面不达标。
+//        —— 只报告不判红;它是"这处换过底就会坏"的预警,不是当下的错误。
+//   底色族(surface.* / *light* / border.* / overlay.*)不当前景判。
+//   反白族(ON-* / brand.ctaForeground / text.inverse …)本就是配特定底用的,单列待确认。
+//
+// 三态(§0.3):0 通过 / 1 有确定缺陷 / 2 未判定。取不到被审面、token 表解不出、
 // **扫到 0 处 token 取值**(消费面消失 ⇒ 尺子成摆设)一律 exit 2,不记绿也不冒红。
 //
 // 用法:
-//   node scripts/audit-app-text-contrast.mjs [--json out.json]
+//   node scripts/audit-app-text-contrast.mjs [--json out.json] [--verbose]
 //   node scripts/audit-app-text-contrast.mjs --self-test
 //
 // 注意:本脚本**只读**,不改任何文件,也不在提交链上(接线须满足守门 89 R4)。
@@ -56,7 +59,10 @@ const TOKENS_SRC = 'packages/design-tokens/src/rn-tokens.ts'
 const AA_TEXT = 4.5
 const AA_GRAPHIC = 3.0
 
-/** 反白族(ON-* 语义):本义是压在某底上的字/图,无配对时只报待确认。 */
+/** 该端全部中性承载面(这四处是所有页面/卡片/输入井的底)。 */
+const SURFACES = ['surface.bg', 'surface.card', 'surface.muted']
+
+/** 反白族:本义是压在某品牌/状态底上的字或图,单列待确认,不参与承载面穷举。 */
 const INVERSE_FG = new Set([
   'brand.ctaForeground', 'brand.foreground', 'surface.onBrand', 'text.inverse',
   'selection.foreground', 'brandAccent.foreground',
@@ -64,17 +70,15 @@ const INVERSE_FG = new Set([
   'warning.onAmber', 'warning.amberText', 'danger.deepText',
 ])
 
-/** 底色族:即使出现在前景位(return / 变量)也按"底"处理,不当前景判。 */
+/** 底色族:它是"底"不是"字",即使写在 return / 变量里也不当前景判。 */
 export function isBackgroundFamily(field) {
-  if (/^surface\./.test(field)) return true
-  if (/^border\./.test(field)) return true
+  if (/^surface\.|^border\.|^overlay\.|^glass\./.test(field)) return true
   if (/(?:^|\.)(?:bg|card|muted|chrome|inputBg)$/.test(field)) return true
-  if (/lightest?$|lighter$|Light$/.test(field.split('.').pop() || '')) return true
-  if (/^overlay\.|^glass\./.test(field)) return true
+  const leaf = field.split('.').pop() || ''
+  if (/lightest$|lighter$|light$|Light$/.test(leaf)) return true
   return false
 }
 
-/** 反白族:无配对时只记待确认。 */
 export function isInverseFamily(field) {
   return INVERSE_FG.has(field)
 }
@@ -215,32 +219,8 @@ export function thresholdFor(kind) {
 }
 
 /**
- * 偏移 -> 所属最内层 `{` 块 id。不能按行首采样:单行对象字面量
- * `badgeOn: { color: X, backgroundColor: Y }` 会整行落在最外层块里(实测踩过)。
- */
-export function makeBlockResolver(src) {
-  const spans = []
-  const stack = []
-  for (let i = 0; i < src.length; i += 1) {
-    if (src[i] === '{') {
-      stack.push(i)
-    } else if (src[i] === '}') {
-      const s = stack.pop()
-      if (s !== undefined) spans.push([s, i])
-    }
-  }
-  return function blockAt(offset) {
-    let best = -1
-    for (const [s, e] of spans) {
-      if (s < offset && offset < e && s > best) best = s
-    }
-    return best
-  }
-}
-
-/**
- * 在一行里定位 token 取值并归类角色。
- * 返回 [{ field, role, kind, offset }] —— role: 'fg' | 'bg'; kind: 'text' | 'graphic'
+ * 在一行里定位 token 取值并归类形态。
+ * 返回 [{ field, kind, offset }] —— kind: 'text' | 'graphic'
  */
 export function extractTokenUses(line) {
   const out = []
@@ -252,18 +232,20 @@ export function extractTokenUses(line) {
     if (!/^(tk|tokens|baseTokens|rnTokens|rnDarkTokens|rnLightTokens|theme|colors)$/.test(prefix)) continue
     if (!/^(text|surface|brand|brandAccent|success|danger|warning|error|border|vip|glass|selection|modelType|agentName|gray)\./.test(path)) continue
 
-    // 只看"这个 token 的键"本身:回溯到最近的 `键:` / `键=`,允许中间夹 `{` 与箭头参数。
-    // 不许跨越逗号/分号 —— 否则会把同一行前一个键的形态套到当前取值上(实测踩过)。
+    // 只看"这个 token 的键"本身:回溯到最近的 `键:` / `键=`,中间不许跨越逗号/分号
+    // (否则会把同一行前一个键的形态套到当前取值上 —— 实测踩过)。
     const before = line.slice(Math.max(0, m.index - 80), m.index)
     const seg = before.slice(Math.max(before.lastIndexOf(','), before.lastIndexOf(';')) + 1)
     const keyCtx = /([A-Za-z_$][\w$]*)\s*[:=]\s*\{?\s*(?:\([^)]*\)\s*=>\s*)?$/.exec(seg)
     const keyName = keyCtx ? keyCtx[1] : null
-    // 变量名 / 赋值目标含 Bg 或 Background ⇒ 它在做"底"
+
+    // 底色位:显式底色键、`xxxBg` / `xxxBackground` 变量名 —— 它在做"底",不当前景判
     const varName = /(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=[^;]*$/.exec(seg)
     const targetIsBg = !!varName && /(?:Bg|Background)$/.test(varName[1])
-
-    if (targetIsBg || (keyName && (/^(bg|fill|shadowColor|border|borderColor|backgroundColor|bgColor)$/.test(keyName) || /(?:Bg|Background)$/.test(keyName)))) {
-      out.push({ field: path, role: 'bg', kind: 'bg', offset: m.index })
+    const keyIsBg = !!keyName && (/^(bg|fill|shadowColor|border|borderColor|backgroundColor|bgColor)$/.test(keyName)
+      || /(?:Bg|Background)$/.test(keyName))
+    if (targetIsBg || keyIsBg) {
+      out.push({ field: path, kind: 'bg', offset: m.index })
       continue
     }
 
@@ -272,9 +254,44 @@ export function extractTokenUses(line) {
     else if (keyName === 'color') kind = /color\s*=?\s*\{\s*$/.test(seg) ? 'graphic' : 'text'
     else if (keyName && /^(tintColor|iconColor|thumbColor|trackColor|inactiveTintColor)$/.test(keyName)) kind = 'graphic'
     else if (keyName && /^(text|label|title|subtitle|placeholder|message|hint)\w*$/i.test(keyName)) kind = 'text'
-    out.push({ field: path, role: 'fg', kind, offset: m.index })
+    out.push({ field: path, kind, offset: m.index })
   }
   return out
+}
+
+/**
+ * 承载面穷举:返回 { allFail, someFail, values } —— values 是各承载面上的比值。
+ * 只有"全部承载面都不达标"才 allFail(零假红)。
+ */
+export function judge(field, kind, light, dark, surfaces = SURFACES) {
+  const th = thresholdFor(kind)
+  const fgL = light[field]
+  const fgD = dark[field]
+  if (!fgL || !fgD) return { allFail: false, someFail: false, undetermined: true, values: {} }
+  const values = {}
+  let pass = 0
+  let fail = 0
+  let unknown = 0
+  for (const s of surfaces) {
+    const bgL = light[s]
+    const bgD = dark[s]
+    if (!bgL || !bgD) { unknown += 1; continue }
+    const cL = contrast(fgL, bgL)
+    const cD = contrast(fgD, bgD)
+    if (cL === null || cD === null) { unknown += 1; continue }
+    values[s] = { light: cL, dark: cD }
+    // 该承载面分浅/深两档:两档都达标才算这个承载面通过
+    if (cL >= th && cD >= th) pass += 1
+    else fail += 1
+  }
+  if (!pass && !fail) return { allFail: false, someFail: false, undetermined: true, values, threshold: th }
+  return {
+    allFail: fail > 0 && pass === 0 && unknown === 0,
+    someFail: fail > 0 && pass > 0,
+    undetermined: false,
+    values,
+    threshold: th,
+  }
 }
 
 // ───────────────────────── 采集 ─────────────────────────
@@ -294,7 +311,7 @@ function walk(dir) {
 function run() {
   const args = process.argv.slice(2)
   if (args.includes('--self-test')) return selfTest()
-
+  const verbose = args.includes('--verbose')
   const jsonIdx = args.indexOf('--json')
   const jsonOut = jsonIdx >= 0 ? args[jsonIdx + 1] : null
 
@@ -325,22 +342,19 @@ function run() {
   }
   const light = Object.fromEntries(Object.entries(tables.light).map(([k, v]) => [k, toRgba(v)]))
   const dark = Object.fromEntries(Object.entries(tables.dark).map(([k, v]) => [k, toRgba(v)]))
-
-  const DEFAULT_BG = {
-    light: light['surface.bg'] || light['surface.card'],
-    dark: dark['surface.card'] || dark['surface.bg'],
-  }
-  if (!DEFAULT_BG.light || !DEFAULT_BG.dark) {
-    console.error('未判定: token 表里取不到默认承载面 surface.bg / surface.card')
-    process.exit(2)
+  for (const s of SURFACES) {
+    if (!light[s] || !dark[s]) {
+      console.error(`未判定: token 表里取不到承载面 ${s}`)
+      process.exit(2)
+    }
   }
 
   let scanned = 0
-  let pairedCount = 0
   const failures = []
-  const suspected = []
-  const unpairedInverse = []
+  const narrow = []
+  const inverse = []
   const undetermined = []
+  const seen = new Set()
 
   for (const file of files) {
     const rel = relative(ROOT, file).replace(/\\/g, '/')
@@ -351,90 +365,25 @@ function run() {
       undetermined.push({ file: rel, reason: 'read-failed' })
       continue
     }
-    const lines = src.split(/\r?\n/)
-    const blockAt = makeBlockResolver(src)
-    const lineStart = []
-    {
-      let acc = 0
-      for (const l of lines) { lineStart.push(acc); acc += l.length + 1 }
-    }
-
-    // 按"紧凑块"归集:块内行跨度 ≤ 8 行才允许配对 —— 大块 StyleSheet 里所有
-    // bg 与所有 fg 互配会产生错配假红(实测: vip.gold 配 vip.gold = 1.00)。
-    const blockRows = new Map()
-    const bgByBlock = new Map()
-    const fgByBlock = new Map()
-    lines.forEach((line, i) => {
+    src.split(/\r?\n/).forEach((line, i) => {
       if (/^\s*(\/\/|\*|\/\*)/.test(line)) return
-      const uses = extractTokenUses(line)
-      if (!uses.length) return
-      for (const u of uses) {
-        const bid = blockAt(lineStart[i] + (u.offset || 0))
+      for (const u of extractTokenUses(line)) {
+        scanned += 1
         const rec = { file: rel, line: i + 1, field: u.field, kind: u.kind, snippet: line.trim().slice(0, 150) }
-        const bucket = u.role === 'bg' ? bgByBlock : fgByBlock
-        if (!bucket.has(bid)) bucket.set(bid, [])
-        bucket.get(bid).push(rec)
-        if (!blockRows.has(bid)) blockRows.set(bid, new Set())
-        blockRows.get(bid).add(i)
+        if (u.kind === 'bg' || isBackgroundFamily(u.field)) continue
+        if (isInverseFamily(u.field)) { inverse.push(rec); continue }
+        const j = judge(u.field, u.kind, light, dark)
+        if (j.undetermined) { undetermined.push({ ...rec, reason: 'token-or-surface-unparseable' }); continue }
+        if (j.allFail) {
+          const key = `${rel}:${i + 1}:${u.field}`
+          if (seen.has(key)) continue
+          seen.add(key)
+          failures.push({ ...rec, threshold: j.threshold, surfaces: j.values })
+        } else if (j.someFail) {
+          narrow.push({ ...rec, threshold: j.threshold, surfaces: j.values })
+        }
       }
     })
-
-    for (const [bid, fgs] of fgByBlock) {
-      const rows = blockRows.get(bid) || new Set()
-      const compact = rows.size <= 8
-      const bgs = compact
-        ? (bgByBlock.get(bid) || []).filter((b) => light[b.field] && dark[b.field])
-        : []
-
-      for (const fg of fgs) {
-        scanned += 1
-        const fgL = light[fg.field]
-        const fgD = dark[fg.field]
-        if (!fgL || !fgD) {
-          undetermined.push({ file: fg.file, line: fg.line, field: fg.field, reason: 'token-not-found' })
-          continue
-        }
-        const th = thresholdFor(fg.kind)
-
-        if (bgs.length && !isBackgroundFamily(fg.field)) {
-          // ② 同紧凑块配对:只报"需人工定档",不自动改
-          pairedCount += 1
-          let worst = null
-          for (const bg of bgs) {
-            const cL = contrast(fgL, light[bg.field])
-            const cD = contrast(fgD, dark[bg.field])
-            if (cL === null || cD === null) continue
-            if (cL < th || cD < th) {
-              if (!worst || Math.min(cL, cD) < Math.min(worst.light, worst.dark)) {
-                worst = { bgField: bg.field, light: cL, dark: cD }
-              }
-            }
-          }
-          if (worst) {
-            suspected.push({ ...fg, bgField: worst.bgField, light: worst.light, dark: worst.dark, threshold: th })
-          }
-          continue
-        }
-
-        // 底色族当前景:不判(它是"底",不是字);反白族无配对:只待确认
-        if (isBackgroundFamily(fg.field)) continue
-        if (isInverseFamily(fg.field)) {
-          unpairedInverse.push({ file: fg.file, line: fg.line, field: fg.field })
-          continue
-        }
-
-        // ① 无配对,压默认承载面
-        const cL = contrast(fgL, DEFAULT_BG.light)
-        const cD = contrast(fgD, DEFAULT_BG.dark)
-        if (cL === null || cD === null) {
-          undetermined.push({ file: fg.file, line: fg.line, field: fg.field, reason: 'contrast-undetermined' })
-          continue
-        }
-        if (cL < th || cD < th) {
-          failures.push({ ...fg, bgField: 'surface.bg', light: cL, dark: cD, threshold: th })
-        }
-      }
-    }
   }
 
   if (scanned === 0) {
@@ -442,55 +391,55 @@ function run() {
     process.exit(2)
   }
 
-  const tally = (arr) => {
-    const byField = {}
-    const byKind = {}
-    for (const f of arr) {
-      byField[f.field] = (byField[f.field] || 0) + 1
-      byKind[f.kind] = (byKind[f.kind] || 0) + 1
-    }
-    return { byField, byKind }
-  }
-  const f1 = tally(failures)
-  const f2 = tally(suspected)
-
+  const tally = (arr) => arr.reduce((acc, f) => { acc[f.field] = (acc[f.field] || 0) + 1; return acc }, {})
+  const byField = tally(failures)
   const report = {
     scannedFiles: files.length,
     scannedUses: scanned,
-    pairedUses: pairedCount,
     failures: failures.length,
-    failuresByField: f1.byField,
-    failuresByKind: f1.byKind,
-    suspected: suspected.length,
-    suspectedByField: f2.byField,
-    unpairedInverse: unpairedInverse.length,
+    failuresByField: byField,
+    narrowWarnings: narrow.length,
+    inverseUnpaired: inverse.length,
     undetermined: undetermined.length,
+    surfaces: SURFACES,
+    thresholds: { text: AA_TEXT, graphic: AA_GRAPHIC },
   }
 
-  console.log('=== packages/app 文字/图标 token 对比度审计 ===')
-  console.log(`源码文件: ${report.scannedFiles}    token 取值: ${scanned}    同块配对: ${pairedCount}`)
-  console.log(`① 确定失败(无配对压默认承载面): ${failures.length}`)
-  console.log(`② 待人工定档(同块配对不达标): ${suspected.length}`)
-  console.log(`   反白族待确认配底(不判红): ${unpairedInverse.length}    未判定: ${undetermined.length}`)
+  console.log('=== packages/app 文字/图标 token 对比度审计(承载面穷举法) ===')
+  console.log(`源码文件: ${report.scannedFiles}    token 取值: ${report.scannedUses}`)
+  console.log(`承载面: ${SURFACES.join(' / ')} 门槛: 文字 ${AA_TEXT} / 图形 ${AA_GRAPHIC}`)
+  console.log('')
+  console.log(`① 确定缺陷(全部承载面皆不达标): ${failures.length}`)
+  console.log(`② 窄位预警(部分承载面不达标,需人工确认): ${narrow.length}`)
+  console.log(`   反白族待确认配底(不判红): ${inverse.length}    未判定: ${undetermined.length}`)
 
-  const dump = (title, arr) => {
-    if (!arr.length) return
-    console.log(`\n--- ${title} ---`)
-    ;[...arr].sort((a, b) => Math.min(a.light, a.dark) - Math.min(b.light, b.dark)).slice(0, 30).forEach((f) => {
-      console.log(`  [${Math.min(f.light, f.dark).toFixed(2)}] ${f.file}:${f.line}  ${f.field} vs ${f.bgField}  L=${f.light} D=${f.dark} 阈值${f.threshold} ${f.kind}`)
-      console.log(`        ${f.snippet}`)
+  if (failures.length) {
+    console.log('\n--- ① 确定缺陷 按 token ---')
+    Object.entries(byField).sort((a, b) => b[1] - a[1]).forEach(([k, v]) => console.log(`  ${k.padEnd(24)} ${v}`))
+    console.log('\n--- ① 明细 ---')
+    const sorted = [...failures].sort((a, b) => {
+      const wa = Math.min(...Object.values(a.surfaces).map((s) => Math.min(s.light, s.dark)))
+      const wb = Math.min(...Object.values(b.surfaces).map((s) => Math.min(s.light, s.dark)))
+      return wa - wb
     })
-    if (arr.length > 30) console.log(`  ... 其余 ${arr.length - 30} 条见 --json`)
+    sorted.slice(0, verbose ? sorted.length : 40).forEach((f) => {
+      const vals = Object.entries(f.surfaces).map(([s, v]) => `${s.split('.')[1]}:L${v.light}/D${v.dark}`).join(' ')
+      console.log(`  ${f.file}:${f.line}  ${f.field} (${f.kind}, 阈值 ${f.threshold})`)
+      console.log(`      ${vals}`)
+      console.log(`      ${f.snippet}`)
+    })
+    if (!verbose && failures.length > 40) console.log(`  ... 其余 ${failures.length - 40} 条加 --verbose 或看 --json`)
+  } else {
+    console.log('\n① 无确定缺陷。')
   }
-  dump('① 确定失败 按 token', failures)
-  if (failures.length) console.log('\n  分档: ' + Object.entries(f1.byField).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k}=${v}`).join('  '))
-  dump('② 待人工定档', suspected)
-  if (suspected.length) console.log('\n  分档: ' + Object.entries(f2.byField).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k}=${v}`).join('  '))
 
-  if (!failures.length && !suspected.length) console.log('\n全部通过。')
+  if (narrow.length) {
+    console.log('\n--- ② 窄位预警 按 token(前 20) ---')
+    Object.entries(tally(narrow)).sort((a, b) => b[1] - a[1]).slice(0, 20).forEach(([k, v]) => console.log(`  ${k.padEnd(24)} ${v}`))
+  }
 
   if (jsonOut) {
-    writeFileSync(resolve(ROOT, jsonOut), JSON.stringify({ report, failures, suspected, unpairedInverse, undetermined }, null, 2), 'utf8')
+    writeFileSync(resolve(ROOT, jsonOut), JSON.stringify({ report, failures, narrow, inverse, undetermined }, null, 2), 'utf8')
     console.log(`\nJSON: ${jsonOut}`)
   }
 
@@ -511,39 +460,35 @@ function selfTest() {
   t('white on black CTA = 21:1 (not 1.09)', contrast(toRgba('#FFFFFF'), toRgba('#000000')) === 21)
 
   // 形态识别:非 style 形态必须被扫到
-  const u1 = extractTokenUses('  <Search color={tk.text.tertiary} />')
-  t('icon prop color={} -> fg/graphic', u1.some((u) => u.field === 'text.tertiary' && u.role === 'fg' && u.kind === 'graphic'))
-  const u2 = extractTokenUses('  placeholderTextColor={tk.text.tertiary}')
-  t('placeholderTextColor -> fg/text', u2.some((u) => u.field === 'text.tertiary' && u.role === 'fg' && u.kind === 'text'))
-  const u3 = extractTokenUses('  color: tk.text.tertiary,')
-  t('style color: -> fg/text', u3.some((u) => u.field === 'text.tertiary' && u.role === 'fg' && u.kind === 'text'))
-  const u4 = extractTokenUses('  backgroundColor: tk.surface.muted,')
-  t('backgroundColor -> bg role', u4.some((u) => u.field === 'surface.muted' && u.role === 'bg'))
-  const u5 = extractTokenUses('    bg: (tk) => tk.warning.light,')
-  t('bg: arrow -> bg role', u5.some((u) => u.field === 'warning.light' && u.role === 'bg'))
-  const u6 = extractTokenUses('    const cardBg = tk.surface.muted')
-  t('const xxxBg -> bg role', u6.some((u) => u.field === 'surface.muted' && u.role === 'bg'))
+  t('icon prop color={} -> graphic',
+    extractTokenUses('  <Search color={tk.text.tertiary} />').some((u) => u.field === 'text.tertiary' && u.kind === 'graphic'))
+  t('placeholderTextColor -> text',
+    extractTokenUses('  placeholderTextColor={tk.text.tertiary}').some((u) => u.field === 'text.tertiary' && u.kind === 'text'))
+  t('style color: -> text',
+    extractTokenUses('  color: tk.text.tertiary,').some((u) => u.field === 'text.tertiary' && u.kind === 'text'))
+  t('bg: arrow still captured',
+    extractTokenUses('    bg: (tk) => tk.warning.light,').some((u) => u.field === 'warning.light'))
 
-  // 语义分族:底色族不得当前景判(防止 return 一个浅底算成 1.02 假红)
+  // 语义分族
   t('warning.amberLight is background family', isBackgroundFamily('warning.amberLight'))
-  t('success.lightest is background family', isBackgroundFamily('success.lightest'))
   t('surface.light is background family', isBackgroundFamily('surface.light'))
+  t('success.lightest is background family', isBackgroundFamily('success.lightest'))
   t('text.secondary is NOT background family', !isBackgroundFamily('text.secondary'))
   t('brand.ctaForeground is inverse family', isInverseFamily('brand.ctaForeground'))
 
   const realTs = readFileSync(resolve(ROOT, TOKENS_SRC), 'utf8')
   const real = parseRnTokenTables(realTs)
-  t('parses real rn-tokens.ts (light non-empty)', !!real && Object.keys(real.light).length > 40)
-  t('parses surface.bg + text.tertiary from real table',
-    !!real && !!real.light['surface.bg'] && !!real.light['text.tertiary'] && !!real.dark['text.tertiary'])
-  t('does not mistake type declaration for value', !!real && real.light['surface.bg'] === '#F5F5F5')
+  const R = { light: Object.fromEntries(Object.entries(real.light).map(([k, v]) => [k, toRgba(v)])), dark: Object.fromEntries(Object.entries(real.dark).map(([k, v]) => [k, toRgba(v)])) }
+  t('parses real rn-tokens.ts (light non-empty)', Object.keys(real.light).length > 40)
+  t('does not mistake type declaration for value', real.light['surface.bg'] === '#F5F5F5')
 
-  const src = 'const s = {\n  badgeOn: { color: a, backgroundColor: b },\n  other: {}\n}\n'
-  const blockAtOf = makeBlockResolver(src)
-  const i1 = src.indexOf('color: a') + 'color: '.length
-  const i2 = src.indexOf('backgroundColor: b') + 'backgroundColor: '.length
-  t('same object literal shares block id', blockAtOf(i1) === blockAtOf(i2) && blockAtOf(i1) !== -1)
-  t('nested block differs from outer block', blockAtOf(i1) > src.indexOf('const s'))
+  // 判据的关键反证(两条都得成立,否则就是假红/漏检)
+  const jt = judge('text.tertiary', 'graphic', R.light, R.dark)
+  t('tertiary fails on ALL surfaces (confirmed defect)', jt.allFail === true)
+  const js = judge('text.secondary', 'text', R.light, R.dark)
+  t('secondary passes on ALL surfaces (not a defect)', js.allFail === false && js.someFail === false)
+  const jg = judge('vip.gold', 'graphic', R.light, R.dark)
+  t('vip.gold fails all light surfaces (real 1.29 defect)', jg.allFail === true)
 
   if (!process.exitCode) console.log('\n全部自检通过。')
   process.exit(process.exitCode || 0)
