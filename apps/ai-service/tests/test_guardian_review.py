@@ -300,6 +300,10 @@ class _StubLoop:
     async def _emit(self, **kwargs: Any) -> None:
         self.emitted.append(kwargs)
 
+    async def _wait_interruptible(self, awaitable: Any) -> Any:
+        """对齐生产 _request_approval 的中断等待入口(测试里事件已结算,直接透传)。"""
+        return await awaitable
+
 
 def _drive(v2, monkeypatch, review: gr.GuardianReviewResult, decision: str, accept: bool):
     """驱动真实 _request_approval:注入复核结论 → 结算决策 → 返回(结果, stub, tc)。"""

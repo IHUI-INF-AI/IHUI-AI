@@ -188,3 +188,6 @@ export * from './notice-log'
 // 流式跟底唯一判据源(RN / 小程序共用):回退即交还滚动权、触底即恢复、内容增长贴底。
 // web 的完整滚动权账目另有一份(要处理 wheel/touch/keyboard 归因与布局撑高歧义),此处不复制它。
 export * from './stream-follow'
+// 会话导出包(2026-11-14):Markdown / messages.json / manifest 的唯一序列化实现。
+// Web 端复制与 API 端 ZIP 共用,时间由调用方传入,保证同会话重复导出内容可复现。
+export * from './conversation-export'

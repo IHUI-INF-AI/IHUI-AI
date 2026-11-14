@@ -5,6 +5,17 @@
 'use client'
 
 import * as React from 'react'
+import {
+  SHORTCUT_OVERRIDES_STORAGE_KEY,
+  effectiveCombo,
+  findShortcutConflict,
+  normalizeCombo,
+  parseStoredOverrides,
+  readStoredOverrides,
+  writeStoredOverrides,
+  type ShortcutOverrideMap,
+  type ShortcutSetResult,
+} from '@/lib/shortcut-overrides'
 
 // ============================================================================
 // 类型定义
@@ -14,6 +25,10 @@ export interface ShortcutEntry {
   handler: () => void
   scope: string
   description?: string
+  /** 默认快捷键的稳定 id(可改键);组件临时注册的条目没有。 */
+  action?: string
+  /** 出厂组合键,用于「恢复默认」与「是否已改键」判定。 */
+  defaultKey?: string
 }
 
 export interface ShortcutInfo {
@@ -21,6 +36,9 @@ export interface ShortcutInfo {
   scope: string
   description?: string
   active: boolean
+  action?: string
+  defaultKey?: string
+  overridden?: boolean
 }
 
 export interface UseGlobalShortcutsReturn {
@@ -38,6 +56,14 @@ export interface UseGlobalShortcutsReturn {
   toggleHelpPanel: () => void
   /** 所有已注册快捷键（用于帮助面板展示） */
   shortcuts: ShortcutInfo[]
+  /** 当前用户改键表(action → chord) */
+  overrides: ShortcutOverrideMap
+  /** 改键:冲突/非法组合返回失败,成功则落 localStorage */
+  setShortcutOverride: (action: string, combo: string) => ShortcutSetResult
+  /** 单个动作恢复出厂键 */
+  resetShortcut: (action: string) => void
+  /** 全部恢复出厂键 */
+  resetAllShortcuts: () => void
 }
 
 // ============================================================================
@@ -49,41 +75,43 @@ interface DefaultShortcut {
   description: string
   /** 自定义事件名；`__toggle_help__` 为内置帮助面板切换 */
   event: string
+  /** 稳定 action id:改键与 i18n 描述都按它索引,不随 chord 变化。 */
+  action: string
 }
 
 const DEFAULT_SHORTCUTS: DefaultShortcut[] = [
   // Ctrl+K 区分作用域:编辑器聚焦 → inline-edit;其他 → 命令面板(open-chat)
-  { key: 'Ctrl+K', description: '命令面板 / 行内编辑', event: '__cmd_k__' },
-  { key: 'Ctrl+P', description: '搜索', event: 'global-shortcut:search' },
-  { key: 'Ctrl+Shift+N', description: '新建对话', event: 'global-shortcut:new-chat' },
-  { key: 'Ctrl+/', description: '快捷键帮助', event: '__toggle_help__' },
+  { key: 'Ctrl+K', description: '命令面板 / 行内编辑', event: '__cmd_k__', action: 'cmd-k' },
+  { key: 'Ctrl+P', description: '搜索', event: 'global-shortcut:search', action: 'search' },
+  { key: 'Ctrl+Shift+N', description: '新建对话', event: 'global-shortcut:new-chat', action: 'new-chat' },
+  { key: 'Ctrl+/', description: '快捷键帮助', event: '__toggle_help__', action: 'shortcut-help' },
   // 2026-09-22 让位 IDE 家族:原 Ctrl+Shift+D 与 use-ide-shortcuts 的
   // `Ctrl+Shift+{E,F,G,D,A}` 视图切换族撞键(同一次按下既切 debug 视图又跳 /drama)。
   // IDE 族语义已固化在 activity-bar tooltip(迁移成本最高),故注册表改绑到
   // 本族已有的 Ctrl+Alt+{B,H,V} 语音族的 D 位(复核空闲:全仓无 Ctrl+Alt+D 处理器)。
-  { key: 'Ctrl+Alt+D', description: '短剧编辑器', event: 'global-shortcut:open-drama' },
+  { key: 'Ctrl+Alt+D', description: '短剧编辑器', event: 'global-shortcut:open-drama', action: 'open-drama' },
   // 2026-07-30 用户规则:"可以做快捷键 组合键 你深度思考分析设计去做好"
   // VS Code 标准命令面板快捷键:Ctrl+Shift+P 打开 Plus 命令面板(视图/工具/设置切换)
   // 设计依据:① VS Code 用户最熟悉 ② 不与项目已有 Ctrl+P(搜索)冲突(matchShortcut 修复后严格区分 shift)
   // ③ 用户在面板内输入字符过滤 + ↑↓ 导航 + Enter 确认,完整覆盖 8 项菜单访问(2026-08-14 设置项已提取为顶栏独立按钮)
-  { key: 'Ctrl+Shift+P', description: '命令面板(视图切换)', event: 'global-shortcut:open-plus' },
+  { key: 'Ctrl+Shift+P', description: '命令面板(视图切换)', event: 'global-shortcut:open-plus', action: 'open-plus' },
   // VS Code 标准设置快捷键改绑为 Ctrl+Shift+, (2026-09-22):原 Ctrl+, 与 use-ide-shortcuts
   // 的 `case ','` → setActiveTopTab('settings') 同键双主 —— IDE 页面上焦点不在输入框时,
   // 一次按键同时"切 IDE 设置视图"和"路由跳 /settings"(两个 window 级监听,互不截断)。
   // IDE 族是编辑器内语义(VS Code 习惯),本项是跨页导航且顶栏/命令面板已有同名入口,
   // 故本项让位改绑 Shift 位(复核空闲:全仓无 Ctrl+Shift+, 处理器)。
-  { key: 'Ctrl+Shift+,', description: '打开设置', event: 'global-shortcut:open-settings' },
+  { key: 'Ctrl+Shift+,', description: '打开设置', event: 'global-shortcut:open-settings', action: 'open-settings' },
   // 对话模式切换(2026-07-28 立,补全 ChatMode 4态三通道)
   // Ctrl+1/2/3/4 切换 build/plan/review/spec。此处统一做按键匹配 + preventDefault
   // (阻止浏览器 tab 切换),派发 `global-shortcut:mode-*` 事件由 GlobalHooksProvider
   // (根 Layout)消费并调用 modeStore.setMode —— 全页面生效,根级 hydration 即挂载
   // (2026-08-27 根因修复:此前事件无消费者,切换逻辑深埋在 ai-side-panel 条件 effect 里)
-  { key: 'Ctrl+1', description: '切换到构建模式', event: 'global-shortcut:mode-build' },
-  { key: 'Ctrl+2', description: '切换到计划模式', event: 'global-shortcut:mode-plan' },
-  { key: 'Ctrl+3', description: '切换到审查模式', event: 'global-shortcut:mode-review' },
-  { key: 'Ctrl+4', description: '切换到规格模式', event: 'global-shortcut:mode-spec' },
+  { key: 'Ctrl+1', description: '切换到构建模式', event: 'global-shortcut:mode-build', action: 'mode-build' },
+  { key: 'Ctrl+2', description: '切换到计划模式', event: 'global-shortcut:mode-plan', action: 'mode-plan' },
+  { key: 'Ctrl+3', description: '切换到审查模式', event: 'global-shortcut:mode-review', action: 'mode-review' },
+  { key: 'Ctrl+4', description: '切换到规格模式', event: 'global-shortcut:mode-spec', action: 'mode-spec' },
   // Ctrl+5 → ask(2026-09-13 矩阵 A #24:ChatMode 扩为 5 态,补纯问答模式)
-  { key: 'Ctrl+5', description: '切换到问答模式', event: 'global-shortcut:mode-ask' },
+  { key: 'Ctrl+5', description: '切换到问答模式', event: 'global-shortcut:mode-ask', action: 'mode-ask' },
   // 输入工具栏收敛(2026-09-18 用户规则:"这里这么多按钮都重合了"):
   // - 斜杠命令面板:Ctrl+Shift+/ 触发(避开 Ctrl+/ 帮助,Ctrl+P 搜索,Ctrl+Shift+P 命令面板)
   // - @ 提及文件:Ctrl+Shift+U(原 Ctrl+Shift+A 与 use-ide-shortcuts 的 applications 视图、
@@ -92,15 +120,15 @@ const DEFAULT_SHORTCUTS: DefaultShortcut[] = [
   //   全仓无 Ctrl+Shift+U 处理器,Chrome 的 Ctrl+U 查看源码不带 Shift)
   // - 截图:Ctrl+Shift+M(避开 Ctrl+Alt+D 短剧、Ctrl+Shift+N 新建、Ctrl+Shift+P 命令面板)
   // 事件由 message-input.tsx 消费(setSlashOpen / setMentionOpen / fileInputRef.click)
-  { key: 'Ctrl+Shift+/', description: '斜杠命令面板', event: 'global-shortcut:open-slash' },
-  { key: 'Ctrl+Shift+U', description: '提及文件', event: 'global-shortcut:mention-file' },
-  { key: 'Ctrl+Shift+M', description: '截图', event: 'global-shortcut:screenshot' },
+  { key: 'Ctrl+Shift+/', description: '斜杠命令面板', event: 'global-shortcut:open-slash', action: 'open-slash' },
+  { key: 'Ctrl+Shift+U', description: '提及文件', event: 'global-shortcut:mention-file', action: 'mention-file' },
+  { key: 'Ctrl+Shift+M', description: '截图', event: 'global-shortcut:screenshot', action: 'screenshot' },
   // 2026-09-18 语音三件套快捷键(用户规则:"请为这些组件添加快捷键支持"):
   // Ctrl+Alt+V 录音 / Ctrl+Alt+B 自动朗读 / Ctrl+Alt+H 连续对话
   // 避开 Ctrl+P/Ctrl+K/Ctrl+Shift+* 等已占组合;Ctrl+Alt+P 因浏览器打印预览占用而弃用
-  { key: 'Ctrl+Alt+V', description: '语音:开始/停止录音', event: 'global-shortcut:voice-input' },
-  { key: 'Ctrl+Alt+B', description: '语音:自动朗读开关', event: 'global-shortcut:voice-playback' },
-  { key: 'Ctrl+Alt+H', description: '语音:连续对话开关', event: 'global-shortcut:voice-handsfree' },
+  { key: 'Ctrl+Alt+V', description: '语音:开始/停止录音', event: 'global-shortcut:voice-input', action: 'voice-input' },
+  { key: 'Ctrl+Alt+B', description: '语音:自动朗读开关', event: 'global-shortcut:voice-playback', action: 'voice-playback' },
+  { key: 'Ctrl+Alt+H', description: '语音:连续对话开关', event: 'global-shortcut:voice-handsfree', action: 'voice-handsfree' },
 ]
 
 // ============================================================================
@@ -190,6 +218,8 @@ function matchShortcut(event: KeyboardEvent, keyCombo: string): boolean {
 export function useGlobalShortcuts(): UseGlobalShortcutsReturn {
   const [scope, setScopeState] = React.useState('global')
   const [showHelpPanel, setHelpPanel] = React.useState(false)
+  // 用户改键表:首帧为空(SSR 一致),挂载后再读 localStorage,避免 hydration 不一致。
+  const [overrides, setOverrides] = React.useState<ShortcutOverrideMap>({})
 
   const shortcutsRef = React.useRef<Map<string, ShortcutEntry>>(new Map())
   const toggleHelpPanelRef = React.useRef<() => void>(() => {})
@@ -246,10 +276,88 @@ export function useGlobalShortcuts(): UseGlobalShortcutsReturn {
     [emitChange],
   )
 
-  // 注册默认快捷键
+  // 读取持久化改键 + 跨标签页同步(另一个标签页改键后本页立即跟随)
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return
+    setOverrides(readStoredOverrides())
+    const onStorage = (event: StorageEvent) => {
+      if (event.key !== SHORTCUT_OVERRIDES_STORAGE_KEY) return
+      setOverrides(parseStoredOverrides(event.newValue))
+    }
+    window.addEventListener('storage', onStorage)
+    return () => window.removeEventListener('storage', onStorage)
+  }, [])
+
+  /**
+   * 改键:先做冲突检测(默认快捷键全在 global 作用域),再落盘。
+   * 组件临时注册的快捷键没有 action,也参与冲突检测,避免"改出来的键"抢走它们的处理器。
+   */
+  const setShortcutOverride = React.useCallback(
+    (action: string, combo: string): ShortcutSetResult => {
+      const definition = DEFAULT_SHORTCUTS.find((item) => item.action === action)
+      if (!definition) return { ok: false, reason: 'unknown-action' }
+      const normalized = normalizeCombo(combo)
+      if (!normalized) return { ok: false, reason: 'invalid-combo' }
+
+      const effectiveDefaults = DEFAULT_SHORTCUTS.filter((item) => item.action !== action).map(
+        (item) => ({ action: item.action, key: effectiveCombo(item.key, item.action, overrides) }),
+      )
+      const knownDefaultKeys = new Set(
+        DEFAULT_SHORTCUTS.map((item) => effectiveCombo(item.key, item.action, overrides)),
+      )
+      const componentBindings = Array.from(shortcutsRef.current.keys())
+        .filter((key) => !knownDefaultKeys.has(key))
+        .map((key) => ({ key }))
+      const conflict = findShortcutConflict({
+        action,
+        combo: normalized,
+        bindings: [...effectiveDefaults, ...componentBindings],
+      })
+      if (conflict) {
+        return {
+          ok: false,
+          reason: 'conflict',
+          conflictKey: conflict.key,
+          conflictAction: conflict.action,
+        }
+      }
+
+      const next: ShortcutOverrideMap = { ...overrides }
+      if (normalized === definition.key) {
+        delete next[action]
+      } else {
+        next[action] = normalized
+      }
+      setOverrides(next)
+      writeStoredOverrides(next)
+      return { ok: true, combo: normalized }
+    },
+    [overrides],
+  )
+
+  const resetShortcut = React.useCallback(
+    (action: string) => {
+      setOverrides((current) => {
+        if (!(action in current)) return current
+        const next = { ...current }
+        delete next[action]
+        writeStoredOverrides(next)
+        return next
+      })
+    },
+    [],
+  )
+
+  const resetAllShortcuts = React.useCallback(() => {
+    setOverrides({})
+    writeStoredOverrides({})
+  }, [])
+
+  // 注册默认快捷键(改键变化时整体重挂,保证 Map 的 key 永远是生效组合键)
   React.useEffect(() => {
     const registered = new Set<string>()
     for (const def of DEFAULT_SHORTCUTS) {
+      const keyCombo = effectiveCombo(def.key, def.action, overrides)
       const handler = () => {
         if (def.event === '__toggle_help__') {
           toggleHelpPanelRef.current()
@@ -266,12 +374,14 @@ export function useGlobalShortcuts(): UseGlobalShortcutsReturn {
           window.dispatchEvent(new CustomEvent(def.event))
         }
       }
-      shortcutsRef.current.set(def.key, {
+      shortcutsRef.current.set(keyCombo, {
         handler,
         scope: 'global',
         description: def.description,
+        action: def.action,
+        defaultKey: def.key,
       })
-      registered.add(def.key)
+      registered.add(keyCombo)
     }
     emitChange()
     // 2026-08-02 修复:effect 重跑/卸载时移除本批注册的默认快捷键,
@@ -282,7 +392,7 @@ export function useGlobalShortcuts(): UseGlobalShortcutsReturn {
       }
       emitChange()
     }
-  }, [emitChange])
+  }, [emitChange, overrides])
 
   // 全局 keydown 监听
   React.useEffect(() => {
@@ -311,6 +421,9 @@ export function useGlobalShortcuts(): UseGlobalShortcutsReturn {
         scope: entry.scope,
         description: entry.description,
         active: entry.scope === 'global' || entry.scope === scope,
+        action: entry.action,
+        defaultKey: entry.defaultKey,
+        overridden: !!entry.action && !!entry.defaultKey && key !== entry.defaultKey,
       })),
     [scope, shortcutsVersion],
   )
@@ -323,6 +436,10 @@ export function useGlobalShortcuts(): UseGlobalShortcutsReturn {
     showHelpPanel,
     toggleHelpPanel,
     shortcuts,
+    overrides,
+    setShortcutOverride,
+    resetShortcut,
+    resetAllShortcuts,
   }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
