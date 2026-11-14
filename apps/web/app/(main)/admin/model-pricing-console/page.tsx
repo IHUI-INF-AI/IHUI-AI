@@ -293,6 +293,29 @@ export default function PricingConsolePage() {
     refetchInterval: 60_000,
   })
 
+  const syncConfigPrices = useMutation({
+    mutationFn: async () => {
+      const r = await fetchApi<{ scanned: number; updated: number; skipped: number }>(
+        `${BASE}/sync-config-prices`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({}),
+        },
+      )
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
+    onSuccess: (d) => {
+      setNotice(`配置价同步:零价 ${d.scanned} 行,回填 ${d.updated} 行,仍无价 ${d.skipped} 行`)
+      void qc.invalidateQueries({ queryKey: ['pricing-unpriced-alerts'] })
+      void qc.invalidateQueries({ queryKey: ['pricing-profit'] })
+      void qc.invalidateQueries({ queryKey: ['pricing-profit-groups'] })
+      void qc.invalidateQueries({ queryKey: ['pricing-channel-cost'] })
+    },
+    onError: (e: Error) => setNotice(`配置价同步失败:${e.message}`),
+  })
+
   const backfillCalls = useMutation({
     mutationFn: async () => {
       const r = await fetchApi<{
@@ -676,6 +699,19 @@ export default function PricingConsolePage() {
                 <RefreshCw className="size-3" />
               )}
               回填历史调用成本
+            </button>
+            <button
+              type="button"
+              onClick={() => syncConfigPrices.mutate()}
+              disabled={syncConfigPrices.isPending}
+              className="inline-flex items-center gap-1 rounded-sm border border-border px-2 py-0.5 hover:bg-muted disabled:opacity-50"
+            >
+              {syncConfigPrices.isPending ? (
+                <Loader2 className="size-3 animate-spin" />
+              ) : (
+                <RefreshCw className="size-3" />
+              )}
+              同步配置价
             </button>
           </div>
 

@@ -14,7 +14,7 @@
  */
 import cron, { type ScheduledTask } from 'node-cron'
 import { logger } from '../utils/logger.js'
-import { getUnpricedAlerts } from '../services/model-pricing-admin.js'
+import { getUnpricedAlerts, syncConfigPricesFromPricing } from '../services/model-pricing-admin.js'
 
 let task: ScheduledTask | null = null
 
@@ -28,15 +28,23 @@ export function startPricingGuardScheduler(): void {
     '0 9 * * *',
     async () => {
       try {
+        // 先以 ai_pricing 权威价回填配置零价行,再巡检 —— 否则会把"实际有价、配置为 0"
+        // 的模型重复报成缺口(2026-11-14 实测 565 行属此类)。
+        const synced = await syncConfigPricesFromPricing()
+        logger.info('[pricing-guard] 配置价预同步', {
+          scanned: synced.scanned,
+          updated: synced.updated,
+          skipped: synced.skipped,
+        })
         const r = await getUnpricedAlerts(7)
         if (r.publishedUnpriced > 0 || r.callingUnpriced > 0) {
           logger.warn('[pricing-guard] 零价模型告警', {
             publishedUnpriced: r.publishedUnpriced,
             callingUnpriced: r.callingUnpriced,
-            missedRevenueCents: r.missedRevenueCents,
+            estimatedCostCents: r.estimatedCostCents,
             top: r.rows
               .slice(0, 10)
-              .map((x) => `${x.modelId}: calls=${x.calls}, missed=${x.missedRevenueCents}`),
+              .map((x) => `${x.modelId}: calls=${x.calls}, cost=${x.estimatedCostCents}`),
           })
         } else {
           logger.info('[pricing-guard] 零价巡检通过(无在架零价、无零价调用)')
