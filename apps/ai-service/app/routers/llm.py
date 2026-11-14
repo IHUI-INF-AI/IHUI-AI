@@ -162,8 +162,14 @@ from ..services.agent_events import (
     SSE_USAGE,
 )
 from ..services.ask_user_question import (
+    STATUS_CONTINUED,
     cancel_session_questions,
+    continued_answer_message,
     create_question,
+    drain_continued_answers,
+    mark_continued,
+    normalize_timeout_s,
+    pending_question_notice,
     resolve_question,
     wait_for_answer,
     withdraw_question,
@@ -5171,6 +5177,21 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                     }
                                 )
                                 _iter_budget += 1
+                        # 定时继续(2026-11-14 立,对标 DSH answer_to_pending_question):
+                        # timed 提问到期后用户仍可答复;答复在本轮下一迭代 LLM 调用前
+                        # 作为 user 消息注入(每条只交付一次)。失败隔离不阻塞主流。
+                        if session_id:
+                            try:
+                                for _pending_item in drain_continued_answers(session_id):
+                                    messages.append({
+                                        "role": "user",
+                                        "content": continued_answer_message(_pending_item),
+                                    })
+                                    _iter_budget += 1
+                            except Exception as _pending_err:  # noqa: BLE001 - 注入失败降级
+                                logger.warning(
+                                    "continued answer 注入异常(降级跳过): %s", _pending_err
+                                )
                         # ===== D120(2026-09-27,G-234):轮次预算弹性续跑 =====
                         # 判定收敛到唯一出口 _d120_should_extend(条件与原内联逐项一致):
                         # env 开关启用 / 非首轮 / 下一轮即触及上限 / 续期次数未用尽 /
@@ -6040,15 +6061,27 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                 if session_id is None:
                                     session_id = str(uuid.uuid4())
                                 _q_args = args if isinstance(args, dict) else {}
-                                q_item = create_question(
-                                    session_id=session_id,
-                                    user_id=owner_uuid,
-                                    prompt=_q_args.get("question", ""),
-                                    header=_q_args.get("header"),
-                                    options=_q_args.get("options"),
-                                    allow_custom=bool(_q_args.get("allowCustom", True)),
-                                    allow_multiple=bool(_q_args.get("multiSelect", False)),
+                                # 定时继续(2026-11-14 立):显式 timeout_s 才进入 timed
+                                # 模式;缺省保持既有阻塞 300s,-1 表示等到底(24h 上限)。
+                                _q_timeout_s, _q_timed, _q_timeout_err = normalize_timeout_s(
+                                    _q_args.get("timeout_s")
                                 )
+                                if _q_timeout_err is not None:
+                                    # 结构化参数错误:与 create_question 的非法入参同路
+                                    # (下面 isinstance(dict) 分支统一回灌,不向用户发半帧)。
+                                    q_item: Any = _q_timeout_err
+                                else:
+                                    q_item = create_question(
+                                        session_id=session_id,
+                                        user_id=owner_uuid,
+                                        prompt=_q_args.get("question", ""),
+                                        header=_q_args.get("header"),
+                                        options=_q_args.get("options"),
+                                        allow_custom=bool(_q_args.get("allowCustom", True)),
+                                        allow_multiple=bool(_q_args.get("multiSelect", False)),
+                                        timeout_s=_q_timeout_s,
+                                        call_id=str(tc.get("id", "")),
+                                    )
                                 if isinstance(q_item, dict):
                                     # 参数非法:结构化失败回灌,不向用户发半帧(前端解析层会整帧丢弃)
                                     exec_result = {
@@ -6090,7 +6123,14 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                         _q_status = (
                                             q_item.status
                                             if q_item.status != "pending"
-                                            else await wait_for_answer(q_item, timeout_s=0.0)
+                                            else (
+                                                # 定时继续:timed 到期不判死,转入 continued。
+                                                mark_continued(
+                                                    q_item, call_id=str(tc.get("id", ""))
+                                                )
+                                                if _q_timed
+                                                else await wait_for_answer(q_item, timeout_s=0.0)
+                                            )
                                         )
                                     except asyncio.CancelledError:
                                         # 会话中断/连接取消:先把该会话所有 pending 一律置
@@ -6113,11 +6153,19 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                             session_id, reason="session_interrupted"
                                         )
                                         raise
+                                    _q_continued = _q_status == STATUS_CONTINUED
+                                    _q_resolved_frame = q_item.resolved_payload(
+                                        # 前端词表只有四态:continued 以 timeout 结算,
+                                        # 另带 continued 附加键(迟到答复仍可送达模型)。
+                                        "timeout" if _q_continued else _q_status
+                                    )
+                                    if _q_continued:
+                                        _q_resolved_frame["continued"] = True
                                     yield _sse(
                                         SSE_QUESTION_RESOLVED,
                                         {
                                             "type": "question-resolved",
-                                            **q_item.resolved_payload(_q_status),
+                                            **_q_resolved_frame,
                                         },
                                     )
                                     # 会话历史落库:本路由没有独立的"question-answer part"落盘槽位
@@ -6128,7 +6176,21 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                         for opt in q_item.options
                                         if opt["id"] in q_item.selected_ids
                                     ]
-                                    if _q_status == "answered":
+                                    if _q_status == STATUS_CONTINUED:
+                                        exec_result = {
+                                            "tool": tool_name,
+                                            "ok": True,
+                                            "pending": True,
+                                            "status": STATUS_CONTINUED,
+                                            "questionId": q_item.question_id,
+                                            "callId": str(tc.get("id", "")),
+                                            "message": pending_question_notice(
+                                                q_item, str(tc.get("id", ""))
+                                            ),
+                                        }
+                                        ok = True
+                                        _q_explanation = "提问等待到期,转入挂起(用户仍可答复)"
+                                    elif _q_status == "answered":
                                         exec_result = {
                                             "tool": tool_name,
                                             "ok": True,

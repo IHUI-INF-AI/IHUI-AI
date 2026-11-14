@@ -21,7 +21,7 @@ import { createHash } from 'node:crypto'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
-import { and, eq, inArray, isNull, like, or, sql } from 'drizzle-orm'
+import { and, eq, inArray, isNotNull, isNull, like, or, sql } from 'drizzle-orm'
 import {
   aiModelConfig,
   aiModelConfigModels,
@@ -1026,6 +1026,53 @@ export async function importAccounts(
           ),
         )
         .limit(1)
+      // 跨池重复闸门(2026-11-14 立):同一上游账号只允许存在一条续期链。
+      // 轮换式 refreshToken(trae/codearts 等)被两条行各自续期时会互相消费 —— 后刷的一行必然
+      // 401 并被摘除,随后每 24h 报一次「号池保活摘除」。事故实证:2026-11-12 22:19 一次不带
+      // --owner 的批量导入,为 6 个已在个人池的账号各造了一份运营池副本(1 枚 trae 因此假死、
+      // 5 枚 qoder 双份计额度)。此处只拦不建:凭证绝不跨归属覆盖(运维拍脑袋的一次重导
+      // 就可能把活行的轮换票写成别处的旧票)。
+      if (existing.length === 0) {
+        const [crossPool] = await db
+          .select({
+            id: aiRelayAccountPool.id,
+            sharedToOps: aiRelayAccountPool.sharedToOps,
+            healthStatus: aiRelayAccountPool.healthStatus,
+          })
+          .from(aiRelayAccountPool)
+          .where(
+            and(
+              eq(aiRelayAccountPool.providerCode, providerCode),
+              eq(aiRelayAccountPool.uid, uid),
+              ownerUserId === null
+                ? isNotNull(aiRelayAccountPool.ownerUserId)
+                : isNull(aiRelayAccountPool.ownerUserId),
+            ),
+          )
+          .limit(1)
+        if (crossPool) {
+          // 落运营池的真实意图 = 让该号对所有人可用;同一账号已有个人池行时,正确动作是把
+          // 那一行标成共享(共享标记本身参与运营池选路,见 relay-account-forwarder),不再建副本。
+          if (ownerUserId === null && !crossPool.sharedToOps) {
+            await db
+              .update(aiRelayAccountPool)
+              .set({ sharedToOps: true, updatedAt: new Date() })
+              .where(eq(aiRelayAccountPool.id, crossPool.id))
+          }
+          result.skipped++
+          pushItem(naming, {
+            index: i,
+            name: displayName,
+            uid,
+            status: 'skipped',
+            reason:
+              ownerUserId === null
+                ? `该账号已在个人池存在(${crossPool.id.slice(0, 8)},${crossPool.healthStatus}),已置为共享到运营池;同一上游账号只保留一条续期链,再建副本会让轮换式 refreshToken 互相消费。要更新凭证请带 --owner 落到原归属`
+                : `该账号已在运营池存在(${crossPool.id.slice(0, 8)},${crossPool.healthStatus});同一上游账号只保留一条续期链,再建副本会让轮换式 refreshToken 互相消费`,
+          })
+          continue
+        }
+      }
       // 既有 secrets 解出(模板三键保留判据用;坏密文/密钥轮换 ⇒ 当作无既有 secrets,本次提供的照写)
       let existingSecrets: Record<string, unknown> | null = null
       if (existing[0]?.secretsEnc) {
@@ -1207,13 +1254,35 @@ export async function importAccounts(
               : '已覆盖凭证并重置健康状态',
         })
       } else {
-        const [written] = await db
-          .insert(aiRelayAccountPool)
-          .values({ ...values, credVersion: 1 })
-          .returning({
-            id: aiRelayAccountPool.id,
-            credVersion: aiRelayAccountPool.credVersion,
-          })
+        let written: { id: string; credVersion: number } | undefined
+        try {
+          ;[written] = await db
+            .insert(aiRelayAccountPool)
+            .values({ ...values, credVersion: 1 })
+            .returning({
+              id: aiRelayAccountPool.id,
+              credVersion: aiRelayAccountPool.credVersion,
+            })
+        } catch (e) {
+          // 数据库级不变量兜底(2026-11-14 迁移 ai_relay_account_pool_provider_uid_uniq):
+          // 同一上游账号全表唯一。正常路径由上面的跨池闸门提前拦下;走到这里只有一种可能 ——
+          // 并发写入在「查无此行」与「插入」之间插队。语义必须与闸门一致:只拦不建。
+          // 绝不能改成"冲突就改既有行":那等于把本批凭证(可能是旧票)写到别人那一行,
+          // 轮换式 refreshToken 会被当场消费掉,把活号刷死。
+          if ((e as { code?: string })?.code === '23505') {
+            result.skipped++
+            pushItem(naming, {
+              index: i,
+              name: displayName,
+              uid,
+              status: 'skipped',
+              reason:
+                '同一上游账号已存在(数据库唯一索引拦下并发重复导入);只拦不建,未覆盖任何既有凭证',
+            })
+            continue
+          }
+          throw e
+        }
         if (!written) throw new Error('插入后未取到回写行(id/credVersion)')
         writtenId = written.id
         writtenCredVersion = written.credVersion

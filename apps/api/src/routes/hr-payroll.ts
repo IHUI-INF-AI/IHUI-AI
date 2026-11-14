@@ -8,11 +8,19 @@ import { eq } from 'drizzle-orm'
 
 import { hrPayrollPeriod } from '@ihui/database'
 import { db } from '../db/index.js'
-import { buildPayroll, listPayrollItems, revertPayrollCalculation } from '../services/hr-payroll.js'
-import { requirePermission } from '../plugins/require-permission.js'
+import {
+  buildPayroll,
+  listPayrollItems,
+  revertPayrollCalculation,
+  getMyPayrollItem,
+  listMyPayrollPeriods,
+  buildPayrollHandoffVoucher,
+} from '../services/hr-payroll.js'
+import { requirePermission, requireAuth } from '../plugins/require-permission.js'
 import { success, error } from '../utils/response.js'
 import { AppError } from '../errors/AppError.js'
-import { buildSchema } from '../utils/swagger.js'
+import { buildSchema, errorCodeResponses } from '../utils/swagger.js'
+import { exportToExcel, type ColumnDef } from '../services/excel-export-service.js'
 
 /**
  * 薪资计算路由(HR-5 第 5 期,2026-11-12 立)。
@@ -212,5 +220,164 @@ export const hrPayrollRoutes: FastifyPluginAsync = async (server) => {
       }
     },
   )
+
+  // ==========================================================================
+  // 6. POST /api/hr-payroll/handoff — 人事部→财务部 AI 交割(生成财务凭证)
+  // ==========================================================================
+  server.post(
+    '/handoff',
+    {
+      preHandler: requirePermission(HR_PAYROLL),
+      schema: buildSchema({
+        tags: ['人事-薪资'],
+        summary: '生成某月薪资的财务交割凭证(算薪→记账联动)',
+        description:
+          '只读该月 approved 周期的工资单汇总产出借贷平衡的工资凭证(计提+发放),' +
+          '**纯产出、不入账、不改账**;是否入账由财务侧决定。非 approved 周期返回 409 ' +
+          'PAYROLL_NOT_APPROVED;借贷不平衡返回 500 VOUCHER_UNBALANCED(宁可不交割,不交错账)。',
+        response: errorCodeResponses,
+      }),
+    },
+    async (request, reply) => {
+      const parsed = z
+        .object({ periodMonth: z.string().regex(/^\d{4}-\d{2}$/, '月份格式必须是 YYYY-MM') })
+        .safeParse(request.body)
+      if (!parsed.success) {
+        reply
+          .status(400)
+          .send(error(400, parsed.error.issues[0]?.message ?? '参数错误', 'VALIDATION_FAILED'))
+        return
+      }
+      try {
+        const voucher = await buildPayrollHandoffVoucher(parsed.data.periodMonth)
+        reply.send(success(voucher))
+      } catch (err) {
+        if (err instanceof AppError) {
+          reply.status(err.statusCode).send(error(err.statusCode, err.message, err.errorCode))
+          return
+        }
+        throw err
+      }
+    },
+  )
+
+  // ==========================================================================
+  // 7. POST /api/hr-payroll/handoff/export — 交割凭证单导出(Excel,供财务归档)
+  // ==========================================================================
+  server.post(
+    '/handoff/export',
+    {
+      preHandler: requirePermission(HR_PAYROLL),
+      schema: buildSchema({
+        tags: ['人事-薪资'],
+        summary: '导出某月薪资的财务交割凭证单(Excel)',
+        description:
+          '与 /handoff 同判据(仅 approved、借贷平衡),把凭证分录导出为 xlsx 供财务归档/打印。' +
+          '**纯产出、不入账**;非 approved 返回 409,不平衡返回 500。',
+        response: errorCodeResponses,
+      }),
+    },
+    async (request, reply) => {
+      const parsed = z
+        .object({ periodMonth: z.string().regex(/^\d{4}-\d{2}$/, '月份格式必须是 YYYY-MM') })
+        .safeParse(request.body)
+      if (!parsed.success) {
+        reply
+          .status(400)
+          .send(error(400, parsed.error.issues[0]?.message ?? '参数错误', 'VALIDATION_FAILED'))
+        return
+      }
+      try {
+        const voucher = await buildPayrollHandoffVoucher(parsed.data.periodMonth)
+        const month = voucher.periodMonth
+        const rows = [
+          ...voucher.entries.map((e) => ({
+            分录组: e.group,
+            会计科目: e.account,
+            借贷: e.direction,
+            金额: e.amount,
+          })),
+          // 两组小计行,便于财务核对
+          {
+            分录组: '计提',
+            会计科目: '小计',
+            借贷: '借=贷',
+            金额: voucher.totals.grossPay,
+          },
+          {
+            分录组: '发放',
+            会计科目: '小计',
+            借贷: '借=贷',
+            金额: voucher.totals.grossPay,
+          },
+        ]
+        const columns: ColumnDef[] = [
+          { header: '分录组', field: '分录组', width: 10 },
+          { header: '会计科目', field: '会计科目', width: 28 },
+          { header: '借贷', field: '借贷', width: 10 },
+          { header: '金额(元)', field: '金额', width: 18, type: 'float' },
+        ]
+        const buffer = await exportToExcel(rows, {
+          sheetName: `${month} 工资交割凭证`,
+          columns,
+          filename: `payroll-handoff-${month}.xlsx`,
+        })
+        reply
+          .header(
+            'Content-Type',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          )
+          .header('Content-Disposition', `attachment; filename="payroll-handoff-${month}.xlsx"`)
+          .send(buffer)
+      } catch (err) {
+        if (err instanceof AppError) {
+          reply.status(err.statusCode).send(error(err.statusCode, err.message, err.errorCode))
+          return
+        }
+        throw err
+      }
+    },
+  )
+
+  /**
+   * GET /mine/periods —— 员工自助:列出本人可见的工资月。
+   * 权限:登录即可(requireAuth),按 request.userId 查本人档案,无 manage 权限要求。
+   */
+  server.get('/mine/periods', { preHandler: requireAuth }, async (request, reply) => {
+    const userId = request.userId
+    if (!userId) {
+      reply.status(401).send(error(401, '未登录', 'UNAUTHORIZED'))
+      return
+    }
+    const periods = await listMyPayrollPeriods(userId)
+    reply.send(success({ periods }))
+  })
+
+  /**
+   * GET /mine?periodMonth=YYYY-MM —— 员工自助:查本人某月工资单。
+   * 权限:登录即可。查不到本人档案或该月未算薪时返回 404(区分未配置/未生成)。
+   */
+  server.get('/mine', { preHandler: requireAuth }, async (request, reply) => {
+    const userId = request.userId
+    if (!userId) {
+      reply.status(401).send(error(401, '未登录', 'UNAUTHORIZED'))
+      return
+    }
+    const parsed = z
+      .object({ periodMonth: z.string().regex(/^\d{4}-\d{2}$/, '月份格式必须是 YYYY-MM') })
+      .safeParse(request.query)
+    if (!parsed.success) {
+      reply
+        .status(400)
+        .send(error(400, parsed.error.issues[0]?.message ?? '参数错误', 'VALIDATION_FAILED'))
+      return
+    }
+    const item = await getMyPayrollItem(userId, parsed.data.periodMonth)
+    if (!item) {
+      reply.status(404).send(error(404, '该月暂无您的工资单', 'NOT_FOUND'))
+      return
+    }
+    reply.send(success(item))
+  })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

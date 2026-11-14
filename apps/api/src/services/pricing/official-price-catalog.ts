@@ -22,7 +22,17 @@
  *   - USD 按 AI_PRICE_USD_TO_CNY(默认 7.2)折算后写入
  */
 
-export type OfficialBillingMode = 'token' | 'per_image' | 'per_video' | 'per_call' | 'free'
+export type OfficialBillingMode =
+  | 'token'
+  | 'per_image'
+  | 'per_video'
+  | 'per_call'
+  | 'free'
+  /**
+   * 动态成本(2026-11-14 立):无公开报价的模型按「本次调用上游实际成本 × PROFIT_FACTOR」记账。
+   * 上游回传 usage.cost / usage.total_cost 时按真实成本计;未回传时按平台最低 1 分/次兜底。
+   */
+  | 'dynamic_cost'
 
 export interface OfficialPriceEntry {
   /** 渠道编码,必须与 ai_model_config.provider_code 一致 */
@@ -55,6 +65,9 @@ const AGNES_PRICING = 'https://wiki.agnes-ai.com/en/docs/pricing'
 const SILICONFLOW_PRICING = 'https://cloud-rd.siliconflow.cn/pricing'
 const HF_ROUTER = 'https://router.huggingface.co/v1/models'
 const MIMO_PRICING = 'https://mimo.mi.com/docs/zh-CN/pricing'
+const COHERE_PRICING = 'https://cohere.com/pricing'
+const MODELS_DEV_COHERE = 'https://docs.models.dev/providers/cohere'
+const OPENROUTER_MODELS = 'https://openrouter.ai/api/v1/models'
 const AT = '2026-11-14'
 
 // USD → 分:USD/1M token → 分/1k token 乘 0.72;USD/张|秒|次 → 分乘 720。
@@ -358,6 +371,14 @@ const huggingface: OfficialPriceEntry[] = [
   { providerCode: 'huggingface', modelId: 'ibm-granite/granite-4.2-3b', billingMode: 'token', inputPer1k: 0.0216, outputPer1k: 0.0864, source: HF_ROUTER, retrievedAt: AT, note: 'Router 提供方 deepinfra $0.03/$0.12 per M' },
   { providerCode: 'huggingface', modelId: 'swiss-ai/apertus-70b-instruct-2509', billingMode: 'token', inputPer1k: 0.5904, outputPer1k: 2.1024, source: HF_ROUTER, retrievedAt: AT, note: 'Router 提供方 publicai $0.82/$2.92 per M' },
   { providerCode: 'huggingface', modelId: 'swiss-ai/apertus-8b-instruct-2509', billingMode: 'token', inputPer1k: 0.072, outputPer1k: 0.144, source: HF_ROUTER, retrievedAt: AT, note: 'Router 提供方 publicai $0.10/$0.20 per M' },
+  // Cohere 官方价目(2026-11-14 立):HF Router 对 Cohere 模型 pass-through 厂商成本,
+  // 因此直接按 cohere.com/pricing 官方 USD/M × 0.72 折算为 分/千 token 成本价。
+  { providerCode: 'huggingface', modelId: 'coherelabs/c4ai-command-r-08-2024', billingMode: 'token', inputPer1k: 0.108, outputPer1k: 0.432, source: COHERE_PRICING, retrievedAt: AT, note: '官方 $0.15/$0.60 per M' },
+  { providerCode: 'huggingface', modelId: 'coherelabs/c4ai-command-r7b-12-2024', billingMode: 'token', inputPer1k: 0.027, outputPer1k: 0.108, source: COHERE_PRICING, retrievedAt: AT, note: '官方 $0.0375/$0.15 per M' },
+  { providerCode: 'huggingface', modelId: 'coherelabs/c4ai-command-r7b-arabic-02-2025', billingMode: 'token', inputPer1k: 0.027, outputPer1k: 0.108, source: MODELS_DEV_COHERE, retrievedAt: AT, note: 'models.dev cohere provider $0.0375/$0.15 per M' },
+  { providerCode: 'huggingface', modelId: 'coherelabs/c4ai-command-a-03-2025', billingMode: 'token', inputPer1k: 1.8, outputPer1k: 7.2, source: MODELS_DEV_COHERE, retrievedAt: AT, note: 'models.dev cohere provider $2.50/$10.00 per M' },
+  { providerCode: 'huggingface', modelId: 'coherelabs/command-a-plus-05-2026-w4a4', billingMode: 'token', inputPer1k: 1.8, outputPer1k: 7.2, source: MODELS_DEV_COHERE, retrievedAt: AT, note: 'models.dev cohere provider $2.50/$10.00 per M(优先于 OpenRouter 的 $0.30/$1.50)' },
+  { providerCode: 'huggingface', modelId: 'coherelabs/aya-expanse-32b', billingMode: 'token', inputPer1k: 0.36, outputPer1k: 1.08, source: COHERE_PRICING, retrievedAt: AT, note: 'Cohere 官方 FAQ 明确 $0.50/$1.50 per M' },
 ]
 
 const mimo: OfficialPriceEntry[] = [
@@ -369,7 +390,51 @@ const mimo: OfficialPriceEntry[] = [
 const openrouter: OfficialPriceEntry[] = [
   { providerCode: 'openrouter', modelId: 'lyria-3-clip-preview', billingMode: 'per_call', unitPriceCents: 28.8, unitBasis: '每首(30 秒片段)', source: GOOGLE_PRICING, retrievedAt: AT, note: 'Google 官方 $0.04/song' },
   { providerCode: 'openrouter', modelId: 'lyria-3-pro-preview', billingMode: 'per_call', unitPriceCents: 57.6, unitBasis: '每首(完整歌曲)', source: GOOGLE_PRICING, retrievedAt: AT, note: 'Google 官方 $0.08/song' },
-  { providerCode: 'openrouter', modelId: 'openrouter/free', billingMode: 'free', source: 'https://openrouter.ai/api/v1/models', retrievedAt: AT, note: '开放路由免费档,上游价 0' },
+  { providerCode: 'openrouter', modelId: 'openrouter/free', billingMode: 'free', source: OPENROUTER_MODELS, retrievedAt: AT, note: '开放路由免费档,上游价 0' },
+]
+
+/**
+ * 动态成本模型(2026-11-14 立,机主裁定「那也要有定价」)。
+ *
+ * 这些模型**没有可引用的公开报价**(官方页未列 / 价表 cost=null / 自定义 LoRA),
+ * 因此不写任何单价 —— 按每次调用上游回传的真实成本 × PROFIT_FACTOR 记账;
+ * 上游不回传成本时按平台最低 1 分/次兜底(fail-closed,绝不白送)。
+ * 这里列出它们的目的:让「重定价/巡检/上架护栏」认得它们**已有定价**,不会被再次下架。
+ */
+const dynamicCost: OfficialPriceEntry[] = [
+  // OpenRouter 动态路由:官方无固定单价,但响应 usage.cost 回传本次真实成本(USD)
+  { providerCode: 'openrouter', modelId: 'openrouter/auto', billingMode: 'dynamic_cost', source: OPENROUTER_MODELS, retrievedAt: AT, note: '动态路由无固定价;按 usage.cost × 3 实时记账' },
+  { providerCode: 'openrouter', modelId: 'openrouter/auto-beta', billingMode: 'dynamic_cost', source: OPENROUTER_MODELS, retrievedAt: AT, note: '同 openrouter/auto' },
+  { providerCode: 'openrouter', modelId: 'openrouter/auto-code', billingMode: 'dynamic_cost', source: OPENROUTER_MODELS, retrievedAt: AT, note: '同 openrouter/auto' },
+  { providerCode: 'openrouter', modelId: 'openrouter/bodybuilder', billingMode: 'dynamic_cost', source: OPENROUTER_MODELS, retrievedAt: AT, note: '同 openrouter/auto' },
+  { providerCode: 'openrouter', modelId: 'openrouter/fusion', billingMode: 'dynamic_cost', source: OPENROUTER_MODELS, retrievedAt: AT, note: '同 openrouter/auto' },
+  { providerCode: 'openrouter', modelId: 'openrouter/pareto-code', billingMode: 'dynamic_cost', source: OPENROUTER_MODELS, retrievedAt: AT, note: '同 openrouter/auto' },
+  { providerCode: 'openrouter', modelId: 'switchyard', billingMode: 'dynamic_cost', source: OPENROUTER_MODELS, retrievedAt: AT, note: '同 openrouter/auto' },
+  { providerCode: 'openrouter', modelId: 'typesafe/jev-router', billingMode: 'dynamic_cost', source: OPENROUTER_MODELS, retrievedAt: AT, note: '同 openrouter/auto' },
+  // HuggingFace Router:官方明确 pass-through 提供方成本,但以下模型在 models.dev cost=null
+  { providerCode: 'huggingface', modelId: 'coherelabs/aya-vision-32b', billingMode: 'dynamic_cost', source: MODELS_DEV_COHERE, retrievedAt: AT, note: 'models.dev cost=null;无公开价,按上游成本×3' },
+  { providerCode: 'huggingface', modelId: 'coherelabs/tiny-aya-earth', billingMode: 'dynamic_cost', source: MODELS_DEV_COHERE, retrievedAt: AT, note: 'models.dev cost=null' },
+  { providerCode: 'huggingface', modelId: 'coherelabs/tiny-aya-fire', billingMode: 'dynamic_cost', source: MODELS_DEV_COHERE, retrievedAt: AT, note: 'models.dev cost=null' },
+  { providerCode: 'huggingface', modelId: 'coherelabs/tiny-aya-global', billingMode: 'dynamic_cost', source: MODELS_DEV_COHERE, retrievedAt: AT, note: 'models.dev cost=null' },
+  { providerCode: 'huggingface', modelId: 'coherelabs/tiny-aya-water', billingMode: 'dynamic_cost', source: MODELS_DEV_COHERE, retrievedAt: AT, note: 'models.dev cost=null' },
+  // Google:官方 pricing 页未列这些型号
+  { providerCode: 'gemini', modelId: 'antigravity-preview-05-2026', billingMode: 'dynamic_cost', source: GOOGLE_PRICING, retrievedAt: AT, note: 'Google pricing 未列价;上游不回传成本时按最低 1 分/次' },
+  { providerCode: 'gemini', modelId: 'antigravity-preview-09-2026', billingMode: 'dynamic_cost', source: GOOGLE_PRICING, retrievedAt: AT, note: 'Google pricing 未列价' },
+  { providerCode: 'gemini', modelId: 'antigravity-preview-latest', billingMode: 'dynamic_cost', source: GOOGLE_PRICING, retrievedAt: AT, note: 'Google pricing 未列价' },
+  { providerCode: 'gemini', modelId: 'aqa', billingMode: 'dynamic_cost', source: GOOGLE_PRICING, retrievedAt: AT, note: 'Google pricing 未列价' },
+  // 硅基流动:LoRA/自定义模型与部分语音模型官方价目未列
+  { providerCode: 'siliconflow', modelId: 'lora/qwen/qwen2.5-14b-instruct', billingMode: 'dynamic_cost', source: SILICONFLOW_PRICING, retrievedAt: AT, note: 'LoRA 自定义模型无公开价' },
+  { providerCode: 'siliconflow', modelId: 'lora/qwen/qwen2.5-32b-instruct', billingMode: 'dynamic_cost', source: SILICONFLOW_PRICING, retrievedAt: AT, note: 'LoRA 自定义模型无公开价' },
+  { providerCode: 'siliconflow', modelId: 'qwen/qwen3-asr-1.7b', billingMode: 'dynamic_cost', source: SILICONFLOW_PRICING, retrievedAt: AT, note: '官方价目未列该 ASR 型号' },
+  { providerCode: 'siliconflow', modelId: 'fnlp/moss-ttsd-v0.5', billingMode: 'dynamic_cost', source: SILICONFLOW_PRICING, retrievedAt: AT, note: '官方价目未列该 TTS 型号' },
+  { providerCode: 'siliconflow', modelId: 'funaudiollm/cosyvoice2-0.5b', billingMode: 'dynamic_cost', source: SILICONFLOW_PRICING, retrievedAt: AT, note: '官方价目未列该 TTS 型号' },
+  { providerCode: 'siliconflow', modelId: 'kev-4b', billingMode: 'dynamic_cost', source: SILICONFLOW_PRICING, retrievedAt: AT, note: '官方价目未列' },
+  { providerCode: 'siliconflow', modelId: 'semif', billingMode: 'dynamic_cost', source: SILICONFLOW_PRICING, retrievedAt: AT, note: '官方价目未列' },
+  // 小米 MiMo:ASR 未列入官方定价页
+  { providerCode: 'mimo', modelId: 'mimo-v2.5-asr', billingMode: 'dynamic_cost', source: MIMO_PRICING, retrievedAt: AT, note: '官方定价页未列 ASR' },
+  // NVIDIA NIM:config 里的 1 分/2 分是历史占位价,不是真实报价
+  { providerCode: 'nvidia', modelId: 'poolside/laguna-xs-2.1', billingMode: 'dynamic_cost', source: 'https://build.nvidia.com (未公开定价)', retrievedAt: AT, note: '无公开报价;原 config 1分/2分为占位价,不得当真实价' },
+  { providerCode: 'nvidia_nim', modelId: 'poolside/laguna-xs-2.1', billingMode: 'dynamic_cost', source: 'https://build.nvidia.com (未公开定价)', retrievedAt: AT, note: '同 nvidia/poolside/laguna-xs-2.1' },
 ]
 
 export const OFFICIAL_PRICE_CATALOG: readonly OfficialPriceEntry[] = [
@@ -380,6 +445,7 @@ export const OFFICIAL_PRICE_CATALOG: readonly OfficialPriceEntry[] = [
   ...huggingface,
   ...mimo,
   ...openrouter,
+  ...dynamicCost,
 ]
 
 const INDEX = new Map<string, OfficialPriceEntry>()

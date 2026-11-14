@@ -44,7 +44,8 @@ export interface ResolvedPrice {
 export type ModelKind =
   'chat' | 'embedding' | 'rerank' | 'tts' | 'asr' | 'image' | 'video' | 'other'
 
-const usdToCny = (): number => {
+/** 美元→人民币汇率(`AI_PRICE_USD_TO_CNY`,默认 7.2);计费侧动态成本换算复用同一出口 */
+export const usdToCny = (): number => {
   const raw = Number(process.env['AI_PRICE_USD_TO_CNY'])
   return Number.isFinite(raw) && raw > 0 ? raw : 7.2
 }
@@ -515,6 +516,12 @@ export async function sweepUnpricedModels(
         where p.model_id = lower(m.model_id)
           and (p.input_token_price > 0 or p.output_token_price > 0)
       )
+      -- 动态成本模型零单价是合法状态,巡检不得当作"无价"下架(2026-11-14)
+      and not exists (
+        select 1 from ai_pricing dp
+        where dp.model_id = lower(m.model_id)
+          and dp.billing_mode = 'dynamic_cost'
+      )
   `)) as unknown as Array<{
     id: number
     config_id: number
@@ -602,7 +609,7 @@ export interface ApplyPricingArgs {
   modelId: string
   inputTokenPrice: number
   outputTokenPrice: number
-  billingMode: 'token' | 'per_image' | 'per_video' | 'per_call'
+  billingMode: 'token' | 'per_image' | 'per_video' | 'per_call' | 'dynamic_cost'
   perUnitPrice?: number | null
   videoUnit?: 'call' | 'second' | null
   tieredCallPrices?: { le256k: number; mid: number; gt512k: number } | null
@@ -677,6 +684,13 @@ export async function repricePlaceholderModels(
     from ai_model_config_models m
     join ai_model_config c on c.id = m.config_id
     where lower(m.model_id) not like '%:free'
+      -- 动态成本模型(2026-11-14):零单价是合法状态,由 billing_mode='dynamic_cost' 标记已有定价,
+      -- 不得再被当作"零价"重定价或下架。
+      and not exists (
+        select 1 from ai_pricing dp
+        where dp.model_id = lower(m.model_id)
+          and dp.billing_mode = 'dynamic_cost'
+      )
       and (
         coalesce(m.input_price_per_1k, 0) <= 0
         or coalesce(m.output_price_per_1k, 0) <= 0
@@ -712,7 +726,12 @@ export async function repricePlaceholderModels(
     // ① 厂商官方价目优先 —— 「不能瞎定」的最高档依据(2026-11-14 立)
     const official = lookupOfficialPrice(providerCode, modelId)
     if (official) {
-      const tier = official.billingMode === 'free' ? 'official-free' : 'official'
+      const tier =
+        official.billingMode === 'free'
+          ? 'official-free'
+          : official.billingMode === 'dynamic_cost'
+            ? 'official-dynamic'
+            : 'official'
       byTier[tier] = (byTier[tier] ?? 0) + 1
       repriced++
       if (!dryRun) await applyOfficialEntry(db, applyPricing, official, modelId)
@@ -790,12 +809,16 @@ async function applyOfficialEntry(
 ): Promise<void> {
   const isFree = entry.billingMode === 'free'
   const isToken = entry.billingMode === 'token'
+  const isDynamic = entry.billingMode === 'dynamic_cost'
   const profit = PROFIT_FACTOR
   const inP = isToken ? round6((entry.inputPer1k ?? 0) * profit) : 0
   const outP = isToken ? round6((entry.outputPer1k ?? 0) * profit) : 0
-  const unit = isToken || isFree ? null : round6((entry.unitPriceCents ?? 0) * profit)
+  const unit = isToken || isFree || isDynamic ? null : round6((entry.unitPriceCents ?? 0) * profit)
 
-  if (isFree) {
+  if (isDynamic) {
+    // 动态成本:ai_pricing 只落"计费模式"标记,不落任何单价(单价在每次调用时按真实成本换算)
+    await applyPricing({ modelId, inputTokenPrice: 0, outputTokenPrice: 0, billingMode: 'dynamic_cost' })
+  } else if (isFree) {
     await applyPricing({ modelId, inputTokenPrice: 0, outputTokenPrice: 0, billingMode: 'token' })
   } else if (isToken) {
     await applyPricing({
@@ -821,9 +844,9 @@ async function applyOfficialEntry(
 
   const meta = JSON.stringify({
     priceSource: {
-      tier: isFree ? 'official-free' : 'official',
+      tier: isFree ? 'official-free' : isDynamic ? 'official-dynamic' : 'official',
       source: entry.source,
-      billingMode: entry.billingMode === 'free' ? 'token' : entry.billingMode,
+      billingMode: isFree ? 'token' : entry.billingMode,
       perUnitPrice: unit,
       unitBasis: entry.unitBasis ?? null,
       outputNotApplicable: entry.outputNotApplicable === true,
@@ -835,7 +858,11 @@ async function applyOfficialEntry(
     },
   }).replace(/'/g, "''")
 
-  const priceCols = isToken || isFree ? `input_price_per_1k = '${inP}', output_price_per_1k = '${outP}',` : ''
+  // 动态成本/free 也把配置行归零:清掉 -100000 哨兵与历史占位价,避免被当成真实售价
+  const priceCols =
+    isToken || isFree || isDynamic
+      ? `input_price_per_1k = '${inP}', output_price_per_1k = '${outP}',`
+      : ''
   const costCols =
     isToken
       ? `cost_input_price_per_1k = '${entry.inputPer1k ?? 0}', cost_output_price_per_1k = '${entry.outputPer1k ?? 0}',`
