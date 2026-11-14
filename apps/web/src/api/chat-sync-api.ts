@@ -13,12 +13,13 @@
  * 刻意走本端 api 文件而不是 @ihui/api-client:该包此切片在飞(他席持有),且快照是
  * REST 单次拉取,不与广播连接共享传输层 —— 归宿就是端内 api 目录(checkpoint-api 同款)。
  *
- * phase 2(2026-11-14):路径字符串收进 `@ihui/shared/chat` 的 `chatSyncSnapshotPath`,
- * 四端(taro / RN / extension)接 gap-resync 时共用同一份 —— 端内不再各抄一遍端点。
+ * phase 2(2026-11-14):taro / RN / extension 的发起器共用 `@ihui/shared/chat` 的
+ * `chatSyncSnapshotPath`;但**本端刻意保留字面量路径** —— 门 302p 的路由尺只认可静态
+ * 解析的 `api('/api/...')`,写成 `api('/api' + fn())` 会让"web 路由未判定数"由 0 涨到 1。
+ * 两份一致性不靠人眼:由 `src/api/__tests__/chat-sync-api.test.ts` 用共享常量逐字比对钉住。
  */
 import { apiOrThrow as api } from '@/lib/api'
 import type { ChatSyncMessageSnapshot } from '@ihui/types'
-import { chatSyncSnapshotPath } from '@ihui/shared/chat'
 
 /**
  * 拉某会话内某条消息的权威快照("rev=N 全量":rev = 当前修订链头,0 = 链上无 patch)。
@@ -29,6 +30,8 @@ export async function fetchChatSyncSnapshot(
   conversationId: string,
   messageId: string,
 ): Promise<ChatSyncMessageSnapshot> {
-  return api<ChatSyncMessageSnapshot>(`/api${chatSyncSnapshotPath(conversationId, messageId)}`)
+  return api<ChatSyncMessageSnapshot>(
+    `/api/chat/conversations/${encodeURIComponent(conversationId)}/messages/${encodeURIComponent(messageId)}/sync-snapshot`,
+  )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
