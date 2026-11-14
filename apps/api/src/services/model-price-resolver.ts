@@ -18,6 +18,10 @@
  */
 import { sql } from 'drizzle-orm'
 import { logger } from '../utils/logger.js'
+import {
+  lookupOfficialPrice,
+  type OfficialPriceEntry,
+} from './pricing/official-price-catalog.js'
 
 /** 成本 → 用户实付的统一利润系数(机主 2026-11-13 拍板:×3) */
 export const PROFIT_FACTOR = 3
@@ -593,6 +597,17 @@ export interface RepriceResult {
   skipped?: string
 }
 
+/** 写入 ai_pricing 的入参(与 pricing-service.upsertPricing 对齐,覆盖四种计费模式) */
+export interface ApplyPricingArgs {
+  modelId: string
+  inputTokenPrice: number
+  outputTokenPrice: number
+  billingMode: 'token' | 'per_image' | 'per_video' | 'per_call'
+  perUnitPrice?: number | null
+  videoUnit?: 'call' | 'second' | null
+  tieredCallPrices?: { le256k: number; mid: number; gt512k: number } | null
+}
+
 /**
  * 价表源完整性门禁(2026-11-14 立,事故驱动)。
  *
@@ -638,12 +653,7 @@ export async function repricePlaceholderModels(
   db: {
     execute: (q: unknown) => Promise<unknown>
   },
-  applyPricing: (args: {
-    modelId: string
-    inputTokenPrice: number
-    outputTokenPrice: number
-    billingMode: 'token'
-  }) => Promise<unknown>,
+  applyPricing: (args: ApplyPricingArgs) => Promise<unknown>,
   opts: { dryRun?: boolean } = {},
 ): Promise<RepriceResult> {
   const dryRun = opts.dryRun === true
@@ -697,13 +707,26 @@ export async function repricePlaceholderModels(
   for (const r of list) {
     const modelId = String(r.model_id ?? '').toLowerCase()
     if (!modelId) continue
-    const price = resolveAuthoritativePrice(modelId, sources, r.provider_code)
+    const providerCode = String(r.provider_code ?? '').toLowerCase()
+
+    // ① 厂商官方价目优先 —— 「不能瞎定」的最高档依据(2026-11-14 立)
+    const official = lookupOfficialPrice(providerCode, modelId)
+    if (official) {
+      const tier = official.billingMode === 'free' ? 'official-free' : 'official'
+      byTier[tier] = (byTier[tier] ?? 0) + 1
+      repriced++
+      if (!dryRun) await applyOfficialEntry(db, applyPricing, official, modelId)
+      continue
+    }
+
+    // ② 三源价表 exact / alias
+    const price = resolveAuthoritativePrice(modelId, sources, providerCode)
     if (!price) {
       delisted.push(modelId)
       if (!dryRun) {
         // 下架:只关对外售卖,不动 enabled(内部链路仍可用,但不卖就不能有价)
         await db.execute(
-          sql`update ai_model_config_models set is_relay_public = false, updated_at = now() where lower(model_id) = ${modelId}`,
+          sql`update ai_model_config_models set is_relay_public = false, metadata = coalesce(metadata, '{}'::jsonb) || '{"placeholderDelisted":true}'::jsonb, updated_at = now() where lower(model_id) = ${modelId}`,
         )
         // 删除占位/哨兵定价行,防止下次被 syncConfigPricesFromPricing 当权威价回填
         await db.execute(sql`delete from ai_pricing where model_id = ${modelId}`)
@@ -750,5 +773,83 @@ export async function repricePlaceholderModels(
     `[price-resolver] 占位价重定价完成 dryRun=${dryRun} scanned=${list.length} repriced=${repriced} delisted=${delisted.length}`,
   )
   return { scanned: list.length, repriced, delisted, byTier, dryRun }
+}
+
+const round6 = (v: number): number => Math.round(v * 1e6) / 1e6
+
+/**
+ * 写入「厂商官方价目」价:按 billingMode 落到 ai_pricing 对应列,
+ * 并把参考依据写进 metadata.priceSource 供运营复核;同时恢复上架
+ * (只恢复 enabled=true 的行 —— 官方价到位即应可售,这是机主 2026-11-14 的要求)。
+ */
+async function applyOfficialEntry(
+  db: { execute: (q: unknown) => Promise<unknown> },
+  applyPricing: (args: ApplyPricingArgs) => Promise<unknown>,
+  entry: OfficialPriceEntry,
+  modelId: string,
+): Promise<void> {
+  const isFree = entry.billingMode === 'free'
+  const isToken = entry.billingMode === 'token'
+  const profit = PROFIT_FACTOR
+  const inP = isToken ? round6((entry.inputPer1k ?? 0) * profit) : 0
+  const outP = isToken ? round6((entry.outputPer1k ?? 0) * profit) : 0
+  const unit = isToken || isFree ? null : round6((entry.unitPriceCents ?? 0) * profit)
+
+  if (isFree) {
+    await applyPricing({ modelId, inputTokenPrice: 0, outputTokenPrice: 0, billingMode: 'token' })
+  } else if (isToken) {
+    await applyPricing({
+      modelId,
+      inputTokenPrice: inP,
+      outputTokenPrice: outP,
+      billingMode: 'token',
+    })
+  } else {
+    await applyPricing({
+      modelId,
+      inputTokenPrice: 0,
+      outputTokenPrice: 0,
+      billingMode: entry.billingMode as 'per_image' | 'per_video' | 'per_call',
+      perUnitPrice: unit,
+      videoUnit: entry.billingMode === 'per_video' ? (entry.videoUnit ?? 'second') : null,
+      tieredCallPrices:
+        entry.billingMode === 'per_call' && unit !== null
+          ? { le256k: unit, mid: unit, gt512k: unit }
+          : null,
+    })
+  }
+
+  const meta = JSON.stringify({
+    priceSource: {
+      tier: isFree ? 'official-free' : 'official',
+      source: entry.source,
+      billingMode: entry.billingMode === 'free' ? 'token' : entry.billingMode,
+      perUnitPrice: unit,
+      unitBasis: entry.unitBasis ?? null,
+      outputNotApplicable: entry.outputNotApplicable === true,
+      note: entry.note ?? null,
+      profitFactor: profit,
+      retrievedAt: entry.retrievedAt,
+      resolvedAt: new Date().toISOString(),
+      reason: 'official-catalog',
+    },
+  }).replace(/'/g, "''")
+
+  const priceCols = isToken || isFree ? `input_price_per_1k = '${inP}', output_price_per_1k = '${outP}',` : ''
+  const costCols =
+    isToken
+      ? `cost_input_price_per_1k = '${entry.inputPer1k ?? 0}', cost_output_price_per_1k = '${entry.outputPer1k ?? 0}',`
+      : ''
+  await db.execute(
+    sql.raw(
+      `update ai_model_config_models
+          set ${priceCols}
+              ${costCols}
+              metadata = coalesce(metadata, '{}'::jsonb) || '${meta}'::jsonb,
+              is_relay_public = case when enabled then true else is_relay_public end,
+              updated_at = now()
+        where lower(model_id) = '${modelId.replace(/'/g, "''")}'`,
+    ),
+  )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -385,12 +385,7 @@ export async function listPriceAudits(query: {
  */
 export async function sweepNow(args: {
   dryRun: boolean
-  applyPricing: (a: {
-    modelId: string
-    inputTokenPrice: number
-    outputTokenPrice: number
-    billingMode: 'token'
-  }) => Promise<unknown>
+  applyPricing: (a: import('./model-price-resolver.js').ApplyPricingArgs) => Promise<unknown>
 }): Promise<Awaited<ReturnType<typeof repricePlaceholderModels>>> {
   return repricePlaceholderModels(
     db as unknown as { execute: (q: unknown) => Promise<unknown> },
@@ -1032,12 +1027,24 @@ export interface PublishPricingCheck {
 export async function assertPricedForPublish(modelRowId: number): Promise<PublishPricingCheck> {
   const res = await db.execute(sql`
     select
-      model_id,
-      coalesce(input_price_per_1k, 0) as pin,
-      coalesce(output_price_per_1k, 0) as pout,
-      metadata->'priceSource'->>'tier' as tier
-    from ai_model_config_models
-    where id = ${modelRowId}
+      m.model_id,
+      coalesce(m.input_price_per_1k, 0) as pin,
+      coalesce(m.output_price_per_1k, 0) as pout,
+      m.metadata->'priceSource'->>'tier' as tier,
+      m.metadata->'priceSource'->>'outputNotApplicable' as out_na,
+      p.billing_mode as bmode,
+      coalesce(p.input_token_price, 0) as p_in,
+      coalesce(p.output_token_price, 0) as p_out,
+      coalesce(p.per_unit_price, 0) as p_unit,
+      p.tiered_call_prices as p_tiers
+    from ai_model_config_models m
+    left join lateral (
+      select * from ai_pricing
+      where model_id = lower(m.model_id)
+      order by effective_at desc nulls last
+      limit 1
+    ) p on true
+    where m.id = ${modelRowId}
   `)
   const row = rowsOf<Record<string, unknown>>(res)[0]
   if (!row) {
@@ -1046,38 +1053,66 @@ export async function assertPricedForPublish(modelRowId: number): Promise<Publis
   const modelId = String(row['model_id'] ?? '')
   const pin = asNum(row['pin'])
   const pout = asNum(row['pout'])
+  const tier = row['tier'] ? String(row['tier']) : ''
+  const outNotApplicable = row['out_na'] === true || row['out_na'] === 'true'
   // 上游真免费模型(OpenRouter 的 ":free" 后缀)零价是合法状态,必须放行,
   // 否则运营无法上架免费模型 —— 护栏只针对"该收费却没定价"的漏计费。
   if (/:free\b/i.test(modelId)) {
     return { ok: true, modelId, inputPricePer1k: pin, outputPricePer1k: pout }
   }
+  // 厂商官方价目明确标注的免费模型(零价同样是合法状态)
+  if (tier === 'official-free') {
+    return { ok: true, modelId, inputPricePer1k: pin, outputPricePer1k: pout }
+  }
+  // 非 token 计费(按张/按秒/按次):ai_pricing 里有正的单位价即可上架,
+  // 配置行的 token 价保持 0 不代表白送。
+  const bmode = row['bmode'] ? String(row['bmode']) : 'token'
+  if (bmode === 'per_image' || bmode === 'per_video') {
+    if (asNum(row['p_unit']) > 0) {
+      return { ok: true, modelId, inputPricePer1k: pin, outputPricePer1k: pout }
+    }
+  }
+  if (bmode === 'per_call') {
+    const tiers = row['p_tiers'] as Record<string, unknown> | null
+    if (asNum(tiers?.['le256k']) > 0 || asNum(tiers?.['mid']) > 0 || asNum(tiers?.['gt512k']) > 0) {
+      return { ok: true, modelId, inputPricePer1k: pin, outputPricePer1k: pout }
+    }
+  }
+  // token 模式:优先看 ai_pricing(真实计费依据),再退回配置行
+  const effIn = asNum(row['p_in']) > 0 ? asNum(row['p_in']) : pin
+  const effOut = asNum(row['p_out']) > 0 ? asNum(row['p_out']) : pout
   // 任一方向 <=0 都是缺口(此前只拦"两个都为 0",漏掉半个价为 0 的行)
-  if (pin <= 0 || pout <= 0) {
+  if (effIn <= 0 || (effOut <= 0 && !outNotApplicable)) {
     return {
       ok: false,
       modelId,
       inputPricePer1k: pin,
       outputPricePer1k: pout,
       reason:
-        `模型 ${modelId} 售价存在非正数(输入 ${pin} 分/千 token,输出 ${pout} 分/千 token),` +
+        `模型 ${modelId} 售价存在非正数(输入 ${effIn} 分/千 token,输出 ${effOut} 分/千 token),` +
         '请先定价再上架 —— 零价上架会让所有调用按 0 记账,造成漏计费',
     }
   }
   // 1分/2分 是 2026-07-30 批量写入的占位默认价(跨厂商全同价),不是真实单价。
-  // 除非该行带有 exact/alias 权威命中留痕(极端巧合下的真价),否则禁止上架。
-  const tier = row['tier'] ? String(row['tier']) : ''
-  if (pin === 1 && pout === 2 && tier !== 'exact' && tier !== 'alias') {
-    return {
-      ok: false,
-      modelId,
-      inputPricePer1k: pin,
-      outputPricePer1k: pout,
-      reason:
-        `模型 ${modelId} 仍是 1分/2分 占位价(无权威价来源留痕),` +
-        '请先执行「修复占位价」或人工按上游真实价调价再上架',
-    }
+  // 除非该行带有权威命中留痕,否则禁止上架。
+  if (effectivePlaceholderCheck(effIn, effOut, tier)) {
+    return { ok: true, modelId, inputPricePer1k: pin, outputPricePer1k: pout }
   }
-  return { ok: true, modelId, inputPricePer1k: pin, outputPricePer1k: pout }
+  return {
+    ok: false,
+    modelId,
+    inputPricePer1k: pin,
+    outputPricePer1k: pout,
+    reason:
+      `模型 ${modelId} 仍是 1分/2分 占位价(无权威价来源留痕),` +
+      '请先执行「修复占位价」或人工按上游真实价调价再上架',
+  }
+}
+
+/** 占位价检查:非 1分/2分 直接通过;是 1分/2分 则要求有权威来源留痕 */
+function effectivePlaceholderCheck(inP: number, outP: number, tier: string): boolean {
+  if (!(inP === 1 && outP === 2)) return true
+  return tier === 'exact' || tier === 'alias' || tier === 'official'
 }
 
 export interface UnpricedAlertRow {
@@ -1116,6 +1151,7 @@ export async function getUnpricedAlerts(days = 30): Promise<UnpricedAlertReport>
         is_relay_public,
         coalesce(input_price_per_1k, 0) as pin,
         coalesce(output_price_per_1k, 0) as pout,
+        coalesce(metadata->'priceSource'->>'tier', '') as tier,
         coalesce(
           cost_input_price_per_1k,
           coalesce(input_price_per_1k, 0)
@@ -1160,6 +1196,8 @@ export async function getUnpricedAlerts(days = 30): Promise<UnpricedAlertReport>
         or (coalesce(p.pin, 0) = 1 and coalesce(p.pout, 0) = 2)
       )
       and p.mid not like '%:free'
+      -- 厂商官方明确免费的模型(priceSource.tier=official-free)零价是合法状态
+      and p.tier <> 'official-free'
       and (p.is_relay_public = true or coalesce(u.calls, 0) > 0)
     order by estimated_cost_cents desc, calls desc
   `)
