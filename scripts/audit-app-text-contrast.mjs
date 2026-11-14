@@ -249,30 +249,6 @@ export function extractTokenUses(line) {
       continue
     }
 
-    // 底色位:显式底色键、`xxxBg` / `xxxBackground` 变量名 —— 它在做"底",不当前景判
-    const varName = /(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=[^;]*$/.exec(seg)
-    const targetIsBg = !!varName && /(?:Bg|Background)$/.test(varName[1])
-    const keyIsBg = !!keyName && (/^(bg|fill|shadowColor|border|borderColor|backgroundColor|bgColor)$/.test(keyName)
-      || /(?:Bg|Background)$/.test(keyName))
-    if (targetIsBg || keyIsBg) {
-      out.push({ field: path, kind: 'bg', offset: m.index })
-      continue
-    }
-
-    // 明暗分支感知:整段只有这一处 token 取值、且段落是 `dark ? <它> : 其它` 时,
-    // 它只会在暗档用;反向 `其他 ? 别的 : <它>` 则是亮档。
-    // 一行里两支都出现(如 `dark ? a : b`)时无法归一 ⇒ 保持 null 按两档都量,
-    // 由 judge 的两档齐过规则兜住(宁可多要一次人工确认,也不放假红出去)。
-    let themeBranch = null
-    const segTokenCount = (seg.match(/(?:tk|tokens|baseTokens|rnTokens|theme)\.[a-zA-Z]/g) || []).length
-    if (segTokenCount === 1) {
-      if (/(?:^|[^!])$/.test('') === false && /(?:dark|isDark)\s*\?[^:]*$/.test(seg)) themeBranch = 'dark'
-      else if (/(?:dark|isDark)\s*\?[^:]*:[^:]*$/.test(seg) && /\?[^:]*:[^:]*$/.test(seg) && seg.lastIndexOf('?') < seg.indexOf(':', seg.lastIndexOf('?'))) {
-        themeBranch = seg.indexOf(':', seg.lastIndexOf('?')) < seg.length - seg.slice(seg.lastIndexOf(':') + 1).trimStart().length ? 'light' : 'dark'
-      }
-      if (/!\s*(?:dark|isDark)\s*\?[^:]*$/.test(seg)) themeBranch = 'light'
-    }
-
     let kind = 'graphic'
     if (keyName === 'placeholderTextColor' || keyName === 'inactiveColor' || keyName === 'activeColor') kind = 'text'
     else if (keyName === 'color') kind = /color\s*=?\s*\{\s*$/.test(seg) ? 'graphic' : 'text'
@@ -519,6 +495,25 @@ function selfTest() {
 
   if (!process.exitCode) console.log('\n全部自检通过。')
   process.exit(process.exitCode || 0)
+}
+
+/**
+ * 供镜像测试 import 的判据出口(§22c:测试只准 import,不许复制任何色值/阈值/正则)。
+ */
+export const __test__ = {
+  toRgba,
+  contrast,
+  parseRnTokenTables,
+  thresholdFor,
+  extractTokenUses,
+  judge,
+  isBackgroundFamily,
+  isInverseFamily,
+  SURFACES,
+  AA_TEXT,
+  AA_GRAPHIC,
+  SCAN_DIR,
+  TOKENS_SRC,
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) run()

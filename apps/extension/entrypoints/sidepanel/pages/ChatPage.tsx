@@ -30,6 +30,8 @@ import { FALLBACK_MODELS as SHARED_FALLBACK_MODELS } from '@ihui/shared'
 import { Button, Input } from '@ihui/ui-react'
 import { useOutletContext } from 'react-router-dom'
 import { useI18n } from '../../../src/i18n'
+import { DEFAULT_AI_SERVICE_URL } from '../../../lib/config'
+import { getToken } from '../../../lib/token'
 // 2026-11-13:AI 主动提问卡(此前本端对该帧 0 命中,提问整条闭环缺失)
 import {
   QuestionCard,
@@ -460,69 +462,13 @@ export default function ChatPage() {
 
   /** overrideText 用于 G-152「重试上一条」:错误后不要求用户重新输入同一句话。 */
   /**
-   * 提交提问答复(2026-11-13 立)。
+   * 提问提交的 ref 桥(2026-11-13)。
    *
-   * 三种归宿,判据全部来自共享层 `interpretQuestionResponse`(端内不复制):
-   *  - `blocking`:服务端认下这一问 ⇒ 只关卡片,**不发起新一轮**(流会自动续跑)
-   *  - `legacy`:404 或旧服务端 ⇒ 回退旧链路:把答案当**普通消息**发出去
-   *  - `failed`:网络/5xx ⇒ 给可重试提示,卡片保留(用户不必重输)
-   *
-   * 撤回(action=withdraw)同样走这个端点 —— 服务端据此把这一问标 withdrawn 并让流收场,
-   * 比"前端自己把卡片藏了"正确:藏卡片不会让挂着的流知道你已经不想答。
+   * 为什么用 ref 而不是直接定义函数:`submitQuestion` 的 legacy 分支要调 `onSend`,
+   * 而 `onSend` 定义在后面 —— 直接引用会撞 TDZ。用 ref 在 `onSend` 之后赋值,
+   * 副作用只在用户点击时发生,时序上安全。
    */
-  const submitQuestion = async (action: 'answer' | 'withdraw') => {
-    const q = pendingQuestion
-    if (!q) return
-    if (!canSubmitQuestionAnswer({
-      action,
-      selectedOptionIds: questionSelected,
-      customText: questionCustom,
-      submitting: questionSubmitting,
-    })) return
-
-    const payload = { questionId: q.questionId, action, selectedOptionIds: questionSelected, customText: questionCustom }
-    // 撤回时先关卡片:即便网络失败,用户已明确表示不想答,不该被卡在原地
-    if (action === 'withdraw') {
-      setPendingQuestion(null)
-      setQuestionSelected([])
-      setQuestionCustom('')
-    }
-    const cid = conversationId
-    if (!cid) {
-      // 无会话主键 ⇒ 端点寻址不了。撤回已在上面处理,作答只能提示
-      setNotice(t('chat.questionNoSession'))
-      return
-    }
-    setQuestionSubmitting(true)
-    try {
-      const res = await fetch(`${apiBaseUrl()}${questionResponsePath(cid)}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(buildQuestionResponseBody(payload)),
-      })
-      const data: unknown = await res.json().catch(() => null)
-      const outcome = interpretQuestionResponse(res.status, data)
-      if (outcome.kind === 'blocking') {
-        // 服务端认下 ⇒ 只关卡片。流会自己续跑,不能再发一轮
-        setPendingQuestion(null)
-        setQuestionSelected([])
-        setQuestionCustom('')
-      } else if (outcome.kind === 'legacy') {
-        // 旧链路:把答案当普通消息发出去(与 web 的 sendLegacyAnswer 同语义)
-        const text = buildLegacyAnswerText(q.options, payload)
-        setPendingQuestion(null)
-        setQuestionSelected([])
-        setQuestionCustom('')
-        if (text) await onSend(text)
-      } else {
-        setNotice(t('chat.questionFailed'))
-      }
-    } catch {
-      setNotice(t('chat.questionFailed'))
-    } finally {
-      setQuestionSubmitting(false)
-    }
-  }
+  const submitQuestionRef = useRef<((action: 'answer' | 'withdraw') => void) | null>(null)
 
   const onSend = async (overrideText?: string) => {
     const text = (overrideText ?? input).trim()
