@@ -52,6 +52,19 @@ from app.core.file_read_state import (
     record_self_write,
 )
 from app.core.internal_ticket import internal_service_headers
+
+# 第五遍对标(2026-11-14,DSH dsh-tool-call-timeout-policy):per-tool 时间预算的
+# 唯一判据。call_tool 的全局守卫与 run_command/subagent 的 handler 内超时都读这一份,
+# 保证"外层永远晚于内层"(否则 handler 的 partial_output 永远等不到)。
+from app.core.tool_timeout_policy import (
+    resolve_tool_timeout_budget,
+)
+from app.core.tool_timeout_policy import (
+    run_command_hard_timeout_s as _run_command_hard_timeout_s,
+)
+from app.core.tool_timeout_policy import (
+    subagent_timeout_s as _subagent_timeout_s,
+)
 from app.core.vault import filter_vault_env as _filter_vault_env
 
 from .agent_security_prefs import (
@@ -491,11 +504,12 @@ def _is_dangerous_command_blocked() -> bool:
 
 
 def _get_run_command_hard_timeout() -> int:
-    """run_command 执行硬超时上限秒(env RUN_COMMAND_TIMEOUT_S,默认 120)。"""
-    try:
-        return max(1, int(os.environ.get("RUN_COMMAND_TIMEOUT_S", "120")))
-    except (TypeError, ValueError):
-        return 120
+    """run_command 执行硬超时上限秒(env RUN_COMMAND_TIMEOUT_S,默认 120)。
+
+    判据唯一实现在 `app/core/tool_timeout_policy.py`:外层循环预算与 handler
+    自己的 timeout 夹紧必须读同一份,否则两边会给出两个答案。
+    """
+    return _run_command_hard_timeout_s()
 
 
 def _match_destructive_command(command: str) -> str | None:
@@ -575,11 +589,11 @@ _subagent_depth: contextvars.ContextVar[int] = contextvars.ContextVar(
 
 
 def _get_subagent_timeout() -> int:
-    """单子代理超时秒(env SUBAGENT_TIMEOUT_S,默认 300)。"""
-    try:
-        return max(1, int(os.environ.get("SUBAGENT_TIMEOUT_S", "300")))
-    except (TypeError, ValueError):
-        return 300
+    """单子代理超时秒(env SUBAGENT_TIMEOUT_S,默认 300)。
+
+    判据唯一实现在 `app/core/tool_timeout_policy.py`(与循环外层预算同源)。
+    """
+    return _subagent_timeout_s()
 
 
 # D08②(2026-10-24):agent 间换手消息(完成/受阻/求助)的结构化事件。
@@ -16501,11 +16515,19 @@ class MCPServer:
             # handler 内部既有逻辑用的旧通道,本档位链**不读它** —— 入参形状是模型可填面。
             # 空主体不覆盖已有主体(见 set_security_principal):agent_loop_v2 已经把它那轮
             # 的主体发布过,这里传 None 只表示"这条通道没带主体",不该把已证明的降回无。
+            # 第五遍对标(per-tool 预算):登记工具(run_command/subagent/office)
+            # 的守卫放宽到"预算 + 2s",且永不低于 MCP_GLOBAL_TIMEOUT —— 内层
+            # handler 自己先超时返回 partial_output,外层循环(预算 + 5s)再收口;
+            # 默认工具仍按 120s,与历史逐字节一致。
+            _budget = resolve_tool_timeout_budget(
+                name, arguments, default_s=float(MCP_GLOBAL_TIMEOUT)
+            )
+            _guard_s = max(float(MCP_GLOBAL_TIMEOUT), _budget.mcp_guard_s)
             with security_principal_scope(user_id):
                 # 2026-07-22 P1 鲁棒性加固:全局超时,防 handler 无限挂起
                 try:
                     result = await asyncio.wait_for(
-                        handler(args_with_role), timeout=MCP_GLOBAL_TIMEOUT
+                        handler(args_with_role), timeout=_guard_s
                     )
                 finally:
                     _ACTIVE_SESSION_EXTRA_ROOTS.reset(_extra_roots_token)
@@ -16527,11 +16549,11 @@ class MCPServer:
             return _truncate_tool_output(result, tool_name=name, session_id=session_id)
         except TimeoutError:
             logger.warning(
-                "[mcp] 工具执行超时: tool=%s timeout=%ss", name, MCP_GLOBAL_TIMEOUT
+                "[mcp] 工具执行超时: tool=%s timeout=%ss", name, _guard_s
             )
             return {
                 "ok": False,
-                "error": f"工具 {name} 执行超时({MCP_GLOBAL_TIMEOUT}s)",
+                "error": f"工具 {name} 执行超时({_guard_s:g}s)",
                 "errorCode": "TIMEOUT",
             }
         except Exception:
