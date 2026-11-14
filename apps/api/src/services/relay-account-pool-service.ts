@@ -21,7 +21,7 @@ import { createHash } from 'node:crypto'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
-import { and, eq, inArray, isNull, like, or, sql } from 'drizzle-orm'
+import { and, eq, inArray, isNotNull, isNull, like, or, sql } from 'drizzle-orm'
 import {
   aiModelConfig,
   aiModelConfigModels,
@@ -1026,6 +1026,53 @@ export async function importAccounts(
           ),
         )
         .limit(1)
+      // 跨池重复闸门(2026-11-14 立):同一上游账号只允许存在一条续期链。
+      // 轮换式 refreshToken(trae/codearts 等)被两条行各自续期时会互相消费 —— 后刷的一行必然
+      // 401 并被摘除,随后每 24h 报一次「号池保活摘除」。事故实证:2026-11-12 22:19 一次不带
+      // --owner 的批量导入,为 6 个已在个人池的账号各造了一份运营池副本(1 枚 trae 因此假死、
+      // 5 枚 qoder 双份计额度)。此处只拦不建:凭证绝不跨归属覆盖(运维拍脑袋的一次重导
+      // 就可能把活行的轮换票写成别处的旧票)。
+      if (existing.length === 0) {
+        const [crossPool] = await db
+          .select({
+            id: aiRelayAccountPool.id,
+            sharedToOps: aiRelayAccountPool.sharedToOps,
+            healthStatus: aiRelayAccountPool.healthStatus,
+          })
+          .from(aiRelayAccountPool)
+          .where(
+            and(
+              eq(aiRelayAccountPool.providerCode, providerCode),
+              eq(aiRelayAccountPool.uid, uid),
+              ownerUserId === null
+                ? isNotNull(aiRelayAccountPool.ownerUserId)
+                : isNull(aiRelayAccountPool.ownerUserId),
+            ),
+          )
+          .limit(1)
+        if (crossPool) {
+          // 落运营池的真实意图 = 让该号对所有人可用;同一账号已有个人池行时,正确动作是把
+          // 那一行标成共享(共享标记本身参与运营池选路,见 relay-account-forwarder),不再建副本。
+          if (ownerUserId === null && !crossPool.sharedToOps) {
+            await db
+              .update(aiRelayAccountPool)
+              .set({ sharedToOps: true, updatedAt: new Date() })
+              .where(eq(aiRelayAccountPool.id, crossPool.id))
+          }
+          result.skipped++
+          pushItem(naming, {
+            index: i,
+            name: displayName,
+            uid,
+            status: 'skipped',
+            reason:
+              ownerUserId === null
+                ? `该账号已在个人池存在(${crossPool.id.slice(0, 8)},${crossPool.healthStatus}),已置为共享到运营池;同一上游账号只保留一条续期链,再建副本会让轮换式 refreshToken 互相消费。要更新凭证请带 --owner 落到原归属`
+                : `该账号已在运营池存在(${crossPool.id.slice(0, 8)},${crossPool.healthStatus});同一上游账号只保留一条续期链,再建副本会让轮换式 refreshToken 互相消费`,
+          })
+          continue
+        }
+      }
       // 既有 secrets 解出(模板三键保留判据用;坏密文/密钥轮换 ⇒ 当作无既有 secrets,本次提供的照写)
       let existingSecrets: Record<string, unknown> | null = null
       if (existing[0]?.secretsEnc) {
