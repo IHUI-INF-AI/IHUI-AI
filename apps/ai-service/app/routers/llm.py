@@ -3148,6 +3148,38 @@ def _inject_custom_system_prompt(
     return new_messages
 
 
+def _inject_deliverable_guidance(
+    messages: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """2026-11-14(对标 DSH dsh-deliverable-file-references):交付物与文件引用规约。
+
+    与 v2 引擎同段落、同标记:主聊天(v1 路径)与引擎(v2 路径)必须都看得到,否则
+    模型只在"已经是 agent 任务"时才会正确内联图片、给文件加可点链接、择时 present。
+
+    语义:
+    - 任意 system 消息已含开标签 ⇒ 原样返回(重入/恢复幂等,不重复膨胀)
+    - 否则追加到首条 system 尾部;无 system 消息则新插一条
+    - 任何异常降级为原样返回,绝不阻塞主聊天
+    """
+    try:
+        from ..core.deliverable_guidance import (
+            DELIVERABLE_FILE_REFERENCES,
+            DELIVERABLE_GUIDANCE_OPEN,
+        )
+
+        for msg in messages:
+            if (
+                isinstance(msg, dict)
+                and msg.get("role") == "system"
+                and DELIVERABLE_GUIDANCE_OPEN in str(msg.get("content") or "")
+            ):
+                return messages
+        return _append_system_note(messages, DELIVERABLE_FILE_REFERENCES)
+    except Exception as e:  # 静默降级,绝不阻塞主聊天
+        logger.warning("deliverable_guidance 注入失败(降级跳过): %s", e)
+        return messages
+
+
 # ===== 多 agent 编排引导 prompt(2026-07-24 立,2026-07-24 升级 5→10 agent + invoke_parallel)=====
 # 仅当请求 agent_tools 含 dispatch_subagent 时,在 tool loop 入口注入此 system message,
 # 引导 LLM 在复杂任务时主动派发子智能体而非单打独斗。
@@ -3784,6 +3816,8 @@ async def llm_complete(req: LLMCompleteRequest, request: Request) -> dict[str, A
         messages = await _inject_memory_graph(
             messages, _last_user_text(messages), _resolve_owner_uuid(request)
         )
+    # 2026-11-14(对标 DSH dsh-deliverable-file-references):交付物与文件引用规则。
+    messages = _inject_deliverable_guidance(messages)
     # P1-7(2026-09-13 立):会话级自定义 system prompt,叠加在工作区记忆之上(置顶优先级最高)
     messages = _inject_custom_system_prompt(messages, req.system_prompt)
     # 跨端统一 88% 阈值自动压缩(Python 端兜底,API 层未压缩时由本层保护)
@@ -4475,6 +4509,9 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
         messages = await _inject_memory_graph(
             messages, _last_user_text(messages), _resolve_owner_uuid(request)
         )
+    # 2026-11-14(对标 DSH dsh-deliverable-file-references):交付物与文件引用规则。
+    # 放在会话级自定义 prompt 之前:用户指令仍置顶,本段只约束"如何呈现结果"。
+    messages = _inject_deliverable_guidance(messages)
     # P1-7(2026-09-13 立):会话级自定义 system prompt,叠加在工作区记忆之上(置顶优先级最高)
     messages = _inject_custom_system_prompt(messages, req.system_prompt)
     # D7(2026-09-19 立):主聊天自动语义检索注入(对标 Cursor @codebase 自动注入)。
