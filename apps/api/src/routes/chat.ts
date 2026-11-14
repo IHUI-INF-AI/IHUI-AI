@@ -96,6 +96,7 @@ import {
   buildConversationExportManifestJson,
   buildConversationMarkdown,
   buildConversationMessagesJson,
+  normalizeExportToolCalls,
   sanitizeExportTitle,
   type ConversationExportMessage,
 } from '@ihui/shared/chat'
@@ -2005,6 +2006,8 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
           content: m.content,
           createdAt: m.createdAt instanceof Date ? m.createdAt.toISOString() : String(m.createdAt),
           model: typeof metadata.model === 'string' ? metadata.model : null,
+          reasoning: m.reasoning ?? null,
+          toolCalls: normalizeExportToolCalls(metadata.toolCalls),
         }
       })
       const mtime = new Date(exportedAt)
@@ -2015,6 +2018,7 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
             data: buildConversationMarkdown(title, exportMessages, {
               user: 'user',
               assistant: 'assistant',
+              toolCalls: 'tool calls',
             }),
             mtime,
           },
@@ -2137,11 +2141,10 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
       }
       aiResult = (await resp.json()) as typeof aiResult
     } catch (e) {
-      request.log.warn(
-        { err: e },
-        '对话压缩调用上游异常(原文仅写服务端日志,不回客户端)',
-      )
-      return reply.status(502).send(error(502, COMPRESS_FAILED_MESSAGE, COMPRESS_UPSTREAM_ERROR_CODE))
+      request.log.warn({ err: e }, '对话压缩调用上游异常(原文仅写服务端日志,不回客户端)')
+      return reply
+        .status(502)
+        .send(error(502, COMPRESS_FAILED_MESSAGE, COMPRESS_UPSTREAM_ERROR_CODE))
     } finally {
       clearTimeout(timeout)
     }
@@ -2151,7 +2154,9 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
         { upstreamError: truncateUpstreamLogBody(String(aiResult.error)) },
         '对话压缩上游返回业务错误(原文仅写服务端日志,不回客户端)',
       )
-      return reply.status(502).send(error(502, COMPRESS_FAILED_MESSAGE, COMPRESS_UPSTREAM_ERROR_CODE))
+      return reply
+        .status(502)
+        .send(error(502, COMPRESS_FAILED_MESSAGE, COMPRESS_UPSTREAM_ERROR_CODE))
     }
 
     const content = aiResult.content ?? ''

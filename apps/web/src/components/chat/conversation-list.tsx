@@ -381,6 +381,7 @@ export function ConversationList({
   const exportRoleLabel: ExportRoleLabel = {
     user: te('roleUser'),
     assistant: te('roleAssistant'),
+    toolCalls: te('roleToolCalls'),
   }
 
   const handleExportZip = (item: Conversation) => {

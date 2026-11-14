@@ -12055,6 +12055,7 @@
       "shareLinkCopied": "공유 링크가 복사되었습니다",
       "roleUser": "사용자",
       "roleAssistant": "어시스턴트",
+      "roleToolCalls": "도구 호출",
       "exportCard": "이미지 카드 공유",
       "shareCardUser": "사용자",
       "exportPdf": "PDF 내보내기",
