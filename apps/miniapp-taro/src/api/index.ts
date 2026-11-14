@@ -77,7 +77,12 @@ import type { GoalUpdateEvent } from '@ihui/api-client'
 // D136(2026-10-01 立,承 V4 #94/D84):高危工具审批(tool-approval)载荷类型同纪律。
 import type { ToolApprovalEvent } from '@ihui/api-client'
 // D136:tool-approval 帧的端内认领层(共享解析面不认领该帧族,见该文件头注)。
-import { parseToolApprovalLine, parseQuestionLine } from '@/lib/tool-approval-frame'
+import {
+  parseToolApprovalLine,
+  parseQuestionLine,
+  parseQuestionResolvedLine,
+  type QuestionResolvedPayload,
+} from '@/lib/tool-approval-frame'
 import {
   parseBudgetStopData,
   parseCompactBoundary,
@@ -485,6 +490,12 @@ export interface StreamEventCallbacks {
     allowMultiple: boolean
   }) => void
   /**
+   * D135(2026-11-14):提问结算帧(question-resolved)。一个 questionId 只结算一次,
+   * 到达即摘卡(与 web/RN 同语义)。载荷由 streamSSE.onRawLine 旁路经
+   * parseQuestionResolvedLine 认领解析(未知 status 一律忽略,不伪造终态)。
+   */
+  onQuestionResolved?: (event: QuestionResolvedPayload) => void
+  /**
    * D77(2026-10-17 落地小程序腿):对话流业务表单请求帧(form_request)。
    * 载荷由本文件 streamSSE 的 onRawLine 旁路经 parseFormRequestLine 认领解析
    * (字段口径与 @ihui/api-client 的 tryParseFormRequest 逐字同,镜像锁见
@@ -818,6 +829,12 @@ export const chatStream = async (
       const question = parseQuestionLine(line)
       if (question && callbacks && typeof callbacks.onQuestion === 'function') {
         callbacks.onQuestion(question)
+      }
+      // D135(2026-11-14):question-resolved 帧(一个 questionId 只结算一次)。同 question
+      // 帧纪律 —— 不经共享解析面,整行旁路认领后分发到 onQuestionResolved;不注册回调即静默丢弃。
+      const questionResolved = parseQuestionResolvedLine(line)
+      if (questionResolved && callbacks && typeof callbacks.onQuestionResolved === 'function') {
+        callbacks.onQuestionResolved(questionResolved)
       }
     },
     onReconnect: (attempt, delayMs) => {
