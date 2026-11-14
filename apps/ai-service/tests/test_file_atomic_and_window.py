@@ -44,6 +44,16 @@ async def test_write_file_creates_parent_dirs(_isolated_workspace: Path) -> None
     assert p.read_text(encoding="utf-8") == "v1\n"
 
 
+async def test_write_file_empty_content_roundtrip(_isolated_workspace: Path) -> None:
+    p = _isolated_workspace / "empty-write.txt"
+    result = await mcp_server._tool_write_file({"path": str(p), "content": ""})
+    assert result["ok"] is True
+    assert p.read_bytes() == b""
+    read = await mcp_server._tool_read_file({"path": str(p)})
+    assert read["ok"] is True
+    assert read["content"] == ""
+
+
 async def test_write_file_replace_failure_keeps_old_bytes(
     _isolated_workspace: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
