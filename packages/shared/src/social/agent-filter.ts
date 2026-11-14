@@ -1,5 +1,6 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
  * 智能体列表的「筛选 / 排序 / 分类识别」契约(2026-11-14 立)。
@@ -35,8 +36,14 @@ export const AGENT_CATEGORY_IDS = [
 
 export type AgentCategoryId = (typeof AGENT_CATEGORY_IDS)[number]
 
-/** 参与关键词识别的分类(`recommend` 是伪分类,不参与) */
-export type AgentDetectCategoryId = Exclude<AgentCategoryId, 'recommend'>
+/**
+ * 参与关键词识别的分类。
+ *
+ * `recommend` 是伪分类(选它 = 不过滤),`other` 是**兜底值**(匹配不到任何关键词时返回),
+ * 两者都不该出现在关键词表里 —— 否则调用方会被迫给 `other` 编一组关键词,
+ * 那组词一旦命中就会把本该"未归类"的项抢走。
+ */
+export type AgentDetectCategoryId = Exclude<AgentCategoryId, 'recommend' | 'other'>
 
 /** 关键词表:每个可识别分类对应一组关键词(已取词、已小写由调用方保证) */
 export type AgentCategoryKeywords = Record<AgentDetectCategoryId, readonly string[]>
@@ -88,9 +95,12 @@ export function detectAgentCategory(
   name: string | null | undefined,
   desc: string | null | undefined,
   keywords: AgentCategoryKeywords,
-): AgentDetectCategoryId {
+): AgentCategoryId {
   const text = `${name ?? ''} ${desc ?? ''}`.toLowerCase()
-  for (const [key, kws] of Object.entries(keywords) as [AgentDetectCategoryId, readonly string[]][]) {
+  for (const [key, kws] of Object.entries(keywords) as [
+    AgentDetectCategoryId,
+    readonly string[],
+  ][]) {
     if (kws.some((kw) => kw.length > 0 && text.includes(kw.toLowerCase()))) return key
   }
   return 'other'
@@ -103,9 +113,7 @@ export function detectAgentCategory(
  * `recent` 档特殊:它自带"按最近使用顺序"语义,此处直接返回,不再走后续排序 ——
  * 否则用户看到的"最近使用"会被使用次数排序打乱(原实现即如此,这里只把它固化)。
  */
-export function filterAgents<T extends AgentFilterable>(
-  input: AgentFilterInput<T>,
-): T[] {
+export function filterAgents<T extends AgentFilterable>(input: AgentFilterInput<T>): T[] {
   const {
     list,
     keyword,
@@ -145,8 +153,7 @@ export function filterAgents<T extends AgentFilterable>(
   const kw = keyword?.trim().toLowerCase()
   if (kw) {
     arr = arr.filter(
-      (a) =>
-        (a.name ?? '').toLowerCase().includes(kw) || (a.desc ?? '').toLowerCase().includes(kw),
+      (a) => (a.name ?? '').toLowerCase().includes(kw) || (a.desc ?? '').toLowerCase().includes(kw),
     )
   }
 
@@ -176,3 +183,4 @@ export function pickHotBanner<T extends AgentFilterable>(
     .sort((a, b) => (b.uses ?? 0) - (a.uses ?? 0))
     .slice(0, Math.max(0, limit))
 }
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
