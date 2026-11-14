@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
+from typing import TypedDict
 
 # 跨语言符号抽取(轻量正则;approximate)
 _SYMBOL_PATTERNS: tuple[tuple[str, str], ...] = (
@@ -115,7 +116,7 @@ def index_code(files: dict[str, str]) -> SymbolGraph:
     return graph
 
 
-def _extract_names(kind: str, m: re.Match) -> list[str]:
+def _extract_names(kind: str, m: re.Match[str]) -> list[str]:
     if kind == "import":
         # import a, b / from x import y —— 取每个名字
         return [p.strip().split(" as ")[0].strip() for p in m.group(1).split(",") if p.strip()]
@@ -158,12 +159,23 @@ def impact_set(graph: SymbolGraph, name: str, max_depth: int = 3) -> set[str]:
     return reached
 
 
+class SearchResult(TypedDict):
+    """``search_with_budget`` 的返回形状(供 mypy 精确读键,免得调用方拿到 object)。"""
+
+    query: str
+    exact: list[dict[str, object]]
+    fuzzy: list[dict[str, object]]
+    count: int
+    budget_hint_tokens: int
+    approximate: bool
+
+
 def search_with_budget(
     graph: SymbolGraph,
     query: str,
     *,
     max_results: int = 20,
-) -> dict[str, object]:
+) -> SearchResult:
     """按符号名精确/子串检索,并给每条带 token 级预算提示。
 
     预算仅按结果条数估(不做 schema 字节,那是 tool_surface_budget 的活)。

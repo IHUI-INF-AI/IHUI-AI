@@ -213,7 +213,9 @@ def _enumerate(
     """
     paths: list[dict[str, Any]] = []
     cycle_hits: list[dict[str, Any]] = []
-    stack = [(symbol, (symbol,), ())]
+    stack: list[tuple[Any, tuple[Any, ...], tuple[dict[str, Any], ...]]] = [
+        (symbol, (symbol,), ())
+    ]
     while stack:
         node, node_path, edge_path = stack.pop()
         for edge in outgoing.get(node, ()):
