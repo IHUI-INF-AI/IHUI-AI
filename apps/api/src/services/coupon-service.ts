@@ -194,7 +194,13 @@ async function claimResolvedCoupon(
       .where(eq(userCoupons.id, referrerUserCouponId))
       .limit(1)
     if (referrerCoupon && referrerCoupon.couponId === coupon.id) {
-      referrerUserId = referrerCoupon.userId
+      // F-311:拒绝自荐 —— 分享人就是领取人自己时,referrerUserId 保持 null,
+      // 不发任何裂变奖励(duplicate 券 + credit 的 referralValue)。
+      // 原实现只比对"是不是同一张券",不比对"是不是同一个人",于是同一用户可以拿自己
+      // 那张 referral 券反复自荐领取:每次 duplicate 归自己、每次 referralValue 打进
+      // 自己的 API Key 余额;perUserLimit=0 时连份数闸都没有,等于无限铸币。
+      // 券本身照发(不因自荐而拒发被分享人的券),只把裂变奖励这一路归零。
+      referrerUserId = referrerCoupon.userId === userId ? null : referrerCoupon.userId
     }
   }
 
@@ -373,6 +379,12 @@ export interface RedeemContext {
   /** 本次模型,用于 applicableModels 校验 */
   model?: string
   /**
+   * 本次消费的业务范围('relay'=中转站/API 订阅 / 'subscription'=VIP·课程 / 'all'=不限)。
+   * F-310:核销端必须与预览端同判 applicableScope —— 原来这两条只在支付页预览判过一遍,
+   * 直接 POST 核销可以把 relay 券用在 VIP 订单上。可选:不传即沿用"不校范围"旧语义。
+   */
+  scope?: CouponUseScope
+  /**
    * 核销到哪张订单(orders.id)。
    * 2026-10-30 补:原实现只翻状态、不记订单号,订单侧无法反查"这一单用了哪张券"
    * ⇒ 换券/退券/幂等重放都无从判断,支付页选券只能停在前端本地减金额。
@@ -385,6 +397,56 @@ export interface RedeemResult {
   discountCents?: number
   userCoupon?: UserCoupon & { coupon: PromoCoupon }
   reason?: string
+}
+
+/** 一次「用券」的业务范围(预览与核销共用同一套词汇,不各写一份)。 */
+export type CouponUseScope = 'relay' | 'subscription' | 'all'
+
+/** 用券时的业务上下文(scope 缺省 = 不校范围,兼容只关心金额的调用方)。 */
+export interface CouponUseContext {
+  scope?: CouponUseScope
+  model?: string
+}
+
+/**
+ * 券「此刻是否可用」的唯一判据源(F-310 抽出)。
+ *
+ * 病灶:enabled / startsAt / applicableScope 原先只在支付页预览列表判了一遍,
+ * `redeemCoupon` 只校归属 / unused / expiresAt / applicableModels ⇒ 停用券、未到生效时间的券、
+ * 跨业务范围(relay)券都能绕过前端直接核销。把这几条前置校验收成一处,
+ * 预览端与核销端都调它,错误码词汇同源,不再各写一套 if(各写一份迟早漂移)。
+ *
+ * 返回 null = 可用;否则返回不可用的 reason 码
+ * (disabled / not_started / expired / scope_not_applicable / model_not_applicable)。
+ * 满减门槛(min_spend_not_met)属"算折减时才知道"的判据,仍由 calcCouponDiscount 给,此处不重复。
+ */
+export function assertCouponUsable(
+  coupon: PromoCoupon,
+  context: CouponUseContext = {},
+  now: Date = new Date(),
+): string | null {
+  if (!coupon.enabled) {
+    return 'disabled'
+  }
+  if (new Date(coupon.startsAt).getTime() > now.getTime()) {
+    return 'not_started'
+  }
+  if (new Date(coupon.expiresAt).getTime() < now.getTime()) {
+    return 'expired'
+  }
+  // 适用范围:subscription 券只用于 VIP/课程,relay 券只用于中转站/API 订阅。
+  if (context.scope && context.scope !== 'all') {
+    if (coupon.applicableScope !== 'all' && coupon.applicableScope !== context.scope) {
+      return 'scope_not_applicable'
+    }
+  }
+  // 适用模型:券配了 applicableModels 且调用方给了本次 model 才收紧(缺 model = 不猜)。
+  if (coupon.applicableModels && coupon.applicableModels.length > 0 && context.model) {
+    if (!coupon.applicableModels.includes(context.model)) {
+      return 'model_not_applicable'
+    }
+  }
+  return null
 }
 
 /**
@@ -472,17 +534,12 @@ export async function redeemCoupon(
     return { success: false, reason: uc.status === 'used' ? 'already_used' : 'not_unused' }
   }
 
-  // 4. 校验未过期
+  // 4-5. 前置资格校验收成一处(F-310):enabled / startsAt / expiresAt /
+  // applicableScope / applicableModels —— 与支付页预览同一判据源,不再各写一套 if。
   const now = new Date()
-  if (coupon.expiresAt < now) {
-    return { success: false, reason: 'expired' }
-  }
-
-  // 5. 校验适用模型
-  if (coupon.applicableModels && coupon.applicableModels.length > 0 && context.model) {
-    if (!coupon.applicableModels.includes(context.model)) {
-      return { success: false, reason: 'model_not_applicable' }
-    }
+  const unusable = assertCouponUsable(coupon, { scope: context.scope, model: context.model }, now)
+  if (unusable) {
+    return { success: false, reason: unusable }
   }
 
   // 6. 算 discountCents —— 与「预览」共用 calcCouponDiscount,此处只搬结果
