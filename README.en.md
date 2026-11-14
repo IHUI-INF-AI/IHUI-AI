@@ -99,6 +99,9 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-14**
+- 🔧 Chore/Other:补齐溯源水印覆盖 + audit-app-text-contrast 同族配对 (fd8cb9c30a)
+
+**2026-11-14**
 - 🚀 Feature/Improvement:以 ai_pricing 权威价回填配置零价行 (476127d306)
 - 🐞 Fix:诊断臂 [7b] DB 迁移落后维从未真判过——函数注册晚于 -diagnose 顶层执行点(第三次落地,范围收窄) (c4be376fd5)
 - 🐞 Fix:零价护栏豁免上游真免费模型(:free) (88cfcfeba1)
@@ -806,9 +809,6 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 
 **2026-11-13**
 - 🐞 Fix:结清 F-392 引导凭据闭环 + F-406 提现手续费扣余额 + F-441 剧情增强并发记账 + F-450 代扣回调单事务 + F-417 xlsx 单趟渲染 (6e80aa927ce)
-
-**2026-11-13**
-- 🐞 Fix:结清 F-382 OSS 分片会话隔离 + F-388 关键词下推 + F-389 缓存键凭据指纹 + F-393 内容分类归属 + F-396 兑换码 Key 归属 (a623f5c402a)
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)
