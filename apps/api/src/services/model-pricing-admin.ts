@@ -1072,6 +1072,11 @@ export async function assertPricedForPublish(modelRowId: number): Promise<Publis
   // 非 token 计费(按张/按秒/按次):ai_pricing 里有正的单位价即可上架,
   // 配置行的 token 价保持 0 不代表白送。
   const bmode = row['bmode'] ? String(row['bmode']) : 'token'
+  // 动态成本模型(2026-11-14):无固定单价,按每次调用上游实际成本 ×3 记账。
+  // 存在 dynamic_cost 定价行即视为"已有价",零 token 价是合法状态。
+  if (bmode === 'dynamic_cost') {
+    return { ok: true, modelId, inputPricePer1k: pin, outputPricePer1k: pout }
+  }
   if (bmode === 'per_image' || bmode === 'per_video') {
     if (asNum(row['p_unit']) > 0) {
       return { ok: true, modelId, inputPricePer1k: pin, outputPricePer1k: pout }
@@ -1204,6 +1209,12 @@ export async function getUnpricedAlerts(days = 30): Promise<UnpricedAlertReport>
       and p.mid not like '%:free'
       -- 厂商官方明确免费的模型(priceSource.tier=official-free)零价是合法状态
       and p.tier <> 'official-free'
+      -- 动态成本模型零 token 价是合法状态(按上游实际成本×3,无回传时最低 1 分/次)
+      and p.tier <> 'official-dynamic'
+      and not exists (
+        select 1 from ai_pricing dp
+        where dp.model_id = p.mid and dp.billing_mode = 'dynamic_cost'
+      )
       -- 非 token 计费(按张/按秒/按次)的单位价才是真实售价,配置行 token 价 0 不算缺口
       and not (p.tier = 'official' and p.unit_price > 0)
       and (p.is_relay_public = true or coalesce(u.calls, 0) > 0)
@@ -1253,6 +1264,11 @@ export async function syncConfigPricesFromPricing(): Promise<ConfigPriceSyncResu
     where coalesce(m.input_price_per_1k, 0) <= 0
       and coalesce(m.output_price_per_1k, 0) <= 0
       and lower(m.model_id) not like '%:free'
+      -- 动态成本模型零单价是合法状态,不计入"待回填"缺口
+      and not exists (
+        select 1 from ai_pricing dp
+        where dp.model_id = lower(m.model_id) and dp.billing_mode = 'dynamic_cost'
+      )
   `)
   const scanned = asNum(rowsOf<{ n: number }>(scanRes)[0]?.n)
 
