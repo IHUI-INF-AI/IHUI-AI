@@ -22,6 +22,7 @@ from app.core.deliverable_guidance import (
     DELIVERABLE_FILE_REFERENCES,
     DELIVERABLE_GUIDANCE_OPEN,
 )
+from app.routers.llm import _inject_deliverable_guidance as _llm_inject
 from app.services.agent_loop_v2 import AgentLoopV2
 from app.services.mcp_server import _TOOLS
 
@@ -99,3 +100,27 @@ def test_present_files_description_keeps_timing_contract():
     desc = _present_files_description()
     for fragment in ("轮次结束后才会在交付清单里展示", "不要只为罗列刚编辑过的源码文件", "最多 8 个"):
         assert fragment in desc, fragment
+
+
+def test_llm_chat_path_appends_without_mutating_input():
+    messages = [{"role": "system", "content": "base"}, {"role": "user", "content": "hi"}]
+    out = _llm_inject(messages)
+    assert out[0]["content"].startswith("base")
+    assert DELIVERABLE_FILE_REFERENCES in out[0]["content"]
+    # 契约同 _append_system_note:返回新列表,不改入参(调用方可安全重试)。
+    assert messages[0]["content"] == "base"
+
+
+def test_llm_chat_path_creates_system_and_is_idempotent():
+    out = _llm_inject([{"role": "user", "content": "hi"}])
+    assert out[0] == {"role": "system", "content": DELIVERABLE_FILE_REFERENCES}
+    again = _llm_inject(out)
+    assert again[0]["content"].count(DELIVERABLE_GUIDANCE_OPEN) == 1
+
+
+def test_both_chat_endpoints_call_guidance_injection():
+    src = pathlib.Path(__file__).resolve().parents[1].joinpath(
+        "app", "routers", "llm.py"
+    ).read_text(encoding="utf-8")
+    # llm_complete(非流式)与 complete_stream(流式)两个入口都必须注入。
+    assert src.count("messages = _inject_deliverable_guidance(messages)") >= 2
