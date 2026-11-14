@@ -71,8 +71,14 @@ def test_screenshot_extraction_accepts_double_data_and_three_keys() -> None:
     assert mcp._screenshot_b64_from_agent_result(None) == ""
 
 
+@pytest.mark.parametrize(
+    ("category", "action"),
+    [("computer", "screenshot_screen"), ("browser", "screenshot")],
+)
 @pytest.mark.asyncio
-async def test_agent_control_screenshot_delivers_image(monkeypatch) -> None:
+async def test_agent_control_screenshot_delivers_image(
+    monkeypatch, category, action
+) -> None:
     class _Resp:
         def raise_for_status(self) -> None:
             return None
@@ -97,7 +103,7 @@ async def test_agent_control_screenshot_delivers_image(monkeypatch) -> None:
         "app.services.agent_security_prefs.current_security_principal", lambda: "u1"
     )
 
-    out = await mcp._tool_agent_control("computer", "screenshot_screen", {})
+    out = await mcp._tool_agent_control(category, action, {})
 
     assert out["ok"] is True
     assert "screenshot" not in out["result"]["data"]

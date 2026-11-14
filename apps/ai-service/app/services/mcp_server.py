@@ -6468,9 +6468,10 @@ async def _tool_agent_control(
                 "category": category,
                 "result": data,
             }
-            if category == "computer" and action == "screenshot_screen":
+            if action in ("screenshot", "screenshot_screen"):
                 # 截图 base64 不能留在 tool 正文:8000 token 截断会把它截成无效串。
                 # 取出 → 有界暂存 → 元数据交付(agent loop 追加 user 多模态消息)。
+                # 覆盖 computer 与 browser 两个截图动作(载荷键名由提取器兼容)。
                 shot = _screenshot_b64_from_agent_result(data)
                 if shot:
                     inner = data.get("data") if isinstance(data, dict) else None

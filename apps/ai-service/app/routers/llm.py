@@ -7261,11 +7261,12 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                             try:
                                 from app.services.tool_image_delivery import (
                                     build_image_followup_message,
-                                    take_images,
+                                    take_images_with_report,
                                 )
 
+                                _images, _missing = take_images_with_report(_round_image_ids)
                                 _image_msg = build_image_followup_message(
-                                    take_images(_round_image_ids)
+                                    _images, missing=len(_missing)
                                 )
                                 if _image_msg is not None:
                                     messages.append(_image_msg)
