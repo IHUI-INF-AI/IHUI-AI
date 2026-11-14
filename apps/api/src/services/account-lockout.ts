@@ -121,13 +121,41 @@ function fallbackClearFailures(account: string, ip: string): void {
   fallbackStore.delete(fallbackKey(account, ip))
 }
 
+/**
+ * 把 fallback 计数抬到至少 target(两存储取最大值,只升不降),达阈值时一并置锁。
+ * F-555:Redis 故障期的失败账本在 fallback,恢复后必须以它为准补齐,
+ * 否则累计失败与锁定状态在恢复瞬间清零。
+ */
+function fallbackRaiseFailures(account: string, ip: string, target: number): void {
+  const k = fallbackKey(account, ip)
+  const now = Date.now()
+  const existing = fallbackStore.get(k)
+  if (!existing) {
+    fallbackStore.set(k, {
+      failures: target,
+      lockedUntil: target >= MAX_FAILURES ? now + LOCK_DURATION_SEC * 1000 : 0,
+      lastFailAt: now,
+    })
+    return
+  }
+  if (target > existing.failures) existing.failures = target
+  if (existing.failures >= MAX_FAILURES) {
+    existing.lockedUntil = Math.max(existing.lockedUntil, now + LOCK_DURATION_SEC * 1000)
+  }
+}
+
 /** 记录一次登录失败。返回剩余可重试次数;已达上限返回 0。 */
 export async function recordLoginFailure(account: string, ip: string): Promise<number> {
   // 免锁定账号:既不计失败次数,也不置锁,剩余次数恒为满额。
   if (isLockoutExempt(account)) return MAX_FAILURES
 
+  // F-555:写路径双写。fallback 先记一次(Redis 故障时它就是唯一账本),
+  // Redis 可用时再取两存储最大计数,并把 fallback 的累计值回填,避免恢复后清零。
+  const localRemaining = fallbackRecordFailure(account, ip)
+  const localCount = MAX_FAILURES - localRemaining
+
   const redis = getRedis()
-  if (!redis) return fallbackRecordFailure(account, ip)
+  if (!redis) return localRemaining
 
   const failKey = `${KEY_PREFIX_FAIL}${normalizeAccount(account)}`
   const lockKey = `${KEY_PREFIX_LOCK}${normalizeAccount(account)}`
@@ -136,15 +164,28 @@ export async function recordLoginFailure(account: string, ip: string): Promise<n
     if (count === 1) {
       await redis.expire(failKey, FAILURE_WINDOW_SEC)
     }
-    if (count >= MAX_FAILURES) {
+    const effective = Math.max(count, localCount)
+    if (effective > count) {
+      // 故障期 fallback 计得更多:回填 Redis(best-effort,失败只告警)
+      try {
+        await redis.set(failKey, String(effective), 'EX', FAILURE_WINDOW_SEC)
+      } catch (e) {
+        logger.warn('[account-lockout] backfill failure count to redis failed', { error: e })
+      }
+    }
+    if (effective > localCount) {
+      fallbackRaiseFailures(account, ip, effective)
+    }
+    if (effective >= MAX_FAILURES) {
       await redis.set(lockKey, '1', 'EX', LOCK_DURATION_SEC, 'NX')
     }
-    return Math.max(0, MAX_FAILURES - count)
+    return Math.max(0, MAX_FAILURES - effective)
   } catch (e) {
     logger.error('[account-lockout] recordLoginFailure redis failed, fallback to memory', {
       error: e,
     })
-    return fallbackRecordFailure(account, ip)
+    // 本次失败已在上方写入 fallback,不再重复计数(会放大失败次数)。
+    return localRemaining
   }
 }
 
@@ -152,38 +193,47 @@ export async function recordLoginFailure(account: string, ip: string): Promise<n
 export async function getLockRemainingMs(account: string, ip: string): Promise<number> {
   if (isLockoutExempt(account)) return 0
 
+  // F-555:读路径合并两存储,取更严格(剩余更长)的结果。
+  const localRemaining = fallbackGetLockRemainingMs(account, ip)
   const redis = getRedis()
-  if (!redis) return fallbackGetLockRemainingMs(account, ip)
+  if (!redis) return localRemaining
 
   const lockKey = `${KEY_PREFIX_LOCK}${normalizeAccount(account)}`
   try {
     const ttl = await redis.ttl(lockKey)
-    if (ttl > 0) return ttl * 1000
-    return 0
+    const redisRemaining = ttl > 0 ? ttl * 1000 : 0
+    if (localRemaining > redisRemaining) {
+      // Redis 恢复后把 fallback 中的锁定回填(best-effort,失败只告警),让多实例同口径
+      try {
+        await redis.set(lockKey, '1', 'EX', Math.ceil(localRemaining / 1000))
+      } catch (e) {
+        logger.warn('[account-lockout] backfill lock to redis failed', { error: e })
+      }
+      return localRemaining
+    }
+    return redisRemaining
   } catch (e) {
     logger.error('[account-lockout] getLockRemainingMs redis failed, fallback to memory', {
       error: e,
     })
-    return fallbackGetLockRemainingMs(account, ip)
+    return localRemaining
   }
 }
 
 /** 登录成功时清空失败计数与锁定。 */
 export async function clearLoginFailures(account: string, ip: string): Promise<void> {
+  // F-555:双写之后成功路径必须同时清两存储,否则 fallback 残留计数/锁会继续生效。
+  fallbackClearFailures(account, ip)
   const redis = getRedis()
-  if (!redis) {
-    fallbackClearFailures(account, ip)
-    return
-  }
+  if (!redis) return
   try {
     const failKey = `${KEY_PREFIX_FAIL}${normalizeAccount(account)}`
     const lockKey = `${KEY_PREFIX_LOCK}${normalizeAccount(account)}`
     await redis.del(failKey, lockKey)
   } catch (e) {
-    logger.error('[account-lockout] clearLoginFailures redis failed, fallback to memory', {
+    logger.error('[account-lockout] clearLoginFailures redis failed, fallback already cleared', {
       error: e,
     })
-    fallbackClearFailures(account, ip)
   }
 }
 

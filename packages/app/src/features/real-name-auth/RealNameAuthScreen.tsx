@@ -82,7 +82,7 @@ export function RealNameAuthScreen({
               value={name}
               onChangeText={onNameChange}
               placeholder={t('realNameAuth.namePlaceholder')}
-              placeholderTextColor={tk.text.secondary}
+              placeholderTextColor={tk.text.tertiary}
             />
             <Text style={styles.label}>{t('user.realname.form.idCard')}</Text>
             <TextField
@@ -91,7 +91,7 @@ export function RealNameAuthScreen({
               value={idNumber}
               onChangeText={onIdNumberChange}
               placeholder={t('user.realname.form.idCardPlaceholder')}
-              placeholderTextColor={tk.text.secondary}
+              placeholderTextColor={tk.text.tertiary}
             />
             {error ? <Text style={styles.errorText}>{error}</Text> : null}
             <TouchableOpacity
@@ -135,10 +135,10 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: rnSpacing.sm,
       fontSize: rnType.subtitle.size,
       fontWeight: '600',
-      color: tk.danger.deepText,
+      color: tk.danger.DEFAULT,
     },
-    statusVerified: { color: tk.success.deepText },
-    hint: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.medium },
+    statusVerified: { color: tk.success.DEFAULT },
+    hint: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.tertiary },
     label: { fontSize: rnType.body.size, color: tk.text.secondary, marginTop: rnSpacing.sm },
     input: {
       marginTop: rnSpacing.sm,
@@ -151,7 +151,7 @@ function createStyles(tk: AppThemeTokens) {
       fontSize: rnType.title.size,
       color: tk.text.primary,
     },
-    errorText: { fontSize: rnType.body.size, color: tk.danger.deepText, marginTop: rnSpacing.sm },
+    errorText: { fontSize: rnType.body.size, color: tk.danger.DEFAULT, marginTop: rnSpacing.sm },
     submitBtn: {
       marginTop: rnSpacing.md,
       height: 50,
@@ -160,7 +160,7 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       backgroundColor: tk.brand.cta,
     },
-    submitBtnDisabled: { backgroundColor: tk.text.secondary },
+    submitBtnDisabled: { backgroundColor: tk.text.tertiary },
     submitBtnText: {
       color: tk.brand.ctaForeground,
       fontSize: rnType.title.size,

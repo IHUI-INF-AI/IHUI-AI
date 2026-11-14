@@ -241,7 +241,7 @@ const styles = StyleSheet.create({
   closeIcon: {
     fontSize: CLOSE_ICON_FONT_SIZE,
     lineHeight: CLOSE_ICON_FONT_SIZE + 2,
-    color: tokens.text.medium,
+    color: tokens.text.tertiary,
     fontWeight: '300',
     textAlign: 'center',
   } as TextStyle,
@@ -262,7 +262,7 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: EMPTY_TEXT_FONT_SIZE,
     lineHeight: EMPTY_TEXT_FONT_SIZE + 4,
-    color: tokens.text.medium,
+    color: tokens.text.tertiary,
     textAlign: 'center',
     paddingVertical: rnSpacing.xl,
   } as TextStyle,

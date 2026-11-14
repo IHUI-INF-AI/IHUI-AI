@@ -57,7 +57,7 @@ export function CircleCreateScreen({
         value={name}
         onChangeText={onNameChange}
         placeholder={t('circleCreate.namePlaceholder')}
-        placeholderTextColor={tk.text.secondary}
+        placeholderTextColor={tk.text.tertiary}
       />
       <Text style={styles.label}>{t('circleCreate.description')}</Text>
       <TextField
@@ -66,7 +66,7 @@ export function CircleCreateScreen({
         value={description}
         onChangeText={onDescriptionChange}
         placeholder={t('circleCreate.descPlaceholder')}
-        placeholderTextColor={tk.text.secondary}
+        placeholderTextColor={tk.text.tertiary}
         multiline
         textAlignVertical="top"
       />
@@ -99,7 +99,7 @@ function createStyles(tk: AppThemeTokens) {
       padding: rnSpacing.lg,
     },
     muted: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.secondary },
-    error: { fontSize: rnType.body.size, color: tk.danger.deepText, marginBottom: rnSpacing.sm },
+    error: { fontSize: rnType.body.size, color: tk.danger.DEFAULT, marginBottom: rnSpacing.sm },
     title: {
       marginTop: rnSpacing.sm,
       fontSize: rnType.heading.size,
@@ -127,7 +127,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.brand.cta,
       alignItems: 'center',
     },
-    submitDisabled: { backgroundColor: tk.text.secondary },
+    submitDisabled: { backgroundColor: tk.text.tertiary },
     submitText: { color: tk.surface.light, fontSize: rnType.title.size, fontWeight: '600' },
   })
 }

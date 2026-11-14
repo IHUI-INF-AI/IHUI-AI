@@ -18,20 +18,12 @@ const ReactDOMServer19 = appRequire('../../../packages/app/node_modules/react-do
 
 vi.mock('react-native', () => {
   const React = createRequire(import.meta.url)('../../../packages/app/node_modules/react/index.js')
-  // style 可能是数组(RN 条件样式),也可能是**函数**(RN 的 `style={({pressed}) => …}`)。
-  // 函数形态必须与小程序端 rn-compat/primitives.tsx 的 Pressable 同语义:以
-  // `{ pressed: false }` 求值后再摊平 —— 直接把函数透传给 React DOM 会抛
-  // "The `style` prop expects a mapping from style properties to values, not a string",
-  // 那是替身失真,不是产品缺陷(rn-compat 明确支持函数形态)。
+  // style 可能是数组(RN 条件样式),SSR 前拍平成一个对象
   const flattenStyle = (style: unknown): unknown => {
-    const resolved =
-      typeof style === 'function'
-        ? (style as (s: { pressed: boolean }) => unknown)({ pressed: false })
-        : style
-    if (Array.isArray(resolved)) {
-      return Object.assign({}, ...resolved.map(flattenStyle))
+    if (Array.isArray(style)) {
+      return Object.assign({}, ...style.map(flattenStyle))
     }
-    return resolved
+    return style
   }
   const make = (tag: string) => {
     const Host = (props: Record<string, unknown>) =>

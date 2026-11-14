@@ -69,6 +69,27 @@ describe('G-816009 内容/传输失败分档', () => {
     expect(decision!.contentEligible).toBeUndefined()
   })
 
+  it('E-P1 鉴权失败(401/403)归 content,不走 resume 阶梯(与 disposition 侧对齐)', () => {
+    // 401 令牌过期 / 403 账户受限 —— resume 阶梯「重投同一批 delta」对两者都注定再拒,
+    // 必须判 content(确定性)避免重试阶梯去重投必然再 401 的请求。
+    expect(isDeterministicContentFault({ status: 401 })).toBe(true)
+    expect(isDeterministicContentFault({ status: 403 })).toBe(true)
+    // 走一遍 tracker:401 → content,终态归 content,force-snapshot
+    const tracker = createStreamFaultTracker()
+    expect(tracker.record({ status: 401 })).toBe('content')
+    expect(tracker.terminalTier).toBe('content')
+    const decision = resolveStreamRecoveryDecision(tracker)
+    expect(decision!.strategy).toBe('force-snapshot')
+    expect(decision!.contentEligible).toBe(false)
+    // 403 同形
+    const tracker2 = createStreamFaultTracker()
+    expect(tracker2.record({ status: 403 })).toBe('content')
+    expect(resolveStreamRecoveryDecision(tracker2)!.strategy).toBe('force-snapshot')
+    // 5xx 仍归 transient(网络面,重试有意义)
+    expect(isDeterministicContentFault({ status: 500 })).toBe(false)
+    expect(isDeterministicContentFault({ status: 503 })).toBe(false)
+  })
+
   it('无失败 ⇒ 决策为 null(正常流继续,不得凭空给恢复决策)', () => {
     const tracker = createStreamFaultTracker()
     expect(tracker.terminalTier).toBeNull()

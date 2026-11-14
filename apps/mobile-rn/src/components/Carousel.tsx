@@ -205,7 +205,7 @@ export default function Carousel({
         className="w-full items-center justify-center rounded-2xl"
         style={{ height, backgroundColor: tokens.surface.muted }}
       >
-        <Text className="text-xs" style={{ color: tokens.text.medium }}>
+        <Text className="text-xs" style={{ color: tokens.text.tertiary }}>
           暂无轮播图
         </Text>
       </View>

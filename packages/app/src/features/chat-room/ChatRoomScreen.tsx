@@ -20,7 +20,7 @@ import { SearchInput } from '../../components/SearchInput'
 import { EmptyState } from '../../components/ScreenStates'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 
-import { rnCssLight, rnGeometry, rnRadius, rnRadiusFor, rnSpacing, rnType } from '@ihui/design-tokens'
+import { rnGeometry, rnRadius, rnRadiusFor, rnSpacing, rnType } from '@ihui/design-tokens'
 
 // ── 类型定义(强类型,禁用 any;内联定义对齐 MessageChatScreen 模式) ──
 
@@ -241,7 +241,7 @@ export function ChatRoomScreen({
               onPress={() => setPreviewUrl(null)}
               activeOpacity={0.8}
             >
-              <X size={20} color={rnCssLight.white95} />
+              <X size={20} color={tk.surface.light} />
             </TouchableOpacity>
             {previewUrl ? (
               <Image
@@ -446,7 +446,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     readStatus: {
       fontSize: rnType.badge.size, // rpx(20)
-      color: tk.text.medium, // 历史 #999
+      color: tk.text.tertiary, // 历史 #999
       marginTop: rnSpacing.xs, // rpx(8)
       textAlign: 'right',
     },
@@ -475,7 +475,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     systemText: {
       fontSize: rnType.label.size, // rpx(24)
-      color: tk.text.medium, // 历史 #999
+      color: tk.text.tertiary, // 历史 #999
     },
     avatarFallback: {
       backgroundColor: tk.surface.inputBg,
@@ -556,7 +556,7 @@ function createStyles(tk: AppThemeTokens) {
     roomTime: {
       marginLeft: 'auto',
       fontSize: rnType.caption.size, // rpx(22)
-      color: tk.text.medium,
+      color: tk.text.tertiary,
     },
     roomPreview: {
       fontSize: rnType.bodySm.size, // rpx(26)

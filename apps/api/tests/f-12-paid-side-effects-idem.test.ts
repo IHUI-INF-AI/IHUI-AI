@@ -103,7 +103,7 @@ vi.mock('../src/db/index.js', async () => {
   const { orders, pointTransactions, outboxEvents } = await import('@ihui/database')
 
   const collectParams = (node: unknown, out: unknown[] = []): unknown[] => {
-    if (node === null || node === undefined) return out
+    if (node == null) return out
     if (Array.isArray(node)) {
       for (const n of node) collectParams(n, out)
       return out

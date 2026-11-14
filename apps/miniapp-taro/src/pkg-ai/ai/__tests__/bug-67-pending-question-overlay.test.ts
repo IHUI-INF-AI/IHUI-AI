@@ -62,8 +62,7 @@ describe('BUG-67 提问卡:页级浮层 → 共享屏 overlaySlot', () => {
     expect(OVERLAY_BLOCK).toMatch(
       /onClick=\{\(\) => \{\s*setInputValue\(o\.label\)\s*setPendingQuestion\(null\)/u,
     )
-    // 允许 View 上带按压反馈属性(hoverClass)后再跟 onClick —— A3 交互卫生要求可点元素带反馈。
-    expect(OVERLAY_BLOCK).toMatch(/<View\b[^>]*onClick=\{\(\) => setPendingQuestion\(null\)\}/u)
+    expect(OVERLAY_BLOCK).toMatch(/<View\s+onClick=\{\(\) => setPendingQuestion\(null\)\}/u)
   })
 
   it('可多选 / 可自定义 / 关闭三态文案与 BUG-67 原文逐字相同', () => {

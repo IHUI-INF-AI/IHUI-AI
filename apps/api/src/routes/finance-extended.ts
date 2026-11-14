@@ -10,6 +10,17 @@ import { success, error } from '../utils/response.js'
 import { authenticate } from '../plugins/auth.js'
 import { requireStepUpForTwoFactorUser } from '../services/two-factor-step-up-store.js'
 import { requireAdmin } from '../plugins/require-permission.js'
+// F-452:此文件的 agent-withdrawal apply/approve/reject 原先绕开统一提现服务,自管
+// withdrawalFlows——apply 不冻结余额、不生成 partnerTradeNo(回调 eq(partnerTradeNo) 永远
+// 匹配不到,单据无法闭环),approve 仅 currentStatus+1 无前置状态断言(可把已完成单再推进),
+// reject 的 where 只有 id(可把已完成(2)改回 3、且不退冻结 ⇒ 已打款单被驳回后可用额复原,
+// 可重复申请 ⇒ 资金损失)。现全部改调 commission-queries 的单源服务,与主链路 /finance/
+// withdrawal/* 同一份资金守恒逻辑(冻结/单号/守卫/退款),彻底消除旁路。
+import {
+  applyWithdrawal,
+  approveWithdrawal,
+  rejectWithdrawal,
+} from '../db/commission-queries.js'
 import {
   commissionFlows,
   withdrawalFlows,
@@ -267,33 +278,32 @@ export const financeExtendedRoutes: FastifyPluginAsync = async (server) => {
         )
     }
     try {
-      // 检查余额：佣金总额 - 已提现（含待审核/处理中/已完成）金额
-      const commissionRows = await db
-        .select({ total: sql<number>`COALESCE(SUM(${commissionFlows.amount}), 0)::int` })
-        .from(commissionFlows)
-        .where(and(eq(commissionFlows.beneficiaryId, userId), eq(commissionFlows.status, 1)))
-      const withdrawnRows = await db
-        .select({ total: sql<number>`COALESCE(SUM(${withdrawalFlows.originalAmount}), 0)::int` })
-        .from(withdrawalFlows)
-        .where(and(eq(withdrawalFlows.userId, userId), sql`${withdrawalFlows.status} IN (0, 1, 2)`))
-      const available = (commissionRows[0]?.total ?? 0) - (withdrawnRows[0]?.total ?? 0)
-      if (amount > available) {
-        return reply.status(400).send(error(400, `可提现余额不足，当前可用: ${available}`))
+      // F-452:改调统一提现服务。原先只校验佣金口径后直接插流水——不冻结余额、不生成
+      // partnerTradeNo(回调 eq(partnerTradeNo) 永远匹配不到,单据无法闭环)、申请期间余额
+      // 未锁定可并发超额挂单。现走 applyWithdrawal:同事务内原子冻结(token-=actualAmount /
+      // frozen+=actualAmount)、按 2% 收手续费、生成单号,与 payment-extended 回调严格配套。
+      // requireCommissionEligibility=true ⇒ 保持「仅佣金可提现」口径(与 availableWithdrawal
+      // 同源,服务内在同一事务、先锁 margin 行后校验,消除 TOCTOU)。
+      let flow
+      try {
+        flow = await applyWithdrawal(
+          {
+            userId,
+            amount,
+            method: type,
+            accountInfo: bankInfo ? { bankInfo } : openId ? { openId } : {},
+            requireCommissionEligibility: true,
+          },
+          request.userId ?? null,
+        )
+      } catch (e) {
+        const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 500
+        if (statusCode >= 500) request.log.error({ err: e }, 'agent withdrawal apply failed')
+        return reply
+          .status(statusCode)
+          .send(error(statusCode, statusCode < 500 ? (e as Error).message : '提现申请失败'))
       }
-      const accountInfo = bankInfo ? { bankInfo } : openId ? { openId } : {}
-      const [row] = await db
-        .insert(withdrawalFlows)
-        .values({
-          userId,
-          amount,
-          originalAmount: amount,
-          fee: 0,
-          status: 0,
-          method: type,
-          accountInfo,
-        })
-        .returning()
-      return reply.send(success(row))
+      return reply.send(success(flow))
     } catch (e) {
       request.log.error(e)
       return reply.status(500).send(error(500, '提现申请失败'))
@@ -354,62 +364,47 @@ export const financeExtendedRoutes: FastifyPluginAsync = async (server) => {
     }
   })
 
-  // 管理员审批通过（status 0→1→2）
+  // 管理员审批通过（status 0→1,由 approveWithdrawal 单源守卫）
   server.post('/finance/agent-withdrawal/:id/approve', async (request, reply) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
     const { id } = idParam.parse(request.params)
     try {
-      const existing = await db
-        .select()
-        .from(withdrawalFlows)
-        .where(eq(withdrawalFlows.id, id))
-        .limit(1)
-      if (!existing[0]) return reply.status(404).send(error(404, '提现记录不存在'))
-      const currentStatus = existing[0].status
-      if (currentStatus >= 2) {
-        return reply.status(400).send(error(400, '该提现记录已完成审批'))
-      }
-      const newStatus = currentStatus + 1 // 0→1, 1→2
-      const [row] = await db
-        .update(withdrawalFlows)
-        .set({ status: newStatus, processedAt: new Date(), updatedAt: new Date() })
-        .where(eq(withdrawalFlows.id, id))
-        .returning()
-      return reply.send(success(row))
+      // F-452:改调 approveWithdrawal。原先仅 currentStatus+1、无前置状态断言,可把已完成(2)
+      // 的单再推进、也可两步 0→1→2 各释放一次冻结(frozen 扣成负数)。统一服务只允许
+      // pending(0)→processing(1) 的条件 UPDATE(status=0),并发重复审批由 0 行影响兜住;
+      // 冻结的实际释放交给支付回调(payment-extended:成功只 frozen-=amount)。
+      const operatorId = request.userId ?? null
+      const updated = await approveWithdrawal(id, operatorId)
+      if (!updated) return reply.status(409).send(error(409, '提现记录不存在或已被处理'))
+      return reply.send(success(updated))
     } catch (e) {
       request.log.error(e)
       return reply.status(500).send(error(500, '审批通过失败'))
     }
   })
 
-  // 管理员驳回（body: rejectReason; status→3）
+  // 管理员驳回（body: rejectReason; status 0→3 并退还冻结,由 rejectWithdrawal 单源守卫）
   server.post('/finance/agent-withdrawal/:id/reject', async (request, reply) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
     const { id } = idParam.parse(request.params)
     const { rejectReason } = z.object({ rejectReason: z.string().optional() }).parse(request.body)
     try {
-      const existing = await db
-        .select()
-        .from(withdrawalFlows)
-        .where(eq(withdrawalFlows.id, id))
-        .limit(1)
-      if (!existing[0]) return reply.status(404).send(error(404, '提现记录不存在'))
-      const [row] = await db
-        .update(withdrawalFlows)
-        .set({
-          status: 3,
-          rejectReason,
-          processedAt: new Date(),
-          updatedAt: new Date(),
-        })
-        .where(eq(withdrawalFlows.id, id))
-        .returning()
-      return reply.send(success(row))
+      // F-452:改调 rejectWithdrawal。原先 where 只有 id——可把已完成(2)改回 3,而可用额
+      // 校验只减 status IN(0,1,2) ⇒ 已打款单被驳回后可用额复原、可再次申请(重复打款);
+      // 且原实现不退还冻结。统一服务在事务内:① 条件 UPDATE 只允许 pending(0)→failed(3)
+      // ② 同时 token+=amount / frozen-=amount 退还冻结,且带「冻结够才退」守卫。
+      const operatorId = request.userId ?? null
+      const rejected = await rejectWithdrawal(id, rejectReason ?? '', operatorId)
+      if (!rejected) return reply.status(409).send(error(409, '提现记录不存在或已被处理'))
+      return reply.send(success(rejected))
     } catch (e) {
-      request.log.error(e)
-      return reply.status(500).send(error(500, '驳回失败'))
+      const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 500
+      if (statusCode >= 500) request.log.error(e)
+      return reply
+        .status(statusCode)
+        .send(error(statusCode, statusCode < 500 ? (e as Error).message : '驳回失败'))
     }
   })
 

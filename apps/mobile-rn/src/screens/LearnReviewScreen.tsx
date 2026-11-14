@@ -342,7 +342,7 @@ export default function LearnReviewScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: tokens.surface.bg },
   body: { padding: rnSpacing.md, paddingBottom: rnSpacing['3xl'], gap: rnSpacing['sm-loose'] },
-  subtitle: { fontSize: rnType.label.size, color: tokens.text.medium },
+  subtitle: { fontSize: rnType.label.size, color: tokens.text.tertiary },
   stateBox: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -358,7 +358,7 @@ const styles = StyleSheet.create({
     borderColor: tokens.danger.DEFAULT,
     backgroundColor: tokens.surface.card,
   },
-  errorText: { fontSize: rnType.label.size, color: tokens.danger.deepText },
+  errorText: { fontSize: rnType.label.size, color: tokens.danger.DEFAULT },
   retryBtn: {
     alignSelf: 'flex-start',
     paddingHorizontal: rnSpacing['md-loose'],
@@ -377,7 +377,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.card,
   },
   statCell: { flex: 1, alignItems: 'center', gap: rnSpacing['2xs'] },
-  statLabel: { fontSize: rnType.badge.size, color: tokens.text.medium, textAlign: 'center' },
+  statLabel: { fontSize: rnType.badge.size, color: tokens.text.tertiary, textAlign: 'center' },
   statValue: { fontSize: rnType.subtitle.size, fontWeight: '600', color: tokens.text.primary },
   finishedCard: {
     alignItems: 'center',
@@ -406,7 +406,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.card,
   },
   questionHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  questionProgress: { fontSize: rnType.label.size, color: tokens.text.medium },
+  questionProgress: { fontSize: rnType.label.size, color: tokens.text.tertiary },
   typeBadge: {
     paddingHorizontal: rnSpacing.sm,
     paddingVertical: rnSpacing['2xs'],
@@ -420,7 +420,7 @@ const styles = StyleSheet.create({
     borderRadius: rnRadius.md,
     backgroundColor: tokens.surface.bg,
   },
-  questionLabel: { fontSize: rnType.caption.size, color: tokens.text.medium },
+  questionLabel: { fontSize: rnType.caption.size, color: tokens.text.tertiary },
   questionText: {
     fontSize: rnType.strong.size,
     lineHeight: rnType.strong.lineHeight,
@@ -449,7 +449,7 @@ const styles = StyleSheet.create({
   },
   resultCellLabel: {
     fontSize: rnType.badge.size,
-    color: tokens.text.medium,
+    color: tokens.text.tertiary,
     textAlign: 'center',
   },
   resultCellValue: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tokens.text.primary },
@@ -471,6 +471,6 @@ const styles = StyleSheet.create({
     gap: 5,
     paddingTop: rnSpacing['2xs'],
   },
-  progressText: { fontSize: rnType.caption.size, color: tokens.text.medium },
+  progressText: { fontSize: rnType.caption.size, color: tokens.text.tertiary },
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

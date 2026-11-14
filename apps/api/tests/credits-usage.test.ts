@@ -68,7 +68,8 @@ vi.mock('../src/db/index.js', () => {
 })
 
 import { creditsUsageRoutes } from '../src/routes/credits-usage'
-import { utcDateKey, buildBuckets } from '../src/services/credits-usage-service'
+import { buildBuckets } from '../src/services/credits-usage-service'
+import { bizDayKey } from '../src/utils/biz-day'
 
 interface UsageResponse {
   code: number
@@ -157,7 +158,7 @@ describe('credits-usage routes(按日积分消耗聚合,只读)', () => {
     expect(res.statusCode).toBe(200)
     const body = res.json() as UsageResponse
     expect(body.data?.days).toBe(90)
-    expect(body.data?.timezone).toBe('UTC')
+    expect(body.data?.timezone).toBe('Asia/Shanghai')
   })
 
   it('跨月 + 无消耗日补零:2026-09-02T00:30Z 取 4 天 → 08-30..09-02,原始行只有 08-31 也补齐 4 桶', async () => {
@@ -206,7 +207,7 @@ describe('credits-usage routes(按日积分消耗聚合,只读)', () => {
     ])
   })
 
-  it("GROUP BY 表达式必须是 UTC 时区口径(to_char … AT TIME ZONE 'UTC')", async () => {
+  it("GROUP BY 表达式必须是上海业务日口径(to_char … AT TIME ZONE 'Asia/Shanghai')", async () => {
     dbQueue.items = [[]]
     const res = await server.inject({
       method: 'GET',
@@ -217,19 +218,19 @@ describe('credits-usage routes(按日积分消耗聚合,只读)', () => {
     const groupByArg = captured.groupByArgs[0]?.[0]
     expect(groupByArg).toBeDefined()
     const literals = flattenSqlChunks(groupByArg, []).join('')
-    expect(literals).toContain(`AT TIME ZONE 'UTC'`)
+    expect(literals).toContain(`AT TIME ZONE 'Asia/Shanghai'`)
     expect(literals).toContain('YYYY-MM-DD')
     // 会话序列必须与消耗序列同一时区口径,否则两张视图的日期键会错一天
     const convGroupByArg = captured.groupByArgs[1]?.[0]
     expect(convGroupByArg).toBeDefined()
     const convLiterals = flattenSqlChunks(convGroupByArg, []).join('')
-    expect(convLiterals).toContain(`AT TIME ZONE 'UTC'`)
+    expect(convLiterals).toContain(`AT TIME ZONE 'Asia/Shanghai'`)
     expect(convLiterals).toContain('YYYY-MM-DD')
   })
 
-  it('utcDateKey 日期边界:23:59:59.999Z 属当日,00:00:00Z 属次日', () => {
-    expect(utcDateKey(new Date('2026-08-31T23:59:59.999Z'))).toBe('2026-08-31')
-    expect(utcDateKey(new Date('2026-09-01T00:00:00.000Z'))).toBe('2026-09-01')
+  it('bizDayKey 日期边界:15:59:59.999Z 属当日,16:00:00Z(沪 00:00)属次日', () => {
+    expect(bizDayKey(new Date('2026-08-31T15:59:59.999Z'))).toBe('2026-08-31')
+    expect(bizDayKey(new Date('2026-08-31T16:00:00.000Z'))).toBe('2026-09-01')
   })
 
   it('buildBuckets:乱序原始行归正、区间外日期丢弃、同日多行累加、会话表缺省补零', () => {

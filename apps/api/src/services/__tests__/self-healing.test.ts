@@ -212,10 +212,7 @@ const STRANGER: ProcIdentitySnapshot = {
 describe('killProcessVerified 身份复核出口(G-670 成对判据)', () => {
   it('①特征不符 ⇒ 拒杀:record 点名 pid/期望/实得,且断言未派生终止命令', async () => {
     const spy = vi.fn(async (_bin: string, _argv: string[]): Promise<string> => 'SHOULD-NOT-RUN')
-    const out = await killProcessVerified(4242, expectPort8801(), {
-      inspect: async () => STRANGER,
-      runKill: spy,
-    })
+    const out = await killProcessVerified(4242, expectPort8801(), { inspect: async () => STRANGER, runKill: spy })
     expect(out.killed).toBe(false)
     if (!out.killed) {
       expect(out.reason).toBe('identity-mismatch')
@@ -227,9 +224,7 @@ describe('killProcessVerified 身份复核出口(G-670 成对判据)', () => {
   })
 
   it('②特征相符 ⇒ 正常杀:派生恰好一次且命令指向该 pid(正向对照,不改坏功能)', async () => {
-    const spy = vi.fn(
-      async (_bin: string, argv: string[]): Promise<string> => `done ${argv.join(' ')}`,
-    )
+    const spy = vi.fn(async (_bin: string, argv: string[]): Promise<string> => `done ${argv.join(' ')}`)
     const out = await killProcessVerified(4242, expectPort8801(), {
       inspect: async () => MINE,
       runKill: spy,
@@ -246,36 +241,27 @@ describe('killProcessVerified 身份复核出口(G-670 成对判据)', () => {
 
   it('③pid 已不存在/取不到 ⇒ 未判定不杀(与改动前"没东西可杀"行为一致),探针抛错同侧', async () => {
     const spy = vi.fn(async (_bin: string, _argv: string[]): Promise<string> => 'SHOULD-NOT-RUN')
-    const gone = await killProcessVerified(999999, expectPort8801(), {
-      inspect: async () => null,
-      runKill: spy,
-    })
+    const gone = await killProcessVerified(999999, expectPort8801(), { inspect: async () => null, runKill: spy })
     expect(gone.killed).toBe(false)
     if (!gone.killed) expect(gone.reason).toBe('undetermined')
-    const threw = await killProcessVerified(999998, expectPort8801(), {
-      inspect: async () => {
-        throw new Error('probe down')
+    const threw = await killProcessVerified(
+      999998,
+      expectPort8801(),
+      {
+        inspect: async () => {
+          throw new Error('probe down')
+        },
+        runKill: spy,
       },
-      runKill: spy,
-    })
+    )
     expect(threw.killed).toBe(false)
     if (!threw.killed) expect(threw.reason).toBe('undetermined')
     expect(spy).not.toHaveBeenCalled()
   })
 
   it('judgeKillIdentity 纯判据:期望设了而实得缺位⇒不成立;executable 维大小写不敏感', () => {
-    expect(
-      judgeKillIdentity(
-        { executablePath: null, commandLine: 'x 8801' },
-        { executablePathIncludes: 'node.exe' },
-      ).ok,
-    ).toBe(false)
-    expect(
-      judgeKillIdentity(
-        { executablePath: 'D:\\NODEJS\\Node.EXE', commandLine: '8801' },
-        { executablePathIncludes: 'node.exe' },
-      ).ok,
-    ).toBe(true)
+    expect(judgeKillIdentity({ executablePath: null, commandLine: 'x 8801' }, { executablePathIncludes: 'node.exe' }).ok).toBe(false)
+    expect(judgeKillIdentity({ executablePath: 'D:\\NODEJS\\Node.EXE', commandLine: '8801' }, { executablePathIncludes: 'node.exe' }).ok).toBe(true)
     expect(judgeKillIdentity({ executablePath: 'a', commandLine: 'b' }, {}).ok).toBe(true)
   })
 
@@ -300,9 +286,7 @@ describe('repairWorkspaceIssue port 修复已走身份复核出口(装车证明,
     await new Promise<void>((resolveListen) => server.listen(0, '127.0.0.1', resolveListen))
     const addr = server.address()
     const port = typeof addr === 'object' && addr ? addr.port : 0
-    const killSpy = vi.fn(
-      async (_bin: string, _argv: string[]): Promise<string> => 'SHOULD-NOT-RUN',
-    )
+    const killSpy = vi.fn(async (_bin: string, _argv: string[]): Promise<string> => 'SHOULD-NOT-RUN')
     try {
       const result = await repairWorkspaceIssue({
         workspacePath: makeWorkspace(),

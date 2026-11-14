@@ -179,7 +179,7 @@ function createStyles(tk: AppThemeTokens) {
       fontSize: rnType.display.size,
       fontWeight: '700',
       letterSpacing: 2,
-      color: tk.text.medium,
+      color: tk.text.tertiary,
     },
     qrTip: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.secondary },
     actionRow: {

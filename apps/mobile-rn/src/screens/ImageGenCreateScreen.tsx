@@ -5,7 +5,7 @@
 import { rnRadius, rnSpacing } from '@ihui/design-tokens'
 
 import { useState } from 'react'
-import { Image, KeyboardAvoidingView, Platform, ScrollView, Text, TouchableOpacity, View } from 'react-native'
+import { Image, ScrollView, Text, TouchableOpacity, View } from 'react-native'
 import { appAlert } from '../components/BottomPops'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
@@ -19,7 +19,6 @@ import { useUiTextField } from '../lib/use-ui-text-field'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { BackChevron, TextField } from '@ihui/rn-app'
-import { toFriendlyOr } from '@ihui/shared/utils'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -67,7 +66,7 @@ export function ImageGenCreateScreen() {
       // 503「图像生成能力未接通」的服务端 message 经 fetchApi 取 body.message 优先透出,
       // 这里原样上屏(机主 2026-10-18 拍板「显式报未接通」);旧写法把原因静默吞成通用文案,
       // 用户分不清「参数错/未接通/网络断」。取不到才回退通用文案。
-      appAlert(toFriendlyOr(e, t('imageGen.genFailed')))
+      appAlert(e instanceof Error && e.message ? e.message : t('imageGen.genFailed'))
     } finally {
       setGenerating(false)
     }
@@ -102,10 +101,6 @@ export function ImageGenCreateScreen() {
 
   return (
     <View className={`flex-1 ${dark ? 'bg-neutral-900' : 'bg-white'}`}>
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
       <View className="flex-row items-center justify-between px-4 pb-2 pt-3">
         <BackChevron
           onPress={() => navigation.goBack()}
@@ -185,7 +180,6 @@ export function ImageGenCreateScreen() {
           </View>
         ) : null}
       </ScrollView>
-      </KeyboardAvoidingView>
     </View>
   )
 }

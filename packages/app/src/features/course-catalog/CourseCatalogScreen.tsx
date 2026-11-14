@@ -88,7 +88,7 @@ function createStyles(tk: AppThemeTokens) {
     errorText: {
       paddingHorizontal: rnSpacing['sm-loose'],
       fontSize: rnType.body.size,
-      color: tk.danger.deepText,
+      color: tk.danger.DEFAULT,
     },
     listBody: { padding: rnSpacing['sm-loose'] },
     card: {
@@ -120,7 +120,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: rnSpacing['xs-loose'],
       marginLeft: rnSpacing['3xl'],
       fontSize: rnType.caption.size,
-      color: tk.text.medium,
+      color: tk.text.tertiary,
     },
   })
 }

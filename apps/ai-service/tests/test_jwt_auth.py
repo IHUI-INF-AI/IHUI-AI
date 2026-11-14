@@ -158,6 +158,28 @@ class TestJWTAuthMiddlewareDispatch:
         assert data["role_id"] == 5
         assert data["has_payload"] is True
 
+    async def test_x_api_key_carries_jwt(self, jwt_client, enable_jwt):
+        """Anthropic SDK 形态客户端只发 x-api-key:值按 JWT 验签,与 Bearer 同权。"""
+        token = _make_token(user_id="u-xkey", role_id=3)
+        resp = await jwt_client.get("/api/protected", headers={"x-api-key": token})
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["user_id"] == "u-xkey"
+        assert data["role_id"] == 3
+
+    async def test_x_api_key_invalid_jwt_returns_401(self, jwt_client, enable_jwt):
+        resp = await jwt_client.get(
+            "/api/protected", headers={"x-api-key": "not-a-jwt"}
+        )
+        assert resp.status_code == 401
+        assert resp.json()["message"] == "Invalid or expired token"
+
+    async def test_x_api_key_never_anonymous(self, jwt_client, enable_jwt):
+        """空 x-api-key 等同于没带凭据:仍 401,绝不匿名放行。"""
+        resp = await jwt_client.get("/api/protected", headers={"x-api-key": ""})
+        assert resp.status_code == 401
+        assert resp.json()["message"] == "Authentication required"
+
 
 class TestVerifyToken:
     def test_valid_access_token_decodes(self, enable_jwt):

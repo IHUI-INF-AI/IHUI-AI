@@ -367,15 +367,6 @@ export interface SseCapture {
    * 只看 upstreamStatus 会把断流当成功、attempt 归零、不重试,而用户看到「执行完成」。
    */
   streamFailed: boolean
-  /**
-   * F-345:上游 done 帧的 success 原值。null = 未收到 done 帧。
-   * success=false 是"执行失败"的权威信号,必须并进 captureIsFailure。
-   */
-  doneSuccess?: boolean | null
-  /** F-345:done 帧 goal_status(Goal 自评结论) */
-  goalStatus?: string | null
-  /** F-345:done 帧 stop_reason */
-  stopReason?: string | null
 }
 
 /** F-252:一次 SSE 消费的**总**时限(含建连与全部读取);到点无论如何收尾。 */
@@ -383,9 +374,9 @@ export const AGENT_STREAM_TOTAL_TIMEOUT_MS = 10 * 60_000
 /** F-252:连续这么久没读到任何 chunk 即判定上游挂起;有内容在流动的长流不受影响。 */
 export const AGENT_STREAM_IDLE_TIMEOUT_MS = 120_000
 
-/** F-253:结构化失败判据 —— 非 2xx、流内失败或 done 帧 success=false。成功分支不得只看 upstreamStatus。 */
+/** F-253:结构化失败判据 —— 非 2xx 或流内失败。成功分支不得只看 upstreamStatus。 */
 export function captureIsFailure(capture: SseCapture): boolean {
-  return capture.upstreamStatus !== null || capture.streamFailed || capture.doneSuccess === false
+  return capture.upstreamStatus !== null || capture.streamFailed
 }
 
 class AgentStreamTimeoutError extends Error {
@@ -421,25 +412,6 @@ async function readWithIdleTimeout(
 
 const CONTENT_TAIL_LIMIT = 2000
 
-/** F-345:把 done 帧的 output 归一为文本(字符串直接取;数组按元素 text/content/output 取) */
-function normalizeOutputText(value: unknown): string {
-  if (typeof value === 'string') return value
-  if (!Array.isArray(value)) return ''
-  const parts: string[] = []
-  for (const item of value) {
-    if (typeof item === 'string') {
-      parts.push(item)
-      continue
-    }
-    if (item && typeof item === 'object') {
-      const rec = item as Record<string, unknown>
-      const text = rec.text ?? rec.content ?? rec.output
-      if (typeof text === 'string') parts.push(text)
-    }
-  }
-  return parts.filter((part) => part).join('\n')
-}
-
 /** agent 执行参数(SSE 流消费的通用入参,automations 与 patrol 共用) */
 export interface AgentStreamParams {
   message: string
@@ -458,9 +430,6 @@ export async function consumeAgentStream(
     errorMessage: null,
     upstreamStatus: null,
     streamFailed: false,
-    doneSuccess: null,
-    goalStatus: null,
-    stopReason: null,
   }
   // F-252:总 deadline 从**建连之前**起算,并作为 signal 交给 fetch —— 上游连头都不回时
   // 也能被 abort,不会把整轮 tick 挂在一次 fetch 上。
@@ -506,35 +475,8 @@ export async function consumeAgentStream(
       } catch {
         return
       }
-      // F-345:识别上游 done 帧实际协议 success/stop_reason/output/goal_status。
-      const isDoneFrame = data.type === 'done' || typeof data.success === 'boolean'
-      if (typeof data.success === 'boolean') {
-        capture.doneSuccess = data.success
-        if (data.success === false) {
-          // done 帧明确失败:与断流同档,不得再按成功结算。
-          capture.streamFailed = true
-          capture.summary = null
-          const reason =
-            typeof data.stop_reason === 'string' && data.stop_reason
-              ? data.stop_reason
-              : 'success=false'
-          capture.errorMessage = capture.errorMessage ?? `上游执行失败(${reason})`
-        }
-      }
-      if (typeof data.stop_reason === 'string' && data.stop_reason) {
-        capture.stopReason = data.stop_reason
-      }
-      if (typeof data.goal_status === 'string' && data.goal_status) {
-        capture.goalStatus = data.goal_status
-      }
-      // 摘要优先取 output;旧协议帧仍认 summary/content,错误帧的 message 不当摘要。
-      const summaryCandidate =
-        normalizeOutputText(data.output) ||
-        (isDoneFrame && typeof data.message === 'string' ? data.message : '') ||
-        (typeof data.summary === 'string' ? data.summary : '') ||
-        (isDoneFrame && typeof data.content === 'string' ? data.content : '')
-      if (summaryCandidate.trim() && data.success !== false) {
-        capture.summary = summaryCandidate
+      if (typeof data.summary === 'string' && data.summary.trim()) {
+        capture.summary = data.summary
       }
       if (typeof data.content === 'string' && data.content) {
         capture.contentTail = (capture.contentTail + data.content).slice(-CONTENT_TAIL_LIMIT)
@@ -550,7 +492,9 @@ export async function consumeAgentStream(
       for (;;) {
         const remaining = deadline - Date.now()
         if (remaining <= 0) {
-          throw new AgentStreamTimeoutError(`上游流总时长超过 ${AGENT_STREAM_TOTAL_TIMEOUT_MS}ms`)
+          throw new AgentStreamTimeoutError(
+            `上游流总时长超过 ${AGENT_STREAM_TOTAL_TIMEOUT_MS}ms`,
+          )
         }
         // 空闲窗不得超过剩余总时限:总 deadline 是硬上限,不能被一次次 chunk 无限续命。
         const { done, value } = await readWithIdleTimeout(
@@ -572,8 +516,7 @@ export async function consumeAgentStream(
       // 让"已收到多少内容"成为可诊断证据,而不是白白丢掉。
       if (buffer.trim()) handleBlock(buffer)
       capture.streamFailed = true
-      capture.errorMessage =
-        capture.errorMessage ?? (err instanceof Error ? err.message : String(err))
+      capture.errorMessage = capture.errorMessage ?? (err instanceof Error ? err.message : String(err))
       // 收尾:断 socket 并让挂起的 reader.read() 结束,不留悬挂读。
       try {
         await reader.cancel()

@@ -153,32 +153,36 @@ export async function runScheduleTaskNow(
   id: string,
   status: 'running' | 'queued' = 'running',
 ): Promise<{ task: ScheduleTask; log: ScheduleLog } | undefined> {
-  const task = await findScheduleTaskById(id)
-  if (!task) return undefined
-  const now = new Date()
-  const [updated] = await db
-    .update(scheduleTasks)
-    .set({
-      lastRunTime: now,
-      lastRunStatus: status,
-      lastRunMessage: '手动触发执行',
-      updatedAt: now,
-    })
-    .where(eq(scheduleTasks.id, id))
-    .returning()
-  const logRows = await db
-    .insert(scheduleLogs)
-    .values({
-      taskId: task.id,
-      taskName: task.name,
-      status,
-      startTime: now,
-      message: '手动触发执行',
-    })
-    .returning()
-  const log = logRows[0]
-  if (!updated || !log) return undefined
-  return { task: updated, log }
+  return db.transaction(async (tx) => {
+    const taskRows = await tx.select().from(scheduleTasks).where(eq(scheduleTasks.id, id)).limit(1)
+    const task = taskRows[0]
+    if (!task) return undefined
+    const now = new Date()
+    const [updated] = await tx
+      .update(scheduleTasks)
+      .set({
+        lastRunTime: now,
+        lastRunStatus: status,
+        lastRunMessage: '手动触发执行',
+        updatedAt: now,
+      })
+      .where(eq(scheduleTasks.id, id))
+      .returning()
+    if (!updated) return undefined
+    const logRows = await tx
+      .insert(scheduleLogs)
+      .values({
+        taskId: task.id,
+        taskName: task.name,
+        status,
+        startTime: now,
+        message: '手动触发执行',
+      })
+      .returning()
+    const log = logRows[0]
+    if (!log) throw new Error('写入定时任务执行日志失败')
+    return { task: updated, log }
+  })
 }
 
 // =============================================================================

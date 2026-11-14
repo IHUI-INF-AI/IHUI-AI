@@ -251,13 +251,7 @@ export function ModelIncomeScreen({
             <Text style={styles.modalSub}>
               {t('modelIncome.withdrawModal.subtitle')} ¥{withdrawable.toFixed(2)}
             </Text>
-            {/*
-              唯一渠道、不可切换 —— 这里原本是带 activeOpacity={0.8} 的 TouchableOpacity,
-              却没有 onPress:按下去有按压反馈、松手什么也不发生,用户只会以为卡了。
-              右侧单选圈本来就是实心(brand 底 + brandAccent 描边)= 已选中态,
-              所以静态展示才和事实一致:不是"选项",是"本次只能走微信"。
-            */}
-            <View style={styles.payOption}>
+            <TouchableOpacity style={styles.payOption} activeOpacity={0.8}>
               <View style={styles.payLeft}>
                 <View style={styles.payIcon}>
                   <Text style={styles.payIconText}>{t('modelIncome.withdrawModal.wechat')}</Text>
@@ -265,7 +259,7 @@ export function ModelIncomeScreen({
                 <Text style={styles.payName}>{t('modelIncome.withdrawModal.wechat')}</Text>
               </View>
               <View style={styles.payRadio} />
-            </View>
+            </TouchableOpacity>
             <Text style={styles.modalNote}>{t('modelIncome.withdrawModal.moreMethods')}</Text>
             <TouchableOpacity
               style={styles.modalBtn}
@@ -337,7 +331,7 @@ function createStyles(tk: AppThemeTokens) {
       marginHorizontal: rnSpacing['sm-loose'],
       marginTop: rnSpacing['sm-loose'],
       fontSize: rnType.caption.size,
-      color: tk.text.medium,
+      color: tk.text.tertiary,
     },
     tabRow: {
       flexDirection: 'row',
@@ -369,7 +363,7 @@ function createStyles(tk: AppThemeTokens) {
     cardStatus: { fontSize: rnType.caption.size, fontWeight: '600' },
     statusSettled: { color: tk.brand.DEFAULT },
     statusPending: { color: tk.brandAccent.deep },
-    cardTime: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.medium },
+    cardTime: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.tertiary },
     cardMain: { flexDirection: 'row', alignItems: 'center', marginTop: rnSpacing['sm-loose'] },
     cardAvatar: {
       width: 44,
@@ -383,13 +377,13 @@ function createStyles(tk: AppThemeTokens) {
     cardAvatarText: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
     cardInfo: { flex: 1 },
     cardName: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
-    cardMeta: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.medium },
+    cardMeta: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.tertiary },
     cardAmount: { fontSize: rnType.title.size, fontWeight: '700', color: tk.brandAccent.deep },
     footer: {
       paddingVertical: rnSpacing.md,
       textAlign: 'center',
       fontSize: rnType.caption.size,
-      color: tk.text.medium,
+      color: tk.text.tertiary,
     },
     modalMask: { flex: 1, justifyContent: 'flex-end', backgroundColor: tk.overlay.modal },
     modalBody: {
@@ -401,7 +395,7 @@ function createStyles(tk: AppThemeTokens) {
     modalHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
     modalTitle: { fontSize: rnType.subtitle.size, fontWeight: '600', color: tk.text.primary },
     modalClose: { fontSize: rnType.body.size, color: tk.text.secondary },
-    modalSub: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.medium },
+    modalSub: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.tertiary },
     payOption: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -429,7 +423,7 @@ function createStyles(tk: AppThemeTokens) {
       borderColor: tk.brandAccent.deep,
       backgroundColor: tk.brand.cta,
     },
-    modalNote: { marginTop: rnSpacing.md, fontSize: rnType.caption.size, color: tk.text.medium },
+    modalNote: { marginTop: rnSpacing.md, fontSize: rnType.caption.size, color: tk.text.tertiary },
     modalBtn: {
       marginTop: rnSpacing.xl,
       height: 44,

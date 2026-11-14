@@ -3,7 +3,6 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
-import { Tappable } from '@ihui/ui-native'
 
 import { useMemo } from 'react'
 import { FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
@@ -24,7 +23,7 @@ const ACTIVITY_STATUS_KEYS: Record<ActivityItem['status'], string> = {
 function statusColor(status: ActivityItem['status'], tk: AppThemeTokens): string {
   if (status === 'ongoing') return tk.brand.DEFAULT
   if (status === 'upcoming') return tk.warning.amber
-  return tk.text.secondary
+  return tk.text.tertiary
 }
 
 /**
@@ -44,8 +43,6 @@ export function ActivityScreen({
   onRefresh,
   onBack,
   onItemPress,
-  onJoin,
-  joiningId,
   onRetry,
   colorScheme = 'light',
 }: ActivityScreenProps & { onRetry?: () => void }) {
@@ -106,37 +103,12 @@ export function ActivityScreen({
               <Text style={styles.meta}>
                 {t('activity.endTime')}: {item.endTime}
               </Text>
-              {typeof item.participants === 'number' ? (
-                <Text style={styles.meta}>
-                  {t('activity.participants')}: {item.participants}
-                </Text>
-              ) : null}
-              {/*
-                历史上这里是 `<TouchableOpacity style={styles.joinBtn}>` —— 没有 onPress。
-                伤害不止"点不动":Pressability 的 onStartShouldSetResponder 返回 !disabled,
-                所以这个内层 Touchable 一定抢走 responder,松手时自己无 onPress、外层卡片的
-                跳转也收不到事件 ⇒ 整块「立即参与」是点击死区。现在有 onJoin 才是按钮,
-                没有就退回静态 View(不占可点区域,点击照常落到卡片上)。
-              */}
-              {onJoin ? (
-                <Tappable
-                  style={[styles.joinBtn, joiningId === item.id && styles.joinBtnBusy]}
-                  disabled={joiningId === item.id}
-                  onPress={() => onJoin(item)}
-                >
-                  <Text style={styles.joinText}>
-                    {joiningId === item.id
-                      ? t('activity.joining')
-                      : item.joined
-                        ? t('activities.cancelJoin')
-                        : t('activities.join')}
-                  </Text>
-                </Tappable>
-              ) : (
-                <View style={styles.joinBtn}>
-                  <Text style={styles.joinText}>{t('activities.join')}</Text>
-                </View>
-              )}
+              <Text style={styles.meta}>
+                {t('activity.participants')}: {item.participants}
+              </Text>
+              <TouchableOpacity style={styles.joinBtn}>
+                <Text style={styles.joinText}>{t('activities.join')}</Text>
+              </TouchableOpacity>
             </TouchableOpacity>
           )}
         />
@@ -159,7 +131,7 @@ function createStyles(tk: AppThemeTokens) {
     errorText: {
       paddingHorizontal: rnSpacing['sm-loose'],
       fontSize: rnType.body.size,
-      color: tk.danger.deepText,
+      color: tk.danger.DEFAULT,
     },
     center: { alignItems: 'center', paddingVertical: rnSpacing['5xl'] },
     muted: { fontSize: rnType.body.size, color: tk.text.secondary, marginTop: rnSpacing.sm },
@@ -191,13 +163,12 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.medium,
       lineHeight: rnType.bodySm.lineHeight,
     },
-    meta: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.medium },
+    meta: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.tertiary },
     joinBtn: {
       marginTop: rnSpacing.sm,
       paddingVertical: rnSpacing['xs-loose'],
       alignItems: 'flex-end',
     },
-    joinBtnBusy: { opacity: 0.5 },
     joinText: { fontSize: rnType.body.size, color: tk.brand.DEFAULT },
   })
 }

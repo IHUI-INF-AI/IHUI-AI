@@ -46,6 +46,11 @@ import {
   type ActivationFinding,
   type PluginActivationAudit,
 } from './activation-events.js';
+import {
+  compilePluginInterfaces,
+  type CompiledInterfaceTool,
+  type InterfaceCompileOutcome,
+} from './interface-tools.js';
 import type { LoadPluginsOptions, PluginDefinition, PluginDiagnostic } from './types.js';
 
 /** 版本策略:两个字段都可缺省,缺省即"全部版本参选、按 semver 序选最高" */
@@ -92,6 +97,15 @@ export interface MultiVersionLoadResult {
   contributions: PluginContributionAudit;
   /** 逐档激活裁决(同上) */
   activations: PluginActivationAudit;
+  /**
+   * 接口型工具(2026-11-13):只取 **active 版本**贡献的那批。
+   *
+   * 被 shadowed 的版本不贡献工具 —— 与"该版本不装载"同一语义:同一个插件名两个版本各贡献
+   * 一枚同名工具,装进去就是两份实现抢一个工具名,而"谁赢"取决于版本目录序(没人声明过的意图)。
+   */
+  interfaceTools: CompiledInterfaceTool[];
+  /** 逐条接口声明裁决(同上,只含 active 版本的) */
+  interfaceOutcomes: InterfaceCompileOutcome[];
 }
 
 interface ParsedPluginVersion {
@@ -427,12 +441,32 @@ export function loadPluginsWithVersionPolicy(
     ...contributionDiagnosticsOf(scanned.findings),
     ...activationDiagnosticsOf(scanned.activationFindings),
   ];
+  // 接口型工具只对 active 版本编译(与"被 shadowed 的版本不装载"同一语义)。
+  // 名字占用面含宿主在册工具 + 本批已编译成功的工具,跨清单累积后才不会两份都"编译成功"。
+  const interfaceTools: CompiledInterfaceTool[] = [];
+  const interfaceOutcomes: InterfaceCompileOutcome[] = [];
+  const taken = new Set<string>(opts.takenToolNames ?? []);
+  for (const candidate of selection.active) {
+    // 判据与"拒收 → 诊断"的映射单源 = interface-tools.ts;本层只累积(与 loader 同一个出口)。
+    const compiled = compilePluginInterfaces(
+      candidate.definition.interfaces,
+      candidate.file,
+      candidate.name,
+      taken,
+    );
+    interfaceOutcomes.push(...compiled.outcomes);
+    diagnostics.push(...compiled.diagnostics);
+    for (const tool of compiled.tools) taken.add(tool.name);
+    interfaceTools.push(...compiled.tools);
+  }
   return {
     plugins: selection.active.map((candidate) => candidate.definition),
     shadowed: selection.shadowed,
     diagnostics,
     contributions: summarizeContributions(scanned.findings),
     activations: summarizeActivations(scanned.activationFindings),
+    interfaceTools,
+    interfaceOutcomes,
   };
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

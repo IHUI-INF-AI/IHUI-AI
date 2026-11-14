@@ -309,7 +309,7 @@ export default function PurchaseScreen() {
                       </Text>
                       {plan.features.slice(0, 3).map((f) => (
                         <View key={f} style={styles.featureRow}>
-                          <Check size={12} color={tokens.success.deepText} />
+                          <Check size={12} color={tokens.success.DEFAULT} />
                           <Text style={styles.featureText}>{f}</Text>
                         </View>
                       ))}
@@ -431,7 +431,7 @@ function makeStyles() {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tokens.surface.bg },
     body: { padding: rnSpacing.md, gap: rnSpacing['sm-loose'], paddingBottom: rnSpacing['3xl'] },
-    subtitle: { fontSize: rnType.label.size, color: tokens.text.medium },
+    subtitle: { fontSize: rnType.label.size, color: tokens.text.tertiary },
     tabRow: { flexDirection: 'row', gap: rnSpacing.sm },
     tab: {
       flex: 1,
@@ -451,7 +451,7 @@ function makeStyles() {
       gap: rnSpacing.sm,
       paddingVertical: rnSpacing['5xl'],
     },
-    errorText: { fontSize: rnType.bodySm.size, color: tokens.danger.deepText },
+    errorText: { fontSize: rnType.bodySm.size, color: tokens.danger.DEFAULT },
     retry: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tokens.text.primary },
     card: {
       padding: rnSpacing['md-loose'],
@@ -555,7 +555,7 @@ function makeStyles() {
       backgroundColor: rnLightTokens.surface.light,
     },
     qrTitle: { fontSize: rnType.body.size, fontWeight: '600', color: tokens.text.primary },
-    paidText: { fontSize: rnType.strong.size, fontWeight: '600', color: tokens.success.deepText },
+    paidText: { fontSize: rnType.strong.size, fontWeight: '600', color: tokens.success.DEFAULT },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -41,6 +41,7 @@ import { paginationSchema, idParamSchema, registerCrud, fields } from './_shared
 import { requireAdmin } from '../../plugins/require-permission.js'
 import { aiServiceFetch } from '../../utils/ai-service-fetch.js'
 import { isUuidString } from '../../utils/uuid.js'
+import { bizDayKey, shiftBizDayKey } from '../../utils/biz-day.js'
 
 /**
  * F-22: 金额聚合(bigint/numeric)安全转 number。
@@ -1018,8 +1019,10 @@ const statsRoutes: FastifyPluginAsync = async (server) => {
     if (!q.success) return reply.status(400).send(error(400, '参数错误'))
     const gran = q.data.granularity
     const spanDays = gran === 'day' ? 30 : gran === 'week' ? 84 : 365
-    const start = new Date(Date.now() - spanDays * 86400000).toISOString().slice(0, 10)
-    const end = new Date().toISOString().slice(0, 10)
+    // F-578: 日键必须与 visit_date 写入端(bizDayKey,上海 +08)同源;
+    // end 含当日,start 回退 spanDays-1 天 ⇒ 窗口恰好 spanDays 个自然日。
+    const end = bizDayKey()
+    const start = shiftBizDayKey(end, -(spanDays - 1))
     // 访客身份:登录用户 > 会话 > IP;日期列 visit_date(YYYY-MM-DD 字符串)缺失时回退 created_at
     const bucketExpr =
       gran === 'day'
@@ -1027,7 +1030,8 @@ const statsRoutes: FastifyPluginAsync = async (server) => {
         : gran === 'week'
           ? sql`to_char(date_trunc('week', d::date), 'YYYY-MM-DD')`
           : sql`to_char(date_trunc('month', d::date), 'YYYY-MM-DD')`
-    const dateCol = sql`coalesce(visit_date, to_char(created_at, 'YYYY-MM-DD'))`
+    // F-578: 回退列也必须折成上海日,不能跟随 DB 会话时区(to_char 裸用会随 TimeZone 漂移)。
+    const dateCol = sql`coalesce(visit_date, to_char(created_at AT TIME ZONE 'Asia/Shanghai', 'YYYY-MM-DD'))`
     const visitorCol = sql`coalesce(user_id::text, session_id, ip, id::text)`
     try {
       const trendRows = (await db.execute(sql`

@@ -124,14 +124,14 @@ export function LiveLecturerListScreen({
             <View style={styles.listHeader}>
               <Text style={styles.subtitle}>{t('lecturer.subtitle')}</Text>
               <View style={styles.searchWrap}>
-                <Search size={16} color={tk.text.secondary} strokeWidth={2} />
+                <Search size={16} color={tk.text.tertiary} strokeWidth={2} />
                 <TextField
                   colorScheme={colorScheme}
                   style={styles.searchInput}
                   value={keyword}
                   onChangeText={setKeyword}
                   placeholder={t('lecturer.search')}
-                  placeholderTextColor={tk.text.secondary}
+                  placeholderTextColor={tk.text.tertiary}
                   returnKeyType="search"
                   accessibilityLabel={t('lecturer.search')}
                 />
@@ -225,7 +225,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     subtitle: {
       fontSize: rnType.caption.size,
-      color: tk.text.medium,
+      color: tk.text.tertiary,
     },
     searchWrap: {
       flexDirection: 'row',

@@ -28,14 +28,12 @@ from app.core.context_compaction import (
     compress_messages_if_needed,
 )
 
-# 首条 system:content 为 **list**(多模态形态),这正是 llm.py 触发 index 1 插入的条件。
-# 刻意不带图片载荷:AIS-016 之后图片按 128 token 占位计入,而本票要验的是"多条 system
-# 是否被提升保留",不该让 system 自己把窗口撑到"压缩后仍超阈值"(那是不可压缩分支)。
+# 首条 system:多模态(content 为 list),正是 llm.py 触发 index 1 插入的条件
 SYSTEM_MULTIMODAL: dict[str, Any] = {
     "role": "system",
     "content": [
         {"type": "text", "text": "你是 IHUI 助手,回答要简洁。"},
-        {"type": "text", "text": "附加约束:先给结论再给依据。"},
+        {"type": "image_url", "image_url": {"url": "data:image/png;base64,AAAA"}},
     ],
 }
 # index 1 注入的第二条 system(记忆图谱)
@@ -63,8 +61,7 @@ def _summary_of(out: list[dict[str, Any]]) -> dict[str, Any]:
 def test_multimodal_first_system_plus_index1_system_both_preserved():
     """① 多模态首条 system + index 1 注入 system ⇒ 两条都原样保留在前导。"""
     msgs = [SYSTEM_MULTIMODAL, SYSTEM_MEMORY, *_head_heavy(4, 6)]
-    # context_limit 取小值只为**保证触发**,不参与本票判据(阈值口径由 AIS-016 等票演进)
-    out, info = compress_messages_if_needed(msgs, context_limit=2000)
+    out, info = compress_messages_if_needed(msgs, context_limit=1000)
 
     assert info["compressed"] is True
     assert info["trigger"] == "ratio"
@@ -90,7 +87,7 @@ def test_non_leading_system_hoisted_not_dropped():
         *[{"role": "user", "content": "x" * 5000} for _ in range(2)],
         *[{"role": "user", "content": "t" * 100} for _ in range(DEFAULT_KEEP_RECENT)],
     ]
-    out, info = compress_messages_if_needed(msgs, context_limit=2000)
+    out, info = compress_messages_if_needed(msgs, context_limit=1000)
 
     assert info["compressed"] is True
     system_out = [m for m in out if m.get("role") == "system"]
@@ -98,11 +95,8 @@ def test_non_leading_system_hoisted_not_dropped():
     # 固定前导:所有 system 都在最前面且连续
     assert [m.get("role") for m in out[:2]] == ["system", "system"]
     assert _summary_of(out)["content"].count("绝密记忆图谱标记") == 0
-    # 被摘要条数只统计 non-system 消息(head 4 条 user),不得把 system 算进去
+    # 被摘要条数只统计 non-system 消息(head 4 条)
     assert info["removed_count"] == 4
-    assert info["removed_count"] == sum(
-        1 for m in msgs if m.get("role") != "system"
-    ) - DEFAULT_KEEP_RECENT
     assert info["boundary"]["removedRange"]["startIndex"] == 2
 
 

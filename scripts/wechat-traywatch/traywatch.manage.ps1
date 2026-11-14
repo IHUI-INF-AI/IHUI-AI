@@ -2,8 +2,6 @@
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-#requires -Version 7
-
 <#
 .SYNOPSIS
   微信托盘看门狗 (WeChatTrayWatchdog) 管理脚本
@@ -69,21 +67,10 @@ function Install-Task {
   $trig = $task.Triggers.Create(9)      # TASK_TRIGGER_LOGON = 9
   $trig.Enabled = $true
 
-  # --- Trigger 2: 每 10 分钟兜底（MultipleInstances=IgnoreNew，已在跑则不会重复拉起）---
-  # 立因 2026-11-12：pythonw 若异常退出，仅靠登录触发会让看门狗永久缺席；周期触发补位。
-  $trig2 = $task.Triggers.Create(1)     # TASK_TRIGGER_TIME = 1
-  $trig2.StartBoundary = (Get-Date).ToString('yyyy-MM-ddTHH:mm:ss')
-  $trig2.Repetition.Interval = 'PT10M'
-  $trig2.Repetition.StopAtDurationEnd = $false
-  $trig2.Enabled = $true
-
   # --- Action: 无窗口 pythonw 运行看门狗 ---
   $act = $task.Actions.Create(0)        # TASK_ACTION_EXEC = 0
-  # 2026-11-12：写死的 pythonw 路径（.workbuddy-ai\binaries\python\3.13.12）随运行时迁移已失效，
-  # 改为运行时探测 PATH 中的 pythonw.exe；pythonw 是 GUI 子系统，不会产生控制台窗口。
-  $pythonwCmd = Get-Command pythonw.exe -ErrorAction SilentlyContinue
-  if (-not $pythonwCmd) { throw 'pythonw.exe 不在 PATH 中，无法安装看门狗' }
-  $act.Path      = $pythonwCmd.Source
+  $act.Path      = Join-Path $env:LOCALAPPDATA ''  # 占位，下面覆盖
+  $act.Path      = 'C:\Users\Administrator\.workbuddy-ai\binaries\python\versions\3.13.12\pythonw.exe'
   $act.Arguments = '"' + (Join-Path $ScriptDir 'traywatch.py') + '"'
   $act.WorkingDirectory = $ScriptDir
 

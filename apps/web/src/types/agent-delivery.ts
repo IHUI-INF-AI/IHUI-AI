@@ -29,21 +29,10 @@ export interface DeliverableFileChange {
   deletions: number
 }
 
-/**
- * 显式交付声明(2026-11-14,对标 DSH present):模型通过 present_files 点名的文件。
- * 与 filesChanged 分开:命令/文档转换产物没有 diff 证据,不能伪造增删行数。
- */
-export interface DeliverablePresentedFile {
-  path: string
-  description?: string
-  stepIds: string[]
-}
-
 /** D27 交付清单 — 任务级聚合结果 */
 export interface TaskDeliverables {
   citations: DeliverableCitation[]
   filesChanged: DeliverableFileChange[]
-  presentedFiles: DeliverablePresentedFile[]
   toolsSummary: { total: number; byTool: Record<string, number> }
   outputSummary: string
   generatedAt: string
@@ -107,29 +96,9 @@ export function normalizeTaskDeliverables(value: unknown): TaskDeliverables | nu
     })
   }
 
-  // presentedFiles:path 必填;description 可选;stepIds 缺失按空数组兼容
-  // (API 侧子代理任务暂不产出该字段)。坏条目跳过而非整体拒绝。
-  const presentedFiles: DeliverablePresentedFile[] = []
-  if (Array.isArray(d.presentedFiles)) {
-    for (const f of d.presentedFiles) {
-      if (f === null || typeof f !== 'object') continue
-      const ff = f as Record<string, unknown>
-      if (typeof ff.path !== 'string' || ff.path.trim().length === 0) continue
-      const entry: DeliverablePresentedFile = { path: ff.path, stepIds: [] }
-      if (typeof ff.description === 'string' && ff.description.trim().length > 0) {
-        entry.description = ff.description
-      }
-      if (Array.isArray(ff.stepIds)) {
-        entry.stepIds = ff.stepIds.filter((s): s is string => typeof s === 'string')
-      }
-      presentedFiles.push(entry)
-    }
-  }
-
   return {
     citations,
     filesChanged,
-    presentedFiles,
     toolsSummary: { total: ts.total, byTool },
     outputSummary: d.outputSummary,
     generatedAt: d.generatedAt,

@@ -121,8 +121,8 @@ export function createTagsStyles(tk: AppThemeTokens) {
       gap: rnSpacing['xs-loose'],
       marginTop: rnSpacing.xs,
     },
-    groupLabel: { fontSize: rnType.caption.size, fontWeight: '600', color: tk.text.medium },
-    groupCount: { fontSize: rnType.caption.size, color: tk.text.medium },
+    groupLabel: { fontSize: rnType.caption.size, fontWeight: '600', color: tk.text.tertiary },
+    groupCount: { fontSize: rnType.caption.size, color: tk.text.tertiary },
     resourceList: { gap: rnSpacing['2xs'] },
     resourceRow: {
       flexDirection: 'row',
@@ -138,7 +138,7 @@ export function createTagsStyles(tk: AppThemeTokens) {
       color: tk.text.primary,
       fontFamily: 'monospace',
     },
-    resourceDate: { fontSize: rnType.caption.size, color: tk.text.medium },
+    resourceDate: { fontSize: rnType.caption.size, color: tk.text.tertiary },
     errorBox: { alignItems: 'center', gap: rnSpacing.sm, paddingVertical: rnSpacing['2xl'] },
     errorText: { fontSize: rnType.body.size, fontWeight: '600', color: tk.text.primary },
     refreshBtn: {

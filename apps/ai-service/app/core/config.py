@@ -114,6 +114,11 @@ class Settings(BaseSettings):
     # 用于解密 ai_model_config.api_key_enc)
     credentials_encryption_key: str = ""
 
+    # Anthropic 协议适配端点(/api/llm/anthropic/v1/messages)的外部客户端默认模型:
+    # Anthropic 形态客户端(Craft Anything、Claude Code 类)透传 model 名,可能不是
+    # 本池可解析的 id;命中不了时回落到本配置(须是网关可解析的带 provider 前缀模型 id)。
+    anthropic_compat_default_model: str = ""
+
     # JWT 验证(与 apps/api 共享 JWT_SECRET,用于 SSO 跨服务认证)
     jwt_secret: str = ""
     jwt_issuer: str = "ihui-ai"

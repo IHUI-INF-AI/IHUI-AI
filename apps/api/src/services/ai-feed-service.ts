@@ -730,21 +730,15 @@ export async function listFeedItems(opts: FeedItemListOpts): Promise<FeedItemLis
   if (opts.trend) conds.push(eq(aiFeedHotItem.trendTag, opts.trend))
   if (opts.keyword) conds.push(ilike(aiFeedHotItem.title, `%${opts.keyword}%`))
   const where = conds.length ? and(...conds) : undefined
-  const offset = (opts.page - 1) * opts.pageSize
 
   const [list, totalRows] = await Promise.all([
     db
       .select()
       .from(aiFeedHotItem)
       .where(where)
-      // 补 id 作为稳定 tie-breaker：批量 upsert 的 lastSeenAt 常为同毫秒，缺它翻页会重复/漏条
-      .orderBy(
-        desc(aiFeedHotItem.lastSeenAt),
-        desc(aiFeedHotItem.currentHot),
-        desc(aiFeedHotItem.id),
-      )
+      .orderBy(desc(aiFeedHotItem.lastSeenAt), desc(aiFeedHotItem.currentHot))
       .limit(opts.pageSize)
-      .offset(offset),
+      .offset((opts.page - 1) * opts.pageSize),
     db
       .select({ count: sql<number>`count(*)::int` })
       .from(aiFeedHotItem)
@@ -757,33 +751,24 @@ export async function listFeedItems(opts: FeedItemListOpts): Promise<FeedItemLis
   const hasFilter = Boolean(opts.source || opts.category || opts.trend || opts.keyword)
   if (!hasFilter && (totalRows[0]?.count ?? 0) === 0) {
     try {
-      const worldWhere = and(eq(aiWorldItems.kind, 'news'), eq(aiWorldItems.status, 1))
-      const [world, worldTotalRows] = await Promise.all([
-        db
-          .select({
-            id: aiWorldItems.id,
-            title: aiWorldItems.title,
-            summary: aiWorldItems.summary,
-            url: aiWorldItems.url,
-            coverUrl: aiWorldItems.coverImage,
-            source: aiWorldItems.source,
-            publishTime: aiWorldItems.publishedAt,
-            lastSeenAt: aiWorldItems.fetchedAt,
-            trendingScore: aiWorldItems.trendingScore,
-            kind: aiWorldItems.kind,
-          })
-          .from(aiWorldItems)
-          .where(worldWhere)
-          .orderBy(desc(aiWorldItems.publishedAt), desc(aiWorldItems.fetchedAt))
-          .limit(opts.pageSize)
-          .offset(offset),
-        db
-          .select({ count: sql<number>`count(*)::int` })
-          .from(aiWorldItems)
-          .where(worldWhere),
-      ])
-      const fallbackTotal = worldTotalRows[0]?.count ?? 0
-      if (fallbackTotal > 0) {
+      const world = await db
+        .select({
+          id: aiWorldItems.id,
+          title: aiWorldItems.title,
+          summary: aiWorldItems.summary,
+          url: aiWorldItems.url,
+          coverUrl: aiWorldItems.coverImage,
+          source: aiWorldItems.source,
+          publishTime: aiWorldItems.publishedAt,
+          lastSeenAt: aiWorldItems.fetchedAt,
+          trendingScore: aiWorldItems.trendingScore,
+          kind: aiWorldItems.kind,
+        })
+        .from(aiWorldItems)
+        .where(and(eq(aiWorldItems.kind, 'news'), eq(aiWorldItems.status, 1)))
+        .orderBy(desc(aiWorldItems.publishedAt), desc(aiWorldItems.fetchedAt))
+        .limit(opts.pageSize)
+      if (world.length > 0) {
         const fallback: AiFeedHotItem[] = world.map((w) => ({
           id: w.id,
           sourceCode: w.source,
@@ -812,7 +797,7 @@ export async function listFeedItems(opts: FeedItemListOpts): Promise<FeedItemLis
         }))
         return {
           list: fallback,
-          total: fallbackTotal,
+          total: fallback.length,
           page: opts.page,
           pageSize: opts.pageSize,
         }

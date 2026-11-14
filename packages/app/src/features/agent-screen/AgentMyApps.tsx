@@ -148,7 +148,7 @@ function createStyles(colorScheme: AppThemeMode) {
     },
     emptyText: {
       fontSize: rnType.body.size,
-      color: tokens.text.medium,
+      color: tokens.text.tertiary,
       textAlign: 'center',
     },
   })

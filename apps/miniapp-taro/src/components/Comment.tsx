@@ -39,11 +39,10 @@ export default function Comment({
 }: CommentProps) {
   const tt = useTt()
   return (
-    <View className="flex flex-col" style={{ height: '50vh', maxHeight: '50vh' }}>
+    <View className="flex flex-col" style={{ maxHeight: '50vh' }}>
       <ScrollView
         scrollY
         className="flex-1 px-md py-sm"
-        style={{ minHeight: 0 }}
         onScrollToLower={() => onReachBottom?.()}
         lowerThreshold={50}
       >
@@ -75,13 +74,9 @@ export default function Comment({
                     {item.content}
                   </Text>
                   <View className="flex justify-end mt-xs">
-                    <View
-                      className="text-label text-primary"
-                      hoverClass="opacity-60"
-                      onClick={() => onReply?.(item.id)}
-                    >
-                      <Text>{tt('comment.reply', '回复')}</Text>
-                    </View>
+                    <Text className="text-label text-primary" onClick={() => onReply?.(item.id)}>
+                      {tt('comment.reply', '回复')}
+                    </Text>
                   </View>
                   {item.replies && item.replies.length > 0 && (
                     <View className="mt-sm ml-sm pl-md py-[12rpx] pr-sm bg-muted rounded-md">

@@ -56,7 +56,7 @@ export function CourseCommentScreen({
             <View style={styles.row}>
               <Text style={styles.user}>{item.user}</Text>
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <Star size={12} color={tk.warning.amberText} fill={tk.warning.amberText} />
+                <Star size={12} color={tk.warning.DEFAULT} fill={tk.warning.DEFAULT} />
                 <Text style={styles.rating}>{item.rating.toFixed(1)}</Text>
               </View>
             </View>
@@ -85,7 +85,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     error: {
       fontSize: rnType.body.size,
-      color: tk.danger.deepText,
+      color: tk.danger.DEFAULT,
       marginBottom: rnSpacing.sm,
       textAlign: 'center',
     },
@@ -114,13 +114,13 @@ function createStyles(tk: AppThemeTokens) {
     },
     row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
     user: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
-    rating: { fontSize: rnType.label.size, color: tk.success.deepText },
+    rating: { fontSize: rnType.label.size, color: tk.success.DEFAULT },
     content: {
       marginTop: rnSpacing['xs-loose'],
       fontSize: rnType.body.size,
       color: tk.text.medium,
     },
-    meta: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.medium },
+    meta: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.tertiary },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

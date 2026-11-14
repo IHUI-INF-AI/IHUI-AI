@@ -23,8 +23,7 @@
  * - convertToMarkdownDetailed(path) 返回 { markdown, error? },供路由层给出具体文案
  */
 
-import { existsSync, writeFileSync, mkdirSync } from 'node:fs'
-import { readFile, stat } from 'node:fs/promises'
+import { readFileSync, existsSync, writeFileSync, mkdirSync } from 'node:fs'
 import { extname, join } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import { inflateRawSync } from 'node:zlib'
@@ -235,8 +234,8 @@ function formatAsMarkdownTable(title: string, rows: string[][]): string {
 /** OOXML 命名空间下的文本标签。 */
 const PPTX_TEXT_TAG = /<a:t[^>]*>([\s\S]*?)<\/a:t>/g
 
-async function pptxToMarkdown(filePath: string): Promise<string> {
-  const entries = await readZipEntries(filePath)
+function pptxToMarkdown(filePath: string): string {
+  const entries = readZipEntries(filePath)
   const slideNames = Object.keys(entries)
     .filter((n) => /^ppt\/slides\/slide\d+\.xml$/.test(n))
     .sort()
@@ -262,14 +261,11 @@ async function pptxToMarkdown(filePath: string): Promise<string> {
 const EOCD_SIG = 0x06054b50
 const CDH_SIG = 0x02014b50
 
-/** F-146:解压后总大小上限(防 zip bomb 把小体积 pptx 放大到 GB 级内存)。 */
-const MAX_ZIP_UNCOMPRESSED_SIZE = 100 * 1024 * 1024
-
 /** 读取 ZIP 文件全部条目为 { 名称: Buffer } 映射。失败返回空对象。 */
-async function readZipEntries(filePath: string): Promise<Record<string, Buffer>> {
+function readZipEntries(filePath: string): Record<string, Buffer> {
   let buf: Buffer
   try {
-    buf = await readFile(filePath)
+    buf = readFileSync(filePath)
   } catch {
     return {}
   }
@@ -288,13 +284,11 @@ async function readZipEntries(filePath: string): Promise<Record<string, Buffer>>
   const cdOffset = buf.readUInt32LE(eocdOffset + 16)
   const cdCount = buf.readUInt16LE(eocdOffset + 10)
   let ptr = cdOffset
-  let totalUncompressed = 0
   for (let i = 0; i < cdCount; i++) {
     if (ptr + 46 > buf.length) break
     if (buf.readUInt32LE(ptr) !== CDH_SIG) break
     const method = buf.readUInt16LE(ptr + 10)
     const compressedSize = buf.readUInt32LE(ptr + 20)
-    const uncompressedSize = buf.readUInt32LE(ptr + 24)
     const nameLen = buf.readUInt16LE(ptr + 28)
     const extraLen = buf.readUInt16LE(ptr + 30)
     const commentLen = buf.readUInt16LE(ptr + 32)
@@ -302,15 +296,6 @@ async function readZipEntries(filePath: string): Promise<Record<string, Buffer>>
     const name = buf.toString('utf-8', ptr + 46, ptr + 46 + nameLen)
     // 跳过目录条目
     if (!name.endsWith('/')) {
-      // F-146:解压前按中央目录声明的解压后大小累计,超总上限直接放弃(不解压任何条目)
-      totalUncompressed += uncompressedSize
-      if (totalUncompressed > MAX_ZIP_UNCOMPRESSED_SIZE) {
-        logger.warn('[markdown-converter] ZIP 解压后总大小超过上限,放弃解析', {
-          totalUncompressed,
-          limit: MAX_ZIP_UNCOMPRESSED_SIZE,
-        })
-        return {}
-      }
       const data = readZipEntryData(buf, localOffset, method, compressedSize)
       if (data) result[name] = data
     }
@@ -335,8 +320,7 @@ function readZipEntryData(
   if (method === 0) return Buffer.from(data) // stored
   if (method === 8) {
     try {
-      // F-146:单条也设解压上限,中央目录声明值不可信时兜底
-      return inflateRawSync(data, { maxOutputLength: MAX_ZIP_UNCOMPRESSED_SIZE })
+      return inflateRawSync(data)
     } catch {
       return null
     }
@@ -361,10 +345,10 @@ function decodeXmlEntities(s: string): string {
 const PDF_TEXT_OP = /\(([^()\\]*)\)\s*Tj?/g
 const PDF_TJ_ARRAY = /\[([^\]]*)\]\s*TJ/g
 
-async function pdfToMarkdown(filePath: string): Promise<string> {
+function pdfToMarkdown(filePath: string): string {
   let buf: Buffer
   try {
-    buf = await readFile(filePath)
+    buf = readFileSync(filePath)
   } catch {
     return ''
   }
@@ -444,9 +428,9 @@ async function legacyToMarkdown(filePath: string, ext: string): Promise<string> 
       case '.xlsm':
         return xlsxToMarkdown(filePath)
       case '.pptx':
-        return await pptxToMarkdown(filePath)
+        return pptxToMarkdown(filePath)
       case '.pdf':
-        return await pdfToMarkdown(filePath)
+        return pdfToMarkdown(filePath)
       default:
         return ''
     }
@@ -464,35 +448,6 @@ export interface DetailedConvertResult {
   markdown: string
   /** 失败时的中文错误文案(供路由层直接返回)。 */
   error?: string
-  /** 失败时的 HTTP 状态码(体积超限 413);未给出时路由层沿用 422。 */
-  statusCode?: number
-}
-
-/**
- * F-146:读入前的体积闸。
- *
- * 转换与资产提取都会把整份文件读进内存(anydoc 还要解压),此前是「先 readFileSync
- * 全量读、读完才比 20MB」,100MB 文件会阻塞事件循环数秒并产生 ~200MB 字符串。
- * 现在先 stat 判大小,超限直接拒绝,不进内存、不解压。
- *
- * @param action 中文动作词,拼进错误文案(如「转换」「提取内嵌资产」)
- * @returns null 表示通过;否则返回错误文案与建议状态码
- */
-async function checkFileSizeLimit(
-  filePath: string,
-  action: string,
-): Promise<{ error: string; statusCode?: number } | null> {
-  let size: number
-  try {
-    size = (await stat(filePath)).size
-  } catch {
-    return { error: '文件不存在或路径无效' }
-  }
-  if (size > MAX_FILE_SIZE) {
-    const mb = Math.floor(MAX_FILE_SIZE / 1024 / 1024)
-    return { error: `文件超过 ${mb}MB 上限,无法${action}`, statusCode: 413 }
-  }
-  return null
 }
 
 /**
@@ -510,11 +465,6 @@ export async function convertToMarkdownDetailed(
   if (!filePath || !existsSync(filePath)) {
     return { markdown: '', error: '文件不存在或路径无效' }
   }
-  // F-146:先 stat 判大小,超限在读入前就拒绝(不进内存、不解压)
-  const sizeCheck = await checkFileSizeLimit(filePath, '转换')
-  if (sizeCheck) {
-    return { markdown: '', error: sizeCheck.error, statusCode: sizeCheck.statusCode }
-  }
   // 类型判定优先用原始文件名(落盘名可能是无后缀 UUID)
   const ext = extname(originalName && extname(originalName) ? originalName : filePath).toLowerCase()
   // 磁盘文件自身是否有后缀(决定 anydoc 走路径还是字节路径)
@@ -523,7 +473,7 @@ export async function convertToMarkdownDetailed(
   // .txt/.md:直接读取 UTF-8
   if (ext === '.txt' || ext === '.md' || ext === '.markdown') {
     try {
-      return { markdown: await readFile(filePath, 'utf-8') }
+      return { markdown: readFileSync(filePath, 'utf-8') }
     } catch (e) {
       return { markdown: '', error: `文件读取失败: ${(e as Error).message}` }
     }
@@ -540,7 +490,7 @@ export async function convertToMarkdownDetailed(
           md = await anydoc.toMarkdown(filePath)
         } else {
           // 落盘文件无后缀:读字节,优先 formatFromBytes 字节探测,再回退原始文件名格式
-          const bytes = new Uint8Array(await readFile(filePath))
+          const bytes = new Uint8Array(readFileSync(filePath))
           const fmt =
             anydoc.formatFromBytes?.(bytes) ??
             anydoc.formatFromPath(originalName ?? filePath) ??
@@ -609,12 +559,7 @@ export interface ExtractAssetsResult {
   unsupported?: boolean
   /** 失败时的中文文案。 */
   error?: string
-  /** 失败时的 HTTP 状态码(体积超限 413);未给出时路由层沿用 422。 */
-  statusCode?: number
 }
-
-/** F-146:资产落盘总量上限(anydoc 已解压,防单请求写出 GB 级资产)。 */
-const MAX_ASSETS_TOTAL_SIZE = 100 * 1024 * 1024
 
 /**
  * 提取文档内嵌图片/对象资产并落盘到 writeToDir。
@@ -643,12 +588,6 @@ export async function extractDocumentAssets(
     return { assets: [], unsupported: true }
   }
 
-  // F-146:先 stat 判大小,超限在读入/加载解析引擎之前就拒绝(to_document 会全量载入内存并解压)
-  const sizeCheck = await checkFileSizeLimit(filePath, '提取内嵌资产')
-  if (sizeCheck) {
-    return { assets: [], error: sizeCheck.error, statusCode: sizeCheck.statusCode }
-  }
-
   const anydoc = await loadAnydoc()
   if (!anydoc) {
     return { assets: [], error: '文档解析引擎不可用(anydoc 模块加载失败),请检查部署依赖' }
@@ -656,9 +595,14 @@ export async function extractDocumentAssets(
 
   let bytes: Buffer
   try {
-    bytes = await readFile(filePath)
+    bytes = readFileSync(filePath)
   } catch (e) {
     return { assets: [], error: `文件读取失败: ${(e as Error).message}` }
+  }
+  // to_document 会全量载入内存:超出上限直接拒绝
+  if (bytes.length > MAX_FILE_SIZE) {
+    const mb = Math.floor(MAX_FILE_SIZE / 1024 / 1024)
+    return { assets: [], error: `文件超过 ${mb}MB 上限,无法提取内嵌资产` }
   }
 
   // 格式判定:磁盘有后缀优先;否则 formatFromBytes 字节探测;仍 null 回退原始文件名;再空则报错
@@ -684,12 +628,6 @@ export async function extractDocumentAssets(
   }
 
   const assets = doc.assets ?? []
-  // F-146:解压出来的资产总量也要有上限,超限直接拒绝而不是写盘
-  const totalAssetBytes = assets.reduce((n, a) => n + (a.data?.length ?? 0), 0)
-  if (totalAssetBytes > MAX_ASSETS_TOTAL_SIZE) {
-    const mb = Math.floor(MAX_ASSETS_TOTAL_SIZE / 1024 / 1024)
-    return { assets: [], error: `内嵌资产总大小超过 ${mb}MB 上限`, statusCode: 413 }
-  }
   const outDir = writeToDir
   if (outDir && !existsSync(outDir)) mkdirSync(outDir, { recursive: true })
 

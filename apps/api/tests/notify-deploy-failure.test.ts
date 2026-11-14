@@ -276,7 +276,9 @@ describe('resolveSmtpFrom', () => {
   })
 
   it('邮箱段不匹配 → 回落登录账号(防 smtp.qq.com 550)', () => {
-    expect(t.resolveSmtpFrom('"其他" <other@qq.com>', 'bot@qq.com')).toBe('"智汇AI" <bot@qq.com>')
+    expect(t.resolveSmtpFrom('"其他" <other@qq.com>', 'bot@qq.com')).toBe(
+      '"智汇AI" <bot@qq.com>',
+    )
   })
 
   it('机主实际配置形态:智汇AI <502319984@qq.com> → 显示名与地址双双稳定', () => {
@@ -292,7 +294,7 @@ describe('resolveResendFrom', () => {
     expect(t.resolveResendFrom({ RESEND_FROM: '智汇AI官方 <noreply@aizhs.top>' })).toBe(
       '智汇AI <noreply@aizhs.top>',
     )
-    expect(t.resolveResendFrom({})).toBe('智汇AI <lizong@aizhs.top>')
+    expect(t.resolveResendFrom({})).toBe('智汇AI <IHUI-AI@aizhs.top>')
   })
 })
 
@@ -590,9 +592,7 @@ describe('runCore(端到端,零网络)', () => {
       zh.deps,
     )
     expect(oZh.subject).toBe('[严重] 部署失败 — production')
-    expect(must(zh.smtpCalls[0], 'zh.smtpCalls[0]').mail.subject).toBe(
-      '[严重] 部署失败 — production',
-    )
+    expect(must(zh.smtpCalls[0], 'zh.smtpCalls[0]').mail.subject).toBe('[严重] 部署失败 — production')
   })
 
   it('混合收件人只成功一半 → 不落去重账(下一轮仍要重试那半边)', async () => {

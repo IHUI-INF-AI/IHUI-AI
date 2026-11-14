@@ -264,25 +264,18 @@ export default function Carousel({
       {total > 1 && (
         <View style={carouselIndicatorWrapStyle(toUnit)}>
           {/* 指示点两态的档与 RN 同一份落点:活跃 16×6 取 md、非活跃 6×6 取 sm(此前两端声明不同档) */}
-          {/* 透明命中层承接点击与按压反馈,把可点区扩到 weapp 最小热区;圆点视觉尺寸仍唯一取 carouselDotStyle */}
           {slides.map((_, index) => (
             <View
               key={index}
               onClick={() => goTo(index)}
-              hoverClass="opacity-60"
-              className="flex items-end justify-center"
-              style={{ width: rpx(88), height: rpx(88) }}
-            >
-              <View
-                style={carouselDotStyle(toUnit, activeIndex === index)}
-                className={cn(
-                  'transition-all',
-                  activeIndex === index
-                    ? 'rounded-md bg-foreground/80'
-                    : 'rounded-sm bg-foreground/30',
-                )}
-              />
-            </View>
+              style={carouselDotStyle(toUnit, activeIndex === index)}
+              className={cn(
+                'transition-all',
+                activeIndex === index
+                  ? 'rounded-md bg-foreground/80'
+                  : 'rounded-sm bg-foreground/30',
+              )}
+            />
           ))}
         </View>
       )}

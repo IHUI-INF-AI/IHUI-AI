@@ -14,11 +14,6 @@ import { t } from '../i18n'
 import { type UserInfo, type LoginResult } from '../utils/auth'
 import type { SSEEvent } from '../utils/sse-parse'
 import { formatDateByTemplate } from '@ihui/shared'
-// 差距①(2026-11-13 立):发送准入回执的类型与判据都住在共享层(send-admission.ts)。
-// 本文件只透传类型;解析腿在 lib/tool-approval-frame.ts 的 parseAdmissionLine,
-// 那里调用共享 readSendAdmissionReceipt —— 端内不复制四档值域判据。
-import type { SendAdmissionReceipt } from '@ihui/shared/chat/send-admission'
-import type { MemoryUpdatesEvent } from '@ihui/api-client'
 // #12 小程序 AI 增强,D138(承 V4 #96)收口:传输层收敛到 src/lib/sse.ts 薄壳 +
 // @ihui/api-client 的 runResumableSSEStream(重连/退避/读超时/续传游标的唯一实现);
 // 仅本端保留读超时常量传参。
@@ -82,7 +77,7 @@ import type { GoalUpdateEvent } from '@ihui/api-client'
 // D136(2026-10-01 立,承 V4 #94/D84):高危工具审批(tool-approval)载荷类型同纪律。
 import type { ToolApprovalEvent } from '@ihui/api-client'
 // D136:tool-approval 帧的端内认领层(共享解析面不认领该帧族,见该文件头注)。
-import { parseToolApprovalLine, parseQuestionLine, parseAdmissionLine } from '@/lib/tool-approval-frame'
+import { parseToolApprovalLine, parseQuestionLine } from '@/lib/tool-approval-frame'
 import {
   parseBudgetStopData,
   parseCompactBoundary,
@@ -403,10 +398,6 @@ export interface MiniappStreamOptions extends ChatOptions {
    *  不声明/不发 ⇒ 回复落库不带族,版本切换整链空转。 */
   parentMessageId?: string
   siblingIndex?: number
-  /** 差距①第 ① 腿(2026-11-13):本轮发送的稳定输入 ID(由共享 `createInputId()` 生成)。
-   *  服务端凭它回显准入回执并判 duplicate;同一轮重发须沿用同值。
-   *  缺省 ⇒ 服务端结构上不发 admission 帧(与改造前逐字等价)。 */
-  inputId?: string
 }
 
 /**
@@ -466,14 +457,6 @@ export interface StreamEventCallbacks {
   onCitations?: (evt: CitationsEvent) => void
   /** D106 中途引导注入确认(Steer 全链路):载荷与 @ihui/api-client 的 SteerEvent 严格对齐 */
   onSteer?: (evt: SteerEvent) => void
-  /** 差距①(2026-11-13 立,第 ②③ 腿):发送准入回执。
-   *  载荷与 @ihui/api-client 的 `SendAdmissionReceipt`(shared `send-admission.ts` 出口)同构;
-   *  本端只透传,**不判四档值域** —— 判据在共享层 `readSendAdmissionReceipt` 单一持有。
-   *  不注册 ⇒ 帧静默丢弃(与其余 per-field 同口径)。 */
-  onSendAdmissionReceipt?: (receipt: SendAdmissionReceipt) => void
-  /** 记忆更新交代(2026-11-13):本轮新增写入长期记忆的条目摘要。空数组 = 无新记忆。
-   *  载荷复用 @ihui/api-client 的 MemoryUpdatesEvent,端内不重复定义。 */
-  onMemoryUpdates?: (event: MemoryUpdatesEvent) => void
   /**
    * D152(2026-09-29 立,拍板「服务化,但存会话元数据、不建新表」):会话目标(goal)的服务端
    * 主副本变了 ⇒ 一帧 `goal_updated`。载荷复用 @ihui/api-client 的 GoalUpdateEvent。
@@ -500,21 +483,6 @@ export interface StreamEventCallbacks {
     options: Array<{ id: string; label: string }>
     allowCustom: boolean
     allowMultiple: boolean
-  }) => void
-  /**
-   * 提问结算帧(question-resolved)的端内出口(2026-11-13 立)。
-   *
-   * 立因:本端有提问卡(`chat-shell-extras.tsx` 的 overlaySlot 卡),而此前**没有任何**结算
-   * 通道 —— 服务端因超时/撤回/打断结束时,卡片永远停在"待回答",用户以为还能点、点了没反应。
-   * 载荷由共享解析层(@ihui/shared/utils/sse-parse 的 question-resolved 认领分支)挂到
-   * SSEEvent 信封上,本层只透传、不另判 —— 与 api-client `streamChat.onQuestionResolved`
-   * 同名同义(四值 status 白名单只在解析层一处)。
-   */
-  onQuestionResolved?: (evt: {
-    questionId: string
-    status: 'answered' | 'timeout' | 'withdrawn' | 'interrupted'
-    selectedOptionIds: string[]
-    customText?: string
   }) => void
   /**
    * D77(2026-10-17 落地小程序腿):对话流业务表单请求帧(form_request)。
@@ -675,13 +643,6 @@ export const chatStream = async (
       case 'form_request':
         if (evt.formRequest) callbacks?.onFormRequest?.(evt.formRequest)
         break
-      // 提问结算帧(2026-11-13 立,与上面 form_request 同一形状):共享 sse-parse 已认领
-      // question-resolved,端内只承接已认领的事件。
-      // 为什么必须有这条:本端有提问卡(chat-shell-extras 的 overlaySlot),缺结算通道时
-      // 服务端超时/撤回/打断后卡片永远停在"待回答" —— 用户以为还能点,点了没反应。
-      case 'question-resolved':
-        if (evt.questionResolved) callbacks?.onQuestionResolved?.(evt.questionResolved)
-        break
       case 'done':
         onDone?.({
           totalTokens: evt.usage?.totalTokens,
@@ -692,14 +653,6 @@ export const chatStream = async (
         // G-425:done 帧携带的 finishReason 原样透传(共享 sse-parse 已认领该字段);
         // 缺席 = 上游没给,不触发通道(绝不把"没采到"折成 stop)。
         if (evt.finishReason) callbacks?.onFinishReason?.({ finishReason: evt.finishReason })
-        // P1 #27(2026-11-13):done 帧携带的本轮新增长期记忆条目。
-        // 它是 **done 的可选字段**,不是独立帧 —— 所以在这里分发,不走 switch 分支。
-        // 缺席 = 没采到(不回调);空数组 = 本轮无新记忆(回调,由消费方决定是否提示)。
-        if (evt.memoryUpdates) {
-          // SSEEvent 的 done 分支没有 messageId(共享 sse-parse 不透传该键);
-          // 载荷类型里它是可选的,缺席时消费方回退到本流 assistantId(与 api-client 同语义)。
-          callbacks?.onMemoryUpdates?.({ items: evt.memoryUpdates })
-        }
         break
       case 'error': {
         if (!evt.content) break
@@ -804,22 +757,6 @@ export const chatStream = async (
   const agentTools = resolveAgentTools(options.agentTools, messages)
 
   // W5:请求体(两分支共用,避免字段漂移;对齐 apps/api chatStreamSchema 的 11 个字段)
-  //
-  // metadata 三键按需拼,任一组在场才发 —— 普通回复(不带 inputId、不带版本族坐标)时
-  // 该键整体缺席,请求体与改造前逐字节一致。
-  const buildMetadata = () => {
-    const md: Record<string, string | number> = {}
-    // 票59 小程序腿:版本族坐标(与 apps/api ai-chat-stream.ts 的 chatStreamSchema.metadata
-    // 声明面对齐;两键缺一即不发)
-    if (options.parentMessageId !== undefined && options.siblingIndex !== undefined) {
-      md.parentMessageId = options.parentMessageId
-      md.siblingIndex = options.siblingIndex
-    }
-    // 差距①第 ⓪ 腿:回执要能判 queued/rejected 就必须带会话 id(见 buildBody 里的注释)
-    if (options.inputId !== undefined && sessionId) md.conversationId = sessionId
-    return Object.keys(md).length > 0 ? md : undefined
-  }
-
   const buildBody = () => ({
     messages,
     sessionId,
@@ -837,18 +774,12 @@ export const chatStream = async (
     reasoningEffort: options.reasoningEffort,
     tools: options.tools,
     tool_choice: options.tool_choice,
-    inputId: options.inputId,
-    // 差距①(2026-11-13 立,补本端第 ⓪① 腿):发送准入回执配对的两把上行键。
-    //
-    // ① `inputId` —— 服务端生产判据(apps/ai-service/app/routers/llm.py):「缺席 ⇒ 不发
-    //    admission 帧,在场 ⇒ 首个内容帧之前原样回显一帧准入回执」。值由共享层
-    //    `createInputId()` 生成(端内不造第二源),同一轮重发沿用同值 ⇒ 服务端能判 duplicate。
-    // ② `metadata.conversationId` —— 回执**有信息量**的前提:sse_contract.py 的 `take_admission`
-    //    头注「conversation_id 缺席 ⇒ 无从配对留痕,恒 accepted 且不登记」,而 queued/rejected
-    //    两档全由会话 lane 产生 ⇒ 只带 inputId 的端拿到的是恒 accepted 常量,与本端首帧
-    //    onDelta 已证明的事同义反复(接进没有信息量的出口 = 台账明令禁止)。
-    // 版本族两键缺一即不发 ⇒ 普通回复请求体零变化;带 inputId 时才补 conversationId。
-    metadata: buildMetadata(),
+    // 票59 小程序腿:版本族坐标走 metadata(与 apps/api ai-chat-stream.ts 的
+    // chatStreamSchema.metadata 声明面对齐;两键缺一即不发 ⇒ 普通回复请求体零变化)。
+    metadata:
+      options.parentMessageId !== undefined && options.siblingIndex !== undefined
+        ? { parentMessageId: options.parentMessageId, siblingIndex: options.siblingIndex }
+        : undefined,
   })
 
   // #12 小程序 AI 增强,D138(承 V4 #96)收口:传输层收敛到 src/lib/sse.ts 薄壳 +
@@ -870,13 +801,6 @@ export const chatStream = async (
       const evt = parseToolApprovalLine(line)
       if (evt && callbacks && typeof callbacks.onToolApproval === 'function') {
         callbacks.onToolApproval(evt)
-      }
-      // 差距①(2026-11-13,第 ②③ 腿):admission 帧认领。共享 sse-parse 不认领该帧族
-      // ⇒ 不走旁路就一路静默丢弃(与 tool-approval / question 同一条先例)。
-      // 载荷判据在共享 readSendAdmissionReceipt(四档值域一处持有),本层只透传。
-      const admission = parseAdmissionLine(line)
-      if (admission && callbacks && typeof callbacks.onSendAdmissionReceipt === 'function') {
-        callbacks.onSendAdmissionReceipt(admission)
       }
       // 批次 3:共享解析面只折 usage/compaction 的旧字段,七类账本与压缩边界
       // 会在那一层被静默丢掉 ⇒ 这两维在本端旁路认领(形状不认即丢弃,不猜不补)。

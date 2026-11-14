@@ -46,77 +46,7 @@ interface MonthlyResult {
   skippedSigned: number
 }
 
-interface PayrollPeriod {
-  id: string
-  periodMonth: string
-  status: string
-  updatedAt?: string | null
-}
-
-const PERIOD_STATUS_LABEL: Record<string, string> = {
-  draft: '草稿',
-  calculated: '已计算',
-  approved: '已审批',
-  paid: '已发放',
-}
-
-const PAYROLL_STEPS: Array<{
-  key: keyof NonNullable<PayrollBreakdown['steps']>
-  label: string
-}> = [
-  { key: 'dailyRate', label: '日薪' },
-  { key: 'basePay', label: '出勤工资' },
-  { key: 'otAmount', label: '加班费' },
-  { key: 'absenceDeduction', label: '缺勤折算(审计值)' },
-  { key: 'grossPay', label: '应发' },
-  { key: 'insurancePersonal', label: '社保(个人)' },
-  { key: 'housingFundPersonal', label: '公积金(个人)' },
-  { key: 'specialDeduction', label: '专项附加扣除' },
-  { key: 'taxableIncome', label: '计税所得' },
-  { key: 'incomeTax', label: '个税' },
-  { key: 'netPay', label: '实发' },
-]
-
-// =============================================================================
-// 公共小组件
-// =============================================================================
-
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <section className="space-y-3">
-      <h2 className="text-lg font-semibold">{title}</h2>
-      {children}
-    </section>
-  )
-}
-
-function Badge({
-  tone,
-  children,
-}: {
-  tone: 'ok' | 'warn' | 'danger' | 'muted'
-  children: React.ReactNode
-}) {
-  const cls =
-    tone === 'ok'
-      ? 'bg-success/10 text-success'
-      : tone === 'danger'
-        ? 'bg-destructive/10 text-destructive'
-        : tone === 'warn'
-          ? 'bg-warning/10 text-warning'
-          : 'bg-muted text-muted-foreground'
-  return (
-    <span className={`inline-flex rounded-md px-1.5 py-0.5 text-label font-medium ${cls}`}>
-      {children}
-    </span>
-  )
-}
-
-// =============================================================================
-// 月结生成
-// =============================================================================
-
-export function MonthlyTab({ t }: { t: ReturnType<typeof useTranslations> }) {
+export function MonthlyTab({ t }: { t: TFunc }) {
   const qc = useQueryClient()
   const [month, setMonth] = React.useState(() => {
     const d = new Date()
@@ -173,7 +103,7 @@ export function MonthlyTab({ t }: { t: ReturnType<typeof useTranslations> }) {
       {result && (
         <div className="rounded-lg border bg-muted/50 px-4 py-3 text-body">
           <div className="font-medium">{t('monthlyResult')}</div>
-          <div className="mt-1 grid grid-cols-2 gap-x-6 gap-y-1 text-sm">
+          <div className="font-[weight:inherit] mt-1 grid grid-cols-2 gap-x-6 gap-y-1 text-body">
             <span>{t('colPeriodMonth')}:</span>
             <span>{result.periodMonth}</span>
             <span>{t('colTotalEmployees')}:</span>
@@ -187,59 +117,7 @@ export function MonthlyTab({ t }: { t: ReturnType<typeof useTranslations> }) {
           </div>
         </div>
       )}
-
-      {!monthValid ? (
-        <p className="text-muted-foreground">请输入 YYYY-MM 格式的月份</p>
-      ) : monthlyQuery.isLoading ? (
-        <p className="text-muted-foreground">{t('loading')}</p>
-      ) : monthlyQuery.isError ? (
-        <p className="text-destructive">{monthlyQuery.error?.message ?? '加载月结失败'}</p>
-      ) : rows.length === 0 ? (
-        <p className="text-muted-foreground">{t('noData')}</p>
-      ) : (
-        <table className="font-[weight:inherit] w-full text-body">
-          <thead>
-            <tr className="text-left text-muted-foreground">
-              <th className="px-2 py-1">{t('colEmployeeNo')}</th>
-              <th className="px-2 py-1">{t('colName')}</th>
-              <th className="px-2 py-1">应出勤</th>
-              <th className="px-2 py-1">实出勤</th>
-              <th className="px-2 py-1">迟到</th>
-              <th className="px-2 py-1">早退</th>
-              <th className="px-2 py-1">缺勤</th>
-              <th className="px-2 py-1">请假(天)</th>
-              <th className="px-2 py-1">加班(小时)</th>
-              <th className="px-2 py-1">已签字</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r) => {
-              const leaveTotal = Object.values(r.leaveDays ?? {}).reduce((s, v) => s + Number(v), 0)
-              return (
-                <tr key={r.id} className="border-t">
-                  <td className="px-2 py-1">{r.employeeNo ?? '-'}</td>
-                  <td className="px-2 py-1">{r.employeeName ?? '-'}</td>
-                  <td className="px-2 py-1">{r.scheduledDays}</td>
-                  <td className="px-2 py-1">{r.actualDays}</td>
-                  <td className="px-2 py-1">{r.lateCount}</td>
-                  <td className="px-2 py-1">{r.earlyCount}</td>
-                  <td className="px-2 py-1">{r.absentDays}</td>
-                  <td className="px-2 py-1">{leaveTotal}</td>
-                  <td className="px-2 py-1">{r.otHours}</td>
-                  <td className="px-2 py-1">
-                    {r.signed ? (
-                      <Badge tone="ok">已签字</Badge>
-                    ) : (
-                      <span className="text-muted-foreground">-</span>
-                    )}
-                  </td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
-      )}
-    </Section>
+    </section>
   )
 }
 
@@ -430,7 +308,7 @@ export function SalaryConfigTab({ t }: { t: TFunc }) {
           <button
             key={st.key}
             onClick={() => setSubTab(st.key)}
-            className={`px-2 py-1 text-sm ${
+            className={`px-2 py-1 text-body ${
               subTab === st.key
                 ? 'border-b-2 border-primary font-medium text-primary'
                 : 'text-muted-foreground'
@@ -792,10 +670,29 @@ interface PayrollPeriod {
   status: string
 }
 
-  const itemsQuery = useQuery({
-    queryKey: ['hr', 'payroll', 'items', periodMonth],
-    enabled: MONTH_RE.test(periodMonth),
-    queryFn: () => api<PayrollItemsResult>(`${PAYROLL_RESOURCE}/items?periodMonth=${periodMonth}`),
+interface PayrollItem {
+  employeeName: string | null
+  employeeNo: string | null
+  baseSalary: string
+  otAmount: string
+  allowance: string
+  attendanceDeduction: string
+  grossPay: string
+  insurancePersonal: string
+  housingFundPersonal: string
+  incomeTax: string
+  netPay: string
+  breakdown: {
+    steps?: Record<string, number>
+    warnings?: string[]
+  } | null
+}
+
+export function PayrollTab({ t }: { t: TFunc }) {
+  const qc = useQueryClient()
+  const [month, setMonth] = React.useState(() => {
+    const d = new Date()
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
   })
   const [regionName, setRegionName] = React.useState('')
   const [expandedId, setExpandedId] = React.useState<string | null>(null)
@@ -984,7 +881,7 @@ interface PayrollPeriod {
         </HasPermi>
         {status && (
           <span
-            className={`ml-2 rounded-full px-2 py-0.5 text-xs ${
+            className={`font-[weight:inherit] ml-2 rounded-full px-2 py-0.5 text-label ${
               status === 'paid'
                 ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
                 : status === 'approved'
@@ -1000,11 +897,11 @@ interface PayrollPeriod {
       {/* 财务交割凭证(算薪→记账联动,纯产出不入账) */}
       {handoff && (
         <div className="space-y-2 rounded-lg border bg-muted/30 p-4 text-body">
-          <div className="flex items-center gap-2 text-sm font-semibold">
+          <div className="flex items-center gap-2 text-body font-semibold">
             <BookOpen className="h-4 w-4 text-primary" />
             {t('handoffTitle', { month })}
             <span
-              className={`rounded-full px-2 py-0.5 text-xs ${
+              className={`font-[weight:inherit] rounded-full px-2 py-0.5 text-label ${
                 handoff.balanced
                   ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
                   : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
@@ -1023,10 +920,10 @@ interface PayrollPeriod {
               {exporting ? t('handoffExporting') : t('handoffExportExcel')}
             </Button>
           </div>
-          <p className="text-xs text-muted-foreground">
+          <p className="font-[weight:inherit] text-label text-muted-foreground">
             {t('handoffHeadcount', { count: handoff.headcount })} · {t('handoffDisclaimer')}
           </p>
-          <table className="font-[weight:inherit] w-full text-sm">
+          <table className="font-[weight:inherit] w-full text-body">
             <thead>
               <tr className="text-left text-muted-foreground">
                 <th className="px-2 py-1">{t('handoffGroup')}</th>
@@ -1046,7 +943,7 @@ interface PayrollPeriod {
               ))}
             </tbody>
           </table>
-          <div className="flex gap-4 border-t pt-2 text-xs text-muted-foreground">
+          <div className="font-[weight:inherit] flex gap-4 border-t pt-2 text-label text-muted-foreground">
             <span>
               {t('colTotalGross')}: ¥{handoff.totals.grossPay}
             </span>
@@ -1065,36 +962,6 @@ interface PayrollPeriod {
           </div>
         </div>
       )}
-      <p className="text-label text-muted-foreground">
-        需该月月结已生成;缺薪资配置的员工会被跳过并计入提示。已审批的周期默认不可重算,已发放后完全锁定。
-      </p>
-
-      <div className="flex flex-wrap items-center gap-3 text-body">
-        <span>
-          {t('colPeriodMonth')}: {periodMonth}
-        </span>
-        {currentPeriod ? (
-          <Badge
-            tone={
-              currentStatus === 'draft' ? 'muted' : currentStatus === 'calculated' ? 'warn' : 'ok'
-            }
-          >
-            {PERIOD_STATUS_LABEL[currentStatus] ?? currentStatus}
-          </Badge>
-        ) : (
-          <span className="text-muted-foreground">{t('none')}</span>
-        )}
-        <span>
-          {t('colCount')}: {itemsQuery.data?.count ?? 0}
-        </span>
-        <span>
-          {t('colTotalGross')}: <strong>{fmtMoney(itemsQuery.data?.totalGross)}</strong>
-        </span>
-        <span>
-          {t('colTotalNet')}:{' '}
-          <strong className="text-success">{fmtMoney(itemsQuery.data?.totalNet)}</strong>
-        </span>
-      </div>
 
       {/* 汇总 */}
       {items.length > 0 && (
@@ -1140,21 +1007,17 @@ interface PayrollPeriod {
                   <tr className="border-t">
                     <td className="px-2 py-1">{r.employeeNo ?? '-'}</td>
                     <td className="px-2 py-1">{r.employeeName ?? '-'}</td>
-                    <td className="px-2 py-1">{fmtMoney(r.grossPay)}</td>
-                    <td className="px-2 py-1">{fmtMoney(r.otAmount)}</td>
-                    <td className="px-2 py-1 text-destructive">
-                      {Number(r.attendanceDeduction) > 0
-                        ? `-${fmtMoney(r.attendanceDeduction)}`
-                        : '0.00'}
-                    </td>
-                    <td className="px-2 py-1">{fmtMoney(r.insurancePersonal)}</td>
-                    <td className="px-2 py-1">{fmtMoney(r.housingFundPersonal)}</td>
-                    <td className="px-2 py-1">{fmtMoney(r.incomeTax)}</td>
-                    <td className="px-2 py-1 font-medium text-success">{fmtMoney(r.netPay)}</td>
+                    <td className="px-2 py-1">{r.baseSalary}</td>
+                    <td className="px-2 py-1">{r.otAmount}</td>
+                    <td className="px-2 py-1 font-medium">{r.grossPay}</td>
+                    <td className="px-2 py-1">{r.insurancePersonal}</td>
+                    <td className="px-2 py-1">{r.housingFundPersonal}</td>
+                    <td className="px-2 py-1">{r.incomeTax}</td>
+                    <td className="px-2 py-1 font-medium text-primary">{r.netPay}</td>
                     <td className="px-2 py-1">
                       <button
                         className="text-primary hover:underline"
-                        onClick={() => setExpanded((prev) => ({ ...prev, [i]: !prev[i] }))}
+                        onClick={() => setExpandedId(expandedId === key ? null : key)}
                       >
                         {expandedId === key ? t('hideDetail') : t('showDetail')}
                       </button>
@@ -1177,12 +1040,12 @@ interface PayrollPeriod {
       {/* 周期列表 */}
       {(periodsQuery.data?.length ?? 0) > 0 && (
         <div className="space-y-1">
-          <h3 className="text-sm font-medium text-muted-foreground">{t('payrollPeriods')}</h3>
+          <h3 className="text-body font-medium text-muted-foreground">{t('payrollPeriods')}</h3>
           <div className="flex flex-wrap gap-2">
             {(periodsQuery.data ?? []).map((p) => (
               <span
                 key={p.id}
-                className={`rounded-full px-2 py-0.5 text-xs ${
+                className={`font-[weight:inherit] rounded-full px-2 py-0.5 text-label ${
                   p.status === 'paid'
                     ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
                     : p.status === 'approved'
@@ -1218,8 +1081,8 @@ function BreakdownDetail({ breakdown, t }: { breakdown: PayrollItem['breakdown']
   ]
   return (
     <div className="space-y-1">
-      <div className="text-xs font-medium text-muted-foreground">{t('breakdownTitle')}</div>
-      <div className="grid grid-cols-2 gap-x-6 gap-y-0.5 text-xs md:grid-cols-4">
+      <div className="text-label font-medium text-muted-foreground">{t('breakdownTitle')}</div>
+      <div className="font-[weight:inherit] grid grid-cols-2 gap-x-6 gap-y-0.5 text-label md:grid-cols-4">
         {stepLabels.map(([k, labelKey]) => (
           <div key={k} className="flex justify-between">
             <span className="text-muted-foreground">{t(labelKey as 'colNetPay')}:</span>
@@ -1230,7 +1093,7 @@ function BreakdownDetail({ breakdown, t }: { breakdown: PayrollItem['breakdown']
         ))}
       </div>
       {breakdown?.warnings && breakdown.warnings.length > 0 && (
-        <div className="mt-1 space-y-0.5 text-xs text-destructive">
+        <div className="font-[weight:inherit] mt-1 space-y-0.5 text-label text-destructive">
           {breakdown.warnings.map((w, i) => (
             <div key={i}>⚠ {w}</div>
           ))}

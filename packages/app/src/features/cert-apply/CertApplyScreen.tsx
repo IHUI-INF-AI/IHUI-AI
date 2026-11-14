@@ -41,7 +41,7 @@ export function CertApplyScreen({
         value={name}
         onChangeText={onNameChange}
         placeholder={t('certApply.placeholder')}
-        placeholderTextColor={tk.text.secondary}
+        placeholderTextColor={tk.text.tertiary}
       />
       <Text style={styles.label}>{t('certApply.idCard')}</Text>
       <TextField
@@ -50,7 +50,7 @@ export function CertApplyScreen({
         value={idCard}
         onChangeText={onIdCardChange}
         placeholder={t('certApply.placeholder')}
-        placeholderTextColor={tk.text.secondary}
+        placeholderTextColor={tk.text.tertiary}
       />
       {error ? <Text style={styles.error}>{error}</Text> : null}
       {success ? <Text style={styles.success}>{t('certApply.success')}</Text> : null}
@@ -96,8 +96,8 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.primary,
       backgroundColor: tk.surface.muted,
     },
-    error: { marginTop: rnSpacing.md, fontSize: rnType.body.size, color: tk.danger.deepText },
-    success: { marginTop: rnSpacing.md, fontSize: rnType.body.size, color: tk.success.deepText },
+    error: { marginTop: rnSpacing.md, fontSize: rnType.body.size, color: tk.danger.DEFAULT },
+    success: { marginTop: rnSpacing.md, fontSize: rnType.body.size, color: tk.success.DEFAULT },
     submitBtn: {
       marginTop: rnSpacing.lg,
       paddingVertical: rnSpacing['md-loose'],

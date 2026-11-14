@@ -261,7 +261,7 @@ export function AiSkillDetailScreen({
                         value={variables[key] ?? ''}
                         onChangeText={(value) => handleVariableChange(key, value)}
                         placeholder={placeholder}
-                        placeholderTextColor={tk.text.secondary}
+                        placeholderTextColor={tk.text.tertiary}
                         maxLength={getMaxLen(key)}
                         multiline={long}
                         numberOfLines={long ? 4 : 1}
@@ -332,7 +332,7 @@ export function AiSkillDetailScreen({
                           >
                             <Star
                               size={22}
-                              color={star <= rating ? tk.warning.amber : tk.text.secondary}
+                              color={star <= rating ? tk.warning.amber : tk.text.tertiary}
                               fill={star <= rating ? tk.warning.amber : 'transparent'}
                             />
                           </Tappable>
@@ -343,7 +343,7 @@ export function AiSkillDetailScreen({
                         value={comment}
                         onChangeText={setComment}
                         placeholder={t('aiSkillDetail.commentPlaceholder')}
-                        placeholderTextColor={tk.text.secondary}
+                        placeholderTextColor={tk.text.tertiary}
                         maxLength={500}
                         style={styles.input}
                       />
@@ -453,7 +453,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     tagText: {
       fontSize: rnType.label.size, // text-xs
-      color: tk.warning.amberText,
+      color: tk.warning.amber,
     },
     /* 操作按钮行 */
     actionRow: {

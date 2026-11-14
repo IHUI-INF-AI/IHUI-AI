@@ -17,7 +17,7 @@ export async function findSecurityLogs(
       .select()
       .from(securityLogs)
       .where(eq(securityLogs.userId, userId))
-      .orderBy(desc(securityLogs.createdAt))
+      .orderBy(desc(securityLogs.createdAt), desc(securityLogs.id))
       .limit(pageSize)
       .offset((page - 1) * pageSize),
     db

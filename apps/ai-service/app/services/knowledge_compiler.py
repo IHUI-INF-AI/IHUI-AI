@@ -474,24 +474,13 @@ def select_relevant_cards(
     query: str,
     *,
     limit: int = 8,
-    owner_user_id: str | None = None,
-    require_owner: bool = False,
 ) -> list[dict[str, Any]]:
-    """关键词命中选卡(注入面唯一出口):按命中数降序,零命中不返回。
-
-    AIS-077:注入面与读取面同一判据 —— ``require_owner=True`` 时只选属主与
-    ``owner_user_id`` 相等的卡(旧无属主卡不可见),否则同一 workspace 下他人
-    的卡仍会被拼进调用方的 LLM 上下文(prompt 注入面)。
-    """
+    """关键词命中选卡(注入面唯一出口):按命中数降序,零命中不返回。"""
     tokens = _query_tokens(str(query or ""))
     if not tokens:
         return []
     scored: list[tuple[int, int, dict[str, Any]]] = []
-    for idx, card in enumerate(
-        load_active_cards(
-            workspace_root, owner_user_id=owner_user_id, require_owner=require_owner
-        )
-    ):
+    for idx, card in enumerate(load_active_cards(workspace_root)):
         hay = str(card.get("statement") or "").lower() + " " + " ".join(
             str(a.get("ref") or "") for a in card.get("anchors") or []
         ).lower()

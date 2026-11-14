@@ -7,15 +7,17 @@ import { db } from './index.js'
 import { resourceLikes, type ResourceLike } from '@ihui/database'
 
 /**
- * 切换点赞/收藏状态：若不存在则插入（liked=true），若已存在则删除（liked=false）。
- * 利用 onConflictDoNothing 保证并发安全。
+ * 幂等点赞(F-598)：已点赞时不重复写入，也绝不删除既有记录。
+ * 并发双击/超时重试时 onConflictDoNothing 命中的冲突只说明「此前或并发请求已点赞」，
+ * 仍返回 liked=true；原先冲突分支的 DELETE 会把对方刚插入的行删掉，
+ * 导致两次点赞最终变成「未点赞」。取消点赞只能走 unlikeResource。
  */
-export async function toggleLike(
+export async function likeResource(
   resourceType: string,
   resourceId: string,
   userId: string,
 ): Promise<{ liked: boolean }> {
-  const inserted = await db
+  await db
     .insert(resourceLikes)
     .values({ resourceType, resourceId, userId })
     .onConflictDoNothing({
@@ -23,10 +25,18 @@ export async function toggleLike(
     })
     .returning()
 
-  if (inserted.length > 0) {
-    return { liked: true }
-  }
+  // 插入成功 = 刚点赞；唯一键冲突 = 早已点赞。两种情况的最终状态都是「已点赞」。
+  return { liked: true }
+}
 
+/**
+ * 幂等取消点赞：记录不存在时同样返回 liked=false，重复调用不报错、不产生副作用。
+ */
+export async function unlikeResource(
+  resourceType: string,
+  resourceId: string,
+  userId: string,
+): Promise<{ liked: boolean }> {
   await db
     .delete(resourceLikes)
     .where(

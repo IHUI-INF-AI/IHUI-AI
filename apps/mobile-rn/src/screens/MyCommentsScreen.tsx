@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useCallback, useEffect, useState } from 'react'
-import { appAlert } from '../components/BottomPops'
+import { Alert } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { deleteMyComment, getMyComments } from '@ihui/api-client'
@@ -58,7 +58,7 @@ export function MyCommentsScreen() {
 
   const handleDelete = useCallback(
     (comment: MyCommentRow) => {
-      appAlert(t('studentPage.deleteConfirmTitle'), undefined, [
+      Alert.alert(t('studentPage.deleteConfirmTitle'), undefined, [
         { text: t('studentPage.cancel'), style: 'cancel' },
         {
           text: t('studentPage.delete'),
@@ -69,12 +69,12 @@ export function MyCommentsScreen() {
               try {
                 const res = await deleteMyComment(comment.id)
                 if (!res.success) {
-                  appAlert(t('studentPage.deleteFailed'))
+                  Alert.alert(t('studentPage.deleteFailed'))
                   return
                 }
                 await load()
               } catch {
-                appAlert(t('studentPage.deleteFailed'))
+                Alert.alert(t('studentPage.deleteFailed'))
               } finally {
                 setDeleting(false)
               }

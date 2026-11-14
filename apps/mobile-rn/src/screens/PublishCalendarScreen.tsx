@@ -39,7 +39,6 @@ import { useTheme } from '../context/ThemeContext'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { Tappable } from '@ihui/ui-native'
-import { toFriendlyOr } from '@ihui/shared/utils'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -200,13 +199,7 @@ export default function PublishCalendarScreen() {
       appAlert(t('publishCalendar.rescheduleSuccess'))
       await load()
     } catch (e) {
-      // 原写法 `e instanceof Error ? e.message : undefined`:没有 message 时只显示标题(对),
-      // 但**有** message 时会把英文术语直接贴上弹窗。保留"无详情就不显示"的语义,
-      // 只把有详情的那一支交出去归一化。
-      appAlert(
-        t('publishCalendar.rescheduleFailed'),
-        e instanceof Error && e.message.trim() ? toFriendlyOr(e, '') : undefined,
-      )
+      appAlert(t('publishCalendar.rescheduleFailed'), e instanceof Error ? e.message : undefined)
     } finally {
       setSaving(false)
     }
@@ -394,7 +387,7 @@ function makeStyles() {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tokens.surface.bg },
     body: { padding: rnSpacing.md, gap: rnSpacing.md, paddingBottom: rnSpacing['3xl'] },
-    subtitle: { fontSize: rnType.label.size, color: tokens.text.medium },
+    subtitle: { fontSize: rnType.label.size, color: tokens.text.tertiary },
     group: { gap: rnSpacing.sm },
     groupTitle: { fontSize: rnType.bodySm.size, fontWeight: '700', color: tokens.text.primary },
     card: {
@@ -413,7 +406,7 @@ function makeStyles() {
       color: tokens.text.primary,
     },
     metaRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.xs },
-    meta: { fontSize: rnType.caption.size, color: tokens.text.medium },
+    meta: { fontSize: rnType.caption.size, color: tokens.text.tertiary },
     pill: {
       paddingHorizontal: rnSpacing.sm,
       paddingVertical: rnSpacing['2xs'],
@@ -424,7 +417,7 @@ function makeStyles() {
     pillFailed: { backgroundColor: tokens.danger.light },
     pillText: { fontSize: rnType.badge.size, color: tokens.text.secondary },
     pillTextSuccess: { color: tokens.success.deepText, fontWeight: '600' },
-    pillTextFailed: { color: tokens.danger.deepText, fontWeight: '600' },
+    pillTextFailed: { color: tokens.danger.DEFAULT, fontWeight: '600' },
     stateBox: {
       alignItems: 'center',
       justifyContent: 'center',
@@ -434,10 +427,10 @@ function makeStyles() {
     muted: { fontSize: rnType.bodySm.size, color: tokens.text.secondary, lineHeight: 19 },
     hint: {
       fontSize: rnType.caption.size,
-      color: tokens.text.medium,
+      color: tokens.text.tertiary,
       lineHeight: rnType.label.lineHeight,
     },
-    errorText: { fontSize: rnType.label.size, color: tokens.danger.deepText },
+    errorText: { fontSize: rnType.label.size, color: tokens.danger.DEFAULT },
     retry: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tokens.text.primary },
     overlay: { flex: 1, justifyContent: 'flex-end' },
     mask: {

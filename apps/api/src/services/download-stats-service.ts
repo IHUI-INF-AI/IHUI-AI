@@ -71,21 +71,16 @@ export async function getStats(query: StatsQuery): Promise<DownloadStats> {
   if (query.platform) {
     conditions.push(eq(downloadEvents.platform, query.platform))
   }
-  // F-341: 显式按上海业务日比较/截断,不再依赖 PG 会话 TimeZone(容器默认多为 UTC ⇒ 偏移 8 小时)
   if (query.startDate) {
-    conditions.push(
-      sql`${downloadEvents.createdAt} >= (${query.startDate}::date::timestamp AT TIME ZONE 'Asia/Shanghai')`,
-    )
+    conditions.push(sql`${downloadEvents.createdAt} >= ${query.startDate}::date`)
   }
   if (query.endDate) {
-    // endDate 含当天:截止到上海次日 00:00
-    conditions.push(
-      sql`${downloadEvents.createdAt} < ((${query.endDate}::date + INTERVAL '1 day')::timestamp AT TIME ZONE 'Asia/Shanghai')`,
-    )
+    // endDate 含当天:截止到次日 00:00
+    conditions.push(sql`${downloadEvents.createdAt} < (${query.endDate}::date + INTERVAL '1 day')`)
   }
   const whereClause = conditions.length > 0 ? and(...conditions) : undefined
 
-  const dateExpr = sql<string>`to_char(${downloadEvents.createdAt} AT TIME ZONE 'Asia/Shanghai', 'YYYY-MM-DD')`
+  const dateExpr = sql<string>`to_char(${downloadEvents.createdAt}::date, 'YYYY-MM-DD')`
 
   const [totalRows, platformRows, dateRows] = await Promise.all([
     dbRead

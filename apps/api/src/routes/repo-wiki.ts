@@ -75,16 +75,18 @@ export const repoWikiRoutes: FastifyPluginAsync = async (app) => {
       const result = await generateRepoWiki({
         userId,
         repoName: body.repoName,
+        // F-529:请求 model 原样透传,由服务层校验并决定实际使用模型
         model: body.model,
         files: body.files,
       })
       return reply.send(success(result))
     } catch (e) {
-      request.log.warn(
-        { repoName: body.repoName, err: (e as Error).message },
-        '[RepoWiki] 生成失败',
-      )
-      return reply.status(502).send(error(502, `Wiki 生成失败:${(e as Error).message}`))
+      const err = e as Error & { statusCode?: number }
+      // F-529:非法模型(服务层 AppError 400)如实 400,其余仍为 502
+      const statusCode = err.statusCode ?? 502
+      request.log.warn({ repoName: body.repoName, err: err.message }, '[RepoWiki] 生成失败')
+      const message = statusCode === 400 ? err.message : `Wiki 生成失败:${err.message}`
+      return reply.status(statusCode).send(error(statusCode, message))
     }
   })
 

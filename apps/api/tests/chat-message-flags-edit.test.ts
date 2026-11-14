@@ -53,8 +53,6 @@ vi.mock('../src/db/index.js', async () => {
       leftJoin: () => api,
       limit: () => api,
       offset: () => api,
-      // F-297:会话行锁 SELECT ... FOR UPDATE(假层 no-op,只为满足链式契约)
-      for: () => api,
       returning: () => {
         if (kind === 'insert') {
           const row = state.insertRow ?? {}
@@ -76,17 +74,12 @@ vi.mock('../src/db/index.js', async () => {
     }
     return api
   }
-  const client = {
-    select: (shape?: Record<string, unknown>) =>
-      chain(shape && 'siblingIndex' in shape ? 'selectFamily' : 'selectRows'),
-    update: () => chain('update'),
-    insert: () => chain('insert'),
-  }
   return {
     db: {
-      ...client,
-      // F-297:editAiMessageAsVersion 已包事务;tx 与 db 同形(假层不隔离)
-      transaction: (fn: (tx: unknown) => Promise<unknown>) => fn(client),
+      select: (shape?: Record<string, unknown>) =>
+        chain(shape && 'siblingIndex' in shape ? 'selectFamily' : 'selectRows'),
+      update: () => chain('update'),
+      insert: () => chain('insert'),
     },
   }
 })

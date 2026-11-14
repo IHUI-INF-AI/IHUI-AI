@@ -10,8 +10,9 @@
     "表看起来盖住了这类操作"变成错觉(本仓"把没判写成判过了"同型);
   - 真不可逆的 edu 资金/外发工具(edu_create_refund / edu_approve_refund / edu_reject_refund /
     edu_create_payment_record / edu_send_fee_reminder / edu_send_fee_reminder_batch)不在表内;
-  - 任意出网取数 fetch_url 也不在表内(票面写的 api_endpoint_call 是幻影 —— 注册表 0 命中,
-    已记入 V4 §十一 勘误表,勿再引用)。
+  - 任意出网取数 fetch_url 也不在表内(注:顶部原写"api_endpoint_call 是幻影、注册表
+    0 命中"是当时两桥未落成的事实,2026-11-13 勘误 —— 现两座桥都经 register_external_tool
+    真注册这两个入口,已随桥接治理进高危表,见 test_桥接转发入口必须判高危)。
 """
 
 from __future__ import annotations
@@ -36,12 +37,36 @@ def test_高危表内每个名字都必须在工具注册面存在():
     registered = _registered_names(mcp)
     ghosts = sorted(
         n for n in loop._DEFAULT_HIGH_RISK_TOOLS
-        if not n.startswith(loop._HIGH_RISK_PREFIXES) and n not in registered
+        if not n.startswith(loop._HIGH_RISK_PREFIXES)
+        and n not in registered
+        # 显式豁免(BRIDGE_ENTRY_RUNTIME_TOOLS):两座 API 桥接(api_tools_bridge /
+        # ai_service_bridge)的字符串转发入口经 register_external_tool 在 **lifespan
+        # 运行时**注入 _TOOLS,不进本文件读到的静态 _TOOLS 快照(那里只有 122 个内置名)。
+        # 故本不变量读不到它们是**判据盲区**,不是幽灵名 —— 真实运行时它们存在且已判高危。
+        # 豁免须带原因且逐条登记(守门 108 同纪律);新增运行时注入的高危入口必须进这个集。
+        and n not in loop.BRIDGE_ENTRY_RUNTIME_TOOLS
     )
     assert ghosts == [], (
         f"内置高危表里有 {len(ghosts)} 个注册表不存在的幽灵名(注册面共 {len(registered)} 名): {ghosts}\n"
         f"修法只有两条:改成本名,或确属不存在就删 —— 不得留着制造覆盖错觉"
     )
+
+
+def test_桥接转发入口必须判高危():
+    """两座 API 桥接的字符串转发入口能触达任意写端点,漏标=把改后端数据放进免审批通道。
+
+    2026-11-13 立并勘误:本文件顶部 D143 旧注曾判 api_endpoint_call 是"幻影、注册表 0
+    命中"—— 那是当时两桥未落成的事实;如今 api_endpoint_call / ais_endpoint_call 都经
+    register_external_tool 真注册(ais 桥实测 653 端点,含大量 POST/PUT/PATCH/DELETE)。
+    二者若不判高危 ⇒ _resolve_tool_approval(_TOOL_DANGER_LEVELS 表外)与
+    _is_high_risk_tool 都放行,default 模式下模型可无审批直改后端数据。
+    """
+    _, loop = _load()
+    missing = [
+        n for n in ("api_endpoint_call", "ais_endpoint_call")
+        if not loop._matches_high_risk_name(n)
+    ]
+    assert missing == [], f"API 桥接转发入口未判高危: {missing}"
 
 
 def test_资金不可逆与对外发信必须判高危():

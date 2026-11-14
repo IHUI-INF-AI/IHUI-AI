@@ -100,7 +100,7 @@ function createStyles(tk: AppThemeTokens) {
     errorText: {
       paddingHorizontal: rnSpacing['sm-loose'],
       fontSize: rnType.body.size,
-      color: tk.danger.deepText,
+      color: tk.danger.DEFAULT,
     },
     listBody: { padding: rnSpacing['sm-loose'], gap: rnSpacing.sm }, // §4 禁分割线:列表用间距 + 卡面底色对比分隔
     card: {
@@ -135,7 +135,7 @@ function createStyles(tk: AppThemeTokens) {
     publishTime: {
       marginTop: rnSpacing.sm,
       fontSize: rnType.caption.size,
-      color: tk.text.medium,
+      color: tk.text.tertiary,
     },
   })
 }

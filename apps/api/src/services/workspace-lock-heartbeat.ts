@@ -25,7 +25,6 @@ import { agentTasks } from '@ihui/database'
 import { logger } from '../utils/logger.js'
 import { renewWorkspaceLock, releaseWorkspaceLock, WORKSPACE_LOCK_TTL } from './workspace-lock.js'
 import { broadcastSSEEvent } from './agent-sse-bus.js'
-import { mapStatus } from './agent-task-status.js'
 import type { AgentTaskStatus } from '@ihui/types'
 import type { ExtendedDispatchStatus } from '@ihui/shared/subagents'
 
@@ -87,8 +86,6 @@ interface HeartbeatEntry {
   workspace: string
   token: string
   timer: NodeJS.Timeout
-  /** 最近一次续期成功的时刻(ms);连续续不上超过一个 TTL 即判定持有者已死(F-201) */
-  lastRenewedAt: number
 }
 
 const heartbeats = new Map<string, HeartbeatEntry>()
@@ -112,7 +109,7 @@ export function startLockHeartbeat(taskId: string, workspace: string, token: str
     void _tick(taskId)
   }, LOCK_HEARTBEAT_INTERVAL_MS)
   timer.unref?.()
-  heartbeats.set(taskId, { workspace, token, timer, lastRenewedAt: Date.now() })
+  heartbeats.set(taskId, { workspace, token, timer })
   logger.info('[workspace-lock-heartbeat] 心跳已启动', {
     taskId,
     workspace,
@@ -128,71 +125,6 @@ export function stopLockHeartbeat(taskId: string): void {
   heartbeats.delete(taskId)
 }
 
-/** 持有者存活判据(F-201):行不存在 / token 已换 / 已非执行中,都不该再续期 */
-type HolderLiveness = 'alive' | 'missing' | 'reowned' | 'inactive' | 'unknown'
-
-interface HolderState {
-  liveness: HolderLiveness
-  row?: AgentTaskRow
-}
-
-/**
- * F-201:续期失败时判"持有者是否还活着"。
- *  - missing  :任务行已不存在(被删除/从未落库)—— 锁无主,必须归还;
- *  - reowned  :payload 里的 token 已不是本次登记(并发 transition 换了锁)—— 只停心跳,不碰他人的锁;
- *  - inactive :任务已不在 in_progress —— 锁该随状态一起结束;
- *  - alive    :持有者仍在执行,走既有"心跳丢失 → blocked"契约;
- *  - unknown  :DB 抖动,本轮不判死(下一次 tick 再判)。
- */
-async function checkHolderLiveness(taskId: string, token: string): Promise<HolderState> {
-  try {
-    const [row] = await db.select().from(agentTasks).where(eq(agentTasks.id, taskId)).limit(1)
-    if (!row) return { liveness: 'missing' }
-    const payload = row.payload ?? {}
-    if (payload.workspaceLockToken !== token) return { liveness: 'reowned', row }
-    if (typeof row.status === 'string' && mapStatus(row.status) !== 'in_progress') {
-      return { liveness: 'inactive', row }
-    }
-    return { liveness: 'alive', row }
-  } catch (e) {
-    logger.warn('[workspace-lock-heartbeat] 持有者存活判查询失败(本轮不判死)', {
-      taskId,
-      error: e,
-    })
-    return { liveness: 'unknown' }
-  }
-}
-
-/** 持有者已失效:停心跳 → 凭 token 归还 → 广播(F-201;token 不匹配时 release 自然为 no-op) */
-async function dropDeadHolderLock(
-  taskId: string,
-  entry: HeartbeatEntry,
-  reason: 'holder_missing' | 'holder_inactive' | 'heartbeat_stale',
-): Promise<void> {
-  stopLockHeartbeat(taskId)
-  let released = false
-  try {
-    released = await releaseWorkspaceLock(entry.workspace, entry.token)
-  } catch (e) {
-    logger.warn('[workspace-lock-heartbeat] 失效持有者锁释放失败(TTL 兜底)', {
-      taskId,
-      error: e,
-    })
-  }
-  logger.error('[workspace-lock-heartbeat] 持有者已失效,停止续期并释放锁', {
-    taskId,
-    workspace: entry.workspace,
-    reason,
-    released,
-  })
-  broadcastSSEEvent({
-    type: 'workspace_lock_released',
-    taskId,
-    payload: { workspace: entry.workspace, task: taskId, released, reason },
-    timestamp: new Date().toISOString(),
-  })
-}
-
 async function _tick(taskId: string): Promise<void> {
   const entry = heartbeats.get(taskId)
   if (!entry) return
@@ -200,18 +132,11 @@ async function _tick(taskId: string): Promise<void> {
   try {
     ok = await renewWorkspaceLock(entry.workspace, entry.token)
   } catch (e) {
-    // 瞬时异常(Redis 抖动等):不立刻判死,下一轮再试;
-    // 但连续续不上超过一个 TTL ⇒ 心跳本身已"超期",持有者不能再无限占锁(F-201)
+    // 瞬时异常(Redis 抖动等):不立刻判死,下一轮再试
     logger.warn('[workspace-lock-heartbeat] renew 异常(下轮重试)', { taskId, error: e })
-    if (heartbeats.get(taskId) !== entry) return
-    if (Date.now() - entry.lastRenewedAt < WORKSPACE_LOCK_TTL * 1000) return
-    await dropDeadHolderLock(taskId, entry, 'heartbeat_stale')
     return
   }
-  if (ok) {
-    entry.lastRenewedAt = Date.now()
-    return
-  }
+  if (ok) return
 
   // 驱逐前身份判(G-21 格⑤ 同族纪律「按记录本体做 CAS 身份判,不按 key 一刀切」,2026-10-28):
   // 本次 tick 读到的登记必须**仍是**当前登记,才轮得到它判死。反例(修复前按 key 无条件停):
@@ -226,26 +151,6 @@ async function _tick(taskId: string): Promise<void> {
     return
   }
 
-  // F-201:续期失败先判持有者是否仍存活 —— 行不存在/已换锁/已非执行中时不再续期,并把锁归还
-  const holder = await checkHolderLiveness(taskId, entry.token)
-  if (holder.liveness === 'unknown') return
-  if (holder.liveness === 'reowned') {
-    stopLockHeartbeat(taskId)
-    logger.debug('[workspace-lock-heartbeat] 行内 token 已被并发流转改写,停心跳但不碰新锁', {
-      taskId,
-      workspace: entry.workspace,
-    })
-    return
-  }
-  if (holder.liveness === 'missing' || holder.liveness === 'inactive') {
-    await dropDeadHolderLock(
-      taskId,
-      entry,
-      holder.liveness === 'missing' ? 'holder_missing' : 'holder_inactive',
-    )
-    return
-  }
-
   // 锁已丢失:停心跳 → 回写 blocked → SSE 告警
   stopLockHeartbeat(taskId)
   logger.error('[workspace-lock-heartbeat] 续期失败,锁已丢失', {
@@ -253,7 +158,7 @@ async function _tick(taskId: string): Promise<void> {
     workspace: entry.workspace,
   })
   try {
-    const row = holder.row
+    const [row] = await db.select().from(agentTasks).where(eq(agentTasks.id, taskId)).limit(1)
     if (!row) return
     // 仅当任务仍持有同一把锁时回写(避免覆盖并发 transition 的结果)
     const payload = row.payload ?? {}

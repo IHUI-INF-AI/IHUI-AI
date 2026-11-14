@@ -26,7 +26,7 @@ const styles = StyleSheet.create({
   },
   execRowText: {
     fontSize: rpx(12),
-    color: tokens.text.medium,
+    color: tokens.text.tertiary,
   },
   // ── D113 工具调用行(流中 diff 预览的挂载点) ──
   toolRow: {
@@ -38,7 +38,7 @@ const styles = StyleSheet.create({
   },
   toolRowText: {
     fontSize: rpx(12),
-    color: tokens.text.medium,
+    color: tokens.text.tertiary,
     flexShrink: 1,
   },
   toolRowStatusRunning: { color: tokens.text.secondary },
@@ -59,7 +59,7 @@ const styles = StyleSheet.create({
   },
   toolDiffLabel: {
     fontSize: rpx(11),
-    color: tokens.text.medium,
+    color: tokens.text.tertiary,
   },
   toolDiffToggle: {
     fontSize: rpx(11),

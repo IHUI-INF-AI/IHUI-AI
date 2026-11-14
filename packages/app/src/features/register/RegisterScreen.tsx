@@ -55,8 +55,6 @@ export function RegisterScreen({
   showAgreeErr = false,
   onOpenTerms,
   onOpenPrivacy,
-  renderPhonePrefix,
-  codeSendError: codeSendErrorProp,
   // ===== 注册验证码(可选注入,未注入时组件内部维护) =====
   code: codeProp,
   onCodeChange,
@@ -111,30 +109,15 @@ export function RegisterScreen({
       </View>
       <View style={styles.card}>
         <Text style={styles.label}>{t('register.phone')}</Text>
-        {renderPhonePrefix ? (
-          <View style={styles.phoneRow}>
-            {renderPhonePrefix()}
-            <TextField
-              colorScheme={colorScheme}
-              style={[styles.input, styles.phoneInput]}
-              value={account}
-              onChangeText={onAccountChange}
-              placeholder={t('register.phonePlaceholder')}
-              placeholderTextColor={tk.text.secondary}
-              autoCapitalize="none"
-            />
-          </View>
-        ) : (
-          <TextField
-            colorScheme={colorScheme}
-            style={styles.input}
-            value={account}
-            onChangeText={onAccountChange}
-            placeholder={t('register.phonePlaceholder')}
-            placeholderTextColor={tk.text.secondary}
-            autoCapitalize="none"
-          />
-        )}
+        <TextField
+          colorScheme={colorScheme}
+          style={styles.input}
+          value={account}
+          onChangeText={onAccountChange}
+          placeholder={t('register.phonePlaceholder')}
+          placeholderTextColor={tk.text.tertiary}
+          autoCapitalize="none"
+        />
         <Text style={styles.label}>{t('register.code')}</Text>
         <View style={styles.codeRow}>
           <TextField
@@ -143,7 +126,7 @@ export function RegisterScreen({
             value={code}
             onChangeText={handleCodeChange}
             placeholder={t('register.codePlaceholder')}
-            placeholderTextColor={tk.text.secondary}
+            placeholderTextColor={tk.text.tertiary}
             keyboardType="number-pad"
             maxLength={6}
             autoCapitalize="none"
@@ -161,9 +144,7 @@ export function RegisterScreen({
             </Text>
           </TouchableOpacity>
         </View>
-        {codeSendErrorProp || codeSendError ? (
-          <Text style={styles.error}>{codeSendErrorProp || codeSendError}</Text>
-        ) : null}
+        {codeSendError ? <Text style={styles.error}>{codeSendError}</Text> : null}
         <Text style={styles.label}>{t('register.password')}</Text>
         <TextField
           colorScheme={colorScheme}
@@ -171,7 +152,7 @@ export function RegisterScreen({
           value={password}
           onChangeText={onPasswordChange}
           placeholder={t('register.passwordPlaceholder')}
-          placeholderTextColor={tk.text.secondary}
+          placeholderTextColor={tk.text.tertiary}
           secureTextEntry
         />
         <Text style={styles.label}>{t('register.confirmPassword')}</Text>
@@ -181,7 +162,7 @@ export function RegisterScreen({
           value={confirmPassword}
           onChangeText={onConfirmPasswordChange}
           placeholder={t('register.confirmPasswordPlaceholder')}
-          placeholderTextColor={tk.text.secondary}
+          placeholderTextColor={tk.text.tertiary}
           secureTextEntry
         />
         {error ? <Text style={styles.error}>{error}</Text> : null}
@@ -280,8 +261,6 @@ function createStyles(tk: AppThemeTokens) {
       fontSize: rnType.title.size,
       color: tk.text.primary,
     },
-    phoneRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.sm },
-    phoneInput: { flex: 1 },
     codeRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.sm },
     codeInput: { flex: 1 },
     codeBtn: {
@@ -295,7 +274,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     codeBtnDisabled: { opacity: 0.5 },
     codeBtnText: { color: tk.brand.DEFAULT, fontSize: rnType.body.size, fontWeight: '600' },
-    error: { fontSize: rnType.body.size, color: tk.danger.deepText, marginTop: rnSpacing.md },
+    error: { fontSize: rnType.body.size, color: tk.danger.DEFAULT, marginTop: rnSpacing.md },
     // ===== 协议同意行(对齐 LoginScreen AgreementRow 样式) =====
     agreementRow: { marginTop: rnSpacing.lg },
     agreementRowMain: { flexDirection: 'row', alignItems: 'flex-start', gap: rnSpacing.sm },
@@ -327,7 +306,7 @@ function createStyles(tk: AppThemeTokens) {
     agreementLink: { color: tk.brand.DEFAULT },
     agreementErrorText: {
       fontSize: rnType.body.size,
-      color: tk.danger.deepText,
+      color: tk.danger.DEFAULT,
       marginTop: rnSpacing.sm,
     },
     submitBtn: {

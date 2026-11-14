@@ -174,7 +174,7 @@ const styles = StyleSheet.create({
   center: { alignItems: 'center', paddingVertical: rpx(24) },
   empty: {
     fontSize: rpx(24),
-    color: tokens.text.medium,
+    color: tokens.text.tertiary,
     textAlign: 'center',
     paddingVertical: rpx(16),
   },
@@ -192,7 +192,7 @@ const styles = StyleSheet.create({
   },
   ip: { flex: 1, fontSize: rpx(26), color: tokens.text.primary, fontFamily: 'monospace' },
   removeBtn: { paddingHorizontal: rpx(12), paddingVertical: rpx(6) },
-  removeText: { fontSize: rpx(24), color: tokens.danger.deepText },
+  removeText: { fontSize: rpx(24), color: tokens.danger.DEFAULT },
   addRow: { flexDirection: 'row', alignItems: 'center', gap: rpx(12) },
   input: { flex: 1 },
   addBtn: {
@@ -203,6 +203,6 @@ const styles = StyleSheet.create({
   },
   addBtnBusy: { opacity: 0.6 },
   addText: { fontSize: rpx(26), fontWeight: '600', color: tokens.brand.ctaForeground },
-  errorText: { fontSize: rpx(22), color: tokens.danger.deepText },
+  errorText: { fontSize: rpx(22), color: tokens.danger.DEFAULT },
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

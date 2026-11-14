@@ -2,8 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
-import { Tappable } from '@ihui/ui-native'
+import { rnSpacing, rnType } from '@ihui/design-tokens'
 import { useMemo } from 'react'
 import { View, Text, ScrollView, StyleSheet } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
@@ -21,9 +20,6 @@ export function ActivityDetailScreen({
   error,
   onBack,
   onRetry,
-  onJoin,
-  onLeave,
-  joining = false,
   colorScheme = 'light',
 }: ActivityDetailScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
@@ -75,37 +71,11 @@ export function ActivityDetailScreen({
           <Text style={styles.metaLabel}>{t('activityDetail.endAt')}</Text>
           <Text style={styles.metaValue}>{item.endAt}</Text>
         </View>
-        {item.location ? (
-          <View style={styles.metaRow}>
-            <Text style={styles.metaLabel}>{t('activityDetail.location')}</Text>
-            <Text style={styles.metaValue}>{item.location}</Text>
-          </View>
-        ) : null}
+        <View style={styles.metaRow}>
+          <Text style={styles.metaLabel}>{t('activityDetail.location')}</Text>
+          <Text style={styles.metaValue}>{item.location}</Text>
+        </View>
         <Text style={styles.content}>{item.content}</Text>
-        {/*
-          后端 POST|DELETE /activities/:id/join 与详情里的 joined 字段早已就绪
-          (promotions.ts 注释写明"前端据此决定显示报名还是取消报名"),
-          但本屏此前整段是只读的:用户在列表点「立即参与」进到这里,再没有任何入口能报名。
-        */}
-        {onJoin || onLeave ? (
-          <Tappable
-            style={[styles.actionBtn, joining && styles.actionBtnBusy]}
-            pressedStyle={styles.actionBtnPressed}
-            disabled={joining}
-            onPress={() => {
-              if (item.joined) onLeave?.()
-              else onJoin?.()
-            }}
-          >
-            <Text style={styles.actionText}>
-              {joining
-                ? t('activity.joining')
-                : item.joined
-                  ? t('activities.cancelJoin')
-                  : t('activities.join')}
-            </Text>
-          </Tappable>
-        ) : null}
       </View>
     </ScrollView>
   )
@@ -137,16 +107,6 @@ function createStyles(tk: AppThemeTokens) {
       lineHeight: rnType.strong.lineHeight,
       color: tk.text.primary,
     },
-    actionBtn: {
-      marginTop: rnSpacing.xl,
-      paddingVertical: rnSpacing.md,
-      borderRadius: rnRadius.lg,
-      alignItems: 'center',
-      backgroundColor: tk.brand.DEFAULT,
-    },
-    actionBtnBusy: { opacity: 0.5 },
-    actionBtnPressed: { opacity: 0.85 },
-    actionText: { fontSize: rnType.title.size, fontWeight: '600', color: tk.surface.light },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

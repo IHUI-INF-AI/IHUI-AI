@@ -62,7 +62,7 @@ export function CategoryDetailScreen({
       {item.useCount !== undefined ? (
         <Text style={styles.itemUseCount}>{item.useCount}</Text>
       ) : null}
-      <ChevronRight size={20} color={tk.text.secondary} />
+      <ChevronRight size={20} color={tk.text.tertiary} />
     </PressableCard>
   )
 

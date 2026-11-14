@@ -51,7 +51,7 @@ export function QuickNoteEditor({
             value={draft.title}
             onChangeText={(v) => onDraftChange({ title: v })}
             placeholder={t('quickNotes.titlePlaceholder')}
-            placeholderTextColor={tk.text.secondary}
+            placeholderTextColor={tk.text.tertiary}
           />
           <TextField
             colorScheme={colorScheme}
@@ -59,7 +59,7 @@ export function QuickNoteEditor({
             value={draft.content}
             onChangeText={(v) => onDraftChange({ content: v })}
             placeholder={t('quickNotes.contentPlaceholder')}
-            placeholderTextColor={tk.text.secondary}
+            placeholderTextColor={tk.text.tertiary}
             multiline
             textAlignVertical="top"
           />
@@ -69,7 +69,7 @@ export function QuickNoteEditor({
             value={draft.group}
             onChangeText={(v) => onDraftChange({ group: v })}
             placeholder={t('quickNotes.groupPlaceholder')}
-            placeholderTextColor={tk.text.secondary}
+            placeholderTextColor={tk.text.tertiary}
           />
           <View style={styles.modalActions}>
             <TouchableOpacity style={styles.cancelBtn} onPress={onClose}>

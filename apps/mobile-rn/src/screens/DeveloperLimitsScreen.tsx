@@ -17,7 +17,6 @@ import { ConsoleTableScreen, type ConsoleColumn, type ConsoleRowView } from '@ih
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
-import { toFriendlyOr } from '@ihui/shared/utils'
 
 interface LimitItem {
   key: string
@@ -52,7 +51,7 @@ function DeveloperLimitsScreen() {
         }),
       )
     } catch (e) {
-      setError(toFriendlyOr(e, t('common.loadFailed')))
+      setError(e instanceof Error ? e.message : 'load failed')
     } finally {
       setLoading(false)
     }

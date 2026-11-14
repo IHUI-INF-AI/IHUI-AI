@@ -8,8 +8,8 @@
 端点:
   GET  /api/sso/providers          → 已启用 provider 列表(name + configured 状态)
   GET  /api/sso/{provider}/authorize → 302 跳转 IdP(未配置/未知 provider → 501/404)
-  GET  /api/sso/callback             → OIDC 标准回调(code/state query,state 服务端校验)
-  POST /api/sso/callback             → 手工提交 {provider, code, state?}(测试/CLI 场景)
+  GET  /api/sso/callback             → OIDC 标准回调(code/state query)
+  POST /api/sso/callback             → 手工提交 {provider, code}(测试/CLI 场景)
 
 SSO-P2 已实现(2026-09-20):exchange_code 成功后执行 JIT provisioning ——
 subject → 本库 sso_identities 首登即建号(app/services/sso_identity_store.py
@@ -37,7 +37,6 @@ from app.core.sso import (
     SSOProvider,
     UserIdentity,
     build_provider,
-    consume_state,
     new_state,
     parse_callback_params,
 )
@@ -75,7 +74,7 @@ async def list_providers() -> dict[str, Any]:
 
 @router.get("/{provider}/authorize")
 async def authorize(provider: str) -> RedirectResponse:
-    """跳转到 IdP 授权页(CSRF state 生成即服务端登记,回调侧 consume_state 严格比对)。"""
+    """跳转到 IdP 授权页(CSRF state 生成后随 query 传出,存储留 P2)。"""
     p = _find_provider(provider)
     state = new_state()
     try:
@@ -88,9 +87,6 @@ async def authorize(provider: str) -> RedirectResponse:
 class CallbackRequest(BaseModel):
     provider: str = "mock"
     code: str = ""
-    # AIS-043:可选 state —— 直连(测试/CLI)不经 IdP 重定向可不带;一旦携带则与
-    # GET 同规格严格比对+消费,拒绝伪造/重放。
-    state: str = ""
 
 
 # 签发的 access token 有效期(秒);aud 硬编码对齐 jwt_auth._verify_token 的
@@ -170,16 +166,11 @@ async def _do_exchange(provider_name: str, code: str) -> dict[str, Any]:
 
 @router.get("/callback")
 async def callback_get(request: Request) -> dict[str, Any]:
-    """OIDC 标准回调(query: code/state/provider)。
-
-    AIS-043:state 不再生成即弃 —— 与 authorize 登记的服务端值严格比对并
-    消费即删(缺失/伪造/过期/重放 → 400),先于任何 IdP exchange 执行。
-    """
+    """OIDC 标准回调(query: code/state/provider)。"""
     q = dict(request.query_params)
     provider = str(q.get("provider") or "oidc")
     try:
-        code, state = parse_callback_params(q)
-        consume_state(state)
+        code, _state = parse_callback_params(q)
     except SSOConfigError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
     return await _do_exchange(provider, code)
@@ -187,15 +178,7 @@ async def callback_get(request: Request) -> dict[str, Any]:
 
 @router.post("/callback")
 async def callback_post(req: CallbackRequest) -> dict[str, Any]:
-    """手工回调(测试/CLI):body {provider, code, state?}。
-
-    state 可选(直连场景不经 IdP 重定向);一旦携带则与 GET 同规格严格比对+消费。
-    """
+    """手工回调(测试/CLI):body {provider, code}。"""
     if not req.code:
         raise HTTPException(status_code=400, detail="缺少 code")
-    if req.state:
-        try:
-            consume_state(req.state)
-        except SSOConfigError as e:
-            raise HTTPException(status_code=400, detail=str(e)) from e
     return await _do_exchange(req.provider, req.code)

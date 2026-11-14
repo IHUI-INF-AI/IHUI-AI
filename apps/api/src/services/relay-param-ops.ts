@@ -21,7 +21,10 @@ import { hasNestedQuantifier } from './rules-service.js'
 // ReDoS 闸(2026-10-31 安全强化第 16 批):ops 配置来自管理面写入 DB,regex_replace
 // 在转发热路径每请求同步执行 —— 配置型正则的"存储型 ReDoS"放大面。长度常量与
 // webhooks-trigger/rules/workspace-ai 同口径(单源 = webhooks-trigger 导出)。
-import { MAX_REGEX_PATTERN_LENGTH, MAX_REGEX_SUBJECT_LENGTH } from '../routes/webhooks-trigger.js'
+import {
+  MAX_REGEX_PATTERN_LENGTH,
+  MAX_REGEX_SUBJECT_LENGTH,
+} from '../routes/webhooks-trigger.js'
 
 /** regex flags 白名单:只放行 JS 正则合法旗标,拒杂散字符(防御纵深) */
 const REGEX_FLAGS_WHITELIST = /^[gimsuy]*$/
@@ -676,7 +679,9 @@ export function validateParamOps(ops: unknown): ValidationResult {
       } else {
         // 入库闸(第 16 批):长度与 webhooks-trigger/rules 同口径;flags 白名单
         if (o.pattern.length > MAX_REGEX_PATTERN_LENGTH) {
-          errors.push(`${at}: regex pattern exceeds ${MAX_REGEX_PATTERN_LENGTH} chars (ReDoS gate)`)
+          errors.push(
+            `${at}: regex pattern exceeds ${MAX_REGEX_PATTERN_LENGTH} chars (ReDoS gate)`,
+          )
         } else {
           const flags = typeof o.flags === 'string' ? o.flags : ''
           if (!REGEX_FLAGS_WHITELIST.test(flags)) {

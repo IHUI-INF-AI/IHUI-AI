@@ -64,8 +64,7 @@ export function LecturerDetailScreen({
   colorScheme = 'light',
   onViewCourses,
   onNavigate,
-  followBusy = false,
-}: LecturerDetailScreenProps & { onRetry?: () => void; followBusy?: boolean }) {
+}: LecturerDetailScreenProps & { onRetry?: () => void }) {
   assertRequiredPort('onNavigate', onNavigate)
 
   const tk = getTokens(colorScheme)
@@ -160,8 +159,6 @@ export function LecturerDetailScreen({
               header 是 row + alignItems center ⇒ 外层 hug 内容,整档下移到内层后盒子逐像素不变。 */}
           <Pressable
             onPress={onToggleFollow}
-            // 请求在途时忽略点击:避免连点把「已关注」又立刻切回「未关注」
-            disabled={followBusy}
             accessibilityRole="button"
             accessibilityLabel={
               following ? t('teacher.detail.following') : t('teacher.detail.follow')
@@ -462,7 +459,7 @@ function createStyles(tk: AppThemeTokens) {
     goldBadgeText: {
       fontSize: rnType.caption.size,
       fontWeight: '600',
-      color: tk.gray.black,
+      color: tk.text.primary,
     },
     title: {
       fontSize: rnType.bodySm.size,
@@ -506,7 +503,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     statLabel: {
       fontSize: rnType.label.size,
-      color: tk.text.medium,
+      color: tk.text.tertiary,
     },
     /* 区块通用 */
     section: {
@@ -558,7 +555,7 @@ function createStyles(tk: AppThemeTokens) {
     coursePrice: {
       fontSize: rnType.body.size,
       fontWeight: '600',
-      color: tk.text.primary,
+      color: tk.vip.gold,
     },
     courseFree: {
       fontSize: rnType.body.size,
@@ -567,7 +564,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     courseStudents: {
       fontSize: rnType.label.size,
-      color: tk.text.medium,
+      color: tk.text.tertiary,
     },
     /* 学员评价 */
     reviewCard: {
@@ -608,7 +605,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     reviewTime: {
       fontSize: rnType.caption.size,
-      color: tk.text.medium,
+      color: tk.text.tertiary,
     },
     /* 底部动作条 */
     footerBar: {

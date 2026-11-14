@@ -12,13 +12,11 @@
  * 原理:号池行解密(decryptField,密钥在本机 .env)后构造 WorkBuddy auth 快照
  * (对齐实机 jwt 明文快照键集 —— 该形状客户端已实切验证),写 `workbuddy-desktop.pool-<uid>.info`
  * 进快照库 ⇒ relay-account-switch 的候选面即 = 号池账号 ∪ 本机登录过的账号。
- *  - **归属射程(2026-10-31 立,2026-11-12 机主令改口)**:归属配置 =
- *    `~/.wb-switch/pool-owner`(一行 users.id);设了 ⇒ 只拉 ownerUserId=该值的个人池,
- *    未设 ⇒ 沿用全局池(owner IS NULL)旧行为。
- *    原隔离令("我自己填入号池的账号只能跟着我的账号走,不能让别的用户看到使用")已于
- *    2026-11-12 作废:新机主令为「所有号池里的号都应该自动同步运营生产」,账号默认
- *    shared_to_ops=true,转发选路对全池开放;本同步器保留按 owner 拉快照的射程,
- *    但不再代表隔离语义 —— 跨环境全量互通走 scripts/relay-account-pool-sync.mjs --all-owners。
+ *  - **归属射程(2026-10-31 机主令)**:只同步「本机归属」名下的账号 —— 归属配置 =
+ *    `~/.wb-switch/pool-owner`(一行 users.id);设了 ⇒ 只拉 ownerUserId=该值的个人池
+ *    (机主令:"我自己填入号池的账号只能跟着我的账号走,不能让别的用户看到使用");
+ *    未设 ⇒ 沿用全局池(owner IS NULL)旧行为。可见性由转发选号的 owner 过滤保证
+ *    (relay-account-forwarder:个人池绝不服务他人请求),本同步器只对齐同一射程。
  *  - 固定名:同账号重复同步覆盖同一文件(派生件不堆积);名字排序 'p'>'2' ⇒ pool 件恒视作
  *    最新,展示去重时号池票胜出(号池 token 由调度器刷新,比本机旧快照新鲜)。
  *  - domain:extraMetadata.domain 优先;缺失按 resolveRealm('')='cn' ⇒ copilot.tencent.com

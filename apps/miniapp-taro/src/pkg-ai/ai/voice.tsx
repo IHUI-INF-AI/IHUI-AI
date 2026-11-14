@@ -237,13 +237,9 @@ export default function VoicePage() {
     <ThemeRoot className="flex flex-col h-screen bg-background">
       <View className="flex items-center justify-between pt-[120rpx] px-[32rpx] pb-[24rpx] bg-card">
         <Text className="text-title-lg text-foreground">{tt('ai.voice.title', 'AI 语音对话')}</Text>
-        <View
-          className="text-body-sm leading-[normal] text-muted-foreground"
-          hoverClass="opacity-60"
-          onClick={onClear}
-        >
-          <Text>{tt('ai.voice.clearChat', '清空对话')}</Text>
-        </View>
+        <Text className="text-body-sm leading-[normal] text-muted-foreground" onClick={onClear}>
+          {tt('ai.voice.clearChat', '清空对话')}
+        </Text>
       </View>
 
       <ScrollView className="flex-1 py-[24rpx] px-[32rpx]" scrollY scrollTop={scrollTop}>
@@ -316,14 +312,13 @@ export default function VoicePage() {
             {tt('ai.voice.speed', '语速')}
           </Text>
           {SPEEDS.map((s) => (
-            <View
+            <Text
               key={s}
               className={`py-[12rpx] px-[20rpx] rounded-lg text-label ${speed === s ? 'bg-[var(--color-surface-light)] border-[length:2rpx] border-brand-accent-deep text-primary font-medium' : 'bg-card text-muted-foreground'}`}
               onClick={() => setSpeed(s)}
-              hoverClass="opacity-60"
             >
-              <Text>{tt(SPEED_KEY[s] ?? 'aiVoice.q1', speedLabel[s])}</Text>
-            </View>
+              {tt(SPEED_KEY[s] ?? 'aiVoice.q1', speedLabel[s])}
+            </Text>
           ))}
         </View>
         <View className="flex items-center gap-[12rpx] mb-[12rpx] last:mb-0">
@@ -331,14 +326,13 @@ export default function VoicePage() {
             {tt('ai.voice.timbre', '音色')}
           </Text>
           {TIMBRES.map((tb) => (
-            <View
+            <Text
               key={tb}
               className={`py-[12rpx] px-[20rpx] rounded-lg text-label ${timbre === tb ? 'bg-[var(--color-surface-light)] border-[length:2rpx] border-brand-accent-deep text-primary font-medium' : 'bg-card text-muted-foreground'}`}
               onClick={() => setTimbre(tb)}
-              hoverClass="opacity-60"
             >
-              <Text>{tt(TIMBRE_KEY[tb] ?? 'aiVoice.q4', timbreLabel[tb])}</Text>
-            </View>
+              {tt(TIMBRE_KEY[tb] ?? 'aiVoice.q4', timbreLabel[tb])}
+            </Text>
           ))}
         </View>
       </View>

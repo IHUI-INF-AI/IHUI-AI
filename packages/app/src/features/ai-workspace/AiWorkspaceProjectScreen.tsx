@@ -167,19 +167,19 @@ export function AiWorkspaceProjectScreen({
           </Text>
           <View style={styles.metaRow}>
             <View style={styles.metaInline}>
-              <FileText size={13} color={tk.text.secondary} strokeWidth={2} />
+              <FileText size={13} color={tk.text.tertiary} strokeWidth={2} />
               <Text style={styles.metaText}>
                 {t('aiWorkspace.fileCount', { count: fileCount })}
               </Text>
             </View>
             <View style={styles.metaInline}>
-              <Users size={13} color={tk.text.secondary} strokeWidth={2} />
+              <Users size={13} color={tk.text.tertiary} strokeWidth={2} />
               <Text style={styles.metaText}>
                 {t('aiWorkspace.memberCount', { count: memberCount })}
               </Text>
             </View>
             <View style={styles.metaInline}>
-              <Calendar size={13} color={tk.text.secondary} strokeWidth={2} />
+              <Calendar size={13} color={tk.text.tertiary} strokeWidth={2} />
               <Text style={styles.metaText}>{formatDate(project.updatedAt)}</Text>
             </View>
           </View>
@@ -420,7 +420,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     metaText: {
       fontSize: rnType.caption.size,
-      color: tk.text.medium,
+      color: tk.text.tertiary,
     },
     /* 通用卡片区 */
     sectionCard: {
@@ -445,11 +445,11 @@ function createStyles(tk: AppThemeTokens) {
     },
     sectionCount: {
       fontSize: rnType.caption.size,
-      color: tk.text.medium,
+      color: tk.text.tertiary,
     },
     emptyText: {
       fontSize: rnType.label.size,
-      color: tk.text.medium,
+      color: tk.text.tertiary,
     },
     row: {
       gap: rnSpacing.xs,
@@ -463,7 +463,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     rowMeta: {
       fontSize: rnType.caption.size,
-      color: tk.text.medium,
+      color: tk.text.tertiary,
     },
     rowBadges: {
       flexDirection: 'row',
@@ -555,7 +555,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     convertFileName: {
       fontSize: rnType.caption.size,
-      color: tk.text.medium,
+      color: tk.text.tertiary,
     },
     convertBody: {
       fontSize: rnType.label.size,

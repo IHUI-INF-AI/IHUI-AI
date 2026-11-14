@@ -22,7 +22,6 @@ import {
   releaseUserConnectionSlots,
 } from '../utils/connection-registry.js'
 import { toUserFriendlyMessage } from '@ihui/shared'
-import { createBackpressureSkipLedger, sendWithBackpressure } from './ws-backpressure.js'
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -60,7 +59,16 @@ const wsChatMessageSchema = z
   })
   .refine((v) => Object.keys(v).length <= 20, { message: '字段过多' })
 
+/**
+ * F-461:消息收发时刷新 ws-auto-recovery 的活动时间(内存时间戳,轻量、不落库)。
+ * `?.()` 兼容既有测试里只 mock 了 setFastify/registerPlugin 的 manager。
+ */
+const touchActivity = (): void => {
+  getWsAutoRecoveryManager().recordActivity?.()
+}
+
 const send = (socket: WebSocket, obj: unknown): void => {
+  touchActivity()
   try {
     socket.send(JSON.stringify(obj))
   } catch {
@@ -173,26 +181,17 @@ const wsChatPlugin: FastifyPluginAsync = async (server) => {
     return isMember
   }
 
-  // F-116:写队列超水位的跳过台账(首喊 + 60s 复读)
-  const backpressureSkips = createBackpressureSkipLedger()
-
   const localBroadcast = (roomId: string, payload: unknown, exclude?: WebSocket): void => {
     const members = rooms.get(roomId)
     if (!members || members.size === 0) return
     const msg = JSON.stringify(payload)
     for (const m of members) {
       if (m.socket === exclude) continue
-      // F-116:写队列超阈值 ⇒ 跳过本帧并计数,不断线。房间消息有回放缓冲
-      // (断线重连带 since/lastSeq 可补发),丢一帧不会永久缺失;断线反而会中断整段会话。
-      const outcome = sendWithBackpressure(m.socket, msg, () => {
+      try {
+        m.socket.send(msg)
+      } catch {
         // 迟到清理走注册表出口:按成员对象身份移除,集合空了才摘 key
         removeIfSame(rooms, roomId, m)
-      })
-      if (outcome === 'skipped' && backpressureSkips.record()) {
-        server.log.warn(
-          { roomId, skippedFramesTotal: backpressureSkips.total() },
-          'ws-chat 连接写队列超阈值,已跳过本帧(首次或超 60s 复读)',
-        )
       }
     }
   }
@@ -769,6 +768,7 @@ const wsChatPlugin: FastifyPluginAsync = async (server) => {
         let inboundChain: Promise<void> = Promise.resolve()
 
         socket.on('message', (data: Buffer) => {
+          touchActivity()
           const raw = data.toString()
           if (raw === 'ping') {
             socket.send('pong')

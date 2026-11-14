@@ -45,11 +45,102 @@ import { dirname, join, resolve, sep } from 'node:path'
 import { pathToFileURL, fileURLToPath } from 'node:url'
 import { spawnSync } from 'node:child_process'
 import { defaultRoots } from './scrub-temp-fixtures.mjs'
-import { SCRATCH_DIR_NAME } from './lib/scratch-dir.mjs'
+import { SCRATCH_DIR_NAME, classifyScratchOverride } from './lib/scratch-dir.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = resolve(HERE, '..')
 const CONFIG_REL = join('config', 'temp-landing.json')
+
+/**
+ * 仓内路径逃生舱(2026-11-13 盘根外流根治会话新增的一维)。
+ *
+ * 立因:本尺子从前只看 TEMP/TMP/TMPDIR 三键 —— 那是**系统通用**的落点词汇。而本仓另有两个
+ * 自定义路径变量(IHUI_SCRATCH_DIR / IHUI_DEVENV_ROOT),优先级在 scratch-dir 选址链里**压过**
+ * 推导臂;实测 HKCU\Environment + HKLM Session Manager\Environment 同时持久化过一条
+ * `IHUI_SCRATCH_DIR=C:\Users\Administrator\AppData\Local\Temp\ihui-scratch`,守门判面、旁路落地
+ * 夹具、测试临时树从此静默外流到系统盘一个多月,而本尺子读数逐字全绿 —— **它守的门锁不在它看的
+ * 门上**。§26 的教训(落点是第七类机器事实,只许现读)同样适用于这两个变量:值不是被谁设的
+ * 不重要,当次钉在系统盘就是不合规。
+ *
+ * 判据不在本文件复算(§0.6):逐变量投影成完整落点后,交给 scratch-dir.mjs 的
+ * `classifyScratchOverride`(与运行时拒绝采用的**同一份**判据)。采集三臂:HKCU/HKLM 注册表
+ * (改动的权威面)+ 进程 env(当前真正被采信的那份)。
+ *   · 任一臂的值被拒(relative / system-drive)⇒ drift,点名臂、变量、值与出路;
+ *   · 注册表臂读不到/解析不出 ⇒ undetermined(压过 drift,空与没判都不出合格证;
+ *     进程臂"未设"不算未判定 —— 未设 = 走推导臂,本就是合规缺省);
+ *   · 只有被 ALLOW 旗标点名的 ⇒ match,但 why 必须写明"靠旗标放行"而不得洗成天然合规。
+ */
+export const PATH_ENV_PROJECTIONS = {
+  IHUI_SCRATCH_DIR: (v) => v,
+  IHUI_DEVENV_ROOT: (v) => join(v, 'Temp', SCRATCH_DIR_NAME),
+}
+
+export function auditPathEnvEscapeHatch({ arms = [], env = {}, platform = process.platform, moduleDir } = {}) {
+  const base = {
+    name: 'repo-path-env',
+    label: '仓内路径逃生舱(IHUI_SCRATCH_DIR / IHUI_DEVENV_ROOT)合规',
+    judged: true,
+    approved: ['未设(走仓内推导臂)', '与仓根同盘/非系统盘的绝对路径', 'IHUI_SCRATCH_DIR_ALLOW_SYSTEM_ROOT=1 显式授权'],
+    current: [],
+  }
+  const findings = []
+  const unchecked = []
+  const allowed = []
+  const probeEnv = { ...env }
+  for (const a of arms) {
+    if (a.error) {
+      unchecked.push(`${a.arm}:注册表臂读不到(${a.error})`)
+      continue
+    }
+    for (const [name, fn] of Object.entries(PATH_ENV_PROJECTIONS)) {
+      const raw = a.values?.[name]
+      if (raw === undefined || raw === null || String(raw).trim() === '') continue
+      const value = String(raw).trim()
+      base.current.push({ name: `${a.arm}·${name}`, value })
+      const verdict = classifyScratchOverride(fn(value), {
+        platform,
+        moduleDir: moduleDir ?? join(HERE, 'lib'),
+        env: probeEnv,
+      })
+      if (verdict.verdict === 'relative' || verdict.verdict === 'system-drive') {
+        findings.push({ arm: a.arm, name, value, kind: verdict.verdict })
+      } else if (verdict.verdict === 'system-drive-allowed') {
+        allowed.push(`${a.arm}·${name}(旗标 IHUI_SCRATCH_DIR_ALLOW_SYSTEM_ROOT=1 放行)`)
+      } else if (verdict.verdict === 'unchecked') {
+        unchecked.push(`${a.arm}·${name}:${verdict.why}`)
+      }
+    }
+  }
+  if (findings.length) {
+    return {
+      ...base,
+      state: 'drift',
+      why:
+        `${findings.map((f) => `${f.arm} 的 ${f.name}=${f.value}(${f.kind})`).join(';')} ⇒ 钉在系统盘或相对路径的逃生舱` +
+        `会让全部 mkScratch 落点外流(§15b/§26)。出路:删掉该变量(HKCU 与 HKLM 两处都查)或改成与仓根同盘的绝对路径;` +
+        `判据单一真相源 scripts/lib/scratch-dir.mjs::classifyScratchOverride。改注册表后须重启相关宿主/服务才生效。` +
+        (unchecked.length ? `(另有臂没看清,不吞已量到的指控:${unchecked.join(';')})` : ''),
+    }
+  }
+  if (unchecked.length) {
+    return {
+      ...base,
+      state: 'undetermined',
+      why: `${unchecked.join(';')} ⇒ 未判定(读不到不等于合规,§0.3;注册表臂不可读时绝不因"进程臂干净"记绿)`,
+    }
+  }
+  if (allowed.length) {
+    return {
+      ...base,
+      state: 'match',
+      why: `值钉系统盘但被旗标点名放行:${allowed.join(';')} —— 账面记"靠授权合规",不洗成天然合规`,
+    }
+  }
+  if (!base.current.length) {
+    return { ...base, state: 'match', why: '两变量在全部采集臂上均未设 ⇒ 走仓内推导臂(<仓根>\\.DevEnv\\Temp),合规缺省' }
+  }
+  return { ...base, state: 'match', why: `现读 ${base.current.length} 个臂·值全部通过合规判据(与仓根同盘/非系统盘的绝对路径)` }
+}
 
 function parseArgv(argv) {
   const out = { _: [] }
@@ -348,6 +439,27 @@ function buildReport(conf, opts = {}) {
   })
   const interactive = tiers.find((t) => t.name === 'interactive-account') || {}
   const approved = interactive.approved || []
+  // path-env 逃生舱维(2026-11-13 盘根外流根治):臂名清单走 config(声明式,同 tiers 哲学),
+  // 采集失败只降级本维自己,不得吞掉上面 tiers 已量到的结论(§0.3/头注)。
+  const pathEnvKeys = (conf.pathEnv && conf.pathEnv.registryArms) || ['HKCU\\Environment', 'HKLM\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment']
+  const pathEnvArms = []
+  for (const regKey of pathEnvKeys) {
+    const read = readRegistryTier({ name: 'repo-path-env', registryKey: regKey, values: Object.keys(PATH_ENV_PROJECTIONS) }, opts)
+    pathEnvArms.push({ arm: regKey, values: read.values || {}, error: read.error })
+  }
+  const procEnv = opts.env || process.env
+  pathEnvArms.push({
+    arm: '进程 env',
+    values: Object.fromEntries(Object.keys(PATH_ENV_PROJECTIONS).map((k) => [k, procEnv[k] === undefined ? null : procEnv[k]])),
+    error: null,
+  })
+  results.push(
+    auditPathEnvEscapeHatch({
+      arms: pathEnvArms,
+      env: procEnv,
+      platform: opts.platform || process.platform,
+    }),
+  )
   const derived = defaultRoots()
   const probes = probeRecentWrites({
     roots: derived.roots,
@@ -501,6 +613,80 @@ export function selfTest() {
     assert(m.TEMP === '%SystemRoot%\\temp' && m.TMP === 'D:\\DevEnv\\Temp', JSON.stringify(m))
     assert(normalizeLanding('%SystemRoot%\\temp', { SystemRoot: 'C:\\Windows' }) === 'c:\\windows\\temp', '展开失败')
     assert(normalizeLanding('D:\\') !== normalizeLanding('D:'), '盘根 `D:\\` 不许被削成 `D:`(两个不同对象同名 = 假绿)')
+  })
+
+  /* path-env 逃生舱维(2026-11-13 盘根外流根治)。构造面全部显式喂 platform/moduleDir/env,
+   * 不赌自检宿主是什么系统;仓根放**假想盘 Z:**(纯字符串判据不需要目录真存在),
+   * SystemRoot 喂 C:\Windows ⇒ "仓在别的盘的 Windows 机"这一起诉形态。 */
+  const PE_ENV = { SystemRoot: 'C:\\Windows' }
+  const PE_MOD = 'Z:\\IHUI-AI\\scripts\\lib'
+  const HKCU = 'HKCU\\Environment'
+  t('path-env:全部臂未设 ⇒ match(合规缺省 = 走仓内推导臂,不是"没东西可判")', () => {
+    const r = auditPathEnvEscapeHatch({
+      arms: [{ arm: HKCU, values: {}, error: null }, { arm: '进程 env', values: { IHUI_SCRATCH_DIR: null, IHUI_DEVENV_ROOT: null }, error: null }],
+      env: PE_ENV,
+      platform: 'win32',
+      moduleDir: PE_MOD,
+    })
+    assert(r.state === 'match' && /合规缺省/.test(r.why), JSON.stringify(r))
+  })
+  t('path-env:注册表臂钉系统盘 ⇒ drift,点名臂/变量/值/出路(本次事故的可复现形态)', () => {
+    const r = auditPathEnvEscapeHatch({
+      arms: [{ arm: HKCU, values: { IHUI_SCRATCH_DIR: 'C:\\Users\\Administrator\\AppData\\Local\\Temp\\ihui-scratch' }, error: null }],
+      env: PE_ENV,
+      platform: 'win32',
+      moduleDir: PE_MOD,
+    })
+    assert(r.state === 'drift', `应 drift:${r.why}`)
+    for (const s of [HKCU, 'IHUI_SCRATCH_DIR', 'C:\\Users', '删掉该变量']) assert(r.why.includes(s), `why 缺"${s}":${r.why}`)
+  })
+  t('path-env:IHUI_DEVENV_ROOT 经投影后同判(system-drive 变量不只有 SCRATCH 一个口)', () => {
+    const r = auditPathEnvEscapeHatch({
+      arms: [{ arm: '进程 env', values: { IHUI_DEVENV_ROOT: 'C:\\DevEnv' }, error: null }],
+      env: PE_ENV,
+      platform: 'win32',
+      moduleDir: PE_MOD,
+    })
+    assert(r.state === 'drift' && /IHUI_DEVENV_ROOT/.test(r.why), `DevEnv 根钉 C 盘必须被投影判出:${r.why}`)
+  })
+  t('path-env:相对值 ⇒ drift(kind=relative);ALLOW 旗标 ⇒ match 且账面写明靠授权', () => {
+    const rel = auditPathEnvEscapeHatch({
+      arms: [{ arm: '进程 env', values: { IHUI_SCRATCH_DIR: 'scratch\\relative' }, error: null }],
+      env: PE_ENV,
+      platform: 'win32',
+      moduleDir: PE_MOD,
+    })
+    assert(rel.state === 'drift' && /relative/.test(rel.why), `相对值应判 relative:${rel.why}`)
+    const allowed = auditPathEnvEscapeHatch({
+      arms: [{ arm: HKCU, values: { IHUI_SCRATCH_DIR: 'C:\\Users\\u\\AppData\\Local\\Temp\\ihui-scratch' }, error: null }],
+      env: { ...PE_ENV, IHUI_SCRATCH_DIR_ALLOW_SYSTEM_ROOT: '1' },
+      platform: 'win32',
+      moduleDir: PE_MOD,
+    })
+    assert(allowed.state === 'match' && /旗标/.test(allowed.why) && /授权|放行/.test(allowed.why), `旗标形态必须 match 但不许洗成天然合规:${allowed.why}`)
+  })
+  t('path-env:注册表臂读不到 + 进程臂干净 ⇒ undetermined(没判过的门不记绿;§0.3)', () => {
+    const r = auditPathEnvEscapeHatch({
+      arms: [
+        { arm: HKCU, values: null, error: 'rc:1' },
+        { arm: '进程 env', values: {}, error: null },
+      ],
+      env: PE_ENV,
+      platform: 'win32',
+      moduleDir: PE_MOD,
+    })
+    assert(r.state === 'undetermined', `应 undetermined:${r.why}`)
+    // 反向对照:同样的不可读臂 + 另一臂量到 drift ⇒ drift 优先呈报(一维没看清不得吞掉另一维已量到的指控)
+    const r2 = auditPathEnvEscapeHatch({
+      arms: [
+        { arm: HKCU, values: null, error: 'rc:1' },
+        { arm: 'HKLM\\x', values: { IHUI_SCRATCH_DIR: 'C:\\Users\\u\\Temp\\ihui-scratch' }, error: null },
+      ],
+      env: PE_ENV,
+      platform: 'win32',
+      moduleDir: PE_MOD,
+    })
+    assert(r2.state === 'drift', `量到的指控不得被没量到的那臂顶掉:${r2.why}`)
   })
   console.log(cases.join('\n'))
   console.log(`\n自检:pass ${cases.filter((c) => c.includes('✅')).length} / fail ${cases.filter((c) => c.includes('❌')).length}`)

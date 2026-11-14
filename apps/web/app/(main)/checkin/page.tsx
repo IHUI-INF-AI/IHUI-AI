@@ -63,14 +63,12 @@ import {
   deleteCheckinAccount,
   fetchAiServiceJson,
   getCheckinSchedulerStatus,
-  getToken,
   listCheckinAccounts,
   listCheckinCreditsDaily,
   listCheckinCreditsHistory,
   listCheckinRecords,
   manualCheckinAccount,
   queryCheckinAccountCredits,
-  refreshAccessTokenOnce,
   setCheckinAccountEnabled,
   updateCheckinAccountGroup,
   updateCheckinAccountJwt,
@@ -79,11 +77,7 @@ import {
   type CheckinCreditsHistoryItem,
   type CheckinRecord,
 } from '@ihui/api-client'
-// F-060(2026-11-12):jar 探测路径的入库直接 invoke Rust 命令(会话 Cookie 不出 Rust,
-// 由 Rust 从内嵌浏览器 cookie jar 现读直 POST 后端)。
-import { invoke } from '@tauri-apps/api/core'
 import { EChart } from '@/components/charts/EChart'
-import { resolveAiServiceBaseUrl } from '@/lib/api-base-url'
 import { TruncatedText } from '@/components/common/TruncatedText'
 import { AuthGatePrompt } from '@/components/common'
 import { Container } from '@/components/layout/Container'
@@ -707,62 +701,9 @@ export default function CheckinPage() {
     }
   }
 
-  // F-060(2026-11-12)导入结果收尾体:三条导入路径(jar 探测 IPC / 嵌入
-  // #wb_import hash / 粘贴逐条)统一走这里,返回是否全部成功,调用方据此收尾
-  // (关登录窗/关对话框)。失败逐条聚合红字;全成 → done + 「已导入 N 条」+
-  // loadAll 刷新;cookie_checkin_ok=false 时如实补「签到可用性未确认」。
-  const applyWbImportResult = async (result: {
-    imported: number
-    failures: string[]
-    cookie_checkin_ok?: boolean
-  }) => {
-    if (result.failures.length > 0) {
-      setWbWebLoginState('closed')
-      setWbWebLoginMsg(result.failures.join('；'))
-      return false
-    }
-    setWbWebLoginState('done')
-    setWbWebLoginMsg('')
-    setBatchNotice(
-      result.cookie_checkin_ok === false
-        ? `${t('captureWbWebDone', { count: result.imported })} ${t('captureWbWebCheckinUncertain')}`
-        : t('captureWbWebDone', { count: result.imported }),
-    )
-    await loadAll()
-    return true
-  }
-
-  // F-060:jar 探测路径的入库 —— 探测回包只有账号列表,会话 Cookie 不出 Rust;
-  // invoke checkin_workbuddy_web_import 由 Rust 从内嵌浏览器 cookie jar 现读
-  // Cookie,带本页用户 access token 直接 POST 后端(鉴权保持 Bearer,不降级)。
-  const importWbJarProbe = async (probe: {
-    accounts: { uid: string; nickname: string }[]
-    cookie_checkin_ok?: boolean
-  }) => {
-    setWbWebLoginState('importing')
-    setWbWebLoginMsg(t('captureWbWebImporting'))
-    try {
-      const accessToken = (await refreshAccessTokenOnce()) || getToken() || ''
-      const result = await invoke<{ imported: number; failures: string[] }>(
-        'checkin_workbuddy_web_import',
-        {
-          accounts: probe.accounts,
-          group: groupFilter !== 'all' ? groupFilter : '',
-          accessToken,
-          apiBase: resolveAiServiceBaseUrl() || window.location.origin,
-        },
-      )
-      return await applyWbImportResult({ ...result, cookie_checkin_ok: probe.cookie_checkin_ok })
-    } catch (e) {
-      setWbWebLoginState('closed')
-      setWbWebLoginMsg((e as { message?: string })?.message ?? String(e))
-      return false
-    }
-  }
-
-  // 粘贴路径入库体:粘贴的 Cookie 本就在 JS 手里(该路径允许 JS 持有),
-  // 逐条 createCheckinAccount;探测回包已不带 cookie,用调用方的本地草稿。
-  // 返回是否全部成功,调用方据此收尾(关对话框)。
+  // WorkBuddy probe 导入共用体:嵌入模式 hash 导入(#wb_import=)的入库体。
+  // (主窗口默认浏览器流程改走 importWbPastedCookie 手动粘贴导入,不经此处。)
+  // 返回是否全部成功,调用方据此收尾(关登录窗/关对话框)。
   const importWbProbeAccounts = async (probe: {
     cookie: string
     accounts: { uid: string; nickname: string }[]
@@ -786,11 +727,20 @@ export default function CheckinPage() {
         failures.push(`${acc.nickname || acc.uid}: ${(e as Error).message}`)
       }
     }
-    return await applyWbImportResult({
-      imported: okCount,
-      failures,
-      cookie_checkin_ok: probe.cookie_checkin_ok,
-    })
+    if (failures.length > 0) {
+      setWbWebLoginState('closed')
+      setWbWebLoginMsg(failures.join('；'))
+      return false
+    }
+    setWbWebLoginState('done')
+    setWbWebLoginMsg('')
+    setBatchNotice(
+      probe.cookie_checkin_ok === false
+        ? `${t('captureWbWebDone', { count: okCount })} ${t('captureWbWebCheckinUncertain')}`
+        : t('captureWbWebDone', { count: okCount }),
+    )
+    await loadAll()
+    return true
   }
 
   // WorkBuddy 网页登录(2026-10-18 自动闭环版,李总口径「登录后要自动获取授权与
@@ -816,13 +766,11 @@ export default function CheckinPage() {
   // 登录成功即自动关窗 + 入库;用户关窗(no_window)即结束等待,不无限转圈。
   // 嵌入模式(签到页本身在内嵌浏览器里)没有 IPC,不走本 effect,由 Rust 看护 +
   // 哨兵导航那条链路闭环(见 embedded_browser.rs)。
-  // 收尾/入库体走 ref 取最新:它们是每次渲染的新闭包,直接进依赖会让
+  // importWbProbeAccounts 走 ref 取最新:它是每次渲染的新闭包,直接进依赖会让
   // effect 随每次渲染重建、轮询 timer 反复清零(铁律:禁引用依赖进 effect)。
-  const importWbJarRef = React.useRef(importWbJarProbe)
-  const applyWbImportResultRef = React.useRef(applyWbImportResult)
+  const importWbProbeRef = React.useRef(importWbProbeAccounts)
   React.useEffect(() => {
-    importWbJarRef.current = importWbJarProbe
-    applyWbImportResultRef.current = applyWbImportResult
+    importWbProbeRef.current = importWbProbeAccounts
   })
   React.useEffect(() => {
     if (!desktop || embedBrowser || wbWebLoginState !== 'waiting') return
@@ -834,10 +782,8 @@ export default function CheckinPage() {
         if (stopped) return
         if (probe.status === 'ok') {
           stopped = true
-          // F-060:先入库后关窗 —— Rust 要从登录窗 cookie jar 现读会话 Cookie,
-          // closeEmbeddedBrowser 之后 active_webview 没了就读不到。
-          const ok = await importWbJarRef.current(probe)
           await closeEmbeddedBrowser()
+          const ok = await importWbProbeRef.current(probe)
           if (ok) setWbCaptureOpen(false)
         } else if (probe.status === 'no_window') {
           stopped = true
@@ -889,9 +835,8 @@ export default function CheckinPage() {
       try {
         const probe = await checkinWorkbuddyWebLoginProbeCookie(cookie)
         if (probe.status === 'ok' && probe.accounts.length > 0) {
-          // F-060:探测回包已不含 cookie,入库用本地粘贴草稿(JS 侧持有)
           const ok = await importWbProbeAccounts({
-            cookie,
+            cookie: probe.cookie,
             accounts: probe.accounts,
             cookie_checkin_ok: probe.cookie_checkin_ok,
           })
@@ -938,25 +883,12 @@ export default function CheckinPage() {
   // 标签 + 轮询 cookie jar,登录成功后把登录标签导航回本页(#wb_import=<json>),
   // 由下方 hash 导入收尾。waiting 态不提供「取消」:取消命令也是 IPC(嵌入页调
   // 不动),且 Rust 看护已在跑、本地复位是假象(登录成功后结果照样送回来)。
-  const startWbWebLoginEmbed = async () => {
+  const startWbWebLoginEmbed = () => {
     setCaptureError(null)
     setWbWebLoginState('waiting')
     setWbWebLoginMsg(t('captureWbWebWaiting'))
-    const nav = (
-      window as unknown as {
-        __ihuiNav?: (action: string, params?: string) => void
-      }
-    ).__ihuiNav
-    if (!nav) return
-    // F-060:嵌入页没有 IPC,把 Rust 侧入库要用的鉴权参数随哨兵 query 带过去
-    // (tk=用户 access token,ab=后端基址,g=分组;.invalid 域不外发、query 不出本机)。
-    const accessToken = (await refreshAccessTokenOnce()) || getToken() || ''
-    nav(
-      'wb-checkin-login',
-      `tk=${encodeURIComponent(accessToken)}&ab=${encodeURIComponent(
-        resolveAiServiceBaseUrl() || window.location.origin,
-      )}&g=${encodeURIComponent(groupFilter !== 'all' ? groupFilter : '')}`,
-    )
+    const nav = (window as unknown as { __ihuiNav?: (action: string) => void }).__ihuiNav
+    nav?.('wb-checkin-login')
   }
 
   // 嵌入模式等待超时:Rust 看护 6 分钟静默放弃且无法通知本页(无 IPC),
@@ -975,7 +907,7 @@ export default function CheckinPage() {
   // (无 IPC),把流程归到一处,免得两个入口各写一份分支。
   const openWbWebLoginEntry = () => {
     if (embedBrowser) {
-      void startWbWebLoginEmbed()
+      startWbWebLoginEmbed()
       return
     }
     openWbCapture()
@@ -984,10 +916,8 @@ export default function CheckinPage() {
 
   // 嵌入模式结果接收(2026-10-17):Rust 登录成功后把登录标签导航到
   // /checkin#wb_import=<percent-encoded JSON>(fragment 不发往服务端,纯页面内
-  // 消费),这里解析后走收尾体刷新,再清 hash 防刷新重导。
-  // F-060:负载只带 {imported, failures, cookie_checkin_ok} —— 会话 Cookie 与
-  // 账号列表都不进 hash(导入在 Rust 侧完成,凭据不出 Rust)。
-  // ready/allow 门:收尾走 Web 会话鉴权(loadAll),压到登录态确定之后,别撞 bootstrap 空窗。
+  // 消费),这里解析后走共用导入体入库,再清 hash 防刷新重导。
+  // ready/allow 门:导入走 Web 会话鉴权,压到登录态确定之后,别撞 bootstrap 空窗。
   React.useEffect(() => {
     if (!ready || !allow) return
     const importFromHash = async () => {
@@ -995,25 +925,25 @@ export default function CheckinPage() {
       if (!raw.startsWith('#wb_import=')) return
       const clearHash = () =>
         history.replaceState(null, '', window.location.pathname + window.location.search)
-      let payload: { imported?: number; failures?: string[]; cookie_checkin_ok?: boolean }
+      let probe: {
+        cookie: string
+        accounts: { uid: string; nickname: string }[]
+        cookie_checkin_ok?: boolean
+      }
       try {
-        payload = JSON.parse(safeDecodeURIComponent(raw.slice('#wb_import='.length)))
+        probe = JSON.parse(safeDecodeURIComponent(raw.slice('#wb_import='.length)))
       } catch {
         clearHash()
         return
       }
-      // 先清 hash 再收尾:导入中途再触发(importing 重渲染等)不会重复处理
+      // 先清 hash 再入库:导入中途再触发(importing 重渲染等)不会重复导入
       clearHash()
-      await applyWbImportResultRef.current({
-        imported: typeof payload.imported === 'number' ? payload.imported : 0,
-        failures: Array.isArray(payload.failures) ? payload.failures : [],
-        cookie_checkin_ok: payload.cookie_checkin_ok,
-      })
+      await importWbProbeRef.current(probe)
     }
     void importFromHash()
     window.addEventListener('hashchange', importFromHash)
     return () => window.removeEventListener('hashchange', importFromHash)
-    // importFromHash 闭包随渲染取最新收尾体(走 ref,禁引用依赖
+    // importFromHash 闭包随渲染取最新的 importWbProbeAccounts(走 ref,禁引用依赖
     // 进 effect 数组:它是每次渲染的新闭包,会让本 effect 反复重建);hash 即清 ⇒
     // 重复执行空转,其余依赖从宽不致错。
   }, [ready, allow, t, groupFilter, loadAll])

@@ -12,6 +12,7 @@
  * 只桩 global.fetch(上游目录)与 redis(get/set 内存实现)。
  */
 import { describe, it, expect, vi, afterEach } from 'vitest'
+import { createHash } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -57,7 +58,7 @@ describe('provider-models 缓存键纳入身份维度', () => {
     const a = await fetchProviderModels('groq', 'key-of-A', redis, 'user-A')
     expect(a.source).toBe('live')
     expect(a.models[0]?.id).toBe('private-model-of-A')
-    const keyA = getCacheKey('groq', 'user-A')
+    const keyA = getCacheKey('groq', 'user-A', 'key-of-A')
     expect(store.has(keyA)).toBe(true)
 
     // B 带自己的 key 请求:不得命中 A 的缓存(旧写法下这里会返回 source=cache 且拿到 A 的私有清单)
@@ -66,8 +67,10 @@ describe('provider-models 缓存键纳入身份维度', () => {
     expect(b.models.map((m) => m.id)).not.toContain('private-model-of-A')
     expect(b.models[0]?.id).toBe('catalog-visible-to-B')
     expect(urls.length).toBe(2)
-    expect(getCacheKey('groq', 'user-B')).not.toBe(keyA)
-    expect([...store.keys()].sort()).toEqual([keyA, getCacheKey('groq', 'user-B')].sort())
+    expect(getCacheKey('groq', 'user-B', 'key-of-B')).not.toBe(keyA)
+    expect([...store.keys()].sort()).toEqual(
+      [keyA, getCacheKey('groq', 'user-B', 'key-of-B')].sort(),
+    )
   })
 
   it('② 反例防呆:同一用户第二次请求仍命中缓存(不得改成永远 miss 的假修复)', async () => {
@@ -87,26 +90,35 @@ describe('provider-models 缓存键纳入身份维度', () => {
     const { store, redis } = makeFakeRedis()
     stubFetchByCalls([['private-model-of-A'], ['public-catalog']])
 
-    await fetchProviderModels('groq', 'key-of-A', redis, 'user-A')
-    const pub = await fetchProviderModels('groq', undefined, redis, undefined)
-    expect(pub.source).toBe('live') // 没读到 A 的条目
-    expect(pub.models[0]?.id).toBe('public-catalog')
+    // 无 key 档必须确定落 anon,避免本机环境变量干扰
+    const savedGroqKey = process.env.GROQ_API_KEY
+    delete process.env.GROQ_API_KEY
+    try {
+      await fetchProviderModels('groq', 'key-of-A', redis, 'user-A')
+      const pub = await fetchProviderModels('groq', undefined, redis, undefined)
+      expect(pub.source).toBe('live') // 没读到 A 的条目
+      expect(pub.models[0]?.id).toBe('public-catalog')
 
-    const keyPub = getCacheKey('groq')
-    expect(keyPub).toBe('provider:models:groq:public')
-    expect(keyPub).not.toBe(getCacheKey('groq', 'user-A'))
-    // null/undefined/空白 都是"无身份"的形态,统一收敛到 :public,且都不与任何真实用户键同串
-    expect(getCacheKey('groq', null)).toBe(keyPub)
-    expect(getCacheKey('groq', null)).not.toBe(getCacheKey('groq', 'user-A'))
-    expect(getCacheKey('groq', '   ')).toBe(keyPub)
-    expect(store.has(keyPub)).toBe(true)
-    expect(store.has('provider:models:groq')).toBe(false)
+      const keyPub = getCacheKey('groq')
+      expect(keyPub).toBe('provider:models:groq:public:k:anon')
+      expect(keyPub).not.toBe(getCacheKey('groq', 'user-A', 'key-of-A'))
+      // null/undefined/空白 都是"无身份"的形态,统一收敛到 :public,且都不与任何真实用户键同串
+      expect(getCacheKey('groq', null)).toBe(keyPub)
+      expect(getCacheKey('groq', null)).not.toBe(getCacheKey('groq', 'user-A', 'key-of-A'))
+      expect(getCacheKey('groq', '   ')).toBe(keyPub)
+      expect(store.has(keyPub)).toBe(true)
+      expect(store.has('provider:models:groq')).toBe(false)
+    } finally {
+      if (savedGroqKey === undefined) delete process.env.GROQ_API_KEY
+      else process.env.GROQ_API_KEY = savedGroqKey
+    }
   })
 
   it('④ 变异对照:键若退回旧写法(忽略身份/裸拼 undefined)本条必红', () => {
     const legacyShape = 'provider:models:groq'
-    const kA = getCacheKey('groq', 'user-A')
-    const kB = getCacheKey('groq', 'user-B')
+    const fp = (s: string) => createHash('sha256').update(s, 'utf8').digest('hex').slice(0, 16)
+    const kA = getCacheKey('groq', 'user-A', 'key-of-A')
+    const kB = getCacheKey('groq', 'user-B', 'key-of-B')
     const kPub = getCacheKey('groq')
     // 旧实现下三者全等且等于 legacyShape ⇒ 这四条断言同时翻红(判据有牙,非恒真)
     expect(kA).not.toBe(legacyShape)
@@ -116,7 +128,9 @@ describe('provider-models 缓存键纳入身份维度', () => {
     // 空串/空白/undefined 一律收敛到 public 档,不得产生 `...:undefined` / `...:` 这类可撞键
     expect(getCacheKey('groq', undefined)).toBe(kPub)
     expect(getCacheKey('groq', '')).toBe(kPub)
-    expect(kA).toBe('provider:models:groq:u:user-A')
+    expect(kA).toBe(`provider:models:groq:u:user-A:k:${fp('key-of-A')}`)
+    // F-389:同一身份换一把 key 必须落不同键,防止跨凭据串味
+    expect(getCacheKey('groq', 'user-A', 'key-of-B')).not.toBe(kA)
   })
 
   it('⑤ 结构判据:该文件所有 getCacheKey 调用点必须传身份参数', () => {

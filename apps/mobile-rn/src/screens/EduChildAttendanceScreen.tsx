@@ -21,7 +21,6 @@ import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { attendanceStatusLabel, attendanceStatusTone } from './EduAttendanceScreen'
-import { toFriendlyOr } from '@ihui/shared/utils'
 
 interface ChildAttendanceRecord {
   id: string
@@ -64,7 +63,7 @@ function EduChildAttendanceScreen() {
         })),
       )
     } catch (e) {
-      setError(toFriendlyOr(e, t('common.loadFailed')))
+      setError(e instanceof Error ? e.message : 'load failed')
     } finally {
       setLoading(false)
     }

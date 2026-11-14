@@ -137,11 +137,11 @@ export function TopicDetailScreen({
           ) : null}
           <View style={styles.postFooter}>
             <View style={styles.stat}>
-              <Heart size={14} color={tk.text.secondary} />
+              <Heart size={14} color={tk.text.tertiary} />
               <Text style={styles.statNum}>{item.likes ?? 0}</Text>
             </View>
             <View style={styles.stat}>
-              <MessageCircle size={14} color={tk.text.secondary} />
+              <MessageCircle size={14} color={tk.text.tertiary} />
               <Text style={styles.statNum}>{item.comments ?? 0}</Text>
             </View>
           </View>
@@ -184,7 +184,7 @@ export function TopicDetailScreen({
         <Pressable onPress={onPublish} accessibilityRole="button">
           {({ pressed }) => (
             <View style={[styles.publishBar, pressed ? styles.cardPressed : null]}>
-              <PenLine size={15} color={tk.text.secondary} />
+              <PenLine size={15} color={tk.text.tertiary} />
               <Text style={styles.publishText} numberOfLines={1}>
                 {t('topic.detail.publishPlaceholder')}
               </Text>

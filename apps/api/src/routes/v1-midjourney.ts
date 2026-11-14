@@ -21,8 +21,7 @@
  * 响应格式统一 { code, message, data },code=0 成功。
  * 上游未配置时返回 5016 "Midjourney-Proxy 渠道未配置"。
  */
-import type { FastifyBaseLogger, FastifyPluginAsync } from 'fastify'
-import type { Redis } from 'ioredis'
+import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import type { AuthenticatedApiKey } from '@ihui/types'
 import { requireApiKeyAuth, requireApiKeyQuota } from '../plugins/api-key-auth.js'
@@ -183,77 +182,6 @@ async function chargeMjCall(
 }
 
 // =============================================================================
-// F-92 任务归属映射
-// =============================================================================
-
-/**
- * F-92(2026-11-13 修):任务 ID 归属映射。
- *
- * 上游任务 ID 全局可枚举,而 tasks/action/upscale 都以**平台** MJ Key 向上游发起。
- * 不建归属映射 = 任意 API Key 可读他人 prompt/图片 URL,也可对他人任务做 upscale。
- *
- * 落点:既有 Redis(与 F-48 的 `imgtask:*`、BullMQ job.data 同一条持久面),提交成功
- * 即写 `taskId → { userId, apiKeyId, op }`,查询/操作前先读。
- *
- * 判据按 **userId**(同一用户轮换 API Key 后继续轮询同一任务不应失效),不比
- * apiKeyId 更严;apiKeyId 仅留档排障。`NX` 写入:上游若对相同 prompt 去重返回同一
- * taskId,后来者不能把归属改到自己名下。
- *
- * 无映射(上线前的历史任务 / 映射过期 / Redis 不可用)一律 fail-closed 404。
- */
-const MJ_TASK_OWNER_PREFIX = 'ihui:mj:task-owner:'
-/** 归属保留 30 天:远长于上游任务可查询期,过期后按无映射处理。 */
-const MJ_TASK_OWNER_TTL_SEC = 30 * 24 * 60 * 60
-
-interface MjTaskOwner {
-  userId: string
-  apiKeyId: string
-  op: MjOpType
-}
-
-function taskOwnerKey(taskId: string): string {
-  return `${MJ_TASK_OWNER_PREFIX}${taskId}`
-}
-
-/** 写入任务归属。失败只留痕不阻断:上游已出图且已计费,不能让归属写入反向毁掉结果。 */
-async function bindTaskOwner(
-  redis: Redis,
-  taskId: string,
-  apiKey: AuthenticatedApiKey,
-  op: MjOpType,
-  log: FastifyBaseLogger,
-): Promise<void> {
-  const record: MjTaskOwner = { userId: apiKey.userId, apiKeyId: apiKey.id, op }
-  try {
-    await redis.set(taskOwnerKey(taskId), JSON.stringify(record), 'EX', MJ_TASK_OWNER_TTL_SEC, 'NX')
-  } catch (err: unknown) {
-    log.error({ taskId, op, err }, '[v1/midjourney] 任务归属写入失败')
-  }
-}
-
-/** 读取任务归属;无映射 / 脏数据 / Redis 异常都返回 null(fail-closed)。 */
-async function readTaskOwner(
-  redis: Redis,
-  taskId: string,
-  log: FastifyBaseLogger,
-): Promise<MjTaskOwner | null> {
-  try {
-    const raw = await redis.get(taskOwnerKey(taskId))
-    if (!raw) return null
-    const parsed = JSON.parse(raw) as Partial<MjTaskOwner> | null
-    if (!parsed || typeof parsed.userId !== 'string' || parsed.userId.length === 0) return null
-    return {
-      userId: parsed.userId,
-      apiKeyId: typeof parsed.apiKeyId === 'string' ? parsed.apiKeyId : '',
-      op: parsed.op ?? 'imagine',
-    }
-  } catch (err: unknown) {
-    log.error({ taskId, err }, '[v1/midjourney] 任务归属读取失败(fail-closed)')
-    return null
-  }
-}
-
-// =============================================================================
 // Zod 请求体 schemas
 // =============================================================================
 
@@ -341,10 +269,8 @@ const midjourneyRoutes: FastifyPluginAsync = async (server) => {
       if (!data.result) {
         return reply.status(400).send(error(400, data.description || '上游 MJ 提交失败'))
       }
-      // F-92:先把 taskId 绑定到调用者,后续查询才有归属可校验
-      const apiKey = request.apiKey!
-      await bindTaskOwner(server.redis, data.result, apiKey, 'imagine', request.log)
       // 计费(桩)
+      const apiKey = request.apiKey!
       await chargeMjCall(apiKey, 'imagine', data.result)
 
       const payload: MjSubmitData = { task_id: data.result, status: 'submitted' }
@@ -363,12 +289,6 @@ const midjourneyRoutes: FastifyPluginAsync = async (server) => {
     const p = taskIdParamSchema.safeParse(request.params)
     if (!p.success) {
       return reply.status(400).send(error(400, p.error.issues[0]?.message ?? '参数错误'))
-    }
-
-    // F-92:先校验归属,非本人(含无映射的历史任务)一律 404,不触达上游
-    const owner = await readTaskOwner(server.redis, p.data.taskId, request.log)
-    if (!owner || owner.userId !== request.apiKey!.userId) {
-      return reply.status(404).send(error(404, '任务不存在'))
     }
 
     try {
@@ -401,12 +321,6 @@ const midjourneyRoutes: FastifyPluginAsync = async (server) => {
     }
     const b = parsed.data
 
-    // F-92:只能操作自己的任务(parent task);非本人一律 404
-    const owner = await readTaskOwner(server.redis, b.task_id, request.log)
-    if (!owner || owner.userId !== request.apiKey!.userId) {
-      return reply.status(404).send(error(404, '任务不存在'))
-    }
-
     const upstreamBody = {
       customId: b.custom_id ?? '',
       taskId: b.task_id,
@@ -421,10 +335,8 @@ const midjourneyRoutes: FastifyPluginAsync = async (server) => {
       if (!data.result) {
         return reply.status(400).send(error(400, data.description || '上游 MJ 操作失败'))
       }
-      // F-92:新子任务同样绑定到调用者,否则本人后续查询会被 fail-closed
-      const apiKey = request.apiKey!
-      await bindTaskOwner(server.redis, data.result, apiKey, b.action_type, request.log)
       // 计费:按 action_type 折算 unit(upscale=0.5, variation/reroll=1)
+      const apiKey = request.apiKey!
       await chargeMjCall(apiKey, b.action_type, data.result)
 
       const payload: MjSubmitData = { task_id: data.result, status: 'submitted' }
@@ -446,12 +358,6 @@ const midjourneyRoutes: FastifyPluginAsync = async (server) => {
     }
     const b = parsed.data
 
-    // F-92:只能放大自己的任务;非本人一律 404
-    const owner = await readTaskOwner(server.redis, b.task_id, request.log)
-    if (!owner || owner.userId !== request.apiKey!.userId) {
-      return reply.status(404).send(error(404, '任务不存在'))
-    }
-
     const upstreamBody = {
       customId: b.custom_id ?? '',
       taskId: b.task_id,
@@ -466,10 +372,8 @@ const midjourneyRoutes: FastifyPluginAsync = async (server) => {
       if (!data.result) {
         return reply.status(400).send(error(400, data.description || '上游 MJ 放大失败'))
       }
-      // F-92:新子任务绑定到调用者
-      const apiKey = request.apiKey!
-      await bindTaskOwner(server.redis, data.result, apiKey, 'upscale', request.log)
       // 计费:upscale = 0.5 unit
+      const apiKey = request.apiKey!
       await chargeMjCall(apiKey, 'upscale', data.result)
 
       const payload: MjSubmitData = { task_id: data.result, status: 'submitted' }

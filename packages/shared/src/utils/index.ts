@@ -81,14 +81,8 @@ export { parseSSEChunk, type SSEEvent as ParsedSSEEvent } from './sse-parse'
 // 打字机节拍 + 码点边界切批(D1:代理对不劈)+ 宿主调度探测三端同源;web 侧文件已降级为 re-export wrapper。
 // 显式列举公共符号:本文件的 __test__ 与 chat/stream-error-disposition 的同名符号
 // 经两条 export * 链在包根相撞(TS2308),测试专用符号不该上浮到包接口。
-export {
-  alignSliceToCodePointBoundary,
-  createSmoothDeltaBatcher,
-} from './smooth-delta-batcher'
-export type {
-  SmoothDeltaBatcherOptions,
-  SmoothDeltaBatcher,
-} from './smooth-delta-batcher'
+export { alignSliceToCodePointBoundary, createSmoothDeltaBatcher } from './smooth-delta-batcher'
+export type { SmoothDeltaBatcherOptions, SmoothDeltaBatcher } from './smooth-delta-batcher'
 // 纯文本气泡的行内 Markdown 去标记(无富文本渲染器的宿主共用:首页小窗 / 群聊 / 直播聊天)。
 // 只剥行内符号、不做块级解析 —— 边界与理由见源文件头注。
 export * from './strip-inline-markdown'

@@ -14,7 +14,6 @@ import {
 import { useTheme } from '../context/ThemeContext'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
-import { toFriendlyOr } from '@ihui/shared/utils'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -47,7 +46,7 @@ export function WorkflowsScreen() {
       const res = await listAutomations({ limit: 50 })
       setRaw(res.items)
     } catch (e) {
-      setError(toFriendlyOr(e, t('workflows.loadFailed')))
+      setError(e instanceof Error ? e.message : t('workflows.loadFailed'))
     } finally {
       setLoading(false)
       setRefreshing(false)

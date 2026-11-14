@@ -2303,13 +2303,14 @@ function auditDiskRootHygiene() {
     }
     const c = parsed.counts || {}
     const uN = Number(c.diskRootUndetermined) || 0
+    const cuN = Number(c.declaredContentUndetermined) || 0
     const wN = Number(c.worktreeUndetermined) || 0
     const nN = Number(c.diskRootNotApplicable) || 0
     if (parsed.verdict === 'undetermined') {
       // 未判定必须**逐维**报名:旧写法只印 worktree 一维,于是"本机盘根没在 config 申报"
       // 这一整格在日志里长得像"盘根那维已经判过了"(把没判写成判过了,同一条禁令)。
       log(
-        `ℹ️ 盘根卫生:未判定(盘根维 ${uN}、worktree 维 ${wN};不适用盘根 ${nN})—— 不寄信,也别当已判过`,
+        `ℹ️ 盘根卫生:未判定(盘根维 ${uN}、申报内容维 ${cuN}、worktree 维 ${wN};不适用盘根 ${nN})—— 不寄信,也别当已判过`,
       )
       return
     }
@@ -2319,6 +2320,9 @@ function auditDiskRootHygiene() {
       // 那会把"尺子看不懂载荷"伪装成"又有一处落点外",既误导整改方向也污染信文)。
       const LABEL = {
         'stray-root-entry': (v) => `盘根外流: ${v.path || `${v.root}${v.entry}`}`,
+        // H3(2026-11-13 盘根外流根治):申报了目录 ≠ 申报了目录里的一切。
+        'stray-content-in-declared-dir': (v) =>
+          `申报目录内项目外流: ${v.path}(超龄 ${v.ageHours}h;收走手痕,或具名申报进 config 的 contents 清单)`,
         'worktree-outside-sanctioned-root': (v) =>
           `worktree 落点外: ${v.path}${v.prunable ? '(prunable)' : ''}`,
         // Y-71(临时派生检出寿命闸@2026-11-14):孤儿壳 = .git 链接已断,git prune 与

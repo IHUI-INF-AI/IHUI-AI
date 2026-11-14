@@ -11,7 +11,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useNavigation, type NavigationProp } from '@react-navigation/native'
 import { fetchApi } from '@ihui/api-client'
 import { ConsoleTableScreen, type ConsoleColumn, type ConsoleRowView } from '@ihui/rn-app'
-import { formatPrice, toFriendlyOr } from '@ihui/shared/utils'
+import { formatPrice } from '@ihui/shared/utils'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
@@ -80,7 +80,7 @@ function DeveloperConversationsScreen() {
         setRows((prev) => (append ? [...prev, ...next] : next))
         setTotal(res.data?.total ?? list.length)
       } catch (e) {
-        setError(toFriendlyOr(e, t('common.loadFailed')))
+        setError(e instanceof Error ? e.message : 'load failed')
       } finally {
         setLoading(false)
       }

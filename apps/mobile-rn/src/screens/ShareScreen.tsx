@@ -511,7 +511,7 @@ function createStyles(tk: RnThemeTokens) {
     } as TextStyle,
     pickerHint: {
       fontSize: rnType.label.size,
-      color: tk.text.medium,
+      color: tk.text.tertiary,
     } as TextStyle,
     previewWrap: {
       position: 'relative',
