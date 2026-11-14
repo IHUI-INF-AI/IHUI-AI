@@ -1057,7 +1057,8 @@ export interface UnpricedAlertRow {
   configId: number
   isRelayPublic: boolean
   calls: number
-  missedRevenueCents: number
+  /** 这些零价调用估算烧掉的上游采购成本(分);售价为 0 时是唯一可量化的损失 */
+  estimatedCostCents: number
 }
 
 export interface UnpricedAlertReport {
@@ -1066,8 +1067,8 @@ export interface UnpricedAlertReport {
   publishedUnpriced: number
   /** 近 N 天有调用且当前零价的模型数 */
   callingUnpriced: number
-  /** 近 N 天按当前价重算的漏计费合计(分) */
-  missedRevenueCents: number
+  /** 近 N 天零价调用估算烧掉的上游采购成本合计(分) */
+  estimatedCostCents: number
   rows: UnpricedAlertRow[]
 }
 
@@ -1086,7 +1087,19 @@ export async function getUnpricedAlerts(days = 30): Promise<UnpricedAlertReport>
         config_id,
         is_relay_public,
         coalesce(input_price_per_1k, 0) as pin,
-        coalesce(output_price_per_1k, 0) as pout
+        coalesce(output_price_per_1k, 0) as pout,
+        coalesce(
+          cost_input_price_per_1k,
+          coalesce(input_price_per_1k, 0)
+            / nullif(nullif(metadata->'priceSource'->>'profitFactor', '')::numeric, 0),
+          0
+        ) as cin,
+        coalesce(
+          cost_output_price_per_1k,
+          coalesce(output_price_per_1k, 0)
+            / nullif(nullif(metadata->'priceSource'->>'profitFactor', '')::numeric, 0),
+          0
+        ) as cout
       from ai_model_config_models
       order by lower(model_id), config_id desc
     ),
@@ -1107,27 +1120,27 @@ export async function getUnpricedAlerts(days = 30): Promise<UnpricedAlertReport>
       p.is_relay_public,
       coalesce(u.calls, 0)::int as calls,
       round(
-        coalesce(u.pt, 0) / 1000.0 * p.pin + coalesce(u.ct, 0) / 1000.0 * p.pout,
+        coalesce(u.pt, 0) / 1000.0 * p.cin + coalesce(u.ct, 0) / 1000.0 * p.cout,
         6
-      ) as missed_revenue_cents
+      ) as estimated_cost_cents
     from price p
     left join usage u on u.mid = p.mid
     where coalesce(p.pin, 0) <= 0 and coalesce(p.pout, 0) <= 0
       and (p.is_relay_public = true or coalesce(u.calls, 0) > 0)
-    order by missed_revenue_cents desc, calls desc
+    order by estimated_cost_cents desc, calls desc
   `)
   const all = rowsOf<Record<string, unknown>>(res).map((r) => ({
     modelId: String(r['model_id'] ?? ''),
     configId: asNum(r['config_id']),
     isRelayPublic: r['is_relay_public'] === true,
     calls: asNum(r['calls']),
-    missedRevenueCents: asNum(r['missed_revenue_cents']),
+    estimatedCostCents: asNum(r['estimated_cost_cents']),
   }))
   return {
     days: span,
     publishedUnpriced: all.filter((r) => r.isRelayPublic).length,
     callingUnpriced: all.filter((r) => r.calls > 0).length,
-    missedRevenueCents: all.reduce((sum, r) => sum + r.missedRevenueCents, 0),
+    estimatedCostCents: all.reduce((sum, r) => sum + r.estimatedCostCents, 0),
     rows: all.slice(0, 50),
   }
 }
