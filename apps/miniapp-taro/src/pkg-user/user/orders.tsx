@@ -178,7 +178,9 @@ export default function Orders() {
   }, [load])
 
   usePullDownRefresh(() => {
-    void load('refresh').then(() => Taro.stopPullDownRefresh())
+    void load('refresh')
+      .then(() => Taro.stopPullDownRefresh())
+      .catch(() => Taro.stopPullDownRefresh())
   })
 
   useReachBottom(() => {

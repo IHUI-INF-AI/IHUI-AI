@@ -543,9 +543,14 @@ export function PlazaScreen() {
             onSelect: (id: string) => {
               setIdentityVisible(false)
               if (id === 'developer') {
-                void AsyncStorage.setItem('userStatus', 'developer').then(() => {
-                  navigation.navigate('Developer', { id: 'self' })
-                })
+                void AsyncStorage.setItem('userStatus', 'developer')
+                  .then(() => {
+                    navigation.navigate('Developer', { id: 'self' })
+                  })
+                  .catch(() => {
+                    // 本地写入失败也照常进入开发者页(身份态非关键,不卡流程)
+                    navigation.navigate('Developer', { id: 'self' })
+                  })
               } else {
                 void AsyncStorage.setItem('userStatus', 'nomal')
               }

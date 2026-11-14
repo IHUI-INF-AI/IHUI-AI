@@ -56,9 +56,14 @@ export default function AiCircle() {
   })
 
   usePullDownRefresh(() => {
-    loadData(true).then(() => {
-      Taro.stopPullDownRefresh()
-    })
+    loadData(true)
+      .then(() => {
+        Taro.stopPullDownRefresh()
+      })
+      .catch(() => {
+        // 加载失败时也要收起下拉刷新,避免转圈卡死
+        Taro.stopPullDownRefresh()
+      })
   })
 
   useReachBottom(() => {

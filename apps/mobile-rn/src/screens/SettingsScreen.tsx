@@ -82,17 +82,21 @@ export default function SettingsScreen() {
     let cancelled = false
     void fetchApi<{ pushEnabled?: boolean; inAppEnabled?: boolean; emailEnabled?: boolean }>(
       '/notifications/preferences',
-    ).then((r) => {
-      // 已离开设置页就不再回填:用户看不到这组开关,也避免卸载后 setState
-      if (cancelled) return
-      if (!r.success || !r.data) return
-      const p = r.data
-      setNotifications({
-        push: p.pushEnabled ?? true,
-        message: p.inAppEnabled ?? true,
-        email: p.emailEnabled ?? false,
+    )
+      .then((r) => {
+        // 已离开设置页就不再回填:用户看不到这组开关,也避免卸载后 setState
+        if (cancelled) return
+        if (!r.success || !r.data) return
+        const p = r.data
+        setNotifications({
+          push: p.pushEnabled ?? true,
+          message: p.inAppEnabled ?? true,
+          email: p.emailEnabled ?? false,
+        })
       })
-    })
+      .catch(() => {
+        // 偏好读取失败时保留默认开关态,不阻塞设置页
+      })
     return () => {
       cancelled = true
     }

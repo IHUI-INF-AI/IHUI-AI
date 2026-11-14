@@ -3616,7 +3616,9 @@
     "terminal": {
       "waitingInput": "等待輸入",
       "mobileUnsupported": "終端功能暫不支持行動端"
-    }
+    },
+    "questionNoSession": "無法定位會話，此題無法作答",
+    "questionFailed": "提交失敗，請重試"
   },
   "tabBar": {
     "community": "智匯社群",

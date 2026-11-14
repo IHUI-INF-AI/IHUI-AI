@@ -144,7 +144,8 @@ export function buildChatShellProps(ctx: ChatShellCtx): ChatScreenProps {
     inputValue,
     setInputValue,
     pendingQuestion,
-    setPendingQuestion,
+    onSubmitQuestionAnswer,
+    onWithdrawQuestion,
     imgsList,
     sendMessage,
     handleImageAdd,
@@ -555,8 +556,10 @@ export function buildChatShellProps(ctx: ChatShellCtx): ChatScreenProps {
               key={o.id}
               hoverClass="opacity-60"
               onClick={() => {
-                setInputValue(o.label)
-                setPendingQuestion(null)
+                // 2026-11-13 修:旧实现只把 label 填回输入框(用户还得手动发一轮普通对话),
+                // 那条挂着的流仍在等 question-response ⇒ 答了等于没答。
+                // 现在直接提交答案并续流,与 web / extension / cli 同一链路。
+                void onSubmitQuestionAnswer([o.id], '')
               }}
               style={{
                 marginTop: '10px',
@@ -571,7 +574,11 @@ export function buildChatShellProps(ctx: ChatShellCtx): ChatScreenProps {
           ))}
           <View
             hoverClass="opacity-60"
-            onClick={() => setPendingQuestion(null)}
+            onClick={() => {
+              // 2026-11-13 修:旧实现只在前端清卡片,服务端那条流仍在等答复(等满超时)。
+              // 现在走 withdraw 让服务端把这一问结算掉,流才能及时收场。
+              onWithdrawQuestion()
+            }}
             style={{ marginTop: '10px', padding: '8px' }}
           >
             <Text style={{ fontSize: '13px', color: '#888888' }}>
