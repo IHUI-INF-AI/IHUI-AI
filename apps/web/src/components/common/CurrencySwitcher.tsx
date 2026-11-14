@@ -8,6 +8,7 @@ import { useExchangeRates } from '@/hooks/use-exchange-rates'
 import {
   formatRateLine,
   getSelectedCurrency,
+  markDisplayCurrencyHydrated,
   resolveEffectiveCurrency,
   setSelectedCurrency,
   type CurrencyCode,
@@ -27,8 +28,15 @@ const OPTIONS: CurrencyCode[] = ['USD', 'CNY', 'USDT']
 
 export function CurrencySwitcher({ className }: { className?: string }) {
   const { data } = useExchangeRates()
-  const selected = getSelectedCurrency()
-  const active = resolveEffectiveCurrency(selected)
+  // 首帧固定按 CNY 渲染(与服务端一致);挂载后再读取本地偏好,避免水合错位
+  const [selected, setSelected] = React.useState<CurrencyCode | 'auto'>('auto')
+  const [mounted, setMounted] = React.useState(false)
+  React.useEffect(() => {
+    markDisplayCurrencyHydrated()
+    setSelected(getSelectedCurrency())
+    setMounted(true)
+  }, [])
+  const active = mounted ? resolveEffectiveCurrency(selected) : 'CNY'
   const rateLine = formatRateLine()
   const staleHint = data?.stale ? ' · 非实时(上游不可用)' : ''
   const title = `展示货币(实际扣费以人民币结算) · ${

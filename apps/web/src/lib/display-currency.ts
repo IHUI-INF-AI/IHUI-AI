@@ -22,6 +22,16 @@ export type DisplayCurrency = 'auto' | CurrencyCode
 const STORAGE_KEY = 'ihui-display-currency'
 
 let selectedCurrency: DisplayCurrency | null = null
+/**
+ * 是否已完成水合。水合前服务端与客户端都按 CNY 渲染,避免同一份金额在
+ * SSR/首帧出现两种币种导致 React 水合失败(整页事件失效)。
+ */
+let hydrated = false
+
+/** 由 CurrencyRuntime 在挂载后调用(客户端) */
+export function markDisplayCurrencyHydrated(): void {
+  hydrated = true
+}
 
 /** 货币符号:CNY ¥ / USD $ / USDT ₮ */
 export const CURRENCY_SYMBOL: Record<CurrencyCode, string> = {
@@ -41,8 +51,9 @@ export function getFxSnapshot(): LiveFxRates | null {
   return fxSnapshot
 }
 
-/** 读取用户显式选择的货币(客户端从 localStorage;服务端恒为 auto) */
+/** 读取用户显式选择的货币(客户端从 localStorage;服务端/水合前恒为 auto) */
 export function getSelectedCurrency(): DisplayCurrency {
+  if (!hydrated) return 'auto'
   if (selectedCurrency !== null) return selectedCurrency
   if (typeof window === 'undefined') return 'auto'
   try {
@@ -75,6 +86,8 @@ export function resolveEffectiveCurrency(
   lang?: string,
 ): CurrencyCode {
   if (selected !== 'auto') return selected
+  // 水合前固定 CNY,保证 SSR 与首帧一致
+  if (!hydrated) return 'CNY'
   const l =
     lang ?? (typeof navigator !== 'undefined' && navigator.language ? navigator.language : 'zh-CN')
   return l.toLowerCase().startsWith('en') ? 'USD' : 'CNY'
