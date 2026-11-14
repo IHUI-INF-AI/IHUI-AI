@@ -12306,6 +12306,47 @@ async def _tool_run_workflow(arguments: dict[str, Any]) -> dict[str, Any]:
 
     resume_raw = arguments.get("resume_from_run_id")
     resume = str(resume_raw).strip() if resume_raw is not None and str(resume_raw).strip() else None
+    # 后台化(对齐 DSH tool-workflow 的 run_in_background):提交即返回 task_id,
+    # 工作流按同一 run_workflow 语义在后台执行,结果经 bg_task_status 取回。
+    # 拒绝/禁用态显式回 BACKGROUND_REJECTED,绝不伪装成"已开始"。
+    raw_bg = arguments.get("run_in_background")
+    run_bg = raw_bg is True or str(raw_bg).strip().lower() in {"1", "true", "yes", "on"}
+    if run_bg:
+        from .background_tasks import background_task_manager
+
+        try:
+            timeout_s = float(arguments.get("timeout_s") or 1800)
+        except (TypeError, ValueError):
+            timeout_s = 1800.0
+        timeout_s = min(max(timeout_s, 1.0), 3600.0)
+        node_count = len(nodes_raw) if isinstance(nodes_raw, list) else 0
+        raw_notify = arguments.get("notify_on_done")
+        notify = raw_notify is True or str(raw_notify).strip().lower() in {"1", "true", "yes", "on"}
+        submitted = await background_task_manager.submit(
+            lambda: run_workflow(
+                arguments.get("nodes"),
+                principal=_uid,
+                user_role=arguments.get("__user_role"),
+                resume_from_run_id=resume,
+            ),
+            name=f"后台工作流({node_count} 节点)",
+            user_id=_uid,
+            session_id=_sid,
+            notify_on_done=notify,
+            timeout_s=timeout_s,
+        )
+        if isinstance(submitted, dict):
+            return {
+                "tool": "run_workflow", "ok": False,
+                "errorCode": "BACKGROUND_REJECTED",
+                "error": str(submitted.get("error") or "后台任务被拒绝"),
+                "detail": submitted,
+            }
+        return {
+            "tool": "run_workflow", "ok": True, "background": True,
+            "task_id": submitted, "status": "pending", "run_id": None,
+            "executed": [], "cached": [], "skipped": {}, "failed": {}, "results": {},
+        }
     result = await run_workflow(
         arguments.get("nodes"),
         principal=_uid,
@@ -15182,6 +15223,8 @@ _TOOLS: list[MCPTool] = [
             "按拓扑序逐节点执行(agent 取已注册任务类型)。带 resume_from_run_id 续跑时,"
             "入参未变的节点瞬时回缓存不重跑,只有入参变化或此前失败的节点真执行;"
             "run 不存在/脚本非法/跨主体一律显式错误码且零执行。身份只认承载层注入,不接受模型自报。"
+            "长工作流传 run_in_background=true:立即返回 task_id,用 bg_task_status 查结果;"
+            "后台任务被拒/禁用时显式回 BACKGROUND_REJECTED,不会伪装成已开始。"
         ),
         input_schema={
             "type": "object",
@@ -15196,6 +15239,20 @@ _TOOLS: list[MCPTool] = [
                 "resume_from_run_id": {
                     "type": "string",
                     "description": "续跑的目标 run_id(可选;缺省=新建 run 全量执行)",
+                },
+                "run_in_background": {
+                    "type": "boolean",
+                    "description": "true=提交后台执行并立即返回 task_id;缺省=false 同步等待结果",
+                },
+                "timeout_s": {
+                    "type": "number",
+                    "description": "后台执行超时秒数(1-3600,默认 1800);仅 run_in_background=true 生效",
+                    "minimum": 1,
+                    "maximum": 3600,
+                },
+                "notify_on_done": {
+                    "type": "boolean",
+                    "description": "后台完成时是否推送 IM 通知(默认 false)",
                 },
             },
             "required": ["nodes"],
