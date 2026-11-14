@@ -162,7 +162,15 @@
     "tasksUsageCancel": "usage: /tasks cancel <id>",
     "tasksUsageBlock": "usage: /tasks block <id>",
     "taskCancelledFeedback": "✓ タスク #{id} をキャンセルしました: {content}",
-    "taskBlockedFeedback": "✓ タスク #{id} をブロックしました: {content}"
+    "taskBlockedFeedback": "✓ タスク #{id} をブロックしました: {content}",
+    "questionAsk": "AI からの質問:{prompt}",
+    "questionAskCustom": "  回答を入力(空行 = この質問を閉じる)",
+    "questionAskHint": "  回答を入力(空行 = この質問を閉じる)",
+    "questionAnswered": "回答しました:{answer}",
+    "questionResolved": "この質問は終了しました",
+    "questionNoSession": "セッションキーがないため回答を送信できません",
+    "questionFailed": "回答の送信に失敗しました。再試行してください",
+    "questionLegacy": "このサーバーはブロッキング質問に未対応のため、回答は反映されません"
   },
   "waiting": {
     "agent": {

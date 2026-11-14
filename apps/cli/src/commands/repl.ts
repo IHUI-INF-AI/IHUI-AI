@@ -185,6 +185,9 @@ import {
 import { FALLBACK_MODELS as SHARED_FALLBACK_MODELS } from '@ihui/shared';
 // 差距① 第 ① 腿:准入回执的稳定输入 ID —— 生成的唯一实现在共享层,端内不造第二源。
 import { createInputId } from '@ihui/shared/chat/send-admission';
+// 2026-11-13:AI 主动提问闭环 —— 传输走 api-client(取 stream 基址 + token),判据走共享层。
+import { postQuestionAnswerResponse } from '@ihui/api-client';
+import { interpretQuestionResponse } from '@ihui/shared/chat/question-response';
 // 截断判据:唯一实现 = 共享层 finish-reason,端内不复制"哪些 finishReason 算截断"。
 import { isMaxTokensTruncatedFinishReason } from '@ihui/shared/utils/finish-reason';
 import {
@@ -903,6 +906,48 @@ export async function startREPL(opts: ReplOptions): Promise<void> {
     completer: (line: string) => slashCompleter(line),
   });
 
+  /**
+   * 待回答的 AI 提问(2026-11-13 立)。
+   *
+   * CLI 是单线程交互:流式输出与 stdin 同时活着。这里用"有值 = 正在等答案"做状态位,
+   * 让 `rl.on('line')` 把输入路由到答复而不是插话缓冲区(见那里的分支注释)。
+   */
+  const pendingQuestionRef: { current: PendingQuestionForCli | null } = { current: null }
+
+  /**
+   * 提交提问答复。判据来自共享层 `interpretQuestionResponse`(端内不复制三档归宿):
+   *  - blocking:服务端认下 ⇒ 卡片关掉,流自动续跑(不能再起一轮)
+   *  - legacy(404/旧服务端):回退旧链路 —— CLI 的做法是提示用户重述,不擅自发消息,
+   *    因为 CLI 一轮的上下文由 runToolLoop 持有,凭空 sendToAgent 会开新回合。
+   *  - failed:如实打一行,卡片保留让用户重打。
+   */
+  const resolveQuestion = async (
+    q: PendingQuestionForCli,
+    resp: { action: 'answer' | 'withdraw'; selectedOptionIds: string[]; customText?: string },
+  ): Promise<void> => {
+    const sid = state.session?.id ?? state.opts.sessionId
+    if (!sid) {
+      state.statusLine.noteLine(t('cli.questionNoSession'))
+      return
+    }
+    // 传输走包内封装(取 stream 基址 + token + 读 body),判据走共享层三档归宿。
+    // 端内不拼 URL、不写认证头、不判 status —— 三件事各自都已有一份真相源。
+    const r = await postQuestionAnswerResponse(sid, {
+      questionId: q.questionId,
+      action: resp.action,
+      selectedOptionIds: resp.selectedOptionIds,
+      ...(resp.customText ? { customText: resp.customText } : {}),
+    })
+    if (r.networkError !== undefined) {
+      state.statusLine.noteLine(t('cli.questionFailed'))
+      return
+    }
+    const outcome = interpretQuestionResponse(r.httpStatus, r.data)
+    if (outcome.kind === 'failed') state.statusLine.noteLine(t('cli.questionFailed'))
+    else if (outcome.kind === 'legacy') state.statusLine.noteLine(t('cli.questionLegacy'))
+    // blocking:服务端认下,流会自己续跑 —— 不再起新一轮,也不额外打行
+  }
+
   const startResult = await runSessionStartHooks(hooksConfig, sessionHookCtx);
   if (!startResult.proceed) {
     console.error(chalk.red(`\n❌ 会话启动被钩子阻断: ${startResult.reason ?? '未知'}`));
@@ -931,6 +976,23 @@ export async function startREPL(opts: ReplOptions): Promise<void> {
     if (!input) {
       rl.prompt();
       return;
+    }
+    // 2026-11-13(提问卡):AI 主动提问时,输入的**不是**插话而是答案。
+    // 必须排在 interjection 分支之前 —— 否则用户在提问卡等着的时候打字,
+    // 会被当成"插话"塞进 buffer,而那条流仍在等 question-response,永远等不到。
+    if (pendingQuestionRef.current) {
+      const q = pendingQuestionRef.current
+      pendingQuestionRef.current = null
+      const answer = input.trim()
+      if (answer) {
+        state.statusLine.noteLine(t('cli.questionAnswered', { answer }))
+        void resolveQuestion(q, { action: 'answer', selectedOptionIds: [], customText: answer })
+      } else {
+        // 空行 = 关闭该提问(等价于撤回),与服务端 withdrawn 语义一致
+        void resolveQuestion(q, { action: 'withdraw', selectedOptionIds: [] })
+      }
+      rl.prompt()
+      return
     }
     // P0-2 Interject:agent 运行中,非斜杠输入进入 buffer(不取消当前回合)
     // 斜杠命令仍立即执行(如 /exit /clear 等紧急命令不能等 agent 完成)
@@ -1065,6 +1127,20 @@ function printBackgroundLedger(liveIds: readonly string[]): void {
  * 斜杠命令装载器(唯一分发口)。导出理由:装车证明必须从**分发路径**打进去,
  * 只测被调函数等于没证明"这条命令真会走到那一格"(AGENTS §0.9)。
  */
+/**
+ * CLI 侧的提问视图(2026-11-13 立)。
+ *
+ * 字段与 `@ihui/api-client` 的 onQuestion 载荷同形;端内只投影出**渲染需要**的那几个,
+ * 不是重新定义契约(契约在共享 sse-parse 与 api-client)。
+ */
+interface PendingQuestionForCli {
+  questionId: string;
+  prompt: string;
+  options: Array<{ id: string; label: string }>;
+  allowCustom: boolean;
+  allowMultiple: boolean;
+}
+
 export async function handleSlashCommand(input: string, state: ReplState, rl: readline.Interface): Promise<void> {
   const [cmdRaw, ...args] = input.slice(1).split(/\s+/);
   const cmd = cmdRaw ?? '';
@@ -2949,6 +3025,35 @@ async function sendToAgent(prompt: string, state: ReplState, depth = 0): Promise
       // 2026-11-13:终端任务结束。本端已接 start(哪条命令开始)与 delta(输出),
       // 唯独缺 end —— 用户看到一堆输出却不知道命令**跑完没有**、成功还是失败。
       // 这是同一族三帧里最该有的收尾交代,出口同 noteLine。
+      // 2026-11-13:AI 主动提问(阻塞式)。后端流挂着等答复,不答则等到 timeout。
+      // 本端把待答项挂进 pendingQuestionRef,rl.on('line') 据此把输入路由成**答案**
+      // 而不是插话(见那里的分支注释 —— 排在 interjection 之前是必须的)。
+      onQuestion: (q) => {
+        const view: PendingQuestionForCli = {
+          questionId: q.questionId,
+          prompt: q.prompt,
+          options: q.options,
+          allowCustom: q.allowCustom,
+          allowMultiple: q.allowMultiple,
+        };
+        pendingQuestionRef.current = view;
+        state.statusLine.noteLine(t('cli.questionAsk', { prompt: q.prompt }));
+        for (const opt of q.options) {
+          state.statusLine.noteLine(`  ${opt.id}) ${opt.label}`);
+        }
+        state.statusLine.noteLine(
+          q.allowCustom ? t('cli.questionAskCustom') : t('cli.questionAskHint'),
+        );
+      },
+      // 提问结算:服务端在 answered/timeout/withdrawn/interrupted 四态都发。
+      // 按 questionId **精确**清理 —— 无条件清空会把"另一条更新的提问"误清。
+      // 非用户主动关闭的三态(超时/撤回/打断)若不清,提示会一直挂着等一个已失效的问题。
+      onQuestionResolved: (resolved) => {
+        if (pendingQuestionRef.current?.questionId === resolved.questionId) {
+          pendingQuestionRef.current = null;
+          state.statusLine.noteLine(t('cli.questionResolved'));
+        }
+      },
       onTerminalEnd: (event) =>
         state.statusLine.noteLine(t('ai.stream.terminal', { status: event.status })),
       onTerminalStart: (event) =>

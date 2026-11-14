@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
 
 // ============================================================
 // packages/app(RN 共享屏)文字/图标 token 对比度审计(**常设只读尺子,未接提交链**)
@@ -260,6 +262,21 @@ export function extractTokenUses(line) {
 }
 
 /**
+ * 同族声明配对:`modelType.image` 与 `modelType.imageBg` 是**命名声明的**一对
+ * (父级同名 + `Bg` 后缀),它的合法承载面就是那个 Bg,不是中性承载面。
+ * 这不是"猜底":配对写在 token 表里,可核对;只在两侧都定义了颜色时才认。
+ */
+export function declaredPairOf(field, light, dark) {
+  const dot = field.lastIndexOf('.')
+  if (dot < 0) return null
+  const ns = field.slice(0, dot)
+  const leaf = field.slice(dot + 1)
+  if (/Bg$/.test(leaf)) return null
+  const cand = `${ns}.${leaf}Bg`
+  return light[cand] && dark[cand] ? cand : null
+}
+
+/**
  * 承载面穷举:返回 { allFail, someFail, values } —— values 是各承载面上的比值。
  * 只有"全部承载面都不达标"才 allFail(零假红)。
  */
@@ -372,10 +389,14 @@ function run() {
         // 明暗三元分支(如 `dark ? tk.x : tk.y`)无法静态归一 ⇒ 如实标出交人工复核,
         // 不硬套一档(硬套会放假红,比漏检更贵,AGENTS.md §0.2)
         const themeBranchy = /(?:dark|isDark)\s*\?|colorScheme\s*===\s*'dark'/.test(line)
-        const rec = { file: rel, line: i + 1, field: u.field, kind: u.kind, themeBranch: themeBranchy, snippet: line.trim().slice(0, 150) }
+        const rec = { file: rel, line: i + 1, field: u.field, kind: u.kind, themeBranch: themeBranchy, declaredPair: declared || null, snippet: line.trim().slice(0, 150) }
         if (u.kind === 'bg' || isBackgroundFamily(u.field)) continue
         if (isInverseFamily(u.field)) { inverse.push(rec); continue }
-        const j = judge(u.field, u.kind, light, dark)
+        // 同族声明配对优先:该 token 的合法承载面就是它的 `*Bg` 兄弟档
+        const declared = declaredPairOf(u.field, light, dark)
+        const j = declared
+          ? judge(u.field, u.kind, light, dark, [declared])
+          : judge(u.field, u.kind, light, dark)
         if (j.undetermined) { undetermined.push({ ...rec, reason: 'token-or-surface-unparseable' }); continue }
         if (j.allFail) {
           const key = `${rel}:${i + 1}:${u.field}`
@@ -507,6 +528,7 @@ export const __test__ = {
   thresholdFor,
   extractTokenUses,
   judge,
+  declaredPairOf,
   isBackgroundFamily,
   isInverseFamily,
   SURFACES,
@@ -517,3 +539,4 @@ export const __test__ = {
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) run()
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

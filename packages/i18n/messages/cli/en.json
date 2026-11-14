@@ -162,7 +162,15 @@
     "tasksUsageCancel": "usage: /tasks cancel <id>",
     "tasksUsageBlock": "usage: /tasks block <id>",
     "taskCancelledFeedback": "✓ Task #{id} cancelled: {content}",
-    "taskBlockedFeedback": "✓ Task #{id} blocked: {content}"
+    "taskBlockedFeedback": "✓ Task #{id} blocked: {content}",
+    "questionAsk": "AI is asking: {prompt}",
+    "questionAskCustom": "  Type your answer (empty line = dismiss this question)",
+    "questionAskHint": "  Type your answer (empty line = dismiss this question)",
+    "questionAnswered": "Answered: {answer}",
+    "questionResolved": "The question has been resolved",
+    "questionNoSession": "No session key — cannot submit the answer",
+    "questionFailed": "Failed to submit the answer, please retry",
+    "questionLegacy": "This server does not support blocking questions; the answer was not applied"
   },
   "waiting": {
     "agent": {
