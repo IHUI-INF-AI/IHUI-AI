@@ -18,6 +18,7 @@ import {
   FilePlus2,
   FileDiff,
   FileX2,
+  FileText,
 } from 'lucide-react'
 import { getArtifactToken, fetchMediaDownload } from '@ihui/api-client'
 import { fetchApi } from '@/lib/api'
@@ -27,6 +28,8 @@ import { toMediaImageUrl, toMediaStreamUrl } from '@/lib/media-proxy'
 import { Tooltip } from '@/components/feedback'
 import { useClipboard } from '@/hooks/use-clipboard'
 import { useWorkPanelStore } from '@/stores/work-panel'
+import { openWorkspaceFileInIde } from '@/lib/workspace-file-open'
+import { fileMentionBasename } from '@/lib/file-mention'
 import {
   describeToolActivityByStatus,
   describeToolCall,
@@ -121,6 +124,9 @@ interface ToolCallCardProps {
   videoUrl?: string
   /** 异步长任务 task_id(2026-09-09 立):媒体工具提交成功但产物未就绪时,渲染"任务进行中" */
   taskId?: string
+  /** g12(2026-11-15):read_image 缩略图 data URL(SSE tool-result 顶层)。
+   * 仅 success 且非空时在结果 JSON 上方渲染;点击新窗看原图,不进媒体画廊。 */
+  imagePreview?: string
   /** summarize_artifacts 工具返回的摘要数据(优先于 result 渲染) */
   summaryData?: {
     plans?: Array<{ id: string; title: string; status: string; steps?: string[] }>
@@ -593,6 +599,101 @@ export function deriveDiffInfo(
   }
 
   return null
+}
+
+/** present_files 的交付条目(服务端已去重/裁剪;前端只做展示与打开)。 */
+export interface PresentedFileEntry {
+  path: string
+  description?: string
+}
+
+/**
+ * 2026-11-14(对标 DSH dsh-client-ui-deliverables 的交付卡):
+ * 解析 present_files 的成功结果。优先 `result.presented`(服务端权威),结果缺失
+ * (流未收尾/旧会话回放)时退回 `args.files`;路径大小写去重、上限 8,与工具契约一致。
+ */
+export function parsePresentedFiles(
+  args: Record<string, unknown> | undefined,
+  result: unknown,
+): PresentedFileEntry[] {
+  const out: PresentedFileEntry[] = []
+  const seen = new Set<string>()
+  const push = (rawPath: unknown, rawDesc: unknown) => {
+    if (typeof rawPath !== 'string') return
+    const path = rawPath.trim()
+    if (!path || path.length > 500) return
+    const key = path.toLowerCase()
+    if (seen.has(key)) return
+    seen.add(key)
+    const description = typeof rawDesc === 'string' ? rawDesc.trim() : ''
+    out.push(description ? { path, description } : { path })
+  }
+  const source = typeof result === 'string' ? safeJsonParse(result) : result
+  const presented =
+    source && typeof source === 'object'
+      ? (source as { presented?: unknown }).presented
+      : undefined
+  if (Array.isArray(presented)) {
+    for (const item of presented) {
+      if (item && typeof item === 'object') {
+        push((item as { path?: unknown }).path, (item as { description?: unknown }).description)
+      } else {
+        push(item, undefined)
+      }
+    }
+  }
+  if (out.length === 0 && Array.isArray(args?.files)) {
+    for (const item of args.files) {
+      if (item && typeof item === 'object') {
+        push((item as { path?: unknown }).path, (item as { description?: unknown }).description)
+      } else {
+        push(item, undefined)
+      }
+    }
+  }
+  return out.slice(0, 8)
+}
+
+function safeJsonParse(text: string): unknown {
+  try {
+    return JSON.parse(text)
+  } catch {
+    return null
+  }
+}
+
+/** 交付卡:文件名 + 说明,点击在当前 IDE 打开(本地路径没有 HTTP 句柄,不冒充预览)。 */
+function PresentedFilesBlock({ files }: { files: PresentedFileEntry[] }) {
+  const t = useTranslations('ai.toolCall')
+  return (
+    <div data-testid="tool-call-presented-files" className="space-y-1.5">
+      <StreamLabel>{t('presentedTitle', { count: files.length })}</StreamLabel>
+      <div className="divide-y divide-border/40 overflow-hidden rounded-sm border border-border/40">
+        {files.map((file) => (
+          <button
+            key={file.path}
+            type="button"
+            title={file.path}
+            data-testid="presented-file-row"
+            className="flex w-full items-center gap-2 px-2 py-1.5 text-left hover:bg-muted/40"
+            onClick={() => openWorkspaceFileInIde(file.path)}
+          >
+            <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+            <span className="min-w-0 flex-1">
+              <span className="block truncate font-mono text-[11px]">
+                {fileMentionBasename(file.path)}
+              </span>
+              {file.description ? (
+                <span className="block truncate text-[10px] text-muted-foreground">
+                  {file.description}
+                </span>
+              ) : null}
+            </span>
+          </button>
+        ))}
+      </div>
+    </div>
+  )
 }
 
 /** 从 args/result 中提取 URL */
@@ -1311,6 +1412,7 @@ export const ToolCallCard = React.memo(function ToolCallCard({
   audioUrl,
   videoUrl,
   taskId,
+  imagePreview,
   summaryData,
   serverSource,
   serverId,
@@ -1457,6 +1559,13 @@ export const ToolCallCard = React.memo(function ToolCallCard({
   const chartArtifact = React.useMemo(() => extractChartArtifact(result), [result])
   // 图表 Artifact 命中时替代原始 result pre 渲染(与 image/summary 处理方式一致)
   const showChartArtifact = !!chartArtifact && status === 'success'
+  // 2026-11-14(对标 DSH 交付卡):present_files 成功且解析出条目时,用交付清单替代原始 JSON。
+  const presentedFiles = React.useMemo(
+    () =>
+      toolName === 'present_files' && status === 'success' ? parsePresentedFiles(args, result) : [],
+    [toolName, status, args, result],
+  )
+  const showPresented = presentedFiles.length > 0
 
   // D134(2026-09-29):命令族/删除族按副作用分类的结构化摘要;其余工具为 null 走原 JSON 路径
   const effectSummary = React.useMemo(() => extractEffectSummary(toolName, args), [toolName, args])
@@ -1620,13 +1729,16 @@ export const ToolCallCard = React.memo(function ToolCallCard({
                 onRefresh={refreshNow}
               />
             ))}
+          {/* present_files:交付清单卡(成功且解析出条目时替代原始 JSON) */}
+          {showPresented && <PresentedFilesBlock files={presentedFiles} />}
           {/* 非 diff/image/audio/video/summary/pending 工具时显示原始 args/result */}
           {!showInlineDiff &&
             !showImage &&
             !showAudio &&
             !showVideo &&
             !showSummary &&
-            !showPendingTask && (
+            !showPendingTask &&
+            !showPresented && (
               <>
                 {/* D134(2026-09-29):两族结构化摘要置顶 —— 命令族突出将执行的命令文本,
                     删除族突出目标路径;JSON 裸 dump 保留在其下方作为展开详情,其余工具不渲染 */}
@@ -1665,6 +1777,35 @@ export const ToolCallCard = React.memo(function ToolCallCard({
                           testId="tool-call-error"
                         />
                       </div>
+                    )}
+                    {/* g12(2026-11-15):read_image 缩略图(仅成功且有预览),置于结果 JSON 上方。
+                        Chrome 禁止顶层导航到 data: URL,点击时先转 blob URL 再开新窗(用完释放)。 */}
+                    {status === 'success' && imagePreview && (
+                      <button
+                        type="button"
+                        aria-label={rowTitle}
+                        data-testid="tool-call-image-preview"
+                        className="w-fit overflow-hidden rounded-sm border border-border/40"
+                        onClick={() => {
+                          try {
+                            const base64 = imagePreview.slice(imagePreview.indexOf(',') + 1)
+                            const binary = atob(base64)
+                            const bytes = new Uint8Array(binary.length)
+                            for (let i = 0; i < binary.length; i += 1) {
+                              bytes[i] = binary.charCodeAt(i)
+                            }
+                            const url = URL.createObjectURL(
+                              new Blob([bytes], { type: 'image/jpeg' }),
+                            )
+                            window.open(url, '_blank', 'noopener')
+                            window.setTimeout(() => URL.revokeObjectURL(url), 60_000)
+                          } catch {
+                            window.open(imagePreview, '_blank', 'noopener')
+                          }
+                        }}
+                      >
+                        <img src={imagePreview} alt="" className="max-h-40 max-w-full" />
+                      </button>
                     )}
                     {result !== undefined && (
                       <div>

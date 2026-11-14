@@ -20,6 +20,7 @@ mod checkin_web_login;
 // 2026-10-16 立:项目内嵌浏览器(自绘工具条 + 地址栏 + Chrome UA 的 WebView2 窗口)。
 // 签到网页登录、SSO 兜底窗等"需要在浏览器里走一趟"的场景统一用它,不再外部拉 Chrome。
 mod embedded_browser;
+mod store_browser;
 // 2026-10-17 立:内嵌浏览器「完整浏览器」能力——书签管理/最近历史/从 Chrome/Edge 导入书签。
 // 数据落 app_data_dir(持久化,区别于内存标签会话);纯函数(Chrome 书签解析/去重/历史)
 // 判据可单测,I/O 走薄 Tauri 命令胶水。
@@ -4828,6 +4829,11 @@ pub fn run() {
             embedded_browser::embedded_browser_state,
             embedded_browser::embedded_browser_new_tab,
             embedded_browser::embedded_browser_devtools,
+            store_browser::store_account_open,
+            store_browser::store_account_url,
+            store_browser::store_account_session,
+            store_browser::store_account_keepalive_target,
+            store_browser::store_account_probe,
             browser_bookmarks::embedded_browser_data,
             browser_bookmarks::embedded_browser_add_bookmark,
             browser_bookmarks::embedded_browser_delete_bookmark,

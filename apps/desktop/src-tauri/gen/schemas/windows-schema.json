@@ -2457,10 +2457,22 @@
           "markdownDescription": "Enables the checkin_trae_web_login_probe command without any pre-configured scope."
         },
         {
+          "description": "Enables the checkin_workbuddy_web_import command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-checkin-workbuddy-web-import",
+          "markdownDescription": "Enables the checkin_workbuddy_web_import command without any pre-configured scope."
+        },
+        {
           "description": "Enables the checkin_workbuddy_web_login_probe command without any pre-configured scope.",
           "type": "string",
           "const": "allow-checkin-workbuddy-web-login-probe",
           "markdownDescription": "Enables the checkin_workbuddy_web_login_probe command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the checkin_workbuddy_web_login_probe_cookie command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-checkin-workbuddy-web-login-probe-cookie",
+          "markdownDescription": "Enables the checkin_workbuddy_web_login_probe_cookie command without any pre-configured scope."
         },
         {
           "description": "Enables the clear_webview_cache command without any pre-configured scope.",
@@ -2967,6 +2979,36 @@
           "markdownDescription": "Enables the stat_file command without any pre-configured scope."
         },
         {
+          "description": "Enables the store_account_keepalive_target command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-store-account-keepalive-target",
+          "markdownDescription": "Enables the store_account_keepalive_target command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the store_account_open command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-store-account-open",
+          "markdownDescription": "Enables the store_account_open command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the store_account_probe command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-store-account-probe",
+          "markdownDescription": "Enables the store_account_probe command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the store_account_session command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-store-account-session",
+          "markdownDescription": "Enables the store_account_session command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the store_account_url command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-store-account-url",
+          "markdownDescription": "Enables the store_account_url command without any pre-configured scope."
+        },
+        {
           "description": "Enables the store_read_entry command without any pre-configured scope.",
           "type": "string",
           "const": "allow-store-read-entry",
@@ -3183,10 +3225,22 @@
           "markdownDescription": "Denies the checkin_trae_web_login_probe command without any pre-configured scope."
         },
         {
+          "description": "Denies the checkin_workbuddy_web_import command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-checkin-workbuddy-web-import",
+          "markdownDescription": "Denies the checkin_workbuddy_web_import command without any pre-configured scope."
+        },
+        {
           "description": "Denies the checkin_workbuddy_web_login_probe command without any pre-configured scope.",
           "type": "string",
           "const": "deny-checkin-workbuddy-web-login-probe",
           "markdownDescription": "Denies the checkin_workbuddy_web_login_probe command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the checkin_workbuddy_web_login_probe_cookie command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-checkin-workbuddy-web-login-probe-cookie",
+          "markdownDescription": "Denies the checkin_workbuddy_web_login_probe_cookie command without any pre-configured scope."
         },
         {
           "description": "Denies the clear_webview_cache command without any pre-configured scope.",
@@ -3691,6 +3745,36 @@
           "type": "string",
           "const": "deny-stat-file",
           "markdownDescription": "Denies the stat_file command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the store_account_keepalive_target command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-store-account-keepalive-target",
+          "markdownDescription": "Denies the store_account_keepalive_target command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the store_account_open command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-store-account-open",
+          "markdownDescription": "Denies the store_account_open command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the store_account_probe command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-store-account-probe",
+          "markdownDescription": "Denies the store_account_probe command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the store_account_session command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-store-account-session",
+          "markdownDescription": "Denies the store_account_session command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the store_account_url command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-store-account-url",
+          "markdownDescription": "Denies the store_account_url command without any pre-configured scope."
         },
         {
           "description": "Denies the store_read_entry command without any pre-configured scope.",

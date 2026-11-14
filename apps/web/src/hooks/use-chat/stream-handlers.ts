@@ -105,6 +105,8 @@ export function createToolCallHandler(
     audio_url?: string
     video_url?: string
     task_id?: string
+    // g12(2026-11-15):read_image 缩略图 data URL(tool-result 顶层,仅供卡片预览)
+    image_preview?: string
     // L5-8 工具瞬时失败自动重试次数(后端 tool-call-start/result 透传;未下发则 undefined)
     retryCount?: number
     // D49②:后端实测耗时(去重跳过≈0 是合法值;断线/回放场景下它是唯一来源)
@@ -165,6 +167,8 @@ export function createToolCallHandler(
       if (event.audio_url !== undefined) updates.audio_url = event.audio_url
       if (event.video_url !== undefined) updates.video_url = event.video_url
       if (event.task_id !== undefined) updates.task_id = event.task_id
+      // g12:read_image 缩略图透传(仅卡片预览;不进 result、不持久)
+      if (event.image_preview !== undefined) updates.image_preview = event.image_preview
       // L5-8 重试次数透传(后端下发时写入,ToolCallCard 渲染"重试N次"徽章)
       if (event.retryCount !== undefined) updates.retryCount = event.retryCount
       // D113:tool-result 到达即清流中预览(最终 diff 以 result 的 diffInfo 为准)

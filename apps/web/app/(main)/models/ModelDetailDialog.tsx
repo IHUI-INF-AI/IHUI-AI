@@ -29,6 +29,7 @@ import {
   DialogTitle,
 } from '@ihui/ui-react'
 import { BrandIcon } from '@/components/ai/brand-icon'
+import { formatCny, formatUsd } from '@/lib/display-currency'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import { useChatStore } from '@/stores/chat'
 
@@ -96,13 +97,21 @@ export function ModelDetailDialog({
   const vendorLabel = PROVIDER_LABEL[model.provider] ?? '其他'
   const description = model.description ? t(model.description) : t('market.defaultDescription')
 
-  // P0-5g 中转站定价计算
+  // P0-5g 中转站定价:与模型卡片 RelayPriceCompare 同源(CNY 分/千 token ×10 = 元/百万),
+  // 不再用 inputPrice(USD)×倍率现算 —— 否则同一模型在卡片与弹窗的中转价可能对不上。
   const relayMultiplier = model.relayPriceMultiplier ?? 1
-  const hasRelayMultiplier = Math.abs(relayMultiplier - 1) > 0.001
-  const relayInputPrice =
-    typeof model.inputPrice === 'number' ? model.inputPrice * relayMultiplier : undefined
-  const relayOutputPrice =
-    typeof outputPrice === 'number' ? outputPrice * relayMultiplier : undefined
+  const toYuanPerMillion = (centsPer1k: number | undefined) =>
+    typeof centsPer1k === 'number' ? centsPer1k * 10 : undefined
+  const relayInputPrice = toYuanPerMillion(
+    model.relayEffectiveInputPricePer1k ??
+      model.relayInputPricePer1k ??
+      model.relayOfficialInputPricePer1k,
+  )
+  const relayOutputPrice = toYuanPerMillion(
+    model.relayEffectiveOutputPricePer1k ??
+      model.relayOutputPricePer1k ??
+      model.relayOfficialOutputPricePer1k,
+  )
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -195,7 +204,7 @@ export function ModelDetailDialog({
                   ? '—'
                   : model.inputPrice === 0
                     ? t('free')
-                    : `$${model.inputPrice.toFixed(2)}`
+                    : `${formatUsd(model.inputPrice)}${t('perMillion')}`
               }
             />
             <DetailStat
@@ -206,14 +215,15 @@ export function ModelDetailDialog({
                   ? '—'
                   : outputPrice === 0
                     ? t('free')
-                    : `$${outputPrice.toFixed(2)}${isOutputEstimated ? '*' : ''}`
+                    : `${formatUsd(outputPrice)}${isOutputEstimated ? '*' : ''}${t('perMillion')}`
               }
               hint={isOutputEstimated ? t('detail.estimatedHint') : undefined}
             />
           </div>
 
-          {/* P0-5g 中转站定价区(模型已上架中转站且倍率 ≠ 1.0 时显示) */}
-          {model.relayPublic && hasRelayMultiplier && (
+          {/* P0-5g 中转站定价区(模型已上架中转即显示,倍率=1 也展示;价格与卡片同源) */}
+          {model.relayPublic &&
+            (typeof relayInputPrice === 'number' || typeof relayOutputPrice === 'number') && (
             <div className="rounded-md border border-sky-200 bg-sky-50/60 px-3 py-2.5 dark:border-sky-900 dark:bg-sky-950/20">
               <div className="flex items-center gap-1.5 text-[11px] font-medium text-sky-800 dark:text-sky-300 [&>span]:translate-y-[var(--text-vcenter-offset)]">
                 <Cable className="h-3 w-3" />
@@ -232,7 +242,7 @@ export function ModelDetailDialog({
                       ? '—'
                       : relayInputPrice === 0
                         ? t('free')
-                        : `$${relayInputPrice.toFixed(2)}`}
+                        : `${formatCny(relayInputPrice)}${t('perMillion')}`}
                   </div>
                 </div>
                 <div>
@@ -244,7 +254,7 @@ export function ModelDetailDialog({
                       ? '—'
                       : relayOutputPrice === 0
                         ? t('free')
-                        : `$${relayOutputPrice.toFixed(2)}`}
+                        : `${formatCny(relayOutputPrice)}${t('perMillion')}`}
                   </div>
                 </div>
               </div>

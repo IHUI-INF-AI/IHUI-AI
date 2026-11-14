@@ -127,6 +127,7 @@ const PATH_TO_AREA = [
   { prefix: 'packages/ui/', area: 'ui' },
   { prefix: 'packages/shared/', area: 'shared' },
   { prefix: 'packages/api-client/', area: 'api-client' },
+  { prefix: 'packages/agent-sdk/', area: 'agent-sdk' },
   { prefix: 'packages/design-tokens/', area: 'design-tokens' },
   { prefix: 'apps/web/', area: 'web' },
   { prefix: 'apps/api/', area: 'api' },

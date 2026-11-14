@@ -30,6 +30,7 @@ from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from typing import Any
 
+from app.core.revert_check import RevertVerdict, evaluate_revert_check
 from app.core.tunables import DEFAULT_CHECKPOINT_TTL
 
 logger = logging.getLogger(__name__)
@@ -1121,6 +1122,45 @@ class AgentCheckpointManager:
         if cp.session_id != session_id:
             raise CheckpointSessionMismatchError(
                 f"checkpoint {checkpoint_id} 属于会话 {cp.session_id},不能恢复到会话 {session_id}"
+            )
+
+        # round 8 生产接线(**显式 opt-in,默认不启用**):回退生效前的前置一致性闸。
+        #
+        # 为什么是 opt-in 而不是无条件闸:既有调用方(`routers/checkpoint_rewind.py`
+        # 的 restore / impact 预览端点,以及 `tests/test_checkpoint_rewind.py` 的
+        # 既有用例)不携带三面输入直调 `restore`。无条件启用会把它们全部判成
+        # `unjudged` 阻断 —— 本轮实跑复现 9 例回归(`KeyError: 'messages'`)。
+        # 把一条还没接完的新判据强加给旧契约是**回归**,不是「多要一次定向说明」,
+        # 不交付。全量启用需属主在路由层补齐三面输入,属未完成项,不宣称上线(§0.9)。
+        #
+        # 启用后一律 fail-closed:只有调用方在 checkpoint.metadata 里**显式**写入
+        # `revert_check_inputs`(target_snapshot / current_workspace / policy 三面)
+        # 才跑闸;缺任一面交给单一真相源 `evaluate_revert_check` 判 `unjudged` 并
+        # 点名原因,不读盘、不编造,绝不拿 file_versions 的 version_id 引用冒充
+        # 文件内容去"假装比较"(§0.3 / §0.6)。未提供 ⇒ 判据**本轮没跑**,原 restore
+        # 契约一字不变;日志明确记「未启用」,绝不把「没判」写成「判过」(§0.3)。
+        rc_inputs = cp.metadata.get("revert_check_inputs")
+        if rc_inputs is not None:
+            if not isinstance(rc_inputs, dict):
+                rc_inputs = {}
+            verdict = evaluate_revert_check(
+                rc_inputs.get("target_snapshot"),
+                rc_inputs.get("current_workspace"),
+                rc_inputs.get("policy"),
+            )
+            if verdict.get("verdict") != RevertVerdict.CONSISTENT:
+                logger.warning(
+                    "restore 前置一致性闸阻断 checkpoint=%s verdict=%s reason=%s",
+                    checkpoint_id,
+                    verdict.get("verdict"),
+                    verdict.get("reason"),
+                )
+                return dict(verdict)
+        else:
+            logger.debug(
+                "restore 前置一致性闸未启用(调用方未提供 revert_check_inputs) checkpoint=%s;"
+                "判据本轮未跑,不记绿也不记红(§0.3)",
+                checkpoint_id,
             )
 
         return {

@@ -176,8 +176,14 @@ from .approval_generation_cas import (
     content_digest,
 )
 from .ask_user_question import (
+    STATUS_CONTINUED,
     cancel_session_questions,
+    continued_answer_message,
     create_question,
+    drain_continued_answers,
+    mark_continued,
+    normalize_timeout_s,
+    pending_question_notice,
     wait_for_answer,
 )
 from .durable_resume import (
@@ -440,6 +446,8 @@ _DEFAULT_HIGH_RISK_TOOLS: frozenset[str] = frozenset({
     "resolve_conflict",
     # 命令类
     "run_command",
+    # 长驻交互式终端(2026-11-14):能力面等同 run_command,且能分步持续输入
+    "terminal",
     "computer_mouse_click",
     "computer_keyboard_type",
     "computer_screenshot_screen",
@@ -1812,15 +1820,23 @@ class AgentEventStream:
         selected_option_ids: list[str],
         custom_text: str,
         session_id: str,
+        continued: bool = False,
     ) -> None:
-        """question-resolved:问题结局帧(answered/timeout/withdrawn/interrupted)。"""
-        await self.emit("question-resolved", {
+        """question-resolved:问题结局帧(answered/timeout/withdrawn/interrupted)。
+
+        `continued=True` 只加一个附加键(前端词表仍是四态):timed 前台到期后
+        问题转入 continued,登记表保留可迟到答复,UI 按 timeout 结算。
+        """
+        payload: dict[str, Any] = {
             "questionId": question_id,
             "status": status,
             "selectedOptionIds": selected_option_ids,
             "customText": custom_text,
             "session_id": session_id,
-        })
+        }
+        if continued:
+            payload["continued"] = True
+        await self.emit("question-resolved", payload)
 
     async def permission_mode(
         self, *, mode: str, tool_name: str, decision: str, session_id: str
@@ -4190,6 +4206,9 @@ class AgentLoopV2:
         await self._inject_memory_context(messages)
         # W1(2026-09):入口:注入用户画像 snippet(对标 v1 P0 注入,复用 v1 实现)
         await self._inject_user_profile(messages)
+        # 2026-11-14(对标 DSH dsh-deliverable-file-references):注入交付物与文件引用规则。
+        # 静态段落、每轮幂等,失败降级不阻塞主循环。
+        self._inject_deliverable_guidance(messages)
         # 1-7 团队接力(P3-3,2026-09-03 立):入口:注入团队上一轮聚合摘要。
         # 默认关闭;开启且存在接力上下文时才改动 system prompt,否则为 no-op(零差异)。
         await self._inject_team_relay_context(messages)
@@ -4451,6 +4470,43 @@ class AgentLoopV2:
                 messages.insert(0, {"role": "system", "content": snippet})
         except Exception as e:
             logger.warning("user_profile snippet 注入失败(降级,不阻塞): %s", e)
+
+    def _inject_deliverable_guidance(self, messages: list[dict[str, Any]]) -> None:
+        """入口:交付物与文件引用规则注入(对标 DSH dsh-deliverable-file-references)。
+
+        为什么是 system prompt 段落而不是工具描述:规则要在"决定写最终答复"之前就生效
+        (内联图片、文件链接、何时 present),工具描述只在模型已经决定调用工具时才被读到。
+
+        纪律:静态文本、幂等(标记已在任意 system 消息里就跳过)、任何异常降级不阻塞。
+        """
+        try:
+            from ..core.deliverable_guidance import (
+                DELIVERABLE_FILE_REFERENCES,
+                DELIVERABLE_GUIDANCE_OPEN,
+            )
+
+            for msg in messages:
+                if (
+                    isinstance(msg, dict)
+                    and msg.get("role") == "system"
+                    and DELIVERABLE_GUIDANCE_OPEN in str(msg.get("content") or "")
+                ):
+                    return
+            if (
+                messages
+                and isinstance(messages[0], dict)
+                and messages[0].get("role") == "system"
+            ):
+                existing = messages[0].get("content", "")
+                messages[0]["content"] = (
+                    f"{existing}\n\n{DELIVERABLE_FILE_REFERENCES}"
+                    if existing
+                    else DELIVERABLE_FILE_REFERENCES
+                )
+            else:
+                messages.insert(0, {"role": "system", "content": DELIVERABLE_FILE_REFERENCES})
+        except Exception as e:
+            logger.warning("deliverable_guidance 注入失败(降级跳过): %s", e)
 
     # ------------------------------------------------------------------
     # 1-7 团队接力辅助(P3-3,2026-09-03 立;对标 meta_learner/metacognition 注入模式)
@@ -5379,6 +5435,20 @@ class AgentLoopV2:
                             "content": f"[steer] {steer_text}",
                         }
                     )
+                # 定时继续(2026-11-14 立,对标 DSH answer_to_pending_question):
+                # timed 提问到期后用户仍可答复,答复在下一轮 LLM 调用前作为 user 消息
+                # 注入(每条只交付一次)。失败隔离不阻塞回合。
+                if self._session_id:
+                    try:
+                        for _pending_item in drain_continued_answers(self._session_id):
+                            messages.append(
+                                {
+                                    "role": "user",
+                                    "content": continued_answer_message(_pending_item),
+                                }
+                            )
+                    except Exception as e:  # noqa: BLE001 - 迟到答复注入失败不阻塞主链路
+                        logger.warning("continued answer 注入异常(降级跳过): %s", e)
                 # 批 53:历史健全化(对标 codex context_manager/normalize.rs)——
                 # 压缩前先修历史:删孤儿 tool 回复 + 补缺位 tool 占位(中断/压缩/
                 # 宿主注入后可能产生残缺历史,残缺 assistant(tool_calls)↔tool 配对
@@ -5811,6 +5881,26 @@ class AgentLoopV2:
                         tool_calls, tool_results, tool_messages
                     )
                 messages.extend(tool_messages)
+                # 2026-11-14(对标 DSH read_image):图片本体不进 tool 正文(会被
+                # token 截断护栏截坏、也会撑爆 SSE 帧),由工具侧有界暂存,这里在
+                # 本轮全部 tool 消息之后追加一条 user 多模态消息,让主模型直接看图。
+                try:
+                    from .tool_image_delivery import (
+                        build_image_followup_message,
+                        collect_image_ids,
+                        take_images_with_report,
+                    )
+
+                    _images, _missing = take_images_with_report(
+                        collect_image_ids([tr.result for tr in tool_results])
+                    )
+                    _image_msg = build_image_followup_message(
+                        _images, missing=len(_missing)
+                    )
+                    if _image_msg is not None:
+                        messages.append(_image_msg)
+                except Exception as e:  # noqa: BLE001 - 交付失败降级为纯文字元数据
+                    logger.warning("工具图片交付失败(降级): %s", e)
                 # V3#54(2026-09-28):结果侧观测上提主链路 ——
                 #   failure-streak 达阈值 ⇒ 换策略(注入反思提示,当前只有这一种动作,
                 #   不中断;阈值见 core/doom_loop.py FAILURE_STREAK_STRATEGY_THRESHOLD);
@@ -7603,6 +7693,18 @@ class AgentLoopV2:
         start = time.time()
         session_id = self._session_id or str(uuid.uuid4())
         args = tc.args if isinstance(tc.args, dict) else {}
+        # 定时继续(2026-11-14 立):显式 timeout_s 才进入 timed 模式;
+        # 缺省保持既有阻塞语义,-1 表示等到底(24h 实用上限)。
+        timeout_s, timed, timeout_error = normalize_timeout_s(args.get("timeout_s"))
+        if timeout_error is not None:
+            return ToolResult(
+                tool_call_id=tc.id,
+                name=tc.name,
+                result={**timeout_error, "status": "invalid"},
+                error=str(timeout_error.get("error") or "timeout_s 非法"),
+                duration_ms=(time.time() - start) * 1000,
+                error_type="question_invalid",
+            )
         item = create_question(
             session_id=session_id,
             user_id=self._user_id,
@@ -7611,6 +7713,8 @@ class AgentLoopV2:
             options=args.get("options"),
             allow_custom=bool(args.get("allowCustom", True)),
             allow_multiple=bool(args.get("multiSelect", False)),
+            timeout_s=timeout_s,
+            call_id=tc.id,
         )
         if isinstance(item, dict):
             return ToolResult(
@@ -7635,7 +7739,11 @@ class AgentLoopV2:
                     break
                 remaining = (item.expires_at - datetime.now(UTC)).total_seconds()
                 if remaining <= 0:
-                    status = await wait_for_answer(item, timeout_s=0.0)
+                    if timed:
+                        # timed 模式:到期不判死,转入 continued(仍可迟到答复)。
+                        status = mark_continued(item, call_id=tc.id)
+                    else:
+                        status = await wait_for_answer(item, timeout_s=0.0)
                     break
                 try:
                     await asyncio.wait_for(
@@ -7645,12 +7753,15 @@ class AgentLoopV2:
                     continue
                 status = item.status
                 break
+            _continued = status == STATUS_CONTINUED
             await self._events.question_resolved(
                 question_id=item.question_id,
-                status=status,
+                # 前端词表只有四态:continued 以 timeout 结算,另带 continued 附加键。
+                status="timeout" if _continued else status,
                 selected_option_ids=list(item.selected_ids),
                 custom_text=item.custom_text,
                 session_id=session_id,
+                continued=_continued,
             )
         except (asyncio.CancelledError, GeneratorExit):
             cancel_session_questions(session_id, reason="session_interrupted")
@@ -7667,8 +7778,19 @@ class AgentLoopV2:
         labels = [
             opt["label"] for opt in item.options if opt["id"] in item.selected_ids
         ]
-        if status == "answered":
+        if status == STATUS_CONTINUED:
             result: dict[str, Any] = {
+                "ok": True,
+                "pending": True,
+                "status": STATUS_CONTINUED,
+                "questionId": item.question_id,
+                "callId": tc.id,
+                "message": pending_question_notice(item, tc.id),
+            }
+            error = None
+            error_type = None
+        elif status == "answered":
+            result = {
                 "ok": True,
                 "status": "answered",
                 "selectedOptionIds": list(item.selected_ids),

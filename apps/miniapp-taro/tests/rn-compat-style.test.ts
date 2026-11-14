@@ -46,7 +46,11 @@ describe('toTaroStyle:单位口径', () => {
   })
 
   it('字符串原样透传(var / % / calc 不被改写)', () => {
-    const out = toTaroStyle({ color: 'var(--color-foreground)', width: '50%', top: 'calc(100% - 8px)' })
+    const out = toTaroStyle({
+      color: 'var(--color-foreground)',
+      width: '50%',
+      top: 'calc(100% - 8px)',
+    })
     expect(out).toMatchObject({
       color: 'var(--color-foreground)',
       width: '50%',
@@ -149,6 +153,47 @@ describe('StyleSheet 替身', () => {
       bottom: 0,
       left: 0,
     })
+  })
+})
+
+describe('toTaroStyle:阴影/变换的完整语义(2026-11-15 回归锁)', () => {
+  it('elevation 与 shadow* 同档时,带色 iOS 语义胜出(不得压成黑色硬影)', () => {
+    const out = toTaroStyle({
+      elevation: 3,
+      shadowColor: '#fef3c7',
+      shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: 0.4,
+      shadowRadius: 5,
+    })
+    expect(out?.boxShadow).toBe('0px 0px 5px rgba(254,243,199,0.4)')
+    expect(out?.boxShadow).not.toMatch(/rgba\(0,0,0,0\.18\)/)
+  })
+
+  it('只有 elevation 时仍给 Android 兜底阴影', () => {
+    expect(toTaroStyle({ elevation: 4 })?.boxShadow).toBe('0 2px 4px rgba(0,0,0,0.18)')
+  })
+
+  it('shadowColor 为 rgba() 时也要乘 shadowOpacity', () => {
+    const out = toTaroStyle({
+      shadowColor: 'rgba(10,20,30,0.5)',
+      shadowOpacity: 0.4,
+      shadowRadius: 6,
+      shadowOffset: { width: 1, height: 2 },
+    })
+    expect(out?.boxShadow).toBe('1px 2px 6px rgba(10,20,30,0.2)')
+  })
+
+  it('textShadow 四件套合成单条 text-shadow,不产出 wxss 不认识的分键', () => {
+    const out = (toTaroStyle({
+      textShadowColor: '#ff0000',
+      textShadowOffset: { width: 1, height: 2 },
+      textShadowRadius: 3,
+      textShadowOpacity: 0.5,
+    }) ?? {}) as Record<string, unknown>
+    expect(out.textShadow).toBe('1px 2px 3px rgba(255,0,0,0.5)')
+    expect(out.textShadowColor).toBeUndefined()
+    expect(out.textShadowRadius).toBeUndefined()
+    expect(out.textShadowOpacity).toBeUndefined()
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

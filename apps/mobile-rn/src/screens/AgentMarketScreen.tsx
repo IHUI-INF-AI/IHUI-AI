@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTheme } from '../context/ThemeContext'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
@@ -22,8 +22,20 @@ export function AgentMarketScreen() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [keyword, setKeyword] = useState('')
+  // 搜索/重试可并发触发 load;用单调递增的请求序号只认最后一次回包,
+  // 并用 aliveRef 拦住卸载后的 setState。
+  const reqSeqRef = useRef(0)
+  const aliveRef = useRef(true)
+
+  useEffect(
+    () => () => {
+      aliveRef.current = false
+    },
+    [],
+  )
 
   const load = async (kw: string) => {
+    const seq = ++reqSeqRef.current
     setLoading(true)
     setError('')
     // 后端 GET /agents 回 success({list,total,page,pageSize})，而这里曾把整个信封当数组用
@@ -31,9 +43,7 @@ export function AgentMarketScreen() {
     // 目录一次取全:本屏是市场全量页且用 FlatList(有虚拟化),不带 pageSize 会吃服务端默认 20
     // ⇒ 124 枚只见 20(2026-10-21 审计)。
     const PAGE = 'pageSize=200'
-    const url = kw
-      ? `/api/agents?keyword=${encodeURIComponent(kw)}&${PAGE}`
-      : `/api/agents?${PAGE}`
+    const url = kw ? `/api/agents?keyword=${encodeURIComponent(kw)}&${PAGE}` : `/api/agents?${PAGE}`
     // 后端 GET /agents(handleListAgents,与 web /agents/list 同一 handler)对公开面
     // 经 PUBLIC_AGENT_KEYS 逐键重建:只给 agentId/name/description/categoryId/
     // usageCount/isFree...,没有 id/rating/category。显式投影成共享屏 AgentMarketItem:
@@ -48,6 +58,8 @@ export function AgentMarketScreen() {
       isFree?: boolean
     }
     const res = await fetchApi<{ list: PublicAgentRow[] }>(url)
+    // 只认最后一次请求的回包;卸载后一律不写 state(旧回包覆盖新结果是真实竞态)
+    if (!aliveRef.current || seq !== reqSeqRef.current) return
     if (res.success)
       setAgents(
         (res.data?.list ?? []).map((row) => ({
@@ -76,7 +88,9 @@ export function AgentMarketScreen() {
       error={error}
       onKeywordChange={setKeyword}
       onSearch={() => load(keyword)}
-      onRetry={() => { void load(keyword); }}
+      onRetry={() => {
+        void load(keyword)
+      }}
       onPressItem={(id) => navigation.navigate('AgentDetail', { id })}
       onBack={() => navigation.goBack()}
       colorScheme={resolvedTheme}

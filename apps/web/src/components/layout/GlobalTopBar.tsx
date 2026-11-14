@@ -33,8 +33,6 @@ import {
 import type { LucideIcon } from 'lucide-react'
 import { rnRadius } from '@ihui/design-tokens'
 import { cn } from '@/lib/utils'
-// 展示货币一键切换(2026-11-14 立):USD / CNY / USDT,偏好持久化,只影响展示
-import { CurrencySwitcher } from '@/components/common/CurrencySwitcher'
 import { isTopOverlay, popOverlay, pushOverlay } from '@/lib/overlay-stack'
 
 /** 层栈 id(见 @/lib/overlay-stack):Plus 弹窗的 Esc 只在栈顶时被消费 */
@@ -761,10 +759,6 @@ export function GlobalTopBar({ mobileMenu }: { mobileMenu?: React.ReactNode } = 
               收敛为这 1 个入口;弹层首项指向 /ecosystem 聚合页,其下保留 5 条分组直达,
               老 URL 一律继续可达(路由未改、未加跳转表、未隐藏任何页面)。 */}
           <TopBarEcosystemMenu />
-
-          {/* 2.6 展示货币切换(2026-11-14 立):USD / CNY / USDT 一键切换,
-              按 /api/exchange-rates/live 的实时汇率换算;扣费仍以 CNY 为基准。 */}
-          <CurrencySwitcher className="mr-1" />
 
           {/* 3. chevron 关闭其他/全部 按钮(从 TagsView 抽出,2026-07-31 第十二轮挪到 Plus 后面) */}
           <React.Suspense fallback={null}>

@@ -9696,6 +9696,7 @@
     },
     "toolCall": {
       "streamingPreviewLabel": "ストリーミングプレビュー(実行中、最終結果が優先)",
+      "presentedTitle": "{count} 件のファイルを納品しました",
       "chartGenerated": "グラフ生成済み",
       "chartPreviewFailed": "グラフのプレビューに失敗しました。パスをコピーしてローカルブラウザで開いてください。",
       "chartPreviewHint": "ローカルのグラフファイルはウェブページ内で直接プレビューできません。パスをコピーしてローカルブラウザで開いてください。",
@@ -16700,7 +16701,9 @@
     "phaseApproved": "承認済み",
     "phaseExecuting": "実行中",
     "phaseDone": "完了",
-    "viewPullRequest": "プルリクエストを表示"
+    "viewPullRequest": "プルリクエストを表示",
+    "revisionLabel": "修正内容",
+    "revisionPlaceholder": "どこを調整するか入力してください。空欄の場合は Agent が調整点を説明します"
   },
   "floatingChat": {
     "openclaw": {
