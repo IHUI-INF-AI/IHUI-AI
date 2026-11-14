@@ -849,6 +849,10 @@ export interface RunToolLoopOptions {
   onTerminalStart?: NonNullable<StreamChatOptions['onTerminalStart']>;
   /** 终端任务结束 — 与 onTerminalStart/onTerminalDelta 同一出口(补齐该族的收尾帧) */
   onTerminalEnd?: NonNullable<StreamChatOptions['onTerminalEnd']>;
+  /** AI 主动提问(阻塞式) — CLI 用内联提示收集答案,与 onBudget 同一出口 */
+  onQuestion?: NonNullable<StreamChatOptions['onQuestion']>;
+  /** 提问结算(answered/timeout/withdrawn/interrupted) — 按 questionId 精确清理提示 */
+  onQuestionResolved?: NonNullable<StreamChatOptions['onQuestionResolved']>;
   /** 模型降级交代 — 换用备用模型时打一行(与 onRetryScheduled 同一族:都是"用户该知道但看不见") */
   onFallback?: NonNullable<StreamChatOptions['onFallback']>;
   /** 工具汇总与委托 — CLI 打一行(无卡片宿主,与 onBudget 同一出口) */
@@ -1581,6 +1585,10 @@ interface SampleWithRetryOptions {
   onTerminalStart?: NonNullable<StreamChatOptions['onTerminalStart']>;
   /** 终端任务结束 — 与 onTerminalStart/onTerminalDelta 同一出口(补齐该族的收尾帧) */
   onTerminalEnd?: NonNullable<StreamChatOptions['onTerminalEnd']>;
+  /** AI 主动提问(阻塞式) — CLI 用内联提示收集答案,与 onBudget 同一出口 */
+  onQuestion?: NonNullable<StreamChatOptions['onQuestion']>;
+  /** 提问结算(answered/timeout/withdrawn/interrupted) — 按 questionId 精确清理提示 */
+  onQuestionResolved?: NonNullable<StreamChatOptions['onQuestionResolved']>;
   /** 模型降级交代 — 换用备用模型时打一行(与 onRetryScheduled 同一族:都是"用户该知道但看不见") */
   onFallback?: NonNullable<StreamChatOptions['onFallback']>;
   /** 工具汇总与委托 — CLI 打一行(无卡片宿主,与 onBudget 同一出口) */
@@ -1742,6 +1750,8 @@ async function sampleWithRetry(
         ...(opts.onSubagentEnd ? { onSubagentEnd: opts.onSubagentEnd } : {}),
         ...(opts.onTerminalStart ? { onTerminalStart: opts.onTerminalStart } : {}),
         ...(opts.onTerminalEnd ? { onTerminalEnd: opts.onTerminalEnd } : {}),
+        ...(opts.onQuestion ? { onQuestion: opts.onQuestion } : {}),
+        ...(opts.onQuestionResolved ? { onQuestionResolved: opts.onQuestionResolved } : {}),
         ...(opts.onFallback ? { onFallback: opts.onFallback } : {}),
         ...(opts.onToolSummary ? { onToolSummary: opts.onToolSummary } : {}),
         ...(opts.onToolDelegate ? { onToolDelegate: opts.onToolDelegate } : {}),
@@ -2507,6 +2517,8 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
         ...(opts.onSubagentEnd ? { onSubagentEnd: opts.onSubagentEnd } : {}),
         ...(opts.onTerminalStart ? { onTerminalStart: opts.onTerminalStart } : {}),
         ...(opts.onTerminalEnd ? { onTerminalEnd: opts.onTerminalEnd } : {}),
+        ...(opts.onQuestion ? { onQuestion: opts.onQuestion } : {}),
+        ...(opts.onQuestionResolved ? { onQuestionResolved: opts.onQuestionResolved } : {}),
         ...(opts.onFallback ? { onFallback: opts.onFallback } : {}),
         ...(opts.onToolSummary ? { onToolSummary: opts.onToolSummary } : {}),
         ...(opts.onToolDelegate ? { onToolDelegate: opts.onToolDelegate } : {}),

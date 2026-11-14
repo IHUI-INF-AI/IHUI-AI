@@ -2,6 +2,15 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // D141 控制帧三帧的客户端出口(2026-10-28 立):reload_plugins / refresh_memory /
 // mcp_clear_auth。第四帧 resume_goal 的出口在 client.ts(与 postSessionGoal 同族)。
+// 2026-11-13:AI 主动提问的上行答复传输封装(端点在 ai-service,不走 fetchApi 的 api 基址)。
+// 三端(web / extension / cli)共用这一份,避免各自拼 URL 与认证头。
+export {
+  postQuestionResponse as postQuestionAnswerResponse,
+  questionResponseUrl,
+  questionAnswerBody,
+  type QuestionAnswerRequest,
+  type PostQuestionResponseResult,
+} from './question-response-transport.js'
 export * from './endpoints/control-frames.js'
 export * from './endpoints/ai-world.js'
 export * from './endpoints/edu-ai.js'
