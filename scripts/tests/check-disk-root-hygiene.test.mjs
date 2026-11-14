@@ -17,7 +17,14 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
-import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
+import {
+  existsSync,
+  readFileSync,
+  readdirSync,
+  writeFileSync,
+  utimesSync,
+  mkdirSync,
+} from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
@@ -283,5 +290,56 @@ test('T12 前置:真盘根可读性判据不得把"目录里有被拒条目"当�
   assert.ok(here && existsSync(here), '本机盘根必须存在,否则上面几条夹具都在对着空气判')
   const r = auditDiskRoot(here, [])
   assert.equal(r.undetermined.length, 0, '真盘根不得落 undetermined')
+})
+
+// Y-73(盘根外流根治回归锁@2026-11-14):H3 申报目录内容对账此前只在纯函数 --self-test
+// 面有牙,CLI 层缺"三维各一红"里那一维 —— §22c:纯函数证明的是判据会给答案,证不了
+// main() 的根循环真把 contents 喂进去。本用例走 --config(--root 会强制替身盘根全量放行、
+// 屏蔽 contents),在替身盘根里造一个具名放行件 + 一个未知超龄件(utimesSync 把 mtime 拨到
+// 两天前,绕过 graceHours 窗口),断言它单独翻红且不连带 H1/H2。零副作用:替身盘根与 config
+// 全落 mkScratch,只写不删真盘根。
+test('T16 H3 CLI 层:申报目录内未知超龄件必须经 main() 独立点名,且不连带 H1/H2', () => {
+  const dir = mkScratch('drh-t16-')
+  try {
+    const fakeRoot = join(dir, 'fakeroot')
+    const declared = join(fakeRoot, 'declared')
+    mkdirSync(declared, { recursive: true })
+    writeFileSync(join(declared, 'known.log'), 'x')
+    const oldPath = join(declared, 'unknown-old.txt')
+    writeFileSync(oldPath, 'y')
+    const twoDaysAgo = new Date(Date.now() - 48 * 3600_000)
+    utimesSync(oldPath, twoDaysAgo, twoDaysAgo)
+    const cfg = join(dir, 'cfg.json')
+    const rootKey = `${fakeRoot}\\`
+    writeFileSync(
+      cfg,
+      JSON.stringify({
+        roots: {
+          [rootKey]: {
+            allow: ['declared'],
+            note: 'Y-73 夹具:替身盘根,只申报 declared 这一目录',
+            contents: { declared: { allow: ['known.log'], graceHours: 24 } },
+          },
+        },
+        worktreePolicy: { sanctionedPrefixes: [], exemptPaths: [] },
+      }),
+    )
+    const wt = join(dir, 'wt.txt')
+    writeFileSync(wt, 'worktree A:/main\nHEAD abc\nbranch refs/heads/main\n\n')
+    const j = JSON.parse(runCli(['--json', '--config', cfg, '--wt-file', wt]))
+    assert.equal(j.counts.declaredContentStray, 1, `H3 内容外流必须计 1:${JSON.stringify(j.violations)}`)
+    const stray = j.violations.filter((v) => v.kind === 'stray-content-in-declared-dir')
+    assert.equal(stray.length, 1, 'H3 违规 kind 必须是 stray-content-in-declared-dir')
+    assert.equal(stray[0].entry, 'unknown-old.txt', `点名对象错了:${stray[0]?.entry}`)
+    assert.ok(stray[0].ageHours >= 47, `age 必须量出来(>=47h),实得 ${stray[0]?.ageHours}`)
+    const h1 = j.violations.filter((v) => v.kind === 'stray-root-entry')
+    assert.equal(h1.length, 0, 'H1 不得连带:盘根 allow 已含 declared')
+    assert.equal(j.counts.worktreeOutside, 0, 'H2 不得连带:登记面干净')
+    assert.equal(j.verdict, 'red', '有 H3 真违规就必须是 red')
+    const cap = runCliCaptured(['--strict', '--json', '--config', cfg, '--wt-file', wt])
+    assert.equal(cap.rc, 1, `H3 违规在 --strict 问责档必须 exit 1,实得 ${cap.rc}`)
+  } finally {
+    rmScratch(dir)
+  }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
