@@ -296,7 +296,6 @@ export async function countAuditLogs(filters: AuditLogFilters): Promise<number> 
   }
 }
 
-<<<<<<< HEAD
 /**
  * 链尾查询(可整条交给 execute 的 SQL,非片段):取"链上叶",不是取"最新一行"。
  *
@@ -330,9 +329,6 @@ export const SELECT_CHAIN_TAIL_SQL: SQL = sql`
  * 注意:本函数走非事务 dbRead,只适合**读端展示**;写入端的链尾必须用
  * `SELECT_CHAIN_TAIL_SQL` 在同一事务内取叶(理由见该常量)。
  */
-=======
-/** 取最近一条日志的 current_hash(链尾);表空或不存在返回 "0"*64 创世哈希。 */
->>>>>>> origin/main
 export async function getLastAuditLogHash(): Promise<string> {
   const GENESIS = '0'.repeat(64)
   try {

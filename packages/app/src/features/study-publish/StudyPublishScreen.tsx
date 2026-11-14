@@ -689,13 +689,8 @@ function createCoverStyles(tk: AppThemeTokens) {
       color: baseTokens.surface.light,
       lineHeight: rnType.bodySm.lineHeight,
     },
-<<<<<<< HEAD
     icon: { fontSize: rnType.displayXl.size, color: tk.text.tertiary },
     hint: { fontSize: rnType.body.size, color: tk.text.tertiary },
-=======
-    icon: { fontSize: 28, color: tk.text.medium },
-    hint: { fontSize: rnType.body.size, color: tk.text.medium },
->>>>>>> origin/main
     pressed: { opacity: 0.85 },
   })
 }
