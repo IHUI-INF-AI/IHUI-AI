@@ -17,14 +17,15 @@ import {
   postToolApprovalResponse,
   /** D151:把用户键入的那一行送回正在等待的子进程(唯一上行出口,端内不得自拼 fetch) */
   postTerminalInput,
-  type StreamChatOptions,
-  type TerminalDeltaEvent,
+  type StreamChatOptions,  type TerminalDeltaEvent,
   type TerminalInteractionEvent,
   type ToolApprovalEvent,
   type LlmModel,
 } from '@ihui/api-client'
 import { GitBranch } from 'lucide-react'
 import { formatTokenCount, isMaxTokensTruncatedFinishReason } from '@ihui/shared/utils'
+// 差距①第 ① 腿:发送准入回执的稳定输入 ID —— 生成的唯一实现在共享层,端内不造第二源。
+import { createInputId } from '@ihui/shared/chat/send-admission'
 import { FALLBACK_MODELS as SHARED_FALLBACK_MODELS } from '@ihui/shared'
 import { Button, Input } from '@ihui/ui-react'
 import { useOutletContext } from 'react-router-dom'
@@ -148,6 +149,13 @@ export default function ChatPage() {
   const [models, setModels] = useState<LlmModel[]>(FALLBACK_MODELS)
   const [model, setModel] = useState<string>(FALLBACK_MODELS[0]!.id)
   const [notice, setNotice] = useState('')
+  /**
+   * 当前 notice 是否由"排队回执"写入(2026-11-13 立)。
+   * 存 queuedTurnId;非排队提示时为 null。
+   * 用途:晋升帧(accepted)到达时**只清自己写的那条**,不误伤 onCompaction / onRetryScheduled
+   * 等写进同一 notice 的其它流级提示(它们与本轮排队无关)。
+   */
+  const queuedNoticeRef = useRef<string | null>(null)
   const scrollRef = useRef<HTMLDivElement | null>(null)
   // 分叉(2026-09-25 接后端既有 branch 出口):扩展端原本是"无会话"纯流式聊天,
   // 后端 branch 接口只认已落库的 conversationId + messageId,所以宿主必须先持有
@@ -476,8 +484,22 @@ export default function ChatPage() {
       ? await loadWorkspaceContextCached(workspace.handle)
       : undefined
 
+    // 差距①第 ① 腿(2026-11-13):本轮发送的稳定输入 ID。由共享 `createInputId()` 生成
+    // (端内不造第二源);服务端凭它回显准入回执并判 duplicate。
+    // **必须在 opts 之外只取一次**:放进对象字面量每轮重建会拿到新值,重连重发就成了"另一条发送",
+    // 服务端据此判不出 duplicate,配对也断。
+    const roundInputId = createInputId()
+
     const opts: StreamChatOptions = {
       model,
+      // 差距①第 ① 腿:见上,复用本轮那一个值
+      inputId: roundInputId,
+      // 差距①第 ⓪ 腿:回执要能判 queued/rejected 就必须带会话 id。
+      // ai-service `take_admission` 头注:「conversation_id 缺席 ⇒ 恒 accepted 且不登记」,
+      // 而 queued/rejected 两档全由会话 lane 产生 ⇒ 只补 inputId 拿到的是恒 accepted 常量,
+      // 与本端首帧 onDelta 已证明的事同义反复(台账禁止接进没有信息量的出口)。
+      // 无会话(尚未落库)时不补 —— 那时服务端也无从配对。
+      ...(conversationId ? { metadata: { conversationId } } : {}),
       messages: next
         .filter((m) => m.content || m.role === 'user')
         .map(({ role, content }) => ({ role, content: content || ' ' })),
@@ -521,7 +543,13 @@ export default function ChatPage() {
       onDelta: (delta) => {
         window.clearTimeout(timeoutId)
         assistantText += delta
-        updateAssistantMessage((m) => ({ ...m, content: m.content + delta }))
+        // 2026-11-13(中间态收回):首个正文 delta 到达 = 重试已成功。
+        // `retryNotice` 写的是"第 N/M 次重试,X 秒后继续"这种**未来时**,不清就会一直挂在
+        // 消息上(MessageContent.tsx 无条件渲染它),而那个 X 秒早就过去了 ——
+        // 与 queued 提示同型的缺陷。只清自己(无则返回原对象,不触发多余重渲)。
+        updateAssistantMessage((m) =>
+          m.retryNotice ? { ...m, content: m.content + delta, retryNotice: undefined } : { ...m, content: m.content + delta },
+        )
       },
       // W6:推理过程(reasoning model),追加到 assistant 消息的 reasoning 字段
       onReasoning: (delta) => {
@@ -734,6 +762,11 @@ export default function ChatPage() {
       },
       // D39/D108 上游重试交代(第 48 轮):api-client 有通道,端内不注册就是静默丢帧。
       // 整体替换为最近一次(attempt 递增),与 web 同一口径。
+      // 2026-11-13:记忆更新交代,走既有 notice 条(与 onCompaction 同出口)。
+      onMemoryUpdates: (evt) => {
+        if (evt.items.length === 0) return
+        setNotice(t('ai.stream.memoryRemembered', { n: evt.items.length }))
+      },
       onRetryScheduled: (evt) => {
         updateAssistantMessage(
           (m) => ({
@@ -747,6 +780,44 @@ export default function ChatPage() {
           }),
           evt.messageId,
         )
+      },
+      // 差距①第 ③④ 腿(2026-11-13):发送准入回执。
+      //
+      // 为什么必须真上屏:台账 `no-admission-receipt-chain` 明确记着「回执落进没人读的内存键
+      // = 本分组要防的复发形态」。本端有现成出口 `setNotice`(消息内提示,与 onCompaction /
+      // onRetryScheduled 同族),回执是它的天然同类。
+      //
+      // 只对**有信息量**的档位提示:accepted 与"我发出去了"同义反复(用户已看到消息上屏),
+      // 再报一次是噪音;queued/rejected/duplicate 才是服务端新增的信息。
+      //
+      // ⚠️ accepted 虽不出新提示,但**必须清掉 queued 留下的那条**(2026-11-13 修):
+      // 后端在排队回合被晋升时会再发一帧 `admission{disposition:'accepted', queuedTurnId}`
+      // (llm.py 现读)。旧实现在 accepted 处直接 return ⇒ `setNotice` 写进去的"已排队"
+      // **永久留在消息上**(setNotice 是持久态,不像 toast 会自己消失),用户看着"已排队"
+      // 而回答早在跑 —— 比不显示更糟,它制造错误的等待预期。
+      // 配对凭据:`queuedTurnId` 两帧同值(共享层 send-admission.ts 定义为"排队项标识,
+      // 供队列面板后续插队/撤回")。
+      onSendAdmissionReceipt: (receipt) => {
+        if (receipt.disposition === 'accepted') {
+          // 晋升:只清本端记下的那条排队提示,不误伤 onCompaction 等其它 notice
+          const qid = receipt.queuedTurnId
+          if (qid && queuedNoticeRef.current === qid) {
+            setNotice('')
+            queuedNoticeRef.current = null
+          }
+          return
+        }
+        const key = `streamErrors.admission.${receipt.disposition}`
+        const label = t(key)
+        let text = label === key ? receipt.disposition : label
+        // queued 档带位次时补一句「前面还有 N 位」(ahead=0 表示下一位)。
+        // 缺席 = 服务端没量到,**不当成 0**:把"没量到"渲染成"下一位"是替服务端编造事实。
+        if (receipt.disposition === 'queued' && typeof receipt.ahead === 'number') {
+          text = `${text} · ${t('chat.admissionAhead', { n: receipt.ahead })}`
+        }
+        setNotice(text)
+        // 记下"当前这条 notice 是排队提示",供晋升时判断能不能清
+        queuedNoticeRef.current = receipt.disposition === 'queued' ? (receipt.queuedTurnId ?? null) : null
       },
       // #11 引用溯源(第 52 轮):端内枚举式合并,不显式写 citations 就等于静默丢帧
       onCitations: (evt) => {

@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { fetchApi, fetchText, fetchRaw, aiServiceBaseUrl, fetchWithAuthRefresh } from '../client.js'
+import { fetchApi, fetchText, aiServiceBaseUrl, fetchWithAuthRefresh } from '../client.js'
 
 export type ChatRole = 'user' | 'assistant' | 'system'
 
@@ -431,30 +431,19 @@ export function editAiMessageVersion(messageId: string, content: string) {
   )
 }
 
-/** 会话标题自动生成(2026-09-15 立,四竞品对标 V2 #15;2026-11-13 扩双策略):
- * - first-turn:首轮回复后按首条用户消息生成(默认);
- * - conversation:多轮后由服务端读最近 20 条消息重估(overwriteAuto 只覆盖自动标题)。
- * 仅默认标题 / 允许重估的自动标题会被覆盖;生成失败静默返回 updated:false,调用方无需重试。 */
+/** 会话标题自动生成(2026-09-15 立,四竞品对标 V2 #15):
+ * 首轮回复完成后由前端 fire-and-forget 调用,LLM 依据首条用户消息生成标题。
+ * 仅默认标题「新对话」会被覆盖;生成失败静默返回 ok:true/updated:false,调用方无需重试。 */
 export function autoTitleConversation(
   conversationId: string,
   text: string,
-  options?: {
-    model?: string
-    strategy?: 'first-turn' | 'conversation'
-    overwriteAuto?: boolean
-  },
+  options?: { model?: string },
 ) {
   return fetchApi<{ ok: boolean; title?: string; updated: boolean }>(
     `/api/chat/conversations/${encodeURIComponent(conversationId)}/auto-title`,
     {
       method: 'POST',
-      body: JSON.stringify({
-        // conversation 策略由服务端读库,不依赖客户端回传文本
-        text: text || undefined,
-        model: options?.model,
-        strategy: options?.strategy,
-        overwriteAuto: options?.overwriteAuto,
-      }),
+      body: JSON.stringify({ text, model: options?.model }),
     },
   )
 }
@@ -718,14 +707,6 @@ export function unarchiveConversation(id: string) {
 /** 导出对话为纯文本（txt/md） */
 export function exportConversation(id: string, format: 'txt' | 'md' = 'md'): Promise<string> {
   return fetchText(`/api/chat/conversations/${encodeURIComponent(id)}/export?format=${format}`)
-}
-
-/**
- * 导出会话日志 ZIP(conversation.md + messages.json + manifest.json)。
- * 二进制走 fetchRaw(自动带鉴权、401 续期与超时),返回 Blob 供浏览器直接下载。
- */
-export function exportConversationZip(id: string): Promise<Blob> {
-  return fetchRaw(`/api/chat/conversations/${encodeURIComponent(id)}/export?format=zip`)
 }
 
 /** 压缩归档列表项("归档记忆" 2026-09-01 立;列表不含 messages 大字段) */

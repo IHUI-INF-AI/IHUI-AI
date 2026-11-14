@@ -68,7 +68,7 @@ export function ApiSettingsScreen({
             value={config.token}
             secureTextEntry={!showToken}
             placeholder={t('apiSettings.tokenPlaceholder')}
-            placeholderTextColor={tk.text.tertiary}
+            placeholderTextColor={tk.text.secondary}
             autoCapitalize="none"
             autoCorrect={false}
             onChangeText={(v) => onConfigChange({ token: v })}
@@ -92,7 +92,7 @@ export function ApiSettingsScreen({
           style={styles.input}
           value={config.baseUrl}
           placeholder={defaultBaseUrl}
-          placeholderTextColor={tk.text.tertiary}
+          placeholderTextColor={tk.text.secondary}
           autoCapitalize="none"
           autoCorrect={false}
           keyboardType="url"
@@ -105,7 +105,7 @@ export function ApiSettingsScreen({
           style={styles.input}
           value={config.botId}
           placeholder={t('apiSettings.botIdPlaceholder')}
-          placeholderTextColor={tk.text.tertiary}
+          placeholderTextColor={tk.text.secondary}
           autoCapitalize="none"
           autoCorrect={false}
           onChangeText={(v) => onConfigChange({ botId: v })}
@@ -117,7 +117,7 @@ export function ApiSettingsScreen({
           style={styles.input}
           value={String(config.timeout)}
           placeholder={String(defaultTimeout)}
-          placeholderTextColor={tk.text.tertiary}
+          placeholderTextColor={tk.text.secondary}
           keyboardType="numeric"
           onChangeText={(v) => onConfigChange({ timeout: Number(v) || 0 })}
         />
@@ -162,13 +162,13 @@ export function ApiSettingsScreen({
         </View>
         {testing === 'success' ? (
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <Check size={14} color={tk.success.DEFAULT} strokeWidth={2.5} />
+            <Check size={14} color={tk.success.deepText} strokeWidth={2.5} />
             <Text style={styles.statusOk}>{testMsg || t('apiSettings.testSuccess')}</Text>
           </View>
         ) : null}
         {testing === 'failed' ? (
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <X size={14} color={tk.danger.DEFAULT} strokeWidth={2.5} />
+            <X size={14} color={tk.danger.deepText} strokeWidth={2.5} />
             <Text style={styles.statusErr}>{testMsg || t('apiSettings.testFailed')}</Text>
           </View>
         ) : null}
@@ -233,7 +233,7 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
     },
     eyeText: { fontSize: rnType.title.size },
-    hint: { fontSize: rnType.caption.size, color: tk.text.tertiary, marginTop: rnSpacing.md },
+    hint: { fontSize: rnType.caption.size, color: tk.text.medium, marginTop: rnSpacing.md },
     btnRow: { flexDirection: 'row', gap: rnSpacing.md, marginBottom: rnSpacing.md },
     btn: {
       flex: 1,
@@ -269,11 +269,11 @@ function createStyles(tk: AppThemeTokens) {
     },
     testBtnRunning: { opacity: 0.6 },
     testBtnText: { color: tk.brand.ctaForeground, fontSize: rnType.body.size, fontWeight: '600' },
-    statusOk: { fontSize: rnType.body.size, color: tk.success.DEFAULT, marginTop: rnSpacing.sm },
-    statusErr: { fontSize: rnType.body.size, color: tk.danger.DEFAULT, marginTop: rnSpacing.sm },
+    statusOk: { fontSize: rnType.body.size, color: tk.success.deepText, marginTop: rnSpacing.sm },
+    statusErr: { fontSize: rnType.body.size, color: tk.danger.deepText, marginTop: rnSpacing.sm },
     toast: {
       fontSize: rnType.body.size,
-      color: tk.success.DEFAULT,
+      color: tk.success.deepText,
       textAlign: 'center',
       marginTop: rnSpacing.sm,
     },

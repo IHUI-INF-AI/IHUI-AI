@@ -87,7 +87,7 @@ const styles = StyleSheet.create({
   },
   queryText: {
     fontSize: rnType.label.size,
-    color: tokens.text.tertiary,
+    color: tokens.text.medium,
   },
   list: {
     flexGrow: 0,
@@ -127,7 +127,7 @@ const styles = StyleSheet.create({
   },
   itemTrigger: {
     fontSize: rnType.label.size,
-    color: tokens.text.tertiary,
+    color: tokens.text.medium,
   },
   emptyWrap: {
     paddingVertical: rpx(64),

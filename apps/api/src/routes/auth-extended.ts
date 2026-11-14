@@ -9,7 +9,7 @@ import { hashPassword, verifyPassword } from '../utils/password-crypto.js'
 import { verifyLoginPassword } from '../utils/login-verify.js'
 import { createHash, randomBytes } from 'node:crypto'
 import { secretsEqual } from '../plugins/internal-service-token.js'
-import { eq, and } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import { generateShortCode } from '../utils/crypto-random.js'
 import {
   signAccessToken,
@@ -106,7 +106,6 @@ import {
   deleteSession,
   listActiveScopeMeta,
   findThirdPartyAccount,
-  adoptLegacyTenantBinding,
   listUserBindings,
   createThirdPartyBinding,
   removeBinding,
@@ -157,7 +156,6 @@ import {
   wecomPcCode2session,
   isWecomConfigured,
   isWecomSuiteConfigured,
-  resolveWecomTenant,
   isDingtalkConfigured,
   buildDingtalkAuthUrl,
   exchangeDingtalkCode,
@@ -892,10 +890,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       const { username, password } = parsed.data
       const ip = request.ip
 
-      // F-556:先解析用户 —— 同一用户的用户名/手机号/邮箱共享同一份锁定配额。
-      const user = await findUserByUsername(username)
-
-      const lockRemaining = await getLockRemainingMs(username, ip, user?.id)
+      const lockRemaining = await getLockRemainingMs(username, ip)
       if (lockRemaining > 0) {
         recordAuthLoginFailed(ip)
         return reply
@@ -909,6 +904,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
           )
       }
 
+      const user = await findUserByUsername(username)
       // 等代价校验(防账号枚举,CWE-204):原先的 `!user || !user.passwordHash || !(await
       // verifyPassword(...))` 在"账号不存在"这一支短路掉了 argon2id —— 文案是统一的,
       // 但耗时差几十到几百毫秒,掐表就能列账号。判据与出路见 password-crypto 的
@@ -917,7 +913,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       // `!user.passwordHash` 只做类型收窄(下面透明升级要非空哈希):等代价校验已在
       // 上一行无条件跑过,这里不再产生第二条可分辨的出口。
       if (!user || !user.passwordHash || !passwordMatches) {
-        const remaining = await recordLoginFailure(username, ip, user?.id)
+        const remaining = await recordLoginFailure(username, ip)
         recordAuthLoginFailed(ip)
         if (remaining === 0) {
           const lockDurationMs = ACCOUNT_LOCKOUT_CONFIG.lockDurationSec * 1000
@@ -939,7 +935,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
         recordAuthLoginFailed(ip)
         return reply.status(403).send(error(403, '账号已被禁用'))
       }
-      await clearLoginFailures(username, ip, user.id)
+      await clearLoginFailures(username, ip)
       // 2026-10-28 普查发现：本入口此前只 verify 不升级哈希，与 /auth/login 不一致
       // （弱哈希账户若经此路登录就永远升不上 argon2id）。补同一出口调用，三入口行为齐平。
       await transparentlyUpgradePasswordHash({
@@ -1614,24 +1610,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       const session = isWecomConfigured()
         ? await wecomPcCode2session(code)
         : await wecomCode2session(code)
-      // F-271:绑定键必须带租户(corpId)。suite 模式下 open_userid 只在**本企业内**唯一,
-      // 只按 open_userid 查绑定 ⇒ B 企业同值用户可登入 A 企业的本地账号。
-      // 租户判据(含白名单/空值拒绝)单源在 services/oauth-providers.resolveWecomTenant。
-      const tenantId = resolveWecomTenant(session.corpId)
-      if (!tenantId) {
-        request.log.warn(
-          { corpId: session.corpId, mode: isWecomConfigured() ? 'self-built' : 'suite' },
-          '企微登录租户校验失败 ⇒ 拒绝签发会话',
-        )
-        return reply.status(403).send(error(403, '企业微信租户校验失败'))
-      }
-      let binding = await findThirdPartyAccount('enterpriseWechat', session.openUserId, tenantId)
-      if (!binding && isWecomConfigured()) {
-        // 自建应用是单租户部署:把 tenant_id='' 的存量绑定改判为当前 corpId 后再查。
-        // suite 模式不走这一步(多企业共用凭据,老行属于谁无法判定 ⇒ 宁要重绑)。
-        await adoptLegacyTenantBinding('enterpriseWechat', session.openUserId, tenantId)
-        binding = await findThirdPartyAccount('enterpriseWechat', session.openUserId, tenantId)
-      }
+      const binding = await findThirdPartyAccount('enterpriseWechat', session.openUserId)
       if (!binding) {
         return reply.send(
           success({
@@ -1639,8 +1618,6 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
             openId: session.openUserId,
             unionId: session.openUserId,
             nick: `企微用户${session.userId.slice(-4)}`,
-            // 绑定侧要把它落进 user_third_party_accounts.tenant_id,否则下一次登录查不到自己
-            corpId: tenantId,
           }),
         )
       }
@@ -1808,6 +1785,13 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       const stored = await findCaptcha(parsed.data.captchaKey)
       if (!stored) return reply.status(400).send(error(400, '验证码不存在或已过期'))
+      // F-596:saveCaptcha 写了 5 分钟 expiresAt,但查询与验证此前都不比较该列,
+      // 只靠每日清理删除 → 有效期语义失效(5min 退化为最长约 24h)。
+      // 过期行同样删除并回 400,与"不存在"同形,避免可预解验证码择时使用。
+      if (stored.expiresAt.getTime() <= Date.now()) {
+        await deleteCaptcha(parsed.data.captchaKey)
+        return reply.status(400).send(error(400, '验证码不存在或已过期'))
+      }
       const ok = verifyCaptcha(stored.code, parsed.data.code)
       await deleteCaptcha(parsed.data.captchaKey)
       if (!ok) return reply.status(400).send(error(400, '验证码错误'))
@@ -3184,8 +3168,6 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
     let nickname: string | undefined
     let avatar: string | undefined
     let email: string | undefined
-    /** F-271:租户维度。只有企业微信会填(corpId),其余平台保持 undefined ⇒ 旧绑定键语义不变。 */
-    let tenantId: string | undefined
 
     try {
       switch (platform) {
@@ -3249,16 +3231,6 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
           const session = isWecomConfigured()
             ? await wecomPcCode2session(code)
             : await wecomCode2session(code)
-          // F-271:租户维度进绑定键(与 /auth/login/enterprise/pc/wxCode 同一判据)。
-          const tenant = resolveWecomTenant(session.corpId)
-          if (!tenant) {
-            request.log.warn(
-              { platform, corpId: session.corpId },
-              '[oauth/enterpriseWechat] 租户校验失败 ⇒ 拒绝',
-            )
-            return reply.status(403).send(error(403, '企业微信租户校验失败'))
-          }
-          tenantId = tenant
           openId = session.openUserId || session.userId
           break
         }
@@ -3427,8 +3399,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, `${platform} 授权返回异常,请重新登录`))
     }
 
-    // F-271:查/建绑定都必须带租户(tenantId 仅企业微信有值;其余平台 undefined ⇒ 旧口径)。
-    const binding = await findThirdPartyAccount(platform, openId, tenantId)
+    const binding = await findThirdPartyAccount(platform, openId)
     let user
     if (binding) {
       user = await findUserById(binding.userId)
@@ -3442,7 +3413,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
         roleId: 0,
         status: 1,
       })
-      await createThirdPartyBinding({ userId: user.id, openId, unionId, platform, tenantId })
+      await createThirdPartyBinding({ userId: user.id, openId, unionId, platform })
     }
 
     // 2026-10-31 安全强化第 10 批 R10：第二因子闸（单源）。此前本支路直接发 token，
@@ -3779,8 +3750,9 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /auth/2fa/step-up — 敏感动作前置的二次验证。
   // 与 /auth/2fa/verify 的区别:那一枚是"开启 2FA"的入伙校验(会改库置 twoFactorEnabled);
-  // 这一枚**只验不写开关**,给提现这类高敏动作当第二因子用。校验出口仍复用本文件的
-  // decryptTwoFactorSecret + verifyTotp,新鲜度记账住在 two-factor-step-up-store.ts(单源)。
+  // 这一枚**只验不写开关**,给提现这类高敏动作当第二因子用。密钥解密仍复用本文件的
+  // decryptTwoFactorSecret;TOTP 判据与登录兑付点同源(verifyTotpCounter + consumeTotpCounter,
+  // 同一步只兑付一次,F-272),新鲜度记账住在 two-factor-step-up-store.ts(单源)。
   server.post(
     '/auth/2fa/step-up',
     {
@@ -3814,7 +3786,15 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       if (!secret) {
         return reply.status(500).send(error(500, '密钥解密失败，请重新 setup'))
       }
-      if (!verifyTotp(parsed.data.code, secret)) {
+      // F-272:与登录 2FA 兑付点同判据。此前只用布尔校验判真假,判不出"这一步
+      // 兑过没有" —— 同一 6 位码在 ±1 step(约 90s)窗口内可重复刷新 step-up。现在先
+      // verifyTotpCounter 拿命中的 time step,再由 consumeTotpCounter 原子兑付。
+      const totpStep = verifyTotpCounter(parsed.data.code, secret)
+      // 码错 / 该步已被兑付 ⇒ 同一形态拒绝,不泄露"码正确但已用过";失败也不记账 step-up。
+      if (
+        totpStep === null ||
+        !(await consumeTotpCounter(userId, totpStep, request.server.redis))
+      ) {
         await recordSecurityEvent(request, 'two_factor_step_up_failed')
         return reply.status(401).send(error(401, '验证码错误或已过期'))
       }
@@ -3965,23 +3945,19 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
           }
         }
       } else if (backupCode) {
-        // F-567:校验与消费必须是原子的条件更新。旧实现「先校验后按 id 覆盖数组」,
-        // 同一恢复码的两个并发请求都能读到含该 hash 的数组并各自写回 removing,
-        // 导致单码换多会话。这里用「整个数组相等」做 CAS:只有 WHERE 命中
-        // (该 hash 仍在原数组)才消费,returning 为空即视为并发重放并拒绝。
+        // backup code 路径:校验通过后立即从数组移除(单次使用)
         const hashes = user.twoFactorBackupCodes ?? []
         if (verifyBackupCode(backupCode, hashes)) {
           const usedHash = hashBackupCode(backupCode)
           const remaining = hashes.filter((h) => h !== usedHash)
-          const consumed = await db
+          await db
             .update(users)
             .set({
               twoFactorBackupCodes: remaining,
               updatedAt: new Date(),
             })
-            .where(and(eq(users.id, userId), eq(users.twoFactorBackupCodes, hashes)))
-            .returning({ id: users.id })
-          if (consumed.length > 0) verified = true
+            .where(eq(users.id, userId))
+          verified = true
         }
       }
 

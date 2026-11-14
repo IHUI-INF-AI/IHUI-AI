@@ -243,7 +243,8 @@
     "modelCategoryGuard": "安全性審査",
     "modelCategoryOcr": "文字認識",
     "modelCategoryOther": "その他",
-    "modelHistoryToggle": "過去のモデル"
+    "modelHistoryToggle": "過去のモデル",
+    "admissionAhead": "前に {n} 件あります"
   },
   "settings": {
     "language": "インターフェース言語",

@@ -30,7 +30,7 @@ export function FeedbackHistoryScreen({
       ? tk.success.DEFAULT
       : status === 'pending'
         ? tk.warning.amber
-        : tk.text.tertiary
+        : tk.text.secondary
 
   return (
     <View style={styles.container}>
@@ -93,7 +93,7 @@ function createStyles(tk: AppThemeTokens) {
     errorText: {
       paddingHorizontal: rnSpacing['sm-loose'],
       fontSize: rnType.body.size,
-      color: tk.danger.DEFAULT,
+      color: tk.danger.deepText,
     },
     listBody: { padding: rnSpacing['md-loose'] },
     card: {
@@ -105,10 +105,10 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.light,
     },
     titleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-    cardType: { fontSize: rnType.body.size, fontWeight: '600', color: tk.success.DEFAULT },
+    cardType: { fontSize: rnType.body.size, fontWeight: '600', color: tk.success.deepText },
     cardStatus: { fontSize: rnType.body.size, fontWeight: '600' },
     cardContent: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.secondary },
-    cardTime: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.tertiary },
+    cardTime: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.medium },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

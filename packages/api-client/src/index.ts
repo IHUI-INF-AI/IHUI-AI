@@ -116,6 +116,9 @@ export type {
   // D152(2026-09-29 立):会话目标状态帧的类型 —— 与 postSessionGoal 同批入入口,否则
   // 端内要写 onGoalUpdate 回调就点不到参数类型(§3 类型零技术债禁止自抄或 any)。
   GoalUpdateEvent,
+  // P1 #27(2026-11-13):done 帧携带的记忆更新载荷类型 —— 与 onMemoryUpdates 同批入入口,
+  // 否则端内要写该回调就点不到参数类型(§3 类型零技术债禁止自抄或 any)。
+  MemoryUpdatesEvent,
   // 控制帧 `resume_goal`(2026-10-28 立):恢复帧的回执类型 —— 与 resumeSessionGoal 同批
   // 入入口,否则端内要写 onResume 回调就点不到参数类型(§3 类型零技术债禁止自抄或 any)。
   SessionGoalResumeResult,

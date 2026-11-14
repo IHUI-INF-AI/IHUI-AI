@@ -421,14 +421,22 @@ export interface CreateSubscriptionInput {
  * 有效期顺延规则:若用户已有活跃订阅(end_at > now),新订阅从旧订阅到期时刻开始
  * (start_at = 旧 end_at),使续费叠加时长而非覆盖;否则从 now 开始。
  *
- * 幂等:同一 orderNo 由 `api_subscriptions_order_no_uniq` 唯一索引兜底,
- * 并发/重投的第二笔在 INSERT ... ON CONFLICT DO NOTHING 处被吸收并回读既有实例。
+ * 幂等:同一 orderNo 已创建过订阅时直接返回既有实例(回调重试安全)。
  */
 export async function createSubscriptionForOrder(
   input: CreateSubscriptionInput,
 ): Promise<ApiSubscription | null> {
   const now = input.now ?? new Date()
   try {
+    if (input.orderNo) {
+      const [existing] = await dbRead
+        .select()
+        .from(apiSubscriptions)
+        .where(eq(apiSubscriptions.orderNo, input.orderNo))
+        .limit(1)
+      if (existing) return existing as ApiSubscription
+    }
+
     // SDB-03:文档语义「0 = 不过期」不能与「未填」混同。有效期的唯一判据就在本层:
     // undefined/null(以及运行期的 NaN)⇒ 既有默认 30 天;显式 0 ⇒ 永久;
     // 负数/非有限值 ⇒ 拒绝创建(管理端 zod 已拦,这里防绕过),绝不静默改成 30 天。
@@ -441,9 +449,7 @@ export async function createSubscriptionForOrder(
           : null
     if (validityDays === null) return null
 
-    // F-587:顺延基准必须读主库。副本延迟会让刚续费的用户按旧 endAt 再叠一段,
-    // 与并发回调叠加后形成重叠订阅窗口(额度分裂)。
-    const [current] = await db
+    const [current] = await dbRead
       .select({ endAt: apiSubscriptions.endAt })
       .from(apiSubscriptions)
       .where(
@@ -481,37 +487,10 @@ export async function createSubscriptionForOrder(
         monthlyTokenLimit: input.monthlyTokenLimit ?? 0,
         autoRenew: input.autoRenew ?? false,
       })
-      // F-587:不再「先查副本再插」。order_no 唯一索引是唯一判据,冲突即放弃本次插入;
-      // 不带 target 的 DO NOTHING 同时兼容部分唯一索引(order_no IS NOT NULL)。
-      .onConflictDoNothing()
       .returning()
-
-    if (row) return row as ApiSubscription
-
-    // 冲突但没拿到行 ⇒ 同一 orderNo 已被并发回调写入,回读主库返回既有实例。
-    if (input.orderNo) {
-      const [existing] = await db
-        .select()
-        .from(apiSubscriptions)
-        .where(eq(apiSubscriptions.orderNo, input.orderNo))
-        .limit(1)
-      if (existing) return existing as ApiSubscription
-    }
-
-    console.error('[subscription-window] 订阅创建冲突后未找到既有实例', {
-      userId: input.userId,
-      orderNo: input.orderNo ?? null,
-    })
+    return (row as ApiSubscription) ?? null
+  } catch {
     return null
-  } catch (err) {
-    // F-587:异常不再吞成 null。null 会被调用方读成「创建失败但无原因」并在无日志下
-    // fail-open;这里记录完整上下文后向上抛,由 api-subscription-service 转补偿告警。
-    console.error('[subscription-window] 创建订阅实例失败', {
-      userId: input.userId,
-      orderNo: input.orderNo ?? null,
-      err: err instanceof Error ? err.message : String(err),
-    })
-    throw err
   }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

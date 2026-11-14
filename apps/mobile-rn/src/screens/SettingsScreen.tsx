@@ -79,9 +79,12 @@ export default function SettingsScreen() {
   // 进页回读真实偏好:原实现直接拿硬编码默认值渲染(push:true/message:true/email:false),
   // 用户看到的开关状态与后端里的实际配置无关。
   useEffect(() => {
+    let cancelled = false
     void fetchApi<{ pushEnabled?: boolean; inAppEnabled?: boolean; emailEnabled?: boolean }>(
       '/notifications/preferences',
     ).then((r) => {
+      // 已离开设置页就不再回填:用户看不到这组开关,也避免卸载后 setState
+      if (cancelled) return
       if (!r.success || !r.data) return
       const p = r.data
       setNotifications({
@@ -90,6 +93,9 @@ export default function SettingsScreen() {
         email: p.emailEnabled ?? false,
       })
     })
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   // 右侧菜单按钮(对齐 Uniapp settings 使用 ☰ 触发 Drawer 集成)

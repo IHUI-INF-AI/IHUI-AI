@@ -25,7 +25,7 @@ function statusKey(item: LiveScreenItem): LiveStatusKey {
 function statusColor(key: LiveStatusKey, tk: AppThemeTokens): string {
   if (key === 'live.ongoing') return tk.danger.DEFAULT
   if (key === 'live.upcoming') return tk.warning.amber
-  return tk.text.tertiary
+  return tk.text.secondary
 }
 
 /**
@@ -79,7 +79,7 @@ export function LiveScreen({
           ListFooterComponent={
             loadingMore ? (
               <View style={styles.footerLoading}>
-                <ActivityIndicator size="small" color={tk.text.tertiary} />
+                <ActivityIndicator size="small" color={tk.text.secondary} />
               </View>
             ) : null
           }
@@ -138,7 +138,7 @@ function createStyles(tk: AppThemeTokens) {
     errorText: {
       paddingHorizontal: rnSpacing.lg,
       fontSize: rnType.body.size,
-      color: tk.danger.DEFAULT,
+      color: tk.danger.deepText,
     },
     listBody: { paddingHorizontal: rnSpacing['sm-loose'], paddingVertical: rnSpacing.lg },
     separator: { height: 12 },
@@ -172,7 +172,7 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'space-between',
       marginTop: rnSpacing.sm,
     },
-    meta: { fontSize: rnType.label.size, color: tk.text.tertiary },
+    meta: { fontSize: rnType.label.size, color: tk.text.medium },
     footerLoading: { paddingVertical: rnSpacing.md, alignItems: 'center' },
   })
 }

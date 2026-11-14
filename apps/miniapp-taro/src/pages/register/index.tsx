@@ -1,13 +1,15 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-// 对齐目标(RN 共享屏): packages/app/src/features/register/RegisterScreen.tsx
+// 镜像 packages/app/src/features/register/RegisterScreen.tsx
+//
+// 薄壳(2026-11-14 收敛):视图委托共享屏 `RegisterScreen`,本端只保留平台职责:
+//   ① 取数 —— register / sendSmsCode;② 导航 —— 回登录、打开协议页;③ 轻提示 —— onToast;
+//   ④ 端内控件 —— 区号选择器(`PhoneAreaCodePicker`,共享屏以 renderPhonePrefix 插槽承载)。
+// 表单状态与校验仍来自共享 hook `useRegisterForm`(与 RN 侧同一个 hook),
+// 收敛前本页把 hook 的每个字段各接一遍手写输入框(247 行);现在输入框由共享屏统一渲染。
 import { useTt, useI18n, t } from '@/i18n'
 import { goToLogin } from '@/utils/auth'
-import { View, Text, Input } from '@tarojs/components'
-// 描边画在外层容器 `.reg-input-box` 上 ⇒ 走 hook 文档的 WRAP 形态②:handlers 留 Input、focusStyle 铺容器。
-import { useFieldFocus } from '@/hooks/use-field-focus'
 import Taro from '@tarojs/taro'
 import { useState, useEffect } from 'react'
 import { register, sendSmsCode } from '@/api'
@@ -17,13 +19,10 @@ import {
   type RegisterFormValues,
   type SendCodeApiResult,
 } from '@ihui/shared/hooks'
-import PhoneAreaCodePicker from '@/components/PhoneAreaCodePicker'
-import PasswordVisibilityToggle from '@/components/PasswordVisibilityToggle'
-import AuthButton from '@/components/AuthButton'
 import ThemeRoot from '@/components/ThemeRoot'
-import BackChevron from '@/components/BackChevron'
-import AgreementRow from './agreement-row'
-import './index.css'
+import PhoneAreaCodePicker from '@/components/PhoneAreaCodePicker'
+import { RegisterScreen } from '@ihui/rn-app/features/register/RegisterScreen'
+import { useAppTheme } from '@/lib/theme'
 import { onToast } from '@/host/on-toast'
 
 /** 把共享 hook 返回的通用错误 key(auth.*)映射到本页 register.* 文案(仅本页面用) */
@@ -37,8 +36,7 @@ function mapRegisterErrorKey(e: string, phone: string): { key: string; fb: strin
     return { key: 'register.incomplete', fb: t('distribution.index.fillInfo') }
   if (e === 'auth.invalidPassword')
     return { key: 'register.pwdLength', fb: t('register.pwdLength') }
-  // auth.passwordMismatch 不在小程序五语言包里 ⇒ 不映射会把裸键 "auth.passwordMismatch"
-  // 直接弹给用户;按既有跨命名空间取词口径(login.phonePlaceholder 同型)指到包内现成键。
+  // auth.passwordMismatch 不在小程序五语言包里 ⇒ 不映射会把裸键直接弹给用户
   if (e === 'auth.passwordMismatch')
     return { key: 'user.password.mismatch', fb: t('user.password.mismatch') }
   return null
@@ -54,18 +52,10 @@ function mapRegisterInfoKey(e: string): { key: string; fb: string } | null {
 export default function RegisterIndex() {
   const { t } = useI18n()
   const tt = useTt()
-
-  // 视觉状态:区号 / 密码可见性(RN 输入框无聚焦样式,聚焦态仅区号选择器内部使用)
+  const { resolved } = useAppTheme()
+  // 区号选择器的视觉状态(共享屏不承载区号选择器,属本端控件)
   const [phoneHead, setPhoneHead] = useState('+86')
-  const [showPwd, setShowPwd] = useState(false)
 
-  // 聚焦态描边:三个输入盒的描边都在外层 .reg-input-box 上,故各取一份运行时聚焦档
-  const ffPhone = useFieldFocus()
-  const ffCode = useFieldFocus()
-  const ffPwd = useFieldFocus()
-  const ffConfirm = useFieldFocus()
-
-  // 用 @ihui/shared useRegisterForm 替代本地 useState + onSendCode + onSubmit
   const form = useRegisterForm({
     type: 'phone',
     enableCode: true,
@@ -78,8 +68,8 @@ export default function RegisterIndex() {
         await register({ phone: v.phone.trim(), code: v.code.trim(), password: v.password })
         return { success: true }
       } catch (e) {
-        // error 置空串会把 '' 写进 form.error ⇒ falsy ⇒ 本页 effect 直接 return ⇒ 注册失败
-        // 按钮"没反应"。透传后端真实错误文案(t() 对词典外键原样返回),取不到再落通用失败键。
+        // error 置空串会把 '' 写进 form.error ⇒ falsy ⇒ 注册按钮"没反应"。
+        // 透传后端真实错误文案(对词典外键原样返回),取不到再落通用失败键。
         const msg = e instanceof Error ? e.message.trim() : ''
         return { success: false, error: msg || 'common.failed' }
       }
@@ -120,128 +110,41 @@ export default function RegisterIndex() {
     })
   }
 
-  function toLogin() {
-    goToLogin()
-  }
-
-  const codeBtnText =
-    form.countdown > 0
-      ? tt('register.resendIn', `${form.countdown}s 后重发`, { countdown: form.countdown })
-      : tt('register.getCode', '发送验证码')
-
   return (
     <ThemeRoot className="container-ali">
-      <View className="container1">
-        {/* 顶部:返回 + 标题(对齐 RN SharedRegisterScreen header) */}
-        <View className="reg-header">
-          <BackChevron onTap={toLogin} />
-          <Text className="reg-title">{tt('register.title', '注册')}</Text>
-        </View>
-
-        {/* 表单卡片(对齐 RN card) */}
-        <View className="reg-card">
-          {/* 手机号输入框 + 区号 */}
-          <Text className="reg-label">{tt('register.phone', '手机号')}</Text>
-          <View className="reg-input-box" style={ffPhone.focusStyle}>
-            <PhoneAreaCodePicker value={phoneHead} onChange={setPhoneHead} />
-            <Input
-              className="reg-input"
-              {...ffPhone.spread}
-              type="number"
-              maxlength={11}
-              placeholder={tt('register.phonePlaceholder', '请输入手机号')}
-              placeholderStyle="color: var(--color-text-tertiary);"
-              value={form.values.phone}
-              onInput={(e) => form.setPhone(e.detail.value)}
-            />
-          </View>
-
-          {/* 验证码输入框 + 发送按钮(对齐 RN codeRow/codeBtn) */}
-          <Text className="reg-label">{tt('register.code', '验证码')}</Text>
-          <View className="reg-coderow">
-            <View className="reg-input-box reg-input-box-flex" style={ffCode.focusStyle}>
-              <Input
-                className="reg-input"
-                {...ffCode.spread}
-                type="number"
-                maxlength={6}
-                placeholder={tt('register.codePlaceholder', '请输入验证码')}
-                placeholderStyle="color: var(--color-text-tertiary);"
-                value={form.values.code}
-                onInput={(e) => form.setCode(e.detail.value)}
-              />
-            </View>
-            <View
-              className={`reg-codebtn ${form.countdown > 0 ? 'reg-codebtn-disabled' : ''}`}
-              hoverClass="opacity-60"
-              onClick={form.sendCode}
-            >
-              <Text className="reg-codebtn-text">{codeBtnText}</Text>
-            </View>
-          </View>
-          {form.error === 'register.sendCodeFailed' ? (
-            <Text className="block mt-[12rpx] text-body-sm leading-[normal] text-[color:var(--color-danger)]">
-              {t('register.sendCodeFailed')}
-            </Text>
-          ) : null}
-
-          {/* 密码输入框 + 可见性切换 */}
-          <Text className="reg-label">{tt('register.password', '密码')}</Text>
-          <View className="reg-input-box" style={ffPwd.focusStyle}>
-            <Input
-              className="reg-input"
-              {...ffPwd.spread}
-              password={!showPwd}
-              maxlength={20}
-              placeholder={tt('register.passwordPlaceholder', '请输入密码')}
-              placeholderStyle="color: var(--color-text-tertiary);"
-              value={form.values.password}
-              onInput={(e) => form.setPassword(e.detail.value)}
-            />
-            <PasswordVisibilityToggle
-              visible={showPwd}
-              onToggle={() => setShowPwd((v) => !v)}
-              label={showPwd ? tt('register.hide', '隐藏') : tt('register.show', '显示')}
-            />
-          </View>
-
-          {/* 确认密码(对齐共享屏 confirmPassword:同款输入盒 + 占位符) */}
-          <Text className="reg-label">{tt('register.confirmPassword', '确认密码')}</Text>
-          <View className="reg-input-box" style={ffConfirm.focusStyle}>
-            <Input
-              className="reg-input"
-              {...ffConfirm.spread}
-              password
-              maxlength={20}
-              placeholder={tt('register.confirmPasswordPlaceholder', '请再次输入密码')}
-              placeholderStyle="color: var(--color-text-tertiary);"
-              value={form.values.confirmPassword}
-              onInput={(e) => form.setConfirmPassword(e.detail.value)}
-            />
-          </View>
-
-          {/* 协议同意行(对齐 RN agreementRow) */}
-          <AgreementRow
-            agreed={form.agreed}
-            showError={form.error === 'auth.agreeRequired'}
-            onToggle={() => {
-              form.setAgreed(!form.agreed)
-              if (form.error) form.clearError()
-            }}
-            onOpenTerms={() => openAgreement('user')}
-            onOpenPrivacy={() => openAgreement('privacy')}
-          />
-
-          {/* 注册按钮(对齐 RN submitBtn:品牌灰蓝底) */}
-          <AuthButton onClick={form.register} disabled={form.submitting} variant="register">
-            {form.submitting
-              ? tt('register.registering', '注册中...')
-              : tt('register.submit', '注册')}
-          </AuthButton>
-        </View>
-      </View>
+      <RegisterScreen
+        t={t}
+        account={form.values.phone}
+        password={form.values.password}
+        confirmPassword={form.values.confirmPassword}
+        loading={form.submitting}
+        error={form.error === 'register.sendCodeFailed' ? '' : (form.error ?? '')}
+        onAccountChange={form.setPhone}
+        onPasswordChange={form.setPassword}
+        onConfirmPasswordChange={form.setConfirmPassword}
+        onRegister={form.register}
+        onBack={goToLogin}
+        colorScheme={resolved}
+        enableAgreement
+        agreed={form.agreed}
+        onAgreedChange={(v) => {
+          form.setAgreed(v)
+          if (form.error) form.clearError()
+        }}
+        showAgreeErr={form.error === 'auth.agreeRequired'}
+        onOpenTerms={() => openAgreement('user')}
+        onOpenPrivacy={() => openAgreement('privacy')}
+        renderPhonePrefix={() => <PhoneAreaCodePicker value={phoneHead} onChange={setPhoneHead} />}
+        code={form.values.code}
+        onCodeChange={form.setCode}
+        onSendCode={async () => {
+          await form.sendCode()
+        }}
+        countdown={form.countdown}
+        sendingCode={form.sendingCode}
+        codeSendError={form.error === 'register.sendCodeFailed' ? t('register.sendCodeFailed') : ''}
+        onToast={onToast}
+      />
     </ThemeRoot>
   )
 }
-// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‌​‍‌​‍​‌​​‌‌​‍‌ ⁠
-// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

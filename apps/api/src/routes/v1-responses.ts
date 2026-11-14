@@ -44,8 +44,6 @@ import {
 // P0-20b 参数覆盖系统转发层集成(2026-08-01 立):转发前应用 applyParamOps
 import { applyParamOpsToBody } from '../services/relay-param-ops-config.js'
 import { error } from '../utils/response.js'
-// F-293:工具帧解析与 /v1/messages 共用同一份(上游 tool-call-start → OpenAI tool_calls)
-import { parseUpstreamLineToOpenAIChunk, type OpenAIChatChunk } from '../services/anthropic-adapter.js'
 // /v1 网关专用:ai-service 调用注入系统 access token(2026-09-13 修 jwt_auth 401)
 import { aiServiceSystemFetch } from '../utils/ai-service-fetch.js'
 // 格②(2026-09-26):耗时一律走单调钟出口,落库形态经唯一适配器投影
@@ -98,52 +96,13 @@ interface ResponsesOutputMessage {
   content: Array<{ type: 'output_text'; text: string; annotations: unknown[] }>
 }
 
-/**
- * Responses API 输出 function_call 项(F-293)。
- *
- * Responses 协议的工具调用不是 message.content 里的块,而是 output 数组里独立的
- * `{type:'function_call', call_id, name, arguments}` 项;`arguments` 是 JSON 字符串。
- */
-interface ResponsesOutputFunctionCall {
-  type: 'function_call'
-  id: string
-  call_id: string
-  name: string
-  arguments: string
-  status: 'in_progress' | 'completed'
-}
-
-/**
- * Responses API 输出 reasoning 项(F-726)。
- *
- * 上游导流模型的思维链(reasoning_content)不能丢:Responses 协议把它作为
- * output 里独立的 reasoning 项,摘要文本放在 summary[].text。
- */
-interface ResponsesOutputReasoning {
-  type: 'reasoning'
-  id: string
-  summary: Array<{ type: 'summary_text'; text: string }>
-}
-
-type ResponsesOutputItem =
-  | ResponsesOutputMessage
-  | ResponsesOutputFunctionCall
-  | ResponsesOutputReasoning
-
-/** OpenAI Chat Completions 形状的工具调用(ai-service 摊平返回的形状) */
-interface UpstreamToolCall {
-  id?: string
-  type?: string
-  function?: { name?: string; arguments?: string }
-}
-
 /** Responses API 完整响应 */
 interface ResponsesApiResponse {
   id: string
   object: 'response'
   status: 'completed' | 'failed' | 'in_progress'
   model: string
-  output: ResponsesOutputItem[]
+  output: ResponsesOutputMessage[]
   usage: {
     input_tokens: number
     output_tokens: number
@@ -185,26 +144,17 @@ const responsesSchema = z.object({
 // 转换函数:Responses API 请求 → OpenAI Chat 请求
 // =============================================================================
 
-/** 转换出的 OpenAI Chat 消息(F-293:含工具回合的 assistant.tool_calls 与 tool 角色消息) */
-type ResponsesChatMessage = {
-  role: 'system' | 'user' | 'assistant' | 'tool'
-  content: string
-  tool_calls?: Array<{ id: string; type: 'function'; function: { name: string; arguments: string } }>
-  tool_call_id?: string
-}
-
 /**
  * 将 Responses API 的 input 转换为 OpenAI Chat 的 messages 数组。
  * - instructions(若有)作为 system 消息置顶
  * - input 为字符串 → 单条 user 消息
  * - input 为数组 → 逐项转换(role/content),developer/system/assistant 原样保留,其他归一为 user
- * - F-293:`function_call` / `function_call_output` 历史项转成 assistant tool_calls / tool 消息
  */
 function responsesInputToMessages(
   input: string | ResponsesInputItem[],
   instructions?: string,
-): ResponsesChatMessage[] {
-  const messages: ResponsesChatMessage[] = []
+): Array<{ role: 'system' | 'user' | 'assistant'; content: string }> {
+  const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = []
 
   if (instructions) {
     messages.push({ role: 'system', content: instructions })
@@ -220,24 +170,6 @@ function responsesInputToMessages(
       messages.push({ role: 'user', content: item })
       continue
     }
-    // F-293:工具回合的历史项此前 role 未命中 ⇒ 落成空 user 消息,上下文直接断链。
-    if (item.type === 'function_call') {
-      const callId = typeof item.call_id === 'string' ? item.call_id : ''
-      const name = typeof item.name === 'string' ? item.name : ''
-      const args = typeof item.arguments === 'string' ? item.arguments : '{}'
-      messages.push({
-        role: 'assistant',
-        content: '',
-        tool_calls: [{ id: callId, type: 'function', function: { name, arguments: args } }],
-      })
-      continue
-    }
-    if (item.type === 'function_call_output') {
-      const callId = typeof item.call_id === 'string' ? item.call_id : ''
-      const output = typeof item.output === 'string' ? item.output : JSON.stringify(item.output ?? '')
-      messages.push({ role: 'tool', content: output, tool_call_id: callId })
-      continue
-    }
     const role = item.role
     const content = extractContent(item.content)
     if (role === 'system' || role === 'assistant') {
@@ -249,40 +181,6 @@ function responsesInputToMessages(
   }
 
   return messages
-}
-
-/**
- * F-293:Responses 的 tools → Chat Completions 的 tools。
- *
- * Responses 的函数工具是扁平形状 `{type:'function', name, description, parameters}`,
- * 而 Chat Completions 要求 `{type:'function', function:{...}}`;内置工具
- * (web_search / file_search / code_interpreter …)在 Chat Completions 侧没有等价物,
- * 显式 400 而不是塞进上游被静默忽略(用户会以为工具生效了)。
- *
- * @returns 转换后的 tools;含内置工具时返回 `{ unsupportedType }` 供路由回 400。
- */
-function responsesToolsToChatTools(
-  tools: ResponsesTool[],
-): { tools: Array<Record<string, unknown>> } | { unsupportedType: string } {
-  const out: Array<Record<string, unknown>> = []
-  for (const tool of tools) {
-    if (tool.type !== 'function') return { unsupportedType: tool.type }
-    const nested = tool.function
-    const fn = isRecord(nested) ? nested : tool
-    out.push({
-      type: 'function',
-      function: {
-        name: typeof fn.name === 'string' ? fn.name : '',
-        ...(typeof fn.description === 'string' ? { description: fn.description } : {}),
-        parameters: isRecord(fn.parameters) ? fn.parameters : { type: 'object', properties: {} },
-      },
-    })
-  }
-  return { tools: out }
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
 /** 从 input item.content 提取纯文本(字符串原样返回,数组逐项拼接 text) */
@@ -398,39 +296,6 @@ async function streamResponses(
   /** 格②(2026-09-26):首 token 处再取一次样本(原为墙钟 epoch firstTokenTime) */
   let ttftSample: ElapsedSample | null = null
   let upstreamHttpStatus: number | null = null
-  /** F-293:流内工具调用(Responses 协议的独立 function_call 输出项) */
-  const toolCallItems: ResponsesOutputFunctionCall[] = []
-  const toolIndexRef = { next: 0 }
-  let textEmitted = false
-  /** F-726:上游流式 usage 真值(null = 上游没给,按字符估算兜底) */
-  let upstreamPromptTokens: number | null = null
-  let upstreamCompletionTokens: number | null = null
-  let streamCacheReadTokens = 0
-  let streamCacheCreationTokens = 0
-  /** F-726:思维链内容(reasoning_content)不得丢弃 */
-  const reasoningItemId = `rs-${randomUUID()}`
-  let reasoningText = ''
-  let reasoningEmitted = false
-
-  /** F-726:解析一帧上游 usage 并累计(末帧可能单独成帧) */
-  const applyUpstreamUsage = (usage: NonNullable<OpenAIChatChunk['usage']>): void => {
-    if (typeof usage.prompt_tokens === 'number') upstreamPromptTokens = usage.prompt_tokens
-    if (typeof usage.completion_tokens === 'number') {
-      upstreamCompletionTokens = usage.completion_tokens
-    }
-    const cached = usage.prompt_tokens_details?.cached_tokens ?? 0
-    const cacheRead = Math.max(cached, usage.cache_read_input_tokens ?? 0)
-    if (cacheRead > 0) streamCacheReadTokens = cacheRead
-    if (typeof usage.cache_creation_input_tokens === 'number') {
-      streamCacheCreationTokens = usage.cache_creation_input_tokens
-    }
-  }
-
-  /** 计费/用量口径:有上游真值用真值,缺失才按字符估算 */
-  const resolveTokens = (): { promptTokens: number; completionTokens: number } => ({
-    promptTokens: upstreamPromptTokens ?? Math.ceil(opts.promptText.length / 4),
-    completionTokens: upstreamCompletionTokens ?? Math.ceil(billableCompletionChars / 4),
-  })
 
   /** 发送 SSE 事件(OpenAI Responses API 流式格式:event + data 双行) */
   const writeEvent = (eventType: string, data: Record<string, unknown>): void => {
@@ -498,84 +363,15 @@ async function streamResponses(
     let buffer = ''
 
     const processLine = (line: string): void => {
-      // F-293:工具帧先过共享解析器(OpenAI tool_calls 形状)→ Responses 的独立
-      // function_call 输出项。此前工具帧不被识别,整条流只剩文本,工具调用静默丢失。
-      const chunk = parseUpstreamLineToOpenAIChunk(line, opts.model, toolIndexRef)
-      // F-726:usage 帧(常为末帧且 choices 为空)先并入统计,不能被后续分支吞掉
-      if (chunk?.usage) applyUpstreamUsage(chunk.usage)
-      const delta = chunk?.choices?.[0]?.delta
-      // F-726:思维链增量 → reasoning 输出项 + 摘要增量事件,内容不丢弃
-      if (typeof delta?.reasoning_content === 'string' && delta.reasoning_content.length > 0) {
-        if (ttftSample === null) ttftSample = opts.sw.stop()
-        reasoningText += delta.reasoning_content
-        billableCompletionChars += delta.reasoning_content.length
-        if (!reasoningEmitted) {
-          reasoningEmitted = true
-          writeEvent('response.output_item.added', {
-            type: 'response.output_item.added',
-            output_index: 0,
-            item: { type: 'reasoning', id: reasoningItemId, summary: [] },
-          })
-        }
-        writeEvent('response.reasoning_summary_text.delta', {
-          type: 'response.reasoning_summary_text.delta',
-          item_id: reasoningItemId,
-          output_index: 0,
-          summary_index: 0,
-          delta: delta.reasoning_content,
-        })
-      }
-      const toolCalls = delta?.tool_calls
-      if (toolCalls && toolCalls.length > 0) {
-        for (const tc of toolCalls) {
-          const args = tc.function?.arguments ?? ''
-          // 逐片 args 帧(arguments 为空)只用于提前开块,不产协议事件;
-          // 聚合帧才带完整入参,补发 delta + done。
-          if (!args) continue
-          const outputIndex =
-            (reasoningEmitted ? 1 : 0) + (textEmitted ? 1 : 0) + toolCallItems.length
-          // F-726:tool_use 入参同样是输出 token,计入估算兜底
-          billableCompletionChars += args.length
-          const item: ResponsesOutputFunctionCall = {
-            type: 'function_call',
-            id: `fc-${randomUUID()}`,
-            call_id: tc.id ?? '',
-            name: tc.function?.name ?? '',
-            arguments: args,
-            status: 'completed',
-          }
-          toolCallItems.push(item)
-          writeEvent('response.output_item.added', {
-            type: 'response.output_item.added',
-            output_index: outputIndex,
-            item,
-          })
-          writeEvent('response.function_call_arguments.delta', {
-            type: 'response.function_call_arguments.delta',
-            item_id: item.id,
-            output_index: outputIndex,
-            delta: args,
-          })
-          writeEvent('response.function_call_arguments.done', {
-            type: 'response.function_call_arguments.done',
-            item_id: item.id,
-            output_index: outputIndex,
-            arguments: args,
-          })
-        }
-        return
-      }
-
       const text = extractStreamText(line)
       if (text) {
         if (ttftSample === null) ttftSample = opts.sw.stop()
-        textEmitted = true
         responseText += text
         // F-89:真实文本才计入计费 token
         billableCompletionChars += text.length
         writeEvent('response.output_text.delta', {
           type: 'response.output_text.delta',
-          output_index: reasoningEmitted ? 1 : 0,
+          output_index: 0,
           content_index: 0,
           delta: text,
         })
@@ -598,33 +394,6 @@ async function streamResponses(
     }
 
     // response.completed 事件(末尾,带完整 output + status)
-    // F-293:纯工具回合没有正文,不再硬塞一条空 message;工具调用作为 function_call 项列出
-    const completedOutput: ResponsesOutputItem[] = []
-    // F-726:思维链作为独立 reasoning 项输出(与流内的 reasoning 增量同一 item_id)
-    if (reasoningText !== '') {
-      completedOutput.push({
-        type: 'reasoning',
-        id: reasoningItemId,
-        summary: [{ type: 'summary_text', text: reasoningText }],
-      })
-    }
-    if (responseText !== '' || toolCallItems.length === 0) {
-      completedOutput.push({
-        type: 'message',
-        id: `msg-${randomUUID()}`,
-        status: 'completed',
-        role: 'assistant',
-        content: [
-          {
-            type: 'output_text',
-            text: responseText,
-            annotations: [],
-          },
-        ],
-      })
-    }
-    completedOutput.push(...toolCallItems)
-    const completedTokens = resolveTokens()
     writeEvent('response.completed', {
       type: 'response.completed',
       response: {
@@ -632,16 +401,21 @@ async function streamResponses(
         object: 'response',
         status: streamError ? 'failed' : 'completed',
         model: opts.model,
-        output: completedOutput,
-        // F-726:用量口径与计费同源(上游 usage 优先,缺失才估算)
-        usage: {
-          input_tokens: completedTokens.promptTokens,
-          output_tokens: completedTokens.completionTokens,
-          total_tokens: completedTokens.promptTokens + completedTokens.completionTokens,
-          ...(streamCacheReadTokens > 0
-            ? { input_tokens_details: { cached_tokens: streamCacheReadTokens } }
-            : {}),
-        },
+        output: [
+          {
+            type: 'message',
+            id: `msg-${randomUUID()}`,
+            status: 'completed',
+            role: 'assistant',
+            content: [
+              {
+                type: 'output_text',
+                text: responseText,
+                annotations: [],
+              },
+            ],
+          },
+        ],
       },
     })
   } catch (e) {
@@ -658,8 +432,9 @@ async function streamResponses(
 
     // 计费:流式结束后聚合 token 用量写入计费
     if (opts.apiKeyId && opts.userId) {
-      // F-726:优先用上游流式 usage 真值(含 cache 字段),缺失才按字符估算
-      const { promptTokens, completionTokens } = resolveTokens()
+      const promptTokens = Math.ceil(opts.promptText.length / 4)
+      // F-89:用真实产出文本估算;上游错误文案不计 token
+      const completionTokens = Math.ceil(billableCompletionChars / 4)
       const totalTokens = promptTokens + completionTokens
       // F-89:已产出 token 后中断记 partial(按实际结算),零产出才记 error(免单)
       const status: 'success' | 'partial' | 'error' = streamError
@@ -679,9 +454,6 @@ async function streamResponses(
         promptTokens,
         completionTokens,
         totalTokens,
-        // F-726:cache 命中/写入按上游真值计入计费(缺失为 0)
-        cacheReadTokens: streamCacheReadTokens,
-        cacheCreationTokens: streamCacheCreationTokens,
         latencyMs: latency.latencyMs,
         status,
         errorMessage: streamError,
@@ -811,21 +583,9 @@ const v1ResponsesRoutes: FastifyPluginAsync = async (server) => {
       const openaiBody: Record<string, unknown> = { messages, model }
       if (max_output_tokens !== undefined) openaiBody.max_tokens = max_output_tokens
       if (temperature !== undefined) openaiBody.temperature = temperature
-      // F-293:tools 必须转成 Chat Completions 形状;内置工具(web_search 等)无法转换
-      // ⇒ 显式 400,不再原样透传后被上游静默忽略(用户会误以为工具生效)。
+      // 内置工具透传(ai-service 上游自行决定是否处理 web_search/file_search/code_interpreter)
       if (tools && tools.length > 0) {
-        const converted = responsesToolsToChatTools(tools as ResponsesTool[])
-        if ('unsupportedType' in converted) {
-          return reply
-            .status(400)
-            .send(
-              error(
-                400,
-                `Unsupported built-in tool type "${converted.unsupportedType}": this endpoint only supports type:"function" tools`,
-              ),
-            )
-        }
-        openaiBody.tools = converted.tools
+        openaiBody.tools = tools as ResponsesTool[]
       }
       if (apiKey?.userId) {
         openaiBody.metadata = { userId: apiKey.userId }
@@ -892,8 +652,6 @@ const v1ResponsesRoutes: FastifyPluginAsync = async (server) => {
           usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number }
           error?: boolean
           error_message?: string
-          /** F-293:ai-service 命中 function calling 时摊平在顶层的工具调用 */
-          tool_calls?: UpstreamToolCall[]
         }
 
         if (data.error) {
@@ -935,43 +693,26 @@ const v1ResponsesRoutes: FastifyPluginAsync = async (server) => {
         const totalTokens = promptTokens + completionTokens
 
         // 构造 Responses API 响应
-        // F-293:工具调用在 Responses 协议里是 output 里独立的 function_call 项
-        // (call_id/name/arguments),不是 message.content 的块。
-        const functionCallItems: ResponsesOutputFunctionCall[] = (data.tool_calls ?? [])
-          .filter((tc) => Boolean(tc && tc.function?.name))
-          .map((tc) => ({
-            type: 'function_call' as const,
-            id: `fc-${randomUUID()}`,
-            call_id: tc.id ?? '',
-            name: tc.function?.name ?? '',
-            arguments: tc.function?.arguments ?? '',
-            status: 'completed' as const,
-          }))
-        const output: ResponsesOutputItem[] = []
-        // 纯工具回合没有正文:此时不塞空 message 项(与 Responses 协议一致)
-        if ((data.content ?? '') !== '' || functionCallItems.length === 0) {
-          output.push({
-            type: 'message',
-            id: `msg-${randomUUID()}`,
-            status: 'completed',
-            role: 'assistant',
-            content: [
-              {
-                type: 'output_text',
-                text: data.content ?? '',
-                annotations: [],
-              },
-            ],
-          })
-        }
-        output.push(...functionCallItems)
-
         const result: ResponsesApiResponse = {
           id: `resp-${randomUUID()}`,
           object: 'response',
           status: 'completed',
           model: data.model ?? model,
-          output,
+          output: [
+            {
+              type: 'message',
+              id: `msg-${randomUUID()}`,
+              status: 'completed',
+              role: 'assistant',
+              content: [
+                {
+                  type: 'output_text',
+                  text: data.content ?? '',
+                  annotations: [],
+                },
+              ],
+            },
+          ],
           usage: {
             input_tokens: promptTokens,
             output_tokens: completionTokens,

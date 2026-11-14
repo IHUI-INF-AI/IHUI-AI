@@ -84,6 +84,7 @@ import { useState } from 'react'
 import { CarrierOneClickError, carrierLogin, getRecentPhone } from '../lib/carrier-one-click'
 import { TextField } from '@ihui/rn-app'
 import { Tappable } from '@ihui/ui-native'
+import { toFriendlyOr } from '@ihui/shared/utils'
 
 export type LoginPopUpRole = 'normal' | 'vip' | 'trader'
 
@@ -236,7 +237,7 @@ export function LoginPopUp({
     try {
       await onPasswordLogin(acc, password)
     } catch (err) {
-      setLoginError(err instanceof Error && err.message ? err.message : t('login.loginFailed'))
+      setLoginError(toFriendlyOr(err, t('login.loginFailed')))
     } finally {
       setPwdSubmitting(false)
     }
@@ -769,7 +770,7 @@ const styles = StyleSheet.create({
   },
   loginErrorText: {
     fontSize: LOGIN_POPUP_NOTE_FONT_PX,
-    color: tokens.danger.DEFAULT,
+    color: tokens.danger.deepText,
     textAlign: 'center',
     marginBottom: LOGIN_POPUP_SECTION_GAP_PX,
   },
@@ -887,7 +888,7 @@ const styles = StyleSheet.create({
   upgradeLabel: {
     fontSize: LOGIN_POPUP_PILL_FONT_PX,
     fontWeight: '700',
-    color: tokens.danger.DEFAULT,
+    color: tokens.danger.deepText,
   },
   bindButton: {
     height: LOGIN_POPUP_PILL_HEIGHT_PX,
@@ -907,13 +908,13 @@ const styles = StyleSheet.create({
   },
   hintText: {
     fontSize: LOGIN_POPUP_NOTE_FONT_PX,
-    color: tokens.text.tertiary,
+    color: tokens.text.medium,
     marginTop: LOGIN_POPUP_NOTE_MARGIN_TOP_PX,
     marginBottom: LOGIN_POPUP_SECTION_GAP_PX,
   },
   errorText: {
     fontSize: LOGIN_POPUP_NOTE_FONT_PX,
-    color: tokens.danger.DEFAULT,
+    color: tokens.danger.deepText,
     marginTop: LOGIN_POPUP_NOTE_MARGIN_TOP_PX,
     marginBottom: LOGIN_POPUP_SECTION_GAP_PX,
   },
@@ -945,7 +946,7 @@ const styles = StyleSheet.create({
     color: tokens.brand.DEFAULT,
   },
   footerLabelLogout: {
-    color: tokens.danger.DEFAULT,
+    color: tokens.danger.deepText,
   },
 })
 

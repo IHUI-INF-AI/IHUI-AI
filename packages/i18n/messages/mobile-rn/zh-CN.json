@@ -942,7 +942,8 @@
       "agree": "赞同",
       "disagree": "反对"
     },
-    "loadFailed": "加载失败"
+    "loadFailed": "加载失败",
+    "admissionAhead": "前面还有 {n} 位"
   },
   "settings": {
     "title": "设置",
@@ -3706,6 +3707,7 @@
   "activity": {
     "empty": "暂无活动",
     "endTime": "结束时间",
+    "joining": "提交中…",
     "loadFailed": "加载失败",
     "participants": "参与人数",
     "startTime": "开始时间",
@@ -5059,7 +5061,7 @@
     "analysisEstimate": "预计约 {tokens} tokens · 难度 {difficulty}",
     "analysisPickFirst": "请先选择一个场景",
     "analysisSubmit": "发起分析",
-      "noValidContent": "无可导入的有效内容"
+    "noValidContent": "无可导入的有效内容"
   },
   "permissionTier": {
     "label": "权限档",
@@ -7541,6 +7543,7 @@
     "wrongBookTitle": "错题本"
   },
   "activities": {
+    "cancelJoin": "取消报名",
     "join": "立即参与",
     "notFound": "活动不存在或已下线"
   },

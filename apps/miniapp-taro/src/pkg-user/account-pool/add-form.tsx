@@ -40,17 +40,18 @@ export function AddForm({ t, draft, busy, onChange, onSave, onCancel }: AddFormP
       <Text className={firstLabelCls}>{t('accountPool.provider')}</Text>
       <View className="mt-[12rpx] flex flex-wrap gap-[12rpx]">
         {PROVIDERS.map((p) => (
-          <Text
+          <View
             key={p}
             className={`${pillCls} ${
               draft.providerCode === p
                 ? 'bg-[var(--color-cta)] text-[var(--color-cta-foreground)]'
                 : 'bg-muted text-muted-foreground'
             }`}
+            hoverClass="opacity-60"
             onClick={() => onChange({ providerCode: p })}
           >
-            {p}
-          </Text>
+            <Text>{p}</Text>
+          </View>
         ))}
       </View>
       <Text className={labelCls}>{t('accountPool.name')}</Text>
@@ -80,12 +81,13 @@ export function AddForm({ t, draft, busy, onChange, onSave, onCancel }: AddFormP
         onInput={(e) => onChange({ refreshToken: e.detail.value })}
       />
       <View className="mt-[24rpx] flex gap-[16rpx]">
-        <Text
+        <View
           className="rounded-md px-[24rpx] py-[14rpx] text-body-sm leading-[normal] text-muted-foreground"
+          hoverClass="opacity-60"
           onClick={onCancel}
         >
-          {t('accountPool.cancel')}
-        </Text>
+          <Text>{t('accountPool.cancel')}</Text>
+        </View>
         <View
           className={`flex h-[88rpx] flex-1 items-center justify-center rounded-md bg-[var(--color-cta)] ${
             canSave ? '' : 'opacity-60'

@@ -243,7 +243,8 @@
     "modelCategoryGuard": "안전 필터",
     "modelCategoryOcr": "문자 인식",
     "modelCategoryOther": "기타",
-    "modelHistoryToggle": "이전 모델"
+    "modelHistoryToggle": "이전 모델",
+    "admissionAhead": "앞에 {n}건 있습니다"
   },
   "settings": {
     "language": "인터페이스 언어",

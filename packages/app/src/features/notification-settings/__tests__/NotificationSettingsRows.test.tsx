@@ -9,6 +9,11 @@ import { NotificationSettingsScreen } from '../NotificationSettingsScreen'
 
 const t = ((key: string) => key) as unknown as TFunction
 
+// 守门 theme-prop-wiring：主题驱动组件的渲染点必须显式接线（字面量与漏传同红）。
+// 声明必须排在 baseProps **之前**：baseProps 是模块加载时求值的对象字面量,引用后置的
+// const 会撞 TDZ（ReferenceError: Cannot access 'testColorScheme' before initialization）。
+const testColorScheme: 'light' | 'dark' = 'light'
+
 const baseProps: NotificationSettingsScreenProps = {
   t,
   items: [],
@@ -16,13 +21,11 @@ const baseProps: NotificationSettingsScreenProps = {
   saving: false,
   error: '',
   success: '',
+  colorScheme: testColorScheme,
   onToggle: vi.fn(),
   onSave: vi.fn(),
   onBack: vi.fn(),
 }
-
-// 守门 theme-prop-wiring：主题驱动组件的渲染点必须显式接线（字面量与漏传同红）。
-const testColorScheme: 'light' | 'dark' = 'light'
 
 afterEach(cleanup)
 

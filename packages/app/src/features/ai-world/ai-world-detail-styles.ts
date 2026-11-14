@@ -72,7 +72,7 @@ export function createAiWorldDetailStyles(tk: AppThemeTokens) {
     // 配对前景键必须与底键同前缀(favBtnActive × favBtnActiveText),门 83 R3 才认得到兄弟对
     favBtnActiveText: { color: tk.brand.ctaForeground },
     favBtnTextPending: { opacity: 0.6 },
-    favErrorText: { fontSize: rnType.label.size, color: tk.danger.DEFAULT },
+    favErrorText: { fontSize: rnType.label.size, color: tk.danger.deepText },
     metaRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: rnSpacing.md },
     metaChip: {
       flexDirection: 'row',
@@ -84,14 +84,14 @@ export function createAiWorldDetailStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.muted,
     },
     metaItem: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.xs },
-    metaText: { fontSize: rnType.caption.size, color: tk.text.tertiary },
+    metaText: { fontSize: rnType.caption.size, color: tk.text.medium },
     content: {
       fontSize: rnType.body.size,
       lineHeight: rnType.strong.lineHeight,
       color: tk.text.medium,
     },
-    contentEmpty: { fontSize: rnType.bodySm.size, color: tk.text.tertiary },
-    updatedText: { fontSize: rnType.caption.size, color: tk.text.tertiary },
+    contentEmpty: { fontSize: rnType.bodySm.size, color: tk.text.medium },
+    updatedText: { fontSize: rnType.caption.size, color: tk.text.medium },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

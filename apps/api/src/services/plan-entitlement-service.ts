@@ -18,7 +18,7 @@
  * 避免数据冗余和同步问题。只有 aiBudgets 需要 upsert(因为 ai-cost 插件按 scope 查询)。
  */
 
-import { eq, and, sql } from 'drizzle-orm'
+import { eq, and } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { vipLevels, aiBudgets } from '@ihui/database'
 
@@ -85,36 +85,36 @@ export async function getVipLevelEntitlements(vipLevelId: string): Promise<{
  * Upsert 用户级 AI 预算(scope='user', scopeKey=userId)。
  * - 已存在:更新配额为 VIP 等级默认值
  * - 不存在:插入新记录
- *
- * F-588:原实现「select limit(1) → update / insert」在并发激活(同一用户两笔套餐订单
- * 同时回调、续费叠加人工补发)下两笔都能查到空集,随后各插一行,产生同用户多预算行;
- * 读取方 plugins/ai-cost.ts 用 `.limit(1)`(无 ORDER BY)随机取一条,限额时宽时紧。
- * 现改为依赖部分唯一索引 `ai_budget_scope_no_model_uniq(scope, scope_key) WHERE model IS NULL`
- * 做单条原子 upsert,冲突时在 SQL 侧更新,不再有读写窗口。
  */
 async function upsertUserAiBudget(userId: string, defaults: AiBudgetDefaults): Promise<boolean> {
-  await db
-    .insert(aiBudgets)
-    .values({
-      scope: 'user',
-      scopeKey: userId,
-      dailyTokenLimit: defaults.dailyTokenLimit,
-      monthlyTokenLimit: defaults.monthlyTokenLimit,
-      dailyCostLimit: defaults.dailyCostLimit,
-      monthlyCostLimit: defaults.monthlyCostLimit,
-    })
-    .onConflictDoUpdate({
-      target: [aiBudgets.scope, aiBudgets.scopeKey],
-      // 命中「无模型维度」那条部分唯一索引(model IS NULL)
-      targetWhere: sql`${aiBudgets.model} is null`,
-      set: {
+  const [existing] = await db
+    .select({ id: aiBudgets.id })
+    .from(aiBudgets)
+    .where(and(eq(aiBudgets.scope, 'user'), eq(aiBudgets.scopeKey, userId)))
+    .limit(1)
+
+  if (existing) {
+    await db
+      .update(aiBudgets)
+      .set({
         dailyTokenLimit: defaults.dailyTokenLimit,
         monthlyTokenLimit: defaults.monthlyTokenLimit,
         dailyCostLimit: defaults.dailyCostLimit,
         monthlyCostLimit: defaults.monthlyCostLimit,
         updatedAt: new Date(),
-      },
-    })
+      })
+      .where(eq(aiBudgets.id, existing.id))
+    return true
+  }
+
+  await db.insert(aiBudgets).values({
+    scope: 'user',
+    scopeKey: userId,
+    dailyTokenLimit: defaults.dailyTokenLimit,
+    monthlyTokenLimit: defaults.monthlyTokenLimit,
+    dailyCostLimit: defaults.dailyCostLimit,
+    monthlyCostLimit: defaults.monthlyCostLimit,
+  })
   return true
 }
 

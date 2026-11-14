@@ -131,7 +131,7 @@ export function TagsScreen({
 
         {list.length === 0 ? (
           <View style={[styles.card, styles.emptyBox]}>
-            <Tag size={32} color={tk.text.tertiary} strokeWidth={2} />
+            <Tag size={32} color={tk.text.secondary} strokeWidth={2} />
             <Text style={styles.emptyText}>{t('tagsPage.empty')}</Text>
           </View>
         ) : (

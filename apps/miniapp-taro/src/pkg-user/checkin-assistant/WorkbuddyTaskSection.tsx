@@ -35,6 +35,7 @@ import {
 } from '@ihui/shared/utils/workbuddy-sweep-view'
 import * as api from '@/api'
 import LineIcon from '@/components/LineIcon'
+import { toFriendlyOr } from '@ihui/shared/utils'
 
 /** 最小账号形态(只取本区块要用的字段,不耦合页面完整类型)。 */
 export interface TaskSectionAccount {
@@ -190,7 +191,7 @@ export function WorkbuddyTaskSection({ accounts, t }: WorkbuddyTaskSectionProps)
       setSweep(data ?? null)
     } catch (e) {
       setSweep(null)
-      setSweepError(e instanceof Error ? e.message : String(e))
+      setSweepError(toFriendlyOr(e, t('common.loadFailed')))
     }
   }, [])
 
@@ -226,7 +227,7 @@ export function WorkbuddyTaskSection({ accounts, t }: WorkbuddyTaskSectionProps)
       setListUnjudged(Boolean(data.unjudged))
       if (!data.ok && data.reason) setError(data.reason)
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(toFriendlyOr(e, t('common.loadFailed')))
     } finally {
       setBusy(null)
     }
@@ -244,7 +245,7 @@ export function WorkbuddyTaskSection({ accounts, t }: WorkbuddyTaskSectionProps)
         // 实跑后刷一次列表:写后真值以服务端为准,不用本地推测。
         if (!dryRun) void loadTasks()
       } catch (e) {
-        setError(e instanceof Error ? e.message : String(e))
+        setError(toFriendlyOr(e, t('common.loadFailed')))
       } finally {
         setBusy(null)
       }
@@ -332,13 +333,14 @@ export function WorkbuddyTaskSection({ accounts, t }: WorkbuddyTaskSectionProps)
           </Text>
           <View className="mt-[10rpx] flex flex-wrap gap-[12rpx]">
             {wbAccounts.map((a) => (
-              <Text
+              <View
                 key={a.id}
                 className={`${actionBase} ${
                   accountId === a.id
                     ? 'bg-[var(--color-cta)] text-[var(--color-cta-foreground)]'
                     : 'bg-muted text-muted-foreground'
                 }`}
+                hoverClass="opacity-60"
                 onClick={() => {
                   setAccountId(a.id)
                   setTasks(null)
@@ -348,43 +350,50 @@ export function WorkbuddyTaskSection({ accounts, t }: WorkbuddyTaskSectionProps)
                   setError(null)
                 }}
               >
-                {a.name}
-              </Text>
+                <Text>{a.name}</Text>
+              </View>
             ))}
           </View>
 
           <View className="mt-[16rpx] flex flex-wrap gap-[12rpx]">
-            <Text
+            <View
               className={`${actionBase} ${disabled ? 'opacity-60' : ''} bg-muted text-foreground`}
+              hoverClass={disabled ? 'none' : 'opacity-60'}
               onClick={() => {
                 if (disabled) return
                 void loadTasks()
               }}
             >
-              {busy === 'list'
-                ? t('checkinAssistant.taskAutoLoading')
-                : t('checkinAssistant.taskList')}
-            </Text>
-            <Text
+              <Text>
+                {busy === 'list'
+                  ? t('checkinAssistant.taskAutoLoading')
+                  : t('checkinAssistant.taskList')}
+              </Text>
+            </View>
+            <View
               className={`${actionBase} ${disabled ? 'opacity-60' : ''} bg-muted text-foreground`}
+              hoverClass={disabled ? 'none' : 'opacity-60'}
               onClick={() => {
                 if (disabled) return
                 void runAll(true)
               }}
             >
-              {t('checkinAssistant.taskDryRun')}
-            </Text>
-            <Text
+              <Text>{t('checkinAssistant.taskDryRun')}</Text>
+            </View>
+            <View
               className={`${actionBase} bg-[var(--color-cta)] text-[var(--color-cta-foreground)] ${
                 disabled ? 'opacity-60' : ''
               }`}
+              hoverClass={disabled ? 'none' : 'opacity-60'}
               onClick={() => {
                 if (disabled) return
                 void runAll(false)
               }}
             >
-              {busy === 'run' ? t('checkinAssistant.taskRunning') : t('checkinAssistant.taskRun')}
-            </Text>
+              <Text>
+                {busy === 'run' ? t('checkinAssistant.taskRunning') : t('checkinAssistant.taskRun')}
+              </Text>
+            </View>
           </View>
 
           {error ? (

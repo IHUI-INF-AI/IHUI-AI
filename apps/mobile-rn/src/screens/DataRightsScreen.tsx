@@ -356,7 +356,7 @@ function makeStyles() {
     },
     cardTitleRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing['xs-loose'] },
     cardTitle: { fontSize: rnType.title.size, fontWeight: '600', color: tokens.text.primary },
-    dangerTitle: { fontSize: rnType.strong.size, fontWeight: '600', color: tokens.danger.DEFAULT },
+    dangerTitle: { fontSize: rnType.strong.size, fontWeight: '600', color: tokens.danger.deepText },
     subTitle: {
       fontSize: rnType.bodySm.size,
       fontWeight: '600',
@@ -365,9 +365,9 @@ function makeStyles() {
     },
     label: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tokens.text.primary },
     muted: { fontSize: rnType.bodySm.size, color: tokens.text.secondary, lineHeight: 19 },
-    meta: { fontSize: rnType.label.size, color: tokens.text.tertiary },
+    meta: { fontSize: rnType.label.size, color: tokens.text.medium },
     value: { fontSize: rnType.body.size, color: tokens.text.primary },
-    error: { fontSize: rnType.bodySm.size, color: tokens.danger.DEFAULT },
+    error: { fontSize: rnType.bodySm.size, color: tokens.danger.deepText },
     button: {
       height: 44,
       borderRadius: rnRadius.sm,
@@ -407,7 +407,7 @@ function makeStyles() {
       justifyContent: 'center',
       marginTop: rnSpacing.xs,
     },
-    dangerText: { fontSize: rnType.strong.size, fontWeight: '600', color: tokens.danger.DEFAULT },
+    dangerText: { fontSize: rnType.strong.size, fontWeight: '600', color: tokens.danger.deepText },
     dangerBox: {
       gap: rnSpacing.sm,
       padding: rnSpacing.md,

@@ -30,7 +30,12 @@
 
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
-import { TEAM_KNOWLEDGE_ACTIONS, TEAM_KNOWLEDGE_KINDS, TEAM_KNOWLEDGE_ROLES, TEAM_KNOWLEDGE_STATUSES } from '@ihui/database'
+import {
+  TEAM_KNOWLEDGE_ACTIONS,
+  TEAM_KNOWLEDGE_KINDS,
+  TEAM_KNOWLEDGE_ROLES,
+  TEAM_KNOWLEDGE_STATUSES,
+} from '@ihui/database'
 import { authenticate } from '../plugins/auth.js'
 import { parseOrThrow, success } from '../utils/response.js'
 import {
@@ -48,7 +53,6 @@ import {
   setSpaceMember,
 } from '../services/knowledge-team-service.js'
 import type { RevisionConflictPayload } from '@ihui/types/knowledge-team'
-import type { RevisionPage } from '../services/knowledge-team-service.js'
 
 // =============================================================================
 // Zod schemas
@@ -61,7 +65,6 @@ const itemIdParamSchema = z.object({ itemId: z.uuid({ error: '无效的条目 ID
 const revisionsQuerySchema = z.object({
   action: z.enum(TEAM_KNOWLEDGE_ACTIONS).optional(),
   limit: z.coerce.number().int().positive().max(200).optional(),
-  offset: z.coerce.number().int().min(0).max(10_000).optional(),
 })
 
 const listSpacesQuerySchema = z.object({
@@ -151,20 +154,6 @@ function actorOf(request: FastifyRequest): { userId: string } | null {
 }
 
 const UNAUTHORIZED = { code: 401, message: '请先登录' }
-
-/**
- * F-527:分页元信息放在信封同级,`data` 仍是修订数组 —— 既有调用方按数组读 data,
- * 改形状会让老客户端静默拿到 undefined。
- */
-function revisionPageResponse(page: RevisionPage) {
-  return {
-    ...success(page.items),
-    total: page.total,
-    hasMore: page.hasMore,
-    limit: page.limit,
-    offset: page.offset,
-  }
-}
 
 // =============================================================================
 // 路由
@@ -291,12 +280,11 @@ export const knowledgeTeamRoutes: FastifyPluginAsync = async (app) => {
     const params = parseOrThrow(spaceIdParamSchema, request.params)
     const query = parseOrThrow(revisionsQuerySchema, request.query)
     return reply.send(
-      revisionPageResponse(
+      success(
         await listRevisions(actor, {
           spaceId: params.spaceId,
           action: query.action,
           limit: query.limit,
-          offset: query.offset,
         }),
       ),
     )
@@ -308,12 +296,11 @@ export const knowledgeTeamRoutes: FastifyPluginAsync = async (app) => {
     const params = parseOrThrow(itemIdParamSchema, request.params)
     const query = parseOrThrow(revisionsQuerySchema, request.query)
     return reply.send(
-      revisionPageResponse(
+      success(
         await listRevisions(actor, {
           itemId: params.itemId,
           action: query.action,
           limit: query.limit,
-          offset: query.offset,
         }),
       ),
     )

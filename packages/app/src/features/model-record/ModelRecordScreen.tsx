@@ -144,28 +144,28 @@ export function ModelRecordScreen({
         key: 'total',
         label: t('modelRecord.statsTotal'),
         value: totalAll,
-        icon: <Database size={13} color={tk.text.tertiary} />,
+        icon: <Database size={13} color={tk.text.secondary} />,
       },
       {
         key: 'deep',
         label: t('modelRecord.statsDeep'),
         value: deepCount,
-        icon: <Cpu size={13} color={tk.text.tertiary} />,
+        icon: <Cpu size={13} color={tk.text.secondary} />,
       },
       {
         key: 'recommend',
         label: t('modelRecord.statsRecommend'),
         value: recommendCount,
-        icon: <ShieldCheck size={13} color={tk.text.tertiary} />,
+        icon: <ShieldCheck size={13} color={tk.text.secondary} />,
       },
       {
         key: 'updated',
         label: t('modelRecord.updatedAt'),
         value: updatedAt,
-        icon: <Clock size={13} color={tk.text.tertiary} />,
+        icon: <Clock size={13} color={tk.text.secondary} />,
       },
     ],
-    [t, totalAll, deepCount, recommendCount, updatedAt, tk.text.tertiary],
+    [t, totalAll, deepCount, recommendCount, updatedAt, tk.text.secondary],
   )
 
   const handleCopy = (recordNo: string) => {
@@ -239,7 +239,7 @@ export function ModelRecordScreen({
               onChangeText={onKeywordChange}
               onSubmitEditing={onSearch}
               placeholder={t('modelRecord.searchPlaceholder')}
-              placeholderTextColor={tk.text.tertiary}
+              placeholderTextColor={tk.text.secondary}
               returnKeyType="search"
               style={styles.input}
             />
@@ -394,7 +394,7 @@ export function ModelRecordScreen({
                     pressed && !prevDisabled ? styles.pressedSoft : null,
                   ]}
                 >
-                  <ChevronLeft size={14} color={prevDisabled ? tk.text.tertiary : tk.text.medium} />
+                  <ChevronLeft size={14} color={prevDisabled ? tk.text.secondary : tk.text.medium} />
                   <Text style={[styles.pagerText, prevDisabled ? styles.pagerTextDisabled : null]}>
                     {t('modelRecord.prev')}
                   </Text>
@@ -421,7 +421,7 @@ export function ModelRecordScreen({
                   </Text>
                   <ChevronRight
                     size={14}
-                    color={nextDisabled ? tk.text.tertiary : tk.text.medium}
+                    color={nextDisabled ? tk.text.secondary : tk.text.medium}
                   />
                 </View>
               )}
@@ -505,7 +505,7 @@ function SelectField({ t, label, value, options, onChange, styles, tk }: SelectF
             <Text style={styles.selectValue} numberOfLines={1}>
               {currentLabel}
             </Text>
-            <ChevronDown size={14} color={tk.text.tertiary} />
+            <ChevronDown size={14} color={tk.text.secondary} />
           </View>
         )}
       </Pressable>
@@ -581,7 +581,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     headerText: { flexShrink: 1, gap: rnSpacing['2xs'] },
     title: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.text.primary },
-    subtitle: { fontSize: rnType.label.size, color: tk.text.tertiary },
+    subtitle: { fontSize: rnType.label.size, color: tk.text.medium },
     content: {
       paddingHorizontal: rnSpacing.lg,
       paddingBottom: rnSpacing['3xl'],
@@ -601,7 +601,7 @@ function createStyles(tk: AppThemeTokens) {
       gap: rnSpacing['xs-loose'],
     },
     statLabelRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.xs },
-    statLabel: { flexShrink: 1, fontSize: rnType.caption.size, color: tk.text.tertiary },
+    statLabel: { flexShrink: 1, fontSize: rnType.caption.size, color: tk.text.medium },
     statValue: { fontSize: rnType.subtitle.size, fontWeight: '700', color: tk.text.primary },
     // 查询卡
     sectionCard: {
@@ -640,7 +640,7 @@ function createStyles(tk: AppThemeTokens) {
     ctaText: { fontSize: rnType.body.size, fontWeight: '600', color: tk.brand.ctaForeground },
     filterRow: { flexDirection: 'row', gap: rnSpacing.sm },
     selectWrap: { flex: 1, gap: rnSpacing.xs },
-    fieldLabel: { fontSize: rnType.caption.size, color: tk.text.tertiary },
+    fieldLabel: { fontSize: rnType.caption.size, color: tk.text.medium },
     selectBox: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -666,8 +666,8 @@ function createStyles(tk: AppThemeTokens) {
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
     },
-    stateText: { fontSize: rnType.body.size, color: tk.text.tertiary },
-    stateError: { fontSize: rnType.body.size, color: tk.danger.DEFAULT, textAlign: 'center' },
+    stateText: { fontSize: rnType.body.size, color: tk.text.medium },
+    stateError: { fontSize: rnType.body.size, color: tk.danger.deepText, textAlign: 'center' },
     listBody: { gap: rnSpacing.md },
     // 记录卡片
     recordCard: {
@@ -694,7 +694,7 @@ function createStyles(tk: AppThemeTokens) {
     statusChipText: { fontSize: rnType.badge.size, fontWeight: '600', color: tk.success.deepText },
     recordRows: { gap: rnSpacing['xs-loose'] },
     metaRow: { flexDirection: 'row', gap: rnSpacing.sm },
-    metaLabel: { width: 72, fontSize: rnType.label.size, color: tk.text.tertiary },
+    metaLabel: { width: 72, fontSize: rnType.label.size, color: tk.text.medium },
     metaValue: { flexShrink: 1, fontSize: rnType.label.size, color: tk.text.medium },
     recordFooter: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.sm },
     recordNo: {
@@ -743,7 +743,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     pagerBtnDisabled: { borderColor: tk.border.light, backgroundColor: tk.surface.muted },
     pagerText: { fontSize: rnType.label.size, color: tk.text.medium },
-    pagerTextDisabled: { color: tk.text.tertiary },
+    pagerTextDisabled: { color: tk.text.medium },
     pagerInfo: { fontSize: rnType.label.size, color: tk.text.secondary },
     // 备案公示图片
     imageCard: {
@@ -773,7 +773,7 @@ function createStyles(tk: AppThemeTokens) {
       flexShrink: 1,
       fontSize: rnType.caption.size,
       lineHeight: rnType.caption.lineHeight + 3,
-      color: tk.text.tertiary,
+      color: tk.text.medium,
     },
     // 下拉弹层
     modalRoot: {

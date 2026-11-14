@@ -189,14 +189,17 @@ export default function Email() {
               value={code}
               onInput={(e) => setCode(e.detail.value)}
             />
-            <Text
+            <View
               className={`email-code-btn ${codeCountdown.isRunning ? 'disabled' : ''}`}
+              hoverClass={codeCountdown.isRunning ? 'none' : 'opacity-60'}
               onClick={sendCode}
             >
-              {codeCountdown.isRunning
-                ? `${codeCountdown.count}s`
-                : tt('user.email.getCode', '获取验证码')}
-            </Text>
+              <Text>
+                {codeCountdown.isRunning
+                  ? `${codeCountdown.count}s`
+                  : tt('user.email.getCode', '获取验证码')}
+              </Text>
+            </View>
           </View>
         </View>
         <View

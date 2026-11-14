@@ -25,6 +25,7 @@ import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { EduParentBillsView } from './EduParentBillsView'
 import { EduParentStateView, createParentStyles } from './EduParentUi'
+import { toFriendlyOr } from '@ihui/shared/utils'
 
 interface ChildInfo {
   bindingId: string
@@ -63,7 +64,7 @@ function EduParentScreen() {
       if (!res.success) throw new Error(res.error || 'load failed')
       setChildren(res.data?.children ?? [])
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'load failed')
+      setError(toFriendlyOr(e, t('common.loadFailed')))
     }
   }, [])
 

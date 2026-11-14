@@ -506,11 +506,11 @@ function createStyles(tk: RnThemeTokens) {
     } as ViewStyle,
     pickerIcon: {
       fontSize: 28,
-      color: tk.text.tertiary,
+      color: tk.text.medium,
     } as TextStyle,
     pickerHint: {
       fontSize: rnType.label.size,
-      color: tk.text.tertiary,
+      color: tk.text.medium,
     } as TextStyle,
     previewWrap: {
       position: 'relative',

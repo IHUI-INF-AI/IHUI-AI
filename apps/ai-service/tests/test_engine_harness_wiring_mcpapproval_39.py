@@ -57,7 +57,7 @@ async def test_destructive_hint_true_requires_approval(monkeypatch) -> None:
     """destructiveHint=True:免审通道被覆盖,转真实审批;批准后执行。"""
     calls: list[dict] = []
 
-    async def fake_approve(tc: ToolCall, *, auto_review=None) -> str | None:
+    async def fake_approve(tc: ToolCall) -> str | None:
         return None  # 用户批准
 
     tool = _ann_tool("ext_deploy", {"destructive_hint": True}, calls)
@@ -74,7 +74,7 @@ async def test_unknown_annotations_require_approval_by_default(monkeypatch) -> N
     calls: list[dict] = []
     decisions: list[str | None] = []
 
-    async def fake_reject(tc: ToolCall, *, auto_review=None) -> str | None:
+    async def fake_reject(tc: ToolCall) -> str | None:
         decisions.append("user_rejected")
         return "user_rejected"
 
@@ -92,7 +92,7 @@ async def test_open_world_unknown_requires_approval(monkeypatch) -> None:
     """read_only 未声明但 open_world 缺失 → 需批(逐行对应 Codex 语义)。"""
     calls: list[dict] = []
 
-    async def fake_reject(tc: ToolCall, *, auto_review=None) -> str | None:
+    async def fake_reject(tc: ToolCall) -> str | None:
         return "user_rejected"
 
     tool = _ann_tool("ext_ow", {"read_only_hint": False}, calls)

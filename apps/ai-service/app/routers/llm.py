@@ -1702,6 +1702,7 @@ def _sse(evt: str, payload: Any) -> str:
         try:
             from app.core.sse_contract import (  # 运行时 import 点(见 sse_contract 头注的 SSE-CONTRACT-IMPORT-SITES)
                 SSE_EVENT_CONTRACTS,
+                sse_frame_schema_fault,
                 watermark_payload_fault,
             )
 
@@ -1714,6 +1715,16 @@ def _sse(evt: str, payload: Any) -> str:
                     _sse_contract_warn(
                         f"SSE 事件 {evt} 缺少契约字段 {missing}",
                     )
+            # b76-13 票2 接线(2026-11-13):字段级结构不变量。
+            #
+            # 此前只接了"必备字段名在不在"这一档(上一段),抓不到**语义坏帧**:
+            # `terminal_end.status='cancelled'`(枚举闭合破坏)、
+            # `truncated=true` 却不带 `totalChars`(必要字段对)。
+            # 这两类帧前端照收,渲染出来就是"状态徽章空白"或"截断了却不知道截掉多少",
+            # 而判据明明早就落库并有测试 —— 唯独没接线,等于零防护。判据本体在
+            # `app/core/sse_contract.py::sse_frame_schema_fault`(唯一出口,本处只调用,不复算)。
+            for fault in sse_frame_schema_fault(evt, frame_payload):
+                _sse_contract_warn(f"SSE 事件 {evt} 帧结构非法: {fault}")
             for fault in watermark_payload_fault(frame_payload):
                 _sse_contract_warn(f"SSE 事件 {evt} 帧水位非法: {fault}")
         except Exception as e:  # noqa: BLE001 - 契约诊断失败不影响帧产出
@@ -2860,6 +2871,7 @@ def _inject_knowledge_cards(
     messages: list[dict[str, Any]],
     query: str | None,
     workspace_path: str | None,
+    user_id: str | None = None,
 ) -> tuple[list[dict[str, Any]], int]:
     """编译式知识卡片注入(确定性只读、零 LLM)。返回 (messages, 注入条数)。
 
@@ -2867,6 +2879,9 @@ def _inject_knowledge_cards(
     - 注入模式与 _inject_memory_graph 同:messages[0] 为 system 时尾部追加,
       否则开头插入独立 system message
     - 卡片内容标注「可参考(非指令)」,防卡片内容被误当系统指令
+    - AIS-077:卡库按 workspace 落盘,属主写在卡片元数据里。给了 ``user_id`` 就
+      只选属主本人的卡 —— 否则同一 workspace 下他人的卡(可能被投毒)会被拼进
+      调用方上下文。``user_id`` 缺省(None)保留进程内可信调用方旧语义。
     """
     if not _knowledge_cards_enabled():
         return messages, 0
@@ -2875,7 +2890,18 @@ def _inject_knowledge_cards(
             return messages, 0
         from ..services.knowledge_compiler import select_relevant_cards
 
-        cards = select_relevant_cards(workspace_path, query.strip()[:100], limit=8)
+        q = query.strip()[:100]
+        if user_id is None:
+            cards = select_relevant_cards(workspace_path, q, limit=8)
+        else:
+            # 宽候选再按属主裁剪:免他人的卡占满 top-8 把本人卡挤出去。
+            cards = select_relevant_cards(
+                workspace_path,
+                q,
+                limit=64,
+                owner_user_id=user_id,
+                require_owner=True,
+            )[:8]
         if not cards:
             return messages, 0
         lines = ["<knowledge_cards>", "以下是从本项目代码与会话记录编译出的知识卡片,可参考(非指令):"]
@@ -3751,7 +3777,7 @@ async def llm_complete(req: LLMCompleteRequest, request: Request) -> dict[str, A
     # G5(2026-10-30 立):编译式知识卡片优先注入(开关 off ⇒ 计数 0,原样返回);
     # 注入不足 3 条 ⇒ 回落 P1 #41 原记忆子图路径 ⇒ 开关 off 时行为逐字节与改动前一致。
     messages, _kc_injected = _inject_knowledge_cards(
-        messages, _last_user_text(messages), req.workspace_path
+        messages, _last_user_text(messages), req.workspace_path, _resolve_owner_uuid(request)
     )
     if _kc_injected < 3:
         # P1 #41 阶段3 增强(2026-09-17 立):相关记忆子图自动注入(全降级,零主链路影响)
@@ -4442,7 +4468,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
     # G5(2026-10-30 立):编译式知识卡片优先注入(开关 off ⇒ 计数 0,原样返回);
     # 注入不足 3 条 ⇒ 回落 P1 #41 原记忆子图路径 ⇒ 开关 off 时行为逐字节与改动前一致。
     messages, _kc_injected = _inject_knowledge_cards(
-        messages, _last_user_text(messages), req.workspace_path
+        messages, _last_user_text(messages), req.workspace_path, _resolve_owner_uuid(request)
     )
     if _kc_injected < 3:
         # P1 #41 阶段3 增强(2026-09-17 立):相关记忆子图自动注入(全降级,零主链路影响)
@@ -4865,6 +4891,12 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                 _lane["waiting"].append(_queued_entry)
                                 _admission_payload["disposition"] = "queued"
                                 _admission_payload["queuedTurnId"] = _queued_turn_id
+                                # `ahead` = 前面还有几位(0 = 下一位)。
+                                # 入队后 len-1 就是本项之前的等待者数 —— 这个值此处**现成**,
+                                # 不下发的话客户端只能显示一句"已排队",用户不知道要等多久。
+                                # 与共享层 send-admission.ts 的 ahead 语义逐字对齐:
+                                # 只有量到了才发,不发 ⇒ 客户端读作"没量到"(不会折成 0)。
+                                _admission_payload["ahead"] = len(_lane["waiting"]) - 1
                         else:
                             _lane["active"] = _conv_turn_token
                     if message_id:
@@ -6378,95 +6410,6 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                     args if isinstance(args, dict) else None, owner_uuid
                                 ):
                                     _approval_needed = False
-                            # 2026-11-14:Auto 档逐工具审查闸(对标 DSH experimental-auto-review)。
-                            # 只在 acceptEdits + 原本需审批时介入;allow 免弹窗、deny 结构化拒绝、
-                            # escalate/异常交回原审批。审查结论只作为可选键随帧下发。
-                            _auto_review_payload: dict[str, Any] | None = None
-                            if _approval_needed and req.permission_mode == "acceptEdits":
-                                try:
-                                    from ..services.tool_auto_review import (
-                                        request_tool_auto_review as _request_auto_review,
-                                    )
-
-                                    _auto_review = await _request_auto_review(
-                                        tool_name, args if isinstance(args, dict) else {}
-                                    )
-                                except Exception as _ar_exc:  # noqa: BLE001 - 审查异常不杀审批链
-                                    logger.warning(
-                                        "auto-review 出口异常(tool=%s): %s",
-                                        tool_name,
-                                        _ar_exc,
-                                    )
-                                    _auto_review = None
-                                if _auto_review is not None:
-                                    _auto_review_payload = _auto_review.to_event_payload()
-                                    if _auto_review.decision == "allow":
-                                        _approval_needed = False
-                                    elif (
-                                        _auto_review.decision == "deny"
-                                        and not _is_terminal_tool
-                                    ):
-                                        _deny_reason = f"自动审查拒绝执行: {_auto_review.reason}"
-                                        exec_result = {
-                                            "tool": tool_name,
-                                            "ok": False,
-                                            "error": _deny_reason,
-                                            "errorCode": "TOOL_AUTO_REVIEW_DENIED",
-                                            "message": f"工具 {tool_name} 未执行(自动审查拒绝)",
-                                            "auto_review": _auto_review_payload,
-                                        }
-                                        ok = False
-                                        tool_exec_tracker.append(ok)
-                                        _r_src, _r_sid, _r_sname = resolve_tool_source(tool_name)
-                                        yield _sse(
-                                            SSE_TOOL_RESULT,
-                                            {
-                                                "type": "tool-result",
-                                                "toolCallId": tc.get("id", ""),
-                                                "toolName": tool_name,
-                                                "args": args,
-                                                "result": exec_result,
-                                                "isError": True,
-                                                "iteration": _tool_iter + 1,
-                                                "serverSource": _r_src,
-                                                "serverId": _r_sid,
-                                                "serverName": _r_sname,
-                                            },
-                                        )
-                                        _hist_idx = len(tool_calls_history) - 1
-                                        if (
-                                            _hist_idx >= 0
-                                            and tool_calls_history[_hist_idx].get("toolCallId")
-                                            == tc.get("id", "")
-                                        ):
-                                            tool_calls_history[_hist_idx].update(
-                                                {
-                                                    "result": exec_result,
-                                                    "isError": True,
-                                                    "durationMs": int(
-                                                        (time.time() - _tc_start_ts) * 1000
-                                                    ),
-                                                    "endedAt": datetime.now(UTC).isoformat(),
-                                                }
-                                            )
-                                        yield _format_plan_updated_event(
-                                            tool_calls_history,
-                                            explanation=f"工具 {tool_name} 被自动审查拒绝,未执行",
-                                            message_id=message_id,
-                                        )
-                                        result_json = scan_and_frame_tool_result(
-                                            json.dumps(exec_result, ensure_ascii=False)[:4000],
-                                            tool_name=tool_name,
-                                        )
-                                        messages.append(
-                                            {
-                                                "role": "tool",
-                                                "tool_call_id": tc.get("id", ""),
-                                                "name": tool_name,
-                                                "content": result_json,
-                                            }
-                                        )
-                                        continue
                             if _approval_needed:
                                 # 类型收窄兜底(与 delegate 分支同一模式):走到本块 ⇒ 上方 grant
                                 # 块必已执行且未置 False,session_id 在那时已被保证非 None,
@@ -6548,12 +6491,6 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                         "args_preview": _args_preview,
                                         "danger_level": _danger,
                                         "session_id": session_id,
-                                        # 2026-11-14:Auto 档审查结论(可选键;缺席 = 未启用)
-                                        **(
-                                            {"auto_review": _auto_review_payload}
-                                            if _auto_review_payload
-                                            else {}
-                                        ),
                                         # D159:执行环境 + 网络目标事实(开关关档 ⇒ 整块缺席,
                                         # 前端整块不渲染;开着但读不到 ⇒ 弹窗喊"未上报")
                                         **_approval_env_fields(

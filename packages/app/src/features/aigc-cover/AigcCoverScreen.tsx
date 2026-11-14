@@ -228,7 +228,7 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    confirmBtnDisabled: { backgroundColor: tk.text.tertiary },
+    confirmBtnDisabled: { backgroundColor: tk.text.secondary },
     confirmText: { color: tk.surface.light, fontSize: rnType.title.size, fontWeight: '600' },
   })
 }

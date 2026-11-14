@@ -29,7 +29,7 @@ export function createAgreementStyles(tk: AppThemeTokens) {
     },
     subtitle: { fontSize: rnType.body.size, color: tk.text.secondary },
     metaItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-    metaLabel: { fontSize: rnType.label.size, color: tk.text.tertiary },
+    metaLabel: { fontSize: rnType.label.size, color: tk.text.medium },
     metaValue: { fontSize: rnType.label.size, color: tk.text.secondary },
     paragraph: {
       fontSize: rnType.body.size,

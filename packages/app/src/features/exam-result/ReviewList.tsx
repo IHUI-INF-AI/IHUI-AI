@@ -90,7 +90,7 @@ function createStyles(tk: AppThemeTokens) {
     title: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.text.primary },
     wrongRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.sm },
     wrongLabel: { fontSize: rnType.body.size, color: tk.text.secondary },
-    wrongCount: { fontSize: rnType.body.size, fontWeight: '700', color: tk.danger.DEFAULT },
+    wrongCount: { fontSize: rnType.body.size, fontWeight: '700', color: tk.danger.deepText },
     empty: {
       paddingVertical: rnSpacing['2xl'],
       alignItems: 'center',
@@ -107,7 +107,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.light,
     },
     cardHead: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.sm },
-    index: { fontSize: rnType.label.size, color: tk.text.tertiary },
+    index: { fontSize: rnType.label.size, color: tk.text.medium },
     status: { fontSize: rnType.label.size, fontWeight: '600' },
     score: { marginLeft: 'auto', fontSize: rnType.label.size, color: tk.text.secondary },
     cardTitle: { fontSize: rnType.body.size, fontWeight: '600', color: tk.text.primary },

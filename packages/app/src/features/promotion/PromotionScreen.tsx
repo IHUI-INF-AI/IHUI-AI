@@ -41,7 +41,7 @@ export function PromotionScreen({
 
   const statusColor = (status: PromotionCouponStatus): string => {
     if (status === 'available') return tk.success.DEFAULT
-    if (status === 'used') return tk.text.tertiary
+    if (status === 'used') return tk.text.secondary
     return tk.danger.DEFAULT
   }
 
@@ -114,7 +114,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     title: { fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.primary },
     errorBar: { paddingHorizontal: rnSpacing['sm-loose'], paddingVertical: rnSpacing.sm },
-    errorText: { fontSize: rnType.body.size, color: tk.danger.DEFAULT },
+    errorText: { fontSize: rnType.body.size, color: tk.danger.deepText },
     listBody: { padding: rnSpacing['md-loose'], paddingBottom: rnSpacing['3xl'] },
     separator: { height: 12 },
     card: {
@@ -126,11 +126,11 @@ function createStyles(tk: AppThemeTokens) {
     },
     row: { flexDirection: 'row', alignItems: 'center' },
     amountBox: { width: 80, alignItems: 'center' },
-    amountText: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.success.DEFAULT },
-    minSpend: { marginTop: rnSpacing.sm, fontSize: rnType.badge.size, color: tk.text.tertiary },
+    amountText: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.success.deepText },
+    minSpend: { marginTop: rnSpacing.sm, fontSize: rnType.badge.size, color: tk.text.medium },
     body: { flex: 1, marginLeft: rnSpacing.md },
     itemName: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
-    expire: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.tertiary },
+    expire: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.medium },
     badge: {
       alignSelf: 'flex-start',
       marginTop: rnSpacing.sm,

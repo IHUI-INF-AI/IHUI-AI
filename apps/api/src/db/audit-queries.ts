@@ -16,7 +16,6 @@
  * 期望表结构(主 agent 建表参考):
  *   CREATE TABLE audit_logs_chain (
  *     id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
- *     seq           BIGSERIAL NOT NULL,   -- 链序(F-274,迁移 20261114091500)
  *     timestamp     TIMESTAMPTZ NOT NULL,
  *     user_id       UUID REFERENCES users(id) ON DELETE SET NULL,
  *     action        VARCHAR(64) NOT NULL,
@@ -32,7 +31,6 @@
  *   CREATE INDEX idx_audit_chain_ts    ON audit_logs_chain(timestamp DESC);
  *   CREATE INDEX idx_audit_chain_user  ON audit_logs_chain(user_id);
  *   CREATE INDEX idx_audit_chain_act   ON audit_logs_chain(action);
- *   CREATE UNIQUE INDEX audit_logs_chain_seq_uniq ON audit_logs_chain(seq);
  */
 import { sql, type SQL } from 'drizzle-orm'
 import { db, dbRead } from './index.js'
@@ -93,11 +91,7 @@ function auditQueryFailed(operation: string, error: unknown): never {
   logger.error(`[audit-queries] ${operation} failed`, {
     error: (error as Error).message,
   })
-  throw new AppError(
-    '审计链查询失败:数据库不可用,本次结果不完整',
-    503,
-    'AUDIT_CHAIN_UNAVAILABLE',
-  )
+  throw new AppError('审计链查询失败:数据库不可用,本次结果不完整', 503, 'AUDIT_CHAIN_UNAVAILABLE')
 }
 
 const SELECT_COLS = sql.raw(
@@ -247,15 +241,7 @@ export async function selectAuditLogsForExport(
   }
 }
 
-/**
- * 查询某用户最近 N 条日志(按链序升序,用于链完整性验证)。
- *
- * F-274:排序键是单调序号 `seq`(写入时由库分配、写入被 advisory lock 串行化),
- * 不是 `timestamp`。按 timestamp 排会在两种场景下把链序排错,进而让
- * `verifyAuditLogIntegrity` 报出"prev_hash 链断裂"的假告警:
- * ① 跨实例时钟偏差 / NTP 回拨:后写入的行 timestamp 更小;
- * ② 同毫秒并发:timestamp 无 tie-breaker(id 是随机 uuid,不能当顺序)。
- */
+/** 查询某用户最近 N 条日志(按时间升序,用于链完整性验证)。 */
 export async function selectAuditLogChain(
   userId: string,
   limit = 1000,
@@ -264,7 +250,7 @@ export async function selectAuditLogChain(
     const raw = await dbRead.execute(sql`
       SELECT ${SELECT_COLS} FROM ${sql.raw(TABLE)}
       WHERE user_id = ${userId}::uuid
-      ORDER BY seq ASC
+      ORDER BY timestamp ASC
       LIMIT ${limit}
     `)
     return toRows(raw).map(mapRow)
@@ -273,7 +259,7 @@ export async function selectAuditLogChain(
   }
 }
 
-/** 查询时间范围内的日志(按链序升序,用于范围验证;排序理由同 selectAuditLogChain)。 */
+/** 查询时间范围内的日志(按时间升序,用于范围验证)。 */
 export async function selectAuditLogsRange(
   startDate?: string,
   endDate?: string,
@@ -287,7 +273,7 @@ export async function selectAuditLogsRange(
     const raw = await dbRead.execute(sql`
       SELECT ${SELECT_COLS} FROM ${sql.raw(TABLE)}
       WHERE ${where}
-      ORDER BY seq ASC
+      ORDER BY timestamp ASC
       LIMIT ${limit}
     `)
     return toRows(raw).map(mapRow)
@@ -310,15 +296,12 @@ export async function countAuditLogs(filters: AuditLogFilters): Promise<number> 
   }
 }
 
-/**
- * 取最近一条日志的 current_hash(链尾);表空或不存在返回 "0"*64 创世哈希。
- * F-274:链尾按单调序号 seq 取(理由见 selectAuditLogChain),不按 timestamp。
- */
+/** 取最近一条日志的 current_hash(链尾);表空或不存在返回 "0"*64 创世哈希。 */
 export async function getLastAuditLogHash(): Promise<string> {
   const GENESIS = '0'.repeat(64)
   try {
     const raw = await dbRead.execute(sql`
-      SELECT current_hash FROM ${sql.raw(TABLE)} ORDER BY seq DESC LIMIT 1
+      SELECT current_hash FROM ${sql.raw(TABLE)} ORDER BY timestamp DESC LIMIT 1
     `)
     const row = toRows(raw)[0]
     const h = row?.['current_hash']

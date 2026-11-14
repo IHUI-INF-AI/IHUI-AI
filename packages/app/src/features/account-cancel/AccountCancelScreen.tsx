@@ -78,7 +78,7 @@ export function AccountCancelScreen({
               value={phone}
               onChangeText={onPhoneChange}
               placeholder={t('settings.accountDeletionPhonePlaceholder')}
-              placeholderTextColor={tk.text.tertiary}
+              placeholderTextColor={tk.text.secondary}
               keyboardType="phone-pad"
               maxLength={11}
             />
@@ -94,7 +94,7 @@ export function AccountCancelScreen({
               value={smsCode}
               onChangeText={onSmsCodeChange}
               placeholder={t('settings.accountDeletionCodePlaceholder')}
-              placeholderTextColor={tk.text.tertiary}
+              placeholderTextColor={tk.text.secondary}
               keyboardType="number-pad"
               maxLength={6}
             />
@@ -118,7 +118,7 @@ export function AccountCancelScreen({
             value={confirmText}
             onChangeText={onConfirmTextChange}
             placeholder={t('settings.accountDeletionConfirm')}
-            placeholderTextColor={tk.text.tertiary}
+            placeholderTextColor={tk.text.secondary}
           />
         </View>
 
@@ -257,7 +257,7 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.surface.light,
     },
     smsBtnTextDisabled: {
-      color: tk.text.tertiary,
+      color: tk.text.medium,
     },
     submitBtn: {
       height: 50,
@@ -272,7 +272,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     submitBtnText: {
       ...rnType.subtitle,
-      color: tk.surface.light,
+      color: tk.surface.onBrand,
     },
     modalOverlay: {
       flex: 1,

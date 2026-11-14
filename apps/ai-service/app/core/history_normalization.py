@@ -30,11 +30,7 @@ __all__ = [
     "normalize_history",
 ]
 
-DEFAULT_PLACEHOLDER = (
-    "[tool call was interrupted; no output recorded. "
-    "Its outcome is unknown: retry only if the operation is read-only or idempotent; "
-    "if it may have side effects, verify external state or ask the user before retrying.]"
-)
+DEFAULT_PLACEHOLDER = "[tool call was interrupted; no output recorded]"
 
 
 def _extract_tool_call_ids(tool_calls: object) -> list[str]:

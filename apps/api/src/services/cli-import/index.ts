@@ -294,10 +294,7 @@ export function isAllowedConfigUpload(fileName: string): boolean {
  * 返回 null 表示可继续解析,否则是可直接回给用户的中文原因。白名单与解析器选择
  * 同源于 PARSERS,路由不再自行按 source 猜二进制/文本。
  */
-export function describeUploadRejection(
-  source: CliConfigSource,
-  fileName: string,
-): string | null {
+export function describeUploadRejection(source: CliConfigSource, fileName: string): string | null {
   if (!isAllowedConfigUpload(fileName)) {
     return `仅支持配置文件格式: ${CONFIG_UPLOAD_ALLOWED_EXTS.join(', ')}`
   }
@@ -349,10 +346,14 @@ function pickParserBySource(source: CliConfigSource, sourcePath?: string): Parse
  *
  * input.text 或 input.buffer 必须二选一。
  * 返回 ImportPreview 并已写入 Redis 缓存。
+ *
+ * ownerUuid 为缓存归属用户(F-74):preview 只能在同 owner 下被取回;
+ * 缺省时不落缓存(parse-by-source 的纯解析调用与测试场景),避免产生无主条目。
  */
 export async function parseBySource(
   source: CliConfigSource,
   input: Omit<ParserInput, 'sourcePath'> & { sourcePath: string },
+  ownerUuid?: string,
 ): Promise<ImportPreview> {
   const entry = pickParserBySource(source, input.sourcePath)
   const fullInput: ParserInput = {
@@ -390,7 +391,9 @@ export async function parseBySource(
     mcpServers: result.mcpServers,
     globalWarnings: result.globalWarnings,
   }
-  await savePreview(preview)
+  if (ownerUuid) {
+    await savePreview(preview, ownerUuid)
+  }
   return preview
 }
 

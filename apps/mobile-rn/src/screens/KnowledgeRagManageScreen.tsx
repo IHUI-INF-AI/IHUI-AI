@@ -398,7 +398,7 @@ const styles = StyleSheet.create({
   },
   feedbackBoxError: { backgroundColor: tokens.danger.light },
   feedbackText: { fontSize: rnType.label.size, color: tokens.success.deepText },
-  feedbackTextError: { color: tokens.danger.DEFAULT },
+  feedbackTextError: { color: tokens.danger.deepText },
   toolbar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -425,7 +425,7 @@ const styles = StyleSheet.create({
   dangerButtonText: {
     fontSize: rnType.label.size,
     fontWeight: '600',
-    color: tokens.danger.DEFAULT,
+    color: tokens.danger.deepText,
   },
   buttonDisabled: { opacity: 0.5 },
   loading: { paddingVertical: rnSpacing['2xl'] },
@@ -438,7 +438,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.card,
     gap: rnSpacing.sm,
   },
-  errorText: { fontSize: rnType.bodySm.size, color: tokens.danger.DEFAULT },
+  errorText: { fontSize: rnType.bodySm.size, color: tokens.danger.deepText },
   retryBtn: {
     alignSelf: 'flex-start',
     paddingHorizontal: rnSpacing['md-loose'],
@@ -487,12 +487,12 @@ const styles = StyleSheet.create({
     borderRadius: rnRadius.md,
     backgroundColor: tokens.surface.muted,
   },
-  metaText: { fontSize: rnType.caption.size, color: tokens.text.tertiary },
+  metaText: { fontSize: rnType.caption.size, color: tokens.text.medium },
   footerText: {
     paddingVertical: rnSpacing.lg,
     textAlign: 'center',
     fontSize: rnType.label.size,
-    color: tokens.text.tertiary,
+    color: tokens.text.medium,
   },
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

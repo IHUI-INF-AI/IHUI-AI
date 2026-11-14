@@ -27,7 +27,6 @@ import { logger } from '../utils/logger.js'
 import { bizDayKey } from '../utils/biz-day.js'
 import { writeToOutbox } from '../utils/outbox.js'
 import { rechargeToken, deductToken, refundTokenDeduct } from '../db/commission-queries.js'
-import { revokeOrderEntitlements } from './order-entitlement-revoke.js'
 import { db } from '../db/index.js'
 import { recordPayment } from './edu-ledger.js'
 import { eq, and, sql } from 'drizzle-orm'
@@ -38,7 +37,6 @@ import {
   eduEnrollment,
   eduPaymentRecord,
   tokenFlows,
-  commissionFlows,
 } from '@ihui/database'
 import { isNull } from 'drizzle-orm'
 import { calculateTopupBonus } from './topup-discount-service.js'
@@ -122,7 +120,7 @@ async function notifyPaymentSuccessSms(order: Order): Promise<void> {
  */
 export async function completeOrder(
   orderNo: string,
-  tradeNo?: string,
+  _tradeNo?: string,
   tx?: DbTx,
 ): Promise<OrderOperationResult> {
   const order = await findOrderByNo(orderNo, tx)
@@ -134,24 +132,15 @@ export async function completeOrder(
       // 竞态:另一并发回调刚把订单标记为 paid,重新查询走幂等路径
       const refetched = await findOrderByNo(orderNo, tx)
       if (refetched && refetched.status === 'paid') {
-        await rechargeIfTokenOrder(refetched, tx)
-        // F-585:幂等补发积分 + order.paid Outbox(锁内查重,重复调用恰好一次)
-        await awardPointsAndEmitOutbox(refetched, tradeNo, tx)
+        await rechargeIfTokenOrder(refetched)
         return { success: true, order: refetched }
       }
       return { success: false, reason: '订单状态不可完成' }
     }
     // B1: token 充值(幂等:rechargeToken 内部 unique 索引拦截重复回调)
-    await rechargeIfTokenOrder(updated, tx)
+    await rechargeIfTokenOrder(updated)
     // B4: 学费订单(orderType=9)自动入账(幂等:receiptNo=orderNo 查重)
-    await applyEduTuitionOrder(updated, tx)
-    // F-585:此前 completeOrder 只做 token 充值/学费入账,**从不发积分、从不写 order.paid
-    // Outbox** —— 而 admin-extended/order-routes 的注释早已声称"paid → completeOrder
-    // (token 充值/学费入账/积分/Outbox)"。于是走 completeOrder 的支付渠道(微信/支付宝
-    // 回调、管理员补单、企业券核销、连续包月代扣)用户拿不到消费积分,下游(BI/佣金/
-    // 通知)也永远收不到 order.paid 事件。现补齐:与 saga 路径共用同一把行锁 + 同一套
-    // 锁内查重,两条路径并发时仍然恰好一次。
-    await awardPointsAndEmitOutbox(updated, tradeNo, tx)
+    await applyEduTuitionOrder(updated)
     // business_orders_total{type,status="paid"} / business_payments_total{channel,status="success"}:
     // 只在**真实发生的那一次** pending→paid 条件 UPDATE 之后计(上方 `!updated` 的并发竞态
     // 与下面 status 已是 paid 的幂等重放分支都不计)——与 completeOrderWithSaga 里
@@ -165,10 +154,8 @@ export async function completeOrder(
   }
   if (order.status === 'paid') {
     // 幂等重试:订单已支付,重新尝试 token 充值(unique 索引保证幂等)
-    await rechargeIfTokenOrder(order, tx)
-    await applyEduTuitionOrder(order, tx)
-    // F-585:崩溃窗口恢复 —— 订单已 paid 但积分/Outbox 未落地时,由下一次重试补齐
-    await awardPointsAndEmitOutbox(order, tradeNo, tx)
+    await rechargeIfTokenOrder(order)
+    await applyEduTuitionOrder(order)
     return { success: true, order }
   }
   return { success: false, reason: `订单状态(${order.status})不可完成` }
@@ -179,16 +166,16 @@ export async function completeOrder(
  * rechargeToken 内部 (related_order_no, op_type) unique 索引拦截重复回调(23505→返回当前余额)。
  * 失败时抛出,由调用方(支付回调)触发 paymentIdempotency.fail 释放锁让平台重试。
  */
-async function rechargeIfTokenOrder(order: Order, tx?: DbTx): Promise<void> {
+async function rechargeIfTokenOrder(order: Order): Promise<void> {
   // 2026-10-30 修:orderType=2 被两义共用 —— payment-queries 的 CreateOrderInput 注释写
   // 「2=token 充值」,而 vip.ts 下单同样传 orderType=2 且 productId=vipLevelId。
   // 原判据只看 orderType,于是「用微信/支付宝买 VIP」会走 rechargeToken(order.amount)
   // 白送等额余额,再叠加 activateOrderSubscription 发卡 ⇒ 付一次钱得两样东西。
   // 判据补 !productId:充值订单是用户自定义金额(productId 为空),VIP/套餐订单必有商品 id。
   if ((order.orderType === 2 || order.orderType === 3) && order.userId && !order.productId) {
-    await rechargeToken(order.userId, order.amount, order.orderNo, '充值', tx)
+    await rechargeToken(order.userId, order.amount, order.orderNo, '充值')
     // P2-20(2026-08-06):充值赠送接线 —— 主充值到账后再发放赠送 token
-    await creditTopupBonus(order, tx)
+    await creditTopupBonus(order)
   }
 }
 
@@ -202,14 +189,14 @@ async function rechargeIfTokenOrder(order: Order, tx?: DbTx): Promise<void> {
  * 未命中赠送档位(actualCredit===实付)时返回 0 不产生流水。
  * @returns 实际赠送的 token 数量(分);无赠送或非 token 充值订单返回 0。
  */
-async function creditTopupBonus(order: Order, tx?: DbTx): Promise<number> {
+async function creditTopupBonus(order: Order): Promise<number> {
   // 2026-10-30:同样补 !productId —— 赠送只属于「自定义金额充值」,VIP 购买不是充值
   if (order.orderType !== 2 || !order.userId || order.productId) return 0
   const amountYuan = order.amount / 100
   const { actualCredit } = await calculateTopupBonus(amountYuan, order.paymentMethod ?? '')
   const bonusCents = Math.round((actualCredit - amountYuan) * 100)
   if (bonusCents <= 0) return 0
-  await rechargeToken(order.userId, bonusCents, `bonus:${order.orderNo}`, '充值赠送', tx)
+  await rechargeToken(order.userId, bonusCents, `bonus:${order.orderNo}`, '充值赠送')
   return bonusCents
 }
 
@@ -222,16 +209,15 @@ async function creditTopupBonus(order: Order, tx?: DbTx): Promise<number> {
  * - 累加:edu_enrollment.paidAmount 条件 UPDATE(deleted_at is null),欠费=max(0,totalFee-paid) 自动收敛。
  * 失败抛出,由调用方(支付回调)触发 paymentIdempotency.fail 释放锁让平台重试。
  */
-async function applyEduTuitionOrder(order: Order, tx?: DbTx): Promise<void> {
+async function applyEduTuitionOrder(order: Order): Promise<void> {
   if (order.orderType !== 9 || !order.userId || !order.productId) return
-  const q = tx ?? db
-  const existing = await q
+  const existing = await db
     .select({ id: eduPaymentRecord.id })
     .from(eduPaymentRecord)
     .where(and(eq(eduPaymentRecord.receiptNo, order.orderNo), isNull(eduPaymentRecord.deletedAt)))
     .limit(1)
   if (existing.length > 0) return
-  const enrollment = await q
+  const enrollment = await db
     .select({
       id: eduEnrollment.id,
       studentId: eduEnrollment.studentId,
@@ -253,23 +239,19 @@ async function applyEduTuitionOrder(order: Order, tx?: DbTx): Promise<void> {
   // (已缴翻倍、欠费变负,而账面一路绿)。现在判重交给数据库的
   // uq_edu_payment_receipt_no:撞号 = 已入账,直接返回,不再累加。
   try {
-    await recordPayment(
-      {
-        enrollmentId: enrollmentRow.id,
-        studentId: enrollmentRow.studentId,
-        classId: enrollmentRow.classId,
-        amount: amountYuan,
-        paymentDate: today,
-        paymentMethod: 'wechat',
-        status: 'paid',
-        receiptNo: order.orderNo,
-        remark: `在线支付-学费 ${order.orderNo}`,
-      },
-      tx,
-    )
+    await recordPayment({
+      enrollmentId: enrollmentRow.id,
+      studentId: enrollmentRow.studentId,
+      classId: enrollmentRow.classId,
+      amount: amountYuan,
+      paymentDate: today,
+      paymentMethod: 'wechat',
+      status: 'paid',
+      receiptNo: order.orderNo,
+      remark: `在线支付-学费 ${order.orderNo}`,
+    })
   } catch (err) {
-    // 外层事务内 23505 已使事务中止,不能在本层吞掉(否则后续语句全失败),交由外层整体回滚后重试
-    if (!tx && (err as { code?: unknown })?.code === '23505') {
+    if ((err as { code?: unknown })?.code === '23505') {
       logger.info('学费订单重复回调已被唯一索引拦下,不再入账', {
         orderNo: order.orderNo,
         enrollmentId: order.productId,
@@ -325,30 +307,28 @@ async function hasOrderPaidOutbox(tx: DbTx, orderNo: string): Promise<boolean> {
 }
 
 /**
- * F-585(2026-11-14):已支付订单的「消费积分 + order.paid Outbox」唯一出口。
- *
- * 为什么抽这一支:`completeOrder`(微信/支付宝回调、管理员补单、企业券核销、连续包月代扣)
- * 与 `completeOrderWithSaga`/`replayPaidSideEffects` 是两条独立的履约路径,而只有后者发过
- * 积分和 Outbox ⇒ 走 completeOrder 的订单用户拿不到消费积分、下游收不到 order.paid 事件。
- * 现在两条路径共用本函数,判据只有一份,不存在"改一处漏另一处"。
- *
- * 幂等:
- * - 先对 orders 行 FOR UPDATE,与并发的另一条路径串行化(F-12 的同一把锁);
- * - 积分按 (referenceId=orderNo, type='earn') 查重,Outbox 按 payload->>'orderNo' 查重;
- * - 传 externalTx 时在该事务内执行(与外层履约原子),否则自开事务。
- *
- * @param order  已 paid 的订单
- * @param tradeNo 第三方交易号(写入 outbox payload,可空)
- * @param externalTx 外层事务;调用方已持事务时传入,避免嵌套开新事务
+ * P1-5(2026-08-06):已支付订单副作用重放 —— 崩溃窗口恢复/重试时补执行。
+ * 各步骤幂等,可安全重复调用:
+ * 1. token 充值:rechargeToken 内部 (related_order_no, op_type) unique 索引拦截重复;
+ * 2. 积分发放:先查 point_transactions 是否已有 referenceId=orderNo 的 earn 流水,有则跳过;
+ * 3. Outbox:先查 order.paid 事件是否已存在(按 payload->>'orderNo' 匹配),有则跳过。
+ * F-12(2026-11-12):2/3 收进同一事务并先对 orders 行 FOR UPDATE —— 与胜利方 saga 并发
+ * 时靠行锁串行,锁内查重才真正恰好一次(原「事务外先查后插」会与胜利方未提交写入交错)。
+ * 任一步失败抛出,由 paymentIdempotency 失败分支释放锁,让回调平台重试。
  */
-async function awardPointsAndEmitOutbox(
-  order: Order,
-  tradeNo?: string,
-  externalTx?: DbTx,
-): Promise<void> {
+async function replayPaidSideEffects(order: Order, tradeNo?: string): Promise<void> {
+  // ⓪ 学费订单入账(幂等:receipt_no 唯一索引 + 账目出口重算)。
+  // 此前这一支**不在重放清单里** —— 而 applyEduTuitionOrder 只在正常回调路径被调,
+  // 于是"回调进来了、进程在入账前被杀"的窗口里,这笔学费永久不入账,
+  // 而订单本身是 paid 状态、再也不会重放 ⇒ 学员明明付了钱,系统继续算他欠费并催缴。
+  await applyEduTuitionOrder(order)
+
+  // ① token 充值(幂等:unique 索引)
+  await rechargeIfTokenOrder(order)
+
   const pointsToAward = Math.max(0, Math.floor(order.amount / 100))
-  const run = async (tx: DbTx): Promise<void> => {
-    // F-12:行锁先行 —— 与其他履约路径串行化
+  await db.transaction(async (tx) => {
+    // F-12:行锁先行 —— 回调(胜利方 saga)与重放双开的串行化点
     await lockOrderRow(tx, order.orderNo)
 
     // ② 积分发放(锁内幂等:referenceId 查重,后到者见先行者已提交的流水)
@@ -380,36 +360,7 @@ async function awardPointsAndEmitOutbox(
         tx,
       )
     }
-  }
-  if (externalTx) {
-    await run(externalTx)
-    return
-  }
-  await db.transaction(run)
-}
-
-/**
- * P1-5(2026-08-06):已支付订单副作用重放 —— 崩溃窗口恢复/重试时补执行。
- * 各步骤幂等,可安全重复调用:
- * 1. token 充值:rechargeToken 内部 (related_order_no, op_type) unique 索引拦截重复;
- * 2. 积分发放:先查 point_transactions 是否已有 referenceId=orderNo 的 earn 流水,有则跳过;
- * 3. Outbox:先查 order.paid 事件是否已存在(按 payload->>'orderNo' 匹配),有则跳过。
- * F-12(2026-11-12):2/3 收进同一事务并先对 orders 行 FOR UPDATE —— 与胜利方 saga 并发
- * 时靠行锁串行,锁内查重才真正恰好一次(原「事务外先查后插」会与胜利方未提交写入交错)。
- * 任一步失败抛出,由 paymentIdempotency 失败分支释放锁,让回调平台重试。
- */
-async function replayPaidSideEffects(order: Order, tradeNo?: string): Promise<void> {
-  // ⓪ 学费订单入账(幂等:receipt_no 唯一索引 + 账目出口重算)。
-  // 此前这一支**不在重放清单里** —— 而 applyEduTuitionOrder 只在正常回调路径被调,
-  // 于是"回调进来了、进程在入账前被杀"的窗口里,这笔学费永久不入账,
-  // 而订单本身是 paid 状态、再也不会重放 ⇒ 学员明明付了钱,系统继续算他欠费并催缴。
-  await applyEduTuitionOrder(order)
-
-  // ① token 充值(幂等:unique 索引)
-  await rechargeIfTokenOrder(order)
-
-  // ②③ 积分发放 + order.paid Outbox —— 与 completeOrder 共用同一出口(F-585)
-  await awardPointsAndEmitOutbox(order, tradeNo)
+  })
 }
 
 /** Saga 编排结果。 */
@@ -800,30 +751,6 @@ async function reclaimTopupBonus(order: Order): Promise<void> {
 }
 
 /**
- * F-407:退款时按订单将佣金置无效(status=0,不再计入可提现/汇总),并冲减已入账的
- * token 佣金。冲减复用 refundTokenDeduct(以佣金流水 id 为幂等键,重复退款被拦截);
- * 失败向上抛出,订单保持 paid 等待重试(与 F-33 本金扣回同语义)。
- */
-async function revokeOrderCommissions(order: Order): Promise<void> {
-  const flows = await db
-    .select({
-      id: commissionFlows.id,
-      beneficiaryId: commissionFlows.beneficiaryId,
-      token: commissionFlows.token,
-      status: commissionFlows.status,
-    })
-    .from(commissionFlows)
-    .where(eq(commissionFlows.orderId, order.id))
-  if (flows.length === 0) return
-  await db.update(commissionFlows).set({ status: 0 }).where(eq(commissionFlows.orderId, order.id))
-  for (const flow of flows) {
-    if (flow.status === 1 && flow.token > 0 && flow.beneficiaryId) {
-      await refundTokenDeduct(flow.beneficiaryId, flow.token, `comm:${flow.id}`, '退款冲减佣金')
-    }
-  }
-}
-
-/**
  * 状态机：退款完成（由退款流程调用）。
  *
  * 2026-08-02 P0 修复(B2):退款时退还 token 余额(token 充值订单/活动订单)。
@@ -870,38 +797,11 @@ export async function refundOrder(
       throw e
     }
   }
-  // F-407:本金扣回之后、落 refunded 之前冲减该单佣金 —— 按订单将 commissionFlows 置
-  // status=0(不再计入 availableWithdrawal),并对已入账 token 佣金 refundTokenDeduct 冲减
-  // (幂等键 comm:<flow.id>,重复退款被唯一键拦截)。失败与 F-33 同语义:alreadyClaimed 先
-  // 回 paid 再抛,订单保持 paid 等待重试,绝不出现「钱已退、佣金仍可提现」。
-  try {
-    await revokeOrderCommissions(order)
-  } catch (e) {
-    if (alreadyClaimed) await abortRefund(orderNo)
-    throw e
-  }
-  // F-371:退款必须同步回收已发放权益(VIP / 开发者订阅 / API 订阅配额),
-  // 且「回收权益 + 订单置 refunded + 审计留痕」在同一事务内完成。
-  // 与上面的 token 扣回同语义:任一步失败即整体回滚 —— 非抢占路径订单保持 paid 等待重试,
-  // 抢占路径先解除抢占再抛出,绝不会出现「钱已退、权益还在」的半状态。
-  // 注:金额侧扣回仍走 refundTokenDeduct(行锁 + refund:<orderNo> 唯一键,本身原子且幂等),
-  // 不在这里重写第二套账务;重复退款由订单状态与流水唯一键双重拦截。
-  try {
-    const outcome = await db.transaction(async (tx) => {
-      if (!alreadyClaimed) {
-        const refundedOrder = await updateOrderStatus(orderNo, 'refunded', 'paid', null, tx)
-        if (!refundedOrder) return { ok: false as const }
-      }
-      await revokeOrderEntitlements(order, tx)
-      return { ok: true as const }
-    })
-    if (!outcome.ok) {
+  if (!alreadyClaimed) {
+    const refundedOrder = await updateOrderStatus(orderNo, 'refunded', 'paid')
+    if (!refundedOrder) {
       return { success: false, reason: '订单状态已变更,退款未落库' }
     }
-  } catch (e) {
-    // F-09:抢占路径下订单已是 refunded,回收失败必须解除抢占回到 paid 才能重试
-    if (alreadyClaimed) await abortRefund(orderNo)
-    throw e
   }
   // ihui_payment_refund_total:退款状态落库成功后按渠道计数
   recordPaymentRefund(order.paymentMethod ?? 'unknown')

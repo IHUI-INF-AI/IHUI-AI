@@ -92,7 +92,7 @@ const styles = StyleSheet.create({
   },
   textMuted: {
     fontSize: rnType.label.size,
-    color: tokens.text.tertiary,
+    color: tokens.text.medium,
   },
   textFg: {
     fontSize: rnType.label.size,

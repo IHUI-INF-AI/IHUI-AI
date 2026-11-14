@@ -319,11 +319,7 @@ export function createAgentTeamService(options: AgentTeamServiceOptions = {}) {
       if (!entry || (!isOwnHumanInbox && !isLeadOnAgentInbox)) {
         throw new AgentTeamError(404, 'INBOX_ENTRY_NOT_FOUND', '收件箱条目不存在')
       }
-      // F-591:更新条件绑定已校验的接收人,归属不符时返回 null(不写库)。
-      const row = await repo.markInboxRead(teamId, entryId, new Date(), {
-        memberKind: entry.toMemberKind,
-        memberId: entry.toMemberId,
-      })
+      const row = await repo.markInboxRead(teamId, entryId, new Date())
       if (!row) throw new AgentTeamError(404, 'INBOX_ENTRY_NOT_FOUND', '收件箱条目不存在')
       return row
     },

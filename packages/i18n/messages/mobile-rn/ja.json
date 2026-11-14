@@ -942,7 +942,8 @@
       "agree": "賛同",
       "disagree": "反対"
     },
-    "loadFailed": "読み込みに失敗しました"
+    "loadFailed": "読み込みに失敗しました",
+    "admissionAhead": "前に {n} 件あります"
   },
   "settings": {
     "title": "設定",
@@ -3706,6 +3707,7 @@
   "activity": {
     "empty": "アクティビティがありません",
     "endTime": "終了時間",
+    "joining": "送信中…",
     "loadFailed": "読み込みに失敗しました",
     "participants": "参加人数",
     "startTime": "開始時間",
@@ -5059,7 +5061,7 @@
     "analysisEstimate": "約 {tokens} tokens・難易度 {difficulty}",
     "analysisPickFirst": "まずシナリオを選択してください",
     "analysisSubmit": "分析を開始",
-      "noValidContent": "インポート可能な有効な内容がありません"
+    "noValidContent": "インポート可能な有効な内容がありません"
   },
   "permissionTier": {
     "label": "権限モード",
@@ -7541,6 +7543,7 @@
     "wrongBookTitle": "間違いノート"
   },
   "activities": {
+    "cancelJoin": "参加をキャンセル",
     "join": "今すぐ参加",
     "notFound": "つかりません"
   },

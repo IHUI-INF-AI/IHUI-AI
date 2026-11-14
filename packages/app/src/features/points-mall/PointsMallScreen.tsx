@@ -135,7 +135,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: rnSpacing.sm,
       fontSize: rnType.displayLg.size,
       fontWeight: '700',
-      color: tk.success.DEFAULT,
+      color: tk.success.deepText,
     },
     errorBar: {
       paddingHorizontal: rnSpacing['sm-loose'],
@@ -144,8 +144,8 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'space-between',
       alignItems: 'center',
     },
-    errorText: { fontSize: rnType.body.size, color: tk.danger.DEFAULT },
-    retryText: { fontSize: rnType.body.size, color: tk.success.DEFAULT },
+    errorText: { fontSize: rnType.body.size, color: tk.danger.deepText },
+    retryText: { fontSize: rnType.body.size, color: tk.success.deepText },
     listBody: { padding: rnSpacing['md-loose'], paddingBottom: rnSpacing['3xl'] },
     columnWrapper: { justifyContent: 'space-between', marginBottom: rnSpacing['sm-loose'] },
     card: {
@@ -174,16 +174,16 @@ function createStyles(tk: AppThemeTokens) {
     },
     productDesc: {
       fontSize: rnType.caption.size,
-      color: tk.text.tertiary,
+      color: tk.text.medium,
       marginTop: rnSpacing.sm,
     },
     pointsCost: {
       marginTop: rnSpacing.sm,
       fontSize: rnType.title.size,
       fontWeight: '700',
-      color: tk.success.DEFAULT,
+      color: tk.success.deepText,
     },
-    stockText: { fontSize: rnType.badge.size, color: tk.text.tertiary, marginTop: rnSpacing.sm },
+    stockText: { fontSize: rnType.badge.size, color: tk.text.medium, marginTop: rnSpacing.sm },
     redeemBtn: {
       marginTop: rnSpacing.sm,
       paddingVertical: rnSpacing['xs-loose'],

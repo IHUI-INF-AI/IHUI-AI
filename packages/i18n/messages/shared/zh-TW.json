@@ -367,7 +367,7 @@
       "ch9Title": "第 9 章 爭議解決",
       "ch9Body": "本條款適用中華人民共和國法律。因本條款產生的爭議,雙方應優先協商解決;協商不成的,提交北京仲裁委員會按其仲裁規則仲裁。",
       "ch10Title": "第 10 章 聯絡方式",
-      "ch10Body": "如對本條款有任何疑問,請聯絡:support@ihui.ai。"
+      "ch10Body": "如對本條款有任何疑問,請聯絡:lizong@aizhs.top。"
     },
     "usagePolicy": {
       "title": "使用政策",
@@ -597,6 +597,10 @@
       "submit": "傳送",
       "timeoutNoInput": "{{seconds}} 秒內未收到輸入",
       "mobileUnsupported": "此命令需要鍵盤輸入，手機端暫不能代答，請在桌面端處理或停止本次執行"
+    },
+    "compactionNotice": "上下文已自動壓縮:{before} → {after}(移除 {removed} 條歷史)",
+    "truncation": {
+      "maxLengthNotice": "回答因達到長度上限被截斷,可發送「繼續」讓它接著說"
     }
   },
   "richAnchorProbe": {
@@ -2978,7 +2982,8 @@
       "title": "執行過程",
       "toolSummary": "工具彙總:{calls} 次調用",
       "terminal": "終端任務:{status}",
-      "usage": "用量:{n} tokens"
+      "usage": "用量:{n} tokens",
+      "memoryRemembered": "已記住 {n} 條"
     },
     "switchAgent": {
       "confirm": "確認切換"

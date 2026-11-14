@@ -110,7 +110,7 @@ export function AiCareerScreen({
               value={formData[q.key]}
               onChangeText={(value) => onInputChange(q.key, value)}
               placeholder={q.placeholder}
-              placeholderTextColor={tk.text.tertiary}
+              placeholderTextColor={tk.text.secondary}
               maxLength={q.maxLength}
               multiline={q.type === 'textarea'}
               textAlignVertical={q.type === 'textarea' ? 'top' : 'center'}
@@ -218,7 +218,7 @@ function createStyles(tk: AppThemeTokens) {
       lineHeight: rnType.title.lineHeight,
       marginBottom: rnSpacing['md-loose'],
     },
-    required: { color: tk.danger.DEFAULT },
+    required: { color: tk.danger.deepText },
     optionsContainer: { gap: rnSpacing['sm-loose'] },
     optionItem: {
       paddingVertical: rnSpacing.md,
@@ -276,7 +276,7 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.primary,
       lineHeight: rnType.strong.lineHeight,
     },
-    errorText: { color: tk.danger.DEFAULT, fontSize: rnType.body.size, marginBottom: rnSpacing.sm },
+    errorText: { color: tk.danger.deepText, fontSize: rnType.body.size, marginBottom: rnSpacing.sm },
     submitContainer: {
       paddingVertical: rnSpacing['2xl'],
       alignItems: 'center',
@@ -317,7 +317,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     exportBtnDisabled: { opacity: 0.5 },
     exportBtnText: { fontSize: rnType.body.size, fontWeight: '600', color: tk.brand.ctaForeground },
-    exportBtnTextDisabled: { color: tk.text.tertiary },
+    exportBtnTextDisabled: { color: tk.text.inverse },
     formatRow: {
       flexDirection: 'row',
       gap: rnSpacing['sm-loose'],
@@ -340,7 +340,7 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.secondary,
       lineHeight: rnType.strong.lineHeight,
     },
-    emptyHint: { fontSize: rnType.body.size, color: tk.text.tertiary },
+    emptyHint: { fontSize: rnType.body.size, color: tk.text.medium },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

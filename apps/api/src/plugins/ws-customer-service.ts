@@ -18,6 +18,7 @@ import {
   updateAgentStatus,
 } from '../db/customer-service-queries.js'
 import { getWsAutoRecoveryManager } from './ws-auto-recovery.js'
+import { isWsBackpressured, sendWithBackpressure } from './ws-backpressure.js'
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -115,9 +116,9 @@ export interface CsSessionLike {
 }
 
 /**
- * 不可再接入的终态。会话 status 的唯一真相源是 @ihui/types 的 CUSTOMER_SERVICE_STATUSES
- * (pending/open/resolved/closed/rejected);F-434 已把查询层/建表默认值统一到这套词,
- * 这里仍按「只拦终态」取宽口径 —— 老库里的历史值(waiting/active)不会误伤。
+ * 不可再接入的终态。会话 status 的枚举口径目前在仓库内不一致:
+ * packages/types 声明 pending/open/resolved/closed/rejected,而 DB 查询层实际写
+ * waiting/active/closed。这里按「只拦终态」取宽口径,避免误伤 waiting/active/open/pending。
  */
 const CS_SESSION_TERMINAL_STATUSES: ReadonlySet<string> = new Set([
   'closed',
@@ -139,8 +140,7 @@ export type CsJoinVerdict =
     }
 
 /**
- * F-109:客户只能接入自己的、未终结的会话;坐席只能接入自己名下且 open(处理中)的会话。
- * F-434:处理中态的真相源词是 `open`;旧 `active` 已废弃(见 CUSTOMER_SERVICE_STATUSES)。
+ * F-109:客户只能接入自己的、未终结的会话;坐席只能接入自己名下且 active 的会话。
  * 判定与 WS 副作用分离(纯函数),路由侧据此 close + 释放槽位。
  */
 export function judgeSessionJoin(
@@ -152,7 +152,7 @@ export function judgeSessionJoin(
   if (!session) return { ok: false, reason: 'session_missing' }
   if (isAgent) {
     if (!agentId || session.agentId !== agentId) return { ok: false, reason: 'agent_not_assigned' }
-    if (session.status !== 'open') return { ok: false, reason: 'session_not_active' }
+    if (session.status !== 'active') return { ok: false, reason: 'session_not_active' }
     return { ok: true }
   }
   if (session.userId !== userId) return { ok: false, reason: 'session_not_owner' }
@@ -163,7 +163,7 @@ export function judgeSessionJoin(
 }
 
 /**
- * F-110:坐席只能向「自己名下 + open(处理中)」的会话广播,否则丢弃并记 warn 审计。
+ * F-110:坐席只能向「自己名下 + active」的会话广播,否则丢弃并记 warn 审计。
  */
 export function judgeAgentBroadcast(
   session: CsSessionLike | null | undefined,
@@ -176,7 +176,7 @@ export function judgeAgentBroadcast(
     } {
   if (!session) return { ok: false, reason: 'session_missing' }
   if (session.agentId !== agentId) return { ok: false, reason: 'agent_not_assigned' }
-  if (session.status !== 'open') return { ok: false, reason: 'session_not_active' }
+  if (session.status !== 'active') return { ok: false, reason: 'session_not_active' }
   return { ok: true }
 }
 
@@ -216,13 +216,23 @@ const wsCustomerServicePlugin: FastifyPluginAsync = async (server) => {
     const conns = connections.get(sessionId)
     if (!conns || conns.size === 0) return
     const text = JSON.stringify(payload)
-    const stale: WebSocket[] = []
+    const stale = new Set<WebSocket>()
     for (const ws of conns) {
-      try {
-        ws.send(text)
-      } catch {
-        stale.push(ws)
+      // F-116:会话是 1:1 对话且**没有**回放缓冲 —— 跳过的那一帧重连后也补不回来,
+      // 所以这里取「断开连接、让上层重连后重新拉取会话」,与通知/广播的「跳过」相反。
+      // 复用既有 4002(客户端应退避后重试)语义,不新增 close code(那属于改协议面)。
+      if (isWsBackpressured(ws)) {
+        stale.add(ws)
+        try {
+          ws.close(WS_CLOSE.RATE_LIMITED, '接收过慢,连接已断开')
+        } catch {
+          /* 已关闭 */
+        }
+        continue
       }
+      // 写失败(同步抛出或 callback 报错)同样摘线 —— 旧写法只接同步抛出,
+      // 而「连接已断」走的是 callback,死连接会长期滞留并持续被广播命中。
+      if (sendWithBackpressure(ws, text, () => stale.add(ws)) !== 'sent') stale.add(ws)
     }
     for (const ws of stale) conns.delete(ws)
   }
@@ -442,8 +452,8 @@ const wsCustomerServicePlugin: FastifyPluginAsync = async (server) => {
           }),
         )
 
-        // 若会话仍在排队，尝试立即分配坐席(F-434:排队态 = 唯一真相源里的 pending)
-        if (session.status === 'pending') {
+        // 若会话仍在排队，尝试立即分配坐席
+        if (session.status === 'waiting') {
           const assigned = await dispatchQueue()
           if (assigned === 0) {
             // 暂无可用坐席，推送队列位置

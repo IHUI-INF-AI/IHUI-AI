@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { rnHue, rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { rnHue, rnRadius, rnRadiusFor, rnSpacing, rnType } from '@ihui/design-tokens'
 import { StyleSheet } from 'react-native'
 import type { AppThemeTokens } from '../../theme/tokens'
 
@@ -71,7 +71,8 @@ export function createFinanceAiStyles(tk: AppThemeTokens) {
     input: {
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: tk.border.medium,
-      borderRadius: rnRadius.sm,
+      // control 角色(输入框)= sm,与 web/小程序端输入框同档
+      borderRadius: rnRadiusFor.control,
       paddingHorizontal: rnSpacing.sm,
       paddingVertical: rnSpacing.xs,
       fontSize: rnType.body.size,
@@ -85,9 +86,9 @@ export function createFinanceAiStyles(tk: AppThemeTokens) {
     targetChip: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 6,
+      gap: rnSpacing['xs-loose'],
       paddingHorizontal: rnSpacing.sm,
-      paddingVertical: 6,
+      paddingVertical: rnSpacing['xs-loose'],
       borderRadius: rnRadius.md,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: tk.border.light,
@@ -114,7 +115,7 @@ export function createFinanceAiStyles(tk: AppThemeTokens) {
     note: {
       fontSize: rnType.label.size,
       lineHeight: rnType.label.lineHeight,
-      color: tk.text.tertiary,
+      color: tk.text.medium,
     },
 
     // 进度回显
@@ -122,11 +123,11 @@ export function createFinanceAiStyles(tk: AppThemeTokens) {
     progressTitle: { fontSize: rnType.subtitle.size, fontWeight: '700', color: tk.text.primary },
     stepRow: { flexDirection: 'row', alignItems: 'flex-start', gap: rnSpacing.xs },
     stepDot: {
-      marginTop: 4,
+      marginTop: rnSpacing.xs,
       width: 6,
       height: 6,
       borderRadius: 3,
-      backgroundColor: tk.text.tertiary,
+      backgroundColor: tk.text.secondary,
     },
     stepDotActive: { backgroundColor: FINANCE_AI_PALETTE.emerald.fg },
     stepText: {
@@ -137,7 +138,7 @@ export function createFinanceAiStyles(tk: AppThemeTokens) {
     },
     emptyText: {
       fontSize: rnType.body.size,
-      color: tk.text.tertiary,
+      color: tk.text.medium,
       paddingVertical: rnSpacing.sm,
     },
   })

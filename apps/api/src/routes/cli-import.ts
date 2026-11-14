@@ -335,15 +335,20 @@ export const cliImportRoutes: FastifyPluginAsync = async (server) => {
     }
 
     try {
-      const preview = await parseBySource(source, {
-        sourcePath: fileName ?? source,
-        // 统一传 buffer,由 parseBySource 按 parser 的 inputKind 转文本/保留二进制
-        buffer: fileBuffer,
-        extra: {
-          ...(authJsonText ? { authJsonText } : {}),
-          ...(settingsJsonText ? { settingsJsonText } : {}),
+      const preview = await parseBySource(
+        source,
+        {
+          sourcePath: fileName ?? source,
+          // 统一传 buffer,由 parseBySource 按 parser 的 inputKind 转文本/保留二进制
+          buffer: fileBuffer,
+          extra: {
+            ...(authJsonText ? { authJsonText } : {}),
+            ...(settingsJsonText ? { settingsJsonText } : {}),
+          },
         },
-      })
+        // F-74:preview 缓存必须绑定 owner,否则他人拿到 previewId 即可 commit
+        userId,
+      )
       request.log.info(
         { userId, source, previewId: preview.previewId, count: preview.providers.length },
         '[cli-import] parse-file success',
@@ -376,7 +381,7 @@ export const cliImportRoutes: FastifyPluginAsync = async (server) => {
         mcpServers: data.mcpServers as ImportPreview['mcpServers'],
         globalWarnings: data.globalWarnings,
       }
-      await savePreview(preview)
+      await savePreview(preview, userId)
       request.log.info(
         {
           userId,
@@ -403,13 +408,12 @@ export const cliImportRoutes: FastifyPluginAsync = async (server) => {
     }
     const { previewId, selectedProviderIds, conflictStrategy } = parsed.data
 
-    const preview = await loadPreview(previewId)
+    // F-74:preview 按 (ownerUuid, previewId) 取回。他人 previewId 与不存在同等处理,
+    // 否则攻击者可用受害者 previewId 把其明文 apiKey 落到自己账户。
+    const preview = await loadPreview(previewId, userId)
     if (!preview) {
       return reply.status(404).send(error(404, 'preview 已过期或不存在,请重新解析'))
     }
-
-    // 用户身份校验:preview 仅缓存 10min,无 userId 标签;但 commit 必须由登录用户发起
-    // 这里通过 authenticate 已保证 userId 存在
 
     const selected =
       selectedProviderIds.length === 0
@@ -458,8 +462,8 @@ export const cliImportRoutes: FastifyPluginAsync = async (server) => {
       // 历史记录写入失败不阻塞交付
     }
 
-    // 删除 preview 缓存
-    await deletePreview(previewId)
+    // 删除 preview 缓存(仅本人 key)
+    await deletePreview(previewId, userId)
 
     const response: ImportCommitResponse = {
       importId,
@@ -480,9 +484,11 @@ export const cliImportRoutes: FastifyPluginAsync = async (server) => {
   // 5. GET /cli-import/preview/:id — 复核 preview
   // -------------------------------------------------------------------------
   server.get('/cli-import/preview/:id', async (request, reply) => {
+    const userId = request.userId!
     const p = previewIdParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, '无效的 previewId'))
-    const preview = await loadPreview(p.data.id)
+    // F-74:复核端点同样按 owner 取回,他人 previewId 一律 404
+    const preview = await loadPreview(p.data.id, userId)
     if (!preview) {
       return reply.status(404).send(error(404, 'preview 已过期或不存在'))
     }

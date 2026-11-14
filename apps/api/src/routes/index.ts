@@ -179,8 +179,6 @@ import { adminZoneRoutes } from './admin-zone.js'
 import { adminDemandSquareRoutes } from './admin-demand-square.js'
 import { zhsLegacyRoutes } from './zhs-legacy.js'
 import { zhsOrganizationRoutes, adminZhsOrganizationRoutes } from './zhs-organization.js'
-// F-520(2026-11-13):organization.ts 此前是死文件,现补 requireAdmin 后正式注册
-import { organizationRoutes } from './organization.js'
 import { userAgentFreeTimesRoutes, adminUserAgentFreeTimesRoutes } from './user-agent-free-times.js'
 import { serviceCatalogRoutes, adminServiceCatalogRoutes } from './service-catalog.js'
 import { serviceInquiryRoutes } from './service-inquiry.js'
@@ -210,10 +208,6 @@ import { hrAttendanceRoutes } from './hr-attendance.js'
 import { hrJobRoutes } from './hr-jobs.js'
 import { hrDailyRoutes } from './hr-daily.js'
 import { hrApprovalRoutes } from './hr-approval.js'
-import { hrImportRoutes } from './hr-import.js'
-import { hrSettleRoutes } from './hr-settle.js'
-import { hrPayrollRoutes } from './hr-payroll.js'
-import { workflowTodoRoutes } from './workflow-todo.js'
 import { aiTaskTemplatesRoutes } from './ai-task-templates.js'
 // 教育食堂采购记账(2026-09-19 立):AI 小票三轮核对 + 台账/供应商/统计/导出
 import eduCanteenRoutes from './edu-canteen.js'
@@ -947,8 +941,6 @@ export function registerRoutes(server: FastifyInstance) {
   // ZHS 组织机构管理：/api/organization/* + /api/admin/organization/*
   server.register(zhsOrganizationRoutes, { prefix: '/api/organization' })
   server.register(adminZhsOrganizationRoutes, { prefix: '/api/admin/organization' })
-  // F-520(2026-11-13):/api/organizations/*(全部端点经 requireAdmin 收口)
-  server.register(organizationRoutes, { prefix: '/api' })
   // 智能体免费试用次数：/api/agent-free-times/* + /api/admin/agent-free-times/*
   server.register(userAgentFreeTimesRoutes, { prefix: '/api/agent-free-times' })
   server.register(adminUserAgentFreeTimesRoutes, { prefix: '/api/admin/agent-free-times' })
@@ -1001,14 +993,6 @@ export function registerRoutes(server: FastifyInstance) {
   server.register(aiTaskTemplatesRoutes, { prefix: '/api/ai-tasks' })
   // 人事定时任务(HR-1,2026-11-11 立):GET 清单 + POST 手动补跑 + GET 执行历史(均 manage 权限)
   server.register(hrJobRoutes, { prefix: '/api/hr-jobs' })
-  // 人事考勤导入(HR-5 第 2 期,2026-11-12 立):飞书/钉钉打卡表上传 → 解析 → 人工裁决 → 写正式考勤
-  server.register(hrImportRoutes, { prefix: '/api/hr-import' })
-  // 人事考勤结算(HR-5 第 4 期,2026-11-12 立):四类导入数据 → 日结 → 月结
-  server.register(hrSettleRoutes, { prefix: '/api/hr-settle' })
-  // 人事薪资计算(HR-5 第 5 期,2026-11-12 立):月结考勤 → 工资单
-  server.register(hrPayrollRoutes, { prefix: '/api/hr-payroll' })
-  // 流程待办(HR-6 第 4 期,2026-11-13 立):需人工决策的点 → 可认领/可结清的条目
-  server.register(workflowTodoRoutes, { prefix: '/api/workflow-todos' })
   // 教育食堂采购记账：AI 小票三轮核对 + 台账/供应商/统计/导出（2026-09-19 立）
   server.register(eduCanteenRoutes, { prefix: '/api/edu-canteen' })
 

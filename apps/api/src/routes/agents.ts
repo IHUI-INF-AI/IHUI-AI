@@ -63,8 +63,12 @@ import {
   deleteExamine,
   approveExamine,
   rejectExamine,
-  toggleThumb,
-  toggleCollect,
+  findThumb,
+  addThumb,
+  removeThumb,
+  findCollect,
+  addCollect,
+  removeCollect,
   recordAgentUse,
   findAgentByBotId,
   findAgentByAgentId,
@@ -285,9 +289,8 @@ const updateOAuthAppSchema = z.object({
 
 const updateSettlementSchema = z.object({
   status: z.string().max(20).optional(),
-  // F-669: commission_rate / commission_amount 均为 int4,小数会被静默取整、超限 500。
-  commissionRate: z.number().int().min(0).max(100).optional(),
-  commissionAmount: z.number().int().min(0).max(2147483647).optional(),
+  commissionRate: z.number().min(0).optional(),
+  commissionAmount: z.number().int().min(0).optional(),
 })
 
 const createNeedTaskSchema = z.object({
@@ -1180,10 +1183,9 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
         agentId: z.string().uuid().nullable().optional(),
         buyRecordId: z.string().uuid().nullable().optional(),
         orderNo: z.string().nullable().optional(),
-        // F-669: 三列均为 int4,入参必须整数且在 int4 范围内;commissionRate 语义为百分比。
-        amount: z.number().int().min(0).max(2147483647).optional(),
-        commissionRate: z.number().int().min(0).max(100).optional(),
-        commissionAmount: z.number().int().min(0).max(2147483647).optional(),
+        amount: z.number().optional(),
+        commissionRate: z.number().optional(),
+        commissionAmount: z.number().optional(),
         status: z.string().optional(),
       })
       .safeParse(request.body)
@@ -1850,10 +1852,12 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     const { uuid, botId } = parsed.data
-    const isThumbs = await toggleThumb(uuid, botId)
-    if (!isThumbs) {
+    const existing = await findThumb(uuid, botId)
+    if (existing) {
+      await removeThumb(uuid, botId)
       return reply.send(success({ action: 'remove', isThumbs: false, message: '取消点赞成功' }))
     }
+    await addThumb(uuid, botId)
     return reply.send(success({ action: 'add', isThumbs: true, message: '点赞成功' }))
   })
 
@@ -1863,10 +1867,12 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     const { uuid, botId } = parsed.data
-    const isCollect = await toggleCollect(uuid, botId)
-    if (!isCollect) {
+    const existing = await findCollect(uuid, botId)
+    if (existing) {
+      await removeCollect(uuid, botId)
       return reply.send(success({ action: 'remove', isCollect: false, message: '取消收藏成功' }))
     }
+    await addCollect(uuid, botId)
     return reply.send(success({ action: 'add', isCollect: true, message: '收藏成功' }))
   })
 

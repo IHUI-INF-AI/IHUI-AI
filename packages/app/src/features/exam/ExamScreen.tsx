@@ -46,7 +46,7 @@ export function ExamScreen({
     if (status === 'ended') {
       return { bg: tk.danger.light, text: tk.danger.DEFAULT }
     }
-    return { bg: tk.surface.muted, text: tk.text.tertiary }
+    return { bg: tk.surface.muted, text: tk.text.secondary }
   }
 
   const statusKey = (status: ExamStatus) => {
@@ -185,7 +185,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingHorizontal: rnSpacing['sm-loose'],
       paddingVertical: rnSpacing.xs,
       fontSize: rnType.body.size,
-      color: tk.danger.DEFAULT,
+      color: tk.danger.deepText,
     },
     listBody: { padding: rnSpacing['md-loose'], paddingBottom: rnSpacing['3xl'] },
     separator: { height: 10 },

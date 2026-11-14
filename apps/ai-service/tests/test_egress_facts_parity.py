@@ -44,8 +44,8 @@ PARITY_ENV: dict[str, str] = {
     "NODE_EXTRA_CA_CERTS": "/etc/ssl/custom-ca.pem",
 }
 
-# 语料:一个白名单域、一个内网 host、一个 NO_PROXY 命中域(与白名单重叠 ⇒
-# 命中后直连,policyDeclined=no-proxy-match)、一个解析不出来的垃圾串
+# 语料:一个白名单域、一个内网 host、一个 NO_PROXY 命中域(与白名单重叠构成
+# proxied=true ∧ noProxyMatched=true 的可诊断指纹)、一个解析不出来的垃圾串
 PARITY_URLS = [
     "https://api.stepfun.com/step_plan/v1/models",
     "http://10.0.0.1:8802/api",
@@ -170,13 +170,12 @@ def test_internal_host_never_proxied() -> None:
     assert facts["policyDeclined"] == "internal-host"
 
 
-def test_no_proxy_hit_routes_direct() -> None:
-    """NO_PROXY 命中参与路由:即便域名在白名单里也直连,并给出结构化原因。"""
+def test_no_proxy_hit_is_fact_not_route() -> None:
+    """NO_PROXY 命中只作为事实回来,不改变路由(proxied=true ∧ noProxyMatched=true 是合法对)。"""
     facts = resolve_egress_facts("https://api.openai.com/v1/models", PARITY_ENV)
-    assert facts["proxied"] is False
+    assert facts["proxied"] is True
     assert facts["noProxyMatched"] is True
     assert facts["noProxyVar"] == "NO_PROXY"
-    assert facts["policyDeclined"] == "no-proxy-match"
 
 
 def test_unparseable_url_is_its_own_bucket() -> None:

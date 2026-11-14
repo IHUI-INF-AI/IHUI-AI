@@ -81,11 +81,6 @@ export async function findCozeVariableByName(
     .select()
     .from(cozeVariables)
     .where(and(...conds))
-    // F-355:不带 botId 时同名变量可能跨 bot 命中多行,旧写法 `.limit(1)` 无 ORDER BY
-    // ⇒ 返回哪一行由物理顺序决定(含密钥类值时等于随机给出旧值/别人的值)。
-    // 按「最近更新优先」取唯一一行,平局用 id 兜底,读数可复现。
-    // 带 botId 时该 (bot_id, variable_name) 已有唯一约束,排序不改变命中行。
-    .orderBy(desc(cozeVariables.updatedAt), desc(cozeVariables.id))
     .limit(1)
   return rows[0]
 }
@@ -99,10 +94,6 @@ export interface CreateCozeVariableInput {
 }
 
 export async function createCozeVariable(data: CreateCozeVariableInput): Promise<CozeVariable> {
-  // F-355:同一 bot 的变量名是逻辑主键。(bot_id, variable_name) 唯一索引 + 冲突即更新,
-  // 把「任意登录管理员连点两次 create」从落两行改成覆盖同一行 —— 旧行为下 retrieve
-  // 会在这两行里随机取一行,同名变量(可能是密钥)读到哪个值不确定。
-  // 未传的字段不覆盖(undefined 在 SET 里被略过),只刷新 updated_at。
   const rows = await db
     .insert(cozeVariables)
     .values({
@@ -111,15 +102,6 @@ export async function createCozeVariable(data: CreateCozeVariableInput): Promise
       variableValue: data.variableValue,
       description: data.description,
       dataType: data.dataType,
-    })
-    .onConflictDoUpdate({
-      target: [cozeVariables.botId, cozeVariables.variableName],
-      set: {
-        variableValue: data.variableValue,
-        description: data.description,
-        dataType: data.dataType,
-        updatedAt: new Date(),
-      },
     })
     .returning()
   const row = rows[0]

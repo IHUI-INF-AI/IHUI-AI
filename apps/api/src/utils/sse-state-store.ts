@@ -45,6 +45,8 @@ export interface SseSessionMeta {
   upstreamSessionId: string | null
   /** 登记时间(毫秒) */
   createdAt: number
+  /** F-286:会话归属标识(与 registry 的 session.owner 一致),供迟到清理复核。 */
+  owner?: string
 }
 
 /** abort 广播消息(频道 payload)。 */
@@ -65,18 +67,19 @@ export interface SseStateStore {
 
   // —— 回放帧(热路径,同步;实现保证本地镜像始终有写) ——
   /** 注册流缓冲(清旧缓冲 + 取消其待释放定时器)。 */
-  registerStream(replayKey: string): void
+  registerStream(replayKey: string, owner?: string): void
   /** 追加回放帧(带上限裁剪语义)。 */
   appendReplayEvent(replayKey: string, event: ReplayEvent): void
-  /** 调度缓冲释放(流结束后保留窗口,供 Last-Event-ID 重放)。 */
-  releaseStream(replayKey: string): void
+  /** 调度缓冲释放(流结束后保留窗口,供 Last-Event-ID 重放)。expectedOwner 不匹配时静默跳过。 */
+  releaseStream(replayKey: string, expectedOwner?: string): void
 
   // —— 跨副本回放读取(异步;memory 实现等价本地同步读的 Promise 包装) ——
   fetchReplayEvents(replayKey: string, seq: number): Promise<ReplayEvent[]>
 
   // —— 会话元数据(跨副本可见;memory 实现为进程内 Map) ——
   upsertSessionMeta(meta: SseSessionMeta): void
-  deleteSessionMeta(replayKey: string): void
+  /** 删除会话元数据。expectedOwner 不匹配时静默跳过(F-286)。 */
+  deleteSessionMeta(replayKey: string, expectedOwner?: string): void
   fetchSessionMeta(replayKey: string): Promise<SseSessionMeta | null>
 
   // —— abort 广播(memory 实现下无远端,no-op) ——
@@ -97,16 +100,16 @@ class MemorySseStateStore implements SseStateStore {
   /** 进程内元数据镜像(单副本场景仅保接口完整性;跨副本需求由 Redis 实现满足) */
   private readonly metaByReplayKey = new Map<string, SseSessionMeta>()
 
-  registerStream(replayKey: string): void {
-    registerStream(replayKey)
+  registerStream(replayKey: string, owner?: string): void {
+    registerStream(replayKey, owner ?? null)
   }
 
   appendReplayEvent(replayKey: string, event: ReplayEvent): void {
     pushEvent(replayKey, event)
   }
 
-  releaseStream(replayKey: string): void {
-    releaseStream(replayKey)
+  releaseStream(replayKey: string, expectedOwner?: string): void {
+    releaseStream(replayKey, expectedOwner)
   }
 
   async fetchReplayEvents(replayKey: string, seq: number): Promise<ReplayEvent[]> {
@@ -117,7 +120,10 @@ class MemorySseStateStore implements SseStateStore {
     this.metaByReplayKey.set(meta.replayKey, meta)
   }
 
-  deleteSessionMeta(replayKey: string): void {
+  deleteSessionMeta(replayKey: string, expectedOwner?: string): void {
+    const cur = this.metaByReplayKey.get(replayKey)
+    // F-286:迟到清理不得删掉同 key 新会话的元数据
+    if (expectedOwner !== undefined && cur?.owner !== expectedOwner) return
     this.metaByReplayKey.delete(replayKey)
   }
 
@@ -237,9 +243,9 @@ class RedisSseStateStore implements SseStateStore {
     })
   }
 
-  registerStream(replayKey: string): void {
+  registerStream(replayKey: string, owner?: string): void {
     // 本地镜像:清旧缓冲(现状行为);远端:DEL 旧 List,随首帧重建
-    registerStream(replayKey)
+    registerStream(replayKey, owner ?? null)
     this.sideEffect((redis) => redis.del(REPLAY_KEY(replayKey), SESSION_KEY(replayKey)))
   }
 
@@ -257,8 +263,9 @@ class RedisSseStateStore implements SseStateStore {
     })
   }
 
-  releaseStream(replayKey: string): void {
-    releaseStream(replayKey)
+  releaseStream(replayKey: string, expectedOwner?: string): void {
+    // F-286:本地复核未通过(已被新一代接管)时不同步远端过期,免得掐掉新流的 List
+    if (!releaseStream(replayKey, expectedOwner)) return
     // 远端对齐 60s 保留窗口后自动过期
     this.sideEffect((redis) => redis.expire(REPLAY_KEY(replayKey), 60))
   }
@@ -288,8 +295,18 @@ class RedisSseStateStore implements SseStateStore {
     )
   }
 
-  deleteSessionMeta(replayKey: string): void {
-    this.sideEffect((redis) => redis.del(SESSION_KEY(replayKey)))
+  deleteSessionMeta(replayKey: string, expectedOwner?: string): void {
+    this.sideEffect(async (redis) => {
+      const key = SESSION_KEY(replayKey)
+      if (expectedOwner !== undefined) {
+        const raw = await redis.get(key)
+        if (!raw) return
+        const meta = JSON.parse(raw) as SseSessionMeta
+        // F-286:远端元数据已被新会话覆盖时静默跳过
+        if (meta.owner !== expectedOwner) return
+      }
+      await redis.del(key)
+    })
   }
 
   async fetchSessionMeta(replayKey: string): Promise<SseSessionMeta | null> {

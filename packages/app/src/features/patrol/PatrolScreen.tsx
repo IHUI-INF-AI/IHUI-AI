@@ -39,6 +39,7 @@ import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import type { TFunction } from '@ihui/types'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { TextField } from '../../components/TextField'
+import { toFriendlyOr } from '@ihui/shared/utils'
 
 export type PatrolType = 'ci' | 'dependency' | 'log' | 'deadlink' | 'workspace' | 'custom'
 export type PatrolStatus = 'active' | 'paused'
@@ -367,7 +368,7 @@ export function PatrolScreen({
       setParts(DEFAULT_RRULE_PARTS)
       setTimeDraft(DEFAULT_RRULE_PARTS.time)
     } catch (e) {
-      setFormError(e instanceof Error ? e.message : t('patrol.toast.saveFailed'))
+      setFormError(toFriendlyOr(e, t('patrol.toast.saveFailed')))
     } finally {
       setSaving(false)
     }
@@ -390,7 +391,7 @@ export function PatrolScreen({
     try {
       await onRunNow(id)
     } catch (e) {
-      setRowError(e instanceof Error ? e.message : t('patrol.toast.runFailed'))
+      setRowError(toFriendlyOr(e, t('patrol.toast.runFailed')))
     } finally {
       setBusyId(null)
     }
@@ -403,7 +404,7 @@ export function PatrolScreen({
     try {
       await onToggleStatus(task.id, task.status === 'active' ? 'paused' : 'active')
     } catch (e) {
-      setRowError(e instanceof Error ? e.message : t('patrol.toast.updateFailed'))
+      setRowError(toFriendlyOr(e, t('patrol.toast.updateFailed')))
     } finally {
       setBusyId(null)
     }
@@ -426,7 +427,7 @@ export function PatrolScreen({
         setRuns([])
       }
     } catch (e) {
-      setRowError(e instanceof Error ? e.message : t('patrol.toast.deleteFailed'))
+      setRowError(toFriendlyOr(e, t('patrol.toast.deleteFailed')))
     } finally {
       setBusyId(null)
     }
@@ -446,7 +447,7 @@ export function PatrolScreen({
     try {
       setRuns(await onLoadRuns(task.id))
     } catch (e) {
-      setRunsError(e instanceof Error ? e.message : t('patrol.toast.loadFailed'))
+      setRunsError(toFriendlyOr(e, t('patrol.toast.loadFailed')))
     } finally {
       setRunsLoading(false)
     }
@@ -457,6 +458,9 @@ export function PatrolScreen({
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.body}
+        // keyboardShouldPersistTaps="handled":表单区内有输入框,缺省 'never'
+        // 会让键盘弹起后的第一下点击只收键盘(点不到保存/取消),用户要点两次。
+        keyboardShouldPersistTaps="handled"
         refreshControl={
           onRefresh ? (
             <RefreshControl
@@ -758,7 +762,7 @@ export function PatrolScreen({
                     void handleDelete(task)
                   }}
                 >
-                  <Trash2 size={13} color={tk.danger.DEFAULT} />
+                  <Trash2 size={13} color={tk.danger.deepText} />
                   <Text style={[styles.actionText, styles.dangerText]}>
                     {t('patrol.action.delete')}
                   </Text>
@@ -811,9 +815,9 @@ export function PatrolScreen({
 }
 
 function resultColor(status: PatrolRunStatus, tk: AppThemeTokens): { color: string } {
-  if (status === 'ok') return { color: tk.success.DEFAULT }
+  if (status === 'ok') return { color: tk.success.deepText }
   if (status === 'issue') return { color: tk.brandAccent.deep }
-  return { color: tk.danger.DEFAULT }
+  return { color: tk.danger.deepText }
 }
 
 function createStyles(tk: AppThemeTokens) {
@@ -861,7 +865,7 @@ function createStyles(tk: AppThemeTokens) {
     cardTitle: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
     label: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tk.text.primary },
     muted: { fontSize: rnType.bodySm.size, color: tk.text.secondary, lineHeight: 19 },
-    error: { fontSize: rnType.bodySm.size, color: tk.danger.DEFAULT },
+    error: { fontSize: rnType.bodySm.size, color: tk.danger.deepText },
     centerBox: { alignItems: 'center', gap: rnSpacing.sm, paddingVertical: rnSpacing.lg },
     input: {
       height: 42,
@@ -902,7 +906,7 @@ function createStyles(tk: AppThemeTokens) {
     statusOn: { borderColor: tk.success.DEFAULT },
     statusOff: { borderColor: tk.border.medium },
     statusText: { fontSize: rnType.badge.size, fontWeight: '600', color: tk.text.secondary },
-    statusTextOn: { color: tk.success.DEFAULT },
+    statusTextOn: { color: tk.success.deepText },
     resultRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: rnSpacing.sm },
     resultSummary: {
       flexShrink: 1,
@@ -920,7 +924,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     actionBtn: { flexDirection: 'row', alignItems: 'center', gap: 3 },
     actionText: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tk.text.primary },
-    dangerText: { color: tk.danger.DEFAULT },
+    dangerText: { color: tk.danger.deepText },
     historyBox: {
       marginTop: rnSpacing.sm,
       paddingTop: rnSpacing.sm,

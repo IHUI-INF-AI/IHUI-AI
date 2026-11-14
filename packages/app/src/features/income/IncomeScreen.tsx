@@ -300,10 +300,10 @@ function createStyles(tk: AppThemeTokens) {
       marginRight: rnSpacing.sm,
     },
     cardStatus: { fontSize: rnType.caption.size, fontWeight: '600' },
-    statusSettled: { color: tk.success.DEFAULT },
-    statusPending: { color: tk.warning.DEFAULT },
+    statusSettled: { color: tk.success.deepText },
+    statusPending: { color: tk.warning.amberText },
     // 取消结算(对齐 Uniapp 取消结算状态)
-    statusCancelled: { color: tk.text.tertiary },
+    statusCancelled: { color: tk.text.medium },
     // 下单人
     cardBuyer: {
       fontSize: rnType.label.size,
@@ -316,8 +316,8 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'space-between',
       marginTop: rnSpacing.sm,
     },
-    cardTime: { fontSize: rnType.caption.size, color: tk.text.tertiary },
-    cardAmount: { fontSize: rnType.title.size, fontWeight: '700', color: tk.success.DEFAULT },
+    cardTime: { fontSize: rnType.caption.size, color: tk.text.medium },
+    cardAmount: { fontSize: rnType.title.size, fontWeight: '700', color: tk.success.deepText },
     // 关联订单 + 复制按钮
     copyRow: {
       flexDirection: 'row',
@@ -326,7 +326,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: rnSpacing.sm,
       gap: rnSpacing.sm,
     },
-    cardOrder: { flex: 1, fontSize: rnType.caption.size, color: tk.text.tertiary },
+    cardOrder: { flex: 1, fontSize: rnType.caption.size, color: tk.text.medium },
     copyBtn: {
       paddingHorizontal: rnSpacing.md,
       paddingVertical: rnSpacing.xs,

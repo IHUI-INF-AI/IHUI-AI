@@ -2,18 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import {
-  pgTable,
-  uuid,
-  varchar,
-  timestamp,
-  jsonb,
-  char,
-  index,
-  uniqueIndex,
-  bigserial,
-  boolean,
-} from 'drizzle-orm/pg-core'
+import { pgTable, uuid, varchar, timestamp, jsonb, char, index, boolean } from 'drizzle-orm/pg-core'
 import { users } from './users.js'
 
 /**
@@ -25,18 +14,6 @@ export const auditLogsChain = pgTable(
   'audit_logs_chain',
   {
     id: uuid('id').defaultRandom().primaryKey(),
-    /**
-     * F-274(2026-11-14 立):链序 —— 单调序号,写入顺序即链序。
-     *
-     * 旧实现写链时用 `ORDER BY timestamp DESC LIMIT 1` 取链尾,而 timestamp 是各实例
-     * 的本地毫秒时钟:跨实例偏差 / NTP 回拨会让"时间戳最大"不等于"最后写入",
-     * 同毫秒并发时也没有 tie-breaker(id 是随机 uuid)。后果是先写后读挂错前驱
-     * (链分叉),或校验按时间戳重排后误报"链断裂"。
-     *
-     * 本列由库序列分配(迁移 20261114091500),**不进哈希输入**(存量行 current_hash
-     * 因此一字不改),存量行按物理插入顺序回填。
-     */
-    seq: bigserial('seq', { mode: 'number' }).notNull(),
     timestamp: timestamp('timestamp', { withTimezone: true }).notNull(),
     userId: uuid('user_id').references(() => users.id, { onDelete: 'set null' }),
     action: varchar('action', { length: 64 }).notNull(),
@@ -60,7 +37,6 @@ export const auditLogsChain = pgTable(
     currentHash: char('current_hash', { length: 64 }).notNull(),
   },
   (t) => ({
-    seqUniq: uniqueIndex('audit_logs_chain_seq_uniq').on(t.seq),
     tsIdx: index('idx_audit_chain_ts').on(t.timestamp),
     userIdx: index('idx_audit_chain_user').on(t.userId),
     actIdx: index('idx_audit_chain_act').on(t.action),

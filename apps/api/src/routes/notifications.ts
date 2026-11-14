@@ -3,9 +3,8 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
-import { randomUUID } from 'node:crypto'
 import { z } from 'zod'
-import { and, eq, inArray, sql } from 'drizzle-orm'
+import { inArray, sql } from 'drizzle-orm'
 import { users } from '@ihui/database'
 import type { UnreadCount } from '@ihui/types'
 import { authenticate } from '../plugins/auth.js'
@@ -414,13 +413,10 @@ export const notificationRoutes: FastifyPluginAsync = async (server) => {
       // 异步广播策略:先查出所有用户,然后批量入队 notification 队列
       // 由 Worker 异步完成 DB 落库 + WebSocket 推送,避免大用户量时阻塞请求
       // 队列不可用时降级为同步直写(向后兼容)
-      // F-639:收件人只看 status=1(排除 0=禁用 / 3=注销),不再向注销账号投递。
-      let syncWriteStarted = false
       try {
         const allUsers = await db
           .select({ id: users.id, email: users.email, nickname: users.nickname })
           .from(users)
-          .where(eq(users.status, 1))
         if (allUsers.length === 0) {
           return reply.send(success({ sentCount: 0 }))
         }
@@ -429,22 +425,15 @@ export const notificationRoutes: FastifyPluginAsync = async (server) => {
         const notificationQueue = (
           server as unknown as {
             notificationQueue?: {
-              addBulk: (
-                jobs: { name: string; data: unknown; opts?: { jobId?: string } }[],
-              ) => Promise<unknown>
+              addBulk: (jobs: { name: string; data: unknown }[]) => Promise<unknown>
             }
           }
         ).notificationQueue
         if (notificationQueue) {
-          // F-512:每条目标一个确定性 jobId(本次广播批次 × 收件人)—— addBulk 内部重试
-          // 或生产侧重放同批次时,BullMQ 直接按 jobId 去重,不再产生第二条投递。
-          // 注意:BullMQ 禁止 jobId 含 ':',故用 '-' 连接。
-          const broadcastBatchId = randomUUID()
           // 批量入队,Worker 会异步完成 DB 落库 + WebSocket 推送
           await notificationQueue.addBulk(
             allUsers.map((u) => ({
               name: 'broadcast',
-              opts: { jobId: `notif-broadcast-${broadcastBatchId}-${u.id}` },
               data: {
                 userId: u.id,
                 type: parsed.data.type,
@@ -459,16 +448,12 @@ export const notificationRoutes: FastifyPluginAsync = async (server) => {
         }
 
         // 降级:队列不可用时同步直写(原逻辑)
-        syncWriteStarted = true
         const created = await broadcastNotification(parsed.data)
         for (const n of created) {
           server.pushNotification(n.userId, n)
         }
         return reply.send(success({ sentCount: created.length, async: false }))
       } catch (e) {
-        // F-639:同步直写已开始后仍抛错 ⇒ 已有部分批次落库,不能再无幂等键地重跑一遍全量
-        // (会重复投递)。如实 500,让调用方看到真实失败。
-        if (syncWriteStarted) throw e
         request.log.warn({ err: e }, 'broadcast notification failed, fallback to sync')
         // 最终降级:同步直写
         const created = await broadcastNotification(parsed.data)
@@ -554,7 +539,6 @@ export const notificationRoutes: FastifyPluginAsync = async (server) => {
       }[]
 
       if (userIds !== null) {
-        // F-639:显式指定收件人同样只认有效账号(status=1),禁用/注销用户不投递。
         targetUsers = await db
           .select({
             id: users.id,
@@ -563,7 +547,7 @@ export const notificationRoutes: FastifyPluginAsync = async (server) => {
             nickname: users.nickname,
           })
           .from(users)
-          .where(and(inArray(users.id, userIds), eq(users.status, 1)))
+          .where(inArray(users.id, userIds))
       } else {
         const rolesList = roleFilter!
         const numericRoleIds = rolesList.filter((r) => /^\d+$/.test(r)).map(Number)

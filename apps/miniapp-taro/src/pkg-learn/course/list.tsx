@@ -1,10 +1,15 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-// 镜像 packages/app/src/features/course-tab/CourseTabScreen.tsx
-import { useTt, useI18n } from '@/i18n'
-import { View, Text, Image } from '@tarojs/components'
+// 镜像 packages/app/src/features/course-screen/CourseScreen.tsx
+//
+// 薄壳(2026-11-14 收敛):列表视图委托共享屏 `CourseScreen`,本端只保留平台职责:
+//   ① 取数 —— GET /api/content/course/list(点搜索重取 + 触底追加);
+//   ② 生命周期 —— usePullDownRefresh / useReachBottom / useShareAppMessage / useShareTimeline;
+//   ③ 导航 —— 课程详情。
+// 字段映射本端独有(本端 api 层把 instructor→teacher、cover→coverUrl),
+// 收敛前这些字段名差异逼得整页手抄一份样式;现在映射只发生在一处,视图只有一份。
+import { useI18n } from '@/i18n'
 import Taro, {
   usePullDownRefresh,
   useReachBottom,
@@ -12,34 +17,61 @@ import Taro, {
   useShareTimeline,
   useRouter,
 } from '@tarojs/taro'
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { getCourseList, type Course } from '@/api'
-// P2-F 接线:SectionHeader/ColorfulLoader 切换为 Taro 适配层导出(props 契约与旧实现一致)
-import { SectionHeader, ColorfulLoader } from '@/components/adapters'
 import ThemeRoot from '@/components/ThemeRoot'
-import SearchBar from '@/components/SearchBar'
+import { useAppTheme } from '@/lib/theme'
+import { CourseScreen } from '@ihui/rn-app/features/course-screen/CourseScreen'
+import type { CourseScreenItem } from '@ihui/types'
+
+type CourseRow = Course & { signupCount?: number }
+
+const LEVELS = ['beginner', 'intermediate', 'advanced'] as const
+type CourseLevel = (typeof LEVELS)[number]
+
+/** 端内 level 是自由字符串(后端下发值不受控);共享契约是三档枚举,未登记值退回 beginner 而不造新档 */
+function toLevel(raw: string | undefined): CourseLevel {
+  return LEVELS.includes(raw as CourseLevel) ? (raw as CourseLevel) : 'beginner'
+}
 
 /**
- * 后端 `/content/course/list` 的投影额外回传 signupCount(见
- * miniapp-public-fallback-routes 的 toCourseRow),端内 Course 类型未声明该列 ⇒ 本页按可选字段
- * 消费,缺失按 0 处理(与共享屏 studentCount 的 `?? 0` 同口径,不造数据)。
+ * 本端 Course → 共享 CourseScreenItem 的投影。
+ *
+ * 为什么需要这一层:本端 api 层的历史命名(coverUrl/teacher/signupCount)与共享契约
+ * (cover/instructor/studentCount)不同。投影放在本端,共享屏不必认识端内命名;
+ * 缺失值按共享屏同口径兜底(signupCount 缺省 0、price 缺省 0),不造数据。
  */
-type CourseRow = Course & { signupCount?: number }
+function toCourseItem(item: CourseRow): CourseScreenItem {
+  return {
+    id: String(item.id),
+    title: item.title,
+    cover: item.coverUrl,
+    description: item.subtitle || item.description,
+    level: toLevel(item.level),
+    instructor: item.teacher ?? '',
+    studentCount: item.signupCount ?? 0,
+    isFree: (item.price ?? 0) <= 0,
+    price: item.price ?? 0,
+  }
+}
 
 export default function CourseList() {
   const { t } = useI18n()
-  const tt = useTt()
+  const { resolved } = useAppTheme()
   const router = useRouter()
   const initialKeyword = router.params.keyword || ''
   const [list, setList] = useState<CourseRow[]>([])
   const [loading, setLoading] = useState(false)
   const [keyword, setKeyword] = useState(initialKeyword)
+  const [page, setPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
   const pageRef = useRef(1)
   const hasMoreRef = useRef(true)
   const loadingRef = useRef(false)
   const lenRef = useRef(0)
   const keywordRef = useRef(initialKeyword)
 
+  /** 取数:reset=true 从第 1 页重取,否则追加下一页 */
   const load = useCallback(async (reset = false) => {
     if (loadingRef.current) return
     if (reset) {
@@ -61,31 +93,36 @@ export default function CourseList() {
       lenRef.current = reset ? more.length : lenRef.current + more.length
       setList((prev) => (reset ? more : [...prev, ...more]))
       hasMoreRef.current = lenRef.current < res.total
+      setPage(pageRef.current)
+      setTotalPages(Math.max(1, Math.ceil((res.total || 0) / 10)))
       pageRef.current++
     } catch {
-      // 统一提示
+      // 共享屏以空态/既有列表承接;失败不伪造数据
     } finally {
       loadingRef.current = false
       setLoading(false)
     }
   }, [])
 
+  /** 点搜索/回车:把输入框当前值定为生效关键字并重取 */
   const onSearch = useCallback(() => {
     keywordRef.current = keyword
-    load(true)
+    void load(true)
   }, [keyword, load])
 
-  const goDetail = useCallback((id: string | number) => {
+  const goDetail = useCallback((id: string) => {
     Taro.navigateTo({ url: `/pkg-learn/course/detail?id=${id}` })
   }, [])
 
   usePullDownRefresh(() => {
     load(true).finally(() => Taro.stopPullDownRefresh())
   })
-  useReachBottom(() => load())
+  useReachBottom(() => {
+    void load()
+  })
 
   useEffect(() => {
-    load(true)
+    void load(true)
   }, [load])
 
   useShareAppMessage(() => ({
@@ -98,97 +135,34 @@ export default function CourseList() {
     query: '',
   }))
 
+  const items = useMemo(() => list.map(toCourseItem), [list])
+
   return (
     <ThemeRoot>
-      {/* 对齐 RN CourseTabScreen:容器底 surface.bg(--color-background),内容内边距 = section padding 14dp→28rpx,底部 scrollContent 24dp→48rpx */}
-      <View className="min-h-screen bg-background px-[28rpx] pt-[28rpx] pb-[48rpx]">
-        {/* 搜索区对齐 RN searchInput(统一为圆角输入井,共享 SearchBar);RN 无独立搜索按钮,保留功能入口 */}
-        <View className="flex items-center mb-[24rpx]">
-          <SearchBar
-            className="flex-1"
-            value={keyword}
-            placeholder={t('course.list.searchPlaceholder')}
-            onInput={setKeyword}
-            onSearch={onSearch}
-            onClear={() => setKeyword('')}
-          />
-          <View
-            className="ml-[16rpx] px-[24rpx] h-[100rpx] leading-[100rpx] text-muted-foreground text-body"
-            hoverClass="opacity-60"
-            onClick={onSearch}
-          >
-            <Text>{t('course.list.search')}</Text>
-          </View>
-        </View>
-
-        <View className="mb-[24rpx]">
-          <SectionHeader
-            title={tt('course.list.title', '精品课程')}
-            subtitle={tt('course.list.courseCount', '{n} 门课程', { n: list.length })}
-            showMore={false}
-          />
-        </View>
-
-        {list.length > 0 && (
-          <View>
-            {list.map((item) => (
-              <View
-                key={item.id}
-                className="flex bg-card rounded-lg overflow-hidden mb-[24rpx]"
-                hoverClass="opacity-85"
-                onClick={() => goDetail(item.id)}
-              >
-                {/* 对齐 RN courseImage:110×110dp→220×220rpx,圆角 12dp→24rpx,底色 border.light */}
-                <Image
-                  className="w-[220rpx] h-[220rpx] bg-border flex-shrink-0"
-                  src={item.coverUrl}
-                  mode="aspectFill"
-                />
-                {/* 对齐 RN courseInfo:padding 12dp→24rpx,纵向 gap 6dp→12rpx;价格独立成行(RN pricePaid:16dp→32rpx/600/text.primary) */}
-                <View className="flex-1 p-[24rpx] flex flex-col gap-[12rpx]">
-                  <Text className="text-title text-foreground font-semibold">
-                    {item.title}
-                  </Text>
-                  {item.subtitle && (
-                    <Text className="text-body text-muted-foreground">
-                      {item.subtitle}
-                    </Text>
-                  )}
-                  {/* 对齐 RN courseMeta:讲师 · 「N 人学过」同一行(metaText 11dp→22rpx) */}
-                  {(item.teacher || (item.signupCount ?? 0) > 0) && (
-                    <Text className="text-label text-muted-foreground">
-                      {item.teacher ? `${item.teacher} · ` : ''}
-                      {tt('course.studentCount', '{count} 人学过', {
-                        count: item.signupCount ?? 0,
-                      })}
-                    </Text>
-                  )}
-                  <Text className="text-title text-foreground font-semibold">
-                    ¥{item.price ?? 0}
-                  </Text>
-                </View>
-              </View>
-            ))}
-          </View>
-        )}
-
-        {/* 对齐 RN emptyWrap/emptyText:paddingY 48dp→96rpx,字号 14dp→28rpx,text.secondary */}
-        {!loading && list.length === 0 && (
-          <View className="text-center py-[96rpx]">
-            <Text className="text-body text-muted-foreground">
-              {t('course.list.empty')}
-            </Text>
-          </View>
-        )}
-
-        {/* 对齐 RN centerWrap:paddingY 48dp→96rpx */}
-        {loading && (
-          <View className="flex justify-center items-center py-[96rpx]">
-            <ColorfulLoader size={80} />
-          </View>
-        )}
-      </View>
+      <CourseScreen
+        t={t}
+        items={items}
+        keyword={keyword}
+        loading={loading}
+        error=""
+        page={page}
+        totalPages={totalPages}
+        onKeywordChange={setKeyword}
+        onSearch={onSearch}
+        onEndReached={() => {
+          void load()
+        }}
+        onPageChange={(p) => {
+          // 共享屏翻页器按页跳转;本端是追加式列表,跳页即从该页重取
+          pageRef.current = p
+          hasMoreRef.current = true
+          lenRef.current = 0
+          setList([])
+          void load()
+        }}
+        onPressItem={goDetail}
+        colorScheme={resolved}
+      />
     </ThemeRoot>
   )
 }
-// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -28,26 +28,12 @@ import {
   readFileSync,
   readdirSync,
   realpathSync,
-  renameSync,
   rmSync,
   statSync,
   writeFileSync,
 } from 'node:fs'
-import { logger } from '../utils/logger.js'
-import { decryptField, encryptField } from '../utils/crypto.js'
-import { getProcessRole } from '../utils/process-role.js'
 import { homedir, platform } from 'node:os'
-import {
-  basename,
-  delimiter,
-  dirname,
-  extname,
-  isAbsolute,
-  join,
-  relative,
-  resolve,
-  sep,
-} from 'node:path'
+import { basename, dirname, extname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 // 工作区登记根判据(单源):文件桥的 workspacePath 与 browse 的 path 都问它,不再各处自量
 import {
   assertWithinRegisteredRoots,
@@ -71,27 +57,8 @@ const execAsync = promisify(exec)
 const STORE_ROOT = join(homedir(), '.ihui')
 const SWARMS_DIR = join(STORE_ROOT, 'swarms')
 const BG_AGENTS_DIR = join(STORE_ROOT, 'background-agents')
+const ROUTINES_FILE = join(STORE_ROOT, 'routines.json')
 const PERSONAS_FILE = join(STORE_ROOT, 'personas.json')
-
-/**
- * 例行程序存储文件(F-301)。IHUI_STORE_ROOT 仅用于测试注入临时存储根,生产默认 ~/.ihui。
- * 路径延迟求值:测试在模块导入后才设置环境变量,不能在模块顶层把路径钉死。
- */
-function routinesFile(): string {
-  return join(process.env.IHUI_STORE_ROOT?.trim() || STORE_ROOT, 'routines.json')
-}
-
-/**
- * 最近工作区按 userId 分文件(F-278):此前是全局共享的 recent-workspaces.json,
- * 任何登录用户 GET /fs/recent 都能读到别人最近打开的绝对路径。
- * 文件名用 userId 的 SHA-256 前缀,避免把任意 userId 直接拼进路径(目录穿越/非法字符)。
- * IHUI_STORE_ROOT 仅用于测试注入临时存储根,生产默认仍是 ~/.ihui。
- */
-function recentWorkspacesFile(userId: string): string {
-  const root = process.env.IHUI_STORE_ROOT?.trim() || STORE_ROOT
-  const key = createHash('sha256').update(userId).digest('hex').slice(0, 32)
-  return join(root, 'recent-workspaces', `${key}.json`)
-}
 
 function ensureDir(dir: string): void {
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
@@ -142,27 +109,9 @@ function readJsonForUpdate<T>(file: string, fallback: T, unread: string): T {
   return parsed as T
 }
 
-let writeJsonSeq = 0
-
-/**
- * F-303:落盘改「临时文件 + rename」原子写 —— 直接 writeFileSync 目标文件时,
- * 磁盘满 / Windows EBUSY / 只读挂载会在写了一半时抛错,留下半截 JSON(下次读出必崩)。
- * 临时文件与目标同目录(同一分区),失败时尽力清理临时文件但保留原始错误。
- */
 function writeJson(file: string, data: unknown): void {
   ensureDir(dirname(file))
-  const tmp = `${file}.${process.pid}.${++writeJsonSeq}.tmp`
-  try {
-    writeFileSync(tmp, JSON.stringify(data, null, 2), 'utf-8')
-    renameSync(tmp, file)
-  } catch (error) {
-    try {
-      rmSync(tmp, { force: true })
-    } catch {
-      // 清理失败不得掩盖原始写入错误
-    }
-    throw error
-  }
+  writeFileSync(file, JSON.stringify(data, null, 2), 'utf-8')
 }
 
 // =============================================================================
@@ -187,8 +136,6 @@ export interface SwarmAgent {
 
 export interface SwarmPlan {
   swarmId: string
-  /** F-402:属主用户 —— 所有读取/推进/终止入口都按 (swarmId, ownerId) 定位,防跨用户劫持。 */
-  ownerId: string
   task: string
   agents: SwarmAgent[]
   workspacePath: string
@@ -202,7 +149,6 @@ class SwarmManager {
   private plans = new Map<string, SwarmPlan>()
 
   create(params: {
-    ownerId: string
     task: string
     workspacePath: string
     modelId?: string
@@ -231,7 +177,6 @@ class SwarmManager {
     }))
     const plan: SwarmPlan = {
       swarmId,
-      ownerId: params.ownerId,
       task: params.task,
       agents,
       workspacePath: params.workspacePath,
@@ -245,23 +190,19 @@ class SwarmManager {
     return plan
   }
 
-  /** F-402:列表只返回该属主的 swarm。 */
-  list(ownerId: string): SwarmPlan[] {
-    return Array.from(this.plans.values()).filter((p) => p.ownerId === ownerId)
+  list(): SwarmPlan[] {
+    return Array.from(this.plans.values())
   }
 
-  /** F-402:按 (swarmId, ownerId) 定位;非属主视为不存在(null),由路由转 404 防枚举。 */
-  get(swarmId: string, ownerId: string): SwarmPlan | null {
-    const plan = this.plans.get(swarmId)
-    if (!plan || plan.ownerId !== ownerId) return null
-    return plan
+  get(swarmId: string): SwarmPlan | null {
+    return this.plans.get(swarmId) ?? null
   }
 
   /**
    * 执行 swarm：无依赖 agent 并行，有依赖 agent 等待依赖完成后启动。
    */
-  async execute(swarmId: string, ownerId: string): Promise<SwarmPlan> {
-    const plan = this.get(swarmId, ownerId)
+  async execute(swarmId: string): Promise<SwarmPlan> {
+    const plan = this.plans.get(swarmId)
     if (!plan) throw new Error(`Swarm 不存在: ${swarmId}`)
     plan.status = 'executing'
     this.persist(plan)
@@ -300,8 +241,8 @@ class SwarmManager {
     return plan
   }
 
-  cancel(swarmId: string, ownerId: string): boolean {
-    const plan = this.get(swarmId, ownerId)
+  cancel(swarmId: string): boolean {
+    const plan = this.plans.get(swarmId)
     if (!plan) return false
     plan.status = 'failed'
     this.persist(plan)
@@ -1239,84 +1180,6 @@ function parseShellCommand(command: string): string[] | null {
   return tokens.length > 0 ? tokens : null
 }
 
-// =============================================================================
-// F-267 服务侧受控授权通道:依赖安装(自愈专用)
-// =============================================================================
-
-/**
- * 固定 argv —— 调用方**传不了**任何参数,所以没有 `--prefix`/`-C`/`-g` 这类
- * 改锚点、改落点、改网络面的开关位置。
- *
- * `--ignore-scripts` 不是可选项:依赖树里的 postinstall 是"装个包就执行任意代码"
- * 的现成形状,自愈是在无人值守链路里跑的,不能让它替第三方包执行脚本。
- */
-const DEPENDENCY_INSTALL_ARGV = ['install', '--ignore-scripts', '--no-frozen-lockfile'] as const
-
-/** 审计/展示用命令串:与 argv 同源拼出,不另写一份字面量 */
-export const DEPENDENCY_INSTALL_COMMAND = ['pnpm', ...DEPENDENCY_INSTALL_ARGV].join(' ')
-
-/**
- * 显式授权标记:只允许自愈依赖修复这一条服务端内建链路填它。
- * 它既不是 `isAdmin`(那是路由层按登录用户算的),也不会让 execute() 的解释器闸放行。
- */
-export type DependencyInstallAuthorization = 'self-healing:dependency-repair'
-
-const DEPENDENCY_INSTALL_AUTHORIZATION: DependencyInstallAuthorization =
-  'self-healing:dependency-repair'
-
-const DEPENDENCY_INSTALL_TIMEOUT_MS = 300_000
-
-/** 可被 node 当模块加载的入口扩展名 —— npm_execpath 也可能指向 pnpm.exe 本体 */
-const NODE_LOADABLE_ENTRY_RE = /\.[cm]?js$/i
-
-/**
- * 找 pnpm 的 JS 入口。判据与 `scripts/lib/npm-execpath.mjs` 同源:
- * `npm_execpath` 不保证是 JS 入口(pnpm 11/Windows 下是 @pnpm/exe 的 exe 本体),
- * 交给 node 直载会 `ERR_UNKNOWN_FILE_EXTENSION`;这里只接受两种可执行形态 ——
- * 原生 exe 本体(直接跑)或 `.js/.cjs/.mjs` 入口(node 直载),**不开 shell**。
- *
- * 为什么需要候选表:API 可能被 `node dist/index.js` 拉起(此时 npm_execpath 为空),
- * 而 Windows 上裸 `pnpm` 只是 `.cmd` shim,`execFile(shell:false)` 会直接 ENOENT。
- */
-export function resolvePnpmLaunch(): { command: string; prefix: string[] } | null {
-  const execPathHint = process.env.npm_execpath
-  if (execPathHint && /\.exe$/i.test(execPathHint) && existsSync(execPathHint)) {
-    return { command: execPathHint, prefix: [] }
-  }
-  const nodeDir = dirname(process.execPath)
-  const candidates: string[] = []
-  if (execPathHint && NODE_LOADABLE_ENTRY_RE.test(execPathHint)) candidates.push(execPathHint)
-  const bases = [nodeDir, join(nodeDir, '..', 'lib')]
-  if (execPathHint) bases.push(dirname(execPathHint))
-  // PATH 上的安装目录:npm 全局布局是 <prefix>/node_modules/pnpm/bin/*
-  for (const dir of (process.env.PATH ?? '').split(delimiter)) {
-    const trimmed = dir.trim()
-    if (!trimmed) continue
-    bases.push(trimmed, join(trimmed, '..'))
-  }
-  for (const base of bases) {
-    candidates.push(join(base, 'node_modules', 'pnpm', 'bin', 'pnpm.mjs'))
-    candidates.push(join(base, 'node_modules', 'pnpm', 'bin', 'pnpm.cjs'))
-  }
-  for (const candidate of candidates) {
-    if (existsSync(candidate)) return { command: process.execPath, prefix: [candidate] }
-  }
-  return null
-}
-
-export interface DependencyInstallPlan {
-  args: string[]
-  cwd: string
-  timeout: number
-}
-
-/** 测试注入点:替换真实派生,plan.args 恒为固定 argv */
-export type DependencyInstallRun = (plan: DependencyInstallPlan) => Promise<{
-  stdout: string
-  stderr: string
-  exitCode: number | null
-}>
-
 class SandboxExecutor {
   resolveMode(mode: string): SandboxMode {
     const map: Record<string, SandboxMode> = {
@@ -1550,120 +1413,6 @@ class SandboxExecutor {
         stderr: String(stderrText ?? '').slice(0, MAX_STDERR),
         exitCode: verdict.exitCode,
         mode,
-      }
-    }
-  }
-
-  /**
-   * F-267:自愈依赖修复的**受控授权通道**(与 execute(command) 平行的另一条面)。
-   *
-   * 为什么不复用 execute:`pnpm` 在 SANDBOX_INTERPRETER_BINARIES 里,非 admin 一律
-   * 126(实测)。把 pnpm 摘出闸、或让服务端自报 isAdmin 都是削弱闸本体 —— 这里两个
-   * 都不做:execute() 的判定一字未改,本方法只承载"固定 argv 的服务端内建动作"。
-   *
-   * 控制点全在服务端:
-   *   ① 调用方传不了命令串 —— argv 由 DEPENDENCY_INSTALL_ARGV 写死(含
-   *      `--ignore-scripts`,不让依赖的 postinstall 在无人值守链路里执行任意代码);
-   *   ② 根归属 —— workspacePath 必须落在登记根内,且**自身就是包根**:package.json
-   *      在它下面,realpath 也仍在根内(防符号链接把安装锚点挪到根外);
-   *   ③ 显式授权 —— authorization 只接受自愈那条链路填的字面量;
-   *   ④ Windows 上裸 `pnpm` 是 .cmd shim,execFile(shell:false) 会 ENOENT,
-   *      故按 resolvePnpmLaunch() 用 node 直载 pnpm 的 JS 入口,全程不开 shell。
-   */
-  async installWorkspaceDependencies(params: {
-    workspacePath: string
-    authorization: DependencyInstallAuthorization
-    timeoutMs?: number
-    /** 测试注入点:替换真实派生(plan.args 恒为固定 argv,注入改不了它) */
-    run?: DependencyInstallRun
-  }): Promise<{ command: string; stdout: string; stderr: string; exitCode: number | null }> {
-    if (params.authorization !== DEPENDENCY_INSTALL_AUTHORIZATION) {
-      throw new Error(
-        `未授权的依赖安装调用:该通道仅限自愈依赖修复(authorization=${DEPENDENCY_INSTALL_AUTHORIZATION})`,
-      )
-    }
-    const root = assertWithinRegisteredRoots(params.workspacePath, '工作区')
-    const pkgReal = realpathOrResolve(join(root, 'package.json'))
-    if (!existsSync(pkgReal)) {
-      throw new Error('依赖安装目标不是包根:该目录下没有 package.json')
-    }
-    if (!statSync(pkgReal).isFile()) {
-      throw new Error('依赖安装目标的 package.json 不是普通文件,拒绝执行')
-    }
-    if (!isInsideRoot(pkgReal, root)) {
-      throw new Error('依赖安装目标的 package.json 落点越出工作区根(疑似符号链接逃逸)')
-    }
-
-    const rawTimeout = Number(params.timeoutMs)
-    const timeout = Number.isFinite(rawTimeout)
-      ? Math.max(1000, Math.trunc(rawTimeout))
-      : DEPENDENCY_INSTALL_TIMEOUT_MS
-    const plan: DependencyInstallPlan = { args: [...DEPENDENCY_INSTALL_ARGV], cwd: root, timeout }
-    const result = params.run ? await params.run(plan) : await this.spawnDependencyInstall(plan)
-    return {
-      command: DEPENDENCY_INSTALL_COMMAND,
-      stdout: String(result.stdout ?? '').slice(0, MAX_STDOUT),
-      stderr: String(result.stderr ?? '').slice(0, MAX_STDERR),
-      exitCode: result.exitCode,
-    }
-  }
-
-  /** 真实派生:node 直载 pnpm 的 JS 入口(或 npm_execpath 指向的 exe 本体),无 shell */
-  private async spawnDependencyInstall(
-    plan: DependencyInstallPlan,
-  ): Promise<{ stdout: string; stderr: string; exitCode: number | null }> {
-    const launch = resolvePnpmLaunch()
-    if (!launch) {
-      throw new Error(
-        '未找到 pnpm 可执行入口(既无 node 可直载的 JS 入口,也无 npm_execpath 指向的可执行文件):请在服务端安装 pnpm 或让它出现在 PATH 上',
-      )
-    }
-    try {
-      const { stdout, stderr } = await new Promise<{ stdout: string; stderr: string }>(
-        (resolveRun, rejectRun) => {
-          execFile(
-            launch.command,
-            [...launch.prefix, ...plan.args],
-            {
-              cwd: plan.cwd,
-              env: this.cleanEnv(),
-              timeout: plan.timeout,
-              maxBuffer: 1024 * 1024,
-              shell: false,
-              windowsHide: true,
-            },
-            (err, out, errOut) => {
-              if (err) {
-                ;(err as Error & { stdout?: string; stderr?: string }).stdout = out
-                ;(err as Error & { stdout?: string; stderr?: string }).stderr = errOut
-                rejectRun(err)
-                return
-              }
-              resolveRun({ stdout: out, stderr: errOut })
-            },
-          )
-        },
-      )
-      return { stdout, stderr, exitCode: 0 }
-    } catch (e) {
-      const err = e as Error & {
-        stdout?: string
-        stderr?: string
-        code?: unknown
-        killed?: unknown
-      }
-      const stderrText = err.stderr ?? err.message
-      const verdict = settleSandboxJob({
-        timeoutMs: plan.timeout,
-        killed: err.killed,
-        code: err.code,
-        stdout: err.stdout,
-        stderr: stderrText,
-      })
-      return {
-        stdout: err.stdout ?? '',
-        stderr: String(stderrText ?? ''),
-        exitCode: verdict.exitCode,
       }
     }
   }
@@ -3049,11 +2798,6 @@ class PermissionManager {
     workspacePath: string
     tool: string
     args: Record<string, unknown>
-    /**
-     * 只读枚举场景(列表接口,如 /fs/recent、/fs/browse):本应转人工审计的 'ask'
-     * 不发起阻塞式确认,按「未被拒绝」放行;硬 deny(未配置/plan 非只读/规则拒绝)不变。
-     */
-    enumerateOnly?: boolean
   }): Promise<{
     allowed: boolean
     /**
@@ -3214,15 +2958,6 @@ class PermissionManager {
           matchedRule: gate.matchedRule,
         }
       }
-      if (params.enumerateOnly) {
-        return {
-          allowed: true,
-          mode: permModeWire,
-          configured: true,
-          reason: `只读枚举不发起人工审计(${gate.reason})`,
-          matchedRule: gate.matchedRule,
-        }
-      }
       const audit = await this.requestWorkspaceConfirmation({
         userId: params.userId,
         workspacePath: params.workspacePath,
@@ -3296,15 +3031,6 @@ class PermissionManager {
         mode: permModeWire,
         configured: true,
         reason: gate.reason,
-        matchedRule: gate.matchedRule,
-      }
-    }
-    if (params.enumerateOnly) {
-      return {
-        allowed: true,
-        mode: permModeWire,
-        configured: true,
-        reason: `只读枚举不发起人工审计(${gate.reason})`,
         matchedRule: gate.matchedRule,
       }
     }
@@ -3623,12 +3349,6 @@ export const personaRegistry = new PersonaRegistry()
 
 export interface Routine {
   id: string
-  /**
-   * 属主(F-301)。旧 routines.json 记录没有该字段(JSON 里也没有创建者信息,
-   * 无法回填),一律按 orphan 处理:任何用户都不算属主,list 不返回、get/update/
-   * delete/trigger 一律按「不存在」404,避免被任意登录用户读写。
-   */
-  userUuid: string
   name: string
   prompt: string
   cronExpression: string
@@ -3645,18 +3365,11 @@ class RoutineManager {
   private routines = new Map<string, Routine>()
   private timer: NodeJS.Timeout | null = null
   private blockedWrite: string | null = null
-  private loadedFrom: string | null = null
 
-  /** 懒加载:存储根可能在模块导入后由测试注入(IHUI_STORE_ROOT),路径变化时重读。 */
-  private ensureLoaded(): void {
-    const file = routinesFile()
-    if (this.loadedFrom === file) return
-    this.loadedFrom = file
-    this.routines.clear()
-    this.blockedWrite = null
+  constructor() {
     try {
       const saved = readJsonForUpdate<Routine[] | null>(
-        file,
+        ROUTINES_FILE,
         null,
         '例行程序读不到,不能按空名单覆盖',
       )
@@ -3667,38 +3380,24 @@ class RoutineManager {
     }
   }
 
-  /** 属主判定:旧记录缺 userUuid → orphan,不属于任何人。 */
-  private owns(routine: Routine | null | undefined, userId: string): routine is Routine {
-    if (!routine || typeof routine.userUuid !== 'string' || routine.userUuid === '') return false
-    return routine.userUuid === userId
+  list(): Routine[] {
+    return Array.from(this.routines.values())
   }
 
-  list(userId: string): Routine[] {
-    this.ensureLoaded()
-    return Array.from(this.routines.values()).filter((r) => this.owns(r, userId))
+  get(id: string): Routine | null {
+    return this.routines.get(id) ?? null
   }
 
-  get(id: string, userId: string): Routine | null {
-    this.ensureLoaded()
-    const r = this.routines.get(id)
-    return this.owns(r, userId) ? r : null
-  }
-
-  create(
-    params: {
-      name: string
-      prompt: string
-      cronExpression: string
-      workspacePath: string
-      modelId?: string
-    },
-    userId: string,
-  ): Routine {
-    this.ensureLoaded()
+  create(params: {
+    name: string
+    prompt: string
+    cronExpression: string
+    workspacePath: string
+    modelId?: string
+  }): Routine {
     const id = randomUUID().slice(0, 12)
     const routine: Routine = {
       id,
-      userUuid: userId,
       name: params.name,
       prompt: params.prompt,
       cronExpression: params.cronExpression,
@@ -3716,15 +3415,10 @@ class RoutineManager {
     return routine
   }
 
-  update(
-    id: string,
-    userId: string,
-    updates: Partial<Omit<Routine, 'id' | 'createdAt' | 'userUuid'>>,
-  ): Routine | null {
-    this.ensureLoaded()
-    const r = this.get(id, userId)
+  update(id: string, updates: Partial<Omit<Routine, 'id' | 'createdAt'>>): Routine | null {
+    const r = this.routines.get(id)
     if (!r) return null
-    const updated = { ...r, ...updates, id: r.id, createdAt: r.createdAt, userUuid: r.userUuid }
+    const updated = { ...r, ...updates, id: r.id, createdAt: r.createdAt }
     if (updates.cronExpression && updates.cronExpression !== r.cronExpression) {
       updated.nextRun = this.nextRunTime(updates.cronExpression)
     }
@@ -3733,24 +3427,15 @@ class RoutineManager {
     return updated
   }
 
-  delete(id: string, userId: string): boolean {
-    this.ensureLoaded()
-    if (!this.get(id, userId)) return false
+  delete(id: string): boolean {
     const deleted = this.routines.delete(id)
     if (deleted) this.persist()
     return deleted
   }
 
-  /** 用户手动触发:仅属主可触发(F-301)。调度器内部走 runRoutine,不受此限。 */
-  trigger(id: string, userId: string): string | null {
-    this.ensureLoaded()
-    const r = this.get(id, userId)
-    if (!r) return null
-    return this.runRoutine(r)
-  }
-
-  private runRoutine(r: Routine): string | null {
-    if (!r.enabled) return null
+  trigger(id: string): string | null {
+    const r = this.routines.get(id)
+    if (!r || !r.enabled) return null
     const agentId = backgroundAgentManager.start({
       prompt: r.prompt,
       workspacePath: r.workspacePath,
@@ -3763,26 +3448,10 @@ class RoutineManager {
     return agentId
   }
 
-  /**
-   * 启动调度器（每 60 秒检查一次 cron 匹配）。
-   *
-   * F-302:本方法此前在模块体末尾被无条件调用,而 API 与 worker 两个入口
-   * (index.ts / worker-entry.ts)都经 buildServer() 载入本模块 ⇒ 两进程各起一份,
-   * 同一分钟对同一份 routines.json 各触发一次,persist 还整文件互相覆盖。
-   * 现改为只由 API 角色、在 index.ts 的 startBackgroundSchedulers(蓝绿活跃色独占
-   * 判定之后)调用一次;其它角色调用被显式拒绝,同进程重复调用幂等(返回 false)。
-   *
-   * @returns 本次调用是否真的起了一个定时器
-   */
-  startScheduler(): boolean {
-    if (this.timer) return false
-    const role = getProcessRole()
-    if (role !== 'api') {
-      logger.warn('例行程序调度器只在 API 角色启动,本次调用被拒绝', { role })
-      return false
-    }
+  /** 启动调度器（每 60 秒检查一次 cron 匹配） */
+  startScheduler(): void {
+    if (this.timer) return
     this.timer = setInterval(() => this.tick(), 60_000)
-    return true
   }
 
   stopScheduler(): void {
@@ -3792,33 +3461,13 @@ class RoutineManager {
     }
   }
 
-  /**
-   * F-303:定时器回调绝不能往外抛 —— 一步 setInterval 回调里的异常就是
-   * uncaughtException,直接打死 API 进程。两级隔离:
-   *   ① 单条 routine 的 runRoutine(含其 persist 写盘)失败只降级为 error 日志,不中断其它 routine;
-   *   ② tick 整体再兜一层,保证任何意外(含 ensureLoaded)都不逸出到定时器。
-   * persist 失败不吞在 persist 里:create/update/delete 等请求路径仍要把错误回给调用方。
-   */
   private tick(): void {
-    try {
-      this.ensureLoaded()
-      const now = nowSec()
-      for (const r of this.routines.values()) {
-        if (!r.enabled || r.nextRun === null) continue
-        if (r.nextRun > now) continue
-        try {
-          this.runRoutine(r)
-        } catch (error) {
-          logger.error('例行程序触发失败,已跳过本轮', {
-            routineId: r.id,
-            error: error instanceof Error ? error.message : String(error),
-          })
-        }
+    const now = nowSec()
+    for (const r of this.routines.values()) {
+      if (!r.enabled || r.nextRun === null) continue
+      if (r.nextRun <= now) {
+        this.trigger(r.id)
       }
-    } catch (error) {
-      logger.error('例行程序调度 tick 失败,下一次心跳继续', {
-        error: error instanceof Error ? error.message : String(error),
-      })
     }
   }
 
@@ -3874,7 +3523,7 @@ class RoutineManager {
 
   private persist(): void {
     if (this.blockedWrite) throw new Error(this.blockedWrite)
-    writeJson(routinesFile(), Array.from(this.routines.values()))
+    writeJson(ROUTINES_FILE, Array.from(this.routines.values()))
   }
 }
 
@@ -3886,63 +3535,12 @@ export const routineManager = new RoutineManager()
 
 const GITHUB_API_BASE = 'https://api.github.com'
 
-/**
- * F-442:GitHub 令牌按用户隔离落库(user_preferences,值经 AES-256-GCM 加密),
- * 不再读写全站共享的 `~/.ihui/github_token`。
- * group 仅本文件使用,故不扩 USER_PREFERENCE_GROUPS(避免触碰非本工单文件)。
- */
-const GITHUB_TOKEN_GROUP = 'workspace_github'
-const GITHUB_TOKEN_KEY = 'token'
-
 class GitHubClient {
-  /**
-   * 读取**调用者自己**的令牌。未存过时回落部署级 env(平台令牌,用户不可写),
-   * 绝不回落到任何共享文件或他人记录。
-   */
-  async loadTokenForUser(userId: string): Promise<string> {
-    const { findUserPreferences } = await import('../db/user-preferences-queries.js')
-    const { list } = await findUserPreferences(userId, GITHUB_TOKEN_GROUP)
-    const row = list.find((p) => p.key === GITHUB_TOKEN_KEY)
-    if (row?.value) return decryptField(row.value).trim()
-    return (process.env.GITHUB_TOKEN ?? '').trim()
-  }
-
-  async hasTokenForUser(userId: string): Promise<boolean> {
-    return (await this.loadTokenForUser(userId)).length > 0
-  }
-
-  /**
-   * F-444:只读**调用者自己**的令牌,绝不回落部署级平台令牌。
-   * 接收调用方指定 owner/repo 的读写/合并端点必须过这道闸,
-   * 否则没有个人令牌的用户会拿平台 PAT 代理操作任意他人仓库。
-   */
-  async loadOwnTokenForUser(userId: string): Promise<string> {
-    const { findUserPreferences } = await import('../db/user-preferences-queries.js')
-    const { list } = await findUserPreferences(userId, GITHUB_TOKEN_GROUP)
-    const row = list.find((p) => p.key === GITHUB_TOKEN_KEY)
-    if (row?.value) return decryptField(row.value).trim()
-    return ''
-  }
-
-  async hasOwnTokenForUser(userId: string): Promise<boolean> {
-    return (await this.loadOwnTokenForUser(userId)).length > 0
-  }
-
-  /** 加密后按 userId 落库;覆盖只影响该用户自己的行。 */
-  async saveTokenForUser(userId: string, token: string): Promise<void> {
-    const { upsertUserPreference } = await import('../db/user-preferences-queries.js')
-    await upsertUserPreference(
-      userId,
-      GITHUB_TOKEN_GROUP,
-      GITHUB_TOKEN_KEY,
-      encryptField(token.trim()),
-    )
-  }
-
-  /** 只删除该用户自己的令牌;返回是否确有一行被删。 */
-  async clearTokenForUser(userId: string): Promise<boolean> {
-    const { deleteUserPreference } = await import('../db/user-preferences-queries.js')
-    return deleteUserPreference(userId, GITHUB_TOKEN_GROUP, GITHUB_TOKEN_KEY)
+  loadToken(): string {
+    const env = process.env.GITHUB_TOKEN ?? ''
+    if (env) return env
+    const file = join(homedir(), '.ihui', 'github_token')
+    return existsSync(file) ? readFileSync(file, 'utf-8').trim() : ''
   }
 
   parseRemote(url: string): { owner: string; repo: string } | null {
@@ -3965,13 +3563,8 @@ class GitHubClient {
     }
   }
 
-  private async api(
-    userId: string,
-    path: string,
-    method = 'GET',
-    body?: unknown,
-  ): Promise<unknown> {
-    const token = await this.loadTokenForUser(userId)
+  private async api(path: string, method = 'GET', body?: unknown): Promise<unknown> {
+    const token = this.loadToken()
     if (!token) throw new Error('未配置 GITHUB_TOKEN')
     const res = await fetch(`${GITHUB_API_BASE}${path}`, {
       method,
@@ -3991,7 +3584,6 @@ class GitHubClient {
   }
 
   async createPR(params: {
-    userId: string
     owner: string
     repo: string
     title: string
@@ -4001,7 +3593,7 @@ class GitHubClient {
     /** D183(2026-09-29):true = 创建 Draft PR(环境信息 popover 一键创建入口) */
     draft?: boolean
   }): Promise<unknown> {
-    return this.api(params.userId, `/repos/${params.owner}/${params.repo}/pulls`, 'POST', {
+    return this.api(`/repos/${params.owner}/${params.repo}/pulls`, 'POST', {
       title: params.title,
       head: params.head,
       base: params.base,
@@ -4010,51 +3602,22 @@ class GitHubClient {
     })
   }
 
-  async listPRs(params: {
-    userId: string
-    owner: string
-    repo: string
-    state?: string
-  }): Promise<unknown> {
+  async listPRs(params: { owner: string; repo: string; state?: string }): Promise<unknown> {
     const state = params.state ?? 'open'
-    return this.api(
-      params.userId,
-      `/repos/${params.owner}/${params.repo}/pulls?state=${state}&per_page=30`,
-    )
+    return this.api(`/repos/${params.owner}/${params.repo}/pulls?state=${state}&per_page=30`)
   }
 
-  async getPR(params: {
-    userId: string
-    owner: string
-    repo: string
-    number: number
-  }): Promise<unknown> {
-    return this.api(params.userId, `/repos/${params.owner}/${params.repo}/pulls/${params.number}`)
-  }
-
-  /** F-Forge(2026-11-13):列某 commit 的 CI 检查(check-runs),供变更请求台账汇总。 */
-  async listCheckRuns(params: {
-    userId: string
-    owner: string
-    repo: string
-    ref: string
-  }): Promise<unknown> {
-    const ref = encodeURIComponent(params.ref)
-    return this.api(
-      params.userId,
-      `/repos/${params.owner}/${params.repo}/commits/${ref}/check-runs?per_page=100`,
-    )
+  async getPR(params: { owner: string; repo: string; number: number }): Promise<unknown> {
+    return this.api(`/repos/${params.owner}/${params.repo}/pulls/${params.number}`)
   }
 
   async addPRComment(params: {
-    userId: string
     owner: string
     repo: string
     number: number
     body: string
   }): Promise<unknown> {
     return this.api(
-      params.userId,
       `/repos/${params.owner}/${params.repo}/issues/${params.number}/comments`,
       'POST',
       {
@@ -4064,14 +3627,12 @@ class GitHubClient {
   }
 
   async requestReview(params: {
-    userId: string
     owner: string
     repo: string
     number: number
     reviewers: string[]
   }): Promise<unknown> {
     return this.api(
-      params.userId,
       `/repos/${params.owner}/${params.repo}/pulls/${params.number}/requested_reviewers`,
       'POST',
       {
@@ -4081,35 +3642,21 @@ class GitHubClient {
   }
 
   async mergePR(params: {
-    userId: string
     owner: string
     repo: string
     number: number
     commitTitle?: string
     mergeMethod?: 'merge' | 'squash' | 'rebase'
   }): Promise<unknown> {
-    return this.api(
-      params.userId,
-      `/repos/${params.owner}/${params.repo}/pulls/${params.number}/merge`,
-      'PUT',
-      {
-        commit_title: params.commitTitle,
-        merge_method: params.mergeMethod ?? 'merge',
-      },
-    )
+    return this.api(`/repos/${params.owner}/${params.repo}/pulls/${params.number}/merge`, 'PUT', {
+      commit_title: params.commitTitle,
+      merge_method: params.mergeMethod ?? 'merge',
+    })
   }
 
-  async listIssues(params: {
-    userId: string
-    owner: string
-    repo: string
-    state?: string
-  }): Promise<unknown> {
+  async listIssues(params: { owner: string; repo: string; state?: string }): Promise<unknown> {
     const state = params.state ?? 'open'
-    return this.api(
-      params.userId,
-      `/repos/${params.owner}/${params.repo}/issues?state=${state}&per_page=30`,
-    )
+    return this.api(`/repos/${params.owner}/${params.repo}/issues?state=${state}&per_page=30`)
   }
 }
 
@@ -4311,9 +3858,9 @@ class FSBridge {
     })
   }
 
-  /** 记录最近工作区(按 userId 隔离,F-278) */
-  addRecent(userId: string, meta: { path: string; name: string; techStack?: string[] }): void {
-    const file = recentWorkspacesFile(userId)
+  /** 记录最近工作区 */
+  addRecent(meta: { path: string; name: string; techStack?: string[] }): void {
+    const file = join(STORE_ROOT, 'recent-workspaces.json')
     const list = readJsonForUpdate<Array<{ path: string; name: string; lastOpened: number }>>(
       file,
       [],
@@ -4327,34 +3874,8 @@ class FSBridge {
     writeJson(file, filtered.slice(0, 20))
   }
 
-  /**
-   * 读取该用户自己的最近工作区,并过滤「已配置权限但被明确拒绝」的条目(F-278)。
-   *
-   * 这里用 enumerateOnly 调 checkWorkspace:只读列表不因「需人工确认」而阻塞
-   * (否则 N 条 recent × 60s 人工审计会把 GET /fs/recent 拖死),但硬 deny 仍被过滤。
-   * 未配置权限的条目保留 —— /fs/open 先写 recent 再引导 setup,过滤掉会让首开工作区消失。
-   */
-  async loadRecent(
-    userId: string,
-  ): Promise<Array<{ path: string; name: string; lastOpened: number }>> {
-    const list = readJson<Array<{ path: string; name: string; lastOpened: number }>>(
-      recentWorkspacesFile(userId),
-      [],
-    )
-    if (!Array.isArray(list)) return []
-    const visible: Array<{ path: string; name: string; lastOpened: number }> = []
-    for (const item of list) {
-      if (!item || typeof item.path !== 'string' || !item.path) continue
-      const decision = await permissionManager.checkWorkspace({
-        userId,
-        workspacePath: item.path,
-        tool: 'fs.browse',
-        args: { path: item.path },
-        enumerateOnly: true,
-      })
-      if (decision.allowed || !decision.configured) visible.push(item)
-    }
-    return visible
+  loadRecent(): Array<{ path: string; name: string; lastOpened: number }> {
+    return readJson(join(STORE_ROOT, 'recent-workspaces.json'), [])
   }
 
   detectTechStack(workspacePath: string): string[] {
@@ -4531,8 +4052,6 @@ agentLoop.registerTool({
   },
 })
 
-// F-302:例行程序调度器不再作为模块级副作用启动。模块被 worker 进程
-// (worker-entry → buildServer)载入时也必须零副作用;唯一启动点 =
-// index.ts 的 startBackgroundSchedulers(API 角色 + 蓝绿活跃色判定之后),
-// 关停相已在 index.ts 的 shutdown 清单里(routineManager.stopScheduler)。
+// 启动例行程序调度器
+routineManager.startScheduler()
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -49,7 +49,6 @@ async function classifyWorkspacePath(
 import type { Dirent } from 'node:fs'
 import { join, relative, resolve, sep, isAbsolute } from 'node:path'
 import { agentLoop } from './workspace-ai-service.js'
-import { logger } from '../utils/logger.js'
 
 // =============================================================================
 // 类型
@@ -63,20 +62,13 @@ export interface AtomicFileRecord {
   size: number
 }
 
-export interface SnapshotSkip {
-  path: string
-  reason: string
-}
-
 export interface AtomicCheckpointMeta {
   id: string
   createdAt: string
   description: string
   tool: string
   files: AtomicFileRecord[]
-  skipped: SnapshotSkip[]
-  /** 采集存在漏采(深度上限/目录读失败/符号链接/超限)时为 true(F-564) */
-  partial?: boolean
+  skipped: { path: string; reason: string }[]
 }
 
 export interface AtomicRollbackPlan {
@@ -88,11 +80,7 @@ export interface AtomicRollbackPlan {
   remove: { path: string; currentHash: string }[]
   unchanged: number
   /** 快照时被跳过的大文件/目录,回滚无法覆盖(审计提示) */
-  uncovered: SnapshotSkip[]
-  /** 采集存在漏采 → 本预演不代表完整覆盖(F-564) */
-  partial: boolean
-  /** 漏采明细(path: 原因)(F-564) */
-  reasons: string[]
+  uncovered: { path: string; reason: string }[]
   /** 快照后新增的迁移类文件(仅报告,不自动降级) */
   newMigrationFiles: string[]
   totals: { restoreBytes: number }
@@ -111,10 +99,6 @@ export interface AtomicRollbackResult {
   workspacePath: string
   confirm: boolean
   ok: boolean
-  /** 存在漏采时不得视为成功(ok 恒为 false)(F-564) */
-  partial: boolean
-  /** 漏采明细(path: 原因)(F-564) */
-  reasons: string[]
   steps: AtomicRollbackStep[]
   /** 依赖锁/迁移差异给出的建议后续动作(不自动执行) */
   suggestedFollowUps: string[]
@@ -123,10 +107,6 @@ export interface AtomicRollbackResult {
 const SNAPSHOT_DIR = join('.ihui', 'atomic-checkpoints')
 const MAX_FILE_BYTES = 1024 * 1024
 const MAX_FILES = 3000
-/** 快照保留份数上限:超出后按目录 mtime 从旧到新删除(F-554)。 */
-export const MAX_RETAINED_CHECKPOINTS = 5
-/** 采集深度上限(工作区根为 0);导出/可注入便于测试(F-564)。 */
-export const SNAPSHOT_MAX_DEPTH = 10
 const SKIP_DIRS = new Set([
   'node_modules',
   '.git',
@@ -158,46 +138,23 @@ function isMigrationFile(relPath: string): boolean {
   )
 }
 
-/**
- * 有界递归采集文件相对路径(跳过产物目录,限流)。
- * F-564:深度上限、目录读失败、符号链接都不得静默丢弃,必须进 skipped 明细(路径+原因)。
- */
+/** 有界递归采集文件相对路径(跳过产物目录,限流) */
 async function collectFiles(
   root: string,
-  options: { maxDepth?: number } = {},
-): Promise<{ files: string[]; skipped: SnapshotSkip[] }> {
-  const maxDepth = options.maxDepth ?? SNAPSHOT_MAX_DEPTH
+): Promise<{ files: string[]; skipped: { path: string; reason: string }[] }> {
   const files: string[] = []
-  const skipped: SnapshotSkip[] = []
-  const relOf = (abs: string): string => relative(root, abs).split(sep).join('/') || '.'
+  const skipped: { path: string; reason: string }[] = []
   const walk = async (dir: string, depth: number): Promise<void> => {
-    if (depth > maxDepth) {
-      skipped.push({
-        path: relOf(dir),
-        reason: `目录深度超过 ${maxDepth} 层上限,其下内容未采集`,
-      })
-      return
-    }
+    if (depth > 10) return
     let entries: Dirent[]
     try {
       entries = await readdir(dir, { withFileTypes: true })
-    } catch (error) {
-      skipped.push({
-        path: relOf(dir),
-        reason: `目录读取失败(${errnoOf(error) ?? 'unknown'}),其下内容未采集`,
-      })
+    } catch {
       return
     }
     for (const e of entries) {
       if (files.length >= MAX_FILES) return
       const full = join(dir, e.name)
-      if (e.isSymbolicLink()) {
-        skipped.push({
-          path: relOf(full),
-          reason: '符号链接,未采集(不跟踪链接目标,避免越出工作区)',
-        })
-        continue
-      }
       if (e.isDirectory()) {
         if (SKIP_DIRS.has(e.name)) continue
         await walk(full, depth + 1)
@@ -206,15 +163,15 @@ async function collectFiles(
           const st = await stat(full)
           if (st.size > MAX_FILE_BYTES) {
             skipped.push({
-              path: relOf(full),
+              path: relative(root, full).split(sep).join('/'),
               reason: `文件超过 ${MAX_FILE_BYTES / 1024 / 1024}MB 上限`,
             })
             continue
           }
-          files.push(relOf(full))
+          files.push(relative(root, full).split(sep).join('/'))
         } catch (error) {
           skipped.push({
-            path: relOf(full),
+            path: relative(root, full).split(sep).join('/'),
             reason: `读不到,不能把它说成没有 (${errnoOf(error) ?? 'unknown'})`,
           })
         }
@@ -264,76 +221,6 @@ function resolveInsideRoot(rootAbs: string, rel: string): string | null {
   return abs
 }
 
-/**
- * 清理超出保留份数的快照目录(F-554)。
- * - 按目录 mtime 从旧到新删除,保留最近 `retain` 份;
- * - `protectedIds`(刚创建、正在被使用的当前快照)与 mtime 最新的目录永不删除;
- * - 单条删除失败只 warn 不打断,返回实际删除的 id。
- */
-export async function pruneAtomicCheckpoints(
-  workspacePath: string,
-  protectedIds: Iterable<string> = [],
-  retain: number = MAX_RETAINED_CHECKPOINTS,
-): Promise<string[]> {
-  const root = snapshotRoot(workspacePath)
-  const keep = new Set(protectedIds)
-  let names: string[]
-  try {
-    names = await readdir(root)
-  } catch (error) {
-    const code = errnoOf(error)
-    if (code !== 'ENOENT' && code !== 'ENOTDIR') {
-      logger.warn('[atomic-rollback] 读取快照根失败,跳过清理', { error: String(error) })
-    }
-    return []
-  }
-
-  const dirs: { name: string; mtimeMs: number }[] = []
-  for (const name of names) {
-    // 只处理合法快照目录名,目录外的杂项文件不碰
-    if (!isSafeCheckpointId(name)) continue
-    const abs = resolveInsideRoot(root, name)
-    if (!abs) continue
-    try {
-      const st = await stat(abs)
-      if (!st.isDirectory()) continue
-      dirs.push({ name, mtimeMs: st.mtimeMs })
-    } catch (error) {
-      // 读不到状态就不能断定可以删,跳过并留痕
-      logger.warn('[atomic-rollback] 读取快照目录状态失败,跳过该项', {
-        id: name,
-        error: String(error),
-      })
-    }
-  }
-  if (dirs.length <= retain) return []
-
-  dirs.sort((a, b) => a.mtimeMs - b.mtimeMs)
-  // 最新的一个永远保留:并发创建时它可能就是另一路正在使用的"当前"快照
-  const newest = dirs[dirs.length - 1]
-  if (newest) keep.add(newest.name)
-
-  const keptCount = dirs.filter((d) => keep.has(d.name)).length
-  const excess = dirs.length - Math.max(retain, keptCount)
-  if (excess <= 0) return []
-
-  const removed: string[] = []
-  for (const victim of dirs.filter((d) => !keep.has(d.name)).slice(0, excess)) {
-    const abs = resolveInsideRoot(root, victim.name)
-    if (!abs) continue
-    try {
-      await rm(abs, { recursive: true, force: true })
-      removed.push(victim.name)
-    } catch (error) {
-      logger.warn('[atomic-rollback] 删除过期快照失败,已跳过', {
-        id: victim.name,
-        error: String(error),
-      })
-    }
-  }
-  return removed
-}
-
 /** 创建原子快照:全量有界文件备份到 .ihui/atomic-checkpoints/<id>/files/ */
 export async function createAtomicCheckpoint(
   workspacePath: string,
@@ -343,51 +230,32 @@ export async function createAtomicCheckpoint(
   const id = `ac-${Math.floor(Date.now() / 1000)}-${Math.random().toString(36).slice(2, 6)}`
   const dir = join(snapshotRoot(wsAbs), id)
   const filesDir = join(dir, 'files')
-  let meta: AtomicCheckpointMeta
-  try {
-    await mkdir(filesDir, { recursive: true })
+  await mkdir(filesDir, { recursive: true })
 
-    const { files, skipped } = await collectFiles(wsAbs)
-    const records: AtomicFileRecord[] = []
-    for (const rel of files) {
-      const abs = join(wsAbs, rel)
-      try {
-        const content = await readFile(abs)
-        const target = join(filesDir, rel)
-        await mkdir(join(target, '..'), { recursive: true })
-        await writeFile(target, content)
-        records.push({ path: rel, existed: true, hash: sha256(content), size: content.length })
-      } catch (e) {
-        skipped.push({ path: rel, reason: `读取失败: ${String(e).slice(0, 120)}` })
-      }
-    }
-
-    meta = {
-      id,
-      createdAt: new Date().toISOString(),
-      description: params.description.slice(0, 500),
-      tool: params.tool ?? 'atomic-rollback',
-      files: records,
-      skipped,
-      partial: skipped.length > 0,
-    }
-    await writeFile(join(dir, 'meta.json'), JSON.stringify(meta), 'utf-8')
-  } catch (error) {
-    // 先复制文件、后写 meta:中途失败会留下 listAtomicCheckpoints 看不见的孤儿目录,
-    // 必须在这里自己收拾干净,再抛出原错误(保持调用方看到的错误语义不变)。
+  const { files, skipped } = await collectFiles(wsAbs)
+  const records: AtomicFileRecord[] = []
+  for (const rel of files) {
+    const abs = join(wsAbs, rel)
     try {
-      await rm(dir, { recursive: true, force: true })
-    } catch (cleanupError) {
-      logger.warn('[atomic-rollback] 快照创建失败后清理半成品目录失败', {
-        id,
-        error: String(cleanupError),
-      })
+      const content = await readFile(abs)
+      const target = join(filesDir, rel)
+      await mkdir(join(target, '..'), { recursive: true })
+      await writeFile(target, content)
+      records.push({ path: rel, existed: true, hash: sha256(content), size: content.length })
+    } catch (e) {
+      skipped.push({ path: rel, reason: `读取失败: ${String(e).slice(0, 120)}` })
     }
-    throw error
   }
 
-  // 成功落盘后才做保留期清理;清理失败只 warn,不影响本次快照可用性
-  await pruneAtomicCheckpoints(wsAbs, [id])
+  const meta: AtomicCheckpointMeta = {
+    id,
+    createdAt: new Date().toISOString(),
+    description: params.description.slice(0, 500),
+    tool: params.tool ?? 'atomic-rollback',
+    files: records,
+    skipped,
+  }
+  await writeFile(join(dir, 'meta.json'), JSON.stringify(meta), 'utf-8')
   return { meta, dir }
 }
 
@@ -460,15 +328,7 @@ export async function planAtomicRollback(
       restoreBytes += rec.size
       continue
     }
-    let cur: string
-    try {
-      cur = sha256(await readFile(abs))
-    } catch {
-      // F-565:stat 可读但 readFile 失败(EACCES/被并发删除)时,不能整体 500。
-      // 归入 uncovered,沿用 F-564 既有的「读不到不按快照覆盖」语义。
-      unread.push({ path: rec.path, reason: '当前文件内容读取失败,不能按快照覆盖' })
-      continue
-    }
+    const cur = sha256(await readFile(abs))
     if (cur === rec.hash) {
       unchanged++
     } else {
@@ -478,25 +338,16 @@ export async function planAtomicRollback(
   }
 
   // 本地新增(快照没有的文件)→ 将删除;同样有界扫描
-  const { files: currentFiles, skipped: currentSkipped } = await collectFiles(wsAbs)
+  const { files: currentFiles } = await collectFiles(wsAbs)
   const held = new Set((meta.skipped ?? []).map((item) => item.path))
   for (const rel of currentFiles) {
     if (snapshotPaths.has(rel) || held.has(rel)) continue
     const abs = resolveInsideRoot(wsAbs, rel)
     if (!abs) continue
-    try {
-      remove.push({ path: rel, currentHash: sha256(await readFile(abs)) })
-    } catch {
-      // F-565:本地新增文件读取失败时,无法留痕 currentHash,不能安全删除,归入 uncovered。
-      unread.push({ path: rel, reason: '当前文件内容读取失败,不能安全删除' })
-    }
+    remove.push({ path: rel, currentHash: sha256(await readFile(abs)) })
   }
 
-  // F-564:两条采集路径的漏采都要计入;存在漏采时 partial=true,不能宣称完整覆盖
-  const collectionSkips: SnapshotSkip[] = [...(meta.skipped ?? []), ...currentSkipped]
-  const partial = meta.partial === true || collectionSkips.length > 0
-  const reasons = collectionSkips.map((s) => `${s.path}: ${s.reason}`)
-  const uncovered = [...collectionSkips, ...unread]
+  const uncovered = [...(meta.skipped ?? []), ...unread]
   const newMigrationFiles = [...restore.map((r) => r.path), ...remove.map((r) => r.path)].filter(
     (p) => isMigrationFile(p),
   )
@@ -508,8 +359,6 @@ export async function planAtomicRollback(
     remove,
     unchanged,
     uncovered,
-    partial,
-    reasons,
     newMigrationFiles,
     totals: { restoreBytes },
   }
@@ -529,8 +378,6 @@ export async function executeAtomicRollback(
   const wsAbs = resolve(workspacePath)
   const steps: AtomicRollbackStep[] = []
   const suggestedFollowUps: string[] = []
-  const snapshotSkips = meta.skipped ?? []
-  const snapshotPartial = meta.partial === true || snapshotSkips.length > 0
 
   if (!params.confirm) {
     steps.push({
@@ -545,8 +392,6 @@ export async function executeAtomicRollback(
       workspacePath: wsAbs,
       confirm: false,
       ok: false,
-      partial: snapshotPartial,
-      reasons: snapshotSkips.map((s) => `${s.path}: ${s.reason}`),
       steps,
       suggestedFollowUps,
     }
@@ -628,17 +473,6 @@ export async function executeAtomicRollback(
     }
   }
 
-  // F-564:存在漏采时显式打一个失败 step 并强行降级 ok,避免"恢复了一部分"被当成完整回滚
-  if (plan.partial) {
-    steps.push({
-      step: '覆盖范围核对',
-      path: '*',
-      status: 'fail',
-      output: `快照/扫描存在 ${plan.reasons.length} 处漏采,本次回滚不代表完整覆盖:${plan.reasons.slice(0, 5).join('; ')}${plan.reasons.length > 5 ? ' 等' : ''}`,
-      durationMs: 0,
-    })
-  }
-
   const failed = steps.filter((s) => s.status === 'fail').length
 
   // 建议后续动作(不自动执行)
@@ -656,7 +490,7 @@ export async function executeAtomicRollback(
   }
   if (plan.uncovered.length > 0) {
     suggestedFollowUps.push(
-      `快照/扫描有 ${plan.uncovered.length} 个路径未被覆盖(超限/深层/不可读/符号链接),不在本次回滚覆盖范围内。`,
+      `快照时跳过了 ${plan.uncovered.length} 个超限文件,这些文件不在本次回滚覆盖范围内。`,
     )
   }
 
@@ -664,9 +498,7 @@ export async function executeAtomicRollback(
     checkpointId,
     workspacePath: wsAbs,
     confirm: true,
-    ok: failed === 0 && !plan.partial,
-    partial: plan.partial,
-    reasons: plan.reasons,
+    ok: failed === 0,
     steps,
     suggestedFollowUps,
   }

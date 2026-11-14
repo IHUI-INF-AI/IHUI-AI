@@ -150,7 +150,7 @@ function createStyles(tk: AppThemeTokens) {
     } as TextStyle,
     featureDesc: {
       fontSize: rnType.body.size,
-      color: tk.text.tertiary,
+      color: tk.text.medium,
       textAlign: 'center',
     } as TextStyle,
     actions: { gap: rnSpacing['sm-loose'] } as ViewStyle,
@@ -178,7 +178,7 @@ function createStyles(tk: AppThemeTokens) {
     } as TextStyle,
     footerNote: {
       fontSize: rnType.body.size,
-      color: tk.text.tertiary,
+      color: tk.text.medium,
       textAlign: 'center',
     } as TextStyle,
   })

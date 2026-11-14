@@ -77,7 +77,7 @@ export function EduParentBillsCard({ t, colorScheme, group, fmtDate, onPress }: 
               <Text
                 style={[
                   styles.rowValue,
-                  bill.ledger && bill.ledger.arrears > 0 ? { color: tk.danger.DEFAULT } : null,
+                  bill.ledger && bill.ledger.arrears > 0 ? { color: tk.danger.deepText } : null,
                 ]}
               >
                 {bill.ledger ? `¥${bill.ledger.arrears}` : '—'}

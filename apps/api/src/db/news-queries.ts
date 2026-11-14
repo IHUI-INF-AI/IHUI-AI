@@ -249,11 +249,21 @@ export async function incrementArticleViewCount(id: string): Promise<void> {
 
 export async function findArticlesByIds(ids: string[]): Promise<NewsArticle[]> {
   if (ids.length === 0) return []
-  return db
-    .select()
-    .from(newsArticles)
-    .where(and(inArray(newsArticles.id, ids), eq(newsArticles.isPublished, true)))
-    .orderBy(desc(newsArticles.publishedAt))
+  return (
+    db
+      .select()
+      .from(newsArticles)
+      // F-177:推荐/排行批量取文章必须同时排除 status=0 的下架稿,
+      // 否则已下架文章仍出现在推荐位且带正文(列表只按 isPublished 过滤会漏 status)。
+      .where(
+        and(
+          inArray(newsArticles.id, ids),
+          eq(newsArticles.isPublished, true),
+          eq(newsArticles.status, 1),
+        ),
+      )
+      .orderBy(desc(newsArticles.publishedAt))
+  )
 }
 
 export async function findMyArticles(

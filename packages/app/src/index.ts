@@ -361,6 +361,9 @@ export { LiveChatScreen } from './features/live-chat/LiveChatScreen'
 export { MessageChatScreen } from './features/message-chat/MessageChatScreen'
 export { OrderRefundScreen } from './features/order-refund/OrderRefundScreen'
 export { PaymentScreen } from './features/payment/PaymentScreen'
+/** 2026-11-13 屏级共享:人事考勤屏(RN 端 HrAttendanceScreen 的 UI 下沉)。
+ *  业务日口径留在 wrapper(上海日由 attendanceBizDay 送),共享层不自己取日 —— 否则三端同时错一天。 */
+export { HrAttendanceScreen } from './features/hr-attendance/HrAttendanceScreen'
 export {
   AccountPoolScreen,
   ACCOUNT_POOL_PROVIDERS,
@@ -949,6 +952,10 @@ export type {
   PaymentOrderItem,
   PaymentScreenProps,
 } from './features/payment/PaymentScreen'
+export type {
+  HrAttendanceRecord,
+  HrAttendanceScreenProps,
+} from './features/hr-attendance/HrAttendanceScreen'
 export type {
   AccountPoolRow,
   AccountPoolDraft,

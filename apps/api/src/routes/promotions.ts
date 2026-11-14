@@ -13,6 +13,7 @@ import {
   findActivities,
   findActivityBySlug,
   findActivityById,
+  findJoinedActivityIds,
   joinActivity,
   leaveActivity,
   isActivityParticipant,
@@ -254,9 +255,18 @@ export const promotionRoutes: FastifyPluginAsync = async (server) => {
         response: buildResponseSchema(),
       },
     },
-    async (_request, reply) => {
+    async (request, reply) => {
       const list = await findActivities()
-      return reply.send(success({ list }))
+      // 回填 joined:未登录恒 false(列表本身公开)。不回填的话已报名用户在列表上只会看到
+      // 「立即参与」,点下去拿 409,而「取消报名」在列表永远不可达。
+      const joinedIds = request.userId
+        ? await findJoinedActivityIds(request.userId)
+        : new Set<string>()
+      return reply.send(
+        success({
+          list: list.map((activity) => ({ ...activity, joined: joinedIds.has(activity.id) })),
+        }),
+      )
     },
   )
 

@@ -584,5 +584,8 @@
     "rejectedTitle": "거부된 항목:",
     "statusTitle": "유효한 지식 카드({total}개):",
     "statusEmpty": "(유효한 지식 카드가 없습니다. 먼저 ihui wiki compile을 실행하세요)"
+  },
+  "chat": {
+    "admissionAhead": "앞에 {n}건 있습니다"
   }
 }

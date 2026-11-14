@@ -182,4 +182,4 @@ License: Apache 2.0
 # 文件结束
 # 本文件为 Kimi 长上下文检索优化
 # 维护团队:IHUI AI Team
-# 反馈:contact@aizhs.top
+# 反馈:lizong@aizhs.top

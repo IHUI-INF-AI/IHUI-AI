@@ -46,6 +46,7 @@ import { useTheme } from '../context/ThemeContext'
 import { useI18n } from '../i18n'
 import { tokens } from '../theme/active-tokens'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { toFriendlyOr } from '@ihui/shared/utils'
 
 const PAGE_SIZE = 50
 /** 切到这一档会跳过审批门,必须在确认弹窗里把后果说清楚 */
@@ -90,7 +91,7 @@ export function WorkspaceScreen() {
       }
       setProjects(res.data?.list ?? [])
     } catch (e) {
-      setError(e instanceof Error ? e.message : t('workspace.loadFailed'))
+      setError(toFriendlyOr(e, t('workspace.loadFailed')))
       setProjects([])
     } finally {
       setLoading(false)
@@ -113,7 +114,7 @@ export function WorkspaceScreen() {
       }
       setDefaultMode(defaultRes.success ? (defaultRes.data?.mode ?? null) : null)
     } catch (e) {
-      setPermError(e instanceof Error ? e.message : t('workspace.permLoadFailed'))
+      setPermError(toFriendlyOr(e, t('workspace.permLoadFailed')))
       setPermissions([])
     } finally {
       setPermLoading(false)
@@ -153,7 +154,7 @@ export function WorkspaceScreen() {
       } catch (e) {
         appAlert(
           t('workspace.createFailed'),
-          e instanceof Error ? e.message : t('workspace.createFailed'),
+          toFriendlyOr(e, t('workspace.createFailed')),
         )
       } finally {
         setCreating(false)
@@ -177,7 +178,7 @@ export function WorkspaceScreen() {
               } catch (e) {
                 appAlert(
                   t('workspace.deleteFailed'),
-                  e instanceof Error ? e.message : t('workspace.deleteFailed'),
+                  toFriendlyOr(e, t('workspace.deleteFailed')),
                 )
               }
             })()
@@ -214,7 +215,7 @@ export function WorkspaceScreen() {
               } catch (e) {
                 appAlert(
                   t('workspace.permSwitchFailed'),
-                  e instanceof Error ? e.message : t('workspace.permSwitchFailed'),
+                  toFriendlyOr(e, t('workspace.permSwitchFailed')),
                 )
               } finally {
                 setBusyKey('')
@@ -239,7 +240,7 @@ export function WorkspaceScreen() {
         } catch (e) {
           appAlert(
             t('workspace.permDefaultFailed'),
-            e instanceof Error ? e.message : t('workspace.permDefaultFailed'),
+            toFriendlyOr(e, t('workspace.permDefaultFailed')),
           )
         } finally {
           setBusyKey('')
@@ -266,7 +267,7 @@ export function WorkspaceScreen() {
               } catch (e) {
                 appAlert(
                   t('workspace.permDeleteFailed'),
-                  e instanceof Error ? e.message : t('workspace.permDeleteFailed'),
+                  toFriendlyOr(e, t('workspace.permDeleteFailed')),
                 )
               } finally {
                 setBusyKey('')

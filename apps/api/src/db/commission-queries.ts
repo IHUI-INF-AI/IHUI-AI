@@ -18,27 +18,6 @@ import {
   type WithdrawalFlow,
 } from '@ihui/database'
 import { withAudit, withAuditBoth } from '../utils/audit.js'
-import type { DbTx } from './payment-queries.js'
-
-/**
- * F-458:金额/数量聚合一律在 SQL 侧强转 `bigint`。
- *
- * 聚合结果强转 `int4` 时,累计值越过 int4 上限(≈¥21,474,836.47 分)会抛 22003 → 整个接口 500。
- * PG 驱动把 int8 解码成字符串,故返回值必须经这里收敛回 number(保持 API 既有契约,
- * 不让字符串泄漏到前端);极端超出安全整数范围时饱和,而不是静默丢精度或抛错。
- */
-export function toSafeAmount(value: unknown): number {
-  const parsed =
-    typeof value === 'bigint'
-      ? Number(value)
-      : typeof value === 'string'
-        ? value.trim() === ''
-          ? Number.NaN
-          : Number(value)
-        : value
-  if (typeof parsed !== 'number' || !Number.isFinite(parsed)) return 0
-  return Math.min(Number.MAX_SAFE_INTEGER, Math.max(Number.MIN_SAFE_INTEGER, parsed))
-}
 
 // ============================================================================
 // Token 钱包
@@ -66,15 +45,12 @@ export async function getTokenFlowTotals(
 ): Promise<{ totalEarned: number; totalUsed: number }> {
   const rows = await db
     .select({
-      totalEarned: sql<number>`COALESCE(sum(CASE WHEN ${tokenFlows.opType} IN (0,3,4,5,6) THEN ${tokenFlows.quantity} ELSE 0 END)::bigint, 0)`,
-      totalUsed: sql<number>`COALESCE(sum(CASE WHEN ${tokenFlows.opType} = 1 THEN ${tokenFlows.quantity} ELSE 0 END)::bigint, 0)`,
+      totalEarned: sql<number>`COALESCE(sum(CASE WHEN ${tokenFlows.opType} IN (0,3,4,5,6) THEN ${tokenFlows.quantity} ELSE 0 END)::int, 0)`,
+      totalUsed: sql<number>`COALESCE(sum(CASE WHEN ${tokenFlows.opType} = 1 THEN ${tokenFlows.quantity} ELSE 0 END)::int, 0)`,
     })
     .from(tokenFlows)
     .where(eq(tokenFlows.userId, userId))
-  return {
-    totalEarned: toSafeAmount(rows[0]?.totalEarned),
-    totalUsed: toSafeAmount(rows[0]?.totalUsed),
-  }
+  return { totalEarned: rows[0]?.totalEarned ?? 0, totalUsed: rows[0]?.totalUsed ?? 0 }
 }
 
 export async function ensureMargin(userId: string): Promise<UserMargin> {
@@ -84,11 +60,17 @@ export async function ensureMargin(userId: string): Promise<UserMargin> {
     .where(eq(userMargins.userId, userId))
     .limit(1)
   if (existing[0]) return existing[0]
+  // F-82:先查后插在并发首次充值/扣减下,第二个 INSERT 会命中 user_margins 主键
+  // 唯一冲突 23505 → 500。改为 onConflictDoNothing().returning():抢不到插入的
+  // 一方回查既有行,不再抛错。
   const [created] = await db
     .insert(userMargins)
     .values({ userId, tokenQuantity: 0, frozenQuantity: 0 })
+    .onConflictDoNothing()
     .returning()
-  return created!
+  if (created) return created
+  const rows = await db.select().from(userMargins).where(eq(userMargins.userId, userId)).limit(1)
+  return rows[0]!
 }
 
 export async function rechargeToken(
@@ -96,34 +78,29 @@ export async function rechargeToken(
   quantity: number,
   orderNo?: string,
   remark?: string,
-  outerTx?: DbTx,
 ): Promise<number> {
   await ensureMargin(userId)
   // P0 并发竞态修复(2026-08-01):原代码事务外 SELECT 旧余额 + 计算新余额 + 事务内 UPDATE,
   // 两个并发充值(不同 orderNo,绕过幂等索引)会丢失更新。改为事务内原子 UPDATE + RETURNING。
-  const run = async (tx: DbTx) => {
-    const [updated] = await tx
-      .update(userMargins)
-      .set({ tokenQuantity: sql`token_quantity + ${quantity}`, updatedAt: new Date() })
-      .where(eq(userMargins.userId, userId))
-      .returning()
-    const balanceAfter = updated?.tokenQuantity ?? quantity
-    await tx.insert(tokenFlows).values({
-      userId,
-      opType: 0,
-      quantity,
-      balanceAfter,
-      remark: remark ?? '充值',
-      relatedOrderNo: orderNo,
-    })
-    // P0-2 + P0-4 幂等:(related_order_no, op_type) unique 索引拦截重复回调,事务自动回滚
-    return balanceAfter
-  }
-  // F-450:调用方已开事务时并入外层,不得再开独立事务(内层提前提交会让外层回滚失效)。
-  // 此时 23505 不得在本层吞掉——事务已中止,只能冒泡由外层整体回滚后重试。
-  if (outerTx) return run(outerTx)
   try {
-    const newBalance = await db.transaction(run)
+    const newBalance = await db.transaction(async (tx) => {
+      const [updated] = await tx
+        .update(userMargins)
+        .set({ tokenQuantity: sql`token_quantity + ${quantity}`, updatedAt: new Date() })
+        .where(eq(userMargins.userId, userId))
+        .returning()
+      const balanceAfter = updated?.tokenQuantity ?? quantity
+      await tx.insert(tokenFlows).values({
+        userId,
+        opType: 0,
+        quantity,
+        balanceAfter,
+        remark: remark ?? '充值',
+        relatedOrderNo: orderNo,
+      })
+      // P0-2 + P0-4 幂等:(related_order_no, op_type) unique 索引拦截重复回调,事务自动回滚
+      return balanceAfter
+    })
     return newBalance
   } catch (e: unknown) {
     // PostgreSQL unique_violation (23505):幂等命中,重复充值被拦截,返回当前余额不重复加
@@ -169,25 +146,15 @@ export async function deductToken(
   return result
 }
 
-export async function refundToken(
-  userId: string,
-  quantity: number,
-  orderNo: string,
-  remark?: string,
-): Promise<number> {
-  // P1 幂等修复(2026-08-02 Bug A5):原签名 orderNo 缺失,rechargeToken 收到 undefined
-  // 后 PostgreSQL unique 索引允许多个 NULL,导致重复退款不被拦截。
-  // 改为强制 orderNo 必传,作为幂等键下推到 rechargeToken 的 related_order_no。
-  if (!orderNo) throw new Error('ORDER_NO_REQUIRED_FOR_REFUND')
-  return rechargeToken(userId, quantity, orderNo, remark ?? `退款:${orderNo}`)
-}
-
 /**
  * P0-2 退款扣回 token(2026-08-05):原 refundOrder 用 rechargeToken 再发一次 token
  * (related_order_no 不同绕过幂等索引),导致「购买→到账→退款→钱退+token 再入账」。
  *
  * 修复:退款改为尽力扣回 —— 事务内行锁 + 精确计算扣回量(余额不足扣到 0,不退负数),
  * 流水 opType=3 + related_order_no=`refund:${orderNo}` 作为幂等键,重复退款被 unique 索引拦截。
+ *
+ * F-64(2026-11-13):原 `refundToken(userId, …)`(内部直接回调 rechargeToken、opType=0、
+ * 把 token 加给操作者)已删除 —— 退款唯一实现就是本函数,禁止再有「退款即加币」的入口。
  *
  * @returns 扣回后的余额
  */
@@ -380,8 +347,8 @@ export async function commissionSummary(beneficiaryId: string, windowDays = 7) {
   const windowStart = new Date(Date.now() - windowDays * 86400_000)
   const rows = await db
     .select({
-      totalAmount: sql<number>`coalesce(sum(${commissionFlows.amount}), 0)::bigint`,
-      totalToken: sql<number>`coalesce(sum(${commissionFlows.token}), 0)::bigint`,
+      totalAmount: sql<number>`coalesce(sum(${commissionFlows.amount}), 0)::int`,
+      totalToken: sql<number>`coalesce(sum(${commissionFlows.token}), 0)::int`,
     })
     .from(commissionFlows)
     .where(
@@ -392,8 +359,8 @@ export async function commissionSummary(beneficiaryId: string, windowDays = 7) {
       ),
     )
   return {
-    totalAmount: toSafeAmount(rows[0]?.totalAmount),
-    totalToken: toSafeAmount(rows[0]?.totalToken),
+    totalAmount: rows[0]?.totalAmount ?? 0,
+    totalToken: rows[0]?.totalToken ?? 0,
     commissionDay: windowDays,
   }
 }
@@ -420,10 +387,8 @@ export async function createCommissionFlow(
     remark?: string
   },
   operatorId: string | null,
-  /** F-436:调用方已开事务时并入外层,不再另开独立嵌套事务(内层提前提交会让外层回滚失效)。 */
-  outerTx?: DbTx,
 ): Promise<CommissionFlow> {
-  const run = async (tx: DbTx) => {
+  return db.transaction(async (tx) => {
     const [flow] = await tx
       .insert(commissionFlows)
       .values(
@@ -444,12 +409,8 @@ export async function createCommissionFlow(
       .returning()
     // 仅当佣金状态为"已发放"(status=1)且 token 数量 > 0 时,同步到 userMargins.tokenQuantity
     // amount 类佣金(现金)不入 token 钱包;token 类佣金(普通用户父级返佣)进 token 钱包
-    // F-408:原实现只碰 userMargins、不写 token_flows ⇒ 账实断链(getTokenFlowTotals 累计获得
-    // 漏计、无 balanceAfter 无法对账)。改为 UPSERT 后同事务补 opType=4 流水(口径对齐
-    // relay-billing-service API Key 充值的钱包转出记账),含 quantity 与 balanceAfter。
-    // related_order_no 取订单 id:同单同 op_type 命中唯一索引 ⇒ 重复分佣整体回滚,不重复写流水。
     if (flow && input.token > 0) {
-      const [margin] = await tx
+      await tx
         .insert(userMargins)
         .values({
           userId: input.beneficiaryId,
@@ -463,20 +424,9 @@ export async function createCommissionFlow(
             updatedAt: new Date(),
           },
         })
-        .returning({ tokenQuantity: userMargins.tokenQuantity })
-      await tx.insert(tokenFlows).values({
-        userId: input.beneficiaryId,
-        opType: 4,
-        quantity: input.token,
-        balanceAfter: margin?.tokenQuantity ?? input.token,
-        remark: `佣金入账${input.orderId ? `:${input.orderId}` : ''}`,
-        relatedOrderNo: input.orderId ?? null,
-      })
     }
     return flow!
-  }
-  if (outerTx) return run(outerTx)
-  return db.transaction(run)
+  })
 }
 
 /** 递归查父链（最多 2 级） */
@@ -520,15 +470,10 @@ export async function getActiveProportion() {
  * (2) 上轮 payment-extended.ts 修复在提现失败时 frozen -= flow.amount,
  *     但 applyWithdrawal 未冻结过 → frozen_quantity 变负数。
  *
- * 修复:事务内原子冻结余额(token 按毛额扣减, frozen += actualAmount),
- * DB 级 WHERE token_quantity >= 毛额 检查防超发,0 行影响 = 余额不足或用户无 margin 记录。
- * 冻结量仍用 actualAmount(= flow.amount),与 payment-extended.ts 等释放冻结的既有口径严格配套,
- * 避免 frozen 永久泄漏 fee。
- *
- * F-406(2026-11-13):原实现 token 只扣 actualAmount(净额),fee 从未从余额扣除,
- * 而 availableWithdrawal 又按 flow.amount(净额)抵扣佣金额度 ⇒ 手续费额度永远留着,可反复提取。
- * 现改为:余额扣毛额 input.amount(= actualAmount + fee);佣金额度抵扣也按毛额 original_amount。
- * 手续费不冻结(frozen 只记净额),驳回时按毛额原路退回,资金守恒。
+ * 修复:事务内原子冻结余额(token -= actualAmount, frozen += actualAmount),
+ * DB 级 WHERE token_quantity >= actualAmount 检查防超发,0 行影响 = 余额不足或用户无 margin 记录。
+ * 冻结量用 actualAmount(= flow.amount)而非 input.amount,与 payment-extended.ts 严格配套,
+ * 避免 frozen 永久泄漏 fee(input.amount - actualAmount)。
  *
  * @param operatorId 操作者 userId(用于 createdBy + updatedBy 审计)。route handler 传 request.userId ?? null。
  * @throws {Error & { statusCode: 400 }} 余额不足或用户无 margin 记录时抛出,Fastify 自动转 400 响应。
@@ -557,41 +502,37 @@ export async function applyWithdrawal(
   if (actualAmount <= 0) {
     throw Object.assign(new Error('提现金额过小'), { statusCode: 400 })
   }
-  // F-406:手续费含在申请毛额内(original_amount = 到账额 + fee),余额必须按毛额扣减。
-  const deductAmount = actualAmount + fee
   return await db.transaction(async (tx) => {
     if (input.requireCommissionEligibility) {
       // ① 先锁住该用户的 margin 行:同一用户的并发提现请求在此串行化,
       //    后到的请求在锁释放后重新读到的 withdrawal_flows 已包含前一笔。
       await tx.execute(sql`SELECT 1 FROM user_margins WHERE user_id = ${input.userId} FOR UPDATE`)
-      // ② 与 availableWithdrawal 同口径:活跃佣金(status=1) - 在途/已完成提现(按毛额占用)。
-      //    F-406:必须用 original_amount,否则手续费额度未被占用,可反复提取。
+      // ② 与 availableWithdrawal 同口径:活跃佣金(status=1) - 已完成/待处理提现。
       const comm = await tx
-        .select({ total: sql<number>`coalesce(sum(${commissionFlows.amount}), 0)::bigint` })
+        .select({ total: sql<number>`coalesce(sum(${commissionFlows.amount}), 0)::int` })
         .from(commissionFlows)
         .where(and(eq(commissionFlows.beneficiaryId, input.userId), eq(commissionFlows.status, 1)))
       const wd = await tx
-        .select({ total: sql<number>`coalesce(sum(${withdrawalFlows.originalAmount}), 0)::bigint` })
+        .select({ total: sql<number>`coalesce(sum(${withdrawalFlows.amount}), 0)::int` })
         .from(withdrawalFlows)
         .where(
           and(eq(withdrawalFlows.userId, input.userId), inArray(withdrawalFlows.status, [0, 1, 2])),
         )
-      const available = toSafeAmount(comm[0]?.total) - toSafeAmount(wd[0]?.total)
+      const available = (comm[0]?.total ?? 0) - (wd[0]?.total ?? 0)
       if (input.amount > available) {
         throw Object.assign(new Error('可提现余额不足'), { statusCode: 400 })
       }
     }
 
-    // ③ 原子冻结余额:DB 级 WHERE token_quantity >= 毛额 防超发(绕过应用层竞态)。
-    //    F-406:扣减用 deductAmount(毛额),手续费不再留在余额里。
+    // ③ 原子冻结余额:DB 级 WHERE token_quantity >= actualAmount 防超发(绕过应用层竞态)
     const [updated] = await tx
       .update(userMargins)
       .set({
-        tokenQuantity: sql`token_quantity - ${deductAmount}`,
+        tokenQuantity: sql`token_quantity - ${actualAmount}`,
         frozenQuantity: sql`frozen_quantity + ${actualAmount}`,
         updatedAt: new Date(),
       })
-      .where(and(eq(userMargins.userId, input.userId), sql`token_quantity >= ${deductAmount}`))
+      .where(and(eq(userMargins.userId, input.userId), sql`token_quantity >= ${actualAmount}`))
       .returning()
 
     if (!updated) {
@@ -716,18 +657,16 @@ export async function rejectWithdrawal(
       .returning()
     const flow = rows[0]
     if (!flow) return undefined // 已被处理或不存在
-    // ② 退还冻结余额到可用余额(tokenQuantity += 毛额, frozenQuantity -= 净额)
+    // ② 退还冻结余额到可用余额(tokenQuantity += amount, frozenQuantity -= amount)
     // flow.userId 可空(用户删除时 SET NULL),null 时无法退还(资金沉淀 frozen 等待人工处理)
     if (flow.userId) {
-      // F-406:申请时 token 按毛额(amount + fee)扣减,驳回必须原额退回;冻结只含净额。
-      const refundAmount = flow.amount + flow.fee
       // 驳回即退钱:必须"冻结够才退"。此前只带 eq(userId),冻结不足时把 frozen 扣成负数、
       // 同时凭空给 token 加一笔(铸钱)。空集 ⇒ 抛带 statusCode 的错,事务回滚,
       // 审批不会留下"已驳回但账没退"的半截态(与本文件 428/444 行既有模式同口径)。
       const refunded = await tx
         .update(userMargins)
         .set({
-          tokenQuantity: sql`${userMargins.tokenQuantity} + ${refundAmount}`,
+          tokenQuantity: sql`${userMargins.tokenQuantity} + ${flow.amount}`,
           frozenQuantity: sql`${userMargins.frozenQuantity} - ${flow.amount}`,
           updatedAt: new Date(),
         })
@@ -744,31 +683,26 @@ export async function rejectWithdrawal(
 
 export async function withdrawalSummary(userId: string) {
   const completed = await db
-    .select({ total: sql<number>`coalesce(sum(${withdrawalFlows.amount}), 0)::bigint` })
+    .select({ total: sql<number>`coalesce(sum(${withdrawalFlows.amount}), 0)::int` })
     .from(withdrawalFlows)
     .where(and(eq(withdrawalFlows.userId, userId), eq(withdrawalFlows.status, 2)))
   const pending = await db
-    .select({ total: sql<number>`coalesce(sum(${withdrawalFlows.amount}), 0)::bigint` })
+    .select({ total: sql<number>`coalesce(sum(${withdrawalFlows.amount}), 0)::int` })
     .from(withdrawalFlows)
     .where(and(eq(withdrawalFlows.userId, userId), inArray(withdrawalFlows.status, [0, 1])))
   return {
-    totalWithdrawn: toSafeAmount(completed[0]?.total),
-    pendingAmount: toSafeAmount(pending[0]?.total),
+    totalWithdrawn: completed[0]?.total ?? 0,
+    pendingAmount: pending[0]?.total ?? 0,
   }
 }
 
 export async function availableWithdrawal(userId: string): Promise<number> {
   const comm = await db
-    .select({ total: sql<number>`coalesce(sum(${commissionFlows.amount}), 0)::bigint` })
+    .select({ total: sql<number>`coalesce(sum(${commissionFlows.amount}), 0)::int` })
     .from(commissionFlows)
     .where(and(eq(commissionFlows.beneficiaryId, userId), eq(commissionFlows.status, 1)))
-  // F-406:在途/已完成提现按毛额(original_amount = 到账额 + 手续费)占用额度,
-  // 与 applyWithdrawal 的余额扣减口径一致;按 net amount 求和会把手续费额度留成可提现余额。
-  const wd = await db
-    .select({ total: sql<number>`coalesce(sum(${withdrawalFlows.originalAmount}), 0)::bigint` })
-    .from(withdrawalFlows)
-    .where(and(eq(withdrawalFlows.userId, userId), inArray(withdrawalFlows.status, [0, 1, 2])))
-  const available = toSafeAmount(comm[0]?.total) - toSafeAmount(wd[0]?.total)
+  const wd = await withdrawalSummary(userId)
+  const available = (comm[0]?.total ?? 0) - wd.totalWithdrawn - wd.pendingAmount
   return Math.max(0, available)
 }
 
@@ -852,26 +786,17 @@ export const memberSelect = {
   isVip: users.isVip,
   createdAt: users.createdAt,
   transactionVolume: sql<number>`coalesce((
-    select sum(o.amount)::bigint from ${orders} o
+    select sum(o.amount)::int from ${orders} o
     where o.user_id = "users"."id" and o.status = 'paid'
   ), 0)`,
   commission: sql<number>`coalesce((
-    select sum(cf.amount)::bigint from ${commissionFlows} cf
+    select sum(cf.amount)::int from ${commissionFlows} cf
     where cf.invited_user_id = "users"."id" and cf.status = 1
   ), 0)`,
   orderNum: sql<number>`coalesce((
     select count(*)::int from ${orders} o
     where o.user_id = "users"."id" and o.status = 'paid'
   ), 0)`,
-}
-
-/** F-458:上述两个金额子查询是 bigint(PG 驱动回字符串),统一收敛成 number。 */
-function mapTeamMemberRow(row: TeamMemberRow): TeamMemberRow {
-  return {
-    ...row,
-    transactionVolume: toSafeAmount(row.transactionVolume),
-    commission: toSafeAmount(row.commission),
-  }
 }
 
 /** 团队成员分页列表(直推下级) */
@@ -895,10 +820,7 @@ export async function listTeamMembers(
       .from(users)
       .where(where),
   ])
-  return {
-    items: (rows as TeamMemberRow[]).map(mapTeamMemberRow),
-    total: countRows[0]?.count ?? 0,
-  }
+  return { items: rows as TeamMemberRow[], total: countRows[0]?.count ?? 0 }
 }
 
 /** 成员详情(校验归属:仅当前用户的直推下级可查) */
@@ -911,7 +833,6 @@ export async function getTeamMember(
     .from(users)
     .where(and(eq(users.id, memberId), eq(users.parentId, userId)))
     .limit(1)
-  const row = rows[0] as TeamMemberRow | undefined
-  return row ? mapTeamMemberRow(row) : null
+  return (rows[0] as TeamMemberRow | undefined) ?? null
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

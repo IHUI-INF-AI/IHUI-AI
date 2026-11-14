@@ -28,7 +28,7 @@ export function createUserFansStyles(tk: AppThemeTokens) {
     muted: { fontSize: rnType.label.size, color: tk.text.secondary },
     total: {
       fontSize: rnType.label.size,
-      color: tk.text.tertiary,
+      color: tk.text.medium,
       paddingHorizontal: rnSpacing.xs,
     },
     row: {

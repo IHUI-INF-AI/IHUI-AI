@@ -76,17 +76,6 @@ const recommendBodySchema = z.object({
   sort: z.coerce.number().int().default(0),
 })
 
-/**
- * F-430: systemConfigs.key 是全局唯一键,推荐位若直接用裸 name 作 key,
- * 会与其他类目(含 mobile-adapter 的 'preview-mode')抢键:新建时撞唯一约束抛 500,
- * 移动端 PUT mode 的 onConflictDoUpdate 还会覆盖推荐位的 value。
- * 统一加类目前缀做命名空间隔离,新旧数据都能正确展示。
- */
-const RECOMMEND_KEY_PREFIX = 'recommendation:'
-const recommendKey = (name: string): string => `${RECOMMEND_KEY_PREFIX}${name}`
-const recommendName = (key: string): string =>
-  key.startsWith(RECOMMEND_KEY_PREFIX) ? key.slice(RECOMMEND_KEY_PREFIX.length) : key
-
 function validate<S extends z.ZodTypeAny>(schema: S, input: unknown): z.infer<S> {
   const r = schema.safeParse(input)
   if (!r.success) {
@@ -100,20 +89,6 @@ function parseJson<T>(raw: string, fallback: T): T {
     return JSON.parse(raw) as T
   } catch {
     return fallback
-  }
-}
-
-/**
- * 本文件的分类由路由路径固定（about-us/contact/mobile-adapter/recommendation）。
- * payload 若显式带 category/categoryId，必须与之一致，避免借写接口跨分类串改。
- */
-function assertCategoryConsistency(body: unknown, expected: string): void {
-  const raw = (body ?? {}) as Record<string, unknown>
-  for (const key of ['category', 'categoryId']) {
-    const v = raw[key]
-    if (v !== undefined && v !== null && v !== '' && v !== expected) {
-      throw new AppError('分类与请求路径不一致', 400, 'CATEGORY_MISMATCH')
-    }
   }
 }
 
@@ -167,11 +142,7 @@ export const adminContentOpsRoutes: FastifyPluginAsync = async (server) => {
 
   server.get('/about-us/:id', async (request, reply) => {
     const { id } = validate(idParamSchema, request.params)
-    const [d] = await db
-      .select()
-      .from(docs)
-      .where(and(eq(docs.id, id), eq(docs.category, 'about-us')))
-      .limit(1)
+    const [d] = await db.select().from(docs).where(eq(docs.id, id)).limit(1)
     if (!d) return reply.status(404).send(error(404, '记录不存在'))
     const m = parseJson<{
       phone: string
@@ -192,7 +163,6 @@ export const adminContentOpsRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.post('/about-us', async (request, reply) => {
-    assertCategoryConsistency(request.body, 'about-us')
     const b = validate(aboutUsBodySchema, request.body)
     const [row] = await db
       .insert(docs)
@@ -213,7 +183,6 @@ export const adminContentOpsRoutes: FastifyPluginAsync = async (server) => {
 
   server.put('/about-us/:id', async (request, reply) => {
     const { id } = validate(idParamSchema, request.params)
-    assertCategoryConsistency(request.body, 'about-us')
     const b = validate(aboutUsBodySchema, request.body)
     const [row] = await db
       .update(docs)
@@ -227,7 +196,7 @@ export const adminContentOpsRoutes: FastifyPluginAsync = async (server) => {
         }),
         updatedAt: new Date(),
       })
-      .where(and(eq(docs.id, id), eq(docs.category, 'about-us')))
+      .where(eq(docs.id, id))
       .returning()
     if (!row) return reply.status(404).send(error(404, '记录不存在'))
     return reply.send(success(row))
@@ -235,12 +204,8 @@ export const adminContentOpsRoutes: FastifyPluginAsync = async (server) => {
 
   server.delete('/about-us/:id', async (request, reply) => {
     const { id } = validate(idParamSchema, request.params)
-    const removed = await db
-      .delete(docs)
-      .where(and(eq(docs.id, id), eq(docs.category, 'about-us')))
-      .returning({ id: docs.id })
-    if (removed.length === 0) return reply.status(404).send(error(404, '记录不存在'))
-    return reply.send(success({ id, deleted: true }))
+    const removed = await db.delete(docs).where(eq(docs.id, id)).returning({ id: docs.id })
+    return reply.send(success({ id, deleted: removed.length > 0 }))
   })
 
   // ----- /advertise（carousels 表）-----
@@ -373,11 +338,7 @@ export const adminContentOpsRoutes: FastifyPluginAsync = async (server) => {
 
   server.get('/contact/:id', async (request, reply) => {
     const { id } = validate(idParamSchema, request.params)
-    const [f] = await db
-      .select()
-      .from(feedbacks)
-      .where(and(eq(feedbacks.id, id), eq(feedbacks.type, 'contact')))
-      .limit(1)
+    const [f] = await db.select().from(feedbacks).where(eq(feedbacks.id, id)).limit(1)
     if (!f) return reply.status(404).send(error(404, '记录不存在'))
     const m = parseJson<{ introduction: string; corporateCulture: string }>(f.content, {
       introduction: '',
@@ -389,7 +350,6 @@ export const adminContentOpsRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.post('/contact', async (request, reply) => {
-    assertCategoryConsistency(request.body, 'contact')
     const b = validate(contactBodySchema, request.body)
     const userId = request.userId
     if (!userId) return reply.status(401).send(error(401, '未登录'))
@@ -410,7 +370,6 @@ export const adminContentOpsRoutes: FastifyPluginAsync = async (server) => {
 
   server.put('/contact/:id', async (request, reply) => {
     const { id } = validate(idParamSchema, request.params)
-    assertCategoryConsistency(request.body, 'contact')
     const b = validate(contactBodySchema, request.body)
     const [row] = await db
       .update(feedbacks)
@@ -421,7 +380,7 @@ export const adminContentOpsRoutes: FastifyPluginAsync = async (server) => {
         }),
         updatedAt: new Date(),
       })
-      .where(and(eq(feedbacks.id, id), eq(feedbacks.type, 'contact')))
+      .where(eq(feedbacks.id, id))
       .returning()
     if (!row) return reply.status(404).send(error(404, '记录不存在'))
     return reply.send(success(row))
@@ -431,10 +390,9 @@ export const adminContentOpsRoutes: FastifyPluginAsync = async (server) => {
     const { id } = validate(idParamSchema, request.params)
     const removed = await db
       .delete(feedbacks)
-      .where(and(eq(feedbacks.id, id), eq(feedbacks.type, 'contact')))
+      .where(eq(feedbacks.id, id))
       .returning({ id: feedbacks.id })
-    if (removed.length === 0) return reply.status(404).send(error(404, '记录不存在'))
-    return reply.send(success({ id, deleted: true }))
+    return reply.send(success({ id, deleted: removed.length > 0 }))
   })
 
   // ----- /mobile-adapter（systemConfigs 表，category='mobile-adapter'）-----
@@ -459,11 +417,7 @@ export const adminContentOpsRoutes: FastifyPluginAsync = async (server) => {
 
   server.get('/mobile-adapter/:id', async (request, reply) => {
     const { id } = validate(idParamSchema, request.params)
-    const [c] = await db
-      .select()
-      .from(systemConfigs)
-      .where(and(eq(systemConfigs.id, id), eq(systemConfigs.category, 'mobile-adapter')))
-      .limit(1)
+    const [c] = await db.select().from(systemConfigs).where(eq(systemConfigs.id, id)).limit(1)
     if (!c) return reply.status(404).send(error(404, '记录不存在'))
     const m = parseJson<{
       resolution: string
@@ -476,7 +430,6 @@ export const adminContentOpsRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.put('/mobile-adapter/mode', async (request, reply) => {
-    assertCategoryConsistency(request.body, 'mobile-adapter')
     const { mode } = validate(modeBodySchema, request.body)
     await db
       .insert(systemConfigs)
@@ -505,7 +458,7 @@ export const adminContentOpsRoutes: FastifyPluginAsync = async (server) => {
       return {
         id: c.id,
         position: m.position,
-        name: recommendName(c.key),
+        name: c.key,
         contentType: m.contentType,
         sort: m.sort,
         isEnabled: m.isEnabled,
@@ -516,11 +469,7 @@ export const adminContentOpsRoutes: FastifyPluginAsync = async (server) => {
 
   server.get('/recommendation-config/:id', async (request, reply) => {
     const { id } = validate(idParamSchema, request.params)
-    const [c] = await db
-      .select()
-      .from(systemConfigs)
-      .where(and(eq(systemConfigs.id, id), eq(systemConfigs.category, 'recommendation')))
-      .limit(1)
+    const [c] = await db.select().from(systemConfigs).where(eq(systemConfigs.id, id)).limit(1)
     if (!c) return reply.status(404).send(error(404, '记录不存在'))
     const m = parseJson<{
       position: string
@@ -532,7 +481,7 @@ export const adminContentOpsRoutes: FastifyPluginAsync = async (server) => {
       success({
         id: c.id,
         position: m.position,
-        name: recommendName(c.key),
+        name: c.key,
         contentType: m.contentType,
         sort: m.sort,
         isEnabled: m.isEnabled,
@@ -541,15 +490,11 @@ export const adminContentOpsRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.post('/recommendation-config', async (request, reply) => {
-    assertCategoryConsistency(request.body, 'recommendation')
     const b = validate(recommendBodySchema, request.body)
-    const key = recommendKey(b.name)
-    // 唯一键冲突用 onConflictDoNothing + returning 判空原子转 409,
-    // 不再把全局唯一键冲突暴露成 500。
     const [row] = await db
       .insert(systemConfigs)
       .values({
-        key,
+        key: b.name,
         value: JSON.stringify({
           position: b.position,
           contentType: b.contentType,
@@ -559,12 +504,10 @@ export const adminContentOpsRoutes: FastifyPluginAsync = async (server) => {
         category: 'recommendation',
         type: 'json',
       })
-      .onConflictDoNothing()
       .returning()
-    if (!row) return reply.status(409).send(error(409, '推荐位名称已被占用'))
     return reply.status(201).send(
       success({
-        id: row.id,
+        id: row?.id ?? '',
         position: b.position,
         name: b.name,
         contentType: b.contentType,
@@ -576,25 +519,14 @@ export const adminContentOpsRoutes: FastifyPluginAsync = async (server) => {
 
   server.put('/recommendation-config/:id', async (request, reply) => {
     const { id } = validate(idParamSchema, request.params)
-    assertCategoryConsistency(request.body, 'recommendation')
     const b = validate(recommendBodySchema, request.body)
-    const [existing] = await db
-      .select()
-      .from(systemConfigs)
-      .where(and(eq(systemConfigs.id, id), eq(systemConfigs.category, 'recommendation')))
+    const [existing] = await db.select().from(systemConfigs).where(eq(systemConfigs.id, id))
     if (!existing) return reply.status(404).send(error(404, '记录不存在'))
     const prev = parseJson<{ isEnabled: boolean }>(existing.value, { isEnabled: false })
-    const key = recommendKey(b.name)
-    const [dup] = await db
-      .select({ id: systemConfigs.id })
-      .from(systemConfigs)
-      .where(and(eq(systemConfigs.key, key), ne(systemConfigs.id, id)))
-      .limit(1)
-    if (dup) return reply.status(409).send(error(409, '推荐位名称已被占用'))
     await db
       .update(systemConfigs)
       .set({
-        key,
+        key: b.name,
         value: JSON.stringify({
           position: b.position,
           contentType: b.contentType,
@@ -603,7 +535,7 @@ export const adminContentOpsRoutes: FastifyPluginAsync = async (server) => {
         }),
         updatedAt: new Date(),
       })
-      .where(and(eq(systemConfigs.id, id), eq(systemConfigs.category, 'recommendation')))
+      .where(eq(systemConfigs.id, id))
     return reply.send(
       success({
         id,
@@ -618,10 +550,7 @@ export const adminContentOpsRoutes: FastifyPluginAsync = async (server) => {
 
   server.put('/recommendation-config/:id/toggle', async (request, reply) => {
     const { id } = validate(idParamSchema, request.params)
-    const [existing] = await db
-      .select()
-      .from(systemConfigs)
-      .where(and(eq(systemConfigs.id, id), eq(systemConfigs.category, 'recommendation')))
+    const [existing] = await db.select().from(systemConfigs).where(eq(systemConfigs.id, id))
     if (!existing) return reply.status(404).send(error(404, '记录不存在'))
     const prev = parseJson<{
       position: string
@@ -641,7 +570,7 @@ export const adminContentOpsRoutes: FastifyPluginAsync = async (server) => {
         }),
         updatedAt: new Date(),
       })
-      .where(and(eq(systemConfigs.id, id), eq(systemConfigs.category, 'recommendation')))
+      .where(eq(systemConfigs.id, id))
     return reply.send(success({ id, isEnabled }))
   })
 
@@ -649,10 +578,9 @@ export const adminContentOpsRoutes: FastifyPluginAsync = async (server) => {
     const { id } = validate(idParamSchema, request.params)
     const removed = await db
       .delete(systemConfigs)
-      .where(and(eq(systemConfigs.id, id), eq(systemConfigs.category, 'recommendation')))
+      .where(eq(systemConfigs.id, id))
       .returning({ id: systemConfigs.id })
-    if (removed.length === 0) return reply.status(404).send(error(404, '记录不存在'))
-    return reply.send(success({ id, deleted: true }))
+    return reply.send(success({ id, deleted: removed.length > 0 }))
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

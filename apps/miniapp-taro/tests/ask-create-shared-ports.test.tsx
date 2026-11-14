@@ -297,11 +297,18 @@ describe('两端真消费源码锁', () => {
     expect(adapter).toMatch(/Taro\.removeStorageSync/)
   })
 
-  it('RN 宿主必须真传 media/draft,且由 expo-image-picker + AsyncStorage 实现', () => {
+  it('RN 宿主必须真传 media/draft,且经 platform/image-picker 适配器(内含 expo-image-picker)+ AsyncStorage 实现', () => {
     const screen = stripComments(
       readFileSync(resolve(root, 'apps/mobile-rn/src/screens/AskCreateScreen.tsx'), 'utf8'),
     )
-    expect(screen).toContain('expo-image-picker')
+    // 选图走 platform/image-picker 适配层(为鸿蒙留替换点,透明转发 expo-image-picker),不直接 import。
+    expect(screen).toContain('@/platform/image-picker')
+    // 适配器本体必须仍以 expo-image-picker 为实现,防止适配层变空壳。
+    expect(
+      stripComments(
+        readFileSync(resolve(root, 'apps/mobile-rn/src/platform/image-picker.ts'), 'utf8'),
+      ),
+    ).toContain('expo-image-picker')
     expect(screen).toContain('@react-native-async-storage/async-storage')
     expect(screen).toContain('media={media}')
     expect(screen).toContain('draft={draft}')

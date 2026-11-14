@@ -808,6 +808,9 @@ function MessageBubble({
                     key={`${url}-${i}`}
                     activeOpacity={0.85}
                     onPress={() => onPreviewImage(url)}
+                    accessibilityRole="imagebutton"
+                    accessibilityLabel={t('chat.imagePreviewA11y')}
+                    accessibilityHint={t('chat.imageOpen')}
                   >
                     <Image
                       source={{ uri: url }}
@@ -2247,7 +2250,7 @@ const styles = StyleSheet.create({
   },
   modelBarArrow: {
     fontSize: rnType.subtitle.size,
-    color: tokens.text.tertiary,
+    color: tokens.text.medium,
     marginLeft: rpx(16),
   },
   // 快捷操作区(对齐 Uniapp quick-actions-container)
@@ -2279,7 +2282,7 @@ const styles = StyleSheet.create({
     paddingVertical: rpx(12),
     backgroundColor: tokens.surface.card,
   },
-  streamingText: { fontSize: rnType.label.size, color: tokens.text.tertiary },
+  streamingText: { fontSize: rnType.label.size, color: tokens.text.medium },
 })
 
 const bubbleStyles = StyleSheet.create({
@@ -2380,7 +2383,7 @@ const bubbleStyles = StyleSheet.create({
     flex: 1,
     marginRight: rpx(16),
     fontSize: rnType.caption.size,
-    color: tokens.text.tertiary,
+    color: tokens.text.medium,
   },
   actionBtns: {
     flexDirection: 'row',
@@ -2400,7 +2403,7 @@ const bubbleStyles = StyleSheet.create({
   blockTitle: {
     fontSize: rnType.caption.size,
     fontWeight: '600',
-    color: tokens.text.tertiary,
+    color: tokens.text.medium,
   },
   blockHint: {
     fontSize: rnType.label.size,
@@ -2426,16 +2429,16 @@ const bubbleStyles = StyleSheet.create({
   cardSubject: {
     flex: 1,
     fontSize: rnType.caption.size,
-    color: tokens.text.tertiary,
+    color: tokens.text.medium,
     fontFamily: Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' }),
   },
-  cardMeta: { fontSize: rnType.badge.size, color: tokens.text.tertiary },
+  cardMeta: { fontSize: rnType.badge.size, color: tokens.text.medium },
   cardBody: {
     paddingHorizontal: rpx(12),
     paddingBottom: rpx(10),
     gap: rpx(6),
   },
-  sectionLabel: { fontSize: rnType.badge.size, fontWeight: '600', color: tokens.text.tertiary },
+  sectionLabel: { fontSize: rnType.badge.size, fontWeight: '600', color: tokens.text.medium },
   sectionGap: { marginTop: rpx(6) },
   // 等宽文本(工具参数/输出、终端命令与输出)
   monoText: {
@@ -2459,7 +2462,7 @@ const bubbleStyles = StyleSheet.create({
   planIndex: {
     width: 16,
     fontSize: rnType.caption.size,
-    color: tokens.text.tertiary,
+    color: tokens.text.medium,
   },
   planText: {
     flex: 1,
@@ -2481,7 +2484,7 @@ const bubbleStyles = StyleSheet.create({
   badgeDone: { backgroundColor: tokens.success.lighter },
   badgeDoneText: { color: tokens.success.deepText },
   badgeFailed: { backgroundColor: tokens.error.bg },
-  badgeFailedText: { color: tokens.danger.DEFAULT },
+  badgeFailedText: { color: tokens.danger.deepText },
 })
 
 const pickerStyles = StyleSheet.create({
@@ -2510,7 +2513,7 @@ const pickerStyles = StyleSheet.create({
   },
   close: {
     fontSize: rnType.display.size,
-    color: tokens.text.tertiary,
+    color: tokens.text.medium,
     lineHeight: rnType.subtitle.lineHeight,
   },
   // sheet 已有确定高度,flex:1 占满 header 之外的剩余空间(不再手写比例)

@@ -1864,133 +1864,6 @@ async fn read_binary_file(app: tauri::AppHandle, path: String) -> Result<ReadBin
     Ok(ReadBinaryResult { base64, size, mime })
 }
 
-/// 系统文件管理器 / 默认应用打开(open-in-app,2026-11-14)。
-///
-/// 安全边界与文件 IPC 同源:只允许
-/// 1. `app_data_dir` 内(附件/导出物),或
-/// 2. `git_authorize_workspace` 已证明过的工作区根内。
-/// 前端只能传绝对路径;canonicalize 后仍需落在上述边界内,符号链接逃逸同样拒。
-fn resolve_openable_path(
-    app: &tauri::AppHandle,
-    authorized_root: Option<&std::path::Path>,
-    raw: &str,
-) -> Result<std::path::PathBuf, IpcError> {
-    let candidate = std::path::PathBuf::from(raw);
-    if !candidate.is_absolute() {
-        return Err(IpcError::permission("path 必须是绝对路径"));
-    }
-    let canonical = candidate
-        .canonicalize()
-        .map_err(|e| IpcError::from_io("canonicalize", &candidate, e))?;
-    let in_app_data = ensure_in_app_data(app, raw).is_ok();
-    let in_workspace = match authorized_root {
-        Some(root) => root
-            .canonicalize()
-            .map(|root| canonical.starts_with(&root))
-            .unwrap_or(false),
-        None => false,
-    };
-    if !in_app_data && !in_workspace {
-        return Err(IpcError::permission(
-            "path 不在 app_data_dir 或已授权工作区根内",
-        ));
-    }
-    Ok(canonical)
-}
-
-#[cfg(target_os = "windows")]
-fn reveal_command(target: &std::path::Path) -> std::process::Command {
-    let mut command = std::process::Command::new("explorer");
-    if target.is_dir() {
-        command.arg(target);
-    } else {
-        command.arg(format!("/select,{}", target.display()));
-    }
-    command
-}
-
-#[cfg(target_os = "macos")]
-fn reveal_command(target: &std::path::Path) -> std::process::Command {
-    let mut command = std::process::Command::new("open");
-    command.arg("-R").arg(target);
-    command
-}
-
-#[cfg(all(unix, not(target_os = "macos")))]
-fn reveal_command(target: &std::path::Path) -> std::process::Command {
-    let directory = if target.is_dir() {
-        target.to_path_buf()
-    } else {
-        target
-            .parent()
-            .map(|parent| parent.to_path_buf())
-            .unwrap_or_else(|| target.to_path_buf())
-    };
-    let mut command = std::process::Command::new("xdg-open");
-    command.arg(directory);
-    command
-}
-
-#[cfg(target_os = "windows")]
-fn open_default_command(target: &std::path::Path) -> std::process::Command {
-    // url.dll 走 ShellExecute:路径作为独立参数,不拼命令行,避免引号注入。
-    let mut command = std::process::Command::new("rundll32.exe");
-    command.arg("url.dll,FileProtocolHandler").arg(target);
-    command
-}
-
-#[cfg(target_os = "macos")]
-fn open_default_command(target: &std::path::Path) -> std::process::Command {
-    let mut command = std::process::Command::new("open");
-    command.arg(target);
-    command
-}
-
-#[cfg(all(unix, not(target_os = "macos")))]
-fn open_default_command(target: &std::path::Path) -> std::process::Command {
-    let mut command = std::process::Command::new("xdg-open");
-    command.arg(target);
-    command
-}
-
-/// 在系统文件管理器中定位文件/目录(桌面端 open-in-app)。
-#[tauri::command]
-async fn reveal_in_explorer(
-    app: tauri::AppHandle,
-    git: tauri::State<'_, git_channel_ipc::GitChannelState>,
-    path: String,
-) -> Result<(), IpcError> {
-    let root = git.authorized_root_path();
-    tauri::async_runtime::spawn_blocking(move || {
-        let target = resolve_openable_path(&app, root.as_deref(), &path)?;
-        reveal_command(&target)
-            .spawn()
-            .map_err(|e| IpcError::from_io("spawn_reveal", &target, e))?;
-        Ok(())
-    })
-    .await
-    .map_err(|e| IpcError::internal(format!("reveal_in_explorer 阻塞任务失败: {e}")))?
-}
-
-/// 用系统默认应用打开文件(桌面端 open-in-app,同样受授权根约束)。
-#[tauri::command]
-async fn open_with_default_app(
-    app: tauri::AppHandle,
-    git: tauri::State<'_, git_channel_ipc::GitChannelState>,
-    path: String,
-) -> Result<(), IpcError> {
-    let root = git.authorized_root_path();
-    tauri::async_runtime::spawn_blocking(move || {
-        let target = resolve_openable_path(&app, root.as_deref(), &path)?;
-        open_default_command(&target)
-            .spawn()
-            .map_err(|e| IpcError::from_io("spawn_open", &target, e))?;
-        Ok(())
-    })
-    .await
-    .map_err(|e| IpcError::internal(format!("open_with_default_app 阻塞任务失败: {e}")))?
-}
-
 /// 写入文本文件(覆盖)。父目录不存在时自动创建。路径仅允许 app_data_dir 内。
 /// 2026-11-08 加固(F-080):补 50MB 上限 + 同目录 tmp/rename 原子替换。
 /// 旧实现 `fs::write` 无上限、且直接截断目标 —— 一次超大写入或中途崩溃会把
@@ -4982,8 +4855,6 @@ pub fn run() {
             clipboard_set,
             read_text_file,
             read_binary_file,
-            reveal_in_explorer,
-            open_with_default_app,
             write_text_file,
             list_dir,
             stat_file,
@@ -5012,6 +4883,9 @@ pub fn run() {
             // 这里只留 probe(读内嵌窗 cookie jar + 服务端验证,见 checkin_web_login.rs)。
             checkin_web_login::checkin_workbuddy_web_login_probe,
             checkin_web_login::checkin_workbuddy_web_login_probe_cookie,
+            // F-060:jar 探测路径的入库(探测回包已不含 cookie;cookie 由 Rust
+            // 从内嵌浏览器 cookie jar 现读直 POST 后端,见 checkin_web_login.rs)
+            checkin_web_login::checkin_workbuddy_web_import,
             checkin_capture::checkin_reset_device_ids,
             checkin_capture::checkin_get_public_ip,
             checkin_capture::checkin_one_click_reset,

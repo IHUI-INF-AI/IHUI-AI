@@ -119,7 +119,7 @@ const DEFAULT_COMPARISON_ROWS: readonly MembershipComparisonRow[] = [
 ]
 
 function renderCell(cell: MembershipCell): ReactNode {
-  if (cell === true) return <Check size={14} color={tokens.success.DEFAULT} />
+  if (cell === true) return <Check size={14} color={tokens.success.deepText} />
   if (cell === false) return <X size={14} color={tokens.danger.DEFAULT} />
   return <Text style={styles.cellText}>{cell}</Text>
 }
@@ -178,7 +178,7 @@ export function UserMembershipBenefits({
                 <Text style={styles.benefitTitle}>{b.title}</Text>
                 <Text style={styles.benefitDesc}>{b.desc}</Text>
               </View>
-              <CircleCheck size={16} color={tokens.success.DEFAULT} />
+              <CircleCheck size={16} color={tokens.success.deepText} />
             </View>
           )
         })}
@@ -357,7 +357,7 @@ const styles = StyleSheet.create({
     color: GOLD,
   } as TextStyle,
   tierTrader: {
-    color: tokens.success.DEFAULT,
+    color: tokens.success.deepText,
   } as TextStyle,
   rowTitle: {
     fontWeight: '500',
@@ -365,12 +365,12 @@ const styles = StyleSheet.create({
   cellCheck: {
     fontSize: rnType.body.size,
     fontWeight: '700',
-    color: tokens.success.DEFAULT,
+    color: tokens.success.deepText,
   } as TextStyle,
   cellCross: {
     fontSize: rnType.body.size,
     fontWeight: '700',
-    color: tokens.danger.DEFAULT,
+    color: tokens.danger.deepText,
   } as TextStyle,
   cellText: {
     fontSize: rnType.label.size,

@@ -168,7 +168,7 @@ function createStyles(tk: AppThemeTokens) {
     errorText: {
       paddingHorizontal: rnSpacing['sm-loose'],
       fontSize: rnType.body.size,
-      color: tk.danger.DEFAULT,
+      color: tk.danger.deepText,
     },
     listBody: { padding: rnSpacing['md-loose'], paddingBottom: rnSpacing['3xl'] },
     separator: { height: 8 },
@@ -192,8 +192,8 @@ function createStyles(tk: AppThemeTokens) {
       marginRight: rnSpacing.sm,
     },
     cardAmount: { fontSize: rnType.title.size, fontWeight: '600' },
-    amountEarn: { color: tk.success.DEFAULT },
-    amountSpend: { color: tk.danger.DEFAULT },
+    amountEarn: { color: tk.success.deepText },
+    amountSpend: { color: tk.danger.deepText },
     metaRow: {
       flexDirection: 'row',
       justifyContent: 'space-between',
@@ -201,7 +201,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: rnSpacing.sm,
     },
     cardMeta: { fontSize: rnType.caption.size, color: tk.text.secondary },
-    cardTime: { fontSize: rnType.caption.size, color: tk.text.tertiary },
+    cardTime: { fontSize: rnType.caption.size, color: tk.text.medium },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -111,7 +111,7 @@ export function LiveHostScreen({
           value={streamTitle}
           onChangeText={onStreamTitleChange}
           placeholder={t('liveHost.streamTitlePlaceholder')}
-          placeholderTextColor={tk.text.tertiary}
+          placeholderTextColor={tk.text.secondary}
           editable={status === 'idle'}
         />
         {stream ? (
@@ -155,7 +155,7 @@ export function LiveHostScreen({
           onPress={onEndLive}
           disabled={loading || status !== 'active'}
         >
-          <Text style={styles.actionBtnText}>
+          <Text style={[styles.actionBtnText, styles.actionBtnTextDanger]}>
             {loading && status === 'active' ? t('liveHost.ending') : t('liveHost.endLive')}
           </Text>
         </TouchableOpacity>
@@ -222,7 +222,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     badgeText: { fontSize: rnType.caption.size, color: tk.surface.light },
     errorWrap: { paddingHorizontal: rnSpacing['sm-loose'], paddingVertical: rnSpacing.xs },
-    errorText: { fontSize: rnType.body.size, color: tk.danger.DEFAULT },
+    errorText: { fontSize: rnType.body.size, color: tk.danger.deepText },
     previewArea: {
       height: 176,
       marginHorizontal: rnSpacing['sm-loose'],
@@ -232,7 +232,7 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    previewText: { fontSize: rnType.body.size, color: tk.text.tertiary },
+    previewText: { fontSize: rnType.body.size, color: tk.text.medium },
     sectionBox: {
       marginHorizontal: rnSpacing['sm-loose'],
       marginTop: rnSpacing.md,
@@ -244,7 +244,7 @@ function createStyles(tk: AppThemeTokens) {
     lastSection: { marginBottom: rnSpacing['3xl'] },
     sectionLabel: {
       fontSize: rnType.body.size,
-      color: tk.text.tertiary,
+      color: tk.text.medium,
       marginBottom: rnSpacing.sm,
     },
     sectionTitle: {
@@ -266,7 +266,7 @@ function createStyles(tk: AppThemeTokens) {
     streamInfo: { marginTop: rnSpacing.sm },
     streamInfoText: {
       fontSize: rnType.body.size,
-      color: tk.text.tertiary,
+      color: tk.text.medium,
       marginTop: rnSpacing.sm,
     },
     actionRow: {
@@ -289,9 +289,12 @@ function createStyles(tk: AppThemeTokens) {
       fontSize: rnType.title.size,
       fontWeight: '600',
     },
+    actionBtnTextDanger: {
+      color: tk.surface.onBrand,
+    },
     statsRow: { flexDirection: 'row', flexWrap: 'wrap' },
     statItem: { width: '50%', marginBottom: rnSpacing.sm },
-    statLabel: { fontSize: rnType.body.size, color: tk.text.tertiary },
+    statLabel: { fontSize: rnType.body.size, color: tk.text.medium },
     statValue: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
     productHeader: {
       flexDirection: 'row',
@@ -305,16 +308,16 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.sm,
       backgroundColor: tk.surface.card,
     },
-    productAddText: { fontSize: rnType.body.size, color: tk.success.DEFAULT },
+    productAddText: { fontSize: rnType.body.size, color: tk.success.deepText },
     productHint: {
       fontSize: rnType.body.size,
-      color: tk.text.tertiary,
+      color: tk.text.medium,
       paddingVertical: rnSpacing.sm,
       textAlign: 'center',
     },
     productError: {
       fontSize: rnType.body.size,
-      color: tk.danger.DEFAULT,
+      color: tk.danger.deepText,
       paddingVertical: rnSpacing.sm,
       textAlign: 'center',
     },
@@ -330,7 +333,7 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.primary,
       marginRight: rnSpacing.sm,
     },
-    productPrice: { fontSize: rnType.title.size, fontWeight: '600', color: tk.danger.DEFAULT },
+    productPrice: { fontSize: rnType.title.size, fontWeight: '600', color: tk.danger.deepText },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -9,6 +9,7 @@ import { View, Text, ScrollView, Image } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useMemo, useCallback } from 'react'
 import { getAgentList } from '@/api'
+import { filterAgents, pickHotBanner } from '@ihui/shared/social/agent-filter'
 import Carousel from '@/components/Carousel'
 import ThemeRoot from '@/components/ThemeRoot'
 import {
@@ -152,58 +153,28 @@ export default function AgentPage() {
     streamEnabled: true,
   })
 
-  const filtered = useMemo(() => {
-    let arr = list
-    // 快捷 Tab 筛选(收藏 / 最近使用)
-    if (quickTab === 'favorites') {
-      const favSet = new Set(favoriteIds)
-      arr = arr.filter((a) => favSet.has(a.id))
-    } else if (quickTab === 'recent') {
-      const recSet = new Set(recentIds)
-      arr = arr.filter((a) => recSet.has(a.id))
-      // 最近使用按最近使用顺序排序
-      const orderMap = new Map(recentIds.map((id, idx) => [id, idx]))
-      arr = arr.slice().sort((a, b) => (orderMap.get(a.id) ?? 0) - (orderMap.get(b.id) ?? 0))
-      return arr
-    }
-    // 模型类型筛选
-    if (activeType) {
-      arr = arr.filter((a) => (a.category || '').toLowerCase().includes(activeType))
-    }
-    // 分类筛选
-    if (activeCategory !== 'recommend') {
-      arr = arr.filter((a) => (a.category || '') === activeCategory)
-    }
-    // 关键词筛选
-    if (keyword) {
-      const kw = keyword.toLowerCase()
-      arr = arr.filter(
-        (a) =>
-          (a.name || '').toLowerCase().includes(kw) || (a.desc || '').toLowerCase().includes(kw),
-      )
-    }
-    // 排序
-    if (sortKey === 'uses') {
-      arr = arr.slice().sort((a, b) => (b.uses ?? 0) - (a.uses ?? 0))
-    } else if (sortKey === 'newest') {
-      // 原项目按 createdAt 倒序,API 未返回时按列表顺序倒序近似
-      arr = arr.slice().reverse()
-    } else {
-      // hot:按真实 usageCount 降序。agents 表没有评分列(现读 packages/database/src/schema/
-      // agents-extended.ts),后端也不出 per-agent 评分 ⇒ 不再用 uses 反推假评分参与排序。
-      arr = arr.slice().sort((a, b) => (b.uses ?? 0) - (a.uses ?? 0))
-    }
-    return arr
-  }, [list, keyword, activeType, activeCategory, sortKey, quickTab, favoriteIds, recentIds])
+  // 筛选 / 排序 / 热门推荐规则统一由 @ihui/shared 的 agent-filter 契约计算 ——
+  // 收敛前本页与共享屏各写一套关键词表与排序档,同一智能体会落进不同分类。
+  const filtered = useMemo(
+    () =>
+      filterAgents({
+        list,
+        keyword,
+        activeType,
+        activeCategory,
+        sortKey,
+        quickTab,
+        favoriteIds,
+        recentIds,
+      }),
+    [list, keyword, activeType, activeCategory, sortKey, quickTab, favoriteIds, recentIds],
+  )
 
   /** 顶部热门推荐横向 Banner,取 uses 最高的前 5 个智能体 */
-  const hotBanner = useMemo(() => {
-    if (quickTab !== 'all' || keyword || activeType || activeCategory !== 'recommend') return []
-    return list
-      .slice()
-      .sort((a, b) => (b.uses ?? 0) - (a.uses ?? 0))
-      .slice(0, 5)
-  }, [list, quickTab, keyword, activeType, activeCategory])
+  const hotBanner = useMemo(
+    () => pickHotBanner({ list, quickTab, keyword, activeType, activeCategory }),
+    [list, quickTab, keyword, activeType, activeCategory],
+  )
 
   const load = useCallback(async () => {
     try {

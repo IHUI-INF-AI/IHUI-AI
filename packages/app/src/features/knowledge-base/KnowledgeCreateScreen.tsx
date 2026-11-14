@@ -64,7 +64,7 @@ export function KnowledgeCreateScreen({
 }: KnowledgeCreateScreenProps) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
-  const placeholderColor = colorScheme === 'dark' ? tk.text.secondary : tk.text.tertiary
+  const placeholderColor = colorScheme === 'dark' ? tk.text.secondary : tk.text.secondary
 
   return (
     <View style={styles.container}>
@@ -168,7 +168,7 @@ function createStyles(tk: AppThemeTokens) {
     hint: {
       marginTop: rnSpacing.sm,
       fontSize: rnType.label.size,
-      color: tk.text.tertiary,
+      color: tk.text.medium,
     },
   } satisfies Record<string, ViewStyle | TextStyle>)
 }

@@ -84,7 +84,7 @@ export function SkillMarketListScreen({
           value={keyword}
           onChangeText={onKeywordChange}
           placeholder={t('skillsMarket.searchPlaceholder')}
-          placeholderTextColor={tk.text.tertiary}
+          placeholderTextColor={tk.text.secondary}
           onSubmitEditing={onSearch}
           returnKeyType="search"
           autoCapitalize="none"
@@ -185,8 +185,8 @@ export function SkillMarketListScreen({
               <View style={styles.rating}>
                 <Star
                   size={rnType.caption.size}
-                  color={tk.warning.DEFAULT}
-                  fill={tk.warning.DEFAULT}
+                  color={tk.warning.amberText}
+                  fill={tk.warning.amberText}
                   strokeWidth={2}
                 />
                 <Text style={styles.ratingValue}>{item.rating.toFixed(1)}</Text>
@@ -196,7 +196,7 @@ export function SkillMarketListScreen({
                   ? t('skillsMarket.ratingCount', { count: item.ratingCount })
                   : t('skillsMarket.noRatings')}
               </Text>
-              <Download size={12} color={tk.text.tertiary} strokeWidth={2} />
+              <Download size={12} color={tk.text.secondary} strokeWidth={2} />
               <Text style={styles.meta}>
                 {t('skillsMarket.installs', { count: item.installCount })}
               </Text>
@@ -286,7 +286,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: rnSpacing.xs,
       fontSize: rnType.caption.size,
       lineHeight: 17,
-      color: tk.text.tertiary,
+      color: tk.text.medium,
     },
     searchRow: {
       marginTop: rnSpacing.sm,
@@ -393,11 +393,11 @@ function createStyles(tk: AppThemeTokens) {
     },
     ratingValue: {
       fontSize: rnType.caption.size,
-      color: tk.warning.DEFAULT,
+      color: tk.warning.amberText,
     },
     meta: {
       fontSize: rnType.caption.size,
-      color: tk.text.tertiary,
+      color: tk.text.medium,
     },
     footRow: {
       marginTop: rnSpacing.sm,
@@ -418,7 +418,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     foot: {
       fontSize: rnType.caption.size,
-      color: tk.text.tertiary,
+      color: tk.text.medium,
     },
     pager: {
       marginTop: rnSpacing.lg,
@@ -446,7 +446,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     pagerInfo: {
       fontSize: rnType.caption.size,
-      color: tk.text.tertiary,
+      color: tk.text.medium,
     },
   })
 }

@@ -4,7 +4,6 @@
 
 import { eq, and, ne, desc, asc, sql, ilike, inArray } from 'drizzle-orm'
 import { db, dbRead } from './index.js'
-import { toSafeAmount } from './commission-queries.js'
 import {
   agents,
   agentCategories,
@@ -320,9 +319,9 @@ export async function findSettlementSummary(): Promise<{
 }> {
   const rows = await dbRead
     .select({
-      totalAmount: sql<number>`coalesce(sum(${agentSettlements.amount}), 0)::bigint`,
-      settledAmount: sql<number>`coalesce(sum(${agentSettlements.amount}) filter (where ${agentSettlements.status} = 'settled'), 0)::bigint`,
-      unsettledAmount: sql<number>`coalesce(sum(${agentSettlements.amount}) filter (where ${agentSettlements.status} = 'unsettled'), 0)::bigint`,
+      totalAmount: sql<number>`coalesce(sum(${agentSettlements.amount}), 0)::int`,
+      settledAmount: sql<number>`coalesce(sum(${agentSettlements.amount}) filter (where ${agentSettlements.status} = 'settled'), 0)::int`,
+      unsettledAmount: sql<number>`coalesce(sum(${agentSettlements.amount}) filter (where ${agentSettlements.status} = 'unsettled'), 0)::int`,
       totalCount: sql<number>`count(*)::int`,
       settledCount: sql<number>`count(*) filter (where ${agentSettlements.status} = 'settled')::int`,
       unsettledCount: sql<number>`count(*) filter (where ${agentSettlements.status} = 'unsettled')::int`,
@@ -330,9 +329,9 @@ export async function findSettlementSummary(): Promise<{
     .from(agentSettlements)
   const r = rows[0]
   return {
-    totalAmount: toSafeAmount(r?.totalAmount),
-    settledAmount: toSafeAmount(r?.settledAmount),
-    unsettledAmount: toSafeAmount(r?.unsettledAmount),
+    totalAmount: r?.totalAmount ?? 0,
+    settledAmount: r?.settledAmount ?? 0,
+    unsettledAmount: r?.unsettledAmount ?? 0,
     totalCount: r?.totalCount ?? 0,
     settledCount: r?.settledCount ?? 0,
     unsettledCount: r?.unsettledCount ?? 0,
@@ -348,8 +347,8 @@ export async function findSettlementByOrder(orderNo: string): Promise<{
 }> {
   const rows = await dbRead
     .select({
-      totalAmount: sql<number>`coalesce(sum(${agentSettlements.amount}), 0)::bigint`,
-      commissionAmount: sql<number>`coalesce(sum(${agentSettlements.commissionAmount}), 0)::bigint`,
+      totalAmount: sql<number>`coalesce(sum(${agentSettlements.amount}), 0)::int`,
+      commissionAmount: sql<number>`coalesce(sum(${agentSettlements.commissionAmount}), 0)::int`,
       count: sql<number>`count(*)::int`,
     })
     .from(agentSettlements)
@@ -357,8 +356,8 @@ export async function findSettlementByOrder(orderNo: string): Promise<{
   const r = rows[0]
   return {
     orderNo,
-    totalAmount: toSafeAmount(r?.totalAmount),
-    commissionAmount: toSafeAmount(r?.commissionAmount),
+    totalAmount: r?.totalAmount ?? 0,
+    commissionAmount: r?.commissionAmount ?? 0,
     count: r?.count ?? 0,
   }
 }
@@ -553,67 +552,65 @@ export async function deleteExamine(
 // thumbs / collect / use / unpublish
 // =============================================================================
 
-/**
- * 点赞/收藏切换(返回切换后是否已点赞/已收藏)。
- *
- * 「判存在 → 增删明细 → 改计数」必须在**同一事务**内,并持同键
- * `pg_advisory_xact_lock` 串行化:否则并发双击时两个请求同时判空,
- * 各插一行、各 +1;删除按**实际删行数**递减,历史遗留的同键重复行
- * 也能一次收回(此前固定 -1 与删除行数脱钩,计数永久漂移)。
- * 锁序与写法复用 `agent-chat-queries.ts` 的既有模式。
- */
-export async function toggleThumb(uuid: string, botId: string): Promise<boolean> {
-  return db.transaction(async (tx) => {
-    await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${`agent_thumb:${uuid}:${botId}`}))`)
-    const removed = await tx
-      .delete(agentThumbs)
-      .where(and(eq(agentThumbs.uuid, uuid), eq(agentThumbs.botId, botId)))
-      .returning({ id: agentThumbs.id })
-    if (removed.length > 0) {
-      await tx
-        .update(agents)
-        .set({
-          likeCount: sql`GREATEST(COALESCE(${agents.likeCount}, 0) - ${removed.length}, 0)`,
-          updatedAt: new Date(),
-        })
-        .where(eq(agents.botId, botId))
-      return false
-    }
-    await tx.insert(agentThumbs).values({ uuid, botId })
-    await tx
-      .update(agents)
-      .set({ likeCount: sql`COALESCE(${agents.likeCount}, 0) + 1`, updatedAt: new Date() })
-      .where(eq(agents.botId, botId))
-    return true
-  })
+export async function findThumb(uuid: string, botId: string): Promise<{ id: string } | undefined> {
+  const rows = await dbRead
+    .select({ id: agentThumbs.id })
+    .from(agentThumbs)
+    .where(and(eq(agentThumbs.uuid, uuid), eq(agentThumbs.botId, botId)))
+    .limit(1)
+  return rows[0]
 }
 
-export async function toggleCollect(uuid: string, botId: string): Promise<boolean> {
-  return db.transaction(async (tx) => {
-    await tx.execute(
-      sql`SELECT pg_advisory_xact_lock(hashtext(${`agent_collect:${uuid}:${botId}`}))`,
-    )
-    const removed = await tx
-      .delete(agentCollects)
-      .where(and(eq(agentCollects.uuid, uuid), eq(agentCollects.botId, botId)))
-      .returning({ id: agentCollects.id })
-    if (removed.length > 0) {
-      await tx
-        .update(agents)
-        .set({
-          collectCount: sql`GREATEST(COALESCE(${agents.collectCount}, 0) - ${removed.length}, 0)`,
-          updatedAt: new Date(),
-        })
-        .where(eq(agents.botId, botId))
-      return false
-    }
-    await tx.insert(agentCollects).values({ uuid, botId })
-    await tx
-      .update(agents)
-      .set({ collectCount: sql`COALESCE(${agents.collectCount}, 0) + 1`, updatedAt: new Date() })
-      .where(eq(agents.botId, botId))
-    return true
-  })
+export async function addThumb(uuid: string, botId: string): Promise<void> {
+  await db.insert(agentThumbs).values({ uuid, botId })
+  await db
+    .update(agents)
+    .set({ likeCount: sql`${agents.likeCount} + 1`, updatedAt: new Date() })
+    .where(eq(agents.botId, botId))
+}
+
+export async function removeThumb(uuid: string, botId: string): Promise<void> {
+  await db.delete(agentThumbs).where(and(eq(agentThumbs.uuid, uuid), eq(agentThumbs.botId, botId)))
+  await db
+    .update(agents)
+    .set({
+      likeCount: sql`GREATEST(COALESCE(${agents.likeCount}, 0) - 1, 0)`,
+      updatedAt: new Date(),
+    })
+    .where(eq(agents.botId, botId))
+}
+
+export async function findCollect(
+  uuid: string,
+  botId: string,
+): Promise<{ id: string } | undefined> {
+  const rows = await dbRead
+    .select({ id: agentCollects.id })
+    .from(agentCollects)
+    .where(and(eq(agentCollects.uuid, uuid), eq(agentCollects.botId, botId)))
+    .limit(1)
+  return rows[0]
+}
+
+export async function addCollect(uuid: string, botId: string): Promise<void> {
+  await db.insert(agentCollects).values({ uuid, botId })
+  await db
+    .update(agents)
+    .set({ collectCount: sql`${agents.collectCount} + 1`, updatedAt: new Date() })
+    .where(eq(agents.botId, botId))
+}
+
+export async function removeCollect(uuid: string, botId: string): Promise<void> {
+  await db
+    .delete(agentCollects)
+    .where(and(eq(agentCollects.uuid, uuid), eq(agentCollects.botId, botId)))
+  await db
+    .update(agents)
+    .set({
+      collectCount: sql`GREATEST(COALESCE(${agents.collectCount}, 0) - 1, 0)`,
+      updatedAt: new Date(),
+    })
+    .where(eq(agents.botId, botId))
 }
 
 export async function recordAgentUse(uuid: string, botId: string): Promise<void> {

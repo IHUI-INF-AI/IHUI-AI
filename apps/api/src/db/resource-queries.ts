@@ -4,7 +4,6 @@
 
 import { eq, and, desc, asc, sql, ilike, inArray, gt } from 'drizzle-orm'
 import { db } from './index.js'
-import { asContainsTerm } from '../utils/like-escape.js'
 import {
   resourceCategories,
   resources,
@@ -119,7 +118,7 @@ export async function findResources(
 ): Promise<{ list: Resource[]; total: number; page: number; pageSize: number }> {
   const { page, pageSize, title, categoryId, isPublished, status } = opts
   const conds = []
-  if (title) conds.push(ilike(resources.title, asContainsTerm(title)))
+  if (title) conds.push(ilike(resources.title, `%${title}%`))
   if (categoryId) conds.push(eq(resources.categoryId, categoryId))
   if (isPublished !== undefined) conds.push(eq(resources.isPublished, isPublished))
   if (status !== undefined) conds.push(eq(resources.status, status))
@@ -142,46 +141,16 @@ export async function findResources(
   return { list, total: totalRows[0]?.count ?? 0, page, pageSize }
 }
 
-export interface FindResourceByIdOpts {
-  /**
-   * F-569:仅供 admin/后台内部路径显式放行草稿与下线资源。
-   * 公开出口(详情/批量)必须保持缺省 false,与列表 `isPublished=true AND status=1` 同口径。
-   */
-  includeUnpublished?: boolean
-}
-
-/** 按 ID 查询资源(默认只返回已发布+启用,不自增浏览量)。 */
-export async function findResourceById(
-  id: string,
-  opts: FindResourceByIdOpts = {},
-): Promise<Resource | undefined> {
-  const conds = [eq(resources.id, id)]
-  if (!opts.includeUnpublished) {
-    conds.push(eq(resources.isPublished, true), eq(resources.status, 1))
-  }
-  const rows = await db
-    .select()
-    .from(resources)
-    .where(and(...conds))
-    .limit(1)
+/** Admin 用：按 ID 查询资源(不限状态,不自增浏览量)。 */
+export async function findResourceById(id: string): Promise<Resource | undefined> {
+  const rows = await db.select().from(resources).where(eq(resources.id, id)).limit(1)
   return rows[0]
 }
 
-/** 按 ID 列表批量查询资源(列表不返回 intro;默认只返回已发布+启用)。 */
-export async function findResourcesByIds(
-  ids: string[],
-  opts: FindResourceByIdOpts = {},
-): Promise<Resource[]> {
+/** 按 ID 列表批量查询资源(列表不返回 intro)。 */
+export async function findResourcesByIds(ids: string[]): Promise<Resource[]> {
   if (ids.length === 0) return []
-  const conds = [inArray(resources.id, ids)]
-  if (!opts.includeUnpublished) {
-    conds.push(eq(resources.isPublished, true), eq(resources.status, 1))
-  }
-  return db
-    .select()
-    .from(resources)
-    .where(and(...conds))
-    .orderBy(desc(resources.id))
+  return db.select().from(resources).where(inArray(resources.id, ids)).orderBy(desc(resources.id))
 }
 
 export interface CreateResourceInput {
@@ -395,7 +364,7 @@ export async function findProducts(
   const { page, pageSize, resourceId, name, isPublished, status } = opts
   const conds = []
   if (resourceId) conds.push(eq(resourceProducts.resourceId, resourceId))
-  if (name) conds.push(ilike(resourceProducts.name, asContainsTerm(name)))
+  if (name) conds.push(ilike(resourceProducts.name, `%${name}%`))
   if (isPublished !== undefined) conds.push(eq(resourceProducts.isPublished, isPublished))
   if (status !== undefined) conds.push(eq(resourceProducts.status, status))
   const where = conds.length ? and(...conds) : undefined
@@ -506,7 +475,7 @@ export async function findTags(
 ): Promise<{ list: ResourceTag[]; total: number; page: number; pageSize: number }> {
   const { page, pageSize, name, pid, status } = opts
   const conds = []
-  if (name) conds.push(ilike(resourceTags.name, asContainsTerm(name)))
+  if (name) conds.push(ilike(resourceTags.name, `%${name}%`))
   if (pid !== undefined && pid !== null) conds.push(eq(resourceTags.pid, pid))
   if (status !== undefined) conds.push(eq(resourceTags.status, status))
   const where = conds.length ? and(...conds) : undefined
