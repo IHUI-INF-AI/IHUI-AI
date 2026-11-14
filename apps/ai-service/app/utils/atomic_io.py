@@ -12,12 +12,28 @@ from __future__ import annotations
 
 import contextlib
 import os
+import stat
 import tempfile
 import time
 from pathlib import Path
 
 _REPLACE_RETRIES = 20
 _REPLACE_RETRY_DELAY = 0.005
+
+
+def _preserve_target_mode(tmp: str, target: Path) -> None:
+    """把既有目标的权限位带到临时件上,替换后权限不回退。
+
+    ``mkstemp`` 建的是 0600;直接 replace 会把原本 0644 的可读文件悄悄收窄。
+    目标不存在(新建)时保持 0600 —— 新文件按私有件处理,不是本函数的缝。
+    复制权限失败不阻断写入:内容正确优先于模式精确。
+    """
+    try:
+        mode = stat.S_IMODE(os.stat(target).st_mode)
+    except OSError:
+        return
+    with contextlib.suppress(OSError):
+        os.chmod(tmp, mode)
 
 
 def _replace_with_retry(tmp: str, target: Path) -> None:
@@ -46,6 +62,7 @@ def write_bytes_atomic(path: str | Path, data: bytes) -> None:
     try:
         with os.fdopen(fd, "wb") as f:
             f.write(data)
+        _preserve_target_mode(tmp, target)
         _replace_with_retry(tmp, target)
     except BaseException:
         with contextlib.suppress(OSError):
