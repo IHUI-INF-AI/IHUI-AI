@@ -397,7 +397,7 @@ function createStyles(tk: AppThemeTokens) {
     badge: {
       paddingHorizontal: rnSpacing.sm,
       paddingVertical: rnSpacing.xs,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tk.border.medium,
     } as ViewStyle,
@@ -469,7 +469,7 @@ function createStyles(tk: AppThemeTokens) {
     resultCard: {
       borderWidth: 1,
       borderColor: tk.border.light,
-      borderRadius: rnRadius.md,
+      borderRadius: rnRadius.lg,
       padding: rnSpacing.sm,
       gap: rnSpacing.xs,
       backgroundColor: tk.surface.card,
