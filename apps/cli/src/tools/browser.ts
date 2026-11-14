@@ -23,7 +23,7 @@ import * as os from 'node:os';
 import { spawn, type ChildProcess } from 'node:child_process';
 import WebSocket from 'ws';
 import { checkNavigableUrl } from '@ihui/shared/utils/navigable-url';
-import type { Tool } from './index.js';
+import type { Tool, ToolResult } from './index.js';
 
 // ==================== CDP HTTP 发现层 ====================
 
@@ -328,7 +328,11 @@ async function spawnBrowser(port: number): Promise<void> {
       // stdout 仍丢——本工具从不读它,留着只会撞 §12g 那条"丢了又去读"的反面判据。
       stdio: ['ignore', 'ignore', 'pipe'],
       windowsHide: true,
-      detached: false,
+      // Y-80:Chrome 自身会派生 renderer/GPU/sandbox 等子进程。`detached: true`(仅非
+      // Windows)让浏览器自成进程组(pgid == child.pid),stopSpawned 才能用
+      // `process.kill(-pid)` 按**进程组整树**回收;Windows 无进程组语义,沿用单 pid kill
+      // + windowsHide(Chrome 主进程退出时会连带收掉其子进程,泄漏面可接受)。
+      detached: process.platform !== 'win32',
     });
     child.stderr?.on('data', (chunk: Buffer) => {
       stderrTail = (stderrTail + chunk.toString('utf8')).slice(-1200);
@@ -347,9 +351,19 @@ async function spawnBrowser(port: number): Promise<void> {
   const stopSpawned = (): void => {
     if (spawnedChild) {
       try {
-        spawnedChild.kill();
+        if (spawnedChild.pid !== undefined && process.platform !== 'win32') {
+          // 负 pid = 杀整个进程组(见 launch 的 detached 注释),连带 renderer/GPU 孙进程
+          process.kill(-spawnedChild.pid);
+        } else {
+          spawnedChild.kill();
+        }
       } catch {
-        // 忽略
+        // 进程组已退出:兜底再试单 pid kill,忽略二次失败
+        try {
+          spawnedChild?.kill();
+        } catch {
+          // 忽略
+        }
       }
       spawnedChild = undefined;
     }
@@ -368,6 +382,10 @@ async function spawnBrowser(port: number): Promise<void> {
     launch(['--no-sandbox', '--disable-setuid-sandbox']);
     if (await waitCdpReady()) return;
   }
+
+  // Y-80:走到这里 = 两腿 CDP 都没就绪。最终 throw 前必须先回收已拉起的浏览器子进程
+  // (此前两腿 launch 各拉起一个 Chrome,失败路径直接 throw 会把主进程遗弃 ⇒ 泄漏)。
+  stopSpawned();
 
   throw new Error(
     `浏览器已拉起但 CDP 端口 ${port} 未就绪(${Math.round(waitMs / 1000)}s 超时)` +
@@ -1159,6 +1177,193 @@ const browserClose: Tool = {
   },
 };
 
+/** ref 路径:经 gateRef + evalOnRef 取值;失败时统一降级 stale_ref(不静默点错)。 */
+async function refQuery(
+  session: CdpSession,
+  ref: string,
+  body: string,
+): Promise<{ ok: true; value: Record<string, unknown> } | { ok: false; result: ToolResult }> {
+  const gate = gateRef(ref);
+  if (!gate.ok) return { ok: false, result: fail(new Error(gate.message), 'stale_ref') };
+  const resolved = await evalOnRef(session, ref, body);
+  if (!resolved.ok) {
+    markRefExpired(ref);
+    return { ok: false, result: fail(new Error(refFailureMessage(ref, resolved.code)), 'stale_ref') };
+  }
+  return { ok: true, value: resolved.value };
+}
+
+/**
+ * browser_get_bounding_box —— 取元素在视口内的矩形。
+ *
+ * 对标 Trae 的 browser_get_bounding_box。为什么需要独立工具:click 已返回中心坐标,
+ * 但模型常要在点之前判断"这个元素是否在首屏可见区/尺寸是否合理/是否被折叠",
+ * 只有点坐标不足以支撑这种判断。ref/selector 二选一,与 click 同一套定位口径。
+ */
+const browserGetBoundingBox: Tool = {
+  name: 'browser_get_bounding_box',
+  description:
+    '读取元素在视口内的位置与尺寸。用 browser_snapshot 给出的 ref(如 e3)或 CSS 选择器定位(两者二选一)。返回 x/y/width/height(视口坐标,CSS 像素),用于在点击前判断元素是否可见、是否被折叠。ref 是会话级句柄:同一文档内稳定,页面导航后失效,需重新快照。',
+  parameters: {
+    selector: { type: 'string', description: '目标元素的 CSS 选择器,如 #submit-btn(与 ref 二选一)' },
+    ref: { type: 'string', description: 'browser_snapshot 交互元素行里的句柄,如 e3(与 selector 二选一)' },
+  },
+  required: [],
+  dangerLevel: 'read',
+  async execute(args) {
+    try {
+      const choice = parseTargetChoice(args);
+      if (!choice.ok) return fail(new Error(choice.message), 'param_invalid');
+      const { session } = await getBrowserSession();
+      if (choice.target.kind === 'ref') {
+        const ref = choice.target.value;
+        const r = await refQuery(
+          session,
+          ref,
+          `const b = el.getBoundingClientRect();
+           return JSON.stringify({ x: b.x, y: b.y, width: b.width, height: b.height });`,
+        );
+        if (!r.ok) return r.result;
+        return ok(`ref ${ref} 的位置与尺寸:${JSON.stringify(r.value)}`);
+      }
+      const selector = requireString(args, 'selector');
+      const expression = `(() => {
+        const el = document.querySelector(${JSON.stringify(selector)});
+        if (!el) return null;
+        const b = el.getBoundingClientRect();
+        return JSON.stringify({ x: b.x, y: b.y, width: b.width, height: b.height });
+      })()`;
+      const res = await session.send<{ result: { value?: string | null }; exceptionDetails?: unknown }>(
+        'Runtime.evaluate',
+        { expression, returnByValue: true },
+      );
+      if (!res.result.value) return fail(new Error(`元素不存在: ${selector}`), 'not_found');
+      return ok(`selector ${selector} 的位置与尺寸:${res.result.value}`);
+    } catch (err) {
+      return fail(err);
+    }
+  },
+};
+
+/**
+ * browser_get_state —— 一次往返取元素的可交互状态位。
+ *
+ * 对标 Trae 的 is_visible / is_enabled / is_checked 三个工具。合并成一个:
+ * 模型几乎总是一次想问"能不能点/是不是选中/在不在屏上",拆成三个只会让它多跑两轮。
+ * 判定全部走 getClientRects + 样式,不用 offsetParent(它在 position:fixed 祖先下会误报不可见)。
+ */
+const browserGetState: Tool = {
+  name: 'browser_get_state',
+  description:
+    '读取元素的可交互状态:是否可见(visible)、是否启用(enabled,未 disabled)、是否选中(checked,仅 checkbox/radio)、标签文本。用 browser_snapshot 给出的 ref 或 CSS 选择器定位(两者二选一)。用于点击前确认元素状态,避免点了禁用项或勾错复选框。',
+  parameters: {
+    selector: { type: 'string', description: '目标元素的 CSS 选择器(与 ref 二选一)' },
+    ref: { type: 'string', description: 'browser_snapshot 交互元素行里的句柄,如 e3(与 selector 二选一)' },
+  },
+  required: [],
+  dangerLevel: 'read',
+  async execute(args) {
+    const STATE_BODY = `const cs = getComputedStyle(el);
+      const r = el.getBoundingClientRect();
+      const visible = el.getClientRects().length > 0
+        && cs.visibility !== 'hidden'
+        && cs.display !== 'none'
+        && !(parseFloat(cs.opacity) === 0)
+        && r.width > 0 && r.height > 0;
+      const tag = el.tagName.toLowerCase();
+      const checkable = tag === 'input' && (el.type === 'checkbox' || el.type === 'radio');
+      return JSON.stringify({
+        visible: visible,
+        enabled: !(el.disabled === true) && el.getAttribute('aria-disabled') !== 'true',
+        checked: checkable ? el.checked === true : null,
+        tag: tag,
+        label: (el.textContent ?? '').trim().replace(/\\s+/g, ' ').slice(0, 80),
+      });`;
+    try {
+      const choice = parseTargetChoice(args);
+      if (!choice.ok) return fail(new Error(choice.message), 'param_invalid');
+      const { session } = await getBrowserSession();
+      if (choice.target.kind === 'ref') {
+        const ref = choice.target.value;
+        const r = await refQuery(session, ref, STATE_BODY);
+        if (!r.ok) return r.result;
+        const v = r.value as Record<string, unknown>;
+        return ok(
+          `ref ${ref} 状态:visible=${v.visible} enabled=${v.enabled} checked=${JSON.stringify(v.checked)} [${String(v.tag)}] ${String(v.label)}`,
+        );
+      }
+      const selector = requireString(args, 'selector');
+      const expression = `(() => {
+        const el = document.querySelector(${JSON.stringify(selector)});
+        if (!el) return null;
+        ${STATE_BODY}
+      })()`;
+      const res = await session.send<{ result: { value?: string | null }; exceptionDetails?: unknown }>(
+        'Runtime.evaluate',
+        { expression, returnByValue: true },
+      );
+      if (!res.result.value) return fail(new Error(`元素不存在: ${selector}`), 'not_found');
+      return ok(`selector ${selector} 状态:${res.result.value}`);
+    } catch (err) {
+      return fail(err);
+    }
+  },
+};
+
+/**
+ * browser_get_attribute —— 读元素属性 / input 值。
+ *
+ * 对标 Trae 的 get_attribute / get_input_value 合并:有 value 属性语义的 input/textarea/select
+ * 取实际值(el.value),其余取 getAttribute(区分"没这个属性"= null 与"属性为空串")。
+ */
+const browserGetAttribute: Tool = {
+  name: 'browser_get_attribute',
+  description:
+    '读取元素的属性或表单值。有 value 语义的 input/textarea/select 返回实际当前值(el.value);其余返回指定属性(未设置该属性时返回 null,与"属性值为空串"可区分)。用 browser_snapshot 给出的 ref 或 CSS 选择器定位(两者二选一)。',
+  parameters: {
+    attribute: { type: 'string', description: '要读取的属性名,如 value/placeholder/href/disabled' },
+    selector: { type: 'string', description: '目标元素的 CSS 选择器(与 ref 二选一)' },
+    ref: { type: 'string', description: 'browser_snapshot 交互元素行里的句柄,如 e3(与 selector 二选一)' },
+  },
+  required: ['attribute'],
+  dangerLevel: 'read',
+  async execute(args) {
+    const attr = requireString(args, 'attribute');
+    const ATTR_BODY = `const attr = ${JSON.stringify(attr)};
+      const tag = el.tagName.toLowerCase();
+      const hasValue = (tag === 'input' || tag === 'textarea' || tag === 'select') && attr === 'value';
+      const raw = hasValue ? el.value : el.getAttribute(attr);
+      return JSON.stringify({ tag: tag, attribute: attr, value: raw === null ? null : String(raw) });`;
+    try {
+      const choice = parseTargetChoice(args);
+      if (!choice.ok) return fail(new Error(choice.message), 'param_invalid');
+      const { session } = await getBrowserSession();
+      if (choice.target.kind === 'ref') {
+        const ref = choice.target.value;
+        const r = await refQuery(session, ref, ATTR_BODY);
+        if (!r.ok) return r.result;
+        const v = r.value as { tag: string; value: string | null };
+        return ok(`ref ${ref} 的 ${attr} = ${JSON.stringify(v.value)} [${v.tag}]`);
+      }
+      const selector = requireString(args, 'selector');
+      const expression = `(() => {
+        const el = document.querySelector(${JSON.stringify(selector)});
+        if (!el) return null;
+        ${ATTR_BODY}
+      })()`;
+      const res = await session.send<{ result: { value?: string | null }; exceptionDetails?: unknown }>(
+        'Runtime.evaluate',
+        { expression, returnByValue: true },
+      );
+      if (!res.result.value) return fail(new Error(`元素不存在: ${selector}`), 'not_found');
+      const v = JSON.parse(res.result.value) as { tag: string; value: string | null };
+      return ok(`selector ${selector} 的 ${attr} = ${JSON.stringify(v.value)} [${v.tag}]`);
+    } catch (err) {
+      return fail(err);
+    }
+  },
+};
+
 /** 浏览器自动化工具集(真实 CDP 实现)。 */
 export const BROWSER_TOOLS: Tool[] = [
   browserNavigate,
@@ -1169,5 +1374,8 @@ export const BROWSER_TOOLS: Tool[] = [
   browserPressKey,
   browserEvaluate,
   browserClose,
+  browserGetBoundingBox,
+  browserGetState,
+  browserGetAttribute,
 ];
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

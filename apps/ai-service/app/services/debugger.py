@@ -20,6 +20,7 @@ import asyncio
 import contextlib
 import json
 import logging
+import os
 import time
 import uuid
 from collections.abc import Callable
@@ -354,6 +355,17 @@ class DebugSessionManager:
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
                 cwd=cwd,
+                # Y-76 配套:POSIX 下让 adapter 自成进程组(start_new_session ⇒ setsid),
+                # 使 disconnect 的 kill_process_tree 能用 os.killpg(pgid) 整树回收被调试目标,
+                # 而不会因 adapter 与 ai-service 同组把服务进程自身一并 SIGKILL。
+                # Windows 无进程组语义,由 taskkill /T /F 按父链收树;creationflags 仍只带
+                # CREATE_NO_WINDOW。start_new_session 与 creationflags 互斥(后者 Windows-only),
+                # 故按平台二选一,不能同时传。
+                **(
+                    {}
+                    if os.name == "nt"
+                    else {"start_new_session": True}
+                ),
                 # 拍板④(2026-10-05):Python 侧禁窗用 CREATE_NO_WINDOW
                 # (Node 侧才是 windowsHide,互不可抄)。
                 creationflags=CREATE_NO_WINDOW,

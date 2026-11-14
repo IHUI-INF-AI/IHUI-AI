@@ -19,7 +19,7 @@
  *   3. 文件路径回写到对话(用户可点击查看)
  */
 
-import { spawn } from 'node:child_process';
+import { spawn, type ChildProcess } from 'node:child_process';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
@@ -267,21 +267,59 @@ export class MmdcCliEngine implements MermaidEngine {
 
   private runMmdc(args: string[]): Promise<void> {
     return new Promise((resolve, reject) => {
-      const proc = this.spawnFn('mmdc', args, {
+      // Y-79:mmdc(基于 puppeteer)会拉起 headless Chromium 作为**孙进程**。
+      // 裸 `proc.kill('SIGTERM')` 只打单 pid,孙进程成孤儿累积 ⇒ 超时/出错路径必须按
+      // **进程组**整树杀。做法:spawn 时 `detached: true`(Unix 下子进程自成进程组,
+      // pgid == child.pid;Windows 下无进程组概念,改用 `taskkill /T /F` 按树杀)。
+      // 注意 detached + stdio 'pipe' 仍受控:Node 仍持有管道,close 事件照常触发。
+      const proc: ChildProcess = this.spawnFn('mmdc', args, {
         windowsHide: true,
+        detached: process.platform !== 'win32',
         stdio: ['pipe', 'pipe', 'pipe'],
       });
       let stderr = '';
       proc.stderr?.on('data', (chunk: Buffer) => {
         stderr += chunk.toString();
       });
+      // 按进程组/进程树杀整棵(Y-79)。任一步失败不抛(已在出错路径),尽力而为。
+      // 第一步先用 proc.kill 终止 mmdc 主进程本身(这也是测试 mock 断言的出口),再按平台
+      // 升级到整树回收 —— 主进程先走 SIGTERM,孙进程(headless Chromium)由进程组/taskkill 兜。
+      const killTree = (): void => {
+        if (proc.pid === undefined) return;
+        // ① 先终止直接子进程(尽力而为,已退出不抛)
+        try {
+          proc.kill('SIGTERM');
+        } catch {
+          /* 已退出 */
+        }
+        // ② 再按平台整树回收孙进程
+        try {
+          if (process.platform === 'win32') {
+            spawn('taskkill', ['/PID', String(proc.pid), '/T', '/F'], {
+              windowsHide: true,
+              stdio: 'ignore',
+            });
+          } else {
+            // 负 pid = 杀整个进程组(detached 子进程的 pgid == proc.pid)
+            process.kill(-proc.pid, 'SIGTERM');
+          }
+        } catch {
+          // 进程组已退出/权限不足:兜底再试单 pid SIGKILL,忽略二次失败
+          try {
+            proc.kill('SIGKILL');
+          } catch {
+            /* 已退出 */
+          }
+        }
+      };
       const timer = setTimeout(() => {
-        proc.kill('SIGTERM');
+        killTree();
         reject(new Error(`mmdc 渲染超时(${this.timeoutMs}ms)`));
       }, this.timeoutMs);
 
       proc.on('error', (err) => {
         clearTimeout(timer);
+        killTree();
         reject(new Error(`mmdc 启动失败: ${err.message}(请确认 @mermaid-js/mermaid-cli 已安装)`));
       });
       proc.on('close', (code) => {
