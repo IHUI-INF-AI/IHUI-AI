@@ -7127,6 +7127,110 @@ def _mark_stub_payload(payload: dict[str, Any]) -> dict[str, Any]:
     return payload
 
 
+async def _invoke_subagent_for_job(
+    agent_name: str, user_input: str, session_id: str | None
+) -> dict[str, Any]:
+    """后台作业/续跑共用的单子代理调用(并发闸 + 嵌套深度 + 超时同同步路径)。"""
+    orchestrator = _get_orchestrator()
+    if _SUBAGENT_SEMAPHORE.locked():
+        raise RuntimeError(
+            f"子代理并发数已达上限({_SUBAGENT_MAX_CONCURRENT}),后台作业未执行"
+        )
+    async with _SUBAGENT_SEMAPHORE:
+        _dtok = _subagent_depth.set(_subagent_depth.get() + 1)
+        try:
+            step_result = await asyncio.wait_for(
+                orchestrator.invoke(
+                    agent_name=agent_name,
+                    user_input=user_input,
+                    session_id=session_id,
+                ),
+                timeout=_get_subagent_timeout(),
+            )
+        finally:
+            _subagent_depth.reset(_dtok)
+    return {
+        "status": step_result.status,
+        "output": step_result.output,
+        "iterations": step_result.iterations,
+        "error": step_result.error,
+        "ok": step_result.status == "completed",
+    }
+
+
+async def _tool_subagent_job(arguments: dict[str, Any]) -> dict[str, Any]:
+    """subagent_job:后台子代理作业的 list/wait/send 最小闭环(2026-11-14 立)。
+
+    对齐 DSH continuable subagent:spawn(dispatch_subagent background=true)立即
+    返回 job_id;list/wait 查询;终态后 send 以同一 lineage 续跑(上一轮任务与
+    输出作为上下文)。所有权只认宿主注入身份,越权与不存在同形。
+    """
+    from . import subagent_jobs as jobs_store
+
+    action = str(arguments.get("action") or "list")
+    user_id = str(arguments.get("__user_id") or "").strip() or None
+    session_id = str(arguments.get("__session_id") or "").strip() or None
+
+    if action == "list":
+        try:
+            limit = int(arguments.get("limit", 20))
+        except (TypeError, ValueError):
+            limit = 20
+        result = jobs_store.list_jobs(
+            user_id=user_id, session_id=session_id, limit=max(1, min(limit, 100))
+        )
+        return {"tool": "subagent_job", "action": "list", **result}
+
+    job_id = str(arguments.get("job_id") or "").strip()
+    if not job_id:
+        return {
+            "tool": "subagent_job", "ok": False, "errorCode": "MISSING_PARAMS",
+            "error": f"{action} 需要 job_id",
+        }
+
+    if action == "wait":
+        try:
+            wait_s = float(arguments.get("wait_s", 30))
+        except (TypeError, ValueError):
+            wait_s = 30.0
+        result = await jobs_store.wait_job(
+            job_id,
+            user_id=user_id,
+            session_id=session_id,
+            wait_s=max(1.0, min(wait_s, 300.0)),
+        )
+        return {"tool": "subagent_job", "action": "wait", **result}
+
+    if action == "send":
+        job = jobs_store.get_job(job_id)
+        if job is None:
+            return {
+                "tool": "subagent_job", "ok": False,
+                "errorCode": "SUBAGENT_NOT_FOUND", "error": "作业不存在或无权访问",
+            }
+
+        def _builder(task_text: str) -> Callable[[], Awaitable[dict[str, Any]]]:
+            async def _invoke() -> dict[str, Any]:
+                return await _invoke_subagent_for_job(job.name, task_text, job.session_id)
+
+            return _invoke
+
+        result = await jobs_store.send_job(
+            job_id,
+            str(arguments.get("message") or ""),
+            user_id=user_id,
+            session_id=session_id,
+            invoker_builder=_builder,
+            timeout_s=float(_get_subagent_timeout()),
+        )
+        return {"tool": "subagent_job", "action": "send", **result}
+
+    return {
+        "tool": "subagent_job", "ok": False, "errorCode": "INVALID_PARAMS",
+        "error": f"不支持的 action: {action}(list/wait/send)",
+    }
+
+
 async def _tool_dispatch_subagent(
     arguments: dict[str, Any],
     progress_callback: Callable[[dict[str, Any]], None] | None = None,
@@ -16707,6 +16811,7 @@ _TOOL_HANDLERS: dict[str, Any] = {
     "vision_analyze": _tool_vision_analyze,
     # ===== 子智能体派发(2026-07-24 新增)=====
     "dispatch_subagent": _tool_dispatch_subagent,
+    "subagent_job": _tool_subagent_job,
     # ===== D08①(2026-10-25):团队共享任务列表(与派发面同一协作域)=====
     "team_task": _tool_team_task,
     "session_search": _tool_session_search,
