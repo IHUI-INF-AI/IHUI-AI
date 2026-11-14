@@ -11,11 +11,15 @@
  * (`@ihui/shared/utils/redact` 的 `redactUrl` + `SECRET_RULES`),这里只是**组合**;
  * 组合既然要能被最底层的落盘点用到,就只能住在叶子上。
  */
-import { redactUrl, SECRET_RULES } from '@ihui/shared/utils/redact'
+import { redactUrl, SECRET_RULES, D94_ADDED_PATTERNS } from '@ihui/shared/utils/redact'
 
 export function redactCredentialText(text: string): string {
   let out = redactUrl(text)
+  // Y-101:api 日志唯一出口也要追加 D94_ADDED_PATTERNS(含 24+ 位 hex 规则)—— 此前只遍历
+  // SECRET_RULES,而 hex 规则只在崩溃上报链路(redactSecrets)追加 ⇒ 裸 hex 凭据(ObjectId 形态
+  // 随机 token / `x-webhook-key: 9f8c…`)在 api 日志面漏打码,与共享链路覆盖不一致。
   for (const rule of SECRET_RULES) out = out.replace(rule.pattern, rule.replacement)
+  for (const rule of D94_ADDED_PATTERNS) out = out.replace(rule.pattern, rule.replacement)
   return out
 }
 
@@ -83,15 +87,40 @@ export const LOG_REDACT_CENSOR = '***'
  * Error 走 `redactErrorForLog`:它的 message/stack/自有可枚举字段都不在普通对象
  * 枚举面内,直接原样返回就等于把凭据留给 pino 的标准错误序列化(F-284)。
  * 该出口返回的仍是 Error 实例(原型保留),pino 的 `type` 不会走形。
+ *
+ * Y-103:补 Map/Set 分支 —— 此前只认 Array/Error/plain object,`logger.error({ctx:new Map([...])})`
+ * 里装的凭据会随整值原样交给 pino,明文落日志。
+ * Y-104:补 `WeakSet` visited 守卫 —— 带环对象(parent 指回自身 / `err.cause` 环)会无限递归
+ * 致 `RangeError: Maximum call stack`,把脱敏出口变成崩溃点。遇环时返回占位,安全降级而非崩溃。
  */
-export function redactCredentialStrings(value: unknown): unknown {
+export function redactCredentialStrings(value: unknown, seen?: WeakSet<object>): unknown {
+  // 非对象标量直接打码,无需守卫
   if (typeof value === 'string') return redactCredentialText(value)
+  if (value === null || typeof value !== 'object') return value
+  // 对象侧:先判循环引用(Y-104),再分形状递归
+  const visited = seen ?? new WeakSet<object>()
+  if (visited.has(value)) return '[Circular]'
+  visited.add(value)
   if (value instanceof Error) return redactErrorForLog(value)
-  if (Array.isArray(value)) return value.map(redactCredentialStrings)
-  if (value && typeof value === 'object' && isPlainObject(value)) {
+  if (Array.isArray(value)) return value.map((v) => redactCredentialStrings(v, visited))
+  if (value instanceof Map) {
+    const out = new Map<unknown, unknown>()
+    for (const [k, v] of value) {
+      out.set(k, redactCredentialStrings(v, visited))
+    }
+    return out
+  }
+  if (value instanceof Set) {
+    const out = new Set<unknown>()
+    for (const v of value) {
+      out.add(redactCredentialStrings(v, visited))
+    }
+    return out
+  }
+  if (isPlainObject(value)) {
     const out: Record<string, unknown> = {}
     for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
-      out[k] = redactCredentialStrings(v)
+      out[k] = redactCredentialStrings(v, visited)
     }
     return out
   }
@@ -122,7 +151,10 @@ function isPlainObject(value: object): boolean {
  * 保留原型的意义:pino 的 stdSerializers.err 用 `err.constructor.name` 填 `type`,
  * 原型不动 ⇒ 日志里的错误类型名(如 AppError)不变,既有告警规则与检索口径不动。
  */
-export function redactErrorForLog<T extends Error>(error: T): T {
+export function redactErrorForLog<T extends Error>(error: T, seen?: WeakSet<object>): T {
+  // Error 自身也登记进 visited,避免 err.cause 指回同一 Error 时无限下钻(Y-104)
+  const visited = seen ?? new WeakSet<object>()
+  visited.add(error)
   const originalMessage = error.message ?? ''
   const safeMessage = redactCredentialText(originalMessage)
   const safeStack = error.stack ? redactCredentialText(error.stack) : undefined
@@ -130,7 +162,7 @@ export function redactErrorForLog<T extends Error>(error: T): T {
   let changed = false
   const fields: Record<string, unknown> = {}
   for (const key of Object.keys(source)) {
-    const value = redactCredentialStrings(source[key])
+    const value = redactCredentialStrings(source[key], seen)
     if (value !== source[key]) changed = true
     fields[key] = value
   }

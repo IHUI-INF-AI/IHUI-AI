@@ -225,8 +225,10 @@ const LARGE_TEXT_KEYS: ReadonlySet<string> = new Set(['content', 'old_string', '
 /** 键名档命中后的占位值(与形状档的 `***REDACTED***` 刻意不同形:一眼可辨是"键名整值遮蔽") */
 const KEYED_REDACTED_PLACEHOLDER = '[redacted]';
 
-/** 递归单元:按 (键名, 值) 决定遮蔽形态;键名档优先,其后并集走形状档与大文本档 */
-function redactValueKeyed(key: string, value: unknown): unknown {
+/** 递归单元:按 (键名, 值) 决定遮蔽形态;键名档优先,其后并集走形状档与大文本档。
+ *  Y-104:`seen` WeakSet 透传循环引用守卫;Y-103:补 Map/Set 分支(此前 Map/Set 值会落到
+ *  object 分支被 `Object.entries` 取空 ⇒ 内容整块丢失)。 */
+function redactValueKeyed(key: string, value: unknown, seen?: WeakSet<object>): unknown {
   // ① 键名档:键名带凭据语义 ⇒ 整值遮蔽。值为嵌套对象/数组时同样遮蔽为字符串占位,
   //    不得继续序列化 —— 否则原始键名与值会随结构原样回到回看输出里。
   if (SENSITIVE_KEY_PATTERN.test(key)) return KEYED_REDACTED_PLACEHOLDER;
@@ -236,19 +238,48 @@ function redactValueKeyed(key: string, value: unknown): unknown {
     // ③ 形状档(并集的下半):与 redactObject 同一份 10 类正则 + URL query + 用户路径出口
     return redactSecrets(value);
   }
+  if (value === null || typeof value !== 'object') return value;
+  // Y-104:循环引用守卫 —— 带环对象(parent 指回自身 / err.cause 环)会无限递归致
+  // `RangeError: Maximum call stack`,把脱敏出口变成崩溃点。遇环返回占位,安全降级。
+  const visited = seen ?? new WeakSet<object>();
+  if (visited.has(value)) return '[Circular]';
+  visited.add(value);
+  if (value instanceof Map) {
+    const out = new Map<unknown, unknown>();
+    for (const [k, v] of value) {
+      out.set(k, redactValueKeyed(String(k), v, visited));
+    }
+    return out;
+  }
+  if (value instanceof Set) {
+    const out = new Set<unknown>();
+    for (const v of value) {
+      out.add(
+        typeof v === 'string' ? redactSecrets(v) : redactValueKeyed('', v, visited),
+      );
+    }
+    return out;
+  }
   if (Array.isArray(value)) {
     return value.map((item) =>
       typeof item === 'string'
         ? redactSecrets(item)
         : item && typeof item === 'object' && !Array.isArray(item)
-          ? redactObjectDeepKeyed(item as Record<string, unknown>)
+          ? redactObjectDeepKeyed(item as Record<string, unknown>, visited)
           : item,
     );
   }
-  if (value && typeof value === 'object') {
-    return redactObjectDeepKeyed(value as Record<string, unknown>);
+  if (isPlainObjectShaped(value)) {
+    return redactObjectDeepKeyed(value as Record<string, unknown>, visited);
   }
   return value;
+}
+
+/** 是否普通对象(排除 Map/Set 等已单独分支处理的自定义形状) */
+function isPlainObjectShaped(value: object): boolean {
+  if (value instanceof Map || value instanceof Set) return false;
+  const proto = Object.getPrototypeOf(value) as object | null;
+  return proto === Object.prototype || proto === null;
 }
 
 /**
@@ -256,10 +287,16 @@ function redactValueKeyed(key: string, value: unknown): unknown {
  * 与 `redactObject` 的区别只在上半:多出键名档与大文本档;非敏感键的字符串值仍走同一
  * `redactSecrets` 出口,普通无凭据对象逐字不变(防止把可读回看输出打废)。
  */
-export function redactObjectDeepKeyed(obj: Record<string, unknown>): Record<string, unknown> {
+export function redactObjectDeepKeyed(
+  obj: Record<string, unknown>,
+  seen?: WeakSet<object>,
+): Record<string, unknown> {
+  const visited = seen ?? new WeakSet<object>();
+  if (visited.has(obj)) return { ...obj }; // 环守卫(极少触发:顶层重复入参)
+  visited.add(obj);
   const result: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(obj)) {
-    result[key] = redactValueKeyed(key, value);
+    result[key] = redactValueKeyed(key, value, visited);
   }
   return result;
 }
