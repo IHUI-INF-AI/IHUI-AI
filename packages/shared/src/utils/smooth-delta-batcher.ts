@@ -25,8 +25,13 @@
  * room=1 恰为兜底补码元的那一步)。
  */
 
+// D1b(2026-11-14):切点判据从「码点边界」升级为「字素簇边界」,复用 truncate.ts 的
+// Intl.Segmenter 真相源(§0.6 单一真相源 —— D1 注释本就说与 truncate「BUG-52」同源,
+// 但此前只对齐了码点、漏了 ZWJ/FE0F/肤色修饰符连接的多码点 emoji)。
+import { splitGraphemes } from './truncate'
+
 /**
- * 把候选切点挪到码点边界(绝不劈开代理对)。
+ * 把候选切点挪到**字素簇边界**(绝不劈开代理对,也绝不劈开 ZWJ/FE0F/肤色修饰符连接的多码点 emoji)。
  *
  * 判据只有一条:切点前一个码元若是**高代理**(0xD800–0xDBFF),它的低代理就在切点之后
  * —— 切下去就是把一个字符劈成两半(半个高代理先入正文 ⇒ 渲染成 U+FFFD,下一拍才拼回)。
@@ -42,15 +47,36 @@
  * 返回 0 = 整个可见前缀就是一枚孤立高代理 ⇒ 调用方**必须放弃本帧**等下一批数据。
  * 旧实现在这里会 `append('')` 且 `pending` 不减,是**死循环**(不是"慢一拍")。
  */
+/** 孤立高代理：单码元、落在高代理区，且后面无低代理跟（流尾残缺/SSE 帧在代理对中间断开）。 */
+function isLoneHighSurrogate(seg: string): boolean {
+  if (seg.length !== 1) return false
+  const code = seg.charCodeAt(0)
+  return code >= 0xd800 && code <= 0xdbff
+}
+
 export function alignSliceToCodePointBoundary(s: string, end: number): number {
   if (end <= 0) return 0
   const cut = Math.min(end, s.length)
   if (cut <= 0) return 0
-  const prev = s.charCodeAt(cut - 1)
-  if (prev >= 0xd800 && prev <= 0xdbff) {
-    if (cut - 1 > 0) return cut - 1
-    // room=1:向后带上低代理;连低代理都没有(流尾残缺)则放弃本帧
-    return cut + 1 <= s.length ? cut + 1 : 0
+  // D1b:对**整串 s** 做字素分段(不能先 slice 再分段 —— slice 会把代理对从中间劈开,
+  // 分段看到的就成了孤立半代理,判据随之失效)。找到切点所在簇:
+  //   簇终点 > 切点 ⇒ 切点落在簇中间 ⇒ 回退到簇起点(退无可退就整簇带走,超预算但有界);
+  //   簇终点 === 切点 ⇒ 切点在簇边界;但若最后这枚是孤立高代理(流尾残缺)则让位下一帧。
+  // 代理对是一枚字素簇的子集 ⇒ 原 D1 码点对齐被字素对齐严格覆盖,行为不退化。
+  let acc = 0
+  for (const seg of splitGraphemes(s)) {
+    const segEnd = acc + seg.length
+    if (segEnd < cut) {
+      acc = segEnd
+      continue
+    }
+    if (segEnd > cut) {
+      // 切点在簇中间:回退到簇起点;起点即 0(退无可退)⇒ 整簇带走(防 room=1 死锁)
+      return acc > 0 ? acc : segEnd
+    }
+    // segEnd === cut:切点在簇边界。孤立高代理(下一帧才补低代理 / 流尾残缺)不单独发出。
+    if (isLoneHighSurrogate(seg)) return acc // acc=0 时返回 0 = 放弃本帧,绝不 append('') 自旋
+    return cut
   }
   return cut
 }
