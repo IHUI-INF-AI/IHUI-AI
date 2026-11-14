@@ -30,14 +30,25 @@ test('远程 capability 不再授予任何 store:* 权限', () => {
   assert.equal(stringPermissions.includes('store:default'), false, 'store:default 必须移除')
 })
 
-test('远程 capability 只放行两条白名单 store 应用命令', () => {
+test('远程 capability 只放行白名单 store 应用命令', () => {
   const capability = readJson(CAPABILITY)
   const permissions = capability.permissions.filter((entry) => typeof entry === 'string')
   for (const id of ['allow-store-read-entry', 'allow-store-write-entry']) {
     assert.equal(permissions.includes(id), true, `缺 ${id}:远程保险库读写会整体失联`)
   }
+  // 2026-11-14:号池「应用上架平台」需要 5 条 store-account-* 命令(开独立窗口/读 URL/读 Cookie 摘要/
+  // 读保活接口/读请求分析)。它们不回传 Cookie 值:session 只回计数与到期时间,keepalive 只回脱敏 path,
+  // probe 的请求头已脱敏;故仍属白名单应用命令,不是 plugin-store 权限面。
   const commandPermissions = permissions.filter((id) => id.startsWith('allow-store-'))
-  assert.deepEqual(commandPermissions, ['allow-store-read-entry', 'allow-store-write-entry'])
+  assert.deepEqual(commandPermissions, [
+    'allow-store-read-entry',
+    'allow-store-write-entry',
+    'allow-store-account-open',
+    'allow-store-account-url',
+    'allow-store-account-session',
+    'allow-store-account-keepalive-target',
+    'allow-store-account-probe',
+  ])
 })
 
 test('Rust 白名单仍是最小必要文件集(不含 window-state.json)', () => {
