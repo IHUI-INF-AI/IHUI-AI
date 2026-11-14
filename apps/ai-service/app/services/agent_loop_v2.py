@@ -224,6 +224,12 @@ from ..core.retry_after import hint_from_error, resolve_retry_delay_s
 # P0-2 会话级污点 + 凭据保险库(2026-10-26,对标 nanoMuse Sentinel)
 from ..core.session_taint import TaintSource as _TaintSource
 
+# 第五遍对标(2026-11-14,DSH dsh-tool-call-timeout-policy):per-tool 超时预算。
+# 外层 wait_for 不得早于工具自己声明的 timeout/max_timeout 与 handler 内部超时
+# (run_command 120s / dispatch_subagent 300s / office_document 300s);
+# 默认档(未登记工具)保持调用方传入的 tool_timeout 原值,行为不变。
+from ..core.tool_timeout_policy import resolve_tool_timeout_budget
+
 # Qoder 行为对齐(2026-11-08):轮次预算提示层。默认档不变(AGENT_MAX_ITERATIONS
 # 仍是 check-doom-loop-parity 的登记基准);部署侧可用 IHUI_AGENT_MAX_ITERATIONS
 # 显式放宽。接线点只有两处:构造器归一 + 循环顶注入一次收尾提示。
@@ -7009,13 +7015,18 @@ class AgentLoopV2:
         )
         # 批 42:记录本 tc 为"用户批准后执行的命令"(工具结果回填 user_shell 片段用)
         self._approved_command_call_ids.add(tc.id)
+        # per-tool 预算:批准后的重执行也必须给足工具自己的 timeout(此前与
+        # 首跑同吃 60s 全局档,run_command 的 120s/subagent 的 300s 永远到不了)。
+        _budget = resolve_tool_timeout_budget(
+            tc.name, tc.args, default_s=self.tool_timeout
+        )
         try:
             new_result = await asyncio.wait_for(
                 tool.executor(tc.args),
-                timeout=self.tool_timeout,
+                timeout=_budget.loop_timeout_s,
             )
         except TimeoutError:
-            error_msg = f"工具执行超时({self.tool_timeout}s)"
+            error_msg = f"工具执行超时({_budget.tool_budget_s:g}s)"
             self._report_tool_error(
                 tc, error_msg, "timeout", (time.time() - start) * 1000
             )
@@ -8284,6 +8295,11 @@ class AgentLoopV2:
         # ⇒ 一次超时后所有重试秒失败,超时永不恢复。
         cancel_event = asyncio.Event()
         cancel_token = set_tool_cancel_event(cancel_event)
+        # per-tool 预算(第五遍对标):run_command 取它自己的 timeout(受
+        # max_timeout / RUN_COMMAND_TIMEOUT_S 夹紧),dispatch_subagent 与
+        # office_document 取声明档;其余工具保持 self.tool_timeout 原值。
+        # 重试沿用同一预算 —— 预算由工具名/参数决定,与 attempt 无关。
+        _budget = resolve_tool_timeout_budget(tc.name, tc.args, default_s=self.tool_timeout)
         try:
             while True:
                 if retry_count > 0:
@@ -8298,7 +8314,7 @@ class AgentLoopV2:
                             self._open_tool_executor(tool.executor, tc.args, cancel_event),
                             cancel_event,
                         ),
-                        timeout=self.tool_timeout,
+                        timeout=_budget.loop_timeout_s,
                     )
                     # P0-3:exec_policy PROMPT 档转真实用户审批(命中时升级处理)。
                     tr_override = await self._resolve_exec_policy_approval(
@@ -8361,7 +8377,7 @@ class AgentLoopV2:
                         error_type="aborted",
                     )
                 except TimeoutError:
-                    error_msg = f"工具执行超时({self.tool_timeout}s)"
+                    error_msg = f"工具执行超时({_budget.tool_budget_s:g}s)"
                     error_type = "timeout"
                 except Exception as e:
                     error_msg = str(e)

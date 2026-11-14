@@ -56,16 +56,30 @@ function proxyUrlConfigured(): boolean {
   return raw.startsWith('http://') || raw.startsWith('https://')
 }
 
-/** 内网/本机地址永不走代理(与 `collectEgressFacts` 共用,免得两处判据漂移)。*/
+/**
+ * 内网/本机地址永不走代理(与 `collectEgressFacts` 共用,免得两处判据漂移)。
+ *
+ * 第五遍对标(2026-11-14,DSH dsh-http-proxy):回环按**整段**判 ——
+ * `127.0.0.0/8`(不只 127.0.0.1)、`0.0.0.0` 与 IPv4 映射写法 `::ffff:127.x`
+ * 同样直连,否则本地 Web UI / MCP 回环服务会被自己的代理再绕一圈。
+ */
 function isInternalHostname(hostname: string): boolean {
+  // WHATWG URL 的 IPv6 hostname 带方括号(`[::1]`),IPv4 映射写法会被归一成
+  // `::ffff:7f00:1` 这类十六进制形态 ⇒ 先脱括号再按两种形态判,否则回环判定
+  // 对 `[::1]` 恒为 false(第五遍对标时实测到的边角)。
+  const bare = hostname.startsWith('[') && hostname.endsWith(']')
+    ? hostname.slice(1, -1)
+    : hostname
   return (
-    hostname === 'localhost' ||
-    hostname === '127.0.0.1' ||
-    hostname === '::1' ||
-    hostname.endsWith('.local') ||
-    /^10\./.test(hostname) ||
-    /^192\.168\./.test(hostname) ||
-    /^172\.(1[6-9]|2\d|3[01])\./.test(hostname)
+    bare === 'localhost' ||
+    bare === '0.0.0.0' ||
+    bare === '::1' ||
+    bare.endsWith('.local') ||
+    /^127\./.test(bare) ||
+    /^::ffff:7f[0-9a-f]{2}:/.test(bare) ||
+    /^10\./.test(bare) ||
+    /^192\.168\./.test(bare) ||
+    /^172\.(1[6-9]|2\d|3[01])\./.test(bare)
   )
 }
 
@@ -141,17 +155,18 @@ export function collectEgressFacts(url: string): EgressFacts {
     : DEFAULT_PROXY_DOMAINS
   const allowlisted = parseable && matchProxyDomains(hostname, domains)
   const noProxy = parseable ? readNoProxy(hostname) : { matched: false, varName: null }
-  // 判据与改造前的 isProxiedUrl 逐条件等值:**不**把 NO_PROXY 纳进决策。
-  // 现状是"NO_PROXY 在本模块无人读取、配了也不生效",本票只负责把这个事实**带回来**
-  // (proxied=true ∧ noProxyMatched=true 是合法且高度可诊断的一对),不负责改路由 ——
-  // 改路由会动所有厂商调用的出口路径,属另一张票(见文件末 EGRESS-NO-PROXY-GAP 登记)。
-  const proxied = configured && parseable && !internal && allowlisted
+  // 第五遍对标(2026-11-14,DSH dsh-http-proxy):NO_PROXY / no_proxy 从"只报事实"
+  // 升级为**参与路由** —— 命中即直连,与标准代理语义一致;否则内网域名即便落在
+  // PROXY_DOMAINS 里也会被送进代理,凭据与流量都走错路。大小写两档按并集匹配
+  // (见 readNoProxy);`*` 放行全部。
+  const proxied = configured && parseable && !internal && allowlisted && !noProxy.matched
 
   let policyDeclined: EgressPolicyDeclineReason | null = null
   if (!proxied) {
     if (!parseable) policyDeclined = 'url-unparseable'
     else if (!configured) policyDeclined = 'proxy-unconfigured'
     else if (internal) policyDeclined = 'internal-host'
+    else if (noProxy.matched) policyDeclined = 'no-proxy-match'
     else policyDeclined = 'domain-not-in-table'
   }
 

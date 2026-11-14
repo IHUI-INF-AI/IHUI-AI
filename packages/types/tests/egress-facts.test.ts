@@ -81,6 +81,7 @@ describe('egress facts 闭集形状', () => {
       'url-unparseable',
       'proxy-unconfigured',
       'internal-host',
+      'no-proxy-match',
       'domain-not-in-table',
     ])
   })
