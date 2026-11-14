@@ -75,6 +75,7 @@ export function ApiSettingsScreen({
           />
           <TouchableOpacity
             accessibilityRole="button"
+            accessibilityLabel={t(showToken ? 'a11y.hidePassword' : 'a11y.showPassword')}
             style={styles.eyeBtn}
             onPress={onToggleShowToken}
             hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}

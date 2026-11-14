@@ -151,6 +151,7 @@ export function AgentSelector({
               onPress={onClose}
               style={styles.listDialogClose}
               accessibilityRole="button"
+              accessibilityLabel={tStatic('common.close')}
             >
               <X size={20} color={tokens.text.primary} />
             </Tappable>
