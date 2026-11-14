@@ -1096,6 +1096,21 @@ export async function readBinaryFile(path: string): Promise<ReadBinaryResult> {
   return await invokeIpc<ReadBinaryResult>('read_binary_file', { path })
 }
 
+/**
+ * 在系统文件管理器中定位文件/目录(桌面端 open-in-app,2026-11-14)。
+ * 宿主只接受 app_data_dir 或已授权工作区根内的绝对路径,越界会抛 `DesktopIpcError`。
+ */
+export async function revealInExplorer(path: string): Promise<void> {
+  requireTauri()
+  await invokeIpc('reveal_in_explorer', { path })
+}
+
+/** 用系统默认应用打开文件(桌面端;边界同 `revealInExplorer`)。 */
+export async function openWithDefaultApp(path: string): Promise<void> {
+  requireTauri()
+  await invokeIpc('open_with_default_app', { path })
+}
+
 /** 写入文本文件(覆盖)。父目录不存在时自动创建。非 Tauri 环境抛错。 */
 export async function writeTextFile(path: string, content: string): Promise<void> {
   requireTauri()

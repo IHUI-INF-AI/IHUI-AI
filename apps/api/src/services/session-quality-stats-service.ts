@@ -213,56 +213,71 @@ export function buildSessionQuality(
   }
 }
 
-/** 现算一份会话质量快照;任一 SQL 抛错就整块上抛,由调用方折成 null(渲染"—"),绝不兜成 0。 */
+/**
+ * 现算一份会话质量快照;任一 SQL 抛错就整块上抛,由调用方折成 null(渲染"—"),绝不兜成 0。
+ *
+ * F-305:三腿必须在**同一个快照**里读。旧形态是三条独立语句(可能落到池里不同连接、
+ * 读副本上不同 WAL 位点),期间还有新 visit_logs 写入 ⇒ 总量腿算出的会话数与
+ * 落地/退出页两腿分母不同,面板会出现「单页会话数 > 会话数」这类对不上的读数。
+ * 现在整块包在 REPEATABLE READ + READ ONLY 事务里:一个快照、一条连接、三腿同源。
+ * 判据本身(列定义 / 分档 / TOP N)一字未改。
+ */
 async function computeSessionQuality(
   hours: number = SESSION_QUALITY_WINDOW_HOURS,
 ): Promise<SessionQualitySnapshot> {
-  // 子查询只建一次再复用:每次调用 perSession() 都会生成一个同名别名 `per_session`,
-  // 在一条 SQL 里出现两次 ⇒ 别名冲突。总量/落地页/退出页三腿共用这一个对象(口径同源)。
-  const per = perSession(hours)
+  return dbRead.transaction(
+    async (tx) => {
+      // 子查询只建一次再复用:每次调用 perSession() 都会生成一个同名别名 `per_session`,
+      // 在一条 SQL 里出现两次 ⇒ 别名冲突。总量/落地页/退出页三腿共用这一个对象(口径同源)。
+      const per = perSession(hours)
 
-  const [row] = await dbRead
-    .select({
-      sessions: sql<number>`count(*)::int`,
-      singlePageSessions: sql<number>`count(*) filter (where ${per.pageCnt} = 1)::int`,
-      totalPv: sql<number>`coalesce(sum(${per.pvCnt}), 0)::int`,
-      depth1: sql<number>`count(*) filter (where ${per.pvCnt} = 1)::int`,
-      depth2to3: sql<number>`count(*) filter (where ${per.pvCnt} between 2 and 3)::int`,
-      depth4to7: sql<number>`count(*) filter (where ${per.pvCnt} between 4 and 7)::int`,
-      depth8plus: sql<number>`count(*) filter (where ${per.pvCnt} >= 8)::int`,
-    })
-    .from(per)
+      const [row] = await tx
+        .select({
+          sessions: sql<number>`count(*)::int`,
+          singlePageSessions: sql<number>`count(*) filter (where ${per.pageCnt} = 1)::int`,
+          totalPv: sql<number>`coalesce(sum(${per.pvCnt}), 0)::int`,
+          depth1: sql<number>`count(*) filter (where ${per.pvCnt} = 1)::int`,
+          depth2to3: sql<number>`count(*) filter (where ${per.pvCnt} between 2 and 3)::int`,
+          depth4to7: sql<number>`count(*) filter (where ${per.pvCnt} between 4 and 7)::int`,
+          depth8plus: sql<number>`count(*) filter (where ${per.pvCnt} >= 8)::int`,
+        })
+        .from(per)
 
-  const entryRows = await dbRead
-    .select({
-      entryUrl: per.entryUrl,
-      sessions: sql<number>`count(*)::int`,
-      singlePageSessions: sql<number>`count(*) filter (where ${per.pageCnt} = 1)::int`,
-    })
-    .from(per)
-    .where(sql`${per.entryUrl} is not null`)
-    .groupBy(per.entryUrl)
-    .orderBy(sql`count(*) desc, ${per.entryUrl} asc`)
-    .limit(SESSION_PAGE_TOP_N)
+      const entryRows = await tx
+        .select({
+          entryUrl: per.entryUrl,
+          sessions: sql<number>`count(*)::int`,
+          singlePageSessions: sql<number>`count(*) filter (where ${per.pageCnt} = 1)::int`,
+        })
+        .from(per)
+        .where(sql`${per.entryUrl} is not null`)
+        .groupBy(per.entryUrl)
+        .orderBy(sql`count(*) desc, ${per.entryUrl} asc`)
+        .limit(SESSION_PAGE_TOP_N)
 
-  // 退出页腿(2026-10-27):与落地页同一子查询、镜像判据(exit_url 已在列定义里),
-  // 回答「人从哪走」—— 两头都有才看得出路径断在哪一步。
-  const exitRows = await dbRead
-    .select({
-      exitUrl: per.exitUrl,
-      sessions: sql<number>`count(*)::int`,
-      singlePageSessions: sql<number>`count(*) filter (where ${per.pageCnt} = 1)::int`,
-    })
-    .from(per)
-    .where(sql`${per.exitUrl} is not null`)
-    .groupBy(per.exitUrl)
-    .orderBy(sql`count(*) desc, ${per.exitUrl} asc`)
-    .limit(SESSION_PAGE_TOP_N)
+      // 退出页腿(2026-10-27):与落地页同一子查询、镜像判据(exit_url 已在列定义里),
+      // 回答「人从哪走」—— 两头都有才看得出路径断在哪一步。
+      const exitRows = await tx
+        .select({
+          exitUrl: per.exitUrl,
+          sessions: sql<number>`count(*)::int`,
+          singlePageSessions: sql<number>`count(*) filter (where ${per.pageCnt} = 1)::int`,
+        })
+        .from(per)
+        .where(sql`${per.exitUrl} is not null`)
+        .groupBy(per.exitUrl)
+        .orderBy(sql`count(*) desc, ${per.exitUrl} asc`)
+        .limit(SESSION_PAGE_TOP_N)
 
-  const agg = row as unknown as SessionQualityAggRow | undefined
-  const entries = (entryRows as unknown as SessionEntryRow[]) ?? []
-  const exits = (exitRows as unknown as SessionExitRow[]) ?? []
-  return { ...buildSessionQuality(agg, entries, exits), computedAtMs: Date.now() }
+      const agg = row as unknown as SessionQualityAggRow | undefined
+      const entries = (entryRows as unknown as SessionEntryRow[]) ?? []
+      const exits = (exitRows as unknown as SessionExitRow[]) ?? []
+      return { ...buildSessionQuality(agg, entries, exits), computedAtMs: Date.now() }
+    },
+    // 只读 + 可重复读:PG 在 REPEATABLE READ 下整条事务共用一个快照;
+    // READ ONLY 顺手挡掉这条连接被误当写路径(读副本上也是合法档位)。
+    { isolationLevel: 'repeatable read', accessMode: 'read only' },
+  )
 }
 
 /**

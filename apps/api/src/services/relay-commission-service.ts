@@ -24,9 +24,10 @@
  */
 import { eq, and, sql, desc, lte, type SQL } from 'drizzle-orm'
 import { db, dbRead } from '../db/index.js'
+import { toSafeAmount } from '../db/commission-queries.js'
 import { roundCents } from './relay-billing-service.js'
 import { relayCommissionRecords, systemConfigs, users, developerApiKeys } from '@ihui/database'
-import type { RelayCommissionRecord } from '@ihui/database'
+import type { NewRelayCommissionRecord, RelayCommissionRecord } from '@ihui/database'
 
 // =============================================================================
 // 常量
@@ -60,6 +61,61 @@ export interface CommissionConfig {
   frozenDays: number
 }
 
+// =============================================================================
+// 1b. 返佣率跨字段约束(F-164,2026-11-13)
+// =============================================================================
+
+/**
+ * 返佣率组合非法(两级之和 > 100%)。
+ * 路由层据此回 400;service 层写入前终闸(旁路调用方同样拦)。
+ */
+export class CommissionInvalidRatesError extends Error {
+  readonly level1Rate: number
+  readonly level2Rate: number
+  constructor(level1Rate: number, level2Rate: number) {
+    super(
+      `返佣率总和不得超过 1(当前 level1=${level1Rate} + level2=${level2Rate} = ${level1Rate + level2Rate})`,
+    )
+    this.name = 'CommissionInvalidRatesError'
+    this.level1Rate = level1Rate
+    this.level2Rate = level2Rate
+  }
+}
+
+/** 单级费率夹到 [0,1](非有限值回退 fallback)。 */
+function clampRate(value: number, fallback: number): number {
+  if (!Number.isFinite(value)) return fallback
+  if (value < 0) return 0
+  if (value > 1) return 1
+  return value
+}
+
+/** 合计边界的浮点容差(0.7+0.3 这类二进制小数不误杀)。 */
+const RATE_SUM_EPSILON = 1e-9
+
+/**
+ * F-164 不变量:两级返佣率各自 ∈ [0,1],且合计 ≤ 1(100%)。
+ * 纯函数,写入端(配置)与释放端(记账/付款)共用;
+ * 非 number / NaN / Infinity / 负数 / 单级 >1 / 合计 >1 一律返回 false。
+ */
+export function validateCommissionRates(
+  level1Rate: number | null | undefined,
+  level2Rate: number | null | undefined,
+): boolean {
+  if (typeof level1Rate !== 'number' || typeof level2Rate !== 'number') return false
+  if (!Number.isFinite(level1Rate) || !Number.isFinite(level2Rate)) return false
+  return (
+    level1Rate >= 0 &&
+    level1Rate <= 1 &&
+    level2Rate >= 0 &&
+    level2Rate <= 1 &&
+    level1Rate + level2Rate <= 1 + RATE_SUM_EPSILON
+  )
+}
+
+/** F-164 前的旧名,保留兼容既有调用方;新代码用 validateCommissionRates。 */
+export const validateCombinedRates = validateCommissionRates
+
 /**
  * 读取返佣率配置(从 system_configs 表,未配置用默认值)。
  * key: 'relay_commission.level1_rate' / 'relay_commission.level2_rate' / 'relay_commission.frozen_days'
@@ -91,6 +147,10 @@ export async function getCommissionConfig(): Promise<CommissionConfig> {
 /**
  * 更新返佣率配置(upsert system_configs 表,admin 用)。
  * 仅传非 undefined 的字段,未传字段保持原值。
+ *
+ * F-164(2026-11-13):写入前按「生效组合」校验 level1+level2 ≤ 1 ——
+ * 只改某一级时,另一半取现网存量值;组合非法 ⇒ 一条都不写并抛
+ * CommissionInvalidRatesError(防止两级各 100% 叠加成 200% 返佣套现口子)。
  */
 export async function setCommissionConfig(
   patch: Partial<CommissionConfig>,
@@ -105,6 +165,29 @@ export async function setCommissionConfig(
   }
   if (patch.frozenDays !== undefined) {
     entries.push({ key: 'frozen_days', value: String(patch.frozenDays) })
+  }
+
+  const ratesTouched = patch.level1Rate !== undefined || patch.level2Rate !== undefined
+  if (ratesTouched) {
+    const base = await getCommissionConfig()
+    const eff1 = clampRate(patch.level1Rate ?? base.level1Rate, base.level1Rate)
+    const eff2 = clampRate(patch.level2Rate ?? base.level2Rate, base.level2Rate)
+    if (!validateCommissionRates(eff1, eff2)) {
+      throw new CommissionInvalidRatesError(eff1, eff2)
+    }
+    // 夹取后的合法值回写 entries(0.99+0.99 → 拦;1.5 → 夹 1;非法组合仍拦)
+    if (patch.level1Rate !== undefined) {
+      entries[entries.findIndex((e) => e.key === 'level1_rate')] = {
+        key: 'level1_rate',
+        value: String(eff1),
+      }
+    }
+    if (patch.level2Rate !== undefined) {
+      entries[entries.findIndex((e) => e.key === 'level2_rate')] = {
+        key: 'level2_rate',
+        value: String(eff2),
+      }
+    }
   }
 
   for (const e of entries) {
@@ -217,10 +300,17 @@ export async function recordRelayCommission(input: RecordCommissionInput): Promi
   const now = new Date()
   const frozenUntil = new Date(now.getTime() + config.frozenDays * 24 * 60 * 60 * 1000)
 
-  const rows = chain.map((entry) => {
-    const rate = entry.level === 1 ? config.level1Rate : config.level2Rate
-    const commissionCents = roundCents(input.sourceCostCents * rate)
-    return {
+  // F-162/F-164 记账侧封顶:单笔来源消费的返佣总预算 = sourceCostCents(100%成本),
+  // level1 先取,剩余预算再给 level2;即便配置非法,每笔之和也不会超过成本。
+  const clampedLevel1 = clampRate(config.level1Rate, DEFAULT_LEVEL1_RATE)
+  const clampedLevel2 = clampRate(config.level2Rate, DEFAULT_LEVEL2_RATE)
+  let budget = input.sourceCostCents
+  const rows: NewRelayCommissionRecord[] = []
+  for (const entry of chain) {
+    const rate = entry.level === 1 ? clampedLevel1 : clampedLevel2
+    const commissionCents = Math.min(roundCents(input.sourceCostCents * rate), Math.max(budget, 0))
+    budget -= commissionCents
+    rows.push({
       sourceUserId: input.sourceUserId,
       sourceCallLogId: input.sourceCallLogId,
       sourceCostCents: input.sourceCostCents,
@@ -231,8 +321,8 @@ export async function recordRelayCommission(input: RecordCommissionInput): Promi
       status: 'frozen' as const,
       frozenUntil,
       createdAt: now,
-    }
-  })
+    })
+  }
 
   await db.insert(relayCommissionRecords).values(rows)
 }
@@ -248,6 +338,39 @@ export interface ReleaseResult {
   releasedCents: number
   /** 因 beneficiary 无 active API Key 而跳过的条数(保持 frozen) */
   skippedNoKey: number
+  /** F-164:费率/金额超限被拒付的条数(保持 frozen,不写余额) */
+  skippedInvalidRates: number
+}
+
+interface PendingCommissionRow {
+  id: string
+  sourceCallLogId: string | null
+  sourceCostCents: number
+  beneficiaryUserId: string
+  commissionRate: string
+  commissionCents: number
+}
+
+/**
+ * F-164 释放侧终闸:只有「不超成本的返佣」才允许加钱。
+ * 单条费率 ∈ [0,1]、金额 ≥0 且 ≤ 该笔消费成本;同一笔消费(两级)合计也 ≤ 成本。
+ */
+function isCommissionRowReleasable(
+  row: PendingCommissionRow,
+  groupCommissionCents: number,
+): boolean {
+  const rate = Number(row.commissionRate)
+  const cost = row.sourceCostCents
+  return (
+    Number.isFinite(rate) &&
+    rate >= 0 &&
+    rate <= 1 &&
+    Number.isFinite(row.commissionCents) &&
+    row.commissionCents >= 0 &&
+    Number.isFinite(cost) &&
+    row.commissionCents <= cost &&
+    groupCommissionCents <= cost
+  )
 }
 
 /**
@@ -260,6 +383,10 @@ export interface ReleaseResult {
  *    - 无 Key → 保持 frozen(下次再试),skippedNoKey++
  * 3. 返回释放统计
  *
+ * F-164:第 2 步前先过 isCommissionRowReleasable —— 修复前写入的冻结行可能是
+ * 两级各 100%(合计 200%)的存量脏数据,超限一律拒付(保持 frozen)并告警,
+ * 不静默截断后照付。
+ *
  * 幂等:用 UPDATE WHERE status='frozen' AND frozen_until <= now 原子翻转,避免并发重复释放。
  */
 export async function releaseExpiredCommissions(batchSize = 100): Promise<ReleaseResult> {
@@ -269,7 +396,10 @@ export async function releaseExpiredCommissions(batchSize = 100): Promise<Releas
   const pending = await dbRead
     .select({
       id: relayCommissionRecords.id,
+      sourceCallLogId: relayCommissionRecords.sourceCallLogId,
+      sourceCostCents: relayCommissionRecords.sourceCostCents,
       beneficiaryUserId: relayCommissionRecords.beneficiaryUserId,
+      commissionRate: relayCommissionRecords.commissionRate,
       commissionCents: relayCommissionRecords.commissionCents,
     })
     .from(relayCommissionRecords)
@@ -282,14 +412,40 @@ export async function releaseExpiredCommissions(batchSize = 100): Promise<Releas
     .limit(batchSize)
 
   if (pending.length === 0) {
-    return { releasedCount: 0, releasedCents: 0, skippedNoKey: 0 }
+    return { releasedCount: 0, releasedCents: 0, skippedNoKey: 0, skippedInvalidRates: 0 }
+  }
+
+  // F-164:按来源消费归组——同一笔消费的两级返佣合计不得超该笔消费成本。
+  const costByCall = new Map<string, number>()
+  const sumByCall = new Map<string, number>()
+  for (const row of pending) {
+    const key = row.sourceCallLogId ?? row.id
+    if (!costByCall.has(key)) costByCall.set(key, Number(row.sourceCostCents))
+    sumByCall.set(key, (sumByCall.get(key) ?? 0) + Number(row.commissionCents))
   }
 
   let releasedCount = 0
   let releasedCents = 0
   let skippedNoKey = 0
+  let skippedInvalidRates = 0
 
   for (const record of pending) {
+    const groupKey = record.sourceCallLogId ?? record.id
+    const groupCommissionCents = sumByCall.get(groupKey) ?? Number(record.commissionCents)
+    // F-164:超限规则拒绝支付(保持 frozen)并告警,绝不截断后照付
+    if (!isCommissionRowReleasable(record, groupCommissionCents)) {
+      skippedInvalidRates++
+      console.warn('[relay-commission] F-164 拒付超限返佣(保持 frozen)', {
+        id: record.id,
+        sourceCallLogId: record.sourceCallLogId,
+        commissionRate: record.commissionRate,
+        commissionCents: record.commissionCents,
+        sourceCostCents: costByCall.get(groupKey),
+        groupCommissionCents,
+      })
+      continue
+    }
+
     // 2. 查 beneficiary 最新 active API Key
     const [activeKey] = await dbRead
       .select({ id: developerApiKeys.id })
@@ -341,7 +497,7 @@ export async function releaseExpiredCommissions(batchSize = 100): Promise<Releas
     })
   }
 
-  return { releasedCount, releasedCents, skippedNoKey }
+  return { releasedCount, releasedCents, skippedNoKey, skippedInvalidRates }
 }
 
 // =============================================================================
@@ -463,7 +619,8 @@ export async function getCommissionStats(): Promise<CommissionStats> {
     .select({
       status: relayCommissionRecords.status,
       count: sql<number>`count(*)::int`,
-      sumCents: sql<number>`coalesce(sum(${relayCommissionRecords.commissionCents}), 0)::int`,
+      // F-574:返佣金额为"分",全量累计可能越过 int4 上限(22003),改 bigint + 应用层收敛。
+      sumCents: sql<number>`coalesce(sum(${relayCommissionRecords.commissionCents}), 0)::bigint`,
     })
     .from(relayCommissionRecords)
     .groupBy(relayCommissionRecords.status)
@@ -475,31 +632,31 @@ export async function getCommissionStats(): Promise<CommissionStats> {
   let releasedCount = 0
   for (const r of statusRows) {
     if (r.status === 'frozen') {
-      frozenCents = r.sumCents
+      frozenCents = toSafeAmount(r.sumCents)
       frozenCount = r.count
     } else if (r.status === 'released') {
-      releasedCents = r.sumCents
+      releasedCents = toSafeAmount(r.sumCents)
       releasedCount = r.count
     } else if (r.status === 'expired') {
-      expiredCents = r.sumCents
+      expiredCents = toSafeAmount(r.sumCents)
     }
   }
 
   // 按时间窗口聚合(今日/7d/30d,不限状态,统计创建时间)
   const timeRows = await dbRead
     .select({
-      todayCents: sql<number>`coalesce(sum(${relayCommissionRecords.commissionCents}) filter (where ${relayCommissionRecords.createdAt} >= ${todayStart}), 0)::int`,
-      last7dCents: sql<number>`coalesce(sum(${relayCommissionRecords.commissionCents}) filter (where ${relayCommissionRecords.createdAt} >= ${last7d}), 0)::int`,
-      last30dCents: sql<number>`coalesce(sum(${relayCommissionRecords.commissionCents}) filter (where ${relayCommissionRecords.createdAt} >= ${last30d}), 0)::int`,
+      todayCents: sql<number>`coalesce(sum(${relayCommissionRecords.commissionCents}) filter (where ${relayCommissionRecords.createdAt} >= ${todayStart}), 0)::bigint`,
+      last7dCents: sql<number>`coalesce(sum(${relayCommissionRecords.commissionCents}) filter (where ${relayCommissionRecords.createdAt} >= ${last7d}), 0)::bigint`,
+      last30dCents: sql<number>`coalesce(sum(${relayCommissionRecords.commissionCents}) filter (where ${relayCommissionRecords.createdAt} >= ${last30d}), 0)::bigint`,
     })
     .from(relayCommissionRecords)
 
   const timeRow = timeRows[0] ?? { todayCents: 0, last7dCents: 0, last30dCents: 0 }
 
   return {
-    todayCents: timeRow.todayCents,
-    last7dCents: timeRow.last7dCents,
-    last30dCents: timeRow.last30dCents,
+    todayCents: toSafeAmount(timeRow.todayCents),
+    last7dCents: toSafeAmount(timeRow.last7dCents),
+    last30dCents: toSafeAmount(timeRow.last30dCents),
     frozenCents,
     releasedCents,
     expiredCents,

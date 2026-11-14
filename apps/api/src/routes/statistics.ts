@@ -2,7 +2,12 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
+import type {
+  FastifyPluginAsync,
+  FastifyRequest,
+  FastifyReply,
+  RouteHandlerMethod,
+} from 'fastify'
 import { z } from 'zod'
 import { eq, and, gte, lte, desc, sql } from 'drizzle-orm'
 import { checkAuth } from '../plugins/auth.js'
@@ -40,7 +45,7 @@ import { getUserCenterStats } from '../db/statistics-queries.js'
 import { countFavorites, countFollowers, countFollowing } from '../db/social-queries.js'
 import { findUserPoints } from '../db/gamification-queries.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
-import { bizDayKey } from '../utils/biz-day.js'
+import { bizDayKey, shiftBizDayKey } from '../utils/biz-day.js'
 
 // =============================================================================
 // Zod schemas
@@ -74,9 +79,76 @@ const agentHeatQuery = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(20),
 })
 
+// F-594: 手动刷新只允许回填「今天 ~ 最近 N 天」,历史日期一律 400。
+// 旧实现直接采用客户端 dateStr 且仅校验非空 ⇒ 任意登录用户可反复删除/回填任意一天的全站热度。
+const HEAT_REFRESH_WINDOW_DAYS = 7
+
 const agentHeatRefreshSchema = z.object({
-  dateStr: z.string().min(1).optional(),
+  dateStr: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'dateStr 必须为 YYYY-MM-DD')
+    .refine((value) => {
+      const parsedDate = new Date(`${value}T00:00:00Z`)
+      return (
+        !Number.isNaN(parsedDate.getTime()) && parsedDate.toISOString().slice(0, 10) === value
+      )
+    }, 'dateStr 不是合法日期')
+    .optional(),
 })
+
+/**
+ * F-594:POST /statistics/agent-heat/refresh 的唯一实现(公共前缀 /api 与管理员前缀 /api/admin 共用)。
+ *
+ * 公共挂载必须带 `preHandler: requireAdmin` —— 历史上这里只过 checkAuth,
+ * 任意登录用户都能用任意 dateStr 删除并回填某日全站热度。
+ */
+const refreshAgentHeat: RouteHandlerMethod = async (request, reply) => {
+  const parsed = agentHeatRefreshSchema.safeParse(request.body ?? {})
+  if (!parsed.success) {
+    return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+  }
+  // F-262:与小时任务共用 bizDayKey(Asia/Shanghai) 同一把日键,不再用 UTC slice
+  const today = bizDayKey()
+  const dateStr = parsed.data.dateStr ?? today
+  const windowStart = shiftBizDayKey(today, -HEAT_REFRESH_WINDOW_DAYS)
+  if (dateStr < windowStart || dateStr > today) {
+    return reply
+      .status(400)
+      .send(
+        error(400, `dateStr 只允许 ${windowStart} ~ ${today}(近 ${HEAT_REFRESH_WINDOW_DAYS} 天)`),
+      )
+  }
+
+  // 查询所有已发布的 Agent 当前 usage_count
+  const agentRows = await db
+    .select({
+      agentId: agents.agentId,
+      usageCount: agents.usageCount,
+    })
+    .from(agents)
+    .where(eq(agents.status, 'published'))
+
+  // 删除当天已有记录后重新写入（幂等）
+  await db.delete(agentHeatStats).where(eq(agentHeatStats.dateStr, dateStr))
+
+  if (agentRows.length > 0) {
+    await db.insert(agentHeatStats).values(
+      agentRows.map((a) => ({
+        agentId: a.agentId,
+        hitCount: a.usageCount,
+        dateStr,
+      })),
+    )
+  }
+
+  return reply.send(
+    success({
+      refreshed: true,
+      dateStr,
+      agentCount: agentRows.length,
+    }),
+  )
+}
 
 // =============================================================================
 // 公共路由（前缀 /api，需登录，只读聚合统计）
@@ -341,6 +413,15 @@ export const statisticsRoutes: FastifyPluginAsync = async (server) => {
         }),
       )
     },
+  )
+
+  // POST /statistics/agent-heat/refresh - 手动触发热度统计刷新(重建全站统计,仅管理员)
+  // F-594:公共前缀上的同名入口历史上只过 checkAuth;这里显式加 requireAdmin 前置,
+  // 写操作必须在鉴权闸之后,普通用户 403(日期窗口校验见 refreshAgentHeat)。
+  server.post(
+    '/statistics/agent-heat/refresh',
+    { preHandler: requireAdmin },
+    refreshAgentHeat,
   )
 
   // ===========================================================================
@@ -681,41 +762,8 @@ export const adminStatisticsRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // POST /statistics/agent-heat/refresh - 手动触发热度统计刷新
-  // 从 agents 表的 usageCount 同步到 agentHeatStats（按当天日期记录）
-  server.post('/statistics/agent-heat/refresh', async (request, reply) => {
-    const parsed = agentHeatRefreshSchema.safeParse(request.body)
-    // F-262:与小时任务共用 bizDayKey(Asia/Shanghai) 同一把日键,不再用 UTC slice
-    const dateStr = parsed.success ? (parsed.data.dateStr ?? bizDayKey()) : bizDayKey()
-
-    // 查询所有已发布的 Agent 当前 usage_count
-    const agentRows = await db
-      .select({
-        agentId: agents.agentId,
-        usageCount: agents.usageCount,
-      })
-      .from(agents)
-      .where(eq(agents.status, 'published'))
-
-    // 删除当天已有记录后重新写入（幂等）
-    await db.delete(agentHeatStats).where(eq(agentHeatStats.dateStr, dateStr))
-
-    if (agentRows.length > 0) {
-      await db.insert(agentHeatStats).values(
-        agentRows.map((a) => ({
-          agentId: a.agentId,
-          hitCount: a.usageCount,
-          dateStr,
-        })),
-      )
-    }
-
-    return reply.send(
-      success({
-        refreshed: true,
-        dateStr,
-        agentCount: agentRows.length,
-      }),
-    )
-  })
+  // F-594:与公共前缀 /api 的同名路由共用 refreshAgentHeat;
+  // 管理员闸由插件级 preHandler requireAdmin 提供(处理器内另做日期窗口校验)。
+  server.post('/statistics/agent-heat/refresh', refreshAgentHeat)
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

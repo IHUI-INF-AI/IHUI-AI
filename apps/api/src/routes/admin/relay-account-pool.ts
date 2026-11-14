@@ -97,6 +97,8 @@ import {
   markAccountAuthRejected,
   refreshOne,
   sweepAccountPool,
+  UNSCHEDULABLE_SOURCE_KEY,
+  unschedulableSourceOf,
 } from '../../services/relay-account-pool-scheduler.js'
 import {
   fetchPoolAccounts,
@@ -853,6 +855,7 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
           weight: aiRelayAccountPool.weight,
           tempUnschedulable: aiRelayAccountPool.tempUnschedulable,
           proxyUrl: aiRelayAccountPool.proxyUrl,
+          extraMetadata: aiRelayAccountPool.extraMetadata,
         })
         .from(aiRelayAccountPool)
         .where(eq(aiRelayAccountPool.id, p.data.id))
@@ -869,6 +872,17 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
           }
         } else if ((existing as Record<string, unknown>)[k] !== v) {
           changed[k] = v
+        }
+      }
+      // F-647:人工摘除必须留来源标记 —— 巡检只自动恢复/清理自己摘的号,
+      // 否则下一次换票成功会把这条止血在 5 分钟内撤销。标记落在既有 jsonb 列。
+      if (b.data.tempUnschedulable === true) {
+        if (unschedulableSourceOf(existing) !== 'manual') {
+          changed.extraMetadata = sql`coalesce(${aiRelayAccountPool.extraMetadata}, '{}'::jsonb) || ${JSON.stringify({ [UNSCHEDULABLE_SOURCE_KEY]: 'manual' })}::jsonb`
+        }
+      } else if (b.data.tempUnschedulable === false) {
+        if (unschedulableSourceOf(existing) !== null) {
+          changed.extraMetadata = sql`coalesce(${aiRelayAccountPool.extraMetadata}, '{}'::jsonb) - ${UNSCHEDULABLE_SOURCE_KEY}::text`
         }
       }
       if (Object.keys(changed).length === 0) return reply.send(success({ id: p.data.id }))

@@ -204,9 +204,9 @@ describe('acceptInvitation:终态邀请一律拒绝(F-645)', () => {
       expiresAt: new Date(Date.now() + 60 * 60 * 1000),
     }
 
-    await expect(
-      acceptInvitation(invitationRow({ status }), USER_ID),
-    ).rejects.toThrow('邀请已失效或已被处理')
+    await expect(acceptInvitation(invitationRow({ status }), USER_ID)).rejects.toThrow(
+      '邀请已失效或已被处理',
+    )
 
     expect(state.transactionCalls).toBe(1)
     expect(state.insertCalls).toHaveLength(0)
@@ -296,9 +296,7 @@ describe('acceptInvitation:正常接受两写同事务(F-645)', () => {
     ])
 
     expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1)
-    const rejected = results.filter(
-      (r): r is PromiseRejectedResult => r.status === 'rejected',
-    )
+    const rejected = results.filter((r): r is PromiseRejectedResult => r.status === 'rejected')
     expect(rejected).toHaveLength(1)
     expect(String(rejected[0]?.reason)).toContain('邀请已失效或已被处理')
 

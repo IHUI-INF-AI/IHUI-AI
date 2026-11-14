@@ -12,6 +12,7 @@ import {
   type Certificate,
 } from '@ihui/database'
 import { generateCertificateNumber } from '../utils/crypto-random.js'
+import { asContainsTerm } from '../utils/like-escape.js'
 // ihui_exam_certificate_issued_total:db 层不持有 fastify 实例,走模块级桥接函数打点
 import { recordExamCertificateIssued } from '../plugins/business-metrics.js'
 
@@ -26,7 +27,7 @@ export async function findTemplates(opts: {
   status?: number
 }): Promise<{ list: CertificateTemplate[]; total: number; page: number; pageSize: number }> {
   const conds = []
-  if (opts.search) conds.push(ilike(certificateTemplates.name, `%${opts.search}%`))
+  if (opts.search) conds.push(ilike(certificateTemplates.name, asContainsTerm(opts.search)))
   if (opts.status !== undefined) conds.push(eq(certificateTemplates.status, opts.status))
   const where = conds.length ? and(...conds) : undefined
   const [list, totalRows] = await Promise.all([
@@ -147,7 +148,7 @@ export async function findCertificates(opts: {
   if (opts.templateId) conds.push(eq(certificates.templateId, opts.templateId))
   if (opts.status !== undefined) conds.push(eq(certificates.status, opts.status))
   if (opts.search) {
-    conds.push(ilike(certificates.certificateNo, `%${opts.search}%`))
+    conds.push(ilike(certificates.certificateNo, asContainsTerm(opts.search)))
   }
   const where = conds.length ? and(...conds) : undefined
   const [rows, totalRows] = await Promise.all([

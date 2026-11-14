@@ -40,19 +40,57 @@ import {
 } from '@ihui/types'
 
 // ----------------------------------------------------------------------------
-// db/index 替身:rls-context 只用到 db.execute。既录制语句,也保证零真实连接。
+// db/index 替身:未鉴权路径用 db.execute,F-221 的已鉴权路径用 db.$client.reserve()。
+// 既录制语句,也保证零真实连接。
 // ----------------------------------------------------------------------------
 const capture = vi.hoisted(() => ({
   contextQueries: [] as unknown[],
+  leases: [] as Array<{
+    statements: Array<{ sql: string; params: unknown[] }>
+    released: boolean
+  }>,
 }))
-vi.mock('../src/db/index.js', () => ({
-  db: {
-    execute: vi.fn(async (query: unknown): Promise<unknown[]> => {
-      capture.contextQueries.push(query)
-      return []
-    }),
-  },
-}))
+vi.mock('../src/db/index.js', () => {
+  const makeLease = (): {
+    options: { parsers: Record<string, unknown>; serializers: Record<string, unknown> }
+    statements: Array<{ sql: string; params: unknown[] }>
+    released: boolean
+    unsafe: (sqlText: string, params?: unknown[]) => Promise<unknown[]>
+    release: () => void
+  } => {
+    const statements: Array<{ sql: string; params: unknown[] }> = []
+    const lease = {
+      // drizzle(postgres-js) 在构造期读 client.options.parsers/serializers;真实 ReservedSql 同面
+      options: { parsers: {}, serializers: {} },
+      statements,
+      released: false,
+      unsafe(sqlText: string, params: unknown[] = []): Promise<unknown[]> {
+        statements.push({ sql: sqlText, params })
+        capture.contextQueries.push({ sql: sqlText, params })
+        const rows: unknown[] = []
+        const promise = Promise.resolve(rows) as Promise<unknown[]> & {
+          values: () => Promise<unknown[]>
+        }
+        promise.values = (): Promise<unknown[]> => Promise.resolve(rows)
+        return promise
+      },
+      release(): void {
+        lease.released = true
+      },
+    }
+    capture.leases.push(lease)
+    return lease
+  }
+  return {
+    db: {
+      $client: { reserve: async () => makeLease() },
+      execute: vi.fn(async (query: unknown): Promise<unknown[]> => {
+        capture.contextQueries.push(query)
+        return []
+      }),
+    },
+  }
+})
 
 import principalPlugin, { runWithPrincipal, type Principal } from '../src/plugins/principal.js'
 import rlsContextPlugin from '../src/plugins/rls-context.js'
@@ -98,9 +136,14 @@ interface RecordedQuery {
   params: unknown[]
 }
 
-/** 把 rls-context 写入 mock 的 drizzle 语句编译成 {sql,params}。
- *  未绑方言的 SQL 对象直接读 `.sql`/`.params` 恒为 undefined —— 必须经方言编译。 */
+/** 把 rls-context 写入的语句编译成 {sql,params}。
+ *  F-221 已鉴权路径经 reserve 连接下发,捕获到的已是 raw {sql,params};
+ *  未鉴权空值路径仍是未绑方言的 SQL 对象(必须经方言编译)。 */
 function compiledStatement(query: unknown): RecordedQuery {
+  const rec = query as Partial<RecordedQuery> | null
+  if (rec && typeof rec.sql === 'string' && Array.isArray(rec.params)) {
+    return { sql: rec.sql, params: rec.params as unknown[] }
+  }
   return dialect.sqlToQuery(query as SQL)
 }
 
@@ -258,6 +301,7 @@ let warnMessages: string[] = []
 
 beforeEach(() => {
   capture.contextQueries.length = 0
+  capture.leases.length = 0
   fake.queries.length = 0
   probeCalls = 0
   warnMessages = []

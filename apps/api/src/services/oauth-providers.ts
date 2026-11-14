@@ -227,37 +227,25 @@ export async function wechatAppCode2session(code: string): Promise<WechatAppSess
     `https://api.weixin.qq.com/sns/oauth2/access_token?appid=${env.WECHAT_MOBILE_APP_ID}&secret=${env.WECHAT_MOBILE_SECRET}&code=${code}&grant_type=authorization_code`,
   )
   if (!tokenRes.ok) throw new Error(`wechat app token failed: ${tokenRes.status}`)
-  const tokenData = (await tokenRes.json()) as {
-    access_token?: string
-    refresh_token?: string
-    openid?: string
-    unionid?: string
-    errcode?: number
-    errmsg?: string
-  }
-  if (!tokenData.access_token || !tokenData.openid) {
-    throw new Error(`微信移动应用授权码无效: ${tokenData.errmsg ?? tokenData.errcode ?? ''}`)
-  }
+  const tokenData = (await tokenRes.json()) as Record<string, unknown>
+  // 微信拒绝一次性 code / 密钥不匹配时回的是 HTTP 200 + body.errcode(40029/40163/40125),
+  // 旧写法只判 access_token 存在与否、把 errcode 丢进一条泛化文案 ⇒ 线上只能看到
+  // 「登录已过期」而拿不到真因(与 jscode2session 那格同一缺陷族:200 不等于成功)。
+  const accessToken = requireWechatField('微信移动应用 code2session', tokenData, 'access_token')
+  const tokenOpenId = requireWechatField('微信移动应用 code2session', tokenData, 'openid')
   const userRes = await oauthFetch(
-    `https://api.weixin.qq.com/sns/userinfo?access_token=${tokenData.access_token}&openid=${tokenData.openid}`,
+    `https://api.weixin.qq.com/sns/userinfo?access_token=${accessToken}&openid=${tokenOpenId}`,
   )
-  const wxUser = (await userRes.json()) as {
-    openid?: string
-    unionid?: string
-    nickname?: string
-    headimgurl?: string
-    errcode?: number
-    errmsg?: string
-  }
-  if (wxUser.errcode) {
-    throw new Error(`微信移动应用用户信息获取失败: ${wxUser.errmsg ?? wxUser.errcode}`)
-  }
+  const wxUser = (await userRes.json()) as Record<string, unknown>
+  const userOpenId = requireWechatField('微信移动应用 userinfo', wxUser, 'openid')
+  const unionId = wxUser.unionid ?? tokenData.unionid
   return {
-    openId: wxUser.openid ?? tokenData.openid ?? '',
-    unionId: wxUser.unionid ?? tokenData.unionid ?? '',
-    refreshToken: tokenData.refresh_token,
-    nickname: wxUser.nickname,
-    avatar: wxUser.headimgurl,
+    openId: userOpenId,
+    unionId: typeof unionId === 'string' ? unionId : '',
+    refreshToken:
+      typeof tokenData.refresh_token === 'string' ? tokenData.refresh_token : undefined,
+    nickname: typeof wxUser.nickname === 'string' ? wxUser.nickname : undefined,
+    avatar: typeof wxUser.headimgurl === 'string' ? wxUser.headimgurl : undefined,
   }
 }
 
@@ -323,6 +311,29 @@ export function isWecomConfigured(): boolean {
 /** 第三方应用服务商 suite 模式是否已配置 */
 export function isWecomSuiteConfigured(): boolean {
   return Boolean(env.WECOM_SECRET && env.WECOM_SUITE_ID)
+}
+
+/**
+ * 解析企微租户 corpId(F-271),返回 null 即「不得登录」。
+ *
+ * 为什么必须有这道:suite 模式一次授权给多家企业,B 企业的 `open_userid` 与 A 企业**可以同值**;
+ * 绑定键若只取 open_userid,就变成"跨租户同名即同人"。租户维度只解决"查得到谁",还得挡住
+ * "这个租户本来就不该由本部署签发会话"。判据分两种口径,都不 fail-open:
+ *   ① `WECOM_ALLOWED_CORP_IDS`(逗号分隔)配置了就只认名单内的 corpId;
+ *   ② 未配置时按当前运行模式:自建应用只认 `WECOM_CORP_ID`(gettoken 用的就是它),
+ *      suite 模式接受 API 返回的非空 corpid(每家企业各自成租户,名单收窄交给 ①)。
+ * 空/缺失 corpId 一律拒绝 —— 拿不到租户就无法判定这份 open_userid 属于谁。
+ */
+export function resolveWecomTenant(corpId: string | undefined | null): string | null {
+  const tenant = String(corpId ?? '').trim()
+  if (!tenant) return null
+  const allowList = String(env.WECOM_ALLOWED_CORP_IDS ?? '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+  if (allowList.length > 0) return allowList.includes(tenant) ? tenant : null
+  if (isWecomConfigured()) return tenant === env.WECOM_CORP_ID ? tenant : null
+  return tenant
 }
 
 let cachedWecomAccessToken: { token: string; expiresAt: number } | null = null

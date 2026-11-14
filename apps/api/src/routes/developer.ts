@@ -46,6 +46,7 @@ import {
   deleteUserPreference,
 } from '../db/user-preferences-queries.js'
 import * as apiKeysService from '../services/developer-api-keys-service.js'
+import { TOKEN_FLOW_OP } from '../services/relay-billing-service.js'
 
 // =============================================================================
 // Zod schemas
@@ -708,7 +709,7 @@ const developerRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // GET /income — 开发者收入概览(累计收入 / 可提现 / 已提现 / 近 20 条收入明细)
-  // 收入分润用 opType=4(佣金),已提现用 opType=1 且 quantity<0
+  // F-394:分润只认 TOKEN_FLOW_OP.COMMISSION;提现是 CONSUME 里的负号流水,不从收入里混算。
   server.get('/income', async (request, reply) => {
     const userId = request.userId!
 
@@ -717,12 +718,14 @@ const developerRoutes: FastifyPluginAsync = async (server) => {
       .from(userMargins)
       .where(eq(userMargins.userId, userId))
       .limit(1)
-    const available = (margin?.tokenQuantity ?? 0) - (margin?.frozenQuantity ?? 0)
+    // F-410:申请即扣减 tokenQuantity、等额转 frozenQuantity,可用余额就是 tokenQuantity
+    // (冻结额已从 tokenQuantity 移出,不再减 frozen 否则双重扣)。
+    const available = margin?.tokenQuantity ?? 0
 
     const [incomeRow] = await db
       .select({ total: sql<number>`coalesce(sum(${tokenFlows.quantity}), 0)::int` })
       .from(tokenFlows)
-      .where(and(eq(tokenFlows.userId, userId), eq(tokenFlows.opType, 4)))
+      .where(and(eq(tokenFlows.userId, userId), eq(tokenFlows.opType, TOKEN_FLOW_OP.COMMISSION)))
 
     const [withdrawnRow] = await db
       .select({ total: sql<number>`coalesce(sum(-${tokenFlows.quantity}), 0)::int` })
@@ -730,7 +733,7 @@ const developerRoutes: FastifyPluginAsync = async (server) => {
       .where(
         and(
           eq(tokenFlows.userId, userId),
-          eq(tokenFlows.opType, 1),
+          eq(tokenFlows.opType, TOKEN_FLOW_OP.CONSUME),
           sql`${tokenFlows.quantity} < 0`,
         ),
       )
@@ -738,7 +741,7 @@ const developerRoutes: FastifyPluginAsync = async (server) => {
     const rows = await db
       .select()
       .from(tokenFlows)
-      .where(and(eq(tokenFlows.userId, userId), eq(tokenFlows.opType, 4)))
+      .where(and(eq(tokenFlows.userId, userId), eq(tokenFlows.opType, TOKEN_FLOW_OP.COMMISSION)))
       .orderBy(desc(tokenFlows.createdAt))
       .limit(20)
 
@@ -771,7 +774,7 @@ const developerRoutes: FastifyPluginAsync = async (server) => {
 
     const where = and(
       eq(tokenFlows.userId, userId),
-      eq(tokenFlows.opType, 1),
+      eq(tokenFlows.opType, TOKEN_FLOW_OP.CONSUME),
       sql`${tokenFlows.quantity} < 0`,
     )
 
@@ -791,7 +794,7 @@ const developerRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ list, total: countRow?.total ?? 0, page, pageSize }))
   })
 
-  // POST /withdrawals — 发起提现申请(冻结余额 + 记录 opType=1 负向流水)
+  // POST /withdrawals — 发起提现申请(冻结余额 + 记录 CONSUME 负向流水)
   server.post(
     '/withdrawals',
     // 资金型端点补限速(2026-10-27):此前零逐路由配额,可与余额检查并行轰炸
@@ -832,27 +835,46 @@ const developerRoutes: FastifyPluginAsync = async (server) => {
             .for('update')
             .limit(1)
           const balance = margin?.tokenQuantity ?? 0
-          const frozen = margin?.frozenQuantity ?? 0
-          if (balance - frozen < amount) {
+          // F-410:申请即从可用余额扣除(冻结只是记账),否则被冻结的 token 仍留在
+          // tokenQuantity 里、会被钱包消费路径(token-balance-service/relay 结算)继续花掉
+          // ——一边提现打款、一边消费同一笔,账实脱钩。对齐 applyWithdrawal(F-406)口径:
+          // 申请即扣减 tokenQuantity、等额转 frozenQuantity,DB 级 WHERE 防超发。
+          if (balance < amount) {
             throw Object.assign(new Error('可用余额不足'), { statusCode: 400 })
           }
+          let balanceAfter: number
           if (margin) {
-            await tx
+            const [updated] = await tx
               .update(userMargins)
-              .set({ frozenQuantity: frozen + amount, updatedAt: new Date() })
-              .where(eq(userMargins.userId, userId))
+              .set({
+                tokenQuantity: sql`${userMargins.tokenQuantity} - ${amount}`,
+                frozenQuantity: sql`${userMargins.frozenQuantity} + ${amount}`,
+                updatedAt: new Date(),
+              })
+              .where(
+                and(
+                  eq(userMargins.userId, userId),
+                  sql`${userMargins.tokenQuantity} >= ${amount}`,
+                ),
+              )
+              .returning({ tokenQuantity: userMargins.tokenQuantity })
+            if (!updated) {
+              throw Object.assign(new Error('可用余额不足'), { statusCode: 400 })
+            }
+            balanceAfter = updated.tokenQuantity
           } else {
             await tx
               .insert(userMargins)
               .values({ userId, tokenQuantity: 0, frozenQuantity: amount })
+            balanceAfter = 0
           }
           const [created] = await tx
             .insert(tokenFlows)
             .values({
               userId,
-              opType: 1,
+              opType: TOKEN_FLOW_OP.CONSUME,
               quantity: -amount,
-              balanceAfter: balance - amount,
+              balanceAfter,
               remark: '提现申请',
             })
             .returning()

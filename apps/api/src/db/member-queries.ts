@@ -4,9 +4,10 @@
 
 import { createHash } from 'node:crypto'
 import { hashPassword as hashPasswordArgon2 } from '../utils/password-crypto.js'
-import { eq, and, desc, asc, sql, ilike, inArray, or, isNotNull } from 'drizzle-orm'
+import { eq, and, desc, asc, sql, ilike, inArray, or } from 'drizzle-orm'
 import { AppError } from '../errors/AppError.js'
 import { db } from './index.js'
+import { asContainsTerm } from '../utils/like-escape.js'
 import {
   eduMembers,
   eduMemberLevels,
@@ -72,8 +73,8 @@ export async function findMembers(
   opts: FindMembersOpts,
 ): Promise<{ list: EduMember[]; total: number; page: number; pageSize: number }> {
   const conds = []
-  if (opts.username) conds.push(ilike(eduMembers.username, `%${opts.username}%`))
-  if (opts.mobile) conds.push(ilike(eduMembers.mobile, `%${opts.mobile}%`))
+  if (opts.username) conds.push(ilike(eduMembers.username, asContainsTerm(opts.username)))
+  if (opts.mobile) conds.push(ilike(eduMembers.mobile, asContainsTerm(opts.mobile)))
   if (opts.status !== undefined) conds.push(eq(eduMembers.status, opts.status))
   if (opts.levelId) conds.push(eq(eduMembers.levelId, opts.levelId))
   const where = and(...conds)
@@ -151,7 +152,7 @@ export async function findAuthMembers(
 ): Promise<{ list: EduMember[]; total: number; page: number; pageSize: number }> {
   const conds = [eq(eduMembers.status, 1)]
   if (opts.keyword) {
-    const kw = `%${opts.keyword}%`
+    const kw = asContainsTerm(opts.keyword)
     conds.push(
       or(
         ilike(eduMembers.username, kw),
@@ -343,16 +344,48 @@ export interface MemberCompanyItem {
   members: { id: string; nickname: string | null; mobile: string | null; email: string | null }[]
 }
 
-/** 会员企业列表（company_id 非空，按 nickname 模糊搜索）。 */
+/**
+ * 会员企业列表（企业级分页，按企业名模糊搜索）。
+ *
+ * F-78(2026-11):分页必须落在**企业**上而不是会员行 —— 旧实现 limit/offset 作用在
+ * edu_members,一页会员可能只聚出 1 个企业(重复/漏企业),total 取的是当前页聚合数,
+ * name 又过滤会员昵称而非企业名。现在:
+ *   1) 以 edu_companies 为主表 join edu_members 去重分页,limit/offset 即企业数;
+ *   2) total 用 count(distinct edu_members.company_id),与分页同口径(只含确有会员的企业);
+ *   3) name 过滤 edu_companies.name;
+ *   4) 排序带 company id 作并列打破键,保证翻页不重不漏。
+ */
 export async function findMemberCompanies(opts: {
   page: number
   pageSize: number
   name?: string
 }): Promise<{ list: MemberCompanyItem[]; total: number; page: number; pageSize: number }> {
-  const conds = [isNotNull(eduMembers.companyId)]
-  if (opts.name) conds.push(ilike(eduMembers.nickname, `%${opts.name}%`))
-  const where = and(...conds)
+  const where = opts.name ? ilike(eduCompanies.name, asContainsTerm(opts.name)) : undefined
 
+  const [companyRows, totalRows] = await Promise.all([
+    db
+      .select({ id: eduCompanies.id })
+      .from(eduCompanies)
+      .innerJoin(eduMembers, eq(eduMembers.companyId, eduCompanies.id))
+      .where(where)
+      .groupBy(eduCompanies.id, eduCompanies.sort)
+      .orderBy(asc(eduCompanies.sort), asc(eduCompanies.id))
+      .limit(opts.pageSize)
+      .offset((opts.page - 1) * opts.pageSize),
+    db
+      .select({ count: sql<number>`count(distinct ${eduMembers.companyId})::int` })
+      .from(eduMembers)
+      .innerJoin(eduCompanies, eq(eduMembers.companyId, eduCompanies.id))
+      .where(where),
+  ])
+
+  const companyIds = companyRows.map((c) => c.id)
+  const total = totalRows[0]?.count ?? 0
+  if (companyIds.length === 0) {
+    return { list: [], total, page: opts.page, pageSize: opts.pageSize }
+  }
+
+  // 仅拉本页企业的全部会员（不再对会员行分页）
   const members = await db
     .select({
       id: eduMembers.id,
@@ -362,19 +395,18 @@ export async function findMemberCompanies(opts: {
       companyId: eduMembers.companyId,
     })
     .from(eduMembers)
-    .where(where)
-    .orderBy(desc(eduMembers.id))
-    .limit(opts.pageSize)
-    .offset((opts.page - 1) * opts.pageSize)
+    .where(inArray(eduMembers.companyId, companyIds))
+    .orderBy(asc(eduMembers.companyId), desc(eduMembers.id))
 
-  // 按 company_id 聚合
   const companies = new Map<string, MemberCompanyItem>()
+  for (const cid of companyIds) {
+    companies.set(cid, { companyId: cid, memberCount: 0, members: [] })
+  }
   for (const m of members) {
-    const cid = m.companyId ?? ''
-    if (!companies.has(cid)) {
-      companies.set(cid, { companyId: m.companyId, memberCount: 0, members: [] })
-    }
-    const c = companies.get(cid)!
+    const cid = m.companyId
+    if (!cid) continue
+    const c = companies.get(cid)
+    if (!c) continue
     c.memberCount += 1
     c.members.push({
       id: m.id,
@@ -385,7 +417,7 @@ export async function findMemberCompanies(opts: {
   }
   return {
     list: [...companies.values()],
-    total: companies.size,
+    total,
     page: opts.page,
     pageSize: opts.pageSize,
   }
@@ -508,7 +540,7 @@ export async function findCompanies(
   opts: FindCompaniesOpts,
 ): Promise<{ list: EduCompany[]; total: number; page: number; pageSize: number }> {
   const conds = []
-  if (opts.name) conds.push(ilike(eduCompanies.name, `%${opts.name}%`))
+  if (opts.name) conds.push(ilike(eduCompanies.name, asContainsTerm(opts.name)))
   if (opts.status !== undefined) conds.push(eq(eduCompanies.status, opts.status))
   const where = conds.length ? and(...conds) : undefined
   const [list, totalRows] = await Promise.all([
@@ -608,7 +640,7 @@ export async function findDepartments(
 ): Promise<{ list: EduDepartment[]; total: number; page: number; pageSize: number }> {
   const conds = []
   if (opts.companyId) conds.push(eq(eduDepartments.companyId, opts.companyId))
-  if (opts.name) conds.push(ilike(eduDepartments.name, `%${opts.name}%`))
+  if (opts.name) conds.push(ilike(eduDepartments.name, asContainsTerm(opts.name)))
   if (opts.status !== undefined) conds.push(eq(eduDepartments.status, opts.status))
   const where = conds.length ? and(...conds) : undefined
   const [list, totalRows] = await Promise.all([

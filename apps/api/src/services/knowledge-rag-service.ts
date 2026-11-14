@@ -23,8 +23,9 @@ import { createHash } from 'node:crypto'
 import { desc, eq, and, sql } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { knowledgeDoc, knowledgeChunk } from '@ihui/database'
-import { getEmbeddingProvider } from './embedding-provider.js'
+import { getEmbeddingProvider, type EmbeddingProvider } from './embedding-provider.js'
 import { parseDocument } from './document-parser.js'
+import { logger } from '../utils/logger.js'
 
 /** 文本切片: 500 字符, 50 字符重叠, 优先在分隔符处断开 */
 function splitText(text: string, chunkSize = 500, overlap = 50): string[] {
@@ -54,17 +55,52 @@ function splitText(text: string, chunkSize = 500, overlap = 50): string[] {
   return chunks
 }
 
+/** embedding 统一维度(OpenAI 标准),维度不符即视为生成失败,不得写 NULL 冒充成功 */
+const EMBEDDING_DIM = 1536
+
 /**
- * 调用当前 EmbeddingProvider 生成 embedding.
- * 失败或未配置时返回 null, 触发降级 (关键词匹配).
+ * F-526:embedding 生成失败(上游抛错 / 应答缺项 / 维度不符)。
+ *
+ * 旧实现在 catch 里 `return null`,随后把 NULL 向量当合法值写库并照常返回成功 ——
+ * key 失效、配额耗尽、上游 5xx、超时都表现为"入库成功",全库静默失去语义检索,
+ * 排查只能翻库看 `embedding IS NULL`。现在失败必须显式上抛,错误体携带失败块数,
+ * 调用方日志/响应都能看到 failed 计数。
  */
-async function getEmbedding(text: string): Promise<number[] | null> {
+export class EmbeddingGenerationError extends Error {
+  readonly code = 'EMBEDDING_GENERATION_FAILED'
+  readonly provider: string
+  readonly failedChunks: number
+  readonly totalChunks: number
+
+  constructor(provider: string, failedChunks: number, totalChunks: number, reason: string) {
+    super(
+      `embedding 生成失败(${provider}):${failedChunks}/${totalChunks} 块未取得 ` +
+        `${EMBEDDING_DIM} 维向量,本次整批不入库(failed=${failedChunks}):${reason}`,
+    )
+    this.name = 'EmbeddingGenerationError'
+    this.provider = provider
+    this.failedChunks = failedChunks
+    this.totalChunks = totalChunks
+  }
+}
+
+/**
+ * 检索侧 query embedding:失败/未配置返回 null 触发关键词降级(F-526:降级必须留日志)。
+ *
+ * 与入库侧不同,检索降级不会污染数据(只影响本次召回质量),故仍返回 null 走关键词路,
+ * 但绝不再空 catch —— 失败原因结构化落日志,避免"检索静默变笨"无从排查。
+ */
+async function getQueryEmbedding(text: string): Promise<number[] | null> {
   const provider = getEmbeddingProvider()
   if (!provider) return null
   try {
     const results = await provider.embed([text])
     return results[0] ?? null
-  } catch {
+  } catch (err) {
+    logger.warn('[knowledge-rag-service] query embedding 生成失败,降级关键词检索(F-526)', {
+      provider: provider.name,
+      error: err,
+    })
     return null
   }
 }
@@ -81,21 +117,57 @@ async function getEmbedding(text: string): Promise<number[] | null> {
 const EMBED_CONCURRENCY = 8
 const CHUNK_INSERT_BATCH = 500
 
-/** 受控并发生成 embedding(顺序与输入一一对应,失败按 null 落库走关键词降级) */
-async function embedWithConcurrency(chunks: string[]): Promise<(number[] | null)[]> {
-  const out = new Array<number[] | null>(chunks.length)
+/**
+ * F-526:入库侧单块 embedding —— 失败/维度不符一律抛错,绝不返回 null 让调用方当成功落库。
+ */
+async function embedForIngest(text: string, provider: EmbeddingProvider): Promise<number[]> {
+  const results = await provider.embed([text])
+  const vec = results[0]
+  if (!vec) throw new Error('provider 未返回该条向量')
+  if (vec.length !== EMBEDDING_DIM) {
+    throw new Error(`向量维度 ${vec.length} ≠ ${EMBEDDING_DIM}`)
+  }
+  return vec
+}
+
+/**
+ * 受控并发生成 embedding(顺序与输入一一对应)。
+ *
+ * F-526:失败不再吞成 null —— 逐块收集失败原因,由 `_ingestChunks` 决定整批失败,
+ * 保证 NULL 向量不会以"成功入库"的形态落库。provider 未配置仍按既有降级语义返回
+ * 空向量集(仅关键词可检索),但会留一条 warn 日志说明降级。
+ */
+async function embedWithConcurrency(chunks: string[]): Promise<{
+  embeddings: number[][]
+  failures: string[]
+  providerName: string | null
+}> {
+  const provider = getEmbeddingProvider()
+  const embeddings = new Array<number[]>(chunks.length)
+  const failures: string[] = []
+  if (!provider) {
+    logger.warn(
+      '[knowledge-rag-service] embedding provider 未配置,切片将以 NULL 向量入库且仅可关键词检索(F-526)',
+      { chunkCount: chunks.length },
+    )
+    return { embeddings, failures, providerName: null }
+  }
   let next = 0
   const worker = async (): Promise<void> => {
     while (true) {
       const i = next++
       if (i >= chunks.length) return
-      out[i] = await getEmbedding(chunks[i]!)
+      try {
+        embeddings[i] = await embedForIngest(chunks[i]!, provider)
+      } catch (err) {
+        failures.push(err instanceof Error ? err.message : String(err))
+      }
     }
   }
   await Promise.all(
     Array.from({ length: Math.min(EMBED_CONCURRENCY, chunks.length) }, () => worker()),
   )
-  return out
+  return { embeddings, failures, providerName: provider.name }
 }
 
 /**
@@ -116,6 +188,21 @@ const KEYWORD_CANDIDATE_LIMIT = 2000
  * 写成 'text' 的话,将来无法把"用户导入的群聊"与"用户手打的纯文本"区分开。
  */
 export const CONVERSATION_IMPORT_SOURCE_TYPE = 'conversation_import'
+
+/** F-141:会话入库的幂等键前缀(advisory lock 键与同进程单飞键共用同一份取值,不另造第二套)。 */
+const CONVERSATION_INGEST_DEDUPE_PREFIX = 'knowledge_ingest'
+
+/**
+ * F-141:同进程单飞表(键 = 幂等键)。
+ *
+ * 双击「加入知识库」/ 前端重试会把两条一模一样的请求几乎同时打到同一个实例;只靠写库前的
+ * 复查,两条请求都会先把 embedding 跑完(钱已经花掉)。这里让后到者复用在途 Promise,
+ * 整条 embedding + 写库只跑一次。条目在 task 落定时按身份比对删除,不会随请求数增长。
+ */
+const inFlightConversationIngest = new Map<
+  string,
+  Promise<{ docId: number; chunkCount: number; deduped: boolean }>
+>()
 
 /**
  * 把会话消息拼成一份可入库的转录文本。
@@ -173,6 +260,38 @@ export interface DocDetail extends DocSummary {
   contentHash: string | null
 }
 
+/**
+ * F-387:文件解析结果为空/全空白。
+ *
+ * 旧实现把它当成功返回 `{ docId: 0, chunkCount: 0 }`,文档在列表里显示"已索引"却零切片,
+ * 排障时无法区分"解析失败"与"真的没内容"。空内容必须作为失败上抛,由路由返回明确错误码。
+ */
+export class EmptyDocumentTextError extends Error {
+  readonly code = 'EMPTY_DOCUMENT_TEXT'
+  constructor() {
+    super('文件解析结果为空,未写入知识库')
+    this.name = 'EmptyDocumentTextError'
+  }
+}
+
+/** F-387:目标 docId 不属于调用者或已删除 —— 不得把切片挂到他人/已删文档上。 */
+export class KnowledgeDocNotFoundError extends Error {
+  readonly code = 'KNOWLEDGE_DOC_NOT_FOUND'
+  constructor(docId: number) {
+    super(`知识文档不存在或无权访问: ${docId}`)
+    this.name = 'KnowledgeDocNotFoundError'
+  }
+}
+
+/** F-387:按标题反查命中多篇 —— 标题不是唯一键,必须报歧义,不得随机取一条。 */
+export class AmbiguousDocTitleError extends Error {
+  readonly code = 'DOC_TITLE_AMBIGUOUS'
+  constructor(title: string, count: number) {
+    super(`同名知识文档 ${count} 篇,无法按标题确定 docId: ${title}`)
+    this.name = 'AmbiguousDocTitleError'
+  }
+}
+
 class KnowledgeRagService {
   /**
    * 文本入库的**唯一实现**(切片 + embedding + 写 knowledge_doc + knowledge_chunk)。
@@ -194,7 +313,18 @@ class KnowledgeRagService {
     collectionName?: string
     sourcePath?: string | null
     metadataJson?: string | null
-  }): Promise<{ docId: number; chunkCount: number }> {
+    /**
+     * F-141:幂等键。给定后写库事务先取 `pg_advisory_xact_lock` 串行化同键写入,
+     * 锁内再查一次同键 active 文档;命中则放弃本次插入、返回既有 doc(deduped=true)。
+     * 传 undefined 时行为与修复前逐字节一致(纯文本/文件入库路径不受影响)。
+     */
+    dedupeKey?: string
+    /**
+     * F-387:调用方已确定的文档主键。给定时直接把切片挂到该 doc 上(事务内校验
+     * 归属与 status),不再插入新 doc,更不按标题反查 —— 标题不是唯一键。
+     */
+    docId?: number
+  }): Promise<{ docId: number; chunkCount: number; deduped: boolean }> {
     const {
       ownerUuid,
       title,
@@ -203,25 +333,129 @@ class KnowledgeRagService {
       collectionName = 'default',
       sourcePath = null,
       metadataJson = null,
+      dedupeKey,
+      docId,
     } = opts
-    if (!text || !text.trim()) return { docId: 0, chunkCount: 0 }
+    if (!text || !text.trim()) return { docId: 0, chunkCount: 0, deduped: false }
     const chunks = splitText(text)
-    if (chunks.length === 0) return { docId: 0, chunkCount: 0 }
+    if (chunks.length === 0) return { docId: 0, chunkCount: 0, deduped: false }
 
     const contentHash = createHash('md5').update(text, 'utf8').digest('hex')
     // embedding 在事务外生成:外部 HTTP 调用不应占住数据库连接/事务。
-    const embeddings = await embedWithConcurrency(chunks)
+    const { embeddings, failures, providerName } = await embedWithConcurrency(chunks)
+    // F-526:任何一块没拿到 1536 维向量 ⇒ 整批失败,不写 NULL 向量冒充成功。
+    // 事务尚未开始,因此不会留下半截 doc/chunk;已有 doc(ingestFile 续写)则显式标 failed。
+    if (failures.length > 0) {
+      logger.error('[knowledge-rag-service] embedding 生成失败,整批拒绝入库(F-526)', {
+        provider: providerName,
+        ownerUuid,
+        docId: docId ?? null,
+        collectionName,
+        totalChunks: chunks.length,
+        failedChunks: failures.length,
+        failureSamples: failures.slice(0, 3),
+      })
+      if (docId !== undefined) {
+        try {
+          await db
+            .update(knowledgeDoc)
+            .set({ status: 'failed', updatedAt: new Date() })
+            .where(and(eq(knowledgeDoc.id, docId), eq(knowledgeDoc.ownerUuid, ownerUuid)))
+        } catch (markErr) {
+          logger.error('[knowledge-rag-service] embedding 失败后回写 status=failed 也失败', {
+            docId,
+            ownerUuid,
+            error: markErr,
+          })
+        }
+      }
+      throw new EmbeddingGenerationError(
+        providerName ?? 'unknown',
+        failures.length,
+        chunks.length,
+        failures[0] ?? 'unknown',
+      )
+    }
     const chunkRows = chunks.map((content, i) => ({
       docId: 0, // 事务内插入 doc 后回填
       collectionName,
       ownerUuid,
       chunkIndex: i,
       content,
-      // vector1536 customType toDriver 自动序列化为 '[...]',NULL 走 fallback
-      embedding: embeddings[i] && embeddings[i]!.length === 1536 ? embeddings[i]! : null,
+      // vector1536 customType toDriver 自动序列化为 '[...]';仅 provider 未配置的降级路径为 NULL
+      embedding: embeddings[i] ?? null,
     }))
 
-    const docId = await db.transaction(async (tx) => {
+    // F-387:调用方已带 docId ⇒ 直接挂到该 doc(唯一键路径),不插入新 doc、不反查标题。
+    if (docId !== undefined) {
+      return db.transaction(async (tx) => {
+        const [target] = await tx
+          .select({ id: knowledgeDoc.id })
+          .from(knowledgeDoc)
+          .where(
+            and(
+              eq(knowledgeDoc.id, docId),
+              eq(knowledgeDoc.ownerUuid, ownerUuid),
+              eq(knowledgeDoc.status, 'active'),
+            ),
+          )
+          .limit(1)
+        if (!target) throw new KnowledgeDocNotFoundError(docId)
+
+        // 续写已有切片时接在最大 chunkIndex 之后,避免序号与既有切片重叠。
+        const [last] = await tx
+          .select({ chunkIndex: knowledgeChunk.chunkIndex })
+          .from(knowledgeChunk)
+          .where(eq(knowledgeChunk.docId, docId))
+          .orderBy(desc(knowledgeChunk.chunkIndex))
+          .limit(1)
+        const offset = last ? last.chunkIndex + 1 : 0
+
+        for (let i = 0; i < chunkRows.length; i += CHUNK_INSERT_BATCH) {
+          const batch = chunkRows.slice(i, i + CHUNK_INSERT_BATCH).map((row, j) => ({
+            ...row,
+            docId,
+            chunkIndex: offset + i + j,
+          }))
+          await tx.insert(knowledgeChunk).values(batch)
+        }
+        await tx
+          .update(knowledgeDoc)
+          .set({
+            collectionName,
+            sourceType,
+            contentHash,
+            chunkCount: offset + chunks.length,
+            updatedAt: new Date(),
+          })
+          .where(and(eq(knowledgeDoc.id, docId), eq(knowledgeDoc.ownerUuid, ownerUuid)))
+        return { docId, chunkCount: chunks.length, deduped: false }
+      })
+    }
+
+    const result = await db.transaction(async (tx) => {
+      if (dedupeKey) {
+        // F-141:先查后写这段在多实例/多请求下必然双写 —— 两边 pre-check 都查不到对方,
+        // 各自插入一份 doc + 一整套 chunk。事务级 advisory lock 把「复查 + 插入」收成
+        // 一段互斥临界区:xact 锁随事务提交释放,后到者拿到锁时前者必已提交,复查必命中。
+        // 用 hashtext 而非自增 id:锁键只需同键互斥,32 位哈希偶发碰撞的代价只是多串行一次。
+        await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${dedupeKey}))`)
+        const [dup] = await tx
+          .select({ id: knowledgeDoc.id, chunkCount: knowledgeDoc.chunkCount })
+          .from(knowledgeDoc)
+          .where(
+            and(
+              eq(knowledgeDoc.ownerUuid, ownerUuid),
+              eq(knowledgeDoc.contentHash, contentHash),
+              eq(knowledgeDoc.sourceType, sourceType),
+              eq(knowledgeDoc.collectionName, collectionName),
+              eq(knowledgeDoc.status, 'active'),
+            ),
+          )
+          .limit(1)
+        if (dup) return { docId: dup.id, chunkCount: dup.chunkCount, deduped: true }
+      }
+
       const [doc] = await tx
         .insert(knowledgeDoc)
         .values({
@@ -245,9 +479,9 @@ class KnowledgeRagService {
         }))
         await tx.insert(knowledgeChunk).values(batch)
       }
-      return doc.id
+      return { docId: doc.id, chunkCount: chunks.length, deduped: false }
     })
-    return { docId, chunkCount: chunks.length }
+    return result
   }
 
   /** 文本入库, 返回切片数量 */
@@ -283,11 +517,14 @@ class KnowledgeRagService {
    *   没有任何消费点按值分支(其余 sourceType 命中全属 registry 域),且该列是
    *   varchar(20) 无 CHECK 枚举约束 ⇒ 新增取值零迁移、零破坏。将来要按来源过滤/展示
    *   时这个值就是唯一抓手;若图省事写 `text`,事后无法与"用户手打的纯文本"区分。
-   * - **幂等靠 contentHash**:`content_hash` 列早就在(ingestText 一直在写),但**没有**
-   *   唯一索引,重复入库不会被 DB 挡住 ⇒ 这里显式"先查后写"。查的是
-   *   (ownerUuid, contentHash, sourceType, status='active') 四元组:同会话重复点
-   *   「加入知识库」直接命中已有 doc 返回,不产生第二批重复 chunk;会话内容变了
-   *   (hash 变)则视为新知识追加一篇,符合"重新导入更新知识"的直觉。
+   * - **幂等靠 contentHash + 两段闸(F-141)**:`content_hash` 列早就在(ingestText
+   *   一直在写),但**没有**唯一索引,重复入库不会被 DB 挡住。原先只做一次"先查后写" ——
+   *   并发双请求两边都查不到对方,各自入库,doc/chunk 双份、embedding 收两遍钱。
+   *   现在:① 同进程内按幂等键单飞,并发第二个请求直接复用第一个的 Promise(不重复 embedding);
+   *   ② 写库事务里 `pg_advisory_xact_lock` + 锁内复查,跨实例也不会产出第二份 doc/chunk。
+   *   查的是 (ownerUuid, contentHash, sourceType, collectionName, status='active') 五元组:
+   *   同会话重复点「加入知识库」直接命中已有 doc 返回;会话内容变了(hash 变)则视为新知识
+   *   追加一篇,符合"重新导入更新知识"的直觉。
    * - **失败向上抛**,由路由层写 conversation_imports 留痕(见 conversation-knowledge.ts),
    *   绝不在此静默吞掉。
    */
@@ -324,7 +561,14 @@ class KnowledgeRagService {
       return { docId: existing[0].id, chunkCount: existing[0].chunkCount, deduped: true }
     }
 
-    const { docId, chunkCount } = await this._ingestChunks({
+    // F-141:两段闸。① 同进程单飞 —— 并发的第二个请求复用在途 Promise,embedding 只跑一遍;
+    // ② dedupeKey 透给 _ingestChunks,由事务内 advisory lock + 锁内复查兜住跨实例并发。
+    const dedupeKey = `${CONVERSATION_INGEST_DEDUPE_PREFIX}:${ownerUuid}:${collectionName}:${contentHash}`
+    const running = inFlightConversationIngest.get(dedupeKey)
+    // 搭车者没有新建任何东西 ⇒ 对它而言这次是判重,deduped 如实置 true。
+    if (running) return running.then((r) => ({ ...r, deduped: true }))
+
+    const task = this._ingestChunks({
       ownerUuid,
       title,
       text,
@@ -338,16 +582,51 @@ class KnowledgeRagService {
         messageCount: messages.length,
         ingestedVia: 'conversation-import',
       }),
+      dedupeKey,
     })
-    return { docId, chunkCount, deduped: false }
+    inFlightConversationIngest.set(dedupeKey, task)
+    try {
+      return await task
+    } finally {
+      // 只删自己那一条:期间可能有同键的新一轮请求已经把它覆盖掉。
+      if (inFlightConversationIngest.get(dedupeKey) === task) {
+        inFlightConversationIngest.delete(dedupeKey)
+      }
+    }
   }
 
-  /** 文件入库:解析多格式文件 → 走 ingestText 切片 + embedding
+  /**
+   * F-387:按标题反查 docId 的唯一合法出口。
    *
-   * 设计:
-   * - 复用 ingestText 全部逻辑(切片 / embedding / 入库),仅前置文件解析
-   * - 错误透传 UnsupportedFormatError / FileTooLargeError(由路由层转 400)
-   * - 解析后空文本 → 返回 0(与 ingestText 行为一致)
+   * 标题不是唯一键,命中多篇时无法确定切片该挂给谁 —— 旧实现在 ingestFile 里
+   * `orderBy(desc(createdAt)).limit(1)` 随机取最新一条,同名文档会互相串档。
+   * 因此这里一旦发现重名就抛 {@link AmbiguousDocTitleError},由调用方要求显式 docId。
+   */
+  async resolveDocIdByTitle(ownerUuid: string, title: string): Promise<number | null> {
+    const rows = await db
+      .select({ id: knowledgeDoc.id })
+      .from(knowledgeDoc)
+      .where(
+        and(
+          eq(knowledgeDoc.ownerUuid, ownerUuid),
+          eq(knowledgeDoc.title, title),
+          eq(knowledgeDoc.status, 'active'),
+        ),
+      )
+      .limit(2)
+    if (rows.length > 1) throw new AmbiguousDocTitleError(title, rows.length)
+    return rows[0]?.id ?? null
+  }
+
+  /** 文件入库:解析多格式文件 → 切片 + embedding + 写入 knowledge_doc/knowledge_chunk
+   *
+   * F-387 修复要点:
+   * - **docId 主键贯穿**:调用方已有 docId 就直接挂到该 doc(事务内校验归属),
+   *   不再用标题反查结果定位文档;没有 docId 时由 `_ingestChunks` 插入并**返回**新 docId,
+   *   彻底移除 `where(title)` + `orderBy(createdAt)` 这段非唯一键反查。
+   * - **空文本即失败**:解析结果为空/全空白时抛 {@link EmptyDocumentTextError},
+   *   不再返回 `{ docId: 0, chunkCount: 0 }` 的伪成功。
+   * - 错误透传 UnsupportedFormatError / FileTooLargeError(由路由层转 400)。
    */
   async ingestFile(opts: {
     ownerUuid: string
@@ -356,11 +635,28 @@ class KnowledgeRagService {
     mimeType: string
     filename: string
     collectionName?: string
+    /** F-387:调用方已确定的文档主键;给定即直接使用,不再按标题反查。 */
+    docId?: number
   }): Promise<{ docId: number; chunkCount: number }> {
-    const { ownerUuid, title, buffer, mimeType, filename, collectionName = 'default' } = opts
+    const {
+      ownerUuid,
+      title,
+      buffer,
+      mimeType,
+      filename,
+      collectionName = 'default',
+      docId,
+    } = opts
     const text = await parseDocument({ buffer, mimeType, filename })
     if (!text || !text.trim()) {
-      return { docId: 0, chunkCount: 0 }
+      // 目标文档已存在时把"入库失败"如实回写,避免列表里继续显示已索引但零切片。
+      if (docId !== undefined) {
+        await db
+          .update(knowledgeDoc)
+          .set({ status: 'failed', updatedAt: new Date() })
+          .where(and(eq(knowledgeDoc.id, docId), eq(knowledgeDoc.ownerUuid, ownerUuid)))
+      }
+      throw new EmptyDocumentTextError()
     }
     // sourceType 用 mimeType 简化值:pdf/docx/markdown/text/html/xlsx/xls/csv
     const sourceType = mimeType?.startsWith('application/pdf')
@@ -381,24 +677,16 @@ class KnowledgeRagService {
                     ? 'text'
                     : 'file'
 
-    // 复用 ingestText 入库(切片 + embedding + 写入 knowledge_doc + knowledge_chunk)
-    const chunkCount = await this.ingestText({ ownerUuid, title, text, collectionName })
-    // 拿到刚插入的 docId(ingestText 已用 contentHash 唯一标识,但同名文件重新上传会创建新 doc)
-    const [latest] = await db
-      .select({ id: knowledgeDoc.id, sourceType: knowledgeDoc.sourceType })
-      .from(knowledgeDoc)
-      .where(and(eq(knowledgeDoc.ownerUuid, ownerUuid), eq(knowledgeDoc.title, title)))
-      .orderBy(desc(knowledgeDoc.createdAt))
-      .limit(1)
-    if (latest) {
-      // 覆盖 sourceType(text → file/具体类型),保持入库即所见即所得
-      await db
-        .update(knowledgeDoc)
-        .set({ sourceType, updatedAt: new Date() })
-        .where(eq(knowledgeDoc.id, latest.id))
-      return { docId: latest.id, chunkCount }
-    }
-    return { docId: 0, chunkCount }
+    // 切片/embedding/写库与 ingestText 共用同一条路径;docId 由该方法返回或直接沿用。
+    const result = await this._ingestChunks({
+      ownerUuid,
+      title,
+      text,
+      sourceType,
+      collectionName,
+      docId,
+    })
+    return { docId: result.docId, chunkCount: result.chunkCount }
   }
 
   /** 语义检索 (pgvector ANN)
@@ -419,7 +707,7 @@ class KnowledgeRagService {
     ownerUuid: string
   }): Promise<SearchHit[]> {
     const { query, collectionName = 'default', topK = 5, scoreThreshold = 0, ownerUuid } = opts
-    const queryEmbedding = await getEmbedding(query)
+    const queryEmbedding = await getQueryEmbedding(query)
 
     // 主路径:pgvector SQL 端 ANN 检索
     if (queryEmbedding && queryEmbedding.length === 1536) {
@@ -531,13 +819,20 @@ class KnowledgeRagService {
     return results.map((r, i) => `[${i + 1}] ${r.content}`).join('\n\n')
   }
 
-  /** 列出文档 */
-  async listDocs(ownerUuid: string): Promise<DocSummary[]> {
+  /** 列出文档(F-534:分页 + 稳定排序,避免全量返回与非唯一键翻页丢行) */
+  async listDocs(
+    ownerUuid: string,
+    opts: { limit?: number; offset?: number } = {},
+  ): Promise<DocSummary[]> {
+    const limit = Math.min(Math.max(opts.limit ?? 100, 1), 200)
+    const offset = Math.max(opts.offset ?? 0, 0)
     const rows = await db
       .select()
       .from(knowledgeDoc)
       .where(and(eq(knowledgeDoc.ownerUuid, ownerUuid), eq(knowledgeDoc.status, 'active')))
-      .orderBy(desc(knowledgeDoc.createdAt))
+      .orderBy(desc(knowledgeDoc.createdAt), desc(knowledgeDoc.id))
+      .limit(limit)
+      .offset(offset)
     return rows.map((d) => ({
       id: d.id,
       title: d.title,

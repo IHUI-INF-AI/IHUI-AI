@@ -32,6 +32,12 @@ import {
   type ChatConversation,
   type ChatMessage,
 } from '@ihui/database'
+// F-300:绑定时刻权限档事实的读/合并口径与消息 metadata 键名同源(纯函数,不反向依赖本模块)。
+import {
+  readMessagePermissionStamp,
+  withMessagePermissionStamp,
+  type MessagePermissionStamp,
+} from '../services/message-permission-stamp.js'
 
 // =============================================================================
 // 对话
@@ -247,21 +253,25 @@ export async function updateConversationTitle(
  * 返回更新后的对话;若对话不存在或不属于该用户则返回 undefined。
  */
 /**
- * 把"这次对话绑在哪个工作区"记到会话 metadata(幂等)。
+ * F-300(2026-11-13 立):把"绑定时刻的权限档事实"按 messageId 落到会话 metadata。
  *
- * 为什么需要:AI 回答是**异步回调**落库的(ai-callback → aiCallback worker),
- * 那条链路手里只有 conversationId/userId,不知道工作区,于是"这条回答是在哪一档
- * 权限下生成的"服务端永远无法自证 —— web 的档位徽章只能活在内存里(刷新即丢,
- * 小程序/RN 完全看不到)。这里在流式入口处顺手记一笔,回调侧就能自己查权限表盖章。
+ * 病灶(原 bindConversationWorkspace):只在会话级记一个 workspacePath,回调时才拿它
+ * 去查**当前**档位 —— 档位不是生成时刻事实,并发两条流时先完成的回调会盖到后写入
+ * 的路径,而且那个路径是客户端请求体原样。现在 {messageId, mode, workspacePath}
+ * 由流式入口在请求处理时一次性落定(路径经登记根 realpath 归一,档位取服务端权限行),
+ * 回调只按 messageId 读,客户端伪造路径不再影响徽章。
  *
- * 幂等:值相同就不写(流式入口每条消息都会调一次,避免每消息多一次 DB 写)。
- * 返回 true 表示本次真的写了。
+ * 落点:会话既有 metadata(jsonb)的 `permissionStamps[messageId]` 子对象 —— 回调落库时
+ * 助手消息行还不存在(worker 侧才 createMessage),不新增表/列。
+ * 不可变:同一 messageId 已有章就不覆盖(首发即事实),返回 true 表示本次真的写了。
  */
-export async function bindConversationWorkspace(
+export async function bindMessagePermissionStamp(
   id: string,
   userId: string,
-  workspacePath: string,
+  messageId: string,
+  stamp: MessagePermissionStamp,
 ): Promise<boolean> {
+  if (!messageId) return false
   const rows = await db
     .select({ metadata: chatConversations.metadata, owner: chatConversations.userId })
     .from(chatConversations)
@@ -271,10 +281,10 @@ export async function bindConversationWorkspace(
   // 不属主 / 找不到 → 不写(调用方是流式主链路,绝不能因此报错打断对话)
   if (!row || row.owner !== userId) return false
   const meta = (row.metadata as Record<string, unknown> | null) ?? {}
-  if (meta.workspacePath === workspacePath) return false
+  if (readMessagePermissionStamp(meta, messageId)) return false
   await db
     .update(chatConversations)
-    .set({ metadata: { ...meta, workspacePath }, updatedAt: new Date() })
+    .set({ metadata: withMessagePermissionStamp(meta, messageId, stamp), updatedAt: new Date() })
     .where(eq(chatConversations.id, id))
   return true
 }

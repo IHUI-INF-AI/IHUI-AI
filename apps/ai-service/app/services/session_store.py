@@ -42,6 +42,15 @@ from .branch_generation import bump_branch_generation
 
 logger = logging.getLogger(__name__)
 
+# 中断回合的 tool 结果占位(对标 dsh-session/repair.ts 的 TOOL_OUTCOME_UNKNOWN 语义)。
+# 只写"尚未落盘"这一事实并给安全重试判据:有副作用的操作必须先核对再重试,
+# 不能让模型把"结果未知"当成"没执行过"而盲目重放。
+_INTERRUPTED_TOOL_RESULT = (
+    "[interrupted] The tool call was recorded but its result was never durably recorded; "
+    "its outcome is unknown. Retry only if the operation is read-only or idempotent; "
+    "if it may have side effects, verify external state or ask the user before retrying."
+)
+
 # ==================== Fork 边界对齐(批58十四,对标 codex thread_rollout_truncation.rs) ====================
 
 _FORK_BOUNDARY_ALIGN_ENV = "IHUI_SESSION_FORK_BOUNDARY_ALIGN"
@@ -1682,7 +1691,7 @@ class SessionStore:
             messages.append(
                 LLMMessage(
                     role="tool",
-                    content="[interrupted] tool execution was interrupted",
+                    content=_INTERRUPTED_TOOL_RESULT,
                     tool_call_id=cid,
                 )
             )

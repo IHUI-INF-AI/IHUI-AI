@@ -5,8 +5,8 @@
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
 import { randomUUID } from 'node:crypto'
-import { join } from 'node:path'
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
+import { extname, join, resolve, sep } from 'node:path'
+import { createReadStream, existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import sharp from 'sharp'
 import { authenticate } from '../plugins/auth.js'
 import { findFileById } from '../db/workspace-queries.js'
@@ -33,6 +33,7 @@ import {
   MAX_MULTIPART_UPLOAD_SIZE,
 } from '../utils/file-type-validator.js'
 import { FILE_UPLOAD_BODY_LIMIT } from '../config/body-limits.js'
+import { registerUploadedFile } from '../services/upload-file-registry.js'
 
 const ADMIN_ROLE_ID = 1
 
@@ -180,6 +181,48 @@ export const fileRoutes: FastifyPluginAsync = async (server) => {
   // 私有文件(工作区文件)由 workspace.ts 写入 uploads/private/,不再对外提供。
   const UPLOAD_DIR = process.env.UPLOAD_DIR ?? join(process.cwd(), 'uploads', 'public')
 
+  // F-412:私有文档内嵌资产按属主隔离写入 uploads/private/assets/<owner>/,
+  // 绝不落入匿名可访问的 uploads/public;读取只走下方带鉴权的 GET 端点。
+  const PRIVATE_ASSETS_DIR = join(process.cwd(), 'uploads', 'private', 'assets')
+  const PRIVATE_UPLOAD_ROOT = join(process.cwd(), 'uploads', 'private')
+
+  /**
+   * 登记刚写入的上传文件归属(F-536)。
+   *
+   * 为什么必须有:上传只管落盘、不写归属,而 `/workbook/open` 的归属判据此前只认
+   * `/workbook/save` 写的 sidecar ⇒ 普通上传的 xlsx 永远打不开。登记失败不回滚上传
+   * (文件已落盘、URL 已可用),但会被记为 warn —— 该文件随后 open 会 fail-closed。
+   */
+  const registerUpload = (params: {
+    request: FastifyRequest
+    fileId: string
+    name: string
+    mimeType: string
+    storedPath: string
+  }): void => {
+    try {
+      registerUploadedFile({
+        fileId: params.fileId,
+        ownerId: params.request.userId!,
+        name: params.name,
+        mimeType: params.mimeType,
+        storedPath: params.storedPath,
+      })
+    } catch (e) {
+      params.request.log.warn(
+        { err: (e as Error).message, fileId: params.fileId },
+        '上传归属登记失败:该文件随后无法被 /api/workbook/open 打开',
+      )
+    }
+  }
+
+  /** 源文件是否落在私有目录(uploads/private 及其子目录)下。 */
+  const isPrivateSourcePath = (p: string): boolean => {
+    const root = resolve(PRIVATE_UPLOAD_ROOT)
+    const target = resolve(p)
+    return target === root || target.startsWith(root + sep)
+  }
+
   // POST /files/upload/base64 - base64 上传（支持 webp→png 转换）
   server.post(
     '/files/upload/base64',
@@ -239,6 +282,13 @@ export const fileRoutes: FastifyPluginAsync = async (server) => {
         const fileId = randomUUID()
         const filePath = join(UPLOAD_DIR, fileId)
         writeFileSync(filePath, finalBuffer)
+        registerUpload({
+          request,
+          fileId,
+          name: safeFilename,
+          mimeType: validation.mimeType,
+          storedPath: filePath,
+        })
 
         return reply.status(201).send(
           success({
@@ -448,7 +498,7 @@ export const fileRoutes: FastifyPluginAsync = async (server) => {
       schema: buildSchema({
         summary: '提取文档内嵌资产',
         description:
-          '提取 doc/docx/pptx/xls/xlsx/ods/odt/odp/rtf/epub 内嵌图片等二进制资产并落盘到公开目录;返回可访问 URL 清单;pdf 返回 unsupported=true(无文档模型)',
+          '提取 doc/docx/pptx/xls/xlsx/ods/odt/odp/rtf/epub 内嵌图片等二进制资产;公开文档落盘公开目录,私有文档落盘到按属主隔离的私有目录并经鉴权端点返回;pdf 返回 unsupported=true(无文档模型)',
         tags: ['File'],
         params: idParamSchema,
       }),
@@ -471,9 +521,13 @@ export const fileRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(403).send(error(403, '无权访问该文件'))
       }
 
-      if (!existsSync(UPLOAD_DIR)) mkdirSync(UPLOAD_DIR, { recursive: true })
+      // F-412:按源文件可见性分流落盘目录 —— 公开源文件仍写 uploads/public(URL 不变);
+      // 私有源文件的资产写 uploads/private/assets/<owner>/ 并只暴露鉴权端点。
       const filePath = resolveDiskPath(file.path)
-      const result = await extractDocumentAssets(filePath, file.name, UPLOAD_DIR)
+      const sourceIsPublic = !isPrivateSourcePath(filePath)
+      const assetDir = sourceIsPublic ? UPLOAD_DIR : join(PRIVATE_ASSETS_DIR, userId)
+      if (!existsSync(assetDir)) mkdirSync(assetDir, { recursive: true })
+      const result = await extractDocumentAssets(filePath, file.name, assetDir)
       if (result.error) {
         return reply.status(422).send(error(422, result.error))
       }
@@ -484,7 +538,9 @@ export const fileRoutes: FastifyPluginAsync = async (server) => {
         originPart: a.originPart,
         extension: a.extension,
         size: a.size,
-        url: resolvePublicUrl(a.filename),
+        url: sourceIsPublic
+          ? resolvePublicUrl(a.filename)
+          : `/api/files/assets/${userId}/${a.filename}`,
       }))
 
       if (result.unsupported) {
@@ -493,6 +549,47 @@ export const fileRoutes: FastifyPluginAsync = async (server) => {
       return reply.send(success({ assets, unsupported: false, fileName: file.name }))
     },
   )
+
+  // GET /files/assets/:owner/:filename - 读取私有文档提取出的内嵌资产
+  // F-412:私有资产不再放公开静态目录,只能经该端点(鉴权 + 属主/管理员 + 路径边界)读取。
+  server.get('/files/assets/:owner/:filename', {
+    schema: buildSchema({
+      summary: '读取私有文档内嵌资产',
+      description: '按属主读取私有文档提取出的内嵌资产(需鉴权)',
+      tags: ['File'],
+    }),
+  }, async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+
+    const parsed = z
+      .object({
+        owner: z.uuid({ error: '无效的资产属主' }),
+        filename: z.string().regex(/^[0-9a-f-]{36}\.[a-z0-9]{1,8}$/i, { error: '无效的资产文件名' }),
+      })
+      .safeParse(request.params)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+
+    const { owner, filename } = parsed.data
+    if (owner !== request.userId && !isAdmin(request)) {
+      return reply.status(403).send(error(403, '无权访问该资产'))
+    }
+
+    const target = resolve(join(PRIVATE_ASSETS_DIR, owner), filename)
+    if (!target.startsWith(resolve(PRIVATE_ASSETS_DIR) + sep)) {
+      return reply.status(400).send(error(400, '无效的资产路径'))
+    }
+    if (!existsSync(target)) {
+      return reply.status(404).send(error(404, '资产不存在'))
+    }
+
+    const mime = getCanonicalMime(extname(filename).slice(1)) ?? 'application/octet-stream'
+    reply.header('Cache-Control', 'private, max-age=300')
+    reply.header('X-Content-Type-Options', 'nosniff')
+    return reply.type(mime).send(createReadStream(target))
+  })
 
   // POST /files/:id/tags - 给文件打标签（覆盖式追加）
   server.post(
@@ -776,6 +873,13 @@ export const fileRoutes: FastifyPluginAsync = async (server) => {
         const storedName = `${fileId}.${validation.extension}`
         const filePath = join(UPLOAD_DIR, storedName)
         writeFileSync(filePath, buffer)
+        registerUpload({
+          request,
+          fileId,
+          name: safeFilename,
+          mimeType: validation.mimeType,
+          storedPath: filePath,
+        })
 
         return reply.status(201).send(
           success({
@@ -851,6 +955,13 @@ export const fileRoutes: FastifyPluginAsync = async (server) => {
         const fileId = randomUUID()
         const filePath = join(UPLOAD_DIR, fileId)
         writeFileSync(filePath, buffer)
+        registerUpload({
+          request,
+          fileId,
+          name: safeFilename,
+          mimeType: validation.mimeType,
+          storedPath: filePath,
+        })
 
         return reply.status(201).send(
           success({

@@ -9,6 +9,7 @@ import { checkAuth } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
 import { findAgentsList, findAgentById } from '../db/agents-queries.js'
 import { findCategoryList } from '../db/agents-queries.js'
+import { sanitizePublicAgent } from './agents.js'
 import { db } from '../db/index.js'
 import { zhsUserAgentContext } from '@ihui/database'
 
@@ -40,7 +41,11 @@ export const agenticServiceRoutes: FastifyPluginAsync = async (server) => {
     const { agentId } = z.object({ agentId: z.string() }).parse(request.params)
     const agent = await findAgentById(agentId)
     if (!agent) return reply.status(404).send(error(404, 'Agent not found'))
-    return reply.send(success(agent))
+    // F-593:与 /agents/:id 公开面同一判据 —— 仅 published 可见,
+    // 且只投影 PUBLIC_AGENT_KEYS。agentPrompt/agentVariables/cozeAccountId 等
+    // 系统提示词/变量/第三方账号列永不出现在登录用户可见的响应里。
+    if (agent.status !== 'published') return reply.status(404).send(error(404, 'Agent not found'))
+    return reply.send(success(sanitizePublicAgent(agent as unknown as Record<string, unknown>)))
   })
 
   // GET /categories - 智能体分类

@@ -19,6 +19,8 @@ import {
   Shrink,
   FileCode,
   FileText,
+  FileArchive,
+  Copy,
   Loader2,
   MessageSquare,
   MoreVertical,
@@ -67,6 +69,11 @@ import {
   resolveConversationAttention,
   type ConversationAttentionState,
 } from '@/hooks/use-sidebar'
+import {
+  copyConversationMarkdown,
+  downloadConversationZip,
+  type ExportRoleLabel,
+} from '@/components/chat/conversation-export'
 
 export interface Conversation {
   id: string
@@ -169,6 +176,8 @@ export function ConversationList({
   const t = useTranslations('chatHistory')
   const tCommon = useTranslations('common')
   const tc = useTranslations('aiChat')
+  // 导出菜单独立命名空间:与侧栏 sidebar-chat-history 共用同一组文案键
+  const te = useTranslations('chat.exportMenu')
   const locale = useLocale()
   const router = useRouter()
   const { success, error } = useToast()
@@ -367,6 +376,30 @@ export function ConversationList({
         onError: () => error(tc('toast.exportFailed')),
       },
     )
+  }
+
+  const exportRoleLabel: ExportRoleLabel = {
+    user: te('roleUser'),
+    assistant: te('roleAssistant'),
+    toolCalls: te('roleToolCalls'),
+  }
+
+  const handleExportZip = (item: Conversation) => {
+    setBusyId(item.id)
+    void downloadConversationZip(item.id, item.title)
+      .then(() => success(tc('toast.exported')))
+      .catch(() => error(tc('toast.exportFailed')))
+      .finally(() => setBusyId(null))
+  }
+
+  const handleCopyMarkdown = (item: Conversation) => {
+    setBusyId(item.id)
+    void copyConversationMarkdown(item.id, item.title, exportRoleLabel)
+      .then((done) => {
+        if (done) success(tc('toast.exported'))
+      })
+      .catch(() => error(tc('toast.exportFailed')))
+      .finally(() => setBusyId(null))
   }
 
   const handleCompress = (item: Conversation, targetChars: 200000 | 1000000) => {
@@ -634,6 +667,22 @@ export function ConversationList({
                         >
                           <FileText className="mr-2 h-3.5 w-3.5" />
                           <span>{tc('actions.exportTxt')}</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => handleExportZip(item)}
+                          disabled={busyId === item.id}
+                          data-testid="conversation-export-zip"
+                        >
+                          <FileArchive className="mr-2 h-3.5 w-3.5" />
+                          <span>{te('exportZip')}</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => handleCopyMarkdown(item)}
+                          disabled={busyId === item.id}
+                          data-testid="conversation-copy-markdown"
+                        >
+                          <Copy className="mr-2 h-3.5 w-3.5" />
+                          <span>{te('copyMarkdown')}</span>
                         </DropdownMenuItem>
                       </DropdownMenuSubContent>
                     </DropdownMenuSub>

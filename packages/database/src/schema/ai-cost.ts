@@ -2,6 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
+import { sql } from 'drizzle-orm'
 import {
   pgTable,
   uuid,
@@ -13,6 +14,7 @@ import {
   text,
   jsonb,
   index,
+  uniqueIndex,
 } from 'drizzle-orm/pg-core'
 import { users } from './users.js'
 
@@ -81,6 +83,15 @@ export const aiBudgets = pgTable(
   },
   (t) => ({
     scopeUnique: index('ai_budget_scope_idx').on(t.scope, t.scopeKey, t.model),
+    // F-588:预算按 (scope, scope_key, model) 定位,但 model 可空 —— 普通唯一索引对 NULL
+    // 不去重,并发激活仍会落重复预算行。拆成两条部分唯一索引:无模型维度/有模型维度各一条,
+    // 让 upsert 能在各自分支用 `ON CONFLICT ... WHERE` 原子落库。
+    scopeNoModelUniq: uniqueIndex('ai_budget_scope_no_model_uniq')
+      .on(t.scope, t.scopeKey)
+      .where(sql`${t.model} is null`),
+    scopeModelUniq: uniqueIndex('ai_budget_scope_model_uniq')
+      .on(t.scope, t.scopeKey, t.model)
+      .where(sql`${t.model} is not null`),
   }),
 )
 

@@ -107,6 +107,15 @@ const VERIFY_ERC20_MAX_PAGES = 10
 const RPC_TIMEOUT_MS = 12_000
 
 /**
+ * F-509:单笔订单链上查询临时故障的最大重试次数(不含首次尝试)。
+ * 有限次重试换取「一次抖动不算失败」,但不能无限重试拖住分钟级队列。
+ */
+const POLL_MAX_RETRIES = 2
+
+/** F-509:两次尝试之间的等待(毫秒),测试通过 PollOptions.sleep 注入,跳过真实等待 */
+const POLL_RETRY_DELAY_MS = 200
+
+/**
  * F-508:链上 RPC 的唯一出口。signal 在此统一注入,调用方无法漏加;
  * 超时抛 TimeoutError,按既有错误路径处理(轮询记失败、订单保持 pending 等下轮重试)。
  */
@@ -222,12 +231,30 @@ export interface CreateUsdtPaymentResult {
   rate: number
 }
 
+/**
+ * F-509:链上查询故障(区别于「业务待确认」)。
+ * 业务 pending = 链上确实没查到有效交易;error = 本轮根本没查成(上游 5xx/超时/响应异常)。
+ */
+export interface UsdtChainQueryErrorInfo {
+  code: 'USDT_CHAIN_QUERY_FAILED'
+  /** 订单网络(TRC20/ERC20) */
+  network: string
+  /** 原始错误摘要(不含地址等敏感配置) */
+  reason: string
+  /** 是否链上 RPC 超时(F-508 的 quick-fail 语义) */
+  timeout: boolean
+  /** 是否值得重试:4xx(密钥/参数错误)不重试,超时/网络/5xx/响应异常重试 */
+  retryable: boolean
+}
+
 export interface UsdtPaymentStatusResult {
   orderId: string
   status: string
   detected: boolean
   txHash: string | null
   amountPaid: number | null
+  /** F-509:仅当本轮链上查询失败时存在;业务 pending 一律不带此字段 */
+  error?: UsdtChainQueryErrorInfo
 }
 
 export interface ConfirmResult {
@@ -238,10 +265,42 @@ export interface ConfirmResult {
   pendingReason?: string
 }
 
+/** F-509:单笔订单失败的结构化摘要,供 worker 日志/告警直接消费 */
+export interface PollFailureDetail {
+  orderId: string
+  network: string | null
+  attempts: number
+  reason: string
+  timeout: boolean
+}
+
 export interface PollResult {
   checked: number
   confirmed: number
   failed: number
+  /** F-509:本轮失败订单摘要(空数组表示全部成功) */
+  errors: PollFailureDetail[]
+}
+
+/** F-509:poll 的重试/等待策略(测试可注入 sleep,避免真实等待) */
+export interface PollOptions {
+  /** 单笔订单临时故障的最大重试次数(不含首次),默认 POLL_MAX_RETRIES */
+  maxRetries?: number
+  /** 两次尝试之间的等待毫秒,默认 POLL_RETRY_DELAY_MS */
+  retryDelayMs?: number
+  /** 可注入的 sleep 实现 */
+  sleep?: (ms: number) => Promise<void>
+}
+
+/** F-509:轮询存在失败订单时抛出,附带统计/摘要,让 BullMQ 把 job 记为 failed */
+export class UsdtPollFailureError extends Error {
+  readonly result: PollResult
+
+  constructor(message: string, result: PollResult) {
+    super(message)
+    this.name = 'UsdtPollFailureError'
+    this.result = result
+  }
 }
 
 export interface ListResult {
@@ -573,16 +632,29 @@ export async function checkUsdtPaymentStatus(orderId: string): Promise<UsdtPayme
       detection = await checkErc20Payment(order.address, expectedAmount, sinceTimestamp)
     }
   } catch (err) {
-    // F-508:RPC 超时不是「链上没付款」,上抛给轮询统计 failed,不能被当作本轮成功;
-    // 订单本身不落 expired,下一轮仍会重查。其它查询失败沿用既有路径(保持 pending)。
-    if (isRpcTimeoutError(err)) throw err
-    // SDB-44:链上检测失败/不可用 ≠ 没付款。这里不能落到下面的 expired 分支,
-    // 否则一次 API 抖动就把待收款订单写成过期;保留 pending 等下一轮重试。
+    // F-509:链上查询故障 ≠ 业务待确认。旧实现把「上游不可用」降级成一条普通 pending,
+    // 于是 poll 的 failed 恒 0、BullMQ 每分钟记成功——监控上永远是健康,用户充值却不到账。
+    // 现在返回带 error 的明确失败结果:订单仍保持 pending(SDB-44:查不到 ≠ 没付款,
+    // 不能落 expired),但「保持 pending」与「统计成功」彻底解耦,由 poll 重试/计 failed。
+    const reason = errReason(err)
     console.error(
       `[usdt-payment] 区块链 API 查询失败,订单保持 pending 等待重试(orderId=${orderId}):`,
-      err instanceof Error ? err.message : String(err),
+      reason,
     )
-    return { orderId, status: 'pending', detected: false, txHash: null, amountPaid: null }
+    return {
+      orderId,
+      status: 'pending',
+      detected: false,
+      txHash: null,
+      amountPaid: null,
+      error: {
+        code: 'USDT_CHAIN_QUERY_FAILED',
+        network: order.network,
+        reason,
+        timeout: isRpcTimeoutError(err),
+        retryable: isRetryableChainQueryError(err),
+      },
+    }
   }
 
   if (detection && isExactAmount(detection.amountPaid, expectedAmount)) {
@@ -817,6 +889,21 @@ function isRpcTimeoutError(err: unknown): boolean {
   if (typeof err !== 'object' || err === null) return false
   const name = (err as { name?: string }).name
   return name === 'TimeoutError' || name === 'AbortError'
+}
+
+/**
+ * F-509:链上查询错误是否值得有限重试。
+ * 4xx(API key 失效/参数错误/地址被拒)重试也不会变好,立即判失败;
+ * 超时、网络错误、5xx、响应结构异常属于上游临时故障,按 POLL_MAX_RETRIES 重试。
+ */
+function isRetryableChainQueryError(err: unknown): boolean {
+  if (isRpcTimeoutError(err)) return true
+  return !/返回\s*4\d\d/.test(errReason(err))
+}
+
+/** F-509:默认 sleep(PollOptions.sleep 可注入替代,测试不必真实等待) */
+function defaultSleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
 /**
@@ -1271,12 +1358,21 @@ export async function confirmUsdtPayment(
  * 1. 查询 status='pending' 的订单(批量,默认 50 条;SDB-44 起不再按 expires_at 过滤,
  *    否则在到期前最后一刻付款的订单会被整轮跳过)
  * 2. 对每条调 checkUsdtPaymentStatus(先查链,确实无交易才落 expired)
- * 3. 若 detected=true,调 confirmUsdtPayment
- * 4. 返回统计
+ * 3. 链上查询故障按 PollOptions 有限重试,耗尽才计入 failed(F-509)
+ * 4. 若 detected=true,调 confirmUsdtPaymentWithOnChainCheck 入账
+ * 5. 本轮存在 failed ⇒ 抛 UsdtPollFailureError(附统计+摘要),让 BullMQ 记 failed;
+ *    不再把上游故障当成 completed 静默成功
  *
  * 接入 BullMQ Worker 定时调用(cron 每 1 分钟)。
  */
-export async function pollPendingUsdtPayments(batchSize = 50): Promise<PollResult> {
+export async function pollPendingUsdtPayments(
+  batchSize = 50,
+  options: PollOptions = {},
+): Promise<PollResult> {
+  const maxRetries = Math.max(0, Math.floor(options.maxRetries ?? POLL_MAX_RETRIES))
+  const retryDelayMs = Math.max(0, Math.floor(options.retryDelayMs ?? POLL_RETRY_DELAY_MS))
+  const sleep = options.sleep ?? defaultSleep
+
   // SDB-44:去掉 expires_at > now 过滤。原过滤会让「本轮刚跨过 expiresAt」的订单
   // 永远等不到一次链上检测(而 checkUsdtPaymentStatus 已经做到先查链再判过期)。
   // 过期订单若查链无交易会在 next check 中落 expired,因此不会无限重扫。
@@ -1293,34 +1389,135 @@ export async function pollPendingUsdtPayments(batchSize = 50): Promise<PollResul
   let confirmed = 0
   let failed = 0
   let rpcTimeouts = 0
+  const errors: PollFailureDetail[] = []
 
   for (const { orderId } of validPending) {
     checked++
+    const outcome = await queryOrderWithRetry(orderId, maxRetries, retryDelayMs, sleep)
+
+    if (!outcome.status) {
+      // F-509:业务 pending 已在 checkUsdtPaymentStatus 内按「无 error」返回;
+      // 走到这里说明本轮确实没查成(重试耗尽或非链上错误),计入 failed。
+      failed++
+      if (outcome.failure?.timeout) rpcTimeouts++
+      errors.push(outcome.failure)
+      console.error('[usdt-payment] 订单轮询失败(重试已耗尽)', outcome.failure)
+      continue
+    }
+
     try {
-      const status = await checkUsdtPaymentStatus(orderId)
       // P0 资金安全修复(2026-09-06):轮询确认必须走服务端链上取证,
       // 校验确认数/金额/地址通过后才入账;客户端 amountPaid 不作为入账依据。
-      if (status.detected && status.txHash) {
-        const r = await confirmUsdtPaymentWithOnChainCheck(orderId, status.txHash)
+      if (outcome.status.detected && outcome.status.txHash) {
+        const r = await confirmUsdtPaymentWithOnChainCheck(orderId, outcome.status.txHash)
         if (r.status === 'confirmed') confirmed++
       }
     } catch (err) {
-      if (isRpcTimeoutError(err)) rpcTimeouts++
-      console.warn(
-        `[usdt-payment] 轮询订单 ${orderId} 失败:`,
-        err instanceof Error ? err.message : String(err),
-      )
+      const failure: PollFailureDetail = {
+        orderId,
+        network: outcome.status.error?.network ?? null,
+        attempts: outcome.attempts,
+        reason: errReason(err),
+        timeout: isRpcTimeoutError(err),
+      }
+      if (failure.timeout) rpcTimeouts++
       failed++
+      errors.push(failure)
+      console.error('[usdt-payment] 订单确认入账失败', failure)
     }
   }
 
-  // F-508:本轮出现链上 RPC 超时 ⇒ 抛错让 BullMQ 记 failed(下轮重试),
-  // 不能返回统计被当作 completed,否则上游挂起时监控一直显示成功。
-  if (rpcTimeouts > 0) {
-    throw new Error(`USDT 轮询本轮 ${rpcTimeouts} 笔订单链上 RPC 超时,等待下一轮重试`)
+  const result: PollResult = { checked, confirmed, failed, errors }
+  if (failed > 0) {
+    // F-509:有失败就必须让 job 失败(而不是返回统计被当作 completed)。
+    // 统计与摘要挂在错误对象上,worker 结构化记录后继续上抛给 BullMQ。
+    const failurePart =
+      rpcTimeouts > 0 ? `${rpcTimeouts} 笔链上 RPC 超时` : `${failed} 笔链上查询/入账故障`
+    throw new UsdtPollFailureError(
+      `USDT 轮询本轮 ${failed} 笔订单失败(${failurePart}),等待下一轮重试`,
+      result,
+    )
   }
 
-  return { checked, confirmed, failed }
+  return result
+}
+
+type PollQueryOutcome =
+  | { status: UsdtPaymentStatusResult; failure: null; attempts: number }
+  | { status: null; failure: PollFailureDetail; attempts: number }
+
+/**
+ * F-509:单笔订单的查询+有限重试。
+ * - 有 error 且 retryable ⇒ 等待后重试(最多 maxRetries 次);
+ * - 非 retryable(4xx 等配置性错误)⇒ 立即失败;
+ * - checkUsdtPaymentStatus 直接抛错(订单不存在/DB 异常)⇒ 停止重试,如实失败。
+ */
+async function queryOrderWithRetry(
+  orderId: string,
+  maxRetries: number,
+  retryDelayMs: number,
+  sleep: (ms: number) => Promise<void>,
+): Promise<PollQueryOutcome> {
+  let attempts = 0
+  let chainFailure: PollFailureDetail | null = null
+  let thrown: unknown = null
+
+  while (attempts <= maxRetries) {
+    attempts++
+    try {
+      const status = await checkUsdtPaymentStatus(orderId)
+      if (!status.error) return { status, failure: null, attempts }
+
+      const detail: PollFailureDetail = {
+        orderId,
+        network: status.error.network,
+        attempts,
+        reason: status.error.reason,
+        timeout: status.error.timeout,
+      }
+      if (!status.error.retryable) return { status: null, failure: detail, attempts }
+      chainFailure ??= detail
+      if (attempts > maxRetries) break
+
+      console.warn(
+        `[usdt-payment] 轮询订单 ${orderId} 链上查询失败,准备重试(第 ${attempts}/${maxRetries + 1} 次):`,
+        {
+          orderId,
+          network: status.error.network,
+          attempt: attempts,
+          maxAttempts: maxRetries + 1,
+          reason: status.error.reason,
+          timeout: status.error.timeout,
+        },
+      )
+      await sleep(retryDelayMs)
+    } catch (err) {
+      // 非链上查询故障(读单失败/订单不存在等):重试无意义,直接结束
+      thrown = err
+      break
+    }
+  }
+
+  if (chainFailure) {
+    const appendReason = thrown ? `; 重试后:${errReason(thrown)}` : ''
+    return {
+      status: null,
+      failure: { ...chainFailure, attempts, reason: chainFailure.reason + appendReason },
+      attempts,
+    }
+  }
+
+  return {
+    status: null,
+    failure: {
+      orderId,
+      network: null,
+      attempts,
+      reason: errReason(thrown),
+      timeout: isRpcTimeoutError(thrown),
+    },
+    attempts,
+  }
 }
 
 // =============================================================================

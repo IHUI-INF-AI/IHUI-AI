@@ -105,14 +105,14 @@
 {"key":"G-1262601#G-1262601归属","owner":"部署环告警去重持有人","waiting":"none","updatedAt":"2026-10-30T07:07:32.586Z","updatedBy":"plan-fields-extract"}
 {"key":"G-1182553#VideoPlayerScreen全屏纯黑+顶部","owner":"移动端真机走查包","waiting":"none","updatedAt":"2026-10-30T07:07:32.587Z","updatedBy":"plan-fields-extract"}
 {"key":"G-870#file","owner":"机主微信开放平台","waiting":"none","updatedAt":"2026-10-30T07:07:32.587Z","updatedBy":"plan-fields-extract"}
-{"key":"RP-37#USDTTRC20ADDRESS仍空","owner":"机主收款地址面","waiting":"none","updatedAt":"2026-11-12T17:48:08.983Z","updatedBy":"plan-fields-reclassify"}
+{"key":"RP-37#USDTTRC20ADDRESS仍空","owner":"","waiting":"none","updatedAt":"2026-11-11T12:24:47.773Z","updatedBy":"plan-fields-reclassify"}
 {"key":"G-948#活文档整文件回写又吞掉他席已入库登记行","owner":"台账自愈层):一枚 bypass 落地","waiting":"none","updatedAt":"2026-10-30T07:07:32.592Z","updatedBy":"plan-fields-extract"}
 {"key":"G-866#EdgeOne免费版只有1条缓存规则","owner":"机主EdgeOne控制台面","waiting":"none","updatedAt":"2026-10-30T07:07:32.592Z","updatedBy":"plan-fields-extract"}
 {"key":"RP-47#两把blocking门在提交链上恒「取不到索引b","owner":"unassigned","waiting":"none","updatedAt":"2026-11-02T11:18:54.087Z","updatedBy":"plan-fields-extract"}
 {"key":"RP-79#给旁路收敛器物scripts/git-sync-","owner":"unassigned","waiting":"none","updatedAt":"2026-11-02T11:18:54.087Z","updatedBy":"plan-fields-extract"}
 {"key":"G-1222559#索引里那份滞台台账副本正挡着「碰PROJECTP","owner":"unassigned","waiting":"none","updatedAt":"2026-11-02T11:18:54.088Z","updatedBy":"plan-fields-extract"}
-{"key":"RP-79#旁路器物「未知旗标⇒用法错exit2」收口的剩余","owner":"unassigned","waiting":"none","updatedAt":"2026-11-12T17:48:08.983Z","updatedBy":"plan-fields-reclassify"}
-{"key":"D05#多用户协作会话","owner":"协作会话域 chat-collab 席","waiting":"none","updatedAt":"2026-11-12T17:48:08.983Z","updatedBy":"plan-fields-reclassify"}
+{"key":"RP-79#旁路器物「未知旗标⇒用法错exit2」收口的剩余","owner":"","waiting":"none","updatedAt":"2026-11-11T12:24:47.773Z","updatedBy":"plan-fields-reclassify"}
+{"key":"D05#多用户协作会话","owner":"","waiting":"none","updatedAt":"2026-11-11T12:24:47.773Z","updatedBy":"plan-fields-reclassify"}
 {"key":"G-1222560#危险登记","owner":"unassigned","waiting":"none","updatedAt":"2026-11-02T11:18:54.088Z","updatedBy":"plan-fields-extract"}
 {"key":"D04#消息串内富文本动作锚点","owner":"unassigned","waiting":"none","updatedAt":"2026-11-02T11:18:54.088Z","updatedBy":"plan-fields-extract"}
 {"key":"RP-35#共享信封解析层对\"裸对象\"具体给res","owner":"unassigned","waiting":"none","updatedAt":"2026-11-02T11:18:54.088Z","updatedBy":"plan-fields-extract"}
