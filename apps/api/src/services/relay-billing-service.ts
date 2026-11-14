@@ -319,24 +319,6 @@ export interface CalculateCostResult {
   creditsApplied?: number
   /** F-720:采用的积分单价(分/积分),供审计回溯换算依据 */
   creditsUnitCents?: number
-  /**
-   * 我方采购成本估算(分,2026-11-14 立):按模型 `metadata.priceSource.profitFactor`
-   * 由基础售价反推(不含任何倍率链),null=该模型无留痕、成本未知。
-   * 用途:利润看板;不参与对用户扣费。
-   */
-  providerCostCents: number | null
-  /**
-   * 毛利估算(分)= 总售价 − 采购成本。成本未知时为 null,绝不填 0 冒充"零成本"。
-   * 仅在成本已知时有意义;部分倍率(分组折扣/阶梯/分时)会同时改变售价与毛利。
-   */
-  profitCents: number | null
-  /**
-   * 成本口径:
-   * - `derived`:由 model_config 售价 ÷ profitFactor 反推(当前唯一实现)
-   * - `byok`:BYOK 模式,平台成本为 0、毛利 = 平台服务费
-   * - `unknown`:无留痕,成本不可得
-   */
-  costBasis: 'actual' | 'derived' | 'byok' | 'unknown'
 }
 
 /** calculateCost 第 4 个参数:cache 折扣计费选项 + 多模态计费选项(2026-09-13) */
@@ -702,10 +684,7 @@ function stripLiteLLMPrefix(model: string): string {
  * 原始请求 model 只用于对外响应回显与 metadata 审计。
  * resolvedModel 缺失(未映射/解析失败)时回退原始 model。
  */
-export function resolveBillingModel(
-  requestedModel: string,
-  resolvedModel?: string | null,
-): string {
+export function resolveBillingModel(requestedModel: string, resolvedModel?: string | null): string {
   const upstreamModel = (resolvedModel ?? '').trim()
   return upstreamModel.length > 0 ? upstreamModel : requestedModel
 }
@@ -743,12 +722,6 @@ async function queryPricingRows(dbModelId: string) {
       outputPricePer1k: aiModelConfigModels.outputPricePer1k,
       relayPriceMultiplier: aiModelConfigModels.relayPriceMultiplier,
       isRelayPublic: aiModelConfigModels.isRelayPublic,
-      // 2026-11-14:利润闭环 —— 成本价按 metadata.priceSource.profitFactor 反推。
-      // 注意:该列在 DB 存在但 Drizzle schema 未声明,只能用原生 SQL 取(同 model-pricing-admin)。
-      metadata: sql<{ priceSource?: { profitFactor?: number } } | null>`metadata`,
-      // 2026-11-14:真实采购成本列(迁移 400);null=未知,回退 profitFactor 反推。
-      costInputPricePer1k: aiModelConfigModels.costInputPricePer1k,
-      costOutputPricePer1k: aiModelConfigModels.costOutputPricePer1k,
     })
     .from(aiModelConfigModels)
     .where(eq(aiModelConfigModels.modelId, dbModelId))
@@ -868,33 +841,6 @@ export async function calculateCost(
     multiplier *= Number(pricingRow.longContextMultiplier)
   }
 
-  // 成本口径(2026-11-14 立,利润闭环):优先用独立成本列(actual);缺失时按
-  // metadata.priceSource.profitFactor 由售价反推(derived);两者皆无则未知(null),不猜 0。
-  const priceSourceMeta = (modelRow?.metadata ?? null) as
-    | { priceSource?: { profitFactor?: number } }
-    | null
-  const rawProfitFactor = Number(priceSourceMeta?.priceSource?.profitFactor ?? 0)
-  const profitFactor =
-    Number.isFinite(rawProfitFactor) && rawProfitFactor >= 1 ? rawProfitFactor : null
-  const actualCostIn =
-    modelRow?.costInputPricePer1k !== null && modelRow?.costInputPricePer1k !== undefined
-      ? Number(modelRow.costInputPricePer1k)
-      : null
-  const actualCostOut =
-    modelRow?.costOutputPricePer1k !== null && modelRow?.costOutputPricePer1k !== undefined
-      ? Number(modelRow.costOutputPricePer1k)
-      : null
-  const hasActualCost =
-    actualCostIn !== null && Number.isFinite(actualCostIn) &&
-    actualCostOut !== null && Number.isFinite(actualCostOut)
-  const costBasis: CalculateCostResult['costBasis'] = hasActualCost
-    ? 'actual'
-    : profitFactor
-      ? 'derived'
-      : 'unknown'
-  // 多模态(按次/图/视频)目前仍按售价/pf 估算,不冒充 actual
-  const multiCostBasis: CalculateCostResult['costBasis'] = profitFactor ? 'derived' : 'unknown'
-
   let baseInputPricePer1k = 0
   let baseOutputPricePer1k = 0
   // 计费熔断(F,2026-09-16):定价查询失败且无缓存时标记 unavailable,
@@ -942,8 +888,6 @@ export async function calculateCost(
     if (billingMode === 'per_image' && callType === 'image') {
       const unit = pricingRow.perUnitPrice ?? 0
       const total = Math.max(0, roundCents(unit * units * multiplier + creditsCostCents))
-      const providerCostCents =
-        profitFactor !== null ? Math.max(0, roundCents((unit * units) / profitFactor)) : null
       return {
         inputCostCents: 0,
         outputCostCents: 0,
@@ -958,9 +902,6 @@ export async function calculateCost(
         billingMode,
         unitsApplied: units,
         ...creditsPart,
-        providerCostCents,
-        profitCents: providerCostCents !== null ? roundCents(total - providerCostCents) : null,
-        costBasis: multiCostBasis,
       }
     }
 
@@ -969,8 +910,6 @@ export async function calculateCost(
       const vUnit = pricingRow.videoUnit === 'second' ? 'second' : 'call'
       const applied = vUnit === 'second' ? units : 1
       const total = Math.max(0, roundCents(unit * applied * multiplier + creditsCostCents))
-      const providerCostCents =
-        profitFactor !== null ? Math.max(0, roundCents((unit * applied) / profitFactor)) : null
       return {
         inputCostCents: 0,
         outputCostCents: 0,
@@ -985,9 +924,6 @@ export async function calculateCost(
         billingMode,
         unitsApplied: applied,
         ...creditsPart,
-        providerCostCents,
-        profitCents: providerCostCents !== null ? roundCents(total - providerCostCents) : null,
-        costBasis: multiCostBasis,
       }
     }
 
@@ -997,10 +933,6 @@ export async function calculateCost(
       const picked = pickPerCallPrice(pricingRow.tieredCallPrices, promptTokens)
       if (picked) {
         const total = Math.max(0, roundCents(picked.price * units * multiplier + creditsCostCents))
-        const providerCostCents =
-          profitFactor !== null
-            ? Math.max(0, roundCents((picked.price * units) / profitFactor))
-            : null
         return {
           inputCostCents: 0,
           outputCostCents: 0,
@@ -1016,9 +948,6 @@ export async function calculateCost(
           unitsApplied: units,
           callTier: picked.tier,
           ...creditsPart,
-          providerCostCents,
-          profitCents: providerCostCents !== null ? roundCents(total - providerCostCents) : null,
-          costBasis: multiCostBasis,
         }
       }
       // 三档价未配置 → 回退 token 计费(避免免费敞口),调用方可据此告警
@@ -1065,39 +994,6 @@ export async function calculateCost(
   // 积分维度成本已在上方按同一倍率链算好(creditsCostCents),此处只做合计。
   const totalCostCents = roundCents(tokenCostCents + creditsCostCents)
 
-  // 采购成本(2026-11-14):model_config 的 inputPricePer1k 是售价基准(成本 × profitFactor),
-  // 反推成本时必须先除 profitFactor 再乘 token,且不叠任何对客倍率(分组/阶梯/分时/推理上浮),
-  // 否则用户享受折扣时会把平台成本一起"打折",利润虚高。
-  // 采购成本(2026-11-14):优先真实成本列;缺失时按 profitFactor 由售价反推。
-  // 反推时必须先除 profitFactor 再乘 token,且不叠任何对客倍率(分组/阶梯/分时/推理上浮),
-  // 否则用户享受折扣时会把平台成本一起"打折",利润虚高。
-  // 含积分维度(credits>0)时上游计价不可得 ⇒ 成本未知,不把积分收入全额算成毛利。
-  const costUnitIn = hasActualCost
-    ? actualCostIn
-    : profitFactor !== null && modelRow
-      ? Number(modelRow.inputPricePer1k ?? 0) / profitFactor
-      : null
-  const costUnitOut = hasActualCost
-    ? actualCostOut
-    : profitFactor !== null && modelRow
-      ? Number(modelRow.outputPricePer1k ?? 0) / profitFactor
-      : null
-  const providerCostCents =
-    credits > 0
-      ? null
-      : costUnitIn !== null && costUnitOut !== null
-        ? Math.max(
-            0,
-            roundCents(
-              (costUnitIn *
-                (normalInputTokens + cacheReadTokens * 0.1 + cacheCreationTokens * 1.25) +
-                costUnitOut * completionTokens) /
-                1000,
-            ),
-          )
-        : null
-  const tokenCostBasis: CalculateCostResult['costBasis'] = credits > 0 ? 'unknown' : costBasis
-
   return {
     inputCostCents,
     outputCostCents,
@@ -1112,9 +1008,6 @@ export async function calculateCost(
     billingMode: 'token',
     unitsApplied: 0,
     ...creditsPart,
-    providerCostCents,
-    profitCents: providerCostCents !== null ? roundCents(totalCostCents - providerCostCents) : null,
-    costBasis: tokenCostBasis,
   }
 }
 
@@ -1505,14 +1398,6 @@ async function recordCallInternal(input: RecordCallInput): Promise<RecordCallRes
     metadata.billingMode = relayCost.billingMode
     if (relayCost.unitsApplied > 0) metadata.unitsApplied = relayCost.unitsApplied
     if (relayCost.callTier) metadata.callTier = relayCost.callTier
-    // 利润闭环(2026-11-14):采购成本与毛利随调用落账,管理端利润看板直接聚合本字段。
-    // 成本未知时只写 costBasis=unknown,不写 providerCostCents(避免被当成 0 成本)。
-    metadata.costBasis = relayCost.costBasis
-    if (relayCost.providerCostCents !== null) {
-      metadata.providerCostCents = relayCost.providerCostCents
-      metadata.profitCents = relayCost.profitCents
-      metadata.costedRevenueCents = relayCost.totalCostCents
-    }
   }
   // F-720:积分维度审计 —— 上游声明了多少 credits、按什么单价换算成多少分。
   // 即便未计费(failureZeroed)也留底,避免"credits 有值但账单无痕"。
@@ -1530,11 +1415,6 @@ async function recordCallInternal(input: RecordCallInput): Promise<RecordCallRes
     metadata.upstreamCostCents = upstreamCostCents
     metadata.platformFeeCents = platformFeeCents
     metadata.commissionRate = commissionRate
-    // BYOK:上游成本由用户自付,平台成本为 0,毛利 = 平台服务费
-    metadata.costBasis = 'byok'
-    metadata.providerCostCents = 0
-    metadata.profitCents = platformFeeCents ?? 0
-    metadata.costedRevenueCents = platformFeeCents ?? 0
   }
 
   // F-728:失败调用的原始用量留底(token 列按 0 落,避免与真实计费混成一个数)
@@ -1553,12 +1433,6 @@ async function recordCallInternal(input: RecordCallInput): Promise<RecordCallRes
   if (input.status === 'error') {
     if (costCentsToDeduct > 0) metadata.noChargeReason = `status=${input.status}`
     costCentsToDeduct = 0
-    // 上游未提供服务 → 采购成本同样为 0,毛利 0,避免把失败调用算成平台亏损
-    if (metadata.costBasis === 'derived') {
-      metadata.providerCostCents = 0
-      metadata.profitCents = 0
-      metadata.costedRevenueCents = 0
-    }
   }
 
   // F-727(2026-11-13):Batch 任务的 50% 折扣此前只写在 metadata.discount
@@ -1824,16 +1698,14 @@ async function recordCallInternal(input: RecordCallInput): Promise<RecordCallRes
   if (!hasPreDeduction) {
     // 两段式已在 settlePreDeductionStrict 内累加窗口用量;非两段式必须在这里补,
     // 否则订阅用户只走 /v1/messages、/v1/responses 就永远不消耗订阅额度。
-    void consumeSubscriptionWindowUsage(
-      input.userId,
-      billableTokens,
-      costCentsToDeduct,
-    ).catch((err) => {
-      logger.warn('[billing] 订阅窗口用量累加失败(不影响计费)', {
-        userId: input.userId,
-        error: err instanceof Error ? err.message : String(err),
-      })
-    })
+    void consumeSubscriptionWindowUsage(input.userId, billableTokens, costCentsToDeduct).catch(
+      (err) => {
+        logger.warn('[billing] 订阅窗口用量累加失败(不影响计费)', {
+          userId: input.userId,
+          error: err instanceof Error ? err.message : String(err),
+        })
+      },
+    )
   }
 
   // 4. 异步触发 relay 返佣(2026-07-31 立,被邀请人消费 → 邀请人返佣)
@@ -1970,6 +1842,10 @@ export async function adjustBalance(
  *
  * @param tokenDelta / costDeltaCents 必须为正整数(>0)
  * @throws {Error & {statusCode}} 余额不足 400 / Key 不存在 404
+ *
+ * F-719(2026-11-13):允许单边充值,但入账必须同时覆盖 token 与 cost 两列 ——
+ * 只填一侧时按「1 token = 1 cent」把实付额度同步到另一列,否则该 Key 永远过不了
+ * checkQuota 的 costBalanceCents > 0 闸,付了钱也用不了。
  */
 export async function rechargeApiKeyFromWallet(
   userId: string,
@@ -1988,6 +1864,12 @@ export async function rechargeApiKeyFromWallet(
   }
   // 1 token = 1 cent:cost 额度(分)需等额 token 支付
   const totalTokensNeeded = tokenDelta + costDeltaCents
+  // F-719(2026-11-13):单边充值(只填 tokenDelta 或只填 costDeltaCents)会把另一列留在 0,
+  // 而准入 checkQuota 两列都要过(costBalanceCents > 0),已付费的 Key 首调即 402。
+  // 按本函数既有「1 token = 1 cent」口径,把**实付一侧**同步到另一列(赠送/空转不服费不叠加);
+  // 两侧都有值时各按其值,钱包仍按 totalTokensNeeded 扣。
+  const creditedTokenDelta = tokenDelta > 0 ? tokenDelta : costDeltaCents
+  const creditedCostDeltaCents = costDeltaCents > 0 ? costDeltaCents : tokenDelta
   return db.transaction(async (tx) => {
     // ① 行锁用户钱包
     const [margin] = await tx
@@ -2013,7 +1895,7 @@ export async function rechargeApiKeyFromWallet(
         opType: TOKEN_FLOW_OP.CONSUME,
         quantity: -totalTokensNeeded,
         balanceAfter: newWalletBalance,
-        remark: `Relay API Key 充值:${apiKeyId}(token+${tokenDelta}, cost+${costDeltaCents})`,
+        remark: `Relay API Key 充值:${apiKeyId}(token+${creditedTokenDelta}, cost+${creditedCostDeltaCents})`,
       })
     }
     // ③ API Key 加余额(行锁;tokenBalance/costBalanceCents = -1 无限额度则不动)
@@ -2028,9 +1910,10 @@ export async function rechargeApiKeyFromWallet(
       .limit(1)
     if (!keyRow) throw Object.assign(new Error('API Key 不存在'), { statusCode: 404 })
     const setClause: Record<string, unknown> = { updatedAt: new Date() }
-    if (keyRow.tokenBalance !== -1) setClause.tokenBalance = keyRow.tokenBalance + tokenDelta
+    if (keyRow.tokenBalance !== -1)
+      setClause.tokenBalance = keyRow.tokenBalance + creditedTokenDelta
     if (keyRow.costBalanceCents !== -1)
-      setClause.costBalanceCents = keyRow.costBalanceCents + costDeltaCents
+      setClause.costBalanceCents = keyRow.costBalanceCents + creditedCostDeltaCents
     const [updated] = await tx
       .update(developerApiKeys)
       .set(setClause)
@@ -2094,90 +1977,212 @@ export async function rechargeByKey(
 // 幂等保证:refunded 标记在查询条件里,重复查询/并发退款只会退一次。
 // =============================================================================
 
+/**
+ * F-34(2026-11-13 立):单次调用内的事务重试上限。
+ *
+ * 立因:旧实现「先 UPDATE 打 refunded=true,再改余额」,打标成功而加钱失败时该行永久不可重试
+ * (账面上"已退款",钱一分没回)。现在打标与加钱同事务 —— 任一失败整笔回滚,refunded 标记不落库,
+ * 后续轮询(或本函数的重试)仍能再抢一次;抢不到才写待补偿事实。
+ * `REFUND_MAX_ATTEMPTS` 同时是**事务重试**上限与**累计失败转人工**的阈值(见 markRefundPending)。
+ */
+export const REFUND_MAX_ATTEMPTS = 3
+
 export interface RefundTaskResult {
   refunded: boolean
   /** 退款金额(分);refunded=false 时为 0 */
   refundedCents: number
-  /** 退款原因:无流水(未扣费)|已退款过|退款成功|流水缺 apiKeyId */
-  reason: 'refunded' | 'no_log' | 'ok' | 'no_api_key'
+  /**
+   * 退款结果:
+   * - ok          退款成功(refunded=true)
+   * - no_log      无对应流水(未扣费/已退过/任务号为空)⇒ 无需退款
+   * - error       事务重试后仍未完成 ⇒ 已把待补偿事实写进本行 metadata,等后续轮询或人工
+   * - exhausted   累计失败达 REFUND_MAX_ATTEMPTS ⇒ 转人工(refund_pending_manual=true)
+   * - refunded / no_api_key  历史保留档(旧实现返回过,调用方仍按"无需补偿"处理)
+   */
+  reason: 'refunded' | 'no_log' | 'ok' | 'no_api_key' | 'error' | 'exhausted'
+  /** 失败路径:该流水**累计**失败次数(含本轮);ok/no_log 不带此字段 */
+  attempts?: number
 }
 
 /**
  * 按 taskId 退款(生图/生视频任务失败时调用)。
  * 查找该任务提交时写入的计费流水(call_type in image/video + metadata.task_id),
  * 未退款过则把 costCents 原样退回组池或个人余额并打标记。
- * 失败容错:任何 db 错误只 log 并返回 refunded:false(主链路不受影响)。
+ * 失败容错:退款链路的任何异常都不外抛,主链路响应不受影响。
+ *
+ * F-34(2026-11-13):失败不再静默 —— 打标与加钱同事务(任一失败整笔回滚,永不留"已退款但钱没回"
+ * 的不可重试行),事务级有界重试 REFUND_MAX_ATTEMPTS 次;仍失败则把待补偿事实写进本行 metadata,
+ * 并如实返回 reason='error'|'exhausted'(调用方据此写退款 DLQ + 告警)。
  */
 export async function refundTaskCall(taskId: string): Promise<RefundTaskResult> {
-  try {
-    if (!taskId) return { refunded: false, refundedCents: 0, reason: 'no_log' }
-
-    // F-721(2026-11):原子抢占退款资格 —— 用 `UPDATE ... WHERE refunded=false RETURNING`
-    // 在主库一次性完成「判资格 + 打标」,避免原实现先 SELECT(走只读副本)再无条件 UPDATE、
-    // 最后才 markTaskRefunded 的非原子三段式导致并发/副本滞后双退。只有抢到 refunded 行锁
-    // 的那一次才真正退款,其余并发轮询命中 0 行 → 直接视作无退款,杜绝凭空增余额。
-    // F-660(2026-11):退款金额(分)必须回填 **成本余额列**(sharedCostBalanceCents /
-    // costBalanceCents),原实现误加到 token 余额列,导致钱没退、token 余额被虚增。
-    const [claimed] = await db
-      .update(llmCallLogs)
-      .set({
-        refunded: true,
-        metadata: sql`jsonb_set(COALESCE(${llmCallLogs.metadata},'{}'::jsonb), '{refunded}', 'true'::jsonb)`,
+  if (!taskId) return { refunded: false, refundedCents: 0, reason: 'no_log' }
+  let lastError = ''
+  for (let attempt = 1; attempt <= REFUND_MAX_ATTEMPTS; attempt++) {
+    try {
+      const outcome = await db.transaction((tx) => refundTaskCallOnce(tx, taskId))
+      if (outcome.kind === 'no_log') return { refunded: false, refundedCents: 0, reason: 'no_log' }
+      return { refunded: true, refundedCents: outcome.refundedCents, reason: 'ok' }
+    } catch (err) {
+      lastError = err instanceof Error ? err.message : String(err)
+      // 事务已回滚 ⇒ refunded 标记没落库,重试(或下一轮轮询)能再抢一次
+      logger.warn('[billing] 多模态退款事务失败(整笔回滚,可重试)', {
+        taskId,
+        attempt,
+        max: REFUND_MAX_ATTEMPTS,
+        error: lastError,
       })
+    }
+  }
+  return markRefundPending(taskId, lastError)
+}
+
+/** 事务句柄类型:与 api-subscription-service 同一取法,不自己拼 drizzle 内部类型。 */
+type RefundTx = Parameters<Parameters<typeof db.transaction>[0]>[0]
+
+/** 单次事务内的退款结论:no_log=没有可退的流水;ok=已退(金额可能为 0)。 */
+type RefundOnceOutcome = { kind: 'no_log' } | { kind: 'ok'; refundedCents: number }
+
+/** 单次事务:抢占退款资格 + 加钱必须同生共死(任一失败整体回滚)。 */
+async function refundTaskCallOnce(tx: RefundTx, taskId: string): Promise<RefundOnceOutcome> {
+  // F-721(2026-11):原子抢占退款资格 —— 用 `UPDATE ... WHERE refunded=false RETURNING`
+  // 在主库一次性完成「判资格 + 打标」,避免原实现先 SELECT(走只读副本)再无条件 UPDATE、
+  // 最后才 markTaskRefunded 的非原子三段式导致并发/副本滞后双退。只有抢到 refunded 行锁
+  // 的那一次才真正退款,其余并发轮询命中 0 行 → 直接视作无退款,杜绝凭空增余额。
+  // F-660(2026-11):退款金额(分)必须回填 **成本余额列**(sharedCostBalanceCents /
+  // costBalanceCents),原实现误加到 token 余额列,导致钱没退、token 余额被虚增。
+  const [claimed] = await tx
+    .update(llmCallLogs)
+    .set({
+      refunded: true,
+      metadata: sql`jsonb_set(COALESCE(${llmCallLogs.metadata},'{}'::jsonb), '{refunded}', 'true'::jsonb)`,
+    })
+    .where(
+      and(
+        sql`${llmCallLogs.metadata}->>'task_id' = ${taskId}`,
+        sql`${llmCallLogs.callType} in ('image','video')`,
+        eq(llmCallLogs.status, 'success'),
+        eq(llmCallLogs.refunded, false),
+        isNotNull(llmCallLogs.apiKeyId),
+      ),
+    )
+    .returning({
+      id: llmCallLogs.id,
+      apiKeyId: llmCallLogs.apiKeyId,
+      costCents: llmCallLogs.costCents,
+    })
+
+  if (!claimed) return { kind: 'no_log' }
+
+  // isNotNull 已保证运行时非空;列定义可空,这里做一次收窄断言。
+  const apiKeyId = claimed.apiKeyId as string
+  const cents = Math.max(0, claimed.costCents ?? 0)
+  if (cents <= 0) {
+    // 0 成本流水已打标记,无需动余额
+    return { kind: 'ok', refundedCents: 0 }
+  }
+
+  const groupInfo = await getKeyGroup(apiKeyId)
+  // F-34(2026-11-13):余额行不存在(组/Key 被删)不得报"退款成功" —— 钱实际没到账。
+  // returning 为空即视为失败,由外层回滚并计入待补偿。
+  const credited =
+    groupInfo && groupInfo.enabled
+      ? // 组池退款:-1(无限额度)不退,否则按成本分原额加回成本余额列
+        await tx
+          .update(apiKeyGroups)
+          .set({
+            sharedCostBalanceCents: sql`CASE WHEN ${apiKeyGroups.sharedCostBalanceCents} = -1 THEN -1 ELSE ${apiKeyGroups.sharedCostBalanceCents} + ${cents} END`,
+            updatedAt: new Date(),
+          })
+          .where(eq(apiKeyGroups.id, groupInfo.groupId))
+          .returning({ id: apiKeyGroups.id })
+      : // 个人余额退款:-1(无限额度)不退,否则按成本分原额加回成本余额列
+        await tx
+          .update(developerApiKeys)
+          .set({
+            costBalanceCents: sql`CASE WHEN ${developerApiKeys.costBalanceCents} = -1 THEN -1 ELSE ${developerApiKeys.costBalanceCents} + ${cents} END`,
+            updatedAt: new Date(),
+          })
+          .where(eq(developerApiKeys.id, apiKeyId))
+          .returning({ id: developerApiKeys.id })
+
+  if (!credited || credited.length === 0) {
+    throw new Error(
+      groupInfo && groupInfo.enabled
+        ? `退款目标组池不存在:group=${groupInfo.groupId}`
+        : `退款目标余额行不存在:apiKey=${apiKeyId}`,
+    )
+  }
+
+  logger.info('[billing] 多模态任务失败退款', { taskId, apiKeyId, cents })
+  return { kind: 'ok', refundedCents: cents }
+}
+
+/**
+ * 事务重试全部失败后的待补偿落库(F-34)。
+ *
+ * - 累计失败次数写 metadata.refund_attempts(下一轮读回来 +1,跨轮累计,不随事务回滚丢失);
+ * - 达 REFUND_MAX_ATTEMPTS 记 refund_pending_manual=true 并返回 exhausted(转人工);
+ * - 本函数自己绝不抛错:它已在"退款失败"的收尾路径上,再抛只会污染调用方响应。
+ */
+async function markRefundPending(taskId: string, lastError: string): Promise<RefundTaskResult> {
+  let rowId = ''
+  let attempts = 1
+  try {
+    const [row] = await db
+      .select({ id: llmCallLogs.id, metadata: llmCallLogs.metadata })
+      .from(llmCallLogs)
       .where(
         and(
           sql`${llmCallLogs.metadata}->>'task_id' = ${taskId}`,
           sql`${llmCallLogs.callType} in ('image','video')`,
-          eq(llmCallLogs.status, 'success'),
-          eq(llmCallLogs.refunded, false),
-          isNotNull(llmCallLogs.apiKeyId),
         ),
       )
-      .returning({
-        id: llmCallLogs.id,
-        apiKeyId: llmCallLogs.apiKeyId,
-        costCents: llmCallLogs.costCents,
-      })
-
-    if (!claimed) return { refunded: false, refundedCents: 0, reason: 'no_log' }
-
-    // isNotNull 已保证运行时非空;列定义可空,这里做一次收窄断言。
-    const apiKeyId = claimed.apiKeyId as string
-    const cents = Math.max(0, claimed.costCents ?? 0)
-    if (cents <= 0) {
-      // 0 成本流水已打标记,无需动余额
-      return { refunded: true, refundedCents: 0, reason: 'ok' }
+      .limit(1)
+    if (row) {
+      rowId = String(row.id)
+      const meta = (row.metadata ?? {}) as Record<string, unknown>
+      const prevRaw = Number(meta.refund_attempts ?? 0)
+      const prev = Number.isFinite(prevRaw) && prevRaw > 0 ? prevRaw : 0
+      attempts = prev + 1
     }
-
-    const groupInfo = await getKeyGroup(apiKeyId)
-    if (groupInfo && groupInfo.enabled) {
-      // 组池退款:-1(无限额度)不退,否则按成本分原额加回成本余额列
-      await db
-        .update(apiKeyGroups)
-        .set({
-          sharedCostBalanceCents: sql`CASE WHEN ${apiKeyGroups.sharedCostBalanceCents} = -1 THEN -1 ELSE ${apiKeyGroups.sharedCostBalanceCents} + ${cents} END`,
-          updatedAt: new Date(),
-        })
-        .where(eq(apiKeyGroups.id, groupInfo.groupId))
-    } else {
-      // 个人余额退款:-1(无限额度)不退,否则按成本分原额加回成本余额列
-      await db
-        .update(developerApiKeys)
-        .set({
-          costBalanceCents: sql`CASE WHEN ${developerApiKeys.costBalanceCents} = -1 THEN -1 ELSE ${developerApiKeys.costBalanceCents} + ${cents} END`,
-          updatedAt: new Date(),
-        })
-        .where(eq(developerApiKeys.id, apiKeyId))
-    }
-    logger.info('[billing] 多模态任务失败退款', { taskId, apiKeyId, cents })
-    return { refunded: true, refundedCents: cents, reason: 'ok' }
   } catch (err) {
-    logger.error('[billing] refundTaskCall failed', {
+    logger.error('[billing] 读取退款累计次数失败(按本轮 1 次计)', {
       taskId,
       error: err instanceof Error ? err.message : String(err),
     })
-    return { refunded: false, refundedCents: 0, reason: 'no_log' }
   }
+
+  const pendingManual = attempts >= REFUND_MAX_ATTEMPTS
+  const reason: RefundTaskResult['reason'] = pendingManual ? 'exhausted' : 'error'
+  if (!rowId) {
+    logger.error('[billing] 退款失败且定位不到计费流水(无法写待补偿)', { taskId, lastError })
+    return { refunded: false, refundedCents: 0, reason, attempts }
+  }
+  try {
+    await db
+      .update(llmCallLogs)
+      .set({
+        metadata: sql`COALESCE(${llmCallLogs.metadata}, '{}'::jsonb) || ${JSON.stringify({
+          refund_attempts: attempts,
+          refund_pending_manual: pendingManual,
+          refund_last_error: lastError.slice(0, 500),
+        })}::jsonb`,
+      })
+      .where(eq(llmCallLogs.id, rowId))
+  } catch (err) {
+    logger.error('[billing] 写退款待补偿标记失败(退款仍会在下次轮询重试)', {
+      taskId,
+      attempts,
+      error: err instanceof Error ? err.message : String(err),
+    })
+  }
+  logger.error('[billing] 多模态任务失败退款未完成(已记待补偿)', {
+    taskId,
+    reason,
+    attempts,
+    lastError,
+  })
+  return { refunded: false, refundedCents: 0, reason, attempts }
 }
 
 // =============================================================================
@@ -2400,7 +2405,8 @@ async function applySettlementDelta(
   const buildSet =
     (tokenCol: typeof developerApiKeys.tokenBalance | typeof apiKeyGroups.sharedTokenBalance) =>
     (
-      centsCol: typeof developerApiKeys.costBalanceCents | typeof apiKeyGroups.sharedCostBalanceCents,
+      centsCol:
+        typeof developerApiKeys.costBalanceCents | typeof apiKeyGroups.sharedCostBalanceCents,
     ) => {
       const tokenExpr =
         deltaTokens === 0

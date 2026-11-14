@@ -183,7 +183,8 @@ export default function Bill() {
     setPayingId(item.id)
     try {
       // 下单:金额元→分(orders.amount 单位分),orderType=9 学费,productId=报名ID
-      // arrears 可为带小数的元值,9.9*100=990.0000000000002 ⇒ 进支付单前必须 Math.round(对齐 CartScreen/PaymentScreen 范式)
+      // arrears 可为带小数的元值,9.9*100=990.0000000000002 ⇒ 进支付单前必须 Math.round(元→分);
+      // 与同族支付页(购物车结算/收银台)同一取整口径 —— 这里只借范式,本页不是那两屏的镜像。
       const res = (await wechatPay({
         amount: Math.round(due * 100),
         orderType: '9',
