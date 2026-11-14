@@ -8,6 +8,7 @@ import { Copy, Key, Plus, Trash2 } from 'lucide-react'
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { BackButton } from '@/components/common'
 import { formatCny } from '@/lib/display-currency'
+import { seedServerCurrency } from '@/lib/server-currency'
 
 /** i18n 静态映射表 — 用于消除 `t(`keys.statusLabels.${var}`)` 动态拼接 */
 const KEYS_STATUS_KEY: Record<string, string> = {
@@ -16,6 +17,8 @@ const KEYS_STATUS_KEY: Record<string, string> = {
 }
 
 export default async function KeysPage() {
+  // SSR 首帧按 cookie 口径 + 汇率快照直出(layout 与 page 模块实例隔离,必须逐页播种)
+  await seedServerCurrency()
   const t = await getTranslations('models')
 
   const keys = [
