@@ -561,4 +561,53 @@ export async function getProfitReport(args: {
     rows: rowsOf<Record<string, unknown>>(rowsRes).map(toProfitBucket),
   }
 }
+
+// =============================================================================
+// 8. backfillCostPrices 成本列回填(2026-11-14 立)
+// =============================================================================
+// 迁移 400 之后,历史模型行的 cost_* 仍为 null(售价有值但成本未知)。
+// 这里按 metadata.priceSource.profitFactor 一次性反推回填,幂等:
+// 只处理 cost_* 为空且 profitFactor>=1 的行,重复调用不会覆盖已有值。
+// 人工调价/sweep 之后的成本列由写入路径直接维护,不依赖本函数。
+
+export interface CostBackfillResult {
+  /** 待处理候选(成本为空的模型行) */
+  scanned: number
+  /** 本次回填行数 */
+  updated: number
+  /** 候选里缺 profitFactor、无法反推的行数 */
+  skipped: number
+}
+
+export async function backfillCostPrices(): Promise<CostBackfillResult> {
+  const scanRes = await db.execute(sql`
+    select count(*)::int as n
+    from ai_model_config_models
+    where cost_input_price_per_1k is null or cost_output_price_per_1k is null
+  `)
+  const scanned = asNum(rowsOf<{ n: number }>(scanRes)[0]?.n)
+
+  const updatedRes = await db.execute(sql`
+    with src as (
+      select id,
+             input_price_per_1k,
+             output_price_per_1k,
+             nullif(metadata->'priceSource'->>'profitFactor', '')::numeric as pf
+      from ai_model_config_models
+      where (cost_input_price_per_1k is null or cost_output_price_per_1k is null)
+        and metadata ? 'priceSource'
+    )
+    update ai_model_config_models m
+    set cost_input_price_per_1k = round(s.input_price_per_1k / s.pf, 6),
+        cost_output_price_per_1k = round(s.output_price_per_1k / s.pf, 6),
+        updated_at = now()
+    from src s
+    where m.id = s.id
+      and s.pf is not null
+      and s.pf >= 1
+    returning m.id
+  `)
+  const updated = rowsOf<Record<string, unknown>>(updatedRes).length
+  return { scanned, updated, skipped: Math.max(0, scanned - updated) }
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
