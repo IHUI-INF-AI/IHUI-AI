@@ -33,6 +33,7 @@ import {
 } from '@/hooks/use-subagent-dispatch'
 import { toast } from '@/components/common'
 import { cn } from '@/lib/utils'
+import { buildPlanRevisionPrompt } from '@/lib/plan-revision'
 
 // W10 孤儿组件总接线(2026-09-13 立):以下组件均已建未接线,本容器 tab 化统一挂载。
 import { PlanReviewPanel } from '@/components/ai/plan-review-panel'
@@ -550,6 +551,14 @@ export function AiSidePanelTools() {
         return latestPlan.length > 0 ? (
           <PlanReviewPanel
             plan={{ steps: latestPlan.map((s) => ({ id: s.id, description: s.step })) }}
+            onRevise={(feedback) => {
+              // 评审意见作为同会话下一条用户消息发回:planSteps 没有 plan_id,
+              // 走不了 /agent-plan/{id}/decision,草稿通道是这条数据面唯一闭环
+              chatStore.setState({
+                draftInput: buildPlanRevisionPrompt(feedback),
+                draftAutoSend: true,
+              })
+            }}
           />
         ) : (
           emptyHint
