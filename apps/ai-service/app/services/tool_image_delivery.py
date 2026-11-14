@@ -35,6 +35,9 @@ MAX_IMAGE_PIXELS = 50_000_000
 IMAGE_STASH_KEYS = 8
 #: 暂存寿命:循环在同一轮内取走;跨轮残留 10 分钟后自动过期
 IMAGE_STASH_TTL_S = 600.0
+#: 聊天卡片缩略图的最长边与 JPEG 质量(g12:只服务前端可见性,追求体积小)
+PREVIEW_MAX_EDGE = 320
+PREVIEW_JPEG_QUALITY = 70
 
 IMAGE_EXTENSIONS: dict[str, str] = {
     ".png": "image/png",
@@ -217,9 +220,35 @@ def _encode_image(
         "height": encoded.height,
         "source_width": encoded.source_width,
         "source_height": encoded.source_height,
+        "preview": _preview_data_url(encoded.bytes),
         "path": path_label,
         "name": name,
     }, None
+
+
+def _preview_data_url(raw: bytes) -> str:
+    """生成聊天卡片用的缩略图 data URL(最长边 ≤PREVIEW_MAX_EDGE 的 JPEG)。
+
+    只经 SSE 事件顶层下发给前端(不进模型 tool 正文/vision 消息),因此可以放心
+    压到 320px/q70(通常 10-25KB)。透明图铺白底(RGB JPEG 无 alpha 通道)。
+    预览是旁路能力:任何失败都静默返回 ""(不能因缩略图把 read_image 变成失败)。
+    """
+    try:
+        import base64
+        import io
+
+        from PIL import Image
+
+        with Image.open(io.BytesIO(raw)) as img:
+            rgba = img.convert("RGBA")
+        rgba.thumbnail((PREVIEW_MAX_EDGE, PREVIEW_MAX_EDGE))
+        canvas = Image.new("RGB", rgba.size, (255, 255, 255))
+        canvas.paste(rgba, mask=rgba.getchannel("A"))
+        buffer = io.BytesIO()
+        canvas.save(buffer, format="JPEG", quality=PREVIEW_JPEG_QUALITY, optimize=True)
+        return "data:image/jpeg;base64," + base64.b64encode(buffer.getvalue()).decode("ascii")
+    except Exception:  # noqa: BLE001 - 预览失败不影响交付主链
+        return ""
 
 
 def stash_image(prepared: dict[str, Any]) -> str:
@@ -263,6 +292,21 @@ def collect_image_ids(results: list[Any]) -> list[str]:
         if isinstance(content_id, str) and content_id:
             ids.append(content_id)
     return ids
+
+
+def peek_image_preview(result: Any) -> str:
+    """看一眼该工具结果对应图片的缩略图(不消费、不续期);取不到返回 ""。
+
+    与 `take_images` 的分工:`take_images` 是模型 vision 注入的唯一消费方(读取即
+    弹出);本函数只服务前端卡片预览,必须在 pop 之前调用,否则条目已被取走。
+    """
+    for content_id in collect_image_ids([result]):
+        item = _PENDING.peek(content_id)
+        if isinstance(item, dict):
+            preview = item.get("preview")
+            if isinstance(preview, str) and preview:
+                return preview
+    return ""
 
 
 def format_image_envelope(item: dict[str, Any]) -> str:

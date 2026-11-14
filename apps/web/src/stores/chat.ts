@@ -132,6 +132,9 @@ export interface ToolCall extends BaseToolCall {
   /** L5-8 工具瞬时失败自动重试次数(>0 时 ToolCallCard 渲染"重试N次"徽章)。
    * 数据源:后端 tool-call-start/result 事件携带则透传;暂未下发时恒 undefined,徽章不显示。 */
   retryCount?: number
+  /** g12(2026-11-15):read_image 的缩略图 data URL(SSE tool-result 事件顶层)。
+   * 仅供卡片内预览(点击新窗看大图),不持久、不参与模型上下文。 */
+  image_preview?: string
 }
 
 /** 消息级 Token 用量与计时/计费(D1 消息级计量徽章,2026-09-19 立)。
