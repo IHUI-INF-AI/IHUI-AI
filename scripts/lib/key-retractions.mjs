@@ -25,6 +25,7 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { execFileSync } from 'node:child_process'
 import { gitBinary } from './face-reader.mjs'
+import { isRetiredRecord } from './ledger-retirement.mjs'
 
 const ROOT = fileURLToPath(new URL('../..', import.meta.url))
 
@@ -126,25 +127,37 @@ export function readRetractions(face = 'head', root = ROOT) {
 }
 
 /**
- * 把台账分成三桶:成立(可免)/ 不成立(不免,逐条点名)/ 坏行(读不出来)。
- * 桶的划分不看"像不像",只看 retractionValidity 与 parse 的坏行集 ⇒ 一张表三态,
+ * 把台账分成四桶:成立(可免)/ 授权退休(裁决已结清,不免除任何对照)/ 不成立(不免,逐条点名)/ 坏行(读不出来)。
+ * 桶的划分不看"像不像",只看 retractionValidity 与 parse 的坏行集 ⇒ 一张表多态,
  * 任何一格取不到都不会被折成"没问题"。
- * @returns {{active: Set<string>, refused: {id: string, why: string}[], bad: {raw: string, why: string}[], total: number}}
+ *
+ * 退休行(2026-11-15 补格,治 retractRot 自锁):一条撤除被核实"现在不免除任何东西"
+ * (键已补回 / 页已改承载形 / 三元组对不上)时,出路是**标记退休**(ledger-retirement 的
+ * 五个 retired* 标记),不是删行。退休 = 裁决已结清 ⇒ 既不进 active(不再免除对照,
+ * rot 自然归零)、也不进 refused(它不是"登记不成立",而是"结清了"),单列 retired 桶
+ * 让 retractionRot 识别它。否则判据永远把这枚合法退休读成腐烂,逼人伪造到期或跳门(§0.7)。
+ * @returns {{active: Set<string>, retired: Set<string>, refused: {id: string, why: string}[], bad: {raw: string, why: string}[], total: number}}
  */
 export function indexRetractions(rows, bad = []) {
   const active = new Set()
+  const retired = new Set()
   const refused = []
   for (const r of rows || []) {
-    const why = retractionValidity(r)
     const id =
       r && typeof r.page === 'string' && typeof r.spec === 'string' && typeof r.key === 'string'
         ? retractionId(r)
         : null
+    // 授权退休优先于 validity:退休行即使 expires 未到也算结清,不进 active(不免除对照)。
+    if (isRetiredRecord(r)) {
+      if (id !== null) retired.add(id)
+      continue
+    }
+    const why = retractionValidity(r)
     if (why) refused.push({ id: id ?? `${r?.page ?? '?'}|${r?.spec ?? '?'}|${r?.key ?? '?'}`, why })
     else if (!active.has(id)) active.add(id)
     else refused.push({ id, why: '同键重复登记(后一条不扩覆盖面,只让台账读起来像有两档裁决)' })
   }
-  return { active, refused, bad: [...bad], total: (rows || []).length }
+  return { active, retired, refused, bad: [...bad], total: (rows || []).length }
 }
 
 /** 序列化:一行一 JSON,键序固定。 */
