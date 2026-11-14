@@ -793,6 +793,7 @@ export function SidebarChatHistory({
   const exportRoleLabel: ExportRoleLabel = {
     user: te('roleUser'),
     assistant: te('roleAssistant'),
+    toolCalls: te('roleToolCalls'),
   }
 
   // 导出/分享动作:按会话 ID 拉全量消息后本地生成,不依赖面板当前加载的会话

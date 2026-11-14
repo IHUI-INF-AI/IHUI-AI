@@ -224,7 +224,8 @@ node scripts/guardian-runner.mjs --staged     # pre-commit 全批
 node scripts/check-gate-wiring.mjs            # 「门造好了但没装车」对账
 ```
 新增一道门**必须**用 `node scripts/gate-registry-insert.mjs`(自己取空闲号、自己保住别人的注册块),
-不得手填编号;并同步在 `AGENTS.md` 点名。守门全表、执行语义与补登台账见
+不得手填编号;并同步在 `AGENTS.md` 点名。
+**缺陷普查快照新鲜度**由 `check-findings-freshness` 判(八份 findings survey 快照的过期警告与基线一致性;过期即红)。守门全表、执行语义与补登台账见
 [`readme-06`](./docs/engineering/readme-06-security-observability-gates.md)。
 **版本号漂移守门** `scripts/check-version-drift.mjs`(已接 `ci.yml`):判据不是"版本号是多少",
 而是**每个对外可见的版本号都必须可追溯到某个源头** —— A 桌面 `tauri.conf.json` 与

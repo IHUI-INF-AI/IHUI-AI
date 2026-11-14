@@ -14,15 +14,20 @@ vi.mock('@ihui/api-client', async (importOriginal) => {
 })
 
 import { getMessages, exportConversationZip } from '@ihui/api-client'
-import {
-  copyConversationMarkdown,
-  downloadConversationZip,
-} from '../conversation-export'
+import { copyConversationMarkdown, downloadConversationZip } from '../conversation-export'
 
 const mockedGetMessages = vi.mocked(getMessages)
 const mockedZip = vi.mocked(exportConversationZip)
 
-function pageOf(messages: Array<{ id: string; role: string; content: string }>) {
+function pageOf(
+  messages: Array<{
+    id: string
+    role: string
+    content: string
+    reasoning?: string
+    metadata?: Record<string, unknown>
+  }>,
+) {
   return {
     success: true as const,
     data: { messages, total: messages.length },
@@ -69,6 +74,39 @@ describe('会话导出:复制 Markdown / ZIP', () => {
     expect(copied).toContain('## 用户')
     expect(copied).toContain('## 助手')
     expect(copied).toContain('答案')
+  })
+
+  it('复制 Markdown 带上 metadata.toolCalls 工具小节', async () => {
+    mockedGetMessages.mockResolvedValue(
+      pageOf([
+        { id: 'u1', role: 'user', content: '跑测试' },
+        {
+          id: 'a1',
+          role: 'assistant',
+          content: '完成',
+          metadata: {
+            toolCalls: [
+              {
+                id: 't1',
+                toolName: 'run_command',
+                status: 'success',
+                args: { command: 'npm test' },
+                result: '26 passed',
+              },
+            ],
+          },
+        },
+      ]) as never,
+    )
+    const done = await copyConversationMarkdown('c1', '会话标题', {
+      user: '用户',
+      assistant: '助手',
+    })
+    expect(done).toBe(true)
+    const copied = writeText.mock.calls[0]?.[0] ?? ''
+    expect(copied).toContain('### 工具调用')
+    expect(copied).toContain('run_command')
+    expect(copied).toContain('26 passed')
   })
 
   it('无消息时不写剪贴板', async () => {

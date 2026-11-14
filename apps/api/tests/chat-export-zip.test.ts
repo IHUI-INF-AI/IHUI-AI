@@ -15,6 +15,7 @@ import {
   buildConversationMarkdown,
   buildConversationMessagesJson,
   isExportableMessage,
+  normalizeExportToolCalls,
   sanitizeExportTitle,
   type ConversationExportMessage,
 } from '@ihui/shared/chat/conversation-export'
@@ -82,6 +83,8 @@ function message(partial: Partial<ConversationExportMessage> = {}): Conversation
     content: partial.content ?? '你好',
     createdAt: partial.createdAt ?? '2026-11-14T08:00:00.000Z',
     model: partial.model ?? null,
+    ...(partial.reasoning !== undefined ? { reasoning: partial.reasoning } : {}),
+    ...(partial.toolCalls !== undefined ? { toolCalls: partial.toolCalls } : {}),
   }
 }
 
@@ -231,6 +234,81 @@ describe('会话导出共享序列化', () => {
     })
   })
 
+  it('Markdown 追加工具调用小节并保留结果尾部', () => {
+    const longResult = `${'头'.repeat(400)}…${'尾'.repeat(100)}`
+    const markdown = buildConversationMarkdown(
+      '会话',
+      [
+        message({
+          id: 'a1',
+          role: 'assistant',
+          content: '答案',
+          toolCalls: [
+            {
+              name: 'run_command',
+              status: 'success',
+              args: { command: 'npm test' },
+              result: longResult,
+            },
+          ],
+        }),
+      ],
+      { user: '用户', assistant: '助手' },
+    )
+    expect(markdown).toContain('### 工具调用')
+    expect(markdown).toContain('`run_command` (success)')
+    expect(markdown).toContain('npm test')
+    expect(markdown).toContain('尾尾尾')
+    expect(markdown).toContain('[省略 1 字符]')
+  })
+
+  it('messages.json 携带 reasoning / toolCalls,且只有工具轮的 assistant 不被丢弃', () => {
+    expect(
+      isExportableMessage({ role: 'assistant', content: '', toolCalls: [{ name: 'read_file' }] }),
+    ).toBe(true)
+    expect(isExportableMessage({ role: 'assistant', content: '', reasoning: '思考' })).toBe(true)
+    expect(isExportableMessage({ role: 'assistant', content: '', toolCalls: [] })).toBe(false)
+
+    const json = JSON.parse(
+      buildConversationMessagesJson(
+        '会话',
+        [
+          message({
+            id: 'a1',
+            role: 'assistant',
+            content: '',
+            reasoning: '先看文件',
+            toolCalls: [{ name: 'read_file', status: 'success', result: 'ok' }],
+          }),
+        ],
+        '2026-11-14T08:00:00.000Z',
+      ),
+    ) as { schemaVersion: number; messageCount: number; messages: Array<Record<string, unknown>> }
+    expect(json.schemaVersion).toBe(2)
+    expect(json.messageCount).toBe(1)
+    expect(json.messages[0]).toMatchObject({
+      role: 'assistant',
+      reasoning: '先看文件',
+      toolCalls: [{ name: 'read_file', status: 'success', result: 'ok' }],
+    })
+  })
+
+  it('normalizeExportToolCalls 接受落库 loose 形态并跳过畸形项', () => {
+    expect(
+      normalizeExportToolCalls([
+        null,
+        { id: 'x' },
+        { toolName: 'read_file', status: 'success', args: { path: 'a' }, result: 'ok' },
+        { name: 'web_search', isError: true, durationMs: 12 },
+        { toolName: '', status: 'success' },
+      ]),
+    ).toEqual([
+      { name: 'read_file', status: 'success', args: { path: 'a' }, result: 'ok' },
+      { name: 'web_search', isError: true, durationMs: 12 },
+    ])
+    expect(normalizeExportToolCalls({ not: 'array' })).toEqual([])
+  })
+
   it('manifest 统计与首末消息时间', () => {
     const manifest = buildConversationExportManifest({
       conversationId: 'c1',
@@ -241,11 +319,16 @@ describe('会话导出共享序列化', () => {
       updatedAt: '2026-11-14T08:30:00.000Z',
       messages: [
         message({ id: 'u1', role: 'user', createdAt: '2026-11-14T08:00:00.000Z' }),
-        message({ id: 'a1', role: 'assistant', content: '答', createdAt: '2026-11-14T08:10:00.000Z' }),
+        message({
+          id: 'a1',
+          role: 'assistant',
+          content: '答',
+          createdAt: '2026-11-14T08:10:00.000Z',
+        }),
         message({ id: 's1', role: 'system', content: '系统' }),
       ],
     })
-    expect(manifest.schemaVersion).toBe(1)
+    expect(manifest.schemaVersion).toBe(2)
     expect(manifest.messageCount).toBe(2)
     expect(manifest.userMessageCount).toBe(1)
     expect(manifest.assistantMessageCount).toBe(1)
@@ -253,12 +336,16 @@ describe('会话导出共享序列化', () => {
     expect(manifest.lastMessageAt).toBe('2026-11-14T08:10:00.000Z')
     expect(manifest.model).toBe('deepseek-chat')
     expect(manifest.files).toEqual(['conversation.md', 'messages.json', 'manifest.json'])
-    expect(JSON.parse(buildConversationExportManifestJson({
-      conversationId: 'c1',
-      title: '会话',
-      exportedAt: '2026-11-14T09:00:00.000Z',
-      messages: [],
-    })).messageCount).toBe(0)
+    expect(
+      JSON.parse(
+        buildConversationExportManifestJson({
+          conversationId: 'c1',
+          title: '会话',
+          exportedAt: '2026-11-14T09:00:00.000Z',
+          messages: [],
+        }),
+      ).messageCount,
+    ).toBe(0)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
