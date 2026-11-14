@@ -116,6 +116,12 @@ export const useSubagentDispatchStore = create<SubagentDispatchState>((set, get)
       if (r.success && r.data?.topology) {
         set({ topology: r.data.topology })
       }
+    } catch (err) {
+      // Y-84:本函数被调用点以 `void get().refreshTopology()` 触发(见上方 72/100 行),
+      // 函数体若只有 try/finally 无 catch,fetchApi reject(网络/401/超时)会把
+      // 未处理 rejection 打穿调用方。这里兜住并记 warn;拓扑保持上一次快照(EMPTY 或旧值),
+      // 调用方在错误横幅之外仍有可用 UI,不因一次刷新失败崩。
+      console.warn('subagent-dispatch: 拓扑刷新失败(保留上一次快照)', err)
     } finally {
       set({ isRefreshingTopology: false })
     }

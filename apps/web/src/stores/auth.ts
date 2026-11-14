@@ -27,6 +27,10 @@ import {
 import { createPersistConfig, ssrStorage } from './persist-helpers'
 import { createAuthPersistStorage } from '@/lib/chat-persist-crypto'
 import type { PersistStorage } from 'zustand/middleware'
+// Y-91/94/95/106/107/108/109/110/111/112 根治:登出/被动失效时统一清私有持久化
+// (盘上 key + 内存态)。依赖方向 auth→session-private-reset→各私有 store,无环
+// (各私有 store 均不 import auth,persist-helpers 也不反向依赖 auth)。
+import { resetPrivateSessionState } from './session-private-reset'
 
 /** 与共享层 @ihui/api-client AuthUser 完全一致,确保 5 端用户类型统一 */
 export type AuthUser = ApiAuthUser
@@ -207,6 +211,11 @@ export const useAuthStore = create<AuthState>()(
         // 刷新页面后再登出时 rt 取不到 ⇒ 不调 /auth/logout ⇒ 服务端那份 cookie 仍有效,
         // 冷启动的静默刷新就会把刚点过退出的用户登回去。这条持久标记是客户端唯一的出口。
         markSessionLoggedOut()
+        // Y-91/94/95/106~112 根治:私有持久化清收口**最先同步执行**,必须在下面任何 await
+        // (后端吊销 / 桌面 vault 处置)之前 —— 等待期间组件仍可能 set,清晚了会被写回。
+        // 同时清盘上 key + 重置内存态:登出后是 SPA 内开登录弹窗、不 reload,只清盘会被
+        // 已挂载 store 的下一次 set 重新写回,故内存态必须一并归零。
+        resetPrivateSessionState()
         const { refreshToken } = get()
         // P2-18:httpOnly cookie 由后端管理,登出必须调后端接口(响应清 cookie);
         // 内存有 refreshToken 时携带 body 吊销,后端同时 clearAuthCookies。
@@ -238,6 +247,9 @@ export const useAuthStore = create<AuthState>()(
       expireSession: () => {
         // 被动失效:不写标记、不调 /auth/logout(凭据已被服务端否定,再吊销一次没有意义),
         // 也不清此前的标记 —— 若用户此前显式登出过,那份抑制必须继续有效。
+        // Y-91/94/95/106~112:被动失效同样换人 ⇒ 与 logout 同一口清私有持久化(盘+内存),
+        // 先同步清再处置凭据,避免等待期间被写回。
+        resetPrivateSessionState()
         const knownRefresh = get().refreshToken
         // 服务端明确否定凭据 ⇒ 也别再让下次冷启动为一份死 cookie 空转一次 refresh。
         clearSessionEstablished()
