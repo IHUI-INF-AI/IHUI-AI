@@ -314,7 +314,7 @@ export default function AskCreatePage() {
 
         {/* 分类选择弹层 */}
         {showCategorySheet ? (
-          <View className="ask-create-mask" onClick={() => setShowCategorySheet(false)}>
+          <View className="ask-create-mask" onClick={() => setShowCategorySheet(false)} catchMove>
             <View
               className="ask-create-sheet"
               catchMove
