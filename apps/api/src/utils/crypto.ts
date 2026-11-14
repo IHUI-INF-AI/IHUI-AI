@@ -143,7 +143,7 @@ export function decryptCredential(stored: string): string {
   if (parts.length !== 3) {
     throw new Error('凭据密文格式非法:字段数不为 3,拒绝按明文处理')
   }
-  const [ivB64, tagB64, ciphertextB64] = parts
+  const [ivB64, tagB64, ciphertextB64] = parts as [string, string, string]
   const key = getKey()
   const decipher = createDecipheriv(ALGORITHM, key, Buffer.from(ivB64, 'base64'))
   decipher.setAuthTag(Buffer.from(tagB64, 'base64'))

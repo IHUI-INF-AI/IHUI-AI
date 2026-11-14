@@ -4,7 +4,7 @@
 
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
-import { eq, and, desc, sql, or, ilike } from 'drizzle-orm'
+import { eq, and, desc, sql, ilike } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
 import { checkAuth } from '../plugins/auth.js'
@@ -189,21 +189,23 @@ export const authIdentityRoutes: FastifyPluginAsync = async (server) => {
     const conds = []
     if (status) conds.push(eq(userAuthInfo.authStatus, status))
     if (keyword) {
-      conds.push(
-        or(
-          ilike(userAuthInfo.realName, `%${keyword}%`),
-          ilike(userAuthInfo.idCard, `%${keyword}%`),
-        ),
-      )
+      // idCard 为密文列，模糊搜索永远为空，只按 realName 过滤。
+      conds.push(ilike(userAuthInfo.realName, `%${keyword}%`))
     }
 
-    const list = await db
+    const rows = await db
       .select()
       .from(userAuthInfo)
       .where(conds.length ? and(...conds) : undefined)
       .orderBy(desc(userAuthInfo.updatedAt))
       .limit(pageSize)
       .offset((page - 1) * pageSize)
+
+    // 本路由 skipResponseSanitization，必须先解密再返回，否则后台看到的是整段密文。
+    const list = rows.map((row) => ({
+      ...row,
+      idCard: row.idCard ? decryptField(row.idCard) : null,
+    }))
 
     const countRows = await db
       .select({ count: sql<number>`count(*)::int` })

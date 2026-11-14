@@ -31,6 +31,7 @@ import {
   type LearnHomeworkRecord,
   type LearnCommunityPost,
 } from '@ihui/database'
+import { encryptInvoiceTitleFields, decryptInvoiceTitleFields } from '../utils/pii-field.js'
 
 // =============================================================================
 // Homework (课程作业)
@@ -293,11 +294,12 @@ export async function updateInvoiceApplicationStatus(
  * 查询某用户的发票抬头列表,默认抬头优先,按 createdAt 倒序。
  */
 export async function findInvoiceTitleList(userId: string): Promise<LearnInvoiceTitle[]> {
-  return db
+  const rows = await db
     .select()
     .from(learnInvoiceTitles)
     .where(eq(learnInvoiceTitles.userId, userId))
     .orderBy(desc(learnInvoiceTitles.isDefault), desc(learnInvoiceTitles.createdAt))
+  return rows.map((r) => decryptInvoiceTitleFields(r))
 }
 
 export async function findInvoiceTitleById(id: string): Promise<LearnInvoiceTitle | undefined> {
@@ -306,7 +308,9 @@ export async function findInvoiceTitleById(id: string): Promise<LearnInvoiceTitl
     .from(learnInvoiceTitles)
     .where(eq(learnInvoiceTitles.id, id))
     .limit(1)
-  return rows[0]
+  const row = rows[0]
+  if (!row) return undefined
+  return decryptInvoiceTitleFields(row)
 }
 
 export interface CreateInvoiceTitleInput {
@@ -331,23 +335,26 @@ export async function createInvoiceTitle(
       .set({ isDefault: false })
       .where(eq(learnInvoiceTitles.userId, data.userId))
   }
+  const pii = encryptInvoiceTitleFields({
+    taxNo: data.taxNo,
+    bank: data.bank,
+    bankAccount: data.bankAccount,
+    address: data.address,
+    phone: data.phone,
+  })
   const rows = await db
     .insert(learnInvoiceTitles)
     .values({
       userId: data.userId,
       title: data.title,
       type: data.type,
-      taxNo: data.taxNo,
-      bank: data.bank,
-      bankAccount: data.bankAccount,
-      address: data.address,
-      phone: data.phone,
+      ...pii,
       isDefault: data.isDefault,
     })
     .returning()
   const row = rows[0]
   if (!row) throw new Error('创建发票抬头失败')
-  return row
+  return decryptInvoiceTitleFields(row)
 }
 
 export interface UpdateInvoiceTitleInput {
@@ -375,22 +382,30 @@ export async function updateInvoiceTitle(
         .where(eq(learnInvoiceTitles.userId, existing.userId))
     }
   }
+  const pii = encryptInvoiceTitleFields({
+    taxNo: data.taxNo,
+    bank: data.bank,
+    bankAccount: data.bankAccount,
+    address: data.address,
+    phone: data.phone,
+  })
   const rows = await db
     .update(learnInvoiceTitles)
     .set({
       ...(data.title !== undefined ? { title: data.title } : {}),
       ...(data.type !== undefined ? { type: data.type } : {}),
-      ...(data.taxNo !== undefined ? { taxNo: data.taxNo } : {}),
-      ...(data.bank !== undefined ? { bank: data.bank } : {}),
-      ...(data.bankAccount !== undefined ? { bankAccount: data.bankAccount } : {}),
-      ...(data.address !== undefined ? { address: data.address } : {}),
-      ...(data.phone !== undefined ? { phone: data.phone } : {}),
+      ...(pii.taxNo !== undefined ? { taxNo: pii.taxNo } : {}),
+      ...(pii.bank !== undefined ? { bank: pii.bank } : {}),
+      ...(pii.bankAccount !== undefined ? { bankAccount: pii.bankAccount } : {}),
+      ...(pii.address !== undefined ? { address: pii.address } : {}),
+      ...(pii.phone !== undefined ? { phone: pii.phone } : {}),
       ...(data.isDefault !== undefined ? { isDefault: data.isDefault } : {}),
       updatedAt: new Date(),
     })
     .where(eq(learnInvoiceTitles.id, id))
     .returning()
-  return rows[0]
+  const row = rows[0]
+  return row ? decryptInvoiceTitleFields(row) : undefined
 }
 
 export async function deleteInvoiceTitle(id: string): Promise<void> {
