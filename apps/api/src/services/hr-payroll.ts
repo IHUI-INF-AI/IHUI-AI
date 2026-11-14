@@ -2,10 +2,11 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { and, eq, isNull, lte, or, gte, sql } from 'drizzle-orm'
+import { and, desc, eq, isNull, lte, or, gte, sql } from 'drizzle-orm'
 
 import {
   hrAttendanceMonthly,
+  hrDepartment,
   hrEmployee,
   hrEmployeeTaxProfile,
   hrInsuranceRateConfig,
@@ -571,10 +572,152 @@ export async function revertPayrollCalculation(params: {
   return { skipped: false, deletedItems: deleted.length }
 }
 
+// ── 人事部→财务部 AI 交割(2026-11-13 立)──────────────────────────────────
+// 打通「算薪(人事)→记账(财务)」。approved 是状态机里人事→财务的自然交割点:
+// 计算引擎已把应发/代扣/实发逐项算清,交割只需按标准会计口径汇总成借贷平衡的
+// 工资凭证,供财务 AI 代账直接消化。**纯产出、不落库**——是否入账由财务侧定,
+// 符合财务审账纪律;本函数不写任何表。
+
+/** 交割凭证分录一行(扁平结构,供财务代账逐条消化):组别 + 科目 + 方向 + 金额。 */
+export interface PayrollVoucherEntry {
+  /** 计提 / 发放 */
+  group: string
+  account: string
+  /** 借 / 贷 */
+  direction: string
+  amount: string
+}
+
+/** 完整工资交割凭证:两组分录(扁平) + 汇总 + 总平衡标记。 */
+export interface PayrollHandoffVoucher {
+  periodMonth: string
+  /** 周期状态(交割点 = approved) */
+  periodStatus: string
+  /** 该月工资单人数(参与汇总的员工数) */
+  headcount: number
+  entries: PayrollVoucherEntry[]
+  totals: {
+    grossPay: string
+    netPay: string
+    insurancePersonal: string
+    housingFundPersonal: string
+    incomeTax: string
+  }
+  /** 总平衡 = 计提/发放两组各自借贷相等(逐组已校验,差值≠0 报错不硬配平) */
+  balanced: boolean
+}
+
+/** 数字累加汇总后 round2,防浮点尾差,回字符串(Decimal 落库口径)。 */
+function round2Sum(values: number[]): string {
+  const total = values.reduce((acc, v) => acc + v, 0)
+  return (Math.round(total * 100) / 100).toFixed(2)
+}
+
+/**
+ * 构建某月薪资的财务交割凭证(标准会计口径,借贷平衡)。
+ *
+ * 只读该月 approved 周期的工资单汇总产出两组分录(扁平 entries,组别中文):
+ *   计提:借 管理费用(=Σ应发) / 贷 应付职工薪酬(=Σ应发)
+ *   发放:借 应付职工薪酬(=Σ应发) / 贷 银行存款(=Σ实发) + 贷 其他应付款—社保个人
+ *        + 贷 其他应付款—公积金个人 + 贷 应交税费—应交个人所得税
+ * 逐组校验借贷平衡,差值≠0 抛错不硬配平(宁可不交割,不交一本错账)。
+ * 非 approved 周期拒绝(PAYROLL_NOT_APPROVED);未算薪 404;空明细 409。
+ * **纯产出、不落库**:不写任何表,是否入账由财务侧定。
+ */
+export async function buildPayrollHandoffVoucher(
+  periodMonth: string,
+): Promise<PayrollHandoffVoucher> {
+  const [period] = await db
+    .select({ id: hrPayrollPeriod.id, status: hrPayrollPeriod.status })
+    .from(hrPayrollPeriod)
+    .where(eq(hrPayrollPeriod.periodMonth, periodMonth))
+    .limit(1)
+  if (!period) {
+    throw new AppError('该月尚未算薪,无法生成交割凭证', 404, 'PAYROLL_PERIOD_NOT_FOUND')
+  }
+  // approved 是人事→财务的自然交割点:draft/calculated 账未定,paid 已发放过头
+  if (period.status !== 'approved') {
+    throw new AppError(
+      `该月薪资周期状态为 ${period.status},仅 approved(已财务审批)可交割`,
+      409,
+      'PAYROLL_NOT_APPROVED',
+    )
+  }
+
+  const items = await listPayrollItems(periodMonth)
+  if (items.length === 0) {
+    throw new AppError('该月无工资单明细,无法生成交割凭证', 409, 'PAYROLL_NO_ITEMS')
+  }
+
+  const toNum = (s: string) => Number(s) || 0
+  const totals = {
+    grossPay: round2Sum(items.map((it) => toNum(it.grossPay))),
+    netPay: round2Sum(items.map((it) => toNum(it.netPay))),
+    insurancePersonal: round2Sum(items.map((it) => toNum(it.insurancePersonal))),
+    housingFundPersonal: round2Sum(items.map((it) => toNum(it.housingFundPersonal))),
+    incomeTax: round2Sum(items.map((it) => toNum(it.incomeTax))),
+  }
+
+  // 计提:借 管理费用 / 贷 应付职工薪酬,两边都 = Σ应发
+  const entries: PayrollVoucherEntry[] = [
+    { group: '计提', account: '管理费用', direction: '借', amount: totals.grossPay },
+    { group: '计提', account: '应付职工薪酬', direction: '贷', amount: totals.grossPay },
+  ]
+  // 发放:借 应付职工薪酬 / 贷 银行存款 + 三项代扣
+  entries.push(
+    { group: '发放', account: '应付职工薪酬', direction: '借', amount: totals.grossPay },
+    { group: '发放', account: '银行存款', direction: '贷', amount: totals.netPay },
+    {
+      group: '发放',
+      account: '其他应付款—社保个人',
+      direction: '贷',
+      amount: totals.insurancePersonal,
+    },
+    {
+      group: '发放',
+      account: '其他应付款—公积金个人',
+      direction: '贷',
+      amount: totals.housingFundPersonal,
+    },
+    {
+      group: '发放',
+      account: '应交税费—应交个人所得税',
+      direction: '贷',
+      amount: totals.incomeTax,
+    },
+  )
+
+  // 逐组校验借贷平衡,差值≠0 抛错不硬配平——交割的是真金白银,不交一本错账
+  const assertGroupBalanced = (group: string): void => {
+    const g = entries.filter((e) => e.group === group)
+    const debit = round2Sum(g.filter((e) => e.direction === '借').map((e) => toNum(e.amount)))
+    const credit = round2Sum(g.filter((e) => e.direction === '贷').map((e) => toNum(e.amount)))
+    if (debit !== credit) {
+      throw new AppError(
+        `${group}分录借贷不平衡(借 ${debit} / 贷 ${credit}),请核对工资单`,
+        500,
+        'VOUCHER_UNBALANCED',
+      )
+    }
+  }
+  assertGroupBalanced('计提')
+  assertGroupBalanced('发放')
+
+  return {
+    periodMonth,
+    periodStatus: period.status,
+    headcount: items.length,
+    entries,
+    totals,
+    balanced: true,
+  }
+}
+
 export async function listPayrollItems(periodMonth: string): Promise<
   {
     employeeNo: string | null
     employeeName: string | null
+    departmentName: string | null
     baseSalary: string
     otAmount: string
     allowance: string
@@ -591,6 +734,7 @@ export async function listPayrollItems(periodMonth: string): Promise<
     .select({
       employeeNo: hrEmployee.employeeNo,
       employeeName: hrEmployee.name,
+      departmentName: hrDepartment.name,
       baseSalary: hrPayrollItem.baseSalary,
       otAmount: hrPayrollItem.otAmount,
       allowance: hrPayrollItem.allowance,
@@ -605,8 +749,95 @@ export async function listPayrollItems(periodMonth: string): Promise<
     .from(hrPayrollItem)
     .innerJoin(hrPayrollPeriod, eq(hrPayrollPeriod.id, hrPayrollItem.periodId))
     .leftJoin(hrEmployee, eq(hrEmployee.id, hrPayrollItem.employeeId))
+    .leftJoin(hrDepartment, eq(hrDepartment.id, hrEmployee.departmentId))
     .where(eq(hrPayrollPeriod.periodMonth, periodMonth))
     .limit(1000)
+  return rows
+}
+
+/**
+ * 查某员工在某工资月的工资单（员工自助）。
+ * 按 userId 找到对应 hrEmployee，再定位该月 period 与其工资条。
+ * 无对应员工档案或该月未算薪时返回 null（不抛错，供 404/空态区分）。
+ */
+export async function getMyPayrollItem(
+  userId: string,
+  periodMonth: string,
+): Promise<{
+  employeeNo: string | null
+  employeeName: string | null
+  periodMonth: string
+  periodStatus: string
+  baseSalary: string
+  otAmount: string
+  allowance: string
+  attendanceDeduction: string
+  grossPay: string
+  insurancePersonal: string
+  housingFundPersonal: string
+  incomeTax: string
+  netPay: string
+  breakdown: unknown
+} | null> {
+  const [employee] = await db
+    .select({ id: hrEmployee.id, employeeNo: hrEmployee.employeeNo, name: hrEmployee.name })
+    .from(hrEmployee)
+    .where(and(eq(hrEmployee.userId, userId), isNull(hrEmployee.deletedAt)))
+    .limit(1)
+  if (!employee) return null
+
+  const [row] = await db
+    .select({
+      employeeNo: hrEmployee.employeeNo,
+      employeeName: hrEmployee.name,
+      periodMonth: hrPayrollPeriod.periodMonth,
+      periodStatus: hrPayrollPeriod.status,
+      baseSalary: hrPayrollItem.baseSalary,
+      otAmount: hrPayrollItem.otAmount,
+      allowance: hrPayrollItem.allowance,
+      attendanceDeduction: hrPayrollItem.attendanceDeduction,
+      grossPay: hrPayrollItem.grossPay,
+      insurancePersonal: hrPayrollItem.insurancePersonal,
+      housingFundPersonal: hrPayrollItem.housingFundPersonal,
+      incomeTax: hrPayrollItem.incomeTax,
+      netPay: hrPayrollItem.netPay,
+      breakdown: hrPayrollItem.breakdown,
+    })
+    .from(hrPayrollItem)
+    .innerJoin(hrPayrollPeriod, eq(hrPayrollPeriod.id, hrPayrollItem.periodId))
+    .innerJoin(hrEmployee, eq(hrEmployee.id, hrPayrollItem.employeeId))
+    .where(
+      and(eq(hrPayrollItem.employeeId, employee.id), eq(hrPayrollPeriod.periodMonth, periodMonth)),
+    )
+    .limit(1)
+  return row ?? null
+}
+
+/**
+ * 列出某员工可见的工资月（有已算薪记录的 period）。
+ * 仅返回已生成工资条的月份，用于员工自助下拉选择。
+ */
+export async function listMyPayrollPeriods(
+  userId: string,
+): Promise<{ periodMonth: string; status: string; netPay: string }[]> {
+  const [employee] = await db
+    .select({ id: hrEmployee.id })
+    .from(hrEmployee)
+    .where(and(eq(hrEmployee.userId, userId), isNull(hrEmployee.deletedAt)))
+    .limit(1)
+  if (!employee) return []
+
+  const rows = await db
+    .select({
+      periodMonth: hrPayrollPeriod.periodMonth,
+      status: hrPayrollPeriod.status,
+      netPay: hrPayrollItem.netPay,
+    })
+    .from(hrPayrollItem)
+    .innerJoin(hrPayrollPeriod, eq(hrPayrollPeriod.id, hrPayrollItem.periodId))
+    .where(eq(hrPayrollItem.employeeId, employee.id))
+    .orderBy(desc(hrPayrollPeriod.periodMonth))
+    .limit(24)
   return rows
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

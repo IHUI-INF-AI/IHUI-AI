@@ -4,156 +4,46 @@
 
 'use client'
 
+/**
+ * 薪资 tab 组件集(2026-11-13 立,HR-5 端到端打通)。
+ * 从 hr-attendance 主页面拆出,保持主页面 <600 行。
+ * 三个面板:
+ *   · MonthlyTab    月结生成 + 查询(前置:考勤数据已导入)
+ *   · SalaryConfigTab 员工薪资 / 社保费率 / 个税扣除 配置入口
+ *   · PayrollTab    一键算薪 + 工资单查看 + 状态推进
+ */
+
 import * as React from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import type { useTranslations } from 'next-intl'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { type useTranslations } from 'next-intl'
 import { toast } from 'sonner'
-import { Calculator, CheckCircle2, Coins, Wallet } from 'lucide-react'
+import { BookOpen, Calculator, Download, Settings, Play } from 'lucide-react'
 
 import { HasPermi } from '@/components/auth/HasPermi'
 import { Button } from '@ihui/ui-react'
+import { apiOrThrow as api, fetchRaw } from '@/lib/api'
+import { PERM, RESOURCE as ATT_RESOURCE } from './helpers'
 
-import { RESOURCE, PERM, api } from './helpers'
-import type { HrEmployee, ListData } from './types'
-
-/**
- * 月结 / 薪资配置 / 工资单三个 tab。
- *
- * 后端真相:
- *   · 月结     —— /api/hr-settle/monthly(GET 查结果、POST 生成)
- *   · 工资单   —— /api/hr-payroll/{items,calculate,status,periods}
- *   · 薪资配置 —— hr_salary_config / hr_insurance_rate_config / hr_employee_tax_profile
- *                 目前只有表与算薪读取逻辑,尚未注册读写接口,故本 tab 只读员工清单。
- */
-
-/** 结算前缀(与 apps/api/src/routes/index.ts 的 register prefix 一致)。 */
-const SETTLE_RESOURCE = '/api/hr-settle'
-/** 薪资前缀。 */
-const PAYROLL_RESOURCE = '/api/hr-payroll'
-
-/** 月结写面与考勤建档同档:hr:attendance:manage。 */
-const MANAGE_PERM = `${PERM}:manage`
-/** 薪资单独一档(后端 HR_PAYROLL)。 */
-const PAYROLL_PERM = 'hr:payroll:manage'
+const HR_SETTLE = '/api/hr-settle'
+const HR_PAYROLL = '/api/hr-payroll'
+const HR_SAL_CFG = '/api/hr-salary-config'
+const PAY_PERM = 'hr:payroll'
 
 const inputCls =
   'rounded-md border border-input bg-background px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary'
 
-const MONTH_RE = /^\d{4}-\d{2}$/
+type TFunc = ReturnType<typeof useTranslations>
 
-function currentMonth(): string {
-  const d = new Date()
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-}
+// ---------------------------------------------------------------------------
+// 月结生成
+// ---------------------------------------------------------------------------
 
-function fmtMoney(value: string | number | null | undefined): string {
-  const n = Number(value ?? 0)
-  if (!Number.isFinite(n)) return '0.00'
-  return n.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-}
-
-function fmtPercent(value: number): string {
-  return `${(value * 100).toFixed(2)}%`
-}
-
-// =============================================================================
-// 接口返回体(按 apps/api/src/routes 与 services 的返回结构声明)
-// =============================================================================
-
-interface MonthlyRow {
-  id: string
-  employeeId: string
-  employeeNo: string | null
-  employeeName: string | null
-  scheduledDays: string
-  actualDays: string
-  lateCount: number
-  earlyCount: number
-  absentDays: string
-  leaveDays: Record<string, number> | null
-  otHours: string
-  otDetail: { weekday?: number; weekend?: number; holiday?: number } | null
-  signed: boolean
-}
-
-interface MonthlyBuildResult {
+interface MonthlyResult {
   periodMonth: string
   employees: number
   inserted: number
   updated: number
   skippedSigned: number
-}
-
-interface PayrollBreakdown {
-  inputs?: {
-    baseSalary?: number
-    fixedAllowance?: number
-    otBase?: number
-    insuranceBase?: number
-    housingFundRate?: number
-    scheduledDays?: number
-    actualDays?: number
-    absentDays?: number
-    otHours?: number
-    otDetail?: { weekday?: number; weekend?: number; holiday?: number }
-  }
-  steps?: {
-    dailyRate?: number
-    basePay?: number
-    otAmount?: number
-    absenceDeduction?: number
-    grossPay?: number
-    insurancePersonal?: number
-    housingFundPersonal?: number
-    specialDeduction?: number
-    taxableIncome?: number
-    incomeTax?: number
-    netPay?: number
-  }
-  rates?: {
-    region: string
-    year: number
-    pensionPersonal: number
-    medicalPersonal: number
-    unemploymentPersonal: number
-    housingFundRate: number
-  } | null
-  warnings?: string[]
-}
-
-interface PayrollRow {
-  employeeNo: string | null
-  employeeName: string | null
-  baseSalary: string
-  otAmount: string
-  allowance: string
-  attendanceDeduction: string
-  grossPay: string
-  insurancePersonal: string
-  housingFundPersonal: string
-  incomeTax: string
-  netPay: string
-  breakdown: PayrollBreakdown | null
-}
-
-interface PayrollItemsResult {
-  periodMonth: string
-  count: number
-  totalGross: number
-  totalNet: number
-  rows: PayrollRow[]
-}
-
-interface PayrollBuildResult {
-  periodMonth: string
-  periodId: string
-  employees: number
-  inserted: number
-  updated: number
-  skippedNoConfig: number
-  skippedSigned: number
-  totalGross: number
-  totalNet: number
 }
 
 interface PayrollPeriod {
@@ -228,51 +118,45 @@ function Badge({
 
 export function MonthlyTab({ t }: { t: ReturnType<typeof useTranslations> }) {
   const qc = useQueryClient()
-  const [periodMonth, setPeriodMonth] = React.useState(currentMonth)
-  const [overwriteSigned, setOverwriteSigned] = React.useState(false)
-  const [lastResult, setLastResult] = React.useState<MonthlyBuildResult | null>(null)
-
-  const monthlyQuery = useQuery({
-    queryKey: ['hr', 'monthly', periodMonth],
-    enabled: MONTH_RE.test(periodMonth),
-    queryFn: () =>
-      api<{ periodMonth: string; rows: MonthlyRow[] }>(
-        `${SETTLE_RESOURCE}/monthly?periodMonth=${periodMonth}`,
-      ),
+  const [month, setMonth] = React.useState(() => {
+    const d = new Date()
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
   })
+  const [overwriteSigned, setOverwriteSigned] = React.useState(false)
+  const [result, setResult] = React.useState<MonthlyResult | null>(null)
 
   const buildMut = useMutation({
     mutationFn: () =>
-      api<MonthlyBuildResult>(`${SETTLE_RESOURCE}/monthly`, {
+      api<MonthlyResult>(`${HR_SETTLE}/monthly`, {
         method: 'POST',
-        body: JSON.stringify({ periodMonth, overwriteSigned }),
+        body: JSON.stringify({ periodMonth: month, overwriteSigned }),
       }),
     onSuccess: (d) => {
-      setLastResult(d)
-      toast.success(
-        `${t('monthlyBuilt')}:${d.employees} 人,新增 ${d.inserted},更新 ${d.updated},跳过已签字 ${d.skippedSigned}`,
-      )
-      qc.invalidateQueries({ queryKey: ['hr', 'monthly', periodMonth] })
+      setResult(d as MonthlyResult)
+      toast.success(t('monthlyBuilt'))
+      qc.invalidateQueries({ queryKey: ['hr', 'monthly'] })
     },
     onError: (e: Error) => toast.error(e.message),
   })
 
-  const rows = monthlyQuery.data?.rows ?? []
-  const monthValid = MONTH_RE.test(periodMonth)
-
   return (
-    <Section title={t('tabMonthly')}>
-      <div className="flex flex-wrap items-end gap-3">
+    <section className="space-y-3">
+      <h2 className="flex items-center gap-2 text-lg font-semibold">
+        <Play className="h-4 w-4 text-primary" />
+        {t('tabMonthly')}
+      </h2>
+      <p className="text-body text-muted-foreground">{t('monthlyHint')}</p>
+      <div className="flex flex-wrap items-end gap-2">
         <label className="font-[weight:inherit] text-body">
           {t('colMonth')}
           <input
             className={inputCls}
             type="month"
-            value={periodMonth}
-            onChange={(e) => setPeriodMonth(e.target.value)}
+            value={month}
+            onChange={(e) => setMonth(e.target.value)}
           />
         </label>
-        <label className="font-[weight:inherit] flex items-center gap-1 text-body">
+        <label className="flex items-center gap-1 text-body">
           <input
             type="checkbox"
             checked={overwriteSigned}
@@ -280,29 +164,27 @@ export function MonthlyTab({ t }: { t: ReturnType<typeof useTranslations> }) {
           />
           {t('overwriteSigned')}
         </label>
-        <HasPermi code={MANAGE_PERM}>
-          <Button
-            size="sm"
-            disabled={!monthValid || buildMut.isPending}
-            onClick={() => buildMut.mutate()}
-          >
-            <Calculator className="h-4 w-4" />
+        <HasPermi code={`${PERM}:manage`}>
+          <Button size="sm" disabled={buildMut.isPending} onClick={() => buildMut.mutate()}>
             {t('generateMonthly')}
           </Button>
         </HasPermi>
       </div>
-      <p className="text-label text-muted-foreground">{t('monthlyHint')}</p>
-
-      {lastResult && (
-        <div className="rounded-lg border px-3 py-2 text-body">
-          <p className="font-medium">
-            {t('monthlyResult')} · {lastResult.periodMonth}
-          </p>
-          <p className="text-muted-foreground">
-            {t('colTotalEmployees')}: {lastResult.employees} · {t('colProcessed')}: 新增{' '}
-            {lastResult.inserted} / 更新 {lastResult.updated} · {t('colSkippedSigned')}:{' '}
-            {lastResult.skippedSigned}
-          </p>
+      {result && (
+        <div className="rounded-lg border bg-muted/50 px-4 py-3 text-body">
+          <div className="font-medium">{t('monthlyResult')}</div>
+          <div className="mt-1 grid grid-cols-2 gap-x-6 gap-y-1 text-sm">
+            <span>{t('colPeriodMonth')}:</span>
+            <span>{result.periodMonth}</span>
+            <span>{t('colTotalEmployees')}:</span>
+            <span>{result.employees}</span>
+            <span>{t('colInserted')}:</span>
+            <span>{result.inserted}</span>
+            <span>{t('colUpdated')}:</span>
+            <span>{result.updated}</span>
+            <span>{t('colSkippedSigned')}:</span>
+            <span>{result.skippedSigned}</span>
+          </div>
         </div>
       )}
 
@@ -361,187 +243,827 @@ export function MonthlyTab({ t }: { t: ReturnType<typeof useTranslations> }) {
   )
 }
 
-// =============================================================================
+// ---------------------------------------------------------------------------
 // 薪资配置
-// =============================================================================
+// ---------------------------------------------------------------------------
 
-export function SalaryConfigTab({ t }: { t: ReturnType<typeof useTranslations> }) {
+interface SalaryConfigRow {
+  id: string
+  employeeId: string
+  baseSalary: string
+  fixedAllowance: string
+  otBase: string | null
+  insuranceBase: string | null
+  housingFundRate: string | null
+  effectiveFrom: string
+  effectiveTo: string | null
+}
+
+interface InsuranceRateRow {
+  id: string
+  regionName: string
+  effectiveYear: number
+  pensionPersonal: string | null
+  medicalPersonal: string | null
+  unemploymentPersonal: string | null
+  housingFundRate: string | null
+  enabled: boolean
+}
+
+export function SalaryConfigTab({ t }: { t: TFunc }) {
+  const qc = useQueryClient()
+  const [subTab, setSubTab] = React.useState<'emp' | 'ins' | 'tax'>('emp')
+
+  // 员工列表(HR 选员工用,替代手填 UUID —— HR 不知道员工 UUID)
   const employeesQuery = useQuery({
-    queryKey: ['hr', 'employees', 'salary-config'],
-    queryFn: () => api<ListData<HrEmployee>>(`${RESOURCE}/employees`),
+    queryKey: ['hr', 'employees', 'forSalary'],
+    queryFn: () =>
+      api<{ list: Array<{ id: string; name: string; employeeNo: string }> }>(
+        `${ATT_RESOURCE}/employees`,
+      ),
   })
-  const list = employeesQuery.data?.list ?? []
+  const employeeOptions = employeesQuery.data?.list ?? []
+
+  // ---- 员工薪资 ----
+  const [empId, setEmpId] = React.useState('')
+  const empQuery = useQuery({
+    queryKey: ['hr', 'salaryCfg', empId],
+    enabled: Boolean(empId),
+    queryFn: () => api<{ rows: SalaryConfigRow[] }>(`${HR_SAL_CFG}/employees?employeeId=${empId}`),
+  })
+
+  const [empForm, setEmpForm] = React.useState({
+    employeeId: '',
+    baseSalary: '',
+    fixedAllowance: '0',
+    otBase: '',
+    insuranceBase: '',
+    housingFundRate: '',
+    effectiveFrom: new Date().toISOString().slice(0, 10),
+  })
+  const addEmpMut = useMutation({
+    mutationFn: () =>
+      api(`${HR_SAL_CFG}/employees`, {
+        method: 'POST',
+        body: JSON.stringify({
+          employeeId: empForm.employeeId,
+          baseSalary: empForm.baseSalary,
+          fixedAllowance: empForm.fixedAllowance || '0',
+          otBase: empForm.otBase || undefined,
+          insuranceBase: empForm.insuranceBase || undefined,
+          housingFundRate: empForm.housingFundRate || undefined,
+          effectiveFrom: empForm.effectiveFrom,
+        }),
+      }),
+    onSuccess: () => {
+      toast.success(t('salaryCfgSaved'))
+      setEmpId(empForm.employeeId)
+      qc.invalidateQueries({ queryKey: ['hr', 'salaryCfg'] })
+    },
+    onError: (e: Error) => toast.error(e.message),
+  })
+
+  // ---- 社保费率 ----
+  const insQuery = useQuery({
+    queryKey: ['hr', 'insRates'],
+    queryFn: () => api<{ rows: InsuranceRateRow[] }>(`${HR_SAL_CFG}/insurance`),
+  })
+
+  const [insForm, setInsForm] = React.useState({
+    regionName: '',
+    effectiveYear: new Date().getFullYear(),
+    pensionPersonal: '',
+    medicalPersonal: '',
+    unemploymentPersonal: '',
+    housingFundRate: '',
+  })
+  const addInsMut = useMutation({
+    mutationFn: () =>
+      api(`${HR_SAL_CFG}/insurance`, {
+        method: 'POST',
+        body: JSON.stringify({
+          regionName: insForm.regionName,
+          effectiveYear: Number(insForm.effectiveYear),
+          pensionPersonal: insForm.pensionPersonal || undefined,
+          medicalPersonal: insForm.medicalPersonal || undefined,
+          unemploymentPersonal: insForm.unemploymentPersonal || undefined,
+          housingFundRate: insForm.housingFundRate || undefined,
+        }),
+      }),
+    onSuccess: () => {
+      toast.success(t('insRateSaved'))
+      qc.invalidateQueries({ queryKey: ['hr', 'insRates'] })
+    },
+    onError: (e: Error) => toast.error(e.message),
+  })
+
+  // ---- 个税扣除 ----
+  const [taxEmpId, setTaxEmpId] = React.useState('')
+  const taxQuery = useQuery({
+    queryKey: ['hr', 'taxProfile', taxEmpId],
+    enabled: Boolean(taxEmpId),
+    queryFn: () => api<Record<string, unknown> | null>(`${HR_SAL_CFG}/tax-profile/${taxEmpId}`),
+  })
+  const [taxForm, setTaxForm] = React.useState({
+    employeeId: '',
+    childrenCount: '0',
+    infantCount: '0',
+    isOnlyChild: true,
+    housingType: 'none' as 'none' | 'rent' | 'loan',
+    housingRentAmount: '',
+    otherMonthlyDeduction: '0',
+  })
+  const saveTaxMut = useMutation({
+    mutationFn: () =>
+      api(`${HR_SAL_CFG}/tax-profile`, {
+        method: 'POST',
+        body: JSON.stringify({
+          employeeId: taxForm.employeeId || taxEmpId,
+          childrenCount: Number(taxForm.childrenCount) || 0,
+          infantCount: Number(taxForm.infantCount) || 0,
+          isOnlyChild: taxForm.isOnlyChild,
+          housingType: taxForm.housingType,
+          housingRentAmount: taxForm.housingRentAmount || undefined,
+          otherMonthlyDeduction: taxForm.otherMonthlyDeduction || '0',
+        }),
+      }),
+    onSuccess: () => {
+      toast.success(t('taxProfileSaved'))
+      setTaxEmpId(taxForm.employeeId)
+      qc.invalidateQueries({ queryKey: ['hr', 'taxProfile'] })
+    },
+    onError: (e: Error) => toast.error(e.message),
+  })
+
+  // 保存成功或切换员工后,回填已有扣除信息
+  React.useEffect(() => {
+    const tp = taxQuery.data
+    if (tp) {
+      setTaxForm((f) => ({
+        ...f,
+        childrenCount: String(tp['childrenCount'] ?? f.childrenCount),
+        infantCount: String(tp['infantCount'] ?? f.infantCount),
+        isOnlyChild: Boolean(tp['isOnlyChild'] ?? f.isOnlyChild),
+        housingType: (tp['housingType'] as 'none' | 'rent' | 'loan') ?? f.housingType,
+        housingRentAmount: tp['housingRentAmount']
+          ? String(tp['housingRentAmount'])
+          : f.housingRentAmount,
+        otherMonthlyDeduction: String(tp['otherMonthlyDeduction'] ?? f.otherMonthlyDeduction),
+      }))
+    }
+  }, [taxQuery.data])
+
+  const subTabs: Array<{ key: 'emp' | 'ins' | 'tax'; label: string; icon: React.ReactNode }> = [
+    { key: 'emp', label: t('subTabEmpSalary'), icon: <Settings className="h-3 w-3" /> },
+    { key: 'ins', label: t('subTabInsurance'), icon: <Settings className="h-3 w-3" /> },
+    { key: 'tax', label: t('subTabTax'), icon: <Settings className="h-3 w-3" /> },
+  ]
 
   return (
-    <Section title={t('tabSalaryConfig')}>
-      <p className="rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-body text-warning">
-        员工薪资(hr_salary_config)、社保费率(hr_insurance_rate_config)、个税扣除(hr_employee_tax_profile)
-        目前只有数据表与算薪读取逻辑,后端尚未注册配置读写接口。本 tab 先列出待配置员工,
-        接口补齐后再在此接入。
-      </p>
+    <section className="space-y-3">
+      <h2 className="flex items-center gap-2 text-lg font-semibold">
+        <Settings className="h-4 w-4 text-primary" />
+        {t('tabSalaryConfig')}
+      </h2>
+      <div className="flex gap-1 border-b">
+        {subTabs.map((st) => (
+          <button
+            key={st.key}
+            onClick={() => setSubTab(st.key)}
+            className={`px-2 py-1 text-sm ${
+              subTab === st.key
+                ? 'border-b-2 border-primary font-medium text-primary'
+                : 'text-muted-foreground'
+            }`}
+          >
+            {st.icon}
+            {st.label}
+          </button>
+        ))}
+      </div>
 
-      {employeesQuery.isLoading ? (
-        <p className="text-muted-foreground">{t('loading')}</p>
-      ) : employeesQuery.isError ? (
-        <p className="text-destructive">{employeesQuery.error?.message ?? '加载员工列表失败'}</p>
-      ) : list.length === 0 ? (
-        <p className="text-muted-foreground">{t('noData')}</p>
-      ) : (
-        <table className="font-[weight:inherit] w-full text-body">
-          <thead>
-            <tr className="text-left text-muted-foreground">
-              <th className="px-2 py-1">{t('colEmployeeNo')}</th>
-              <th className="px-2 py-1">{t('colName')}</th>
-              <th className="px-2 py-1">{t('colDepartment')}</th>
-              <th className="px-2 py-1">{t('colPosition')}</th>
-              <th className="px-2 py-1">{t('colStatus')}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {list.map((e) => (
-              <tr key={e.id} className="border-t">
-                <td className="px-2 py-1">{e.employeeNo}</td>
-                <td className="px-2 py-1">{e.name}</td>
-                <td className="px-2 py-1">{e.departmentId}</td>
-                <td className="px-2 py-1">{e.position ?? '-'}</td>
-                <td className="px-2 py-1">{e.status}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      {subTab === 'emp' && (
+        <div className="space-y-2">
+          <div className="flex flex-wrap items-end gap-2">
+            <label className="font-[weight:inherit] text-body">
+              {t('colEmployee')}
+              <select
+                className={inputCls}
+                value={empForm.employeeId}
+                onChange={(e) => {
+                  setEmpForm({ ...empForm, employeeId: e.target.value })
+                  if (e.target.value) setEmpId(e.target.value)
+                }}
+              >
+                <option value="">— {t('colSelectEmployee')} —</option>
+                {employeeOptions.map((e) => (
+                  <option key={e.id} value={e.id}>
+                    {e.employeeNo} · {e.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="font-[weight:inherit] text-body">
+              {t('colBaseSalary')}
+              <input
+                className={inputCls}
+                value={empForm.baseSalary}
+                onChange={(e) => setEmpForm({ ...empForm, baseSalary: e.target.value })}
+                placeholder="8000.00"
+              />
+            </label>
+            <label className="font-[weight:inherit] text-body">
+              {t('colFixedAllowance')}
+              <input
+                className={inputCls}
+                value={empForm.fixedAllowance}
+                onChange={(e) => setEmpForm({ ...empForm, fixedAllowance: e.target.value })}
+              />
+            </label>
+            <label className="font-[weight:inherit] text-body">
+              {t('colOtBase')}
+              <input
+                className={inputCls}
+                value={empForm.otBase}
+                onChange={(e) => setEmpForm({ ...empForm, otBase: e.target.value })}
+                placeholder={t('phOptional')}
+              />
+            </label>
+            <label className="font-[weight:inherit] text-body">
+              {t('colInsuranceBase')}
+              <input
+                className={inputCls}
+                value={empForm.insuranceBase}
+                onChange={(e) => setEmpForm({ ...empForm, insuranceBase: e.target.value })}
+                placeholder={t('phOptional')}
+              />
+            </label>
+            <label className="font-[weight:inherit] text-body">
+              {t('colFundRate')}
+              <input
+                className={inputCls}
+                value={empForm.housingFundRate}
+                onChange={(e) => setEmpForm({ ...empForm, housingFundRate: e.target.value })}
+                placeholder="0.12"
+              />
+            </label>
+            <label className="font-[weight:inherit] text-body">
+              {t('colEffectiveFrom')}
+              <input
+                className={inputCls}
+                type="date"
+                value={empForm.effectiveFrom}
+                onChange={(e) => setEmpForm({ ...empForm, effectiveFrom: e.target.value })}
+              />
+            </label>
+            <HasPermi code={`${PAY_PERM}:manage`}>
+              <Button
+                size="sm"
+                disabled={addEmpMut.isPending || !empForm.employeeId || !empForm.baseSalary}
+                onClick={() => addEmpMut.mutate()}
+              >
+                {t('save')}
+              </Button>
+            </HasPermi>
+          </div>
+          {empId && <EmpSalaryList data={empQuery.data?.rows ?? []} t={t} />}
+        </div>
       )}
-    </Section>
+
+      {subTab === 'ins' && (
+        <div className="space-y-2">
+          <div className="flex flex-wrap items-end gap-2">
+            <label className="font-[weight:inherit] text-body">
+              {t('colRegion')}
+              <input
+                className={inputCls}
+                value={insForm.regionName}
+                onChange={(e) => setInsForm({ ...insForm, regionName: e.target.value })}
+                placeholder={t('phRegion')}
+              />
+            </label>
+            <label className="font-[weight:inherit] text-body">
+              {t('colYear')}
+              <input
+                className={inputCls}
+                type="number"
+                value={insForm.effectiveYear}
+                onChange={(e) => setInsForm({ ...insForm, effectiveYear: Number(e.target.value) })}
+              />
+            </label>
+            <label className="font-[weight:inherit] text-body">
+              {t('colPensionPersonal')}
+              <input
+                className={inputCls}
+                value={insForm.pensionPersonal}
+                onChange={(e) => setInsForm({ ...insForm, pensionPersonal: e.target.value })}
+                placeholder="0.08"
+              />
+            </label>
+            <label className="font-[weight:inherit] text-body">
+              {t('colMedicalPersonal')}
+              <input
+                className={inputCls}
+                value={insForm.medicalPersonal}
+                onChange={(e) => setInsForm({ ...insForm, medicalPersonal: e.target.value })}
+                placeholder="0.02"
+              />
+            </label>
+            <label className="font-[weight:inherit] text-body">
+              {t('colUnemploymentPersonal')}
+              <input
+                className={inputCls}
+                value={insForm.unemploymentPersonal}
+                onChange={(e) => setInsForm({ ...insForm, unemploymentPersonal: e.target.value })}
+                placeholder="0.005"
+              />
+            </label>
+            <label className="font-[weight:inherit] text-body">
+              {t('colFundRate')}
+              <input
+                className={inputCls}
+                value={insForm.housingFundRate}
+                onChange={(e) => setInsForm({ ...insForm, housingFundRate: e.target.value })}
+                placeholder="0.12"
+              />
+            </label>
+            <HasPermi code={`${PAY_PERM}:manage`}>
+              <Button
+                size="sm"
+                disabled={addInsMut.isPending || !insForm.regionName}
+                onClick={() => addInsMut.mutate()}
+              >
+                {t('save')}
+              </Button>
+            </HasPermi>
+          </div>
+          <InsRateList
+            data={insQuery.data?.rows ?? []}
+            t={t}
+            onEdit={(r) =>
+              setInsForm({
+                regionName: r.regionName,
+                effectiveYear: r.effectiveYear,
+                pensionPersonal: r.pensionPersonal ?? '',
+                medicalPersonal: r.medicalPersonal ?? '',
+                unemploymentPersonal: r.unemploymentPersonal ?? '',
+                housingFundRate: r.housingFundRate ?? '',
+              })
+            }
+          />
+        </div>
+      )}
+
+      {subTab === 'tax' && (
+        <div className="space-y-2">
+          <div className="flex flex-wrap items-end gap-2">
+            <label className="font-[weight:inherit] text-body">
+              {t('colEmployee')}
+              <select
+                className={inputCls}
+                value={taxForm.employeeId}
+                onChange={(e) => {
+                  setTaxForm({ ...taxForm, employeeId: e.target.value })
+                  if (e.target.value) setTaxEmpId(e.target.value)
+                }}
+              >
+                <option value="">— {t('colSelectEmployee')} —</option>
+                {employeeOptions.map((e) => (
+                  <option key={e.id} value={e.id}>
+                    {e.employeeNo} · {e.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="font-[weight:inherit] text-body">
+              {t('colChildrenCount')}
+              <input
+                className={inputCls}
+                type="number"
+                min="0"
+                value={taxForm.childrenCount}
+                onChange={(e) => setTaxForm({ ...taxForm, childrenCount: e.target.value })}
+              />
+            </label>
+            <label className="font-[weight:inherit] text-body">
+              {t('colInfantCount')}
+              <input
+                className={inputCls}
+                type="number"
+                min="0"
+                value={taxForm.infantCount}
+                onChange={(e) => setTaxForm({ ...taxForm, infantCount: e.target.value })}
+              />
+            </label>
+            <label className="flex items-center gap-1 text-body">
+              <input
+                type="checkbox"
+                checked={taxForm.isOnlyChild}
+                onChange={(e) => setTaxForm({ ...taxForm, isOnlyChild: e.target.checked })}
+              />
+              {t('colIsOnlyChild')}
+            </label>
+            <label className="font-[weight:inherit] text-body">
+              {t('colHousingType')}
+              <select
+                className={inputCls}
+                value={taxForm.housingType}
+                onChange={(e) =>
+                  setTaxForm({
+                    ...taxForm,
+                    housingType: e.target.value as 'none' | 'rent' | 'loan',
+                  })
+                }
+              >
+                <option value="none">{t('housingNone')}</option>
+                <option value="rent">{t('housingRent')}</option>
+                <option value="loan">{t('housingLoan')}</option>
+              </select>
+            </label>
+            <label className="font-[weight:inherit] text-body">
+              {t('colOtherDeduction')}
+              <input
+                className={inputCls}
+                value={taxForm.otherMonthlyDeduction}
+                onChange={(e) => setTaxForm({ ...taxForm, otherMonthlyDeduction: e.target.value })}
+              />
+            </label>
+            <HasPermi code={`${PAY_PERM}:manage`}>
+              <Button
+                size="sm"
+                disabled={saveTaxMut.isPending || (!taxForm.employeeId && !taxEmpId)}
+                onClick={() => saveTaxMut.mutate()}
+              >
+                {t('save')}
+              </Button>
+            </HasPermi>
+          </div>
+        </div>
+      )}
+    </section>
   )
 }
 
-// =============================================================================
-// 工资单
-// =============================================================================
+function EmpSalaryList({ data, t }: { data: SalaryConfigRow[]; t: TFunc }) {
+  if (data.length === 0) return <p className="text-muted-foreground">{t('noData')}</p>
+  return (
+    <table className="font-[weight:inherit] w-full text-body">
+      <thead>
+        <tr className="text-left text-muted-foreground">
+          <th className="px-2 py-1">{t('colBaseSalary')}</th>
+          <th className="px-2 py-1">{t('colFixedAllowance')}</th>
+          <th className="px-2 py-1">{t('colOtBase')}</th>
+          <th className="px-2 py-1">{t('colInsuranceBase')}</th>
+          <th className="px-2 py-1">{t('colFundRate')}</th>
+          <th className="px-2 py-1">{t('colEffectiveFrom')}</th>
+          <th className="px-2 py-1">{t('colEffectiveTo')}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {data.map((r) => (
+          <tr key={r.id} className="border-t">
+            <td className="px-2 py-1">{r.baseSalary}</td>
+            <td className="px-2 py-1">{r.fixedAllowance}</td>
+            <td className="px-2 py-1">{r.otBase ?? '-'}</td>
+            <td className="px-2 py-1">{r.insuranceBase ?? '-'}</td>
+            <td className="px-2 py-1">{r.housingFundRate ?? '-'}</td>
+            <td className="px-2 py-1">{r.effectiveFrom}</td>
+            <td className="px-2 py-1">{r.effectiveTo ?? t('openEnded')}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  )
+}
 
-export function PayrollTab({ t }: { t: ReturnType<typeof useTranslations> }) {
-  const qc = useQueryClient()
-  const [periodMonth, setPeriodMonth] = React.useState(currentMonth)
-  const [region, setRegion] = React.useState('')
-  const [overwriteApproved, setOverwriteApproved] = React.useState(false)
-  const [expanded, setExpanded] = React.useState<Record<number, boolean>>({})
+function InsRateList({
+  data,
+  t,
+  onEdit,
+}: {
+  data: InsuranceRateRow[]
+  t: TFunc
+  onEdit: (r: InsuranceRateRow) => void
+}) {
+  if (data.length === 0) return <p className="text-muted-foreground">{t('noData')}</p>
+  return (
+    <table className="font-[weight:inherit] w-full text-body">
+      <thead>
+        <tr className="text-left text-muted-foreground">
+          <th className="px-2 py-1">{t('colRegion')}</th>
+          <th className="px-2 py-1">{t('colYear')}</th>
+          <th className="px-2 py-1">{t('colPensionPersonal')}</th>
+          <th className="px-2 py-1">{t('colMedicalPersonal')}</th>
+          <th className="px-2 py-1">{t('colUnemploymentPersonal')}</th>
+          <th className="px-2 py-1">{t('colFundRate')}</th>
+          <th className="px-2 py-1">{t('colEnabled')}</th>
+          <th className="px-2 py-1">{t('colActions')}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {data.map((r) => (
+          <tr key={r.id} className="border-t">
+            <td className="px-2 py-1">{r.regionName}</td>
+            <td className="px-2 py-1">{r.effectiveYear}</td>
+            <td className="px-2 py-1">{r.pensionPersonal ?? '-'}</td>
+            <td className="px-2 py-1">{r.medicalPersonal ?? '-'}</td>
+            <td className="px-2 py-1">{r.unemploymentPersonal ?? '-'}</td>
+            <td className="px-2 py-1">{r.housingFundRate ?? '-'}</td>
+            <td className="px-2 py-1">{r.enabled ? '✓' : '✗'}</td>
+            <td className="px-2 py-1">
+              <button className="text-primary hover:underline" onClick={() => onEdit(r)}>
+                {t('edit')}
+              </button>
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// 工资单
+// ---------------------------------------------------------------------------
+
+interface PayrollPeriod {
+  id: string
+  periodMonth: string
+  status: string
+}
 
   const itemsQuery = useQuery({
     queryKey: ['hr', 'payroll', 'items', periodMonth],
     enabled: MONTH_RE.test(periodMonth),
     queryFn: () => api<PayrollItemsResult>(`${PAYROLL_RESOURCE}/items?periodMonth=${periodMonth}`),
   })
+  const [regionName, setRegionName] = React.useState('')
+  const [expandedId, setExpandedId] = React.useState<string | null>(null)
 
+  // 周期列表
   const periodsQuery = useQuery({
-    queryKey: ['hr', 'payroll', 'periods'],
-    queryFn: () => api<PayrollPeriod[]>(`${PAYROLL_RESOURCE}/periods`),
+    queryKey: ['hr', 'payrollPeriods'],
+    queryFn: () => api<PayrollPeriod[]>(`${HR_PAYROLL}/periods`),
+  })
+
+  // 工资单
+  const itemsQuery = useQuery({
+    queryKey: ['hr', 'payrollItems', month],
+    enabled: Boolean(month),
+    queryFn: () =>
+      api<{ count: number; totalGross: number; totalNet: number; rows: PayrollItem[] }>(
+        `${HR_PAYROLL}/items?periodMonth=${month}`,
+      ),
   })
 
   const calcMut = useMutation({
     mutationFn: () =>
-      api<PayrollBuildResult>(`${PAYROLL_RESOURCE}/calculate`, {
+      api(`${HR_PAYROLL}/calculate`, {
         method: 'POST',
         body: JSON.stringify({
-          periodMonth,
-          regionName: region.trim() || undefined,
-          overwriteApproved,
+          periodMonth: month,
+          regionName: regionName || undefined,
         }),
       }),
-    onSuccess: (d) => {
-      toast.success(
-        `${t('payrollCalculated')}:${d.employees} 人,应发 ${fmtMoney(d.totalGross)},实发 ${fmtMoney(d.totalNet)},缺配置跳过 ${d.skippedNoConfig}`,
-      )
-      qc.invalidateQueries({ queryKey: ['hr', 'payroll', 'items', periodMonth] })
-      qc.invalidateQueries({ queryKey: ['hr', 'payroll', 'periods'] })
+    onSuccess: () => {
+      toast.success(t('payrollCalculated'))
+      qc.invalidateQueries({ queryKey: ['hr', 'payrollItems', month] })
+      qc.invalidateQueries({ queryKey: ['hr', 'payrollPeriods'] })
     },
     onError: (e: Error) => toast.error(e.message),
   })
 
   const statusMut = useMutation({
-    mutationFn: (status: string) =>
-      api<PayrollPeriod>(`${PAYROLL_RESOURCE}/status`, {
+    mutationFn: (nextStatus: string) =>
+      api(`${HR_PAYROLL}/status`, {
         method: 'POST',
-        body: JSON.stringify({ periodMonth, status }),
+        body: JSON.stringify({ periodMonth: month, status: nextStatus }),
       }),
     onSuccess: () => {
       toast.success(t('statusUpdated'))
-      qc.invalidateQueries({ queryKey: ['hr', 'payroll', 'periods'] })
+      qc.invalidateQueries({ queryKey: ['hr', 'payrollPeriods'] })
     },
     onError: (e: Error) => toast.error(e.message),
   })
 
-  const rows = itemsQuery.data?.rows ?? []
-  const currentPeriod = periodsQuery.data?.find((p) => p.periodMonth === periodMonth)
-  const currentStatus = currentPeriod?.status ?? ''
-  const monthValid = MONTH_RE.test(periodMonth)
+  // 财务交割:生成某月薪资的财务凭证(算薪→记账联动,纯产出不入账)
+  const [handoff, setHandoff] = React.useState<{
+    balanced: boolean
+    headcount: number
+    entries: Array<{ group: string; account: string; direction: string; amount: string }>
+    totals: Record<string, string>
+  } | null>(null)
+  const handoffMut = useMutation({
+    mutationFn: () =>
+      api<{
+        balanced: boolean
+        headcount: number
+        entries: Array<{ group: string; account: string; direction: string; amount: string }>
+        totals: Record<string, string>
+      }>(`${HR_PAYROLL}/handoff`, { method: 'POST', body: JSON.stringify({ periodMonth: month }) }),
+    onSuccess: (v) => {
+      setHandoff(v)
+      if (v.balanced) {
+        toast.success(t('handoffGenerated'))
+      } else {
+        toast.error(t('handoffUnbalanced'))
+      }
+    },
+    onError: (e: Error) => toast.error(e.message),
+  })
+
+  // 交割凭证单导出(Excel):fetchRaw 拿 Blob(自动带鉴权),ObjectURL 触发下载
+  const [exporting, setExporting] = React.useState(false)
+  const exportHandoff = async () => {
+    if (exporting) return
+    setExporting(true)
+    try {
+      const blob = await fetchRaw(`${HR_PAYROLL}/handoff/export`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ periodMonth: month }),
+      })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `payroll-handoff-${month}.xlsx`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(url)
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : t('handoffExportFailed'))
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  const items = itemsQuery.data?.rows ?? []
+  const totalGross = itemsQuery.data?.totalGross ?? 0
+  const totalNet = itemsQuery.data?.totalNet ?? 0
+
+  // 当月周期状态:驱动按钮守卫,避免无效点击撞后端 409/409 锁定
+  const currentPeriod = (periodsQuery.data ?? []).find((p) => p.periodMonth === month)
+  const status = currentPeriod?.status
+  // draft/calculated 可算;approved 除非 overwriteApproved 否则拒绝;paid 完全锁定
+  const canCalc = status !== 'paid' && status !== 'approved'
+  // 只能从 calculated → approved(未算过先审批没意义;已 approved/paid 不可重复)
+  const canApprove = status === 'calculated'
+  // 只能 approved → paid(跳过审批直接发钱要拦住)
+  const canMarkPaid = status === 'approved'
+  // 交割点 = approved(财务已审账);paid 完全锁定但凭证仍可查(只读)
+  const canHandoff = status === 'approved' || status === 'paid'
 
   return (
-    <Section title={t('tabPayroll')}>
-      <div className="flex flex-wrap items-end gap-3">
+    <section className="space-y-3">
+      <h2 className="flex items-center gap-2 text-lg font-semibold">
+        <Calculator className="h-4 w-4 text-primary" />
+        {t('tabPayroll')}
+      </h2>
+
+      {/* 操作栏 */}
+      <div className="flex flex-wrap items-end gap-2">
         <label className="font-[weight:inherit] text-body">
           {t('colMonth')}
           <input
             className={inputCls}
             type="month"
-            value={periodMonth}
-            onChange={(e) => setPeriodMonth(e.target.value)}
+            value={month}
+            onChange={(e) => setMonth(e.target.value)}
           />
         </label>
         <label className="font-[weight:inherit] text-body">
           {t('colRegion')}
           <input
             className={inputCls}
-            value={region}
+            value={regionName}
+            onChange={(e) => setRegionName(e.target.value)}
             placeholder={t('phRegionOptional')}
-            onChange={(e) => setRegion(e.target.value)}
           />
         </label>
-        <label className="font-[weight:inherit] flex items-center gap-1 text-body">
-          <input
-            type="checkbox"
-            checked={overwriteApproved}
-            onChange={(e) => setOverwriteApproved(e.target.checked)}
-          />
-          覆盖已审批周期
-        </label>
-        <HasPermi code={PAYROLL_PERM}>
+        <HasPermi code={`${PAY_PERM}:manage`}>
           <Button
             size="sm"
-            disabled={!monthValid || calcMut.isPending}
+            disabled={!canCalc || calcMut.isPending}
             onClick={() => calcMut.mutate()}
           >
-            <Wallet className="h-4 w-4" />
+            <Calculator className="mr-1 h-3 w-3" />
             {t('calculatePayroll')}
           </Button>
         </HasPermi>
-        {currentStatus === 'calculated' && (
-          <HasPermi code={PAYROLL_PERM}>
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={statusMut.isPending}
-              onClick={() => statusMut.mutate('approved')}
-            >
-              <CheckCircle2 className="h-4 w-4" />
-              {t('approvePayroll')}
-            </Button>
-          </HasPermi>
-        )}
-        {currentStatus === 'approved' && (
-          <HasPermi code={PAYROLL_PERM}>
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={statusMut.isPending}
-              onClick={() => statusMut.mutate('paid')}
-            >
-              <Coins className="h-4 w-4" />
-              {t('markPaid')}
-            </Button>
-          </HasPermi>
+        <HasPermi code={`${PAY_PERM}:manage`}>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={!canApprove || statusMut.isPending}
+            onClick={() => statusMut.mutate('approved')}
+          >
+            {t('approvePayroll')}
+          </Button>
+        </HasPermi>
+        <HasPermi code={`${PAY_PERM}:manage`}>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={!canMarkPaid || statusMut.isPending}
+            onClick={() => statusMut.mutate('paid')}
+          >
+            {t('markPaid')}
+          </Button>
+        </HasPermi>
+        <HasPermi code={`${PAY_PERM}:manage`}>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={!canHandoff || handoffMut.isPending}
+            onClick={() => handoffMut.mutate()}
+          >
+            <BookOpen className="mr-1 h-3 w-3" />
+            {t('generateHandoff')}
+          </Button>
+        </HasPermi>
+        {status && (
+          <span
+            className={`ml-2 rounded-full px-2 py-0.5 text-xs ${
+              status === 'paid'
+                ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                : status === 'approved'
+                  ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
+                  : 'bg-muted text-muted-foreground'
+            }`}
+          >
+            {status}
+          </span>
         )}
       </div>
-      {periodsQuery.isError && (
-        <p className="text-destructive">{periodsQuery.error?.message ?? '加载薪资周期失败'}</p>
+
+      {/* 财务交割凭证(算薪→记账联动,纯产出不入账) */}
+      {handoff && (
+        <div className="space-y-2 rounded-lg border bg-muted/30 p-4 text-body">
+          <div className="flex items-center gap-2 text-sm font-semibold">
+            <BookOpen className="h-4 w-4 text-primary" />
+            {t('handoffTitle', { month })}
+            <span
+              className={`rounded-full px-2 py-0.5 text-xs ${
+                handoff.balanced
+                  ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                  : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+              }`}
+            >
+              {handoff.balanced ? t('handoffBalanced') : t('handoffUnbalanced')}
+            </span>
+            <Button
+              size="sm"
+              variant="outline"
+              className="ml-auto"
+              disabled={exporting}
+              onClick={exportHandoff}
+            >
+              <Download className="mr-1 h-3 w-3" />
+              {exporting ? t('handoffExporting') : t('handoffExportExcel')}
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {t('handoffHeadcount', { count: handoff.headcount })} · {t('handoffDisclaimer')}
+          </p>
+          <table className="font-[weight:inherit] w-full text-sm">
+            <thead>
+              <tr className="text-left text-muted-foreground">
+                <th className="px-2 py-1">{t('handoffGroup')}</th>
+                <th className="px-2 py-1">{t('handoffAccount')}</th>
+                <th className="px-2 py-1">{t('handoffDirection')}</th>
+                <th className="px-2 py-1 text-right">{t('handoffAmount')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {handoff.entries.map((e, i) => (
+                <tr key={i} className="border-t">
+                  <td className="px-2 py-1">{e.group}</td>
+                  <td className="px-2 py-1">{e.account}</td>
+                  <td className="px-2 py-1">{e.direction}</td>
+                  <td className="px-2 py-1 text-right font-medium">{e.amount}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <div className="flex gap-4 border-t pt-2 text-xs text-muted-foreground">
+            <span>
+              {t('colTotalGross')}: ¥{handoff.totals.grossPay}
+            </span>
+            <span>
+              {t('colTotalNet')}: ¥{handoff.totals.netPay}
+            </span>
+            <span>
+              {t('colInsurance')}: ¥{handoff.totals.insurancePersonal}
+            </span>
+            <span>
+              {t('colFund')}: ¥{handoff.totals.housingFundPersonal}
+            </span>
+            <span>
+              {t('colIncomeTax')}: ¥{handoff.totals.incomeTax}
+            </span>
+          </div>
+        </div>
       )}
       <p className="text-label text-muted-foreground">
         需该月月结已生成;缺薪资配置的员工会被跳过并计入提示。已审批的周期默认不可重算,已发放后完全锁定。
@@ -574,13 +1096,25 @@ export function PayrollTab({ t }: { t: ReturnType<typeof useTranslations> }) {
         </span>
       </div>
 
-      {!monthValid ? (
-        <p className="text-muted-foreground">请输入 YYYY-MM 格式的月份</p>
-      ) : itemsQuery.isLoading ? (
+      {/* 汇总 */}
+      {items.length > 0 && (
+        <div className="flex gap-4 rounded-lg border bg-muted/50 px-4 py-2 text-body">
+          <span>
+            {t('colCount')}: <strong>{items.length}</strong>
+          </span>
+          <span>
+            {t('colTotalGross')}: <strong className="text-primary">¥{totalGross.toFixed(2)}</strong>
+          </span>
+          <span>
+            {t('colTotalNet')}: <strong className="text-primary">¥{totalNet.toFixed(2)}</strong>
+          </span>
+        </div>
+      )}
+
+      {/* 工资单表格 */}
+      {itemsQuery.isLoading ? (
         <p className="text-muted-foreground">{t('loading')}</p>
-      ) : itemsQuery.isError ? (
-        <p className="text-destructive">{itemsQuery.error?.message ?? '加载工资单失败'}</p>
-      ) : rows.length === 0 ? (
+      ) : items.length === 0 ? (
         <p className="text-muted-foreground">{t('noPayrollHint')}</p>
       ) : (
         <table className="font-[weight:inherit] w-full text-body">
@@ -588,22 +1122,21 @@ export function PayrollTab({ t }: { t: ReturnType<typeof useTranslations> }) {
             <tr className="text-left text-muted-foreground">
               <th className="px-2 py-1">{t('colEmployeeNo')}</th>
               <th className="px-2 py-1">{t('colName')}</th>
-              <th className="px-2 py-1">{t('colGrossPay')}</th>
+              <th className="px-2 py-1">{t('colBaseSalary')}</th>
               <th className="px-2 py-1">{t('colOtAmount')}</th>
-              <th className="px-2 py-1">缺勤扣款</th>
+              <th className="px-2 py-1">{t('colGrossPay')}</th>
               <th className="px-2 py-1">{t('colInsurance')}</th>
               <th className="px-2 py-1">{t('colFund')}</th>
               <th className="px-2 py-1">{t('colIncomeTax')}</th>
               <th className="px-2 py-1">{t('colNetPay')}</th>
-              <th className="px-2 py-1">明细</th>
+              <th className="px-2 py-1">{t('colActions')}</th>
             </tr>
           </thead>
           <tbody>
-            {rows.map((r, i) => {
-              const warnings = r.breakdown?.warnings ?? []
-              const rates = r.breakdown?.rates ?? null
+            {items.map((r, i) => {
+              const key = `${r.employeeNo ?? r.employeeName ?? i}`
               return (
-                <React.Fragment key={`${r.employeeNo ?? 'row'}-${i}`}>
+                <React.Fragment key={key}>
                   <tr className="border-t">
                     <td className="px-2 py-1">{r.employeeNo ?? '-'}</td>
                     <td className="px-2 py-1">{r.employeeName ?? '-'}</td>
@@ -623,44 +1156,14 @@ export function PayrollTab({ t }: { t: ReturnType<typeof useTranslations> }) {
                         className="text-primary hover:underline"
                         onClick={() => setExpanded((prev) => ({ ...prev, [i]: !prev[i] }))}
                       >
-                        {expanded[i] ? t('hideDetail') : t('showDetail')}
+                        {expandedId === key ? t('hideDetail') : t('showDetail')}
                       </button>
-                      {warnings.length > 0 && (
-                        <span className="ml-1 text-label text-warning">({warnings.length})</span>
-                      )}
                     </td>
                   </tr>
-                  {expanded[i] && (
-                    <tr className="border-t bg-muted/30">
-                      <td colSpan={10} className="space-y-2 px-2 py-2">
-                        <p className="font-medium">{t('breakdownTitle')}</p>
-                        <div className="flex flex-wrap gap-x-4 gap-y-1 text-label">
-                          {PAYROLL_STEPS.map((s) => (
-                            <span key={s.key}>
-                              {s.label}: <strong>{fmtMoney(r.breakdown?.steps?.[s.key])}</strong>
-                            </span>
-                          ))}
-                        </div>
-                        {rates ? (
-                          <p className="text-label text-muted-foreground">
-                            {rates.region} / {rates.year} 年 · 养老个人{' '}
-                            {fmtPercent(rates.pensionPersonal)} · 医疗个人{' '}
-                            {fmtPercent(rates.medicalPersonal)} · 失业个人{' '}
-                            {fmtPercent(rates.unemploymentPersonal)} · 公积金{' '}
-                            {fmtPercent(rates.housingFundRate)}
-                          </p>
-                        ) : (
-                          <p className="text-label text-muted-foreground">未匹配到社保费率配置</p>
-                        )}
-                        {warnings.length > 0 ? (
-                          <ul className="space-y-0.5 text-label text-warning">
-                            {warnings.map((w, wi) => (
-                              <li key={wi}>{w}</li>
-                            ))}
-                          </ul>
-                        ) : (
-                          <p className="text-label text-muted-foreground">{t('none')}</p>
-                        )}
+                  {expandedId === key && r.breakdown && (
+                    <tr>
+                      <td colSpan={10} className="border-t bg-muted/30 px-4 py-2">
+                        <BreakdownDetail breakdown={r.breakdown} t={t} />
                       </td>
                     </tr>
                   )}
@@ -670,6 +1173,70 @@ export function PayrollTab({ t }: { t: ReturnType<typeof useTranslations> }) {
           </tbody>
         </table>
       )}
-    </Section>
+
+      {/* 周期列表 */}
+      {(periodsQuery.data?.length ?? 0) > 0 && (
+        <div className="space-y-1">
+          <h3 className="text-sm font-medium text-muted-foreground">{t('payrollPeriods')}</h3>
+          <div className="flex flex-wrap gap-2">
+            {(periodsQuery.data ?? []).map((p) => (
+              <span
+                key={p.id}
+                className={`rounded-full px-2 py-0.5 text-xs ${
+                  p.status === 'paid'
+                    ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                    : p.status === 'approved'
+                      ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
+                      : 'bg-muted text-muted-foreground'
+                }`}
+              >
+                {p.periodMonth} · {p.status}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+    </section>
   )
 }
+
+function BreakdownDetail({ breakdown, t }: { breakdown: PayrollItem['breakdown']; t: TFunc }) {
+  const steps = breakdown?.steps
+  if (!steps) return null
+  const stepLabels: Array<[string, string]> = [
+    ['dailyRate', 'colDailyRate'],
+    ['basePay', 'colBasePay'],
+    ['otAmount', 'colOtAmount'],
+    ['absenceDeduction', 'colAbsenceDeduction'],
+    ['grossPay', 'colGrossPay'],
+    ['insurancePersonal', 'colInsurance'],
+    ['housingFundPersonal', 'colFund'],
+    ['specialDeduction', 'colSpecialDeduction'],
+    ['taxableIncome', 'colTaxableIncome'],
+    ['incomeTax', 'colIncomeTax'],
+    ['netPay', 'colNetPay'],
+  ]
+  return (
+    <div className="space-y-1">
+      <div className="text-xs font-medium text-muted-foreground">{t('breakdownTitle')}</div>
+      <div className="grid grid-cols-2 gap-x-6 gap-y-0.5 text-xs md:grid-cols-4">
+        {stepLabels.map(([k, labelKey]) => (
+          <div key={k} className="flex justify-between">
+            <span className="text-muted-foreground">{t(labelKey as 'colNetPay')}:</span>
+            <span className="font-mono">
+              {typeof steps[k] === 'number' ? (steps[k] as number).toFixed(2) : '-'}
+            </span>
+          </div>
+        ))}
+      </div>
+      {breakdown?.warnings && breakdown.warnings.length > 0 && (
+        <div className="mt-1 space-y-0.5 text-xs text-destructive">
+          {breakdown.warnings.map((w, i) => (
+            <div key={i}>⚠ {w}</div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

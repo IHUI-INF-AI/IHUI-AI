@@ -60,11 +60,12 @@ import {
   writeFileSync,
   writeSync,
 } from 'node:fs'
-import { basename, dirname, join, relative, resolve, sep } from 'node:path'
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 // git-lock 只经 §22c 的 __test__ 出口暴露 acquire/release(唯一实现,不在本文件抄第二份判据)。
 import { __test__ as gitLock } from './git-lock.mjs'
 import { gitBinary } from './lib/face-reader.mjs'
+import { assertGitDirInsideRepoTree } from './lib/git-dir-boundary.mjs'
 import derivedArtifacts from './lib/derived-artifacts.js'
 
 /** 仓根由脚本自身位置推导,禁 `process.cwd()` 定根(AGENTS §15)。 */
@@ -305,6 +306,16 @@ export function assertNoBypass(env = process.env) {
     )
   }
 }
+
+/**
+ * 写锁越界闸(2026-11-14 git 写锁外流根治,根因修复)。
+ *
+ * 判据**已抽到独立 lib 单源**:`scripts/lib/git-dir-boundary.mjs`(§0.6 同类判据全仓只许
+ * 一份)。这里 re-export 保住本模块旧 API 与既有镜像测试的 import 面不变 —— 本文件与
+ * `git-lock.mjs` 是写锁的两条消费方,共用同一份判据;而本文件 → git-lock 已有一条 import,
+ * 故判据不能放本文件、也不能放 git-lock(那会循环),必须落在两者共同的 lib 层。
+ */
+export { assertGitDirInsideRepoTree } from './lib/git-dir-boundary.mjs'
 
 /** 声明路径 → git 输出面的相对路径(统一 `/`)。 */
 export function normalizePath(gitCwd, p) {
@@ -1075,6 +1086,10 @@ export async function main(argv = process.argv.slice(2)) {
   if (swept.length) console.warn(`🧹 已清理 ${swept.length} 份死进程残留索引:${swept.join(', ')}`)
   const indexFile = indexPathFor(gitDir)
   ACTIVE_INDEXES.add(indexFile)
+  // 写锁越界闸(2026-11-14 git 写锁外流根治):gitDir 必须落在仓根树内,否则写锁/pending
+  // 会外流到项目盘根(D:\IHUI-AI-git-repo 那批 32 个 .pending 的根因)。建锁前先断言。
+  // 显式传 ROOT:lib 判据的默认 repoRoot 是 process.cwd(),而本仓铁律禁用 cwd 定根(§15)。
+  assertGitDirInsideRepoTree(gitDir, { repoRoot: ROOT })
   // 全仓 git 写锁:提交(含数分钟钩子)期间禁止别的会话推进 HEAD。否则本席索引仍是旧基线,
   // 而提交父变成新 HEAD ⇒ 树里没有对方改动,等于把别人的文件回退(2026-11-04 夹具实测)。
   const lockDirPath = join(gitDir, 'ihui-git-write.lock')

@@ -9,6 +9,19 @@
 > 状态:**通道已接线,余面按 §7 逐项标注**(2026-10-26 现读:WS 房间广播 + rev 持久化 + 快照端点已在 HEAD;
 > terminal 帧契约层 + 生产端发射 + web 端投影 + WS 载体登记四处已同批落地,残留见 §7 第 4 项)。
 > resync 客户端契约已落,**真实发起/网络重试**仍归 §7 第 6 项各端接线。
+> **2026-11-14 现读(G-20261114)**:生成腿已把前端占位 `messageId` 在 `message:created`
+> 幂等建成 `chat_messages.id`,并在每帧分配 rev / 广播之前把全量 snapshot 写回该行
+> ⇒ 广播 id / DB id / rev 账本 / 终态 rev 同一坐标系,流进行中 resync 即可命中快照。
+> `message:terminal` 已从共享 store 的 `unwired` 档移入契约内核;taro / RN / extension
+> 已补「订阅 → 共享 store → 页级投影」三层并投影终态(§7 第 4、6 项同步)。
+> 三型帧(含 terminal)共用同一 uuid 形态门禁,非法 id 整条腿 fail-closed。
+> 零 delta / 上游错误 / 客户端中止路径也恒建占位行(空初面),由 worker 补内容,
+> 保证终态有权威坐标且历史不出现第二个 uuid。
+> CLI 为平台独占豁免,详见 §7 第 6 项。
+> **2026-11-14 phase 2 收口**:gap 后的 resync 真实发起(拉权威快照 + 退避重试 +
+> 404/409 摘坐标 + 在飞去重)已四端同源 —— web 走端内 effect,taro / RN / extension
+> 走共享泵 `chat-sync-resync-pump`;端点路径与失败分型收在 `chat-sync-snapshot`,
+> 端内只交一行 `fetchApi`。验证面仍限 node(jsdom),见 §7 第 6 项。
 > 本文件是台账票 B02(V2 #23;票71 那行是同题历史副本,不得再登记第二行)的契约正本;
 > 判据内核与类型在 `packages/types/src/chat-sync-contract.ts`,判据回归在
 > `packages/types/tests/chat-sync-contract-*.test.ts`。三处同源的规则/表格若要改,必须一次改齐。
@@ -173,11 +186,50 @@ resync 的客户端契约(2026-10-26,纯函数,不接网络/UI):
    信封整体切 v2 仍待另批(现在只 terminal 用 v2,created/patched 保持 v1)。
 5. ⬜ **meta 结构性 patch —— 本轮不做**:pin/书签等结构位与票64 的 sibling 存储共面,须一次升
    `chat-sync.v2`(或子版本);同样受"生产 + 消费同批"约束,单侧加字段不得合入。
-6. ⬜ **各端 store 接线**:web 已接(`apps/web/src/stores/chat.ts` 的 `applyChatSync` /
-   `applyChatSyncSnapshot`,以及 2026-10-31 的 resync 真实发起 `apps/web/src/lib/chat-sync-resync.ts`)。
-   **taro/RN/cli/extension 本轮不做**:现读 taro/RN 的 `src/stores/`
-   没有 chat store(消息持在各聊天页的局部 state),且这两端的运行期验证(微信开发者工具 /
-   Android 模拟器)本机不具备(AGENTS §17)。前置 = 各自把消息面抽成 store +
-   `src/lib/user-broadcast.ts` 追加 `message:*` handler,且两端同批(§9)。
+6. ⬜ **各端 store 接线 —— 订阅/投影已收口,余 gap-resync 发起与真机验证**:
+   web 已接(`apps/web/src/stores/chat.ts` 的 `applyChatSync` / `applyChatSyncSnapshot`,
+   以及 2026-10-31 的 resync 真实发起 `apps/web/src/lib/chat-sync-resync.ts`)。
+   **2026-11-14 补齐** taro / RN / extension 的「订阅 → 共享 store → 页级投影」三层:
+   - taro `src/stores/chat-sync.ts` 新增 `useRemoteChatSyncMessages`(`useSyncExternalStore`
+     + vanilla store,避开 Taro 4.2.0 Vite runner 归并 bug),`pkg-ai/ai/chat.tsx` 真挂载,
+     本端 `thinking` 期间 `paused` 暂停投影(否则 WS snapshot 覆盖本端 SSE 前缀);
+   - RN `src/stores/chat-sync.ts` 的 `planChatSyncSurfaceMerge` 增 terminal 位投影,
+     `ChatScreen.tsx` 真挂载;
+   - extension `ChatPage.tsx` 首次接 `subscribeChatSync`,`chat-send-utils.ts` 出页级
+     merge 纯函数,生成端改用 `crypto.randomUUID()` 作占位 id(与 web 同坐标系),
+     `onDone` 不再二次落库 assistant。
+   共享 `chat-sync-store.ts` 删除 `message:terminal` 的 `unwired` 分支 ⇒ 终态是独立状态位,
+   不带 terminal 的后续 snapshot / patch 不得清掉已有终态(粘性,§4);`unwired` 计数位
+   为兼容调用方保留但恒 0。desktop / mobile-cap 无独立聊天前端,分别加载 / 同步 web 产物
+   ⇒ 继承 web 能力,不单列接线。
+   **仍余 ①(功能面,2026-11-14 phase 2 收口)**:失败分类 / 退避重试 / 404·409 摘坐标 /
+   在飞去重收进 `@ihui/shared/chat` 的 `chat-sync-resync`;调度收进
+   `chat-sync-resync-pump`(微任务合并、失败坐标不自动重跑、`stop()` 即让路);
+   端点路径与 ApiResult 失败分型收进 `chat-sync-snapshot`。四端接线:
+   web = `useConversationBroadcastSync` 的 gap effect;taro / RN =
+   `use-user-broadcast-sync` 的 token effect 启停泵;extension = `ChatPage` 挂载 effect。
+   原计划的「`@ihui/api-client` 出 REST 快照口」**未采用**:该包此切片他席在飞,
+   改为共享层出路径常量 + `createChatSyncSnapshotFetcher`,端内各交一行 `fetchApi` ——
+   目标(端内零路径抄写、失败分型单一真相)不变,且不制造跨包在途冲突。
+   接线锁:`tests/chat-sync-store.test.ts`(taro)、`tests/chat-sync-rn.test.ts`(RN)、
+   `tests/chat-sync-resync-wiring.test.ts`(extension)。
+   **2026-11-14 更正(独立评估证伪)**:「snapshot 可跨 gap」只跨 rev 跳号,
+   **不跨「消息不存在」** —— 契约内核 `applyChatSyncEvent` 对 snapshot 同样要求
+   `state.messages.has(messageId)`,缺 created 一律判 gap。故 `message:created`
+   只发一枚时,晚订阅 / WS 断线重连的旁观端会永久停在半截。
+   已落地的单包缓解(§6):每枚 `message:patched(snapshot)` 广播前**幂等重发一次**
+   带该帧全量内容的 `message:created`(已有行的端判 duplicate 不覆盖既有 patch 面,
+   缺行的端一步补齐 created + 全量正文),零额外 DB 写;`message:terminal` 连发
+   两枚,端侧按 duplicate / 终态粘性吸收。任一后续帧即可让迟到端收敛,收敛路径
+   不再必须 resync。
+   **确定性收敛(2026-11-14 phase 2 补齐)**:连续丢掉末帧及其后所有重发帧、但端侧仍
+   收到任意后续帧时,该帧引出的 gap 会进 `pendingResyncs`,由端侧泵拉权威快照补齐
+   (含缺 created 的情形:`mergeChatSyncResyncSnapshot` 先补 created 再并 snapshot)。
+   仍不承诺的是「整段离线期间连一枚帧都没收到」——那条只剩下次打开会话的全量历史拉取。
+   **仍余 ②(验证面)**:微信开发者工具 / Android 模拟器本机不具备(AGENTS §17),
+   端侧回归均为 node(jsdom) 下同一条接线,不冒充真机观感。
+   **CLI 平台独占豁免**(§9):主 REPL 会话存 `~/.ihui/sessions/*.json`,与后端
+   `chat_conversations` / `chat_messages` 不互通,无 `conversationId` 坐标,不订阅账号级
+   `/ws/broadcast` ⇒ 不适用本契约,非欠账。
 7. ⬜ 跨消息排序与房间的会话级事件(标题改名等)是否入契约。
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
