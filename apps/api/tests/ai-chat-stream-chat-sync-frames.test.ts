@@ -17,13 +17,15 @@
  * harness 照 ai-chat-stream-terminal-frame.test.ts;广播面用假装饰器捕获入参
  * (不 import ws-broadcast,不连库/Redis)。
  */
-import { describe, it, expect, afterAll, beforeAll, afterEach, vi } from 'vitest'
+import { describe, it, expect, afterAll, beforeAll, beforeEach, afterEach, vi } from 'vitest'
 import Fastify from 'fastify'
 
-const { USER_ID, CONV_ID, MESSAGE_ID } = vi.hoisted(() => ({
+const { USER_ID, CONV_ID, MESSAGE_ID, callLog } = vi.hoisted(() => ({
   USER_ID: '00000000-0000-4000-8000-000000000001',
   CONV_ID: 'cccccccc-3333-4333-8333-333333333333',
   MESSAGE_ID: 'dddddddd-4444-4444-8444-444444444444',
+  /** DB 写与广播的到达时序:顺序反了就是 FK 撞车 / resync 读到旧内容 */
+  callLog: [] as string[],
 }))
 
 vi.mock('jose', () => ({
@@ -76,6 +78,18 @@ vi.mock('@ihui/auth', () => ({
   signRefreshToken: vi.fn().mockResolvedValue('mock-refresh-token'),
   verifyAccessToken: mockVerifyAccessToken,
   createFamilyId: vi.fn().mockReturnValue('00000000-0000-4000-8000-000000000002'),
+  // 2026-11-11:生产 authenticateInner 已改 fail-closed —— getTokenBlacklist() 返回 null
+  // 即判 token「已吊销」⇒ 401;测试环境 createBlacklist 内部 new IORedis 恒连不上 ⇒ null
+  // ⇒ 合法 token 集体 401(基线存量红,未改动的 terminal-frame 测试同样 5/5 全 401)。
+  // 覆盖为内存假黑名单(has 恒 false),与 routes/__tests__/ai-grading.test.ts 同型。
+  // 不回退生产 fail-closed 语义。
+  createBlacklist: vi.fn(() => ({
+    async has() {
+      return false
+    },
+    async add() {},
+    async revoke() {},
+  })),
 }))
 vi.mock('../src/db/usercenter-queries.js', () => ({ getUserStatus: vi.fn().mockResolvedValue(1) }))
 
@@ -94,6 +108,13 @@ vi.mock('@ihui/context-compaction', async (importOriginal) => {
 
 vi.mock('../src/db/chat-queries.js', () => ({
   createMessage: vi.fn().mockResolvedValue({ id: 'mock-msg-id' }),
+  // G-20261114:流式占位行的建行/全量写回出口。桩只记时序,断言由各用例自己取。
+  ensureChatSyncStreamMessage: vi.fn(async () => {
+    callLog.push('ensure')
+  }),
+  writeChatSyncStreamSnapshot: vi.fn(async () => {
+    callLog.push('write')
+  }),
   patchConversationMetadata: vi.fn().mockResolvedValue(undefined),
   replaceMessages: vi.fn().mockResolvedValue(undefined),
   bindConversationWorkspace: vi.fn(),
@@ -155,6 +176,7 @@ import {
   aiChatStreamRoutes,
   CHAT_SYNC_STREAM_FRAME_MIN_CHARS,
 } from '../src/routes/ai-chat-stream.js'
+import * as chatQueries from '../src/db/chat-queries.js'
 import { CHAT_SYNC_EVENT_NAMES } from '@ihui/types'
 import type {
   ChatMessageCreatedBroadcastInput,
@@ -248,6 +270,7 @@ describe('B02 缺口①:SSE 生成腿的 created / patched 帧', () => {
       'broadcastChatMessageCreated',
       (input: ChatMessageCreatedBroadcastInput): ChatSyncBroadcastResult => {
         timeline.push({ kind: 'created', input: { ...input } })
+        callLog.push('created')
         return { room: 'conv:x', recipients: 1, matched: 0, delivered: 0, gated: 0 }
       },
     )
@@ -255,6 +278,7 @@ describe('B02 缺口①:SSE 生成腿的 created / patched 帧', () => {
       'broadcastChatMessagePatched',
       async (input: ChatMessagePatchedBroadcastInput): Promise<ChatSyncBroadcastResult> => {
         timeline.push({ kind: 'patched', input: { ...input } })
+        callLog.push('patched')
         return { room: 'conv:x', recipients: 1, matched: 0, delivered: 0, gated: 0 }
       },
     )
@@ -273,9 +297,23 @@ describe('B02 缺口①:SSE 生成腿的 created / patched 帧', () => {
     await server.close()
   })
 
+  beforeEach(() => {
+    callLog.length = 0
+    // 每例重挂时序桩(幂等;即便上一例改过实现也回到只记时序的形态)。
+    vi.mocked(chatQueries.ensureChatSyncStreamMessage).mockImplementation(async () => {
+      callLog.push('ensure')
+    })
+    vi.mocked(chatQueries.writeChatSyncStreamSnapshot).mockImplementation(async () => {
+      callLog.push('write')
+    })
+  })
+
   afterEach(() => {
     timeline = []
-    vi.restoreAllMocks()
+    // clearAllMocks 只清调用记录、保留桩实现;原用 restoreAllMocks 会把
+    // getUserStatus / createBlacklist 的 mockResolvedValue(1) / 工厂实现一并抹掉,
+    // 第二个用例起就退化成 401。这里要的是"清记录",不是"拆桩"。
+    vi.clearAllMocks()
   })
 
   const coords = { conversationId: CONV_ID, messageId: MESSAGE_ID, userId: USER_ID }
@@ -288,22 +326,33 @@ describe('B02 缺口①:SSE 生成腿的 created / patched 帧', () => {
     ])
     try {
       await injectStream(server, coords)
-      expect(timeline.map((f) => f.kind)).toEqual(['created', 'patched', 'terminal'])
-      const created = timeline[0]!
-      expect(created.input).toMatchObject({
+      // G-20261114:每枚 snapshot 前幂等重发一次 created(带该帧全量内容),
+      // 终态连发两枚。锁的是重发语义,不是把帧序列期望值加长。
+      const created = timeline.filter((f) => f.kind === 'created')
+      const patched = timeline.filter((f) => f.kind === 'patched')
+      const terminal = timeline.filter((f) => f.kind === 'terminal')
+      expect(timeline[0]!.kind).toBe('created')
+      expect(timeline.at(-1)!.kind).toBe('terminal')
+      expect(created).toHaveLength(patched.length + 1)
+      expect(terminal).toHaveLength(2)
+      expect(created[0]!.input).toMatchObject({
         conversationId: CONV_ID,
         messageId: MESSAGE_ID,
         memberUserIds: [USER_ID],
         role: 'assistant',
       })
-      const patched = timeline[1]!
-      expect(patched.input).toMatchObject({
+      // 重发 created 必须与紧随的 snapshot 全量正文逐字相同 ⇒ 迟到端一步补齐,
+      // 不必等 resync(契约内核对「消息不存在」的 snapshot 一律判 gap)。
+      expect(created[1]!.input).toMatchObject({ messageId: MESSAGE_ID, content: '你好，世界' })
+      expect(patched[0]!.input).toMatchObject({
         conversationId: CONV_ID,
         messageId: MESSAGE_ID,
         kind: 'snapshot',
         content: '你好，世界',
       })
-      expect(timeline[2]!.input).toMatchObject({ messageId: MESSAGE_ID, reason: 'stop' })
+      for (const t of terminal) {
+        expect(t.input).toMatchObject({ messageId: MESSAGE_ID, reason: 'stop' })
+      }
     } finally {
       restore()
     }
@@ -370,13 +419,24 @@ describe('B02 缺口①:SSE 生成腿的 created / patched 帧', () => {
     }
   })
 
-  it('⑥ 上游 HTTP 错误 ⇒ 无 created(没内容不发初面),只发终态 error', async () => {
+  it('⑥ 上游 HTTP 错误 ⇒ created(空初面)+ terminal(error) 成对,零 patched', async () => {
     mockUser()
     const restore = mockAIServiceUpstreamError()
     try {
       await injectStream(server, coords)
-      expect(timeline.map((f) => f.kind)).toEqual(['terminal'])
-      expect(timeline[0]!.input).toMatchObject({ reason: 'error' })
+      // G-20261114:旧断言「无 created、只发终态」把漏洞当特性钉死 —— 无行时端侧
+      // 收 terminal 判 gap → resync 404、账本无行 rev=0、worker 降级换第二个 uuid。
+      // 现在错误路径也建行,三型帧同进同退,终态有权威坐标。
+      expect(timeline.map((f) => f.kind)).toEqual(['created', 'terminal', 'terminal'])
+      expect(timeline[0]!.input).toMatchObject({ messageId: MESSAGE_ID, content: '' })
+      expect(timeline.filter((f) => f.kind === 'terminal').map((f) => f.input.reason)).toEqual([
+        'error',
+        'error',
+      ])
+      expect(chatQueries.ensureChatSyncStreamMessage).toHaveBeenCalledWith(
+        expect.objectContaining({ id: MESSAGE_ID, conversationId: CONV_ID, content: '' }),
+      )
+      expect(chatQueries.writeChatSyncStreamSnapshot).not.toHaveBeenCalled()
     } finally {
       restore()
     }
@@ -401,11 +461,102 @@ describe('B02 缺口①:SSE 生成腿的 created / patched 帧', () => {
         const members = frame.input.memberUserIds as readonly string[]
         expect(members).not.toContain(SPOOFED)
       }
-      // 三帧都到达且全部落在认证身份上
-      expect(timeline.map((f) => f.kind)).toEqual(['created', 'patched', 'terminal'])
+      // 三型帧都到达且全部落在认证身份上(重发 created 与双发 terminal 同样受越权门禁)
+      expect(timeline[0]!.kind).toBe('created')
+      expect(timeline.at(-1)!.kind).toBe('terminal')
+      expect(timeline.filter((f) => f.kind === 'created').length).toBeGreaterThanOrEqual(1)
+      expect(timeline.some((f) => f.kind === 'patched')).toBe(true)
+      expect(timeline.filter((f) => f.kind === 'terminal')).toHaveLength(2)
       for (const frame of timeline) {
         expect(frame.input.memberUserIds).toEqual([USER_ID])
       }
+    } finally {
+      restore()
+    }
+  })
+
+  // ── G-20261114 根因 1 回归:id 坐标系分裂 / FK 违例 / 流未落库 resync 404 ──
+
+  it('⑧ 坐标统一:created 用广播同 id 建 DB 占位行,且带全量初面(零空气泡)', async () => {
+    mockUser()
+    const restore = mockAIServiceSSE([
+      JSON.stringify({ type: 'chunk', content: '第一段' }),
+      JSON.stringify({ type: 'chunk', content: '第二段' }),
+    ])
+    try {
+      await injectStream(server, coords)
+      const ensure = vi.mocked(chatQueries.ensureChatSyncStreamMessage)
+      const write = vi.mocked(chatQueries.writeChatSyncStreamSnapshot)
+      // 建行坐标 = 广播坐标 = 前端占位 UUID(不再由 PG defaultRandom 生成第二个 uuid)
+      expect(ensure).toHaveBeenCalledTimes(1)
+      expect(ensure.mock.calls[0]![0]).toMatchObject({
+        id: MESSAGE_ID,
+        conversationId: CONV_ID,
+      })
+      const created = timeline.find((f) => f.kind === 'created')!
+      expect(created.input.content).toBe('第一段')
+      // 帧与 DB 行同源同写:不允许"帧有内容、库里是空串"的空气泡窗口
+      expect(ensure.mock.calls[0]![0].content).toBe(created.input.content)
+      // 顺序铁律:先建行再广播 created;先全量写回再分配 rev/广播 patched
+      expect(callLog.slice(0, 2)).toEqual(['ensure', 'created'])
+      const firstWrite = callLog.indexOf('write')
+      const firstPatched = callLog.indexOf('patched')
+      expect(firstWrite).toBeGreaterThanOrEqual(0)
+      expect(firstWrite).toBeLessThan(firstPatched)
+      // 末次写回 = 链头全量 ⇒ gap-resync 拉到的就是端侧已显示的内容
+      expect(write.mock.calls.at(-1)![0]).toMatchObject({
+        id: MESSAGE_ID,
+        conversationId: CONV_ID,
+        content: '第一段第二段',
+      })
+    } finally {
+      restore()
+    }
+  })
+
+  it('⑨ 非法 metadata.messageId ⇒ 整条 chat-sync 腿降级,含终态零帧零 DB 写(fail-closed)', async () => {
+    mockUser()
+    const restore = mockAIServiceSSE([JSON.stringify({ type: 'chunk', content: '内容' })])
+    try {
+      // 任意字符串进 PG uuid 列会抛 22P02:created 腿在 catch 里静默丢帧,terminal 腿
+      // 在 finally 的 fire-and-forget 里同样被吞。判据必须在两条腿共用的门槛前,
+      // 不合法就整腿不参与 —— 含终态帧,零 DB 写。
+      await injectStream(server, { ...coords, messageId: 'not-a-uuid' })
+      expect(timeline).toEqual([])
+      expect(chatQueries.ensureChatSyncStreamMessage).not.toHaveBeenCalled()
+      expect(chatQueries.writeChatSyncStreamSnapshot).not.toHaveBeenCalled()
+    } finally {
+      restore()
+    }
+  })
+
+  it('⑩ 零 delta 流 ⇒ created+terminal 成对(建占位行),零 patched / 零 snapshot 写回', async () => {
+    mockUser()
+    const restore = mockAIServiceSSE([])
+    try {
+      await injectStream(server, coords)
+      // 反向牙:旧断言只量「不建行」,terminal 照发 ⇒ resync 404 / 账本 rev=0 /
+      // worker 降级 createMessage 换第二个 uuid(根因 1 的旁路)。
+      expect(timeline.map((f) => f.kind)).toEqual(['created', 'terminal', 'terminal'])
+      expect(chatQueries.ensureChatSyncStreamMessage).toHaveBeenCalledTimes(1)
+      expect(chatQueries.writeChatSyncStreamSnapshot).not.toHaveBeenCalled()
+    } finally {
+      restore()
+    }
+  })
+
+  it('⑪ 反向牙:DB 占位腿失败 ⇒ created/patched/terminal 全不发,绝不发无权威坐标的帧', async () => {
+    mockUser()
+    vi.mocked(chatQueries.ensureChatSyncStreamMessage).mockRejectedValue(new Error('PG down'))
+    const restore = mockAIServiceSSE([JSON.stringify({ type: 'chunk', content: '内容' })])
+    try {
+      await injectStream(server, coords)
+      expect(timeline.filter((f) => f.kind === 'created')).toEqual([])
+      expect(timeline.filter((f) => f.kind === 'patched')).toEqual([])
+      // 三型帧同进同退:created 未落地 ⇒ terminal 也不发
+      expect(timeline.filter((f) => f.kind === 'terminal')).toEqual([])
+      // createdApplied=false 这道门禁压住了 patched ⇒ 连全量写回都不该尝试
+      expect(chatQueries.writeChatSyncStreamSnapshot).not.toHaveBeenCalled()
     } finally {
       restore()
     }

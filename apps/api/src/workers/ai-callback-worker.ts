@@ -9,6 +9,7 @@ import { chatElementPacks } from '@ihui/database'
 import { createWorker, QUEUE_NAMES, type AICallbackJobData, type Job } from '../plugins/queue.js'
 import { db } from '../db/index.js'
 import { createMessage, findMessageById, updateMessage } from '../db/chat-queries.js'
+import { isChatSyncMessageId } from '../db/chat-sync-rev-queries.js'
 import { consumeElementPackFrames } from '../db/element-pack-queries.js'
 import { resolveAiCost } from '../plugins/ai-cost.js'
 import { settleWalletUsage } from '../plugins/token-balance-service.js'
@@ -199,14 +200,22 @@ export function startAiCallbackWorker(server: FastifyInstance): Worker {
         // 直接创建新的 assistant 消息
         try {
           savedMessage = await createMessage({
+            // G-20261114:降级兜底也不能换 id。SSE 生成腿未建占位行(零 delta /
+            // 老客户端 / 降级流)时,这里仍以同一个 metadata.messageId 落库,
+            // 否则历史里出现第二个 uuid ⇒ 生成端占位气泡与历史行重复。
+            // 形态不合(非法 uuid)⇒ 不传 id,退回 PG defaultRandom(),不炸库。
+            ...(isChatSyncMessageId(messageId) ? { id: messageId } : {}),
             conversationId,
             role: 'assistant',
             content,
             reasoning,
             tokens: tokens,
             // 票59(3/3):regenerate 的新回复以 sibling 身份入族(坐标缺省 = 普通消息,
-            // Drizzle 落列默认 null,与存量行为逐字一致)。update 路径不接坐标:
-            // regenerate 流的占位 messageId 是前端 UUID,DB 里不存在,必走本分支。
+            // Drizzle 落列默认 null,与存量行为逐字一致)。
+            // G-20261114:SSE 生成腿已在 created 帧把 metadata.messageId 幂等建成
+            // chat_messages.id,正常链路恒走上面的 updateMessage 分支(广播 id ===
+            // DB id === 本分支入参),不再生成第二个 uuid。这里只作降级兜底:
+            // 降级流 / 无 metadata / 老客户端没建占位行时仍要把回调内容落库。
             parentMessageId,
             siblingIndex,
             metadata: {

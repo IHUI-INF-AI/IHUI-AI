@@ -1246,6 +1246,12 @@ export interface CreateMessageInput {
   // 使新回复以 sibling 身份入族;不传 = 普通消息(存量行为分毫不变)。
   parentMessageId?: string
   siblingIndex?: number
+  /**
+   * G-20261114:可选显式 id。仅 chat-sync 降级落库(ai-callback-worker)传入,
+   * 使广播 id / 前端占位 id / DB id 三者同一坐标系;不传 = PG defaultRandom()
+   * 生成(所有既有调用方行为逐字不变)。
+   */
+  id?: string
 }
 
 /**
@@ -1274,22 +1280,34 @@ export async function createMessage(input: CreateMessageInput): Promise<ChatMess
     const role = input.role ?? 'user'
     const turnOrdinal = role === 'user' ? maxTurn + 1 : Math.max(maxTurn, 1)
 
-    const rows = await tx
-      .insert(chatMessages)
-      .values({
-        conversationId: input.conversationId,
-        role,
-        content: input.content,
-        reasoning: input.reasoning,
-        tokens: input.tokens,
-        metadata: input.metadata as Record<string, unknown> | null,
-        turnOrdinal,
-        // 票59:sibling 版本族挂接(undefined 时 Drizzle 落默认 null,与存量行为一致)
-        parentMessageId: input.parentMessageId,
-        siblingIndex: input.siblingIndex,
-      })
-      .returning()
-    const row = rows[0]
+    const insert = tx.insert(chatMessages).values({
+      ...(input.id ? { id: input.id } : {}),
+      conversationId: input.conversationId,
+      role,
+      content: input.content,
+      reasoning: input.reasoning,
+      tokens: input.tokens,
+      metadata: input.metadata as Record<string, unknown> | null,
+      turnOrdinal,
+      // 票59:sibling 版本族挂接(undefined 时 Drizzle 落默认 null,与存量行为一致)
+      parentMessageId: input.parentMessageId,
+      siblingIndex: input.siblingIndex,
+    })
+    // G-20261114:显式 id 会与 SSE 生成腿的 ensureChatSyncStreamMessage 并发撞主键。
+    // 幂等插入 + 无返回行时回读既有行 ⇒ 不抛 23505、不触发 BullMQ 无谓重试。
+    // 不传 id 的所有既有调用方逐字不变(仍走普通 INSERT ... RETURNING)。
+    const rows = input.id
+      ? await insert.onConflictDoNothing().returning()
+      : await insert.returning()
+    let row = rows[0]
+    if (!row && input.id) {
+      const existing = await tx
+        .select()
+        .from(chatMessages)
+        .where(eq(chatMessages.id, input.id))
+        .limit(1)
+      row = existing[0]
+    }
     if (!row) throw new Error('创建消息失败')
 
     // 同步最近消息时间(仅当新消息时间晚于现有 lastMessageAt,避免并发倒置)
@@ -1315,6 +1333,90 @@ export async function createMessage(input: CreateMessageInput): Promise<ChatMess
 
     return row
   })
+}
+
+/**
+ * G-20261114-chat-stream-multiend:chat-sync 流式占位行的服务端唯一写口。
+ *
+ * 根因:前端 `assistantId = crypto.randomUUID()` 经 metadata.messageId 上行,SSE 生成腿
+ * 用它作 created/patched/terminal 的 messageId,而 ai-callback-worker 落库走
+ * `createMessage`(不接受 id,PG defaultRandom() 另生成第二个 uuid)。于是广播坐标系、
+ * rev 账本、resync 快照、DB 历史是互不相认的 id;其中
+ * `chat_message_sync_revs.message_id` 有 FK → `chat_messages.id`,流进行中 DB 无该行
+ * ⇒ 每一次 patched 的 `allocateChatSyncRev` 都撞 FK 违例,被 SSE 帧发射器 catch 后
+ * 仅 warn ⇒ 其它端全程收不到流式增量;resync 按占位 id 查快照恒 404;
+ * worker 落库又多出一条同内容新 id ⇒ 刷新后重复气泡。
+ *
+ * 修法:让前端占位 UUID **直接成为** chat_messages.id(合法 uuid,显式插入)。
+ * 由流中 created 帧幂等建行、每帧 snapshot 全量写回,worker 的 updateMessage
+ * 分支因此命中同一行,不再生成第二个 uuid。契约 docs/chat-sync-contract.md §2
+ * 「rev=N 的 snapshot 必须自包含 ≤N 的全部内容」由"帧与 DB 行同源同写"兑现。
+ *
+ * 归属判据不在本函数:路由层 isConversationOwnedBy 已在写路径前核过会话属主
+ * (ai-chat-stream.ts 的 /chat/stream handler),本函数只接已经过归属判据的坐标。
+ */
+export async function ensureChatSyncStreamMessage(input: {
+  id: string
+  conversationId: string
+  content: string
+  reasoning?: string
+}): Promise<void> {
+  await db.transaction(async (tx) => {
+    // 与 createMessage 的 D35/O82 口径逐字一致:先锁会话行,同会话插入串行,
+    // 再读 max(turn_ordinal);assistant 沿用当前轮,无轮归 1。
+    await tx
+      .select({ id: chatConversations.id })
+      .from(chatConversations)
+      .where(eq(chatConversations.id, input.conversationId))
+      .for('update')
+    const turnRows = await tx
+      .select({ maxTurn: sql<number | null>`max(${chatMessages.turnOrdinal})` })
+      .from(chatMessages)
+      .where(eq(chatMessages.conversationId, input.conversationId))
+    const turnOrdinal = Math.max(Number(turnRows[0]?.maxTurn ?? 0), 1)
+    // ON CONFLICT DO NOTHING:断线重连 / stream takeover / created 帧重试都会再走到
+    // 这里,幂等零副作用。已存在行(worker 已抢先落库)不得被首段内容回退覆盖。
+    await tx
+      .insert(chatMessages)
+      .values({
+        id: input.id,
+        conversationId: input.conversationId,
+        role: 'assistant',
+        content: input.content,
+        reasoning: input.reasoning,
+        turnOrdinal,
+      })
+      .onConflictDoNothing()
+  })
+}
+
+/**
+ * 流中每帧 snapshot 的全量写回。必须在 `allocateChatSyncRev`/广播**之前**调用:
+ * 端侧拿到 rev=N 后可能立刻 gap-resync 拉权威快照,若 DB 行还停在 rev<N 的内容,
+ * 就会把已经显示出来的正文倒退回去(契约 §2 第 3 条要防的同一型)。
+ *
+ * 0 行 ⇒ 显式抛错(占位行未建成),由发射器 catch 后靠下一帧全量自愈;
+ * 绝不静默发出"服务端权威内容已推进"的假信号。
+ */
+export async function writeChatSyncStreamSnapshot(input: {
+  id: string
+  conversationId: string
+  content: string
+  reasoning?: string
+}): Promise<void> {
+  const rows = await db
+    .update(chatMessages)
+    .set({
+      content: input.content,
+      ...(input.reasoning !== undefined ? { reasoning: input.reasoning } : {}),
+    })
+    .where(
+      and(eq(chatMessages.id, input.id), eq(chatMessages.conversationId, input.conversationId)),
+    )
+    .returning({ id: chatMessages.id })
+  if (rows.length === 0) {
+    throw new Error(`writeChatSyncStreamSnapshot: 流式占位行不存在(id=${input.id})`)
+  }
 }
 
 export async function findMessageById(

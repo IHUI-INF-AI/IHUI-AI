@@ -75,6 +75,17 @@ vi.mock('@ihui/auth', () => ({
   signRefreshToken: vi.fn().mockResolvedValue('mock-refresh-token'),
   verifyAccessToken: mockVerifyAccessToken,
   createFamilyId: vi.fn().mockReturnValue('00000000-0000-4000-8000-000000000002'),
+  // 2026-11-11:生产 authenticateInner 已改 fail-closed —— getTokenBlacklist() 返回 null
+  // 即判 token「已吊销」⇒ 401。测试环境 createBlacklist 内部 new IORedis 恒连不上 ⇒ null,
+  // 合法 token 集体 401(与 ai-chat-stream-chat-sync-frames.test.ts 同一型基线红)。
+  // 覆盖为内存假黑名单(has 恒 false),不回退生产 fail-closed 语义。
+  createBlacklist: vi.fn(() => ({
+    async has() {
+      return false
+    },
+    async add() {},
+    async revoke() {},
+  })),
 }))
 vi.mock('../src/db/usercenter-queries.js', () => ({ getUserStatus: vi.fn().mockResolvedValue(1) }))
 
@@ -93,6 +104,10 @@ vi.mock('@ihui/context-compaction', async (importOriginal) => {
 
 vi.mock('../src/db/chat-queries.js', () => ({
   createMessage: vi.fn().mockResolvedValue({ id: 'mock-msg-id' }),
+  // G-20261114:生成腿的建行 / 全量写回出口。terminal 腿现在要求 created 真落地
+  // (hasCreated),故本文件必须让 chatSyncFrame 真正存在,否则 ①–④ 会退化成假绿。
+  ensureChatSyncStreamMessage: vi.fn().mockResolvedValue(undefined),
+  writeChatSyncStreamSnapshot: vi.fn().mockResolvedValue(undefined),
   patchConversationMetadata: vi.fn().mockResolvedValue(undefined),
   replaceMessages: vi.fn().mockResolvedValue(undefined),
   bindConversationWorkspace: vi.fn(),
@@ -270,6 +285,22 @@ describe('B02 生产端终态帧:SSE 三条收尾出口各发一枚 message:term
         gated: 0,
       }
     })
+    // G-20261114:让 chatSyncFrame 真正可创建 —— 终态腿现在要求 created 真落地
+    // (hasCreated)。缺这两个装饰器时 emitter 恒 null,①–④ 会全红且 ⑦ 是假绿。
+    server.decorate('broadcastChatMessageCreated', async () => ({
+      room: '',
+      recipients: 0,
+      matched: 0,
+      delivered: 0,
+      gated: 0,
+    }))
+    server.decorate('broadcastChatMessagePatched', async () => ({
+      room: '',
+      recipients: 0,
+      matched: 0,
+      delivered: 0,
+      gated: 0,
+    }))
     await server.register(aiChatStreamRoutes, { prefix: '/api/ai' })
     await server.ready()
   })
@@ -280,7 +311,9 @@ describe('B02 生产端终态帧:SSE 三条收尾出口各发一枚 message:term
 
   afterEach(() => {
     terminalCalls.length = 0
-    vi.restoreAllMocks()
+    // 同 ai-chat-stream-chat-sync-frames.test.ts:clearAllMocks 只清调用记录、
+    // 保留 createBlacklist / getUserStatus 桩实现;restoreAllMocks 会让第二例起 401。
+    vi.clearAllMocks()
   })
 
   it('① 正常收尾:done 帧 finishReason=stop ⇒ reason=stop,坐标与收件人是本次会话', async () => {
@@ -292,14 +325,16 @@ describe('B02 生产端终态帧:SSE 三条收尾出口各发一枚 message:term
         messageId: MESSAGE_ID,
         userId: USER_ID,
       })
-      expect(terminalCalls).toEqual([
-        {
-          conversationId: CONV_ID,
-          memberUserIds: [USER_ID],
-          messageId: MESSAGE_ID,
-          reason: 'stop',
-        },
-      ])
+      // G-20261114:终态连发两枚(at-least-once),端侧 duplicate / 终态粘性吸收。
+      // 两枚必须逐字同形 —— 不同 reason 会让「重复投递」变成「终态改写」。
+      expect(terminalCalls).toHaveLength(2)
+      expect(terminalCalls[0]).toEqual({
+        conversationId: CONV_ID,
+        memberUserIds: [USER_ID],
+        messageId: MESSAGE_ID,
+        reason: 'stop',
+      })
+      expect(terminalCalls[1]).toEqual(terminalCalls[0])
     } finally {
       restore()
     }
@@ -314,7 +349,7 @@ describe('B02 生产端终态帧:SSE 三条收尾出口各发一枚 message:term
         messageId: MESSAGE_ID,
         userId: USER_ID,
       })
-      expect(terminalCalls.map((c) => c.reason)).toEqual(['length'])
+      expect(terminalCalls.map((c) => c.reason)).toEqual(['length', 'length'])
     } finally {
       restore()
     }
@@ -329,7 +364,7 @@ describe('B02 生产端终态帧:SSE 三条收尾出口各发一枚 message:term
         messageId: MESSAGE_ID,
         userId: USER_ID,
       })
-      expect(terminalCalls.map((c) => c.reason)).toEqual(['error'])
+      expect(terminalCalls.map((c) => c.reason)).toEqual(['error', 'error'])
     } finally {
       restore()
     }
@@ -344,7 +379,7 @@ describe('B02 生产端终态帧:SSE 三条收尾出口各发一枚 message:term
         messageId: MESSAGE_ID,
         userId: USER_ID,
       })
-      expect(terminalCalls.map((c) => c.reason)).toEqual(['aborted'])
+      expect(terminalCalls.map((c) => c.reason)).toEqual(['aborted', 'aborted'])
     } finally {
       restore()
     }
@@ -356,6 +391,41 @@ describe('B02 生产端终态帧:SSE 三条收尾出口各发一枚 message:term
     try {
       await injectStream(server)
       expect(terminalCalls).toEqual([])
+    } finally {
+      restore()
+    }
+  })
+
+  it('⑥ 非法 metadata.messageId ⇒ 不发终态帧(与 created/patched 同一把尺,G-20261114)', async () => {
+    mockUser()
+    const restore = mockAIServiceSSE(['data: {"type":"chunk","content":"hi"}\n\n'], 'stop')
+    try {
+      // 反向牙:坐标齐备(replayKey 存在)、收尾 reason 正常、装饰器也在位,唯独 messageId
+      // 非 uuid。若终态腿只判 replayKey,这里就会发帧 ⇒ 真库 readChatSyncRev 抛 22P02
+      // 且被 fire-and-forget 吞掉,端侧永远收不到终态。
+      await injectStream(server, {
+        conversationId: CONV_ID,
+        messageId: 'not-a-uuid',
+        userId: USER_ID,
+      })
+      expect(terminalCalls).toEqual([])
+    } finally {
+      restore()
+    }
+  })
+
+  it('⑦ 零 delta 流 ⇒ 仍发终态帧(错误路径不能让另一端不知道生成结束)', async () => {
+    mockUser()
+    const restore = mockAIServiceSSE([], 'stop')
+    try {
+      // 其它条件全齐,唯独没有任何 chunk。若因「无内容」压住终态,另一端
+      // 永远不知道这次生成已收尾;现在 created(空初面)一并落地 ⇒ 终态有权威坐标。
+      await injectStream(server, {
+        conversationId: CONV_ID,
+        messageId: MESSAGE_ID,
+        userId: USER_ID,
+      })
+      expect(terminalCalls.map((c) => c.reason)).toEqual(['stop', 'stop'])
     } finally {
       restore()
     }
