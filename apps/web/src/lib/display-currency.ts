@@ -1,5 +1,6 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
  * 展示货币换算(2026-11-14 立)。
@@ -26,20 +27,49 @@ export const DISPLAY_CURRENCY_KEY = 'ihui-display-currency'
 /** 汇率快照 cookie:SSR 首屏复用上次拉到的汇率,保证刷新后金额不会回落到原币种 */
 export const FX_SNAPSHOT_COOKIE = 'ihui-fx-snapshot'
 
-let selectedCurrency: DisplayCurrency | null = null
 /**
- * 是否已完成水合。水合前服务端与客户端都按 cookie 决定的口径渲染,避免同一份金额在
- * SSR/首帧出现两种币种导致 React 水合失败(整页事件失效)。
+ * 可变状态统一挂到 globalThis(2026-11-15,Turbopack 分包去重):
+ * 实测 Turbopack 会把本模块分别打进不同 chunk(server-currency chunk 里内联了一份本模块),
+ * 模块作用域变量于是各存一份 —— 服务端播种写进副本 A,页面 formatCny 读的却是副本 B,
+ * 表现为 <html data-currency-effective="USD"> 而金额仍是 ¥128.50(SSR 永不换算)。
+ * 用 Symbol.for 作键:无论被打包几次、拆进几个 chunk,读写都命中同一份状态。
  */
-let hydrated = false
-/** 服务端渲染期间从 cookie 读到的偏好(客户端不读它) */
-let serverCurrency: DisplayCurrency = 'auto'
-/** 服务端渲染期间生效的币种(auto 已按 Accept-Language 解开) */
-let serverEffective: CurrencyCode = 'CNY'
+interface CurrencyState {
+  selected: DisplayCurrency | null
+  /**
+   * 是否已完成水合。水合前服务端与客户端都按 cookie 决定的口径渲染,避免同一份金额在
+   * SSR/首帧出现两种币种导致 React 水合失败(整页事件失效)。
+   */
+  hydrated: boolean
+  /** 服务端渲染期间从 cookie 读到的偏好(客户端不读它) */
+  serverCurrency: DisplayCurrency
+  /** 服务端渲染期间生效的币种(auto 已按 Accept-Language 解开) */
+  serverEffective: CurrencyCode
+  fxSnapshot: LiveFxRates | null
+  /** 展示货币/汇率变化的订阅者(CurrencyRuntime 据此就地重渲染全站金额) */
+  listeners: Set<() => void>
+}
+const CURRENCY_STATE_KEY = Symbol.for('ihui.display-currency.state.v1')
+function getCurrencyState(): CurrencyState {
+  const holder = globalThis as typeof globalThis & { [CURRENCY_STATE_KEY]?: CurrencyState }
+  let state = holder[CURRENCY_STATE_KEY]
+  if (!state) {
+    state = {
+      selected: null,
+      hydrated: false,
+      serverCurrency: 'auto',
+      serverEffective: 'CNY',
+      fxSnapshot: null,
+      listeners: new Set(),
+    }
+    holder[CURRENCY_STATE_KEY] = state
+  }
+  return state
+}
 
 /** 由 CurrencyRuntime 在挂载后调用(客户端) */
 export function markDisplayCurrencyHydrated(): void {
-  hydrated = true
+  getCurrencyState().hydrated = true
 }
 
 /** 校验并归一货币取值 */
@@ -55,13 +85,14 @@ export function setServerDisplayCurrency(
   value: string | undefined | null,
   effective?: CurrencyCode | null,
 ): void {
-  serverCurrency = normalizeDisplayCurrency(value)
-  serverEffective =
+  const state = getCurrencyState()
+  state.serverCurrency = normalizeDisplayCurrency(value)
+  state.serverEffective =
     effective === 'CNY' || effective === 'USD' || effective === 'USDT'
       ? effective
-      : serverCurrency === 'auto'
+      : state.serverCurrency === 'auto'
         ? 'CNY'
-        : serverCurrency
+        : state.serverCurrency
 }
 
 /** auto 跟随浏览器语言:en* → USD,其余 → CNY(服务端按 Accept-Language 判定) */
@@ -80,21 +111,16 @@ export const CURRENCY_SYMBOL: Record<CurrencyCode, string> = {
   USDT: '₮',
 }
 
-/** 汇率快照(由 useExchangeRates 在客户端写入;SSR 期间为 null ⇒ 按原币种展示) */
-let fxSnapshot: LiveFxRates | null = null
-
-/** 展示货币/汇率变化的订阅者(CurrencyRuntime 据此就地重渲染全站金额,不再整页刷新) */
-const listeners = new Set<() => void>()
-
 function notifyDisplayCurrencyChanged(): void {
-  for (const fn of listeners) fn()
+  for (const fn of getCurrencyState().listeners) fn()
 }
 
 /** 订阅货币变化;返回取消订阅函数 */
 export function subscribeDisplayCurrency(listener: () => void): () => void {
-  listeners.add(listener)
+  const state = getCurrencyState()
+  state.listeners.add(listener)
   return () => {
-    listeners.delete(listener)
+    state.listeners.delete(listener)
   }
 }
 
@@ -102,13 +128,14 @@ export function subscribeDisplayCurrency(listener: () => void): () => void {
  *  页面上的美元源价格(如模型市场 $0.59)在 CNY 口径下也要立刻按快照换算,
  *  否则首屏会同时出现 $ 与 ¥ 两种单位(看起来像单位不统一)。 */
 export function setFxSnapshot(next: LiveFxRates | null): void {
-  const hadSnapshot = fxSnapshot !== null
-  fxSnapshot = next
+  const state = getCurrencyState()
+  const hadSnapshot = state.fxSnapshot !== null
+  state.fxSnapshot = next
   if (!hadSnapshot && next) notifyDisplayCurrencyChanged()
 }
 
 export function getFxSnapshot(): LiveFxRates | null {
-  return fxSnapshot
+  return getCurrencyState().fxSnapshot
 }
 
 /** 校验汇率快照结构(cookie 由浏览器回传,可能被篡改/过期,必须验) */
@@ -148,30 +175,31 @@ export function writeFxSnapshotCookie(rates: LiveFxRates | null): void {
 
 /** 读取用户显式选择的货币(服务端读 cookie;客户端水合期读 SSR 的 data-currency) */
 export function getSelectedCurrency(): DisplayCurrency {
-  if (typeof window === 'undefined') return serverCurrency
-  if (!hydrated) {
+  const state = getCurrencyState()
+  if (typeof window === 'undefined') return state.serverCurrency
+  if (!state.hydrated) {
     // SSR 把 cookie 偏好写在 <html data-currency>,首帧照它渲染保证水合一致
     const ds = document.documentElement?.dataset?.['currency']
     if (ds) return normalizeDisplayCurrency(ds)
     return 'auto'
   }
-  if (selectedCurrency !== null) return selectedCurrency
+  if (state.selected !== null) return state.selected
   try {
     const raw = window.localStorage.getItem(DISPLAY_CURRENCY_KEY)
     if (raw === 'CNY' || raw === 'USD' || raw === 'USDT' || raw === 'auto') {
-      selectedCurrency = raw
+      state.selected = raw
       return raw
     }
   } catch {
     // localStorage 被禁用时按 auto 处理
   }
-  selectedCurrency = 'auto'
-  return selectedCurrency
+  state.selected = 'auto'
+  return state.selected
 }
 
 /** 写入偏好(CurrencySwitcher 调用;是否刷新页面由调用方决定) */
 export function setSelectedCurrency(currency: DisplayCurrency): void {
-  selectedCurrency = currency
+  getCurrencyState().selected = currency
   if (typeof window === 'undefined') return
   try {
     window.localStorage.setItem(DISPLAY_CURRENCY_KEY, currency)
@@ -191,19 +219,17 @@ export function setSelectedCurrency(currency: DisplayCurrency): void {
 }
 
 /** 显式选择优先;auto 时英文环境用 USD,其余用 CNY */
-export function resolveEffectiveCurrency(
-  selected: DisplayCurrency,
-  lang?: string,
-): CurrencyCode {
+export function resolveEffectiveCurrency(selected: DisplayCurrency, lang?: string): CurrencyCode {
   if (selected !== 'auto') return selected
-  if (!hydrated) {
+  const state = getCurrencyState()
+  if (!state.hydrated) {
     // 水合前必须与服务端首屏一致:客户端读 <html data-currency-effective>,
     // 服务端读 layout 写入的 serverEffective(auto 已按 Accept-Language 解开)
     if (typeof window !== 'undefined') {
       const eff = document.documentElement?.dataset?.['currencyEffective']
       if (eff === 'CNY' || eff === 'USD' || eff === 'USDT') return eff
     }
-    return serverEffective
+    return state.serverEffective
   }
   const l =
     lang ?? (typeof navigator !== 'undefined' && navigator.language ? navigator.language : 'zh-CN')
@@ -217,7 +243,7 @@ export function getActiveCurrency(): CurrencyCode {
 
 function cnyPer(currency: CurrencyCode): number | null {
   if (currency === 'CNY') return 1
-  const rate = fxSnapshot?.cnyPer?.[currency]
+  const rate = getFxSnapshot()?.cnyPer?.[currency]
   return typeof rate === 'number' && Number.isFinite(rate) && rate > 0 ? rate : null
 }
 
@@ -225,11 +251,7 @@ function cnyPer(currency: CurrencyCode): number | null {
  * 金额换算:from → to。
  * 任一环节缺汇率 ⇒ 返回 null(调用方降级为原币种展示,不猜)。
  */
-export function convertAmount(
-  amount: number,
-  from: CurrencyCode,
-  to: CurrencyCode,
-): number | null {
+export function convertAmount(amount: number, from: CurrencyCode, to: CurrencyCode): number | null {
   if (!Number.isFinite(amount)) return null
   if (from === to) return amount
   const fromRate = cnyPer(from)
@@ -308,9 +330,11 @@ export function formatUsdt(usdt: number, opts: MoneyFormatOptions = {}): string 
 
 /** 汇率说明行(货币切换器/悬浮提示用);无快照时返回空串 */
 export function formatRateLine(): string {
-  if (!fxSnapshot) return ''
-  const usd = fxSnapshot.cnyPer.USD
-  const usdt = fxSnapshot.cnyPer.USDT
+  const snapshot = getFxSnapshot()
+  if (!snapshot) return ''
+  const usd = snapshot.cnyPer.USD
+  const usdt = snapshot.cnyPer.USDT
   const fmt = (v: number) => (v >= 1 ? v.toFixed(2) : v.toFixed(4))
   return `1 USD = ¥${fmt(usd)} · 1 USDT = ¥${fmt(usdt)}`
 }
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
