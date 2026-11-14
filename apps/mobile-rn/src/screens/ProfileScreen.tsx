@@ -2503,7 +2503,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.brandAccent.DEFAULT,
   },
   editProfileAvatarFallbackText: {
-    fontSize: 28,
+    fontSize: rnType.displayXl.size,
     fontWeight: '700',
     color: tokens.brandAccent.foreground,
   },

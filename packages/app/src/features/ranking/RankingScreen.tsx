@@ -197,7 +197,7 @@ function createStyles(tk: AppThemeTokens) {
       overflow: 'hidden',
     },
     avatarImg: { width: '100%', height: '100%', borderRadius: rnRadius.lg },
-    avatarInitial: { fontSize: 22, fontWeight: '600', color: tk.text.secondary },
+    avatarInitial: { fontSize: rnType.headline.size, fontWeight: '600', color: tk.text.secondary },
     podiumName: {
       marginTop: rnSpacing.sm,
       fontSize: rnType.body.size,
