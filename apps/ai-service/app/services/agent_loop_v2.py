@@ -5881,6 +5881,25 @@ class AgentLoopV2:
                         tool_calls, tool_results, tool_messages
                     )
                 messages.extend(tool_messages)
+                # 2026-11-14(对标 DSH read_image):图片本体不进 tool 正文(会被
+                # token 截断护栏截坏、也会撑爆 SSE 帧),由工具侧有界暂存,这里在
+                # 本轮全部 tool 消息之后追加一条 user 多模态消息,让主模型直接看图。
+                try:
+                    from .tool_image_delivery import (
+                        build_image_followup_message,
+                        collect_image_ids,
+                        take_images,
+                    )
+
+                    _image_msg = build_image_followup_message(
+                        take_images(
+                            collect_image_ids([tr.result for tr in tool_results])
+                        )
+                    )
+                    if _image_msg is not None:
+                        messages.append(_image_msg)
+                except Exception as e:  # noqa: BLE001 - 交付失败降级为纯文字元数据
+                    logger.warning("工具图片交付失败(降级): %s", e)
                 # V3#54(2026-09-28):结果侧观测上提主链路 ——
                 #   failure-streak 达阈值 ⇒ 换策略(注入反思提示,当前只有这一种动作,
                 #   不中断;阈值见 core/doom_loop.py FAILURE_STREAK_STRATEGY_THRESHOLD);

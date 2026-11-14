@@ -6947,6 +6947,53 @@ async def _tool_vision_analyze(arguments: dict[str, Any]) -> dict[str, Any]:
         }
 
 
+async def _tool_read_image(arguments: dict[str, Any]) -> dict[str, Any]:
+    """read_image: 读取工作区内图片并交给**主模型**直接看(多模态工具结果)。
+
+    与 vision_analyze 的分工:后者把图片转交给另一个视觉模型并只回文字结论;
+    本工具把图片本体送回当前主模型。返回值刻意只带元数据 + content_id ——
+    图片本体经 tool_image_delivery 的有界暂存交付,避免被 call_tool 的 token
+    截断护栏截坏、也避免 SSE tool-result 事件承载 10MB data URL。
+    """
+    from pathlib import Path
+
+    from .tool_image_delivery import prepare_image_file, stash_image
+
+    raw_path = arguments.get("file_path") or ""
+    ok, info = _validate_path_in_workspace(str(raw_path))
+    if not ok:
+        return {
+            "tool": "read_image", "ok": False,
+            "error": info, "errorCode": "PATH_NOT_ALLOWED",
+        }
+    path = Path(info)
+    if not path.exists() or not path.is_file():
+        return {
+            "tool": "read_image", "ok": False,
+            "error": f"文件不存在: {info}", "errorCode": "FILE_NOT_FOUND",
+        }
+    prepared, error = prepare_image_file(path)
+    if prepared is None or error is not None:
+        return {"tool": "read_image", "ok": False, **(error or {})}
+    content_id = stash_image(prepared)
+    return {
+        "tool": "read_image",
+        "ok": True,
+        "path": str(path),
+        "image": {
+            "content_id": content_id,
+            "media_type": prepared["media_type"],
+            "bytes": prepared["bytes"],
+            "width": prepared["width"],
+            "height": prepared["height"],
+            "source_width": prepared["source_width"],
+            "source_height": prepared["source_height"],
+            "name": prepared["name"],
+        },
+        "note": "图片本体随本轮 tool 结果之后的一条 user 多模态消息送达;不要安装图像库或生成缩略图来查看",
+    }
+
+
 # ---------------------------------------------------------------------------
 # 子智能体派发工具(2026-07-24 新增)
 # 让 LLM 在 tool loop 中能自主派发子智能体执行任务
@@ -13406,6 +13453,25 @@ _TOOLS: list[MCPTool] = [
         },
     ),
     MCPTool(
+        name="read_image",
+        description=(
+            "读取 PNG/JPEG/WebP/GIF 图片并把图片本身交给当前主模型直接查看"
+            "(不是 OCR、也不转交其它视觉模型)。大图会自动降采样并给出坐标换算倍数;"
+            "不要为了看图安装图像库或生成缩略图"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "file_path": {
+                    "type": "string",
+                    "description": "图片文件路径(必须在工作区白名单内)",
+                },
+            },
+            "required": ["file_path"],
+            "additionalProperties": False,
+        },
+    ),
+    MCPTool(
         name="read_tool_output",
         description=(
             "读取此前因超长而落盘的工具输出工件(按字符 offset 分页续读)。"
@@ -17034,6 +17100,7 @@ _TOOL_HANDLERS: dict[str, Any] = {
     # test_tools_count_matches_registry 的"定义 ↔ 处理函数"双射。
     "request_business_form": _tool_request_business_form,
     "read_file": _tool_read_file,
+    "read_image": _tool_read_image,
     "read_tool_output": _tool_read_tool_output,
     "list_files": _tool_list_files,
     "render_repo_tree": _tool_render_repo_tree,
