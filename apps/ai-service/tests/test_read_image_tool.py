@@ -226,4 +226,27 @@ async def test_agent_loop_delivers_image_as_user_multimodal_message(workspace) -
     # tool 正文只有元数据,base64 不在 tool 消息里
     tool_messages = [m for m in second if m.get("role") == "tool"]
     assert tool_messages and all("base64" not in str(m.get("content")) for m in tool_messages)
+
+
+@pytest.mark.asyncio
+async def test_read_image_applies_exif_orientation(workspace) -> None:
+    """手机照片的 EXIF Orientation 必须先转正:否则模型看到躺倒的图,坐标也错位。"""
+    from PIL import Image
+
+    path = workspace / "rotated.jpg"
+    image = Image.new("RGB", (4, 2), (255, 0, 0))
+    exif = Image.Exif()
+    exif[0x0112] = 6  # 实际内容是顺时针转 90° 才正立
+    image.save(path, format="JPEG", exif=exif)
+
+    result = await _tool_read_image({"file_path": str(path)})
+
+    assert result["ok"] is True
+    meta = result["image"]
+    # 交付的是转正后的图:宽高互换
+    assert (meta["width"], meta["height"]) == (2, 4)
+    assert (meta["source_width"], meta["source_height"]) == (2, 4)
+    images = delivery.take_images([meta["content_id"]])
+    assert len(images) == 1
+    assert images[0]["data_url"].startswith("data:image/")
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
