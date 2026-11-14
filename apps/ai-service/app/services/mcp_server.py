@@ -11536,12 +11536,53 @@ async def _tool_bg_task_status(arguments: dict[str, Any]) -> dict[str, Any]:
         }
 
     task_id = arguments.get("task_id")
+    raw_cancel = arguments.get("cancel")
+    want_cancel = raw_cancel is True or str(raw_cancel).strip().lower() in {"1", "true", "yes", "on"}
+    try:
+        wait_s = float(arguments.get("wait_s") or 0)
+    except (TypeError, ValueError):
+        return {"ok": False, "errorCode": "INVALID_ARGUMENT", "error": "wait_s 必须是数字"}
+    wait_s = min(max(wait_s, 0.0), 300.0)
+    if not task_id and (want_cancel or wait_s > 0):
+        return {
+            "ok": False,
+            "errorCode": "INVALID_ARGUMENT",
+            "error": "cancel/wait_s 只在指定 task_id 时可用;列表模式不接受这两个参数",
+        }
     if task_id:
         status = await background_task_manager.get_status(str(task_id))
         # 非本人的任务与"不存在"同形返回:否则 task_id 就是他人任务的枚举面
         # (任务名、状态、result 原文一并读出)。
         if status is None or status.get("user_id") != host_user_id:
             return {"ok": False, "error": f"任务不存在: {task_id}"}
+        if want_cancel:
+            cancel_result = await background_task_manager.cancel(str(task_id))
+            current = await background_task_manager.get_status(str(task_id))
+            return {
+                "ok": True,
+                "task": current or status,
+                "cancel": cancel_result,
+                "cancelled": bool(cancel_result.get("ok")),
+            }
+        if wait_s > 0:
+            # 等待终态:按 0.25s 轮询,最长 wait_s(上限 300s);到点未终态如实回 waitTimedOut,
+            # 不把"还在跑"伪装成"已完成"。wait_s=0 时保持旧的非阻塞语义。
+            terminal = {"succeeded", "failed", "timeout", "cancelled"}
+            deadline = time.monotonic() + wait_s
+            while status.get("state") not in terminal:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    break
+                await asyncio.sleep(min(0.25, remaining))
+                status = await background_task_manager.get_status(str(task_id))
+                if status is None or status.get("user_id") != host_user_id:
+                    return {"ok": False, "error": f"任务不存在: {task_id}"}
+            return {
+                "ok": True,
+                "task": status,
+                "waited": True,
+                "waitTimedOut": status.get("state") not in terminal,
+            }
         return {"ok": True, "task": status}
 
     # 列表模式的过滤主体只认宿主注入值。原写法 `arguments.get("user_id") or __user_id`
@@ -14630,13 +14671,27 @@ _TOOLS: list[MCPTool] = [
     ),
     MCPTool(
         name="bg_task_status",
-        description="查询后台任务状态(凭 task_id)或列出某用户的任务;只读,不阻塞循环",
+        description=(
+            "查询后台任务状态(凭 task_id)或列出某用户的任务。只传 task_id 时立即返回;"
+            "wait_s>0 时最多等待该秒数到终态,到点未终态如实回 waitTimedOut;"
+            "cancel=true 终止任务(已终态则不再变更)。cancel/wait_s 仅指定 task_id 时可用"
+        ),
         input_schema={
             "type": "object",
             "properties": {
                 "task_id": {
                     "type": "string",
                     "description": "查询指定任务状态(不传则进入列表模式)",
+                },
+                "wait_s": {
+                    "type": "number",
+                    "description": "等待终态的最长秒数(0-300,默认 0=立即返回);仅指定 task_id 时有效",
+                    "minimum": 0,
+                    "maximum": 300,
+                },
+                "cancel": {
+                    "type": "boolean",
+                    "description": "true=取消该任务(仅指定 task_id 时有效);已终态时返回不再变更",
                 },
                 # user_id 已从本工具的对外 schema 摘除(2026-10-31):它是路由身份键
                 # (ROUTING_IDENTITY_KEYS),只能由宿主注入 __user_id,不得作为模型可填参数
