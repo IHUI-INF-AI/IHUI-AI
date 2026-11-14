@@ -123,10 +123,12 @@ describe('audit-app-text-contrast: 现读结论稳定', () => {
     assert.equal(j.allFail, true)
   })
 
-  it('danger.DEFAULT 只是窄位(浅过深不过),不得判为确定缺陷', () => {
-    const j = kit.judge('danger.DEFAULT', 'text', light, dark)
-    assert.equal(j.allFail, false, 'danger.DEFAULT 在浅底可达标,不该判红')
-    assert.equal(j.someFail, true, 'danger.DEFAULT 在深底不达标,应进窄位预警')
+  it('danger.DEFAULT 作文字时浅底也差 0.07 ⇒ 判确定缺陷;作图时只是窄位', () => {
+    const asText = kit.judge('danger.DEFAULT', 'text', light, dark)
+    assert.equal(asText.allFail, true, 'danger.DEFAULT 作文字在浅底 4.43 < 4.5,应判缺陷')
+    const asGraphic = kit.judge('danger.DEFAULT', 'graphic', light, dark)
+    assert.equal(asGraphic.allFail, false, 'danger.DEFAULT 作图在浅底过 3.0,不该判红灯')
+    assert.equal(asGraphic.someFail, true, 'danger.DEFAULT 作图在深底不达标,应进窄位预警')
   })
 })
 
