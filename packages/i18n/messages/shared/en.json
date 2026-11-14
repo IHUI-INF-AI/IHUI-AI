@@ -60,6 +60,7 @@
     "toolCreateAutomation": "Create automation",
     "toolSummarizeArtifacts": "Summarize artifacts",
     "toolPresentFiles": "Present files",
+    "presentedTitle": "Delivered {count} files",
     "activityMcp": "Calling {mcp} MCP",
     "activityPlugin": "Calling {plugin} plugin",
     "activityPlanning": "Planning in progress",
