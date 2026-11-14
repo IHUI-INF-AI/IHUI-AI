@@ -348,7 +348,26 @@ describe('F-410 提现冻结必须从可用余额扣除(申请/驳回/成功/rel
 
     // 只有可用余额可消费,冻结额原样保留
     const result = await rechargeApiKeyFromWallet(H.userId, H.apiKeyId, 100, 0)
-    expect(result).toEqual({ tokenBalance: 100, costBalanceCents: 0 })
+    // F-719:单边充值按 1 token = 1 cent 同步成本列,否则准入 costBalanceCents > 0 永远过不了
+    expect(result).toEqual({ tokenBalance: 100, costBalanceCents: 100 })
     expect(H.margin).toEqual({ tokenQuantity: 600, frozenQuantity: 300 })
+  })
+
+  it('⑥ F-719 单边充值:只充 token / 只充成本都同时入账两列', async () => {
+    H.margin = { tokenQuantity: 1000, frozenQuantity: 0 }
+    H.apiKey = { id: H.apiKeyId, tokenBalance: 0, costBalanceCents: 0 }
+
+    // 只充 token 100(付 100)→ token 100 + 成本 100
+    expect(await rechargeApiKeyFromWallet(H.userId, H.apiKeyId, 100, 0)).toEqual({
+      tokenBalance: 100,
+      costBalanceCents: 100,
+    })
+    // 只充成本 50(付 50)→ 成本 150 + token 150
+    expect(await rechargeApiKeyFromWallet(H.userId, H.apiKeyId, 0, 50)).toEqual({
+      tokenBalance: 150,
+      costBalanceCents: 150,
+    })
+    // 钱包只按实付额扣一次(100 + 50)
+    expect(H.margin).toEqual({ tokenQuantity: 850, frozenQuantity: 0 })
   })
 })
