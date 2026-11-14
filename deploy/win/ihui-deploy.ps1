@@ -25,6 +25,12 @@
 #   powershell -ExecutionPolicy Bypass -File deploy\win\ihui-deploy.ps1 -dryrun
 #   powershell -ExecutionPolicy Bypass -File deploy\win\ihui-deploy.ps1 -diagnose
 #   powershell -ExecutionPolicy Bypass -File deploy\win\ihui-deploy.ps1 -deployLatest
+#
+# 退出码(外壳/巡检按码记账的唯一契约,现读本文件):
+#   0 = 部署完成 / 无需部署(behind=0 等优雅出口)
+#   1 = 失败未切流(Fail:构建/merge/验收等)
+#   2 = 并发锁被占,本轮未部署
+#   3 = 健康门禁未过、已回滚到上一可用包(失败轮,非零;DG-13)
 # =============================================================================
 param(
     [switch]$dryrun,          # 只 fetch + 报告差距,不部署
@@ -901,7 +907,7 @@ function Invoke-ProdCacheWarm {
     # 与 .ihui-agent/tmp、outputs),按 §0.9「造好没装车 = 没有」,本函数是它唯一的生产调用方。
     #
     # 为什么只在"切流 + 门禁判绿"那一支调(调用点见主流程 Test-HealthGate 的 else 分支末尾):
-    #   门禁失败那一支走 Set-BuildCooldown → Do-Rollback → exit 0(见下方主流程"门禁未过已回滚"
+    #   门禁失败那一支走 Set-BuildCooldown → Do-Rollback → exit 3(见下方主流程"门禁未过已回滚"
     #   那段),结构上根本走不到这里。若在回滚路径预热,会把**刚被退回的旧版 HTML** 重新刷回
     #   EdgeOne —— 源站给公开页的头是 `public, s-maxage=300, stale-while-revalidate=86400`
     #   (apps/web/next.config.ts),一次错误预热能在边缘侧把旧版续命到 24 小时,比不预热更坏。
@@ -4316,9 +4322,11 @@ if (-not (Test-HealthGate)) {
         # 一种失败 —— 新构建已经切进 .next 才发现健康不过,又整份退回旧版本(线上短暂跑过一版
         # 未证明健康的东西)。当天实测:门禁那一层同时探着 web/api/llm 与公网图片路径,它一红
         # 而邮件零封,和构建连败那一型是同一个洞(§5e「失败必须响」)。
-        # 刻意不调 Fail:Fail 是 exit 1,而上面 :1564 那条登记写明这一支的契约是 exit 0
-        # (外壳按退出码记账,换码会改"门禁失败轮"在流水里的形态)。这里只补发信那一件事,
-        # 收口路径与退出码逐字不动 —— 只加响,不改流。
+        # DG-13(2026-11-13):旧契约是 exit 0,理由是"外壳按退出码记账,换码会改形态";但按退出码
+        # 记账的外壳/巡检(ihui-deploy-loop.ps1 的 exit=N 行 → check-ops-patrol P5b、prod-deploy-now)
+        # 只会把 exit=0 读成成功/空转 —— 回滚轮于是被记成"部署成功"。现改为 exit 3(已回滚=失败轮),
+        # 回滚语义、告警身份、窗口 rolledback 收口逐字不动,只把退出码换成非零。
+        # 刻意不调 Fail:Fail 会把窗口收口写成 failed 并改走它那条告警身份,与本支既有形态不同。
         # 签名稳定性同 :1380 那条:文案不含 sha/时间戳/轮次,按身份去重(4h)才会真命中。
         # 邮件正文带一条机读决策行(DEPLOY-DECISION <json>):收信人/后续 agent 不必再从中文里
         # 反推"退回了哪一枚包"。它为正文($Detail),不进告警身份(§5e-1)。
@@ -4328,7 +4336,9 @@ if (-not (Test-HealthGate)) {
         # 顺序与正常收尾一致 —— 先回收再放锁,避免放锁后新起的一轮重建的净面被这条删掉。
         Invoke-CleanBuildWorktreeSweep
         Release-DeployLock
-        exit 0
+        # 3 = 健康门禁未过已回滚(DG-13):失败轮必须非零退出,否则按退出码记账的外壳/巡检
+        # 会把这一轮记成成功。回滚本身已在上面完成,退出码只承载"本轮是失败轮"。
+        exit 3
     }
 } else {
     # DG-08:门禁已返回结论 ⇒ 立刻落健康标记(built/healthy 两态同目录同 sha)。
@@ -4664,13 +4674,13 @@ if (-not (Test-HealthGate)) {
     # ── 公网边缘缓存预热(装车点,判据与理由见 Invoke-ProdCacheWarm 头注)──────────────
     # 位置在这一支的**末尾**:api / ai-service 已重启并各自探过一次健康,此时公网那份 HTML
     # 引用的后端数据才是本轮的。整个函数只 Log,不改流程:预热失败 ⇒ WARN;门禁失败/回滚
-    # 那一支在上方已 exit 0,永远走不到这一行。
+    # 那一支在上方已 exit 3,永远走不到这一行。
     Invoke-ProdCacheWarm
 }
 # 标记的唯一写入点已在"交换完成 + Start-Web 之后"(见上一段 Set-BuildMarker 及其注释),此处不再重复写。
 # 原收尾写入的语义(2026-09-21 立):只有成功轮才写 marker、失败轮一律不写(旧写法在失败轮
 # 也写 → marker=HEAD → 误判新鲜 → 永久跳过,是那一次部署停滞的根因)。移到交换后仍然成立:
-# 构建失败在交换前 exit 1、门禁失败走 Do-Rollback 后 exit 0,两条失败路径都**不会**把标记
+# 构建失败在交换前 exit 1、门禁失败走 Do-Rollback 后 exit 3,两条失败路径都**不会**把标记
 # 留在 HEAD 上 —— 前者从未写过,后者被 .rollback 自带的旧 sha 覆盖回去。
 Write-Host ""
 # 注意 `.Trim()` 必须**在 `$(...)` 里面**:写成 `"$(...).Trim()"` 时 PowerShell 把 `.Trim()`

@@ -29,6 +29,15 @@ import {
 /** regex flags 白名单:只放行 JS 正则合法旗标,拒杂散字符(防御纵深) */
 const REGEX_FLAGS_WHITELIST = /^[gimsuy]*$/
 
+/**
+ * F-651: setPath 的补位循环 `while (container.length <= idx) container.push(...)` 对
+ * 数组下标没有上界 —— 一条配置 messages.999999999 即可让每个命中请求瞬间 OOM。
+ * 配置入库闸与运行时双重限制:下标、路径段数、单规则 op 数。
+ */
+export const MAX_ARRAY_INDEX = 1000
+export const MAX_PATH_SEGMENTS = 32
+export const MAX_PARAM_OPS = 64
+
 // ============================================================================
 // 类型定义
 // ============================================================================
@@ -268,6 +277,8 @@ function setPath(
   if (segs.length === 0) return false
   const seg = segs[0]
   if (seg === undefined) return false
+  // F-651: 运行期兜底 —— 段数超界直接放弃,不进入补位循环。
+  if (segs.length > MAX_PATH_SEGMENTS) return false
   // 原型污染防护(2026-10-27):路径段命中 JS 内建危险键一律拒绝,
   // 否则 __proto__.x 可写入 Object.prototype 影响全进程。
   if (seg === '__proto__' || seg === 'constructor' || seg === 'prototype') return false
@@ -278,6 +289,8 @@ function setPath(
     if (isArrayIndex(seg)) {
       if (!Array.isArray(container)) return false
       const idx = Number(seg)
+      // F-651: 下标上界,防止一条配置把每个命中请求打 OOM。
+      if (!Number.isSafeInteger(idx) || idx < 0 || idx > MAX_ARRAY_INDEX) return false
       while (container.length <= idx) container.push(null)
       container[idx] = value
       return true
@@ -295,6 +308,8 @@ function setPath(
   if (isArrayIndex(seg)) {
     if (!Array.isArray(container)) return false
     const idx = Number(seg)
+    // F-651: 中间节点同样限制下标上界。
+    if (!Number.isSafeInteger(idx) || idx < 0 || idx > MAX_ARRAY_INDEX) return false
     while (container.length <= idx) container.push({})
     const child = ensureContainer(container[idx], wantArray)
     container[idx] = child
@@ -630,6 +645,10 @@ export function validateParamOps(ops: unknown): ValidationResult {
   if (!Array.isArray(ops)) {
     return { valid: false, errors: ['ops must be an array'] }
   }
+  // F-651: 单规则 op 数上限(配置型放大面)。
+  if (ops.length > MAX_PARAM_OPS) {
+    errors.push(`ops exceeds ${MAX_PARAM_OPS} entries`)
+  }
 
   for (let i = 0; i < ops.length; i++) {
     const op = ops[i]
@@ -650,6 +669,22 @@ export function validateParamOps(ops: unknown): ValidationResult {
     }
     if (typeof o.path !== 'string' || o.path === '') {
       errors.push(`${at}: path must be a non-empty string`)
+    }
+
+    // F-651: 配置入库闸 —— 路径段数与数组下标硬上限,超界配置直接拒绝保存。
+    for (const key of ['path', 'from'] as const) {
+      const p = o[key]
+      if (typeof p !== 'string') continue
+      const parts = parsePath(p)
+      if (parts.length > MAX_PATH_SEGMENTS) {
+        errors.push(`${at}: ${key} exceeds ${MAX_PATH_SEGMENTS} path segments`)
+      }
+      for (const seg of parts) {
+        if (isArrayIndex(seg) && Number(seg) > MAX_ARRAY_INDEX) {
+          errors.push(`${at}: ${key} array index ${seg} exceeds ${MAX_ARRAY_INDEX}`)
+          break
+        }
+      }
     }
 
     // move/copy 需要 from

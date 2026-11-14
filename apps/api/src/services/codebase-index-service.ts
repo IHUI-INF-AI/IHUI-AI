@@ -54,6 +54,15 @@ export interface ChunkInput {
 export const CODE_INDEX_RETENTION_DAYS = 90
 
 /**
+ * 批量索引时单批 embedding 的最多尝试次数(含首次), F-416 立。
+ *
+ * 上游对超限批次/瞬时故障会返回非 2xx; 索引是离线批量动作, 失败重来成本远高于
+ * 一次退避等待, 故给有限重试。仅在本服务启用(provider 的 maxAttempts 缺省 1),
+ * 以保持检索等既有调用方"一次失败即失败"的语义不变。
+ */
+export const CODEBASE_EMBEDDING_MAX_ATTEMPTS = 3
+
+/**
  * 计算一条索引切片的过期时刻。
  *
  * 抽成函数而不让各调用方各算一次:expires_at 写成 `NOW() + interval` 的字面量
@@ -192,17 +201,32 @@ class CodebaseIndexService {
     const needEmbedding = chunks.filter((c) => !c.embedding || c.embedding.length !== 1536)
     let vectorized = 0
     if (provider && needEmbedding.length > 0) {
-      // 批量 embedding(provider.embed 接受文本数组)
+      // 批量 embedding。F-416:provider 内部按上游条数上限(25)与 token 预算分片、
+      // 逐批请求, 本节显式开启单批有限重试, 因此这里一次提交任意条数都是安全的;
+      // 但返回结果必须与待向量化切片一一对应 —— 条数不符或缺向量一律显式抛错,
+      // 绝不把整批切片以 embedding=null 静默入库(那会让语义检索无声退化为关键词匹配)。
       const texts = needEmbedding.map((c) => c.content.slice(0, 8000))
-      const embeddings = await provider.embed(texts)
+      const embeddings = await provider.embed(texts, {
+        maxAttempts: CODEBASE_EMBEDDING_MAX_ATTEMPTS,
+      })
+      if (embeddings.length !== needEmbedding.length) {
+        throw new Error(
+          `embedding 应答 ${embeddings.length} 条 ≠ 待向量化切片 ${needEmbedding.length} 条:` +
+            '拒绝以缺失向量入库(F-416)',
+        )
+      }
       for (let i = 0; i < needEmbedding.length; i++) {
         const chunk = needEmbedding[i]
         if (!chunk) continue
         const emb = embeddings[i]
-        if (emb && emb.length === 1536) {
-          chunk.embedding = emb
-          vectorized++
+        if (!emb || emb.length !== 1536) {
+          throw new Error(
+            `第 ${i + 1}/${needEmbedding.length} 条切片未得到 1536 维向量:` +
+              '整批显式失败, 不落库无向量切片(F-416)',
+          )
         }
+        chunk.embedding = emb
+        vectorized++
       }
     }
 

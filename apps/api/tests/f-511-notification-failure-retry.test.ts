@@ -15,6 +15,10 @@
  *   ④ 已发成功的同一 job 重投 ⇒ 跳过发送并记 info(不重复打扰收件人);
  *   ⑤ 附加边界:stub(收件路由无可用通道)保持不重试语义,不抛错。
  *
+ * F-512(2026-11-14)后:落库去重与发信去重都不再是进程内 Set,而是
+ * `createNotificationIdempotent`(唯一索引)+ `claimNotificationEmail`(DB 条件更新)。
+ * 因此 ④ 的口径改为「重投拿到 created=false + claim=false」,不再是进程内记忆。
+ *
  * 不连 DB/Redis/BullMQ:队列、落库、邮件服务、模板全部 mock。
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -27,6 +31,10 @@ vi.mock('../src/plugins/queue.js', () => ({
 
 vi.mock('../src/db/notification-queries.js', () => ({
   createNotification: vi.fn(),
+  createNotificationIdempotent: vi.fn(),
+  claimNotificationEmail: vi.fn(),
+  markNotificationEmailSent: vi.fn(),
+  releaseNotificationEmailClaim: vi.fn(),
 }))
 
 vi.mock('../src/services/email-service.js', () => ({
@@ -39,7 +47,13 @@ vi.mock('../src/services/email-templates.js', () => ({
 }))
 
 import { createWorker } from '../src/plugins/queue.js'
-import { createNotification } from '../src/db/notification-queries.js'
+import {
+  claimNotificationEmail,
+  createNotification,
+  createNotificationIdempotent,
+  markNotificationEmailSent,
+  releaseNotificationEmailClaim,
+} from '../src/db/notification-queries.js'
 import { sendEmail } from '../src/services/email-service.js'
 import { startNotificationWorker } from '../src/workers/notification-worker.js'
 
@@ -98,14 +112,34 @@ function emailResult(overrides: Record<string, unknown>) {
 
 describe('F-511 notification-worker 邮件出口失败必须可重试', () => {
   let seq = 0
+  /** F-512:进程内的"库态"替身 —— idempotencyKey → 通知 id / 已送达 id 集合 */
+  let persistedByKey: Map<string, string>
+  let emailSentIds: Set<string>
 
   beforeEach(() => {
     vi.clearAllMocks()
     seq = 0
+    persistedByKey = new Map()
+    emailSentIds = new Set()
     vi.mocked(createNotification).mockImplementation(async (input) => {
       seq += 1
       return { id: `notif-${seq}`, ...input } as never
     })
+    vi.mocked(createNotificationIdempotent).mockImplementation(async (input) => {
+      const existing = persistedByKey.get(input.idempotencyKey)
+      if (existing) return { notification: { id: existing, ...input } as never, created: false }
+      seq += 1
+      const id = `notif-${seq}`
+      persistedByKey.set(input.idempotencyKey, id)
+      return { notification: { id, ...input } as never, created: true }
+    })
+    vi.mocked(claimNotificationEmail).mockImplementation(
+      async (id: string) => !emailSentIds.has(id),
+    )
+    vi.mocked(markNotificationEmailSent).mockImplementation(async (id: string) => {
+      emailSentIds.add(id)
+    })
+    vi.mocked(releaseNotificationEmailClaim).mockResolvedValue(undefined as never)
   })
 
   it('① 发送抛错 ⇒ processor 抛错(job 可重试),error 日志含通知 id 与原因', async () => {
@@ -163,7 +197,7 @@ describe('F-511 notification-worker 邮件出口失败必须可重试', () => {
     expect(pushNotification).toHaveBeenCalledTimes(1)
   })
 
-  it('④ 已发成功的同一 job 重投 ⇒ 不重复发送,并记 info', async () => {
+  it('④ 已发成功的同一 job 重投 ⇒ 不重复落库、不重复发送,并记 info', async () => {
     vi.mocked(sendEmail).mockResolvedValue(emailResult({ sent: true }) as never)
     const { processor, log } = bootWorker()
     const job = makeJob('f511-dup-1')
@@ -172,9 +206,13 @@ describe('F-511 notification-worker 邮件出口失败必须可重试', () => {
     await processor(job)
 
     expect(sendEmail).toHaveBeenCalledTimes(1)
+    // F-512:重投命中唯一索引 ⇒ 没有第二条站内信
+    expect(createNotificationIdempotent).toHaveBeenCalledTimes(2)
+    expect(persistedByKey.size).toBe(1)
+    expect(markNotificationEmailSent).toHaveBeenCalledTimes(1)
     expect(log.info).toHaveBeenCalledWith(
       expect.objectContaining({ channel: 'email' }),
-      'notification email already sent, skip',
+      'notification email already sent or in flight, skip',
     )
   })
 

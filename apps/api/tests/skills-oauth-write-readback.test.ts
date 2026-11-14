@@ -28,7 +28,19 @@ vi.mock('../src/db/index.js', () => {
   const makeChain = () => {
     const chain: Record<string, unknown> = {}
     const terminal = () => Promise.resolve(queue.shift())
-    for (const m of ['set', 'values', 'where', 'from', 'limit', 'offset', 'orderBy']) {
+    // F-175:upsert 落库改为单语句 INSERT ... ON CONFLICT (author_id, slug) DO UPDATE,
+    // 链上多一个 onConflictDoUpdate 节;mock 必须放行,**调用序不变**
+    // (select 判存 → 写 → 回读),本文件钉的仍是"返回回读行而不是写面回声"。
+    for (const m of [
+      'set',
+      'values',
+      'where',
+      'from',
+      'limit',
+      'offset',
+      'orderBy',
+      'onConflictDoUpdate',
+    ]) {
       chain[m] = () => chain
     }
     chain.returning = terminal

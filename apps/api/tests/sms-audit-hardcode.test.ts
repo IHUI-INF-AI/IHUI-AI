@@ -7,6 +7,7 @@ import { parsePositiveInt } from '../src/utils/positive-int.js'
 import { normalizeSmsPhone } from '../src/utils/phone.js'
 import {
   acquireOnce,
+  releaseOnce,
   refundWindows,
   tryConsumeWindows,
   __test__ as counter,
@@ -96,6 +97,12 @@ describe('window-counter — 退还与幂等占位', () => {
   it('acquireOnce:不同键互不影响', async () => {
     expect((await acquireOnce('test:once:a', 'run-a', 60_000)).acquired).toBe(true)
     expect((await acquireOnce('test:once:b', 'run-b', 60_000)).acquired).toBe(true)
+  })
+
+  it('releaseOnce:放掉占位后同一键可立刻重新占位(后续步骤失败不该占满整窗)', async () => {
+    expect((await acquireOnce('test:once:release', 'run-a', 60_000)).acquired).toBe(true)
+    await releaseOnce('test:once:release')
+    expect((await acquireOnce('test:once:release', 'run-b', 60_000)).acquired).toBe(true)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

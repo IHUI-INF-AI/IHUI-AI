@@ -184,11 +184,13 @@ const memberUsersRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success(row))
   })
   server.post('/member/users', async (request, reply) => {
+    // F-491:phone/email/nickname 对应 varchar(20/255/64) 且 phone/email/username 带
+    // unique 约束。超长(22001)与重复(23505)必须在入库前拦成明确的 4xx,不得冒泡 500。
     const b = z
       .object({
-        nickname: z.string().min(1),
-        phone: z.string().optional(),
-        email: z.email().optional(),
+        nickname: z.string().min(1).max(64),
+        phone: z.string().max(20).optional(),
+        email: z.email().max(255).optional(),
         password: z.string().min(6, '密码至少 6 位'),
         roleId: z.number().int().optional(),
         status: z.literal([0, 1, 2, 3]).optional(),
@@ -198,20 +200,37 @@ const memberUsersRoutes: FastifyPluginAsync = async (server) => {
     if (!b.success) return reply.status(400).send(error(400, '参数错误'))
     if (!b.data.phone && !b.data.email)
       return reply.status(400).send(error(400, 'phone 与 email 至少需提供一个'))
-    const [row] = await db
-      .insert(users)
-      .values({
-        nickname: b.data.nickname,
-        phone: b.data.phone,
-        email: b.data.email,
-        passwordHash: await hashPassword(b.data.password),
-        roleId: b.data.roleId ?? 0,
-        status: b.data.status ?? 1,
-        level: b.data.level ?? 0,
-      })
-      .returning(memberUserResponseColumns)
-    if (!row) return reply.status(500).send(error(500, '创建失败'))
-    return reply.status(201).send(success(row))
+    // F-491:插入前按 phone/email 查重;并发窗口下的 23505 由下方 catch 收口,二者都返回 409。
+    const dupConds = []
+    if (b.data.phone) dupConds.push(eq(users.phone, b.data.phone))
+    if (b.data.email) dupConds.push(eq(users.email, b.data.email))
+    const existing = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(or(...dupConds))
+      .limit(1)
+    if (existing.length > 0)
+      return reply.status(409).send(error(409, '手机号或邮箱已被占用'))
+    try {
+      const [row] = await db
+        .insert(users)
+        .values({
+          nickname: b.data.nickname,
+          phone: b.data.phone,
+          email: b.data.email,
+          passwordHash: await hashPassword(b.data.password),
+          roleId: b.data.roleId ?? 0,
+          status: b.data.status ?? 1,
+          level: b.data.level ?? 0,
+        })
+        .returning(memberUserResponseColumns)
+      if (!row) return reply.status(500).send(error(500, '创建失败'))
+      return reply.status(201).send(success(row))
+    } catch (e) {
+      if ((e as { code?: string })?.code === '23505')
+        return reply.status(409).send(error(409, '手机号或邮箱已被占用'))
+      throw e
+    }
   })
   server.delete('/member/users/:id', async (request, reply) => {
     const p = idParamSchema.safeParse(request.params)

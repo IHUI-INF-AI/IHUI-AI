@@ -22,6 +22,7 @@ const FILE_EXPLORER_MENU_OVERLAY_ID = 'file-explorer-context-menu'
 import { Tooltip } from '@/components/feedback'
 import { toast } from '@/components/common/Toaster'
 import { runCommand } from '@ihui/api-client'
+import { openWithDefaultApp, revealInExplorer } from '@/lib/tauri-bridge'
 import { FilePlus, FolderPlus, RefreshCw } from 'lucide-react'
 import { SearchInput } from '@ihui/ui-react'
 import type { FileNode } from '@ihui/types'
@@ -446,6 +447,20 @@ export function FileExplorer() {
           onDelete={() => {
             setDeletingNode(menuPos.node)
             setMenuPos(null)
+          }}
+          onReveal={() => {
+            const target = menuPos.node.path
+            setMenuPos(null)
+            void revealInExplorer(target).catch(() => {
+              toast.error(t('fileExplorer.openInAppFailed'))
+            })
+          }}
+          onOpen={() => {
+            const target = menuPos.node.path
+            setMenuPos(null)
+            void openWithDefaultApp(target).catch(() => {
+              toast.error(t('fileExplorer.openInAppFailed'))
+            })
           }}
         />
       )}

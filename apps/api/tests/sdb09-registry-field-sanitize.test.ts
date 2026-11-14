@@ -76,10 +76,7 @@ vi.mock('../src/services/registry-sync/index.js', () => ({
   computePayloadHash: mockComputePayloadHash,
 }))
 
-import {
-  batchUpsertRegistryItems,
-  upsertRegistryItem,
-} from '../src/db/registry-queries.js'
+import { batchUpsertRegistryItems, upsertRegistryItem } from '../src/db/registry-queries.js'
 
 /** drizzle 查询构建器是链式 + thenable;所有链方法返回自身,await 时取最终值。 */
 function makeChain(finalValue: unknown) {
@@ -87,7 +84,17 @@ function makeChain(finalValue: unknown) {
     then: (resolve: (v: unknown) => unknown, reject?: (e: unknown) => unknown) =>
       Promise.resolve(finalValue).then(resolve, reject),
   }
-  for (const method of ['from', 'where', 'orderBy', 'limit', 'offset', 'values', 'onConflictDoUpdate', 'returning', 'set']) {
+  for (const method of [
+    'from',
+    'where',
+    'orderBy',
+    'limit',
+    'offset',
+    'values',
+    'onConflictDoUpdate',
+    'returning',
+    'set',
+  ]) {
     chain[method] = vi.fn().mockReturnValue(chain)
   }
   return chain as Record<string, ReturnType<typeof vi.fn>> & {
@@ -238,9 +245,7 @@ describe('SDB-09 registry 外部字段落库净化', () => {
     expect(res.sanitized).toEqual({ truncated: 1, droppedUrls: 1, rejected: 1 })
     expect(res.inserted).toBe(1)
     expect(warn).toHaveBeenCalledTimes(1)
-    expect(String(warn.mock.calls[0]![0])).toContain(
-      'truncated=1 droppedUrls=1 rejected=1',
-    )
+    expect(String(warn.mock.calls[0]![0])).toContain('truncated=1 droppedUrls=1 rejected=1')
   })
 
   it('全字段合规时不产生净化日志', async () => {

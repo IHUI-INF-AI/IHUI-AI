@@ -185,7 +185,8 @@ export async function createCommissionFlows(user: UserLike, order: OrderLike): P
             remark: '普通用户返佣',
           },
           null,
-        ) // 系统自动分佣,operatorId = null;嵌套事务用 savepoint,失败只回滚此条
+          tx,
+        ) // 系统自动分佣,operatorId = null;F-436:并入外层事务,内层不得再开独立事务
         created++
       }
     } else {
@@ -215,6 +216,7 @@ export async function createCommissionFlows(user: UserLike, order: OrderLike): P
             remark: isTrader ? '操盘手返佣' : 'VIP返佣',
           },
           null,
+          tx,
         )
         created++
       }
@@ -248,6 +250,7 @@ export async function createCommissionFlows(user: UserLike, order: OrderLike): P
               remark: '祖父级返佣',
             },
             null,
+            tx,
           )
           created++
         }

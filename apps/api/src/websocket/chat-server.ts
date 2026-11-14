@@ -117,6 +117,9 @@ export class LiveChatServer {
     MESSAGE_RATE_LIMIT,
     MESSAGE_RATE_WINDOW_MS,
   )
+  // F-467:窗口按 userId 共享且全局单例持有,最后活跃时间仅用于按时间自然过期。
+  private readonly rateWindowSeenAt = new Map<string, number>()
+  private lastRatePruneAt = 0
 
   /**
    * F-466:房间数硬上限准入判断。
@@ -168,11 +171,25 @@ export class LiveChatServer {
   }
 
   /**
-   * P2 修复(2026-08-06):用户断开时清除其消息频率窗口,防止内存累积。
-   * 连接关闭/出错时由调用方(live-chat 路由)触发。
+   * F-467:业务消息限流判定。
+   * 窗口按 userId 共享(同一用户的所有连接/房间共用一份),因此连接关闭/出错
+   * **不得**重置 —— 否则断线重连即可清桶绕过 60 条/分钟。过期桶改由时间自然
+   * 清理:每过一个窗口最多做一次全表扫描,只摘除早已无时间戳的 key。
    */
-  resetUserRateLimit(userId: string): void {
-    this.messageRateLimiter.reset(userId)
+  allowUserMessage(userId: string): boolean {
+    const now = Date.now()
+    if (now - this.lastRatePruneAt >= MESSAGE_RATE_WINDOW_MS) {
+      this.lastRatePruneAt = now
+      for (const [key, seenAt] of this.rateWindowSeenAt) {
+        if (now - seenAt >= MESSAGE_RATE_WINDOW_MS) {
+          this.messageRateLimiter.reset(key)
+          this.rateWindowSeenAt.delete(key)
+        }
+      }
+    }
+    const allowed = this.messageRateLimiter.allow(userId)
+    this.rateWindowSeenAt.set(userId, now)
+    return allowed
   }
 
   totalConnections(): number {
@@ -208,7 +225,7 @@ export class LiveChatServer {
 
     // P2 修复(2026-08-06):业务消息(history/send 等)频率限制,超限返回 429 错误帧。
     // ping 不计数(心跳需高频),其余消息统一走滑动窗口,防单用户刷屏压垮落库与广播。
-    if (!this.messageRateLimiter.allow(userId)) {
+    if (!this.allowUserMessage(userId)) {
       room.sendTo(
         ws,
         JSON.stringify({ type: 'error', code: 429, message: '消息发送过快，请稍后再试' }),

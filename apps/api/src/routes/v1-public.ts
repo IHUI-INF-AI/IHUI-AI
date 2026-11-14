@@ -20,11 +20,10 @@
  */
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { randomUUID } from 'node:crypto'
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, unlinkSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { eq, and, isNull, desc, sql } from 'drizzle-orm'
 import { z } from 'zod'
-import { config } from '../config/index.js'
 import {
   fetchProviderHealth,
   isProviderHardUnavailable,
@@ -48,7 +47,11 @@ import type {
   V1ChatCompletionResponse,
   V1ModelsResponse,
 } from '@ihui/types'
-import { requireApiKeyAuth, requireApiKeyQuota } from '../plugins/api-key-auth.js'
+import {
+  requireApiKeyAuth,
+  requireApiKeyQuota,
+  checkAllowedModels,
+} from '../plugins/api-key-auth.js'
 import { requireCapability } from '../utils/capability-guard.js'
 import { error, success } from '../utils/response.js'
 // P0-5 中转站计费(2026-07-29 立)
@@ -58,17 +61,26 @@ import {
   isByokCall,
   modelToProviderCode,
   preDeductQuota,
+  resolveBillingModel,
   BillingUnavailableError,
   type PreDeduction,
 } from '../services/relay-billing-service.js'
 // 用户级并发限制(H,2026-09-16 立;G-727 收口泄漏面:占用与登记同笔完成)
 import { acquireUserConcurrencyForResponse } from '../services/user-concurrency-service.js'
 // 渠道直连转发器(2026-09-12 立):公开链路接通渠道路由 + 逐请求 failover
-import { forwardToChannel, pipeChannelStream } from '../services/relay-upstream-forwarder.js'
+import {
+  forwardToChannel,
+  pipeChannelStream,
+  type ForwardResult,
+} from '../services/relay-upstream-forwarder.js'
+import {
+  mapForwardFailureToHttp,
+  type ForwardFailureHttp,
+} from '../services/relay-forward-failure.js'
 // F-178:渠道配额用量回写 —— checkQuota 读 ai_relay_channel_daily_usage,
 // 但 recordUsage 此前在转发层零调用,聚合恒 0 ⇒ 日/月配额永不生效。
 import { recordUsage } from '../services/channel-quota-service.js'
-import type { SelectedChannelKey } from '../services/relay-channel-router.js'
+import { recordChannelResult, type SelectedChannelKey } from '../services/relay-channel-router.js'
 // /v1 网关专用:ai-service 调用注入系统 access token(2026-09-13 修 jwt_auth 401)
 import { aiServiceSystemFetch } from '../utils/ai-service-fetch.js'
 // 格②(2026-09-26):耗时一律走单调钟出口,落库形态经唯一适配器投影
@@ -116,6 +128,7 @@ interface ApiKeyContext {
   key: string
   permissions: string[]
   rateLimit: number
+  allowedModels: string[] | null
 }
 
 // =============================================================================
@@ -269,7 +282,7 @@ interface ModelsCacheEntry {
   data: V1ModelsResponse
   fetchedAt: number
 }
-let modelsCache: ModelsCacheEntry | null = null
+const modelsCache = new Map<string, ModelsCacheEntry>()
 
 /**
  * 拉取模型列表(P0-5 中转站:优先 DB 驱动 → live → cache → fallback)。
@@ -319,6 +332,9 @@ async function fetchModels(userId?: string): Promise<{
   source: 'db' | 'live' | 'cache' | 'fallback'
 }> {
   const now = Date.now()
+  // F-445:缓存按调用者分键(匿名归 '__public__'),避免 A 的私有 BYOK 模型
+  // 经单键全局缓存泄漏给 B,或 BYOK 用户看不到自己的模型。
+  const cacheKey = userId ?? '__public__'
 
   // 1. 优先 DB 驱动:查中转站已上架模型(admin 控制可见性)
   try {
@@ -431,7 +447,7 @@ async function fetchModels(userId?: string): Promise<{
         object: 'list',
         data: [...dedupedRelayList, ...byokList],
       }
-      modelsCache = { data: mapped, fetchedAt: now }
+      modelsCache.set(cacheKey, { data: mapped, fetchedAt: now })
       return { body: mapped, source: 'db' }
     }
   } catch {
@@ -439,8 +455,10 @@ async function fetchModels(userId?: string): Promise<{
   }
 
   // 2. 缓存未过期 → 直接命中
-  if (modelsCache && now - modelsCache.fetchedAt < MODELS_CACHE_TTL_MS) {
-    return { body: modelsCache.data, source: 'cache' }
+  // F-445:按调用者分键命中,不串用他人缓存
+  const cacheHit = modelsCache.get(cacheKey)
+  if (cacheHit && now - cacheHit.fetchedAt < MODELS_CACHE_TTL_MS) {
+    return { body: cacheHit.data, source: 'cache' }
   }
   try {
     const resp = await aiServiceSystemFetch('/api/llm/models', { method: 'GET' })
@@ -473,7 +491,7 @@ async function fetchModels(userId?: string): Promise<{
             return { id, object: 'model' as const, created, owned_by: ownedBy, available: true }
           }),
         }
-        modelsCache = { data: mapped, fetchedAt: now }
+        modelsCache.set(cacheKey, { data: mapped, fetchedAt: now })
         return { body: mapped, source: 'live' }
       }
     }
@@ -481,8 +499,10 @@ async function fetchModels(userId?: string): Promise<{
     // live 失败,降级 cache(若已过期则进一步降级 fallback)
   }
   // live 失败,但缓存还在(即便已过期)→ 用旧缓存
-  if (modelsCache) {
-    return { body: modelsCache.data, source: 'cache' }
+  // F-445:陈旧缓存兜底同样按调用者分键
+  const stale = modelsCache.get(cacheKey)
+  if (stale) {
+    return { body: stale.data, source: 'cache' }
   }
   return {
     body: {
@@ -749,6 +769,54 @@ async function streamChatCompletion(
   const onClose = () => controller.abort()
   request.raw.on('close', onClose)
 
+  /**
+   * F-722(2026-11-14):渠道流式「已写出帧之后」异常/客户端断连的就地结算出口。
+   *
+   * 旧实现只 `raw.end()` 后 return —— recordCall 从未执行 ⇒ opts.preDeducted 永久沉淀
+   * (预扣不退、llm_call_logs 无该行,既不能退款也不能审计)。客户端断连是高频事件,
+   * 沉淀量按流量线性累积。
+   *
+   * 结算口径:抛错时 pipeChannelStream 的 stats 未回填,拿不到可确认的已用 token,
+   * 因此按 0 计费 —— `settlePreDeduction` 全额退回预扣,同时落一行 error 流水
+   * (原因与渠道写进 metadata)。绝不按"已写出多少字符"倒推补扣:那是猜的用量。
+   */
+  const settleAbortedChannelStream = (params: {
+    reason: string
+    channel: SelectedChannelKey | null
+    clientDisconnected: boolean
+  }): void => {
+    if (!opts.apiKeyId || !opts.userId) return
+    const latency = persistableLatency(opts.sw.stop())
+    void recordCall({
+      apiKeyId: opts.apiKeyId,
+      userId: opts.userId,
+      model,
+      prompt: opts.promptText ?? '',
+      response: null,
+      promptTokens: 0,
+      completionTokens: 0,
+      totalTokens: 0,
+      latencyMs: latency.latencyMs,
+      status: 'error',
+      errorMessage: params.reason,
+      metadata: {
+        stream: true,
+        // 已向客户端写出过帧后中断:区别于"零帧返回"的上游失败
+        abortedMidStream: true,
+        ...(params.clientDisconnected ? { clientDisconnected: true } : {}),
+        ...(params.channel ? { channel: params.channel.groupName } : {}),
+        ...(opts.modelMappingMeta ?? {}),
+        latencyTrusted: latency.latencyTrusted,
+      },
+      mode: opts.mode ?? 'relay',
+      providerCode: params.channel?.providerCode ?? opts.providerCode,
+      configId: params.channel?.configId,
+      keyPoolId: params.channel?.keyPoolId,
+      clientIp: opts.clientIp,
+      preDeducted: opts.preDeducted ?? null,
+    }).catch(() => {})
+  }
+
   // ==========================================================================
   // 渠道直连优先(2026-09-12 立):渠道路由 + 逐请求 failover + 两段式计费。
   // BYOK 模式不走渠道(用户自有 key 由 ai-service 处理)。
@@ -763,6 +831,8 @@ async function streamChatCompletion(
     // ai-service，客户端会先收到渠道的半段内容与 role 帧，再收到 ai-service 又一份
     // role 帧和正文 ⇒ 正文重复/错乱，且首个 role 帧发两次。
     let channelWroteToClient = false
+    /** F-337:本请求已交给流式处理的渠道(成功记录已延后到流结束后,收尾要用它) */
+    let streamedChannel: SelectedChannelKey | null = null
     try {
       // 渠道路径同样应用参数覆盖系统(与 ai-service 路径同源)
       const baseBody: Record<string, unknown> = { messages, model }
@@ -818,9 +888,12 @@ async function streamChatCompletion(
         affinityKey: opts.affinityKey,
         bodyOverride: channelParamOps.body,
         signal: controller.signal,
+        // F-337:流是否正常结束只有读完流才知道 ⇒ 建连阶段不记成功
+        deferStreamSuccess: true,
       })
       if (fwd && fwd.ok) {
         upstreamHttpStatus = fwd.response.status
+        streamedChannel = fwd.channel
         const stats = await pipeChannelStream(fwd.response, {
           // verbatim 转发上游 OpenAI chunk;legacy text 模式改为解析后按 text chunk 重发
           ...(isTextFlavor
@@ -838,6 +911,22 @@ async function streamChatCompletion(
               }),
           signal: controller.signal,
         })
+        // F-337:上游 HTTP 200 但 SSE 内是错误帧/空流 ⇒ 不算成功。
+        // 未向客户端写过帧:把该渠道记失败(进熔断,后续请求不再选它),再抛错复用
+        // 下方 catch 的「未写帧回退 ai-service」;已写过帧:就地写错误帧收尾,
+        // 且下方 recordCall 改记 error、三组 token 归零(不白扣输入 token)。
+        if (stats.streamError) {
+          await recordChannelResult(fwd.channel.keyPoolId, false, null).catch(() => {})
+          if (!channelWroteToClient) throw new Error(stats.streamError)
+        } else {
+          // F-337:成功记录已由 deferStreamSuccess 延后到此 —— 流正常读完才算成功,
+          // 否则那记预记成功会把连续失败计数清零,熔断永远打不开。
+          await recordChannelResult(
+            fwd.channel.keyPoolId,
+            true,
+            fwd.latencyTrusted ? fwd.latencyMs : null,
+          ).catch(() => {})
+        }
         responseText = stats.responseText
         streamCacheReadTokens = stats.cacheReadTokens
         streamCacheCreationTokens = stats.cacheCreationTokens
@@ -864,15 +953,32 @@ async function streamChatCompletion(
             ),
           )
         }
-        // 结束帧只发一次(2026-10-23 修):上游自带 finish_reason 且已原样转发时不再补,
-        // 否则客户端收到两个 finish,且 usage 帧被夹在中间、偏离 OpenAI 的 finish → usage → [DONE]。
-        if (!stats.sawFinish) writeChunk({}, 'stop')
+        // F-337:错误帧必须让客户端看见(error 事件),不得静默补 finish 当成功收尾。
+        // 流已开始 ⇒ 架构上不能再换候选;这里如实发 OpenAI 协议内的 error 帧后终止。
+        if (stats.streamError) {
+          raw.write(
+            `data: ${JSON.stringify({
+              error: { message: stats.streamError, type: 'upstream_stream_error' },
+            })}\n\n`,
+          )
+        } else if (!stats.sawFinish) {
+          // 结束帧只发一次(2026-10-23 修):上游自带 finish_reason 且已原样转发时不再补,
+          // 否则客户端收到两个 finish,且 usage 帧被夹在中间、偏离 OpenAI 的 finish → usage → [DONE]。
+          writeChunk({}, 'stop')
+        }
         raw.write('data: [DONE]\n\n')
         request.raw.off('close', onClose)
         raw.end()
         if (opts.apiKeyId && opts.userId) {
-          const promptTokens = Math.ceil((opts.promptText ?? '').length / 4)
-          const completionTokens = stats.completionTokens
+          // F-679: 优先采用上游真实 usage 的 promptTokens(同函数 usage 帧已用该真值),
+          // 仅在缺失时才回落字符估算,避免中文 prompt 被 /4 系统性低估 2-3 倍、
+          // 账号池台账与用户账单对不上。
+          const promptTokens = stats.streamError
+            ? 0
+            : streamPromptTokens > 0
+              ? streamPromptTokens
+              : Math.ceil((opts.promptText ?? '').length / 4)
+          const completionTokens = stats.streamError ? 0 : stats.completionTokens
           // 格②(2026-09-26):耗时改由单调钟样本经唯一适配器投影(不可信 ⇒ 0 + latencyTrusted:false)
           const latency = persistableLatency(opts.sw.stop())
           void recordCall({
@@ -887,7 +993,7 @@ async function streamChatCompletion(
             cacheReadTokens: stats.cacheReadTokens,
             cacheCreationTokens: stats.cacheCreationTokens,
             latencyMs: latency.latencyMs,
-            status: 'success',
+            status: stats.streamError ? 'error' : 'success',
             metadata: {
               stream: true,
               channel: fwd.channel.groupName,
@@ -902,6 +1008,10 @@ async function streamChatCompletion(
             httpStatus: stats.httpStatus,
             ttftMs: stats.ttftMs ?? undefined,
             preDeducted: opts.preDeducted ?? null,
+            // F-720:Qoder 类积分上游的 credits 必须进计费链路 —— 此前只序列化进回包/SSE 帧,
+            // 从未传给 recordCall ⇒ 该维度完全未计费(上游 token 恒 0 时等于零成本跑量)。
+            upstreamCredits: stats.upstreamCredits ?? undefined,
+            creditsUnit: 'qoder_credits',
           })
             .then((call) =>
               // F-178:每次渠道调用后回写实际 token 与结算成本,让 checkQuota 的
@@ -927,10 +1037,23 @@ async function streamChatCompletion(
           (e as Error)?.name === 'AbortError'
             ? 'client disconnected'
             : ((e as Error)?.message ?? 'stream error')
-        if (msg !== 'client disconnected') writeChunk({ content: `[error] ${msg}` }, 'stop')
+        if (msg !== 'client disconnected') {
+          // F-337:成功记录已延后到流结束;流中途抛错(非客户端断开)必须记失败,
+          // 否则这条渠道本次调用在熔断账上完全缺席。
+          if (streamedChannel)
+            await recordChannelResult(streamedChannel.keyPoolId, false, null).catch(() => {})
+          writeChunk({ content: `[error] ${msg}` }, 'stop')
+        }
         raw.write('data: [DONE]\n\n')
         request.raw.off('close', onClose)
         raw.end()
+        // F-722:已写出帧后异常不得就地 return —— 必须结算(退回预扣 + 落流水),
+        // 否则预扣永久沉淀、台账缺行,退款与审计都无从下手。
+        settleAbortedChannelStream({
+          reason: msg,
+          channel: streamedChannel,
+          clientDisconnected: msg === 'client disconnected',
+        })
         return
       }
       // 尚未写出任何帧 → 回退 ai-service（客户端无感）;
@@ -949,6 +1072,12 @@ async function streamChatCompletion(
     raw.write('data: [DONE]\n\n')
     request.raw.off('close', onClose)
     raw.end()
+    // F-722 同源缺口:这条分支同样"写完就 return",预扣凭证在这里也会被丢掉。
+    settleAbortedChannelStream({
+      reason: workbuddyNoUpstreamMessage(poolFailure),
+      channel: null,
+      clientDisconnected: false,
+    })
     return
   }
 
@@ -1145,6 +1274,12 @@ async function streamChatCompletion(
 // =============================================================================
 // 共享处理核引用(v1-gemini 协议入站复用,2026-09-13 立)
 // =============================================================================
+/**
+ * F-337 回归测试入口(仅导出,行为不变):直接驱动渠道流式腿,断言流内错误帧在
+ * 计费 / 熔断 / 客户端通知三处都按失败处理。
+ */
+export const __test__ = { streamChatCompletion }
+
 /** chat/completions 共享处理核签名 */
 export type V1ChatCore = (
   request: FastifyRequest,
@@ -1729,12 +1864,26 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
       }
     }
 
+    // F-385(P1 修):映射后必须复检白名单,防止"白名单只含 model-a → 映射为 model-z → 绕过白名单"。
+    // 仅在 Key 配置了 allowedModels 且实际发生映射时才需复检;未映射时鉴权阶段已查过原 model。
+    if (apiKey?.allowedModels && apiKey.allowedModels.length > 0 && resolvedModel !== model) {
+      const mappedModelCheck = checkAllowedModels(apiKey.allowedModels, resolvedModel)
+      if (!mappedModelCheck.ok) {
+        return reply.status(403).send(error(403, `映射后模型不在 API Key 白名单:${resolvedModel}`))
+      }
+    }
+
     // 官方名改写(2026-09-13 立,入站兜底):客户端若用非官方大小写(如 minimax-m3)
     // 请求,在此改写为官方名(MiniMax-M3)再进入路由/转发/计费链路。
     // 原因:通道路由 selectChannelCandidates 按 model_id 精确 eq 查号池,
     // 大小写不符会查空 → 落到默认 provider → 上游 422(实测 minimax-m3 → openai 422)。
     // 保守实现:仅命中官方名映射表才改写,未知模型原样透传(不改变既有上游契约)。
     resolvedModel = toOfficialModelName(resolvedModel)
+
+    // F-194(2026-11-13):计费口径单一来源 —— 以实际调用上游的模型为准。
+    // 预扣/结算/流水/响应缓存键全部用 billingModel;原始 model 只留作响应回显与审计 metadata。
+    // 此前预扣与缓存键用 resolvedModel、成功结算却传原始 model ⇒ 同一次调用三种价。
+    const billingModel = resolveBillingModel(model, resolvedModel)
 
     // WorkBuddy 账号池不支持 n>1 / logprobs(上游静默忽略);入口明确拒绝,
     // 避免经 ai-service → relay 回打时落到 ai-service 兜底形成回环。
@@ -1773,7 +1922,7 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
       try {
         preDeduction = await preDeductQuota({
           apiKeyId: apiKey.id,
-          model: resolvedModel,
+          model: billingModel,
           userId: apiKey.userId,
           estimatedPromptTokens: Math.ceil(promptText.length / 4),
           estimatedCompletionTokens: maxTokens ?? 1024,
@@ -1797,7 +1946,7 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
 
     if (stream) {
       return streamChatCompletion(request, reply, {
-        model: resolvedModel,
+        model: billingModel,
         // json_schema 启用时 upstreamMessages 已注入 system 提示
         messages: upstreamMessages,
         temperature,
@@ -1808,7 +1957,7 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
         sw,
         mode,
         modelMappingMeta,
-        providerCode: modelToProviderCode(resolvedModel),
+        providerCode: modelToProviderCode(billingModel),
         clientIp: request.ip,
         // OpenAI 协议扩展透传
         streamUsageEnabled,
@@ -1855,7 +2004,7 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
           // 一起喂进去。只传 model/messages/temperature/max_tokens 会让 JSON 与纯文本请求
           // 互撞、seed 失效,缓存统计也随之失真。
           cacheKey = computeCacheKey({
-            model: resolvedModel,
+            model: billingModel,
             messages: upstreamMessages as CacheableMessage[],
             temperature,
             max_tokens: maxTokens,
@@ -1881,7 +2030,7 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
               void recordCall({
                 apiKeyId: apiKey.id,
                 userId: apiKey.userId,
-                model: resolvedModel,
+                model: billingModel,
                 prompt: promptText,
                 response: cached.data.choices[0]?.message?.content ?? '',
                 promptTokens: cached.data.usage?.prompt_tokens ?? 0,
@@ -1890,7 +2039,7 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
                 latencyMs: latency.latencyMs,
                 status: 'success',
                 mode,
-                providerCode: modelToProviderCode(resolvedModel),
+                providerCode: modelToProviderCode(billingModel),
                 clientIp: request.ip,
                 httpStatus: 200,
                 metadata: {
@@ -1913,11 +2062,14 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
       let usedChannel: SelectedChannelKey | null = null
       let resp: Response | null = null
       let poolFailure: string | null = null
+      // F-678:失败结果原样留底,最终按 lastHttpStatus 决定对外状态码
+      let channelFailure: ForwardResult = null
+      let channelRejection: ForwardFailureHttp | null = null
       if (mode === 'relay') {
         try {
           const baseBody: Record<string, unknown> = {
             messages: upstreamMessages,
-            model: resolvedModel,
+            model: billingModel,
           }
           if (temperature !== undefined) baseBody.temperature = temperature
           if (maxTokens !== undefined) baseBody.max_tokens = maxTokens
@@ -1943,9 +2095,9 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
           if (repetition_penalty !== undefined) baseBody.repetition_penalty = repetition_penalty
           if (logit_bias !== undefined) baseBody.logit_bias = logit_bias
           // 参数覆盖系统与 ai-service 路径同源(渠道路径同样生效)
-          const paramOpsResult = await applyParamOpsToBody(baseBody, { model: resolvedModel })
+          const paramOpsResult = await applyParamOpsToBody(baseBody, { model: billingModel })
           const fwd = await forwardToChannel({
-            model: resolvedModel,
+            model: billingModel,
             messages: upstreamMessages,
             temperature,
             maxTokens,
@@ -1977,6 +2129,7 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
             usedChannel = fwd.channel
           } else {
             poolFailure = fwd?.reason ?? 'no channel configured'
+            channelFailure = fwd ?? null
           }
         } catch (e) {
           // 渠道链路异常 → 回退 ai-service
@@ -1999,8 +2152,19 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
         }
       }
 
+      // F-678:上游对本次请求的明确拒绝(400/401/404/429)换 ai-service 也不会变好 ⇒ 不回落,
+      // 最终按 lastHttpStatus 原样回状态码;错误体只用我们自己的截断文案,不透传上游响应头。
+      // 只有「无可用上游(无 lastHttpStatus)/ 5xx / 网络错」才继续下面的 ai-service 兜底(最终仍 503)。
       if (!resp) {
-        const body: Record<string, unknown> = { messages, model: resolvedModel }
+        const mapped = mapForwardFailureToHttp(channelFailure)
+        if (mapped.status >= 400 && mapped.status < 500) {
+          channelRejection = mapped
+          resp = new Response(null, { status: mapped.status })
+        }
+      }
+
+      if (!resp) {
+        const body: Record<string, unknown> = { messages, model: billingModel }
         if (temperature !== undefined) body.temperature = temperature
         if (maxTokens !== undefined) body.max_tokens = maxTokens
         // 输出控制透传(2026-10-22):与流式路径同源
@@ -2029,7 +2193,7 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
         }
 
         // P0-20b 参数覆盖系统转发层集成(2026-08-01):转发前应用 applyParamOps
-        const paramOpsResult = await applyParamOpsToBody(body, { model: resolvedModel })
+        const paramOpsResult = await applyParamOpsToBody(body, { model: billingModel })
         const upstreamBody = paramOpsResult.body
 
         resp = await aiServiceSystemFetch('/api/llm/complete', {
@@ -2040,12 +2204,17 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
       }
 
       if (!resp.ok) {
+        // F-678:4xx 拒绝按上游状态码回(429 带上游给的 Retry-After);其余保持既有 503
+        const failureStatus = channelRejection?.status ?? 503
+        const failureMessage = channelRejection
+          ? (poolFailure ?? 'upstream rejected the request').slice(0, 200)
+          : `AI service unavailable (${resp.status})`
         if (apiKey) {
           const latency = persistableLatency(sw.stop())
           void recordCall({
             apiKeyId: apiKey.id,
             userId: apiKey.userId,
-            model: resolvedModel,
+            model: billingModel,
             prompt: promptText,
             metadata: { ...(modelMappingMeta ?? {}), latencyTrusted: latency.latencyTrusted },
             response: null,
@@ -2054,15 +2223,16 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
             totalTokens: 0,
             latencyMs: latency.latencyMs,
             status: 'error',
-            errorMessage: `AI service unavailable (${resp.status})`,
+            errorMessage: failureMessage,
             mode,
-            providerCode: modelToProviderCode(resolvedModel),
+            providerCode: modelToProviderCode(billingModel),
             clientIp: request.ip,
             httpStatus: resp.status,
             preDeducted: preDeduction,
           }).catch(() => {})
         }
-        return reply.status(503).send(error(503, `AI service unavailable (${resp.status})`))
+        if (channelRejection?.retryAfter) reply.header('Retry-After', channelRejection.retryAfter)
+        return reply.status(failureStatus).send(error(failureStatus, failureMessage))
       }
 
       const rawJson = (await resp.json()) as Record<string, unknown>
@@ -2133,7 +2303,7 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
           void recordCall({
             apiKeyId: apiKey.id,
             userId: apiKey.userId,
-            model: resolvedModel,
+            model: billingModel,
             prompt: promptText,
             metadata: { ...(modelMappingMeta ?? {}), latencyTrusted: latency.latencyTrusted },
             response: null,
@@ -2144,7 +2314,7 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
             status: 'error',
             errorMessage: data.error_message ?? 'AI service error',
             mode,
-            providerCode: modelToProviderCode(resolvedModel),
+            providerCode: modelToProviderCode(billingModel),
             clientIp: request.ip,
             httpStatus: resp.status,
             preDeducted: preDeduction,
@@ -2187,16 +2357,26 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
         (typeof rawJson['x_qoder_context_usage_ratio'] === 'number'
           ? rawJson['x_qoder_context_usage_ratio']
           : null)
+      // F-673: 渠道直连返回 OpenAI 原生响应;此前重建为 {role,content} 极简结构,丢掉
+      // tool_calls / reasoning_content 并把 finish_reason 写死 'stop',工具调用链断裂。
+      // usedChannel 时透传上游 message 原对象与真实 finish_reason,并优先沿用上游 id/created;
+      // 窄类型以断言兼容(运行时 JSON 原样序列化,toTextCompletion / 缓存读取仍取 .content)。
+      const channelChoice = usedChannel
+        ? (rawJson['choices'] as Array<Record<string, unknown>> | undefined)?.[0]
+        : undefined
+      const channelMessage = channelChoice?.['message'] as Record<string, unknown> | undefined
+      const channelFinishReason = channelChoice?.['finish_reason']
       const result: V1ChatCompletionResponse = {
-        id: `chatcmpl-${randomUUID()}`,
+        id: typeof rawJson['id'] === 'string' ? rawJson['id'] : `chatcmpl-${randomUUID()}`,
         object: 'chat.completion',
-        created: Math.floor(Date.now() / 1000),
+        created:
+          typeof rawJson['created'] === 'number' ? rawJson['created'] : Math.floor(Date.now() / 1000),
         model: data.model ?? model,
         choices: [
           {
             index: 0,
-            message: { role: 'assistant', content: data.content ?? '' },
-            finish_reason: 'stop',
+            message: (channelMessage ?? { role: 'assistant', content: data.content ?? '' }) as V1ChatCompletionResponse['choices'][number]['message'],
+            finish_reason: (typeof channelFinishReason === 'string' ? channelFinishReason : 'stop') as V1ChatCompletionResponse['choices'][number]['finish_reason'],
           },
         ],
         usage: {
@@ -2230,7 +2410,7 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
         recordCall({
           apiKeyId: apiKey.id,
           userId: apiKey.userId,
-          model,
+          model: billingModel,
           prompt: promptText,
           response: data.content ?? '',
           promptTokens: safePrompt,
@@ -2243,12 +2423,16 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
           // 本行原本不写 metadata ⇒ 只新增 latencyTrusted 一键,不得顺手带进 modelMappingMeta
           metadata: { latencyTrusted: latency.latencyTrusted },
           mode,
-          providerCode: usedChannel?.providerCode ?? modelToProviderCode(resolvedModel),
+          providerCode: usedChannel?.providerCode ?? modelToProviderCode(billingModel),
           configId: usedChannel?.configId,
           keyPoolId: usedChannel?.keyPoolId,
           clientIp: request.ip,
           httpStatus: resp.status,
           preDeducted: preDeduction,
+          // F-720:非流式同样要把上游声明的 credits 带进计费链路(usage.credits 或顶层
+          // x_qoder_credits 两处都认,usedChannel / ai-service 回退两种分支都不会漏)。
+          upstreamCredits: usageCredits ?? undefined,
+          creditsUnit: 'qoder_credits',
         })
           .then((call) => {
             // F-538:非流式完成链路接会话历史写入口(幂等键 = llm_call_logs.id)。
@@ -2257,7 +2441,7 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
               recordRelayConversationTurnSafe({
                 userId: apiKey.userId,
                 apiKeyId: apiKey.id,
-                model,
+                model: billingModel,
                 promptText,
                 responseText: data.content ?? '',
                 logId: call.logId,
@@ -2295,7 +2479,7 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
         void recordCall({
           apiKeyId: apiKey.id,
           userId: apiKey.userId,
-          model,
+          model: billingModel,
           prompt: promptText,
           response: null,
           promptTokens: 0,
@@ -2307,7 +2491,7 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
           // 本行原本不写 metadata ⇒ 只新增 latencyTrusted 一键,不得顺手带进 modelMappingMeta
           metadata: { latencyTrusted: latency.latencyTrusted },
           mode,
-          providerCode: modelToProviderCode(resolvedModel),
+          providerCode: modelToProviderCode(billingModel),
           clientIp: request.ip,
           preDeducted: preDeduction,
         }).catch(() => {})
@@ -2486,13 +2670,12 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
         }
         const batchFileId = `file-${randomUUID()}`
         const content = buffer.toString('utf8')
-        let batchRedis: { disconnect: () => void } | null = null
         try {
-          const { saveBatchInput } = await import('../queue/batch-queue.js')
-          const IORedis = (await import('ioredis')).default
-          const redis = new IORedis(config.REDIS_URL, { maxRetriesPerRequest: 2 })
-          batchRedis = redis
-          await saveBatchInput(redis, batchFileId, content)
+          const { saveBatchInput, getBatchInputRedis } = await import('../queue/batch-queue.js')
+          // F-279:复用 server.redis(由 redis 插件 onClose 统一 quit),不再每请求 new IORedis
+          // —— 后者异常路径会泄漏连接与重连定时器。键按 apiKeyId 分区,他人 fileId 读不到。
+          const redis = getBatchInputRedis(server)
+          await saveBatchInput(redis, apiKey.id, batchFileId, content)
           return reply.status(201).send({
             id: batchFileId,
             object: 'file',
@@ -2504,9 +2687,6 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
           })
         } catch {
           return reply.status(500).send(error(500, 'Batch file save failed'))
-        } finally {
-          // 无论保存成功/抛错都要断开:ioredis 默认自动重连,泄漏一条会持续占用连接与重连定时器
-          batchRedis?.disconnect()
         }
       }
 
@@ -2527,11 +2707,14 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(400).send(error(400, validation.reason))
       }
 
+      // F-447:记录已落盘路径,入库失败时回收(先落盘后入库,失败不回收致磁盘只增不减)
+      let writtenFilePath: string | undefined
       try {
         if (!existsSync(UPLOAD_DIR)) mkdirSync(UPLOAD_DIR, { recursive: true })
         const fileId = randomUUID()
         const filePath = join(UPLOAD_DIR, fileId)
         writeFileSync(filePath, buffer)
+        writtenFilePath = filePath
 
         // files 表 projectId 必填(notNull):取该用户的第一个项目作为默认归属,
         // 若用户无任何项目则自动创建名为 "API Uploads" 的默认项目(隔离公开 API 上传)。
@@ -2578,6 +2761,14 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
           persisted,
         })
       } catch {
+        // F-447:落盘后入库失败 ⇒ 回收已写文件,避免 uploads/public 累积孤儿文件
+        if (writtenFilePath) {
+          try {
+            unlinkSync(writtenFilePath)
+          } catch {
+            // 清理失败不覆盖原始错误
+          }
+        }
         return reply.status(500).send(error(500, 'File save failed'))
       }
     },

@@ -194,7 +194,13 @@ async function claimResolvedCoupon(
       .where(eq(userCoupons.id, referrerUserCouponId))
       .limit(1)
     if (referrerCoupon && referrerCoupon.couponId === coupon.id) {
-      referrerUserId = referrerCoupon.userId
+      // F-311:自荐防护 —— 分享人不得等于领取人。旧形态只校验 couponId 相同,
+      // 用户 A 拿自己已领的 user_coupon 当 referrerUserCouponId ⇒ referrerUserId=A,
+      // referrerGets='credit' 时给自己加 referralValue 余额,可反复刷(perUserLimit=0 时无限),
+      // 且无充值流水可对账。这里判定为自荐 ⇒ 不记分享人 ⇒ 后续不奖励,杜绝自刷。
+      if (referrerCoupon.userId !== userId) {
+        referrerUserId = referrerCoupon.userId
+      }
     }
   }
 

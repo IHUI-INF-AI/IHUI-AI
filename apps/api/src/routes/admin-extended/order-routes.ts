@@ -16,6 +16,8 @@ import { success, error, parseOrThrow } from '../../utils/response.js'
 import { idParamSchema } from './_shared.js'
 import { isUuidString } from '../../utils/uuid.js'
 import { logAction } from '../../services/audit-service.js'
+// F-465:后台改单的状态迁移必须复用主链路状态机,不得裸写 status。
+import { completeOrder, cancelOrder, refundOrder } from '../../services/order-service.js'
 // F-453:此第 5 条提现写入口原先直接 status=2|3、where 只有 id——无冻结释放、无退款、无
 // 前置状态断言:0→2 后回调只处理 0/1(payment-extended:147),冻结永久沉淀;reject 把终态
 // 改回 3 使 token 永久丢失;且可把任意终态改写。保留路由契约(前端两处审批仍调
@@ -30,24 +32,85 @@ const updateOrderSchema = z.strictObject({
   targetTitle: z.string().max(200).optional(),
 })
 
+/**
+ * F-465:订单状态迁移表(与 services/order-service.ts 的四个状态迁移同源)。
+ *   pending → paid(completeOrder 完整履约)/ cancelled(cancelOrder)
+ *   paid    → refunded(refundOrder,含资金副作用与时间戳)
+ *   cancelled / refunded 为终态,不可回退(原实现可把 refunded 改回 paid)。
+ * 表外迁移一律 409,且在写库之前拦截。
+ */
+const ORDER_STATUS_TRANSITIONS: Readonly<Record<string, readonly string[]>> = {
+  pending: ['paid', 'cancelled'],
+  paid: ['refunded'],
+  cancelled: [],
+  refunded: [],
+}
+
 export const orderRoutes: FastifyPluginAsync = async (server) => {
   server.put('/admin/orders/:id', { preHandler: requireAdmin }, async (request, reply) => {
     const { id } = parseOrThrow(idParamSchema, request.params)
     if (!isUuidString(id)) return reply.status(400).send(error(400, 'id 格式不正确'))
     const body = parseOrThrow(updateOrderSchema, request.body)
-    const [row] = await db
-      .update(eduOrders)
-      .set({ ...body, updatedAt: new Date() })
+    const [existing] = await db
+      .select({ status: eduOrders.status, orderNo: eduOrders.orderNo })
+      .from(eduOrders)
       .where(eq(eduOrders.id, id))
-      .returning()
-    if (!row) return reply.status(404).send(error(404, '订单不存在'))
+      .limit(1)
+    if (!existing) return reply.status(404).send(error(404, '订单不存在'))
+    // F-465:非法迁移不写库(先校验,再动任何一张表)。
+    const nextStatus =
+      body.status !== undefined && body.status !== existing.status ? body.status : undefined
+    if (nextStatus !== undefined) {
+      const allowed = ORDER_STATUS_TRANSITIONS[existing.status] ?? []
+      if (!allowed.includes(nextStatus)) {
+        return reply
+          .status(409)
+          .send(error(409, `当前状态(${existing.status})不允许变更为 ${nextStatus}`))
+      }
+      // 复用主链路履约入口:paid → completeOrder(token 充值/学费入账/积分/Outbox);
+      // cancelled → cancelOrder;refunded → refundOrder(退款回收)。
+      // 时间戳(orders.paid_at/refund_time 与 edu_orders.pay_time/refund_time)由同源
+      // updateOrderStatus 在两表内一并写入,不再由本路由裸写 status。
+      let result: { success: boolean; reason?: string }
+      try {
+        result =
+          nextStatus === 'paid'
+            ? await completeOrder(existing.orderNo)
+            : nextStatus === 'cancelled'
+              ? await cancelOrder(existing.orderNo)
+              : await refundOrder(existing.orderNo)
+      } catch (e) {
+        return reply
+          .status(409)
+          .send(error(409, `订单状态迁移失败:${(e as Error).message}`))
+      }
+      if (!result.success) {
+        return reply.status(409).send(error(409, result.reason ?? '订单状态迁移失败'))
+      }
+    }
+    // 非状态字段(payType/remark/targetTitle)仍按普通字段更新;状态已由上面的服务写库。
+    const eduSet: Record<string, unknown> = {}
+    if (body.payType !== undefined) eduSet.payType = body.payType
+    if (body.remark !== undefined) eduSet.remark = body.remark
+    if (body.targetTitle !== undefined) eduSet.targetTitle = body.targetTitle
     // Phase 3: 同步到统一 orders 表（payType → paymentMethod）
-    const ordersSet: Record<string, unknown> = { updatedAt: new Date() }
-    if (body.status !== undefined) ordersSet.status = body.status
+    const ordersSet: Record<string, unknown> = {}
     if (body.payType !== undefined) ordersSet.paymentMethod = body.payType
     if (body.remark !== undefined) ordersSet.remark = body.remark
     if (body.targetTitle !== undefined) ordersSet.targetTitle = body.targetTitle
-    await db.update(orders).set(ordersSet).where(eq(orders.id, id))
+    if (Object.keys(eduSet).length > 0) {
+      eduSet.updatedAt = new Date()
+      await db.update(eduOrders).set(eduSet).where(eq(eduOrders.id, id))
+    }
+    if (Object.keys(ordersSet).length > 0) {
+      ordersSet.updatedAt = new Date()
+      await db.update(orders).set(ordersSet).where(eq(orders.id, id))
+    }
+    const [row] = await db
+      .select()
+      .from(eduOrders)
+      .where(eq(eduOrders.id, id))
+      .limit(1)
     return reply.send(success(row))
   })
   server.delete('/admin/orders/:id', { preHandler: requireAdmin }, async (request, reply) => {

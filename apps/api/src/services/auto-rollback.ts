@@ -179,7 +179,7 @@ export function startAutoRollbackMonitor(): void {
   if (checkInterval) return
   if (process.env.CANARY_ENABLED !== 'true') return
 
-  checkInterval = setInterval(async () => {
+  const handle = setInterval(async () => {
     try {
       await checkCanaryHealth()
     } catch (err) {
@@ -188,6 +188,9 @@ export function startAutoRollbackMonitor(): void {
       })
     }
   }, CHECK_INTERVAL_MS)
+  // F-524:non-unref 定时器会钉住事件循环;worker 侧 onClose 若挂起,进程只能等 SIGKILL。
+  handle.unref()
+  checkInterval = handle
 
   logger.info('[auto-rollback] monitor started', {
     threshold: ERROR_RATE_THRESHOLD,

@@ -19,7 +19,12 @@ import { statfs, rm, readdir, stat } from 'node:fs/promises'
 import { existsSync, mkdirSync, statSync } from 'node:fs'
 import type { Dirent } from 'node:fs'
 import { join, resolve, sep } from 'node:path'
-import { agentLoop, codebaseIndexer, sandboxExecutor } from './workspace-ai-service.js'
+import {
+  agentLoop,
+  codebaseIndexer,
+  DEPENDENCY_INSTALL_COMMAND,
+  sandboxExecutor,
+} from './workspace-ai-service.js'
 import { killProcessVerified, type KillVerifiedDeps } from '../utils/kill-verified.js'
 
 // =============================================================================
@@ -249,32 +254,57 @@ function isInsideWorkspace(workspacePath: string, target: string): boolean {
   return tAbs === wsAbs || tAbs.startsWith(wsAbs + sep)
 }
 
+/**
+ * 依赖修复(F-267):不再把 `pnpm install` 当普通沙箱命令下发 —— 那会撞上解释器闸
+ * (非 admin 恒 126),而摘闸/自报 isAdmin 都是削弱安全面。改走 sandboxExecutor 的
+ * 服务端受控授权通道:argv 固定(含 --ignore-scripts)、根归属校验在通道内、
+ * Windows 上由 node 直载 pnpm 的 JS 入口(裸 pnpm 是 .cmd shim,execFile 会 ENOENT)。
+ */
 async function repairDependency(
   workspacePath: string,
   dryRun: boolean,
   detail: string,
 ): Promise<SelfHealRepairResult> {
   const steps: SelfHealStep[] = [stepPlanned('检测', null, detail || '依赖缺失或过期')]
-  const cmd = 'pnpm install --no-frozen-lockfile'
   if (dryRun) {
-    steps.push(stepPlanned('依赖安装', cmd, '将执行依赖安装以恢复/同步 node_modules。'))
+    steps.push(
+      stepPlanned(
+        '依赖安装',
+        DEPENDENCY_INSTALL_COMMAND,
+        '将经服务端受控授权通道执行依赖安装(固定 argv,--ignore-scripts 不跑依赖的安装脚本)。',
+      ),
+    )
     return { workspacePath, kind: 'dependency', dryRun, ok: true, steps }
   }
   const t0 = Date.now()
-  const result = await sandboxExecutor.execute({
-    command: cmd,
-    workspacePath,
-    mode: 'workspace-write',
-    timeoutMs: 300_000,
-  })
-  steps.push({
-    step: '依赖安装',
-    command: cmd,
-    status: result.exitCode === 0 ? 'ok' : 'fail',
-    output: (result.stdout + '\n' + result.stderr).trim().slice(-2000) || `exit ${result.exitCode}`,
-    durationMs: Date.now() - t0,
-  })
-  const installed = existsSync(join(workspacePath, 'node_modules'))
+  let installed = false
+  let exitCode: number | null = null
+  try {
+    const result = await sandboxExecutor.installWorkspaceDependencies({
+      workspacePath,
+      authorization: 'self-healing:dependency-repair',
+      timeoutMs: 300_000,
+    })
+    exitCode = result.exitCode
+    steps.push({
+      step: '依赖安装',
+      command: result.command,
+      status: result.exitCode === 0 ? 'ok' : 'fail',
+      output:
+        (result.stdout + '\n' + result.stderr).trim().slice(-2000) || `exit ${result.exitCode}`,
+      durationMs: Date.now() - t0,
+    })
+    installed = existsSync(join(workspacePath, 'node_modules'))
+  } catch (e) {
+    // 通道拒绝(未登记的根/非包根/找不到 pnpm 入口)不是崩溃,而是审计上的一条 fail
+    steps.push({
+      step: '依赖安装',
+      command: DEPENDENCY_INSTALL_COMMAND,
+      status: 'fail',
+      output: String(e),
+      durationMs: Date.now() - t0,
+    })
+  }
   steps.push({
     step: '验证',
     command: null,
@@ -286,7 +316,7 @@ async function repairDependency(
     workspacePath,
     kind: 'dependency',
     dryRun,
-    ok: installed && result.exitCode === 0,
+    ok: installed && exitCode === 0,
     steps,
   }
 }

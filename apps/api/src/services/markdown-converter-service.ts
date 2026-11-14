@@ -23,9 +23,10 @@
  * - convertToMarkdownDetailed(path) 返回 { markdown, error? },供路由层给出具体文案
  */
 
-import { readFileSync, existsSync, writeFileSync, mkdirSync } from 'node:fs'
+import { existsSync, writeFileSync, mkdirSync, unlinkSync } from 'node:fs'
+import { readFile, stat } from 'node:fs/promises'
 import { extname, join } from 'node:path'
-import { randomUUID } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 import { inflateRawSync } from 'node:zlib'
 import mammoth from 'mammoth'
 import * as XLSX from '@e965/xlsx'
@@ -234,8 +235,8 @@ function formatAsMarkdownTable(title: string, rows: string[][]): string {
 /** OOXML 命名空间下的文本标签。 */
 const PPTX_TEXT_TAG = /<a:t[^>]*>([\s\S]*?)<\/a:t>/g
 
-function pptxToMarkdown(filePath: string): string {
-  const entries = readZipEntries(filePath)
+async function pptxToMarkdown(filePath: string): Promise<string> {
+  const entries = await readZipEntries(filePath)
   const slideNames = Object.keys(entries)
     .filter((n) => /^ppt\/slides\/slide\d+\.xml$/.test(n))
     .sort()
@@ -261,11 +262,14 @@ function pptxToMarkdown(filePath: string): string {
 const EOCD_SIG = 0x06054b50
 const CDH_SIG = 0x02014b50
 
+/** F-146:解压后总大小上限(防 zip bomb 把小体积 pptx 放大到 GB 级内存)。 */
+const MAX_ZIP_UNCOMPRESSED_SIZE = 100 * 1024 * 1024
+
 /** 读取 ZIP 文件全部条目为 { 名称: Buffer } 映射。失败返回空对象。 */
-function readZipEntries(filePath: string): Record<string, Buffer> {
+async function readZipEntries(filePath: string): Promise<Record<string, Buffer>> {
   let buf: Buffer
   try {
-    buf = readFileSync(filePath)
+    buf = await readFile(filePath)
   } catch {
     return {}
   }
@@ -284,11 +288,13 @@ function readZipEntries(filePath: string): Record<string, Buffer> {
   const cdOffset = buf.readUInt32LE(eocdOffset + 16)
   const cdCount = buf.readUInt16LE(eocdOffset + 10)
   let ptr = cdOffset
+  let totalUncompressed = 0
   for (let i = 0; i < cdCount; i++) {
     if (ptr + 46 > buf.length) break
     if (buf.readUInt32LE(ptr) !== CDH_SIG) break
     const method = buf.readUInt16LE(ptr + 10)
     const compressedSize = buf.readUInt32LE(ptr + 20)
+    const uncompressedSize = buf.readUInt32LE(ptr + 24)
     const nameLen = buf.readUInt16LE(ptr + 28)
     const extraLen = buf.readUInt16LE(ptr + 30)
     const commentLen = buf.readUInt16LE(ptr + 32)
@@ -296,6 +302,15 @@ function readZipEntries(filePath: string): Record<string, Buffer> {
     const name = buf.toString('utf-8', ptr + 46, ptr + 46 + nameLen)
     // 跳过目录条目
     if (!name.endsWith('/')) {
+      // F-146:解压前按中央目录声明的解压后大小累计,超总上限直接放弃(不解压任何条目)
+      totalUncompressed += uncompressedSize
+      if (totalUncompressed > MAX_ZIP_UNCOMPRESSED_SIZE) {
+        logger.warn('[markdown-converter] ZIP 解压后总大小超过上限,放弃解析', {
+          totalUncompressed,
+          limit: MAX_ZIP_UNCOMPRESSED_SIZE,
+        })
+        return {}
+      }
       const data = readZipEntryData(buf, localOffset, method, compressedSize)
       if (data) result[name] = data
     }
@@ -320,7 +335,8 @@ function readZipEntryData(
   if (method === 0) return Buffer.from(data) // stored
   if (method === 8) {
     try {
-      return inflateRawSync(data)
+      // F-146:单条也设解压上限,中央目录声明值不可信时兜底
+      return inflateRawSync(data, { maxOutputLength: MAX_ZIP_UNCOMPRESSED_SIZE })
     } catch {
       return null
     }
@@ -345,10 +361,10 @@ function decodeXmlEntities(s: string): string {
 const PDF_TEXT_OP = /\(([^()\\]*)\)\s*Tj?/g
 const PDF_TJ_ARRAY = /\[([^\]]*)\]\s*TJ/g
 
-function pdfToMarkdown(filePath: string): string {
+async function pdfToMarkdown(filePath: string): Promise<string> {
   let buf: Buffer
   try {
-    buf = readFileSync(filePath)
+    buf = await readFile(filePath)
   } catch {
     return ''
   }
@@ -428,9 +444,9 @@ async function legacyToMarkdown(filePath: string, ext: string): Promise<string> 
       case '.xlsm':
         return xlsxToMarkdown(filePath)
       case '.pptx':
-        return pptxToMarkdown(filePath)
+        return await pptxToMarkdown(filePath)
       case '.pdf':
-        return pdfToMarkdown(filePath)
+        return await pdfToMarkdown(filePath)
       default:
         return ''
     }
@@ -448,6 +464,35 @@ export interface DetailedConvertResult {
   markdown: string
   /** 失败时的中文错误文案(供路由层直接返回)。 */
   error?: string
+  /** 失败时的 HTTP 状态码(体积超限 413);未给出时路由层沿用 422。 */
+  statusCode?: number
+}
+
+/**
+ * F-146:读入前的体积闸。
+ *
+ * 转换与资产提取都会把整份文件读进内存(anydoc 还要解压),此前是「先 readFileSync
+ * 全量读、读完才比 20MB」,100MB 文件会阻塞事件循环数秒并产生 ~200MB 字符串。
+ * 现在先 stat 判大小,超限直接拒绝,不进内存、不解压。
+ *
+ * @param action 中文动作词,拼进错误文案(如「转换」「提取内嵌资产」)
+ * @returns null 表示通过;否则返回错误文案与建议状态码
+ */
+async function checkFileSizeLimit(
+  filePath: string,
+  action: string,
+): Promise<{ error: string; statusCode?: number } | null> {
+  let size: number
+  try {
+    size = (await stat(filePath)).size
+  } catch {
+    return { error: '文件不存在或路径无效' }
+  }
+  if (size > MAX_FILE_SIZE) {
+    const mb = Math.floor(MAX_FILE_SIZE / 1024 / 1024)
+    return { error: `文件超过 ${mb}MB 上限,无法${action}`, statusCode: 413 }
+  }
+  return null
 }
 
 /**
@@ -465,6 +510,11 @@ export async function convertToMarkdownDetailed(
   if (!filePath || !existsSync(filePath)) {
     return { markdown: '', error: '文件不存在或路径无效' }
   }
+  // F-146:先 stat 判大小,超限在读入前就拒绝(不进内存、不解压)
+  const sizeCheck = await checkFileSizeLimit(filePath, '转换')
+  if (sizeCheck) {
+    return { markdown: '', error: sizeCheck.error, statusCode: sizeCheck.statusCode }
+  }
   // 类型判定优先用原始文件名(落盘名可能是无后缀 UUID)
   const ext = extname(originalName && extname(originalName) ? originalName : filePath).toLowerCase()
   // 磁盘文件自身是否有后缀(决定 anydoc 走路径还是字节路径)
@@ -473,7 +523,7 @@ export async function convertToMarkdownDetailed(
   // .txt/.md:直接读取 UTF-8
   if (ext === '.txt' || ext === '.md' || ext === '.markdown') {
     try {
-      return { markdown: readFileSync(filePath, 'utf-8') }
+      return { markdown: await readFile(filePath, 'utf-8') }
     } catch (e) {
       return { markdown: '', error: `文件读取失败: ${(e as Error).message}` }
     }
@@ -490,7 +540,7 @@ export async function convertToMarkdownDetailed(
           md = await anydoc.toMarkdown(filePath)
         } else {
           // 落盘文件无后缀:读字节,优先 formatFromBytes 字节探测,再回退原始文件名格式
-          const bytes = new Uint8Array(readFileSync(filePath))
+          const bytes = new Uint8Array(await readFile(filePath))
           const fmt =
             anydoc.formatFromBytes?.(bytes) ??
             anydoc.formatFromPath(originalName ?? filePath) ??
@@ -559,6 +609,95 @@ export interface ExtractAssetsResult {
   unsupported?: boolean
   /** 失败时的中文文案。 */
   error?: string
+  /** 失败时的 HTTP 状态码(体积超限 413);未给出时路由层沿用 422。 */
+  statusCode?: number
+  /** F-413:因条数/累计字节上限只落盘了部分资产时为 true。 */
+  truncated?: boolean
+  /** F-413:截断原因(中文文案,供调用方提示)。 */
+  truncatedReason?: string
+}
+
+/** F-146:资产落盘总量默认上限(anydoc 已解压,防单请求写出 GB 级资产)。 */
+const MAX_ASSETS_TOTAL_SIZE = 100 * 1024 * 1024
+
+/** F-413:单次提取资产条数上限(高压缩比文档可造出大量零字节条目)。 */
+const MAX_ASSETS_COUNT = 200
+
+/** F-413:同源(内容 sha256 + 落盘目录)提取结果缓存时长,重复调用直接复用不重复落盘。 */
+const ASSET_CACHE_TTL_MS = 30 * 60 * 1000
+
+/** F-413:提取结果缓存条目上限(过期项清理后仍超出时按写入顺序淘汰)。 */
+const MAX_ASSET_CACHE_ENTRIES = 64
+
+/** F-413:资产提取上限(测试可注入覆盖,生产值见上方常量)。 */
+export interface AssetExtractLimits {
+  maxCount: number
+  maxTotalBytes: number
+  cacheTtlMs: number
+}
+
+const DEFAULT_ASSET_EXTRACT_LIMITS: AssetExtractLimits = {
+  maxCount: MAX_ASSETS_COUNT,
+  maxTotalBytes: MAX_ASSETS_TOTAL_SIZE,
+  cacheTtlMs: ASSET_CACHE_TTL_MS,
+}
+
+let assetExtractLimits: AssetExtractLimits = { ...DEFAULT_ASSET_EXTRACT_LIMITS }
+
+interface AssetCacheEntry {
+  assets: ExtractedAsset[]
+  truncated: boolean
+  truncatedReason?: string
+  expiresAt: number
+}
+
+/** F-413:同源同目录的提取结果缓存(重复调用幂等,不重复生成 UUID 落盘)。 */
+const assetExtractionCache = new Map<string, AssetCacheEntry>()
+
+/** F-413:测试注入上限;传 null 恢复默认。 */
+export function __setAssetExtractLimitsForTests(
+  overrides: Partial<AssetExtractLimits> | null,
+): void {
+  assetExtractLimits = overrides
+    ? { ...DEFAULT_ASSET_EXTRACT_LIMITS, ...overrides }
+    : { ...DEFAULT_ASSET_EXTRACT_LIMITS }
+}
+
+/** F-413:测试复位缓存与上限。 */
+export function __resetAssetExtractStateForTests(): void {
+  assetExtractionCache.clear()
+  assetExtractLimits = { ...DEFAULT_ASSET_EXTRACT_LIMITS }
+}
+
+/** 内容 sha256(幂等/去重键)。 */
+function sha256Hex(data: Buffer): string {
+  return createHash('sha256').update(data).digest('hex')
+}
+
+/** 清理过期缓存,并保证条目数不超过上限。 */
+function pruneAssetExtractionCache(now: number): void {
+  for (const [key, entry] of assetExtractionCache) {
+    if (entry.expiresAt <= now) assetExtractionCache.delete(key)
+  }
+  while (assetExtractionCache.size > MAX_ASSET_CACHE_ENTRIES) {
+    const oldest = assetExtractionCache.keys().next().value
+    if (oldest === undefined) break
+    assetExtractionCache.delete(oldest)
+  }
+}
+
+/** 命中缓存且落盘文件仍在时返回条目;否则清掉该键返回 null。 */
+function readCachedAssets(key: string, outDir: string, now: number): AssetCacheEntry | null {
+  const entry = assetExtractionCache.get(key)
+  if (!entry) return null
+  if (
+    entry.expiresAt <= now ||
+    !entry.assets.every((a) => existsSync(join(outDir, a.filename)))
+  ) {
+    assetExtractionCache.delete(key)
+    return null
+  }
+  return entry
 }
 
 /**
@@ -566,7 +705,8 @@ export interface ExtractAssetsResult {
  *
  * @param filePath 源文件磁盘路径
  * @param originalName 原始文件名(可选;落盘名常为无后缀 UUID,用于格式判定/字节探测兜底)
- * @param writeToDir 资产落盘目录(路由层传 UPLOAD_DIR,并据此生成公开 URL)
+ * @param writeToDir 资产落盘目录(路由层按源文件可见性传入:公开源文件为 UPLOAD_DIR,
+ *   私有源文件为 uploads/private/assets/<owner>,并据此生成对应 URL)
  */
 export async function extractDocumentAssets(
   filePath: string,
@@ -588,6 +728,12 @@ export async function extractDocumentAssets(
     return { assets: [], unsupported: true }
   }
 
+  // F-146:先 stat 判大小,超限在读入/加载解析引擎之前就拒绝(to_document 会全量载入内存并解压)
+  const sizeCheck = await checkFileSizeLimit(filePath, '提取内嵌资产')
+  if (sizeCheck) {
+    return { assets: [], error: sizeCheck.error, statusCode: sizeCheck.statusCode }
+  }
+
   const anydoc = await loadAnydoc()
   if (!anydoc) {
     return { assets: [], error: '文档解析引擎不可用(anydoc 模块加载失败),请检查部署依赖' }
@@ -595,14 +741,26 @@ export async function extractDocumentAssets(
 
   let bytes: Buffer
   try {
-    bytes = readFileSync(filePath)
+    bytes = await readFile(filePath)
   } catch (e) {
     return { assets: [], error: `文件读取失败: ${(e as Error).message}` }
   }
-  // to_document 会全量载入内存:超出上限直接拒绝
-  if (bytes.length > MAX_FILE_SIZE) {
-    const mb = Math.floor(MAX_FILE_SIZE / 1024 / 1024)
-    return { assets: [], error: `文件超过 ${mb}MB 上限,无法提取内嵌资产` }
+
+  const outDir = writeToDir
+  const sourceHash = sha256Hex(bytes)
+  // F-413:同一源文件(内容 sha256)+ 同一落盘目录重复调用时复用上次结果,不再重新解析/落盘
+  if (outDir) {
+    const cached = readCachedAssets(`${sourceHash}::${outDir}`, outDir, Date.now())
+    if (cached) {
+      logger.info('[markdown-converter] 命中资产提取缓存,复用已落盘文件', {
+        count: cached.assets.length,
+      })
+      return {
+        assets: cached.assets.map((a) => ({ ...a })),
+        truncated: cached.truncated || undefined,
+        truncatedReason: cached.truncatedReason,
+      }
+    }
   }
 
   // 格式判定:磁盘有后缀优先;否则 formatFromBytes 字节探测;仍 null 回退原始文件名;再空则报错
@@ -628,25 +786,93 @@ export async function extractDocumentAssets(
   }
 
   const assets = doc.assets ?? []
-  const outDir = writeToDir
   if (outDir && !existsSync(outDir)) mkdirSync(outDir, { recursive: true })
 
+  const limits = assetExtractLimits
   const out: ExtractedAsset[] = []
-  for (const a of assets) {
-    const extName = assetExtension(a.mediaType)
-    // 自生成文件名,绝不复用 originPart(其可能含路径穿越载荷)
-    const filename = `${randomUUID()}${extName}`
-    const target = outDir ? join(outDir, filename) : ''
-    if (outDir) writeFileSync(target, a.data)
-    out.push({
-      id: a.id,
-      mediaType: a.mediaType,
-      originPart: a.originPart,
-      extension: extName.replace(/^\./, '') || 'bin',
-      size: a.data?.length ?? 0,
-      filename,
+  /** 本次新写出的文件(失败时逐条清理,不留半份资产)。 */
+  const written: string[] = []
+  /** 内容哈希 -> 文件名,同一文档内完全相同的资产只落盘一次。 */
+  const writtenByHash = new Map<string, string>()
+  let totalBytes = 0
+  let truncated = false
+  let truncatedReason: string | undefined
+  try {
+    for (const a of assets) {
+      const size = a.data?.length ?? 0
+      if (out.length >= limits.maxCount) {
+        truncated = true
+        truncatedReason = `内嵌资产超过 ${limits.maxCount} 条上限,仅提取前 ${out.length} 条`
+        break
+      }
+      if (totalBytes + size > limits.maxTotalBytes) {
+        const mb = Math.floor(limits.maxTotalBytes / 1024 / 1024)
+        truncated = true
+        truncatedReason = `内嵌资产累计超过 ${mb}MB 上限,已停止提取`
+        break
+      }
+      const extName = assetExtension(a.mediaType)
+      // 自生成文件名,绝不复用 originPart(其可能含路径穿越载荷)
+      const dataHash = `${extName}:${sha256Hex(a.data ?? Buffer.alloc(0))}`
+      let filename = writtenByHash.get(dataHash)
+      if (!filename) {
+        filename = `${randomUUID()}${extName}`
+        if (outDir) {
+          const target = join(outDir, filename)
+          writeFileSync(target, a.data)
+          written.push(target)
+        }
+        writtenByHash.set(dataHash, filename)
+      }
+      totalBytes += size
+      out.push({
+        id: a.id,
+        mediaType: a.mediaType,
+        originPart: a.originPart,
+        extension: extName.replace(/^\./, '') || 'bin',
+        size,
+        filename,
+      })
+    }
+  } catch (e) {
+    // F-413:落盘中途失败,清理本次已写文件后再如实报错
+    for (const p of written) {
+      try {
+        unlinkSync(p)
+      } catch {
+        // 清理失败不覆盖原始错误,继续清理其余文件
+      }
+    }
+    logger.error('[markdown-converter] 资产落盘失败,已回滚本次写入', {
+      written: written.length,
+      error: (e as Error).message,
+    })
+    return { assets: [], error: `资产落盘失败: ${(e as Error).message}` }
+  }
+
+  if (truncated) {
+    logger.warn('[markdown-converter] 资产提取超限,已截断', {
+      total: assets.length,
+      accepted: out.length,
+      totalBytes,
+      maxCount: limits.maxCount,
+      maxTotalBytes: limits.maxTotalBytes,
     })
   }
-  return { assets: out }
+  if (outDir) {
+    const now = Date.now()
+    pruneAssetExtractionCache(now)
+    assetExtractionCache.set(`${sourceHash}::${outDir}`, {
+      assets: out.map((a) => ({ ...a })),
+      truncated,
+      truncatedReason,
+      expiresAt: now + limits.cacheTtlMs,
+    })
+  }
+  return {
+    assets: out,
+    truncated: truncated || undefined,
+    truncatedReason,
+  }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

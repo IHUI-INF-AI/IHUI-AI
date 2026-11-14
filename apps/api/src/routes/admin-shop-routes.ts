@@ -7,6 +7,7 @@
  * 替代 admin-missing-routes.ts 中的 registerEmptyStub 空桩。
  * 复用现有 userMargins/tokenFlows/zhsProduct/withdrawalFlows/developerApiKeys 表。
  */
+import { randomUUID } from 'node:crypto'
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
 import { eq, or, ilike, desc, sql, and, inArray, type SQL } from 'drizzle-orm'
@@ -14,6 +15,7 @@ import { db } from '../db/index.js'
 import { requireAdmin } from '../plugins/require-permission.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
 import { isUuidString } from '../utils/uuid.js'
+import { TOKEN_FLOW_OP } from '../services/relay-billing-service.js'
 import {
   userMargins,
   tokenFlows,
@@ -41,21 +43,26 @@ const productStatusFromInt = (s: number | null): ProductStatus => (s === 1 ? 'on
 
 const withdrawalStatusSchema = z.enum(['pending', 'approved', 'rejected', 'completed', 'failed'])
 type WithdrawalStatus = z.infer<typeof withdrawalStatusSchema>
+// F-457:withdrawal_flows.status 全仓唯一口径(schema 注释):0=pending 1=processing 2=completed
+// 3=failed(驳回/终态失败)。此前这里把 rejected 写 4,与主链路驳回(rejectWithdrawal 写 3)分裂
+// ⇒ 主链路驳回单在商城后台显示 failed、按 rejected 筛选查不到、资金统计四类计数之和 < 总数。
+// 写侧一律落 3;4 仅作为历史遗留数据在读取/筛选时兼容,不再写入。
 const WITHDRAWAL_INT: Record<WithdrawalStatus, number> = {
   pending: 0,
   approved: 1,
   completed: 2,
   failed: 3,
-  rejected: 4,
+  rejected: 3,
 }
+/** 驳回/失败的终态集合:3=现行口径,4=旧版商城后台写入的历史数据 */
+const WITHDRAWAL_REJECTED_INTS = [3, 4] as const
 const WITHDRAWAL_STATUS_LIST = ['pending', 'approved', 'rejected', 'completed', 'failed'] as const
 const isWithdrawalStatus = (s: string): s is WithdrawalStatus =>
   (WITHDRAWAL_STATUS_LIST as readonly string[]).includes(s)
 const withdrawalStatusFromInt = (s: number): WithdrawalStatus => {
   if (s === 1) return 'approved'
   if (s === 2) return 'completed'
-  if (s === 3) return 'failed'
-  if (s === 4) return 'rejected'
+  if (s === 3 || s === 4) return 'rejected'
   return 'pending'
 }
 
@@ -149,11 +156,13 @@ export const adminShopRoutes: FastifyPluginAsync = async (server) => {
     const flows = await db
       .select({
         userId: tokenFlows.userId,
-        totalRecharge: sql<number>`coalesce(sum(case when ${tokenFlows.opType} = 0 then ${tokenFlows.quantity} else 0 end), 0)::int`,
-        totalConsume: sql<number>`coalesce(sum(case when ${tokenFlows.opType} = 1 then ${tokenFlows.quantity} else 0 end), 0)::int`,
+        // F-394:口径统一 —— 充值/消耗都按绝对值累计,提现等负号流水不得把消耗合计抵小;
+        // opType 走 TOKEN_FLOW_OP,不再写魔法数字。
+        totalRecharge: sql<number>`coalesce(sum(case when ${tokenFlows.opType} = ${TOKEN_FLOW_OP.RECHARGE} then abs(${tokenFlows.quantity}) else 0 end), 0)::int`,
+        totalConsume: sql<number>`coalesce(sum(case when ${tokenFlows.opType} = ${TOKEN_FLOW_OP.CONSUME} then abs(${tokenFlows.quantity}) else 0 end), 0)::int`,
       })
       .from(tokenFlows)
-      .where(inArray(tokenFlows.opType, [0, 1]))
+      .where(inArray(tokenFlows.opType, [TOKEN_FLOW_OP.RECHARGE, TOKEN_FLOW_OP.CONSUME]))
       .groupBy(tokenFlows.userId)
     const flowMap = new Map(flows.map((f) => [f.userId, f]))
 
@@ -233,7 +242,8 @@ export const adminShopRoutes: FastifyPluginAsync = async (server) => {
         status: PRODUCT_INT[b.data.status],
       })
       .returning()
-    if (!row) return reply.status(500).send(error(500, '创建失败'))
+    // F-395:INSERT 返回空行 = 没落库,不得回 2xx 让后台以为保存成功
+    if (!row) return reply.status(409).send(error(409, '商品创建失败,请重试'))
     return reply.status(201).send(success({ id: String(row.id), ...mapProduct(row) }))
   })
 
@@ -254,17 +264,22 @@ export const adminShopRoutes: FastifyPluginAsync = async (server) => {
     if (!p.success) return reply.status(400).send(error(400, '参数错误'))
     const b = productBodySchema.partial().safeParse(request.body)
     if (!b.success) return reply.status(400).send(error(400, '参数错误'))
-    const set: Partial<typeof zhsProduct.$inferInsert> = { updatedAt: new Date() }
+    const set: Partial<typeof zhsProduct.$inferInsert> = {}
     if (b.data.name !== undefined) set.name = b.data.name
     if (b.data.price !== undefined) set.price = b.data.price
     if (b.data.type !== undefined) set.type = b.data.type
     if (b.data.status !== undefined) set.status = PRODUCT_INT[b.data.status]
+    // F-395:空对象 / 只有不可落库可选列 ⇒ 一行都不会变,不能回 200 假成功
+    if (Object.keys(set).length === 0)
+      return reply.status(400).send(error(400, '无可用更新字段'))
+    set.updatedAt = new Date()
     const [row] = await db
       .update(zhsProduct)
       .set(set)
       .where(eq(zhsProduct.id, Number(p.data.id)))
       .returning()
-    if (!row) return reply.status(404).send(error(404, '商品不存在'))
+    // F-395:UPDATE 返回空行 = 目标已被删除(并发),如实回 404
+    if (!row) return reply.status(404).send(error(404, '商品不存在或已被删除'))
     return reply.send(success({ id: String(row.id), ...mapProduct(row) }))
   })
 
@@ -280,7 +295,8 @@ export const adminShopRoutes: FastifyPluginAsync = async (server) => {
         .set({ status: PRODUCT_INT[b.data.status], updatedAt: new Date() })
         .where(eq(zhsProduct.id, Number(p.data.id)))
         .returning()
-      if (!row) return reply.status(404).send(error(404, '商品不存在'))
+      // F-395:上下架写后判空,目标不在了就别回 200
+      if (!row) return reply.status(404).send(error(404, '商品不存在或已被删除'))
       return reply.send(success({ id: String(row.id), status: productStatusFromInt(row.status) }))
     },
   )
@@ -307,7 +323,7 @@ export const adminShopRoutes: FastifyPluginAsync = async (server) => {
   })
   const withdrawalBodySchema = z.object({
     user: z.string().min(1),
-    amount: z.coerce.number().int().min(0),
+    amount: z.coerce.number().int().positive(),
     channel: z.enum(['alipay', 'wechat', 'bank']),
     account: z.string().max(255),
     status: withdrawalStatusSchema.default('pending'),
@@ -318,8 +334,12 @@ export const adminShopRoutes: FastifyPluginAsync = async (server) => {
     if (!q.success) return reply.status(400).send(error(400, '参数错误'))
     const { page, pageSize, status, user, outBillNo, userName, minAmount, maxAmount } = q.data
     const conds: (SQL | undefined)[] = []
-    if (status && isWithdrawalStatus(status))
-      conds.push(eq(withdrawalFlows.status, WITHDRAWAL_INT[status]))
+    if (status && isWithdrawalStatus(status)) {
+      // F-457:rejected/failed 都是同一终态(3),筛选须同时覆盖历史 4,否则旧驳回单仍查不到
+      if (status === 'rejected' || status === 'failed')
+        conds.push(inArray(withdrawalFlows.status, [...WITHDRAWAL_REJECTED_INTS]))
+      else conds.push(eq(withdrawalFlows.status, WITHDRAWAL_INT[status]))
+    }
     if (outBillNo) conds.push(ilike(withdrawalFlows.partnerTradeNo, `%${outBillNo}%`))
     if (minAmount !== undefined) conds.push(sql`${withdrawalFlows.amount} >= ${minAmount}`)
     if (maxAmount !== undefined) conds.push(sql`${withdrawalFlows.amount} <= ${maxAmount}`)
@@ -370,19 +390,69 @@ export const adminShopRoutes: FastifyPluginAsync = async (server) => {
   server.post('/shop/withdrawals', async (request: FastifyRequest, reply: FastifyReply) => {
     const b = withdrawalBodySchema.safeParse(request.body)
     if (!b.success) return reply.status(400).send(error(400, '参数错误'))
-    const [row] = await db
-      .insert(withdrawalFlows)
-      .values({
-        userId: b.data.user,
-        amount: b.data.amount,
-        originalAmount: b.data.amount,
-        method: b.data.channel,
-        accountInfo: { account: b.data.account },
-        status: WITHDRAWAL_INT[b.data.status],
+    // F-455:直插表即建单等于凭空造出提现单 —— 后台只能建"待审核"单,资金动作必须与
+    // 用户自助/开发者提现同口径:申请即从可用余额扣减并等额转入冻结。
+    if (b.data.status !== 'pending')
+      return reply.status(400).send(error(400, '管理端仅可创建待审核提现单'))
+    const amount = b.data.amount
+    try {
+      const flow = await db.transaction(async (tx) => {
+        // 行锁串行化同一用户的并发建单,再在事务内复核可用余额(禁止 TOCTOU 超发)
+        const [margin] = await tx
+          .select()
+          .from(userMargins)
+          .where(eq(userMargins.userId, b.data.user))
+          .for('update')
+          .limit(1)
+        if (!margin || margin.tokenQuantity < amount)
+          throw Object.assign(new Error('可用余额不足'), { statusCode: 409 })
+        const [updated] = await tx
+          .update(userMargins)
+          .set({
+            tokenQuantity: sql`${userMargins.tokenQuantity} - ${amount}`,
+            frozenQuantity: sql`${userMargins.frozenQuantity} + ${amount}`,
+            updatedAt: new Date(),
+          })
+          .where(
+            and(
+              eq(userMargins.userId, b.data.user),
+              sql`${userMargins.tokenQuantity} >= ${amount}`,
+            ),
+          )
+          .returning({ tokenQuantity: userMargins.tokenQuantity })
+        if (!updated) throw Object.assign(new Error('可用余额不足'), { statusCode: 409 })
+        const [row] = await tx
+          .insert(withdrawalFlows)
+          .values({
+            userId: b.data.user,
+            amount,
+            originalAmount: amount,
+            method: b.data.channel,
+            accountInfo: { account: b.data.account },
+            status: WITHDRAWAL_INT.pending,
+            // F-455:后台单独立单号前缀,便于对账时区分来源
+            partnerTradeNo: `ADMWD${Date.now()}-${randomUUID()}`,
+          })
+          .returning()
+        if (!row) throw Object.assign(new Error('创建失败'), { statusCode: 500 })
+        await tx.insert(tokenFlows).values({
+          userId: b.data.user,
+          opType: TOKEN_FLOW_OP.CONSUME,
+          quantity: -amount,
+          balanceAfter: updated.tokenQuantity,
+          remark: '管理端提现申请',
+        })
+        return row
       })
-      .returning()
-    if (!row) return reply.status(500).send(error(500, '创建失败'))
-    return reply.status(201).send(success({ id: row.id }))
+      return reply.status(201).send(success({ id: flow.id }))
+    } catch (e) {
+      const statusCode = (e as { statusCode?: number }).statusCode ?? 500
+      if (statusCode < 500) {
+        return reply.status(statusCode).send(error(statusCode, (e as Error).message))
+      }
+      request.log.error(e)
+      return reply.status(500).send(error(500, '创建失败'))
+    }
   })
 
   server.put('/shop/withdrawals/:id', async (request: FastifyRequest, reply: FastifyReply) => {
@@ -414,11 +484,62 @@ export const adminShopRoutes: FastifyPluginAsync = async (server) => {
     // 抛 22P02 invalid input syntax for type uuid,而未被兜住就是 500 —— 于是"这条不存在"与
     // "服务坏了"在响应上完全同形。判据只有一份(utils/uuid.ts 的 isUuidString),闸必须在进 SQL 之前。
     if (!isUuidString(p.data.id)) return reply.status(400).send(error(400, 'id 格式不正确'))
-    const removed = await db
-      .delete(withdrawalFlows)
-      .where(eq(withdrawalFlows.id, p.data.id))
-      .returning({ id: withdrawalFlows.id })
-    return reply.send(success({ id: p.data.id, deleted: removed.length > 0 }))
+    try {
+      const deleted = await db.transaction(async (tx) => {
+        // F-455:删单必须与原资金动作对称 —— 先锁行再判状态,禁止无退款直接删行。
+        const [flow] = await tx
+          .select()
+          .from(withdrawalFlows)
+          .where(eq(withdrawalFlows.id, p.data.id))
+          .for('update')
+          .limit(1)
+        // 已被删除(含重复 DELETE):幂等返回,不再退款
+        if (!flow) return false
+        // 已放款/已完成:资金已出账,删单必须走冲正,不能在这里凭空回填
+        if (
+          flow.status === WITHDRAWAL_INT.approved ||
+          flow.status === WITHDRAWAL_INT.completed
+        ) {
+          throw Object.assign(new Error('已完成/已审批的提现单不可删除,请走冲正流程'), {
+            statusCode: 409,
+          })
+        }
+        // 仅 pending 占用了冻结资金;rejected/failed 在驳回链路已退回,删单不得重复退。
+        if (flow.status === WITHDRAWAL_INT.pending) {
+          if (!flow.userId)
+            throw Object.assign(new Error('提现单归属用户已注销,需人工对账'), { statusCode: 409 })
+          // 口径同驳回:可用余额按毛额(到账额 + 手续费)退回,冻结只释放净额
+          const refundGross = flow.amount + (flow.fee ?? 0)
+          const [refunded] = await tx
+            .update(userMargins)
+            .set({
+              tokenQuantity: sql`${userMargins.tokenQuantity} + ${refundGross}`,
+              frozenQuantity: sql`${userMargins.frozenQuantity} - ${flow.amount}`,
+              updatedAt: new Date(),
+            })
+            .where(
+              and(
+                eq(userMargins.userId, flow.userId),
+                sql`${userMargins.frozenQuantity} >= ${flow.amount}`,
+              ),
+            )
+            .returning({ userId: userMargins.userId })
+          // 冻结不足(如资金已被别处释放)拒绝删除,避免"删了单资金却没退"的半截态
+          if (!refunded)
+            throw Object.assign(new Error('冻结余额不足以退回,需人工对账'), { statusCode: 409 })
+        }
+        await tx.delete(withdrawalFlows).where(eq(withdrawalFlows.id, p.data.id))
+        return true
+      })
+      return reply.send(success({ id: p.data.id, deleted }))
+    } catch (e) {
+      const statusCode = (e as { statusCode?: number }).statusCode ?? 500
+      if (statusCode < 500) {
+        return reply.status(statusCode).send(error(statusCode, (e as Error).message))
+      }
+      request.log.error(e)
+      return reply.status(500).send(error(500, '删除失败'))
+    }
   })
 
   server.post(

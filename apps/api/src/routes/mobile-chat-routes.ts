@@ -30,7 +30,7 @@
  */
 import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify'
 import { z } from 'zod'
-import { and, asc, desc, eq } from 'drizzle-orm'
+import { and, asc, desc, eq, sql } from 'drizzle-orm'
 import { config } from '../config/index.js'
 import { buildSseCorsHeaders } from '../plugins/cors-origin.js'
 import {
@@ -48,6 +48,7 @@ import {
 import { getReplayWindowStatus, isStreamActive } from '../utils/sse-replay-buffer.js'
 import {
   agents,
+  circles,
   circlePosts,
   liveComment,
   users,
@@ -844,10 +845,19 @@ export const mobileChatRoutes: FastifyPluginAsync = async (server) => {
     // title NOT NULL:取正文首行(≤200),空则落"圈子消息" —— 不另造列、不编第二份内容。
     const firstLine = content.split('\n')[0]!.trim()
     const title = (firstLine || '圈子消息').slice(0, 200)
-    const [row] = await db
-      .insert(circlePosts)
-      .values({ circleId: circle.id, userId: request.userId!, title, content })
-      .returning({ id: circlePosts.id })
+    // F-516:与 createPost() 同口径维护 circles.post_count,并把两次写放进同一事务。
+    // 原先裸 insert 绕过计数,导致移动端发的每条圈子消息都不计入热度排序。
+    const [row] = await db.transaction(async (tx) => {
+      const inserted = await tx
+        .insert(circlePosts)
+        .values({ circleId: circle.id, userId: request.userId!, title, content })
+        .returning({ id: circlePosts.id })
+      await tx
+        .update(circles)
+        .set({ postCount: sql`${circles.postCount} + 1`, updatedAt: new Date() })
+        .where(eq(circles.id, circle.id))
+      return inserted
+    })
     if (!row) return reply.status(500).send(error(500, '消息发送失败'))
     const nickname = await nicknameOf(request.userId!)
     return reply.send(

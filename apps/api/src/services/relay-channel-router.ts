@@ -43,6 +43,11 @@ import { checkQuota } from './channel-quota-service.js'
 // ============================================================================
 const CIRCUIT_FAILURE_THRESHOLD = 3 // 连续 3 次失败 → open
 const CIRCUIT_OPEN_DURATION_MS = 60_000 // 熔断 60s 后转 half-open
+/**
+ * F-676:上游 429 声明退避时的熔断上限(1h)。与账号池腿 RATE_COOLDOWN_MAX_MS 同口径 ——
+ * 超过一小时的 Retry-After 要么是上游故障要么是恶意值,封顶后按 half-open 重新探测更安全。
+ */
+const CIRCUIT_OPEN_MAX_MS = 60 * 60 * 1000
 const MAX_RECENT_CALLS = 10 // 最近调用记录上限(用于 least-latency 策略 + 统计)
 // session-affinity:亲和性缓存 TTL(10 分钟,过期后重新选渠道,避免粘到已下线渠道)
 const SESSION_AFFINITY_TTL_MS = 10 * 60 * 1000
@@ -59,6 +64,11 @@ export interface CircuitState {
   failureCount: number
   lastFailureAt: number
   halfOpenAt: number | null
+  /**
+   * F-676:熔断到期时刻(epoch ms)。null = 未约定,按 `lastFailureAt + CIRCUIT_OPEN_DURATION_MS`。
+   * 上游 429 带 Retry-After 时由 recordChannelResult 写入,替代固定 60s。
+   */
+  openUntil: number | null
 }
 
 interface CallRecord {
@@ -122,7 +132,7 @@ const activeConnectionsMap = new Map<string, number>()
 // ----------------------------------------------------------------------------
 // 熔断状态 / session-affinity / round-robin 游标原为进程内存态,多实例部署时
 // 各实例状态互不可见(实例 A 熔断的渠道在实例 B 仍会被选中)。迁移到 Redis:
-//   - relay:circuit:{keyPoolId}   hash{state,failureCount,lastFailureAt,halfOpenAt} TTL 600s
+//   - relay:circuit:{keyPoolId}   hash{state,failureCount,lastFailureAt,halfOpenAt,openUntil} TTL 600s(退避更久时自动延长)
 //   - relay:affinity:{affinityKey} string(channelId) TTL 600s(与内存亲和 TTL 一致)
 //   - relay:rr:{groupId}          counter(INCR 取模)
 // recentCallsMap(least-latency 统计)与 activeConnectionsMap(连接数)保留进程内存:
@@ -175,14 +185,18 @@ const AFFINITY_REDIS_TTL_S = SESSION_AFFINITY_TTL_MS / 1000
 // F-183:熔断状态读改写原子化。旧形态 hgetall → 内存改 → hset 存在覆盖窗口——并发失败读同一值
 // 互相覆盖,坏上游持续 5xx 时 failureCount 到不了阈值、熔断迟迟不打开。
 // 用单条 Lua 在 Redis 侧原子完成「成功重置 / 失败累加 + 达阈值转 open + TTL 续期」,消除覆盖窗口。
-// 脚本 KEYS[1]=熔断 hash 键;ARGV[1]=threshold,ARGV[2]=openDurationMs,ARGV[3]=nowMs,ARGV[4]=success(1/0)。
-// 返回:写入后的 {state,failureCount,lastFailureAt,halfOpenAt},供内存镜像双写。
+// 脚本 KEYS[1]=熔断 hash 键;ARGV[1]=threshold,ARGV[2]=openDurationMs,ARGV[3]=nowMs,ARGV[4]=success(1/0),
+// ARGV[5]=hash TTL 秒,ARGV[6]=上游 429 退避毫秒(F-676,0=未给)。
+// 返回:写入后的 {state,failureCount,lastFailureAt,halfOpenAt,openUntil},供内存镜像双写。
 const CIRCUIT_LUA = `
 local key = KEYS[1]
 local threshold = tonumber(ARGV[1])
 local openDurationMs = tonumber(ARGV[2])
 local now = tonumber(ARGV[3])
 local success = ARGV[4] == '1'
+-- F-676:上游 429 声明的退避毫秒(0 = 上游没给/给的不是可用形态),由调用侧
+-- 用 relay-account-forwarder 的 planRateBackoff 解析(秒/HTTP-date/epoch 秒三种形态)。
+local retryAfterMs = tonumber(ARGV[6]) or 0
 local st = redis.call('HGET', key, 'state')
 if not st or st == '' then st = 'closed' end
 local halfOpenAt = redis.call('HGET', key, 'halfOpenAt')
@@ -190,7 +204,7 @@ if not halfOpenAt or halfOpenAt == '' then halfOpenAt = nil end
 if success then
   local lastFailureAt = redis.call('HGET', key, 'lastFailureAt')
   if not lastFailureAt or lastFailureAt == '' then lastFailureAt = now end
-  redis.call('HSET', key, 'state', 'closed', 'failureCount', 0, 'lastFailureAt', lastFailureAt, 'halfOpenAt', '')
+  redis.call('HSET', key, 'state', 'closed', 'failureCount', 0, 'lastFailureAt', lastFailureAt, 'halfOpenAt', '', 'openUntil', '')
 else
   local fc = tonumber(redis.call('HGET', key, 'failureCount')) or 0
   fc = fc + 1
@@ -199,10 +213,18 @@ else
   if st == 'half-open' or fc >= threshold then
     newState = 'open'
     newHalfOpenAt = ''
+    -- 熔断到期时刻:上游给了退避头就按它(half-open 的时间点),否则退回默认 60s
+    redis.call('HSET', key, 'openUntil', now + (retryAfterMs > 0 and retryAfterMs or openDurationMs))
   end
   redis.call('HSET', key, 'state', newState, 'failureCount', fc, 'lastFailureAt', now, 'halfOpenAt', newHalfOpenAt)
 end
-redis.call('EXPIRE', key, tonumber(ARGV[5]))
+-- TTL:默认 10 分钟自愈,但如果熔断到期时刻还在更后面(上游要求长退避),
+-- 键必须先活到那时 —— 否则 429 冷却被 TTL 提前抹掉,又回到"每 60s 撞一次"。
+local openUntilNow = tonumber(redis.call('HGET', key, 'openUntil')) or 0
+local ttl = tonumber(ARGV[5])
+local remainS = math.ceil((openUntilNow - now) / 1000) + 60
+if remainS > ttl then ttl = remainS end
+redis.call('EXPIRE', key, ttl)
 return redis.call('HGETALL', key)
 `
 let circuitCommandReady = false
@@ -225,6 +247,7 @@ declare module 'ioredis' {
       nowMs: string,
       success: string,
       ttlS: string,
+      retryAfterMs: string,
     ): Promise<string[]>
   }
 }
@@ -235,6 +258,8 @@ function circuitToRedis(state: CircuitState): Record<string, string> {
     failureCount: String(state.failureCount),
     lastFailureAt: String(state.lastFailureAt),
     halfOpenAt: state.halfOpenAt === null ? '' : String(state.halfOpenAt),
+    // F-676:熔断到期时刻(0 = 未指定,按 CIRCUIT_OPEN_DURATION_MS 从 lastFailureAt 起算)
+    openUntil: state.openUntil === null ? '' : String(state.openUntil),
   }
 }
 
@@ -244,11 +269,14 @@ function circuitFromRedis(raw: Record<string, string>): CircuitState | null {
   const failureCount = Number(raw['failureCount'] ?? 0)
   const lastFailureAt = Number(raw['lastFailureAt'] ?? 0)
   const halfOpenRaw = raw['halfOpenAt'] ?? ''
+  const openUntilRaw = raw['openUntil'] ?? ''
+  const openUntil = Number(openUntilRaw)
   return {
     state,
     failureCount: Number.isFinite(failureCount) ? failureCount : 0,
     lastFailureAt: Number.isFinite(lastFailureAt) ? lastFailureAt : 0,
     halfOpenAt: halfOpenRaw === '' ? null : Number(halfOpenRaw) || null,
+    openUntil: openUntilRaw === '' || !Number.isFinite(openUntil) || openUntil <= 0 ? null : openUntil,
   }
 }
 
@@ -265,6 +293,7 @@ async function readCircuitState(keyPoolId: string): Promise<CircuitState> {
       failureCount: 0,
       lastFailureAt: 0,
       halfOpenAt: null,
+      openUntil: null,
     }
   )
 }
@@ -275,14 +304,27 @@ async function writeCircuitState(keyPoolId: string, state: CircuitState): Promis
   await redisOp(async (r) => {
     const key = `relay:circuit:${keyPoolId}`
     await r.hset(key, circuitToRedis(state))
-    await r.expire(key, CIRCUIT_REDIS_TTL_S)
+    // F-676:退避期比默认 TTL 长时,键必须活过熔断到期时刻(与 Lua 分支同口径)
+    const remainS =
+      state.openUntil === null
+        ? 0
+        : Math.ceil((state.openUntil - Date.now()) / 1000) + 60
+    await r.expire(key, Math.max(CIRCUIT_REDIS_TTL_S, remainS))
   })
 }
 
 // session-affinity:定期清理过期亲和性条目(防止一次性用户导致内存泄漏)
-// unref 确保定时器不会阻止进程退出;stopRelayChannelRouterSweep 供 index.ts shutdown 显式清理
+// F-368:此前定时器在模块顶层 if 块内自启动,API 进程(index.ts)与 worker 进程
+// (worker-entry.ts)各自 import 本模块即各跑一份;worker 侧的 sessionAffinityMap
+// 是进程内对象、不参与 relay 路由,那份清理器纯属浪费。现改为显式 start/stop 成对
+// 函数:由 API 入口在启动期调用 startRelayChannelRouterSweep(),worker 不再自启动。
+// 与同文件既有 stopRelayChannelRouterSweep()(shutdown 相)形成闭环,API 行为不变。
 let sweepTimer: ReturnType<typeof setInterval> | null = null
-if (typeof setInterval !== 'undefined') {
+
+/** 启动亲和性清理定时器(幂等)。仅应由 API 进程入口(index.ts)调用一次。 */
+export function startRelayChannelRouterSweep(): void {
+  if (sweepTimer) return
+  if (typeof setInterval === 'undefined') return
   sweepTimer = setInterval(() => {
     const now = Date.now()
     for (const [key, val] of sessionAffinityMap) {
@@ -347,10 +389,12 @@ export async function isCircuitOpen(keyPoolId: string): Promise<boolean> {
   const state = await readCircuitState(keyPoolId)
   if (state.state === 'closed') return false
   if (state.state === 'open') {
-    // 检查是否超过熔断时长 → 转 half-open
-    if (Date.now() - state.lastFailureAt >= CIRCUIT_OPEN_DURATION_MS) {
+    // F-676:到期时刻以上游退避头为准(openUntil),未约定才回落"失败时刻 + 60s"
+    const openUntil = state.openUntil ?? state.lastFailureAt + CIRCUIT_OPEN_DURATION_MS
+    if (Date.now() >= openUntil) {
       state.state = 'half-open'
       state.halfOpenAt = Date.now()
+      state.openUntil = null
       await writeCircuitState(keyPoolId, state) // 允许探测
       return false
     }
@@ -372,11 +416,17 @@ export async function getCircuitState(keyPoolId: string): Promise<CircuitState> 
  * 记录调用结果,更新熔断状态。
  * - 成功:重置 failureCount,状态 → closed
  * - 失败:failureCount++,连续 3 次 → open;half-open 失败 → open
+ *
+ * F-676(2026-11-14):`retryAfterMs` 由调用侧按上游 429 的退避头解析传入
+ * (秒 / HTTP-date / epoch 秒三种形态都在 relay-account-forwarder.planRateBackoff 里处理)。
+ * 传入时熔断期改用该值(封顶 CIRCUIT_OPEN_MAX_MS),不再一律 60s —— 否则被限流的
+ * key 每 60s 重新 probe 一次,持续打上游、成功率抖动。
  */
 export async function recordChannelResult(
   keyPoolId: string,
   success: boolean,
   latencyMs: number | null,
+  retryAfterMs?: number | null,
 ): Promise<void> {
   // 记录最近调用(用于 least-latency 策略 + 统计;进程本地近似)
   // 格②：latencyMs=null 是 elapsed-ms 交叉校验判定的不可信样本——成功/失败信号照常计入熔断,
@@ -386,6 +436,13 @@ export async function recordChannelResult(
   } else {
     pushRecentCall(keyPoolId, { success, latencyMs, ts: Date.now() })
   }
+
+  // 采用值 = max(默认熔断时长, 上游声明) 封顶 CIRCUIT_OPEN_MAX_MS(与账号池腿同口径);
+  // 未给/非法/成功 ⇒ 0,交给 Lua 回落默认时长(不伪造上游意图)。
+  const adoptedBackoffMs =
+    !success && typeof retryAfterMs === 'number' && Number.isFinite(retryAfterMs) && retryAfterMs > 0
+      ? Math.min(Math.max(CIRCUIT_OPEN_DURATION_MS, retryAfterMs), CIRCUIT_OPEN_MAX_MS)
+      : 0
 
   // F-183:成功/失败状态转换走单条原子 Lua,消除 hgetall→改→hset 的并发覆盖窗口。
   // Redis 不可用时 redisOp 返回 null → 走内存镜像降级(与原降级路径一致)。
@@ -400,6 +457,7 @@ export async function recordChannelResult(
       String(now),
       success ? '1' : '0',
       String(CIRCUIT_REDIS_TTL_S),
+      String(adoptedBackoffMs),
     )
   })
 
@@ -423,6 +481,7 @@ export async function recordChannelResult(
     state.failureCount = 0
     state.state = 'closed'
     state.halfOpenAt = null
+    state.openUntil = null
     await writeCircuitState(keyPoolId, state)
     return
   }
@@ -434,6 +493,7 @@ export async function recordChannelResult(
   if (state.state === 'half-open' || state.failureCount >= CIRCUIT_FAILURE_THRESHOLD) {
     state.state = 'open'
     state.halfOpenAt = null
+    state.openUntil = now + (adoptedBackoffMs > 0 ? adoptedBackoffMs : CIRCUIT_OPEN_DURATION_MS)
   }
   await writeCircuitState(keyPoolId, state)
 }

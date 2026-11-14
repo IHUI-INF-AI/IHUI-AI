@@ -9,8 +9,16 @@
 // - 分享链接:POST /api/chat/conversations/{id}/share → 复制 /chat/share/{token}
 // 消息来源按会话 ID 分页拉全量,不依赖前端当前加载的会话。
 
-import { getMessages } from '@ihui/api-client'
+import { getMessages, exportConversationZip } from '@ihui/api-client'
 import { fetchApi } from '@/lib/api'
+import {
+  buildConversationMarkdown,
+  buildConversationMessagesJson,
+  isExportableMessage as isSharedExportableMessage,
+  normalizeExportToolCalls,
+  sanitizeExportTitle,
+  type ConversationExportMessage,
+} from '@ihui/shared/chat/conversation-export'
 import {
   buildShareCardSvg,
   SHARE_CARD_WIDTH,
@@ -27,14 +35,34 @@ export interface ExportMessage {
   content: string
   createdAt?: string
   model?: string | null
+  /** assistant 推理原文(历史接口按需下发;缺失不是"没有推理"的证据)。 */
+  reasoning?: string | null
+  /** 服务端落库元数据(toolCalls 在 metadata 内,D24 同一落库面)。 */
+  metadata?: Record<string, unknown> | null
+  /** 部分端会把 toolCalls 提到顶层(结构同 BaseToolCall)。 */
+  toolCalls?: unknown
 }
 
-export type ExportRoleLabel = Record<ExportRole, string>
+/** 把端内消息收敛为共享导出结构:toolCalls 优先取 metadata,再回退顶层。 */
+function toSharedMessages(messages: ExportMessage[]): ConversationExportMessage[] {
+  return messages.map((message) => ({
+    id: message.id,
+    role: message.role,
+    content: message.content,
+    createdAt: message.createdAt,
+    model: message.model ?? null,
+    reasoning: message.reasoning ?? null,
+    toolCalls: normalizeExportToolCalls(message.metadata?.toolCalls ?? message.toolCalls),
+  }))
+}
+
+export type ExportRoleLabel = Record<ExportRole, string> & { toolCalls?: string }
 
 const MESSAGES_PAGE_SIZE = 100
 
 function isExportableMessage(m: ExportMessage): boolean {
-  return (m.role === 'user' || m.role === 'assistant') && m.content.trim().length > 0
+  // 快照画布只渲染正文;toolCalls 结构此处不参与判定(类型也不必窄化)
+  return isSharedExportableMessage({ role: m.role, content: m.content })
 }
 
 /** 按会话 ID 拉取全量消息(时间正序;pageSize 上限 100,循环翻页) */
@@ -79,37 +107,18 @@ function wrapText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number)
   return lines
 }
 
-/** 序列化为 Markdown:`## 用户 / ## 助手` 分节 + 正文 */
+/** 序列化为 Markdown:`## 用户 / ## 助手` 分节 + 正文(序列化规则在 @ihui/shared/chat) */
 function buildMarkdown(
   title: string,
   messages: ExportMessage[],
   roleLabel: ExportRoleLabel,
 ): string {
-  const lines: string[] = [`# ${title}`, '']
-  for (const m of messages) {
-    if (!isExportableMessage(m)) continue
-    lines.push(`## ${roleLabel[m.role as ExportRole]}`, '', m.content.trimEnd(), '')
-  }
-  return lines.join('\n')
+  return buildConversationMarkdown(title, toSharedMessages(messages), roleLabel)
 }
 
-/** 序列化为 JSON:结构与后端消息字段对齐(id/role/content/createdAt/model) */
-function buildJson(title: string, messages: ExportMessage[]): string {  return JSON.stringify(
-    {
-      title,
-      exportedAt: new Date().toISOString(),
-      messageCount: messages.filter(isExportableMessage).length,
-      messages: messages.filter(isExportableMessage).map((m) => ({
-        id: m.id,
-        role: m.role,
-        content: m.content,
-        createdAt: m.createdAt,
-        model: m.model ?? null,
-      })),
-    },
-    null,
-    2,
-  )
+/** 序列化为 JSON:结构与后端消息字段对齐(id/role/content/createdAt/model/reasoning/toolCalls) */
+function buildJson(title: string, messages: ExportMessage[]): string {
+  return buildConversationMessagesJson(title, toSharedMessages(messages), new Date().toISOString())
 }
 
 /** 触发浏览器下载(Blob 方案,内存即弃) */
@@ -253,7 +262,7 @@ export async function downloadConversationMarkdown(
 ): Promise<boolean> {
   const messages = await fetchConversationMessages(id)
   if (!messages.some(isExportableMessage)) return false
-  const safeTitle = sanitizeText(title) || 'ai-chat'
+  const safeTitle = sanitizeExportTitle(title)
   downloadBlob(
     buildMarkdown(safeTitle, messages, roleLabel),
     `${toFileBase(title)}.md`,
@@ -266,9 +275,46 @@ export async function downloadConversationMarkdown(
 export async function downloadConversationJson(id: string, title: string): Promise<boolean> {
   const messages = await fetchConversationMessages(id)
   if (!messages.some(isExportableMessage)) return false
-  const safeTitle = sanitizeText(title) || 'ai-chat'
+  const safeTitle = sanitizeExportTitle(title)
   downloadBlob(buildJson(safeTitle, messages), `${toFileBase(title)}.json`, 'application/json')
   return true
+}
+
+/**
+ * 导出会话日志 ZIP(conversation.md + messages.json + manifest.json)。
+ * 服务端组装,客户端只负责下载;空会话也会产出三件套(manifest 里 messageCount=0)。
+ */
+export async function downloadConversationZip(id: string, title: string): Promise<boolean> {
+  const blob = await exportConversationZip(id)
+  downloadBlobFile(blob, `${toFileBase(title)}-${id.slice(0, 8)}.zip`)
+  return true
+}
+
+/** 复制整段会话为 Markdown。无可导出消息时返回 false(不写剪贴板)。 */
+export async function copyConversationMarkdown(
+  id: string,
+  title: string,
+  roleLabel: ExportRoleLabel,
+): Promise<boolean> {
+  const messages = await fetchConversationMessages(id)
+  if (!messages.some(isExportableMessage)) return false
+  const markdown = buildMarkdown(sanitizeExportTitle(title), messages, roleLabel)
+  try {
+    await navigator.clipboard.writeText(markdown)
+    return true
+  } catch {
+    // 非安全上下文/旧浏览器:退回到 execCommand(textarea 方案)
+    const textarea = document.createElement('textarea')
+    textarea.value = markdown
+    textarea.setAttribute('readonly', 'true')
+    textarea.style.position = 'fixed'
+    textarea.style.opacity = '0'
+    document.body.appendChild(textarea)
+    textarea.select()
+    const copied = document.execCommand('copy')
+    document.body.removeChild(textarea)
+    return copied
+  }
 }
 
 /** 导出对话快照图 PNG。生成失败抛错;无可导出消息返回 false。 */

@@ -36,9 +36,46 @@ export function billDateForYesterday(nowMs: number = Date.now()): string {
   return formatDateByTemplate(new Date(nowMs - MS_PER_DAY), 'YYYY-MM-DD')
 }
 
+/** 单类差异明细上限:账单异常时防止结果无限累积。统计计数不受此上限影响。 */
+const MAX_DIFF_DETAILS = 50
+
+/** 对账差异分类。 */
+export type ReconcileDiffType = 'missing_in_gateway' | 'amount_mismatch' | 'status_mismatch'
+
+export interface ReconcileDiffItem {
+  type: ReconcileDiffType
+  orderNo: string
+  /** 本地实付金额(分)。 */
+  localAmount: number
+  /** 远端账单原始金额(元)。 */
+  remoteAmount?: string
+  /** 远端金额归一化到分;null = 无法解析。 */
+  remoteAmountFen?: number | null
+  /** 远端交易状态原文。 */
+  tradeStatus?: string
+  /** 差异判定依据,便于人工复核。 */
+  reason?: 'amount_diff' | 'unparsable_remote_amount' | 'currency_not_cny' | 'not_success' | 'refund'
+}
+
+export interface ReconcileStats {
+  /** 单号、金额、状态三项全一致的对账笔数。 */
+  matched: number
+  missingInGateway: number
+  amountMismatch: number
+  statusMismatch: number
+  /** 网关有、本地无对应订单的笔数。 */
+  onlyRemote: number
+}
+
 export interface ReconcileDiff {
+  /** 兼容旧字段:网关有、本地无。 */
   onlyRemote: Array<{ outTradeNo: string; amount: string; tradeStatus: string }>
+  /** 兼容旧字段:本地有、网关无(等价于 missingInGateway)。 */
   onlyLocal: Array<{ orderNo: string; amount: number }>
+  missingInGateway: ReconcileDiffItem[]
+  amountMismatch: ReconcileDiffItem[]
+  statusMismatch: ReconcileDiffItem[]
+  stats: ReconcileStats
 }
 
 export interface ReconcileResult {
@@ -57,6 +94,15 @@ export async function reconcileAlipay(billDate: string): Promise<ReconcileResult
   try {
     const billUrl = await downloadBillUrl(billDate, 'trade')
     const resp = await fetch(billUrl)
+    // F-551:网关 5xx/404/维护页 HTML 不得被当成「平台无交易」。
+    // 判 HTTP 状态与内容类型,异常抛给 catch 写进 ReconcileResult.error,由调度层按 failed 记账。
+    if (!resp.ok) {
+      throw new Error(`支付宝账单下载失败: HTTP ${resp.status}`)
+    }
+    const contentType = resp.headers.get('content-type') ?? ''
+    if (/text\/html|application\/json/i.test(contentType)) {
+      throw new Error(`支付宝账单返回非账单内容: ${contentType || '(缺失 content-type)'}`)
+    }
     const csvText = await resp.text()
 
     const remoteTrades = parseAlipayBill(csvText)
@@ -68,7 +114,7 @@ export async function reconcileAlipay(billDate: string): Promise<ReconcileResult
       platform: 'alipay',
       localCount: 0,
       remoteCount: 0,
-      diff: { onlyRemote: [], onlyLocal: [] },
+      diff: emptyDiff(),
       error: (e as Error).message,
     }
   }
@@ -89,7 +135,7 @@ export async function reconcileWechat(billDate: string): Promise<ReconcileResult
       platform: 'wechat',
       localCount: 0,
       remoteCount: 0,
-      diff: { onlyRemote: [], onlyLocal: [] },
+      diff: emptyDiff(),
       error: (e as Error).message,
     }
   }
@@ -128,26 +174,34 @@ export async function autoCloseExpiredOrders(): Promise<{
   const closed: string[] = []
   const failed: Array<{ orderNo: string; error: string }> = []
 
-  for (const order of pending) {
-    try {
-      // 调用对应支付渠道关单接口
-      if (order.paymentMethod === 'alipay') {
-        await aliCloseOrder(order.orderNo)
-      } else if (
-        order.paymentMethod === 'wechat' ||
-        order.paymentMethod === 'wechat_android' ||
-        order.paymentMethod === 'wechat_course'
-      ) {
-        await wxCloseOrder(order.orderNo)
-      }
-      // F-230:关渠道单与本地改状态之间隔着数百 ms~秒的外部调用,期间用户可能刚完成支付
-      // 并把订单置为 paid。必须用条件 UPDATE(fromStatus='pending')抢占:
-      // 返回 undefined = 状态已不是 pending(已支付/已处理),不得覆盖为 cancelled。
-      const updated = await updateOrderStatus(order.orderNo, 'cancelled', 'pending')
-      if (updated) closed.push(order.orderNo)
-    } catch (e) {
-      failed.push({ orderNo: order.orderNo, error: (e as Error).message })
-    }
+  // F-566:渠道关单是有外部延迟的串行调用,积压时单轮可能超 10 分钟导致 job 排队。
+  // 改为有界并发(每批 8):批内并行、批间串行,既缩短单轮又不放大渠道压力。
+  const CLOSE_CONCURRENCY = 8
+  for (let i = 0; i < pending.length; i += CLOSE_CONCURRENCY) {
+    const batch = pending.slice(i, i + CLOSE_CONCURRENCY)
+    await Promise.all(
+      batch.map(async (order) => {
+        try {
+          // 调用对应支付渠道关单接口
+          if (order.paymentMethod === 'alipay') {
+            await aliCloseOrder(order.orderNo)
+          } else if (
+            order.paymentMethod === 'wechat' ||
+            order.paymentMethod === 'wechat_android' ||
+            order.paymentMethod === 'wechat_course'
+          ) {
+            await wxCloseOrder(order.orderNo)
+          }
+          // F-230:关渠道单与本地改状态之间隔着数百 ms~秒的外部调用,期间用户可能刚完成支付
+          // 并把订单置为 paid。必须用条件 UPDATE(fromStatus='pending')抢占:
+          // 返回 undefined = 状态已不是 pending(已支付/已处理),不得覆盖为 cancelled。
+          const updated = await updateOrderStatus(order.orderNo, 'cancelled', 'pending')
+          if (updated) closed.push(order.orderNo)
+        } catch (e) {
+          failed.push({ orderNo: order.orderNo, error: (e as Error).message })
+        }
+      }),
+    )
   }
 
   return { scanned: pending.length, closed, failed }
@@ -265,7 +319,75 @@ function parseWechatBill(csvText: string): RemoteTrade[] {
   return trades
 }
 
-/** 构建对账差异结果。 */
+/** 视为「交易成功」的远端状态;支付宝明细无状态列,留空按已成交处理。 */
+const SUCCESS_TRADE_STATUSES = new Set([
+  '',
+  'success',
+  'trade_success',
+  'trade_finished',
+  '支付成功',
+  '交易成功',
+  '已支付',
+  '成功',
+])
+
+/** 退款/关单类状态:单独归类,不按普通「未成功」混在一起。 */
+const REFUND_TRADE_STATUSES = new Set([
+  'refund',
+  'refunded',
+  'trade_closed',
+  'closed',
+  'revoked',
+  '已退款',
+  '已全额退款',
+  '退款',
+  '交易关闭',
+])
+
+function normalizeTradeStatus(raw: string): string {
+  return raw.trim().toLowerCase()
+}
+
+function isSuccessTradeStatus(raw: string): boolean {
+  return SUCCESS_TRADE_STATUSES.has(normalizeTradeStatus(raw))
+}
+
+function isRefundTradeStatus(raw: string): boolean {
+  return REFUND_TRADE_STATUSES.has(normalizeTradeStatus(raw))
+}
+
+/**
+ * 账单金额（元，如 "12.34"/"¥12.34"/"1,234.56"）归一化到分。
+ * 无法解析返回 null —— 调用方按金额不一致处理（宁可误报，不得静默判为已对上）。
+ */
+function amountToFen(raw: string): number | null {
+  const normalized = raw.replace(/[^\d.-]/g, '')
+  if (!normalized || normalized === '-' || normalized === '.' || normalized === '-.') return null
+  const value = Number(normalized)
+  if (!Number.isFinite(value)) return null
+  return Math.round(value * 100)
+}
+
+function emptyDiff(): ReconcileDiff {
+  return {
+    onlyRemote: [],
+    onlyLocal: [],
+    missingInGateway: [],
+    amountMismatch: [],
+    statusMismatch: [],
+    stats: { matched: 0, missingInGateway: 0, amountMismatch: 0, statusMismatch: 0, onlyRemote: 0 },
+  }
+}
+
+/**
+ * 构建对账差异结果。
+ *
+ * F-550:匹配必须同时满足「单号存在 + 金额一致（分口径）+ 交易成功」。
+ * 金额按分比较（本地 orders.amount 即分，远端账单为元）；非 CNY 订单无法与
+ * 支付宝/微信人民币账单直接比对，保守按金额差异上报（不判已对上）。
+ * 差异按 missing_in_gateway / amount_mismatch / status_mismatch 分类，
+ * stats 为全量计数，明细每类最多 MAX_DIFF_DETAILS 条。
+ */
 function buildDiff(
   billDate: string,
   platform: string,
@@ -275,22 +397,85 @@ function buildDiff(
   const localMap = new Map(localOrders.map((o) => [o.orderNo, o]))
   const remoteMap = new Map(remoteTrades.map((t) => [t.outTradeNo, t]))
 
-  const onlyRemote = remoteTrades
-    .filter((t) => !localMap.has(t.outTradeNo))
-    .slice(0, 50)
-    .map((t) => ({ outTradeNo: t.outTradeNo, amount: t.amount, tradeStatus: t.tradeStatus }))
+  const missingInGateway: ReconcileDiffItem[] = []
+  const amountMismatch: ReconcileDiffItem[] = []
+  const statusMismatch: ReconcileDiffItem[] = []
+  let matched = 0
 
-  const onlyLocal = localOrders
-    .filter((o) => !remoteMap.has(o.orderNo))
-    .slice(0, 50)
-    .map((o) => ({ orderNo: o.orderNo, amount: o.amount }))
+  for (const order of localOrders) {
+    const trade = remoteMap.get(order.orderNo)
+    if (!trade) {
+      missingInGateway.push({
+        type: 'missing_in_gateway',
+        orderNo: order.orderNo,
+        localAmount: order.amount,
+      })
+      continue
+    }
+
+    const statusOk = isSuccessTradeStatus(trade.tradeStatus)
+    const remoteAmountFen = amountToFen(trade.amount)
+    const currency = (order.currency ?? 'CNY').toUpperCase()
+    const amountOk =
+      currency === 'CNY' && remoteAmountFen !== null && remoteAmountFen === order.amount
+
+    if (!statusOk) {
+      statusMismatch.push({
+        type: 'status_mismatch',
+        orderNo: order.orderNo,
+        localAmount: order.amount,
+        remoteAmount: trade.amount,
+        remoteAmountFen,
+        tradeStatus: trade.tradeStatus,
+        reason: isRefundTradeStatus(trade.tradeStatus) ? 'refund' : 'not_success',
+      })
+    }
+
+    if (!amountOk) {
+      amountMismatch.push({
+        type: 'amount_mismatch',
+        orderNo: order.orderNo,
+        localAmount: order.amount,
+        remoteAmount: trade.amount,
+        remoteAmountFen,
+        tradeStatus: trade.tradeStatus,
+        reason:
+          currency !== 'CNY'
+            ? 'currency_not_cny'
+            : remoteAmountFen === null
+              ? 'unparsable_remote_amount'
+              : 'amount_diff',
+      })
+    }
+
+    if (statusOk && amountOk) matched++
+  }
+
+  const onlyRemoteAll = remoteTrades.filter((t) => !localMap.has(t.outTradeNo))
 
   return {
     date: billDate,
     platform,
     localCount: localOrders.length,
     remoteCount: remoteTrades.length,
-    diff: { onlyRemote, onlyLocal },
+    diff: {
+      onlyRemote: onlyRemoteAll
+        .slice(0, MAX_DIFF_DETAILS)
+        .map((t) => ({ outTradeNo: t.outTradeNo, amount: t.amount, tradeStatus: t.tradeStatus })),
+      onlyLocal: missingInGateway
+        .slice(0, MAX_DIFF_DETAILS)
+        .map((d) => ({ orderNo: d.orderNo, amount: d.localAmount })),
+      missingInGateway: missingInGateway.slice(0, MAX_DIFF_DETAILS),
+      amountMismatch: amountMismatch.slice(0, MAX_DIFF_DETAILS),
+      statusMismatch: statusMismatch.slice(0, MAX_DIFF_DETAILS),
+      stats: {
+        matched,
+        missingInGateway: missingInGateway.length,
+        amountMismatch: amountMismatch.length,
+        statusMismatch: statusMismatch.length,
+        onlyRemote: onlyRemoteAll.length,
+      },
+    },
   }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

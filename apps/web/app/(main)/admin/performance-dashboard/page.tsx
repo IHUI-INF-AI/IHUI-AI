@@ -199,7 +199,7 @@ export default function PerformanceDashboardPage() {
                               : 'text-emerald-600',
                         )}
                       >
-                        {e.errorRate.toFixed(2)}%
+                        {Number(e.errorRate).toFixed(2)}%
                       </span>
                     </td>
                   </tr>

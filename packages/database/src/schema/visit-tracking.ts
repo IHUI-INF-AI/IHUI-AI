@@ -27,6 +27,11 @@ export const visitLogs = pgTable(
   (t) => ({
     dateIdx: index('visit_logs_date_idx').on(t.visitDate),
     ipCityIdx: index('visit_logs_ip_city_idx').on(t.ip, t.city),
+    // F-305:会话质量聚合(services/session-quality-stats-service.ts)按 created_at 过滤、
+    // 按 session_id 分组并在组内按 created_at 排序;此前两列都没有索引 ⇒ 大屏每 5s 三条腿
+    // 各扫一次全表。迁移:20261114091100_visit_logs_session_quality_idx.sql。
+    createdAtIdx: index('visit_logs_created_at_idx').on(t.createdAt),
+    sessionCreatedIdx: index('visit_logs_session_created_idx').on(t.sessionId, t.createdAt),
   }),
 )
 

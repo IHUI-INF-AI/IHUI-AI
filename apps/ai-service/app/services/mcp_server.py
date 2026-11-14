@@ -131,10 +131,25 @@ MCP_GLOBAL_TIMEOUT = 120
 
 # 0-2 call_tool 出口统一输出护栏:所有工具返回结果按 token 上限截断,
 # 默认 8000 token,env TOOL_OUTPUT_MAX_TOKENS 可覆盖。
-_TOOL_OUTPUT_TRUNCATE_MARKER = "…[已截断,共截断 {n} token,可用分页/范围参数获取更多]"
+# 保留首尾(对标 codex/dsh headTail 保留):命令日志/栈的结论通常在末尾,
+# 只保留前缀会把真正的错误行丢掉;标记里给**精确**省略字符数,不虚报。
+_TOOL_OUTPUT_TRUNCATE_MARKER = "…[已截断:省略 {c} 字符(约 {n} token),保留首尾,可用分页/范围参数获取更多]"
 # 受保护 key:其字符串值不被截断,确保 ok/status/error 等控制字段完整
 _TRUNCATION_PROTECTED_KEYS = frozenset(
     {"ok", "status", "error", "errorCode", "tool", "matched"}
+)
+
+# 图片载荷键:base64 被 head/tail 截断后既不可解码也不可读,
+# 超预算时替换为「字节数 + 工件续读凭据」描述符(对标 dsh output-retention 的 image 处理)。
+_IMAGE_PAYLOAD_KEYS = frozenset(
+    {
+        "imageBase64",
+        "image_base64",
+        "imageData",
+        "image_data",
+        "screenshotBase64",
+        "screenshot_base64",
+    }
 )
 
 
@@ -293,6 +308,44 @@ def _tool_result_token_estimate(obj: object) -> int:
     return total
 
 
+def _attach_output_artifact_hint(result: dict[str, Any], artifact: dict[str, Any] | None) -> None:
+    """把落盘工件转成返回体里的续读凭据(offset=0 从头分页,不丢首部信息)。"""
+    if artifact is None:
+        return
+    result["output_artifact"] = {
+        "artifact_id": artifact.get("artifactId"),
+        "digest": artifact.get("digest"),
+        "bytes": artifact.get("bytes"),
+        "chars": artifact.get("chars"),
+        "offset": 0,
+        "next": 0,
+        "complete": False,
+        "truncated_on_disk": bool(artifact.get("truncatedOnDisk")),
+    }
+    result["output_continuation"] = (
+        f"完整输出已落盘(共 {artifact.get('chars')} 字符)。用 "
+        f'read_tool_output(artifact_id="{artifact.get("artifactId")}", offset=0) '
+        "分页续读,直到返回 complete=true。"
+    )
+
+
+def _head_tail_truncate_text(text: str, keep_chars: int) -> tuple[str, int]:
+    """把 text 压到 keep_chars 个字符:首尾各留一半,中间插精确省略标记。
+
+    返回 ``(新串, 省略字符数)``。``keep_chars >= len(text)`` 时原样返回。
+    与 dsh output-retention 的 headTail 同策略(各占一半预算);首尾都保留,
+    是因为命令输出/堆栈的结论通常在末尾 —— 只保前缀会把真正的错误丢掉。
+    """
+    if keep_chars >= len(text):
+        return text, 0
+    omitted = len(text) - keep_chars
+    head_len = (keep_chars + 1) // 2
+    tail_len = keep_chars - head_len
+    marker = _TOOL_OUTPUT_TRUNCATE_MARKER.format(c=omitted, n=max(1, omitted // 4))
+    tail = text[len(text) - tail_len :] if tail_len > 0 else ""
+    return text[:head_len] + marker + tail, omitted
+
+
 def _truncate_tool_output(
     result: dict[str, Any],
     *,
@@ -340,10 +393,30 @@ def _truncate_tool_output(
 
     # 收集 (parent_container, key, string) 引用(parent 为可变 dict/list)
     leaves: list[tuple[Any, Any, str]] = []
+    images_omitted = 0
+
+    def _image_placeholder(raw: str) -> str:
+        locator = ""
+        artifact_id = artifact.get("artifactId") if artifact is not None else None
+        if artifact_id:
+            locator = f'; full payload: read_tool_output(artifact_id="{artifact_id}", offset=0)'
+        return f"[image omitted: {len(raw)} base64 chars{locator}]"
+
+    def _is_image_payload(key: Any, value: str) -> bool:
+        # 键名命中(browser_selfcheck_screenshot 的 imageBase64 等)或 data URI;
+        # base64 截断后既不可解码也不可读,模型只会白烧 token,必须换成描述符。
+        if isinstance(key, str) and key in _IMAGE_PAYLOAD_KEYS and len(value) > 256:
+            return True
+        return len(value) > 1024 and value.startswith("data:image/")
 
     def _collect(obj: Any, parent: Any, key: Any) -> None:
+        nonlocal images_omitted
         if isinstance(obj, str):
             if isinstance(parent, dict) and key in _TRUNCATION_PROTECTED_KEYS:
+                return
+            if isinstance(parent, dict) and _is_image_payload(key, obj):
+                parent[key] = _image_placeholder(obj)
+                images_omitted += 1
                 return
             leaves.append((parent, key, obj))
         elif isinstance(obj, dict):
@@ -354,12 +427,22 @@ def _truncate_tool_output(
                 _collect(v, obj, i)
 
     _collect(result, None, None)
+    if images_omitted:
+        # 图片描述符已大幅缩小体积:按新体积重算预算,避免继续截断正常正文。
+        total = _tool_result_token_estimate(result)
+        result["omitted_images"] = images_omitted
+        if total <= max_tokens:
+            result["truncated"] = True
+            result["truncation_strategy"] = "image_descriptor"
+            _attach_output_artifact_hint(result, artifact)
+            return result
     # 按长度降序,优先截断最大块,最贴近原始信息分布
     leaves.sort(key=lambda item: len(item[2]), reverse=True)
 
     remaining = total - max_tokens
-    plan: list[tuple[Any, Any, int]] = []
+    plan: list[tuple[Any, Any, str]] = []
     truncated_tokens = 0
+    truncated_chars = 0
     for _parent, _key, s in leaves:
         if remaining <= 0:
             break
@@ -369,36 +452,34 @@ def _truncate_tool_output(
         need = min(remaining, t)
         allow = max(0, t - need)
         keep_chars = allow * 4
-        # 占位估算:用单字符近似标记开销,真实标记在回填时写入
-        new_t = _estimate_tokens_len(s[:keep_chars] + "X")
-        delta = t - new_t
+        candidate, omitted = _head_tail_truncate_text(s, keep_chars)
+        delta = t - _estimate_tokens_len(candidate)
+        if delta <= 0:
+            # 标记本身就可能吃掉节省量:退到只留首尾空预算(仅标记),
+            # 仍省不出 token 的短串跳过(不能为了截断而变大)。
+            candidate, omitted = _head_tail_truncate_text(s, 0)
+            delta = t - _estimate_tokens_len(candidate)
+            if delta <= 0:
+                continue
         truncated_tokens += delta
+        truncated_chars += omitted
         remaining -= delta
-        plan.append((_parent, _key, keep_chars))
+        plan.append((_parent, _key, candidate))
 
     if not plan:
+        if images_omitted:
+            result["truncated"] = True
+            result["truncation_strategy"] = "image_descriptor"
+            _attach_output_artifact_hint(result, artifact)
         return result  # 边界:所有字符串均为受保护 key 或空,无法截断
-    marker = _TOOL_OUTPUT_TRUNCATE_MARKER.format(n=truncated_tokens)
-    for parent, key, keep_chars in plan:
-        parent[key] = parent[key][:keep_chars] + marker
+    for parent, key, candidate in plan:
+        parent[key] = candidate
     result["truncated"] = True
-    if artifact is not None:
-        # 续读凭据:offset=0 = 从头分页(正文是逐串截断而非前缀截断,给 0 才不丢信息)。
-        result["output_artifact"] = {
-            "artifact_id": artifact.get("artifactId"),
-            "digest": artifact.get("digest"),
-            "bytes": artifact.get("bytes"),
-            "chars": artifact.get("chars"),
-            "offset": 0,
-            "next": 0,
-            "complete": False,
-            "truncated_on_disk": bool(artifact.get("truncatedOnDisk")),
-        }
-        result["output_continuation"] = (
-            f"完整输出已落盘(共 {artifact.get('chars')} 字符)。用 "
-            f'read_tool_output(artifact_id="{artifact.get("artifactId")}", offset=0) '
-            "分页续读,直到返回 complete=true。"
-        )
+    # 精确省略量(字符数是真值,token 是估算):消费方不必靠解析标记反推。
+    result["truncation_strategy"] = "image_descriptor+head_tail" if images_omitted else "head_tail"
+    result["truncated_chars"] = truncated_chars
+    result["truncated_tokens"] = truncated_tokens
+    _attach_output_artifact_hint(result, artifact)
     return result
 
 
@@ -12328,6 +12409,48 @@ async def _tool_ask_user_question(arguments: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+async def _tool_office_document(arguments: dict[str, Any]) -> dict[str, Any]:
+    """MCP 面入口:Office 转换/渲染/重算(默认关闭,LibreOffice 缺失即 unavailable)。"""
+    from ..tools.document_tools import _resolve_path
+    from ..tools.office_convert import run_office_operation
+
+    raw_path = arguments.get("path")
+    resolved, path_error = _resolve_path(raw_path)
+    if path_error is not None or resolved is None:
+        return {
+            "tool": "office_document",
+            "ok": False,
+            "errorCode": "INVALID_REQUEST",
+            "error": path_error or "path 非法",
+        }
+    try:
+        dpi = int(arguments.get("dpi", 120))
+    except (TypeError, ValueError):
+        dpi = 120
+    try:
+        timeout_s = int(arguments.get("timeout_s", 60))
+    except (TypeError, ValueError):
+        timeout_s = 60
+    try:
+        result = await asyncio.to_thread(
+            run_office_operation,
+            resolved,
+            operation=str(arguments.get("operation", "")),
+            target=arguments.get("target"),
+            pages=arguments.get("pages"),
+            dpi=dpi,
+            timeout_s=timeout_s,
+        )
+    except Exception as exc:  # noqa: BLE001 - 工具层必须结构化返回,不把异常抛给循环
+        result = {
+            "ok": False,
+            "errorCode": "OFFICE_OPERATION_FAILED",
+            "error": f"{type(exc).__name__}: {exc}",
+        }
+    result["tool"] = "office_document"
+    return result
+
+
 _TOOLS: list[MCPTool] = [
     MCPTool(
         name="search_codebase",
@@ -14139,6 +14262,49 @@ _TOOLS: list[MCPTool] = [
         },
     ),
     MCPTool(
+        name="office_document",
+        description=(
+            "Office 文档转换 / 页面渲染 / 工作簿重算(对标 DSH office-kit)。"
+            "convert:pdf/docx/odt/txt/xlsx/ods/csv/pptx/odp 互转;"
+            "render:把 Office 或 PDF 指定页渲染为 PNG(配合 vision_analyze 看版面);"
+            "recalculate:重算 Excel/ODS 工作簿并另存 xlsx/ods(尽力而为,不做宏)。"
+            "依赖宿主机 LibreOffice,且须部署方显式开启 MCP_OFFICE_TOOLS_ENABLED=true;"
+            "缺失/关闭时返回 OFFICE_CONVERTER_UNAVAILABLE / OFFICE_TOOLS_DISABLED,"
+            "不会改用其他转换器。产物只写私有临时目录(24h 清理),不写工作区。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "path": {"type": "string", "description": "工作区内源文件路径(绝对或相对项目根)"},
+                "operation": {
+                    "type": "string",
+                    "enum": ["convert", "render", "recalculate"],
+                    "description": "convert=格式转换;render=页面渲染;recalculate=工作簿重算",
+                },
+                "target": {
+                    "type": "string",
+                    "description": "convert/recalculate 的目标格式,如 pdf/xlsx/pptx;render 忽略",
+                },
+                "pages": {
+                    "type": "string",
+                    "description": "render 的页码选择,如 '1-3,5';默认前 20 页",
+                },
+                "dpi": {
+                    "type": "integer",
+                    "description": "render 分辨率(72-200,默认 120)",
+                    "default": 120,
+                },
+                "timeout_s": {
+                    "type": "integer",
+                    "description": "单次转换超时秒数(5-300,默认 60)",
+                    "default": 60,
+                },
+            },
+            "required": ["path", "operation"],
+            "additionalProperties": False,
+        },
+    ),
+    MCPTool(
         name="init_agents_md",
         description=(
             "扫描工作区(package.json scripts / 构建文件 / 目录结构 / 既有约定文档)生成"
@@ -15926,6 +16092,8 @@ _TOOL_HANDLERS: dict[str, Any] = {
     # G2 Automations 产品闭环(2026-10-30 立):对话式创建定时自动化(调 apps/api 端点)
     "create_automation": _create_automation,
     "parse_document": _parse_document,
+    # DSH office-kit 对标(2026-11-14):转换/渲染/重算;默认关闭,LibreOffice 缺失即 unavailable
+    "office_document": _tool_office_document,
     # D07 残余②:AGENTS.md 草稿生成(默认不落盘,写盘须显式 output_path;
     # workspace_root 经 MCP 面校验后才下传,见 _init_agents_md_guarded)
     "init_agents_md": _init_agents_md_guarded,

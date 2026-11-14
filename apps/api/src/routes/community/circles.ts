@@ -22,6 +22,7 @@ import {
   findCircles,
   findPostById,
   isCircleMember,
+  parseCircleIdentifier,
   updatePost,
 } from '../../db/community-queries.js'
 import {
@@ -150,7 +151,11 @@ const circlesRoutes: FastifyPluginAsync = async (server) => {
       if (!parsed.success) {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
-      if (!isUuidString(parsed.data.id)) return reply.status(404).send(error(404, '圈子不存在'))
+      // F-336:id 段按"纯数字/UUID → id,合法 slug → slug"统一判定(parseCircleIdentifier),
+      // 非法形态(含 %、空格、超长)在进 SQL 之前回 400,不做任何查询。
+      if (!parseCircleIdentifier(parsed.data.id)) {
+        return reply.status(400).send(error(400, '无效的圈子 ID 或 slug'))
+      }
       // F-330 可见性闸:对外详情只认 isPublished=true 的圈子;管理员绕过以便管理端查看。
       // 非管理员命中隐藏圈子一律 404(不暴露存在性);第二段判定防查询口径漂移。
       const isAdmin = isSystemAdmin(request, { includeInternalChannel: false })
@@ -449,10 +454,11 @@ const circlesRoutes: FastifyPluginAsync = async (server) => {
       if (!parsedP.success) {
         return reply.status(400).send(error(400, parsedP.error.issues[0]?.message ?? '参数错误'))
       }
-      // 形状闸(2026-09-28 普查收口):下面这些 :id 最终会被喂进 uuid 列,非 uuid 字面量让 Postgres
-      // 抛 22P02 invalid input syntax for type uuid,而未被兜住就是 500 —— 于是"这条不存在"与
-      // "服务坏了"在响应上完全同形。判据只有一份(utils/uuid.ts 的 isUuidString),闸必须在进 SQL 之前。
-      if (!isUuidString(parsedP.data.id)) return reply.status(404).send(error(404, '圈子不存在'))
+      // F-336:与 GET /circles/:id 共用 parseCircleIdentifier —— id 段按"纯数字/UUID → id,
+      // 合法 slug → slug"判定;非法形态(含 %、空格、超长)进 SQL 之前回 400,零查询。
+      if (!parseCircleIdentifier(parsedP.data.id)) {
+        return reply.status(400).send(error(400, '无效的圈子 ID 或 slug'))
+      }
       const parsedQ = listCirclePostsQuery.safeParse(request.query)
       if (!parsedQ.success) {
         return reply.status(400).send(error(400, parsedQ.error.issues[0]?.message ?? '参数错误'))

@@ -32,8 +32,13 @@
  */
 
 import { createHash, randomBytes } from 'node:crypto'
+import { readFileSync as readDiskFileSync, statSync } from 'node:fs'
+import { readFile as readDiskFile } from 'node:fs/promises'
+import { extname } from 'node:path'
 import ExcelJS from 'exceljs'
-import { generateFileId, getFileInfo, readFile, saveFile } from './storage-service.js'
+import { deleteFile, generateFileId, getFileInfo, readFile, saveFile } from './storage-service.js'
+import * as storageService from './storage-service.js'
+import { findUploadedFile } from './upload-file-registry.js'
 
 // =============================================================================
 // 协议常量与错误码
@@ -44,12 +49,40 @@ export const WORKBOOK_PROTOCOL_VERSION = 1
 
 /** 单会话空闲超时(毫秒):过期句柄一律判「未判定」,不猜它当时是什么状态。 */
 const SESSION_IDLE_TTL_MS = 30 * 60 * 1000
-/** 同时存活的会话上限(全局):超出即淘汰最久未用者,被淘者再拿句柄只会读到「未判定」。 */
-const MAX_SESSIONS = 64
+/**
+ * 单主体同时存活的会话上限(F-414)。
+ *
+ * 逐出只在**本主体**的会话桶内发生:旧实现是全局 64 条按 lastUsedAt 淘汰,
+ * 一个人循环 POST /open 就能把别人的未保存会话挤出表(对方拿到 410、改动丢失)。
+ */
+export const MAX_SESSIONS_PER_SUBJECT = 3
+/** 单份工作簿 open 的体积上限(F-414):超限在读取前拒,不把整本读进内存。 */
+export const MAX_WORKBOOK_OPEN_BYTES = 20 * 1024 * 1024
+/** open 接受的扩展名:只认 exceljs 能解析的 OOXML 工作簿(legacy .xls 不在列)。 */
+export const WORKBOOK_ALLOWED_EXTENSIONS = ['.xlsx', '.xlsm'] as const
+/**
+ * 单会话成功保存的次数上限(F-415)。
+ *
+ * 同一 handle 反复 /save 会反复序列化整本工作簿并落盘;只保留一个版本槽位之后,
+ * 仍要挡住"同一本大档反复重写"这类持续占用,故次数与字节都设硬上限。
+ */
+export const MAX_SAVES_PER_SESSION = 10
+/** 单会话成功写出的累计字节上限(F-415):按**写出量**计,不是占盘量。 */
+export const MAX_SAVED_BYTES_PER_SESSION = 64 * 1024 * 1024
 /** 单次读取区域的最大单元格数(对照件有同类响应尺寸闸,见取证册 §2.1)。 */
 const MAX_RANGE_CELLS = 20_000
 /** 单次写入的最大单元格数。 */
 const MAX_WRITE_CELLS = 500
+/**
+ * 会话累计改动格的去重记录上限(F-265)。
+ *
+ * 记录只服务两件事:同一格不重复判、后续写入不重扫历史格。每个新格在写入当次就与
+ * 全部公式格比过,命中结果已折叠进 `staleFormulaHits`,因此到顶后按 FIFO 淘汰最旧记录
+ * **不丢任何已判定的受影响公式**(公式格索引在 open 时建成,写值不会把非公式格变成
+ * 公式格、也不允许覆盖公式格 ⇒ 本会话内依赖集不变)。
+ * 5 万 ≈ 100 次满批(MAX_WRITE_CELLS=500);单条记录 ~40 字符,内存上限约 2MB/会话。
+ */
+const MAX_TOUCHED_CELLS = 50_000
 /** 依赖扫描的公式格上限;超限 ⇒ 判「没扫完」,保守带 recalc 标记(不是"没影响")。 */
 const MAX_FORMULA_SCAN_CELLS = 20_000
 /** 单表扫描的格子上限;超过则该表整表判「扫不动」⇒ 保守 unjudged。 */
@@ -63,7 +96,12 @@ export type WorkbookErrorCode =
   | 'WORKBOOK_FORMAT_UNSUPPORTED'
   | 'WORKBOOK_FORMULA_OVERWRITE'
   | 'WORKBOOK_RANGE_TOO_LARGE'
+  | 'WORKBOOK_FILE_TOO_LARGE'
   | 'WORKBOOK_SOURCE_CHANGED'
+  | 'WORKBOOK_SAVE_LIMIT_EXCEEDED'
+  | 'WORKBOOK_SAVE_BYTES_EXCEEDED'
+  /** F-540:同一会话正在保存,写入/关闭被拒(稍后重试,不是数据损坏)。 */
+  | 'WORKBOOK_SAVING'
   | 'WORKBOOK_UNJUDGED'
 
 /** 统一结果信封:成功 ok=true;失败 ok=false + 具名错误码。 */
@@ -136,6 +174,12 @@ interface WorkbookSession {
   /** 归属主体(承载层注入;句柄级授权判据)。 */
   subjectId: string
   sourceFileId: string
+  /**
+   * 源文件在盘上的绝对路径(F-536)。
+   * - `null` ⇒ 源档是 storage-service 的文件(本层保存产物),按 `sourceFileId` 读;
+   * - 非空 ⇒ 源档是用户经 `/api/files/*` 上传的普通文件,按路径读。
+   */
+  sourcePath: string | null
   sourceName: string
   /** 打开时原档 sha256(保存前后各复验一次)。 */
   sourceSha256: string
@@ -143,14 +187,39 @@ interface WorkbookSession {
   formulaCells: FormulaCellIndex[]
   /** 公式扫描是否没扫完(超大表 / 超上限)。 */
   scanTruncated: boolean
-  /** 本会话累计写入的格子(算受影响公式集用)。 */
-  touched: Array<{ sheet: string; row: number; column: number }>
+  /**
+   * 本会话累计写入的格子(去重键,见 `touchedKeyOf`;只用于"判过就不再判")。
+   * Set 保留插入顺序 ⇒ 到顶后天然按 FIFO 淘汰。F-265。
+   */
+  touched: Set<string>
+  /**
+   * 已判定受影响的公式格(键 = `formulaCells` 下标,只增不改 ⇒ 同一公式保留"首次命中"的 via,
+   * 与逐批全量比较的结果逐字一致)。F-265:比较改为增量,不再 formulaCells × 全部 touched。
+   */
+  staleFormulaHits: Map<number, StaleFormulaCell>
   lastUsedAt: number
   savedFileIds: string[]
+  /**
+   * 当前保存槽位(F-415):同会话后一次保存覆盖前一次 —— 新档落定后删掉旧槽位文件,
+   * 会话存活期间磁盘上最多只有一份输出。TTL 到期时由 sweep 一并删除。
+   */
+  savedSlotFileId: string | null
+  /** 本会话成功保存次数(F-415 配额)。 */
+  saveCount: number
+  /** 本会话累计成功写出的字节(F-415 配额:按写出量计,覆盖写也计数)。 */
+  savedBytes: number
+  /**
+   * 保存互斥(F-540):非 `null` = 有保存正在执行/排队。
+   * `saveWorkbook` 在整段异步序列化期间持锁;同步的 `writeCells`/`closeWorkbook` 见到它就拒,
+   * 避免 `await writeBuffer()` 让出事件循环时被并发改写(响应里的 staleFormulaCells 与实际新档分叉)。
+   */
+  saveBarrier: Promise<void> | null
 }
 
 /** 会话表(进程内;重启即空,句柄随之判「未判定」,不假装能续)。 */
 const _sessions = new Map<string, WorkbookSession>()
+/** 主体 → 该主体名下的句柄集合:逐出只在本桶内发生(F-414)。 */
+const _handlesBySubject = new Map<string, Set<string>>()
 
 // =============================================================================
 // 地址与区域解析
@@ -281,19 +350,29 @@ function parseFormulaRefs(formula: string): {
   return { refs, colRefs, unjudged }
 }
 
-/** 取公式原文(普通式 + 共享式);非公式格返回 null。 */
+/**
+ * 取公式原文(普通式 + 共享式从格的翻译式);非公式格返回 null。
+ *
+ * F-535:共享公式从格的 model 只有 `{ sharedFormula: '<主格地址>', result }`,
+ * 不能把该地址当公式原文返回。`cell.formula` 的 getter 已对从格做 shared→translated
+ * (主格公式按地址位移),故优先取它。
+ */
 function formulaOf(cell: ExcelJS.Cell): string | null {
-  const v = cell.value as unknown
-  if (v && typeof v === 'object') {
-    const o = v as { formula?: unknown; sharedFormula?: unknown }
-    const raw = typeof o.formula === 'string' && o.formula ? o.formula : o.sharedFormula
-    if (typeof raw === 'string' && raw.length > 0) return raw.replace(/^=/, '')
-  }
-  if (cell.type === ExcelJS.ValueType.Formula) {
-    const f = cell.formula
-    if (typeof f === 'string' && f.length > 0) return f.replace(/^=/, '')
-  }
+  const f = cell.formula
+  if (typeof f === 'string' && f.length > 0) return f.replace(/^=/, '')
   return null
+}
+
+/**
+ * 「是否公式格」判据:原文取不到时(如主格缺失无法翻译)仍按 sharedFormula 判公式,
+ * 只用于认定公式身份,绝不把主格地址当公式原文返回(F-535)。
+ */
+function isFormulaCell(cell: ExcelJS.Cell): boolean {
+  if (formulaOf(cell) !== null) return true
+  const v = cell.value as unknown
+  if (!v || typeof v !== 'object') return false
+  const shared = (v as { sharedFormula?: unknown }).sharedFormula
+  return typeof shared === 'string' && shared.length > 0
 }
 
 function sha256(buf: Buffer): string {
@@ -329,16 +408,20 @@ function indexFormulaCells(wb: ExcelJS.Workbook): {
       for (let c = 1; c <= maxCol; c++) {
         const cell = ws.getCell(r, c)
         const formula = formulaOf(cell)
-        if (formula === null) continue
+        // 原文取不到但 sharedFormula 仍在(主格缺失)⇒ 仍是公式格,按扫不动保守判。
+        if (formula === null && !isFormulaCell(cell)) continue
         if (cells.length >= MAX_FORMULA_SCAN_CELLS) {
           truncated = true
           break outer
         }
-        const { refs, colRefs, unjudged } = parseFormulaRefs(formula)
+        const { refs, colRefs, unjudged } =
+          formula === null
+            ? { refs: [], colRefs: [], unjudged: true }
+            : parseFormulaRefs(formula)
         cells.push({
           sheet: ws.name,
           address: addressOf(r, c),
-          formula,
+          formula: formula ?? '',
           refs,
           colRefs,
           unjudged,
@@ -384,6 +467,16 @@ function readCell(cell: ExcelJS.Cell): WorkbookCellRead {
       cachedValueWithheld: true,
     }
   }
+  if (isFormulaCell(cell)) {
+    // 公式身份确实(sharedFormula 仍在),但原文取不到(主格缺失)⇒ 不回地址冒充公式
+    return {
+      address,
+      kind: 'formula',
+      value: null,
+      state: 'formula-uncomputed',
+      cachedValueWithheld: true,
+    }
+  }
   const v = cell.value as unknown
   if (v && typeof v === 'object' && 'error' in v) {
     return {
@@ -406,21 +499,75 @@ function readCell(cell: ExcelJS.Cell): WorkbookCellRead {
 // 会话生命周期
 // =============================================================================
 
-function pruneSessions(now: number): void {
-  for (const [k, s] of _sessions) {
-    if (now - s.lastUsedAt > SESSION_IDLE_TTL_MS) _sessions.delete(k)
+function removeSession(handle: string): void {
+  const s = _sessions.get(handle)
+  if (!s) return
+  _sessions.delete(handle)
+  const bucket = _handlesBySubject.get(s.subjectId)
+  if (!bucket) return
+  bucket.delete(handle)
+  if (bucket.size === 0) _handlesBySubject.delete(s.subjectId)
+}
+
+/**
+ * 丢弃会话名下的输出文件(F-415):会话 TTL 到期后,保存产物随之回收。
+ * 删除失败只说明盘上残留,不能反过来把会话留在表里冒充"还活着"。
+ */
+function discardSessionSavedFiles(s: WorkbookSession): void {
+  const ids = [s.savedSlotFileId, ...s.savedFileIds].filter(
+    (id): id is string => typeof id === 'string' && id.length > 0,
+  )
+  for (const id of new Set(ids)) {
+    try {
+      deleteFile(id)
+    } catch {
+      // 删不掉不影响会话清理结论(会话本身已过期,不做补偿)
+    }
   }
-  while (_sessions.size > MAX_SESSIONS) {
-    let oldestKey: string | null = null
+  s.savedSlotFileId = null
+  s.savedFileIds = []
+}
+
+/**
+ * 过期清理(TTL):删掉空闲超时的会话,并回收其保存产物。不碰原档文件。
+ * 返回清理条数(测试/运维可直接调用;open / 取句柄时也会惰性调用)。
+ */
+export function sweepExpiredWorkbookSessions(now: number = Date.now()): number {
+  let removed = 0
+  for (const [handle, s] of _sessions) {
+    if (now - s.lastUsedAt > SESSION_IDLE_TTL_MS) {
+      discardSessionSavedFiles(s)
+      removeSession(handle)
+      removed++
+    }
+  }
+  return removed
+}
+
+function pruneSessions(now: number): void {
+  sweepExpiredWorkbookSessions(now)
+}
+
+/**
+ * 超额逐出:只在 `subjectId` 自己的会话桶里按 lastUsedAt 淘汰最旧者(F-414)。
+ * 这里**没有**任何全局 FIFO —— 跨主体逐出会让单用户挤掉他人未保存的会话。
+ */
+function evictWithinSubject(subjectId: string): void {
+  const bucket = _handlesBySubject.get(subjectId)
+  if (!bucket) return
+  while (bucket.size > MAX_SESSIONS_PER_SUBJECT) {
+    let oldestHandle: string | null = null
     let oldest = Infinity
-    for (const [k, s] of _sessions) {
+    for (const handle of bucket) {
+      const s = _sessions.get(handle)
+      if (!s) continue
       if (s.lastUsedAt < oldest) {
         oldest = s.lastUsedAt
-        oldestKey = k
+        oldestHandle = handle
       }
     }
-    if (oldestKey === null) break
-    _sessions.delete(oldestKey)
+    if (oldestHandle === null) break
+    removeSession(oldestHandle)
   }
 }
 
@@ -454,46 +601,67 @@ function takeSession(handle: string, subjectId: string): SessionTake {
   return { ok: true, session: s }
 }
 
-/** 本次改动波及到哪些公式格(不重算,只点名;判不完同样点名)。 */
+/** 改动格的去重键:sheet 名可含空格/中文/冒号,用 NUL 分隔,避免拼接歧义。 */
+function touchedKeyOf(sheet: string, row: number, column: number): string {
+  return `${sheet}\u0000${row}:${column}`
+}
+
+/** 单格对单个公式格的判据(优先级与原全量实现一致:unjudged → 整列 → 单格/区间)。 */
+function hitVia(
+  f: FormulaCellIndex,
+  t: { sheet: string; row: number; column: number },
+): StaleFormulaCell['via'] | null {
+  if (f.unjudged) return f.sheet === t.sheet ? 'unjudged-pattern' : null
+  for (const cr of f.colRefs) {
+    const sheet = cr.sheet ?? f.sheet
+    if (sheet === t.sheet && t.column >= cr.fromCol && t.column <= cr.toCol) return 'col-ref'
+  }
+  for (const r of f.refs) {
+    const sheet = r.sheet ?? f.sheet
+    if (sheet !== t.sheet) continue
+    if (t.row >= r.fromRow && t.row <= r.toRow && t.column >= r.fromCol && t.column <= r.toCol) {
+      return r.fromRow === r.toRow && r.fromCol === r.toCol ? 'cell-ref' : 'range-ref'
+    }
+  }
+  return null
+}
+
+/**
+ * 记录本批写入格(F-265):同一格只判一次,且只与「本批新增」格比对 ——
+ * 单个新格对公式格是一次 O(formulaCells) 的**单层**扫描,已判定过的公式格不再重扫。
+ *
+ * 输出等价性:旧实现是"每个公式格 × 全部 touched 取最早命中";这里按写入顺序逐格补判、
+ * 命中即归档且不覆盖,得到的公式集合与 via 与旧实现逐字相同,只是复杂度从
+ * O(formulaCells × touched 总量) 降为 O(formulaCells × 本批新增数)。
+ */
+function recordTouched(s: WorkbookSession, sheet: string, row: number, column: number): void {
+  const key = touchedKeyOf(sheet, row, column)
+  if (s.touched.has(key)) return
+  s.touched.add(key)
+  for (let i = 0; i < s.formulaCells.length; i++) {
+    if (s.staleFormulaHits.has(i)) continue
+    const f = s.formulaCells[i]
+    if (!f) continue
+    const via = hitVia(f, { sheet, row, column })
+    if (via) s.staleFormulaHits.set(i, { sheet: f.sheet, address: f.address, formula: f.formula, via })
+  }
+  // FIFO 淘汰最旧记录。命中结果已在写入当次折叠进 staleFormulaHits ⇒ 淘汰只放弃
+  // "去重凭证",不影响受影响公式判定,无需退化全量重扫(F-265)。
+  while (s.touched.size > MAX_TOUCHED_CELLS) {
+    const oldest = s.touched.values().next()
+    if (oldest.done) break
+    s.touched.delete(oldest.value)
+  }
+}
+
+/** 已判定结果按 formulaCells 下标排序回放(与旧实现"按公式格顺序输出"逐字一致)。 */
 function affectedFormulaCells(s: WorkbookSession): {
   stale: StaleFormulaCell[]
   scanTruncated: boolean
 } {
   const stale: StaleFormulaCell[] = []
-  for (const f of s.formulaCells) {
-    let hit: StaleFormulaCell | null = null
-    for (const t of s.touched) {
-      if (f.unjudged) {
-        if (f.sheet === t.sheet) {
-          hit = { sheet: f.sheet, address: f.address, formula: f.formula, via: 'unjudged-pattern' }
-          break
-        }
-        continue
-      }
-      for (const cr of f.colRefs) {
-        const sheet = cr.sheet ?? f.sheet
-        if (sheet === t.sheet && t.column >= cr.fromCol && t.column <= cr.toCol) {
-          hit = { sheet: f.sheet, address: f.address, formula: f.formula, via: 'col-ref' }
-          break
-        }
-      }
-      if (hit) break
-      for (const r of f.refs) {
-        const sheet = r.sheet ?? f.sheet
-        if (sheet !== t.sheet) continue
-        if (
-          t.row >= r.fromRow &&
-          t.row <= r.toRow &&
-          t.column >= r.fromCol &&
-          t.column <= r.toCol
-        ) {
-          const via = r.fromRow === r.toRow && r.fromCol === r.toCol ? 'cell-ref' : 'range-ref'
-          hit = { sheet: f.sheet, address: f.address, formula: f.formula, via }
-          break
-        }
-      }
-      if (hit) break
-    }
+  for (const i of [...s.staleFormulaHits.keys()].sort((a, b) => a - b)) {
+    const hit = s.staleFormulaHits.get(i)
     if (hit) stale.push(hit)
   }
   return {
@@ -534,7 +702,69 @@ export interface OpenWorkbookData {
   protocolVersion: number
 }
 
-/** open:打开**已存在**的工作簿(按 storage 文件 id);归属由承载层入参显式给定。 */
+/**
+ * 异步读取工作簿字节(F-414):open 不再同步整文件读入,避免大档卡住事件循环。
+ * 服务层单测的 storage 桩可能只提供同步 `readFile`(既有用例形态);用 `in` 探测能力,
+ * 不直接读缺失的导出(桩在缺键属性访问时会抛错),生产实现恒走异步 I/O。
+ */
+async function readWorkbookBytes(fileId: string): Promise<Buffer | null> {
+  if ('readFileAsync' in storageService) return storageService.readFileAsync(fileId)
+  return readFile(fileId)
+}
+
+/** 按绝对路径读上传文件字节(F-536);不存在 ⇒ null(与 storage 侧同口径,不抛)。 */
+async function readDiskFileOrNull(path: string): Promise<Buffer | null> {
+  try {
+    return await readDiskFile(path)
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException | undefined)?.code === 'ENOENT') return null
+    throw e
+  }
+}
+
+/** 同步版(保存前后的 sha256 自证用,窗口极短且必须与落盘序列同序)。 */
+function readDiskFileOrNullSync(path: string): Buffer | null {
+  try {
+    return readDiskFileSync(path)
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException | undefined)?.code === 'ENOENT') return null
+    throw e
+  }
+}
+
+/**
+ * 取会话的保存互斥(F-540)。
+ *
+ * 为什么需要:保存里 `await s.workbook.xlsx.writeBuffer()` 会让出事件循环;同一 handle 上并发的
+ * `/write` 会在这个窗口里改内存模型并往 `staleFormulaHits` 里塞新命中,于是保存响应里的
+ * `staleFormulaCells` 描述的是"写之后"的状态,而落盘字节是"写之前"的快照 —— agent 据此误判。
+ *
+ * 为什么不用应用层锁对象:这里就是**同一进程内的会话级互斥**,锁的粒度恰好是会话,且只覆盖
+ * "读模型 → 序列化 → 落盘 → 推进槽位"这一整段临界区;不做跨进程锁(会话本来就是进程内的)。
+ * 排队者失败不传染:前一次保存抛错时 `finally` 仍会释放,等待者继续。
+ */
+async function acquireSaveBarrier(s: WorkbookSession): Promise<() => void> {
+  while (s.saveBarrier) {
+    try {
+      await s.saveBarrier
+    } catch {
+      // 前一位的失败不该把排队者一起判死
+    }
+  }
+  let release!: () => void
+  s.saveBarrier = new Promise<void>((resolveBarrier) => {
+    release = resolveBarrier
+  })
+  return () => {
+    s.saveBarrier = null
+    release()
+  }
+}
+
+/**
+ * open:打开**已存在**的工作簿(按文件 id);归属由承载层入参显式给定。
+ * 支持两种来源(F-536):本层 /save 的产物(storage sidecar)与 /api/files/* 的普通上传(上传登记)。
+ */
 export async function openWorkbook(params: {
   subjectId: string
   fileId: string
@@ -544,16 +774,70 @@ export async function openWorkbook(params: {
   if (!USER_ID_RE.test(subjectId)) return fail('WORKBOOK_INVALID_INPUT', 'subjectId 形态非法')
   if (!USER_ID_RE.test(fileId)) return fail('WORKBOOK_INVALID_INPUT', 'fileId 形态非法')
 
-  const info = getFileInfo(fileId)
-  if (!info) return fail('WORKBOOK_FILE_NOT_FOUND', '工作簿文件不存在')
-  const owner = (info.metadata as { ownerId?: unknown } | undefined)?.ownerId
-  if (typeof owner !== 'string' || owner !== subjectId) {
-    // 归属不符 ⇒ 与"不存在"同形回话(可枚举性收口);主体只认入参,不从元数据反推
-    return fail('WORKBOOK_FILE_NOT_FOUND', '工作簿文件不存在')
+  // F-536:源档有两个合法来源,归属判据随来源而定,不能只认 save 写出的 sidecar。
+  //   ① storage-service 的文件(本层 /save 的产物):sidecar `ownerId` = 主体;
+  //   ② 用户经 /api/files/* 上传的普通文件:归属查上传登记(registerUploadedFile 记录的 ownerId)。
+  //      —— 此前只查 ①,普通上传的 xlsx 必然 404("打开已有工作簿"主用例不可用)。
+  // 两条路径的归属判据都只认登记侧的值,绝不从客户端自报或文件内容反推(AGENTS §5)。
+  const storageInfo = getFileInfo(fileId)
+  let sourcePath: string | null = null
+  let declaredName = ''
+  let sourceSize = 0
+  if (storageInfo) {
+    const owner = (storageInfo.metadata as { ownerId?: unknown } | undefined)?.ownerId
+    if (typeof owner !== 'string' || owner !== subjectId) {
+      // 归属不符 ⇒ 与"不存在"同形回话(可枚举性收口);主体只认入参,不从元数据反推
+      return fail('WORKBOOK_FILE_NOT_FOUND', '工作簿文件不存在')
+    }
+    const meta = (storageInfo.metadata ?? {}) as { name?: unknown }
+    declaredName = typeof meta.name === 'string' ? meta.name : ''
+    sourceSize = storageInfo.size
+  } else {
+    const uploaded = findUploadedFile(fileId)
+    if (!uploaded || uploaded.ownerId !== subjectId) {
+      // 未登记 / 不是你的 ⇒ 同样回"不存在"(不给上传目录留枚举缝)
+      return fail('WORKBOOK_FILE_NOT_FOUND', '工作簿文件不存在')
+    }
+    sourcePath = uploaded.storedPath
+    declaredName = uploaded.name
+    // 以后者为准:登记里的 size 只是上传当时的值,盘上真实大小才是本次要读的字节数
+    try {
+      sourceSize = statSync(sourcePath).size
+    } catch {
+      return fail('WORKBOOK_FILE_NOT_FOUND', '工作簿文件不存在')
+    }
   }
-  const bytes = readFile(fileId)
+
+  // F-414 ①:扩展名白名单先于读盘 —— 只认 exceljs 能解析的 OOXML 工作簿。
+  const ext = extname(declaredName).toLowerCase()
+  if (!(WORKBOOK_ALLOWED_EXTENSIONS as readonly string[]).includes(ext)) {
+    return fail(
+      'WORKBOOK_FORMAT_UNSUPPORTED',
+      `扩展名不在白名单内:${ext || '(缺失)'};仅接受 ${WORKBOOK_ALLOWED_EXTENSIONS.join(' / ')}`,
+      { name: declaredName || null, allowedExtensions: [...WORKBOOK_ALLOWED_EXTENSIONS] },
+    )
+  }
+
+  // F-414 ②:大小闸在读取前(getFileInfo 内部 statSync)⇒ 超限不读字节、不建模。
+  if (Number.isFinite(sourceSize) && sourceSize > MAX_WORKBOOK_OPEN_BYTES) {
+    return fail(
+      'WORKBOOK_FILE_TOO_LARGE',
+      `工作簿超过上限:${sourceSize} > ${MAX_WORKBOOK_OPEN_BYTES} 字节`,
+      { size: sourceSize, limit: MAX_WORKBOOK_OPEN_BYTES },
+    )
+  }
+
+  const bytes = sourcePath ? await readDiskFileOrNull(sourcePath) : await readWorkbookBytes(fileId)
   if (!bytes) {
     return fail('WORKBOOK_UNJUDGED', '元数据在、字节读不到:不判定,请人工核文件', { fileId })
+  }
+  // stat 与读取之间文件可能被换大(TOCTOU)⇒ 读后再核一次,口径与首次闸相同。
+  if (bytes.length > MAX_WORKBOOK_OPEN_BYTES) {
+    return fail(
+      'WORKBOOK_FILE_TOO_LARGE',
+      `工作簿超过上限:${bytes.length} > ${MAX_WORKBOOK_OPEN_BYTES} 字节`,
+      { size: bytes.length, limit: MAX_WORKBOOK_OPEN_BYTES },
+    )
   }
 
   let workbook: ExcelJS.Workbook
@@ -567,22 +851,32 @@ export async function openWorkbook(params: {
 
   const { cells, truncated } = indexFormulaCells(workbook)
   const handle = randomBytes(16).toString('hex')
-  const meta = (info.metadata ?? {}) as { name?: unknown }
   const session: WorkbookSession = {
     handle,
     subjectId,
     sourceFileId: fileId,
-    sourceName: typeof meta.name === 'string' && meta.name ? meta.name : `${fileId}.xlsx`,
+    sourcePath,
+    sourceName: declaredName || `${fileId}.xlsx`,
     sourceSha256: sha256(bytes),
     workbook,
     formulaCells: cells,
     scanTruncated: truncated,
-    touched: [],
+    touched: new Set<string>(),
+    staleFormulaHits: new Map<number, StaleFormulaCell>(),
     lastUsedAt: Date.now(),
     savedFileIds: [],
+    savedSlotFileId: null,
+    saveCount: 0,
+    savedBytes: 0,
+    saveBarrier: null,
   }
   _sessions.set(handle, session)
+  const bucket = _handlesBySubject.get(subjectId)
+  if (bucket) bucket.add(handle)
+  else _handlesBySubject.set(subjectId, new Set([handle]))
   pruneSessions(Date.now())
+  // F-414 ③:超配额只在**本主体**内逐出最久未用者,绝不动别人的会话。
+  evictWithinSubject(subjectId)
 
   return {
     ok: true,
@@ -674,6 +968,15 @@ export function writeCells(params: {
   const take = takeSession(params?.handle, params?.subjectId)
   if (!take.ok) return take.error
   const s = take.session
+  // F-540:保存正在序列化 → 拒写(409,可重试)。同步命令无法排队等待,拒比"写进旧快照"诚实:
+  // 一旦在 writeBuffer() 期间改写模型,保存响应里的 staleFormulaCells 与实际落盘字节就分叉了。
+  if (s.saveBarrier) {
+    return fail(
+      'WORKBOOK_SAVING',
+      '该会话正在保存中,本次写入未执行(保存完成后重试;或改用新的 handle)',
+      { handle: s.handle },
+    )
+  }
   const ws = s.workbook.getWorksheet(params.sheet)
   if (!ws) return fail('WORKBOOK_INVALID_INPUT', `工作表不存在: ${params.sheet}`)
   const list = Array.isArray(params.cells) ? params.cells : []
@@ -690,7 +993,7 @@ export function writeCells(params: {
     const ref = parseCellRef(String(item?.address ?? ''))
     if (!ref) return fail('WORKBOOK_INVALID_INPUT', `address 形态非法: ${String(item?.address)}`)
     const cell = ws.getCell(ref.row, ref.column)
-    if (formulaOf(cell) !== null) formulaTargets.push(cell.address)
+    if (isFormulaCell(cell)) formulaTargets.push(cell.address)
     const value = item.value
     if (
       value !== null &&
@@ -716,7 +1019,7 @@ export function writeCells(params: {
   // -- 落写(整批一次,无部分写) --
   for (const p of planned) {
     ws.getCell(p.row, p.column).value = p.value
-    s.touched.push({ sheet: params.sheet, row: p.row, column: p.column })
+    recordTouched(s, params.sheet, p.row, p.column)
   }
   const view = recalcView(s)
   return { ok: true, data: { sheet: params.sheet, writtenCells: planned.length, ...view } }
@@ -741,6 +1044,13 @@ export interface SaveWorkbookData {
  *
  * 三重自证:① 目标 id ≠ 原档 id 且目标当前不存在;② 落盘前复验原档 sha256 与打开时一致;
  * ③ 落盘后再读一次原档并比对 sha256。任一不成立 ⇒ 不落盘/点名,不吞。
+ *
+ * F-415(配额与生命周期):
+ * - 同会话只保留**一份**输出 —— 新档落定后才删上一版槽位文件,写失败不会先毁掉旧版;
+ * - 会话内保存次数(`MAX_SAVES_PER_SESSION`)与累计写出字节(`MAX_SAVED_BYTES_PER_SESSION`)
+ *   都有硬上限,超限具名拒且在落盘前拒;
+ * - 落盘失败 / 自证失败 ⇒ 先删掉这次写出的半成品再报错,不给盘上留残档;
+ * - 输出文件挂在会话上,TTL 到期由 `sweepExpiredWorkbookSessions` 一并回收。
  */
 export async function saveWorkbook(params: {
   subjectId: string
@@ -751,7 +1061,38 @@ export async function saveWorkbook(params: {
   if (!take.ok) return take.error
   const s = take.session
 
-  const before = readFile(s.sourceFileId)
+  // F-540:整段"读模型 → writeBuffer → 落盘 → 推进槽位"持会话级互斥。
+  // 并发的第二次 save 在这里排队(按到达顺序串行),不会两份输出互相顶掉计数与槽位。
+  const releaseBarrier = await acquireSaveBarrier(s)
+  try {
+    return await saveWorkbookInner(s, params)
+  } finally {
+    releaseBarrier()
+  }
+}
+
+/** 保存的实际步骤(调用方已持有 `s.saveBarrier`,见 saveWorkbook)。 */
+async function saveWorkbookInner(
+  s: WorkbookSession,
+  params: { subjectId: string; handle: string; name?: string },
+): Promise<WorkbookResult<SaveWorkbookData>> {
+  if (s.saveCount >= MAX_SAVES_PER_SESSION) {
+    return fail(
+      'WORKBOOK_SAVE_LIMIT_EXCEEDED',
+      `本会话保存次数已达上限 ${MAX_SAVES_PER_SESSION} 次,请 close 后重新 open 再存`,
+      { saveCount: s.saveCount, limit: MAX_SAVES_PER_SESSION },
+    )
+  }
+  if (s.savedBytes >= MAX_SAVED_BYTES_PER_SESSION) {
+    return fail(
+      'WORKBOOK_SAVE_BYTES_EXCEEDED',
+      `本会话累计保存字节已达上限 ${MAX_SAVED_BYTES_PER_SESSION},请 close 后重新 open 再存`,
+      { savedBytes: s.savedBytes, limit: MAX_SAVED_BYTES_PER_SESSION },
+    )
+  }
+
+  // F-536:源档可能来自 storage(本层保存产物)或用户上传(按绝对路径读)
+  const before = s.sourcePath ? readDiskFileOrNullSync(s.sourcePath) : readFile(s.sourceFileId)
   if (!before) {
     return fail('WORKBOOK_UNJUDGED', '原档字节读不到:无法自证未覆盖,拒绝保存', {
       sourceFileId: s.sourceFileId,
@@ -771,9 +1112,27 @@ export async function saveWorkbook(params: {
   }
 
   const buffer = Buffer.from(await s.workbook.xlsx.writeBuffer())
+  if (_sessions.get(s.handle) !== s) {
+    // F-540:await 期间会话被 close/逐出 ⇒ 不落盘(避免盘上多出一份没人认领的输出)
+    return fail('WORKBOOK_HANDLE_UNDETERMINED', '会话在保存期间被关闭:本次未落盘,请重新 open', {
+      handle: s.handle,
+    })
+  }
+  if (s.savedBytes + buffer.length > MAX_SAVED_BYTES_PER_SESSION) {
+    return fail(
+      'WORKBOOK_SAVE_BYTES_EXCEEDED',
+      `本次保存 ${buffer.length} 字节会超过本会话累计上限 ${MAX_SAVED_BYTES_PER_SESSION}`,
+      { savedBytes: s.savedBytes, bytes: buffer.length, limit: MAX_SAVED_BYTES_PER_SESSION },
+    )
+  }
 
+  const previousSlot = s.savedSlotFileId
   let newFileId = generateFileId()
-  for (let guard = 0; newFileId === s.sourceFileId || getFileInfo(newFileId); guard++) {
+  for (
+    let guard = 0;
+    newFileId === s.sourceFileId || newFileId === previousSlot || getFileInfo(newFileId);
+    guard++
+  ) {
     if (guard >= 8) {
       return fail('WORKBOOK_UNJUDGED', '新档落点无法确认(重试 8 次仍碰撞),拒绝保存', {
         sourceFileId: s.sourceFileId,
@@ -783,19 +1142,37 @@ export async function saveWorkbook(params: {
   }
 
   const name = sanitizeName(params.name, s.sourceName)
-  saveFile(buffer, newFileId, {
-    kind: 'ihui-workbook',
-    ownerId: s.subjectId,
-    name,
-    sourceFileId: s.sourceFileId,
-    savedAt: new Date().toISOString(),
-    protocolVersion: WORKBOOK_PROTOCOL_VERSION,
-  })
+  try {
+    saveFile(buffer, newFileId, {
+      kind: 'ihui-workbook',
+      ownerId: s.subjectId,
+      name,
+      sourceFileId: s.sourceFileId,
+      savedAt: new Date().toISOString(),
+      protocolVersion: WORKBOOK_PROTOCOL_VERSION,
+    })
+  } catch (e) {
+    // 写盘失败可能已落下半截文件 ⇒ 先清掉再报,不给下一位留残档
+    try {
+      deleteFile(newFileId)
+    } catch {
+      // 清理失败不影响"本次保存未成功"的结论
+    }
+    return fail('WORKBOOK_UNJUDGED', '新档落盘失败:已清理半成品,拒绝保存', {
+      sourceFileId: s.sourceFileId,
+      reason: String((e as Error)?.message ?? e),
+    })
+  }
 
-  const after = readFile(s.sourceFileId)
+  const after = s.sourcePath ? readDiskFileOrNullSync(s.sourcePath) : readFile(s.sourceFileId)
   const afterSha = after ? sha256(after) : ''
   if (!after || afterSha !== s.sourceSha256) {
-    // 新档已落,但原档被动过 ⇒ 本层最不该发生的事,必须点名而不是吞下
+    // 新档已落,但原档被动过 ⇒ 本层最不该发生的事,必须点名而不是吞下;半成品先删
+    try {
+      deleteFile(newFileId)
+    } catch {
+      // 删不掉也要如实点名(见 detail.savedFileId)
+    }
     return fail('WORKBOOK_SOURCE_CHANGED', '新档已落,但原档字节与打开时不一致(立即人工核)', {
       sourceFileId: s.sourceFileId,
       openedSha: s.sourceSha256,
@@ -804,7 +1181,19 @@ export async function saveWorkbook(params: {
     })
   }
 
-  s.savedFileIds.push(newFileId)
+  // 覆盖上一版本:新档已确认可读,才删旧槽位 ⇒ 中途失败时旧版仍在
+  if (previousSlot && previousSlot !== newFileId) {
+    try {
+      deleteFile(previousSlot)
+    } catch {
+      // 旧版删不掉不影响本次成功;新档已落,残留留给运维清理
+    }
+  }
+  s.savedSlotFileId = newFileId
+  s.savedFileIds = [newFileId]
+  s.saveCount += 1
+  s.savedBytes += buffer.length
+
   const view = recalcView(s)
   return {
     ok: true,
@@ -829,14 +1218,19 @@ export function closeWorkbook(params: {
   const take = takeSession(params?.handle, params?.subjectId)
   if (!take.ok) return take.error
   const s = take.session
+  // F-540:保存进行中不得销毁会话(否则保存侧会在已摘掉的会话上继续推进槽位)
+  if (s.saveBarrier) {
+    return fail('WORKBOOK_SAVING', '该会话正在保存中,请保存完成后再关闭', { handle: s.handle })
+  }
   const savedFileIds = [...s.savedFileIds]
-  _sessions.delete(s.handle)
+  removeSession(s.handle)
   return { ok: true, data: { closed: true, savedFileIds } }
 }
 
 /** 测试/运维用:清空会话表(不影响盘上文件)。 */
 export function resetWorkbookSessions(): void {
   _sessions.clear()
+  _handlesBySubject.clear()
 }
 
 function sanitizeName(raw: string | undefined, fallback: string): string {
@@ -853,5 +1247,14 @@ export const __test__ = {
   formulaOf,
   readCell,
   sessions: _sessions,
+  handlesBySubject: _handlesBySubject,
+  MAX_SESSIONS_PER_SUBJECT,
+  MAX_WORKBOOK_OPEN_BYTES,
+  WORKBOOK_ALLOWED_EXTENSIONS,
+  SESSION_IDLE_TTL_MS,
+  MAX_TOUCHED_CELLS,
+  MAX_WRITE_CELLS,
+  MAX_SAVES_PER_SESSION,
+  MAX_SAVED_BYTES_PER_SESSION,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

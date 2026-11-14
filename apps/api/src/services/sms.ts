@@ -19,8 +19,8 @@ import {
   CODE_RESEND_INTERVAL_MS,
 } from '../utils/code-store.js'
 import { tryConsumeWindows, refundWindows, type WindowSpec } from '../utils/window-counter.js'
-// G-192 同一判据的复用(2026-10-27 短信安全审计):sendSmsCode 原来只靠号码三档 + IP/设备
-// 二维,缺「手机号+IP」取码配额;auth.ts 的端点是直连 consumeSendQuota 的,两条路径必须同闸。
+// G-192 / F-287 同一判据的复用(2026-10-27 短信安全审计):sendSmsCode 原来只靠号码三档 + IP/设备
+// 二维,缺「标识 / IP」取码配额;auth.ts 的端点是直连 consumeSendQuota 的,两条路径必须同闸。
 import { consumeSendQuota, refundSendQuota } from '../utils/code-echo-guard.js'
 import { parsePositiveInt } from '../utils/positive-int.js'
 import { logger } from '../utils/logger.js'
@@ -247,17 +247,17 @@ export function smsCodeTtlMs(scene?: SmsScene): number {
 
 /** 发送短信验证码。`guard` 为 IP/设备维度防刷,拿不到调用方信息时可省略。
  *
- * 2026-10-27 安全审计加固:新增「手机号+IP」取码配额(与 auth.ts 端点同一道
- * consumeSendQuota 闸,5 次/10 分钟)。原来走本函数的公开端点(/public-api/auth-code、
+ * 2026-10-27 安全审计加固:新增「手机号」「IP」两把独立取码配额(与 auth.ts 端点同一道
+ * consumeSendQuota 闸,各 5 次/10 分钟)。原来走本函数的公开端点(/public-api/auth-code、
  * /auth/sms/code、/sms-proxy/send、change-phone 两端点)没有这道闸——同一 IP 可在
- * 号码三档的空隙里对**一批不同号码**各打满 20 次/小时;配上后换号轰炸也要过同一道闸。
+ * 号码三档的空隙里对**一批不同号码**各打满 20 次/小时;加上后换号轰炸也要过同一道闸。
  * 消费顺序与退款语义:quota 最先消费,任何一步失败都按"没发出去就没次数"逐层退还。 */
 export async function sendSmsCode(
   phone: string,
   scene?: SmsScene,
   guard?: SmsSendGuard,
 ): Promise<SendCodeResult> {
-  // ① 「手机号+IP」配额最先消费:它被拒时号码三档/IP档都还没动,直接拒,无需退款。
+  // ① 「手机号」「IP」两把配额最先消费:它们被拒时号码三档/IP档都还没动,直接拒,无需退款。
   //    拿不到 ip(单测/内网)时跳过,与 sendGuardSpecs 的宽容语义一致。
   if (guard?.ip) {
     const quota = await consumeSendQuota(phone, guard.ip)
@@ -311,7 +311,7 @@ export async function sendSmsCode(
  *  (routes/auth.ts 的 /send-code 与 /sms/send —— 它们还要把码交给回显闸,不能另生成一枚)。
  *
  * 2026-10-27 安全审计加固:补上号码三档硬顶(60s/1h 5/24h 20)。原来本函数只有 IP/设备
- * 二维档,而调用方的「手机号+IP」配额(echo:q:phone|ip)换 IP 即重置,同一号码的 24h 上限
+ * 二维档,而调用方的取码配额(echo:q:ip: / echo:q:id:)只覆盖 10 分钟窗口,同一号码的 24h 上限
  * 实际只剩 60 秒重发间隔在撑 —— 换 IP 轰炸同一手机号理论上限 1440 条/天(条条真实计费)。
  * 补齐后与 sendSmsCode 路径同一号码同一硬顶。 */
 export async function deliverSmsCode(

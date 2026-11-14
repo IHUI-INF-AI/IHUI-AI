@@ -60,9 +60,7 @@ vi.mock('../src/db/index.js', () => {
     const params = dialect.sqlToQuery(where as Parameters<PgDialect['sqlToQuery']>[0])
       .params as unknown[]
     return (
-      params.includes(row.filePath) &&
-      params.includes(row.repoId) &&
-      params.includes(row.ownerUuid)
+      params.includes(row.filePath) && params.includes(row.repoId) && params.includes(row.ownerUuid)
     )
   }
 
@@ -178,10 +176,7 @@ describe('indexChunks:删旧 + 插新同一事务(F-650)', () => {
     expect(state.insertCalls.map((c) => c.count)).toEqual([100, 50])
     // 回滚后仍是原来那两条旧切片,一条都不少,也没有新切片残留
     expect(state.tableRows).toHaveLength(2)
-    expect(state.tableRows.map((r) => r.content)).toEqual([
-      `old ${FILE_A}#0`,
-      `old ${FILE_A}#1`,
-    ])
+    expect(state.tableRows.map((r) => r.content)).toEqual([`old ${FILE_A}#0`, `old ${FILE_A}#1`])
   })
 
   it('embedding 失败:直接抛出且不触发任何删除', async () => {
@@ -204,9 +199,7 @@ describe('indexChunks:删旧 + 插新同一事务(F-650)', () => {
   })
 
   it('成功路径:250 条按 100 分批,统计与返回值不变', async () => {
-    const chunks = Array.from({ length: 250 }, (_, i) =>
-      chunk(i < 200 ? FILE_A : FILE_B, i),
-    )
+    const chunks = Array.from({ length: 250 }, (_, i) => chunk(i < 200 ? FILE_A : FILE_B, i))
 
     const result = await codebaseIndexService.indexChunks(REPO_ID, chunks, OWNER)
 

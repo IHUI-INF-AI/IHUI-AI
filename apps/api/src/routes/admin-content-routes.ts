@@ -76,6 +76,17 @@ const recommendBodySchema = z.object({
   sort: z.coerce.number().int().default(0),
 })
 
+/**
+ * F-430: systemConfigs.key 是全局唯一键,推荐位若直接用裸 name 作 key,
+ * 会与其他类目(含 mobile-adapter 的 'preview-mode')抢键:新建时撞唯一约束抛 500,
+ * 移动端 PUT mode 的 onConflictDoUpdate 还会覆盖推荐位的 value。
+ * 统一加类目前缀做命名空间隔离,新旧数据都能正确展示。
+ */
+const RECOMMEND_KEY_PREFIX = 'recommendation:'
+const recommendKey = (name: string): string => `${RECOMMEND_KEY_PREFIX}${name}`
+const recommendName = (key: string): string =>
+  key.startsWith(RECOMMEND_KEY_PREFIX) ? key.slice(RECOMMEND_KEY_PREFIX.length) : key
+
 function validate<S extends z.ZodTypeAny>(schema: S, input: unknown): z.infer<S> {
   const r = schema.safeParse(input)
   if (!r.success) {
@@ -494,7 +505,7 @@ export const adminContentOpsRoutes: FastifyPluginAsync = async (server) => {
       return {
         id: c.id,
         position: m.position,
-        name: c.key,
+        name: recommendName(c.key),
         contentType: m.contentType,
         sort: m.sort,
         isEnabled: m.isEnabled,
@@ -521,7 +532,7 @@ export const adminContentOpsRoutes: FastifyPluginAsync = async (server) => {
       success({
         id: c.id,
         position: m.position,
-        name: c.key,
+        name: recommendName(c.key),
         contentType: m.contentType,
         sort: m.sort,
         isEnabled: m.isEnabled,
@@ -532,10 +543,13 @@ export const adminContentOpsRoutes: FastifyPluginAsync = async (server) => {
   server.post('/recommendation-config', async (request, reply) => {
     assertCategoryConsistency(request.body, 'recommendation')
     const b = validate(recommendBodySchema, request.body)
+    const key = recommendKey(b.name)
+    // 唯一键冲突用 onConflictDoNothing + returning 判空原子转 409,
+    // 不再把全局唯一键冲突暴露成 500。
     const [row] = await db
       .insert(systemConfigs)
       .values({
-        key: b.name,
+        key,
         value: JSON.stringify({
           position: b.position,
           contentType: b.contentType,
@@ -545,10 +559,12 @@ export const adminContentOpsRoutes: FastifyPluginAsync = async (server) => {
         category: 'recommendation',
         type: 'json',
       })
+      .onConflictDoNothing()
       .returning()
+    if (!row) return reply.status(409).send(error(409, '推荐位名称已被占用'))
     return reply.status(201).send(
       success({
-        id: row?.id ?? '',
+        id: row.id,
         position: b.position,
         name: b.name,
         contentType: b.contentType,
@@ -568,10 +584,17 @@ export const adminContentOpsRoutes: FastifyPluginAsync = async (server) => {
       .where(and(eq(systemConfigs.id, id), eq(systemConfigs.category, 'recommendation')))
     if (!existing) return reply.status(404).send(error(404, '记录不存在'))
     const prev = parseJson<{ isEnabled: boolean }>(existing.value, { isEnabled: false })
+    const key = recommendKey(b.name)
+    const [dup] = await db
+      .select({ id: systemConfigs.id })
+      .from(systemConfigs)
+      .where(and(eq(systemConfigs.key, key), ne(systemConfigs.id, id)))
+      .limit(1)
+    if (dup) return reply.status(409).send(error(409, '推荐位名称已被占用'))
     await db
       .update(systemConfigs)
       .set({
-        key: b.name,
+        key,
         value: JSON.stringify({
           position: b.position,
           contentType: b.contentType,

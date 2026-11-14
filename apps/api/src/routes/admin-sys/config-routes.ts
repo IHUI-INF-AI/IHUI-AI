@@ -77,6 +77,11 @@ export const configRoutes: FastifyPluginAsync = async (s) => {
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
+    // F-435: sys_config.config_key 无唯一约束且新增不查重,同名 key 会重复落库,
+    // 读取端 limit(1) 命中随机。新增前显式查重并转 409。
+    if (await findConfigByKey(parsed.data.configKey)) {
+      return reply.status(409).send(error(409, '参数键已存在'))
+    }
     const config = await createConfig({ ...parsed.data, createBy: request.userId })
     return reply.send(success({ config }))
   })
@@ -90,6 +95,13 @@ export const configRoutes: FastifyPluginAsync = async (s) => {
     const { configId, ...data } = parsed.data
     if (!configId) {
       return reply.status(400).send(error(400, 'configId 不能为空'))
+    }
+    // F-435: 改名(key 变更)时同样查重,排除自身,避免撞已有 key。
+    if (data.configKey) {
+      const dup = await findConfigByKey(data.configKey)
+      if (dup && dup.configId !== configId) {
+        return reply.status(409).send(error(409, '参数键已存在'))
+      }
     }
     const config = await updateConfig(configId, { ...data, updateBy: request.userId })
     if (!config) {

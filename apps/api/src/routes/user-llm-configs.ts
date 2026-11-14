@@ -6,7 +6,6 @@ import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
 import { eq, and, desc, sql, asc } from 'drizzle-orm'
 import { db } from '../db/index.js'
-import { aiServiceSystemFetch } from '../utils/ai-service-fetch.js'
 import { aiModelConfig } from '@ihui/database'
 import { authenticate } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
@@ -81,11 +80,81 @@ interface TestResult {
   status: 'success' | 'failed'
   responseMs?: number
   error?: string
+  /** 配置缺失(非上游故障):路由层据此回 4xx,而不是把配置问题报成 502 */
+  code?: 'MISSING_API_KEY' | 'MISSING_BASE_URL' | 'MISSING_MODEL'
   modelEcho?: string
 }
 
+/** 连接上游测试的超时(与 llm-verify-key 的上游探测同档) */
+const CONNECTIVITY_TIMEOUT_MS = 10_000
+
+interface ConnectivityProbe {
+  url: string
+  headers: Record<string, string>
+  body: Record<string, unknown>
+}
+
+/** 上游 4xx/5xx → 用户可读原因(不回显响应体,避免把上游回显内容带到前端) */
+function describeUpstreamFailure(status: number): string {
+  switch (status) {
+    case 401:
+      return 'API Key 无效或已过期'
+    case 403:
+      return '权限不足,该 Key 无访问权限'
+    case 404:
+      return '端点不存在,请检查 Base URL 与模型 ID'
+    case 429:
+      return '请求过于频繁,请稍后再试'
+    default:
+      return `上游服务异常 (HTTP ${status})`
+  }
+}
+
 /**
- * 测试连通性:向 ai-service 发起一次最小对话,记录耗时。
+ * F-186:连通性测试必须用**用户自己的** apiKey/baseUrl 直连上游,不得再借 ai-service
+ * 的系统身份打平台 Key(否则填错 Key 也会显示"连通成功",且每次测试消耗平台额度)。
+ */
+function buildConnectivityProbe(params: {
+  baseUrl: string
+  apiKey: string
+  apiFormat: string | null
+  modelId: string
+}): ConnectivityProbe {
+  const base = params.baseUrl.replace(/\/+$/, '')
+  if (params.apiFormat === 'anthropic_messages') {
+    return {
+      url: `${base}/v1/messages`,
+      headers: {
+        'content-type': 'application/json',
+        'x-api-key': params.apiKey,
+        'anthropic-version': '2023-06-01',
+      },
+      body: { model: params.modelId, max_tokens: 1, messages: [{ role: 'user', content: 'ping' }] },
+    }
+  }
+  if (params.apiFormat === 'openai_responses') {
+    return {
+      url: `${base}/responses`,
+      headers: {
+        'content-type': 'application/json',
+        authorization: `Bearer ${params.apiKey}`,
+      },
+      body: { model: params.modelId, max_output_tokens: 16, input: 'ping' },
+    }
+  }
+  return {
+    url: `${base}/chat/completions`,
+    headers: {
+      'content-type': 'application/json',
+      authorization: `Bearer ${params.apiKey}`,
+    },
+    body: { model: params.modelId, max_tokens: 1, messages: [{ role: 'user', content: 'ping' }] },
+  }
+}
+
+/**
+ * 测试连通性:用该配置自己的 Key/BaseUrl 向上游发一次最小对话,记录耗时。
+ * 用户未配置 Key/BaseUrl/测试模型时返回明确 code(路由层回 400),绝不回落到系统身份。
  * 失败原因写入 last_test_error 便于 UI 提示。
  */
 async function testConnectivity(row: {
@@ -100,47 +169,63 @@ async function testConnectivity(row: {
 }): Promise<TestResult> {
   const apiKey = await getApiKey(row)
   if (!apiKey) {
-    return { ok: false, status: 'failed', error: 'API Key 未配置或解密失败' }
+    return {
+      ok: false,
+      status: 'failed',
+      code: 'MISSING_API_KEY',
+      error: 'API Key 未配置或解密失败,无法使用该配置做连通性测试',
+    }
+  }
+  if (!row.baseUrl) {
+    return { ok: false, status: 'failed', code: 'MISSING_BASE_URL', error: 'Base URL 未配置' }
+  }
+  const modelId = row.modelIdForTest || TEMPLATE_MAP[row.providerCode]?.defaultModelId || ''
+  if (!modelId) {
+    return {
+      ok: false,
+      status: 'failed',
+      code: 'MISSING_MODEL',
+      error: '未指定测试模型 ID,无法进行连通性测试',
+    }
   }
   const start = Date.now()
   try {
-    const resp = await aiServiceSystemFetch('/api/llm/complete', {
+    const probe = buildConnectivityProbe({
+      baseUrl: row.baseUrl,
+      apiKey,
+      apiFormat: row.apiFormat,
+      modelId,
+    })
+    const resp = await safeFetch(probe.url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        messages: [
-          {
-            role: 'user',
-            content: 'Hello, this is a connectivity test. Reply with "OK".',
-          },
-        ],
-        model:
-          row.modelIdForTest && row.providerCode
-            ? `${row.providerCode}/${row.modelIdForTest}`
-            : row.modelIdForTest || `${row.providerCode}/test`,
-        metadata: { configId: row.id, testOnly: true, userId: row.ownerUuid },
-      }),
+      headers: probe.headers,
+      body: JSON.stringify(probe.body),
+      signal: AbortSignal.timeout(CONNECTIVITY_TIMEOUT_MS),
     })
     const elapsed = Date.now() - start
-    const json = (await resp.json().catch(() => ({}))) as Record<string, unknown>
-
-    if (!resp.ok || json.error) {
-      const msg = String(json.error_message || json.message || `HTTP ${resp.status}`)
-      return { ok: false, status: 'failed', responseMs: elapsed, error: msg }
+    if (!resp.ok) {
+      return {
+        ok: false,
+        status: 'failed',
+        responseMs: elapsed,
+        error: describeUpstreamFailure(resp.status),
+      }
     }
-
+    const json = (await resp.json().catch(() => ({}))) as Record<string, unknown>
     return {
       ok: true,
       status: 'success',
       responseMs: elapsed,
-      modelEcho: String(json.model ?? ''),
+      modelEcho: String(json.model ?? modelId),
     }
   } catch (e) {
+    const err = e as Error
+    const timedOut = err.name === 'AbortError' || err.name === 'TimeoutError'
     return {
       ok: false,
       status: 'failed',
       responseMs: Date.now() - start,
-      error: (e as Error).message,
+      error: timedOut ? '连通测试超时,请检查 Base URL 或网络' : err.message,
     }
   }
 }
@@ -437,6 +522,10 @@ export const userLlmConfigRoutes: FastifyPluginAsync = async (server) => {
       .where(eq(aiModelConfig.id, p.data.id))
 
     if (!result.ok) {
+      // F-186:配置缺失是调用方问题(4xx),不得混成上游故障 502
+      if (result.code) {
+        return reply.status(400).send(error(400, result.error ?? '配置不完整,无法测试连通性'))
+      }
       return reply
         .status(502)
         .send(
@@ -498,46 +587,49 @@ export const userLlmConfigRoutes: FastifyPluginAsync = async (server) => {
     const parsed = previewTestSchema.safeParse(request.body)
     if (!parsed.success)
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    const { templateCode, modelId, baseUrlOverride } = parsed.data
+    const { templateCode, apiKey, modelId, baseUrlOverride } = parsed.data
     const tpl = resolveTemplate(templateCode)
     const baseUrl = baseUrlOverride || tpl.baseUrl
     if (!baseUrl) return reply.status(400).send(error(400, 'Base URL 未配置'))
 
+    const probe = buildConnectivityProbe({
+      baseUrl,
+      apiKey,
+      apiFormat: tpl.apiFormat,
+      modelId: modelId || tpl.defaultModelId,
+    })
     const start = Date.now()
     try {
-      const resp = await aiServiceSystemFetch('/api/llm/complete', {
+      const resp = await safeFetch(probe.url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          messages: [
-            { role: 'user', content: 'Hello, this is a connectivity test. Reply with "OK".' },
-          ],
-          model: modelId || `${tpl.code}/test`,
-          metadata: { testOnly: true, userId: request.userId },
-        }),
+        headers: probe.headers,
+        body: JSON.stringify(probe.body),
+        signal: AbortSignal.timeout(CONNECTIVITY_TIMEOUT_MS),
       })
       const elapsed = Date.now() - start
-      const json = (await resp.json().catch(() => ({}))) as Record<string, unknown>
-      if (!resp.ok || json.error) {
+      if (!resp.ok) {
         return reply
           .status(502)
           .send(
-            error(
-              502,
-              `连通失败: ${String(json.error_message || json.message || `HTTP ${resp.status}`)} (${elapsed}ms)`,
-            ),
+            error(502, `连通失败: ${describeUpstreamFailure(resp.status)} (${elapsed}ms)`),
           )
       }
+      const json = (await resp.json().catch(() => ({}))) as Record<string, unknown>
+      const modelEcho = String(json.model ?? modelId)
       return reply.send(
         success({
           status: 'success',
           responseMs: elapsed,
-          modelEcho: String(json.model ?? modelId),
-          message: `连通成功 (${elapsed}ms) · ${json.model ?? modelId}`,
+          modelEcho,
+          message: `连通成功 (${elapsed}ms) · ${modelEcho}`,
         }),
       )
     } catch (e) {
-      return reply.status(502).send(error(502, `连通失败: ${(e as Error).message}`))
+      const err = e as Error
+      const timedOut = err.name === 'AbortError' || err.name === 'TimeoutError'
+      return reply
+        .status(502)
+        .send(error(502, `连通失败: ${timedOut ? '连通测试超时,请检查 Base URL 或网络' : err.message}`))
     }
   })
 }

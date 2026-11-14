@@ -232,6 +232,9 @@ export interface ChatExecuteOptions {
 export interface AdapterCallOptions {
   proxyUrl?: string | null
   fetchImpl?: typeof fetch
+  /** 调用方取消信号(2026-11-13 类型契约补齐):relay-live-probe 与 trae-adapter
+   *  已在透传该字段,此前接口未登记导致全量 typecheck 报 TS2339/TS2353。 */
+  signal?: AbortSignal
 }
 
 /** executeChat 的返回:流式 = OpenAI chunk 异步序列;非流式 = 完整 completion */

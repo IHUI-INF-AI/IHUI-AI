@@ -5,17 +5,14 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { success, error } from '../utils/response.js'
-// G-165:助手消息权限档盖章(会话 → 工作区 → workspace_permissions,全部服务端自取)
+// G-165:助手消息权限档盖章 —— 只读流式入口在**绑定时刻**落下的服务端事实(F-300),
+// 不再在回调时刻查档位、也不读会话级 workspacePath。
 import { findConversationById } from '../db/chat-queries.js'
 import {
   authorizeInternalSecretCall,
   ticketSubjectAllows,
 } from '../plugins/internal-secret-auth.js'
-import { getPermission } from '../db/workspace-permission-queries.js'
-import {
-  permissionStamp,
-  workspacePathOfConversationMeta,
-} from '../services/message-permission-stamp.js'
+import { permissionStamp, readMessagePermissionStamp } from '../services/message-permission-stamp.js'
 
 /**
  * AI 回调端点。
@@ -332,18 +329,15 @@ const aiCallbackPlugin: FastifyPluginAsync = async (server) => {
               }
             | undefined
           const tokens = usageObj?.total_tokens
-          // G-165:给助手消息盖**服务端自己的**权限档记录。
-          // 只认 workspace_permissions 表(经会话 metadata 里的 workspacePath 反查),
-          // 不接受客户端自报 —— 自报等于让调用方给审计记录贴金("我当时在只读档")。
-          // 取不到工作区/档位不可识别 → 不写 key(与"确实处于 default 档"是两回事)。
+          // F-300:给助手消息盖**绑定时刻落下的**权限档事实,按 messageId 取。
+          // 回调请求体里的任何 workspacePath / permissionMode 都不参与 —— 客户端
+          // 伪造路径拿不到更宽的徽章;取不到本 messageId 的章 → 不写 key(与"确实
+          // 处于 default 档"是两回事)。
           let permissionMeta: Record<string, string> = {}
           try {
             const conv = await findConversationById(conversationId)
-            const wsPath = workspacePathOfConversationMeta(conv?.metadata)
-            if (wsPath) {
-              const perm = await getPermission(userId, wsPath)
-              permissionMeta = permissionStamp(perm?.mode)
-            }
+            const stamp = readMessagePermissionStamp(conv?.metadata, messageId)
+            permissionMeta = permissionStamp(stamp?.mode)
           } catch (e) {
             request.log.warn(
               { err: e instanceof Error ? e.message : String(e), conversationId },

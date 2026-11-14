@@ -12,6 +12,7 @@ import {
   timestamp,
   jsonb,
   index,
+  uniqueIndex,
 } from 'drizzle-orm/pg-core'
 import { users } from './users.js'
 
@@ -34,6 +35,19 @@ export const notifications = pgTable(
     // D195 隐藏=归档而非删除:null = 在动态流里,有值 = 已归档(值为归档时刻)。
     // 用可空时间戳而不是布尔,是因为"什么时候收走的"要在已归档分区回显,而布尔表达不了这一维。
     archivedAt: timestamp('archived_at', { withTimezone: true }),
+    /**
+     * F-512:投递幂等键(队列 job 身份,如 `job:123`)。队列是至少一次语义,
+     * 同一条 job 重投时靠 (user_id, idempotency_key) 唯一索引挡住重复落库。
+     * NULL = 该通知不经队列投递(同步直写路径),唯一索引对 NULL 不去重(Postgres 语义)。
+     */
+    idempotencyKey: varchar('idempotency_key', { length: 128 }),
+    /**
+     * F-512:邮件出口的"投递占位/完成"两戳。
+     * 先 CAS 抢占 claimed_at 再发信(跨实例只有一个能发),发成功后写 sent_at;
+     * sent_at 非空即"已送达",重投只补站内信不补邮件。
+     */
+    emailClaimedAt: timestamp('email_claimed_at', { withTimezone: true }),
+    emailSentAt: timestamp('email_sent_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => ({
@@ -42,6 +56,8 @@ export const notifications = pgTable(
     userCreatedIdx: index('notifications_user_created_idx').on(t.userId, t.createdAt),
     // D195:两个分区各自按时间翻页,归档判据是 where 的第一维,不建索引就是每次全表扫。
     userArchivedIdx: index('notifications_user_archived_idx').on(t.userId, t.archivedAt),
+    // F-512:队列重投的幂等锚点 —— 同一用户同一 job 只会有一行(ON CONFLICT DO NOTHING 的落点)。
+    userIdemUq: uniqueIndex('notifications_user_idem_uq').on(t.userId, t.idempotencyKey),
   }),
 )
 

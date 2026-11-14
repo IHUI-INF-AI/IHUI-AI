@@ -158,7 +158,10 @@ async function main() {
         const exitLine = /部署轮询结束\(exit=(\d+)\)/.exec(line)
         if (exitLine && !result) {
           const rc = Number(exitLine[1])
-          result = rc === 0 ? { ok: true, sha: null } : { ok: false, reason: `部署轮询 exit=${rc}` }
+          // DG-13:exit=3 = 健康门禁未过已回滚(旧版本仍在线)—— 是失败轮,不许读成成功。
+          const why =
+            rc === 3 ? '健康门禁未过,已自动回滚到上一可用包(旧版本在线)' : `部署轮询 exit=${rc}`
+          result = rc === 0 ? { ok: true, sha: null } : { ok: false, reason: why }
         }
       }
       if (result) break
