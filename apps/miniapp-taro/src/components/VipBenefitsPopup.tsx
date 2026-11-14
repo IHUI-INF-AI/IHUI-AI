@@ -323,17 +323,16 @@ export default function VipBenefitsPopup({
         <View
           className="relative vip-surface rounded-t-2xl w-full"
           onClick={(e) => e.stopPropagation()}
-          hoverClass="opacity-60"
         >
           <View className="flex items-center justify-between px-lg py-md">
             <Text className="text-title font-medium text-warning">
               {tt('vip.benefitsTitle', '会员权益')}
             </Text>
-            <Text className="text-body vip-text-muted" onClick={onClose}>
-              {tt('common.close', '关闭')}
-            </Text>
+            <View className="text-body vip-text-muted" hoverClass="opacity-60" onClick={onClose}>
+              <Text>{tt('common.close', '关闭')}</Text>
+            </View>
           </View>
-          <ScrollView scrollY className="" style={{ maxHeight: '50vh' }}>
+          <ScrollView scrollY className="" style={{ height: '50vh', maxHeight: '50vh' }}>
             <View className="px-lg py-sm">
               {list.map((b) => (
                 <View key={b.id} className="flex items-start py-md mb-sm">
@@ -414,7 +413,6 @@ export default function VipBenefitsPopup({
             '0 5px 15px var(--color-black-20), inset 0 -1px 2px var(--color-white-70), inset 0 1px 1px var(--color-white-70)',
         }}
         onClick={(e) => e.stopPropagation()}
-        hoverClass="opacity-60"
       >
         <View
           className="w-full h-full flex flex-col relative"
@@ -548,7 +546,6 @@ export default function VipBenefitsPopup({
                 boxShadow: '0px 6px 12px 0px var(--color-black-15)',
               }}
               onClick={(e) => e.stopPropagation()}
-              hoverClass="opacity-60"
             >
               <View className="flex flex-col items-center">
                 {/* 服务弹窗内容:名片 + 二维码(取 @/constants/remote-icons 注册表,见文件头 mingpianImg/erweimaImg) */}

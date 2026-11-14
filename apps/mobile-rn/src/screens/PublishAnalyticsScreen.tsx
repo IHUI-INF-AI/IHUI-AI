@@ -284,7 +284,7 @@ function makeStyles() {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tokens.surface.bg },
     body: { padding: rnSpacing.md, gap: rnSpacing['sm-loose'], paddingBottom: rnSpacing['3xl'] },
-    subtitle: { fontSize: rnType.label.size, color: tokens.text.tertiary },
+    subtitle: { fontSize: rnType.label.size, color: tokens.text.medium },
     chipRow: { flexDirection: 'row', gap: rnSpacing.sm },
     chip: {
       paddingHorizontal: rnSpacing.md,
@@ -307,10 +307,10 @@ function makeStyles() {
     muted: { fontSize: rnType.bodySm.size, color: tokens.text.secondary },
     hint: {
       fontSize: rnType.caption.size,
-      color: tokens.text.tertiary,
+      color: tokens.text.medium,
       lineHeight: rnType.label.lineHeight,
     },
-    errorText: { fontSize: rnType.bodySm.size, color: tokens.danger.DEFAULT },
+    errorText: { fontSize: rnType.bodySm.size, color: tokens.danger.deepText },
     retry: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tokens.text.primary },
     statGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: rnSpacing.sm },
     statCard: {
@@ -324,7 +324,7 @@ function makeStyles() {
       gap: rnSpacing.xs,
     },
     statValue: { fontSize: rnType.heading.size, fontWeight: '700', color: tokens.text.primary },
-    statLabel: { fontSize: rnType.caption.size, color: tokens.text.tertiary },
+    statLabel: { fontSize: rnType.caption.size, color: tokens.text.medium },
     card: {
       padding: rnSpacing.md,
       borderRadius: rnRadius.lg,
@@ -370,12 +370,12 @@ function makeStyles() {
     },
     accountMain: { flex: 1, gap: rnSpacing['2xs'] },
     accountName: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tokens.text.primary },
-    meta: { fontSize: rnType.caption.size, color: tokens.text.tertiary },
+    meta: { fontSize: rnType.caption.size, color: tokens.text.medium },
     accountRight: { alignItems: 'flex-end', gap: rnSpacing['2xs'] },
     rate: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tokens.text.primary },
     risk: { fontSize: rnType.badge.size },
     riskSafe: { color: tokens.success.deep },
-    riskWarn: { color: tokens.danger.DEFAULT },
+    riskWarn: { color: tokens.danger.deepText },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

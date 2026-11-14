@@ -335,7 +335,7 @@ const styles = StyleSheet.create({
     marginLeft: VOICE_INPUT_RECORD_ROW_GAP_PX,
     // 与小程序 text-sm(14)同档
     fontSize: rnType.body.size,
-    color: tokens.danger.DEFAULT,
+    color: tokens.danger.deepText,
   } as TextStyle,
   transcribingText: {
     fontSize: rnType.body.size,

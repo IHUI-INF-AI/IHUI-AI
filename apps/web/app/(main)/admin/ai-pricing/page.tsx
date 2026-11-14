@@ -239,7 +239,7 @@ export default function AdminAiPricingPage() {
           {/* 定价管控台入口(2026-11-13):本页是逐条维护价目,管控台负责"问题模型总览 + 巡检 + 审计" */}
           <Link
             href="/admin/model-pricing-console"
-            className="inline-flex items-center gap-1 rounded-md border px-3 py-1.5 text-xs hover:bg-muted"
+            className="font-[weight:inherit] inline-flex items-center gap-1 rounded-md border px-3 py-1.5 text-label hover:bg-muted"
           >
             <ShieldAlert className="h-3 w-3" /> 定价管控台
           </Link>

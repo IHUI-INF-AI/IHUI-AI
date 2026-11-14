@@ -13,7 +13,7 @@
  *    - 200 = healthy, 401/403 = down（key 失效）, 429 = degraded（限流）, 超时/网络错误 = degraded
  * 4. 自动禁用：连续 3 次巡检 health_status='down' → is_enabled=false（熔断）
  */
-import { eq, and, asc, sql } from 'drizzle-orm'
+import { eq, and, asc } from 'drizzle-orm'
 import { db, dbRead } from '../db/index.js'
 import { aiRelayKeyPool, aiModelConfig } from '@ihui/database'
 import { decryptJSON, type EncryptedPayload } from '../utils/crypto.js'
@@ -62,17 +62,6 @@ function readExtraMetadata(raw: unknown): Record<string, unknown> {
     return {}
   }
   return raw as Record<string, unknown>
-}
-
-/**
- * 健康检查专属字段的合并补丁（F-513）。
- *
- * 只写 consecutiveFailures：`extra_metadata || patch` 在行级原子合并，不会整列回写，
- * 因此巡检期间管理员改的 baseUrl / manualDisabled 等并发字段不会被快照覆盖。
- */
-function consecutiveFailuresPatch(value: number) {
-  const patch = JSON.stringify({ [CF_KEY]: value })
-  return sql`coalesce(${aiRelayKeyPool.extraMetadata}, '{}'::jsonb) || ${patch}::jsonb`
 }
 
 /** 从 extra_metadata 读取连续失败次数。 */
@@ -225,7 +214,7 @@ async function persistResult(row: KeyRowForCheck, result: HealthCheckResult): Pr
       healthStatus: result.status,
       healthCheckedAt: new Date(),
       lastErrorMessage: result.errorMessage ?? null,
-      extraMetadata: consecutiveFailuresPatch(newFailures),
+      extraMetadata: { ...meta, [CF_KEY]: newFailures },
       ...(shouldDisable ? { isEnabled: false } : {}),
       updatedAt: new Date(),
     })
@@ -290,6 +279,7 @@ async function recoverDisabledKeys(): Promise<number> {
     try {
       const result = await runHealthCheck(row)
       if (result.status === 'healthy') {
+        const meta = readExtraMetadata(row.extraMetadata)
         await db
           .update(aiRelayKeyPool)
           .set({
@@ -297,7 +287,7 @@ async function recoverDisabledKeys(): Promise<number> {
             healthStatus: 'healthy',
             healthCheckedAt: new Date(),
             lastErrorMessage: null,
-            extraMetadata: consecutiveFailuresPatch(0),
+            extraMetadata: { ...meta, [CF_KEY]: 0 },
             updatedAt: new Date(),
           })
           .where(eq(aiRelayKeyPool.id, row.id))

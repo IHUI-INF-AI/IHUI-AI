@@ -1080,14 +1080,7 @@ const SANDBOX_FILE_TOOL_BINARIES = new Set<string>([
  * `./` 前缀的相对路径会被 looksLikePath 跳过。这里改为:除开关项
  * (以 `-` 开头)外,每个参数都按 cwd 相对/绝对路径收敛校验。
  */
-const SANDBOX_OPERAND_ONLY_PATH_BINARIES = new Set<string>([
-  'ls',
-  'dir',
-  'wc',
-  'stat',
-  'test',
-  '[',
-])
+const SANDBOX_OPERAND_ONLY_PATH_BINARIES = new Set<string>(['ls', 'dir', 'wc', 'stat', 'test', '['])
 
 const SANDBOX_BINARY_WHITELIST = new Set<string>([
   'node',

@@ -143,7 +143,7 @@ export function ProfileScreen({
                       {item.value}
                     </Text>
                   ) : null}
-                  <ChevronRight size={Math.round(16 * fontMultiplier)} color={tk.text.tertiary} />
+                  <ChevronRight size={Math.round(16 * fontMultiplier)} color={tk.text.secondary} />
                 </TouchableOpacity>
               ))}
             </View>
@@ -214,7 +214,7 @@ function realnameBadgeTone(tk: AppThemeTokens, status: RealnameStatus) {
   }
   return {
     container: { backgroundColor: tk.surface.muted },
-    text: { color: tk.text.tertiary },
+    text: { color: tk.text.medium },
   }
 }
 

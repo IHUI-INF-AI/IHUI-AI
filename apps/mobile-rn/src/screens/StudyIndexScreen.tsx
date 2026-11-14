@@ -200,6 +200,17 @@ export function StudyIndexScreen() {
         onCategoryChange={setActiveCategory}
         onViewMoreModels={() => setPageType('model')}
         onViewMoreCourses={() => setPageType('study')}
+        // 视频卡片点击(2026-11-14 接通):共享屏此前没消费这个回调,整片卡片点不动。
+        // 列表接口(/study/videos)回带 courseId + 小节 id,正好对上 VideoPlayer 的
+        // { courseId, lessonId }(播放器要靠 courseId 拉课程/章节,拿不到就会是空页)。
+        onVideoClick={(item) => {
+          if (item.courseId === undefined || item.courseId === null || item.courseId === '') return
+          navigation.navigate('VideoPlayer', {
+            courseId: String(item.courseId),
+            lessonId: String(item.id),
+            title: item.title,
+          })
+        }}
         retryText="重试"
         emptyText="暂无学习视频"
         noMoreText="没有更多了"

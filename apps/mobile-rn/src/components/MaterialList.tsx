@@ -385,7 +385,7 @@ const styles = StyleSheet.create({
     flexShrink: 0,
     marginLeft: rnSpacing['xs-loose'],
     fontSize: rnType.caption.size,
-    color: tokens.text.tertiary,
+    color: tokens.text.medium,
   },
   detailBtn: {
     marginLeft: rnSpacing.sm,
@@ -397,7 +397,7 @@ const styles = StyleSheet.create({
   detailBtnText: {
     fontSize: rnType.caption.size,
     fontWeight: '500',
-    color: tokens.text.tertiary,
+    color: tokens.text.medium,
   },
   rowPreview: {
     marginTop: 3,
@@ -422,7 +422,7 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: rnType.body.size,
-    color: tokens.text.tertiary,
+    color: tokens.text.medium,
   },
   footer: {
     paddingVertical: rnSpacing['sm-loose'],
@@ -435,7 +435,7 @@ const styles = StyleSheet.create({
   noMore: {
     textAlign: 'center',
     fontSize: rnType.bodySm.size,
-    color: tokens.text.tertiary,
+    color: tokens.text.medium,
   },
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

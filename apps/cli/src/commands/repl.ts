@@ -183,6 +183,13 @@ import {
 } from './branch-generation.js';
 
 import { FALLBACK_MODELS as SHARED_FALLBACK_MODELS } from '@ihui/shared';
+// 差距① 第 ① 腿:准入回执的稳定输入 ID —— 生成的唯一实现在共享层,端内不造第二源。
+import { createInputId } from '@ihui/shared/chat/send-admission';
+// 2026-11-13:AI 主动提问闭环 —— 传输走 api-client(取 stream 基址 + token),判据走共享层。
+import { postQuestionAnswerResponse } from '@ihui/api-client';
+import { interpretQuestionResponse } from '@ihui/shared/chat/question-response';
+// 截断判据:唯一实现 = 共享层 finish-reason,端内不复制"哪些 finishReason 算截断"。
+import { isMaxTokensTruncatedFinishReason } from '@ihui/shared/utils/finish-reason';
 import {
   MODEL_CATEGORY_META,
   isArchivedModel,
@@ -899,6 +906,47 @@ export async function startREPL(opts: ReplOptions): Promise<void> {
     completer: (line: string) => slashCompleter(line),
   });
 
+  /**
+   * 待回答的 AI 提问(2026-11-13 立)。
+   *
+   * CLI 是单线程交互:流式输出与 stdin 同时活着。这里用"有值 = 正在等答案"做状态位,
+   * 让 `rl.on('line')` 把输入路由到答复而不是插话缓冲区(见那里的分支注释)。
+   */
+
+  /**
+   * 提交提问答复。判据来自共享层 `interpretQuestionResponse`(端内不复制三档归宿):
+   *  - blocking:服务端认下 ⇒ 卡片关掉,流自动续跑(不能再起一轮)
+   *  - legacy(404/旧服务端):回退旧链路 —— CLI 的做法是提示用户重述,不擅自发消息,
+   *    因为 CLI 一轮的上下文由 runToolLoop 持有,凭空 sendToAgent 会开新回合。
+   *  - failed:如实打一行,卡片保留让用户重打。
+   */
+  const resolveQuestion = async (
+    q: PendingQuestionForCli,
+    resp: { action: 'answer' | 'withdraw'; selectedOptionIds: string[]; customText?: string },
+  ): Promise<void> => {
+    const sid = state.session?.id ?? state.opts.sessionId
+    if (!sid) {
+      state.statusLine.noteLine(t('cli.questionNoSession'))
+      return
+    }
+    // 传输走包内封装(取 stream 基址 + token + 读 body),判据走共享层三档归宿。
+    // 端内不拼 URL、不写认证头、不判 status —— 三件事各自都已有一份真相源。
+    const r = await postQuestionAnswerResponse(sid, {
+      questionId: q.questionId,
+      action: resp.action,
+      selectedOptionIds: resp.selectedOptionIds,
+      ...(resp.customText ? { customText: resp.customText } : {}),
+    })
+    if (r.networkError !== undefined) {
+      state.statusLine.noteLine(t('cli.questionFailed'))
+      return
+    }
+    const outcome = interpretQuestionResponse(r.httpStatus, r.data)
+    if (outcome.kind === 'failed') state.statusLine.noteLine(t('cli.questionFailed'))
+    else if (outcome.kind === 'legacy') state.statusLine.noteLine(t('cli.questionLegacy'))
+    // blocking:服务端认下,流会自己续跑 —— 不再起新一轮,也不额外打行
+  }
+
   const startResult = await runSessionStartHooks(hooksConfig, sessionHookCtx);
   if (!startResult.proceed) {
     console.error(chalk.red(`\n❌ 会话启动被钩子阻断: ${startResult.reason ?? '未知'}`));
@@ -927,6 +975,23 @@ export async function startREPL(opts: ReplOptions): Promise<void> {
     if (!input) {
       rl.prompt();
       return;
+    }
+    // 2026-11-13(提问卡):AI 主动提问时,输入的**不是**插话而是答案。
+    // 必须排在 interjection 分支之前 —— 否则用户在提问卡等着的时候打字,
+    // 会被当成"插话"塞进 buffer,而那条流仍在等 question-response,永远等不到。
+    if (pendingQuestionRef.current) {
+      const q = pendingQuestionRef.current
+      pendingQuestionRef.current = null
+      const answer = input.trim()
+      if (answer) {
+        state.statusLine.noteLine(t('cli.questionAnswered', { answer }))
+        void resolveQuestion(q, { action: 'answer', selectedOptionIds: [], customText: answer })
+      } else {
+        // 空行 = 关闭该提问(等价于撤回),与服务端 withdrawn 语义一致
+        void resolveQuestion(q, { action: 'withdraw', selectedOptionIds: [] })
+      }
+      rl.prompt()
+      return
     }
     // P0-2 Interject:agent 运行中,非斜杠输入进入 buffer(不取消当前回合)
     // 斜杠命令仍立即执行(如 /exit /clear 等紧急命令不能等 agent 完成)
@@ -1061,6 +1126,30 @@ function printBackgroundLedger(liveIds: readonly string[]): void {
  * 斜杠命令装载器(唯一分发口)。导出理由:装车证明必须从**分发路径**打进去,
  * 只测被调函数等于没证明"这条命令真会走到那一格"(AGENTS §0.9)。
  */
+/**
+ * CLI 侧的提问视图(2026-11-13 立)。
+ *
+ * 字段与 `@ihui/api-client` 的 onQuestion 载荷同形;端内只投影出**渲染需要**的那几个,
+ * 不是重新定义契约(契约在共享 sse-parse 与 api-client)。
+ */
+interface PendingQuestionForCli {
+  questionId: string;
+  prompt: string;
+  options: Array<{ id: string; label: string }>;
+  allowCustom: boolean;
+  allowMultiple: boolean;
+}
+
+/**
+ * 模块级待答提问槽(2026-11-13)。
+ *
+ * 为什么必须在模块级:`onQuestion` 回调住在 `sendToAgent`(流消费侧),
+ * 而输入的读取口在 `startRepl` 的 `rl.on('line')` —— 跨函数作用域。
+ * 单 REPL 进程同时只有一条活跃流,所以一个模块级槽是正确抽象;
+ * 若将来支持多会话并发,这里要改成按 sessionId 键的表。
+ */
+const pendingQuestionRef: { current: PendingQuestionForCli | null } = { current: null }
+
 export async function handleSlashCommand(input: string, state: ReplState, rl: readline.Interface): Promise<void> {
   const [cmdRaw, ...args] = input.slice(1).split(/\s+/);
   const cmd = cmdRaw ?? '';
@@ -2868,6 +2957,11 @@ async function sendToAgent(prompt: string, state: ReplState, depth = 0): Promise
     let currentToolArgs: Record<string, unknown> = {};
     // 当前工具运行中的 spinner(每个工具独立)
     let currentToolSpinner: Spinner | null = null;
+    // 差距①(2026-11-13):本轮发送的稳定输入 ID(共享 createInputId 生成,端内不造第二源)。
+    // 一次用户提交只生成一次 —— 重连重发沿用同值,否则服务端会把它当成"另一条发送"。
+    const cliRoundInputId = createInputId();
+    /** 本轮若排过队,记下 queuedTurnId;晋升(accepted)时据此补一行"已开始执行" */
+    let cliQueuedTurnId: string | null = null;
     // D113(2026-09-27)流中 diff 预览:本端工具在进程内执行,服务端 tool-delta 帧
     // 永不到达 CLI,故预览由 `runToolLoop` 在执行前本地派生(agent.ts 的发帧点紧跟
     // onToolCall、同一轮次内同步完成)。状态语义与 web/RN/小程序同形:
@@ -2913,6 +3007,110 @@ async function sendToAgent(prompt: string, state: ReplState, depth = 0): Promise
       // 只是让用户在终端里也知道"今天快用完了"。此前该端 0 命中 —— 换 key 退避与注入都能看见,
       // 唯独额度看不见,而 CLI 用户恰恰是最容易撞上日限额的一类。
       onBudget: (event) => state.statusLine.noteLine(budgetNoteText(event)),
+      // 2026-11-13:上下文自动压缩交代。此前本端对该帧 0 命中 —— 用户只会觉得
+      // "回答到一半上下文突然短了",而服务端明明在 88% 阈值处压缩并告知了。
+      // 出口复用 noteLine(与 onBudget / onRetryScheduled 同一族),不新立 UI。
+      // 2026-11-13:子代理活动流水三帧。此前本端 0 命中 —— 派发子代理时终端一片安静,
+      // 用户不知道"它在并行干活"。CLI 无卡片宿主,故每帧打一行(与 onBudget 同一出口)。
+      // 2026-11-13:终端任务开始。本端此前只接 onTerminalDelta(拿输出),没接 start ——
+      // 用户看到输出却不知道是哪条命令、什么时候开始的。一行交代即可,出口同 noteLine。
+      // 2026-11-13:模型降级交代。换备用模型时若不交代,用户会发现"回答风格变了"
+      // 却找不到原因 —— 与 onRetryScheduled 同族(都是发生了但用户看不见的事)。
+      // 2026-11-13:工具汇总与委派。汇总让用户知道"这一轮调了多少次工具"(此前零交代);
+      // 委派让用户知道"工具被交给别处执行了"(否则只会看到结果却不知谁干的)。
+      // 出口同 noteLine 家族,不新立 UI —— CLI 本身就是终端。
+      // 2026-11-13:截断交代。判据走共享助手(端内不复制"哪些值算截断"的判据)。
+      onFinishReason: (event) => {
+        if (isMaxTokensTruncatedFinishReason(event.finishReason)) {
+          state.statusLine.noteLine(t('chat.truncation.maxLengthNotice'))
+        }
+      },
+      onToolSummary: (event) =>
+        state.statusLine.noteLine(t('ai.stream.toolSummary', { calls: event.totalCalls })),
+      onToolDelegate: (event) =>
+        state.statusLine.noteLine(`${event.tool_name} → ${event.session_id}`),
+      onFallback: (event) =>
+        state.statusLine.noteLine(t('ai.stream.fallback', { model: event.backupModel })),
+      // 2026-11-13:终端任务结束。本端已接 start(哪条命令开始)与 delta(输出),
+      // 唯独缺 end —— 用户看到一堆输出却不知道命令**跑完没有**、成功还是失败。
+      // 这是同一族三帧里最该有的收尾交代,出口同 noteLine。
+      // 2026-11-13:AI 主动提问(阻塞式)。后端流挂着等答复,不答则等到 timeout。
+      // 本端把待答项挂进 pendingQuestionRef,rl.on('line') 据此把输入路由成**答案**
+      // 而不是插话(见那里的分支注释 —— 排在 interjection 之前是必须的)。
+      onQuestion: (q) => {
+        const view: PendingQuestionForCli = {
+          questionId: q.questionId,
+          prompt: q.prompt,
+          options: q.options,
+          allowCustom: q.allowCustom,
+          allowMultiple: q.allowMultiple,
+        };
+        pendingQuestionRef.current = view;
+        state.statusLine.noteLine(t('cli.questionAsk', { prompt: q.prompt }));
+        for (const opt of q.options) {
+          state.statusLine.noteLine(`  ${opt.id}) ${opt.label}`);
+        }
+        state.statusLine.noteLine(
+          q.allowCustom ? t('cli.questionAskCustom') : t('cli.questionAskHint'),
+        );
+      },
+      // 提问结算:服务端在 answered/timeout/withdrawn/interrupted 四态都发。
+      // 按 questionId **精确**清理 —— 无条件清空会把"另一条更新的提问"误清。
+      // 非用户主动关闭的三态(超时/撤回/打断)若不清,提示会一直挂着等一个已失效的问题。
+      onQuestionResolved: (resolved) => {
+        if (pendingQuestionRef.current?.questionId === resolved.questionId) {
+          pendingQuestionRef.current = null;
+          state.statusLine.noteLine(t('cli.questionResolved'));
+        }
+      },
+      onTerminalEnd: (event) =>
+        state.statusLine.noteLine(t('ai.stream.terminal', { status: event.status })),
+      onTerminalStart: (event) =>
+        state.statusLine.noteLine(t('ai.stream.terminal', { status: event.command ?? 'start' })),
+      onSubagentSpawn: (event) =>
+        state.statusLine.noteLine(t('ai.stream.subagent', { phase: `${event.role} → ${event.task}` })),
+      onSubagentProgress: (event) =>
+        state.statusLine.noteLine(t('ai.stream.subagent', { phase: event.phase ?? 'running' })),
+      onSubagentEnd: (event) =>
+        state.statusLine.noteLine(t('ai.stream.subagent', { phase: event.status })),
+      onCompaction: (info) =>
+        state.statusLine.noteLine(
+          t('chat.compactionNotice', {
+            before: info.tokensBefore,
+            after: info.tokensAfter,
+            removed: info.removedCount,
+          }),
+        ),
+      // 差距①(2026-11-13):发送准入回执 —— 与上面 onBudget / onRetryScheduled 同一出口
+      // (statusLine.noteLine)。CLI 本身就是终端,不需要卡片宿主,所以"呈现位"本就是现成的。
+      //
+      // 只对**有信息量**的档位打一行:accepted 与"我发出去了"同义反复(用户已经看到自己的
+      // 输入被接受);queued/rejected/duplicate 才是服务端新增的信息。
+      // ⚠️ accepted 虽不打新行,但**必须收回 queued 那一行**(2026-11-13 同批修):
+      // 后端在排队回合被晋升时会再发一帧 accepted,noteLine 写进去的是终端滚动区的一行,
+      // 不会自己消失 —— 但 CLI 的 noteLine 是**追加式日志**,"收回"语义上不适用(已打印的
+      // 行无法抹除,那是终端的物理事实)。
+      // 因此本端的正确做法是:晋升时补打一行"已开始执行",让两行连起来读得通,
+      // 而不是假装能擦掉历史。这与 mobile-rn 的处理同型(那边出口也是不可撤回的 toast)。
+      inputId: cliRoundInputId,
+      onSendAdmissionReceipt: (receipt) => {
+        if (receipt.disposition === 'accepted') {
+          // 只有真的排过队才补这一行,避免直通场景凭空多打一行
+          if (receipt.queuedTurnId && receipt.queuedTurnId === cliQueuedTurnId) {
+            cliQueuedTurnId = null
+            state.statusLine.noteLine(t('streamErrors.admission.admitted'))
+          }
+          return
+        }
+        const key = `streamErrors.admission.${receipt.disposition}`
+        const label = t(key)
+        let text = label === key ? receipt.disposition : label
+        if (receipt.disposition === 'queued' && typeof receipt.ahead === 'number') {
+          text = `${text} · ${t('chat.admissionAhead', { n: receipt.ahead })}`
+        }
+        state.statusLine.noteLine(text)
+        cliQueuedTurnId = receipt.disposition === 'queued' ? (receipt.queuedTurnId ?? null) : null
+      },
       // D19(2026-09-25 接):terminal_delta 实时输出增量 —— 后端命令执行期间逐块下发
       // stdout/stderr,本端把**已完整成行**的输出打进 noteLine 家族同一出口(半行缓冲在
       // sink 内部拼接,不把正文打碎);空帧丢弃。CLI 此前对该帧 0 命中 = 静默丢帧。

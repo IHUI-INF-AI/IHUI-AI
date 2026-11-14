@@ -182,10 +182,7 @@ export async function consumeSendQuota(
 
 /** 退还一次已消费的取码配额(投递失败时用):没发出去就不该占用「5 次/10 分钟」的预算,
  *  否则云侧故障一次,用户既收不到码也立刻重试不了。 */
-export async function refundSendQuota(
-  identifier: string,
-  ip: string | undefined,
-): Promise<void> {
+export async function refundSendQuota(identifier: string, ip: string | undefined): Promise<void> {
   await refundWindows([
     {
       key: `echo:q:${identifier}|${normalizeIp(ip)}`,

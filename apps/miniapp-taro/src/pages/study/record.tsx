@@ -2,7 +2,15 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-// 对齐目标(RN 共享屏): packages/app/src/features/study-record/StudyRecordScreen.tsx
+
+// 镜像 packages/app/src/features/study-record/StudyRecordScreen.tsx
+//
+// 薄壳(2026-11-14 收敛):视图委托共享屏 `StudyRecordScreen`,本端只保留平台职责:
+//   ① 取数 —— GET /study/records(分页)+ GET /study/statistics;
+//   ② 生命周期 —— usePullDownRefresh / useReachBottom / 冷启动门控;
+//   ③ 端内控件 —— 状态筛选条、记录卡(`./record-card`,含本端独有的今日已学分钟/进度条)。
+// 收敛前本页手写 header + 统计卡 + tab + 卡片 + 五态(188 行);现在骨架/空态/错误/加载
+// 全部由共享屏承担,本端只留"共享屏没有的本端字段"。
 import { useTt } from '@/i18n'
 import { View, Text } from '@tarojs/components'
 import Taro, { useReachBottom, usePullDownRefresh } from '@tarojs/taro'
@@ -11,12 +19,33 @@ import { get, getStudyRecords } from '@/api'
 import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import { useUserStore } from '@/stores/user'
 import ThemeRoot from '@/components/ThemeRoot'
-import { EmptyState, ErrorState, ScreenSkeleton } from '@/components/ScreenStates.taro'
-import { RecordStats, type StudyStats } from './record-stats'
+import { StudyRecordScreen } from '@ihui/rn-app/features/study-record/StudyRecordScreen'
+import type { StudyRecordItem } from '@ihui/types'
+import { useAppTheme } from '@/lib/theme'
+import type { StudyStats } from './record-stats'
 import { RecordCard, statusOf, type RecordStatus, type StudyRecordRow } from './record-card'
 import { onToast } from '@/host/on-toast'
 
 type FilterTab = 'all' | RecordStatus
+
+/**
+ * 本端 StudyRecordRow → 共享 StudyRecordItem 的投影。
+ *
+ * 为什么需要这一层:本端 api 的 `time` 字段后端从未给出(真名是 lastStudyAt/createdAt),
+ * 共享契约要求 `lastStudyAt`。投影放在本端,共享屏不必认识端内历史命名;
+ * 缺失时给空串(共享屏按「无」渲染),不编时间。
+ */
+function toRecordItem(row: StudyRecordRow): StudyRecordItem {
+  return {
+    id: row.id,
+    courseTitle: row.courseTitle ?? null,
+    lessonTitle: row.lessonTitle ?? null,
+    status: statusOf(row.progress),
+    duration: row.duration,
+    progress: row.progress,
+    lastStudyAt: row.lastStudyAt ?? row.createdAt ?? row.time ?? '',
+  }
+}
 
 const PAGE_SIZE = 20
 
@@ -27,6 +56,7 @@ const STATE_TEXT = 'block text-center text-body leading-[normal] text-muted-fore
 
 export default function StudyRecord() {
   const tt = useTt()
+  const { resolved } = useAppTheme()
   const { waitUntilReady } = useAuthReadyGate()
   const user = useUserStore((s) => s.user)
 
@@ -98,12 +128,12 @@ export default function StudyRecord() {
   })
 
   useReachBottom(() => {
-    load()
+    void load()
   })
 
   useEffect(() => {
     // G-933 冷启动抢跑门控:GET /api/study/records(user 插件组级 userAuthPreHandler)与
-    // GET /api/study/statistics(同插件 authenticate)全需鉴权 ⇒ 整块挡到门后;卸载即注销,不留悬空订阅。
+    // GET /api/study/statistics(同插件 authenticate)全需鉴权 ⇒ 整块挡到门后;卸载即注销。
     return waitUntilReady(() => {
       void loadStats()
       void load(true)
@@ -132,57 +162,58 @@ export default function StudyRecord() {
   const displayName = user?.nickname || user?.username || ''
 
   return (
-    // 对齐 RN StudyRecordScreen(共享屏):容器 bg surface.bg,listBody p14dp→28rpx/pb32dp→64rpx
-    <View className="min-h-screen bg-background px-[28rpx] pt-[28rpx] pb-[64rpx] box-border">
-      {/* 对齐 RN header:标题由原生导航栏承担(record.config.ts),副标题「{昵称} 的学习记录」留在页内 */}
-      <Text className="block text-label text-muted-foreground mb-[20rpx]">
-        {tt('studyRecord.subtitle', '{name} 的学习记录', { name: displayName })}
-      </Text>
-
-      {/* 学习统计卡对齐 RN statsCard:6 指标 2 行(累计时长/课程总数/已完成课程/课时总数/已完成课时/连续天数) */}
-      <RecordStats stats={stats} />
-
-      {/* 状态筛选 tab(业务保留):视觉对齐 RN tab 语言,激活 bg brand + 对比字 */}
-      <View className="flex gap-[12rpx] mb-[24rpx]">
-        {tabs.map((tb) => (
-          <View
-            key={tb.key}
-            className={`${TAB_BASE} ${activeTab === tb.key ? TAB_ACTIVE : 'bg-card'}`}
-            hoverClass="opacity-60"
-            onClick={() => setActiveTab(tb.key)}
-          >
-            <Text>{tb.label}</Text>
+    <ThemeRoot>
+      <StudyRecordScreen
+        t={tt as never}
+        records={displayList.map(toRecordItem)}
+        stats={stats}
+        userNickname={displayName}
+        loading={loading}
+        refreshing={false}
+        error={error ? tt('common.failed', '加载失败') : ''}
+        onRefresh={() => {
+          void loadStats()
+          void load(true)
+        }}
+        onBack={() => Taro.navigateBack()}
+        colorScheme={resolved}
+        onNavigate={(url) => Taro.navigateTo({ url })}
+        onToast={onToast}
+        onEndReached={() => {
+          void load()
+        }}
+        // 筛选条:共享屏 ListHeader 只放统计卡,这里用第二槽位承载页面级 tab
+        renderListHeader={() => (
+          <View className="flex gap-[12rpx] mb-[24rpx]">
+            {tabs.map((tb) => (
+              <View
+                key={tb.key}
+                className={`${TAB_BASE} ${activeTab === tb.key ? TAB_ACTIVE : 'bg-card'}`}
+                hoverClass="opacity-60"
+                onClick={() => setActiveTab(tb.key)}
+              >
+                <Text>{tb.label}</Text>
+              </View>
+            ))}
           </View>
-        ))}
-      </View>
-
-      {/* 记录卡片对齐 RN card:p14dp→28rpx / radius 12dp→24rpx / border light;标题 16dp→32rpx/700,进度 fill 对齐 RN success */}
-      {displayList.length > 0 && (
-        <View className="flex flex-col gap-[16rpx]">
-          {displayList.map((r) => (
-            <ThemeRoot key={r.id}>
-              <RecordCard row={r} onOpen={() => goCourse(r.courseId)} />
+        )}
+        // 卡片:本端独有的今日已学分钟/进度条由 ./record-card 承载
+        renderItem={(item) => {
+          const row = displayList.find((r) => r.id === item.id)
+          if (!row) return null
+          return (
+            <ThemeRoot>
+              <RecordCard row={row} onOpen={() => goCourse(row.courseId)} />
             </ThemeRoot>
-          ))}
-        </View>
-      )}
-
-      {/* 状态文案 */}
-      {displayList.length === 0 && !loading && !error && (
-        <EmptyState title={tt('studyRecord.empty', '暂无学习记录')} />
-      )}
-      {error && !loading && (
-        <ErrorState
-          message={tt('common.failed', '加载失败')}
-          onRetry={() => load(true)}
-          retryLabel={tt('common.retry', '点击重试')}
-        />
-      )}
-      {loading && <ScreenSkeleton variant="list" count={4} />}
-      {!loading && !hasMore && displayList.length > 0 && (
-        <Text className={STATE_TEXT}>{tt('common.noMore', '没有更多了')}</Text>
-      )}
-    </View>
+          )
+        }}
+        renderListFooter={() =>
+          !loading && !hasMore && displayList.length > 0 ? (
+            <Text className={STATE_TEXT}>{tt('common.noMore', '没有更多了')}</Text>
+          ) : null
+        }
+      />
+    </ThemeRoot>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

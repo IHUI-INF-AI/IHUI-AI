@@ -195,11 +195,6 @@ export interface ChatScreenMessage {
   /** 票64:服务端真实消息 id。历史回放路径的 `id` 带 `-${idx}` 显示后缀(防 FlatList 撞 key),
    *  拿它去调标记接口会打不存在的行,故单独留一条不含后缀的写入口径。 */
   flagTargetId?: string
-  /** 失败轮标记(对齐 shared ErrorAwareMessage):流式失败时由 applyStreamError 落 true,
-   *  渲染侧据此把气泡换成错误卡片而非正文。此前未声明 ⇒ toChatScreenMessage 透传时被静默丢弃。 */
-  error?: boolean
-  /** D92/D71②:后端业务错误码。错误卡目录化用:据此出目录标题 + 具体建议动作,不填即 unknown 回落态。 */
-  errorCode?: string
 }
 
 /** AI 模型选项(平台无关镜像,字段对齐 @ihui/api-client LlmModel) */

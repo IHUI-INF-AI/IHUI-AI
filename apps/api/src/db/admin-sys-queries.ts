@@ -49,8 +49,12 @@ export interface ListQuery {
 }
 
 function paginate(query: ListQuery): { page: number; pageSize: number; offset: number } {
-  const page = query.page ?? 1
-  const pageSize = query.pageSize ?? 10
+  // F-642:此前 page/pageSize 原样透传,负值会让 OFFSET 变负报错、超大值会一次性全表载入。
+  // 统一夹到 page>=1、1<=pageSize<=100,并对非有限值(NaN/Infinity)回落到默认。
+  const rawPage = Number.isFinite(query.page) ? (query.page as number) : 1
+  const rawSize = Number.isFinite(query.pageSize) ? (query.pageSize as number) : 10
+  const page = Math.max(1, Math.trunc(rawPage))
+  const pageSize = Math.min(100, Math.max(1, Math.trunc(rawSize)))
   return { page, pageSize, offset: (page - 1) * pageSize }
 }
 
@@ -180,10 +184,7 @@ export async function deleteRoleMenuCascade(roleId: number): Promise<void> {
     await tx.delete(adminRoleMenu).where(eq(adminRoleMenu.roleId, roleId))
     await tx.delete(adminRoleDept).where(eq(adminRoleDept.roleId, roleId))
     await tx.delete(adminUserRole).where(eq(adminUserRole.roleId, roleId))
-    await tx
-      .update(users)
-      .set({ roleId: 0, updatedAt: new Date() })
-      .where(eq(users.roleId, roleId))
+    await tx.update(users).set({ roleId: 0, updatedAt: new Date() }).where(eq(users.roleId, roleId))
   })
 }
 
@@ -271,7 +272,8 @@ export async function findNoticeList(
 ): Promise<{ list: SysNotice[]; total: number }> {
   const { pageSize, offset } = paginate(query)
   const conds = []
-  if (query.noticeTitle) conds.push(ilike(sysNotices.noticeTitle, asContainsTerm(query.noticeTitle)))
+  if (query.noticeTitle)
+    conds.push(ilike(sysNotices.noticeTitle, asContainsTerm(query.noticeTitle)))
   if (query.noticeType) conds.push(eq(sysNotices.noticeType, query.noticeType))
   if (query.createBy) conds.push(eq(sysNotices.createBy, query.createBy))
   const where = conds.length > 0 ? and(...conds) : undefined
@@ -425,7 +427,7 @@ export async function updateJobStatus(id: number, status: string): Promise<SysJo
   const rows = await db
     .update(sysJobs)
     .set({ status, updatedAt: new Date() })
-  // status-guard-exempt: 通用状态 setter——目标值由调用方传入,终态合法性由服务层/路由层裁决,非固定出向终态写点
+    // status-guard-exempt: 通用状态 setter——目标值由调用方传入,终态合法性由服务层/路由层裁决,非固定出向终态写点
     .where(eq(sysJobs.jobId, id))
     .returning()
   return rows[0]
@@ -1012,7 +1014,7 @@ export async function updateAdminRoleStatus(
   const rows = await db
     .update(adminRole)
     .set({ status, updateTime: new Date() })
-  // status-guard-exempt: 通用状态 setter——目标值由调用方传入,终态合法性由服务层/路由层裁决,非固定出向终态写点
+    // status-guard-exempt: 通用状态 setter——目标值由调用方传入,终态合法性由服务层/路由层裁决,非固定出向终态写点
     .where(eq(adminRole.roleId, roleId))
     .returning()
   return rows[0]

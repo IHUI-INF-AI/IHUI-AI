@@ -18,6 +18,7 @@ import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
 import { formatLetterTime } from '../utils/letter-time'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { toFriendlyOr } from '@ihui/shared/utils'
 
 /** 本票路由由 manifest 交集成方统一注册(禁改 RootNavigator),本地交叉类型补齐。 */
 type ShellParams = RootStackParamList & {
@@ -105,7 +106,7 @@ export function LetterChatScreen() {
       setDraft('')
       await load()
     } catch (e) {
-      setSendError(e instanceof Error ? e.message : t('lettersPage.error'))
+      setSendError(toFriendlyOr(e, t('lettersPage.error')))
     } finally {
       setSending(false)
     }

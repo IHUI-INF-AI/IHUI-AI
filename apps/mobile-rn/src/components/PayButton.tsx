@@ -52,10 +52,10 @@ export interface PayButtonProps {
  *  文案走词表键(五语齐)而非字面量 —— 本组件由 PaymentScreen 直接挂载,
  *  写死中文会让 RN 付费按钮在四种非中文语言下永远是中文。 */
 const TYPE_META: Record<PayButtonType, { textKey: string; color: string }> = {
-  freeuse: { textKey: 'payment.payType.freeuse', color: tokens.success.DEFAULT },
-  freetime: { textKey: 'payment.payType.freetime', color: tokens.danger.DEFAULT },
+  freeuse: { textKey: 'payment.payType.freeuse', color: tokens.success.deepText },
+  freetime: { textKey: 'payment.payType.freetime', color: tokens.danger.deepText },
   hasbuy: { textKey: 'payment.payType.hasbuy', color: tokens.brand.cta },
-  monthly: { textKey: 'payment.payType.monthly', color: tokens.warning.DEFAULT },
+  monthly: { textKey: 'payment.payType.monthly', color: tokens.warning.amberText },
 }
 
 export function PayButton({

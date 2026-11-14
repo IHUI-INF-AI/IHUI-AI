@@ -224,7 +224,7 @@ function createStyles(tk: AppThemeTokens) {
       lineHeight: rnType.body.lineHeight,
       fontWeight: '600',
       textAlign: 'center',
-      color: tk.danger.DEFAULT,
+      color: tk.danger.deepText,
     },
     qrBlock: { marginTop: rnSpacing.md, alignItems: 'center' },
     qrWrap: { alignItems: 'center' },

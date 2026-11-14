@@ -685,10 +685,11 @@ export async function pipeChannelStream(
   if (stats.promptTokens === 0 && stats.completionTokens === 0) {
     if (stats.totalTokens > 0) {
       stats.completionTokens = stats.totalTokens
-      logger.warn(
-        `[relay-upstream] usage_fallback reason=total_only total=${stats.totalTokens}`,
-        { httpStatus: stats.httpStatus, promptTokens: 0, completionTokens: stats.completionTokens },
-      )
+      logger.warn(`[relay-upstream] usage_fallback reason=total_only total=${stats.totalTokens}`, {
+        httpStatus: stats.httpStatus,
+        promptTokens: 0,
+        completionTokens: stats.completionTokens,
+      })
     } else {
       const promptText = opts.promptText ?? promptTextByResponse.get(upstream) ?? ''
       stats.promptTokens = Math.ceil(promptText.length / 4)

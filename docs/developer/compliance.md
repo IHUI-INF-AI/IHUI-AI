@@ -29,11 +29,11 @@
 
 | 渠道                                  | 用途                                       | 认证要求           | 落点                                                                |
 | ------------------------------------- | ------------------------------------------ | ------------------ | ------------------------------------------------------------------- |
-| `security@aizhs.top`                  | 安全漏洞披露(**勿在公开渠道披露细节**)   | —                  | `SECURITY.md:28`(`SECURITY.md:26` 明确禁止公开渠道)                |
+| `lizong@aizhs.top`                  | 安全漏洞披露(**勿在公开渠道披露细节**)   | —                  | `SECURITY.md:28`(`SECURITY.md:26` 明确禁止公开渠道)                |
 | GitHub 私密漏洞报告                   | 同上,走 Private vulnerability reporting  | GitHub 账号        | `SECURITY.md:29`(URL 即文件内所写)                                 |
-| `security@aizhs.top` + 主题 `[PGP-KEY-REQUEST]` | 索取 PGP 公钥做加密通报             | —                  | `SECURITY.md:30`                                                    |
-| `community@aizhs.top`                 | 上述 SLA 超期后的升级提醒                  | —                  | `SECURITY.md:50`                                                    |
-| `conduct@aizhs.top`                   | 行为准则违规举报(骚扰/辱骂等)            | —                  | `CODE_OF_CONDUCT.md:57`、`:103`;`CONTRIBUTING.md:17`(48 小时响应) |
+| `lizong@aizhs.top` + 主题 `[PGP-KEY-REQUEST]` | 索取 PGP 公钥做加密通报             | —                  | `SECURITY.md:30`                                                    |
+| `lizong@aizhs.top`                 | 上述 SLA 超期后的升级提醒                  | —                  | `SECURITY.md:50`                                                    |
+| `lizong@aizhs.top`                   | 行为准则违规举报(骚扰/辱骂等)            | —                  | `CODE_OF_CONDUCT.md:57`、`:103`;`CONTRIBUTING.md:17`(48 小时响应) |
 | `POST /api/security/report`           | **上报可疑活动(IP 维度)**,匿名可用      | 无认证,同 IP ≤5 次/分钟 | 处理体 `apps/api/src/routes/security.ts:181-212`;限流常量 `:236`、判定 `:250,:256`;前缀注册 `apps/api/src/routes/index.ts:1123` |
 | `POST /api/feedbacks`                 | 产品反馈(bug/feature/improvement/other)  | 需登录             | `apps/api/src/routes/comments.ts:416-418`;插件级统一鉴权 `:91-95`;前缀 `apps/api/src/routes/index.ts:517` |
 | App / 小程序内反馈入口 + 书面地址     | 隐私政策自陈的投诉举报方式                 | —                  | `apps/miniapp-taro/src/pkg-about/about/privacy.tsx:495`(投诉/举报声明)、`:499`(站内反馈入口)、`:504`(书面地址) |
@@ -56,7 +56,7 @@
 | 通知应包含的要件(权利人身份/权属证明/具体位置/善意声明/签名) | **无任何实现**:没有对应表、没有对应端点、没有对应工单类型                 |
 | 反通知(counter-notice)与恢复流程             | **无任何实现**                                                             |
 | 受理时限承诺                                 | **无**。`SECURITY.md:41-48` 的 SLA 表只覆盖**安全漏洞**,不覆盖侵权主张     |
-| 现成的受理邮箱                               | 仓库内公开披露的通报邮箱只有 `security@aizhs.top` / `community@aizhs.top`(`SECURITY.md:28,50`)与 `conduct@aizhs.top`(`CODE_OF_CONDUCT.md:57`)。这些是**安全/社区**渠道,把它们当 DMCA 入口使用属于误用,本文不做此等推荐 |
+| 现成的受理邮箱                               | 仓库内公开披露的通报邮箱只有 `lizong@aizhs.top` / `lizong@aizhs.top`(`SECURITY.md:28,50`)与 `lizong@aizhs.top`(`CODE_OF_CONDUCT.md:57`)。这些是**安全/社区**渠道,把它们当 DMCA 入口使用属于误用,本文不做此等推荐 |
 
 一处**容易被误读成"已有侵权通道"**的文本:小程序隐私政策结尾写道"如果有其他侵权的因素,
 请通知智汇社进行删除"(`apps/miniapp-taro/src/pkg-about/about/privacy.tsx:515`),
@@ -64,7 +64,7 @@
 **没有**侵权通知专用的邮箱、表单或处置时限。这是一句声明,不是一条通道。
 
 **因此**:若权利人要就平台生成/分发的内容提出侵权主张,当前**只能借第 2 节的通用通报渠道**
-(`security@aizhs.top` 或登录后的 `POST /api/feedbacks`),并且**平台侧没有承诺受理时限、
+(`lizong@aizhs.top` 或登录后的 `POST /api/feedbacks`),并且**平台侧没有承诺受理时限、
 没有承诺处置动作、没有反通知通道**。补齐这一节的最小落地项列在第 6 节。
 
 ## 4. 数据留存与清除口径(正文级)

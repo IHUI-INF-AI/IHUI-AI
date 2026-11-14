@@ -27,6 +27,7 @@ import { useTheme } from '../context/ThemeContext'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { rpx } from '../utils/rpx'
+import { toFriendlyOr } from '@ihui/shared/utils'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -138,7 +139,7 @@ export default function TokenValueScreen() {
       setPage(1)
       setHasMore(first.hasMore)
     } catch (e) {
-      setError(e instanceof Error ? e.message : t('tokenValue.loadFailed'))
+      setError(toFriendlyOr(e, t('tokenValue.loadFailed')))
     } finally {
       setLoading(false)
       setRefreshing(false)

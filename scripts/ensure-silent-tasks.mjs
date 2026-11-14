@@ -44,6 +44,15 @@ const LOG_DIR = join(ROOT, '.tmp-sync')
 const AUDIT_LOG = join(LOG_DIR, 'silent-tasks-audit.log')
 const WRAPPER_DIR = join(homedir(), '.ihui-silent-guard')
 const CHECK_ONLY = process.argv.includes('--check')
+/**
+ * 自愈锚点(2026-11-13 立):关键自愈层不得只挂在"会自己消失的计划任务"上。
+ * 事故:IHUI-SilentGuard 被外部会话置为 Disabled 后自身无法自启,弹窗修复链路整条失守,
+ * 用户侧表现就是"反反复复、得一直盯着"。
+ * 本模式由 post-commit 正文(scripts/lib/post-commit-hook.js)每次提交后后台派发:
+ *   任务缺失→按规范重建;被禁用→启用;动作被改回直跑控制台→改写回隐藏包装。
+ * 语义:永不阻断提交(退出码恒 0),只把实际动作写进审计日志。
+ */
+const RESTORE_GUARD = process.argv.includes('--restore-guard')
 
 /** 会弹控制台窗的程序(小写、去 .exe)。wscript/mshta 等 GUI 子系统不在列。 */
 const CONSOLE_EXES = new Set([
@@ -357,7 +366,68 @@ export function audit({ fix = false } = {}) {
   return violations
 }
 
+/** PowerShell 7 优先,回退系统 5.1。 */
+const PWSH_CANDIDATES = [
+  'C:/Program Files/PowerShell/7/pwsh.exe',
+  'C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe',
+]
+function pwshExe() {
+  return PWSH_CANDIDATES.find((p) => existsSync(p)) || 'powershell.exe'
+}
+
+const GUARD_TASK = 'IHUI-SilentGuard'
+const WATCHDOG_TASK = 'WeChatTrayWatchdog'
+const GUARD_VBS = join(ROOT, 'scripts', 'ensure-silent-tasks-hidden.vbs')
+
+/**
+ * --restore-guard:把自愈任务本身拉回"启用 + 隐藏包装"的规范形态。
+ * 由 post-commit 正文每次提交后派发 ⇒ 任何会话提交一次就校准一次,无人值守也不会长期失守。
+ */
+function restoreGuardTask() {
+  if (process.platform !== 'win32') return
+  const script = [
+    "$ErrorActionPreference='Stop'",
+    `$name='${GUARD_TASK}'`,
+    `$vbs='${GUARD_VBS}'`,
+    "$t = Get-ScheduledTask -TaskName $name -ErrorAction SilentlyContinue",
+    'if (-not $t) {',
+    "  $act = New-ScheduledTaskAction -Execute 'C:\\Windows\\System32\\wscript.exe' -Argument ('//B \"' + $vbs + '\"')",
+    '  $trg1 = New-ScheduledTaskTrigger -AtLogOn',
+    '  $trg2 = New-ScheduledTaskTrigger -Once -At ((Get-Date).AddMinutes(1)) -RepetitionInterval (New-TimeSpan -Minutes 10)',
+    '  $pr = New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType S4U -RunLevel Limited',
+    '  $st = New-ScheduledTaskSettingsSet -MultipleInstances IgnoreNew -StartWhenAvailable -ExecutionTimeLimit (New-TimeSpan -Minutes 10)',
+    '  Register-ScheduledTask -TaskName $name -Action $act -Trigger $trg1,$trg2 -Principal $pr -Settings $st -Force | Out-Null',
+    "  'created'",
+    "} elseif (-not ($t.Actions | Where-Object { $_.Execute -match 'wscript' })) {",
+    "  $act = New-ScheduledTaskAction -Execute 'C:\\Windows\\System32\\wscript.exe' -Argument ('//B \"' + $vbs + '\"')",
+    '  Set-ScheduledTask -TaskName $name -Action $act | Out-Null',
+    "  'repaired'",
+    "} elseif ($t.State -eq 'Disabled') {",
+    '  Enable-ScheduledTask -TaskName $name | Out-Null',
+    "  'enabled'",
+    '} else {',
+    "  'ok'",
+    '}',
+    `$w = Get-ScheduledTask -TaskName '${WATCHDOG_TASK}' -ErrorAction SilentlyContinue`,
+    "if ($w -and $w.State -eq 'Disabled') { Enable-ScheduledTask -TaskName $w.TaskName | Out-Null; 'watchdog-enabled' }",
+  ].join('\n')
+  const out = runCapture(
+    pwshExe(),
+    ['-NoProfile', '-NonInteractive', '-EncodedCommand', psEncode(script)],
+    60_000,
+  ).trim()
+  const decisive = out
+    .split(/\r?\n/)
+    .map((s) => s.trim())
+    .filter((s) => /^(created|repaired|enabled|watchdog-enabled)$/.test(s))
+  if (decisive.length) log(`guard 自愈: ${decisive.join(', ')}`)
+}
+
 function main() {
+  if (RESTORE_GUARD) {
+    restoreGuardTask()
+    return
+  }
   if (CHECK_ONLY) {
     const v = audit({ fix: false })
     if (v.length) {

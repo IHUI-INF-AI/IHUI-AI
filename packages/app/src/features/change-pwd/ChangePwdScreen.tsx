@@ -176,7 +176,7 @@ function PwdInput({
           onChangeText={onChange}
           secureTextEntry={!show}
           placeholder={`${label}`}
-          placeholderTextColor={tokens.text.tertiary}
+          placeholderTextColor={tokens.text.secondary}
           autoCapitalize="none"
           autoCorrect={false}
           maxLength={maxLength}
@@ -222,9 +222,9 @@ function createStyles(tk: AppThemeTokens) {
     },
     eyeBtn: { paddingVertical: rnSpacing.sm, paddingHorizontal: rnSpacing.xs },
     eyeText: { fontSize: rnType.body.size, color: tk.text.secondary },
-    fieldError: { fontSize: rnType.caption.size, color: tk.danger.DEFAULT },
+    fieldError: { fontSize: rnType.caption.size, color: tk.danger.deepText },
     forgotRow: { alignItems: 'flex-end', paddingVertical: rnSpacing.xs },
-    forgotText: { fontSize: rnType.body.size, color: tk.brandAccent.DEFAULT },
+    forgotText: { fontSize: rnType.body.size, color: tk.brandAccent.deep },
     submitBtn: {
       marginTop: rnSpacing.sm,
       backgroundColor: tk.brand.cta,

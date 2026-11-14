@@ -83,8 +83,6 @@ import { stopAutoRollbackMonitor } from './services/auto-rollback.js'
 import { routineManager } from './services/workspace-ai-service.js'
 import { stopScheduledWarmup } from './services/cache-warmup-service.js'
 import { stopRelayChannelRouterSweep } from './services/relay-channel-router.js'
-// F-367:cli-import fallback 清理定时器改由 API 进程显式启动(worker 不再 import 即启动)
-import { startFallbackCleanup, stopFallbackCleanup } from './services/cli-import/redis-cache.js'
 import { stopRegistryRateLimitSweep } from './routes/registry-sync.js'
 import { stopPoolTracker, registerPoolTrackerCleanup } from './db/index.js'
 import { logger } from './utils/logger.js'
@@ -369,9 +367,6 @@ function startBackgroundSchedulers(server: Awaited<ReturnType<typeof buildServer
   if (process.env.ENABLE_ALGORITHM_RECORD_SYNC !== 'false') {
     startAlgorithmRecordScheduler()
   }
-
-  // 启动 cli-import fallback 内存缓存清理(每 5 分钟扫一次过期条目;F-367 显式生命周期)
-  startFallbackCleanup()
 }
 
 async function start() {
@@ -453,8 +448,6 @@ async function start() {
       syncStopPhase('stopAlgorithmRecordScheduler', stopAlgorithmRecordScheduler),
       // F-522:边缘探测此前只有启动路径;补对称关停相
       syncStopPhase('stopEdgeAccessProbe', stopEdgeAccessProbe),
-      // F-367:cli-import fallback 清理定时器的对称关停相
-      syncStopPhase('stopFallbackCleanup', stopFallbackCleanup),
     ]
     if (workers) {
       phases.push({

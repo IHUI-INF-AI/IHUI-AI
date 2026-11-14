@@ -432,9 +432,6 @@ export interface ChatState {
    */
   chatSyncGapMessageIds: string[]
   currentModel: string
-  /** 当前模型所属通道(2026-11-12 立):'platform' = 平台自有模型,走 agent runtime;
-   *  'pool' = 个人号池模型,走 /ws/relay/chat 号池长连接。默认 platform,存量行为零变化。 */
-  currentModelChannel: 'platform' | 'pool'
   isStreaming: boolean
   error: string | null
   /** 当前绑定的会话 ID；为 null 表示新会话尚未持久化 */
@@ -589,8 +586,7 @@ export interface ChatState {
   /** D01:设置对话内选中的专家(null = 切回默认;写 localStorage 'ihui_selected_agent_id') */
   setSelectedAgentId: (id: string | null) => void
 
-  /** 设置当前模型;channel 缺省 = 'platform'(平台模型),号池模型由选择器显式传 'pool' */
-  setModel: (model: string, channel?: 'platform' | 'pool') => void
+  setModel: (model: string) => void
   /** 添加单个工具到已选;已存在则忽略 */
   addSelectedTool: (pluginId: string) => void
   /** 从已选移除单个工具 */
@@ -1009,8 +1005,6 @@ const buildChatState: ChatStateCreator = (set, get) => ({
   // 体现"零配置即可用"理念,后端 llm_gateway 会自动选最优模型。
   // 历史:step-router-v1 是 Step 厂家路由(仅 Step 内部),违背"自动切换所有可用模型"语义。
   currentModel: 'auto',
-  // 2026-11-12 立:默认平台通道;只有从选择器选中「我的号池」模型才会切到 pool
-  currentModelChannel: 'platform',
   isStreaming: false,
   error: null,
   conversationId: null,
@@ -1084,10 +1078,7 @@ const buildChatState: ChatStateCreator = (set, get) => ({
   // 历史:之前静默转 'auto' → 'stepfun/step-router-v1',导致 Auto 永远绑死 Step 厂家路由。
   // 修复:把 'auto' 原样透传到 ai-service,由后端 /llm/complete 解析为
   //       model_availability 返回的「全厂商最优模型」(见 apps/ai-service/llm_gateway.py)。
-  // 2026-11-12 立:通道随模型一起落库 —— 发送路径据此决定走 agent runtime 还是号池 WS。
-  // 缺省 platform:既有全部调用点(不传第二参)行为逐字节不变。
-  setModel: (model, channel) =>
-    set({ currentModel: model, currentModelChannel: channel ?? 'platform' }),
+  setModel: (model) => set({ currentModel: model }),
   addSelectedTool: (pluginId) =>
     set((s) =>
       s.selectedTools.includes(pluginId) ? s : { selectedTools: [...s.selectedTools, pluginId] },
@@ -2577,8 +2568,6 @@ export function createChatStore(persistName: string = 'ihui-chat') {
       storage: createChatPersistStorage(ssrStorage),
       partialize: (s: ChatState) => ({
         currentModel: s.currentModel,
-        // 2026-11-12 立:通道随模型持久化,刷新后仍知道上次选的是号池模型
-        currentModelChannel: s.currentModelChannel,
         conversationId: s.conversationId,
         draftInput: s.draftInput,
         // W27(2026-09-14):输入历史持久化 —— Esc+Esc 历史导航跨会话/刷新可用

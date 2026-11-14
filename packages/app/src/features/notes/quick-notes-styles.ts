@@ -67,7 +67,7 @@ export function createQuickNotesStyles(tk: AppThemeTokens) {
     archivedToggleText: { fontSize: rnType.bodySm.size, color: tk.text.secondary },
     list: { flex: 1, paddingHorizontal: rnSpacing.md },
     empty: { paddingVertical: rnSpacing['4xl'], alignItems: 'center' },
-    emptyText: { fontSize: rnType.body.size, color: tk.text.tertiary },
+    emptyText: { fontSize: rnType.body.size, color: tk.text.medium },
     card: {
       padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.lg,
@@ -84,9 +84,9 @@ export function createQuickNotesStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.md,
       backgroundColor: tk.surface.muted,
     },
-    badgeArchivedText: { fontSize: rnType.caption.size, color: tk.text.tertiary },
+    badgeArchivedText: { fontSize: rnType.caption.size, color: tk.text.medium },
     cardContent: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.medium },
-    cardMeta: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.tertiary },
+    cardMeta: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.medium },
     cardActions: {
       flexDirection: 'row',
       alignItems: 'center',

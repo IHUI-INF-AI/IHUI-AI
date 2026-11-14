@@ -77,6 +77,14 @@ function runKeepaliveTs(argv) {
   const tsx = resolveTsxCli(ROOT)
   if (!tsx)
     return { code: 2, json: null, stderr: '', error: '未找到 tsx(apps/api/node_modules/tsx)' }
+  // 临期窗口必须 ≥ 本腿节拍。90 分钟是按「1 小时成功节拍」算的(节拍 + 余量);
+  // 2026-11-13 起**尊重外部显式值** —— git-guardian 的 alert 档节流是 6 小时,它会把
+  // 本轮真实窗口传下来(否则两轮之间必然跨过到期点,短寿命号漏刷约 2 小时)。
+  // 缺省仍 90 分钟(手工 --once / 非 guardian 派发)。判据仍只有调度层一份。
+  const aheadRaw = String(process.env.RELAY_ACCOUNT_REFRESH_AHEAD_MS ?? '').trim()
+  const aheadNum = Number(aheadRaw)
+  const aheadMs =
+    aheadRaw !== '' && Number.isFinite(aheadNum) && aheadNum > 0 ? aheadNum : 90 * 60 * 1000
   const r = spawnSync(process.execPath, [tsx, KEEPALIVE_TS, ...argv], {
     cwd: API_DIR,
     windowsHide: true,
@@ -84,10 +92,7 @@ function runKeepaliveTs(argv) {
     stdio: ['ignore', 'pipe', 'pipe'],
     encoding: 'utf8',
     timeout: 300_000,
-    // 临期窗口必须 ≥ 本腿节拍(git-guardian 每 1 小时派发):默认 15 分钟窗口只服务
-    // 「api 常驻 + 5 分钟一轮」,搬到 1 小时节拍上会让到期点落在两轮之间。90 分钟 = 节拍 + 余量;
-    // 判据仍只有调度层一份(RELAY_ACCOUNT_REFRESH_AHEAD_MS),本层只给值不复算。
-    env: { ...process.env, RELAY_ACCOUNT_REFRESH_AHEAD_MS: String(90 * 60 * 1000) },
+    env: { ...process.env, RELAY_ACCOUNT_REFRESH_AHEAD_MS: String(aheadMs) },
   })
   const stdout = String(r.stdout ?? '')
   let json = null

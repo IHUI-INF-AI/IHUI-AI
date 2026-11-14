@@ -209,7 +209,7 @@ export function ConfirmPurchasePopUp({
         />
         <View style={styles.card}>
           <View style={styles.iconWrap}>
-            <Check size={28} color={tokens.success.DEFAULT} />
+            <Check size={28} color={tokens.success.deepText} />
           </View>
 
           <Text style={styles.title} numberOfLines={2}>
@@ -446,13 +446,13 @@ const styles = StyleSheet.create({
   productPrice: {
     fontSize: PRODUCT_PRICE_FONT_SIZE,
     lineHeight: PRODUCT_PRICE_FONT_SIZE + 4,
-    color: tokens.success.DEFAULT,
+    color: tokens.success.deepText,
     fontWeight: '500',
   } as TextStyle,
   productPriceOriginal: {
     fontSize: rnType.caption.size,
     lineHeight: 15,
-    color: tokens.text.tertiary,
+    color: tokens.text.medium,
     textDecorationLine: 'line-through',
   } as TextStyle,
   message: {
@@ -490,7 +490,7 @@ const styles = StyleSheet.create({
   } as ViewStyle,
   paymentLabel: {
     fontSize: rnType.label.size,
-    color: tokens.text.tertiary,
+    color: tokens.text.medium,
     marginBottom: rnSpacing['xs-loose'],
   } as TextStyle,
   paymentOption: {
@@ -571,7 +571,7 @@ const styles = StyleSheet.create({
   agreementText: {
     fontSize: rnType.caption.size,
     lineHeight: rnType.label.lineHeight,
-    color: tokens.text.tertiary,
+    color: tokens.text.medium,
   } as TextStyle,
   buttonRow: {
     flexDirection: 'row',

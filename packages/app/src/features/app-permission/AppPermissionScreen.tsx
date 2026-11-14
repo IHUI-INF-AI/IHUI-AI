@@ -142,7 +142,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     tagOptional: {
       fontSize: rnType.caption.size,
-      color: tk.text.tertiary,
+      color: tk.text.medium,
       backgroundColor: tk.surface.muted,
       borderRadius: rnRadius.xs,
       paddingHorizontal: rnSpacing.sm,
@@ -158,7 +158,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     statusGranted: { color: tk.brandAccent.deep, backgroundColor: tk.brandAccent.light },
     statusDenied: { color: tk.error.text, backgroundColor: tk.error.bg },
-    statusUnknown: { color: tk.text.tertiary, backgroundColor: tk.surface.muted },
+    statusUnknown: { color: tk.text.medium, backgroundColor: tk.surface.muted },
     settingButton: {
       flexShrink: 0,
       borderRadius: rnRadius.sm,
@@ -184,7 +184,7 @@ function createStyles(tk: AppThemeTokens) {
     openAllText: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
     footer: {
       fontSize: rnType.caption.size,
-      color: tk.text.tertiary,
+      color: tk.text.medium,
       textAlign: 'center',
       paddingVertical: rnSpacing.sm,
     },

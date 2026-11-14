@@ -185,9 +185,13 @@ function renderCreateView(props: CreateViewProps): ReactNode {
                 {tt('devEnter.n8nModel.paramPrefix', '参数')} {index + 1}
               </Text>
               {params.length > 1 ? (
-                <Text className="nm-param-del" onClick={() => removeParam(which, index)}>
-                  {tt('devEnter.n8nModel.deleteParam', '删除')}
-                </Text>
+                <View
+                  className="nm-param-del"
+                  hoverClass="opacity-60"
+                  onClick={() => removeParam(which, index)}
+                >
+                  <Text>{tt('devEnter.n8nModel.deleteParam', '删除')}</Text>
+                </View>
               ) : null}
             </View>
             <View className="nm-param-field">
@@ -304,9 +308,9 @@ function renderCreateView(props: CreateViewProps): ReactNode {
         {n8nFileName ? (
           <View className="nm-file-info">
             <Text className="nm-file-name">{n8nFileName}</Text>
-            <Text className="nm-file-remove" onClick={removeN8nFile}>
-              {t('common.delete')}
-            </Text>
+            <View className="nm-file-remove" hoverClass="opacity-60" onClick={removeN8nFile}>
+              <Text>{t('common.delete')}</Text>
+            </View>
           </View>
         ) : null}
 

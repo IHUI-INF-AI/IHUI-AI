@@ -370,10 +370,7 @@ export interface RelayUpstreamAdapter {
    * 构造上游长连接请求(socketSupported=true 时必实现)。
    * 与 buildChatRequest 并列:同一份 NormalizedChatRequest,两种运输方式。
    */
-  buildSocketRequest?(
-    ctx: AdapterAccountContext,
-    req: NormalizedChatRequest,
-  ): UpstreamSocketRequest
+  buildSocketRequest?(ctx: AdapterAccountContext, req: NormalizedChatRequest): UpstreamSocketRequest
   /**
    * 长连接帧 → OpenAI chunk(可选)。
    * 省略时转发层按 SSE 语义透传文本帧,复用 translateStreamChunk 翻译
@@ -482,9 +479,7 @@ export function isRefreshableProviderCode(providerCode: string): boolean {
 export function hasVerifiedQuotaEndpoint(
   adapter: Pick<RelayUpstreamAdapter, 'getQuota' | 'quotaSupported'> | null | undefined,
 ): adapter is RelayUpstreamAdapter & { getQuota: NonNullable<RelayUpstreamAdapter['getQuota']> } {
-  return (
-    !!adapter && typeof adapter.getQuota === 'function' && adapter.quotaSupported !== false
-  )
+  return !!adapter && typeof adapter.getQuota === 'function' && adapter.quotaSupported !== false
 }
 
 /**

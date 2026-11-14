@@ -20,7 +20,7 @@ import type { DistributionOrderListScreenProps } from '../../types'
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { formatPrice } from '@ihui/shared/utils'
 import { BackChevron } from '../../components/BackChevron'
-import { EmptyState, ScreenSkeleton } from '../../components/ScreenStates'
+import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 
 /** DistributionOrderListScreen props re-export(单一来源 @ihui/types) */
 export type { DistributionOrderListScreenProps }
@@ -52,7 +52,7 @@ function statusText(status: string): string {
 function statusColor(status: string, tk: AppThemeTokens): string {
   if (status === '1' || status === 'refunded') return tk.danger.DEFAULT
   if (status === '2' || status === 'settled' || status === 'finished') return tk.success.DEFAULT
-  return tk.text.tertiary
+  return tk.text.secondary
 }
 
 export function DistributionOrderListScreen({
@@ -62,6 +62,8 @@ export function DistributionOrderListScreen({
   activeTab,
   loading,
   loadingMore,
+  errorText,
+  onRetry,
   onSearch,
   onKeywordChange,
   onTabChange,
@@ -157,6 +159,14 @@ export function DistributionOrderListScreen({
         ListEmptyComponent={
           loading ? (
             <ScreenSkeleton variant="list" count={4} colorScheme={colorScheme} />
+          ) : errorText ? (
+            // 有错误文案时先报错误并给重试:空态文案会被读成"本来就没有订单"
+            <ErrorState
+              message={errorText}
+              onRetry={onRetry}
+              retryLabel={t('common.retry')}
+              colorScheme={colorScheme}
+            />
           ) : (
             <EmptyState title="暂无订单数据" colorScheme={colorScheme} />
           )
@@ -261,8 +271,8 @@ function createStyles(tk: AppThemeTokens) {
     rateText: { fontSize: rnType.caption.size, color: tk.text.secondary },
     footerRight: { alignItems: 'flex-end' },
     commissionLabel: { fontSize: rnType.caption.size, color: tk.text.secondary },
-    commissionValue: { fontSize: rnType.title.size, fontWeight: '600', color: tk.danger.DEFAULT },
-    timeText: { fontSize: rnType.body.size, color: tk.text.tertiary },
+    commissionValue: { fontSize: rnType.title.size, fontWeight: '600', color: tk.danger.deepText },
+    timeText: { fontSize: rnType.body.size, color: tk.text.medium },
     footerLoading: { paddingVertical: rnSpacing.md, alignItems: 'center' },
   })
 }

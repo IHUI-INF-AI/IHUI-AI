@@ -17,6 +17,7 @@
 import { eq, and, gt, sql, inArray, gte } from 'drizzle-orm'
 import { randomBytes } from 'node:crypto'
 import { db, dbRead } from '../db/index.js'
+import { toSafeAmount } from '../db/commission-queries.js'
 import {
   apiKeyGroups,
   apiKeyGroupMembers,
@@ -139,8 +140,9 @@ export async function getGroupMembers(groupId: string): Promise<GroupMemberUsage
   const usageRows = await dbRead
     .select({
       apiKeyId: llmCallLogs.apiKeyId,
-      usedTokens: sql<number>`coalesce(sum(${llmCallLogs.totalTokens}), 0)::int`,
-      usedCostCents: sql<number>`coalesce(sum(${llmCallLogs.costCents}), 0)::int`,
+      // F-574:30d 累计 token / 成本均可能越过 int4 上限,改 bigint 后在应用层收敛。
+      usedTokens: sql<number>`coalesce(sum(${llmCallLogs.totalTokens}), 0)::bigint`,
+      usedCostCents: sql<number>`coalesce(sum(${llmCallLogs.costCents}), 0)::bigint`,
     })
     .from(llmCallLogs)
     .where(
@@ -155,7 +157,10 @@ export async function getGroupMembers(groupId: string): Promise<GroupMemberUsage
   const usageMap = new Map<string, { usedTokens: number; usedCostCents: number }>()
   for (const u of usageRows) {
     if (u.apiKeyId) {
-      usageMap.set(u.apiKeyId, { usedTokens: u.usedTokens, usedCostCents: u.usedCostCents })
+      usageMap.set(u.apiKeyId, {
+        usedTokens: toSafeAmount(u.usedTokens),
+        usedCostCents: toSafeAmount(u.usedCostCents),
+      })
     }
   }
 

@@ -261,13 +261,6 @@ async function runResumePendingMessage(
   // ② 未落库 → 用已生成前缀作为上下文发起续生成
   ensureMessagePresent(p, chatStore)
   chatStore.getState().setStreaming(true)
-  // G-20261114:与 send-message.ts 的 setStreamingAssistantId 对称。
-  // applyChatSync 靠 streamingAssistantId 判定「本端就是生成端」回声:命中时
-  // WS snapshot 只推进判据面、不投影渲染面。上一轮 setStreaming(false) 走
-  // RUN_SCOPED_RESET 已把该 id 清空,resume 不补 ⇒ 恒判非回声 ⇒ 同 messageId 的
-  // message:patched 会就地覆盖 appendToMessage 正在累积的前缀(内容回退)。
-  // finally 的 clearRunScopedState() 会一并回收,无需额外收尾。
-  chatStore.getState().setStreamingAssistantId(p.messageId)
   chatStore.getState().setError(null)
 
   const batcher = createSmoothDeltaBatcher((delta) => {

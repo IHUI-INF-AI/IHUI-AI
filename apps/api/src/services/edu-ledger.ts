@@ -118,8 +118,9 @@ export interface ScheduleOutcome {
   /** 该期净额已缴(paid - refund),status 由它算 */
   netPaid: number
   status: string
-  /** 该期是否逾期(逾期天数 > 0) */
+  /** 该期是否逾期(逾期天数 > 0 且未缴清) */
   overdue: boolean
+  /** 逾期天数;已缴清账期恒为 0,避免被"取最大逾期天数"的消费者误用 */
   overdueDays: number
 }
 
@@ -221,6 +222,8 @@ export function deriveEnrollmentLedger(input: LedgerInput): EnrollmentLedger {
     else status = 'pending'
     // 逾期判定独立于 status:部分缴且已过宽限期同样算逾期。
     // 否则"交了一点点"的期次会永久躲开逾期视图,而那恰恰是最该被看见的一档。
+    // 已缴清账期的 overdueDays 归零:否则任何"取最大逾期天数"的消费者都会指向已结清的期次。
+    const settled = s.amountDue > 0 && netPaid >= s.amountDue
     return {
       id: s.id,
       dueDate: s.dueDate,
@@ -229,7 +232,7 @@ export function deriveEnrollmentLedger(input: LedgerInput): EnrollmentLedger {
       netPaid,
       status,
       overdue: overdueDays > 0 && netPaid < s.amountDue,
-      overdueDays,
+      overdueDays: settled ? 0 : overdueDays,
     }
   })
 
@@ -703,25 +706,22 @@ export async function recomputeEnrollments(enrollmentIds: string[]): Promise<num
  * 旧端点 `POST /payment-record` 只做 insert,这正是"录了缴费仍算欠费"的直接成因;
  * 所有写入缴费流水的路径都必须走这里(或由本入口重算),否则判据不成立。
  */
-export async function recordPayment(
-  input: {
-    enrollmentId: string
-    studentId: string
-    classId: string
-    feeId?: string | null
-    scheduleId?: string | null
-    amount: number
-    paymentDate: string
-    paymentMethod: string
-    status?: string
-    receiptNo?: string | null
-    remark?: string | null
-    operatorId?: string | null
-  },
-  outerTx?: LedgerExecutor,
-): Promise<{ paymentId: string; ledger: EnrollmentLedger | null }> {
+export async function recordPayment(input: {
+  enrollmentId: string
+  studentId: string
+  classId: string
+  feeId?: string | null
+  scheduleId?: string | null
+  amount: number
+  paymentDate: string
+  paymentMethod: string
+  status?: string
+  receiptNo?: string | null
+  remark?: string | null
+  operatorId?: string | null
+}): Promise<{ paymentId: string; ledger: EnrollmentLedger | null }> {
   // 缴费落库与派生账目重算必须在同一事务:任一步失败整体回滚,重试才是可重放的。
-  const run = async (tx: LedgerExecutor) => {
+  return db.transaction(async (tx) => {
     const [row] = await tx
       .insert(eduPaymentRecord)
       .values({
@@ -746,9 +746,7 @@ export async function recordPayment(
     }
     const ledger = await recomputeEnrollmentTx(tx, input.enrollmentId)
     return { paymentId: row.id, ledger }
-  }
-  // F-450:调用方已开事务(如代扣回调完整履约链)时并入外层,避免内层先提交。
-  return outerTx ? run(outerTx) : db.transaction(run)
+  })
 }
 
 /** 撤销一笔缴费(软删)后必须重算,否则欠费永远回不来。 */

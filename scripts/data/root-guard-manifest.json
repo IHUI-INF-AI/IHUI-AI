@@ -9,7 +9,7 @@
       "id": "guardian-runner",
       "path": "scripts/guardian-runner.mjs",
       "mode": "file",
-      "sha256": "8961bc242c692a837bcc9a5d9219f80dac905273a403cad911cb63bb70439d85"
+      "sha256": "a70a74eec8ab9800c13ce3460347899513f210981e3c6d669d67ee8905dcaadf"
     },
     {
       "id": "judgement-libs",

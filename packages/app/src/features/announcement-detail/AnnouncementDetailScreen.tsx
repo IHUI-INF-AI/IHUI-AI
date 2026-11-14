@@ -79,7 +79,7 @@ function createStyles(tk: AppThemeTokens) {
       marginBottom: rnSpacing.md,
     },
     author: { fontSize: rnType.body.size, color: tk.text.secondary, fontWeight: '500' },
-    meta: { fontSize: rnType.caption.size, color: tk.text.tertiary },
+    meta: { fontSize: rnType.caption.size, color: tk.text.medium },
     content: {
       fontSize: rnType.title.size,
       lineHeight: rnType.title.lineHeight,

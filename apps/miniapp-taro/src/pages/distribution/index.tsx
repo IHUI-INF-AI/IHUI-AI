@@ -82,12 +82,17 @@ export default function DistributionIndex() {
   const [refreshing, setRefreshing] = useState(false)
 
   const load = useCallback(async () => {
+    // 首屏两条腿(主数据 / overview)任一失败都算整屏失败;分佣比例仅辅助,失败按空态。
+    // 用局部标志聚合,避免三段各自 catch 互相覆盖错误态(尤其 overview 成功回包清掉主数据失败)。
+    let mainFailed = false
+    let infoFailed = false
     try {
       const res = (await api.getOperatorDataCardData({})) as unknown as OperatorData
       setData(res || {})
       if (!res?.verified) setShowVerify(true)
     } catch {
-      // ignore
+      // 主数据失败不再静默吞掉:交给末尾统一置错误态
+      mainFailed = true
     }
     // 分佣比例(对齐 RN ratesCard 的取数):失败按空态处理,不编造比例
     try {
@@ -103,15 +108,25 @@ export default function DistributionIndex() {
     } catch {
       setRateRows([])
     }
+    let overview: DistributionInfo | null = null
+    setInfoLoading(true)
     try {
-      setInfoLoading(true)
-      setInfoError('')
       const res = await api.get<DistributionInfo>('/distribution/overview')
-      setInfo(res ?? null)
+      overview = res ?? null
     } catch {
-      setInfoError(tt('distribution.team.error', '加载失败'))
+      infoFailed = true
     } finally {
       setInfoLoading(false)
+    }
+    // 错误态统一落地:主数据失败过去被 catch 全吞、infoError 从不置位 ⇒ 失败停在半截 0 值/骨架。
+    // 把 info 落空以命中共享屏 `error && !info` 分支(完整 ErrorState + onRetry,onRetry 已指向 load);
+    // 成功则回填 overview 并清空错误,保证重试可恢复。
+    if (mainFailed || infoFailed) {
+      setInfo(null)
+      setInfoError(tt('distribution.team.error', '加载失败'))
+    } else {
+      setInfo(overview)
+      setInfoError('')
     }
   }, [tt])
 

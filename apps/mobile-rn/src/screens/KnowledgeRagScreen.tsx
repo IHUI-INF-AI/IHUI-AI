@@ -5,7 +5,7 @@
 
 import { rnSpacing } from '@ihui/design-tokens'
 import { useCallback, useEffect, useState } from 'react'
-import { FlatList, RefreshControl, Text, TouchableOpacity, View } from 'react-native'
+import { FlatList, KeyboardAvoidingView, Platform, RefreshControl, Text, TouchableOpacity, View } from 'react-native'
 import { appAlert } from '../components/BottomPops'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
@@ -294,6 +294,10 @@ export function KnowledgeRagScreen() {
   // ---- 文档列表 / 搜索结果视图 ----
   return (
     <View className={`flex-1 ${dark ? 'bg-neutral-900' : 'bg-white'}`}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
       {renderHeader(t('knowledgeRag.title'), () => navigation.goBack())}
       {renderSearchBar()}
 
@@ -382,6 +386,7 @@ export function KnowledgeRagScreen() {
           )}
         />
       )}
+      </KeyboardAvoidingView>
     </View>
   )
 }

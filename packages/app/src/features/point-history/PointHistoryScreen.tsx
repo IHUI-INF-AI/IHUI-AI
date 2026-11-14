@@ -112,7 +112,7 @@ function createStyles(tk: AppThemeTokens) {
     errorText: {
       paddingHorizontal: rnSpacing['sm-loose'],
       fontSize: rnType.body.size,
-      color: tk.danger.DEFAULT,
+      color: tk.danger.deepText,
     },
     listBody: { padding: rnSpacing['md-loose'] },
     separator: { height: 8 },
@@ -135,8 +135,8 @@ function createStyles(tk: AppThemeTokens) {
       marginRight: rnSpacing.sm,
     },
     cardPoints: { fontSize: rnType.title.size, fontWeight: '600' },
-    pointsPositive: { color: tk.success.DEFAULT },
-    pointsNegative: { color: tk.danger.DEFAULT },
+    pointsPositive: { color: tk.success.deepText },
+    pointsNegative: { color: tk.danger.deepText },
     metaRow: {
       flexDirection: 'row',
       justifyContent: 'space-between',
@@ -144,7 +144,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: rnSpacing.sm,
     },
     cardMeta: { fontSize: rnType.caption.size, color: tk.text.secondary },
-    cardTime: { fontSize: rnType.caption.size, color: tk.text.tertiary },
+    cardTime: { fontSize: rnType.caption.size, color: tk.text.medium },
     footer: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -152,7 +152,7 @@ function createStyles(tk: AppThemeTokens) {
       gap: rnSpacing.sm,
       paddingVertical: rnSpacing.md,
     },
-    footerText: { fontSize: rnType.caption.size, color: tk.text.tertiary },
+    footerText: { fontSize: rnType.caption.size, color: tk.text.medium },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

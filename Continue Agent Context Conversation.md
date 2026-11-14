@@ -8536,6 +8536,7 @@ Now create the test file. Let me model on f-220 test.
 Test file content:
 
 ```ts
+
 // F-32 夹具:回调在「Saga 返回 success:false」时必须释放幂等锁并回失败响应,
 // 让微信/支付宝/PayPal 重投;成功路径仍写 complete + ACK SUCCESS。
 ```
@@ -16984,6 +16985,7 @@ That's 3+5+4 = 12 cases. Good.
 Check the exact message for last-owner test. Use toMatchObject.
 
 Write file with provenance header copied from other tests? The repo has provenance watermark first 3 lines. New files may be expected to include. I'll include the standard header lines 1-3 (the long watermark string is huge; copying is fine but ugly). Existing test files start with those. I'll copy exactly the header from security-hardening test lines 1-3. That's long invisible chars. I can instead include just the first two lines (copyright + provenance note) without the watermark? Consistency matters. Let me copy the header via reading? I already have it but the zero-width string is huge. Simpler: include lines 1-2 only:
+
 
 Probably fine; watermark line is machine-added. Actually maybe eslint enforces header? Let me check eslint config for header rule.
 
@@ -28672,6 +28674,7 @@ Now write the test file. Need to be careful about TS types with eslint (no-expli
 Let me write:
 
 ```ts
+
 /**
  * F-07 回归锁:后台 Agent 归属隔离(mock manager/db,零网络)。
  * ...
@@ -32760,6 +32763,7 @@ Actually consistency matters little. I'll write the test now.
 Test code:
 
 ```ts
+
 /**
  * F-91 回归:...
  */
@@ -33590,6 +33594,7 @@ Now write the test file with provenance header (copy 3 lines).
 Test content:
 
 ```ts
+
 /**
  * F-40 回归锁:后台 Agent 的两张模块级 Map 必须有回收路径。
  * ...
@@ -51231,5 +51236,4 @@ Withdraw: gate after queue None check, before matching
 Error: {"code":4008,"message":"Your requests have exceeded the quota."}
 
 ---
-
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->

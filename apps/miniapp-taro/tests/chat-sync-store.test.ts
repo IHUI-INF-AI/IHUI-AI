@@ -42,11 +42,7 @@ import {
   resetBroadcastNotices,
   type UserBroadcastAdapterDeps,
 } from '@/lib/user-broadcast'
-import {
-  applyChatSyncSurfaceMerge,
-  chatSyncTaroStoreApi,
-  planChatSyncSurfaceMerge,
-} from '@/stores/chat-sync'
+import { chatSyncTaroStoreApi } from '@/stores/chat-sync'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const BASE_URL = 'https://aizhs.top/api'
@@ -240,7 +236,7 @@ describe('④ store 单测:未判定帧 / 未接线帧 / 多会话分桶', () =>
     ])
   })
 
-  it('terminal 帧:进内核并落终态标记,不再判 unwired(G-20261114)', () => {
+  it('terminal 帧:本票不投影终态,但必须点名(静默丢 = 最高频失效型)', () => {
     const deps = makeDeps()
     sub = attachUserBroadcast(deps)
     feed(createdFrame())
@@ -251,10 +247,10 @@ describe('④ store 单测:未判定帧 / 未接线帧 / 多会话分桶', () =>
         messageTerminalEvent({ conversationId: C1, messageId: M1, rev: 0, reason: 'stop' }),
       ),
     )
-    // 另一端不再永久停在「生成中」:终态必须真落到 store 的消息面
-    expect(chatSyncStore.messagesOf(C1)[0]?.terminal).toEqual({ rev: 0, reason: 'stop' })
-    expect(chatSyncStore.counters()).toMatchObject({ unwired: 0, applied: 2 })
-    expect(deps.undetermined).toEqual([])
+    // 状态面零变化:终态投影与生产端发终态同批,本票不做
+    expect(chatSyncStore.messagesOf(C1)[0]?.terminal).toBeUndefined()
+    expect(chatSyncStore.counters()).toMatchObject({ unwired: 1 })
+    expect(deps.undetermined).toEqual([{ event: 'message:terminal', reason: 'terminal' }])
   })
 
   it('多会话按 room.conversationId 分桶:切会话不串、不重订', () => {

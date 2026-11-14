@@ -44,7 +44,7 @@
 }
 
 .share-popup-close-text {
-  font-size: var(--text-headline);
+  font-size: 44rpx;
   line-height: 44rpx;
   color: var(--color-muted-foreground);
 }
