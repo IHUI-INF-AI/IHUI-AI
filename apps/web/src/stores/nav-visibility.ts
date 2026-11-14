@@ -88,7 +88,13 @@ export const useNavVisibilityStore = create<NavVisibilityState>((set, get) => {
     } catch {
       // 隐私模式下 localStorage 不可用,降级为内存态
     }
-    void updatePreferences({ [PREF_KEY]: JSON.stringify(next) })
+    // Y-90:服务端偏好上行必须接 .catch —— 上行失败(网络/401/超时)时裸 void 会产生
+    // 未处理的 promise rejection,在 Next.js 里会打穿 error boundary 并污染 Sentry。
+    // 本地 hiddenTiers 已在上方 localStorage 落盘,上行失败只需记 warn、不回滚本地态
+    // (本地是"最后已知用户意图",下次 hydrate 仍以它为准;上行失败留给下次变更重试)。
+    void updatePreferences({ [PREF_KEY]: JSON.stringify(next) }).catch((err: unknown) => {
+      console.warn('nav-visibility: 服务端偏好上行失败(本地态保留)', err)
+    })
   }
 
   return {

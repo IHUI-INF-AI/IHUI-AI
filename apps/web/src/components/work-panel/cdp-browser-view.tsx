@@ -47,8 +47,9 @@ const CDP_CTX_MENU_OVERLAY_ID = 'cdp-browser-view-ctx-menu'
 export interface CdpBrowserViewProps {
   /** Browser Hub 会话 ID(后端 createBrowserSession 返回) */
   sessionId: string
-  /** 页面导航完成回调(传递最终 url + title) */
-  onNavigation?: (url: string, title: string) => void
+  /** 页面导航完成回调(传递最终 url + title + 产生事件的 sessionId)
+   *  Y-81:sessionId 用于 store 侧 tab 归属校验,防多 cdp tab 导航事件串号 */
+  onNavigation?: (url: string, title: string, sessionId?: string) => void
   /** 首帧渲染成功回调(等价于 iframe 的 onLoad) */
   onLoaded?: () => void
   /** 连接失败回调(等价于 iframe 的 onError) */
@@ -422,7 +423,9 @@ export function CdpBrowserView({
           imgRef.current = img
         } else if (msg.type === 'navigation' && msg.url) {
           if (disposed) return
-          cbRefs.current.onNavigation?.(msg.url, msg.title ?? '')
+          // Y-81:把建 WS 用的 sessionId 回传给 store,供 onCdpNavigation 做 tab 归属校验
+          // (多 cdp tab 并存时非 active tab 的导航事件须被丢弃,不串号到当前 tab)。
+          cbRefs.current.onNavigation?.(msg.url, msg.title ?? '', sessionId)
         }
       } catch {
         // 静默处理解析错误

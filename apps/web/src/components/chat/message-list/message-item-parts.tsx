@@ -17,6 +17,7 @@ import {
 } from '@ihui/shared/chat'
 import { StreamRow, useLiveElapsed } from '@/components/chat/stream/stream-ui'
 import { computeMessageCostCny, formatCompactTokens, useModelPriceCny } from './use-model-price'
+import { formatCny, formatUsd } from '@/lib/display-currency'
 
 /**
  * next-intl locale → 等待池 locale;未知回退 zh-CN(不抛错)。
@@ -204,18 +205,18 @@ export function UsageBreakdown({ usage, model }: { usage: unknown; model?: strin
         </span>
       )}
       {inputCost !== null && (
-        <span className="text-muted-foreground">
-          {t('sessionUsage.inputCost')}: ¥{inputCost.toFixed(6)}
+        <span className="text-muted-foreground" suppressHydrationWarning>
+          {t('sessionUsage.inputCost')}: {formatCny(inputCost, { digits: 6 })}
         </span>
       )}
       {outputCost !== null && (
-        <span className="text-muted-foreground">
-          {t('sessionUsage.outputCost')}: ¥{outputCost.toFixed(6)}
+        <span className="text-muted-foreground" suppressHydrationWarning>
+          {t('sessionUsage.outputCost')}: {formatCny(outputCost, { digits: 6 })}
         </span>
       )}
       {totalCost !== null && (
-        <span className="text-muted-foreground">
-          {t('messageUsage.total')} ¥{totalCost.toFixed(6)}
+        <span className="text-muted-foreground" suppressHydrationWarning>
+          {t('messageUsage.total')} {formatCny(totalCost, { digits: 6 })}
         </span>
       )}
       {price === null && model !== null && model !== '' && (
@@ -256,7 +257,9 @@ export function MessageUsageBadge({
         data-testid={`message-usage-${messageId}`}
       >
         · {formatCompactTokens(total)} {tm('tokens')}
-        {totalCost !== null && <span> · ¥{totalCost.toFixed(4)}</span>}
+        {totalCost !== null && (
+          <span suppressHydrationWarning> · {formatCny(totalCost, { digits: 4 })}</span>
+        )}
       </span>
     </Tooltip>
   )
@@ -267,10 +270,6 @@ export function MessageUsageBadge({
 // _message-list.scss .message-actions: display:flex; gap:8px; opacity:1(始终显示)
 export const ACTION_BTN_CLASS =
   'inline-flex items-center justify-center h-7 w-7 rounded-md text-muted-foreground hover:text-primary hover:bg-muted/60 transition-all duration-200 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
-
-/** 近似展示汇率(USD→CNY):仅用于消息底部成本徽章的展示换算,权威成本以后端 costUsd 为准。
- * 非实时汇率,不用于账单/扣费。 */
-const USD_TO_CNY = 7.2
 
 /** 毫秒 → 紧凑秒串(用于首 token / 总耗时):<1s 显示两位小数,>=1s 一位小数。 */
 function formatSeconds(ms: number): string {
@@ -308,7 +307,8 @@ export function MessageUsageMetrics({
   if (!usage || usage.totalTokens <= 0) return null
 
   const model = usage.model || fallbackModel || ''
-  const costCny = usage.costUsd !== null ? usage.costUsd * USD_TO_CNY : null
+  // 展示层按实时汇率折算;costUsd 是后端权威口径(USD),不参与扣费
+  const costText = usage.costUsd !== null ? formatUsd(usage.costUsd, { digits: 2 }) : null
 
   // 明细(悬浮展示):复用 chat.messageUsage/sessionUsage 既有键 + ai.message.metrics.reasoningTokens
   const detail = (
@@ -347,9 +347,9 @@ export function MessageUsageMetrics({
           {t('modelDetail')}: <span className="tabular-nums">{model}</span>
         </div>
       )}
-      {costCny !== null && (
+      {costText !== null && (
         <div>
-          {t('costDetail')}: <span className="tabular-nums">¥{costCny.toFixed(2)}</span>
+          {t('costDetail')}: <span className="tabular-nums">{costText}</span>
         </div>
       )}
     </div>
@@ -380,9 +380,9 @@ export function MessageUsageMetrics({
             {SEP} {model}
           </span>
         )}
-        {costCny !== null && (
-          <span data-testid="usage-cost" className="tabular-nums">
-            {SEP} {t('cost', { cost: costCny.toFixed(2) })}
+        {costText !== null && (
+          <span data-testid="usage-cost" className="tabular-nums" suppressHydrationWarning>
+            {SEP} {t('cost', { cost: costText })}
           </span>
         )}
       </span>

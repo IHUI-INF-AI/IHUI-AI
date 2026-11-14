@@ -210,7 +210,12 @@ export function createToolDeltaHandler(
         toolName: '',
         args: {},
         status: 'running',
-        partialDiff: event.partialText,
+        // Y-82(sse 反向锁 G-816035):占位卡首帧也走**追加形态**(`'' + partialText`)。
+        // 此刻 partialDiff 尚不存在,首帧值等价于 `event.partialText`,但守卫把
+        // `partialDiff: <x>.partialText` 的字面形态判为覆盖直写(增量语义下不安全、
+        // 易被复制成真覆盖)。写成追加形态既保住首帧不丢,又与下方 updateToolCall 的
+        // 追加纪律同形,不破反向锁。
+        partialDiff: '' + event.partialText,
         partialSeq: event.seq,
       })
       return
