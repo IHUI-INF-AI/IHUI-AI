@@ -2612,6 +2612,12 @@ class AgentLoopV2:
         # builder 的构造入参(与 network_rule_amendments 喂 build_network_rule_saved_fragment
         # 同款方式),**不是第二份注入路径**。键与形态见该方法注释。
         instructional_inputs: dict[str, Any] | None = None,
+        # 第七遍对标(2026-11-14,DSH dsh-agent-instructions):会话工作目录。
+        # 非空时每个 LLM 迭代前重算工作区指令链 —— 本轮成功的 read/write/edit
+        # 到达更深目录、或指令文件被改写/删除时,向本次运行补发 REPLACEMENT/REMOVAL
+        # 片段;**只在本次运行内可见**(developer 角色,不回写用户可见历史)。
+        # None = 未接线,零行为变化(直接构造本循环的旧路径/测试不受影响)。
+        workspace: str | None = None,
     ):
         """
         Args:
@@ -2693,6 +2699,17 @@ class AgentLoopV2:
         # —— 工具在飞时仍等终态路径处理。
         self._stream_text_snapshot: str = ""
         self._tools: dict[str, ToolDefinition] = {t.name: t for t in tools}
+        # 第七遍对标(2026-11-14):工作区指令链的本次运行状态。
+        # _instruction_dirs = 本轮成功的 read/write/edit 触达的目录(深目录发现);
+        # _ws_instructions_last = 上一次实际生效的链正文(None=无指令)。
+        self._workspace: str | None = (
+            workspace.strip()
+            if isinstance(workspace, str) and workspace.strip()
+            else None
+        )
+        self._instruction_dirs: set[str] = set()
+        self._ws_instructions_initialized: bool = False
+        self._ws_instructions_last: str | None = None
         # Qoder 行为对齐(2026-11-08):env 显式放宽才生效,缺省与 AGENT_MAX_ITERATIONS
         # 逐字一致(不破 check-doom-loop-parity 的基准登记)。
         self.max_iterations = _resolve_turn_budget(max_iterations)
@@ -5464,6 +5481,9 @@ class AgentLoopV2:
                 self._inject_context_fragments(messages)
                 self._inject_session_prefix(messages)
                 self._inject_instructional_fragments(messages)
+                # 第七遍对标(2026-11-14):工作区指令链增补注入。接线前是线程启动时
+                # 一次性拼接;本轮读到/写入更深目录或指令文件变动后,下一次请求即生效。
+                self._inject_workspace_instructions(messages)
                 # Qoder 行为对齐(2026-11-08):轮次预算提示。进入收尾窗口后注入一次,
                 # 让模型知道"还剩几轮"并自行收敛,而不是在最后一轮被突然截断成空回复。
                 # 只注入一次:短预算回合里每轮重发会把真正的工作上下文挤掉。
@@ -7553,6 +7573,7 @@ class AgentLoopV2:
                 diff = candidate if isinstance(candidate, dict) else None
             self._deliverables.record_tool_call(tc.id, tc.name, dict(tc.args or {}), diff)
             self._record_deliverable_citation(tc.name, dict(tc.args or {}))
+            self._record_instruction_touch(tc, tr)
             if not tr.error and (tr.name or tc.name) == "present_files":
                 self._record_presented_files(tr.result, tc.id)
         except Exception as e:
@@ -8839,6 +8860,122 @@ class AgentLoopV2:
                             messages.append(_frag)
         except Exception as e:  # noqa: BLE001 - 注入失败隔离,不阻塞回合
             logger.debug("instructional_fragments 注入异常(降级跳过): %s", e)
+
+    def _inject_workspace_instructions(self, messages: list[dict[str, Any]]) -> None:
+        """工作区指令链增补注入(第七遍对标,2026-11-14,DSH dsh-agent-instructions)。
+
+        与引擎线程启动时的一次性拼接分工:
+        - 首次迭代:重算项目链;正文已在 system 里 ⇒ 不重复注入;
+          不在 ⇒ 补发一次(说明:线程启动后指令文件有变,或更深的目录先被读到);
+        - 后续迭代:本轮成功的 read/write/edit 触达更深目录、或指令文件被改写/删除 ⇒
+          追加 REPLACEMENT / REMOVAL 片段,下一次模型请求即看到新指令;
+        - 片段用 developer 角色,引擎 `_absorb_messages` 回写时丢弃 ⇒ 不污染用户可见历史。
+
+        失败一律降级不阻塞;`workspace` 未接线 = 整段零行为。
+        """
+        if not self._workspace:
+            return
+        try:
+            from app.core.agents_md import (
+                build_workspace_instructions_fragment,
+                build_workspace_instructions_removal_fragment,
+                load_workspace_instructions,
+            )
+            from app.core.agents_md_state import REMOVAL_NOTICE, REPLACEMENT_NOTICE
+
+            loaded = load_workspace_instructions(
+                self._workspace,
+                extra_dirs=sorted(self._instruction_dirs),
+            )
+            text = None if loaded.is_empty() else loaded.content
+
+            if not self._ws_instructions_initialized:
+                self._ws_instructions_initialized = True
+                self._ws_instructions_last = text
+                system_text = ""
+                for msg in messages:
+                    if isinstance(msg, dict) and msg.get("role") == "system":
+                        system_text = str(msg.get("content") or "")
+                        break
+                if text is None:
+                    # 线程启动时注入过、现在链已空(文件被删):必须告知模型旧指令失效,
+                    # 否则 system 里那份会一直被当成现行规则(跨轮删除路径)。
+                    if self._system_has_instructions(system_text):
+                        messages.append(
+                            build_workspace_instructions_removal_fragment(
+                                REMOVAL_NOTICE
+                            )
+                        )
+                    return
+                if text in system_text:
+                    return  # 线程启动那次拼接已经带着同一份链,不重复
+                # system 里已有旧一代指令(两种旧标记任一)⇒ 本次按 REPLACEMENT 说清
+                replaced = self._system_has_instructions(system_text)
+                messages.append(
+                    build_workspace_instructions_fragment(
+                        text, notice=REPLACEMENT_NOTICE if replaced else None
+                    )
+                )
+                return
+
+            if text == self._ws_instructions_last:
+                return
+            self._ws_instructions_last = text
+            if text is None:
+                messages.append(
+                    build_workspace_instructions_removal_fragment(REMOVAL_NOTICE)
+                )
+            else:
+                messages.append(
+                    build_workspace_instructions_fragment(
+                        text, notice=REPLACEMENT_NOTICE
+                    )
+                )
+        except Exception as e:  # noqa: BLE001 - 注入失败隔离,不阻塞回合
+            logger.warning("workspace_instructions 注入异常(降级跳过): %s", e)
+
+    @staticmethod
+    def _system_has_instructions(system_text: str) -> bool:
+        """system 里是否已有任何一代工作区指令块(旧拼接 / 状态机 / 本轮标记)。"""
+        return (
+            "[项目文档 AGENTS.md]" in system_text
+            or "# AGENTS.md instructions" in system_text
+            or "<workspace_instructions" in system_text
+        )
+
+    def _record_instruction_touch(self, tc: ToolCall, tr: ToolResult) -> None:
+        """记录本轮成功读/写/编辑到达的目录(供下一个迭代发现更深层指令文件)。
+
+        只认成功的文件类调用;路径解析失败/越界一律跳过 —— 发现失败只是少注入,
+        绝不让指令链把主链路拖红。
+        """
+        if not self._workspace or tr.error:
+            return
+        try:
+            from app.core.tool_name_sets import FILE_WRITE_TOOLS, PATH_ARG_KEYS
+
+            name = tr.name or tc.name
+            if name not in FILE_WRITE_TOOLS and name not in (
+                "read_file",
+                "read_dir",
+                "list_dir",
+            ):
+                return
+            args = dict(tc.args or {})
+            raw = ""
+            for key in PATH_ARG_KEYS:
+                value = args.get(key)
+                if isinstance(value, str) and value.strip():
+                    raw = value.strip()
+                    break
+            if not raw:
+                return
+            path = Path(raw)
+            if not path.is_absolute():
+                path = Path(self._workspace) / path
+            self._instruction_dirs.add(str(path.resolve().parent))
+        except Exception:  # noqa: BLE001 - 目录记账失败静默跳过
+            pass
 
     async def _prewarm_factory(self) -> None:
         """最佳努力的网关连接预热占位(对标 codex 预热体)。
