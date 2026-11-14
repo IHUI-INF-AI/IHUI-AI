@@ -6378,6 +6378,95 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                     args if isinstance(args, dict) else None, owner_uuid
                                 ):
                                     _approval_needed = False
+                            # 2026-11-14:Auto 档逐工具审查闸(对标 DSH experimental-auto-review)。
+                            # 只在 acceptEdits + 原本需审批时介入;allow 免弹窗、deny 结构化拒绝、
+                            # escalate/异常交回原审批。审查结论只作为可选键随帧下发。
+                            _auto_review_payload: dict[str, Any] | None = None
+                            if _approval_needed and req.permission_mode == "acceptEdits":
+                                try:
+                                    from ..services.tool_auto_review import (
+                                        request_tool_auto_review as _request_auto_review,
+                                    )
+
+                                    _auto_review = await _request_auto_review(
+                                        tool_name, args if isinstance(args, dict) else {}
+                                    )
+                                except Exception as _ar_exc:  # noqa: BLE001 - 审查异常不杀审批链
+                                    logger.warning(
+                                        "auto-review 出口异常(tool=%s): %s",
+                                        tool_name,
+                                        _ar_exc,
+                                    )
+                                    _auto_review = None
+                                if _auto_review is not None:
+                                    _auto_review_payload = _auto_review.to_event_payload()
+                                    if _auto_review.decision == "allow":
+                                        _approval_needed = False
+                                    elif (
+                                        _auto_review.decision == "deny"
+                                        and not _is_terminal_tool
+                                    ):
+                                        _deny_reason = f"自动审查拒绝执行: {_auto_review.reason}"
+                                        exec_result = {
+                                            "tool": tool_name,
+                                            "ok": False,
+                                            "error": _deny_reason,
+                                            "errorCode": "TOOL_AUTO_REVIEW_DENIED",
+                                            "message": f"工具 {tool_name} 未执行(自动审查拒绝)",
+                                            "auto_review": _auto_review_payload,
+                                        }
+                                        ok = False
+                                        tool_exec_tracker.append(ok)
+                                        _r_src, _r_sid, _r_sname = resolve_tool_source(tool_name)
+                                        yield _sse(
+                                            SSE_TOOL_RESULT,
+                                            {
+                                                "type": "tool-result",
+                                                "toolCallId": tc.get("id", ""),
+                                                "toolName": tool_name,
+                                                "args": args,
+                                                "result": exec_result,
+                                                "isError": True,
+                                                "iteration": _tool_iter + 1,
+                                                "serverSource": _r_src,
+                                                "serverId": _r_sid,
+                                                "serverName": _r_sname,
+                                            },
+                                        )
+                                        _hist_idx = len(tool_calls_history) - 1
+                                        if (
+                                            _hist_idx >= 0
+                                            and tool_calls_history[_hist_idx].get("toolCallId")
+                                            == tc.get("id", "")
+                                        ):
+                                            tool_calls_history[_hist_idx].update(
+                                                {
+                                                    "result": exec_result,
+                                                    "isError": True,
+                                                    "durationMs": int(
+                                                        (time.time() - _tc_start_ts) * 1000
+                                                    ),
+                                                    "endedAt": datetime.now(UTC).isoformat(),
+                                                }
+                                            )
+                                        yield _format_plan_updated_event(
+                                            tool_calls_history,
+                                            explanation=f"工具 {tool_name} 被自动审查拒绝,未执行",
+                                            message_id=message_id,
+                                        )
+                                        result_json = scan_and_frame_tool_result(
+                                            json.dumps(exec_result, ensure_ascii=False)[:4000],
+                                            tool_name=tool_name,
+                                        )
+                                        messages.append(
+                                            {
+                                                "role": "tool",
+                                                "tool_call_id": tc.get("id", ""),
+                                                "name": tool_name,
+                                                "content": result_json,
+                                            }
+                                        )
+                                        continue
                             if _approval_needed:
                                 # 类型收窄兜底(与 delegate 分支同一模式):走到本块 ⇒ 上方 grant
                                 # 块必已执行且未置 False,session_id 在那时已被保证非 None,
@@ -6459,6 +6548,12 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                         "args_preview": _args_preview,
                                         "danger_level": _danger,
                                         "session_id": session_id,
+                                        # 2026-11-14:Auto 档审查结论(可选键;缺席 = 未启用)
+                                        **(
+                                            {"auto_review": _auto_review_payload}
+                                            if _auto_review_payload
+                                            else {}
+                                        ),
                                         # D159:执行环境 + 网络目标事实(开关关档 ⇒ 整块缺席,
                                         # 前端整块不渲染;开着但读不到 ⇒ 弹窗喊"未上报")
                                         **_approval_env_fields(

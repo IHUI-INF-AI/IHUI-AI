@@ -21,6 +21,8 @@ import {
   FileCode,
   FileJson,
   FileDown,
+  FileArchive,
+  Copy,
   Camera,
   Image as ImageIcon,
   Link2,
@@ -96,6 +98,8 @@ import {
   downloadConversationJson,
   downloadConversationSnapshot,
   downloadConversationShareCard,
+  downloadConversationZip,
+  copyConversationMarkdown,
   copyConversationShareLink,
   printConversationPdf,
   type ExportRoleLabel,
@@ -810,6 +814,18 @@ export function SidebarChatHistory({
     )
   }
 
+  const handleExportZip = (item: ConversationItem) => {
+    runExportAction(item.id, te('exportStarted'), () =>
+      downloadConversationZip(item.id, item.title),
+    )
+  }
+
+  const handleCopyMarkdown = (item: ConversationItem) => {
+    runExportAction(item.id, te('copyMarkdownCopied'), () =>
+      copyConversationMarkdown(item.id, item.title, exportRoleLabel),
+    )
+  }
+
   const handleSnapshot = (item: ConversationItem) => {
     runExportAction(item.id, te('exportStarted'), () =>
       downloadConversationSnapshot(item.id, item.title, exportRoleLabel),
@@ -1144,6 +1160,28 @@ export function SidebarChatHistory({
                 >
                   <FileJson className="mr-2 h-3.5 w-3.5" />
                   <span>{te('exportJson')}</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleExportZip(item)
+                  }}
+                  disabled={busyId === item.id}
+                  data-testid="conversation-export-zip"
+                >
+                  <FileArchive className="mr-2 h-3.5 w-3.5" />
+                  <span>{te('exportZip')}</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleCopyMarkdown(item)
+                  }}
+                  disabled={busyId === item.id}
+                  data-testid="conversation-copy-markdown"
+                >
+                  <Copy className="mr-2 h-3.5 w-3.5" />
+                  <span>{te('copyMarkdown')}</span>
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={(e) => {

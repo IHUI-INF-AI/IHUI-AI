@@ -81,6 +81,8 @@ import {
   ForkSourceRejectedError,
   replaceMessages,
   updateConversationTitle,
+  patchConversationMetadata,
+  findRecentMessagesForTitle,
 } from '../db/chat-queries.js'
 // D125 另批收口(2026-10-23):写锁地板门控判据(纯函数,不触库;锁读写面在 chat-collab 路由)
 import { readCollabLock, resolveFloorGate } from '../db/chat-collab-write-queries.js'
@@ -89,12 +91,24 @@ import { findChatSyncSnapshot } from '../db/chat-sync-rev-queries.js'
 import { success, error } from '../utils/response.js'
 // D35(2026-10-31):metadata 九类只回摘要 —— 投影判据的唯一实现在 @ihui/shared/chat
 // (九类清单 + 信封形态都在那里),本文件不重写一份键表。
-import { projectChatMetadataSummary } from '@ihui/shared/chat'
+import {
+  projectChatMetadataSummary,
+  buildConversationExportManifestJson,
+  buildConversationMarkdown,
+  buildConversationMessagesJson,
+  sanitizeExportTitle,
+  type ConversationExportMessage,
+} from '@ihui/shared/chat'
+// 会话日志 ZIP 导出(2026-11-14):store 模式零依赖容器,条目名/CRC/中央目录由单测钉死
+import { buildZipStore } from '../lib/chat/zip-store.js'
 import { resolveDefaultChatModel } from '../utils/retired-providers.js'
 import { generateSemanticSummary, getCachedSemanticSummary } from '../utils/semantic-summary.js'
 import {
   generateConversationTitle,
   DEFAULT_CONVERSATION_TITLE,
+  TITLE_STRATEGIES,
+  TITLE_CONTEXT_MESSAGES,
+  buildConversationTranscript,
 } from '../utils/conversation-title.js'
 import {
   listMessageArchives,
@@ -906,6 +920,10 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
     if (!owned.conversation) return
 
     const updated = await updateConversation(id, parsed.data)
+    // 用户手动改名 → 打标 manual(2026-11-13):后续多轮标题重估只碰 auto,绝不吞用户命名
+    if (parsed.data.title !== undefined && updated.title !== owned.conversation.title) {
+      await patchConversationMetadata(id, userId, { titleSource: 'manual' })
+    }
     // D153:写库成功后按"库里到底变了哪一列"广播(见 broadcastConversationMeta 判据②)
     broadcastConversationMeta(
       request,
@@ -919,15 +937,26 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // POST /conversations/:id/auto-title - 会话标题自动生成(2026-09-15 立,四竞品对标 V2 #15)
-  // 首轮回复完成后由前端 fire-and-forget 调用:LLM 依据首条用户消息生成 ≤24 字标题回写。
-  // 仅当当前标题仍为默认值「新对话」时才覆盖(schema 默认值)——用户手动重命名后不再自动改。
-  // 失败(超时/stub/上游错误)一律 success({ok:false}) 静默返回,保持默认标题,绝不打扰用户。
-  const autoTitleSchema = z.object({
-    /** 首条用户消息文本(用于生成标题;后端再截断到 2000 字符) */
-    text: z.string().min(1).max(4_000),
-    /** 当前会话模型(标题生成沿用,undefined 时用 LITELLM_MODEL 兜底) */
-    model: z.string().max(200).optional(),
-  })
+  // 首轮回复后由前端 fire-and-forget 调用;2026-11-13 扩为双策略:
+  //  - first-turn:按首条用户消息生成(默认,行为与旧版一致);
+  //  - conversation:服务端读最近 20 条消息重估(第 3 轮回复后由前端触发一次)。
+  // 覆盖规则:默认标题恒可覆盖;非默认标题**仅当** metadata.titleSource === 'auto'
+  // 且 overwriteAuto=true 时才重估 —— 用户手动改名永不被吞。
+  // 失败(超时/stub/上游错误)一律 success({ok:true,updated:false}) 静默返回,保持原标题。
+  const autoTitleSchema = z
+    .object({
+      /** 首条用户消息文本(first-turn 必填;conversation 策略由服务端读库,可省) */
+      text: z.string().max(4_000).optional(),
+      /** 当前会话模型(标题生成沿用,undefined 时用 LITELLM_MODEL 兜底) */
+      model: z.string().max(200).optional(),
+      strategy: z.enum(TITLE_STRATEGIES).default('first-turn'),
+      /** 是否允许覆盖"自动生成但已不是默认值"的标题(多轮重估用) */
+      overwriteAuto: z.boolean().default(false),
+    })
+    .refine((v) => v.strategy !== 'first-turn' || (v.text?.trim().length ?? 0) > 0, {
+      message: '首轮标题生成需要 text',
+      path: ['text'],
+    })
   server.post('/conversations/:id/auto-title', async (request, reply) => {
     await requireAuth(request, reply)
     if (!request.userId) return
@@ -938,24 +967,40 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
+    const { text, model, strategy, overwriteAuto } = parsed.data
 
     const owned = await ensureOwnedConversation(id, userId, reply)
     if (!owned.conversation) return
 
-    // 用户已手动重命名(标题 ≠ 默认值)→ 不覆盖,直接 OK
-    if (owned.conversation.title !== DEFAULT_CONVERSATION_TITLE) {
-      return reply.send(success({ ok: true, title: owned.conversation.title, updated: false }))
+    const currentTitle = owned.conversation.title
+    const metadata = (owned.conversation.metadata ?? {}) as Record<string, unknown>
+    const isDefaultTitle = currentTitle === DEFAULT_CONVERSATION_TITLE
+    const isAutoTitle = metadata['titleSource'] === 'auto'
+    // 默认标题 / 允许重估的自动标题 —— 其余(用户改名)一律原样返回
+    if (!isDefaultTitle && !(overwriteAuto && isAutoTitle)) {
+      return reply.send(success({ ok: true, title: currentTitle, updated: false }))
     }
 
-    const title = await generateConversationTitle(request, parsed.data.text, parsed.data.model)
+    // 多轮策略的输入是"最近真实对话",不是客户端回传的文本
+    const source =
+      strategy === 'conversation'
+        ? buildConversationTranscript(await findRecentMessagesForTitle(id, TITLE_CONTEXT_MESSAGES))
+        : (text ?? '')
+    if (!source.trim()) {
+      return reply.send(success({ ok: true, updated: false }))
+    }
+
+    const title = await generateConversationTitle(request, source, model, strategy)
     if (!title) {
-      // 生成失败:静默成功(前端保持默认标题,不重试不报错)
+      // 生成失败:静默成功(前端保持原标题,不重试不报错)
       return reply.send(success({ ok: true, updated: false }))
     }
     const updated = await updateConversationTitle(id, userId, title)
     if (!updated) {
       return reply.status(404).send(error(404, '对话不存在'))
     }
+    // 来源打标:后续多轮重估只覆盖自动标题,用户改名后不再被自动改
+    await patchConversationMetadata(id, userId, { titleSource: 'auto' })
     // D153:自动标题**也**要下行。这一型最容易漏,因为它是后台 fire-and-forget 写的,
     // 用户没在任何端按"重命名" —— 另一端侧栏于是长期挂着「新对话」而无人喊。
     broadcastConversationMeta(request, userId, id, ['title'], updated.updatedAt, {
@@ -1938,7 +1983,7 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
     const owned = await ensureOwnedConversation(id, userId, reply)
     if (!owned.conversation) return
 
-    const formatQuery = z.object({ format: z.enum(['txt', 'md']).default('md') })
+    const formatQuery = z.object({ format: z.enum(['txt', 'md', 'zip']).default('md') })
     const parsed = formatQuery.safeParse(request.query)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -1947,6 +1992,65 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
 
     const messages = await findMessagesForExport(id)
     const title = owned.conversation.title
+
+    if (fmt === 'zip') {
+      // 会话日志导出包:Markdown / 原始消息 JSON / manifest 三件套。
+      // 序列化规则与 Web 端「复制为 Markdown」共用 @ihui/shared/chat 的同一份实现。
+      const exportedAt = new Date().toISOString()
+      const exportMessages: ConversationExportMessage[] = messages.map((m) => {
+        const metadata = (m.metadata ?? {}) as Record<string, unknown>
+        return {
+          id: m.id,
+          role: m.role,
+          content: m.content,
+          createdAt: m.createdAt instanceof Date ? m.createdAt.toISOString() : String(m.createdAt),
+          model: typeof metadata.model === 'string' ? metadata.model : null,
+        }
+      })
+      const mtime = new Date(exportedAt)
+      const zip = buildZipStore(
+        [
+          {
+            name: 'conversation.md',
+            data: buildConversationMarkdown(title, exportMessages, {
+              user: 'user',
+              assistant: 'assistant',
+            }),
+            mtime,
+          },
+          {
+            name: 'messages.json',
+            data: buildConversationMessagesJson(title, exportMessages, exportedAt),
+            mtime,
+          },
+          {
+            name: 'manifest.json',
+            data: buildConversationExportManifestJson({
+              conversationId: id,
+              title,
+              messages: exportMessages,
+              exportedAt,
+              model: typeof owned.conversation.model === 'string' ? owned.conversation.model : null,
+              createdAt: owned.conversation.createdAt.toISOString(),
+              updatedAt: owned.conversation.updatedAt.toISOString(),
+            }),
+            mtime,
+          },
+        ],
+        { mtime },
+      )
+      reply
+        .header(
+          'Content-Disposition',
+          `attachment; filename="conversation-${id}.zip"; filename*=UTF-8''${encodeURIComponent(
+            `${sanitizeExportTitle(title)}.zip`,
+          )}`,
+        )
+        .header('Content-Length', zip.length)
+        .type('application/zip')
+        .send(zip)
+      return
+    }
 
     if (fmt === 'md') {
       const parts = [`# ${title}\n`]

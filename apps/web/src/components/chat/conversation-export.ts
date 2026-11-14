@@ -9,8 +9,14 @@
 // - 分享链接:POST /api/chat/conversations/{id}/share → 复制 /chat/share/{token}
 // 消息来源按会话 ID 分页拉全量,不依赖前端当前加载的会话。
 
-import { getMessages } from '@ihui/api-client'
+import { getMessages, exportConversationZip } from '@ihui/api-client'
 import { fetchApi } from '@/lib/api'
+import {
+  buildConversationMarkdown,
+  buildConversationMessagesJson,
+  isExportableMessage as isSharedExportableMessage,
+  sanitizeExportTitle,
+} from '@ihui/shared/chat/conversation-export'
 import {
   buildShareCardSvg,
   SHARE_CARD_WIDTH,
@@ -34,7 +40,7 @@ export type ExportRoleLabel = Record<ExportRole, string>
 const MESSAGES_PAGE_SIZE = 100
 
 function isExportableMessage(m: ExportMessage): boolean {
-  return (m.role === 'user' || m.role === 'assistant') && m.content.trim().length > 0
+  return isSharedExportableMessage(m)
 }
 
 /** 按会话 ID 拉取全量消息(时间正序;pageSize 上限 100,循环翻页) */
@@ -79,37 +85,18 @@ function wrapText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number)
   return lines
 }
 
-/** 序列化为 Markdown:`## 用户 / ## 助手` 分节 + 正文 */
+/** 序列化为 Markdown:`## 用户 / ## 助手` 分节 + 正文(序列化规则在 @ihui/shared/chat) */
 function buildMarkdown(
   title: string,
   messages: ExportMessage[],
   roleLabel: ExportRoleLabel,
 ): string {
-  const lines: string[] = [`# ${title}`, '']
-  for (const m of messages) {
-    if (!isExportableMessage(m)) continue
-    lines.push(`## ${roleLabel[m.role as ExportRole]}`, '', m.content.trimEnd(), '')
-  }
-  return lines.join('\n')
+  return buildConversationMarkdown(title, messages, roleLabel)
 }
 
 /** 序列化为 JSON:结构与后端消息字段对齐(id/role/content/createdAt/model) */
-function buildJson(title: string, messages: ExportMessage[]): string {  return JSON.stringify(
-    {
-      title,
-      exportedAt: new Date().toISOString(),
-      messageCount: messages.filter(isExportableMessage).length,
-      messages: messages.filter(isExportableMessage).map((m) => ({
-        id: m.id,
-        role: m.role,
-        content: m.content,
-        createdAt: m.createdAt,
-        model: m.model ?? null,
-      })),
-    },
-    null,
-    2,
-  )
+function buildJson(title: string, messages: ExportMessage[]): string {
+  return buildConversationMessagesJson(title, messages, new Date().toISOString())
 }
 
 /** 触发浏览器下载(Blob 方案,内存即弃) */
@@ -253,7 +240,7 @@ export async function downloadConversationMarkdown(
 ): Promise<boolean> {
   const messages = await fetchConversationMessages(id)
   if (!messages.some(isExportableMessage)) return false
-  const safeTitle = sanitizeText(title) || 'ai-chat'
+  const safeTitle = sanitizeExportTitle(title)
   downloadBlob(
     buildMarkdown(safeTitle, messages, roleLabel),
     `${toFileBase(title)}.md`,
@@ -266,9 +253,46 @@ export async function downloadConversationMarkdown(
 export async function downloadConversationJson(id: string, title: string): Promise<boolean> {
   const messages = await fetchConversationMessages(id)
   if (!messages.some(isExportableMessage)) return false
-  const safeTitle = sanitizeText(title) || 'ai-chat'
+  const safeTitle = sanitizeExportTitle(title)
   downloadBlob(buildJson(safeTitle, messages), `${toFileBase(title)}.json`, 'application/json')
   return true
+}
+
+/**
+ * 导出会话日志 ZIP(conversation.md + messages.json + manifest.json)。
+ * 服务端组装,客户端只负责下载;空会话也会产出三件套(manifest 里 messageCount=0)。
+ */
+export async function downloadConversationZip(id: string, title: string): Promise<boolean> {
+  const blob = await exportConversationZip(id)
+  downloadBlobFile(blob, `${toFileBase(title)}-${id.slice(0, 8)}.zip`)
+  return true
+}
+
+/** 复制整段会话为 Markdown。无可导出消息时返回 false(不写剪贴板)。 */
+export async function copyConversationMarkdown(
+  id: string,
+  title: string,
+  roleLabel: ExportRoleLabel,
+): Promise<boolean> {
+  const messages = await fetchConversationMessages(id)
+  if (!messages.some(isExportableMessage)) return false
+  const markdown = buildMarkdown(sanitizeExportTitle(title), messages, roleLabel)
+  try {
+    await navigator.clipboard.writeText(markdown)
+    return true
+  } catch {
+    // 非安全上下文/旧浏览器:退回到 execCommand(textarea 方案)
+    const textarea = document.createElement('textarea')
+    textarea.value = markdown
+    textarea.setAttribute('readonly', 'true')
+    textarea.style.position = 'fixed'
+    textarea.style.opacity = '0'
+    document.body.appendChild(textarea)
+    textarea.select()
+    const copied = document.execCommand('copy')
+    document.body.removeChild(textarea)
+    return copied
+  }
 }
 
 /** 导出对话快照图 PNG。生成失败抛错;无可导出消息返回 false。 */

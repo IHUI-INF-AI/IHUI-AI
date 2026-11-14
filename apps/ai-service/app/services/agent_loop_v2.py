@@ -1752,6 +1752,7 @@ class AgentEventStream:
         blocked_network_targets: list[dict[str, Any]] | None = None,
         prompt_options: dict[str, Any] | None = None,
         decision_info: dict[str, Any] | None = None,
+        auto_review: dict[str, Any] | None = None,
     ) -> None:
         payload: dict[str, Any] = {
             "approval_id": approval_id,
@@ -1789,6 +1790,9 @@ class AgentEventStream:
         # G-09(2026-10-31):审批选项的真实可用性(可选附加键,老客户端按未知字段忽略)。
         if prompt_options is not None:
             payload[_APPROVAL_PROMPT_OPTIONS_KEY] = prompt_options
+        # 2026-11-14:Auto 档逐工具审查结论(可选附加键;缺席 = 未启用/无需审查)。
+        if auto_review is not None:
+            payload["auto_review"] = auto_review
         await self.emit("tool.approval", payload)
 
     async def question(
@@ -6563,7 +6567,9 @@ class AgentLoopV2:
             return None
         return self._admin_only_name(name)
 
-    async def _request_approval(self, tc: ToolCall) -> str | None:
+    async def _request_approval(
+        self, tc: ToolCall, *, auto_review: dict[str, Any] | None = None
+    ) -> str | None:
         """发起审批请求并等待用户决策(阻塞等待,超时后放弃)。
 
         Returns:
@@ -6717,6 +6723,7 @@ class AgentLoopV2:
                 # G-09:选项真实可用性随弹窗帧下发(持久选项受 elicitation 能力门控)
                 prompt_options=prompt_options.to_event_payload(),
                 decision_info=decision_info,
+                auto_review=auto_review,
             )
             # 等待用户决策(批准/拒绝/超时)
             #
@@ -8015,8 +8022,70 @@ class AgentLoopV2:
                         "污点会话出网:该工具被会话级污点闸门抬升为需人工审批",
                     )
 
+        # 2026-11-14:Auto 档逐工具审查闸(对标 DSH experimental-auto-review)。
+        # 只在「acceptEdits + 原本需人工审批 + 没有其它闸门留痕」时介入:
+        # - allow → 免弹窗执行;
+        # - deny  → 结构化拒绝,模型据此改道;
+        # - escalate / 任何异常 → 原审批照走,结论随 tool.approval 下发。
+        # 不介入的场景:污点闸门、双轴 REQUIRE_APPROVAL、approval_policy=always、
+        # MCP 保守注解、skill 授权 —— 这些在 tc.id 上已有 decision_hint,不得被模型放行覆盖。
+        auto_review_payload: dict[str, Any] | None = None
+        if (
+            needs_approval
+            and self._permission_mode == "acceptEdits"
+            and tc.id not in self._decision_hints
+        ):
+            try:
+                from .tool_auto_review import request_tool_auto_review
+
+                _auto_review = await request_tool_auto_review(
+                    tc.name, tc.args if isinstance(tc.args, dict) else {}
+                )
+            except Exception as exc:  # noqa: BLE001 - 审查出口异常不杀审批链
+                logger.warning("auto-review 出口异常(tool=%s): %s", tc.name, exc)
+                _auto_review = None
+            if _auto_review is not None:
+                auto_review_payload = _auto_review.to_event_payload()
+                if _auto_review.decision == "allow":
+                    needs_approval = False
+                    self._decision_hints[tc.id] = (
+                        "auto_review_allow",
+                        _auto_review.reason or "审查模型判定可自动放行",
+                    )
+                    await self._emit_permission_mode_event(tc.name, "auto_review_allow")
+                    logger.info(
+                        "auto-review 放行: tool=%s, session=%s",
+                        tc.name,
+                        self._session_id or "",
+                    )
+                elif _auto_review.decision == "deny":
+                    logger.info(
+                        "auto-review 拒绝: tool=%s reason=%s, session=%s",
+                        tc.name,
+                        _auto_review.reason,
+                        self._session_id or "",
+                    )
+                    self._report_tool_error(
+                        tc,
+                        _auto_review.reason,
+                        "auto_review_denied",
+                        (time.time() - start) * 1000,
+                    )
+                    return ToolResult(
+                        tool_call_id=tc.id,
+                        name=tc.name,
+                        result={
+                            "approved": False,
+                            "reason": "auto_review_denied",
+                            "auto_review": auto_review_payload,
+                        },
+                        error=f"自动审查拒绝执行: {_auto_review.reason}",
+                        duration_ms=(time.time() - start) * 1000,
+                        error_type="auto_review_denied",
+                    )
+
         if needs_approval:
-            denial = await self._request_approval(tc)
+            denial = await self._request_approval(tc, auto_review=auto_review_payload)
             if denial is not None:
                 if denial == "user_rejected":
                     error_msg = "User rejected tool call"
