@@ -5,9 +5,13 @@
 
 // Provenance watermark injected by scripts/watermark.mjs
 import { execFileSync } from 'node:child_process'
-import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
+import { writeFileSync, mkdirSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { resolveGitBin } from './lib/gitdir.mjs'
+// 判面层单源(守门 312):本器分档读数问 survey 快照要,快照读的是**工作树那份**磁盘文件
+// (它没有面旗)。经 lib/face-reader.mjs 的 readWorktreeFile 取,显式钉死"工作树面",
+// 避免"清单走 git / 内容走磁盘"的混面取材(守门 118/101/83 记过的自洽却错位的尺子)。
+import { readWorktreeFile } from './lib/face-reader.mjs'
 
 const gitBin = resolveGitBin()
 
@@ -111,13 +115,12 @@ function main() {
 
   const root = repoRoot()
   const tip = tipSha()
-  const dir = join(root, 'docs/tickets/2026-11')
 
   const results = SURVEY_FILES.map((name) => {
-    const p = join(dir, name)
+    const rel = `docs/tickets/2026-11/${name}`
     let content = null
     try {
-      content = readFileSync(p, 'utf8')
+      content = readWorktreeFile(root, rel)
     } catch {
       content = null
     }
@@ -130,7 +133,7 @@ function main() {
     // 无基线 ⇒ 不可信 ⇒ 过期;解析不到 ⇒ 不可信 ⇒ 过期;非 TIP 祖先 ⇒ 过期;
     // 是祖先但落后超过 STALE_THRESHOLD 提交 ⇒ 证据已漂移 ⇒ 过期。
     const behind = baselineFull && isAnc ? commitsBehind(baselineFull, tip) : null
-    const expired = !baselineFull || !isAnc || (behind != null && behind > STALE_THRESHOLD)
+    const expired = !baselineFull || !isAnc || (behind !== null && behind > STALE_THRESHOLD)
     return {
       file: `docs/tickets/2026-11/${name}`,
       exists,
@@ -187,7 +190,7 @@ function main() {
     for (const r of results) {
       const status = r.expired ? '⚠ 过期' : '✓ 有效'
       const base = r.baseline || '(无)'
-      const behind = r.commitsBehind == null ? '∞' : String(r.commitsBehind)
+      const behind = r.commitsBehind === null ? '∞' : String(r.commitsBehind)
       console.log(
         `  ${status} ${r.file} | 基线=${base} | behind=${behind} | 警告块=${r.hasWarningBlock ? '有' : '无'}`,
       )
