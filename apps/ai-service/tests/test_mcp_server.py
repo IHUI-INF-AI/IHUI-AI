@@ -129,6 +129,29 @@ def test_tool_has_description():
         assert t.description, f"{t.name} 无 description"
 
 
+def test_read_file_advertises_paging_args():
+    """read_file 广告分页参数:模型能看见 offset/limit,才可能对大文件分页。"""
+    from app.services import mcp_server as mcp_server_module
+
+    tool = next(t for t in _TOOLS if t.name == "read_file")
+    props = tool.input_schema["properties"]
+    assert props["offset"]["type"] == "integer"
+    assert props["offset"]["minimum"] == 1
+    assert props["limit"]["maximum"] == mcp_server_module._READ_WINDOW_MAX_LINES
+    assert tool.input_schema["required"] == ["path"]
+
+
+def test_vision_analyze_advertises_local_image_path():
+    """vision_analyze 的本地路径腿必须在 schema 里,否则实现存在但模型不可见。"""
+    tool = next(t for t in _TOOLS if t.name == "vision_analyze")
+    props = tool.input_schema["properties"]
+    assert "image_path" in props
+    assert "image_base64" in props
+    assert "image_url" in props
+    # 四选一由实现校验,schema 只硬性要求 task
+    assert tool.input_schema["required"] == ["task"]
+
+
 # =============================================================================
 # 工具实现: search_codebase (真实文件系统代码符号搜索)
 # =============================================================================
