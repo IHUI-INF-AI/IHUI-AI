@@ -249,6 +249,16 @@ export function extractTokenUses(line) {
       continue
     }
 
+    // 底色位:显式底色键、`xxxBg` / `xxxBackground` 变量名 —— 它在做"底",不当前景判
+    const varName = /(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=[^;]*$/.exec(seg)
+    const targetIsBg = !!varName && /(?:Bg|Background)$/.test(varName[1])
+    const keyIsBg = !!keyName && (/^(bg|fill|shadowColor|border|borderColor|backgroundColor|bgColor)$/.test(keyName)
+      || /(?:Bg|Background)$/.test(keyName))
+    if (targetIsBg || keyIsBg) {
+      out.push({ field: path, kind: 'bg', offset: m.index })
+      continue
+    }
+
     // 明暗分支感知:整段只有这一处 token 取值、且段落是 `dark ? <它> : 其它` 时,
     // 它只会在暗档用;反向 `其他 ? 别的 : <它>` 则是亮档。
     // 一行里两支都出现(如 `dark ? a : b`)时无法归一 ⇒ 保持 null 按两档都量,
@@ -268,7 +278,7 @@ export function extractTokenUses(line) {
     else if (keyName === 'color') kind = /color\s*=?\s*\{\s*$/.test(seg) ? 'graphic' : 'text'
     else if (keyName && /^(tintColor|iconColor|thumbColor|trackColor|inactiveTintColor)$/.test(keyName)) kind = 'graphic'
     else if (keyName && /^(text|label|title|subtitle|placeholder|message|hint)\w*$/i.test(keyName)) kind = 'text'
-    out.push({ field: path, kind, themeBranch, offset: m.index })
+    out.push({ field: path, kind, offset: m.index })
   }
   return out
 }
@@ -277,7 +287,7 @@ export function extractTokenUses(line) {
  * 承载面穷举:返回 { allFail, someFail, values } —— values 是各承载面上的比值。
  * 只有"全部承载面都不达标"才 allFail(零假红)。
  */
-export function judge(field, kind, light, dark, surfaces = SURFACES, themeBranch = null) {
+export function judge(field, kind, light, dark, surfaces = SURFACES) {
   const th = thresholdFor(kind)
   const fgL = light[field]
   const fgD = dark[field]
@@ -294,10 +304,8 @@ export function judge(field, kind, light, dark, surfaces = SURFACES, themeBranch
     const cD = contrast(fgD, bgD)
     if (cL === null || cD === null) { unknown += 1; continue }
     values[s] = { light: cL, dark: cD }
-    // 有明暗分支时只量它实际会用的那一档(拿暗档专用色去量亮底是假红)
-    if (themeBranch === 'dark') { if (cD >= th) pass += 1; else fail += 1 }
-    else if (themeBranch === 'light') { if (cL >= th) pass += 1; else fail += 1 }
-    else if (cL >= th && cD >= th) pass += 1
+    // 该承载面分浅/深两档:两档都达标才算这个承载面通过
+    if (cL >= th && cD >= th) pass += 1
     else fail += 1
   }
   if (!pass && !fail) return { allFail: false, someFail: false, undetermined: true, values, threshold: th }
@@ -385,10 +393,13 @@ function run() {
       if (/^\s*(\/\/|\*|\/\*)/.test(line)) return
       for (const u of extractTokenUses(line)) {
         scanned += 1
-        const rec = { file: rel, line: i + 1, field: u.field, kind: u.kind, themeBranch: u.themeBranch || null, snippet: line.trim().slice(0, 150) }
+        // 明暗三元分支(如 `dark ? tk.x : tk.y`)无法静态归一 ⇒ 如实标出交人工复核,
+        // 不硬套一档(硬套会放假红,比漏检更贵,AGENTS.md §0.2)
+        const themeBranchy = /(?:dark|isDark)\s*\?|colorScheme\s*===\s*'dark'/.test(line)
+        const rec = { file: rel, line: i + 1, field: u.field, kind: u.kind, themeBranch: themeBranchy, snippet: line.trim().slice(0, 150) }
         if (u.kind === 'bg' || isBackgroundFamily(u.field)) continue
         if (isInverseFamily(u.field)) { inverse.push(rec); continue }
-        const j = judge(u.field, u.kind, light, dark, SURFACES, u.themeBranch || null)
+        const j = judge(u.field, u.kind, light, dark)
         if (j.undetermined) { undetermined.push({ ...rec, reason: 'token-or-surface-unparseable' }); continue }
         if (j.allFail) {
           const key = `${rel}:${i + 1}:${u.field}`
