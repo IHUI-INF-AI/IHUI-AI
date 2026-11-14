@@ -724,7 +724,7 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
     const actorUserId = request.userId
     if (!actorUserId) return reply.status(401).send(error(401, '未登录'))
     try {
-      const r = await setAccountShared(p.data.id, true, actorUserId)
+      const r = await setAccountShared(p.data.id, true)
       if (r.code === 'not_found')
         return reply.status(404).send(error(404, r.message ?? '账号不存在'))
       return reply.send(
@@ -748,7 +748,7 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
     const actorUserId = request.userId
     if (!actorUserId) return reply.status(401).send(error(401, '未登录'))
     try {
-      const r = await setAccountShared(p.data.id, false, actorUserId)
+      const r = await setAccountShared(p.data.id, false)
       if (r.code === 'not_found')
         return reply.status(404).send(error(404, r.message ?? '账号不存在'))
       return reply.send(
