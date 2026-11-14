@@ -3,13 +3,19 @@
 
 'use client'
 
+import { useEffect } from 'react'
 import { useExchangeRates } from '@/hooks/use-exchange-rates'
+import { markDisplayCurrencyHydrated } from '@/lib/display-currency'
 
 /**
- * 汇率预热(2026-11-14 立):挂载在根布局,任意页面打开即预取实时汇率,
- * 不渲染任何 UI。真正的格式化读取 @/lib/display-currency 的模块快照。
+ * 汇率预热 + 水合标记(2026-11-14 立):挂载在根布局,任意页面打开即预取实时汇率,
+ * 不渲染任何 UI。水合完成前所有金额按 CNY 输出,避免 SSR/首帧币种不一致导致
+ * React 水合失败(整页事件失效)。
  */
 export function CurrencyRuntime() {
   useExchangeRates()
+  useEffect(() => {
+    markDisplayCurrencyHydrated()
+  }, [])
   return null
 }
