@@ -129,10 +129,11 @@ export const SECRET_RULES: readonly RedactRule[] = [
     pattern: /\b(?:xapp-|glpat-)[A-Za-z0-9-]{6,}\b/g,
     replacement: REDACT_SECRET_MARKER,
   },
-  // JWT(三段 base64url)[①]
+  // JWT(三段 base64url)[①] —— Y-105:第三段改为可选,兼容两段式 JWS(unsigned / alg:none)
+  // 的 `header.payload`(部分内部服务签发);三段式常规 JWT 行为不变。
   {
     source: 'output_cleaning.py',
-    pattern: /\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b/g,
+    pattern: /\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}(?:\.[A-Za-z0-9_-]{8,})?\b/g,
     replacement: REDACT_SECRET_MARKER,
   },
   // Authorization: Basic xxx [②]
@@ -151,7 +152,7 @@ export const SECRET_RULES: readonly RedactRule[] = [
   {
     source: 'output_cleaning.py',
     pattern:
-      /\b(api[_-]?key|access[_-]?token|auth[_-]?token|token|secret|password|passwd|pwd|client[_-]?secret|private[_-]?key|encryption[_-]?key)\b(\s*[:=]\s*)(["']?)(?!\[REDACTED)(?!\*\*\*REDACTED)(?![${)&])(?!os\.|get_|settings\.|process\.|env\[)([^\s"',;]{8,})/gi,
+      /\b(api[_-]?key|access[_-]?token|auth[_-]?token|token|secret|password|passwd|pwd|client[_-]?secret|private[_-]?key|encryption[_-]?key|authorization|webhook[_-]?secret|webhook[_-]?key|api[_-]?secret|access[_-]?key)\b(\s*[:=]\s*)(["']?)(?!\[REDACTED)(?!\*\*\*REDACTED)(?![${)&])(?!os\.|get_|settings\.|process\.|env\[)([^\s"',;]{8,})/gi,
     replacement: `$1$2$3${REDACT_SECRET_MARKER}`,
   },
   // password / api_key 的短值补盖 [②:前缀 2 字符 + 后缀 >=4,即 6 位起 —— 比①更严]
@@ -168,12 +169,51 @@ export const SECRET_RULES: readonly RedactRule[] = [
  * 与凭据并集分开存放,便于守门脚本单独统计"哪些规则是仓库既有、哪些是本票新增"。
  */
 export const D94_ADDED_PATTERNS: readonly RedactRule[] = [
+  // Y-100:复合凭据键名(`webhook_secret`/`x-webhook-key`/`access-key` 等)—— SECRET_RULES 的
+  // 交替集靠 `\b` 分词,而 `_`/`-` 都是 word 字符 ⇒ `\bsecret\b` 在 `webhook_secret` 内不成立、
+  // 裸 `key` 不在交替集里,两条闸同时绕过。这里补一条"键名含敏感词即命中"的宽判据:捕获整个键名,
+  // 后接 `[:=]`,值一律盖掉。保守起步:只认以 secret/key/token/credential/passwd 收尾或
+  // 含 webhook/api/access 前缀组合的键,避免误伤 `monkey`/`keyboard` 一类普通词。
+  // 放本表:SECRET_RULES 的 source 白名单由既有测试锁定为 ['output_cleaning.py','cli/redact.ts']。
+  {
+    source: 'D94',
+    pattern:
+      /\b((?:[\w-]*(?:[_-](?:secret|key|token|credential|passwd))|(?:webhook|api|access|auth|client)[_-][\w-]*(?:key|secret|token)))[ \t]*[:=][ \t]*(["']?)(?!\[REDACTED)(?!\*\*\*REDACTED)(?![${)&])(?!os\.|get_|settings\.|process\.|env\[)([^\s"',;]{4,})/gi,
+    replacement: `$1$2$3${REDACT_SECRET_MARKER}`,
+  },
+  // Y-102:裸 `authorization: <token>` 兜底(上提自 cli/redact.ts:36)。此前共享层只认
+  // `Bearer`(SECRET_RULES 第 2 条)/`Basic`/JWT eyJ 三种形态,都要 scheme 前缀或 eyJ 开头;
+  // 自由文本里无 scheme 前缀的 `authorization: QWxhZGRpbjpvcGVu…`(base64/自定义 scheme token)
+  // 三条都不命中 ⇒ 明文落盘。这里只兜"非 Basic/Bearer/token 的 authorization 头",保留可见前缀。
+  // 放本表(而非 SECRET_RULES):SECRET_RULES 的 source 白名单由既有测试锁定为
+  // ['output_cleaning.py','cli/redact.ts'],D94 新增规则统一住本表、由 redactSecrets 追加。
+  {
+    source: 'D94',
+    pattern:
+      /(authorization\s*[:=]\s*(?!(?:basic|bearer|token)\b)[A-Za-z0-9_\-]+[ \t]+)(["']?)(?!\[REDACTED)(?!\*\*\*REDACTED)([^\s"',;]{8,})/gi,
+    replacement: `$1$2${REDACT_SECRET_MARKER}`,
+  },
   // 24 位以上十六进制串(ObjectId / 随机 token / 会话标识)。副作用已登记:
   // 40 位 git SHA 也会被盖 —— 交接单以"不出事"优先,排障需要 SHA 时走仓库内部渠道。
   {
     source: 'D94',
     pattern: /\b[0-9a-fA-F]{24,}\b/g,
     replacement: REDACT_SECRET_MARKER,
+  },
+  // IPv6 地址(Y-113)。IPV4_RE 只认 IPv4,文件头"剩余缺口"明文承认 IPv6 不脱敏;
+  // 交接单/崩溃上报里的 `http://[fe80::1]:3000` / 连接串 IPv6 host 会明文暴露内网拓扑。
+  // 分支①:`[...]` 包裹形态(URL/连接串里 IPv6 host 必带方括号),含可选 zone-id(`%eth0`)。
+  // 分支②:裸 IPv6(`2001:db8::1`)—— 要求至少一处 `::` 或多段冒号十六进制,避免误伤时间戳
+  // `12:34:56` 这类纯数字冒号串(纯数字段不含 hex 字母 `a-f`,故 `\b` + hex 段判据可区分)。
+  {
+    source: 'D94',
+    pattern: /\[[0-9A-Fa-f:]+(?:%[0-9A-Za-z._~-]+)?\]/g,
+    replacement: REDACT_IP_MARKER,
+  },
+  {
+    source: 'D94',
+    pattern: /\b(?:[0-9A-Fa-f]{1,4}:){2,}[0-9A-Fa-f]{1,4}(?:::[0-9A-Fa-f:]+)?\b/g,
+    replacement: REDACT_IP_MARKER,
   },
 ]
 
@@ -240,7 +280,14 @@ export function redactUrl(input: string): string {
         } catch {
           decoded = key
         }
-        if (SENSITIVE_QUERY_PARAMS.has(decoded.toLowerCase())) {
+        if (
+          SENSITIVE_QUERY_PARAMS.has(decoded.toLowerCase()) ||
+          // Y-100:复合凭据参数名(`webhook_secret`/`x-webhook-key`/`access_token` 变体)——
+          // 精确全名集合只收完整词,`webhook_secret≠secret` 不命中。补一条"以敏感词结尾"的
+          // 后缀判据(取最后一个 `_`/`-` 分段判),使 `*_secret`/`*_key`/`*_token`/`*_credential`
+          // 这类复合名也命中,而非只认裸全名。保守:只认这四个收尾词,不泛化到任意 `key`。
+          /(?:^|[_-])(?:secret|key|token|credential|passwd|password)$/i.test(decoded)
+        ) {
           return `${key}=${REDACT_QUERY_MARKER}`
         }
         return kv
