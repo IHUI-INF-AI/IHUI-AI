@@ -7553,8 +7553,36 @@ class AgentLoopV2:
                 diff = candidate if isinstance(candidate, dict) else None
             self._deliverables.record_tool_call(tc.id, tc.name, dict(tc.args or {}), diff)
             self._record_deliverable_citation(tc.name, dict(tc.args or {}))
+            if not tr.error and (tr.name or tc.name) == "present_files":
+                self._record_presented_files(tr.result, tc.id)
         except Exception as e:
             logger.warning("交付清单工具聚合失败(降级,不阻塞): %s", e)
+
+    def _record_presented_files(self, result: Any, call_id: str) -> None:
+        """把 present_files 的结构化结果登记进交付清单(只认 presented 列表)。
+
+        工具结果可能是 dict(本地注册面)或 JSON 字符串(委托/回放路径),两种都认;
+        非 ok / 非结构化一律跳过,绝不由 args 反推路径(声明失败就是没声明)。
+        """
+        try:
+            payload = result
+            if isinstance(payload, str):
+                payload = json.loads(payload)
+            if not isinstance(payload, dict) or not payload.get("ok"):
+                return
+            entries = payload.get("presented")
+            if not isinstance(entries, list):
+                return
+            for item in entries:
+                if not isinstance(item, dict):
+                    continue
+                self._deliverables.record_presented(
+                    item.get("path"),
+                    item.get("description") or "",
+                    [call_id] if call_id else [],
+                )
+        except Exception as e:
+            logger.warning("交付清单 presentedFiles 聚合失败(降级,不阻塞): %s", e)
 
     def _record_deliverable_citation(self, tool_name: str, args: dict[str, Any]) -> None:
         """D27:按工具名启发式映射 citation(wiki/memory/skill/mcp),拿不到就跳过。
