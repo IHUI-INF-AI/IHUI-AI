@@ -41,8 +41,11 @@ export interface UpsertPricingInput {
   currency?: string
   effectiveAt?: Date
   expiresAt?: Date | null
-  /** 计费模式(2026-09-13):token | per_call | per_image | per_video,默认 token */
-  billingMode?: 'token' | 'per_call' | 'per_image' | 'per_video'
+  /**
+   * 计费模式(2026-09-13):token | per_call | per_image | per_video,默认 token;
+   * dynamic_cost(2026-11-14):无公开报价,按本次调用上游实际成本 ×3 记账。
+   */
+  billingMode?: 'token' | 'per_call' | 'per_image' | 'per_video' | 'dynamic_cost'
   /** 单位价(分):per_image=分/张;per_video=分/次或分/秒 */
   perUnitPrice?: number | null
   /** per_call 三档价(分/次):{ le256k, mid, gt512k } */
@@ -109,6 +112,16 @@ export async function findActivePricing(modelId: string): Promise<AiPricing | un
   return rows[0]
 }
 
+/** 按 (modelId, effectiveAt) 精确定位一行；同毫秒视为同一行。 */
+async function findPricingAt(modelId: string, effectiveAt: Date): Promise<AiPricing | undefined> {
+  const rows = await db
+    .select()
+    .from(aiPricing)
+    .where(and(eq(aiPricing.modelId, modelId), eq(aiPricing.effectiveAt, effectiveAt)))
+    .limit(1)
+  return rows[0]
+}
+
 /** 列出所有模型定价配置（按生效时间倒序）。 */
 export async function listPricing(): Promise<AiPricing[]> {
   return db.select().from(aiPricing).orderBy(desc(aiPricing.effectiveAt))
@@ -130,15 +143,16 @@ export async function listSupportedRegions(): Promise<string[]> {
 // =============================================================================
 
 /**
- * 创建或更新模型定价（按 modelId 覆盖最新一条；若无则新增）。
+ * 创建或更新模型定价（F-309, 2026-11-13）。
+ * - 显式传入 effectiveAt：按 (modelId, effectiveAt) 精确命中，同一时刻才原地更新；
+ *   时刻不同（未来计划调价 / 补录历史）则新增一行，不覆盖其它生效行。
+ * - 未传 effectiveAt：编辑当前生效行，避免盲目覆盖“最新一条”（可能是未来或已过期行）。
  */
 export async function upsertPricing(input: UpsertPricingInput): Promise<AiPricing> {
-  const [existing] = await db
-    .select()
-    .from(aiPricing)
-    .where(eq(aiPricing.modelId, input.modelId))
-    .orderBy(desc(aiPricing.effectiveAt))
-    .limit(1)
+  const existing = input.effectiveAt
+    ? await findPricingAt(input.modelId, input.effectiveAt)
+    : await findActivePricing(input.modelId)
+  const effectiveAt = existing?.effectiveAt ?? input.effectiveAt ?? new Date()
 
   if (existing) {
     const rows = await db
@@ -154,6 +168,7 @@ export async function upsertPricing(input: UpsertPricingInput): Promise<AiPricin
         regionPricing: input.regionPricing ?? (existing.regionPricing as Record<string, number>),
         discount: input.discount ?? existing.discount,
         currency: input.currency ?? existing.currency,
+        effectiveAt,
         expiresAt: input.expiresAt === undefined ? existing.expiresAt : input.expiresAt,
         updatedAt: new Date(),
       })
@@ -177,7 +192,7 @@ export async function upsertPricing(input: UpsertPricingInput): Promise<AiPricin
       regionPricing: input.regionPricing ?? { cn: 1.0 },
       discount: input.discount ?? null,
       currency: input.currency ?? DEFAULT_CURRENCY,
-      effectiveAt: input.effectiveAt ?? new Date(),
+      effectiveAt,
       expiresAt: input.expiresAt ?? null,
     })
     .returning()

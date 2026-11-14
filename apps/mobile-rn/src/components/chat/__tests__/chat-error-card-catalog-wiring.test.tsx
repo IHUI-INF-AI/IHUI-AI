@@ -43,6 +43,9 @@ function makeFailedItem(errorCode?: string): ChatScreenMessage {
 /** 最小 props 集合(所有必填 props 均给 no-op 或空容器) */
 function makeProps(item: ChatScreenMessage) {
   const emptySet = new Set<string>()
+  const messageRefs: MutableRefObject<Map<string, View | null>> = {
+    current: new Map<string, View | null>(),
+  }
   return {
     item,
     messages: [item],
@@ -60,7 +63,7 @@ function makeProps(item: ChatScreenMessage) {
     toggleMessageFlag: vi.fn().mockResolvedValue(undefined),
     t,
     conversationId: null,
-    messageRefs: { current: new Map() } as unknown as MutableRefObject<Map<View | null, unknown>>,
+    messageRefs,
     setPreviewImageUrl: vi.fn(),
     workspaceTier: null,
   }
@@ -79,6 +82,7 @@ describe('mobile-rn ChatMessageItem 错误卡目录化接线(D-AI-3)', () => {
     const code = '102'
     const expected = catalog.pane.errorCatalog[code]
     expect(expected).toBeDefined()
+    if (!expected) throw new Error(`错误目录缺少码 ${code}`)
     const props = makeProps(makeFailedItem(code))
     const { queryByTestId } = render(<ChatMessageItem {...props} />)
     // 标题 = 目录表 title(非 chatAlert.errorTitle fallback)

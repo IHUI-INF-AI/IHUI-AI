@@ -42,6 +42,9 @@ import {
 } from './subscription-window-service.js'
 // Key 级限流窗口 + IP ACL(B/C,2026-09-16 立)
 import { checkKeyRateWindows, incrKeyRateWindows } from './key-rate-window-service.js'
+// F-724:TPM 每分钟 token 窗口的落账(此前只在 api-key-auth 的 finish 钩子里读 request.usage,
+// 而全仓无任何赋值点 ⇒ 永不记录。现改由计费链路按实际计费 token 统一写。)
+import { recordTpmUsage } from './api-key-tpm-service.js'
 // 余额不足邮件通知(E,2026-09-16 立)
 import { checkAndNotifyLowBalance } from './mail-relay-notifier.js'
 // Relay 返佣(2026-07-31 立,扣费后异步触发,失败不影响主链路)
@@ -49,6 +52,8 @@ import { recordRelayCommission } from './relay-commission-service.js'
 import { getUserModelMultiplier } from './user-billing-group-service.js'
 // 模型名官方归一(2026-09-13 立):计费键空间与 DB 归一后的 model_id 对齐
 import { normalizeModelId } from '@ihui/shared'
+// 动态成本计费(2026-11-14 立):复用「成本 ×3」与 USD→CNY 的既有唯一口径,不另拍汇率/系数
+import { PROFIT_FACTOR, usdToCny } from './model-price-resolver.js'
 // Relay Webhook 通知(2026-08-01 立,扣费后异步触发 relay.call.completed/failed/balance.low 事件)
 import { notifyRelayEvent } from './webhook-relay-notifier.js'
 // API Key 分组(2026-08-01 立,组池余额检查/扣减)
@@ -65,6 +70,102 @@ import { apiKeyGroups } from '@ihui/database'
 import { traceIdFromRequest } from '../utils/trace-context.js'
 import { currentPrincipalScope } from '../plugins/principal.js'
 import { incrementUsage } from './api-key-share-service.js'
+
+// =============================================================================
+// token_flows 口径单一来源(F-394)
+// =============================================================================
+
+/**
+ * token_flows.op_type 的唯一来源。
+ * 数值与 wallet.ts / commission-queries.ts 既有约定一致,写点/读点禁止再写魔法数字。
+ *
+ * 口径(全仓统一):
+ *  - quantity 的绝对值是本笔变动数量,方向由 opType 表达(1/2/3 为流出,0/4 为入账);
+ *    opType=5(管理员调整)保留调用方给出的正负号;
+ *  - balance_after 恒为「这笔落账之后」的 user_margins.token_quantity,
+ *    不是 API Key 余额,也不是本笔增量。
+ */
+export const TOKEN_FLOW_OP = {
+  RECHARGE: 0,
+  CONSUME: 1,
+  EXPIRE: 2,
+  REFUND: 3,
+  COMMISSION: 4,
+  ADMIN_ADJUST: 5,
+  API_QUOTA: 6,
+} as const
+
+export type TokenFlowOp = (typeof TOKEN_FLOW_OP)[keyof typeof TOKEN_FLOW_OP]
+
+/** 该 opType 是否让钱包余额减少。 */
+function isOutflowOp(opType: number): boolean {
+  return (
+    opType === TOKEN_FLOW_OP.CONSUME ||
+    opType === TOKEN_FLOW_OP.EXPIRE ||
+    opType === TOKEN_FLOW_OP.REFUND
+  )
+}
+
+/** 本笔流水对钱包余额的净影响:入账为正、流出为负、配额计数不计钱。 */
+export function tokenFlowDelta(opType: number, quantity: number): number {
+  if (opType === TOKEN_FLOW_OP.ADMIN_ADJUST) return quantity
+  if (opType === TOKEN_FLOW_OP.API_QUOTA) return 0
+  return isOutflowOp(opType) ? -Math.abs(quantity) : Math.abs(quantity)
+}
+
+export interface TokenFlowAmountRow {
+  opType: number
+  quantity: number
+}
+
+export interface TokenFlowSummary {
+  totalRecharge: number
+  totalConsume: number
+  totalRefund: number
+  totalCommission: number
+  totalAdminAdjust: number
+  netChange: number
+}
+
+/**
+ * 统计出口:按 opType 聚合,与后台资金列表 / 开发者收入看板的聚合口径一致。
+ * 同一张流水表既可能存正号(即时扣费)也可能存负号(提现等),这里按绝对值归一,
+ * 避免汇总被负号流水抵掉(F-394)。
+ */
+export function summarizeTokenFlows(flows: readonly TokenFlowAmountRow[]): TokenFlowSummary {
+  const summary: TokenFlowSummary = {
+    totalRecharge: 0,
+    totalConsume: 0,
+    totalRefund: 0,
+    totalCommission: 0,
+    totalAdminAdjust: 0,
+    netChange: 0,
+  }
+  for (const flow of flows) {
+    const amount = Math.abs(flow.quantity)
+    switch (flow.opType) {
+      case TOKEN_FLOW_OP.RECHARGE:
+        summary.totalRecharge += amount
+        break
+      case TOKEN_FLOW_OP.CONSUME:
+        summary.totalConsume += amount
+        break
+      case TOKEN_FLOW_OP.REFUND:
+        summary.totalRefund += amount
+        break
+      case TOKEN_FLOW_OP.COMMISSION:
+        summary.totalCommission += amount
+        break
+      case TOKEN_FLOW_OP.ADMIN_ADJUST:
+        summary.totalAdminAdjust += flow.quantity
+        break
+      default:
+        break
+    }
+    summary.netChange += tokenFlowDelta(flow.opType, flow.quantity)
+  }
+  return summary
+}
 
 // =============================================================================
 // 类型定义
@@ -150,6 +251,21 @@ export interface RecordCallInput {
    * settlePreDeduction 按实际用量「补差价 / 退差额」,保证总扣减 = 实际用量。
    */
   preDeducted?: PreDeduction | null
+  /**
+   * F-720(2026-11-14):上游按「积分」计费的渠道(Qoder 等)返回的真实扣减量。
+   *
+   * 这类上游的 usage token 字段恒 0,唯一真实计量是 credits —— 此前 credits 只被
+   * 序列化进回包 usage,从未进入计费链路 ⇒ 该维度完全未计费(零成本跑量)。
+   * 传入后 calculateCost 会把它换算成金额并入 totalCostCents,明细落 metadata。
+   */
+  upstreamCredits?: number | null
+  /** 积分单位标签(审计用),默认 'qoder_credits' */
+  creditsUnit?: string
+  /**
+   * 动态成本模式(2026-11-14):上游本次回传的真实成本(USD)。
+   * 定价行 billing_mode='dynamic_cost' 时按此值 ×3 记账;缺省按最低 1 分/次兜底。
+   */
+  upstreamCostUsd?: number | null
 }
 
 export interface RecordCallResult {
@@ -189,8 +305,9 @@ export interface CalculateCostResult {
   baseOutputPricePer1k: number
   /** 定价来源:'ai_pricing' | 'model_config' | 'default' | 'unavailable'(计费熔断降级) */
   source: 'ai_pricing' | 'model_config' | 'default' | 'unavailable'
-  /** 计费模式(2026-09-13):token | per_call | per_image | per_video(无定价时 'token') */
-  billingMode: 'token' | 'per_call' | 'per_image' | 'per_video'
+  /** 计费模式(2026-09-13):token | per_call | per_image | per_video(无定价时 'token');
+   *  2026-11-14 增加 dynamic_cost:按本次上游实际成本 ×3 记账 */
+  billingMode: 'token' | 'per_call' | 'per_image' | 'per_video' | 'dynamic_cost'
   /** 多模态计费单位数(张/次/秒;token 模式为 0) */
   unitsApplied: number
   /** per_call 命中档位(仅 per_call 有值) */
@@ -201,6 +318,21 @@ export interface CalculateCostResult {
    * 本字段单独暴露分时段因子,便于日志与账单归因。
    */
   peakMultiplier?: number
+  /**
+   * F-720:积分维度成本(分)。仅上游按 credits 计费且传了 upstreamCredits 时 > 0,
+   * 已按倍率链换算并入 totalCostCents(不是额外叠加项)。
+   */
+  creditsCostCents?: number
+  /** F-720:本次计入的积分数量(= 上游声明的扣减量) */
+  creditsApplied?: number
+  /** F-720:采用的积分单价(分/积分),供审计回溯换算依据 */
+  creditsUnitCents?: number
+  /** 动态成本(2026-11-14):本次上游回传的真实成本(USD),未回传则不写 */
+  dynamicCostUsd?: number
+  /** 动态成本:本次按真实成本换算后的计费金额(分,含倍率链,不含兜底) */
+  dynamicCostCents?: number
+  /** 动态成本:上游未回传成本,本次按平台最低 1 分/次兜底 */
+  dynamicCostFallback?: boolean
 }
 
 /** calculateCost 第 4 个参数:cache 折扣计费选项 + 多模态计费选项(2026-09-13) */
@@ -219,11 +351,55 @@ export interface CalculateCostCacheOptions {
   callType?: 'chat' | 'image' | 'video'
   /** 多模态计费单位数:image=张数;video=次数或秒数(默认 1) */
   units?: number
+  /**
+   * F-720:上游积分扣减量(Qoder 类上游 token 恒 0,credits 才是真实计量)。
+   * 定价行 billingMode='per_credit' 时按其 perUnitPrice(分/积分)计价;
+   * 否则按 docs/credit-pricing.md 已确立的口径「1 积分 = 1 分」换算。
+   */
+  credits?: number | null
+  /**
+   * 动态成本模式(2026-11-14):上游本次回传的真实成本(USD)。
+   * 定价行 billing_mode='dynamic_cost' 时按此值 × PROFIT_FACTOR × 倍率链计费;
+   * 未传/非正数 ⇒ 按平台最低 1 分/次兜底(fail-closed,绝不白送)。
+   */
+  upstreamCostUsd?: number | null
 }
 
 /** per_call 上下文分档阈值(与上游报价页对齐):256K=262144,512K=524288 */
 const PER_CALL_TIER_LE256K = 262144
 const PER_CALL_TIER_LE512K = 524288
+
+/**
+ * F-720:积分单价默认值(分/积分)。
+ *
+ * 依据 docs/credit-pricing.md §8「积分 = 1 分钱(¥0.01)的内部记账单位」——
+ * 这是仓内已确立的口径,不在这里另拍一个新汇率。管理员若要为某模型单独定价,
+ * 在 ai_pricing 里把 billingMode 设为 'per_credit' 并填 perUnitPrice(分/积分)即可覆盖。
+ */
+const CREDITS_UNIT_CENTS = 1
+
+/**
+ * 动态成本兜底单价(分/次)。
+ * 机主 2026-11-14 裁定:无公开价、且上游不回传成本的模型,按平台最低 1 分/次计费,
+ * 不白送上游额度;上游一旦开始回传真实成本,自动切换为「成本 ×3」。
+ */
+const DYNAMIC_COST_FALLBACK_CENTS = 1
+
+/** 同一模型 5 分钟内只喊一次「动态成本缺失」,防刷屏(落库审计不受影响) */
+const dynamicFallbackWarnedAt = new Map<string, number>()
+const DYNAMIC_FALLBACK_WARN_TTL_MS = 300_000
+function shouldWarnDynamicFallback(key: string): boolean {
+  const now = Date.now()
+  const prev = dynamicFallbackWarnedAt.get(key)
+  if (prev !== undefined && now - prev < DYNAMIC_FALLBACK_WARN_TTL_MS) return false
+  dynamicFallbackWarnedAt.set(key, now)
+  while (dynamicFallbackWarnedAt.size > 64) {
+    const oldest = dynamicFallbackWarnedAt.keys().next().value
+    if (oldest === undefined) break
+    dynamicFallbackWarnedAt.delete(oldest)
+  }
+  return true
+}
 
 /**
  * 金额(分)保留 6 位小数(2026-09-13)。
@@ -387,8 +563,11 @@ export async function checkQuota(
     }
   }
 
-  // === Key 级限流窗口(B,2026-09-16 立):5h/1d/7d 每窗口最大请求数(NULL 不限) ===
-  // 全 NULL(存量 Key)时 checkKeyRateWindows 直接放行,零额外查询。
+  // === Key 级限流窗口(B,2026-09-16 立;F-620 改为准入原子占位) ===
+  // checkKeyRateWindows 现在在单事务内对三窗口执行
+  // 「INSERT ... ON CONFLICT DO UPDATE ... WHERE request_count < limit RETURNING」:
+  // 判定与计数同一条语句完成,并发不超发;请求进入即计数,失败请求也计。
+  // 全 NULL(存量 Key)时直接放行,零额外查询;同一请求内重复预检复用首次结果。
   const keyWindowLimits = {
     '5h': row.rateLimit5h,
     '1d': row.rateLimit1d,
@@ -538,6 +717,19 @@ function stripLiteLLMPrefix(model: string): string {
     }
   }
   return model
+}
+
+/**
+ * F-194(2026-11-13):计费口径单一来源。
+ *
+ * 模型映射(Key 级 > 用户级 > 全局)与官方名改写之后,真正发给上游的是 resolvedModel;
+ * 预扣/结算/流水/缓存键必须全部用它,否则同一次调用会"按映射后价预扣、按原始模型价结算"。
+ * 原始请求 model 只用于对外响应回显与 metadata 审计。
+ * resolvedModel 缺失(未映射/解析失败)时回退原始 model。
+ */
+export function resolveBillingModel(requestedModel: string, resolvedModel?: string | null): string {
+  const upstreamModel = (resolvedModel ?? '').trim()
+  return upstreamModel.length > 0 ? upstreamModel : requestedModel
 }
 
 /**
@@ -701,6 +893,26 @@ export async function calculateCost(
   const callType = options?.callType ?? 'chat'
   const units = Math.max(0, Math.ceil(options?.units ?? 1))
 
+  // ── 积分维度成本(F-720,2026-11-14)──
+  // Qoder 类上游 usage 的 token 字段恒 0,真实扣减量在 credits(x_qoder_credits /
+  // usage.credits)。此前 credits 只进回包 usage,不进计费 ⇒ 该维度完全未计费。
+  // 单价:① 定价行 billingMode='per_credit' 的 perUnitPrice(分/积分);
+  //      ② 否则按 docs/credit-pricing.md 已确立的口径「1 积分 = 1 分钱」。
+  // 与 token 成本并存:token 有真值时两者相加,credits 上游(token=0)时即唯一成本。
+  const credits = Math.max(0, options?.credits ?? 0)
+  const creditsUnitCents =
+    credits > 0
+      ? pricingRow?.billingMode === 'per_credit' && Number(pricingRow.perUnitPrice) > 0
+        ? Number(pricingRow.perUnitPrice)
+        : CREDITS_UNIT_CENTS
+      : 0
+  const creditsCostCents = credits > 0 ? roundCents(creditsUnitCents * credits * multiplier) : 0
+  // 审计字段:仅在确有积分扣减时挂上(缺失即"本次无积分维度",与 0 区分)
+  const creditsPart =
+    credits > 0 ? { creditsApplied: credits, creditsUnitCents, creditsCostCents } : {}
+  // per_credit 是"按积分计价"的 token 模式变体,不参与下方 per_image/per_video/per_call 分支
+  const creditsPricedRow = pricingRow?.billingMode === 'per_credit'
+
   if (pricingRow) {
     baseInputPricePer1k = pricingRow.inputTokenPrice
     baseOutputPricePer1k = pricingRow.outputTokenPrice
@@ -712,13 +924,53 @@ export async function calculateCost(
     source = 'model_config'
   }
 
+  // ── 动态成本计费(2026-11-14 立)──
+  // 无公开报价的模型不写固定单价,按本次调用上游回传的真实成本 × PROFIT_FACTOR × 倍率链记账;
+  // 上游未回传(或非正数)⇒ 平台最低 1 分/次兜底(fail-closed),明细由 recordCall 落 metadata。
+  if (pricingRow && billingMode === 'dynamic_cost') {
+    const rawUsd = options?.upstreamCostUsd
+    const usd =
+      typeof rawUsd === 'number' && Number.isFinite(rawUsd) && rawUsd > 0 ? rawUsd : null
+    const dynamicCostCents =
+      usd !== null ? roundCents(usd * usdToCny() * 100 * PROFIT_FACTOR * multiplier) : 0
+    const total =
+      usd !== null
+        ? roundCents(dynamicCostCents + creditsCostCents)
+        : roundCents(DYNAMIC_COST_FALLBACK_CENTS * multiplier + creditsCostCents)
+    if (usd === null && shouldWarnDynamicFallback(dbModelId)) {
+      logger.warn('[billing] 动态成本模型未回传上游成本,按最低 1 分/次兜底', {
+        model: dbModelId,
+        promptTokens,
+        completionTokens,
+      })
+    }
+    return {
+      inputCostCents: 0,
+      outputCostCents: 0,
+      totalCostCents: total,
+      cacheReadCostCents: 0,
+      cacheCreationCostCents: 0,
+      multiplier,
+      peakMultiplier,
+      baseInputPricePer1k: 0,
+      baseOutputPricePer1k: 0,
+      source,
+      billingMode: 'dynamic_cost',
+      unitsApplied: 0,
+      ...(usd !== null
+        ? { dynamicCostUsd: usd, dynamicCostCents }
+        : { dynamicCostFallback: true }),
+      ...creditsPart,
+    }
+  }
+
   // ── 多模态计费分支(2026-09-13):per_image / per_video / per_call ──
   // 仅当定价行声明了对应 billingMode 且请求 callType 匹配时生效;
   // 不匹配(如 image 端点打到 token 价模型)回退 token 计费,调用方应保证定价行正确。
-  if (pricingRow && billingMode !== 'token') {
+  if (pricingRow && billingMode !== 'token' && !creditsPricedRow) {
     if (billingMode === 'per_image' && callType === 'image') {
       const unit = pricingRow.perUnitPrice ?? 0
-      const total = Math.max(0, roundCents(unit * units * multiplier))
+      const total = Math.max(0, roundCents(unit * units * multiplier + creditsCostCents))
       return {
         inputCostCents: 0,
         outputCostCents: 0,
@@ -732,6 +984,7 @@ export async function calculateCost(
         source,
         billingMode,
         unitsApplied: units,
+        ...creditsPart,
       }
     }
 
@@ -739,7 +992,7 @@ export async function calculateCost(
       const unit = pricingRow.perUnitPrice ?? 0
       const vUnit = pricingRow.videoUnit === 'second' ? 'second' : 'call'
       const applied = vUnit === 'second' ? units : 1
-      const total = Math.max(0, roundCents(unit * applied * multiplier))
+      const total = Math.max(0, roundCents(unit * applied * multiplier + creditsCostCents))
       return {
         inputCostCents: 0,
         outputCostCents: 0,
@@ -753,6 +1006,7 @@ export async function calculateCost(
         source,
         billingMode,
         unitsApplied: applied,
+        ...creditsPart,
       }
     }
 
@@ -761,7 +1015,7 @@ export async function calculateCost(
       // promptTokens 为 0 → 命中 le256k 档(即基础档价),不额外惩罚
       const picked = pickPerCallPrice(pricingRow.tieredCallPrices, promptTokens)
       if (picked) {
-        const total = Math.max(0, roundCents(picked.price * units * multiplier))
+        const total = Math.max(0, roundCents(picked.price * units * multiplier + creditsCostCents))
         return {
           inputCostCents: 0,
           outputCostCents: 0,
@@ -776,6 +1030,7 @@ export async function calculateCost(
           billingMode,
           unitsApplied: units,
           callTier: picked.tier,
+          ...creditsPart,
         }
       }
       // 三档价未配置 → 回退 token 计费(避免免费敞口),调用方可据此告警
@@ -816,8 +1071,11 @@ export async function calculateCost(
   const cacheReadCostCents = roundCents(rawCacheReadCost * multiplier)
   const cacheCreationCostCents = roundCents(rawCacheCreationCost * multiplier)
   const outputCostCents = roundCents(rawOutputCost * multiplier * reasoningOutputMultiplier)
-  const totalCostCents =
+  const tokenCostCents =
     inputCostCents + cacheReadCostCents + cacheCreationCostCents + outputCostCents
+
+  // 积分维度成本已在上方按同一倍率链算好(creditsCostCents),此处只做合计。
+  const totalCostCents = roundCents(tokenCostCents + creditsCostCents)
 
   return {
     inputCostCents,
@@ -832,6 +1090,7 @@ export async function calculateCost(
     source,
     billingMode: 'token',
     unitsApplied: 0,
+    ...creditsPart,
   }
 }
 
@@ -1118,7 +1377,13 @@ async function recordCallInternal(input: RecordCallInput): Promise<RecordCallRes
   // - 真实 usage 不丢弃,写入 metadata.cacheSavedTokens 供统计,与真实上游调用分开。
   // 因此所有"扣 token / 累计用量 / 结算"表达式统一用 billableTokens;llm_call_logs 的
   // token 列在命中时写 0,避免与真实调用混成一个数。
-  const billableTokens = isCacheHit ? 0 : input.totalTokens
+  //
+  // F-728(2026-11-14):失败调用(status='error',零产出)同理 —— 此前只把「金额」置 0,
+  // token 仍照传 ⇒ 两段式按预估 token 结算,失败调用照样吃 token 配额(与"失败不计费"
+  // 承诺矛盾)。现在 token 与金额同口径归零,原始用量写入 metadata.raw*供审计。
+  // 'partial'(流中断但已产出)不受影响:已产出的 token 按实际计费。
+  const failureZeroed = input.status === 'error'
+  const billableTokens = isCacheHit || failureZeroed ? 0 : input.totalTokens
 
   // 中转站模式:全额成本(上游 × 中转站倍率),平台扣全额
   // BYOK 模式:平台只收 platformFeeCents(上游原价 × 抽成率),不碰大厂成本 upstreamCostCents
@@ -1160,6 +1425,10 @@ async function recordCallInternal(input: RecordCallInput): Promise<RecordCallRes
         cacheCreationTokens: input.cacheCreationTokens,
         callType: input.callType,
         units: input.billingUnits,
+        // F-720:积分维度并入同一次定价计算(totalCostCents 已含 credits 成本)
+        credits: failureZeroed ? 0 : (input.upstreamCredits ?? 0),
+        // 动态成本:上游回传的本单真实成本(USD),失败调用不参与计费
+        upstreamCostUsd: failureZeroed ? 0 : (input.upstreamCostUsd ?? 0),
       },
       input.userId,
     )
@@ -1215,11 +1484,41 @@ async function recordCallInternal(input: RecordCallInput): Promise<RecordCallRes
     if (relayCost.unitsApplied > 0) metadata.unitsApplied = relayCost.unitsApplied
     if (relayCost.callTier) metadata.callTier = relayCost.callTier
   }
+  // 动态成本审计(2026-11-14):真实成本、折算金额、是否兜底 —— 每一笔都可回溯换算依据
+  if (relayCost?.billingMode === 'dynamic_cost') {
+    metadata.pricingMode = 'dynamic_cost'
+    if (typeof relayCost.dynamicCostUsd === 'number') {
+      metadata.dynamicCostUsd = relayCost.dynamicCostUsd
+      metadata.dynamicCostAppliedCents = relayCost.dynamicCostCents
+    }
+    if (relayCost.dynamicCostFallback) {
+      metadata.dynamicCostFallback = true
+      metadata.dynamicCostMissing = true
+    }
+  }
+  // F-720:积分维度审计 —— 上游声明了多少 credits、按什么单价换算成多少分。
+  // 即便未计费(failureZeroed)也留底,避免"credits 有值但账单无痕"。
+  if (typeof input.upstreamCredits === 'number' && input.upstreamCredits > 0) {
+    metadata.upstreamCredits = input.upstreamCredits
+    metadata.creditsUnit = input.creditsUnit ?? 'qoder_credits'
+    if (relayCost?.creditsApplied !== undefined) {
+      metadata.creditsApplied = relayCost.creditsApplied
+      metadata.creditsUnitCents = relayCost.creditsUnitCents
+      metadata.creditsCostCents = relayCost.creditsCostCents
+    }
+  }
   if (mode === 'byok') {
     metadata.byokMode = true
     metadata.upstreamCostCents = upstreamCostCents
     metadata.platformFeeCents = platformFeeCents
     metadata.commissionRate = commissionRate
+  }
+
+  // F-728:失败调用的原始用量留底(token 列按 0 落,避免与真实计费混成一个数)
+  if (failureZeroed && input.totalTokens > 0) {
+    metadata.rawPromptTokens = input.promptTokens
+    metadata.rawCompletionTokens = input.completionTokens
+    metadata.rawTotalTokens = input.totalTokens
   }
 
   // 失败调用不计费(2026-09-13):上游错误(4xx/5xx)时平台未获得服务。
@@ -1231,6 +1530,22 @@ async function recordCallInternal(input: RecordCallInput): Promise<RecordCallRes
   if (input.status === 'error') {
     if (costCentsToDeduct > 0) metadata.noChargeReason = `status=${input.status}`
     costCentsToDeduct = 0
+  }
+
+  // F-727(2026-11-13):Batch 任务的 50% 折扣此前只写在 metadata.discount
+  // (batch-worker.ts),recordCall 从不读取 ⇒ 实际按全价扣费。这里按凭证折扣结算
+  // 并留审计字段;只认 (0,1] 区间的有限数,缺失/非法一律按原价(不改变其他调用方)。
+  const rawDiscount = input.metadata?.discount
+  const discount =
+    typeof rawDiscount === 'number' &&
+    Number.isFinite(rawDiscount) &&
+    rawDiscount > 0 &&
+    rawDiscount <= 1
+      ? rawDiscount
+      : 1
+  if (discount < 1 && costCentsToDeduct > 0) {
+    costCentsToDeduct = Math.round(costCentsToDeduct * discount)
+    metadata.discountApplied = discount
   }
 
   // P0 中转站造血能力批次(2026-08-01):8 个审计/统计字段写入顶层列
@@ -1247,11 +1562,13 @@ async function recordCallInternal(input: RecordCallInput): Promise<RecordCallRes
       rawRetained: rawCols.rawRetained,
       // F-181:缓存命中时 token 列写 0,与真实上游调用分开;被省下的真实 usage
       // 已写入 metadata.cacheSavedTokens,不会丢量。
-      promptTokens: isCacheHit ? 0 : input.promptTokens,
-      completionTokens: isCacheHit ? 0 : input.completionTokens,
+      // F-728:失败调用同口径写 0(原始用量在 metadata.raw*),否则"失败不计费"
+      // 只看金额成立、token 配额仍被吃掉。
+      promptTokens: isCacheHit || failureZeroed ? 0 : input.promptTokens,
+      completionTokens: isCacheHit || failureZeroed ? 0 : input.completionTokens,
       totalTokens: billableTokens,
-      cacheReadTokens: isCacheHit ? 0 : (input.cacheReadTokens ?? 0),
-      cacheCreationTokens: isCacheHit ? 0 : (input.cacheCreationTokens ?? 0),
+      cacheReadTokens: isCacheHit || failureZeroed ? 0 : (input.cacheReadTokens ?? 0),
+      cacheCreationTokens: isCacheHit || failureZeroed ? 0 : (input.cacheCreationTokens ?? 0),
       latencyMs: input.latencyMs,
       status: input.status,
       errorMessage: input.errorMessage ?? null,
@@ -1347,10 +1664,8 @@ async function recordCallInternal(input: RecordCallInput): Promise<RecordCallRes
         }
       }
     }
-    // Key 级限流窗口计数(B,2026-09-16):成功调用后窗口请求数 +1。
-    // fire-and-forget(不 await 不阻塞返回),内部自查限额配置,全 NULL 零写入;
-    // 失败静默(仅告警)——窗口是附加约束,余额/熔断已兜底,计数丢失只影响精度。
-    void incrKeyRateWindows(input.apiKeyId).catch(() => {})
+    // F-724:窗口补计已收敛到本函数公共尾部(F-620 后主链路由准入原子占位计数,
+    // 这里的补计只覆盖未经准入的调用方,且对同一请求幂等)。
     // 读取结算后余额供返回值/余额告警使用(组池优先)
     if (groupInfoForDeduct && groupInfoForDeduct.enabled) {
       const [g] = await dbRead
@@ -1459,10 +1774,35 @@ async function recordCallInternal(input: RecordCallInput): Promise<RecordCallRes
     newCostBalanceCents = updated?.costBalanceCents ?? -1
   }
 
-  // F-181:请求次数照计。有预扣的命中已在上面计过(不会双计);无预扣(无限额度/BYOK)
-  // 的命中走组池/个人分支,需要在这里补一次,否则"缓存命中不计 token"会变成"连次数也不计"。
-  if (isCacheHit && !hasPreDeduction) {
-    void incrKeyRateWindows(input.apiKeyId).catch(() => {})
+  // ── F-724 / F-725:限流计数与订阅窗口的**唯一出口**(2026-11-14)──
+  // 这三件事此前散落:窗口补计只在两段式预扣分支里(F-620 后主链路改由准入原子占位,
+  // 补计只对"未经准入的调用方"有意义)、TPM 计数全仓无写入点、订阅窗口只在两段式累加。
+  // 收敛到这里后:
+  //   - 任何计费入口(含 /v1/messages、/v1/responses、多模态、batch、BYOK)都会补计窗口;
+  //   - TPM 按实际计费 token 落账,checkTpmQuota 终于有数可读;
+  //   - 非两段式入口也开始消耗订阅窗口额度(与两段式互斥去重)。
+  // 幂等:incrKeyRateWindows 对同一请求(已由准入原子占位)直接返回,不会二次 +1。
+  void incrKeyRateWindows(input.apiKeyId).catch(() => {})
+  if (billableTokens > 0) {
+    // TPM 按实际计费 token 计(失败调用 billableTokens=0,不占 TPM 配额)
+    void recordTpmUsage(input.apiKeyId, billableTokens).catch((err) => {
+      logger.warn('[billing] TPM usage record failed', {
+        apiKeyId: input.apiKeyId,
+        error: err instanceof Error ? err.message : String(err),
+      })
+    })
+  }
+  if (!hasPreDeduction) {
+    // 两段式已在 settlePreDeductionStrict 内累加窗口用量;非两段式必须在这里补,
+    // 否则订阅用户只走 /v1/messages、/v1/responses 就永远不消耗订阅额度。
+    void consumeSubscriptionWindowUsage(input.userId, billableTokens, costCentsToDeduct).catch(
+      (err) => {
+        logger.warn('[billing] 订阅窗口用量累加失败(不影响计费)', {
+          userId: input.userId,
+          error: err instanceof Error ? err.message : String(err),
+        })
+      },
+    )
   }
 
   // 4. 异步触发 relay 返佣(2026-07-31 立,被邀请人消费 → 邀请人返佣)
@@ -1595,10 +1935,14 @@ export async function adjustBalance(
  * P0-7 修复(2026-08-05):用户自充 API Key 余额原为无成本直加(adjustBalance),
  * 普通用户可自充任意余额 = 免费无限额度。改为钱包转账:
  * 事务内行锁 user_margins → 扣 token(1 token = 1 cent,与充值汇率一致) →
- * API Key 加余额 → 写 token_flows 流水(opType=4,可审计)。
+ * API Key 加余额 → 写 token_flows 流水(钱包流出 = opType=CONSUME,可审计)。
  *
  * @param tokenDelta / costDeltaCents 必须为正整数(>0)
  * @throws {Error & {statusCode}} 余额不足 400 / Key 不存在 404
+ *
+ * F-719(2026-11-13):允许单边充值,但入账必须同时覆盖 token 与 cost 两列 ——
+ * 只填一侧时按「1 token = 1 cent」把实付额度同步到另一列,否则该 Key 永远过不了
+ * checkQuota 的 costBalanceCents > 0 闸,付了钱也用不了。
  */
 export async function rechargeApiKeyFromWallet(
   userId: string,
@@ -1617,6 +1961,12 @@ export async function rechargeApiKeyFromWallet(
   }
   // 1 token = 1 cent:cost 额度(分)需等额 token 支付
   const totalTokensNeeded = tokenDelta + costDeltaCents
+  // F-719(2026-11-13):单边充值(只填 tokenDelta 或只填 costDeltaCents)会把另一列留在 0,
+  // 而准入 checkQuota 两列都要过(costBalanceCents > 0),已付费的 Key 首调即 402。
+  // 按本函数既有「1 token = 1 cent」口径,把**实付一侧**同步到另一列(赠送/空转不服费不叠加);
+  // 两侧都有值时各按其值,钱包仍按 totalTokensNeeded 扣。
+  const creditedTokenDelta = tokenDelta > 0 ? tokenDelta : costDeltaCents
+  const creditedCostDeltaCents = costDeltaCents > 0 ? costDeltaCents : tokenDelta
   return db.transaction(async (tx) => {
     // ① 行锁用户钱包
     const [margin] = await tx
@@ -1637,10 +1987,12 @@ export async function rechargeApiKeyFromWallet(
     if (totalTokensNeeded > 0) {
       await tx.insert(tokenFlows).values({
         userId,
-        opType: 4,
-        quantity: totalTokensNeeded,
+        // F-394:钱包 → API Key 是资金流出,不是佣金(opType=4 会被开发者看板算成收入);
+        // 与提现同口径记负号,balanceAfter 仍是钱包落账后的余额。
+        opType: TOKEN_FLOW_OP.CONSUME,
+        quantity: -totalTokensNeeded,
         balanceAfter: newWalletBalance,
-        remark: `Relay API Key 充值:${apiKeyId}(token+${tokenDelta}, cost+${costDeltaCents})`,
+        remark: `Relay API Key 充值:${apiKeyId}(token+${creditedTokenDelta}, cost+${creditedCostDeltaCents})`,
       })
     }
     // ③ API Key 加余额(行锁;tokenBalance/costBalanceCents = -1 无限额度则不动)
@@ -1655,9 +2007,10 @@ export async function rechargeApiKeyFromWallet(
       .limit(1)
     if (!keyRow) throw Object.assign(new Error('API Key 不存在'), { statusCode: 404 })
     const setClause: Record<string, unknown> = { updatedAt: new Date() }
-    if (keyRow.tokenBalance !== -1) setClause.tokenBalance = keyRow.tokenBalance + tokenDelta
+    if (keyRow.tokenBalance !== -1)
+      setClause.tokenBalance = keyRow.tokenBalance + creditedTokenDelta
     if (keyRow.costBalanceCents !== -1)
-      setClause.costBalanceCents = keyRow.costBalanceCents + costDeltaCents
+      setClause.costBalanceCents = keyRow.costBalanceCents + creditedCostDeltaCents
     const [updated] = await tx
       .update(developerApiKeys)
       .set(setClause)
@@ -1721,90 +2074,212 @@ export async function rechargeByKey(
 // 幂等保证:refunded 标记在查询条件里,重复查询/并发退款只会退一次。
 // =============================================================================
 
+/**
+ * F-34(2026-11-13 立):单次调用内的事务重试上限。
+ *
+ * 立因:旧实现「先 UPDATE 打 refunded=true,再改余额」,打标成功而加钱失败时该行永久不可重试
+ * (账面上"已退款",钱一分没回)。现在打标与加钱同事务 —— 任一失败整笔回滚,refunded 标记不落库,
+ * 后续轮询(或本函数的重试)仍能再抢一次;抢不到才写待补偿事实。
+ * `REFUND_MAX_ATTEMPTS` 同时是**事务重试**上限与**累计失败转人工**的阈值(见 markRefundPending)。
+ */
+export const REFUND_MAX_ATTEMPTS = 3
+
 export interface RefundTaskResult {
   refunded: boolean
   /** 退款金额(分);refunded=false 时为 0 */
   refundedCents: number
-  /** 退款原因:无流水(未扣费)|已退款过|退款成功|流水缺 apiKeyId */
-  reason: 'refunded' | 'no_log' | 'ok' | 'no_api_key'
+  /**
+   * 退款结果:
+   * - ok          退款成功(refunded=true)
+   * - no_log      无对应流水(未扣费/已退过/任务号为空)⇒ 无需退款
+   * - error       事务重试后仍未完成 ⇒ 已把待补偿事实写进本行 metadata,等后续轮询或人工
+   * - exhausted   累计失败达 REFUND_MAX_ATTEMPTS ⇒ 转人工(refund_pending_manual=true)
+   * - refunded / no_api_key  历史保留档(旧实现返回过,调用方仍按"无需补偿"处理)
+   */
+  reason: 'refunded' | 'no_log' | 'ok' | 'no_api_key' | 'error' | 'exhausted'
+  /** 失败路径:该流水**累计**失败次数(含本轮);ok/no_log 不带此字段 */
+  attempts?: number
 }
 
 /**
  * 按 taskId 退款(生图/生视频任务失败时调用)。
  * 查找该任务提交时写入的计费流水(call_type in image/video + metadata.task_id),
  * 未退款过则把 costCents 原样退回组池或个人余额并打标记。
- * 失败容错:任何 db 错误只 log 并返回 refunded:false(主链路不受影响)。
+ * 失败容错:退款链路的任何异常都不外抛,主链路响应不受影响。
+ *
+ * F-34(2026-11-13):失败不再静默 —— 打标与加钱同事务(任一失败整笔回滚,永不留"已退款但钱没回"
+ * 的不可重试行),事务级有界重试 REFUND_MAX_ATTEMPTS 次;仍失败则把待补偿事实写进本行 metadata,
+ * 并如实返回 reason='error'|'exhausted'(调用方据此写退款 DLQ + 告警)。
  */
 export async function refundTaskCall(taskId: string): Promise<RefundTaskResult> {
-  try {
-    if (!taskId) return { refunded: false, refundedCents: 0, reason: 'no_log' }
-
-    // F-721(2026-11):原子抢占退款资格 —— 用 `UPDATE ... WHERE refunded=false RETURNING`
-    // 在主库一次性完成「判资格 + 打标」,避免原实现先 SELECT(走只读副本)再无条件 UPDATE、
-    // 最后才 markTaskRefunded 的非原子三段式导致并发/副本滞后双退。只有抢到 refunded 行锁
-    // 的那一次才真正退款,其余并发轮询命中 0 行 → 直接视作无退款,杜绝凭空增余额。
-    // F-660(2026-11):退款金额(分)必须回填 **成本余额列**(sharedCostBalanceCents /
-    // costBalanceCents),原实现误加到 token 余额列,导致钱没退、token 余额被虚增。
-    const [claimed] = await db
-      .update(llmCallLogs)
-      .set({
-        refunded: true,
-        metadata: sql`jsonb_set(COALESCE(${llmCallLogs.metadata},'{}'::jsonb), '{refunded}', 'true'::jsonb)`,
+  if (!taskId) return { refunded: false, refundedCents: 0, reason: 'no_log' }
+  let lastError = ''
+  for (let attempt = 1; attempt <= REFUND_MAX_ATTEMPTS; attempt++) {
+    try {
+      const outcome = await db.transaction((tx) => refundTaskCallOnce(tx, taskId))
+      if (outcome.kind === 'no_log') return { refunded: false, refundedCents: 0, reason: 'no_log' }
+      return { refunded: true, refundedCents: outcome.refundedCents, reason: 'ok' }
+    } catch (err) {
+      lastError = err instanceof Error ? err.message : String(err)
+      // 事务已回滚 ⇒ refunded 标记没落库,重试(或下一轮轮询)能再抢一次
+      logger.warn('[billing] 多模态退款事务失败(整笔回滚,可重试)', {
+        taskId,
+        attempt,
+        max: REFUND_MAX_ATTEMPTS,
+        error: lastError,
       })
+    }
+  }
+  return markRefundPending(taskId, lastError)
+}
+
+/** 事务句柄类型:与 api-subscription-service 同一取法,不自己拼 drizzle 内部类型。 */
+type RefundTx = Parameters<Parameters<typeof db.transaction>[0]>[0]
+
+/** 单次事务内的退款结论:no_log=没有可退的流水;ok=已退(金额可能为 0)。 */
+type RefundOnceOutcome = { kind: 'no_log' } | { kind: 'ok'; refundedCents: number }
+
+/** 单次事务:抢占退款资格 + 加钱必须同生共死(任一失败整体回滚)。 */
+async function refundTaskCallOnce(tx: RefundTx, taskId: string): Promise<RefundOnceOutcome> {
+  // F-721(2026-11):原子抢占退款资格 —— 用 `UPDATE ... WHERE refunded=false RETURNING`
+  // 在主库一次性完成「判资格 + 打标」,避免原实现先 SELECT(走只读副本)再无条件 UPDATE、
+  // 最后才 markTaskRefunded 的非原子三段式导致并发/副本滞后双退。只有抢到 refunded 行锁
+  // 的那一次才真正退款,其余并发轮询命中 0 行 → 直接视作无退款,杜绝凭空增余额。
+  // F-660(2026-11):退款金额(分)必须回填 **成本余额列**(sharedCostBalanceCents /
+  // costBalanceCents),原实现误加到 token 余额列,导致钱没退、token 余额被虚增。
+  const [claimed] = await tx
+    .update(llmCallLogs)
+    .set({
+      refunded: true,
+      metadata: sql`jsonb_set(COALESCE(${llmCallLogs.metadata},'{}'::jsonb), '{refunded}', 'true'::jsonb)`,
+    })
+    .where(
+      and(
+        sql`${llmCallLogs.metadata}->>'task_id' = ${taskId}`,
+        sql`${llmCallLogs.callType} in ('image','video')`,
+        eq(llmCallLogs.status, 'success'),
+        eq(llmCallLogs.refunded, false),
+        isNotNull(llmCallLogs.apiKeyId),
+      ),
+    )
+    .returning({
+      id: llmCallLogs.id,
+      apiKeyId: llmCallLogs.apiKeyId,
+      costCents: llmCallLogs.costCents,
+    })
+
+  if (!claimed) return { kind: 'no_log' }
+
+  // isNotNull 已保证运行时非空;列定义可空,这里做一次收窄断言。
+  const apiKeyId = claimed.apiKeyId as string
+  const cents = Math.max(0, claimed.costCents ?? 0)
+  if (cents <= 0) {
+    // 0 成本流水已打标记,无需动余额
+    return { kind: 'ok', refundedCents: 0 }
+  }
+
+  const groupInfo = await getKeyGroup(apiKeyId)
+  // F-34(2026-11-13):余额行不存在(组/Key 被删)不得报"退款成功" —— 钱实际没到账。
+  // returning 为空即视为失败,由外层回滚并计入待补偿。
+  const credited =
+    groupInfo && groupInfo.enabled
+      ? // 组池退款:-1(无限额度)不退,否则按成本分原额加回成本余额列
+        await tx
+          .update(apiKeyGroups)
+          .set({
+            sharedCostBalanceCents: sql`CASE WHEN ${apiKeyGroups.sharedCostBalanceCents} = -1 THEN -1 ELSE ${apiKeyGroups.sharedCostBalanceCents} + ${cents} END`,
+            updatedAt: new Date(),
+          })
+          .where(eq(apiKeyGroups.id, groupInfo.groupId))
+          .returning({ id: apiKeyGroups.id })
+      : // 个人余额退款:-1(无限额度)不退,否则按成本分原额加回成本余额列
+        await tx
+          .update(developerApiKeys)
+          .set({
+            costBalanceCents: sql`CASE WHEN ${developerApiKeys.costBalanceCents} = -1 THEN -1 ELSE ${developerApiKeys.costBalanceCents} + ${cents} END`,
+            updatedAt: new Date(),
+          })
+          .where(eq(developerApiKeys.id, apiKeyId))
+          .returning({ id: developerApiKeys.id })
+
+  if (!credited || credited.length === 0) {
+    throw new Error(
+      groupInfo && groupInfo.enabled
+        ? `退款目标组池不存在:group=${groupInfo.groupId}`
+        : `退款目标余额行不存在:apiKey=${apiKeyId}`,
+    )
+  }
+
+  logger.info('[billing] 多模态任务失败退款', { taskId, apiKeyId, cents })
+  return { kind: 'ok', refundedCents: cents }
+}
+
+/**
+ * 事务重试全部失败后的待补偿落库(F-34)。
+ *
+ * - 累计失败次数写 metadata.refund_attempts(下一轮读回来 +1,跨轮累计,不随事务回滚丢失);
+ * - 达 REFUND_MAX_ATTEMPTS 记 refund_pending_manual=true 并返回 exhausted(转人工);
+ * - 本函数自己绝不抛错:它已在"退款失败"的收尾路径上,再抛只会污染调用方响应。
+ */
+async function markRefundPending(taskId: string, lastError: string): Promise<RefundTaskResult> {
+  let rowId = ''
+  let attempts = 1
+  try {
+    const [row] = await db
+      .select({ id: llmCallLogs.id, metadata: llmCallLogs.metadata })
+      .from(llmCallLogs)
       .where(
         and(
           sql`${llmCallLogs.metadata}->>'task_id' = ${taskId}`,
           sql`${llmCallLogs.callType} in ('image','video')`,
-          eq(llmCallLogs.status, 'success'),
-          eq(llmCallLogs.refunded, false),
-          isNotNull(llmCallLogs.apiKeyId),
         ),
       )
-      .returning({
-        id: llmCallLogs.id,
-        apiKeyId: llmCallLogs.apiKeyId,
-        costCents: llmCallLogs.costCents,
-      })
-
-    if (!claimed) return { refunded: false, refundedCents: 0, reason: 'no_log' }
-
-    // isNotNull 已保证运行时非空;列定义可空,这里做一次收窄断言。
-    const apiKeyId = claimed.apiKeyId as string
-    const cents = Math.max(0, claimed.costCents ?? 0)
-    if (cents <= 0) {
-      // 0 成本流水已打标记,无需动余额
-      return { refunded: true, refundedCents: 0, reason: 'ok' }
+      .limit(1)
+    if (row) {
+      rowId = String(row.id)
+      const meta = (row.metadata ?? {}) as Record<string, unknown>
+      const prevRaw = Number(meta.refund_attempts ?? 0)
+      const prev = Number.isFinite(prevRaw) && prevRaw > 0 ? prevRaw : 0
+      attempts = prev + 1
     }
-
-    const groupInfo = await getKeyGroup(apiKeyId)
-    if (groupInfo && groupInfo.enabled) {
-      // 组池退款:-1(无限额度)不退,否则按成本分原额加回成本余额列
-      await db
-        .update(apiKeyGroups)
-        .set({
-          sharedCostBalanceCents: sql`CASE WHEN ${apiKeyGroups.sharedCostBalanceCents} = -1 THEN -1 ELSE ${apiKeyGroups.sharedCostBalanceCents} + ${cents} END`,
-          updatedAt: new Date(),
-        })
-        .where(eq(apiKeyGroups.id, groupInfo.groupId))
-    } else {
-      // 个人余额退款:-1(无限额度)不退,否则按成本分原额加回成本余额列
-      await db
-        .update(developerApiKeys)
-        .set({
-          costBalanceCents: sql`CASE WHEN ${developerApiKeys.costBalanceCents} = -1 THEN -1 ELSE ${developerApiKeys.costBalanceCents} + ${cents} END`,
-          updatedAt: new Date(),
-        })
-        .where(eq(developerApiKeys.id, apiKeyId))
-    }
-    logger.info('[billing] 多模态任务失败退款', { taskId, apiKeyId, cents })
-    return { refunded: true, refundedCents: cents, reason: 'ok' }
   } catch (err) {
-    logger.error('[billing] refundTaskCall failed', {
+    logger.error('[billing] 读取退款累计次数失败(按本轮 1 次计)', {
       taskId,
       error: err instanceof Error ? err.message : String(err),
     })
-    return { refunded: false, refundedCents: 0, reason: 'no_log' }
   }
+
+  const pendingManual = attempts >= REFUND_MAX_ATTEMPTS
+  const reason: RefundTaskResult['reason'] = pendingManual ? 'exhausted' : 'error'
+  if (!rowId) {
+    logger.error('[billing] 退款失败且定位不到计费流水(无法写待补偿)', { taskId, lastError })
+    return { refunded: false, refundedCents: 0, reason, attempts }
+  }
+  try {
+    await db
+      .update(llmCallLogs)
+      .set({
+        metadata: sql`COALESCE(${llmCallLogs.metadata}, '{}'::jsonb) || ${JSON.stringify({
+          refund_attempts: attempts,
+          refund_pending_manual: pendingManual,
+          refund_last_error: lastError.slice(0, 500),
+        })}::jsonb`,
+      })
+      .where(eq(llmCallLogs.id, rowId))
+  } catch (err) {
+    logger.error('[billing] 写退款待补偿标记失败(退款仍会在下次轮询重试)', {
+      taskId,
+      attempts,
+      error: err instanceof Error ? err.message : String(err),
+    })
+  }
+  logger.error('[billing] 多模态任务失败退款未完成(已记待补偿)', {
+    taskId,
+    reason,
+    attempts,
+    lastError,
+  })
+  return { refunded: false, refundedCents: 0, reason, attempts }
 }
 
 // =============================================================================
@@ -1823,6 +2298,14 @@ export interface PreDeduction {
   userId: string
   tokens: number
   cents: number
+  /**
+   * F-723(2026-11-13):预扣时的扣款池凭证。结算严格按此凭证落库,
+   * 不再以"结算时刻"的 Key 组归属重新选池(请求期间 Key 被移出/加入组,
+   * 会把退款/补扣打到错误账户)。可选字段:历史调用方未带 target 时回退到
+   * getKeyGroup 的现状逻辑,保证向后兼容。
+   */
+  target?: 'group' | 'personal'
+  groupId?: string
 }
 
 /**
@@ -1947,7 +2430,14 @@ export async function preDeductQuota(input: PreDeductInput): Promise<PreDeductio
           ? 0
           : Math.max(0, groupInfo.sharedCostBalanceCents - (updated.sharedCostBalanceCents ?? 0))
       if (actualTokens <= 0 && actualCents <= 0) return null
-      return { ...base, tokens: actualTokens, cents: actualCents }
+      // F-723:凭证记录"组池"目标 + 具体 groupId,供结算按凭证落库
+      return {
+        ...base,
+        tokens: actualTokens,
+        cents: actualCents,
+        target: 'group',
+        groupId: groupInfo.groupId,
+      }
     }
 
     // 个人余额
@@ -1978,7 +2468,8 @@ export async function preDeductQuota(input: PreDeductInput): Promise<PreDeductio
         ? 0
         : Math.max(0, row.costBalanceCents - (updated.costBalanceCents ?? 0))
     if (actualTokens <= 0 && actualCents <= 0) return null
-    return { ...base, tokens: actualTokens, cents: actualCents }
+    // F-723:凭证记录"个人池"目标
+    return { ...base, tokens: actualTokens, cents: actualCents, target: 'personal' }
   } catch (err) {
     // 计费熔断(F):定价不可用必须向上穿透(fail-closed),不得降级为"无预扣"放行
     if (err instanceof BillingUnavailableError) throw err
@@ -2011,7 +2502,8 @@ async function applySettlementDelta(
   const buildSet =
     (tokenCol: typeof developerApiKeys.tokenBalance | typeof apiKeyGroups.sharedTokenBalance) =>
     (
-      centsCol: typeof developerApiKeys.costBalanceCents | typeof apiKeyGroups.sharedCostBalanceCents,
+      centsCol:
+        typeof developerApiKeys.costBalanceCents | typeof apiKeyGroups.sharedCostBalanceCents,
     ) => {
       const tokenExpr =
         deltaTokens === 0
@@ -2028,8 +2520,17 @@ async function applySettlementDelta(
       return { tokenExpr, centsExpr }
     }
 
-  const groupInfo = await getKeyGroup(pre.apiKeyId)
-  if (groupInfo && groupInfo.enabled) {
+  // F-723(2026-11-13):结算严格按预扣凭证记录的目标池落库,不再重新解析 Key 的
+  // 当前组归属(请求期间 Key 被移出/加入组会导致跨账户退款/补扣)。
+  // 凭证缺失时回退到 getKeyGroup 的现状逻辑,保证向后兼容。
+  let groupInfo: { groupId: string } | null
+  if (pre.target) {
+    groupInfo = pre.target === 'group' && pre.groupId ? { groupId: pre.groupId } : null
+  } else {
+    const resolved = await getKeyGroup(pre.apiKeyId)
+    groupInfo = resolved && resolved.enabled ? { groupId: resolved.groupId } : null
+  }
+  if (groupInfo) {
     const { tokenExpr, centsExpr } = buildSet(apiKeyGroups.sharedTokenBalance)(
       apiKeyGroups.sharedCostBalanceCents,
     )

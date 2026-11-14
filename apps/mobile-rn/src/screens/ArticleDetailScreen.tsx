@@ -184,7 +184,7 @@ export function ArticleDetailScreen() {
           <TouchableOpacity style={styles.actionItem} onPress={handleLike} activeOpacity={0.7}>
             <Heart
               size={18}
-              color={liked ? tokens.danger.deepText : tokens.text.secondary}
+              color={liked ? tokens.danger.DEFAULT : tokens.text.secondary}
               fill={liked ? tokens.danger.bright : 'transparent'}
             />
             <Text style={styles.actionCount}>{likeCount}</Text>
