@@ -73,6 +73,22 @@ interface ChannelCostRow {
   costCoverage: number
 }
 
+interface UnpricedAlertRow {
+  modelId: string
+  configId: number
+  isRelayPublic: boolean
+  calls: number
+  missedRevenueCents: number
+}
+
+interface UnpricedAlertReport {
+  days: number
+  publishedUnpriced: number
+  callingUnpriced: number
+  missedRevenueCents: number
+  rows: UnpricedAlertRow[]
+}
+
 interface ChannelCostReport {
   from: string
   to: string
@@ -253,6 +269,16 @@ export default function PricingConsolePage() {
       return r.data
     },
     refetchInterval: 60_000,
+  })
+
+  const unpricedAlerts = useQuery({
+    queryKey: ['pricing-unpriced-alerts'],
+    queryFn: async () => {
+      const r = await fetchApi<UnpricedAlertReport>(`${BASE}/unpriced-alerts?days=30`)
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
+    refetchInterval: 120_000,
   })
 
   const channelCost = useQuery({
@@ -452,6 +478,46 @@ export default function PricingConsolePage() {
           tone="ok"
         />
       </div>
+
+      {unpricedAlerts.data &&
+      (unpricedAlerts.data.publishedUnpriced > 0 || unpricedAlerts.data.callingUnpriced > 0) ? (
+        <Card className="border-amber-500/50">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm text-amber-600 dark:text-amber-500">
+              定价缺口告警
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 text-xs">
+            <div>
+              近 {unpricedAlerts.data.days} 天:
+              <span className="font-medium"> {unpricedAlerts.data.publishedUnpriced} </span>
+              个模型在架但零价,
+              <span className="font-medium"> {unpricedAlerts.data.callingUnpriced} </span>
+              个零价模型仍被调用;按当前价应计未计{' '}
+              <span className="text-amber-600 dark:text-amber-500">
+                {fmtYuan(unpricedAlerts.data.missedRevenueCents)}
+              </span>
+              。上架接口已拦截零价,以下是历史遗留,请在「模型价目」里逐个定价。
+            </div>
+            <div className="space-y-1">
+              {unpricedAlerts.data.rows.slice(0, 6).map((r) => (
+                <div
+                  key={`${r.modelId}-${r.configId}`}
+                  className="flex justify-between gap-4 font-mono"
+                >
+                  <span>
+                    {r.modelId}
+                    {r.isRelayPublic ? ' [在架]' : ''}
+                  </span>
+                  <span>
+                    {r.calls} 次 · {fmtYuan(r.missedRevenueCents)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
 
       <Card>
         <CardHeader className="pb-2">

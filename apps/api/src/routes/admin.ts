@@ -37,6 +37,7 @@ import {
   backfillCostPrices,
   backfillCallCosts,
   getChannelCostReport,
+  getUnpricedAlerts,
   type ChannelGroupBy,
   listModelPricing,
   listPriceAudits,
@@ -297,6 +298,27 @@ export const adminRoutes: FastifyPluginAsync = async (server) => {
         groupBy,
         limit: Number.isFinite(rawLimit) ? rawLimit : undefined,
       })
+      return reply.send(success(data))
+    },
+  )
+
+  // GET /ai-pricing/unpriced-alerts - 零价模型巡检(2026-11-14 立)
+  // 「已上架但零价」+「近 N 天有调用但零价」,按漏计费金额排序;与每日 cron 同源。
+  server.get(
+    '/ai-pricing/unpriced-alerts',
+    {
+      schema: {
+        summary: '零价模型巡检告警',
+        description:
+          '列出已上架但售价为 0、以及近 N 天有调用但售价为 0 的模型,并按当前价重算漏计费金额。' +
+          '上架接口已加定价护栏,本接口用于发现历史遗留的零价在架模型。',
+        tags: ['admin'],
+      },
+    },
+    async (request, reply) => {
+      const q = request.query as Record<string, string | undefined>
+      const rawDays = q['days'] ? Number(q['days']) : 30
+      const data = await getUnpricedAlerts(Number.isFinite(rawDays) ? rawDays : 30)
       return reply.send(success(data))
     },
   )
