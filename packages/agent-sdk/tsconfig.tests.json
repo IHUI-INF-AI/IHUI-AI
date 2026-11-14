@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.json",
+  "//": "测试面类型检查（含编译期用例 tests/tool-use-id.typecheck.ts）。只检查不产生产物。",
+  "compilerOptions": {
+    "noEmit": true,
+    "composite": false,
+    "incremental": false,
+    "rootDir": ".",
+    "types": ["node"]
+  },
+  "include": ["src/**/*.ts", "tests/**/*.ts"]
+}

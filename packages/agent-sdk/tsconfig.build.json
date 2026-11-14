@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.json",
+  "//": "发布产物专用构建配置：只产出可发布 dist（含 declaration），排除测试面，避免测试代码随 tarball 发出去。",
+  "compilerOptions": {
+    "declaration": true,
+    "noEmit": false,
+    "composite": false,
+    "incremental": false
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules", "dist", "tests", "src/**/*.test.ts", "src/**/__tests__/**", "**/node_modules.*"]
+}
