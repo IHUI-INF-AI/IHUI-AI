@@ -208,12 +208,8 @@ describe('让位/接管 shouldDeferRefresh(C 档 2026-11-10:接管前当场再�
       reason: 'client-stopped-and-heartbeat-stale',
     })
     expect(S.shouldDeferRefresh(serverRow, NOW, process.env, undefined)).toBe(false)
-    // 根治(2026-11-14):workbuddy 非轮换型 ⇒ 客户端在跑**也不让位**,池离线续期。
-    expect(S.shouldDeferRefresh(serverRow, NOW, process.env, true)).toBe(false)
-    expect(S.keepAliveForeverVerdictOf(serverRow, NOW, true)).toEqual({
-      defer: false,
-      reason: 'client-stopped-and-heartbeat-stale',
-    })
+    // 明确探到「在跑」仍然让位(多让方向不变)
+    expect(S.shouldDeferRefresh(serverRow, NOW, process.env, true)).toBe(true)
     // client-first 档不受这条放宽影响:未判定照样让位
     const miniRow = { ...wb, providerCode: 'minimax' }
     expect(S.shouldDeferRefresh(miniRow, NOW, process.env, undefined)).toBe(true)

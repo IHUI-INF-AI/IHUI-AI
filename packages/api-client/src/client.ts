@@ -2844,6 +2844,8 @@ export interface SendAdmissionReceipt {
   readonly messageId?: string
   /** queued 档专用:排队项标识 */
   readonly queuedTurnId?: string
+  /** queued 档专用:本条之前还有几轮在排队(服务端给出的位次,非负整数) */
+  readonly ahead?: number
   /** 拒收原因码(命名错误码) */
   readonly reason?: string
 }
@@ -2868,6 +2870,7 @@ function readSendAdmissionReceipt(raw: Record<string, unknown>): SendAdmissionRe
     disposition: AdmissionDisposition
     messageId?: string
     queuedTurnId?: string
+    ahead?: number
     reason?: string
   } = { inputId, disposition: disposition as AdmissionDisposition }
   const messageId = raw['messageId']
@@ -2875,6 +2878,8 @@ function readSendAdmissionReceipt(raw: Record<string, unknown>): SendAdmissionRe
   const queuedTurnId = raw['queuedTurnId']
   if (typeof queuedTurnId === 'string' && queuedTurnId.length > 0)
     receipt.queuedTurnId = queuedTurnId
+  const ahead = raw['ahead']
+  if (typeof ahead === 'number' && Number.isInteger(ahead) && ahead >= 0) receipt.ahead = ahead
   const reason = raw['reason']
   if (typeof reason === 'string' && reason.length > 0) receipt.reason = reason
   return receipt

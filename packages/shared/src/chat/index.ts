@@ -168,28 +168,6 @@ export {
   uncoveredErrorCodes,
 } from './stream-error-disposition'
 export type { StreamErrorAction, StreamErrorDisposition } from './stream-error-disposition'
-// 流错误呈现层(纯函数拼装):errorCode → 标题/建议/动作按钮。上收自 web 独有层,
-// 让 RN / 小程序错误卡也能出对应动作(换模型/查额度/联系管理员/重新登录),不再只有"重试"。
-export {
-  STREAM_ERRORS_NS,
-  ERROR_CATALOG_NS,
-  actionText,
-  admissionPhaseText,
-  buildStreamErrorLabelSet,
-  buildStreamErrorView,
-  presentStreamError,
-  planStreamErrorToast,
-  emitPlannedStreamErrorToast,
-  assertLabelCoverage,
-  __test__,
-} from './stream-error-view'
-export type {
-  StreamErrorLabelSet,
-  StreamErrorView,
-  StreamErrorPresentation,
-  StreamErrorToastPlan,
-  PlannedToastSink,
-} from './stream-error-view'
 // 会话历史日期分桶(自然日/自然周(周一起)/自然月(1 号起)/更早 + 时间锚点回退链)的
 // 唯一实现:web 侧栏与小程序历史页共用。此前两端各写一套,web 改好后小程序仍是滚动 7 天。
 export * from './conversation-date-group'

@@ -10,8 +10,7 @@
 //   ② 发布纪律 = 契约原文"拒绝不得触发状态发布/重渲染":duplicate/stale 只计数不 bump
 //      version;applied/gap/未判定才发布;
 //   ③ gap → 待 resync 表(同消息只一条、补齐即摘),store 自身不发请求;
-//   ④ terminal 与 created/patched 同进内核(落终态标记、计 applied;2026-11-14 起
-//      不再有 unwired 档,计数位保留但恒 0);
+//   ④ terminal 如实登记 unwired(不写状态、不排无人消费的队列);
 //   ⑤ messagesOf 引用稳定(useSyncExternalStore 的比较基准)与插入顺序;
 //   ⑥ mergeResyncSnapshot 复用契约并回:真应用才写 + 摘坐标,坏快照零写入。
 
@@ -136,23 +135,24 @@ describe('chat-sync-store:applyEvent 四道闸(未判定/未接线,逐档点名)
     expect(store.counters().undetermined).toBe(1)
   })
 
-  it('terminal 帧进内核:落终态标记、applied 计数,不再判 unwired(G-20261114)', () => {
+  it('terminal 帧登记 unwired:不写状态、不排 resync、只点名计数(把没做写成做了是失效型)', () => {
     const onUndetermined = vi.fn()
     const store = createChatSyncStore({ onUndetermined })
     store.applyEvent(createdEvent('c1', 'm1'))
 
     const outcome = store.applyEvent(terminalEvent('m1', 0, 'stop'))
-    // 终态是独立状态位,rev = 链头(此处 0 = created 哨兵),不新增修订号。
-    expect(outcome.unwired).toBeUndefined()
-    expect(outcome.result).toMatchObject({ applied: true, messageId: 'm1' })
+    expect(outcome.unwired).toBe('terminal')
+    expect(outcome.result).toBeNull()
     expect(outcome.resync.needed).toBe(false)
-    expect(firstMessage(store).terminal).toEqual({ rev: 0, reason: 'stop' })
-    expect(store.appliedRevOf('c1', 'm1')).toBe(0)
+    expect(firstMessage(store).terminal).toBeUndefined()
     expect(store.pendingResyncs()).toHaveLength(0)
-    expect(store.counters().unwired).toBe(0)
-    expect(store.counters().applied).toBe(2) // created + terminal 各一次
-    // 帧已接线 ⇒ 不许再走"未判定/未接线"点名通道
-    expect(onUndetermined).not.toHaveBeenCalled()
+    expect(store.counters().unwired).toBe(1)
+    expect(onUndetermined).toHaveBeenCalledWith({
+      event: 'message:terminal',
+      reason: 'terminal',
+      conversationId: 'c1',
+      messageId: 'm1',
+    })
   })
 })
 
@@ -355,7 +355,7 @@ describe('chat-sync-store:mergeResyncSnapshot(复用契约并回)', () => {
     expect(listener).toHaveBeenCalledTimes(2)
   })
 
-  it('带 terminal 的快照并回终态标记(resync 通道同样落终态)', () => {
+  it('带 terminal 的快照并回终态标记(resync 通道不受帧级 unwired 影响)', () => {
     const store = createChatSyncStore()
     const outcome = store.mergeResyncSnapshot({
       conversationId: 'c1',

@@ -71,7 +71,7 @@ export function createFinanceAiStyles(tk: AppThemeTokens) {
     input: {
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: tk.border.medium,
-      borderRadius: rnRadius.md,
+      borderRadius: rnRadius.sm,
       paddingHorizontal: rnSpacing.sm,
       paddingVertical: rnSpacing.xs,
       fontSize: rnType.body.size,

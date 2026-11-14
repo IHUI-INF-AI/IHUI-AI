@@ -68,9 +68,6 @@ import {
 } from '@/lib/chat-budget-ledger-frames'
 import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import { applyStreamError, isErrorTurn, resendTargetText } from '@ihui/shared/chat'
-// G-20261114 多端实时同步:其它端/其它标签的 created/patched/terminal 帧经共享 store
-// 落到本页消息面(此前只有绑定层,帧进 store 却没有任何消费者,屏幕零显示)。
-import { useRemoteChatSyncMessages } from '@/stores/chat-sync'
 // 票59 小程序腿:判族/投影唯一源(共享层;web 侧 lib/message-version-family 已收口为同报 re-export)。
 // 本屏只做两件事 —— 用投影决定「这条族消息当前显示哪一版」、把版本菜单挂在该条之后;
 // 判族/位置读数一律不在此复算(§3 共享层优先 + §4 跨端禁两份对账)。
@@ -283,16 +280,6 @@ export default function ChatPage() {
   const [compactionBoundary, setCompactionBoundary] = useState<CompactBoundary | null>(null)
   const conversationId =
     sessionId || (routeSessionId && !routeSessionId.startsWith('hist_') ? routeSessionId : '')
-
-  // G-20261114:把共享 chat-sync 消息面投影进本页。本端流式期间暂停 —— 本端 SSE
-  // 单播面才是权威,WS snapshot 回放会把正在累积的前缀覆盖回去(与 web 的
-  // localStreamEcho、RN 的 paused 同一条纪律)。conversationId 为空时不合并,
-  // 别会话的帧不得串进草稿页。
-  useRemoteChatSyncMessages({
-    conversationId: conversationId || null,
-    setMessages,
-    paused: thinking,
-  })
 
   // ── 提示留痕(2026-11)──
   // 独立 state:不混入 messages ⇒ 不会被当成对话内容发给模型,也不落后端库,只是客户端 trace。
@@ -1564,7 +1551,7 @@ export default function ChatPage() {
               : { code: formatted.code, message: formatted.message, traceId: roundTraceId },
           )
           // 失败轮要"可辨认":标 error + 保留已产出的部分内容(共享层同一标记规则,与 web 端一致)
-          setMessages((prev) => applyStreamError(prev, formatted.message, formatted.errorCode))
+          setMessages((prev) => applyStreamError(prev, formatted.message))
           onToast(formatted.title, { kind: 'info', duration: 2500 })
         }
       } finally {
