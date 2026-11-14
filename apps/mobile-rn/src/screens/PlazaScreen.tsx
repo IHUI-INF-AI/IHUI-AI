@@ -693,7 +693,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   } as ViewStyle,
   identityAvatarFallbackText: {
-    fontSize: 28,
+    fontSize: rnType.displayXl.size,
   } as TextStyle,
   identityUserInfo: {
     flex: 1,

@@ -62,7 +62,7 @@ export function ChatNoticeLog({
             <span className="shrink-0 text-[11px] leading-4 text-muted-foreground/70 tabular-nums">
               {fmtTime(n.ts)}
             </span>
-            <span className="min-w-0 flex-1 select-text text-xs leading-4 text-muted-foreground">
+            <span className="font-[weight:inherit] min-w-0 flex-1 select-text text-label leading-4 text-muted-foreground">
               {n.text}
             </span>
           </div>
