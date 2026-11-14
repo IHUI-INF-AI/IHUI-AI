@@ -487,7 +487,7 @@ export async function sweepUnpricedModels(
       billingMode: 'token',
     })
     await db.execute(
-      sql`update ai_model_config_models set input_price_per_1k = ${String(inP)}, output_price_per_1k = ${String(outP)}, updated_at = now() where id = ${Number(r.id)} and config_id = ${Number(r.config_id)}`,
+      sql`update ai_model_config_models set input_price_per_1k = ${String(inP)}, output_price_per_1k = ${String(outP)}, cost_input_price_per_1k = ${String(price.inputPer1k)}, cost_output_price_per_1k = ${String(price.outputPer1k)}, updated_at = now() where id = ${Number(r.id)} and config_id = ${Number(r.config_id)}`,
     )
     const meta = JSON.stringify({
       priceSource: {

@@ -1,9 +1,9 @@
 {
   "$comment": "O6501 根护栏清单:改动本清单内目标须先 --unlock 再 --seal;部署环对非 0 退出 fail-closed。",
   "version": 1,
-  "sealedAt": "2026-11-13T16:04:43.354Z",
+  "sealedAt": "2026-11-14T02:03:57.487Z",
   "sealedBy": "root-guard --seal",
-  "reason": "并入 fd5b05b9c33(guard 反向对账/棘轮门)后 guardian-runner 变更,按 HEAD 面重封以解除部署 fail-closed",
+  "reason": "merge 5e6523ee updated gate-scope rule file without resealing manifest; reseal against HEAD",
   "targets": [
     {
       "id": "guardian-runner",
@@ -34,7 +34,7 @@
       "id": "gate-scope",
       "path": "scripts/lib/gate-scope.mjs",
       "mode": "file",
-      "sha256": "3829ff981a479c29bf33c03bdd6d9403a6b294239f575b40fc1606544d23caab"
+      "sha256": "7d5cd6486066d7fb57b9aa0a4e6eb0f5dcfbedb7dca141801161fae4332b2057"
     },
     {
       "id": "guardian-executor",
