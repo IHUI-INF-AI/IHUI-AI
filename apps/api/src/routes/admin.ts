@@ -35,6 +35,9 @@ import {
   getProfitReport,
   type ProfitGroupBy,
   backfillCostPrices,
+  backfillCallCosts,
+  getChannelCostReport,
+  type ChannelGroupBy,
   listModelPricing,
   listPriceAudits,
   sweepNow,
@@ -223,6 +226,78 @@ export const adminRoutes: FastifyPluginAsync = async (server) => {
     async (_request, reply) => {
       const result = await backfillCostPrices()
       return reply.send(success(result))
+    },
+  )
+
+  // POST /ai-pricing/backfill-call-cost - 回填历史调用的成本/毛利(幂等,2026-11-14 立)
+  // 只补 metadata 尚无 providerCostCents 的成功/部分成功行;dryRun=true 只统计不写。
+  server.post(
+    '/ai-pricing/backfill-call-cost',
+    {
+      schema: {
+        summary: '回填历史调用的采购成本与毛利',
+        description:
+          '按模型 cost_* 采购价反推 llm_call_logs.metadata.providerCostCents / profitCents / costBasis;' +
+          '幂等,已有成本留痕的调用不动。body: { from?, to?, dryRun? }',
+        tags: ['admin'],
+      },
+    },
+    async (request, reply) => {
+      const b = (request.body ?? {}) as { from?: string; to?: string; dryRun?: boolean }
+      const isoDate = /^\d{4}-\d{2}-\d{2}$/
+      if (b.from !== undefined && !isoDate.test(b.from)) {
+        return reply.status(400).send(error(400, 'from 必须是 YYYY-MM-DD', 'VALIDATION_FAILED'))
+      }
+      if (b.to !== undefined && !isoDate.test(b.to)) {
+        return reply.status(400).send(error(400, 'to 必须是 YYYY-MM-DD', 'VALIDATION_FAILED'))
+      }
+      if (b.from && b.to && b.from > b.to) {
+        return reply.status(400).send(error(400, 'from 不能晚于 to', 'VALIDATION_FAILED'))
+      }
+      const result = await backfillCallCosts({ from: b.from, to: b.to, dryRun: b.dryRun === true })
+      return reply.send(success(result))
+    },
+  )
+
+  // GET /ai-pricing/channel-cost - 渠道成本报表 + 扣费对账(2026-11-14 立)
+  // groupBy=provider(默认)/keypool;对账是生命周期口径(见 reconciliation.scope)。
+  server.get(
+    '/ai-pricing/channel-cost',
+    {
+      schema: {
+        summary: '渠道成本报表与扣费对账',
+        description:
+          '按上游渠道或上游 Key 池聚合调用量/实收/采购成本/毛利/失败率,并给出' +
+          'llm_call_logs 累计实收与 developer_api_keys 累计已用的生命周期对账。默认最近 30 天。',
+        tags: ['admin'],
+      },
+    },
+    async (request, reply) => {
+      const q = request.query as Record<string, string | undefined>
+      const isoDate = /^\d{4}-\d{2}-\d{2}$/
+      const now = new Date()
+      const fmt = (d: Date) =>
+        `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+      const to = q['to'] ?? fmt(now)
+      const from = q['from'] ?? fmt(new Date(now.getTime() - 29 * 24 * 3600_000))
+      if (!isoDate.test(from) || !isoDate.test(to)) {
+        return reply
+          .status(400)
+          .send(error(400, 'from/to 必须是 YYYY-MM-DD', 'VALIDATION_FAILED'))
+      }
+      if (from > to) {
+        return reply.status(400).send(error(400, 'from 不能晚于 to', 'VALIDATION_FAILED'))
+      }
+      const rawGroupBy = q['groupBy']
+      const groupBy: ChannelGroupBy = rawGroupBy === 'keypool' ? 'keypool' : 'provider'
+      const rawLimit = q['limit'] ? Number(q['limit']) : undefined
+      const data = await getChannelCostReport({
+        from,
+        to,
+        groupBy,
+        limit: Number.isFinite(rawLimit) ? rawLimit : undefined,
+      })
+      return reply.send(success(data))
     },
   )
 

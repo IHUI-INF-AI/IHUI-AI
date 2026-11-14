@@ -22,6 +22,12 @@ import {
   findCurrentLevel,
 } from '../db/gamification-queries.js'
 import { earnPoints, spendPoints } from '../services/points-service.js'
+import {
+  getAiSpendSummary,
+  getPointsAiCreditRule,
+  redeemPointsForAiCredit,
+  POINTS_AI_CREDIT_RULE,
+} from '../services/points-ai-credit.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
 import { calcSignInReward, todayString, shiftDate } from '../utils/checkin-helpers.js'
 import { requireAdmin } from '../plugins/require-permission.js'
@@ -53,6 +59,17 @@ const adjustPointsSchema = z.object({
     .int()
     .refine((v) => v !== 0, '调整积分数不能为 0'),
   description: z.string().max(255).optional(),
+})
+
+// 积分兑换 AI 额度(2026-11-14 立):上限/下限与 POINTS_AI_CREDIT_RULE 同源
+const redeemAiCreditSchema = z.object({
+  points: z
+    .number()
+    .int()
+    .min(POINTS_AI_CREDIT_RULE.minPoints)
+    .max(POINTS_AI_CREDIT_RULE.maxPoints),
+  /** 客户端幂等键(可选);不传由服务端生成 */
+  requestId: z.string().max(64).optional(),
 })
 
 const signInHistoryQuerySchema = z.object({
@@ -169,6 +186,77 @@ export const gamificationRoutes: FastifyPluginAsync = async (server) => {
         ensureUserPoints(userId),
       ])
       return reply.send(success({ list, total, page, pageSize, balance: points.points }))
+    },
+  )
+
+  // GET /points/ai-credit/rule - 积分兑换 AI 额度的换算规则(唯一常量出口)
+  server.get(
+    '/points/ai-credit/rule',
+    {
+      schema: {
+        summary: '获取积分兑换 AI 额度规则',
+        tags: ['gamification'],
+        response: buildResponseSchema(401),
+      },
+    },
+    async (_request, reply) => {
+      return reply.send(success(getPointsAiCreditRule()))
+    },
+  )
+
+  // GET /points/ai-credit/summary - 当前用户 AI 消费摘要(只读成长值,2026-11-14 立)
+  server.get(
+    '/points/ai-credit/summary',
+    {
+      schema: {
+        summary: '获取 AI 消费与成长值摘要',
+        description: '只读:累计调用次数/实收金额,以及按规则折算的成长值(不写入 user_points)。',
+        tags: ['gamification'],
+        response: buildResponseSchema(401),
+      },
+    },
+    async (request, reply) => {
+      const data = await getAiSpendSummary(request.userId!)
+      return reply.send(success(data))
+    },
+  )
+
+  // POST /points/redeem-ai-credit - 积分兑换 AI 额度(扣积分 + 入钱包,同一事务)
+  // requestId 幂等:客户端重试不会重复扣积分;兑换不可撤销。
+  server.post(
+    '/points/redeem-ai-credit',
+    {
+      schema: {
+        summary: '积分兑换 AI 额度',
+        description: `1 积分 = 0.01 元额度;单次 ${POINTS_AI_CREDIT_RULE.minPoints}~${POINTS_AI_CREDIT_RULE.maxPoints} 积分。`,
+        tags: ['gamification'],
+        response: buildResponseSchema(400, 401),
+      },
+    },
+    async (request, reply) => {
+      const parsed = redeemAiCreditSchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply
+          .status(400)
+          .send(error(400, parsed.error.issues[0]?.message ?? '参数错误', 'VALIDATION_FAILED'))
+      }
+      try {
+        const result = await redeemPointsForAiCredit({
+          userId: request.userId!,
+          points: parsed.data.points,
+          requestId: parsed.data.requestId,
+        })
+        return reply.status(result.replayed ? 200 : 201).send(success(result))
+      } catch (e) {
+        // 异常原文只进服务端日志;对外一律通用文案,DB/内部异常文本不出仓。
+        request.log.error({ err: e }, 'points redeem ai credit failed')
+        const msg = (e as Error).message ?? ''
+        const statusCode = (e as Error & { statusCode?: number }).statusCode
+        const code = statusCode === 400 || msg.includes('不足') || msg.includes('至少') || msg.includes('最多') ? 400 : 500
+        return reply
+          .status(code)
+          .send(error(code, code === 400 ? msg || '兑换失败' : '操作失败，请稍后重试'))
+      }
     },
   )
 
