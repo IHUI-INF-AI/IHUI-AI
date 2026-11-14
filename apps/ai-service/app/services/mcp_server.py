@@ -4683,13 +4683,15 @@ async def _tool_run_command(
 async def _tool_web_search(arguments: dict[str, Any]) -> dict[str, Any]:
     """web_search: 网页搜索(复用 DuckDuckGo Lite HTML 搜索)。
 
-    与 search_web 功能等价,但接口更简洁(仅 query 参数,默认 5 条结果)。
+    与 search_web 功能等价,但接口更简洁(默认 5 条结果)。
+    支持 `query` 单查询或 `queries` 多查询合并(与 search_web 同源)。
     无网络或解析失败时返回空结果 + 错误信息。
     """
     query = arguments.get("query", "")
+    queries_raw = arguments.get("queries")
     max_results = int(arguments.get("max_results", 5))
 
-    if not query:
+    if not query and not isinstance(queries_raw, list):
         return {
             "tool": "web_search",
             "ok": False,
@@ -4699,11 +4701,13 @@ async def _tool_web_search(arguments: dict[str, Any]) -> dict[str, Any]:
             "message": "搜索关键词为空",
         }
 
-    # 复用 search_web 的实现
-    sub_result = await _tool_search_web({
-        "query": query,
-        "max_results": max_results,
-    })
+    # 复用 search_web 的实现(多查询扇出与合并口径同源)
+    sub_args: dict[str, Any] = {"max_results": max_results}
+    if isinstance(queries_raw, list):
+        sub_args["queries"] = queries_raw
+    else:
+        sub_args["query"] = query
+    sub_result = await _tool_search_web(sub_args)
 
     # 转换字段名(tool → web_search,保留 results);AIS-054:失败态必须透传,
     # 不能把检索故障包装成"成功但无结果"。
@@ -4711,10 +4715,12 @@ async def _tool_web_search(arguments: dict[str, Any]) -> dict[str, Any]:
     payload: dict[str, Any] = {
         "tool": "web_search",
         "ok": ok,
-        "query": query,
+        "query": sub_result.get("query", query),
+        "queries": sub_result.get("queries", []),
         "max_results": max_results,
         "results": sub_result.get("results", []),
         "total": sub_result.get("total", 0),
+        "truncated": bool(sub_result.get("truncated", False)),
         "message": sub_result.get("message", ""),
     }
     if not ok:
@@ -4733,20 +4739,175 @@ async def _tool_image_search(arguments: dict[str, Any]) -> dict[str, Any]:
     )
 
 
+WEB_SEARCH_MAX_QUERIES: Final = 10
+_WEB_SEARCH_MAX_RESULTS_CAP: Final = 50
+
+
+def _normalize_web_queries(arguments: dict[str, Any]) -> tuple[list[str], dict[str, Any] | None]:
+    """归一 `query`/`queries` 两种入参(2026-11-14,对标 DSH dsh-tool-web/search.ts)。
+
+    规则与 DSH `parseSearchArgs` 对齐:queries 非空、每项非空白、至多 10 个;
+    数量上限检查在去重之前做,去重保首次出现顺序。`query` 作为单查询兼容入口,
+    与 queries 同时出现时前插并以首个去重结果为准。
+    """
+    raw_queries = arguments.get("queries")
+    collected: list[str] = []
+    if raw_queries is not None:
+        if not isinstance(raw_queries, list):
+            return [], {
+                "ok": False,
+                "errorCode": "search_invalid_queries",
+                "error": "queries 必须是字符串数组",
+            }
+        if not raw_queries:
+            return [], {
+                "ok": False,
+                "errorCode": "search_invalid_queries",
+                "error": "queries 至少包含 1 个关键词",
+            }
+        if len(raw_queries) > WEB_SEARCH_MAX_QUERIES:
+            return [], {
+                "ok": False,
+                "errorCode": "search_invalid_queries",
+                "error": f"queries 最多 {WEB_SEARCH_MAX_QUERIES} 个关键词",
+            }
+        for item in raw_queries:
+            if not isinstance(item, str) or not item.strip():
+                return [], {
+                    "ok": False,
+                    "errorCode": "search_invalid_queries",
+                    "error": "每个查询都必须是非空字符串",
+                }
+            collected.append(item.strip())
+
+    single = arguments.get("query")
+    if isinstance(single, str) and single.strip():
+        collected.insert(0, single.strip())
+
+    # 去重保序(与 DSH `[...new Set(queries)]` 同义)
+    return list(dict.fromkeys(collected)), None
+
+
+async def _search_ddg_lite_once(
+    client: Any, query: str, max_results: int
+) -> list[dict[str, str]]:
+    """一次 DuckDuckGo Lite 检索(只出网 + 解析,不做结果合并)。"""
+    url = f"https://lite.duckduckgo.com/lite/?q={quote_plus(query)}&kl=wt-wt"
+    headers = {
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/120.0.0.0 Safari/537.36"
+        ),
+    }
+    resp = await client.get(url, headers=headers)
+    resp.raise_for_status()
+    return _parse_ddg_lite_html(resp.text, max_results)
+
+
+async def _search_queries_fanout(
+    queries: list[str], max_results: int
+) -> list[list[dict[str, str]]]:
+    """并发执行多个查询;任一失败即取消同批其余查询,等全部收口后抛出首个失败。
+
+    与 DSH `runSearchQueries` 的失败语义一致:多查询是一个原子调用,**不**把
+    部分成功伪装成整体成功(否则模型会以为已覆盖全部查询)。
+    """
+    import httpx
+
+    tasks: list[asyncio.Task[list[dict[str, str]]]] = []
+    async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
+        try:
+            tasks = [
+                asyncio.create_task(_search_ddg_lite_once(client, query, max_results))
+                for query in queries
+            ]
+            done, pending = await asyncio.wait(
+                tasks, return_when=asyncio.FIRST_EXCEPTION
+            )
+            failure = next(
+                (task.exception() for task in done if task.exception() is not None),
+                None,
+            )
+            if failure is not None:
+                for task in pending:
+                    task.cancel()
+                await asyncio.gather(*pending, return_exceptions=True)
+                raise failure
+            return [task.result() for task in tasks]
+        finally:
+            for task in tasks:
+                if not task.done():
+                    task.cancel()
+
+
+def _merge_search_pages(
+    pages: list[list[dict[str, str]]], max_results: int
+) -> tuple[list[dict[str, str]], bool]:
+    """多查询结果合并:按名次轮转、按 URL 去重、总量截断到 max_results。
+
+    轮转合并(而非页拼接)让每个查询的第 1 名都有机会进入结果,避免首个查询
+    独占配额;返回 (results, truncated)。
+    """
+    seen: set[str] = set()
+    merged: list[dict[str, str]] = []
+    truncated = False
+    ranks = max((len(page) for page in pages), default=0)
+    stop = False
+    for rank in range(ranks):
+        for page in pages:
+            if rank >= len(page):
+                continue
+            item = page[rank]
+            url = str(item.get("url") or "")
+            if url and url in seen:
+                continue
+            if len(merged) >= max_results:
+                truncated = True
+                stop = True
+                break
+            if url:
+                seen.add(url)
+            merged.append(item)
+        if stop:
+            break
+    return merged, truncated
+
+
 async def _tool_search_web(arguments: dict[str, Any]) -> dict[str, Any]:
     """search_web: DuckDuckGo HTML 搜索,返回解析后的结果列表。
 
-    使用 DuckDuckGo Lite HTML 版本(无需 API key),解析结果。
-    无网络或解析失败时返回空结果 + 错误信息。
+    单查询 `query` 与多查询 `queries` 两种入参(2026-11-14,对标 DSH web_search):
+    多查询并发扇出后按名次轮转、URL 去重合并,截断到 max_results 并置 truncated。
+    无网络或解析失败时返回结构化失败 + 错误信息。
     """
-    query = arguments.get("query", "")
-    max_results = int(arguments.get("max_results", 5))
+    raw_single = arguments.get("query", "")
+    queries, query_error = _normalize_web_queries(arguments)
+    try:
+        max_results = int(arguments.get("max_results", 5))
+    except (TypeError, ValueError):
+        max_results = 5
+    max_results = max(1, min(max_results, _WEB_SEARCH_MAX_RESULTS_CAP))
 
-    if not query:
+    if query_error is not None:
+        return {
+            "tool": "search_web",
+            "ok": False,
+            "query": raw_single,
+            "queries": [],
+            "max_results": max_results,
+            "results": [],
+            "total": 0,
+            **query_error,
+            "message": str(query_error.get("error") or "查询参数非法"),
+        }
+
+    if not queries:
         return {
             "tool": "search_web",
             "ok": True,
-            "query": query,
+            "query": raw_single,
+            "queries": [],
             "max_results": max_results,
             "results": [],
             "message": "搜索关键词为空",
@@ -4760,47 +4921,55 @@ async def _tool_search_web(arguments: dict[str, Any]) -> dict[str, Any]:
             return {
                 "tool": "search_web",
                 "ok": True,
-                "query": query,
+                "query": queries[0],
+                "queries": queries,
                 "max_results": max_results,
                 "results": [],
                 "message": "[stub] httpx 未安装,无法执行真实搜索",
             }
 
-        # DuckDuckGo Lite HTML 搜索
-        url = f"https://lite.duckduckgo.com/lite/?q={quote_plus(query)}&kl=wt-wt"
-        headers = {
-            "User-Agent": (
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                "AppleWebKit/537.36 (KHTML, like Gecko) "
-                "Chrome/120.0.0.0 Safari/537.36"
-            ),
-        }
+        if len(queries) == 1:
+            async with httpx.AsyncClient(
+                timeout=10.0, follow_redirects=True
+            ) as client:
+                results = await _search_ddg_lite_once(
+                    client, queries[0], max_results
+                )
+            truncated = False
+        else:
+            pages = await _search_queries_fanout(queries, max_results)
+            results, truncated = _merge_search_pages(pages, max_results)
 
-        async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
-            resp = await client.get(url, headers=headers)
-            resp.raise_for_status()
-            html = resp.text
-
-        # 解析 DuckDuckGo Lite HTML 结果
-        results = _parse_ddg_lite_html(html, max_results)
-
+        if len(queries) == 1:
+            message = f"找到 {len(results)} 条结果" if results else "未找到结果"
+        else:
+            message = (
+                f"从 {len(queries)} 个查询合并到 {len(results)} 条结果"
+                if results
+                else f"{len(queries)} 个查询均未找到结果"
+            )
         return {
             "tool": "search_web",
             "ok": True,
-            "query": query,
+            "query": queries[0],
+            "queries": queries,
             "max_results": max_results,
             "results": results,
             "total": len(results),
-            "message": f"找到 {len(results)} 条结果" if results else "未找到结果",
+            "truncated": truncated,
+            "message": message,
         }
 
     except Exception as e:
         return {
             "tool": "search_web",
             "ok": False,
-            "query": query,
+            "query": queries[0],
+            "queries": queries,
             "max_results": max_results,
             "results": [],
+            "total": 0,
+            "truncated": False,
             "message": f"搜索失败: {e}",
             "error": str(e),
         }
@@ -12930,14 +13099,21 @@ _TOOLS: list[MCPTool] = [
     ),
     MCPTool(
         name="web_search",
-        description="网页搜索(复用 DuckDuckGo Lite HTML,无 API key)",
+        description="网页搜索(复用 DuckDuckGo Lite HTML,无 API key)。支持 1-10 个 queries 并发检索并按 URL 去重合并",
         input_schema={
             "type": "object",
             "properties": {
-                "query": {"type": "string", "description": "搜索关键词"},
-                "max_results": {"type": "integer", "description": "最大返回数", "default": 5},
+                "query": {"type": "string", "description": "单个搜索关键词(与 queries 二选一)"},
+                "queries": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "minItems": 1,
+                    "maxItems": 10,
+                    "description": "1-10 个搜索关键词;并发检索后按 URL 去重合并(query 可省略)",
+                },
+                "max_results": {"type": "integer", "description": "合并后的最大返回数", "default": 5},
             },
-            "required": ["query"],
+            "required": [],
         },
     ),
     MCPTool(
@@ -12954,14 +13130,21 @@ _TOOLS: list[MCPTool] = [
     ),
     MCPTool(
         name="search_web",
-        description="DuckDuckGo Lite 搜索",
+        description="DuckDuckGo Lite 搜索(支持 query 单查询或 queries 多查询并发合并)",
         input_schema={
             "type": "object",
             "properties": {
-                "query": {"type": "string"},
+                "query": {"type": "string", "description": "单个搜索关键词(与 queries 二选一)"},
+                "queries": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "minItems": 1,
+                    "maxItems": 10,
+                    "description": "1-10 个搜索关键词;并发检索后按名次轮转、URL 去重合并",
+                },
                 "max_results": {"type": "integer", "default": 5},
             },
-            "required": ["query"],
+            "required": [],
         },
     ),
     MCPTool(
@@ -15480,9 +15663,12 @@ _TOOLS: list[MCPTool] = [
     MCPTool(
         name="ask_user_question",
         description=(
-            "向用户提一个结构化问题并**阻塞等待**答复(交互宿主会把问题帧下发到"
-            "当前会话,用户答复后本调用才返回)。schema 对齐 CLI AskUserQuestion:"
+            "向用户提一个结构化问题并等待答复(交互宿主会把问题帧下发到"
+            "当前会话)。schema 对齐 CLI AskUserQuestion:"
             "单选默认、multiSelect=true 为多选、allowCustom=true 允许自由文本。"
+            "可选 timeout_s 进入定时模式:前台等待到期后返回 pending(pending=true),"
+            "模型继续推进;用户之后仍可答复并以 answer_to_pending_question 消息送达。"
+            "省略 timeout_s 为阻塞等待(默认 300s),-1 表示等到答复/会话中断。"
             "无交互宿主的执行面会直接返回 question_host_unsupported,不会等待。"
         ),
         input_schema={
@@ -15508,6 +15694,14 @@ _TOOLS: list[MCPTool] = [
                 },
                 "multiSelect": {"type": "boolean", "description": "true=允许多选,默认 false(单选)"},
                 "allowCustom": {"type": "boolean", "description": "true=允许自由文本答复,默认 true"},
+                "timeout_s": {
+                    "type": "integer",
+                    "description": (
+                        "前台等待秒数(定时继续):到期返回 pending=true,模型继续;"
+                        "用户仍可后续答复。-1 表示等到答复/会话中断。"
+                        "省略则阻塞等待(默认 300s)。"
+                    ),
+                },
             },
             "required": ["question"],
             "additionalProperties": False,

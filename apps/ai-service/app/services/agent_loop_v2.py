@@ -176,8 +176,14 @@ from .approval_generation_cas import (
     content_digest,
 )
 from .ask_user_question import (
+    STATUS_CONTINUED,
     cancel_session_questions,
+    continued_answer_message,
     create_question,
+    drain_continued_answers,
+    mark_continued,
+    normalize_timeout_s,
+    pending_question_notice,
     wait_for_answer,
 )
 from .durable_resume import (
@@ -1792,15 +1798,23 @@ class AgentEventStream:
         selected_option_ids: list[str],
         custom_text: str,
         session_id: str,
+        continued: bool = False,
     ) -> None:
-        """question-resolved:问题结局帧(answered/timeout/withdrawn/interrupted)。"""
-        await self.emit("question-resolved", {
+        """question-resolved:问题结局帧(answered/timeout/withdrawn/interrupted)。
+
+        `continued=True` 只加一个附加键(前端词表仍是四态):timed 前台到期后
+        问题转入 continued,登记表保留可迟到答复,UI 按 timeout 结算。
+        """
+        payload: dict[str, Any] = {
             "questionId": question_id,
             "status": status,
             "selectedOptionIds": selected_option_ids,
             "customText": custom_text,
             "session_id": session_id,
-        })
+        }
+        if continued:
+            payload["continued"] = True
+        await self.emit("question-resolved", payload)
 
     async def permission_mode(
         self, *, mode: str, tool_name: str, decision: str, session_id: str
@@ -5416,6 +5430,20 @@ class AgentLoopV2:
                             "content": f"[steer] {steer_text}",
                         }
                     )
+                # 定时继续(2026-11-14 立,对标 DSH answer_to_pending_question):
+                # timed 提问到期后用户仍可答复,答复在下一轮 LLM 调用前作为 user 消息
+                # 注入(每条只交付一次)。失败隔离不阻塞回合。
+                if self._session_id:
+                    try:
+                        for _pending_item in drain_continued_answers(self._session_id):
+                            messages.append(
+                                {
+                                    "role": "user",
+                                    "content": continued_answer_message(_pending_item),
+                                }
+                            )
+                    except Exception as e:  # noqa: BLE001 - 迟到答复注入失败不阻塞主链路
+                        logger.warning("continued answer 注入异常(降级跳过): %s", e)
                 # 批 53:历史健全化(对标 codex context_manager/normalize.rs)——
                 # 压缩前先修历史:删孤儿 tool 回复 + 补缺位 tool 占位(中断/压缩/
                 # 宿主注入后可能产生残缺历史,残缺 assistant(tool_calls)↔tool 配对
@@ -7675,6 +7703,18 @@ class AgentLoopV2:
         start = time.time()
         session_id = self._session_id or str(uuid.uuid4())
         args = tc.args if isinstance(tc.args, dict) else {}
+        # 定时继续(2026-11-14 立):显式 timeout_s 才进入 timed 模式;
+        # 缺省保持既有阻塞语义,-1 表示等到底(24h 实用上限)。
+        timeout_s, timed, timeout_error = normalize_timeout_s(args.get("timeout_s"))
+        if timeout_error is not None:
+            return ToolResult(
+                tool_call_id=tc.id,
+                name=tc.name,
+                result={**timeout_error, "status": "invalid"},
+                error=str(timeout_error.get("error") or "timeout_s 非法"),
+                duration_ms=(time.time() - start) * 1000,
+                error_type="question_invalid",
+            )
         item = create_question(
             session_id=session_id,
             user_id=self._user_id,
@@ -7683,6 +7723,8 @@ class AgentLoopV2:
             options=args.get("options"),
             allow_custom=bool(args.get("allowCustom", True)),
             allow_multiple=bool(args.get("multiSelect", False)),
+            timeout_s=timeout_s,
+            call_id=tc.id,
         )
         if isinstance(item, dict):
             return ToolResult(
@@ -7707,7 +7749,11 @@ class AgentLoopV2:
                     break
                 remaining = (item.expires_at - datetime.now(UTC)).total_seconds()
                 if remaining <= 0:
-                    status = await wait_for_answer(item, timeout_s=0.0)
+                    if timed:
+                        # timed 模式:到期不判死,转入 continued(仍可迟到答复)。
+                        status = mark_continued(item, call_id=tc.id)
+                    else:
+                        status = await wait_for_answer(item, timeout_s=0.0)
                     break
                 try:
                     await asyncio.wait_for(
@@ -7717,12 +7763,15 @@ class AgentLoopV2:
                     continue
                 status = item.status
                 break
+            _continued = status == STATUS_CONTINUED
             await self._events.question_resolved(
                 question_id=item.question_id,
-                status=status,
+                # 前端词表只有四态:continued 以 timeout 结算,另带 continued 附加键。
+                status="timeout" if _continued else status,
                 selected_option_ids=list(item.selected_ids),
                 custom_text=item.custom_text,
                 session_id=session_id,
+                continued=_continued,
             )
         except (asyncio.CancelledError, GeneratorExit):
             cancel_session_questions(session_id, reason="session_interrupted")
@@ -7739,8 +7788,19 @@ class AgentLoopV2:
         labels = [
             opt["label"] for opt in item.options if opt["id"] in item.selected_ids
         ]
-        if status == "answered":
+        if status == STATUS_CONTINUED:
             result: dict[str, Any] = {
+                "ok": True,
+                "pending": True,
+                "status": STATUS_CONTINUED,
+                "questionId": item.question_id,
+                "callId": tc.id,
+                "message": pending_question_notice(item, tc.id),
+            }
+            error = None
+            error_type = None
+        elif status == "answered":
+            result = {
                 "ok": True,
                 "status": "answered",
                 "selectedOptionIds": list(item.selected_ids),
