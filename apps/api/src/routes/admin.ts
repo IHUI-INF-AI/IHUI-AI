@@ -34,6 +34,7 @@ import {
   getPricingOverview,
   getProfitReport,
   type ProfitGroupBy,
+  backfillCostPrices,
   listModelPricing,
   listPriceAudits,
   sweepNow,
@@ -204,6 +205,24 @@ export const adminRoutes: FastifyPluginAsync = async (server) => {
         limit: Number.isFinite(rawLimit) ? rawLimit : undefined,
       })
       return reply.send(success(data))
+    },
+  )
+
+  // POST /ai-pricing/backfill-cost - 回填模型采购成本列(幂等,2026-11-14 立)
+  // 只处理 cost_* 为空且 profitFactor>=1 的行;重复调用不会覆盖已有成本。
+  server.post(
+    '/ai-pricing/backfill-cost',
+    {
+      schema: {
+        summary: '回填模型采购成本列',
+        description:
+          '按 metadata.priceSource.profitFactor 反推历史模型的采购成本;幂等,已有成本的行不动。',
+        tags: ['admin'],
+      },
+    },
+    async (_request, reply) => {
+      const result = await backfillCostPrices()
+      return reply.send(success(result))
     },
   )
 
