@@ -29,6 +29,8 @@ const hoisted = vi.hoisted(() => ({
   insertSeq: 0,
   /** update 收到的 set 值(用于断言"补共享标记"这条唯一允许的写) */
   updateSets: [] as Array<Record<string, unknown>>,
+  /** 置非空 ⇒ 本次 insert 以该错误拒绝(模拟数据库唯一索引 23505) */
+  insertError: null as null | { code: string; constraint: string },
 }))
 
 vi.mock('../../db/index.js', () => ({
@@ -43,6 +45,7 @@ vi.mock('../../db/index.js', () => ({
     insert: () => ({
       values: () => ({
         returning: () => {
+          if (hoisted.insertError) return Promise.reject(hoisted.insertError)
           hoisted.insertSeq += 1
           return Promise.resolve([{ id: `row-${hoisted.insertSeq}`, credVersion: 1 }])
         },
@@ -107,6 +110,7 @@ beforeEach(() => {
   hoisted.selectQueue.length = 0
   hoisted.insertSeq = 0
   hoisted.updateSets.length = 0
+  hoisted.insertError = null
   // 打点文件落临时目录,别污染真实 ~/.wb-switch
   process.env['IHUI_POOL_SYNC_DIRTY_FILE'] = join(tmpdir(), 'ihui-test-pool-sync-dirty')
 })
@@ -161,6 +165,24 @@ describe('importAccounts 跨池重复闸门(同一上游账号只有一条续期
     expect(r.imported).toBe(1)
     expect(r.skipped).toBe(0)
     expect(hoisted.insertSeq).toBe(1)
+  })
+
+  it('并发插队撞数据库唯一索引(23505) ⇒ 记 skipped 而非 failed,且不覆盖任何既有行', async () => {
+    // 闸门查询那一刻两池都没有(并发窗口),插入时才撞上全表唯一索引
+    hoisted.selectQueue.push([], [])
+    hoisted.insertError = {
+      code: '23505',
+      constraint: 'ai_relay_account_pool_provider_uid_uniq',
+    }
+    const r = await importAccounts('trae', [traeAccount('5')])
+
+    expect(r.skipped).toBe(1)
+    expect(r.failed).toBe(0)
+    expect(r.imported).toBe(0)
+    // 关键:失败闭合,绝不退化成"冲突就改成更新既有行"(那会把本批旧票写到别人那一行)
+    expect(hoisted.updateSets).toHaveLength(0)
+    expect(r.items[0]?.status).toBe('skipped')
+    expect(r.items[0]?.reason).toContain('唯一索引')
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
