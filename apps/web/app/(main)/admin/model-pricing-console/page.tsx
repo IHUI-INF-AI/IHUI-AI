@@ -57,6 +57,33 @@ interface ProfitReport {
   rows: ProfitBucket[]
 }
 
+interface ChannelCostRow {
+  bucket: string
+  calls: number
+  errorCalls: number
+  costedCalls: number
+  revenueCents: number
+  costedRevenueCents: number
+  costCents: number
+  profitCents: number
+  margin: number
+  costCoverage: number
+}
+
+interface ChannelCostReport {
+  from: string
+  to: string
+  groupBy: 'provider' | 'keypool'
+  totals: Omit<ChannelCostRow, 'bucket'>
+  rows: ChannelCostRow[]
+  reconciliation: {
+    scope: 'lifetime'
+    logsRevenueCents: number
+    keysUsedTotalCents: number
+    diffCents: number
+  }
+}
+
 interface Item {
   id: number
   configId: number
@@ -153,6 +180,7 @@ export default function PricingConsolePage() {
   const [auditModel, setAuditModel] = React.useState<string | null>(null)
   const [profitDays, setProfitDays] = React.useState(30)
   const [profitGroupBy, setProfitGroupBy] = React.useState<'model' | 'provider'>('model')
+  const [channelGroupBy, setChannelGroupBy] = React.useState<'provider' | 'keypool'>('provider')
 
   const profitRange = React.useCallback((days: number) => {
     const to = new Date()
@@ -222,6 +250,46 @@ export default function PricingConsolePage() {
       return r.data
     },
     refetchInterval: 60_000,
+  })
+
+  const channelCost = useQuery({
+    queryKey: ['pricing-channel-cost', profitDays, channelGroupBy],
+    queryFn: async () => {
+      const r = await fetchApi<ChannelCostReport>(
+        `${BASE}/channel-cost?groupBy=${channelGroupBy}&${profitRange(profitDays)}`,
+      )
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
+    refetchInterval: 60_000,
+  })
+
+  const backfillCalls = useMutation({
+    mutationFn: async () => {
+      const r = await fetchApi<{
+        scanned: number
+        updated: number
+        byBasis: { actual: number; derived: number; byok: number; cacheHit: number }
+        skipped: number
+      }>(`${BASE}/backfill-call-cost`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
+    onSuccess: (d) => {
+      setNotice(
+        `历史调用成本补数:待补 ${d.scanned} 条,写入 ${d.updated} 条` +
+          `(真实成本 ${d.byBasis.actual}/反推 ${d.byBasis.derived}/BYOK ${d.byBasis.byok}/缓存 ${d.byBasis.cacheHit})` +
+          `,缺模型成本跳过 ${d.skipped} 条`,
+      )
+      void qc.invalidateQueries({ queryKey: ['pricing-profit'] })
+      void qc.invalidateQueries({ queryKey: ['pricing-profit-groups'] })
+      void qc.invalidateQueries({ queryKey: ['pricing-channel-cost'] })
+    },
+    onError: (e: Error) => setNotice(`历史调用成本补数失败:${e.message}`),
   })
 
   const sweep = useMutation({
@@ -495,6 +563,124 @@ export default function PricingConsolePage() {
                     {(profitModels.data?.rows ?? []).length === 0 ? (
                       <tr>
                         <td colSpan={6} className="px-2 py-2 text-muted-foreground">
+                          该时间窗口暂无调用记录
+                        </td>
+                      </tr>
+                    ) : null}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          ) : null}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm">渠道成本与扣费对账</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            <span className="text-muted-foreground">分组</span>
+            {(['provider', 'keypool'] as const).map((g) => (
+              <button
+                key={g}
+                onClick={() => setChannelGroupBy(g)}
+                className={`rounded-sm border px-2 py-0.5 ${
+                  channelGroupBy === g
+                    ? 'border-primary text-primary'
+                    : 'border-border text-muted-foreground'
+                }`}
+              >
+                {g === 'provider' ? '按上游渠道' : '按上游 Key 池'}
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={() => backfillCalls.mutate()}
+              disabled={backfillCalls.isPending}
+              className="ml-auto inline-flex items-center gap-1 rounded-sm border border-border px-2 py-0.5 hover:bg-muted disabled:opacity-50"
+            >
+              {backfillCalls.isPending ? (
+                <Loader2 className="size-3 animate-spin" />
+              ) : (
+                <RefreshCw className="size-3" />
+              )}
+              回填历史调用成本
+            </button>
+          </div>
+
+          {channelCost.isLoading ? (
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Loader2 className="size-4 animate-spin" /> 加载渠道成本…
+            </div>
+          ) : channelCost.isError ? (
+            <div className="text-xs text-red-600">{(channelCost.error as Error).message}</div>
+          ) : channelCost.data ? (
+            <>
+              <div className="rounded-md border border-border bg-muted/30 px-3 py-2 text-xs">
+                <span className="text-muted-foreground">生命周期对账:</span>{' '}
+                调用实收 <span className="tabular-nums">{fmtYuan(channelCost.data.reconciliation.logsRevenueCents)}</span>
+                {' · '}
+                API Key 累计已用{' '}
+                <span className="tabular-nums">{fmtYuan(channelCost.data.reconciliation.keysUsedTotalCents)}</span>
+                {' · '}
+                差异{' '}
+                <span
+                  className={`tabular-nums ${
+                    Math.abs(channelCost.data.reconciliation.diffCents) > 0
+                      ? 'text-amber-600 dark:text-amber-500'
+                      : 'text-emerald-600 dark:text-emerald-400'
+                  }`}
+                >
+                  {fmtYuan(channelCost.data.reconciliation.diffCents)}
+                </span>
+                {Math.abs(channelCost.data.reconciliation.diffCents) > 0
+                  ? '(非零说明存在补数/人工调整/未落流水,需人工核对)'
+                  : ''}
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="text-left text-muted-foreground">
+                      <th className="px-2 py-1">
+                        {channelGroupBy === 'provider' ? '上游渠道' : '上游 Key 池'}
+                      </th>
+                      <th className="px-2 py-1">调用(失败)</th>
+                      <th className="px-2 py-1">实收</th>
+                      <th className="px-2 py-1">采购成本</th>
+                      <th className="px-2 py-1">毛利</th>
+                      <th className="px-2 py-1">毛利率</th>
+                      <th className="px-2 py-1">成本覆盖</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {channelCost.data.rows.map((r) => (
+                      <tr key={r.bucket} className="border-t">
+                        <td className="px-2 py-1 font-mono">{r.bucket}</td>
+                        <td className="px-2 py-1">
+                          {r.calls}
+                          {r.errorCalls > 0 ? (
+                            <span className="text-red-600 dark:text-red-400">({r.errorCalls})</span>
+                          ) : null}
+                        </td>
+                        <td className="px-2 py-1">{fmtYuan(r.revenueCents)}</td>
+                        <td className="px-2 py-1">{fmtYuan(r.costCents)}</td>
+                        <td
+                          className={`px-2 py-1 ${
+                            r.profitCents < 0 ? 'text-red-600 dark:text-red-400' : ''
+                          }`}
+                        >
+                          {fmtYuan(r.profitCents)}
+                        </td>
+                        <td className="px-2 py-1">{fmtPct(r.margin)}</td>
+                        <td className="px-2 py-1">{fmtPct(r.costCoverage)}</td>
+                      </tr>
+                    ))}
+                    {channelCost.data.rows.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="px-2 py-2 text-muted-foreground">
                           该时间窗口暂无调用记录
                         </td>
                       </tr>

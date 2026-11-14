@@ -610,4 +610,357 @@ export async function backfillCostPrices(): Promise<CostBackfillResult> {
   const updated = rowsOf<Record<string, unknown>>(updatedRes).length
   return { scanned, updated, skipped: Math.max(0, scanned - updated) }
 }
+
+// =============================================================================
+// 9. backfillCallCosts 历史调用成本补数(2026-11-14 立)
+// =============================================================================
+// 背景:成本/毛利从 2026-11-14 起才在 recordCall 里落账(metadata.providerCostCents),
+// 存量 llm_call_logs 全部缺这两个键 ⇒ 利润看板的历史区间成本覆盖率恒为 0。
+//
+// 口径(与在线计费同源,不另造一套):
+// - token 模式:成本 = prompt_tokens/1000 × 模型采购入价 + completion_tokens/1000 × 采购出价;
+// - per_call/per_image/per_video/per_credit:按「采购成本 / 售价」的模型级比率 × 实收,
+//   比率取 cost_* / price_*,缺失时退回 1/profitFactor;
+// - 毛利 = 实收(cost_cents) − 采购成本,允许为负(亏损调用必须如实暴露);
+// - BYOK:上游成本由用户自付 ⇒ 成本 0、毛利 = 平台抽成(platformFeeCents);
+// - 缓存命中:未调用上游 ⇒ 成本 0、毛利 0。
+//
+// 幂等:只处理 metadata 尚无 providerCostCents 的行,重复调用不会覆盖已有值。
+
+export interface CallCostBackfillResult {
+  /** 待补候选数(成功/部分成功且尚无成本留痕) */
+  scanned: number
+  /** 本次实际写入行数 */
+  updated: number
+  /** 按成本口径拆分 */
+  byBasis: { actual: number; derived: number; byok: number; cacheHit: number }
+  /** 模型无采购成本、无法反推的行数 */
+  skipped: number
+  dryRun: boolean
+}
+
+/** 模型 → 采购成本 的单一来源 CTE(同一 model 多 config 时优先有真实成本、再按 config_id 倒序) */
+function modelCostCte() {
+  return sql`
+    model_cost as (
+      select distinct on (lower(m.model_id))
+        lower(m.model_id) as mid,
+        coalesce(
+          m.cost_input_price_per_1k,
+          m.input_price_per_1k / nullif(nullif(m.metadata->'priceSource'->>'profitFactor', '')::numeric, 0)
+        ) as cost_in,
+        coalesce(
+          m.cost_output_price_per_1k,
+          m.output_price_per_1k / nullif(nullif(m.metadata->'priceSource'->>'profitFactor', '')::numeric, 0)
+        ) as cost_out,
+        case
+          when coalesce(m.input_price_per_1k, 0) > 0 and m.cost_input_price_per_1k is not null
+            then m.cost_input_price_per_1k / m.input_price_per_1k
+          when nullif(m.metadata->'priceSource'->>'profitFactor', '')::numeric >= 1
+            then 1.0 / nullif(m.metadata->'priceSource'->>'profitFactor', '')::numeric
+          else null
+        end as cost_ratio,
+        case
+          when m.cost_input_price_per_1k is not null or m.cost_output_price_per_1k is not null
+            then 'actual'
+          else 'derived'
+        end as basis
+      from ai_model_config_models m
+      where m.cost_input_price_per_1k is not null
+         or m.cost_output_price_per_1k is not null
+         or (
+           nullif(m.metadata->'priceSource'->>'profitFactor', '')::numeric >= 1
+           and (coalesce(m.input_price_per_1k, 0) > 0 or coalesce(m.output_price_per_1k, 0) > 0)
+         )
+      order by lower(m.model_id),
+               (m.cost_input_price_per_1k is null) asc,
+               m.config_id desc
+    )
+  `
+}
+
+export async function backfillCallCosts(args?: {
+  from?: string
+  to?: string
+  dryRun?: boolean
+}): Promise<CallCostBackfillResult> {
+  const dryRun = args?.dryRun === true
+  const rangeConds: ReturnType<typeof sql>[] = []
+  if (args?.from) rangeConds.push(sql`l.created_at >= ${args.from}::date`)
+  if (args?.to) rangeConds.push(sql`l.created_at < (${args.to}::date + interval '1 day')`)
+  const range = rangeConds.length > 0 ? sql`and ${sql.join(rangeConds, sql` and `)}` : sql``
+
+  const scanRes = await db.execute(sql`
+    with ${modelCostCte()}
+    select
+      count(*)::int as scanned,
+      count(*) filter (
+        where (l.metadata->>'byokMode') = 'true'
+      )::int as byok,
+      count(*) filter (
+        where (l.metadata->>'cacheHit') = 'true' and (l.metadata->>'byokMode') is distinct from 'true'
+      )::int as cache_hit,
+      count(*) filter (
+        where (l.metadata->>'byokMode') is distinct from 'true'
+          and (l.metadata->>'cacheHit') is distinct from 'true'
+          and mc.mid is not null
+      )::int as costed,
+      count(*) filter (
+        where (l.metadata->>'byokMode') is distinct from 'true'
+          and (l.metadata->>'cacheHit') is distinct from 'true'
+          and mc.mid is null
+      )::int as uncosted
+    from llm_call_logs l
+    left join model_cost mc on lower(l.model) = mc.mid
+    where l.status in ('success', 'partial')
+      and l.cost_cents is not null
+      and not (coalesce(l.metadata, '{}'::jsonb) ? 'providerCostCents')
+      ${range}
+  `)
+  const scan = rowsOf<Record<string, unknown>>(scanRes)[0] ?? {}
+  const scanned = asNum(scan['scanned'])
+  const skipped = asNum(scan['uncosted'])
+
+  if (dryRun) {
+    return {
+      scanned,
+      updated: 0,
+      byBasis: { actual: 0, derived: 0, byok: 0, cacheHit: 0 },
+      skipped,
+      dryRun: true,
+    }
+  }
+
+  // ① token/按次/按图/按视频/按积分:按模型采购成本反推
+  const costedRes = await db.execute(sql`
+    with ${modelCostCte()},
+    pending as (
+      select
+        l.id,
+        l.cost_cents,
+        mc.basis,
+        round(
+          case
+            when coalesce(l.metadata->>'billingMode', 'token') = 'token'
+              and (mc.cost_in is not null or mc.cost_out is not null)
+              then coalesce(l.prompt_tokens, 0) / 1000.0 * coalesce(mc.cost_in, 0)
+                 + coalesce(l.completion_tokens, 0) / 1000.0 * coalesce(mc.cost_out, 0)
+            else coalesce(l.cost_cents, 0) * coalesce(mc.cost_ratio, 0)
+          end,
+          6
+        ) as provider_cost
+      from llm_call_logs l
+      join model_cost mc on lower(l.model) = mc.mid
+      where l.status in ('success', 'partial')
+        and l.cost_cents is not null
+        and not (coalesce(l.metadata, '{}'::jsonb) ? 'providerCostCents')
+        and (l.metadata->>'byokMode') is distinct from 'true'
+        and (l.metadata->>'cacheHit') is distinct from 'true'
+        ${range}
+    )
+    update llm_call_logs l
+    set metadata = coalesce(l.metadata, '{}'::jsonb) || jsonb_build_object(
+      'providerCostCents', p.provider_cost,
+      'profitCents', round(coalesce(l.cost_cents, 0) - p.provider_cost, 6),
+      'costBasis', p.basis,
+      'costedRevenueCents', coalesce(l.cost_cents, 0),
+      'costBackfilledAt', to_char(now() at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"')
+    )
+    from pending p
+    where l.id = p.id
+    returning p.basis
+  `)
+  const updatedRows = rowsOf<{ basis: string }>(costedRes)
+  const actual = updatedRows.filter((r) => r.basis === 'actual').length
+  const derived = updatedRows.length - actual
+
+  // ② BYOK:上游成本由用户自付,平台毛利 = 抽成
+  const byokRes = await db.execute(sql`
+    update llm_call_logs l
+    set metadata = coalesce(l.metadata, '{}'::jsonb) || jsonb_build_object(
+      'providerCostCents', 0,
+      'profitCents', coalesce((l.metadata->>'platformFeeCents')::numeric, coalesce(l.cost_cents, 0)),
+      'costBasis', 'byok',
+      'costedRevenueCents', coalesce(l.cost_cents, 0),
+      'costBackfilledAt', to_char(now() at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"')
+    )
+    where l.status in ('success', 'partial')
+      and l.cost_cents is not null
+      and not (coalesce(l.metadata, '{}'::jsonb) ? 'providerCostCents')
+      and (l.metadata->>'byokMode') = 'true'
+      ${range}
+    returning l.id
+  `)
+  const byokUpdated = rowsOf<Record<string, unknown>>(byokRes).length
+
+  // ③ 缓存命中:未调用上游,成本与毛利同为 0
+  const cacheRes = await db.execute(sql`
+    update llm_call_logs l
+    set metadata = coalesce(l.metadata, '{}'::jsonb) || jsonb_build_object(
+      'providerCostCents', 0,
+      'profitCents', 0,
+      'costBasis', 'derived',
+      'costedRevenueCents', 0,
+      'costBackfilledAt', to_char(now() at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"')
+    )
+    where l.status in ('success', 'partial')
+      and l.cost_cents is not null
+      and not (coalesce(l.metadata, '{}'::jsonb) ? 'providerCostCents')
+      and (l.metadata->>'cacheHit') = 'true'
+      and (l.metadata->>'byokMode') is distinct from 'true'
+      ${range}
+    returning l.id
+  `)
+  const cacheUpdated = rowsOf<Record<string, unknown>>(cacheRes).length
+
+  const updated = updatedRows.length + byokUpdated + cacheUpdated
+  logger.info(
+    `[model-pricing-admin] 历史调用成本补数 scanned=${scanned} updated=${updated} actual=${actual} derived=${derived} byok=${byokUpdated} cache=${cacheUpdated} skipped=${skipped}`,
+  )
+  return {
+    scanned,
+    updated,
+    byBasis: { actual, derived, byok: byokUpdated, cacheHit: cacheUpdated },
+    skipped: Math.max(0, skipped),
+    dryRun: false,
+  }
+}
+
+// =============================================================================
+// 10. getChannelCostReport 渠道成本报表 + 扣费对账(2026-11-14 立)
+// =============================================================================
+// 目的:把「上游渠道/上游账号花了多少、卖了多少、赚了多少」和「API Key 扣费台账」
+// 放到同一张表里,避免只看到收入却不知道钱从哪条渠道出去。
+//
+// 口径与利润看板一致(成本只算已留痕行),额外给出:
+// - errorCalls:该渠道的失败调用数(失败不计费,但能暴露上游稳定性);
+// - reconciliation:llm_call_logs 累计实收 vs developer_api_keys 累计已用金额(生命周期),
+//   差值非零说明存在未落流水/补数/人工调整,需人工核对。
+
+export type ChannelGroupBy = 'provider' | 'keypool'
+
+export interface ChannelCostRow {
+  bucket: string
+  calls: number
+  errorCalls: number
+  costedCalls: number
+  revenueCents: number
+  costedRevenueCents: number
+  costCents: number
+  profitCents: number
+  margin: number
+  costCoverage: number
+}
+
+export interface ChannelCostReport {
+  from: string
+  to: string
+  groupBy: ChannelGroupBy
+  totals: Omit<ChannelCostRow, 'bucket'>
+  rows: ChannelCostRow[]
+  reconciliation: {
+    scope: 'lifetime'
+    logsRevenueCents: number
+    keysUsedTotalCents: number
+    diffCents: number
+  }
+}
+
+function toChannelRow(r: Record<string, unknown>): ChannelCostRow {
+  const costedRevenueCents = asNum(r['costed_revenue_cents'])
+  const costCents = asNum(r['cost_cents'])
+  const profitCents = costedRevenueCents - costCents
+  const calls = asNum(r['calls'])
+  const costedCalls = asNum(r['costed_calls'])
+  return {
+    bucket: String(r['bucket'] ?? ''),
+    calls,
+    errorCalls: asNum(r['error_calls']),
+    costedCalls,
+    revenueCents: asNum(r['revenue_cents']),
+    costedRevenueCents,
+    costCents,
+    profitCents,
+    margin: costedRevenueCents > 0 ? profitCents / costedRevenueCents : 0,
+    costCoverage: calls > 0 ? costedCalls / calls : 0,
+  }
+}
+
+export async function getChannelCostReport(args: {
+  from: string
+  to: string
+  groupBy?: ChannelGroupBy
+  limit?: number
+}): Promise<ChannelCostReport> {
+  const groupBy: ChannelGroupBy = args.groupBy ?? 'provider'
+  const rawLimit = Number(args.limit ?? 50)
+  const limit = Math.min(Math.max(Number.isFinite(rawLimit) ? Math.trunc(rawLimit) : 50, 1), 200)
+  const bucketExpr =
+    groupBy === 'keypool'
+      ? sql`coalesce(key_pool_id::text, 'unassigned')`
+      : sql`coalesce(provider_code, 'unknown')`
+  const whereExpr = sql`
+    created_at >= ${args.from}::date
+    and created_at < (${args.to}::date + interval '1 day')
+  `
+  const aggSelect = sql`
+    count(*) filter (where status in ('success', 'partial'))::int as calls,
+    count(*) filter (where status = 'error')::int as error_calls,
+    count(*) filter (
+      where status in ('success', 'partial') and metadata ? 'providerCostCents'
+    )::int as costed_calls,
+    coalesce(sum(case when status in ('success', 'partial') then cost_cents else 0 end), 0)::numeric as revenue_cents,
+    coalesce(sum(case when status in ('success', 'partial') and metadata ? 'providerCostCents' then cost_cents else 0 end), 0)::numeric as costed_revenue_cents,
+    coalesce(sum(case when status in ('success', 'partial') and metadata ? 'providerCostCents' then (metadata->>'providerCostCents')::numeric else 0 end), 0)::numeric as cost_cents
+  `
+
+  const totalRes = await db.execute(sql`
+    select ${aggSelect}
+    from llm_call_logs
+    where ${whereExpr}
+  `)
+  const rowsRes = await db.execute(sql`
+    select ${bucketExpr} as bucket, ${aggSelect}
+    from llm_call_logs
+    where ${whereExpr}
+    group by 1
+    order by revenue_cents desc
+    limit ${limit}
+  `)
+  const reconRes = await db.execute(sql`
+    select
+      (select coalesce(sum(cost_cents), 0)::numeric
+         from llm_call_logs where status in ('success', 'partial')) as logs_revenue_cents,
+      (select coalesce(sum(cost_used_total_cents), 0)::numeric
+         from developer_api_keys) as keys_used_total_cents
+  `)
+  const recon = rowsOf<Record<string, unknown>>(reconRes)[0] ?? {}
+  const logsRevenueCents = asNum(recon['logs_revenue_cents'])
+  const keysUsedTotalCents = asNum(recon['keys_used_total_cents'])
+
+  const totals = toChannelRow(rowsOf<Record<string, unknown>>(totalRes)[0] ?? {})
+  return {
+    from: args.from,
+    to: args.to,
+    groupBy,
+    totals: {
+      calls: totals.calls,
+      errorCalls: totals.errorCalls,
+      costedCalls: totals.costedCalls,
+      revenueCents: totals.revenueCents,
+      costedRevenueCents: totals.costedRevenueCents,
+      costCents: totals.costCents,
+      profitCents: totals.profitCents,
+      margin: totals.margin,
+      costCoverage: totals.costCoverage,
+    },
+    rows: rowsOf<Record<string, unknown>>(rowsRes).map(toChannelRow),
+    reconciliation: {
+      scope: 'lifetime',
+      logsRevenueCents,
+      keysUsedTotalCents,
+      diffCents: logsRevenueCents - keysUsedTotalCents,
+    },
+  }
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
