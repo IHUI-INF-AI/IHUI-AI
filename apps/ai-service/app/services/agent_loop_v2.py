@@ -7593,9 +7593,12 @@ class AgentLoopV2:
             for item in entries:
                 if not isinstance(item, dict):
                     continue
+                path = item.get("path")
+                if not isinstance(path, str) or not path.strip():
+                    continue
                 self._deliverables.record_presented(
-                    item.get("path"),
-                    item.get("description") or "",
+                    path,
+                    str(item.get("description") or ""),
                     [call_id] if call_id else [],
                 )
         except Exception as e:
