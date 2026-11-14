@@ -15,6 +15,7 @@ import { BASE_URL } from '@/utils/api-config'
 import { logger } from '@/utils/logger'
 import { taroWebSocketFactory } from '@/utils/taro-websocket-adapter'
 import { attachUserBroadcast, resetBroadcastNotices } from '@/lib/user-broadcast'
+import { startTaroChatSyncResync, stopTaroChatSyncResync } from '@/lib/chat-sync-resync'
 import { onToast } from '@/host/on-toast'
 
 /**
@@ -38,6 +39,8 @@ export function useUserBroadcastSync(): void {
       conversationMetaLedger.clear()
       mcpStatusLedger.clear()
       resetBroadcastNotices()
+      // 身份面退场 ⇒ gap 待办也失去意义(store 随即被下一次订阅清空),泵必须同批停止
+      stopTaroChatSyncResync()
       return
     }
     const sub = attachUserBroadcast({
@@ -55,8 +58,12 @@ export function useUserBroadcastSync(): void {
         logger.warn('user-broadcast', 'frame undetermined', typeof event === 'string' ? event : '-')
       },
     })
+    // 票 B02 / 票71 phase 2:gap-resync 泵与订阅同生命周期(有登录态才建;
+    // 泵只订阅共享 store,不依赖 WS 是否建成 —— 没帧就不会有 gap,建了也是空转零请求)。
+    startTaroChatSyncResync()
     return () => {
       sub?.close()
+      stopTaroChatSyncResync()
     }
   }, [token])
 }

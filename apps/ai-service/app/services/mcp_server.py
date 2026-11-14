@@ -7936,6 +7936,12 @@ from ..tools import (  # noqa: E402
 from ..tools import (  # noqa: E402
     create_automation as _create_automation,
 )
+
+# 人事部→财务部 AI 交割(2026-11-13 立):生成某月薪资的财务交割凭证(payroll_handoff_tools,
+# 经 internal 凭证腿调 apps/api POST /api/hr-payroll/handoff;create_automation 同路线)
+from ..tools import (  # noqa: E402
+    ai_payroll_handoff as _ai_payroll_handoff,
+)
 from ..tools import (
     document_tables as _document_tables,
 )
@@ -7966,6 +7972,11 @@ from ..tools import (
 from ..tools.finance_tools import (  # noqa: E402
     AI_BOOKKEEPING_DESCRIPTION,
     AI_TAX_FILING_DESCRIPTION,
+)
+
+# 人事部→财务部交割描述常量(2026-11-13 立):文案单源在 payroll_handoff_tools
+from ..tools.payroll_handoff_tools import (  # noqa: E402
+    PAYROLL_HANDOFF_DESCRIPTION,
 )
 
 
@@ -14891,6 +14902,23 @@ _TOOLS: list[MCPTool] = [
         },
     ),
     MCPTool(
+        # 人事部→财务部·AI 交割(2026-11-13 立):生成某月薪资的财务交割凭证
+        # 纯产出凭证不入账;权限 hr:payroll:manage 由 api RBAC 逐请求现问
+        name="ai_payroll_handoff",
+        description=PAYROLL_HANDOFF_DESCRIPTION,
+        input_schema={
+            "type": "object",
+            "properties": {
+                "periodMonth": {
+                    "type": "string",
+                    "description": "薪资期间,格式 YYYY-MM(必填,如 2026-10);须该月薪资周期已财务审批通过(approved)",
+                },
+            },
+            "required": ["periodMonth"],
+            "additionalProperties": False,
+        },
+    ),
+    MCPTool(
         name="parse_document",
         description=(
             "解析本地文档为可注入上下文的文本/Markdown,支持 15 种格式:"
@@ -16736,6 +16764,8 @@ _TOOL_HANDLERS: dict[str, Any] = {
     # 财务部板块插件(RP-46,2026-11-12):AI 一键代账 / AI 一键报税(分阶段+实时进度回显)
     "ai_bookkeeping": _ai_bookkeeping,
     "ai_tax_filing": _ai_tax_filing,
+    # 人事部→财务部交割(2026-11-13 立):生成某月薪资的财务交割凭证
+    "ai_payroll_handoff": _ai_payroll_handoff,
     # G3 Beyond-Coding 泛化(2026-10-30 立):统一交付物工具
     "create_artifact": _create_artifact,
     # G2 Automations 产品闭环(2026-10-30 立):对话式创建定时自动化(调 apps/api 端点)

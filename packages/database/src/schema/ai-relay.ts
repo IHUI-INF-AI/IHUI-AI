@@ -107,7 +107,8 @@ export const aiRelayAccountPool = pgTable(
     /**
      * 池归属:NULL = 运营级全局池(现有行为);非 NULL = 该平台用户的个人号池。
      * 用户个人池只服务本人(转发选号按 owner 过滤、签到同步落到同一 owner),
-     * 运营池保持全局兜底。两套唯一性各由部分唯一索引约束(见下方)。
+     * 运营池保持全局兜底。唯一性判据是**全表**的 (provider_code, uid):同一上游账号
+     * 只允许一条续期链,归属只决定可见性(见下方 providerUidUniq)。
      */
     ownerUserId: varchar('owner_user_id', { length: 64 }),
     /** 平台编码:trae / workbuddy / codearts / qoder */
@@ -179,6 +180,18 @@ export const aiRelayAccountPool = pgTable(
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => ({
+    /**
+     * 全表唯一(2026-11-14 立,数据库不变量):同一上游账号只允许存在一条续期链。
+     * 轮换式 refreshToken(trae/codearts 等)是一次性票,两行各自续期必互相消费 ⇒ 后刷的行
+     * 401 被摘除并每 24h 报一次「号池保活摘除」。跨归属重复(运营池一份 + 个人池一份)此前
+     * 结构上合法,2026-11-12 / 11-14 两次实证各造出 6 份副本。此索引后:任何写入方(含未升级的
+     * 旧二进制、手工 SQL)都插不进第二条,冲突 23505 失败闭合。
+     * 下面两套部分唯一索引保留:已被本索引覆盖,但生产可能仍跑只认它们的旧二进制。
+     */
+    providerUidUniq: uniqueIndex('ai_relay_account_pool_provider_uid_uniq').on(
+      t.providerCode,
+      t.uid,
+    ),
     /** 运营池(owner_user_id IS NULL)内同平台同 uid 唯一 */
     opsProviderUidUniq: uniqueIndex('ai_relay_account_pool_ops_provider_uid_uniq')
       .on(t.providerCode, t.uid)

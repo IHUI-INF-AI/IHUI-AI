@@ -1,9 +1,9 @@
 {
   "$comment": "O6501 根护栏清单:改动本清单内目标须先 --unlock 再 --seal;部署环对非 0 退出 fail-closed。",
   "version": 1,
-  "sealedAt": "2026-11-14T09:23:41.262Z",
+  "sealedAt": "2026-11-14T11:13:24.267Z",
   "sealedBy": "root-guard --seal",
-  "reason": "concurrent commits drifted guardian-runner/gate-scope; reseal before deploy 67264767ba3",
+  "reason": "Y-71 收敛后重封:origin/main 并入 main(union 并集)后 git-guardian.mjs 为新面(本地 H4 orphan 补丁 ∪ 远端 H3 内容维回撤,sha=845ccd8f99cb),manifest 仍指旧 3dfa4819d07b ⇒ 门267 fail-closed。按合并 HEAD 面重封全清单,hygiene self-test 19/19、H4 orphan 维功能自洽已验。",
   "targets": [
     {
       "id": "guardian-runner",
@@ -28,7 +28,7 @@
       "id": "git-guardian",
       "path": "scripts/git-guardian.mjs",
       "mode": "file",
-      "sha256": "d1c6664031d3a1b03397e80aa0fa81a5e889c951e7a0a508f23337edab95101d"
+      "sha256": "845ccd8f99cba65fd9e985ad48c78cb873c86dcb1b8d0f9d28eec7275fe07139"
     },
     {
       "id": "gate-scope",

@@ -313,6 +313,80 @@ describe('结构纪律:端内不抄帧名、不抄内核', () => {
   })
 })
 
+describe('⑤ 投影层纯函数与页面挂载(G-20261114)', () => {
+  type LocalRow = Parameters<typeof applyChatSyncSurfaceMerge>[0][number]
+  const CHAT_PAGE = join(HERE, '../src/pkg-ai/ai/chat.tsx')
+
+  it('零变化 ⇒ null(调用方据此不得 setMessages,否则每帧重渲染)', () => {
+    const local: LocalRow[] = [{ id: 'm1', role: 'assistant', content: '全文' }]
+    expect(
+      planChatSyncSurfaceMerge(local, [{ id: 'm1', role: 'assistant', content: '全文' }]),
+    ).toBeNull()
+  })
+
+  it('同 id 就地更新:content / reasoning 两维都判,不追加', () => {
+    const plan = planChatSyncSurfaceMerge(
+      [{ id: 'm1', role: 'assistant', content: '前' }],
+      [{ id: 'm1', role: 'assistant', content: '前后', reasoning: '思考' }],
+    )
+    expect(plan?.updates).toEqual([{ index: 0, content: '前后', reasoning: '思考' }])
+    expect(plan?.appends).toEqual([])
+  })
+
+  it('终态落到页级行;不带 terminal 的后续 snapshot 不得清掉终态(契约 §4 粘性)', () => {
+    const terminal = { rev: 0, reason: 'stop' } as const
+    const local: LocalRow[] = [{ id: 'm1', role: 'assistant', content: '全文' }]
+    const plan = planChatSyncSurfaceMerge(local, [
+      { id: 'm1', role: 'assistant', content: '全文', terminal },
+    ])
+    // 内容没变也要发 update:终态是独立状态位,不是 content 的附属字段。
+    expect(plan?.updates[0]?.terminal).toEqual(terminal)
+    const next = applyChatSyncSurfaceMerge(local, plan!)
+    expect(next[0]?.terminal).toEqual(terminal)
+    // 反向牙:同样内容但不带 terminal ⇒ 零变化。若实现把终态清成 undefined,
+    // 这里就会误判出一条 update(另一端又回到「生成中」)。
+    expect(
+      planChatSyncSurfaceMerge(next, [{ id: 'm1', role: 'assistant', content: '全文' }]),
+    ).toBeNull()
+  })
+
+  it('回声不追加重复气泡;真新消息 ⇒ 追加且不带臆造终态', () => {
+    const local: LocalRow[] = [{ id: 'local-1', role: 'assistant', content: '同一段回答' }]
+    expect(
+      planChatSyncSurfaceMerge(local, [
+        { id: 'svr-1', role: 'assistant', content: '同一段回答' },
+      ]),
+    ).toBeNull()
+
+    const plan = planChatSyncSurfaceMerge([], [
+      { id: 'svr-2', role: 'assistant', content: '新回答' },
+    ])
+    expect(plan?.appends.map((s) => s.id)).toEqual(['svr-2'])
+    expect(applyChatSyncSurfaceMerge([], plan!)[0]?.terminal).toBeUndefined()
+  })
+
+  it('聊天页真挂载投影 hook(帧进 store 但页面零消费的回归牙)', () => {
+    const source = readFileSync(CHAT_PAGE, 'utf8')
+    expect(source).toContain('useRemoteChatSyncMessages({')
+    expect(source).toContain('setMessages,')
+    // 本端流式中必须暂停投影,否则 WS snapshot 会覆盖本端 SSE 前缀
+    expect(source).toContain('paused: thinking')
+  })
+  it('phase 2 resync 接线锁:泵在应用级 hook 启停,端内不手抄端点路径', () => {
+    const hookSource = readFileSync(join(HERE, '../src/hooks/use-user-broadcast-sync.ts'), 'utf8')
+    // 有登录态才建泵、登出/卸载即停 —— 两行缺一行都会让 pending 永远躺着或残留追问
+    expect(hookSource).toContain('startTaroChatSyncResync()')
+    expect(hookSource).toContain('stopTaroChatSyncResync()')
+
+    const adapter = readFileSync(join(HERE, '../src/lib/chat-sync-resync.ts'), 'utf8')
+    // 调度/失败分类/端点路径三件都在共享层,端内只交 fetchApi
+    expect(adapter).toContain('startChatSyncResyncPump')
+    expect(adapter).toContain('createChatSyncSnapshotFetcher')
+    // 反向牙:端内出现端点字面量 = 又开始手抄(共享层已有一份,抄第二份必然漂移)
+    expect(adapter).not.toMatch(/['"`]\/chat\/conversations/)
+  })
+})
+
 describe('装载证明:端内 store hook 与共享单例同源', () => {
   it('端内 store 的 messagesOf 直通共享 store(改共享 store ⇒ 端内可见)', () => {
     sub = attachUserBroadcast(makeDeps())

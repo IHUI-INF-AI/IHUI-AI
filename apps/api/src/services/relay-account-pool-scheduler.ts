@@ -42,6 +42,7 @@ import {
 import { purgeAccountUsage } from './relay-account-usage.js'
 import { pickProxyForAccount } from './relay-proxy-pool.js'
 import { reconcileCheckinSync, fetchPoolAccounts } from './relay-account-pool-reconcile.js'
+import { dedupeCrossPoolDuplicates } from './relay-account-pool-dedupe.js'
 import {
   CHECKIN_RECONCILE_MAX_PER_ROUND,
   checkinReconcileIntervalMs,
@@ -1177,6 +1178,26 @@ async function runSweepOnce(
 
   // ── 0. 台账保留期清理(24h 节流;每 5 分钟一轮 sweep 但不会每轮 delete) ──
   if (!scope) await maybePurgeUsageLedger()
+
+  // ── 0b. 跨池重复自愈(2026-11-14) ──
+  // 同一上游账号被导入两次会留下两条行(运营池一份 + 个人池一份):轮换式 refreshToken 是一次性
+  // 票,两条行各自续期就互相消费 —— 先刷的吃掉票,后刷的必然 401 被摘除,并每 24h 报一封
+  // 「号池保活摘除」。两套部分唯一索引只管得住同一归属内,跨归属这层结构上允许重复 ⇒ 只能业务
+  // 侧收敛,且必须每轮自动做,不依赖人工发现。点名单轮不跑(局部巡检不得顺带全池动作);
+  // 零重复只付一次 GROUP BY。删除行的签到侧由对账收敛器象限 2 兜底,这里不重复推送。
+  if (!scope) {
+    try {
+      const dedupe = await dedupeCrossPoolDuplicates()
+      if (dedupe.merged > 0) {
+        logger.warn('[relay-account-pool] 跨池重复自愈完成(同一上游账号只保留一条续期链)', {
+          merged: dedupe.merged,
+          droppedRows: dedupe.droppedRows,
+        })
+      }
+    } catch (e) {
+      logger.warn('[relay-account-pool] 跨池重复自愈失败(不阻断本轮巡检)', { err: e })
+    }
+  }
 
   // ── 1. 临期刷新(并发上限 SWEEP_CONCURRENCY) ──
   const expiringWhere = expiringRefreshWhere(deadline)

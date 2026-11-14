@@ -22,6 +22,8 @@ import {
   listHrLeaves,
   DEFAULT_HR_BACKFILL_DAYS,
 } from '../services/hr-attendance.js'
+import { runAttendanceSyncJob } from '../services/attendance-sync-job.js'
+import { readLastRunStatus } from '../services/attendance-sync/sync-status.js'
 import {
   requireAnyPermission,
   requirePermission,
@@ -482,6 +484,44 @@ export const hrAttendanceRoutes: FastifyPluginAsync = async (fastify) => {
       )
       if (!updated) return reply.status(404).send(error(404, '请假单不存在或已审批'))
       return reply.send(success({ leave: updated }))
+    },
+  )
+
+  // ── 考勤 IM 同步(飞书/钉钉 → 暂存批次) ──
+  // 手动触发一次全量同步,复用定时 job 同一编排(runAttendanceSyncJob)。
+  // 全局开关 sync:attendance:enabled 默认关:关时 job 内部直接返回 enabled=false,不拉取。
+  fastify.post(
+    '/sync/run',
+    {
+      preHandler: requirePermission(HR_MANAGE),
+      schema: buildSchema({
+        summary: '触发一次考勤 IM 同步',
+        description:
+          '手动触发飞书/钉钉考勤同步:遍历启用适配器用户,拉取打卡/请假并产出暂存批次' +
+          '(走人工裁决/确认闸,不直写正式考勤)。全局开关 sync:attendance:enabled 关闭时返回 enabled=false。',
+        tags: ['HR'],
+      }),
+    },
+    async (_request, reply) => {
+      const result = await runAttendanceSyncJob()
+      return reply.send(success({ sync: result }))
+    },
+  )
+
+  // 最近一次同步运行状态(供前端展示/排障;无记录返回 null)
+  fastify.get(
+    '/sync/status',
+    {
+      preHandler: requireAnyPermission([HR_VIEW, HR_MANAGE]),
+      schema: buildSchema({
+        summary: '考勤同步最近运行状态',
+        description: '返回最近一次考勤 IM 同步的运行结果(启用态/扫描用户数/产出批次数/跳过与错误)。',
+        tags: ['HR'],
+      }),
+    },
+    async (_request, reply) => {
+      const lastRun = await readLastRunStatus()
+      return reply.send(success({ lastRun }))
     },
   )
 }

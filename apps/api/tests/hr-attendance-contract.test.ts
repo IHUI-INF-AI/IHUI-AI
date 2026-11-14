@@ -252,6 +252,19 @@ vi.mock('../src/db/usercenter-queries.js', async (importOriginal) => {
 
 import { hrAttendanceRoutes } from '../src/routes/hr-attendance.js'
 
+// 考勤 IM 同步端点走真实服务,此处替掉它们的"库读取/拉取"边界,只锁路由契约面。
+// runAttendanceSyncJob:全局开关关闭⇒enabled=false 零拉取;开启⇒由 job 内部编排(本测试不打到)。
+// readLastRunStatus:回读最近运行状态(无记录⇒null)。
+const SYNC_JOB = vi.hoisted(() => ({ run: vi.fn() }))
+const SYNC_STATUS = vi.hoisted(() => ({ read: vi.fn() }))
+vi.mock('../src/services/attendance-sync-job.js', () => ({
+  runAttendanceSyncJob: (...a: unknown[]) => SYNC_JOB.run(...a),
+}))
+vi.mock('../src/services/attendance-sync/sync-status.js', () => ({
+  readLastRunStatus: (...a: unknown[]) => SYNC_STATUS.read(...a),
+  LAST_RUN_KEY: 'sync:attendance:last-run',
+}))
+
 const PREFIX = '/api/hr-attendance'
 
 const MANAGER = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' // hr:attendance:manage
@@ -324,6 +337,8 @@ beforeEach(() => {
   H.insertValues.length = 0
   H.updateSets.length = 0
   H.rowsByTable.clear()
+  SYNC_JOB.run.mockReset()
+  SYNC_STATUS.read.mockReset()
 })
 
 afterAll(async () => {
@@ -659,6 +674,85 @@ describe('参数校验面', () => {
     })
     expect(res.statusCode).toBe(400)
     expect(H.insertValues).toEqual([])
+  })
+})
+
+// =============================================================================
+// 6. 考勤 IM 同步端点(手动触发 /sync/run + 状态 /sync/status)
+//    权限面复用上面的 401/403 断言(它们已纳入 WRITE/READ_CASES 之外的独立校验);
+//    正控面锁 mock 边界:开关关闭⇒enabled=false / 状态回读⇒lastRun。
+// =============================================================================
+
+describe('考勤 IM 同步端点', () => {
+  it('POST /sync/run 无 token ⇒ 401', async () => {
+    SYNC_JOB.run.mockResolvedValue({
+      enabled: false,
+      scannedUsers: 0,
+      syncedBatches: 0,
+      skippedNotImplemented: 0,
+      skippedDisabledAdapters: 0,
+      errors: [],
+    })
+    const res = await call({ method: 'POST', path: '/sync/run' })
+    expect(res.statusCode).toBe(401)
+    expect(SYNC_JOB.run).not.toHaveBeenCalled()
+  })
+
+  it('POST /sync/run 无 manage 权限 ⇒ 403,且不触发同步', async () => {
+    const res = await call({ method: 'POST', as: PLAIN, path: '/sync/run' })
+    expect(res.statusCode).toBe(403)
+    expect(SYNC_JOB.run).not.toHaveBeenCalled()
+  })
+
+  it('POST /sync/run 持 manage ⇒ 200 且返回同步结果', async () => {
+    H.permGrants.add(`${MANAGER}|hr:attendance:manage`)
+    SYNC_JOB.run.mockResolvedValue({
+      enabled: true,
+      scannedUsers: 2,
+      syncedBatches: 1,
+      skippedNotImplemented: 0,
+      skippedDisabledAdapters: 1,
+      errors: [],
+    })
+    const res = await call({ method: 'POST', as: MANAGER, path: '/sync/run' })
+    expect(res.statusCode).toBe(200)
+    expect(SYNC_JOB.run).toHaveBeenCalledTimes(1)
+    const sync = (res.body as { data: { sync: Record<string, unknown> } }).data.sync
+    expect(sync.enabled).toBe(true)
+    expect(sync.syncedBatches).toBe(1)
+  })
+
+  it('GET /sync/status 无 token ⇒ 401', async () => {
+    SYNC_STATUS.read.mockResolvedValue(null)
+    const res = await call({ method: 'GET', path: '/sync/status' })
+    expect(res.statusCode).toBe(401)
+    expect(SYNC_STATUS.read).not.toHaveBeenCalled()
+  })
+
+  it('GET /sync/status 有 view ⇒ 200,无记录返回 null', async () => {
+    H.permGrants.add(`${VIEWER}|hr:attendance:view`)
+    SYNC_STATUS.read.mockResolvedValue(null)
+    const res = await call({ method: 'GET', as: VIEWER, path: '/sync/status' })
+    expect(res.statusCode).toBe(200)
+    expect((res.body as { data: { lastRun: unknown } }).data.lastRun).toBeNull()
+  })
+
+  it('GET /sync/status 有 view ⇒ 200,有记录返回 lastRun', async () => {
+    H.permGrants.add(`${VIEWER}|hr:attendance:view`)
+    SYNC_STATUS.read.mockResolvedValue({
+      enabled: true,
+      scannedUsers: 3,
+      syncedBatches: 2,
+      skippedNotImplemented: 1,
+      skippedDisabledAdapters: 0,
+      errors: ['user-x/dingtalk: 501'],
+      ranAt: '2026-11-13T00:00:00.000Z',
+    })
+    const res = await call({ method: 'GET', as: VIEWER, path: '/sync/status' })
+    expect(res.statusCode).toBe(200)
+    const lastRun = (res.body as { data: { lastRun: Record<string, unknown> } }).data.lastRun
+    expect(lastRun.syncedBatches).toBe(2)
+    expect(lastRun.skippedNotImplemented).toBe(1)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
