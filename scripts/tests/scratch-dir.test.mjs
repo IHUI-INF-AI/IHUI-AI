@@ -29,6 +29,24 @@ import { copyScriptWithClosure } from '../lib/scratch-module-closure.mjs'
 const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = resolve(HERE, '..', '..')
 const SCRIPTS_DIR = resolve(HERE, '..')
+
+// ── 进程臂 env 隔离(2026-11-14 盘根外流根治复诊,补回归锁)──────────────────────
+// 本测试文件要钉的是"合法 env 下的选址不变量"。而本机 HKCU+HKLM 的脏
+// `IHUI_SCRATCH_DIR=C:\Users\Administrator\AppData\Local\Temp\ihui-scratch` 虽在
+// 注册表层删净(上轮根治),但本测试进程是 session 启动时起的、**进程臂仍持旧值**
+// (重启 shell 才消失)。合规闸 `assertSanctionedScratchOverride`(判据单源
+// `lib/scratch-dir.mjs::classifyScratchOverride`)正确地把这条脏 override 判成
+// system-drive 并抛错 ⇒ `scratchRoot()` / `mkScratch` 的**推导臂**用例全被这一条
+// 环境污染连坐判红 —— 那些用例要测的是"合法落点推导",不是"脏 override 被拦"(后者
+// 由 424 行起的"合规闸"专组覆盖)。
+//
+// 所以文件级 setup 一次性删掉进程臂的这条脏 override:注册表已净 ⇒ 任何"新开进程"
+// 都不会再带这条,本隔离只服务**当前已带旧值的这一个测试进程**,不是放宽判据。
+// 若将来有人把脏值重新写回注册表,合规闸专组仍会判红,不会因这里而漏。
+if (process.env.IHUI_SCRATCH_DIR && !/^d:\\/i.test(process.env.IHUI_SCRATCH_DIR)) {
+  delete process.env.IHUI_SCRATCH_DIR
+}
+
 // G-158 迁址形态的期望串(#15「CI 可移植性」与「合规闸⑥」共用)。期望值必须跟着用例喂进的
 // moduleDir 字面量算(不赌本机盘符/脚本真实位置,§5b 机器事实不当判据输入);整行 const 形态
 // 与 2026-10-24/25 祖先文件里的独立 join(...) 行刻意不同文(落地陈旧守卫按 trim 等值配平复活行,

@@ -150,10 +150,26 @@ export function classifyScratchOverride(override, { platform, env, moduleDir } =
   if (platform !== 'win32') return { verdict: 'ok', value, reason: 'non-win32' }
   const rooted = parse(value).root
   if (rooted === '') return { verdict: 'relative', value }
-  if (env && env.IHUI_SCRATCH_DIR_ALLOW_SYSTEM_ROOT === '1') {
+
+  // 大小写不敏感取 env 值。**必设**:Windows 上 `process.env` 是大小写不敏感的 Proxy,
+  // 而把它 `{...env}` 展开成普通对象(人读尺子 check-temp-landing.mjs 的审计函数正是这么
+  // 构造夹具的)后该语义**丢失** —— 本机真键是全大写 `SYSTEMROOT`,再按驼峰 `env.SystemRoot`
+  // 去读就是 undefined ⇒ 已知脏值被误判成 'unchecked'(不记红也不记绿)的假阴。这是
+  // 2026-11-14 复诊实测到的静默漂移:process.env 直接传进来时有值,展开后再传就丢 —— 同
+  // 一份 env 两种读法两种账面。判据只此一处(§0.6 单一真相源),取值在这里统一大小写无关。
+  const envGet = (k) => {
+    if (!env) return undefined
+    if (env[k] !== undefined) return env[k]
+    const target = k.toLowerCase()
+    for (const key of Object.keys(env)) if (key.toLowerCase() === target) return env[key]
+    return undefined
+  }
+
+  if (envGet('IHUI_SCRATCH_DIR_ALLOW_SYSTEM_ROOT') === '1') {
     return { verdict: 'system-drive-allowed', value }
   }
-  const sysRoot = env && (env.SystemRoot || env.windir) ? String(env.SystemRoot || env.windir) : ''
+  const sysRootRaw = envGet('SystemRoot') || envGet('windir')
+  const sysRoot = sysRootRaw ? String(sysRootRaw) : ''
   const systemDrive = sysRoot ? parse(sysRoot).root.toUpperCase() : null
   if (!systemDrive) return { verdict: 'unchecked', value, why: 'env 里没有 SystemRoot/windir ⇒ 拦截依据缺失,未判定' }
   const repoDrive = parse(resolve(moduleDir ?? HERE, '..', '..')).root.toUpperCase()
