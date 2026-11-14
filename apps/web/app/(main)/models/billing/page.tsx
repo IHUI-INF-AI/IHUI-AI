@@ -10,6 +10,7 @@ import { jsonLdHtml } from '@/lib/seo/json-ld'
 import { generateProductSchema, type ProductSchema } from '@/lib/seo/schema-product'
 import { BackButton } from '@/components/common'
 import { formatCny } from '@/lib/display-currency'
+import { seedServerCurrency } from '@/lib/server-currency'
 
 /** i18n 静态映射表 — 用于消除 `t(`billing.transactions.types.${var}`)` 动态拼接 */
 const BILLING_TX_TYPE_KEY: Record<string, string> = {
@@ -23,6 +24,8 @@ const BILLING_TX_STATUS_KEY: Record<string, string> = {
 }
 
 export default async function BillingPage() {
+  // SSR 首帧按 cookie 口径 + 汇率快照直出(layout 与 page 模块实例隔离,必须逐页播种)
+  await seedServerCurrency()
   const t = await getTranslations('models')
   const tp = await getTranslations('modelsBillingPage')
 
