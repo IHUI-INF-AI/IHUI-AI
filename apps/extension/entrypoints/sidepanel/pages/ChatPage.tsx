@@ -35,6 +35,7 @@ import {
   pendingPromptTextFromStorage,
 } from '../../../lib/pending-prompt'
 import { pickRetryTarget, planChatSyncSurfaceMerge } from './chat-send-utils'
+import { startExtensionChatSyncResync } from '../../../src/lib/chat-sync-resync'
 import {
   branchTargetServerId,
   failureReasonText,
@@ -166,6 +167,15 @@ export default function ChatPage() {
   // ── G-20261114 多端实时同步(两条 effect:订阅帧 / 投影到本页)────────────
   // 帧判据全在共享层:chatSyncStore 按 (messageId, rev) 做幂等四态、gap 排 resync、
   // 终态粘性;本页只算最小变更集,零复算。
+  //
+  // 票 B02 / 票71 phase 2:gap 排出来之后必须有发起器,否则 pending 只是躺着。
+  // 扩展端没有应用级常驻宿主(侧边栏关掉即卸载),本页就是可达的最长生命周期;
+  // 泵只订阅共享 store,没 gap 时零请求,挂在不依赖 conversationId。
+  useEffect(() => {
+    const pump = startExtensionChatSyncResync()
+    return () => pump.stop()
+  }, [])
+
   useEffect(() => {
     if (!conversationId) return
     const config = { baseUrl: getApiBaseUrl(), tokenProvider: () => getToken() }
