@@ -22,8 +22,12 @@ export function useExchangeRates() {
     queryKey: ['fx-live'],
     queryFn: async () => {
       const rates = await getLiveExchangeRates()
-      setFxSnapshot(rates)
-      writeFxSnapshotCookie(rates)
+      // 失败(接口 403/网络抖动)时保留现有快照:SSR 已按 cookie 快照直出金额,
+      // 这里若写 null 会把可用汇率抹掉,导致下一次切换/重渲染回落到原币种。
+      if (rates) {
+        setFxSnapshot(rates)
+        writeFxSnapshotCookie(rates)
+      }
       return rates
     },
     staleTime: 5 * 60_000,
