@@ -115,15 +115,13 @@
       "onGoalUpdate": "D152(2026-09-29)立:本端的 goal 是**另一套生命周期**(AGENTS §8 的 /goal 模式跑在 STATE.md + 7 步循环上,状态词是 active/paused/achieved/blocked/budget_limited —— snake_case 且含 achieved,与会话内 goal 六档不是同一个域),把它接到会话 goal 帧上会让两套词汇在同一端混用而账面全绿。本端只经 `postSessionGoal` 的 REST 面参与,不消费下行帧。解阻判据:若确要给 CLI 上屏,须先裁决两域映射(另计一票),不得为消红顺手接线。",
       "onAgentDelta": "no-agent-delta-ui",
       "onMemoryUpdates": "no-memory-update-ui",
-      "onQuestion": "no-question-ui",
       "onReconnect": "no-reconnect-ui",
       "onFormRequest": "**2026-11-13 订正(原记录结论错误)**:原文写「本端的对话走 CLI 自有 stream 出口,不消费 web 侧 streamChat 回调表:apps/cli/src 对 streamChat 的 git grep 实测 0 命中 ⇒ 无 onFormRequest 这一维可挂」——**实测结论是错的**。现读:`apps/cli/src/commands/agent.ts:27` 即 `import { streamChat, ... } from '@ihui/api-client'`,同一文件 `:1367` 的 sampleWithRetry 内 `await streamChat({...})` 就是 web 侧同一条流式回调表(带 onDelta/onReasoning/onToolCall/onRetryScheduled 等),不是「CLI 自有出口」。因此本帧的正确状态是「**有挂点,但未注册 onFormRequest**」,不是「无挂点」。解阻判据不变(仍需先给 CLI 做交互卡渲染,属新能力),但理由必须改写为「有挂点未接」——两者对下一个人差别很大:前者说明补接可行,后者会让人以为要先造一条流通道。",
       "onToolApproval": "**2026-11-13 取证补充(改变本项性质,但不改变\"不接\"的结论)**。本端**已有自己的工具审批通道**,与 SSE 的 tool-approval 帧不是同一条链:`apps/cli/src/tools/danger-gate.ts` 提供 `confirmDangerous` / `opts.prompt(tool, args)` 在**本地**拦高危工具并收 y/n(策略:--allow-dangerous flag 优先、否则 prompt、拒绝原因码 no-prompt / prompt-declined / prompt-empty / prompt-error 四档),并通过 `apps/cli/src/tools/danger-gate-audit.ts` 上报 `/api/cli/audit/tool-approvals`。**因此本端缺 onToolApproval 不构成安全缺口** —— CLI 的工具在本地执行、审批也在本地做,服务端的 SSE 审批帧面向的是\"工具在服务端执行、需要人类远程放行\"的场景,本端用不上。原记录「本端源码里没有该回调名 ⇒ 帧到本端会被静默丢弃」属实,但**丢弃是正确行为**:接入它等于造第二个审批面,两套策略并存时\"以哪个为准\"会成为新的安全歧义。**解阻判据(已改写)**:除非将来 CLI 支持\"工具在服务端执行\"的远程委托模式,否则本项应长期保持不接;若确要接,须先裁决本地 danger-gate 与远程审批的优先序,并保证不会出现\"本地放行而远程拒绝\"的双重授权。",
       "onFrameWatermarkFacts": "no-frame-watermark-diagnostics",
       "onHookFailure": "no-hook-failure-ui",
       "onReviewFinding": "本端 `review` 是 **TUI 自有 work mode**(`apps/cli/src/tui/mode-manager.ts:48/:86`,状态域是 plan/build/review 的本地提示词切换),与会话 `ChatMode=review`(服务端 `_resolve_chat_mode`,`apps/ai-service/app/routers/llm.py:2434`)是两域;本端 chat stream 不向服务端下发 `mode=review` ⇒ `review-finding` 帧结构上不会到达本端。接它须先裁决两域映射(与 cli onGoalUpdate 的两域口径同型),不得为消红顺手接线。**解阻判据**:裁决映射后,若 review 帧确应上屏,接 `onReviewFinding` + finding 分组渲染位(严重度 ×5 语言),删本项并上调 baseline。",
-      "onRecoveryGateLedger": "no-recovery-gate-ledger-consumer",
-      "onQuestionResolved": "2026-11-13:本端无提问卡 UI 也无作答通道(全端 grep onQuestion/questionCard/PendingQuestion 零命中),question(提问)帧本身就未接 —— 只接 question-resolved 会得到一个「没有任何提问可结算」的回调,属于造空槽。解阻判据:该端补出提问卡 + 作答续流后,与 web/miniapp-taro/mobile-rn 同批接onQuestion 与 onQuestionResolved(四条 status 语义已在共享解析层单一持有,端内不再判值域)。"
+      "onRecoveryGateLedger": "no-recovery-gate-ledger-consumer"
     }
   },
   "notes": {

@@ -5470,6 +5470,9 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-14**
+- 🐞 修复:audit-app-text-contrast TDZ 修复 + repl pendingQuestionRef 提升模块级 (56780a1d7f)
+
+**2026-11-14**
 - 🔧 工程/其他:补齐溯源水印覆盖 + audit-app-text-contrast 同族配对 (fd8cb9c30a)
 
 **2026-11-14**

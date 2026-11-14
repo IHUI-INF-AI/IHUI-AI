@@ -99,6 +99,9 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-14**
+- 🐞 Fix:audit-app-text-contrast TDZ 修复 + repl pendingQuestionRef 提升模块级 (56780a1d7f)
+
+**2026-11-14**
 - 🔧 Chore/Other:补齐溯源水印覆盖 + audit-app-text-contrast 同族配对 (fd8cb9c30a)
 
 **2026-11-14**
@@ -806,9 +809,6 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 **2026-11-13**
 - 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (e2b674edc9f)
 - 🐞 Fix:结清 F-382 OSS 分片会话隔离 + F-388 关键词下推 + F-389 缓存键凭据指纹 + F-393 内容分类归属 + F-396 兑换码 Key 归属 (d8ffac6ef8e)
-
-**2026-11-13**
-- 🐞 Fix:结清 F-392 引导凭据闭环 + F-406 提现手续费扣余额 + F-441 剧情增强并发记账 + F-450 代扣回调单事务 + F-417 xlsx 单趟渲染 (6e80aa927ce)
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)
