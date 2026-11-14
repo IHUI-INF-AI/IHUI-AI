@@ -8,6 +8,8 @@
 - generate_chart: 图表生成工具(chart_tools);
 - generate_report: 报表/汇报文档生成工具(report_tools,PROJECT_PLAN #81 最小一环);
 - parse_document: 文档解析工具(document_tools);
+- sheet_formula_eval / sheet_formula_validate: xlsx 公式重算/校验(spreadsheet_formula,
+  逐格 provenance + 依赖图 + 结构化错误,零新增依赖);
 - init_agents_md: AGENTS.md 草稿生成器(init_agents_md,D118 /init 式生成器);
 - create_artifact: G3 统一交付物工具(artifact_tools,html_report/slides/sheet/doc/video_ref);
 - create_automation: G2 对话式自动化创建工具(automation_tools,经 apps/api automations 端点);
@@ -30,6 +32,7 @@ from .finance_tools import (
 from .init_agents_md import init_agents_md
 from .payroll_handoff_tools import ai_payroll_handoff
 from .report_tools import generate_report
+from .spreadsheet_formula import sheet_formula_eval, sheet_formula_validate
 from .web_crawl_tools import crawl_site, extract_web, fetch_readable, map_site
 
 __all__ = [
@@ -38,6 +41,8 @@ __all__ = [
     "generate_chart",
     "generate_report",
     "parse_document",
+    "sheet_formula_eval",
+    "sheet_formula_validate",
     "extract_document_assets",
     "document_tables",
     "fetch_readable",

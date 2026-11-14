@@ -8370,6 +8370,15 @@ from ..tools import (
     parse_document as _parse_document,
 )
 
+# G1(2026-11-14,对标 WorkBuddy sheetagent):xlsx 公式重算/校验。
+# 零新增依赖(zipfile+ElementTree),逐格 provenance + 依赖图 + 结构化错误。
+from ..tools import (
+    sheet_formula_eval as _sheet_formula_eval,
+)
+from ..tools import (
+    sheet_formula_validate as _sheet_formula_validate,
+)
+
 # 财务部插件描述常量(RP-46):与上方 ai_* import 同源,文案单源在 finance_tools
 from ..tools.finance_tools import (  # noqa: E402
     AI_BOOKKEEPING_DESCRIPTION,
@@ -15371,6 +15380,71 @@ _TOOLS: list[MCPTool] = [
         },
     ),
     MCPTool(
+        name="sheet_formula_eval",
+        description=(
+            "重算本地 xlsx/xlsm 表格里的公式,返回逐格 {value, formula, source} 三态 provenance、"
+            "依赖图(每个公式格引用了谁)与结构化错误(循环引用/坏引用/未知函数/类型错/除零/无匹配)。"
+            "支持 SUM/AVERAGE/MIN/MAX/ROUND/ABS/IF/VLOOKUP/COUNT/COUNTA/CONCAT、四则运算、"
+            "A1/$A$1/区域/跨表引用。只读不写;文件里上次存盘的缓存值单独给出并标记是否与重算一致。"
+            "用于核对表格计算结果、排查公式错误、审计数据来源。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "path": {"type": "string", "description": "xlsx/xlsm 文件绝对路径或相对项目根路径"},
+                "sheet": {"type": "string", "description": "可选。只处理该工作表(大小写不敏感)"},
+                "range": {
+                    "type": "string",
+                    "description": "可选。只处理该区域内的公式格,如 A1:C20 或 'Sheet1!A1:C20'",
+                },
+                "include_inputs": {
+                    "type": "boolean",
+                    "description": "是否附带公式引用到的输入格(默认 true,便于追溯数据来源)",
+                    "default": True,
+                },
+                "max_cells": {
+                    "type": "integer",
+                    "description": "返回格数上限,默认 2000(1-20000)",
+                    "default": 2000,
+                },
+            },
+            "required": ["path"],
+            "additionalProperties": False,
+        },
+    ),
+    MCPTool(
+        name="sheet_formula_validate",
+        description=(
+            "校验本地 xlsx/xlsm 表格的公式,逐条返回 findings(severity/code/cell/formula/message):"
+            "语法错、未知函数、坏引用、循环引用(带闭环路径)、类型错、除零、VLOOKUP 无匹配,"
+            "以及文件缓存值与重算值不一致(CACHED_VALUE_MISMATCH,提示缓存是旧值)。"
+            "clean=true 表示没有任何 error 级问题。只读不写,用于交付前自检表格。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "path": {"type": "string", "description": "xlsx/xlsm 文件绝对路径或相对项目根路径"},
+                "sheet": {"type": "string", "description": "可选。只校验该工作表(大小写不敏感)"},
+                "range": {
+                    "type": "string",
+                    "description": "可选。只校验该区域内的公式格,如 A1:C20 或 'Sheet1!A1:C20'",
+                },
+                "max_findings": {
+                    "type": "integer",
+                    "description": "findings 上限,默认 200(1-2000)",
+                    "default": 200,
+                },
+                "include_cache_mismatch": {
+                    "type": "boolean",
+                    "description": "是否检查缓存值漂移(默认 true)",
+                    "default": True,
+                },
+            },
+            "required": ["path"],
+            "additionalProperties": False,
+        },
+    ),
+    MCPTool(
         name="init_agents_md",
         description=(
             "扫描工作区(package.json scripts / 构建文件 / 目录结构 / 既有约定文档)生成"
@@ -17205,6 +17279,9 @@ _TOOL_HANDLERS: dict[str, Any] = {
     # G2 Automations 产品闭环(2026-10-30 立):对话式创建定时自动化(调 apps/api 端点)
     "create_automation": _create_automation,
     "parse_document": _parse_document,
+    # G1(2026-11-14):表格公式重算/校验(与 _TOOLS 同名条目双射)
+    "sheet_formula_eval": _sheet_formula_eval,
+    "sheet_formula_validate": _sheet_formula_validate,
     # D07 残余②:AGENTS.md 草稿生成(默认不落盘,写盘须显式 output_path;
     # workspace_root 经 MCP 面校验后才下传,见 _init_agents_md_guarded)
     "init_agents_md": _init_agents_md_guarded,
