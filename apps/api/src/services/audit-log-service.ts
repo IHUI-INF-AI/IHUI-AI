@@ -34,6 +34,7 @@ import {
   countAuditLogs,
   groupByAction,
   groupByUser,
+  SELECT_CHAIN_TAIL_SQL,
   type AuditLogChainRow,
   type AuditLogFilters,
 } from '../db/audit-queries.js'
@@ -193,6 +194,10 @@ function toRows(raw: unknown): Record<string, unknown>[] {
  */
 export async function recordAuditLog(params: RecordAuditLogParams): Promise<string | undefined> {
   const timestamp = new Date().toISOString()
+  // user_id 是 uuid 列:匿名调用方传空串会在 `::uuid` 处报 invalid input syntax。
+  // 统一把空串/纯空白收敛为 NULL(匿名审计),保证 hash 输入与实际落库值一致。
+  const userId =
+    typeof params.userId === 'string' && params.userId.trim() !== '' ? params.userId.trim() : null
 
   try {
     return await db.transaction(async (tx) => {
@@ -202,9 +207,7 @@ export async function recordAuditLog(params: RecordAuditLogParams): Promise<stri
       // 在事务内获取链尾 hash(表不存在时降级为创世哈希)
       let prevHash = GENESIS_HASH
       try {
-        const raw = await tx.execute(sql`
-          SELECT current_hash FROM audit_logs_chain ORDER BY timestamp DESC LIMIT 1
-        `)
+        const raw = await tx.execute(SELECT_CHAIN_TAIL_SQL)
         const h = toRows(raw)[0]?.['current_hash']
         prevHash = h === null || h === undefined ? GENESIS_HASH : String(h)
       } catch {
@@ -213,7 +216,7 @@ export async function recordAuditLog(params: RecordAuditLogParams): Promise<stri
 
       const currentHash = computeAuditHash(prevHash, {
         timestamp,
-        userId: params.userId ?? null,
+        userId,
         action: params.action,
         resourceType: params.resourceType ?? null,
         resourceId: params.resourceId ?? null,
@@ -226,7 +229,7 @@ export async function recordAuditLog(params: RecordAuditLogParams): Promise<stri
         INSERT INTO audit_logs_chain
           (timestamp, user_id, action, resource_type, resource_id, ip, user_agent, result, metadata, prev_hash, current_hash)
         VALUES
-          (${timestamp}::timestamptz, ${params.userId ?? null}::uuid, ${params.action},
+          (${timestamp}::timestamptz, ${userId}::uuid, ${params.action},
            ${params.resourceType ?? null}, ${params.resourceId ?? null}, ${params.ip ?? null},
            ${params.userAgent ?? null}, ${params.result ?? null}, ${metadataJson}::jsonb,
            ${prevHash}, ${currentHash})
@@ -629,7 +632,12 @@ export interface RawTextColumns {
  * - token 计数、成本、apiKeyId 等归因/计费列与本法无关,调用方照常写。
  */
 export function buildRawTextColumns(
-  input: { apiKeyId: string | null; prompt: string; response: string | null; userId?: string | null },
+  input: {
+    apiKeyId: string | null
+    prompt: string
+    response: string | null
+    userId?: string | null
+  },
   policy: RawRetentionPolicy = resolveRawRetentionPolicy(),
 ): RawTextColumns {
   // 2026-10-03 数据出域合规整改:新增**按用户**关闭原文留存(此前只有按 key 的
@@ -637,7 +645,8 @@ export function buildRawTextColumns(
   // 必须给出用户自己能按的"不留存"开关,而不能只让运维改 env)。
   // 语义与按 key 一致:命中即"写入即不留",窗口为零(而不是等清除器来抹),
   // 归因/计费列(token 数、成本、apiKeyId、userId)完全不受影响。
-  const userOptOut = input.userId !== null && input.userId !== undefined && isRawRetentionOptedOut(input.userId)
+  const userOptOut =
+    input.userId !== null && input.userId !== undefined && isRawRetentionOptedOut(input.userId)
   const disabled =
     userOptOut ||
     policy.all ||

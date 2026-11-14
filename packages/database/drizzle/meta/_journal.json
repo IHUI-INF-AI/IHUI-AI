@@ -2790,6 +2790,20 @@
       "when": 1794643200000,
       "tag": "20261114160000_relay_account_pool_provider_uid_unique",
       "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 401,
+      "when": 1794646800000,
+      "tag": "20261114191000_audit_logs_chain_prev_hash_idx",
+      "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 402,
+      "when": 1794650400000,
+      "tag": "20261114091500_audit_logs_chain_seq",
+      "breakpoints": true
     }
   ]
 }
