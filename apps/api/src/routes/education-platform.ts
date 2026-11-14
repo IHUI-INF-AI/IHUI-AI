@@ -9,6 +9,7 @@ import { db } from '../db/index.js'
 import { educationPlatform, educationSyncLog } from '@ihui/database'
 import { requireAdmin } from '../plugins/require-permission.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
+import { encryptCredential, decryptCredential } from '../utils/crypto.js'
 
 const pidParamSchema = z.object({ pid: z.coerce.number().int().min(1) })
 
@@ -61,11 +62,17 @@ export const educationPlatformRoutes: FastifyPluginAsync = async (server) => {
       parsed.data.status !== undefined
         ? eq(educationPlatform.status, parsed.data.status)
         : undefined
-    const list = await db
+    const rows = await db
       .select()
       .from(educationPlatform)
       .where(where)
       .orderBy(desc(educationPlatform.id))
+    // DB-35:apiKey/apiSecret 落库为 enc:v1: 密文,管理端回显前解密(存量明文原样透传)
+    const list = rows.map((row) => ({
+      ...row,
+      apiKey: row.apiKey === null ? null : decryptCredential(row.apiKey),
+      apiSecret: row.apiSecret === null ? null : decryptCredential(row.apiSecret),
+    }))
     return reply.send(success(list))
   })
 
@@ -82,8 +89,14 @@ export const educationPlatformRoutes: FastifyPluginAsync = async (server) => {
         code: parsed.data.code,
         type: parsed.data.type ?? 'mooc',
         apiUrl: parsed.data.apiUrl,
-        apiKey: parsed.data.apiKey,
-        apiSecret: parsed.data.apiSecret,
+        apiKey:
+          parsed.data.apiKey === undefined
+            ? undefined
+            : encryptCredential(parsed.data.apiKey, 200),
+        apiSecret:
+          parsed.data.apiSecret === undefined
+            ? undefined
+            : encryptCredential(parsed.data.apiSecret, 200),
         config: parsed.data.config,
         syncUrl: parsed.data.syncUrl,
         description: parsed.data.description,
@@ -116,8 +129,12 @@ export const educationPlatformRoutes: FastifyPluginAsync = async (server) => {
       .set({
         ...(parsed.data.name !== undefined && { name: parsed.data.name }),
         ...(parsed.data.apiUrl !== undefined && { apiUrl: parsed.data.apiUrl }),
-        ...(parsed.data.apiKey !== undefined && { apiKey: parsed.data.apiKey }),
-        ...(parsed.data.apiSecret !== undefined && { apiSecret: parsed.data.apiSecret }),
+        ...(parsed.data.apiKey !== undefined && {
+          apiKey: encryptCredential(parsed.data.apiKey, 200),
+        }),
+        ...(parsed.data.apiSecret !== undefined && {
+          apiSecret: encryptCredential(parsed.data.apiSecret, 200),
+        }),
         ...(parsed.data.status !== undefined && { status: parsed.data.status }),
         ...(parsed.data.config !== undefined && { config: parsed.data.config }),
         updatedAt: new Date(),

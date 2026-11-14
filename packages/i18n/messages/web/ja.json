@@ -12055,6 +12055,7 @@
       "shareLinkCopied": "共有リンクをコピーしました",
       "roleUser": "ユーザー",
       "roleAssistant": "アシスタント",
+      "roleToolCalls": "ツール呼び出し",
       "exportCard": "画像カードを共有",
       "shareCardUser": "ユーザー",
       "exportPdf": "PDF をエクスポート",

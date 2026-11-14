@@ -15,7 +15,9 @@ import {
   buildConversationMarkdown,
   buildConversationMessagesJson,
   isExportableMessage as isSharedExportableMessage,
+  normalizeExportToolCalls,
   sanitizeExportTitle,
+  type ConversationExportMessage,
 } from '@ihui/shared/chat/conversation-export'
 import {
   buildShareCardSvg,
@@ -33,14 +35,34 @@ export interface ExportMessage {
   content: string
   createdAt?: string
   model?: string | null
+  /** assistant 推理原文(历史接口按需下发;缺失不是"没有推理"的证据)。 */
+  reasoning?: string | null
+  /** 服务端落库元数据(toolCalls 在 metadata 内,D24 同一落库面)。 */
+  metadata?: Record<string, unknown> | null
+  /** 部分端会把 toolCalls 提到顶层(结构同 BaseToolCall)。 */
+  toolCalls?: unknown
 }
 
-export type ExportRoleLabel = Record<ExportRole, string>
+/** 把端内消息收敛为共享导出结构:toolCalls 优先取 metadata,再回退顶层。 */
+function toSharedMessages(messages: ExportMessage[]): ConversationExportMessage[] {
+  return messages.map((message) => ({
+    id: message.id,
+    role: message.role,
+    content: message.content,
+    createdAt: message.createdAt,
+    model: message.model ?? null,
+    reasoning: message.reasoning ?? null,
+    toolCalls: normalizeExportToolCalls(message.metadata?.toolCalls ?? message.toolCalls),
+  }))
+}
+
+export type ExportRoleLabel = Record<ExportRole, string> & { toolCalls?: string }
 
 const MESSAGES_PAGE_SIZE = 100
 
 function isExportableMessage(m: ExportMessage): boolean {
-  return isSharedExportableMessage(m)
+  // 快照画布只渲染正文;toolCalls 结构此处不参与判定(类型也不必窄化)
+  return isSharedExportableMessage({ role: m.role, content: m.content })
 }
 
 /** 按会话 ID 拉取全量消息(时间正序;pageSize 上限 100,循环翻页) */
@@ -91,12 +113,12 @@ function buildMarkdown(
   messages: ExportMessage[],
   roleLabel: ExportRoleLabel,
 ): string {
-  return buildConversationMarkdown(title, messages, roleLabel)
+  return buildConversationMarkdown(title, toSharedMessages(messages), roleLabel)
 }
 
-/** 序列化为 JSON:结构与后端消息字段对齐(id/role/content/createdAt/model) */
+/** 序列化为 JSON:结构与后端消息字段对齐(id/role/content/createdAt/model/reasoning/toolCalls) */
 function buildJson(title: string, messages: ExportMessage[]): string {
-  return buildConversationMessagesJson(title, messages, new Date().toISOString())
+  return buildConversationMessagesJson(title, toSharedMessages(messages), new Date().toISOString())
 }
 
 /** 触发浏览器下载(Blob 方案,内存即弃) */

@@ -12055,6 +12055,7 @@
       "shareLinkCopied": "分享連結已複製",
       "roleUser": "使用者",
       "roleAssistant": "助理",
+      "roleToolCalls": "工具呼叫",
       "exportCard": "分享圖片卡",
       "shareCardUser": "使用者",
       "exportPdf": "匯出 PDF",

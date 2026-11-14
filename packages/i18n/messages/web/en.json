@@ -12055,6 +12055,7 @@
       "shareLinkCopied": "Share link copied",
       "roleUser": "User",
       "roleAssistant": "Assistant",
+      "roleToolCalls": "Tool calls",
       "exportCard": "Share as image card",
       "shareCardUser": "User",
       "exportPdf": "Export PDF",
