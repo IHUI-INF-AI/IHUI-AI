@@ -272,6 +272,24 @@ export const SCHEDULED_JOBS: ScheduledJobDef[] = [
   },
 ]
 
+/** 调度注册所需的最小日志面(与 pino 结构兼容)。 */
+export interface SchedulerRegisterLog {
+  warn(obj: unknown, msg: string): void
+}
+
+/** 注册所需的最小队列表面积(真实 Queue 与测试假队列都满足)。 */
+export interface SchedulerUpsertQueue {
+  upsertJobScheduler(
+    jobSchedulerId: string,
+    repeatOpts: { every?: number; pattern?: string },
+    jobTemplate: {
+      name: string
+      data: SchedulerJobData
+      opts: { removeOnComplete: { count: number }; removeOnFail: { count: number } }
+    },
+  ): Promise<unknown>
+}
+
 interface SchedulerJobData {
   description: string
 }
