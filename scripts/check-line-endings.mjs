@@ -100,7 +100,13 @@ export function stagedFiles(root = ROOT) {
   const out = execFileSync(
     'git',
     ['-c', 'safe.directory=*', 'diff', '--cached', '--name-only', '--diff-filter=ACMR'],
-    { cwd: root, encoding: 'utf8', maxBuffer: 1 << 26 },
+    {
+      cwd: root,
+      encoding: 'utf8',
+      maxBuffer: 1 << 26,
+      // §12g:派生 git 必须显式接管 stdio(不写稳定 EBUSY,30 组对照实测)。只读 diff,不喂 stdin。
+      stdio: ['ignore', 'pipe', 'pipe'],
+    },
   )
   return String(out ?? '')
     .split('\n')
