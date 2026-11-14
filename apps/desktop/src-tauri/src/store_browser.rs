@@ -21,6 +21,18 @@ const STORE_WINDOW_PREFIX: &str = "store-account-";
 /// 已打开账号窗口的静默保活间隔:太密会触发平台风控,太疏起不到滑动续期作用。
 const KEEPALIVE_INTERVAL: Duration = Duration::from_secs(600);
 
+/// 商店平台登录页允许主机(与 packages/shared/src/constants/store-platforms.ts 对齐)。
+/// 即使本机没有该平台的种子文件,也不允许把任意站点装进商店账号窗口。
+const STORE_PLATFORM_LOGIN_HOSTS: &[(&str, &str)] = &[
+    ("huawei-agc", "developer.huawei.com"),
+    ("oppo-store", "open.oppomobile.com"),
+    ("vivo-store", "dev.vivo.com.cn"),
+    ("xiaomi-store", "dev.mi.com"),
+    ("honor-store", "developer.honor.com"),
+    ("yyb-store", "app.open.qq.com"),
+    ("google-play", "play.google.com"),
+];
+
 /// 本机会话种子目录:优先环境变量,其次常见同步盘盘符(与项目密钥纪律同口径)。
 fn secret_dir() -> Option<PathBuf> {
     if let Some(v) = std::env::var_os("IHUI_SECRET_DIR") {
@@ -85,27 +97,42 @@ fn build_seed_script(seed: &serde_json::Value) -> String {
         if (name === SENTINEL) seeded = true;
       }}
     }});
-    // 哨兵在 ⇒ 本 profile 已种过:后续导航一律不动存储(平台/用户自己的新值优先)
+    // sessionStorage 是「每会话」存储:哨兵已存在也要补,否则重启后种子里的
+    // sessionStorage 永远缺失(vivo 的内置登录态就依赖它)。
+    var ss = seed.sessionStorage || {{}};
+    for (var k2 in ss) {{
+      try {{ if (sessionStorage.getItem(k2) === null) sessionStorage.setItem(k2, ss[k2]); }} catch (e) {{}}
+    }}
+    // 哨兵在 ⇒ 本 profile 已种过:后续导航一律不动持久存储(平台/用户自己的新值优先)
     if (seeded) return;
+    var applied = 0;
     var cookies = seed.cookies || [];
     for (var i = 0; i < cookies.length; i++) {{
       var c = cookies[i];
-      if (!c || !c.name || existing[c.name]) continue;
+      if (!c || !c.name) {{ continue; }}
+      if (existing[c.name]) {{ applied += 1; continue; }}
       var parts = [c.name + '=' + c.value, 'path=/'];
       if (cookieDomain && c.name.indexOf('__Host-') !== 0) parts.push('domain=' + cookieDomain);
       parts.push('secure');
       parts.push('samesite=lax');
       parts.push('max-age=2592000');
       document.cookie = parts.join('; ');
+      // 回读确认:平台用 HttpOnly 同名 Cookie 拒收时不能写哨兵假装已种
+      var now = document.cookie.split(';');
+      for (var j = 0; j < now.length; j++) {{
+        var eq2 = now[j].indexOf('=');
+        if (eq2 > 0 && now[j].slice(0, eq2).trim() === c.name) {{ applied += 1; break; }}
+      }}
     }}
     var ls = seed.localStorage || {{}};
     for (var k in ls) {{
-      try {{ if (localStorage.getItem(k) === null) localStorage.setItem(k, ls[k]); }} catch (e) {{}}
+      try {{
+        if (localStorage.getItem(k) === null) localStorage.setItem(k, ls[k]);
+        if (localStorage.getItem(k) !== null) applied += 1;
+      }} catch (e) {{}}
     }}
-    var ss = seed.sessionStorage || {{}};
-    for (var k2 in ss) {{
-      try {{ if (sessionStorage.getItem(k2) === null) sessionStorage.setItem(k2, ss[k2]); }} catch (e) {{}}
-    }}
+    // 一条都没写进去(种子为空/全被拒)就不写哨兵,下次打开还能重试
+    if (applied <= 0) return;
     var sentinel = [SENTINEL + '=1', 'path=/'];
     if (cookieDomain) sentinel.push('domain=' + cookieDomain);
     sentinel.push('secure');
@@ -143,11 +170,12 @@ const STORE_PAGE_SCRIPT: &str = r#"
     "content-length": 1, "accept-encoding": 1, connection: 1,
     "transfer-encoding": 1, te: 1, trailer: 1, upgrade: 1
   };
-  var SENSITIVE_HEADERS = /(token|secret|auth|sign|cookie|key)/i;
+  var SENSITIVE_HEADERS = /(token|secret|auth|sign|cookie|key|csrf|xsrf|session|sid)/i;
   function maskHeader(name, value) {
     if (!value) return "";
     if (SENSITIVE_HEADERS.test(name)) {
-      return value.length <= 4 ? "****" : "****" + value.slice(-4);
+      // 探针报告只用于人工判断请求形态:敏感值一律全遮,不回传尾部字符。
+      return "****";
     }
     return value.length > 200 ? value.slice(0, 200) + "…" : value;
   }
@@ -464,6 +492,24 @@ pub async fn store_account_open(
     let key = sanitize_profile_key(&profile_key);
     if key.is_empty() {
         return Err("账号标识为空".to_string());
+    }
+    // 平台码白名单 + 登录页主机 + profile 前缀三重绑定:本机没有种子文件时也必须成立,
+    // 避免被 XSS 的远程页借命令把任意站点装进商店窗口或跨平台复用账号目录。
+    let platform = platform_code.as_deref().unwrap_or("").trim();
+    if !platform.is_empty() {
+        let allowed_host = STORE_PLATFORM_LOGIN_HOSTS
+            .iter()
+            .find(|(code, _)| *code == platform)
+            .map(|(_, host)| *host)
+            .ok_or_else(|| "未知商店平台,已拒绝打开".to_string())?;
+        let host = parsed.host_str().unwrap_or("").to_ascii_lowercase();
+        if !(host == allowed_host || host.ends_with(&format!(".{allowed_host}"))) {
+            return Err("登录页域名与该平台不匹配,已拒绝打开".to_string());
+        }
+        let prefix = format!("{}__", sanitize_profile_key(platform));
+        if !key.starts_with(&prefix) {
+            return Err("账号与平台不匹配,已拒绝打开".to_string());
+        }
     }
     // 只接受纯主机名,避免把任意字符串注进页面脚本
     let hosts: Vec<String> = api_hosts

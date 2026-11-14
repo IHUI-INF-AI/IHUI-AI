@@ -727,11 +727,22 @@ export default function AdminRelayAccountPoolPage() {
   const storeQuery = useQuery({
     queryKey: ['admin', 'relay', 'account-pool', 'store'],
     queryFn: async () => {
-      const r = await fetchApi<ListData>(
+      // 商店账号可能超过单页上限:按 total 拉全量,避免第 101 个账号在页面上"消失"。
+      const first = await fetchApi<ListData>(
         '/api/admin/relay/accounts?category=store&owner=all&page=1&pageSize=100',
       )
-      if (!r.success) throw new Error(r.error)
-      return r.data
+      if (!first.success) throw new Error(first.error)
+      let list = first.data.list
+      const total = first.data.total
+      const pages = Math.min(Math.ceil(total / 100), 10)
+      for (let p = 2; p <= pages; p += 1) {
+        const next = await fetchApi<ListData>(
+          `/api/admin/relay/accounts?category=store&owner=all&page=${p}&pageSize=100`,
+        )
+        if (!next.success) throw new Error(next.error)
+        list = list.concat(next.data.list)
+      }
+      return { ...first.data, list }
     },
   })
   const storeList = storeQuery.data?.list ?? []

@@ -826,6 +826,8 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
           .from(aiRelayAccountPool)
           .where(
             and(
+              // 商店账号不参与 AI 中转统计:即使被误改调度标记,也不能进补池告警
+              notInArray(aiRelayAccountPool.providerCode, [...STORE_PROVIDER_CODES]),
               // 公开服务池 = 运营池 ∪ 已共享到运营池的号(全局开放标记模型,2026-11-07 立)
               or(isNull(aiRelayAccountPool.ownerUserId), eq(aiRelayAccountPool.sharedToOps, true)),
               isNotNull(aiRelayAccountPool.tokenExpiresAt),
@@ -837,6 +839,8 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
           .from(aiRelayAccountPool)
           .where(
             and(
+              // 商店账号不参与 AI 中转统计:即使被误改调度标记,也不能进可用账号计数
+              notInArray(aiRelayAccountPool.providerCode, [...STORE_PROVIDER_CODES]),
               // 公开服务池 = 运营池 ∪ 已共享到运营池的号(全局开放标记模型,2026-11-07 立)
               or(isNull(aiRelayAccountPool.ownerUserId), eq(aiRelayAccountPool.sharedToOps, true)),
               eq(aiRelayAccountPool.isEnabled, true),
