@@ -589,6 +589,34 @@ export interface RepriceResult {
   delisted: string[]
   byTier: Record<string, number>
   dryRun: boolean
+  /** 非空表示本次未执行(价表源不足等),值为原因 */
+  skipped?: string
+}
+
+/**
+ * 价表源完整性门禁(2026-11-14 立,事故驱动)。
+ *
+ * 生产曾出现 LiteLLM + models.dev 同时拉取失败、只剩 OpenRouter 444 条的情况,
+ * 若此时继续重定价,命中率骤降会把大批本可定价的模型误判成"无权威价"并下架。
+ * 因此:成功源 < 2 或总条目 < 1000 时**整体跳过**,不动任何数据(fail-closed)。
+ */
+const MIN_PRICE_SOURCES = 2
+const MIN_PRICE_ENTRIES = 1000
+
+export function priceSourcesSufficient(sources: PriceSources): {
+  ok: boolean
+  reason?: string
+} {
+  const counts = [sources.stats.litellm, sources.stats.openrouter, sources.stats.modelsDev]
+  const sourceCount = counts.filter((n) => n > 0).length
+  const total = counts.reduce((a, b) => a + b, 0)
+  if (sourceCount < MIN_PRICE_SOURCES || total < MIN_PRICE_ENTRIES) {
+    return {
+      ok: false,
+      reason: `价表源不足(litellm=${sources.stats.litellm} openrouter=${sources.stats.openrouter} modelsDev=${sources.stats.modelsDev}),拒绝重定价与下架`,
+    }
+  }
+  return { ok: true }
 }
 
 /**
@@ -620,6 +648,18 @@ export async function repricePlaceholderModels(
 ): Promise<RepriceResult> {
   const dryRun = opts.dryRun === true
   const sources = await getPriceSources()
+  const gate = priceSourcesSufficient(sources)
+  if (!gate.ok) {
+    logger.warn(`[price-resolver] 占位价重定价跳过:${gate.reason}`)
+    return {
+      scanned: 0,
+      repriced: 0,
+      delisted: [],
+      byTier: {},
+      dryRun,
+      skipped: gate.reason,
+    }
+  }
   const rows = (await db.execute(sql`
     select lower(m.model_id) as model_id,
            min(c.provider_code) as provider_code,
@@ -630,6 +670,8 @@ export async function repricePlaceholderModels(
       and (
         coalesce(m.input_price_per_1k, 0) <= 0
         or coalesce(m.output_price_per_1k, 0) <= 0
+        -- config 自身就是 1分/2分 占位价(2026-07-30 批量写入,跨厂商全同价)
+        or (coalesce(m.input_price_per_1k, 0) = 1 and coalesce(m.output_price_per_1k, 0) = 2)
         or exists (
           select 1 from ai_pricing p
           where p.model_id = lower(m.model_id)
