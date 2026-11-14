@@ -2227,6 +2227,67 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-14**
+- 🐞 수정:audit-app-text-contrast TDZ 修复 + repl pendingQuestionRef 提升模块级 (56780a1d7f)
+- 🚀 기능/개선:门320 接线 guardian-runner + RP-80 基线盲区清账票 (f81673f27d)
+- 🔧 기타:补齐溯源水印覆盖 + audit-app-text-contrast 同族配对 (fd8cb9c30a)
+- 🐞 수정:审计修掉 skill-evolution 提议 id 遮蔽漏洞 + 补 id 唯一性守卫 (0a1b814614)
+- 🐞 수정:F-274 补齐 SELECT_CHAIN_TAIL_SQL —— 链尾按"链上叶"取，非按最新行取 (390537c970)
+- 🚀 기능/개선:新增 3 个未跟踪文件 (da1823aa1d)
+- 🚀 기능/개선:逆向 Qoder 6 子系统——判定可落地性(补 4 块技能进化前提基建 + 审计/修订/墓碑层) (3458dca803)
+- 🔧 기타:收尾提交 plan-heal/tag-sync 副产物 (f05491e678)
+- 🚀 기능/개선:以 ai_pricing 权威价回填配置零价行 (476127d306)
+- 🔧 기타:收拢本地工作区改动(全量提交) (1be9d1e2c7)
+- 🐞 수정:诊断臂 [7b] DB 迁移落后维从未真判过——函数注册晚于 -diagnose 顶层执行点(第三次落地,范围收窄) (c4be376fd5)
+- 🐞 수정:零价护栏豁免上游真免费模型(:free) (88cfcfeba1)
+- 🚀 기능/개선:工作区指令链补齐服务端腿 —— CLAUDE.md/本地叠加 + 轮内深层发现 (a5c6090a05)
+- 🚀 기능/개선:补齐 check-plan-claims-vs-head 门——批量预取治本 6.5min→15s + §1021 --self-test (99060ab1ee)
+- 🐞 수정:流式打字机切批升到字素簇边界 —— ZWJ/肤色/旗帜 emoji 不再拆裂(D1b) (a143634115)
+- 🔧 기타:重封根护栏清单(git-guardian 变更后漂移) (ad06d9d1f8)
+- 🚀 기능/개선:present_files 显式交付声明 + 交付清单 presentedFiles (904e129c14)
+- 🔧 기타:重封根护栏清单(merge round2 后 gate-scope 漂移) (4b0fc5a3e6)
+- 🐞 수정:补两处契约缺口——SendAdmissionReceipt.ahead 与 ProcessGroupChild.kill 签名 (0dc7a15623)
+- 📚 문서:同步生成块计数(经用户明确授权跳过钩子) (c466bece0a)
+- 🚀 기능/개선:per-tool timeout budgets + NO_PROXY routing (5th DSH pass) (41d9096328)
+- 🐞 수정:零价巡检改用采购成本量化损失 (b5a8e3967a)
+- 🚀 기능/개선:零价上架护栏 + 每日零价巡检 (5b7e639654)
+- 🚀 기능/개선:逆向 DSH 审计第三/四遍补齐(导出保真/中断语义/Office 转换) (f2b2cec5da)
+- 🐞 수정:G-20261114 chat-sync 三端（taro/RN/extension）接线 + 回归锁 (41548e0716)
+- 🐞 수정:G-20261114 chat-sync 共享内核与 web 端接线 + 契约文档 (450c939404)
+- 🐞 수정:G-20261114 多端 chat-sync 流式坐标系统一与终态投影（api 端） (5bc4e1c3d4)
+- 📚 문서:补登 check-findings-freshness 守门点名，清门 89 R4 (c791a93bb9)
+- 📚 문서:同步生成块计数 (f83626fbf1)
+- 🐞 수정:F-187 api_base SSRF 非字符串地址 fail-closed 并恢复 T1 判据面 (d61938ace0)
+- 🐞 수정:盘根外流根治复诊 —— 修合规闸的大小写假阴 + 补回归锁 (2ee1847a94)
+- 🚀 기능/개선:错误卡目录化上收 shared + 三端接线(D-AI-3) (c5a2c24a25)
+- 🐞 수정:修正 299/302p 两道门的历史误判(非新增漂移) (a5b35cb15f)
+- 🐞 수정:F-34 多模态任务失败退款耐久化(补齐实现,对齐已提交测试) (6aab7e619a)
+- 🐞 수정:DB-35 PII 写库加密切片(发票抬头+后台实名 idCard 旁路) (2d3c28cc82)
+- 🚀 기능/개선:新增 3 个 drizzle 迁移 —— news 去重唯一索引 / 客服状态枚举对齐 / coze 变量唯一索引 (8a64f3e4a2)
+- 🐞 수정:DB-35 凭据写库加密切片(无迁移) (002ade40cc)
+- 🔧 기타:对账结清 F-274/F-175(均已在 HEAD 修复) (0f1180807c)
+- 🔧 기타:结清 F-719(充值双币种入账,a6ae85b0c25/cce4625f58a,39 passed) (0bfaa1d848)
+- 🐞 수정:兑换码充值同步入账 cost 余额 (a6ae85b0c2)
+- 🔧 기타:结清 Y-14(前提不成立:安卓 latest 已回 0.0.24) (17c111ccf4)
+- 🔧 기타:RP-16 阻塞留痕 + 认领 Y-14(安卓更新包接口空返回) (67e95c546a)
+- 🔧 기타:认领 RP-16(考勤 IM 三类审批枚举映射) (a62cd5225c)
+- 🔧 기타:对账结清 12 张已在 HEAD 修复的缺陷普查行 (a9e8f3f9bd)
+- 🐞 수정:单边 token 充值同步入账 cost 余额 (cce4625f58)
+- 🔧 기타:结清 F-512(前提不成立:幂等键已入库;工作树他席回退 risk) (21087e436b)
+- 🔧 기타:认领 F-512(notification-worker 幂等键缺失) (090cd85811)
+- 🔧 기타:结清 F-722(前提不成立:异常结算已入库;工作树他席改动回退风险) (a500442528)
+- 🔧 기타:BUG-29 切片0 阻塞留痕 + 认领 F-722(流式异常跳结算) (a3a3a13347)
+- 🔧 기타:认领 BUG-29(索引约束缺失族,先做切片0) (da6cc97036)
+- 🐞 수정:workbuddy 永久保活不再依赖客户端进程 (a9d2d526aa)
+- 🔧 기타:夹具备份产物目录改名 switch-profiles,避开保护闸 backups 的精确等值 (29d71f9c26)
+- 🐞 수정:根治项目文件盘根外流——scratch 逃生舱合规闸+拔系统盘脏env+盘根卫生增申报目录内容对账与C盘覆盖面 (2a85a5024c)
+
+**2026-11-13**
+- 🐞 수정:E-P1 鉴权失败(401/403)归 content 不走 resume 阶梯 (f841c69006)
+- 🔧 기타:302p 基线定向对账 tierWebOffN 228→229(定价批 pl-7 落账带取证) (888f730da3)
+- 🐞 수정:流式工具参数缓冲上限 + defect 终态 + errorCode 端侧接线 (4759055a3b)
+- 🐞 수정:派发腿级失败不再吃日预算,登录过期告警单独立身份 (11a6ee9fb6)
+
+**2026-11-14**
 <<<<<<< HEAD
 - 🚀 기능/개선:逆向 Qoder 6 子系统——判定可落地性(补 4 块技能进化前提基建 + 审计/修订/墓碑层) (3458dca803e)
 - 🐞 수정:诊断臂 [7b] DB 迁移落后维从未真判过——函数注册晚于 -diagnose 顶层执行点(第三次落地,范围收窄) (c4be376fd5e)
@@ -2853,26 +2914,6 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 **2026-11-13**
 - 🐞 수정:check-miniapp-style-tiers 裸字面量正则加负向后行断言,治 CSS 连写属性误报 (5195023089)
-
-**2026-11-13**
-- 🐞 수정:撤GEO死副本改MAIN唯一权威 + 自测两断言跟随更新 (5a762129c2)
-
-**2026-11-13**
-- 🚀 기능/개선:18rpx(9px)→text-badge(10px),产品定档 plan_a 收尾 (a66404aeaa)
-
-**2026-11-13**
-- 🚀 기능/개선:18rpx(9px)→text-badge(10px),产品定档 plan_a 收尾 (a66404aeaa)
-
-**2026-11-13**
-<<<<<<< HEAD
-- 🐞 수정:mobile-rn conversationImport 补 noValidContent 5 语言词包 (d1734c00a7)
-=======
-- 🐞 수정:登录 429 人机验证挑战降级为友好退避,杜绝「做不了的 CAPTCHA」死锁 (4242eb014a)
-- 🚀 기능/개선:font-safe 腿自动落档 ai/special.tsx 38rpx→text-heading-sm(等值,零视觉变化) (5be8da1c2c)
-
-**2026-11-13**
-- 🚀 기능/개선:新增 titleLg/headingSm/headline/displayXl 四个字号档(产品定档 plan_a) (80e4814fdc)
->>>>>>> origin/main
 <!-- END RECENT UPDATES -->
 
 <p align="center">

@@ -203,7 +203,7 @@ export function createEduAiStyles(tk: AppThemeTokens) {
     fieldLabel: { fontSize: rnType.caption.size, fontWeight: '600', color: tk.text.medium },
     fieldValue: { fontSize: rnType.bodySm.size, color: tk.text.primary, lineHeight: 19 },
     linkRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 5 },
-    linkText: { flex: 1, fontSize: rnType.label.size, color: tk.brandAccent.DEFAULT },
+    linkText: { flex: 1, fontSize: rnType.label.size, color: tk.brandAccent.deep },
     textarea: {
       minHeight: 96,
       textAlignVertical: 'top',

@@ -393,7 +393,7 @@ function LinkText({
         void Linking.openURL(url)
       }}
     >
-      <ExternalLink size={13} color={tk.brandAccent.DEFAULT} strokeWidth={2} />
+      <ExternalLink size={13} color={tk.brandAccent.deep} strokeWidth={2} />
       <Text style={styles.linkText} numberOfLines={2}>
         {label ?? url}
       </Text>
@@ -1151,7 +1151,7 @@ export function EduAiHubScreen({
                   <Text style={styles.rowSub}>
                     {t('eduAiPage.coursesHoursPerYear')}: {item.hoursPerYear ?? '-'}
                   </Text>
-                  <Text style={[styles.rowSub, { color: tk.brandAccent.DEFAULT }]}>
+                  <Text style={[styles.rowSub, { color: tk.brandAccent.deep }]}>
                     {t('eduAiPage.viewDetail')}
                   </Text>
                 </View>
@@ -1195,7 +1195,7 @@ export function EduAiHubScreen({
                       {item.hours ?? '-'} {t('eduAiPage.coursesHours')}
                     </Text>
                   </View>
-                  <Text style={[styles.rowSub, { color: tk.brandAccent.DEFAULT }]}>
+                  <Text style={[styles.rowSub, { color: tk.brandAccent.deep }]}>
                     {t('eduAiPage.viewDetail')}
                   </Text>
                 </View>

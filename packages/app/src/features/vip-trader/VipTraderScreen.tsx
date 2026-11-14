@@ -282,7 +282,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: rnCssLight.vipGoldTint,
     },
     heroBadgeText: { fontSize: rnType.caption.size, fontWeight: '600', color: tk.warning.amberText },
-    heroPrice: { fontSize: rnType.display.size, fontWeight: '700', color: tk.warning.amber },
+    heroPrice: { fontSize: rnType.display.size, fontWeight: '700', color: tk.warning.amberText },
     heroDesc: {
       marginTop: rnSpacing.sm,
       fontSize: rnType.body.size,

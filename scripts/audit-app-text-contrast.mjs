@@ -269,6 +269,47 @@ export function extractTokenUses(line) {
 }
 
 /**
+ * 值位置追踪:`return tk.x` / `const c = tk.x` 本身不含角色,角色由**调用点**决定。
+ * 先在文件内建"函数名/变量名 → 是否只作底色用"的表,再据此判定:
+ *   · 函数仅用于 `backgroundColor:` 之类 ⇒ 它的返回值是底,不当前景判;
+ *   · 有任一处当前景出现 ⇒ 按前景判(宁可多判一次,也不放过真缺陷);
+ *   · 找不到调用点 ⇒ 记 unknown,交人工(不猜)。
+ * 这不是"猜底":依据是同一文件里可读的调用点,可复核。
+ */
+export function buildReturnRoleMap(src) {
+  const lines = src.split(/?
+/)
+  const declared = new Set()
+  const fgUse = new Set()
+  const bgUse = new Set()
+  for (const line of lines) {
+    const fn = /function\s+([A-Za-z_$][\w$]*)\s*\(/.exec(line)
+      || /(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*(?:\([^)]*\)|[A-Za-z_$][\w$]*)\s*=>/.exec(line)
+    if (fn) declared.add(fn[1])
+    const v = /(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*\w+\s*\(/.exec(line)
+    if (v) declared.add(v[1])
+  }
+  // 调用点归类:`backgroundColor: X(` / `backgroundColor: cond ? X(` / style 里 `bg:` 等
+  for (const line of lines) {
+    for (const name of declared) {
+      const call = new RegExp(`\b${name}\s*\(`)
+      if (!call.test(line)) continue
+      const idx = line.search(call)
+      const before = line.slice(0, idx)
+      if (/(?:backgroundColor|bgColor|bg|borderColor|fill)\s*[:=]\s*[^,;]*$/.test(before)) bgUse.add(name)
+      else fgUse.add(name)
+    }
+  }
+  const map = new Map()
+  for (const name of declared) {
+    if (fgUse.has(name)) map.set(name, 'fg')
+    else if (bgUse.has(name)) map.set(name, 'bg')
+    else map.set(name, 'unknown')
+  }
+  return map
+}
+
+/**
  * 同族声明配对:`modelType.image` 与 `modelType.imageBg` 是**命名声明的**一对
  * (父级同名 + `Bg` 后缀),它的合法承载面就是那个 Bg,不是中性承载面。
  * 这不是"猜底":配对写在 token 表里,可核对;只在两侧都定义了颜色时才认。
@@ -536,6 +577,7 @@ export const __test__ = {
   extractTokenUses,
   judge,
   declaredPairOf,
+  buildReturnRoleMap,
   isBackgroundFamily,
   isInverseFamily,
   SURFACES,

@@ -212,7 +212,7 @@ function UrlRow({
         void Linking.openURL(url)
       }}
     >
-      <ExternalLink size={13} color={tk.brandAccent.DEFAULT} strokeWidth={2} />
+      <ExternalLink size={13} color={tk.brandAccent.deep} strokeWidth={2} />
       <Text style={styles.linkText} numberOfLines={2}>
         {url}
       </Text>
