@@ -79,6 +79,8 @@ export default function StudyPublish() {
       navigateTimerRef.current = setTimeout(() => Taro.navigateBack(), 800)
     } catch (e) {
       logger.error('study/publish', 'submit', e)
+      // 失败要有错误反馈:原 catch 只 logger 静默,按钮 loading 复位页面原地不动,用户无从判断失败还是没点上
+      onToast(t('common.failed'), { kind: 'error' })
     } finally {
       setSaving(false)
     }
