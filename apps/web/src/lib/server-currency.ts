@@ -62,10 +62,17 @@ export const seedServerCurrency = cache(async (): Promise<ServerCurrencySeed> =>
         next: { revalidate: 300 },
       })
       if (res.ok) {
-        const json = (await res.json()) as { success?: boolean; data?: LiveFxRates }
+        // 后端统一响应壳是 { code: 0, message, data }(api-client 的 fetchApi 负责解包);
+        // 这里直连 fetch 绕过了 fetchApi,必须同时认 success:true 与 code:0 两种形态 ——
+        // 只判 success 会永远拿不到汇率,SSR 便一直回落原币种(¥ 混币首帧的根因)。
+        const json = (await res.json()) as {
+          success?: boolean
+          code?: number
+          data?: LiveFxRates
+        }
         const data = json.data
         if (
-          json.success &&
+          (json.success === true || json.code === 0) &&
           data &&
           typeof data.cnyPer?.USD === 'number' &&
           data.cnyPer.USD > 0 &&
