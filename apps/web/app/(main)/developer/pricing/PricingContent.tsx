@@ -14,6 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle, Input, Button } from '@ihui/u
 import { Alert } from '@/components/feedback'
 import { cn } from '@/lib/utils'
 import { BackButton } from '@/components/common'
+import { formatFrom } from '@/lib/display-currency'
 
 import { BillingRules } from './BillingRules'
 import { CodeExamples } from './CodeExamples'
@@ -49,16 +50,9 @@ interface AiPricingStats {
   vendors: Array<{ vendor: string; label: string; count: number }>
 }
 
-const CURRENCY_SYMBOL: Record<string, string> = {
-  CNY: '¥',
-  USD: '$',
-}
-
 // 分/千 token → 元/百万 token: 乘以 10(对齐 models-pricing 折算规则)
-const formatPrice = (centsPerKToken: number): string => {
-  const yuan = centsPerKToken * 10
-  return yuan.toLocaleString('zh-CN', { maximumFractionDigits: 4 })
-}
+const formatPrice = (centsPerKToken: number, currency: 'CNY' | 'USD'): string =>
+  formatFrom(centsPerKToken * 10, currency)
 
 export function PricingContent(): React.JSX.Element {
   const t = useTranslations('developerPricingPage')
@@ -203,7 +197,6 @@ export function PricingContent(): React.JSX.Element {
                     </thead>
                     <tbody>
                       {items.map((p) => {
-                        const sym = CURRENCY_SYMBOL[p.currency] ?? p.currency
                         const regions = [
                           p.regionPricing?.cn !== null &&
                             p.regionPricing?.cn !== undefined &&
@@ -221,12 +214,10 @@ export function PricingContent(): React.JSX.Element {
                           <tr key={p.id} className={cn('transition-colors hover:bg-muted/30')}>
                             <td className="px-3 py-1.5 font-mono">{p.modelId}</td>
                             <td className="px-3 py-1.5 text-right tabular-nums">
-                              {sym}
-                              {formatPrice(p.inputPrice)}
+                              {formatPrice(p.inputPrice, p.currency)}
                             </td>
                             <td className="px-3 py-1.5 text-right tabular-nums">
-                              {sym}
-                              {formatPrice(p.outputPrice)}
+                              {formatPrice(p.outputPrice, p.currency)}
                             </td>
                             <td className="px-3 py-1.5 text-muted-foreground">{p.currency}</td>
                             <td className="px-3 py-1.5 text-label text-muted-foreground">

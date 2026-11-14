@@ -13,6 +13,7 @@ import { Card, CardContent, Button } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { cn } from '@/lib/utils'
 import { BackButton } from '@/components/common'
+import { formatCnyCents } from '@/lib/display-currency'
 import {
   fetchApiSubscriptionPlans,
   subscribeApiPlan,
@@ -28,7 +29,7 @@ function planIcon(name: string): React.ReactNode {
 
 /** 价格(分)→ 显示字符串。 */
 function formatPrice(cents: number): string {
-  return `¥${(cents / 100).toFixed(0)}`
+  return formatCnyCents(cents, { digits: 0 })
 }
 
 /** 剩余 token 显示(-1 = 无限)。 */

@@ -11,6 +11,7 @@ import { useLocale } from 'next-intl'
 import { Loader2, ArrowLeft, Sparkles, Star } from 'lucide-react'
 
 import { apiOrThrow } from '@/lib/api'
+import { formatCnyCents } from '@/lib/display-currency'
 import { Card, CardContent } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 
@@ -138,7 +139,7 @@ export default function FeaturedAgentsPage() {
                         agent.isFree ? 'text-emerald-600 dark:text-emerald-500' : 'text-primary',
                       )}
                     >
-                      {agent.isFree ? '免费' : `¥${(agent.price / 100).toFixed(2)}`}
+                      {agent.isFree ? '免费' : formatCnyCents(agent.price, { digits: 2 })}
                     </span>
                     <span>{fmt(agent.createdAt)}</span>
                   </div>

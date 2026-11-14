@@ -12,6 +12,7 @@ import { useLocale, useTranslations } from 'next-intl'
 import { Loader2, ArrowLeft, Sparkles, Plus } from 'lucide-react'
 
 import { apiOrThrow } from '@/lib/api'
+import { formatCnyCents } from '@/lib/display-currency'
 import { Button, Card, CardContent } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { AuthGatePrompt } from '@/components/common'
@@ -190,7 +191,7 @@ export default function MyAgentsPage() {
                         agent.isFree ? 'text-emerald-600 dark:text-emerald-500' : 'text-primary',
                       )}
                     >
-                      {agent.isFree ? t('free') : `¥${(agent.price / 100).toFixed(2)}`}
+                      {agent.isFree ? t('free') : formatCnyCents(agent.price, { digits: 2 })}
                     </span>
                     <span>{fmt(agent.updatedAt)}</span>
                   </div>

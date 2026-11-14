@@ -19,6 +19,8 @@ import {
 import { Tooltip } from '@/components/feedback'
 import { formatNumber } from '@/lib/date-utils'
 import { cn } from '@/lib/utils'
+// 展示货币换算(2026-11-14 立):会话成本/按次单价跟随全站币种
+import { formatCny } from '@/lib/display-currency'
 
 /**
  * 混合模型粗估单价(¥ / 1K token)。
@@ -210,9 +212,9 @@ export function SessionUsageBadge({
     billingMode === 'per_request' && typeof perRequestPriceCny === 'number'
       ? pickText(
           'billingDetailPerRequest',
-          'Billed per request ¥{price}/request, usage estimated, bill is authoritative',
+          'Billed per request {price}/request, usage estimated, bill is authoritative',
           {
-            price: perRequestPriceCny.toFixed(2),
+            price: formatCny(perRequestPriceCny, { digits: 2 }),
           },
         )
       : pickText(
@@ -286,11 +288,11 @@ export function SessionUsageBadge({
           )}
           {inputCost !== null && outputCost !== null ? (
             <>
-              <span className="tabular-nums">
-                {t('inputCost')}: ¥{inputCost.toFixed(3)}
+              <span className="tabular-nums" suppressHydrationWarning>
+                {t('inputCost')}: {formatCny(inputCost, { digits: 3 })}
               </span>
-              <span className="tabular-nums">
-                {t('outputCost')}: ¥{outputCost.toFixed(3)}
+              <span className="tabular-nums" suppressHydrationWarning>
+                {t('outputCost')}: {formatCny(outputCost, { digits: 3 })}
               </span>
               <span className="text-muted-foreground">{t('pricingHint')}</span>
             </>
@@ -377,9 +379,13 @@ export function SessionUsageBadge({
           <Coins className="h-3 w-3 shrink-0" aria-hidden="true" />
         )}
         <span className="whitespace-nowrap">{formatNumber(usage.totalTokens)}</span>
-        <span className="whitespace-nowrap text-foreground">¥{cost.toFixed(3)}</span>
+        <span className="whitespace-nowrap text-foreground" suppressHydrationWarning>
+          {formatCny(cost, { digits: 3 })}
+        </span>
         {totalCost !== null ? (
-          <span className="whitespace-nowrap text-foreground">¥{totalCost.toFixed(3)}</span>
+          <span className="whitespace-nowrap text-foreground" suppressHydrationWarning>
+            {formatCny(totalCost, { digits: 3 })}
+          </span>
         ) : null}
         {/* #26:badge 本体直接展示月配额使用率,分级变色(≥0.5 琥珀 / ≥0.8 橙 / ≥0.95 红) */}
         {quotaUsedRatio !== null && (
@@ -411,7 +417,7 @@ export function SessionUsageBadge({
               {billingMode === 'per_request'
                 ? billingPerRequestLabel +
                   (typeof perRequestPriceCny === 'number'
-                    ? ` ¥${perRequestPriceCny.toFixed(2)}/request`
+                    ? ` ${formatCny(perRequestPriceCny, { digits: 2 })}/request`
                     : '')
                 : billingTokenLabel}
             </span>

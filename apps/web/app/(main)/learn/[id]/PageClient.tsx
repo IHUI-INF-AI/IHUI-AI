@@ -16,6 +16,7 @@ import { apiOrThrow } from '@/lib/api'
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { ProgressBar } from '@/components/common'
 import { cn } from '@/lib/utils'
+import { formatCny } from '@/lib/display-currency'
 
 interface Section {
   id: string
@@ -45,8 +46,7 @@ interface SectionProgress {
   status: number
 }
 
-const formatCNY = (n: number) =>
-  new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'CNY' }).format(n)
+const formatCNY = (n: number) => formatCny(n, { digits: 2 })
 
 export default function CourseDetailPage() {
   const { id } = useParams<{ id: string }>()

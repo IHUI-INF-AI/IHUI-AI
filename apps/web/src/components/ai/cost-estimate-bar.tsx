@@ -8,6 +8,7 @@ import * as React from 'react'
 import { Coins } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { useCostGuardStore } from '@/stores/cost-guard'
+import { formatUsd } from '@/lib/display-currency'
 
 /**
  * CostEstimateBar — 成本预检/对比条(P3 #43 v1,2026-09-16 立)。
@@ -37,7 +38,7 @@ export function CostEstimateBar() {
           {estimate
             ? t('negotiationLine', {
                 tokens: (estimate.estimatedTokensIn + estimate.estimatedTokensOut).toLocaleString(),
-                cost: estimate.estimatedCostUsd.toFixed(4),
+                cost: formatUsd(estimate.estimatedCostUsd, { digits: 4 }),
               })
             : t('negotiationFallback')}
         </span>
@@ -79,7 +80,7 @@ export function CostEstimateBar() {
       <span>
         {t('estimateLine', {
           tokens: estTotal.toLocaleString(),
-          cost: estimate.estimatedCostUsd.toFixed(4),
+          cost: formatUsd(estimate.estimatedCostUsd, { digits: 4 }),
         })}
         {!estimate.priced && <span className="ml-1 opacity-60">({t('fallbackPrice')})</span>}
       </span>
