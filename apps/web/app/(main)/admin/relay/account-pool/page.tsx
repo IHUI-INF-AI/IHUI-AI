@@ -66,18 +66,75 @@ import { Tooltip } from '@/components/feedback'
 import { useConfirm } from '@/hooks/use-confirm'
 import { useTauriIpcReady } from '@/hooks/use-desktop'
 import { useWorkPanelStore } from '@/stores/work-panel'
-import { closeDockedBrowser } from '@/lib/tauri-bridge'
+import {
+  closeDockedBrowser,
+  openStoreAccountBrowser,
+  storeAccountBrowserUrl,
+  storeAccountKeepaliveTarget,
+  storeAccountProbe,
+  storeAccountSession,
+  type StoreCookieSummary,
+  type StoreProbeReport,
+} from '@/lib/tauri-bridge'
 import {
   RELAY_WEB_LOGIN,
   RELAY_WEB_LOGIN_PROVIDERS,
   relayWebLoginAccountToImport,
   type RelayWebLoginProvider,
 } from '@/lib/relay-web-login'
+import {
+  STORE_CATEGORY_LABEL,
+  STORE_PLATFORMS,
+  isStoreLoggedOutUrl,
+  storePlatformOf,
+  type StorePlatform,
+} from '@ihui/shared/constants/store-platforms'
 
 /** 平台 → 网页重登能力(未登记的平台返回 null:该平台没进注册表,按钮 Tooltip 如实说明) */
 function relayWebLoginCap(providerCode: string) {
   if (!(RELAY_WEB_LOGIN_PROVIDERS as readonly string[]).includes(providerCode)) return null
   return RELAY_WEB_LOGIN[providerCode as RelayWebLoginProvider]
+}
+
+interface StoreSessionState {
+  url: string | null
+  cookie: StoreCookieSummary | null
+  keepalive: string | null
+  /** true = 本次从打开的窗口实时识别;false = 窗口未打开,回落到上次识别的接口 */
+  keepaliveLive: boolean
+}
+
+/**
+ * 应用上架平台账号 → 独立浏览器 profile 键。
+ * uid 可能含中文/超长字符,先做稳定短哈希再拼平台码(ASCII、<64 字符,删了重加同 uid 仍接回原登录态)。
+ */
+function storeProfileKey(row: { id: string; providerCode: string; uid: string | null }): string {
+  const uid = row.uid?.trim()
+  let key = row.id
+  if (uid) {
+    let h = 0x811c9dc5
+    for (let i = 0; i < uid.length; i++) {
+      h ^= uid.charCodeAt(i)
+      h = Math.imul(h, 0x01000193)
+    }
+    key = (h >>> 0).toString(36)
+  }
+  return `${row.providerCode}__${key}`
+}
+
+/** 应用上架平台账号的登录入口:优先注册表,回落导入时落进 extraMetadata 的 loginUrl */
+function storePlatformLogin(row: { providerCode: string; extraMetadata: unknown }): {
+  platform: StorePlatform | null
+  loginUrl: string | null
+} {
+  const platform = storePlatformOf(row.providerCode)
+  if (platform) return { platform, loginUrl: platform.loginUrl }
+  const meta = row.extraMetadata
+  if (meta && typeof meta === 'object') {
+    const raw = (meta as { loginUrl?: unknown }).loginUrl
+    if (typeof raw === 'string' && raw.trim()) return { platform: null, loginUrl: raw.trim() }
+  }
+  return { platform: null, loginUrl: null }
 }
 
 const PAGE_SIZE = 20
@@ -127,6 +184,7 @@ const PROVIDER_OPTIONS = [
   'lingma',
   'grokbot',
   'raccoon',
+  'cursor',
 ] as const
 type ProviderCode = (typeof PROVIDER_OPTIONS)[number]
 
@@ -145,6 +203,7 @@ const LOCAL_LOGIN_LABEL: Partial<Record<ProviderCode, string>> = {
   lingma: '灵码',
   grokbot: 'GrokBot',
   raccoon: '小浣熊',
+  cursor: 'Cursor',
 }
 
 /**
@@ -155,6 +214,7 @@ const LOCAL_LOGIN_LABEL: Partial<Record<ProviderCode, string>> = {
 const LOCAL_LOGIN_UNSUPPORTED: Partial<Record<ProviderCode, string>> = {
   lingma: '字段级登录态形状尚未实证(本机未安装),没有可验证的写回配方',
   grokbot: '本机凭证是 sandSealedFile 密封串,没有明文 token 可重建',
+  cursor: '无本机登录写回配方,请用 scripts/lib/cursor-auth-extract.mjs 提取 state.vscdb 后导入',
 }
 
 /**
@@ -300,7 +360,7 @@ interface ModelCatalogRow {
   createdAt?: string | null
   updatedAt?: string | null
 }
-type PoolTab = 'accounts' | 'proxy' | 'catalog'
+type PoolTab = 'accounts' | 'store' | 'proxy' | 'catalog'
 interface ImportItem {
   index: number
   name: string | null
@@ -662,6 +722,74 @@ export default function AdminRelayAccountPoolPage() {
   const poolHealth = data?.poolHealth ?? null
   const showRefillBanner =
     poolHealth !== null && ((poolHealth.needRefill ?? false) || (poolHealth.expiredCount ?? 0) > 0)
+
+  // ── 应用上架平台(2026-11-14 立):与 AI 账号池同表不同类,单独查询互不污染 ──
+  const storeQuery = useQuery({
+    queryKey: ['admin', 'relay', 'account-pool', 'store'],
+    queryFn: async () => {
+      const r = await fetchApi<ListData>(
+        '/api/admin/relay/accounts?category=store&owner=all&page=1&pageSize=100',
+      )
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
+  })
+  const storeList = storeQuery.data?.list ?? []
+  const seedStoreMut = useMutation({
+    mutationFn: async () => {
+      const r = await fetchApi<{ inserted: number; existing: number; total: number }>(
+        '/api/admin/relay/store-accounts/seed',
+        { method: 'POST' },
+      )
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
+    onSuccess: (d) => {
+      toast.success(`已补齐 ${d.inserted} 个平台(${d.existing} 个已存在)`)
+      void qc.invalidateQueries({ queryKey: ['admin', 'relay', 'account-pool'] })
+    },
+    onError: (e: Error) => toast.error(e.message || '写入应用上架平台账号失败'),
+  })
+
+  // 同平台多账号:每个账号独立浏览器配置,切换/新增/删除都在这里
+  const [storeAddOpen, setStoreAddOpen] = React.useState(false)
+  const [storeAddProvider, setStoreAddProvider] = React.useState<string>(
+    STORE_PLATFORMS[0]?.providerCode ?? '',
+  )
+  const [storeAddName, setStoreAddName] = React.useState('')
+  const [storeAddUid, setStoreAddUid] = React.useState('')
+  const [storeProbe, setStoreProbe] = React.useState<{
+    title: string
+    report: StoreProbeReport
+  } | null>(null)
+  const openStoreAdd = () => {
+    setStoreAddProvider(STORE_PLATFORMS[0]?.providerCode ?? '')
+    setStoreAddName('')
+    setStoreAddUid('')
+    setStoreAddOpen(true)
+  }
+  const createStoreMut = useMutation({
+    mutationFn: async (body: { providerCode: string; name: string; uid: string }) => {
+      const r = await fetchApi<{ created: boolean; id: string }>(
+        '/api/admin/relay/store-accounts',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        },
+      )
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
+    onSuccess: () => {
+      toast.success('已新增应用上架平台账号')
+      setStoreAddOpen(false)
+      setStoreAddName('')
+      setStoreAddUid('')
+      void qc.invalidateQueries({ queryKey: ['admin', 'relay', 'account-pool'] })
+    },
+    onError: (e: Error) => toast.error(e.message || '新增应用上架平台账号失败'),
+  })
 
   // ── 平台续期能力位(2026-10-29 立):能力位与在册账号数都由后端现读,页面只投影 ──
   const renewalCapabilityQuery = useQuery({
@@ -1244,6 +1372,215 @@ export default function AdminRelayAccountPoolPage() {
       .openDockedTab(cap.loginUrl, cap.tabTitle)
   }
 
+  // 每个账号一个独立 WebView2 配置目录(profile):登录态落盘且互不覆盖。
+  // 这里只读「已打开窗口」的当前 URL,用注册表里的登录/SSO 主机做保守掉线判定;
+  // 窗口没开就是未打开,不臆测已登录。
+  const storeSessionQuery = useQuery({
+    queryKey: ['admin', 'relay', 'account-pool', 'store-session', storeList.map((k) => k.id)],
+    enabled: desktop && !embedBrowser && storeList.length > 0,
+    staleTime: 5_000,
+    // 只读已打开窗口的 URL,不新开窗口、不触发平台请求;登录页跳转 30s 内可见
+    refetchInterval: 30_000,
+    queryFn: async () => {
+      const entries = await Promise.all(
+        storeList.map(async (k) => {
+          const key = storeProfileKey(k)
+          const [url, cookie, liveKeepalive] = await Promise.all([
+            storeAccountBrowserUrl(key),
+            storeAccountSession(key),
+            storeAccountKeepaliveTarget(key),
+          ])
+          // 实时识别到的接口落本机 localStorage,窗口关了也能展示上次识别结果
+          const keepaliveKey = `ihui.store.keepalive.${key}`
+          let keepalive = liveKeepalive
+          if (liveKeepalive) {
+            try {
+              localStorage.setItem(keepaliveKey, liveKeepalive)
+            } catch {
+              // 隐私模式/配额满:不回写,不影响保活
+            }
+          } else {
+            try {
+              keepalive = localStorage.getItem(keepaliveKey)
+            } catch {
+              keepalive = null
+            }
+          }
+          return [
+            k.id,
+            {
+              url,
+              cookie,
+              keepalive,
+              keepaliveLive: liveKeepalive !== null,
+            } satisfies StoreSessionState,
+          ] as const
+        }),
+      )
+      return Object.fromEntries(entries) as Record<string, StoreSessionState>
+    },
+  })
+
+  const storeSessionBadge = (row: AccountRow): { text: string; cls: string } => {
+    const state = storeSessionQuery.data?.[row.id]
+    if (!state?.url) return { text: '未打开', cls: 'bg-muted text-muted-foreground' }
+    const { platform } = storePlatformLogin(row)
+    if (platform && isStoreLoggedOutUrl(state.url, platform)) {
+      return { text: '需重登', cls: 'bg-red-500/10 text-red-600 dark:text-red-400' }
+    }
+    const cookie = state.cookie
+    if (cookie && cookie.httpOnlyPersistentCookies === 0 && cookie.httpOnlySessionCookies > 0) {
+      return { text: '会话态', cls: 'bg-amber-500/10 text-amber-600 dark:text-amber-400' }
+    }
+    if (cookie && cookie.httpOnlyPersistentCookies > 0) {
+      return {
+        text: '持久登录',
+        cls: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
+      }
+    }
+    return { text: '已打开', cls: 'bg-sky-500/10 text-sky-600 dark:text-sky-400' }
+  }
+
+  const storeSessionDetail = (row: AccountRow): string => {
+    const state = storeSessionQuery.data?.[row.id]
+    if (!state?.url) return '登录窗未打开'
+    const cookie = state.cookie
+    if (!cookie) return '窗口已打开,但未能读取 Cookie 摘要'
+    const fmtTs = (ts: number) => new Date(ts * 1000).toLocaleString(locale)
+    const parts = [
+      `Cookie 共 ${cookie.total} 个`,
+      `持久 ${cookie.persistentCookies}`,
+      `会话 ${cookie.sessionCookies}`,
+      `HttpOnly 持久 ${cookie.httpOnlyPersistentCookies}`,
+    ]
+    if (cookie.earliestExpiry) parts.push(`最早到期 ${fmtTs(cookie.earliestExpiry)}`)
+    if (cookie.latestExpiry) parts.push(`最晚到期 ${fmtTs(cookie.latestExpiry)}`)
+    parts.push(
+      state.keepalive
+        ? `保活接口 GET ${state.keepalive}${state.keepaliveLive ? '' : '(上次识别)'}`
+        : '保活接口未识别(回退站点根)',
+    )
+    return parts.join(' · ')
+  }
+
+  /**
+   * 应用上架平台「打开 / 切换账号」:桌面主窗为每个账号开独立 WebView2 窗口
+   * (data_directory 按账号隔离),已打开则导航并聚焦;网页端退化为新标签。
+   */
+  const openStoreLogin = async (row: AccountRow) => {
+    const { platform, loginUrl } = storePlatformLogin(row)
+    if (!loginUrl) {
+      toast.error('该平台未登记登录入口')
+      return
+    }
+    const label = platform?.label ?? row.providerCode
+    if (desktop && !embedBrowser) {
+      const err = await openStoreAccountBrowser(
+        loginUrl,
+        storeProfileKey(row),
+        `${label} · ${row.name}`,
+        {
+          platformCode: row.providerCode,
+          apiHosts: platform?.apiHosts,
+          keepaliveHint: platform?.keepaliveHint,
+        },
+      )
+      if (err) {
+        toast.error(err)
+        return
+      }
+      toast.success(`已打开 ${label} 独立登录窗`, {
+        description:
+          '该账号使用独立浏览器配置,登录态落盘;关闭窗口/重启应用后再打开仍是此账号的登录态',
+      })
+      void storeSessionQuery.refetch()
+      return
+    }
+    window.open(loginUrl, '_blank', 'noopener,noreferrer')
+    toast.success(`已在新标签打开 ${label} 登录页`, {
+      description: '浏览器保存 Cookie 后,刷新号池页面仍是登录态',
+    })
+  }
+
+  const detectStoreSession = async (row: AccountRow) => {
+    if (!desktop || embedBrowser) {
+      toast.error('登录态检测要在桌面主窗里用')
+      return
+    }
+    const key = storeProfileKey(row)
+    const [url, cookie, keepalive] = await Promise.all([
+      storeAccountBrowserUrl(key),
+      storeAccountSession(key),
+      storeAccountKeepaliveTarget(key),
+    ])
+    if (!url) {
+      toast.info('该账号的登录窗还没打开,点「打开 / 切换」后登录一次')
+      void storeSessionQuery.refetch()
+      return
+    }
+    const { platform } = storePlatformLogin(row)
+    if (platform && isStoreLoggedOutUrl(url, platform)) {
+      toast.error(`${platform.label} 已掉线,请点「打开 / 切换」重新登录`)
+    } else {
+      const detail = cookie
+        ? `Cookie 持久 ${cookie.persistentCookies} · 会话 ${cookie.sessionCookies} · HttpOnly 持久 ${cookie.httpOnlyPersistentCookies}`
+        : '未能读取 Cookie 摘要'
+      const ping = keepalive ? `保活接口 GET ${keepalive}` : '保活接口未识别(回退站点根)'
+      if (cookie && cookie.httpOnlyPersistentCookies === 0 && cookie.httpOnlySessionCookies > 0) {
+        toast.warning('当前只有会话 Cookie,关闭窗口或重启后可能掉线', {
+          description: `登录时请勾选「记住我 / 保持登录」。${detail};${ping}`,
+        })
+      } else {
+        toast.success('未检测到登录跳转', {
+          description: `${detail};${ping};平台未暴露登录态接口,如窗口里要求登录,点「打开 / 切换」重登即可`,
+        })
+      }
+    }
+    void storeSessionQuery.refetch()
+  }
+
+  const removeStoreAccount = (row: AccountRow) => {
+    const { platform } = storePlatformLogin(row)
+    const label = platform?.label ?? row.providerCode
+    void confirm({
+      title: `删除「${label} · ${row.name}」?`,
+      description:
+        '只删除号池里的账号条目,不会清除本机该账号的独立浏览器登录态;重新添加同一平台 + 同一 uid 会接回原登录态。',
+      confirmText: '删除',
+      variant: 'destructive',
+    }).then((ok) => {
+      if (ok) deleteMut.mutate(row.id)
+    })
+  }
+
+  const analyzeStoreAccount = async (row: AccountRow) => {
+    if (!desktop || embedBrowser) {
+      toast.error('接口分析要在桌面主窗里用')
+      return
+    }
+    let report: StoreProbeReport | null
+    try {
+      report = await storeAccountProbe(storeProfileKey(row))
+    } catch (e) {
+      toast.error('接口分析命令不可用,桌面端可能还是旧版本', {
+        description: `${e instanceof Error ? e.message : String(e)};重新构建/更新桌面端后再试`,
+      })
+      return
+    }
+    if (!report || report.rows.length === 0) {
+      toast.info('还没抓到请求', {
+        description:
+          '分析只对通过本页「打开 / 切换」打开的独立账号窗口生效;旧内置浏览器标签的登录态不共享。请在独立窗口里登录并停留一会儿,等平台自身轮询几次后再分析',
+      })
+      return
+    }
+    const { platform } = storePlatformLogin(row)
+    setStoreProbe({
+      title: `${platform?.label ?? row.providerCode} · ${row.name}`,
+      report,
+    })
+  }
+
   // 轮询探测(2.5s):ok ⇒ 关登录 Tab + 走导入通道覆盖凭证(preserveMissingRefresh 保住
   // 库内旧 refreshToken —— 重登只换得到 access,不保留就把能自续的号抹成待重登死号);
   // 见过窗口之后又没了 = 用户关窗 ⇒ 复位;waiting/error 继续等,6.5min 超时兜底。
@@ -1345,6 +1682,7 @@ export default function AdminRelayAccountPoolPage() {
       <Tabs value={tab} onValueChange={(v) => setTab(v as PoolTab)}>
         <TabsList>
           <TabsTrigger value="accounts">账号池</TabsTrigger>
+          <TabsTrigger value="store">{STORE_CATEGORY_LABEL}</TabsTrigger>
           <TabsTrigger value="proxy">代理池</TabsTrigger>
           <TabsTrigger value="catalog">模型目录</TabsTrigger>
         </TabsList>
@@ -2104,6 +2442,357 @@ export default function AdminRelayAccountPoolPage() {
               </Button>
             </div>
           </div>
+        </TabsContent>
+
+        <TabsContent value="store" className="space-y-4">
+          <div className="flex flex-wrap items-start justify-between gap-3 rounded-lg border border-border bg-card px-4 py-3">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 text-body font-medium">
+                <MonitorDown className="h-4 w-4 text-primary" />
+                {STORE_CATEGORY_LABEL}
+              </div>
+              <p className="max-w-3xl text-label text-muted-foreground">
+                这里只存商店开发者后台的账号标识与登录入口,不存密码。桌面端每个账号使用独立的浏览器配置(profile),登录态落本机磁盘;同一平台多个账号互不覆盖,关闭窗口或重启应用后再打开仍是该账号的登录态。注意:旧内置浏览器标签里的登录态不会共享到独立账号窗口,接口分析也只分析独立窗口。窗口打开后会识别平台自己的高频心跳
+                GET,每 10 分钟带 Cookie
+                错峰重放一次;识别不到才回退站点根。不采集、不保存请求头值到磁盘。同一平台同时登录多个账号可能被平台互相挤下线,建议按需切换;平台侧会话过期/风控验证仍需重登一次。
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" onClick={openStoreAdd}>
+                <Plus className="h-4 w-4" />
+                新增账号
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  void storeQuery.refetch()
+                  void storeSessionQuery.refetch()
+                }}
+                disabled={storeQuery.isFetching}
+              >
+                <RefreshCw className={`h-4 w-4 ${storeQuery.isFetching ? 'animate-spin' : ''}`} />
+                刷新
+              </Button>
+            </div>
+          </div>
+
+          <div className="rounded-lg border border-border bg-card">
+            <div className="overflow-x-auto">
+              <table className="w-full text-body">
+                <thead className="bg-muted/50 text-label uppercase text-muted-foreground [&>tr>th]:whitespace-nowrap">
+                  <tr>
+                    <th className="px-3 py-2 text-left">平台</th>
+                    <th className="px-3 py-2 text-left">账号</th>
+                    <th className="px-3 py-2 text-left">uid / 开发者 ID</th>
+                    <th className="px-3 py-2 text-left">登录态</th>
+                    <th className="px-3 py-2 text-left">登录入口</th>
+                    <th className="px-3 py-2 text-right">操作</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {storeQuery.isLoading ? (
+                    Array.from({ length: 7 }).map((_, i) => (
+                      <tr key={`store-sk-${i}`}>
+                        <td colSpan={6} className="px-3 py-2">
+                          <Skeleton className="h-6 w-full" />
+                        </td>
+                      </tr>
+                    ))
+                  ) : storeQuery.isError ? (
+                    <tr>
+                      <td colSpan={6} className="px-3 py-8 text-center text-red-500">
+                        加载失败:
+                        {storeQuery.error instanceof Error ? storeQuery.error.message : '未知错误'}
+                      </td>
+                    </tr>
+                  ) : storeList.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="px-3 py-10 text-center">
+                        <p className="text-muted-foreground">
+                          应用上架平台账号还没写入号池(内置 7 个平台可一键补齐)
+                        </p>
+                        <Button
+                          className="mt-3"
+                          disabled={seedStoreMut.isPending}
+                          onClick={() => seedStoreMut.mutate()}
+                        >
+                          {seedStoreMut.isPending ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Plus className="h-4 w-4" />
+                          )}
+                          写入内置 7 个平台
+                        </Button>
+                      </td>
+                    </tr>
+                  ) : (
+                    storeList.map((k) => {
+                      const { platform, loginUrl } = storePlatformLogin(k)
+                      const label = platform?.label ?? k.providerCode
+                      const note = platform?.note
+                      const session = storeSessionBadge(k)
+                      const sessionState = storeSessionQuery.data?.[k.id]
+                      return (
+                        <tr key={k.id}>
+                          <td className="px-3 py-2">
+                            <div className="flex flex-wrap items-center gap-1 font-medium">
+                              {label}
+                              {note && (
+                                <span className="whitespace-nowrap rounded-md bg-sky-500/10 px-1.5 py-0.5 text-label font-normal text-sky-600 dark:text-sky-400">
+                                  {note}
+                                </span>
+                              )}
+                            </div>
+                            <div className="font-mono text-label text-muted-foreground">
+                              {k.providerCode}
+                            </div>
+                          </td>
+                          <td className="px-3 py-2 font-medium">{k.name}</td>
+                          <td className="px-3 py-2 font-mono text-label text-muted-foreground">
+                            {k.uid ?? '-'}
+                          </td>
+                          <td className="px-3 py-2">
+                            <span
+                              className={`whitespace-nowrap rounded-md px-1.5 py-0.5 text-label ${session.cls}`}
+                              title={storeSessionDetail(k)}
+                            >
+                              {session.text}
+                            </span>
+                            {sessionState?.url && sessionState.cookie && (
+                              <div className="mt-0.5 whitespace-nowrap text-label text-muted-foreground">
+                                持久 {sessionState.cookie.persistentCookies} · 会话{' '}
+                                {sessionState.cookie.sessionCookies}
+                              </div>
+                            )}
+                          </td>
+                          <td className="px-3 py-2 text-label">
+                            {loginUrl ? (
+                              <span
+                                className="block max-w-[20rem] truncate text-muted-foreground"
+                                title={loginUrl}
+                              >
+                                {loginUrl}
+                              </span>
+                            ) : (
+                              <span className="text-muted-foreground">未登记</span>
+                            )}
+                          </td>
+                          <td className="px-3 py-2">
+                            <div className="flex items-center justify-end gap-1">
+                              <Button
+                                size="sm"
+                                disabled={!loginUrl}
+                                onClick={() => void openStoreLogin(k)}
+                              >
+                                <LogIn className="h-4 w-4" />
+                                打开 / 切换
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => void detectStoreSession(k)}
+                              >
+                                <ShieldCheck className="h-4 w-4" />
+                                检测
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => void analyzeStoreAccount(k)}
+                              >
+                                <Cpu className="h-4 w-4" />
+                                分析
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                aria-label="删除账号"
+                                onClick={() => removeStoreAccount(k)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <Dialog open={storeAddOpen} onOpenChange={setStoreAddOpen}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>新增应用上架平台账号</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label>平台</Label>
+                  <Select value={storeAddProvider} onValueChange={setStoreAddProvider}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="选择平台" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {STORE_PLATFORMS.map((p) => (
+                        <SelectItem key={p.providerCode} value={p.providerCode}>
+                          {p.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="store-add-name">账号名称</Label>
+                  <Input
+                    id="store-add-name"
+                    value={storeAddName}
+                    maxLength={128}
+                    placeholder="例如:智汇AI社区"
+                    onChange={(e) => setStoreAddName(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="store-add-uid">uid / 开发者 ID</Label>
+                  <Input
+                    id="store-add-uid"
+                    value={storeAddUid}
+                    maxLength={128}
+                    placeholder="同平台下唯一,用作账号切换与去重键"
+                    onChange={(e) => setStoreAddUid(e.target.value)}
+                  />
+                </div>
+                <p className="text-label text-muted-foreground">
+                  新增后立即拥有独立的浏览器配置;首次点「打开 / 切换」登录一次,之后随时切回该账号。
+                </p>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setStoreAddOpen(false)}>
+                  取消
+                </Button>
+                <Button
+                  disabled={createStoreMut.isPending || !storeAddName.trim() || !storeAddUid.trim()}
+                  onClick={() =>
+                    createStoreMut.mutate({
+                      providerCode: storeAddProvider,
+                      name: storeAddName.trim(),
+                      uid: storeAddUid.trim(),
+                    })
+                  }
+                >
+                  {createStoreMut.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+                  新增
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          <Dialog
+            open={storeProbe !== null}
+            onOpenChange={(o) => {
+              if (!o) setStoreProbe(null)
+            }}
+          >
+            <DialogContent className="max-w-4xl">
+              <DialogHeader>
+                <DialogTitle>接口分析 · {storeProbe?.title ?? ''}</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-3">
+                <div className="rounded-md bg-muted px-3 py-2 text-label">
+                  当前保活接口:
+                  {storeProbe?.report.target ? (
+                    <code className="ml-1 font-mono">GET {storeProbe.report.target}</code>
+                  ) : (
+                    <span className="ml-1 text-muted-foreground">未识别(回退站点根)</span>
+                  )}
+                  {storeProbe?.report.targetSource ? (
+                    <Badge variant="outline" className="ml-2">
+                      {storeProbe.report.targetSource === 'hint' ? '预置入口' : '运行时识别'}
+                    </Badge>
+                  ) : null}
+                </div>
+                <div className="max-h-[50vh] overflow-auto rounded-md border border-border">
+                  <table className="w-full text-label">
+                    <thead className="sticky top-0 bg-muted text-label uppercase text-muted-foreground">
+                      <tr>
+                        <th className="px-2 py-1.5 text-left">方法</th>
+                        <th className="px-2 py-1.5 text-left">路径 / 查询</th>
+                        <th className="px-2 py-1.5 text-right">次数</th>
+                        <th className="px-2 py-1.5 text-left">请求头(脱敏)</th>
+                        <th className="px-2 py-1.5 text-left">请求体参数名</th>
+                        <th className="px-2 py-1.5 text-left">可重放</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(storeProbe?.report.rows ?? []).map((r, i) => (
+                        <tr
+                          key={`${r.method}-${r.path}-${i}`}
+                          className="border-t border-border align-top"
+                        >
+                          <td className="px-2 py-1.5 font-mono">{r.method}</td>
+                          <td className="max-w-[22rem] break-all px-2 py-1.5 font-mono">
+                            {r.path}
+                          </td>
+                          <td className="px-2 py-1.5 text-right font-mono">{r.count}</td>
+                          <td className="max-w-[18rem] px-2 py-1.5 font-mono">
+                            {r.headers.length === 0 ? (
+                              <span className="text-muted-foreground">-</span>
+                            ) : (
+                              <div className="space-y-0.5">
+                                {r.headers.map((h, j) => (
+                                  <div key={`${h.name}-${j}`} className="break-all">
+                                    {h.name}: {h.value}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </td>
+                          <td className="max-w-[14rem] break-all px-2 py-1.5 font-mono">
+                            {r.bodyKeys.length === 0 ? (
+                              <span className="text-muted-foreground">-</span>
+                            ) : (
+                              r.bodyKeys.join(', ')
+                            )}
+                          </td>
+                          <td className="px-2 py-1.5">
+                            {r.replaySafe ? (
+                              <span className="text-emerald-600 dark:text-emerald-400">是</span>
+                            ) : (
+                              <span className="text-muted-foreground">否</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <p className="text-label text-muted-foreground">
+                  请求头值只存在账号窗口的页面内存,展示时敏感值已脱敏;请求体只记录参数名、不记录值。POST
+                  等非 GET 请求只展示,不自动重放。至少出现 2 次的同源请求才会列出。
+                </p>
+              </div>
+              <DialogFooter>
+                <Button
+                  variant="outline"
+                  onClick={async () => {
+                    if (!storeProbe) return
+                    try {
+                      await navigator.clipboard.writeText(
+                        JSON.stringify(storeProbe.report, null, 2),
+                      )
+                      toast.success('分析结果已复制')
+                    } catch {
+                      toast.error('复制失败')
+                    }
+                  }}
+                >
+                  复制 JSON
+                </Button>
+                <Button onClick={() => setStoreProbe(null)}>关闭</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </TabsContent>
 
         <TabsContent value="proxy" className="space-y-4">

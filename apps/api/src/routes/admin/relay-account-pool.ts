@@ -50,7 +50,20 @@
  */
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
-import { eq, and, or, ilike, lt, gte, isNull, isNotNull, inArray, sql, type SQL } from 'drizzle-orm'
+import {
+  eq,
+  and,
+  or,
+  ilike,
+  lt,
+  gte,
+  isNull,
+  isNotNull,
+  inArray,
+  notInArray,
+  sql,
+  type SQL,
+} from 'drizzle-orm'
 import { db, dbRead } from '../../db/index.js'
 import { aiRelayAccountPool } from '@ihui/database'
 import { PROVIDER_HEALTH_STATUSES } from '@ihui/types'
@@ -71,6 +84,8 @@ import {
   recognizeImportShape,
   RELAY_PROVIDERS,
 } from '../../services/relay-account-format.js'
+import { seedStoreAccounts, createStoreAccount } from '../../services/relay-store-accounts.js'
+import { STORE_PROVIDER_CODES, storePlatformOf } from '@ihui/shared/constants/store-platforms'
 import {
   getRelayAdapter,
   hasVerifiedQuotaEndpoint,
@@ -272,6 +287,11 @@ function formatImportSchemaIssues(issues: { path: PropertyKey[]; message: string
 
 const listQuerySchema = paginationSchema.extend({
   provider: z.transform(emptyToUndefined).pipe(z.enum(RELAY_PROVIDERS).optional()),
+  /**
+   * 号池分类:relay = AI 中转账号(默认,与改造前行为一致);store = 应用上架平台;
+   * all = 不过滤。商店账号与 AI 账号同表不同类,列表面互不污染。
+   */
+  category: z.enum(['relay', 'store', 'all']).optional().default('relay'),
   enabled: z.transform(emptyToUndefined).pipe(z.enum(['true', 'false']).optional()),
   health: z.transform(emptyToUndefined).pipe(z.enum(PROVIDER_HEALTH_STATUSES).optional()),
   /** 账号代理管理页筛选用:true = 已配置账号级 proxyUrl,false = 直连(未配置) */
@@ -570,6 +590,19 @@ function upstreamTaskErrorDetail(body: Record<string, unknown> | null): string {
   return detail ? `: ${detail.slice(0, 200)}` : ''
 }
 
+/**
+ * F-161 个人池属主边界:按 id 的写操作必须同时命中「主键 + 属主」。
+ * 全局行(ownerUserId 为空,运营池)沿用既有口径仍可由任一管理员管理;
+ * 个人行仅属主本人可写 —— 他人行在查询条件处即落空,统一按 404 拒绝,
+ * 既不泄露账号存在性,也不产生任何写入。
+ */
+function ownedAccountWhere(accountId: string, actorUserId: string) {
+  return and(
+    eq(aiRelayAccountPool.id, accountId),
+    or(eq(aiRelayAccountPool.ownerUserId, actorUserId), isNull(aiRelayAccountPool.ownerUserId)),
+  )
+}
+
 const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
   server.addHook('preHandler', requireAdmin)
   // 号池必须公网可用(机主 2026-11-10 永久指令;立据与顺序自证见 _shared 出口注释)。
@@ -648,12 +681,50 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
     }
   })
 
+  // ===== 1a. POST /admin/relay/store-accounts/seed — 补齐应用上架平台内置账号 =====
+  // 幂等:只补缺失行,不覆盖人工改名;商店行不参与 AI 转发/刷新/签到/指标。
+  server.post('/admin/relay/store-accounts/seed', async (request, reply) => {
+    try {
+      const result = await seedStoreAccounts()
+      return reply.send(success(result))
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(500).send(error(500, '写入应用上架平台账号失败'))
+    }
+  })
+
+  // ===== 1a2. POST /admin/relay/store-accounts — 新增应用上架平台账号(同平台可多账号) =====
+  const storeAccountBodySchema = z.object({
+    providerCode: z.string().trim().min(1).max(64),
+    name: z.string().trim().min(1).max(128),
+    uid: z.string().trim().min(1).max(128),
+  })
+  server.post('/admin/relay/store-accounts', async (request, reply) => {
+    const body = storeAccountBodySchema.safeParse(request.body)
+    if (!body.success) return reply.status(400).send(error(400, '平台、账号名、uid 都不能为空'))
+    if (!storePlatformOf(body.data.providerCode)) {
+      return reply.status(400).send(error(400, `不支持的应用上架平台:${body.data.providerCode}`))
+    }
+    try {
+      const result = await createStoreAccount(body.data)
+      if (!result.created) {
+        return reply.status(409).send(error(409, '该平台下这个 uid/开发者 ID 已存在'))
+      }
+      return reply.send(success(result))
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(500).send(error(500, '新增应用上架平台账号失败'))
+    }
+  })
+
   // ===== 1b. POST /admin/relay/accounts/:id/share — 共享到运营池(全局开放标记) =====
   server.post('/admin/relay/accounts/:id/share', async (request, reply) => {
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, 'id 非法'))
+    const actorUserId = request.userId
+    if (!actorUserId) return reply.status(401).send(error(401, '未登录'))
     try {
-      const r = await setAccountShared(p.data.id, true)
+      const r = await setAccountShared(p.data.id, true, actorUserId)
       if (r.code === 'not_found')
         return reply.status(404).send(error(404, r.message ?? '账号不存在'))
       return reply.send(
@@ -674,8 +745,10 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
   server.post('/admin/relay/accounts/:id/unshare', async (request, reply) => {
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, 'id 非法'))
+    const actorUserId = request.userId
+    if (!actorUserId) return reply.status(401).send(error(401, '未登录'))
     try {
-      const r = await setAccountShared(p.data.id, false)
+      const r = await setAccountShared(p.data.id, false, actorUserId)
       if (r.code === 'not_found')
         return reply.status(404).send(error(404, r.message ?? '账号不存在'))
       return reply.send(
@@ -697,7 +770,7 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
     const q = listQuerySchema.safeParse(request.query)
     if (!q.success)
       return reply.status(400).send(error(400, q.error.issues[0]?.message ?? '参数错误'))
-    const { page, pageSize, search, provider, enabled, health, hasProxy, owner } = q.data
+    const { page, pageSize, search, provider, category, enabled, health, hasProxy, owner } = q.data
 
     // me = 当前登录管理员的个人池(fail-closed:取不到登录态显式 401,绝不回落全局池冒充"我的")
     if (owner === 'me' && !request.userId) return reply.status(401).send(error(401, '未登录'))
@@ -706,6 +779,12 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
     const ownerCond = ownerListCondition(owner, request.userId)
     if (ownerCond) conds.push(ownerCond)
     if (provider) conds.push(eq(aiRelayAccountPool.providerCode, provider))
+    // 分类隔离:默认只回 AI 中转账号;商店账号只在 category=store 面出现
+    if (category === 'store') {
+      conds.push(inArray(aiRelayAccountPool.providerCode, [...STORE_PROVIDER_CODES]))
+    } else if (category === 'relay') {
+      conds.push(notInArray(aiRelayAccountPool.providerCode, [...STORE_PROVIDER_CODES]))
+    }
     if (enabled === 'true') conds.push(eq(aiRelayAccountPool.isEnabled, true))
     if (enabled === 'false') conds.push(eq(aiRelayAccountPool.isEnabled, false))
     if (health) conds.push(eq(aiRelayAccountPool.healthStatus, health))
@@ -840,6 +919,8 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
     const b = updateBodySchema.safeParse(request.body)
     if (!b.success)
       return reply.status(400).send(error(400, b.error.issues[0]?.message ?? '参数错误'))
+    const actorUserId = request.userId
+    if (!actorUserId) return reply.status(401).send(error(401, '未登录'))
     const patch: Record<string, unknown> = {}
     for (const k of ['name', 'priority', 'weight', 'tempUnschedulable'] as const) {
       if (b.data[k] !== undefined) patch[k] = b.data[k]
@@ -855,7 +936,7 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
           proxyUrl: aiRelayAccountPool.proxyUrl,
         })
         .from(aiRelayAccountPool)
-        .where(eq(aiRelayAccountPool.id, p.data.id))
+        .where(ownedAccountWhere(p.data.id, actorUserId))
         .limit(1)
       if (!existing) return reply.status(404).send(error(404, '账号不存在'))
       // proxyUrl 库内是密文:先解密再与明文入参比较,变更时才重新加密回写。
@@ -875,7 +956,7 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
       const updated = await db
         .update(aiRelayAccountPool)
         .set({ ...changed, updatedAt: new Date() })
-        .where(eq(aiRelayAccountPool.id, p.data.id))
+        .where(ownedAccountWhere(p.data.id, actorUserId))
         .returning({ id: aiRelayAccountPool.id })
       if (updated.length === 0) return reply.status(404).send(error(404, '账号不存在'))
       return reply.send(success({ id: updated[0] ? updated[0].id : p.data.id }))
@@ -889,6 +970,8 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
   server.post('/admin/relay/accounts/:id/toggle', async (request, reply) => {
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, 'id 非法'))
+    const actorUserId = request.userId
+    if (!actorUserId) return reply.status(401).send(error(401, '未登录'))
     try {
       const [row] = await dbRead
         .select({
@@ -898,7 +981,7 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
           isEnabled: aiRelayAccountPool.isEnabled,
         })
         .from(aiRelayAccountPool)
-        .where(eq(aiRelayAccountPool.id, p.data.id))
+        .where(ownedAccountWhere(p.data.id, actorUserId))
         .limit(1)
       if (!row) return reply.status(404).send(error(404, '账号不存在'))
       const next = !row.isEnabled
@@ -907,7 +990,7 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
       await db
         .update(aiRelayAccountPool)
         .set({ ...changed, updatedAt: new Date() })
-        .where(eq(aiRelayAccountPool.id, p.data.id))
+        .where(ownedAccountWhere(p.data.id, actorUserId))
       // O64:状态联动推送(号池启用态 = 签到侧调度权威)。推送失败落 pending 待重推,
       // 绝不阻塞 toggle 响应;pending 落库本身再失败只记日志,由对账收敛器兜底。
       const checkinPlatform = checkinPlatformFor(row.providerCode)
@@ -987,10 +1070,12 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
   server.delete('/admin/relay/accounts/:id', async (request, reply) => {
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, 'id 非法'))
+    const actorUserId = request.userId
+    if (!actorUserId) return reply.status(401).send(error(401, '未登录'))
     try {
       const deleted = await db
         .delete(aiRelayAccountPool)
-        .where(eq(aiRelayAccountPool.id, p.data.id))
+        .where(ownedAccountWhere(p.data.id, actorUserId))
         .returning({
           id: aiRelayAccountPool.id,
           providerCode: aiRelayAccountPool.providerCode,

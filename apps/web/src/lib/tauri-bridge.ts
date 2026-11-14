@@ -720,6 +720,114 @@ export async function destroyDockedBrowser(): Promise<void> {
 }
 
 /**
+ * 应用上架平台:打开/聚焦某个账号的独立登录窗。
+ * 每账号一个 WebView2 data_directory,登录态落盘且互不覆盖;返回错误文案(成功 null)。
+ */
+export async function openStoreAccountBrowser(
+  url: string,
+  profileKey: string,
+  title: string,
+  options?: {
+    /** 商店平台码;有本机登录态种子时按它取对应条目 */
+    platformCode?: string
+    /** 页面自身会请求的 API 主机(跨域也抓,含请求头/参数名) */
+    apiHosts?: readonly string[]
+    /** 已验证的会话入口;识别不到心跳时先用它 */
+    keepaliveHint?: string
+  },
+): Promise<string | null> {
+  if (!isTauri()) return '仅桌面端支持独立账号窗口'
+  try {
+    await invokeIpc<null>('store_account_open', {
+      url,
+      profileKey,
+      title,
+      platformCode: options?.platformCode ?? null,
+      apiHosts: options?.apiHosts ?? [],
+      keepaliveHint: options?.keepaliveHint ?? null,
+    })
+    return null
+  } catch (e) {
+    const err = e instanceof DesktopIpcError ? e : toDesktopIpcError(e)
+    return err.message || '打开账号登录窗失败'
+  }
+}
+
+/** 读取某商店账号登录窗的当前 URL;窗口未打开或非桌面端返回 null。 */
+export async function storeAccountBrowserUrl(profileKey: string): Promise<string | null> {
+  if (!isTauri()) return null
+  try {
+    return await invokeIpc<string | null>('store_account_url', { profileKey })
+  } catch {
+    return null
+  }
+}
+
+/** 商店账号 Cookie 登录态摘要(Rust 只回统计与到期时间,不回 Cookie 值) */
+export interface StoreCookieSummary {
+  total: number
+  sessionCookies: number
+  persistentCookies: number
+  httpOnlySessionCookies: number
+  httpOnlyPersistentCookies: number
+  /** Unix 秒;没有未过期持久 Cookie 时为 null */
+  earliestExpiry: number | null
+  latestExpiry: number | null
+}
+
+/** 读取某商店账号独立 profile 的 Cookie 登录态摘要;窗口未打开或非桌面端返回 null。 */
+export async function storeAccountSession(profileKey: string): Promise<StoreCookieSummary | null> {
+  if (!isTauri()) return null
+  try {
+    return await invokeIpc<StoreCookieSummary | null>('store_account_session', { profileKey })
+  } catch {
+    return null
+  }
+}
+
+/** 读取页面脚本识别出的平台心跳/保活接口(path+query);未识别或窗口未打开返回 null。 */
+export async function storeAccountKeepaliveTarget(profileKey: string): Promise<string | null> {
+  if (!isTauri()) return null
+  try {
+    return await invokeIpc<string | null>('store_account_keepalive_target', { profileKey })
+  } catch {
+    return null
+  }
+}
+
+export interface StoreProbeHeader {
+  name: string
+  /** 敏感头已脱敏(****后四位),非敏感头原样 */
+  value: string
+}
+
+export interface StoreProbeRow {
+  method: string
+  path: string
+  count: number
+  headers: StoreProbeHeader[]
+  /** 只回请求体参数名,不回值 */
+  bodyKeys: string[]
+  /** GET 才允许自动保活重放;POST 等只展示不重放 */
+  replaySafe: boolean
+}
+
+export interface StoreProbeReport {
+  /** 当前选中的保活接口(path+query,敏感参数已脱敏) */
+  target: string | null
+  /** learned = 页面运行中识别到的高频 GET;hint = 平台注册表预置入口 */
+  targetSource?: 'learned' | 'hint' | null
+  rows: StoreProbeRow[]
+}
+
+/** 读取账号窗口的网络分析报告(方法/路径/查询/请求头脱敏/请求体参数名)。 */
+export async function storeAccountProbe(profileKey: string): Promise<StoreProbeReport | null> {
+  if (!isTauri()) return null
+  // 不吞错:旧桌面端没有这个命令时,调用方要能把"客户端太旧"和"还没抓到请求"区分开
+  return await invokeIpc<StoreProbeReport | null>('store_account_probe', { profileKey })
+}
+
+/**
  * 工作面板工具条 → 停靠浏览器(2026-10-24)。
  * 停靠档是 OS 级子 webview,store 里 iframe/代理那套导航对它无效,必须直连原生命令。
  * 返回错误文案(成功/未打开均为 null),调用方负责提示。
@@ -2083,14 +2191,15 @@ export interface WorkbuddyWebLoginAccount {
 }
 
 /** WorkBuddy 网页登录探测结果(与 Rust `WebLoginProbe` tag= status 逐态对齐)。
- *  2026-10-18:`not_logged_in` 带 message(Cookie 无效/已过期的原因,如实告知用户)。 */
+ *  2026-10-18:`not_logged_in` 带 message(Cookie 无效/已过期的原因,如实告知用户)。
+ *  2026-11-12 F-060:ok 回包**不再含 cookie**(会话 Cookie 不出 Rust:jar 路径由
+ *  Rust 现读现投后端,粘贴路径入库用 JS 侧本地草稿)。 */
 export type WorkbuddyWebLoginProbe =
   | { status: 'no_window' }
   | { status: 'no_cookie' }
   | { status: 'not_logged_in'; message?: string }
   | {
       status: 'ok'
-      cookie: string
       accounts: WorkbuddyWebLoginAccount[]
       /** 网页登录态能否驱动签到接口(实测;undefined=网络原因未判定) */
       cookie_checkin_ok?: boolean
