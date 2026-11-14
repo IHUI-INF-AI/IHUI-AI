@@ -42,7 +42,11 @@ import {
   resetBroadcastNotices,
   type UserBroadcastAdapterDeps,
 } from '@/lib/user-broadcast'
-import { chatSyncTaroStoreApi } from '@/stores/chat-sync'
+import {
+  applyChatSyncSurfaceMerge,
+  chatSyncTaroStoreApi,
+  planChatSyncSurfaceMerge,
+} from '@/stores/chat-sync'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const BASE_URL = 'https://aizhs.top/api'
@@ -236,7 +240,7 @@ describe('④ store 单测:未判定帧 / 未接线帧 / 多会话分桶', () =>
     ])
   })
 
-  it('terminal 帧:本票不投影终态,但必须点名(静默丢 = 最高频失效型)', () => {
+  it('terminal 帧:进内核并落终态标记,不再判 unwired(G-20261114)', () => {
     const deps = makeDeps()
     sub = attachUserBroadcast(deps)
     feed(createdFrame())
@@ -247,10 +251,10 @@ describe('④ store 单测:未判定帧 / 未接线帧 / 多会话分桶', () =>
         messageTerminalEvent({ conversationId: C1, messageId: M1, rev: 0, reason: 'stop' }),
       ),
     )
-    // 状态面零变化:终态投影与生产端发终态同批,本票不做
-    expect(chatSyncStore.messagesOf(C1)[0]?.terminal).toBeUndefined()
-    expect(chatSyncStore.counters()).toMatchObject({ unwired: 1 })
-    expect(deps.undetermined).toEqual([{ event: 'message:terminal', reason: 'terminal' }])
+    // 另一端不再永久停在「生成中」:终态必须真落到 store 的消息面
+    expect(chatSyncStore.messagesOf(C1)[0]?.terminal).toEqual({ rev: 0, reason: 'stop' })
+    expect(chatSyncStore.counters()).toMatchObject({ unwired: 0, applied: 2 })
+    expect(deps.undetermined).toEqual([])
   })
 
   it('多会话按 room.conversationId 分桶:切会话不串、不重订', () => {
@@ -310,6 +314,67 @@ describe('结构纪律:端内不抄帧名、不抄内核', () => {
     const isolate = makeDeps()
     expect(isolate.undetermined).toEqual([])
     expect(chatSyncStore.messagesOf(C1)).toEqual([])
+  })
+})
+
+describe('⑤ 投影层纯函数与页面挂载(G-20261114)', () => {
+  type LocalRow = Parameters<typeof applyChatSyncSurfaceMerge>[0][number]
+  const CHAT_PAGE = join(HERE, '../src/pkg-ai/ai/chat.tsx')
+
+  it('零变化 ⇒ null(调用方据此不得 setMessages,否则每帧重渲染)', () => {
+    const local: LocalRow[] = [{ id: 'm1', role: 'assistant', content: '全文' }]
+    expect(
+      planChatSyncSurfaceMerge(local, [{ id: 'm1', role: 'assistant', content: '全文' }]),
+    ).toBeNull()
+  })
+
+  it('同 id 就地更新:content / reasoning 两维都判,不追加', () => {
+    const plan = planChatSyncSurfaceMerge(
+      [{ id: 'm1', role: 'assistant', content: '前' }],
+      [{ id: 'm1', role: 'assistant', content: '前后', reasoning: '思考' }],
+    )
+    expect(plan?.updates).toEqual([{ index: 0, content: '前后', reasoning: '思考' }])
+    expect(plan?.appends).toEqual([])
+  })
+
+  it('终态落到页级行;不带 terminal 的后续 snapshot 不得清掉终态(契约 §4 粘性)', () => {
+    const terminal = { rev: 0, reason: 'stop' } as const
+    const local: LocalRow[] = [{ id: 'm1', role: 'assistant', content: '全文' }]
+    const plan = planChatSyncSurfaceMerge(local, [
+      { id: 'm1', role: 'assistant', content: '全文', terminal },
+    ])
+    // 内容没变也要发 update:终态是独立状态位,不是 content 的附属字段。
+    expect(plan?.updates[0]?.terminal).toEqual(terminal)
+    const next = applyChatSyncSurfaceMerge(local, plan!)
+    expect(next[0]?.terminal).toEqual(terminal)
+    // 反向牙:同样内容但不带 terminal ⇒ 零变化。若实现把终态清成 undefined,
+    // 这里就会误判出一条 update(另一端又回到「生成中」)。
+    expect(
+      planChatSyncSurfaceMerge(next, [{ id: 'm1', role: 'assistant', content: '全文' }]),
+    ).toBeNull()
+  })
+
+  it('回声不追加重复气泡;真新消息 ⇒ 追加且不带臆造终态', () => {
+    const local: LocalRow[] = [{ id: 'local-1', role: 'assistant', content: '同一段回答' }]
+    expect(
+      planChatSyncSurfaceMerge(local, [
+        { id: 'svr-1', role: 'assistant', content: '同一段回答' },
+      ]),
+    ).toBeNull()
+
+    const plan = planChatSyncSurfaceMerge([], [
+      { id: 'svr-2', role: 'assistant', content: '新回答' },
+    ])
+    expect(plan?.appends.map((s) => s.id)).toEqual(['svr-2'])
+    expect(applyChatSyncSurfaceMerge([], plan!)[0]?.terminal).toBeUndefined()
+  })
+
+  it('聊天页真挂载投影 hook(帧进 store 但页面零消费的回归牙)', () => {
+    const source = readFileSync(CHAT_PAGE, 'utf8')
+    expect(source).toContain('useRemoteChatSyncMessages({')
+    expect(source).toContain('setMessages,')
+    // 本端流式中必须暂停投影,否则 WS snapshot 会覆盖本端 SSE 前缀
+    expect(source).toContain('paused: thinking')
   })
 })
 
