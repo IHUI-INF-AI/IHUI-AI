@@ -83,6 +83,13 @@ describe('D58 工具名 → 类目映射(resolveToolCategory)', () => {
     expect(resolveToolCategory('video_gen')).toBe('video_gen')
     expect(resolveToolCategory('env_init')).toBe('env_init')
     expect(resolveToolCategory('finish')).toBe('end')
+    // 2026-11-15:g3-g7 新工具面进既有类目(不新增第 19 类)
+    expect(resolveToolCategory('read_image')).toBe('file_read')
+    expect(resolveToolCategory('session_search')).toBe('file_search')
+    expect(resolveToolCategory('team_task')).toBe('task_management')
+    expect(resolveToolCategory('dispatch_subagent')).toBe('task_management')
+    expect(resolveToolCategory('subagent_job')).toBe('task_management')
+    expect(resolveToolCategory('terminal')).toBe('command')
   })
 
   it('MCP 命名约定识别为 mcp 类目', () => {
