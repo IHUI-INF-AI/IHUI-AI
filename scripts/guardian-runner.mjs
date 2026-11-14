@@ -7088,6 +7088,33 @@ const checks = [
     stagedTriggers: ['apps/api/'],
     skipEnv: 'HUSKY_SKIP_API_ROUTE_UNIQUENESS',
   },
+  {
+    id: '320',
+    label: '🔍 票面声称 ↔ HEAD 实物双向漂移可见化(从未完成条目抽反引号路径/迁移/符号,判在不在;差值棘轮只拦新增)',
+    script: 'check-plan-claims-vs-head.mjs',
+    args: [],
+    mode: 'blocking',
+    // §1021 立(2026-10-30):check-task-claims 只管认领、check-plan-line-loss 只管登记行不丢,
+    // 没有任何尺子看"票内声称的实现物是否真在 HEAD"—— D35/D36/D43 的"全绿"在仓里躺一整天无人可见。
+    // 本门从 PROJECT_PLAN.md **未完成条目本体**抽三类可机检声称(反引号 path / NNNN_*.sql 迁移 / 点名符号),
+    // 逐条判 HEAD 是否有实物;只报红、绝不自动改活文档。
+    // 2026-11-14 治本:原实现逐条 spawn git 子进程,598 path × 最多 3 探针 ≈ 1800 次 ≈ 6.5 分钟,
+    // 撞任何超时门必死、门从未真跑通。改为批量预取(ls-tree 全树 + check-ignore --stdin + log 删除史
+    // 一次性),探针降到 O(批量),15s 内跑完;judgeEntry 判据函数与 __test__ 接口一行未改,镜像测试零改动。
+    // 定档 = 差值棘轮(锚点 = scripts/data/plan-claims-baseline.json 的 26 条建门当日存量):
+    // 存量只报数不判红,**新增**票面声称而 HEAD 无实物才红(§12e 恒红门禁令;升 blocking 前置 = 存量归零)。
+    stagedTriggers: ['PROJECT_PLAN.md'],
+    skipEnv: 'HUSKY_SKIP_PLAN_CLAIMS_VS_HEAD',
+    onFailHint: [
+      '',
+      '读数:node scripts/check-plan-claims-vs-head.mjs(HEAD 面;15s 内出)',
+      '自检:node scripts/check-plan-claims-vs-head.mjs --self-test(4 例,§1021 成对)',
+      '镜像测试:node --test scripts/tests/check-plan-claims-vs-head.test.mjs(6 例)',
+      '整改出口:把该登记行的声称改成真实路径 / 补齐实物 / 从基线显式剔除该条',
+      '',
+    ].join('\n'),
+  },
+
   // --- RN 样式裸数字回潮锁(2026-10-31 复登:2026-10-25 runner 条目被截断事故中整段丢失,门体一直在盘上)---
   {
     // 编号 270:注册前已核本文件 `id: '270'` 为 0;原头注自称门 247,该号现被 asyncio 后台任务门占用,故改号。
