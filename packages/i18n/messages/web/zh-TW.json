@@ -13850,6 +13850,7 @@
     "toolsSummary": "工具呼叫:",
     "filesChanged": "檔案變更",
     "filesEmpty": "無檔案變更記錄",
+    "presentedFiles": "交付檔案",
     "kindAdd": "新增",
     "kindDelete": "刪除",
     "kindUpdate": "修改",

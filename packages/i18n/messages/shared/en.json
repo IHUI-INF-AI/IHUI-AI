@@ -59,6 +59,7 @@
     "toolCreateArtifact": "Generate deliverable",
     "toolCreateAutomation": "Create automation",
     "toolSummarizeArtifacts": "Summarize artifacts",
+    "toolPresentFiles": "Present files",
     "activityMcp": "Calling {mcp} MCP",
     "activityPlugin": "Calling {plugin} plugin",
     "activityPlanning": "Planning in progress",

@@ -13849,6 +13849,7 @@
     "toolsSummary": "ツール呼び出し:",
     "filesChanged": "ファイル変更",
     "filesEmpty": "ファイル変更はありません",
+    "presentedFiles": "納品ファイル",
     "kindAdd": "追加",
     "kindDelete": "削除",
     "kindUpdate": "更新",
