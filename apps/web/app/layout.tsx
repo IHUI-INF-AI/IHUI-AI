@@ -13,6 +13,7 @@ import {
   type LocaleCode,
 } from '@/lib/locale-cookie'
 import { Toaster } from '@/components/common'
+import type { LiveFxRates } from '@ihui/api-client'
 // 实时汇率预热 + 展示货币首帧口径播种(2026-11-14 立):任意页面首屏即拉取,
 // 供全站金额按即时汇率换算;SSR 口径经 cookie 从本文件传入。
 import { CurrencyRuntime } from '@/components/common/CurrencyRuntime'
@@ -266,9 +267,36 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     selectedDisplayCurrency,
     isStaticExport ? undefined : requestHeaders?.get('accept-language'),
   )
-  const initialFxRates = isStaticExport
+  // 汇率快照:优先复用 cookie;缺失时服务端预取一次(Next fetch 缓存 5 分钟)。
+  // 不预取的话首访/清 cookie 后 SSR 会按原币种直出,同一页面上美元源价格显示 $、
+  // 人民币源价格显示 ¥,出现「混币首帧」;快照注入后两侧统一按所选展示币种直出。
+  let initialFxRates = isStaticExport
     ? null
     : parseFxSnapshot(cookieStore?.get(FX_SNAPSHOT_COOKIE)?.value)
+  if (!isStaticExport && !initialFxRates) {
+    try {
+      const apiBase = process.env.API_URL ?? 'http://127.0.0.1:8802'
+      const res = await fetch(`${apiBase}/api/exchange-rates/live`, {
+        next: { revalidate: 300 },
+      })
+      if (res.ok) {
+        const json = (await res.json()) as { success?: boolean; data?: LiveFxRates }
+        const d = json.data
+        if (
+          json.success &&
+          d &&
+          typeof d.cnyPer?.USD === 'number' &&
+          d.cnyPer.USD > 0 &&
+          typeof d.cnyPer?.USDT === 'number' &&
+          d.cnyPer.USDT > 0
+        ) {
+          initialFxRates = d
+        }
+      }
+    } catch {
+      // 汇率服务暂不可用:维持回落原币种,绝不用写死汇率造假
+    }
+  }
   // 服务端组件层(与本文件同一模块实例)也播种:SSR 里由服务端组件直接格式化的金额同口径。
   // 客户端组件层由 CurrencyRuntime 经 props 再播种一次(两层是不同模块实例)。
   setServerDisplayCurrency(selectedDisplayCurrency, effectiveDisplayCurrency)
