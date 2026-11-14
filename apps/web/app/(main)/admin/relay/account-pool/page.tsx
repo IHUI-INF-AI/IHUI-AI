@@ -1480,7 +1480,10 @@ export default function AdminRelayAccountPoolPage() {
         storeProfileKey(row),
         `${label} · ${row.name}`,
         {
-          platformCode: row.providerCode,
+          // 只有内置种子账号才注入平台登录态:同平台新增的第二账号必须从干净 profile 起步,
+          // 否则会被种成种子账号(切换后显示已登录,实际进的是别人的号)
+          platformCode:
+            platform && row.uid?.trim() === platform.defaultUid ? row.providerCode : undefined,
           apiHosts: platform?.apiHosts,
           keepaliveHint: platform?.keepaliveHint,
         },

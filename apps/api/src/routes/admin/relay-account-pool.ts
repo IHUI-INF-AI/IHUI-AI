@@ -1354,6 +1354,8 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
     const conds: SQL[] = []
     const ownerCond = ownerListCondition(owner, request.userId)
     if (ownerCond) conds.push(ownerCond)
+    // 应用上架平台账号没有 AI 中转凭据,不进待人工处理/重登统计面(与列表 category=relay 同口径)
+    conds.push(notInArray(aiRelayAccountPool.providerCode, [...STORE_PROVIDER_CODES]))
     if (provider) conds.push(eq(aiRelayAccountPool.providerCode, provider))
     const where = conds.length > 0 ? and(...conds) : undefined
     try {
