@@ -182,7 +182,7 @@ export function NewsCategoryScreen({
                 <Image source={{ uri: item.coverImage }} style={styles.cover} />
               ) : (
                 <View style={[styles.cover, styles.coverFallback]}>
-                  <Newspaper size={22} color={tk.text.secondary} strokeWidth={2} />
+                  <Newspaper size={22} color={tk.text.tertiary} strokeWidth={2} />
                 </View>
               )}
               <View style={styles.cardBody}>
@@ -212,7 +212,7 @@ export function NewsCategoryScreen({
                     {t('news.categoryPublishedAt', { date: formatDate(item.publishedAt) })}
                   </Text>
                   <View style={styles.metaInline}>
-                    <Eye size={12} color={tk.text.secondary} strokeWidth={2} />
+                    <Eye size={12} color={tk.text.tertiary} strokeWidth={2} />
                     <Text style={styles.meta}>
                       {t('news.categoryViewCount', { count: item.viewCount ?? 0 })}
                     </Text>
@@ -259,7 +259,7 @@ function createStyles(tk: AppThemeTokens) {
     subtitle: {
       marginBottom: rnSpacing.sm,
       fontSize: rnType.caption.size,
-      color: tk.text.medium,
+      color: tk.text.tertiary,
     },
     separator: {
       height: rnSpacing.sm,
@@ -335,7 +335,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     meta: {
       fontSize: rnType.caption.size,
-      color: tk.text.medium,
+      color: tk.text.tertiary,
     },
     footer: {
       paddingVertical: rnSpacing.lg,
@@ -344,7 +344,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     footerText: {
       fontSize: rnType.caption.size,
-      color: tk.text.medium,
+      color: tk.text.tertiary,
     },
   } satisfies Record<string, ViewStyle | TextStyle>)
 }

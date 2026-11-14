@@ -169,9 +169,9 @@ export function TabBar({
               tab={tab}
               isActive={isActive}
               activeColor={tk.text.primary}
-              inactiveColor={tk.text.secondary}
+              inactiveColor={tk.text.tertiary}
             />
-            <span style={textStyles.label(isActive ? tk.text.primary : tk.text.secondary)}>
+            <span style={textStyles.label(isActive ? tk.text.primary : tk.text.tertiary)}>
               {tab.label}
             </span>
           </div>

@@ -19,7 +19,7 @@
 客户端:6 端同源(含微信小程序原生)
 官网:https://aizhs.top
 GitHub:https://github.com/ihui-ai
-联系:lizong@aizhs.top
+联系:contact@aizhs.top
 ```
 
 ---
@@ -312,5 +312,5 @@ Agent 市场 → 模板 → 选择"公众号客服"→ 一键发布到公众号
 # 文件结束
 # 本文件为腾讯混元 + 微信生态 + 腾讯云开发者优化
 # 维护:IHUI AI Team
-# 联系:lizong@aizhs.top
+# 联系:contact@aizhs.top
 # 微信公众号:智汇 AI

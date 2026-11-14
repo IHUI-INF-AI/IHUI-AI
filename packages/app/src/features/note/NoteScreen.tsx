@@ -144,7 +144,7 @@ export function NoteScreen({
               value={title}
               onChangeText={onTitleChange}
               placeholder={t('note.titlePlaceholder')}
-              placeholderTextColor={tk.text.secondary}
+              placeholderTextColor={tk.text.tertiary}
             />
             <TextField
               colorScheme={colorScheme}
@@ -152,7 +152,7 @@ export function NoteScreen({
               value={content}
               onChangeText={onContentChange}
               placeholder={t('note.placeholder')}
-              placeholderTextColor={tk.text.secondary}
+              placeholderTextColor={tk.text.tertiary}
               multiline
               textAlignVertical="top"
             />
@@ -196,7 +196,7 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.primary,
     },
     subtitle: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.secondary },
-    userText: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.medium },
+    userText: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.tertiary },
     actionRow: { paddingHorizontal: rnSpacing['sm-loose'], paddingVertical: rnSpacing.sm },
     addBtn: {
       paddingHorizontal: rnSpacing['sm-loose'],
@@ -216,7 +216,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingHorizontal: rnSpacing['sm-loose'],
       paddingVertical: rnSpacing.xs,
       fontSize: rnType.body.size,
-      color: tk.danger.deepText,
+      color: tk.danger.DEFAULT,
     },
     list: { flex: 1, paddingHorizontal: rnSpacing['sm-loose'] },
     card: {
@@ -229,7 +229,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     cardTitle: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
     cardContent: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.medium },
-    cardMeta: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.medium },
+    cardMeta: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.tertiary },
     cardActions: { flexDirection: 'row', gap: rnSpacing.sm, marginTop: rnSpacing['sm-loose'] },
     editBtn: {
       paddingHorizontal: rnSpacing.md,
@@ -244,7 +244,7 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.sm,
       backgroundColor: tk.danger.light,
     },
-    deleteBtnText: { color: tk.danger.deepText, fontSize: rnType.body.size },
+    deleteBtnText: { color: tk.danger.DEFAULT, fontSize: rnType.body.size },
     modalOverlay: {
       flex: 1,
       backgroundColor: rnCssLight.black50,
@@ -304,7 +304,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.brand.cta,
       alignItems: 'center',
     },
-    saveBtnDisabled: { backgroundColor: tk.text.secondary },
+    saveBtnDisabled: { backgroundColor: tk.text.tertiary },
     saveBtnText: { color: tk.surface.light, fontSize: rnType.title.size, fontWeight: '600' },
   })
 }

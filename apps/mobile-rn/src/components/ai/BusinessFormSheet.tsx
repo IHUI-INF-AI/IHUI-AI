@@ -399,7 +399,7 @@ function createStyles() {
     bodyInner: { gap: rnSpacing['sm-loose'], paddingVertical: rnSpacing.sm },
     field: { gap: rnSpacing.xs },
     label: { fontSize: rnType.label.size, color: tokens.text.secondary },
-    required: { color: tokens.danger.deepText },
+    required: { color: tokens.danger.DEFAULT },
     input: {
       minHeight: 40,
       paddingHorizontal: rnSpacing['sm-loose'],
@@ -411,8 +411,8 @@ function createStyles() {
       fontSize: rnType.body.size,
       color: tokens.text.primary,
     },
-    error: { fontSize: rnType.caption.size, color: tokens.danger.deepText },
-    failed: { fontSize: rnType.label.size, color: tokens.danger.deepText },
+    error: { fontSize: rnType.caption.size, color: tokens.danger.DEFAULT },
+    failed: { fontSize: rnType.label.size, color: tokens.danger.DEFAULT },
     attendeeWrap: {
       flexDirection: 'row',
       flexWrap: 'wrap',

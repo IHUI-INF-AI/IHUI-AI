@@ -131,7 +131,7 @@ function createStyles(tk: AppThemeTokens) {
     } as TextStyle,
     entryDesc: {
       fontSize: rnType.body.size,
-      color: tk.text.medium,
+      color: tk.text.tertiary,
       textAlign: 'center',
       lineHeight: rnType.label.lineHeight,
     } as TextStyle,

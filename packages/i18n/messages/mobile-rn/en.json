@@ -942,8 +942,7 @@
       "agree": "Agree",
       "disagree": "Dislike"
     },
-    "loadFailed": "Failed to load",
-    "admissionAhead": "{n} ahead of you"
+    "loadFailed": "Failed to load"
   },
   "settings": {
     "title": "Settings",
@@ -3707,7 +3706,6 @@
   "activity": {
     "empty": "No activities",
     "endTime": "End time",
-    "joining": "Submitting…",
     "loadFailed": "Failed to load",
     "participants": "Participants",
     "startTime": "Start time",
@@ -5061,7 +5059,7 @@
     "analysisEstimate": "About {tokens} tokens · {difficulty}",
     "analysisPickFirst": "Pick a scenario first",
     "analysisSubmit": "Start analysis",
-    "noValidContent": "No importable content found"
+      "noValidContent": "No importable content found"
   },
   "permissionTier": {
     "label": "Permission tier",
@@ -7543,7 +7541,6 @@
     "wrongBookTitle": "Wrong Book"
   },
   "activities": {
-    "cancelJoin": "Cancel registration",
     "join": "Join Now",
     "notFound": "Activity not found or offline"
   },

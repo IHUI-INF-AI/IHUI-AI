@@ -16,7 +16,7 @@ import { ChevronLeft, Play } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { LivePlaybackScreenItem, LivePlaybackScreenProps } from '../../types'
 
-import { rnCssLight, rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 
@@ -123,7 +123,7 @@ export function LivePlaybackScreen({
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>{activeItem?.title}</Text>
             <View style={styles.playerArea}>
-              <Play size={36} color={rnCssLight.white95} />
+              <Play size={36} color={tk.surface.light} />
               <Text style={styles.playerHint}>{t('livePlayback.replayTitle')}</Text>
               {activeItem?.playUrl ? (
                 <Text style={styles.playerUrl} numberOfLines={1}>
@@ -156,7 +156,7 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.primary,
     },
     subtitle: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.secondary },
-    userText: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.medium },
+    userText: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.tertiary },
     list: { flex: 1, paddingHorizontal: rnSpacing['sm-loose'] },
     card: {
       padding: rnSpacing.md,
@@ -227,12 +227,12 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    playerIcon: { fontSize: 36, color: rnCssLight.white95 },
-    playerHint: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.surface.onBrand },
+    playerIcon: { fontSize: 36, color: tk.surface.light },
+    playerHint: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.tertiary },
     playerUrl: {
       marginTop: rnSpacing.sm,
       fontSize: rnType.badge.size,
-      color: tk.surface.onBrand,
+      color: tk.text.secondary,
       paddingHorizontal: rnSpacing['sm-loose'],
     },
     closeBtn: {

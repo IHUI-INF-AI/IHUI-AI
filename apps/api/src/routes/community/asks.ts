@@ -26,7 +26,6 @@ import {
   findAsks,
   findCircleById,
   findPostById,
-  findPostByIdForAdmin,
   updateAsk,
   updateCircleShowStatus,
 } from '../../db/community-queries.js'
@@ -696,8 +695,7 @@ const asksRoutes: FastifyPluginAsync = async (server) => {
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-    // F-176:管理端需看见已下架(status!=1)帖子,走不过滤的读函数。
-    const existing = await findPostByIdForAdmin(parsed.data.id)
+    const existing = await findPostById(parsed.data.id)
     if (!existing) {
       return reply.status(404).send(error(404, '帖子不存在'))
     }
@@ -725,8 +723,7 @@ const asksRoutes: FastifyPluginAsync = async (server) => {
     if (!body.success) {
       return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
     }
-    // F-176:管理端审核需看见已下架/待审(status!=1)帖子,走不过滤的读函数。
-    const existing = await findPostByIdForAdmin(parsed.data.id)
+    const existing = await findPostById(parsed.data.id)
     if (!existing) {
       return reply.status(404).send(error(404, '帖子不存在'))
     }
@@ -770,8 +767,7 @@ const asksRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, query.error.issues[0]?.message ?? '参数错误'))
     }
     const { page, pageSize } = query.data
-    // F-176:管理端评论审计需看见已下架帖子的评论,走不过滤的读函数。
-    const existing = await findPostByIdForAdmin(parsed.data.id)
+    const existing = await findPostById(parsed.data.id)
     if (!existing) {
       return reply.status(404).send(error(404, '帖子不存在'))
     }

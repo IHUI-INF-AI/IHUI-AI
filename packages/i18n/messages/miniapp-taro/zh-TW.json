@@ -5142,7 +5142,6 @@
   "courseScreen": {
     "title": "全部課程",
     "searchPlaceholder": "搜尋課程",
-    "search": "搜尋",
     "empty": "暫無課程",
     "free": "免費",
     "studentCount": "{count} 人學過",
@@ -6669,9 +6668,7 @@
     "enroll": "立即報名",
     "pay": "支付 ¥{amount}",
     "lessons": "課程目錄",
-    "completed": "已學完",
-    "learning": "學習中",
-    "locked": "未解鎖"
+    "completed": "已學完"
   },
   "earnCommission": {
     "title": "分傭計畫",

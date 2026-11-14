@@ -648,14 +648,14 @@ const styles = StyleSheet.create({
   },
   meta: {
     fontSize: rnType.label.size,
-    color: tokens.text.medium,
+    color: tokens.text.tertiary,
   },
   field: {
     gap: rpx(6),
   },
   fieldLabel: {
     fontSize: rnType.label.size,
-    color: tokens.text.medium,
+    color: tokens.text.tertiary,
   },
   toolName: {
     fontSize: rnType.body.size,
@@ -678,7 +678,7 @@ const styles = StyleSheet.create({
   },
   error: {
     fontSize: rnType.label.size,
-    color: tokens.danger.deepText,
+    color: tokens.danger.DEFAULT,
   },
   scopeRow: {
     gap: rpx(8),
@@ -780,7 +780,7 @@ const styles = StyleSheet.create({
   },
   trayRow: {
     fontSize: rnType.label.size,
-    color: tokens.text.medium,
+    color: tokens.text.tertiary,
   },
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

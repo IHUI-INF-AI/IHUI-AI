@@ -103,7 +103,7 @@ export function AvatarEditor({
             value={urlInput}
             onChangeText={setUrlInput}
             placeholder={t('profileEdit.avatarUrlPlaceholder')}
-            placeholderTextColor={tk.text.secondary}
+            placeholderTextColor={tk.text.tertiary}
             autoCapitalize="none"
             autoCorrect={false}
           />
@@ -172,7 +172,7 @@ function createAvatarStyles(tk: AppThemeTokens) {
     avatarActionPrimaryText: { fontSize: rnType.body.size, color: tk.brand.ctaForeground },
     avatarActionOutlineText: { fontSize: rnType.body.size, color: tk.text.secondary },
     avatarHint: { alignItems: 'center', gap: rnSpacing['2xs'] },
-    avatarHintText: { fontSize: rnType.caption.size, color: tk.text.medium },
+    avatarHintText: { fontSize: rnType.caption.size, color: tk.text.tertiary },
     avatarUrlEntry: { width: '100%', gap: rnSpacing.sm, marginTop: rnSpacing.sm },
     avatarUrlInput: {
       borderWidth: 1,
@@ -290,7 +290,7 @@ export function ProfileEditScreen({
           value={nickname}
           onChangeText={onNicknameChange}
           placeholder={t('profileEdit.nicknamePlaceholder')}
-          placeholderTextColor={tk.text.secondary}
+          placeholderTextColor={tk.text.tertiary}
           maxLength={32}
         />
       </View>
@@ -320,7 +320,7 @@ export function ProfileEditScreen({
           value={bio}
           onChangeText={onBioChange}
           placeholder={t('profileEdit.bioPlaceholder')}
-          placeholderTextColor={tk.text.secondary}
+          placeholderTextColor={tk.text.tertiary}
           multiline
           maxLength={200}
           textAlignVertical="top"
@@ -384,7 +384,7 @@ function createStyles(tk: AppThemeTokens) {
     bioInput: { minHeight: 80, paddingTop: rnSpacing.md },
     bioCounter: {
       fontSize: rnType.label.size,
-      color: tk.text.medium,
+      color: tk.text.tertiary,
       textAlign: 'right',
       marginTop: rnSpacing.sm,
     },

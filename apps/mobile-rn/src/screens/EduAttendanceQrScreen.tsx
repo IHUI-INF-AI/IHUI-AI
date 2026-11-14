@@ -39,7 +39,6 @@ import { useAuthStore, selectIsAuthenticated } from '../stores/auth-store'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
-import { toFriendlyOr } from '@ihui/shared/utils'
 
 /** 班级行(只取本屏用得上的三列;后端 /class 返回整行,多字段无害)。 */
 interface ClassRow {
@@ -146,7 +145,7 @@ export function EduAttendanceQrScreen() {
       setQrError(res.error || 'load failed')
     } catch (e) {
       setQr(null)
-      setQrError(toFriendlyOr(e, t('common.loadFailed')))
+      setQrError(e instanceof Error ? e.message : 'load failed')
     } finally {
       setGenerating(false)
     }

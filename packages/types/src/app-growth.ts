@@ -248,12 +248,6 @@ export interface VipBenefitCardItem {
   key: string
   title: string
   desc?: string
-  /**
-   * 条目专属图标(2026-11-14 增补,可选)。缺省时共享段渲染统一的 ✓。
-   * 为什么要有:小程序 vip/details 与 web 详情页的权益区逐条带专属图标(对话/绘图/视频…),
-   * 只有统一 ✓ 会把带图标的端降级 ⇒ 该差异此前逼得两处只能手抄一份带图标的列表。
-   */
-  icon?: AppIcon
 }
 
 /** VIP 会员信息(平台注入,字段对齐 mobile-rn VipScreen MembershipInfo) */
@@ -282,18 +276,6 @@ export interface VipPlanOption {
   name: string
   price: number
   period: string
-  /**
-   * 卡面右上角标(2026-11-14 增补,可选)。如「推荐」。
-   * 为什么要有:小程序 vip/details 的年度档带推荐角标、web 详情页同位置也有徽章,
-   * 共享卡原先无此槽位 ⇒ 带角标的端只能整段手抄。
-   */
-  badge?: string
-  /**
-   * 档位逐条权益文案(可选)。如「畅享顶级模型,不限次数」。
-   * 为什么要有:小程序与 web 的套餐卡都在价格下方逐条列权益,共享卡原先只有「名/价/周期」三行
-   * ⇒ 逐条权益只能留在手抄页里,一段拆成两处实现。
-   */
-  features?: readonly string[]
 }
 
 /** 套餐选择卡(未传则不渲染) */
@@ -302,14 +284,9 @@ export interface VipPlansBlock {
   options: VipPlanOption[]
   selectedId: string
   onSelect: (id: string) => void
-  /**
-   * 自动续费行(2026-11-14 收为可选)。
-   * 为什么改:小程序 vip/details 是「一次性购买」语义,没有自动续费开关;
-   * 若该行必填,无此能力的端只能传空标签,渲染出一条空行(观感事故),或干脆继续手抄整段。
-   */
-  autoRenewLabel?: string
-  autoRenew?: boolean
-  onToggleAutoRenew?: () => void
+  autoRenewLabel: string
+  autoRenew: boolean
+  onToggleAutoRenew: () => void
   manageLabel?: string
   onManage?: () => void
   memberDescTitle?: string
@@ -481,17 +458,6 @@ export interface FollowScreenProps {
   onNavigate: OnNavigate
   /** 宿主轻提示端口(展示字段 toast 与本回调无关,不得复用) */
   onToast: OnToast
-  /**
-   * 列表顶部自定义区(可选,2026-11-14 增补)。承载搜索栏等页面级控件。
-   * 为什么要有:小程序 following 页在 tab 之下有搜索框,共享屏没有该槽位 ⇒ 该端只能整页手抄。
-   */
-  renderListHeader?: () => ReactNode
-  /** 空态下的主操作(可选;如「去发现更多」)。给了才渲染该按钮 */
-  emptyAction?: { label: string; onPress: () => void } | null
-  /** 空态文案覆盖(可选;如「未找到匹配用户」) */
-  emptyLabel?: string
-  /** 是否显示「没有更多了」尾部提示;默认 false */
-  showNoMore?: boolean
 }
 
 // ============ 批次 26-28(2026-07-29):分销/考试/财务/首页/实名/推广/招募/推荐/团队/视频/权益(12 屏迁移自 mobile-rn) ============
@@ -1127,10 +1093,6 @@ export interface DistributionOrderListScreenProps {
   loading: boolean
   loadingMore: boolean
   hasMore: boolean
-  /** 取数失败文案;非空时优先于空态渲染,避免把接口失败伪装成"暂无数据" */
-  errorText?: string
-  /** 错误态里的重试出口 */
-  onRetry?: () => void
   onSearch: () => void
   onKeywordChange: (keyword: string) => void
   onTabChange: (tab: string) => void

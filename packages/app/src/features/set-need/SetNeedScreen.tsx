@@ -116,7 +116,7 @@ export function SetNeedScreen({
             value={form.title}
             onChangeText={(v) => onFieldChange('title', v)}
             placeholder="一句话描述你的需求"
-            placeholderTextColor={tk.text.secondary}
+            placeholderTextColor={tk.text.tertiary}
             maxLength={TITLE_MAX}
           />
         </View>
@@ -130,7 +130,7 @@ export function SetNeedScreen({
             value={form.description}
             onChangeText={(v) => onFieldChange('description', v)}
             placeholder="详细说明需求背景、功能点、交付要求等(至少 10 字)"
-            placeholderTextColor={tk.text.secondary}
+            placeholderTextColor={tk.text.tertiary}
             multiline
             numberOfLines={4}
             textAlignVertical="top"
@@ -147,7 +147,7 @@ export function SetNeedScreen({
               value={form.lowestPrice}
               onChangeText={(v) => onFieldChange('lowestPrice', v)}
               placeholder="起步价"
-              placeholderTextColor={tk.text.secondary}
+              placeholderTextColor={tk.text.tertiary}
               keyboardType="numeric"
             />
             <Text style={styles.priceDash}>~</Text>
@@ -157,7 +157,7 @@ export function SetNeedScreen({
               value={form.peakPrice}
               onChangeText={(v) => onFieldChange('peakPrice', v)}
               placeholder="最高价"
-              placeholderTextColor={tk.text.secondary}
+              placeholderTextColor={tk.text.tertiary}
               keyboardType="numeric"
             />
           </View>
@@ -172,7 +172,7 @@ export function SetNeedScreen({
             value={form.contact}
             onChangeText={(v) => onFieldChange('contact', v)}
             placeholder="手机号 / 微信号 / 邮箱"
-            placeholderTextColor={tk.text.secondary}
+            placeholderTextColor={tk.text.tertiary}
             autoCapitalize="none"
           />
         </View>
@@ -184,7 +184,7 @@ export function SetNeedScreen({
             value={form.imgs}
             onChangeText={(v) => onFieldChange('imgs', v)}
             placeholder="可选，最多 5 张"
-            placeholderTextColor={tk.text.secondary}
+            placeholderTextColor={tk.text.tertiary}
             autoCapitalize="none"
           />
           {imageUrls.length > 0 ? (
@@ -209,7 +209,7 @@ export function SetNeedScreen({
             value={form.closingTime}
             onChangeText={(v) => onFieldChange('closingTime', v)}
             placeholder="例如 2026-12-31T23:59:59.000Z"
-            placeholderTextColor={tk.text.secondary}
+            placeholderTextColor={tk.text.tertiary}
             autoCapitalize="none"
           />
         </View>
@@ -293,7 +293,7 @@ function createStyles(tk: AppThemeTokens) {
     } as ViewStyle,
     fieldGroup: { gap: rnSpacing.sm } as ViewStyle,
     label: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary } as TextStyle,
-    required: { fontSize: rnType.title.size, color: tk.danger.deepText } as TextStyle,
+    required: { fontSize: rnType.title.size, color: tk.danger.DEFAULT } as TextStyle,
     input: {
       backgroundColor: tk.surface.muted,
       borderRadius: rnRadius.sm,
@@ -305,7 +305,7 @@ function createStyles(tk: AppThemeTokens) {
     textarea: { minHeight: 96, paddingTop: rnSpacing.md } as TextStyle,
     priceRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.sm } as ViewStyle,
     priceInput: { flex: 1 } as TextStyle,
-    priceDash: { fontSize: rnType.title.size, color: tk.text.medium } as TextStyle,
+    priceDash: { fontSize: rnType.title.size, color: tk.text.tertiary } as TextStyle,
     imageRow: { gap: rnSpacing.sm, paddingVertical: rnSpacing.xs } as ViewStyle,
     imagePreview: { width: 72, height: 72, borderRadius: rnRadius.lg } as ImageStyle,
     // 外层 = 在 scrollContent 里排下一块的布局档;面档(底色/圆角/内边距/居中)在 submitBtn,

@@ -46,7 +46,7 @@ export function SettingsAccountScreen({
         style={styles.input}
         value={account.name}
         onChangeText={onNameChange}
-        placeholderTextColor={tk.text.secondary}
+        placeholderTextColor={tk.text.tertiary}
       />
       <Text style={styles.label}>{t('settingsAccount.email')}</Text>
       <TextField
@@ -56,7 +56,7 @@ export function SettingsAccountScreen({
         onChangeText={onEmailChange}
         keyboardType="email-address"
         autoCapitalize="none"
-        placeholderTextColor={tk.text.secondary}
+        placeholderTextColor={tk.text.tertiary}
       />
       <Text style={styles.label}>{t('settingsAccount.phone')}</Text>
       <TextField
@@ -65,7 +65,7 @@ export function SettingsAccountScreen({
         value={account.phone}
         onChangeText={onPhoneChange}
         keyboardType="phone-pad"
-        placeholderTextColor={tk.text.secondary}
+        placeholderTextColor={tk.text.tertiary}
       />
       {error ? <Text style={styles.error}>{error}</Text> : null}
       {toast ? <Text style={styles.toast}>{toast}</Text> : null}
@@ -75,7 +75,7 @@ export function SettingsAccountScreen({
         disabled={saving}
       >
         {saving ? (
-          <ActivityIndicator color={tk.brandAccent.foreground} />
+          <ActivityIndicator color={tk.surface.light} />
         ) : (
           <Text style={styles.saveText}>{t('settingsAccount.save')}</Text>
         )}
@@ -111,8 +111,8 @@ function createStyles(tk: AppThemeTokens) {
       fontSize: rnType.title.size,
       color: tk.text.primary,
     },
-    error: { marginTop: rnSpacing.md, fontSize: rnType.body.size, color: tk.danger.deepText },
-    toast: { marginTop: rnSpacing.md, fontSize: rnType.body.size, color: tk.success.deepText },
+    error: { marginTop: rnSpacing.md, fontSize: rnType.body.size, color: tk.danger.DEFAULT },
+    toast: { marginTop: rnSpacing.md, fontSize: rnType.body.size, color: tk.success.DEFAULT },
     saveBtn: {
       marginTop: rnSpacing.lg,
       height: 50,

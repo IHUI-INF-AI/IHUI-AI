@@ -113,12 +113,7 @@ export default function Community() {
   const [myAgents, setMyAgents] = useState<MyAgentItem[]>([])
   const [agentList, setAgentList] = useState<AgentItem[]>([])
   const [fullAgentList, setFullAgentList] = useState<AgentItem[]>([])
-  // 首帧就当"加载中":初值 false 会让第一帧先画一次「暂无智能体」,接口回来才换成列表(闪空态)
-  const [loading, setLoading] = useState(true)
-  // 接口失败要能区分于"真的没有智能体",否则本页会永久停在空态且没有重试出口
-  const [loadError, setLoadError] = useState(false)
-  // 并发去重改用 ref:state 做闸门时,loading 初值 true 会把首屏那次 loadData 直接吞掉
-  const loadingRef = useRef(false)
+  const [loading, setLoading] = useState(false)
   const [page, setPage] = useState(1)
   const [hasMore, setHasMore] = useState(true)
   const [searchKeyword, setSearchKeyword] = useState('')
@@ -154,7 +149,7 @@ export default function Community() {
 
   const loadData = useCallback(
     async (reset = false) => {
-      if (loadingRef.current) return
+      if (loading) return
       let curPage = page
       if (reset) {
         curPage = 1
@@ -162,7 +157,6 @@ export default function Community() {
         setPage(1)
       }
       if (!hasMore && !reset) return
-      loadingRef.current = true
       setLoading(true)
       try {
         const res = await api.getAgentList()
@@ -184,8 +178,6 @@ export default function Community() {
           isNew: 0,
           type: 1,
         }))
-        // 取到了就清错误:重试成功后不能继续挂着上一次的错误面
-        setLoadError(false)
         if (reset) {
           const firstPage = mappedList.slice(0, PAGE_SIZE)
           setAgentList(firstPage)
@@ -202,18 +194,16 @@ export default function Community() {
           setPage(curPage + 1)
         }
       } catch {
-        // API 失败时不再用 mock,但也不能只清空列表:空列表看起来就是"本来没有智能体"
-        setLoadError(true)
+        // API 失败时降级到空列表(不再用 mock)
         if (reset) {
           setAgentList([])
           setFullAgentList([])
         }
       } finally {
-        loadingRef.current = false
         setLoading(false)
       }
     },
-    [page, hasMore, tt],
+    [loading, page, hasMore, tt],
   )
 
   /** 加载历史对话(对齐原项目 loadHistoryChat) */
@@ -853,20 +843,7 @@ export default function Community() {
                 onSelect={onAgentListSelect}
                 onPurchase={handlePurchase}
               />
-              {/* 错误优先于空态:失败时给出可点的重试出口,否则本页看不到任何反馈。
-                  样式复用本页既有的 community-empty/community-empty-text,不新造样式 */}
-              {!loading && loadError ? (
-                <View
-                  className="community-empty"
-                  onClick={() => void loadData(true)}
-                  hoverClass="opacity-60"
-                >
-                  <Text className="community-empty-text">
-                    {tt('community.loadFailedTapRetry', '加载失败，点击重试')}
-                  </Text>
-                </View>
-              ) : null}
-              {!loading && !loadError && agentList.length === 0 ? (
+              {!loading && agentList.length === 0 ? (
                 <EmptyState text={tt('agent.empty', '暂无智能体')} />
               ) : null}
               {!loading && !hasMore && agentList.length > 0 ? (

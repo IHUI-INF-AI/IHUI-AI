@@ -3,25 +3,35 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * Resource/Certificate 模块(3 个端点:/resources/:id/like + /certificates/issue + /certificates/:id/revoke)。
+ * Resource/Certificate 模块(4 个端点:/resources/:id/like + /resources/:id/unlike
+ * + /certificates/issue + /certificates/:id/revoke)。
  * 注:/resources/:id/download 已在 resource.ts 真实化。
  */
 import type { FastifyPluginAsync } from 'fastify'
 import { randomUUID } from 'node:crypto'
 import { success, error } from '../../utils/response.js'
 import { requireAdmin } from '../../plugins/require-permission.js'
-import { toggleLike } from '../../db/resource-likes-queries.js'
+import { likeResource, unlikeResource } from '../../db/resource-likes-queries.js'
 import { createCertificate, updateCertificateStatus } from '../../db/certificate-queries.js'
 import { parseIdParam } from './_shared.js'
 
 const resourcesRoutes: FastifyPluginAsync = async (server) => {
+  // F-598:点赞/取消拆成两个幂等端点,重试或并发点赞不会被反转成取消。
   server.post('/resources/:id/like', async (request, reply) => {
     const id = parseIdParam(request, reply)
     if (id === null) return
-    // 2026-10-27:userId 缺失时原写法 `request.userId!` 会把 undefined 送进 toggleLike
+    // 2026-10-27:userId 缺失时原写法 `request.userId!` 会把 undefined 送进点赞查询
     // (barrel 钩子已保证登录,这里是纵深防御 + 干净 401,而不是 500)
     if (!request.userId) return reply.status(401).send(error(401, '未登录'))
-    const result = await toggleLike('resource', id, request.userId)
+    const result = await likeResource('resource', id, request.userId)
+    return reply.send(success({ success: true, liked: result.liked }))
+  })
+
+  server.post('/resources/:id/unlike', async (request, reply) => {
+    const id = parseIdParam(request, reply)
+    if (id === null) return
+    if (!request.userId) return reply.status(401).send(error(401, '未登录'))
+    const result = await unlikeResource('resource', id, request.userId)
     return reply.send(success({ success: true, liked: result.liked }))
   })
 

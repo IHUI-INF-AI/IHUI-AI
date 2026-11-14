@@ -72,6 +72,12 @@ export interface ClaimMutex {
 const CLAIM_LOCK_PREFIX = 'ihui:automation-repair:claim:'
 const CLAIM_LOCK_TTL_MS = 120_000
 
+/**
+ * 任务租约时长。claimed/running 落租约,执行期间心跳续租;进程 OOM/重启后
+ * 超出租约的任务由 runCycle 回收为 pending,不再永久卡死。
+ */
+export const REPAIR_TASK_LEASE_MS = 15 * 60_000
+
 /** 生产实现:包一层仓内既有 DistributedLock(Redis SET NX PX + Lua 原子释放)。 */
 export function createDistributedClaimMutex(redis: Redis): ClaimMutex {
   const locker = new DistributedLock(redis)
@@ -105,14 +111,15 @@ export function createFailClosedClaimMutex(): ClaimMutex {
 /**
  * 合法迁移:
  * pending → claimed(认领) | claimed → running(开工) | claimed → pending(释放回队列)
- * running → fixed | running → failed | failed → claimed(重试,受 maxAttempts 约束)
+ * running → fixed | running → failed | running → pending(租约到期回收)
+ * failed → claimed(重试,受 maxAttempts 约束)
  * fixed 为终态。表外迁移一律拒绝。
  */
 const ALLOWED_TRANSITIONS: Readonly<Partial<Record<RepairTaskState, readonly RepairTaskState[]>>> =
   {
     pending: ['claimed'],
     claimed: ['running', 'pending'],
-    running: ['fixed', 'failed'],
+    running: ['fixed', 'failed', 'pending'],
     failed: ['claimed'],
     fixed: [],
   }
@@ -163,6 +170,8 @@ export interface RepairTaskStore {
   ): { task: RepairTaskRecord; created: boolean }
   /** 校验状态机后落迁移;非法迁移抛 InvalidRepairTransitionError。 */
   transition(key: string, to: RepairTaskState, by: string, note?: string): RepairTaskRecord
+  /** 续租心跳:claimed/running 期间刷新 leaseUntil/heartbeatAt;非在途返回 null。 */
+  renewLease(key: string): RepairTaskRecord | null
 }
 
 interface StoreFileShape {
@@ -270,11 +279,15 @@ export function createRepairTaskStore(filePath: string, audit?: AuditLogger): Re
       }
       const from = task.state
       const entry: RepairTaskTransition = { from, to, at: nowIso(), by, ...(note ? { note } : {}) }
+      // 租约只在在途状态(claimed/running)有效;进入其它状态一律清空,回收判据唯一
+      const inFlight = to === 'claimed' || to === 'running'
       const next: RepairTaskRecord = {
         ...task,
         state: to,
         attempts: to === 'running' ? task.attempts + 1 : task.attempts,
         updatedAt: entry.at,
+        leaseUntil: inFlight ? new Date(Date.now() + REPAIR_TASK_LEASE_MS).toISOString() : null,
+        heartbeatAt: inFlight ? entry.at : null,
         history: [...task.history, entry],
       }
       s.tasks[key] = next
@@ -287,6 +300,20 @@ export function createRepairTaskStore(filePath: string, audit?: AuditLogger): Re
         by,
         note: redactSecrets(note ?? '', []),
       })
+      return next
+    },
+    renewLease(key) {
+      const s = ensureLoaded()
+      const task = s.tasks[key]
+      if (!task || (task.state !== 'claimed' && task.state !== 'running')) return null
+      const at = nowIso()
+      const next: RepairTaskRecord = {
+        ...task,
+        leaseUntil: new Date(Date.now() + REPAIR_TASK_LEASE_MS).toISOString(),
+        heartbeatAt: at,
+      }
+      s.tasks[key] = next
+      persist()
       return next
     },
   }
@@ -534,6 +561,40 @@ export function createAutomationRepairService(
     return null
   }
 
+  /** 回收超租约任务:claimed/running 且租约到期 ⇒ 置回 pending,下一轮可重新领取。 */
+  function reclaimExpiredLeases(): number {
+    const now = Date.now()
+    const expired = [...store.list('claimed'), ...store.list('running')].filter((task) => {
+      const explicit = task.leaseUntil ? Date.parse(task.leaseUntil) : Number.NaN
+      // 升级前写入的旧快照没有租约字段:以 updatedAt 兜底推算,避免历史卡死任务永远留在原地
+      const leaseUntil = Number.isNaN(explicit)
+        ? Date.parse(task.updatedAt) + REPAIR_TASK_LEASE_MS
+        : explicit
+      return Number.isFinite(leaseUntil) && leaseUntil < now
+    })
+    let reclaimed = 0
+    for (const task of expired) {
+      try {
+        store.transition(
+          task.key,
+          'pending',
+          'system:lease-reclaim',
+          `租约到期回收(${task.state},leaseUntil=${task.leaseUntil ?? 'legacy'})`,
+        )
+        reclaimed++
+      } catch (err) {
+        audit?.warn('[automation-repair] 超租约任务回收失败', {
+          key: task.key,
+          err: safe(String(err)),
+        })
+      }
+    }
+    if (reclaimed > 0) {
+      audit?.warn('[automation-repair] 回收超租约任务', { count: reclaimed })
+    }
+    return reclaimed
+  }
+
   async function executeClaimed(task: RepairTaskRecord): Promise<RepairRunReport> {
     const running = store.transition(task.key, 'running', owner, '开始执行')
     const fixTask: FixTask = {
@@ -545,12 +606,15 @@ export function createAutomationRepairService(
       url: running.url,
       issueNumber: running.issueNumber,
     }
+    // 长任务按关键 await 续租:执行前与执行后各刷一次,避免租约在执行期间先行到期
+    store.renewLease(task.key)
     let result: FixResult
     try {
       result = await executor.execute(fixTask)
     } catch (err) {
       result = { ok: false, summary: '', error: safe(String(err)) }
     }
+    store.renewLease(task.key)
     let summary = safe(result.summary || (result.ok ? '执行成功' : '执行失败'))
     if (!result.ok && result.error) summary = `${summary} ${safe(result.error)}`.trim()
     const finalState: RepairTaskState = result.ok ? 'fixed' : 'failed'
@@ -592,6 +656,8 @@ export function createAutomationRepairService(
     claim,
     runNext,
     async runCycle() {
+      // 先回收上一轮因进程中断而超租约的任务,再进入正常摄入/领取
+      reclaimExpiredLeases()
       const ingested = await this.ingestPending()
       const results: RepairRunReport[] = []
       for (let i = 0; i < batchLimit; i++) {

@@ -165,7 +165,12 @@ async function callRoute(spec: RouteToolSpec, args: Record<string, unknown>): Pr
   for (const name of pathArgNames) {
     const v = args[name]
     if (v === undefined || v === null) throw new Error(`缺少路径参数 ${name}`)
-    path = path.replace(`:${name}`, encodeURIComponent(String(v)))
+    const encoded = encodeURIComponent(String(v))
+    // 两种占位形态都替换(2026-11-13 实测补):`:id` 是本工厂的惯例,`{id}` 是 OpenAPI/FastAPI
+    // 的写法 —— 插件作者从 Swagger 或 ai-service 抄路径时写的就是后者。只替换 `:name` 会让
+    // `{id}` 原样留在 URL 上发出,得到一个语义不明的 404(而不是"缺参数"这种可归因的错误)。
+    // 两种都替换是幂等的:path 里通常只有其中一种。
+    path = path.split(`:${name}`).join(encoded).split(`{${name}}`).join(encoded)
   }
 
   // 路径参数已写进 path;其余按方法分流:GET 走 query,写方法走 body。

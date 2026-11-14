@@ -137,17 +137,17 @@ function createStyles(tk: AppThemeTokens) {
     badgeFailed: { backgroundColor: tk.danger.light },
     badgePassedText: {
       fontSize: rnType.caption.size,
-      color: tk.success.deepText,
+      color: tk.success.DEFAULT,
       fontWeight: '600',
     },
-    badgeFailedText: { fontSize: rnType.caption.size, color: tk.danger.deepText, fontWeight: '600' },
+    badgeFailedText: { fontSize: rnType.caption.size, color: tk.danger.DEFAULT, fontWeight: '600' },
     metaRow: {
       flexDirection: 'row',
       justifyContent: 'space-between',
       marginTop: rnSpacing.sm,
     },
     score: { fontSize: rnType.subtitle.size, fontWeight: '700', color: tk.brand.DEFAULT },
-    metaTime: { fontSize: rnType.caption.size, color: tk.text.medium },
+    metaTime: { fontSize: rnType.caption.size, color: tk.text.tertiary },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

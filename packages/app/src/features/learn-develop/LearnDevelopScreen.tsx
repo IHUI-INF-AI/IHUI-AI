@@ -8,9 +8,7 @@ import {
   Text,
   Pressable,
   ScrollView,
-  Image,
   StyleSheet,
-  type ImageStyle,
   type TextStyle,
   type ViewStyle,
 } from 'react-native'
@@ -19,7 +17,6 @@ import type { LearnDevelopEntry, LearnDevelopScreenProps } from '../../types'
 
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
-import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 import { assertRequiredPort } from '../../host/ports'
 
 export type { LearnDevelopEntry, LearnDevelopScreenProps }
@@ -37,14 +34,6 @@ export function LearnDevelopScreen({
   entries = [],
   colorScheme = 'light',
   onNavigate,
-  hideHeader = false,
-  entriesTitle,
-  coursesTitle,
-  courses,
-  coursesSection = 'ready',
-  onRetry,
-  coursesEmptyLabel,
-  onCoursePress,
 }: LearnDevelopScreenProps) {
   assertRequiredPort('onNavigate', onNavigate)
 
@@ -53,14 +42,11 @@ export function LearnDevelopScreen({
 
   return (
     <View style={styles.container}>
-      {hideHeader ? null : (
-        <View style={styles.header}>
-          <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
-          <Text style={styles.title}>{t('learnDevelop.title', { fallback: '学习开发' })}</Text>
-        </View>
-      )}
+      <View style={styles.header}>
+        <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
+        <Text style={styles.title}>{t('learnDevelop.title', { fallback: '学习开发' })}</Text>
+      </View>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {entriesTitle ? <Text style={styles.sectionTitle}>{entriesTitle}</Text> : null}
         <View style={styles.grid}>
           {entries.map((entry: LearnDevelopEntry) => (
             // 按压态样式**不得写在 Pressable 的 style 上**(守门 131 那一型):Pressable 注册过
@@ -88,73 +74,11 @@ export function LearnDevelopScreen({
                   <Text style={styles.entryDesc} numberOfLines={2}>
                     {entry.desc}
                   </Text>
-                  {entry.meta ? <Text style={styles.entryMeta}>{entry.meta}</Text> : null}
-                  {typeof entry.progress === 'number' ? (
-                    <View style={styles.entryBar}>
-                      <View
-                        style={[
-                          styles.entryBarFill,
-                          { width: `${Math.min(100, Math.max(0, entry.progress))}%` },
-                        ]}
-                      />
-                    </View>
-                  ) : null}
                 </View>
               )}
             </Pressable>
           ))}
         </View>
-        {coursesTitle ? (
-          <>
-            <Text style={styles.sectionTitle}>{coursesTitle}</Text>
-            {coursesSection === 'loading' ? (
-              <ScreenSkeleton variant="list" count={4} colorScheme={colorScheme} />
-            ) : coursesSection === 'error' ? (
-              <ErrorState
-                message={t('common.loadFailed')}
-                onRetry={onRetry}
-                retryLabel={t('common.retry')}
-                colorScheme={colorScheme}
-              />
-            ) : coursesSection === 'empty' || !courses || courses.length === 0 ? (
-              <EmptyState
-                title={coursesEmptyLabel ?? t('common.empty')}
-                colorScheme={colorScheme}
-              />
-            ) : (
-              <View style={styles.courseList}>
-                {courses.map((course) => (
-                  <Pressable
-                    key={course.id}
-                    style={styles.courseCard}
-                    onPress={() => onCoursePress?.(course.id)}
-                    accessibilityRole="button"
-                    accessibilityLabel={course.title}
-                  >
-                    {course.coverUrl ? (
-                      <Image source={{ uri: course.coverUrl }} style={styles.courseCover} />
-                    ) : null}
-                    <View style={styles.courseBody}>
-                      <Text style={styles.courseTitle} numberOfLines={2}>
-                        {course.title}
-                      </Text>
-                      {course.teacher ? (
-                        <Text style={styles.courseMeta}>
-                          {t('courseScreen.instructor', { name: course.teacher })}
-                        </Text>
-                      ) : null}
-                      <Text style={styles.coursePrice}>
-                        {course.price === null || course.price === undefined || course.price <= 0
-                          ? t('courseScreen.free')
-                          : `¥${course.price.toFixed(2)}`}
-                      </Text>
-                    </View>
-                  </Pressable>
-                ))}
-              </View>
-            )}
-          </>
-        ) : null}
         {onContact ? (
           // 同上(守门 131):alignSelf/width/height/marginTop 是外层在滚动列里占槽位的布局档
           // (width 187 × height 38 定义盒子) ⇒ 留外层;底色/胶囊圆角/投影/居中档 + 淡出落内层,
@@ -225,7 +149,7 @@ function createStyles(tk: AppThemeTokens) {
     } as TextStyle,
     entryDesc: {
       fontSize: rnType.body.size,
-      color: tk.text.medium,
+      color: tk.text.tertiary,
       textAlign: 'center',
       lineHeight: rnType.label.lineHeight,
     } as TextStyle,
@@ -255,45 +179,8 @@ function createStyles(tk: AppThemeTokens) {
     detailsButtonText: {
       fontSize: rnType.title.size,
       fontWeight: '700',
-      color: tk.gray.black,
-    } as TextStyle,
-    sectionTitle: {
-      fontSize: rnType.title.size,
-      fontWeight: '700',
       color: tk.text.primary,
-      marginTop: rnSpacing.lg,
-      marginBottom: rnSpacing.sm,
     } as TextStyle,
-    entryMeta: { fontSize: rnType.caption.size, color: tk.text.secondary } as TextStyle,
-    entryBar: {
-      alignSelf: 'stretch',
-      height: 6,
-      borderRadius: rnRadius.sm,
-      backgroundColor: tk.surface.muted,
-      overflow: 'hidden',
-      marginTop: rnSpacing['2xs'],
-    } as ViewStyle,
-    entryBarFill: { height: '100%', backgroundColor: tk.success.DEFAULT } as ViewStyle,
-    courseList: { gap: rnSpacing.sm } as ViewStyle,
-    courseCard: {
-      flexDirection: 'row',
-      gap: rnSpacing.md,
-      padding: rnSpacing.md,
-      borderRadius: rnRadius.lg,
-      borderWidth: 1,
-      borderColor: tk.border.light,
-      backgroundColor: tk.surface.card,
-    } as ViewStyle,
-    courseCover: {
-      width: 110,
-      height: 110,
-      borderRadius: rnRadius.md,
-      backgroundColor: tk.border.light,
-    } as ImageStyle,
-    courseBody: { flex: 1, gap: rnSpacing.xs } as ViewStyle,
-    courseTitle: { fontSize: rnType.subtitle.size, fontWeight: '600', color: tk.text.primary } as TextStyle,
-    courseMeta: { fontSize: rnType.label.size, color: tk.text.secondary } as TextStyle,
-    coursePrice: { fontSize: rnType.title.size, fontWeight: '700', color: tk.text.primary } as TextStyle,
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

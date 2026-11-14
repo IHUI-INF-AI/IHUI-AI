@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react'
 import { useTheme } from '../context/ThemeContext'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { getComments, getLikeCounts, getPlazaDetail } from '@ihui/api-client'
+import { getPlazaDetail } from '@ihui/api-client'
 import { apiFailureToText } from '@ihui/shared/utils'
 import { PostDetailScreen as SharedPostDetailScreen, type PostDetailItem } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
@@ -39,33 +39,14 @@ export function PostDetailScreen() {
       if (cancelled) return
       if (res.success) {
         const item = res.data
-        // 详情回包不带点赞/评论计数(后端 /plaza 详情只回内容字段),此前这里把两者
-        // 硬编码成 0 ⇒ 用户永远看到 0 0。改走既有的两个只读查询面:
-        //   · 点赞数 POST /behavior/likes/counts —— behavior 面**只有查计数,没有点赞写端点**
-        //     (backend `toggleLike` 已实现但没有任何路由暴露它),所以这里只取真实数、不做点赞动作
-        //   · 评论数 GET /comments?resourceType=post —— 评论写入端点存在,但 RN 侧没有评论页可跳
-        // 两者都 allSettled:计数取不到不得拖垮详情本身,回落 0。
-        const [likeRes, commentRes] = await Promise.allSettled([
-          getLikeCounts('post', [String(item.id)]),
-          getComments({ resourceType: 'post', resourceId: String(item.id), page: 1, pageSize: 1 }),
-        ])
-        if (cancelled) return
-        const likes =
-          likeRes.status === 'fulfilled' && likeRes.value.success
-            ? (likeRes.value.data.find((row) => row.resourceId === String(item.id))?.count ?? 0)
-            : 0
-        const comments =
-          commentRes.status === 'fulfilled' && commentRes.value.success
-            ? (commentRes.value.data.total ?? 0)
-            : 0
         setPost({
           id: item.id,
           title: item.title,
           content: item.description ?? '',
           author: item.creator ?? t('ranking.anonymous'),
           createdAt: item.createdAt ?? '',
-          likes,
-          comments,
+          likes: 0,
+          comments: 0,
           status: item.status,
           taskStatus: item.taskStatus,
           imgs: item.imgs,

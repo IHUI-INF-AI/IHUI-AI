@@ -222,7 +222,7 @@ function makeStyles() {
       color: tokens.brand.ctaForeground,
     },
     muted: { fontSize: rnType.bodySm.size, color: tokens.text.secondary, lineHeight: 19 },
-    error: { fontSize: rnType.bodySm.size, color: tokens.danger.deepText },
+    error: { fontSize: rnType.bodySm.size, color: tokens.danger.DEFAULT },
     loading: { paddingVertical: rnSpacing.lg },
     centerBox: { alignItems: 'center', gap: rnSpacing.sm, paddingVertical: rnSpacing.lg },
     emptyTitle: { fontSize: rnType.body.size, fontWeight: '600', color: tokens.text.primary },
@@ -259,7 +259,7 @@ function makeStyles() {
       borderColor: tokens.danger.DEFAULT,
       backgroundColor: tokens.surface.card,
     },
-    overdueText: { fontSize: rnType.badge.size, fontWeight: '700', color: tokens.danger.deepText },
+    overdueText: { fontSize: rnType.badge.size, fontWeight: '700', color: tokens.danger.DEFAULT },
     itemMetaRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.sm },
     typeChip: {
       paddingHorizontal: rnSpacing['xs-loose'],
@@ -268,7 +268,7 @@ function makeStyles() {
       backgroundColor: tokens.surface.muted,
     },
     typeChipText: { fontSize: rnType.badge.size, color: tokens.text.secondary },
-    meta: { fontSize: rnType.label.size, color: tokens.text.medium },
+    meta: { fontSize: rnType.label.size, color: tokens.text.tertiary },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

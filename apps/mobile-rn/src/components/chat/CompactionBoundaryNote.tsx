@@ -12,13 +12,12 @@
  *  - 默认收起,点标题展开;刷新/换端后由屏幕查询 `/compaction-boundaries` 回填。
  */
 import { useState } from 'react'
-import { StyleSheet, Text, View } from 'react-native'
+import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { rnGeometry, rnRadius } from '@ihui/design-tokens'
 import type { CompactBoundary } from '@ihui/shared'
 import { boundaryAnchorLines, formatRemovedRange } from '../../utils/compaction-boundary'
 import { tokens } from '../../theme/active-tokens'
 import { rpx } from '../../utils/rpx'
-import { Tappable } from '@ihui/ui-native'
 
 export interface CompactionBoundaryNoteProps {
   boundary: CompactBoundary
@@ -31,7 +30,7 @@ export function CompactionBoundaryNote({ boundary }: CompactionBoundaryNoteProps
   if (lines.length === 0 && !removedText) return null
   return (
     <View style={styles.card} testID="compaction-boundary-note">
-      <Tappable
+      <Pressable
         accessibilityRole="button"
         accessibilityState={{ expanded }}
         style={styles.header}
@@ -39,7 +38,7 @@ export function CompactionBoundaryNote({ boundary }: CompactionBoundaryNoteProps
       >
         <Text style={styles.title}>压缩前关键片段</Text>
         <Text style={styles.toggle}>{expanded ? '收起' : '查看压缩前关键片段'}</Text>
-      </Tappable>
+      </Pressable>
       {expanded ? (
         <View style={styles.body}>
           {removedText ? <Text style={styles.removed}>{removedText}</Text> : null}
@@ -111,7 +110,7 @@ const styles = StyleSheet.create({
   },
   empty: {
     fontSize: rnGeometry.textCaption,
-    color: tokens.text.medium,
+    color: tokens.text.tertiary,
   },
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

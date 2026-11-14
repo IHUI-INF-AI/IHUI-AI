@@ -108,7 +108,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.bg,
     },
     muted: { fontSize: rnType.body.size, color: tk.text.secondary, marginTop: rnSpacing.sm },
-    error: { fontSize: rnType.body.size, color: tk.danger.deepText, textAlign: 'center' },
+    error: { fontSize: rnType.body.size, color: tk.danger.DEFAULT, textAlign: 'center' },
     backBtn: { marginTop: rnSpacing.md },
   })
 }

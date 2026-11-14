@@ -186,11 +186,6 @@ export default function VipTraderScreen() {
       }}
       colorScheme={resolvedTheme}
       onToast={onToast}
-      // 三个入口(团队/统计/提现):此前共享屏只有视觉、没有手势,三颗都是死按钮。
-      // 目标路由在 RootStackParamList 里都有,直接接导航即可;小程序端走薄壳复用本壳,自动继承。
-      onPressTeam={() => navigation.navigate('Team')}
-      onPressStats={() => navigation.navigate('Income')}
-      onPressWithdraw={() => navigation.navigate('Withdraw')}
     />
   )
 }

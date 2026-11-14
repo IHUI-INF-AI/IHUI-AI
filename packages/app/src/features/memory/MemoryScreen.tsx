@@ -256,7 +256,7 @@ export function MemoryScreen({
                 value={search}
                 onChangeText={onSearchChange}
                 placeholder={t('memory.searchPlaceholder')}
-                placeholderTextColor={tk.text.secondary}
+                placeholderTextColor={tk.text.tertiary}
                 returnKeyType="search"
               />
               {/* scope chips */}
@@ -333,7 +333,7 @@ export function MemoryScreen({
               value={newText}
               onChangeText={onNewTextChange}
               placeholder={t('memory.textPlaceholder')}
-              placeholderTextColor={tk.text.secondary}
+              placeholderTextColor={tk.text.tertiary}
               multiline
               numberOfLines={4}
               textAlignVertical="top"
@@ -344,7 +344,7 @@ export function MemoryScreen({
               value={newCategory}
               onChangeText={onNewCategoryChange}
               placeholder={t('memory.categoryPlaceholder')}
-              placeholderTextColor={tk.text.secondary}
+              placeholderTextColor={tk.text.tertiary}
             />
             <Text style={styles.fieldLabel}>{t('memory.typeLabel')}</Text>
             <View style={styles.chipsRowTight}>
@@ -527,7 +527,7 @@ function createStyles(tk: AppThemeTokens) {
     metaText: {
       marginTop: rnSpacing.sm,
       fontSize: rnType.caption.size,
-      color: tk.text.medium,
+      color: tk.text.tertiary,
     },
     deleteBtn: {
       alignSelf: 'flex-start',
@@ -539,7 +539,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     deleteText: {
       fontSize: rnType.label.size,
-      color: tk.danger.deepText,
+      color: tk.danger.DEFAULT,
     },
     rowActions: {
       flexDirection: 'row',

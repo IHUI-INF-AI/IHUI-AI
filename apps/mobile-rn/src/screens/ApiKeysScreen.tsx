@@ -461,7 +461,7 @@ function makeStyles() {
     cardTitle: { fontSize: rnType.title.size, fontWeight: '600', color: tokens.text.primary },
     label: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tokens.text.primary },
     muted: { fontSize: rnType.bodySm.size, color: tokens.text.secondary, lineHeight: 19 },
-    error: { fontSize: rnType.bodySm.size, color: tokens.danger.deepText },
+    error: { fontSize: rnType.bodySm.size, color: tokens.danger.DEFAULT },
     loading: { paddingVertical: rnSpacing.lg },
     centerBox: { alignItems: 'center', gap: rnSpacing.sm, paddingVertical: rnSpacing.lg },
     emptyTitle: { fontSize: rnType.body.size, fontWeight: '600', color: tokens.text.primary },
@@ -559,10 +559,10 @@ function makeStyles() {
     },
     chipMore: {
       fontSize: rnType.badge.size,
-      color: tokens.text.medium,
+      color: tokens.text.tertiary,
       paddingHorizontal: rnSpacing.xs,
     },
-    meta: { fontSize: rnType.label.size, color: tokens.text.medium },
+    meta: { fontSize: rnType.label.size, color: tokens.text.tertiary },
     actions: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -571,7 +571,7 @@ function makeStyles() {
     },
     link: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tokens.text.primary },
     trashRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.xs },
-    dangerLink: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tokens.danger.deepText },
+    dangerLink: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tokens.danger.DEFAULT },
     usageBox: {
       marginTop: rnSpacing.xs,
       padding: rnSpacing['sm-loose'],

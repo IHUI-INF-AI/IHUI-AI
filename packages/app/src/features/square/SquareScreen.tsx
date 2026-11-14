@@ -316,12 +316,12 @@ function createStyles(tk: AppThemeTokens) {
     metaText: {
       fontSize: rnType.label.size,
       lineHeight: 14,
-      color: tk.text.medium,
+      color: tk.text.tertiary,
     } as TextStyle,
     sourceText: {
       fontSize: rnType.label.size,
       lineHeight: 14,
-      color: tk.text.medium,
+      color: tk.text.tertiary,
       marginTop: rnSpacing.xs,
     } as TextStyle,
 

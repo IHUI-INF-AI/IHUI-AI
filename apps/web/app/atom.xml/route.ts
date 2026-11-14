@@ -42,7 +42,7 @@ export async function GET() {
     <published>${item.publishedAt}</published>
     <author>
       <name>IHUI AI Team</name>
-      <email>lizong@aizhs.top</email>
+      <email>contact@aizhs.top</email>
     </author>
     <category term="${escapeXml(item.category)}" />
     <summary>${escapeXml(item.description)}</summary>

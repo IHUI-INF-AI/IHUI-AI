@@ -26,7 +26,7 @@ import { eq, and, sql, desc, lte, type SQL } from 'drizzle-orm'
 import { db, dbRead } from '../db/index.js'
 import { roundCents } from './relay-billing-service.js'
 import { relayCommissionRecords, systemConfigs, users, developerApiKeys } from '@ihui/database'
-import type { NewRelayCommissionRecord, RelayCommissionRecord } from '@ihui/database'
+import type { RelayCommissionRecord } from '@ihui/database'
 
 // =============================================================================
 // 常量
@@ -60,51 +60,6 @@ export interface CommissionConfig {
   frozenDays: number
 }
 
-// =============================================================================
-// 1b. 返佣率跨字段约束(F-164,2026-11-13)
-// =============================================================================
-
-/**
- * 返佣率组合非法(两级之和 > 100%)。
- * 路由层据此回 400;service 层写入前终闸(旁路调用方同样拦)。
- */
-export class CommissionInvalidRatesError extends Error {
-  readonly level1Rate: number
-  readonly level2Rate: number
-  constructor(level1Rate: number, level2Rate: number) {
-    super(
-      `返佣率总和不得超过 1(当前 level1=${level1Rate} + level2=${level2Rate} = ${level1Rate + level2Rate})`,
-    )
-    this.name = 'CommissionInvalidRatesError'
-    this.level1Rate = level1Rate
-    this.level2Rate = level2Rate
-  }
-}
-
-/** 单级费率夹到 [0,1](非有限值回退 fallback)。 */
-function clampRate(value: number, fallback: number): number {
-  if (!Number.isFinite(value)) return fallback
-  if (value < 0) return 0
-  if (value > 1) return 1
-  return value
-}
-
-/**
- * 校验两级费率组合:各自 0..1 且之和 ≤ 1。
- * 浮点边界留 1e-9 容差(0.6+0.4 这类二进制小数不误杀)。
- */
-export function validateCombinedRates(level1Rate: number, level2Rate: number): boolean {
-  return (
-    Number.isFinite(level1Rate) &&
-    Number.isFinite(level2Rate) &&
-    level1Rate >= 0 &&
-    level1Rate <= 1 &&
-    level2Rate >= 0 &&
-    level2Rate <= 1 &&
-    level1Rate + level2Rate <= 1 + 1e-9
-  )
-}
-
 /**
  * 读取返佣率配置(从 system_configs 表,未配置用默认值)。
  * key: 'relay_commission.level1_rate' / 'relay_commission.level2_rate' / 'relay_commission.frozen_days'
@@ -136,10 +91,6 @@ export async function getCommissionConfig(): Promise<CommissionConfig> {
 /**
  * 更新返佣率配置(upsert system_configs 表,admin 用)。
  * 仅传非 undefined 的字段,未传字段保持原值。
- *
- * F-164(2026-11-13):写入前按「生效组合」校验 level1+level2 ≤ 1 ——
- * 只改某一级时,另一半取现网存量值;组合非法 ⇒ 一条都不写并抛
- * CommissionInvalidRatesError(防止两级各 100% 叠加成 200% 返佣套现口子)。
  */
 export async function setCommissionConfig(
   patch: Partial<CommissionConfig>,
@@ -154,29 +105,6 @@ export async function setCommissionConfig(
   }
   if (patch.frozenDays !== undefined) {
     entries.push({ key: 'frozen_days', value: String(patch.frozenDays) })
-  }
-
-  const ratesTouched = patch.level1Rate !== undefined || patch.level2Rate !== undefined
-  if (ratesTouched) {
-    const base = await getCommissionConfig()
-    const eff1 = clampRate(patch.level1Rate ?? base.level1Rate, base.level1Rate)
-    const eff2 = clampRate(patch.level2Rate ?? base.level2Rate, base.level2Rate)
-    if (!validateCombinedRates(eff1, eff2)) {
-      throw new CommissionInvalidRatesError(eff1, eff2)
-    }
-    // 夹取后的合法值回写 entries(0.99+0.99 → 拦;1.5 → 夹 1;非法组合仍拦)
-    if (patch.level1Rate !== undefined) {
-      entries[entries.findIndex((e) => e.key === 'level1_rate')] = {
-        key: 'level1_rate',
-        value: String(eff1),
-      }
-    }
-    if (patch.level2Rate !== undefined) {
-      entries[entries.findIndex((e) => e.key === 'level2_rate')] = {
-        key: 'level2_rate',
-        value: String(eff2),
-      }
-    }
   }
 
   for (const e of entries) {
@@ -289,17 +217,10 @@ export async function recordRelayCommission(input: RecordCommissionInput): Promi
   const now = new Date()
   const frozenUntil = new Date(now.getTime() + config.frozenDays * 24 * 60 * 60 * 1000)
 
-  // F-162/F-164 记账侧封顶:单笔来源消费的返佣总预算 = sourceCostCents(100%成本),
-  // level1 先取,剩余预算再给 level2;即便配置非法,每笔之和也不会超过成本。
-  const clampedLevel1 = clampRate(config.level1Rate, DEFAULT_LEVEL1_RATE)
-  const clampedLevel2 = clampRate(config.level2Rate, DEFAULT_LEVEL2_RATE)
-  let budget = input.sourceCostCents
-  const rows: NewRelayCommissionRecord[] = []
-  for (const entry of chain) {
-    const rate = entry.level === 1 ? clampedLevel1 : clampedLevel2
-    const commissionCents = Math.min(roundCents(input.sourceCostCents * rate), Math.max(budget, 0))
-    budget -= commissionCents
-    rows.push({
+  const rows = chain.map((entry) => {
+    const rate = entry.level === 1 ? config.level1Rate : config.level2Rate
+    const commissionCents = roundCents(input.sourceCostCents * rate)
+    return {
       sourceUserId: input.sourceUserId,
       sourceCallLogId: input.sourceCallLogId,
       sourceCostCents: input.sourceCostCents,
@@ -310,8 +231,8 @@ export async function recordRelayCommission(input: RecordCommissionInput): Promi
       status: 'frozen' as const,
       frozenUntil,
       createdAt: now,
-    })
-  }
+    }
+  })
 
   await db.insert(relayCommissionRecords).values(rows)
 }

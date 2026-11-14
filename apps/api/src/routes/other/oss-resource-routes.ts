@@ -4,40 +4,61 @@
 
 /**
  * OSS 资源文件上传初始化(从 frontend-stub-other-routes.ts 拆分)。
- * POST /oss/resource/file — 兼容入口:与 /api/chunked-upload/init 走同一条装配路径
- * (`createUploadSession`),返回的上传/合并/状态地址与 chunked-upload 注册路径同源。
+ * POST /oss/resource/file — 兼容入口:等价于 /api/chunked-upload/init,写入 upload_sessions 表
  */
 import type { FastifyPluginAsync } from 'fastify'
+import { randomUUID } from 'node:crypto'
+import { z } from 'zod'
 import { success, error } from '../../utils/response.js'
-import { CHUNKED_UPLOAD_ENDPOINTS, createUploadSession, initBodySchema } from '../chunked-upload.js'
+import { db } from '../../db/index.js'
+import { uploadSessions } from '@ihui/database'
+
+const ossFileInitSchema = z.object({
+  fileName: z.string().min(1).max(255),
+  fileSize: z.coerce.number().int().min(0).default(0),
+  totalChunks: z.coerce.number().int().min(1),
+  fileMd5: z.string().max(64).optional(),
+  mimeType: z.string().max(128).optional(),
+  chunkSize: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .default(5 * 1024 * 1024),
+})
 
 export const ossResourceRoutes: FastifyPluginAsync = async (server) => {
   server.post('/oss/resource/file', async (request, reply) => {
-    const parsed = initBodySchema.safeParse(request.body)
+    const parsed = ossFileInitSchema.safeParse(request.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-
-    // 2026-11-13 修 F-197:本入口不再自行 insert、不再手拼 URL —— 大小/分片数上界、
-    // 参数自洽性、单用户活跃会话预算(429)、会话行与分片临时目录全部由
-    // createUploadSession 一处装配,判据与 /api/chunked-upload/init 完全相同,
-    // 不再存在第二条绕过闸门的创建路径。
-    const created = await createUploadSession(parsed.data, {
-      userId: request.userId,
-      log: request.log,
-    })
-    if (!created.ok) {
-      return reply.status(created.status).send(error(created.status, created.message))
+    const { fileName, fileSize, totalChunks, fileMd5, mimeType, chunkSize } = parsed.data
+    const uploadId = randomUUID()
+    try {
+      await db.insert(uploadSessions).values({
+        uploadId,
+        fileName,
+        fileSize,
+        fileMd5,
+        totalChunks,
+        uploadedChunks: 0,
+        chunkSize,
+        mimeType,
+        status: 'uploading',
+        userId: request.userId,
+      })
+    } catch (e) {
+      request.log.error({ err: e }, 'oss/resource/file 初始化上传会话失败')
+      return reply.status(500).send(error(500, '初始化上传会话失败'))
     }
-
     return reply.status(201).send(
       success({
-        uploadId: created.uploadId,
-        uploadUrl: created.uploadUrl,
-        mergeUrl: CHUNKED_UPLOAD_ENDPOINTS.merge,
-        statusUrl: CHUNKED_UPLOAD_ENDPOINTS.status,
-        totalChunks: created.totalChunks,
-        chunkSize: created.chunkSize,
+        uploadId,
+        uploadUrl: '/api/chunked-upload/chunk',
+        mergeUrl: '/api/chunked-upload/merge',
+        statusUrl: '/api/chunked-upload/status',
+        totalChunks,
+        chunkSize,
       }),
     )
   })

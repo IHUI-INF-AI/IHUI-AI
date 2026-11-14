@@ -227,8 +227,24 @@ const toolsRoutes: FastifyPluginAsync = async (server) => {
         timeout,
         requiredPermissions: [],
       },
-      async () => {
-        await new Promise((r) => setTimeout(r, timeout * 2))
+      async (_params, ctx) => {
+        // F-507:超时后随 signal 立即停止等待,不留 2×timeout 的定时器
+        await new Promise<void>((resolve, reject) => {
+          const pending: { timer?: ReturnType<typeof setTimeout> } = {}
+          const onAbort = () => {
+            if (pending.timer) clearTimeout(pending.timer)
+            reject(new ToolExecutorError(`工具执行超时(${timeout}ms)`, 'timeout'))
+          }
+          if (ctx.signal?.aborted) {
+            onAbort()
+            return
+          }
+          pending.timer = setTimeout(() => {
+            ctx.signal?.removeEventListener('abort', onAbort)
+            resolve()
+          }, timeout * 2)
+          ctx.signal?.addEventListener('abort', onAbort, { once: true })
+        })
         return 'ok'
       },
     )

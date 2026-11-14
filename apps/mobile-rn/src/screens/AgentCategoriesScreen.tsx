@@ -307,7 +307,7 @@ function makeStyles() {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tokens.surface.bg },
     body: { padding: rnSpacing.md, gap: rnSpacing['sm-loose'], paddingBottom: rnSpacing['3xl'] },
-    subtitle: { fontSize: rnType.label.size, color: tokens.text.medium },
+    subtitle: { fontSize: rnType.label.size, color: tokens.text.tertiary },
     card: {
       padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.lg,
@@ -341,14 +341,14 @@ function makeStyles() {
     },
     paidText: { fontSize: rnType.badge.size, fontWeight: '600', color: tokens.warning.amberText },
     desc: { fontSize: rnType.label.size, color: tokens.text.secondary, lineHeight: 17 },
-    meta: { fontSize: rnType.caption.size, color: tokens.text.medium },
+    meta: { fontSize: rnType.caption.size, color: tokens.text.tertiary },
     muted: { fontSize: rnType.bodySm.size, color: tokens.text.secondary, lineHeight: 19 },
     hint: {
       fontSize: rnType.caption.size,
-      color: tokens.text.medium,
+      color: tokens.text.tertiary,
       lineHeight: rnType.label.lineHeight,
     },
-    errorText: { fontSize: rnType.label.size, color: tokens.danger.deepText },
+    errorText: { fontSize: rnType.label.size, color: tokens.danger.DEFAULT },
     retry: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tokens.text.primary },
     stateBox: {
       alignItems: 'center',

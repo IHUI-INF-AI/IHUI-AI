@@ -212,7 +212,7 @@ function UrlRow({
         void Linking.openURL(url)
       }}
     >
-      <ExternalLink size={13} color={tk.brandAccent.deep} strokeWidth={2} />
+      <ExternalLink size={13} color={tk.brandAccent.DEFAULT} strokeWidth={2} />
       <Text style={styles.linkText} numberOfLines={2}>
         {url}
       </Text>
@@ -324,7 +324,7 @@ export function EduAiVideoComposeScreen({
             value={prompt}
             onChangeText={onPromptChange}
             placeholder={t('eduAiPage.videoPromptPlaceholder')}
-            placeholderTextColor={tk.text.secondary}
+            placeholderTextColor={tk.text.tertiary}
             accessibilityLabel={t('eduAiPage.videoPromptLabel')}
             multiline
             maxLength={300}
@@ -337,7 +337,7 @@ export function EduAiVideoComposeScreen({
               value={model}
               onChangeText={onModelChange}
               placeholder={t('eduAiPage.videoModelPlaceholder')}
-              placeholderTextColor={tk.text.secondary}
+              placeholderTextColor={tk.text.tertiary}
               accessibilityLabel={t('eduAiPage.videoModelPlaceholder')}
             />
             <TouchableOpacity
@@ -407,13 +407,13 @@ export function EduAiVideoComposeScreen({
                   <View style={styles.stepMain}>
                     <View style={styles.stepHead}>
                       <View style={styles.row}>
-                        <StepIcon size={14} color={tk.text.secondary} strokeWidth={2} />
+                        <StepIcon size={14} color={tk.text.tertiary} strokeWidth={2} />
                         <Text style={styles.stepLabel}>{t(STEP_LABEL_KEY[stepKey])}</Text>
                       </View>
                       <StatusBadge status={step.status} t={t} styles={styles} />
                       {elapsed !== null ? (
                         <View style={styles.row}>
-                          <Clock size={12} color={tk.text.secondary} strokeWidth={2} />
+                          <Clock size={12} color={tk.text.tertiary} strokeWidth={2} />
                           <Text style={styles.rowSub}>
                             {t('eduAiPage.videoElapsed')}: {elapsed}s
                           </Text>
@@ -486,7 +486,7 @@ export function EduAiVideoComposeScreen({
         <View style={styles.card}>
           {tasks.length === 0 ? (
             <View style={styles.emptyBox}>
-              <Clapperboard size={28} color={tk.text.secondary} strokeWidth={1.5} />
+              <Clapperboard size={28} color={tk.text.tertiary} strokeWidth={1.5} />
               <Text style={styles.emptyText}>{t('eduAiPage.videoNoTasks')}</Text>
             </View>
           ) : (

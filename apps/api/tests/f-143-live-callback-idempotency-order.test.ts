@@ -27,8 +27,9 @@ vi.mock('../src/db/live-queries.js', () => ({
   updateLiveChannelStatusByStreamName: (...args: unknown[]) => updateStatus(...args),
 }))
 
-const { handleCallbackEvent, __resetProcessedEventIdsForTest } =
-  await import('../src/services/tencent-live-service.js')
+const { handleCallbackEvent, __resetProcessedEventIdsForTest } = await import(
+  '../src/services/tencent-live-service.js'
+)
 
 beforeEach(() => {
   __resetProcessedEventIdsForTest()

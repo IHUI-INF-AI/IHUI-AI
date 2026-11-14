@@ -202,29 +202,24 @@ export default function CheckinAssistant() {
                   </Text>
                 ) : null}
                 <View className="mt-[16rpx] flex flex-wrap gap-[12rpx]">
-                  <View
+                  <Text
                     className={`rounded-lg bg-muted px-[20rpx] py-[10rpx] text-label text-foreground${busyId === acc.id ? ' opacity-60' : ''}`}
-                    hoverClass={busyId === acc.id ? 'none' : 'opacity-60'}
                     onClick={() => void checkin(acc)}
                   >
-                    <Text>{t('checkinAssistant.checkin')}</Text>
-                  </View>
-                  <View
+                    {t('checkinAssistant.checkin')}
+                  </Text>
+                  <Text
                     className={`rounded-lg bg-muted px-[20rpx] py-[10rpx] text-label text-foreground${busyId === acc.id ? ' opacity-60' : ''}`}
-                    hoverClass={busyId === acc.id ? 'none' : 'opacity-60'}
                     onClick={() => void toggle(acc)}
                   >
-                    <Text>
-                      {acc.enabled ? t('checkinAssistant.disable') : t('checkinAssistant.enable')}
-                    </Text>
-                  </View>
-                  <View
+                    {acc.enabled ? t('checkinAssistant.disable') : t('checkinAssistant.enable')}
+                  </Text>
+                  <Text
                     className="rounded-lg bg-muted px-[20rpx] py-[10rpx] text-label text-muted-foreground"
-                    hoverClass="opacity-60"
                     onClick={() => remove(acc)}
                   >
-                    <Text>{t('checkinAssistant.delete')}</Text>
-                  </View>
+                    {t('checkinAssistant.delete')}
+                  </Text>
                 </View>
               </View>
             ))
@@ -238,18 +233,17 @@ export default function CheckinAssistant() {
             </Text>
             <View className="mt-[16rpx] flex flex-wrap gap-[12rpx]">
               {PLATFORMS.map((p) => (
-                <View
+                <Text
                   key={p}
                   className={`rounded-lg px-[20rpx] py-[10rpx] text-label ${
                     platform === p
                       ? 'bg-[var(--color-cta)] text-[var(--color-cta-foreground)]'
                       : 'bg-muted text-muted-foreground'
                   }`}
-                  hoverClass="opacity-60"
                   onClick={() => setPlatform(p)}
                 >
-                  <Text>{p}</Text>
-                </View>
+                  {p}
+                </Text>
               ))}
             </View>
             <Input

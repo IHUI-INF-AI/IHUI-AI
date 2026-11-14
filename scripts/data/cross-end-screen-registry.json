@@ -1285,11 +1285,6 @@
       "shared": "packages/app/src/features/finance-ai/FinanceAiHubScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/FinanceAiHubScreen.tsx",
       "miniapp": "pkg-user/finance-ai-hub/index"
-    },
-    {
-      "shared": "packages/app/src/features/hr-attendance/HrAttendanceScreen.tsx",
-      "rn": "apps/mobile-rn/src/screens/HrAttendanceScreen.tsx",
-      "miniapp": "pkg-hr/hr-attendance/index"
     }
   ]
 }

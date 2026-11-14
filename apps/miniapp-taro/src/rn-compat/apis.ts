@@ -9,7 +9,7 @@
  * 每一项的"等价"含义写明白 —— 语义降级必须点名,不得静默变成"看起来能用"。
  */
 import Taro from '@tarojs/taro'
-import { createElement, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { ReactElement } from 'react'
 
 import { Image as CompatImage, ScrollView, Text, View } from './primitives'
@@ -884,17 +884,11 @@ function createAnimatedComponent<P extends object>(Component: (props: P) => Reac
   return function AnimatedComponent(props: P): ReactElement {
     const style = (props as { style?: unknown }).style
     useAnimatedStyleSubscription(style)
-    // 必须经 createElement 渲染,不能 `Component({...})` 直接当函数调:View 为了能返回
-    // measureInWindow 的宿主句柄已改成 forwardRef 组件(一个**对象**,不可调用),直接调用当场
-    // `TypeError: (0 , View) is not a function`。走 createElement 同时让被包装组件拥有独立
-    // 的 hook 槽位,不再借宿主组件的 hook 列表。
-    return createElement(
-      Component as unknown as (p: P) => ReactElement,
-      {
-        ...(props as unknown as Record<string, unknown>),
-        style: resolveAnimatedValue(style),
-      } as unknown as P,
-    )
+    const Target = Component as unknown as (p: Record<string, unknown>) => ReactElement
+    return Target({
+      ...(props as unknown as Record<string, unknown>),
+      style: resolveAnimatedValue(style),
+    })
   }
 }
 
@@ -968,10 +962,10 @@ export const Animated = {
   // Animated.* 一律**照常渲染内容**,动画样式由包装组件解值后透传。
   // 入参取 RNBaseProps 而非 Record<string, unknown>:后者把每一枚回调都上下文定型成 unknown ⇒
   // 形参退回隐式 any(ui-native/sheet 的 `onResponderRelease={(e) => e.stopPropagation()}` 当场 TS7006)。
-  View: createAnimatedComponent<RNBaseProps>(View as never),
-  Text: createAnimatedComponent<RNBaseProps>(Text as never),
-  ScrollView: createAnimatedComponent<RNBaseProps>(ScrollView as never),
-  Image: createAnimatedComponent<RNBaseProps>(CompatImage as never),
+  View: createAnimatedComponent<RNBaseProps>((props) => View(props)),
+  Text: createAnimatedComponent<RNBaseProps>((props) => Text(props as never)),
+  ScrollView: createAnimatedComponent<RNBaseProps>((props) => ScrollView(props as never)),
+  Image: createAnimatedComponent<RNBaseProps>((props) => CompatImage(props as never)),
 }
 
 export const Layout = {

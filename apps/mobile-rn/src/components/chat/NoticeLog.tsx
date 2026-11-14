@@ -25,7 +25,7 @@ import { AlertTriangle, Check, Info, X, type LucideIcon } from 'lucide-react-nat
 import type { ChatNotice, NoticeKind } from '@ihui/shared/chat/notice-log'
 import { tokens } from '../../theme/active-tokens'
 
-import { rnSpacing, rnType } from '@ihui/design-tokens'
+import { rnSpacing } from '@ihui/design-tokens'
 // 记录模型与纯逻辑的**唯一真相源**在 shared;此处转出只为让既有 importer 不必改路径。
 export {
   appendNotice,
@@ -88,12 +88,14 @@ const styles = StyleSheet.create({
     gap: rnSpacing['xs-loose'],
   },
   time: {
-    ...rnType.caption,
-    color: tokens.text.medium,
+    fontSize: 11,
+    lineHeight: 16,
+    color: tokens.text.tertiary,
   },
   text: {
     flex: 1,
-    ...rnType.label,
+    fontSize: 12,
+    lineHeight: 16,
     color: tokens.text.secondary,
   },
 })

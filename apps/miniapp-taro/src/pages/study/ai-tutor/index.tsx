@@ -163,8 +163,6 @@ export default function AiTutor() {
               {...ff.spread}
               onInput={(e) => setQuestion(e.detail.value)}
               confirmType="send"
-              cursorSpacing={44}
-              adjustPosition={false}
               onConfirm={handleSend}
             />
           </View>

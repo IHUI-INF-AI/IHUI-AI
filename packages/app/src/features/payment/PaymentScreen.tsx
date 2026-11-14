@@ -223,9 +223,9 @@ function createStyles(tk: AppThemeTokens) {
     },
     subtitle: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.secondary },
     errorWrap: { paddingHorizontal: rnSpacing['sm-loose'], paddingVertical: rnSpacing.sm },
-    errorText: { fontSize: rnType.body.size, color: tk.danger.deepText },
+    errorText: { fontSize: rnType.body.size, color: tk.danger.DEFAULT },
     toastWrap: { paddingHorizontal: rnSpacing['sm-loose'], paddingVertical: rnSpacing.sm },
-    toastText: { fontSize: rnType.body.size, color: tk.success.deepText },
+    toastText: { fontSize: rnType.body.size, color: tk.success.DEFAULT },
     outlineBtn: {
       marginTop: rnSpacing.sm,
       paddingVertical: rnSpacing['xs-loose'],
@@ -235,7 +235,7 @@ function createStyles(tk: AppThemeTokens) {
       borderColor: tk.success.DEFAULT,
       alignItems: 'center',
     },
-    outlineBtnText: { fontSize: rnType.body.size, color: tk.success.deepText },
+    outlineBtnText: { fontSize: rnType.body.size, color: tk.success.DEFAULT },
     card: {
       padding: rnSpacing.md,
       borderRadius: rnRadius.lg,
@@ -277,7 +277,7 @@ function createStyles(tk: AppThemeTokens) {
       flexShrink: 0,
       fontSize: rnType.heading.size,
       fontWeight: '700',
-      color: tk.success.deepText,
+      color: tk.success.DEFAULT,
     },
     actionWrap: { marginTop: rnSpacing.md, gap: rnSpacing.sm },
     primaryBtn: {

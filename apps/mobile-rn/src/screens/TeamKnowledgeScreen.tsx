@@ -39,7 +39,6 @@ import { NavChrome } from '../components/NavChrome'
 import { useTheme } from '../context/ThemeContext'
 import { useI18n } from '../i18n'
 import { tokens } from '../theme/active-tokens'
-import { toFriendlyOr } from '@ihui/shared/utils'
 
 const TEAM_ID_KEY = 'ihui:team-knowledge:teamId'
 const KIND_FILTERS: Array<TeamKnowledgeKind | ''> = ['', 'memory', 'wiki', 'card']
@@ -105,7 +104,7 @@ export function TeamKnowledgeScreen() {
         setItems(rows)
         setMembers(memberRows)
       } catch (e) {
-        setError(toFriendlyOr(e, t('common.loadFailed')))
+        setError(e instanceof Error ? e.message : t('common.loadFailed'))
         setItems([])
         setMembers([])
       }
@@ -133,7 +132,7 @@ export function TeamKnowledgeScreen() {
           setMembers([])
         }
       } catch (e) {
-        setError(toFriendlyOr(e, t('common.loadFailed')))
+        setError(e instanceof Error ? e.message : t('common.loadFailed'))
         setSpaces([])
         setItems([])
         setMembers([])
@@ -194,7 +193,7 @@ export function TeamKnowledgeScreen() {
         setRestricted(false)
         await load(teamId)
       } catch (e) {
-        setError(toFriendlyOr(e, t('teamKnowledge.saveFailed')))
+        setError(e instanceof Error ? e.message : t('teamKnowledge.saveFailed'))
       } finally {
         setSaving(false)
       }
@@ -223,7 +222,7 @@ export function TeamKnowledgeScreen() {
         setItemText('')
         await loadItems(selected.id, kind)
       } catch (e) {
-        setError(toFriendlyOr(e, t('teamKnowledge.saveFailed')))
+        setError(e instanceof Error ? e.message : t('teamKnowledge.saveFailed'))
       } finally {
         setSaving(false)
       }
@@ -248,7 +247,7 @@ export function TeamKnowledgeScreen() {
                 } catch (e) {
                   appAlert(
                     t('common.failed'),
-                    toFriendlyOr(e, t('teamKnowledge.saveFailed')),
+                    e instanceof Error ? e.message : t('teamKnowledge.saveFailed'),
                   )
                 } finally {
                   setBusyId('')

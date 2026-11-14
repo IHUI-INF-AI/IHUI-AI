@@ -81,10 +81,7 @@ use tauri::{
     AppHandle, Emitter, Manager, PhysicalPosition, PhysicalSize, Url, WebviewBuilder, WebviewUrl,
 };
 
-use crate::checkin_web_login::{
-    WbWebImportResult, WebLoginProbe, WB_WEB_LOGIN_URL, checkin_workbuddy_web_login_probe,
-    wb_import_from_jar,
-};
+use crate::checkin_web_login::{WebLoginProbe, WB_WEB_LOGIN_URL, checkin_workbuddy_web_login_probe};
 use crate::IpcError;
 
 /// 浏览器窗口 label(全仓唯一)。
@@ -398,15 +395,7 @@ pub enum SentinelAction {
     CloseWindow,
     /// 签到页(内嵌 tab 里的 aizhs.top/checkin)请求「浏览器登录 WorkBuddy」:
     /// 内容页无 IPC,只能借哨兵导航把意图带出来(2026-10-17 立)。
-    /// F-060:哨兵 query 同时携带入库上下文 —— `tk`=用户会话、`ab`=后端基址、
-    /// `g`=分组(登录成功后由 Rust 直接向后端入库,cookie 全程不进前端 JS)。
-    /// **三者只在 Rust 内使用:不进日志、不随 `#wb_import=` 回传**
-    /// (回传只有 imported/failures/cookie_checkin_ok,无凭据)。
-    WbCheckinLogin {
-        access_token: String,
-        api_base: String,
-        group: String,
-    },
+    WbCheckinLogin,
 }
 
 /// 生成一个 per-webview 的随机哨兵令牌(F-100)。
@@ -448,7 +437,7 @@ fn pick_js_with_token(token: &str) -> String {
 /// 其余哨兵是工具条自用动作,伪造至多触发一次导航,拿不到任何凭据。
 fn sentinel_dispatch_allowed(url: &Url, action: &SentinelAction, token: &str) -> bool {
     match action {
-        SentinelAction::WbCheckinLogin { .. } | SentinelAction::Picked(_) => {
+        SentinelAction::WbCheckinLogin | SentinelAction::Picked(_) => {
             sentinel_token_matches(url, token)
         }
         _ => true,
@@ -533,11 +522,7 @@ pub fn parse_sentinel(url: &Url) -> Option<SentinelAction> {
         "pick" => SentinelAction::Pick(q("on").as_deref() == Some("1")),
         "picked" => SentinelAction::Picked(q("d").unwrap_or_default()),
         "close-window" => SentinelAction::CloseWindow,
-        "wb-checkin-login" => SentinelAction::WbCheckinLogin {
-            access_token: q("tk").unwrap_or_default(),
-            api_base: q("ab").unwrap_or_default(),
-            group: q("g").unwrap_or_default(),
-        },
+        "wb-checkin-login" => SentinelAction::WbCheckinLogin,
         _ => return None,
     })
 }
@@ -1132,17 +1117,11 @@ async fn handle_sentinel(app: AppHandle, action: SentinelAction) {
             let decoded = percent_decode(&payload);
             let _ = app.emit_to("main", "embedded-browser://element-picked", decoded);
         }
-        SentinelAction::WbCheckinLogin {
-            access_token,
-            api_base,
-            group,
-        } => {
+        SentinelAction::WbCheckinLogin => {
             // 签到页(内容页无 IPC)请求「浏览器登录 WorkBuddy」(2026-10-17 立):
             // 建登录页标签 + 起看护轮询,结果经 #wb_import= 导航回签到页
             // (见 run_wb_checkin_login_watch)。防重入:进行中再触发直接忽略。
             // F-100:发起页必须是可信签到页;否则整条动作直接丢弃(不建窗、不轮询)。
-            // F-060:随哨兵进来的 tk/ab/g(Rust 侧入库上下文)只往看护方传,
-            // 不落本处日志。
             let trusted_origin = active_wv()
                 .and_then(|wv| wv.url().ok())
                 .filter(is_trusted_checkin_origin);
@@ -1203,15 +1182,7 @@ async fn handle_sentinel(app: AppHandle, action: SentinelAction) {
                     }
                 }
             };
-            run_wb_checkin_login_watch(
-                app,
-                login_tab,
-                return_base,
-                access_token,
-                api_base,
-                group,
-            )
-            .await;
+            run_wb_checkin_login_watch(app, login_tab, return_base).await;
         }
         SentinelAction::NewTab(u) => {
             // 降级模式(单 webview 窗)无多标签可言:把"新建标签"退化为"当前页导航"。
@@ -1332,12 +1303,9 @@ async fn handle_sentinel(app: AppHandle, action: SentinelAction) {
 /// 为什么轮询在 Rust 而不是前端:签到页跑在内嵌浏览器内容 webview 里,
 /// **没有 IPC**(见模块头「安全边界」)—— 既调不了 probe 命令,也收不到事件。
 /// 「浏览器登录 WorkBuddy」这条流程只能在 Rust 侧闭环:轮询共享 cookie jar 的
-/// 登录态;ok 后**先在 Rust 侧完成入库**(F-060:从 jar 现读 cookie,带着哨兵
-/// 捎来的 `tk/ab/g` 直 POST 后端 —— cookie 全程不进前端 JS),再把**登录标签**
-/// 导航回签到页,URL fragment 充当结果通道
+/// 登录态;ok 后把**登录标签**导航回签到页,URL fragment 充当结果通道
 /// (`#wb_import=<percent-encoded JSON>`;fragment 不发往服务端,纯页面内消费),
-/// 页面解析 `imported/failures/cookie_checkin_ok`(无凭据)刷新列表并清 hash。
-/// 超时静默放弃:不打断可能正在登录的用户,签到页
+/// 页面解析后入库并清 hash。超时静默放弃:不打断可能正在登录的用户,签到页
 /// 自己的时钟(6.5 分钟)负责复位按钮态。
 ///
 /// `return_base` = 发起页地址(登录前活动 webview 的当前 URL 去 fragment)。
@@ -1346,15 +1314,7 @@ async fn handle_sentinel(app: AppHandle, action: SentinelAction) {
 /// 测试环境地址都在同一窗口里跑;硬编码会把本地会话的登录结果导航去线上,
 /// 用户看到的是「登录成功却跳到了另一个站点」= 没跳回我们程序。回跳地址
 /// 一律跟随发起页,拿不到才退常量兜底。
-#[allow(clippy::too_many_arguments)]
-async fn run_wb_checkin_login_watch(
-    app: AppHandle,
-    login_tab: Option<u64>,
-    return_base: String,
-    access_token: String,
-    api_base: String,
-    group: String,
-) {
+async fn run_wb_checkin_login_watch(app: AppHandle, login_tab: Option<u64>, return_base: String) {
     /// 轮询节奏(与主窗口流程的 2.5s 前端轮询同拍)。
     const INTERVAL: Duration = Duration::from_millis(2500);
     /// 总超时:登录超过 6 分钟按放弃处理(登录页留在原地,用户可继续用浏览器)。
@@ -1372,30 +1332,17 @@ async fn run_wb_checkin_login_watch(
         };
         match probe {
             WebLoginProbe::Ok {
+                cookie,
                 accounts,
                 cookie_checkin_ok,
             } => {
-                // F-060:cookie 不出 Rust —— 看护方自己读 jar、逐条 POST 后端
-                // (与主窗 IPC 命令 checkin_workbuddy_web_import 同一主流程),
-                // 回传给签到页的只有「结果计数 + 逐条失败 + 签到接口可用性」。
-                let result = match wb_import_from_jar(
-                    &app,
-                    &accounts,
-                    &group,
-                    &access_token,
-                    &api_base,
-                )
-                .await
-                {
-                    Ok(r) => r,
-                    // 白名单/会话/jar 读取失败:与逐条失败同一出口如实回传
-                    Err(e) => WbWebImportResult {
-                        imported: 0,
-                        failures: vec![e.message],
-                    },
-                };
                 WB_LOGIN_POLLING.store(false, Ordering::SeqCst);
-                let payload = wb_import_payload(result.imported, result.failures, cookie_checkin_ok);
+                // 负载与主窗口流程消费的 probe 契约同形,签到页两条路共用一个入库函数
+                let payload = serde_json::json!({
+                    "cookie": cookie,
+                    "accounts": accounts,
+                    "cookie_checkin_ok": cookie_checkin_ok,
+                });
                 let Ok(parsed) = Url::parse(&format!(
                     "{}#wb_import={}",
                     return_base,
@@ -1427,23 +1374,6 @@ async fn run_wb_checkin_login_watch(
             _ => {}
         }
     }
-}
-
-/// F-060:`#wb_import=` 回传负载(纯函数,单测钉形状)。
-///
-/// 只有「结果计数 + 逐条失败 + 签到接口可用性」—— **不含 cookie、不含 accounts、
-/// 不含会话令牌**:签到页凭它刷新列表即可,凭据全程留在 Rust(cookie 由
-/// `wb_import_from_jar` 直接流向后端)。
-fn wb_import_payload(
-    imported: usize,
-    failures: Vec<String>,
-    cookie_checkin_ok: Option<bool>,
-) -> serde_json::Value {
-    serde_json::json!({
-        "imported": imported,
-        "failures": failures,
-        "cookie_checkin_ok": cookie_checkin_ok,
-    })
 }
 
 /// 最小 percent-decode(`%XX` + `+`),用于解点选负载。
@@ -1648,24 +1578,9 @@ mod tests {
             Some(SentinelAction::CloseWindow)
         );
         // 2026-10-17:签到页借哨兵发起「浏览器登录 WorkBuddy」
-        // F-060:哨兵同时携带入库上下文 tk/ab/g(percent-decode 后原样落到枚举字段)
         assert_eq!(
             parse_sentinel(&u("https://browser.ihui.invalid/wb-checkin-login")),
-            Some(SentinelAction::WbCheckinLogin {
-                access_token: String::new(),
-                api_base: String::new(),
-                group: String::new(),
-            })
-        );
-        assert_eq!(
-            parse_sentinel(&u(
-                "https://browser.ihui.invalid/wb-checkin-login?tk=tok-1&ab=https%3A%2F%2Faizhs.top&g=%E9%BB%98%E8%AE%A4%E5%88%86%E7%BB%84"
-            )),
-            Some(SentinelAction::WbCheckinLogin {
-                access_token: "tok-1".to_string(),
-                api_base: "https://aizhs.top".to_string(),
-                group: "默认分组".to_string(),
-            })
+            Some(SentinelAction::WbCheckinLogin)
         );
     }
 
@@ -1693,25 +1608,20 @@ mod tests {
     fn sentinel_token_rejects_forged_wb_checkin_login() {
         // F-100:没有令牌 / 令牌不符的 wb-checkin-login 一律不派发。
         let token = "0123456789abcdef0123456789abcdef";
-        let wb_login = || SentinelAction::WbCheckinLogin {
-            access_token: String::new(),
-            api_base: String::new(),
-            group: String::new(),
-        };
         assert!(!sentinel_dispatch_allowed(
             &u("https://browser.ihui.invalid/wb-checkin-login"),
-            &wb_login(),
+            &SentinelAction::WbCheckinLogin,
             token
         ));
         assert!(!sentinel_dispatch_allowed(
             &u("https://browser.ihui.invalid/wb-checkin-login?t=deadbeef"),
-            &wb_login(),
+            &SentinelAction::WbCheckinLogin,
             token
         ));
         // 正证:带上本 webview 令牌的合法哨兵
         assert!(sentinel_dispatch_allowed(
             &u("https://browser.ihui.invalid/wb-checkin-login?t=0123456789abcdef0123456789abcdef"),
-            &wb_login(),
+            &SentinelAction::WbCheckinLogin,
             token
         ));
         // 其它哨兵不需要令牌(伪造至多触发导航,拿不到凭据)
@@ -1816,31 +1726,11 @@ mod tests {
         // #wb_import= 负载往返:JSON 里的关键字符(`#` 截断 / `%` 转义歧义 /
         // `+` 被解码成空格的歧义 / CJK)全部编码,且能被 percent_decode 解回。
         // 编码器把 `+` 也编码 ⇒ 解码端"裸 + → 空格"的规则不会误伤负载。
-        // F-060:负载形如 wb_import_payload(imported/failures/cookie_checkin_ok),
-        // 本身不含凭据,编码往返也无凭据可丢。
-        let raw = r#"{"imported":2,"failures":["李总#1%: HTTP 409"],"cookie_checkin_ok":true}"#;
+        let raw = r#"{"cookie":"a=b; c+d","accounts":[{"uid":"u1","nickname":"李总#1%"}]}"#;
         let enc = percent_encode(raw);
         assert!(!enc.contains('#'));
         assert!(!enc.contains('+'));
         assert_eq!(percent_decode(&enc), raw);
-    }
-
-    #[test]
-    fn wb_import_payload_hides_cookie_per_f060() {
-        // F-060 主证据(嵌入面):#wb_import= 回传负载只有结果计数/逐条失败/
-        // 签到接口可用性 —— 无 cookie 键、无 accounts、无会话令牌。
-        let payload = wb_import_payload(3, vec!["张三: 此账号已存在".to_string()], Some(false));
-        let wire = payload.to_string();
-        assert!(payload.get("cookie").is_none(), "负载不得含 cookie:{wire}");
-        assert!(payload.get("accounts").is_none(), "负载不得回传账号凭据源:{wire}");
-        assert!(!wire.contains("session_id"), "负载不得含任何凭据片段:{wire}");
-        assert_eq!(payload["imported"], 3);
-        assert_eq!(payload["failures"][0], "张三: 此账号已存在");
-        assert_eq!(payload["cookie_checkin_ok"], false);
-        // 失败态与未判定态同样无凭据
-        let failed = wb_import_payload(0, vec!["读不到 Cookie".to_string()], None);
-        assert!(failed.get("cookie").is_none());
-        assert_eq!(failed["cookie_checkin_ok"], serde_json::Value::Null);
     }
 
     #[test]

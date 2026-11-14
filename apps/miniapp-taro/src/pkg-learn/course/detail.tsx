@@ -11,7 +11,6 @@ import { useState, useEffect, useCallback } from 'react'
 import { get, getCourseDetail, post, type Course } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
 import { ScreenSkeleton, ErrorState } from '@/components/ScreenStates.taro'
-import { toCourseLessonRows } from '@ihui/shared/social/course-lessons'
 import {
   CourseHeader,
   TeacherCard,
@@ -272,13 +271,13 @@ export default function CourseDetail() {
     tags: course.subtitle ? [course.subtitle] : undefined,
   }
 
-  // 目录三态(completed/locked/current)由 @ihui/shared 的单一源计算 ——
-  // 收敛前这段规则只写在本页,共享屏另算一份且少了 locked/current 两态。
-  const lessonRows: CourseLessonRow[] = toCourseLessonRows(
-    course.outline,
-    currentIdx,
-    course.price ?? 0,
-  )
+  const lessonRows: CourseLessonRow[] = (course.outline || []).map((item, idx) => ({
+    id: String(idx),
+    title: item.title,
+    completed: idx < currentIdx,
+    locked: idx > 0 && (course.price ?? 0) > 0,
+    current: idx === currentIdx,
+  }))
 
   const weekDays: StreakDay[] = [
     { date: '一', signed: true, isToday: false },

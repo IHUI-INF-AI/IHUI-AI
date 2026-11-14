@@ -57,13 +57,9 @@ export default function VipLevels({ levels, error, onRetry }: VipLevelsProps) {
       {error ? (
         <View className="flex items-center justify-between">
           <Text className="text-label text-muted-foreground">{error}</Text>
-          <View
-            className="text-label text-[var(--color-brand)]"
-            hoverClass="opacity-60"
-            onClick={onRetry}
-          >
-            <Text>{tt('vip.retry', '重试')}</Text>
-          </View>
+          <Text className="text-label text-[var(--color-brand)]" onClick={onRetry}>
+            {tt('vip.retry', '重试')}
+          </Text>
         </View>
       ) : levels.length === 0 ? (
         <Text className="block text-label text-muted-foreground">
@@ -75,7 +71,9 @@ export default function VipLevels({ levels, error, onRetry }: VipLevelsProps) {
           return (
             <View key={level.id} className="mb-[16rpx] p-[20rpx] border border-border rounded-lg">
               <View className="flex items-center justify-between">
-                <Text className="text-body font-semibold text-foreground">{level.levelName}</Text>
+                <Text className="text-body font-semibold text-foreground">
+                  {level.levelName}
+                </Text>
                 <Text className="text-label text-muted-foreground">
                   {t('vip.duration', { days: level.durationDays })}
                 </Text>

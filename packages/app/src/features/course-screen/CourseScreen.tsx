@@ -28,8 +28,6 @@ export function CourseScreen({
   onPageChange,
   onPressItem,
   colorScheme = 'light',
-  onSearch,
-  onEndReached,
 }: CourseScreenProps) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
@@ -43,21 +41,10 @@ export function CourseScreen({
           style={styles.input}
           value={keyword}
           onChangeText={onKeywordChange}
-          onSubmitEditing={onSearch}
           placeholder={t('courseScreen.searchPlaceholder')}
-          placeholderTextColor={tk.text.secondary}
+          placeholderTextColor={tk.text.tertiary}
           returnKeyType="search"
         />
-        {onSearch ? (
-          <Tappable
-            style={styles.searchBtn}
-            onPress={onSearch}
-            accessibilityRole="button"
-            accessibilityLabel={t('courseScreen.search')}
-          >
-            <Text style={styles.searchBtnText}>{t('courseScreen.search')}</Text>
-          </Tappable>
-        ) : null}
       </View>
 
       {error ? (
@@ -71,8 +58,6 @@ export function CourseScreen({
         keyExtractor={(item) => item.id}
         contentContainerStyle={{ padding: rnSpacing['sm-loose'], paddingBottom: rnSpacing['3xl'] }}
         ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
-        onEndReached={onEndReached}
-        onEndReachedThreshold={0.3}
         ListEmptyComponent={
           loading ? (
             <ScreenSkeleton variant="card" count={3} colorScheme={colorScheme} />
@@ -154,17 +139,11 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.primary,
     },
     searchWrap: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: rnSpacing.sm,
       paddingHorizontal: rnSpacing['sm-loose'],
       paddingVertical: rnSpacing.md,
       marginBottom: rnSpacing.sm,
     },
-    searchBtn: { paddingHorizontal: rnSpacing.md, paddingVertical: rnSpacing.sm },
-    searchBtnText: { fontSize: rnType.body.size, color: tk.text.secondary },
     input: {
-      flex: 1,
       borderWidth: 1,
       borderColor: tk.border.light,
       borderRadius: rnRadius.sm,
@@ -175,7 +154,7 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.primary,
     },
     errorWrap: { paddingHorizontal: rnSpacing['sm-loose'], paddingVertical: rnSpacing.sm },
-    error: { fontSize: rnType.body.size, color: tk.danger.deepText },
+    error: { fontSize: rnType.body.size, color: tk.danger.DEFAULT },
     card: {
       padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.lg,

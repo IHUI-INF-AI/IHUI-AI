@@ -104,7 +104,7 @@ function instBadgeFg(tk: Tk, status: WfInstanceStatus): string {
 }
 
 function logLevelColor(tk: Tk, level: WfLogLevel): string {
-  if (level === 'debug') return tk.text.secondary
+  if (level === 'debug') return tk.text.tertiary
   if (level === 'info') return tk.brandAccent.deep
   if (level === 'warn') return tk.warning.amberText
   return tk.danger.DEFAULT
@@ -347,7 +347,7 @@ function createStyles(tk: ReturnType<typeof getTokens>) {
       borderRadius: rnRadius.md,
     },
     badgeText: { fontSize: rnType.caption.size, fontWeight: '600' },
-    errorText: { fontSize: rnType.label.size, color: tk.danger.deepText, lineHeight: 17 },
+    errorText: { fontSize: rnType.label.size, color: tk.danger.DEFAULT, lineHeight: 17 },
     errorBox: {
       flex: 1,
       alignItems: 'center',
@@ -382,7 +382,7 @@ function createStyles(tk: ReturnType<typeof getTokens>) {
       paddingHorizontal: rnSpacing['sm-loose'],
       paddingVertical: 9,
     },
-    taskStep: { fontSize: rnType.caption.size, color: tk.text.medium, width: 28 },
+    taskStep: { fontSize: rnType.caption.size, color: tk.text.tertiary, width: 28 },
     taskName: { flex: 1, fontSize: rnType.bodySm.size, fontWeight: '600', color: tk.text.primary },
     typeTag: {
       paddingHorizontal: rnSpacing['xs-loose'],
@@ -422,7 +422,7 @@ function createStyles(tk: ReturnType<typeof getTokens>) {
     chipText: { fontSize: rnType.caption.size, color: tk.text.secondary },
     chipActiveText: { color: tk.brand.ctaForeground, fontWeight: '600' },
     logRow: { flexDirection: 'row', alignItems: 'flex-start', gap: rnSpacing.sm },
-    logTime: { fontSize: rnType.badge.size, color: tk.text.medium, fontFamily: 'monospace' },
+    logTime: { fontSize: rnType.badge.size, color: tk.text.tertiary, fontFamily: 'monospace' },
     logLevel: { fontSize: rnType.badge.size, fontWeight: '700', width: 44 },
     logMsg: {
       flex: 1,

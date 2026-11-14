@@ -18,6 +18,7 @@ import { resolveFeishuEmployeeNos } from './feishu-employee-source.js'
 
 const TOKEN_URL = 'https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal'
 const USER_TASKS_QUERY_URL = 'https://open.feishu.cn/open-apis/attendance/v1/user_tasks/query'
+const USER_APPROVAL_QUERY_URL = 'https://open.feishu.cn/open-apis/attendance/v1/user_approval/query'
 
 /** token 内存缓存(单进程 cron 足够;tenant_access_token ~2h,提前 5min 刷新) */
 let cachedToken: { token: string; expireAt: number } | null = null
@@ -100,6 +101,81 @@ interface FeishuUserTasksResp {
   data?: { user_task_results?: FeishuUserTaskResult[] }
 }
 
+// ── 审批 user_approval/query 接口(2026-11-14 核实,见 design §7.4) ──
+
+/** 飞书审批实例的多语言名称对象(假别等字段) */
+interface FeishuI18nName {
+  ch?: string
+  en?: string
+  ja?: string
+}
+
+/** leave 实例(飞书 user_approval/query leaves[];字段见 design §7.4 已核实清单) */
+interface FeishuLeaveItem {
+  /** 审批实例唯一 ID(幂等键) */
+  approval_id?: string
+  /** 员工 uniq_id */
+  uniq_id?: string
+  /** 多语言名称(含假别,如 {"ch":"事假","en":"Personal"}) */
+  i18n_names?: FeishuI18nName
+  /** 开始时间 yyyy-MM-dd HH:mm:ss */
+  start_time?: string
+  /** 结束时间 yyyy-MM-dd HH:mm:ss */
+  end_time?: string
+  /** 事由 */
+  reason?: string
+}
+
+/** overtime 实例(字段名部分未核实 → 仅取已核实字段:approval_id/uniq_id/start_time/end_time/reason) */
+interface FeishuOvertimeItem {
+  approval_id?: string
+  uniq_id?: string
+  start_time?: string
+  end_time?: string
+  reason?: string
+}
+
+/** outgoing(out) 实例(字段名部分未核实 → 仅取已核实字段) */
+interface FeishuOutItem {
+  approval_id?: string
+  uniq_id?: string
+  start_time?: string
+  end_time?: string
+  reason?: string
+  destination?: string
+}
+
+/** user_approval/query 响应 */
+interface FeishuUserApprovalResp {
+  code: number
+  msg?: string
+  data?: {
+    leaves?: FeishuLeaveItem[]
+    overtimes?: FeishuOvertimeItem[]
+    outs?: FeishuOutItem[]
+  }
+}
+
+/** 飞书时间字符串(yyyy-MM-dd HH:mm:ss)→ HH:mm(取时:分);非法 → null */
+function datetimeToHHmm(value: string | undefined): string | null {
+  if (!value) return null
+  const m = /(\d{2}):(\d{2})/.exec(value)
+  return m ? `${m[1]}:${m[2]}` : null
+}
+
+/** 飞书时间字符串 → yyyy-MM-dd;非法 → null */
+function datetimeToDate(value: string | undefined): string | null {
+  if (!value) return null
+  const m = /(\d{4})-(\d{2})-(\d{2})/.exec(value)
+  return m ? `${m[1]}-${m[2]}-${m[3]}` : null
+}
+
+/** 多语言名称 → 中文文本(取 ch;缺回落 en);用于 leave 假别透传 */
+function i18nToText(obj: FeishuI18nName | undefined): string | null {
+  if (!obj) return null
+  return obj.ch ?? obj.en ?? null
+}
+
 /**
  * 拉取飞书打卡结果(attendance kind)。
  *
@@ -173,9 +249,146 @@ async function fetchAttendance(
 }
 
 /**
+ * 拉取飞书审批数据(leave/overtime/outgoing kind)。
+ *
+ * user_approval/query 按员工+日期窗口返回 leaves[]/overtimes[]/outs[]。
+ *
+ * 2026-11-14 核实口径(design §7.4):
+ *   · 已核实字段:approval_id(唯一 ID)/uniq_id/i18n_names(多语言名称)/start_time/end_time/reason/destination。
+ *   · 审批「状态字段名」官方响应快照未明示 → 不做状态过滤,全部透传进暂存,
+ *     状态判定交人工裁决(与「不猜测」红线一致);statusText 留空。
+ *   · 假别(i18n_names.ch)透传中文原文,由现有 normalizeLeaveType 正则匹配(年假/事假/病假...),
+ *     不写死假别枚举(企业自定义假期类型)。
+ */
+async function fetchApproval(
+  token: string,
+  employeeNos: string[],
+  periodMonth: string,
+  importKind: SyncKind,
+): Promise<SyncRow[]> {
+  if (employeeNos.length === 0) return []
+
+  const { from, to } = monthRangeToYmdInt(periodMonth)
+  const res = await fetch(`${USER_APPROVAL_QUERY_URL}?employee_type=employee_no`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json; charset=utf-8',
+    },
+    body: JSON.stringify({
+      user_ids: employeeNos,
+      check_date_from: from,
+      check_date_to: to,
+    }),
+    signal: AbortSignal.timeout(20_000),
+  })
+  if (!res.ok) {
+    throw new AppError(`飞书审批查询失败:HTTP ${res.status}`, 502, 'SYNC_FEISHU_APPROVAL_HTTP')
+  }
+  const data = (await res.json()) as FeishuUserApprovalResp
+  if (data.code !== 0) {
+    throw new AppError(
+      `飞书审批查询失败:${data.msg ?? `code ${data.code}`}`,
+      502,
+      'SYNC_FEISHU_APPROVAL_API',
+    )
+  }
+
+  return mapApprovalDataToRows(importKind, data.data ?? {})
+}
+
+/**
+ * 飞书审批响应 → SyncRow[](纯函数,供测试直用生产实现)。
+ *
+ * 字段口径(2026-11-14 已核实,见 design §7.4):
+ *   · employeeNo 取 uniq_id;externalId 取 approval_id(幂等键);
+ *   · leave 的 typeText 取 i18n_names 多语言名称中文(ch),透传交 normalizeLeaveType 匹配;
+ *   · start_time/end_time 转日期与打卡时分;
+ *   · 审批状态官方字段名未核实 → statusText 留空,交人工裁决(不猜测);
+ *   · overtime/outgoing 的类型/时长字段名官方响应快照未明示 → 留 null,留待取样补;
+ *   · 未知/缺失字段一律 null,不臆造。
+ */
+export function mapApprovalDataToRows(
+  importKind: SyncKind,
+  approvalData: {
+    leaves?: FeishuLeaveItem[]
+    overtimes?: FeishuOvertimeItem[]
+    outs?: FeishuOutItem[]
+  },
+): SyncRow[] {
+  const rows: SyncRow[] = []
+
+  if (importKind === 'leave') {
+    for (const item of approvalData.leaves ?? []) {
+      rows.push({
+        employeeNo: item.uniq_id ?? null,
+        employeeName: null,
+        date: datetimeToDate(item.start_time),
+        startDate: datetimeToDate(item.start_time),
+        endDate: datetimeToDate(item.end_time),
+        checkInTime: datetimeToHHmm(item.start_time),
+        checkOutTime: datetimeToHHmm(item.end_time),
+        typeText: i18nToText(item.i18n_names),
+        durationText: null,
+        totalDays: null,
+        destination: null,
+        reason: item.reason ?? null,
+        statusText: null,
+        externalId: item.approval_id ?? null,
+      })
+    }
+  }
+
+  if (importKind === 'overtime') {
+    for (const item of approvalData.overtimes ?? []) {
+      rows.push({
+        employeeNo: item.uniq_id ?? null,
+        employeeName: null,
+        date: datetimeToDate(item.start_time),
+        startDate: datetimeToDate(item.start_time),
+        endDate: datetimeToDate(item.end_time),
+        checkInTime: datetimeToHHmm(item.start_time),
+        checkOutTime: datetimeToHHmm(item.end_time),
+        typeText: null,
+        durationText: null,
+        totalDays: null,
+        destination: null,
+        reason: item.reason ?? null,
+        statusText: null,
+        externalId: item.approval_id ?? null,
+      })
+    }
+  }
+
+  if (importKind === 'outgoing') {
+    for (const item of approvalData.outs ?? []) {
+      rows.push({
+        employeeNo: item.uniq_id ?? null,
+        employeeName: null,
+        date: datetimeToDate(item.start_time),
+        startDate: datetimeToDate(item.start_time),
+        endDate: datetimeToDate(item.end_time),
+        checkInTime: datetimeToHHmm(item.start_time),
+        checkOutTime: datetimeToHHmm(item.end_time),
+        typeText: null,
+        durationText: null,
+        totalDays: null,
+        destination: item.destination ?? null,
+        reason: item.reason ?? null,
+        statusText: null,
+        externalId: item.approval_id ?? null,
+      })
+    }
+  }
+
+  return rows
+}
+
+/**
  * 飞书考勤同步 provider。
  *
- * attendance 已实现;审批三类端点已核实但枚举映射待补,暂抛 NOT_IMPLEMENTED(501)。
+ * attendance 已实现;审批三类(leave/overtime/outgoing)类型/状态/ID 骨架已核实(design §7.4),
+ * 假别/加班/外出字段透传交现有 normalize 系列函数/人工裁决,不写死假别枚举。
  */
 export const feishuProvider: AttendanceProvider = {
   source: 'feishu',
@@ -189,18 +402,16 @@ export const feishuProvider: AttendanceProvider = {
   }): Promise<{ rows: SyncRow[]; nextCursor: string | null }> {
     const { userId, creds, importKind, cursor, periodMonth } = params
 
-    // 审批类:端点已核实(user_approval/query),枚举/分页/模板过滤待补 → 显式未实现
-    if (importKind !== 'attendance') {
-      throw new AppError(
-        `飞书 ${importKind} 同步尚未实现(审批枚举映射待补,见 attendance-sync 设计 §7.4)`,
-        501,
-        'SYNC_FEISHU_APPROVAL_NOT_IMPLEMENTED',
-      )
-    }
-
     const token = await getTenantAccessToken(creds)
     // 目标工号:名册全量 ∩ 可选白名单(见 feishu-employee-source.ts),空 → 0 行空批次
     const employeeNos = await resolveFeishuEmployeeNos(userId)
+
+    // 审批类(leave/overtime/outgoing):走 user_approval/query(见 design §7.4)
+    if (importKind !== 'attendance') {
+      const rows = await fetchApproval(token, employeeNos, periodMonth, importKind)
+      return { rows, nextCursor: cursor }
+    }
+
     const rows = await fetchAttendance(token, employeeNos, periodMonth)
 
     // 打卡按整月窗口拉取,无平台游标;下次游标沿用入参(增量后续接 check_date 推进)

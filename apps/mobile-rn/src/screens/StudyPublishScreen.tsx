@@ -20,7 +20,6 @@ import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { NavChrome } from '../components/NavChrome'
-import { toFriendlyOr } from '@ihui/shared/utils'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 type PublishMode = 'group' | 'video'
@@ -172,7 +171,7 @@ export default function StudyPublishScreen() {
         appAlert(t('home.pubTip'), res.error)
       }
     } catch (err) {
-      appAlert(t('home.pubTip'), toFriendlyOr(err, t('home.pubSubmitFailed')))
+      appAlert(t('home.pubTip'), err instanceof Error ? err.message : t('home.pubSubmitFailed'))
     } finally {
       setSubmitting(false)
     }
@@ -203,7 +202,7 @@ export default function StudyPublishScreen() {
         appAlert(t('home.pubTip'), res.error)
       }
     } catch (err) {
-      appAlert(t('home.pubTip'), toFriendlyOr(err, t('home.pubSubmitFailed')))
+      appAlert(t('home.pubTip'), err instanceof Error ? err.message : t('home.pubSubmitFailed'))
     } finally {
       setSubmitting(false)
     }

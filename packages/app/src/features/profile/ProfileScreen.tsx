@@ -143,7 +143,7 @@ export function ProfileScreen({
                       {item.value}
                     </Text>
                   ) : null}
-                  <ChevronRight size={Math.round(16 * fontMultiplier)} color={tk.text.secondary} />
+                  <ChevronRight size={Math.round(16 * fontMultiplier)} color={tk.text.tertiary} />
                 </TouchableOpacity>
               ))}
             </View>
@@ -214,7 +214,7 @@ function realnameBadgeTone(tk: AppThemeTokens, status: RealnameStatus) {
   }
   return {
     container: { backgroundColor: tk.surface.muted },
-    text: { color: tk.text.medium },
+    text: { color: tk.text.tertiary },
   }
 }
 
@@ -278,7 +278,7 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius['2xl'],
       backgroundColor: tk.surface.muted,
     },
-    avatarText: { fontSize: 28, fontWeight: '700', color: tk.brandAccent.foreground },
+    avatarText: { fontSize: rnType.displayXl.size, fontWeight: '700', color: tk.brandAccent.foreground },
     userMeta: { flex: 1, gap: rnSpacing.xs },
     identityRow: { flexDirection: 'row', flexWrap: 'wrap', gap: rnSpacing.xs },
     identityTag: {

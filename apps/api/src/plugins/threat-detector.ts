@@ -78,9 +78,6 @@ const watchedIps = new Map<string, { score: number; reasons: string[]; lastSeen:
 /** 最近封禁记录 */
 const recentBlocks: Array<{ ip: string; score: number; duration: string; timestamp: number }> = []
 const MAX_RECENT_BLOCKS = 20
-/** F-610:两个按 IP 累加的 Map 硬上限。原仅按时间淘汰,5 分钟内新 key 一律删不掉,
- * IPv6 /64 轮转下可无界增长直至 OOM。写入前超限淘汰最早插入项(Map 保序)兜底。 */
-const MAX_TRACKED_IPS = 10000
 
 const threatDetectorPlugin: FastifyPluginAsync = async (server: FastifyInstance) => {
   const redis: Redis | null = (server as unknown as { redis?: Redis }).redis ?? null
@@ -96,8 +93,8 @@ const threatDetectorPlugin: FastifyPluginAsync = async (server: FastifyInstance)
     for (const [ip, info] of watchedIps) {
       if (info.lastSeen < cutoff) watchedIps.delete(ip)
     }
-    // 清理 lastCheckTime(避免 Map 无限增长,F-610 阈值统一引用硬上限)
-    if (lastCheckTime.size >= MAX_TRACKED_IPS) {
+    // 清理 lastCheckTime(避免 Map 无限增长)
+    if (lastCheckTime.size > 10000) {
       const oldCutoff = Date.now() - 5 * 60 * 1000
       for (const [ip, ts] of lastCheckTime) {
         if (ts < oldCutoff) lastCheckTime.delete(ip)
@@ -138,11 +135,6 @@ const threatDetectorPlugin: FastifyPluginAsync = async (server: FastifyInstance)
     const now = Date.now()
     const lastCheck = lastCheckTime.get(ip) ?? 0
     if (now - lastCheck < REPUTATION_CHECK_INTERVAL_SEC * 1000) return
-    // F-610:写入前兜底硬上限,超限淘汰最早插入项,保证 Map 内存有界。
-    if (!lastCheckTime.has(ip) && lastCheckTime.size >= MAX_TRACKED_IPS) {
-      const oldest = lastCheckTime.keys().next().value
-      if (oldest !== undefined) lastCheckTime.delete(oldest)
-    }
     lastCheckTime.set(ip, now)
 
     const rep = await ipRep.getIpReputation(ip)
@@ -209,11 +201,6 @@ const threatDetectorPlugin: FastifyPluginAsync = async (server: FastifyInstance)
     // 4. 评分 >= WARN_THRESHOLD:告警但允许通过
     if (rep.score >= THREAT_WARN_THRESHOLD) {
       totalWarnings++
-      // F-610:同 lastCheckTime,写入前兜底硬上限防无界增长。
-      if (!watchedIps.has(ip) && watchedIps.size >= MAX_TRACKED_IPS) {
-        const oldest = watchedIps.keys().next().value
-        if (oldest !== undefined) watchedIps.delete(oldest)
-      }
       watchedIps.set(ip, {
         score: rep.score,
         reasons: rep.reasons,

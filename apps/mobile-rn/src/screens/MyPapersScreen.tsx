@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useCallback, useEffect, useState } from 'react'
-import { FlatList, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { FileText, Plus } from 'lucide-react-native'
@@ -155,14 +155,7 @@ export default function MyPapersScreen() {
       </NavChrome>
 
       {creating ? (
-        // 表单换成可滚动容器:键盘弹起后剩余高度不足时可以往下滚,提交按钮不再被顶出屏幕;
-        // keyboardShouldPersistTaps 让键盘开着时「提交」一次就生效,不用先点一下收键盘。
-        <ScrollView
-          style={styles.form}
-          contentContainerStyle={styles.formBody}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
+        <View style={styles.form}>
           <Text style={styles.label}>{t('myPapers.fieldTitle')}</Text>
           <TextField
             colorScheme={resolvedTheme}
@@ -192,7 +185,7 @@ export default function MyPapersScreen() {
           >
             <Text style={styles.submitText}>{t('myPapers.submit')}</Text>
           </TouchableOpacity>
-        </ScrollView>
+        </View>
       ) : null}
 
       {loading && rows.length === 0 ? (
@@ -264,16 +257,11 @@ function makeStyles() {
     container: { flex: 1, backgroundColor: tokens.surface.bg },
     form: {
       margin: rnSpacing.md,
+      padding: rnSpacing.lg,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tokens.border.light,
       backgroundColor: tokens.surface.card,
-      // ScrollView 默认会抢走剩余空间;这里保持「按内容高度」占位,只在键盘挤压时收缩内部滚动
-      flexGrow: 0,
-      flexShrink: 1,
-    },
-    formBody: {
-      padding: rnSpacing.lg,
       gap: rnSpacing['xs-loose'],
     },
     label: { fontSize: rnType.bodySm.size, color: tokens.text.secondary },
@@ -326,14 +314,14 @@ function makeStyles() {
     },
     badgeOk: {
       backgroundColor: tokens.success.light ?? tokens.surface.muted,
-      color: tokens.success.deepText,
+      color: tokens.success.DEFAULT,
     },
-    badgeBad: { backgroundColor: tokens.surface.muted, color: tokens.danger.deepText },
+    badgeBad: { backgroundColor: tokens.surface.muted, color: tokens.danger.DEFAULT },
     badgePending: { backgroundColor: tokens.surface.muted, color: tokens.text.secondary },
-    meta: { fontSize: rnType.label.size, color: tokens.text.medium },
-    reason: { fontSize: rnType.label.size, color: tokens.danger.deepText },
+    meta: { fontSize: rnType.label.size, color: tokens.text.tertiary },
+    reason: { fontSize: rnType.label.size, color: tokens.danger.DEFAULT },
     actions: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: rnSpacing.xs },
-    dangerText: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tokens.danger.deepText },
+    dangerText: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tokens.danger.DEFAULT },
     center: { alignItems: 'center', paddingVertical: rnSpacing['5xl'], gap: rnSpacing.md },
     centerText: {
       textAlign: 'center',
@@ -341,7 +329,7 @@ function makeStyles() {
       fontSize: rnType.body.size,
       color: tokens.text.secondary,
     },
-    errorText: { fontSize: rnType.body.size, color: tokens.danger.deepText },
+    errorText: { fontSize: rnType.body.size, color: tokens.danger.DEFAULT },
     retry: {
       paddingHorizontal: rnSpacing.lg,
       paddingVertical: rnSpacing.sm,

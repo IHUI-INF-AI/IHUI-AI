@@ -205,7 +205,7 @@ export function RepoWikiScreen({
             </View>
             {loadingDetail ? (
               <View style={styles.stateBox}>
-                <ActivityIndicator size="small" color={tk.text.secondary} />
+                <ActivityIndicator size="small" color={tk.text.tertiary} />
                 <Text style={styles.muted}>{t('repoWiki.loadingDetail')}</Text>
               </View>
             ) : renderDetail ? (
@@ -250,7 +250,7 @@ export function RepoWikiScreen({
 
             {loading && docs.length === 0 ? (
               <View style={styles.stateBox}>
-                <ActivityIndicator size="small" color={tk.text.secondary} />
+                <ActivityIndicator size="small" color={tk.text.tertiary} />
                 <Text style={styles.muted}>{t('repoWiki.loadingDocs')}</Text>
               </View>
             ) : docs.length === 0 ? (
@@ -307,9 +307,9 @@ export function RepoWikiScreen({
                         activeOpacity={0.7}
                       >
                         {busyId === doc.id ? (
-                          <ActivityIndicator size="small" color={tk.danger.deepText} />
+                          <ActivityIndicator size="small" color={tk.danger.DEFAULT} />
                         ) : (
-                          <Trash2 size={14} color={tk.danger.deepText} />
+                          <Trash2 size={14} color={tk.danger.DEFAULT} />
                         )}
                         <Text style={styles.dangerText}>{t('repoWiki.delete')}</Text>
                       </TouchableOpacity>
@@ -331,7 +331,7 @@ function createStyles(tk: AppThemeTokens) {
     scroll: { flex: 1 },
     body: { padding: rnSpacing.md, gap: rnSpacing.md, paddingBottom: rnSpacing['3xl'] },
     muted: { fontSize: rnType.bodySm.size, color: tk.text.secondary, lineHeight: 19 },
-    error: { fontSize: rnType.bodySm.size, color: tk.danger.deepText },
+    error: { fontSize: rnType.bodySm.size, color: tk.danger.DEFAULT },
     searchRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.sm },
     input: {
       flex: 1,
@@ -371,7 +371,7 @@ function createStyles(tk: AppThemeTokens) {
       gap: rnSpacing.xs,
     },
     outlineBtnText: { fontSize: rnType.bodySm.size, color: tk.text.primary },
-    dangerText: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tk.danger.deepText },
+    dangerText: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tk.danger.DEFAULT },
     disabled: { opacity: 0.5 },
     listTitle: { fontSize: rnType.strong.size, fontWeight: '600', color: tk.text.primary },
     card: {
@@ -396,7 +396,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.muted,
     },
     badgeText: { fontSize: rnType.badge.size, color: tk.text.secondary },
-    meta: { fontSize: rnType.caption.size, color: tk.text.medium },
+    meta: { fontSize: rnType.caption.size, color: tk.text.tertiary },
     actions: {
       flexDirection: 'row',
       alignItems: 'center',

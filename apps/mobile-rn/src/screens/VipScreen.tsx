@@ -913,7 +913,7 @@ const styles = StyleSheet.create({
   discountTagText: {
     fontSize: TAG_FONT_SIZE,
     lineHeight: TAG_FONT_SIZE + 2,
-    color: tokens.danger.deepText,
+    color: tokens.danger.DEFAULT,
     fontWeight: '600',
   } as TextStyle,
   trialTag: {
@@ -949,7 +949,7 @@ const styles = StyleSheet.create({
   planDefAmount: {
     fontSize: PLAN_DEF_AMOUNT_FONT_SIZE,
     lineHeight: PLAN_DEF_AMOUNT_FONT_SIZE + 2,
-    color: tokens.text.medium,
+    color: tokens.text.tertiary,
     textDecorationLine: 'line-through',
   } as TextStyle,
   planDuration: {
@@ -981,7 +981,7 @@ const styles = StyleSheet.create({
     marginTop: rpx(16),
     fontSize: AGREEMENT_FONT_SIZE,
     lineHeight: AGREEMENT_FONT_SIZE + 4,
-    color: tokens.text.medium,
+    color: tokens.text.tertiary,
     textAlign: 'center',
   } as TextStyle,
   // ── 等级升级机制装饰区 ──
@@ -1017,7 +1017,7 @@ const styles = StyleSheet.create({
   levelBannerHint: {
     fontSize: LEVEL_BANNER_HINT_FONT_SIZE,
     lineHeight: LEVEL_BANNER_HINT_FONT_SIZE + 4,
-    color: tokens.danger.deepText,
+    color: tokens.danger.DEFAULT,
     marginTop: rpx(4),
   } as TextStyle,
   // ── 操盘手专属权益横幅 ──

@@ -2,12 +2,11 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { Platform } from 'react-native'
 import { Notifications } from '@/platform/push'
 import * as Device from '@/platform/device'
 import { fetchApi } from '@ihui/api-client'
-import { rnTokens } from '@ihui/design-tokens'
 
 export interface PushState {
   token: string | null
@@ -35,16 +34,6 @@ export function usePush() {
   })
   const listener = useRef<Notifications.Subscription | null>(null)
 
-  // 卸载时清理通知监听,避免向已卸载组件回调(陈旧闭包)或重复订阅叠加。
-  useEffect(() => {
-    return () => {
-      if (listener.current) {
-        listener.current.remove()
-        listener.current = null
-      }
-    }
-  }, [])
-
   const register = useCallback(async () => {
     if (!Device.isDevice) {
       setState({ token: null, permission: 'unknown', error: '仅真机支持推送', registered: false })
@@ -71,11 +60,7 @@ export function usePush() {
           name: 'default',
           importance: Notifications.AndroidImportance.MAX,
           vibrationPattern: [0, 250, 250, 250],
-          // 呼吸灯色取品牌墨档(brand.DEFAULT:亮=纯黑/暗=纯白),不再写死一枚带 alpha 的红色。
-          // 原 #FF231F7C 是历史遗留的红灯,与本应用"去绿色、中性墨色"的品牌定档不一致,
-          // 且 Android 对 lightColor 的解析是 ARGB(这枚值实际会被读成 alpha=FF 的蓝紫),
-          // 屏上观感与预期红完全不是一回事 —— 取值走 token 后它才真的跟品牌一致。
-          lightColor: rnTokens.brand.DEFAULT,
+          lightColor: '#FF231F7C',
         })
       }
       const t = await Notifications.getExpoPushTokenAsync()
@@ -107,11 +92,6 @@ export function usePush() {
   }, [])
 
   const subscribe = useCallback((cb: (data: string) => void) => {
-    // 注册新监听前先移除旧监听,防止重复订阅叠加。
-    if (listener.current) {
-      listener.current.remove()
-      listener.current = null
-    }
     listener.current = Notifications.addNotificationReceivedListener((n) => {
       const body = (n.request.content.data as { body?: string } | undefined)?.body
       cb(typeof body === 'string' ? body : (n.request.content.title ?? ''))

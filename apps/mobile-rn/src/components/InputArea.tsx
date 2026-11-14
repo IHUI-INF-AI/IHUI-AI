@@ -415,7 +415,7 @@ export function InputArea({
             {/* 视频封面角标:播放图标(真实播放待接 expo-video) */}
             {isVideo ? (
               <View style={styles.videoBadge}>
-                <Play size={20} color={rnCssLight.white95} />
+                <Play size={20} color={tokens.surface.light} />
               </View>
             ) : null}
           </View>
@@ -836,12 +836,10 @@ const styles = StyleSheet.create({
     bottom: 0,
     alignItems: 'center',
     justifyContent: 'center',
-    // 角标必须自带底:缩略图内容不可预知,原先无底时白色播放图标落在浅色封面上等于消失。
-    backgroundColor: rnCssLight.black40,
   },
   videoBadgeIcon: {
     fontSize: rnType.heading.size,
-    color: rnCssLight.white95,
+    color: tokens.surface.light,
     textShadowColor: rnCssLight.black50,
     // 绘制细节(文字阴影偏移),小程序端同类角标是实底色块、无阴影通道 —— 单端档,非取值分叉
     textShadowOffset: { width: 0, height: INPUT_AREA_LEGACY_SHADOW_OFFSET_PX },
@@ -1031,12 +1029,12 @@ const styles = StyleSheet.create({
     bottom: INPUT_AREA_COUNTER_BOTTOM_PX,
     // 收编前是 11 —— 不在 design-tokens 字号档上,按裁决规则 4 就近吸附到 12
     fontSize: INPUT_AREA_SECONDARY_FONT_PX,
-    color: tokens.text.medium,
+    color: tokens.text.tertiary,
     marginTop: rnSpacing.xs,
     textAlign: 'right',
   },
   counterWarning: {
-    color: tokens.warning.amberText,
+    color: tokens.warning.DEFAULT,
   },
   // 发送按钮
   sendButton: {

@@ -25,7 +25,8 @@
  *    (含刚写完这条的那台),本端自己的流式行又没有服务端 id —— 不判回声就会在流结束后
  *    多出重复一条。失效方向恒为"宁可少显示一次,不重复一条"。
  *
- * 终态帧本票不投影(与共享 store 的 unwired 档、web 端第三切片同批处理);帧仍被点名计数。
+ * 终态帧 G-20261114 起与 created/patched 一同投影(共享 store 的 unwired 档已拆):
+ * terminal 是独立状态位,页级消息要能显示「生成结束」,否则另一端永久停在生成中。
  */
 
 import { useEffect, useRef, useSyncExternalStore } from 'react'
@@ -37,6 +38,7 @@ import type {
   ChatSyncMessageSurface,
   ChatSyncResyncMergeOutcome,
   ChatSyncResyncRequest,
+  ChatSyncTerminalState,
 } from '@ihui/types'
 import type { ChatMessage } from '@ihui/shared'
 import {
@@ -95,12 +97,18 @@ interface LocalChatRow {
   reasoning?: string
   /** 历史回放行的服务端 id(ChatScreen 写在运行时对象上,类型层未声明) */
   flagTargetId?: unknown
+  /** G-20261114:终态状态位(可能由上一次投影写入;页级 ChatMessage 类型未声明) */
+  terminal?: ChatSyncTerminalState
 }
+
+/** 页级行 + 终态状态位:@ihui/shared 的 ChatMessage 没有 terminal 字段,只在投影层扩。 */
+type ProjectedChatMessage = ChatMessage & { terminal?: ChatSyncTerminalState }
 
 export interface ChatSyncSurfaceUpdate {
   index: number
   content: string
   reasoning?: string
+  terminal?: ChatSyncTerminalState
 }
 
 export interface ChatSyncSurfaceMergePlan {
@@ -134,6 +142,16 @@ function sameText(a: string | undefined, b: string | undefined): boolean {
   return (a ?? '') === (b ?? '')
 }
 
+/** 终态相等判据:rev + reason 两维;缺一侧即不等(用于避免重复发布)。 */
+function sameTerminal(
+  a: ChatSyncTerminalState | undefined,
+  b: ChatSyncTerminalState | undefined,
+): boolean {
+  if (!a && !b) return true
+  if (!a || !b) return false
+  return a.rev === b.rev && a.reason === b.reason
+}
+
 /**
  * 计算"把共享消息面投影进本地列表"的最小变更集。返回 null = 零变化(调用方不得发布)。
  * 纯函数:不读全局、不写状态,node 用例直接喂数组即可。
@@ -154,12 +172,17 @@ export function planChatSyncSurfaceMerge(
       const contentChanged = row.content !== surface.content
       const reasoningChanged =
         surface.reasoning !== undefined && !sameText(row.reasoning, surface.reasoning)
-      if (!contentChanged && !reasoningChanged) continue
+      // 终态粘性(契约 §4):只在服务端带来新的终态时写入;不带 terminal 的
+      // snapshot 不得把已有终态清掉(否则另一端的「生成中」又回来了)。
+      const terminalChanged =
+        surface.terminal !== undefined && !sameTerminal(row.terminal, surface.terminal)
+      if (!contentChanged && !reasoningChanged && !terminalChanged) continue
       updated.add(index)
       updates.push({
         index,
         content: surface.content,
         ...(surface.reasoning !== undefined ? { reasoning: surface.reasoning } : {}),
+        ...(surface.terminal !== undefined ? { terminal: surface.terminal } : {}),
       })
       continue
     }
@@ -176,12 +199,13 @@ export function planChatSyncSurfaceMerge(
   return { updates, appends }
 }
 
-function toLocalMessage(surface: ChatSyncMessageSurface): ChatMessage {
+function toLocalMessage(surface: ChatSyncMessageSurface): ProjectedChatMessage {
   return {
     id: surface.id,
     role: surface.role as ChatMessage['role'],
     content: surface.content,
     ...(surface.reasoning !== undefined ? { reasoning: surface.reasoning } : {}),
+    ...(surface.terminal !== undefined ? { terminal: surface.terminal } : {}),
   }
 }
 
@@ -189,8 +213,8 @@ function toLocalMessage(surface: ChatSyncMessageSurface): ChatMessage {
 export function applyChatSyncSurfaceMerge(
   local: readonly ChatMessage[],
   plan: ChatSyncSurfaceMergePlan,
-): ChatMessage[] {
-  const next = local.slice()
+): ProjectedChatMessage[] {
+  const next: ProjectedChatMessage[] = local.slice()
   for (const update of plan.updates) {
     const row = next[update.index]
     if (!row) continue
@@ -198,6 +222,7 @@ export function applyChatSyncSurfaceMerge(
       ...row,
       content: update.content,
       ...(update.reasoning !== undefined ? { reasoning: update.reasoning } : {}),
+      ...(update.terminal !== undefined ? { terminal: update.terminal } : {}),
     }
   }
   for (const surface of plan.appends) next.push(toLocalMessage(surface))

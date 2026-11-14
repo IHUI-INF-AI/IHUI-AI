@@ -21,7 +21,6 @@ import { rnRadius, rnSpacing, rnType, rnCssLight } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 import { VipLevelsSection } from './VipLevelsSection'
-import { VipBenefitsSection, VipPlansSection } from './VipSections'
 import { assertRequiredPort } from '../../host/ports'
 
 /** 特权 id → 图标(平台无关数据只带 id,图标由共享屏兜底) */
@@ -173,12 +172,21 @@ export function VipScreen({
           </View>
         ) : null}
 
-        {/* 权益卡(平台注入 benefitItems 时渲染;段实现已抽到 VipSections,整屏与"只要一段"的页面共用) */}
-        <VipBenefitsSection
-          t={t}
-          items={benefitItems ?? []}
-          colorScheme={colorScheme}
-        />
+        {/* 权益卡(平台注入 benefitItems 时渲染;无则不出现,不影响原有等级列表) */}
+        {benefitItems && benefitItems.length > 0 ? (
+          <View style={styles.benefitsSection}>
+            <Text style={styles.benefitsTitle}>{t('vip.details.benefitsTitle')}</Text>
+            {benefitItems.map((item) => (
+              <View key={item.key} style={styles.benefitCard}>
+                <Check size={16} color={tk.success.DEFAULT} style={styles.benefitIcon} />
+                <View style={styles.benefitTextWrap}>
+                  <Text style={styles.benefitTitle}>{item.title}</Text>
+                  {item.desc ? <Text style={styles.benefitDesc}>{item.desc}</Text> : null}
+                </View>
+              </View>
+            ))}
+          </View>
+        ) : null}
 
         <VipLevelsSection
           t={t}
@@ -190,7 +198,55 @@ export function VipScreen({
           colorScheme={colorScheme}
         />
 
-        <VipPlansSection plans={plans} colorScheme={colorScheme} />
+        {plans ? (
+          <View style={styles.plansCard}>
+            <Text style={styles.plansTitle}>{plans.title}</Text>
+            <View style={styles.planOptions}>
+              {plans.options.map((option) => {
+                const selected = option.id === plans.selectedId
+                return (
+                  <TouchableOpacity
+                    key={option.id}
+                    style={[styles.planOption, selected && styles.planOptionActive]}
+                    onPress={() => plans.onSelect(option.id)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.planName, selected && styles.planNameActive]}>
+                      {option.name}
+                    </Text>
+                    <Text style={[styles.planPrice, selected && styles.planPriceActive]}>
+                      ¥{option.price}
+                    </Text>
+                    <Text style={styles.planPeriod}>{option.period}</Text>
+                  </TouchableOpacity>
+                )
+              })}
+            </View>
+            <TouchableOpacity
+              style={styles.autoRenewRow}
+              onPress={plans.onToggleAutoRenew}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.checkbox, plans.autoRenew && styles.checkboxChecked]}>
+                {plans.autoRenew ? <Check size={12} color={tk.surface.light} /> : null}
+              </View>
+              <Text style={styles.autoRenewText}>{plans.autoRenewLabel}</Text>
+            </TouchableOpacity>
+            {plans.manageLabel && plans.onManage ? (
+              <TouchableOpacity onPress={plans.onManage} activeOpacity={0.7}>
+                <Text style={styles.manageLink}>{plans.manageLabel}</Text>
+              </TouchableOpacity>
+            ) : null}
+            {plans.memberDescTitle ? (
+              <View style={styles.memberDesc}>
+                <Text style={styles.memberDescTitle}>{plans.memberDescTitle}</Text>
+                {plans.memberDescText ? (
+                  <Text style={styles.memberDescText}>{plans.memberDescText}</Text>
+                ) : null}
+              </View>
+            ) : null}
+          </View>
+        ) : null}
       </ScrollView>
 
       {buyBar ? (
@@ -219,7 +275,7 @@ export function VipScreen({
             </View>
             {overlay.kind === 'success' ? (
               <View style={styles.successIcon}>
-                <Check size={40} color={tk.success.deepText} />
+                <Check size={40} color={tk.success.DEFAULT} />
               </View>
             ) : null}
             {overlay.lines?.map((line) => (
@@ -246,7 +302,7 @@ export function VipScreen({
             ) : null}
             {overlay.benefits?.map((benefit) => (
               <View key={benefit.key} style={styles.overlayBenefitRow}>
-                <Check size={16} color={tk.success.deepText} />
+                <Check size={16} color={tk.success.DEFAULT} />
                 <View style={styles.overlayBenefitTextWrap}>
                   <Text style={styles.overlayBenefitTitle}>{benefit.title}</Text>
                   {benefit.desc ? (
@@ -362,6 +418,54 @@ function createStyles(tk: AppThemeTokens) {
       fontWeight: '600',
       color: baseTokens.vip.gold,
     },
+    plansCard: {
+      marginHorizontal: rnSpacing.lg,
+      marginBottom: rnSpacing.lg,
+      padding: rnSpacing.lg,
+      borderRadius: rnRadius.lg,
+      borderWidth: 1,
+      borderColor: tk.border.light,
+      backgroundColor: tk.surface.light,
+    },
+    plansTitle: {
+      ...rnType.title,
+      fontWeight: '700',
+      color: tk.text.primary,
+      marginBottom: rnSpacing.md,
+    },
+    planOptions: { flexDirection: 'row', gap: rnSpacing.sm },
+    planOption: {
+      flex: 1,
+      alignItems: 'center',
+      paddingVertical: rnSpacing.md,
+      borderRadius: rnRadius.lg,
+      borderWidth: 1,
+      borderColor: tk.border.light,
+    },
+    planOptionActive: {
+      borderColor: baseTokens.vip.gold,
+      backgroundColor: tk.surface.muted,
+    },
+    planName: { fontSize: rnType.label.size, color: tk.text.secondary },
+    planNameActive: { fontWeight: '700', color: tk.text.primary },
+    planPrice: {
+      marginTop: rnSpacing.xs,
+      fontSize: rnType.title.size,
+      fontWeight: '700',
+      color: tk.text.primary,
+    },
+    planPriceActive: { color: baseTokens.vip.gold },
+    planPeriod: {
+      marginTop: rnSpacing['2xs'],
+      fontSize: rnType.caption.size,
+      color: tk.text.secondary,
+    },
+    autoRenewRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: rnSpacing.sm,
+      marginTop: rnSpacing.md,
+    },
     checkbox: {
       width: 18,
       height: 18,
@@ -372,6 +476,29 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
     },
     checkboxChecked: { backgroundColor: baseTokens.vip.gold, borderColor: baseTokens.vip.gold },
+    autoRenewText: { fontSize: rnType.label.size, color: tk.text.secondary },
+    manageLink: {
+      marginTop: rnSpacing.sm,
+      fontSize: rnType.label.size,
+      color: baseTokens.vip.gold,
+    },
+    memberDesc: {
+      marginTop: rnSpacing.lg,
+      paddingTop: rnSpacing.md,
+      borderTopWidth: 1,
+      borderTopColor: tk.border.light,
+    },
+    memberDescTitle: {
+      fontSize: rnType.body.size,
+      fontWeight: '600',
+      color: tk.text.primary,
+      marginBottom: rnSpacing.xs,
+    },
+    memberDescText: {
+      fontSize: rnType.label.size,
+      lineHeight: rnType.body.lineHeight,
+      color: tk.text.secondary,
+    },
     buyBar: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -527,7 +654,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     subtitle: { marginTop: rnSpacing.xs, fontSize: rnType.body.size, color: tk.text.secondary },
     errorBar: { paddingHorizontal: rnSpacing.lg, paddingVertical: rnSpacing.sm },
-    errorText: { fontSize: rnType.body.size, color: tk.danger.deepText },
+    errorText: { fontSize: rnType.body.size, color: tk.danger.DEFAULT },
     toastBar: { paddingHorizontal: rnSpacing.lg, paddingVertical: rnSpacing.sm },
     toastText: { fontSize: rnType.label.size, color: tk.success.deepText },
     membershipCard: {
@@ -551,6 +678,31 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: rnSpacing.sm,
     },
     membershipMetaText: { fontSize: rnType.label.size, color: rnCssLight.white70 },
+    benefitsSection: { paddingHorizontal: rnSpacing['sm-loose'], marginTop: rnSpacing.lg },
+    benefitsTitle: {
+      marginBottom: rnSpacing.md,
+      fontSize: rnType.heading.size,
+      fontWeight: '600',
+      color: tk.text.primary,
+    },
+    benefitCard: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: rnSpacing.sm,
+      padding: rnSpacing['md-loose'],
+      marginBottom: rnSpacing.sm,
+      borderRadius: rnRadius.lg,
+      borderWidth: 1,
+      borderColor: tk.border.light,
+    },
+    benefitIcon: { marginTop: rnSpacing['2xs'] },
+    benefitTextWrap: { flex: 1, gap: rnSpacing.xs },
+    benefitTitle: { fontSize: rnType.body.size, fontWeight: '600', color: tk.text.primary },
+    benefitDesc: {
+      fontSize: rnType.label.size,
+      lineHeight: rnType.body.lineHeight,
+      color: tk.text.secondary,
+    },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

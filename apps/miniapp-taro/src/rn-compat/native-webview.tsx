@@ -51,9 +51,9 @@ export default function WebView({
   }
   return (
     <View style={{ ...(style as object), padding: 12 }}>
-      <View hoverClass="opacity-60" onClick={open}>
-        <Text style={{ color: '#2563eb' }}>{uri || '(无链接)'}</Text>
-      </View>
+      <Text onClick={open} style={{ color: '#2563eb' }}>
+        {uri || '(无链接)'}
+      </Text>
     </View>
   )
 }

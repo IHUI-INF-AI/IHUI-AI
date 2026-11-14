@@ -343,11 +343,6 @@
       "import": "./src/share/index.ts",
       "default": "./src/share/index.ts"
     },
-    "./social/*": {
-      "types": "./src/social/*.ts",
-      "import": "./src/social/*.ts",
-      "default": "./src/social/*.ts"
-    },
     "./share/*": {
       "types": "./src/share/*.ts",
       "import": "./src/share/*.ts",
