@@ -319,6 +319,24 @@ export interface CalculateCostResult {
   creditsApplied?: number
   /** F-720:采用的积分单价(分/积分),供审计回溯换算依据 */
   creditsUnitCents?: number
+  /**
+   * 我方采购成本估算(分,2026-11-14 立):按模型 `metadata.priceSource.profitFactor`
+   * 由基础售价反推(不含任何倍率链),null=该模型无留痕、成本未知。
+   * 用途:利润看板;不参与对用户扣费。
+   */
+  providerCostCents: number | null
+  /**
+   * 毛利估算(分)= 总售价 − 采购成本。成本未知时为 null,绝不填 0 冒充"零成本"。
+   * 仅在成本已知时有意义;部分倍率(分组折扣/阶梯/分时)会同时改变售价与毛利。
+   */
+  profitCents: number | null
+  /**
+   * 成本口径:
+   * - `derived`:由 model_config 售价 ÷ profitFactor 反推(当前唯一实现)
+   * - `byok`:BYOK 模式,平台成本为 0、毛利 = 平台服务费
+   * - `unknown`:无留痕,成本不可得
+   */
+  costBasis: 'derived' | 'byok' | 'unknown'
 }
 
 /** calculateCost 第 4 个参数:cache 折扣计费选项 + 多模态计费选项(2026-09-13) */
@@ -725,6 +743,9 @@ async function queryPricingRows(dbModelId: string) {
       outputPricePer1k: aiModelConfigModels.outputPricePer1k,
       relayPriceMultiplier: aiModelConfigModels.relayPriceMultiplier,
       isRelayPublic: aiModelConfigModels.isRelayPublic,
+      // 2026-11-14:利润闭环 —— 成本价按 metadata.priceSource.profitFactor 反推。
+      // 注意:该列在 DB 存在但 Drizzle schema 未声明,只能用原生 SQL 取(同 model-pricing-admin)。
+      metadata: sql<{ priceSource?: { profitFactor?: number } } | null>`metadata`,
     })
     .from(aiModelConfigModels)
     .where(eq(aiModelConfigModels.modelId, dbModelId))
@@ -844,6 +865,16 @@ export async function calculateCost(
     multiplier *= Number(pricingRow.longContextMultiplier)
   }
 
+  // 成本口径(2026-11-14 立,利润闭环):model_config 的售价由定价管线按 成本 × profitFactor
+  // 生成,metadata.priceSource.profitFactor 是唯一留痕。缺失则成本未知(null),不猜 0。
+  const priceSourceMeta = (modelRow?.metadata ?? null) as
+    | { priceSource?: { profitFactor?: number } }
+    | null
+  const rawProfitFactor = Number(priceSourceMeta?.priceSource?.profitFactor ?? 0)
+  const profitFactor =
+    Number.isFinite(rawProfitFactor) && rawProfitFactor >= 1 ? rawProfitFactor : null
+  const costBasis: CalculateCostResult['costBasis'] = profitFactor ? 'derived' : 'unknown'
+
   let baseInputPricePer1k = 0
   let baseOutputPricePer1k = 0
   // 计费熔断(F,2026-09-16):定价查询失败且无缓存时标记 unavailable,
@@ -891,6 +922,8 @@ export async function calculateCost(
     if (billingMode === 'per_image' && callType === 'image') {
       const unit = pricingRow.perUnitPrice ?? 0
       const total = Math.max(0, roundCents(unit * units * multiplier + creditsCostCents))
+      const providerCostCents =
+        profitFactor !== null ? Math.max(0, roundCents((unit * units) / profitFactor)) : null
       return {
         inputCostCents: 0,
         outputCostCents: 0,
@@ -905,6 +938,9 @@ export async function calculateCost(
         billingMode,
         unitsApplied: units,
         ...creditsPart,
+        providerCostCents,
+        profitCents: providerCostCents !== null ? roundCents(total - providerCostCents) : null,
+        costBasis,
       }
     }
 
@@ -913,6 +949,8 @@ export async function calculateCost(
       const vUnit = pricingRow.videoUnit === 'second' ? 'second' : 'call'
       const applied = vUnit === 'second' ? units : 1
       const total = Math.max(0, roundCents(unit * applied * multiplier + creditsCostCents))
+      const providerCostCents =
+        profitFactor !== null ? Math.max(0, roundCents((unit * applied) / profitFactor)) : null
       return {
         inputCostCents: 0,
         outputCostCents: 0,
@@ -927,6 +965,9 @@ export async function calculateCost(
         billingMode,
         unitsApplied: applied,
         ...creditsPart,
+        providerCostCents,
+        profitCents: providerCostCents !== null ? roundCents(total - providerCostCents) : null,
+        costBasis,
       }
     }
 
@@ -936,6 +977,10 @@ export async function calculateCost(
       const picked = pickPerCallPrice(pricingRow.tieredCallPrices, promptTokens)
       if (picked) {
         const total = Math.max(0, roundCents(picked.price * units * multiplier + creditsCostCents))
+        const providerCostCents =
+          profitFactor !== null
+            ? Math.max(0, roundCents((picked.price * units) / profitFactor))
+            : null
         return {
           inputCostCents: 0,
           outputCostCents: 0,
@@ -951,6 +996,9 @@ export async function calculateCost(
           unitsApplied: units,
           callTier: picked.tier,
           ...creditsPart,
+          providerCostCents,
+          profitCents: providerCostCents !== null ? roundCents(total - providerCostCents) : null,
+          costBasis,
         }
       }
       // 三档价未配置 → 回退 token 计费(避免免费敞口),调用方可据此告警
@@ -997,6 +1045,22 @@ export async function calculateCost(
   // 积分维度成本已在上方按同一倍率链算好(creditsCostCents),此处只做合计。
   const totalCostCents = roundCents(tokenCostCents + creditsCostCents)
 
+  // 采购成本(2026-11-14):model_config 的 inputPricePer1k 是售价基准(成本 × profitFactor),
+  // 反推成本时必须先除 profitFactor 再乘 token,且不叠任何对客倍率(分组/阶梯/分时/推理上浮),
+  // 否则用户享受折扣时会把平台成本一起"打折",利润虚高。
+  const providerCostCents =
+    profitFactor !== null && modelRow
+      ? Math.max(
+          0,
+          roundCents(
+            ((Number(modelRow.inputPricePer1k ?? 0) / profitFactor) *
+              (normalInputTokens + cacheReadTokens * 0.1 + cacheCreationTokens * 1.25) +
+              (Number(modelRow.outputPricePer1k ?? 0) / profitFactor) * completionTokens) /
+              1000,
+          ),
+        )
+      : null
+
   return {
     inputCostCents,
     outputCostCents,
@@ -1011,6 +1075,9 @@ export async function calculateCost(
     billingMode: 'token',
     unitsApplied: 0,
     ...creditsPart,
+    providerCostCents,
+    profitCents: providerCostCents !== null ? roundCents(totalCostCents - providerCostCents) : null,
+    costBasis,
   }
 }
 
@@ -1401,6 +1468,14 @@ async function recordCallInternal(input: RecordCallInput): Promise<RecordCallRes
     metadata.billingMode = relayCost.billingMode
     if (relayCost.unitsApplied > 0) metadata.unitsApplied = relayCost.unitsApplied
     if (relayCost.callTier) metadata.callTier = relayCost.callTier
+    // 利润闭环(2026-11-14):采购成本与毛利随调用落账,管理端利润看板直接聚合本字段。
+    // 成本未知时只写 costBasis=unknown,不写 providerCostCents(避免被当成 0 成本)。
+    metadata.costBasis = relayCost.costBasis
+    if (relayCost.providerCostCents !== null) {
+      metadata.providerCostCents = relayCost.providerCostCents
+      metadata.profitCents = relayCost.profitCents
+      metadata.costedRevenueCents = relayCost.totalCostCents
+    }
   }
   // F-720:积分维度审计 —— 上游声明了多少 credits、按什么单价换算成多少分。
   // 即便未计费(failureZeroed)也留底,避免"credits 有值但账单无痕"。
@@ -1418,6 +1493,11 @@ async function recordCallInternal(input: RecordCallInput): Promise<RecordCallRes
     metadata.upstreamCostCents = upstreamCostCents
     metadata.platformFeeCents = platformFeeCents
     metadata.commissionRate = commissionRate
+    // BYOK:上游成本由用户自付,平台成本为 0,毛利 = 平台服务费
+    metadata.costBasis = 'byok'
+    metadata.providerCostCents = 0
+    metadata.profitCents = platformFeeCents ?? 0
+    metadata.costedRevenueCents = platformFeeCents ?? 0
   }
 
   // F-728:失败调用的原始用量留底(token 列按 0 落,避免与真实计费混成一个数)
@@ -1436,6 +1516,12 @@ async function recordCallInternal(input: RecordCallInput): Promise<RecordCallRes
   if (input.status === 'error') {
     if (costCentsToDeduct > 0) metadata.noChargeReason = `status=${input.status}`
     costCentsToDeduct = 0
+    // 上游未提供服务 → 采购成本同样为 0,毛利 0,避免把失败调用算成平台亏损
+    if (metadata.costBasis === 'derived') {
+      metadata.providerCostCents = 0
+      metadata.profitCents = 0
+      metadata.costedRevenueCents = 0
+    }
   }
 
   // F-727(2026-11-13):Batch 任务的 50% 折扣此前只写在 metadata.discount
