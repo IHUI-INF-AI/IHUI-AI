@@ -11,6 +11,7 @@ import { conversationMetaLedger, mcpStatusLedger } from '@ihui/shared/chat'
 
 import { WS_BASE_URL } from '../lib/config'
 import { attachUserBroadcast, resetBroadcastNotices } from '../lib/user-broadcast'
+import { startRnChatSyncResync, stopRnChatSyncResync } from '../lib/chat-sync-resync'
 
 const LOG_TAG = '[user-broadcast]'
 
@@ -42,6 +43,8 @@ export function useUserBroadcastSync(opts: UseUserBroadcastSyncOptions): void {
       conversationMetaLedger.clear()
       mcpStatusLedger.clear()
       resetBroadcastNotices()
+      // 身份面退场 ⇒ gap 待办也失去意义,泵必须同批停止(否则残留订阅会继续追问旧会话)
+      stopRnChatSyncResync()
       return
     }
     const sub = attachUserBroadcast({
@@ -61,8 +64,12 @@ export function useUserBroadcastSync(opts: UseUserBroadcastSyncOptions): void {
         )
       },
     })
+    // 票 B02 / 票71 phase 2:gap-resync 泵与订阅同生命周期(有登录态才建;
+    // 泵只订阅共享 store,不依赖 WS 是否建成 —— 没帧就不会有 gap)。
+    startRnChatSyncResync()
     return () => {
       sub?.close()
+      stopRnChatSyncResync()
     }
   }, [token])
 }

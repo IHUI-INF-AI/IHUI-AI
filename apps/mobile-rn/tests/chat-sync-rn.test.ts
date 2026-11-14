@@ -434,6 +434,18 @@ describe('⑤ 结构纪律与装车证明', () => {
     expect(screenSource).toContain('useRemoteChatSyncMessages({ conversationId, setMessages')
   })
 
+  it('phase 2 resync 接线锁:泵在应用级 hook 启停,端内不手抄端点路径', () => {
+    const hookSource = readFileSync(join(HERE, '../src/hooks/use-user-broadcast-sync.ts'), 'utf8')
+    expect(hookSource).toContain('startRnChatSyncResync()')
+    expect(hookSource).toContain('stopRnChatSyncResync()')
+
+    const adapter = readFileSync(join(HERE, '../src/lib/chat-sync-resync.ts'), 'utf8')
+    expect(adapter).toContain('startChatSyncResyncPump')
+    expect(adapter).toContain('createChatSyncSnapshotFetcher')
+    // 反向牙:端内出现端点字面量 = 又开始手抄(共享层已有一份,抄第二份必然漂移)
+    expect(adapter).not.toMatch(/['"`]\/chat\/conversations/)
+  })
+
   it('一次订阅 = 一份账本:attach 成功后清空共享 store(换账号不串消息)', () => {
     chatSyncStore.applyEvent(
       messageCreatedEvent({
