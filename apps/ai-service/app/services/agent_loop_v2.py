@@ -446,6 +446,8 @@ _DEFAULT_HIGH_RISK_TOOLS: frozenset[str] = frozenset({
     "resolve_conflict",
     # 命令类
     "run_command",
+    # 长驻交互式终端(2026-11-14):能力面等同 run_command,且能分步持续输入
+    "terminal",
     "computer_mouse_click",
     "computer_keyboard_type",
     "computer_screenshot_screen",

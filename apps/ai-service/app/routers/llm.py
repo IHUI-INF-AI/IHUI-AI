@@ -1433,6 +1433,7 @@ _TOOL_DANGER_LEVELS: dict[str, str] = {
     # 命令执行:可执行任意命令,最高危
     "run_command": "high",
     "sandbox_session": "high",
+    "terminal": "high",
     "execute_command": "high",
     # 删除/移动/git:不可逆操作
     "delete_file": "high",
