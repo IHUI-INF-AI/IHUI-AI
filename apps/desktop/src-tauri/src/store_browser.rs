@@ -53,7 +53,11 @@ fn load_session_seed(platform_code: &str) -> Option<serde_json::Value> {
 }
 
 /// 把登录态种子拼成页面初始化脚本:在页面脚本之前写 Cookie/LocalStorage/SessionStorage。
-/// 只在账号 profile 第一次打开时写(本地标记),避免用旧种子覆盖平台后来刷新的 Cookie。
+///
+/// 每个 profile **只种一次**:第一次成功后种下哨兵 Cookie(同 cookieDomain),之后任何导航
+/// 或重新打开直接跳过。为什么不能每页重写:HttpOnly Cookie 在 document.cookie 里不可见,
+/// 「只补缺失」对它们永远成立;每导航重写就必然用旧种子覆盖平台/用户刚登录得到的新值,
+/// 那不是保活,是制造掉线(Google/vivo 的关键会话 Cookie 正是 HttpOnly)。
 fn build_seed_script(seed: &serde_json::Value) -> String {
     let seed_json = serde_json::to_string(seed).unwrap_or_else(|_| "null".to_string());
     format!(
@@ -70,21 +74,23 @@ fn build_seed_script(seed: &serde_json::Value) -> String {
     if (!domain) return;
     var host = String(location.hostname || '').toLowerCase();
     if (host !== domain && host.slice(-(domain.length + 1)) !== '.' + domain) return;
-    var path = String(location.pathname || '').toLowerCase();
-    // 只认路径段/登录类子域:auth-* 控制台域名含 "auth" 时不能误判成登录页(否则会拿旧种子覆盖新值)
-    var isLogin = /(^|\/)(login|signin|sign-in|passport|sso|auth)(\/|$)/.test(path)
-      || /^(passport|login|signin|sso|auth|account|accounts)\./.test(host);
+    var SENTINEL = '__ihui_seed_v1';
     var existing = {{}};
+    var seeded = false;
     document.cookie.split(';').forEach(function (p) {{
       var eq = p.indexOf('=');
-      if (eq > 0) existing[p.slice(0, eq).trim()] = 1;
+      if (eq > 0) {{
+        var name = p.slice(0, eq).trim();
+        existing[name] = 1;
+        if (name === SENTINEL) seeded = true;
+      }}
     }});
+    // 哨兵在 ⇒ 本 profile 已种过:后续导航一律不动存储(平台/用户自己的新值优先)
+    if (seeded) return;
     var cookies = seed.cookies || [];
     for (var i = 0; i < cookies.length; i++) {{
       var c = cookies[i];
-      if (!c || !c.name) continue;
-      // 控制台页只补缺失 Cookie,不覆盖平台刚刷新的值;落到登录/SSO 页才全量覆盖
-      if (!isLogin && existing[c.name]) continue;
+      if (!c || !c.name || existing[c.name]) continue;
       var parts = [c.name + '=' + c.value, 'path=/'];
       if (cookieDomain && c.name.indexOf('__Host-') !== 0) parts.push('domain=' + cookieDomain);
       parts.push('secure');
@@ -94,12 +100,18 @@ fn build_seed_script(seed: &serde_json::Value) -> String {
     }}
     var ls = seed.localStorage || {{}};
     for (var k in ls) {{
-      try {{ if (isLogin || localStorage.getItem(k) === null) localStorage.setItem(k, ls[k]); }} catch (e) {{}}
+      try {{ if (localStorage.getItem(k) === null) localStorage.setItem(k, ls[k]); }} catch (e) {{}}
     }}
     var ss = seed.sessionStorage || {{}};
     for (var k2 in ss) {{
-      try {{ if (isLogin || sessionStorage.getItem(k2) === null) sessionStorage.setItem(k2, ss[k2]); }} catch (e) {{}}
+      try {{ if (sessionStorage.getItem(k2) === null) sessionStorage.setItem(k2, ss[k2]); }} catch (e) {{}}
     }}
+    var sentinel = [SENTINEL + '=1', 'path=/'];
+    if (cookieDomain) sentinel.push('domain=' + cookieDomain);
+    sentinel.push('secure');
+    sentinel.push('samesite=lax');
+    sentinel.push('max-age=31536000');
+    document.cookie = sentinel.join('; ');
   }} catch (e) {{}}
 }})();
 "#
