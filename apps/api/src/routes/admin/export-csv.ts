@@ -26,6 +26,7 @@ import { orders, llmCallLogs, users, developerApiKeys } from '@ihui/database'
 import { error, emptyToUndefined } from '../../utils/response.js'
 import { requireAdmin } from '../../plugins/require-permission.js'
 import { sanitizeCsvCell } from '../../utils/csv-utils.js'
+import { bizDayStartFromKeyUtc } from '../../utils/biz-day.js'
 
 // =============================================================================
 // 常量
@@ -285,8 +286,13 @@ const exportCsvRoutes: FastifyPluginAsync = async (server) => {
     if (userId) conds.push(eq(orders.userId, userId))
     if (status) conds.push(eq(orders.status, status))
     if (paymentMethod) conds.push(eq(orders.paymentMethod, paymentMethod))
-    if (startDate) conds.push(gte(orders.createdAt, new Date(`${startDate}T00:00:00Z`)))
-    if (endDate) conds.push(lte(orders.createdAt, new Date(`${endDate}T23:59:59Z`)))
+    // F-24:用户传的是「账单上海日」,不能按 UTC 日界切(上海 00:00–08:00 会漏当天前 8 小时)。
+    if (startDate) conds.push(gte(orders.createdAt, bizDayStartFromKeyUtc(startDate)))
+    if (endDate) {
+      // 结束日含当天,取次日上海日 00:00 的前一毫秒。
+      const nextDay = new Date(bizDayStartFromKeyUtc(endDate).getTime() + 86_400_000 - 1)
+      conds.push(lte(orders.createdAt, nextDay))
+    }
     const where = conds.length > 0 ? and(...conds) : undefined
 
     try {
@@ -371,8 +377,12 @@ const exportCsvRoutes: FastifyPluginAsync = async (server) => {
     if (httpStatus !== undefined) conds.push(eq(llmCallLogs.httpStatus, httpStatus))
     if (minCost !== undefined) conds.push(gte(llmCallLogs.costCents, minCost))
     if (maxCost !== undefined) conds.push(lte(llmCallLogs.costCents, maxCost))
-    if (startDate) conds.push(gte(llmCallLogs.createdAt, new Date(`${startDate}T00:00:00Z`)))
-    if (endDate) conds.push(lte(llmCallLogs.createdAt, new Date(`${endDate}T23:59:59Z`)))
+    // F-81:与订单导出同一口径 —— 上海日界,不用 UTC。
+    if (startDate) conds.push(gte(llmCallLogs.createdAt, bizDayStartFromKeyUtc(startDate)))
+    if (endDate) {
+      const nextDay = new Date(bizDayStartFromKeyUtc(endDate).getTime() + 86_400_000 - 1)
+      conds.push(lte(llmCallLogs.createdAt, nextDay))
+    }
     const where = conds.length > 0 ? and(...conds) : undefined
 
     try {

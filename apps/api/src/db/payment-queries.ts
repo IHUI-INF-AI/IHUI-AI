@@ -7,6 +7,8 @@ import { db } from './index.js'
 import { orders, eduOrders, type Order } from '@ihui/database'
 import { generateOutTradeNo } from '../services/wechat-pay.js'
 import { withAuditBoth } from '../utils/audit.js'
+// F-24 同类:账单口径按上海日切,不用 UTC。
+import { bizDayStartFromKeyUtc } from '../utils/biz-day.js'
 
 // =============================================================================
 // Phase 4: 双向双写辅助 — billing(orders) 入口同步到 edu_orders，消除跨系统断裂。
@@ -171,8 +173,9 @@ export async function queryPendingOrders() {
 }
 
 export async function listPaidOrdersByDate(billDate: string) {
-  const start = new Date(`${billDate}T00:00:00Z`)
-  const end = new Date(`${billDate}T23:59:59Z`)
+  // F-24 同类:账单口径按上海日切(上海 00:00–08:00 期间若用 UTC 会漏当天前 8 小时)。
+  const start = bizDayStartFromKeyUtc(billDate)
+  const end = new Date(start.getTime() + 86_400_000 - 1)
   return db
     .select()
     .from(orders)

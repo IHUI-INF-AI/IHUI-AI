@@ -33,6 +33,8 @@ import { createMapping, listMappings } from '../services/model-mapping-service.j
 import { redeemCode } from '../services/redemption-code-service.js'
 import { requireStepUpForTwoFactorUser } from '../services/two-factor-step-up-store.js'
 import { idParamSchema } from './admin/_shared.js'
+// F-24 同类:用量日趋势按上海日切。
+import { bizDayStartFromKeyUtc } from '../utils/biz-day.js'
 import {
   createKey,
   updateKey,
@@ -349,7 +351,8 @@ const developerRelayRoutes: FastifyPluginAsync = async (server) => {
 
     const conds: ReturnType<typeof eq>[] = [eq(llmCallLogs.userId, userId)]
     if (startDate) {
-      conds.push(gte(llmCallLogs.createdAt, new Date(`${startDate}T00:00:00Z`)))
+      // F-24 同类:用户用量日趋势按上海日界。
+      conds.push(gte(llmCallLogs.createdAt, bizDayStartFromKeyUtc(startDate)))
     } else {
       // 默认近 30 天
       conds.push(gte(llmCallLogs.createdAt, new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)))
