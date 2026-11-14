@@ -38,6 +38,7 @@ import {
   backfillCallCosts,
   getChannelCostReport,
   getUnpricedAlerts,
+  syncConfigPricesFromPricing,
   type ChannelGroupBy,
   listModelPricing,
   listPriceAudits,
@@ -256,6 +257,25 @@ export const adminRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(400).send(error(400, 'from 不能晚于 to', 'VALIDATION_FAILED'))
       }
       const result = await backfillCallCosts({ from: b.from, to: b.to, dryRun: b.dryRun === true })
+      return reply.send(success(result))
+    },
+  )
+
+  // POST /ai-pricing/sync-config-prices - 以 ai_pricing 权威价回填配置零价行(2026-11-14 立)
+  // 只填零价、不覆盖手工价、不做插值;:free 模型永不回填。
+  server.post(
+    '/ai-pricing/sync-config-prices',
+    {
+      schema: {
+        summary: '同步 ai_pricing 权威价到配置表',
+        description:
+          '把 ai_pricing 里非零的 input/output_token_price 回填到 ai_model_config_models 的零价行;' +
+          '幂等,已有价的行不动,上游 :free 免费模型跳过。',
+        tags: ['admin'],
+      },
+    },
+    async (_request, reply) => {
+      const result = await syncConfigPricesFromPricing()
       return reply.send(success(result))
     },
   )
