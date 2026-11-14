@@ -3,7 +3,7 @@
 
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react'
 import type { LiveFxRates } from '@ihui/api-client'
 import { useExchangeRates } from '@/hooks/use-exchange-rates'
 import {
@@ -11,31 +11,34 @@ import {
   markDisplayCurrencyHydrated,
   setFxSnapshot,
   setServerDisplayCurrency,
+  subscribeDisplayCurrency,
   type CurrencyCode,
   type DisplayCurrency,
 } from '@/lib/display-currency'
 
 /**
- * 汇率预热 + 首帧口径播种(2026-11-14 立):挂载在根布局,任意页面打开即预取实时汇率,
- * 不渲染任何 UI。
+ * 汇率预热 + 首帧口径播种 + 货币切换重算(2026-11-14 立):包裹在 GlobalShell 外层,
+ * 不渲染任何可见 UI。
  *
- * 渲染期播种(SSR 与客户端水合首帧都执行):Next 的服务端组件层与客户端组件层是两个
- * 模块实例,根布局里 setServerDisplayCurrency/setFxSnapshot 传不到客户端组件的 SSR,
- * 只有经 props 在这里再写一次,首屏金额才能与服务端壳层一致(否则水合失败、整页事件失效)。
- * 用 ref 保证客户端只在首帧播种,后续拉到的实时汇率不会被初始值覆盖。
- *
- * 首访且目标币种非 CNY 时:SSR 手里没有汇率快照,静态金额只能回落原币种。等实时汇率
- * 到手(已写入 cookie)后整页重载一次,让服务端按快照直出;sessionStorage 记号防循环,
- * 第二次加载 initialRates 非空,直接命中不重载。
+ * 1) 渲染期播种(SSR 与客户端水合首帧都执行):Next 的服务端组件层与客户端组件层是两个
+ *    模块实例,根布局里 setServerDisplayCurrency/setFxSnapshot 传不到客户端组件的 SSR,
+ *    只有经 props 在这里再写一次,首屏金额才能与服务端壳层一致(否则水合失败、整页事件失效)。
+ *    用 ref 保证客户端只在首帧播种,后续拉到的实时汇率不会被初始值覆盖。
+ * 2) 水合后对账:SSR 首屏可能来自 CDN 缓存(或 en 浏览器按语言解析),与本地偏好不同时
+ *    重挂载内容树,让金额立即按所选币种重算。
+ * 3) 货币切换/汇率首次到达时,以 key 重挂载内容树就地重算全站金额 —— 不再整页 reload
+ *    (整页 reload 会命中 CDN 上的旧 HTML,反而看不到换算结果)。
  */
 export function CurrencyRuntime({
   initialCurrency = 'auto',
   initialEffective = 'CNY',
   initialRates = null,
+  children,
 }: {
   initialCurrency?: DisplayCurrency
   initialEffective?: CurrencyCode
   initialRates?: LiveFxRates | null
+  children?: ReactNode
 }) {
   const seededRef = useRef(false)
   if (!seededRef.current) {
@@ -44,24 +47,16 @@ export function CurrencyRuntime({
     if (initialRates) setFxSnapshot(initialRates)
   }
 
-  const { data } = useExchangeRates()
+  useExchangeRates()
 
+  const [epoch, setEpoch] = useState(0)
   useEffect(() => {
+    // 对账:水合前(SSR 口径)与水合后(本地偏好/浏览器语言)不一致 ⇒ 立即重算一次
+    const before = getActiveCurrency()
     markDisplayCurrencyHydrated()
+    if (getActiveCurrency() !== before) setEpoch((n) => n + 1)
+    return subscribeDisplayCurrency(() => setEpoch((n) => n + 1))
   }, [])
 
-  useEffect(() => {
-    if (!data || initialRates) return
-    if (getActiveCurrency() === 'CNY') return
-    try {
-      if (sessionStorage.getItem('ihui-fx-reload') === '1') return
-      sessionStorage.setItem('ihui-fx-reload', '1')
-    } catch {
-      // 隐私模式下拿不到 sessionStorage ⇒ 不做自动重载,避免刷新循环
-      return
-    }
-    window.location.reload()
-  }, [data, initialRates])
-
-  return null
+  return <Fragment key={epoch}>{children}</Fragment>
 }

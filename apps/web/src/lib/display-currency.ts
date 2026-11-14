@@ -83,8 +83,26 @@ export const CURRENCY_SYMBOL: Record<CurrencyCode, string> = {
 /** 汇率快照(由 useExchangeRates 在客户端写入;SSR 期间为 null ⇒ 按原币种展示) */
 let fxSnapshot: LiveFxRates | null = null
 
+/** 展示货币/汇率变化的订阅者(CurrencyRuntime 据此就地重渲染全站金额,不再整页刷新) */
+const listeners = new Set<() => void>()
+
+function notifyDisplayCurrencyChanged(): void {
+  for (const fn of listeners) fn()
+}
+
+/** 订阅货币变化;返回取消订阅函数 */
+export function subscribeDisplayCurrency(listener: () => void): () => void {
+  listeners.add(listener)
+  return () => {
+    listeners.delete(listener)
+  }
+}
+
+/** 写入汇率快照。首次拿到快照且展示币种非 CNY 时通知重算(SSR 缺快照时的补偿) */
 export function setFxSnapshot(next: LiveFxRates | null): void {
+  const hadSnapshot = fxSnapshot !== null
   fxSnapshot = next
+  if (!hadSnapshot && next && getActiveCurrency() !== 'CNY') notifyDisplayCurrencyChanged()
 }
 
 export function getFxSnapshot(): LiveFxRates | null {
@@ -164,6 +182,10 @@ export function setSelectedCurrency(currency: DisplayCurrency): void {
   } catch {
     // cookie 被禁用时降级为仅客户端换算
   }
+  // 同步 <html data-currency>,便于调试与外部读取
+  if (document.documentElement?.dataset) document.documentElement.dataset['currency'] = currency
+  // 通知全站就地重算金额(CurrencyRuntime 以 key 重挂载内容树,避免整页刷新命中 CDN 旧 HTML)
+  notifyDisplayCurrencyChanged()
 }
 
 /** 显式选择优先;auto 时英文环境用 USD,其余用 CNY */

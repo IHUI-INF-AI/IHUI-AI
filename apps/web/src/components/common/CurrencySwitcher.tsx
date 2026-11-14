@@ -18,8 +18,8 @@ import { cn } from '@/lib/utils'
  * 展示货币一键切换(2026-11-14 立)。
  *
  * USD / CNY / USDT 三段切换;偏好写入 localStorage + cookie(见 @/lib/display-currency)。
- * 切换后整页 reload:布局已按 cookie 决定 SSR 口径,汇率快照也在 cookie 里,
- * 因此重载后全站金额(含服务端直出的静态价格)会同时按新币种渲染。
+ * 切换后由 CurrencyRuntime 就地重挂载内容树,全站金额立即按实时汇率重算;
+ * 不整页 reload —— CDN 对 HTML 有 300s 缓存,reload 反而会拿到旧币种的页面。
  *
  * 计费不受影响:平台仍以 CNY 为扣费基准,这里只换展示币种。
  */
@@ -40,9 +40,8 @@ export function CurrencySwitcher({ className }: { className?: string }) {
 
   const pick = React.useCallback((currency: CurrencyCode) => {
     if (getSelectedCurrency() === currency) return
+    // 写偏好(cookie 供 SSR 下次直出);CurrencyRuntime 会立即重挂载内容树做换算
     setSelectedCurrency(currency)
-    // 全站展示点统一刷新(SSR 直出与纯格式化调用点都会重新取值)
-    window.location.reload()
   }, [])
 
   return (
