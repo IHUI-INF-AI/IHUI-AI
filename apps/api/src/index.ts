@@ -53,6 +53,10 @@ import {
   stopHrApprovalEscalationScheduler,
 } from './jobs/hr-approval-cron.js'
 import { startAiTaskCronScheduler, stopAiTaskCronScheduler } from './jobs/ai-task-cron.js'
+import {
+  startPricingGuardScheduler,
+  stopPricingGuardScheduler,
+} from './jobs/pricing-guard-cron.js'
 // G-916430③(机主拍板 2026-10-07):mail 欠投递读方 + :80 CDN 视野并入 API 进程内定时读方,
 // 不新增服务拓扑。UNDELIVERED 标记此前除提交链守门外无运行时消费者,:80 不在任何值守班眼里。
 import {
@@ -318,6 +322,9 @@ function startBackgroundSchedulers(server: Awaited<ReturnType<typeof buildServer
   // 启动 AI 任务模板 cron 调度(HR-4,2026-11-11 立:每 5 分钟扫 triggerType=cron 模板执行;ENABLE_AI_TASK_CRON=false 禁用)
   startAiTaskCronScheduler()
 
+  // 启动零价模型巡检(2026-11-14 立:每日 09:00 扫「在架零价」「有调用零价」;ENABLE_PRICING_GUARD=false 禁用)
+  startPricingGuardScheduler()
+
   // 启动生产值守进程内定时读方(每 10 分钟:.ihui-agent/state/状态目录的 UNDELIVERED 标记 + :80 CDN 活性;
   // G-916430③ 机主拍板,ENABLE_OPS_WATCH_READER=false 禁用)
   if (process.env.ENABLE_OPS_WATCH_READER !== 'false') {
@@ -441,6 +448,7 @@ async function start() {
       syncStopPhase('stopHrJobsScheduler', stopHrJobsScheduler),
       syncStopPhase('stopHrApprovalEscalationScheduler', stopHrApprovalEscalationScheduler),
       syncStopPhase('stopAiTaskCronScheduler', stopAiTaskCronScheduler),
+      syncStopPhase('stopPricingGuardScheduler', stopPricingGuardScheduler),
       syncStopPhase('stopOpsWatchReaderScheduler', stopOpsWatchReaderScheduler),
       syncStopPhase('stopAgentAutomationScheduler', stopAgentAutomationScheduler),
       syncStopPhase('stopPatrolScheduler', stopPatrolScheduler),
