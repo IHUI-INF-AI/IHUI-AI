@@ -35,7 +35,7 @@ export function AgentAvatar({ avatar, name, size = 40, colorScheme = 'light' }: 
 
   return (
     <View style={[box, styles.fallback, { backgroundColor: tk.surface.card }]}>
-      <Sparkles size={Math.round(size / 2)} color={tk.text.tertiary} />
+      <Sparkles size={Math.round(size / 2)} color={tk.text.secondary} />
     </View>
   )
 }

@@ -65,6 +65,41 @@ export class DistributedLockError extends AppError {
   }
 }
 
+/**
+ * 获取锁阶段失败 (F-67)：锁未被持有、fn 从未执行。
+ *
+ * 与「锁内业务异常」严格区分 —— 调用方只有在这个错误上才允许降级为无锁执行；
+ * 若底层错误带 statusCode(如锁争用 DistributedLockError 423)，原样透传以便维持原拒绝语义。
+ */
+export class LockAcquireError extends Error {
+  readonly statusCode?: number
+  constructor(name: string, cause: unknown) {
+    super(`获取分布式锁失败 name=${name}`, { cause })
+    this.name = 'LockAcquireError'
+    const statusCode = (cause as { statusCode?: unknown } | null | undefined)?.statusCode
+    if (typeof statusCode === 'number') this.statusCode = statusCode
+  }
+}
+
+/**
+ * 释放锁阶段失败 (F-67)：业务已经执行过，不能吞掉业务结果。
+ *
+ * - fn 成功：result 为返回值，业务已提交，锁残留由 TTL 兜底；
+ * - fn 失败：businessError 为原业务异常，调用方应优先原样抛出它。
+ *
+ * 调用方**不得**据此重试业务(会重复执行)，只能记录 error 级留痕。
+ */
+export class LockReleaseError<T = unknown> extends Error {
+  readonly result: T | undefined
+  readonly businessError: unknown
+  constructor(name: string, result: T | undefined, businessError: unknown, cause: unknown) {
+    super(`释放分布式锁失败 name=${name}（业务已执行，锁残留由 TTL 兜底）`, { cause })
+    this.name = 'LockReleaseError'
+    this.result = result
+    this.businessError = businessError
+  }
+}
+
 // Lua: 仅当 key 的值等于 token 时才删除 (原子释放)
 const RELEASE_SCRIPT = `
 if redis.call('get', KEYS[1]) == ARGV[1] then
@@ -102,10 +137,7 @@ function sleep(ms: number): Promise<void> {
  */
 export class DistributedLock {
   private stats = { acquired: 0, released: 0, expired: 0, renewed: 0 }
-  // F-709: watchdog 以 token 为键(而非锁名)。watchdogTokens 记录 name -> token,
-  // 供同名锁重获取时定位并清理上一把锁遗留的 interval。
   private readonly watchdogs = new Map<string, ReturnType<typeof setInterval>>()
-  private readonly watchdogTokens = new Map<string, string>()
 
   constructor(private readonly redis: Redis) {}
 
@@ -157,8 +189,7 @@ export class DistributedLock {
    * 释放锁 (需提供获取时返回的 token)。
    */
   async release(name: string, token: string): Promise<LockState> {
-    // F-709: 只停本 token 的 watchdog,旧句柄不再按锁名误清新锁的续约表。
-    this.stopWatchdog(token)
+    this.stopWatchdog(name)
     const res = (await this.redis.eval(RELEASE_SCRIPT, 1, name, token)) as number
     if (res === 1) {
       this.stats.released++
@@ -183,6 +214,11 @@ export class DistributedLock {
   /**
    * 高阶函数：获取锁 → 执行 fn → 释放锁 (无论成功失败)。
    *
+   * F-67:三个阶段失败互不混淆 ——
+   *  - acquire 失败抛 LockAcquireError(fn 未执行，调用方可降级)；
+   *  - fn 的异常原样抛出(不得被当成「锁不可用」而重跑业务)；
+   *  - release 失败抛 LockReleaseError，并携带已执行的结果或业务异常(业务已提交，锁残留由 TTL 兜底)。
+   *
    * @param name   锁名
    * @param ttlMs  租约 TTL
    * @param fn     持锁期间执行的业务逻辑
@@ -194,11 +230,29 @@ export class DistributedLock {
     fn: () => Promise<T>,
     options: Omit<DistributedLockOptions, 'ttlMs'> = {},
   ): Promise<T> {
-    const lock = await this.acquire(name, undefined, { ttlMs, ...options })
+    let lock: AcquiredLock
     try {
-      return await fn()
-    } finally {
-      await lock.release()
+      lock = await this.acquire(name, undefined, { ttlMs, ...options })
+    } catch (e) {
+      throw new LockAcquireError(name, e)
+    }
+    try {
+      const result = await fn()
+      try {
+        await lock.release()
+      } catch (e) {
+        throw new LockReleaseError<T>(name, result, undefined, e)
+      }
+      return result
+    } catch (e) {
+      // 上面的 LockReleaseError 属于「已进入业务阶段」，不再重复释放/包装
+      if (e instanceof LockReleaseError) throw e
+      try {
+        await lock.release()
+      } catch (releaseError) {
+        throw new LockReleaseError<T>(name, undefined, e, releaseError)
+      }
+      throw e
     }
   }
 
@@ -222,36 +276,27 @@ export class DistributedLock {
 
   /** 启动 watchdog：定时续约，锁丢失时自动停止。 */
   private startWatchdog(lock: AcquiredLock, intervalMs: number): void {
-    // F-709: 同名锁再次获取前先清理上一把锁遗留的 interval,避免旧 timer 失引用后
-    // 永不 clearInterval、每周期仍发一次 EVAL。
-    const previousToken = this.watchdogTokens.get(lock.name)
-    if (previousToken) this.stopWatchdog(previousToken)
     const timer = setInterval(async () => {
       try {
         const ok = await lock.renew(lock.ttlMs)
         if (!ok) {
-          this.stopWatchdog(lock.token)
+          this.stopWatchdog(lock.name)
           this.stats.expired++
         }
       } catch {
-        this.stopWatchdog(lock.token)
+        this.stopWatchdog(lock.name)
       }
     }, intervalMs)
     // 不阻塞进程退出
     timer.unref?.()
-    this.watchdogs.set(lock.token, timer)
-    this.watchdogTokens.set(lock.name, lock.token)
+    this.watchdogs.set(lock.name, timer)
   }
 
-  private stopWatchdog(token: string): void {
-    const timer = this.watchdogs.get(token)
+  private stopWatchdog(name: string): void {
+    const timer = this.watchdogs.get(name)
     if (timer) {
       clearInterval(timer)
-      this.watchdogs.delete(token)
-    }
-    // 同步清理 name -> token 映射,避免残留已停止的旧 token。
-    for (const [name, t] of this.watchdogTokens) {
-      if (t === token) this.watchdogTokens.delete(name)
+      this.watchdogs.delete(name)
     }
   }
 }

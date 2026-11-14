@@ -128,7 +128,7 @@ export function MyCommentsScreen({
           </View>
         ) : items.length === 0 ? (
           <View style={styles.emptyBox}>
-            <MessageSquare size={28} color={tk.text.tertiary} strokeWidth={2} />
+            <MessageSquare size={28} color={tk.text.secondary} strokeWidth={2} />
             <Text style={styles.emptyText}>{t('studentPage.empty')}</Text>
           </View>
         ) : (
@@ -150,7 +150,7 @@ export function MyCommentsScreen({
                         gap: rnSpacing['xs-loose'],
                       }}
                     >
-                      <Icon size={14} color={tk.text.tertiary} strokeWidth={2} />
+                      <Icon size={14} color={tk.text.secondary} strokeWidth={2} />
                       <Text style={styles.rowTitle} numberOfLines={1}>
                         {comment.targetTitle ?? typeLabel}
                       </Text>

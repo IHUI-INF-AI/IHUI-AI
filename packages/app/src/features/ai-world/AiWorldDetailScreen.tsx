@@ -116,7 +116,7 @@ export function AiWorldDetailScreen({
             <Image source={{ uri: world.coverImage }} style={styles.cover} resizeMode="cover" />
           ) : (
             <View style={styles.coverFallback}>
-              <Sparkles size={36} color={tk.text.tertiary} strokeWidth={1.5} />
+              <Sparkles size={36} color={tk.text.secondary} strokeWidth={1.5} />
             </View>
           )}
 
@@ -159,13 +159,13 @@ export function AiWorldDetailScreen({
               </View>
             ) : null}
             <View style={styles.metaItem}>
-              <Eye size={12} color={tk.text.tertiary} strokeWidth={2} />
+              <Eye size={12} color={tk.text.secondary} strokeWidth={2} />
               <Text style={styles.metaText}>
                 {world.viewCount} {t('aiWorld.viewCount')}
               </Text>
             </View>
             <View style={styles.metaItem}>
-              <Calendar size={12} color={tk.text.tertiary} strokeWidth={2} />
+              <Calendar size={12} color={tk.text.secondary} strokeWidth={2} />
               <Text style={styles.metaText}>
                 {t('aiWorldDetailPage.createdLabel')} {formatDateTime(world.createdAt)}
               </Text>

@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import type { FastifyPluginAsync } from 'fastify'
+import type { FastifyPluginAsync, FastifyBaseLogger } from 'fastify'
 import { z } from 'zod'
 import { randomUUID } from 'node:crypto'
 import { join } from 'node:path'
@@ -93,7 +93,9 @@ function resolvePublicUrl(fileId: string): string {
 // Zod schemas
 // =============================================================================
 
-const initBodySchema = z.object({
+/** 分片会话初始化体：`/chunked-upload/init` 与 `/oss/resource/file` 共用同一份判据
+ *  （F-197：后者曾自带一份没有大小上界的 schema，是一条独立的绕过面）。 */
+export const initBodySchema = z.object({
   fileName: z.string().min(1).max(255),
   // 2026-11-08 修 F-28:fileSize 与 totalChunks 都必须有上界。二者同源于协议档,
   // 否则 totalChunks 可被写成 2^31,合并阶段的 1..totalChunks 线性遍历直接打爆进程。
@@ -130,6 +132,123 @@ const statusQuerySchema = z.object({
 })
 
 // =============================================================================
+// 会话装配(init 与 /oss/resource/file 共用)
+// =============================================================================
+
+/** 分片上传对外路径：兼容入口 `/oss/resource/file` 与 chunked-upload 共用同一份字面量。
+ *  2026-11-13 修 F-197：兼容入口原先自行拼 `/api/chunked-upload/chunk`，而真实注册名是
+ *  `upload` ⇒ 客户端照返回值调用恒 404。路径只能留一处真相，不得再各写各的。 */
+export const CHUNKED_UPLOAD_ENDPOINTS = {
+  upload: '/api/chunked-upload/upload',
+  merge: '/api/chunked-upload/merge',
+  status: '/api/chunked-upload/status',
+} as const
+
+export type CreateUploadSessionResult =
+  | { ok: true; uploadId: string; uploadUrl: string; totalChunks: number; chunkSize: number }
+  | { ok: false; status: number; message: string }
+
+/**
+ * 创建分片上传会话（唯一装配路径）。
+ *
+ * 2026-11-13 修 F-197：`/oss/resource/file` 兼容入口此前自己 `db.insert`，绕过了这里的
+ * 参数自洽性、单用户活跃会话预算与分片目录创建 —— 两条入口对"什么能开会话"必须只有
+ * 一套判据，否则其中一条就是绕过另一条闸门的旁路。
+ */
+export async function createUploadSession(
+  input: {
+    fileName: string
+    fileSize: number
+    totalChunks: number
+    fileMd5?: string
+    mimeType?: string
+    chunkSize: number
+  },
+  ctx: { userId: string | undefined; log: FastifyBaseLogger },
+): Promise<CreateUploadSessionResult> {
+  const { fileName, fileSize, totalChunks, fileMd5, mimeType, chunkSize } = input
+
+  // 参数自洽性(2026-09-26):声明的字节数装不进声明的分片数 = 客户端把参数写错了,
+  // 当场拒比等全部数据传完才在 merge 处失败便宜得多。chunkSize 亦不得超过协议档
+  // (读取口走钳制器:传入值只可收紧,超出协议档即被钳回 → 差值即判超)。
+  if (chunkSize > clampUploadLimit('maxChunkBytes', chunkSize)) {
+    return {
+      ok: false,
+      status: 400,
+      message: `chunkSize 不得超过 ${PROTOCOL_UPLOAD_LIMITS.maxChunkBytes} 字节`,
+    }
+  }
+  if (fileSize > totalChunks * PROTOCOL_UPLOAD_LIMITS.maxChunkBytes) {
+    return {
+      ok: false,
+      status: 400,
+      message: `fileSize(${fileSize}) 与 totalChunks(${totalChunks}) 不自洽`,
+    }
+  }
+
+  // 跨会话聚合预算·begin 处检(2026-09-30,票 b76-12c-3,对齐上游「新建装配检」半边):
+  // 单用户活跃 uploading 会话超档 = 429 且**不建目录不建行**(零资源占用,可重试)。
+  // 此前会话创建面没有任何一档在管 —— 单会话寿命内能开多少 uploadId 无上限,
+  // 而 ttlMs=24h 意味着每条僵尸会话的占盘窗口是一整天。
+  const userId = ctx.userId
+  if (!userId) return { ok: false, status: 401, message: '未登录' }
+  const activeRows = await db
+    .select({ uploadId: uploadSessions.uploadId })
+    .from(uploadSessions)
+    .where(
+      and(
+        eq(uploadSessions.userId, userId),
+        eq(uploadSessions.status, UPLOAD_SESSION_STATUS.uploading),
+      ),
+    )
+  if (isPerUserSessionBudgetExceeded(activeRows.length)) {
+    ctx.log.warn(
+      { userId, active: activeRows.length },
+      'chunked-upload begin 拒绝:单用户活跃会话预算超档',
+    )
+    return {
+      ok: false,
+      status: 429,
+      message: `并发上传会话数已达上限(${PROTOCOL_UPLOAD_LIMITS.maxActiveSessionsPerUser}),请等既有上传完成或取消后重试`,
+    }
+  }
+
+  const uploadId = randomUUID()
+  const now = new Date()
+
+  try {
+    await db.insert(uploadSessions).values({
+      uploadId,
+      fileName,
+      fileSize,
+      fileMd5,
+      totalChunks,
+      uploadedChunks: 0,
+      chunkSize,
+      mimeType,
+      status: UPLOAD_SESSION_STATUS.uploading,
+      userId,
+      // TTL 回收的读侧在 services/upload-integrity.ts 的 cleanupExpiredUploadSessions
+      expiresAt: expiresAtFrom(now),
+    })
+  } catch (e) {
+    ctx.log.error({ err: e }, '初始化分片上传会话失败')
+    return { ok: false, status: 500, message: '初始化分片上传会话失败' }
+  }
+
+  // 创建分片临时存储目录 uploads/chunks/{uploadId}/
+  const chunkDir = join(UPLOAD_DIR, 'chunks', uploadId)
+  try {
+    if (!existsSync(chunkDir)) mkdirSync(chunkDir, { recursive: true })
+  } catch (e) {
+    ctx.log.error({ err: e }, '创建分片目录失败')
+    return { ok: false, status: 500, message: '创建分片目录失败' }
+  }
+
+  return { ok: true, uploadId, uploadUrl: CHUNKED_UPLOAD_ENDPOINTS.upload, totalChunks, chunkSize }
+}
+
+// =============================================================================
 // 路由
 // =============================================================================
 
@@ -151,89 +270,20 @@ export const chunkedUploadRoutes: FastifyPluginAsync = async (server) => {
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-    const { fileName, fileSize, totalChunks, fileMd5, mimeType, chunkSize } = parsed.data
 
-    // 参数自洽性(2026-09-26):声明的字节数装不进声明的分片数 = 客户端把参数写错了,
-    // 当场拒比等全部数据传完才在 merge 处失败便宜得多。chunkSize 亦不得超过协议档
-    // (读取口走钳制器:传入值只可收紧,超出协议档即被钳回 → 差值即判超)。
-    if (chunkSize > clampUploadLimit('maxChunkBytes', chunkSize)) {
-      return reply
-        .status(400)
-        .send(error(400, `chunkSize 不得超过 ${PROTOCOL_UPLOAD_LIMITS.maxChunkBytes} 字节`))
-    }
-    if (fileSize > totalChunks * PROTOCOL_UPLOAD_LIMITS.maxChunkBytes) {
-      return reply
-        .status(400)
-        .send(error(400, `fileSize(${fileSize}) 与 totalChunks(${totalChunks}) 不自洽`))
-    }
-
-    // 跨会话聚合预算·begin 处检(2026-09-30,票 b76-12c-3,对齐上游「新建装配检」半边):
-    // 单用户活跃 uploading 会话超档 = 429 且**不建目录不建行**(零资源占用,可重试)。
-    // 此前会话创建面没有任何一档在管 —— 单会话寿命内能开多少 uploadId 无上限,
-    // 而 ttlMs=24h 意味着每条僵尸会话的占盘窗口是一整天。
-    const userId = request.userId
-    if (!userId) return reply.status(401).send(error(401, '未登录'))
-    const activeRows = await db
-      .select({ uploadId: uploadSessions.uploadId })
-      .from(uploadSessions)
-      .where(
-        and(
-          eq(uploadSessions.userId, userId),
-          eq(uploadSessions.status, UPLOAD_SESSION_STATUS.uploading),
-        ),
-      )
-    if (isPerUserSessionBudgetExceeded(activeRows.length)) {
-      request.log.warn(
-        { userId, active: activeRows.length },
-        'chunked-upload begin 拒绝:单用户活跃会话预算超档',
-      )
-      return reply
-        .status(429)
-        .send(
-          error(
-            429,
-            `并发上传会话数已达上限(${PROTOCOL_UPLOAD_LIMITS.maxActiveSessionsPerUser}),请等既有上传完成或取消后重试`,
-          ),
-        )
-    }
-
-    const uploadId = randomUUID()
-    const now = new Date()
-
-    try {
-      await db.insert(uploadSessions).values({
-        uploadId,
-        fileName,
-        fileSize,
-        fileMd5,
-        totalChunks,
-        uploadedChunks: 0,
-        chunkSize,
-        mimeType,
-        status: UPLOAD_SESSION_STATUS.uploading,
-        userId: request.userId,
-        // TTL 回收的读侧在 services/upload-integrity.ts 的 cleanupExpiredUploadSessions
-        expiresAt: expiresAtFrom(now),
-      })
-    } catch (e) {
-      request.log.error({ err: e }, '初始化分片上传会话失败')
-      return reply.status(500).send(error(500, '初始化分片上传会话失败'))
-    }
-
-    // 创建分片临时存储目录 uploads/chunks/{uploadId}/
-    const chunkDir = join(UPLOAD_DIR, 'chunks', uploadId)
-    try {
-      if (!existsSync(chunkDir)) mkdirSync(chunkDir, { recursive: true })
-    } catch (e) {
-      request.log.error({ err: e }, '创建分片目录失败')
-      return reply.status(500).send(error(500, '创建分片目录失败'))
+    const created = await createUploadSession(parsed.data, {
+      userId: request.userId,
+      log: request.log,
+    })
+    if (!created.ok) {
+      return reply.status(created.status).send(error(created.status, created.message))
     }
 
     return reply.status(201).send(
       success({
-        uploadId,
+        uploadId: created.uploadId,
         uploadedChunks: 0,
-        chunkSize,
+        chunkSize: created.chunkSize,
       }),
     )
   })
@@ -382,13 +432,6 @@ export const chunkedUploadRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(404).send(error(404, '上传会话不存在'))
     }
 
-    // 2026-11-13 修 F-380:只有 uploading 会话可进入合并。completed/cancelled/merging/
-    // 失败终态此前无前置判断 → 直接置 merging 再置 completed,可反复产出文件(配额重复计),
-    // 已取消的上传也会被「复活」。终态会话音落于此,**不进合并段、不写盘**。
-    if (session.status !== UPLOAD_SESSION_STATUS.uploading) {
-      return reply.status(409).send(error(409, `上传会话状态为 ${session.status}，无法合并`))
-    }
-
     // 历史超档行(本修复前创建)一律拒绝合并:合并阶段会按 1..totalChunks 逐片读盘,
     // 不设这道闸就等于把旧漏洞留在数据面上(2026-11-08 修 F-28)。
     if (session.totalChunks > PROTOCOL_UPLOAD_LIMITS.maxTotalChunks) {
@@ -420,26 +463,13 @@ export const chunkedUploadRoutes: FastifyPluginAsync = async (server) => {
         )
     }
 
-    // 条件迁移 uploading → merging(F-380 的原子闸):并发 merge 只有一路能命中,
-    // 无返回行 = 会话已被完成/取消/他人抢占(上面那次读与这里之间状态变了),一律 409,
-    // **不得进入实际合并与后续写盘**。判据取 UPDATE 的返回行数(drizzle postgres-js
-    // 不提供 rowCount,与 db/registry-queries.ts 同口径用 returning().length)。
-    const claimed = await db
+    // 更新 status=merging
+    await db
       .update(uploadSessions)
       .set({ status: UPLOAD_SESSION_STATUS.merging, updatedAt: new Date() })
       .where(
-        and(
-          eq(uploadSessions.uploadId, uploadId),
-          eq(uploadSessions.userId, request.userId ?? ''),
-          eq(uploadSessions.status, UPLOAD_SESSION_STATUS.uploading),
-        ),
+        and(eq(uploadSessions.uploadId, uploadId), eq(uploadSessions.userId, request.userId ?? '')),
       )
-      .returning({ uploadId: uploadSessions.uploadId })
-    if (claimed.length === 0) {
-      return reply
-        .status(409)
-        .send(error(409, '上传会话状态已变更(已完成、已取消或正在合并)，无法合并'))
-    }
 
     const fileId = randomUUID()
     const finalPath = join(PUBLIC_UPLOAD_DIR, fileId)

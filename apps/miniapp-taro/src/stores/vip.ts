@@ -39,7 +39,30 @@ interface VipState {
 }
 
 function loadStoredVip(): Partial<VipState> {
-  return getStorageSync(VIP_STORAGE_KEY) || {}
+  try {
+    return getStorageSync(VIP_STORAGE_KEY) || {}
+  } catch (e) {
+    // 读失败降级默认值:读失败不等于盘上没有,但不阻断 store 初始化(对照 utils/auth.ts 读隔离范式)
+    console.warn(
+      `[vip] failed to read stored vip state; falling back to defaults: ${
+        e instanceof Error ? e.message : 'unknown error'
+      }`,
+    )
+    return {}
+  }
+}
+
+/** 同步存储写入隔离:写失败仅告警、不抛出 ⇒ 绝不阻断内存状态落地 */
+function persistVip(value: unknown): void {
+  try {
+    setStorageSync(VIP_STORAGE_KEY, value)
+  } catch (e) {
+    console.warn(
+      `[vip] failed to persist vip state; in-memory state still applied: ${
+        e instanceof Error ? e.message : 'unknown error'
+      }`,
+    )
+  }
 }
 
 const vipStoreApi = createStore<VipState>((set) => ({
@@ -56,16 +79,17 @@ const vipStoreApi = createStore<VipState>((set) => ({
       vipName: info.vipName,
       privileges: info.privileges,
     }
-    setStorageSync(VIP_STORAGE_KEY, next)
+    // 状态先落地:存储写满/抛异常也不该让会员态更新不了(persistVip 内部已隔离写失败)
     set(next)
+    persistVip(next)
   },
   checkVipStatus: async () => {
     try {
       const info = await getVipInfo()
       if (!info) {
         // 无会员记录必须落空态,不能拿包络对象继续读字段。
-        setStorageSync(VIP_STORAGE_KEY, null)
         set({ isVip: false, vipLevel: 0, vipExpireTime: '', vipName: '', privileges: [] })
+        persistVip(null)
         return false
       }
       const active = isVipActive(info.expireTime || '')
@@ -76,15 +100,14 @@ const vipStoreApi = createStore<VipState>((set) => ({
         vipName: info.name,
         privileges: info.privileges || [],
       }
-      setStorageSync(VIP_STORAGE_KEY, next)
       set(next)
+      persistVip(next)
       return active
     } catch {
       return false
     }
   },
   clearVip: () => {
-    setStorageSync(VIP_STORAGE_KEY, null)
     set({
       isVip: false,
       vipLevel: 0,
@@ -92,6 +115,7 @@ const vipStoreApi = createStore<VipState>((set) => ({
       vipName: '',
       privileges: [],
     })
+    persistVip(null)
   },
 }))
 

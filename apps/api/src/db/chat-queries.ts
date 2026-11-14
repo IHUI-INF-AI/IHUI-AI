@@ -32,12 +32,6 @@ import {
   type ChatConversation,
   type ChatMessage,
 } from '@ihui/database'
-// F-300:绑定时刻权限档事实的读/合并口径与消息 metadata 键名同源(纯函数,不反向依赖本模块)。
-import {
-  readMessagePermissionStamp,
-  withMessagePermissionStamp,
-  type MessagePermissionStamp,
-} from '../services/message-permission-stamp.js'
 
 // =============================================================================
 // 对话
@@ -253,25 +247,21 @@ export async function updateConversationTitle(
  * 返回更新后的对话;若对话不存在或不属于该用户则返回 undefined。
  */
 /**
- * F-300(2026-11-13 立):把"绑定时刻的权限档事实"按 messageId 落到会话 metadata。
+ * 把"这次对话绑在哪个工作区"记到会话 metadata(幂等)。
  *
- * 病灶(原 bindConversationWorkspace):只在会话级记一个 workspacePath,回调时才拿它
- * 去查**当前**档位 —— 档位不是生成时刻事实,并发两条流时先完成的回调会盖到后写入
- * 的路径,而且那个路径是客户端请求体原样。现在 {messageId, mode, workspacePath}
- * 由流式入口在请求处理时一次性落定(路径经登记根 realpath 归一,档位取服务端权限行),
- * 回调只按 messageId 读,客户端伪造路径不再影响徽章。
+ * 为什么需要:AI 回答是**异步回调**落库的(ai-callback → aiCallback worker),
+ * 那条链路手里只有 conversationId/userId,不知道工作区,于是"这条回答是在哪一档
+ * 权限下生成的"服务端永远无法自证 —— web 的档位徽章只能活在内存里(刷新即丢,
+ * 小程序/RN 完全看不到)。这里在流式入口处顺手记一笔,回调侧就能自己查权限表盖章。
  *
- * 落点:会话既有 metadata(jsonb)的 `permissionStamps[messageId]` 子对象 —— 回调落库时
- * 助手消息行还不存在(worker 侧才 createMessage),不新增表/列。
- * 不可变:同一 messageId 已有章就不覆盖(首发即事实),返回 true 表示本次真的写了。
+ * 幂等:值相同就不写(流式入口每条消息都会调一次,避免每消息多一次 DB 写)。
+ * 返回 true 表示本次真的写了。
  */
-export async function bindMessagePermissionStamp(
+export async function bindConversationWorkspace(
   id: string,
   userId: string,
-  messageId: string,
-  stamp: MessagePermissionStamp,
+  workspacePath: string,
 ): Promise<boolean> {
-  if (!messageId) return false
   const rows = await db
     .select({ metadata: chatConversations.metadata, owner: chatConversations.userId })
     .from(chatConversations)
@@ -281,10 +271,10 @@ export async function bindMessagePermissionStamp(
   // 不属主 / 找不到 → 不写(调用方是流式主链路,绝不能因此报错打断对话)
   if (!row || row.owner !== userId) return false
   const meta = (row.metadata as Record<string, unknown> | null) ?? {}
-  if (readMessagePermissionStamp(meta, messageId)) return false
+  if (meta.workspacePath === workspacePath) return false
   await db
     .update(chatConversations)
-    .set({ metadata: withMessagePermissionStamp(meta, messageId, stamp), updatedAt: new Date() })
+    .set({ metadata: { ...meta, workspacePath }, updatedAt: new Date() })
     .where(eq(chatConversations.id, id))
   return true
 }
@@ -1435,8 +1425,8 @@ export async function setMessageFlags(input: {
  *  - root = 目标自身已是再生版本(parentMessageId 非空)时取其 parentMessageId,否则取目标自身;
  *  - root 首次入族时补 sibling_index = 0(幂等:已标记就不动);
  *  - 新版本序号 = 族内现有最大值 + 1;
- *  - 序号计算与写入之间不得有并发写同族 —— 与 regenerate 同一约束,故本函数在族内取序号后
- *    立刻用同一事务外的串行点(调用方按会话串行),不引入新的竞态面。
+ *  - F-297:序号计算与写入在同一事务内,且先锁会话行 FOR UPDATE —— 与 createMessage /
+ *    regenerate 同一并发纪律,同会话编辑按会话行粒度串行,不再依赖"调用方按会话串行"。
  * 只有 assistant 消息可编辑为版本:用户消息的编辑走既有的 edit-rerun(编辑并重跑),两格不混。
  */
 /** 票64 编辑入口的拒绝身份:调用方按 `code` 分流成 400/404,不得回头比对错误文本
@@ -1471,40 +1461,53 @@ export async function editAiMessageAsVersion(input: {
   if (!target) throw new MessageEditRejectedError('not_found')
   if (target.role !== 'assistant') throw new MessageEditRejectedError('not_assistant')
 
-  const rootId = target.parentMessageId ?? target.id
-  if (target.parentMessageId) {
-    const root = await findMessageById(target.parentMessageId)
-    if (root && root.siblingIndex === null) {
-      await db.update(chatMessages).set({ siblingIndex: 0 }).where(eq(chatMessages.id, root.id))
+  return db.transaction(async (tx) => {
+    // F-297:与 createMessage / regenerate 同一并发纪律 —— 先锁会话行,再读族内 max。
+    // 无锁时两次并发编辑取到同一个 max,新版本序号撞号。
+    await tx
+      .select({ id: chatConversations.id })
+      .from(chatConversations)
+      .where(eq(chatConversations.id, target.conversationId))
+      .for('update')
+
+    const rootId = target.parentMessageId ?? target.id
+    if (target.parentMessageId) {
+      const root = await findMessageById(target.parentMessageId)
+      if (root && root.siblingIndex === null) {
+        await tx.update(chatMessages).set({ siblingIndex: 0 }).where(eq(chatMessages.id, root.id))
+      }
+    } else if (target.siblingIndex === null) {
+      await tx.update(chatMessages).set({ siblingIndex: 0 }).where(eq(chatMessages.id, target.id))
     }
-  } else if (target.siblingIndex === null) {
-    await db.update(chatMessages).set({ siblingIndex: 0 }).where(eq(chatMessages.id, target.id))
-  }
 
-  const family = await db
-    .select({ siblingIndex: chatMessages.siblingIndex })
-    .from(chatMessages)
-    .where(or(eq(chatMessages.id, rootId), eq(chatMessages.parentMessageId, rootId)))
-  const nextIndex = family.reduce((maxIdx, row) => Math.max(maxIdx, row.siblingIndex ?? 0), 0) + 1
+    const family = await tx
+      .select({ siblingIndex: chatMessages.siblingIndex })
+      .from(chatMessages)
+      .where(or(eq(chatMessages.id, rootId), eq(chatMessages.parentMessageId, rootId)))
+    const nextIndex = family.reduce((maxIdx, row) => Math.max(maxIdx, row.siblingIndex ?? 0), 0) + 1
 
-  const rows = await db
-    .insert(chatMessages)
-    .values({
-      conversationId: target.conversationId,
-      role: target.role,
-      content: input.content,
-      reasoning: target.reasoning,
-      turnOrdinal: target.turnOrdinal,
-      parentMessageId: rootId,
-      siblingIndex: nextIndex,
-      // metadata 原样继承再补一条编辑来源:前端要能说明"这一版是从哪一版改出来的",
-      // 而不是只剩一个匿名版本(丢来源就等于丢可追溯性)。
-      metadata: { ...(target.metadata ?? {}), editedFromMessageId: target.id },
-    })
-    .returning()
-  const created = rows[0]
-  if (!created) throw new Error('编辑落库失败')
-  return { message: created, rootId, siblingIndex: nextIndex }
+    const rows = await tx
+      .insert(chatMessages)
+      .values({
+        conversationId: target.conversationId,
+        role: target.role,
+        content: input.content,
+        reasoning: target.reasoning,
+        turnOrdinal: target.turnOrdinal,
+        parentMessageId: rootId,
+        siblingIndex: nextIndex,
+        // metadata 原样继承再补一条编辑来源:前端要能说明"这一版是从哪一版改出来的",
+        // 而不是只剩一个匿名版本(丢来源就等于丢可追溯性)。
+        metadata: { ...(target.metadata ?? {}), editedFromMessageId: target.id },
+      })
+      .returning()
+    const created = rows[0]
+    if (!created) throw new Error('编辑落库失败')
+    // F-297:新版本与目标同轮次,已收口轮次的字节累计当场少算一条;
+    // 现存行集已变,只能按全量重算(reset),不能沿旧断点续加。
+    await rollHistoryProjection(tx, target.conversationId, { reset: true })
+    return { message: created, rootId, siblingIndex: nextIndex }
+  })
 }
 
 export async function deleteMessage(id: string): Promise<string[]> {
@@ -1641,6 +1644,14 @@ export async function editMessageAndTruncateAfter(
   }
 
   return db.transaction(async (tx) => {
+    // F-297:先锁会话行再删 —— 与流式回调(createMessage 同锁)按会话行串行,
+    // 避免 DELETE 之后才落库的回复成为截断残留。
+    await tx
+      .select({ id: chatConversations.id })
+      .from(chatConversations)
+      .where(eq(chatConversations.id, conversationId))
+      .for('update')
+
     const updated = await tx
       .update(chatMessages)
       .set({ content })

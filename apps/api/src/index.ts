@@ -53,10 +53,6 @@ import {
   stopHrApprovalEscalationScheduler,
 } from './jobs/hr-approval-cron.js'
 import { startAiTaskCronScheduler, stopAiTaskCronScheduler } from './jobs/ai-task-cron.js'
-import {
-  startPricingGuardScheduler,
-  stopPricingGuardScheduler,
-} from './jobs/pricing-guard-cron.js'
 // G-916430③(机主拍板 2026-10-07):mail 欠投递读方 + :80 CDN 视野并入 API 进程内定时读方,
 // 不新增服务拓扑。UNDELIVERED 标记此前除提交链守门外无运行时消费者,:80 不在任何值守班眼里。
 import {
@@ -83,13 +79,12 @@ import {
 import { setAutomationNotificationPusher } from './services/automations/goal-loop.js'
 import { startPatrolScheduler, stopPatrolScheduler } from './services/patrol-scheduler.js'
 import { startQoderBridge, stopQoderBridge } from './services/qoder-bridge-client.js'
+import { stopAutoRollbackMonitor } from './services/auto-rollback.js'
 import { routineManager } from './services/workspace-ai-service.js'
 import { stopScheduledWarmup } from './services/cache-warmup-service.js'
 import { stopRelayChannelRouterSweep } from './services/relay-channel-router.js'
-// F-367:cli-import fallback 清理定时器改由 API 进程显式启动(worker 不再 import 即启动)
-import { startFallbackCleanup, stopFallbackCleanup } from './services/cli-import/redis-cache.js'
 import { stopRegistryRateLimitSweep } from './routes/registry-sync.js'
-import { stopPoolTracker } from './db/index.js'
+import { stopPoolTracker, registerPoolTrackerCleanup } from './db/index.js'
 import { logger } from './utils/logger.js'
 import { runShutdownPhases, type ShutdownPhase } from './utils/shutdown-phases.js'
 
@@ -322,9 +317,6 @@ function startBackgroundSchedulers(server: Awaited<ReturnType<typeof buildServer
   // 启动 AI 任务模板 cron 调度(HR-4,2026-11-11 立:每 5 分钟扫 triggerType=cron 模板执行;ENABLE_AI_TASK_CRON=false 禁用)
   startAiTaskCronScheduler()
 
-  // 启动零价模型巡检(2026-11-14 立:每日 09:00 扫「在架零价」「有调用零价」;ENABLE_PRICING_GUARD=false 禁用)
-  startPricingGuardScheduler()
-
   // 启动生产值守进程内定时读方(每 10 分钟:.ihui-agent/state/状态目录的 UNDELIVERED 标记 + :80 CDN 活性;
   // G-916430③ 机主拍板,ENABLE_OPS_WATCH_READER=false 禁用)
   if (process.env.ENABLE_OPS_WATCH_READER !== 'false') {
@@ -357,12 +349,6 @@ function startBackgroundSchedulers(server: Awaited<ReturnType<typeof buildServer
   // 启动主动巡逻调度器(P3 #40,60s tick,到点执行 active 的巡检任务)
   startPatrolScheduler()
 
-  // F-302:例行程序调度器的唯一启动点。此前是 workspace-ai-service 的模块级副作用,
-  // worker 进程(worker-entry → buildServer)也跟着起一份 ⇒ 同一 cron 双执行 + 互相覆盖
-  // routines.json。现在只在 API 角色、活跃色判定通过之后启动一次;worker 角色调用会被
-  // RoutineManager.startScheduler 显式拒绝,同进程重复调用幂等。
-  routineManager.startScheduler()
-
   // 预热本机 Qoder chat 桥(2026-10-23):chat 真实端点要求 umid 设备签名,只能由
   // 官方 Agent SDK worker 完成 ⇒ 包成 127.0.0.1 上的 OpenAI 兼容端点常驻。
   // 后台跑不阻塞就绪;未装 Qoder / QODER_BRIDGE_AUTOSTART=false 时静默跳过,
@@ -381,9 +367,6 @@ function startBackgroundSchedulers(server: Awaited<ReturnType<typeof buildServer
   if (process.env.ENABLE_ALGORITHM_RECORD_SYNC !== 'false') {
     startAlgorithmRecordScheduler()
   }
-
-  // 启动 cli-import fallback 内存缓存清理(每 5 分钟扫一次过期条目;F-367 显式生命周期)
-  startFallbackCleanup()
 }
 
 async function start() {
@@ -448,15 +431,13 @@ async function start() {
       syncStopPhase('stopHrJobsScheduler', stopHrJobsScheduler),
       syncStopPhase('stopHrApprovalEscalationScheduler', stopHrApprovalEscalationScheduler),
       syncStopPhase('stopAiTaskCronScheduler', stopAiTaskCronScheduler),
-      syncStopPhase('stopPricingGuardScheduler', stopPricingGuardScheduler),
       syncStopPhase('stopOpsWatchReaderScheduler', stopOpsWatchReaderScheduler),
       syncStopPhase('stopAgentAutomationScheduler', stopAgentAutomationScheduler),
       syncStopPhase('stopPatrolScheduler', stopPatrolScheduler),
       // Qoder chat 桥是独立 Electron 子进程:不显式杀会在 API 重启后留孤儿占端口
       syncStopPhase('stopQoderBridge', stopQoderBridge),
       // P0 修复:显式停止后台定时器,不依赖 server.close 钩子顺序
-      // F-524:金丝雀自动回滚的停止相位已移入 buildServer() 的 onClose(worker 共用),
-      // 此处不再重复注册。
+      syncStopPhase('stopAutoRollbackMonitor', stopAutoRollbackMonitor),
       syncStopPhase('routineManager.stopScheduler', () => routineManager.stopScheduler()),
       syncStopPhase('stopScheduledWarmup', stopScheduledWarmup),
       // P2 修复(2026-07-31):显式停止模块作用域 setInterval,不依赖 unref
@@ -467,8 +448,6 @@ async function start() {
       syncStopPhase('stopAlgorithmRecordScheduler', stopAlgorithmRecordScheduler),
       // F-522:边缘探测此前只有启动路径;补对称关停相
       syncStopPhase('stopEdgeAccessProbe', stopEdgeAccessProbe),
-      // F-367:cli-import fallback 清理定时器的对称关停相
-      syncStopPhase('stopFallbackCleanup', stopFallbackCleanup),
     ]
     if (workers) {
       phases.push({
@@ -504,8 +483,8 @@ async function start() {
   }
 
   try {
-    // F-524:poolTracker 的 onClose 清理已移入 buildServer(),worker 与 API 共用,
-    // 避免重复注册 onClose 钩子。
+    // 2026-08-02 修复:注册 poolTracker onClose 清理,防进程不退出
+    registerPoolTrackerCleanup(server)
     await listenWithinDeadline(server)
     isListening = true
     server.log.info(`🚀 API server listening on http://${HOST}:${PORT}`)

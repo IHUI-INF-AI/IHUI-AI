@@ -11,13 +11,10 @@
 
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
-import { appendFileSync, existsSync, readFileSync } from 'node:fs'
-import { join } from 'node:path'
 import { checkpointAvailabilityEvent } from '@ihui/types'
 // 权限档唯一真源(G-161):授权入参必须先归一再判定,认不出即 400
 import { PERMISSION_MODES, normalizePermissionMode } from '@ihui/types/permission-mode'
 import { authenticate } from '../plugins/auth.js'
-import { recordAuditLog } from '../services/audit-log-service.js'
 import { success, error } from '../utils/response.js'
 import {
   swarmManager,
@@ -38,13 +35,6 @@ import {
   SubagentWorkspaceAccessError,
   SubagentLinkError,
 } from '../services/workspace-ai-service.js'
-import { buildChangeRequestSnapshot } from '../services/change-request-service.js'
-import {
-  assertSafeWorktreeBranch,
-  buildWorktreeCmd,
-  parseWorktreePorcelain,
-  worktreeSlug,
-} from '../services/worktree-ledger.js'
 import { detectWorkspaceIssues, repairWorkspaceIssue } from '../services/self-healing.js'
 import {
   createAtomicCheckpoint,
@@ -54,11 +44,6 @@ import {
   isSafeCheckpointId,
 } from '../services/atomic-rollback.js'
 import { requireAdmin, resolveAdminRoleId, ADMIN_ROLE_ID } from '../plugins/require-permission.js'
-import {
-  getRegisteredWorkspaceRoots,
-  isInsideRoot,
-  realpathOrResolve,
-} from '../utils/workspace-roots.js'
 
 // F-27:checkpointId 只允许 [A-Za-z0-9_-],拒绝 `..` 与路径分隔符(防越出快照目录任意读写)。
 const checkpointIdSchema = z
@@ -142,27 +127,6 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
     // 把整个 handler 用 try/catch 包裹,任何错误统一返回 400 + 中文消息
     try {
       const body = z.object({ path: z.string().optional() }).parse(request.body ?? {})
-      const rawPath = body.path?.trim()
-      // F-278:browse 此前只校验「落在登记根内」,不查 workspace_permissions,
-      // 被拒 fs.read 的工作区仍可枚举。现复用 checkWorkspace(只读枚举不阻塞人工审计)。
-      if (rawPath && request.userId) {
-        const target = realpathOrResolve(rawPath)
-        const root = getRegisteredWorkspaceRoots().find((r) => isInsideRoot(target, r))
-        if (root) {
-          const decision = await permissionManager.checkWorkspace({
-            userId: request.userId,
-            workspacePath: root,
-            tool: 'fs.browse',
-            args: { path: rawPath },
-            enumerateOnly: true,
-          })
-          // 未配置权限时放行:首开工作区必须先浏览目录才能完成 setup;
-          // 已配置但被明确拒绝 → 403,堵住枚举通道(响应结构不变)。
-          if (decision.configured && !decision.allowed) {
-            return reply.status(403).send(error(403, decision.reason))
-          }
-        }
-      }
       const entries = fsBridge.browse(body.path)
       return reply.send(success({ entries }))
     } catch (e) {
@@ -183,7 +147,7 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
       const workspaceRoot = fsBridge.assertWorkspaceRegistered(body.path)
       const name = body.name ?? body.path.split(/[\\/]/).pop() ?? 'workspace'
       const techStack = fsBridge.detectTechStack(workspaceRoot)
-      fsBridge.addRecent(request.userId, { path: workspaceRoot, name, techStack })
+      fsBridge.addRecent({ path: workspaceRoot, name, techStack })
       // 同步查询当前用户的权限配置,前端据此决定是否弹窗
       const { getPermission, touchLastAccessed } =
         await import('../db/workspace-permission-queries.js')
@@ -206,8 +170,7 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
   server.get('/fs/recent', async (request, reply) => {
     await requireAuth(request, reply)
     if (!request.userId) return
-    const workspaces = await fsBridge.loadRecent(request.userId)
-    return reply.send(success({ workspaces }))
+    return reply.send(success({ workspaces: fsBridge.loadRecent() }))
   })
 
   server.post('/fs/read', async (request, reply) => {
@@ -629,12 +592,11 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
       }
       let pullRequest: GitStatusSnapshot['pullRequest'] = null
       let pullRequestFetchFailed = false
-      if (hasRemote && branch && (await githubClient.hasTokenForUser(request.userId))) {
+      if (hasRemote && branch && githubClient.loadToken()) {
         try {
           const remote = await githubClient.detectRemote(body.workspacePath)
           if (remote) {
             const prsRaw = await githubClient.listPRs({
-              userId: request.userId,
               owner: remote.owner,
               repo: remote.repo,
               state: 'open',
@@ -870,7 +832,7 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
           isGithubRepo: !!remote,
           owner: remote?.owner ?? null,
           repo: remote?.repo ?? null,
-          ghConfigured: await githubClient.hasTokenForUser(request.userId),
+          ghConfigured: !!githubClient.loadToken(),
           currentBranch,
           defaultBranch,
         }),
@@ -880,187 +842,8 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
     }
   })
 
-  // F-Forge(2026-11-13):工作树台账(list / create)。
-  // 安全边界:分支名严格白名单校验;工作树路径**服务端派生**且固定在
-  // `<workspace>/.ihui-worktrees/<slug>`(不跨登记根、不接受客户端路径);
-  // 只放行 `git worktree` 一个子命令,读用 read-only,建用 workspace-write。
-  server.post('/git/worktrees', async (request, reply) => {
-    await requireAuth(request, reply)
-    if (!request.userId) return
-    try {
-      const parsed = z
-        .discriminatedUnion('action', [
-          z.object({ action: z.literal('list'), workspacePath: z.string().min(1) }),
-          z.object({
-            action: z.literal('create'),
-            workspacePath: z.string().min(1),
-            branch: z.string().min(1).max(120),
-            base: z.string().min(1).max(120),
-          }),
-        ])
-        .parse(request.body ?? {})
-      if (!(await isAllowedWorkspace(request, reply, parsed.workspacePath, 'git_worktree_write')))
-        return
-
-      const listBranches = async () => {
-        const raw = await fsBridge.run({
-          command: buildGitCmd(['branch', '--format=%(refname:short)']),
-          workspacePath: parsed.workspacePath,
-          mode: 'read-only',
-          timeoutMs: 8000,
-        })
-        return raw.stdout
-          .split('\n')
-          .map((s) => s.trim())
-          .filter(Boolean)
-      }
-
-      if (parsed.action === 'list') {
-        const [rawWorktrees, branches] = await Promise.all([
-          fsBridge.run({
-            command: buildWorktreeCmd(['worktree', 'list', '--porcelain']),
-            workspacePath: parsed.workspacePath,
-            mode: 'read-only',
-            timeoutMs: 8000,
-          }),
-          listBranches(),
-        ])
-        return reply.send(
-          success({ worktrees: parseWorktreePorcelain(rawWorktrees.stdout), branches }),
-        )
-      }
-
-      assertSafeWorktreeBranch(parsed.branch)
-      assertSafeWorktreeBranch(parsed.base)
-      if (parsed.branch === parsed.base) throw new Error('分支名不能与基线分支相同')
-      const branches = await listBranches()
-      if (!branches.includes(parsed.base)) throw new Error('基线分支在本地不存在')
-      if (branches.includes(parsed.branch)) {
-        return reply.status(409).send(error(409, 'branch-exists'))
-      }
-      const relativePath = `.ihui-worktrees/${worktreeSlug(parsed.branch)}`
-      const created = await fsBridge.run({
-        command: buildWorktreeCmd([
-          'worktree',
-          'add',
-          relativePath,
-          '-b',
-          parsed.branch,
-          parsed.base,
-        ]),
-        workspacePath: parsed.workspacePath,
-        mode: 'workspace-write',
-        timeoutMs: 30_000,
-      })
-      if (created.exitCode !== 0) {
-        return reply
-          .status(400)
-          .send(error(400, (created.stderr || '工作树创建失败').slice(0, 300)))
-      }
-      // 本地排除(只改 .git/info/exclude,不动受版本控制的 .gitignore)
-      try {
-        const excludePath = join(parsed.workspacePath, '.git', 'info', 'exclude')
-        const current = existsSync(excludePath) ? readFileSync(excludePath, 'utf8') : ''
-        if (!current.split('\n').some((l) => l.trim() === '.ihui-worktrees/')) {
-          appendFileSync(
-            excludePath,
-            `${current.endsWith('\n') || current === '' ? '' : '\n'}.ihui-worktrees/\n`,
-          )
-        }
-      } catch {
-        // 排除失败不影响工作树本身可用
-      }
-      return reply.send(
-        success({
-          path: join(parsed.workspacePath, '.ihui-worktrees', worktreeSlug(parsed.branch)),
-          branch: parsed.branch,
-        }),
-      )
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : '工作树操作失败'
-      return reply.status(400).send(error(400, msg.slice(0, 300)))
-    }
-  })
-
-  // F-Forge(2026-11-13):变更请求台账 —— 一次拉全仓库进行中的变更请求(非只有当前分支)。
-  // 与 /git/status 的分工:那个回答"当前分支有没有 PR",这里回答"这个仓库有哪些进行中的变更请求"。
-  server.post('/change-requests', async (request, reply) => {
-    await requireAuth(request, reply)
-    if (!request.userId) return
-    const userId = request.userId
-    try {
-      const body = z.object({ workspacePath: z.string().min(1) }).parse(request.body ?? {})
-      if (!(await isAllowedWorkspace(request, reply, body.workspacePath, 'change_requests'))) return
-      const runGit = async (args: string[]): Promise<string> => {
-        const result = await fsBridge.run({
-          command: buildGitCmd(args),
-          workspacePath: body.workspacePath,
-          mode: 'read-only',
-          timeoutMs: 8000,
-        })
-        return result.stdout ?? ''
-      }
-      const readBranches = async () => {
-        let currentBranch: string | null = null
-        try {
-          const raw = (await runGit(['rev-parse', '--abbrev-ref', 'HEAD'])).trim()
-          currentBranch = raw && raw !== 'HEAD' ? raw : null
-        } catch {
-          currentBranch = null
-        }
-        let defaultBranch: string | null = null
-        try {
-          const m = /^refs\/remotes\/origin\/(.+)$/.exec(
-            (await runGit(['symbolic-ref', 'refs/remotes/origin/HEAD'])).trim(),
-          )
-          if (m) defaultBranch = m[1] ?? null
-        } catch {
-          defaultBranch = null
-        }
-        if (!defaultBranch) {
-          try {
-            const hm = /HEAD branch:\s*(\S+)/.exec(await runGit(['remote', 'show', 'origin']))
-            if (hm) defaultBranch = hm[1] ?? null
-          } catch {
-            defaultBranch = null
-          }
-        }
-        return { currentBranch, defaultBranch }
-      }
-      const hasCredentials = await githubClient.hasTokenForUser(userId)
-      const snapshot = await buildChangeRequestSnapshot({
-        readRemoteUrl: async () => {
-          const raw = await runGit(['remote', '-v'])
-          for (const line of raw.split('\n')) {
-            const m = /^(\S+)\s+(\S+)\s+\((?:fetch|push)\)\s*$/.exec(line.trim())
-            if (m) return m[2] ?? null
-          }
-          return null
-        },
-        detectRepo: () => githubClient.detectRemote(body.workspacePath),
-        readBranches,
-        hasCredentials: () => hasCredentials,
-        listPullRequests: async (repo) =>
-          githubClient.listPRs({
-            userId,
-            owner: repo.owner,
-            repo: repo.repo,
-            state: 'open',
-          }),
-        listCheckRuns: async (params) => githubClient.listCheckRuns({ userId, ...params }),
-      })
-      return reply.send(success(snapshot))
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : '变更请求加载失败'
-      server.log.warn({ err: msg }, 'change-requests 失败')
-      return reply.status(400).send(error(400, msg.slice(0, 300)))
-    }
-  })
-
   server.post('/github/token', async (request, reply) => {
-    // F-442:令牌是凭据,写动作仅限管理员(复用 requireAdmin,不另造守卫)。
-    await requireAdmin(request, reply)
-    if (reply.sent) return
+    await requireAuth(request, reply)
     if (!request.userId) return
     try {
       const body = z
@@ -1077,19 +860,12 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
       if (!check.ok) {
         return reply.status(400).send(error(400, `GitHub Token 无效(HTTP ${check.status})`))
       }
-      // F-442:按 userId 加密落库,不再覆盖全站单文件 `~/.ihui/github_token`。
-      await githubClient.saveTokenForUser(request.userId, body.token)
-      // 留痕:只记操作事实与工作区,绝不落令牌原文。
-      await recordAuditLog({
-        userId: request.userId,
-        action: 'workspace.github_token.set',
-        resourceType: 'github_token',
-        resourceId: request.userId,
-        ip: request.ip,
-        userAgent: request.headers['user-agent']?.slice(0, 512),
-        result: 'success',
-        metadata: { workspacePath: body.workspacePath, source: 'manual' },
-      })
+      const { homedir } = await import('node:os')
+      const { mkdirSync, writeFileSync } = await import('node:fs')
+      const { join } = await import('node:path')
+      const dir = join(homedir(), '.ihui')
+      mkdirSync(dir, { recursive: true })
+      writeFileSync(join(dir, 'github_token'), body.token.trim(), 'utf-8')
       return reply.send(success({ ok: true }))
     } catch (e) {
       return reply.status(400).send(error(400, (e as Error).message))
@@ -1097,23 +873,14 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.delete('/github/token', async (request, reply) => {
-    // F-442:删除同为凭据变更,仅限管理员。
-    await requireAdmin(request, reply)
-    if (reply.sent) return
+    await requireAuth(request, reply)
     if (!request.userId) return
     try {
-      // F-442:只删自己的令牌;无论是否存在都返回成功,不泄露他人是否配置过。
-      await githubClient.clearTokenForUser(request.userId)
-      await recordAuditLog({
-        userId: request.userId,
-        action: 'workspace.github_token.clear',
-        resourceType: 'github_token',
-        resourceId: request.userId,
-        ip: request.ip,
-        userAgent: request.headers['user-agent']?.slice(0, 512),
-        result: 'success',
-        metadata: { source: 'manual' },
-      })
+      const { homedir } = await import('node:os')
+      const { join } = await import('node:path')
+      const { rmSync, existsSync } = await import('node:fs')
+      const file = join(homedir(), '.ihui', 'github_token')
+      if (existsSync(file)) rmSync(file, { force: true })
       return reply.send(success({ ok: true }))
     } catch (e) {
       return reply.status(400).send(error(400, (e as Error).message))
@@ -1161,9 +928,7 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.post('/github/device-token', async (request, reply) => {
-    // F-442:设备码换取到的令牌同样是凭据写动作,仅限管理员。
-    await requireAdmin(request, reply)
-    if (reply.sent) return
+    await requireAuth(request, reply)
     if (!request.userId) return
     const body = z.object({ deviceCode: z.string().min(1) }).parse(request.body ?? {})
     const clientId = process.env.GITHUB_OAUTH_CLIENT_ID ?? ''
@@ -1188,18 +953,12 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
       })
       const json = (await res.json()) as Record<string, unknown>
       if (json.access_token) {
-        // F-442:设备码换来的令牌同样只写给当前用户。
-        await githubClient.saveTokenForUser(request.userId, String(json.access_token))
-        await recordAuditLog({
-          userId: request.userId,
-          action: 'workspace.github_token.set',
-          resourceType: 'github_token',
-          resourceId: request.userId,
-          ip: request.ip,
-          userAgent: request.headers['user-agent']?.slice(0, 512),
-          result: 'success',
-          metadata: { source: 'device_oauth' },
-        })
+        const { homedir } = await import('node:os')
+        const { mkdirSync, writeFileSync } = await import('node:fs')
+        const { join } = await import('node:path')
+        const dir = join(homedir(), '.ihui')
+        mkdirSync(dir, { recursive: true })
+        writeFileSync(join(dir, 'github_token'), String(json.access_token), 'utf-8')
         return reply.send(success({ status: 'ok' }))
       }
       const err = String(json.error ?? '')
@@ -1240,22 +999,21 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
     const parsed = createSwarmSchema.safeParse(request.body)
     if (!parsed.success)
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    const plan = swarmManager.create({ ownerId: request.userId, ...parsed.data })
+    const plan = swarmManager.create(parsed.data)
     return reply.status(201).send(success(plan))
   })
 
   server.get('/swarms', async (request, reply) => {
     await requireAuth(request, reply)
     if (!request.userId) return
-    return reply.send(success({ swarms: swarmManager.list(request.userId) }))
+    return reply.send(success({ swarms: swarmManager.list() }))
   })
 
   server.get('/swarms/:swarmId', async (request, reply) => {
     await requireAuth(request, reply)
     if (!request.userId) return
     const { swarmId } = swarmIdParam.parse(request.params)
-    // F-402:非属主按 404 处理(与「不存在」同形,防跨用户枚举)。
-    const plan = swarmManager.get(swarmId, request.userId)
+    const plan = swarmManager.get(swarmId)
     if (!plan) return reply.status(404).send(error(404, 'Swarm 不存在'))
     return reply.send(success(plan))
   })
@@ -1265,7 +1023,7 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
     if (!request.userId) return
     const { swarmId } = swarmIdParam.parse(request.params)
     try {
-      const plan = await swarmManager.execute(swarmId, request.userId)
+      const plan = await swarmManager.execute(swarmId)
       return reply.send(success(plan))
     } catch (e) {
       return reply.status(404).send(error(404, (e as Error).message))
@@ -1276,7 +1034,7 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
     await requireAuth(request, reply)
     if (!request.userId) return
     const { swarmId } = swarmIdParam.parse(request.params)
-    const canceled = swarmManager.cancel(swarmId, request.userId)
+    const canceled = swarmManager.cancel(swarmId)
     if (!canceled) return reply.status(404).send(error(404, 'Swarm 不存在'))
     return reply.send(success({ canceled: true }))
   })
@@ -1568,27 +1326,11 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
   // 7. CodebaseIndex — 代码库索引
   // ===========================================================================
 
-  // F-401: codebase/vector/checkpoints 全族此前只有 requireAuth,非工作区成员凭
-  // workspacePath 即可读写他人代码索引/向量/检查点。统一挂工作区权限守卫(同文件
-  // fs.* 组已接),返回 true 表示已写 401/403 响应、调用方须立即 return。
-  const guardWorkspace = async (
-    request: FastifyRequest,
-    reply: FastifyReply,
-    workspacePath: string,
-    tool: string,
-  ): Promise<boolean> =>
-    (await assertWorkspacePermission(request, reply, {
-      workspacePath,
-      tool,
-      args: { workspacePath },
-    })) !== null
-
   server.post('/codebase/index', async (request, reply) => {
     await requireAuth(request, reply)
     if (!request.userId) return
     const body = workspacePathBody.parse(request.body)
     if (!body.workspacePath) return reply.status(400).send(error(400, 'workspacePath 不能为空'))
-    if (await guardWorkspace(request, reply, body.workspacePath, 'codebase.index')) return
     try {
       const index = codebaseIndexer.index(body.workspacePath)
       return reply.send(success(index))
@@ -1605,7 +1347,6 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
       .parse(request.query)
     if (!query.workspacePath || !query.q)
       return reply.status(400).send(error(400, 'workspacePath 和 q 不能为空'))
-    if (await guardWorkspace(request, reply, query.workspacePath, 'codebase.search')) return
     const results = codebaseIndexer.search(query.workspacePath, query.q, query.topK ?? 20)
     return reply.send(success({ results }))
   })
@@ -1615,7 +1356,6 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
     if (!request.userId) return
     const body = workspacePathBody.parse(request.body)
     if (!body.workspacePath) return reply.status(400).send(error(400, 'workspacePath 不能为空'))
-    if (await guardWorkspace(request, reply, body.workspacePath, 'codebase.incremental')) return
     try {
       const result = incrementalIndexer.incrementalUpdate(body.workspacePath)
       return reply.send(success(result))
@@ -1629,7 +1369,6 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
     if (!request.userId) return
     const query = workspacePathQuery.parse(request.query)
     if (!query.workspacePath) return reply.status(400).send(error(400, 'workspacePath 不能为空'))
-    if (await guardWorkspace(request, reply, query.workspacePath, 'codebase.status')) return
     return reply.send(success(incrementalIndexer.status(query.workspacePath)))
   })
 
@@ -1642,7 +1381,6 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
     if (!request.userId) return
     const body = workspacePathBody.parse(request.body)
     if (!body.workspacePath) return reply.status(400).send(error(400, 'workspacePath 不能为空'))
-    if (await guardWorkspace(request, reply, body.workspacePath, 'vector.index')) return
     try {
       const result = await vectorIndexer.indexWorkspace(body.workspacePath)
       return reply.send(success(result))
@@ -1659,7 +1397,6 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
       .parse(request.body)
     if (!body.workspacePath || !body.query)
       return reply.status(400).send(error(400, 'workspacePath 和 query 不能为空'))
-    if (await guardWorkspace(request, reply, body.workspacePath, 'vector.search')) return
     try {
       const results = await vectorIndexer.search(body)
       return reply.send(success({ results }))
@@ -1677,7 +1414,6 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
     if (!request.userId) return
     const query = workspacePathQuery.parse(request.query)
     if (!query.workspacePath) return reply.status(400).send(error(400, 'workspacePath 不能为空'))
-    if (await guardWorkspace(request, reply, query.workspacePath, 'checkpoints.list')) return
     return reply.send(success({ checkpoints: checkpointManager.list(query.workspacePath) }))
   })
 
@@ -1687,7 +1423,6 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
     const { id } = idParam.parse(request.params)
     const body = workspacePathBody.parse(request.body)
     if (!body.workspacePath) return reply.status(400).send(error(400, 'workspacePath 不能为空'))
-    if (await guardWorkspace(request, reply, body.workspacePath, 'checkpoints.rollback')) return
     const cp = checkpointManager.rollback(body.workspacePath, id)
     if (!cp) return reply.status(404).send(error(404, '检查点不存在'))
     return reply.send(success(cp))
@@ -1698,7 +1433,6 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
     if (!request.userId) return
     const body = workspacePathBody.parse(request.body)
     if (!body.workspacePath) return reply.status(400).send(error(400, 'workspacePath 不能为空'))
-    if (await guardWorkspace(request, reply, body.workspacePath, 'checkpoints.undo')) return
     const cp = checkpointManager.undoLast(body.workspacePath)
     if (!cp) return reply.status(404).send(error(404, '无检查点可撤销'))
     return reply.send(success(cp))
@@ -1804,12 +1538,6 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
     if (!request.userId) return
     const { requestId } = requestIdParam.parse(request.params)
     const body = z.object({ approved: z.boolean() }).parse(request.body)
-    // F-304: resolve 必须校验属主 —— 此前只认 requestId,任意登录用户可代他人批准
-    // 工具执行。PermissionRequest 带 userId,以登录身份比对,不采信 requestId 自报;
-    // 不存在与非属主统一 403,不泄露 requestId 是否存在。
-    const pending = permissionManager.getRequest(requestId)
-    if (!pending || pending.userId !== request.userId)
-      return reply.status(403).send(error(403, '无权处理该审批请求'))
     const resolved = permissionManager.resolve(requestId, body.approved)
     if (!resolved) return reply.status(400).send(error(400, '请求不存在或已处理'))
     return reply.send(success({ resolved: true }))
@@ -1910,24 +1638,10 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
     modelId: z.string().optional(),
   })
 
-  // F-301:PATCH 只允许改这些可编辑字段。此前用 z.record 任意键直通 service 的
-  // {...r, ...updates},可改 id/createdAt/userUuid/nextRun/lastResult 等(把 nextRun
-  // 设成过去即可每 tick 触发)。strict 让未知字段直接 400。
-  const updateRoutineSchema = z
-    .object({
-      name: z.string().min(1).optional(),
-      prompt: z.string().min(1).optional(),
-      cronExpression: z.string().min(1).optional(),
-      workspacePath: z.string().min(1).optional(),
-      modelId: z.string().optional(),
-      enabled: z.boolean().optional(),
-    })
-    .strict()
-
   server.get('/routines', async (request, reply) => {
     await requireAuth(request, reply)
     if (!request.userId) return
-    return reply.send(success({ routines: routineManager.list(request.userId) }))
+    return reply.send(success({ routines: routineManager.list() }))
   })
 
   server.post('/routines', async (request, reply) => {
@@ -1936,7 +1650,7 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
     const parsed = createRoutineSchema.safeParse(request.body)
     if (!parsed.success)
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    const routine = routineManager.create(parsed.data, request.userId)
+    const routine = routineManager.create(parsed.data)
     return reply.status(201).send(success(routine))
   })
 
@@ -1944,7 +1658,7 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
     await requireAuth(request, reply)
     if (!request.userId) return
     const { id } = idParam.parse(request.params)
-    const routine = routineManager.get(id, request.userId)
+    const routine = routineManager.get(id)
     if (!routine) return reply.status(404).send(error(404, '例行程序不存在'))
     return reply.send(success(routine))
   })
@@ -1953,11 +1667,10 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
     await requireAuth(request, reply)
     if (!request.userId) return
     const { id } = idParam.parse(request.params)
-    const body = updateRoutineSchema.safeParse(request.body ?? {})
-    if (!body.success)
-      return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
+    const body = z.record(z.string(), z.unknown()).safeParse(request.body ?? {})
+    if (!body.success) return reply.status(400).send(error(400, '参数错误'))
     try {
-      const updated = routineManager.update(id, request.userId, body.data)
+      const updated = routineManager.update(id, body.data)
       if (!updated) return reply.status(404).send(error(404, '例行程序不存在'))
       return reply.send(success(updated))
     } catch (e) {
@@ -1969,7 +1682,7 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
     await requireAuth(request, reply)
     if (!request.userId) return
     const { id } = idParam.parse(request.params)
-    const deleted = routineManager.delete(id, request.userId)
+    const deleted = routineManager.delete(id)
     if (!deleted) return reply.status(404).send(error(404, '例行程序不存在'))
     return reply.send(success({ deleted }))
   })
@@ -1978,7 +1691,7 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
     await requireAuth(request, reply)
     if (!request.userId) return
     const { id } = idParam.parse(request.params)
-    const agentId = routineManager.trigger(id, request.userId)
+    const agentId = routineManager.trigger(id)
     if (!agentId) return reply.status(404).send(error(404, '例行程序不存在或未启用'))
     return reply.send(success({ agentId }))
   })
@@ -2010,16 +1723,11 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
   server.post('/github/prs', async (request, reply) => {
     await requireAuth(request, reply)
     if (!request.userId) return
-    // F-444:任意 owner/repo 的读写必须用调用者本人令牌,平台令牌不得代理。
-    if (!(await githubClient.hasOwnTokenForUser(request.userId)))
-      return reply
-        .status(403)
-        .send(error(403, '此接口需要先配置个人 GitHub 令牌(平台令牌不能代理读写他人仓库)'))
     const parsed = createPRSchema.safeParse(request.body)
     if (!parsed.success)
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     try {
-      const pr = await githubClient.createPR({ userId: request.userId, ...parsed.data })
+      const pr = await githubClient.createPR(parsed.data)
       return reply.status(201).send(success(pr))
     } catch (e) {
       return reply.status(400).send(error(400, (e as Error).message))
@@ -2029,18 +1737,13 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
   server.get('/github/prs', async (request, reply) => {
     await requireAuth(request, reply)
     if (!request.userId) return
-    // F-444:任意 owner/repo 的读写必须用调用者本人令牌,平台令牌不得代理。
-    if (!(await githubClient.hasOwnTokenForUser(request.userId)))
-      return reply
-        .status(403)
-        .send(error(403, '此接口需要先配置个人 GitHub 令牌(平台令牌不能代理读写他人仓库)'))
     const query = z
       .object({ owner: z.string(), repo: z.string(), state: z.string().optional() })
       .parse(request.query)
     if (!query.owner || !query.repo)
       return reply.status(400).send(error(400, 'owner 和 repo 不能为空'))
     try {
-      const prs = await githubClient.listPRs({ userId: request.userId, ...query })
+      const prs = await githubClient.listPRs(query)
       return reply.send(success(prs))
     } catch (e) {
       return reply.status(400).send(error(400, (e as Error).message))
@@ -2050,22 +1753,12 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
   server.get('/github/prs/:number', async (request, reply) => {
     await requireAuth(request, reply)
     if (!request.userId) return
-    // F-444:任意 owner/repo 的读写必须用调用者本人令牌,平台令牌不得代理。
-    if (!(await githubClient.hasOwnTokenForUser(request.userId)))
-      return reply
-        .status(403)
-        .send(error(403, '此接口需要先配置个人 GitHub 令牌(平台令牌不能代理读写他人仓库)'))
     const { number } = prNumberParam.parse(request.params)
     const query = z.object({ owner: z.string(), repo: z.string() }).parse(request.query)
     if (!query.owner || !query.repo)
       return reply.status(400).send(error(400, 'owner 和 repo 不能为空'))
     try {
-      const pr = await githubClient.getPR({
-        userId: request.userId,
-        owner: query.owner,
-        repo: query.repo,
-        number,
-      })
+      const pr = await githubClient.getPR({ owner: query.owner, repo: query.repo, number })
       return reply.send(success(pr))
     } catch (e) {
       return reply.status(400).send(error(400, (e as Error).message))
@@ -2075,11 +1768,6 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
   server.post('/github/prs/:number/comments', async (request, reply) => {
     await requireAuth(request, reply)
     if (!request.userId) return
-    // F-444:任意 owner/repo 的读写必须用调用者本人令牌,平台令牌不得代理。
-    if (!(await githubClient.hasOwnTokenForUser(request.userId)))
-      return reply
-        .status(403)
-        .send(error(403, '此接口需要先配置个人 GitHub 令牌(平台令牌不能代理读写他人仓库)'))
     const { number } = prNumberParam.parse(request.params)
     const body = z
       .object({ owner: z.string(), repo: z.string(), body: z.string() })
@@ -2088,7 +1776,6 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, 'owner/repo/body 不能为空'))
     try {
       const result = await githubClient.addPRComment({
-        userId: request.userId,
         owner: body.owner,
         repo: body.repo,
         number,
@@ -2103,11 +1790,6 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
   server.post('/github/prs/:number/reviewers', async (request, reply) => {
     await requireAuth(request, reply)
     if (!request.userId) return
-    // F-444:任意 owner/repo 的读写必须用调用者本人令牌,平台令牌不得代理。
-    if (!(await githubClient.hasOwnTokenForUser(request.userId)))
-      return reply
-        .status(403)
-        .send(error(403, '此接口需要先配置个人 GitHub 令牌(平台令牌不能代理读写他人仓库)'))
     const { number } = prNumberParam.parse(request.params)
     const body = z
       .object({ owner: z.string(), repo: z.string(), reviewers: z.array(z.string()).max(100) })
@@ -2116,7 +1798,6 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, 'owner/repo/reviewers 不能为空'))
     try {
       const result = await githubClient.requestReview({
-        userId: request.userId,
         owner: body.owner,
         repo: body.repo,
         number,
@@ -2131,11 +1812,6 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
   server.put('/github/prs/:number/merge', async (request, reply) => {
     await requireAuth(request, reply)
     if (!request.userId) return
-    // F-444:任意 owner/repo 的读写必须用调用者本人令牌,平台令牌不得代理。
-    if (!(await githubClient.hasOwnTokenForUser(request.userId)))
-      return reply
-        .status(403)
-        .send(error(403, '此接口需要先配置个人 GitHub 令牌(平台令牌不能代理读写他人仓库)'))
     const { number } = prNumberParam.parse(request.params)
     const body = z
       .object({
@@ -2149,7 +1825,6 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, 'owner 和 repo 不能为空'))
     try {
       const result = await githubClient.mergePR({
-        userId: request.userId,
         owner: body.owner,
         repo: body.repo,
         number,
@@ -2165,18 +1840,13 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
   server.get('/github/issues', async (request, reply) => {
     await requireAuth(request, reply)
     if (!request.userId) return
-    // F-444:任意 owner/repo 的读写必须用调用者本人令牌,平台令牌不得代理。
-    if (!(await githubClient.hasOwnTokenForUser(request.userId)))
-      return reply
-        .status(403)
-        .send(error(403, '此接口需要先配置个人 GitHub 令牌(平台令牌不能代理读写他人仓库)'))
     const query = z
       .object({ owner: z.string(), repo: z.string(), state: z.string().optional() })
       .parse(request.query)
     if (!query.owner || !query.repo)
       return reply.status(400).send(error(400, 'owner 和 repo 不能为空'))
     try {
-      const issues = await githubClient.listIssues({ userId: request.userId, ...query })
+      const issues = await githubClient.listIssues(query)
       return reply.send(success(issues))
     } catch (e) {
       return reply.status(400).send(error(400, (e as Error).message))
@@ -2269,55 +1939,48 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
   }
 
   // POST /atomic-checkpoint — 创建原子快照
-  // F-554:单次快照最多复制 3000 个文件,必须限流,避免反复调用把工作区磁盘写满。
-  server.post(
-    '/atomic-checkpoint',
-    { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } },
-    async (request, reply) => {
-      await requireAuth(request, reply)
-      if (!request.userId) return
-      const parsed = z
-        .object({
-          workspacePath: z.string().min(1),
-          description: z.string().max(500).default('手动快照'),
-        })
-        .safeParse(request.body)
-      if (!parsed.success) {
-        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-      }
-      if (
-        !(await isAllowedWorkspace(request, reply, parsed.data.workspacePath, 'atomic.checkpoint'))
+  server.post('/atomic-checkpoint', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const parsed = z
+      .object({
+        workspacePath: z.string().min(1),
+        description: z.string().max(500).default('手动快照'),
+      })
+      .safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    if (!(await isAllowedWorkspace(request, reply, parsed.data.workspacePath, 'atomic.checkpoint')))
+      return
+    try {
+      const result = await createAtomicCheckpoint(parsed.data.workspacePath, {
+        description: parsed.data.description,
+        tool: 'http',
+      })
+      // 写链成功 ⇒ 别的设备上的同一工作区也应立刻知道"有一个可用检查点"
+      emitCheckpointAvailability(request, {
+        workspacePath: parsed.data.workspacePath,
+        state: 'available',
+        checkpointId: result.meta.id,
+      })
+      return reply.send(
+        success({
+          id: result.meta.id,
+          files: result.meta.files.length,
+          skipped: result.meta.skipped.length,
+        }),
       )
-        return
-      try {
-        const result = await createAtomicCheckpoint(parsed.data.workspacePath, {
-          description: parsed.data.description,
-          tool: 'http',
-        })
-        // 写链成功 ⇒ 别的设备上的同一工作区也应立刻知道"有一个可用检查点"
-        emitCheckpointAvailability(request, {
-          workspacePath: parsed.data.workspacePath,
-          state: 'available',
-          checkpointId: result.meta.id,
-        })
-        return reply.send(
-          success({
-            id: result.meta.id,
-            files: result.meta.files.length,
-            skipped: result.meta.skipped.length,
-          }),
-        )
-      } catch (e) {
-        // 写链失败同样要上报"不可用" —— 否则另一端继续按"可用"行事(D163 的三态纪律)
-        emitCheckpointAvailability(request, {
-          workspacePath: parsed.data.workspacePath,
-          state: 'unavailable',
-          reason: (e as Error).message,
-        })
-        return reply.status(500).send(error(500, (e as Error).message))
-      }
-    },
-  )
+    } catch (e) {
+      // 写链失败同样要上报"不可用" —— 否则另一端继续按"可用"行事(D163 的三态纪律)
+      emitCheckpointAvailability(request, {
+        workspacePath: parsed.data.workspacePath,
+        state: 'unavailable',
+        reason: (e as Error).message,
+      })
+      return reply.status(500).send(error(500, (e as Error).message))
+    }
+  })
 
   // GET /atomic-checkpoints — 快照列表(仅元信息)
   server.get('/atomic-checkpoints', async (request, reply) => {

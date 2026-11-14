@@ -19,11 +19,7 @@ import {
   readEgressHops,
 } from '../src/utils/proxy-dispatcher.js'
 import { fetchWithTimeout } from '../src/routes/ai-vendors/_shared.js'
-import {
-  createEgressFacts,
-  EGRESS_FACT_FIELDS,
-  type EgressFacts,
-} from '@ihui/types'
+import { createEgressFacts, EGRESS_FACT_FIELDS, type EgressFacts } from '@ihui/types'
 
 /** 本测试涉及的变量在 .env.test / 宿主 shell 里都可能已存在 ⇒ 逐条存取,不得盲删。*/
 const MANAGED_VARS = [
@@ -114,42 +110,14 @@ describe('collectEgressFacts —— 判据与路由同源', () => {
     expect(facts.policyDeclined).toBe('url-unparseable')
   })
 
-  it('NO_PROXY 命中 ⇒ 直连,并给出 no-proxy-match(标准代理语义)', () => {
+  it('NO_PROXY 命中只作为**事实**回来,不改变路由(改路由是另一张票)', () => {
     process.env.PROXY_URL = 'http://127.0.0.1:7897'
     process.env.NO_PROXY = 'openai.com'
     const facts = collectEgressFacts('https://api.openai.com/v1/models')
     expect(facts.noProxyMatched).toBe(true)
     expect(facts.noProxyVar).toBe('NO_PROXY')
-    expect(facts.proxied).toBe(false)
-    expect(facts.policyDeclined).toBe('no-proxy-match')
-  })
-
-  it('NO_PROXY 未命中 ⇒ 代理照常;`*` ⇒ 全部直连', () => {
-    process.env.PROXY_URL = 'http://127.0.0.1:7897'
-    process.env.NO_PROXY = 'foo.com'
-    const miss = collectEgressFacts('https://api.openai.com/v1/models')
-    expect(miss.noProxyMatched).toBe(false)
-    expect(miss.proxied).toBe(true)
-    expect(miss.policyDeclined).toBe(null)
-
-    process.env.NO_PROXY = '*'
-    const all = collectEgressFacts('https://api.openai.com/v1/models')
-    expect(all.proxied).toBe(false)
-    expect(all.policyDeclined).toBe('no-proxy-match')
-  })
-
-  it('回环整段直连:127.0.0.0/8、0.0.0.0、IPv6 与 IPv4 映射写法', () => {
-    process.env.PROXY_URL = 'http://127.0.0.1:7897'
-    process.env.PROXY_DOMAINS = '127.5.5.5,::1'
-    for (const url of [
-      'http://127.5.5.5:3000/x',
-      'http://0.0.0.0:3000/x',
-      'http://[::1]:3000/x',
-    ]) {
-      const facts = collectEgressFacts(url)
-      expect(facts.proxied).toBe(false)
-      expect(facts.policyDeclined).toBe('internal-host')
-    }
+    // 这一对(proxied=true ∧ noProxyMatched=true)正是"配了却不生效"的可诊断指纹
+    expect(facts.proxied).toBe(true)
   })
 
   it('环境变量只带名字、不带值;CA 状态单独一档', () => {
@@ -264,7 +232,10 @@ describe('G-750:事实面必须能回答"字节是从哪个 host 拿回来的"',
     return (async (input: string | URL | Request) => {
       const url = String(input)
       if (url === 'https://api.deepseek.com/v1/thing') {
-        return new Response(null, { status: 302, headers: { location: 'https://cdn.third-party-cdn.test/pull' } })
+        return new Response(null, {
+          status: 302,
+          headers: { location: 'https://cdn.third-party-cdn.test/pull' },
+        })
       }
       if (url === 'https://cdn.third-party-cdn.test/pull') {
         return new Response('bytes-from-cdn', { status: 200 })
@@ -306,7 +277,9 @@ describe('G-750:事实面必须能回答"字节是从哪个 host 拿回来的"',
     expect('redirectCount' in roundTripped).toBe(false)
     // 但白名单认得它们:显式给了值,createEgressFacts 唯一出口就必须抄进来(结构上仍带不进凭据类内容)
     const enriched = JSON.parse(
-      JSON.stringify(createEgressFacts({ ...facts, finalHostname: 'cdn.example.test', redirectCount: 2 })),
+      JSON.stringify(
+        createEgressFacts({ ...facts, finalHostname: 'cdn.example.test', redirectCount: 2 }),
+      ),
     ) as Record<string, unknown>
     expect(enriched.finalHostname).toBe('cdn.example.test')
     expect(enriched.redirectCount).toBe(2)

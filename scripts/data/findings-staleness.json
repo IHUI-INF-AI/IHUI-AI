@@ -1,0 +1,78 @@
+{
+  "generatedAt": "2026-11-13T20:57:19.884Z",
+  "tip": "92b374193976df7fa44a86b6766e312d00e14e72",
+  "files": [
+    {
+      "file": "docs/tickets/2026-11/findings-api.md",
+      "exists": true,
+      "hasWarningBlock": false,
+      "baseline": "895027a9d644ce0688bb0d533281cf097db69578",
+      "baselineResolved": true,
+      "commitsBehind": 2401,
+      "expired": true
+    },
+    {
+      "file": "docs/tickets/2026-11/findings-ai-service.md",
+      "exists": true,
+      "hasWarningBlock": false,
+      "baseline": "895027a9d644ce0688bb0d533281cf097db69578",
+      "baselineResolved": true,
+      "commitsBehind": 2401,
+      "expired": true
+    },
+    {
+      "file": "docs/tickets/2026-11/findings-web.md",
+      "exists": true,
+      "hasWarningBlock": false,
+      "baseline": "895027a9d644ce0688bb0d533281cf097db69578",
+      "baselineResolved": true,
+      "commitsBehind": 2401,
+      "expired": true
+    },
+    {
+      "file": "docs/tickets/2026-11/findings-db.md",
+      "exists": true,
+      "hasWarningBlock": false,
+      "baseline": "895027a9d644ce0688bb0d533281cf097db69578",
+      "baselineResolved": true,
+      "commitsBehind": 2401,
+      "expired": true
+    },
+    {
+      "file": "docs/tickets/2026-11/findings-deploy-gates.md",
+      "exists": true,
+      "hasWarningBlock": false,
+      "baseline": "895027a9d644ce0688bb0d533281cf097db69578",
+      "baselineResolved": true,
+      "commitsBehind": 2401,
+      "expired": true
+    },
+    {
+      "file": "docs/tickets/2026-11/findings-services-db.md",
+      "exists": true,
+      "hasWarningBlock": false,
+      "baseline": "d4e16218061d3db3daa617ae75bd34254f198799",
+      "baselineResolved": true,
+      "commitsBehind": 2358,
+      "expired": true
+    },
+    {
+      "file": "docs/tickets/2026-11/findings-crossui.md",
+      "exists": true,
+      "hasWarningBlock": false,
+      "baseline": "d5f5581a",
+      "baselineResolved": false,
+      "commitsBehind": null,
+      "expired": true
+    },
+    {
+      "file": "docs/tickets/2026-11/findings-cli-desktop.md",
+      "exists": true,
+      "hasWarningBlock": false,
+      "baseline": "895027a9d644ce0688bb0d533281cf097db69578",
+      "baselineResolved": true,
+      "commitsBehind": 2401,
+      "expired": true
+    }
+  ]
+}

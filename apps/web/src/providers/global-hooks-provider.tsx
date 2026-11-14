@@ -27,7 +27,6 @@ import { useImeCompositionGuard } from '@/hooks/use-ime-composition-guard'
 import { useUiControlBridge } from '@/hooks/use-ui-control-bridge'
 import { useNativePushRegister } from '@/hooks/use-native-push'
 import { CommandPalette } from '@/components/layout/CommandPalette'
-import { ShortcutRecorder } from '@/components/settings/shortcut-recorder'
 import { CloseChoiceDialog } from '@/components/common/CloseChoiceDialog'
 import { toast } from '@/components/common'
 import { useModeStore } from '@/stores/mode'
@@ -80,31 +79,6 @@ const MODE_SHORTCUT_EVENTS: Record<string, ChatMode> = {
  * use-global-shortcuts DEFAULT_SHORTCUTS 的硬编码中文 description,未走 i18n,
  * 现统一经 `shortcutHelp.desc.<key>` 解析(与 DEFAULT_SHORTCUTS 的 key 一一对应)。
  */
-/**
- * action id → i18n 描述键(改键后 chord 会变,描述必须按稳定 action 索引)。
- * 旧按 chord 的映射保留作 fallback,兼容组件临时注册、没有 action 的条目。
- */
-const SHORTCUT_DESC_BY_ACTION: Record<string, string> = {
-  'cmd-k': 'desc.ctrlK',
-  search: 'desc.ctrlP',
-  'new-chat': 'desc.ctrlShiftN',
-  'shortcut-help': 'desc.ctrlSlash',
-  'open-drama': 'desc.ctrlShiftD',
-  'open-plus': 'desc.ctrlShiftP',
-  'open-settings': 'desc.ctrlComma',
-  'open-slash': 'desc.ctrlShiftSlash',
-  'mention-file': 'desc.ctrlShiftU',
-  screenshot: 'desc.ctrlShiftM',
-  'mode-build': 'desc.ctrl1',
-  'mode-plan': 'desc.ctrl2',
-  'mode-review': 'desc.ctrl3',
-  'mode-spec': 'desc.ctrl4',
-  'mode-ask': 'desc.ctrl5',
-  'voice-input': 'desc.ctrlAltV',
-  'voice-playback': 'desc.ctrlAltB',
-  'voice-handsfree': 'desc.ctrlAltH',
-}
-
 const SHORTCUT_DESC_KEYS: Record<string, string> = {
   'Ctrl+K': 'desc.ctrlK',
   'Ctrl+P': 'desc.ctrlP',
@@ -155,18 +129,8 @@ export function GlobalHooksProvider({ children }: { children: React.ReactNode })
   // 客户端 RUM（默认关闭，显式同意后才采集/上报）：首屏 + 未捕获异常 + 页面隐藏时 flush。
   // 接入说明见 apps/web/src/lib/rum/index.ts 与 hooks/use-rum.ts。
   useRum()
-  const {
-    showHelpPanel,
-    toggleHelpPanel,
-    shortcuts,
-    overrides,
-    setShortcutOverride,
-    resetShortcut,
-    resetAllShortcuts,
-  } = useGlobalShortcuts()
+  const { showHelpPanel, toggleHelpPanel, shortcuts } = useGlobalShortcuts()
   const tHelp = useTranslations('shortcutHelp')
-  // 正在录制的 action id;null 表示没有录制行
-  const [recordingAction, setRecordingAction] = React.useState<string | null>(null)
   // 1-6:帮助面板 Esc 关闭(原先只能点击外部关闭)
   // 2026-09-22:接入浮层层栈 —— Ctrl+/ 面板是全页最上层,打开时下层的弹层(权限弹层/
   // context ring 等)不得一起被一次 Esc 关掉。
@@ -392,109 +356,17 @@ export function GlobalHooksProvider({ children }: { children: React.ReactNode })
             }}
           >
             <h3 style={{ margin: '0 0 16px', fontSize: 16, fontWeight: 600 }}>{tHelp('title')}</h3>
-            {Object.keys(overrides).length > 0 && (
-              <button
-                type="button"
-                onClick={() => {
-                  resetAllShortcuts()
-                  setRecordingAction(null)
-                }}
-                style={{
-                  marginBottom: 12,
-                  fontSize: 12,
-                  background: 'none',
-                  border: 'none',
-                  color: 'var(--color-primary, #0a7)',
-                  cursor: 'pointer',
-                  padding: 0,
-                }}
-              >
-                {tHelp('resetAll')}
-              </button>
-            )}
             <ul className="m-0 grid list-none gap-2 p-0">
               {shortcuts
                 .filter((s) => s.active)
                 .map((s) => {
-                  const descKey =
-                    (s.action ? SHORTCUT_DESC_BY_ACTION[s.action] : undefined) ??
-                    SHORTCUT_DESC_KEYS[s.key]
-                  const isRecording = !!s.action && recordingAction === s.action
+                  const descKey = SHORTCUT_DESC_KEYS[s.key]
                   return (
-                    <li
-                      key={s.key}
-                      className="flex items-center justify-between gap-4"
-                      style={{ fontSize: 14 }}
-                    >
+                    <li key={s.key} className="flex justify-between gap-6" style={{ fontSize: 14 }}>
                       <span style={{ opacity: 0.7 }}>
                         {descKey ? tHelp(descKey) : (s.description ?? s.key)}
                       </span>
-                      <span className="flex items-center gap-2">
-                        {isRecording ? (
-                          <ShortcutRecorder
-                            labels={{
-                              recording: tHelp('recording'),
-                              invalid: tHelp('invalidCombo'),
-                              conflict: (key) => tHelp('conflictKey', { key }),
-                            }}
-                            onCommit={(combo) => {
-                              const result = setShortcutOverride(s.action!, combo)
-                              if (result.ok) setRecordingAction(null)
-                              return result
-                            }}
-                            onCancel={() => setRecordingAction(null)}
-                          />
-                        ) : (
-                          <code style={{ fontSize: 12, opacity: 0.9 }}>{s.key}</code>
-                        )}
-                        {s.action && !isRecording && (
-                          <>
-                            <button
-                              type="button"
-                              onClick={() => setRecordingAction(s.action!)}
-                              style={{
-                                fontSize: 11,
-                                background: 'none',
-                                border: 'none',
-                                color: 'var(--color-primary, #0a7)',
-                                cursor: 'pointer',
-                                padding: 0,
-                              }}
-                            >
-                              {tHelp('rebind')}
-                            </button>
-                            {s.overridden && (
-                              <>
-                                <span
-                                  style={{
-                                    fontSize: 10,
-                                    padding: '0 4px',
-                                    borderRadius: 4,
-                                    background: 'var(--color-primary, #0a7)',
-                                    color: '#fff',
-                                  }}
-                                >
-                                  {tHelp('customized')}
-                                </span>
-                                <button
-                                  type="button"
-                                  onClick={() => resetShortcut(s.action!)}
-                                  style={{
-                                    fontSize: 11,
-                                    background: 'none',
-                                    border: 'none',
-                                    color: 'var(--color-muted-foreground, #888)',
-                                    cursor: 'pointer',
-                                    padding: 0,
-                                  }}
-                                >
-                                  {tHelp('reset')}
-                                </button>
-                              </>
-                            )}
-                          </>
-                        )}
-                      </span>
+                      <code style={{ fontSize: 12, opacity: 0.9 }}>{s.key}</code>
                     </li>
                   )
                 })}

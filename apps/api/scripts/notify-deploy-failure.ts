@@ -70,7 +70,7 @@ const DEFAULT_SOURCE = 'github-actions/blue-green-deploy'
  * 值本身也由 brandResendFrom 生成,而不是手写整串:否则这里就成了全仓**唯一**一处
  * 绕过品牌函数直接产出 From 的位置(空 RESEND_FROM 时走它),改品牌名时必漏。
  */
-const DEFAULT_RESEND_FROM = brandResendFrom('IHUI-AI@aizhs.top')
+const DEFAULT_RESEND_FROM = brandResendFrom('lizong@aizhs.top')
 const RESEND_ENDPOINT = 'https://api.resend.com/emails'
 
 /**

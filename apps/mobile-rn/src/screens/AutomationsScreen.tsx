@@ -17,6 +17,7 @@ import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import Empty from '../components/common/Empty'
 import Loading from '../components/common/Loading'
+import { toFriendlyOr } from '@ihui/shared/utils'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 type AutomationRouteProp = RouteProp<RootStackParamList, 'Automations'>
@@ -83,7 +84,7 @@ export function AutomationsScreen() {
         setItems(res.items.map((item) => toAutomationItem(item, t)))
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : t('automations.loadFailed'))
+      setError(toFriendlyOr(e, t('automations.loadFailed')))
     } finally {
       setLoading(false)
       setRefreshing(false)

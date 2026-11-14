@@ -236,59 +236,23 @@ export async function listActiveScopeMeta() {
  *
  * 顺手把 `limit(1)` 补上确定序:此前无 `orderBy`,同键多行时命中哪一行由数据库决定 ——
  * 那是"偶发登错账号"这种最难复现的故障形态。真并发双绑的第二行还需要库里
- * `(platform, tenant_id, open_id) WHERE deleted_at IS NULL` 的部分唯一索引才能结构性堵住。
- *
- * **租户维度(F-271,2026-11-14)**:企业微信 suite 模式返回的 `open_userid` 只在**单个企业内**
- * 唯一,而旧绑定键只有 `(platform, open_id)` —— B 企业里与 A 企业同值的 open_userid 会命中
- * A 的绑定,直接登进 A 的本地账号(跨租户接管)。现把 `tenant_id` 纳入键:`tenantId` 入参给定时
- * 是**精确等值**匹配(缺失/空串的存量行不再被任意租户命中 = fail-closed,存量用户需重新绑定),
- * 未给定(wechat/google/dingtalk 等单租户平台)时维持旧口径,只按 `(platform, open_id)` 查。
+ * `(platform, open_id) WHERE deleted_at IS NULL` 的部分唯一索引才能结构性堵住
+ * (本轮现读:4 行绑定 / 0 软删 / 0 重复组 ⇒ 索引此刻可建,属需要机主点头的 DDL,未擅自动)。
  */
-export async function findThirdPartyAccount(platform: string, openId: string, tenantId?: string) {
-  const conditions = [
-    eq(userThirdPartyAccounts.platform, platform),
-    eq(userThirdPartyAccounts.openId, openId),
-    sql`${userThirdPartyAccounts.deletedAt} IS NULL`,
-  ]
-  if (tenantId !== undefined) conditions.push(eq(userThirdPartyAccounts.tenantId, tenantId))
+export async function findThirdPartyAccount(platform: string, openId: string) {
   const rows = await db
     .select()
     .from(userThirdPartyAccounts)
-    .where(and(...conditions))
-    .orderBy(userThirdPartyAccounts.createdAt)
-    .limit(1)
-  return rows[0]
-}
-
-/**
- * 存量租户回填(仅自建应用单租户模式调用)。
- *
- * 为什么需要:加入租户维度后,`tenant_id=''` 的存量绑定不会再被任何 corpId 命中。自建应用的
- * corpId 恒等于 `WECOM_CORP_ID`(只服务这一家企业),存量行不可能属于别家企业 ⇒ 把同键活行
- * 改判为该 corpId 不构成跨租户。suite 模式(多企业共用一套凭据)**不**调用本函数,存量行按
- * fail-closed 处理(用户重新绑定即可),宁可要一次重绑,也不要一条能被任意租户命中的老行。
- *
- * 返回被改判的行 id:空 ⇒ 没有可回填的存量行。
- */
-export async function adoptLegacyTenantBinding(
-  platform: string,
-  openId: string,
-  tenantId: string,
-): Promise<string | undefined> {
-  if (!tenantId) return undefined
-  const rows = await db
-    .update(userThirdPartyAccounts)
-    .set({ tenantId, updatedAt: new Date() })
     .where(
       and(
         eq(userThirdPartyAccounts.platform, platform),
         eq(userThirdPartyAccounts.openId, openId),
-        eq(userThirdPartyAccounts.tenantId, ''),
         sql`${userThirdPartyAccounts.deletedAt} IS NULL`,
       ),
     )
-    .returning({ id: userThirdPartyAccounts.id })
-  return rows[0]?.id
+    .orderBy(userThirdPartyAccounts.createdAt)
+    .limit(1)
+  return rows[0]
 }
 
 export async function listUserBindings(userId: string) {
@@ -308,8 +272,6 @@ export async function createThirdPartyBinding(input: {
   openId: string
   unionId?: string
   platform: string
-  /** 租户维度(F-271):企业微信填 corpId;其余平台省略 ⇒ 落空串(单租户)。 */
-  tenantId?: string
   accessToken?: string
   refreshToken?: string
 }) {
@@ -320,7 +282,6 @@ export async function createThirdPartyBinding(input: {
       openId: input.openId,
       unionId: input.unionId,
       platform: input.platform,
-      tenantId: input.tenantId ?? '',
       accessToken: input.accessToken,
       refreshToken: input.refreshToken,
     })

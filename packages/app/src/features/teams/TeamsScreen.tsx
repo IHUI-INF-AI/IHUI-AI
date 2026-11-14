@@ -112,7 +112,7 @@ export function TeamsScreen({
             value={form.name}
             onChangeText={(v) => onFormChange({ name: v })}
             placeholder={t('teamsPage.namePlaceholder')}
-            placeholderTextColor={tk.text.tertiary}
+            placeholderTextColor={tk.text.secondary}
             maxLength={128}
             style={styles.input}
           />
@@ -122,7 +122,7 @@ export function TeamsScreen({
             value={form.slug}
             onChangeText={(v) => onFormChange({ slug: v })}
             placeholder={t('teamsPage.slugPlaceholder')}
-            placeholderTextColor={tk.text.tertiary}
+            placeholderTextColor={tk.text.secondary}
             maxLength={128}
             autoCapitalize="none"
             style={styles.input}
@@ -133,7 +133,7 @@ export function TeamsScreen({
             value={form.description}
             onChangeText={(v) => onFormChange({ description: v })}
             placeholder={t('teamsPage.descriptionPlaceholder')}
-            placeholderTextColor={tk.text.tertiary}
+            placeholderTextColor={tk.text.secondary}
             maxLength={2000}
             multiline
             style={styles.inputMultiline}
@@ -298,14 +298,14 @@ function createStyles(tk: AppThemeTokens) {
     submitBtnText: { fontSize: rnType.body.size, fontWeight: '600', color: tk.brand.ctaForeground },
     btnDisabled: { opacity: 0.6 },
     errorBar: { paddingHorizontal: rnSpacing['sm-loose'], paddingVertical: rnSpacing.sm },
-    errorText: { fontSize: rnType.body.size, color: tk.danger.DEFAULT },
+    errorText: { fontSize: rnType.body.size, color: tk.danger.deepText },
     center: {
       alignItems: 'center',
       paddingVertical: rnSpacing['3xl'],
       justifyContent: 'center',
       gap: rnSpacing.sm,
     },
-    emptyText: { fontSize: rnType.body.size, color: tk.text.tertiary },
+    emptyText: { fontSize: rnType.body.size, color: tk.text.medium },
     listBody: {
       padding: rnSpacing['md-loose'],
       paddingTop: rnSpacing.none,
@@ -322,7 +322,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     cardTitle: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
     cardDesc: { fontSize: rnType.bodySm.size, color: tk.text.secondary },
-    cardMeta: { fontSize: rnType.caption.size, color: tk.text.tertiary },
+    cardMeta: { fontSize: rnType.caption.size, color: tk.text.medium },
     cardFoot: {
       flexDirection: 'row',
       alignItems: 'center',

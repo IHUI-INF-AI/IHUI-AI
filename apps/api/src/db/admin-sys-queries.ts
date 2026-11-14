@@ -49,8 +49,12 @@ export interface ListQuery {
 }
 
 function paginate(query: ListQuery): { page: number; pageSize: number; offset: number } {
-  const page = query.page ?? 1
-  const pageSize = query.pageSize ?? 10
+  // F-642:此前 page/pageSize 原样透传,负值会让 OFFSET 变负报错、超大值会一次性全表载入。
+  // 统一夹到 page>=1、1<=pageSize<=100,并对非有限值(NaN/Infinity)回落到默认。
+  const rawPage = Number.isFinite(query.page) ? (query.page as number) : 1
+  const rawSize = Number.isFinite(query.pageSize) ? (query.pageSize as number) : 10
+  const page = Math.max(1, Math.trunc(rawPage))
+  const pageSize = Math.min(100, Math.max(1, Math.trunc(rawSize)))
   return { page, pageSize, offset: (page - 1) * pageSize }
 }
 
@@ -167,26 +171,9 @@ export async function deleteRoleMenuByRole(roleId: number): Promise<void> {
 
 export async function deleteMenuWithCascade(id: string): Promise<SysMenu | undefined> {
   return db.transaction(async (tx) => {
-    // F-641:递归收集整棵子树再删。此前只删目标行,子节点因 parent_id 无外键残留,
-    // 从树上消失且后台再也无法选中/删除,role_menu 授权行也越删越脏。
-    // seen 防脏数据成环导致队列无限增长。
-    const ids: string[] = []
-    const seen = new Set<string>()
-    const queue = [id]
-    while (queue.length > 0) {
-      const parentId = queue.shift()!
-      if (seen.has(parentId)) continue
-      seen.add(parentId)
-      ids.push(parentId)
-      const children = await tx
-        .select({ id: sysMenus.id })
-        .from(sysMenus)
-        .where(eq(sysMenus.parentId, parentId))
-      for (const c of children) if (!seen.has(c.id)) queue.push(c.id)
-    }
-    await tx.delete(sysRoleMenu).where(inArray(sysRoleMenu.menuId, ids))
-    const rows = await tx.delete(sysMenus).where(inArray(sysMenus.id, ids)).returning()
-    return rows.find((r) => r.id === id)
+    await tx.delete(sysRoleMenu).where(eq(sysRoleMenu.menuId, id))
+    const rows = await tx.delete(sysMenus).where(eq(sysMenus.id, id)).returning()
+    return rows[0]
   })
 }
 
@@ -197,10 +184,7 @@ export async function deleteRoleMenuCascade(roleId: number): Promise<void> {
     await tx.delete(adminRoleMenu).where(eq(adminRoleMenu.roleId, roleId))
     await tx.delete(adminRoleDept).where(eq(adminRoleDept.roleId, roleId))
     await tx.delete(adminUserRole).where(eq(adminUserRole.roleId, roleId))
-    await tx
-      .update(users)
-      .set({ roleId: 0, updatedAt: new Date() })
-      .where(eq(users.roleId, roleId))
+    await tx.update(users).set({ roleId: 0, updatedAt: new Date() }).where(eq(users.roleId, roleId))
   })
 }
 
@@ -288,7 +272,8 @@ export async function findNoticeList(
 ): Promise<{ list: SysNotice[]; total: number }> {
   const { pageSize, offset } = paginate(query)
   const conds = []
-  if (query.noticeTitle) conds.push(ilike(sysNotices.noticeTitle, asContainsTerm(query.noticeTitle)))
+  if (query.noticeTitle)
+    conds.push(ilike(sysNotices.noticeTitle, asContainsTerm(query.noticeTitle)))
   if (query.noticeType) conds.push(eq(sysNotices.noticeType, query.noticeType))
   if (query.createBy) conds.push(eq(sysNotices.createBy, query.createBy))
   const where = conds.length > 0 ? and(...conds) : undefined
@@ -442,7 +427,7 @@ export async function updateJobStatus(id: number, status: string): Promise<SysJo
   const rows = await db
     .update(sysJobs)
     .set({ status, updatedAt: new Date() })
-  // status-guard-exempt: 通用状态 setter——目标值由调用方传入,终态合法性由服务层/路由层裁决,非固定出向终态写点
+    // status-guard-exempt: 通用状态 setter——目标值由调用方传入,终态合法性由服务层/路由层裁决,非固定出向终态写点
     .where(eq(sysJobs.jobId, id))
     .returning()
   return rows[0]
@@ -710,13 +695,7 @@ export async function findConfigById(id: number): Promise<SysConfig | undefined>
 }
 
 export async function findConfigByKey(key: string): Promise<SysConfig | undefined> {
-  // F-435: 无唯一约束时可能有多行同 key,固定排序让 limit(1) 结果确定(取最新一条)。
-  const rows = await db
-    .select()
-    .from(sysConfigs)
-    .where(eq(sysConfigs.configKey, key))
-    .orderBy(desc(sysConfigs.createdAt), desc(sysConfigs.configId))
-    .limit(1)
+  const rows = await db.select().from(sysConfigs).where(eq(sysConfigs.configKey, key)).limit(1)
   return rows[0]
 }
 
@@ -1035,7 +1014,7 @@ export async function updateAdminRoleStatus(
   const rows = await db
     .update(adminRole)
     .set({ status, updateTime: new Date() })
-  // status-guard-exempt: 通用状态 setter——目标值由调用方传入,终态合法性由服务层/路由层裁决,非固定出向终态写点
+    // status-guard-exempt: 通用状态 setter——目标值由调用方传入,终态合法性由服务层/路由层裁决,非固定出向终态写点
     .where(eq(adminRole.roleId, roleId))
     .returning()
   return rows[0]

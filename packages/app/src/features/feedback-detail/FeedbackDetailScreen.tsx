@@ -92,8 +92,8 @@ function createStyles(tk: AppThemeTokens) {
     badgeRow: { flexDirection: 'row', gap: rnSpacing.sm, marginBottom: rnSpacing.md },
     typeBadge: {
       fontSize: rnType.caption.size,
-      color: tk.surface.light,
-      backgroundColor: tk.success.DEFAULT,
+      color: tk.success.deepText,
+      backgroundColor: tk.success.lighter,
       paddingHorizontal: rnSpacing.sm,
       paddingVertical: rnSpacing['2xs'],
       borderRadius: rnRadius.md,
@@ -119,7 +119,7 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.medium,
       lineHeight: rnType.strong.lineHeight,
     },
-    createdAt: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.tertiary },
+    createdAt: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.medium },
     reply: {
       marginTop: rnSpacing.sm,
       fontSize: rnType.title.size,
@@ -129,7 +129,7 @@ function createStyles(tk: AppThemeTokens) {
     replyEmpty: {
       marginTop: rnSpacing.sm,
       fontSize: rnType.title.size,
-      color: tk.text.tertiary,
+      color: tk.text.medium,
       fontStyle: 'italic',
       lineHeight: rnType.strong.lineHeight,
     },

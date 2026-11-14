@@ -35,12 +35,14 @@
 注册到 main.py:app.include_router(orchestration.router, prefix="/api", tags=["orchestration"])
 """
 
+import logging
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
 from ..core.executor_switch import (
+    PILOT_ERROR_MARKER,
     LoopV2ConvergencePilotError,
     guard_loop_v2_pilot,
     take_loop_v2_handoff,
@@ -50,7 +52,22 @@ from ..services.llm_budget_governor import llm_budget_governor
 from ..services.orchestration_hub import orchestration_hub
 from ..services.telemetry_service import telemetry_service
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter()
+
+# AIS-048:500 泄漏面统一固定文案 —— str(e) 只进日志(logger.exception),不出响应。
+INTERNAL_ERROR_DETAIL = "服务内部错误"
+
+
+def _internal_error(endpoint: str) -> HTTPException:
+    """AIS-048:构造固定文案的 500 异常,异常细节仅落日志。
+
+    必须在 `except` 块内调用:`logger.exception` 依赖当前异常上下文。
+    与本模块既有失败面同形 —— `_require_admin` 的 403 也是 HTTPException(detail)。
+    """
+    logger.exception("[orchestration] %s 服务内部错误", endpoint)
+    return HTTPException(status_code=500, detail=INTERNAL_ERROR_DETAIL)
 
 
 def _require_admin(request: Request) -> None:
@@ -214,8 +231,8 @@ async def get_hub_status() -> dict[str, Any]:
     try:
         data = await orchestration_hub.get_status()
         return {"code": 0, "message": "success", "data": data}
-    except Exception as e:
-        return {"code": 500, "message": str(e), "data": None}
+    except Exception:
+        raise _internal_error("get_hub_status") from None
 
 
 @router.get("/orchestration/dashboard")
@@ -224,8 +241,8 @@ async def get_hub_dashboard() -> dict[str, Any]:
     try:
         data = await orchestration_hub.get_dashboard()
         return {"code": 0, "message": "success", "data": data}
-    except Exception as e:
-        return {"code": 500, "message": str(e), "data": None}
+    except Exception:
+        raise _internal_error("get_hub_dashboard") from None
 
 
 @router.get("/orchestration/events")
@@ -240,8 +257,8 @@ async def get_events(
             limit=limit, pillar=pillar, event_type=event_type
         )
         return {"code": 0, "message": "success", "data": data}
-    except Exception as e:
-        return {"code": 500, "message": str(e), "data": None}
+    except Exception:
+        raise _internal_error("get_events") from None
 
 
 @router.post("/orchestration/events/emit")
@@ -274,9 +291,10 @@ async def emit_event(body: EmitEventBody) -> dict[str, Any]:
         # 循环/同步编排决定联动),它本身不是一次 agent 执行。所以:
         #   legacy 档(缺省)⇒ 上面一句返回 None、guard 空操作 ⇒ 行为与改前逐字等价;
         #   loop_v2 档 ⇒ take_loop_v2_handoff 走它既有的"缺投影入参"分支显式抛错,
-        #     经本 handler 既有 except 转成 {code:500} 信封且消息含
-        #     AGENT_LOOP_V2_PILOT_NOT_WIRED —— 与改前同形(改前是"未登记"那一档,
-        #     marker/surface/code 一字未变,只有 reason 文案更准)。
+        #     经本 handler 的 LoopV2ConvergencePilotError 专项臂转成
+        #     HTTPException(500),detail 含 AGENT_LOOP_V2_PILOT_NOT_WIRED ——
+        #     marker/surface 语义不变(AIS-048 只把信封从 {code:500} dict 换成
+        #     detail 形态、其余 str(e) 一律改固定文案)。
         # 下面那个 `handoff is not None` 分支在**当前装配下不可达**(没传投影入参)。
         # 它存在只为一件事:若日后有人给本站补了投影却没顺手处理返回形状,必须**大声
         # 失败**,而不是把已经跑完的 v2 结果静默丢掉、再让旧路径 emit 一遍 ——
@@ -317,8 +335,17 @@ async def emit_event(body: EmitEventBody) -> dict[str, Any]:
                 "non_ok_pillars": non_ok_pillars,
             },
         }
-    except Exception as e:
-        return {"code": 500, "message": str(e), "data": None}
+    except LoopV2ConvergencePilotError:
+        # D6① 契约(test_pilot_error_envelope_unchanged):marker 必达调用方。marker 是
+        # 本进程自产的固定常量(executor_switch.PILOT_ERROR_MARKER),不是异常细节,故按
+        # 固定文案进 detail;现场(reason/surface/mode)仍只进日志(AIS-048)。
+        logger.exception("[orchestration] emit_event 收敛执行器未接线 fail-fast")
+        raise HTTPException(
+            status_code=500,
+            detail=f"{PILOT_ERROR_MARKER} 收敛执行器未接线,拒绝静默回退旧路径",
+        ) from None
+    except Exception:
+        raise _internal_error("emit_event") from None
 
 
 @router.get("/orchestration/events/stats")
@@ -331,8 +358,8 @@ async def get_event_stats(
             window_hours=window_hours
         )
         return {"code": 0, "message": "success", "data": data}
-    except Exception as e:
-        return {"code": 500, "message": str(e), "data": None}
+    except Exception:
+        raise _internal_error("get_event_stats") from None
 
 
 @router.get("/orchestration/playbooks")
@@ -341,8 +368,8 @@ async def get_playbooks() -> dict[str, Any]:
     try:
         data = await orchestration_hub.decision_engine.get_playbooks()
         return {"code": 0, "message": "success", "data": data}
-    except Exception as e:
-        return {"code": 500, "message": str(e), "data": None}
+    except Exception:
+        raise _internal_error("get_playbooks") from None
 
 
 @router.post("/orchestration/playbooks/{playbook_id}/toggle")
@@ -353,8 +380,8 @@ async def toggle_playbook(playbook_id: str, body: TogglePlaybookBody) -> dict[st
             playbook_id, body.enabled
         )
         return {"code": 0, "message": "success", "data": {"success": success}}
-    except Exception as e:
-        return {"code": 500, "message": str(e), "data": None}
+    except Exception:
+        raise _internal_error("toggle_playbook") from None
 
 
 @router.get("/orchestration/decisions")
@@ -365,8 +392,8 @@ async def get_decisions(
     try:
         data = await orchestration_hub.decision_engine.get_decision_history(limit=limit)
         return {"code": 0, "message": "success", "data": data}
-    except Exception as e:
-        return {"code": 500, "message": str(e), "data": None}
+    except Exception:
+        raise _internal_error("get_decisions") from None
 
 
 # ---------------------------------------------------------------------------
@@ -387,8 +414,8 @@ async def record_budget_usage(body: RecordUsageBody) -> dict[str, Any]:
             request_id=body.request_id,
         )
         return {"code": 0, "message": "success", "data": record.__dict__}
-    except Exception as e:
-        return {"code": 500, "message": str(e), "data": None}
+    except Exception:
+        raise _internal_error("record_budget_usage") from None
 
 
 @router.post("/orchestration/budget/check")
@@ -400,8 +427,8 @@ async def check_budget(body: CheckBudgetBody) -> dict[str, Any]:
             estimated_tokens=body.estimated_tokens,
         )
         return {"code": 0, "message": "success", "data": result.__dict__}
-    except Exception as e:
-        return {"code": 500, "message": str(e), "data": None}
+    except Exception:
+        raise _internal_error("check_budget") from None
 
 
 @router.get("/orchestration/budget/summary")
@@ -412,8 +439,8 @@ async def get_budget_summary(
     try:
         data = await llm_budget_governor.get_usage_summary(period=period)
         return {"code": 0, "message": "success", "data": data}
-    except Exception as e:
-        return {"code": 500, "message": str(e), "data": None}
+    except Exception:
+        raise _internal_error("get_budget_summary") from None
 
 
 @router.get("/orchestration/budget/trend")
@@ -424,8 +451,8 @@ async def get_budget_trend(
     try:
         data = await llm_budget_governor.get_usage_trend(days=days)
         return {"code": 0, "message": "success", "data": data}
-    except Exception as e:
-        return {"code": 500, "message": str(e), "data": None}
+    except Exception:
+        raise _internal_error("get_budget_trend") from None
 
 
 @router.get("/orchestration/budget/pillar/{pillar}")
@@ -434,8 +461,8 @@ async def get_pillar_budget(pillar: str) -> dict[str, Any]:
     try:
         data = await llm_budget_governor.get_pillar_budget(pillar=pillar)
         return {"code": 0, "message": "success", "data": data}
-    except Exception as e:
-        return {"code": 500, "message": str(e), "data": None}
+    except Exception:
+        raise _internal_error("get_pillar_budget") from None
 
 
 @router.post("/orchestration/budget/pillar/{pillar}/reset")
@@ -449,8 +476,8 @@ async def reset_pillar_degradation(
     try:
         success = await llm_budget_governor.reset_degradation(pillar=pillar)
         return {"code": 0, "message": "success", "data": {"success": success}}
-    except Exception as e:
-        return {"code": 500, "message": str(e), "data": None}
+    except Exception:
+        raise _internal_error("reset_pillar_degradation") from None
 
 
 @router.patch("/orchestration/budget/config")
@@ -466,8 +493,8 @@ async def update_budget_config(
         config_update = {k: v for k, v in body.model_dump().items() if v is not None}
         config = await llm_budget_governor.update_config(config_update)
         return {"code": 0, "message": "success", "data": config.__dict__}
-    except Exception as e:
-        return {"code": 500, "message": str(e), "data": None}
+    except Exception:
+        raise _internal_error("update_budget_config") from None
 
 
 @router.get("/orchestration/budget/cost-breakdown")
@@ -478,8 +505,8 @@ async def get_cost_breakdown(
     try:
         data = await llm_budget_governor.get_cost_breakdown(period=period)
         return {"code": 0, "message": "success", "data": data}
-    except Exception as e:
-        return {"code": 500, "message": str(e), "data": None}
+    except Exception:
+        raise _internal_error("get_cost_breakdown") from None
 
 
 # ---------------------------------------------------------------------------
@@ -498,8 +525,8 @@ async def get_metrics(
             return text  # 直接返回文本(Prometheus 抓取格式)
         data = await telemetry_service.get_metrics(format="json")
         return {"code": 0, "message": "success", "data": data}
-    except Exception as e:
-        return {"code": 500, "message": str(e), "data": None}
+    except Exception:
+        raise _internal_error("get_metrics") from None
 
 
 @router.get("/orchestration/telemetry/health")
@@ -508,8 +535,8 @@ async def get_telemetry_health() -> dict[str, Any]:
     try:
         data = await telemetry_service.get_pillar_health()
         return {"code": 0, "message": "success", "data": data}
-    except Exception as e:
-        return {"code": 500, "message": str(e), "data": None}
+    except Exception:
+        raise _internal_error("get_telemetry_health") from None
 
 
 @router.get("/orchestration/telemetry/dashboard")
@@ -518,8 +545,8 @@ async def get_telemetry_dashboard() -> dict[str, Any]:
     try:
         data = await telemetry_service.get_dashboard()
         return {"code": 0, "message": "success", "data": data}
-    except Exception as e:
-        return {"code": 500, "message": str(e), "data": None}
+    except Exception:
+        raise _internal_error("get_telemetry_dashboard") from None
 
 
 @router.get("/orchestration/telemetry/traces")
@@ -530,8 +557,8 @@ async def get_recent_traces(
     try:
         data = await telemetry_service.get_recent_traces(limit=limit)
         return {"code": 0, "message": "success", "data": data}
-    except Exception as e:
-        return {"code": 500, "message": str(e), "data": None}
+    except Exception:
+        raise _internal_error("get_recent_traces") from None
 
 
 @router.get("/orchestration/telemetry/traces/{trace_id}")
@@ -540,6 +567,6 @@ async def get_trace_detail(trace_id: str) -> dict[str, Any]:
     try:
         data = await telemetry_service.get_trace(trace_id=trace_id)
         return {"code": 0, "message": "success", "data": data}
-    except Exception as e:
-        return {"code": 500, "message": str(e), "data": None}
+    except Exception:
+        raise _internal_error("get_trace_detail") from None
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

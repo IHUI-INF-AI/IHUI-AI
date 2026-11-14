@@ -345,9 +345,13 @@ function InjectionRow({
           <Text className="ai-card-term-duration">{item.count}</Text>
         ) : null}
         {item.fullText ? (
-          <Text className="ai-card-term-duration" onClick={() => setOpen((v) => !v)}>
-            {open ? t('ai.cards.injection.collapse') : t('ai.cards.injection.expand')}
-          </Text>
+          <View
+            className="ai-card-term-duration"
+            hoverClass="opacity-60"
+            onClick={() => setOpen((v) => !v)}
+          >
+            <Text>{open ? t('ai.cards.injection.collapse') : t('ai.cards.injection.expand')}</Text>
+          </View>
         ) : null}
       </View>
       {item.fullText && open ? <Text className="ai-card-term-output">{item.fullText}</Text> : null}

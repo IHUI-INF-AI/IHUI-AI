@@ -29,11 +29,6 @@ export async function degradedMode<T>(
   }
 }
 
-interface BulkheadWaiter {
-  resolve: () => void
-  reject: (err: Error) => void
-}
-
 /**
  * 信号量隔离（Bulkhead 模式）。
  * 限制并发请求数量，超出阈值的请求立即失败（快速失败策略）。
@@ -43,7 +38,7 @@ export class Bulkhead {
   private active = 0
   private readonly maxConcurrency: number
   private readonly maxQueueSize: number
-  private queue: BulkheadWaiter[] = []
+  private queue: Array<() => void> = []
 
   constructor(maxConcurrency = 10, maxQueueSize = 100) {
     this.maxConcurrency = maxConcurrency
@@ -55,30 +50,17 @@ export class Bulkhead {
       if (this.queue.length >= this.maxQueueSize) {
         throw new Error(`Bulkhead rejected: max queue size (${this.maxQueueSize}) exceeded`)
       }
-      // F-607/F-608:排队者拿到的是释放方直接移交的名额(不再自增),唤醒与占位原子化;
-      // reset() 会 reject 等待者,避免排队请求永久悬挂。
-      await new Promise<void>((resolve, reject) => {
-        this.queue.push({ resolve, reject })
-      })
-    } else {
-      this.active++
+      await new Promise<void>((resolve) => this.queue.push(resolve))
     }
 
+    this.active++
     try {
       return await fn()
     } finally {
-      this.releaseSlot()
+      this.active--
+      const next = this.queue.shift()
+      if (next) next()
     }
-  }
-
-  /** 释放名额:队列非空则直接移交给队首(active 保持不变),否则归还计数。 */
-  private releaseSlot(): void {
-    const next = this.queue.shift()
-    if (next) {
-      next.resolve()
-      return
-    }
-    this.active--
   }
 
   get stats() {
@@ -90,16 +72,9 @@ export class Bulkhead {
     }
   }
 
-  /**
-   * 重置：拒绝并清空等待队列（active 计数由执行中的任务自然释放）。
-   * 排队者从未占位，因此这里只 reject，不触碰 active。
-   */
+  /** 重置：清空等待队列（active 计数由执行中的任务自然释放）。 */
   reset(): void {
-    const pending = this.queue
     this.queue = []
-    for (const waiter of pending) {
-      waiter.reject(new Error('Bulkhead reset'))
-    }
   }
 }
 

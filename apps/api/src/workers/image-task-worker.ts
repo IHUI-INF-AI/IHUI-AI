@@ -30,43 +30,6 @@ import {
 let scheduledTask: ScheduledTask | null = null
 let running = false
 
-// F-493:上游生图调用必须有硬超时。此前无 AbortSignal ⇒ 渠道挂起(建连成功但不回响应)时
-// 整轮 await 永不返回,`running` 卡在 true,后续每 30s 的扫描全被挡掉,该实例所有 pending
-// 任务永久积压。超时按失败处理(落 failed + 释放租约),迟到响应直接丢弃,不再写成功结果。
-const DEFAULT_IMAGE_TASK_TIMEOUT_MS = 120_000
-
-/** 单次上游生图超时(ms)。测试/排障可用 IMAGE_TASK_TIMEOUT_MS 收紧。 */
-function imageTaskTimeoutMs(): number {
-  const raw = Number(process.env.IMAGE_TASK_TIMEOUT_MS)
-  return Number.isFinite(raw) && raw > 0 ? raw : DEFAULT_IMAGE_TASK_TIMEOUT_MS
-}
-
-/**
- * 带超时的上游生图调用:超时即 abort 并 reject(由调用方按失败落库),
- * 晚到的上游响应不再回到调用方,因此不会覆盖已落定的 failed 状态。
- */
-async function forwardImageWithTimeout(
-  req: Parameters<typeof forwardToChannel>[0],
-): Promise<Awaited<ReturnType<typeof forwardToChannel>>> {
-  const timeoutMs = imageTaskTimeoutMs()
-  const controller = new AbortController()
-  let timer: NodeJS.Timeout | undefined
-  try {
-    return await Promise.race([
-      forwardToChannel({ ...req, signal: controller.signal }),
-      new Promise<never>((_, reject) => {
-        timer = setTimeout(() => {
-          controller.abort()
-          reject(new Error(`上游生图超时(${timeoutMs}ms)`))
-        }, timeoutMs)
-        timer.unref()
-      }),
-    ])
-  } finally {
-    if (timer) clearTimeout(timer)
-  }
-}
-
 /** 单次扫描:取 pending 任务,逐个调上游生图并推进状态。 */
 export async function processImageTasks(): Promise<{
   processed: number
@@ -82,15 +45,15 @@ export async function processImageTasks(): Promise<{
     if (pending.length === 0) return { processed: 0, ok: 0, failed: 0 }
     logger.info(`[image-worker] 发现 ${pending.length} 个 pending 任务`)
     for (const task of pending) {
-      // 抢占租约:SET NX + 状态 CAS 在 Redis 内原子完成,重复投递 / 多副本并发时
-      // 只有一个 worker 拿到令牌,其余直接跳过,不会重复调上游、重复计费(F-48/F-492)。
+      // 原子认领:重复投递 / 多副本并发时只有一个 worker 拿到令牌,其余直接跳过,
+      // 不会重复调上游、重复计费(F-48)。
       const claimToken = await claimImageTask(task.id)
       if (!claimToken) {
         logger.debug('[image-worker] 任务已被其他 worker 认领,跳过', { taskId: task.id })
         continue
       }
       try {
-        const result = await forwardImageWithTimeout({
+        const result = await forwardToChannel({
           model: task.model,
           endpoint: 'images',
           stream: false,
@@ -113,28 +76,21 @@ export async function processImageTasks(): Promise<{
             )
             .filter((u) => u !== '')
           if (urls.length > 0) {
-            // 带归属条件写回:租约已过期并被他人重新认领时拒绝落地,不覆写他人结果。
-            if (await completeImageTask(task.id, urls, claimToken)) ok++
-            else
-              logger.warn('[image-worker] 完成写回被拒(租约已易主),结果丢弃', { taskId: task.id })
+            await completeImageTask(task.id, urls, claimToken)
+            ok++
           } else {
-            if (await failImageTask(task.id, '上游返回空产出', claimToken)) failed++
-            else
-              logger.warn('[image-worker] 失败写回被拒(租约已易主),结果丢弃', { taskId: task.id })
+            await failImageTask(task.id, '上游返回空产出', claimToken)
+            failed++
           }
         } else {
-          if (await failImageTask(task.id, '上游渠道不可用或返回失败', claimToken)) failed++
-          else logger.warn('[image-worker] 失败写回被拒(租约已易主),结果丢弃', { taskId: task.id })
+          await failImageTask(task.id, '上游渠道不可用或返回失败', claimToken)
+          failed++
         }
       } catch (e) {
-        // 失败释放租约(仅令牌匹配才释放),任务不再卡在 processing,可被重新认领重试。
-        const released = await failImageTask(
-          task.id,
-          e instanceof Error ? e.message : String(e),
-          claimToken,
-        ).catch(() => false)
-        if (released) failed++
-        else logger.warn('[image-worker] 失败写回被拒(租约已易主),结果丢弃', { taskId: task.id })
+        await failImageTask(task.id, e instanceof Error ? e.message : String(e), claimToken).catch(
+          () => {},
+        )
+        failed++
         logger.warn('[image-worker] 任务处理异常', {
           err: e instanceof Error ? e.message : String(e),
         })

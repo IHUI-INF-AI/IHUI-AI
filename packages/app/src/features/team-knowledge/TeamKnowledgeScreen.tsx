@@ -292,7 +292,7 @@ export function TeamKnowledgeScreen({
               onRefresh={() => {
                 void handleRefresh()
               }}
-              tintColor={tk.text.tertiary}
+              tintColor={tk.text.secondary}
             />
           ) : undefined
         }
@@ -405,7 +405,7 @@ export function TeamKnowledgeScreen({
           <>
             <View style={styles.sectionHead}>
               <Text style={styles.sectionTitle}>{t('teamKnowledge.spaceListTitle')}</Text>
-              {loading ? <ActivityIndicator size="small" color={tk.text.tertiary} /> : null}
+              {loading ? <ActivityIndicator size="small" color={tk.text.secondary} /> : null}
             </View>
 
             {loading && spaces.length === 0 ? (
@@ -620,7 +620,7 @@ export function TeamKnowledgeScreen({
                             }}
                             activeOpacity={0.7}
                           >
-                            <Archive size={14} color={tk.danger.DEFAULT} />
+                            <Archive size={14} color={tk.danger.deepText} />
                             <Text style={styles.dangerText}>
                               {t('teamKnowledge.archiveBtn')}
                             </Text>
@@ -649,7 +649,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingBottom: rnSpacing['3xl'],
     },
     muted: { fontSize: rnType.bodySm.size, color: tk.text.secondary, lineHeight: 19 },
-    error: { fontSize: rnType.bodySm.size, color: tk.danger.DEFAULT },
+    error: { fontSize: rnType.bodySm.size, color: tk.danger.deepText },
     searchRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.sm },
     input: {
       flex: 1,
@@ -690,7 +690,7 @@ function createStyles(tk: AppThemeTokens) {
       gap: rnSpacing.xs,
     },
     outlineBtnText: { fontSize: rnType.bodySm.size, color: tk.text.primary },
-    dangerText: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tk.danger.DEFAULT },
+    dangerText: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tk.danger.deepText },
     selfStart: { alignSelf: 'flex-start' },
     disabled: { opacity: 0.5 },
     sectionHead: {
@@ -724,7 +724,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.muted,
     },
     badgeText: { fontSize: rnType.badge.size, color: tk.text.secondary },
-    meta: { fontSize: rnType.caption.size, color: tk.text.tertiary },
+    meta: { fontSize: rnType.caption.size, color: tk.text.medium },
     itemBody: { fontSize: rnType.bodySm.size, color: tk.text.primary, lineHeight: 21 },
     chips: { flexDirection: 'row', flexWrap: 'wrap', gap: rnSpacing.xs },
     chip: {
@@ -737,7 +737,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.muted,
     },
     chipText: { fontSize: rnType.badge.size, color: tk.text.secondary },
-    chipRole: { fontSize: rnType.badge.size, color: tk.text.tertiary },
+    chipRole: { fontSize: rnType.badge.size, color: tk.text.medium },
     toggleRow: { flexDirection: 'row', flexWrap: 'wrap', gap: rnSpacing.xs },
     toggle: {
       height: 32,

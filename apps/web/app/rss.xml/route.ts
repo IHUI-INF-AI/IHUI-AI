@@ -51,8 +51,8 @@ export async function GET() {
     <description>${escapeXml(SITE_DESCRIPTION)}</description>
     <language>zh-cn</language>
     <copyright>© 2024-2026 ${escapeXml(SITE_TITLE)}</copyright>
-    <managingEditor>contact@aizhs.top (IHUI AI Team)</managingEditor>
-    <webMaster>contact@aizhs.top (IHUI AI Team)</webMaster>
+    <managingEditor>lizong@aizhs.top (IHUI AI Team)</managingEditor>
+    <webMaster>lizong@aizhs.top (IHUI AI Team)</webMaster>
     <lastBuildDate>${now}</lastBuildDate>
     <pubDate>${now}</pubDate>
     <generator>IHUI AI RSS Generator</generator>

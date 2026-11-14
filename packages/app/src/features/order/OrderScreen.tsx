@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useMemo, useState } from 'react'
-import { View, Text, Image, FlatList, Pressable, RefreshControl, StyleSheet } from 'react-native'
+import { View, Text, Image, FlatList, RefreshControl, StyleSheet } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { CategoryInlineBar } from '../../components/category/CategoryInlineBar'
 import type { AppOrderStatus, OrderItem, OrderScreenProps, OrderTab } from '../../types'
@@ -12,6 +12,7 @@ import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, PressableCard, ScreenSkeleton } from '../../components/ScreenStates'
 import { TextField } from '../../components/TextField'
+import { Tappable } from '@ihui/ui-native'
 
 /** 订单/Tab/Props 类型 re-export(单一来源 @ihui/types) */
 export type { AppOrderStatus, OrderItem, OrderScreenProps, OrderTab }
@@ -90,9 +91,9 @@ export function OrderScreen({
       case 'cancelled':
         return { bg: tk.danger.light, text: tk.danger.DEFAULT }
       case 'refunded':
-        return { bg: tk.surface.muted, text: tk.text.tertiary }
+        return { bg: tk.surface.muted, text: tk.text.secondary }
       default:
-        return { bg: tk.surface.muted, text: tk.text.tertiary }
+        return { bg: tk.surface.muted, text: tk.text.secondary }
     }
   }
 
@@ -118,7 +119,7 @@ export function OrderScreen({
         value={keyword}
         onChangeText={setKeyword}
         placeholder={t('order.searchPlaceholder')}
-        placeholderTextColor={tk.text.tertiary}
+        placeholderTextColor={tk.text.secondary}
         autoCapitalize="none"
         autoCorrect={false}
         clearButtonMode="while-editing"
@@ -181,14 +182,14 @@ export function OrderScreen({
                 )}
                 {item.status === 'pending' && onPay ? (
                   <View style={styles.payRow}>
-                    <Pressable
+                    <Tappable
                       style={styles.payBtn}
                       onPress={() => onPay(item)}
                       accessibilityRole="button"
                       accessibilityLabel={t('order.pay')}
                     >
                       <Text style={styles.payBtnText}>{t('order.pay')}</Text>
-                    </Pressable>
+                    </Tappable>
                   </View>
                 ) : null}
               </PressableCard>
@@ -243,7 +244,7 @@ function createStyles(tk: AppThemeTokens) {
     errorText: {
       paddingHorizontal: rnSpacing['sm-loose'],
       fontSize: rnType.body.size,
-      color: tk.danger.DEFAULT,
+      color: tk.danger.deepText,
     },
     muted: { fontSize: rnType.body.size, color: tk.text.secondary, marginTop: rnSpacing.sm },
     // 上拉分页 footer:对齐 Uniapp loadMore 底部加载提示
@@ -290,8 +291,8 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'space-between',
       marginTop: rnSpacing.sm,
     },
-    orderNo: { fontSize: rnType.caption.size, color: tk.text.tertiary },
-    metaTime: { fontSize: rnType.caption.size, color: tk.text.tertiary },
+    orderNo: { fontSize: rnType.caption.size, color: tk.text.medium },
+    metaTime: { fontSize: rnType.caption.size, color: tk.text.medium },
     amountRow: {
       flexDirection: 'row',
       alignItems: 'flex-end',
@@ -306,7 +307,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.brand.cta,
     },
     payBtnText: { fontSize: rnType.caption.size, fontWeight: '600', color: tk.brand.ctaForeground },
-    amountLabel: { fontSize: rnType.caption.size, color: tk.text.tertiary },
+    amountLabel: { fontSize: rnType.caption.size, color: tk.text.medium },
     amountValue: {
       fontSize: rnType.subtitle.size,
       fontWeight: '700',

@@ -120,7 +120,7 @@ export function MessageChatScreen({
           value={input}
           onChangeText={onInputChange}
           placeholder={t('messageChat.placeholder')}
-          placeholderTextColor={tk.text.tertiary}
+          placeholderTextColor={tk.text.secondary}
         />
         <TouchableOpacity
           style={[styles.sendBtn, (!input.trim() || sending) && styles.sendDisabled]}
@@ -195,7 +195,7 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    sendDisabled: { backgroundColor: tk.text.tertiary },
+    sendDisabled: { backgroundColor: tk.text.secondary },
     sendText: { color: tk.surface.light, fontSize: rnType.title.size, fontWeight: '600' },
     btn: {
       marginTop: rnSpacing.md,

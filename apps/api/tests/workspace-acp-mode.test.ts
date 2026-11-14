@@ -12,13 +12,30 @@
  * 2. **manual 仍拒**:`manual` 有规范档语义但无 wire 映射(无落库/会话语义),
  *    不得因"接受 camel"被漏放行;未知拼写同样 400。
  */
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, afterAll, vi } from 'vitest'
 import Fastify, { type FastifyInstance, type FastifyRequest } from 'fastify'
+import { mkdtempSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+
+// F-280:ACP 的 workspaceRoot 必须是「服务端登记根 × 本人登记工作区」内的真实路径,
+// 因此夹具改用临时目录,并按新契约 mock 登记表(不再拿任意字符串当工作区)。
+const ACP_ROOT = mkdtempSync(join(tmpdir(), 'ihui-acp-mode-'))
+
+afterAll(() => {
+  rmSync(ACP_ROOT, { recursive: true, force: true })
+})
 
 vi.mock('../src/plugins/auth.js', () => ({
   authenticate: async (request: FastifyRequest) => {
     request.userId = 'user-1'
   },
+}))
+
+vi.mock('../src/db/workspace-permission-queries.js', () => ({
+  listPermissionsByUser: vi.fn(async () => [
+    { workspacePath: process.env.IHUI_WORKSPACE_ROOTS ?? '' },
+  ]),
 }))
 
 vi.mock('../src/db/workspace-queries.js', () => {
@@ -83,6 +100,7 @@ let app: FastifyInstance
 
 beforeEach(async () => {
   logLines = []
+  process.env.IHUI_WORKSPACE_ROOTS = ACP_ROOT
   app = Fastify({
     logger: {
       level: 'info',
@@ -101,14 +119,21 @@ function createSession(mode?: string) {
   return app.inject({
     method: 'POST',
     url: '/api/workspace/workspace/acp/sessions',
-    payload: { workspaceRoot: 'D:/demo', ...(mode === undefined ? {} : { mode }) },
+    payload: { workspaceRoot: ACP_ROOT, ...(mode === undefined ? {} : { mode }) },
   })
 }
 
-function beginPrompt(mode?: string) {
+/** F-280:begin/end 只认进程内登记 ⇒ 先建会话再拿 id,不再用固定 sess-1。 */
+async function newSession(mode?: string): Promise<string> {
+  const res = await createSession(mode)
+  expect(res.statusCode).toBe(201)
+  return (res.json() as { data: { data: { sessionId: string } } }).data.data.sessionId
+}
+
+function beginPrompt(sessionId: string, mode?: string) {
   return app.inject({
     method: 'POST',
-    url: '/api/workspace/workspace/acp/sessions/sess-1/begin-prompt',
+    url: `/api/workspace/workspace/acp/sessions/${sessionId}/begin-prompt`,
     payload: { prompt: 'hi', ...(mode === undefined ? {} : { mode }) },
   })
 }
@@ -126,15 +151,16 @@ describe('ACP 端点 mode 入参:kebab∪camel 双拼写都收', () => {
     expect(res.statusCode).toBe(201)
   })
 
-  it('begin-prompt 两种拼写都 200,且转发面(wireReq)只出现 kebab 拼写', async () => {
-    expect((await beginPrompt('accept-edits')).statusCode).toBe(200)
-    expect((await beginPrompt('acceptEdits')).statusCode).toBe(200)
+  it('begin-prompt 两种拼写都 200,且日志面只出现 kebab 拼写', async () => {
+    const id = await newSession()
+    expect((await beginPrompt(id, 'accept-edits')).statusCode).toBe(200)
+    expect((await beginPrompt(id, 'acceptEdits')).statusCode).toBe(200)
     const wireReqLines = logLines
-      .map((l) => JSON.parse(l) as { msg?: string; wireReq?: { data?: { mode?: string } } })
+      .map((l) => JSON.parse(l) as { msg?: string; acp?: { mode?: string } })
       .filter((j) => j.msg === 'ACP begin_prompt')
     expect(wireReqLines).toHaveLength(2)
-    // camel 入参必须被归一成 wire(kebab)后才进转发/日志面
-    expect(wireReqLines.map((j) => j.wireReq?.data?.mode)).toEqual(['accept-edits', 'accept-edits'])
+    // camel 入参必须被归一成 wire(kebab)后才进日志/转发面
+    expect(wireReqLines.map((j) => j.acp?.mode)).toEqual(['accept-edits', 'accept-edits'])
   })
 })
 
@@ -146,12 +172,13 @@ describe('manual 与未知拼写仍拒(不因接受 camel 而漏放行)', () => 
   })
 
   it.each(['yolo-mode', 'auto', 'ACCEPT-EDITS'])('begin-prompt 未知拼写 %s → 400', async (mode) => {
-    const res = await beginPrompt(mode)
+    const id = await newSession()
+    const res = await beginPrompt(id, mode)
     expect(res.statusCode).toBe(400)
   })
 
   it('不传 mode 仍合法(optional 契约不变)', async () => {
-    expect((await createSession()).statusCode).toBe(201)
-    expect((await beginPrompt()).statusCode).toBe(200)
+    const id = await newSession()
+    expect((await beginPrompt(id)).statusCode).toBe(200)
   })
 })

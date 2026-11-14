@@ -17,6 +17,7 @@ import { VoiceInput } from '../components/VoiceInput'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { rpx } from '../utils/rpx'
+import { toFriendlyOr } from '@ihui/shared/utils'
 
 type Route = RouteProp<RootStackParamList, 'AgentChat'>
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
@@ -63,7 +64,7 @@ export function AgentChatScreen() {
         if (!cancelled) setMessages(items)
       } catch (err) {
         if (!cancelled) {
-          setError(err instanceof Error && err.message ? err.message : t('agentChat.loadFailed'))
+          setError(toFriendlyOr(err, t('agentChat.loadFailed')))
         }
       } finally {
         if (!cancelled) setLoading(false)
@@ -136,7 +137,7 @@ export function AgentChatScreen() {
         // 失败显式报错:撤回乐观消息、恢复输入,文案挂在发送区(有历史消息也可见)
         setMessages((prev) => prev.filter((m) => m.id !== optimisticUser.id))
         setInput((prev) => (prev ? prev : text))
-        setSendError(err instanceof Error && err.message ? err.message : t('agentChat.sendFailed'))
+        setSendError(toFriendlyOr(err, t('agentChat.sendFailed')))
       },
     )
   }

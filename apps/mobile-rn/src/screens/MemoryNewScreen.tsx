@@ -244,7 +244,7 @@ function Chip({
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: tokens.surface.bg },
   body: { padding: rnSpacing.md, paddingBottom: rnSpacing['3xl'], gap: rnSpacing['sm-loose'] },
-  subtitle: { fontSize: rnType.label.size, color: tokens.text.tertiary },
+  subtitle: { fontSize: rnType.label.size, color: tokens.text.medium },
   card: {
     gap: rnSpacing.md,
     padding: rnSpacing['md-loose'],
@@ -257,7 +257,7 @@ const styles = StyleSheet.create({
   cardTitle: { fontSize: rnType.strong.size, fontWeight: '600', color: tokens.text.primary },
   field: { gap: 5 },
   label: { fontSize: rnType.label.size, color: tokens.text.secondary },
-  hint: { fontSize: rnType.caption.size, color: tokens.text.tertiary },
+  hint: { fontSize: rnType.caption.size, color: tokens.text.medium },
   input: {
     minHeight: 42,
     paddingHorizontal: rnSpacing.md,
@@ -282,7 +282,7 @@ const styles = StyleSheet.create({
   chipSelected: { backgroundColor: tokens.brand.cta, borderColor: tokens.brand.cta },
   chipText: { fontSize: rnType.label.size, color: tokens.text.secondary },
   chipSelectedText: { color: tokens.brand.ctaForeground, fontWeight: '600' },
-  errorText: { fontSize: rnType.label.size, color: tokens.danger.DEFAULT },
+  errorText: { fontSize: rnType.label.size, color: tokens.danger.deepText },
   primaryBtn: {
     height: 44,
     flexDirection: 'row',

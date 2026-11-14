@@ -19,7 +19,6 @@ import {
   type ExamSignup,
   type ExamRecord,
   type ExamWrongQuestion,
-  type NewExamWrongQuestion,
 } from '@ihui/database'
 import { AppError } from '../errors/AppError.js'
 import { adjustExamScore } from '../plugins/business-metrics.js'
@@ -333,46 +332,11 @@ export interface CreateOrUpdateWrongQuestionInput {
 }
 
 /**
- * 构建错题 upsert 的插入值(纯函数,供 F-681 回归测试直接断言)。
- * due_date 列无默认值,而"今日待复习"用 `due_date <= now` 命中 —— 首插不写 now,
- * 该错题就永远不进复习队列(stats.totalDue 恒 0)。SM-2 其余字段走 schema 默认值。
- */
-export function buildWrongQuestionInsertValues(
-  data: CreateOrUpdateWrongQuestionInput,
-  now: Date,
-): NewExamWrongQuestion {
-  return {
-    userId: data.userId,
-    questionId: data.questionId,
-    paperId: data.paperId,
-    paperTitle: data.paperTitle,
-    userAnswer: data.userAnswer,
-    rightAnswer: data.rightAnswer,
-    wrongCount: 1,
-    lastWrongTime: now,
-    isMastered: false,
-    dueDate: now,
-  }
-}
-
-/**
- * 冲突更新时的到期日表达式(纯函数,供 F-681 回归测试断言生成 SQL)。
- * - 未掌握:least(现有 due_date, now) —— PG 的 least 忽略 NULL,现有为 NULL 时取 now;
- * - 已掌握:保留现有 due_date,不重置。
- */
-export function buildDueDateReset(now: Date, isMastered: boolean) {
-  return isMastered
-    ? sql`${examWrongQuestion.dueDate}`
-    : sql`least(${examWrongQuestion.dueDate}, ${now})`
-}
-
-/**
  * 创建或更新错题(幂等):同题同用户只一条记录。
  * 依赖 exam_wrong_question_user_question_unique 唯一约束 (userId, questionId)。
  * - 存在:wrongCount+1 + 更新 lastWrongTime/userAnswer/rightAnswer + isMastered=false(重新答错则取消掌握标记)
  * - 不存在:新建 wrongCount=1
  * 使用 onConflictDoUpdate 在数据库层保证幂等,消除应用层 select-then-update 的并发竞态。
- * SRS 到期日同时在这里一次写完(F-681):首插 now;冲突时未掌握重置为 least(现有, now)。
  */
 export async function createOrUpdateWrongQuestion(
   data: CreateOrUpdateWrongQuestionInput,
@@ -380,7 +344,17 @@ export async function createOrUpdateWrongQuestion(
   const now = new Date()
   const [row] = await db
     .insert(examWrongQuestion)
-    .values(buildWrongQuestionInsertValues(data, now))
+    .values({
+      userId: data.userId,
+      questionId: data.questionId,
+      paperId: data.paperId,
+      paperTitle: data.paperTitle,
+      userAnswer: data.userAnswer,
+      rightAnswer: data.rightAnswer,
+      wrongCount: 1,
+      lastWrongTime: now,
+      isMastered: false,
+    })
     .onConflictDoUpdate({
       target: [examWrongQuestion.userId, examWrongQuestion.questionId],
       set: {
@@ -391,7 +365,6 @@ export async function createOrUpdateWrongQuestion(
         paperId: data.paperId,
         paperTitle: data.paperTitle ?? sql`${examWrongQuestion.paperTitle}`,
         isMastered: false,
-        dueDate: buildDueDateReset(now, false),
         updatedAt: now,
       },
     })

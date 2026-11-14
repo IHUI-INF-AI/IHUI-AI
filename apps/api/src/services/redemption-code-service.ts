@@ -19,7 +19,6 @@
 import { randomBytes, randomUUID } from 'crypto'
 import { eq, and, sql, desc, ne, type SQL } from 'drizzle-orm'
 import { db, dbRead } from '../db/index.js'
-import { toSafeAmount } from '../db/commission-queries.js'
 import { redemptionCodes, developerApiKeys } from '@ihui/database'
 import type { RedemptionCode } from '@ihui/database'
 
@@ -136,11 +135,7 @@ export async function batchGenerateCodes(input: BatchGenerateInput): Promise<Red
 export interface RedeemResult {
   success: boolean
   tokenAmount?: number
-  /** F-719:本次同步计入成本余额的实付面值(分);赠送额度不计入 */
-  costAmountCents?: number
   newTokenBalance?: number
-  /** F-719:充值后的成本余额(分),准入 checkQuota 的 costBalanceCents 判据读的就是它 */
-  newCostBalanceCents?: number
   reason?: string
 }
 
@@ -161,11 +156,6 @@ export interface RedeemResult {
  *
  * 充值逻辑:内联 rechargeByKey 的 CASE WHEN(tokenBalance=-1 保持 -1,否则累加),
  * 用 tx 而非全局 db,确保随事务回滚。
- *
- * F-719(2026-11-13):兑换码是"实付面值买 token 包",而准入 checkQuota 同时要求
- * tokenBalance 足够 ∧ costBalanceCents > 0。只加 token 列会让已付费的码首调即
- * 402 no_balance_cost。因此按**实付面值**(faceValueCents)同步成本余额;
- * 到账 token 数(tokenAmount)是赠送口径,超出面值的部分不得当作收费额度。
  */
 export async function redeemCode(
   code: string,
@@ -253,34 +243,24 @@ export async function redeemCode(
       // 4. 原子充值(事务内,内联 rechargeByKey 核心 CASE WHEN 逻辑以纳入回滚)
       //    rechargeByKey 用全局 db 无法随事务回滚,这里用 tx 重放:
       //    tokenBalance = -1(无限额度)保持 -1,否则累加 tokenAmount
-      //    costBalanceCents 同理,累加**实付面值** claimed.faceValueCents(F-719):
-      //    token 是到账额度口径,成本列是收费口径,只同步前者会让准入 402 no_balance_cost。
-      //    F-396:where 必须同时约束属主 userId,否则可用他人 Key 的 id 把额度充到他人账下。
-      //    命中 0 行(不存在 / 不属于当前用户)统一按 key_not_found 回滚拒绝,不泄露存在性。
       const [updated] = await tx
         .update(developerApiKeys)
         .set({
           tokenBalance: sql`CASE WHEN ${developerApiKeys.tokenBalance} = -1 THEN -1 ELSE ${developerApiKeys.tokenBalance} + ${claimed.tokenAmount} END`,
-          costBalanceCents: sql`CASE WHEN ${developerApiKeys.costBalanceCents} = -1 THEN -1 ELSE ${developerApiKeys.costBalanceCents} + ${claimed.faceValueCents} END`,
           updatedAt: new Date(),
         })
-        .where(and(eq(developerApiKeys.id, targetKeyId), eq(developerApiKeys.userId, userId)))
-        .returning({
-          tokenBalance: developerApiKeys.tokenBalance,
-          costBalanceCents: developerApiKeys.costBalanceCents,
-        })
+        .where(eq(developerApiKeys.id, targetKeyId))
+        .returning({ tokenBalance: developerApiKeys.tokenBalance })
 
       if (!updated) {
-        // Key 不存在、不属于当前用户(或并发删除),抛错触发事务回滚(码保持 unused)
+        // Key 不存在(提供的 apiKeyId 无效,或并发删除),抛错触发事务回滚
         throw new Error(ERR_KEY_RECHARGE_FAILED)
       }
 
       return {
         success: true,
         tokenAmount: claimed.tokenAmount,
-        costAmountCents: claimed.faceValueCents,
         newTokenBalance: updated.tokenBalance,
-        newCostBalanceCents: updated.costBalanceCents,
       }
     })
   } catch (err) {
@@ -411,9 +391,8 @@ export async function getStats(): Promise<CodesStats> {
     .select({
       status: redemptionCodes.status,
       count: sql<number>`count(*)::int`,
-      // F-574:面值是"分",全量累计越过 int4 上限会抛 22003,必须 bigint + 应用层收敛。
-      faceValueSum: sql<number>`coalesce(sum(${redemptionCodes.faceValueCents}), 0)::bigint`,
-      tokenSum: sql<number>`coalesce(sum(${redemptionCodes.tokenAmount}), 0)::bigint`,
+      faceValueSum: sql<number>`coalesce(sum(${redemptionCodes.faceValueCents}), 0)::int`,
+      tokenSum: sql<number>`coalesce(sum(${redemptionCodes.tokenAmount}), 0)::bigint::int`,
     })
     .from(redemptionCodes)
     .groupBy(redemptionCodes.status)
@@ -434,10 +413,8 @@ export async function getStats(): Promise<CodesStats> {
     else if (row.status === 'used') stats.used += row.count
     else if (row.status === 'expired') stats.expired += row.count
     else if (row.status === 'disabled') stats.disabled += row.count
-    // F-574:int8 由驱动返回字符串,统一经 toSafeAmount 收敛并钳制安全整数范围。
-    stats.totalFaceValueCents += toSafeAmount(row.faceValueSum)
-    // F-668: 去掉末端 ::int 后 PG 返回 int8 字符串,必须 Number() 转换,否则字符串拼接。
-    stats.totalTokenAmount += Number(row.tokenSum)
+    stats.totalFaceValueCents += row.faceValueSum
+    stats.totalTokenAmount += row.tokenSum
   }
 
   return stats

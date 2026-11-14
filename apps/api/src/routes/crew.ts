@@ -193,15 +193,7 @@ export const crewRoutes: FastifyPluginAsync = async (server) => {
       if (!result.success) {
         return reply.status(400).send(error(400, result.error ?? '执行失败'))
       }
-      return reply.send(
-        success({
-          runId: id,
-          result: result.result,
-          usage: result.usage,
-          // F-200:部分步骤失败时随响应带失败统计;全成功不新增字段,成功路径响应保持不变。
-          ...(result.stepStats ? { stepStats: result.stepStats } : {}),
-        }),
-      )
+      return reply.send(success({ runId: id, result: result.result, usage: result.usage }))
     } catch (e) {
       req.log.error(e)
       return reply.status(500).send(error(500, '执行失败'))

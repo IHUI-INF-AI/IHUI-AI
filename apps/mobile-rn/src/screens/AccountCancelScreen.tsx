@@ -47,7 +47,9 @@ export default function AccountCancelScreen() {
       }
     })
     return () => sub.remove()
-  }, [smsCountdown.sync, confirmCountdown.sync])
+    // smsCountdown.sync/confirmCountdown.sync 均为 useCountdown 内 useCallback(fn,[]) 的稳定
+    // 引用(见 shared/hooks/use-countdown.ts:78),穿透返回值后实为稳定 ⇒ exhaustive-deps 误报。
+  }, [smsCountdown.sync, confirmCountdown.sync]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (confirmCountdown.count > 0 || !showConfirmModal) return
@@ -75,7 +77,8 @@ export default function AccountCancelScreen() {
     } else {
       appAlert(t('home.pubTip'), res.error ?? t('account.smsFailRetry'))
     }
-  }, [inputPhone, smsCountdown.reset, smsCountdown.start, t])
+    // smsCountdown.reset/start 均为 useCountdown 内 useCallback 稳定引用 ⇒ 误报。
+  }, [inputPhone, smsCountdown.reset, smsCountdown.start, t]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const validate = useCallback((): string => {
     if (!inputPhone.trim()) return t('account.phoneRequired')
@@ -128,7 +131,8 @@ export default function AccountCancelScreen() {
     } finally {
       setSubmitting(false)
     }
-  }, [validate, logout, smsCode, t, confirmCountdown.reset, confirmCountdown.start])
+    // confirmCountdown.reset/start 均为 useCountdown 内 useCallback 稳定引用 ⇒ 误报。
+  }, [validate, logout, smsCode, t, confirmCountdown.reset, confirmCountdown.start]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <SharedAccountCancelScreen

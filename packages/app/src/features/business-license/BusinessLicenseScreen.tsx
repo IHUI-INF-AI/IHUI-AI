@@ -122,7 +122,7 @@ function createStyles(tk: AppThemeTokens) {
       gap: rnSpacing.md,
       paddingVertical: rnSpacing.md,
     },
-    rowLabel: { fontSize: rnType.body.size, color: tk.text.tertiary, flexShrink: 0 },
+    rowLabel: { fontSize: rnType.body.size, color: tk.text.medium, flexShrink: 0 },
     rowValue: { fontSize: rnType.body.size, color: tk.text.primary, textAlign: 'right', flex: 1 },
     scopeTitle: {
       fontSize: rnType.body.size,
@@ -137,7 +137,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     footer: {
       fontSize: rnType.caption.size,
-      color: tk.text.tertiary,
+      color: tk.text.medium,
       lineHeight: rnType.body.lineHeight,
       paddingHorizontal: rnSpacing.md,
       paddingVertical: rnSpacing.sm,

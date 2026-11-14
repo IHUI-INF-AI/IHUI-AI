@@ -1,12 +1,8 @@
 {
   "$comment": "SSE 双解析器归属台账(守门 scripts/check-sse-parser-parity.mjs 读取)。parseCoverageBaseline = packages/shared/src/utils/sse-parse.ts 侧覆盖帧数的下限(ratchet,只挡倒退不挡增长);webOnly = packages/api-client 已解析、sse-parse 未解析的帧,以及「为什么只有该端消费」的理由。每在 sse-parse 补接一帧,就同步删除该登记项并上调 parseCoverageBaseline。",
-  "parseCoverageBaseline": 28,
+  "parseCoverageBaseline": 29,
   "$ticket_s6": "2026-11-05 票 s6-sse:sse-parse 补 chunk 显式认领分支(行为与 content 兜底链等价,miniapp-taro dispatch 早有 case 'chunk' 消费),覆盖读数 27→28,基线按工单口径同批 25→28(原基线滞后 2 格系 tool-delta/partial_done 等帧接上后未调,现读 extractHandledEvents 实证 28)。",
   "webOnly": [
-    {
-      "event": "question",
-      "why": "AI 主动提问需要「挂起输入 + 弹问题卡 + 作答后续流」整条交互闭环,当前只有 web 实现了(apps/web/src/hooks/use-chat/send-message.ts 的 onQuestion → setPendingQuestion → sendAnswer 续流,并持久化到 conversation.metadata 后 WS 广播);miniapp-taro 无问题卡组件也没有作答通道,只解析帧会让用户看到提问却无法回答,比不显示更糟。补齐须先做端内作答 UI,计划见 PROJECT_PLAN.md D106/G-148。"
-    },
     {
       "event": "thinking",
       "why": "api-client 只把 thinking 帧的 content 投给 onReasoning(web/extension 有推理展示区),而 sse-parse 侧的 miniapp-taro 没有推理内容区。另有一类只带 message 的阶段帧(「正在思考…」「正在规划执行步骤…」「正在总结执行结果…」,见 apps/ai-service/app/services/langgraph_service.py)在**两端都没人消费**,属于生产了却没人看的字段,已单独立项(不靠本登记项掩盖)。"
@@ -17,7 +13,7 @@
     },
     {
       "event": "admission",
-      "why": "差距①(2026-10-30 立)发送准入回执帧:服务端生产判据 = 请求体必须带 inputId——apps/ai-service/app/routers/llm.py 的 inputId 字段声明现读原文「缺席 ⇒ 不发 admission 帧。在场 ⇒ 首个内容帧之前原样回显一帧准入回执」。全仓唯一上行 inputId 并做回执配对的端 = web:apps/web/src/hooks/use-chat/send-message.ts(createInputId + createSendAdmissionTracker 于 :151/:802 导入,onSendAdmissionReceipt 接线 :915)与 send-answer.ts:289;载荷形状权威 = packages/shared/src/chat/send-admission.ts。2026-10-31 现读 git grep -l inputId HEAD -- apps/miniapp-taro/src 仅 lib/__tests__/ui-action-registry.test.ts 一处无关局部变量(UI 元素 id)命中 ⇒ 小程序发送体不带 inputId,服务端结构上永远不会向本端发这一帧;sse-parse 补解析只会让 dispatch 收到一条永不触发的分支(「生产了但没人消费」的死码型)。与守门 90 的 groups.no-admission-receipt-chain 同判据、两条台账必须同批删。解阻判据:本端同批落三腿——① 发送经共享层 createInputId() 生成稳定输入 ID(重发同值,端内不造第二源);② 接 createSendAdmissionTracker 配对到本条发送;③ accepted/queued/rejected/duplicate 四档的发送回执呈现位 ×5 语言——三腿齐了才在 sse-parse 补解析并同批删本条与守门 90 对应条目。"
+      "why": "差距①(2026-10-30 立;2026-11-13 小程序腿落地后订正)发送准入回执帧:服务端生产判据 = 请求体必须带 inputId——apps/ai-service/app/routers/llm.py 的 inputId 字段声明原文「缺席 ⇒ 不发 admission 帧。在场 ⇒ 首个内容帧之前原样回显一帧准入回执」;载荷形状权威 = packages/shared/src/chat/send-admission.ts。**web 腿**:apps/web/src/hooks/use-chat/send-message.ts(createInputId + createSendAdmissionTracker :151/:802,onSendAdmissionReceipt :915)与 send-answer.ts:289。**miniapp-taro 腿(2026-11-13 已落,四腿齐)**:① 上行 inputId = pkg-ai/ai/chat.tsx 的 roundInputId(共享 createInputId 生成,端内不造第二源);⓪ metadata.conversationId = api/index.ts 的 buildMetadata(仅在带 inputId 时补,否则回执恒 accepted 无信息量);② 解析 = lib/tool-approval-frame.ts 的 parseAdmissionLine (调共享 readSendAdmissionReceipt,端内不复制四档值域);③ 分发 = api/index.ts 的 onRawLine 旁路 → onSendAdmissionReceipt;④ 呈现 = chat.tsx 把 queued/rejected/duplicate 写进既有 pushStreamActivity 执行过程列表(accepted 静默,与\"我发出去了\"同义反复)。**本帧继续留在 webOnly 是设计如此,不是缺口**:共享 sse-parse 的 SSEEvent 联合类型不认领该帧族,小程序端与 tool-approval / question 同一条 onRawLine 旁路自行认领;因此这一行只反映\"共享解析层不认领\",不反映\"端内未消费\"。解除本行的判据:若将来要把 admission 收编进共享 SSEEvent 联合类型(与 tool-approval 的旁路归口同理),届时删除本行并上调 sse-parse 基线。"
     },
     {
       "event": "hook-failed",

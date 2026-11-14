@@ -17,6 +17,7 @@ import { appAlert } from '../components/BottomPops'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { toFriendlyOr } from '@ihui/shared/utils'
 
 const PAGE_SIZE = 20
 
@@ -74,7 +75,7 @@ function DeveloperWebhooksScreen() {
         setRows((prev) => (append ? [...prev, ...toRows(list)] : toRows(list)))
         setTotal(res.data?.total ?? list.length)
       } catch (e) {
-        setError(e instanceof Error ? e.message : 'load failed')
+        setError(toFriendlyOr(e, t('common.loadFailed')))
       } finally {
         setLoading(false)
       }
@@ -104,7 +105,7 @@ function DeveloperWebhooksScreen() {
               } catch (e) {
                 void appAlert(
                   t('common.error'),
-                  e instanceof Error ? e.message : t('developerWebhooks.delete'),
+                  toFriendlyOr(e, t('developerWebhooks.delete')),
                 )
               }
             },

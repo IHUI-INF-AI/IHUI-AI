@@ -519,13 +519,13 @@ function EduAiSearchBox({
   const ff = useWrapFocus(tk)
   return (
     <View style={[styles.searchBox, ff.focusBorder]}>
-      <Search size={15} color={tk.text.tertiary} strokeWidth={2} />
+      <Search size={15} color={tk.text.secondary} strokeWidth={2} />
       <TextInput
         style={styles.searchInput}
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
-        placeholderTextColor={tk.text.tertiary}
+        placeholderTextColor={tk.text.secondary}
         accessibilityLabel={placeholder}
         returnKeyType="search"
         onFocus={ff.onFocus}
@@ -606,7 +606,7 @@ export function EduAiHubScreen({
         <ErrorBox message={s.error} styles={styles} />
       ) : s.rows.length === 0 ? (
         <View style={styles.emptyBox}>
-          <EmptyIcon size={28} color={tk.text.tertiary} strokeWidth={1.5} />
+          <EmptyIcon size={28} color={tk.text.secondary} strokeWidth={1.5} />
           <Text style={styles.emptyText}>{emptyText}</Text>
         </View>
       ) : (
@@ -677,7 +677,7 @@ export function EduAiHubScreen({
                 <MetaRow
                   label={t('eduAiPage.aigcProvider')}
                   value={tool.provider}
-                  icon={<Sparkles size={13} color={tk.text.tertiary} strokeWidth={2} />}
+                  icon={<Sparkles size={13} color={tk.text.secondary} strokeWidth={2} />}
                   styles={styles}
                 />
               ) : null}
@@ -688,7 +688,7 @@ export function EduAiHubScreen({
                 </Text>
                 {typeof tool.userCount === 'number' && tool.userCount > 0 ? (
                   <View style={styles.row}>
-                    <Users size={13} color={tk.text.tertiary} strokeWidth={2} />
+                    <Users size={13} color={tk.text.secondary} strokeWidth={2} />
                     <Text style={styles.rowSub}>{tool.userCount}</Text>
                   </View>
                 ) : null}
@@ -821,19 +821,19 @@ export function EduAiHubScreen({
               <MetaRow
                 label={t('eduAiPage.certIssuingAuthority')}
                 value={cert.issuingAuthority}
-                icon={<Building2 size={13} color={tk.text.tertiary} strokeWidth={2} />}
+                icon={<Building2 size={13} color={tk.text.secondary} strokeWidth={2} />}
                 styles={styles}
               />
               <MetaRow
                 label={t('eduAiPage.certTargetTeachers')}
                 value={cert.targetTeachers || '-'}
-                icon={<Users size={13} color={tk.text.tertiary} strokeWidth={2} />}
+                icon={<Users size={13} color={tk.text.secondary} strokeWidth={2} />}
                 styles={styles}
               />
               <MetaRow
                 label={t('eduAiPage.certLevel')}
                 value={levelLabel(t, cert.level)}
-                icon={<BadgeCheck size={13} color={tk.text.tertiary} strokeWidth={2} />}
+                icon={<BadgeCheck size={13} color={tk.text.secondary} strokeWidth={2} />}
                 styles={styles}
               />
               <MetaRow
@@ -843,13 +843,13 @@ export function EduAiHubScreen({
                     ? `${cert.trainingHours} ${t('eduAiPage.certHoursSuffix')}`
                     : '-'
                 }
-                icon={<Clock size={13} color={tk.text.tertiary} strokeWidth={2} />}
+                icon={<Clock size={13} color={tk.text.secondary} strokeWidth={2} />}
                 styles={styles}
               />
               <MetaRow
                 label={t('eduAiPage.certValidity')}
                 value={cert.validity || '-'}
-                icon={<CalendarDays size={13} color={tk.text.tertiary} strokeWidth={2} />}
+                icon={<CalendarDays size={13} color={tk.text.secondary} strokeWidth={2} />}
                 styles={styles}
               />
             </View>
@@ -915,7 +915,7 @@ export function EduAiHubScreen({
               <MetaRow
                 label={t('eduAiPage.certTargetTeachers')}
                 value={item.targetTeachers || '-'}
-                icon={<Users size={13} color={tk.text.tertiary} strokeWidth={2} />}
+                icon={<Users size={13} color={tk.text.secondary} strokeWidth={2} />}
                 styles={styles}
               />
               <MetaRow
@@ -925,13 +925,13 @@ export function EduAiHubScreen({
                     ? `${item.trainingHours} ${t('eduAiPage.certHoursSuffix')}`
                     : '-'
                 }
-                icon={<Clock size={13} color={tk.text.tertiary} strokeWidth={2} />}
+                icon={<Clock size={13} color={tk.text.secondary} strokeWidth={2} />}
                 styles={styles}
               />
               <MetaRow
                 label={t('eduAiPage.certValidity')}
                 value={item.validity || '-'}
-                icon={<CalendarDays size={13} color={tk.text.tertiary} strokeWidth={2} />}
+                icon={<CalendarDays size={13} color={tk.text.secondary} strokeWidth={2} />}
                 styles={styles}
               />
             </TouchableOpacity>
@@ -1181,16 +1181,16 @@ export function EduAiHubScreen({
                 <MetaRow
                   label={t('eduAiPage.coursesUniversity')}
                   value={item.university ?? '-'}
-                  icon={<Building2 size={13} color={tk.text.tertiary} strokeWidth={2} />}
+                  icon={<Building2 size={13} color={tk.text.secondary} strokeWidth={2} />}
                   styles={styles}
                 />
                 <View style={styles.metaRow}>
                   <View style={styles.row}>
-                    <Award size={13} color={tk.text.tertiary} strokeWidth={2} />
+                    <Award size={13} color={tk.text.secondary} strokeWidth={2} />
                     <Text style={styles.rowSub}>
                       {item.credits ?? '-'} {t('eduAiPage.coursesCredits')}
                     </Text>
-                    <Clock size={13} color={tk.text.tertiary} strokeWidth={2} />
+                    <Clock size={13} color={tk.text.secondary} strokeWidth={2} />
                     <Text style={styles.rowSub}>
                       {item.hours ?? '-'} {t('eduAiPage.coursesHours')}
                     </Text>
@@ -1232,31 +1232,31 @@ export function EduAiHubScreen({
               <MetaRow
                 label={t('eduAiPage.policyIssuingAuthority')}
                 value={policy.issuingAuthority}
-                icon={<Building2 size={13} color={tk.text.tertiary} strokeWidth={2} />}
+                icon={<Building2 size={13} color={tk.text.secondary} strokeWidth={2} />}
                 styles={styles}
               />
               <MetaRow
                 label={t('eduAiPage.policyLevelLabel')}
                 value={levelLabel(t, policy.policyLevel)}
-                icon={<Landmark size={13} color={tk.text.tertiary} strokeWidth={2} />}
+                icon={<Landmark size={13} color={tk.text.secondary} strokeWidth={2} />}
                 styles={styles}
               />
               <MetaRow
                 label={t('eduAiPage.policyIssueDate')}
                 value={formatDate(policy.issueDate)}
-                icon={<CalendarDays size={13} color={tk.text.tertiary} strokeWidth={2} />}
+                icon={<CalendarDays size={13} color={tk.text.secondary} strokeWidth={2} />}
                 styles={styles}
               />
               <MetaRow
                 label={t('eduAiPage.policyEffectiveDate')}
                 value={formatDate(policy.effectiveDate)}
-                icon={<CalendarDays size={13} color={tk.text.tertiary} strokeWidth={2} />}
+                icon={<CalendarDays size={13} color={tk.text.secondary} strokeWidth={2} />}
                 styles={styles}
               />
               <MetaRow
                 label={t('eduAiPage.policyTargetGroup')}
                 value={policy.targetGroup || '-'}
-                icon={<Users size={13} color={tk.text.tertiary} strokeWidth={2} />}
+                icon={<Users size={13} color={tk.text.secondary} strokeWidth={2} />}
                 styles={styles}
               />
             </View>
@@ -1323,11 +1323,11 @@ export function EduAiHubScreen({
                 />
               </View>
               <View style={styles.row}>
-                <Building2 size={13} color={tk.text.tertiary} strokeWidth={2} />
+                <Building2 size={13} color={tk.text.secondary} strokeWidth={2} />
                 <Text style={styles.rowSub} numberOfLines={1}>
                   {item.issuingAuthority}
                 </Text>
-                <CalendarDays size={13} color={tk.text.tertiary} strokeWidth={2} />
+                <CalendarDays size={13} color={tk.text.secondary} strokeWidth={2} />
                 <Text style={styles.rowSub}>{formatDate(item.issueDate)}</Text>
               </View>
               {item.summary ? (

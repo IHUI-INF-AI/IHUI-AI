@@ -22,14 +22,9 @@
 import type { FastifyPluginAsync, FastifyRequest } from 'fastify'
 import { z } from 'zod'
 import { success, error } from '../utils/response.js'
-import {
-  knowledgeRagService,
-  EmptyDocumentTextError,
-  KnowledgeDocNotFoundError,
-} from '../services/knowledge-rag-service.js'
+import { knowledgeRagService } from '../services/knowledge-rag-service.js'
 import { UnsupportedFormatError, FileTooLargeError } from '../services/document-parser.js'
 import { checkAuth } from '../plugins/auth.js'
-import { extractExt, getCanonicalMime, checkMagicNumber } from '../utils/file-type-validator.js'
 
 const ingestSchema = z.object({
   title: z.string().min(1),
@@ -147,18 +142,11 @@ export const knowledgeRagRoutes: FastifyPluginAsync = async (server) => {
     }
   })
 
-  // GET /docs - 文档列表(F-534:支持 limit/offset 分页)
+  // GET /docs - 文档列表
   server.get('/docs', async (req, reply) => {
     const owner = requireUserId(req)
-    const q = (req.query as { limit?: string; offset?: string }) ?? {}
-    const parsedLimit = Number(q.limit)
-    const parsedOffset = Number(q.offset)
-    const limit =
-      Number.isFinite(parsedLimit) && parsedLimit > 0 ? Math.floor(parsedLimit) : undefined
-    const offset =
-      Number.isFinite(parsedOffset) && parsedOffset >= 0 ? Math.floor(parsedOffset) : undefined
     try {
-      const docs = await knowledgeRagService.listDocs(owner, { limit, offset })
+      const docs = await knowledgeRagService.listDocs(owner)
       return reply.send(success(docs))
     } catch (e) {
       req.log.error(e)
@@ -243,7 +231,6 @@ export const knowledgeRagRoutes: FastifyPluginAsync = async (server) => {
   //   file: 必填,单文件 (PDF / DOCX / Markdown / 纯文本 / HTML),≤20MB
   //   title: 可选,默认用 filename 去扩展名
   //   collectionName: 可选,默认 'default'
-  //   docId: 可选,调用方已确定的文档主键(F-387:给了就直挂该文档,不再按标题反查)
   // 鉴权:登录用户 (preHandler 统一校验,未登录 → 401)
   // 2026-10-28 DDoS P2:文档上传上限 20MB(对齐路由注释),显式放开脱离全局 2MiB。
   server.post('/upload', { bodyLimit: 21 * 1024 * 1024 }, async (req, reply) => {
@@ -256,10 +243,8 @@ export const knowledgeRagRoutes: FastifyPluginAsync = async (server) => {
     // 2) 读取可选 form 字段
     const titleField = data.fields?.title
     const collectionField = data.fields?.collectionName
-    const docIdField = data.fields?.docId
     const formTitle = Array.isArray(titleField) ? titleField[0] : titleField
     const formCollection = Array.isArray(collectionField) ? collectionField[0] : collectionField
-    const formDocId = Array.isArray(docIdField) ? docIdField[0] : docIdField
     const titleRaw =
       formTitle && typeof formTitle === 'object' && 'value' in formTitle
         ? (formTitle as { value: string }).value
@@ -268,50 +253,10 @@ export const knowledgeRagRoutes: FastifyPluginAsync = async (server) => {
       formCollection && typeof formCollection === 'object' && 'value' in formCollection
         ? (formCollection as { value: string }).value
         : ''
-    const docIdRaw =
-      formDocId && typeof formDocId === 'object' && 'value' in formDocId
-        ? (formDocId as { value: string }).value
-        : ''
 
     const filename = data.filename ?? 'untitled'
     const title = (titleRaw && titleRaw.trim()) || filename.replace(/\.[^.]+$/, '') || 'untitled'
     const collectionName = (collectionRaw && collectionRaw.trim()) || 'default'
-
-    // F-533:不采信客户端自报 MIME。以扩展名 + 文件头魔数作为真相源,
-    // 用探测结果决定解析器与 sourceType,阻断「伪装可执行文件」「.txt 声明 application/pdf」。
-    // 知识库既有支持的纯文本/HTML 不在二进制白名单内,按下表归一,不误伤。
-    const ext = extractExt(filename)
-    const KNOWLEDGE_TEXT_MIMES: Record<string, string> = {
-      html: 'text/html',
-      htm: 'text/html',
-      md: 'text/markdown',
-      markdown: 'text/markdown',
-      txt: 'text/plain',
-      text: 'text/plain',
-      csv: 'text/csv',
-    }
-    const canonicalMime = getCanonicalMime(ext)
-    let effectiveMime = data.mimetype ?? 'application/octet-stream'
-    if (canonicalMime) {
-      // 命中白名单:扩展名与文件内容必须自洽(纯文本类 checkMagicNumber 内部跳过)
-      if (!checkMagicNumber(ext, buffer)) {
-        return reply.status(400).send(error(400, '文件内容与扩展名声明的类型不一致'))
-      }
-      effectiveMime = canonicalMime
-    } else if (KNOWLEDGE_TEXT_MIMES[ext]) {
-      effectiveMime = KNOWLEDGE_TEXT_MIMES[ext]
-    } else {
-      return reply.status(400).send(error(400, `不支持的文件类型: .${ext || '(无扩展名)'}`))
-    }
-    // F-387:调用方带了 docId 就直接用;非法值拒绝,避免静默落成新建文档。
-    let docId: number | undefined
-    if (docIdRaw && docIdRaw.trim()) {
-      const parsedDocId = Number(docIdRaw.trim())
-      if (!Number.isInteger(parsedDocId) || parsedDocId <= 0) {
-        return reply.status(400).send(error(400, 'docId 非法'))
-      }
-      docId = parsedDocId
-    }
 
     // 3) 解析 + 入库
     try {
@@ -319,25 +264,17 @@ export const knowledgeRagRoutes: FastifyPluginAsync = async (server) => {
         ownerUuid: requireUserId(req),
         title,
         buffer,
-        mimeType: effectiveMime,
+        mimeType: data.mimetype ?? 'application/octet-stream',
         filename,
         collectionName,
-        docId,
       })
-      return reply.send(success({ ...result, filename, mimeType: effectiveMime }))
+      return reply.send(success({ ...result, filename, mimeType: data.mimetype ?? '' }))
     } catch (e) {
       if (e instanceof UnsupportedFormatError) {
         return reply.status(400).send(error(400, e.message))
       }
       if (e instanceof FileTooLargeError) {
         return reply.status(400).send(error(400, e.message))
-      }
-      // F-387:空文本/全空白不再是「成功 + 0 切片」,返回明确错误码。
-      if (e instanceof EmptyDocumentTextError) {
-        return reply.status(400).send(error(400, e.message, e.code))
-      }
-      if (e instanceof KnowledgeDocNotFoundError) {
-        return reply.status(404).send(error(404, e.message, e.code))
       }
       req.log.error(e)
       return reply.status(500).send(error(500, '文件入库失败'))

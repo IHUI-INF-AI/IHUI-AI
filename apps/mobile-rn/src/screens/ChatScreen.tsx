@@ -133,7 +133,9 @@ import {
   reorderQueue,
   type FollowUpMode,
 } from '@ihui/shared/chat/queue-interactions'
-import { apiFailureToText, logger } from '@ihui/shared/utils'
+// 差距①第 ① 腿:发送准入回执的稳定输入 ID —— 生成的唯一实现在共享层,端内不造第二源。
+import { createInputId } from '@ihui/shared/chat/send-admission'
+import { apiFailureToText, logger, toFriendlyOr } from '@ihui/shared/utils'
 import { FALLBACK_MODELS as SHARED_FALLBACK_MODELS, toUserFriendlyMessage } from '@ihui/shared'
 // 按子路径取:RN 的 vitest 把 `@ihui/shared/utils` 父别名指向测试替身,父入口取不到本模块
 import { isMaxTokensTruncatedFinishReason } from '@ihui/shared/utils/finish-reason'
@@ -849,13 +851,15 @@ export function ChatScreen() {
     if (!m || wrapH <= 0) return
     const inset = Math.max(0, wrapH - m.visibleLength)
     setFadeBottomInset((prev) => (Math.abs(prev - inset) > 0.5 ? inset : prev))
-  }, [fades.getLastMetrics])
+    // fades.getLastMetrics/fades.feed 均为 useChatScrollFades 内 useCallback(fn,[]) 的稳定
+    // 引用(见 ChatScrollFades.tsx:71/109),eslint 无法穿透 hook 返回值推断稳定性 ⇒ 误报。
+  }, [fades.getLastMetrics]) // eslint-disable-line react-hooks/exhaustive-deps
   const handleFadeMetrics = useCallback(
     (m: ScrollFadeMetrics): void => {
       fades.feed(m)
       syncFadeInset()
     },
-    [fades.feed, syncFadeInset],
+    [fades.feed, syncFadeInset], // eslint-disable-line react-hooks/exhaustive-deps
   )
   useEffect(() => () => fadeDetachRef.current?.(), [])
   const materialCardIdCounter = useRef(0)
@@ -881,19 +885,21 @@ export function ChatScreen() {
   const noticeSessionRef = useRef(
     `s${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`,
   )
-  /** 落一条对话内提示留痕(独立 state,不进后端上下文/历史) */
-  const recordNotice = useCallback((kind: FloatBoxType, text: string): void => {
+  /** 落一条对话内提示留痕(独立 state,不进后端上下文/历史)。返回该条 id,供撤回用。 */
+  const recordNotice = useCallback((kind: FloatBoxType, text: string): string => {
     const id = `${noticeSessionRef.current}-${++noticeIdRef.current}`
     const ts = Date.now()
     setNotices((prev) => appendNotice(prev, { id, kind, text, ts }))
+    return id
   }, [])
   const showToast = useCallback(
-    (type: FloatBoxType, message: string, opts?: { record?: boolean }): void => {
+    (type: FloatBoxType, message: string, opts?: { record?: boolean }): string | null => {
       setToastType(type)
       setToastMessage(message)
       setToastVisible(true)
       // record=false:该提示已有更持久的落点(如发送失败的错误卡片),不再重复记一条
-      if (opts?.record !== false) recordNotice(type, message)
+      if (opts?.record !== false) return recordNotice(type, message)
+      return null
     },
     [setToastType, setToastMessage, setToastVisible, recordNotice],
   )
@@ -1030,6 +1036,18 @@ export function ChatScreen() {
     agentDelta: 0,
     memoryUpdates: 0,
   })
+  /**
+   * 本轮是否排在队列里(存 queuedTurnId,未排队为 null)。
+   * 用于:晋升帧(accepted)到达时判断"这一轮确实排过队",只有排过才补一条"服务端已收下";
+   * 直通场景下 accepted 是首帧,不该凭空多出一条提示。
+   */
+  const queuedTurnRef = useRef<string | null>(null)
+  /**
+   * pending 态留痕 id 表(2026-11-13 立)。
+   * 存"X 秒后继续"这类未来时提示的留痕 id;正文到达时整批撤。
+   * 与 queuedTurnRef 分开:那条有精确配对凭据(queuedTurnId),这条只能按"连接已恢复"整批撤。
+   */
+  const pendingNoticeIdsRef = useRef<string[]>([])
 
   /**
    * D153b / D154:per-user 广播接线。
@@ -1278,9 +1296,22 @@ export function ChatScreen() {
     // 票 68:把 payload 交出去之前复核一次档位 —— streamChat 在触达网关前仍有 await,这期间用户
     // 换了档就得跟到新档(而不是拿入口快照发新一轮);最新档为空(回填中间态)则退回入口档。
     const roundModel = resolveRoundModel(model, modelRef.current)
+    // 差距①第 ① 腿(2026-11-13,对齐小程序端/ web 同一形态):本轮发送的稳定输入 ID。
+    // 由共享 `createInputId()` 生成(端内不造第二源);服务端凭它回显准入回执并判 duplicate。
+    // 一次 sendMessage 只生成一次 ⇒ 重连重发沿用同值,不重造(否则服务端会当成新的一条)。
+    const roundInputId = createInputId()
     await streamChat({
       model: roundModel,
       messages: apiMessages,
+      // 差距①(2026-11-13):上行两把配对键。
+      // ① inputId —— 服务端生产判据:缺席 ⇒ 不发 admission 帧。
+      // ② metadata.conversationId —— 回执**有信息量**的前提:ai-service 的 take_admission
+      //    头注写明「conversation_id 缺席 ⇒ 无从配对留痕,恒 accepted 且不登记」,而
+      //    queued/rejected 两档全由会话 lane 产生 ⇒ 只补 inputId 拿到的是恒 accepted 常量,
+      //    与本端首帧 onDelta 已证明的事同义反复(台账禁止接进没有信息量的出口)。
+      // 会话主键取本屏的会话 id:无会话(纯本地新聊)时不补 —— 那时服务端也无从配对。
+      inputId: roundInputId,
+      ...(conversationId ? { metadata: { conversationId } } : {}),
       // 不命中意图时连字段都不出现,请求体与改造前逐字节一致
       ...(agentTools.length > 0 ? { agentTools } : {}),
       signal: controller.signal,
@@ -1289,6 +1320,13 @@ export function ChatScreen() {
       // 容量必须跟 roundModel 走:窗口尺寸与实际发出去的模型不同源,自动压缩阈值就会算错档
       contextLimit: getModelContextCapacity(roundModel),
       onDelta: (delta) => {
+        // 2026-11-13(中间态收回):首个正文 delta 到达 = 重试已成功 ⇒ 撤掉 pending 留痕。
+        // 只撤我们自己标记过的那几条,不碰工具结果/处置结果等实事实行。
+        if (pendingNoticeIdsRef.current.length > 0) {
+          const stale = new Set(pendingNoticeIdsRef.current)
+          pendingNoticeIdsRef.current = []
+          setNotices((prev) => prev.filter((n) => !stale.has(n.id)))
+        }
         // D3(2026-11-12):帧入泵;提交节拍与 setData 由共享 smooth batcher 统一(web 同谱)
         contentBatcher.batch(delta)
       },
@@ -1465,7 +1503,10 @@ export function ChatScreen() {
       },
       // D39 重试交代:与 N8n 屏同一句词包(否则用户在流上只看到"卡住")
       onRetryScheduled: (event) => {
-        showToast(
+        // 2026-11-13(中间态收回):"第 N/M 次重试,X 秒后继续"写的是**未来时**,
+        // 重试成功后必须撤回,否则这条留痕会一直说"X 秒后",而那个 X 秒早就过去了
+        // (与 queued 提示同型的缺陷)。记下留痕 id,正文到达时撤。
+        const id = showToast(
           'info',
           t('aiAssistantN8n.gatewayRetry', {
             attempt: event.attempt,
@@ -1473,11 +1514,23 @@ export function ChatScreen() {
             seconds: Math.max(1, Math.round(event.retryInMs / 1000)),
           }),
         )
+        if (id) pendingNoticeIdsRef.current.push(id)
       },
       // AI 主动提问(交互帧):完整作答续流(/chat/answer)是另一条链路,先接最小可视态
       onQuestion: (question) => {
         setPendingQuestions((prev) =>
           prev.some((q) => q.questionId === question.questionId) ? prev : [...prev, question],
+        )
+      },
+      // 提问结算(2026-11-13 立):answered/timeout/withdrawn/interrupted 四态都会发这一帧。
+      // 此前本端只接 onQuestion 不接结算 ⇒ 超时/撤回/打断三态永远清不掉卡,
+      // 界面停在"待回答"且点了没反应(那条提问早已失效,属于假 affordance)。
+      // 按 questionId 精确清理,不无条件清空 —— 否则会误清另一条更新的提问。
+      onQuestionResolved: (resolved) => {
+        setPendingQuestions((prev) =>
+          prev.some((q) => q.questionId === resolved.questionId)
+            ? prev.filter((q) => q.questionId !== resolved.questionId)
+            : prev,
         )
       },
       // D77 业务表单请求(交互帧):帧→渲染态投影走 @ihui/shared(与小程序 chat.tsx 同一出口),
@@ -1500,6 +1553,45 @@ export function ChatScreen() {
           t('chat.reconnecting', { attempt, countdown: Math.max(1, Math.round(delayMs / 1000)) }),
         )
       },
+      // 差距①第 ③④ 腿(2026-11-13):发送准入回执上屏。
+      //
+      // 为什么必须真上屏而不是只计数:台账 `no-admission-receipt-chain` 明确记着
+      // 「回执落进没人读的内存键 = 本分组要防的复发形态」。本端 streamDiagRef 里有多个
+      // 只计数的回调(agentDelta/memoryUpdates),但那是"本端确实没有该渲染位"的最小态;
+      // 回执不同 —— 它有共享词表(streamErrors.admission.*)也有现成出口(showToast),
+      // 只计数等于把一件用户该知道的事写进开发者日志。
+      //
+      // 只对**有信息量**的档位提示:accepted 与"我发出去了"同义反复(用户已看到消息上屏),
+      // 再报一次是噪音;queued/rejected/duplicate 才是服务端新增的信息。
+      //
+      // ⚠️ accepted 时仍要做一件事(2026-11-13 修):后端在排队回合被晋升时会再发一帧
+      // `admission{disposition:'accepted', queuedTurnId}`(llm.py 现读)。本端出口是 FloatBox
+      // (会自动消失,不会像 extension 的持久 notice 那样永久停留),但若不理会晋升帧,
+      // 用户看到"已排队"然后它自己消失,**之后再无下文** —— 不知道到底开始了没有。
+      // 所以晋升时把提示改成"服务端已收下",给出明确收束(而不是让提示静默过期)。
+      onSendAdmissionReceipt: (receipt) => {
+        if (receipt.disposition === 'accepted') {
+          // 只在本轮确实排过队(记过 queuedTurnId)时才更新,避免给直通场景凭空造一条提示
+          const qid = receipt.queuedTurnId
+          if (qid && queuedTurnRef.current === qid) {
+            queuedTurnRef.current = null
+            showToast('info', t('streamErrors.admission.admitted'))
+          }
+          return
+        }
+        const key = `streamErrors.admission.${receipt.disposition}`
+        const label = t(key)
+        let text = label === key ? receipt.disposition : label
+        // queued 档带位次时补一句"前面还有 N 位"(ahead=0 表示下一位)。
+        // 缺席 = 服务端没量到,**不当成 0**(与共享层 send-admission.ts 的 ahead 语义同纪律):
+        // 把"没量到"渲染成"下一位"是在替服务端编造一个它没说的事实。
+        if (receipt.disposition === 'queued' && typeof receipt.ahead === 'number') {
+          text = `${text} · ${t('chat.admissionAhead', { n: receipt.ahead })}`
+        }
+        showToast(receipt.disposition === 'rejected' ? 'error' : 'info', text)
+        queuedTurnRef.current =
+          receipt.disposition === 'queued' ? (receipt.queuedTurnId ?? null) : null
+      },
       // response 已到达(冷启动 watchdog 信号):本端无该 watchdog,最小态 = 计数
       onResponse: () => {
         streamDiagRef.current.response += 1
@@ -1512,11 +1604,16 @@ export function ChatScreen() {
         )
       },
       // 记忆更新:主屏无「已记住」提示条,最小态 = 计数 + 日志行(条目数)
+      // 2026-11-13 修「假接」:本端此前只把该帧写进 streamDiagRef + console.info ——
+      // 那是**开发者日志**,用户看不到任何东西,而门禁按「回调已注册」判定为已接。
+      // 这正是台账反复禁止的「把用户该知道的事写进只有开发者能发现的痕迹」。
+      // 现在补上真出口:用 showToast 打一条「已记住 N 条」(与 web 的 memory-notice-bar 同语义,
+      // 折叠展开属 web 特有形态,移动端保留计数即可,不新立 UI)。
+      // 空数组 = 本轮无新记忆 ⇒ 不打扰(载荷注释明确了这个语义)。
       onMemoryUpdates: (event) => {
         streamDiagRef.current.memoryUpdates += 1
-        console.info(
-          `[chat] memory-updates #${streamDiagRef.current.memoryUpdates} items=${event.items.length}`,
-        )
+        if (event.items.length === 0) return
+        showToast('info', t('ai.stream.memoryRemembered', { n: event.items.length }))
       },
       onError: (err, info) => {
         // D3(2026-11-12):错误前先 flush 累积 token,避免最后一批内容丢失(web #9 同纪律;
@@ -1986,7 +2083,7 @@ export function ChatScreen() {
           setPrompt((p) => (p ? `${p}\n${result.responseText}` : result.responseText))
         }
       } catch (e) {
-        showToast('warning', e instanceof Error ? e.message : t('chat.roundFailed'))
+        showToast('warning', toFriendlyOr(e, t('chat.roundFailed')))
       } finally {
         setTurnBusy(false)
       }
@@ -2437,13 +2534,18 @@ export function ChatScreen() {
   }, [])
 
   // D111 消息反馈:点赞/点踩走 @ihui/api-client 唯一出口(rateChatMessage),不裸 fetch。
-  const rateMessage = useCallback(async (messageId: string, next: MessageRating): Promise<void> => {
-    try {
-      await rateChatMessage({ messageId, rating: next })
-    } catch {
-      // 反馈提交失败不打断阅读流(与 web 端点赞失败静默同口径)
-    }
-  }, [])
+  const rateMessage = useCallback(
+    async (messageId: string, next: MessageRating): Promise<void> => {
+      try {
+        await rateChatMessage({ messageId, rating: next })
+      } catch {
+        // 原实现失败完全不吭声:用户点了赞/踩,界面没有任何变化也看不出有没有记上。
+        // 失败时给一条 toast,至少让他知道这次没成功、可以重试(成功态视觉属设计变更,不动)。
+        showToast('error', t('common.failed'))
+      }
+    },
+    [showToast, t],
+  )
 
   // 票64(2026-10-18 立):消息级钉选/收藏。两把标记各发各的维度(一次点击只动它点的那一把),
   // 成功态取服务端回写的时刻而不是本地翻转;回填按 item.id 匹配 —— 历史回放那批 id 带
@@ -4074,7 +4176,7 @@ const styles = StyleSheet.create({
   },
   execRowText: {
     fontSize: rpx(12),
-    color: tokens.text.tertiary,
+    color: tokens.text.medium,
   },
   interactionCard: {
     marginBottom: rpx(16),
@@ -4274,7 +4376,7 @@ const styles = StyleSheet.create({
   },
   thinkingToggle: {
     fontSize: rnType.caption.size,
-    color: tokens.text.tertiary,
+    color: tokens.text.medium,
     marginLeft: rnSpacing.sm,
   },
   thinkingContent: {
@@ -4558,7 +4660,7 @@ const styles = StyleSheet.create({
   detailDialogFieldLabel: {
     width: rpx(140),
     fontSize: rnGeometry.textLabel,
-    color: tokens.text.tertiary,
+    color: tokens.text.medium,
   },
   detailDialogFieldValue: {
     flex: 1,
@@ -4771,7 +4873,7 @@ const styles = StyleSheet.create({
   },
   fileUploadHint: {
     fontSize: rnGeometry.textLabel,
-    color: tokens.text.tertiary,
+    color: tokens.text.medium,
   },
   fileUploadConfirmBtn: {
     backgroundColor: tokens.brand.cta,

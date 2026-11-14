@@ -251,7 +251,7 @@ const styles = StyleSheet.create({
   },
   thinkingToggle: {
     fontSize: rnType.caption.size,
-    color: tokens.text.tertiary,
+    color: tokens.text.medium,
     marginLeft: rnSpacing.sm,
   },
   thinkingContent: {
@@ -274,7 +274,7 @@ const styles = StyleSheet.create({
   },
   execRowText: {
     fontSize: rpx(12),
-    color: tokens.text.tertiary,
+    color: tokens.text.medium,
   },
 })
 

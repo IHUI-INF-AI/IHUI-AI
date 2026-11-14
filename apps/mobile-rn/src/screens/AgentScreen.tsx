@@ -35,7 +35,7 @@ import {
   type AiModel,
   type ConversationDetail,
 } from '@ihui/api-client'
-import { apiFailureToText } from '@ihui/shared/utils'
+import { apiFailureToText, toFriendlyOr } from '@ihui/shared/utils'
 import { AgentScreen as SharedAgentScreen, type AgentScreenItem } from '@ihui/rn-app'
 import { tokens } from '../theme/active-tokens'
 import Carousel from '../components/Carousel'
@@ -315,7 +315,7 @@ export function AgentScreen() {
     try {
       await Promise.all([loadAgents(), loadModels(), loadCategories()])
     } catch (e) {
-      setError(e instanceof Error ? e.message : t('agentScreen.loadFailed'))
+      setError(toFriendlyOr(e, t('agentScreen.loadFailed')))
     } finally {
       setLoading(false)
       setRefreshing(false)

@@ -139,16 +139,19 @@ export default function PayPopup({
       <View
         className="relative bg-card ui-card rounded-t-lg w-full px-2xl pb-2xl pt-lg"
         onClick={(e) => e.stopPropagation()}
-        hoverClass="opacity-60"
       >
         {/* 标题区 */}
         <View className="flex items-center justify-between mb-lg">
           <Text className="text-title font-medium text-foreground">
             {title || tt('pay.purchaseContent', '购买内容')}
           </Text>
-          <Text className="text-body text-muted-foreground" onClick={onClose}>
-            {tt('common.close', '关闭')}
-          </Text>
+          <View
+            className="text-body text-muted-foreground"
+            hoverClass="opacity-60"
+            onClick={onClose}
+          >
+            <Text>{tt('common.close', '关闭')}</Text>
+          </View>
         </View>
 
         {/* 价格区(对齐原项目 product-price:¥符号 + 大号金额 + 划线原价) */}

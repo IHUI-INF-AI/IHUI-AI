@@ -157,8 +157,6 @@ export const oauthScopeMeta = pgTable(
 /**
  * 用户第三方账号绑定表（小程序 openid / Google sub 等）。
  * platform: wechat | google | workwechat | dingtalk
- * tenantId: 租户维度(F-271)。企业微信填 corpId(open_userid 只在单个企业内唯一);
- *           其余平台落空串(单租户),不改变既有绑定键语义。
  * deletedAt: 软删除
  */
 export const userThirdPartyAccounts = pgTable(
@@ -171,7 +169,6 @@ export const userThirdPartyAccounts = pgTable(
     openId: varchar('open_id', { length: 100 }),
     unionId: varchar('union_id', { length: 100 }),
     platform: varchar('platform', { length: 20 }).notNull(),
-    tenantId: varchar('tenant_id', { length: 64 }).default('').notNull(),
     accessToken: text('access_token'),
     refreshToken: text('refresh_token'),
     expiresAt: timestamp('expires_at', { withTimezone: true }),
@@ -184,9 +181,8 @@ export const userThirdPartyAccounts = pgTable(
     platformIdx: index('user_third_party_platform_idx').on(t.platform, t.openId),
     // 一次微信只能有一条活绑定(并发双扫会插两行,之后 limit(1) 命中哪条由库决定)。
     // 部分索引:软删行要留痕、空/NULL open_id 由代码层判据堵,见迁移正文。
-    // F-271:唯一键含 tenant_id —— 不同企业的同名 open_userid 各自独立成行,不再互相顶掉。
     platformOpenidLiveUniq: uniqueIndex('user_third_party_platform_openid_live_uidx')
-      .on(t.platform, t.tenantId, t.openId)
+      .on(t.platform, t.openId)
       .where(sql`${t.deletedAt} IS NULL AND ${t.openId} IS NOT NULL AND ${t.openId} <> ''`),
   }),
 )

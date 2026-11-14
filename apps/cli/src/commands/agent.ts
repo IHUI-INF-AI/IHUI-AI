@@ -62,9 +62,6 @@ import { HR_TOOLS } from '../tools/hr.js';
 import { RELAY_TOOLS } from '../tools/relay.js';
 // API 桥工具族(2026-11-09 立):目录检索 + 通用调用,让对话能触达全仓 5514 个端点。
 import { API_BRIDGE_TOOLS } from '../tools/api-bridge.js';
-// ai-service 端点桥(2026-11-13):`api_*` 只覆盖 apps/api(5539),这一族补上 ai-service 的
-// 682 个 operation —— 知识库/RAG/编排/agents/llm/mcp/memory 这些能力全在那一边。
-import { AI_BRIDGE_TOOLS } from '../tools/ai-bridge.js';
 import { createFileEditTools } from '../tools/file-edit.js';
 import {
   buildFileEditPreviewEvents,
@@ -331,6 +328,29 @@ export interface AgentResult {
   outputTruncated?: boolean;
   /** G-1104166:全轮累计自动续写次数(没续写过 ⇒ 不带此字段) */
   outputContinuationsUsed?: number;
+  /**
+   * 成本审批判定(2026-11-12 接线)。只在「传了 opts.costApproval 且触发预算闸」时有值。
+   * 五档:proceed/held/refused/unjudged。**unjudged 也意味着被拦下** ——
+   * 调用方据此可区分「余额不足」与「量不到所以保守拦截」,不必从散文里猜。
+   */
+  costApproval?: import('../tools/cost-approval.js').CostApproval;
+  /**
+   * 自动复审(2026-11-12):本回合内是否已到"该复审了"的时机。
+   * 只表示**时机到了**,不表示已经审过 —— 真正执行诊断在回合外。
+   * 未开启 `reviewPolicy.enabled` 时该字段恒为 false。
+   */
+  reviewDue?: boolean;
+  /**
+   * 自动复审的**真实结论**(仅当 reviewPolicy.enabled 且 reviewExecute 且有到期时才有值)。
+   * `regressed` = 本次改动新引入了 error。首次跑无基线时全部算存量,不误报。
+   */
+  review?: {
+    regressed: boolean
+    introducedCount: number
+    preexistingCount: number
+    hadBaseline: boolean
+    total: number
+  };
 }
 
 // ==================== P1-5 Headless 多格式输出(实现在 src/headless-format.ts,此处仅 re-export)====================
@@ -345,6 +365,17 @@ import {
   endReasonFromStopReason,
   type TurnTransition,
 } from '../acp/turn-lifecycle.js'
+import { decideCostApproval } from '../tools/cost-approval.js'
+import { applyCodeMode, describeCodeMode } from '../tools/code-mode.js'
+import {
+  DEFAULT_REVIEW_POLICY,
+  INITIAL_REVIEW_STATE,
+  shouldReview,
+  type ReviewPolicy,
+  type ReviewState,
+} from '../tools/auto-review.js'
+import { reviewAgainstBaseline, type ReviewAgainstBaselineResult } from '../tools/auto-review-run.js'
+import { runEslint, runTsc } from '../tools/diagnostics.js'
 import { loadSessionRuntime, nextTurnOrdinal, upsertTurn } from '../acp/turn-store.js'
 import type { OutputFormat, HeadlessEvent } from '../headless-format.js'
 
@@ -390,6 +421,12 @@ export interface SetupAgentToolsOptions {
   silent?: boolean;
   /** 危险操作确认回调。REPL 用 inquirer,Agent 用 --allow-dangerous,ACP 默认拒绝。 */
   confirmDangerous?: (tool: Tool, args: Record<string, unknown>) => Promise<boolean>;
+  /**
+   * 受限工具集 profile(2026-11-12)。`read-only` / `no-shell` / `review` / `full`。
+   * 缺省 full(不限制)。**拼错的模式名会抛错,不静默回退全量** ——
+   * 那会把最危险的默认值塞给以为自己被限制的人。
+   */
+  codeMode?: string;
   /**
    * 本会话"有没有能被问到的审批人"这一事实,随 ctx 下发给工具层做**拒绝归因**
    * (见 `ToolContext.approverAvailable`)。缺省 = 不表态(工具层沿用旧归因)。
@@ -491,9 +528,6 @@ export async function setupAgentTools(opts: SetupAgentToolsOptions): Promise<Set
   // API 桥(5 枚):api_list_endpoints / api_describe_endpoint / api_read / api_write / api_delete
   // —— 任意端点的检索与调用入口,补上"手写工具没覆盖到的那些业务域"。
   registerTools(API_BRIDGE_TOOLS);
-  // ai-service 桥(5 枚):ai_list_endpoints / ai_describe_endpoint / ai_read / ai_write / ai_delete
-  // —— 与 api_* 同形的两层结构(目录 + 通用调用),载体是 ai-service 专用基址通道。
-  registerTools(AI_BRIDGE_TOOLS);
   registerTools(GIT_TOOLS);
   registerTools(FETCH_TOOLS);
   registerTools(WEB_SEARCH_TOOLS);
@@ -619,26 +653,15 @@ export async function setupAgentTools(opts: SetupAgentToolsOptions): Promise<Set
       const policy: PluginVersionPolicy = {};
       if (pins !== undefined) policy.pins = pins;
       if (disabledVersions !== undefined) policy.disabled = disabledVersions;
-      // 接口型工具编译要判"这枚名字宿主是不是已经占了":把当下在册工具名传进去,
-      // 让重名在**编译期**就点名拒收,而不是等到 registerTools 静默保留先到者。
       const loaded = multiVersion
-        ? loadPluginsWithVersionPolicy({ pluginsDir, policy, takenToolNames: listTools().map((t) => t.name) })
-        : loadPluginsWithContributionAudit({ pluginsDir, takenToolNames: listTools().map((t) => t.name) });
+        ? loadPluginsWithVersionPolicy({ pluginsDir, policy })
+        : loadPluginsWithContributionAudit({ pluginsDir });
       const defs = loaded.plugins;
       const diagnostics = loaded.diagnostics;
       // 派发放在 defs.length 判据**之前**:全部清单都坏时 defs 为空,旧形态下"一个都没装上"
       // 反而零行日志,那正是本票要消灭的静默。装载继续(永不抛穿),诊断逐条点名到 logger。
       if (!opts.silent) {
         reportPluginDiagnostics(diagnostics, PLUGIN_CONSOLE_LOGGER);
-      }
-      // 接口型工具注册(2026-11-13):插件以纯数据贡献的可调用端点在这里真正进工具表。
-      // 位置在 registry 建好之前、`listTools()` 取快照之前 —— 后者是 system prompt 的唯一装配输入,
-      // 晚一步注册就等于"工具在表里但模型看不见"。
-      if (loaded.interfaceTools.length > 0) {
-        registerTools(loaded.interfaceTools);
-        if (!opts.silent) {
-          console.info(chalk.dim(`  🔌 已加载 ${loaded.interfaceTools.length} 个插件接口工具`));
-        }
       }
       if (defs.length > 0) {
         pluginRegistry = new PluginRegistry({ workingDir: opts.workspacePath });
@@ -656,7 +679,19 @@ export async function setupAgentTools(opts: SetupAgentToolsOptions): Promise<Set
     }
   }
 
-  const tools = listTools();
+  // 受限工具集裁剪(2026-11-12):在**取工具表这一刻**生效,而不是在调用时拒绝。
+  // 工具不存在于 prompt 里,模型就不会尝试调用 —— 这比事后拒绝更可靠。
+  // 拼错的模式名会抛错(不静默回退全量):把最危险的默认值塞给以为自己被限制的人是更糟的失效。
+  const rawTools = listTools();
+  const codeModeResult = applyCodeMode(rawTools, opts.codeMode);
+  const tools = codeModeResult.allowed;
+  if (codeModeResult.mode.id !== 'full' && !opts.silent) {
+    console.info(
+      chalk.dim(
+        `  ${describeCodeMode(codeModeResult.mode)};已隐藏 ${codeModeResult.blocked.length} 个工具`,
+      ),
+    );
+  }
   // goal-b49/Z1 对账腿(五枚 `get*Extensions` 汇总口的生产调用点):
   // 每个声明名逐个问宿主"你到底有没有消费者",吃不下的逐条摊成 warning 走同一条
   // reportPluginDiagnostics —— 工具名**不**并进工具表、命令名**不**并进 slash 表:
@@ -804,6 +839,39 @@ export interface RunToolLoopOptions {
   onSteer?: NonNullable<StreamChatOptions['onSteer']>;
   /** 额度分档告警(budget) — 同上,REPL 据此打印"今日用量较高/即将耗尽"一行 */
   onBudget?: NonNullable<StreamChatOptions['onBudget']>;
+  /** 上下文自动压缩(compaction) — REPL 据此打一行"已压缩 A→B"(与 onBudget 同一出口) */
+  onCompaction?: NonNullable<StreamChatOptions['onCompaction']>;
+  /** 子代理活动流水 — REPL 打一行(CLI 无卡片宿主,与 onBudget 同一出口) */
+  onSubagentSpawn?: NonNullable<StreamChatOptions['onSubagentSpawn']>;
+  onSubagentProgress?: NonNullable<StreamChatOptions['onSubagentProgress']>;
+  onSubagentEnd?: NonNullable<StreamChatOptions['onSubagentEnd']>;
+  /** 终端任务开始 — 与 onTerminalDelta 同一出口(那边已在用 noteLine) */
+  onTerminalStart?: NonNullable<StreamChatOptions['onTerminalStart']>;
+  /** 终端任务结束 — 与 onTerminalStart/onTerminalDelta 同一出口(补齐该族的收尾帧) */
+  onTerminalEnd?: NonNullable<StreamChatOptions['onTerminalEnd']>;
+  /** AI 主动提问(阻塞式) — CLI 用内联提示收集答案,与 onBudget 同一出口 */
+  onQuestion?: NonNullable<StreamChatOptions['onQuestion']>;
+  /** 提问结算(answered/timeout/withdrawn/interrupted) — 按 questionId 精确清理提示 */
+  onQuestionResolved?: NonNullable<StreamChatOptions['onQuestionResolved']>;
+  /** 模型降级交代 — 换用备用模型时打一行(与 onRetryScheduled 同一族:都是"用户该知道但看不见") */
+  onFallback?: NonNullable<StreamChatOptions['onFallback']>;
+  /** 工具汇总与委托 — CLI 打一行(无卡片宿主,与 onBudget 同一出口) */
+  onToolSummary?: NonNullable<StreamChatOptions['onToolSummary']>;
+  onToolDelegate?: NonNullable<StreamChatOptions['onToolDelegate']>;
+  /** 截断交代(done 帧的 finishReason) — 达到长度上限时打一行 */
+  onFinishReason?: NonNullable<StreamChatOptions['onFinishReason']>;
+  /**
+   * 差距① 第 ① 腿(2026-11-13):本轮发送的稳定输入 ID。
+   * 服务端 `if req.inputId:` 才发 admission 帧 ⇒ 不带则本端永远收不到回执。
+   * 由 REPL 用共享 `createInputId()` 生成(端内不造第二源)。
+   */
+  inputId?: string;
+  /**
+   * 差距① 第 ③ 腿(2026-11-13):发送准入回执。
+   * REPL 侧接到既有 `statusLine.noteLine`(与 onBudget/onRetryScheduled 同一出口),
+   * 不新立 UI —— CLI 本身就是终端,不需要卡片宿主。
+   */
+  onSendAdmissionReceipt?: NonNullable<StreamChatOptions['onSendAdmissionReceipt']>;
   /** G-815976 流式中断标记帧(partial_done) — 透传 api-client 的 onPartialDone,未传时由 sampleWithRetry 落默认 stderr 警告一行 */
   onPartialDone?: NonNullable<StreamChatOptions['onPartialDone']>;
   /** D19 终端实时输出增量(terminal_delta) — 透传 api-client 的 onTerminalDelta,未传时零开销(与 onPlanUpdate 同一条纪律) */
@@ -835,6 +903,41 @@ export interface RunToolLoopOptions {
   sampler?: SamplerSettings;
   /** 累计成本上限(美元)。超过后 stopReason='budget_limited'。与 AGENTS.md 第 9 节 goal 模式 budget 语义对齐 */
   maxCostUsd?: number;
+  /**
+   * 成本审批上下文(2026-11-12 接线)。**不传则行为与引入前逐字相同**(到点硬停)。
+   *
+   * 传了才走 `decideCostApproval` 的五档判定:
+   *   proceed  → 继续(即使已超 maxCostUsd,因为审批放行)
+   *   held     → 暂停等待审批(stopReason='budget_limited',但 endReason 记 awaiting)
+   *   refused  → 停止(余额不足或明确驳回)
+   *   unjudged → **按原硬停处理**(量不到就不放行 —— 失效方向恒为保守)
+   *
+   * 为什么设计成可选:CLI 单次循环拿不到余额与审批结论;强制作参数会让所有
+   * 既有调用方都要改。可选注入既能让需要审批的场景用上,又不破坏现有行为。
+   */
+  /**
+   * 自动复审策略(2026-11-12)。**默认关闭** —— 打开会让每次编辑后跑诊断,
+   * 在大仓里会把编辑变成分钟级。开启与否必须由用户显式决定。
+   */
+  reviewPolicy?: ReviewPolicy;
+  /**
+   * 是否在 reviewDue 时**真的执行**诊断(tsc + eslint)。
+   * 默认 false —— 诊断要起子进程,在大仓里可达数十秒;只能由调用方显式开启。
+   * 开启时,结果按「只报新增」判定并回传 `review`。
+   */
+  reviewExecute?: boolean;
+  costApproval?: {
+    /** 该动作是否强制审批(来自权限/计费策略) */
+    mandatory: boolean;
+    /** 策略的失败模式;只有 'requireApproval' 才真正要求审批 */
+    failureMode: string;
+    /** 费用类别 */
+    category: string;
+    /** 当前余额(美元);null = 未测量 */
+    balance: number | null;
+    /** 已获审批结论;null = 尚未有人审批 */
+    decision: 'approved' | 'rejected' | null;
+  };
   /**
    * P0-2 Interject:drain pending interjection buffer。
    * 灵感来源:参考行业 Agent 框架的 `x.ai/interject` 扩展方法。
@@ -1444,7 +1547,18 @@ interface SampleWithRetryOptions {
   admissionRunId?: string;
   admissionKey?: string;
   /** 推理过程增量回调(reasoning/thinking)— 透传 api-client 的 onReasoning */
-  onReasoning?: (delta: string) => void;
+  onReasoning?: (delta: string) => void
+  /**
+   * 差距① 第 ① 腿(2026-11-13):本轮发送的稳定输入 ID。
+   * 服务端生产判据是「请求体带 inputId 才回显 admission 帧」,不带则结构上永远不发。
+   * 由调用方用共享 `createInputId()` 生成(端内不造第二源);同一轮重发须沿用同值。
+   */
+  inputId?: string
+  /**
+   * 差距① 第 ③ 腿:发送准入回执(accepted/queued/rejected/duplicate)。
+   * 载荷判据在共享层 `readSendAdmissionReceipt`,本层只透传。
+   */
+  onSendAdmissionReceipt?: NonNullable<StreamChatOptions['onSendAdmissionReceipt']>;
   /** 原生 function calling:附加到请求体末尾的字段(如 { tools: [...] }) */
   extraBody?: Record<string, unknown>;
   /** 原生 function calling:SSE tool-call 事件回调 */
@@ -1461,6 +1575,27 @@ interface SampleWithRetryOptions {
   onSteer?: NonNullable<StreamChatOptions['onSteer']>;
   /** 额度分档告警(budget) — 未传时零开销(与 onPlanUpdate 同一条纪律) */
   onBudget?: NonNullable<StreamChatOptions['onBudget']>;
+  /** 上下文自动压缩(compaction) — REPL 据此打一行"已压缩 A→B"(与 onBudget 同一出口) */
+  onCompaction?: NonNullable<StreamChatOptions['onCompaction']>;
+  /** 子代理活动流水 — REPL 打一行(CLI 无卡片宿主,与 onBudget 同一出口) */
+  onSubagentSpawn?: NonNullable<StreamChatOptions['onSubagentSpawn']>;
+  onSubagentProgress?: NonNullable<StreamChatOptions['onSubagentProgress']>;
+  onSubagentEnd?: NonNullable<StreamChatOptions['onSubagentEnd']>;
+  /** 终端任务开始 — 与 onTerminalDelta 同一出口(那边已在用 noteLine) */
+  onTerminalStart?: NonNullable<StreamChatOptions['onTerminalStart']>;
+  /** 终端任务结束 — 与 onTerminalStart/onTerminalDelta 同一出口(补齐该族的收尾帧) */
+  onTerminalEnd?: NonNullable<StreamChatOptions['onTerminalEnd']>;
+  /** AI 主动提问(阻塞式) — CLI 用内联提示收集答案,与 onBudget 同一出口 */
+  onQuestion?: NonNullable<StreamChatOptions['onQuestion']>;
+  /** 提问结算(answered/timeout/withdrawn/interrupted) — 按 questionId 精确清理提示 */
+  onQuestionResolved?: NonNullable<StreamChatOptions['onQuestionResolved']>;
+  /** 模型降级交代 — 换用备用模型时打一行(与 onRetryScheduled 同一族:都是"用户该知道但看不见") */
+  onFallback?: NonNullable<StreamChatOptions['onFallback']>;
+  /** 工具汇总与委托 — CLI 打一行(无卡片宿主,与 onBudget 同一出口) */
+  onToolSummary?: NonNullable<StreamChatOptions['onToolSummary']>;
+  onToolDelegate?: NonNullable<StreamChatOptions['onToolDelegate']>;
+  /** 截断交代(done 帧的 finishReason) — 达到长度上限时打一行 */
+  onFinishReason?: NonNullable<StreamChatOptions['onFinishReason']>;
   /** G-815976 流式中断标记帧(partial_done) — 调用方未传时默认落 stderr 警告一行(半截回答不得与完整回答同形) */
   onPartialDone?: NonNullable<StreamChatOptions['onPartialDone']>;
   /**
@@ -1609,6 +1744,25 @@ async function sampleWithRetry(
         ...(opts.onCitations ? { onCitations: opts.onCitations } : {}),
         ...(opts.onSteer ? { onSteer: opts.onSteer } : {}),
         ...(opts.onBudget ? { onBudget: opts.onBudget } : {}),
+        ...(opts.onCompaction ? { onCompaction: opts.onCompaction } : {}),
+        ...(opts.onSubagentSpawn ? { onSubagentSpawn: opts.onSubagentSpawn } : {}),
+        ...(opts.onSubagentProgress ? { onSubagentProgress: opts.onSubagentProgress } : {}),
+        ...(opts.onSubagentEnd ? { onSubagentEnd: opts.onSubagentEnd } : {}),
+        ...(opts.onTerminalStart ? { onTerminalStart: opts.onTerminalStart } : {}),
+        ...(opts.onTerminalEnd ? { onTerminalEnd: opts.onTerminalEnd } : {}),
+        ...(opts.onQuestion ? { onQuestion: opts.onQuestion } : {}),
+        ...(opts.onQuestionResolved ? { onQuestionResolved: opts.onQuestionResolved } : {}),
+        ...(opts.onFallback ? { onFallback: opts.onFallback } : {}),
+        ...(opts.onToolSummary ? { onToolSummary: opts.onToolSummary } : {}),
+        ...(opts.onToolDelegate ? { onToolDelegate: opts.onToolDelegate } : {}),
+        ...(opts.onFinishReason ? { onFinishReason: opts.onFinishReason } : {}),
+        // 差距①(2026-11-13):inputId 与回执回调逐项透传(与 onBudget 同一条纪律)。
+        // 注意:本调用是**主轮**;compaction sampler 是另一条独立流,不在此处,故不会因
+        // 带 conversationId 而被会话 FIFO lane 串行化(那个风险只在给副流补 inputId 时才成立)。
+        ...(opts.inputId ? { inputId: opts.inputId } : {}),
+        ...(opts.onSendAdmissionReceipt
+          ? { onSendAdmissionReceipt: opts.onSendAdmissionReceipt }
+          : {}),
         // G-815976 流式中断标记帧(partial_done):未传回调时由这里落默认 stderr 警告一行
         // (走 stderr 避免污染 stdout 的流式正文;chalk.yellow 与 [retry]/[truncated] 警告族同风格)。
         onPartialDone:
@@ -1619,6 +1773,11 @@ async function sampleWithRetry(
         ...(opts.onUsage ? { onUsage: opts.onUsage } : {}),
         ...(opts.onTerminalDelta ? { onTerminalDelta: opts.onTerminalDelta } : {}),
         ...(opts.onTerminalInteraction ? { onTerminalInteraction: opts.onTerminalInteraction } : {}),
+        // 差距①(2026-11-13):上行 inputId 与回执回调。
+        // inputId 缺席 ⇒ 服务端结构上不发该帧(§llm.py 的 `if req.inputId:`),所以必须真传;
+        // 回执不注册 ⇒ 帧静默丢弃。两条都走条件展开,老调用方零行为变化。
+        ...(opts.inputId ? { inputId: opts.inputId } : {}),
+        ...(opts.onSendAdmissionReceipt ? { onSendAdmissionReceipt: opts.onSendAdmissionReceipt } : {}),
         ...(opts.sampler ?? {}),
         onError: (msg, info) => { streamErr = msg; streamErrInfo = info; },
       } as Parameters<typeof streamChat>[0]);
@@ -1958,6 +2117,13 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
   let totalCompletionTokens = 0;
   let totalCostUsd = 0;
   let budgetLimited = false;
+  /** cost-approval 的判定结果(只在传了 opts.costApproval 且触发预算闸时有值)。 */
+  let costApprovalVerdict: import('../tools/cost-approval.js').CostApproval | null = null;
+  /** 自动复审的累积状态(跨迭代保持)。 */
+  let reviewState: ReviewState = INITIAL_REVIEW_STATE;
+  const reviewPolicy = opts.reviewPolicy ?? DEFAULT_REVIEW_POLICY;
+  /** 本次回合内是否已触发过一次"该复审了"(回合结束时回传给调用方)。 */
+  let reviewDue = false;
   let lastErrorMessage = '';
   // 回合运行态旁路记录(2026-11-12):与既有 `reservedTurnNumber`(G-633)共用同一套
   // 回合标识,不另建第二份序号。**失败一律吞掉** —— 运行态记录是观测面,
@@ -2345,6 +2511,25 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
         ...(opts.onCitations ? { onCitations: opts.onCitations } : {}),
         ...(opts.onSteer ? { onSteer: opts.onSteer } : {}),
         ...(opts.onBudget ? { onBudget: opts.onBudget } : {}),
+        ...(opts.onCompaction ? { onCompaction: opts.onCompaction } : {}),
+        ...(opts.onSubagentSpawn ? { onSubagentSpawn: opts.onSubagentSpawn } : {}),
+        ...(opts.onSubagentProgress ? { onSubagentProgress: opts.onSubagentProgress } : {}),
+        ...(opts.onSubagentEnd ? { onSubagentEnd: opts.onSubagentEnd } : {}),
+        ...(opts.onTerminalStart ? { onTerminalStart: opts.onTerminalStart } : {}),
+        ...(opts.onTerminalEnd ? { onTerminalEnd: opts.onTerminalEnd } : {}),
+        ...(opts.onQuestion ? { onQuestion: opts.onQuestion } : {}),
+        ...(opts.onQuestionResolved ? { onQuestionResolved: opts.onQuestionResolved } : {}),
+        ...(opts.onFallback ? { onFallback: opts.onFallback } : {}),
+        ...(opts.onToolSummary ? { onToolSummary: opts.onToolSummary } : {}),
+        ...(opts.onToolDelegate ? { onToolDelegate: opts.onToolDelegate } : {}),
+        ...(opts.onFinishReason ? { onFinishReason: opts.onFinishReason } : {}),
+        // 差距①(2026-11-13):inputId 与回执回调逐项透传(与 onBudget 同一条纪律)。
+        // 注意:本调用是**主轮**;compaction sampler 是另一条独立流,不在此处,故不会因
+        // 带 conversationId 而被会话 FIFO lane 串行化(那个风险只在给副流补 inputId 时才成立)。
+        ...(opts.inputId ? { inputId: opts.inputId } : {}),
+        ...(opts.onSendAdmissionReceipt
+          ? { onSendAdmissionReceipt: opts.onSendAdmissionReceipt }
+          : {}),
         ...(opts.onPartialDone ? { onPartialDone: opts.onPartialDone } : {}),
         // D19 终端实时输出增量透传(terminal_delta):REPL 借此把命令 stdout/stderr 逐行打进终端
         ...(opts.onTerminalDelta ? { onTerminalDelta: opts.onTerminalDelta } : {}),
@@ -2572,13 +2757,35 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
       // P2-5 UsageLedger:记录本轮 token 使用(供调用方查询历史/预算状态)
       usageLedger.recordTurn(iterPromptTokens, iterCompletionTokens, iterCostUsd);
 
-      // Cost guard:超阈值立即停止,语义对齐 AGENTS.md 第 9 节 budget_limited
+      // Cost guard(2026-11-12 接线 cost-approval):
+      //   未传 costApproval ⇒ 与引入前逐字相同(到点硬停),零回归;
+      //   传了 ⇒ 走五档判定。注意 unjudged 一律按"不放行"处理 ——
+      //   量不到就不放行,失效方向恒为保守。
       if (opts.maxCostUsd !== undefined && totalCostUsd >= opts.maxCostUsd) {
-        budgetLimited = true;
-        opts.messages.push({ role: 'assistant', content: iterationText });
-        assistantText += iterationText;
-        inFlightStreamText = ''; // G-634:已落盘的内容移交完毕,结算口清零防重
-        break;
+        const verdict = opts.costApproval
+          ? decideCostApproval({
+              mandatory: opts.costApproval.mandatory,
+              failureMode: opts.costApproval.failureMode,
+              category: opts.costApproval.category,
+              balance: opts.costApproval.balance,
+              cost: totalCostUsd,
+              decision: opts.costApproval.decision,
+            })
+          : null;
+
+        // 判定结果**一律记下**(proceed 也要记):调用方要能回答"这次为什么放行/为什么停"。
+        // 只在拦截分支记录会让 proceed 变成"没有判定",而"没有判定"与"判过并放行"
+        // 对审计是两件不同的事。
+        costApprovalVerdict = verdict;
+
+        // proceed 才放行(继续循环);其余全部停 —— 包括 unjudged。
+        if (verdict === null || verdict.disposition !== 'proceed') {
+          budgetLimited = true;
+          opts.messages.push({ role: 'assistant', content: iterationText });
+          assistantText += iterationText;
+          inFlightStreamText = ''; // G-634:已落盘的内容移交完毕,结算口清零防重
+          break;
+        }
       }
 
       opts.messages.push({ role: 'assistant', content: iterationText });
@@ -2978,6 +3185,20 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
           durationMs,
           error: result.error,
         });
+        // 自动复审触发(2026-11-12):旁路,默认关闭。只判"该不该跑",不在此执行诊断本身
+        // —— 诊断要起 tsc/eslint,放在工具循环内会拖住回合。这里只累计状态并把
+        // "该审了"的事实记下,由调用方(ACP/命令层)在回合外执行。
+        {
+          const decision = shouldReview({
+            policy: reviewPolicy,
+            state: reviewState,
+            toolName: call.name,
+            succeeded: result.success,
+            now: Date.now(),
+          });
+          reviewState = decision.nextState;
+          if (decision.review) reviewDue = true;
+        }
         // P3-2 Telemetry:工具调用完成后上报(失败忽略,不影响主流程)
         trackTelemetry('tool_call_completed', {
           toolName: call.name,
@@ -3243,6 +3464,19 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
       now: Date.now(),
     });
   }
+
+  // 自动复审的真实执行(2026-11-12):只在「判据说该审了」且调用方显式开启时跑。
+  // 起子进程跑 tsc/eslint 可能数十秒,绝不能默认打开 —— 那会让每次编辑都变慢。
+  let reviewResult: ReviewAgainstBaselineResult | null = null;
+  if (reviewDue && opts.reviewExecute === true) {
+    try {
+      const diags = [...runTsc(opts.ctx.workspacePath), ...runEslint(opts.ctx.workspacePath)];
+      reviewResult = reviewAgainstBaseline(opts.ctx.workspacePath, diags);
+    } catch {
+      // 诊断自身失败不得影响回合结果 —— 复审是观测面,不是执行面。
+      reviewResult = null;
+    }
+  }
   return {
     stopReason,
     assistantText,
@@ -3255,6 +3489,22 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
       : {}),
     // G-1104166:全轮累计续写次数(没续写过 ⇒ 不带,消费方按"未发生"处理)
     ...(outputTokenContinuationsUsed > 0 ? { outputContinuationsUsed: outputTokenContinuationsUsed } : {}),
+    // 成本审批判定(只在真的触发预算闸时带,不触发则不带 —— 缺失≠通过)
+    ...(costApprovalVerdict ? { costApproval: costApprovalVerdict } : {}),
+    // 自动复审时机(只在开启且真的到点时才带)
+    ...(reviewDue ? { reviewDue: true } : {}),
+    // 自动复审结论(只在真的跑了诊断时才带 —— 缺失 = 没跑,不等于通过)
+    ...(reviewResult
+      ? {
+          review: {
+            regressed: reviewResult.verdict.regressed,
+            introducedCount: reviewResult.verdict.introduced.length,
+            preexistingCount: reviewResult.verdict.preexistingCount,
+            hadBaseline: reviewResult.hadBaseline,
+            total: reviewResult.total,
+          },
+        }
+      : {}),
   };
 }
 

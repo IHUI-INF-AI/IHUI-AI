@@ -550,32 +550,6 @@ function headersOfThrown(err: unknown): unknown {
   return (err as { headers?: unknown } | null | undefined)?.headers ?? null
 }
 
-/** F-678:上游 429 的 Retry-After 原样取出(未给 ⇒ undefined,不伪造) */
-function retryAfterOf(resp: Response): string | undefined {
-  if (resp.status !== 429) return undefined
-  return resp.headers?.get?.('retry-after') ?? undefined
-}
-
-/**
- * F-678:executeChat 路径抛错时通常不带上游状态码;按失败类别补一个等价 4xx,
- * 让「参数错 / 鉴权错 / 未知模型 / 限流」不再被一律压成 503。
- * 只补「该请求被上游明确拒绝」的四类;server/network/credit/risk/client 仍留 undefined(=503)。
- */
-function statusForFailureKind(kind: FailureKind): number | undefined {
-  switch (kind) {
-    case 'request':
-      return 400
-    case 'auth':
-      return 401
-    case 'not_found':
-      return 404
-    case 'rate':
-      return 429
-    default:
-      return undefined
-  }
-}
-
 // =============================================================================
 // 结果记录(熔断 + 亲和 + DB 计数)
 // =============================================================================
@@ -930,9 +904,6 @@ async function* readSseDataLines(
   }
   const decoder = new TextDecoder()
   let buffer = ''
-  // F-677:是否读到上游流末尾(done=true)。非正常结束(抛错 / 消费者提前 break,
-  // 如命中 [DONE])必须 cancel,否则 undici/代理连接要等对端自然结束才能归还。
-  let reachedEnd = false
   try {
     while (true) {
       const { done, value } = await reader.read()
@@ -945,22 +916,14 @@ async function* readSseDataLines(
         if (line.trimStart().startsWith('data:')) yield line
       }
     }
-    reachedEnd = true
     buffer += decoder.decode()
     const tail = buffer.replace(/\r$/, '').trimStart()
     if (tail.startsWith('data:')) yield tail
   } finally {
     signal?.removeEventListener('abort', onAbort)
-    // F-677:非正常结束才 cancel(正常读到流末尾 / abort 已取消的不重复取消);
-    // 只 releaseLock 会让 body 既未读完也未取消,连接不能立即归还。
-    if (!reachedEnd) await reader.cancel().catch(() => {})
-    // releaseLock 必须在 cancel 之后(同一次 finally 内):顺序反过来会让
-    // cancel 撞上「锁被占用」,提前释放又拿不到取消权。
-    try {
-      reader.releaseLock()
-    } catch {
-      /* 流已取消/仍有在途读:锁随流回收,无需补偿 */
-    }
+    // F-671:提前 break(命中 [DONE])也必须 cancel —— 只 releaseLock 会让 tee 的另一支
+    // 持续缓冲;客户端断开时 reader.cancel() 才会真正停止上游读取。
+    await reader.cancel().catch(() => {})
   }
 }
 
@@ -1349,8 +1312,6 @@ interface AccountAttempt {
   latencyTrusted?: boolean
   reason?: string
   httpStatus?: number
-  /** F-678:429 时上游给出的 Retry-After(原样;供对外透传) */
-  retryAfter?: string
   /**
    * 流式尝试的收尾句柄(非流式 = undefined)。
    * 有它 ⇒ 「成功」记账必须等流正常收尾才落(见 forwardToAccountPool 的 settle);
@@ -1388,24 +1349,6 @@ function toNormalized(req: UpstreamForwardRequest, rawModel: string): Normalized
   if (req.repetitionPenalty !== undefined) norm.repetitionPenalty = req.repetitionPenalty
   if (req.logitBias !== undefined) norm.logitBias = req.logitBias
   if (req.affinityKey) norm.conversationId = req.affinityKey
-  // F-672: 参数覆盖(bodyOverride)是转发前对最终 body 的改写,此前账号池腿完全忽略,
-  // 导致 set/delete/append/regex_replace 策略对账号池流量全部失效(渠道腿已生效)。
-  // 归一完成后把覆盖结果并回(与渠道腿一致,仅 model/stream 强制回填防协议字段被劫持),
-  // messages 若被覆盖则沿用既有 content 缺省归一。
-  if (req.bodyOverride) {
-    const rest: Record<string, unknown> = { ...req.bodyOverride }
-    delete rest['messages']
-    Object.assign(norm, rest)
-    norm.model = rawModel
-    norm.stream = req.stream
-    const overrideMessages = req.bodyOverride['messages']
-    if (Array.isArray(overrideMessages)) {
-      norm.messages = (overrideMessages as Array<Record<string, unknown>>).map((m) => ({
-        content: null,
-        ...m,
-      })) as NormalizedChatRequest['messages']
-    }
-  }
   return norm
 }
 
@@ -1435,7 +1378,6 @@ type AttemptFail = (
   reason: string,
   httpStatus?: number,
   backoff?: RateBackoff,
-  retryAfter?: string,
 ) => AccountAttempt
 
 /**
@@ -1535,17 +1477,9 @@ async function attemptWithAccount(
     reason: string,
     httpStatus?: number,
     backoff?: RateBackoff,
-    retryAfter?: string,
   ): AccountAttempt => {
     recordFailure(row, kind, reason, backoff, rawModel)
-    // F-678:抛错路径没有状态码时按类别补等价 4xx(否则对外一律 503)
-    return {
-      ok: false,
-      kind,
-      reason,
-      httpStatus: httpStatus ?? statusForFailureKind(kind),
-      ...(retryAfter ? { retryAfter } : {}),
-    }
+    return { ok: false, kind, reason, httpStatus }
   }
 
   // 上游模型名 = 模型目录别名映射结果(无映射原样透传);网关对外语义仍是 rawModel
@@ -1706,7 +1640,6 @@ async function attemptWithAccount(
             `刷新后仍失败: 上游 ${retryResp.status}${retryBackoff ? ` ${retryBackoff.note}` : ''}`,
             retryResp.status,
             retryBackoff,
-            retryAfterOf(retryResp),
           )
         } catch (err) {
           if ((err as Error)?.name === 'AbortError' && !req.signal?.aborted) {
@@ -1730,7 +1663,6 @@ async function attemptWithAccount(
       `上游 ${resp.status}: ${bodyText.slice(0, 200) || '(空响应体)'}${backoff ? ` ${backoff.note}` : ''}`,
       resp.status,
       backoff,
-      retryAfterOf(resp),
     )
   }
 
@@ -1832,7 +1764,6 @@ export async function forwardToAccountPool(
     )
     let lastError = 'no account candidate succeeded'
     let lastHttpStatus: number | undefined
-    let lastRetryAfter: string | undefined
 
     for (const row of candidates) {
       const adapter = getRelayAdapter(row.providerCode)
@@ -1976,7 +1907,6 @@ export async function forwardToAccountPool(
       }
       lastError = attempt.reason ?? lastError
       if (attempt.httpStatus !== undefined) lastHttpStatus = attempt.httpStatus
-      if (attempt.retryAfter) lastRetryAfter = attempt.retryAfter
       releaseOnce() // 失败号已无在途流,立即归还额度,后续请求可继续探测
       // 代理级失败(网络/上游 5xx)才计代理失败;账号级问题(auth/credit…)不动代理
       if (proxy && (attempt.kind === 'network' || attempt.kind === 'server')) {
@@ -1992,12 +1922,7 @@ export async function forwardToAccountPool(
         latencyMs: 0,
       })
     }
-    return {
-      ok: false,
-      reason: lastError,
-      lastHttpStatus,
-      ...(lastRetryAfter ? { retryAfter: lastRetryAfter } : {}),
-    }
+    return { ok: false, reason: lastError, lastHttpStatus }
   } catch {
     return null // 账号池链路任何异常 → 调用方继续回退 ai-service
   }

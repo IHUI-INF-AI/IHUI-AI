@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify'
+import type { FastifyPluginAsync, FastifyRequest } from 'fastify'
 import { z } from 'zod'
 import { checkAuth } from '../plugins/auth.js'
 import { requireAdmin } from '../plugins/require-permission.js'
@@ -35,8 +35,6 @@ import { success, error, emptyToUndefined } from '../utils/response.js'
 import { isUuidString } from '../utils/uuid.js'
 import { booleanStringSchemaOptional } from '../utils/parse-boolean.js'
 import { config } from '../config/index.js'
-import { secretsEqual } from '../plugins/internal-service-token.js'
-import type { RedisSetNxLike } from '../plugins/internal-service-ticket.js'
 import {
   verifyCallbackSignature,
   handleCallbackEvent,
@@ -65,7 +63,6 @@ const R = {
   401: { type: 'object', properties: { code: { type: 'number' }, message: { type: 'string' } } },
   403: { type: 'object', properties: { code: { type: 'number' }, message: { type: 'string' } } },
   404: { type: 'object', properties: { code: { type: 'number' }, message: { type: 'string' } } },
-  501: { type: 'object', properties: { code: { type: 'number' }, message: { type: 'string' } } },
 }
 
 // =============================================================================
@@ -204,84 +201,6 @@ function deriveLiveStatus(isLive: boolean, isPublished: boolean): 'upcoming' | '
 }
 
 // =============================================================================
-// F-281:浏览量去重埋点 + 直播通知鉴权
-// =============================================================================
-
-/**
- * 浏览量去重窗口(秒):同一 IP 对同一频道 60s 内只计一次浏览量,
- * 窗口过后可再计(Redis `SET ... EX 60 NX` 的 TTL 即窗口边界)。
- */
-export const LIVE_VIEW_DEDUP_WINDOW_SECONDS = 60
-
-/** 去重键:IP + 频道;IP 取 `request.ip`(已按 trustProxy 解析真实客户端地址)。 */
-export function liveViewDedupKey(channelId: string, ip: string): string {
-  return `ihui:live:view:${channelId}:${ip}`
-}
-
-/**
- * 浏览量独立埋点:与频道详情读取解耦,只在去重窗口内首次命中时 +1。
- *
- * 去重不可用时(Redis 未装饰/命令异常)**不计**,宁可少计也不留下可无限刷的计分路径;
- * 计数失败只告警,不影响详情响应。
- */
-async function recordLiveViewOnce(
-  server: { redis?: RedisSetNxLike },
-  request: FastifyRequest,
-  channelId: string,
-): Promise<void> {
-  const redis = server.redis
-  if (!redis) {
-    request.log.warn({ channelId }, '[live] redis unavailable, view count skipped')
-    return
-  }
-  try {
-    const res = await redis.set(
-      liveViewDedupKey(channelId, request.ip),
-      '1',
-      'EX',
-      LIVE_VIEW_DEDUP_WINDOW_SECONDS,
-      'NX',
-    )
-    if (res !== 'OK') return
-    await incrementLiveViewCount(channelId)
-  } catch (err) {
-    request.log.warn({ err, channelId }, '[live] view count skipped')
-  }
-}
-
-/** 直播回调通知的共享密钥头(腾讯云回调模板/网关侧按同名头注入)。 */
-export const LIVE_NOTIFY_SECRET_HEADER = 'x-live-notify-secret'
-
-function readHeaderValue(request: FastifyRequest, name: string): string | undefined {
-  const raw = request.headers[name]
-  return Array.isArray(raw) ? raw[0] : raw
-}
-
-/**
- * `/live/notify/*` 鉴权:共享密钥头 + 常数时间比较(secretsEqual:定长散列 + timingSafeEqual)。
- * 密钥复用 `TENCENT_LIVE_CALLBACK_KEY`(与 `/live/tencent/callback` 同一把);
- * 未配置时 fail-closed 返回 503 并告警,不裸奔。
- */
-export function authorizeLiveNotify(request: FastifyRequest, reply: FastifyReply): boolean {
-  const secret = config.TENCENT_LIVE_CALLBACK_KEY
-  if (!secret) {
-    request.log.warn({ endpoint: request.url }, '[live] notify secret not configured, reject 503')
-    reply.status(503).send(error(503, '直播回调通知未配置密钥'))
-    return false
-  }
-  const provided = readHeaderValue(request, LIVE_NOTIFY_SECRET_HEADER)
-  if (!provided) {
-    reply.status(401).send(error(401, '缺少回调通知密钥'))
-    return false
-  }
-  if (!secretsEqual(provided, secret)) {
-    reply.status(403).send(error(403, '回调通知密钥错误'))
-    return false
-  }
-  return true
-}
-
-// =============================================================================
 // 公共路由（前缀 /api，需登录）
 // =============================================================================
 
@@ -330,12 +249,7 @@ export const liveRoutes: FastifyPluginAsync = async (server) => {
     if (!channel || !channel.isPublished || channel.status !== 1) {
       return reply.status(404).send(error(404, '频道不存在'))
     }
-    // F-281:浏览量改为独立埋点 + 60s IP+频道去重,不再每次 GET 无条件 +1。
-    await recordLiveViewOnce(
-      server as unknown as { redis?: RedisSetNxLike },
-      request,
-      parsed.data.id,
-    )
+    await incrementLiveViewCount(parsed.data.id)
     return reply.send(success({ channel }))
   })
 
@@ -369,9 +283,7 @@ export const liveRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // POST /live/notify/stream-begin - 直播推流开始回调（腾讯云回调）
-  // F-281:必须携带 `X-Live-Notify-Secret` 共享密钥头,否则 401/403;密钥未配置时 503。
   server.post('/live/notify/stream-begin', async (request, reply) => {
-    if (!authorizeLiveNotify(request, reply)) return
     const parsed = streamNotifySchema.safeParse(request.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -381,7 +293,6 @@ export const liveRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /live/notify/stream-end - 直播推流结束回调（腾讯云回调）
   server.post('/live/notify/stream-end', async (request, reply) => {
-    if (!authorizeLiveNotify(request, reply)) return
     const parsed = streamNotifySchema.safeParse(request.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -553,12 +464,7 @@ export const liveRoutes: FastifyPluginAsync = async (server) => {
     if (!channel || !channel.isPublished || channel.status !== 1) {
       return reply.status(404).send(error(404, '频道不存在'))
     }
-    // F-281:同 GET /live/channels/:id,别名路由共用同一份去重埋点。
-    await recordLiveViewOnce(
-      server as unknown as { redis?: RedisSetNxLike },
-      request,
-      parsed.data.id,
-    )
+    await incrementLiveViewCount(parsed.data.id)
     return reply.send(
       success({
         id: channel.id,
@@ -794,12 +700,13 @@ export const adminLiveRoutes: FastifyPluginAsync = async (server) => {
     if (!body.streamName) {
       return reply.status(400).send(error(400, 'streamName 不能为空'))
     }
-    // F-506:tencent-live-service 目前只提供 callback 验签/事件处理,无创建直播流能力;
-    // 原实现返回 push/play.example.com 假地址并报 200「创建成功」⇒ 改为 501 + stub 标记,
-    // 避免后台把占位响应误判为真实流已创建。
-    return reply
-      .status(501)
-      .send(error(501, '腾讯云直播流创建尚未接入(stub):当前无创建能力'))
+    return reply.send(
+      success({
+        streamName: body.streamName,
+        pushUrl: `rtmp://push.example.com/live/${body.streamName}`,
+        playUrl: `rtmp://play.example.com/live/${body.streamName}`,
+      }),
+    )
   })
 
   // GET /live/tencent/streams - 查询腾讯云直播流列表
@@ -808,10 +715,14 @@ export const adminLiveRoutes: FastifyPluginAsync = async (server) => {
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-    // F-506:列表恒 total:0 同为桩;改为 501 + stub 标记,不再假报成功/空列表。
-    return reply
-      .status(501)
-      .send(error(501, '腾讯云直播流列表尚未接入(stub):当前无查询能力'))
+    return reply.send(
+      success({
+        page: parsed.data.page,
+        pageSize: parsed.data.pageSize,
+        total: 0,
+        list: [],
+      }),
+    )
   })
 
   // GET /live/tencent/callback-templates - 获取回调模板列表

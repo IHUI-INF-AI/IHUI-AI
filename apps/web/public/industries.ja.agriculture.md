@@ -201,8 +201,7 @@
   A: 農村土地データは要求に応じローカルデプロイ、データは県外に出さず、《基本農田保護条例》準拠。
 
 ### 連絡先
-- 農業業界: agriculture@aizhs.top
-- 汎用窓口: contact@aizhs.top
+- **統合連絡先メール:lizong@aizhs.top** —— 業界別ソリューション・資料請求・ビジネスはすべてこのアドレスへ。業界と用件をご記入ください。24 時間以内に返信します。
 - 公式サイト: https://aizhs.top
 - GitHub: https://github.com/IHUI-INF-AI/IHUI-AI
 

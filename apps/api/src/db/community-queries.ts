@@ -4,7 +4,6 @@
 
 import { eq, and, desc, asc, sql, ilike, or, type SQL } from 'drizzle-orm'
 import { db, dbRead } from './index.js'
-import { isUuidString } from '../utils/uuid.js'
 import {
   circles,
   circleMembers,
@@ -47,7 +46,7 @@ export async function findCircles(
       .select()
       .from(circles)
       .where(where)
-      .orderBy(desc(circles.postCount), desc(circles.createdAt), desc(circles.id))
+      .orderBy(desc(circles.postCount), desc(circles.createdAt))
       .limit(opts.pageSize)
       .offset((opts.page - 1) * opts.pageSize),
     dbRead
@@ -93,45 +92,18 @@ export async function findCircleBySlug(
 }
 
 /**
- * 圈子 slug 形态判据(票面口径 `^[a-z0-9-]{1,64}$`;`circles.slug` 列宽 120 仅留余量)。
- * 只允许小写字母/数字/连字符 —— `%`、空格、中文、大写、超长一律视为非法,不进 SQL。
- */
-export const CIRCLE_SLUG_RE = /^[a-z0-9-]{1,64}$/
-
-/** 路径参数解析结果:`id` 段按主键查,`slug` 段按 slug 查。 */
-export type CircleIdentifier = { kind: 'id'; value: string } | { kind: 'slug'; value: string }
-
-/**
- * F-336:圈子路径参数的**唯一**判定口径。
- *
- * 规则:纯数字或 UUID 形态 → 按 id;合法 slug(`CIRCLE_SLUG_RE`)→ 按 slug;
- * 其余(含 `%`、空格、超长、大写等)→ `null`,调用方据此回 400,且不产生任何查询。
- *
- * 注:`circles.id` 是 uuid 列,纯数字串不可能是合法 uuid 字面量,查询层会对
- * "id 但不是 uuid" 直接判不存在,避免 Postgres 22P02 把 404 变成 500。
- */
-export function parseCircleIdentifier(raw: string): CircleIdentifier | null {
-  if (/^\d+$/.test(raw)) return { kind: 'id', value: raw }
-  if (isUuidString(raw)) return { kind: 'id', value: raw }
-  if (CIRCLE_SLUG_RE.test(raw)) return { kind: 'slug', value: raw }
-  return null
-}
-
-/**
- * 根据 id 或 slug 查询圈子。判定口径见 `parseCircleIdentifier`。
+ * 根据 id 或 slug 查询圈子。优先按 UUID 查找，再按 slug 查找。
  */
 export async function findCircleByIdOrSlug(
   idOrSlug: string,
   opts: FindCircleOpts = {},
 ): Promise<Circle | undefined> {
-  const ident = parseCircleIdentifier(idOrSlug)
-  if (!ident) return undefined
-  if (ident.kind === 'id') {
-    // 纯数字 id 不是 uuid 字面量:喂给 `uuid` 列会抛 22P02 ⇒ 直接判不存在(404,不查询)。
-    if (!isUuidString(ident.value)) return undefined
-    return findCircleById(ident.value, opts)
+  // UUID 格式：直接按 id 查
+  const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+  if (uuidRe.test(idOrSlug)) {
+    return findCircleById(idOrSlug, opts)
   }
-  return findCircleBySlug(ident.value, opts)
+  return findCircleBySlug(idOrSlug, opts)
 }
 
 /**
@@ -233,7 +205,7 @@ export async function findCirclePosts(
       .from(circlePosts)
       .leftJoin(users, eq(users.id, circlePosts.userId))
       .where(where)
-      .orderBy(desc(circlePosts.isPinned), desc(circlePosts.createdAt), desc(circlePosts.id))
+      .orderBy(desc(circlePosts.isPinned), desc(circlePosts.createdAt))
       .limit(opts.pageSize)
       .offset((opts.page - 1) * opts.pageSize),
     dbRead
@@ -265,16 +237,32 @@ export async function isCircleMember(circleId: string, userId: string): Promise<
 }
 
 /**
- * 按 id 读帖。传 viewer 时叠加可见性过滤(F-335):作者/关注者/管理员/公开帖各有口径;
- * 不传 viewer 保持旧口径(管理端审核、属主编辑/删除等内部路径)。
+ * 按 id 读帖(用户读面)。
+ * 传 viewer 时叠加可见性过滤(F-335):作者/关注者/管理员/公开帖各有口径。
+ * F-176:始终带 status=1 —— 已下架/待审核/已软删的帖子按"不存在"处理(404),
+ * 与列表读档(仅 status=1)对齐。管理端要读已下架行时用 findPostByIdForAdmin。
  */
 export async function findPostById(
   id: string,
   viewer?: PostViewer,
 ): Promise<CirclePost | undefined> {
+  const conds = [eq(circlePosts.id, id), eq(circlePosts.status, 1)]
   const vis = viewer ? postVisibilityCondition(viewer) : undefined
-  const where = vis ? and(eq(circlePosts.id, id), vis) : eq(circlePosts.id, id)
-  const rows = await dbRead.select().from(circlePosts).where(where).limit(1)
+  if (vis) conds.push(vis)
+  const rows = await dbRead
+    .select()
+    .from(circlePosts)
+    .where(and(...conds))
+    .limit(1)
+  return rows[0]
+}
+
+/**
+ * 管理端按 id 读帖(F-176):不过滤 status,管理端审核/软删/评论审计仍可看到已下架内容。
+ * 只有管理端与内部审计路径可以使用本函数,对外读面必须走 findPostById。
+ */
+export async function findPostByIdForAdmin(id: string): Promise<CirclePost | undefined> {
+  const rows = await dbRead.select().from(circlePosts).where(eq(circlePosts.id, id)).limit(1)
   return rows[0]
 }
 
@@ -405,7 +393,7 @@ export async function findAsks(
       .from(asks)
       .leftJoin(users, eq(users.id, asks.userId))
       .where(where)
-      .orderBy(desc(asks.createdAt), desc(asks.id))
+      .orderBy(desc(asks.createdAt))
       .limit(opts.pageSize)
       .offset((opts.page - 1) * opts.pageSize),
     dbRead
@@ -416,6 +404,11 @@ export async function findAsks(
   return { list, total: Number(totalRows[0]?.count ?? 0) }
 }
 
+/**
+ * 按 id 读问答(用户读面)。
+ * F-176:带 status=1 —— 已下架/已软删的问答按"不存在"处理(404),与列表读档对齐。
+ * 管理端问答详情(admin-asks.ts)自行直查 db,不依赖本函数,故无需另开不过滤变体。
+ */
 export async function findAskById(
   id: string,
 ): Promise<(Ask & { authorName: string | null }) | undefined> {
@@ -438,7 +431,7 @@ export async function findAskById(
     .select(cols)
     .from(asks)
     .leftJoin(users, eq(users.id, asks.userId))
-    .where(eq(asks.id, id))
+    .where(and(eq(asks.id, id), eq(asks.status, 1)))
     .limit(1)
   return rows[0]
 }
@@ -535,7 +528,7 @@ export async function findAskAnswers(
       .from(askAnswers)
       .leftJoin(users, eq(users.id, askAnswers.userId))
       .where(where)
-      .orderBy(desc(askAnswers.isAccepted), desc(askAnswers.likeCount), asc(askAnswers.createdAt), asc(askAnswers.id))
+      .orderBy(desc(askAnswers.isAccepted), desc(askAnswers.likeCount), asc(askAnswers.createdAt))
       .limit(opts.pageSize)
       .offset((opts.page - 1) * opts.pageSize),
     dbRead
@@ -579,7 +572,10 @@ export async function acceptAnswer(
   userId: string,
 ): Promise<AskAnswer | undefined> {
   const answer = await findAnswerById(answerId)
-  if (!answer) return undefined
+  // F-571:回答列表读路径只展示 status=1,写路径此前复用无 status 条件的详情查询,
+  // 已软删(status=-1)回答仍可被采纳 → 问题被标记已解决却无可采纳答案,
+  // 且会清空其它正常回答的 isAccepted。先按 status 闸掉所有写操作。
+  if (!answer || answer.status !== 1) return undefined
   const ask = await findAskById(answer.askId)
   if (!ask || ask.userId !== userId) return undefined
 
@@ -589,12 +585,13 @@ export async function acceptAnswer(
     .set({ isAccepted: false })
     .where(and(eq(askAnswers.askId, ask.id), eq(askAnswers.isAccepted, true)))
 
-  // 置当前答案为 accepted
+  // 置当前答案为 accepted(F-571:更新条件同样带 status,防副本读到旧值后的并发软删)
   const rows = await db
     .update(askAnswers)
     .set({ isAccepted: true })
-    .where(eq(askAnswers.id, answerId))
+    .where(and(eq(askAnswers.id, answerId), eq(askAnswers.status, 1)))
     .returning()
+  if (!rows[0]) return undefined
 
   // 标记问题已解决
   await db.update(asks).set({ isResolved: true, updatedAt: new Date() }).where(eq(asks.id, ask.id))

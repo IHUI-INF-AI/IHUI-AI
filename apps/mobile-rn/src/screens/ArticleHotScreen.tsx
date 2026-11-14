@@ -17,7 +17,7 @@ import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { Eye, Flame, Newspaper } from 'lucide-react-native'
 import { listHotArticles, resolveFileUrl } from '@ihui/api-client'
-import { apiFailureToText } from '@ihui/shared/utils'
+import { apiFailureToText, toFriendlyOr } from '@ihui/shared/utils'
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { tokens } from '../theme/active-tokens'
 import { NavBar } from '../components/NavBar'
@@ -66,7 +66,7 @@ export default function ArticleHotScreen() {
         if (!res.success) throw new Error(apiFailureToText(res, t('articleHot.loadFailed')))
         setItems(res.data?.list ?? [])
       } catch (e) {
-        setError(e instanceof Error ? e.message : t('articleHot.loadFailed'))
+        setError(toFriendlyOr(e, t('articleHot.loadFailed')))
       } finally {
         setLoading(false)
         setRefreshing(false)
@@ -189,7 +189,7 @@ const styles = StyleSheet.create({
   body: { padding: rnSpacing.md, paddingBottom: rnSpacing['3xl'], gap: rnSpacing.sm },
   subtitle: {
     fontSize: rnType.label.size,
-    color: tokens.text.tertiary,
+    color: tokens.text.medium,
     marginBottom: rnSpacing['2xs'],
   },
   stateBox: {
@@ -208,7 +208,7 @@ const styles = StyleSheet.create({
     borderColor: tokens.danger.DEFAULT,
     backgroundColor: tokens.surface.card,
   },
-  errorText: { fontSize: rnType.label.size, color: tokens.danger.DEFAULT },
+  errorText: { fontSize: rnType.label.size, color: tokens.danger.deepText },
   retryBtn: {
     alignSelf: 'flex-start',
     paddingHorizontal: rnSpacing['md-loose'],
@@ -237,7 +237,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.bg,
   },
   rankTop: { backgroundColor: tokens.surface.chrome },
-  rankText: { fontSize: rnType.body.size, fontWeight: '700', color: tokens.text.tertiary },
+  rankText: { fontSize: rnType.body.size, fontWeight: '700', color: tokens.text.medium },
   rankTextTop: { color: tokens.brandAccent.deep },
   rowMain: { flex: 1, gap: 3 },
   title: { fontSize: rnType.body.size, fontWeight: '600', color: tokens.text.primary },
@@ -248,7 +248,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: rnSpacing['sm-loose'],
   },
-  meta: { fontSize: rnType.caption.size, color: tokens.text.tertiary },
+  meta: { fontSize: rnType.caption.size, color: tokens.text.medium },
   viewMeta: { flexDirection: 'row', alignItems: 'center', gap: 3 },
   cover: {
     width: 72,

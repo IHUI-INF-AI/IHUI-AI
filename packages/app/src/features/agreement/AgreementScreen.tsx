@@ -116,14 +116,14 @@ export function AgreementScreen({
             <View style={styles.card}>
               {agreement.version ? (
                 <View style={styles.metaItem}>
-                  <Tag size={13} color={tk.text.tertiary} strokeWidth={2} />
+                  <Tag size={13} color={tk.text.secondary} strokeWidth={2} />
                   <Text style={styles.metaLabel}>{t('agreement.version')}</Text>
                   <Text style={styles.metaValue}>{agreement.version}</Text>
                 </View>
               ) : null}
               {agreement.effectiveDate ? (
                 <View style={styles.metaItem}>
-                  <Calendar size={13} color={tk.text.tertiary} strokeWidth={2} />
+                  <Calendar size={13} color={tk.text.secondary} strokeWidth={2} />
                   <Text style={styles.metaLabel}>{t('agreement.effectiveDate')}</Text>
                   <Text style={styles.metaValue}>
                     {formatEffectiveDate(agreement.effectiveDate)}

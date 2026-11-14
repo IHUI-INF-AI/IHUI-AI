@@ -1096,21 +1096,6 @@ export async function readBinaryFile(path: string): Promise<ReadBinaryResult> {
   return await invokeIpc<ReadBinaryResult>('read_binary_file', { path })
 }
 
-/**
- * 在系统文件管理器中定位文件/目录(桌面端 open-in-app,2026-11-14)。
- * 宿主只接受 app_data_dir 或已授权工作区根内的绝对路径,越界会抛 `DesktopIpcError`。
- */
-export async function revealInExplorer(path: string): Promise<void> {
-  requireTauri()
-  await invokeIpc('reveal_in_explorer', { path })
-}
-
-/** 用系统默认应用打开文件(桌面端;边界同 `revealInExplorer`)。 */
-export async function openWithDefaultApp(path: string): Promise<void> {
-  requireTauri()
-  await invokeIpc('open_with_default_app', { path })
-}
-
 /** 写入文本文件(覆盖)。父目录不存在时自动创建。非 Tauri 环境抛错。 */
 export async function writeTextFile(path: string, content: string): Promise<void> {
   requireTauri()
@@ -2098,14 +2083,15 @@ export interface WorkbuddyWebLoginAccount {
 }
 
 /** WorkBuddy 网页登录探测结果(与 Rust `WebLoginProbe` tag= status 逐态对齐)。
- *  2026-10-18:`not_logged_in` 带 message(Cookie 无效/已过期的原因,如实告知用户)。 */
+ *  2026-10-18:`not_logged_in` 带 message(Cookie 无效/已过期的原因,如实告知用户)。
+ *  2026-11-12 F-060:ok 回包**不再含 cookie**(会话 Cookie 不出 Rust:jar 路径由
+ *  Rust 现读现投后端,粘贴路径入库用 JS 侧本地草稿)。 */
 export type WorkbuddyWebLoginProbe =
   | { status: 'no_window' }
   | { status: 'no_cookie' }
   | { status: 'not_logged_in'; message?: string }
   | {
       status: 'ok'
-      cookie: string
       accounts: WorkbuddyWebLoginAccount[]
       /** 网页登录态能否驱动签到接口(实测;undefined=网络原因未判定) */
       cookie_checkin_ok?: boolean

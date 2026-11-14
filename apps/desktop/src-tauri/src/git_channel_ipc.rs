@@ -212,12 +212,6 @@ impl GitChannelState {
             .clone()
     }
 
-    /// 已授权工作区根(供 open-in-app 等只读宿主能力校验路径边界)。
-    /// 前端依旧不能自报 root:这里只返回宿主状态里已证明过的那个根。
-    pub fn authorized_root_path(&self) -> Option<std::path::PathBuf> {
-        self.stored_root().map(std::path::PathBuf::from)
-    }
-
     /// 授权边界自述（前端/日志可读，便于事后核对"这一通道到底信了什么"）。
     pub fn boundary_note(&self) -> String {
         format!(
