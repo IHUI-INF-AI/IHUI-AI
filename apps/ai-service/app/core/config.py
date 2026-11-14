@@ -687,10 +687,13 @@ def resolve_egress_facts(url: str, env: "Mapping[str, str] | None" = None) -> di
     raw_proxy = (values.get("PROXY_URL") or "").strip()
     configured = raw_proxy.startswith("http://") or raw_proxy.startswith("https://")
 
-    # 内网/本机地址永不走代理(与 TS 侧 isInternalHostname 逐条等值)
+    # 内网/本机地址永不走代理(与 TS 侧 isInternalHostname 逐条等值)。
+    # 第五遍对标:回环按整段 127.0.0.0/8 判,并补齐 0.0.0.0 与 IPv4 映射写法。
     internal = parseable and (
-        hostname in ("localhost", "127.0.0.1", "::1")
+        hostname in ("localhost", "127.0.0.1", "0.0.0.0", "::1")
         or hostname.endswith(".local")
+        or hostname.startswith("127.")
+        or hostname.startswith("::ffff:127.")
         or _EGRESS_INTERNAL_HOSTNAME_RE.match(hostname) is not None
     )
 
@@ -706,7 +709,7 @@ def resolve_egress_facts(url: str, env: "Mapping[str, str] | None" = None) -> di
         hostname == d or hostname.endswith("." + d) for d in domains
     )
 
-    # NO_PROXY 命中判定:只作为**事实**回来,不改变代理决策(改路由是另一张票)。
+    # NO_PROXY 命中判定(第五遍对标起参与**路由**):命中即直连,与标准代理语义一致。
     # 第一个"已设置"的变量名即定案(大小写两档在部分客户端语义不同,名字本身是事实)。
     no_proxy_matched = False
     no_proxy_var: str | None = None
@@ -723,7 +726,9 @@ def resolve_egress_facts(url: str, env: "Mapping[str, str] | None" = None) -> di
                 no_proxy_matched = True
             break
 
-    proxied = bool(configured and parseable and not internal and allowlisted)
+    proxied = bool(
+        configured and parseable and not internal and allowlisted and not no_proxy_matched
+    )
     if proxied:
         policy_declined: str | None = None
     elif not parseable:
@@ -732,6 +737,8 @@ def resolve_egress_facts(url: str, env: "Mapping[str, str] | None" = None) -> di
         policy_declined = "proxy-unconfigured"
     elif internal:
         policy_declined = "internal-host"
+    elif no_proxy_matched:
+        policy_declined = "no-proxy-match"
     else:
         policy_declined = "domain-not-in-table"
 

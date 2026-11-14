@@ -52,8 +52,9 @@ describe('F-716 NO_PROXY / no_proxy 双变体合并匹配', () => {
     // 修复前:第一个已配置的 NO_PROXY 不含该主机即 return false,这里恒红
     expect(openai.noProxyMatched).toBe(true)
     expect(openai.noProxyVar).toBe('no_proxy')
-    // NO_PROXY 命中仍只是"事实",不改代理路由(改路由是另一张票)
-    expect(openai.proxied).toBe(true)
+    // 第五遍对标(2026-11-14):NO_PROXY 命中参与路由 ⇒ 直连,并给出结构化原因
+    expect(openai.proxied).toBe(false)
+    expect(openai.policyDeclined).toBe('no-proxy-match')
   })
 
   it('两变体都未命中:不命中,代理照常走', () => {

@@ -114,14 +114,42 @@ describe('collectEgressFacts —— 判据与路由同源', () => {
     expect(facts.policyDeclined).toBe('url-unparseable')
   })
 
-  it('NO_PROXY 命中只作为**事实**回来,不改变路由(改路由是另一张票)', () => {
+  it('NO_PROXY 命中 ⇒ 直连,并给出 no-proxy-match(标准代理语义)', () => {
     process.env.PROXY_URL = 'http://127.0.0.1:7897'
     process.env.NO_PROXY = 'openai.com'
     const facts = collectEgressFacts('https://api.openai.com/v1/models')
     expect(facts.noProxyMatched).toBe(true)
     expect(facts.noProxyVar).toBe('NO_PROXY')
-    // 这一对(proxied=true ∧ noProxyMatched=true)正是"配了却不生效"的可诊断指纹
-    expect(facts.proxied).toBe(true)
+    expect(facts.proxied).toBe(false)
+    expect(facts.policyDeclined).toBe('no-proxy-match')
+  })
+
+  it('NO_PROXY 未命中 ⇒ 代理照常;`*` ⇒ 全部直连', () => {
+    process.env.PROXY_URL = 'http://127.0.0.1:7897'
+    process.env.NO_PROXY = 'foo.com'
+    const miss = collectEgressFacts('https://api.openai.com/v1/models')
+    expect(miss.noProxyMatched).toBe(false)
+    expect(miss.proxied).toBe(true)
+    expect(miss.policyDeclined).toBe(null)
+
+    process.env.NO_PROXY = '*'
+    const all = collectEgressFacts('https://api.openai.com/v1/models')
+    expect(all.proxied).toBe(false)
+    expect(all.policyDeclined).toBe('no-proxy-match')
+  })
+
+  it('回环整段直连:127.0.0.0/8、0.0.0.0、IPv6 与 IPv4 映射写法', () => {
+    process.env.PROXY_URL = 'http://127.0.0.1:7897'
+    process.env.PROXY_DOMAINS = '127.5.5.5,::1'
+    for (const url of [
+      'http://127.5.5.5:3000/x',
+      'http://0.0.0.0:3000/x',
+      'http://[::1]:3000/x',
+    ]) {
+      const facts = collectEgressFacts(url)
+      expect(facts.proxied).toBe(false)
+      expect(facts.policyDeclined).toBe('internal-host')
+    }
   })
 
   it('环境变量只带名字、不带值;CA 状态单独一档', () => {
