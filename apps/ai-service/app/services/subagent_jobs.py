@@ -1,6 +1,6 @@
 # © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-# [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌‌​‌‍‍​‌​​​​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​​‌​‍⁠
+# [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 """可续跑 subagent 作业台(2026-11-14 立,对标 DSH dsh-subagent 的 continuable 语义)。
 
@@ -280,3 +280,55 @@ async def send_job(
         parent_job_id=job.job_id,
         lineage_id=job.lineage_id,
     )
+
+
+async def cancel_job(
+    job_id: str, *, user_id: str | None, session_id: str | None
+) -> dict[str, Any]:
+    """中断运行中的作业(对标 DSH subagent-control 的 interrupt)。
+
+    取消是减害动作:先查归属,再交给 background_task_manager.cancel
+    (置协作信号 → kill 子进程 → cancel asyncio 任务),有界等待 runner 落终态。
+    已终态作业不改写(避免把成功翻成取消),返回 SUBAGENT_ALREADY_FINISHED。
+    """
+    job = _jobs.get(job_id)
+    if job is None or not user_id or job.user_id != user_id:
+        return {
+            "ok": False,
+            "errorCode": "SUBAGENT_NOT_FOUND",
+            "error": "作业不存在或无权访问",
+        }
+    if session_id is not None and job.session_id not in (None, session_id):
+        return {
+            "ok": False,
+            "errorCode": "SUBAGENT_NOT_FOUND",
+            "error": "作业不存在或无权访问",
+        }
+    if job.finished:
+        return {
+            "ok": False,
+            "errorCode": "SUBAGENT_ALREADY_FINISHED",
+            "error": "作业已结束,无需 cancel",
+            "job": job.to_dict(),
+        }
+    ack: dict[str, Any] = {}
+    if job.bg_task_id:
+        ack = await background_task_manager.cancel(job.bg_task_id)
+    deadline = asyncio.get_running_loop().time() + 5.0
+    while not job.finished and asyncio.get_running_loop().time() < deadline:
+        await asyncio.sleep(_POLL_S)
+    if not job.finished and ack.get("ok"):
+        # 任务可能在首次调度前就被取消(asyncio.create_task 尚未执行 _runner),
+        # 此时 _runner 的 finally 永远不会跑;后台记录已 claim CANCELLED,以此落账,
+        # 否则作业会永远停在 running(list/wait 都会骗调用方"还在跑")。
+        job.cancelled = True
+        job.error = job.error or "作业被取消"
+        job.finished = True
+    payload = job.to_dict()
+    return {
+        "ok": True,
+        "cancelled": payload["status"] == _JOB_STATUS_CANCELLED,
+        "job": payload,
+        "detail": ack,
+    }
+# ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

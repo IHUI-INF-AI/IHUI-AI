@@ -1,6 +1,6 @@
 # © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-# [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌‌​‌‍‍​‌​​​​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​​‌​‍⁠
+# [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 """可续跑 subagent 作业台契约(2026-11-14 立,对标 DSH continuable subagent)。
 
@@ -155,3 +155,82 @@ async def test_ownership_is_enforced() -> None:
     missing = await jobs.wait_job("no-such", user_id="u1", session_id="s1", wait_s=0.1)
     assert missing["errorCode"] == denied["errorCode"]
     await jobs.wait_job(job_id, user_id="u1", session_id="s1", wait_s=3)
+
+
+@pytest.mark.asyncio
+async def test_cancel_running_job_marks_cancelled() -> None:
+    async def _forever():
+        await asyncio.sleep(30)
+        return {"ok": True}
+
+    started = await jobs.start_job(
+        name="runaway", task="跑不停", user_id="u1", session_id="s1", invoker=_forever
+    )
+    job_id = started["job"]["job_id"]
+
+    out = await jobs.cancel_job(job_id, user_id="u1", session_id="s1")
+
+    assert out["ok"] is True
+    assert out["cancelled"] is True
+    assert out["job"]["status"] == "cancelled"
+    assert jobs.get_job(job_id).finished is True
+
+
+@pytest.mark.asyncio
+async def test_cancel_finished_job_is_rejected() -> None:
+    started = await jobs.start_job(
+        name="fast", task="马上完成", user_id="u1", session_id="s1",
+        invoker=_ok_invoker("done"),
+    )
+    job_id = started["job"]["job_id"]
+    await jobs.wait_job(job_id, user_id="u1", session_id="s1", wait_s=3)
+
+    out = await jobs.cancel_job(job_id, user_id="u1", session_id="s1")
+
+    assert out["ok"] is False
+    assert out["errorCode"] == "SUBAGENT_ALREADY_FINISHED"
+    assert out["job"]["status"] == "succeeded"
+
+
+@pytest.mark.asyncio
+async def test_cancel_respects_ownership() -> None:
+    async def _forever():
+        await asyncio.sleep(30)
+
+    started = await jobs.start_job(
+        name="r", task="t", user_id="u1", session_id="s1", invoker=_forever
+    )
+    job_id = started["job"]["job_id"]
+
+    denied = await jobs.cancel_job(job_id, user_id="u2", session_id="s1")
+    assert denied["ok"] is False
+    assert denied["errorCode"] == "SUBAGENT_NOT_FOUND"
+
+    await jobs.cancel_job(job_id, user_id="u1", session_id="s1")
+
+
+@pytest.mark.asyncio
+async def test_mcp_subagent_job_cancel_action() -> None:
+    """工具面接线:cancel 动作经 handler 直达作业台(不是只在服务层可用)。"""
+    from app.services.mcp_server import _tool_subagent_job
+
+    async def _forever():
+        await asyncio.sleep(30)
+
+    started = await jobs.start_job(
+        name="r", task="t", user_id="u1", session_id="s1", invoker=_forever
+    )
+    out = await _tool_subagent_job(
+        {
+            "action": "cancel",
+            "job_id": started["job"]["job_id"],
+            "__user_id": "u1",
+            "__session_id": "s1",
+        }
+    )
+
+    assert out["action"] == "cancel"
+    assert out["ok"] is True
+    assert out["cancelled"] is True
+    assert out["job"]["status"] == "cancelled"
+# ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
