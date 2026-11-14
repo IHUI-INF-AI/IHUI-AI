@@ -206,12 +206,15 @@ export default function InformationItem({
           </View>
           <View style={{ display: 'flex', flexDirection: 'row', gap: rpx(16) }}>
             <Image
+              ariaLabel={tt('modelRecord.copy', '复制')}
               style={{ width: '22rpx', height: '22rpx', color: 'var(--color-muted-foreground)' }}
               src={copyIcon}
               mode="aspectFit"
               onClick={handleCopyClick}
             />
             <LineIcon
+              ariaRole="button"
+              ariaLabel={tt('share.title', '分享')}
               name="share-2"
               size={22}
               color="var(--color-muted-foreground)"

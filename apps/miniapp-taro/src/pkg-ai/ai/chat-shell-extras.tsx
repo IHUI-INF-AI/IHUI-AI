@@ -247,6 +247,7 @@ export function buildChatShellProps(ctx: ChatShellCtx): ChatScreenProps {
           </Text>
         </View>
         <Image
+          ariaLabel={t('ai.history.title')}
           src={fileIcon}
           className="nav-history w-[30rpx] h-[30rpx]"
           mode="aspectFit"
@@ -299,6 +300,8 @@ export function buildChatShellProps(ctx: ChatShellCtx): ChatScreenProps {
         <View className="material-tag">
           <Text className="material-tag-text">{selectedMaterial.title}</Text>
           <LineIcon
+            ariaRole="button"
+            ariaLabel={t('a11y.closeTag')}
             name="x"
             size={32}
             color="var(--color-muted-foreground)"
@@ -403,12 +406,15 @@ export function buildChatShellProps(ctx: ChatShellCtx): ChatScreenProps {
     <View className="input-box-content safe-area-bottom">
       <View className="tool-icons">
         <Image
+          ariaLabel={t('ai.materialPopup.title')}
           src={floderInputIcon}
           className="tool-icon w-[40rpx] h-[40rpx]"
           mode="aspectFit"
           onClick={openMaterialDrawer}
         />
         <LineIcon
+          ariaRole="button"
+          ariaLabel={t('aiSkill.title')}
           name="brain"
           size={40}
           color="var(--color-muted-foreground)"
@@ -634,6 +640,8 @@ export function buildChatShellProps(ctx: ChatShellCtx): ChatScreenProps {
                 {t('ai.chatMessageItem.thinkingProcess')}
               </Text>
               <LineIcon
+                ariaRole="button"
+                ariaLabel={t('a11y.close')}
                 name="x"
                 size={32}
                 color="var(--color-muted-foreground)"

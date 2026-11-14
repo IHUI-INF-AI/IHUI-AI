@@ -70,6 +70,8 @@ export default function MessageVersionMenu({
   return (
     <View className="inline-flex items-center gap-xs rounded-md bg-muted/60 px-sm py-[4rpx]">
       <View
+        ariaRole="button"
+        ariaLabel={t('modelRecord.prev')}
         className="inline-flex items-center px-xs"
         onClick={() => step(prev)}
         hoverClass="opacity-60"
@@ -84,6 +86,8 @@ export default function MessageVersionMenu({
         {pos.index + 1}/{pos.total}
       </Text>
       <View
+        ariaRole="button"
+        ariaLabel={t('modelRecord.next')}
         className="inline-flex items-center px-xs"
         onClick={() => step(next)}
         hoverClass="opacity-60"

@@ -322,6 +322,7 @@ function MaterialCards({
               style={{ marginRight: rpx(12) }}
             >
               <Image
+                ariaLabel={tt('a11y.close', '关闭')}
                 src={closeInputPng}
                 mode="widthFix"
                 className="material-card-close"
@@ -1451,6 +1452,7 @@ export default function Index() {
             >
               <View className="titlebox-right">
                 <Image
+                  ariaLabel={tt('share.title', '分享')}
                   className="share-image"
                   style={{ width: rpx(80), height: rpx(80) }}
                   src={aizhsUrl('remote-images/share_zhuanmi.png')}
@@ -1935,6 +1937,7 @@ export default function Index() {
               <Image src={SHARE_ZHZ_IMG} style={{ width: rpx(440) }} mode="widthFix" />
               {/* 分享按钮(对齐原项目 popup-share-btn,open-type="share" 用于微信小程序) */}
               <Button
+                ariaLabel={tt('share.title', '分享')}
                 openType="share"
                 className="absolute inset-0 w-full h-full"
                 style={{ opacity: 0, zIndex: 10 }}
@@ -1965,6 +1968,7 @@ export default function Index() {
               hoverClass="opacity-60"
             >
               <Image
+                ariaLabel={tt('vipScreen.qr.hint', '长按二维码保存到相册')}
                 src={QRCODE_IMG}
                 style={{ width: rpx(480), height: rpx(480), borderRadius: rnRadius.lg }}
                 mode="aspectFit"

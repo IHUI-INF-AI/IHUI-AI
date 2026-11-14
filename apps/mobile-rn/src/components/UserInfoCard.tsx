@@ -231,7 +231,13 @@ function UserInfoCardNew({
     <View style={newStyles.card}>
       {/* 顶部:头像 + 昵称/角色 */}
       <View style={newStyles.header}>
-        <TouchableOpacity style={newStyles.avatarWrap} activeOpacity={0.8} onPress={onEdit}>
+        <TouchableOpacity
+          style={newStyles.avatarWrap}
+          activeOpacity={0.8}
+          onPress={onEdit}
+          accessibilityRole="button"
+          accessibilityLabel={t('lp.changeAvatarA11y')}
+        >
           {hasAvatarUrl ? (
             <Image source={{ uri: avatar }} style={newStyles.avatar} />
           ) : (
