@@ -5,7 +5,7 @@
 
 import { useQuery } from '@tanstack/react-query'
 import { getLiveExchangeRates } from '@ihui/api-client'
-import { setFxSnapshot } from '@/lib/display-currency'
+import { setFxSnapshot, writeFxSnapshotCookie } from '@/lib/display-currency'
 
 /**
  * 实时汇率查询(2026-11-14 立)。
@@ -13,6 +13,9 @@ import { setFxSnapshot } from '@/lib/display-currency'
  * 拉取 `/api/exchange-rates/live` 并写入展示层模块快照;5 分钟内复用缓存,
  * 每 10 分钟后台刷新。接口失败时返回 null —— 格式化函数会降级为原币种,
  * 不按写死汇率造假数字。
+ *
+ * 同时把快照写进 cookie:服务端首屏(SSR 直出的静态金额)能按同一份汇率换算,
+ * 刷新/切换货币后不会回落到原币种。
  */
 export function useExchangeRates() {
   return useQuery({
@@ -20,6 +23,7 @@ export function useExchangeRates() {
     queryFn: async () => {
       const rates = await getLiveExchangeRates()
       setFxSnapshot(rates)
+      writeFxSnapshotCookie(rates)
       return rates
     },
     staleTime: 5 * 60_000,
