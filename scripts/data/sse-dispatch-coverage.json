@@ -74,7 +74,6 @@
       "onAgentDelta": "no-agent-delta-ui",
       "onBudget": "no-budget-ui",
       "onFallback": "no-fallback-ui",
-      "onQuestion": "no-question-ui",
       "onReconnect": "no-reconnect-ui",
       "onSubagentEnd": "no-subagent-ui",
       "onSubagentProgress": "no-subagent-ui",
@@ -83,8 +82,7 @@
       "onFrameWatermarkFacts": "no-frame-watermark-diagnostics",
       "onHookFailure": "no-hook-failure-ui",
       "onReviewFinding": "no-review-finding-ui",
-      "onRecoveryGateLedger": "no-recovery-gate-ledger-consumer",
-      "onQuestionResolved": "2026-11-13:本端无提问卡 UI 也无作答通道(全端 grep onQuestion/questionCard/PendingQuestion 零命中),question(提问)帧本身就未接 —— 只接 question-resolved 会得到一个「没有任何提问可结算」的回调,属于造空槽。解阻判据:该端补出提问卡 + 作答续流后,与 web/miniapp-taro/mobile-rn 同批接onQuestion 与 onQuestionResolved(四条 status 语义已在共享解析层单一持有,端内不再判值域)。"
+      "onRecoveryGateLedger": "no-recovery-gate-ledger-consumer"
     },
     "miniapp-taro": {
       "onConfigWarning": "no-stream-alert-ui",
