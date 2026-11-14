@@ -5,7 +5,7 @@
 import { useTt } from '@/i18n'
 import { View, Text } from '@tarojs/components'
 import Taro, { useDidShow, usePullDownRefresh } from '@tarojs/taro'
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import { listRecurringContracts, cancelRecurringContract, type WechatPayContract } from '@/api'
 import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import { formatDateByTemplate } from '@ihui/shared'
@@ -46,7 +46,10 @@ export default function SubscriptionContractsPage() {
     return map[status] || status
   }
 
+  const inFlightRef = useRef(false)
   const load = useCallback(async () => {
+    if (inFlightRef.current) return
+    inFlightRef.current = true
     setLoading(true)
     try {
       const res = await listRecurringContracts()
@@ -54,6 +57,7 @@ export default function SubscriptionContractsPage() {
     } catch {
       setList([])
     } finally {
+      inFlightRef.current = false
       setLoading(false)
     }
   }, [])

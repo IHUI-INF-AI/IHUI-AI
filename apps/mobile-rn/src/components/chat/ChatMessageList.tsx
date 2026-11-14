@@ -645,9 +645,13 @@ export function ChatMessageItem({
                 style={styles.msgActionBtn}
                 hitSlop={8}
                 onPress={() => {
-                  void Share.share({ message: item.content }).then(() => {
-                    void maybeTriggerFirstShareReward()
-                  })
+                  void Share.share({ message: item.content })
+                    .then(() => {
+                      void maybeTriggerFirstShareReward()
+                    })
+                    .catch(() => {
+                      /* share cancelled or system share sheet unavailable */
+                    })
                 }}
                 accessibilityRole="button"
                 accessibilityLabel={t('chat.msg.share2')}

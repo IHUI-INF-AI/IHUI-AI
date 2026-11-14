@@ -321,21 +321,30 @@ function MaterialCards({
               className="material-card-item"
               style={{ marginRight: rpx(12) }}
             >
-              <Image
-                ariaLabel={tt('a11y.close', '关闭')}
-                src={closeInputPng}
-                mode="widthFix"
+              {/* 命中区与视觉图标分离:图标仍 32rpx、中心仍在卡片角 +8rpx,
+                  但可点盒子扩到 88rpx(=44px)满足最小触摸目标;卡片本体无可点 handler,不会遮挡。 */}
+              <View
                 className="material-card-close"
-                style={{
-                  width: rpx(32),
-                  height: rpx(32),
-                  position: 'absolute',
-                  top: rpx(-8),
-                  right: rpx(-8),
-                  zIndex: 2,
-                }}
+                ariaRole="button"
+                ariaLabel={tt('a11y.close', '关闭')}
+                hoverClass="opacity-60"
                 onClick={() => onRemove(index)}
-              />
+                style={{
+                  top: rpx(-36),
+                  right: rpx(-36),
+                  width: rpx(88),
+                  height: rpx(88),
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Image
+                  src={closeInputPng}
+                  mode="widthFix"
+                  style={{ width: rpx(32), height: rpx(32) }}
+                />
+              </View>
               {card.type === 1 && (
                 <View
                   className="material-card-body material-card-text"

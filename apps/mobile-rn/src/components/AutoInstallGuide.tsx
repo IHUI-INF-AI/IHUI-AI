@@ -34,9 +34,13 @@ export function AutoInstallGuide(): React.JSX.Element | null {
 
   React.useEffect(() => {
     let alive = true
-    void shouldShowAutoInstallGuide().then((show) => {
-      if (alive) setVisible(show)
-    })
+    void shouldShowAutoInstallGuide()
+      .then((show) => {
+        if (alive) setVisible(show)
+      })
+      .catch(() => {
+        if (alive) setVisible(false)
+      })
     return () => {
       alive = false
     }

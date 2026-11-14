@@ -550,11 +550,11 @@ export function buildChatShellProps(ctx: ChatShellCtx): ChatScreenProps {
             zIndex: 999,
             padding: '16px',
             borderRadius: rnRadius.xl,
-            backgroundColor: '#ffffff',
+            backgroundColor: 'var(--color-card)',
             boxShadow: '0 2px 12px rgba(0,0,0,0.18)',
           }}
         >
-          <Text style={{ fontSize: '15px', fontWeight: 'bold', color: '#222222' }}>
+          <Text style={{ fontSize: '15px', fontWeight: 'bold', color: 'var(--color-foreground)' }}>
             {pendingQuestion.prompt}
           </Text>
           {pendingQuestion.options.map((o: { id: string; label: string }) => (
@@ -572,10 +572,10 @@ export function buildChatShellProps(ctx: ChatShellCtx): ChatScreenProps {
                 padding: '10px',
                 borderRadius: rnRadius.lg,
                 borderWidth: '1px',
-                borderColor: '#dddddd',
+                borderColor: 'var(--color-border)',
               }}
             >
-              <Text style={{ fontSize: '14px', color: '#333333' }}>{o.label}</Text>
+              <Text style={{ fontSize: '14px', color: 'var(--color-foreground)' }}>{o.label}</Text>
             </View>
           ))}
           <View
@@ -587,7 +587,7 @@ export function buildChatShellProps(ctx: ChatShellCtx): ChatScreenProps {
             }}
             style={{ marginTop: '10px', padding: '8px' }}
           >
-            <Text style={{ fontSize: '13px', color: '#888888' }}>
+            <Text style={{ fontSize: '13px', color: 'var(--color-muted-foreground)' }}>
               {pendingQuestion.allowCustom
                 ? pendingQuestion.allowMultiple
                   ? '可多选 / 自行输入,也可关闭'
