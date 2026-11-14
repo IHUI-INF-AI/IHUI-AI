@@ -1254,13 +1254,35 @@ export async function importAccounts(
               : '已覆盖凭证并重置健康状态',
         })
       } else {
-        const [written] = await db
-          .insert(aiRelayAccountPool)
-          .values({ ...values, credVersion: 1 })
-          .returning({
-            id: aiRelayAccountPool.id,
-            credVersion: aiRelayAccountPool.credVersion,
-          })
+        let written: { id: string; credVersion: number } | undefined
+        try {
+          ;[written] = await db
+            .insert(aiRelayAccountPool)
+            .values({ ...values, credVersion: 1 })
+            .returning({
+              id: aiRelayAccountPool.id,
+              credVersion: aiRelayAccountPool.credVersion,
+            })
+        } catch (e) {
+          // 数据库级不变量兜底(2026-11-14 迁移 ai_relay_account_pool_provider_uid_uniq):
+          // 同一上游账号全表唯一。正常路径由上面的跨池闸门提前拦下;走到这里只有一种可能 ——
+          // 并发写入在「查无此行」与「插入」之间插队。语义必须与闸门一致:只拦不建。
+          // 绝不能改成"冲突就改既有行":那等于把本批凭证(可能是旧票)写到别人那一行,
+          // 轮换式 refreshToken 会被当场消费掉,把活号刷死。
+          if ((e as { code?: string })?.code === '23505') {
+            result.skipped++
+            pushItem(naming, {
+              index: i,
+              name: displayName,
+              uid,
+              status: 'skipped',
+              reason:
+                '同一上游账号已存在(数据库唯一索引拦下并发重复导入);只拦不建,未覆盖任何既有凭证',
+            })
+            continue
+          }
+          throw e
+        }
         if (!written) throw new Error('插入后未取到回写行(id/credVersion)')
         writtenId = written.id
         writtenCredVersion = written.credVersion
