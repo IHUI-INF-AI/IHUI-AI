@@ -547,9 +547,13 @@ export default function AgentDialogue() {
             />
             <Text>{tt('agentDialogue.audioMessage', '音频消息')}</Text>
           </View>
-          <Text className="text-label text-accent" onClick={() => openAudio(url)}>
-            {tt('agentDialogue.clickPlay', '点击播放')}
-          </Text>
+          <View
+            className="text-label text-accent"
+            hoverClass="opacity-60"
+            onClick={() => openAudio(url)}
+          >
+            <Text>{tt('agentDialogue.clickPlay', '点击播放')}</Text>
+          </View>
         </View>
       )
     }
@@ -571,9 +575,13 @@ export default function AgentDialogue() {
             />
             <Text>{tt('agentDialogue.fileMessage', '文件消息')}</Text>
           </View>
-          <Text className="text-label text-accent" onClick={() => openFile(url)}>
-            {tt('agentDialogue.clickView', '点击查看')}
-          </Text>
+          <View
+            className="text-label text-accent"
+            hoverClass="opacity-60"
+            onClick={() => openFile(url)}
+          >
+            <Text>{tt('agentDialogue.clickView', '点击查看')}</Text>
+          </View>
         </View>
       )
     }
@@ -660,6 +668,8 @@ export default function AgentDialogue() {
           onInput={onInputChange}
           confirmType="send"
           onConfirm={sendMessage}
+          cursorSpacing={44}
+          adjustPosition={false}
           disabled={sending}
         />
         <View

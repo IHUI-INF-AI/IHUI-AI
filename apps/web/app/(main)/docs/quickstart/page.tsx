@@ -311,8 +311,8 @@ export default function QuickstartPage() {
                 <p className="font-[weight:inherit] text-label text-muted-foreground">
                   <Lightbulb className="mr-1 inline h-3.5 w-3.5 align-text-bottom" aria-hidden />
                   企业用户支持 SSO(SAML 2.0 / OIDC)和私有化部署,联系{' '}
-                  <a href="mailto:contact@aizhs.top" className="text-primary underline">
-                    contact@aizhs.top
+                  <a href="mailto:lizong@aizhs.top" className="text-primary underline">
+                    lizong@aizhs.top
                   </a>
                 </p>
               </div>

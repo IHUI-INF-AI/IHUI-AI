@@ -145,8 +145,7 @@ export const customerServiceSessions = pgTable(
     agentId: uuid('agent_id').references(() => customerServiceAgents.id, {
       onDelete: 'set null',
     }),
-    // F-434:默认值必须与唯一真相源 CUSTOMER_SERVICE_STATUSES 同词,不得再写旧 waiting
-    status: varchar('status', { length: 16 }).default('pending').notNull(),
+    status: varchar('status', { length: 16 }).default('waiting').notNull(),
     source: varchar('source', { length: 16 }).default('web').notNull(),
     queuePosition: integer('queue_position').default(0).notNull(),
     startedAt: timestamp('started_at', { withTimezone: true }),

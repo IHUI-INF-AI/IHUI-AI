@@ -30,7 +30,7 @@ import {
  *   时长同值 200ms(见 `SWITCH_ANIM_MS`),位移距离同取 `SWITCH_THUMB_TRANSLATE_X_PX[size]`;
  * - 硬投影:RN 走 `style.shadowColor/Offset/Opacity`,web 走 `shadow-[3px_3px_0_var(--color-foreground)]`
  *   类;本端 `boxShadow` 内联(同 3px 档、同 `--color-foreground` 色),rpx 化走端内 `toRpx`;
- * - 按下反馈:web 的 `active:` 伪类本端无通道,与 RN 一样省略;
+ * - 按下反馈:weapp 的 :active / Tailwind active: 对 View 不生效,改走 Taro hoverClass(disabled 置 'none');
  * - `flex`:weapp 无「默认 flex 容器」语义,须显式给 display 档(`flex flex-row`),RN 侧 `flex-row` 即够;
  * - 无障碍:RN 用 `accessibilityRole/accessibilityState`,本端走 `role` + `aria-*` 等价映射。
  */
@@ -74,6 +74,7 @@ export function Switch({
       role="switch"
       aria-checked={checked}
       aria-disabled={disabled}
+      hoverClass={disabled ? 'none' : 'opacity-60'}
       onClick={() => {
         if (disabled) return
         onCheckedChange?.(!checked)

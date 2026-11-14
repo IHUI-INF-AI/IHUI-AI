@@ -103,14 +103,14 @@ export function QuickNotesScreen({
       </View>
 
       <View style={styles.searchRow}>
-        <Search size={14} color={tk.text.tertiary} />
+        <Search size={14} color={tk.text.secondary} />
         <TextField
           colorScheme={colorScheme}
           style={styles.searchInput}
           value={query}
           onChangeText={onQueryChange}
           placeholder={t('quickNotes.search')}
-          placeholderTextColor={tk.text.tertiary}
+          placeholderTextColor={tk.text.secondary}
         />
       </View>
 

@@ -140,7 +140,7 @@ function createStyles(tk: AppThemeTokens) {
     } as TextStyle,
     meta: {
       fontSize: rnType.body.size,
-      color: tk.text.tertiary,
+      color: tk.text.medium,
     } as TextStyle,
     btn: {
       marginTop: rnSpacing.sm,

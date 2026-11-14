@@ -43,7 +43,6 @@ import { z } from 'zod'
 // (重定 models:read 的 dataClass,或给"自有行读取"开白名单)—— 不在本次文件范围。
 import { dbRead, dbScoped, dbReadScoped } from '../db/index.js'
 import { zhsAiUserModelChatConfig } from '@ihui/database'
-import { encryptCredential, decryptCredential } from '../utils/crypto.js'
 import type {
   V1EmbeddingsResponse,
   V1ChatVisionRequest,
@@ -926,8 +925,7 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
         name: r.name,
         provider: r.vendor,
         model: r.modelId,
-        // DB-35:落库是 enc:v1: 密文,先解密再 mask
-        apiKey: maskKey(decryptCredential(r.apiKey)),
+        apiKey: maskKey(r.apiKey),
         baseUrl: r.baseUrl ?? undefined,
         createdAt: r.createdAt.toISOString(),
         updatedAt: r.createdAt.toISOString(),
@@ -992,8 +990,7 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
           name,
           vendor: provider,
           modelId: model,
-          // DB-35:上游计费密钥写库前加密(varchar(256) 上限)
-          apiKey: encryptCredential(apiKey, 256),
+          apiKey,
           baseUrl: baseUrl ?? null,
         })
         .returning()
@@ -1003,7 +1000,7 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
         name: row!.name,
         provider: row!.vendor,
         model: row!.modelId,
-        apiKey: maskKey(decryptCredential(row!.apiKey)),
+        apiKey: maskKey(row!.apiKey),
         baseUrl: row!.baseUrl ?? undefined,
         createdAt: row!.createdAt.toISOString(),
         updatedAt: row!.createdAt.toISOString(),
@@ -1082,8 +1079,7 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
       if (parsed.data.name !== undefined) updates.name = parsed.data.name
       if (parsed.data.provider !== undefined) updates.vendor = parsed.data.provider
       if (parsed.data.model !== undefined) updates.modelId = parsed.data.model
-      if (parsed.data.apiKey !== undefined)
-        updates.apiKey = encryptCredential(parsed.data.apiKey, 256)
+      if (parsed.data.apiKey !== undefined) updates.apiKey = parsed.data.apiKey
       if (parsed.data.baseUrl !== undefined) updates.baseUrl = parsed.data.baseUrl
 
       let row = existing
@@ -1103,7 +1099,7 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
         name: row.name,
         provider: row.vendor,
         model: row.modelId,
-        apiKey: maskKey(decryptCredential(row.apiKey)),
+        apiKey: maskKey(row.apiKey),
         baseUrl: row.baseUrl ?? undefined,
         createdAt: row.createdAt.toISOString(),
         updatedAt: row.createdAt.toISOString(),

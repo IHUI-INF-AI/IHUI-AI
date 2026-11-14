@@ -20,13 +20,6 @@ from urllib.parse import urlparse
 
 
 def _blocked_ip(ip: str) -> bool:
-    """把单个已解析地址判成"受限/不可判"。
-
-    签名刻意保持 ``ip: str``(不收窄成 object):调用点的 isinstance 守卫因此被 mypy 当可达判据——
-    守卫一旦被摘,``_blocked_ip(str | int)`` 立刻重新判红。写成 object 会让 T1 这把尺子
-    从本调用面静默退场,只剩运行时行为,属"修红顺手削判据"。
-    非字符串地址由调用方 fail-closed 拦截(见 is_safe_api_base)。
-    """
     try:
         addr = ipaddress.ip_address(ip.split("%")[0])
     except ValueError:
@@ -59,9 +52,6 @@ def is_safe_api_base(api_base: str) -> tuple[bool, str | None]:
         return False, "api_base host 解析无结果"
     for info in infos:
         ip = info[4][0]
-        if not isinstance(ip, str):
-            # 判据取不到可靠地址形态 ⇒ 未判定按不安全处理,且如实点名成因,不冒报成"解析到受限地址"。
-            return False, f"api_base host 解析出非地址字符串形态 {ip!r}({type(ip).__name__}),无法判定 ⇒ 拒绝"
         if _blocked_ip(ip):
             return False, f"api_base 解析到受限地址 {ip}（私网/回环/云元数据）"
     return True, None

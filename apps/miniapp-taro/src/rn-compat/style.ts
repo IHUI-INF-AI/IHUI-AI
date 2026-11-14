@@ -33,6 +33,35 @@ const UNITLESS = new Set([
   'scale',
 ])
 
+/**
+ * RN 的「轴向简写」→ 物理两向展开。
+ *
+ * 为什么必须展开(2026-11-14 实测取证,不是推测):
+ *   RN 的 `paddingHorizontal` / `paddingVertical` / `marginHorizontal` / `marginVertical`
+ *   是 **RN 自有属性**,CSS 里根本不存在 `padding-horizontal` 这种键(没有 `-horizontal`
+ *   / `-vertical` 作轴向后缀的 CSS 属性)。此前逐键原样透传,weapp 的 webview 遇到未知
+ *   属性整条丢弃 ⇒ 共享屏在小程序端**所有轴向内/外边距静默消失**,且不报任何错。
+ *
+ * 取证链(可复现):
+ *   1. `toTaroStyle({paddingHorizontal:16})` 实跑返回 `{paddingHorizontal:'16px'}`(旧行为);
+ *   2. `grep -r paddingHorizontal apps/miniapp-taro/node_modules/@tarojs/` 命中 **0**
+ *      —— Taro 运行时不认识这个键,不存在任何 RN 式兼容映射;
+ *   3. 产物 `dist/*.js` 里该键原样保留(`stateBtn:{…,paddingHorizontal:…,paddingVertical:9}`),
+ *      说明构建期也没有转译插件。
+ *
+ * 用量(packages/app/src + packages/ui-native/src 现读):paddingHorizontal 1602、
+ * paddingVertical 1392、marginHorizontal 106、marginVertical 19 —— 这不是边角料。
+ *
+ * 顺序语义与 RN/Yoga 一致:展开写在原键所在位置,后出现的显式 `paddingLeft` 覆盖它,
+ * 反之被它覆盖(与 RN 依对象键序逐次写入 Yoga 的行为同构)。
+ */
+const RN_AXIS_SHORTHAND: Readonly<Record<string, readonly [string, string]>> = {
+  paddingHorizontal: ['paddingLeft', 'paddingRight'],
+  paddingVertical: ['paddingTop', 'paddingBottom'],
+  marginHorizontal: ['marginLeft', 'marginRight'],
+  marginVertical: ['marginTop', 'marginBottom'],
+}
+
 /** 把 RN 的 shadowOpacity 折进颜色(CSS box-shadow 没有独立 alpha 通道) */
 function withAlpha(color: string | undefined, opacity: number | undefined): string {
   const alpha = opacity === undefined ? 1 : Math.max(0, Math.min(1, opacity))
@@ -108,8 +137,9 @@ export function flattenStyle(style: unknown): Record<string, unknown> {
 
 /**
  * RN 样式 → Taro 可消费的内联样式对象。
- * 逐键转译:数字补 px、transform 归串、shadow 归 box-shadow、numberOfLines 归 line-clamp、
- * RN 专有键(非 CSS)丢弃 —— 丢弃即"小程序端不存在该能力",不是实现漏写。
+ * 逐键转译:数字补 px、轴向简写摊成物理两向、transform 归串、shadow 归 box-shadow、
+ * numberOfLines 归 line-clamp、RN 专有键(非 CSS)丢弃 —— 丢弃即"小程序端不存在该能力",
+ * 不是实现漏写。
  */
 export function toTaroStyle(style: unknown): CSSProperties | undefined {
   const src = flattenStyle(style)
@@ -137,6 +167,15 @@ export function toTaroStyle(style: unknown): CSSProperties | undefined {
     }
     if (key === 'textShadowOffset' || key === 'textShadowOpacity') continue
     if (key === 'numberOfLines' || key === 'ellipsizeMode') continue
+    const axis = RN_AXIS_SHORTHAND[key]
+    if (axis) {
+      // 数字与字符串(含 rpx / var / calc)一视同仁:轴向简写不改变值的单位口径,
+      // 只把"一个键"摊成"两个物理边"。数字走与普通键同一套补 px 规则。
+      const expanded = typeof value === 'number' ? `${value}px` : (value as string)
+      out[axis[0]] = expanded
+      out[axis[1]] = expanded
+      continue
+    }
     if (typeof value === 'number') {
       out[key] = UNITLESS.has(key) ? value : `${value}px`
       continue

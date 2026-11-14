@@ -578,9 +578,35 @@ function scrimByChild(tag, childrenRegion, table, tokenNames) {
  * 方向自证:①② 都**不要求**黑底证据(它本来就是透明的)——放过的是"量不到东西"的判据,
  * 不是"缺反馈"的豁免;真按钮必然有自己的视觉(② 第②条拦下)。
  */
+/**
+ * `style={styles.mask}` 这种**样式键**写法,其表内是否是「absolute + 四边全 0」的满屏层。
+ * 与 `StyleSheet.absoluteFill` 等价,只是载体不同(见 isFillLayer 的立因)。
+ *
+ * 只在**能证明**时才返回 true:该键必须存在、其属性区必须含 `position:'absolute'`,
+ * 且 top/right/bottom/left 四边都能读到 0。任何一条取不到 ⇒ false(不猜)。
+ */
+function fillBoxFromStyleKey(props, table) {
+  if (!table) return false
+  const m = props.match(/style=\{\s*styles\.([\w$]+)\s*\}/)
+  if (!m) return false
+  const entry = table.get(m[1])
+  if (!entry) return false
+  const raw = String(entry.raw ?? '')
+  if (!raw) return false
+  if (!/position\s*:\s*['"]absolute['"]/.test(raw)) return false
+  const side = (name) => new RegExp(`\\b${name}\\s*:\\s*0\\b`).test(raw)
+  return side('top') && side('right') && side('bottom') && side('left')
+}
+
 function isFillLayer(props, selfClosing, childrenRegion, table) {
   const absFill = /style=\{\s*StyleSheet\.absoluteFill(?:Object)?\s*\}/.test(props)
   if (selfClosing && absFill) return true
+  // 2026-11-13 补:样式表里写成 `position:'absolute'` + 四边全 0 的**承接层**,
+  // 与 `StyleSheet.absoluteFill` 是同一个东西,只是换了载体(项目里大量 Modal 遮罩这样写:
+  // ChatComposer.pickerMask / ChatPanels.mask)。旧判据只认内联 `StyleSheet.absoluteFill`,
+  // 于是这两处"点一下关浮层"的透明层被当成缺反馈的按钮 —— 给它叠透明度反而会造成整层闪一下。
+  // 判据仍然可证伪:必须**同时**取到 absolute 定位与四边 0,缺一条就不算。
+  if (selfClosing && !absFill && fillBoxFromStyleKey(props, table)) return true
   if (!selfClosing && !absFill && /className\s*=\s*"[^"]*\bflex-1\b[^"]*"/.test(props)) {
     if (/backgroundColor|border(?:Color)?\s*[:=]|shadowOffset/.test(props)) return false
     if (/className\s*=\s*"[^"]*\b(?:bg|border|shadow)-/.test(props)) return false
@@ -638,6 +664,44 @@ function hasNativeFeedback(tag, props) {
  * @param {number} minTap 命中方块下限(由调用方从**同面**的 geometry.js 现读)
  * @param {string} rel 仓库相对路径(用于 `slopOnly` 普查:跨端源里 hitSlop 只补到 RN 腿)
  */
+/**
+ * 函数式 `style={({ pressed }) => …}` 是否**真的**把 pressed 变成了可见变化。
+ *
+ * 立因(2026-11-13,本门最大的误报源):旧判据是纯形态判 —— `after` 里出现 `{({` 就当成
+ * "函数形态 style,不算反馈"(README 里写作"与守门 131 同判"),于是全仓 38 处
+ * `style={({ pressed }) => [styles.x, { opacity: pressed ? 0.7 : 1 }]}` 被一律点名。
+ * 那不是缺陷,恰恰是本项目**推荐的**写法(§4:触屏无 hover,按压只做轻微透明度/颜色变化);
+ * 判据把正解判红,唯一的出路是逼人写 `onPressIn/onPressOut` 两套 state(更笨、更容易漏),
+ * 或者给真缺陷登记豁免 —— 两条都比不判更糟。
+ *
+ * 现在的口径(仍然可证伪,不是"看见函数就放行"):
+ *  - 必须能取到标签的 props 区,且 style 值是**箭头函数**;
+ *  - 该函数**形参解构里真的有 `pressed`**;
+ *  - 且函数体内 `pressed` 不是只被解构出来没用(出现 `pressed ?` / `pressed &&` /
+ *    `pressed ||` / 作为数组元素直接使用);
+ *  - 且它影响的不是空值(排除 `pressed && null` 这类"条件成立反而什么都没有")。
+ * 反例由自检钉住:`style={({ pressed }) => ({})}`、`style={() => a}`、
+ * `style={({ pressed }) => [pressed && null]}` 都必须照判。
+ */
+function pressStateStyle(tag, props, text, end) {
+  // 1) 必须能取到函数式 style:形参解构里含 pressed
+  const m = props.match(/style\s*=\s*\{\s*\(\s*\{([^}]*)\}\s*\)\s*=>/)
+  if (!m) return false
+  if (!/\bpressed\b/.test(m[1])) return false
+  // 2) 取箭头函数体。props 在 tagRegion 里已含整段属性区,从 `=>` 起算即可。
+  const arrowAt = props.indexOf('=>', m.index)
+  if (arrowAt < 0) return false
+  const body = props.slice(arrowAt + 2)
+  if (!/\bpressed\b/.test(body)) return false
+  // 3) 必须条件化使用(三元 / 逻辑与 / 逻辑或)
+  const conditional =
+    /pressed\s*\?/.test(body) || /pressed\s*&&/.test(body) || /pressed\s*\|\|/.test(body)
+  // 4) 条件成立却什么都不给的两型不算
+  if (/pressed\s*&&\s*(?:null|undefined|false)/.test(body)) return false
+  if (/pressed\s*\?\s*(?:null|undefined|false)\s*:/.test(body)) return false
+  return conditional
+}
+
 function scanText(text, minTap, rel = '') {
   const stripped = maskComments(String(text ?? ''))
   const table = styleTable(stripped)
@@ -688,6 +752,11 @@ function scanText(text, minTap, rel = '') {
       !inert &&
       !hasNativeFeedback(tag, props) &&
       !FEEDBACK_RE.test(props) &&
+      !pressStateStyle(tag, props, stripped, end) &&
+      // children 函数形态 `{({ pressed }) => …}` 也是反馈(守门 131 的合法写法):
+      // 判据只看标签**之后**紧邻的 `{({` —— 那是 children 位置的函数,不是 style 位置
+      // (style 位置的函数由上面的 pressStateStyle 精确判,不能混用同一条形态判据,
+      //  否则 style 位置的"解构了 pressed 却不用"会被 children 判据误放行)。
       !/\{\s*\(\s*\{/.test(after)
     )
       h2.push({ line, tag })
@@ -975,11 +1044,31 @@ function runSelfTest() {
   const cls = scan('<TouchableOpacity className="active:bg-gray-100" onPress={go} />')
   ok(cls.h2.length === 0, 'H2 误报:className active: 变体算有反馈')
 
+  // 2026-11-13 断言方向再次反转(这次是纠错,不是放宽):
+  // 旧断言要求"函数形态 style 不得算已有反馈",把一个**正确写法**锁成了缺陷 ——
+  // 全仓 38 处 `style={({pressed}) => [s, {opacity: pressed ? .7 : 1}]}` 因此被点名,
+  // 而它们正是 §4 要求的按压反馈。新判据:真把 pressed 条件化成可见变化 ⇒ 算有反馈;
+  // 下面三个反例保证它不是"看见函数就放行"。
   const fnStyle = scan(
     '<Pressable style={({ pressed }) => [{ width: 44, height: 44 }, pressed && a]} onPress={go} />',
   )
-  // 断言方向反转：旧断言把缺陷锁成规矩。children 函数形态另有判据，下一条用例钉它不受影响。
-  ok(fnStyle.h2.length === 1, 'H2 失守：函数形态 style 不得算已有反馈（与守门 131 同判）')
+  ok(fnStyle.h2.length === 0, 'H2 误报:函数形态 style 里真用了 pressed 就是反馈')
+  const fnObjForm = scan(
+    '<Pressable style={({ pressed }) => [{ width: 44, height: 44 }, { opacity: pressed ? 0.7 : 1 }]} onPress={go} />',
+  )
+  ok(fnObjForm.h2.length === 0, 'H2 误报:函数形态 style 返回 pressed 条件对象的写法必须放行')
+  const fnNoUse = scan(
+    '<Pressable style={({ pressed }) => [{ width: 44, height: 44 }]} onPress={go} />',
+  )
+  ok(fnNoUse.h2.length === 1, 'H2 失守:解构了 pressed 却没用,仍是没反馈')
+  const fnNullArm = scan(
+    '<Pressable style={({ pressed }) => [pressed && null]} onPress={go} />',
+  )
+  ok(fnNullArm.h2.length === 1, 'H2 失守:pressed && null 条件成立也没有样式')
+  const fnNoParam = scan(
+    '<Pressable style={() => ({ width: 44, height: 44 })} onPress={go} />',
+  )
+  ok(fnNoParam.h2.length === 1, 'H2 失守:箭头函数没有 pressed 形参就是静态样式')
 
   // StyleSheet 表驱动:命中尺寸藏在同文件的 create 块里
   const sheet = scan(
@@ -1086,6 +1175,33 @@ function runSelfTest() {
   const fillLayer = scan('<Pressable style={StyleSheet.absoluteFill} onPress={close} />')
   ok(fillLayer.h2.length === 0, 'H2 过头:absoluteFill 满屏可点面自身没有视觉,叠透明度量不到变化')
   ok(fillLayer.fillLayers.length === 1, '放过必须可计数:absoluteFill 档要能报出放过几处(静默放过=没量到)')
+
+  // 2026-11-13 补:同一件事的**样式键载体**。项目里大量 Modal 遮罩写成
+  // `const styles = StyleSheet.create({ mask: { position:'absolute', top/right/bottom/left: 0 } })`,
+  // 与 StyleSheet.absoluteFill 等价;旧判据只认内联形态,把它们判成"缺反馈的按钮"。
+  const fillByKey = scan(
+    'const styles = StyleSheet.create({\n  mask: { position: ? },\n})\n<Pressable style={styles.mask} onPress={close} />'.replace(
+      '?',
+      "'absolute', top: 0, right: 0, bottom: 0, left: 0",
+    ),
+  )
+  ok(fillByKey.h2.length === 0, 'H2 过头:样式键写成 absolute+四边0 的承接层等于 absoluteFill')
+  ok(fillByKey.fillLayers.length === 1, '放过必须可计数:样式键载体的承接层也要报出放过几处')
+  // 反向:缺一条边 / 不是 absolute / 带实底 ⇒ 都不得放过(否则任何全屏框都成免检)
+  const key3Sides = scan(
+    'const styles = StyleSheet.create({\n  mask: { position: ?, top: 0, right: 0, bottom: 0 },\n})\n<Pressable style={styles.mask} onPress={go} />'.replace(
+      '?',
+      "'absolute'",
+    ),
+  )
+  ok(key3Sides.h2.length === 1, 'H2 失守:只写三条边不是满屏承接层')
+  const keyNotAbs = scan(
+    'const styles = StyleSheet.create({\n  mask: { position: ?, top: 0, right: 0, bottom: 0, left: 0 },\n})\n<Pressable style={styles.mask} onPress={go} />'.replace(
+      '?',
+      "'relative'",
+    ),
+  )
+  ok(keyNotAbs.h2.length === 1, 'H2 失守:非 absolute 定位的框不是承接层')
   const fillWithChild = scan(
     '<Pressable style={StyleSheet.absoluteFill} onPress={close}><Text>可见内容</Text></Pressable>',
   )

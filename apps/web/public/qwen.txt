@@ -225,5 +225,5 @@ Agent 市场 → 模板 → 选择"客服 Agent"→ 一键部署到钉钉
 # 文件结束
 # 本文件为通义千问 / 阿里云开发者检索优化
 # 维护:IHUI AI Team
-# 联系:contact@aizhs.top
+# 联系:lizong@aizhs.top
 # 阿里云市场:https://market.aliyun.com/products/ihui-ai(即将上架)

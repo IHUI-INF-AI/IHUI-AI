@@ -13,7 +13,6 @@ import { zhsAiUserModelChatConfig, zhsAiUserModelChatHistory } from '@ihui/datab
 import { toUserFriendlyMessage } from '@ihui/shared'
 import { maskKey } from './v1-shared.js'
 import { safeFetch, assertSafeFetchUrl } from '../utils/ssrf-guard.js'
-import { encryptCredential, decryptCredential } from '../utils/crypto.js'
 
 const idParamSchema = z.object({ id: z.uuid({ error: '无效的 ID' }) })
 
@@ -330,8 +329,7 @@ export const aiUserModelChatRoutes: FastifyPluginAsync = async (server) => {
     const total = countRows[0]?.count ?? 0
     const list = rows.map(({ apiKey, ...rest }) => ({
       ...rest,
-      // DB-35:落库是 enc:v1: 密文,先解密再 mask,保持响应语义不变
-      apiKey: maskKey(decryptCredential(apiKey)),
+      apiKey: maskKey(apiKey),
     }))
     return reply.send(success({ list, total, page, pageSize }))
   })
@@ -355,15 +353,13 @@ export const aiUserModelChatRoutes: FastifyPluginAsync = async (server) => {
         vendor: parsed.data.vendor,
         modelId: parsed.data.modelId,
         baseUrl: parsed.data.baseUrl ?? null,
-        apiKey: encryptCredential(parsed.data.apiKey, 256),
+        apiKey: parsed.data.apiKey,
         temperature: parsed.data.temperature ?? null,
         maxTokens: parsed.data.maxTokens ?? null,
       })
       .returning()
     const { apiKey, ...rest } = config!
-    return reply
-      .status(201)
-      .send(success({ config: { ...rest, apiKey: maskKey(decryptCredential(apiKey)) } }))
+    return reply.status(201).send(success({ config: { ...rest, apiKey: maskKey(apiKey) } }))
   })
 
   server.put('/configs/:id', async (request, reply) => {
@@ -392,8 +388,7 @@ export const aiUserModelChatRoutes: FastifyPluginAsync = async (server) => {
       if (baseUrlRejection) return reply.status(400).send(error(400, baseUrlRejection))
       updateData.baseUrl = body.data.baseUrl
     }
-    if (body.data.apiKey !== undefined)
-      updateData.apiKey = encryptCredential(body.data.apiKey, 256)
+    if (body.data.apiKey !== undefined) updateData.apiKey = body.data.apiKey
     if (body.data.temperature !== undefined) updateData.temperature = body.data.temperature
     if (body.data.maxTokens !== undefined) updateData.maxTokens = body.data.maxTokens
     if (body.data.enabled !== undefined) updateData.enabled = body.data.enabled
@@ -408,7 +403,7 @@ export const aiUserModelChatRoutes: FastifyPluginAsync = async (server) => {
       result = updated!
     }
     const { apiKey, ...rest } = result
-    return reply.send(success({ config: { ...rest, apiKey: maskKey(decryptCredential(apiKey)) } }))
+    return reply.send(success({ config: { ...rest, apiKey: maskKey(apiKey) } }))
   })
 
   server.delete('/configs/:id', async (request, reply) => {
@@ -431,8 +426,10 @@ export const aiUserModelChatRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // POST /chat - 用户自带模型配置对话
-  // 租户级限频(2026-10-18):多租户公平配额——单租户 30 次/分钟(按 x-tenant-id 分桶;
-  // 无头的请求归 '0' 桶)。是 distributed-rate-limit 插件的第二个 scope:'tenant'
+  // 租户级限频(2026-10-18):多租户公平配额——单租户 30 次/分钟。
+  // F-209(2026-11-13):桶键不再取客户端 x-tenant-id(换 header 即换桶,可绕过限流),
+  // 改用服务端可信身份:已认证用户 → 其 tenant_members 成员租户(无归属退化为 userId);
+  // 未认证 → IP。是 distributed-rate-limit 插件的第二个 scope:'tenant'
   // 真实规则,大屏 tenant-usage 的"限流命中"指标由此产生真实数据面。
   server.distributedRateLimit.addRule({
     name: 'ai-chat-tenant',
@@ -467,7 +464,7 @@ export const aiUserModelChatRoutes: FastifyPluginAsync = async (server) => {
           vendor: config.vendor,
           modelId: config.modelId,
           baseUrl: config.baseUrl,
-          apiKey: decryptCredential(config.apiKey),
+          apiKey: config.apiKey,
           messages: data.messages,
           temperature: data.temperature ?? config.temperature ?? undefined,
           maxTokens: data.maxTokens ?? config.maxTokens ?? undefined,

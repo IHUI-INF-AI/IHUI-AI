@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { pgTable, uuid, varchar, text, integer, timestamp, uniqueIndex } from 'drizzle-orm/pg-core'
+import { pgTable, uuid, varchar, text, integer, timestamp } from 'drizzle-orm/pg-core'
 
 /**
  * 需求广场智能体条目表。
@@ -23,26 +23,17 @@ export const plazaItems = pgTable('plaza_items', {
 /**
  * Coze 变量表。
  * 存储 Coze Bot 的变量配置,按 botId + variableName 唯一标识。
- * F-355:该「唯一标识」此前只是口头约定(表上无约束),create 连点两次会落两行、
- * retrieve 随机命中一行。唯一索引把约定变成事实,应用侧 create 走
- * ON CONFLICT (bot_id, variable_name) DO UPDATE;迁移 20261114091300。
  */
-export const cozeVariables = pgTable(
-  'coze_variables',
-  {
-    id: uuid('id').defaultRandom().primaryKey(),
-    botId: varchar('bot_id', { length: 100 }).notNull(),
-    variableName: varchar('variable_name', { length: 100 }).notNull(),
-    variableValue: text('variable_value'),
-    description: text('description'),
-    dataType: varchar('data_type', { length: 20 }).default('string').notNull(),
-    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-  },
-  (t) => ({
-    botNameUniq: uniqueIndex('coze_variables_bot_name_uniq').on(t.botId, t.variableName),
-  }),
-)
+export const cozeVariables = pgTable('coze_variables', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  botId: varchar('bot_id', { length: 100 }).notNull(),
+  variableName: varchar('variable_name', { length: 100 }).notNull(),
+  variableValue: text('variable_value'),
+  description: text('description'),
+  dataType: varchar('data_type', { length: 20 }).default('string').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+})
 
 export type PlazaItem = typeof plazaItems.$inferSelect
 export type NewPlazaItem = typeof plazaItems.$inferInsert

@@ -131,7 +131,7 @@ export function FeedbackScreen({
             value={content}
             onChangeText={setContent}
             placeholder={t('feedback.contentPlaceholder')}
-            placeholderTextColor={tk.text.tertiary}
+            placeholderTextColor={tk.text.secondary}
             multiline
             style={styles.textarea}
           />
@@ -142,7 +142,7 @@ export function FeedbackScreen({
             value={contact}
             onChangeText={setContact}
             placeholder={t('feedback.contactPlaceholder')}
-            placeholderTextColor={tk.text.tertiary}
+            placeholderTextColor={tk.text.secondary}
             style={styles.input}
           />
 
@@ -284,9 +284,9 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    imageAddText: { fontSize: rnType.display.size, color: tk.text.tertiary },
-    errorText: { fontSize: rnType.body.size, color: tk.danger.DEFAULT, marginTop: rnSpacing.sm },
-    successText: { fontSize: rnType.body.size, color: tk.success.DEFAULT, marginTop: rnSpacing.sm },
+    imageAddText: { fontSize: rnType.display.size, color: tk.text.medium },
+    errorText: { fontSize: rnType.body.size, color: tk.danger.deepText, marginTop: rnSpacing.sm },
+    successText: { fontSize: rnType.body.size, color: tk.success.deepText, marginTop: rnSpacing.sm },
     submitBtn: {
       marginTop: rnSpacing.md,
       height: 50,

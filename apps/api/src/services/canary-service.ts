@@ -69,7 +69,7 @@ let initPromise: Promise<void> | null = null
 
 async function ensureTables(): Promise<void> {
   if (!initPromise) {
-    const created = (async () => {
+    initPromise = (async () => {
       await db.execute(sql`
         CREATE TABLE IF NOT EXISTS canary_configs (
           id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -102,12 +102,6 @@ async function ensureTables(): Promise<void> {
         )
       `)
     })()
-    // F-657:建表失败不缓存 rejected promise,复位后让下一次调用重试;
-    // 已经等待同一个 promise 的并发调用者仍会收到原始错误(不吞错)。
-    initPromise = created.catch((err) => {
-      initPromise = null
-      throw err
-    })
   }
   return initPromise
 }
@@ -281,23 +275,19 @@ export async function recordFailure(name: string, reason: string): Promise<Canar
   const config = await fetchConfigRow(name)
   if (!config) throw new Error(`canary config "${name}" not found`)
 
+  const newFailureCount = config.failureCount + 1
   const now = new Date()
-  // F-659:并发上报时「读 failureCount → 写绝对值 +1」会丢更新,autoRollback 阈值漏计。
-  // 改为数据库端原子自增 + RETURNING,以库内真值判定阈值。
-  let updated: Array<{ failure_count: number }> = []
   try {
-    updated = (await db.execute(sql`
+    await db.execute(sql`
       UPDATE canary_configs
-      SET failure_count = failure_count + 1,
+      SET failure_count = ${newFailureCount},
           updated_at = ${now}
       WHERE name = ${name}
-      RETURNING failure_count
-    `)) as unknown as Array<{ failure_count: number }>
+    `)
   } catch (err) {
     logger.error('[canary] recordFailure DB update failed', { error: err })
     throw err
   }
-  const newFailureCount = Number(updated[0]?.failure_count ?? config.failureCount + 1)
 
   await addAudit(config.id, 'failure', config.currentStage, config.currentStage, reason)
 

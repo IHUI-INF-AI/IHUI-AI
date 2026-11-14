@@ -75,7 +75,7 @@ export function LettersScreen({
               value={keyword}
               onChangeText={onKeywordChange}
               placeholder={t('lettersPage.searchPlaceholder')}
-              placeholderTextColor={tk.text.tertiary}
+              placeholderTextColor={tk.text.secondary}
               returnKeyType="search"
             />
           </View>
@@ -89,7 +89,7 @@ export function LettersScreen({
             <Text style={styles.error}>{error}</Text>
           ) : rows.length === 0 ? (
             <View style={styles.centerBlock}>
-              <MessageSquare size={30} color={tk.text.tertiary} />
+              <MessageSquare size={30} color={tk.text.secondary} />
               <Text style={styles.muted}>{t('lettersPage.empty')}</Text>
             </View>
           ) : (
@@ -160,7 +160,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingVertical: rnSpacing['2xl'],
     },
     muted: { fontSize: rnType.label.size, color: tk.text.secondary },
-    error: { marginTop: rnSpacing.xl, fontSize: rnType.body.size, color: tk.danger.DEFAULT },
+    error: { marginTop: rnSpacing.xl, fontSize: rnType.body.size, color: tk.danger.deepText },
     listContent: { paddingTop: rnSpacing.sm, paddingBottom: rnSpacing['2xl'] },
     row: {
       flexDirection: 'row',
@@ -194,7 +194,7 @@ function createStyles(tk: AppThemeTokens) {
       gap: rnSpacing.sm,
     },
     rowName: { flex: 1, fontSize: rnType.body.size, fontWeight: '500', color: tk.text.primary },
-    rowTime: { fontSize: rnType.caption.size, color: tk.text.tertiary, flexShrink: 0 },
+    rowTime: { fontSize: rnType.caption.size, color: tk.text.medium, flexShrink: 0 },
     rowPreview: { fontSize: rnType.label.size, color: tk.text.secondary },
   })
 }

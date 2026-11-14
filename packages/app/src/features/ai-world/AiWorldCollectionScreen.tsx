@@ -152,7 +152,7 @@ export function AiWorldCollectionScreen({
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor={colorScheme === 'dark' ? tk.text.tertiary : tk.text.secondary}
+            tintColor={colorScheme === 'dark' ? tk.text.secondary : tk.text.secondary}
           />
         }
         ListHeaderComponent={
@@ -176,7 +176,7 @@ export function AiWorldCollectionScreen({
               <Image source={{ uri: item.coverImage }} style={styles.rowCover} />
             ) : (
               <View style={styles.rowCoverFallback}>
-                <Icon size={18} color={tk.text.tertiary} strokeWidth={2} />
+                <Icon size={18} color={tk.text.secondary} strokeWidth={2} />
               </View>
             )}
             <View style={styles.rowBody}>
@@ -246,7 +246,7 @@ function createAiWorldCollectionStyles(tk: AppThemeTokens) {
     rowBody: { flex: 1, gap: rnSpacing.xs },
     rowTitle: { fontSize: rnType.body.size, fontWeight: '500', color: tk.text.primary },
     rowMeta: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.md },
-    rowMetaText: { fontSize: rnType.label.size, color: tk.text.tertiary },
+    rowMetaText: { fontSize: rnType.label.size, color: tk.text.medium },
   } satisfies Record<string, ViewStyle | TextStyle>)
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

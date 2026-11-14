@@ -56,30 +56,16 @@ function proxyUrlConfigured(): boolean {
   return raw.startsWith('http://') || raw.startsWith('https://')
 }
 
-/**
- * 内网/本机地址永不走代理(与 `collectEgressFacts` 共用,免得两处判据漂移)。
- *
- * 第五遍对标(2026-11-14,DSH dsh-http-proxy):回环按**整段**判 ——
- * `127.0.0.0/8`(不只 127.0.0.1)、`0.0.0.0` 与 IPv4 映射写法 `::ffff:127.x`
- * 同样直连,否则本地 Web UI / MCP 回环服务会被自己的代理再绕一圈。
- */
+/** 内网/本机地址永不走代理(与 `collectEgressFacts` 共用,免得两处判据漂移)。*/
 function isInternalHostname(hostname: string): boolean {
-  // WHATWG URL 的 IPv6 hostname 带方括号(`[::1]`),IPv4 映射写法会被归一成
-  // `::ffff:7f00:1` 这类十六进制形态 ⇒ 先脱括号再按两种形态判,否则回环判定
-  // 对 `[::1]` 恒为 false(第五遍对标时实测到的边角)。
-  const bare = hostname.startsWith('[') && hostname.endsWith(']')
-    ? hostname.slice(1, -1)
-    : hostname
   return (
-    bare === 'localhost' ||
-    bare === '0.0.0.0' ||
-    bare === '::1' ||
-    bare.endsWith('.local') ||
-    /^127\./.test(bare) ||
-    /^::ffff:7f[0-9a-f]{2}:/.test(bare) ||
-    /^10\./.test(bare) ||
-    /^192\.168\./.test(bare) ||
-    /^172\.(1[6-9]|2\d|3[01])\./.test(bare)
+    hostname === 'localhost' ||
+    hostname === '127.0.0.1' ||
+    hostname === '::1' ||
+    hostname.endsWith('.local') ||
+    /^10\./.test(hostname) ||
+    /^192\.168\./.test(hostname) ||
+    /^172\.(1[6-9]|2\d|3[01])\./.test(hostname)
   )
 }
 
@@ -97,16 +83,12 @@ function getProxyAgent(): ProxyAgent | null {
 
 /**
  * NO_PROXY 命中判定:`*` 全匹配,其余按后缀匹配(与白名单同一套形状,不引入第三种语义)。
- * 大小写两个变体(`NO_PROXY` / `no_proxy`)**都**参与匹配,任一命中即视为命中 ——
- * 只看第一个已配置变体会把另一个变体里的真实命中吞掉(F-716)。
  * 只读"存在哪个变量名 + 是否命中",取值不外带。
  */
 function readNoProxy(hostname: string): { matched: boolean; varName: EgressNoProxyVarName | null } {
-  let firstConfigured: EgressNoProxyVarName | null = null
   for (const name of EGRESS_NO_PROXY_VAR_NAMES) {
     const raw = process.env[name]
     if (raw === undefined || raw.trim() === '') continue
-    if (firstConfigured === null) firstConfigured = name
     const entries = raw
       .split(',')
       .map((s) => s.trim().toLowerCase())
@@ -114,10 +96,10 @@ function readNoProxy(hostname: string): { matched: boolean; varName: EgressNoPro
     if (entries.includes('*')) return { matched: true, varName: name }
     if (entries.some((d) => hostname === d || hostname.endsWith(`.${d.replace(/^\./, '')}`)))
       return { matched: true, varName: name }
-    // 本变体配了但没命中:不 return,继续扫另一个大小写档位(名字仍是事实)
+    // 配了 NO_PROXY 但没命中:名字仍是事实,继续找另一个大小写档位
+    return { matched: false, varName: name }
   }
-  // 两变体都没配 → null;配了但都没命中 → 如实报第一个已配置变体
-  return { matched: false, varName: firstConfigured }
+  return { matched: false, varName: null }
 }
 
 function readCustomCa(): EgressCaState {
@@ -155,18 +137,17 @@ export function collectEgressFacts(url: string): EgressFacts {
     : DEFAULT_PROXY_DOMAINS
   const allowlisted = parseable && matchProxyDomains(hostname, domains)
   const noProxy = parseable ? readNoProxy(hostname) : { matched: false, varName: null }
-  // 第五遍对标(2026-11-14,DSH dsh-http-proxy):NO_PROXY / no_proxy 从"只报事实"
-  // 升级为**参与路由** —— 命中即直连,与标准代理语义一致;否则内网域名即便落在
-  // PROXY_DOMAINS 里也会被送进代理,凭据与流量都走错路。大小写两档按并集匹配
-  // (见 readNoProxy);`*` 放行全部。
-  const proxied = configured && parseable && !internal && allowlisted && !noProxy.matched
+  // 判据与改造前的 isProxiedUrl 逐条件等值:**不**把 NO_PROXY 纳进决策。
+  // 现状是"NO_PROXY 在本模块无人读取、配了也不生效",本票只负责把这个事实**带回来**
+  // (proxied=true ∧ noProxyMatched=true 是合法且高度可诊断的一对),不负责改路由 ——
+  // 改路由会动所有厂商调用的出口路径,属另一张票(见文件末 EGRESS-NO-PROXY-GAP 登记)。
+  const proxied = configured && parseable && !internal && allowlisted
 
   let policyDeclined: EgressPolicyDeclineReason | null = null
   if (!proxied) {
     if (!parseable) policyDeclined = 'url-unparseable'
     else if (!configured) policyDeclined = 'proxy-unconfigured'
     else if (internal) policyDeclined = 'internal-host'
-    else if (noProxy.matched) policyDeclined = 'no-proxy-match'
     else policyDeclined = 'domain-not-in-table'
   }
 
@@ -490,7 +471,8 @@ function downgradeForRedirect(
   method: string,
 ): { method: string; dropBody: boolean } {
   if (status === 303) return { method: 'GET', dropBody: true }
-  if ((status === 301 || status === 302) && method === 'POST') return { method: 'GET', dropBody: true }
+  if ((status === 301 || status === 302) && method === 'POST')
+    return { method: 'GET', dropBody: true }
   return { method, dropBody: false }
 }
 
@@ -500,8 +482,17 @@ function downgradeForRedirect(
  * `proxiedFetch` 用它并接代理 dispatcher;直连分支若将来也要这一层,必须调**这同一个函数**
  * (换 transport 即可),不得再抄一遍循环 —— 两处循环必然在剥头判据上漂移。
  */
-export async function boundedEgressFetch(url: string, options: BoundedEgressOptions): Promise<Response> {
-  const maxRedirects = resolveLimit(options.maxRedirects, EGRESS_MAX_REDIRECTS, 0, REDIRECTS_CEILING, 'maxRedirects')
+export async function boundedEgressFetch(
+  url: string,
+  options: BoundedEgressOptions,
+): Promise<Response> {
+  const maxRedirects = resolveLimit(
+    options.maxRedirects,
+    EGRESS_MAX_REDIRECTS,
+    0,
+    REDIRECTS_CEILING,
+    'maxRedirects',
+  )
   const maxResponseBytes = resolveLimit(
     options.maxResponseBytes,
     EGRESS_MAX_RESPONSE_BYTES,
@@ -509,7 +500,13 @@ export async function boundedEgressFetch(url: string, options: BoundedEgressOpti
     RESPONSE_BYTES_CEILING,
     'maxResponseBytes',
   )
-  const timeoutMs = resolveLimit(options.timeoutMs, EGRESS_TIMEOUT_MS, 1, TIMEOUT_CEILING_MS, 'timeoutMs')
+  const timeoutMs = resolveLimit(
+    options.timeoutMs,
+    EGRESS_TIMEOUT_MS,
+    1,
+    TIMEOUT_CEILING_MS,
+    'timeoutMs',
+  )
 
   // 本模块自己的 controller:超时由它触发;调用方的 signal(若有)转发进来。
   const controller = new AbortController()
@@ -690,9 +687,7 @@ function enrichedEgressFacts(url: string, res: Response): EgressFacts {
   const hops = readEgressHops(res)
   return createEgressFacts({
     ...collectEgressFacts(url),
-    ...(hops
-      ? { finalHostname: hops.finalHostname, redirectCount: hops.redirectCount }
-      : {}),
+    ...(hops ? { finalHostname: hops.finalHostname, redirectCount: hops.redirectCount } : {}),
   })
 }
 

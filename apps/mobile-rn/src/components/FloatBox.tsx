@@ -40,7 +40,7 @@ import {
   FLOAT_BOX_TOAST_TOP_OFFSET_PX,
 } from '@ihui/shared/ui/float-box-spec'
 
-import { rnRadius, rnSpacing } from '@ihui/design-tokens'
+import { rnCssColor, rnRadius, rnSpacing } from '@ihui/design-tokens'
 // toast 上限按应用框架实际宽(430 壳)取(2026-10-15 修溢出):原用视口宽 586×0.8=450,
 // 超长文案时 toast 横跨出 #root 被裁右侧;原生无 #root 回退窗口宽行为不变(与 SearchOverlay 同轨)。
 import { useAppFrameWidth } from './Carousel'
@@ -82,10 +82,14 @@ const SLIDE_DISTANCE_PX = 40
  * 前景恒白)。四档底亮度均 < 0.2,白字对比度稳过 4.5:1。
  */
 export const RN_TOAST_SURFACES: Readonly<Record<FloatBoxType, { bg: string; fg: string }>> = {
-  success: { bg: '#15803d', fg: '#FFFFFF' },
-  error: { bg: '#b91c1c', fg: '#FFFFFF' },
-  warning: { bg: '#b45309', fg: '#FFFFFF' },
-  info: { bg: '#1f2937', fg: '#FFFFFF' },
+  // 值全部取自源档 `--color-toast-*-bg` / `--color-toast-foreground`(2026-11-13 立族),
+  // 已由 sync-rn-tokens 派生为 rnCssLight/rnCssDark 的同名键 —— 端内不再留第二份字面量。
+  // 用 rnCssColor 而非直接 rnCssLight.x:后者在暗档会静默取亮值(本族明暗同值,
+  // 但走同一入口才能让"档位单一真相"这条纪律在类型与运行时都成立)。
+  success: { bg: rnCssColor('light', 'toastSuccessBg'), fg: rnCssColor('light', 'toastForeground') },
+  error: { bg: rnCssColor('light', 'toastErrorBg'), fg: rnCssColor('light', 'toastForeground') },
+  warning: { bg: rnCssColor('light', 'toastWarningBg'), fg: rnCssColor('light', 'toastForeground') },
+  info: { bg: rnCssColor('light', 'toastInfoBg'), fg: rnCssColor('light', 'toastForeground') },
 }
 
 /** 按 type 取语义色面(单一入口,供渲染与守门共用) */

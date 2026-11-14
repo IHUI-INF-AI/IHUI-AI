@@ -45,12 +45,7 @@ export type AdminUser = {
  * 统计用户总数。
  */
 export async function countUsers(): Promise<number> {
-  // F-695: 与 findUsers 默认口径一致(排除已注销用户 status=3),否则后台首页
-  // 「总用户数」恒大于用户管理列表 total,增长率/导出基数偏差。
-  const rows = await db
-    .select({ count: sql<number>`COUNT(*)` })
-    .from(users)
-    .where(notInArray(users.status, [3]))
+  const rows = await db.select({ count: sql<number>`COUNT(*)` }).from(users)
   return Number(rows[0]?.count ?? 0)
 }
 
@@ -145,7 +140,7 @@ export async function updateUserStatus(id: string, status: number): Promise<Admi
   const rows = await db
     .update(users)
     .set({ status, updatedAt: new Date() })
-  // status-guard-exempt: 通用状态 setter——目标值由调用方传入,终态合法性由服务层/路由层裁决,非固定出向终态写点
+    // status-guard-exempt: 通用状态 setter——目标值由调用方传入,终态合法性由服务层/路由层裁决,非固定出向终态写点
     .where(eq(users.id, id))
     .returning(userPublicFields)
   return rows[0]

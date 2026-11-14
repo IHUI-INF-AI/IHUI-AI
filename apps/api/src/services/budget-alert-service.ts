@@ -14,9 +14,7 @@
  * 1. 全 SQL 聚合: 单次 SQL 同时拉出 userId + dailyTokens + monthlyCost(用 CTE / 子查询),
  *    避免在 Node 端再做 N 次 SELECT。schema 字段: aiCostRecords.totalTokens / cost。
  * 2. 6h cooldown: 复用 notifications 表(type='BUDGET_ALERT'), 不另建新表,
- *    减少 schema 漂移。判据与写回必须原子(F-376):DB 冷却行只作跨重启的记忆,
- *    裁决由 `acquireOnce`(SET NX EX 6h)一次性占位完成 —— 并发/多实例下只有一个赢家,
- *    命中 cooldown 则 skip, 避免重复轰炸。
+ *    减少 schema 漂移; 命中 cooldown 则 skip, 避免 30 分钟内重复轰炸。
  * 3. 失败隔离: 单个 budget 循环内 try/catch, DB / 邮件 / 队列失败
  *    不应中断整个扫描。
  * 4. 邮件模板: i18n 5 语言 budgetAlert 命名空间
@@ -33,7 +31,6 @@ import { aiBudgets, aiCostRecords, notifications, users } from '@ihui/database'
 import { sendEmail } from './email-service.js'
 import { renderSystemAlertEmail } from './email-templates.js'
 import { flattenUntrustedText, sanitizeAlertMessage } from '../utils/alert-text.js'
-import { acquireOnce, releaseOnce } from '../utils/window-counter.js'
 
 // ---------------------------------------------------------------------------
 // 常量
@@ -152,25 +149,6 @@ function pickMaxPercent(daily: number, monthly: number): number {
 }
 
 // ---------------------------------------------------------------------------
-// 导出的限额读取(供 ai-cost 计费前置检查复用同一阈值来源)
-// ---------------------------------------------------------------------------
-
-/**
- * 读取用户在 aiBudgets 配置的日成本上限(与告警扫描同表同列,不另抄阈值)。
- * 未配置或 <= 0 返回 null,调用方视为不做成本熔断。
- */
-export async function getUserDailyCostLimit(userId: string): Promise<number | null> {
-  const [row] = await db
-    .select({ dailyCostLimit: aiBudgets.dailyCostLimit })
-    .from(aiBudgets)
-    .where(and(eq(aiBudgets.scope, 'user'), eq(aiBudgets.scopeKey, userId)))
-    .limit(1)
-
-  const limit = toNumber(row?.dailyCostLimit)
-  return limit > 0 ? limit : null
-}
-
-// ---------------------------------------------------------------------------
 // 主入口
 // ---------------------------------------------------------------------------
 
@@ -210,10 +188,7 @@ export async function checkBudgetAlerts(server: FastifyInstance): Promise<Budget
       if (!agg) continue
 
       const dailyTokens = toNumber(agg.dailyTokens)
-      // F-661: ai_cost_records.cost 单位为「分」,而 monthlyCostLimit 单位为「元」;
-      // 直接相除会让花到上限 1% 就报 100% critical。先统一到元再比较/展示。
-      const monthlyCostCents = toNumber(agg.monthlyCost)
-      const monthlyCost = monthlyCostCents / 100
+      const monthlyCost = toNumber(agg.monthlyCost)
       const dailyLimit = budget.dailyTokenLimit
       const monthlyLimit = toNumber(budget.monthlyCostLimit)
 
@@ -227,50 +202,37 @@ export async function checkBudgetAlerts(server: FastifyInstance): Promise<Budget
       const severity = severityFor(maxPercent)
       if (!severity) continue
 
-      // 6h 冷却:判据与写回必须同一步(F-376)。原实现"先 SELECT notifications 判冷却,
-      // 再交给 notificationQueue 异步落库",并发两次扫描都读到「无冷却记录」⇒ 各发一条。
-      // 这里先查一次 DB 保住跨 Redis 重启的记忆,再由 SET NX EX 一次性占位做跨实例裁决:
-      // 唯一抢到占位的那一次才发,抢不到 = 已在冷却窗口内。
+      // 6h cooldown 检查(同 user + 同 severity 跳过)
       const inCooldown = await isInCooldown(budget.scopeKey, severity)
       if (inCooldown) continue
 
-      const cooldownKey = budgetAlertCooldownKey(budget.scopeKey, severity)
-      const claim = await acquireOnce(cooldownKey, String(Date.now()), COOLDOWN_MS)
-      if (!claim.acquired) continue
+      // 取用户联系信息(简化分两次查, 避免和上面 LEFT JOIN 复杂化)
+      const user = await db
+        .select({ email: users.email, nickname: users.nickname })
+        .from(users)
+        .where(eq(users.id, budget.scopeKey))
+        .limit(1)
 
-      try {
-        // 取用户联系信息(简化分两次查, 避免和上面 LEFT JOIN 复杂化)
-        const user = await db
-          .select({ email: users.email, nickname: users.nickname })
-          .from(users)
-          .where(eq(users.id, budget.scopeKey))
-          .limit(1)
+      const email = user[0]?.email ?? null
+      const nickname = user[0]?.nickname ?? null
 
-        const email = user[0]?.email ?? null
-        const nickname = user[0]?.nickname ?? null
-
-        const payload: AlertPayload = {
-          severity,
-          userId: budget.scopeKey,
-          budgetId: budget.id,
-          dailyPercent,
-          monthlyPercent,
-          dailyUsed: dailyTokens,
-          dailyLimit,
-          monthlyUsed: Number.parseFloat(monthlyCost.toFixed(2)),
-          monthlyLimit,
-          email,
-          nickname,
-        }
-
-        await dispatchAlert(server, payload)
-        if (severity === 'critical') result.criticalCount += 1
-        else result.warningCount += 1
-      } catch (err) {
-        // 派发失败不占冷却:放掉占位让下一轮重试 —— 告警宁可重发一封,不可静默 6 小时。
-        await releaseOnce(cooldownKey)
-        throw err
+      const payload: AlertPayload = {
+        severity,
+        userId: budget.scopeKey,
+        budgetId: budget.id,
+        dailyPercent,
+        monthlyPercent,
+        dailyUsed: dailyTokens,
+        dailyLimit,
+        monthlyUsed: Number.parseFloat(monthlyCost.toFixed(2)),
+        monthlyLimit,
+        email,
+        nickname,
       }
+
+      await dispatchAlert(server, payload)
+      if (severity === 'critical') result.criticalCount += 1
+      else result.warningCount += 1
     } catch (err) {
       result.errors.push(
         `budget=${budget.id} user=${budget.scopeKey}: ${err instanceof Error ? err.message : String(err)}`,
@@ -337,20 +299,9 @@ function inArrayUserIds(userIds: string[]) {
 // ---------------------------------------------------------------------------
 
 /**
- * 冷却占位键:与 `isInCooldown` 同一粒度(同 user + 同 severity 共用一把)。
- * 占位 TTL = COOLDOWN_MS,过期即允许下一次告警。
- */
-function budgetAlertCooldownKey(userId: string, severity: AlertSeverity): string {
-  return `budget:alert:cooldown:${userId}:${severity}`
-}
-
-/**
- * 检查同一 user + severity 在 6h 内是否已发过告警(DB 记忆,跨 Redis 重启仍生效)。
+ * 检查同一 user + severity 在 6h 内是否已发过告警。
  * 复用 notifications 表: type='BUDGET_ALERT' + createdAt >= now - 6h
  * + 通过 data->>'severity' 字段判定(简化: 也用 title 关键字匹配)。
- *
- * 注意:这一查**不是**并发裁决(F-376 的病因就是把它当裁决)。并发是否重复发,
- * 由调用方随后的 `acquireOnce` 占位决定;这里只负责"DB 里已有行就不必再占位"。
  *
  * 简化: 因 notifications.data 为 jsonb 且 worker 写入时会把 severity 放在 data 里,
  * 这里直接用 jsonb 路径匹配; 如 schema 漂移可降级用 title 模糊匹配。

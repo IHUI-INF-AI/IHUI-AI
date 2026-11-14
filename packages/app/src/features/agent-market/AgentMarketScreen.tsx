@@ -65,7 +65,7 @@ export function AgentMarketScreen({
           value={keyword}
           onChangeText={onKeywordChange}
           placeholder={t('agentMarket.searchPlaceholder')}
-          placeholderTextColor={tk.text.tertiary}
+          placeholderTextColor={tk.text.secondary}
           onSubmitEditing={onSearch}
           returnKeyType="search"
         />
@@ -160,7 +160,7 @@ function createStyles(tk: AppThemeTokens) {
     cardDesc: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.primary },
     metaRow: { flexDirection: 'row', alignItems: 'center', marginTop: rnSpacing.sm },
     category: { marginRight: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.brand.DEFAULT },
-    meta: { fontSize: rnType.caption.size, color: tk.text.tertiary },
+    meta: { fontSize: rnType.caption.size, color: tk.text.medium },
     price: {
       marginLeft: 'auto',
       fontSize: rnType.body.size,

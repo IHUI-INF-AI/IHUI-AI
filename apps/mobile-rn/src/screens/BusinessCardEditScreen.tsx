@@ -15,7 +15,7 @@ import { useNavigation, useRoute, type RouteProp } from '@react-navigation/nativ
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { CreditCard, Eye, EyeOff, Save } from 'lucide-react-native'
 import { fetchApi } from '@ihui/api-client'
-import { apiFailureToText } from '@ihui/shared/utils'
+import { apiFailureToText, toFriendlyOr } from '@ihui/shared/utils'
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { TextField } from '@ihui/rn-app'
 import { tokens } from '../theme/active-tokens'
@@ -191,7 +191,7 @@ export default function BusinessCardEditScreen() {
         isPublic: card.isPublic ?? true,
       })
     } catch (e) {
-      setLoadError(e instanceof Error ? e.message : t('businessCardEdit.loadFailed'))
+      setLoadError(toFriendlyOr(e, t('businessCardEdit.loadFailed')))
     } finally {
       setLoading(false)
     }
@@ -268,7 +268,7 @@ export default function BusinessCardEditScreen() {
       if (!res.success) throw new Error(apiFailureToText(res, t('businessCardEdit.saveFailed')))
       navigation.goBack()
     } catch (e) {
-      setError(e instanceof Error ? e.message : t('businessCardEdit.saveFailed'))
+      setError(toFriendlyOr(e, t('businessCardEdit.saveFailed')))
     } finally {
       setSaving(false)
     }
@@ -422,7 +422,7 @@ function Chip({
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: tokens.surface.bg },
   body: { padding: rnSpacing.md, paddingBottom: rnSpacing['3xl'], gap: rnSpacing['sm-loose'] },
-  subtitle: { fontSize: rnType.label.size, color: tokens.text.tertiary },
+  subtitle: { fontSize: rnType.label.size, color: tokens.text.medium },
   stateBox: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: rnSpacing.sm },
   muted: { fontSize: rnType.bodySm.size, color: tokens.text.secondary },
   errorBox: {
@@ -433,7 +433,7 @@ const styles = StyleSheet.create({
     borderColor: tokens.danger.DEFAULT,
     backgroundColor: tokens.surface.card,
   },
-  errorText: { fontSize: rnType.label.size, color: tokens.danger.DEFAULT },
+  errorText: { fontSize: rnType.label.size, color: tokens.danger.deepText },
   retryBtn: {
     alignSelf: 'flex-start',
     paddingHorizontal: rnSpacing['md-loose'],

@@ -26,6 +26,7 @@ import { appAlert } from '../components/BottomPops'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { toFriendlyOr } from '@ihui/shared/utils'
 
 const WIZARD_PROVIDERS: readonly (ByokProviderOption & {
   apiFormat: 'openai_chat' | 'anthropic_messages'
@@ -140,7 +141,7 @@ function LlmSettingsScreen() {
         rows.map((p) => ({ id: p.id, name: p.name, baseUrl: p.baseUrl, enabled: p.enabled })),
       )
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'load failed')
+      setError(toFriendlyOr(e, t('common.loadFailed')))
     } finally {
       setLoading(false)
     }
@@ -204,7 +205,7 @@ function LlmSettingsScreen() {
       setStep(3)
       void load()
     } catch (e) {
-      void appAlert(t('common.error'), e instanceof Error ? e.message : t('byok.activate'))
+      void appAlert(t('common.error'), toFriendlyOr(e, t('byok.activate')))
     } finally {
       setActionPending(false)
     }

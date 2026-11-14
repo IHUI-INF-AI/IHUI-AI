@@ -243,7 +243,8 @@
     "modelCategoryGuard": "Safety guard",
     "modelCategoryOcr": "OCR",
     "modelCategoryOther": "Other",
-    "modelHistoryToggle": "Legacy models"
+    "modelHistoryToggle": "Legacy models",
+    "admissionAhead": "{n} ahead of you"
   },
   "settings": {
     "language": "Interface language",

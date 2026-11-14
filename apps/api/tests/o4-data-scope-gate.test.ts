@@ -70,57 +70,16 @@ function buildScopedTestDb() {
   return { scoped: createScopedDb(raw), calls: fake.calls }
 }
 
-// rls-context 用 db.execute(未鉴权空值路径)或 db.$client.reserve()(F-221 固定连接)
-const contextCapture = vi.hoisted(() => ({
-  queries: [] as unknown[],
-  /** F-221:每次 reserve() 产生的租约句柄 —— 断言 set/clear 落在同一条连接上 */
-  leases: [] as Array<{
-    statements: Array<{ sql: string; params: unknown[] }>
-    released: boolean
-  }>,
+// rls-context 只用到 db.execute —— mock 掉即可捕获会话变量写入,不触任何真实连接
+const contextCapture = vi.hoisted(() => ({ queries: [] as unknown[] }))
+vi.mock('../src/db/index.js', () => ({
+  db: {
+    execute: vi.fn(async (query: unknown) => {
+      contextCapture.queries.push(query)
+      return []
+    }),
+  },
 }))
-vi.mock('../src/db/index.js', () => {
-  const makeLease = (): {
-    options: { parsers: Record<string, unknown>; serializers: Record<string, unknown> }
-    statements: Array<{ sql: string; params: unknown[] }>
-    released: boolean
-    unsafe: (sqlText: string, params?: unknown[]) => Promise<unknown[]>
-    release: () => void
-  } => {
-    const statements: Array<{ sql: string; params: unknown[] }> = []
-    const lease = {
-      // drizzle(postgres-js) 在构造期读 client.options.parsers/serializers;真实 ReservedSql 同面
-      options: { parsers: {}, serializers: {} },
-      statements,
-      released: false,
-      unsafe(sqlText: string, params: unknown[] = []): Promise<unknown[]> {
-        statements.push({ sql: sqlText, params })
-        contextCapture.queries.push({ sql: sqlText, params })
-        const rows: unknown[] = []
-        const promise = Promise.resolve(rows) as Promise<unknown[]> & {
-          values: () => Promise<unknown[]>
-        }
-        promise.values = (): Promise<unknown[]> => Promise.resolve(rows)
-        return promise
-      },
-      release(): void {
-        lease.released = true
-      },
-    }
-    contextCapture.leases.push(lease)
-    return lease
-  }
-  return {
-    db: {
-      // F-221:真实出口是 drizzle 的 $client(postgres.js 池);reserve() 取独占连接
-      $client: { reserve: async () => makeLease() },
-      execute: vi.fn(async (query: unknown) => {
-        contextCapture.queries.push(query)
-        return []
-      }),
-    },
-  }
-})
 
 // ----------------------------------------------------------------------------
 // 被测模块
@@ -231,13 +190,10 @@ function denied(
 
 const dialect = new PgDialect({ casing: undefined })
 
-/** 解析被 mock 的上下文语句:F-221 之后已鉴权路径是 raw {sql,params},未鉴权路径仍是 SQL 模板。 */
+/** 解析被 mock 的 db.execute 收到的 SQL 模板。 */
 function builtContextQuery(index: number): { sql: string; params: unknown[] } {
-  const query = contextCapture.queries[index] as { sql?: unknown; params?: unknown } | undefined
+  const query = contextCapture.queries[index]
   expect(query).toBeDefined()
-  if (query && typeof query.sql === 'string') {
-    return { sql: query.sql, params: (query.params as unknown[] | undefined) ?? [] }
-  }
   return dialect.sqlToQuery(query as SQL)
 }
 
@@ -246,7 +202,6 @@ let calls: RecordedCall[] = []
 
 beforeEach(() => {
   contextCapture.queries.length = 0
-  contextCapture.leases.length = 0
   const built = buildScopedTestDb()
   scoped = built.scoped
   calls = built.calls
@@ -814,28 +769,6 @@ describe('O4-7 请求链集成(Fastify)', () => {
     expect(contextCapture.queries).toHaveLength(2)
     expect(builtContextQuery(1).params).toEqual(['', '', '', ''])
     await app.close()
-  })
-
-  it('F-221:写入与复位落在同一条 reserve 连接上,出口归还该句柄', async () => {
-    const app = await buildApp()
-    const res = await app.inject({ method: 'GET', url: '/v1/whoami' })
-    await app.close()
-
-    expect(res.statusCode).toBe(200)
-    // 只向池里要了一条独占连接,set 与 clear 都打在它上面
-    expect(contextCapture.leases).toHaveLength(1)
-    const lease = contextCapture.leases[0]
-    if (!lease) throw new Error('未捕获到 reserve 租约')
-    expect(lease.statements).toHaveLength(2)
-    expect(lease.statements[0], '写入必须落在租约连接上').toMatchObject({
-      params: [USER_ID, API_KEY_ID, USER_ID, '0'],
-    })
-    expect(lease.statements[1], '复位必须落在同一条租约连接上').toMatchObject({
-      params: ['', '', '', ''],
-    })
-    expect(lease.released, '复位后必须把连接还回池').toBe(true)
-    // 已鉴权路径不再从池里随机借连接写上下文(旧缺陷形态)
-    expect(contextCapture.queries).toHaveLength(2)
   })
 
   it('同时带 JWT 与 API Key 时按 apiKey 计(取更严格一侧,不绕过机器侧闸门)', async () => {

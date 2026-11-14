@@ -1,8 +1,14 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-// 对齐目标(RN 共享屏): packages/app/src/features/learn-develop/LearnDevelopScreen.tsx
+// 镜像 packages/app/src/features/learn-develop/LearnDevelopScreen.tsx
+//
+// 薄壳(2026-11-14 收敛):学习路径卡与推荐课程区委托共享屏 `LearnDevelopScreen`,
+// 本端只保留平台职责:
+//   ① 取数 —— GET /api/content/course/list;② 生命周期 —— useDidShow;
+//   ③ 导航 —— 课程详情 / 排行榜 / 创客名片(联系李总)。
+// 路径卡走共享 entries(含 meta + progress 进度条),课程区走 courses 段(含三态 + 重试),
+// 本端不再手写这两块的样式。
 import { aizhsUrl } from '@/constants/icon-urls'
 import { useI18n, type TtFn } from '@/i18n'
 import { logger } from '@/utils/logger'
@@ -11,65 +17,55 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import * as api from '@/api'
 import type { Course } from '@/api'
-const aiallIcon = aizhsUrl('remote-images/aiall.png')
-const kechengIcon = aizhsUrl('remote-images/kecheng.png')
-const rankoneIcon = aizhsUrl('remote-images/rankone.png')
-const useNumIcon = aizhsUrl('remote-images/useNum.png')
 import ThemeRoot from '@/components/ThemeRoot'
 import LineIcon from '@/components/LineIcon'
-import {
-  EmptyState,
-  ErrorState,
-  PressableCard,
-  ScreenSkeleton,
-} from '@/components/ScreenStates.taro'
+import { PressableCard } from '@/components/ScreenStates.taro'
+import { LearnDevelopScreen } from '@ihui/rn-app/features/learn-develop/LearnDevelopScreen'
+import { useAppTheme } from '@/lib/theme'
+import type { LearnDevelopCourseCard, LearnDevelopEntry } from '@ihui/types'
 
+const aiallIcon = aizhsUrl('remote-images/aiall.png')
+const rankoneIcon = aizhsUrl('remote-images/rankone.png')
+const useNumIcon = aizhsUrl('remote-images/useNum.png')
 // chuangke.png 已外置到 CDN(与 src/assets/remote/images/chuangke.png 字节一致),
 // 通过 aizhsUrl 运行时加载,不再复制进主包。
 const chuangkeIcon = aizhsUrl('remote-images/chuangke.png')
 
-function isImagePath(s: string): boolean {
-  return /^(https?:)?\/\//.test(s) || s.startsWith('/') || s.startsWith('data:')
+/** 学习路径卡 → 共享 entries。meta 承载「N 门课 · 进度 X%」,progress 驱动进度条。 */
+const LEARN_PATHS = (tt: TtFn): LearnDevelopEntry[] => {
+  const meta = (courses: number, progress: number) =>
+    `${courses} ${tt('learnDevelop.courseUnit', '门课')} · ${tt('learnDevelop.progressLabel', '进度')} ${progress}%`
+  return [
+    {
+      icon: chuangkeIcon,
+      title: tt('learnDevelop.d1', '前端工程师'),
+      desc: '',
+      meta: meta(12, 35),
+      progress: 35,
+      onPress: () => undefined,
+    },
+    {
+      icon: aiallIcon,
+      title: tt('learnDevelop.d2', 'AI 应用开发'),
+      desc: '',
+      meta: meta(8, 0),
+      progress: 0,
+      onPress: () => undefined,
+    },
+    {
+      icon: useNumIcon,
+      title: tt('learnDevelop.d3', '数据分析师'),
+      desc: '',
+      meta: meta(15, 60),
+      progress: 60,
+      onPress: () => undefined,
+    },
+  ]
 }
-
-interface LearnPath {
-  id: string
-  icon: string
-  nameKey: string
-  name: string
-  courses: number
-  progress: number
-}
-
-const LEARN_PATHS = (tt: TtFn): LearnPath[] => [
-  {
-    id: 'p1',
-    icon: chuangkeIcon,
-    nameKey: 'learnDevelop.d1',
-    name: tt('learnDevelop.d1', '前端工程师'),
-    courses: 12,
-    progress: 35,
-  },
-  {
-    id: 'p2',
-    icon: aiallIcon,
-    nameKey: 'learnDevelop.d2',
-    name: tt('learnDevelop.d2', 'AI 应用开发'),
-    courses: 8,
-    progress: 0,
-  },
-  {
-    id: 'p3',
-    icon: useNumIcon,
-    nameKey: 'learnDevelop.d3',
-    name: tt('learnDevelop.d3', '数据分析师'),
-    courses: 15,
-    progress: 60,
-  },
-]
 
 export default function LearnDevelop() {
   const { t } = useI18n()
+  const { resolved } = useAppTheme()
   const tt = useCallback(
     (k: string, fb: string) => {
       const v = t(k)
@@ -96,10 +92,10 @@ export default function LearnDevelop() {
   }, [])
 
   useDidShow(() => {
-    loadData()
+    void loadData()
   })
 
-  const onItemClick = useCallback((id: string | number) => {
+  const onItemClick = useCallback((id: string) => {
     Taro.navigateTo({ url: `/pkg-learn/course/detail?id=${id}` })
   }, [])
 
@@ -112,142 +108,58 @@ export default function LearnDevelop() {
     Taro.navigateTo({ url: '/pkg-content/carte/index' })
   }, [])
 
+  const courses: LearnDevelopCourseCard[] = courseList.map((item) => ({
+    id: String(item.id),
+    title: item.title,
+    coverUrl: item.coverUrl,
+    teacher: item.teacher,
+    price: item.price ?? null,
+  }))
+
   return (
     <ThemeRoot>
-      {/* 对齐 RN LearnDevelopScreen:容器底 surface.bg;头部无卡片底(与 RN header 一致直接置于页面底色上),标题 20dp→40rpx/600 */}
-      <View className="min-h-screen bg-background">
-        <View className="px-[20rpx] py-[24rpx]">
-          <Text className="text-heading font-semibold text-foreground">
-            {t('learnDevelop.title')}
-          </Text>
-        </View>
-        {/* 对齐 RN scrollContent:paddingH 10dp→20rpx / paddingV 12dp→24rpx / paddingB 24dp→48rpx */}
-        <View className="px-[20rpx] pt-[24rpx] pb-[48rpx]">
-          {/* 学习路径(RN 无对应区,保留业务;卡片对齐 RN entryCard 语言:圆角 12dp→24rpx + 边框 border.light + padding 14dp→28rpx) */}
-          <View className="first:mt-0 mt-[24rpx] mb-[16rpx]">
-            <Text className="text-title font-semibold text-foreground">
-              {tt('learnDevelop.pathTitle', '学习路径')}
+      <LearnDevelopScreen
+        t={t}
+        onBack={() => Taro.navigateBack()}
+        onNavigate={(url) => Taro.navigateTo({ url })}
+        onContact={onContact}
+        entries={LEARN_PATHS(tt)}
+        entriesTitle={tt('learnDevelop.pathTitle', '学习路径')}
+        coursesTitle={tt('learnDevelop.recommend', '推荐课程')}
+        courses={courses}
+        coursesSection={
+          loading && courseList.length === 0
+            ? 'loading'
+            : error && courseList.length === 0
+              ? 'error'
+              : courseList.length === 0
+                ? 'empty'
+                : 'ready'
+        }
+        onRetry={loadData}
+        coursesEmptyLabel={t('learnDevelop.empty')}
+        onCoursePress={onItemClick}
+        // 本页依赖原生导航栏:隐藏共享屏内置 header,避免双标题/双返回
+        hideHeader
+        colorScheme={resolved}
+      />
+
+      {/* 排行榜入口:共享屏 entries 是两列栅格,这一条需要整行形态 ⇒ 留在页面层渲染
+          (样式与共享卡的卡片语言一致:卡片底 + 边框 + 圆角)。 */}
+      <View className="px-[20rpx] pb-[48rpx]">
+        <PressableCard
+          className="flex items-center justify-between p-[28rpx] bg-card rounded-lg border border-border mt-[24rpx]"
+          onClick={onGoRank}
+        >
+          <View className="flex items-center">
+            <Image src={rankoneIcon} className="w-[40rpx] h-[40rpx] mr-[16rpx]" mode="aspectFit" />
+            <Text className="text-body text-foreground font-semibold">
+              {tt('learnDevelop.rankEntry', '学习排行榜')}
             </Text>
           </View>
-          {LEARN_PATHS(tt).map((path) => (
-            <View
-              key={path.id}
-              className="flex items-center p-[28rpx] bg-card rounded-lg border border-border mb-[16rpx]"
-            >
-              <View className="w-[88rpx] h-[88rpx] flex items-center justify-center bg-background rounded-md flex-shrink-0 mr-[16rpx]">
-                {isImagePath(path.icon) ? (
-                  <Image src={path.icon} className="w-[48rpx] h-[48rpx]" mode="aspectFit" />
-                ) : (
-                  <Text className="text-display">{path.icon}</Text>
-                )}
-              </View>
-              <View className="flex-1 flex flex-col">
-                <Text className="text-strong font-semibold text-foreground">
-                  {tt(path.nameKey, path.name)}
-                </Text>
-                <Text className="text-label text-muted-foreground mt-[8rpx]">
-                  {path.courses} {tt('learnDevelop.coursesUnit', '门课')} ·{' '}
-                  {tt('learnDevelop.progress', '进度')} {path.progress}%
-                </Text>
-                {/* 进度条对齐 RN 进度条语言(StudyProgress bar/barFill):h 6dp→12rpx、胶囊圆角 24rpx、填充 success;轨道保留 bg-muted(RN 轨道 surface.card 在亮色卡片上不可见,此处保持可见) */}
-                <View className="h-[12rpx] bg-muted rounded-md mt-[12rpx] overflow-hidden">
-                  <View
-                    className="h-full bg-success rounded-md"
-                    style={{ width: `${path.progress}%` }}
-                  />
-                </View>
-              </View>
-            </View>
-          ))}
-
-          {/* 推荐课程(RN 无对应区,保留业务;课程行卡对齐 RN CourseCarousel list 变体卡片:圆角 24rpx + 边框,thumb 100×80dp→200×160rpx 直角,价格 12dp→24rpx/600,免费 success/付费 text.primary) */}
-          <View className="first:mt-0 mt-[24rpx] mb-[16rpx]">
-            <Text className="text-title font-semibold text-foreground">
-              {tt('learnDevelop.recommend', '推荐课程')}
-            </Text>
-          </View>
-          {loading && courseList.length === 0 ? (
-            <ScreenSkeleton variant="list" count={4} />
-          ) : error && courseList.length === 0 ? (
-            <ErrorState
-              message={tt('learnDevelop.loadFailed', '加载失败')}
-              onRetry={loadData}
-              retryLabel={t('common.retry')}
-            />
-          ) : courseList.length > 0 ? (
-            courseList.map((item) => (
-              <PressableCard
-                key={item.id}
-                className="flex bg-card rounded-lg border border-border overflow-hidden mb-[16rpx]"
-                onClick={() => onItemClick(item.id)}
-              >
-                {item.coverUrl ? (
-                  <Image
-                    className="w-[200rpx] h-[160rpx] flex-shrink-0 bg-muted"
-                    src={item.coverUrl}
-                    mode="aspectFill"
-                  />
-                ) : (
-                  <View className="w-[200rpx] h-[160rpx] flex-shrink-0 bg-muted flex items-center justify-center">
-                    <Image src={kechengIcon} className="w-[48rpx] h-[48rpx]" mode="aspectFit" />
-                  </View>
-                )}
-                <View className="flex-1 px-[24rpx] py-[16rpx] flex flex-col justify-between min-h-[160rpx]">
-                  <Text className="text-body text-foreground font-semibold leading-[1.4] line-clamp-2 overflow-hidden">
-                    {item.title}
-                  </Text>
-                  {item.teacher ? (
-                    <Text className="text-label text-muted-foreground mt-[8rpx]">
-                      {tt('learnDevelop.teacher', '讲师')}: {item.teacher}
-                    </Text>
-                  ) : null}
-                  {item.price !== null && item.price !== undefined ? (
-                    <Text
-                      className={`text-label font-semibold ${item.price === 0 ? 'text-success' : 'text-foreground'}`}
-                    >
-                      {item.price === 0
-                        ? tt('learnDevelop.free', '免费')
-                        : `¥${item.price.toFixed(2)}`}
-                    </Text>
-                  ) : null}
-                </View>
-              </PressableCard>
-            ))
-          ) : (
-            <EmptyState title={t('learnDevelop.empty')} />
-          )}
-
-          {/* 学习排行榜入口(RN 无对应区,保留业务;卡片语言同上) */}
-          <PressableCard
-            className="flex items-center justify-between p-[28rpx] bg-card rounded-lg border border-border mt-[24rpx]"
-            onClick={onGoRank}
-          >
-            <View className="flex items-center">
-              <Image
-                src={rankoneIcon}
-                className="w-[40rpx] h-[40rpx] mr-[16rpx]"
-                mode="aspectFit"
-              />
-              <Text className="text-body text-foreground font-semibold">
-                {tt('learnDevelop.rankEntry', '学习排行榜')}
-              </Text>
-            </View>
-            <LineIcon name="chevron-right" size={24} color="var(--color-muted-foreground)" />
-          </PressableCard>
-
-          {/* 联系入口(对齐 RN onContact 按钮:宽 187dp→374rpx / 高 38dp→76rpx / control 圆角 + 居中) */}
-          <View
-            className="mt-[48rpx] mx-auto w-[374rpx] h-[76rpx] flex items-center justify-center rounded-sm bg-warning"
-            onClick={onContact}
-            hoverClass="opacity-80"
-          >
-            <Text className="text-title font-bold text-foreground">
-              {tt('learnDevelop.contactLabel', '直接联系李总')}
-            </Text>
-          </View>
-        </View>
+          <LineIcon name="chevron-right" size={24} color="var(--color-muted-foreground)" />
+        </PressableCard>
       </View>
     </ThemeRoot>
   )
 }
-// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

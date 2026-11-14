@@ -23,7 +23,6 @@ import { parsePositiveInt } from '../utils/positive-int.js'
 import { calculateCost } from '../services/pricing-service.js'
 import { resolvePrice, type ResolvedPrice } from '../services/pricing-engine.js'
 import { checkOrgSpendBudget } from '../services/org-policy-service.js'
-import { getUserDailyCostLimit } from '../services/budget-alert-service.js'
 import { config } from '../config/index.js'
 import { logger } from '../utils/logger.js'
 import {
@@ -279,34 +278,6 @@ export async function checkBudget(
   const usedToday = Number(used?.total ?? 0)
   if (usedToday >= budget.dailyTokenLimit) {
     return { allowed: false, reason: '日 token 预算已用尽' }
-  }
-
-  // F-372:日成本上限熔断。阈值复用 budget-alert-service 的读取函数(同一 ai_budgets.daily_cost_limit),
-  // 与告警扫描同源,不另抄一份阈值。仅 user 维度生效(告警扫描也只覆盖 scope='user')。
-  // 读取/聚合异常按"不拦截"放行:此处 fail-closed 会让一次存储抖动封死全部调用,
-  // 而成本熔断只应对"明确已超限"生效,存储异常不等于超限。
-  if (scope === 'user') {
-    try {
-      const dailyCostLimit = await getUserDailyCostLimit(scopeKey)
-      if (dailyCostLimit !== null) {
-        const [costUsed] = await db
-          .select({ total: sum(aiCostRecords.cost) })
-          .from(aiCostRecords)
-          .where(and(gte(aiCostRecords.createdAt, todayStart), eq(aiCostRecords.userId, scopeKey)))
-
-        const usedCost = Number(costUsed?.total ?? 0)
-        if (usedCost >= dailyCostLimit) {
-          logger.warn(
-            `[ai-cost] 日成本上限已触顶,拒绝调用: userId=${scopeKey} limit=${dailyCostLimit} used=${usedCost}`,
-          )
-          return { allowed: false, reason: '日成本预算已用尽' }
-        }
-      }
-    } catch (err) {
-      logger.warn(
-        `[ai-cost] 读取日成本上限失败,按不拦截放行: userId=${scopeKey} err=${String(err)}`,
-      )
-    }
   }
 
   return { allowed: true }

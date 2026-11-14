@@ -1,10 +1,16 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-// 对齐目标(RN 共享屏): packages/app/src/features/follow/FollowScreen.tsx
+// 镜像 packages/app/src/features/follow/FollowScreen.tsx
+//
+// 薄壳(2026-11-14 收敛):列表视图委托共享屏 `FollowScreen`,本端只保留平台职责:
+//   ① 取数 —— GET /follows/following | /follows/followers(分页);
+//   ② 生命周期 —— useDidShow 门控 / useReachBottom / usePullDownRefresh / 原生标题;
+//   ③ 交互 —— 取消关注确认弹窗、去发现更多。
+// 顶部「统计 + 搜索」走共享屏 renderListHeader,空态主操作走 emptyAction,
+// 收敛前这 272 行把手写卡片/tab/三态各写一份。
 import { useI18n } from '@/i18n'
-import { View, Text, Image } from '@tarojs/components'
+import { View, Text } from '@tarojs/components'
 import Taro, { useDidShow, useReachBottom, usePullDownRefresh } from '@tarojs/taro'
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import { getFollowing, getFollowers, unfollowUser } from '@/api/social'
@@ -12,18 +18,13 @@ import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import { useSocialList } from '@/hooks/use-social-list'
 import { formatDateByTemplate } from '@ihui/shared'
 import ThemeRoot from '@/components/ThemeRoot'
-// 屏幕状态四件套的小程序镜像件(对齐 RN 端 packages/app/src/components/ScreenStates.tsx)
-import { ScreenSkeleton } from '@/components/ScreenStates.taro'
-import LineIcon from '@/components/LineIcon'
 import SearchBar from '@/components/SearchBar'
+import { FollowScreen } from '@ihui/rn-app/features/follow/FollowScreen'
+import { useAppTheme } from '@/lib/theme'
+import type { FollowTab, FollowUserItem } from '@ihui/types'
 import { onToast } from '@/host/on-toast'
 
 const PAGE_SIZE = 20
-const defaultAvatar = '/static/default-avatar.png'
-
-/** 关注/粉丝双 tab(与 RN FollowScreen 的 FollowTab 同一词表) */
-type FollowTab = 'following' | 'fans'
-const TABS: FollowTab[] = ['following', 'fans']
 
 /**
  * 两张列表的公共行形。粉丝行来自 GET /follows/followers(后端只投影
@@ -41,8 +42,21 @@ type FollowRow = {
   createdAt?: string | null
 }
 
+/** 本端行 → 共享 FollowUserItem。followedAt 缺失时按 createdAt 兜底,再缺就空串(不编时间)。 */
+function toFollowItem(row: FollowRow): FollowUserItem {
+  return {
+    id: row.id,
+    nickname: row.nickname ?? null,
+    username: row.username ?? '',
+    avatar: row.avatar ?? null,
+    bio: row.bio ?? null,
+    followedAt: formatDateByTemplate(row.followedAt ?? row.createdAt ?? '', 'YYYY-MM-DD') || '-',
+  }
+}
+
 export default function FollowingPage() {
   const { t } = useI18n()
+  const { resolved } = useAppTheme()
   const gate = useAuthReadyGate()
   const tt = useCallback((k: string, fb: string) => (t(k) === k ? fb : t(k)), [t])
 
@@ -93,15 +107,17 @@ export default function FollowingPage() {
   }, [tt])
 
   const handleUnfollow = useCallback(
-    (item: FollowRow) => {
+    (item: FollowUserItem) => {
+      const row = items.find((x) => x.id === item.id)
+      if (!row) return
       Taro.showModal({
         title: tt('common.hint', '提示'),
         content: tt('following.cancel', '确认取消关注?'),
         success: async (res) => {
           if (!res.confirm) return
           try {
-            await unfollowUser(item.userId ?? item.id)
-            removeItem(item.id)
+            await unfollowUser(row.userId ?? row.id)
+            removeItem(row.id)
             onToast(tt('common.success', '成功'), { kind: 'success' })
           } catch {
             onToast(tt('following.loadFailed', '操作失败'), { kind: 'error' })
@@ -109,7 +125,7 @@ export default function FollowingPage() {
         },
       })
     },
-    [tt, removeItem],
+    [items, tt, removeItem],
   )
 
   const goDiscover = useCallback(() => {
@@ -118,154 +134,63 @@ export default function FollowingPage() {
 
   // G-933 冷启动门控:GET /follows/following(checkAuth)需鉴权,落定前不发
   useDidShow(() => gate.waitUntilReady(() => load(true)))
-  useReachBottom(() => load())
-  usePullDownRefresh(() => load(true).finally(() => Taro.stopPullDownRefresh()))
+  useReachBottom(() => {
+    void load()
+  })
+  usePullDownRefresh(() => {
+    void load(true).finally(() => Taro.stopPullDownRefresh())
+  })
 
   return (
-    <View className="min-h-screen bg-background p-[20rpx] pb-[64rpx] box-border">
-      {/* 顶部:当前 tab 统计 + 搜索 */}
-      <View className="flex flex-col gap-[16rpx]">
-        <View className="flex items-baseline">
-          <Text className="text-body text-muted-foreground">
-            {tab === 'following' ? tt('follow.following', '关注') : tt('follow.fans', '粉丝')}
-          </Text>
-          <Text className="mx-[8rpx] text-heading font-bold text-primary">{totalCount}</Text>
-          <Text className="text-label text-muted-foreground">{tt('following.people', '人')}</Text>
-        </View>
-        {/* 搜索栏(统一圆角输入井,共享 SearchBar) */}
-        <SearchBar
-          className=""
-          value={searchText}
-          onInput={setSearchText}
-          placeholder={tt('following.searchPlaceholder', '搜索关注的用户')}
-          onClear={() => setSearchText('')}
-        />
-      </View>
-
-      {/* 关注/粉丝双 tab(对齐 RN FollowScreen tabs:paddingVertical 8dp/gap 8dp/胶囊 radius 12dp/激活 bg brand) */}
-      <View className="flex gap-[16rpx] py-[16rpx]">
-        {TABS.map((k) => (
-          <View
-            key={k}
-            className={`flex-1 flex items-center justify-center py-[16rpx] rounded-xl ${tab === k ? 'bg-primary' : 'bg-card'}`}
-            hoverClass="opacity-60"
-            onClick={() => setTab(k)}
-          >
-            <Text
-              className={`text-body ${tab === k ? 'text-primary-foreground font-semibold' : 'text-muted-foreground'}`}
-            >
-              {k === 'following' ? tt('follow.following', '关注') : tt('follow.fans', '粉丝')}
-            </Text>
+    <ThemeRoot>
+      <FollowScreen
+        t={t}
+        items={displayList.map(toFollowItem)}
+        activeTab={tab}
+        onSelectTab={setTab}
+        loading={loading}
+        refreshing={false}
+        loadingMore={loading && displayList.length > 0}
+        error=""
+        onRefresh={() => {
+          void load(true)
+        }}
+        onLoadMore={() => {
+          void load()
+        }}
+        onUnfollow={handleUnfollow}
+        onBack={() => Taro.navigateBack()}
+        onRetry={() => {
+          void load(true)
+        }}
+        colorScheme={resolved}
+        onNavigate={(url) => Taro.navigateTo({ url })}
+        onToast={onToast}
+        emptyLabel={
+          searchText ? tt('following.searchEmpty', '未找到匹配用户') : tt('follow.empty', '暂无数据')
+        }
+        emptyAction={{ label: tt('following.goDiscover', '去发现更多'), onPress: goDiscover }}
+        showNoMore={!hasMore && displayList.length > 0}
+        // 顶部「当前 tab 统计 + 搜索」是页面级控件,共享屏无此槽位
+        renderListHeader={() => (
+          <View className="flex flex-col gap-[16rpx] mb-[16rpx]">
+            <View className="flex items-baseline">
+              <Text className="text-body text-muted-foreground">
+                {tab === 'following' ? tt('follow.following', '关注') : tt('follow.fans', '粉丝')}
+              </Text>
+              <Text className="mx-[8rpx] text-heading font-bold text-primary">{totalCount}</Text>
+              <Text className="text-label text-muted-foreground">{tt('following.people', '人')}</Text>
+            </View>
+            {/* 搜索栏(统一圆角输入井,共享 SearchBar) */}
+            <SearchBar
+              value={searchText}
+              onInput={setSearchText}
+              placeholder={tt('following.searchPlaceholder', '搜索关注的用户')}
+              onClear={() => setSearchText('')}
+            />
           </View>
-        ))}
-      </View>
-
-      {/* 列表(关注 / 粉丝) */}
-      {displayList.length > 0 ? (
-        <View className="flex flex-col gap-[24rpx]">
-          {/* 对齐 RN FollowScreen listBody:ItemSeparator 12dp */}
-          {displayList.map((item) => {
-            const name = item.nickname || item.username || '?'
-            const initial = name.charAt(0)
-            return (
-              <ThemeRoot key={item.id}>
-                {/* 对齐 RN FollowScreen card:padding 12dp/radius 12dp/描边 border.light/底 surface.bg */}
-                <View
-                  key={item.id}
-                  className="flex items-center p-[24rpx] bg-background border-[length:2rpx] border-border rounded-xl"
-                >
-                  {item.avatar ? (
-                    <Image
-                      className="w-[96rpx] h-[96rpx] rounded-2xl bg-muted mr-[24rpx] shrink-0"
-                      src={item.avatar || defaultAvatar}
-                      mode="aspectFill"
-                    />
-                  ) : (
-                    <View className="w-[96rpx] h-[96rpx] rounded-2xl bg-muted mr-[24rpx] shrink-0 flex items-center justify-center">
-                      {/* 对齐 RN avatarInitial 18dp/600/text.secondary */}
-                      <Text className="text-subtitle font-semibold text-muted-foreground">
-                        {initial}
-                      </Text>
-                    </View>
-                  )}
-                  {/* 对齐 RN cardInfo:marginLeft 12dp;bio/meta marginTop 8dp */}
-                  <View className="flex-1 min-w-0 flex flex-col gap-[16rpx]">
-                    <View className="flex items-center justify-between">
-                      <Text className="text-title font-semibold text-foreground truncate">
-                        {name}
-                      </Text>
-                      {/* 已关注徽章只属于关注行;粉丝行是别人关注我,不挂这个状态 */}
-                      {tab === 'following' ? (
-                        <View className="py-[4rpx] px-[12rpx] bg-primary/10 border-[length:2rpx] border-primary/30 rounded-xs">
-                          <Text className="text-badge text-primary">
-                            {tt('following.following', '已关注')}
-                          </Text>
-                        </View>
-                      ) : null}
-                    </View>
-                    {item.bio ? (
-                      <Text className="text-caption text-muted-foreground truncate">
-                        {item.bio}
-                      </Text>
-                    ) : null}
-                    <View className="flex items-center justify-between">
-                      <Text className="text-caption text-[var(--color-text-tertiary)]">
-                        {tab === 'following' ? `${tt('following.followedAt', '关注于')} ` : ''}
-                        {formatDateByTemplate(item.followedAt ?? item.createdAt, 'YYYY-MM-DD') ||
-                          '-'}
-                      </Text>
-                      {/* 对齐 RN unfollowBtn(仅关注 tab 显示):paddingHorizontal 12dp/paddingVertical 6dp/radius 12dp/描边 border.light/字 text.primary */}
-                      {tab === 'following' ? (
-                        <Text
-                          className="py-[12rpx] px-[24rpx] text-body text-foreground bg-background border-[length:2rpx] border-border rounded-xl"
-                          onClick={() => handleUnfollow(item)}
-                        >
-                          {tt('following.delete', '取消关注')}
-                        </Text>
-                      ) : null}
-                    </View>
-                  </View>
-                </View>
-              </ThemeRoot>
-            )
-          })}
-        </View>
-      ) : null}
-
-      {/* 空状态:暂无关注 + 去发现更多 */}
-      {displayList.length === 0 && !loading ? (
-        <View className="py-[96rpx] flex flex-col items-center">
-          <LineIcon name="message-circle" size={80} color="var(--color-muted-foreground)" />
-          <Text className="mt-[16rpx] text-body text-muted-foreground">
-            {searchText
-              ? tt('following.searchEmpty', '未找到匹配用户')
-              : tt('follow.empty', '暂无数据')}
-          </Text>
-          <View
-            className="mt-[24rpx] py-[16rpx] px-[40rpx] bg-primary rounded-xl"
-            hoverClass="opacity-60"
-            onClick={goDiscover}
-          >
-            <Text className="text-primary-foreground text-body-sm leading-[normal]">
-              {tt('following.goDiscover', '去发现更多')}
-            </Text>
-          </View>
-        </View>
-      ) : null}
-
-      {/* 首屏加载:骨架屏,与 RN 端 ScreenSkeleton 同形同周期 */}
-      {loading && displayList.length === 0 ? <ScreenSkeleton variant="list" count={4} /> : null}
-      {loading && displayList.length > 0 ? (
-        <View className="text-center py-[32rpx] text-caption text-muted-foreground">
-          <Text>{tt('following.loadMore', '加载更多')}</Text>
-        </View>
-      ) : null}
-      {!loading && !hasMore && displayList.length > 0 ? (
-        <View className="text-center py-[32rpx] text-caption text-muted-foreground">
-          <Text>{tt('following.noMore', '没有更多了')}</Text>
-        </View>
-      ) : null}
-    </View>
+        )}
+      />
+    </ThemeRoot>
   )
 }
-// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

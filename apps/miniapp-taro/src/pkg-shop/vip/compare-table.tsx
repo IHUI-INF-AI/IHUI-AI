@@ -9,7 +9,7 @@
  * 本模块只保留本端职责:GET /vip-compare 取数、三态文案、feature 机器键→译名。
  */
 
-import { Text } from '@tarojs/components'
+import { View, Text } from '@tarojs/components'
 import { useCallback, useEffect, useState } from 'react'
 import { useI18n } from '@/i18n'
 import { useTheme } from '@/rn-compat/theme'
@@ -71,12 +71,13 @@ export default function CompareTable() {
   }
   if (error) {
     return (
-      <Text
+      <View
         className="block py-[32rpx] text-center text-label text-muted-foreground"
+        hoverClass="opacity-60"
         onClick={() => void load()}
       >
-        {t('common.loadFailed')}
-      </Text>
+        <Text>{t('common.loadFailed')}</Text>
+      </View>
     )
   }
   if (rows.length === 0) {

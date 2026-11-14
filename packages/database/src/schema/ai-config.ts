@@ -149,19 +149,6 @@ export const aiModelConfigModels = pgTable(
       scale: 6,
       mode: 'number',
     }).default(0),
-    // 2026-11-14:采购成本价(分/千 token)。利润看板专用,不参与对客计价。
-    // 定价管线写入时 = 解析出的原始成本,售价 = 成本 × PROFIT_FACTOR;
-    // null = 未知(历史行/人工未填),利润计算按"成本未知"处理,不冒充 0。
-    costInputPricePer1k: numeric('cost_input_price_per_1k', {
-      precision: 18,
-      scale: 6,
-      mode: 'number',
-    }),
-    costOutputPricePer1k: numeric('cost_output_price_per_1k', {
-      precision: 18,
-      scale: 6,
-      mode: 'number',
-    }),
     enabled: boolean('enabled').default(true),
     defaultParams: jsonb('default_params').default({}),
     isDefault: boolean('is_default').default(false),

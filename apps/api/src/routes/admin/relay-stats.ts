@@ -19,7 +19,6 @@ import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { and, desc, eq, gte, lte, sql } from 'drizzle-orm'
 import { dbRead } from '../../db/index.js'
-import { toSafeAmount } from '../../db/commission-queries.js'
 import { llmCallLogs, users } from '@ihui/database'
 import { success, error } from '../../utils/response.js'
 import { requireAdmin } from '../../plugins/require-permission.js'
@@ -54,8 +53,7 @@ async function aggregatePeriod(start: Date, end: Date): Promise<PeriodAggregate>
   const rows = await dbRead
     .select({
       callCount: sql<number>`count(*)::int`,
-      // F-574:原 `::bigint::int` 末端又截回 int4,累计 token 越过 2^31 仍会 500;去掉末端截断。
-      totalTokens: sql<number>`coalesce(sum(${llmCallLogs.totalTokens}), 0)::bigint`,
+      totalTokens: sql<number>`coalesce(sum(${llmCallLogs.totalTokens}), 0)::bigint::int`,
       totalCostCents: sumRelayCostCentsSql(),
       errorCount: sql<number>`count(*) filter (where ${llmCallLogs.status} = 'error')::int`,
       avgLatencyMs: sql<number>`coalesce(avg(${llmCallLogs.latencyMs}), 0)::int`,
@@ -67,8 +65,8 @@ async function aggregatePeriod(start: Date, end: Date): Promise<PeriodAggregate>
   const callCount = r.callCount
   return {
     callCount,
-    totalTokens: toSafeAmount(r.totalTokens),
-    totalCostCents: toSafeAmount(r.totalCostCents),
+    totalTokens: r.totalTokens,
+    totalCostCents: Number(r.totalCostCents),
     errorCount: r.errorCount,
     errorRate: callCount > 0 ? r.errorCount / callCount : 0,
     avgLatencyMs: r.avgLatencyMs,
@@ -89,7 +87,7 @@ async function aggregateRange(start: Date, end: Date): Promise<RangeAggregate> {
   const callCount = r.callCount
   return {
     callCount,
-    totalCostCents: toSafeAmount(r.totalCostCents),
+    totalCostCents: Number(r.totalCostCents),
     errorRate: callCount > 0 ? r.errorCount / callCount : 0,
   }
 }
@@ -156,7 +154,7 @@ const relayStatsRoutes: FastifyPluginAsync = async (server) => {
         .select({
           model: llmCallLogs.model,
           callCount: sql<number>`count(*)::int`,
-          totalTokens: sql<number>`coalesce(sum(${llmCallLogs.totalTokens}), 0)::bigint`,
+          totalTokens: sql<number>`coalesce(sum(${llmCallLogs.totalTokens}), 0)::bigint::int`,
           totalCostCents: sumRelayCostCentsSql(),
         })
         .from(llmCallLogs)
@@ -168,14 +166,14 @@ const relayStatsRoutes: FastifyPluginAsync = async (server) => {
       const top = rows.slice(0, 10)
       const rest = rows.slice(10)
       const otherCallCount = rest.reduce((s, r) => s + r.callCount, 0)
-      const otherTokens = rest.reduce((s, r) => s + toSafeAmount(r.totalTokens), 0)
-      const otherCost = rest.reduce((s, r) => s + toSafeAmount(r.totalCostCents), 0)
+      const otherTokens = rest.reduce((s, r) => s + r.totalTokens, 0)
+      const otherCost = rest.reduce((s, r) => s + Number(r.totalCostCents), 0)
 
       const models = top.map((r) => ({
         model: r.model,
         callCount: r.callCount,
-        totalTokens: toSafeAmount(r.totalTokens),
-        totalCostCents: toSafeAmount(r.totalCostCents),
+        totalTokens: r.totalTokens,
+        totalCostCents: Number(r.totalCostCents),
         percentage: totalCall > 0 ? r.callCount / totalCall : 0,
       }))
       if (otherCallCount > 0) {
@@ -238,7 +236,7 @@ const relayStatsRoutes: FastifyPluginAsync = async (server) => {
         daysArr.push({
           date: key,
           callCount,
-          totalCostCents: toSafeAmount(r?.totalCostCents),
+          totalCostCents: Number(r?.totalCostCents ?? 0),
           errorRate: callCount > 0 ? errorCount / callCount : 0,
           avgLatencyMs: r?.avgLatencyMs ?? 0,
         })
@@ -278,7 +276,7 @@ const relayStatsRoutes: FastifyPluginAsync = async (server) => {
         userId: r.userId,
         username: r.username,
         callCount: r.callCount,
-        totalCostCents: toSafeAmount(r.totalCostCents),
+        totalCostCents: Number(r.totalCostCents),
       }))
 
       return reply.send(success({ users: userList }))

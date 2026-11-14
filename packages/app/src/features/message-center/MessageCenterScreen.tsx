@@ -261,7 +261,7 @@ export function MessageCenterScreen({
                       accessibilityLabel={t('messageCenter.deleteConv')}
                       onPress={() => onDeleteConversation(conv)}
                     >
-                      <Trash2 size={16} color={tk.text.tertiary} />
+                      <Trash2 size={16} color={tk.text.secondary} />
                     </Tappable>
                   ) : null}
                   {/* 置顶切换(D20 G-11 端内接线):图标即动作,与 web 菜单同形;
@@ -277,7 +277,7 @@ export function MessageCenterScreen({
                       {conv.pinned ? (
                         <PinOff size={16} color={tk.text.primary} />
                       ) : (
-                        <Pin size={16} color={tk.text.tertiary} />
+                        <Pin size={16} color={tk.text.secondary} />
                       )}
                     </Tappable>
                   ) : null}
@@ -385,7 +385,7 @@ function createStyles(tk: AppThemeTokens) {
     errorText: {
       paddingHorizontal: rnSpacing['sm-loose'],
       fontSize: rnType.body.size,
-      color: tk.danger.DEFAULT,
+      color: tk.danger.deepText,
     },
     listBody: { padding: rnSpacing['sm-loose'] },
     // ── 会话列表区块(对齐 Uniapp message 页聊天列表) ──
@@ -422,7 +422,7 @@ function createStyles(tk: AppThemeTokens) {
       gap: rnSpacing.sm,
     },
     convName: { flex: 1, fontSize: rnType.strong.size, fontWeight: '600', color: tk.text.primary },
-    convTime: { fontSize: rnType.label.size, color: tk.text.tertiary },
+    convTime: { fontSize: rnType.label.size, color: tk.text.medium },
     convPreview: { marginTop: rnSpacing['2xs'], fontSize: rnType.bodySm.size, color: tk.text.secondary },
     convPinBtn: { paddingHorizontal: rnSpacing.xs, justifyContent: 'center' },
     convActionBtn: { paddingHorizontal: rnSpacing.xs, justifyContent: 'center' },

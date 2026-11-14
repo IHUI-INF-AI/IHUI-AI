@@ -32,9 +32,7 @@ import type { SelectedChannelKey } from './relay-channel-router.js'
 export type { SelectedChannelKey }
 import { selectChannelCandidates, recordChannelResult } from './relay-channel-router.js'
 // 账号池回落(2026-10-22):无渠道候选时尝试第三方 AI IDE 账号池(trae/workbuddy/codearts)
-// F-676:渠道腿的 429 退避与账号池腿共用同一套退避头解析(秒 / HTTP-date / epoch 秒),
-// 不再"账号池读懂 Retry-After、渠道腿固定 60s"。
-import { forwardToAccountPool, planRateBackoff } from './relay-account-forwarder.js'
+import { forwardToAccountPool } from './relay-account-forwarder.js'
 // 出网复检(SSRF 硬化,2026-10-28):渠道 base_url 保存时已校验,这里在"请求发出那一刻"再验一次,
 // 防保存后 DNS 改指内网 / 重绑定。档位与 relay-account-forwarder 同源(allowPrivate+allowCustomPort)。
 import { assertRelayEgressSafe, directEgressDispatcher } from '../utils/relay-egress-guard.js'
@@ -108,12 +106,6 @@ export interface UpstreamForwardRequest {
    */
   bodyOverride?: Record<string, unknown>
   signal?: AbortSignal
-  /**
-   * F-337:流式调用方自己判定「这条流是否正常结束」时,建连成功**不**立刻记成功,
-   * 由调用方在流结束后按结果补记(正常 true / 流内错误帧 false)。
-   * 不设此旗标(默认)保持旧语义:拿到 2xx 响应头即记成功。
-   */
-  deferStreamSuccess?: boolean
 }
 
 interface ForwardSuccess {
@@ -133,8 +125,6 @@ interface ForwardFailure {
   reason: string
   /** 最后一次上游 HTTP 状态(网络错误时为 undefined) */
   lastHttpStatus?: number
-  /** F-678:429 时上游给出的 Retry-After(原样;供 v1-public 对外透传) */
-  retryAfter?: string
 }
 
 /**
@@ -417,16 +407,10 @@ export async function forwardToChannel(req: UpstreamForwardRequest): Promise<For
 
   let lastError = 'no channel candidate succeeded'
   let lastHttpStatus: number | undefined
-  let lastRetryAfter: string | undefined
 
   // 插件系统(2026-09-17,补强 59):启用插件一次性读取(30s 缓存),
   // upstream_header_inject 在每个候选的请求头合并;读取失败降级为空集(不阻断转发)。
   const plugins = await getEnabledPlugins().catch(() => [])
-
-  // F-627:请求体在候选循环外序列化一次复用。此前 `JSON.stringify(body)` 位于循环体内,
-  // 首个候选失败即按候选数(最多 3)重复序列化整包,图片/长上下文请求额外 CPU/内存峰值。
-  // body 在循环内不再被改写,可安全复用。
-  const serializedBody = JSON.stringify(body)
 
   for (const channel of candidates) {
     const started = startStopwatch()
@@ -443,7 +427,7 @@ export async function forwardToChannel(req: UpstreamForwardRequest): Promise<For
           Authorization: `Bearer ${channel.apiKey}`,
           Accept: req.stream ? 'text/event-stream' : 'application/json',
         }),
-        body: serializedBody,
+        body: JSON.stringify(body),
         // F-616:头阶段 deadline + 客户端断开;拿到响应头后 clear 只撤定时器,正文不受限
         signal: headersTimeout.signal,
       }
@@ -464,24 +448,14 @@ export async function forwardToChannel(req: UpstreamForwardRequest): Promise<For
 
       if (!resp.ok || !resp.body) {
         lastHttpStatus = resp.status
-        // F-678:429 的 Retry-After 原样留底(上游没给就保持 undefined,不伪造)
-        if (resp.status === 429) lastRetryAfter = resp.headers?.get?.('retry-after') ?? undefined
         lastError = `upstream ${resp.status}`
-        // F-676:429 的退避头同样喂给渠道熔断 —— 上游说 300s 就 300s 不进 half-open,
-        // 不再一律 60s 后重新 probe(那等于每 60s 主动撞一次限流)。
-        const rateBackoffMs = resp.status === 429 ? planRateBackoff(resp.headers).ms : 0
         // F-618:非 2xx 的 body 必须消费/取消,否则 undici 不归还 socket(失败风暴下连接池耗尽)
         await resp.body?.cancel().catch(() => {})
         // F-617:只有 5xx / 429 / 网络错误才是渠道故障;4xx 是请求本身的问题,
         // 一律计进熔断 ⇒ 3 个坏参数请求就能把全部候选打掉(自伤式熔断)。
         const isClientError = resp.status >= 400 && resp.status < 500 && resp.status !== 429
         if (!isClientError) {
-          await recordChannelResult(
-            channel.keyPoolId,
-            false,
-            breakerLatency,
-            rateBackoffMs,
-          ).catch(() => {})
+          await recordChannelResult(channel.keyPoolId, false, breakerLatency).catch(() => {})
           continue // failover:下一候选
         }
         // 401/403:该 key 凭据异常 ⇒ 换下一候选,但不计渠道熔断(不是渠道挂了)
@@ -491,32 +465,8 @@ export async function forwardToChannel(req: UpstreamForwardRequest): Promise<For
         break
       }
 
-      // F-674:渠道腿此前只看 resp.ok,200 text/html / 错误 JSON 也记 key 健康并当成功
-      // 透传,坏渠道长期判健康永不熔断。非流式 chat 必须校验协议体可解析且含 choices,
-      // 否则按 server 失败 failover(与账号池腿的 JSON 解析判据对齐)。
-      if (!req.stream && endpoint === 'chat') {
-        let protocolOk = false
-        try {
-          const probe = (await resp.clone().json()) as Record<string, unknown> | null
-          protocolOk = !!probe && Array.isArray(probe['choices']) && probe['choices'].length > 0
-        } catch {
-          protocolOk = false
-        }
-        if (!protocolOk) {
-          lastHttpStatus = 502
-          lastError = 'upstream invalid chat protocol body'
-          await resp.body?.cancel().catch(() => {})
-          await recordChannelResult(channel.keyPoolId, false, breakerLatency).catch(() => {})
-          continue
-        }
-      }
-
       // F-617:成功只认 2xx;上面 4xx 分支不记成功也不记失败
-      // F-337:流式请求若由调用方在流结束后判定成败(deferStreamSuccess),这里不预记成功——
-      // 否则那记成功会把连续失败计数清零,流内错误帧永远推不开熔断。
-      if (!req.deferStreamSuccess) {
-        await recordChannelResult(channel.keyPoolId, true, breakerLatency).catch(() => {})
-      }
+      await recordChannelResult(channel.keyPoolId, true, breakerLatency).catch(() => {})
       if (endpoint === 'chat') rememberPromptText(resp, req, body)
       return {
         ok: true,
@@ -539,12 +489,7 @@ export async function forwardToChannel(req: UpstreamForwardRequest): Promise<For
     }
   }
 
-  return {
-    ok: false,
-    reason: lastError,
-    lastHttpStatus,
-    ...(lastRetryAfter ? { retryAfter: lastRetryAfter } : {}),
-  }
+  return { ok: false, reason: lastError, lastHttpStatus }
 }
 
 // =============================================================================
@@ -582,13 +527,6 @@ export interface PipedStreamStats {
    * null = 本流未提供（或该上游本来就按 token 计费，值在 prompt/completion 上）。
    */
   upstreamCredits: number | null
-  /**
-   * F-337:上游 HTTP 200 但 SSE 内携带 `error` 帧,或整条流零 choices/零 usage
-   * 且未带 finish(只发 [DONE] 的空流,额度耗尽/模型不存在常见形态)。
-   * 非 null = 本次转发应判失败:调用方据此不按 success 计费、把渠道记失败、
-   * 并在尚未向客户端写帧时回退到既有 ai-service 链路。
-   */
-  streamError: string | null
 }
 
 export interface PipeStreamOptions {
@@ -667,14 +605,11 @@ export async function pipeChannelStream(
     sawFinish: false,
     lastFrameId: null,
     upstreamCredits: null,
-    streamError: null,
   }
   const startedAt = Date.now()
   const reader = upstream.body!.getReader()
   const decoder = new TextDecoder()
   let buffer = ''
-  // F-337:是否见过任何有效内容帧(choices/usage)。只发 [DONE] 的空流恒为 false。
-  let sawAnyChunk = false
   const abort = () => void reader.cancel().catch(() => {})
   opts.signal?.addEventListener('abort', abort, { once: true })
 
@@ -684,22 +619,6 @@ export async function pipeChannelStream(
     if (!textMode) opts.writeLine?.(`${line}\n\n`)
     const json = parseSseData(line)
     if (!json) return
-    // F-337:上游用 HTTP 200 + SSE `data: {"error":...}` 报故障(额度耗尽/模型不存在
-    // 的常见形态)。旧实现只读 choices/usage,错误帧被当成空 chunk 吞掉,收尾照补
-    // finish 并记 success。这里显式留底,供调用方判失败、熔断、回退。
-    const errFrame = json['error']
-    if (errFrame !== undefined && errFrame !== null) {
-      const detail =
-        typeof errFrame === 'string'
-          ? errFrame
-          : typeof errFrame === 'object' &&
-              typeof (errFrame as Record<string, unknown>)['message'] === 'string'
-            ? String((errFrame as Record<string, unknown>)['message'])
-            : 'upstream error frame'
-      stats.streamError = `upstream SSE error: ${detail}`.slice(0, 200)
-      return
-    }
-    if (Array.isArray(json['choices']) || json['usage'] !== undefined) sawAnyChunk = true
     if (stats.ttftMs === null) stats.ttftMs = Date.now() - startedAt
     // 记住上游帧 id，供调用方造收尾帧时复用它（同一条流只应有一个 id）
     if (typeof json['id'] === 'string' && json['id']) stats.lastFrameId = json['id']
@@ -777,11 +696,6 @@ export async function pipeChannelStream(
       stats.completionTokens = Math.ceil(stats.responseText.length / 4)
       stats.totalTokens = stats.promptTokens + stats.completionTokens
     }
-  }
-  // F-337:整条流没有任何 choices/usage(只发 [DONE] 的空流)、且没有显式 error 帧
-  // ⇒ 上游故障被伪装成成功流。留底 streamError,调用方据此不记 success/不白扣输入 token。
-  if (stats.streamError === null && !sawAnyChunk) {
-    stats.streamError = 'upstream returned empty stream (no choices/usage/finish)'
   }
   return stats
 }

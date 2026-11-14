@@ -117,7 +117,7 @@ export function AigcPublishScreen({
             value={textContent}
             onChangeText={onTextContentChange}
             placeholder={t('aigcPublish.placeholderTextContent')}
-            placeholderTextColor={tk.text.tertiary}
+            placeholderTextColor={tk.text.secondary}
             multiline
             textAlignVertical="top"
             maxLength={2000}
@@ -133,7 +133,7 @@ export function AigcPublishScreen({
               value={urlInput}
               onChangeText={onUrlInputChange}
               placeholder={t('aigcPublish.placeholderUrl')}
-              placeholderTextColor={tk.text.tertiary}
+              placeholderTextColor={tk.text.secondary}
               autoCapitalize="none"
               autoCorrect={false}
             />
@@ -207,7 +207,7 @@ export function AigcPublishScreen({
         value={title}
         onChangeText={onTitleChange}
         placeholder={t('aigcPublish.placeholderTitle')}
-        placeholderTextColor={tk.text.tertiary}
+        placeholderTextColor={tk.text.secondary}
         maxLength={50}
       />
 
@@ -218,7 +218,7 @@ export function AigcPublishScreen({
         value={description}
         onChangeText={onDescriptionChange}
         placeholder={t('aigcPublish.placeholderDescription')}
-        placeholderTextColor={tk.text.tertiary}
+        placeholderTextColor={tk.text.secondary}
         multiline
         textAlignVertical="top"
       />
@@ -232,7 +232,7 @@ export function AigcPublishScreen({
             value={prompt}
             onChangeText={onPromptChange}
             placeholder={t('aigcPublish.placeholderPrompt')}
-            placeholderTextColor={tk.text.tertiary}
+            placeholderTextColor={tk.text.secondary}
             multiline
             textAlignVertical="top"
           />
@@ -295,7 +295,7 @@ function createStyles(tk: AppThemeTokens) {
     typeChipActive: { backgroundColor: primary },
     typeChipText: { fontSize: rnType.body.size, color: tk.text.medium, fontWeight: '600' },
     typeChipTextActive: { color: tk.surface.light },
-    typeChipDesc: { marginTop: rnSpacing.sm, fontSize: rnType.badge.size, color: tk.text.tertiary },
+    typeChipDesc: { marginTop: rnSpacing.sm, fontSize: rnType.badge.size, color: tk.text.medium },
     typeChipDescActive: { color: tk.surface.light },
     input: {
       paddingHorizontal: rnSpacing.md,
@@ -344,8 +344,8 @@ function createStyles(tk: AppThemeTokens) {
     },
     pickerBtnDisabled: {
       opacity: 0.6,
-      borderColor: tk.text.tertiary,
-      backgroundColor: tk.text.tertiary,
+      borderColor: tk.text.secondary,
+      backgroundColor: tk.text.secondary,
     },
     pickerBtnInner: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing['xs-loose'] },
     pickerBtnText: { color: primary, fontSize: rnType.body.size, fontWeight: '600' },
@@ -407,12 +407,12 @@ function createStyles(tk: AppThemeTokens) {
     },
     fileAddIcon: {
       fontSize: rnType.display.size,
-      color: tk.text.tertiary,
+      color: tk.text.medium,
       lineHeight: rnType.subtitle.lineHeight,
     },
     fileAddText: {
       fontSize: rnType.caption.size,
-      color: tk.text.tertiary,
+      color: tk.text.medium,
       marginTop: rnSpacing.sm,
     },
     submitBtn: {
@@ -423,7 +423,7 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    submitDisabled: { backgroundColor: tk.text.tertiary },
+    submitDisabled: { backgroundColor: tk.text.secondary },
     submitText: { color: tk.surface.light, fontSize: rnType.title.size, fontWeight: '600' },
   })
 }

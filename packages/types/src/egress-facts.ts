@@ -76,7 +76,6 @@ export const EGRESS_POLICY_DECLINE_REASONS = [
   'url-unparseable',
   'proxy-unconfigured',
   'internal-host',
-  'no-proxy-match',
   'domain-not-in-table',
 ] as const
 export type EgressPolicyDeclineReason = (typeof EGRESS_POLICY_DECLINE_REASONS)[number]

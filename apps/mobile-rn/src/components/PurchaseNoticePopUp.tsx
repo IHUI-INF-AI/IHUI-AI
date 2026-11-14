@@ -169,7 +169,7 @@ const styles = StyleSheet.create({
     width: 18,
     fontSize: BULLET_MARK_FONT_SIZE,
     lineHeight: BULLET_MARK_FONT_SIZE + 2,
-    color: tokens.success.DEFAULT,
+    color: tokens.success.deepText,
     textAlign: 'center',
     fontWeight: '700',
   } as ViewStyle,

@@ -219,11 +219,11 @@ function createStyles(tk: AppThemeTokens, dark: boolean) {
     mutedLabel: {
       fontSize: rnType.label.size,
       fontWeight: '500',
-      color: tk.text.tertiary,
+      color: tk.text.medium,
     },
     smallMutedLabel: {
       fontSize: rnType.caption.size,
-      color: tk.text.tertiary,
+      color: tk.text.medium,
     },
     actionRow: {
       flexDirection: 'row',
@@ -254,7 +254,7 @@ function createStyles(tk: AppThemeTokens, dark: boolean) {
     },
     declineText: {
       fontSize: rnType.caption.size,
-      color: tk.text.tertiary,
+      color: tk.text.medium,
     },
     moreInfoBox: {
       alignSelf: 'flex-start',
@@ -266,7 +266,7 @@ function createStyles(tk: AppThemeTokens, dark: boolean) {
     },
     moreInfoText: {
       fontSize: rnType.caption.size,
-      color: tk.text.tertiary,
+      color: tk.text.medium,
     },
   })
 }

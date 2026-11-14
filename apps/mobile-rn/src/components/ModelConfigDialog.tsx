@@ -175,7 +175,7 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
         className="text-xs font-medium"
         style={{
           ...modelConfigLabelGapStyle(MODEL_CONFIG_LABEL_GAP_PX, toUnit),
-          color: tokens.text.tertiary,
+          color: tokens.text.medium,
         }}
       >
         {label}
@@ -243,7 +243,7 @@ function RatioSelector({
         >
           <ChevronLeft size={MODEL_CONFIG_INLINE_GLYPH_PX} color={tokens.text.secondary} />
         </Pressable>
-        <Text className="text-xs font-medium" style={{ color: tokens.text.tertiary }}>
+        <Text className="text-xs font-medium" style={{ color: tokens.text.medium }}>
           {sizeKey}
         </Text>
       </View>
@@ -451,7 +451,7 @@ function ModelParamsBody(props: ModelParamsBodyProps) {
               color: tokens.text.primary,
             }}
           />
-          <Text className="text-xs" style={{ color: tokens.text.tertiary }}>
+          <Text className="text-xs" style={{ color: tokens.text.medium }}>
             0.0 - 2.0
           </Text>
         </View>
@@ -643,7 +643,7 @@ function BasicModelConfigDialog({
               {t('agent.config')}
             </Text>
             <Tappable onPress={onClose} hitSlop={8}>
-              <Text className="text-xs" style={{ color: tokens.text.tertiary }}>
+              <Text className="text-xs" style={{ color: tokens.text.medium }}>
                 {t('common.cancel')}
               </Text>
             </Tappable>

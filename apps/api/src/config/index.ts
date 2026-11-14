@@ -111,11 +111,6 @@ const envSchema = z.object({
     .transform((v) => (v === '' ? undefined : v))
     .pipe(z.url().optional()),
   REDIS_URL: z.url().default('redis://localhost:8811'),
-  // F-204(2026-11-13):Redis 不可用时工作区锁的降级策略。
-  // false(默认,保持现行为)= 退化为带 TTL/owner 校验的进程内锁,每次降级打 warn 并计数;
-  // true = fail-fast:acquire/renew/release 直接抛 WORKSPACE_LOCK_REDIS_UNAVAILABLE,
-  //        宁可拒绝进入临界区,也不在多实例下假装互斥。
-  WORKSPACE_LOCK_FAIL_FAST: booleanFromString(false),
   // 文件 CDN 域名(可选):上传接口返回的 path 自动加前缀,生产可指向 file.aizhs.top
   // (需 Nginx 反代 /uploads 到本服务;未配置时返回相对路径 /uploads/<id>)
   FILE_CDN_BASE: z.string().optional().default(''),
@@ -237,7 +232,7 @@ const envSchema = z.object({
   SMTP_PORT: z.coerce.number().default(587),
   SMTP_USER: z.string().default(''),
   SMTP_PASS: z.string().default(''),
-  SMTP_FROM: z.string().default('智汇AI <IHUI-AI@aizhs.top>'),
+  SMTP_FROM: z.string().default('智汇AI <lizong@aizhs.top>'),
   // P1 修复(2026-08-06):z.coerce.boolean() 把 "false"/"0" 解析为 true,
   // 导致 SMTP_ENABLED=false 实际开启,改为严格布尔解析。
   SMTP_ENABLED: booleanFromString(false),

@@ -584,5 +584,8 @@
     "rejectedTitle": "被拒絕條目:",
     "statusTitle": "有效知識卡片({total} 張):",
     "statusEmpty": "(尚無有效知識卡片,請先執行 ihui wiki compile)"
+  },
+  "chat": {
+    "admissionAhead": "前面還有 {n} 位"
   }
 }

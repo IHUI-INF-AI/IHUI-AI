@@ -11,12 +11,13 @@
  * - `normalizeExamAnswer` 是跨端答案口径唯一实现(数组答案以 "、" 连接,空答案回落空串)。
  */
 import { useMemo, type ReactNode } from 'react'
-import { Pressable, StyleSheet, Text, View } from 'react-native'
+import { StyleSheet, Text, View } from 'react-native'
 
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { ExamResultItem, ExamResultReviewItem, TFunction } from '../../types'
+import { Tappable } from '@ihui/ui-native'
 
 /** 跨端答案文本口径 —— web/mobile-rn 共用,禁止在任一端另写一份 */
 export function normalizeExamAnswer(value?: string | string[] | null): string {
@@ -170,14 +171,14 @@ export function ExamResultActions({
   const shareSlot =
     shareAction ??
     (onShare ? (
-      <Pressable
+      <Tappable
         key="share"
         accessibilityRole="button"
         onPress={onShare}
         style={[styles.actionButton, styles.actionGhost]}
       >
         <Text style={styles.actionGhostText}>{t('examResult.share')}</Text>
-      </Pressable>
+      </Tappable>
     ) : null)
 
   if (actions.length === 0 && !shareSlot) return null
@@ -185,7 +186,7 @@ export function ExamResultActions({
   return (
     <View style={styles.actionsRow}>
       {actions.map((action) => (
-        <Pressable
+        <Tappable
           key={action.key}
           accessibilityRole="button"
           onPress={action.onPress}
@@ -194,7 +195,7 @@ export function ExamResultActions({
           <Text style={action.primary ? styles.actionPrimaryText : styles.actionGhostText}>
             {action.label}
           </Text>
-        </Pressable>
+        </Tappable>
       ))}
       {shareSlot}
     </View>
@@ -220,14 +221,14 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
     },
     statsValue: { fontSize: rnType.body.size, fontWeight: '600', color: tk.text.primary },
-    statsLabel: { marginTop: rnSpacing.xs, fontSize: rnType.caption.size, color: tk.text.tertiary },
+    statsLabel: { marginTop: rnSpacing.xs, fontSize: rnType.caption.size, color: tk.text.medium },
     sectionTitle: {
       fontSize: rnType.subtitle.size,
       fontWeight: '600',
       color: tk.text.primary,
       marginBottom: rnSpacing.sm,
     },
-    emptyText: { fontSize: rnType.body.size, color: tk.text.tertiary, marginBottom: rnSpacing.md },
+    emptyText: { fontSize: rnType.body.size, color: tk.text.medium, marginBottom: rnSpacing.md },
     card: {
       padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.lg,
@@ -239,7 +240,7 @@ function createStyles(tk: AppThemeTokens) {
     reviewHeader: { flexDirection: 'row', justifyContent: 'space-between', gap: rnSpacing.sm },
     question: { flex: 1, fontSize: rnType.body.size, fontWeight: '500', color: tk.text.primary },
     reviewRight: { fontSize: rnType.caption.size, color: tk.brand.DEFAULT },
-    reviewWrong: { fontSize: rnType.caption.size, color: tk.danger.DEFAULT },
+    reviewWrong: { fontSize: rnType.caption.size, color: tk.danger.deepText },
     yourAnswer: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.secondary },
     correctAnswer: {
       marginTop: rnSpacing.xs,
@@ -252,12 +253,12 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.md,
       backgroundColor: tk.surface.muted,
     },
-    analysisLabel: { fontSize: rnType.caption.size, color: tk.text.tertiary },
+    analysisLabel: { fontSize: rnType.caption.size, color: tk.text.medium },
     analysisText: { marginTop: rnSpacing.xs, fontSize: rnType.body.size, color: tk.text.primary },
     reviewScore: {
       marginTop: rnSpacing.sm,
       fontSize: rnType.caption.size,
-      color: tk.text.tertiary,
+      color: tk.text.medium,
     },
     actionsRow: {
       flexDirection: 'row',

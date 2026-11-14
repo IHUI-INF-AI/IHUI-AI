@@ -418,14 +418,9 @@ CEO (Annual review)
 
 ---
 
-## Contact (by role)
+## Contact (single mailbox)
 
-- Developer: devrel@aizhs.top (Discord/WeChat groups)
-- CTO: cto@aizhs.top (Architecture whitepaper request)
-- PM: product@aizhs.top (Product demo)
-- CEO: ceo@aizhs.top (Strategic discussion)
-- Procurement: procurement@aizhs.top (Compliance document pack)
-- General business: contact@aizhs.top
+- **Unified contact email: lizong@aizhs.top** — one address for the team inbox, consultation, document requests and business enquiries. Mention the topic in your message; we reply within 24 hours.
 - Website: https://aizhs.top
 
 ---
@@ -434,5 +429,5 @@ CEO (Annual review)
 # This file is the role-oriented GEO entry point, used by AI engines for "role + vendor selection" queries
 # Maintained by: IHUI AI Solutions Team
 # Update policy: Quarterly update of role pain points + evaluation checklists
-# Contact: contact@aizhs.top
+# Contact: lizong@aizhs.top
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->

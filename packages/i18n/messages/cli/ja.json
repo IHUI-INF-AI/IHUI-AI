@@ -584,5 +584,8 @@
     "rejectedTitle": "拒否されたエントリ:",
     "statusTitle": "有効なナレッジカード({total} 件):",
     "statusEmpty": "(有効なナレッジカードがありません。まず ihui wiki compile を実行してください)"
+  },
+  "chat": {
+    "admissionAhead": "前に {n} 件あります"
   }
 }

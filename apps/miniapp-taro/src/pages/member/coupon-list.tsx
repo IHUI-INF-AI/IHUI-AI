@@ -82,9 +82,13 @@ export default function CouponListPage() {
         ) : error ? (
           <View className="flex flex-col items-center py-[64rpx] text-muted-foreground text-body">
             <Text>{tt('member.couponList.loadFailed', '加载失败')}</Text>
-            <Text className="mt-[16rpx] py-[8rpx] px-[32rpx] text-body text-primary" onClick={load}>
-              {t('common.retry')}
-            </Text>
+            <View
+              className="mt-[16rpx] py-[8rpx] px-[32rpx] text-body text-primary"
+              hoverClass="opacity-60"
+              onClick={load}
+            >
+              <Text>{t('common.retry')}</Text>
+            </View>
           </View>
         ) : list.length ? (
           <View className="flex flex-col gap-[16rpx]">

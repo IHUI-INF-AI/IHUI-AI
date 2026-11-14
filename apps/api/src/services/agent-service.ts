@@ -7,7 +7,7 @@
  * 在 agents-queries 之上提供：详情聚合、发布状态机、审核提交、删除等业务编排。
  */
 
-import { eq, and, sql } from 'drizzle-orm'
+import { eq, and, sql, gt } from 'drizzle-orm'
 import { db, dbRead } from '../db/index.js'
 import { agents, users, zhsAgentBuy } from '@ihui/database'
 import {
@@ -200,10 +200,20 @@ export async function calculateAgentPermission(
 
   // 已购买校验
   if (userId) {
+    // F-586:此前只按 (userId, agentId) 取一行,不校验 status/expiresAt,
+    // pending(未支付)/expired/cancelled 记录都会显示"已购买"。
+    // 只认 active 且未过期的购买记录(列定义见 agent-commerce.ts:31-32)。
     const purchased = await dbRead
       .select({ id: zhsAgentBuy.id })
       .from(zhsAgentBuy)
-      .where(and(eq(zhsAgentBuy.userId, userId), eq(zhsAgentBuy.agentId, agentId)))
+      .where(
+        and(
+          eq(zhsAgentBuy.userId, userId),
+          eq(zhsAgentBuy.agentId, agentId),
+          eq(zhsAgentBuy.status, 'active'),
+          gt(zhsAgentBuy.expiresAt, new Date()),
+        ),
+      )
       .limit(1)
     if (purchased.length > 0) {
       result.type = 'purchased'

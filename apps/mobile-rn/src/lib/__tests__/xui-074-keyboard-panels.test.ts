@@ -20,7 +20,7 @@ describe('XUI-074:审批卡片与标注输入行的键盘/高度处理', () => {
     expect(src).toContain('ScrollView')
     expect(src).toContain('KeyboardAvoidingView')
     // 契约变更:百分比 maxHeight 在 RN 0.86 Fabric 下不给 ScrollView 确定测量边界,
-    // 已改为数值上限 hook。原断言 maxHeight:'85%' 断言的是旧写法,故改断言新契约:
+    // 已改为数值上限 hook。原断言的是「百分比上限 = 85%」这一旧写法,故改断言新契约:
     // 比例仍是 extraTall(0.85),在调用处叠加到卡片样式数组上。
     const geometry = read('src/lib/dialog-geometry.ts')
     expect(geometry).toMatch(/extraTall:\s*0\.85/)

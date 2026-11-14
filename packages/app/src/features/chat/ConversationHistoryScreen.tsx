@@ -144,7 +144,7 @@ export function ConversationHistoryScreen({
             value={keyword}
             onChangeText={onKeywordChange}
             placeholder={tt('ai.historyPage.searchPlaceholder', '搜索对话历史')}
-            placeholderTextColor={tk.text.tertiary}
+            placeholderTextColor={tk.text.secondary}
             onFocus={() => setSearchFocused(true)}
             onBlur={() => setSearchFocused(false)}
             returnKeyType="search"
@@ -238,7 +238,7 @@ export function ConversationHistoryScreen({
             <RefreshControl
               refreshing={refreshing}
               onRefresh={onRefresh}
-              tintColor={tk.text.tertiary}
+              tintColor={tk.text.secondary}
             />
           }
           ListFooterComponent={
@@ -282,7 +282,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     // 聚焦态只换颜色(§4 唯一例外位),不改宽度 —— 固定高度下加粗会顶起文字
     searchInputFocused: { borderColor: tk.brandAccent.DEFAULT },
-    clearAll: { fontSize: rnType.body.size, color: tk.danger.DEFAULT },
+    clearAll: { fontSize: rnType.body.size, color: tk.danger.deepText },
     importRow: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -291,8 +291,8 @@ function createStyles(tk: AppThemeTokens) {
       paddingVertical: rnSpacing.md,
       backgroundColor: tk.surface.light,
     },
-    importText: { flex: 1, fontSize: rnType.label.size, color: tk.text.tertiary },
-    chevron: { fontSize: rnType.heading.size, color: tk.text.tertiary },
+    importText: { flex: 1, fontSize: rnType.label.size, color: tk.text.medium },
+    chevron: { fontSize: rnType.heading.size, color: tk.text.medium },
     noticeRow: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -302,7 +302,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingVertical: rnSpacing.md,
       backgroundColor: tk.surface.light,
     },
-    noticeText: { flex: 1, fontSize: rnType.label.size, color: tk.text.tertiary },
+    noticeText: { flex: 1, fontSize: rnType.label.size, color: tk.text.medium },
     retry: {
       paddingHorizontal: rnSpacing.sm,
       paddingVertical: rnSpacing.xs,
@@ -329,13 +329,13 @@ function createStyles(tk: AppThemeTokens) {
     },
     chipActive: { backgroundColor: tk.brand.DEFAULT },
     chipIcon: { width: 14, height: 14 },
-    chipText: { fontSize: rnType.label.size, color: tk.text.tertiary },
+    chipText: { fontSize: rnType.label.size, color: tk.text.medium },
     chipActiveText: { color: tk.brand.foreground },
     listContent: { paddingHorizontal: rnSpacing.lg, paddingVertical: rnSpacing.md },
     groupWrap: { marginBottom: rnSpacing.lg },
     groupLabel: {
       fontSize: rnType.label.size,
-      color: tk.text.tertiary,
+      color: tk.text.medium,
       marginBottom: rnSpacing.sm,
       paddingLeft: rnSpacing.xs,
     },
@@ -365,15 +365,15 @@ function createStyles(tk: AppThemeTokens) {
       fontWeight: '600',
       color: tk.text.primary,
     },
-    pinDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: tk.text.tertiary },
+    pinDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: tk.text.secondary },
     pinDotButton: { width: 10, height: 10, borderRadius: 5 },
     pinDotOn: { backgroundColor: tk.brandAccent.DEFAULT },
     rowMetaLine: { flexDirection: 'row', gap: rnSpacing.sm },
-    rowMeta: { fontSize: rnType.label.size, color: tk.text.tertiary },
+    rowMeta: { fontSize: rnType.label.size, color: tk.text.medium },
     rowPreview: { fontSize: rnType.label.size, color: tk.text.secondary },
     pinButton: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
     footer: { paddingVertical: rnSpacing.lg, alignItems: 'center', gap: rnSpacing.xs },
-    footerText: { fontSize: rnType.label.size, color: tk.text.tertiary },
+    footerText: { fontSize: rnType.label.size, color: tk.text.medium },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

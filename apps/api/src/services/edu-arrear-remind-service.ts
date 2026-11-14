@@ -396,13 +396,14 @@ export async function scanAndRemindArrears(options?: {
     const dueAmount = ledger?.arrears ?? 0
     if (dueAmount <= 0) continue
 
-    const overdueDays =
-      ledger && ledger.schedules.length > 0
-        ? Math.max(...ledger.schedules.map((s) => s.overdueDays), 0)
-        : 0
+    // 只统计真正逾期的账期:已缴清的历史账期不得把未到期欠费说成"逾期 N 天"
+    const overdueDays = (ledger?.schedules ?? [])
+      .filter((s) => s.overdue)
+      .reduce((max, s) => Math.max(max, s.overdueDays), 0)
     if (!ledger || ledger.schedules.length === 0) result.withoutSchedule += 1
     if (overdueDays > 0) result.overdueCount += 1
-    if (ledger && ledger.dueSoonCount > 0 && overdueDays === 0) result.dueSoonCount += 1
+    // 到期提醒不受"最大逾期天数"短路:账目出口的 dueSoonCount 已排除逾期/已缴清账期
+    if (ledger && ledger.dueSoonCount > 0) result.dueSoonCount += 1
 
     const message = buildReminderMessage(
       item.studentName ?? '学员',

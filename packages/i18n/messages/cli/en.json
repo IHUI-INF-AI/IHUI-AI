@@ -584,5 +584,8 @@
     "rejectedTitle": "Rejected entries:",
     "statusTitle": "Active knowledge cards ({total}):",
     "statusEmpty": "(No active knowledge cards. Run: ihui wiki compile)"
+  },
+  "chat": {
+    "admissionAhead": "{n} ahead of you"
   }
 }

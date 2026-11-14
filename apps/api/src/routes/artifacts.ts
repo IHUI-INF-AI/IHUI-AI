@@ -35,7 +35,7 @@
 
 import type { FastifyPluginAsync } from 'fastify'
 import { createHash } from 'node:crypto'
-import { existsSync, readFileSync } from 'node:fs'
+import { createReadStream, existsSync, readFileSync } from 'node:fs'
 import { readdir, readFile } from 'node:fs/promises'
 import type { Dirent } from 'node:fs'
 import { basename, isAbsolute, join, resolve } from 'node:path'
@@ -354,8 +354,18 @@ export const artifactRoutes: FastifyPluginAsync = async (app) => {
       if (isAbsolute(record.payload_ref) || !existsSync(payloadPath)) {
         return reply.status(404).send(error(404, '产物文件不存在'))
       }
-      const buf = readFileSync(payloadPath)
-      const digest = createHash('sha256').update(buf).digest('hex')
+      // F-43:payload 走流式读取 + 分块哈希 —— 原 readFileSync 整文件入内存 + 同步 sha256
+      // 会阻塞事件循环(大产物内存峰值、GC 与请求卡顿);单遍流式既算出校验和又聚齐响应体,
+      // 不额外读盘,响应形状(200/500)与产物字节保持不变。
+      const hash = createHash('sha256')
+      const chunks: Buffer[] = []
+      for await (const rawChunk of createReadStream(payloadPath)) {
+        const chunk = rawChunk as Buffer
+        hash.update(chunk)
+        chunks.push(chunk)
+      }
+      const digest = hash.digest('hex')
+      const buf = Buffer.concat(chunks)
       if (digest !== record.checksum) {
         request.log.warn({ artifactId: record.id }, 'Artifact checksum 校验失败')
         return reply.status(500).send(error(500, '产物完整性校验失败', 'CHECKSUM_MISMATCH'))

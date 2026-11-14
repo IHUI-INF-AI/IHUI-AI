@@ -65,10 +65,6 @@ class _StubLoop:
     async def _emit(self, **kwargs: Any) -> None:
         self.emitted.append(kwargs)
 
-    async def _wait_interruptible(self, awaitable: Any) -> Any:
-        """生产链路用 _wait_interruptible 包审批等待;stub 直接透传。"""
-        return await awaitable
-
 
 def _drive_approve(v2, scope: str | None, decision: str = "approve", reason: str | None = None):
     """驱动真实 _request_approval 到结算,返回 (结果, cache_key)。"""
