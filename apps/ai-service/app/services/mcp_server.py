@@ -797,7 +797,7 @@ def _active_extra_roots() -> tuple[str, ...]:
 # 工具权限矩阵:admin 专属工具(role >= 1),其他工具所有用户可用
 # 危险工具:写文件 / 执行命令 / 数据库查询 / git 操作 / 自动化配置 / 电脑控制 / 截图(SSRF 入口)
 _ADMIN_ONLY_TOOLS: set[str] = {
-    "write_file", "run_command", "sandbox_session", "db_query", "git_operations",
+    "write_file", "run_command", "sandbox_session", "terminal", "db_query", "git_operations",
     "configure_automation_task",
     # 2026-07-24 file_edit:写文件操作(精细编辑),必须 admin
     "file_edit",
@@ -7427,6 +7427,55 @@ async def _tool_dispatch_subagent(
         }
         _settle_dispatch_ticket(ticket_id, _missing)
         return _missing
+    # 后台可续跑模式(2026-11-14 立,对标 DSH continuable subagent):
+    # 只支持单 agent;立即返回 job_id,父级用 subagent_job(list/wait/send)闭环。
+    if bool(arguments.get("background")):
+        if has_tasks:
+            return {
+                "tool": "dispatch_subagent", "ok": False, "mode": "background",
+                "error": "background 模式只支持单 agent(name/task),不支持 tasks 并行数组",
+                "errorCode": "BACKGROUND_PARALLEL_UNSUPPORTED",
+            }
+        from . import subagent_jobs as jobs_store
+
+        _bg_session = (
+            str(arguments.get("__session_id") or session_id or "").strip() or None
+        )
+        _bg_user = str(arguments.get("__user_id") or "").strip() or None
+
+        async def _invoke() -> dict[str, Any]:
+            return await _invoke_subagent_for_job(name, task, session_id)
+
+        started = await jobs_store.start_job(
+            name=name,
+            task=task,
+            user_id=_bg_user,
+            session_id=_bg_session,
+            invoker=_invoke,
+            timeout_s=float(_get_subagent_timeout()),
+        )
+        if not started.get("ok"):
+            return {"tool": "dispatch_subagent", "mode": "background", **started}
+        _job = started["job"]
+        # 工单不在此结算:后台作业仍在跑,结算权在整个作业结束(与同步路径同义)。
+        return _truncate_tool_output(
+            {
+                "tool": "dispatch_subagent",
+                "ok": True,
+                "mode": "background",
+                "agent": name,
+                "job_id": _job["job_id"],
+                "lineage_id": _job["lineage_id"],
+                "status": _job["status"],
+                "message": (
+                    "后台子智能体已启动。用 subagent_job(action='wait', job_id=...) "
+                    "等待终态,或 action='list' 查看;终态后 action='send' 可续跑同一任务线。"
+                ),
+            },
+            tool_name="dispatch_subagent",
+            session_id=session_id,
+        )
+
     _emit({"phase": "single_started", "agentName": name})
     try:
         orchestrator = _get_orchestrator()
@@ -7999,6 +8048,133 @@ async def _tool_team_task(arguments: dict[str, Any]) -> dict[str, Any]:
     return {
         "tool": "team_task", "ok": False, "errorCode": "INVALID_PARAMS",
         "error": f"不支持的 action: {action}(add/claim/update/list)",
+    }
+
+
+async def _tool_terminal(arguments: dict[str, Any]) -> dict[str, Any]:
+    """terminal:长驻交互式终端(open/send/read/signal/close/list)。
+
+    2026-11-14 立,对标 DSH dsh-tool-terminal。与 run_command 的差别是**同一进程
+    跨多次调用**:open 后可用 send 分步输入、read 增量取输出、signal 中断、close 收尾。
+    权限:admin-only + 高危审批(与 run_command 同档);cwd 必须落在工作区白名单内;
+    子进程环境走 sandbox 严档白名单,不整份继承宿主环境。
+    """
+    from . import interactive_terminal as term
+
+    action = str(arguments.get("action") or "").strip()
+    user_id = str(arguments.get("__user_id") or "").strip() or None
+    session_id = str(arguments.get("__session_id") or "").strip() or None
+    if not user_id and not session_id:
+        return {
+            "tool": "terminal", "ok": False,
+            "errorCode": "TERMINAL_NO_IDENTITY",
+            "error": "无宿主会话身份,拒绝打开或访问终端",
+        }
+
+    if action == "open":
+        command = str(arguments.get("command") or "").strip() or term.default_shell()
+        cwd_raw = str(arguments.get("cwd") or "").strip()
+        if not cwd_raw:
+            roots = _get_workspace_roots()
+            cwd_raw = roots[0] if roots else os.getcwd()
+        ok, resolved = _validate_path_in_workspace(cwd_raw)
+        if not ok:
+            return {
+                "tool": "terminal", "ok": False,
+                "errorCode": "PATH_NOT_ALLOWED", "error": resolved,
+            }
+        env_raw = arguments.get("env")
+        env_extra = (
+            {str(k): str(v) for k, v in env_raw.items()}
+            if isinstance(env_raw, dict)
+            else None
+        )
+        result = await asyncio.to_thread(
+            term.open_terminal,
+            command=command,
+            cwd=resolved,
+            user_id=user_id,
+            session_id=session_id,
+            env_extra=env_extra,
+        )
+        return {"tool": "terminal", "action": "open", **result}
+
+    if action == "list":
+        result = await asyncio.to_thread(
+            term.list_terminals, user_id=user_id, session_id=session_id
+        )
+        return {"tool": "terminal", "action": "list", **result}
+
+    terminal_id = str(arguments.get("terminal_id") or "").strip()
+    if not terminal_id:
+        return {
+            "tool": "terminal", "ok": False, "errorCode": "MISSING_PARAMS",
+            "error": f"{action or '该操作'} 需要 terminal_id",
+        }
+
+    if action == "send":
+        text = arguments.get("input")
+        if not isinstance(text, str):
+            return {
+                "tool": "terminal", "ok": False, "errorCode": "INVALID_PARAMS",
+                "error": "send 需要字符串 input",
+            }
+        result = await asyncio.to_thread(
+            term.send_terminal,
+            terminal_id,
+            text,
+            user_id=user_id,
+            session_id=session_id,
+            enter=bool(arguments.get("enter", True)),
+        )
+        return {"tool": "terminal", "action": "send", **result}
+
+    if action == "read":
+        try:
+            since_seq = int(arguments.get("since_seq", 0))
+        except (TypeError, ValueError):
+            since_seq = 0
+        try:
+            wait_s = float(arguments.get("wait_s", 1.0))
+        except (TypeError, ValueError):
+            wait_s = 1.0
+        try:
+            max_chars = int(arguments.get("max_chars", 8000))
+        except (TypeError, ValueError):
+            max_chars = 8000
+        result = await asyncio.to_thread(
+            term.read_terminal,
+            terminal_id,
+            user_id=user_id,
+            session_id=session_id,
+            since_seq=max(0, since_seq),
+            wait_s=max(0.0, min(wait_s, 10.0)),
+            max_chars=max(1, min(max_chars, term.MAX_READ_CHARS)),
+        )
+        return {"tool": "terminal", "action": "read", **result}
+
+    if action == "signal":
+        result = await asyncio.to_thread(
+            term.signal_terminal,
+            terminal_id,
+            signal_name=str(arguments.get("signal") or "interrupt"),
+            user_id=user_id,
+            session_id=session_id,
+        )
+        return {"tool": "terminal", "action": "signal", **result}
+
+    if action == "close":
+        result = await asyncio.to_thread(
+            term.close_terminal,
+            terminal_id,
+            user_id=user_id,
+            session_id=session_id,
+        )
+        return {"tool": "terminal", "action": "close", **result}
+
+    return {
+        "tool": "terminal", "ok": False, "errorCode": "INVALID_PARAMS",
+        "error": f"不支持的 action: {action}(open/send/read/signal/close/list)",
     }
 
 
@@ -13393,6 +13569,75 @@ _TOOLS: list[MCPTool] = [
             },
         },
     ),
+    # ===== 模型侧交互式终端(2026-11-14,对标 DSH dsh-tool-terminal)=====
+    MCPTool(
+        name="terminal",
+        description=(
+            "长驻交互式终端(同一进程跨多次调用):open 启动 → send 分步输入 → "
+            "read 按 seq 增量读 → signal 中断/终止 → close 收尾;list 列出本会话终端。"
+            "适合 REPL、调试器、交互式脚手架等 run_command 一次跑不完的场景。"
+            "cwd 必须在工作区白名单内;子进程环境走沙箱严档白名单;"
+            "admin-only 且与 run_command 同档审批。"
+        ),
+        input_schema={
+            "type": "object",
+            "required": ["action"],
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["open", "send", "read", "signal", "close", "list"],
+                    "description": "open 启动 / send 输入 / read 读输出 / signal 发信号 / close 关闭 / list 列出",
+                },
+                "terminal_id": {
+                    "type": "string",
+                    "description": "open 之外的操作必填",
+                },
+                "command": {
+                    "type": "string",
+                    "description": "open:启动命令(省略则用默认 shell)",
+                },
+                "cwd": {
+                    "type": "string",
+                    "description": "open:工作目录(必须在工作区白名单内;省略用首个工作区根)",
+                },
+                "env": {
+                    "type": "object",
+                    "additionalProperties": {"type": "string"},
+                    "description": "open:附加环境变量(仍受沙箱白名单约束)",
+                },
+                "input": {
+                    "type": "string",
+                    "description": "send:写入的文本",
+                },
+                "enter": {
+                    "type": "boolean",
+                    "description": "send:是否自动追加换行(默认 true)",
+                    "default": True,
+                },
+                "since_seq": {
+                    "type": "integer",
+                    "description": "read:从哪个序号之后开始读(用上次返回的 next_seq 续读)",
+                    "default": 0,
+                },
+                "wait_s": {
+                    "type": "number",
+                    "description": "read:等待新输出的秒数(0-10,默认 1)",
+                    "default": 1,
+                },
+                "max_chars": {
+                    "type": "integer",
+                    "description": "read:本次最多返回字符数(默认 8000)",
+                    "default": 8000,
+                },
+                "signal": {
+                    "type": "string",
+                    "enum": ["interrupt", "terminate", "kill"],
+                    "description": "signal:信号类型(默认 interrupt)",
+                    "default": "interrupt",
+                },
+            },
+        },
+    ),
     MCPTool(
         name="run_command",
         description="运行 shell 命令(asyncio.subprocess 流式读取 stdout/stderr,白名单: git/ls/cat/echo/python/node/npm/pnpm/ruff/mypy/pytest 等,禁止 rm/mv/cp/curl/重定向/管道)。支持 sandbox_backend 切换 local/docker/ssh,支持 env 透传(禁止覆盖 PATH/HOME),cwd 校验工作区,超时 kill 进程并返回 partial_output",
@@ -14039,7 +14284,54 @@ _TOOLS: list[MCPTool] = [
                         "可选。并入子代理禁止名单;同一名字同时被允许和禁止时,禁止优先。"
                     ),
                 },
+                "background": {
+                    "type": "boolean",
+                    "description": (
+                        "true=后台执行并立即返回 job_id(仅单 agent 模式);"
+                        "随后用 subagent_job(list/wait/send)收结果与续跑。"
+                        "长任务或需要与子代理并行推进时使用。"
+                    ),
+                },
             },
+        },
+    ),
+    # ===== 可续跑 subagent 作业台(2026-11-14,对标 DSH continuable subagent)=====
+    MCPTool(
+        name="subagent_job",
+        description=(
+            "后台子代理作业的查询与续跑:list 列出本会话作业;wait 有限等待到终态;"
+            "send 向**已结束**的作业追加消息,以同一任务线(lineage)续跑,"
+            "上一轮任务与输出自动作为上下文。运行中的作业 send 返回 SUBAGENT_BUSY。"
+            "spawn 入口是 dispatch_subagent(background=true)。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["list", "wait", "send"],
+                    "description": "list 列出 / wait 等待 / send 续跑",
+                },
+                "job_id": {
+                    "type": "string",
+                    "description": "wait/send 必填:dispatch_subagent(background=true) 返回的 job_id",
+                },
+                "wait_s": {
+                    "type": "integer",
+                    "description": "wait 等待秒数(1-300,默认 30;到期未完成返回 running)",
+                    "default": 30,
+                },
+                "message": {
+                    "type": "string",
+                    "description": "send 必填:追加给同一任务线的新消息",
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "list 返回上限(1-100,默认 20)",
+                    "default": 20,
+                },
+            },
+            "required": ["action"],
         },
     ),
     # ===== D08①(2026-10-25):团队共享任务列表(子 agent 可认领/更新条目)=====
@@ -16749,6 +17041,7 @@ _TOOL_HANDLERS: dict[str, Any] = {
     "file_edit": _tool_file_edit,
     "run_command": _tool_run_command,
     "sandbox_session": _tool_sandbox_session,
+    "terminal": _tool_terminal,
     "web_search": _tool_web_search,
     "image_search": _tool_image_search,
     "search_web": _tool_search_web,
