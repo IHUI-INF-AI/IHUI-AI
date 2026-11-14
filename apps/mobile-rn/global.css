@@ -211,6 +211,13 @@
   --color-neutral-700: oklch(37.1% 0 none);
   --color-neutral-800: oklch(26.9% 0 none);
   --color-neutral-900: oklch(20.5% 0 none);
+
+  /* 以下 5 档为 tokens.css 中存在而本文件尚缺,由 sync-rn-global-css.mjs 自动补入(勿手改) */
+  --color-toast-success-bg: #15803d;
+  --color-toast-error-bg: #b91c1c;
+  --color-toast-warning-bg: #b45309;
+  --color-toast-info-bg: #1f2937;
+  --color-toast-foreground: #ffffff;
 }
 
 .dark {
