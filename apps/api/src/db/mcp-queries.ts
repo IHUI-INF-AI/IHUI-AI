@@ -19,7 +19,7 @@ export async function findMcpServers(opts: {
       .select()
       .from(mcpServers)
       .where(where)
-      .orderBy(desc(mcpServers.createdAt))
+      .orderBy(desc(mcpServers.createdAt), desc(mcpServers.id))
       .limit(opts.pageSize)
       .offset((opts.page - 1) * opts.pageSize),
     db

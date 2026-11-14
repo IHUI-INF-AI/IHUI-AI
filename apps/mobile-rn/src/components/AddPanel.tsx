@@ -237,7 +237,7 @@ const styles = StyleSheet.create({
   },
   heroSubtitle: {
     fontSize: rnGeometry.textCaption,
-    color: tokens.text.medium,
+    color: tokens.text.tertiary,
     marginTop: 1,
   },
   pressed: {

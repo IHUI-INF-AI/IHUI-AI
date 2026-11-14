@@ -83,7 +83,7 @@ export function AppTopupScreen({
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor={tk.text.secondary}
+            tintColor={tk.text.tertiary}
           />
         }
         showsVerticalScrollIndicator={false}
@@ -144,7 +144,7 @@ export function AppTopupScreen({
             value={customAmount}
             onChangeText={onCustomAmountChange}
             placeholder={tx.customPlaceholder ?? '或输入自定义金额'}
-            placeholderTextColor={tk.text.secondary}
+            placeholderTextColor={tk.text.tertiary}
             keyboardType="numeric"
           />
         </View>
@@ -236,7 +236,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     userSub: {
       fontSize: rnType.label.size,
-      color: tk.text.medium,
+      color: tk.text.tertiary,
     },
     balanceCard: {
       margin: rnSpacing['sm-loose'],
@@ -276,7 +276,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     rateTitle: {
       fontSize: rnType.label.size,
-      color: tk.text.medium,
+      color: tk.text.tertiary,
       marginBottom: rnSpacing.xs,
     },
     rateItem: {

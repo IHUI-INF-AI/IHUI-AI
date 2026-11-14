@@ -180,7 +180,7 @@ export function CloudRunsScreen({
         </View>
       ) : runs.length === 0 ? (
         <View style={styles.emptyBox}>
-          <Cloud size={28} color={tk.text.secondary} strokeWidth={1.6} />
+          <Cloud size={28} color={tk.text.tertiary} strokeWidth={1.6} />
           <Text style={styles.emptyText}>{t('cloudRuns.empty')}</Text>
         </View>
       ) : (

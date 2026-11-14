@@ -148,9 +148,10 @@ class CodebaseIndexService {
    * 批量写入代码切片(增量更新模式)。
    *
    * 流程:
-   * 1. 按 ownerUuid + repoId + filePath 删除该文件的所有旧切片
-   * 2. 为缺少 embedding 的切片生成向量(批量,复用 embedding-provider)
-   * 3. 批量插入新切片(带 ownerUuid + expiresAt 默认保留期)
+   * 1. 为缺少 embedding 的切片生成向量(批量,复用 embedding-provider;失败即抛错,
+   *    此时旧切片一行为未动)
+   * 2. 同一事务内:按 ownerUuid + repoId + filePath 删除该文件的所有旧切片,再分批
+   *    插入新切片(带 ownerUuid + expiresAt 默认保留期);任一插入失败整体回滚
    *
    * 注意:调用方(ai-service codebase_indexer)也可自行生成 embedding 后传入,
    * 此时本服务跳过 embedding 生成步骤(以调用方传入为准)。
@@ -181,49 +182,36 @@ class CodebaseIndexService {
       throw new Error('indexChunks 缺少 ownerUuid:拒绝写入无归属的代码索引')
     }
 
-    // 1. 收集所有涉及文件,删除旧切片(增量更新)
+    // 1. 收集所有涉及文件(删除动作挪进步骤 3 的事务,见 F-650)
     const filePaths = [...new Set(chunks.map((c) => c.filePath))]
-    for (const filePath of filePaths) {
-      await db
-        .delete(codebaseChunks)
-        .where(
-          and(
-            _ownerScope(ownerUuid),
-            eq(codebaseChunks.repoId, repoId),
-            eq(codebaseChunks.filePath, filePath),
-          ),
-        )
-    }
 
-    // 2. 为缺少 embedding 的切片批量生成向量
+    // 2. 为缺少 embedding 的切片批量生成向量 —— 必须在事务**外**、且**先于任何删除**
+    //    完成:embedding 是外部网络调用(可达秒级),放进事务等于把持锁时间交给上游;
+    //    异常也不再吞掉(F-650):直接抛给路由 5xx,旧切片一行未动,重试仍是完整语义。
     const provider = getEmbeddingProvider()
     const needEmbedding = chunks.filter((c) => !c.embedding || c.embedding.length !== 1536)
     let vectorized = 0
     if (provider && needEmbedding.length > 0) {
-      try {
-        // 批量 embedding(provider.embed 接受文本数组)
-        const texts = needEmbedding.map((c) => c.content.slice(0, 8000))
-        const embeddings = await provider.embed(texts)
-        for (let i = 0; i < needEmbedding.length; i++) {
-          const chunk = needEmbedding[i]
-          if (!chunk) continue
-          const emb = embeddings[i]
-          if (emb && emb.length === 1536) {
-            chunk.embedding = emb
-            vectorized++
-          }
+      // 批量 embedding(provider.embed 接受文本数组)
+      const texts = needEmbedding.map((c) => c.content.slice(0, 8000))
+      const embeddings = await provider.embed(texts)
+      for (let i = 0; i < needEmbedding.length; i++) {
+        const chunk = needEmbedding[i]
+        if (!chunk) continue
+        const emb = embeddings[i]
+        if (emb && emb.length === 1536) {
+          chunk.embedding = emb
+          vectorized++
         }
-      } catch (e) {
-        logger.warn(
-          '[codebase-index-service.indexChunks] batch embedding failed, chunks stored without vector:',
-          { err: e as Error },
-        )
       }
     }
 
-    // 3. 批量插入(2026-10-03:每行强制带 ownerUuid + expiresAt)
-    // expiresAt 在**写入时一次算定**并落库,而不是查询时才判断 —— 保留期是一个
-    // 可被审计的客观事实(这行数据什么时候失效),不是随查询时刻漂移的窗口。
+    // 3. 删旧 + 插新在**同一事务**内(F-650):此前先删后插分属两个事务,任一插入
+    //    批次失败即"旧切片已删、新切片未写",该文件从检索面整体消失。现在删除只作为
+    //    事务内第一步,插入失败整体回滚,旧索引原样保留。
+    //    每行强制带 ownerUuid + expiresAt(2026-10-03)。expiresAt 在**写入时一次算定**
+    //    并落库,而不是查询时才判断 —— 保留期是一个可被审计的客观事实(这行数据什么
+    //    时候失效),不是随查询时刻漂移的窗口。
     // retentionDays === null ⇒ 永不过期(用户显式选择长期保留);
     // 传数字 ⇒ 相对该批写入时刻的保留期;不传 ⇒ CODE_INDEX_RETENTION_DAYS。
     const expiresAt =
@@ -244,14 +232,28 @@ class CodebaseIndexService {
       expiresAt,
     }))
 
-    // 分批插入(每批 100 条,防单次 SQL 过大)
-    const BATCH_SIZE = 100
     let indexed = 0
-    for (let i = 0; i < rows.length; i += BATCH_SIZE) {
-      const batch = rows.slice(i, i + BATCH_SIZE)
-      await db.insert(codebaseChunks).values(batch)
-      indexed += batch.length
-    }
+    await db.transaction(async (tx) => {
+      for (const filePath of filePaths) {
+        await tx
+          .delete(codebaseChunks)
+          .where(
+            and(
+              _ownerScope(ownerUuid),
+              eq(codebaseChunks.repoId, repoId),
+              eq(codebaseChunks.filePath, filePath),
+            ),
+          )
+      }
+
+      // 分批插入(每批 100 条,≤500 且远低于 PostgreSQL 单语句参数上限 65535)
+      const BATCH_SIZE = 100
+      for (let i = 0; i < rows.length; i += BATCH_SIZE) {
+        const batch = rows.slice(i, i + BATCH_SIZE)
+        await tx.insert(codebaseChunks).values(batch)
+        indexed += batch.length
+      }
+    })
 
     const localEmbedded = chunks.filter((c) => c.embeddingProvider === 'local-hash').length
     return { indexed, vectorized, localEmbedded }

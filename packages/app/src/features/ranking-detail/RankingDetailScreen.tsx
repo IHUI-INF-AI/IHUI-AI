@@ -48,7 +48,7 @@ export function RankingDetailScreen({
         </View>
         <View style={styles.row2}>
           <View style={styles.metric}>
-            <Text style={[styles.metricLabel, { color: tk.text.medium }]}>
+            <Text style={[styles.metricLabel, { color: tk.text.tertiary }]}>
               {t('rankingDetail.points') || '积分'}
             </Text>
             <Text style={[styles.metricValue, { color: tk.text.primary }]} numberOfLines={1}>
@@ -56,7 +56,7 @@ export function RankingDetailScreen({
             </Text>
           </View>
           <View style={styles.metric}>
-            <Text style={[styles.metricLabel, { color: tk.text.medium }]}>
+            <Text style={[styles.metricLabel, { color: tk.text.tertiary }]}>
               {t('rankingDetail.rank') || '排名'}
             </Text>
             <Text
@@ -65,7 +65,7 @@ export function RankingDetailScreen({
             >{`第${detail.rank}名`}</Text>
           </View>
           <View style={styles.metric}>
-            <Text style={[styles.metricLabel, { color: tk.text.medium }]}>
+            <Text style={[styles.metricLabel, { color: tk.text.tertiary }]}>
               {t('rankingDetail.studyHours') || '学习时长'}
             </Text>
             <Text style={[styles.metricValue, { color: tk.text.primary }]} numberOfLines={1}>

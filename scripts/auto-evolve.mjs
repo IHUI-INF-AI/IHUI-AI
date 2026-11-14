@@ -67,8 +67,15 @@ import {
   resolveSessionCommand,
   classifySessionFailure,
   isNonTicketFailure,
+  isAuthExpiryFailure,
 } from './lib/autonomy-runner.mjs'
-export { preflightSessionRunner, resolveSessionCommand, classifySessionFailure, isNonTicketFailure }
+export {
+  preflightSessionRunner,
+  resolveSessionCommand,
+  classifySessionFailure,
+  isNonTicketFailure,
+  isAuthExpiryFailure,
+}
 import { gateTicketByHumanValve, VALVE_MODES, VALVE_ACTIONS } from './lib/autonomy-runner.mjs'
 export { gateTicketByHumanValve }
 // 会话后落账腿的判据单源(2026-11-01 立):清单解析/路径安全/真有改动三问都住 lib,本器只做 IO 与编排。
@@ -103,7 +110,7 @@ import {
 // 判据面(受保护面)的匹配判据单源在护栏纯函数层;本器只调用,不重抄任何匹配规则(§0.6)。
 import { parseGuardList, matchProtected } from './lib/immutable-guard.mjs'
 // 票面指纹与生成器同一把尺(§0.6):比对双方都走 autonomy-candidates 的那一个实现
-import { planFaceDigestFromHead } from './lib/plan-face-digest.mjs'
+import { planFaceDigest, planFaceDigestFromHead } from './lib/plan-face-digest.mjs'
 
 export const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 /** 调度器接线的锚点(guardian 派发层 import 同一组路径,不另拼第二份 —— §0.6 单一真相源) */
@@ -135,6 +142,13 @@ const ESCAPE_TICK = join(ROOT, '.ihui-agent', 'state', 'auto-evolve-escape-tick.
 const ESCAPE_DEFAULT_ALERT_ID = '__default__'
 /** budget 是当日恒成立的持续态,单独 24h 窗口;其余逃生邮件是真新故障,保持 1h。 */
 const ESCAPE_BUDGET_ALERT_ID = 'auto-evolve:budget'
+/**
+ * 凭据过期型告警单独成身份(2026-11-13 邮件风暴收口):出路是"人重登 CLI",既不是 config 坏
+ * 也不是 template 缺。混在 undetermined 笼统身份里 = 把"每 4h 一封"的刷屏留成一封说不清的故障。
+ * 本地窗口 24h(与 budget 同法),出口 --dedupe-hours 24 对齐。
+ */
+const ESCAPE_AUTH_ALERT_ID = 'auto-evolve:runner-auth-expired'
+const ESCAPE_AUTH_THROTTLE_MS = 24 * 60 * 60 * 1000
 const TMP_DIR = join(ROOT, '.ihui-agent', 'tmp', 'auto-evolve')
 export const PLAN_TASKS = join(ROOT, 'scripts', 'plan-tasks.mjs')
 /** 自治决策候选评估(第 2 期接线):id = ticketKey,由 scripts/autonomy-candidates.mjs 按
@@ -1176,7 +1190,12 @@ function readEscapeTicks() {
  */
 export function escapeThrottleDecision(ticks, now, alertId) {
   const id = String(alertId || ESCAPE_DEFAULT_ALERT_ID)
-  const win = id === ESCAPE_BUDGET_ALERT_ID ? ESCAPE_BUDGET_THROTTLE_MS : ESCAPE_MAIL_THROTTLE_MS
+  const win =
+    id === ESCAPE_BUDGET_ALERT_ID
+      ? ESCAPE_BUDGET_THROTTLE_MS
+      : id === ESCAPE_AUTH_ALERT_ID
+        ? ESCAPE_AUTH_THROTTLE_MS
+        : ESCAPE_MAIL_THROTTLE_MS
   const last = ticks?.[id]
   return now - Number(last) < win
 }
@@ -1197,8 +1216,10 @@ function markEscape(now = Date.now(), alertId = ESCAPE_DEFAULT_ALERT_ID) {
  * 逃生邮件:只经 notify-deploy-failure 唯一出口(守门 81);出口不在位/无收件人 ⇒ 打印并
  * 落「未判定」返回 false,绝不冒充已发(§0.3)。返回 true 只在出口**真送达**时 —— 调用方据此
  * 才 markEscape,避免一次被 suppress 的尝试吞掉整段节流窗口(详见函数尾的处置标记判定)。
+ * opts.dedupeHours(2026-11-13 加):显式对齐出口 --dedupe-hours 窗口;缺省 undefined ⇒
+ * 既有调用逐字节不变(budget 的 24h 仍由 alertId 映射给出)。
  */
-function sendEscapeMail(gates, alertId, title, bodyText, severity = 'warning') {
+function sendEscapeMail(gates, alertId, title, bodyText, severity = 'warning', opts = {}) {
   // severity 只加一个可选形参,缺省 'warning' ⇒ 本枚之前那 9 处调用逐字节不变(不趁修 A 改 B)。
   // 取值不在这层再校一遍:白名单在唯一出口 normalizeSeverity 里(§0.6),越界它自己降级。
   const to = resolveMailTo()
@@ -1234,7 +1255,11 @@ function sendEscapeMail(gates, alertId, title, bodyText, severity = 'warning') {
     'auto-evolve',
     '--alert-id',
     alertId,
-    ...(String(alertId || '') === ESCAPE_BUDGET_ALERT_ID ? ['--dedupe-hours', '24'] : []),
+    ...(opts.dedupeHours !== undefined
+      ? ['--dedupe-hours', String(opts.dedupeHours)]
+      : String(alertId || '') === ESCAPE_BUDGET_ALERT_ID
+        ? ['--dedupe-hours', '24']
+        : []),
     '--message-file',
     msgFile,
   ]
@@ -3262,19 +3287,13 @@ async function runOnce({ dryRun = false, noDecide = false } = {}) {
         console.log(`✅ dry-run 记账完成(不真派)`)
         return
       }
-      dispatched++
-      // 日预算的**跨轮**计数读的就是这一行(2026-11-04 实测:调度器重构后再没人发射过 `dispatched`,而
-      // 两处计数器仍按 action==='dispatched' 数 ⇒ 每轮都读成"今日已派 0/6",日预算只剩轮内那一半)。
-      record({
-        mode: 'dispatch',
-        action: 'dispatched',
-        ticketKey: key,
-        ticketLine: ticket.text.slice(0, 200),
-        why: `真派第 ${dispatched} 次(预算 ${gates.dailyDispatchBudget}/日)`,
-      })
       // ---- 故障分型(2026-11-01 立):发起腿级失败 ≠ 票面失败 ----
       // 环境级(ERR_MODULE_NOT_FOUND/ENOENT/路径不存在)是调度器自己的腿断了:
       // 计进票连败 = 每换一次机就把整张派单面逐枚封禁 48h,而真因一行也没被点名。
+      // 记账顺序(2026-11-13 邮件风暴):这一档必须排在 `dispatched++` **之前**。旧顺序把腿级
+      // 失败也记成"真派":CLI 登录态过期风暴一夜把 10 次失败起会话记成"已派 10/10",次日整天
+      // 误报"预算耗尽"(真派发=0),候选再多也空转。腿级班次的墙钟另有 session-blocked 桶熔断
+      // (cost-caps.json 的 perHour/perDay/minutesPerDay 三闸),不该再吃生产预算。
       if (isNonTicketFailure(res.failureKind) || res.action === 'runner-undetermined') {
         record({
           mode: 'dispatch',
@@ -3284,8 +3303,26 @@ async function runOnce({ dryRun = false, noDecide = false } = {}) {
           why: res.why,
         })
         console.error(
-          `⛔ 发起腿故障(分型=${res.failureKind ?? res.action},provider-error=${res.providerError ?? '无'},不计票连败、不封票):${res.why}`,
+          `⛔ 发起腿故障(分型=${res.failureKind ?? res.action},provider-error=${res.providerError ?? '无'},不计票连败、不封票、不吃日预算):${res.why}`,
         )
+        // 凭据过期型单独成身份(2026-11-13 实测:providerError=「登录已过期,请重新登录」,12 小时内
+        // 每轮复发)。它的出路是"以计划任务同一账户在交互桌面重登 CLI",与 sessionCommandTemplate、
+        // 产物在位无关 —— 沿用通用文案会把排障带去配置侧(真配置核验当时 3/3 通过)。
+        if (isAuthExpiryFailure(res.providerError, res.why)) {
+          if (!escapeThrottled(undefined, ESCAPE_AUTH_ALERT_ID)) {
+            const delivered = sendEscapeMail(
+              gates,
+              ESCAPE_AUTH_ALERT_ID,
+              '[auto-evolve] 起会话 CLI 登录态过期,停派本轮(待重登恢复)',
+              `票面(不吃日预算、不计连败):L${ticket.line} ${ticket.text.slice(0, 120)}\nprovider-error=${res.providerError ?? '无'}\n出路:由计划任务「IHUI-AI auto-evolve」所依账户,在交互桌面执行:\n  node <仓根>/apps/cli/node_modules/tsx/dist/cli.mjs <仓根>/apps/cli/src/index.ts login\n(仓根现读 = ${ROOT};ihui JWT 7 天期,重登后自动派发即回血;本邮件 24h 内至多一封)。\n判据单源 = scripts/lib/autonomy-runner.mjs 的 isAuthExpiryFailure。`,
+              'warning',
+              { dedupeHours: 24 },
+            )
+            if (delivered) markEscape(undefined, ESCAPE_AUTH_ALERT_ID)
+          }
+          process.exitCode = 2
+          return
+        }
         if (!escapeThrottled(undefined, `auto-evolve:runner-${res.failureKind ?? 'undetermined'}`)) {
           // 先寄后记:出口按 --alert-id 窗口 suppress 时 exit 0,寄前记 tick 会吞掉整段节流窗口。
           const delivered = sendEscapeMail(
@@ -3299,6 +3336,17 @@ async function runOnce({ dryRun = false, noDecide = false } = {}) {
         process.exitCode = 2
         return
       }
+      dispatched++
+      // 日预算的**跨轮**计数读的就是这一行(2026-11-04 实测:调度器重构后再没人发射过 `dispatched`,而
+      // 两处计数器仍按 action==='dispatched' 数 ⇒ 每轮都读成"今日已派 0/6",日预算只剩轮内那一半)。
+      // 腿级失败已在上方分型块 return ⇒ 只有真起过会话的班次才吃这一份日预算。
+      record({
+        mode: 'dispatch',
+        action: 'dispatched',
+        ticketKey: key,
+        ticketLine: ticket.text.slice(0, 200),
+        why: `真派第 ${dispatched} 次(预算 ${gates.dailyDispatchBudget}/日)`,
+      })
       if (res.action === 'session-no-progress') {
         // 零推进 ≠ 腿故障 ≠ 票坏:它由空转阶梯(rotate/park)负责,不走连败封票,也不进落账腿
         // (会话一个文件都没动,落账腿只能再记一行 manifest-missing ⇒ 同一件事双记账)。

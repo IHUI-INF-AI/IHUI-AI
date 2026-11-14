@@ -61,7 +61,7 @@ import {
   type ConversationDetail,
   type UserStatistics,
 } from '@ihui/api-client'
-import { apiFailureToText, toUserFriendlyMessage, toFriendlyOr } from '@ihui/shared/utils'
+import { apiFailureToText, toUserFriendlyMessage } from '@ihui/shared/utils'
 import { formatDate } from '@ihui/shared/utils/date-utils'
 import { useAuth } from '../context/AuthContext'
 import { rnAuthStore } from '../stores/auth-store'
@@ -1312,7 +1312,7 @@ function ProfileContentSection(): React.JSX.Element {
         else if (tab === 3) setVideoContentList(videoContents)
         else setAudioContentList(audioContents)
       } catch (err) {
-        setError(toFriendlyOr(err, t('profile.loadFailedShort')))
+        setError(err instanceof Error ? err.message : t('profile.loadFailedShort'))
         if (tab === 1) setTextContentList([])
         else if (tab === 2) setImageContentList([])
         else if (tab === 3) setVideoContentList([])
@@ -1519,8 +1519,6 @@ function ImageTabContent({ list, onPreview }: ImageTabProps): React.JSX.Element 
                   activeOpacity={0.85}
                   onPress={() => onPreview(item.imageList, idx)}
                   style={styles.imageColumnItem}
-                  accessibilityRole="imagebutton"
-                  accessibilityLabel={t('chat.imagePreviewA11y')}
                 >
                   <Image source={{ uri: url }} style={styles.imageColumnImg} resizeMode="cover" />
                 </TouchableOpacity>
@@ -1582,8 +1580,6 @@ function VideoTabContent({ list, onPlay }: VideoTabProps): React.JSX.Element {
                 activeOpacity={0.85}
                 onPress={() => onPlay(item.videoUrl)}
                 style={styles.videoPosterContainer}
-                accessibilityRole="button"
-                accessibilityLabel={t('player.play')}
               >
                 {posterUrl ? (
                   <Image
@@ -2152,7 +2148,7 @@ const styles = StyleSheet.create({
   },
   contentTime: {
     fontSize: rnType.label.size,
-    color: tokens.text.medium,
+    color: tokens.text.tertiary,
   },
   contentBody: {
     gap: rpx(16),
@@ -2236,7 +2232,7 @@ const styles = StyleSheet.create({
   },
   audioTime: {
     fontSize: rnType.label.size,
-    color: tokens.text.medium,
+    color: tokens.text.tertiary,
     minWidth: 38,
     textAlign: 'right',
   },
@@ -2417,7 +2413,7 @@ const styles = StyleSheet.create({
   sharePopupShareBtnText: {
     fontSize: rnType.body.size,
     fontWeight: '600',
-    color: rnCssLight.white95,
+    color: tokens.surface.light,
   },
   // ── 4 Tab 加载/错误状态(对齐 Uniapp loadContentByTab 加载体验) ──
   tabLoaderWrap: {
@@ -2531,7 +2527,7 @@ const styles = StyleSheet.create({
   },
   editProfileAvatarHint: {
     fontSize: rnType.caption.size,
-    color: tokens.text.medium,
+    color: tokens.text.tertiary,
   },
   editProfileField: {
     // 对齐 Uniapp 30rpx(≈15px)字段间距
@@ -2594,7 +2590,7 @@ const styles = StyleSheet.create({
   },
   editProfileError: {
     fontSize: rnType.label.size,
-    color: tokens.danger.deepText,
+    color: tokens.danger.DEFAULT,
     marginBottom: rpx(16),
   },
   // ── 等级介绍 Modal(对齐 Uniapp level-intro popup) ──
@@ -2644,7 +2640,7 @@ const styles = StyleSheet.create({
   },
   levelIntroItemDesc: {
     fontSize: rnType.label.size,
-    color: tokens.text.medium,
+    color: tokens.text.tertiary,
   },
   levelIntroBenefitList: {
     gap: rpx(8),
@@ -2695,7 +2691,7 @@ const styles = StyleSheet.create({
   },
   unsubscribeIcon: {
     fontSize: 28,
-    color: tokens.danger.deepText,
+    color: tokens.danger.DEFAULT,
     lineHeight: rnType.heading.lineHeight,
   },
   unsubscribeTitle: {

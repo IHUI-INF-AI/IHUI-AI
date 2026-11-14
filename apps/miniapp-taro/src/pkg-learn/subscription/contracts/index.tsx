@@ -163,13 +163,12 @@ export default function SubscriptionContractsPage() {
                 </View>
                 {c.status === 'active' && (
                   <View className="mt-[24rpx] text-right">
-                    <View
+                    <Text
                       className="inline-block text-body font-semibold text-[var(--color-text-medium)] bg-background px-[24rpx] py-[12rpx] border-[length:2rpx] border-border rounded-xl"
-                      hoverClass="opacity-60"
                       onClick={() => onCancel(c)}
                     >
-                      <Text>{tt('subscription.cancelBtn', '解约')}</Text>
-                    </View>
+                      {tt('subscription.cancelBtn', '解约')}
+                    </Text>
                   </View>
                 )}
               </View>

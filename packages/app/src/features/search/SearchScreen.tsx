@@ -52,7 +52,7 @@ export function SearchScreen({
           value={keyword}
           onChangeText={onKeywordChange}
           placeholder={t('search.placeholder')}
-          placeholderTextColor={tk.text.secondary}
+          placeholderTextColor={tk.text.tertiary}
           returnKeyType="search"
           onSubmitEditing={onSearch}
           autoFocus
@@ -133,7 +133,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.brand.cta,
     },
     searchText: { color: tk.surface.light, fontSize: rnType.title.size },
-    error: { fontSize: rnType.body.size, color: tk.danger.deepText, marginBottom: rnSpacing.sm },
+    error: { fontSize: rnType.body.size, color: tk.danger.DEFAULT, marginBottom: rnSpacing.sm },
     separator: { height: 12 },
     card: {
       padding: rnSpacing.md,
@@ -144,7 +144,7 @@ function createStyles(tk: AppThemeTokens) {
     cardHead: { flexDirection: 'row', marginBottom: rnSpacing.sm },
     typeBadge: {
       fontSize: rnType.badge.size,
-      color: tk.success.deepText,
+      color: tk.success.DEFAULT,
       backgroundColor: tk.success.light,
       paddingHorizontal: rnSpacing['xs-loose'],
       paddingVertical: rnSpacing['2xs'],

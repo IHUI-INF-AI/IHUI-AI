@@ -338,7 +338,9 @@ Sitemaps submitted:
 ## Contact
 
 - Official Website: https://aizhs.top
-- Business, Support, Security: lizong@aizhs.top (single mailbox — mention the topic in your email)
+- Business: contact@aizhs.top
+- Support: support@aizhs.top
+- Security: security@aizhs.top
 - GitHub Discussions: https://github.com/ihui-ai/ihui-ai/discussions
 - Twitter/X: @ihui_ai
 - LinkedIn: IHUI AI
@@ -349,4 +351,4 @@ Sitemaps submitted:
 # This file is optimized for Microsoft Copilot / Bing Chat / Bingbot indexing
 # Maintained by: IHUI AI Team
 # Last reviewed: 2026-07-26
-# Contact: lizong@aizhs.top
+# Contact: contact@aizhs.top

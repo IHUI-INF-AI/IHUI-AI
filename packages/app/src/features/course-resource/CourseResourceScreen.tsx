@@ -88,7 +88,7 @@ function createStyles(tk: AppThemeTokens) {
     error: {
       paddingHorizontal: rnSpacing['sm-loose'],
       fontSize: rnType.body.size,
-      color: tk.danger.deepText,
+      color: tk.danger.DEFAULT,
     },
     listBody: { padding: rnSpacing['sm-loose'] },
     separator: { height: 12 },
@@ -106,7 +106,7 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       marginTop: rnSpacing.sm,
     },
-    cardMeta: { fontSize: rnType.caption.size, color: tk.text.medium },
+    cardMeta: { fontSize: rnType.caption.size, color: tk.text.tertiary },
     cardAction: {
       fontSize: rnType.body.size,
       color: tk.brand.DEFAULT,

@@ -10787,100 +10787,6 @@ async def _tool_summarize_artifacts(arguments: dict[str, Any]) -> dict[str, Any]
     return result
 
 
-# present_files 声明面上限:每次最多 8 个文件(超出直接拒绝,不静默截断 ——
-# 静默截断会让"我以为都交付了"和"实际只交付了一半"在账面同形);
-# 路径/说明的长度上限只防无界输入,不参与任何文件系统判定。
-_PRESENT_FILES_MAX = 8
-_PRESENT_FILE_PATH_MAX = 500
-_PRESENT_FILE_DESC_MAX = 200
-
-
-def _normalize_present_path(raw: Any) -> str:
-    """归一化交付路径:去空白、统一分隔符、拒绝控制字符;不做文件系统访问。
-
-    为什么这里**不**调 `_validate_path_in_workspace`:本工具只登记交付物,
-    不读取也不改写。本地工作区模式(workspace_context 委托读写)下服务端本来
-    就看不到用户磁盘,按服务端根判存会把合法的本地产物全判死;而路径最终由
-    前端工作区文件预览解析,那一层才有真实的文件句柄。安全边界因此不在本工具,
-    但空路径 / 控制字符 / 超长仍一律拒绝。
-    """
-    if not isinstance(raw, str):
-        return ""
-    text = raw.strip().replace("\\", "/")
-    if not text or len(text) > _PRESENT_FILE_PATH_MAX:
-        return ""
-    if any(ord(ch) < 0x20 or ord(ch) == 0x7F for ch in text):
-        return ""
-    return text
-
-
-async def _tool_present_files(arguments: dict[str, Any]) -> dict[str, Any]:
-    """present_files: 把已存在的文件显式声明为交付物(对标 DSH dsh-tool-present)。
-
-    病灶:自动交付清单只收得到「经由文件工具写入」的变更证据;由 run_command
-    构建出来的产物、office_document 转换出的 docx/pdf、脚本导出的图表都不会
-    出现在 filesChanged 里 —— 模型没有任何办法告诉界面"这些才是最终交付物"。
-
-    判据:
-      - 只登记,不读、不写、不判存在(见 `_normalize_present_path` 的理由);
-      - 空路径 / 非字符串 / 控制字符 / 超过 500 字 → 整次拒绝(失败闭合,不半登记);
-      - 一次最多 8 个,超出整次拒绝(不静默截断);
-      - 同路径(忽略大小写)保首现,重复项不重复展示。
-    """
-    raw_files = arguments.get("files")
-    if not isinstance(raw_files, list) or not raw_files:
-        return {
-            "tool": "present_files", "ok": False,
-            "errorCode": "INVALID_ARGUMENTS",
-            "error": "files 必须是非空数组,每项形如 {\"path\": \"...\", \"description\": \"...\"}",
-            "presented": [],
-        }
-    if len(raw_files) > _PRESENT_FILES_MAX:
-        return {
-            "tool": "present_files", "ok": False,
-            "errorCode": "TOO_MANY_FILES",
-            "error": f"一次最多登记 {_PRESENT_FILES_MAX} 个交付文件(收到 {len(raw_files)} 个),请挑选最终交付物",
-            "presented": [],
-        }
-
-    presented: list[dict[str, Any]] = []
-    seen: set[str] = set()
-    for index, item in enumerate(raw_files):
-        if not isinstance(item, dict):
-            return {
-                "tool": "present_files", "ok": False,
-                "errorCode": "INVALID_ARGUMENTS",
-                "error": f"files[{index}] 必须是对象",
-                "presented": [],
-            }
-        path = _normalize_present_path(item.get("path"))
-        if not path:
-            return {
-                "tool": "present_files", "ok": False,
-                "errorCode": "INVALID_PATH",
-                "error": f"files[{index}].path 为空、含控制字符或超过 {_PRESENT_FILE_PATH_MAX} 字",
-                "presented": [],
-            }
-        key = path.casefold()
-        if key in seen:
-            continue
-        seen.add(key)
-        entry: dict[str, Any] = {"path": path}
-        desc_raw = item.get("description")
-        if isinstance(desc_raw, str):
-            desc = " ".join(desc_raw.split())[:_PRESENT_FILE_DESC_MAX]
-            if desc:
-                entry["description"] = desc
-        presented.append(entry)
-
-    return {
-        "tool": "present_files", "ok": True,
-        "presented": presented,
-        "count": len(presented),
-        "message": f"已登记 {len(presented)} 个交付文件",
-    }
-
-
 def _parse_simple_cron(cron: str) -> str | None:
     """降级解析简单 cron 表达式(croniter 未安装时,仅支持 'M H * * *' 形式)。"""
     parts = cron.split()
@@ -13873,42 +13779,6 @@ _TOOLS: list[MCPTool] = [
         },
     ),
     MCPTool(
-        name="present_files",
-        description=(
-            "把已经存在的文件显式声明为本次答复的交付物。"
-            "用于补自动变更清单漏掉的产物:由 run_command 构建/导出的文件、"
-            "office_document 转换出的 docx/pdf、脚本生成的图表等。"
-            "只登记路径与可选说明,不读取、不改写、不校验文件是否存在;"
-            "一次最多 8 个,前端交付清单按路径渲染。所有用户可用。"
-        ),
-        input_schema={
-            "type": "object",
-            "properties": {
-                "files": {
-                    "type": "array",
-                    "minItems": 1,
-                    "maxItems": 8,
-                    "items": {
-                        "type": "object",
-                        "properties": {
-                            "path": {
-                                "type": "string",
-                                "description": "文件路径(工作区相对路径或绝对路径)",
-                            },
-                            "description": {
-                                "type": "string",
-                                "description": "一句话说明这个文件是什么(可选,最多 200 字)",
-                            },
-                        },
-                        "required": ["path"],
-                    },
-                    "description": "要声明为交付物的文件列表(最多 8 个)",
-                },
-            },
-            "required": ["files"],
-        },
-    ),
-    MCPTool(
         name="schedule_task",
         description=(
             "调度定时任务(once/recurring)。"
@@ -16061,9 +15931,6 @@ _TOOL_HANDLERS: dict[str, Any] = {
     "image_generation": _tool_image_generation,
     "review_pr": _tool_review_pr,
     "summarize_artifacts": _tool_summarize_artifacts,
-    # 显式交付声明(2026-11-14,对标 DSH dsh-tool-present):补"命令产物不进
-    # filesChanged"的缺口;只登记不读盘,故不进 _ADMIN_ONLY_TOOLS / 委托面。
-    "present_files": _tool_present_files,
     "schedule_task": _tool_schedule_task,
     # 定时任务工具面投影(2026-10-30 立):服务层早有 list_tasks/remove_task,
     # 此前只有创建动词 ⇒ 模型自建的任务看不见也撤不掉。

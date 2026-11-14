@@ -121,11 +121,6 @@ services:
       # 微信网站扫码登录(微信开放平台 - 网站应用)
       - WECHAT_APP_ID=${WECHAT_APP_ID:-}
       - WECHAT_APP_SECRET=${WECHAT_APP_SECRET:-}
-      # 微信移动应用一键登录(开放平台 - 移动应用;RN App 内 /login/wechat,react-native-wechat-lib)
-      # oauth-providers.ts 的 isWechatAppConfigured/wechatAppCode2session 运行时读这对键,
-      # 缺失 ⇒ /login/wechat 返回 501「未配置」。AppID 须与 apps/mobile-rn/app.json extra.WX_APP_APPID 一致。
-      - WECHAT_MOBILE_APP_ID=${WECHAT_MOBILE_APP_ID:-}
-      - WECHAT_MOBILE_SECRET=${WECHAT_MOBILE_SECRET:-}
       # 钉钉扫码登录(钉钉开放平台 - 企业内部应用)
       - DINGTALK_APP_KEY=${DINGTALK_APP_KEY:-}
       - DINGTALK_APP_SECRET=${DINGTALK_APP_SECRET:-}

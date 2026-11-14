@@ -130,44 +130,16 @@ export async function getLogStats(startDate?: Date, endDate?: Date): Promise<Aud
   return { total, byAction, byResourceType }
 }
 
-/** 单批删除上限:积压时避免一条 DELETE 全量删除(长事务/长锁/WAL 膨胀)。 */
-const DELETE_OLD_LOGS_BATCH_SIZE = 5000
-/** 单轮最多批次:防御异常数据导致死循环,剩余留待下一次清理。 */
-const DELETE_OLD_LOGS_MAX_BATCHES = 1000
-
 /**
- * 删除指定天数之前的旧审计日志(分批,每批最多 5000 行)。
- * 失败记 error(表名/已删数量/错误)后如实抛出,不再静默。
+ * 删除指定天数之前的旧审计日志。
  * @returns 删除的记录数
  */
 export async function deleteOldLogs(days = 90): Promise<number> {
   const cutoff = new Date(Date.now() - days * 86400_000)
-  let deleted = 0
-  for (let batch = 1; batch <= DELETE_OLD_LOGS_MAX_BATCHES; batch++) {
-    try {
-      const rows = await db
-        .delete(auditLogs)
-        .where(
-          sql`${auditLogs.id} IN (SELECT ${auditLogs.id} FROM ${auditLogs} WHERE ${lt(auditLogs.createdAt, cutoff)} LIMIT ${DELETE_OLD_LOGS_BATCH_SIZE})`,
-        )
-        .returning({ one: sql<number>`1` })
-      deleted += rows.length
-      if (rows.length < DELETE_OLD_LOGS_BATCH_SIZE) return deleted
-    } catch (e) {
-      logger.error('[audit-service] deleteOldLogs 审计日志过期清理失败(批次中断)', {
-        table: 'audit_logs',
-        deleted,
-        batch,
-        error: e instanceof Error ? e.message : String(e),
-      })
-      throw e
-    }
-  }
-  logger.warn('[audit-service] deleteOldLogs 达到单轮批次上限,剩余留待下次清理', {
-    table: 'audit_logs',
-    deleted,
-    maxBatches: DELETE_OLD_LOGS_MAX_BATCHES,
-  })
-  return deleted
+  const rows = await db
+    .delete(auditLogs)
+    .where(lt(auditLogs.createdAt, cutoff))
+    .returning({ id: auditLogs.id })
+  return rows.length
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

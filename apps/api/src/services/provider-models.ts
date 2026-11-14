@@ -15,10 +15,11 @@
  *  3. gemini 用 key=API_KEY query 参数;anthropic 用 x-api-key + anthropic-version;
  *     其余 OpenAI 兼容端点用 Authorization: Bearer。
  *  4. 超时 10s(AbortController),失败不抛错,降级 FALLBACK_MODELS。
- *  5. Redis 缓存 key=`provider:models:<provider>:<身份档>`(见 getCacheKey),TTL 86400s;
+ *  5. Redis 缓存 key=`provider:models:<provider>:<身份档>:k:<凭据指纹>`(见 getCacheKey),TTL 86400s;
  *     Redis 不可用时跳过缓存。缓存内容随调用所用 API key 而不同(用户自有 key 会拉到
  *     该账号可见的私有模型清单),故 key 必须带身份维度 —— 2026-09-26 修复跨用户数据暴露。
  */
+import { createHash } from 'node:crypto'
 import type { Redis } from 'ioredis'
 import type { ProviderModelInfo, ProviderModelListResponse } from '@ihui/types'
 
@@ -293,18 +294,35 @@ const FALLBACK_MODELS: Record<string, ProviderModelInfo[]> = {
 export const SUPPORTED_PROVIDERS: string[] = Object.keys(PROVIDER_CONFIG)
 
 /**
- * 计算 Redis 缓存 key(必须带身份维度)。
+ * 凭据指纹:sha256(apiKey) 取前 16 位十六进制;无 key(公开档)固定 `anon`。
+ * 禁止把明文 key 拼进缓存键或写入日志。
+ */
+function fingerprintApiKey(apiKey?: string | null): string {
+  const plain = typeof apiKey === 'string' ? apiKey.trim() : ''
+  if (plain === '') return 'anon'
+  return createHash('sha256').update(plain, 'utf8').digest('hex').slice(0, 16)
+}
+
+/**
+ * 计算 Redis 缓存 key(必须同时带身份维度与凭据维度)。
  *
  * 缺陷修复(2026-09-26):旧形态 `provider:models:<provider>` 不带身份 —— 用户带自己
  * 账号 key 拉回的私有模型清单会写进跨用户共享键,同一 provider 的其他用户在 TTL(24h)
  * 内直接读到别人账号视角的列表,属跨用户数据暴露。
- * 现规则:有身份 → `:u:<userId>`;无身份/公开档 → 显式独立命名空间 `:public`。
+ * 缺陷修复(F-389,2026-11-13):键只带 userId 仍不够 —— 同一身份下换成另一把上游 key
+ * (不同账号/不同可见模型)会命中旧凭据的清单。现追加 key 指纹段 `:k:<fp>` 隔离凭据。
+ * 现规则:有身份 → `:u:<userId>`;无身份/公开档 → 显式独立命名空间 `:public`;
+ * 有 key → `:k:<sha256 前 16 位>`;无 key → `:k:anon`。
  * **禁止**把 undefined/空串直接拼进键(那会让"未登录"与"某真实用户"无法区分)。
  */
-export function getCacheKey(provider: string, userId?: string | null): string {
+export function getCacheKey(
+  provider: string,
+  userId?: string | null,
+  apiKey?: string | null,
+): string {
   const identity =
     typeof userId === 'string' && userId.trim() !== '' ? `u:${userId.trim()}` : 'public'
-  return `provider:models:${provider}:${identity}`
+  return `provider:models:${provider}:${identity}:k:${fingerprintApiKey(apiKey)}`
 }
 
 interface CachePayload {
@@ -341,7 +359,9 @@ export async function fetchProviderModels(
   const cfg = PROVIDER_CONFIG[provider]
   if (!cfg) return fallback
 
-  const cacheKey = getCacheKey(provider, userId)
+  // 先解析实际使用的 API key(优先用户传入,否则环境变量),缓存键需带其指纹
+  const apiKey = userApiKey || process.env[cfg.apiKeyEnv] || ''
+  const cacheKey = getCacheKey(provider, userId, apiKey)
 
   // 1. 查 Redis 缓存
   if (redis) {
@@ -364,14 +384,11 @@ export async function fetchProviderModels(
     }
   }
 
-  // 2. 解析 API key(优先用户传入,否则环境变量)
-  const apiKey = userApiKey || process.env[cfg.apiKeyEnv] || ''
-
-  // 3. 调上游 /models
+  // 2. 调上游 /models
   const models = await fetchUpstreamModels(provider, cfg.apiBase, apiKey)
   if (models.length === 0) return fallback
 
-  // 4. 写 Redis 缓存 24h
+  // 3. 写 Redis 缓存 24h
   const expiresAt = new Date(Date.now() + CACHE_TTL_SEC * 1000).toISOString()
   if (redis) {
     try {

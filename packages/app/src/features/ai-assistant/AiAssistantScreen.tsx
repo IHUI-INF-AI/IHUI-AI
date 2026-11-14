@@ -66,7 +66,7 @@ export function AiAssistantScreen({
           value={keyword}
           onChangeText={onKeywordChange}
           placeholder={t('aiAssistant.searchPlaceholder')}
-          placeholderTextColor={tk.text.secondary}
+          placeholderTextColor={tk.text.tertiary}
         />
       </View>
 
@@ -203,7 +203,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingVertical: rnSpacing.sm,
       backgroundColor: tk.danger.light,
     },
-    errorText: { fontSize: rnType.body.size, color: tk.danger.deepText },
+    errorText: { fontSize: rnType.body.size, color: tk.danger.DEFAULT },
     card: {
       padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.lg,
@@ -249,7 +249,7 @@ function createStyles(tk: AppThemeTokens) {
       gap: rnSpacing.lg,
       marginTop: rnSpacing.md,
     },
-    metaText: { fontSize: rnType.caption.size, color: tk.text.medium },
+    metaText: { fontSize: rnType.caption.size, color: tk.text.tertiary },
     ctaBtn: {
       marginLeft: 'auto',
       paddingHorizontal: rnSpacing['md-loose'],

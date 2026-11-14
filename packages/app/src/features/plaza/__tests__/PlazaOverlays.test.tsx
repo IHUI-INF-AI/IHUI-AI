@@ -28,10 +28,6 @@ const dict: Record<string, string> = {
 }
 const t = (key: string, _options?: Record<string, string | number>) => dict[key] ?? key
 
-/** 测试档主题:与仓内其它测试同一写法(`testColorScheme`),不给 JSX 留字面量 ——
- *  主题门把字面量 "light"/"dark" 一律当运行期错(真机上会出现屏幕两套档案)。 */
-const testColorScheme: 'light' | 'dark' = 'light'
-
 const item = {
   id: 'p-unique-1',
   title: '唯一标题-广场需求',
@@ -48,7 +44,6 @@ const identityItems = [
 
 const screenBaseProps = {
   t,
-  colorScheme: testColorScheme,
   items: [] as PlazaItem[],
   loading: false,
   refreshing: false,
@@ -73,7 +68,6 @@ describe('PlazaIdentitySheet 共享弹层', () => {
     render(
       <PlazaIdentitySheet
         t={t}
-        colorScheme={testColorScheme}
         visible
         items={identityItems}
         selectedId="demander"
@@ -95,7 +89,6 @@ describe('PlazaIdentitySheet 共享弹层', () => {
     render(
       <PlazaIdentitySheet
         t={t}
-        colorScheme={testColorScheme}
         visible={false}
         items={identityItems}
         onSelect={() => {}}
@@ -111,7 +104,6 @@ describe('PlazaIdentitySheet 共享弹层', () => {
     render(
       <PlazaIdentitySheet
         t={t}
-        colorScheme={testColorScheme}
         visible
         items={identityItems.filter((it) => it.id !== 'developer')}
         onSelect={() => {}}
@@ -127,14 +119,7 @@ describe('PlazaIdentitySheet 共享弹层', () => {
 describe('PlazaDetailModal 共享弹层', () => {
   it('item 非空渲染标题/描述/赛道/状态/发布人/查看详情', () => {
     render(
-      <PlazaDetailModal
-        t={t}
-        colorScheme={testColorScheme}
-        visible
-        item={item}
-        onClose={() => {}}
-        onOpenDetail={() => {}}
-      />,
+      <PlazaDetailModal t={t} visible item={item} onClose={() => {}} onOpenDetail={() => {}} />,
     )
     expect(screen.getByText('唯一标题-广场需求')).toBeTruthy()
     expect(screen.getByText('唯一描述-共享详情弹层')).toBeTruthy()
@@ -146,14 +131,7 @@ describe('PlazaDetailModal 共享弹层', () => {
 
   it('阴性对照:item=null 时整段不渲染', () => {
     render(
-      <PlazaDetailModal
-        t={t}
-        colorScheme={testColorScheme}
-        visible
-        item={null}
-        onClose={() => {}}
-        onOpenDetail={() => {}}
-      />,
+      <PlazaDetailModal t={t} visible item={null} onClose={() => {}} onOpenDetail={() => {}} />,
     )
     expect(screen.queryByText('唯一标题-广场需求')).toBeNull()
     expect(() => screen.getByText('唯一标题-广场需求')).toThrow()
@@ -162,14 +140,7 @@ describe('PlazaDetailModal 共享弹层', () => {
   it('阴性对照:摘掉 description 后按该描述查找必须红', () => {
     const noDesc = { ...item, description: undefined } as unknown as PlazaItem
     render(
-      <PlazaDetailModal
-        t={t}
-        colorScheme={testColorScheme}
-        visible
-        item={noDesc}
-        onClose={() => {}}
-        onOpenDetail={() => {}}
-      />,
+      <PlazaDetailModal t={t} visible item={noDesc} onClose={() => {}} onOpenDetail={() => {}} />,
     )
     expect(screen.queryByText('唯一描述-共享详情弹层')).toBeNull()
     expect(() => screen.getByText('唯一描述-共享详情弹层')).toThrow()

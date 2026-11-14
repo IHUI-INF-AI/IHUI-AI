@@ -360,17 +360,16 @@ function SwipeableConversationItem({
       {/* 操作按钮(底层,右侧露出:收藏 + 删除) */}
       <View
         className="absolute top-0 bottom-0 right-0 flex-row items-stretch justify-end"
-        style={styles.swipeRow}
+        style={{ width: SWIPE_WIDTH }}
       >
         <View
           className="items-center justify-center"
-          style={styles.swipeFavoriteBtn}
+          style={{ width: FAVORITE_WIDTH, backgroundColor: tokens.warning.DEFAULT }}
         >
           <Pressable
             className="items-center justify-center active:opacity-60"
-            style={styles.swipeBtn}
+            style={{ width: FAVORITE_WIDTH, height: '100%' }}
             onPress={() => onToggleFavorite(item.id, !item.favorited)}
-            accessibilityRole="button"
             accessibilityLabel={`${item.favorited ? t('drawer.collected') : t('drawer.collect')} ${item.title}`}
           >
             <Star
@@ -380,7 +379,7 @@ function SwipeableConversationItem({
             />
             <Text
               className="mt-1"
-              style={styles.swipeBtnText}
+              style={{ color: tokens.surface.light, fontSize: rnGeometry.textCaption }}
             >
               {item.favorited ? t('drawer.collected') : t('drawer.collect')}
             </Text>
@@ -388,18 +387,18 @@ function SwipeableConversationItem({
         </View>
         <View
           className="items-center justify-center"
-          style={styles.swipeDeleteBtn}
+          style={{ width: DELETE_WIDTH, backgroundColor: tokens.danger.DEFAULT }}
         >
           <Pressable
             className="items-center justify-center active:opacity-60"
-            style={styles.swipeBtn}
+            style={{ width: DELETE_WIDTH, height: '100%' }}
             onPress={() => onDelete(item.id)}
             accessibilityLabel={`${t('drawer.delete')} ${item.title}`}
           >
             <Trash2 size={rnGeometry.glyphMd} color={tokens.surface.light} />
             <Text
               className="mt-1"
-              style={styles.swipeBtnText}
+              style={{ color: tokens.surface.light, fontSize: rnGeometry.textCaption }}
             >
               {t('drawer.delete')}
             </Text>
@@ -578,7 +577,7 @@ function NavGroupSection({ title, variant, defaultOpen, items }: NavGroupSection
         android_ripple={{ color: tokens.surface.muted }}
       >
         {variant === 'hot' ? (
-          <Flame size={rnGeometry.glyphSm} color={tokens.warning.amberText} />
+          <Flame size={rnGeometry.glyphSm} color={tokens.warning.DEFAULT} />
         ) : null}
         <Text
           numberOfLines={1}
@@ -916,8 +915,6 @@ export function Drawer(props: DrawerProps) {
                 onPress={handleLogoPress}
                 className="h-9 w-9 items-center justify-center rounded-md active:opacity-60"
                 android_ripple={{ color: tokens.surface.muted }}
-                accessibilityRole="button"
-                accessibilityLabel={t('legal.backToHome')}
               >
                 <Image
                   source={resolvedTheme === 'dark' ? LOGO_DARK : LOGO_LIGHT}
@@ -929,8 +926,6 @@ export function Drawer(props: DrawerProps) {
                 onPress={onClose}
                 className="h-9 w-9 items-center justify-center rounded-md active:opacity-60"
                 android_ripple={{ color: tokens.surface.muted }}
-                accessibilityRole="button"
-                accessibilityLabel={t('common.panelCollapse')}
               >
                 {/* 收拢键图标(2026-10-15 用户定):与 web 端侧边栏拉出态同款的
                     PanelLeftRounded(箭头朝左 = 收拢方向);墨迹 text.medium 对齐 web text-foreground/80 */}
@@ -981,14 +976,14 @@ export function Drawer(props: DrawerProps) {
                     >
                       {t('drawer.history')}
                     </Text>
-                    <Text style={{ color: tokens.text.medium, fontSize: rnGeometry.textCaption }}>
+                    <Text style={{ color: tokens.text.tertiary, fontSize: rnGeometry.textCaption }}>
                       {t('drawer.swipeHint')}
                     </Text>
                   </View>
 
                   {modelGroups.length === 0 ? (
                     <View className="items-center px-2.5 py-8">
-                      <Text style={{ color: tokens.text.medium, fontSize: rnGeometry.textLabel }}>
+                      <Text style={{ color: tokens.text.tertiary, fontSize: rnGeometry.textLabel }}>
                         {t('drawer.noHistory')}
                       </Text>
                     </View>
@@ -1020,7 +1015,7 @@ export function Drawer(props: DrawerProps) {
                             <Text
                               className="px-2.5 py-1"
                               style={{
-                                color: tokens.text.medium,
+                                color: tokens.text.tertiary,
                                 fontSize: rnGeometry.textCaption,
                               }}
                             >
@@ -1169,28 +1164,6 @@ const styles = StyleSheet.create({
   navRowText: {
     color: tokens.text.secondary,
     fontSize: rnGeometry.textBody,
-  },
-  // 左滑露出的收藏/删除滑动按钮(纯静态,提取为模块级避免每次渲染重建内联对象):
-  // swipeRow=露出的总宽度容器,swipeFavoriteBtn/swipeDeleteBtn=两块实底按钮,
-  // swipeBtn=按钮内 Pressable 撑满,swipeBtnText=按钮文字(白字+小号 caption)。
-  swipeRow: {
-    width: SWIPE_WIDTH,
-  },
-  swipeFavoriteBtn: {
-    width: FAVORITE_WIDTH,
-    backgroundColor: tokens.warning.DEFAULT,
-  },
-  swipeDeleteBtn: {
-    width: DELETE_WIDTH,
-    backgroundColor: tokens.danger.DEFAULT,
-  },
-  swipeBtn: {
-    width: '100%' as const,
-    height: '100%',
-  },
-  swipeBtnText: {
-    color: tokens.surface.light,
-    fontSize: rnGeometry.textCaption,
   },
   // 扫一扫快捷区与上方列表的分隔线(2026-10-27 立)
   scanDivider: {

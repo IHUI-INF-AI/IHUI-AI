@@ -18,8 +18,6 @@ import {
   RefreshCw,
   Search,
   ShieldCheck,
-  TrendingUp,
-  Wallet,
   XCircle,
 } from 'lucide-react'
 
@@ -36,71 +34,6 @@ interface Overview {
   untraced: number
   byTier: Record<string, number>
   byProvider: Array<{ providerCode: string; total: number; zero: number; fallback: number }>
-}
-
-interface ProfitBucket {
-  bucket: string
-  calls: number
-  costedCalls: number
-  revenueCents: number
-  costedRevenueCents: number
-  costCents: number
-  profitCents: number
-  margin: number
-}
-
-interface ProfitReport {
-  from: string
-  to: string
-  groupBy: 'day' | 'model' | 'provider'
-  totals: Omit<ProfitBucket, 'bucket'> & { costCoverage: number }
-  rows: ProfitBucket[]
-}
-
-interface ChannelCostRow {
-  bucket: string
-  calls: number
-  errorCalls: number
-  costedCalls: number
-  zeroRevenueCalls: number
-  zeroRevenueCostCents: number
-  missedRevenueCents: number
-  revenueCents: number
-  costedRevenueCents: number
-  costCents: number
-  profitCents: number
-  margin: number
-  costCoverage: number
-}
-
-interface UnpricedAlertRow {
-  modelId: string
-  configId: number
-  isRelayPublic: boolean
-  calls: number
-  estimatedCostCents: number
-}
-
-interface UnpricedAlertReport {
-  days: number
-  publishedUnpriced: number
-  callingUnpriced: number
-  estimatedCostCents: number
-  rows: UnpricedAlertRow[]
-}
-
-interface ChannelCostReport {
-  from: string
-  to: string
-  groupBy: 'provider' | 'keypool'
-  totals: Omit<ChannelCostRow, 'bucket'>
-  rows: ChannelCostRow[]
-  reconciliation: {
-    scope: 'lifetime'
-    logsRevenueCents: number
-    keysUsedTotalCents: number
-    diffCents: number
-  }
 }
 
 interface Item {
@@ -148,16 +81,6 @@ const tierLabel: Record<string, string> = {
   manual: '人工设定',
 }
 
-/** 分 → 元展示(利润看板统一口径:后端全部按分返回)。 */
-function fmtYuan(cents: number): string {
-  return `¥${(cents / 100).toFixed(2)}`
-}
-
-/** 0~1 → 百分比。 */
-function fmtPct(v: number): string {
-  return `${(v * 100).toFixed(1)}%`
-}
-
 function StatCard(props: {
   icon: React.ReactNode
   label: string
@@ -176,8 +99,8 @@ function StatCard(props: {
       <CardContent className="flex items-center gap-3 p-4">
         <div className={`${tone} shrink-0`}>{props.icon}</div>
         <div className="min-w-0">
-          <div className={`text-xl font-semibold ${tone}`}>{props.value}</div>
-          <div className="truncate text-xs text-muted-foreground">{props.label}</div>
+          <div className={`text-heading font-semibold ${tone}`}>{props.value}</div>
+          <div className="font-[weight:inherit] truncate text-label text-muted-foreground">{props.label}</div>
           {props.hint ? (
             <div className="truncate text-[10px] text-muted-foreground/70">{props.hint}</div>
           ) : null}
@@ -197,17 +120,6 @@ export default function PricingConsolePage() {
   const [editIn, setEditIn] = React.useState('')
   const [editOut, setEditOut] = React.useState('')
   const [auditModel, setAuditModel] = React.useState<string | null>(null)
-  const [profitDays, setProfitDays] = React.useState(30)
-  const [profitGroupBy, setProfitGroupBy] = React.useState<'model' | 'provider'>('model')
-  const [channelGroupBy, setChannelGroupBy] = React.useState<'provider' | 'keypool'>('provider')
-
-  const profitRange = React.useCallback((days: number) => {
-    const to = new Date()
-    const from = new Date(to.getTime() - (days - 1) * 86400_000)
-    const fmt = (d: Date) =>
-      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-    return `from=${fmt(from)}&to=${fmt(to)}`
-  }, [])
 
   const overview = useQuery({
     queryKey: ['pricing-overview'],
@@ -245,141 +157,6 @@ export default function PricingConsolePage() {
       if (!r.success) throw new Error(r.error)
       return r.data
     },
-  })
-
-  const profit = useQuery({
-    queryKey: ['pricing-profit', profitDays],
-    queryFn: async () => {
-      const r = await fetchApi<ProfitReport>(
-        `${BASE}/profit?groupBy=day&${profitRange(profitDays)}`,
-      )
-      if (!r.success) throw new Error(r.error)
-      return r.data
-    },
-    refetchInterval: 60_000,
-  })
-
-  const profitModels = useQuery({
-    queryKey: ['pricing-profit-groups', profitDays, profitGroupBy],
-    queryFn: async () => {
-      const r = await fetchApi<ProfitReport>(
-        `${BASE}/profit?groupBy=${profitGroupBy}&limit=10&${profitRange(profitDays)}`,
-      )
-      if (!r.success) throw new Error(r.error)
-      return r.data
-    },
-    refetchInterval: 60_000,
-  })
-
-  const unpricedAlerts = useQuery({
-    queryKey: ['pricing-unpriced-alerts'],
-    queryFn: async () => {
-      const r = await fetchApi<UnpricedAlertReport>(`${BASE}/unpriced-alerts?days=30`)
-      if (!r.success) throw new Error(r.error)
-      return r.data
-    },
-    refetchInterval: 120_000,
-  })
-
-  const channelCost = useQuery({
-    queryKey: ['pricing-channel-cost', profitDays, channelGroupBy],
-    queryFn: async () => {
-      const r = await fetchApi<ChannelCostReport>(
-        `${BASE}/channel-cost?groupBy=${channelGroupBy}&${profitRange(profitDays)}`,
-      )
-      if (!r.success) throw new Error(r.error)
-      return r.data
-    },
-    refetchInterval: 60_000,
-  })
-
-  const syncConfigPrices = useMutation({
-    mutationFn: async () => {
-      const r = await fetchApi<{ scanned: number; updated: number; skipped: number }>(
-        `${BASE}/sync-config-prices`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({}),
-        },
-      )
-      if (!r.success) throw new Error(r.error)
-      return r.data
-    },
-    onSuccess: (d) => {
-      setNotice(`配置价同步:零价 ${d.scanned} 行,回填 ${d.updated} 行,仍无价 ${d.skipped} 行`)
-      void qc.invalidateQueries({ queryKey: ['pricing-unpriced-alerts'] })
-      void qc.invalidateQueries({ queryKey: ['pricing-profit'] })
-      void qc.invalidateQueries({ queryKey: ['pricing-profit-groups'] })
-      void qc.invalidateQueries({ queryKey: ['pricing-channel-cost'] })
-    },
-    onError: (e: Error) => setNotice(`配置价同步失败:${e.message}`),
-  })
-
-  const repricePlaceholders = useMutation({
-    mutationFn: async (dryRun: boolean) => {
-      const r = await fetchApi<{
-        scanned: number
-        repriced: number
-        delisted: string[]
-        byTier: Record<string, number>
-        dryRun: boolean
-        skipped?: string
-      }>(`${BASE}/reprice-placeholders`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ dryRun }),
-      })
-      if (!r.success) throw new Error(r.error)
-      return r.data
-    },
-    onSuccess: (d) => {
-      if (d.skipped) {
-        setNotice(`占位价重定价已跳过:${d.skipped}`)
-        return
-      }
-      const tiers = Object.entries(d.byTier)
-        .map(([k, v]) => `${k}=${v}`)
-        .join(' / ')
-      setNotice(
-        `${d.dryRun ? '[预演] ' : ''}占位价重定价:扫描 ${d.scanned} 个模型,权威定价 ${d.repriced} 个${tiers ? `(${tiers})` : ''},下架 ${d.delisted.length} 个`,
-      )
-      if (!d.dryRun) {
-        void qc.invalidateQueries({ queryKey: ['pricing-unpriced-alerts'] })
-        void qc.invalidateQueries({ queryKey: ['pricing-profit'] })
-        void qc.invalidateQueries({ queryKey: ['pricing-profit-groups'] })
-        void qc.invalidateQueries({ queryKey: ['pricing-channel-cost'] })
-      }
-    },
-    onError: (e: Error) => setNotice(`占位价重定价失败:${e.message}`),
-  })
-
-  const backfillCalls = useMutation({
-    mutationFn: async () => {
-      const r = await fetchApi<{
-        scanned: number
-        updated: number
-        byBasis: { actual: number; derived: number; byok: number; cacheHit: number }
-        skipped: number
-      }>(`${BASE}/backfill-call-cost`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
-      })
-      if (!r.success) throw new Error(r.error)
-      return r.data
-    },
-    onSuccess: (d) => {
-      setNotice(
-        `历史调用成本补数:待补 ${d.scanned} 条,写入 ${d.updated} 条` +
-          `(真实成本 ${d.byBasis.actual}/反推 ${d.byBasis.derived}/BYOK ${d.byBasis.byok}/缓存 ${d.byBasis.cacheHit})` +
-          `,缺模型成本跳过 ${d.skipped} 条`,
-      )
-      void qc.invalidateQueries({ queryKey: ['pricing-profit'] })
-      void qc.invalidateQueries({ queryKey: ['pricing-profit-groups'] })
-      void qc.invalidateQueries({ queryKey: ['pricing-channel-cost'] })
-    },
-    onError: (e: Error) => setNotice(`历史调用成本补数失败:${e.message}`),
   })
 
   const sweep = useMutation({
@@ -452,7 +229,7 @@ export default function PricingConsolePage() {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h1 className="text-lg font-semibold">定价管控台</h1>
-          <p className="text-xs text-muted-foreground">
+          <p className="font-[weight:inherit] text-label text-muted-foreground">
             价格单位:分/千 token(括号内为 元/百万 token)。零价 = 白送,兜底 = 猜价待复核。
           </p>
         </div>
@@ -461,7 +238,7 @@ export default function PricingConsolePage() {
             type="button"
             onClick={() => sweep.mutate()}
             disabled={sweep.isPending}
-            className="inline-flex items-center gap-1 rounded-sm border border-border px-3 py-1.5 text-xs hover:bg-muted disabled:opacity-50"
+            className="font-[weight:inherit] inline-flex items-center gap-1 rounded-sm border border-border px-3 py-1.5 text-label hover:bg-muted disabled:opacity-50"
           >
             {sweep.isPending ? (
               <Loader2 className="size-3 animate-spin" />
@@ -474,7 +251,7 @@ export default function PricingConsolePage() {
             type="button"
             onClick={() => syncCatalog.mutate()}
             disabled={syncCatalog.isPending}
-            className="inline-flex items-center gap-1 rounded-sm border border-border px-3 py-1.5 text-xs hover:bg-muted disabled:opacity-50"
+            className="font-[weight:inherit] inline-flex items-center gap-1 rounded-sm border border-border px-3 py-1.5 text-label hover:bg-muted disabled:opacity-50"
           >
             {syncCatalog.isPending ? (
               <Loader2 className="size-3 animate-spin" />
@@ -487,7 +264,7 @@ export default function PricingConsolePage() {
       </div>
 
       {notice ? (
-        <div className="rounded-md border border-border bg-muted/40 px-3 py-2 text-xs">
+        <div className="font-[weight:inherit] rounded-md border border-border bg-muted/40 px-3 py-2 text-label">
           {notice}
         </div>
       ) : null}
@@ -540,360 +317,9 @@ export default function PricingConsolePage() {
         />
       </div>
 
-      {unpricedAlerts.data &&
-      (unpricedAlerts.data.publishedUnpriced > 0 || unpricedAlerts.data.callingUnpriced > 0) ? (
-        <Card className="border-amber-500/50">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-amber-600 dark:text-amber-500">
-              定价缺口告警
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2 text-xs">
-            <div>
-              近 {unpricedAlerts.data.days} 天:
-              <span className="font-medium"> {unpricedAlerts.data.publishedUnpriced} </span>
-              个模型在架但零价,
-              <span className="font-medium"> {unpricedAlerts.data.callingUnpriced} </span>
-              个零价模型仍被调用;零价调用已烧掉上游成本{' '}
-              <span className="text-amber-600 dark:text-amber-500">
-                {fmtYuan(unpricedAlerts.data.estimatedCostCents)}
-              </span>
-              。上架接口已拦截零价,以下是历史遗留,请在「模型价目」里逐个定价。
-            </div>
-            <div className="space-y-1">
-              {unpricedAlerts.data.rows.slice(0, 6).map((r) => (
-                <div
-                  key={`${r.modelId}-${r.configId}`}
-                  className="flex justify-between gap-4 font-mono"
-                >
-                  <span>
-                    {r.modelId}
-                    {r.isRelayPublic ? ' [在架]' : ''}
-                  </span>
-                  <span>
-                    {r.calls} 次 · 成本 {fmtYuan(r.estimatedCostCents)}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      ) : null}
-
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm">利润看板(估算)</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="flex flex-wrap items-center gap-2 text-xs">
-            <span className="text-muted-foreground">时间窗口</span>
-            {[7, 30, 90].map((d) => (
-              <button
-                key={d}
-                onClick={() => setProfitDays(d)}
-                className={`rounded-sm border px-2 py-0.5 ${
-                  profitDays === d
-                    ? 'border-primary text-primary'
-                    : 'border-border text-muted-foreground'
-                }`}
-              >
-                近 {d} 天
-              </button>
-            ))}
-            <span className="ml-3 text-muted-foreground">分组</span>
-            {(['model', 'provider'] as const).map((g) => (
-              <button
-                key={g}
-                onClick={() => setProfitGroupBy(g)}
-                className={`rounded-sm border px-2 py-0.5 ${
-                  profitGroupBy === g
-                    ? 'border-primary text-primary'
-                    : 'border-border text-muted-foreground'
-                }`}
-              >
-                {g === 'model' ? '按模型' : '按渠道'}
-              </button>
-            ))}
-            <span className="ml-auto text-muted-foreground">
-              成本覆盖率 {profit.data ? fmtPct(profit.data.totals.costCoverage) : '—'}
-              {profit.data && profit.data.totals.costCoverage < 1
-                ? ' · 覆盖不足部分只计收入、不计毛利'
-                : ''}
-            </span>
-          </div>
-
-          {profit.isLoading ? (
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <Loader2 className="size-4 animate-spin" /> 加载利润数据…
-            </div>
-          ) : profit.isError ? (
-            <div className="text-xs text-red-600">{(profit.error as Error).message}</div>
-          ) : profit.data ? (
-            <>
-              <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-                <StatCard
-                  icon={<Wallet className="size-5" />}
-                  label="实收"
-                  value={fmtYuan(profit.data.totals.revenueCents)}
-                  hint={`${profit.data.totals.calls} 次调用`}
-                  tone="ok"
-                />
-                <StatCard
-                  icon={<Coins className="size-5" />}
-                  label="采购成本(估算)"
-                  value={fmtYuan(profit.data.totals.costCents)}
-                  hint={`已留痕 ${profit.data.totals.costedCalls} 次`}
-                  tone="warn"
-                />
-                <StatCard
-                  icon={<TrendingUp className="size-5" />}
-                  label="毛利(估算)"
-                  value={fmtYuan(profit.data.totals.profitCents)}
-                  hint="仅统计成本已知调用"
-                  tone={profit.data.totals.profitCents >= 0 ? 'ok' : 'bad'}
-                />
-                <StatCard
-                  icon={<ShieldCheck className="size-5" />}
-                  label="毛利率(估算)"
-                  value={fmtPct(profit.data.totals.margin)}
-                  hint="毛利 ÷ 已留痕收入"
-                  tone={profit.data.totals.margin >= 0 ? 'ok' : 'bad'}
-                />
-              </div>
-
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs">
-                  <thead>
-                    <tr className="text-left text-muted-foreground">
-                      <th className="px-2 py-1">{profitGroupBy === 'model' ? '模型' : '渠道'}</th>
-                      <th className="px-2 py-1">调用</th>
-                      <th className="px-2 py-1">实收</th>
-                      <th className="px-2 py-1">成本(估算)</th>
-                      <th className="px-2 py-1">毛利(估算)</th>
-                      <th className="px-2 py-1">毛利率</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(profitModels.data?.rows ?? []).map((r) => (
-                      <tr key={r.bucket} className="border-t">
-                        <td className="px-2 py-1 font-mono">{r.bucket}</td>
-                        <td className="px-2 py-1">{r.calls}</td>
-                        <td className="px-2 py-1">{fmtYuan(r.revenueCents)}</td>
-                        <td className="px-2 py-1">{fmtYuan(r.costCents)}</td>
-                        <td
-                          className={`px-2 py-1 ${
-                            r.profitCents < 0 ? 'text-red-600 dark:text-red-400' : ''
-                          }`}
-                        >
-                          {fmtYuan(r.profitCents)}
-                        </td>
-                        <td className="px-2 py-1">{fmtPct(r.margin)}</td>
-                      </tr>
-                    ))}
-                    {(profitModels.data?.rows ?? []).length === 0 ? (
-                      <tr>
-                        <td colSpan={6} className="px-2 py-2 text-muted-foreground">
-                          该时间窗口暂无调用记录
-                        </td>
-                      </tr>
-                    ) : null}
-                  </tbody>
-                </table>
-              </div>
-            </>
-          ) : null}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm">渠道成本与扣费对账</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="flex flex-wrap items-center gap-2 text-xs">
-            <span className="text-muted-foreground">分组</span>
-            {(['provider', 'keypool'] as const).map((g) => (
-              <button
-                key={g}
-                onClick={() => setChannelGroupBy(g)}
-                className={`rounded-sm border px-2 py-0.5 ${
-                  channelGroupBy === g
-                    ? 'border-primary text-primary'
-                    : 'border-border text-muted-foreground'
-                }`}
-              >
-                {g === 'provider' ? '按上游渠道' : '按上游 Key 池'}
-              </button>
-            ))}
-            <button
-              type="button"
-              onClick={() => backfillCalls.mutate()}
-              disabled={backfillCalls.isPending}
-              className="ml-auto inline-flex items-center gap-1 rounded-sm border border-border px-2 py-0.5 hover:bg-muted disabled:opacity-50"
-            >
-              {backfillCalls.isPending ? (
-                <Loader2 className="size-3 animate-spin" />
-              ) : (
-                <RefreshCw className="size-3" />
-              )}
-              回填历史调用成本
-            </button>
-            <button
-              type="button"
-              onClick={() => syncConfigPrices.mutate()}
-              disabled={syncConfigPrices.isPending}
-              className="inline-flex items-center gap-1 rounded-sm border border-border px-2 py-0.5 hover:bg-muted disabled:opacity-50"
-            >
-              {syncConfigPrices.isPending ? (
-                <Loader2 className="size-3 animate-spin" />
-              ) : (
-                <RefreshCw className="size-3" />
-              )}
-              同步配置价
-            </button>
-            <button
-              type="button"
-              onClick={() => repricePlaceholders.mutate(true)}
-              disabled={repricePlaceholders.isPending}
-              className="inline-flex items-center gap-1 rounded-sm border border-border px-2 py-0.5 hover:bg-muted disabled:opacity-50"
-            >
-              {repricePlaceholders.isPending ? (
-                <Loader2 className="size-3 animate-spin" />
-              ) : (
-                <RefreshCw className="size-3" />
-              )}
-              预演占位价修复
-            </button>
-            <button
-              type="button"
-              onClick={() => repricePlaceholders.mutate(false)}
-              disabled={repricePlaceholders.isPending}
-              className="inline-flex items-center gap-1 rounded-sm border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-amber-700 hover:bg-amber-500/20 disabled:opacity-50 dark:text-amber-400"
-            >
-              {repricePlaceholders.isPending ? (
-                <Loader2 className="size-3 animate-spin" />
-              ) : (
-                <RefreshCw className="size-3" />
-              )}
-              修复占位价(无权威价则下架)
-            </button>
-          </div>
-
-          {channelCost.isLoading ? (
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <Loader2 className="size-4 animate-spin" /> 加载渠道成本…
-            </div>
-          ) : channelCost.isError ? (
-            <div className="text-xs text-red-600">{(channelCost.error as Error).message}</div>
-          ) : channelCost.data ? (
-            <>
-              <div className="rounded-md border border-border bg-muted/30 px-3 py-2 text-xs">
-                <span className="text-muted-foreground">生命周期对账:</span>{' '}
-                调用实收 <span className="tabular-nums">{fmtYuan(channelCost.data.reconciliation.logsRevenueCents)}</span>
-                {' · '}
-                API Key 累计已用{' '}
-                <span className="tabular-nums">{fmtYuan(channelCost.data.reconciliation.keysUsedTotalCents)}</span>
-                {' · '}
-                差异{' '}
-                <span
-                  className={`tabular-nums ${
-                    Math.abs(channelCost.data.reconciliation.diffCents) > 0
-                      ? 'text-amber-600 dark:text-amber-500'
-                      : 'text-emerald-600 dark:text-emerald-400'
-                  }`}
-                >
-                  {fmtYuan(channelCost.data.reconciliation.diffCents)}
-                </span>
-                {Math.abs(channelCost.data.reconciliation.diffCents) > 0
-                  ? '(非零说明存在补数/人工调整/未落流水,需人工核对)'
-                  : ''}
-              </div>
-
-              <div className="text-[10px] text-muted-foreground">
-                成本按模型采购价反推。「定价前调用」= 模型定价生效之前发生的调用(当时价格为 0,
-                系统按 0 记账,不是免费);「应计未计」按当前售价重算这些调用的应收金额,
-                即漏计费敞口。BYOK 与缓存命中不计上游成本。
-              </div>
-
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs">
-                  <thead>
-                    <tr className="text-left text-muted-foreground">
-                      <th className="px-2 py-1">
-                        {channelGroupBy === 'provider' ? '上游渠道' : '上游 Key 池'}
-                      </th>
-                      <th className="px-2 py-1">调用(失败)</th>
-                      <th className="px-2 py-1">定价前调用(成本)</th>
-                      <th className="px-2 py-1">应计未计</th>
-                      <th className="px-2 py-1">实收</th>
-                      <th className="px-2 py-1">采购成本</th>
-                      <th className="px-2 py-1">毛利</th>
-                      <th className="px-2 py-1">毛利率</th>
-                      <th className="px-2 py-1">成本覆盖</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {channelCost.data.rows.map((r) => (
-                      <tr key={r.bucket} className="border-t">
-                        <td className="px-2 py-1 font-mono">{r.bucket}</td>
-                        <td className="px-2 py-1">
-                          {r.calls}
-                          {r.errorCalls > 0 ? (
-                            <span className="text-red-600 dark:text-red-400">({r.errorCalls})</span>
-                          ) : null}
-                        </td>
-                        <td className="px-2 py-1">
-                          {r.zeroRevenueCalls > 0 ? (
-                            <>
-                              {r.zeroRevenueCalls}
-                              <span className="text-[10px] text-muted-foreground">
-                                ({fmtYuan(r.zeroRevenueCostCents)})
-                              </span>
-                            </>
-                          ) : (
-                            <span className="text-muted-foreground">0</span>
-                          )}
-                        </td>
-                        <td className="px-2 py-1">
-                          {r.missedRevenueCents > 0 ? (
-                            <span className="text-amber-600 dark:text-amber-500">
-                              {fmtYuan(r.missedRevenueCents)}
-                            </span>
-                          ) : (
-                            <span className="text-muted-foreground">0</span>
-                          )}
-                        </td>
-                        <td className="px-2 py-1">{fmtYuan(r.revenueCents)}</td>
-                        <td className="px-2 py-1">{fmtYuan(r.costCents)}</td>
-                        <td
-                          className={`px-2 py-1 ${
-                            r.profitCents < 0 ? 'text-red-600 dark:text-red-400' : ''
-                          }`}
-                        >
-                          {fmtYuan(r.profitCents)}
-                        </td>
-                        <td className="px-2 py-1">{fmtPct(r.margin)}</td>
-                        <td className="px-2 py-1">{fmtPct(r.costCoverage)}</td>
-                      </tr>
-                    ))}
-                    {channelCost.data.rows.length === 0 ? (
-                      <tr>
-                        <td colSpan={9} className="px-2 py-2 text-muted-foreground">
-                          该时间窗口暂无调用记录
-                        </td>
-                      </tr>
-                    ) : null}
-                  </tbody>
-                </table>
-              </div>
-            </>
-          ) : null}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm">模型价目</CardTitle>
+          <CardTitle className="font-[weight:inherit] text-body">模型价目</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="flex flex-wrap items-center gap-2">
@@ -903,13 +329,13 @@ export default function PricingConsolePage() {
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
                 placeholder="搜模型名"
-                className="h-8 w-56 rounded-sm border border-input bg-transparent pl-7 pr-2 text-xs"
+                className="font-[weight:inherit] h-8 w-56 rounded-sm border border-input bg-transparent pl-7 pr-2 text-label"
               />
             </div>
             <select
               value={provider}
               onChange={(e) => setProvider(e.target.value)}
-              className="h-8 rounded-sm border border-input bg-transparent px-2 text-xs"
+              className="font-[weight:inherit] h-8 rounded-sm border border-input bg-transparent px-2 text-label"
             >
               <option value="">全部渠道</option>
               {(ov?.byProvider ?? []).map((p) => (
@@ -918,7 +344,7 @@ export default function PricingConsolePage() {
                 </option>
               ))}
             </select>
-            <label className="inline-flex items-center gap-1 text-xs">
+            <label className="font-[weight:inherit] inline-flex items-center gap-1 text-label">
               <input
                 type="checkbox"
                 checked={onlyProblems}
@@ -926,18 +352,18 @@ export default function PricingConsolePage() {
               />
               只看问题行
             </label>
-            <span className="text-xs text-muted-foreground">
+            <span className="font-[weight:inherit] text-label text-muted-foreground">
               共 {list.data?.total ?? 0} 行{onlyProblems ? '(仅问题)' : ''}
             </span>
           </div>
 
           {list.isLoading ? (
-            <div className="flex items-center gap-2 py-8 text-sm text-muted-foreground">
+            <div className="font-[weight:inherit] flex items-center gap-2 py-8 text-body text-muted-foreground">
               <Loader2 className="size-4 animate-spin" /> 加载中…
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-xs">
+              <table className="font-[weight:inherit] w-full text-label">
                 <thead className="text-left text-muted-foreground">
                   <tr className="border-b">
                     <th className="py-2 pr-2">模型</th>
@@ -1025,14 +451,14 @@ export default function PricingConsolePage() {
                                 type="button"
                                 onClick={() => save.mutate(m)}
                                 disabled={save.isPending}
-                                className="rounded-sm border border-border px-2 py-0.5 hover:bg-muted"
+                                className="rounded border border-border px-2 py-0.5 hover:bg-muted"
                               >
                                 保存
                               </button>
                               <button
                                 type="button"
                                 onClick={() => setEditingId(null)}
-                                className="rounded-sm border border-border px-2 py-0.5 hover:bg-muted"
+                                className="rounded border border-border px-2 py-0.5 hover:bg-muted"
                               >
                                 取消
                               </button>
@@ -1046,14 +472,14 @@ export default function PricingConsolePage() {
                                   setEditIn(String(m.inputPricePer1k))
                                   setEditOut(String(m.outputPricePer1k))
                                 }}
-                                className="rounded-sm border border-border px-2 py-0.5 hover:bg-muted"
+                                className="rounded border border-border px-2 py-0.5 hover:bg-muted"
                               >
                                 改价
                               </button>
                               <button
                                 type="button"
                                 onClick={() => setAuditModel(m.modelId)}
-                                className="rounded-sm border border-border px-2 py-0.5 hover:bg-muted"
+                                className="rounded border border-border px-2 py-0.5 hover:bg-muted"
                               >
                                 历史
                               </button>
@@ -1080,24 +506,24 @@ export default function PricingConsolePage() {
       {auditModel ? (
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm">调价历史 · {auditModel}</CardTitle>
+            <CardTitle className="font-[weight:inherit] text-body">调价历史 · {auditModel}</CardTitle>
             <button
               type="button"
               onClick={() => setAuditModel(null)}
-              className="rounded-sm border border-border px-2 py-0.5 text-xs hover:bg-muted"
+              className="font-[weight:inherit] rounded border border-border px-2 py-0.5 text-label hover:bg-muted"
             >
               关闭
             </button>
           </CardHeader>
           <CardContent>
             {audits.isLoading ? (
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <div className="font-[weight:inherit] flex items-center gap-2 text-label text-muted-foreground">
                 <Loader2 className="size-3 animate-spin" /> 加载中…
               </div>
             ) : (audits.data?.items.length ?? 0) === 0 ? (
-              <div className="text-xs text-muted-foreground">暂无调价记录(首次改价后开始记录)</div>
+              <div className="font-[weight:inherit] text-label text-muted-foreground">暂无调价记录(首次改价后开始记录)</div>
             ) : (
-              <ul className="space-y-1 text-xs">
+              <ul className="font-[weight:inherit] space-y-1 text-label">
                 {audits.data!.items.map((a) => (
                   <li
                     key={a.id}

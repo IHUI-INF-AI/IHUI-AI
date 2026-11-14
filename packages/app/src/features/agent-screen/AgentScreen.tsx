@@ -18,7 +18,6 @@ import {
   ScreenSkeleton,
 } from '../../components/ScreenStates'
 import { assertRequiredPort } from '../../host/ports'
-import { detectAgentCategory } from '@ihui/shared/social/agent-filter'
 
 /** Agent 列表共享屏 — props 注入式跨端组件(纯 UI,不依赖平台 API) */
 export type { AgentScreenProps, AgentScreenItem }
@@ -71,25 +70,16 @@ function keywordsOf(raw: string): string[] {
     .filter(Boolean)
 }
 
-/**
- * 分类识别:规则唯一真相源 = `@ihui/shared/social/agent-filter` 的 `detectAgentCategory`。
- * 本文件此前另写了一份(与小程序的关键词表不同、兜底值也不同),已删。
- * 保留这个薄封装只为让调用点读起来仍是"按表识别",不在此承载任何判据。
- */
+/** 按关键词把一条智能体归到一个分类(先命中先归,与小程序同序);都不命中返回 null */
 function detectCategory(
   item: AgentScreenItem,
   table: ReadonlyArray<{ id: AgentCategoryKey; keywords: string[] }>,
 ): AgentCategoryKey | null {
-  const keywords: Record<string, readonly string[]> = {}
-  for (const row of table) keywords[row.id] = row.keywords
-  const hit = detectAgentCategory(
-    item.name,
-    item.description,
-    keywords as Parameters<typeof detectAgentCategory>[2],
-  )
-  // 契约的兜底是 'other'(不在本屏 chip 表里)⇒ 本屏视为「未归类」,返回 null。
-  // 这样调用点的 `detectCategory(...) === category` 判等语义保持不变,chip 表也不必凭空多一枚。
-  return hit === 'other' ? null : hit
+  const text = `${item.name ?? ''} ${item.description ?? ''}`.toLowerCase()
+  for (const row of table) {
+    if (row.keywords.some((kw) => text.includes(kw))) return row.id
+  }
+  return null
 }
 
 /** chip 回传的是 string,这里收窄回联合类型(只认表里那几枚,表外一律回「推荐」) */
@@ -308,14 +298,14 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.md,
       backgroundColor: tk.warning.DEFAULT,
     },
-    vipText: { fontSize: rnType.badge.size, fontWeight: '600', color: tk.warning.onAmber },
+    vipText: { fontSize: rnType.badge.size, fontWeight: '600', color: tk.surface.light },
     desc: {
       marginTop: rnSpacing.sm,
       fontSize: rnType.body.size,
       color: tk.text.secondary,
       lineHeight: rnType.bodySm.lineHeight,
     },
-    meta: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.medium },
+    meta: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.tertiary },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

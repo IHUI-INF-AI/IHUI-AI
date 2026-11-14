@@ -17,7 +17,7 @@ import { useNavigation, useRoute, type RouteProp } from '@react-navigation/nativ
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { getAiWorldCategories, getAiWorldItem, updateAiWorldItem } from '@ihui/api-client'
 import type { AiWorldCategoryRow } from '@ihui/api-client'
-import { apiFailureToText, toFriendlyOr } from '@ihui/shared/utils'
+import { apiFailureToText } from '@ihui/shared/utils'
 import {
   AiWorldEditScreen as SharedAiWorldEditScreen,
   type AiWorldEditFormState,
@@ -91,7 +91,7 @@ export function AiWorldEditScreen() {
         throw new Error(apiFailureToText(res, t('aiWorldEditPage.categoryLoadFailed')))
       setCategories(Array.isArray(res.data) ? res.data : [])
     } catch (e) {
-      setCategoriesError(toFriendlyOr(e, t('aiWorldEditPage.categoryLoadFailed')))
+      setCategoriesError(e instanceof Error ? e.message : t('aiWorldEditPage.categoryLoadFailed'))
     } finally {
       setCategoriesLoading(false)
     }
@@ -134,7 +134,7 @@ export function AiWorldEditScreen() {
       if (!res.success) throw new Error(apiFailureToText(res, t('aiWorldEditPage.saveFailed')))
       navigation.navigate('AiWorldDetail', { id })
     } catch (e) {
-      setFormError(toFriendlyOr(e, t('aiWorldEditPage.saveFailed')))
+      setFormError(e instanceof Error ? e.message : t('aiWorldEditPage.saveFailed'))
     } finally {
       setSaving(false)
     }

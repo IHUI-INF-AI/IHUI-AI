@@ -148,6 +148,10 @@
       "tier": "write"
     },
     {
+      "name": "core_text_read",
+      "tier": "read"
+    },
+    {
       "name": "rebuild_check",
       "tier": "write"
     },

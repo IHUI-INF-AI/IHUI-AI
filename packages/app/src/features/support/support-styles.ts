@@ -92,7 +92,7 @@ export function createSupportStyles(tk: AppThemeTokens) {
     cardTitle: { fontSize: rnType.title.size, fontWeight: '700', color: tk.text.primary },
     rowMain: { flex: 1, gap: rnSpacing['2xs'] },
     rowTitle: { fontSize: rnType.body.size, fontWeight: '600', color: tk.text.primary },
-    rowSub: { fontSize: rnType.caption.size, color: tk.text.medium },
+    rowSub: { fontSize: rnType.caption.size, color: tk.text.tertiary },
     badge: {
       paddingHorizontal: rnSpacing.sm,
       paddingVertical: 3,
@@ -140,7 +140,7 @@ export function createSupportStyles(tk: AppThemeTokens) {
     chipActive: { backgroundColor: tk.brand.cta, borderColor: tk.brand.cta },
     chipText: { fontSize: rnType.label.size, color: tk.text.secondary },
     chipActiveText: { color: tk.brand.ctaForeground, fontWeight: '600' },
-    formErr: { fontSize: rnType.label.size, color: tk.danger.deepText },
+    formErr: { fontSize: rnType.label.size, color: tk.danger.DEFAULT },
     formActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: rnSpacing.sm },
     primaryBtn: {
       paddingHorizontal: rnSpacing.lg,
@@ -171,7 +171,7 @@ export function createSupportStyles(tk: AppThemeTokens) {
       color: tk.text.primary,
       flex: 1,
     },
-    detailNo: { fontSize: rnType.caption.size, color: tk.text.medium },
+    detailNo: { fontSize: rnType.caption.size, color: tk.text.tertiary },
     metaLine: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: rnSpacing.sm },
     metaLabel: { fontSize: rnType.label.size, color: tk.text.secondary },
     descBox: {
@@ -180,7 +180,7 @@ export function createSupportStyles(tk: AppThemeTokens) {
       padding: rnSpacing['sm-loose'],
       gap: rnSpacing.xs,
     },
-    descLabel: { fontSize: rnType.caption.size, fontWeight: '600', color: tk.text.medium },
+    descLabel: { fontSize: rnType.caption.size, fontWeight: '600', color: tk.text.tertiary },
     descText: { fontSize: rnType.bodySm.size, color: tk.text.primary, lineHeight: 19 },
     commentsBox: {
       borderWidth: StyleSheet.hairlineWidth,
@@ -198,7 +198,7 @@ export function createSupportStyles(tk: AppThemeTokens) {
     },
     commentAdmin: { backgroundColor: tk.brandAccent.light },
     commentUser: { backgroundColor: tk.surface.muted },
-    commentMeta: { fontSize: rnType.caption.size, color: tk.text.medium },
+    commentMeta: { fontSize: rnType.caption.size, color: tk.text.tertiary },
     commentRole: { fontSize: rnType.caption.size, fontWeight: '600', color: tk.text.secondary },
     commentText: {
       fontSize: rnType.bodySm.size,
@@ -213,7 +213,7 @@ export function createSupportStyles(tk: AppThemeTokens) {
       padding: rnSpacing['sm-loose'],
       gap: rnSpacing['xs-loose'],
     },
-    errorText: { fontSize: rnType.bodySm.size, color: tk.danger.deepText },
+    errorText: { fontSize: rnType.bodySm.size, color: tk.danger.DEFAULT },
     skeletonRow: { height: 44, borderRadius: rnRadius.lg, backgroundColor: tk.border.light },
   })
 }

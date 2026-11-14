@@ -39,7 +39,6 @@ import {
 } from '@ihui/shared/utils/workbuddy-sweep-view'
 import { tokens } from '../theme/active-tokens'
 import { useI18n } from '../i18n'
-import { toFriendlyOr } from '@ihui/shared/utils'
 
 /** 最小账号形态(只取本区块要用的字段,不耦合页面的完整账号类型)。 */
 export interface WorkbuddyTaskAccount {
@@ -185,10 +184,9 @@ export function WorkbuddyTaskSection({
       setSweep(res.data)
     } catch (e) {
       setSweep(null)
-      // 兜底取词包,不取 String(e):后者在非 Error 抛出时会出 `[object Object]`。
-      setSweepError(toFriendlyOr(e, t('common.loadFailed')))
+      setSweepError(e instanceof Error ? e.message : String(e))
     }
-  }, [t])
+  }, [])
 
   useEffect(() => {
     // 折叠态不取巡检态:无 WorkBuddy 账号时零请求也由这里与下方 return null 双保险。
@@ -225,11 +223,11 @@ export function WorkbuddyTaskSection({
       setListUnjudged(Boolean(res.data?.unjudged))
       if (!res.data?.ok && res.data?.reason) setError(res.data.reason)
     } catch (e) {
-      setError(toFriendlyOr(e, t('common.loadFailed')))
+      setError(e instanceof Error ? e.message : String(e))
     } finally {
       setBusy(null)
     }
-  }, [accountId, t])
+  }, [accountId])
 
   const runAll = useCallback(
     async (mode: 'dry' | 'run') => {
@@ -247,12 +245,12 @@ export function WorkbuddyTaskSection({
         // 实跑后刷一次列表:mutation 后的真实态以服务端为准,不做本地推测。
         if (mode === 'run') await loadTasks()
       } catch (e) {
-        setError(toFriendlyOr(e, t('common.loadFailed')))
+        setError(e instanceof Error ? e.message : String(e))
       } finally {
         setBusy(null)
       }
     },
-    [accountId, loadTasks, t],
+    [accountId, loadTasks],
   )
 
   const sweepView = useMemo(() => deriveSweepView(sweep, sweepError, t), [sweep, sweepError, t])
@@ -510,7 +508,7 @@ const styles = StyleSheet.create({
     gap: rnSpacing.sm,
   },
   taskTitle: { flexShrink: 1, fontSize: rnType.caption.size, color: tokens.text.primary },
-  taskCode: { fontSize: rnType.caption.size, color: tokens.text.medium },
+  taskCode: { fontSize: rnType.caption.size, color: tokens.text.tertiary },
   taskMeta: { fontSize: rnType.caption.size, color: tokens.text.secondary },
   result: {
     borderRadius: rnRadius.md,

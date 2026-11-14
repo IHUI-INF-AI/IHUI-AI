@@ -381,7 +381,7 @@ function createStyles(tk: AppThemeTokens) {
       marginBottom: rnSpacing.md,
     },
     cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-    cardTime: { fontSize: rnType.caption.size, color: tk.text.medium },
+    cardTime: { fontSize: rnType.caption.size, color: tk.text.tertiary },
     promptText: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.brand.DEFAULT },
     contentText: {
       marginTop: rnSpacing.sm,
@@ -410,7 +410,7 @@ function createStyles(tk: AppThemeTokens) {
     audioDuration: {
       marginTop: rnSpacing.sm,
       fontSize: rnType.caption.size,
-      color: tk.text.medium,
+      color: tk.text.tertiary,
     },
     audioPlayBtn: {
       marginTop: rnSpacing.sm,
@@ -422,7 +422,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     audioPlayText: { fontSize: rnType.body.size, color: tk.brand.DEFAULT, fontWeight: '600' },
     errorBar: { paddingHorizontal: rnSpacing['sm-loose'], paddingVertical: rnSpacing.sm },
-    errorText: { fontSize: rnType.body.size, color: tk.danger.deepText },
+    errorText: { fontSize: rnType.body.size, color: tk.danger.DEFAULT },
     fab: {
       position: 'absolute',
       bottom: 24,

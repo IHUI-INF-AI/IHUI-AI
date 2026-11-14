@@ -319,7 +319,7 @@ function createStyles(tk: AppThemeTokens) {
       flexWrap: 'wrap',
       alignItems: 'center',
     },
-    meta: { marginRight: rnSpacing.md, fontSize: rnGeometry.textCaption, color: tk.text.medium },
+    meta: { marginRight: rnSpacing.md, fontSize: rnGeometry.textCaption, color: tk.text.tertiary },
     itemError: { marginTop: rnSpacing.sm, fontSize: rnGeometry.textCaption, color: tk.error.text },
     actions: { marginTop: rnSpacing.md, flexDirection: 'row', alignItems: 'center' },
     actionBtn: {
@@ -336,7 +336,7 @@ function createStyles(tk: AppThemeTokens) {
     actionDisabled: { backgroundColor: tk.surface.muted },
     actionSolidText: { fontSize: rnGeometry.textCaption, color: tk.brand.foreground },
     actionOutlineText: { fontSize: rnGeometry.textCaption, color: tk.text.medium },
-    actionDisabledText: { fontSize: rnGeometry.textCaption, color: tk.text.medium },
+    actionDisabledText: { fontSize: rnGeometry.textCaption, color: tk.text.tertiary },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

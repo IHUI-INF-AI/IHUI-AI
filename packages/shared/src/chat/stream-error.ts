@@ -55,11 +55,12 @@ export function markStreamError<T extends ErrorAwareMessage>(
 export function applyStreamError<T extends ErrorAwareMessage>(
   messages: readonly T[],
   errorText: string,
+  errorCode?: string,
 ): T[] {
   const idx = messages.length - 1
   const tail = messages[idx]
   if (!tail || tail.role !== 'assistant') return [...messages]
-  const patched = markStreamError(tail, errorText)
+  const patched = markStreamError(tail, errorText, errorCode)
   return messages.map((m, i) => (i === idx ? patched : m))
 }
 

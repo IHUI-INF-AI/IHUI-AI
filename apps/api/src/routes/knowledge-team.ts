@@ -30,12 +30,7 @@
 
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
-import {
-  TEAM_KNOWLEDGE_ACTIONS,
-  TEAM_KNOWLEDGE_KINDS,
-  TEAM_KNOWLEDGE_ROLES,
-  TEAM_KNOWLEDGE_STATUSES,
-} from '@ihui/database'
+import { TEAM_KNOWLEDGE_ACTIONS, TEAM_KNOWLEDGE_KINDS, TEAM_KNOWLEDGE_ROLES, TEAM_KNOWLEDGE_STATUSES } from '@ihui/database'
 import { authenticate } from '../plugins/auth.js'
 import { parseOrThrow, success } from '../utils/response.js'
 import {

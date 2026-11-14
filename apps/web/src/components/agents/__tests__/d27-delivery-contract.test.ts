@@ -113,7 +113,6 @@ describe('i18n 五语言同构(deliveryReview.* 与 ai.pane 实时卡文案)', (
     'toolsSummary',
     'filesChanged',
     'filesEmpty',
-    'presentedFiles',
     'kindAdd',
     'kindDelete',
     'kindUpdate',
@@ -121,7 +120,7 @@ describe('i18n 五语言同构(deliveryReview.* 与 ai.pane 实时卡文案)', (
     'generatedAt',
   ]
 
-  it.each(LANGS)('%s:deliveryReview 16 键齐备 + ai.pane 实时卡两键齐备', (lang) => {
+  it.each(LANGS)('%s:deliveryReview 15 键齐备 + ai.pane 实时卡两键齐备', (lang) => {
     const messages = JSON.parse(
       // vitest 进程 cwd=apps/web,仓库根为 ../../
       readRepo(`../../packages/i18n/messages/web/${lang}.json`),

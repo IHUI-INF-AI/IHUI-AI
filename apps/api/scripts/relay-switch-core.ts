@@ -6,7 +6,7 @@
  * relay-switch-core —— 引擎的**薄门面**(2026-10-27 起)。
  *
  * 为什么有这一层:引擎本体已下沉到 src/services/relay-switch/core.ts ——
- * 管理面 API(src/routes/admin/relay-switch-admin.ts)要复用同一份 capture/apply 实现,
+ * CLI 与管理脚本要复用同一份 capture/apply 实现,
  * 而 apps/api/tsconfig.json 的 rootDir 是 ./src ⇒ src/ 静态 import scripts/ 会被 TS6059 拦下
  * (scripts/ 也不进 dist,生产运行时拿不到)。
  *

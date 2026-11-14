@@ -62,7 +62,7 @@ function Shimmer({ colorScheme, style }: { colorScheme: Scheme; style?: object }
   const opacity = v.interpolate({ inputRange: [0, 1], outputRange: [0.45, 0.85] })
   return (
     <Animated.View
-      style={[{ backgroundColor: tk.text.secondary, borderRadius: rnRadius.sm }, style, { opacity }]}
+      style={[{ backgroundColor: tk.text.tertiary, borderRadius: rnRadius.sm }, style, { opacity }]}
     />
   )
 }
@@ -286,14 +286,14 @@ function createStyles(tk: AppThemeTokens) {
       borderWidth: 1,
       borderColor: tk.border.light,
     },
-    stateGlyph: { fontSize: 26, color: tk.text.medium },
+    stateGlyph: { fontSize: 26, color: tk.text.tertiary },
     stateTitle: {
       fontSize: rnType.strong.size,
       fontWeight: '600',
       color: tk.text.medium,
       textAlign: 'center',
     },
-    stateDesc: { fontSize: 13, color: tk.text.medium, textAlign: 'center', lineHeight: 19 },
+    stateDesc: { fontSize: 13, color: tk.text.tertiary, textAlign: 'center', lineHeight: 19 },
     stateBtn: {
       marginTop: rnSpacing['xs-loose'],
       // web 产物锁 18(web 快照/读数不变);原生侧落 lg 16 档

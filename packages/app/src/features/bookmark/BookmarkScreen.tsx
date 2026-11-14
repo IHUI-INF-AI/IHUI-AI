@@ -133,7 +133,7 @@ function createStyles(tk: AppThemeTokens) {
     errorText: {
       paddingHorizontal: rnSpacing['sm-loose'],
       fontSize: rnType.body.size,
-      color: tk.danger.deepText,
+      color: tk.danger.DEFAULT,
     },
     listBody: { padding: rnSpacing['sm-loose'] },
     card: {
@@ -155,14 +155,14 @@ function createStyles(tk: AppThemeTokens) {
     cardType: {
       fontSize: rnType.caption.size,
       fontWeight: '600',
-      color: tk.success.deepText,
+      color: tk.success.DEFAULT,
       paddingHorizontal: rnSpacing['xs-loose'],
       paddingVertical: rnSpacing['2xs'],
       borderRadius: rnRadius.sm,
       backgroundColor: tk.surface.muted,
       overflow: 'hidden',
     },
-    cardTime: { fontSize: rnType.caption.size, color: tk.text.medium },
+    cardTime: { fontSize: rnType.caption.size, color: tk.text.tertiary },
     cardTitle: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
     removeBtn: {
       marginLeft: rnSpacing.sm,
@@ -171,7 +171,7 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.sm,
       backgroundColor: tk.danger.light,
     },
-    removeText: { fontSize: rnType.body.size, color: tk.danger.deepText },
+    removeText: { fontSize: rnType.body.size, color: tk.danger.DEFAULT },
     loadMoreBtn: {
       alignItems: 'center',
       paddingVertical: rnSpacing.md,

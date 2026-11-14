@@ -23,7 +23,6 @@ import { success, error, emptyToUndefined } from '../../utils/response.js'
 import { requireAdmin } from '../../plugins/require-permission.js'
 import { aiServiceSystemFetch } from '../../utils/ai-service-fetch.js'
 import { normalizeModelId } from '@ihui/shared'
-import { assertPricedForPublish } from '../../services/model-pricing-admin.js'
 import { paginationSchema, idParamSchema } from './_shared.js'
 
 const scanBodySchema = z.object({
@@ -251,11 +250,6 @@ const relayDiscoveryRoutes: FastifyPluginAsync = async (server) => {
       let approvedModelRowId: number
       if (existingModel) {
         // 已存在,只更新 isRelayPublic=true + 中转站字段
-        // 2026-11-14:上架前必须过定价护栏(零价/占位价/哨兵价一律拒绝)
-        const gate = await assertPricedForPublish(existingModel.id)
-        if (!gate.ok) {
-          return reply.status(400).send(error(400, gate.reason ?? '模型未定价,禁止上架'))
-        }
         const [updated] = await db
           .update(aiModelConfigModels)
           .set({
@@ -270,16 +264,16 @@ const relayDiscoveryRoutes: FastifyPluginAsync = async (server) => {
       } else {
         // 不存在,插入新行
         const upstreamPrice = discovery.upstreamPrice as { input?: number; output?: number } | null
-        // 上游没给价(或给 0)时,走统一定价解析器:只接受三源价表 exact/alias 权威命中。
-        // 2026-11-14 收紧:家族插值/渠道中位数/全局中位数属于"瞎定",不再用于自动定价。
+        // 上游没给价(或给 0)时,走统一定价解析器兜底(2026-11-13):绝不允许零价上架 —— 那等于白送额度。
+        // 解析器多源价表 + 家族插值 + 渠道兜底,并返回 tier/source 写进 metadata 供审计。
         let priceIn = Number(upstreamPrice?.input ?? 0)
         let priceOut = Number(upstreamPrice?.output ?? 0)
         let priceSource: Record<string, unknown> | null = null
         if (!(priceIn > 0) || !(priceOut > 0)) {
           try {
-            const { getPriceSources, resolveAuthoritativePrice, PROFIT_FACTOR } =
+            const { getPriceSources, resolveModelPrice, PROFIT_FACTOR } =
               await import('../../services/model-price-resolver.js')
-            const resolved = resolveAuthoritativePrice(
+            const resolved = resolveModelPrice(
               normalizedModelId,
               await getPriceSources(),
               configRow.providerCode,
@@ -298,17 +292,6 @@ const relayDiscoveryRoutes: FastifyPluginAsync = async (server) => {
           } catch (e) {
             request.log.warn({ err: e }, '[relay-discovery] 统一定价解析失败,按上游原值入库')
           }
-        }
-        if (!(priceIn > 0) || !(priceOut > 0)) {
-          return reply
-            .status(400)
-            .send(
-              error(
-                400,
-                `模型 ${normalizedModelId} 拿不到权威价(上游未给价且三源价表无 exact/alias 命中),` +
-                  '请先人工定价再审批上架 —— 不允许零价或猜价上架',
-              ),
-            )
         }
         const [inserted] = await db
           .insert(aiModelConfigModels)

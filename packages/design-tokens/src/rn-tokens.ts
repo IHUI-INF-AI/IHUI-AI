@@ -32,9 +32,6 @@ export type RnSuccessTokens = {
   DEFAULT: string
   deep: string
   deepText: string
-  /** 绿底/绿徽章之上的文字·图标色(深绿 #065F46,明暗同值)。success.deep 压中性底仅 2.76(图形不达标),
-   *  本档为「文字·图标在 success 色块上」专用,对 #22c55e/#EBEBEB/白底均 ≥4.5。 */
-  onGreen: string
 }
 
 export type RnWarningTokens = {
@@ -44,16 +41,12 @@ export type RnWarningTokens = {
   amber: string
   DEFAULT: string
   amberText: string
-  /** amber 底色之上的文字·图标色(深棕 #7c2d12,明暗同值)。surface.light 白字压 #f59e0b 仅 2.12,
-   *  本档为「文字·图标在 amber 色块上」专用,对 #f59e0b 均 ≥4.5。 */
-  onAmber: string
 }
 
 export type RnDangerTokens = {
   light: string
   DEFAULT: string
   bright: string
-  deepText: string
 }
 
 /** VIP 会员金色(对齐 miniapp-taro --color-vip-gold-start/end #ffd700/#ffaa00,明暗同值)。 */
@@ -111,14 +104,12 @@ export const rnTokens = {
     dark: '#262626',
     /** 输入框背景:2026-09-04 对齐 web 中性灰(原 #f0f7ff 对齐 miniapp,已切换)。 */
     inputBg: '#F5F5F5',
-    onBrand: '#FFFFFF',
   },
   text: {
     primary: '#0A0A0A',
     secondary: '#666666',
     tertiary: '#A3A3A3',
     medium: '#404040',
-    inverse: '#FAFAFA',
   },
   border: {
     light: '#E5E5E5',
@@ -127,7 +118,6 @@ export const rnTokens = {
   error: {
     bg: '#FFE5E5',
     text: '#FF3333',
-    onBg: '#C0392B',
   },
   overlay: {
     modal: 'rgba(0,0,0,0.4)',
@@ -140,7 +130,7 @@ export const rnTokens = {
   brandAccent: {
     light: '#eaf2f7',
     DEFAULT: '#8fb8cc',
-    deep: '#244e5e',
+    deep: '#4a7a96',
     foreground: '#1e3a47',
     gradFrom: '#b8d4e3',
     gradTo: '#8fb8cc',
@@ -157,22 +147,19 @@ export const rnTokens = {
     amber: '#f59e0b',
     DEFAULT: '#f59e0b',
     amberText: '#92400e',
-    onAmber: '#5c230e',
   } satisfies RnWarningTokens,
   success: {
     lightest: '#f0fdf4',
     lighter: '#d1fae5',
     light: '#ecfdf5',
     DEFAULT: '#22c55e',
-    deep: '#0a6b30',
+    deep: '#16a34a',
     deepText: '#065F46',
-    onGreen: '#065F46',
   } satisfies RnSuccessTokens,
   danger: {
     light: '#fee2e2',
     DEFAULT: '#dc2626',
     bright: '#f87171',
-    deepText: '#b91c1c',
   } satisfies RnDangerTokens,
   vip: {
     gold: '#FFD700',
@@ -240,11 +227,10 @@ export type RnThemeTokens = {
     dark: string
     inputBg: string
     chrome: string
-    onBrand: string
   }
-  text: { primary: string; secondary: string; tertiary: string; medium: string; inverse: string }
+  text: { primary: string; secondary: string; tertiary: string; medium: string }
   border: { light: string; medium: string }
-  error: { bg: string; text: string; onBg: string }
+  error: { bg: string; text: string }
   overlay: { modal: string; loading: string }
   /* brandAccent:高级灰蓝(2026-09-14 定稿)。DEFAULT=底色,foreground=其上文字,
    * deep=表面文字/图标变体,gradFrom/gradTo=CTA 局部渐变点缀。 */
@@ -310,16 +296,15 @@ export const rnLightTokens: RnThemeTokens = {
     dark: '#262626',
     inputBg: '#F5F5F5',
     chrome: '#FFFFFF',
-    onBrand: '#FFFFFF',
   },
-  text: { primary: '#0A0A0A', secondary: '#666666', tertiary: '#A3A3A3', medium: '#404040', inverse: '#FAFAFA' },
+  text: { primary: '#0A0A0A', secondary: '#666666', tertiary: '#A3A3A3', medium: '#404040' },
   border: { light: '#E5E5E5', medium: '#D4D4D4' },
-  error: { bg: '#FFE5E5', text: '#B03028', onBg: '#C0392B' },
+  error: { bg: '#FFE5E5', text: '#FF3333' },
   overlay: { modal: 'rgba(0,0,0,0.4)', loading: 'rgba(255,255,255,0.8)' },
   brandAccent: {
     light: '#eaf2f7',
     DEFAULT: '#8fb8cc',
-    deep: '#244e5e',
+    deep: '#4a7a96',
     foreground: '#1e3a47',
     gradFrom: '#b8d4e3',
     gradTo: '#8fb8cc',
@@ -335,18 +320,16 @@ export const rnLightTokens: RnThemeTokens = {
     amber: '#f59e0b',
     DEFAULT: '#f59e0b',
     amberText: '#92400e',
-    onAmber: '#5c230e',
   },
   success: {
     lightest: '#f0fdf4',
     lighter: '#d1fae5',
     light: '#ecfdf5',
     DEFAULT: '#22c55e',
-    deep: '#0a6b30',
+    deep: '#16a34a',
     deepText: '#065F46',
-    onGreen: '#065F46',
   },
-  danger: { light: '#fee2e2', DEFAULT: '#dc2626', bright: '#f87171', deepText: '#b91c1c' },
+  danger: { light: '#fee2e2', DEFAULT: '#dc2626', bright: '#f87171' },
   vip: { gold: '#FFD700', goldEnd: '#FFAA00' },
   /* 值由 scripts/sync-rn-tokens.mjs 从 tokens.css 派生(--color-model-type-* / --color-agent-name),勿手改 */
   modelType: {
@@ -408,11 +391,10 @@ export const rnDarkTokens: RnThemeTokens = {
     dark: '#171717',
     inputBg: '#262626',
     chrome: '#262626',
-    onBrand: '#FFFFFF',
   },
-  text: { primary: '#FAFAFA', secondary: '#A3A3A3', tertiary: '#737373', medium: '#D4D4D4', inverse: '#0A0A0A' },
+  text: { primary: '#FAFAFA', secondary: '#A3A3A3', tertiary: '#737373', medium: '#D4D4D4' },
   border: { light: '#383838', medium: '#525252' },
-  error: { bg: '#7F1D1D', text: '#FCA5A5', onBg: '#FCA5A5' },
+  error: { bg: '#7F1D1D', text: '#FF3333' },
   overlay: { modal: 'rgba(0,0,0,0.6)', loading: 'rgba(0,0,0,0.6)' },
   brandAccent: {
     light: '#1e2e36',
@@ -433,7 +415,6 @@ export const rnDarkTokens: RnThemeTokens = {
     amber: '#fbbf24',
     DEFAULT: '#f59e0b',
     amberText: '#fbbf24',
-    onAmber: '#5c230e',
   },
   success: {
     lightest: '#052e16',
@@ -442,9 +423,8 @@ export const rnDarkTokens: RnThemeTokens = {
     DEFAULT: '#2dd269',
     deep: '#16a34a',
     deepText: '#86efac',
-    onGreen: '#065F46',
   },
-  danger: { light: '#7f1d1d', DEFAULT: '#C0392B', bright: '#fca5a5', deepText: '#ff9e9e' },
+  danger: { light: '#7f1d1d', DEFAULT: '#ef4444', bright: '#fca5a5' },
   vip: { gold: '#FFD700', goldEnd: '#FFAA00' },
   /* 明暗同值档:暗档值同样由 scripts/sync-rn-tokens.mjs 派生(tokens.css .dark 里成对声明) */
   modelType: {
@@ -551,11 +531,6 @@ export const rnCssLight = {
   successTagBg: '#e8f5e9',
   scrim: 'rgba(0, 0, 0, 0.6)',
   scrimForeground: 'rgba(255, 255, 255, 0.85)',
-  toastSuccessBg: '#15803d',
-  toastErrorBg: '#b91c1c',
-  toastWarningBg: '#b45309',
-  toastInfoBg: '#1f2937',
-  toastForeground: '#ffffff',
   dangerForeground: '#ffffff',
   successTint: 'rgba(22, 163, 74, 0.08)',
   successTintStrong: 'rgba(22, 163, 74, 0.25)',
@@ -734,11 +709,6 @@ export const rnCssDark = {
   successTagBg: 'rgba(22, 163, 74, 0.16)',
   scrim: 'rgba(0, 0, 0, 0.6)',
   scrimForeground: 'rgba(255, 255, 255, 0.85)',
-  toastSuccessBg: '#15803d',
-  toastErrorBg: '#b91c1c',
-  toastWarningBg: '#b45309',
-  toastInfoBg: '#1f2937',
-  toastForeground: '#ffffff',
   dangerForeground: '#ffffff',
   successTint: 'rgba(74, 222, 128, 0.14)',
   successTintStrong: 'rgba(74, 222, 128, 0.3)',

@@ -460,7 +460,7 @@ function makeStyles() {
     cardTitleRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing['xs-loose'] },
     cardTitle: { fontSize: rnType.title.size, fontWeight: '600', color: tokens.text.primary },
     muted: { fontSize: rnType.bodySm.size, color: tokens.text.secondary, lineHeight: 19 },
-    error: { fontSize: rnType.bodySm.size, color: tokens.danger.deepText },
+    error: { fontSize: rnType.bodySm.size, color: tokens.danger.DEFAULT },
     loading: { paddingVertical: rnSpacing.lg },
     centerBox: { alignItems: 'center', gap: rnSpacing.sm, paddingVertical: rnSpacing.lg },
     emptyTitle: { fontSize: rnType.body.size, fontWeight: '600', color: tokens.text.primary },
@@ -496,7 +496,7 @@ function makeStyles() {
       color: tokens.brand.cta,
       fontVariant: ['tabular-nums'],
     },
-    pairCodeExpired: { color: tokens.text.medium },
+    pairCodeExpired: { color: tokens.text.tertiary },
     deviceRow: {
       gap: rnSpacing['xs-loose'],
       paddingVertical: rnSpacing['sm-loose'],
@@ -521,7 +521,7 @@ function makeStyles() {
     badgeOn: { borderColor: tokens.success.DEFAULT },
     badgeOff: { borderColor: tokens.border.medium },
     badgeText: { fontSize: rnType.badge.size, fontWeight: '600', color: tokens.text.secondary },
-    meta: { fontSize: rnType.label.size, color: tokens.text.medium },
+    meta: { fontSize: rnType.label.size, color: tokens.text.tertiary },
     actions: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -530,7 +530,7 @@ function makeStyles() {
     },
     actionRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.xs },
     link: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tokens.text.primary },
-    dangerLink: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tokens.danger.deepText },
+    dangerLink: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tokens.danger.DEFAULT },
     panel: {
       marginTop: rnSpacing.xs,
       padding: rnSpacing['sm-loose'],

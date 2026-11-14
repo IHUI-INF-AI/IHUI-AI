@@ -44,8 +44,6 @@ import {
   checkinSnapshotList,
   WB_WEB_LOGIN_URL,
 } from '@/lib/tauri-bridge'
-// F-060:jar 探测路径的入库改由页面直接 invoke Rust 命令(探测回包不再含 cookie)
-import { invoke } from '@tauri-apps/api/core'
 import { useTauriIpcReady } from '@/hooks/use-desktop'
 import type { CheckinAccount, CheckinRecord, CheckinCreditsHistoryItem } from '@ihui/api-client'
 
@@ -121,9 +119,6 @@ vi.mock('@ihui/api-client', async (importOriginal) => {
     getCheckinSchedulerStatus: schedulerStatus,
     queryCheckinAccountCredits: queryCredits,
     fetchAiServiceJson: fetchAiService,
-    // F-060:jar 导入与嵌入哨兵带参都要取 access token;固定回桩,不打真实刷新链
-    refreshAccessTokenOnce: vi.fn(async () => 'user-access-token'),
-    getToken: vi.fn(() => 'user-access-token'),
   }
 })
 
@@ -205,11 +200,6 @@ vi.mock('@/lib/tauri-bridge', () => ({
   checkinSnapshotRestore: vi.fn(),
   checkinSnapshotList: vi.fn(),
   checkinSnapshotDelete: vi.fn(),
-}))
-
-// F-060:jar 探测路径入库走页面直 invoke(会话 Cookie 不出 Rust)
-vi.mock('@tauri-apps/api/core', () => ({
-  invoke: vi.fn(async () => ({ imported: 0, failures: [] })),
 }))
 
 vi.mock('@ihui/ui-react', () => {
@@ -1362,10 +1352,12 @@ describe('Qoder 平台化(2026-10-10)', () => {
     vi.mocked(useTauriIpcReady).mockReturnValue(true)
     createAccount.mockResolvedValue({ id: 11 })
     // 2026-10-18:粘贴路径不再落无名账号 —— 先用该 Cookie 探测 uid/昵称再入库
-    // F-060:探测回包已不含 cookie,jwt 取本地粘贴草稿(JS 侧持有该份 Cookie)
-    vi.mocked(checkinWorkbuddyWebLoginProbeCookie).mockResolvedValue(
-      wbProbeOk([{ uid: '14f939c3-889b', nickname: '李总' }], true),
-    )
+    vi.mocked(checkinWorkbuddyWebLoginProbeCookie).mockResolvedValue({
+      status: 'ok',
+      cookie: 'session_id=abc123; wb_uid=u-9',
+      accounts: [{ uid: '14f939c3-889b', nickname: '李总' }],
+      cookie_checkin_ok: true,
+    })
     render(<CheckinPage />)
     await waitFor(() => expect(screen.getAllByText('主账号').length).toBeGreaterThan(0))
     openCaptureMenu()
@@ -1710,13 +1702,6 @@ describe('签到助手页面 · 编辑设备头对话框', () => {
 // (2.5s)→ 服务端 /console/accounts 验登录态取 uid/昵称 → 自动关窗 + 入库
 // (device_map 带 uid/nickname,name=昵称)→ 回到签到页。系统浏览器路径保留下级
 // 入口(需手动粘 Cookie,粘贴时同样先探测账号再入库)。
-// F-060(2026-11-12):Rust 侧 WebLoginProbe::Ok 与 tauri-bridge 的声明均已删
-// cookie 字段,探测响应一律不含 cookie;ok 响应用下面的构造器生成,契约钉在用例里。
-type WbWebProbe = Awaited<ReturnType<typeof checkinWorkbuddyWebLoginProbe>>
-const wbProbeOk = (
-  accounts: { uid: string; nickname: string }[],
-  cookie_checkin_ok?: boolean,
-): WbWebProbe => ({ status: 'ok', accounts, cookie_checkin_ok })
 describe('签到助手页面 · 主窗内嵌浏览器网页登录(自动闭环)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -1767,60 +1752,28 @@ describe('签到助手页面 · 主窗内嵌浏览器网页登录(自动闭环)'
     // 粘贴框仅服务系统浏览器下级入口(切过去后手动粘 Cookie)
   })
 
-  it('轮询到登录态:自动关登录窗 + 经 Rust jar 导入库(F-060:探测回包无 cookie)', async () => {
-    vi.mocked(checkinWorkbuddyWebLoginProbe).mockResolvedValue(
-      wbProbeOk([{ uid: '14f939c3-889b', nickname: '李总' }], true),
-    )
-    vi.mocked(invoke).mockResolvedValue({ imported: 1, failures: [] })
+  it('轮询到登录态:自动关登录窗 + 按账号入库(uid/昵称记录齐全)并关闭对话框', async () => {
+    vi.mocked(checkinWorkbuddyWebLoginProbe).mockResolvedValue({
+      status: 'ok',
+      cookie: 'session_id=abc123; wb_uid=u-1',
+      accounts: [{ uid: '14f939c3-889b', nickname: '李总' }],
+      cookie_checkin_ok: true,
+    })
     await openWebLoginEntry()
-    // 看护轮询 2.5s 一拍:等第一拍落地 —— 入库改走 checkin_workbuddy_web_import,
-    // 会话 Cookie 由 Rust 从 cookie jar 现读直 POST 后端,JS 侧只传账号与鉴权参数
-    await waitFor(
-      () =>
-        expect(invoke).toHaveBeenCalledWith('checkin_workbuddy_web_import', {
-          accounts: [{ uid: '14f939c3-889b', nickname: '李总' }],
-          group: '',
-          accessToken: 'user-access-token',
-          apiBase: expect.any(String),
-        }),
-      { timeout: 8000 },
-    )
-    // Cookie 不进 JS:入库不再经逐条 createCheckinAccount
-    expect(createAccount).not.toHaveBeenCalled()
+    // 看护轮询 2.5s 一拍:等第一拍落地
+    await waitFor(() => expect(createAccount).toHaveBeenCalledTimes(1), { timeout: 8000 })
+    const payload = createAccount.mock.calls[0]![0]
+    expect(payload.platform).toBe('workbuddy')
+    expect(payload.jwt).toBe('session_id=abc123; wb_uid=u-1')
+    // 「记录好账号」:name=昵称,device_map 带 uid/nickname
+    expect(payload.name).toBe('李总')
+    expect(payload.device_map.login_type).toBe('web')
+    expect(payload.device_map.uid).toBe('14f939c3-889b')
+    expect(payload.device_map.nickname).toBe('李总')
     // 自动收尾:关登录窗 + 关捕获对话框 + 成功提示
     await waitFor(() => expect(closeEmbeddedBrowser).toHaveBeenCalledTimes(1))
     await waitFor(() => expect(screen.queryByText('captureWbTitle')).toBeNull())
     await waitFor(() => expect(screen.getByText(/captureWbWebDone/)).toBeTruthy())
-  })
-
-  it('F-060(nail):jar 探测响应与导入入参都不含 cookie,失败仍逐条聚合红字', async () => {
-    const probe = wbProbeOk(
-      [
-        { uid: 'uid-0001', nickname: '李总' },
-        { uid: 'uid-0002', nickname: '' },
-      ],
-      false,
-    )
-    // 钉子①:探测响应里没有任何 cookie 键(cookie_checkin_ok 是可用性布尔,非凭据)
-    expect(JSON.stringify(probe)).not.toMatch(/"cookie"/)
-    expect(probe).not.toHaveProperty('cookie')
-    vi.mocked(checkinWorkbuddyWebLoginProbe).mockResolvedValue(probe)
-    vi.mocked(invoke).mockResolvedValue({ imported: 1, failures: ['uid-0002: 此账号已存在'] })
-    await openWebLoginEntry()
-    await waitFor(
-      () => expect(invoke).toHaveBeenCalledWith('checkin_workbuddy_web_import', expect.anything()),
-      { timeout: 8000 },
-    )
-    const [cmd, args] = vi.mocked(invoke).mock.calls[0]! as [string, Record<string, unknown>]
-    expect(cmd).toBe('checkin_workbuddy_web_import')
-    // 入参只有账号 + 鉴权参数,不携带 cookie(由 Rust 现读)
-    expect(Object.keys(args).sort()).toEqual(['accessToken', 'accounts', 'apiBase', 'group'])
-    expect(JSON.stringify(args)).not.toContain('cookie')
-    // 逐条失败聚合:红字含失败行,不假绿关闭
-    await waitFor(() =>
-      expect(screen.getByTestId('wb-web-login-msg').textContent).toContain('uid-0002'),
-    )
-    expect(createAccount).not.toHaveBeenCalled()
   })
 
   it('用户关掉登录窗(no_window):结束等待并提示已取消,不入库', async () => {
@@ -1842,10 +1795,12 @@ describe('签到助手页面 · 主窗内嵌浏览器网页登录(自动闭环)'
   })
 
   it('粘贴 Cookie:先探测账号再入库(记录好账号),探测失败拒绝落无名账号', async () => {
-    // F-060:探测回包不含 cookie —— 入库的 jwt 用本地粘贴草稿
-    vi.mocked(checkinWorkbuddyWebLoginProbeCookie).mockResolvedValue(
-      wbProbeOk([{ uid: 'uid-2', nickname: '二号' }], false),
-    )
+    vi.mocked(checkinWorkbuddyWebLoginProbeCookie).mockResolvedValue({
+      status: 'ok',
+      cookie: 'session_id=xyz; wb_uid=u-2',
+      accounts: [{ uid: 'uid-2', nickname: '二号' }],
+      cookie_checkin_ok: false,
+    })
     await openWebLoginEntry()
     // 走系统浏览器路径进入 waiting(粘贴框出现)
     fireEvent.click(screen.getByText('captureWbWebOpen'))
@@ -1911,13 +1866,7 @@ describe('签到助手页面 · 内嵌浏览器嵌入模式(WB 登录哨兵)', (
     expect(screen.queryByText('maintTitle')).toBeNull()
     fireEvent.click(screen.getByRole('menuitem', { name: /WorkBuddy/ }))
     const navMock = (window as unknown as { __ihuiNav: ReturnType<typeof vi.fn> }).__ihuiNav
-    // F-060:哨兵带参 —— tk=access token,ab=后端基址,g=分组(Rust 侧导入要用)
-    await waitFor(() =>
-      expect(navMock).toHaveBeenCalledWith(
-        'wb-checkin-login',
-        expect.stringMatching(/^tk=user-access-token&ab=.+&g=$/),
-      ),
-    )
+    await waitFor(() => expect(navMock).toHaveBeenCalledWith('wb-checkin-login'))
     // 进入等待态:按钮换成等待文案并禁用(嵌入模式没有「取消」IPC 通道)
     const btn = screen.getByText('captureWbWebWaiting').closest('button') as HTMLButtonElement
     expect(btn.disabled).toBe(true)
@@ -1926,48 +1875,35 @@ describe('签到助手页面 · 内嵌浏览器嵌入模式(WB 登录哨兵)', (
     expect(createAccount).not.toHaveBeenCalled()
   })
 
-  it('嵌入模式:#wb_import= hash 按结果收尾刷新并清理 hash(负载无 cookie/无账号,不触碰任何 IPC)', async () => {
-    // F-060:Rust 导入完成后回传的负载只有 {imported, failures, cookie_checkin_ok}
-    const payload = { imported: 1, failures: [], cookie_checkin_ok: true }
-    // 钉子②:负载里没有 cookie 键、也没有账号列表(cookie_checkin_ok 是可用性布尔)
-    expect(JSON.stringify(payload)).not.toMatch(/"cookie"/)
-    expect(payload).not.toHaveProperty('cookie')
-    expect(payload).not.toHaveProperty('accounts')
-    history.replaceState(
-      null,
-      '',
-      `/?wb#wb_import=${encodeURIComponent(JSON.stringify(payload))}`,
-    )
-    mockLoadSuccess()
-    render(<CheckinPage />)
-    await waitFor(() => expect(screen.getByText(/captureWbWebDone/)).toBeTruthy())
-    // 凭据不出 Rust:JS 不逐条入库,也不走任何 IPC
-    expect(createAccount).not.toHaveBeenCalled()
-    expect(invoke).not.toHaveBeenCalled()
-    // 导入前即清 hash:刷新不重导
-    expect(window.location.hash).toBe('')
-    // 收尾 loadAll:列表重新拉取(挂载 1 次 + 收尾刷新 1 次)
-    await waitFor(() => expect(listAccounts).toHaveBeenCalledTimes(2))
-    // 结果通道是导航,不是 IPC
-    expect(openExternalUrl).not.toHaveBeenCalled()
-  })
-
-  it('F-060(nail):#wb_import 负载含失败行时聚合收尾不假绿(无 cookie/账号,不入库不刷新)', async () => {
+  it('嵌入模式:#wb_import= hash 导入自动入库并清理 hash(不触碰任何 IPC)', async () => {
     history.replaceState(
       null,
       '',
       `/?wb#wb_import=${encodeURIComponent(
-        JSON.stringify({ imported: 1, failures: ['李总: HTTP 409'], cookie_checkin_ok: false }),
+        JSON.stringify({
+          cookie: 'session_id=abc123; wb_uid=u-9',
+          accounts: [{ uid: '14f939c3-889b', nickname: '李总' }],
+          cookie_checkin_ok: true,
+        }),
       )}`,
     )
+    createAccount.mockResolvedValue({ id: 11 })
     mockLoadSuccess()
     render(<CheckinPage />)
-    // 失败分支:hash 照清,但不入库、不走 IPC、不弹「已导入」成功提示、不刷新列表
-    await waitFor(() => expect(window.location.hash).toBe(''))
-    expect(createAccount).not.toHaveBeenCalled()
-    expect(invoke).not.toHaveBeenCalled()
-    expect(listAccounts).toHaveBeenCalledTimes(1)
-    expect(screen.queryByText(/captureWbWebDone/)).toBeNull()
+    await waitFor(() => expect(createAccount).toHaveBeenCalledTimes(1))
+    const payload = createAccount.mock.calls[0]![0]
+    expect(payload.platform).toBe('workbuddy')
+    expect(payload.jwt).toBe('session_id=abc123; wb_uid=u-9')
+    expect(payload.device_map.login_type).toBe('web')
+    expect(payload.device_map.uid).toBe('14f939c3-889b')
+    expect(payload.device_map.nickname).toBe('李总')
+    expect(payload.name).toBe('李总')
+    expect(payload.group).toBe('')
+    // 导入前即清 hash:刷新不重导
+    expect(window.location.hash).toBe('')
+    await waitFor(() => expect(screen.getByText(/captureWbWebDone/)).toBeTruthy())
+    // 结果通道是导航,不是 IPC
+    expect(openExternalUrl).not.toHaveBeenCalled()
   })
 
   it('嵌入模式:wb_import 负载损坏时静默清理 hash,不入库', async () => {

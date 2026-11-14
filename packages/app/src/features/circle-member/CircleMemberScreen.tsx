@@ -111,7 +111,7 @@ function createStyles(tk: AppThemeTokens) {
     errorText: {
       paddingHorizontal: rnSpacing['sm-loose'],
       fontSize: rnType.body.size,
-      color: tk.danger.deepText,
+      color: tk.danger.DEFAULT,
     },
     listBody: { padding: rnSpacing['sm-loose'], paddingBottom: rnSpacing['3xl'] },
     separator: { height: 12 },
@@ -136,7 +136,7 @@ function createStyles(tk: AppThemeTokens) {
     avatarText: { fontSize: rnType.title.size, fontWeight: '600', color: tk.surface.light },
     cardBody: { flex: 1 },
     cardName: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
-    cardTime: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.medium },
+    cardTime: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.tertiary },
     roleBadge: {
       paddingHorizontal: rnSpacing.sm,
       paddingVertical: 3,
@@ -144,7 +144,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     roleBadgeOwner: { backgroundColor: tk.brand.cta },
     roleBadgeAdmin: { backgroundColor: tk.success.DEFAULT },
-    roleBadgeMember: { backgroundColor: tk.text.secondary },
+    roleBadgeMember: { backgroundColor: tk.text.tertiary },
     roleText: { fontSize: rnType.caption.size, fontWeight: '600', color: tk.surface.light },
   })
 }

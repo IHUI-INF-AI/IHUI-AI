@@ -57,7 +57,7 @@ export function createParentStyles(tk: AppThemeTokens) {
       justifyContent: 'space-between',
       gap: rnSpacing.sm,
     },
-    rowLabel: { flexShrink: 1, fontSize: rnType.label.size, color: tk.text.medium },
+    rowLabel: { flexShrink: 1, fontSize: rnType.label.size, color: tk.text.tertiary },
     rowValue: {
       flexShrink: 0,
       ...rnType.body,
@@ -69,11 +69,11 @@ export function createParentStyles(tk: AppThemeTokens) {
       flexShrink: 0,
       fontSize: rnType.label.size,
       fontWeight: '600',
-      color: tk.text.medium,
+      color: tk.text.tertiary,
       fontVariant: ['tabular-nums'],
     },
-    subNote: { fontSize: rnType.label.size, color: tk.text.medium, textAlign: 'center' },
-    dangerNote: { fontSize: rnType.label.size, color: tk.danger.deepText, textAlign: 'center' },
+    subNote: { fontSize: rnType.label.size, color: tk.text.tertiary, textAlign: 'center' },
+    dangerNote: { fontSize: rnType.label.size, color: tk.danger.DEFAULT, textAlign: 'center' },
     retryBtn: {
       height: 36,
       paddingHorizontal: rnSpacing.lg,

@@ -259,7 +259,7 @@ export function PlanListScreen({
         ) : (
           <View style={styles.card}>
             <View style={styles.emptyBox}>
-              <FileText size={28} color={tk.text.secondary} strokeWidth={2} />
+              <FileText size={28} color={tk.text.tertiary} strokeWidth={2} />
               <Text style={styles.emptyTitle}>
                 {rows.length === 0 ? t('planPage.emptyTitle') : t('planPage.filterEmptyTitle')}
               </Text>

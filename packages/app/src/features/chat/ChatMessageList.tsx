@@ -467,7 +467,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingHorizontal: rnSpacing.xs,
       paddingVertical: rnSpacing['2xs'],
     },
-    codeLang: { flex: 1, fontSize: rnType.label.size, color: tk.text.medium },
+    codeLang: { flex: 1, fontSize: rnType.label.size, color: tk.text.tertiary },
     codeAction: { fontSize: rnType.label.size, color: tk.brand.DEFAULT },
     codeBody: {
       paddingHorizontal: rnSpacing.xs,

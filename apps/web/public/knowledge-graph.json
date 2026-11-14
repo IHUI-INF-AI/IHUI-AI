@@ -49,21 +49,21 @@
         {
           "@type": "ContactPoint",
           "contactType": "customer support",
-          "email": "lizong@aizhs.top",
+          "email": "support@aizhs.top",
           "url": "https://aizhs.top/support",
           "availableLanguage": ["zh-Hans", "zh-Hant", "en", "ko", "ja"]
         },
         {
           "@type": "ContactPoint",
           "contactType": "sales",
-          "email": "lizong@aizhs.top",
+          "email": "contact@aizhs.top",
           "url": "https://aizhs.top/contact",
           "availableLanguage": ["zh-Hans", "zh-Hant", "en"]
         },
         {
           "@type": "ContactPoint",
           "contactType": "technical support",
-          "email": "lizong@aizhs.top",
+          "email": "support@aizhs.top",
           "url": "https://aizhs.top/developer"
         }
       ],

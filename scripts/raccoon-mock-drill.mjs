@@ -46,7 +46,7 @@ function check(name, pass, detail = '') {
 /** 异步 spawn:模拟上游跑在本进程内,同步 spawn 会阻塞事件循环把服务端卡死 */
 function runCli(cli, args) {
   return new Promise((resolve) => {
-    const child = spawn(process.execPath, [cli, ...args], { encoding: 'utf8', windowsHide: true })
+    const child = spawn(process.execPath, [cli, ...args], { encoding: 'utf8' })
     let stdout = ''
     let stderr = ''
     child.stdout.on('data', (d) => {

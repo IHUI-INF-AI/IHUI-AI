@@ -73,8 +73,6 @@ export function TeacherDetailScreen() {
   const [reloadKey, setReloadKey] = useState(0)
   const reload = () => setReloadKey((key) => key + 1)
   const [following, setFollowing] = useState(false)
-  // 关注请求是否在途:连点两下会连发 follow:true / follow:false,最终状态与用户预期相反
-  const [followBusy, setFollowBusy] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -102,24 +100,18 @@ export function TeacherDetailScreen() {
 
   // 关注/取消关注(乐观更新,失败回滚)
   const onToggleFollow = async () => {
-    if (followBusy) return
     const next = !following
-    setFollowBusy(true)
     setFollowing(next)
-    try {
-      const res = await fetchApi(`/teacher/${id}/follow`, {
-        method: 'POST',
-        body: JSON.stringify({ follow: next }),
-      })
-      if (!res.success) {
-        setFollowing(!next)
-        appAlert(t('common.failed'))
-        return
-      }
-      appAlert(next ? t('teacher.detail.followed') : t('teacher.detail.unfollowed'))
-    } finally {
-      setFollowBusy(false)
+    const res = await fetchApi(`/teacher/${id}/follow`, {
+      method: 'POST',
+      body: JSON.stringify({ follow: next }),
+    })
+    if (!res.success) {
+      setFollowing(!next)
+      appAlert(t('common.failed'))
+      return
     }
+    appAlert(next ? t('teacher.detail.followed') : t('teacher.detail.unfollowed'))
   }
 
   // 联系讲师:ActionSheet 降级为 Alert 选项(对齐 miniapp 行为)
@@ -161,8 +153,6 @@ export function TeacherDetailScreen() {
       loading={loading}
       error={error}
       onToggleFollow={() => void onToggleFollow()}
-      // 请求在途时按钮不可点:用户连点也只发生一次关注/取关,结果与最后看到的按钮文案一致
-      followBusy={followBusy}
       onContact={onContact}
       onOpenCourse={(courseId) => onNavigate('CourseDetail', { id: courseId })}
       onBack={() => navigation.goBack()}

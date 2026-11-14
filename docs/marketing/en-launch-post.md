@@ -21,7 +21,7 @@
 - **Live Demo**: https://aizhs.top
 - **License**: Apache-2.0 (commercial-friendly)
 - **One-liner**: One repo to replace 40+ commercial products — 8 platforms / 176 LLMs / LangGraph+MCP+A2A / 340 tables / 1300+ APIs
-- **Contact**: WeChat `ok502319984` · Email lizong@aizhs.top
+- **Contact**: WeChat `ok502319984` · Email IHUI-AI@aizhs.top
 
 ---
 
@@ -125,7 +125,7 @@ I've been working on IHUI-AI — an open-source AI platform that combines what 4
 
 If you want to try it: https://aizhs.top
 If you want to read the code: https://github.com/IHUI-INF-AI/IHUI-AI
-If you want to chat: WeChat `ok502319984` or email lizong@aizhs.top
+If you want to chat: WeChat `ok502319984` or email IHUI-AI@aizhs.top
 
 Happy to answer any questions. Not trying to sell anything — it's Apache 2.0, take it, fork it, sell it, I don't care.
 
@@ -241,7 +241,7 @@ After 18 months of building, I've open-sourced IHUI-AI under Apache 2.0 (commerc
 
 Star: https://github.com/IHUI-INF-AI/IHUI-AI
 Demo: https://aizhs.top
-Contact: lizong@aizhs.top or WeChat `ok502319984`
+Contact: IHUI-AI@aizhs.top or WeChat `ok502319984`
 
 ---
 

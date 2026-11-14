@@ -2640,41 +2640,6 @@ function Do-Rollback {
 # 唯一副作用:`git fetch`(只更新 .git/FETCH_HEAD,不动工作树)——这是判定 behind/ahead 的必要输入。
 # 需 PowerShell 7(pwsh)。
 # =============================================================================
-function Get-PsqlExe {
-    foreach ($c in @((Join-Path $DevEnvRoot 'runtimes\pgsql\bin\psql.exe'))) { if (Test-Path $c) { return $c } }
-    $g = Get-Command psql.exe -ErrorAction SilentlyContinue
-    if ($g) { return $g.Source }
-    return $null
-}
-
-function Get-PendingMigrationCount {
-    # 返回 $null 表示"判不了"(取不到 journal 或连不上库)—— 宁可不说,也不误报 0。
-    # 2026-09-26 票:$null 有 6 条路径,而旧写法把它们全折成一句"未知"—— 而调用侧
-    # $null -gt 0 为假 ⇒ "判不了"与"没有待办"在输出面合流,直落"完成"。现在每条 $null
-    # 路径都写 $script:PendingMigrationReason,由调用侧"无法判定"分支原样打印。
-    $script:PendingMigrationReason = $null
-    $total = 0
-    try {
-        $jp = Join-Path $Root 'packages\database\drizzle\meta\_journal.json'
-        if (-not (Test-Path $jp)) { $script:PendingMigrationReason = "journal 文件缺失:$jp"; return $null }
-        $total = (@((Get-Content $jp -Raw | ConvertFrom-Json).entries)).Count
-        if ($total -lt 1) { $script:PendingMigrationReason = 'journal entries 为空'; return $null }
-    } catch { $script:PendingMigrationReason = "journal 读取异常:$_"; return $null }
-    try {
-        $psql = Get-PsqlExe
-        if (-not $psql) { $script:PendingMigrationReason = 'psql.exe 不可达(绝对候选与 PATH 均落空)'; return $null }
-        if (-not $env:DATABASE_URL) { $script:PendingMigrationReason = 'DATABASE_URL 未设'; return $null }
-        $raw = ((& $psql $env:DATABASE_URL -At -c "select count(*) from drizzle.__drizzle_migrations;" 2>$null) | Out-String).Trim()
-        if ($raw -notmatch '^\d+$') { $script:PendingMigrationReason = 'psql 输出非数字(连不上库或迁移表不存在)'; return $null }
-        $d = $total - ([int]$raw)
-        if ($d -lt 0) { $d = 0 }
-        return $d
-    } catch { $script:PendingMigrationReason = "psql 调用异常:$_"; return $null }
-}
-
-# ── [诊断臂依赖前移](goal-r5 2026-11-14):上面 Get-PsqlExe / Get-PendingMigrationCount 原住本函数之后,
-#    而顶层 `if ($diagnose) { Invoke-Diagnose; exit 0 }` 跑得比定义早 ⇒ PS 只在解析到 function 时注册,LF 文件
-#    会抛 CommandNotFoundException 并被 [7b] catch 转成"判定异常" ⇒ DB 迁移落后维永久失明。保持二者在本函数之前。
 function Invoke-Diagnose {
     $prevEAP = $ErrorActionPreference
     $ErrorActionPreference = 'Continue'
@@ -2941,6 +2906,38 @@ if ($rollbackOnly) {
 # 现在:① 每轮把"journal 条数 vs 库里已记录条数"的差额打进日志(可 grep MIG);
 #      ② 失败时按签名去重推送(12h 内同一签名只推一次;压重复不压新故障,无每日总量封顶);
 #      ③ 本轮标 degraded,收尾再显式提示一次。仍**不改退出码**(NSSM/包装器语义未知,不冒险)。
+function Get-PsqlExe {
+    foreach ($c in @((Join-Path $DevEnvRoot 'runtimes\pgsql\bin\psql.exe'))) { if (Test-Path $c) { return $c } }
+    $g = Get-Command psql.exe -ErrorAction SilentlyContinue
+    if ($g) { return $g.Source }
+    return $null
+}
+
+function Get-PendingMigrationCount {
+    # 返回 $null 表示"判不了"(取不到 journal 或连不上库)—— 宁可不说,也不误报 0。
+    # 2026-09-26 票:$null 有 6 条路径,而旧写法把它们全折成一句"未知"—— 而调用侧
+    # $null -gt 0 为假 ⇒ "判不了"与"没有待办"在输出面合流,直落"完成"。现在每条 $null
+    # 路径都写 $script:PendingMigrationReason,由调用侧"无法判定"分支原样打印。
+    $script:PendingMigrationReason = $null
+    $total = 0
+    try {
+        $jp = Join-Path $Root 'packages\database\drizzle\meta\_journal.json'
+        if (-not (Test-Path $jp)) { $script:PendingMigrationReason = "journal 文件缺失:$jp"; return $null }
+        $total = (@((Get-Content $jp -Raw | ConvertFrom-Json).entries)).Count
+        if ($total -lt 1) { $script:PendingMigrationReason = 'journal entries 为空'; return $null }
+    } catch { $script:PendingMigrationReason = "journal 读取异常:$_"; return $null }
+    try {
+        $psql = Get-PsqlExe
+        if (-not $psql) { $script:PendingMigrationReason = 'psql.exe 不可达(绝对候选与 PATH 均落空)'; return $null }
+        if (-not $env:DATABASE_URL) { $script:PendingMigrationReason = 'DATABASE_URL 未设'; return $null }
+        $raw = ((& $psql $env:DATABASE_URL -At -c "select count(*) from drizzle.__drizzle_migrations;" 2>$null) | Out-String).Trim()
+        if ($raw -notmatch '^\d+$') { $script:PendingMigrationReason = 'psql 输出非数字(连不上库或迁移表不存在)'; return $null }
+        $d = $total - ([int]$raw)
+        if ($d -lt 0) { $d = 0 }
+        return $d
+    } catch { $script:PendingMigrationReason = "psql 调用异常:$_"; return $null }
+}
+
 function Invoke-PreMigrateConcurrentIndexes {
     # DB-11:大表索引必须在 drizzle 单事务迁移**之前**用 CONCURRENTLY 建好。
     # 迁移里的 CREATE INDEX IF NOT EXISTS 只是兜底:一旦真走到它,会持
@@ -4722,4 +4719,3 @@ if ($script:DbMigrateDegraded) {
     Log "WARN  本轮收尾:DB 迁移未落地(发布按设计继续),状态见 deploy\win\.migrate-alert-state.json;-diagnose 的 [7b] 会复述落后条数"
 }
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-

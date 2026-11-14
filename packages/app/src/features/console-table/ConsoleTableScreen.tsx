@@ -180,7 +180,7 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'space-between',
       gap: rnSpacing.sm,
     },
-    cellLabel: { flexShrink: 0, fontSize: rnType.label.size, color: tk.text.medium },
+    cellLabel: { flexShrink: 0, fontSize: rnType.label.size, color: tk.text.tertiary },
     cellValue: { flexShrink: 1, ...rnType.body, color: tk.text.primary, textAlign: 'right' },
     cellMono: { fontVariant: ['tabular-nums'] },
     cellBadge: { flexShrink: 1, fontSize: rnType.body.size, fontWeight: '600', textAlign: 'right' },

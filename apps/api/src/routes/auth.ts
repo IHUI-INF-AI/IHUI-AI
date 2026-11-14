@@ -763,11 +763,9 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
             invitation.status === 'unused' &&
             (!invitation.expiresAt || invitation.expiresAt > now)
           ) {
-            // F-15:markInvitationUsed 改为条件 UPDATE(仅 unused 可抢占),抢不到返回 undefined;
-            // 只有抢到的一方才发奖励,杜绝同一邀请码并发注册双发。
-            const claimed = await markInvitationUsed({ id: invitation.id, inviteeId: user.id })
+            await markInvitationUsed({ id: invitation.id, inviteeId: user.id })
 
-            if (claimed && invitation.rewardInvitee > 0) {
+            if (invitation.rewardInvitee > 0) {
               try {
                 await earnPoints(
                   user.id,
@@ -782,7 +780,7 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
               }
             }
 
-            if (claimed && invitation.rewardInviter > 0) {
+            if (invitation.rewardInviter > 0) {
               try {
                 await earnPoints(
                   invitation.inviterId,
@@ -1311,19 +1309,7 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
             error(501, '微信移动应用登录未配置,请配置 WECHAT_MOBILE_APP_ID/WECHAT_MOBILE_SECRET'),
           )
       }
-      // 诊断(2026-11-13):此前 .catch(()=>null) 把微信真实 errcode 吞掉,
-      // 客户端对所有 401 一律提示「登录已过期」,掩盖了真因(code 无效/签名不符/secret 错)。
-      // 这里把 WechatApiError 的 errcode 落到日志,供真机排障定位。
-      const session = await wechatAppCode2session(parsed.data.code).catch((e) => {
-        request.log.warn(
-          {
-            err: e instanceof Error ? e.message : String(e),
-            errcode: (e as { errcode?: number })?.errcode,
-          },
-          '微信移动应用 code 换 session 失败',
-        )
-        return null
-      })
+      const session = await wechatAppCode2session(parsed.data.code).catch(() => null)
       if (!session) {
         return reply.status(401).send(error(401, '微信登录失败: invalid code'))
       }

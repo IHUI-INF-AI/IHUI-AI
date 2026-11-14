@@ -203,7 +203,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: rnSpacing.sm,
       textAlign: 'center',
       fontSize: rnType.body.size,
-      color: tk.danger.deepText,
+      color: tk.danger.DEFAULT,
     },
   })
 }

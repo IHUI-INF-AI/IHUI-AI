@@ -39,7 +39,7 @@
  * 22. POST   /v1/images/generations/async  — 异步文生图(任务编排骨架,202 + task id)(images:write)
  * 23. GET    /v1/images/generations/async/:id — 异步图片任务状态轮询(images:read)
  */
-import type { FastifyInstance, FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify'
+import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify'
 import { z } from 'zod'
 import type {
   V1AudioVoicesResponse,
@@ -60,7 +60,6 @@ import type { Redis } from 'ioredis'
 import { error } from '../utils/response.js'
 import { getUserId, mintInternalJwt, jsonInit, asObj } from './v1-shared.js'
 import { recordCall, refundTaskCall } from '../services/relay-billing-service.js'
-import { logger } from '../utils/logger.js'
 import { forwardToChannel, type SelectedChannelKey } from '../services/relay-upstream-forwarder.js'
 import { MEDIA_BASE64_BODY_LIMIT } from '../config/body-limits.js'
 
@@ -132,74 +131,6 @@ function chargeMultimodal(
 }
 
 /** 鉴权后注入 request 的 API Key 上下文(与 AuthenticatedApiKey 结构一致)。 */
-
-// =============================================================================
-// 任务失败退款(F-34,2026-11-13)
-// -----------------------------------------------------------------------------
-// 原实现 `void refundTaskCall(id)` 丢弃返回值,退款失败只活在服务端日志里 ⇒
-// 「用户付费但产出为空且钱没退」可能永远无人处理。现在:等退款结果,
-// 未完成(error/exhausted)时写退款 DLQ(Redis,7 天,可人工 REPLAY/DROP)+ error 告警。
-// =============================================================================
-
-/**
- * 任务失败退款(幂等,内部有界重试)。
- *
- * - 成功退款:清掉此前可能累积的 DLQ 记录(逐次轮询失败后本轮成功);
- * - 未完成:error 级告警 + 写退款 DLQ(error 计次/exhausted 直接入队,等人工);
- * - 任何异常都不外抛,不影响状态查询响应。
- */
-async function refundFailedTask(
-  server: FastifyInstance,
-  taskId: string,
-  endpoint: string,
-): Promise<void> {
-  // 测试/裁剪构建可能未注册 resilience-toolkit 装饰器
-  const dlq = server.refundDlq as FastifyInstance['refundDlq'] | undefined
-  const dlqKey = `task:${taskId}`
-  let result: Awaited<ReturnType<typeof refundTaskCall>>
-  try {
-    result = await refundTaskCall(taskId)
-  } catch (err) {
-    // 服务内部已兜住 DB 错误,这里只防御非常规抛错
-    logger.error('[billing] 多模态任务失败退款异常', {
-      taskId,
-      endpoint,
-      error: err instanceof Error ? err.message : String(err),
-    })
-    return
-  }
-  if (result.refunded) {
-    if (result.reason === 'ok' && dlq) {
-      await dlq.clearRefundFailure(dlqKey).catch((err: unknown) => {
-        logger.warn('[billing] 清理退款 DLQ 记录失败(不影响已完成的退款)', {
-          taskId,
-          endpoint,
-          error: err instanceof Error ? err.message : String(err),
-        })
-      })
-    }
-    return
-  }
-  // no_log(未扣费/已退过)/no_api_key 无需补偿
-  if (result.reason !== 'error' && result.reason !== 'exhausted') return
-  const detail = { taskId, endpoint, reason: result.reason, attempts: result.attempts }
-  logger.error('[billing] 多模态任务失败退款未完成(已记待补偿)', detail)
-  if (!dlq) return
-  try {
-    if (result.reason === 'exhausted') {
-      // 已达重试上限:直接入 DLQ,等人工核对后补偿
-      await dlq.enqueueRefundFailure(dlqKey, 'refund_exhausted', detail)
-    } else {
-      await dlq.recordRefundFailure(dlqKey, 'refund_error', detail)
-    }
-  } catch (err) {
-    // DLQ 不可用也不能影响响应;待补偿事实已写在本行 metadata.refund_state
-    logger.error('[billing] 退款 DLQ 写入失败(待补偿标记仍在业务表)', {
-      ...detail,
-      error: err instanceof Error ? err.message : String(err),
-    })
-  }
-}
 
 // =============================================================================
 // Zod schemas
@@ -1964,8 +1895,7 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
         if (sora2.ok) {
           const mapped = tryMap(sora2.data)
           // 视频任务失败退款(2026-09-13):提交时已乐观扣费,失败全额退(幂等)
-          // F-34(2026-11-13):await 退款结果,失败写 DLQ + 告警,不再 void 丢弃
-          if (mapped.status === 'failed') await refundFailedTask(server, id, 'v1_videos_tasks')
+          if (mapped.status === 'failed') void refundTaskCall(id)
           return reply.send(mapped)
         }
         // sora2 404 → 回退 jimeng4
@@ -1983,7 +1913,7 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
         if (jimeng4.ok) {
           const mapped = tryMap(jimeng4.data)
           // 视频任务失败退款(2026-09-13):同上,幂等
-          if (mapped.status === 'failed') await refundFailedTask(server, id, 'v1_videos_tasks')
+          if (mapped.status === 'failed') void refundTaskCall(id)
           return reply.send(mapped)
         }
         const httpStatus = jimeng4.status >= 400 && jimeng4.status < 600 ? jimeng4.status : 502
@@ -1998,7 +1928,7 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
           if (agnes.ok) {
             const mapped = tryMap(agnes.data)
             // 视频任务失败退款(同上,幂等)
-            if (mapped.status === 'failed') await refundFailedTask(server, id, 'v1_videos_tasks')
+            if (mapped.status === 'failed') void refundTaskCall(id)
             return reply.send(mapped)
           }
           if (agnes.status !== 404) {
@@ -2142,17 +2072,7 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
       if (format) body.ResultFormat = format
       // model 暂透传(腾讯混元 3D 仅一种模型)
       body.model = model
-      // F-276:3D 生成此前零计费(仅次数窗口 requireApiKeyQuota,无 recordCall/退款),
-      // 平台白担腾讯混元 3D 调用费。口径与本文件 /videos/generations 一致:
-      // - 内部转发失败(内部 5xx/网络异常)时 mapper 不执行 ⇒ 不产生计费流水,失败零费用;
-      // - 提交成功即 recordCall 按次扣费(乐观计费防漏损,metadata.task_id 挂任务号对账);
-      // - 提交响应判定 failed ⇒ 立即 refundTaskCall 全额退(先扣后退、顺序 await,无时序竞态)。
-      //   refundTaskCall 仅认 callType image/video,3D 资产生成按次归入 image 档
-      //   (模型无定价行时 calculateCost 回退 0,不改变现价行为)。
-      let submittedTaskId = ''
-      let submitStatus: 'queued' | 'processing' | 'completed' | 'failed' | 'cancelled' | 'pending' =
-        'pending'
-      const replyResult = await forwardInternal(
+      return forwardInternal(
         reply,
         '/api/tencent/hunyuan3d/submit',
         jsonInit(body),
@@ -2160,48 +2080,18 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
         (data) => {
           const d = asObj(data)
           const inner = asObj(d.data ?? data)
-          const rawStatus = mapJobStatus(inner.Status ?? d.status)
-          submittedTaskId =
-            (typeof inner.JobId === 'string' && inner.JobId) ||
-            (typeof d.taskId === 'string' && d.taskId) ||
-            ''
-          submitStatus = rawStatus
           const result: V1ThreeDGenerationsResponse = {
-            taskId: submittedTaskId,
-            // 对外联合类型沿用 @ihui/types 定义(pending/processing/completed),不改契约
-            status: (rawStatus as V1ThreeDGenerationsResponse['status']) || 'pending',
+            taskId:
+              (typeof inner.JobId === 'string' && inner.JobId) ||
+              (typeof d.taskId === 'string' && d.taskId) ||
+              '',
+            status:
+              (mapJobStatus(inner.Status ?? d.status) as 'pending' | 'processing' | 'completed') ||
+              'pending',
           }
           return result
         },
       )
-      if (submittedTaskId) {
-        const apiKey = apiKeyOf(request)
-        if (apiKey) {
-          await recordCall({
-            apiKeyId: apiKey.id,
-            userId: apiKey.userId,
-            model,
-            prompt: input,
-            response: null,
-            promptTokens: 0,
-            completionTokens: 0,
-            totalTokens: 0,
-            latencyMs: 0,
-            status: 'success',
-            callType: 'image',
-            billingUnits: 1,
-            metadata: { endpoint: 'v1_3d_generations', task_id: submittedTaskId },
-          })
-          // submitStatus 在 mapper 回调内被改写,TS 的控制流分析看不到这一层赋值
-          // (会把这里收窄成初始化字面量 'pending'),故读一次到 string 再判等。
-          const statusAfterSubmit: string = submitStatus
-          if (statusAfterSubmit === 'failed') {
-            // F-34(2026-11-13):同上,退款未完成会写 DLQ + 告警
-            await refundFailedTask(server, submittedTaskId, 'v1_3d_generations')
-          }
-        }
-      }
-      return replyResult
     },
   )
 
@@ -2305,7 +2195,6 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
       const userId = getUserId(request, reply)
       if (!userId) return
       const { id } = request.params as { id: string }
-      let taskFailed = false
       const statusResult = await forwardInternal(
         reply,
         `/api/ai/generation/${encodeURIComponent(id)}/status`,
@@ -2325,12 +2214,10 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
           }
           // 多模态任务失败退款(2026-09-13):提交时已乐观扣费,失败全额退(幂等)。
           // 覆盖生图异步任务(202 轮询此端点);视频另有 videos/tasks 退款入口。
-          // F-34(2026-11-13):mapper 是同步的,退款挪到转发返回后 await,失败写 DLQ + 告警。
-          if (result.status === 'failed') taskFailed = true
+          if (result.status === 'failed') void refundTaskCall(id)
           return result
         },
       )
-      if (taskFailed) await refundFailedTask(server, id, 'v1_generation_status')
       return statusResult
     },
   )

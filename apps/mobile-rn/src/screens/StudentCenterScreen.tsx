@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useCallback, useEffect, useState } from 'react'
-import { appAlert } from '../components/BottomPops'
+import { Alert } from 'react-native'
 import { File, Paths } from '@/platform/fs'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
@@ -35,65 +35,47 @@ export function StudentCenterScreen() {
   const [data, setData] = useState<StudentReport | null>(null)
   const [exporting, setExporting] = useState(false)
 
-  const load = useCallback(
-    async (isActive: () => boolean = () => true) => {
-      setLoading(true)
-      setError(null)
-      try {
-        const res = await getMyReport()
-        if (!isActive()) return
-        if (!res.success || !res.data) {
-          setError(t('studentPage.fetchFailed'))
-          setData(null)
-          return
-        }
-        setData(res.data)
-      } catch (err) {
-        if (!isActive()) return
-        console.warn('[StudentCenterScreen] load failed', err)
+  const load = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await getMyReport()
+      if (!res.success || !res.data) {
         setError(t('studentPage.fetchFailed'))
         setData(null)
-      } finally {
-        if (isActive()) setLoading(false)
+        return
       }
-    },
-    [t],
-  )
+      setData(res.data)
+    } catch {
+      setError(t('studentPage.fetchFailed'))
+      setData(null)
+    } finally {
+      setLoading(false)
+    }
+  }, [t])
 
   useEffect(() => {
-    let alive = true
-    void load(() => alive)
-    return () => {
-      alive = false
-    }
+    void load()
   }, [load])
 
   const handleExport = useCallback(
     async (format: StudentReportFormat) => {
       setExporting(true)
       try {
-        let file: File
         if (format === 'json') {
           const res = await exportMyReportJson({ format })
           if (!res.success) throw new Error('export failed')
-          const json = JSON.stringify(res.data ?? null, null, 2)
-          file = new File(Paths.cache, `my-report-${Date.now()}.json`)
-          file.write(json)
-          if (!file.exists || file.textSync() !== json) throw new Error('write failed')
         } else {
           const resp = await exportMyReport({ format })
           if (!resp.ok) throw new Error('export failed')
           const bytes = new Uint8Array(await resp.arrayBuffer())
           const ext = format === 'pdf' ? 'pdf' : 'xlsx'
-          file = new File(Paths.cache, `my-report-${Date.now()}.${ext}`)
+          const file = new File(Paths.cache, `my-report-${Date.now()}.${ext}`)
           file.write(bytes)
-          if (!file.exists || file.bytesSync().length !== bytes.length)
-            throw new Error('write failed')
         }
-        appAlert(t('studentPage.exportSuccess'), file.uri)
-      } catch (err) {
-        console.warn('[StudentCenterScreen] export failed', err)
-        appAlert(t('studentPage.exportError'))
+        Alert.alert(t('studentPage.exportSuccess'))
+      } catch {
+        Alert.alert(t('studentPage.exportError'))
       } finally {
         setExporting(false)
       }

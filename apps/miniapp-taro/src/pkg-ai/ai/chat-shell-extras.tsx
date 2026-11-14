@@ -236,15 +236,17 @@ export function buildChatShellProps(ctx: ChatShellCtx): ChatScreenProps {
       </Text>
       <View className="nav-right">
         {agent ? (
-          <View hoverClass="opacity-60" onClick={() => setAgentDrawerVisible(true)}>
-            <Text className="nav-agent">{agent.name}</Text>
-          </View>
-        ) : null}
-        <View hoverClass="opacity-60" onClick={() => setAgentTipVisible(true)}>
-          <Text className="nav-history" style={{ fontSize: '30rpx', fontWeight: '600' }}>
-            ?
+          <Text className="nav-agent" onClick={() => setAgentDrawerVisible(true)}>
+            {agent.name}
           </Text>
-        </View>
+        ) : null}
+        <Text
+          className="nav-history"
+          style={{ fontSize: '30rpx', fontWeight: '600' }}
+          onClick={() => setAgentTipVisible(true)}
+        >
+          ?
+        </Text>
         <Image
           src={fileIcon}
           className="nav-history w-[30rpx] h-[30rpx]"
@@ -252,9 +254,9 @@ export function buildChatShellProps(ctx: ChatShellCtx): ChatScreenProps {
           onClick={() => setHistoryDrawerVisible(true)}
         />
         {messages.length ? (
-          <View hoverClass="opacity-60" onClick={clearChat}>
-            <Text className="nav-clear">{t('ai.clear')}</Text>
-          </View>
+          <Text className="nav-clear" onClick={clearChat}>
+            {t('ai.clear')}
+          </Text>
         ) : null}
       </View>
     </View>
@@ -553,7 +555,6 @@ export function buildChatShellProps(ctx: ChatShellCtx): ChatScreenProps {
           {pendingQuestion.options.map((o: { id: string; label: string }) => (
             <View
               key={o.id}
-              hoverClass="opacity-60"
               onClick={() => {
                 setInputValue(o.label)
                 setPendingQuestion(null)
@@ -570,7 +571,6 @@ export function buildChatShellProps(ctx: ChatShellCtx): ChatScreenProps {
             </View>
           ))}
           <View
-            hoverClass="opacity-60"
             onClick={() => setPendingQuestion(null)}
             style={{ marginTop: '10px', padding: '8px' }}
           >
@@ -709,18 +709,14 @@ export function buildChatShellProps(ctx: ChatShellCtx): ChatScreenProps {
           <View className="msg-item assistant">
             <View className="avatar assistant">{t('ai.chatMessageItem.ai')}</View>
             <View className="bubble">
-              <View
-                hoverClass="opacity-60"
+              <Text
+                className="bubble-text"
+                style={{ fontSize: '24rpx', color: 'var(--color-muted-foreground)' }}
                 onClick={() => setStreamActivityExpanded((v: boolean) => !v)}
               >
-                <Text
-                  className="bubble-text"
-                  style={{ fontSize: '24rpx', color: 'var(--color-muted-foreground)' }}
-                >
-                  {t('ai.stream.title')} ({streamActivities.length}){' '}
-                  {streamActivityExpanded ? t('ai.chatMessageItem.collapse') : t('ai.tishi.view')}
-                </Text>
-              </View>
+                {t('ai.stream.title')} ({streamActivities.length}){' '}
+                {streamActivityExpanded ? t('ai.chatMessageItem.collapse') : t('ai.tishi.view')}
+              </Text>
               {streamActivityExpanded ? (
                 <View style={{ marginTop: 'var(--spacing-xs)' }}>
                   {streamActivities.map((a: { id: string; text: string }) => (

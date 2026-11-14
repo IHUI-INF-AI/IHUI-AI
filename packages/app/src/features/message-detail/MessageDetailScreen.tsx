@@ -96,7 +96,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: rnSpacing.sm,
       gap: rnSpacing.sm,
     },
-    metaLabel: { fontSize: rnType.body.size, color: tk.text.medium },
+    metaLabel: { fontSize: rnType.body.size, color: tk.text.tertiary },
     metaValue: { fontSize: rnType.body.size, color: tk.text.secondary },
     // §4 禁分割线:原 meta 与正文间发丝线改为间距分隔(marginTop 24 ≈ 原 12+1 线+12 的留白)
     content: {

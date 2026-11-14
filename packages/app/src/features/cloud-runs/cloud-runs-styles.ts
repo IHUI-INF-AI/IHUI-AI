@@ -58,12 +58,12 @@ export function createCloudRunsStyles(tk: AppThemeTokens) {
       fontWeight: '600',
       color: tk.text.primary,
     },
-    cardMeta: { fontSize: rnType.label.size, color: tk.text.medium },
+    cardMeta: { fontSize: rnType.label.size, color: tk.text.tertiary },
     statusRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing['xs-loose'] },
     statusDot: { width: 8, height: 8, borderRadius: rnRadius.xs },
     statusText: { fontSize: rnType.label.size, fontWeight: '600' },
 
-    detailLabel: { width: 96, fontSize: rnType.label.size, color: tk.text.medium },
+    detailLabel: { width: 96, fontSize: rnType.label.size, color: tk.text.tertiary },
     detailValue: { flex: 1, fontSize: rnType.bodySm.size, color: tk.text.primary },
     detailRow: { flexDirection: 'row', gap: rnSpacing.md },
     mono: { fontSize: rnType.label.size, color: tk.text.secondary },
@@ -97,12 +97,12 @@ export function createCloudRunsStyles(tk: AppThemeTokens) {
       borderColor: tk.border.medium,
     },
     pagerBtnText: { fontSize: rnType.bodySm.size, color: tk.text.primary },
-    pagerBtnTextDisabled: { fontSize: rnType.bodySm.size, color: tk.text.medium },
+    pagerBtnTextDisabled: { fontSize: rnType.bodySm.size, color: tk.text.tertiary },
     pageInfo: { fontSize: rnType.label.size, color: tk.text.secondary },
 
     // —— 空态 / 错误 / 加载 ——
     emptyBox: { alignItems: 'center', gap: rnSpacing.sm, paddingVertical: rnSpacing['3xl'] },
-    emptyText: { fontSize: rnType.bodySm.size, color: tk.text.medium },
+    emptyText: { fontSize: rnType.bodySm.size, color: tk.text.tertiary },
     errorBox: {
       borderRadius: rnRadius.md,
       backgroundColor: tk.surface.light,

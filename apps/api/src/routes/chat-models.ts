@@ -386,6 +386,31 @@ interface HistoryRecord {
 const historyStore = new Map<number, HistoryRecord>()
 let historyIdCounter = 0
 
+/**
+ * F-475:进程内历史表容量上限(内存 DoS 防护)。
+ * 单用户上限按 userId 计数,全局上限防多账号合计撑爆进程内存;超出均淘汰最旧记录。
+ */
+export const MAX_HISTORY_PER_USER = 100
+export const MAX_HISTORY_TOTAL = 2000
+
+/** F-475:同一毫秒创建时用自增 id 兜底,保证淘汰顺序确定。 */
+function byOldestFirst(a: HistoryRecord, b: HistoryRecord): number {
+  return a.createTime - b.createTime || a.id - b.id
+}
+
+/** F-475:先按单用户上限淘汰该用户最旧记录,再按全表上限淘汰全局最旧记录。 */
+function evictHistoryOverflow(userId: string): void {
+  const owned = Array.from(historyStore.values()).filter((r) => r.userId === userId)
+  if (owned.length > MAX_HISTORY_PER_USER) {
+    owned.sort(byOldestFirst)
+    for (const r of owned.slice(0, owned.length - MAX_HISTORY_PER_USER)) historyStore.delete(r.id)
+  }
+  if (historyStore.size > MAX_HISTORY_TOTAL) {
+    const all = Array.from(historyStore.values()).sort(byOldestFirst)
+    for (const r of all.slice(0, historyStore.size - MAX_HISTORY_TOTAL)) historyStore.delete(r.id)
+  }
+}
+
 // ============================================================================
 // Zod schemas
 // ============================================================================
@@ -471,8 +496,17 @@ const klingImageSchema = z.object({
   negative_prompt: z.string().optional(),
 })
 
+/** F-475:model_name 上限 128 字符,并拒绝控制字符,防止超长/畸形字符串入库与回显。 */
+const MAX_HISTORY_MODEL_NAME_LENGTH = 128
+const HISTORY_MODEL_NAME_CONTROL_RE = /[\u0000-\u001f\u007f]/
+
 const historyCreateSchema = z.object({
-  model_name: z.string().min(1),
+  model_name: z
+    .string()
+    .trim()
+    .min(1, 'model_name is required')
+    .max(MAX_HISTORY_MODEL_NAME_LENGTH, `model_name 不超过 ${MAX_HISTORY_MODEL_NAME_LENGTH} 字符`)
+    .refine((v) => !HISTORY_MODEL_NAME_CONTROL_RE.test(v), 'model_name 含非法控制字符'),
   mark: z.string().max(500).optional(),
 })
 
@@ -1281,6 +1315,8 @@ export const chatModelRoutes: FastifyPluginAsync = async (server) => {
       createTime: Date.now(),
     }
     historyStore.set(id, record)
+    // F-475:写入后维持单用户/全表容量上限,其余记录顺序与字段不变。
+    evictHistoryOverflow(record.userId)
     return reply.status(201).send(
       success({
         id: record.id,

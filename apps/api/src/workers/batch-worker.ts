@@ -69,21 +69,52 @@ export function shouldMarkTerminalFailed(
   return made + 1 >= max
 }
 
-// P1 修复(2026-08-06):计费幂等 — worker 崩溃后 BullMQ 会重新投递同一任务,
-// 重试时任务状态是 in_progress(非终态),原实现会从头重跑并再次计费 → 重复扣费。
-// 以 taskId + 行标识 作为唯一键(Redis SET NX),已计费的行直接跳过。
+// F-494(2026-11-13):计费幂等 + 先扣费后落账。
+// 原实现先 SET NX 占去重键、再 fire-and-forget 扣费:扣费失败会被去重键永久吞掉(漏收),
+// 重试也因键已存在而跳过。现改为「先 await 扣费成功 → 再写带 settled 标记的去重键」,
+// 扣费失败直接抛错,去重键不会残留,BullMQ 可重试;已结算的行由去重键短路,不重复扣。
+// 幂等键沿用 taskId + 行标识(BullMQ 重试时 taskId 不变),并透传给 recordCall 的 metadata。
 const BILLING_DEDUP_PREFIX = 'batch:billing:dedup:'
 const BILLING_DEDUP_TTL_SEC = 7 * 24 * 3600
+const BILLING_SETTLED = 'settled'
 
-/** 尝试认领一次计费:true=首次(应计费);false=已计费(跳过)。Redis 异常时 fail-open 计费。 */
-async function claimBillingOnce(redis: Redis, taskId: string, lineKey: string): Promise<boolean> {
+function billingDedupKey(taskId: string, lineKey: string): string {
+  return `${BILLING_DEDUP_PREFIX}${taskId}:${lineKey}`
+}
+
+/** 该行是否已结算(扣费已落账)。Redis 异常 fail-open:宁可重扣也不漏收。 */
+async function isBillingSettled(redis: Redis, taskId: string, lineKey: string): Promise<boolean> {
   try {
-    const key = `${BILLING_DEDUP_PREFIX}${taskId}:${lineKey}`
-    const claimed = await redis.set(key, '1', 'EX', BILLING_DEDUP_TTL_SEC, 'NX')
-    return claimed === 'OK'
+    return (await redis.get(billingDedupKey(taskId, lineKey))) === BILLING_SETTLED
   } catch {
-    return true
+    return false
   }
+}
+
+/** 扣费成功后落去重键。标记失败仅告警:钱已扣,不能因此回退主流程。 */
+async function markBillingSettled(redis: Redis, taskId: string, lineKey: string): Promise<void> {
+  try {
+    await redis.set(billingDedupKey(taskId, lineKey), BILLING_SETTLED, 'EX', BILLING_DEDUP_TTL_SEC)
+  } catch (err) {
+    logger.warn('batch billing dedup mark failed', { taskId, lineKey, err })
+  }
+}
+
+/**
+ * 单行计费:先扣费(await)成功,再落去重键。
+ * @returns true=本次完成扣费;false=该行已结算,跳过重复扣费。
+ * 扣费失败会抛错(含 recordCall 吞异常后返回空 logId 的情况),由 BullMQ 重试。
+ */
+async function chargeBatchLineOnce(
+  redis: Redis,
+  taskId: string,
+  lineKey: string,
+  charge: () => Promise<void>,
+): Promise<boolean> {
+  if (await isBillingSettled(redis, taskId, lineKey)) return false
+  await charge()
+  await markBillingSettled(redis, taskId, lineKey)
+  return true
 }
 
 // =============================================================================
@@ -157,11 +188,13 @@ async function callLlmComplete(body: Record<string, unknown>): Promise<LlmResult
 }
 
 /**
- * 记录批量调用计费(50% 折扣)。
+ * 记录批量调用计费(50% 折扣),并等待扣费完成。
  * metadata.batch=true 标记批量调用,metadata.discount=0.5 标记折扣比例。
- * 注:实际折扣计算在 relay-billing-service.ts 的 recordCall 中实现(本任务范围外)。
+ * metadata.idempotencyKey 透传 taskId+行标识,供计费侧对账去重(F-494)。
+ * recordCall 顶层会吞异常并返回空 logId,批量场景必须把该情况判为失败并抛出,
+ * 否则任务会被记成 completed 但费用没收(漏收)。
  */
-function recordBatchCall(
+async function recordBatchCall(
   apiKeyId: string,
   userId: string,
   model: string,
@@ -172,8 +205,9 @@ function recordBatchCall(
   status: 'success' | 'error',
   errorMessage: string | null,
   batchId: string,
-): void {
-  void recordCall({
+  idempotencyKey: string,
+): Promise<void> {
+  const result = await recordCall({
     apiKeyId,
     userId,
     model,
@@ -187,11 +221,11 @@ function recordBatchCall(
     errorMessage,
     providerCode: modelToProviderCode(model),
     clientIp: '',
-    metadata: { batch: true, discount: 0.5, batchId },
-  }).catch((err: unknown) => {
-    // 计费失败不阻塞批处理流程,但记录日志便于排查
-    logger.warn('batch billing failed', { batchId, err })
+    metadata: { batch: true, discount: 0.5, batchId, idempotencyKey },
   })
+  if (!result || !result.logId) {
+    throw new Error(`batch billing failed: ${idempotencyKey}`)
+  }
 }
 
 // =============================================================================
@@ -369,8 +403,8 @@ async function processOpenAIBatch(
           error: { message: result.error },
         }),
       )
-      // P1 修复(2026-08-06):重试时跳过已计费行,防重复扣费
-      if (await claimBillingOnce(redis, taskId, customId)) {
+      // F-494:先扣费成功再落去重键;扣费失败抛错 → BullMQ 重试,键不残留
+      const charged = await chargeBatchLineOnce(redis, taskId, customId, () =>
         recordBatchCall(
           task._apiKeyId,
           task._userId,
@@ -382,7 +416,11 @@ async function processOpenAIBatch(
           'error',
           result.error,
           taskId,
-        )
+          `${taskId}:${customId}`,
+        ),
+      )
+      if (!charged) {
+        server.log.info({ taskId, customId }, 'batch-worker[openai]: 该行已结算,跳过重复扣费')
       }
       continue
     }
@@ -412,8 +450,8 @@ async function processOpenAIBatch(
         error: null,
       }),
     )
-    // P1 修复(2026-08-06):重试时跳过已计费行,防重复扣费
-    if (await claimBillingOnce(redis, taskId, customId)) {
+    // F-494:先扣费成功再落去重键;扣费失败抛错 → BullMQ 重试,键不残留
+    const charged = await chargeBatchLineOnce(redis, taskId, customId, () =>
       recordBatchCall(
         task._apiKeyId,
         task._userId,
@@ -425,7 +463,11 @@ async function processOpenAIBatch(
         'success',
         null,
         taskId,
-      )
+        `${taskId}:${customId}`,
+      ),
+    )
+    if (!charged) {
+      server.log.info({ taskId, customId }, 'batch-worker[openai]: 该行已结算,跳过重复扣费')
     }
   }
 
@@ -496,8 +538,8 @@ async function processAnthropicBatch(
           error: { type: 'error', message: result.error },
         },
       })
-      // P1 修复(2026-08-06):重试时跳过已计费行,防重复扣费
-      if (await claimBillingOnce(redis, taskId, custom_id)) {
+      // F-494:先扣费成功再落去重键;扣费失败抛错 → BullMQ 重试,键不残留
+      const charged = await chargeBatchLineOnce(redis, taskId, custom_id, () =>
         recordBatchCall(
           task._apiKeyId,
           task._userId,
@@ -509,7 +551,11 @@ async function processAnthropicBatch(
           'error',
           result.error,
           taskId,
-        )
+          `${taskId}:${custom_id}`,
+        ),
+      )
+      if (!charged) {
+        server.log.info({ taskId, custom_id }, 'batch-worker[anthropic]: 该行已结算,跳过重复扣费')
       }
       continue
     }
@@ -534,8 +580,8 @@ async function processAnthropicBatch(
         },
       },
     })
-    // P1 修复(2026-08-06):重试时跳过已计费行,防重复扣费
-    if (await claimBillingOnce(redis, taskId, custom_id)) {
+    // F-494:先扣费成功再落去重键;扣费失败抛错 → BullMQ 重试,键不残留
+    const charged = await chargeBatchLineOnce(redis, taskId, custom_id, () =>
       recordBatchCall(
         task._apiKeyId,
         task._userId,
@@ -547,7 +593,11 @@ async function processAnthropicBatch(
         'success',
         null,
         taskId,
-      )
+        `${taskId}:${custom_id}`,
+      ),
+    )
+    if (!charged) {
+      server.log.info({ taskId, custom_id }, 'batch-worker[anthropic]: 该行已结算,跳过重复扣费')
     }
   }
 

@@ -19,7 +19,6 @@
   10. POST  /hooks/emit            — 内部触发事件(供 agent_loop 调用)
 """
 
-import logging
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -27,29 +26,14 @@ from pydantic import BaseModel, Field
 
 from ..core.jwt_auth import get_current_user_id
 from ..services.hook_engine import (
+    HIGH_RISK_ACTIONS,
     HOOK_ACTION_TYPES,
     HOOK_EVENTS,
     _action_allowed,
-    _effective_high_risk_action,
     hook_engine,
 )
 
-logger = logging.getLogger(__name__)
-
 router = APIRouter()
-
-# AIS-048:500 泄漏面统一固定文案 —— str(e) 只进日志(logger.exception),不出响应。
-INTERNAL_ERROR_DETAIL = "服务内部错误"
-
-
-def _internal_error(endpoint: str) -> HTTPException:
-    """AIS-048:构造固定文案的 500 异常,异常细节仅落日志。
-
-    必须在 `except` 块内调用:`logger.exception` 依赖当前异常上下文。
-    与本模块既有失败面同形 —— 端点里的 400/403/404 也都是 HTTPException(detail)。
-    """
-    logger.exception("[hooks] %s 服务内部错误", endpoint)
-    return HTTPException(status_code=500, detail=INTERNAL_ERROR_DETAIL)
 
 
 # ---------------------------------------------------------------------------
@@ -168,17 +152,14 @@ def _validate_action_type(action_type: str) -> None:
 
 def _validate_action(action: HookActionModel) -> None:
     _validate_action_type(action.type)
-    # P0-5:script/webhook 高危动作默认禁用,必须 HOOK_ALLOWED_ACTIONS 白名单显式放行。
-    # AIS-036:notify 的 webhook 渠道经 _effective_high_risk_action 归入 webhook 档,
-    # 不再以 "notify" 之名绕过白名单(判据与执行侧兜底同一处)。
-    gated_type = _effective_high_risk_action(action.type, action.config.channel)
-    if gated_type is not None and not _action_allowed(gated_type):
+    # P0-5:script/webhook 高危动作默认禁用,必须 HOOK_ALLOWED_ACTIONS 白名单显式放行
+    if action.type in HIGH_RISK_ACTIONS and not _action_allowed(action.type):
         raise HTTPException(
             status_code=403,
-            detail=f"高危动作 {gated_type} 未启用:请在服务端配置 HOOK_ALLOWED_ACTIONS 白名单",
+            detail=f"高危动作 {action.type} 未启用:请在服务端配置 HOOK_ALLOWED_ACTIONS 白名单",
         )
-    # 按动作类型校验必填字段(webhook 档含 notify(channel=webhook))
-    if gated_type == "webhook" and not action.config.url:
+    # 按动作类型校验必填字段
+    if action.type == "webhook" and not action.config.url:
         raise HTTPException(status_code=400, detail="webhook 动作必须提供 url")
     if action.type == "script" and not action.config.command:
         raise HTTPException(status_code=400, detail="script 动作必须提供 command")
@@ -246,8 +227,8 @@ async def auto_orchestrate(
     try:
         data = await hook_engine.auto_orchestrate(body.requirement, body.event)
         return {"code": 0, "message": "success", "data": data}
-    except Exception:
-        raise _internal_error("auto_orchestrate") from None
+    except Exception as e:
+        return {"code": 500, "message": str(e), "data": None}
 
 
 @router.post("/hooks/ab-test")
@@ -264,8 +245,8 @@ async def create_ab_test(
     try:
         data = await hook_engine.create_ab_test(body.model_dump(), owner_id=user_id)
         return {"code": 0, "message": "success", "data": data}
-    except Exception:
-        raise _internal_error("create_ab_test") from None
+    except Exception as e:
+        return {"code": 500, "message": str(e), "data": None}
 
 
 @router.get("/hooks/ab-tests")
@@ -281,8 +262,8 @@ async def list_ab_tests(
     try:
         data = await hook_engine.list_ab_tests(owner_id=_owner_filter(request, user_id))
         return {"code": 0, "message": "success", "data": data}
-    except Exception:
-        raise _internal_error("list_ab_tests") from None
+    except Exception as e:
+        return {"code": 500, "message": str(e), "data": None}
 
 
 @router.get("/hooks/templates")
@@ -294,8 +275,8 @@ async def list_hook_templates(
     try:
         data = hook_engine.list_templates()
         return {"code": 0, "message": "success", "data": data}
-    except Exception:
-        raise _internal_error("list_hook_templates") from None
+    except Exception as e:
+        return {"code": 500, "message": str(e), "data": None}
 
 
 @router.get("/hooks/{hook_id}")
@@ -471,8 +452,8 @@ async def get_ab_test(
     try:
         data = await hook_engine.get_ab_test(test_id, owner_id=_owner_filter(request, user_id))
         return {"code": 0, "message": "success", "data": data}
-    except Exception:
-        raise _internal_error("get_ab_test") from None
+    except Exception as e:
+        return {"code": 500, "message": str(e), "data": None}
 
 
 @router.post("/hooks/ab-test/{test_id}/stop")
@@ -490,8 +471,8 @@ async def stop_ab_test(
     try:
         data = await hook_engine.stop_ab_test(test_id, owner_id=_owner_filter(request, user_id))
         return {"code": 0, "message": "success", "data": data}
-    except Exception:
-        raise _internal_error("stop_ab_test") from None
+    except Exception as e:
+        return {"code": 500, "message": str(e), "data": None}
 
 
 @router.post("/hooks/templates/{template_id}/instantiate")
@@ -516,8 +497,8 @@ async def instantiate_template(
             allow_script=_is_admin(request),
         )
         return {"code": 0, "message": "success", "data": data}
-    except Exception:
-        raise _internal_error("instantiate_template") from None
+    except Exception as e:
+        return {"code": 500, "message": str(e), "data": None}
 
 
 @router.get("/hooks/{hook_id}/execution-timeline")
@@ -533,8 +514,8 @@ async def execution_timeline(
     try:
         data = await hook_engine.execution_timeline(hook_id, since)
         return {"code": 0, "message": "success", "data": data}
-    except Exception:
-        raise _internal_error("execution_timeline") from None
+    except Exception as e:
+        return {"code": 500, "message": str(e), "data": None}
 
 
 @router.get("/hooks/{hook_id}/health-forecast")
@@ -554,6 +535,6 @@ async def health_forecast(
     try:
         data = await hook_engine.health_forecast(hook_id, days)
         return {"code": 0, "message": "success", "data": data}
-    except Exception:
-        raise _internal_error("health_forecast") from None
+    except Exception as e:
+        return {"code": 500, "message": str(e), "data": None}
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

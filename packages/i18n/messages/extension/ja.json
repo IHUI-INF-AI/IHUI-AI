@@ -243,17 +243,7 @@
     "modelCategoryGuard": "安全性審査",
     "modelCategoryOcr": "文字認識",
     "modelCategoryOther": "その他",
-    "modelHistoryToggle": "過去のモデル",
-    "admissionAhead": "前に {n} 件あります",
-    "questionTitle": "AI が確認を求めています",
-    "questionSubmit": "送信",
-    "questionSubmitting": "送信中…",
-    "questionWithdraw": "この質問を閉じる",
-    "questionCustomPlaceholder": "直接入力もできます…",
-    "questionMultiHint": "複数選択可",
-    "questionNoSession": "セッションを特定できないため回答できません",
-    "questionFailed": "送信に失敗しました。再試行してください",
-    "questionExpired": "この質問は既に無効です"
+    "modelHistoryToggle": "過去のモデル"
   },
   "settings": {
     "language": "インターフェース言語",

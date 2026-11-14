@@ -15,7 +15,7 @@ import { useNavigation, useRoute, type RouteProp } from '@react-navigation/nativ
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { Check, HelpCircle } from 'lucide-react-native'
 import { createAsk, getAskById, updateAsk } from '@ihui/api-client'
-import { apiFailureToText, toFriendlyOr } from '@ihui/shared/utils'
+import { apiFailureToText } from '@ihui/shared/utils'
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { TextField } from '@ihui/rn-app'
 import { tokens } from '../theme/active-tokens'
@@ -99,7 +99,7 @@ export default function AskEditScreen() {
         tagsText: (ask.tags ?? []).join(', '),
       })
     } catch (e) {
-      setLoadError(toFriendlyOr(e, t('askEdit.loadFailed')))
+      setLoadError(e instanceof Error ? e.message : t('askEdit.loadFailed'))
     } finally {
       setLoading(false)
     }
@@ -154,7 +154,7 @@ export default function AskEditScreen() {
       if (editingId) navigation.navigate('AskDetail', { id: editingId })
       else navigation.navigate('AskList')
     } catch (e) {
-      setError(toFriendlyOr(e, t('askEdit.saveFailed')))
+      setError(e instanceof Error ? e.message : t('askEdit.saveFailed'))
     } finally {
       setSaving(false)
     }
@@ -267,7 +267,7 @@ export default function AskEditScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: tokens.surface.bg },
   body: { padding: rnSpacing.md, paddingBottom: rnSpacing['3xl'], gap: rnSpacing['sm-loose'] },
-  subtitle: { fontSize: rnType.label.size, color: tokens.text.medium },
+  subtitle: { fontSize: rnType.label.size, color: tokens.text.tertiary },
   stateBox: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: rnSpacing.sm },
   muted: { fontSize: rnType.bodySm.size, color: tokens.text.secondary },
   errorBox: {
@@ -278,7 +278,7 @@ const styles = StyleSheet.create({
     borderColor: tokens.danger.DEFAULT,
     backgroundColor: tokens.surface.card,
   },
-  errorText: { fontSize: rnType.label.size, color: tokens.danger.deepText },
+  errorText: { fontSize: rnType.label.size, color: tokens.danger.DEFAULT },
   retryBtn: {
     alignSelf: 'flex-start',
     paddingHorizontal: rnSpacing['md-loose'],
@@ -300,7 +300,7 @@ const styles = StyleSheet.create({
   cardTitle: { fontSize: rnType.strong.size, fontWeight: '600', color: tokens.text.primary },
   field: { gap: 5 },
   label: { fontSize: rnType.label.size, color: tokens.text.secondary },
-  hint: { fontSize: rnType.caption.size, color: tokens.text.medium },
+  hint: { fontSize: rnType.caption.size, color: tokens.text.tertiary },
   input: {
     minHeight: 42,
     paddingHorizontal: rnSpacing.md,

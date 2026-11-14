@@ -59,7 +59,7 @@ const portRaw = (process.env.SMTP_PORT || '587').trim()
 const port = Number.parseInt(portRaw, 10)
 const user = process.env.SMTP_USER || ''
 const pass = process.env.SMTP_PASS || ''
-const fromRaw = (process.env.SMTP_FROM || '智汇AI <lizong@aizhs.top>').trim()
+const fromRaw = (process.env.SMTP_FROM || '智汇AI <IHUI-AI@aizhs.top>').trim()
 const recipients = (takeOpt('--to') || process.env.ALERT_EMAIL_TO || '')
   .split(',')
   .map((s) => s.trim())

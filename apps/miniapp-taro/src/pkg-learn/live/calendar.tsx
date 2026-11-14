@@ -177,9 +177,9 @@ export default function LiveCalendar() {
             <LineIcon name="chevron-right" size={32} />
           </View>
         </View>
-        <View className="cal-today-btn" hoverClass="opacity-60" onClick={goToday}>
-          <Text>{tt('live.calendar.today', '今天')}</Text>
-        </View>
+        <Text className="cal-today-btn" onClick={goToday}>
+          {tt('live.calendar.today', '今天')}
+        </Text>
       </View>
       <View className="cal-stat">
         <Text>{tt('live.calendar.monthStat', '本月')}</Text>
@@ -236,13 +236,9 @@ export default function LiveCalendar() {
                   )}
                   {live.startTime && <Text>{live.startTime}</Text>}
                 </View>
-                <View
-                  className={`cal-action ${cfg.actionCls}`}
-                  hoverClass="opacity-60"
-                  onClick={() => onAction(live)}
-                >
-                  <Text>{tt(cfg.actionKey, cfg.actionFb)}</Text>
-                </View>
+                <Text className={`cal-action ${cfg.actionCls}`} onClick={() => onAction(live)}>
+                  {tt(cfg.actionKey, cfg.actionFb)}
+                </Text>
               </View>
             </ThemeRoot>
           )

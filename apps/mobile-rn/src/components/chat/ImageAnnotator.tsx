@@ -29,7 +29,7 @@ import { captureRef } from 'react-native-view-shot'
 import { Check, PenLine, Trash2, Type, Undo2, X } from 'lucide-react-native'
 import { TextField } from '@ihui/rn-app'
 import { currentRnTheme, tokens } from '../../theme/active-tokens'
-import { rnCssLight, rnRadius, rnType } from '@ihui/design-tokens'
+import { rnRadius, rnType } from '@ihui/design-tokens'
 import { rpx } from '../../utils/rpx'
 import { Tappable } from '@ihui/ui-native'
 
@@ -117,9 +117,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: rnType.title.size,
     fontWeight: '600',
-    // 本屏根底恒为 surface.dark(深画布,见 root),标题与关闭图标必须用固定亮档:
-    // 若用会随主题翻面的 text.primary,亮色主题下是 #0A0A0A 压 #262626 —— 1.31 对比度,近乎不可见。
-    color: rnCssLight.white95,
+    color: tokens.text.primary,
   },
   headerClose: {
     width: 28,
@@ -486,7 +484,7 @@ export function ImageAnnotator({ visible, imageUri, onCancel, onSave }: ImageAnn
             accessibilityRole="button"
             accessibilityLabel={t('annot.closeA11y')}
           >
-            <X size={20} color={rnCssLight.white95} />
+            <X size={20} color={tokens.text.primary} />
           </Tappable>
         </View>
 

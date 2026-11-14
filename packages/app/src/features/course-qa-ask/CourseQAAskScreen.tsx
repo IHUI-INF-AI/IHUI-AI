@@ -43,7 +43,7 @@ export function CourseQAAskScreen({
           value={question}
           onChangeText={onQuestionChange}
           placeholder={t('courseQAAsk.placeholder')}
-          placeholderTextColor={tk.text.secondary}
+          placeholderTextColor={tk.text.tertiary}
           multiline
           textAlignVertical="top"
         />
@@ -91,8 +91,8 @@ function createStyles(tk: AppThemeTokens) {
       fontSize: rnType.title.size,
       color: tk.text.primary,
     },
-    error: { fontSize: rnType.body.size, color: tk.danger.deepText, marginTop: rnSpacing.sm },
-    toast: { fontSize: rnType.body.size, color: tk.success.deepText, marginTop: rnSpacing.sm },
+    error: { fontSize: rnType.body.size, color: tk.danger.DEFAULT, marginTop: rnSpacing.sm },
+    toast: { fontSize: rnType.body.size, color: tk.success.DEFAULT, marginTop: rnSpacing.sm },
     btn: {
       marginTop: rnSpacing.lg,
       backgroundColor: tk.brand.cta,

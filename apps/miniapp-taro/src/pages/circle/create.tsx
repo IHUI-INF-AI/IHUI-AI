@@ -337,13 +337,9 @@ export default function CircleCreatePage() {
                 <Text className="cc-sheet-title">
                   {tt('circle.create.selectAigc', '选择 AI 作品')}
                 </Text>
-                <View
-                  className="cc-sheet-close"
-                  hoverClass="opacity-60"
-                  onClick={() => setAigcOpen(false)}
-                >
-                  <Text>×</Text>
-                </View>
+                <Text className="cc-sheet-close" onClick={() => setAigcOpen(false)}>
+                  ×
+                </Text>
               </View>
               <ScrollView scrollY className="cc-sheet-list">
                 {aigcWorks.length ? (

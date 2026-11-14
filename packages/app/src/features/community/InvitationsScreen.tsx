@@ -117,7 +117,7 @@ export function InvitationsScreen({
             <Text style={styles.error}>{codesError}</Text>
           ) : codes.length === 0 ? (
             <EmptyBlock
-              icon={<Gift size={28} color={tk.text.secondary} />}
+              icon={<Gift size={28} color={tk.text.tertiary} />}
               text={t('invitationsPage.emptyCodes')}
               colorScheme={colorScheme}
             />
@@ -141,7 +141,7 @@ export function InvitationsScreen({
                   </View>
                   <Text style={styles.metaRow}>{c.rewardText}</Text>
                   <View style={styles.metaIconRow}>
-                    <Clock size={13} color={tk.text.secondary} />
+                    <Clock size={13} color={tk.text.tertiary} />
                     <Text style={styles.metaRow}>{c.expiresText}</Text>
                   </View>
                   <TouchableOpacity
@@ -175,7 +175,7 @@ export function InvitationsScreen({
             <Text style={styles.error}>{inviteesError}</Text>
           ) : invitees.length === 0 ? (
             <EmptyBlock
-              icon={<Users size={28} color={tk.text.secondary} />}
+              icon={<Users size={28} color={tk.text.tertiary} />}
               text={t('invitationsPage.emptyInvitees')}
               colorScheme={colorScheme}
             />
@@ -251,7 +251,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.brand.cta,
     },
     generateText: { color: tk.brand.ctaForeground, fontSize: rnType.body.size, fontWeight: '600' },
-    error: { marginTop: rnSpacing.md, fontSize: rnType.body.size, color: tk.danger.deepText },
+    error: { marginTop: rnSpacing.md, fontSize: rnType.body.size, color: tk.danger.DEFAULT },
     sectionTitle: {
       marginTop: rnSpacing.xl,
       marginBottom: rnSpacing.sm,
@@ -338,7 +338,7 @@ function createStyles(tk: AppThemeTokens) {
       opacity: 0.5,
     },
     copyBtnText: { fontSize: rnType.label.size, color: tk.text.primary, fontWeight: '500' },
-    copyBtnTextDisabled: { fontSize: rnType.label.size, color: tk.text.medium },
+    copyBtnTextDisabled: { fontSize: rnType.label.size, color: tk.text.tertiary },
     inviteeHeader: {
       flexDirection: 'row',
       alignItems: 'center',

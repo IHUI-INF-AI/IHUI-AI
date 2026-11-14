@@ -127,7 +127,7 @@ export function createCardStyles(tk: AppThemeTokens) {
       overflow: 'hidden',
     },
     typeSystem: {
-      color: tk.success.deepText,
+      color: tk.success.DEFAULT,
       backgroundColor: tk.success.light,
     },
     dot: {
@@ -139,7 +139,7 @@ export function createCardStyles(tk: AppThemeTokens) {
     meta: {
       marginLeft: 'auto',
       fontSize: rnType.caption.size,
-      color: tk.text.medium,
+      color: tk.text.tertiary,
     },
     cardTitle: {
       marginTop: rnSpacing['xs-loose'],
@@ -167,7 +167,7 @@ export function createCardStyles(tk: AppThemeTokens) {
       color: tk.text.secondary,
     },
     statusDestructive: {
-      color: tk.danger.deepText,
+      color: tk.danger.DEFAULT,
     },
     action: {
       alignSelf: 'center',

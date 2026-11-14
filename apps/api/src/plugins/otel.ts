@@ -2,6 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
+import type { ClientRequest, IncomingMessage } from 'node:http'
 import type { FastifyInstance, FastifyPluginAsync, FastifyRequest } from 'fastify'
 import fp from 'fastify-plugin'
 import { trace, type Tracer, type Span, SpanStatusCode, type Attributes } from '@opentelemetry/api'
@@ -12,6 +13,7 @@ import { resourceFromAttributes } from '@opentelemetry/resources'
 import { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } from '@opentelemetry/semantic-conventions'
 import { generateTraceparent } from '../utils/trace-context.js'
 import { TRACE_ID_RESPONSE_HEADER, traceIdFromTraceparent } from '@ihui/types'
+import { requestUrlPath } from './trace.js'
 
 /**
  * OpenTelemetry 分布式追踪插件（R74 P2 增强）。
@@ -52,6 +54,67 @@ function shouldEnableOtel(): boolean {
   return Boolean(process.env.OTEL_EXPORTER_OTLP_ENDPOINT)
 }
 
+/**
+ * F-606(2026-11-13):入站请求里把凭据放在 query 的已知路径。
+ * 与 `trace.ts` 记载一致 —— `/api/ws/ai?token=<WS 票>`、`/v1/realtime?api_key=<key>`。
+ * 这两条路径的 URL 本身就是凭据载体,span 上任何 URL 属性都会把它带进 trace 后端。
+ */
+const CREDENTIAL_QUERY_PATHS = new Set(['/api/ws/ai', '/v1/realtime'])
+
+/**
+ * 入站请求是否整条跳过(不建 server span)。只匹配 path,query 不参与判断。
+ * 用于 `ignoreIncomingRequestHook` —— 掉这两条端点的 span,换凭据不落库。
+ */
+export function shouldIgnoreIncomingRequest(rawUrl: string | undefined): boolean {
+  return CREDENTIAL_QUERY_PATHS.has(requestUrlPath(rawUrl))
+}
+
+/**
+ * 自动插桩写进 span 的 URL 属性:统一剥掉 query,只留 path(便于排障)。
+ * query 里普遍可能带 token/api_key,所以不限于上面两条已知路径。
+ * `url.path`/`http.target` 保留 path,`url.query` 置空 —— 覆盖掉插桩原值。
+ */
+export function scrubbedUrlAttributes(rawUrl: string | undefined): Attributes {
+  const path = requestUrlPath(rawUrl) || '/'
+  return {
+    'url.path': path,
+    'http.target': path,
+    'url.query': '',
+  }
+}
+
+/** 取请求上的原始 URL(path+query):入站是 `url`,出站是 `path`。 */
+function rawRequestUrl(request: ClientRequest | IncomingMessage): string | undefined {
+  const incomingUrl = (request as IncomingMessage).url
+  if (typeof incomingUrl === 'string') return incomingUrl
+  const outgoingPath = (request as ClientRequest).path
+  return typeof outgoingPath === 'string' ? outgoingPath : undefined
+}
+
+/** 由请求自身重建绝对 URL(已剥 query);拿不到 host 时返回 undefined。 */
+function absoluteUrlWithoutQuery(
+  request: ClientRequest | IncomingMessage,
+  path: string,
+): string | undefined {
+  const client = request as ClientRequest
+  if (typeof client.protocol === 'string' && typeof client.host === 'string' && client.host) {
+    return `${client.protocol}//${client.host}${path}`
+  }
+  const incoming = request as IncomingMessage
+  const host = incoming.headers?.host
+  if (typeof host !== 'string' || host.length === 0) return undefined
+  const encrypted = (incoming.socket as { encrypted?: boolean } | undefined)?.encrypted === true
+  return `${encrypted ? 'https' : 'http'}://${host}${path}`
+}
+
+/** `requestHook`:在插桩写完 URL 属性后,把 query 从 span 上覆盖掉。 */
+function scrubHttpSpanUrl(span: Span, request: ClientRequest | IncomingMessage): void {
+  const path = requestUrlPath(rawRequestUrl(request)) || '/'
+  span.setAttributes(scrubbedUrlAttributes(path))
+  const absoluteUrl = absoluteUrlWithoutQuery(request, path)
+  if (absoluteUrl) span.setAttributes({ 'url.full': absoluteUrl })
+}
+
 /** 初始化并启动 OTel SDK（幂等）。供 index.ts 提前调用或由插件内部调用。 */
 export function initOtel(): NodeSDK | null {
   if (startedSdk) return startedSdk
@@ -79,6 +142,14 @@ export function initOtel(): NodeSDK | null {
     // 自动 instrument：http / fastify / ioredis / pg / dns / net / fs 等
     instrumentations: getNodeAutoInstrumentations({
       '@opentelemetry/instrumentation-fs': { enabled: false }, // fs 噪声过大
+      // F-606(2026-11-13):凭据走 query 的请求不能把完整 URL 导出到 trace 后端。
+      // - 两条已知凭据路径整条跳过 span(URL 本身就是凭据载体);
+      // - 其余请求一律剥 query,只留 path(http 插桩会把 url.query/url.full 原样带上)。
+      '@opentelemetry/instrumentation-http': {
+        ignoreIncomingRequestHook: (request: IncomingMessage) =>
+          shouldIgnoreIncomingRequest(request.url),
+        requestHook: scrubHttpSpanUrl,
+      },
     }),
   })
 

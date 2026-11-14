@@ -50,12 +50,7 @@ export function ChangePhoneScreen() {
   const [sendCodeShow, setSendCodeShow] = useState(true)
   const [tip, setTip] = useState('')
   const [submitting, setSubmitting] = useState(false)
-  // 请求在途标记:倒计时是成功后才置位的,没有它连点两次会真的发两条短信(重复计费+触发频控)
-  const [oldCodeSending, setOldCodeSending] = useState(false)
-  const [codeSending, setCodeSending] = useState(false)
-  // 派生值而非 useState 快照:user 由 auth-store 异步 hydrate,挂载时可能为 null,
-  // 快照成初值会让 oldPhone 永久为 '' ⇒ 旧手机号验证被整体绕过(安全边界)。
-  const oldPhone = user?.phone ?? ''
+  const [oldPhone] = useState(user?.phone ?? '')
   const [oldCode, setOldCode] = useState('')
   const [oldCodeMin, setOldCodeMin] = useState(0)
   const [toastVisible, setToastVisible] = useState(false)
@@ -63,8 +58,6 @@ export function ChangePhoneScreen() {
   const [toastMessage, setToastMessage] = useState('')
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const oldTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
-  const navTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const activeRef = useRef(true)
 
   const showToast = useCallback((type: FloatBoxType, message: string) => {
     setToastType(type)
@@ -77,12 +70,9 @@ export function ChangePhoneScreen() {
   }, [])
 
   useEffect(() => {
-    activeRef.current = true
     return () => {
-      activeRef.current = false
       if (timerRef.current) clearInterval(timerRef.current)
       if (oldTimerRef.current) clearInterval(oldTimerRef.current)
-      if (navTimerRef.current) clearTimeout(navTimerRef.current)
     }
   }, [])
 
@@ -99,14 +89,11 @@ export function ChangePhoneScreen() {
 
   const sendOldCode = async () => {
     if (oldCodeMin > 0) return
-    // 连点只发一次:用户点一下后按钮变忙,不会收到两条短信
-    if (oldCodeSending) return
     if (!oldPhone || oldPhone.length !== 11) {
       setTip(t('changePhone.phoneRequired'))
       showToast('warning', t('changePhone.phoneRequired'))
       return
     }
-    setOldCodeSending(true)
     try {
       const res = await fetchApi('/api/auth/sms/send', {
         method: 'POST',
@@ -120,8 +107,6 @@ export function ChangePhoneScreen() {
       const friendly = detail.trim() ? toUserFriendlyMessage(e) : ''
       setTip(friendly || t('changePhone.codeSendFailRetry'))
       showToast('error', friendly || t('changePhone.codeSendFail'))
-    } finally {
-      setOldCodeSending(false)
     }
   }
 
@@ -149,9 +134,6 @@ export function ChangePhoneScreen() {
       showToast('warning', t('changePhone.phoneInvalid'))
       return
     }
-    // 同上:新号码这条入口同样只放行一次,连点不会重复发码
-    if (codeSending) return
-    setCodeSending(true)
     setTip('')
     try {
       const res = await fetchApi('/api/auth/sms/send', {
@@ -166,8 +148,6 @@ export function ChangePhoneScreen() {
       const friendly = detail.trim() ? toUserFriendlyMessage(e) : ''
       setTip(friendly || t('changePhone.codeSendFailRetry'))
       showToast('error', friendly || t('changePhone.codeSendFail'))
-    } finally {
-      setCodeSending(false)
     }
   }
 
@@ -201,12 +181,8 @@ export function ChangePhoneScreen() {
       }
       setTip(t('changePhone.bindOk'))
       showToast('success', t('changePhone.bindOk'))
-      // 延迟回退交给 ref 管理并在卸载 cleanup 清除(clearTimeout(tm) 自清无效);
-      // 卸载或已切到别的屏(失焦)后不得再导航,否则会把用户从新屏弹回。
-      if (navTimerRef.current) clearTimeout(navTimerRef.current)
-      navTimerRef.current = setTimeout(() => {
-        navTimerRef.current = null
-        if (!activeRef.current || navigation.isFocused?.() === false) return
+      const tm = setTimeout(() => {
+        clearTimeout(tm)
         navigation.goBack()
       }, 1000)
     } catch (e: unknown) {
@@ -248,9 +224,6 @@ export function ChangePhoneScreen() {
           oldCodeMin={oldCodeMin}
           onOldCodeChange={setOldCode}
           onSendOldCode={sendOldCode}
-          // 发送中把按钮置灰:用户能立刻看出「已点了、正在发」,而不是继续点
-          codeSending={codeSending}
-          oldCodeSending={oldCodeSending}
           colorScheme={resolvedTheme}
         />
       </View>

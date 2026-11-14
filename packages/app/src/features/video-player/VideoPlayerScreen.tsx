@@ -8,7 +8,7 @@ import { Check } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { VideoPlayerProgress, VideoPlayerScreenProps } from '../../types'
 
-import { rnCssLight, rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { usePublishShareIntent } from '@ihui/shared/share'
 import { BackChevron } from '../../components/BackChevron'
 import { ScreenSkeleton } from '../../components/ScreenStates'
@@ -143,7 +143,7 @@ function createStyles(tk: AppThemeTokens) {
     headerTitle: {
       flex: 1,
       fontSize: rnType.title.size,
-      color: rnCssLight.white95,
+      color: tk.surface.light,
       marginHorizontal: rnSpacing.md,
     },
     headerSpacer: { width: 40 },
@@ -165,8 +165,8 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.card,
     },
     progressFill: { height: 8, borderRadius: rnRadius.xl, backgroundColor: tk.success.DEFAULT },
-    progressText: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.medium },
-    errorText: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.danger.deepText },
+    progressText: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.tertiary },
+    errorText: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.danger.DEFAULT },
     completeWrap: { marginTop: rnSpacing['2xl'] },
     completedBox: {
       padding: rnSpacing.lg,
@@ -181,7 +181,7 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    completeBtnDisabled: { backgroundColor: tk.text.secondary },
+    completeBtnDisabled: { backgroundColor: tk.text.tertiary },
     completeBtnText: { color: tk.surface.light, fontSize: rnType.title.size, fontWeight: '600' },
   })
 }

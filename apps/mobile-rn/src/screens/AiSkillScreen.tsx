@@ -247,7 +247,7 @@ const styles = StyleSheet.create({
     fontSize: rnType.body.size,
     fontFamily: 'monospace',
   },
-  importError: { fontSize: rnType.label.size, color: tokens.danger.deepText },
+  importError: { fontSize: rnType.label.size, color: tokens.danger.DEFAULT },
   importActions: {
     flexDirection: 'row',
     justifyContent: 'flex-end',

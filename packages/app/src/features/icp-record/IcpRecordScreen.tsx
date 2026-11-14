@@ -136,9 +136,9 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.light,
     },
     tableCard: { paddingVertical: rnSpacing.sm },
-    label: { fontSize: rnType.body.size, color: tk.text.medium, marginBottom: rnSpacing.sm },
+    label: { fontSize: rnType.body.size, color: tk.text.tertiary, marginBottom: rnSpacing.sm },
     value: { fontSize: rnType.subtitle.size, color: tk.text.primary, fontWeight: '500' },
-    hint: { fontSize: rnType.caption.size, color: tk.text.medium, marginTop: rnSpacing.sm },
+    hint: { fontSize: rnType.caption.size, color: tk.text.tertiary, marginTop: rnSpacing.sm },
     row: {
       flexDirection: 'row',
       alignItems: 'flex-start',
@@ -146,7 +146,7 @@ function createStyles(tk: AppThemeTokens) {
       gap: rnSpacing.md,
       paddingVertical: rnSpacing.md,
     },
-    rowLabel: { fontSize: rnType.body.size, color: tk.text.medium, flexShrink: 0 },
+    rowLabel: { fontSize: rnType.body.size, color: tk.text.tertiary, flexShrink: 0 },
     rowValue: {
       fontSize: rnType.body.size,
       color: tk.text.primary,
@@ -155,7 +155,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     rowLinkWrap: { flex: 1, alignItems: 'flex-end' },
     link: { color: tk.brand.cta, textDecorationLine: 'underline' },
-    rowLink: { color: tk.brandAccent.deep, textDecorationLine: 'underline' },
+    rowLink: { color: tk.brandAccent.DEFAULT, textDecorationLine: 'underline' },
     queryButton: {
       height: 50,
       borderRadius: rnRadius.sm,
@@ -170,7 +170,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     footer: {
       fontSize: rnType.caption.size,
-      color: tk.text.medium,
+      color: tk.text.tertiary,
       lineHeight: 20,
       paddingHorizontal: rnSpacing.xs,
       paddingVertical: rnSpacing.md,

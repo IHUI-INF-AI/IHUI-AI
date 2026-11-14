@@ -370,13 +370,13 @@ export function ConversationImportScreen({
 
             {truncated ? (
               <View style={styles.warningBox}>
-                <AlertTriangle size={13} color={tk.warning.amberText} />
+                <AlertTriangle size={13} color={tk.warning.DEFAULT} />
                 <Text style={styles.warningText}>{t('conversationImport.truncatedWarning')}</Text>
               </View>
             ) : null}
             {warnings.map((w, i) => (
               <View key={`${i}-${w}`} style={styles.warningBox}>
-                <AlertTriangle size={13} color={tk.warning.amberText} />
+                <AlertTriangle size={13} color={tk.warning.DEFAULT} />
                 <Text style={styles.warningText}>{w}</Text>
               </View>
             ))}
@@ -574,10 +574,10 @@ function createStyles(tk: AppThemeTokens) {
     hint: {
       fontSize: rnType.caption.size,
       lineHeight: rnType.label.lineHeight,
-      color: tk.text.medium,
+      color: tk.text.tertiary,
     },
     fileLine: { fontSize: rnType.label.size, color: tk.text.medium },
-    errorText: { fontSize: rnType.label.size, color: tk.danger.deepText },
+    errorText: { fontSize: rnType.label.size, color: tk.danger.DEFAULT },
     doneText: { fontSize: rnType.label.size, color: tk.success.deep },
     card: {
       padding: rnSpacing.md,
@@ -607,7 +607,7 @@ function createStyles(tk: AppThemeTokens) {
     sourceCardActive: { borderColor: tk.brandAccent.deep, backgroundColor: tk.surface.muted },
     sourceLabel: { fontSize: rnType.label.size, fontWeight: '600', color: tk.text.medium },
     sourceLabelActive: { color: tk.text.primary },
-    sourceHint: { fontSize: rnType.badge.size, lineHeight: 14, color: tk.text.medium },
+    sourceHint: { fontSize: rnType.badge.size, lineHeight: 14, color: tk.text.tertiary },
     pickButton: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -622,7 +622,7 @@ function createStyles(tk: AppThemeTokens) {
       fontWeight: '600',
       color: tk.brand.ctaForeground,
     },
-    linkText: { fontSize: rnType.label.size, color: tk.success.deepText },
+    linkText: { fontSize: rnType.label.size, color: tk.brand.dark },
     rowCard: {
       padding: rnSpacing['sm-loose'],
       gap: rnSpacing['2xs'],
@@ -633,7 +633,7 @@ function createStyles(tk: AppThemeTokens) {
     rowCardActive: { borderColor: tk.brandAccent.deep, backgroundColor: tk.surface.muted },
     rowTitleLine: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing['xs-loose'] },
     rowTitle: { flex: 1, fontSize: rnType.bodySm.size, fontWeight: '600', color: tk.text.primary },
-    rowMeta: { fontSize: rnType.caption.size, lineHeight: 15, color: tk.text.medium },
+    rowMeta: { fontSize: rnType.caption.size, lineHeight: 15, color: tk.text.tertiary },
     commitButton: {
       flexDirection: 'row',
       alignItems: 'center',

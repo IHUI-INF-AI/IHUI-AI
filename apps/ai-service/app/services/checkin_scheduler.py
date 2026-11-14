@@ -110,10 +110,7 @@ _WB_FAMILY_LOCKS: dict[tuple[int, str], asyncio.Lock] = {}
 
 def _wb_family_lock(account_id: int) -> asyncio.Lock:
     """取该账号当日的 run_family 互斥锁(顺手清理陈旧日期键,防字典泄漏)。"""
-    # strftime 产出与「先 date() 再 isoformat()」逐字等价的 'YYYY-MM-DD' 锁 key;
-    # 源码形状锁 test_callers_do_not_regress_to_isoformat_str 按子串扫描本文件,
-    # 在这里用 strftime 写法以免误伤防回潮锁 —— 本行产的只是内存锁 key,不进 asyncpg date 参数。
-    today = datetime.now(_CN_TZ).strftime("%Y-%m-%d")
+    today = datetime.now(_CN_TZ).date().isoformat()
     for stale in [key for key in _WB_FAMILY_LOCKS if key[1] != today]:
         del _WB_FAMILY_LOCKS[stale]
     return _WB_FAMILY_LOCKS.setdefault((account_id, today), asyncio.Lock())

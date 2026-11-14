@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { rnHue, rnRadius, rnRadiusFor, rnSpacing, rnType } from '@ihui/design-tokens'
+import { rnHue, rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { StyleSheet } from 'react-native'
 import type { AppThemeTokens } from '../../theme/tokens'
 
@@ -32,7 +32,7 @@ export function createFinanceAiStyles(tk: AppThemeTokens) {
       paddingTop: rnSpacing.md,
       paddingBottom: rnSpacing.xs,
     },
-    headerIcon: { color: tk.brandAccent.deep },
+    headerIcon: { color: tk.brandAccent.DEFAULT },
     headerTitle: {
       fontSize: rnType.title.size,
       fontWeight: '700',
@@ -54,7 +54,7 @@ export function createFinanceAiStyles(tk: AppThemeTokens) {
       gap: rnSpacing.sm,
     },
     cardHead: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.sm },
-    cardIcon: { color: tk.brandAccent.deep },
+    cardIcon: { color: tk.brandAccent.DEFAULT },
     cardTitle: {
       fontSize: rnType.subtitle.size,
       fontWeight: '700',
@@ -71,8 +71,7 @@ export function createFinanceAiStyles(tk: AppThemeTokens) {
     input: {
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: tk.border.medium,
-      // control 角色(输入框)= sm,与 web/小程序端输入框同档
-      borderRadius: rnRadiusFor.control,
+      borderRadius: rnRadius.md,
       paddingHorizontal: rnSpacing.sm,
       paddingVertical: rnSpacing.xs,
       fontSize: rnType.body.size,
@@ -115,7 +114,7 @@ export function createFinanceAiStyles(tk: AppThemeTokens) {
     note: {
       fontSize: rnType.label.size,
       lineHeight: rnType.label.lineHeight,
-      color: tk.text.medium,
+      color: tk.text.tertiary,
     },
 
     // 进度回显
@@ -127,7 +126,7 @@ export function createFinanceAiStyles(tk: AppThemeTokens) {
       width: 6,
       height: 6,
       borderRadius: 3,
-      backgroundColor: tk.text.secondary,
+      backgroundColor: tk.text.tertiary,
     },
     stepDotActive: { backgroundColor: FINANCE_AI_PALETTE.emerald.fg },
     stepText: {
@@ -138,7 +137,7 @@ export function createFinanceAiStyles(tk: AppThemeTokens) {
     },
     emptyText: {
       fontSize: rnType.body.size,
-      color: tk.text.medium,
+      color: tk.text.tertiary,
       paddingVertical: rnSpacing.sm,
     },
   })

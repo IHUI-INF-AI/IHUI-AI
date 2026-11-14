@@ -8,7 +8,7 @@ import { and, eq, desc, asc } from 'drizzle-orm'
 import { requireAdmin, requireAuth } from '../plugins/require-permission.js'
 import { authenticate } from '../plugins/auth.js'
 import { fetchNewsStatus } from '../services/news-status-proxy.js'
-import { toggleLike, findLikeCounts } from '../db/resource-likes-queries.js'
+import { likeResource, unlikeResource, findLikeCounts } from '../db/resource-likes-queries.js'
 import { aiWorldItems, zhsAiModelInfo } from '@ihui/database'
 import { db } from '../db/index.js'
 import { logger } from '../utils/logger.js'
@@ -423,7 +423,7 @@ export const newsRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ list: [] }))
   })
 
-  // POST /news/articles/:id/like - 点赞资讯(需登录,复用 resource_likes 表 toggleLike)
+  // POST /news/articles/:id/like - 点赞资讯(需登录;F-598:幂等点赞,冲突不删除)
   server.post('/news/articles/:id/like', async (request, reply) => {
     const parsed = idParamSchema.safeParse(request.params)
     if (!parsed.success) {
@@ -440,7 +440,30 @@ export const newsRoutes: FastifyPluginAsync = async (server) => {
     if (!article || !article.isPublished) {
       return reply.status(404).send(error(404, '资讯不存在'))
     }
-    const { liked } = await toggleLike('news_article', id, userId)
+    const { liked } = await likeResource('news_article', id, userId)
+    const countMap = await findLikeCounts('news_article', [id])
+    const likeCount = countMap.get(id) ?? 0
+    return reply.send(success({ liked, likeCount }))
+  })
+
+  // POST /news/articles/:id/unlike - 取消点赞(需登录;F-598:幂等取消,重复调用无副作用)
+  server.post('/news/articles/:id/unlike', async (request, reply) => {
+    const parsed = idParamSchema.safeParse(request.params)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    try {
+      await authenticate(request)
+    } catch {
+      return reply.status(401).send(error(401, '操作失败,请稍后重试'))
+    }
+    const id = parsed.data.id
+    const userId = request.userId!
+    const article = await findArticleById(id)
+    if (!article || !article.isPublished) {
+      return reply.status(404).send(error(404, '资讯不存在'))
+    }
+    const { liked } = await unlikeResource('news_article', id, userId)
     const countMap = await findLikeCounts('news_article', [id])
     const likeCount = countMap.get(id) ?? 0
     return reply.send(success({ liked, likeCount }))

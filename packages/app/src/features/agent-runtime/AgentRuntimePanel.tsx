@@ -15,14 +15,14 @@ export type { AgentRuntimePanelLabels, AgentRuntimePanelProps } from '@ihui/type
 
 import { getTokens } from '../../theme/tokens'
 
-/** 语义档映射(2026-11-13):本组件此前把 Tailwind 默认调色板三色抄成字面量,暗色下不跟主题,
- *  且与 web/小程序端同位置颜色各写一份(门 93 判红的同一型第二真相)。现一律取 design-tokens:
- *  - 白字 → `tk.brand.ctaForeground`(cta/危险底上的前景成对档);
- *  - 发送钮橙 → `tk.warning.DEFAULT`(--color-warning,亮 #f59e0b / 暗 #fbbf24,随主题翻转);
- *  - 审批条描边 → `tk.warning.amberLight`(--color-warning-amber-light,亮 #fef3c7 / 暗 #78350f)。
- *  注意:发送钮原先的 #f97316(orange-500)与 warning.DEFAULT(#f59e0b)相差一档亮度,
- *  这是"把 Tailwind 调色板当设计档"的残留 —— 本组件是运行时面板,不承载品牌绿,
- *  统一到语义 warning 档后与 web 端同位置观感一致(且暗色下不再是一块不跟主题的亮橙)。 */
+/** Tailwind 默认调色板的字面值(与端内既有 className 逐值同色,不做近似换色)。
+ *  red500(#ef4444) 已并入派生令牌 danger.DEFAULT(rnDarkTokens.danger.DEFAULT ← --color-danger),
+ *  改用 tk.danger.DEFAULT 跟随主题、消除第二真相(门 93 R8 回归修复)。 */
+const PALETTE = {
+  white: '#FFFFFF',
+  orange500: '#f97316',
+  amber200: '#fde68a',
+} as const
 
 /** `leading-relaxed` = 1.625(无单位)→ 行高 = 字号 × 1.625,与 Tailwind 同算法 */
 const LEADING_RELAXED = 1.625
@@ -107,7 +107,7 @@ export function AgentRuntimePanel({
           <Text
             className="ml-2 text-xs"
             style={{
-              color: tk.text.medium,
+              color: tk.text.tertiary,
               fontSize: rnType.label.size,
               lineHeight: rnType.label.lineHeight,
               marginLeft: rnSpacing.sm,
@@ -135,7 +135,7 @@ export function AgentRuntimePanel({
           <Text
             className="text-xs"
             style={{
-              color: tk.text.medium,
+              color: tk.text.tertiary,
               fontSize: rnType.label.size,
               lineHeight: rnType.label.lineHeight,
             }}
@@ -174,7 +174,7 @@ export function AgentRuntimePanel({
             <Text
               className="mb-1.5 text-xs font-medium"
               style={{
-                color: tk.text.medium,
+                color: tk.text.tertiary,
                 fontSize: rnType.label.size,
                 lineHeight: rnType.label.lineHeight,
                 fontWeight: '500',
@@ -202,12 +202,9 @@ export function AgentRuntimePanel({
             style={{
               backgroundColor: tk.warning.amberLight,
               marginBottom: rnSpacing.md,
-              // 审批条是 control 档(输入/操作条),不是 chip
-              borderRadius: rnRadiusFor.control,
+              borderRadius: rnRadius.md,
               borderWidth: 1,
-              // 描边原取 amberLight 与底色同值 ⇒ 边框在视觉上完全消失(暗色下更看不出)。
-              // 改用同族 amber 描边(--color-warning-amber),与 web `border-amber-200` 的意图一致。
-              borderColor: tk.warning.amber,
+              borderColor: PALETTE.amber200,
               padding: rnSpacing.md,
             }}
           >
@@ -244,7 +241,7 @@ export function AgentRuntimePanel({
             <Text
               className="mb-1.5 text-xs font-medium"
               style={{
-                color: tk.text.medium,
+                color: tk.text.tertiary,
                 fontSize: rnType.label.size,
                 lineHeight: rnType.label.lineHeight,
                 fontWeight: '500',
@@ -311,7 +308,7 @@ export function AgentRuntimePanel({
             <Text
               className="text-sm"
               style={{
-                color: tk.text.medium,
+                color: tk.text.tertiary,
                 fontSize: rnType.body.size,
                 lineHeight: rnType.body.lineHeight,
               }}
@@ -364,7 +361,7 @@ export function AgentRuntimePanel({
               <Text
                 className="text-xs text-white"
                 style={{
-                  color: tk.brand.ctaForeground,
+                  color: PALETTE.white,
                   fontSize: rnType.label.size,
                   lineHeight: rnType.label.lineHeight,
                 }}
@@ -383,7 +380,7 @@ export function AgentRuntimePanel({
                 alignItems: 'center',
                 justifyContent: 'center',
                 borderRadius: rnRadius.md,
-                backgroundColor: tk.warning.DEFAULT,
+                backgroundColor: PALETTE.orange500,
                 paddingHorizontal: rnSpacing.md,
                 opacity: input.trim() ? 1 : 0.4,
               }}
@@ -391,7 +388,7 @@ export function AgentRuntimePanel({
               <Text
                 className="text-xs text-white"
                 style={{
-                  color: tk.brand.ctaForeground,
+                  color: PALETTE.white,
                   fontSize: rnType.label.size,
                   lineHeight: rnType.label.lineHeight,
                 }}

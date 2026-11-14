@@ -119,7 +119,7 @@ export function MessageInput({
                   value={v.value}
                   onChangeText={(val: string) => onAgentVariableTextChange?.(i, val)}
                   placeholder={v.description}
-                  placeholderTextColor={tk.text.secondary}
+                  placeholderTextColor={tk.text.tertiary}
                 />
               ) : (
                 <TouchableOpacity
@@ -232,7 +232,7 @@ export function MessageInput({
             value={text}
             onChangeText={onTextChange}
             placeholder={placeholder || t('messageInput.placeholder')}
-            placeholderTextColor={tk.text.secondary}
+            placeholderTextColor={tk.text.tertiary}
             onFocus={onFocus}
             onBlur={onBlur}
             multiline
@@ -329,7 +329,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingVertical: rnSpacing.md,
     },
     fullscreenBackBtn: { flexDirection: 'row', alignItems: 'center' },
-    fullscreenHint: { fontSize: rnType.label.size, color: tk.text.medium },
+    fullscreenHint: { fontSize: rnType.label.size, color: tk.text.tertiary },
     agentVarsContainer: {
       paddingVertical: rnSpacing.sm,
       paddingHorizontal: rnSpacing.xs,
@@ -337,7 +337,7 @@ function createStyles(tk: AppThemeTokens) {
     agentVarItem: { paddingHorizontal: rnSpacing.sm, paddingVertical: rnSpacing.xs },
     agentVarLabel: {
       fontSize: rnType.label.size,
-      color: tk.text.medium,
+      color: tk.text.tertiary,
       marginBottom: rnSpacing.xs,
     },
     agentVarInput: {
@@ -362,7 +362,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.muted,
     },
     agentVarImage: { width: '100%', height: '100%' },
-    agentVarImageText: { fontSize: rnType.caption.size, color: tk.text.medium },
+    agentVarImageText: { fontSize: rnType.caption.size, color: tk.text.tertiary },
     filesWrap: { paddingVertical: rnSpacing.sm },
     filesRow: { gap: rnSpacing.sm, paddingHorizontal: rnSpacing.xs },
     fileItem: {
@@ -418,7 +418,7 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
     },
     fileRemoveText: {
-      color: tk.surface.onBrand,
+      color: tk.surface.light,
       fontSize: rnType.label.size,
       lineHeight: rnType.badge.lineHeight,
       fontWeight: '700',
@@ -459,7 +459,7 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    voiceBarHint: { fontSize: rnType.label.size, color: tk.text.medium },
+    voiceBarHint: { fontSize: rnType.label.size, color: tk.text.tertiary },
     voiceBar: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -482,9 +482,9 @@ function createStyles(tk: AppThemeTokens) {
       borderWidth: 1,
       borderColor: tk.border.light,
     },
-    sendBtnDisabled: { backgroundColor: tk.text.secondary },
+    sendBtnDisabled: { backgroundColor: tk.text.tertiary },
     sendBtnText: { color: tk.surface.light, fontSize: rnType.body.size, fontWeight: '600' },
-    errorText: { marginTop: rnSpacing.xs, fontSize: rnType.body.size, color: tk.danger.deepText },
+    errorText: { marginTop: rnSpacing.xs, fontSize: rnType.body.size, color: tk.danger.DEFAULT },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -88,7 +88,7 @@ export function SearchHistoryScreen({
         <Text style={styles.error}>{error}</Text>
       ) : rows.length === 0 ? (
         <View style={styles.centerBlock}>
-          <Search size={30} color={tk.text.secondary} />
+          <Search size={30} color={tk.text.tertiary} />
           <Text style={styles.muted}>{t('searchHistoryPage.empty')}</Text>
         </View>
       ) : (
@@ -107,7 +107,7 @@ export function SearchHistoryScreen({
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
                 {deletingId === item.id ? (
-                  <ActivityIndicator size="small" color={tk.text.secondary} />
+                  <ActivityIndicator size="small" color={tk.text.tertiary} />
                 ) : (
                   <Trash2 size={15} color={tk.text.secondary} />
                 )}
@@ -157,7 +157,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingVertical: rnSpacing['2xl'],
     },
     muted: { fontSize: rnType.label.size, color: tk.text.secondary },
-    error: { marginTop: rnSpacing.xl, fontSize: rnType.body.size, color: tk.danger.deepText },
+    error: { marginTop: rnSpacing.xl, fontSize: rnType.body.size, color: tk.danger.DEFAULT },
     listCard: {
       marginTop: rnSpacing.lg,
       borderRadius: rnRadius.lg,

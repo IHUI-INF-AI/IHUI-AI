@@ -545,7 +545,7 @@ const styles = StyleSheet.create({
   footerText: {
     textAlign: 'center',
     fontSize: rnType.label.size,
-    color: tokens.text.medium,
+    color: tokens.text.tertiary,
     paddingVertical: rpx(16),
   } as TextStyle,
   mask: {
@@ -595,7 +595,7 @@ const styles = StyleSheet.create({
   } as TextStyle,
   promptConfirmText: {
     fontSize: rnType.label.size,
-    color: tokens.gray.black,
+    color: tokens.text.primary,
   } as TextStyle,
 })
 

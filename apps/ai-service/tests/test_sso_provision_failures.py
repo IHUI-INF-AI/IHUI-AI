@@ -33,14 +33,12 @@ def _isolate_sso_db(tmp_path):
 
 
 def _callback_request(query: str) -> Request:
-    """AIS-043:GET 回调强制校验 state —— 即时铸造一枚合法一次性 state 拼进 query。"""
-    state = sso_router.new_state()
     return Request(
         {
             "type": "http",
             "method": "GET",
             "path": "/sso/callback",
-            "query_string": f"{query}&state={state}".encode(),
+            "query_string": query.encode(),
             "headers": [],
         }
     )

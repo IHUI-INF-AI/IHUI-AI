@@ -77,10 +77,6 @@ export const WHITELIST_ENTRIES = new Map(
       why: '数据文件:非 screen 组件,导出 ProfileScreen 4 Tab 内容类型定义',
       expires: '2027-06-30',
     },
-    'share-payload.ts': {
-      why: '纯数据函数:非 screen 组件(全文 30 行,零 React/JSX/StyleSheet 命中),只做「备注 + 语音转写 + 图片 URI ⇒ RN Share 的 {message,url}」这一层形状映射(XUI-045)。共享屏拿不到 expo 的 Share API,真迁移等于把端内平台调用抬进 packages/app,违背"平台特有留在端内"的分层;它的消费面是 ShareScreen.tsx 与 tests/share-payload.test.ts,不是导航里的屏。本门此前判红是射程越界(按文件名后缀取屏),不是迁移债。',
-      expires: '2027-06-30',
-    },
     'AigcPublishUpload.ts': {
       why: '上传任务工厂 + 进度采样:真进度必须走 expo-file-system 的 File/UploadType(文件头注自述共享屏只拿得到 uploading 布尔,只能画假进度)⇒ RN 独占平台 adapter,非 screen 组件',
       expires: '2027-06-30',
@@ -212,41 +208,6 @@ export function stemOf(fileName) {
 }
 
 /**
- * ⑤ **屏集合的取材口径**(单一实现,门体/自检/镜像测试都走它)。
- *
- * 立此判据的因由(2026-11-13 现读量到):`SCREENS_REL` 目录下不只有 UI 屏,
- * 还有 `tests/` 子目录里的 vitest **源码接线锁**(如 `live-host-teardown.test.ts`
- * 用 `readFileSync` 读屏源码断言接线)。旧口径 `filter((s) => /\.(tsx|ts)$/)` 只看后缀、
- * 不看路径,于是把测试夹具读成"未迁移的 screen",报出 2 条 V1 红 —— 判据射程越界,
- * 用"screen 必须 import @ihui/rn-app"这条尺子去量一个**断言屏源码字符串的测试**,
- * 量出来的红与"迁移完整性"这件事无关。同理 `.test.ts`/`.spec.ts` 与 `__` 前缀的
- * 私有模块也不是屏。
- *
- * 失效方向(§0.10):排除项只收"按集合定义永不是 UI 屏"的三类 —— 测试目录、测试后缀、
- * `__` 前缀私有件。任何**可能**是屏的文件一律留在射程内(宁可多判,不可漏判);
- * 想再加排除项必须先证明它在任何解释下都不可能是屏。
- *
- * @param {string} rel 仓库相对路径(必须带目录信息 —— 只看 basename 会丢掉 `tests/` 这一维)
- */
-export function isScreenRel(rel) {
-  const p = String(rel ?? '').replace(/\\/g, '/')
-  const base = p.split('/').pop() ?? ''
-  if (!/\.(tsx|ts)$/.test(base)) return false
-  // ① 测试目录:`screens/tests/**` 是源码接线锁的固定落点(不是屏)
-  if (/(^|\/)tests?\//.test(p)) return false
-  // ② 测试后缀:散落在任意层级的用例文件
-  if (/\.(test|spec)\.(tsx|ts)$/.test(base)) return false
-  // ③ `__` 前缀:私有辅助件(packages/app 那一侧早已按此口径跳过,本端对齐)
-  if (base.startsWith('__')) return false
-  return true
-}
-
-/** 从仓库相对路径清单里取屏集合(清单口径与正文取材面同轮,§0.4)。 */
-export function screenRels(rels = []) {
-  return rels.filter(isScreenRel)
-}
-
-/**
  * 共享层"有这个屏"的证据集:packages/app/src 下的文件同名 stem ∪ index.ts 的导出符号。
  * 单一实现,门体与镜像测试都走它(§22c)。
  */
@@ -320,19 +281,11 @@ export function verdict({
     // ④ 有 import ≠ 屏级共享
     if (sharedNames.has(stem)) continue
     if (fullAudit) {
-      soft.push({
-        name,
-        code: 'V2',
-        why: '有共享层 import,但 packages/app 无同名共享屏(存量,只报数)',
-      })
+      soft.push({ name, code: 'V2', why: '有共享层 import,但 packages/app 无同名共享屏(存量,只报数)' })
       continue
     }
     if (baseText === null) {
-      violations.push({
-        name,
-        code: 'V2',
-        why: '新增 screen 未走屏级共享(packages/app 无同名共享屏)',
-      })
+      violations.push({ name, code: 'V2', why: '新增 screen 未走屏级共享(packages/app 无同名共享屏)' })
       continue
     }
     // 棘轮锚点 = HEAD 面那一枚自己:基线也缺同名共享屏 ⇒ 存量,只报数(§0.2)
@@ -450,10 +403,7 @@ export function selfTest() {
         baseline: new Map(),
         sharedNames: shared,
         headScreenNames: head,
-        whitelist: new Map([
-          ['GhostScreen.tsx', { why: 'x', expires: '2027-06-30' }],
-          ['NoSuchScreen.tsx', { why: 'y', expires: '2027-06-30' }],
-        ]),
+        whitelist: new Map([['GhostScreen.tsx', { why: 'x', expires: '2027-06-30' }], ['NoSuchScreen.tsx', { why: 'y', expires: '2027-06-30' }]]),
         today: T,
       }),
       red: 0,
@@ -489,9 +439,7 @@ export function selfTest() {
     {
       n: '⑦ V2:共享层有同名 ⇒ 绿(真屏级共享)',
       v: verdict({
-        screens: [
-          { name: 'PaymentScreen.tsx', text: "import { PaymentScreen } from '@ihui/rn-app'" },
-        ],
+        screens: [{ name: 'PaymentScreen.tsx', text: "import { PaymentScreen } from '@ihui/rn-app'" }],
         baseline: new Map(),
         sharedNames: shared,
         headScreenNames: head,
@@ -558,31 +506,6 @@ export function selfTest() {
       today: T,
     }).violations.length === 1,
   )
-  // ⑩ 屏集合口径(2026-11-13):screens 目录下的测试夹具/私有件不得进射程。
-  //     这一维的因由是实测到的假红 —— `screens/tests/*.test.ts` 是读屏源码做断言的接线锁,
-  //     用"screen 必须 import @ihui/rn-app"去量它,量出来的红与迁移完整性无关。
-  const screenCases = [
-    ['apps/mobile-rn/src/screens/PaymentScreen.tsx', true],
-    ['apps/mobile-rn/src/screens/share-payload.ts', true], // 同目录非测试的 .ts 仍可能是屏级件,留在射程
-    ['apps/mobile-rn/src/screens/tests/live-host-teardown.test.ts', false],
-    ['apps/mobile-rn/src/screens/tests/request-race-and-double-submit.test.ts', false],
-    ['apps/mobile-rn/src/screens/Loose.test.tsx', false],
-    ['apps/mobile-rn/src/screens/Loose.spec.ts', false],
-    ['apps/mobile-rn/src/screens/__private.ts', false],
-    ['apps/mobile-rn/src/screens/README.md', false],
-  ]
-  for (const [rel, want] of screenCases) {
-    check(`⑩ isScreenRel(${rel}) = ${want}`, isScreenRel(rel) === want)
-  }
-  // ⑩b 反证:口径不得把真屏一起排掉(排除项只收三类,不许顺手放宽)
-  check(
-    '⑩b 反证:屏集合口径把整份 HEAD 面屏清单排空 = 尺子越界',
-    screenRels([
-      'apps/mobile-rn/src/screens/FooScreen.tsx',
-      'apps/mobile-rn/src/screens/bar.ts',
-      'apps/mobile-rn/src/screens/tests/x.test.ts',
-    ]).length === 2,
-  )
   if (fails) console.log(`❌ 自检 ${total - fails}/${total} 例(${fails} 例失败)`)
   else console.log(`✅ 自检 ${total}/${total} 例全过`)
   return fails ? 1 : 0
@@ -625,8 +548,7 @@ export function main(argv = process.argv.slice(2)) {
     return 2
   }
   const face = pick.face
-  const faceName =
-    face === 'staged' ? '索引 blob' : face === 'worktree' ? '工作树(人工逃生舱)' : 'HEAD blob'
+  const faceName = face === 'staged' ? '索引 blob' : face === 'worktree' ? '工作树(人工逃生舱)' : 'HEAD blob'
   const fullAudit = face === 'head'
 
   let faceScreens
@@ -646,20 +568,16 @@ export function main(argv = process.argv.slice(2)) {
     shared = sharedOf(face === 'staged' ? 'staged' : 'head')
     baselineShared = sharedOf('head')
   } catch (e) {
-    console.error(
-      `[check-rn-app-migration] ⏭ 未判定:取材层取不到 ${faceName} 面(${e?.message ?? e})`,
-    )
+    console.error(`[check-rn-app-migration] ⏭ 未判定:取材层取不到 ${faceName} 面(${e?.message ?? e})`)
     return 2
   }
 
-  const headNames = new Set(screenRels(headScreens.rels).map((p) => p.split('/').pop()))
-  const screens = screenRels(faceScreens.rels).map((p) => ({
-    name: p.split('/').pop(),
-    text: faceScreens.texts.get(p) ?? '',
-  }))
+  const headNames = new Set(headScreens.rels.map((p) => p.split('/').pop()))
+  const screens = faceScreens.rels
+    .map((p) => ({ name: p.split('/').pop(), text: faceScreens.texts.get(p) ?? '' }))
+    .filter((s) => /\.(tsx|ts)$/.test(s.name))
   const baseline = new Map()
-  for (const p of screenRels(headScreens.rels))
-    baseline.set(p.split('/').pop(), headScreens.texts.get(p) ?? '')
+  for (const p of headScreens.rels) baseline.set(p.split('/').pop(), headScreens.texts.get(p) ?? '')
   for (const s of screens) if (!baseline.has(s.name)) baseline.set(s.name, null)
 
   const v = verdict({
@@ -683,9 +601,7 @@ export function main(argv = process.argv.slice(2)) {
     if (v.soft.length > 12) console.log(`   … 其余 ${v.soft.length - 12} 枚略`)
   }
   if (v.expired.length > 0) {
-    console.log(
-      `${C.yellow}ℹ️ 已到期豁免 ${v.expired.length} 枚(不再生效,须按当刻现读重新登记):${C.reset}`,
-    )
+    console.log(`${C.yellow}ℹ️ 已到期豁免 ${v.expired.length} 枚(不再生效,须按当刻现读重新登记):${C.reset}`)
     for (const e of v.expired) console.log(`   · ${e.name} 到期 ${e.expires}`)
   }
 
@@ -700,8 +616,7 @@ export function main(argv = process.argv.slice(2)) {
   console.log(`${C.red}${C.bold}❌ mobile-rn 迁移守门:${scope} 判 ${bad} 条${C.reset}`)
   if (v.violations.length > 0) {
     console.log(`${C.red}未迁移/未屏级共享:${C.reset}`)
-    for (const x of v.violations)
-      console.log(`  ${C.red}- ${x.name} [${x.code}] ${x.why}${C.reset}`)
+    for (const x of v.violations) console.log(`  ${C.red}- ${x.name} [${x.code}] ${x.why}${C.reset}`)
   }
   if (v.rot.length > 0) {
     console.log(`${C.red}白名单腐烂(登记的文件在被审面 screens 清单里不存在):${C.reset}`)
@@ -709,12 +624,8 @@ export function main(argv = process.argv.slice(2)) {
   }
   console.log('')
   console.log(`${C.bold}修复(二选一):${C.reset}`)
-  console.log(
-    `  ${C.magenta}A.${C.reset} 迁移:packages/app/src/features/<feature>/<Name>Screen.tsx 建共享组件 → index.ts 导出 → RN screen 改 wrapper(参考 PaymentScreen.tsx)`,
-  )
-  console.log(
-    `  ${C.magenta}B.${C.reset} 确属 RN 独占:在门体 WHITELIST_ENTRIES 登记并附 why + expires(到期须重新登记)`,
-  )
+  console.log(`  ${C.magenta}A.${C.reset} 迁移:packages/app/src/features/<feature>/<Name>Screen.tsx 建共享组件 → index.ts 导出 → RN screen 改 wrapper(参考 PaymentScreen.tsx)`)
+  console.log(`  ${C.magenta}B.${C.reset} 确属 RN 独占:在门体 WHITELIST_ENTRIES 登记并附 why + expires(到期须重新登记)`)
   console.log('')
   return 1
 }
@@ -740,8 +651,6 @@ export const __test__ = {
   isExpired,
   hasRnAppImport,
   stemOf,
-  isScreenRel,
-  screenRels,
   sharedScreenNames,
   verdict,
   pickFace,

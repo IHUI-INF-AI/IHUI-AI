@@ -78,7 +78,7 @@ export function UserFansScreen() {
     }
   }, [])
 
-  const loadFans = useCallback(async (targetPage: number, append: boolean): Promise<boolean> => {
+  const loadFans = useCallback(async (targetPage: number, append: boolean) => {
     if (append) setLoadingMore(true)
     else setLoading(true)
     setFailed(false)
@@ -90,14 +90,12 @@ export function UserFansScreen() {
       const list = res.data?.list ?? []
       setRows((prev) => (append ? [...prev, ...list] : list))
       setTotal(res.data?.total ?? 0)
-      return true
     } catch {
       if (!append) {
         setRows([])
         setTotal(0)
       }
       setFailed(true)
-      return false
     } finally {
       setLoading(false)
       setLoadingMore(false)
@@ -132,9 +130,8 @@ export function UserFansScreen() {
   const loadMore = async () => {
     if (loadingMore || rows.length >= total) return
     const next = page + 1
-    // 只有真的取到这一页才推进页码:失败也 setPage 会让下次直接跳到 next+1,整页粉丝被跳过
-    const ok = await loadFans(next, true)
-    if (ok) setPage(next)
+    await loadFans(next, true)
+    setPage(next)
   }
 
   const viewRows: UserFansRowView[] = rows.map((fan) => ({

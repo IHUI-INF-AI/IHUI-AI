@@ -40,7 +40,6 @@ import type {
 import { Sag2Screen as SharedSag2Screen } from '@ihui/rn-app/features/sag2/Sag2Screen'
 import ThemeRoot from '@/components/ThemeRoot'
 import Taro from '@tarojs/taro'
-import { toFriendlyOr } from '@ihui/shared/utils'
 
 /** 归一:快速搜索命中(Sag2SearchItem)→ 共享屏结果行(与 RN 壳同构)。 */
 function toRowFromSearch(item: Sag2SearchItem): Sag2ResultRowView {
@@ -129,30 +128,26 @@ export default function Sag2() {
     try {
       setStatus(toStatusView(await sag2Status()))
     } catch (e) {
-      // 兜底文案取本屏词包,不取 String(e):后者会把 `Error: xxx` 原样贴屏。
-      setError(toFriendlyOr(e, nsT('sag2Lexical.error')))
+      setError(e instanceof Error ? e.message : String(e))
     }
-  }, [nsT])
+  }, [])
 
   useEffect(() => {
     void refresh()
   }, [refresh])
 
-  const run = useCallback(
-    async (action: () => Promise<void>) => {
-      setLoading(true)
-      setError('')
-      setNotice('')
-      try {
-        await action()
-      } catch (e) {
-        setError(toFriendlyOr(e, nsT('sag2Lexical.error')))
-      } finally {
-        setLoading(false)
-      }
-    },
-    [nsT],
-  )
+  const run = useCallback(async (action: () => Promise<void>) => {
+    setLoading(true)
+    setError('')
+    setNotice('')
+    try {
+      await action()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setLoading(false)
+    }
+  }, [])
 
   const runSearch = useCallback(
     () =>

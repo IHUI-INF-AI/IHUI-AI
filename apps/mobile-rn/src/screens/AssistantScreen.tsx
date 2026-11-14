@@ -21,7 +21,7 @@
  *
  * 入口:mobile-rn 原生导航;小程序 pkg-user/assistant 经 @rn-shells 壳承载镜像(非独占)。
  */
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useState } from 'react'
 import { KeyboardAvoidingView, Linking, Platform, StyleSheet, View } from 'react-native'
 import { appAlert } from '../components/BottomPops'
 import {
@@ -145,18 +145,6 @@ export default function AssistantScreen() {
   const [messages, setMessages] = useState<ChatRoomMessageItem[]>([])
   const [inputContent, setInputContent] = useState('')
   const [showAttach, setShowAttach] = useState(false)
-  const echoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const aliveRef = useRef(true)
-
-  // MOCK 回声定时器纳入生命周期:切屏/卸载后清掉 pending timer 并置 dead,
-  // 避免 setTimeout 落地时向已卸载的 state 写入 / 注入回声消息。
-  useEffect(() => {
-    aliveRef.current = true
-    return () => {
-      aliveRef.current = false
-      if (echoTimerRef.current) clearTimeout(echoTimerRef.current)
-    }
-  }, [])
 
   const userUuid = user?.id ?? ''
   const userAvatar = user?.avatar ?? ''
@@ -207,8 +195,7 @@ export default function AssistantScreen() {
     setMessages((prev) => [...prev, userMessage])
     setInputContent('')
     // MOCK 回执:将临时消息置为已确认(真实实现由服务端确认回包驱动)
-    echoTimerRef.current = setTimeout(() => {
-      if (!aliveRef.current) return
+    setTimeout(() => {
       setMessages((prev) =>
         prev.map((m) => (m.id === tempId ? { ...m, isTemp: false, read: true } : m)),
       )

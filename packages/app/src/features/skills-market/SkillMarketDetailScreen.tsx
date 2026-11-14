@@ -28,7 +28,7 @@ function RatingStars({ score, colorScheme }: { score: number; colorScheme: 'ligh
         <Star
           key={i}
           size={12}
-          color={i <= filled ? tk.warning.DEFAULT : tk.text.secondary}
+          color={i <= filled ? tk.warning.DEFAULT : tk.text.tertiary}
           fill={i <= filled ? tk.warning.DEFAULT : 'transparent'}
           strokeWidth={2}
         />
@@ -166,21 +166,21 @@ export function SkillMarketDetailScreen({
             </Text>
           </View>
           <View style={styles.metaRow}>
-            <Download size={13} color={tk.text.secondary} strokeWidth={2} />
+            <Download size={13} color={tk.text.tertiary} strokeWidth={2} />
             <Text style={styles.meta}>
               {t('skillsMarket.installs', { count: entry.installCount })}
             </Text>
           </View>
           {entry.author ? (
             <View style={styles.metaRow}>
-              <User size={13} color={tk.text.secondary} strokeWidth={2} />
+              <User size={13} color={tk.text.tertiary} strokeWidth={2} />
               <Text style={styles.metaLabel}>{t('skillsMarket.author')}</Text>
               <Text style={styles.metaValue}>{entry.author}</Text>
             </View>
           ) : null}
           {updated ? (
             <View style={styles.metaRow}>
-              <Calendar size={13} color={tk.text.secondary} strokeWidth={2} />
+              <Calendar size={13} color={tk.text.tertiary} strokeWidth={2} />
               <Text style={styles.metaLabel}>{t('skillsMarket.updatedAt')}</Text>
               <Text style={styles.metaValue}>{updated}</Text>
             </View>
@@ -315,7 +315,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     metaLabel: {
       fontSize: rnType.caption.size,
-      color: tk.text.medium,
+      color: tk.text.tertiary,
     },
     metaValue: {
       fontSize: rnType.label.size,

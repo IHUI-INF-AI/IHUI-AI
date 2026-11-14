@@ -1,12 +1,11 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { Image, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { ChevronDown, Maximize2, Scissors, Settings, Sparkles } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { rnGeometry, rnRadius, rnRadiusFor, rnSpacing, rnType } from '@ihui/design-tokens'
 import type { TFunction } from '@ihui/types'
-import { Tappable } from '@ihui/ui-native'
 
 export type ChatActionBarIconType = 'camera' | 'album' | 'file' | 'wxfile'
 
@@ -130,10 +129,7 @@ export function ChatActionBar({
       {/* 模型条:名称可点开列表,长按回传配置变更 */}
       {showModelBar ? (
         <View style={styles.modelBar}>
-          <Tappable
-            // 模型名是本条最常点的单一入口,按下必须立刻有回执(2026-11-13)。
-            // 按压态由 Tappable 内部持有(2026-11-14):函数形态 style 会被 cssInterop 吃掉。
-            // 注意:长按回传配置变更已在下方,按压态不覆盖 disabled(压缩中不可点)。
+          <Pressable
             style={styles.modelNameBtn}
             onPress={onShowModelList}
             onLongPress={
@@ -146,8 +142,8 @@ export function ChatActionBar({
             <Text style={styles.modelName} numberOfLines={1}>
               {modelLabel}
             </Text>
-            {onShowModelList ? <ChevronDown size={12} color={tk.text.secondary} /> : null}
-          </Tappable>
+            {onShowModelList ? <ChevronDown size={12} color={tk.text.tertiary} /> : null}
+          </Pressable>
           {onShowModelConfig ? (
             <TouchableOpacity
               style={styles.configBtn}
@@ -155,7 +151,7 @@ export function ChatActionBar({
               hitSlop={4}
               accessibilityLabel={t('bab.modelConfig')}
             >
-              <Settings size={14} color={tk.text.secondary} />
+              <Settings size={14} color={tk.text.tertiary} />
             </TouchableOpacity>
           ) : null}
         </View>
@@ -320,7 +316,7 @@ function createStyles(tk: AppThemeTokens) {
     modelName: {
       fontSize: rnType.label.size,
       lineHeight: rnType.label.lineHeight,
-      color: tk.text.medium,
+      color: tk.text.tertiary,
       flexShrink: 1,
     },
     configBtn: {
@@ -355,7 +351,7 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
     },
     imageRemoveText: {
-      color: tk.surface.onBrand,
+      color: tk.surface.light,
       fontSize: rnType.badge.size,
       lineHeight: rnType.badge.lineHeight,
       fontWeight: '700',

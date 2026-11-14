@@ -79,7 +79,7 @@ const TYPE_CONFIG: Record<PayButtonType, TypeConfig> = {
   },
   '2': {
     bg: (tk) => tk.danger.light,
-    text: (tk) => tk.danger.deepText,
+    text: (tk) => tk.danger.DEFAULT,
     icon: Clock,
     label: '限时免费',
     showPurchasePopup: false,

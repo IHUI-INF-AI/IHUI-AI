@@ -20,13 +20,12 @@
  */
 
 import type { FastifyRequest } from 'fastify'
-import { and, asc, desc, eq, lte, sql } from 'drizzle-orm'
+import { and, asc, eq, lte, sql } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { chatConversations, chatMessages, patrolRuns, patrolTasks } from '@ihui/database'
 import { parseNextRun, consumeAgentStream } from './agent-automation-scheduler.js'
 import type { AgentStreamParams } from './agent-automation-scheduler.js'
 import { turnOrdinalForRole } from './turn-ordinal.js'
-import { logger } from '../utils/logger.js'
 
 // =============================================================================
 // 巡检类型模板 + prompt 构建(纯函数,可单测)
@@ -140,91 +139,6 @@ export interface PatrolExecuteResult {
 
 /** ensureConversation 的会话元数据 */
 const ALERT_TITLE_PREFIX = '巡检告警'
-
-/** F-320 失败退避:基数 60s,第 n 次失败等 base * 2^n,封顶 1h。 */
-const PATROL_BACKOFF_BASE_MS = 60_000
-const PATROL_BACKOFF_CAP_MS = 60 * 60_000
-/** patrol_runs.summary 是 text 列,失败文案先截断,不撑爆行。 */
-const PATROL_ERROR_SUMMARY_LIMIT = 500
-
-/** 连续失败次数 failures(含本次)对应的退避时长;纯函数,可单测。 */
-export function patrolFailureBackoffMs(failures: number): number {
-  const n = Number.isFinite(failures) && failures > 0 ? Math.floor(failures) : 1
-  return Math.min(PATROL_BACKOFF_BASE_MS * Math.pow(2, n), PATROL_BACKOFF_CAP_MS)
-}
-
-/** 自近及远数 patrol_runs 中连续的 error 条数;读失败按 0 计(调用方再 +1)。 */
-async function consecutiveErrorRuns(taskId: string): Promise<number> {
-  try {
-    const rows = await db
-      .select({ status: patrolRuns.status })
-      .from(patrolRuns)
-      .where(eq(patrolRuns.taskId, taskId))
-      .orderBy(desc(patrolRuns.createdAt))
-      .limit(BATCH_LIMIT)
-    let count = 0
-    for (const row of rows) {
-      if (row.status !== 'error') break
-      count += 1
-    }
-    return count
-  } catch (err) {
-    logger.warn('[patrol] 读取连续失败次数失败', { patrolTaskId: taskId, err: String(err) })
-    return 0
-  }
-}
-
-/** 失败文案:Error 取 name+message,其余 String;统一截断。 */
-function patrolFailureSummary(err: unknown): string {
-  const detail = err instanceof Error ? `${err.name}: ${err.message}` : String(err)
-  return `巡检执行失败: ${detail}`.slice(0, PATROL_ERROR_SUMMARY_LIMIT)
-}
-
-/**
- * F-320:后台 tick 失败后必须留下可观测痕迹并退出本轮调度。
- * 写 error 巡检记录 + last_run_at/last_result,并按连续失败次数指数退避推进
- * next_run_at(封顶 1h),下一 tick 才不会立刻重放同一任务。
- * 每一步自身失败只 warn,不得抛穿打断 tick。
- */
-async function recordPatrolFailure(
-  task: typeof patrolTasks.$inferSelect,
-  now: Date,
-  err: unknown,
-): Promise<void> {
-  const summary = patrolFailureSummary(err)
-  const failures = (await consecutiveErrorRuns(task.id)) + 1
-  const backoffMs = patrolFailureBackoffMs(failures)
-  logger.warn('[patrol] 巡检执行失败', {
-    patrolTaskId: task.id,
-    failures,
-    backoffMs,
-    err: String(err),
-  })
-  try {
-    await db.insert(patrolRuns).values({ taskId: task.id, status: 'error', summary })
-  } catch (insertErr) {
-    logger.warn('[patrol] 失败巡检记录写入失败', {
-      patrolTaskId: task.id,
-      err: String(insertErr),
-    })
-  }
-  try {
-    await db
-      .update(patrolTasks)
-      .set({
-        lastRunAt: now,
-        lastResult: { finishedAt: now.toISOString(), status: 'error', summary },
-        nextRunAt: new Date(now.getTime() + backoffMs),
-        updatedAt: now,
-      })
-      .where(eq(patrolTasks.id, task.id))
-  } catch (updateErr) {
-    logger.warn('[patrol] 失败退避写回失败(下一 tick 仍会重放该任务)', {
-      patrolTaskId: task.id,
-      err: String(updateErr),
-    })
-  }
-}
 
 /**
  * 执行一条巡检任务:
@@ -352,8 +266,7 @@ export async function executePatrol(
 
     return { status, summary, conversationId }
   } catch (err) {
-    // F-320:后台调用 request 为 null,必须走模块级 logger 才留得下痕迹
-    await recordPatrolFailure(task, now, err)
+    request?.log.warn({ patrolTaskId: task.id, err: String(err) }, '[patrol] 巡检执行失败')
     return null
   }
 }
@@ -393,12 +306,12 @@ const BATCH_LIMIT = 10
 let running = false
 let timer: ReturnType<typeof setInterval> | null = null
 
-/** 执行一轮调度(now 仅供测试注入时钟;生产由 60s 定时器触发)。 */
-export async function runPatrolTick(now: Date = new Date()): Promise<void> {
+async function tick(): Promise<void> {
   // 并发保护:上一轮未结束直接跳过本轮
   if (running) return
   running = true
   try {
+    const now = new Date()
     const due = await db
       .select()
       .from(patrolTasks)
@@ -421,7 +334,7 @@ export async function runPatrolTick(now: Date = new Date()): Promise<void> {
 export function startPatrolScheduler(): void {
   if (timer) return
   timer = setInterval(() => {
-    void runPatrolTick()
+    void tick()
   }, TICK_INTERVAL_MS)
   // 定时器不阻塞进程退出
   if (typeof timer.unref === 'function') timer.unref()

@@ -61,7 +61,7 @@ export function NoteCreateScreen({
         value={title}
         onChangeText={onTitleChange}
         placeholder={t('noteCreate.titlePlaceholder')}
-        placeholderTextColor={tk.text.secondary}
+        placeholderTextColor={tk.text.tertiary}
       />
       <Text style={styles.label}>{t('noteCreate.contentLabel')}</Text>
       <TextField
@@ -70,7 +70,7 @@ export function NoteCreateScreen({
         value={content}
         onChangeText={onContentChange}
         placeholder={t('noteCreate.contentPlaceholder')}
-        placeholderTextColor={tk.text.secondary}
+        placeholderTextColor={tk.text.tertiary}
         multiline
         textAlignVertical="top"
       />
@@ -81,7 +81,7 @@ export function NoteCreateScreen({
         value={tags}
         onChangeText={onTagsChange}
         placeholder={t('noteCreate.tagsPlaceholder')}
-        placeholderTextColor={tk.text.secondary}
+        placeholderTextColor={tk.text.tertiary}
       />
       <TouchableOpacity style={styles.visibilityRow} onPress={onTogglePublic}>
         <Text style={styles.visibilityLabel}>{t('noteCreate.isPublic')}</Text>
@@ -120,7 +120,7 @@ function createStyles(tk: AppThemeTokens) {
       padding: rnSpacing.lg,
     },
     muted: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.secondary },
-    error: { fontSize: rnType.body.size, color: tk.danger.deepText, marginBottom: rnSpacing.sm },
+    error: { fontSize: rnType.body.size, color: tk.danger.DEFAULT, marginBottom: rnSpacing.sm },
     title: {
       marginTop: rnSpacing.sm,
       fontSize: rnType.heading.size,
@@ -160,7 +160,7 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
     },
     switchTrackOn: { backgroundColor: tk.success.DEFAULT },
-    switchTrackOff: { backgroundColor: tk.text.secondary },
+    switchTrackOff: { backgroundColor: tk.text.tertiary },
     switchThumb: { width: 20, height: 20, borderRadius: 20 / 2, backgroundColor: tk.surface.light },
     switchThumbOn: { alignSelf: 'flex-end' },
     switchThumbOff: { alignSelf: 'flex-start' },
@@ -171,7 +171,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.brand.cta,
       alignItems: 'center',
     },
-    submitDisabled: { backgroundColor: tk.text.secondary },
+    submitDisabled: { backgroundColor: tk.text.tertiary },
     submitText: { color: tk.surface.light, fontSize: rnType.title.size, fontWeight: '600' },
   })
 }

@@ -53,8 +53,8 @@ export function createAccountPoolStyles(tk: AppThemeTokens) {
       paddingVertical: rnSpacing['2xs'],
       overflow: 'hidden',
     },
-    badgeOn: { color: tk.success.deep, backgroundColor: tk.success.light },
-    badgePending: { color: tk.warning.amberText, backgroundColor: tk.warning.light },
+    badgeOn: { color: tk.success.DEFAULT, backgroundColor: tk.success.light },
+    badgePending: { color: tk.warning.DEFAULT, backgroundColor: tk.warning.light },
     summary: {
       fontSize: rnType.body.size,
       fontWeight: '600',

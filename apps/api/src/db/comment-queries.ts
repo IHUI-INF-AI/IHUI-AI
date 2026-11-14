@@ -42,8 +42,6 @@ export async function findComments(
   opts: ListCommentsOpts,
 ): Promise<{ list: CommentWithMeta[]; total: number }> {
   const baseConds: ReturnType<typeof eq>[] = []
-  // F-152:软删行不得进入列表,也不得计入分页总数(墓碑不出现在对外读面)
-  baseConds.push(eq(comments.isDeleted, false))
   const hasResource = Boolean(opts.resourceType && opts.resourceId)
   if (hasResource) {
     baseConds.push(
@@ -84,7 +82,7 @@ export async function findComments(
         createdAt: comments.createdAt,
         updatedAt: comments.updatedAt,
         repliesCount:
-          sql<number>`(SELECT COUNT(*)::int FROM comments c2 WHERE c2.parent_id = ${sql.raw('comments.id')} AND c2.is_deleted = false)`.as(
+          sql<number>`(SELECT COUNT(*)::int FROM comments c2 WHERE c2.parent_id = ${sql.raw('comments.id')})`.as(
             'replies_count',
           ),
         likeCount:
@@ -151,7 +149,7 @@ export async function findCommentById(
       createdAt: comments.createdAt,
       updatedAt: comments.updatedAt,
       repliesCount:
-        sql<number>`(SELECT COUNT(*)::int FROM comments c2 WHERE c2.parent_id = ${sql.raw('comments.id')} AND c2.is_deleted = false)`.as(
+        sql<number>`(SELECT COUNT(*)::int FROM comments c2 WHERE c2.parent_id = ${sql.raw('comments.id')})`.as(
           'replies_count',
         ),
       likeCount:
@@ -161,7 +159,7 @@ export async function findCommentById(
       likedByMe: likedByMeExpr.as('liked_by_me'),
     })
     .from(comments)
-    .where(and(eq(comments.id, id), eq(comments.isDeleted, false)))
+    .where(eq(comments.id, id))
     .limit(1)
   return rows[0]
 }
@@ -219,8 +217,7 @@ export async function findReplies(
   parentId: string,
   opts: { page: number; pageSize: number; currentUserId?: string },
 ): Promise<{ list: CommentWithMeta[]; total: number }> {
-  // F-152:父评论已软删时其回复同样不出现在对外读面
-  const where = and(eq(comments.parentId, parentId), eq(comments.isDeleted, false))
+  const where = eq(comments.parentId, parentId)
   const likedByMeExpr = opts.currentUserId
     ? sql<boolean>`EXISTS (SELECT 1 FROM comment_likes cl WHERE cl.comment_id = ${sql.raw('comments.id')} AND cl.user_id = ${opts.currentUserId})`
     : sql<boolean>`false`
@@ -239,7 +236,7 @@ export async function findReplies(
         createdAt: comments.createdAt,
         updatedAt: comments.updatedAt,
         repliesCount:
-          sql<number>`(SELECT COUNT(*)::int FROM comments c2 WHERE c2.parent_id = ${sql.raw('comments.id')} AND c2.is_deleted = false)`.as(
+          sql<number>`(SELECT COUNT(*)::int FROM comments c2 WHERE c2.parent_id = ${sql.raw('comments.id')})`.as(
             'replies_count',
           ),
         likeCount:

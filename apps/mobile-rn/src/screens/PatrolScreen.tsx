@@ -33,7 +33,6 @@ import { NavChrome } from '../components/NavChrome'
 import { TextField } from '@ihui/rn-app'
 import { useTheme } from '../context/ThemeContext'
 import { useI18n } from '../i18n'
-import { toFriendlyOr } from '@ihui/shared/utils'
 
 type Translate = (key: string, params?: Record<string, string | number>) => string
 
@@ -113,7 +112,7 @@ export function PatrolScreen() {
       const data = await listPatrolTasks({ limit: 100 })
       setItems(data.items ?? [])
     } catch (e) {
-      setError(toFriendlyOr(e, t('patrol.loadFailed')))
+      setError(e instanceof Error ? e.message : t('patrol.loadFailed'))
       setItems([])
     } finally {
       setLoading(false)
@@ -154,7 +153,7 @@ export function PatrolScreen() {
         setFormRrule(DEFAULT_RRULE)
         await load()
       } catch (e) {
-        appAlert(t('patrol.formFailed'), toFriendlyOr(e, t('patrol.formFailed')))
+        appAlert(t('patrol.formFailed'), e instanceof Error ? e.message : t('patrol.formFailed'))
       } finally {
         setSubmitting(false)
       }
@@ -177,7 +176,7 @@ export function PatrolScreen() {
         } catch (e) {
           appAlert(
             t('patrol.runNowFailed'),
-            toFriendlyOr(e, t('patrol.runNowFailed')),
+            e instanceof Error ? e.message : t('patrol.runNowFailed'),
           )
         } finally {
           setBusyId('')
@@ -199,7 +198,7 @@ export function PatrolScreen() {
         } catch (e) {
           appAlert(
             t('patrol.updateFailed'),
-            toFriendlyOr(e, t('patrol.updateFailed')),
+            e instanceof Error ? e.message : t('patrol.updateFailed'),
           )
         } finally {
           setBusyId('')
@@ -226,7 +225,7 @@ export function PatrolScreen() {
               } catch (e) {
                 appAlert(
                   t('patrol.deleteFailed'),
-                  toFriendlyOr(e, t('patrol.deleteFailed')),
+                  e instanceof Error ? e.message : t('patrol.deleteFailed'),
                 )
               } finally {
                 setBusyId('')
@@ -254,7 +253,7 @@ export function PatrolScreen() {
           const data = await listPatrolRuns(task.id, { limit: 20 })
           setRuns(data.items ?? [])
         } catch (e) {
-          appAlert(t('patrol.loadFailed'), toFriendlyOr(e, t('patrol.loadFailed')))
+          appAlert(t('patrol.loadFailed'), e instanceof Error ? e.message : t('patrol.loadFailed'))
         } finally {
           setRunsLoading(false)
         }

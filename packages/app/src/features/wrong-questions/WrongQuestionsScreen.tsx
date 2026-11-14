@@ -310,7 +310,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.card,
       gap: rnSpacing['2xs'],
     },
-    statLabel: { fontSize: rnType.caption.size, color: tk.text.medium },
+    statLabel: { fontSize: rnType.caption.size, color: tk.text.tertiary },
     statValue: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.text.primary },
     filterRow: { flexDirection: 'row', gap: rnSpacing.sm },
     chip: {
@@ -352,8 +352,8 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.md,
       backgroundColor: tk.surface.muted,
     },
-    badgeText: { fontSize: rnType.caption.size, color: tk.text.medium },
-    badgeTextOk: { color: tk.success.deepText },
+    badgeText: { fontSize: rnType.caption.size, color: tk.text.tertiary },
+    badgeTextOk: { color: tk.success.DEFAULT },
     meta: {
       fontSize: rnType.label.size,
       color: tk.text.secondary,

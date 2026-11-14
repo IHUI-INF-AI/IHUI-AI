@@ -93,7 +93,7 @@ export default function WrongQuestionsScreen() {
   )
 
   const loadList = useCallback(
-    async (targetPage: number, append = false): Promise<boolean> => {
+    async (targetPage: number, append = false) => {
       setLoading(true)
       setFailed(false)
       try {
@@ -109,14 +109,12 @@ export default function WrongQuestionsScreen() {
         setList((prev) => (append ? [...prev, ...rows] : rows))
         setTotal(listRes.data?.total ?? 0)
         setStats(statsRes.success ? (statsRes.data?.stats ?? null) : null)
-        return true
       } catch {
         if (!append) {
           setList([])
           setTotal(0)
         }
         setFailed(true)
-        return false
       } finally {
         setLoading(false)
       }
@@ -135,9 +133,8 @@ export default function WrongQuestionsScreen() {
 
   const loadMore = async () => {
     const next = page + 1
-    // 取不到这一页就不能推进页码:否则下次从 next+1 取,被跳过的整页错题再也不会出现
-    const ok = await loadList(next, true)
-    if (ok) setPage(next)
+    await loadList(next, true)
+    setPage(next)
   }
 
   const onResolve = async (wq: WrongQuestionItem) => {

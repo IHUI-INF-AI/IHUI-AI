@@ -113,18 +113,6 @@ vi.mock('@/utils/crash-report', () => ({
   // app.tsx 启动链新增失败兜底:初始化链抛错时调 reportCrash 留痕(不得整包白屏零上报)。
   reportCrash: vi.fn(),
 }))
-// app.tsx 经 AppUpdateRoot → @tarojs/components(View/Text) 引入真实组件包,而
-// @tarojs/components 的传递依赖 hammerjs 在模块加载期就访问 window(node 环境无 window)。
-// 这一渲染链只用来点亮 authReady,View/Text 不产出该位 ⇒ 按本文件「旁支整模块替身」
-// 既有模式给零依赖桩,避免 hammerjs 的 DOM 依赖把整份 suite 卡在收集期。
-vi.mock('@tarojs/components', () => ({
-  View: () => null,
-  Text: () => null,
-  Image: () => null,
-  Button: () => null,
-  Input: () => null,
-  ScrollView: () => null,
-}))
 vi.mock('@/lib/theme', () => ({ initTheme: vi.fn() }))
 vi.mock('@/lib/device-fingerprint', () => ({ taroDeviceFingerprintCollector: vi.fn() }))
 vi.mock('@/hooks/use-ui-control-bridge', () => ({ useUiControlBridge: vi.fn() }))

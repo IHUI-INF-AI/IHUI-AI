@@ -304,7 +304,7 @@ export function GroupsScreen({
       ) : null}
 
       {loading ? (
-        <ActivityIndicator style={styles.stateBox} color={tk.text.secondary} />
+        <ActivityIndicator style={styles.stateBox} color={tk.text.tertiary} />
       ) : error ? (
         <View style={styles.stateBox}>
           <Text style={styles.errorText}>{error}</Text>
@@ -316,7 +316,7 @@ export function GroupsScreen({
         </View>
       ) : visible.length === 0 ? (
         <View style={styles.stateBox}>
-          <Users size={28} color={tk.text.secondary} />
+          <Users size={28} color={tk.text.tertiary} />
           <Text style={styles.muted}>{t('eduAi.groups.empty')}</Text>
         </View>
       ) : (
@@ -358,11 +358,11 @@ export function GroupsScreen({
                   </View>
 
                   <View style={styles.metaRow}>
-                    <Users size={14} color={tk.text.secondary} />
+                    <Users size={14} color={tk.text.tertiary} />
                     <Text style={styles.meta}>
                       {t('eduAi.groups.members')}: {group.memberCount}
                     </Text>
-                    <UsersRound size={14} color={tk.text.secondary} />
+                    <UsersRound size={14} color={tk.text.tertiary} />
                     <Text style={styles.meta}>
                       {t('eduAi.groups.createdAt')}: {formatDate(group.createdAt)}
                     </Text>
@@ -371,7 +371,7 @@ export function GroupsScreen({
                   {expanded ? (
                     <View style={styles.panel}>
                       <View style={styles.panelMetaRow}>
-                        <Shield size={14} color={tk.text.secondary} />
+                        <Shield size={14} color={tk.text.tertiary} />
                         <Text style={styles.meta} numberOfLines={1}>
                           {t('eduAi.groups.owner')}: {group.ownerId ?? '-'}
                         </Text>
@@ -433,7 +433,7 @@ export function GroupsScreen({
                       disabled={busy}
                       activeOpacity={0.7}
                     >
-                      <Trash2 size={14} color={tk.danger.deepText} />
+                      <Trash2 size={14} color={tk.danger.DEFAULT} />
                       <Text style={styles.dangerText}>{t('eduAi.groups.delete')}</Text>
                     </TouchableOpacity>
                   </View>
@@ -459,7 +459,7 @@ function createStyles(tk: AppThemeTokens) {
       gap: rnSpacing.sm,
     },
     cardTitle: { fontSize: rnType.strong.size, fontWeight: '600', color: tk.text.primary },
-    cardSubtitle: { fontSize: rnType.label.size, color: tk.text.medium },
+    cardSubtitle: { fontSize: rnType.label.size, color: tk.text.tertiary },
     input: {
       height: 40,
       paddingHorizontal: rnSpacing.md,
@@ -500,7 +500,7 @@ function createStyles(tk: AppThemeTokens) {
       gap: rnSpacing.sm,
       alignItems: 'center',
     },
-    dangerText: { fontSize: rnType.label.size, fontWeight: '600', color: tk.danger.deepText },
+    dangerText: { fontSize: rnType.label.size, fontWeight: '600', color: tk.danger.DEFAULT },
     filterRow: { flexDirection: 'row', gap: rnSpacing.sm },
     chip: {
       paddingHorizontal: rnSpacing.md,
@@ -542,7 +542,7 @@ function createStyles(tk: AppThemeTokens) {
     badgeBrand: { backgroundColor: tk.brandAccent.light, color: tk.brandAccent.foreground },
     itemDesc: { fontSize: rnType.label.size, color: tk.text.secondary, lineHeight: 17 },
     metaRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: rnSpacing.xs },
-    meta: { fontSize: rnType.caption.size, color: tk.text.medium },
+    meta: { fontSize: rnType.caption.size, color: tk.text.tertiary },
     panel: {
       gap: rnSpacing.sm,
       padding: rnSpacing.md,
@@ -555,7 +555,7 @@ function createStyles(tk: AppThemeTokens) {
       gap: rnSpacing.xs,
       justifyContent: 'space-between',
     },
-    hint: { fontSize: rnType.caption.size, color: tk.text.medium },
+    hint: { fontSize: rnType.caption.size, color: tk.text.tertiary },
     memberRow: { flexDirection: 'row', gap: rnSpacing.sm, alignItems: 'center' },
     memberInput: {
       flex: 1,
@@ -586,7 +586,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingVertical: rnSpacing['5xl'],
     },
     muted: { fontSize: rnType.bodySm.size, color: tk.text.secondary, lineHeight: 19 },
-    errorText: { fontSize: rnType.bodySm.size, color: tk.danger.deepText },
+    errorText: { fontSize: rnType.bodySm.size, color: tk.danger.DEFAULT },
     retry: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tk.text.primary },
   })
 }

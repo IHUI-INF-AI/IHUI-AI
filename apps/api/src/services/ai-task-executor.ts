@@ -37,6 +37,48 @@ export interface TaskStep {
   params?: Record<string, unknown>
   /** 上一步输出注入本步参数的目标键(缺省不注入) */
   injectFromPrev?: { into: string }
+  /**
+   * 步骤级重试(2026-11-13 加)。**缺省不重试** —— 保持"失败即停"的既有契约,
+   * 只有模板显式声明才启用,避免给非幂等写接口带来重复副作用。
+   *
+   * 启用前必须确认该步骤**幂等安全**:
+   *   · GET 天然安全;
+   *   · 落库走 upsert / 幂等键的 POST 安全;
+   *   · 纯 INSERT 的写接口**不要**开(重试会插两遍)。
+   */
+  /**
+   * 失败补偿声明(2026-11-13 加)。**缺省不补偿** —— 保持"失败即停、已写就写了"
+   * 的既有契约,只有显式声明的步骤才会在后续步骤失败时被倒序撤回。
+   *
+   * 语义:步骤 i 成功写入后,若步骤 j(>i)失败,则对 i 执行这段补偿调用,
+   * 把"本次运行造成的写入"撤回。补偿调用同样走 caller,因此它只能做
+   * **端点能做的事**(删/改/反向操作),不能直接写库。
+   *
+   * 设计取舍:不做跨表事务。原因是这些步骤跨 HTTP 边界与外部分系统,
+   * 数据库事务管不到;能管的是"每条写都有对应的撤回动作"(Saga 补偿)。
+   */
+  compensate?: {
+    method: string
+    path: string
+    /** 补偿参数模板(通常与正向步骤的 params 不同,例如按 id 删除) */
+    params?: Record<string, unknown>
+    /**
+     * 补偿参数从正向步骤的输出里取值的映射:
+     * { 目标键: 输出里的路径 }。路径形如 `data.periodId`。
+     */
+    fromOutput?: Record<string, string>
+  }
+  retry?: {
+    /** 最多尝试次数(含首次);1 = 不重试。上限 MAX_STEP_ATTEMPTS */
+    maxAttempts: number
+    /** 退避基数毫秒(指数退避:base, 2*base, 4*base…);缺省 300 */
+    backoffMs?: number
+    /**
+     * 只对这些 HTTP 状态码重试(缺省 [429, 500, 502, 503, 504])。
+     * 4xx(除 429)属"请求本身有问题",重试无意义。
+     */
+    retryOnStatus?: number[]
+  }
 }
 
 /** 单步执行留痕 */
@@ -49,13 +91,29 @@ export interface TaskStepResult {
   output?: unknown
   /** 失败时错误消息(slice 0,1000) */
   error?: string
+  /** 实际尝试次数(1 = 一次成功或未配置重试);2026-11-13 加 */
+  attempts?: number
   startedAt: string
   finishedAt: string
 }
 
 /** 执行结果:调用方(路由/调度)按 ok 区分成败 */
+/** 单条补偿的留痕 */
+export interface CompensationOutcome {
+  /** 被补偿的正向步骤序号 */
+  stepIndex: number
+  method: string
+  path: string
+  ok: boolean
+  error?: string
+  startedAt: string
+  finishedAt: string
+}
+
 export interface AiTaskRunOutcome {
   ok: boolean
+  /** 失败后执行的补偿留痕(空数组 = 没声明补偿或全部步骤成功) */
+  compensations?: CompensationOutcome[]
   /** skipped=true 表示幂等命中,本轮未执行 */
   skipped: boolean
   run: AiTaskRun | null
@@ -66,6 +124,161 @@ let manualSeq = 0
 
 /** 步骤数上限(防呆:模板里塞几千步会把单轮拖成挂死,创建时即拦) */
 export const MAX_STEPS = 50
+
+/** 单步最大尝试次数上限(防模板写出无限重试) */
+export const MAX_STEP_ATTEMPTS = 5
+
+/** 默认重试的 HTTP 状态码:限流 + 服务端瞬时不可用 */
+const DEFAULT_RETRY_STATUS = [429, 500, 502, 503, 504]
+
+/**
+ * 从 caller 抛出的错误里嗅探 HTTP 状态码。
+ *
+ * caller 由调用方注入,形态各异:内置回环 caller 把状态码写进 message
+ * (`endpoint X failed: 429`),有的实现会挂 `status`/`statusCode` 属性。
+ * 三者都认,取不到返回 null(⇒ 视为不可重试,失效方向是"少重试一次")。
+ */
+function sniffStatus(err: unknown): number | null {
+  if (!err || typeof err !== 'object') {
+    // 纯字符串错误:尝试从文本里捞
+    const m = /\b(4\d{2}|5\d{2})\b/.exec(String(err ?? ''))
+    return m ? Number(m[1]) : null
+  }
+  const o = err as { status?: unknown; statusCode?: unknown; message?: unknown }
+  for (const v of [o.status, o.statusCode]) {
+    if (typeof v === 'number' && v >= 400 && v < 600) return v
+  }
+  const m = /\b(4\d{2}|5\d{2})\b/.exec(String(o.message ?? ''))
+  return m ? Number(m[1]) : null
+}
+
+/**
+ * 从步骤输出里按点分路径取值(如 `data.periodId`)。
+ * 取不到返回 undefined —— 由调用方决定是否跳过该条补偿。
+ */
+function pickByPath(source: unknown, path: string): unknown {
+  let cur: unknown = source
+  for (const seg of path.split('.')) {
+    if (cur === null || cur === undefined || typeof cur !== 'object') return undefined
+    cur = (cur as Record<string, unknown>)[seg]
+  }
+  return cur
+}
+
+/**
+ * 倒序执行已成功步骤的补偿(Saga)。
+ *
+ * 只在"后续步骤失败"时调用。逐条执行、单条失败不阻断其余补偿
+ * (失效方向是"尽量多撤回",而不是"一条失败就全放弃"),结果汇总返回。
+ */
+async function runCompensations(
+  caller: TaskStepCaller,
+  steps: TaskStep[],
+  succeeded: readonly TaskStepResult[],
+): Promise<CompensationOutcome[]> {
+  const out: CompensationOutcome[] = []
+  // 倒序:最后写入的最先撤回
+  for (let k = succeeded.length - 1; k >= 0; k -= 1) {
+    const res = succeeded[k]
+    if (!res) continue
+    const step = steps[res.stepIndex]
+    const comp = step?.compensate
+    if (!comp) continue
+
+    // 参数:模板 + 从正向输出取值
+    const params: Record<string, unknown> = { ...(comp.params ?? {}) }
+    for (const [into, fromPath] of Object.entries(comp.fromOutput ?? {})) {
+      const v = pickByPath(res.output, fromPath)
+      if (v !== undefined) params[into] = v
+    }
+
+    const startedAt = new Date()
+    try {
+      await caller(comp.method, comp.path, params)
+      out.push({
+        stepIndex: res.stepIndex,
+        method: comp.method,
+        path: comp.path,
+        ok: true,
+        startedAt: startedAt.toISOString(),
+        finishedAt: new Date().toISOString(),
+      })
+    } catch (e) {
+      const msg = String((e as { message?: string })?.message ?? e).slice(0, 1000)
+      out.push({
+        stepIndex: res.stepIndex,
+        method: comp.method,
+        path: comp.path,
+        ok: false,
+        error: msg,
+        startedAt: startedAt.toISOString(),
+        finishedAt: new Date().toISOString(),
+      })
+      logger.error('ai task compensation failed', {
+        stepIndex: res.stepIndex,
+        path: comp.path,
+        err: msg,
+      })
+    }
+  }
+  return out
+}
+
+/** 指数退避等待 */
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+/**
+ * 带重试地执行一步。
+ *
+ * 返回 `{ output, attempts }` 或抛出最后一次错误(附 attempts 供留痕)。
+ * 不重试时行为与直接 `await caller(...)` 逐字相同 —— 既有契约不受影响。
+ */
+async function callWithRetry(
+  caller: TaskStepCaller,
+  step: TaskStep,
+  params: Record<string, unknown>,
+): Promise<{ output: unknown; attempts: number }> {
+  const cfg = step.retry
+  if (!cfg || cfg.maxAttempts <= 1) {
+    const output = await caller(step.method, step.path, params)
+    return { output, attempts: 1 }
+  }
+
+  const maxAttempts = Math.min(Math.max(1, Math.floor(cfg.maxAttempts)), MAX_STEP_ATTEMPTS)
+  const backoffMs = Math.max(0, cfg.backoffMs ?? 300)
+  const retryOn = cfg.retryOnStatus ?? DEFAULT_RETRY_STATUS
+
+  let lastErr: unknown = null
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      const output = await caller(step.method, step.path, params)
+      return { output, attempts: attempt }
+    } catch (e) {
+      lastErr = e
+      const status = sniffStatus(e)
+      const retryable = status !== null && retryOn.includes(status)
+      const hasNext = attempt < maxAttempts
+      if (!retryable || !hasNext) {
+        // 把尝试次数挂到错误上,便于留痕区分"一次就挂"与"重试后仍挂"
+        if (lastErr && typeof lastErr === 'object') {
+          ;(lastErr as { attempts?: number }).attempts = attempt
+        }
+        throw lastErr
+      }
+      const wait = backoffMs * 2 ** (attempt - 1)
+      logger.warn('ai task step retrying', {
+        path: step.path,
+        attempt,
+        status,
+        waitMs: wait,
+      })
+      await sleep(wait)
+    }
+  }
+  throw lastErr
+}
 
 /**
  * 落一个模板。name 唯一;steps 非空且 ≤ MAX_STEPS;triggerType=cron 时 cron 必填。
@@ -169,6 +382,7 @@ export async function runAiTask(
   let prevOutput: unknown = null
   let failedIndex: number | null = null
   let errorMessage: string | null = null
+  let compensations: CompensationOutcome[] = []
 
   try {
     for (let i = replayFrom; i < steps.length; i += 1) {
@@ -181,7 +395,7 @@ export async function runAiTask(
       }
       const startedAt = new Date()
       try {
-        const output = await caller(step.method, step.path, params)
+        const { output, attempts } = await callWithRetry(caller, step, params)
         const finishedAt = new Date()
         stepResults.push({
           stepIndex: i,
@@ -189,6 +403,7 @@ export async function runAiTask(
           path: step.path,
           ok: true,
           output,
+          attempts,
           startedAt: startedAt.toISOString(),
           finishedAt: finishedAt.toISOString(),
         })
@@ -202,12 +417,20 @@ export async function runAiTask(
           path: step.path,
           ok: false,
           error: msg,
+          attempts: (e as { attempts?: number })?.attempts ?? 1,
           startedAt: startedAt.toISOString(),
           finishedAt: finishedAt.toISOString(),
         })
         failedIndex = i
         errorMessage = msg
-        break // 失败即停,后续步骤本轮不执行(留待重放)
+        // 失败即停,后续步骤本轮不执行(留待重放);
+        // 但若前面有步骤声明了 compensate,先倒序把它们撤回 —— 否则会留下
+        // "日结月结算了、工资没算"的半成品状态(HR 看到月结有数、工资单是空的)。
+        const succeeded = stepResults.filter((r) => r.ok)
+        if (succeeded.some((r) => steps[r.stepIndex]?.compensate)) {
+          compensations = await runCompensations(caller, steps, succeeded)
+        }
+        break
       }
     }
 
@@ -233,13 +456,23 @@ export async function runAiTask(
       return { ok: true, skipped: false, run: updated ?? null }
     }
 
+    // 补偿摘要并进 errorMessage:不新增列、不动迁移,但让回查者一眼看到
+    // "失败后有没有撤回干净"。有补偿失败时明确点名,便于人工接手。
+    const compFailed = compensations.filter((c) => !c.ok)
+    const compNote =
+      compensations.length === 0
+        ? ''
+        : ` | 已补偿 ${compensations.length - compFailed.length}/${compensations.length} 步` +
+          (compFailed.length > 0
+            ? `,补偿失败 ${compFailed.length} 步(${compFailed.map((c) => c.path).join(',')})需人工核对`
+            : '')
     const [updated] = await db
       .update(aiTaskRun)
       .set({
         status: 'failed',
         stepResults,
         failedStepIndex: failedIndex,
-        errorMessage,
+        errorMessage: `${errorMessage ?? ''}${compNote}`.slice(0, 1000),
         finishedAt,
       })
       .where(eq(aiTaskRun.id, runId))
@@ -250,7 +483,7 @@ export async function runAiTask(
       failedStepIndex: failedIndex,
       err: errorMessage,
     })
-    return { ok: false, skipped: false, run: updated ?? null }
+    return { ok: false, skipped: false, run: updated ?? null, compensations }
   } catch (e) {
     // caller 之外的意外(留痕失败等):也走 failed 回写,保住「留痕必达成败」的契约
     const msg = String((e as { message?: string })?.message ?? e).slice(0, 1000)

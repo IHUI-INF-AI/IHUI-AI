@@ -36,7 +36,6 @@ import {
   attendanceStatusLabel,
   attendanceStatusTone,
 } from './EduAttendanceScreen'
-import { toFriendlyOr } from '@ihui/shared/utils'
 
 interface MyAttendanceRecord {
   id: string
@@ -85,7 +84,7 @@ function EduMyAttendanceScreen() {
       if (!res.success) throw new Error(res.error || 'load failed')
       setRecords(res.data?.list ?? [])
     } catch (e) {
-      setError(toFriendlyOr(e, t('common.loadFailed')))
+      setError(e instanceof Error ? e.message : 'load failed')
     } finally {
       setLoading(false)
     }

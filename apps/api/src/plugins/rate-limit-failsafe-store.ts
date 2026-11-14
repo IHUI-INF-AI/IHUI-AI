@@ -15,8 +15,6 @@ import type { Redis } from 'ioredis'
  * 实现要点：
  *  - 正常路径走 Redis（与 @fastify/rate-limit 内置 RedisStore 等价的原子 Lua）；
  *  - incr/read 抛错或超时，则转本地 LRU 兜底（永不把请求判为"未被限流"地放行失败路径）；
- *    兜底表是**进程级全局共享容量**（所有路由合计，LRU 淘汰；容量满且无可淘汰的过期条目时
- *    对新 key fail-closed，见 F-227），不同路由靠键前缀隔离计数、不再每路由各持一份 Map；
  *  - child() 沿用同一 Redis 连接，并按路由 method+url 拼出独立键前缀（对齐内置行为）。
  *
  * 注意：本 store 的构造函数仅接收 @fastify/rate-limit 传入的 globalParams（不含 redis 客户端），
@@ -84,131 +82,59 @@ export interface FailSafeRateLimitStoreCtor {
   new (globalParams?: StoreCtorOptions, ns?: string): FailSafeRateLimitStore
 }
 
-/**
- * 进程内兜底表总容量上限：**进程级全局共享**（所有路由合计 20000 条），
- * 不再每个路由 `child()` 各持一份 20000 条 Map（F-227：内存按「路由数 × 20000」放大）。
- */
-const LOCAL_FALLBACK_CAP = 20000
-
-/** 容量满时寻找可淘汰过期条目的 LRU 扫描上限（避免容量压力下每次请求 O(n) 的 CPU 放大）。 */
-const LOCAL_EVICT_SCAN_LIMIT = 256
-
-/** 兜底计数条目。 */
-interface LocalFallbackEntry {
-  current: number
-  /** 本窗口开始时刻（read 沿用「timeWindow - 已过时间」的 TTL 口径）。 */
-  start: number
-  /** 本窗口到期时刻（TTL 计算与过期淘汰共用，跨路由比较时不依赖调用方参数）。 */
-  expiresAt: number
-}
-
-/**
- * 全局共享兜底计数表：键 = 路由命名空间 + IP（不同路由的计数仍各自独立），容量全局共享。
- * Map 插入序被维护成 LRU 序：每次命中都重新入队，头部即最久未用。
- */
-const localFallbackMap = new Map<string, LocalFallbackEntry>()
-
-/** 因兜底表容量耗尽而被 fail-closed 拒绝的请求数（观测用）。 */
-let localCapacityRejections = 0
-
-/** 兜底表只读快照（测试与运维观测）。 */
-export function getFailSafeLocalFallbackStats(): {
-  size: number
-  cap: number
-  capacityRejections: number
-} {
-  return {
-    size: localFallbackMap.size,
-    cap: LOCAL_FALLBACK_CAP,
-    capacityRejections: localCapacityRejections,
-  }
-}
-
-/** 清空进程级兜底表（仅测试隔离用，不影响生产路径）。 */
-export function resetFailSafeLocalFallbackForTests(): void {
-  localFallbackMap.clear()
-  localCapacityRejections = 0
-}
-
-/** 命中即刷新 LRU 顺序（Map 插入序 = 最近使用序，头部最久未用）。 */
-function touchLocalFallback(key: string, entry: LocalFallbackEntry): void {
-  localFallbackMap.delete(key)
-  localFallbackMap.set(key, entry)
-}
-
-/**
- * 从 LRU 头开始淘汰一个**已过期**条目。
- * 只淘汰过期条目：仍活跃的窗口绝不静默丢弃（否则 IP 轮换即绕过限流），
- * 无可淘汰项时由调用方 fail-closed。扫描上限避免容量压力下退化成 O(n)。
- */
-function evictExpiredLocalFallback(now: number): boolean {
-  let scanned = 0
-  for (const [key, entry] of localFallbackMap) {
-    if (entry.expiresAt <= now) {
-      localFallbackMap.delete(key)
-      return true
-    }
-    if (++scanned >= LOCAL_EVICT_SCAN_LIMIT) break
-  }
-  return false
-}
-
-/** 进程内兜底存储（无 toad-cache 依赖，自实现定长窗口计数 + 全局容量保护 + LRU）。 */
+/** 进程内兜底存储（无 toad-cache 依赖，自实现定长窗口计数 + 上限保护）。 */
 class LocalFallbackStore {
+  private map = new Map<string, { current: number; ttl: number; start: number }>()
   constructor(
     private readonly continueExceeding: boolean,
     private readonly exponentialBackoff: boolean,
+    private readonly cap = 20000,
   ) {}
 
-  incr(key: string, cb: StoreCallback, timeWindow: number, max: number): void {
+  incr(ip: string, cb: StoreCallback, timeWindow: number, max: number): void {
     const now = Date.now()
-    let entry = localFallbackMap.get(key)
-    if (entry && entry.expiresAt <= now) {
-      localFallbackMap.delete(key)
-      entry = undefined
-    }
-    if (entry) {
+    let entry = this.map.get(ip)
+    if (!entry || entry.start + timeWindow <= now) {
+      entry = { current: 1, ttl: timeWindow, start: now }
+    } else {
       entry.current++
       if (this.continueExceeding && entry.current > max) {
+        entry.ttl = timeWindow
         entry.start = now
-        entry.expiresAt = now + timeWindow
       } else if (this.exponentialBackoff && entry.current > max) {
         const backoff = Math.min(
           timeWindow * 2 ** (entry.current - max - 1),
           Number.MAX_SAFE_INTEGER,
         )
+        entry.ttl = backoff
         entry.start = now
-        entry.expiresAt = now + backoff
+      } else {
+        entry.ttl = timeWindow - (now - entry.start)
       }
-      touchLocalFallback(key, entry)
-      cb(null, { current: entry.current, ttl: Math.max(0, entry.expiresAt - now) })
-      return
     }
-    // 新窗口：容量满时只淘汰过期条目；没有可淘汰项则 fail-closed（返回 current > max）。
-    if (localFallbackMap.size >= LOCAL_FALLBACK_CAP && !evictExpiredLocalFallback(now)) {
-      localCapacityRejections++
-      cb(null, { current: max + 1, ttl: timeWindow })
-      return
-    }
-    localFallbackMap.set(key, { current: 1, start: now, expiresAt: now + timeWindow })
-    cb(null, { current: 1, ttl: timeWindow })
+    this.map.set(ip, entry)
+    this.prune()
+    cb(null, { current: entry.current, ttl: entry.ttl })
   }
 
-  read(key: string, cb: StoreCallback, timeWindow: number): void {
+  read(ip: string, cb: StoreCallback, timeWindow: number): void {
     const now = Date.now()
-    const entry = localFallbackMap.get(key)
-    if (!entry) {
+    const entry = this.map.get(ip)
+    if (!entry || entry.start + timeWindow <= now) {
       cb(null, { current: 0, ttl: 0 })
       return
     }
-    if (entry.expiresAt <= now) {
-      // 顺带清掉过期条目，避免兜底表被过期键长期占用容量。
-      localFallbackMap.delete(key)
-      cb(null, { current: 0, ttl: 0 })
-      return
+    cb(null, { current: entry.current, ttl: timeWindow - (now - entry.start) })
+  }
+
+  /** 超过上限时淘汰最旧 1000 个键，防止内存无限增长。 */
+  private prune(): void {
+    if (this.map.size <= this.cap) return
+    let n = 0
+    for (const k of this.map.keys()) {
+      this.map.delete(k)
+      if (++n >= 1000) break
     }
-    touchLocalFallback(key, entry)
-    cb(null, { current: entry.current, ttl: Math.max(0, timeWindow - (now - entry.start)) })
   }
 }
 
@@ -257,8 +183,8 @@ export function createFailSafeRateLimitStore(
         String(this.exponentialBackoff),
         (err: Error | null, res?: [number, number]) => {
           if (err || !res) {
-            // Redis 故障 → 进程内保守兜底，绝不放行失败路径（键已含路由命名空间）
-            this.local.incr(fullKey, cb, timeWindow, max)
+            // Redis 故障 → 进程内保守兜底，绝不放行失败路径
+            this.local.incr(ip, cb, timeWindow, max)
             return
           }
           cb(null, { current: res[0], ttl: res[1] })
@@ -270,7 +196,7 @@ export function createFailSafeRateLimitStore(
       const fullKey = this.ns + ip
       r.ihuiRateLimitRead!(fullKey, (err: Error | null, res?: [number, number]) => {
         if (err || !res) {
-          this.local.read(fullKey, cb, timeWindow)
+          this.local.read(ip, cb, timeWindow)
           return
         }
         cb(null, { current: res[0], ttl: res[1] })

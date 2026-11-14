@@ -282,20 +282,6 @@ class GeminiProvider(BaseProvider):
                 "error": True,
                 "error_message": f"内容被 Gemini 安全策略拦截(finishReason={finish_reason}),请调整提问方式",
             }
-        # AIS-011:candidates 整段为空时(回包 HTTP 200 但 candidates=[])finish_reason
-        # 恒为 None,上面的分支永不命中 —— 此时拦截信号只在 promptFeedback.blockReason。
-        # 不识别就把安全拦截当"成功空回复"返回,上游拿不到 error=True ⇒ 不触发
-        # fallback/重试,用户只看到空回复。非空 blockReason 一律按既有错误路径返回。
-        block_reason = (data.get("promptFeedback") or {}).get("blockReason") or ""
-        if block_reason:
-            return {
-                "content": "",
-                "model": real_model,
-                "usage": data.get("usageMetadata", {}),
-                "stub": False,
-                "error": True,
-                "error_message": f"内容被 Gemini 安全策略拦截(blockReason={block_reason}),请调整提问方式",
-            }
         result: dict[str, Any] = {
             "content": text,
             "model": real_model,
@@ -342,9 +328,6 @@ class GeminiProvider(BaseProvider):
                     except json.JSONDecodeError:
                         continue
                     text, tool_calls, finish_reason = self._parse_candidates(event)
-                    # AIS-011:整段拦截(candidates 为空)时无 finishReason,
-                    # 拦截信号只在 promptFeedback.blockReason(见 complete 同名分支)。
-                    block_reason = (event.get("promptFeedback") or {}).get("blockReason") or ""
                     if text:
                         saw_chunk = True
                         yield {"type": "chunk", "content": text}
@@ -358,11 +341,6 @@ class GeminiProvider(BaseProvider):
                         yield {
                             "type": "error",
                             "message": f"内容被 Gemini 安全策略拦截(finishReason={finish_reason}),请调整提问方式",
-                        }
-                    elif not saw_chunk and block_reason:
-                        yield {
-                            "type": "error",
-                            "message": f"内容被 Gemini 安全策略拦截(blockReason={block_reason}),请调整提问方式",
                         }
                     if event.get("usageMetadata"):
                         # G-425(2026-10-07 立,默认档"只提示"):把原生 finishReason

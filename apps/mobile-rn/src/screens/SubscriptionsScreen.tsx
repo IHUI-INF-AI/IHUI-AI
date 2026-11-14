@@ -128,17 +128,9 @@ export function SubscriptionsScreen() {
   // 开播前提醒:与小程序同键落 AsyncStorage
   const [reminderEnabled, setReminderEnabled] = useState(false)
   useEffect(() => {
-    let cancelled = false
     void AsyncStorage.getItem(REMINDER_KEY)
-      // 已离开订阅页就不再回填开关:用户看不到这枚开关,回包直接丢弃
-      .then((v) => {
-        if (cancelled) return
-        setReminderEnabled(v === 'true')
-      })
+      .then((v) => setReminderEnabled(v === 'true'))
       .catch(() => {})
-    return () => {
-      cancelled = true
-    }
   }, [])
   const onToggleReminder = (next: boolean) => {
     setReminderEnabled(next)

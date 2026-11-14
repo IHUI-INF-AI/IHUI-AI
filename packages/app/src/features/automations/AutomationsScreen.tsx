@@ -234,7 +234,7 @@ function createStyles(tk: RnThemeTokens) {
   }
   const terminalBadgeText: Record<AutomationTerminalTone, TextStyle> = {
     neutral: { color: tk.text.secondary },
-    danger: { color: tk.danger.deepText },
+    danger: { color: tk.danger.DEFAULT },
     warning: { color: tk.warning.amberText },
     success: { color: tk.success.deepText },
   }
@@ -308,7 +308,7 @@ function createStyles(tk: RnThemeTokens) {
         gap: rnSpacing.md,
       },
       stateText: { fontSize: rnType.body.size, color: tk.text.secondary },
-      errorText: { fontSize: rnType.body.size, color: tk.danger.deepText },
+      errorText: { fontSize: rnType.body.size, color: tk.danger.DEFAULT },
       outlineBtn: {
         paddingHorizontal: rnSpacing.lg,
         paddingVertical: rnSpacing.sm,

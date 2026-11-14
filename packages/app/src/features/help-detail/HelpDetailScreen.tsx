@@ -94,8 +94,8 @@ function createStyles(tk: AppThemeTokens) {
     categoryRow: { flexDirection: 'row', marginBottom: rnSpacing.md },
     categoryBadge: {
       fontSize: rnType.caption.size,
-      color: tk.success.deepText,
-      backgroundColor: tk.success.lighter,
+      color: tk.surface.light,
+      backgroundColor: tk.success.DEFAULT,
       paddingHorizontal: rnSpacing.sm,
       paddingVertical: rnSpacing['2xs'],
       borderRadius: rnRadius.md,
