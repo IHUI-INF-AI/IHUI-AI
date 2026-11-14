@@ -336,7 +336,7 @@ export interface CalculateCostResult {
    * - `byok`:BYOK 模式,平台成本为 0、毛利 = 平台服务费
    * - `unknown`:无留痕,成本不可得
    */
-  costBasis: 'derived' | 'byok' | 'unknown'
+  costBasis: 'actual' | 'derived' | 'byok' | 'unknown'
 }
 
 /** calculateCost 第 4 个参数:cache 折扣计费选项 + 多模态计费选项(2026-09-13) */
@@ -746,6 +746,9 @@ async function queryPricingRows(dbModelId: string) {
       // 2026-11-14:利润闭环 —— 成本价按 metadata.priceSource.profitFactor 反推。
       // 注意:该列在 DB 存在但 Drizzle schema 未声明,只能用原生 SQL 取(同 model-pricing-admin)。
       metadata: sql<{ priceSource?: { profitFactor?: number } } | null>`metadata`,
+      // 2026-11-14:真实采购成本列(迁移 400);null=未知,回退 profitFactor 反推。
+      costInputPricePer1k: aiModelConfigModels.costInputPricePer1k,
+      costOutputPricePer1k: aiModelConfigModels.costOutputPricePer1k,
     })
     .from(aiModelConfigModels)
     .where(eq(aiModelConfigModels.modelId, dbModelId))
@@ -865,15 +868,32 @@ export async function calculateCost(
     multiplier *= Number(pricingRow.longContextMultiplier)
   }
 
-  // 成本口径(2026-11-14 立,利润闭环):model_config 的售价由定价管线按 成本 × profitFactor
-  // 生成,metadata.priceSource.profitFactor 是唯一留痕。缺失则成本未知(null),不猜 0。
+  // 成本口径(2026-11-14 立,利润闭环):优先用独立成本列(actual);缺失时按
+  // metadata.priceSource.profitFactor 由售价反推(derived);两者皆无则未知(null),不猜 0。
   const priceSourceMeta = (modelRow?.metadata ?? null) as
     | { priceSource?: { profitFactor?: number } }
     | null
   const rawProfitFactor = Number(priceSourceMeta?.priceSource?.profitFactor ?? 0)
   const profitFactor =
     Number.isFinite(rawProfitFactor) && rawProfitFactor >= 1 ? rawProfitFactor : null
-  const costBasis: CalculateCostResult['costBasis'] = profitFactor ? 'derived' : 'unknown'
+  const actualCostIn =
+    modelRow?.costInputPricePer1k !== null && modelRow?.costInputPricePer1k !== undefined
+      ? Number(modelRow.costInputPricePer1k)
+      : null
+  const actualCostOut =
+    modelRow?.costOutputPricePer1k !== null && modelRow?.costOutputPricePer1k !== undefined
+      ? Number(modelRow.costOutputPricePer1k)
+      : null
+  const hasActualCost =
+    actualCostIn !== null && Number.isFinite(actualCostIn) &&
+    actualCostOut !== null && Number.isFinite(actualCostOut)
+  const costBasis: CalculateCostResult['costBasis'] = hasActualCost
+    ? 'actual'
+    : profitFactor
+      ? 'derived'
+      : 'unknown'
+  // 多模态(按次/图/视频)目前仍按售价/pf 估算,不冒充 actual
+  const multiCostBasis: CalculateCostResult['costBasis'] = profitFactor ? 'derived' : 'unknown'
 
   let baseInputPricePer1k = 0
   let baseOutputPricePer1k = 0
@@ -940,7 +960,7 @@ export async function calculateCost(
         ...creditsPart,
         providerCostCents,
         profitCents: providerCostCents !== null ? roundCents(total - providerCostCents) : null,
-        costBasis,
+        costBasis: multiCostBasis,
       }
     }
 
@@ -967,7 +987,7 @@ export async function calculateCost(
         ...creditsPart,
         providerCostCents,
         profitCents: providerCostCents !== null ? roundCents(total - providerCostCents) : null,
-        costBasis,
+        costBasis: multiCostBasis,
       }
     }
 
@@ -998,7 +1018,7 @@ export async function calculateCost(
           ...creditsPart,
           providerCostCents,
           profitCents: providerCostCents !== null ? roundCents(total - providerCostCents) : null,
-          costBasis,
+          costBasis: multiCostBasis,
         }
       }
       // 三档价未配置 → 回退 token 计费(避免免费敞口),调用方可据此告警
@@ -1048,18 +1068,35 @@ export async function calculateCost(
   // 采购成本(2026-11-14):model_config 的 inputPricePer1k 是售价基准(成本 × profitFactor),
   // 反推成本时必须先除 profitFactor 再乘 token,且不叠任何对客倍率(分组/阶梯/分时/推理上浮),
   // 否则用户享受折扣时会把平台成本一起"打折",利润虚高。
-  const providerCostCents =
-    profitFactor !== null && modelRow
-      ? Math.max(
-          0,
-          roundCents(
-            ((Number(modelRow.inputPricePer1k ?? 0) / profitFactor) *
-              (normalInputTokens + cacheReadTokens * 0.1 + cacheCreationTokens * 1.25) +
-              (Number(modelRow.outputPricePer1k ?? 0) / profitFactor) * completionTokens) /
-              1000,
-          ),
-        )
+  // 采购成本(2026-11-14):优先真实成本列;缺失时按 profitFactor 由售价反推。
+  // 反推时必须先除 profitFactor 再乘 token,且不叠任何对客倍率(分组/阶梯/分时/推理上浮),
+  // 否则用户享受折扣时会把平台成本一起"打折",利润虚高。
+  // 含积分维度(credits>0)时上游计价不可得 ⇒ 成本未知,不把积分收入全额算成毛利。
+  const costUnitIn = hasActualCost
+    ? actualCostIn
+    : profitFactor !== null && modelRow
+      ? Number(modelRow.inputPricePer1k ?? 0) / profitFactor
       : null
+  const costUnitOut = hasActualCost
+    ? actualCostOut
+    : profitFactor !== null && modelRow
+      ? Number(modelRow.outputPricePer1k ?? 0) / profitFactor
+      : null
+  const providerCostCents =
+    credits > 0
+      ? null
+      : costUnitIn !== null && costUnitOut !== null
+        ? Math.max(
+            0,
+            roundCents(
+              (costUnitIn *
+                (normalInputTokens + cacheReadTokens * 0.1 + cacheCreationTokens * 1.25) +
+                costUnitOut * completionTokens) /
+                1000,
+            ),
+          )
+        : null
+  const tokenCostBasis: CalculateCostResult['costBasis'] = credits > 0 ? 'unknown' : costBasis
 
   return {
     inputCostCents,
@@ -1077,7 +1114,7 @@ export async function calculateCost(
     ...creditsPart,
     providerCostCents,
     profitCents: providerCostCents !== null ? roundCents(totalCostCents - providerCostCents) : null,
-    costBasis,
+    costBasis: tokenCostBasis,
   }
 }
 

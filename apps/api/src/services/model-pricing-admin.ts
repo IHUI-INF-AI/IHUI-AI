@@ -324,6 +324,8 @@ export async function updateModelPrice(args: {
   await db.execute(sql`
     update ai_model_config_models
     set input_price_per_1k = ${String(inP)}, output_price_per_1k = ${String(outP)},
+        cost_input_price_per_1k = ${String(Math.round((inP / PROFIT_FACTOR) * 1e6) / 1e6)},
+        cost_output_price_per_1k = ${String(Math.round((outP / PROFIT_FACTOR) * 1e6) / 1e6)},
         metadata = coalesce(metadata, '{}'::jsonb) || ${JSON.stringify({
           priceSource: {
             tier: 'manual',
