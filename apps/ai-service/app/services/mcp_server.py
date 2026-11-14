@@ -53,6 +53,7 @@ from app.core.file_read_state import (
 )
 from app.core.internal_ticket import internal_service_headers
 from app.core.vault import filter_vault_env as _filter_vault_env
+from app.utils.atomic_io import write_bytes_atomic
 
 from .agent_security_prefs import (
     current_security_principal,
@@ -867,6 +868,64 @@ _FILE_BASE_MAX = 256
 # AIS-082:read_file 单次读取上限,与写侧(write_file)的 10MB 门对齐。读侧此前
 # 无上限 → 整文件进内存并全量进 _FILE_BASE_CONTENT(最多 256 份),GB 级文件直接 OOM。
 _READ_FILE_MAX_BYTES = 10 * 1024 * 1024
+# 大文件分页读(对齐 DSH read 的有界分页):调用方传 offset/limit 时按行窗口返回。
+# 不传时保持旧的整文件语义,避免改变既有调用方与测试的契约。
+_READ_WINDOW_MAX_LINES = 2000
+_READ_WINDOW_MAX_LINE_CHARS = 2000
+_READ_WINDOW_MAX_BYTES = 50 * 1024
+
+
+def _render_read_window(content: str, offset: int, limit: int) -> dict[str, Any]:
+    """把整文件内容渲染成带行号的单页窗口。
+
+    约束:每行最多 2000 字符(超出以省略号收尾),整页最多 50KB;页脚给出
+    总行数与下一页 offset,模型不必猜。行号从 1 起,与编辑器/IDE 一致。
+    """
+    lines = content.splitlines()
+    total = len(lines)
+    if offset > total and not (total == 0 and offset == 1):
+        return {
+            "ok": False,
+            "errorCode": "OFFSET_OUT_OF_RANGE",
+            "error": f"offset={offset} 超出文件行数(共 {total} 行);offset 从 1 开始。",
+            "totalLines": total,
+        }
+    rendered: list[str] = []
+    used = 0
+    truncated_by_bytes = False
+    last = min(offset - 1 + limit, total)
+    for idx in range(offset - 1, last):
+        text = lines[idx]
+        if len(text) > _READ_WINDOW_MAX_LINE_CHARS:
+            text = (
+                text[:_READ_WINDOW_MAX_LINE_CHARS]
+                + f"… (本行超过 {_READ_WINDOW_MAX_LINE_CHARS} 字符,已截断)"
+            )
+        line = f"{idx + 1}: {text}"
+        cost = len(line.encode("utf-8")) + (1 if rendered else 0)
+        if used + cost > _READ_WINDOW_MAX_BYTES:
+            truncated_by_bytes = True
+            break
+        used += cost
+        rendered.append(line)
+    end_line = offset + len(rendered) - 1 if rendered else offset - 1
+    if truncated_by_bytes:
+        footer = (
+            f"(至字节上限,已显示第 {offset}-{end_line} 行,共 {total} 行;"
+            f"用 offset={end_line + 1} 继续。)"
+        )
+    elif end_line < total:
+        footer = f"(已显示第 {offset}-{end_line} 行,共 {total} 行;用 offset={end_line + 1} 继续。)"
+    else:
+        footer = f"(文件结束,共 {total} 行)"
+    body = "\n".join(rendered)
+    return {
+        "ok": True,
+        "content": f"{body}\n\n{footer}" if body else footer,
+        "offset": offset,
+        "totalLines": total,
+        "truncatedByBytes": truncated_by_bytes,
+    }
 
 
 def _normalize_eol(text: str) -> str:
@@ -2563,6 +2622,24 @@ async def _tool_read_file(arguments: dict[str, Any]) -> dict[str, Any]:
     if not ok:
         return {"tool": "read_file", "path": path, "content": "", "ok": False, "error": info}
     resolved_path = info
+    # 大文件分页:offset/limit 任一显式给出即进入窗口模式;不传保持整文件旧契约。
+    windowed = arguments.get("offset") is not None or arguments.get("limit") is not None
+    offset, limit = 1, _READ_WINDOW_MAX_LINES
+    if windowed:
+        try:
+            offset = int(arguments.get("offset", 1))
+            limit = int(arguments.get("limit", _READ_WINDOW_MAX_LINES))
+        except (TypeError, ValueError):
+            return {
+                "tool": "read_file", "path": resolved_path, "content": "", "ok": False,
+                "error": "offset/limit 必须是整数", "errorCode": "INVALID_ARGUMENT",
+            }
+        if offset < 1 or limit < 1 or limit > _READ_WINDOW_MAX_LINES:
+            return {
+                "tool": "read_file", "path": resolved_path, "content": "", "ok": False,
+                "error": f"offset 从 1 开始,limit 必须在 1-{_READ_WINDOW_MAX_LINES} 之间",
+                "errorCode": "INVALID_ARGUMENT",
+            }
     # 2026-07-24 安全加固:敏感文件读取拦截(防 .env/*.key/*.pem 泄露 API key/私钥)
     # 工作区白名单只防路径穿越,不防敏感文件内容泄露;此处补敏感文件名黑名单。
     if _is_sensitive_file(resolved_path):
@@ -2625,6 +2702,19 @@ async def _tool_read_file(arguments: dict[str, Any]) -> dict[str, Any]:
             record_read(arguments.get("__session_id"), resolved_path, content)
         except Exception:  # noqa: BLE001 - 登记层故障不得让读失败
             pass
+        if windowed:
+            window = _render_read_window(content, offset, limit)
+            if not window.get("ok"):
+                return {
+                    "tool": "read_file", "path": resolved_path, "content": "", "ok": False,
+                    "error": window["error"], "errorCode": window["errorCode"],
+                    "totalLines": window["totalLines"],
+                }
+            return {
+                "tool": "read_file", "path": resolved_path, "content": window["content"],
+                "ok": True, "offset": window["offset"], "totalLines": window["totalLines"],
+                "truncatedByBytes": window["truncatedByBytes"],
+            }
         return {"tool": "read_file", "path": resolved_path, "content": content, "ok": True}
     except Exception as e:
         return {"tool": "read_file", "path": resolved_path, "content": "", "ok": False, "error": str(e)}
@@ -2851,8 +2941,10 @@ async def _tool_write_file(arguments: dict[str, Any]) -> dict[str, Any]:
                     "concurrency": {"verdict": verdict, "forced": False},
                 }
             _note_ai_before("write_file", resolved_path, content, arguments)
-            with open(resolved_path, "w", encoding="utf-8") as f:
-                f.write(content)
+            # 原子写:同目录临时件 + os.replace(崩溃/断电只留旧完整文件或新完整文件,
+            # 不会留下被截断的目标);父目录自动创建,避免模型先跑一条 mkdir 命令。
+            Path(resolved_path).parent.mkdir(parents=True, exist_ok=True)
+            write_bytes_atomic(resolved_path, content.encode("utf-8"))
             # 1-2:写盘后刷新 base(agent 视角最新内容)
             _record_file_base(resolved_path, content)
             # C 格自我写入登记:本会话自己的改动不报成他席覆盖;失败不影响写
@@ -2987,8 +3079,8 @@ async def _tool_file_edit(arguments: dict[str, Any]) -> dict[str, Any]:
             try:
                 with open(backup_path, "wb") as bf:
                     bf.write(raw)
-                with open(resolved_path, "wb") as wf:
-                    wf.write(new_content.encode("utf-8"))
+                # 原子替换:编辑中途崩溃不会把目标留成半截文件(.bak 仍是上一版)。
+                write_bytes_atomic(resolved_path, new_content.encode("utf-8"))
             except OSError as e:
                 # 失败回滚:恢复原内容(raw),删除 .bak(不保留)
                 try:
@@ -3086,8 +3178,8 @@ async def _tool_resolve_conflict(arguments: dict[str, Any]) -> dict[str, Any]:
         try:
             with open(backup_path, "wb") as bf:
                 bf.write(raw)
-            with open(resolved_path, "wb") as wf:
-                wf.write(final_content.encode("utf-8"))
+            # 原子替换:同 file_edit,冲突解决写盘也不留半截目标。
+            write_bytes_atomic(resolved_path, final_content.encode("utf-8"))
         except OSError as e:
             # 失败回滚:恢复磁盘原内容
             try:
@@ -12535,10 +12627,26 @@ _TOOLS: list[MCPTool] = [
     ),
     MCPTool(
         name="read_file",
-        description="读取本地文件内容",
+        description=(
+            "读取本地文件内容。大文件用 offset/limit 按行分页:返回带行号的窗口、总行数"
+            "和下一页 offset;不传 offset/limit 时返回整文件原文"
+        ),
         input_schema={
             "type": "object",
-            "properties": {"path": {"type": "string", "description": "文件绝对或相对路径"}},
+            "properties": {
+                "path": {"type": "string", "description": "文件绝对或相对路径"},
+                "offset": {
+                    "type": "integer",
+                    "description": "起始行号(从 1 开始);只在大文件分页时传",
+                    "minimum": 1,
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": f"本次最多读取行数(1-{_READ_WINDOW_MAX_LINES},默认 {_READ_WINDOW_MAX_LINES})",
+                    "minimum": 1,
+                    "maximum": _READ_WINDOW_MAX_LINES,
+                },
+            },
             "required": ["path"],
         },
     ),
@@ -13248,17 +13356,26 @@ _TOOLS: list[MCPTool] = [
     MCPTool(
         name="vision_analyze",
         description=(
-            "图像分析(支持 URL 和 base64)。传入图片 + 分析任务描述,"
+            "图像分析(支持本地文件、URL 和 base64)。传入图片 + 分析任务描述,"
             "调用支持视觉的 LLM 模型返回分析结果。"
             "适用于'描述这张图片的内容'/'识别图中的文字'/'分析 UI 截图'等场景。"
         ),
         input_schema={
             "type": "object",
             "properties": {
+                "image_path": {
+                    "type": "string",
+                    "description": "本地图片路径(工作区内 png/jpg/jpeg/webp/gif,≤10MB)——分析本地截图首选",
+                },
                 "image": {
                     "type": "string",
                     "description": "图片 URL(http/https)或 base64 编码(如 data:image/png;base64,...)",
                 },
+                "image_base64": {
+                    "type": "string",
+                    "description": "base64 编码图片(可带 data: 前缀)",
+                },
+                "image_url": {"type": "string", "description": "图片 URL(http/https)"},
                 "task": {
                     "type": "string",
                     "description": "分析任务描述(如'描述这张图片的内容')",
@@ -13268,7 +13385,7 @@ _TOOLS: list[MCPTool] = [
                     "description": "期望模型(可选,缺省用支持视觉的模型,如 gpt-4o)",
                 },
             },
-            "required": ["image", "task"],
+            "required": ["task"],
         },
     ),
     # ===== 子智能体派发工具(2026-07-24 新增)=====
