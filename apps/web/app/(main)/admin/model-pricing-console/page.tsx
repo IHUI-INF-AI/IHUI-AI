@@ -324,6 +324,7 @@ export default function PricingConsolePage() {
         delisted: string[]
         byTier: Record<string, number>
         dryRun: boolean
+        skipped?: string
       }>(`${BASE}/reprice-placeholders`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -333,6 +334,10 @@ export default function PricingConsolePage() {
       return r.data
     },
     onSuccess: (d) => {
+      if (d.skipped) {
+        setNotice(`占位价重定价已跳过:${d.skipped}`)
+        return
+      }
       const tiers = Object.entries(d.byTier)
         .map(([k, v]) => `${k}=${v}`)
         .join(' / ')
