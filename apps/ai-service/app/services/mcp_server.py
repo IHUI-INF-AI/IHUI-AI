@@ -7898,6 +7898,81 @@ async def _tool_team_task(arguments: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+async def _tool_session_search(arguments: dict[str, Any]) -> dict[str, Any]:
+    """session_search:跨会话全文检索(只读)。
+
+    对标 DSH dsh-tool-session-query 的 `session_search`(2026-11-14):
+    - 授权只认宿主注入的 `__user_id`(模型自报无效);命中过滤写在 SQL 里;
+    - **始终省略调用方会话**(`__session_id`),与 DSH 一致;
+    - 可显式 `thread_id` 限定单个会话,但属主不符与"不存在"同形(不做存在性预言机);
+    - 无身份(未绑用户的 dev 通道)直接拒绝,不退回全量检索。
+    """
+    query = str(arguments.get("query") or "").strip()
+    if not query:
+        return {
+            "tool": "session_search", "ok": False, "errorCode": "MISSING_PARAMS",
+            "error": "session_search 需要 query(非空检索词)",
+        }
+    try:
+        limit = int(arguments.get("limit", 10))
+    except (TypeError, ValueError):
+        limit = 10
+    limit = max(1, min(limit, 50))
+    thread_id = str(arguments.get("thread_id") or "").strip() or None
+    caller_user = str(arguments.get("__user_id") or "").strip()
+    caller_thread = str(arguments.get("__session_id") or "").strip() or None
+
+    if not caller_user:
+        return {
+            "tool": "session_search", "ok": False,
+            "errorCode": "SESSION_SEARCH_UNAUTHORIZED",
+            "error": "无宿主身份,拒绝跨会话检索",
+        }
+
+    # 懒导入:routers.sessions 依赖 app 装配,模块顶层导入会引入启动环。
+    from app.routers.sessions import get_session_store
+
+    store = get_session_store()
+    if thread_id is not None:
+        thread = store.get_thread(thread_id)
+        owner = (thread.metadata or {}).get("userId") if thread is not None else None
+        if thread is None or owner != caller_user:
+            return {
+                "tool": "session_search", "ok": False,
+                "errorCode": "SESSION_SEARCH_UNAUTHORIZED",
+                "error": "无权检索该会话",
+                "thread_id": thread_id,
+            }
+
+    hits = store.full_text_search(
+        query,
+        thread_id=thread_id,
+        limit=limit,
+        owner_user_id=caller_user,
+        # 限定单会话时无需排除;全库检索时始终省略调用方会话。
+        exclude_thread_id=None if thread_id else caller_thread,
+    )
+    results: list[dict[str, Any]] = []
+    for hit in hits:
+        thread = store.get_thread(hit.thread_id)
+        results.append({
+            "thread_id": hit.thread_id,
+            "title": thread.title if thread is not None else "",
+            "item_type": hit.item_type,
+            "seq": hit.seq,
+            "snippet": hit.snippet,
+            "score": hit.score,
+        })
+    return {
+        "tool": "session_search",
+        "ok": True,
+        "query": query,
+        "fts_enabled": bool(store.fts_enabled),
+        "total": len(results),
+        "hits": results,
+    }
+
+
 # ---------------------------------------------------------------------------
 # 扩展工具(2026-07-24 新增,自研核心能力)
 # 6 个工具:fetch_url / image_generation / review_pr /
@@ -7921,6 +7996,12 @@ __all__ = ["_ARTIFACTS_CACHE"]
 from ..tools import (  # noqa: E402
     ai_bookkeeping as _ai_bookkeeping,
 )
+
+# 人事部→财务部 AI 交割(2026-11-13 立):生成某月薪资的财务交割凭证(payroll_handoff_tools,
+# 经 internal 凭证腿调 apps/api POST /api/hr-payroll/handoff;create_automation 同路线)
+from ..tools import (  # noqa: E402
+    ai_payroll_handoff as _ai_payroll_handoff,
+)
 from ..tools import (  # noqa: E402
     ai_tax_filing as _ai_tax_filing,
 )
@@ -7935,12 +8016,6 @@ from ..tools import (  # noqa: E402
 # 经 internal 凭证腿调 apps/api POST /api/automations;edu 工具同路线)
 from ..tools import (  # noqa: E402
     create_automation as _create_automation,
-)
-
-# 人事部→财务部 AI 交割(2026-11-13 立):生成某月薪资的财务交割凭证(payroll_handoff_tools,
-# 经 internal 凭证腿调 apps/api POST /api/hr-payroll/handoff;create_automation 同路线)
-from ..tools import (  # noqa: E402
-    ai_payroll_handoff as _ai_payroll_handoff,
 )
 from ..tools import (
     document_tables as _document_tables,
@@ -14024,6 +14099,34 @@ _TOOLS: list[MCPTool] = [
             "required": ["action"],
         },
     ),
+    # ===== 跨会话检索(2026-11-14,对标 DSH dsh-tool-session-query session_search)=====
+    MCPTool(
+        name="session_search",
+        description=(
+            "跨会话全文检索:在**当前用户自己的**历史会话里找相关旧工作,返回会话标题"
+            "与最佳匹配摘录(只读)。始终省略调用方会话;可显式 thread_id 限定单个"
+            "会话。无宿主身份时拒绝。用于开工前先查'这件事以前做过没有'。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "字面检索词(非空;FTS 可用时按全文匹配,否则 LIKE)",
+                },
+                "thread_id": {
+                    "type": "string",
+                    "description": "限定单个会话;省略则检索该用户全部历史会话",
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "命中上限(1-50,默认 10)",
+                    "default": 10,
+                },
+            },
+            "required": ["query"],
+        },
+    ),
     # ===== 扩展工具(2026-07-24 新增,自研)=====
     MCPTool(
         name="fetch_url",
@@ -16738,6 +16841,7 @@ _TOOL_HANDLERS: dict[str, Any] = {
     "dispatch_subagent": _tool_dispatch_subagent,
     # ===== D08①(2026-10-25):团队共享任务列表(与派发面同一协作域)=====
     "team_task": _tool_team_task,
+    "session_search": _tool_session_search,
     # ===== 扩展工具(2026-07-24 新增,自研)=====
     "fetch_url": _tool_fetch_url,
     "image_generation": _tool_image_generation,
