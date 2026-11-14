@@ -74,6 +74,7 @@ export function ApiSettingsScreen({
             onChangeText={(v) => onConfigChange({ token: v })}
           />
           <TouchableOpacity
+            accessibilityRole="button"
             style={styles.eyeBtn}
             onPress={onToggleShowToken}
             hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}

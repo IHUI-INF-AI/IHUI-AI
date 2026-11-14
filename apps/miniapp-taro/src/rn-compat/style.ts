@@ -51,6 +51,17 @@ function withAlpha(color: string | undefined, opacity: number | undefined): stri
     const b = parseInt(three.charAt(2) + three.charAt(2), 16)
     return `rgba(${r},${g},${b},${alpha})`
   }
+  // rgb()/rgba() 也要与 opacity 相乘:否则 shadowOpacity(如 0.4)被整体忽略,
+  // 阴影退化成不透明色。颜色自带的 alpha 与 opacity 是同一通道的两次衰减。
+  const rgb = /^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*([\d.]+)\s*)?\)$/i.exec(base)
+  if (rgb) {
+    const r = Number(rgb[1])
+    const g = Number(rgb[2])
+    const b = Number(rgb[3])
+    const ownAlpha = rgb[4]
+    const combined = alpha * (ownAlpha === undefined ? 1 : Number(ownAlpha))
+    return `rgba(${r},${g},${b},${Math.max(0, Math.min(1, combined))})`
+  }
   return base
 }
 
@@ -115,9 +126,14 @@ export function toTaroStyle(style: unknown): CSSProperties | undefined {
   const src = flattenStyle(style)
   if (Object.keys(src).length === 0) return undefined
   const out: Record<string, string | number> = {}
+  // 先算 iOS 语义的 shadow* 四件套:它带颜色/透明度/偏移,优先级高于 elevation。
+  // ELEVATION_STEPS 的既定形态是两者同档携带,design-token 侧明确要求消费方 spread 一次
+  // 即得同一层级;若让 elevation 抢先占住 boxShadow,彩色效果光会被压成黑色硬影。
+  const shadow = boxShadowFrom(src)
   for (const [key, value] of Object.entries(src)) {
     if (value === undefined || value === null) continue
     if (key === 'transform') {
+      // 非数组一律不猜(既有单测锁定):共享层约定只给 RN 数组形态。
       const css = transformToCss(value)
       if (css) out.transform = css
       continue
@@ -131,11 +147,21 @@ export function toTaroStyle(style: unknown): CSSProperties | undefined {
       continue // 由下面 box-shadow 统一承接
     }
     if (key === 'elevation') {
-      const e = Number(value)
-      out.boxShadow = `0 ${Math.round(e / 2)}px ${e}px rgba(0,0,0,0.18)`
+      // 只在没有 shadow* 四件套时用 Android 的无色层级兜底,避免覆盖带色效果光。
+      if (!shadow) {
+        const e = Number(value)
+        out.boxShadow = `0 ${Math.round(e / 2)}px ${e}px rgba(0,0,0,0.18)`
+      }
       continue
     }
-    if (key === 'textShadowOffset' || key === 'textShadowOpacity') continue
+    if (
+      key === 'textShadowOffset' ||
+      key === 'textShadowColor' ||
+      key === 'textShadowRadius' ||
+      key === 'textShadowOpacity'
+    ) {
+      continue // 四件套必须一起合成,单键透传会得到 wxss 不认识的 text-shadow-*
+    }
     if (key === 'numberOfLines' || key === 'ellipsizeMode') continue
     if (typeof value === 'number') {
       out[key] = UNITLESS.has(key) ? value : `${value}px`
@@ -143,13 +169,17 @@ export function toTaroStyle(style: unknown): CSSProperties | undefined {
     }
     out[key] = value as string
   }
-  const shadow = boxShadowFrom(src)
-  if (shadow && !out.boxShadow) out.boxShadow = shadow
+  if (shadow) out.boxShadow = shadow
   const tsOffset = src.textShadowOffset as { width?: number; height?: number } | undefined
-  if (tsOffset) {
-    out.textShadow = `${tsOffset.width ?? 0}px ${tsOffset.height ?? 0}px ${
-      (src.textShadowColor as string) ?? 'rgba(0,0,0,0.3)'
-    }`
+  if (tsOffset || src.textShadowColor !== undefined || src.textShadowRadius !== undefined) {
+    const w = tsOffset?.width ?? 0
+    const h = tsOffset?.height ?? 0
+    const radius = typeof src.textShadowRadius === 'number' ? src.textShadowRadius : 0
+    const color =
+      src.textShadowColor === undefined
+        ? 'rgba(0,0,0,0.3)'
+        : withAlpha(String(src.textShadowColor), src.textShadowOpacity as number | undefined)
+    out.textShadow = `${w}px ${h}px ${radius}px ${color}`
   }
   Object.assign(out, clampFrom(src))
   return out as CSSProperties
