@@ -23,6 +23,7 @@ import { dbRead } from '../../db/index.js'
 import { aiModelConfigModels, aiModelConfig, llmCallLogs } from '@ihui/database'
 import { success, error, emptyToUndefined } from '../../utils/response.js'
 import { requireAdmin } from '../../plugins/require-permission.js'
+import { assertPricedForPublish } from '../../services/model-pricing-admin.js'
 import { paginationSchema, idParamSchema } from './_shared.js'
 
 const listQuerySchema = paginationSchema.extend({
@@ -196,6 +197,11 @@ const relayModelsRoutes: FastifyPluginAsync = async (server) => {
     const { modelRowId, relayPriceMultiplier, relaySortOrder, relayDisplayName } = parsed.data
 
     try {
+      // 上架定价护栏(2026-11-14):零价上架 = 所有调用按 0 记账,直接拦住。
+      const pricing = await assertPricedForPublish(modelRowId)
+      if (!pricing.ok) {
+        return reply.status(400).send(error(400, pricing.reason ?? '模型未定价,不允许上架'))
+      }
       const [updated] = await db
         .update(aiModelConfigModels)
         .set({
@@ -231,6 +237,13 @@ const relayModelsRoutes: FastifyPluginAsync = async (server) => {
     if (d.relayDisplayName !== undefined) setData.relayDisplayName = d.relayDisplayName
 
     try {
+      // 上架定价护栏(2026-11-14):仅在把模型置为公开时校验,下架/改排序不受影响。
+      if (d.isRelayPublic === true) {
+        const pricing = await assertPricedForPublish(Number(p.data.id))
+        if (!pricing.ok) {
+          return reply.status(400).send(error(400, pricing.reason ?? '模型未定价,不允许上架'))
+        }
+      }
       const [updated] = await db
         .update(aiModelConfigModels)
         .set(setData)
@@ -273,6 +286,14 @@ const relayModelsRoutes: FastifyPluginAsync = async (server) => {
         .where(eq(aiModelConfigModels.id, Number(p.data.id)))
         .limit(1)
       if (!existing) return reply.status(404).send(error(404, '模型行不存在'))
+
+      // 上架定价护栏(2026-11-14):私有 → 公开时才校验;公开 → 私有放行。
+      if (!existing.isRelayPublic) {
+        const pricing = await assertPricedForPublish(Number(p.data.id))
+        if (!pricing.ok) {
+          return reply.status(400).send(error(400, pricing.reason ?? '模型未定价,不允许上架'))
+        }
+      }
 
       const [updated] = await db
         .update(aiModelConfigModels)

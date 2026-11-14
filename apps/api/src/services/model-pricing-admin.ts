@@ -1003,4 +1003,145 @@ export async function getChannelCostReport(args: {
     },
   }
 }
+
+// =============================================================================
+// 11. 上架定价护栏 + 零价巡检(2026-11-14 立)
+// =============================================================================
+// 事故背景:workbuddy 23 个模型 10-23 上架、11-13 才定价,期间 4198 次调用按 0 记账。
+// 两道护栏:
+//   ① 写时拦截 —— 上架(isRelayPublic=true)前必须已有非零售价,零价直接 400;
+//   ② 跑时巡检 —— 每天扫一次「已上架但零价」「有调用但零价」,命中即 warn 日志。
+// 只拦上架、不拦创建:模型必须先建行才能定价,创建时零价是正常中间态。
+
+export interface PublishPricingCheck {
+  ok: boolean
+  modelId: string
+  inputPricePer1k: number
+  outputPricePer1k: number
+  reason?: string
+}
+
+/** 上架前定价校验:输入/输出售价均 <= 0 时拒绝上架。 */
+export async function assertPricedForPublish(modelRowId: number): Promise<PublishPricingCheck> {
+  const res = await db.execute(sql`
+    select
+      model_id,
+      coalesce(input_price_per_1k, 0) as pin,
+      coalesce(output_price_per_1k, 0) as pout
+    from ai_model_config_models
+    where id = ${modelRowId}
+  `)
+  const row = rowsOf<Record<string, unknown>>(res)[0]
+  if (!row) {
+    return { ok: false, modelId: '', inputPricePer1k: 0, outputPricePer1k: 0, reason: '模型行不存在' }
+  }
+  const modelId = String(row['model_id'] ?? '')
+  const pin = asNum(row['pin'])
+  const pout = asNum(row['pout'])
+  if (pin <= 0 && pout <= 0) {
+    return {
+      ok: false,
+      modelId,
+      inputPricePer1k: pin,
+      outputPricePer1k: pout,
+      reason:
+        `模型 ${modelId} 售价为 0(输入 ${pin} 分/千 token,输出 ${pout} 分/千 token),` +
+        '请先定价再上架 —— 零价上架会让所有调用按 0 记账,造成漏计费',
+    }
+  }
+  return { ok: true, modelId, inputPricePer1k: pin, outputPricePer1k: pout }
+}
+
+export interface UnpricedAlertRow {
+  modelId: string
+  configId: number
+  isRelayPublic: boolean
+  calls: number
+  /** 这些零价调用估算烧掉的上游采购成本(分);售价为 0 时是唯一可量化的损失 */
+  estimatedCostCents: number
+}
+
+export interface UnpricedAlertReport {
+  days: number
+  /** 已上架且当前零价的模型数 */
+  publishedUnpriced: number
+  /** 近 N 天有调用且当前零价的模型数 */
+  callingUnpriced: number
+  /** 近 N 天零价调用估算烧掉的上游采购成本合计(分) */
+  estimatedCostCents: number
+  rows: UnpricedAlertRow[]
+}
+
+/**
+ * 零价巡检:列出「已上架但零价」与「近 N 天有调用但零价」的模型。
+ * 「近 N 天有调用」但当前已有价的模型不进榜 —— 那是历史漏计费,由渠道成本报表的
+ * missedRevenueCents 反映,这里只盯还要继续漏的。
+ */
+export async function getUnpricedAlerts(days = 30): Promise<UnpricedAlertReport> {
+  const rawDays = Number(days)
+  const span = Math.min(Math.max(Number.isFinite(rawDays) ? Math.trunc(rawDays) : 30, 1), 365)
+  const res = await db.execute(sql`
+    with price as (
+      select distinct on (lower(model_id))
+        lower(model_id) as mid,
+        config_id,
+        is_relay_public,
+        coalesce(input_price_per_1k, 0) as pin,
+        coalesce(output_price_per_1k, 0) as pout,
+        coalesce(
+          cost_input_price_per_1k,
+          coalesce(input_price_per_1k, 0)
+            / nullif(nullif(metadata->'priceSource'->>'profitFactor', '')::numeric, 0),
+          0
+        ) as cin,
+        coalesce(
+          cost_output_price_per_1k,
+          coalesce(output_price_per_1k, 0)
+            / nullif(nullif(metadata->'priceSource'->>'profitFactor', '')::numeric, 0),
+          0
+        ) as cout
+      from ai_model_config_models
+      order by lower(model_id), config_id desc
+    ),
+    usage as (
+      select
+        lower(model) as mid,
+        count(*)::int as calls,
+        coalesce(sum(coalesce(prompt_tokens, 0)), 0)::numeric as pt,
+        coalesce(sum(coalesce(completion_tokens, 0)), 0)::numeric as ct
+      from llm_call_logs
+      where created_at >= now() - (${span}::int * interval '1 day')
+        and status in ('success', 'partial')
+      group by 1
+    )
+    select
+      p.mid as model_id,
+      p.config_id,
+      p.is_relay_public,
+      coalesce(u.calls, 0)::int as calls,
+      round(
+        coalesce(u.pt, 0) / 1000.0 * p.cin + coalesce(u.ct, 0) / 1000.0 * p.cout,
+        6
+      ) as estimated_cost_cents
+    from price p
+    left join usage u on u.mid = p.mid
+    where coalesce(p.pin, 0) <= 0 and coalesce(p.pout, 0) <= 0
+      and (p.is_relay_public = true or coalesce(u.calls, 0) > 0)
+    order by estimated_cost_cents desc, calls desc
+  `)
+  const all = rowsOf<Record<string, unknown>>(res).map((r) => ({
+    modelId: String(r['model_id'] ?? ''),
+    configId: asNum(r['config_id']),
+    isRelayPublic: r['is_relay_public'] === true,
+    calls: asNum(r['calls']),
+    estimatedCostCents: asNum(r['estimated_cost_cents']),
+  }))
+  return {
+    days: span,
+    publishedUnpriced: all.filter((r) => r.isRelayPublic).length,
+    callingUnpriced: all.filter((r) => r.calls > 0).length,
+    estimatedCostCents: all.reduce((sum, r) => sum + r.estimatedCostCents, 0),
+    rows: all.slice(0, 50),
+  }
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
