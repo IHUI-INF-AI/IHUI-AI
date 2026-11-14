@@ -31,13 +31,14 @@ if (!twoLevel) {
   console.error('❌ 未找到「年假」3 天以上的两级审批链规则,请先在后台配置后再跑本联调')
   process.exit(1)
 }
-// approverIds 类型是 string[](非空数组),解构元素被 TS 推导为 string,`!mgr1` 守卫恒假;
-// 故先判 length 再解构,真跑不足 2 人时让守卫真正生效。
+// approverIds 是 string[] 且在本仓 noUncheckedIndexedAccess 下解构元素推成 string | undefined;
+// 故先用 length 守卫把"不足 2 人"这条真分支挡掉,再逐位断定非空 —— 守卫恒假的写法(!mgr1)挡不住。
 if (twoLevel.approverIds.length < 2) {
   console.error(`❌ 两级审批链 approverIds 不足 2 人(实得 ${twoLevel.approverIds.length})`)
   process.exit(1)
 }
-const [mgr1, mgr2] = twoLevel.approverIds
+const mgr1 = twoLevel.approverIds[0] as string
+const mgr2 = twoLevel.approverIds[1] as string
 
 let step = 0
 const ok = (label: string, cond: boolean, extra?: unknown) => {

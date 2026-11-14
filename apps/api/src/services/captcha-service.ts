@@ -218,6 +218,16 @@ export class CaptchaService {
       const r = await this.redis.exists(K_TOKEN(token))
       return r === 1
     } catch (e) {
+      // F-313(2026-11-14):Redis 抖动期间 issueToken 可能已把 token 落 mem,读侧对称回落,
+      // 避免已签发的 token 在 Redis 故障窗口内全部失效。
+      const v = CaptchaService.memTokens.get(token)
+      if (v !== undefined) {
+        if (v <= Date.now()) {
+          CaptchaService.memTokens.delete(token)
+          return false
+        }
+        return true
+      }
       logger.warn('captcha: verifyToken failed', { err: e })
       return false
     }
@@ -233,7 +243,10 @@ export class CaptchaService {
     try {
       await this.redis.del(K_TOKEN(token))
     } catch (e) {
-      logger.warn('captcha: consumeToken failed', { err: e })
+      // F-313(2026-11-14):Redis 抖动期间消费也要落到 mem,保证「一次性」语义不破
+      // (consumeToken 删失败不落 mem ⇒ 已用 token 仍可二次校验通过)。
+      CaptchaService.memTokens.delete(token)
+      logger.warn('captcha: consumeToken failed, evicted mem', { err: e })
     }
   }
 
@@ -282,7 +295,13 @@ export class CaptchaService {
       if (count === 1) await this.redis.expire(key, RATE_LIMIT_WINDOW_SEC)
       return count <= RATE_LIMIT_PER_MIN
     } catch (e) {
-      logger.warn('captcha: rate limit check failed, allow', { err: e })
+      // F-313(2026-11-14):fail-open 不抛错,但留下结构化 warn 便于排查
+      // (测试 f-313-case④ 断言 key + reason 两个字段同时存在)。
+      logger.warn('captcha: rate limit check failed, allow', {
+        key: K_RATE(ip),
+        reason: 'redis-error',
+        err: e,
+      })
       return true
     }
   }
@@ -329,7 +348,12 @@ export class CaptchaService {
       if (!raw) return null
       return JSON.parse(raw) as { answer: string; type: ChallengeType }
     } catch (e) {
-      logger.warn('captcha: loadChallenge failed', { err: e })
+      // F-313(2026-11-14):Redis 抖动期间 storeChallenge 已把挑战落 mem,读侧必须同源回落,
+      // 否则「写内存、读 Redis」导致验证码必然校验失败(登录/注册/改密被锁死)。
+      const v = CaptchaService.memChallenges.get(id)
+      if (v && v.expiresAt >= Date.now()) return { answer: v.answer, type: v.type }
+      if (v) CaptchaService.memChallenges.delete(id)
+      logger.warn('captcha: loadChallenge failed, fell back to mem', { err: e })
       return null
     }
   }
@@ -342,7 +366,10 @@ export class CaptchaService {
     try {
       await this.redis.del(K_CHALLENGE(id))
     } catch (e) {
-      logger.warn('captcha: deleteChallenge failed', { err: e })
+      // F-313(2026-11-14):Redis 抖动期间删除也要落到 mem,保证「单次使用」语义不破
+      // (verifyChallenge 无论对错都删挑战防重放;删失败不落 mem ⇒ 同一 challenge 可二次校验)。
+      CaptchaService.memChallenges.delete(id)
+      logger.warn('captcha: deleteChallenge failed, evicted mem', { err: e })
     }
   }
 
