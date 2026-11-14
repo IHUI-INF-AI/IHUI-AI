@@ -154,35 +154,39 @@ export default function PayIndex() {
       get<{ items: CouponItem[] } | CouponItem[]>('/pay/coupons/available', { amount: amt }).catch(
         () => null,
       ),
-    ]).then(([wallet, orderRes, couponRes]) => {
-      // 钱包余额 getBalance → user_margins.token_quantity，单位就是**分**
-      // （充值回调 rechargeToken(order.amount) 落的是订单分金额、赠送按分入账，
-      //  见 services/order-service.ts 的 rechargeIfTokenOrder / creditTopupBonus），
-      // 与本页订单金额同尺度，直接比较，不要再乘 100。
-      if (wallet && typeof wallet.balance === 'number') {
-        setBalance(wallet.balance)
-      }
-      const order = orderRes?.order
-      if (order) {
-        if (typeof order.amount === 'number' && order.amount > 0) setAmount(order.amount)
-        // 原价基准：有 original_price 用它，否则用「现价 + 已折减」还原存量单（下单时该列落 0）
-        const base =
-          typeof order.originalPrice === 'number' && order.originalPrice > 0
-            ? order.originalPrice
-            : (order.amount ?? 0) + Math.max(0, order.discountAmount ?? 0)
-        if (base > 0) setOriginalAmount(base)
-        setOrderDetail({
-          goodsName: order.targetTitle ?? undefined,
-          createTime: fmtDateTime(order.createdAt),
-        })
-      }
-      if (couponRes) {
-        const list = Array.isArray(couponRes) ? couponRes : couponRes.items || []
-        setCoupons(list)
-      }
-      deadlineRef.current = resolveDeadline(order)
-      setRemaining(Math.max(0, Math.round((deadlineRef.current - Date.now()) / 1000)))
-    })
+    ])
+      .then(([wallet, orderRes, couponRes]) => {
+        // 钱包余额 getBalance → user_margins.token_quantity，单位就是**分**
+        // （充值回调 rechargeToken(order.amount) 落的是订单分金额、赠送按分入账，
+        //  见 services/order-service.ts 的 rechargeIfTokenOrder / creditTopupBonus），
+        // 与本页订单金额同尺度，直接比较，不要再乘 100。
+        if (wallet && typeof wallet.balance === 'number') {
+          setBalance(wallet.balance)
+        }
+        const order = orderRes?.order
+        if (order) {
+          if (typeof order.amount === 'number' && order.amount > 0) setAmount(order.amount)
+          // 原价基准：有 original_price 用它，否则用「现价 + 已折减」还原存量单（下单时该列落 0）
+          const base =
+            typeof order.originalPrice === 'number' && order.originalPrice > 0
+              ? order.originalPrice
+              : (order.amount ?? 0) + Math.max(0, order.discountAmount ?? 0)
+          if (base > 0) setOriginalAmount(base)
+          setOrderDetail({
+            goodsName: order.targetTitle ?? undefined,
+            createTime: fmtDateTime(order.createdAt),
+          })
+        }
+        if (couponRes) {
+          const list = Array.isArray(couponRes) ? couponRes : couponRes.items || []
+          setCoupons(list)
+        }
+        deadlineRef.current = resolveDeadline(order)
+        setRemaining(Math.max(0, Math.round((deadlineRef.current - Date.now()) / 1000)))
+      })
+      .catch(() => {
+        /* 三个子请求已各自兜底;渲染回调异常不应产生未处理的拒绝 */
+      })
 
     timerRef.current = setInterval(() => {
       const deadline = deadlineRef.current

@@ -109,6 +109,7 @@ export default function Bill() {
   const gate = useAuthReadyGate()
   const [data, setData] = useState<MyBillsResp>({ enrollments: [], payments: [], ledgers: [] })
   const [loading, setLoading] = useState(false)
+  const inFlightRef = useRef(false)
   const [payingId, setPayingId] = useState('')
   const mountedRef = useRef(false)
 
@@ -122,6 +123,8 @@ export default function Bill() {
   )
 
   const load = useCallback(async () => {
+    if (inFlightRef.current) return
+    inFlightRef.current = true
     setLoading(true)
     try {
       const res = await get<MyBillsResp>('/edu-ai-management/my-bills')
@@ -133,6 +136,7 @@ export default function Bill() {
     } catch {
       // api-bridge 已统一 toast
     } finally {
+      inFlightRef.current = false
       setLoading(false)
     }
   }, [])

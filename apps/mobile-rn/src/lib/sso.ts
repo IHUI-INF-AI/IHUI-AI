@@ -143,11 +143,15 @@ export function subscribeSsoDeepLink(callback: (ssoCode: string) => void): () =>
   const subscription = Linking.addEventListener('url', ({ url }) => {
     if (!isSsoCallbackUrl(url)) return
     // 第 23 批:先取回 pending state(热路径读内存,异常情形回落到持久化值)再比对
-    void loadPendingState().then((state) => {
-      if (!state) return
-      const code = extractSsoCode(url, state)
-      if (code) callback(code)
-    })
+    void loadPendingState()
+      .then((state) => {
+        if (!state) return
+        const code = extractSsoCode(url, state)
+        if (code) callback(code)
+      })
+      .catch(() => {
+        /* pending state 读取失败:忽略本次深链 */
+      })
   })
   return () => subscription.remove()
 }

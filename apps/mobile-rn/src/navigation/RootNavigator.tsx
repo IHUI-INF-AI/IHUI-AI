@@ -907,14 +907,18 @@ function RootNavigatorInner() {
       void Promise.race([
         expireAuth().then(() => 'done'),
         new Promise((r) => setTimeout(() => r('timeout'), 8000)),
-      ]).then((outcome) => {
-        if (outcome !== 'done') {
-          console.warn(
-            `[rn-auth] 结束本地会话未在 8s 内完成(${outcome})—— 登录页已打开,不受影响;` +
-              '但"凭据有两个数据源"这一格需要单独修(auth-store 持久化 vs SecureStore 缓存)',
-          )
-        }
-      })
+      ])
+        .then((outcome) => {
+          if (outcome !== 'done') {
+            console.warn(
+              `[rn-auth] 结束本地会话未在 8s 内完成(${outcome})—— 登录页已打开,不受影响;` +
+                '但"凭据有两个数据源"这一格需要单独修(auth-store 持久化 vs SecureStore 缓存)',
+            )
+          }
+        })
+        .catch((err: unknown) => {
+          console.warn('[rn-auth] expireAuth failed (login screen already open)', err)
+        })
     })
     return () => setUnauthorizedHandler(null)
   }, [token])

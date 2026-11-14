@@ -17,6 +17,7 @@ import { Text, View } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import type { JSX } from 'react'
 import { onToast } from '@/host/on-toast'
+import { useTt } from '@/i18n'
 
 let warned = false
 
@@ -38,6 +39,7 @@ export default function WebView({
   style?: unknown
   [k: string]: unknown
 }): JSX.Element {
+  const tt = useTt()
   const uri = source?.uri ?? ''
   if (!warned) {
     warned = true
@@ -47,12 +49,18 @@ export default function WebView({
   }
   const open = (): void => {
     if (!uri) return
-    void Taro.setClipboardData({ data: uri }).then(() => onToast('链接已复制', { kind: 'info' }))
+    void Taro.setClipboardData({ data: uri })
+      .then(() => onToast(tt('circle.detail.copied', '链接已复制'), { kind: 'info' }))
+      .catch(() => {
+        // 剪贴板写入被拒绝(无权限 / 用户取消):静默,不产生未处理的 Promise 拒绝
+      })
   }
   return (
     <View style={{ ...(style as object), padding: 12 }}>
       <View hoverClass="opacity-60" onClick={open}>
-        <Text style={{ color: '#2563eb' }}>{uri || '(无链接)'}</Text>
+        <Text style={{ color: 'var(--color-primary)' }}>
+          {uri || tt('webview.missingUrl', '(无链接)')}
+        </Text>
       </View>
     </View>
   )
