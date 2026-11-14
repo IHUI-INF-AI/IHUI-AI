@@ -19,6 +19,7 @@ import {
   Moon,
   Languages,
   Download,
+  Coins,
   Check,
   Info,
   CheckCircle2,
@@ -46,6 +47,12 @@ import {
   type PendingDecisionView,
 } from '@/components/feature-center'
 import { LANGUAGES } from './nav-data'
+import {
+  getActiveCurrency,
+  getSelectedCurrency,
+  setSelectedCurrency,
+  type CurrencyCode,
+} from '@/lib/display-currency'
 import { useChatStore } from '@/stores/chat'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import {
@@ -81,6 +88,9 @@ const NOTICE_META: Record<NoticeItem['type'], { icon: LucideIcon; tone: string }
   error: { icon: XCircle, tone: 'bg-red-500/10 text-red-600 dark:text-red-400' },
 }
 
+/** 展示货币选项(与 CurrencySwitcher 同源顺序;菜单里用子菜单 + 勾选表示当前项) */
+const CURRENCY_OPTIONS: CurrencyCode[] = ['USD', 'CNY', 'USDT']
+
 /** 侧边栏底部用户区:头像 + 用户名 + 下拉菜单。
  *  2026-09-21 用户要求(Qoder 风格):原 SidebarActions 底部 5 按钮
  *  (语言 / 下载客户端 / 站内消息 / 主题切换 / 设置)全部收进本菜单,
@@ -100,6 +110,13 @@ export function SidebarUserRow({
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   const logout = useAuthStore((s) => s.logout)
   const { locale, setLocale } = useLanguageStore()
+  // 展示货币:auto 时按生效币种勾选(菜单每次打开重新渲染,读取模块级偏好即可)
+  const selectedDisplayCurrency = getSelectedCurrency()
+  const effectiveDisplayCurrency = getActiveCurrency()
+  const isCurrencyActive = (code: CurrencyCode) =>
+    selectedDisplayCurrency === 'auto'
+      ? effectiveDisplayCurrency === code
+      : selectedDisplayCurrency === code
   const { resolvedTheme, setTheme } = useTheme()
   const notifications = useNotificationStore((s) => s.notifications)
   const unreadCount = useNotificationStore((s) => s.unreadCount)
@@ -344,6 +361,18 @@ export function SidebarUserRow({
         ),
         trailing: locale === lang.code ? <Check className="h-4 w-4" /> : null,
         onSelect: () => handleLocaleChange(lang.code),
+      })),
+    },
+    {
+      key: 'displayCurrency',
+      // 语言中立标签:币种代码本身就是通用写法,无需为 5 个语言包新增翻译键
+      label: 'USD / CNY / USDT',
+      icon: Coins,
+      children: CURRENCY_OPTIONS.map((code) => ({
+        key: `currency-${code}`,
+        label: code,
+        trailing: isCurrencyActive(code) ? <Check className="h-4 w-4" /> : null,
+        onSelect: () => setSelectedCurrency(code),
       })),
     },
     {

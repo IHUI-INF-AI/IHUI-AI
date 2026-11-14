@@ -98,11 +98,13 @@ export function subscribeDisplayCurrency(listener: () => void): () => void {
   }
 }
 
-/** 写入汇率快照。首次拿到快照且展示币种非 CNY 时通知重算(SSR 缺快照时的补偿) */
+/** 写入汇率快照。首次拿到快照时**无论展示币种**都通知重算:
+ *  页面上的美元源价格(如模型市场 $0.59)在 CNY 口径下也要立刻按快照换算,
+ *  否则首屏会同时出现 $ 与 ¥ 两种单位(看起来像单位不统一)。 */
 export function setFxSnapshot(next: LiveFxRates | null): void {
   const hadSnapshot = fxSnapshot !== null
   fxSnapshot = next
-  if (!hadSnapshot && next && getActiveCurrency() !== 'CNY') notifyDisplayCurrencyChanged()
+  if (!hadSnapshot && next) notifyDisplayCurrencyChanged()
 }
 
 export function getFxSnapshot(): LiveFxRates | null {

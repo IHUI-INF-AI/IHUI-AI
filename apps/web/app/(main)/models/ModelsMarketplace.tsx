@@ -687,6 +687,9 @@ function ModelCardGrid({
               : model.inputPrice === 0
                 ? t('free')
                 : formatUsd(model.inputPrice)}
+            {typeof model.inputPrice === 'number' && (
+              <span className="ml-1 text-muted-foreground">{t('perMillion')}</span>
+            )}
           </span>
         </div>
         <div className="mt-1 flex items-center justify-between [&>span]:translate-y-[var(--text-vcenter-offset)]">

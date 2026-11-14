@@ -254,8 +254,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   // 里 proxy.ts 的移出说明),这里与上面 cookies 同一短路口径。
   const requestHeaders = isStaticExport ? null : await headers()
   const nonce = requestHeaders?.get('x-nonce') ?? undefined
-  // 展示货币(2026-11-14 立):偏好由 CurrencySwitcher 镜像进 cookie,这里决定 SSR 首屏口径,
-  // 否则刷新后服务端只能按 CNY 直出,与客户端所选币种不一致。
+  // 展示货币(2026-11-14 立):偏好由头像菜单的「USD / CNY / USDT」写入 cookie,
+  // 这里决定 SSR 首屏口径,否则刷新后服务端只能按 CNY 直出,与客户端所选币种不一致。
   // auto = 跟随浏览器语言:服务端按 Accept-Language 判定(en* → USD,其余 → CNY),
   // 客户端水合前从 <html data-currency-effective> 读同一值 ⇒ 两侧首帧一致。
   // 汇率快照 cookie 让 SSR 直出的静态金额也能换算;缺失时回落原币种(不猜汇率)。

@@ -7,6 +7,7 @@ import { CheckCircle2, Gift, Ticket } from 'lucide-react'
 
 import { Button, Card, CardContent, CardHeader, CardTitle, Input } from '@ihui/ui-react'
 import { BackButton } from '@/components/common'
+import { formatCny } from '@/lib/display-currency'
 
 /** i18n 静态映射表 — 用于消除 `t(\`redeem.history.statusLabels.${var}\`)` 动态拼接 */
 const REDEEM_STATUS_KEY: Record<string, string> = {
@@ -71,7 +72,7 @@ export default async function RedeemPage() {
                   <tr key={i} className="text-label hover:bg-muted/30">
                     <td className="px-4 py-2.5 font-mono text-muted-foreground">{h.code}</td>
                     <td className="px-4 py-2.5 font-medium text-emerald-600 dark:text-emerald-400">
-                      {h.status === 'success' ? `+¥ ${h.amount.toFixed(2)}` : '—'}
+                      {h.status === 'success' ? `+${formatCny(h.amount, { digits: 2 })}` : '—'}
                     </td>
                     <td className="px-4 py-2.5 text-muted-foreground">{h.time}</td>
                     <td className="px-4 py-2.5">
