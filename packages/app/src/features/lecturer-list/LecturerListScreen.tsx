@@ -291,7 +291,7 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
     },
     avatarFallbackText: {
-      fontSize: 22,
+      fontSize: rnType.headline.size,
       fontWeight: '600',
       color: tk.text.secondary,
     },

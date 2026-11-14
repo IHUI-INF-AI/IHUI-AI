@@ -181,7 +181,7 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    avatarText: { fontSize: 22, fontWeight: '600', color: tk.surface.light },
+    avatarText: { fontSize: rnType.headline.size, fontWeight: '600', color: tk.surface.light },
     memberMeta: { flex: 1, gap: rnSpacing.xs },
     nickname: { fontSize: rnType.subtitle.size, fontWeight: '600', color: tk.text.primary },
     metaText: { fontSize: rnType.body.size, color: tk.text.secondary },
