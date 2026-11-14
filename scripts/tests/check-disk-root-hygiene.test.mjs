@@ -17,7 +17,14 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
-import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
+import {
+  existsSync,
+  readFileSync,
+  readdirSync,
+  writeFileSync,
+  utimesSync,
+  mkdirSync,
+} from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
@@ -208,6 +215,25 @@ test('T10 消费侧:git-guardian 的未判定分支必须逐维报名(旧写法�
   assert.doesNotMatch(g, /worktree 维度未判定=\$\{parsed\.counts\.worktreeUndetermined\}/, '旧的"只印一维"写法不得回来(它把没申报写成已判过)')
 })
 
+test('T10b 消费侧:违规 kind 词汇表两侧对齐 —— H3 新 kind 有专属措辞,不得落"未识别类别"兜底', () => {
+  const g = readFileSync(join(REPO, 'scripts', 'git-guardian.mjs'), 'utf8')
+  assert.match(
+    g,
+    /'stray-content-in-declared-dir': \(v\) =>/,
+    'LABEL 必须认识 H3 的 kind(否则信文把"申报目录内项目外流"喊成"请核对尺子与本守护是否同代")',
+  )
+  assert.match(g, /未识别的违规类别 kind=/, '"未识别类别单独报名"的兜底必须还在(新 kind 再来时不许被顺手当旧型渲染)')
+  // Y-71:H4 孤儿壳新 kind 必须有专属措辞 + 生产方字面量与消费方逐字同形(防落兜底)
+  assert.match(
+    g,
+    /'orphan-worktree-shell': \(v\) =>/,
+    'LABEL 必须认识 H4 孤儿壳的 kind(否则信文把孤儿壳喊成"请核对尺子与本守护是否同代")',
+  )
+  const src = readFileSync(GATE, 'utf8')
+  assert.match(src, /kind: 'stray-content-in-declared-dir'/, '生产方产出的 kind 字面量与消费方词汇表逐字同形')
+  assert.match(src, /kind: 'orphan-worktree-shell'/, 'H4 孤儿壳 kind 字面量两侧逐字同形')
+})
+
 test('T13 消费侧:告警去重身份用档位而不是原始计数(实测 34 封、30 分钟一封的成因)', () => {
   const g = readFileSync(join(REPO, 'scripts', 'git-guardian.mjs'), 'utf8')
   // 2026-10-21:实现已把本地 `tier()` 收进共享的 `alertCountTier`(git-guardian.mjs:2246 导出;
@@ -267,5 +293,99 @@ test('T12 前置:真盘根可读性判据不得把"目录里有被拒条目"当�
   assert.ok(here && existsSync(here), '本机盘根必须存在,否则上面几条夹具都在对着空气判')
   const r = auditDiskRoot(here, [])
   assert.equal(r.undetermined.length, 0, '真盘根不得落 undetermined')
+})
+
+// Y-73(盘根外流根治回归锁@2026-11-14):H3 申报目录内容对账此前只在纯函数 --self-test
+// 面有牙,CLI 层缺"三维各一红"里那一维 —— §22c:纯函数证明的是判据会给答案,证不了
+// main() 的根循环真把 contents 喂进去。本用例走 --config(--root 会强制替身盘根全量放行、
+// 屏蔽 contents),在替身盘根里造一个具名放行件 + 一个未知超龄件(utimesSync 把 mtime 拨到
+// 两天前,绕过 graceHours 窗口),断言它单独翻红且不连带 H1/H2。零副作用:替身盘根与 config
+// 全落 mkScratch,只写不删真盘根。
+test('T16 H3 CLI 层:申报目录内未知超龄件必须经 main() 独立点名,且不连带 H1/H2', () => {
+  const dir = mkScratch('drh-t16-')
+  try {
+    const fakeRoot = join(dir, 'fakeroot')
+    const declared = join(fakeRoot, 'declared')
+    mkdirSync(declared, { recursive: true })
+    writeFileSync(join(declared, 'known.log'), 'x')
+    const oldPath = join(declared, 'unknown-old.txt')
+    writeFileSync(oldPath, 'y')
+    const twoDaysAgo = new Date(Date.now() - 48 * 3600_000)
+    utimesSync(oldPath, twoDaysAgo, twoDaysAgo)
+    const cfg = join(dir, 'cfg.json')
+    const rootKey = `${fakeRoot}\\`
+    writeFileSync(
+      cfg,
+      JSON.stringify({
+        roots: {
+          [rootKey]: {
+            allow: ['declared'],
+            note: 'Y-73 夹具:替身盘根,只申报 declared 这一目录',
+            contents: { declared: { allow: ['known.log'], graceHours: 24 } },
+          },
+        },
+        worktreePolicy: { sanctionedPrefixes: [], exemptPaths: [] },
+      }),
+    )
+    const wt = join(dir, 'wt.txt')
+    writeFileSync(wt, 'worktree A:/main\nHEAD abc\nbranch refs/heads/main\n\n')
+    const j = JSON.parse(runCli(['--json', '--config', cfg, '--wt-file', wt]))
+    assert.equal(j.counts.declaredContentStray, 1, `H3 内容外流必须计 1:${JSON.stringify(j.violations)}`)
+    const stray = j.violations.filter((v) => v.kind === 'stray-content-in-declared-dir')
+    assert.equal(stray.length, 1, 'H3 违规 kind 必须是 stray-content-in-declared-dir')
+    assert.equal(stray[0].entry, 'unknown-old.txt', `点名对象错了:${stray[0]?.entry}`)
+    assert.ok(stray[0].ageHours >= 47, `age 必须量出来(>=47h),实得 ${stray[0]?.ageHours}`)
+    const h1 = j.violations.filter((v) => v.kind === 'stray-root-entry')
+    assert.equal(h1.length, 0, 'H1 不得连带:盘根 allow 已含 declared')
+    assert.equal(j.counts.worktreeOutside, 0, 'H2 不得连带:登记面干净')
+    assert.equal(j.verdict, 'red', '有 H3 真违规就必须是 red')
+    const cap = runCliCaptured(['--strict', '--json', '--config', cfg, '--wt-file', wt])
+    assert.equal(cap.rc, 1, `H3 违规在 --strict 问责档必须 exit 1,实得 ${cap.rc}`)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+// Y-73 补 H2 CLI 层 strict 红:worktree 落点外这一维此前只有 T3(断 verdict=red)没断 --strict
+// exit 1。本用例专钉 H2 单维:盘根全申报(H1 不连带)、内容空(H3 不连带),只有一条落点外登记,
+// 断 --strict exit 1 —— 凑齐"三维各一 strict 红"(H1=T5、H2=本例、H3=T16)。
+test('T17 H2 CLI 层:worktree 落点外在 --strict 问责档必须 exit 1,且不连带 H1/H3', () => {
+  const dir = mkScratch('drh-t17-')
+  try {
+    const derived = deriveSanctioned()
+    assert.ok(derived, 'deriveSanctioned() 在本机必须算得出来')
+    // 盘根走 --root 通道(替身盘根全量放行 ⇒ H1 零违规、无 contents ⇒ H3 不触发)
+    const cfg = join(dir, 'cfg.json')
+    writeFileSync(
+      cfg,
+      JSON.stringify({ roots: {}, worktreePolicy: { sanctionedPrefixes: [], exemptPaths: [] } }),
+    )
+    // 登记面:首条=主工作树恒豁免,第二条不命中任何合法落点 ⇒ H2 单维违规
+    const wt = join(dir, 'wt.txt')
+    const landing = derived.prefixes[0]
+    writeFileSync(
+      wt,
+      `worktree ${derived.exempt[0]}\nHEAD abc\nbranch refs/heads/main\n\nworktree C:/definitely-outside\nHEAD def\n\n`,
+    )
+    const j = JSON.parse(
+      runCli(['--json', '--config', cfg, '--wt-file', wt, '--root', dir]),
+    )
+    assert.equal(j.counts.worktreeOutside, 1, `H2 落点外必须计 1:${JSON.stringify(j.violations)}`)
+    assert.ok(
+      j.violations.some((v) => v.kind === 'worktree-outside-sanctioned-root' && v.path === 'C:/definitely-outside'),
+      'H2 必须点名落点外那条',
+    )
+    assert.equal(
+      j.counts.diskRootStray,
+      0,
+      'H1 不得连带:--root 通道替身盘根全量放行',
+    )
+    assert.equal(j.counts.declaredContentStray, 0, 'H3 不得连带:无 contents 声明')
+    assert.equal(j.verdict, 'red', '有 H2 真违规就必须是 red')
+    const cap = runCliCaptured(['--strict', '--json', '--config', cfg, '--wt-file', wt, '--root', dir])
+    assert.equal(cap.rc, 1, `H2 违规在 --strict 问责档必须 exit 1,实得 ${cap.rc}`)
+  } finally {
+    rmScratch(dir)
+  }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

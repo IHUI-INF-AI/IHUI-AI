@@ -41,8 +41,11 @@ export interface UpsertPricingInput {
   currency?: string
   effectiveAt?: Date
   expiresAt?: Date | null
-  /** 计费模式(2026-09-13):token | per_call | per_image | per_video,默认 token */
-  billingMode?: 'token' | 'per_call' | 'per_image' | 'per_video'
+  /**
+   * 计费模式(2026-09-13):token | per_call | per_image | per_video,默认 token;
+   * dynamic_cost(2026-11-14):无公开报价,按本次调用上游实际成本 ×3 记账。
+   */
+  billingMode?: 'token' | 'per_call' | 'per_image' | 'per_video' | 'dynamic_cost'
   /** 单位价(分):per_image=分/张;per_video=分/次或分/秒 */
   perUnitPrice?: number | null
   /** per_call 三档价(分/次):{ le256k, mid, gt512k } */

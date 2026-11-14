@@ -20,6 +20,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 import threading
 import uuid
@@ -32,7 +33,19 @@ DEFAULT_TIMEOUT_S = 300.0
 STALE_RETENTION_S = 600
 MAX_OPTIONS = 8
 
+# 定时继续(2026-11-14 立,对标 DSH dsh-tool-ask-user/timed.ts):
+# `timeout_s` 显式传入时进入 timed 模式 —— 前台等待到期后**不把问题判死**,而是
+# 返回 pending 让模型继续;登记表保留 pending 并给一段宽限期,迟到答复按
+# answer_to_pending_question 注入后续迭代。缺省(None)保持既有阻塞 300s 语义。
+MAX_TIMEOUT_S = 86_400.0
+INDEFINITE_TIMEOUT_S = -1
+#: -1(等到底)在登记表里的实用上限,避免一个条目永久驻留。
+INDEFINITE_WAIT_S = 86_400.0
+#: timed 到期后问题仍可答复的宽限时长。
+CONTINUED_GRACE_S = DEFAULT_TIMEOUT_S
+
 STATUS_PENDING = "pending"
+STATUS_CONTINUED = "continued"
 STATUS_ANSWERED = "answered"
 STATUS_TIMEOUT = "timeout"
 STATUS_WITHDRAWN = "withdrawn"
@@ -62,6 +75,10 @@ class AskUserQuestionItem:
     selected_ids: list[str] = field(default_factory=list)
     custom_text: str = ""
     reason: str = ""
+    #: timed 到期转入"可迟到答复"后为 True(条目仍是 pending,不判 timeout)。
+    continued: bool = False
+    #: 转入 continued 的那次工具调用 id;迟到答复据此回填 callId。
+    continued_call_id: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         """SSE 下行帧形状(与 question_parser.Question.to_dict() 同形 + 两个附加键)。"""
@@ -112,6 +129,32 @@ def question_timeout_s() -> float:
     except (TypeError, ValueError):
         return DEFAULT_TIMEOUT_S
     return value if value > 0 else DEFAULT_TIMEOUT_S
+
+
+def normalize_timeout_s(raw: object) -> tuple[float | None, bool, dict[str, Any] | None]:
+    """把模型给的 `timeout_s` 归一为登记表可用的秒数。
+
+    返回 (effective_s, timed, error):
+    - (None, False, None) 未显式给值 —— 沿用 env 默认的阻塞语义;
+    - (86400, False, None) `-1` —— 等到底(实用上限 24h,不返回 pending);
+    - (n, True, None) 正整数 1..86400 —— timed 模式,前台到期返回 pending;
+    - (None, False, error) 非法值。
+    """
+    if raw is None:
+        return None, False, None
+    if isinstance(raw, bool) or not isinstance(raw, (int, float)):
+        return None, False, _error(
+            "question_invalid_timeout",
+            f"timeout_s 必须是整数秒({INDEFINITE_TIMEOUT_S} 表示等到底,或 1..{int(MAX_TIMEOUT_S)})",
+        )
+    if raw == INDEFINITE_TIMEOUT_S:
+        return INDEFINITE_WAIT_S, False, None
+    if raw < 1 or raw > MAX_TIMEOUT_S:
+        return None, False, _error(
+            "question_invalid_timeout",
+            f"timeout_s 必须在 1..{int(MAX_TIMEOUT_S)} 之间,或用 {INDEFINITE_TIMEOUT_S} 表示等到底",
+        )
+    return float(raw), True, None
 
 
 def _error(code: str, message: str) -> dict[str, Any]:
@@ -172,8 +215,14 @@ def create_question(
     options: object = None,
     allow_custom: bool = True,
     allow_multiple: bool = False,
+    timeout_s: object = None,
+    call_id: str = "",
 ) -> AskUserQuestionItem | dict[str, Any]:
-    """登记一个问题;参数非法时返回结构化错误 dict(不抛异常)。"""
+    """登记一个问题;参数非法时返回结构化错误 dict(不抛异常)。
+
+    `timeout_s` 显式给出时覆盖 env 默认值,并记录 timed 模式(见 normalize_timeout_s);
+    `call_id` 只在 timed 到期转入 continued 时用于迟到答复回填。
+    """
     if not isinstance(session_id, str) or not session_id.strip():
         return _error("question_session_required", "session_id 必填")
     if not isinstance(prompt, str) or not prompt.strip():
@@ -181,9 +230,12 @@ def create_question(
     normalized, option_error = _normalize_options(options)
     if option_error is not None:
         return option_error
+    effective_timeout, _timed, timeout_error = normalize_timeout_s(timeout_s)
+    if timeout_error is not None:
+        return timeout_error
 
     now = _now()
-    timeout_s = question_timeout_s()
+    budget = effective_timeout if effective_timeout is not None else question_timeout_s()
     item = AskUserQuestionItem(
         question_id=f"q_{uuid.uuid4().hex[:12]}",
         session_id=session_id,
@@ -194,7 +246,8 @@ def create_question(
         allow_custom=bool(allow_custom),
         allow_multiple=bool(allow_multiple),
         created_at=now,
-        expires_at=now + timedelta(seconds=timeout_s),
+        expires_at=now + timedelta(seconds=budget),
+        continued_call_id=call_id if isinstance(call_id, str) else "",
     )
     with _registry_lock:
         _prune_stale(now)
@@ -333,6 +386,77 @@ def pending_questions_for_session(session_id: str) -> list[AskUserQuestionItem]:
             if item.session_id == session_id and item.status == STATUS_PENDING
         ]
     return sorted(items, key=lambda x: x.created_at)
+
+
+def mark_continued(
+    item: AskUserQuestionItem,
+    *,
+    call_id: str = "",
+    grace_s: float = CONTINUED_GRACE_S,
+) -> str:
+    """timed 前台等待到期:把条目转入 continued(仍是 pending,可迟到答复)。
+
+    - 已被答复/撤回/中断时原样返回该终态(不覆盖先到的结局);
+    - pending 时记 continued 标志并延长登记表有效期到 now+grace_s;
+    - 返回 STATUS_CONTINUED 或实际终态。
+    """
+    with _registry_lock:
+        if item.status != STATUS_PENDING:
+            return item.status
+        item.continued = True
+        if isinstance(call_id, str) and call_id:
+            item.continued_call_id = call_id
+        extended = _now() + timedelta(seconds=max(float(grace_s), 1.0))
+        if item.expires_at < extended:
+            item.expires_at = extended
+        return STATUS_CONTINUED
+
+
+def drain_continued_answers(session_id: str) -> list[AskUserQuestionItem]:
+    """取走该会话已答复的 continued 条目(每条只交付一次)。
+
+    供带交互宿主的执行面在下一轮 LLM 调用前注入 `answer_to_pending_question`
+    用户消息 —— 对齐 DSH 的迟到答复 steering 语义。
+    """
+    with _registry_lock:
+        items = [
+            item
+            for item in _registry.values()
+            if item.session_id == session_id
+            and item.continued
+            and item.status == STATUS_ANSWERED
+        ]
+        for item in items:
+            _registry.pop(item.question_id, None)
+    return sorted(items, key=lambda x: x.created_at)
+
+
+def continued_answer_message(item: AskUserQuestionItem) -> str:
+    """迟到答复的模型侧消息体(与 DSH answer_to_pending_question 同形,单问变体)。"""
+    labels = [opt["label"] for opt in item.options if opt["id"] in item.selected_ids]
+    return json.dumps(
+        {
+            "kind": "answer_to_pending_question",
+            "tool": "ask_user_question",
+            "callId": item.continued_call_id,
+            "questionId": item.question_id,
+            "question": item.prompt,
+            "selectedOptionIds": list(item.selected_ids),
+            "labels": labels,
+            "customText": item.custom_text,
+        },
+        ensure_ascii=False,
+    )
+
+
+def pending_question_notice(item: AskUserQuestionItem, call_id: str) -> str:
+    """timed 到期后回填给模型的 pending 说明(对齐 DSH 的 pendingNotice)。"""
+    return (
+        "前台等待已到期,但这只是「挂起」而不是「用户跳过」:用户仍可继续作答。"
+        "请继续可独立推进的工作,不要重复提问;用户答复会以 "
+        f"answer_to_pending_question 用户消息送达(callId={call_id or item.continued_call_id or '-'},"
+        f" questionId={item.question_id})。不要把挂起当作许可。"
+    )
 
 
 async def wait_for_answer(item: AskUserQuestionItem, timeout_s: float | None = None) -> str:

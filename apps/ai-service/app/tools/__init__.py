@@ -28,6 +28,7 @@ from .finance_tools import (
     ai_tax_filing,
 )
 from .init_agents_md import init_agents_md
+from .payroll_handoff_tools import ai_payroll_handoff
 from .report_tools import generate_report
 from .web_crawl_tools import crawl_site, extract_web, fetch_readable, map_site
 
@@ -48,6 +49,7 @@ __all__ = [
     "init_agents_md",
     "ai_bookkeeping",
     "ai_tax_filing",
+    "ai_payroll_handoff",
     "AI_BOOKKEEPING_DESCRIPTION",
     "AI_TAX_FILING_DESCRIPTION",
 ]

@@ -51,7 +51,8 @@ import {
   pendingPromptTextFromMessage,
   pendingPromptTextFromStorage,
 } from '../../../lib/pending-prompt'
-import { pickRetryTarget } from './chat-send-utils'
+import { pickRetryTarget, planChatSyncSurfaceMerge } from './chat-send-utils'
+import { startExtensionChatSyncResync } from '../../../src/lib/chat-sync-resync'
 import {
   branchTargetServerId,
   failureReasonText,
@@ -191,6 +192,66 @@ export default function ChatPage() {
   /** 本地消息 id → 后端 chat_messages.id(只有持久化成功的消息才有) */
   const [serverIds, setServerIds] = useState<Record<string, string>>({})
   const [branching, setBranching] = useState(false)
+
+  // ── G-20261114 多端实时同步(两条 effect:订阅帧 / 投影到本页)────────────
+  // 帧判据全在共享层:chatSyncStore 按 (messageId, rev) 做幂等四态、gap 排 resync、
+  // 终态粘性;本页只算最小变更集,零复算。
+  //
+  // 票 B02 / 票71 phase 2:gap 排出来之后必须有发起器,否则 pending 只是躺着。
+  // 扩展端没有应用级常驻宿主(侧边栏关掉即卸载),本页就是可达的最长生命周期;
+  // 泵只订阅共享 store,没 gap 时零请求,挂在不依赖 conversationId。
+  useEffect(() => {
+    const pump = startExtensionChatSyncResync()
+    return () => pump.stop()
+  }, [])
+
+  useEffect(() => {
+    if (!conversationId) return
+    const config = { baseUrl: getApiBaseUrl(), tokenProvider: () => getToken() }
+    const sub = subscribeChatSync(config, conversationId, (evt) => {
+      chatSyncStore.applyEvent(evt.data as ChatSyncEvent)
+    })
+    return () => sub.close()
+  }, [conversationId])
+
+  useEffect(() => {
+    if (!conversationId) return
+    type ProjectedRow = ChatMessage & { terminal?: ChatSyncTerminalState }
+    const project = (): void => {
+      // 本端流式单播面是权威;WS snapshot 回放会把正在累积的前缀覆盖回去
+      // (web 的 localStreamEcho / RN 的 paused 同一条纪律)。
+      if (streaming) return
+      const surfaces = chatSyncStore.messagesOf(conversationId)
+      if (surfaces.length === 0) return
+      setMessages((prev) => {
+        const plan = planChatSyncSurfaceMerge(prev, surfaces)
+        if (!plan) return prev
+        const next: ProjectedRow[] = prev.slice()
+        for (const update of plan.updates) {
+          const row = next[update.index]
+          if (!row) continue
+          next[update.index] = {
+            ...row,
+            content: update.content,
+            ...(update.reasoning !== undefined ? { reasoning: update.reasoning } : {}),
+            ...(update.terminal !== undefined ? { terminal: update.terminal } : {}),
+          }
+        }
+        for (const surface of plan.appends) {
+          next.push({
+            id: surface.id,
+            role: surface.role as ChatMessage['role'],
+            content: surface.content,
+            ...(surface.reasoning !== undefined ? { reasoning: surface.reasoning } : {}),
+            ...(surface.terminal !== undefined ? { terminal: surface.terminal } : {}),
+          } as ProjectedRow)
+        }
+        return next
+      })
+    }
+    project()
+    return chatSyncStore.subscribe(project)
+  }, [conversationId, streaming])
 
   // ===== D38 队列语义完整交互(G-42,H18 扩展格)=====
   // 端内排队 state:本端无 web 式 chat store,队列数组即 ChatPage 本地 state;
