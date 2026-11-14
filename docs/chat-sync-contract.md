@@ -18,8 +18,10 @@
 > 零 delta / 上游错误 / 客户端中止路径也恒建占位行(空初面),由 worker 补内容,
 > 保证终态有权威坐标且历史不出现第二个 uuid。
 > CLI 为平台独占豁免,详见 §7 第 6 项。
-> **仍余**:gap 后的 resync 真实发起(HTTP 拉快照 + 退避重试)目前只有 web 接了,
-> taro / RN / extension 只到「排待办」为止,见 §7 第 6 项。
+> **2026-11-14 phase 2 收口**:gap 后的 resync 真实发起(拉权威快照 + 退避重试 +
+> 404/409 摘坐标 + 在飞去重)已四端同源 —— web 走端内 effect,taro / RN / extension
+> 走共享泵 `chat-sync-resync-pump`;端点路径与失败分型收在 `chat-sync-snapshot`,
+> 端内只交一行 `fetchApi`。验证面仍限 node(jsdom),见 §7 第 6 项。
 > 本文件是台账票 B02(V2 #23;票71 那行是同题历史副本,不得再登记第二行)的契约正本;
 > 判据内核与类型在 `packages/types/src/chat-sync-contract.ts`,判据回归在
 > `packages/types/tests/chat-sync-contract-*.test.ts`。三处同源的规则/表格若要改,必须一次改齐。
@@ -220,10 +222,17 @@ resync 的客户端契约(2026-10-26,纯函数,不接网络/UI):
    不带 terminal 的后续 snapshot / patch 不得清掉已有终态(粘性,§4);`unwired` 计数位
    为兼容调用方保留但恒 0。desktop / mobile-cap 无独立聊天前端,分别加载 / 同步 web 产物
    ⇒ 继承 web 能力,不单列接线。
-   **仍余 ①(功能面,已由生成腿幂等重发大幅收窄)**:gap 后的
-   `fetchChatSyncSnapshot` 真实发起 + 退避重试 + 404/409 摘坐标,目前只有 web 的
-   `chat-sync-resync.ts` 接了;taro / RN / extension 的 store 会如实排
-   `pendingResyncs`,但无端侧发起器。
+   **仍余 ①(功能面,2026-11-14 phase 2 收口)**:失败分类 / 退避重试 / 404·409 摘坐标 /
+   在飞去重收进 `@ihui/shared/chat` 的 `chat-sync-resync`;调度收进
+   `chat-sync-resync-pump`(微任务合并、失败坐标不自动重跑、`stop()` 即让路);
+   端点路径与 ApiResult 失败分型收进 `chat-sync-snapshot`。四端接线:
+   web = `useConversationBroadcastSync` 的 gap effect;taro / RN =
+   `use-user-broadcast-sync` 的 token effect 启停泵;extension = `ChatPage` 挂载 effect。
+   原计划的「`@ihui/api-client` 出 REST 快照口」**未采用**:该包此切片他席在飞,
+   改为共享层出路径常量 + `createChatSyncSnapshotFetcher`,端内各交一行 `fetchApi` ——
+   目标(端内零路径抄写、失败分型单一真相)不变,且不制造跨包在途冲突。
+   接线锁:`tests/chat-sync-store.test.ts`(taro)、`tests/chat-sync-rn.test.ts`(RN)、
+   `tests/chat-sync-resync-wiring.test.ts`(extension)。
    **2026-11-14 更正(独立评估证伪)**:「snapshot 可跨 gap」只跨 rev 跳号,
    **不跨「消息不存在」** —— 契约内核 `applyChatSyncEvent` 对 snapshot 同样要求
    `state.messages.has(messageId)`,缺 created 一律判 gap。故 `message:created`
@@ -233,10 +242,10 @@ resync 的客户端契约(2026-10-26,纯函数,不接网络/UI):
    缺行的端一步补齐 created + 全量正文),零额外 DB 写;`message:terminal` 连发
    两枚,端侧按 duplicate / 终态粘性吸收。任一后续帧即可让迟到端收敛,收敛路径
    不再必须 resync。
-   **确定性收敛仍缺**:连续丢掉末帧及其后所有重发帧、或旁观端整段离线时,三端
-   只能等下次打开会话的全量历史拉取;补它需 `packages/api-client` 出 REST 快照口
-   + 共享 store 出 `dropResyncRequest` + 三端 effect 接线(跨包新增能力,须同批
-   落地并配接线锁)。
+   **确定性收敛(2026-11-14 phase 2 补齐)**:连续丢掉末帧及其后所有重发帧、但端侧仍
+   收到任意后续帧时,该帧引出的 gap 会进 `pendingResyncs`,由端侧泵拉权威快照补齐
+   (含缺 created 的情形:`mergeChatSyncResyncSnapshot` 先补 created 再并 snapshot)。
+   仍不承诺的是「整段离线期间连一枚帧都没收到」——那条只剩下次打开会话的全量历史拉取。
    **仍余 ②(验证面)**:微信开发者工具 / Android 模拟器本机不具备(AGENTS §17),
    端侧回归均为 node(jsdom) 下同一条接线,不冒充真机观感。
    **CLI 平台独占豁免**(§9):主 REPL 会话存 `~/.ihui/sessions/*.json`,与后端
