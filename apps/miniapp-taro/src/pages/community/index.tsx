@@ -543,9 +543,13 @@ export default function Community() {
     }
     const url = routeMap[item.key]
     if (url) {
-      // appStore 用 switchTab(因为是 tabbar 页),其他用 navigateTo
+      // appStore 是 tabBar 页:只能 switchTab。失败兜底绝不能再用 navigateTo 打同一个
+      // tabBar 页(微信硬约束,navigateTo 打 tab 页必然失败),否则点了完全没反馈。
       if (item.key === 'appStore') {
-        Taro.switchTab({ url, fail: () => Taro.navigateTo({ url }) })
+        Taro.switchTab({
+          url,
+          fail: () => onToast(tt('community.text8', '页面未配置'), { kind: 'error' }),
+        })
       } else {
         Taro.navigateTo({
           url,
@@ -558,16 +562,26 @@ export default function Community() {
   function handleDrawerLabelClick(item: { key: string }) {
     setShowDrawer(false)
     if (item.key === 'newChat') {
-      // 对齐原项目 addNewChat:跳首页 AI 对话
+      // 对齐原项目 addNewChat:跳首页 AI 对话;失败降级到已注册聊天页并给反馈
       Taro.switchTab({
         url: '/pages/index/index',
-        fail: () => Taro.navigateTo({ url: '/pkg-ai/ai/chat' }),
+        fail: () =>
+          Taro.navigateTo({
+            url: '/pkg-ai/ai/chat',
+            fail: () => onToast(tt('community.text8', '页面未配置'), { kind: 'error' }),
+          }),
       })
     } else if (item.key === 'company') {
-      // 对齐原项目 gotocompany:跳分销页
+      // 对齐原项目 gotocompany:跳分销页。fallback 必须是 app.config.ts 里注册的
+      // /pages/distribution/company/index(分包 root=pages/distribution);旧写法
+      // /pages/company/index 根本不存在,两次跳转都会静默失败。
       Taro.navigateTo({
         url: '/pages/distribution/index',
-        fail: () => Taro.navigateTo({ url: '/pages/company/index' }),
+        fail: () =>
+          Taro.navigateTo({
+            url: '/pages/distribution/company/index',
+            fail: () => onToast(tt('community.text8', '页面未配置'), { kind: 'error' }),
+          }),
       })
     } else if (item.key === 'freebie') {
       // 对齐原项目 lingqu:复制飞书 wiki 链接到剪贴板

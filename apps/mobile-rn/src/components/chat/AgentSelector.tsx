@@ -146,7 +146,12 @@ export function AgentSelector({
         <Pressable style={listDialogStyle} onPress={(e) => e.stopPropagation()}>
           <View style={styles.listDialogHeader}>
             <Text style={styles.listDialogTitle}>{tStatic('uiText.selectAgent')}</Text>
-            <Tappable hitSlop={8} onPress={onClose} style={styles.listDialogClose}>
+            <Tappable
+              hitSlop={8}
+              onPress={onClose}
+              style={styles.listDialogClose}
+              accessibilityRole="button"
+            >
               <X size={20} color={tokens.text.primary} />
             </Tappable>
           </View>
