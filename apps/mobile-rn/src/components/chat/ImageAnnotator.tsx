@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { useI18n } from '../../i18n'
+import { useI18n, t as tStatic } from '../../i18n'
 
 // D124 截图/图片标注编辑器:全屏 Modal + 底图之上自由画笔 / 文字标记。
 // 位图合成走 react-native-view-shot 离屏舞台:保存时对隐藏舞台 captureRef 出 png 临时文件,
@@ -478,7 +478,7 @@ export function ImageAnnotator({ visible, imageUri, onCancel, onSave }: ImageAnn
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>标注图片</Text>
+          <Text style={styles.headerTitle}>{tStatic('uiText.annotateImage')}</Text>
           <Tappable
             hitSlop={8}
             onPress={onCancel}
@@ -572,7 +572,7 @@ export function ImageAnnotator({ visible, imageUri, onCancel, onSave }: ImageAnn
                 color={mode === 'pen' ? tokens.brand.ctaForeground : tokens.text.primary}
               />
               <Text style={[styles.toolBtnText, mode === 'pen' && styles.toolBtnActiveText]}>
-                画笔
+                {tStatic('uiText.brush')}
               </Text>
             </Tappable>
             <Tappable
@@ -586,7 +586,7 @@ export function ImageAnnotator({ visible, imageUri, onCancel, onSave }: ImageAnn
                 color={mode === 'text' ? tokens.brand.ctaForeground : tokens.text.primary}
               />
               <Text style={[styles.toolBtnText, mode === 'text' && styles.toolBtnActiveText]}>
-                文字
+                {tStatic('uiText.textTool')}
               </Text>
             </Tappable>
             <Tappable
@@ -597,7 +597,7 @@ export function ImageAnnotator({ visible, imageUri, onCancel, onSave }: ImageAnn
               accessibilityLabel={t('annot.undoA11y')}
             >
               <Undo2 size={16} color={tokens.text.primary} />
-              <Text style={styles.toolBtnText}>撤销</Text>
+              <Text style={styles.toolBtnText}>{tStatic('devices.revoke')}</Text>
             </Tappable>
             <Tappable
               onPress={clearAll}
@@ -607,7 +607,7 @@ export function ImageAnnotator({ visible, imageUri, onCancel, onSave }: ImageAnn
               accessibilityLabel={t('annot.clearA11y')}
             >
               <Trash2 size={16} color={tokens.text.primary} />
-              <Text style={styles.toolBtnText}>清空</Text>
+              <Text style={styles.toolBtnText}>{tStatic('chat.clearGoBtn')}</Text>
             </Tappable>
           </View>
 
@@ -703,7 +703,7 @@ export function ImageAnnotator({ visible, imageUri, onCancel, onSave }: ImageAnn
             accessibilityRole="button"
             accessibilityLabel={t('common.cancel')}
           >
-            <Text style={styles.footerBtnText}>取消</Text>
+            <Text style={styles.footerBtnText}>{tStatic('auth.twoFactorCancel')}</Text>
           </Tappable>
           <Tappable
             onPress={handleSave}
@@ -717,7 +717,9 @@ export function ImageAnnotator({ visible, imageUri, onCancel, onSave }: ImageAnn
             accessibilityRole="button"
             accessibilityLabel={t('annot.modelEditSaveA11y')}
           >
-            <Text style={[styles.footerBtnText, styles.footerBtnPrimaryText]}>保存</Text>
+            <Text style={[styles.footerBtnText, styles.footerBtnPrimaryText]}>
+              {tStatic('common.save')}
+            </Text>
           </Tappable>
         </View>
       </KeyboardAvoidingView>

@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { useI18n } from '../../i18n'
+import { useI18n, t as tStatic } from '../../i18n'
 
 // 纯抽取:从 ChatScreen 抽出「转语音(TTS)」弹窗(D126)。零行为/视觉变更。
 
@@ -245,7 +245,7 @@ export function VoicePanel({
       >
         <Pressable style={listDialogStyle} onPress={(e) => e.stopPropagation()}>
           <View style={styles.listDialogHeader}>
-            <Text style={styles.listDialogTitle}>转语音</Text>
+            <Text style={styles.listDialogTitle}>{tStatic('chat.menuToVoice')}</Text>
             <Tappable
               hitSlop={8}
               onPress={() => {
@@ -258,7 +258,7 @@ export function VoicePanel({
           </View>
           {/* FF(D126)实时语音对话区:三态 UI 与回调契约(真实连接由调用方接线) */}
           <View style={styles.realtimeSection}>
-            <Text style={styles.realtimeTitle}>实时语音对话</Text>
+            <Text style={styles.realtimeTitle}>{tStatic('uiText.realtimeVoiceChat')}</Text>
             {realtimeState === 'error' ? (
               <Text style={styles.realtimeErrorText}>{errText}</Text>
             ) : null}
@@ -325,7 +325,7 @@ export function VoicePanel({
           </View>
           {loading ? (
             <View style={styles.ttsLoadingWrap}>
-              <Text style={styles.ttsLoadingText}>TTS 转换中...</Text>
+              <Text style={styles.ttsLoadingText}>{tStatic('uiText.ttsConverting')}</Text>
             </View>
           ) : (
             <View style={styles.ttsOptions}>

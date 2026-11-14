@@ -171,7 +171,7 @@ export function CourseDetailScreen() {
         >
           {({ pressed }) => (
             <View style={[styles.entryBtn, pressed ? styles.entryBtnPressed : null]}>
-              <Text style={styles.entryBtnText}>课程目录</Text>
+              <Text style={styles.entryBtnText}>{t('courseDetail.lessons')}</Text>
             </View>
           )}
         </Pressable>
@@ -183,7 +183,7 @@ export function CourseDetailScreen() {
         >
           {({ pressed }) => (
             <View style={[styles.entryBtn, pressed ? styles.entryBtnPressed : null]}>
-              <Text style={styles.entryBtnText}>课程评论</Text>
+              <Text style={styles.entryBtnText}>{t('courseComment.title')}</Text>
             </View>
           )}
         </Pressable>
@@ -195,7 +195,7 @@ export function CourseDetailScreen() {
         >
           {({ pressed }) => (
             <View style={[styles.entryBtn, pressed ? styles.entryBtnPressed : null]}>
-              <Text style={styles.entryBtnText}>讲师</Text>
+              <Text style={styles.entryBtnText}>{t('live.lecturer')}</Text>
             </View>
           )}
         </Pressable>

@@ -41,7 +41,7 @@ import {
   type GestureResponderEvent,
 } from 'react-native'
 import type { AiModelData, AiModelUserType } from '@ihui/types'
-import { useI18n } from '../i18n'
+import { useI18n, t as tStatic } from '../i18n'
 
 // 共享类型已下沉到 @ihui/types,本地 re-export 保持调用方兼容
 // (ModelUserType 重命名为 AiModelUserType 以避免与 legacy-migration ModelType 冲突,
@@ -244,7 +244,7 @@ export default function AiModelCard({
                 activeOpacity={0.7}
                 onPress={stopBubble(() => onBuyPress?.(data))}
               >
-                <Text style={styles.buyBtnText}>购买</Text>
+                <Text style={styles.buyBtnText}>{tStatic('purchase.title')}</Text>
               </TouchableOpacity>
             ) : hasDetail ? (
               <TouchableOpacity
@@ -252,7 +252,7 @@ export default function AiModelCard({
                 onPress={stopBubble(toggleDetail)}
                 style={styles.payDetailRow}
               >
-                <Text style={styles.payDetailText}>购买详情</Text>
+                <Text style={styles.payDetailText}>{tStatic('uiText.purchaseDetails')}</Text>
                 {details ? (
                   <ChevronUp
                     size={12}
@@ -280,7 +280,7 @@ export default function AiModelCard({
             activeOpacity={0.7}
             onPress={stopBubble(() => onSettingPress?.(data))}
           >
-            <Text style={styles.settingBtnText}>设置</Text>
+            <Text style={styles.settingBtnText}>{tStatic('chat.navSettings')}</Text>
           </TouchableOpacity>
         </View>
       ) : null}
@@ -288,7 +288,12 @@ export default function AiModelCard({
       {/* 购买详情展开面板(订单号/时间/金额) */}
       {details && hasDetail ? (
         <View style={styles.detailPanel}>
-          {payid !== undefined ? <Text style={styles.detailText}>关联订单号：{payid}</Text> : null}
+          {payid !== undefined ? (
+            <Text style={styles.detailText}>
+              {tStatic('uiText.relatedOrderNo')}
+              {payid}
+            </Text>
+          ) : null}
           {startTime || endTime ? (
             <Text style={styles.detailText}>
               {t('aiCard.buyTime', { t0: startTime ?? '-' })}
@@ -297,7 +302,7 @@ export default function AiModelCard({
           ) : null}
           {money !== undefined ? (
             <View style={styles.detailMoneyRow}>
-              <Text style={styles.detailText}>购买金额</Text>
+              <Text style={styles.detailText}>{tStatic('uiText.purchaseAmount')}</Text>
               <Text style={styles.detailMoney}>￥{money}</Text>
             </View>
           ) : null}

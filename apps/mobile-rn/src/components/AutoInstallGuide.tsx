@@ -17,6 +17,7 @@
  * 显示时机由 UpdatePrompt 决定:只在没有别的更新卡占浮层时出现(不叠卡)。
  */
 
+import { t as tStatic } from '../i18n'
 import * as React from 'react'
 import { StyleSheet, Text, View } from 'react-native'
 import { ShieldCheck } from 'lucide-react-native'
@@ -70,10 +71,8 @@ export function AutoInstallGuide(): React.JSX.Element | null {
           <ShieldCheck size={16} color={tokens.brandAccent.deep} />
         </View>
         <View style={styles.titleWrap}>
-          <Text style={styles.title}>开启全自动更新</Text>
-          <Text style={styles.body}>
-            允许「IHUI 自动安装」无障碍服务后，新版本会自动下载并安装，不用再手动点确认。
-          </Text>
+          <Text style={styles.title}>{tStatic('uiText.enableAutoUpdate')}</Text>
+          <Text style={styles.body}>{tStatic('uiText.autoInstallPermHint')}</Text>
         </View>
       </View>
       <View style={styles.footer}>
@@ -83,7 +82,7 @@ export function AutoInstallGuide(): React.JSX.Element | null {
           accessibilityRole="button"
           accessibilityLabel="我已开启"
         >
-          <Text style={styles.ghostText}>我已开启</Text>
+          <Text style={styles.ghostText}>{tStatic('uiText.alreadyEnabled')}</Text>
         </Tappable>
         <Tappable
           onPress={handleOpen}
@@ -92,7 +91,7 @@ export function AutoInstallGuide(): React.JSX.Element | null {
           accessibilityRole="button"
           accessibilityLabel="去开启"
         >
-          <Text style={styles.actionText}>去开启</Text>
+          <Text style={styles.actionText}>{tStatic('uiText.goEnable')}</Text>
         </Tappable>
       </View>
     </View>

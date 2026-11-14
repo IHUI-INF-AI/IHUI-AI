@@ -255,7 +255,7 @@ import {
 import { BudgetStopNotice } from '../components/chat/BudgetStopNotice'
 import { ContextLedgerPanel } from '../components/chat/ContextLedgerPanel'
 import { CompactionBoundaryNote } from '../components/chat/CompactionBoundaryNote'
-import { useI18n } from '../i18n'
+import { useI18n, t as tStatic } from '../i18n'
 import {
   resolveRoundModel,
   shouldTerminateForModelSwitch,
@@ -1615,6 +1615,16 @@ export function ChatScreen() {
         if (event.items.length === 0) return
         showToast('info', t('ai.stream.memoryRemembered', { n: event.items.length }))
       },
+      // D155 下行告警三档(2026-11-13 收编):后端在流首产 deprecation-notice
+      // (厂商下发的 `deprecation_date` 进入 30 天提醒窗口时)。不接这三条回调
+      // ⇒ 帧被静默丢弃,用户继续用一个即将下线的模型,直到某天它突然 404。
+      //
+      // 为什么接三条而不是一条归并回调:api-client 的解析层就是按帧分成三个
+      // callback(与 web 的 send-message.ts:1502-1510 同一组),RN 不自造第二套
+      // 归并层 —— 那会让"web 收到告警、RN 收不到"这类漂移无从对照。
+      onConfigWarning: (evt) => showToast('info', evt.message),
+      onDeprecationNotice: (evt) => showToast('info', evt.message),
+      onGuardianWarning: (evt) => showToast('info', evt.message),
       onError: (err, info) => {
         // D3(2026-11-12):错误前先 flush 累积 token,避免最后一批内容丢失(web #9 同纪律;
         // applyStreamError 只标错误态不裁正文,已产出的半句必须留在气泡里)
@@ -3624,7 +3634,9 @@ export function ChatScreen() {
                     onPress={() => materialDetailItem && handleMaterialDetail(materialDetailItem)}
                     style={styles.detailDialogRetryBtn}
                   >
-                    <Text style={styles.detailDialogRetryText}>重试</Text>
+                    <Text style={styles.detailDialogRetryText}>
+                      {tStatic('chat.voiceNote.action.retry')}
+                    </Text>
                   </Tappable>
                 </View>
               ) : materialDetailData ? (
@@ -3665,9 +3677,9 @@ export function ChatScreen() {
             >
               <QrCode size={240} color={tokens.text.primary} />
             </Tappable>
-            <Text style={styles.qrCodeTitle}>扫描二维码加入社区</Text>
+            <Text style={styles.qrCodeTitle}>{tStatic('home.qrHint')}</Text>
             <Tappable onLongPress={handleLongPressQrCode} style={styles.qrCodeHint}>
-              <Text style={styles.qrCodeHintText}>长按二维码可保存</Text>
+              <Text style={styles.qrCodeHintText}>{tStatic('uiText.longPressQrToSave')}</Text>
             </Tappable>
           </Pressable>
         </Tappable>
@@ -3747,7 +3759,7 @@ export function ChatScreen() {
             onPress={(e) => e.stopPropagation()}
           >
             <View style={styles.listDialogHeader}>
-              <Text style={styles.listDialogTitle}>网页链接</Text>
+              <Text style={styles.listDialogTitle}>{tStatic('chat.menuWebLink')}</Text>
               <Tappable
                 hitSlop={8}
                 onPress={() => setUrlInputVisible(false)}
@@ -3776,7 +3788,7 @@ export function ChatScreen() {
                 accessibilityRole="button"
                 accessibilityLabel={t('chat.sendLink')}
               >
-                <Text style={styles.urlInputConfirmText}>发送</Text>
+                <Text style={styles.urlInputConfirmText}>{tStatic('chat.send')}</Text>
               </Tappable>
             </View>
           </Pressable>
@@ -3796,7 +3808,7 @@ export function ChatScreen() {
             onPress={(e) => e.stopPropagation()}
           >
             <View style={styles.listDialogHeader}>
-              <Text style={styles.listDialogTitle}>文件上传</Text>
+              <Text style={styles.listDialogTitle}>{tStatic('chat.menuFileUpload')}</Text>
               <Tappable
                 hitSlop={8}
                 onPress={() => setFileUploadVisible(false)}
@@ -3806,7 +3818,7 @@ export function ChatScreen() {
               </Tappable>
             </View>
             <View style={styles.fileUploadBody}>
-              <Text style={styles.fileUploadDesc}>支持文件类型:</Text>
+              <Text style={styles.fileUploadDesc}>{tStatic('uiText.supportedFileTypes')}</Text>
               <View style={styles.fileUploadTypeList}>
                 {FILE_TYPE_BADGES.map((t) => (
                   <View key={t} style={styles.fileUploadTypeBadge}>
@@ -3814,7 +3826,7 @@ export function ChatScreen() {
                   </View>
                 ))}
               </View>
-              <Text style={styles.fileUploadHint}>选择文件后自动上传,支持常见文档/文本格式</Text>
+              <Text style={styles.fileUploadHint}>{tStatic('uiText.fileUploadHint')}</Text>
               <Tappable
                 onPress={() => void handleFileUpload()}
                 style={styles.fileUploadConfirmBtn}
@@ -3919,7 +3931,7 @@ export function ChatScreen() {
         >
           {({ pressed }) => (
             <View style={[styles.panelCancelBtnFace, pressed && styles.panelItemPressed]}>
-              <Text style={styles.panelCancelText}>取消</Text>
+              <Text style={styles.panelCancelText}>{tStatic('auth.twoFactorCancel')}</Text>
             </View>
           )}
         </Pressable>
@@ -3956,7 +3968,7 @@ export function ChatScreen() {
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
           <View style={styles.fangdaHeader}>
-            <Text style={styles.fangdaTitle}>放大输入</Text>
+            <Text style={styles.fangdaTitle}>{tStatic('uiText.expandInput')}</Text>
             <Tappable
               hitSlop={8}
               onPress={() => setFangdaVisible(false)}
@@ -3983,7 +3995,7 @@ export function ChatScreen() {
                 void send()
               }}
             >
-              <Text style={styles.fangdaSendBtnText}>发送</Text>
+              <Text style={styles.fangdaSendBtnText}>{tStatic('chat.send')}</Text>
             </Tappable>
           </View>
         </KeyboardAvoidingView>

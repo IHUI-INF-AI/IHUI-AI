@@ -12,7 +12,7 @@
 import { useTt, useI18n, t } from '@/i18n'
 import { goToLogin } from '@/utils/auth'
 import Taro from '@tarojs/taro'
-import { useState, useEffect } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { register, sendSmsCode } from '@/api'
 import {
   useRegisterForm,
@@ -56,6 +56,13 @@ export default function RegisterIndex() {
   const { resolved } = useAppTheme()
   // 区号选择器的视觉状态(共享屏不承载区号选择器,属本端控件)
   const [phoneHead, setPhoneHead] = useState('+86')
+  // 注册成功后的延迟回登录:页面若先被返回,定时器不得把用户从新页面拽走
+  const navTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => {
+    return () => {
+      if (navTimerRef.current) clearTimeout(navTimerRef.current)
+    }
+  }, [])
 
   const form = useRegisterForm({
     type: 'phone',
@@ -84,7 +91,8 @@ export default function RegisterIndex() {
       }
     },
     onSuccess: () => {
-      setTimeout(goToLogin, 800)
+      if (navTimerRef.current) clearTimeout(navTimerRef.current)
+      navTimerRef.current = setTimeout(goToLogin, 800)
     },
   })
 

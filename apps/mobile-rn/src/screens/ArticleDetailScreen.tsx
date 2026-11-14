@@ -38,7 +38,7 @@ import {
   ArticleDetailScreen as SharedArticleDetailScreen,
   type ArticleDetailItem,
 } from '@ihui/rn-app'
-import { useI18n } from '../i18n'
+import { useI18n, t as tStatic } from '../i18n'
 import { useRefreshOnFocus } from '../hooks'
 import { useUiTextField } from '../lib/use-ui-text-field'
 import type { RootStackParamList } from '../navigation/RootNavigator'
@@ -196,7 +196,7 @@ export function ArticleDetailScreen() {
           </TouchableOpacity>
           <TouchableOpacity style={styles.actionItem} onPress={handleShare} activeOpacity={0.7}>
             <Share2 size={18} color={tokens.text.secondary} />
-            <Text style={styles.actionLabel}>分享</Text>
+            <Text style={styles.actionLabel}>{tStatic('chat.msg.share2')}</Text>
           </TouchableOpacity>
         </View>
       ) : null}
@@ -212,7 +212,7 @@ export function ArticleDetailScreen() {
           <Tappable style={styles.commentMask} onPress={() => setCommentVisible(false)} />
           <View style={[styles.commentSheet, dialogHeightStyle]}>
             <View style={styles.commentHeader}>
-              <Text style={styles.commentTitle}>评论</Text>
+              <Text style={styles.commentTitle}>{tStatic('tagsPage.groupComment')}</Text>
               <Tappable
                 hitSlop={8}
                 onPress={() => setCommentVisible(false)}

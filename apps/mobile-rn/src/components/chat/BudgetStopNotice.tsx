@@ -11,6 +11,7 @@
  *  - 已用/限额/百分比直接展示服务端字段,端内不重算百分比,也不把 usagePercent>100 裁平;
  *  - 刷新/换端后由屏幕查询 `/budget-stops` 回填同一条记录,不依赖一次性 toast。
  */
+import { t as tStatic } from '../../i18n'
 import { StyleSheet, Text, View } from 'react-native'
 import { rnGeometry, rnRadius } from '@ihui/design-tokens'
 import { budgetStopReasonText } from '@ihui/shared/chat/budget-stop-note'
@@ -51,12 +52,15 @@ export function BudgetStopNotice({ stop }: BudgetStopNoticeProps) {
     <View testID="budget-stop-notice" accessibilityRole="text" style={styles.card}>
       <View style={styles.titleRow}>
         <View style={styles.dot} />
-        <Text style={styles.title}>预算硬停止</Text>
+        <Text style={styles.title}>{tStatic('uiText.budgetHardStop')}</Text>
       </View>
       <Text style={styles.reason}>{budgetStopReasonText(stop.reasonCode)}</Text>
       {usageText ? <Text style={styles.usage}>{usageText}</Text> : null}
       {stop.stoppedAtIteration !== null ? (
-        <Text style={styles.meta}>触发于第 {stop.stoppedAtIteration} 轮迭代</Text>
+        <Text style={styles.meta}>
+          {tStatic('uiText.triggeredAtIterationPrefix')}
+          {stop.stoppedAtIteration} {tStatic('uiText.iterationSuffix')}
+        </Text>
       ) : null}
     </View>
   )

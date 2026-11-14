@@ -40,7 +40,7 @@ import { appAlert, BottomPops } from '../components/BottomPops'
 import { PurchaseNoticePopUp } from '../components/PurchaseNoticePopUp'
 import { IntroducePopup } from '../components/IntroducePopup'
 import { isWeChatInstalled, openWeChatPayment } from '../lib/wechat-pay'
-import { useI18n } from '../i18n'
+import { useI18n, t as tStatic } from '../i18n'
 import { useRefreshOnFocus } from '../hooks'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
@@ -505,7 +505,7 @@ export function VipScreen() {
     <View style={styles.screen}>
       {/* 权益介绍入口(对齐 Uniapp vip_info/index.vue 行 59-71 触发入口) */}
       <View style={styles.entryCard}>
-        <Text style={styles.entryTitle}>权益介绍</Text>
+        <Text style={styles.entryTitle}>{tStatic('uiText.benefitsIntro')}</Text>
         <View style={styles.entryRow}>
           {/* 守门 131 那一型:`style={({pressed}) => …}` 落在 cssInterop 注册过的 Pressable 上
               会被整份静默丢掉。改法 = 外层只承槽位(flex:1 决定行内等分),pressed 反馈与
@@ -519,7 +519,7 @@ export function VipScreen() {
           >
             {({ pressed }) => (
               <View style={[styles.entryButton, pressed ? styles.entryButtonPressed : null]}>
-                <Text style={styles.entryButtonText}>会员权益</Text>
+                <Text style={styles.entryButtonText}>{tStatic('profile.membershipSection')}</Text>
               </View>
             )}
           </Pressable>
@@ -531,7 +531,7 @@ export function VipScreen() {
           >
             {({ pressed }) => (
               <View style={[styles.entryButton, pressed ? styles.entryButtonPressed : null]}>
-                <Text style={styles.entryButtonText}>操盘手权益</Text>
+                <Text style={styles.entryButtonText}>{tStatic('uiText.traderBenefits')}</Text>
               </View>
             )}
           </Pressable>
@@ -543,7 +543,7 @@ export function VipScreen() {
           >
             {({ pressed }) => (
               <View style={[styles.entryButton, pressed ? styles.entryButtonPressed : null]}>
-                <Text style={styles.entryButtonText}>私人顾问</Text>
+                <Text style={styles.entryButtonText}>{tStatic('uiText.privateAdvisor')}</Text>
               </View>
             )}
           </Pressable>
@@ -606,7 +606,9 @@ export function VipScreen() {
                       ¥{(plan.defAmount / 100).toFixed(2)}
                     </Text>
                   ) : null}
-                  <Text style={styles.planDuration}>{plan.durationDays} 天</Text>
+                  <Text style={styles.planDuration}>
+                    {plan.durationDays} {tStatic('uiText.daysSuffix')}
+                  </Text>
                 </View>
                 {/* 立即开通按钮(对齐 Uniapp introduce-popup/index.vue 订阅 CTA,显式点击支付)
                     守门 131 改型:外层承槽位(marginTop+高度),可视盒与 pressed 淡出在内层。 */}

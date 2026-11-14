@@ -92,7 +92,7 @@ export function LearnScreen() {
         >
           {({ pressed }) => (
             <View style={[styles.entryBtn, pressed ? styles.entryBtnPressed : null]}>
-              <Text style={styles.entryBtnText}>学习发展</Text>
+              <Text style={styles.entryBtnText}>{t('study.learnA11y')}</Text>
             </View>
           )}
         </Pressable>
@@ -104,7 +104,7 @@ export function LearnScreen() {
         >
           {({ pressed }) => (
             <View style={[styles.entryBtn, pressed ? styles.entryBtnPressed : null]}>
-              <Text style={styles.entryBtnText}>AI 学业规划</Text>
+              <Text style={styles.entryBtnText}>{t('study.careerA11y')}</Text>
             </View>
           )}
         </Pressable>

@@ -994,7 +994,9 @@ function RootNavigatorInner() {
         style={{ backgroundColor: tokens.surface.bg }}
       >
         <ActivityIndicator color={tokens.brandAccent.deep} />
-        <Text style={{ color: tokens.text.secondary, marginTop: rnSpacing.md }}>加载中...</Text>
+        <Text style={{ color: tokens.text.secondary, marginTop: rnSpacing.md }}>
+          {t('about.loading')}
+        </Text>
       </View>
     )
   }

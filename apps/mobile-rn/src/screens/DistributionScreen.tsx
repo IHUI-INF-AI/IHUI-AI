@@ -30,7 +30,7 @@ import { HandPlatePops } from '../components/HandPlatePops'
 import { appAlert } from '../components/BottomPops'
 import FloatBox, { type FloatBoxType } from '../components/FloatBox'
 import { useAuth } from '../context/AuthContext'
-import { useI18n } from '../i18n'
+import { useI18n, t as tStatic } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { rpx } from '../utils/rpx'
 import { toFriendlyOr } from '@ihui/shared/utils'
@@ -435,7 +435,7 @@ export function DistributionScreen() {
           >
             {({ pressed }) => (
               <View style={[shellStyles.shareBtn, pressed ? shellStyles.pressed : null]}>
-                <Text style={shellStyles.shareBtnText}>分享二维码邀请好友</Text>
+                <Text style={shellStyles.shareBtnText}>{tStatic('uiText.shareQrInvite')}</Text>
               </View>
             )}
           </Pressable>
@@ -470,12 +470,17 @@ export function DistributionScreen() {
       >
         <View style={shellStyles.withdrawDetailContent}>
           <Text style={shellStyles.withdrawDetailText}>
-            可提现金额:¥{info ? fenToYuan(info.availableCommission) : 0}
+            {tStatic('uiText.withdrawableAmountYuan')}
+            {info ? fenToYuan(info.availableCommission) : 0}
           </Text>
           <Text style={shellStyles.withdrawDetailText}>
-            已提现金额:¥{info ? fenToYuan(info.withdrawnCommission) : 0}
+            {tStatic('uiText.withdrawnAmountYuan')}
+            {info ? fenToYuan(info.withdrawnCommission) : 0}
           </Text>
-          <Text style={shellStyles.withdrawDetailText}>最低提现:¥{fenToYuan(WITHDRAW_MIN)}</Text>
+          <Text style={shellStyles.withdrawDetailText}>
+            {tStatic('uiText.minWithdrawYuan')}
+            {fenToYuan(WITHDRAW_MIN)}
+          </Text>
         </View>
       </HandPlatePops>
       {/* FloatBox 非阻断悬浮提示(对齐 Uniapp uni.showToast) */}

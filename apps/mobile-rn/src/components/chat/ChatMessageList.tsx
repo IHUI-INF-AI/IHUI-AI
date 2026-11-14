@@ -538,7 +538,7 @@ export function ChatMessageItem({
                           accessibilityLabel={t('chat.msg.copyCode')}
                         >
                           <Copy size={13} color={tokens.gray['200']} />
-                          <Text style={styles.codeBlockBtnText}>复制</Text>
+                          <Text style={styles.codeBlockBtnText}>{t('chat.msg.copy')}</Text>
                         </TouchableOpacity>
                         <TouchableOpacity
                           style={styles.codeBlockBtn}
@@ -636,7 +636,7 @@ export function ChatMessageItem({
               accessibilityLabel={t('chat.msg.copy')}
             >
               <Copy size={16} color={tokens.text.secondary} />
-              <Text style={styles.msgActionText}>复制</Text>
+              <Text style={styles.msgActionText}>{t('chat.msg.copy')}</Text>
             </TouchableOpacity>
             {flagButtons}
             {/* 失败轮不给"分享"(它不是内容);复制保留 —— 报错排查要用那段文字 */}
@@ -657,7 +657,7 @@ export function ChatMessageItem({
                 accessibilityLabel={t('chat.msg.share2')}
               >
                 <Share2 size={16} color={tokens.text.secondary} />
-                <Text style={styles.msgActionText}>分享</Text>
+                <Text style={styles.msgActionText}>{t('chat.msg.share2')}</Text>
               </TouchableOpacity>
             )}
             {isFailed ? null : (
