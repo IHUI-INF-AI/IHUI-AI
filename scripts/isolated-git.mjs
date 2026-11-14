@@ -60,7 +60,7 @@ import {
   writeFileSync,
   writeSync,
 } from 'node:fs'
-import { basename, dirname, join, relative, resolve, sep } from 'node:path'
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 // git-lock 只经 §22c 的 __test__ 出口暴露 acquire/release(唯一实现,不在本文件抄第二份判据)。
 import { __test__ as gitLock } from './git-lock.mjs'
@@ -302,6 +302,45 @@ export function assertNoBypass(env = process.env) {
   if (pointer && existsSync(pointer)) {
     throw new Error(
       `拒绝执行:已在另一份隔离索引内(GIT_INDEX_FILE=${pointer});嵌套隔离只会让清理归谁变得含糊`,
+    )
+  }
+}
+
+/**
+ * 写锁越界闸(2026-11-14 git 写锁外流根治,根因修复)。
+ *
+ * 立因:`D:\IHUI-AI-git-repo` 盘根一份手工隔离 clone,gitDir 被指到**项目盘根、仓根树之外**,
+ * git 钩子据此把全仓写锁算到 `D:\IHUI-AI-git-repo\ihui-git-write.lock`,而
+ * `lib/lock-atomic-init.mjs` 的 pending 兄弟目录落在正式锁的同级父目录 ⇒ 32 个
+ * `.pending` 散在**仓库树之外的项目盘根**(2026-11-04~06 集中产出,9.6 天后才被发现回收)。
+ *
+ * 判据(单一真相源 = 本函数,纯函数、零 IO):正式 gitDir 与 commonDir **必须落在仓根
+ * `ROOT` 目录树之内**。盘根克隆/别的盘/上级目录一律拒 —— 不是本仓工作树的 gitdir 没有
+ * 任何资格在本通道建写锁(建了就外流、回收归谁立刻变含糊)。注入 root/exists 让镜像测试
+ * 用构造面证明,不赌本机盘符(§15/§22c)。
+ *
+ * 失效方向恒为「多拒一次」:拿不准(取不到 gitDir)不静默放行,交调用方按未判定处置。
+ */
+export function assertGitDirInsideRepoTree(
+  gitDir,
+  { repoRoot = ROOT, exists = existsSync } = {},
+) {
+  if (!gitDir || typeof gitDir !== 'string') {
+    throw new Error('拒绝建写锁:取不到 gitDir(未判定绝不冒充合规)')
+  }
+  if (!exists(gitDir)) {
+    throw new Error(`拒绝建写锁:gitDir 不存在:${gitDir}`)
+  }
+  const abs = resolve(gitDir)
+  const rel = relative(resolve(repoRoot), abs)
+  // rel === '' ⇒ gitDir 就是仓根本身(非法,gitDir 应是 .git);不以 sep 开头 ⇒ 树外。
+  const outside = rel === '' || rel === '..' || rel.startsWith(`..${sep}`) || isAbsolute(rel)
+  if (outside) {
+    throw new Error(
+      `拒绝建写锁:gitDir 落在仓库树之外 ⇒ 写锁/pending 会外流到项目盘根(` +
+        `gitDir=${abs},仓根=${resolve(repoRoot)})。本通道只服务本仓工作树内的 gitdir;` +
+        `盘根克隆或别处的 gitdir 请用各自的通道,不要借本通道建锁。` +
+        `判据单一真相源 = scripts/isolated-git.mjs::assertGitDirInsideRepoTree`,
     )
   }
 }
@@ -1075,6 +1114,9 @@ export async function main(argv = process.argv.slice(2)) {
   if (swept.length) console.warn(`🧹 已清理 ${swept.length} 份死进程残留索引:${swept.join(', ')}`)
   const indexFile = indexPathFor(gitDir)
   ACTIVE_INDEXES.add(indexFile)
+  // 写锁越界闸(2026-11-14 git 写锁外流根治):gitDir 必须落在仓根树内,否则写锁/pending
+  // 会外流到项目盘根(D:\IHUI-AI-git-repo 那批 32 个 .pending 的根因)。建锁前先断言。
+  assertGitDirInsideRepoTree(gitDir)
   // 全仓 git 写锁:提交(含数分钟钩子)期间禁止别的会话推进 HEAD。否则本席索引仍是旧基线,
   // 而提交父变成新 HEAD ⇒ 树里没有对方改动,等于把别人的文件回退(2026-11-04 夹具实测)。
   const lockDirPath = join(gitDir, 'ihui-git-write.lock')
