@@ -713,7 +713,7 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.sm,
     },
     copyText: { fontSize: rnType.caption.size, color: tk.text.secondary },
-    copyTextDone: { color: tk.success.deep },
+    copyTextDone: { color: tk.success.deepText },
     sourceBtn: {
       flexDirection: 'row',
       alignItems: 'center',
