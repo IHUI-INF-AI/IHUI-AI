@@ -2783,6 +2783,13 @@
       "when": 1794389100000,
       "tag": "20261113100000_workflow_todo",
       "breakpoints": true
+    },
+    {
+      "idx": 400,
+      "version": "7",
+      "when": 1794620858582,
+      "tag": "20261114140000_model_cost_price",
+      "breakpoints": true
     }
   ]
 }
