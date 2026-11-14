@@ -30,6 +30,8 @@ import {
 import { redactCredentialText } from '../../plugins/log-sanitizer.js'
 import { buildSensitiveKeySet, sanitizeData } from '../../plugins/response-sanitizer.js'
 import { sumRelayCostCentsSql } from '../../services/relay-cost.js'
+// F-24 同类:relay 日志按上海日切,不用 UTC。
+import { bizDayStartFromKeyUtc } from '../../utils/biz-day.js'
 
 const listQuerySchema = paginationSchema.extend({
   userId: z.transform(emptyToUndefined).pipe(z.uuid().optional()),
@@ -239,8 +241,12 @@ const relayLogsRoutes: FastifyPluginAsync = async (server) => {
     if (userId) conds.push(eq(llmCallLogs.userId, userId))
     if (model) conds.push(eq(llmCallLogs.model, model))
     if (status) conds.push(eq(llmCallLogs.status, status))
-    if (startDate) conds.push(gte(llmCallLogs.createdAt, new Date(`${startDate}T00:00:00Z`)))
-    if (endDate) conds.push(lte(llmCallLogs.createdAt, new Date(`${endDate}T23:59:59Z`)))
+    // F-24 同类:上海日界。
+    if (startDate) conds.push(gte(llmCallLogs.createdAt, bizDayStartFromKeyUtc(startDate)))
+    if (endDate) {
+      const nextDay = new Date(bizDayStartFromKeyUtc(endDate).getTime() + 86_400_000 - 1)
+      conds.push(lte(llmCallLogs.createdAt, nextDay))
+    }
     if (apiKeyId) conds.push(eq(llmCallLogs.apiKeyId, apiKeyId))
     if (provider) conds.push(eq(llmCallLogs.providerCode, provider))
     if (clientIp) conds.push(like(llmCallLogs.clientIp, clientIp))
@@ -439,8 +445,12 @@ const relayLogsRoutes: FastifyPluginAsync = async (server) => {
     const { startDate, endDate, groupBy } = q.data
 
     const conds: SQL[] = []
-    if (startDate) conds.push(gte(llmCallLogs.createdAt, new Date(`${startDate}T00:00:00Z`)))
-    if (endDate) conds.push(lte(llmCallLogs.createdAt, new Date(`${endDate}T23:59:59Z`)))
+    // F-24 同类:stats 聚合按上海日界。
+    if (startDate) conds.push(gte(llmCallLogs.createdAt, bizDayStartFromKeyUtc(startDate)))
+    if (endDate) {
+      const nextDay = new Date(bizDayStartFromKeyUtc(endDate).getTime() + 86_400_000 - 1)
+      conds.push(lte(llmCallLogs.createdAt, nextDay))
+    }
     const where = conds.length > 0 ? and(...conds) : undefined
 
     try {
@@ -497,8 +507,12 @@ const relayLogsRoutes: FastifyPluginAsync = async (server) => {
       eq(llmCallLogs.status, 'error'),
       sql`${llmCallLogs.errorMessage} IS NOT NULL`,
     ]
-    if (startDate) conds.push(gte(llmCallLogs.createdAt, new Date(`${startDate}T00:00:00Z`)))
-    if (endDate) conds.push(lte(llmCallLogs.createdAt, new Date(`${endDate}T23:59:59Z`)))
+    // F-24 同类:错误 Top 统计按上海日界。
+    if (startDate) conds.push(gte(llmCallLogs.createdAt, bizDayStartFromKeyUtc(startDate)))
+    if (endDate) {
+      const nextDay = new Date(bizDayStartFromKeyUtc(endDate).getTime() + 86_400_000 - 1)
+      conds.push(lte(llmCallLogs.createdAt, nextDay))
+    }
     const where = and(...conds)
 
     try {

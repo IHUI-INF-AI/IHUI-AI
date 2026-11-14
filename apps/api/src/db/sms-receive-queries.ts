@@ -19,6 +19,9 @@ import {
 } from '@ihui/database'
 // 用途词汇表的唯一持有者是分类器所在的服务层;这里只 import 它,不再抄第二份字面量联合。
 import { toSmsUsageKind, type SmsUsageKind } from '../services/d1jiema-service.js'
+// F-83 修正:today/yesterday 此前用 `toISOString().slice(0,10)`(UTC 日历),上海 00:00–08:00 期间
+// 会把当天记成昨天。统一走 biz-day 单一真相源。
+import { bizDayKey } from '../utils/biz-day.js'
 
 export interface RecordSmsReceivedInput {
   phone: string
@@ -47,12 +50,15 @@ export async function recordSmsReceived(input: RecordSmsReceivedInput): Promise<
 
 /** 查某号码的接码历史(倒序,默认最近 20 条) */
 export async function getPhoneHistory(phone: string, limit = 20): Promise<SmsReceiveHistory[]> {
-  return db
-    .select()
-    .from(smsReceiveHistory)
-    .where(eq(smsReceiveHistory.phone, phone))
-    .orderBy(desc(smsReceiveHistory.receivedAt))
-    .limit(Math.min(Math.max(limit, 1), 100))
+  return (
+    db
+      .select()
+      .from(smsReceiveHistory)
+      .where(eq(smsReceiveHistory.phone, phone))
+      // F-83:receivedAt 有秒级同值(收码成功即写),单字段排序不稳定 ⇒ 加 id 主键 tiebreaker。
+      .orderBy(desc(smsReceiveHistory.receivedAt), desc(smsReceiveHistory.id))
+      .limit(Math.min(Math.max(limit, 1), 100))
+  )
 }
 
 /** 查某号码的本地台账全量条数(不受最近 N 条截断,用于「本机累计使用 K 次」) */
@@ -75,9 +81,7 @@ export interface PhonePlatformStatRow {
  * 查某号码本地台账的「平台 × 用途」计数(2026-10-09 机主要求:分平台显示登录/注册具体数)。
  * 全量 group-by:台账 items 只回最近 20 条,直接在前端数会漏历史,统计必须在 SQL 层做。
  */
-export async function getPhoneHistoryPlatformStats(
-  phone: string,
-): Promise<PhonePlatformStatRow[]> {
+export async function getPhoneHistoryPlatformStats(phone: string): Promise<PhonePlatformStatRow[]> {
   const rows = await db
     .select({
       platform: smsReceiveHistory.platform,
@@ -114,8 +118,9 @@ export async function snapshotRelatedMsgs(
   if (records.length === 0) return 0
   const now = new Date()
   const nowHHMM = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
-  const today = now.toISOString().slice(0, 10)
-  const yesterday = new Date(now.getTime() - 86_400_000).toISOString().slice(0, 10)
+  // 上海日历(不用 UTC —— 上海 00:00–08:00 UTC 视角还停留在昨天)
+  const today = bizDayKey(now)
+  const yesterday = bizDayKey(new Date(now.getTime() - 86_400_000))
   const values = records.map((r) => ({
     phone,
     recDate: r.time > nowHHMM ? yesterday : today,

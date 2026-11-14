@@ -26,6 +26,7 @@ import { llmCallLogs, aiPricing } from '@ihui/database'
 import { success, error, emptyToUndefined } from '../utils/response.js'
 import { sanitizeCsvCell } from '../utils/csv-utils.js'
 import { requireAuth } from '../plugins/require-permission.js'
+import { bizDayStartFromKeyUtc } from '../utils/biz-day.js'
 
 /** roundCents 语义:汇总后在 JS 侧 Math.round(x*1e6)/1e6,避免浮点累加漂移。 */
 const roundCents = (x: number): number => Math.round(x * 1e6) / 1e6
@@ -63,12 +64,14 @@ const EXPORT_MAX_ROWS = 10000
 function buildWhere(userId: string, parsed: z.infer<typeof analyticsQuerySchema>): SQL | undefined {
   const conds: SQL[] = [eq(llmCallLogs.userId, userId)]
   if (parsed.startDate) {
-    conds.push(gte(llmCallLogs.createdAt, new Date(`${parsed.startDate}T00:00:00Z`)))
+    // UTC 硬编码修正:用户视角是上海日,起始 00:00 Asia/Shanghai。
+    conds.push(gte(llmCallLogs.createdAt, bizDayStartFromKeyUtc(parsed.startDate)))
   } else {
     conds.push(gte(llmCallLogs.createdAt, new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)))
   }
   if (parsed.endDate) {
-    conds.push(lte(llmCallLogs.createdAt, new Date(`${parsed.endDate}T23:59:59.999Z`)))
+    const nextDay = new Date(bizDayStartFromKeyUtc(parsed.endDate).getTime() + 86_400_000 - 1)
+    conds.push(lte(llmCallLogs.createdAt, nextDay))
   }
   if (parsed.apiKeyId) conds.push(eq(llmCallLogs.apiKeyId, parsed.apiKeyId))
   if (parsed.model) conds.push(eq(llmCallLogs.model, parsed.model))
