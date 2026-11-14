@@ -419,7 +419,12 @@ export function buildChatShellProps(ctx: ChatShellCtx): ChatScreenProps {
           size={40}
           color="var(--color-muted-foreground)"
           className="tool-icon w-[40rpx] h-[40rpx]"
-          onClick={openSkillsPopup}
+          onClick={(e) => {
+            // 技能图标嵌在输入区内,不 stopPropagation 会穿透触发外层 onFocus/onClick,
+            // 弹起键盘后又立刻被弹层顶掉。
+            e.stopPropagation()
+            openSkillsPopup()
+          }}
         />
       </View>
       <InputArea

@@ -1,6 +1,7 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+// i18n-content-exempt-file: 多语言常量数据定义(label/title/description等选项值,内容体系定为中文单语,产品决策2026-11-15)
 
 /**
  * ChatScreen — AI 对话社区主屏 (mobile-rn 端)
@@ -135,6 +136,20 @@ import {
 } from '@ihui/shared/chat/queue-interactions'
 // 差距①第 ① 腿:发送准入回执的稳定输入 ID —— 生成的唯一实现在共享层,端内不造第二源。
 import { createInputId } from '@ihui/shared/chat/send-admission'
+import {
+  HOOK_FAILURES_NAMESPACE,
+  hookFailureView,
+  readHookFailureEvent,
+} from '@ihui/shared/chat/hook-failures'
+// 2026-11-13:提问答复闭环 —— 传输走 api-client 统一封装(RN 无原生 fetch,必须经 transport),
+// 判据走共享层三档归宿(与 web / miniapp / extension / cli 同一份)。
+import { postQuestionAnswerResponse } from '@ihui/api-client'
+import {
+  buildLegacyAnswerText,
+  interpretQuestionResponse,
+  toggleOptionSelection,
+} from '@ihui/shared/chat/question-response'
+
 import { apiFailureToText, logger, toFriendlyOr } from '@ihui/shared/utils'
 import { FALLBACK_MODELS as SHARED_FALLBACK_MODELS, toUserFriendlyMessage } from '@ihui/shared'
 // 按子路径取:RN 的 vitest 把 `@ihui/shared/utils` 父别名指向测试替身,父入口取不到本模块
@@ -1018,8 +1033,25 @@ export function ChatScreen() {
   const [executionVizById, setExecutionVizById] = useState<Record<string, AssistantExecutionViz>>(
     {},
   )
-  // D135 交互帧最小可视态(AI 提问 / 业务表单):先保证帧到屏可见,完整续流属后续票面
+  // D135 交互帧(AI 提问 / 业务表单)
+  //
+  // 2026-11-13 修:提问卡此前是**纯只读** —— `<Text>` 渲染 prompt 与选项、无任何 onPress,
+  // 注释还写着「刻意只做可见,不造假可交互控件」。但那不是"不造假",是**半个功能**:
+  // 用户看到 AI 在问,却无处作答,而服务端那条流挂着等到超时(阻塞式提问)。
+  // 现在补齐作答闭环:选中态 + 提交 + 撤回,走共享判据与 api-client 统一传输封装。
+  /**
+   * 会话模式(2026-11-13 立):ChatMode 5 态。null = 不传(后端按默认)。
+   * **通道在先、控件另票**:本端暂无模式选择 UI,但链路必须通 —— 否则将来加控件时
+   * 才发现请求体根本没这个字段(与 miniapp 的 plan_mode 同一条纪律)。
+   */
+  const [chatMode] = useState<string | null>(null)
   const [pendingQuestions, setPendingQuestions] = useState<PendingQuestionEntry[]>([])
+  /** 当前展开作答的提问 id(同时只展开一条:手机上多卡并排会互相挤压) */
+  const [answeringQuestionId, setAnsweringQuestionId] = useState<string | null>(null)
+  /** 已选选项(单选时恒 0 或 1 项) */
+  const [questionSelected, setQuestionSelected] = useState<string[]>([])
+  const [questionCustom, setQuestionCustom] = useState('')
+  const [questionSubmitting, setQuestionSubmitting] = useState(false)
   const [pendingForms, setPendingForms] = useState<PendingFormEntry[]>([])
   // D77:帧未带 messageId 时的锚点 = 本轮那条 assistant 占位消息(在 send() 里锁定,不在回调里现算"最后一条")。
   const formAnchorIdRef = useRef('')
@@ -1183,6 +1215,71 @@ export function ChatScreen() {
   }, [navigation])
 
   // ── 发送消息(send-message 事件) ──
+  /**
+   * send 的 ref 桥(2026-11-13)。
+   * `submitQuestionAnswer` 的 legacy 分支要调 `send`,而 `send` 定义在后面 ——
+   * 直接引用撞 TDZ。ref 在 `send` 定义后赋值,副作用只在用户点击时发生。
+   */
+  const sendRefForQuestion = useRef<((text: string) => void) | null>(null)
+
+  /**
+   * 提交 AI 提问的答复(2026-11-13 立)。
+   *
+   * 判据走共享层三档归宿(端内不复制),传输走 api-client 统一封装
+   * (RN 也没有原生 fetch —— 出网统一经包内 transport)。
+   */
+  const submitQuestionAnswer = useCallback(
+    async (q: PendingQuestionEntry, action: 'answer' | 'withdraw') => {
+      if (questionSubmitting) return
+      if (action === 'answer' && questionSelected.length === 0 && questionCustom.trim() === '')
+        return
+      const sid = realtimeSessionRef.current
+      if (!sid) {
+        showToast('error', t('chat.questionNoSession'))
+        return
+      }
+      setQuestionSubmitting(true)
+      try {
+        const r = await postQuestionAnswerResponse(sid, {
+          questionId: q.questionId,
+          action,
+          selectedOptionIds: questionSelected,
+          ...(questionCustom.trim() ? { customText: questionCustom.trim() } : {}),
+        })
+        if (r.networkError !== undefined) {
+          showToast('error', t('chat.questionFailed'))
+          return
+        }
+        const outcome = interpretQuestionResponse(r.httpStatus, r.data)
+        if (outcome.kind === 'blocking') {
+          // 服务端认下 ⇒ 关卡片,流自己续跑(不能再发一轮)
+          setPendingQuestions((prev) => prev.filter((x) => x.questionId !== q.questionId))
+          setAnsweringQuestionId(null)
+          setQuestionSelected([])
+          setQuestionCustom('')
+        } else if (outcome.kind === 'legacy') {
+          // 旧服务端没有阻塞式端点 ⇒ 回退旧链路:把答案当普通消息发出去
+          const text = buildLegacyAnswerText(q.options, {
+            questionId: q.questionId,
+            action,
+            selectedOptionIds: questionSelected,
+            customText: questionCustom,
+          })
+          setPendingQuestions((prev) => prev.filter((x) => x.questionId !== q.questionId))
+          setAnsweringQuestionId(null)
+          setQuestionSelected([])
+          setQuestionCustom('')
+          if (text) sendRefForQuestion.current?.(text)
+        } else {
+          showToast('error', t('chat.questionFailed'))
+        }
+      } finally {
+        setQuestionSubmitting(false)
+      }
+    },
+    [questionSelected, questionCustom, questionSubmitting, t],
+  )
+
   const send = async (overrideText?: string, baseHistory?: ChatMessage[]): Promise<void> => {
     // 发送即收起滑出面板(对齐 Uniapp handleSendMessageabc:isShowIcon = false)
     setInputPanelVisible(false)
@@ -1311,6 +1408,9 @@ export function ChatScreen() {
       //    与本端首帧 onDelta 已证明的事同义反复(台账禁止接进没有信息量的出口)。
       // 会话主键取本屏的会话 id:无会话(纯本地新聊)时不补 —— 那时服务端也无从配对。
       inputId: roundInputId,
+      // 2026-11-13:会话模式通道(与 web extraBody.mode 同键)。通道在先,控件另票 ——
+      // 与 miniapp 的 plan_mode 同一条纪律:先把链路打通,不让 UI 缺位把通道也堵死。
+      ...(chatMode ? { mode: chatMode } : {}),
       ...(conversationId ? { metadata: { conversationId } } : {}),
       // 不命中意图时连字段都不出现,请求体与改造前逐字节一致
       ...(agentTools.length > 0 ? { agentTools } : {}),
@@ -1610,18 +1710,31 @@ export function ChatScreen() {
       // 现在补上真出口:用 showToast 打一条「已记住 N 条」(与 web 的 memory-notice-bar 同语义,
       // 折叠展开属 web 特有形态,移动端保留计数即可,不新立 UI)。
       // 空数组 = 本轮无新记忆 ⇒ 不打扰(载荷注释明确了这个语义)。
+      // 2026-11-13:hook 执行失败交代。hook 是用户配的自动化,跑挂了不交代,
+      // 用户只会觉得"我配的没生效"。判据走共享层(端内不复制六态收窄)。
+      onHookFailure: (event) => {
+        const rec = readHookFailureEvent(event)
+        if (!rec) return
+        const view = hookFailureView(rec.state, rec.context)
+        const name = rec.context.hookName ?? rec.context.hookEvent ?? '?'
+        showToast(
+          rec.state === 'timedOut' ? 'error' : 'info',
+          `${t('chat.hookFailureTitle', { name })} · ${t(`${HOOK_FAILURES_NAMESPACE}.${view.titleKey}`)}`,
+        )
+      },
       onMemoryUpdates: (event) => {
         streamDiagRef.current.memoryUpdates += 1
         if (event.items.length === 0) return
         showToast('info', t('ai.stream.memoryRemembered', { n: event.items.length }))
       },
-      // D155 下行告警三档(2026-11-13 收编):后端在流首产 deprecation-notice
-      // (厂商下发的 `deprecation_date` 进入 30 天提醒窗口时)。不接这三条回调
-      // ⇒ 帧被静默丢弃,用户继续用一个即将下线的模型,直到某天它突然 404。
+      // D155 下行告警(2026-11-13 收编):后端在流首产 deprecation-notice(厂商下发的
+      // `deprecation_date` 进入 30 天提醒窗口时)。不接这三条回调 ⇒ 帧被静默丢弃,
+      // 用户继续用一个即将下线的模型,直到某天它突然 404。
       //
-      // 为什么接三条而不是一条归并回调:api-client 的解析层就是按帧分成三个
+      // 为什么接三条而不是一条统一回调:api-client 的解析层就是按帧分成三个
       // callback(与 web 的 send-message.ts:1502-1510 同一组),RN 不自造第二套
       // 归并层 —— 那会让"web 收到告警、RN 收不到"这类漂移无从对照。
+      // severity 已由解析层归一成 info/warning/critical,这里只做色阶映射。
       onConfigWarning: (evt) => showToast('info', evt.message),
       onDeprecationNotice: (evt) => showToast('info', evt.message),
       onGuardianWarning: (evt) => showToast('info', evt.message),
@@ -1757,6 +1870,9 @@ export function ChatScreen() {
       },
     })
   }
+
+  // 桥接:供提问卡的 legacy 回退调用(定义在 send 之后,避免 TDZ)
+  sendRefForQuestion.current = (text: string) => void send(text)
 
   /**
    * 票 68:终止在途流的唯一出口。「停止」按钮与下面的换档 effect 都走这里,
@@ -2694,16 +2810,77 @@ export function ChatScreen() {
     if (pendingQuestions.length > 0 || pendingForms.length > 0) {
       nodes.push(
         <View key="interaction-frames" style={styles.interactionCard}>
-          {pendingQuestions.map((q) => (
-            <View key={q.questionId} style={styles.interactionRow}>
-              <Text style={styles.interactionTitle}>{q.prompt}</Text>
-              {q.options.map((opt) => (
-                <Text key={opt.id} style={styles.interactionMeta}>
-                  {`· ${opt.label}`}
-                </Text>
-              ))}
-            </View>
-          ))}
+          {pendingQuestions.map((q) => {
+            const answering = answeringQuestionId === q.questionId
+            return (
+              <View key={q.questionId} style={styles.interactionRow}>
+                <Text style={styles.interactionTitle}>{q.prompt}</Text>
+                {/* 可作答态(2026-11-13):选中项高亮 + 提交/关闭。
+                    此前这里只有两行 Text —— 用户看得见问题却无处作答,
+                    而服务端那条阻塞式流在等答复,最终超时。 */}
+                {answering
+                  ? q.options.map((opt) => {
+                      const checked = questionSelected.includes(opt.id)
+                      return (
+                        <Tappable
+                          key={opt.id}
+                          onPress={() =>
+                            setQuestionSelected((prev) =>
+                              toggleOptionSelection(prev, opt.id, q.allowMultiple),
+                            )
+                          }
+                          style={[styles.questionOption, checked && styles.questionOptionOn]}
+                          accessibilityRole="button"
+                          accessibilityState={{ selected: checked }}
+                        >
+                          <Text style={styles.interactionMeta}>{opt.label}</Text>
+                        </Tappable>
+                      )
+                    })
+                  : q.options.map((opt) => (
+                      <Text key={opt.id} style={styles.interactionMeta}>
+                        {`· ${opt.label}`}
+                      </Text>
+                    ))}
+                {answering ? (
+                  <View style={styles.questionActions}>
+                    <Tappable
+                      onPress={() => void submitQuestionAnswer(q, 'answer')}
+                      disabled={questionSubmitting}
+                      style={styles.questionSubmit}
+                      accessibilityRole="button"
+                    >
+                      <Text style={styles.questionSubmitText}>
+                        {questionSubmitting
+                          ? t('chat.questionSubmitting')
+                          : t('chat.questionSubmit')}
+                      </Text>
+                    </Tappable>
+                    <Tappable
+                      onPress={() => void submitQuestionAnswer(q, 'withdraw')}
+                      disabled={questionSubmitting}
+                      style={styles.questionWithdraw}
+                      accessibilityRole="button"
+                    >
+                      <Text style={styles.interactionMeta}>{t('chat.questionWithdraw')}</Text>
+                    </Tappable>
+                  </View>
+                ) : (
+                  <Tappable
+                    onPress={() => {
+                      setAnsweringQuestionId(q.questionId)
+                      setQuestionSelected([])
+                      setQuestionCustom('')
+                    }}
+                    style={styles.questionAnswerBtn}
+                    accessibilityRole="button"
+                  >
+                    <Text style={styles.questionAnswerBtnText}>{t('chat.questionAnswer')}</Text>
+                  </Tappable>
+                )}
+              </View>
+            )
+          })}
           {/* D77:可填表单卡(批准带 values / 拒绝只带原因),取代此前那行只读中文文案。 */}
           {businessForm.host}
         </View>,
@@ -3667,7 +3844,7 @@ export function ChatScreen() {
         <Tappable style={styles.modalMask} onPress={hideQrCode}>
           <Pressable style={styles.qrCodeContent} onPress={(e) => e.stopPropagation()}>
             <Tappable hitSlop={8} onPress={hideQrCode} style={styles.qrCodeClose}>
-              <X size={rnGeometry.glyphMd} color={tokens.text.tertiary} />
+              <X size={rnGeometry.glyphMd} color={tokens.text.secondary} />
             </Tappable>
             <Tappable
               ref={qrCodeViewRef}
@@ -3765,7 +3942,7 @@ export function ChatScreen() {
                 onPress={() => setUrlInputVisible(false)}
                 style={styles.listDialogClose}
               >
-                <X size={rnGeometry.glyphMd} color={tokens.text.tertiary} />
+                <X size={rnGeometry.glyphMd} color={tokens.text.secondary} />
               </Tappable>
             </View>
             <View style={styles.urlInputBody}>
@@ -3774,7 +3951,7 @@ export function ChatScreen() {
                 value={urlInputValue}
                 onChangeText={setUrlInputValue}
                 placeholder={t('chat.webLinkPlaceholder')}
-                placeholderTextColor={tokens.text.tertiary}
+                placeholderTextColor={tokens.text.secondary}
                 autoCapitalize="none"
                 autoCorrect={false}
                 keyboardType="url"
@@ -3814,7 +3991,7 @@ export function ChatScreen() {
                 onPress={() => setFileUploadVisible(false)}
                 style={styles.listDialogClose}
               >
-                <X size={rnGeometry.glyphMd} color={tokens.text.tertiary} />
+                <X size={rnGeometry.glyphMd} color={tokens.text.secondary} />
               </Tappable>
             </View>
             <View style={styles.fileUploadBody}>
@@ -3870,7 +4047,7 @@ export function ChatScreen() {
                 onPress={() => setModelListVisible(false)}
                 style={styles.listDialogClose}
               >
-                <X size={rnGeometry.glyphMd} color={tokens.text.tertiary} />
+                <X size={rnGeometry.glyphMd} color={tokens.text.secondary} />
               </Tappable>
             </View>
             <ModelPickerList
@@ -3982,7 +4159,7 @@ export function ChatScreen() {
             value={prompt}
             onChangeText={setPrompt}
             placeholder={t('chat.inputPlaceholder')}
-            placeholderTextColor={tokens.text.tertiary}
+            placeholderTextColor={tokens.text.secondary}
             multiline
             autoFocus
             textAlignVertical="top"
@@ -4127,6 +4304,10 @@ function mapConversationToDrawer(
 
 const BOTTOM_BAR_TOTAL = 68 // BottomActionBar 高度估值(12+44+12)
 
+// 代码块恒用暗底(gray[800]/gray[700]),不随明暗主题翻面 —— 仿 IDE 暗色代码块的固定观感。
+// 语言标签取固定语法高亮蓝(VSCode 默认),压暗底对比度 ≥4.5:1。收为命名常量避免散写 hex。
+const CODE_BLOCK_LANG_COLOR = '#9cdcfe'
+
 const styles = StyleSheet.create({
   root: {
     flex: 1,
@@ -4197,6 +4378,37 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.card,
     gap: rpx(8),
   },
+  questionOption: {
+    paddingVertical: rpx(8),
+    paddingHorizontal: rpx(10),
+    borderRadius: rnRadius.md,
+    borderWidth: 1,
+    borderColor: tokens.border.light,
+  },
+  questionOptionOn: { borderColor: tokens.brandAccent.deep, backgroundColor: tokens.surface.muted },
+  questionActions: { flexDirection: 'row', gap: rpx(8), marginTop: rpx(4) },
+  questionSubmit: {
+    paddingVertical: rpx(8),
+    paddingHorizontal: rpx(14),
+    borderRadius: rnRadius.md,
+    backgroundColor: tokens.brand.cta,
+  },
+  questionSubmitText: {
+    color: tokens.brand.ctaForeground,
+    fontWeight: '600',
+    fontSize: rnType.label.size,
+  },
+  questionWithdraw: { paddingVertical: rpx(8), paddingHorizontal: rpx(10) },
+  questionAnswerBtn: {
+    marginTop: rpx(4),
+    paddingVertical: rpx(8),
+    paddingHorizontal: rpx(14),
+    borderRadius: rnRadius.md,
+    borderWidth: 1,
+    borderColor: tokens.border.light,
+    alignSelf: 'flex-start',
+  },
+  questionAnswerBtnText: { color: tokens.text.primary, fontSize: rnType.label.size },
   interactionRow: {
     gap: rpx(4),
   },
@@ -4338,7 +4550,9 @@ const styles = StyleSheet.create({
   },
   codeBlockLang: {
     fontSize: rnType.caption.size,
-    color: '#9cdcfe',
+    // 代码块恒用暗底(gray[800]/gray[700],不随主题翻面),语言标签取固定语法高亮蓝。
+    // 原为内联散写 hex,现收敛为语义常量(全仓唯一一处,见文件顶部 CODE_BLOCK_* 区)。
+    color: CODE_BLOCK_LANG_COLOR,
     fontWeight: '600',
     flexShrink: 1,
     marginRight: rnSpacing.sm,
@@ -4468,7 +4682,7 @@ const styles = StyleSheet.create({
     width: 16,
     height: 16,
     borderRadius: rnRadius.sm,
-    backgroundColor: tokens.text.tertiary,
+    backgroundColor: tokens.text.secondary,
     alignItems: 'center',
     justifyContent: 'center',
   },

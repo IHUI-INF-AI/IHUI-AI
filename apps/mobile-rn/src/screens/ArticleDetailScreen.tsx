@@ -14,7 +14,7 @@
  */
 import { DIALOG_HEIGHT_RATIOS } from '../lib/dialog-geometry'
 import { useDialogHeightStyle } from '../lib/use-dialog-height'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTheme } from '../context/ThemeContext'
 import {
   ActivityIndicator,
@@ -77,6 +77,8 @@ export function ArticleDetailScreen() {
   })
   const [commentSubmitting, setCommentSubmitting] = useState(false)
   const [commentError, setCommentError] = useState('')
+  // 评论列表加载的代次令牌:每次打开面板自增,旧请求返回时代次不匹配即丢弃(防卸载/重开后旧响应串台)
+  const commentLoadSeq = useRef(0)
 
   const [reloadKey, setReloadKey] = useState(0)
   const reload = () => setReloadKey((k) => k + 1)
@@ -118,8 +120,12 @@ export function ArticleDetailScreen() {
     setCommentVisible(true)
     setCommentLoading(true)
     setCommentError('')
+    // 卸载守卫:每次打开评论面板取一枚新 token,旧请求返回时 token 不匹配即丢弃,
+    // 防面板已关闭/组件已卸载后仍 setState(主数据 effect :84-102 用 cancelled 惯用法,这里是事件回调故用 token)。
+    const reqToken = ++commentLoadSeq.current
     void getComments({ resourceType: 'post', resourceId: id, page: 1, pageSize: 20 })
       .then((res) => {
+        if (reqToken !== commentLoadSeq.current) return
         if (res.success) {
           setComments(res.data.list)
         } else {
@@ -128,10 +134,13 @@ export function ArticleDetailScreen() {
         }
       })
       .catch(() => {
+        if (reqToken !== commentLoadSeq.current) return
         setComments([])
         setCommentError(t('article.loadCommentsFail'))
       })
-      .finally(() => setCommentLoading(false))
+      .finally(() => {
+        if (reqToken === commentLoadSeq.current) setCommentLoading(false)
+      })
   }, [id, t])
 
   /** 发表评论(对齐 news/comment 提交) */
@@ -184,7 +193,7 @@ export function ArticleDetailScreen() {
           <TouchableOpacity style={styles.actionItem} onPress={handleLike} activeOpacity={0.7}>
             <Heart
               size={18}
-              color={liked ? tokens.danger.bright : tokens.text.secondary}
+              color={liked ? tokens.danger.deepText : tokens.text.secondary}
               fill={liked ? tokens.danger.bright : 'transparent'}
             />
             <Text style={styles.actionCount}>{likeCount}</Text>
@@ -260,7 +269,7 @@ export function ArticleDetailScreen() {
                 value={commentText}
                 onChangeText={setCommentText}
                 placeholder={t('article.commentPh')}
-                placeholderTextColor={tokens.text.tertiary}
+                placeholderTextColor={tokens.text.secondary}
                 style={styles.commentInput}
                 multiline
               />
