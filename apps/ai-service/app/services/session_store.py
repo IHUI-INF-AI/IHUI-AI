@@ -2038,22 +2038,35 @@ class SessionStore:
         thread_id: str | None = None,
         limit: int = 20,
         owner_user_id: str | None = None,
+        exclude_thread_id: str | None = None,
     ) -> list[SearchHit]:
         """全文检索。`owner_user_id` 非空时**过滤写在 SQL 里**。
 
         与 `list_threads` 的属主过滤同一条理由:事后在响应侧筛会让"命中集合"与
         "被筛掉的那批"来自两次读取,而且漏一处调用点就等于没过滤。判据口径与
         `_owner_scoped_allows` 一致(带身份 ⇒ 无属主的行同样排除,那批行属 dev/未绑定通道)。
+
+        `exclude_thread_id` 用于跨会话检索"始终省略调用方会话"(2026-11-14,
+        对标 DSH session_search):排除同样写在 SQL 里,避免 limit 被自身命中占满。
         """
         if not query.strip():
             return []
         if self._fts_enabled:
-            hits = self._search_fts(query, thread_id, limit, owner_user_id)
+            hits = self._search_fts(
+                query, thread_id, limit, owner_user_id, exclude_thread_id
+            )
             if hits is not None:
                 return hits
-        return self._search_like(query, thread_id, limit, owner_user_id)
+        return self._search_like(
+            query, thread_id, limit, owner_user_id, exclude_thread_id
+        )
 
-    def _scope_sql(self, thread_id: str | None, owner_user_id: str | None) -> tuple[str, list[Any]]:
+    def _scope_sql(
+        self,
+        thread_id: str | None,
+        owner_user_id: str | None,
+        exclude_thread_id: str | None = None,
+    ) -> tuple[str, list[Any]]:
         """两条检索路径**共用**的过滤片段(两份实现必漂移,本仓记过太多次)。"""
         sql = ""
         args: list[Any] = []
@@ -2066,6 +2079,9 @@ class SessionStore:
                 " WHERE json_extract(metadata,'$.userId') = ?)"
             )
             args.append(owner_user_id)
+        if exclude_thread_id:
+            sql += " AND thread_id != ?"
+            args.append(exclude_thread_id)
         return sql, args
 
     def _search_fts(
@@ -2074,8 +2090,11 @@ class SessionStore:
         thread_id: str | None,
         limit: int,
         owner_user_id: str | None = None,
+        exclude_thread_id: str | None = None,
     ) -> list[SearchHit] | None:
-        scope_sql, scope_args = self._scope_sql(thread_id, owner_user_id)
+        scope_sql, scope_args = self._scope_sql(
+            thread_id, owner_user_id, exclude_thread_id
+        )
         sql = (
             "SELECT seq, thread_id, item_type,"
             " snippet(items_fts, 0, '', '', ' … ', 24) AS snip,"
@@ -2107,10 +2126,13 @@ class SessionStore:
         thread_id: str | None,
         limit: int,
         owner_user_id: str | None = None,
+        exclude_thread_id: str | None = None,
     ) -> list[SearchHit]:
         term = query.strip()
         pattern = "%" + _escape_like(term) + "%"
-        scope_sql, scope_args = self._scope_sql(thread_id, owner_user_id)
+        scope_sql, scope_args = self._scope_sql(
+            thread_id, owner_user_id, exclude_thread_id
+        )
         sql = (
             "SELECT seq, thread_id, item_type, search_text FROM items"
             " WHERE search_text LIKE ? ESCAPE '\\'"
