@@ -4187,6 +4187,9 @@ class AgentLoopV2:
         await self._inject_memory_context(messages)
         # W1(2026-09):入口:注入用户画像 snippet(对标 v1 P0 注入,复用 v1 实现)
         await self._inject_user_profile(messages)
+        # 2026-11-14(对标 DSH dsh-deliverable-file-references):注入交付物与文件引用规则。
+        # 静态段落、每轮幂等,失败降级不阻塞主循环。
+        self._inject_deliverable_guidance(messages)
         # 1-7 团队接力(P3-3,2026-09-03 立):入口:注入团队上一轮聚合摘要。
         # 默认关闭;开启且存在接力上下文时才改动 system prompt,否则为 no-op(零差异)。
         await self._inject_team_relay_context(messages)
@@ -4448,6 +4451,43 @@ class AgentLoopV2:
                 messages.insert(0, {"role": "system", "content": snippet})
         except Exception as e:
             logger.warning("user_profile snippet 注入失败(降级,不阻塞): %s", e)
+
+    def _inject_deliverable_guidance(self, messages: list[dict[str, Any]]) -> None:
+        """入口:交付物与文件引用规则注入(对标 DSH dsh-deliverable-file-references)。
+
+        为什么是 system prompt 段落而不是工具描述:规则要在"决定写最终答复"之前就生效
+        (内联图片、文件链接、何时 present),工具描述只在模型已经决定调用工具时才被读到。
+
+        纪律:静态文本、幂等(标记已在任意 system 消息里就跳过)、任何异常降级不阻塞。
+        """
+        try:
+            from ..core.deliverable_guidance import (
+                DELIVERABLE_FILE_REFERENCES,
+                DELIVERABLE_GUIDANCE_OPEN,
+            )
+
+            for msg in messages:
+                if (
+                    isinstance(msg, dict)
+                    and msg.get("role") == "system"
+                    and DELIVERABLE_GUIDANCE_OPEN in str(msg.get("content") or "")
+                ):
+                    return
+            if (
+                messages
+                and isinstance(messages[0], dict)
+                and messages[0].get("role") == "system"
+            ):
+                existing = messages[0].get("content", "")
+                messages[0]["content"] = (
+                    f"{existing}\n\n{DELIVERABLE_FILE_REFERENCES}"
+                    if existing
+                    else DELIVERABLE_FILE_REFERENCES
+                )
+            else:
+                messages.insert(0, {"role": "system", "content": DELIVERABLE_FILE_REFERENCES})
+        except Exception as e:
+            logger.warning("deliverable_guidance 注入失败(降级跳过): %s", e)
 
     # ------------------------------------------------------------------
     # 1-7 团队接力辅助(P3-3,2026-09-03 立;对标 meta_learner/metacognition 注入模式)
