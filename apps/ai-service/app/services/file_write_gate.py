@@ -8,10 +8,12 @@
 - 多智能体并行子模式(agent_orchestrator.run_parallel,asyncio.gather 同进程并发)
   下,两个并行 agent 写同一文件时:file_edit / resolve_conflict 有 3-way base
   检测兜底,而 write_file 是整文件覆盖、写前无任何基线比对 → 盲覆盖丢改动。
-- 本门提供两道治理,算法本体只在这一处实现(调用方只接线,不各写一份):
+- 本门提供三道治理,算法本体只在这一处实现(调用方只接线,不各写一份):
   1) per-path 进程内 asyncio 互斥锁 get_path_write_lock:同一 resolved_path 的
-     写段互斥(键 normcase+normpath,Windows 大小写不敏感)。run_parallel 的
-     并发是同进程协程,进程内锁完全覆盖真实并发面。
+     写段互斥(键 normcase+normpath,Windows 大小写不敏感)。
+  1b) 进程外文件锁:asyncio 锁内再取 OS 级排他锁(Windows msvcrt / POSIX flock),
+     锁文件在系统临时目录(按路径哈希命名),超时显式 TimeoutError,进程死亡自动释放。
+     覆盖 CLI、桌面宿主、多个 worker 同时写同一工作区的场景;读-改-写全程持锁。
   2) 写前基线漂移判定 classify_write_conflict(纯函数,五态):
        no-baseline — base 无记录(新文件/首次写)→ 放行
        clean       — 现盘 == base → 放行
@@ -26,11 +28,24 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import os
+import tempfile
+import time
+
+if os.name == "nt":  # pragma: no cover - 平台分支
+    import msvcrt
+else:  # pragma: no cover - 平台分支
+    import fcntl
+
+# 进程外锁:超时前每 20ms 重试一次。测试可通过 env 或直接改模块常量缩短。
+_CROSS_PROCESS_LOCK_TIMEOUT = float(os.environ.get("IHUI_WRITE_LOCK_TIMEOUT", "10"))
+_CROSS_PROCESS_RETRY_S = 0.02
+_CROSS_PROCESS_LOCK_DIR = os.path.join(tempfile.gettempdir(), "ihui-write-locks")
 
 # per-path 锁注册表:键 = normcase(normpath(resolved_path))。
 # 惰性创建;进程生命周期内不清(测试用 reset_path_write_locks 显式清)。
-_PATH_WRITE_LOCKS: dict[str, asyncio.Lock] = {}
+_PATH_WRITE_LOCKS: dict[str, _PathWriteLock] = {}
 
 
 def _lock_key(resolved_path: str) -> str:
@@ -38,12 +53,105 @@ def _lock_key(resolved_path: str) -> str:
     return os.path.normcase(os.path.normpath(resolved_path))
 
 
+def _os_lock_path(key: str) -> str:
+    """锁文件路径:系统临时目录 + 路径哈希,不往被写工作区里落任何文件。"""
+    digest = hashlib.sha256(key.encode("utf-8", "surrogatepass")).hexdigest()[:40]
+    return os.path.join(_CROSS_PROCESS_LOCK_DIR, f"{digest}.lock")
+
+
+def _try_lock_fd(fd: int) -> None:
+    if os.name == "nt":
+        msvcrt.locking(fd, msvcrt.LK_NBLCK, 1)
+    else:
+        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+
+
+def _unlock_fd(fd: int) -> None:
+    if os.name == "nt":
+        msvcrt.locking(fd, msvcrt.LK_UNLCK, 1)
+    else:
+        fcntl.flock(fd, fcntl.LOCK_UN)
+
+
+def _acquire_os_lock_blocking(key: str, timeout_s: float) -> int:
+    """阻塞式取 OS 排他锁,返回文件描述符;超时抛 TimeoutError。
+
+    锁文件本身可以长期存在(空文件),锁的归属由 OS 维护:进程退出/句柄关闭
+    即自动释放,不需要 stale-lock 回收,也不会因崩溃留下"死锁文件"。
+    """
+    os.makedirs(_CROSS_PROCESS_LOCK_DIR, exist_ok=True)
+    fd = os.open(_os_lock_path(key), os.O_CREAT | os.O_RDWR, 0o600)
+    deadline = time.monotonic() + max(0.0, timeout_s)
+    while True:
+        try:
+            _try_lock_fd(fd)
+            return fd
+        except OSError:
+            if time.monotonic() >= deadline:
+                os.close(fd)
+                raise TimeoutError(
+                    f"路径写锁超时({timeout_s:.1f}s):另一个进程正在写同一文件,"
+                    "已放弃本次写入,原文件保持不变"
+                ) from None
+            time.sleep(_CROSS_PROCESS_RETRY_S)
+
+
+def _release_os_lock(fd: int) -> None:
+    try:
+        _unlock_fd(fd)
+    except OSError:
+        pass
+    finally:
+        try:
+            os.close(fd)
+        except OSError:
+            pass
+
+
+class _PathWriteLock(asyncio.Lock):
+    """asyncio 互斥 + OS 文件锁的组合锁。
+
+    继承 asyncio.Lock 是为了让现有 `async with get_path_write_lock(path)` 调用点
+    零改动获得跨进程语义:进锁先拿协程锁,再在线程里等 OS 锁;退出时先放 OS 锁
+    再放协程锁。OS 锁超时会释放协程锁并抛 TimeoutError,不会把路径永久卡死。
+    """
+
+    def __init__(self, key: str) -> None:
+        super().__init__()
+        self._key = key
+        self._os_fd: int | None = None
+
+    async def __aenter__(self) -> _PathWriteLock:
+        await super().__aenter__()
+        try:
+            self._os_fd = await asyncio.to_thread(
+                _acquire_os_lock_blocking, self._key, _CROSS_PROCESS_LOCK_TIMEOUT
+            )
+        except BaseException:
+            self._os_fd = None
+            await super().__aexit__(None, None, None)
+            raise
+        return self
+
+    async def __aexit__(self, exc_type, exc, tb) -> bool | None:
+        try:
+            if self._os_fd is not None:
+                _release_os_lock(self._os_fd)
+                self._os_fd = None
+        finally:
+            released = await super().__aexit__(exc_type, exc, tb)
+        return released
+
+
 def get_path_write_lock(resolved_path: str) -> asyncio.Lock:
-    """取(或惰性创建)该路径的写互斥锁。同一文件的写段必须全程持锁。"""
+    """取(或惰性创建)该路径的写互斥锁。同一文件的写段必须全程持锁。
+
+    返回对象同时持进程内 asyncio 锁与进程外 OS 文件锁。
+    """
     key = _lock_key(resolved_path)
     lock = _PATH_WRITE_LOCKS.get(key)
     if lock is None:
-        lock = asyncio.Lock()
+        lock = _PathWriteLock(key)
         _PATH_WRITE_LOCKS[key] = lock
     return lock
 
