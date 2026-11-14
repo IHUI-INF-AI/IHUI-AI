@@ -844,10 +844,12 @@ export interface ChannelCostRow {
   calls: number
   errorCalls: number
   costedCalls: number
-  /** 实收为 0 的成功调用数(套餐内/免费额度/内部调用),负毛利的主要来源 */
+  /** 实收为 0 的成功调用数(定价生效前/漏计费),负毛利的主要来源 */
   zeroRevenueCalls: number
   /** 这些零实收调用对应的采购成本(分) */
   zeroRevenueCostCents: number
+  /** 按当前模型售价重算的「应计未计」收入(分),用于量化漏计费金额 */
+  missedRevenueCents: number
   revenueCents: number
   costedRevenueCents: number
   costCents: number
@@ -883,6 +885,7 @@ function toChannelRow(r: Record<string, unknown>): ChannelCostRow {
     costedCalls,
     zeroRevenueCalls: asNum(r['zero_revenue_calls']),
     zeroRevenueCostCents: asNum(r['zero_revenue_cost_cents']),
+    missedRevenueCents: asNum(r['missed_revenue_cents']),
     revenueCents: asNum(r['revenue_cents']),
     costedRevenueCents,
     costCents,
@@ -903,36 +906,59 @@ export async function getChannelCostReport(args: {
   const limit = Math.min(Math.max(Number.isFinite(rawLimit) ? Math.trunc(rawLimit) : 50, 1), 200)
   const bucketExpr =
     groupBy === 'keypool'
-      ? sql`coalesce(key_pool_id::text, 'unassigned')`
-      : sql`coalesce(provider_code, 'unknown')`
+      ? sql`coalesce(l.key_pool_id::text, 'unassigned')`
+      : sql`coalesce(l.provider_code, 'unknown')`
   const whereExpr = sql`
-    created_at >= ${args.from}::date
-    and created_at < (${args.to}::date + interval '1 day')
+    l.created_at >= ${args.from}::date
+    and l.created_at < (${args.to}::date + interval '1 day')
+  `
+  // 当前售价(用于给「零实收」行重算应计未计收入):历史上模型未定价时系统按 0 记账,
+  // 不是免费调用 —— 用当前价 × 当时 token 量化漏计费金额,单独一列暴露。
+  const modelPriceCte = sql`
+    model_price as (
+      select distinct on (lower(model_id))
+        lower(model_id) as mid,
+        coalesce(input_price_per_1k, 0) as pin,
+        coalesce(output_price_per_1k, 0) as pout
+      from ai_model_config_models
+      order by lower(model_id),
+               (coalesce(input_price_per_1k, 0) = 0 and coalesce(output_price_per_1k, 0) = 0) asc,
+               config_id desc
+    )
   `
   const aggSelect = sql`
-    count(*) filter (where status in ('success', 'partial'))::int as calls,
-    count(*) filter (where status = 'error')::int as error_calls,
+    count(*) filter (where l.status in ('success', 'partial'))::int as calls,
+    count(*) filter (where l.status = 'error')::int as error_calls,
     count(*) filter (
-      where status in ('success', 'partial') and metadata ? 'providerCostCents'
+      where l.status in ('success', 'partial') and l.metadata ? 'providerCostCents'
     )::int as costed_calls,
     count(*) filter (
-      where status in ('success', 'partial') and coalesce(cost_cents, 0) = 0
+      where l.status in ('success', 'partial') and coalesce(l.cost_cents, 0) = 0
     )::int as zero_revenue_calls,
-    coalesce(sum(case when status in ('success', 'partial') and coalesce(cost_cents, 0) = 0
-      and metadata ? 'providerCostCents' then (metadata->>'providerCostCents')::numeric else 0 end), 0)::numeric as zero_revenue_cost_cents,
-    coalesce(sum(case when status in ('success', 'partial') then cost_cents else 0 end), 0)::numeric as revenue_cents,
-    coalesce(sum(case when status in ('success', 'partial') and metadata ? 'providerCostCents' then cost_cents else 0 end), 0)::numeric as costed_revenue_cents,
-    coalesce(sum(case when status in ('success', 'partial') and metadata ? 'providerCostCents' then (metadata->>'providerCostCents')::numeric else 0 end), 0)::numeric as cost_cents
+    coalesce(sum(case when l.status in ('success', 'partial') and coalesce(l.cost_cents, 0) = 0
+      and l.metadata ? 'providerCostCents' then (l.metadata->>'providerCostCents')::numeric else 0 end), 0)::numeric as zero_revenue_cost_cents,
+    coalesce(sum(case when l.status in ('success', 'partial') and coalesce(l.cost_cents, 0) = 0
+      and mp.mid is not null
+      then coalesce(l.prompt_tokens, 0) / 1000.0 * mp.pin
+         + coalesce(l.completion_tokens, 0) / 1000.0 * mp.pout
+      else 0 end), 0)::numeric as missed_revenue_cents,
+    coalesce(sum(case when l.status in ('success', 'partial') then l.cost_cents else 0 end), 0)::numeric as revenue_cents,
+    coalesce(sum(case when l.status in ('success', 'partial') and l.metadata ? 'providerCostCents' then l.cost_cents else 0 end), 0)::numeric as costed_revenue_cents,
+    coalesce(sum(case when l.status in ('success', 'partial') and l.metadata ? 'providerCostCents' then (l.metadata->>'providerCostCents')::numeric else 0 end), 0)::numeric as cost_cents
   `
 
   const totalRes = await db.execute(sql`
+    with ${modelPriceCte}
     select ${aggSelect}
-    from llm_call_logs
+    from llm_call_logs l
+    left join model_price mp on lower(l.model) = mp.mid
     where ${whereExpr}
   `)
   const rowsRes = await db.execute(sql`
+    with ${modelPriceCte}
     select ${bucketExpr} as bucket, ${aggSelect}
-    from llm_call_logs
+    from llm_call_logs l
+    left join model_price mp on lower(l.model) = mp.mid
     where ${whereExpr}
     group by 1
     order by revenue_cents desc
@@ -960,6 +986,7 @@ export async function getChannelCostReport(args: {
       costedCalls: totals.costedCalls,
       zeroRevenueCalls: totals.zeroRevenueCalls,
       zeroRevenueCostCents: totals.zeroRevenueCostCents,
+      missedRevenueCents: totals.missedRevenueCents,
       revenueCents: totals.revenueCents,
       costedRevenueCents: totals.costedRevenueCents,
       costCents: totals.costCents,
