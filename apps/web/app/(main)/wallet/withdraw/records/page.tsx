@@ -11,7 +11,7 @@ import { useTranslations, useLocale } from 'next-intl'
 import { ArrowDownToLine, Loader2, ChevronLeft, ChevronRight } from 'lucide-react'
 
 import { apiOrThrow } from '@/lib/api'
-import { formatPrice } from '@ihui/shared/utils/format'
+import { formatCnyCents } from '@/lib/display-currency'
 import {
   Button,
   Card,
@@ -150,8 +150,8 @@ export default function WithdrawRecordsPage() {
   }
 
   const stats = [
-    { label: t('completedAmount'), value: formatPrice(summaryQ.data?.totalWithdrawn ?? 0) },
-    { label: t('processingAmount'), value: formatPrice(summaryQ.data?.pendingAmount ?? 0) },
+    { label: t('completedAmount'), value: formatCnyCents(summaryQ.data?.totalWithdrawn ?? 0, { digits: 2 }) },
+    { label: t('processingAmount'), value: formatCnyCents(summaryQ.data?.pendingAmount ?? 0, { digits: 2 }) },
   ]
 
   return (
@@ -225,11 +225,11 @@ export default function WithdrawRecordsPage() {
                     <TableRow key={it.id}>
                       {/* amount / originalAmount / fee 都是「分」（applyWithdrawal 全程按分落库） */}
                       <TableCell className="px-4 py-2.5 font-medium">
-                        ¥{formatPrice(it.originalAmount)}
+                        {formatCnyCents(it.originalAmount, { digits: 2 })}
                       </TableCell>
                       <TableCell className="px-4 py-2.5 text-right text-muted-foreground">
-                        <div className="font-medium text-foreground">¥{formatPrice(it.amount)}</div>
-                        <div className="text-label">-¥{formatPrice(it.fee)}</div>
+                        <div className="font-medium text-foreground">{formatCnyCents(it.amount, { digits: 2 })}</div>
+                        <div className="text-label">-{formatCnyCents(it.fee, { digits: 2 })}</div>
                       </TableCell>
                       <TableCell className="px-4 py-2.5">
                         {t(METHOD_KEY[it.method] ?? 'methodWechat')}

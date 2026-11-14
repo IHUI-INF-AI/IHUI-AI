@@ -329,6 +329,8 @@ export * from './endpoints/agent-chat-stream.js'
 export * from './endpoints/agent-usage.js'
 // AI 模型定价查询(W4 成本真网计价,2026-09-12)
 export * from './endpoints/ai-pricing.js'
+// 实时汇率(2026-11-14 立):USD/CNY/USDT 展示换算
+export * from './endpoints/exchange-rate.js'
 // Deep Research 深度研究(2026-09-07 工作线 B)
 export * from './endpoints/research.js'
 // 签到助手(2026-10-03 立,ai-service /api/checkin)

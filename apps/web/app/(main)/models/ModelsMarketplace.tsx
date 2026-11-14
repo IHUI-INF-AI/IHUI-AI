@@ -48,6 +48,8 @@ import { fetchConfigs } from '@/lib/user-llm-configs'
 import { providerToTemplateCode, hasPresetTemplate } from '@/lib/llm-templates'
 import { Tooltip } from '@/components/feedback'
 import { cn } from '@/lib/utils'
+// 展示货币换算(2026-11-14 立):卡片 USD 价与中转站 CNY 价统一按实时汇率折算
+import { formatCny, formatUsd } from '@/lib/display-currency'
 import { formatDateOnly } from '@ihui/shared/utils/date-utils'
 import {
   MODEL_CATEGORY_META,
@@ -679,22 +681,22 @@ function ModelCardGrid({
             <Zap className="h-3 w-3" />
             {t('market.inputPrice')}
           </span>
-          <span className="font-medium text-foreground">
+          <span className="font-medium text-foreground" suppressHydrationWarning>
             {typeof model.inputPrice !== 'number'
               ? '—'
               : model.inputPrice === 0
                 ? t('free')
-                : `$${model.inputPrice.toFixed(2)}`}
+                : formatUsd(model.inputPrice)}
           </span>
         </div>
         <div className="mt-1 flex items-center justify-between [&>span]:translate-y-[var(--text-vcenter-offset)]">
           <span className="text-muted-foreground">{t('market.outputPrice')}</span>
-          <span className="font-medium text-foreground">
+          <span className="font-medium text-foreground" suppressHydrationWarning>
             {typeof outputPrice !== 'number'
               ? '—'
               : outputPrice === 0
                 ? t('free')
-                : `$${outputPrice.toFixed(2)}`}
+                : formatUsd(outputPrice)}
             {typeof outputPrice === 'number' && (
               <span className="ml-1 text-muted-foreground">{t('perMillion')}</span>
             )}
@@ -907,13 +909,13 @@ function ModelCardList({
             <Cpu className="h-3 w-3" />
             {formatContext(model.contextLength)}
           </span>
-          <span className="inline-flex items-center gap-0.5">
+          <span className="inline-flex items-center gap-0.5" suppressHydrationWarning>
             <Zap className="h-3 w-3" />
             {typeof model.inputPrice !== 'number'
               ? '—'
               : model.inputPrice === 0
                 ? t('free')
-                : `$${model.inputPrice.toFixed(2)}`}
+                : formatUsd(model.inputPrice)}
             {typeof model.inputPrice === 'number' && (
               <span className="text-muted-foreground/70">/{t('perMillion').replace('/', '')}</span>
             )}
@@ -1163,11 +1165,10 @@ function RelayBadge({
   )
 }
 
-/** 分/千 token → 元/百万 token 显示(换算 = 分/千 × 1000 ÷ 100 = ×10) */
-function toYuanPerMillion(centsPer1k: number): string {
+/** 分/千 token → 元/百万 token(换算 = 分/千 × 1000 ÷ 100 = ×10);展示时按实时汇率折算 */
+function toYuanPerMillion(centsPer1k: number): number {
   const yuan = (Number(centsPer1k) || 0) * 10
-  if (yuan === 0) return '0'
-  return yuan >= 1 ? yuan.toFixed(2) : yuan.toFixed(4)
+  return Number.isFinite(yuan) ? yuan : 0
 }
 
 /**
@@ -1196,8 +1197,8 @@ function RelayPriceCompare({ model }: { model: Model }) {
       {officialIn > 0 && (
         <div className="flex items-center justify-between">
           <span className="text-muted-foreground">{t('relay.officialPrice')}</span>
-          <span className="tabular-nums text-muted-foreground">
-            ¥{toYuanPerMillion(officialIn)}
+          <span className="tabular-nums text-muted-foreground" suppressHydrationWarning>
+            {formatCny(toYuanPerMillion(officialIn))}
             <span className="ml-0.5">{t('perMillion')}</span>
           </span>
         </div>
@@ -1209,15 +1210,16 @@ function RelayPriceCompare({ model }: { model: Model }) {
             'inline-flex items-center gap-1 font-medium tabular-nums',
             cheaper ? 'text-emerald-600' : 'text-foreground',
           )}
+          suppressHydrationWarning
         >
-          ¥{toYuanPerMillion(paidIn)}
+          {formatCny(toYuanPerMillion(paidIn))}
           <span className="font-normal text-muted-foreground">{t('perMillion')}</span>
         </span>
       </div>
       <div className="flex items-center justify-between">
         <span className="text-muted-foreground">{t('market.outputPrice')}</span>
-        <span className="tabular-nums">
-          ¥{toYuanPerMillion(paidOut)}
+        <span className="tabular-nums" suppressHydrationWarning>
+          {formatCny(toYuanPerMillion(paidOut))}
           <span className="ml-0.5 text-muted-foreground">{t('perMillion')}</span>
         </span>
       </div>
@@ -1242,8 +1244,8 @@ function RelayPriceCompare({ model }: { model: Model }) {
           <span>
             {t('relay.cacheRead')} / {t('relay.cacheWrite')}
           </span>
-          <span className="tabular-nums">
-            ¥{toYuanPerMillion(cacheRead)} / ¥{toYuanPerMillion(cacheWrite)}
+          <span className="tabular-nums" suppressHydrationWarning>
+            {formatCny(toYuanPerMillion(cacheRead))} / {formatCny(toYuanPerMillion(cacheWrite))}
           </span>
         </div>
       )}

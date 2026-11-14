@@ -22,6 +22,7 @@ import {
 } from '@ihui/ui-react'
 import { BackButton } from '@/components/common'
 import { fetchApi } from '@/lib/api'
+import { formatFrom } from '@/lib/display-currency'
 
 interface RegionPricing {
   cn?: number | null
@@ -75,26 +76,19 @@ function detectVendor(modelId: string): string {
   return '其他'
 }
 
-const CURRENCY_SYMBOL: Record<string, string> = {
-  CNY: '¥',
-  USD: '$',
-}
-
-// 分/千 token → 元/百万 token: 乘以 10
-const formatPrice = (centsPerKToken: number): string => {
-  const yuan = centsPerKToken * 10
-  return yuan.toLocaleString('zh-CN', { maximumFractionDigits: 4 })
-}
-
 const BILLING_MODE_LABEL: Record<string, string> = {
   per_call: '按次',
   per_image: '按张',
   per_video: '按视频',
 }
 
+// 分/千 token → 元/百万 token: 乘以 10
+const formatPrice = (centsPerKToken: number, currency: 'CNY' | 'USD'): string =>
+  formatFrom(centsPerKToken * 10, currency)
+
 // 按次/按张/按秒单价: 分 → 元, 除以 100
-const formatUnitPrice = (cents: number): string =>
-  (cents / 100).toLocaleString('zh-CN', { maximumFractionDigits: 4 })
+const formatUnitPrice = (cents: number, currency: 'CNY' | 'USD'): string =>
+  formatFrom(cents / 100, currency)
 
 const TIER_LABELS: Array<{ key: string; label: string }> = [
   { key: 'le256k', label: '≤256K' },
@@ -103,17 +97,18 @@ const TIER_LABELS: Array<{ key: string; label: string }> = [
 ]
 
 function formatMultimodalPrice(p: AiPricing): string {
-  const sym = CURRENCY_SYMBOL[p.currency] ?? p.currency
   if (p.billingMode === 'per_call') {
     const tiers = p.tieredCallPrices ?? {}
     const parts = TIER_LABELS.map((t) => ({ label: t.label, price: tiers[t.key] })).filter(
       (t): t is { label: string; price: number } => typeof t.price === 'number' && t.price > 0,
     )
     if (parts.length > 0) {
-      return parts.map((t) => `${t.label} ${sym}${formatUnitPrice(t.price)}`).join(' / ')
+      return parts
+        .map((t) => `${t.label} ${formatUnitPrice(t.price, p.currency)}`)
+        .join(' / ')
     }
     if (p.perUnitPrice !== null && p.perUnitPrice !== undefined && p.perUnitPrice > 0) {
-      return `${sym}${formatUnitPrice(p.perUnitPrice)} / 次`
+      return `${formatUnitPrice(p.perUnitPrice, p.currency)} / 次`
     }
     return '—'
   }
@@ -123,7 +118,7 @@ function formatMultimodalPrice(p: AiPricing): string {
     p.perUnitPrice !== undefined &&
     p.perUnitPrice > 0
   ) {
-    return `${sym}${formatUnitPrice(p.perUnitPrice)} / 张`
+    return `${formatUnitPrice(p.perUnitPrice, p.currency)} / 张`
   }
   if (
     p.billingMode === 'per_video' &&
@@ -131,7 +126,7 @@ function formatMultimodalPrice(p: AiPricing): string {
     p.perUnitPrice !== undefined &&
     p.perUnitPrice > 0
   ) {
-    return `${sym}${formatUnitPrice(p.perUnitPrice)} / ${p.videoUnit === 'second' ? '秒' : '次'}`
+    return `${formatUnitPrice(p.perUnitPrice, p.currency)} / ${p.videoUnit === 'second' ? '秒' : '次'}`
   }
   return '—'
 }
@@ -217,7 +212,6 @@ export function ModelsPricingContent(): React.JSX.Element {
                   </TableHeader>
                   <TableBody>
                     {items.map((p) => {
-                      const sym = CURRENCY_SYMBOL[p.currency] ?? p.currency
                       const mode = p.billingMode ?? 'token'
                       const regions = [
                         p.regionPricing?.cn !== null &&
@@ -243,12 +237,10 @@ export function ModelsPricingContent(): React.JSX.Element {
                           {mode === 'token' ? (
                             <>
                               <TableCell className="text-right tabular-nums">
-                                {sym}
-                                {formatPrice(p.inputTokenPrice)}
+                                {formatPrice(p.inputTokenPrice, p.currency)}
                               </TableCell>
                               <TableCell className="text-right tabular-nums">
-                                {sym}
-                                {formatPrice(p.outputTokenPrice)}
+                                {formatPrice(p.outputTokenPrice, p.currency)}
                               </TableCell>
                             </>
                           ) : (

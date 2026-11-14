@@ -82,12 +82,12 @@ describe('buildStreamErrorLabelSet 拼装层', () => {
     ).ai.pane.errorCatalog
     const labels = buildStreamErrorLabelSet({
       tStream: (k) => {
-        const [ns, sub] = k.split('.')
+        const [ns = '', sub = ''] = k.split('.')
         const table = streamErrors as unknown as Record<string, Record<string, string>>
         return table?.[ns]?.[sub] ?? k
       },
       tCatalog: (k) => {
-        const [code, field] = k.split('.')
+        const [code = '', field = ''] = k.split('.')
         return errorCatalog?.[code]?.[field] ?? k
       },
     })

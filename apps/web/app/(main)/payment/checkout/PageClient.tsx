@@ -22,9 +22,9 @@ import { useAuthGate } from '@/hooks/use-auth-gate'
 import { AuthGatePrompt } from '@/components/common'
 import { fetchApi } from '@/lib/api'
 import { resolveCheckoutLevel, type CheckoutLevel } from '@/lib/checkout-plan-levels'
+import { formatCny } from '@/lib/display-currency'
 
-const formatCNY = (n: number) =>
-  new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'CNY' }).format(n)
+const formatCNY = (n: number) => formatCny(n, { digits: 2 })
 
 const PLAN_PRICES: Record<string, { price: number }> = {
   free: { price: 0 },

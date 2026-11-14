@@ -17,6 +17,7 @@ import { Badge } from '@/components/data'
 import { BackButton, AuthGatePrompt } from '@/components/common'
 import { useAuthGate } from '@/hooks/use-auth-gate'
 import { cn } from '@/lib/utils'
+import { formatCnyCents } from '@/lib/display-currency'
 
 interface VipLevel {
   id: string
@@ -46,8 +47,7 @@ interface BillingPlan {
   trialDays?: number
 }
 
-const formatCNY = (cents: number) =>
-  new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'CNY' }).format(cents / 100)
+const formatCNY = (cents: number) => formatCnyCents(cents, { digits: 2 })
 
 export default function VipPage() {
   const t = useTranslations('vip')
