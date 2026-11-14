@@ -533,6 +533,10 @@
 - **建议**：统一 `encryptField/decryptField`；存量分批回填；手机号补 `phone_hash` 检索列。
 - **当场可修**：否（需迁移+回填）。
 - **去重**：未登记。
+- **2026-11-14 进展（本仓 HEAD）**：
+  - 凭据子切片已落地（`002ade40cc0`）：`ai_user_model_chat_config.api_key`、`education_platform.api_key/api_secret`、`im_adapters.credentials_json` 的 `webhookSecret/botToken/appSecret` 写库经 `encryptCredential` 加密、读侧解密，存量明文透传兼容；`tests/db-35-credential-field-encryption.test.ts` 15 例。
+  - PII 子切片已落地：`learn_invoice_titles` / `edu_invoice_titles` 的 `tax_no/bank/bank_account/address/phone` 统一经 `utils/pii-field.ts` 写时加密、读时解密（含用户端与管理端创建/更新/列表/详情），列宽迁移 `20261114180000_pii_invoice_title_widen.sql` 只放宽不收紧；后台两个实名 CRUD 路由的 `idCard` 明文写入/原样返回旁路已修，`idCard` 密文列的无效 `ilike` 已移除；`tests/db-35-pii-field-encryption.test.ts` 17 例。
+  - 残余（按“安全可控范围”明确不做，不虚报结清）：`users.phone/email` 与可检索身份字段（`user_auth_info.real_name/phone`）保持明文——它们与后台模糊搜索/唯一性语义强耦合（`users.phone/email` 在 33 个文件约 100 处被选择、过滤、分组），加密须先引入盲索引/哈希检索列、回填存量、并把模糊搜索降级为精确匹配；本机无可用 PostgreSQL，无法实跑回填与唯一索引验证。
 
 ### DB-38 `0067`/`0071` 幂等重放会把管理员口令重置回公开的 `admin123`
 - **严重度**：P3
