@@ -518,7 +518,7 @@ const newStyles = StyleSheet.create({
     color: tokens.text.secondary,
   },
   roleTextVip: {
-    color: tokens.warning.DEFAULT,
+    color: tokens.warning.amberText,
   },
   tokenRow: {
     flexDirection: 'row',
@@ -572,7 +572,7 @@ const newStyles = StyleSheet.create({
   },
   unsubscribeText: {
     fontSize: USER_INFO_CARD_SMALL_FONT_PX,
-    color: tokens.text.tertiary,
+    color: tokens.text.medium,
   },
   // 成长值进度条
   // 条粗细两端原分叉:小程序 `h-2` = 8 / RN 这里写 4 ⇒ 现同一档 spec GROWTH_BAR_HEIGHT(8)。
@@ -671,7 +671,7 @@ const newStyles = StyleSheet.create({
   },
   modalExpireText: {
     fontSize: USER_INFO_CARD_SMALL_FONT_PX,
-    color: tokens.text.tertiary,
+    color: tokens.text.medium,
     marginBottom: rnSpacing.sm,
   },
   modalDesc: {

@@ -228,6 +228,20 @@
   --color-scrim: rgba(0, 0, 0, 0.6);
   --color-scrim-foreground: rgba(255, 255, 255, 0.85);
 
+  /* 提示条语义实底(2026-11-13 立,收编 RN FloatBox 的 toast 四色硬编码)
+   * 用途:顶部滑入式 toast/提示条的**实底**,底暗、其上统一纯白字,正文对比度稳定 ≥4.5:1
+   * (锚定 web sonner richColors 的深色档观感;亮/暗两态同值 —— 底已足够暗,
+   *  再随主题翻面会变成浅底白字不可读,原 RN 侧注释即记录过这一坑)。
+   * 为什么独立成族而不复用 --color-success/warning/danger:那三档是"可随主题翻面的语义填充色"
+   * (亮档鲜艳、暗档提亮),拿它做 toast 实底会在亮档得到 22c55e/f59e0b 这类中亮度底,
+   * 白字对比度掉到 2~3:1。本族是**固定深底**,与主题无关,故必须单列。
+   * 消费方:RN FloatBox(RN_TOAST_SURFACES)、小程序 Toast、web Toaster(`--toast-*-bg` 覆盖位)。 */
+  --color-toast-success-bg: #15803d;
+  --color-toast-error-bg: #b91c1c;
+  --color-toast-warning-bg: #b45309;
+  --color-toast-info-bg: #1f2937;
+  --color-toast-foreground: #ffffff;
+
   /* 彩色语义 tint(2026-09-06 立,统一小程序端彩色 rgba/rgb 硬编码色)
    * 基准色相对齐语义 token:success=green-600 / warning=amber-500 / danger=red-600 /
    *   info=sky-500(cyan-blue) / pink=chart-6 / gold=金 / brand-accent=品牌天蓝

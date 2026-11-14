@@ -5,7 +5,7 @@
 'use client'
 
 import * as React from 'react'
-import { Loader2, Package } from 'lucide-react'
+import { Loader2, Package, FileCheck } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 import { formatRelativeTime } from '@/lib/date-utils'
@@ -167,7 +167,39 @@ export function DeliveryReviewPanel({ deliverables, loading = false }: DeliveryR
       {/* 2. 溯源引用:CitationBar 复用(DeliverableCitation 与 CitationEntry 结构一致) */}
       {deliverables.citations.length > 0 && <CitationBar citations={deliverables.citations} />}
 
-      {/* 3. 文件变更区:kind 徽章 + 路径 + 增删统计 + 涉及步骤提示 */}
+      {/* 3. 显式交付声明:模型点名的文件(命令/转换产物没有 diff,单独成段) */}
+      {deliverables.presentedFiles.length > 0 && (
+        <div data-testid="delivery-review-presented">
+          <div className="mb-1 flex items-center gap-1 text-label font-medium text-muted-foreground/80">
+            <FileCheck className="h-3.5 w-3.5 shrink-0" aria-hidden />
+            <span>{t('presentedFiles')}</span>
+            <span className="tabular-nums text-[10px] opacity-70">
+              ({deliverables.presentedFiles.length})
+            </span>
+          </div>
+          <div className="space-y-0.5">
+            {deliverables.presentedFiles.map((f, i) => (
+              <div
+                key={`${f.path}-${i}`}
+                className="flex items-center gap-1.5 rounded-sm px-1 py-0.5 text-label transition-colors hover:bg-accent/40"
+                data-testid={`delivery-review-presented-${i}`}
+              >
+                <TruncatedText value={f.path} className="min-w-0 flex-1 text-[11px]" mono />
+                {f.description && (
+                  <span
+                    className="max-w-[45%] truncate text-[10px] text-muted-foreground"
+                    data-testid={`delivery-review-presented-desc-${i}`}
+                  >
+                    {f.description}
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 4. 文件变更区:kind 徽章 + 路径 + 增删统计 + 涉及步骤提示 */}
       <div data-testid="delivery-review-files">
         <div className="mb-1 text-label font-medium text-muted-foreground/80">
           {t('filesChanged')}
@@ -184,7 +216,7 @@ export function DeliveryReviewPanel({ deliverables, loading = false }: DeliveryR
         )}
       </div>
 
-      {/* 4. 生成时间(相对时间) */}
+      {/* 5. 生成时间(相对时间) */}
       <div
         className="text-right text-[10px] text-muted-foreground/70"
         data-testid="delivery-review-generated-at"

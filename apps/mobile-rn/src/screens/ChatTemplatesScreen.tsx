@@ -307,7 +307,13 @@ export default function ChatTemplatesScreen() {
               <Text style={styles.sheetTitle} numberOfLines={2}>
                 {preview?.title ?? t('chatTemplates.previewTitle')}
               </Text>
-              <TouchableOpacity onPress={closePreview} hitSlop={8} activeOpacity={0.7}>
+              <TouchableOpacity
+                onPress={closePreview}
+                hitSlop={8}
+                activeOpacity={0.7}
+                accessibilityRole="button"
+                accessibilityLabel={t('common.close')}
+              >
                 <X size={20} color={tokens.text.secondary} />
               </TouchableOpacity>
             </View>
@@ -378,7 +384,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.card,
     gap: rnSpacing.sm,
   },
-  errorText: { fontSize: rnType.bodySm.size, color: tokens.danger.DEFAULT },
+  errorText: { fontSize: rnType.bodySm.size, color: tokens.danger.deepText },
   retryBtn: {
     alignSelf: 'flex-start',
     paddingHorizontal: rnSpacing['md-loose'],
@@ -430,7 +436,7 @@ const styles = StyleSheet.create({
     borderRadius: rnRadius.md,
     backgroundColor: tokens.surface.muted,
   },
-  metaText: { fontSize: rnType.caption.size, color: tokens.text.tertiary },
+  metaText: { fontSize: rnType.caption.size, color: tokens.text.medium },
   overlay: {
     flex: 1,
     justifyContent: 'center',
@@ -451,7 +457,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: tokens.text.primary,
   },
-  sheetLabel: { fontSize: rnType.label.size, color: tokens.text.tertiary },
+  sheetLabel: { fontSize: rnType.label.size, color: tokens.text.medium },
   sheetContentBox: {
     padding: rnSpacing['sm-loose'],
     borderRadius: rnRadius.sm,

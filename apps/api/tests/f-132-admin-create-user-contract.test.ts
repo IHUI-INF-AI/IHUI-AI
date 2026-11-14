@@ -27,7 +27,7 @@ const SRC = readFileSync(path.resolve(__dirname, '../src/routes/admin.ts'), 'utf
 
 /** 截出 POST /users 的 schema 块(从注释到 handler 之前)。 */
 function postUsersBlock(): string {
-  const start = SRC.indexOf("  // POST /users - 管理员创建用户")
+  const start = SRC.indexOf('  // POST /users - 管理员创建用户')
   expect(start).toBeGreaterThan(-1)
   const end = SRC.indexOf('async (request, reply) => {', start)
   expect(end).toBeGreaterThan(start)

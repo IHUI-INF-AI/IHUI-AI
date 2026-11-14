@@ -629,7 +629,12 @@ export interface RawTextColumns {
  * - token 计数、成本、apiKeyId 等归因/计费列与本法无关,调用方照常写。
  */
 export function buildRawTextColumns(
-  input: { apiKeyId: string | null; prompt: string; response: string | null; userId?: string | null },
+  input: {
+    apiKeyId: string | null
+    prompt: string
+    response: string | null
+    userId?: string | null
+  },
   policy: RawRetentionPolicy = resolveRawRetentionPolicy(),
 ): RawTextColumns {
   // 2026-10-03 数据出域合规整改:新增**按用户**关闭原文留存(此前只有按 key 的
@@ -637,7 +642,8 @@ export function buildRawTextColumns(
   // 必须给出用户自己能按的"不留存"开关,而不能只让运维改 env)。
   // 语义与按 key 一致:命中即"写入即不留",窗口为零(而不是等清除器来抹),
   // 归因/计费列(token 数、成本、apiKeyId、userId)完全不受影响。
-  const userOptOut = input.userId !== null && input.userId !== undefined && isRawRetentionOptedOut(input.userId)
+  const userOptOut =
+    input.userId !== null && input.userId !== undefined && isRawRetentionOptedOut(input.userId)
   const disabled =
     userOptOut ||
     policy.all ||

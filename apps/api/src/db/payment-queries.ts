@@ -2,11 +2,12 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { eq, and, gte, lt } from 'drizzle-orm'
+import { eq, and, gte, lt, lte } from 'drizzle-orm'
 import { db } from './index.js'
 import { orders, eduOrders, type Order } from '@ihui/database'
 import { generateOutTradeNo } from '../services/wechat-pay.js'
 import { withAuditBoth } from '../utils/audit.js'
+import { bizDayStartUtc } from '../utils/biz-day.js'
 
 // =============================================================================
 // Phase 4: 双向双写辅助 — billing(orders) 入口同步到 edu_orders，消除跨系统断裂。
@@ -170,12 +171,22 @@ export async function queryPendingOrders() {
     .where(and(eq(orders.status, 'pending'), lt(orders.createdAt, thirtyMinAgo)))
 }
 
+/**
+ * F-231:对账本地取数用**上海自然日**,与支付宝/微信账单的北京时间归档口径一致。
+ *
+ * 旧实现用 `${billDate}T00:00:00Z`~`T23:59:59Z` 的 UTC 日界,每天错开 8 小时,固定产出假差异;
+ * 且上界 `lt T23:59:59Z` 还截掉了当日最后一秒。日界不在此处重算(守门 246):
+ * `new Date(billDate)` 是 UTC 零点、也就是上海同日 08:00,落在账单日同一个上海自然日内,
+ * 拿它作参照点交给唯一出口 `bizDayStartUtc` 即可得到上海当日 00:00 与次日 00:00 的 UTC 时刻。
+ */
 export async function listPaidOrdersByDate(billDate: string) {
-  const start = new Date(`${billDate}T00:00:00Z`)
-  const end = new Date(`${billDate}T23:59:59Z`)
+  const billDayRef = new Date(billDate)
+  const start = bizDayStartUtc(0, billDayRef)
+  // 两端闭区间:上界 = 次日 00:00 前 1ms,即上海当日 23:59:59.999,完整覆盖当日 24h。
+  const end = new Date(bizDayStartUtc(-1, billDayRef).getTime() - 1)
   return db
     .select()
     .from(orders)
-    .where(and(eq(orders.status, 'paid'), gte(orders.createdAt, start), lt(orders.createdAt, end)))
+    .where(and(eq(orders.status, 'paid'), gte(orders.createdAt, start), lte(orders.createdAt, end)))
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

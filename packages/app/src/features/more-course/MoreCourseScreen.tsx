@@ -24,6 +24,7 @@ import { BannerCarousel } from '../_shared/BannerCarousel'
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
+import { Tappable } from '@ihui/ui-native'
 
 /** MoreCourseScreen props re-export(单一来源 @ihui/types) */
 export type { MoreCourseScreenProps }
@@ -135,14 +136,15 @@ export function MoreCourseScreen({
       </View>
     )
     return planet?.onItemPress ? (
-      <Pressable
+      <Tappable
         key={item.id}
         onPress={() => planet.onItemPress?.(item.id)}
         accessibilityRole="button"
         accessibilityLabel={item.title}
+        style={undefined}
       >
         {body}
-      </Pressable>
+      </Tappable>
     ) : (
       <View key={item.id}>{body}</View>
     )
@@ -167,7 +169,7 @@ export function MoreCourseScreen({
             <RefreshControl
               refreshing={refreshing}
               onRefresh={onRefresh}
-              tintColor={colorScheme === 'dark' ? tk.text.tertiary : tk.text.secondary}
+              tintColor={colorScheme === 'dark' ? tk.text.secondary : tk.text.secondary}
             />
           }
           onEndReached={onEndReached}
@@ -199,13 +201,14 @@ export function MoreCourseScreen({
                   <View style={styles.planetHeader}>
                     <Text style={styles.planetTitle}>知识星球</Text>
                     {planet.onEnter ? (
-                      <Pressable
+                      <Tappable
                         onPress={planet.onEnter}
                         accessibilityRole="button"
                         accessibilityLabel="进入星球"
+                        style={undefined}
                       >
                         <Text style={styles.planetEnter}>进入星球</Text>
-                      </Pressable>
+                      </Tappable>
                     ) : null}
                   </View>
                   {planet.items.map(renderPlanetItem)}
@@ -236,7 +239,7 @@ function createStyles(tk: AppThemeTokens) {
     } as TextStyle,
     countText: {
       fontSize: rnType.body.size,
-      color: tk.text.tertiary,
+      color: tk.text.medium,
       marginLeft: 'auto',
     } as TextStyle,
     listContent: {
@@ -268,13 +271,13 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
     } as ViewStyle,
     instructor: { fontSize: rnType.body.size, color: tk.text.medium, flex: 1 } as TextStyle,
-    lessonCount: { fontSize: rnType.label.size, color: tk.text.tertiary } as TextStyle,
+    lessonCount: { fontSize: rnType.label.size, color: tk.text.medium } as TextStyle,
     price: {
       fontSize: rnType.subtitle.size,
       fontWeight: '700',
       color: tk.brand.DEFAULT,
     } as TextStyle,
-    studentCount: { fontSize: rnType.label.size, color: tk.text.tertiary } as TextStyle,
+    studentCount: { fontSize: rnType.label.size, color: tk.text.medium } as TextStyle,
     footerLoading: { paddingVertical: rnSpacing.md, alignItems: 'center' } as ViewStyle,
     footerText: { fontSize: rnType.body.size, color: tk.text.secondary } as TextStyle,
     planetSection: {

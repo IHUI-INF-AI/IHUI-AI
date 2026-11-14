@@ -90,7 +90,7 @@ export function PostCreateScreen({
         value={title}
         onChangeText={onTitleChange}
         placeholder={t('postCreate.titlePlaceholder')}
-        placeholderTextColor={tk.text.tertiary}
+        placeholderTextColor={tk.text.secondary}
       />
       <Text style={styles.label}>{t('postCreate.contentLabel')}</Text>
       <TextField
@@ -99,7 +99,7 @@ export function PostCreateScreen({
         value={content}
         onChangeText={onContentChange}
         placeholder={t('postCreate.contentPlaceholder')}
-        placeholderTextColor={tk.text.tertiary}
+        placeholderTextColor={tk.text.secondary}
         multiline
         textAlignVertical="top"
       />
@@ -110,7 +110,7 @@ export function PostCreateScreen({
         value={tags}
         onChangeText={onTagsChange}
         placeholder={t('postCreate.tagsPlaceholder')}
-        placeholderTextColor={tk.text.tertiary}
+        placeholderTextColor={tk.text.secondary}
       />
       <TouchableOpacity
         style={[styles.submitBtn, saving && styles.submitDisabled]}
@@ -146,7 +146,7 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.primary,
       marginBottom: rnSpacing.md,
     },
-    error: { fontSize: rnType.body.size, color: tk.danger.DEFAULT, marginBottom: rnSpacing.sm },
+    error: { fontSize: rnType.body.size, color: tk.danger.deepText, marginBottom: rnSpacing.sm },
     label: { marginTop: rnSpacing.md, fontSize: rnType.body.size, color: tk.text.secondary },
     input: {
       marginTop: rnSpacing.sm,
@@ -167,7 +167,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.brand.cta,
       alignItems: 'center',
     },
-    submitDisabled: { backgroundColor: tk.text.tertiary },
+    submitDisabled: { backgroundColor: tk.text.secondary },
     submitText: { color: tk.surface.light, fontSize: rnType.title.size, fontWeight: '600' },
   })
 }

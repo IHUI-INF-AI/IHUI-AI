@@ -83,7 +83,7 @@ export function SecuritySettingsScreen(
                     ? tk.success.DEFAULT
                     : row.stateTone === 'danger'
                       ? tk.danger.DEFAULT
-                      : tk.text.tertiary
+                      : tk.text.secondary
                 const stateText = (
                   <Text style={[styles.stateText, { color: tone }]}>{row.stateText ?? ''}</Text>
                 )
@@ -119,7 +119,7 @@ export function SecuritySettingsScreen(
                       {label}
                       <View style={styles.rowTrailing}>
                         {stateText}
-                        <ChevronRight size={rnGeometry.glyphSm} color={tk.text.tertiary} />
+                        <ChevronRight size={rnGeometry.glyphSm} color={tk.text.secondary} />
                       </View>
                     </TouchableOpacity>
                   )
@@ -187,7 +187,7 @@ function createStyles(tk: AppThemeTokens) {
       borderColor: tk.border.light,
     },
     desc: { ...rnType.body, color: tk.text.secondary },
-    readOnlyHint: { marginTop: rnSpacing.sm, color: tk.text.tertiary },
+    readOnlyHint: { marginTop: rnSpacing.sm, color: tk.text.medium },
     stateText: { ...rnType.body, fontWeight: '600' },
     sectionTitle: {
       ...rnType.label,
@@ -195,7 +195,7 @@ function createStyles(tk: AppThemeTokens) {
       marginBottom: rnSpacing.sm,
     },
     rowMain: { flexShrink: 1, gap: rnSpacing.xs },
-    rowDesc: { ...rnType.caption, color: tk.text.tertiary },
+    rowDesc: { ...rnType.caption, color: tk.text.medium },
     actionBtn: {
       paddingHorizontal: rnSpacing.md,
       paddingVertical: rnSpacing.xs,

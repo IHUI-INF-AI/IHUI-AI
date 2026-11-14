@@ -32,6 +32,11 @@ const ADMIN_ROLE_ID = 1
 
 const orderNoParam = z.object({ orderNo: z.string() })
 const refundNoParam = z.object({ refundNo: z.string() })
+// F-456: 审核 action 必须运行时校验,类型断言挡不住 {"action":"completed"} 写任意状态
+const refundAuditBodySchema = z.object({
+  action: z.enum(['approved', 'rejected']).optional(),
+  reason: z.string().max(500).optional(),
+})
 const orderIdParam = z.object({ orderId: z.string() })
 
 const paymentRoutes: FastifyPluginAsync = async (server) => {
@@ -161,9 +166,13 @@ const paymentRoutes: FastifyPluginAsync = async (server) => {
     async (request, reply) => {
       const refundNo = refundNoParam.parse(request.params).refundNo
       if (!refundNo) return reply.status(400).send(error(400, '参数错误'))
-      const body =
-        (request.body as { action?: 'approved' | 'rejected'; reason?: string } | null) ?? {}
-      const refund = await processRefund(refundNo, body.action ?? 'approved', body.reason ?? null)
+      const parsed = refundAuditBodySchema.safeParse(request.body ?? {})
+      if (!parsed.success) return reply.status(400).send(error(400, '参数错误'))
+      const refund = await processRefund(
+        refundNo,
+        parsed.data.action ?? 'approved',
+        parsed.data.reason ?? null,
+      )
       if (!refund) return reply.status(400).send(error(400, '退款记录不存在或状态不允许审核'))
       return reply.send(success({ success: !!refund, refund }))
     },

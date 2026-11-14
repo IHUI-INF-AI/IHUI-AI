@@ -48,7 +48,11 @@ import type {
   V1ChatCompletionResponse,
   V1ModelsResponse,
 } from '@ihui/types'
-import { requireApiKeyAuth, requireApiKeyQuota } from '../plugins/api-key-auth.js'
+import {
+  requireApiKeyAuth,
+  requireApiKeyQuota,
+  checkAllowedModels,
+} from '../plugins/api-key-auth.js'
 import { requireCapability } from '../utils/capability-guard.js'
 import { error, success } from '../utils/response.js'
 // P0-5 中转站计费(2026-07-29 立)
@@ -106,8 +110,6 @@ import {
 import { deriveModelCapabilities } from './v1-shared.js'
 import { isUuidString } from '../utils/uuid.js'
 import { FILE_UPLOAD_BODY_LIMIT } from '../config/body-limits.js'
-// F-538:relay 完成链路写会话历史(此前写入口全仓无调用 ⇒ 会话 API 恒空)
-import { recordRelayConversationTurnSafe } from '../services/relay-conversation-service.js'
 
 /** 鉴权后注入 request 的 API Key 上下文(与 AuthenticatedApiKey 结构一致) */
 interface ApiKeyContext {
@@ -116,6 +118,7 @@ interface ApiKeyContext {
   key: string
   permissions: string[]
   rateLimit: number
+  allowedModels: string[] | null
 }
 
 // =============================================================================
@@ -1118,26 +1121,7 @@ async function streamChatCompletion(
         httpStatus: upstreamHttpStatus ?? undefined,
         ttftMs: ttft ? ttft.latencyMs : undefined,
         preDeducted: opts.preDeducted ?? null,
-      })
-        .then((call) => {
-          // F-538:流式完成链路接会话历史写入口(幂等键 = llm_call_logs.id)。
-          // 零产出/上游错误不落会话;写入失败只告警,不改变已完成的响应。
-          if (status === 'error' || !call.logId) return
-          recordRelayConversationTurnSafe({
-            userId: opts.userId!,
-            apiKeyId: opts.apiKeyId!,
-            model,
-            promptText: opts.promptText ?? '',
-            responseText,
-            logId: call.logId,
-            promptTokens,
-            completionTokens,
-            totalTokens,
-            costCents: call.costCents,
-            latencyMs: latency.latencyMs,
-          })
-        })
-        .catch(() => {})
+      }).catch(() => {})
     }
   }
 }
@@ -1729,6 +1713,15 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
       }
     }
 
+    // F-385(P1 修):映射后必须复检白名单,防止"白名单只含 model-a → 映射为 model-z → 绕过白名单"。
+    // 仅在 Key 配置了 allowedModels 且实际发生映射时才需复检;未映射时鉴权阶段已查过原 model。
+    if (apiKey?.allowedModels && apiKey.allowedModels.length > 0 && resolvedModel !== model) {
+      const mappedModelCheck = checkAllowedModels(apiKey.allowedModels, resolvedModel)
+      if (!mappedModelCheck.ok) {
+        return reply.status(403).send(error(403, `映射后模型不在 API Key 白名单:${resolvedModel}`))
+      }
+    }
+
     // 官方名改写(2026-09-13 立,入站兜底):客户端若用非官方大小写(如 minimax-m3)
     // 请求,在此改写为官方名(MiniMax-M3)再进入路由/转发/计费链路。
     // 原因:通道路由 selectChannelCandidates 按 model_id 精确 eq 查号池,
@@ -2250,29 +2243,12 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
           httpStatus: resp.status,
           preDeducted: preDeduction,
         })
-          .then((call) => {
-            // F-538:非流式完成链路接会话历史写入口(幂等键 = llm_call_logs.id)。
-            // 写入失败只告警;不得占用/改变本已成功响应的返回路径。
-            if (call.logId) {
-              recordRelayConversationTurnSafe({
-                userId: apiKey.userId,
-                apiKeyId: apiKey.id,
-                model,
-                promptText,
-                responseText: data.content ?? '',
-                logId: call.logId,
-                promptTokens: safePrompt,
-                completionTokens: safeCompletion,
-                totalTokens: safeTotal,
-                costCents: call.costCents,
-                latencyMs: latency.latencyMs,
-              })
-            }
+          .then((call) =>
             // F-178:非流式渠道路径同样回写用量;非渠道路径 usedChannel 为空,跳过
-            return usedChannel
+            usedChannel
               ? recordUsage(usedChannel.keyPoolId, safeTotal, call.costCents, false)
-              : undefined
-          })
+              : undefined,
+          )
           .catch((e) => {
             console.error('[v1/chat] recordCall FAIL', e?.message || e)
           })

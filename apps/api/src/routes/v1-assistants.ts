@@ -298,11 +298,13 @@ function listPageQuerySchema(): Record<string, unknown> {
       },
       after: {
         type: 'string',
-        description: '分页锚点:旧模式传上一页 last_id;page_format=cursor 时传 next_cursor 返回的不透明游标',
+        description:
+          '分页锚点:旧模式传上一页 last_id;page_format=cursor 时传 next_cursor 返回的不透明游标',
       },
       page_format: {
         type: 'string',
-        description: "传 'cursor' 启用不透明游标分页,响应追加 next_cursor;省略即既有 limit/after 语义",
+        description:
+          "传 'cursor' 启用不透明游标分页,响应追加 next_cursor;省略即既有 limit/after 语义",
       },
     },
   }
@@ -517,7 +519,9 @@ async function collectAssistants(redis: Redis, userId: string): Promise<Assistan
     const a = await getAssistant(redis, id)
     if (a) items.push(a)
   }
-  items.sort((a, b) => a.created_at - b.created_at)
+  // F-25:created_at 只有毫秒精度,并发创建会撞号;补 id 决胜键让顺序全序稳定,
+  // 否则游标(数组下标+1)在两次请求间顺序漂移会跨页重复/漏行。
+  items.sort((a, b) => a.created_at - b.created_at || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
   return items
 }
 
@@ -1218,12 +1222,10 @@ const v1Assistants: FastifyPluginAsync = async (server) => {
             failed_at: Math.floor(Date.now() / 1000),
           }
           await updateRun(redis, failedRun)
-          return reply
-            .status(502)
-            .send({
-              ...error(502, `AI service unavailable (${resp.status}): ${errText.slice(0, 200)}`),
-              ...runHandles(),
-            })
+          return reply.status(502).send({
+            ...error(502, `AI service unavailable (${resp.status}): ${errText.slice(0, 200)}`),
+            ...runHandles(),
+          })
         }
 
         const data = (await resp.json()) as {
@@ -1330,12 +1332,10 @@ const v1Assistants: FastifyPluginAsync = async (server) => {
           failed_at: Math.floor(Date.now() / 1000),
         }
         await updateRun(redis, failedRun)
-        return reply
-          .status(503)
-          .send({
-            ...error(503, (e as Error).message || 'AI service unavailable'),
-            ...runHandles(),
-          })
+        return reply.status(503).send({
+          ...error(503, (e as Error).message || 'AI service unavailable'),
+          ...runHandles(),
+        })
       }
     },
   )

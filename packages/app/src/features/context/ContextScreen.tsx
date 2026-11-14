@@ -182,7 +182,7 @@ export function ContextScreen({
             value={query}
             onChangeText={onQueryChange}
             placeholder={t('context.mentionsPlaceholder')}
-            placeholderTextColor={tk.text.tertiary}
+            placeholderTextColor={tk.text.secondary}
             style={styles.searchInput}
           />
           {searching ? (
@@ -286,7 +286,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: rnSpacing.md,
       fontSize: rnType.label.size,
       textAlign: 'center',
-      color: tk.text.tertiary,
+      color: tk.text.medium,
     },
     /* 最近压缩事件 */
     eventList: {
@@ -313,7 +313,7 @@ function createStyles(tk: AppThemeTokens) {
     eventTime: {
       marginLeft: rnSpacing.sm,
       fontSize: rnType.badge.size,
-      color: tk.text.tertiary,
+      color: tk.text.medium,
     },
     eventMeta: {
       marginTop: rnSpacing.xs,
@@ -366,7 +366,7 @@ function createStyles(tk: AppThemeTokens) {
     mentionDetail: {
       marginTop: rnSpacing.xs,
       fontSize: rnType.badge.size,
-      color: tk.text.tertiary,
+      color: tk.text.medium,
     },
   } satisfies Record<string, ViewStyle | TextStyle>)
 }

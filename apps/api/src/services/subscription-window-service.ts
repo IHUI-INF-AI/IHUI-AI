@@ -75,6 +75,11 @@ export interface WindowQuotaCheck {
   allowed: boolean
   reason?: string
   blockedWindow?: SubscriptionWindowStatus
+  /**
+   * 判定本身失败(数据源不可用)时为 true:调用方应短暂退避后重试,
+   * 而不是把它当成"额度耗尽"或"无订阅"。
+   */
+  retryable?: boolean
 }
 
 // =============================================================================
@@ -138,63 +143,87 @@ export function limitOf(sub: ApiSubscription, windowType: WindowType): number {
 // 查询
 // =============================================================================
 
-/** 取用户当前活跃订阅(至多一条;按 startAt 降序取最新)。 */
+/** 查询用的数据源。配额判定与用量累计必须显式传主库 db(副本延迟会导致判错订阅)。 */
+type ReadClient = typeof db
+
+/**
+ * 取用户当前活跃订阅(至多一条;按 startAt 降序取最新)。
+ *
+ * 不吞异常:查询失败(连接/权限/表缺失)会抛出,由调用方决定 fail-closed(配额/记账)
+ * 还是降级(仅展示)。「查询失败」与「确无订阅」必须在调用方区分开。
+ */
+async function fetchActiveSubscription(
+  client: ReadClient,
+  userId: string,
+  at: Date,
+): Promise<ApiSubscription | null> {
+  const rows = await client
+    .select()
+    .from(apiSubscriptions)
+    .where(
+      and(
+        eq(apiSubscriptions.userId, userId),
+        eq(apiSubscriptions.status, 'active'),
+        lte(apiSubscriptions.startAt, at),
+        gt(apiSubscriptions.endAt, at),
+      ),
+    )
+    .orderBy(desc(apiSubscriptions.startAt))
+    .limit(1)
+  return (rows[0] as ApiSubscription) ?? null
+}
+
+/**
+ * 取用户当前活跃订阅(展示用)。
+ *
+ * 查询失败降级为 null(等价于无订阅),只影响页面展示;配额判定与用量累计
+ * 不走这里,而是直接走 fetchActiveSubscription(db, ...) 并 fail-closed。
+ */
 export async function getActiveSubscription(
   userId: string,
   at: Date = new Date(),
 ): Promise<ApiSubscription | null> {
   try {
-    const rows = await dbRead
-      .select()
-      .from(apiSubscriptions)
-      .where(
-        and(
-          eq(apiSubscriptions.userId, userId),
-          eq(apiSubscriptions.status, 'active'),
-          lte(apiSubscriptions.startAt, at),
-          gt(apiSubscriptions.endAt, at),
-        ),
-      )
-      .orderBy(desc(apiSubscriptions.startAt))
-      .limit(1)
-    return (rows[0] as ApiSubscription) ?? null
+    return await fetchActiveSubscription(dbRead, userId, at)
   } catch {
-    // 表未迁移等异常 → 视为无订阅,不影响调用
+    // 展示路径:表未迁移等异常 → 视为无订阅,不影响调用
     return null
   }
 }
 
-/** 取某订阅在多个窗口上的已用量。 */
-async function getWindowUsageMap(
+/**
+ * 取某订阅在多个窗口上的已用量。
+ *
+ * 不吞异常:查询失败由调用方决定 fail-closed 或降级,避免把"查不到用量"
+ * 当成"用量为 0"而放行。
+ */
+async function fetchWindowUsageMap(
+  client: ReadClient,
   subscriptionId: string,
   at: Date,
 ): Promise<Map<WindowType, number>> {
   const result = new Map<WindowType, number>()
   const bounds = ALL_WINDOW_TYPES.map((w) => ({ w, ...getWindowBounds(w, at) }))
-  try {
-    const rows = await dbRead
-      .select({
-        windowType: apiSubscriptionWindowUsage.windowType,
-        windowStart: apiSubscriptionWindowUsage.windowStart,
-        tokensUsed: apiSubscriptionWindowUsage.tokensUsed,
-      })
-      .from(apiSubscriptionWindowUsage)
-      .where(
-        and(
-          eq(apiSubscriptionWindowUsage.subscriptionId, subscriptionId),
-          inArray(
-            apiSubscriptionWindowUsage.windowStart,
-            bounds.map((b) => b.start),
-          ),
+  const rows = await client
+    .select({
+      windowType: apiSubscriptionWindowUsage.windowType,
+      windowStart: apiSubscriptionWindowUsage.windowStart,
+      tokensUsed: apiSubscriptionWindowUsage.tokensUsed,
+    })
+    .from(apiSubscriptionWindowUsage)
+    .where(
+      and(
+        eq(apiSubscriptionWindowUsage.subscriptionId, subscriptionId),
+        inArray(
+          apiSubscriptionWindowUsage.windowStart,
+          bounds.map((b) => b.start),
         ),
-      )
-    for (const r of rows) {
-      const t = r.windowType as WindowType
-      if (!ALL_WINDOW_TYPES.includes(t)) continue
-      result.set(t, Number(r.tokensUsed ?? 0))
-    }
-  } catch {
-    // 忽略:无用量数据
+      ),
+    )
+  for (const r of rows) {
+    const t = r.windowType as WindowType
+    if (!ALL_WINDOW_TYPES.includes(t)) continue
+    result.set(t, Number(r.tokensUsed ?? 0))
   }
   for (const b of bounds) if (!result.has(b.w)) result.set(b.w, 0)
   return result
@@ -210,7 +239,13 @@ export async function getSubscriptionWindowView(
 ): Promise<SubscriptionWindowView> {
   const sub = await getActiveSubscription(userId, at)
   if (!sub) return { subscription: null, windows: [] }
-  const usage = await getWindowUsageMap(sub.id, at)
+  let usage: Map<WindowType, number>
+  try {
+    usage = await fetchWindowUsageMap(dbRead, sub.id, at)
+  } catch {
+    // 展示路径:用量读失败按 0 展示,不阻断页面渲染(配额判定不依赖此处)
+    usage = new Map(ALL_WINDOW_TYPES.map((w) => [w, 0]))
+  }
   const windows: SubscriptionWindowStatus[] = ALL_WINDOW_TYPES.map((w) => {
     const { start, end } = getWindowBounds(w, at)
     const limit = limitOf(sub, w)
@@ -244,19 +279,37 @@ export async function getSubscriptionWindowView(
  *
  * 规则:对每个"已配置上限(limit>0)"的窗口,若 已用 + 预估 > limit 则拒绝。
  * 无活跃订阅 / 无限额配置 → 放行(兼容存量用户)。
+ *
+ * 数据源与失败语义(2026-11-13,F-233):
+ * - 订阅与用量一律读主库 db:副本延迟会把刚续费用户判到旧订阅,导致免费超用;
+ * - 「查询失败」不等于「无订阅」:失败时 fail-closed 拒绝,并返回 retryable=true
+ *   供调用方退避重试,绝不把 DB 抖动当成放行。
  */
 export async function checkSubscriptionWindowQuota(
   userId: string,
   estimatedTokens: number,
   at: Date = new Date(),
 ): Promise<WindowQuotaCheck> {
-  const sub = await getActiveSubscription(userId, at)
+  let sub: ApiSubscription | null
+  try {
+    sub = await fetchActiveSubscription(db, userId, at)
+  } catch (err) {
+    console.error('[subscription-window] 活跃订阅查询失败,窗口配额判定 fail-closed', err)
+    return { allowed: false, reason: 'subscription_check_failed', retryable: true }
+  }
+  // 确无订阅:查询成功且返回空 → 按既有规则放行(存量 token_balance 用户)
   if (!sub) return { allowed: true }
 
   const configured = ALL_WINDOW_TYPES.filter((w) => limitOf(sub, w) > 0)
   if (configured.length === 0) return { allowed: true }
 
-  const usage = await getWindowUsageMap(sub.id, at)
+  let usage: Map<WindowType, number>
+  try {
+    usage = await fetchWindowUsageMap(db, sub.id, at)
+  } catch (err) {
+    console.error('[subscription-window] 窗口用量查询失败,窗口配额判定 fail-closed', err)
+    return { allowed: false, reason: 'subscription_check_failed', retryable: true }
+  }
   const need = Math.max(0, estimatedTokens)
 
   for (const w of configured) {
@@ -290,6 +343,7 @@ export async function checkSubscriptionWindowQuota(
  * 冲突时在 SQL 侧累加,避免读改写竞态。
  *
  * 失败不抛出(仅记录),调用方不应因用量统计异常而回滚计费。
+ * 订阅必须从主库解析:副本延迟会把刚续费用户的用量记到旧订阅行(双重超额)。
  */
 export async function consumeSubscriptionWindowUsage(
   userId: string,
@@ -300,7 +354,7 @@ export async function consumeSubscriptionWindowUsage(
   const deltaTokens = Math.max(0, Math.round(tokens))
   if (deltaTokens === 0 && Math.max(0, costCents) === 0) return false
   try {
-    const sub = await getActiveSubscription(userId, at)
+    const sub = await fetchActiveSubscription(db, userId, at)
     if (!sub) return false
     // 仅对配置了上限的窗口记账,避免无意义行膨胀
     const targets = ALL_WINDOW_TYPES.filter((w) => limitOf(sub, w) !== 0)
@@ -335,7 +389,8 @@ export async function consumeSubscriptionWindowUsage(
         })
     }
     return true
-  } catch {
+  } catch (err) {
+    console.error('[subscription-window] 窗口用量累加失败,本次未记账', err)
     return false
   }
 }

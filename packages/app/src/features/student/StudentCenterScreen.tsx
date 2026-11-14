@@ -174,7 +174,7 @@ export function StudentCenterScreen({
         <View style={styles.card}>
           <View style={styles.cardHead}>
             <Text style={styles.sectionTitle}>{t('studentPage.exportReport')}</Text>
-            {exporting ? <ActivityIndicator size="small" color={tk.text.tertiary} /> : null}
+            {exporting ? <ActivityIndicator size="small" color={tk.text.secondary} /> : null}
           </View>
           <View style={styles.exportRow}>
             {EXPORT_FORMATS.map(({ format, icon: Icon, labelKey }) => (

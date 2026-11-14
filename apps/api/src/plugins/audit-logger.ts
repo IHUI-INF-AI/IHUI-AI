@@ -32,6 +32,7 @@ import fp from 'fastify-plugin'
 import { recordAuditLog } from '../services/audit-log-service.js'
 // 复用 log-sanitizer 插件 Proxy 递归脱敏所用的同一套规则函数(不另起一套)。
 import { buildSensitiveKeySet, isSensitiveKey, sanitizeData } from './response-sanitizer.js'
+import { logger } from '../utils/logger.js'
 
 /**
  * 审计用的敏感 key 集合 = 全局规则 + 审计面专属补充。
@@ -188,6 +189,18 @@ function urlPath(url: string): string {
   return qIdx >= 0 ? url.slice(0, qIdx) : url
 }
 
+/**
+ * F-207:畸形 percent-encoding(如 `%zz`、`%E4%B8`)会让 decodeURIComponent 抛 URIError。
+ * 审计是旁路,绝不能因为解析不了 query 就丢掉整条审计行 —— 失败即回落原始串。
+ */
+function safeDecodeURIComponent(value: string): string {
+  try {
+    return decodeURIComponent(value)
+  } catch {
+    return value
+  }
+}
+
 /** 解析 query string 为键值对象(轻量实现,避免依赖 URLSearchParams 边界问题)。 */
 function parseQuery(url: string): Record<string, string> {
   const qIdx = url.indexOf('?')
@@ -199,7 +212,8 @@ function parseQuery(url: string): Record<string, string> {
     const eq = pair.indexOf('=')
     const k = eq >= 0 ? pair.slice(0, eq) : pair
     const v = eq >= 0 ? pair.slice(eq + 1) : ''
-    out[decodeURIComponent(k)] = decodeURIComponent(v)
+    // F-207:键/值各自回落,畸形字段保留原始串,其余字段与整条审计行都不受影响
+    out[safeDecodeURIComponent(k)] = safeDecodeURIComponent(v)
   }
   return out
 }
@@ -212,9 +226,14 @@ export function summarizeQuery(
   url: string,
   opts: { rawValues: boolean },
 ): Record<string, unknown> | undefined {
-  const parsed = parseQuery(url)
-  if (Object.keys(parsed).length === 0) return undefined
-  return buildParamSummary(parsed, opts)
+  try {
+    const parsed = parseQuery(url)
+    if (Object.keys(parsed).length === 0) return undefined
+    return buildParamSummary(parsed, opts)
+  } catch {
+    // F-207:query 摘要失败只丢摘要,审计行照常落库(绝不把异常抛给 onResponse)
+    return undefined
+  }
 }
 
 /**
@@ -309,91 +328,108 @@ function extractDeviceFingerprint(request: FastifyRequest): string | undefined {
 }
 
 const auditLoggerPlugin: FastifyPluginAsync = async (server: FastifyInstance) => {
+  // F-207:审计侧失败计数(只做观测与降级,绝不回抛给请求链路)
+  let auditFailures = 0
+
   // 记录请求开始时间(用于计算响应耗时)
   server.addHook('onRequest', async (request: FastifyRequest) => {
     request.auditStartTime = process.hrtime.bigint()
   })
 
   server.addHook('onResponse', async (request: FastifyRequest, reply: FastifyReply) => {
-    const method = request.method.toUpperCase()
-    const rawUrl = request.url
-    const path = urlPath(rawUrl)
+    try {
+      const method = request.method.toUpperCase()
+      const rawUrl = request.url
+      const path = urlPath(rawUrl)
 
-    // 跳过健康检查
-    if (SKIP_PATHS.has(path)) return
-    // 记录范围:/api 会话链路 + 对外开放面(/v1/、/v1beta/)。
-    // 后者是 O5 补的洞 —— 开放面此前完全不落审计,才导致"哪把 key 调了哪个端点"无从回答。
-    const openSurface = isOpenSurfacePath(path)
-    if (!openSurface && !path.startsWith('/api/')) return
+      // 跳过健康检查
+      if (SKIP_PATHS.has(path)) return
+      // 记录范围:/api 会话链路 + 对外开放面(/v1/、/v1beta/)。
+      // 后者是 O5 补的洞 —— 开放面此前完全不落审计,才导致"哪把 key 调了哪个端点"无从回答。
+      const openSurface = isOpenSurfacePath(path)
+      if (!openSurface && !path.startsWith('/api/')) return
 
-    // GET 采样(默认 100%,可设 AUDIT_LOG_GET_SAMPLE_RATE 调低);非 GET 100%。
-    // 开放面的 GET(/v1/models 等)同样受采样约束,超限时(4xx)则强制全量记录以便复盘。
-    if (method === 'GET' && reply.statusCode < 400 && Math.random() >= GET_SAMPLE_RATE) return
+      // GET 采样(默认 100%,可设 AUDIT_LOG_GET_SAMPLE_RATE 调低);非 GET 100%。
+      // 开放面的 GET(/v1/models 等)同样受采样约束,超限时(4xx)则强制全量记录以便复盘。
+      if (method === 'GET' && reply.statusCode < 400 && Math.random() >= GET_SAMPLE_RATE) return
 
-    // 计算响应耗时(ms)
-    const start = request.auditStartTime
-    const responseTimeMs =
-      start !== null && start !== undefined
-        ? Number(process.hrtime.bigint() - start) / 1e6
+      // 计算响应耗时(ms)
+      const start = request.auditStartTime
+      const responseTimeMs =
+        start !== null && start !== undefined
+          ? Number(process.hrtime.bigint() - start) / 1e6
+          : undefined
+
+      const action = classifyAction(method, path)
+      const attribution = buildRequestAttribution(request, reply, responseTimeMs ?? null)
+      const deviceFingerprint = extractDeviceFingerprint(request)
+      const userAgent = request.headers['user-agent']
+
+      // 参数摘要:先过既有脱敏(sanitizeData),再决定是否降维。
+      // - 开放面:rawValues=false → 只留形状摘要,结构上不可能带出 prompt 正文;
+      // - 站内 /api:rawValues=true → 保持改造前"脱敏后的对象"形态,不破坏既有读端。
+      const hasBody =
+        method !== 'GET' &&
+        method !== 'HEAD' &&
+        request.body !== null &&
+        request.body !== undefined &&
+        typeof request.body === 'object'
+      const params = hasBody
+        ? buildParamSummary(request.body, { rawValues: !openSurface })
         : undefined
+      const querySummary = summarizeQuery(rawUrl, { rawValues: !openSurface })
 
-    const action = classifyAction(method, path)
-    const attribution = buildRequestAttribution(request, reply, responseTimeMs ?? null)
-    const deviceFingerprint = extractDeviceFingerprint(request)
-    const userAgent = request.headers['user-agent']
-
-    // 参数摘要:先过既有脱敏(sanitizeData),再决定是否降维。
-    // - 开放面:rawValues=false → 只留形状摘要,结构上不可能带出 prompt 正文;
-    // - 站内 /api:rawValues=true → 保持改造前"脱敏后的对象"形态,不破坏既有读端。
-    const hasBody =
-      method !== 'GET' &&
-      method !== 'HEAD' &&
-      request.body !== null &&
-      request.body !== undefined &&
-      typeof request.body === 'object'
-    const params = hasBody
-      ? buildParamSummary(request.body, { rawValues: !openSurface })
-      : undefined
-    const querySummary = summarizeQuery(rawUrl, { rawValues: !openSurface })
-
-    // 异步落库,绝不阻塞响应
-    setImmediate(() => {
-      recordAuditLog({
-        // 开放面可能只有 key(无 JWT userId):userId 仍取会话用户,
-        // key 归属人由 attribution.apiKeyOwnerId 承载,两者不互相覆盖。
-        userId: attribution.userId ?? undefined,
-        action,
-        resourceType: extractResourceType(path),
-        resourceId: extractResourceId(path),
-        ip: request.ip,
-        userAgent: userAgent ? userAgent.slice(0, 512) : undefined,
-        result: reply.statusCode < 400 ? 'success' : 'failure',
-        metadata: {
-          // ── O5 归因字段 ──
-          apiKeyId: attribution.apiKeyId,
-          apiKeyOwnerId: attribution.apiKeyOwnerId,
-          capabilityScope: attribution.capabilityScope,
-          capabilityDataClass: attribution.capabilityDataClass,
-          capabilityRisk: attribution.capabilityRisk,
-          capabilityBillable: attribution.capabilityBillable,
-          capabilityDomain: attribution.capabilityDomain,
-          openSurface: attribution.openSurface,
-          method: attribution.method,
-          url: attribution.url,
-          routePattern: attribution.routePattern,
-          statusCode: attribution.statusCode,
-          durationMs: attribution.durationMs,
-          // 兼容改造前的字段名(读端可能按 responseTimeMs 取耗时)
-          responseTimeMs,
-          query: querySummary,
-          // 注意:不再写 `body`。开放面严禁原文;站内改为 params(脱敏后或形状摘要)。
-          params,
-          deviceFingerprint,
-        },
-      }).catch(() => {
-        /* 审计写入失败不影响业务 */
+      // 异步落库,绝不阻塞响应
+      setImmediate(() => {
+        recordAuditLog({
+          // 开放面可能只有 key(无 JWT userId):userId 仍取会话用户,
+          // key 归属人由 attribution.apiKeyOwnerId 承载,两者不互相覆盖。
+          userId: attribution.userId ?? undefined,
+          action,
+          resourceType: extractResourceType(path),
+          resourceId: extractResourceId(path),
+          ip: request.ip,
+          userAgent: userAgent ? userAgent.slice(0, 512) : undefined,
+          result: reply.statusCode < 400 ? 'success' : 'failure',
+          metadata: {
+            // ── O5 归因字段 ──
+            apiKeyId: attribution.apiKeyId,
+            apiKeyOwnerId: attribution.apiKeyOwnerId,
+            capabilityScope: attribution.capabilityScope,
+            capabilityDataClass: attribution.capabilityDataClass,
+            capabilityRisk: attribution.capabilityRisk,
+            capabilityBillable: attribution.capabilityBillable,
+            capabilityDomain: attribution.capabilityDomain,
+            openSurface: attribution.openSurface,
+            method: attribution.method,
+            url: attribution.url,
+            routePattern: attribution.routePattern,
+            statusCode: attribution.statusCode,
+            durationMs: attribution.durationMs,
+            // 兼容改造前的字段名(读端可能按 responseTimeMs 取耗时)
+            responseTimeMs,
+            query: querySummary,
+            // 注意:不再写 `body`。开放面严禁原文;站内改为 params(脱敏后或形状摘要)。
+            params,
+            deviceFingerprint,
+          },
+        }).catch((e: unknown) => {
+          // 审计写入失败不影响业务(既有降级口径),计数 + error 日志便于观测
+          auditFailures += 1
+          logger.error('[audit-logger] 审计落库失败已降级(不影响请求)', {
+            error: (e as Error).message,
+            failures: auditFailures,
+          })
+        })
       })
-    })
+    } catch (e) {
+      // F-207:审计组装本身异常(如解析失败)也只降级记录,绝不 rethrow 打断请求链路
+      auditFailures += 1
+      logger.error('[audit-logger] 审计组装失败已降级(不影响请求)', {
+        error: (e as Error).message,
+        failures: auditFailures,
+      })
+    }
   })
 }
 

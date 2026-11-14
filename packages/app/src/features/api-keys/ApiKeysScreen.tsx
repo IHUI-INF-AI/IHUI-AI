@@ -259,9 +259,9 @@ export function ApiKeysScreen({
           <View style={styles.permsMeta}>
             <Text style={styles.countBadge}>{permissions.length}</Text>
             {permsOpen ? (
-              <ChevronUp size={14} color={tk.text.tertiary} />
+              <ChevronUp size={14} color={tk.text.secondary} />
             ) : (
-              <ChevronDown size={14} color={tk.text.tertiary} />
+              <ChevronDown size={14} color={tk.text.secondary} />
             )}
           </View>
         </TouchableOpacity>
@@ -315,7 +315,7 @@ export function ApiKeysScreen({
           <Text style={styles.cardTitle}>{t('apiKeys.listTitle')}</Text>
         </View>
         {loading ? (
-          <ActivityIndicator style={styles.loading} color={tk.text.tertiary} />
+          <ActivityIndicator style={styles.loading} color={tk.text.secondary} />
         ) : error ? (
           <View style={styles.centerBox}>
             <Text style={styles.error}>{error}</Text>
@@ -341,7 +341,7 @@ export function ApiKeysScreen({
                     <Text
                       style={[
                         styles.badgeText,
-                        { color: active ? tk.success.DEFAULT : tk.text.tertiary },
+                        { color: active ? tk.success.DEFAULT : tk.text.secondary },
                       ]}
                     >
                       {active ? t('apiKeys.statusActive') : t('apiKeys.statusRevoked')}
@@ -358,9 +358,9 @@ export function ApiKeysScreen({
                     hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
                   >
                     {visible[key.id] ? (
-                      <EyeOff size={13} color={tk.text.tertiary} />
+                      <EyeOff size={13} color={tk.text.secondary} />
                     ) : (
-                      <Eye size={13} color={tk.text.tertiary} />
+                      <Eye size={13} color={tk.text.secondary} />
                     )}
                   </TouchableOpacity>
                   <TouchableOpacity
@@ -368,7 +368,7 @@ export function ApiKeysScreen({
                     activeOpacity={0.7}
                     hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
                   >
-                    <Copy size={13} color={tk.text.tertiary} />
+                    <Copy size={13} color={tk.text.secondary} />
                   </TouchableOpacity>
                 </View>
                 <View style={styles.chips}>
@@ -404,7 +404,7 @@ export function ApiKeysScreen({
                     activeOpacity={0.7}
                   >
                     <View style={styles.trashRow}>
-                      <Trash2 size={13} color={tk.danger.DEFAULT} />
+                      <Trash2 size={13} color={tk.danger.deepText} />
                       <Text style={styles.dangerLink}>{t('apiKeys.delete')}</Text>
                     </View>
                   </TouchableOpacity>
@@ -467,7 +467,7 @@ function createStyles(tk: AppThemeTokens) {
     cardTitle: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
     label: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tk.text.primary },
     muted: { fontSize: rnType.bodySm.size, color: tk.text.secondary, lineHeight: 19 },
-    error: { fontSize: rnType.bodySm.size, color: tk.danger.DEFAULT },
+    error: { fontSize: rnType.bodySm.size, color: tk.danger.deepText },
     loading: { paddingVertical: rnSpacing.lg },
     centerBox: { alignItems: 'center', gap: rnSpacing.sm, paddingVertical: rnSpacing.lg },
     emptyTitle: { fontSize: rnType.body.size, fontWeight: '600', color: tk.text.primary },
@@ -575,7 +575,7 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.md,
       overflow: 'hidden',
     },
-    meta: { fontSize: rnType.label.size, color: tk.text.tertiary },
+    meta: { fontSize: rnType.label.size, color: tk.text.medium },
     actions: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -584,7 +584,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     link: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tk.text.primary },
     trashRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.xs },
-    dangerLink: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tk.danger.DEFAULT },
+    dangerLink: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tk.danger.deepText },
     usageBox: {
       marginTop: rnSpacing.xs,
       padding: rnSpacing['sm-loose'],

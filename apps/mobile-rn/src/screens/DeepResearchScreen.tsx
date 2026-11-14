@@ -30,6 +30,7 @@ import { NavChrome } from '../components/NavChrome'
 import { useTheme } from '../context/ThemeContext'
 import { useI18n } from '../i18n'
 import { tokens } from '../theme/active-tokens'
+import { toFriendlyOr } from '@ihui/shared/utils'
 
 /** 轮询间隔(与 Web 端 POLL_INTERVAL_MS 同值,便于两端观感一致) */
 const POLL_INTERVAL_MS = 2500
@@ -93,7 +94,7 @@ export function DeepResearchScreen() {
         setError('')
         if (data.finished || data.error || data.status === 'error') stopPolling()
       } catch (e) {
-        setError(e instanceof Error ? e.message : t('deepResearch.loadFailed'))
+        setError(toFriendlyOr(e, t('deepResearch.loadFailed')))
         stopPolling()
       } finally {
         setRefreshing(false)
@@ -127,7 +128,7 @@ export function DeepResearchScreen() {
         setStarting(false)
         startPolling(res.research_id)
       } catch (e) {
-        setError(e instanceof Error ? e.message : t('deepResearch.startFailed'))
+        setError(toFriendlyOr(e, t('deepResearch.startFailed')))
         setStarting(false)
       }
     })()

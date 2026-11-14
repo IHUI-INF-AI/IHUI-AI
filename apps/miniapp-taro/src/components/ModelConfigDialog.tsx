@@ -243,15 +243,18 @@ export default function ModelConfigDialog({
         <View
           className="relative bg-card ui-panel rounded-xl mx-2xl w-full max-w-sm max-h-[80vh] overflow-y-auto"
           onClick={(e) => e.stopPropagation()}
-          hoverClass="opacity-60"
         >
           <View className="flex items-center justify-between px-lg py-md mb-sm">
             <Text className="text-body font-medium text-foreground">
               {tt('model.configTitle', '模型配置')}
             </Text>
-            <Text className="text-body text-muted-foreground" onClick={onClose}>
-              {tt('common.close', '关闭')}
-            </Text>
+            <View
+              className="text-body text-muted-foreground"
+              hoverClass="opacity-60"
+              onClick={onClose}
+            >
+              <Text>{tt('common.close', '关闭')}</Text>
+            </View>
           </View>
           <View className="px-lg py-md">
             <View className="mb-md">
@@ -584,15 +587,18 @@ export default function ModelConfigDialog({
       <View
         className="relative bg-card ui-panel rounded-xl mx-lg w-full max-w-md max-h-[85vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
-        hoverClass="opacity-60"
       >
         <View className="flex items-center justify-between px-lg py-md mb-sm">
           <Text className="text-body font-medium text-foreground">
             {tt('model.configTitle', '模型配置')}
           </Text>
-          <Text className="text-body text-muted-foreground" onClick={onClose}>
-            {tt('common.close', '关闭')}
-          </Text>
+          <View
+            className="text-body text-muted-foreground"
+            hoverClass="opacity-60"
+            onClick={onClose}
+          >
+            <Text>{tt('common.close', '关闭')}</Text>
+          </View>
         </View>
         <View className="px-lg py-md">
           {/* 4 个上传按钮 */}
@@ -668,7 +674,6 @@ export default function ModelConfigDialog({
                 className="mcd-audio-menu mx-2xl w-full max-w-xs"
                 style={modelConfigMenuCardStyle(MODEL_CONFIG_MENU_PAD_PX, toUnit)}
                 onClick={(e) => e.stopPropagation()}
-                hoverClass="opacity-60"
               >
                 <View className="flex items-center justify-between mb-md">
                   <Text className="text-body font-medium">
@@ -677,12 +682,13 @@ export default function ModelConfigDialog({
                   {/* 载体换为矢量:lucide X(登记表键 x),与 RN 音色菜单头部同槽
                       `<X size={INLINE_GLYPH} color={tokens.text.secondary}>` 同字形同档;
                       墨迹档走 spec 具名档(不新增端内字面量),前景仍是本元素原档 muted-foreground。 */}
-                  <LineIcon
-                    name="x"
-                    size={MODEL_CONFIG_INLINE_GLYPH_PX * TARO_RPX_PER_PX}
-                    color="var(--color-muted-foreground)"
-                    onClick={() => setShowAudioMenu(false)}
-                  />
+                  <View hoverClass="opacity-60" onClick={() => setShowAudioMenu(false)}>
+                    <LineIcon
+                      name="x"
+                      size={MODEL_CONFIG_INLINE_GLYPH_PX * TARO_RPX_PER_PX}
+                      color="var(--color-muted-foreground)"
+                    />
+                  </View>
                 </View>
                 {/* 系统音色选择 - Selecter type='voice' */}
                 <View className="mb-md">

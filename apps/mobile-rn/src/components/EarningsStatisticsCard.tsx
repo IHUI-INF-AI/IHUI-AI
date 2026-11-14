@@ -304,7 +304,7 @@ const styles = StyleSheet.create({
   } as TextStyle,
   statLabel: {
     fontSize: rnType.caption.size,
-    color: tokens.text.tertiary,
+    color: tokens.text.medium,
     marginTop: rnSpacing['2xs'],
   } as TextStyle,
 })

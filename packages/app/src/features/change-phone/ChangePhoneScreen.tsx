@@ -39,7 +39,9 @@ export function ChangePhoneScreen({
   onOldCodeChange,
   onSendOldCode,
   colorScheme = 'light',
-}: ChangePhoneScreenProps) {
+  codeSending = false,
+  oldCodeSending = false,
+}: ChangePhoneScreenProps & { codeSending?: boolean; oldCodeSending?: boolean }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
   const oldCodeMissing = !!oldPhone && !(oldCode ?? '').trim()
@@ -69,7 +71,7 @@ export function ChangePhoneScreen({
                 value={oldCode ?? ''}
                 onChangeText={onOldCodeChange}
                 placeholder={t('user.profile.codePlaceholder')}
-                placeholderTextColor={tk.text.tertiary}
+                placeholderTextColor={tk.text.secondary}
                 keyboardType="number-pad"
                 maxLength={6}
               />
@@ -81,6 +83,8 @@ export function ChangePhoneScreen({
                 <Tappable
                   style={styles.sendBtn}
                   onPress={onSendOldCode}
+                  // 发送中置灰:用户看到按钮变淡,知道请求已发出、不必再点
+                  disabled={oldCodeSending}
                   accessibilityLabel={t('user.profile.sendOldCode')}
                 >
                   <Text style={styles.sendText}>{t('user.profile.sendOldCode')}</Text>
@@ -99,7 +103,7 @@ export function ChangePhoneScreen({
             accessibilityLabel={t('changePhone.selectNation')}
           >
             <Text style={styles.areaText}>{phoneHead}</Text>
-            <ChevronDown size={10} color={tk.text.tertiary} style={{ marginLeft: rnSpacing.sm }} />
+            <ChevronDown size={10} color={tk.text.secondary} style={{ marginLeft: rnSpacing.sm }} />
           </Tappable>
           <TextField
             colorScheme={colorScheme}
@@ -107,7 +111,7 @@ export function ChangePhoneScreen({
             value={phoneNumber}
             onChangeText={onPhoneChange}
             placeholder={t('user.profile.newPhonePlaceholder')}
-            placeholderTextColor={tk.text.tertiary}
+            placeholderTextColor={tk.text.secondary}
             keyboardType="phone-pad"
             maxLength={11}
           />
@@ -137,7 +141,7 @@ export function ChangePhoneScreen({
             value={codeValue}
             onChangeText={onCodeChange}
             placeholder={t('user.profile.codePlaceholder')}
-            placeholderTextColor={tk.text.tertiary}
+            placeholderTextColor={tk.text.secondary}
             keyboardType="number-pad"
             maxLength={6}
           />
@@ -145,6 +149,8 @@ export function ChangePhoneScreen({
             <Tappable
               style={styles.sendBtn}
               onPress={onSendCode}
+              // 发送中置灰(两处「发送新验证码」入口同一口径):点一次后不会连发两条短信
+              disabled={codeSending}
               accessibilityLabel={t('user.profile.sendNewCode')}
             >
               <Text style={styles.sendText}>{t('user.profile.sendNewCode')}</Text>
@@ -157,6 +163,8 @@ export function ChangePhoneScreen({
             <Tappable
               style={styles.sendBtn}
               onPress={onSendCode}
+              // 发送中置灰(两处「发送新验证码」入口同一口径):点一次后不会连发两条短信
+              disabled={codeSending}
               accessibilityLabel={t('user.profile.sendNewCode')}
             >
               <Text style={styles.sendText}>{t('user.profile.sendNewCode')}</Text>
@@ -227,7 +235,7 @@ function createStyles(tk: AppThemeTokens) {
       marginRight: rnSpacing.md,
     },
     areaText: { fontSize: rnType.title.size, color: tk.text.medium },
-    areaArrow: { fontSize: rnType.badge.size, color: tk.text.tertiary, marginLeft: rnSpacing.sm },
+    areaArrow: { fontSize: rnType.badge.size, color: tk.text.medium, marginLeft: rnSpacing.sm },
     input: {
       flex: 1,
       fontSize: rnType.title.size,
@@ -258,8 +266,8 @@ function createStyles(tk: AppThemeTokens) {
       gap: rnSpacing.md,
     },
     nationTitle: { fontSize: rnType.body.size, color: tk.text.primary },
-    nationCode: { fontSize: rnType.body.size, color: tk.text.tertiary },
-    tipText: { fontSize: rnType.body.size, color: tk.danger.DEFAULT, marginBottom: rnSpacing.md },
+    nationCode: { fontSize: rnType.body.size, color: tk.text.medium },
+    tipText: { fontSize: rnType.body.size, color: tk.danger.deepText, marginBottom: rnSpacing.md },
     submitBtn: {
       height: 50,
       borderRadius: rnRadius.sm,

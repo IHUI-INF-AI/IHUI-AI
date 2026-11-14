@@ -18,6 +18,7 @@ import {
   updateAgentStatus,
 } from '../db/customer-service-queries.js'
 import { getWsAutoRecoveryManager } from './ws-auto-recovery.js'
+import { isWsBackpressured, sendWithBackpressure } from './ws-backpressure.js'
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -215,13 +216,23 @@ const wsCustomerServicePlugin: FastifyPluginAsync = async (server) => {
     const conns = connections.get(sessionId)
     if (!conns || conns.size === 0) return
     const text = JSON.stringify(payload)
-    const stale: WebSocket[] = []
+    const stale = new Set<WebSocket>()
     for (const ws of conns) {
-      try {
-        ws.send(text)
-      } catch {
-        stale.push(ws)
+      // F-116:会话是 1:1 对话且**没有**回放缓冲 —— 跳过的那一帧重连后也补不回来,
+      // 所以这里取「断开连接、让上层重连后重新拉取会话」,与通知/广播的「跳过」相反。
+      // 复用既有 4002(客户端应退避后重试)语义,不新增 close code(那属于改协议面)。
+      if (isWsBackpressured(ws)) {
+        stale.add(ws)
+        try {
+          ws.close(WS_CLOSE.RATE_LIMITED, '接收过慢,连接已断开')
+        } catch {
+          /* 已关闭 */
+        }
+        continue
       }
+      // 写失败(同步抛出或 callback 报错)同样摘线 —— 旧写法只接同步抛出,
+      // 而「连接已断」走的是 callback,死连接会长期滞留并持续被广播命中。
+      if (sendWithBackpressure(ws, text, () => stale.add(ws)) !== 'sent') stale.add(ws)
     }
     for (const ws of stale) conns.delete(ws)
   }

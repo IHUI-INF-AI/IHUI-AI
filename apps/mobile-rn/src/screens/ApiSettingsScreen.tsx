@@ -26,6 +26,7 @@ import {
   saveCozeConfig,
   testConnection,
 } from '../api/coze'
+import { toFriendlyOr } from '@ihui/shared/utils'
 
 type Nav = NativeStackNavigationProp<RootStackParamList>
 
@@ -102,7 +103,7 @@ export function ApiSettingsScreen() {
       setTestMsg(r.message)
     } catch (e) {
       setTesting('failed')
-      setTestMsg(e instanceof Error ? e.message : t('apiSettings.testFailed'))
+      setTestMsg(toFriendlyOr(e, t('apiSettings.testFailed')))
     }
   }, [config, t])
 

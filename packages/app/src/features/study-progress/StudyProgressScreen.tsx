@@ -103,7 +103,7 @@ function createStyles(tk: AppThemeTokens) {
     muted: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.secondary },
     error: {
       fontSize: rnType.body.size,
-      color: tk.danger.DEFAULT,
+      color: tk.danger.deepText,
       marginBottom: rnSpacing.sm,
       textAlign: 'center',
     },
@@ -130,7 +130,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.light,
       alignItems: 'center',
     },
-    statValue: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.success.DEFAULT },
+    statValue: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.success.deepText },
     statLabel: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.secondary },
     sectionTitle: {
       fontSize: rnType.subtitle.size,
@@ -155,7 +155,7 @@ function createStyles(tk: AppThemeTokens) {
       overflow: 'hidden',
     },
     barFill: { height: 6, backgroundColor: tk.success.DEFAULT, borderRadius: rnRadius.xl },
-    meta: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.tertiary },
+    meta: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.medium },
     btn: {
       marginTop: rnSpacing.md,
       paddingHorizontal: rnSpacing.lg,

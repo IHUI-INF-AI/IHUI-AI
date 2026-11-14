@@ -81,7 +81,7 @@ export function SignUpScreen({ t, colorScheme, onBack, loading, error, rows }: S
         {loading ? (
           stateBlock(
             <>
-              <ActivityIndicator size="small" color={tk.text.tertiary} />
+              <ActivityIndicator size="small" color={tk.text.secondary} />
               <Text style={styles.muted}>{t('signUpPage.loading')}</Text>
             </>,
           )
@@ -90,7 +90,7 @@ export function SignUpScreen({ t, colorScheme, onBack, loading, error, rows }: S
         ) : rows.length === 0 ? (
           stateBlock(
             <>
-              <ClipboardList size={32} color={tk.text.tertiary} strokeWidth={1.6} />
+              <ClipboardList size={32} color={tk.text.secondary} strokeWidth={1.6} />
               <Text style={styles.muted}>{t('signUpPage.empty')}</Text>
             </>,
           )
@@ -166,7 +166,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingVertical: rnSpacing['2xs'],
     },
     badgeText: { fontSize: rnType.caption.size, fontWeight: '600' },
-    dateText: { fontSize: rnType.caption.size, color: tk.text.tertiary, marginLeft: 'auto' },
+    dateText: { fontSize: rnType.caption.size, color: tk.text.medium, marginLeft: 'auto' },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

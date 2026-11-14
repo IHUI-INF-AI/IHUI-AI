@@ -4029,9 +4029,13 @@ class AgentEngine:
         if not (isinstance(workspace, str) and workspace.strip()):
             return
         try:
-            from app.core.agents_md import load_project_instructions
+            from app.core.agents_md import load_workspace_instructions
 
-            md = load_project_instructions(workspace)
+            # 第七遍对标(2026-11-14):线程启动时注入完整项目指令链 ——
+            # (AGENTS.override.md > AGENTS.md/CLAUDE.md > *.local.md 本地叠加),
+            # 同内容去重、具体优先预算;用户全局链按 §6.3-4 不读。
+            # 轮内变化由 AgentLoopV2 逐迭代补发。
+            md = load_workspace_instructions(workspace)
             if md.unread_files:
                 if _agents_md_state_enabled_from_env():
                     thread.agents_md_state.maybe_fragment(

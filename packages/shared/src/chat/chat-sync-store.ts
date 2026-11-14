@@ -15,14 +15,9 @@
  *    本文件**不写第二套比较**。被拒时不发布 —— 契约原文:"拒绝不得触发状态发布/重渲染"。
  *  ② gap 的唯一出路 = `planChatSyncResync` 的产物进待 resync 表,由上层拉 sync-snapshot
  *    再走 `mergeChatSyncResyncSnapshot` 并回;**store 不发请求**(纯逻辑层,零平台依赖)。
- *  ③ 认不出的帧(未知帧类型 / 协议版本与帧族不同域 / 缺房间键)一律**点名计数**,
- *    绝不静默丢弃(§0.3);但都不写状态 —— 把没做写成做了是本仓最高频的失效型。
- *
- * G-20261114 修订:terminal 曾按「本端未接线」走 unwired 分支(只计数、不写状态、
- * 不排 resync),结果 RN / taro / extension 的另一端永久停在「生成中」。契约内核
- * `applyChatSyncEvent` 早已实现终态四态与终态粘性,`mergeChatSyncResyncSnapshot`
- * 也会把快照里的 terminal 并回 ⇒ 原注释「排出无人消费的队列」的前提已不成立。
- * 现三型帧统一进同一内核裁定;unwired 判据面保留但恒 0,不再有未接线帧。
+ *  ③ 认不出的帧(未知帧类型 / 协议版本与帧族不同域 / 缺房间键)与未接线帧(terminal,
+ *    票面已按 §24 记录"不做 + 理由")一律**点名计数**,绝不静默丢弃(§0.3);
+ *    但都不写状态 —— 把没做写成做了是本仓最高频的失效型。
  *
  * 为什么不复用 api-client 的 `subscribeChatSync`:那把房间键在建订阅时钉死(切会话要重订),
  * 而 per-user 广播本来就把**所有**会话的帧送到同一条连接上;本 store 按 `room.conversationId`
@@ -47,7 +42,7 @@ import {
   type ChatSyncState,
 } from '@ihui/types'
 
-/** 参与内核裁定的帧族:三型帧统一进 `applyChatSyncEvent`,terminal 不再单列。 */
+/** 参与内核裁定的帧族(terminal 认识但本端未接线,见下方 unwired 分支)。 */
 const CHAT_FRAME_TYPES: readonly string[] = [
   CHAT_SYNC_EVENT_NAMES.MESSAGE_CREATED,
   CHAT_SYNC_EVENT_NAMES.MESSAGE_PATCHED,
@@ -83,10 +78,7 @@ function readMessageId(event: ChatSyncEvent): string | null {
 export type ChatSyncUndeterminedReason =
   'unknown-type' | 'protocol-version-mismatch' | 'missing-room' | 'missing-message-id'
 
-/**
- * 未接线帧(认识但本端不投影)。G-20261114 起三型帧全部接线,该档恒不产生;
- * 类型与结果字段保留只为不破坏既有调用方的判据面,不许再往里塞新帧型。
- */
+/** 未接线帧(认识但本端不投影)。与「未判定」分桶:一个是"认不出",一个是"没做"。 */
 export type ChatSyncUnwiredReason = 'terminal'
 
 /** 一帧被 store 处理后的可判结论(调用方据此点名/记日志,不必自己再判一遍)。 */
@@ -94,13 +86,13 @@ export interface ChatSyncStoreFrameOutcome {
   /** 帧声明的会话;读不到房间键 ⇒ null(该帧不进任何会话桶) */
   conversationId: string | null
   messageId: string | null
-  /** 内核裁定;未判定帧 ⇒ null(它没进内核) */
+  /** 内核裁定;未判定帧 / 未接线帧 ⇒ null(它们没进内核) */
   result: ChatSyncApplyResult | null
   /** 契约唯一转译点(`planChatSyncResync`)的产物;gap 与"未判定但可定位"时 needed=true */
   resync: ChatSyncResyncPlan
   /** 有值 = 本帧未进内核(逐档点名,不静默) */
   undetermined?: ChatSyncUndeterminedReason
-  /** 保留判据面;G-20261114 起三型帧全接线 ⇒ 恒 undefined */
+  /** 有值 = 帧认识但本端未接线(terminal);不写状态,只计数点名 */
   unwired?: ChatSyncUnwiredReason
 }
 
@@ -319,11 +311,27 @@ export function createChatSyncStore(
         }
       }
 
-      // ④ G-20261114:三型帧(含 terminal)统一进同一内核裁定。
-      //    terminal 的 rev = 链头、不新增修订号(契约 §2/§3);缺行 ⇒ gap ⇒ 由
-      //    planChatSyncResync 排 resync,拉回快照经 mergeChatSyncResyncSnapshot
-      //    把终态并回。同 rev 已终态 ⇒ duplicate;终态粘性由内核保证。
-      //    本层零复算、不写第二套比较(判据单源在 @ihui/types)。
+      // ④ 终态帧:没接线就如实说没接线,绝不当作"什么都没发生"(§0.3)。
+      //    这条路**不写状态**也**不排 resync** —— 拉回快照也没人投影终态,排出无人消费的队列
+      //    就是把"没做"洗成"在等"。
+      if (type === CHAT_SYNC_EVENT_NAMES.MESSAGE_TERMINAL) {
+        bump('unwired')
+        publish()
+        options.onUndetermined?.({
+          event: type,
+          reason: 'terminal',
+          conversationId,
+          messageId,
+        })
+        return {
+          conversationId,
+          messageId,
+          result: null,
+          resync: { needed: false },
+          unwired: 'terminal',
+        }
+      }
+
       const { result, resync } = runKernel(conversationId, event)
       return { conversationId, messageId, result, resync }
     },

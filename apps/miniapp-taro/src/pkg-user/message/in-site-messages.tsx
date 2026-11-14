@@ -149,14 +149,15 @@ export function InSiteMessagePane({ msgType }: InSiteMessagePaneProps) {
       ))}
       {/* 加载更多(spec 同位:hasMore 为假时整块不渲染;loadingMore 期间禁重复触发) */}
       {hasMore ? (
-        <Text
+        <View
           className={`block text-center text-body py-[20rpx] ${
             loadingMore ? 'text-muted-foreground' : 'text-foreground'
           }`}
+          hoverClass={loadingMore ? 'none' : 'opacity-60'}
           onClick={loadMore}
         >
-          {t('messageCenter.loadMore')}
-        </Text>
+          <Text>{t('messageCenter.loadMore')}</Text>
+        </View>
       ) : null}
     </View>
   )

@@ -112,7 +112,7 @@ export function createEduAiStyles(tk: AppThemeTokens) {
     cardBody: { fontSize: rnType.bodySm.size, color: tk.text.secondary, lineHeight: 19 },
     rowMain: { flex: 1, gap: rnSpacing['2xs'] },
     row: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-    rowSub: { fontSize: rnType.caption.size, color: tk.text.tertiary },
+    rowSub: { fontSize: rnType.caption.size, color: tk.text.medium },
     metaRow: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -158,7 +158,7 @@ export function createEduAiStyles(tk: AppThemeTokens) {
       borderColor: tk.border.medium,
       paddingVertical: rnSpacing['2xl'],
     },
-    emptyText: { fontSize: rnType.bodySm.size, color: tk.text.tertiary },
+    emptyText: { fontSize: rnType.bodySm.size, color: tk.text.medium },
     errorBox: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -200,10 +200,10 @@ export function createEduAiStyles(tk: AppThemeTokens) {
       padding: rnSpacing['sm-loose'],
       gap: rnSpacing.xs,
     },
-    fieldLabel: { fontSize: rnType.caption.size, fontWeight: '600', color: tk.text.tertiary },
+    fieldLabel: { fontSize: rnType.caption.size, fontWeight: '600', color: tk.text.medium },
     fieldValue: { fontSize: rnType.bodySm.size, color: tk.text.primary, lineHeight: 19 },
     linkRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 5 },
-    linkText: { flex: 1, fontSize: rnType.label.size, color: tk.brandAccent.DEFAULT },
+    linkText: { flex: 1, fontSize: rnType.label.size, color: tk.brandAccent.deep },
     textarea: {
       minHeight: 96,
       textAlignVertical: 'top',
@@ -215,7 +215,7 @@ export function createEduAiStyles(tk: AppThemeTokens) {
       fontSize: rnType.body.size,
       color: tk.text.primary,
     },
-    counter: { alignSelf: 'flex-end', fontSize: rnType.caption.size, color: tk.text.tertiary },
+    counter: { alignSelf: 'flex-end', fontSize: rnType.caption.size, color: tk.text.medium },
     input: {
       flex: 1,
       borderWidth: StyleSheet.hairlineWidth,

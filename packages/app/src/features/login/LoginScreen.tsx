@@ -392,7 +392,7 @@ function ThirdPartyLoginArea({
             borderRadius: rnRadius.lg,
             alignItems: 'center',
             justifyContent: 'center',
-            backgroundColor: tk.text.tertiary,
+            backgroundColor: tk.text.secondary,
           },
           !!opt.brandColor && { backgroundColor: opt.brandColor },
         ]}
@@ -553,7 +553,7 @@ function HistoryDropdown({
               accessibilityRole="button"
               accessibilityLabel={t('auth.removeAccount')}
             >
-              <X size={14} color={tk.text.tertiary} />
+              <X size={14} color={tk.text.secondary} />
             </TouchableOpacity>
           ) : null}
         </View>
@@ -616,7 +616,7 @@ function EmailTabContent({
             value={email}
             onChangeText={onEmailChange}
             placeholder={t('auth.emailPlaceholder')}
-            placeholderTextColor={tk.text.tertiary}
+            placeholderTextColor={tk.text.secondary}
             autoCapitalize="none"
             autoCorrect={false}
             keyboardType="email-address"
@@ -649,7 +649,7 @@ function EmailTabContent({
             value={emailCode}
             onChangeText={(text) => onEmailCodeChange?.(text.replace(/\D/g, '').slice(0, 6))}
             placeholder={t('auth.codePlaceholder')}
-            placeholderTextColor={tk.text.tertiary}
+            placeholderTextColor={tk.text.secondary}
             keyboardType="number-pad"
             maxLength={6}
             textContentType="oneTimeCode"
@@ -754,7 +754,7 @@ function PhoneTabContent({
                 <Text style={styles.areaText}>{phoneHead}</Text>
                 <ChevronDown
                   size={10}
-                  color={tk.text.tertiary}
+                  color={tk.text.secondary}
                   style={{ marginLeft: rnSpacing['xs-loose'] }}
                 />
               </Tappable>
@@ -767,7 +767,7 @@ function PhoneTabContent({
                 onBlur={() => setPhoneFocused(false)}
                 onChangeText={(text) => onPhoneChange?.(text.replace(/\D/g, '').slice(0, 11))}
                 placeholder={t('auth.phonePlaceholder')}
-                placeholderTextColor={tk.text.tertiary}
+                placeholderTextColor={tk.text.secondary}
                 keyboardType="number-pad"
                 maxLength={11}
                 textContentType="telephoneNumber"
@@ -820,7 +820,7 @@ function PhoneTabContent({
               value={phone}
               onChangeText={(text) => onPhoneChange?.(text.replace(/\D/g, '').slice(0, 11))}
               placeholder={t('auth.phonePlaceholder')}
-              placeholderTextColor={tk.text.tertiary}
+              placeholderTextColor={tk.text.secondary}
               keyboardType="number-pad"
               maxLength={11}
               textContentType="telephoneNumber"
@@ -834,7 +834,7 @@ function PhoneTabContent({
             value={phone}
             onChangeText={(text) => onPhoneChange?.(text.replace(/\D/g, '').slice(0, 11))}
             placeholder={t('auth.phonePlaceholder')}
-            placeholderTextColor={tk.text.tertiary}
+            placeholderTextColor={tk.text.secondary}
             keyboardType="number-pad"
             maxLength={11}
             textContentType="telephoneNumber"
@@ -851,7 +851,7 @@ function PhoneTabContent({
             value={phoneCode}
             onChangeText={(text) => onPhoneCodeChange?.(text.replace(/\D/g, '').slice(0, 6))}
             placeholder={t('auth.codePlaceholder')}
-            placeholderTextColor={tk.text.tertiary}
+            placeholderTextColor={tk.text.secondary}
             keyboardType="number-pad"
             maxLength={6}
             textContentType="oneTimeCode"
@@ -934,7 +934,7 @@ function PasswordTabContent({
             value={account}
             onChangeText={onAccountChange}
             placeholder={t('auth.accountPlaceholder')}
-            placeholderTextColor={tk.text.tertiary}
+            placeholderTextColor={tk.text.secondary}
             autoCapitalize="none"
             autoCorrect={false}
             textContentType="username"
@@ -978,7 +978,7 @@ function PasswordTabContent({
             value={password}
             onChangeText={onPasswordChange}
             placeholder={t('auth.passwordPlaceholder')}
-            placeholderTextColor={tk.text.tertiary}
+            placeholderTextColor={tk.text.secondary}
             secureTextEntry={!showPassword}
             autoCapitalize="none"
             autoCorrect={false}
@@ -1113,7 +1113,7 @@ function QrTabContent({ t, styles, tk, qrConfig, qrPlatforms, renderQrPanel }: Q
                         borderRadius: rnRadius.sm,
                         alignItems: 'center',
                         justifyContent: 'center',
-                        backgroundColor: tk.text.tertiary,
+                        backgroundColor: tk.text.secondary,
                       },
                       !!p.brandColor && { backgroundColor: p.brandColor },
                     ]}
@@ -1154,7 +1154,7 @@ function QrTabContent({ t, styles, tk, qrConfig, qrPlatforms, renderQrPanel }: Q
           ) : (
             // 占位:二维码图标(用文字模拟,避免新增依赖)
             <View style={styles.qrPlaceholderIcon}>
-              <QrCode size={56} color={tk.text.tertiary} />
+              <QrCode size={56} color={tk.text.secondary} />
             </View>
           )}
         </View>
@@ -1622,13 +1622,13 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       marginBottom: rnSpacing.lg,
     },
     errorIcon: {
-      color: tk.danger.DEFAULT,
+      color: tk.danger.deepText,
       fontSize: rnType.body.size,
       lineHeight: rnType.bodySm.lineHeight,
     },
     errorText: {
       flex: 1,
-      color: tk.danger.DEFAULT,
+      color: tk.danger.deepText,
       fontSize: rnType.label.size,
       lineHeight: rnType.bodySm.lineHeight,
     },
@@ -1755,7 +1755,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
     },
     areaArrow: {
       fontSize: rnType.badge.size,
-      color: tk.text.tertiary,
+      color: tk.text.medium,
       marginLeft: rnSpacing['xs-loose'],
     },
     phoneInputWithArea: {
@@ -1801,7 +1801,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
     },
     nationCode: {
       fontSize: rnType.strong.size,
-      color: tk.text.tertiary,
+      color: tk.text.medium,
     },
     nationCodeActive: {
       color: tk.brand.DEFAULT,
@@ -1891,7 +1891,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
     },
     agreementErrorText: {
       fontSize: rnType.label.size,
-      color: tk.danger.DEFAULT,
+      color: tk.danger.deepText,
       marginTop: rnSpacing.xs,
     },
     // ===== 自动登录复选框(协议行右侧)+ 历史账号下拉(2026-09-04) =====
@@ -1947,7 +1947,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
     },
     historyClearText: {
       fontSize: rnType.bodySm.size,
-      color: tk.text.tertiary,
+      color: tk.text.medium,
     },
     // ===== 主按钮 =====
     // CTA 用主题黑白(brand.DEFAULT:亮色纯黑/暗色纯白,2026-09-14 用户定稿,不再用强调色 token),
@@ -2042,7 +2042,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
     },
     thirdPartyDividerText: {
       fontSize: rnType.label.size,
-      color: tk.text.tertiary,
+      color: tk.text.medium,
       marginHorizontal: rnSpacing.md,
     },
     // 2026-08-04:删除 thirdPartyTitle(冗余,分隔线"或"已足够分隔)
@@ -2101,7 +2101,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
     },
     qrPlaceholderText: {
       fontSize: rnType.bodySm.size,
-      color: tk.text.tertiary,
+      color: tk.text.medium,
     },
     qrStatusText: {
       fontSize: rnType.bodySm.size,
@@ -2160,7 +2160,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
     },
     qrPlatformTabText: {
       fontSize: rnType.label.size,
-      color: tk.text.tertiary,
+      color: tk.text.medium,
       flexShrink: 1,
     },
     // web 端激活文字:text-foreground font-medium(主文字色,非白色)
@@ -2177,7 +2177,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
     },
     qrPlaceholderIconText: {
       fontSize: 56,
-      color: tk.text.tertiary,
+      color: tk.text.medium,
     },
     // QR 操作行:刷新 + 打开网页
     qrActionRow: {

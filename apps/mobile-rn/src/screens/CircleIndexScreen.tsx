@@ -395,7 +395,12 @@ export function CircleIndexScreen() {
         onRequestClose={() => setPreview(null)}
       >
         <View style={styles.previewMask}>
-          <TouchableOpacity style={styles.previewClose} onPress={() => setPreview(null)}>
+          <TouchableOpacity
+            style={styles.previewClose}
+            onPress={() => setPreview(null)}
+            accessibilityRole="button"
+            accessibilityLabel={t('home.closePreview')}
+          >
             <X size={24} color={tk.surface.card} />
           </TouchableOpacity>
           {preview ? (
@@ -460,7 +465,7 @@ const createStyles = (tk: RnThemeTokens) =>
     },
     topicCount: {
       fontSize: rnType.caption.size,
-      color: tk.text.tertiary,
+      color: tk.text.medium,
     },
     userScroll: {
       gap: rpx(16),
@@ -490,7 +495,7 @@ const createStyles = (tk: RnThemeTokens) =>
     },
     userBio: {
       fontSize: rnType.caption.size,
-      color: tk.text.tertiary,
+      color: tk.text.medium,
       maxWidth: rpx(180),
     },
     userFollow: {
@@ -544,7 +549,7 @@ const createStyles = (tk: RnThemeTokens) =>
     },
     time: {
       fontSize: rnType.caption.size,
-      color: tk.text.tertiary,
+      color: tk.text.medium,
     },
     title: {
       fontSize: rnType.strong.size,
@@ -586,7 +591,7 @@ const createStyles = (tk: RnThemeTokens) =>
     },
     statNum: {
       fontSize: rnType.label.size,
-      color: tk.text.tertiary,
+      color: tk.text.medium,
     },
     center: {
       alignItems: 'center',
@@ -596,11 +601,11 @@ const createStyles = (tk: RnThemeTokens) =>
     },
     stateText: {
       fontSize: rnType.bodySm.size,
-      color: tk.text.tertiary,
+      color: tk.text.medium,
     },
     errorText: {
       fontSize: rnType.bodySm.size,
-      color: tk.danger.DEFAULT,
+      color: tk.danger.deepText,
     },
     retryText: {
       fontSize: rnType.bodySm.size,

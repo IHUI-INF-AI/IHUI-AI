@@ -16,6 +16,7 @@ import { appAlert } from '../components/BottomPops'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { toFriendlyOr } from '@ihui/shared/utils'
 
 interface DevPreferences {
   defaultVersion: string
@@ -54,7 +55,7 @@ function DeveloperSettingsScreen() {
       setPrefs(p)
       setValues({ sandboxAutoRun: p.sandboxAutoRun, errorReport: p.errorReport })
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'load failed')
+      setError(toFriendlyOr(e, t('common.loadFailed')))
     } finally {
       setLoading(false)
     }
@@ -81,7 +82,7 @@ function DeveloperSettingsScreen() {
         setValues(prevValues)
         void appAlert(
           t('common.error'),
-          e instanceof Error ? e.message : t('developerSettings.title'),
+          toFriendlyOr(e, t('developerSettings.title')),
         )
       } finally {
         setPendingKey(null)

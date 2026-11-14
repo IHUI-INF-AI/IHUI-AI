@@ -163,9 +163,14 @@ export default function PlazaIndex() {
                 onClick: () => setTrackVisible(true),
               },
             ].map((action) => (
-              <Text key={action.id} className="pza-nav-btn" onClick={action.onClick}>
-                {action.label}
-              </Text>
+              <View
+                key={action.id}
+                className="pza-nav-btn"
+                hoverClass="opacity-60"
+                onClick={action.onClick}
+              >
+                <Text>{action.label}</Text>
+              </View>
             ))}
           </View>
         </View>

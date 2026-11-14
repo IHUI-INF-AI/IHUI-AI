@@ -170,7 +170,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     metaText: {
       fontSize: rnType.label.size,
-      color: tk.text.tertiary,
+      color: tk.text.medium,
     },
     previewTitle: {
       marginTop: rnSpacing.xl,
@@ -181,7 +181,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     noChunks: {
       fontSize: rnType.body.size,
-      color: tk.text.tertiary,
+      color: tk.text.medium,
     },
     chunkCard: {
       marginBottom: rnSpacing.md,
@@ -193,7 +193,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     chunkIndex: {
       fontSize: rnType.label.size,
-      color: tk.text.tertiary,
+      color: tk.text.medium,
     },
     chunkContent: {
       marginTop: rnSpacing.xs,

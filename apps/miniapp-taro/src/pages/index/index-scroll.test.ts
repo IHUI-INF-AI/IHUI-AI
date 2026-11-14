@@ -45,7 +45,17 @@ describe('D5 滚到底步长算法(受控 scrollTop 单调递增超界)', () => 
       observed.push(scrollTop)
     }
     for (let i = 1; i < observed.length; i += 1) {
-      expect(observed[i]).toBeGreaterThan(observed[i - 1])
+      const prev = observed[i - 1]
+      const curr = observed[i]
+      // noUncheckedIndexedAccess:这两格由本用例自己的 push 循环保证存在。
+      // 取不到就是**判据输入坏了**,直接抛并点名位置 —— 不用 `as number` 把它糊成编译期
+      // 已保证(那样真空洞时会以"undefined 与 number 比较"的假象红),也不用 `Number()`
+      // (undefined 会静默变 NaN,读数是"NaN 不大于 NaN",离成因更远)。口径同
+      // src/lib/__tests__/ui-field-registry.test.ts 的「取不到就直接抛,而不是断言」。
+      if (prev === undefined || curr === undefined) {
+        throw new Error(`observed 第 ${i - 1}/${i} 格为空 —— 填充循环坏了,不是步长算法的问题`)
+      }
+      expect(curr).toBeGreaterThan(prev)
     }
     // 第一次就把原生 clamp 推到底:任何合理列表高度都被覆盖
     expect(observed[0]).toBeGreaterThanOrEqual(LIST_HEIGHT_CEILING_PX)

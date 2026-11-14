@@ -73,6 +73,8 @@ const S = {
   Building2:
     '<!-- @license lucide-static v1.31.0 - ISC -->\n<svg\n  class="lucide lucide-building-2"\n  xmlns="http://www.w3.org/2000/svg"\n  width="24"\n  height="24"\n  viewBox="0 0 24 24"\n  fill="none"\n  stroke="#000000"\n  stroke-width="2"\n  stroke-linecap="round"\n  stroke-linejoin="round"\n>\n  <path d="M10 12h4" />\n  <path d="M10 8h4" />\n  <path d="M14 21v-3a2 2 0 0 0-4 0v3" />\n  <path d="M6 10H4a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-2" />\n  <path d="M6 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16" />\n</svg>\n',
   Cake: '<!-- @license lucide-static v1.31.0 - ISC -->\n<svg\n  class="lucide lucide-cake"\n  xmlns="http://www.w3.org/2000/svg"\n  width="24"\n  height="24"\n  viewBox="0 0 24 24"\n  fill="none"\n  stroke="#000000"\n  stroke-width="2"\n  stroke-linecap="round"\n  stroke-linejoin="round"\n>\n  <path d="M20 21v-8a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8" />\n  <path d="M4 16s.5-1 2-1 2.5 2 4 2 2.5-2 4-2 2.5 2 4 2 2-1 2-1" />\n  <path d="M2 21h20" />\n  <path d="M7 8v3" />\n  <path d="M12 8v3" />\n  <path d="M17 8v3" />\n  <path d="M7 4h.01" />\n  <path d="M12 4h.01" />\n  <path d="M17 4h.01" />\n</svg>\n',
+  Calculator:
+    '<!-- @license lucide-static v1.31.0 - ISC -->\n<svg\n  class="lucide lucide-calculator"\n  xmlns="http://www.w3.org/2000/svg"\n  width="24"\n  height="24"\n  viewBox="0 0 24 24"\n  fill="none"\n  stroke="#000000"\n  stroke-width="2"\n  stroke-linecap="round"\n  stroke-linejoin="round"\n>\n  <rect width="16" height="20" x="4" y="2" rx="2" />\n  <line x1="8" x2="16" y1="6" y2="6" />\n  <line x1="16" x2="16" y1="14" y2="18" />\n  <path d="M16 10h.01" />\n  <path d="M12 10h.01" />\n  <path d="M8 10h.01" />\n  <path d="M12 14h.01" />\n  <path d="M8 14h.01" />\n  <path d="M12 18h.01" />\n  <path d="M8 18h.01" />\n</svg>\n',
   Calendar:
     '<!-- @license lucide-static v1.31.0 - ISC -->\n<svg\n  class="lucide lucide-calendar"\n  xmlns="http://www.w3.org/2000/svg"\n  width="24"\n  height="24"\n  viewBox="0 0 24 24"\n  fill="none"\n  stroke="#000000"\n  stroke-width="2"\n  stroke-linecap="round"\n  stroke-linejoin="round"\n>\n  <path d="M8 2v3" />\n  <path d="M16 2v3" />\n  <rect x="3" y="3" width="18" height="18" rx="2" />\n  <path d="M3 9h18" />\n</svg>\n',
   CalendarCheck:
@@ -115,6 +117,8 @@ const S = {
     '<!-- @license lucide-static v1.31.0 - ISC -->\n<svg\n  class="lucide lucide-circle-help"\n  xmlns="http://www.w3.org/2000/svg"\n  width="24"\n  height="24"\n  viewBox="0 0 24 24"\n  fill="none"\n  stroke="#000000"\n  stroke-width="2"\n  stroke-linecap="round"\n  stroke-linejoin="round"\n>\n  <circle cx="12" cy="12" r="10" />\n  <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />\n  <path d="M12 17h.01" />\n</svg>\n',
   CircleQuestionMark:
     '<!-- @license lucide-static v1.31.0 - ISC -->\n<svg\n  class="lucide lucide-circle-question-mark"\n  xmlns="http://www.w3.org/2000/svg"\n  width="24"\n  height="24"\n  viewBox="0 0 24 24"\n  fill="none"\n  stroke="#000000"\n  stroke-width="2"\n  stroke-linecap="round"\n  stroke-linejoin="round"\n>\n  <circle cx="12" cy="12" r="10" />\n  <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />\n  <path d="M12 17h.01" />\n</svg>\n',
+  CircuitBoard:
+    '<!-- @license lucide-static v1.31.0 - ISC -->\n<svg\n  class="lucide lucide-circuit-board"\n  xmlns="http://www.w3.org/2000/svg"\n  width="24"\n  height="24"\n  viewBox="0 0 24 24"\n  fill="none"\n  stroke="#000000"\n  stroke-width="2"\n  stroke-linecap="round"\n  stroke-linejoin="round"\n>\n  <rect width="18" height="18" x="3" y="3" rx="2" />\n  <path d="M11 9h4a2 2 0 0 0 2-2V3" />\n  <circle cx="9" cy="9" r="2" />\n  <path d="M7 21v-4a2 2 0 0 1 2-2h4" />\n  <circle cx="15" cy="15" r="2" />\n</svg>\n',
   Clapperboard:
     '<!-- @license lucide-static v1.31.0 - ISC -->\n<svg\n  class="lucide lucide-clapperboard"\n  xmlns="http://www.w3.org/2000/svg"\n  width="24"\n  height="24"\n  viewBox="0 0 24 24"\n  fill="none"\n  stroke="#000000"\n  stroke-width="2"\n  stroke-linecap="round"\n  stroke-linejoin="round"\n>\n  <path d="m12.296 3.464 3.02 3.956" />\n  <path d="M20.2 6 3 11l-.9-2.4c-.3-1.1.3-2.2 1.3-2.5l13.5-4c1.1-.3 2.2.3 2.5 1.3z" />\n  <path d="M3 11h18v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />\n  <path d="m6.18 5.276 3.1 3.899" />\n</svg>\n',
   ClipboardList:
@@ -494,6 +498,7 @@ export const Brain = makeIcon('Brain', src('Brain'))
 export const BriefcaseBusiness = makeIcon('BriefcaseBusiness', src('BriefcaseBusiness'))
 export const Building2 = makeIcon('Building2', src('Building2'))
 export const Cake = makeIcon('Cake', src('Cake'))
+export const Calculator = makeIcon('Calculator', src('Calculator'))
 export const Calendar = makeIcon('Calendar', src('Calendar'))
 export const CalendarCheck = makeIcon('CalendarCheck', src('CalendarCheck'))
 export const CalendarClock = makeIcon('CalendarClock', src('CalendarClock'))
@@ -515,6 +520,7 @@ export const CircleDashed = makeIcon('CircleDashed', src('CircleDashed'))
 export const CircleDollarSign = makeIcon('CircleDollarSign', src('CircleDollarSign'))
 export const CircleHelp = makeIcon('CircleHelp', src('CircleHelp'))
 export const CircleQuestionMark = makeIcon('CircleQuestionMark', src('CircleQuestionMark'))
+export const CircuitBoard = makeIcon('CircuitBoard', src('CircuitBoard'))
 export const Clapperboard = makeIcon('Clapperboard', src('Clapperboard'))
 export const ClipboardList = makeIcon('ClipboardList', src('ClipboardList'))
 export const ClipboardPaste = makeIcon('ClipboardPaste', src('ClipboardPaste'))

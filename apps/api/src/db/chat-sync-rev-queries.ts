@@ -21,22 +21,6 @@ import { and, eq, sql } from 'drizzle-orm'
 import { db } from './index.js'
 import { chatMessages, chatMessageSyncRevs } from '@ihui/database'
 
-const CHAT_SYNC_MESSAGE_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-
-/**
- * G-20261114:messageId 的形态门禁,服务端唯一定义。
- *
- * metadata.messageId 现在直接作 `chat_messages.id`(PG uuid 主键)与
- * `chat_message_sync_revs.message_id`(FK)。zod 只声明 z.string().optional(),
- * 任意字符串进 PG 会抛 22P02,而它落在 created 帧的 catch / terminal 的
- * fire-and-forget 里 ⇒ 变成静默丢帧。故三型帧(created/patched/terminal)与
- * ai-callback-worker 的降级落库**共用这一把尺**:非法 ⇒ 整条 chat-sync 腿降级
- * 并出声,SSE 主链与其它写入路径零变化(fail-closed,不反噬主链)。
- */
-export function isChatSyncMessageId(value: unknown): value is string {
-  return typeof value === 'string' && CHAT_SYNC_MESSAGE_ID_RE.test(value)
-}
-
 /**
  * 分配该消息的下一个修订号。首次分配 = 1;此后每次 +1。
  * UPSERT 的 `rev = rev + 1` 在 PG 行锁下原子,跨实例/跨重启严格递增、不重号、不回退。

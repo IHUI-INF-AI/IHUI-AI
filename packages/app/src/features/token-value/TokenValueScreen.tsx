@@ -296,7 +296,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingVertical: rnSpacing.md,
       textAlign: 'center',
       fontSize: rnType.label.size,
-      color: tk.text.tertiary,
+      color: tk.text.medium,
     },
     recordItem: {
       flexDirection: 'row',
@@ -320,9 +320,9 @@ function createStyles(tk: AppThemeTokens) {
     recordIconText: { fontSize: rnType.body.size, fontWeight: '600', color: tk.text.secondary },
     recordMain: { flex: 1 },
     recordTitle: { fontSize: rnType.body.size, fontWeight: '600', color: tk.text.primary },
-    recordTime: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.tertiary },
+    recordTime: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.medium },
     recordAmount: { fontSize: rnType.title.size, fontWeight: '700' },
-    amountGreen: { color: tk.success.DEFAULT },
+    amountGreen: { color: tk.success.deepText },
     amountRed: { color: tk.brandAccent.deep },
   })
 }

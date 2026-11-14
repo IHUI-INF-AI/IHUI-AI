@@ -126,6 +126,9 @@ def _make_loop_factory() -> Any:
             # 装载口补齐批(2026-11-01):参数化指令片段的声明面(唯一读口 = 服务端 env
             # AGENT_INSTRUCTIONAL_INPUTS;未设置 ⇒ {}= 八枚全不注入,与接线前逐零差异)。
             instructional_inputs=instructional_inputs_from_env(),
+            # 第七遍对标(2026-11-14):会话工作目录过桥,供循环逐迭代重算工作区
+            # 指令链(AGENTS.md/CLAUDE.md 深层发现 + 轮内变更补发)。None = 零行为。
+            workspace=spec.get("workspace"),
         )
 
     return _factory

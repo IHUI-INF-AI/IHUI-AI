@@ -259,7 +259,7 @@ export default function VoiceSttScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: tokens.surface.bg },
   body: { padding: rnSpacing.md, paddingBottom: rnSpacing['3xl'], gap: rnSpacing['sm-loose'] },
-  subtitle: { fontSize: rnType.label.size, color: tokens.text.tertiary },
+  subtitle: { fontSize: rnType.label.size, color: tokens.text.medium },
   card: {
     gap: rnSpacing.md,
     padding: rnSpacing['md-loose'],
@@ -278,7 +278,7 @@ const styles = StyleSheet.create({
   fileHead: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing['sm-loose'] },
   fileMain: { flex: 1, gap: rnSpacing['2xs'] },
   fileName: { fontSize: rnType.body.size, fontWeight: '500', color: tokens.text.primary },
-  fileSize: { fontSize: rnType.caption.size, color: tokens.text.tertiary },
+  fileSize: { fontSize: rnType.caption.size, color: tokens.text.medium },
   uploadBox: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -291,7 +291,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.bg,
   },
   uploadTitle: { fontSize: rnType.body.size, fontWeight: '500', color: tokens.text.primary },
-  uploadHint: { fontSize: rnType.caption.size, color: tokens.text.tertiary },
+  uploadHint: { fontSize: rnType.caption.size, color: tokens.text.medium },
   field: { gap: 5 },
   label: { fontSize: rnType.label.size, color: tokens.text.secondary },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: rnSpacing['xs-loose'] },
@@ -330,8 +330,8 @@ const styles = StyleSheet.create({
     borderRadius: rnRadius.sm,
     backgroundColor: tokens.danger.light,
   },
-  errorText: { flex: 1, fontSize: rnType.label.size, color: tokens.danger.DEFAULT },
-  retryText: { fontSize: rnType.label.size, fontWeight: '600', color: tokens.danger.DEFAULT },
+  errorText: { flex: 1, fontSize: rnType.label.size, color: tokens.danger.deepText },
+  retryText: { fontSize: rnType.label.size, fontWeight: '600', color: tokens.danger.deepText },
   stateBox: {
     alignItems: 'center',
     justifyContent: 'center',

@@ -114,29 +114,34 @@ export default function PublishAccountsScreen() {
   /** 已用过"续期 + 重取"额度的那一帧(qr_updated_at 变一帧就给一次新额度) */
   const qrRetryFrameRef = useRef<string>('')
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (isCancelled?: () => boolean) => {
     setLoading(true)
     setFailed(false)
     try {
       const res = await fetchApi<{ items?: PublishAccount[] }>('/api/publish/accounts/me')
+      // 已离开本页就丢弃回包:用户看不到这批账号,也不必再落一遍加载态
+      if (isCancelled?.()) return
       if (!res.success) throw new Error(res.error)
       setAccounts(res.data?.items ?? [])
     } catch {
+      if (isCancelled?.()) return
       setAccounts([])
       setFailed(true)
     } finally {
-      setLoading(false)
+      if (!isCancelled?.()) setLoading(false)
     }
   }, [])
 
   useEffect(() => {
-    void load()
+    let cancelled = false
+    void load(() => cancelled)
     void (async () => {
       try {
         const res = await fetchApi<{ items?: Array<{ platformId: string; platformName: string }> }>(
           '/api/publish/platforms',
         )
-        if (!res.success) return
+        // 卸载后不再写平台名:列表已经不在了,写进去也没人看见
+        if (cancelled || !res.success) return
         const map: Record<string, string> = {}
         for (const item of res.data?.items ?? []) map[item.platformId] = item.platformName
         setPlatformNames(map)
@@ -149,12 +154,16 @@ export default function PublishAccountsScreen() {
         const res = await fetchApi<{ platforms?: Array<{ platform: string }> }>(
           '/api/publish/scan-login/platforms',
         )
-        if (!res.success) return
+        // 同上:已离开本页就丢掉这份支持清单
+        if (cancelled || !res.success) return
         setScanPlatforms(new Set((res.data?.platforms ?? []).map((p) => p.platform)))
       } catch {
         // 取不到支持清单时保持 null:按"未知"处理,点重新授权后再由后端裁决
       }
     })()
+    return () => {
+      cancelled = true
+    }
   }, [load])
 
   // 扫码任务轮询:成功 ⇒ 关闭弹层 + 刷新账号;终态失败 ⇒ 展示原因
@@ -462,7 +471,7 @@ function makeStyles() {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tokens.surface.bg },
     body: { padding: rnSpacing.md, gap: rnSpacing['sm-loose'], paddingBottom: rnSpacing['3xl'] },
-    subtitle: { fontSize: rnType.label.size, color: tokens.text.tertiary },
+    subtitle: { fontSize: rnType.label.size, color: tokens.text.medium },
     card: {
       padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.lg,
@@ -484,7 +493,7 @@ function makeStyles() {
     itemMain: { flex: 1, gap: rnSpacing['2xs'] },
     itemName: { fontSize: rnType.strong.size, fontWeight: '600', color: tokens.text.primary },
     itemDesc: { fontSize: rnType.label.size, color: tokens.text.secondary },
-    meta: { fontSize: rnType.caption.size, color: tokens.text.tertiary },
+    meta: { fontSize: rnType.caption.size, color: tokens.text.medium },
     pill: {
       paddingHorizontal: rnSpacing.sm,
       paddingVertical: rnSpacing['2xs'],
@@ -503,10 +512,10 @@ function makeStyles() {
     muted: { fontSize: rnType.bodySm.size, color: tokens.text.secondary, lineHeight: 19 },
     hint: {
       fontSize: rnType.caption.size,
-      color: tokens.text.tertiary,
+      color: tokens.text.medium,
       lineHeight: rnType.label.lineHeight,
     },
-    errorText: { fontSize: rnType.label.size, color: tokens.danger.DEFAULT },
+    errorText: { fontSize: rnType.label.size, color: tokens.danger.deepText },
     retry: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tokens.text.primary },
     overlay: { flex: 1, justifyContent: 'flex-end' },
     mask: {
@@ -568,7 +577,7 @@ function makeStyles() {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    dangerText: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tokens.danger.DEFAULT },
+    dangerText: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tokens.danger.deepText },
     disabled: { opacity: 0.5 },
   })
 }

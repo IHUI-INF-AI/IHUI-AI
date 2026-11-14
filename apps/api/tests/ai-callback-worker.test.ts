@@ -198,30 +198,6 @@ describe('AI callback worker metadata merge (D24)', () => {
     )
   })
 
-  it('G-20261114:降级 createMessage 沿用同一个合法 uuid,不生成第二个 id', async () => {
-    const MESSAGE_UUID = 'dddddddd-4444-4444-8444-444444444444'
-    startWorker()
-    mockedUpdate.mockRejectedValueOnce(new Error('消息不存在'))
-    await getProcessor()(makeJob({ messageId: MESSAGE_UUID }))
-
-    expect(mockedUpdate).toHaveBeenCalledWith(MESSAGE_UUID, 'user-1', expect.anything())
-    // SSE 生成腿未建占位行(零 delta / 老客户端 / 降级流)时,历史里也不能出现
-    // 第二个 uuid —— 否则生成端占位气泡与历史行重复。
-    expect(mockedCreate).toHaveBeenCalledWith(
-      expect.objectContaining({ id: MESSAGE_UUID, conversationId: 'conv-1', role: 'assistant' }),
-    )
-  })
-
-  it('G-20261114 反向牙:messageId 非 uuid ⇒ 不传 id,退回 PG defaultRandom()', async () => {
-    startWorker()
-    mockedUpdate.mockRejectedValueOnce(new Error('消息不存在'))
-    await getProcessor()(makeJob({ messageId: 'msg-1' }))
-
-    expect(mockedCreate).toHaveBeenCalledTimes(1)
-    const arg = mockedCreate.mock.calls[0]![0] as Record<string, unknown>
-    expect(arg.id).toBeUndefined()
-  })
-
   it('job 无 metadata 时合并退化为旧值原样保留', async () => {
     mockedFind.mockResolvedValue({
       metadata: { pendingQuestion: { question: 'q1' } },

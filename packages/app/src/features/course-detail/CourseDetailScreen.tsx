@@ -142,8 +142,14 @@ export function CourseDetailScreen({
                 <Text style={styles.lessonTitle} numberOfLines={1}>
                   {l.title}
                 </Text>
+                {/* 三态由 @ihui/shared 的课程目录契约给出(completed/locked/current),
+                    共享屏此前只认 isCompleted ⇒ 锁住与当前节两态渲染不出来。 */}
                 {l.isCompleted ? (
                   <Text style={styles.completed}>{t('courseDetail.completed')}</Text>
+                ) : l.current ? (
+                  <Text style={styles.completed}>{t('courseDetail.learning')}</Text>
+                ) : l.locked ? (
+                  <Text style={styles.completed}>{t('courseDetail.locked')}</Text>
                 ) : null}
               </View>
             </PressableCard>
@@ -225,7 +231,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     lessonRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     lessonTitle: { flex: 1, fontSize: rnType.title.size, color: tk.text.primary },
-    completed: { marginLeft: rnSpacing.sm, fontSize: rnType.label.size, color: tk.success.DEFAULT },
+    completed: { marginLeft: rnSpacing.sm, fontSize: rnType.label.size, color: tk.success.deepText },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

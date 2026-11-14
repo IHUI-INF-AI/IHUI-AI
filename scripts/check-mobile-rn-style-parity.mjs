@@ -175,10 +175,22 @@ function walk(dir, exts, out = []) {
 
 // ─── 判定面取材(2026-10-16 迁 face-reader,枚举也走被审面,清单与内容同轮) ───
 
+/**
+ * 测试文件的排除(2026-11-13 补)。
+ *
+ * 立因:本门射程含 `__tests__/**` 与 `*.test.tsx`,而测试里出现的 `#123456` 是**夹具色**
+ * —— 断言"宿主传进来的 color 原样落到 SVG stop-color 上",不是产品取色。
+ * 把它判成"新增硬编码 hex"会逼人给夹具值登记白名单(让一份本不该存在的债长期存在),
+ * 或者干脆改断言(把判据改软) —— 两条路都比不判更糟。因此判据面收窄到**非测试源**:
+ * 测试里的色值不参与跨端视觉分裂(它从不上屏),这里显式排除并报数,不做静默跳过。
+ */
+const TEST_FILE_RE = /(^|\/)(__tests__|tests)\/|\.(test|spec)\.(ts|tsx)$/
+
 /** 按面枚举 apps/mobile-rn/src 下的 ts/tsx,返回**仓库相对路径**(正斜杠)。枚举不产正文,不算散写读内容。 */
 function listFaceFiles(f) {
   const isTs = (p) => /\.(ts|tsx)$/.test(p)
-  const scoped = (p) => SRC_RELS.some((r) => p.startsWith(`${r}/`)) && isTs(p)
+  const scoped = (p) =>
+    SRC_RELS.some((r) => p.startsWith(`${r}/`)) && isTs(p) && !TEST_FILE_RE.test(p)
   if (f === 'worktree') {
     const rootPrefix = root.split(sep).join('/').length + 1
     return SRC_ABS.flatMap((abs) => walk(abs, ['ts', 'tsx']))

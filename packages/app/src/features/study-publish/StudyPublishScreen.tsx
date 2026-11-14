@@ -57,7 +57,7 @@ function LabeledInput({
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
-        placeholderTextColor={tk.text.tertiary}
+        placeholderTextColor={tk.text.secondary}
       />
     </View>
   )
@@ -87,7 +87,7 @@ function LabeledTextarea({
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
-        placeholderTextColor={tk.text.tertiary}
+        placeholderTextColor={tk.text.secondary}
         multiline
         textAlignVertical="top"
       />
@@ -689,7 +689,7 @@ function createCoverStyles(tk: AppThemeTokens) {
       color: baseTokens.surface.light,
       lineHeight: rnType.bodySm.lineHeight,
     },
-    icon: { fontSize: 28, color: tk.text.tertiary },
+    icon: { fontSize: rnType.displayXl.size, color: tk.text.tertiary },
     hint: { fontSize: rnType.body.size, color: tk.text.tertiary },
     pressed: { opacity: 0.85 },
   })
@@ -698,7 +698,7 @@ function createCoverStyles(tk: AppThemeTokens) {
 function createChipStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     loading: { paddingVertical: rnSpacing.sm },
-    empty: { fontSize: rnType.body.size, color: tk.text.tertiary, paddingVertical: rnSpacing.xs },
+    empty: { fontSize: rnType.body.size, color: tk.text.medium, paddingVertical: rnSpacing.xs },
   })
 }
 

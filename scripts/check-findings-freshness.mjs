@@ -8,6 +8,7 @@ import { execFileSync } from 'node:child_process'
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { resolveGitBin } from './lib/gitdir.mjs'
+import { selectFace } from './lib/face-reader.mjs'
 
 const gitBin = resolveGitBin()
 
@@ -110,6 +111,9 @@ function main() {
   const report = !formatCheck
 
   const root = repoRoot()
+  // 判面层接线(门312):显式选面,直跑时经 selectFace 触发自检;本门读工作树 survey 快照,
+  // 面选择仅作判面层注册(取到的 face 不改变「读 docs/ 快照」这一既定取材面)。
+  selectFace({ staged: argv.includes('--staged'), worktree: argv.includes('--worktree') })
   const tip = tipSha()
   const dir = join(root, 'docs/tickets/2026-11')
 
@@ -130,7 +134,7 @@ function main() {
     // 无基线 ⇒ 不可信 ⇒ 过期;解析不到 ⇒ 不可信 ⇒ 过期;非 TIP 祖先 ⇒ 过期;
     // 是祖先但落后超过 STALE_THRESHOLD 提交 ⇒ 证据已漂移 ⇒ 过期。
     const behind = baselineFull && isAnc ? commitsBehind(baselineFull, tip) : null
-    const expired = !baselineFull || !isAnc || (behind != null && behind > STALE_THRESHOLD)
+    const expired = !baselineFull || !isAnc || (behind !== null && behind > STALE_THRESHOLD)
     return {
       file: `docs/tickets/2026-11/${name}`,
       exists,
@@ -187,7 +191,7 @@ function main() {
     for (const r of results) {
       const status = r.expired ? '⚠ 过期' : '✓ 有效'
       const base = r.baseline || '(无)'
-      const behind = r.commitsBehind == null ? '∞' : String(r.commitsBehind)
+      const behind = r.commitsBehind === null ? '∞' : String(r.commitsBehind)
       console.log(
         `  ${status} ${r.file} | 基线=${base} | behind=${behind} | 警告块=${r.hasWarningBlock ? '有' : '无'}`,
       )

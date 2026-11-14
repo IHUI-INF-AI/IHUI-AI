@@ -114,7 +114,7 @@ function statusBadge(tk: AppThemeTokens, status: string): { bg: string; text: st
     case 'success':
       return { bg: tk.success.lightest, text: tk.success.deepText }
     case 'failed':
-      return { bg: tk.danger.light, text: tk.danger.DEFAULT }
+      return { bg: tk.danger.light, text: tk.danger.deepText }
     case 'partial':
     case 'running':
       return { bg: tk.warning.amberLight, text: tk.warning.amberText }
@@ -395,10 +395,10 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.success.deepText, // text-emerald-700 dark:text-emerald-300
     },
     statLabelFailed: {
-      color: tk.danger.DEFAULT, // text-red-600 dark:text-red-300
+      color: tk.danger.deepText, // text-red-600 dark:text-red-300
     },
     statValueFailed: {
-      color: tk.danger.DEFAULT, // text-red-700 dark:text-red-300
+      color: tk.danger.deepText, // text-red-700 dark:text-red-300
     },
     /* 列表 */
     listContent: {
@@ -442,12 +442,12 @@ function createStyles(tk: AppThemeTokens) {
     cardTime: {
       fontSize: rnType.label.size, // text-xs
       marginTop: rnSpacing['xs-loose'], // mt-1.5
-      color: tk.text.tertiary, // text-gray-400
+      color: tk.text.medium, // text-gray-400
     },
     cardError: {
       fontSize: rnType.label.size, // text-xs
       marginTop: rnSpacing['xs-loose'], // mt-1.5
-      color: tk.danger.DEFAULT, // text-red-500
+      color: tk.danger.deepText, // text-red-500
     },
     cardActions: {
       flexDirection: 'row',

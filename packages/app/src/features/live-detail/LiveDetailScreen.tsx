@@ -23,7 +23,7 @@ import type {
   LiveDetailScreenProps,
 } from '../../types'
 
-import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { rnCssLight, rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { usePublishShareIntent } from '@ihui/shared/share'
 import { formatDateByTemplate } from '@ihui/shared/utils/date-utils'
 
@@ -99,7 +99,9 @@ export function LiveDetailScreen({
   // 新消息到达后自动滚到底部(避免键盘弹起抢焦点)
   useEffect(() => {
     if (messages.length === 0) return
-    setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 80)
+    // 必须随 effect 卸载清掉:否则离开详情页后这一帧仍会触发,对已卸载列表调 scrollToEnd
+    const timer = setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 80)
+    return () => clearTimeout(timer)
   }, [messages.length])
 
   if (loading) {
@@ -153,7 +155,7 @@ export function LiveDetailScreen({
       </View>
 
       <View style={styles.videoArea}>
-        <Play size={24} color={tk.surface.light} />
+        <Play size={24} color={rnCssLight.white95} />
         <Text style={styles.videoHint}>{t('liveDetail.title')}</Text>
         {live.playUrl ? (
           <Text style={styles.videoUrl} numberOfLines={1}>
@@ -228,7 +230,7 @@ export function LiveDetailScreen({
           value={input}
           onChangeText={onInputChange}
           placeholder={t('liveDetail.chatPlaceholder')}
-          placeholderTextColor={tk.text.tertiary}
+          placeholderTextColor={tk.text.secondary}
           editable={chatEnabled}
           returnKeyType="send"
           onSubmitEditing={onSend}
@@ -293,12 +295,12 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    videoIcon: { fontSize: rnType.display.size, color: tk.surface.light },
-    videoHint: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.tertiary },
+    videoIcon: { fontSize: rnType.display.size, color: rnCssLight.white95 },
+    videoHint: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.surface.onBrand },
     videoUrl: {
       marginTop: rnSpacing.sm,
       fontSize: rnType.badge.size,
-      color: tk.text.secondary,
+      color: tk.surface.onBrand,
       paddingHorizontal: rnSpacing['sm-loose'],
     },
     subscribeSection: { paddingHorizontal: rnSpacing['sm-loose'], paddingVertical: rnSpacing.md },
@@ -329,7 +331,7 @@ function createStyles(tk: AppThemeTokens) {
       marginBottom: rnSpacing.sm,
     },
     statusDot: { width: 8, height: 8, borderRadius: rnRadius.xs },
-    chatStatusText: { fontSize: rnType.caption.size, color: tk.text.tertiary },
+    chatStatusText: { fontSize: rnType.caption.size, color: tk.text.medium },
     chatListWrap: {
       flex: 1,
       padding: rnSpacing.sm,
@@ -357,12 +359,12 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.medium,
       marginRight: rnSpacing.sm,
     },
-    chatTime: { fontSize: rnType.badge.size, color: tk.text.tertiary },
+    chatTime: { fontSize: rnType.badge.size, color: tk.text.medium },
     chatContent: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.primary },
     chatErrorText: {
       marginTop: rnSpacing.sm,
       fontSize: rnType.badge.size,
-      color: tk.danger.DEFAULT,
+      color: tk.danger.deepText,
     },
     inputRow: {
       flexDirection: 'row',

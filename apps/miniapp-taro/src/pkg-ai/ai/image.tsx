@@ -201,13 +201,14 @@ export default function ImagePage() {
           <Text className="text-label text-muted-foreground">{t('ai.image.tryThese')}</Text>
           <View className="flex flex-wrap gap-[16rpx] mt-[16rpx]">
             {examples.map((ex) => (
-              <Text
+              <View
                 key={ex}
                 className="py-[12rpx] px-[24rpx] bg-muted rounded-md text-label text-muted-foreground"
                 onClick={() => setPrompt(ex)}
+                hoverClass="opacity-60"
               >
-                {ex}
-              </Text>
+                <Text>{ex}</Text>
+              </View>
             ))}
           </View>
         </View>
@@ -223,7 +224,7 @@ export default function ImagePage() {
         <View className="flex items-center mt-[24rpx] gap-[16rpx]">
           <View className="flex gap-[16rpx] flex-1">
             {sizes.map((s) => (
-              <Text
+              <View
                 key={s.value}
                 className={`py-[12rpx] px-[24rpx] rounded-md text-badge ${
                   size === s.value
@@ -231,16 +232,17 @@ export default function ImagePage() {
                     : 'bg-secondary text-muted-foreground'
                 }`}
                 onClick={() => setSize(s.value)}
+                hoverClass="opacity-60"
               >
-                {s.label}
-              </Text>
+                <Text>{s.label}</Text>
+              </View>
             ))}
           </View>
         </View>
         {styles.length ? (
           <View className="flex gap-[16rpx] mt-[16rpx] flex-wrap">
             {styles.map((s) => (
-              <Text
+              <View
                 key={s}
                 className={`px-[24rpx] py-[12rpx] text-badge rounded-md ${
                   style === s
@@ -248,9 +250,10 @@ export default function ImagePage() {
                     : 'bg-secondary text-muted-foreground'
                 }`}
                 onClick={() => setStyle(s)}
+                hoverClass="opacity-60"
               >
-                {s}
-              </Text>
+                <Text>{s}</Text>
+              </View>
             ))}
           </View>
         ) : null}

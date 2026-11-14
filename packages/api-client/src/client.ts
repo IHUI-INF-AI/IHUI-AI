@@ -1064,9 +1064,53 @@ export function isAbortError(err: unknown): boolean {
   return true
 }
 
+/**
+ * 沿 cause 链取出真 AbortError(2026-11-14 立)。
+ *
+ * 浏览器/RN 的 fetch 被 abort 时抛的是 `TypeError('fetch failed')`,真 AbortError
+ * 藏在 `cause` 里 —— 只看顶层 name 判不出取消。本函数沿链下钻,返回第一个
+ * AbortError;链有环、无 cause 或不是 Error 时**原样返回入参**,不改变既有语义。
+ */
+export function unwrapAbortCause(err: unknown): unknown {
+  let cur: unknown = err
+  const seen = new Set<unknown>()
+  while (cur !== null && typeof cur === 'object' && !seen.has(cur)) {
+    if ((cur as { name?: unknown }).name === 'AbortError') return cur
+    seen.add(cur)
+    const next = (cur as { cause?: unknown }).cause
+    if (next === null || next === undefined) return err
+    cur = next
+  }
+  return err
+}
+
+const NETWORK_FAILURE_TEXT = '网络连接异常,请检查网络后重试'
+const EMPTY_FAILURE_TEXT = '网络异常'
+const NETWORK_FAILURE_PATTERN =
+  /fetch failed|network request failed|failed to fetch|networkerror|network error|err_network|econnrefused|enetunreach|etimedout|socket hang up/i
+
+/**
+ * 无 status 的传输层异常 → 用户可读文案(2026-11-14 立)。
+ *
+ * 只归一**网络类**英文原文(真机出现过 `fetch failed: The operation was aborted.`
+ * 直出给用户);中文业务文案与非网络类英文原样透传 —— 后者由 @ihui/shared 的
+ * toUserFriendlyMessage 统一分类,本层不抢职责。原文进日志,方便定位。
+ */
+export function transportFailureText(err: unknown): string {
+  const message = err instanceof Error ? err.message : ''
+  if (!message.trim()) return EMPTY_FAILURE_TEXT
+  const cause = unwrapAbortCause(err)
+  const isNetwork = NETWORK_FAILURE_PATTERN.test(message) || (cause !== err && isAbortError(cause))
+  if (isNetwork) {
+    console.warn('[api-client] 传输层异常(已归一为网络文案)', message)
+    return NETWORK_FAILURE_TEXT
+  }
+  return message
+}
+
 /** 把内部抛出的错误归一化为 ApiFailure(CircuitOpenError 由调用方处理) */
 function normalizeErrorToResult(err: unknown): ApiFailure {
-  if (isAbortError(err)) {
+  if (isAbortError(unwrapAbortCause(err))) {
     return { success: false, error: '请求已取消' }
   }
   const errAny = err as Error & { status?: number; errorCode?: string; retryAfter?: number }
@@ -1081,7 +1125,7 @@ function normalizeErrorToResult(err: unknown): ApiFailure {
   }
   return {
     success: false,
-    error: err instanceof Error ? err.message : '网络异常',
+    error: transportFailureText(err),
   }
 }
 
@@ -2844,6 +2888,8 @@ export interface SendAdmissionReceipt {
   readonly messageId?: string
   /** queued 档专用:排队项标识 */
   readonly queuedTurnId?: string
+  /** queued 档专用:本条之前还有几轮在排队(服务端给出的位次,非负整数) */
+  readonly ahead?: number
   /** 拒收原因码(命名错误码) */
   readonly reason?: string
 }
@@ -2868,6 +2914,7 @@ function readSendAdmissionReceipt(raw: Record<string, unknown>): SendAdmissionRe
     disposition: AdmissionDisposition
     messageId?: string
     queuedTurnId?: string
+    ahead?: number
     reason?: string
   } = { inputId, disposition: disposition as AdmissionDisposition }
   const messageId = raw['messageId']
@@ -2875,6 +2922,8 @@ function readSendAdmissionReceipt(raw: Record<string, unknown>): SendAdmissionRe
   const queuedTurnId = raw['queuedTurnId']
   if (typeof queuedTurnId === 'string' && queuedTurnId.length > 0)
     receipt.queuedTurnId = queuedTurnId
+  const ahead = raw['ahead']
+  if (typeof ahead === 'number' && Number.isInteger(ahead) && ahead >= 0) receipt.ahead = ahead
   const reason = raw['reason']
   if (typeof reason === 'string' && reason.length > 0) receipt.reason = reason
   return receipt

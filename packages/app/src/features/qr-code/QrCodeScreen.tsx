@@ -111,7 +111,7 @@ function createStyles(tk: AppThemeTokens) {
       fontSize: 32,
       fontWeight: '700',
       letterSpacing: 2,
-      color: tk.text.tertiary,
+      color: tk.text.medium,
     },
     tip: { marginTop: rnSpacing.md, fontSize: rnType.body.size, color: tk.text.secondary },
     code: {
@@ -119,7 +119,7 @@ function createStyles(tk: AppThemeTokens) {
       fontSize: rnType.heading.size,
       fontWeight: '700',
       letterSpacing: 1,
-      color: tk.success.DEFAULT,
+      color: tk.success.deepText,
     },
     shareBtn: {
       marginTop: rnSpacing.lg,

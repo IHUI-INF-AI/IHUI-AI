@@ -5142,6 +5142,7 @@
   "courseScreen": {
     "title": "All Courses",
     "searchPlaceholder": "Search courses",
+    "search": "Search",
     "empty": "No courses yet",
     "free": "Free",
     "studentCount": "{count} learners",
@@ -6668,7 +6669,9 @@
     "enroll": "Enroll Now",
     "pay": "Pay ¥{amount}",
     "lessons": "Lessons",
-    "completed": "Completed"
+    "completed": "Completed",
+    "learning": "In progress",
+    "locked": "Locked"
   },
   "earnCommission": {
     "title": "Commission Program",

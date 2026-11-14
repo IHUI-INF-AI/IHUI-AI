@@ -14,6 +14,7 @@
  * 默认模型:经 utils/retired-providers.ts 的唯一解析入口取(调用方显式 → .env LITELLM_MODEL
  * → 非退役的末位兜底链),本文件不再写死任何 provider 档。
  */
+import type { FastifyRequest } from 'fastify'
 import { config } from '../config/index.js'
 import { logger } from './clawdbot/logger.js'
 import { recordAiCost, resolveAiCost } from '../plugins/ai-cost.js'
@@ -69,6 +70,11 @@ export interface LlmCallOptions {
   userId?: string
   /** G7: 可选 sessionId,用于关联 Crew 会话 */
   sessionId?: string
+  /**
+   * F-97: 发起调用的 Fastify request。传入时 aiServiceFetch 会透传调用者
+   * Authorization,调用不再回落成系统票(系统身份);后台任务仍可留空。
+   */
+  request?: FastifyRequest
 }
 
 export interface LlmCallResult {
@@ -137,7 +143,7 @@ export async function callRealLlm(opts: LlmCallOptions): Promise<LlmCallResult> 
     '[CrewLLM] 调用 ai-service',
   )
 
-  const resp = await aiServiceFetch(null, '/api/llm/complete', {
+  const resp = await aiServiceFetch(opts.request ?? null, '/api/llm/complete', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),

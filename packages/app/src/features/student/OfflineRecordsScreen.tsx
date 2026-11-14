@@ -158,7 +158,7 @@ export function OfflineRecordsScreen({
                 style={styles.input}
                 value={form.type}
                 placeholder={t('offlineRecordsPage.typePlaceholder')}
-                placeholderTextColor={tk.text.tertiary}
+                placeholderTextColor={tk.text.secondary}
                 onChangeText={(v) => onFieldChange?.('type', v)}
               />
             </View>
@@ -169,7 +169,7 @@ export function OfflineRecordsScreen({
                 style={styles.input}
                 value={form.title}
                 placeholder={t('offlineRecordsPage.titlePlaceholder')}
-                placeholderTextColor={tk.text.tertiary}
+                placeholderTextColor={tk.text.secondary}
                 onChangeText={(v) => onFieldChange?.('title', v)}
               />
             </View>
@@ -200,7 +200,7 @@ export function OfflineRecordsScreen({
                   colorScheme={colorScheme}
                   style={styles.input}
                   placeholder="YYYY-MM-DD"
-                  placeholderTextColor={tk.text.tertiary}
+                  placeholderTextColor={tk.text.secondary}
                   value={form.occurredAt}
                   onChangeText={(v) => onFieldChange?.('occurredAt', v)}
                 />
@@ -239,7 +239,7 @@ export function OfflineRecordsScreen({
           </View>
         ) : records.length === 0 ? (
           <View style={styles.emptyBox}>
-            <CalendarClock size={28} color={tk.text.tertiary} strokeWidth={2} />
+            <CalendarClock size={28} color={tk.text.secondary} strokeWidth={2} />
             <Text style={styles.emptyText}>{t('studentPage.empty')}</Text>
           </View>
         ) : (
@@ -272,7 +272,7 @@ export function OfflineRecordsScreen({
                     <Text style={styles.rowSub}>{formatDate(record.occurredAt)}</Text>
                     {record.attachments.length > 0 ? (
                       <View style={styles.metaItem}>
-                        <Paperclip size={12} color={tk.text.tertiary} strokeWidth={2} />
+                        <Paperclip size={12} color={tk.text.secondary} strokeWidth={2} />
                         <Text style={styles.metaText}>
                           {t('offlineRecordsPage.attachmentsCount', {
                             count: record.attachments.length,

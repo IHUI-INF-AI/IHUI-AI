@@ -23,6 +23,7 @@ vi.mock('next-intl', () => ({
       toolsSummary: '工具调用:',
       filesChanged: '文件变更',
       filesEmpty: '无文件变更记录',
+      presentedFiles: '交付文件',
       kindAdd: '新增',
       kindDelete: '删除',
       kindUpdate: '修改',
@@ -69,6 +70,7 @@ const baseDeliverables: TaskDeliverables = {
     { path: 'src/b.ts', kind: 'delete', stepIds: [], additions: 0, deletions: 4 },
     { path: 'src/c.ts', kind: 'update', stepIds: ['s2', 's3'], additions: 6, deletions: 2 },
   ],
+  presentedFiles: [{ path: 'dist/report.pdf', description: '最终 PDF', stepIds: ['s9'] }],
   toolsSummary: { total: 5, byTool: { read_file: 3, grep: 2 } },
   outputSummary: '完成功能 X 并通过测试',
   generatedAt: '2026-09-20T08:00:00.000Z',
@@ -119,6 +121,21 @@ describe('DeliveryReviewPanel 渲染(D27 交付审查视图)', () => {
     expect(screen.getByTestId('delivery-review-steps-2').textContent).toBe('S2')
     // 无步骤的文件行不渲染步骤徽章
     expect(screen.queryByTestId('delivery-review-steps-1')).toBeNull()
+  })
+
+  it('显式交付文件独立成段:路径 + 说明,不混入文件变更区', () => {
+    render(<DeliveryReviewPanel deliverables={baseDeliverables} />)
+    expect(screen.getByTestId('delivery-review-presented').textContent).toContain('交付文件')
+    expect(screen.getByTestId('delivery-review-presented-0').textContent).toContain(
+      'dist/report.pdf',
+    )
+    expect(screen.getByTestId('delivery-review-presented-desc-0').textContent).toBe('最终 PDF')
+    expect(screen.getByTestId('delivery-review-files').textContent).not.toContain('dist/report.pdf')
+  })
+
+  it('无显式交付声明时不渲染该段(不出空 DOM)', () => {
+    render(<DeliveryReviewPanel deliverables={{ ...baseDeliverables, presentedFiles: [] }} />)
+    expect(screen.queryByTestId('delivery-review-presented')).toBeNull()
   })
 
   it('CitationBar 四新 source 色:wiki=cyan / memory=fuchsia / skill=lime / mcp=orange', () => {

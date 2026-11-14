@@ -7,6 +7,24 @@ import { db } from './index.js'
 import { pluginEvents, type PluginEvent } from '@ihui/database'
 
 // =============================================================================
+// 业务日界
+// =============================================================================
+
+/**
+ * 统计口径时区。created_at 为 timestamptz,`current_date` / 裸 `to_char` 走会话时区
+ * (默认 UTC),会让「今日」与按天趋势在北京时间 0-8 点错位;统一显式换算到本地日。
+ */
+const BUSINESS_TIMEZONE = 'Asia/Shanghai'
+
+const BUSINESS_TZ_SQL = sql.raw(`'${BUSINESS_TIMEZONE}'`)
+
+/** 事件发生所在的业务日期(本地日)。 */
+const eventBusinessDate = sql`(${pluginEvents.createdAt} AT TIME ZONE ${BUSINESS_TZ_SQL})::date`
+
+/** 当前业务日期(本地日)。 */
+const todayBusinessDate = sql`(now() AT TIME ZONE ${BUSINESS_TZ_SQL})::date`
+
+// =============================================================================
 // 事件写入(append-only)
 // =============================================================================
 
@@ -88,8 +106,8 @@ export async function getPluginStatsSummary(days: number): Promise<PluginStatsSu
       totalClicks: sql<number>`count(*) filter (where ${pluginEvents.eventType} = 'click')`,
       totalPins: sql<number>`count(*) filter (where ${pluginEvents.eventType} = 'pin')`,
       totalUnpins: sql<number>`count(*) filter (where ${pluginEvents.eventType} = 'unpin')`,
-      todayInstalls: sql<number>`count(*) filter (where ${pluginEvents.eventType} = 'install' and ${pluginEvents.createdAt} >= current_date)`,
-      todayClicks: sql<number>`count(*) filter (where ${pluginEvents.eventType} = 'click' and ${pluginEvents.createdAt} >= current_date)`,
+      todayInstalls: sql<number>`count(*) filter (where ${pluginEvents.eventType} = 'install' and ${eventBusinessDate} = ${todayBusinessDate})`,
+      todayClicks: sql<number>`count(*) filter (where ${pluginEvents.eventType} = 'click' and ${eventBusinessDate} = ${todayBusinessDate})`,
     })
     .from(pluginEvents)
     .where(gte(pluginEvents.createdAt, since))
@@ -160,7 +178,7 @@ export async function getPluginStatsTrend(days: number): Promise<PluginTrendRow[
   const since = sql`now() - interval '${sql.raw(String(days))} days'`
   const rows = await db
     .select({
-      date: sql<string>`to_char(${pluginEvents.createdAt}, 'YYYY-MM-DD')`,
+      date: sql<string>`to_char(${eventBusinessDate}, 'YYYY-MM-DD')`,
       installs: sql<number>`count(*) filter (where ${pluginEvents.eventType} = 'install')`,
       clicks: sql<number>`count(*) filter (where ${pluginEvents.eventType} = 'click')`,
       uninstalls: sql<number>`count(*) filter (where ${pluginEvents.eventType} = 'uninstall')`,

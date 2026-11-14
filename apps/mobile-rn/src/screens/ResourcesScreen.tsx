@@ -34,6 +34,7 @@ import { NavChrome } from '../components/NavChrome'
 import { useTheme } from '../context/ThemeContext'
 import { useI18n } from '../i18n'
 import { tokens } from '../theme/active-tokens'
+import { toFriendlyOr } from '@ihui/shared/utils'
 
 const PAGE_SIZE = 20
 
@@ -92,10 +93,16 @@ export function ResourcesScreen() {
 
   // 分类是辅助筛选位:取不到就退化成不分类浏览,不打断主链路
   useEffect(() => {
+    let cancelled = false
     void (async () => {
       const res = await fetchApi<{ list: ResourceCategory[] }>('/api/resources/categories')
+      // 页面已退出就丢掉回包:用户看不到这批分类,也不会再触发卸载后 setState
+      if (cancelled) return
       if (res.success) setCategories(res.data?.list ?? [])
     })()
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   const fetchList = useCallback(
@@ -119,7 +126,7 @@ export function ResourcesScreen() {
       setItems(page.list)
       setTotal(page.total)
     } catch (e) {
-      setError(e instanceof Error ? e.message : t('resources.loadFailed'))
+      setError(toFriendlyOr(e, t('resources.loadFailed')))
       setItems([])
       setTotal(0)
     } finally {
@@ -149,7 +156,7 @@ export function ResourcesScreen() {
       setItems((prev) => [...prev, ...page.list])
       setTotal(page.total)
     } catch (e) {
-      appAlert(t('common.loadFailed'), e instanceof Error ? e.message : t('resources.loadFailed'))
+      appAlert(t('common.loadFailed'), toFriendlyOr(e, t('resources.loadFailed')))
     } finally {
       setLoadingMore(false)
     }
@@ -168,7 +175,7 @@ export function ResourcesScreen() {
         }
         setDetail(res.data?.resource ?? item)
       } catch (e) {
-        setDetailError(e instanceof Error ? e.message : t('resources.detailFailed'))
+        setDetailError(toFriendlyOr(e, t('resources.detailFailed')))
       } finally {
         setDetailLoading(false)
       }

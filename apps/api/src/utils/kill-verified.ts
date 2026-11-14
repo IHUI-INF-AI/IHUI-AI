@@ -278,10 +278,29 @@ export const defaultProcInspector: ProcIdentityInspector = async (pid) => {
   return null
 }
 
-const defaultKillExecutor: KillExecutor = (bin, argv) =>
-  new Promise((resolvePromise) => {
+/** F-328: 身份复核一侧全部绝对路径,真正有破坏力的终止命令也不得走 PATH 裸名。 */
+function resolveKillBin(bin: string): string {
+  if (bin === 'taskkill') {
+    return join(process.env['SystemRoot'] ?? 'C:\\Windows', 'System32', 'taskkill.exe')
+  }
+  return bin
+}
+
+const defaultKillExecutor: KillExecutor = (bin, argv) => {
+  // POSIX 直接发内核信号,不经外部可执行文件,彻底消除 PATH 顶替面。
+  if (bin === 'kill') {
+    return new Promise<string | KillCommandResult>((resolvePromise) => {
+      try {
+        process.kill(Number(argv[argv.length - 1]), 'SIGKILL')
+        resolvePromise({ ok: true, output: 'SIGKILL delivered' })
+      } catch (e) {
+        resolvePromise({ ok: false, output: String((e as Error).message) })
+      }
+    })
+  }
+  return new Promise<string | KillCommandResult>((resolvePromise) => {
     execFile(
-      bin,
+      resolveKillBin(bin),
       argv,
       { timeout: 15_000, shell: false, windowsHide: true },
       (err, out, errOut) => {
@@ -297,6 +316,7 @@ const defaultKillExecutor: KillExecutor = (bin, argv) =>
       },
     )
   })
+}
 
 /**
  * 唯一杀进程出口:现场取身份 ⇒ 纯判定 ⇒ 成立才派生终止命令。

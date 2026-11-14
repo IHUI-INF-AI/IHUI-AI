@@ -641,8 +641,7 @@ const developerRelayRoutes: FastifyPluginAsync = async (server) => {
           disabled: { status: 403, msg: '兑换码已被禁用' },
           not_unused: { status: 409, msg: '兑换码状态异常' },
           no_active_key: { status: 404, msg: '您还没有可用的 API Key,请先创建' },
-          // F-396:不存在与不属于当前用户统一文案,不泄露他人 Key 是否存在
-          key_not_found: { status: 404, msg: '指定的 API Key 不存在或无权操作' },
+          key_not_found: { status: 404, msg: '指定的 API Key 不存在' },
         }
         const mapped = reasonMap[result.reason ?? ''] ?? {
           status: 400,

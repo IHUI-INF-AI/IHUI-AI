@@ -62,7 +62,7 @@ export function RankingScreen({
 
   const rankColor = (rank: number) => {
     if (rank === 1) return tk.warning.amber
-    if (rank === 2) return tk.text.tertiary
+    if (rank === 2) return tk.text.secondary
     if (rank === 3) return tk.warning.amberText
     return tk.text.secondary
   }
@@ -197,7 +197,7 @@ function createStyles(tk: AppThemeTokens) {
       overflow: 'hidden',
     },
     avatarImg: { width: '100%', height: '100%', borderRadius: rnRadius.lg },
-    avatarInitial: { fontSize: 22, fontWeight: '600', color: tk.text.secondary },
+    avatarInitial: { fontSize: rnType.headline.size, fontWeight: '600', color: tk.text.secondary },
     podiumName: {
       marginTop: rnSpacing.sm,
       fontSize: rnType.body.size,
@@ -207,7 +207,7 @@ function createStyles(tk: AppThemeTokens) {
     podiumPoints: {
       marginTop: rnSpacing.sm,
       fontSize: rnType.body.size,
-      color: tk.success.DEFAULT,
+      color: tk.success.deepText,
     },
     rankBadge: {
       marginTop: rnSpacing.sm,
@@ -241,8 +241,8 @@ function createStyles(tk: AppThemeTokens) {
     },
     listInfo: { flex: 1, marginLeft: rnSpacing['sm-loose'], marginRight: rnSpacing.sm },
     listName: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
-    listMeta: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.tertiary },
-    listPoints: { fontSize: rnType.title.size, fontWeight: '700', color: tk.success.DEFAULT },
+    listMeta: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.medium },
+    listPoints: { fontSize: rnType.title.size, fontWeight: '700', color: tk.success.deepText },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -223,7 +223,7 @@ export function ModelEditScreen({
                 value={fields.price}
                 onChangeText={(v) => onChange('price', v)}
                 placeholder={t('modelEdit.pricePlaceholder')}
-                placeholderTextColor={tk.text.tertiary}
+                placeholderTextColor={tk.text.secondary}
                 keyboardType="numeric"
               />
             </View>
@@ -360,7 +360,7 @@ function createStyles(tk: AppThemeTokens) {
     baseName: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
     baseSub: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.secondary },
     loadingRow: { alignItems: 'center', paddingVertical: rnSpacing.md },
-    loadingText: { fontSize: rnType.caption.size, color: tk.text.tertiary },
+    loadingText: { fontSize: rnType.caption.size, color: tk.text.medium },
     label: {
       fontSize: rnType.body.size,
       fontWeight: '600',
@@ -372,7 +372,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: -rnSpacing.xs,
       marginBottom: rnSpacing.sm,
       fontSize: rnType.caption.size,
-      color: tk.text.tertiary,
+      color: tk.text.medium,
     },
     chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: rnSpacing['sm-loose'] },
     chip: {

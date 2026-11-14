@@ -438,21 +438,33 @@ export function openAIResponseToAnthropic(
 // 3 & 4. 流式状态机 + OpenAI Chat 流式 chunk → Anthropic SSE 事件数组
 // =============================================================================
 
+export interface ToolBlockState {
+  /** 该工具独占的 Anthropic content block index */
+  blockIndex: number
+  /** 是否已发 content_block_start */
+  started: boolean
+}
+
 export interface StreamState {
   messageStarted: boolean
+  /** 是否有任一 content block 处于打开状态(路由收尾兜底用) */
   contentBlockStarted: boolean
-  /** 当前 content block 索引(Anthropic 用 index 标识 block) */
+  /** 当前文本块索引;同时作为新 content block 的分配游标 */
   blockIndex: number
   model: string
   /** 累计已发送的文本字符数(用于估算 output_tokens) */
   outputChars: number
   /** 已发送的 message id(Anthropic message_start 用) */
   messageId: string
-  /** 当前 tool_use block 是否已 start(用于 tool_calls 流式) */
+  /** 是否已有 tool_use block 开启(兼容旧语义) */
   toolUseStarted: boolean
-  /** 当前 tool_use 的 id / name(流式累计) */
+  /** 最近一条 tool_use 的 id / name(流式累计) */
   currentToolUseId: string
   currentToolUseName: string
+  /** 文本块当前是否打开 */
+  textBlockOpen: boolean
+  /** F-307:按 tool_calls[].index 分开维护各自独立的 tool_use block */
+  toolBlocks: Map<number, ToolBlockState>
 }
 
 export function createStreamState(model: string): StreamState {
@@ -467,6 +479,8 @@ export function createStreamState(model: string): StreamState {
     toolUseStarted: false,
     currentToolUseId: '',
     currentToolUseName: '',
+    textBlockOpen: false,
+    toolBlocks: new Map(),
   }
 }
 
@@ -476,8 +490,9 @@ export function createStreamState(model: string): StreamState {
  * 转换规则:
  * - 首次调用:发 message_start + content_block_start(text block)
  * - delta.content → content_block_delta(text_delta)
- * - delta.tool_calls → content_block_start(tool_use) + content_block_delta(input_json_delta)
- * - finish_reason 非 null → content_block_stop + message_delta(stop_reason) + message_stop
+ * - delta.tool_calls → 按 tool_calls[].index 各自 content_block_start(tool_use)
+ *   + content_block_delta(input_json_delta),并行工具互不合并
+ * - finish_reason 非 null → 关闭全部 block + message_delta(stop_reason) + message_stop
  *
  * 状态机:state 在调用间保持,函数 mutates state(引用传递,调用方持有同一对象)。
  * 返回的事件数组按 Anthropic SSE 顺序排列,调用方逐个 `event: type\ndata: json\n\n` 写出。
@@ -512,18 +527,23 @@ export function openAIStreamChunkToAnthropicEvents(
 
   // 文本内容
   if (typeof delta.content === 'string' && delta.content.length > 0) {
-    if (!state.contentBlockStarted || state.toolUseStarted) {
-      // 切回 text block(若之前在 tool_use block,先关闭)
-      if (state.toolUseStarted) {
-        events.push({ type: 'content_block_stop', index: state.blockIndex })
-        state.blockIndex += 1
-        state.toolUseStarted = false
+    // 文本块与工具块互斥:先关闭所有已开启的 tool_use block
+    const openTools = Array.from(state.toolBlocks.values()).filter((b) => b.started)
+    if (openTools.length > 0) {
+      for (const b of openTools) {
+        events.push({ type: 'content_block_stop', index: b.blockIndex })
+        b.started = false
       }
+      state.toolUseStarted = false
+      state.contentBlockStarted = false
+    }
+    if (!state.textBlockOpen) {
       events.push({
         type: 'content_block_start',
         index: state.blockIndex,
         content_block: { type: 'text', text: '' },
       })
+      state.textBlockOpen = true
       state.contentBlockStarted = true
     }
     events.push({
@@ -534,37 +554,48 @@ export function openAIStreamChunkToAnthropicEvents(
     state.outputChars += delta.content.length
   }
 
-  // tool_calls 流式
+  // tool_calls 流式:F-307 每个 tool_calls[].index 各自独立 start/delta/stop
   if (Array.isArray(delta.tool_calls)) {
     for (const tc of delta.tool_calls) {
-      // 新 tool_use:block_start
-      if (tc.id && tc.function?.name && !state.toolUseStarted) {
-        // 若有未关闭的 text block,先关闭
-        if (state.contentBlockStarted && !state.toolUseStarted) {
+      // 缺省 index 视作 0,兼容不带 index 的单工具老流
+      const toolKey = typeof tc.index === 'number' ? tc.index : 0
+      const hasIdentity = Boolean(tc.id || tc.function?.name)
+
+      let block = state.toolBlocks.get(toolKey)
+      if (!block && hasIdentity) {
+        // 若有未关闭的文本块,先关闭并让出 index
+        if (state.contentBlockStarted && state.toolBlocks.size === 0) {
           events.push({ type: 'content_block_stop', index: state.blockIndex })
           state.blockIndex += 1
+          state.textBlockOpen = false
           state.contentBlockStarted = false
         }
-        state.currentToolUseId = tc.id
-        state.currentToolUseName = tc.function.name
+        block = { blockIndex: state.blockIndex, started: false }
+        state.blockIndex += 1
+        state.toolBlocks.set(toolKey, block)
+      }
+
+      // 每个 index 首次拿到 id/name 时独立 content_block_start
+      if (block && !block.started && hasIdentity) {
+        const id = tc.id ?? ''
+        const name = tc.function?.name ?? ''
+        state.currentToolUseId = id
+        state.currentToolUseName = name
         events.push({
           type: 'content_block_start',
-          index: state.blockIndex,
-          content_block: {
-            type: 'tool_use',
-            id: tc.id,
-            name: tc.function.name,
-            input: {},
-          },
+          index: block.blockIndex,
+          content_block: { type: 'tool_use', id, name, input: {} },
         })
+        block.started = true
         state.toolUseStarted = true
         state.contentBlockStarted = true
       }
-      // arguments 增量 → input_json_delta
-      if (tc.function?.arguments) {
+
+      // arguments 增量只写回该 index 自己的 block
+      if (block?.started && tc.function?.arguments) {
         events.push({
           type: 'content_block_delta',
-          index: state.blockIndex,
+          index: block.blockIndex,
           delta: { type: 'input_json_delta', partial_json: tc.function.arguments },
         })
         state.outputChars += tc.function.arguments.length
@@ -572,14 +603,22 @@ export function openAIStreamChunkToAnthropicEvents(
     }
   }
 
-  // finish_reason:关闭 block + message_delta + message_stop
+  // finish_reason:关闭所有 block + message_delta + message_stop
   if (choice.finish_reason) {
-    if (state.contentBlockStarted) {
+    for (const block of state.toolBlocks.values()) {
+      if (block.started) {
+        events.push({ type: 'content_block_stop', index: block.blockIndex })
+        block.started = false
+      }
+    }
+    state.toolBlocks.clear()
+    state.toolUseStarted = false
+    if (state.textBlockOpen) {
       events.push({ type: 'content_block_stop', index: state.blockIndex })
       state.blockIndex += 1
-      state.contentBlockStarted = false
-      state.toolUseStarted = false
+      state.textBlockOpen = false
     }
+    state.contentBlockStarted = false
     const stopReason = FINISH_REASON_MAP[choice.finish_reason] ?? 'end_turn'
     // 估算 output_tokens(1 token ≈ 4 字符,与 v1-public 流式估算一致)
     const estimatedOutputTokens = Math.max(1, Math.ceil(state.outputChars / 4))

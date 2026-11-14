@@ -471,7 +471,8 @@ function downgradeForRedirect(
   method: string,
 ): { method: string; dropBody: boolean } {
   if (status === 303) return { method: 'GET', dropBody: true }
-  if ((status === 301 || status === 302) && method === 'POST') return { method: 'GET', dropBody: true }
+  if ((status === 301 || status === 302) && method === 'POST')
+    return { method: 'GET', dropBody: true }
   return { method, dropBody: false }
 }
 
@@ -481,8 +482,17 @@ function downgradeForRedirect(
  * `proxiedFetch` 用它并接代理 dispatcher;直连分支若将来也要这一层,必须调**这同一个函数**
  * (换 transport 即可),不得再抄一遍循环 —— 两处循环必然在剥头判据上漂移。
  */
-export async function boundedEgressFetch(url: string, options: BoundedEgressOptions): Promise<Response> {
-  const maxRedirects = resolveLimit(options.maxRedirects, EGRESS_MAX_REDIRECTS, 0, REDIRECTS_CEILING, 'maxRedirects')
+export async function boundedEgressFetch(
+  url: string,
+  options: BoundedEgressOptions,
+): Promise<Response> {
+  const maxRedirects = resolveLimit(
+    options.maxRedirects,
+    EGRESS_MAX_REDIRECTS,
+    0,
+    REDIRECTS_CEILING,
+    'maxRedirects',
+  )
   const maxResponseBytes = resolveLimit(
     options.maxResponseBytes,
     EGRESS_MAX_RESPONSE_BYTES,
@@ -490,7 +500,13 @@ export async function boundedEgressFetch(url: string, options: BoundedEgressOpti
     RESPONSE_BYTES_CEILING,
     'maxResponseBytes',
   )
-  const timeoutMs = resolveLimit(options.timeoutMs, EGRESS_TIMEOUT_MS, 1, TIMEOUT_CEILING_MS, 'timeoutMs')
+  const timeoutMs = resolveLimit(
+    options.timeoutMs,
+    EGRESS_TIMEOUT_MS,
+    1,
+    TIMEOUT_CEILING_MS,
+    'timeoutMs',
+  )
 
   // 本模块自己的 controller:超时由它触发;调用方的 signal(若有)转发进来。
   const controller = new AbortController()
@@ -671,9 +687,7 @@ function enrichedEgressFacts(url: string, res: Response): EgressFacts {
   const hops = readEgressHops(res)
   return createEgressFacts({
     ...collectEgressFacts(url),
-    ...(hops
-      ? { finalHostname: hops.finalHostname, redirectCount: hops.redirectCount }
-      : {}),
+    ...(hops ? { finalHostname: hops.finalHostname, redirectCount: hops.redirectCount } : {}),
   })
 }
 

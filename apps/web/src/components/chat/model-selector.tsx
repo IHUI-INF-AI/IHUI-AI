@@ -109,9 +109,7 @@ const AUTO_OPTION: ModelOption = {
 
 interface ModelSelectorProps {
   value: string
-  /** 第二参 = 模型通道(2026-11-12 立):'pool' 表示选中了「我的号池」模型,
-   *  宿主据此把 chat store 的 currentModelChannel 一起切走;缺省 = 平台模型。 */
-  onChange: (model: string, channel?: 'platform' | 'pool') => void
+  onChange: (model: string) => void
   disabled?: boolean
   label: string
   /** 2026-11-11 用户要求:auto 模式下宿主传入「当前对话实际使用的模型」,
@@ -376,29 +374,12 @@ function ModelOptionRow({
   )
 }
 
-/** 元/百万 token 的展示口径:统一 2 位小数(10.038→10.04 / 0.12→0.12) */
-function formatPerMillion(v: number): string {
-  return v.toFixed(2)
-}
-
-/** 能力摘要行末尾追加真实单价(2026-11-13 立)。
- *  倍率只是官方对标档位,横比模型必须看真实单价,否则会出现"倍率低但实际更贵"的误判。 */
-function pricePerMillionText(opt: ModelOption): string | null {
-  const inM = opt.inputPricePerMillion
-  const outM = opt.outputPricePerMillion
-  if (inM === undefined || outM === undefined) return null
-  return inM === outM
-    ? `¥${formatPerMillion(inM)}/M`
-    : `¥${formatPerMillion(inM)}–${formatPerMillion(outM)}/M`
-}
-
 /**
  * 实测能力摘要行(2026-11-11 立):名称下方的 10px 灰色一行,
  * 三段 "流式 · 工具 · 长上下文" 用 ` · ` 分隔。
  * - 已验证段 text-muted-foreground,失败段 amber,未知段 muted-foreground/60
  * - 失败/未知段 title 优先展示后端错误,否则固定说明(尚未实测/实测未通过)
  * - capsVerified 整体缺失时仍显示三段问号,保证所有行结构一致
- * - 号池预设模型末尾追加真实单价(元/百万 token,2026-11-13)
  */
 export function ModelCapsSummary({ opt }: { opt: ModelOption }) {
   const t = useTranslations('chat')
@@ -410,7 +391,6 @@ export function ModelCapsSummary({ opt }: { opt: ModelOption }) {
   // 后端可能追加分段错误字段(类型未固定声明),存在即优先展示
   const caps = opt.capsVerified as
     (CapsVerified & { tools_error?: string; context_error?: string }) | undefined
-  const priceText = pricePerMillionText(opt)
   return (
     <span className="flex min-w-0 items-center overflow-hidden whitespace-nowrap text-[10px] leading-tight">
       {segments.map((seg, index) => {
@@ -445,17 +425,6 @@ export function ModelCapsSummary({ opt }: { opt: ModelOption }) {
           </span>
         )
       })}
-      {priceText && (
-        <>
-          <span aria-hidden className="px-0.5 text-muted-foreground/40">
-            ·
-          </span>
-          {/* 真实单价:横比模型以此为准,倍率只是官方对标档位 */}
-          <span className="shrink-0 text-muted-foreground" title={t('capPriceHint')}>
-            {priceText}
-          </span>
-        </>
-      )}
     </span>
   )
 }
@@ -795,21 +764,10 @@ function withPoolModels(base: ModelOption[], pool: PoolChatModel[]): ModelOption
     base.push({
       value: m.id,
       label: m.name || m.id,
-      // 2026-11-12 立:打上号池通道标记 —— 发送路径据此走 /ws/relay/chat 而非 agent runtime
-      channel: 'pool',
       // 用平台 code 当 vendor:命中 VENDOR_LABEL 的(豆包/MiniMax 等)显示中文名,
       // 其余按品牌 code 原样分组,语义就是「这是我名下某个平台的号」
       vendor: m.provider,
-      // 2026-11-13 改:倍率以平台登记行为准(公共池调用会真实扣积分,不能再硬编码免费档);
-      // 未登记指的上游补缺模型才回落 0(无定价,不是"免费")
-      pointsMultiplier: m.pointsMultiplier ?? 0,
-      // 真实单价随行下发:倍率只作官方对标档位,横比模型以这两个数为准
-      ...(m.inputPricePerMillion !== undefined && m.outputPricePerMillion !== undefined
-        ? {
-            inputPricePerMillion: m.inputPricePerMillion,
-            outputPricePerMillion: m.outputPricePerMillion,
-          }
-        : {}),
+      pointsMultiplier: 0,
       // 2026-11-11 立:个人号池模型未做连通性探测,按未验证展示并说明原因
       verified: false,
       healthError: '个人号池模型,未做连通性探测',
@@ -1272,7 +1230,7 @@ export function ModelSelector({
                     !useApiOnly &&
                     !isConfiguredVendor(opt.vendor, configuredTemplateCodes)
                   }
-                  onSelect={() => onChange(opt.value, opt.channel)}
+                  onSelect={() => onChange(opt.value)}
                 />
               ))}
               <DropdownMenu.Separator className="my-1 h-px bg-border/60 last:hidden" />
@@ -1304,7 +1262,7 @@ export function ModelSelector({
                     !useApiOnly &&
                     !isConfiguredVendor(opt.vendor, configuredTemplateCodes)
                   }
-                  onSelect={() => onChange(opt.value, opt.channel)}
+                  onSelect={() => onChange(opt.value)}
                 />
               ))}
             </DropdownMenu.Group>
@@ -1412,7 +1370,7 @@ export function ModelSelector({
                               !isConfiguredVendor(opt.vendor, configuredTemplateCodes)
                             }
                             showCategory
-                            onSelect={() => onChange(opt.value, opt.channel)}
+                            onSelect={() => onChange(opt.value)}
                           />
                         ))}
                       </DropdownMenu.Group>

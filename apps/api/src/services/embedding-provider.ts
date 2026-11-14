@@ -18,6 +18,8 @@
  *   4. 维度统一为 1536 (OpenAI 标准), 不同 provider 在内部做投影或填充
  */
 
+import { fetchWithinDeadline, isDeadlineAbort } from '../utils/fetch-deadline.js'
+
 export interface EmbeddingProvider {
   /** Provider 标识, 用于日志和 metrics */
   readonly name: string
@@ -105,6 +107,50 @@ function alignEmbeddingBatch(
 }
 
 // =============================================================================
+// 出站出口 (F-144)
+// =============================================================================
+
+/**
+ * embedding 出站请求的统一时限 (F-144)。
+ *
+ * 三处 provider 原先各自裸 `fetch`:上游不回包时 Promise 永不 settle,
+ * 每轮聊天的 RAG 检索与每条 chunk 入库都被单个慢请求无限拖住 (占着 socket/内存),
+ * 而 `getEmbedding` 侧的 catch 对「迟迟不返回」无效。时限集中在此一处, 不散落到各 provider。
+ *
+ * 不复用 `aiServiceFetch`:它前缀 `config.AI_SERVICE_URL` 并注入系统 token/traceparent,
+ * 语义是「调本仓 ai-service」, 与 DashScope/OpenAI/MiniMax 这些外部端点不适配。
+ */
+export const EMBEDDING_REQUEST_TIMEOUT_MS = 15_000
+
+/**
+ * 三处 provider 的唯一出站出口:带 deadline 的 fetch + 把中断转换成明确错误。
+ *
+ * deadline 覆盖「发出请求 → 响应体消费结束」整段 (不是只到响应头), 因此上游
+ * 「发了 headers 再停滞」也不会挂住调用方; 到点一律抛错, 绝不静默返回空向量冒充成功。
+ */
+async function fetchEmbedding(
+  providerName: string,
+  url: string,
+  init: RequestInit,
+): Promise<Response> {
+  try {
+    return await fetchWithinDeadline(url, init, {
+      timeoutMs: EMBEDDING_REQUEST_TIMEOUT_MS,
+      label: `${providerName} embedding 出站请求`,
+    })
+  } catch (err) {
+    // 本文件不传外部 signal, 故 AbortError 只可能来自上面这条 deadline。
+    if (isDeadlineAbort(err) || (err instanceof Error && err.name === 'AbortError')) {
+      throw new Error(
+        `[${providerName}] embedding 请求未在 ${EMBEDDING_REQUEST_TIMEOUT_MS}ms 内完成, 已中断:` +
+          '上游挂起不再无限拖住 RAG 检索/入库',
+      )
+    }
+    throw err
+  }
+}
+
+// =============================================================================
 // DashScope
 // =============================================================================
 
@@ -120,7 +166,7 @@ class DashScopeEmbeddingProvider implements EmbeddingProvider {
 
   async embed(texts: string[]): Promise<number[][]> {
     const inputs = texts.map((t) => t.slice(0, DASHSCOPE_MAX_INPUT))
-    const resp = await fetch(DASHSCOPE_URL, {
+    const resp = await fetchEmbedding(this.name, DASHSCOPE_URL, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${this.apiKey}`,
@@ -154,7 +200,7 @@ class OpenAIEmbeddingProvider implements EmbeddingProvider {
   constructor(private readonly apiKey: string) {}
 
   async embed(texts: string[]): Promise<number[][]> {
-    const resp = await fetch(OPENAI_URL, {
+    const resp = await fetchEmbedding(this.name, OPENAI_URL, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${this.apiKey}`,
@@ -204,7 +250,7 @@ class MinimaxEmbeddingProvider implements EmbeddingProvider {
   ) {}
 
   async embed(texts: string[]): Promise<number[][]> {
-    const resp = await fetch(this.endpoint, {
+    const resp = await fetchEmbedding(this.name, this.endpoint, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${this.apiKey}`,

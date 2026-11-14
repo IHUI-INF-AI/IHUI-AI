@@ -28,7 +28,7 @@ export function createUserFansStyles(tk: AppThemeTokens) {
     muted: { fontSize: rnType.label.size, color: tk.text.secondary },
     total: {
       fontSize: rnType.label.size,
-      color: tk.text.tertiary,
+      color: tk.text.medium,
       paddingHorizontal: rnSpacing.xs,
     },
     row: {
@@ -58,7 +58,7 @@ export function createUserFansStyles(tk: AppThemeTokens) {
       gap: rnSpacing.xs,
       paddingHorizontal: rnSpacing.xs,
     },
-    followedText: { fontSize: rnType.label.size, fontWeight: '600', color: tk.success.DEFAULT },
+    followedText: { fontSize: rnType.label.size, fontWeight: '600', color: tk.success.deep },
     followBtn: {
       flexDirection: 'row',
       alignItems: 'center',

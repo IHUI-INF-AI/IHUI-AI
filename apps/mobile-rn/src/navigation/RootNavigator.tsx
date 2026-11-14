@@ -640,7 +640,10 @@ export type RootStackParamList = {
   MessageDirect: undefined
   MessageGroup: undefined
   AnnouncementDetail: { id: string }
-  ActivityDetail: { id: string }
+  // 后端活动详情是 GET /activities/:slug(按 slug 查)。id 保留为必填(路由表
+  // ui-routes.generated 的 requiredParams 仍是 id),slug 由列表页一并带出;
+  // 详情屏优先用 slug,老调用方只传 id 时回退 id —— 不至于直接跳出「活动不存在」。
+  ActivityDetail: { id: string; slug?: string }
   FeedbackHistory: undefined
   FeedbackDetail: { id: string }
   SettingsAccount: undefined

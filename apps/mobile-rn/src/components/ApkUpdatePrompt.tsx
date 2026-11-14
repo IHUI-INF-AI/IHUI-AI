@@ -288,7 +288,7 @@ const styles = StyleSheet.create({
   },
   stats: {
     marginTop: rnSpacing.xs,
-    color: tokens.text.tertiary,
+    color: tokens.text.medium,
     fontSize: rnType.caption.size,
   },
   notesBox: {
@@ -308,7 +308,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: rnSpacing.sm,
   },
-  hint: { flex: 1, minWidth: 0, color: tokens.text.tertiary, fontSize: rnType.caption.size },
+  hint: { flex: 1, minWidth: 0, color: tokens.text.medium, fontSize: rnType.caption.size },
   ghostBtn: {
     flexShrink: 0,
     alignItems: 'center',

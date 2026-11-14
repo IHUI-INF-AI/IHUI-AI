@@ -19,11 +19,7 @@ import {
   readEgressHops,
 } from '../src/utils/proxy-dispatcher.js'
 import { fetchWithTimeout } from '../src/routes/ai-vendors/_shared.js'
-import {
-  createEgressFacts,
-  EGRESS_FACT_FIELDS,
-  type EgressFacts,
-} from '@ihui/types'
+import { createEgressFacts, EGRESS_FACT_FIELDS, type EgressFacts } from '@ihui/types'
 
 /** 本测试涉及的变量在 .env.test / 宿主 shell 里都可能已存在 ⇒ 逐条存取,不得盲删。*/
 const MANAGED_VARS = [
@@ -236,7 +232,10 @@ describe('G-750:事实面必须能回答"字节是从哪个 host 拿回来的"',
     return (async (input: string | URL | Request) => {
       const url = String(input)
       if (url === 'https://api.deepseek.com/v1/thing') {
-        return new Response(null, { status: 302, headers: { location: 'https://cdn.third-party-cdn.test/pull' } })
+        return new Response(null, {
+          status: 302,
+          headers: { location: 'https://cdn.third-party-cdn.test/pull' },
+        })
       }
       if (url === 'https://cdn.third-party-cdn.test/pull') {
         return new Response('bytes-from-cdn', { status: 200 })
@@ -278,7 +277,9 @@ describe('G-750:事实面必须能回答"字节是从哪个 host 拿回来的"',
     expect('redirectCount' in roundTripped).toBe(false)
     // 但白名单认得它们:显式给了值,createEgressFacts 唯一出口就必须抄进来(结构上仍带不进凭据类内容)
     const enriched = JSON.parse(
-      JSON.stringify(createEgressFacts({ ...facts, finalHostname: 'cdn.example.test', redirectCount: 2 })),
+      JSON.stringify(
+        createEgressFacts({ ...facts, finalHostname: 'cdn.example.test', redirectCount: 2 }),
+      ),
     ) as Record<string, unknown>
     expect(enriched.finalHostname).toBe('cdn.example.test')
     expect(enriched.redirectCount).toBe(2)

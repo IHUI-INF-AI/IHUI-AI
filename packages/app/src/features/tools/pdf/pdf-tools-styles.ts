@@ -51,7 +51,7 @@ export function createPdfToolsStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.lg,
       paddingVertical: rnSpacing['3xl'],
     },
-    uploadText: { fontSize: rnType.bodySm.size, color: tk.text.tertiary },
+    uploadText: { fontSize: rnType.bodySm.size, color: tk.text.medium },
     fileRow: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -64,7 +64,7 @@ export function createPdfToolsStyles(tk: AppThemeTokens) {
     },
     fileMain: { flex: 1, gap: rnSpacing['2xs'] },
     fileName: { fontSize: rnType.bodySm.size, color: tk.text.primary },
-    fileMeta: { fontSize: rnType.caption.size, color: tk.text.tertiary },
+    fileMeta: { fontSize: rnType.caption.size, color: tk.text.medium },
     iconBtn: { padding: rnSpacing['xs-loose'] },
     orderBtns: { flexDirection: 'row', gap: rnSpacing['2xs'] },
     chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: rnSpacing.sm },
@@ -98,7 +98,7 @@ export function createPdfToolsStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.md,
       padding: rnSpacing.md,
     },
-    hintText: { fontSize: rnType.bodySm.size, color: tk.text.tertiary },
+    hintText: { fontSize: rnType.bodySm.size, color: tk.text.medium },
     posGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: rnSpacing.sm },
     posCell: {
       width: '31%',
@@ -132,7 +132,7 @@ export function createPdfToolsStyles(tk: AppThemeTokens) {
     },
     submitBtnDisabled: { opacity: 0.5 },
     submitText: { fontSize: rnType.body.size, fontWeight: '600', color: tk.brand.ctaForeground },
-    rowHint: { fontSize: rnType.caption.size, color: tk.text.tertiary },
+    rowHint: { fontSize: rnType.caption.size, color: tk.text.medium },
     progressTrack: {
       height: 8,
       borderRadius: rnRadius.sm,
