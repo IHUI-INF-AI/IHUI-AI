@@ -403,6 +403,71 @@ export async function getPriceSources(): Promise<PriceSources> {
   }
 }
 
+/**
+ * 动态路由/聚合模型判定(2026-11-14 立)。
+ *
+ * 这类模型(openrouter/auto、bodybuilder、fusion、switchyard…)上游按**实际路由到的模型**
+ * 逐次计费,不存在固定单位价。价表里若出现数字(常见 -1 或占位 1/2)都不是可售单价,
+ * 拿它当价就是"瞎定"。因此它们**永不自动定价**,只能下架。
+ *
+ * 判据用整段匹配(不是子串),避免误伤 `xxx-auto-glm` 这类真实模型名。
+ */
+const ROUTER_SEGMENTS = new Set([
+  'auto',
+  'auto-beta',
+  'auto-code',
+  'bodybuilder',
+  'fusion',
+  'pareto-code',
+  'switchyard',
+  'jev-router',
+  'router',
+  'routing',
+  'free',
+])
+
+export function isDynamicRouterModel(modelId: string): boolean {
+  const n = modelId.toLowerCase().trim()
+  if (ROUTER_SEGMENTS.has(n)) return true
+  return n.split('/').some((seg) => ROUTER_SEGMENTS.has(seg))
+}
+
+/**
+ * 只接受「权威命中」的解析(2026-11-14 立)。
+ *
+ * 与 resolveModelPrice 的区别:**只保留 exact / alias 两档**,其余三档
+ * (family 插值 / provider 中位数 / global 中位数)全部视为"瞎定",返回 null。
+ * 另外动态路由模型直接返回 null —— 它们没有固定单价。
+ *
+ * alias 档还会拦一次"过度泛化"的键:命中键不能短于原主段的 60%,
+ * 防止 `openrouter/auto` 靠 `auto` 这种通用词命中别的模型价。
+ */
+export function resolveAuthoritativePrice(
+  modelId: string,
+  sources: PriceSources,
+  providerHint?: string,
+): ResolvedPrice | null {
+  void providerHint
+  if (isDynamicRouterModel(modelId)) return null
+  const keys = candidateKeys(modelId)
+  const primary = keys[0] ?? ''
+  const primarySeg = primary.slice(primary.lastIndexOf('/') + 1)
+  for (let i = 0; i < keys.length; i++) {
+    const key = keys[i]!
+    if (i > 0 && primarySeg.length > 0 && key.length < primarySeg.length * 0.6) continue
+    const hit = sources.index.get(key)
+    if (hit) {
+      return {
+        inputPer1k: hit.inC,
+        outputPer1k: hit.outC,
+        tier: i === 0 ? 'exact' : 'alias',
+        source: 'multi-source',
+      }
+    }
+  }
+  return null
+}
+
 export interface SweepResult {
   scanned: number
   resolved: number
@@ -487,7 +552,7 @@ export async function sweepUnpricedModels(
       billingMode: 'token',
     })
     await db.execute(
-      sql`update ai_model_config_models set input_price_per_1k = ${String(inP)}, output_price_per_1k = ${String(outP)}, updated_at = now() where id = ${Number(r.id)} and config_id = ${Number(r.config_id)}`,
+      sql`update ai_model_config_models set input_price_per_1k = ${String(inP)}, output_price_per_1k = ${String(outP)}, cost_input_price_per_1k = ${String(price.inputPer1k)}, cost_output_price_per_1k = ${String(price.outputPer1k)}, updated_at = now() where id = ${Number(r.id)} and config_id = ${Number(r.config_id)}`,
     )
     const meta = JSON.stringify({
       priceSource: {
@@ -509,5 +574,139 @@ export async function sweepUnpricedModels(
     `[price-resolver] 零价巡检完成 scanned=${list.length} resolved=${resolved} unresolved=${unresolved.length}`,
   )
   return { scanned: list.length, resolved, unresolved, byTier }
+}
+
+// =============================================================================
+// 占位价重定价(2026-11-14 立)
+// =============================================================================
+
+export interface RepriceResult {
+  /** 命中的模型数(按 model_id 去重) */
+  scanned: number
+  /** 写入权威价的模型数 */
+  repriced: number
+  /** 无权威价、已下架(或 dryRun 下"将下架")的模型 */
+  delisted: string[]
+  byTier: Record<string, number>
+  dryRun: boolean
+}
+
+/**
+ * 修复「占位价」模型(2026-11-14 立)。
+ *
+ * 背景:ai_pricing 里有 219 个模型是 2026-07-30 批量写入的 `1.000000/2.000000`
+ * 占位价(跨 qwen/openai/google 全同价,不可能是真实价),另有 8 个动态路由模型
+ * 是 -100000 哨兵。这些价会被计费当真,属于"瞎定"。
+ *
+ * 处理原则(用户 2026-11-14 裁定「所有模型都要有价格 并且不能瞎定」):
+ * - 只有在三源价表里 **exact / alias 权威命中** 的模型才写入价格(成本 × PROFIT_FACTOR);
+ * - 动态路由模型、以及拿不到权威价的模型:一律**下架**(is_relay_public=false),
+ *   绝不插值、绝不取中位数、绝不猜;
+ * - 下架同时删除其 ai_pricing 占位行,防止再次被当权威价回填。
+ *
+ * @returns 统计;delisted 列出被下架的模型(调用方应告警复核)
+ */
+export async function repricePlaceholderModels(
+  db: {
+    execute: (q: unknown) => Promise<unknown>
+  },
+  applyPricing: (args: {
+    modelId: string
+    inputTokenPrice: number
+    outputTokenPrice: number
+    billingMode: 'token'
+  }) => Promise<unknown>,
+  opts: { dryRun?: boolean } = {},
+): Promise<RepriceResult> {
+  const dryRun = opts.dryRun === true
+  const sources = await getPriceSources()
+  const rows = (await db.execute(sql`
+    select lower(m.model_id) as model_id,
+           min(c.provider_code) as provider_code,
+           count(*)::int as config_rows
+    from ai_model_config_models m
+    join ai_model_config c on c.id = m.config_id
+    where lower(m.model_id) not like '%:free'
+      and (
+        coalesce(m.input_price_per_1k, 0) <= 0
+        or coalesce(m.output_price_per_1k, 0) <= 0
+        or exists (
+          select 1 from ai_pricing p
+          where p.model_id = lower(m.model_id)
+            and (
+              p.input_token_price <= 0
+              or p.output_token_price <= 0
+              or (p.input_token_price = 1 and p.output_token_price = 2)
+            )
+        )
+      )
+    group by lower(m.model_id)
+    order by lower(m.model_id)
+  `)) as unknown as Array<{ model_id: string; provider_code: string }>
+  const list = (Array.isArray(rows) ? rows : ((rows as { rows?: unknown[] }).rows ?? [])) as Array<{
+    model_id: string
+    provider_code: string
+  }>
+
+  const byTier: Record<string, number> = {}
+  const delisted: string[] = []
+  let repriced = 0
+
+  for (const r of list) {
+    const modelId = String(r.model_id ?? '').toLowerCase()
+    if (!modelId) continue
+    const price = resolveAuthoritativePrice(modelId, sources, r.provider_code)
+    if (!price) {
+      delisted.push(modelId)
+      if (!dryRun) {
+        // 下架:只关对外售卖,不动 enabled(内部链路仍可用,但不卖就不能有价)
+        await db.execute(
+          sql`update ai_model_config_models set is_relay_public = false, updated_at = now() where lower(model_id) = ${modelId}`,
+        )
+        // 删除占位/哨兵定价行,防止下次被 syncConfigPricesFromPricing 当权威价回填
+        await db.execute(sql`delete from ai_pricing where model_id = ${modelId}`)
+      }
+      continue
+    }
+    byTier[price.tier] = (byTier[price.tier] ?? 0) + 1
+    repriced++
+    if (dryRun) continue
+
+    const inP = Math.round(price.inputPer1k * PROFIT_FACTOR * 1e6) / 1e6
+    const outP = Math.round(price.outputPer1k * PROFIT_FACTOR * 1e6) / 1e6
+    await applyPricing({
+      modelId,
+      inputTokenPrice: inP,
+      outputTokenPrice: outP,
+      billingMode: 'token',
+    })
+    const meta = JSON.stringify({
+      priceSource: {
+        tier: price.tier,
+        source: price.source,
+        refModel: price.refModel ?? null,
+        profitFactor: PROFIT_FACTOR,
+        resolvedAt: new Date().toISOString(),
+        reason: 'placeholder-reprice',
+      },
+    }).replace(/'/g, "''")
+    await db.execute(
+      sql.raw(
+        `update ai_model_config_models
+            set input_price_per_1k = '${inP}',
+                output_price_per_1k = '${outP}',
+                cost_input_price_per_1k = '${price.inputPer1k}',
+                cost_output_price_per_1k = '${price.outputPer1k}',
+                metadata = coalesce(metadata, '{}'::jsonb) || '${meta}'::jsonb,
+                updated_at = now()
+          where lower(model_id) = '${modelId.replace(/'/g, "''")}'`,
+      ),
+    )
+  }
+
+  logger.info(
+    `[price-resolver] 占位价重定价完成 dryRun=${dryRun} scanned=${list.length} repriced=${repriced} delisted=${delisted.length}`,
+  )
+  return { scanned: list.length, repriced, delisted, byTier, dryRun }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

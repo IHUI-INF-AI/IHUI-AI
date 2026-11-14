@@ -23,6 +23,7 @@ import { success, error, emptyToUndefined } from '../../utils/response.js'
 import { requireAdmin } from '../../plugins/require-permission.js'
 import { aiServiceSystemFetch } from '../../utils/ai-service-fetch.js'
 import { normalizeModelId } from '@ihui/shared'
+import { assertPricedForPublish } from '../../services/model-pricing-admin.js'
 import { paginationSchema, idParamSchema } from './_shared.js'
 
 const scanBodySchema = z.object({
@@ -217,7 +218,7 @@ const relayDiscoveryRoutes: FastifyPluginAsync = async (server) => {
 
       // 查关联的 aiModelConfig(configId 由 scan 时记录,这里通过 providerCode 反查第一个 enabled 的 config)
       const [configRow] = await dbRead
-        .select({ id: aiModelConfig.id })
+        .select({ id: aiModelConfig.id, providerCode: aiModelConfig.providerCode })
         .from(aiModelConfig)
         .where(
           and(
@@ -250,6 +251,11 @@ const relayDiscoveryRoutes: FastifyPluginAsync = async (server) => {
       let approvedModelRowId: number
       if (existingModel) {
         // 已存在,只更新 isRelayPublic=true + 中转站字段
+        // 2026-11-14:上架前必须过定价护栏(零价/占位价/哨兵价一律拒绝)
+        const gate = await assertPricedForPublish(existingModel.id)
+        if (!gate.ok) {
+          return reply.status(400).send(error(400, gate.reason ?? '模型未定价,禁止上架'))
+        }
         const [updated] = await db
           .update(aiModelConfigModels)
           .set({
@@ -264,6 +270,46 @@ const relayDiscoveryRoutes: FastifyPluginAsync = async (server) => {
       } else {
         // 不存在,插入新行
         const upstreamPrice = discovery.upstreamPrice as { input?: number; output?: number } | null
+        // 上游没给价(或给 0)时,走统一定价解析器:只接受三源价表 exact/alias 权威命中。
+        // 2026-11-14 收紧:家族插值/渠道中位数/全局中位数属于"瞎定",不再用于自动定价。
+        let priceIn = Number(upstreamPrice?.input ?? 0)
+        let priceOut = Number(upstreamPrice?.output ?? 0)
+        let priceSource: Record<string, unknown> | null = null
+        if (!(priceIn > 0) || !(priceOut > 0)) {
+          try {
+            const { getPriceSources, resolveAuthoritativePrice, PROFIT_FACTOR } =
+              await import('../../services/model-price-resolver.js')
+            const resolved = resolveAuthoritativePrice(
+              normalizedModelId,
+              await getPriceSources(),
+              configRow.providerCode,
+            )
+            if (resolved) {
+              priceIn = Math.round(resolved.inputPer1k * PROFIT_FACTOR * 1e6) / 1e6
+              priceOut = Math.round(resolved.outputPer1k * PROFIT_FACTOR * 1e6) / 1e6
+              priceSource = {
+                tier: resolved.tier,
+                source: resolved.source,
+                refModel: resolved.refModel ?? null,
+                profitFactor: PROFIT_FACTOR,
+                resolvedAt: new Date().toISOString(),
+              }
+            }
+          } catch (e) {
+            request.log.warn({ err: e }, '[relay-discovery] 统一定价解析失败,按上游原值入库')
+          }
+        }
+        if (!(priceIn > 0) || !(priceOut > 0)) {
+          return reply
+            .status(400)
+            .send(
+              error(
+                400,
+                `模型 ${normalizedModelId} 拿不到权威价(上游未给价且三源价表无 exact/alias 命中),` +
+                  '请先人工定价再审批上架 —— 不允许零价或猜价上架',
+              ),
+            )
+        }
         const [inserted] = await db
           .insert(aiModelConfigModels)
           .values({
@@ -271,12 +317,13 @@ const relayDiscoveryRoutes: FastifyPluginAsync = async (server) => {
             modelId: normalizedModelId,
             displayName: discovery.modelName ?? normalizedModelId,
             contextLength: discovery.contextLength ?? 32000,
-            inputPricePer1k: upstreamPrice?.input ?? 0,
-            outputPricePer1k: upstreamPrice?.output ?? 0,
+            inputPricePer1k: priceIn,
+            outputPricePer1k: priceOut,
             enabled: true,
             isRelayPublic: true,
             relayPriceMultiplier: parsed.data.relayPriceMultiplier ?? '1.0000',
             relayDisplayName: parsed.data.relayDisplayName ?? null,
+            ...(priceSource ? { metadata: { priceSource } } : {}),
           })
           .returning({ id: aiModelConfigModels.id })
         approvedModelRowId = inserted!.id
