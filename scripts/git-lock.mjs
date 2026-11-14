@@ -102,6 +102,10 @@ import { scanNativeLocks, countGitProcsFromTasklist } from './lib/git-native-loc
 import { identityFields, verifyHolder } from './lib/proc-identity.mjs'
 // 带值旗标取值判据单源(G-322,§0.6):旧副本 `args[i+1]` 会把紧邻的下一个旗标当值。
 import { requireFlagValue } from './lib/flag-value.mjs'
+// 写锁 gitDir 越界闸(2026-11-14 git 写锁外流根治)。判据单源在 lib/git-dir-boundary.mjs,
+// 与 isolated-git.mjs 共用同一份 —— 两条写锁消费方都必须拒建仓外 gitdir 的锁,否则
+// lock-atomic-init 的 pending 兄弟会散到项目盘根(D:\IHUI-AI-git-repo 那批 32 个 .pending)。
+import { assertGitDirInsideRepoTree } from './lib/git-dir-boundary.mjs'
 
 function run(cmd, allowFail = false) {
   try {
@@ -124,9 +128,16 @@ function gitDir() {
   return d
 }
 
-/** 锁目录路径 */
+/** 锁目录路径(默认路径,镜像测试注入 dir 时绕过本函数)。 */
 function lockDir() {
-  return join(gitDir(), 'ihui-git-write.lock')
+  // 写锁越界闸(2026-11-14 git 写锁外流根治,第二条入口):gitDir 必须落在工作树顶层之内,
+  // 否则本锁的 pending 兄弟会散到仓库树之外的项目盘根(D:\IHUI-AI-git-repo 那批 32 个
+  // .pending 的根因)。判据单源 lib/git-dir-boundary.mjs,与 isolated-git.mjs 共用同一份。
+  // 只在走本默认路径(真实 rev-parse 解析 gitDir/repoRoot)时触发;acquire() 注入 dir 时
+  // 完全绕过本函数,镜像测试的注入式端到端不误伤。
+  const gd = gitDir()
+  assertGitDirInsideRepoTree(gd, { repoRoot: repoRoot() })
+  return join(gd, 'ihui-git-write.lock')
 }
 
 function metaFile(dir) {
