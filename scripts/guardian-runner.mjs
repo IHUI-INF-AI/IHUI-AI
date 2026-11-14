@@ -7978,6 +7978,56 @@ const checks = [
       '',
     ].join('\n'),
   },
+  {
+    id: '322',
+    label: '🪞 跨包镜像结构字段对账(blocking:api-client 零依赖镜像 shared 的字段集/可选性/枚举必须逐字一致)',
+    script: 'check-mirror-surface-parity.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_MIRROR_SURFACE_PARITY',
+    stagedTriggers: [
+      'packages/shared/src/chat/send-admission.ts',
+      'packages/shared/src/sse/contract.ts',
+      'scripts/check-mirror-surface-parity.mjs',
+    ],
+    onFailHint: [
+      '  💡 api-client 是零运行时依赖包,它把共享层若干结构**复制**了一份镜像。',
+      '     两侧各自的单测都测"自己的形状",所以**没有一条测试比较两侧** —— 漂移无人发现。',
+      '  实测事故(2026-11-13):SendAdmissionReceipt.ahead 在共享层 send-admission.ts:77',
+      '     早已定义(注释写明"0 表示下一位。缺席表示没量到,不得当成 0"),而 api-client',
+      '     镜像里连字段都没有、解析也不带 ⇒ queued 回执永远读不到排队位次,',
+      '     用户只看到一句"已排队"。',
+      '  修法:把镜像补齐(字段名 + 可选性都要对),或从 MIRROR_PAIRS 里删掉该条(须写明理由)。',
+      '  复验:node scripts/check-mirror-surface-parity.mjs',
+      '  自检:node scripts/check-mirror-surface-parity.mjs --self-test(11 例)',
+      '  紧急跳过(不推荐):HUSKY_SKIP_MIRROR_SURFACE_PARITY=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+  {
+    id: '321',
+    label: '📐 行尾守卫(warn:存量 CRLF 未归零,只报数不拦 —— §0.2 恒红门禁令)',
+    script: 'check-line-endings.mjs',
+    args: ['--staged'],
+    // §0.2:存量 CRLF 非零(实测暂存面有他人未提交的 apps/api/*.ts 带 CRLF)⇒ 先 warn 只报数。
+    // 升 blocking 的前置 = 存量归零 —— 否则就是一道与提交内容无关的恒红门,
+    // 结局是逼人 --no-verify 而废掉全部守门。本轮先立判据、先让问题可见。
+    skipEnv: 'HUSKY_SKIP_LINE_ENDINGS',
+    stagedTriggers: ['**'],
+    onFailHint: [
+      '  💡 .gitattributes 的 `* text=auto eol=lf` 只约束 **git 入库**,管不住工具直接写盘。',
+      '  实测后果(不是洁癖):CRLF 会让"剥注释"类正则 /^\\s*\\/\\/.*$/gm 在 \\r 前失配,',
+      '  把**格式问题读成逻辑缺陷** —— 本仓已发生过:ChatScreen.tsx 被写成 CRLF 后,',
+      '  chat-stream-trace-id-rn-consume.test.ts 的 strip() 剥不干净注释,',
+      '  "摘掉注册那一环"的替换锚点失配,8 例当场转红而代码其实是对的。',
+      '  修法:把该文件的 \\r\\n 统一换成 \\n。',
+      '  当前档位:warn(存量未归零)。归零后改 mode=blocking 并删掉这段说明。',
+      '  复验:node scripts/check-line-endings.mjs --staged',
+      '  自检:node scripts/check-line-endings.mjs --self-test(10 例)',
+      '  紧急跳过(不推荐):HUSKY_SKIP_LINE_ENDINGS=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
 ]
 
 // === push 门检查集(2026-08-31 新增) ===
@@ -8133,9 +8183,7 @@ const pushGateChecks = [
     id: '301',
     label: '🗺️ web↔小程序共享屏承载路由门(新增缺承载/路由不存在/冲突即红)',
     script: 'check-web-mp-route-carriers.mjs',
-    args: [],
     mode: 'blocking',
-    stagedTriggers: [
       'apps/web/',
       'apps/miniapp-taro/src/app.config.ts',
       'packages/app/src/features/',
@@ -8144,7 +8192,6 @@ const pushGateChecks = [
       'scripts/data/web-mp-route-carrier-ledger.jsonl',
       'scripts/data/web-mp-route-carrier-legal.jsonl',
       'scripts/check-web-mp-route-carriers.mjs',
-    ],
     skipEnv: 'HUSKY_SKIP_WEB_MP_ROUTE_CARRIERS',
     onFailHint: [
       '  💡 红 = 共享屏有 web 路由但小程序缺承载/路由不存在/别名冲突。',
@@ -8195,22 +8242,17 @@ const pushGateChecks = [
     mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_GEN_TOOL_NAME_SETS',
   },
-  {
     id: '308p',
     label: '🏗️ RN 宿主薄壳骨架预演(push blocking,不落盘)',
     script: 'gen-rn-shell-scaffold.mjs',
     args: ['--all'],
     mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_GEN_RN_SHELL_SCAFFOLD',
-  },
-  {
     id: '305p',
     label: '🪝 钩子链引用完整性(push blocking:钩子链入口/闭包缺失即拦)',
     script: 'check-hook-chain-refs.mjs',
     args: ['--strict'],
-    mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_HOOK_CHAIN_REFS',
-  },
 ]
 
 // === CLI 解析 ===

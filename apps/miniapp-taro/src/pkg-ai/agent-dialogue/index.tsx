@@ -123,8 +123,14 @@ export default function AgentDialogue() {
     userUuid: string | null
   }>({ id: null, content: null, time: null, userUuid: null })
 
+  // 滚底只保留一个在排定时器:逐 token 推送时逐次 clearTimeout 去重,卸载时清空。
+  const scrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const scrollToBottom = useCallback(() => {
-    setTimeout(() => setScrollTop((s) => (s === 99998 ? 99999 : 99998)), 60)
+    if (scrollTimerRef.current) clearTimeout(scrollTimerRef.current)
+    scrollTimerRef.current = setTimeout(() => {
+      scrollTimerRef.current = null
+      setScrollTop((s) => (s === 99998 ? 99999 : 99998))
+    }, 60)
   }, [])
 
   const loadChatHistory = useCallback(
@@ -490,6 +496,10 @@ export default function AgentDialogue() {
 
   useEffect(() => {
     return () => {
+      if (scrollTimerRef.current) {
+        clearTimeout(scrollTimerRef.current)
+        scrollTimerRef.current = null
+      }
       if (wsTaskRef.current) {
         try {
           wsTaskRef.current.close({})

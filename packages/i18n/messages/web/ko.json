@@ -9696,6 +9696,7 @@
     },
     "toolCall": {
       "streamingPreviewLabel": "스트리밍 미리보기(실행 중, 최종 결과 기준)",
+      "presentedTitle": "{count}개 파일을 전달했습니다",
       "chartGenerated": "차트 생성됨",
       "chartPreviewFailed": "차트 미리보기에 실패했습니다. 경로를 복사하여 로컬 브라우저에서 열어주세요.",
       "chartPreviewHint": "로컬 차트 파일은 웹페이지에서 직접 미리볼 수 없습니다. 경로를 복사하여 로컬 브라우저에서 열어주세요.",
@@ -16700,7 +16701,9 @@
     "phaseApproved": "승인됨",
     "phaseExecuting": "실행 중",
     "phaseDone": "완료됨",
-    "viewPullRequest": "풀 리퀘스트 보기"
+    "viewPullRequest": "풀 리퀘스트 보기",
+    "revisionLabel": "수정 의견",
+    "revisionPlaceholder": "어디를 조정할지 입력하세요. 비워두면 에이전트가 조정할 점을 설명합니다"
   },
   "floatingChat": {
     "openclaw": {

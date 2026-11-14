@@ -577,8 +577,8 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.tertiary,
     },
     fileLine: { fontSize: rnType.label.size, color: tk.text.medium },
-    errorText: { fontSize: rnType.label.size, color: tk.danger.DEFAULT },
-    doneText: { fontSize: rnType.label.size, color: tk.success.deep },
+    errorText: { fontSize: rnType.label.size, color: tk.danger.deepText },
+    doneText: { fontSize: rnType.label.size, color: tk.success.deepText },
     card: {
       padding: rnSpacing.md,
       gap: rnSpacing.sm,

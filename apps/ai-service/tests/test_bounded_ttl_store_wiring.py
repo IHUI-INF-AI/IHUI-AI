@@ -75,6 +75,29 @@ def test_freshness_cache_does_not_extend_life_on_read() -> None:
     assert "k" not in store, "`in` 必须与'还在不在'同义,过期要报不在"
 
 
+def test_peek_does_not_slide_but_still_expires() -> None:
+    """`peek` 是旁路观测:不得续期(与 get 的滑动语义相反),过期即视为不在。"""
+    now = [0.0]
+    store = BoundedTtlDict(max_keys=5, ttl_seconds=100, clock=lambda: now[0])
+    store.set("k", "v")
+    now[0] = 60
+    assert store.peek("k") == "v"
+    now[0] = 130
+    assert store.peek("k") is None, "peek 不续期:仍按首写时刻过期,不能把条目看成永生"
+    assert store.expired_swept >= 1
+    assert store.pop("k") is None
+
+
+def test_peek_does_not_consume_entry() -> None:
+    """`peek` 之后主链 `pop` 仍取得到:预览不得把视觉注入要消费的条目吃走。"""
+    now = [0.0]
+    store = BoundedTtlDict(max_keys=5, ttl_seconds=100, slide_on_read=False, clock=lambda: now[0])
+    store.set("k", "v")
+    assert store.peek("k") == "v"
+    assert store.pop("k") == "v", "peek 只读一眼,不得弹出条目"
+    assert store.peek("k") is None
+
+
 def test_default_clock_is_late_bound_so_ttl_tests_can_advance_time() -> None:
     """默认时钟晚绑定:既有 TTL 用例靠 monkeypatch `time.time` 推进时间线。
 

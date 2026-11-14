@@ -53,6 +53,26 @@
  * 更硬的一条:`emitUpstreamLine` 喂的是**上游原始行**,载荷形状归 ai-service 的
  * SSE 契约(`_sse()`)所有;网关改写载荷就是"网关替上游改协议",而 `id:` 行
  * 本来就是传输层自己的字段 —— 派生的合法性正来自这一点。
+ *
+ * ## 现状更正(2026-11-14 现读;上半节是 2026-10-29 的立因快照,不是当前事实)
+ *
+ * 上面「`apply_frame` 调用面只有测试」「另两维没有生产点」「恒 `undetermined`」
+ * 三句是**立因当时的快照**,现已不成立,不得再拿它当派单 / 实施依据:
+ *
+ * - `apps/ai-service/app/core/sse_frames.py::with_frame_watermark` 已在生产链路
+ *   调 `apply_frame` 并注入 `subscriptionId` / `logEpoch` / `fromSeq` / `toSeq`
+ *   四维(进程级 `PROCESS_LOG_EPOCH` + snapshot `0→1` / delta `n-1→n` 的
+ *   canonical 语义)。生产注入点在 **ai-service,不是网关**;
+ * - `./frame-watermark.ts` 的四维解析与 generation-change / epoch-change /
+ *   seq-discontinuity 三档判据已齐;
+ * - ⇒ **载荷级那条腿已经会跑**,本模块的 seq 腿是 `carriesPayloadWatermark`
+ *   为 false 时的**降级路径**,不再是「唯一在跑的腿」。两腿仍由
+ *   `carriesPayloadWatermark` 择一,不并行判两遍(§0.6);第 47 节的
+ *   字节保真契约依然成立,网关依旧不改写上游载荷。
+ *
+ * 同型漂移另见 `client.ts` 里两处「生产端至今不下发」注释(、`onFrameWatermarkFacts`
+ * 头注与 `shouldDropByWatermark` 上方)。该文件本轮为**他席在飞的 ` M` 件**,
+ * 按并发纪律不代改,在此登记:由其持有者收口时一并更正,勿再照旧注释重做一遍。
  */
 
 import type { FrameGapKind, FrameWatermark, FrameWatermarkCursor } from './frame-watermark.js'

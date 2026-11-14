@@ -519,7 +519,7 @@ const styles = StyleSheet.create({
     gap: rnSpacing['2xs'],
   },
   resultTitle: { fontSize: rnType.label.size, fontWeight: '600', color: tokens.text.primary },
-  claimed: { fontSize: rnType.caption.size, color: tokens.success.deep },
+  claimed: { fontSize: rnType.caption.size, color: tokens.success.deepText },
 })
 
 /**

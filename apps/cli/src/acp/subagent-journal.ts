@@ -18,9 +18,8 @@
  *
  *   · `compactJournal` —— 幂等重写:同一 key 的帧折叠成一条,重复灌入得到同一结果。
  *   · `appendNotification` —— 增量追加:同 messageId 内容块拼接、同 toolCallId 字段合并。
- *   · `mergeHistoricalJournal` —— 历史回放合并:用 KMP 算 `a` 后缀与 `b` 前缀的
- *     最长重叠,只把真正新增的历史条目并进来(对标 `mergeHistoricalJournal` +
- *     `journalBoundaryOverlap`)。
+ *   · `mergeHistoricalJournal` —— 历史回放合并:对齐 "两端拼接 + compact 幂等去重"
+ *     (不做 KMP 边界裁剪,理由与证据见该函数注释)。
  *
  * ## 与对标实现的差异(超越点)
  *
@@ -338,8 +337,9 @@ export function mergeHistoricalJournal(
   history: readonly JournalNotification[],
   current: readonly JournalNotification[],
 ): MergeHistoryResult {
-  const historyKeys = new Set(history.map((n) => boundaryKey(n)))
-  const addedHistory = current.some((n) => !historyKeys.has(boundaryKey(n)))
+  const currentKeys = new Set(current.map((n) => boundaryKey(n)))
+  // 如实上报"history 是否贡献了 current 里没有的前缀条目",而不是反过来。
+  const addedHistory = history.some((n) => !currentKeys.has(boundaryKey(n)))
   const journal = compactJournal([...history, ...current])
   return {
     journal,

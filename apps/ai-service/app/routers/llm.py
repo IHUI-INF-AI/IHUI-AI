@@ -162,8 +162,14 @@ from ..services.agent_events import (
     SSE_USAGE,
 )
 from ..services.ask_user_question import (
+    STATUS_CONTINUED,
     cancel_session_questions,
+    continued_answer_message,
     create_question,
+    drain_continued_answers,
+    mark_continued,
+    normalize_timeout_s,
+    pending_question_notice,
     resolve_question,
     wait_for_answer,
     withdraw_question,
@@ -1427,6 +1433,7 @@ _TOOL_DANGER_LEVELS: dict[str, str] = {
     # 命令执行:可执行任意命令,最高危
     "run_command": "high",
     "sandbox_session": "high",
+    "terminal": "high",
     "execute_command": "high",
     # 删除/移动/git:不可逆操作
     "delete_file": "high",
@@ -3122,6 +3129,38 @@ def _inject_custom_system_prompt(
     return new_messages
 
 
+def _inject_deliverable_guidance(
+    messages: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """2026-11-14(对标 DSH dsh-deliverable-file-references):交付物与文件引用规约。
+
+    与 v2 引擎同段落、同标记:主聊天(v1 路径)与引擎(v2 路径)必须都看得到,否则
+    模型只在"已经是 agent 任务"时才会正确内联图片、给文件加可点链接、择时 present。
+
+    语义:
+    - 任意 system 消息已含开标签 ⇒ 原样返回(重入/恢复幂等,不重复膨胀)
+    - 否则追加到首条 system 尾部;无 system 消息则新插一条
+    - 任何异常降级为原样返回,绝不阻塞主聊天
+    """
+    try:
+        from ..core.deliverable_guidance import (
+            DELIVERABLE_FILE_REFERENCES,
+            DELIVERABLE_GUIDANCE_OPEN,
+        )
+
+        for msg in messages:
+            if (
+                isinstance(msg, dict)
+                and msg.get("role") == "system"
+                and DELIVERABLE_GUIDANCE_OPEN in str(msg.get("content") or "")
+            ):
+                return messages
+        return _append_system_note(messages, DELIVERABLE_FILE_REFERENCES)
+    except Exception as e:  # 静默降级,绝不阻塞主聊天
+        logger.warning("deliverable_guidance 注入失败(降级跳过): %s", e)
+        return messages
+
+
 # ===== 多 agent 编排引导 prompt(2026-07-24 立,2026-07-24 升级 5→10 agent + invoke_parallel)=====
 # 仅当请求 agent_tools 含 dispatch_subagent 时,在 tool loop 入口注入此 system message,
 # 引导 LLM 在复杂任务时主动派发子智能体而非单打独斗。
@@ -3758,6 +3797,8 @@ async def llm_complete(req: LLMCompleteRequest, request: Request) -> dict[str, A
         messages = await _inject_memory_graph(
             messages, _last_user_text(messages), _resolve_owner_uuid(request)
         )
+    # 2026-11-14(对标 DSH dsh-deliverable-file-references):交付物与文件引用规则。
+    messages = _inject_deliverable_guidance(messages)
     # P1-7(2026-09-13 立):会话级自定义 system prompt,叠加在工作区记忆之上(置顶优先级最高)
     messages = _inject_custom_system_prompt(messages, req.system_prompt)
     # 跨端统一 88% 阈值自动压缩(Python 端兜底,API 层未压缩时由本层保护)
@@ -4449,6 +4490,9 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
         messages = await _inject_memory_graph(
             messages, _last_user_text(messages), _resolve_owner_uuid(request)
         )
+    # 2026-11-14(对标 DSH dsh-deliverable-file-references):交付物与文件引用规则。
+    # 放在会话级自定义 prompt 之前:用户指令仍置顶,本段只约束"如何呈现结果"。
+    messages = _inject_deliverable_guidance(messages)
     # P1-7(2026-09-13 立):会话级自定义 system prompt,叠加在工作区记忆之上(置顶优先级最高)
     messages = _inject_custom_system_prompt(messages, req.system_prompt)
     # D7(2026-09-19 立):主聊天自动语义检索注入(对标 Cursor @codebase 自动注入)。
@@ -5102,6 +5146,21 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                     }
                                 )
                                 _iter_budget += 1
+                        # 定时继续(2026-11-14 立,对标 DSH answer_to_pending_question):
+                        # timed 提问到期后用户仍可答复;答复在本轮下一迭代 LLM 调用前
+                        # 作为 user 消息注入(每条只交付一次)。失败隔离不阻塞主流。
+                        if session_id:
+                            try:
+                                for _pending_item in drain_continued_answers(session_id):
+                                    messages.append({
+                                        "role": "user",
+                                        "content": continued_answer_message(_pending_item),
+                                    })
+                                    _iter_budget += 1
+                            except Exception as _pending_err:  # noqa: BLE001 - 注入失败降级
+                                logger.warning(
+                                    "continued answer 注入异常(降级跳过): %s", _pending_err
+                                )
                         # ===== D120(2026-09-27,G-234):轮次预算弹性续跑 =====
                         # 判定收敛到唯一出口 _d120_should_extend(条件与原内联逐项一致):
                         # env 开关启用 / 非首轮 / 下一轮即触及上限 / 续期次数未用尽 /
@@ -5631,6 +5690,9 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
 
                         # ===== 公共工具执行逻辑(两分支汇合,2026-08-29 修复保持不动)=====
                         tool_exec_tracker = []
+                        # read_image 交付凭据:图片本体经有界暂存,本轮 tool 消息之后
+                        # 追加一条 user 多模态消息(见循环末尾的 _round_image_ids 消费点)
+                        _round_image_ids: list[str] = []
                         for tc in tool_calls_raw:
                             fn = tc.get("function", {})
                             tool_name = fn.get("name", "")
@@ -5971,15 +6033,27 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                 if session_id is None:
                                     session_id = str(uuid.uuid4())
                                 _q_args = args if isinstance(args, dict) else {}
-                                q_item = create_question(
-                                    session_id=session_id,
-                                    user_id=owner_uuid,
-                                    prompt=_q_args.get("question", ""),
-                                    header=_q_args.get("header"),
-                                    options=_q_args.get("options"),
-                                    allow_custom=bool(_q_args.get("allowCustom", True)),
-                                    allow_multiple=bool(_q_args.get("multiSelect", False)),
+                                # 定时继续(2026-11-14 立):显式 timeout_s 才进入 timed
+                                # 模式;缺省保持既有阻塞 300s,-1 表示等到底(24h 上限)。
+                                _q_timeout_s, _q_timed, _q_timeout_err = normalize_timeout_s(
+                                    _q_args.get("timeout_s")
                                 )
+                                if _q_timeout_err is not None:
+                                    # 结构化参数错误:与 create_question 的非法入参同路
+                                    # (下面 isinstance(dict) 分支统一回灌,不向用户发半帧)。
+                                    q_item: Any = _q_timeout_err
+                                else:
+                                    q_item = create_question(
+                                        session_id=session_id,
+                                        user_id=owner_uuid,
+                                        prompt=_q_args.get("question", ""),
+                                        header=_q_args.get("header"),
+                                        options=_q_args.get("options"),
+                                        allow_custom=bool(_q_args.get("allowCustom", True)),
+                                        allow_multiple=bool(_q_args.get("multiSelect", False)),
+                                        timeout_s=_q_timeout_s,
+                                        call_id=str(tc.get("id", "")),
+                                    )
                                 if isinstance(q_item, dict):
                                     # 参数非法:结构化失败回灌,不向用户发半帧(前端解析层会整帧丢弃)
                                     exec_result = {
@@ -6021,7 +6095,14 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                         _q_status = (
                                             q_item.status
                                             if q_item.status != "pending"
-                                            else await wait_for_answer(q_item, timeout_s=0.0)
+                                            else (
+                                                # 定时继续:timed 到期不判死,转入 continued。
+                                                mark_continued(
+                                                    q_item, call_id=str(tc.get("id", ""))
+                                                )
+                                                if _q_timed
+                                                else await wait_for_answer(q_item, timeout_s=0.0)
+                                            )
                                         )
                                     except asyncio.CancelledError:
                                         # 会话中断/连接取消:先把该会话所有 pending 一律置
@@ -6044,11 +6125,19 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                             session_id, reason="session_interrupted"
                                         )
                                         raise
+                                    _q_continued = _q_status == STATUS_CONTINUED
+                                    _q_resolved_frame = q_item.resolved_payload(
+                                        # 前端词表只有四态:continued 以 timeout 结算,
+                                        # 另带 continued 附加键(迟到答复仍可送达模型)。
+                                        "timeout" if _q_continued else _q_status
+                                    )
+                                    if _q_continued:
+                                        _q_resolved_frame["continued"] = True
                                     yield _sse(
                                         SSE_QUESTION_RESOLVED,
                                         {
                                             "type": "question-resolved",
-                                            **q_item.resolved_payload(_q_status),
+                                            **_q_resolved_frame,
                                         },
                                     )
                                     # 会话历史落库:本路由没有独立的"question-answer part"落盘槽位
@@ -6059,7 +6148,21 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                         for opt in q_item.options
                                         if opt["id"] in q_item.selected_ids
                                     ]
-                                    if _q_status == "answered":
+                                    if _q_status == STATUS_CONTINUED:
+                                        exec_result = {
+                                            "tool": tool_name,
+                                            "ok": True,
+                                            "pending": True,
+                                            "status": STATUS_CONTINUED,
+                                            "questionId": q_item.question_id,
+                                            "callId": str(tc.get("id", "")),
+                                            "message": pending_question_notice(
+                                                q_item, str(tc.get("id", ""))
+                                            ),
+                                        }
+                                        ok = True
+                                        _q_explanation = "提问等待到期,转入挂起(用户仍可答复)"
+                                    elif _q_status == "answered":
                                         exec_result = {
                                             "tool": tool_name,
                                             "ok": True,
@@ -7070,6 +7173,15 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                     _mv = exec_result.get(_mf)
                                     if isinstance(_mv, str) and _mv and not _mv.startswith("data:"):
                                         tc_result_evt[_mf] = _mv
+                                # g12(2026-11-15):read_image 的缩略图经事件顶层下发前端卡片。
+                                # 只 peek(不消费暂存、不续期):视觉注入仍由 take_images 单点消费;
+                                # 缩略图也**不进**模型 tool 正文(result_json 从 exec_result 生成,
+                                # 本字段只写事件副本),避免上下文膨胀与截断护栏。
+                                from app.services.tool_image_delivery import peek_image_preview
+
+                                _image_preview = peek_image_preview(exec_result)
+                                if _image_preview:
+                                    tc_result_evt["image_preview"] = _image_preview
                             yield _sse(SSE_TOOL_RESULT, tc_result_evt)
                             # 更新 tool_calls_history 中对应记录(正常分支:含真实 durationMs)
                             _hist_idx = len(tool_calls_history) - 1
@@ -7146,6 +7258,29 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                 "name": tool_name,
                                 "content": result_json,
                             })
+                            # 2026-11-14(对标 DSH read_image):只收交付凭据,
+                            # 图片本体在 tool 正文之外(见下方多模态消息注入)。
+                            if isinstance(exec_result, dict):
+                                _img = exec_result.get("image")
+                                if isinstance(_img, dict) and _img.get("content_id"):
+                                    _round_image_ids.append(str(_img["content_id"]))
+                        # read_image 交付:本轮全部 tool 消息之后追加一条 user 多模态
+                        # 消息(协议允许 user 跟在 tool 结果后),让主模型直接看图。
+                        if _round_image_ids:
+                            try:
+                                from app.services.tool_image_delivery import (
+                                    build_image_followup_message,
+                                    take_images_with_report,
+                                )
+
+                                _images, _missing = take_images_with_report(_round_image_ids)
+                                _image_msg = build_image_followup_message(
+                                    _images, missing=len(_missing)
+                                )
+                                if _image_msg is not None:
+                                    messages.append(_image_msg)
+                            except Exception as e:  # noqa: BLE001 - 降级为纯文字元数据
+                                logger.warning("工具图片交付失败(降级): %s", e)
                         # 全部 tool 失败时,直接构造失败响应,不走 astream(与 conversation.py 一致,防止 LLM 幻觉)
                         if tool_exec_tracker and all(not ok_flag for ok_flag in tool_exec_tracker):
                             failed_lines = []

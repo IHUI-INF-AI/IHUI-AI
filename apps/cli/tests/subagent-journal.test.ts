@@ -145,5 +145,20 @@ describe('mergeHistoricalJournal', () => {
     const r = mergeHistoricalJournal([msgChunk('s1', 'h1', 'a')], [msgChunk('s1', 'c1', 'b')])
     expect(r.journalBytes).toBe(journalBytes(r.journal))
   })
+
+  it('history 覆盖 current 全部条目 ⇒ addedHistory=true(方向不能反)', () => {
+    const h1 = msgChunk('s1', 'h1', 'head')
+    const c1 = msgChunk('s1', 'c1', 'tail')
+    // history 比 current 长:真正新增的是 history 独有的 h1
+    const r = mergeHistoricalJournal([h1, c1], [c1])
+    expect(r.addedHistory).toBe(true)
+    expect(r.journal.map((n) => String(n.update.messageId))).toEqual(['h1', 'c1'])
+  })
+
+  it('history 为空或已被 current 完全覆盖 ⇒ addedHistory=false', () => {
+    const c1 = msgChunk('s1', 'c1', 'x')
+    expect(mergeHistoricalJournal([], [c1]).addedHistory).toBe(false)
+    expect(mergeHistoricalJournal([c1], [c1]).addedHistory).toBe(false)
+  })
 })
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

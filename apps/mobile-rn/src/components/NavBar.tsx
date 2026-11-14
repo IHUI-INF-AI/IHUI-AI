@@ -16,6 +16,7 @@
 import { type ReactNode } from 'react'
 import {
   Image,
+  Platform,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -130,11 +131,15 @@ function CoreText({
 const NAVBAR_PLATFORM = { Box: CoreBox, Text: CoreText }
 
 /**
- * RN 类型 position 不含 'sticky'(StyleSheetTypes.d.ts 仅声明 'absolute'|'relative'|'static'),
- * 但 RN 0.71+ 运行时原生层支持 position:'sticky'(主要在 ScrollView 上下文生效)。
- * 用 as unknown as ViewStyle 绕过类型检查;运行时 RN 原生层处理 'sticky'。
+ * 吸顶样式按平台分流:RN 原生 ViewStyle.position 只认 'absolute'|'relative'|'static',
+ * 并不存在 'sticky'(那是 CSS / react-native-web 的概念)。原生端把它写成 sticky 只是
+ * 被 Yoga 当未知值忽略,却靠双重断言骗过类型检查;这里改为 web 保留 CSS 吸顶、
+ * 原生端用合法的 relative + zIndex 维持层叠(实际视觉与原来一致,不再注入无效属性)。
  */
-const STICKY_STYLE = { position: 'sticky', top: 0, zIndex: 1001 } as unknown as ViewStyle
+const STICKY_STYLE: ViewStyle =
+  Platform.OS === 'web'
+    ? ({ position: 'sticky', top: 0, zIndex: 1001 } as unknown as ViewStyle)
+    : { position: 'relative', top: 0, zIndex: 1001 }
 
 function isImageUrl(icon: string): boolean {
   return icon.startsWith('http') || icon.startsWith('/') || icon.startsWith('file:')

@@ -7,6 +7,8 @@ import { CheckCircle2, FileText, XCircle } from 'lucide-react'
 
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { BackButton } from '@/components/common'
+import { formatCny } from '@/lib/display-currency'
+import { seedServerCurrency } from '@/lib/server-currency'
 
 /** i18n 静态映射表 — 用于消除 `t(`logs.statusLabels.${var}`)` 动态拼接 */
 const LOGS_STATUS_KEY: Record<string, string> = {
@@ -15,6 +17,8 @@ const LOGS_STATUS_KEY: Record<string, string> = {
 }
 
 export default async function LogsPage() {
+  // SSR 首帧按 cookie 口径 + 汇率快照直出(layout 与 page 模块实例隔离,必须逐页播种)
+  await seedServerCurrency()
   const t = await getTranslations('models')
 
   const logs = [
@@ -24,7 +28,7 @@ export default async function LogsPage() {
       model: 'gpt-4o',
       key: 'sk-ihui-****1a2b',
       tokens: '2,453',
-      cost: '¥ 0.061',
+      cost: 0.061,
       duration: '1.24s',
       status: 'success',
     },
@@ -34,7 +38,7 @@ export default async function LogsPage() {
       model: 'claude-3.5-sonnet',
       key: 'sk-ihui-****3c4d',
       tokens: '1,872',
-      cost: '¥ 0.056',
+      cost: 0.056,
       duration: '2.01s',
       status: 'success',
     },
@@ -44,7 +48,7 @@ export default async function LogsPage() {
       model: 'gemini-2.0-flash',
       key: 'sk-ihui-****5e6f',
       tokens: '3,201',
-      cost: '¥ 0.032',
+      cost: 0.032,
       duration: '0.88s',
       status: 'success',
     },
@@ -54,7 +58,7 @@ export default async function LogsPage() {
       model: 'deepseek-v3',
       key: 'sk-ihui-****7g8h',
       tokens: '1,205',
-      cost: '¥ 0.003',
+      cost: 0.003,
       duration: '1.55s',
       status: 'success',
     },
@@ -64,7 +68,7 @@ export default async function LogsPage() {
       model: 'qwen-max',
       key: 'sk-ihui-****9i0j',
       tokens: '985',
-      cost: '¥ 0.016',
+      cost: 0.016,
       duration: '0.92s',
       status: 'success',
     },
@@ -74,7 +78,7 @@ export default async function LogsPage() {
       model: 'gpt-4o-mini',
       key: 'sk-ihui-****1k2l',
       tokens: '654',
-      cost: '¥ 0.001',
+      cost: 0.001,
       duration: '0.42s',
       status: 'success',
     },
@@ -84,7 +88,7 @@ export default async function LogsPage() {
       model: 'grok-3',
       key: 'sk-ihui-****3m4n',
       tokens: '1,532',
-      cost: '¥ 0.046',
+      cost: 0.046,
       duration: '5.30s',
       status: 'failed',
     },
@@ -94,7 +98,7 @@ export default async function LogsPage() {
       model: 'glm-4.5',
       key: 'sk-ihui-****5o6p',
       tokens: '892',
-      cost: '¥ 0.005',
+      cost: 0.005,
       duration: '1.10s',
       status: 'success',
     },
@@ -131,7 +135,7 @@ export default async function LogsPage() {
                     <td className="px-4 py-2.5 font-medium">{l.model}</td>
                     <td className="px-4 py-2.5 font-mono text-muted-foreground">{l.key}</td>
                     <td className="px-4 py-2.5 text-muted-foreground">{l.tokens}</td>
-                    <td className="px-4 py-2.5">{l.cost}</td>
+                    <td className="px-4 py-2.5">{formatCny(l.cost)}</td>
                     <td className="px-4 py-2.5 text-muted-foreground">{l.duration}</td>
                     <td className="px-4 py-2.5">
                       <span
