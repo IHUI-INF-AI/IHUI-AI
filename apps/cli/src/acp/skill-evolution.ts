@@ -174,6 +174,18 @@ export class IllegalTransitionError extends Error {
   }
 }
 
+/** 重复提议 id 错误:同 id 已在 store(任意态) ⇒ 拒绝再登记。
+ *
+ * 提议 id 是 store 内的唯一键(advance/apply/forceEvolve 都按 id 取「第一条」)。
+ * 若允许同 id 重复 append,新记录会被旧记录遮蔽(永久阴影、无法推进)。
+ */
+export class DuplicateSuggestionError extends Error {
+  constructor(readonly id: string) {
+    super(`提议 id 已存在:${id}(id 是 store 唯一键,重复登记会被旧记录遮蔽;如需重新提出请换 id 或先 compact 清理)`);
+    this.name = 'DuplicateSuggestionError';
+  }
+}
+
 /** 判断 from → to 是否合法迁移(纯函数)。 */
 export function canTransition(
   from: SuggestionStatus,
@@ -313,6 +325,15 @@ export function propose(params: {
   if (isDeleted(tombstone)) {
     throw new DeletedResourceError(tombstone);
   }
+  // ⓪′ id 唯一守卫:同 id 已在 store(任意态)⇒ 显式拒绝。id 是 store 唯一键,
+  //    advance/apply/forceEvolve 都按 id 取「第一条」;重复 append 会让新记录被
+  //    旧记录永久遮蔽(探针实测:propose→forceEvolve→再 propose 同 id,新 pending
+  //    落到数组尾、.find 永远命中首条 evolved ⇒ 永久阴影、无法推进)。compact 硬删
+  //    已立墓碑挡住复活路径,故此处 store 内残留同 id 只可能是「未清就重提」,一律拒。
+  const store0 = loadStore(params.skillId);
+  if (store0.suggestions.some((s) => s.id === params.id)) {
+    throw new DuplicateSuggestionError(params.id);
+  }
   const now = params.now ?? Date.now();
   const installedHash =
     params.installedHash ?? skillContentHash(params.skillDir);
@@ -333,11 +354,10 @@ export function propose(params: {
     updatedAt: now,
     ...(params.ttlMs !== undefined ? { expiresAt: now + params.ttlMs } : {}),
   };
-  const store = loadStore(params.skillId);
   const next: SkillEvolutionStore = {
-    ...store,
+    ...store0,
     installedHash,
-    suggestions: [...store.suggestions, suggestion],
+    suggestions: [...store0.suggestions, suggestion],
     updatedAt: now,
   };
   saveStore(next);

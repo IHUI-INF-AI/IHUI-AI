@@ -2227,6 +2227,20 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-14**
+- 🚀 기능/개선:逆向 Qoder 6 子系统——判定可落地性(补 4 块技能进化前提基建 + 审计/修订/墓碑层) (3458dca803e)
+- 🐞 수정:诊断臂 [7b] DB 迁移落后维从未真判过——函数注册晚于 -diagnose 顶层执行点(第三次落地,范围收窄) (c4be376fd5e)
+- 🐞 수정:零价护栏豁免上游真免费模型(:free) (88cfcfeba11)
+- 🚀 기능/개선:工作区指令链补齐服务端腿 —— CLAUDE.md/本地叠加 + 轮内深层发现 (a5c6090a05f)
+- 🐞 수정:流式打字机切批升到字素簇边界 —— ZWJ/肤色/旗帜 emoji 不再拆裂(D1b) (a1436341157)
+- 🔧 기타:重封根护栏清单(git-guardian 变更后漂移) (ad06d9d1f83)
+- 🐞 수정:补两处契约缺口——SendAdmissionReceipt.ahead 与 ProcessGroupChild.kill 签名 (0dc7a156231)
+- 📚 문서:生成块四维数字回归 HEAD 面现算(apiRoutes 4800->4814/apiRouteFiles 699->697/testFiles 5254->5450/trackedFiles 21591->21820) (6ad68f44c67)
+- 📚 문서:生成块按现算刷新(trackedFiles 21820/testFiles 5450/gates 368)——唯一写入口块面回植 (f0746f71e7b)
+- 📚 문서:归正 sag2/articles 两行登记(回滚 807d0817 携 stale 副本的旧基线降级) (84469fbcd22)
+- 🐞 수정:Sag2Screen chip sm→md、card md→lg(150 最后 2 族,补齐首轮构造遗漏) (cf31c0d2e43)
+- 🐞 수정:150 余 7 族/315 余 1 族定向清零(control 档 12 处 + Sag2 badge borderColor) (ceb0e44331e)
+
+**2026-11-14**
 - 🚀 기능/개선:补齐 check-plan-claims-vs-head 门——批量预取治本 6.5min→15s + §1021 --self-test (99060ab1ee5)
 - 🚀 기능/개선:present_files 显式交付声明 + 交付清单 presentedFiles (904e129c14f)
 - 🔧 기타:重封根护栏清单(merge round2 后 gate-scope 漂移) (4b0fc5a3e6d)
@@ -2583,9 +2597,6 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 **2026-11-13**
 - 🐞 수정:mobile-rn conversationImport 补 noValidContent 5 语言词包 (d1734c00a7)
-
-**2026-11-13**
-- 🚀 기능/개선:镜像fidelity改section型尺子 + 几何白名单收紧 + cover孤儿css清理 (186e54cc85)
 <!-- END RECENT UPDATES -->
 
 <p align="center">
