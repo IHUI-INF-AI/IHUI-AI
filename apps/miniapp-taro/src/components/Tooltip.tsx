@@ -51,7 +51,6 @@ export default function Tooltip({ text, children, placement = 'top' }: TooltipPr
     <View className="relative inline-block">
       <View
         onClick={() => setShow(!show)}
-        onTouchStart={() => setShow(true)}
         hoverClass="opacity-60"
       >
         {children}

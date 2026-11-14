@@ -47,6 +47,7 @@ export default function CourseRating({
     <View
       className="fixed inset-0 z-[2000] flex items-center justify-center"
       onClick={() => onSubmit?.(rating, comment)}
+      catchMove
     >
       <View className="absolute inset-0 bg-[var(--color-black-50)]" />
       <View
