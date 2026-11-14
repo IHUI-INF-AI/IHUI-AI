@@ -79,7 +79,7 @@ export function ConnectorAuthCard({
   testID = 'connector-auth-card',
 }: ConnectorAuthCardProps) {
   const tk = getTokens(colorScheme)
-  const styles = useMemo(() => createStyles(tk, colorScheme === 'dark'), [tk, colorScheme])
+  const styles = useMemo(() => createStyles(tk), [tk])
 
   const needsDecision = isConnectorAuthDecisionState(state)
 
@@ -192,7 +192,7 @@ export function ConnectorAuthCard({
  * `text-emerald-600 / dark:text-emerald-500`→light 取 success.deep、dark 取 success.DEFAULT
  * (同一"绿"语义按主题挑可读档,不是第二色源)。
  */
-function createStyles(tk: AppThemeTokens, dark: boolean) {
+function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: {
       backgroundColor: tk.surface.muted,
@@ -214,7 +214,7 @@ function createStyles(tk: AppThemeTokens, dark: boolean) {
     connectedLabel: {
       fontSize: rnType.label.size,
       fontWeight: '500',
-      color: dark ? tk.success.DEFAULT : tk.success.deep,
+      color: tk.success.deepText,
     },
     mutedLabel: {
       fontSize: rnType.label.size,
