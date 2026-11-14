@@ -6333,6 +6333,71 @@ def _get_agent_control_api_url() -> str:
     return f"{settings.api_service_url}/api/agent-control/execute"
 
 
+def _deliver_inline_image(
+    result: dict[str, Any],
+    *,
+    raw_b64: str,
+    label: str,
+    name: str = "screenshot.png",
+    remove_keys: tuple[str, ...] = (),
+) -> dict[str, Any]:
+    """把工具结果里的内联 base64 图片转入图片交付暂存(只留元数据,原地修改)。
+
+    为什么必须转:call_tool 出口有 8000 token 截断护栏,10MB 截图的 base64 会被
+    截成无效串(call_tool 的 _truncate_tool_output 按 token 截断文本),模型既看
+    不到图,也拿不到可用数据;SSE tool-result 事件同样会被单帧撑爆。
+    交付失败绝不把工具整体判失败:保留原结果并追加 image_error(模型可改用
+    vision_analyze / 重试)。
+    """
+    import base64
+    import binascii
+
+    from .tool_image_delivery import prepare_image_bytes, stash_image
+
+    text = raw_b64.strip()
+    if text.startswith("data:"):
+        _, _, text = text.partition(",")
+    try:
+        raw = base64.b64decode(text, validate=True)
+    except (binascii.Error, ValueError) as e:
+        result["image_error"] = f"内联图片 base64 解码失败: {e}"
+        return result
+    prepared, error = prepare_image_bytes(raw, path_label=label, name=name)
+    if prepared is None or error is not None:
+        result["image_error"] = (error or {}).get("error") or "图片交付失败"
+        return result
+    content_id = stash_image(prepared)
+    for key in remove_keys:
+        result.pop(key, None)
+    result["image"] = {
+        "content_id": content_id,
+        "media_type": prepared["media_type"],
+        "bytes": prepared["bytes"],
+        "width": prepared["width"],
+        "height": prepared["height"],
+        "source_width": prepared["source_width"],
+        "source_height": prepared["source_height"],
+        "name": prepared["name"],
+    }
+    result["note"] = "图片本体随本轮 tool 结果之后的 user 多模态消息送达"
+    return result
+
+
+def _screenshot_b64_from_agent_result(data: Any) -> str:
+    """从 agent-control 的 data 载荷里取截图 base64(兼容双层 data 与三个键名)。"""
+    if not isinstance(data, dict):
+        return ""
+    inner = data.get("data")
+    for payload in (inner, data):
+        if not isinstance(payload, dict):
+            continue
+        for key in ("screenshot", "imageBase64", "base64"):
+            value = payload.get(key)
+            if isinstance(value, str) and value:
+                return value
+    return ""
+
+
 async def _tool_agent_control(
     category: str, action: str, arguments: dict[str, Any]
 ) -> dict[str, Any]:
@@ -6396,13 +6461,30 @@ async def _tool_agent_control(
             payload = response.json()
             # api 层返回 ApiResponse<AgentActionResponse> = { code, message, data }
             data = payload.get("data", payload) if isinstance(payload, dict) else {}
-            return {
+            result = {
                 "tool": tool_name,
                 "ok": bool(data.get("success", False)),
                 "action": action,
                 "category": category,
                 "result": data,
             }
+            if category == "computer" and action == "screenshot_screen":
+                # 截图 base64 不能留在 tool 正文:8000 token 截断会把它截成无效串。
+                # 取出 → 有界暂存 → 元数据交付(agent loop 追加 user 多模态消息)。
+                shot = _screenshot_b64_from_agent_result(data)
+                if shot:
+                    inner = data.get("data") if isinstance(data, dict) else None
+                    for holder in (inner, data):
+                        if isinstance(holder, dict):
+                            for key in ("screenshot", "imageBase64", "base64"):
+                                holder.pop(key, None)
+                    _deliver_inline_image(
+                        result,
+                        raw_b64=shot,
+                        label=f"{category}:{action}",
+                        name="screenshot.png",
+                    )
+            return result
     except httpx.TimeoutException:
         return {
             "tool": tool_name,
@@ -6541,7 +6623,7 @@ async def _tool_browser_selfcheck_screenshot(arguments: dict[str, Any]) -> dict[
             "errorCode": "TOOL_FAILED",
         }
 
-    return {
+    payload = {
         "tool": "browser_selfcheck_screenshot",
         "ok": result.get("ok", False),
         "url": result.get("finalUrl", url),
@@ -6550,10 +6632,16 @@ async def _tool_browser_selfcheck_screenshot(arguments: dict[str, Any]) -> dict[
         "width": result.get("width", 0),
         "height": result.get("height", 0),
         "consoleErrors": result.get("consoleErrors", []),
-        "imageBase64": result.get("imageBase64"),
         "error": result.get("error"),
         "errorCode": result.get("errorCode"),
     }
+    # 截图 base64 不进正文(截断护栏会截坏):转图片交付,主模型直接看图。
+    shot = result.get("imageBase64")
+    if isinstance(shot, str) and shot:
+        _deliver_inline_image(
+            payload, raw_b64=shot, label=url, name="selfcheck.png"
+        )
+    return payload
 
 
 async def _tool_browser_selfcheck(arguments: dict[str, Any]) -> dict[str, Any]:
@@ -7272,9 +7360,15 @@ async def _tool_subagent_job(arguments: dict[str, Any]) -> dict[str, Any]:
         )
         return {"tool": "subagent_job", "action": "send", **result}
 
+    if action == "cancel":
+        result = await jobs_store.cancel_job(
+            job_id, user_id=user_id, session_id=session_id
+        )
+        return {"tool": "subagent_job", "action": "cancel", **result}
+
     return {
         "tool": "subagent_job", "ok": False, "errorCode": "INVALID_PARAMS",
-        "error": f"不支持的 action: {action}(list/wait/send)",
+        "error": f"不支持的 action: {action}(list/wait/send/cancel)",
     }
 
 
@@ -7827,6 +7921,11 @@ def _team_task_stale(entry: dict[str, Any], expected_revision: object) -> dict[s
     """CAS:调用方带了 expected_revision 且与当前 revision 不符 → 整条拒绝。"""
     if expected_revision is None:
         return None
+    if not isinstance(expected_revision, (str, int, float)):
+        return {
+            "ok": False, "errorCode": "INVALID_PARAMS",
+            "error": "expected_revision 必须是整数",
+        }
     try:
         expected = int(expected_revision)
     except (TypeError, ValueError):
@@ -14374,9 +14473,10 @@ _TOOLS: list[MCPTool] = [
     MCPTool(
         name="subagent_job",
         description=(
-            "后台子代理作业的查询与续跑:list 列出本会话作业;wait 有限等待到终态;"
+            "后台子代理作业的查询、续跑与中断:list 列出本会话作业;wait 有限等待到终态;"
             "send 向**已结束**的作业追加消息,以同一任务线(lineage)续跑,"
-            "上一轮任务与输出自动作为上下文。运行中的作业 send 返回 SUBAGENT_BUSY。"
+            "上一轮任务与输出自动作为上下文;cancel 中断运行中的作业。"
+            "运行中的作业 send 返回 SUBAGENT_BUSY。"
             "spawn 入口是 dispatch_subagent(background=true)。"
         ),
         input_schema={
@@ -14384,12 +14484,12 @@ _TOOLS: list[MCPTool] = [
             "properties": {
                 "action": {
                     "type": "string",
-                    "enum": ["list", "wait", "send"],
-                    "description": "list 列出 / wait 等待 / send 续跑",
+                    "enum": ["list", "wait", "send", "cancel"],
+                    "description": "list 列出 / wait 等待 / send 续跑 / cancel 中断",
                 },
                 "job_id": {
                     "type": "string",
-                    "description": "wait/send 必填:dispatch_subagent(background=true) 返回的 job_id",
+                    "description": "wait/send/cancel 必填:dispatch_subagent(background=true) 返回的 job_id",
                 },
                 "wait_s": {
                     "type": "integer",

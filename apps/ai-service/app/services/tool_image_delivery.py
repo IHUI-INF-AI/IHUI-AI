@@ -1,6 +1,6 @@
 # © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-# [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌‌​‌‍‍​‌​​​​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​​​​‍‍​‌‌‌​​‌‌‍‍​​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​​‌​‍⁠
+# [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 """工具结果图片交付(2026-11-14 立,对标 DSH dsh-tool-fs/src/read-image.ts)。
 
@@ -118,6 +118,37 @@ def prepare_image_file(path: Path) -> tuple[dict[str, Any] | None, dict[str, Any
             ),
         }
 
+    return _encode_image(raw, media_type, path_label=str(path), name=path.name)
+
+
+def prepare_image_bytes(
+    raw: bytes,
+    *,
+    path_label: str = "",
+    name: str = "",
+) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
+    """校验内存中的图片字节(screenshot 等内联 base64 用),返回 (交付载荷, 错误)。"""
+    media_type = sniff_image_media_type(raw)
+    if media_type is None:
+        return None, {
+            "errorCode": "IMAGE_UNSUPPORTED_FORMAT",
+            "error": "图片字节不是 PNG/JPEG/WebP/GIF",
+        }
+    return _encode_image(raw, media_type, path_label=path_label, name=name)
+
+
+def _encode_image(
+    raw: bytes, media_type: str, *, path_label: str, name: str
+) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
+    """尺寸/像素闸 → image_preparation 降采样 → 交付载荷(file 与 inline 共用)。"""
+    if len(raw) > MAX_IMAGE_BYTES:
+        return None, {
+            "errorCode": "IMAGE_TOO_LARGE",
+            "error": (
+                f"图片过大({len(raw)} bytes > {MAX_IMAGE_BYTES});"
+                "请先降采样再读取"
+            ),
+        }
     # 只读文件头拿尺寸(Pillow 惰性打开,不解码像素),先挡住解压炸弹与超大图;
     # 真正的降采样仍交给 image_preparation 单一实现,不在这里复算。
     try:
@@ -172,8 +203,8 @@ def prepare_image_file(path: Path) -> tuple[dict[str, Any] | None, dict[str, Any
         "height": encoded.height,
         "source_width": encoded.source_width,
         "source_height": encoded.source_height,
-        "path": str(path),
-        "name": path.name,
+        "path": path_label,
+        "name": name,
     }, None
 
 
@@ -258,3 +289,4 @@ def build_image_followup_message(images: list[dict[str, Any]]) -> dict[str, Any]
 def reset_image_stash() -> None:
     """测试用:清空暂存。"""
     _PENDING.clear()
+# ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
