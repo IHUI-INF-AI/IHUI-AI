@@ -5690,6 +5690,9 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
 
                         # ===== 公共工具执行逻辑(两分支汇合,2026-08-29 修复保持不动)=====
                         tool_exec_tracker = []
+                        # read_image 交付凭据:图片本体经有界暂存,本轮 tool 消息之后
+                        # 追加一条 user 多模态消息(见循环末尾的 _round_image_ids 消费点)
+                        _round_image_ids: list[str] = []
                         for tc in tool_calls_raw:
                             fn = tc.get("function", {})
                             tool_name = fn.get("name", "")
@@ -7246,6 +7249,28 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                 "name": tool_name,
                                 "content": result_json,
                             })
+                            # 2026-11-14(对标 DSH read_image):只收交付凭据,
+                            # 图片本体在 tool 正文之外(见下方多模态消息注入)。
+                            if isinstance(exec_result, dict):
+                                _img = exec_result.get("image")
+                                if isinstance(_img, dict) and _img.get("content_id"):
+                                    _round_image_ids.append(str(_img["content_id"]))
+                        # read_image 交付:本轮全部 tool 消息之后追加一条 user 多模态
+                        # 消息(协议允许 user 跟在 tool 结果后),让主模型直接看图。
+                        if _round_image_ids:
+                            try:
+                                from app.services.tool_image_delivery import (
+                                    build_image_followup_message,
+                                    take_images,
+                                )
+
+                                _image_msg = build_image_followup_message(
+                                    take_images(_round_image_ids)
+                                )
+                                if _image_msg is not None:
+                                    messages.append(_image_msg)
+                            except Exception as e:  # noqa: BLE001 - 降级为纯文字元数据
+                                logger.warning("工具图片交付失败(降级): %s", e)
                         # 全部 tool 失败时,直接构造失败响应,不走 astream(与 conversation.py 一致,防止 LLM 幻觉)
                         if tool_exec_tracker and all(not ok_flag for ok_flag in tool_exec_tracker):
                             failed_lines = []
