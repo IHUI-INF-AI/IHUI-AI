@@ -16704,6 +16704,8 @@
     "phaseExecuting": "執行中",
     "phaseDone": "已完成",
     "viewPullRequest": "查看拉取請求"
+    "revisionLabel": "修改意見",
+    "revisionPlaceholder": "說明需要調整哪裡;留空則請 Agent 自行說明要調整的地方"
   },
   "floatingChat": {
     "openclaw": {
