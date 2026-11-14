@@ -786,6 +786,8 @@ export default function Community() {
                  语音搜索需端侧录音+STT 链路,当前仅聊天输入框接入;小程序端暂不提供,
                   统一提示该能力在完整版提供,避免「开发中」误导) */}
                 <LineIcon
+                  ariaRole="button"
+                  ariaLabel={tt('community.search13', '语音搜索请在完整版使用')}
                   size={40}
                   name="mic"
                   color="var(--color-muted-foreground)"
@@ -797,6 +799,8 @@ export default function Community() {
                 {/* 图片搜索按钮(对齐原项目 handleIconClick L1113-1207。
                  后端无图搜智能体接口,小程序端仅保留入口,提示在完整版提供) */}
                 <LineIcon
+                  ariaRole="button"
+                  ariaLabel={tt('taskStatus.toolImageSearch', '图片搜索')}
                   size={40}
                   name="search"
                   color="var(--color-muted-foreground)"

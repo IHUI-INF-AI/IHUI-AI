@@ -176,6 +176,8 @@ export default function QueueInteractionBar({
           >
             {/* 重排把手:小程序无 HTML5 拖拽 ⇒ 退化为 ↑/↓(与 RN 同法);命中区包在 View 上 */}
             <View
+              ariaRole="button"
+              ariaLabel={t('planPage.moveUp')}
               data-testid={`queue-op-reorder-up-${index}`}
               className="mr-[8rpx] flex min-h-[88rpx] min-w-[88rpx] flex-row items-center justify-center"
               hoverClass="opacity-60"
@@ -191,6 +193,8 @@ export default function QueueInteractionBar({
               <LineIcon name="chevron-up" size={28} color="var(--color-muted-foreground)" />
             </View>
             <View
+              ariaRole="button"
+              ariaLabel={t('planPage.moveDown')}
               data-testid={`queue-op-reorder-down-${index}`}
               className="mr-[8rpx] flex min-h-[88rpx] min-w-[88rpx] flex-row items-center justify-center"
               hoverClass="opacity-60"

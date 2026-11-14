@@ -233,6 +233,8 @@ export default function DrawerComponent(props: DrawerComponentProps) {
               )}
             </View>
             <LineIcon
+              ariaRole="button"
+              ariaLabel={tt('a11y.close', '关闭')}
               name="x"
               size={taroGeometry.glyphMd}
               color="var(--color-muted-foreground)"
@@ -406,6 +408,8 @@ export default function DrawerComponent(props: DrawerComponentProps) {
                             {onRemoveChat ? (
                               // 删除键载体 = 矢量(RN 端左滑删除同为矢量),文字 × 冒充图标已收口
                               <LineIcon
+                                ariaRole="button"
+                                ariaLabel={tt('common.delete', '删除')}
                                 name="x"
                                 size={taroGeometry.controlGlyph}
                                 color="var(--color-muted-foreground)"

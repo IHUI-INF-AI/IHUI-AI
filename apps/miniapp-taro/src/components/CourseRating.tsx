@@ -63,6 +63,8 @@ export default function CourseRating({
             // 命中区/间距留在包装 View 上(原 Text 的 mx-1 与三个触摸回调一字未动),
             // 载体换成 LineIcon:60rpx = 原 text-3xl(30px)的同档取值。
             <View
+              ariaRole="button"
+              ariaLabel={tt('course.rated', '已评分 {n} 星', { n: star })}
               key={star}
               className="mx-xs"
               hoverClass="opacity-60"

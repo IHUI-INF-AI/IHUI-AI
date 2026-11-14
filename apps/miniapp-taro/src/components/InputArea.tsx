@@ -420,6 +420,8 @@ export default function InputArea({
                     {/* 删除附件角标:圆形底色与命中盒仍由 .imgs-list-close 类臂负责,
                         里面的叉号换成与 RN `thumbClose` 同一个 lucide 字形(X ⇒ name="x")。 */}
                     <View
+                      ariaRole="button"
+                      ariaLabel={t('chat.imageDelete')}
                       className="imgs-list-close"
                       style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                       hoverClass="opacity-60"
@@ -569,6 +571,8 @@ export default function InputArea({
             >
               {/* 语音切换按钮 search-box1:50rpx×48rpx */}
               <View
+                ariaRole="button"
+                ariaLabel={t('aiMultimodal.audioMode')}
                 className={cn('search-box1', mode === 'voice' ? 'active' : '')}
                 style={{
                   width: toUnit(INPUT_AREA_AI_HOME_VOICE_BTN_W_PX),
@@ -675,6 +679,8 @@ export default function InputArea({
                   <View className="search-box3">
                     {/* 放大:与 RN 底部辅助行「放大」槽位同一个 lucide 字形(Maximize) */}
                     <LineIcon
+                      ariaRole="button"
+                      ariaLabel={t('ai.pane.elementPack.imagePreview.zoomIn')}
                       className="search-box3-img"
                       name="maximize"
                       size={toUnit(INPUT_AREA_AI_HOME_EXPAND_GLYPH_PX)}
@@ -702,6 +708,8 @@ export default function InputArea({
                   <View className="search-box3">
                     {/* 缩小:Maximize 的成对档 lucide Minimize(登记表同名键 minimize) */}
                     <LineIcon
+                      ariaRole="button"
+                      ariaLabel={t('ai.pane.elementPack.imagePreview.zoomOut')}
                       className="search-box3-img"
                       name="minimize"
                       size={toUnit(INPUT_AREA_AI_HOME_EXPAND_GLYPH_PX)}
@@ -748,7 +756,13 @@ export default function InputArea({
                 }}
               >
                 {/* 附件按钮 search-box2:44rpx×44rpx,默认可见,isShowIcon 只控制旋转 */}
-                <View className="search-box2" onClick={handleUploadToggle} hoverClass="opacity-60">
+                <View
+                  ariaRole="button"
+                  ariaLabel={t('a11y.addAttachment')}
+                  className="search-box2"
+                  onClick={handleUploadToggle}
+                  hoverClass="opacity-60"
+                >
                   {/* 与 RN PlusButton 同槽同档:方块 `controlBox`(32)、墨迹 `controlGlyph`(14);
                       激活态两端同一对 cta 实底 + 配对前景(web 的触发钮是 ghost,取 RN 的激活形态,
                       因为两端的"展开面板"高亮此前一端有一端无)。 */}
@@ -776,6 +790,8 @@ export default function InputArea({
                   {/* 清空按钮:叉号与 RN 附件删除角标同字形(lucide X),盒仍是 50rpx 档 */}
                   {mode === 'text' && value.length > 0 ? (
                     <LineIcon
+                      ariaRole="button"
+                      ariaLabel={t('common.clear')}
                       className="search-box3-img"
                       name="x"
                       size={toUnit(INPUT_AREA_CONTROL_GLYPH_PX)}
@@ -788,6 +804,8 @@ export default function InputArea({
                       实底 cta + 配对前景,墨迹 `controlGlyph`(14)。此前本端是 25 的裸图标 + 品牌绿前景,
                       而 RN/web 是 32 黑底白字方块的同一枚控件,即"两端还是不一样"里最显眼的一格。 */}
                   <View
+                    ariaRole="button"
+                    ariaLabel={t('chat.send')}
                     className="flex items-center justify-center ml-sm rounded-sm bg-cta text-cta-foreground"
                     style={{
                       width: rpx(taroGeometry.controlBox),
@@ -837,6 +855,8 @@ export default function InputArea({
         <View className="flex items-center mr-sm flex-shrink-0">
           {/* 在 weapp 端为死样式(:active 伪类对 View 不生效),改用 hoverClass 按压反馈 */}
           <View
+            ariaRole="button"
+            ariaLabel={t(mode === 'text' ? 'aiMultimodal.audioMode' : 'aiMultimodal.textMode')}
             className={`w-9 h-9 flex items-center justify-center rounded-sm ${mode === 'voice' ? 'text-primary' : 'text-muted-foreground'}`}
             onClick={toggleMode}
             hoverClass="opacity-60"
@@ -891,6 +911,8 @@ export default function InputArea({
           {mode === 'text' ? (
             // 开关钮载体 = 矢量(AGENTS §4「UI 图标一律用矢量图标库,禁止 emoji 充当图标」);命中盒 w-9 h-9 / 圆角档 rounded-sm / 开合两态色档与原字符实现同档,墨迹取本文件既有具名档 ⇒ 不新增端内数字
             <View
+              ariaRole="button"
+              ariaLabel={t('common.actions')}
               className={`min-w-[88rpx] min-h-[88rpx] flex items-center justify-center rounded-sm ${showEmoji ? 'text-primary' : 'text-muted-foreground'}`}
               hoverClass="opacity-60"
               onClick={toggleEmoji}
@@ -905,6 +927,8 @@ export default function InputArea({
           <View className="flex flex-col items-center ml-xs">
             {/* 在 weapp 端为死样式(:active 伪类对 View 不生效),改用 hoverClass 按压反馈 */}
             <View
+              ariaRole="button"
+              ariaLabel={t('a11y.addAttachment')}
               className="w-9 h-9 flex items-center justify-center rounded-sm text-muted-foreground"
               onClick={handleUploadToggle}
               hoverClass="opacity-60"

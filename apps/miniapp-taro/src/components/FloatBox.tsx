@@ -14,6 +14,7 @@ import {
 } from '@ihui/shared/ui/float-box-spec'
 import { rpx } from '@/utils/rpx'
 import { onToast } from '@/host/on-toast'
+import { useTt } from '@/i18n'
 
 /**
  * FloatBox 浮动组件 — 对齐原项目 FloatBox.vue
@@ -43,6 +44,7 @@ const LABEL_TEXT_STYLE = {
 
 export default function FloatBox({ onShare, onService, onFeedback }: FloatBoxProps) {
   const [isOpen, setIsOpen] = useState(true)
+  const tt = useTt()
 
   const handleShare = () => {
     if (onShare) {
@@ -106,6 +108,8 @@ export default function FloatBox({ onShare, onService, onFeedback }: FloatBoxPro
       >
         {/* 展开/收起箭头 — 对齐原项目 float-arrow */}
         <View
+          ariaRole="button"
+          ariaLabel={isOpen ? tt('a11y.collapse', '折叠') : tt('a11y.expand', '展开')}
           style={{
             position: 'absolute',
             left: isOpen ? '-161rpx' : '-37rpx',

@@ -255,6 +255,7 @@ export default function CircleCreatePage() {
             {form.images.map((img, i) => (
               <View key={i} className="cc-img-item">
                 <Image
+                  ariaLabel={tt('chat.imagePreviewA11y', '图片预览')}
                   className="cc-img"
                   src={img}
                   mode="aspectFill"

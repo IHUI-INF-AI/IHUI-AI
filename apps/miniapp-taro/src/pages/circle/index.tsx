@@ -255,6 +255,7 @@ export default function CircleIndexPage() {
                     <View className="ci-images">
                       {imgs.slice(0, 3).map((img, i) => (
                         <Image
+                          ariaLabel={tt('chat.imagePreviewA11y', '图片预览')}
                           key={i}
                           className="ci-img"
                           src={img}

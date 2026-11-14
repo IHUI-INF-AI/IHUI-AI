@@ -5,6 +5,7 @@
 import { View, Text, Image } from '@tarojs/components'
 import { cn } from '@ihui/design-tokens'
 import { type AvatarShape, type AvatarSize } from '@ihui/shared/ui/avatar-spec'
+import { useTt } from '@/i18n'
 
 export interface AvatarProps {
   src?: string
@@ -12,6 +13,8 @@ export interface AvatarProps {
   size?: AvatarSize
   shape?: AvatarShape
   onClick?: () => void
+  /** 可点击时覆盖默认无障碍名称(如「更换头像」);不传则用「点击查看大图」 */
+  accessibilityLabel?: string
 }
 
 /**
@@ -39,7 +42,14 @@ export default function Avatar({
   size = 'md',
   shape = 'circle',
   onClick,
+  accessibilityLabel,
 }: AvatarProps) {
+  const tt = useTt()
+  // 仅在可点击时才给无障碍名称:纯展示头像不该被读屏当作一个无名按钮朗读。
+  // Image 在 Taro 4.2.1 只支持 ariaLabel(无 ariaRole),承载体是 View 时补 ariaRole="button"。
+  const a11yLabel = onClick
+    ? (accessibilityLabel ?? tt('user.avatar.tapPreview', '点击查看大图'))
+    : undefined
   const sizeClass = SIZES[size]
   // 圆角档名取自跨端唯一表 AVATAR_SHAPE_STEP(circle→md / square→lg),类名留本端(扫描面);
   // 项目规则:头像外层容器禁止 rounded-full,统一 rounded-md,故 circle 档 = rounded-md
@@ -61,6 +71,7 @@ export default function Avatar({
         src={src}
         mode="aspectFill"
         onClick={onClick}
+        ariaLabel={a11yLabel}
       />
     )
   }
@@ -75,6 +86,8 @@ export default function Avatar({
       )}
       onClick={onClick}
       hoverClass="opacity-60"
+      ariaRole={onClick ? 'button' : undefined}
+      ariaLabel={a11yLabel}
     >
       <Text className="text-muted-foreground font-medium">{initials}</Text>
     </View>
