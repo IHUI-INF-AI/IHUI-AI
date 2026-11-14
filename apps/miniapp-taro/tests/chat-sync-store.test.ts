@@ -376,6 +376,19 @@ describe('⑤ 投影层纯函数与页面挂载(G-20261114)', () => {
     // 本端流式中必须暂停投影,否则 WS snapshot 会覆盖本端 SSE 前缀
     expect(source).toContain('paused: thinking')
   })
+  it('phase 2 resync 接线锁:泵在应用级 hook 启停,端内不手抄端点路径', () => {
+    const hookSource = readFileSync(join(HERE, '../src/hooks/use-user-broadcast-sync.ts'), 'utf8')
+    // 有登录态才建泵、登出/卸载即停 —— 两行缺一行都会让 pending 永远躺着或残留追问
+    expect(hookSource).toContain('startTaroChatSyncResync()')
+    expect(hookSource).toContain('stopTaroChatSyncResync()')
+
+    const adapter = readFileSync(join(HERE, '../src/lib/chat-sync-resync.ts'), 'utf8')
+    // 调度/失败分类/端点路径三件都在共享层,端内只交 fetchApi
+    expect(adapter).toContain('startChatSyncResyncPump')
+    expect(adapter).toContain('createChatSyncSnapshotFetcher')
+    // 反向牙:端内出现端点字面量 = 又开始手抄(共享层已有一份,抄第二份必然漂移)
+    expect(adapter).not.toMatch(/['"`]\/chat\/conversations/)
+  })
 })
 
 describe('装载证明:端内 store hook 与共享单例同源', () => {
