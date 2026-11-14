@@ -22,6 +22,7 @@ import {
   type RechargeQrCredentials,
 } from '@/lib/recharge-qr-session'
 import { Button, Card, CardContent } from '@ihui/ui-react'
+import { formatCny } from '@/lib/display-currency'
 
 interface OrderDetail {
   order: {
@@ -118,7 +119,9 @@ function SuccessContent() {
                 {amountText && (
                   <div className="flex items-center justify-between gap-3">
                     <span className="text-muted-foreground">{t('rechargeAmount')}</span>
-                    <span className="font-medium">¥{amountText}</span>
+                    <span className="font-medium" suppressHydrationWarning>
+                      {formatCny(Number(amountText), { digits: 2 })}
+                    </span>
                   </div>
                 )}
               </div>
@@ -175,7 +178,9 @@ function SuccessContent() {
           </h1>
           {amountText && (
             <p className="text-body text-muted-foreground">
-              金额：<span className="font-bold text-foreground">¥{amountText}</span>
+              金额：<span className="font-bold text-foreground" suppressHydrationWarning>
+                {formatCny(Number(amountText), { digits: 2 })}
+              </span>
             </p>
           )}
           <div className="flex justify-center rounded-lg border border-border bg-white p-3">

@@ -19,6 +19,7 @@ import { HomePage4Pricing } from '@/components/marketing/HomePage4Pricing'
 import { TypewriterHeroSection } from '@/components/marketing/TypewriterHero'
 import { SiteFooter } from '@/components/marketing/SiteFooter'
 import { useTranslations } from 'next-intl'
+import { formatCny } from '@/lib/display-currency'
 import type { HomeSchema, SectionComponentType } from '@/components/marketing/home-schema'
 
 /**
@@ -163,7 +164,7 @@ function PricingSection({ pageIndex }: SectionProps) {
             {[
               { value: 8, suffix: '', label: t('stats.platforms') },
               { value: 100, suffix: '+', label: t('stats.models') },
-              { value: 6000, prefix: '¥', label: te('hero.priceEarlyBird') },
+              { value: 6000, prefix: '', label: te('hero.priceEarlyBird'), money: true },
               { value: 18, suffix: '', label: t('stats.seats') },
             ].map((s, i) => (
               <RevealOnView
@@ -172,9 +173,15 @@ function PricingSection({ pageIndex }: SectionProps) {
                 className="group relative flex flex-col items-center gap-0.5 overflow-hidden rounded-lg border bg-card/80 px-3 py-2 text-center backdrop-blur-sm transition-all duration-300 hover:border-primary/40 hover:bg-primary/5 min-[768px]:py-3"
               >
                 <span className="bg-gradient-to-r from-primary to-emerald-500 bg-clip-text text-heading font-bold tracking-tight text-transparent transition-transform duration-300 group-hover:scale-110 min-[768px]:text-display">
-                  {s.prefix && <span>{s.prefix}</span>}
-                  <AnimatedNumber value={s.value} duration={1500} />
-                  {s.suffix && <span>{s.suffix}</span>}
+                  {s.money ? (
+                    formatCny(s.value, { digits: 0 })
+                  ) : (
+                    <>
+                      {s.prefix && <span>{s.prefix}</span>}
+                      <AnimatedNumber value={s.value} duration={1500} />
+                      {s.suffix && <span>{s.suffix}</span>}
+                    </>
+                  )}
                 </span>
                 <span className="line-clamp-2 text-[10px] text-muted-foreground min-[768px]:text-label">
                   {s.label}

@@ -18,6 +18,7 @@ import { toast } from '@/components/common'
 import { BackButton, AuthGatePrompt } from '@/components/common'
 import { useAuthGate } from '@/hooks/use-auth-gate'
 import { cn } from '@/lib/utils'
+import { formatCny } from '@/lib/display-currency'
 
 interface Course {
   id: string
@@ -67,9 +68,9 @@ const STATUS_STYLE: Record<string, string> = {
 }
 
 function formatPrice(price: string | null | undefined, isFree?: boolean): string {
-  if (isFree) return '¥0.00'
+  if (isFree) return formatCny(0, { digits: 2 })
   const n = Number(price ?? '0')
-  return `¥${Number.isFinite(n) ? n.toFixed(2) : '0.00'}`
+  return formatCny(Number.isFinite(n) ? n : 0, { digits: 2 })
 }
 
 function formatTime(value: string | null | undefined): string {

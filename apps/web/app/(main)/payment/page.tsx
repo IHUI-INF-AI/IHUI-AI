@@ -9,6 +9,7 @@ import type { ComponentType } from 'react'
 
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { BackButton } from '@/components/common'
+import { formatCny } from '@/lib/display-currency'
 import { cn } from '@/lib/utils'
 
 interface Plan {
@@ -38,8 +39,7 @@ const PLAN_NAME_KEY: Record<Plan['id'], string> = {
   enterprise: 'plans.enterprise.name',
 }
 
-const formatCNY = (n: number) =>
-  new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'CNY' }).format(n)
+const formatCNY = (n: number) => formatCny(n, { digits: 0 })
 
 export default function PaymentPage() {
   const t = useTranslations('payment')

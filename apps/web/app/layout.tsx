@@ -13,6 +13,8 @@ import {
   type LocaleCode,
 } from '@/lib/locale-cookie'
 import { Toaster } from '@/components/common'
+// 实时汇率预热(2026-11-14 立):任意页面首屏即拉取,供全站金额换算
+import { CurrencyRuntime } from '@/components/common/CurrencyRuntime'
 
 import './globals.css'
 // 2026-09-06 修复:KaTeX 数学公式样式改由 JS import 引入(替代 globals.css 的 CSS @import,
@@ -556,6 +558,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             <QueryProvider>
               <TooltipProvider>
                 <GlobalHooksProvider>
+                  <CurrencyRuntime />
                   {/*
                     GlobalShell 提供真全局骨架:左侧 Sidebar + 内容槽 + 右侧 AISidePanel + PWA 提示。
                     所有路由组((main)/(marketing)/(auth)/sso/h5/forbidden)共享同一套全局组件,
