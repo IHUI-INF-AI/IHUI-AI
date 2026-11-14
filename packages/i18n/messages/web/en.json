@@ -16698,7 +16698,7 @@
     "phaseApproved": "Approved",
     "phaseExecuting": "Executing",
     "phaseDone": "Done",
-    "viewPullRequest": "View Pull Request"
+    "viewPullRequest": "View Pull Request",
     "revisionLabel": "Revision feedback",
     "revisionPlaceholder": "What needs adjusting? Leave empty and the agent will explain what it plans to change"
   },
