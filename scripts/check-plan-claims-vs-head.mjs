@@ -410,17 +410,57 @@ function main() {
     )
     process.exit(2)
   }
+  /*
+   * ⚡ 批量预取(治本,2026-11-14):判据函数 judgeEntry 的接口(catFile/grepHead/isIgnored/
+   * removedSha)与四态语义一行不改,只把它们的**缓存**在循环前批量预热。原实现逐条 spawn
+   * git 子进程,598 条 path × 最多 3 探针 ≈ 1800 次 execFileSync × ~650ms ≈ 6.5 分钟 ⇒ 撞任何
+   * 超时门必死,门从未真正跑通过(首跑 user time 仅 0.077s、卡在子进程上)。现在把探针降到
+   * O(批量):① `git ls-tree -r --name-only HEAD` 一次拿全树(0.75s,21839 文件);② 迁移目录
+   * 逐目录 ls-tree 预热;③ `git check-ignore --stdin` 一次批量判忽略(0 命中/1 未命中);④
+   * `git log --diff-filter=D --name-only` 一次拿删除史(8.5s)。四类缓存命中后循环里再无 spawn。
+   */
+  const warmTargets = grouped.map((g) => String(g.target))
+  // ① 一次性全树:同时建"文件集"与"目录集"。`ls-tree -r --name-only` 只列文件,但 judgeEntry
+  //    的父目录兜底会拿目录去问 catFile(原实现 `cat-file -e` 对目录也成立),故目录集由文件
+  //    路径的全部祖先前缀推导,保持与原 cat-file 语义一致,不靠"带不带点"这种脆弱启发式。
+  let headFiles = new Set()
+  let headDirs = new Set()
+  try {
+    for (const line of git(['ls-tree', '-r', '--name-only', 'HEAD']).split(/\r?\n/)) {
+      if (!line) continue
+      headFiles.add(line)
+      const segs = line.split('/')
+      for (let i = 1; i < segs.length; i++) headDirs.add(segs.slice(0, i).join('/'))
+    }
+  } catch {
+    headFiles = null // 全树取不到 ⇒ 退回逐条 cat-file(慢但正确),不猜
+    headDirs = null
+  }
   const cache = new Map()
   const catFile = (p) => {
     if (!cache.has(p)) {
-      try {
-        git(['cat-file', '-e', `HEAD:${p}`])
-        cache.set(p, true)
-      } catch {
-        cache.set(p, false)
+      if (headFiles) {
+        // 预热命中:查集合,零 spawn。文件/目录都能答,与原 `cat-file -e` 两态一致。
+        cache.set(p, headFiles.has(p) || headDirs.has(p))
+      } else {
+        try {
+          git(['cat-file', '-e', `HEAD:${p}`])
+          cache.set(p, true)
+        } catch {
+          cache.set(p, false)
+        }
       }
     }
     return cache.get(p)
+  }
+  // ② 迁移目录:预热到 catFile 缓存(键 = dir/t)
+  if (headFiles) {
+    for (const t of new Set(grouped.filter((g) => g.kind === 'migration').map((g) => String(g.target)))) {
+      for (const d of migrationDirs) {
+        const full = `${d}/${t}`
+        if (!cache.has(full)) cache.set(full, headFiles.has(full))
+      }
+    }
   }
   const grepCache = new Map()
   const grepHead = (sym) => {
@@ -476,6 +516,45 @@ function main() {
     }
     if (!raw || !Array.isArray(raw.missing)) return null
     return raw.missing.filter((x) => typeof x === 'string')
+  }
+  // ③ isIgnored 批量预热:`check-ignore --stdin` 一次判完全部 path 声称(命中 rc0/未命中 rc1)。
+  //    取不到 stdin 结论的路径按"探针哑了"置 null,交 judgeEntry 判不准,不猜。
+  const ignoredPaths = warmTargets.filter((t) => !ignoreCache.has(t))
+  if (ignoredPaths.length > 0) {
+    // `check-ignore --stdin --verbose --non-matching`:rc0=有命中,rc1=全未命中(--non-matching
+    // 只列未忽略的,`::` 前缀;被忽略的根本不出现在输出)。原逐条 `-q` 语义 rc0=忽略/rc1=未忽略
+    // 与 `--no-index` 无关,故这里不带 --no-index。--non-matching 必须配 --verbose(rc128 否则)。
+    try {
+      const out = git(['check-ignore', '--stdin', '--verbose', '--non-matching'], ignoredPaths.join('\n') + '\n')
+      const unmatched = new Set(
+        out.split(/\r?\n/).filter((l) => l.startsWith('::')).map((l) => l.replace(/^::\s*/, '').trim()),
+      )
+      for (const p of ignoredPaths) ignoreCache.set(p, !unmatched.has(p))
+    } catch (e) {
+      // rc1 = 全未忽略(正常两态,不进 catch);这里只兜"探针哑了" ⇒ 全 null 交判不准,不猜
+      const allUnmatched = e && e.status === 1
+      for (const p of ignoredPaths) ignoreCache.set(p, allUnmatched ? false : null)
+    }
+  }
+  // ④ removedSha 批量预热:一次 `log --diff-filter=D --name-only` 建删除史倒排索引,
+  //    取"最近一次删除该路径"的短 sha,与原逐条 `log -1` 语义一致;取不到史 ⇒ 全 null。
+  const removedPaths = warmTargets.filter((t) => !removedCache.has(t))
+  if (removedPaths.length > 0) {
+    let delIndex = null
+    try {
+      const raw = git(['log', '--diff-filter=D', '--name-only', '--format=%x00%h', 'HEAD'])
+      delIndex = new Map()
+      let cur = ''
+      for (const line of raw.split(/\r?\n/)) {
+        if (line.startsWith('\x00')) cur = line.slice(1)
+        else if (cur && line) {
+          if (!delIndex.has(line)) delIndex.set(line, cur) // 首见 = 最近一次删除
+        }
+      }
+    } catch {
+      delIndex = null
+    }
+    for (const p of removedPaths) removedCache.set(p, delIndex ? delIndex.get(p) || '' : null)
   }
   const missing = []
   const undetermined = []
@@ -573,12 +652,89 @@ function main() {
 
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
 if (isDirectRun) {
+  const argSelfTest = process.argv.slice(2).includes('--self-test')
   try {
-    main()
+    if (argSelfTest) selfTest()
+    else main()
   } catch (e) {
     console.log(`⚠️  本门自身异常 ⇒ 按未判定处理:${e?.message ?? e}`)
     process.exit(2)
   }
+}
+
+/*
+ * --self-test(§1021 硬验收):必含"声称且确在 → 绿"与"声称而缺 → 红"成对,并钉"判序不变"
+ * (探针未接线不改变 missing 的判定)。阴性对照**不硬绑 D35 当前状态** —— D35/D36/D43 的实现物
+ * (voice-note/prompt-drafts/history-projection)在立门(10-30)后已落地、现都在 HEAD,硬绑会把
+ * "已修好"误读成"判据失效"。改为动态核验一条确在 HEAD 之外的路径判 missing。同时仍要 D35/
+ * D36/D43 三处在**全量声称面**上可点名(§1021:首跑报不出三处即判据失效)。
+ */
+function selfTest() {
+  const fail = []
+  const ok = []
+  // ① 阳性对照:挑一条确在 HEAD 的真实路径,判 ok。
+  let posPath = null
+  try {
+    const first = git(['ls-tree', '-r', '--name-only', 'HEAD']).split(/\r?\n/).find(Boolean)
+    if (first) posPath = first
+  } catch {}
+  if (posPath) {
+    const r = judgeEntry({ kind: 'path', target: posPath, rows: ['T1'], source: 'row' }, {
+      catFile: (p) => {
+        try { git(['cat-file', '-e', `HEAD:${p}`]); return true } catch { return false }
+      },
+      grepHead: () => null,
+      migrationDirs: ['packages/database/migrations'],
+      isIgnored: null,
+      removedSha: null,
+    })
+    if (r.verdict === 'ok') ok.push(`阳性:确在 HEAD 的 ${posPath} → ok`)
+    else fail.push(`阳性失败:${posPath} 确在 HEAD 却判 ${r.verdict}`)
+  } else fail.push('阳性失败:取不到任何 HEAD 路径,无法构造确在样本')
+  // ② 阴性对照:动态找一条确在 HEAD 之外的路径判 missing(不硬绑 D35 当前状态)。
+  let negPath = 'scripts/definitely-not-in-head-§1021-selftest.mjs'
+  try {
+    for (let i = 0; i < 8 && !fail.length; i++) {
+      // 该占位路径若真不存在即合格;若存在(极端巧合)换名重试
+      try { git(['cat-file', '-e', `HEAD:${negPath}`]); negPath = negPath.replace(/\.mjs$/, `-${i}.mjs`) } catch { break }
+    }
+  } catch {}
+  const r2 = judgeEntry({ kind: 'path', target: negPath, rows: ['T2'], source: 'row' }, {
+    catFile: (p) => { try { git(['cat-file', '-e', `HEAD:${p}`]); return true } catch { return false } },
+    grepHead: () => null,
+    migrationDirs: ['packages/database/migrations'],
+    isIgnored: (p) => { try { git(['check-ignore', '-q', '--', p]); return true } catch (e) { return e.status === 1 ? false : null } },
+    removedSha: (p) => { try { return git(['log', '-1', '--format=%h', '--diff-filter=D', 'HEAD', '--', p]).trim() || '' } catch { return null } },
+  })
+  if (r2.verdict === 'missing') ok.push(`阴性:HEAD 外的 ${negPath} → missing(判红射程)`)
+  else fail.push(`阴性失败:${negPath} 不在 HEAD 却判 ${r2.verdict}(期望 missing)`)
+  // ③ 判序不变:探针未接线(isIgnored/removedSha=null)时,path 缺失仍判 missing,不被短路成判不准。
+  //    注意 judgeEntry 的父目录兜底会用同一 catFile 问 'scripts' 目录;故 catFile 必须对父目录返回
+  //    true、只对目标文件返回 false,才能走到"三问皆否 ⇒ missing"那一型。
+  const r3 = judgeEntry({ kind: 'path', target: negPath, rows: ['T3'], source: 'row' }, {
+    catFile: (p) => p === 'scripts',
+    grepHead: () => null, migrationDirs: [], isIgnored: null, removedSha: null,
+  })
+  if (r3.verdict === 'missing') ok.push('判序不变:探针未接线时缺失仍判 missing')
+  else fail.push(`判序被改:探针未接线时缺失判 ${r3.verdict}`)
+  // ④ §1021 首跑检查:D35/D36/D43 三处必须能在声称面点名(不要求判红,只要求可见)。
+  const text = headBlob(DOC)
+  const ids = ['D35', 'D36', 'D43']
+  const missingIds = []
+  for (const id of ids) {
+    if (!(text || '').includes(id)) missingIds.push(id)
+  }
+  if (missingIds.length === 0) ok.push('§1021:D35/D36/D43 三处在声称面均可见')
+  else fail.push(`§1021 判据失效:声称面报不出 ${missingIds.join('/')} 三处`)
+  console.log('[plan-claims] --self-test')
+  for (const o of ok) console.log(`  ✅ ${o}`)
+  if (fail.length > 0) {
+    for (const f of fail) console.log(`  ❌ ${f}`)
+    console.log(`self-test ${ok.length} 过 / ${fail.length} 败 ⇒ 判据失效(§1021:宁可不接线)`)
+    process.exit(2)
+  }
+  console.log(`self-test 全过(${ok.length} 例)`)
+  process.exit(0)
 }
 
 export const __test__ = {
