@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { useI18n } from '../i18n'
+import { useI18n, t as tStatic } from '../i18n'
 
 /**
  * EarningsStatisticsCard 收益统计卡片 (mobile-rn 端)
@@ -97,7 +97,7 @@ export default function EarningsStatisticsCard({
   const { t } = useI18n()
   const [currentTab, setCurrentTab] = useState<EarningsTab>('today')
 
-  const trendColor = trend?.direction === 'up' ? tokens.success.DEFAULT : tokens.danger.DEFAULT
+  const trendColor = trend?.direction === 'up' ? tokens.success.deepText : tokens.danger.DEFAULT
   const trendText = trend ? `${TREND_ARROW[trend.direction]} ${trend.percent}%` : ''
 
   // 三组统计(优先结构化对象;缺省降级:主金额 → today amount)
@@ -151,21 +151,21 @@ export default function EarningsStatisticsCard({
             {currency}
             {formatAmount(current.amount)}
           </Text>
-          <Text style={styles.dataLabel}>收益</Text>
+          <Text style={styles.dataLabel}>{tStatic('income.title')}</Text>
         </View>
         <View style={styles.dataItem}>
           <Text style={styles.dataValue}>
             {currency}
             {formatAmount(current.incomplete)}
           </Text>
-          <Text style={styles.dataLabel}>待结算</Text>
+          <Text style={styles.dataLabel}>{tStatic('modelIncome.pending')}</Text>
         </View>
         <View style={styles.dataItem}>
           <Text style={styles.dataValue}>
             {currency}
             {formatAmount(current.finish)}
           </Text>
-          <Text style={styles.dataLabel}>已结算</Text>
+          <Text style={styles.dataLabel}>{tStatic('modelIncome.tab.settled')}</Text>
         </View>
       </View>
 

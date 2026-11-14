@@ -248,6 +248,7 @@ export function MessageInput({
           {isFocused ? (
             <TouchableOpacity
               accessibilityRole="button"
+              accessibilityLabel={t(isFullscreen ? 'a11y.collapse' : 'a11y.expand')}
               style={styles.iconBtn}
               onPress={onFullscreenToggle}
               hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
@@ -262,6 +263,7 @@ export function MessageInput({
           {showAddFileBtn && !isFocused ? (
             <TouchableOpacity
               accessibilityRole="button"
+              accessibilityLabel={t('a11y.addAttachment')}
               style={styles.iconBtn}
               onPress={onAddImage}
               hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
@@ -272,6 +274,7 @@ export function MessageInput({
           {showAddFileBtn && isFocused ? (
             <TouchableOpacity
               accessibilityRole="button"
+              accessibilityLabel={t('a11y.addAttachment')}
               style={styles.iconBtn}
               onPress={onAddFile}
               hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
@@ -282,6 +285,7 @@ export function MessageInput({
           {text.length > 0 && !isStreaming ? (
             <TouchableOpacity
               accessibilityRole="button"
+              accessibilityLabel={t('a11y.close')}
               style={styles.iconBtn}
               onPress={onClear}
               hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
