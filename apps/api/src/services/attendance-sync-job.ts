@@ -151,10 +151,7 @@ export async function runAttendanceSyncJob(
   }
 
   let userIdMap = options.userIdMap ?? {}
-  if (
-    options.userIdMap === undefined &&
-    activeProviders.some((p) => p.id === 'dingtalk')
-  ) {
+  if (options.userIdMap === undefined && activeProviders.some((p) => p.id === 'dingtalk')) {
     try {
       const loadMap = options.loadUserIdMap ?? loadDingTalkUserIdMap
       userIdMap = await loadMap(repo)
@@ -208,7 +205,7 @@ export async function ensureAttendanceSyncScheduled(
       { pattern: HR_ATTENDANCE_SYNC_CRON },
       {
         name: HR_ATTENDANCE_SYNC_JOB_NAME,
-        data: { description: '考勤 IM 同步(每日02:00,默认关)' },
+        data: { description: '考勤 IM 同步(每日北京时间02:00,默认关)' },
         opts: {
           removeOnComplete: { count: 200 },
           removeOnFail: { count: 500 },
