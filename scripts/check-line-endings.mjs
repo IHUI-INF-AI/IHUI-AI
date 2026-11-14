@@ -98,10 +98,12 @@ export function inspectFile(absPath) {
 
 /** 取暂存面新增/修改的文件清单(A/C/M/R) */
 export function stagedFiles(root = ROOT) {
+  // §12g:本机派生 git 必须显式接管 stdio —— 不写时 execFileSync 走 cmd.exe 稳定抛 EBUSY
+  // (2026-10-03 实测 0/30 成功,补上即 30/30);判据门 = scripts/check-git-stdio-discipline.mjs(193)。
   const out = execFileSync(
     'git',
     ['-c', 'safe.directory=*', 'diff', '--cached', '--name-only', '--diff-filter=ACMR'],
-    { cwd: root, encoding: 'utf8', maxBuffer: 1 << 26 },
+    { cwd: root, encoding: 'utf8', maxBuffer: 1 << 26, stdio: ['ignore', 'pipe', 'pipe'] },
   )
   return String(out ?? '')
     .split('\n')
