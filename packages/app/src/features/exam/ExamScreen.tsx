@@ -44,7 +44,7 @@ export function ExamScreen({
       return { bg: tk.success.lighter, text: tk.success.deepText }
     }
     if (status === 'ended') {
-      return { bg: tk.danger.light, text: tk.danger.DEFAULT }
+      return { bg: tk.danger.light, text: tk.danger.deepText }
     }
     return { bg: tk.surface.muted, text: tk.text.secondary }
   }

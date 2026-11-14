@@ -136,7 +136,7 @@ export function FinanceAiHubScreen({
   }
 
   const cardIcon = (Icon: typeof Wallet) => (
-    <Icon size={18} color={tk.brandAccent.DEFAULT} strokeWidth={2} />
+    <Icon size={18} color={tk.brandAccent.deep} strokeWidth={2} />
   )
 
   return (

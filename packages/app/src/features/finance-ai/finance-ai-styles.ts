@@ -32,7 +32,7 @@ export function createFinanceAiStyles(tk: AppThemeTokens) {
       paddingTop: rnSpacing.md,
       paddingBottom: rnSpacing.xs,
     },
-    headerIcon: { color: tk.brandAccent.DEFAULT },
+    headerIcon: { color: tk.brandAccent.deep },
     headerTitle: {
       fontSize: rnType.title.size,
       fontWeight: '700',
@@ -54,7 +54,7 @@ export function createFinanceAiStyles(tk: AppThemeTokens) {
       gap: rnSpacing.sm,
     },
     cardHead: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.sm },
-    cardIcon: { color: tk.brandAccent.DEFAULT },
+    cardIcon: { color: tk.brandAccent.deep },
     cardTitle: {
       fontSize: rnType.subtitle.size,
       fontWeight: '700',

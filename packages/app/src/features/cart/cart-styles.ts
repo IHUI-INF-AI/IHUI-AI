@@ -55,7 +55,7 @@ export function createCartStyles(tk: AppThemeTokens) {
     coverFallback: { alignItems: 'center', justifyContent: 'center' },
     info: { flex: 1, gap: 5 },
     title: { fontSize: rnType.strong.size, fontWeight: '600', color: tk.text.primary },
-    price: { fontSize: rnType.strong.size, fontWeight: '600', color: tk.success.DEFAULT },
+    price: { fontSize: rnType.strong.size, fontWeight: '600', color: tk.success.deep },
     qtyRow: {
       flexDirection: 'row',
       alignItems: 'center',

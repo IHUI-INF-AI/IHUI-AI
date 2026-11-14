@@ -58,7 +58,7 @@ export function createUserFansStyles(tk: AppThemeTokens) {
       gap: rnSpacing.xs,
       paddingHorizontal: rnSpacing.xs,
     },
-    followedText: { fontSize: rnType.label.size, fontWeight: '600', color: tk.success.DEFAULT },
+    followedText: { fontSize: rnType.label.size, fontWeight: '600', color: tk.success.deep },
     followBtn: {
       flexDirection: 'row',
       alignItems: 'center',

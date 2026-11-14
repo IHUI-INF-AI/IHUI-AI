@@ -99,6 +99,67 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-14**
+- 🐞 Fix:audit-app-text-contrast TDZ 修复 + repl pendingQuestionRef 提升模块级 (56780a1d7f)
+- 🚀 Feature/Improvement:门320 接线 guardian-runner + RP-80 基线盲区清账票 (f81673f27d)
+- 🔧 Chore/Other:补齐溯源水印覆盖 + audit-app-text-contrast 同族配对 (fd8cb9c30a)
+- 🐞 Fix:审计修掉 skill-evolution 提议 id 遮蔽漏洞 + 补 id 唯一性守卫 (0a1b814614)
+- 🐞 Fix:F-274 补齐 SELECT_CHAIN_TAIL_SQL —— 链尾按"链上叶"取，非按最新行取 (390537c970)
+- 🚀 Feature/Improvement:新增 3 个未跟踪文件 (da1823aa1d)
+- 🚀 Feature/Improvement:逆向 Qoder 6 子系统——判定可落地性(补 4 块技能进化前提基建 + 审计/修订/墓碑层) (3458dca803)
+- 🔧 Chore/Other:收尾提交 plan-heal/tag-sync 副产物 (f05491e678)
+- 🚀 Feature/Improvement:以 ai_pricing 权威价回填配置零价行 (476127d306)
+- 🔧 Chore/Other:收拢本地工作区改动(全量提交) (1be9d1e2c7)
+- 🐞 Fix:诊断臂 [7b] DB 迁移落后维从未真判过——函数注册晚于 -diagnose 顶层执行点(第三次落地,范围收窄) (c4be376fd5)
+- 🐞 Fix:零价护栏豁免上游真免费模型(:free) (88cfcfeba1)
+- 🚀 Feature/Improvement:工作区指令链补齐服务端腿 —— CLAUDE.md/本地叠加 + 轮内深层发现 (a5c6090a05)
+- 🚀 Feature/Improvement:补齐 check-plan-claims-vs-head 门——批量预取治本 6.5min→15s + §1021 --self-test (99060ab1ee)
+- 🐞 Fix:流式打字机切批升到字素簇边界 —— ZWJ/肤色/旗帜 emoji 不再拆裂(D1b) (a143634115)
+- 🔧 Chore/Other:重封根护栏清单(git-guardian 变更后漂移) (ad06d9d1f8)
+- 🚀 Feature/Improvement:present_files 显式交付声明 + 交付清单 presentedFiles (904e129c14)
+- 🔧 Chore/Other:重封根护栏清单(merge round2 后 gate-scope 漂移) (4b0fc5a3e6)
+- 🐞 Fix:补两处契约缺口——SendAdmissionReceipt.ahead 与 ProcessGroupChild.kill 签名 (0dc7a15623)
+- 📚 Docs:同步生成块计数(经用户明确授权跳过钩子) (c466bece0a)
+- 🚀 Feature/Improvement:per-tool timeout budgets + NO_PROXY routing (5th DSH pass) (41d9096328)
+- 🐞 Fix:零价巡检改用采购成本量化损失 (b5a8e3967a)
+- 🚀 Feature/Improvement:零价上架护栏 + 每日零价巡检 (5b7e639654)
+- 🚀 Feature/Improvement:逆向 DSH 审计第三/四遍补齐(导出保真/中断语义/Office 转换) (f2b2cec5da)
+- 🐞 Fix:G-20261114 chat-sync 三端（taro/RN/extension）接线 + 回归锁 (41548e0716)
+- 🐞 Fix:G-20261114 chat-sync 共享内核与 web 端接线 + 契约文档 (450c939404)
+- 🐞 Fix:G-20261114 多端 chat-sync 流式坐标系统一与终态投影（api 端） (5bc4e1c3d4)
+- 📚 Docs:补登 check-findings-freshness 守门点名，清门 89 R4 (c791a93bb9)
+- 📚 Docs:同步生成块计数 (f83626fbf1)
+- 🐞 Fix:F-187 api_base SSRF 非字符串地址 fail-closed 并恢复 T1 判据面 (d61938ace0)
+- 🐞 Fix:盘根外流根治复诊 —— 修合规闸的大小写假阴 + 补回归锁 (2ee1847a94)
+- 🚀 Feature/Improvement:错误卡目录化上收 shared + 三端接线(D-AI-3) (c5a2c24a25)
+- 🐞 Fix:修正 299/302p 两道门的历史误判(非新增漂移) (a5b35cb15f)
+- 🐞 Fix:F-34 多模态任务失败退款耐久化(补齐实现,对齐已提交测试) (6aab7e619a)
+- 🐞 Fix:DB-35 PII 写库加密切片(发票抬头+后台实名 idCard 旁路) (2d3c28cc82)
+- 🚀 Feature/Improvement:新增 3 个 drizzle 迁移 —— news 去重唯一索引 / 客服状态枚举对齐 / coze 变量唯一索引 (8a64f3e4a2)
+- 🐞 Fix:DB-35 凭据写库加密切片(无迁移) (002ade40cc)
+- 🔧 Chore/Other:对账结清 F-274/F-175(均已在 HEAD 修复) (0f1180807c)
+- 🔧 Chore/Other:结清 F-719(充值双币种入账,a6ae85b0c25/cce4625f58a,39 passed) (0bfaa1d848)
+- 🐞 Fix:兑换码充值同步入账 cost 余额 (a6ae85b0c2)
+- 🔧 Chore/Other:结清 Y-14(前提不成立:安卓 latest 已回 0.0.24) (17c111ccf4)
+- 🔧 Chore/Other:RP-16 阻塞留痕 + 认领 Y-14(安卓更新包接口空返回) (67e95c546a)
+- 🔧 Chore/Other:认领 RP-16(考勤 IM 三类审批枚举映射) (a62cd5225c)
+- 🔧 Chore/Other:对账结清 12 张已在 HEAD 修复的缺陷普查行 (a9e8f3f9bd)
+- 🐞 Fix:单边 token 充值同步入账 cost 余额 (cce4625f58)
+- 🔧 Chore/Other:结清 F-512(前提不成立:幂等键已入库;工作树他席回退 risk) (21087e436b)
+- 🔧 Chore/Other:认领 F-512(notification-worker 幂等键缺失) (090cd85811)
+- 🔧 Chore/Other:结清 F-722(前提不成立:异常结算已入库;工作树他席改动回退风险) (a500442528)
+- 🔧 Chore/Other:BUG-29 切片0 阻塞留痕 + 认领 F-722(流式异常跳结算) (a3a3a13347)
+- 🔧 Chore/Other:认领 BUG-29(索引约束缺失族,先做切片0) (da6cc97036)
+- 🐞 Fix:workbuddy 永久保活不再依赖客户端进程 (a9d2d526aa)
+- 🔧 Chore/Other:夹具备份产物目录改名 switch-profiles,避开保护闸 backups 的精确等值 (29d71f9c26)
+- 🐞 Fix:根治项目文件盘根外流——scratch 逃生舱合规闸+拔系统盘脏env+盘根卫生增申报目录内容对账与C盘覆盖面 (2a85a5024c)
+
+**2026-11-13**
+- 🐞 Fix:E-P1 鉴权失败(401/403)归 content 不走 resume 阶梯 (f841c69006)
+- 🔧 Chore/Other:302p 基线定向对账 tierWebOffN 228→229(定价批 pl-7 落账带取证) (888f730da3)
+- 🐞 Fix:流式工具参数缓冲上限 + defect 终态 + errorCode 端侧接线 (4759055a3b)
+- 🐞 Fix:派发腿级失败不再吃日预算,登录过期告警单独立身份 (11a6ee9fb6)
+
+**2026-11-14**
 <<<<<<< HEAD
 - 🚀 Feature/Improvement:逆向 Qoder 6 子系统——判定可落地性(补 4 块技能进化前提基建 + 审计/修订/墓碑层) (3458dca803e)
 - 🐞 Fix:诊断臂 [7b] DB 迁移落后维从未真判过——函数注册晚于 -diagnose 顶层执行点(第三次落地,范围收窄) (c4be376fd5e)
@@ -1012,50 +1073,6 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 **2026-11-13**
 - 🔧 Chore/Other:结清 O69(调度轮 sweepLocalDevDbRotation 与镜像 10 例已入库)与 12A/DG-12(发布 tag 闸改发布件对账,同批提交) (6c2a28998f7)
 - 🐞 Fix:结清 F-422 Qoder 桥关停竞态 + F-461 WS 活动时间刷新 + F-466 live-chat 单用户连接上限 + F-475 chat 历史表上限 + F-492 生图 worker 租约归属 (c1252d160d6)
-
-**2026-11-13**
-- 🐞 Fix:结清 F-422 Qoder 桥关停竞态 + F-461 WS 活动时间刷新 + F-466 live-chat 单用户连接上限 + F-475 chat 历史表上限 + F-492 生图 worker 租约归属 (28827339250)
-
-**2026-11-13**
-- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (e2b674edc9f)
-- 🐞 Fix:结清 F-382 OSS 分片会话隔离 + F-388 关键词下推 + F-389 缓存键凭据指纹 + F-393 内容分类归属 + F-396 兑换码 Key 归属 (d8ffac6ef8e)
-
-**2026-11-13**
-- 🐞 Fix:结清 F-392 引导凭据闭环 + F-406 提现手续费扣余额 + F-441 剧情增强并发记账 + F-450 代扣回调单事务 + F-417 xlsx 单趟渲染 (6e80aa927ce)
-
-**2026-11-13**
-- 🐞 Fix:结清 F-382 OSS 分片会话隔离 + F-388 关键词下推 + F-389 缓存键凭据指纹 + F-393 内容分类归属 + F-396 兑换码 Key 归属 (a623f5c402a)
-<<<<<<< HEAD
-
-**2026-11-13**
-- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (2a385166492)
-- 🔧 Chore/Other:结清 F-450 —— 代扣回调建单/完成已并入外层事务(DB-02,commit 55efcffe136):placeOrder(tx)/completeOrder(tx)/rechargeToken(outerTx)/earnPoints(tx) 全链透传,消除半提交与重复发权益;f-450 回归锁 5/5 通过 (63c7cd22e13)
-- 📚 Docs:生成块 2 维对齐 HEAD 面现算(testFiles 5226→5227 / trackedFiles 21361→21363) (fb34f051aea)
-- 🔧 Chore/Other:为 apps/web/playwright.tail.config.ts 补齐溯源水印(门 47p 欠账) (61c31b13ab0)
-- 🐞 Fix:branch-delete-with-backup 补自动留痕 —— 治"手工调用不留痕"的结构性缺口 (beb7d0463de)
-- 🔧 Chore/Other:门 47p 自愈重新注入 streaming-tail-frame 水印 (44800c59c5b)
-- 🔧 Chore/Other:补 D2 末帧/整体替换的浏览器侧集成冒烟(判别力边界已实测登记) (939ebb689aa)
-
-**2026-11-13**
-- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (b5e09bb17f4)
-- 🐞 Fix:提现旁路写入口全部改调 commission-queries 单源服务——agent-withdrawal apply/approve/reject 补冻结+单号+状态守卫+退冻结,admin第5条写入口消除无守卫直写status(资金守恒同源);回归锁 f452-453 6/6 (d773e33e341)
-- 🔧 Chore/Other:结清 F-452/F-453 —— 提现旁路写入口(finance-extended agent-withdrawal 三入口 + admin-extended 第5条)全部改调 commission-queries 单源服务 apply/approve/rejectWithdrawal,补冻结+单号+状态守卫+退冻结(资金守恒同源);回归锁 f452-453 6/6 (aada9610e56)
-- 🚀 Feature/Improvement:复现 WorkBuddy subagent journal 闭环(compact/append/merge)—— 逆向-复现-超越 (6a06e594008)
-- 🔧 Chore/Other:结清批次36 共5张(F-352/353/367/369/372) (f89c5981fe5)
-- 🐞 Fix:结清 F-352 定时清理集合化分批 + F-353 积分渠道事务 + F-367 清理器显式生命周期 + F-369 订阅配额原子累加 + F-372 日成本熔断 (33206206243)
-- 🐞 Fix:ab_test_results schema 补 UNIQUE(variant_id,bucket) 表约束 + bucket NOT NULL,对齐已入库迁移 20261112000002,防 onConflict 42P10 + 回归锁 5/5 (d1b4766f6ba)
-- 🔧 Chore/Other:结清 F-448 —— ab_test_results schema 侧补 UNIQUE(variant_id,bucket) 表约束 + bucket NOT NULL,对齐已入库迁移 20261112000002(证据:迁移 + 回归锁 f448 5/5) (72ec4aad2b7)
-- 🔧 Chore/Other:结清 189G —— F-189 重命名级联已在 a00d16ca08,本轮补 DELETE 守卫事务收口(锁→组行锁→计数→删同事务,f-189 回归 5/5,代码入 a84b0dc7347) (2be18110794)
-
-**2026-11-13**
-- 🔧 Chore/Other:fix(api)+docs: F-171 课程问答 lessonId 下推 SQL WHERE(分页/total 以本课 published 问答为口径,f-171 回归 4/4)+F-189 分组删除守卫事务收口(锁→组行 FOR UPDATE→计数→删同事务,并发打标/抢删窗口封死,f-189 回归 5/5);README 块 testFiles 5226/trackedFiles 21361 随 DN5 按终态派生落账(零卷入他席在飞形态) (a84b0dc7347)
-- 🔧 Chore/Other:结清批次35 共5张(F-321/333/343/345/351) (6b6de7ea676)
-- 🐞 Fix:结清 F-321 停留统计先归一再截断 + F-333 提现 PUT 状态机守卫 + F-343 保留期清理分批 + F-345 运行时流 done 帧协议 + F-351 资讯分页稳定排序 (543f21144ea)
-
-**2026-11-13**
-- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (f1eea10ede3)
-=======
->>>>>>> origin/main
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)

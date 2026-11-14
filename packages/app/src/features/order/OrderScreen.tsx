@@ -89,7 +89,7 @@ export function OrderScreen({
       case 'completed':
         return { bg: tk.success.light, text: tk.success.deepText }
       case 'cancelled':
-        return { bg: tk.danger.light, text: tk.danger.DEFAULT }
+        return { bg: tk.danger.light, text: tk.danger.deepText }
       case 'refunded':
         return { bg: tk.surface.muted, text: tk.text.secondary }
       default:
