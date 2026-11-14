@@ -112,6 +112,9 @@ export const AUTH_PUBLIC_PREFIX_PATHS: readonly string[] = [
   '/api/circles',
   '/api/relay/models/public',
   '/api/relay/monitor/',
+  // 实时汇率快照(2026-11-14 立):全站金额 USD/CNY/USDT 切换,匿名页面冷启动即调;
+  // 只读 GET、无用户数据,与 TENANT_BYPASS_PREFIX_PATHS 同前缀登记。
+  '/api/exchange-rates/',
   '/api/model-leaderboard',
   '/api/learn/',
   '/api/exam/papers',
