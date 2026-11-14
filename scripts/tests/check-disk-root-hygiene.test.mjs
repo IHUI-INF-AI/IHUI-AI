@@ -342,4 +342,47 @@ test('T16 H3 CLI 层:申报目录内未知超龄件必须经 main() 独立点名
     rmScratch(dir)
   }
 })
+
+// Y-73 补 H2 CLI 层 strict 红:worktree 落点外这一维此前只有 T3(断 verdict=red)没断 --strict
+// exit 1。本用例专钉 H2 单维:盘根全申报(H1 不连带)、内容空(H3 不连带),只有一条落点外登记,
+// 断 --strict exit 1 —— 凑齐"三维各一 strict 红"(H1=T5、H2=本例、H3=T16)。
+test('T17 H2 CLI 层:worktree 落点外在 --strict 问责档必须 exit 1,且不连带 H1/H3', () => {
+  const dir = mkScratch('drh-t17-')
+  try {
+    const derived = deriveSanctioned()
+    assert.ok(derived, 'deriveSanctioned() 在本机必须算得出来')
+    // 盘根走 --root 通道(替身盘根全量放行 ⇒ H1 零违规、无 contents ⇒ H3 不触发)
+    const cfg = join(dir, 'cfg.json')
+    writeFileSync(
+      cfg,
+      JSON.stringify({ roots: {}, worktreePolicy: { sanctionedPrefixes: [], exemptPaths: [] } }),
+    )
+    // 登记面:首条=主工作树恒豁免,第二条不命中任何合法落点 ⇒ H2 单维违规
+    const wt = join(dir, 'wt.txt')
+    const landing = derived.prefixes[0]
+    writeFileSync(
+      wt,
+      `worktree ${derived.exempt[0]}\nHEAD abc\nbranch refs/heads/main\n\nworktree C:/definitely-outside\nHEAD def\n\n`,
+    )
+    const j = JSON.parse(
+      runCli(['--json', '--config', cfg, '--wt-file', wt, '--root', dir]),
+    )
+    assert.equal(j.counts.worktreeOutside, 1, `H2 落点外必须计 1:${JSON.stringify(j.violations)}`)
+    assert.ok(
+      j.violations.some((v) => v.kind === 'worktree-outside-sanctioned-root' && v.path === 'C:/definitely-outside'),
+      'H2 必须点名落点外那条',
+    )
+    assert.equal(
+      j.counts.diskRootStray,
+      0,
+      'H1 不得连带:--root 通道替身盘根全量放行',
+    )
+    assert.equal(j.counts.declaredContentStray, 0, 'H3 不得连带:无 contents 声明')
+    assert.equal(j.verdict, 'red', '有 H2 真违规就必须是 red')
+    const cap = runCliCaptured(['--strict', '--json', '--config', cfg, '--wt-file', wt, '--root', dir])
+    assert.equal(cap.rc, 1, `H2 违规在 --strict 问责档必须 exit 1,实得 ${cap.rc}`)
+  } finally {
+    rmScratch(dir)
+  }
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
