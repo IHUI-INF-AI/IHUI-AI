@@ -594,21 +594,26 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             <QueryProvider>
               <TooltipProvider>
                 <GlobalHooksProvider>
-                  <CurrencyRuntime
-                    initialCurrency={selectedDisplayCurrency}
-                    initialEffective={effectiveDisplayCurrency}
-                    initialRates={initialFxRates}
-                  />
                   {/*
                     GlobalShell 提供真全局骨架:左侧 Sidebar + 内容槽 + 右侧 AISidePanel + PWA 提示。
                     所有路由组((main)/(marketing)/(auth)/sso/h5/forbidden)共享同一套全局组件,
                     符合"本项目所有内容都应包含在工作区"的全局设定(2026-07-19)。
                     各路由组 layout 在内容槽内填充自己的样式((main) 用 MainShell 工作区面板,
                     (marketing) 用 Header+Footer,(auth) 用居中表单等)。
+
+                    CurrencyRuntime 包裹 GlobalShell(2026-11-14):货币切换或首次拿到汇率时,
+                    以 key 重挂载内容树让全站金额就地重算 —— 不整页刷新,避免 CDN 对 HTML 的
+                    300s 共享缓存把旧币种页面又发回来(实测切换后 reload 仍看到 CNY)。
                   */}
-                  <GlobalShell>
-                    <MobileLoginGate>{children}</MobileLoginGate>
-                  </GlobalShell>
+                  <CurrencyRuntime
+                    initialCurrency={selectedDisplayCurrency}
+                    initialEffective={effectiveDisplayCurrency}
+                    initialRates={initialFxRates}
+                  >
+                    <GlobalShell>
+                      <MobileLoginGate>{children}</MobileLoginGate>
+                    </GlobalShell>
+                  </CurrencyRuntime>
                   {/* output: 'export' 模式:useSearchParams() 必须包裹 Suspense */}
                   <Suspense fallback={null}>
                     <LoginRedirectListener />
