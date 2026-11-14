@@ -30,6 +30,20 @@ import { FALLBACK_MODELS as SHARED_FALLBACK_MODELS } from '@ihui/shared'
 import { Button, Input } from '@ihui/ui-react'
 import { useOutletContext } from 'react-router-dom'
 import { useI18n } from '../../../src/i18n'
+// 2026-11-13:AI 主动提问卡(此前本端对该帧 0 命中,提问整条闭环缺失)
+import {
+  QuestionCard,
+  canSubmitQuestionAnswer,
+  toggleOptionSelection,
+  type PendingQuestionPayload,
+} from '../components/QuestionCard'
+// 判据与端点契约来自共享层,端内不复制字段名
+import {
+  buildLegacyAnswerText,
+  buildQuestionResponseBody,
+  interpretQuestionResponse,
+  questionResponsePath,
+} from '@ihui/shared/chat/question-response'
 import {
   PENDING_PROMPT_STORAGE_KEY,
   pendingPromptTextFromMessage,
@@ -156,6 +170,17 @@ export default function ChatPage() {
    * 等写进同一 notice 的其它流级提示(它们与本轮排队无关)。
    */
   const queuedNoticeRef = useRef<string | null>(null)
+  /**
+   * 待回答的 AI 提问(2026-11-13 立)。null = 无提问。
+   * 同 questionId 幂等覆盖:断线重连回放同一帧时不得换一个新对象(会让已选项丢失)。
+   */
+  const [pendingQuestion, setPendingQuestion] = useState<PendingQuestionPayload | null>(null)
+  /** 已选选项(单选时恒为 0 或 1 项,由 toggleOptionSelection 保证) */
+  const [questionSelected, setQuestionSelected] = useState<string[]>([])
+  /** 自定义输入 */
+  const [questionCustom, setQuestionCustom] = useState('')
+  /** 提交在途(防重复点;与服务端幂等重复发也算一次用户体验事故) */
+  const [questionSubmitting, setQuestionSubmitting] = useState(false)
   const scrollRef = useRef<HTMLDivElement | null>(null)
   // 分叉(2026-09-25 接后端既有 branch 出口):扩展端原本是"无会话"纯流式聊天,
   // 后端 branch 接口只认已落库的 conversationId + messageId,所以宿主必须先持有
@@ -434,6 +459,71 @@ export default function ChatPage() {
   }
 
   /** overrideText 用于 G-152「重试上一条」:错误后不要求用户重新输入同一句话。 */
+  /**
+   * 提交提问答复(2026-11-13 立)。
+   *
+   * 三种归宿,判据全部来自共享层 `interpretQuestionResponse`(端内不复制):
+   *  - `blocking`:服务端认下这一问 ⇒ 只关卡片,**不发起新一轮**(流会自动续跑)
+   *  - `legacy`:404 或旧服务端 ⇒ 回退旧链路:把答案当**普通消息**发出去
+   *  - `failed`:网络/5xx ⇒ 给可重试提示,卡片保留(用户不必重输)
+   *
+   * 撤回(action=withdraw)同样走这个端点 —— 服务端据此把这一问标 withdrawn 并让流收场,
+   * 比"前端自己把卡片藏了"正确:藏卡片不会让挂着的流知道你已经不想答。
+   */
+  const submitQuestion = async (action: 'answer' | 'withdraw') => {
+    const q = pendingQuestion
+    if (!q) return
+    if (!canSubmitQuestionAnswer({
+      action,
+      selectedOptionIds: questionSelected,
+      customText: questionCustom,
+      submitting: questionSubmitting,
+    })) return
+
+    const payload = { questionId: q.questionId, action, selectedOptionIds: questionSelected, customText: questionCustom }
+    // 撤回时先关卡片:即便网络失败,用户已明确表示不想答,不该被卡在原地
+    if (action === 'withdraw') {
+      setPendingQuestion(null)
+      setQuestionSelected([])
+      setQuestionCustom('')
+    }
+    const cid = conversationId
+    if (!cid) {
+      // 无会话主键 ⇒ 端点寻址不了。撤回已在上面处理,作答只能提示
+      setNotice(t('chat.questionNoSession'))
+      return
+    }
+    setQuestionSubmitting(true)
+    try {
+      const res = await fetch(`${apiBaseUrl()}${questionResponsePath(cid)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(buildQuestionResponseBody(payload)),
+      })
+      const data: unknown = await res.json().catch(() => null)
+      const outcome = interpretQuestionResponse(res.status, data)
+      if (outcome.kind === 'blocking') {
+        // 服务端认下 ⇒ 只关卡片。流会自己续跑,不能再发一轮
+        setPendingQuestion(null)
+        setQuestionSelected([])
+        setQuestionCustom('')
+      } else if (outcome.kind === 'legacy') {
+        // 旧链路:把答案当普通消息发出去(与 web 的 sendLegacyAnswer 同语义)
+        const text = buildLegacyAnswerText(q.options, payload)
+        setPendingQuestion(null)
+        setQuestionSelected([])
+        setQuestionCustom('')
+        if (text) await onSend(text)
+      } else {
+        setNotice(t('chat.questionFailed'))
+      }
+    } catch {
+      setNotice(t('chat.questionFailed'))
+    } finally {
+      setQuestionSubmitting(false)
+    }
+  }
+
   const onSend = async (overrideText?: string) => {
     const text = (overrideText ?? input).trim()
     if (!text || streaming) return
@@ -763,6 +853,20 @@ export default function ChatPage() {
       // D39/D108 上游重试交代(第 48 轮):api-client 有通道,端内不注册就是静默丢帧。
       // 整体替换为最近一次(attempt 递增),与 web 同一口径。
       // 2026-11-13:记忆更新交代,走既有 notice 条(与 onCompaction 同出口)。
+      // 2026-11-13:AI 主动提问帧。后端是**阻塞式**:流挂着等答复,
+      // 不答就等到 timeout 收场。此前本端 0 命中 ⇒ AI 想问用户时侧栏毫无动静。
+      onQuestion: (q) => {
+        setPendingQuestion((prev) => (prev?.questionId === q.questionId ? prev : q))
+        setQuestionSelected([])
+        setQuestionCustom('')
+      },
+      // 提问结算:服务端在 answered / timeout / withdrawn / interrupted 四态都会发。
+      // 按 questionId **精确**清理 —— 无条件置 null 会把"另一条更新的提问"误清掉。
+      onQuestionResolved: (resolved) => {
+        setPendingQuestion((prev) =>
+          prev && prev.questionId === resolved.questionId ? null : prev,
+        )
+      },
       onMemoryUpdates: (evt) => {
         if (evt.items.length === 0) return
         setNotice(t('ai.stream.memoryRemembered', { n: evt.items.length }))

@@ -244,7 +244,16 @@
     "modelCategoryOcr": "OCR",
     "modelCategoryOther": "Other",
     "modelHistoryToggle": "Legacy models",
-    "admissionAhead": "{n} ahead of you"
+    "admissionAhead": "{n} ahead of you",
+    "questionTitle": "AI needs your input",
+    "questionSubmit": "Submit",
+    "questionSubmitting": "Submitting…",
+    "questionWithdraw": "Dismiss this question",
+    "questionCustomPlaceholder": "Or type your own…",
+    "questionMultiHint": "Multiple choices allowed",
+    "questionNoSession": "Cannot locate the session — this question cannot be answered",
+    "questionFailed": "Submit failed, please retry",
+    "questionExpired": "This question is no longer valid"
   },
   "settings": {
     "language": "Interface language",

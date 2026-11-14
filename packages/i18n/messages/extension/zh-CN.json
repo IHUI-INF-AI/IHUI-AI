@@ -244,7 +244,16 @@
     "modelCategoryOcr": "文字识别",
     "modelCategoryOther": "其他",
     "modelHistoryToggle": "历史模型",
-    "admissionAhead": "前面还有 {n} 位"
+    "admissionAhead": "前面还有 {n} 位",
+    "questionTitle": "AI 需要你确认",
+    "questionSubmit": "提交",
+    "questionSubmitting": "提交中…",
+    "questionWithdraw": "关闭这个提问",
+    "questionCustomPlaceholder": "也可以直接输入…",
+    "questionMultiHint": "可多选",
+    "questionNoSession": "无法定位会话,此题无法作答",
+    "questionFailed": "提交失败,请重试",
+    "questionExpired": "这道提问已失效"
   },
   "settings": {
     "language": "界面语言",

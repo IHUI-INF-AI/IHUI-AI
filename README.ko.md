@@ -2227,6 +2227,9 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-14**
+- 🔧 기타:收尾提交 plan-heal/tag-sync 副产物 (f05491e678)
+
+**2026-11-14**
 - 🔧 기타:收拢本地工作区改动(全量提交) (1be9d1e2c7)
 - 🔧 기타:重封根护栏清单(merge round2 后 gate-scope 漂移) (4b0fc5a3e6)
 - 🐞 수정:补两处契约缺口——SendAdmissionReceipt.ahead 与 ProcessGroupChild.kill 签名 (0dc7a15623)
@@ -2548,9 +2551,6 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 **2026-11-13**
 - 🐞 수정:mobile-rn conversationImport 补 noValidContent 5 语言词包 (50f565629d)
-
-**2026-11-13**
-- 🐞 수정:mobile-rn conversationImport 补 noValidContent 5 语言词包 (d1734c00a7)
 <!-- END RECENT UPDATES -->
 
 <p align="center">
