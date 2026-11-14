@@ -9,6 +9,7 @@ import Image from 'next/image'
 import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 import { toMediaImageUrl } from '@/lib/media-proxy'
+import { formatCny } from '@/lib/display-currency'
 import { Badge } from '@/components/data'
 
 type OrderStatus = 'pending' | 'paid' | 'shipped' | 'completed' | 'cancelled' | 'refunded'
@@ -105,7 +106,7 @@ function OrderItemImpl({
         </div>
         <div className="text-right">
           <p className="font-bold text-primary">
-            {typeof amount === 'number' ? `¥${amount.toFixed(2)}` : amount}
+            {typeof amount === 'number' ? formatCny(amount, { digits: 2 }) : amount}
           </p>
         </div>
       </div>

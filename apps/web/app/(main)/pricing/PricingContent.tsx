@@ -12,6 +12,7 @@ import { Button, Card, CardContent } from '@ihui/ui-react'
 import { BackButton } from '@/components/common'
 import { fetchApi } from '@/lib/api'
 import { cn } from '@/lib/utils'
+import { formatCnyCents } from '@/lib/display-currency'
 import { SocialProof } from './SocialProof'
 import { ComparisonTable } from './ComparisonTable'
 import { Testimonials } from './Testimonials'
@@ -50,8 +51,7 @@ async function fetchVipLevels(): Promise<VipLevel[]> {
   return r.data.items
 }
 
-const formatCNY = (cents: number) =>
-  new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'CNY' }).format(cents / 100)
+const formatCNY = (cents: number) => formatCnyCents(cents, { digits: 2 })
 
 const TIER_BADGE: Record<number, string> = {
   0: '免费',

@@ -10,6 +10,7 @@ import { useTranslations } from 'next-intl'
 import { Check, Sparkles } from 'lucide-react'
 import { Button, Card } from '@ihui/ui-react'
 import { RevealOnView } from '@/components/common'
+import { formatCny } from '@/lib/display-currency'
 
 interface PricingPlan {
   id: 'basic' | 'professional' | 'enterprise' | 'flagship'
@@ -140,7 +141,6 @@ export function HomePage4Pricing() {
                 </div>
 
                 <div className="mb-3 flex items-baseline gap-1">
-                  <span className="text-body font-semibold text-muted-foreground">¥</span>
                   <span
                     className={
                       isRecommended
@@ -148,7 +148,7 @@ export function HomePage4Pricing() {
                         : 'text-display font-bold leading-none tracking-tight'
                     }
                   >
-                    {plan.price}
+                    {formatCny(plan.price, { digits: 0 })}
                   </span>
                   <span className="text-label text-muted-foreground">{t('period')}</span>
                 </div>

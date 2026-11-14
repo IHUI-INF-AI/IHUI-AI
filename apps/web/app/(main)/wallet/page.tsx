@@ -23,8 +23,8 @@ import {
 } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { resolveWalletFlowMeta } from '@ihui/shared/utils/wallet-flow-meta'
-import { formatPrice } from '@ihui/shared/utils/format'
-import { AnimatedNumber, AuthGatePrompt, BackButton } from '@/components/common'
+import { formatCnyCents } from '@/lib/display-currency'
+import { AuthGatePrompt, BackButton } from '@/components/common'
 import { useAuthGate } from '@/hooks/use-auth-gate'
 
 interface BalanceData {
@@ -122,11 +122,7 @@ export default function WalletPage() {
               ) : (
                 // 余额单位是「分」：充值回调 rechargeToken(order.amount) 落的就是订单分金额
                 // （services/order-service.ts rechargeIfTokenOrder），直接渲染会放大 100 倍。
-                <AnimatedNumber
-                  value={(balanceQ.data?.balance ?? 0) / 100}
-                  decimals={2}
-                  prefix="¥"
-                />
+                formatCnyCents(balanceQ.data?.balance ?? 0, { digits: 2 })
               )}
             </div>
           </div>
@@ -200,8 +196,9 @@ export default function WalletPage() {
                                 : meta.sign === 'negative'
                                   ? '-'
                                   : ''}
-                              {formatPrice(
+                              {formatCnyCents(
                                 meta.sign === 'neutral' ? it.quantity : Math.abs(it.quantity),
+                                { digits: 2 },
                               )}
                             </>
                           ) : (
@@ -209,7 +206,7 @@ export default function WalletPage() {
                           )}
                         </TableCell>
                         <TableCell className="px-4 py-2.5 text-right text-muted-foreground">
-                          {formatPrice(it.balanceAfter)}
+                          {formatCnyCents(it.balanceAfter, { digits: 2 })}
                         </TableCell>
                         <TableCell className="px-4 py-2.5 text-muted-foreground">
                           {fmtDate(it.createdAt)}

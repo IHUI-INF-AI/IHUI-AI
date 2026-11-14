@@ -10,12 +10,13 @@
  */
 
 import { clampPercent } from '@ihui/shared/utils/clamp-percent'
+import { formatCny } from '@/lib/display-currency'
 
 /** 分 → 人民币显示(整数元;不足 1 元保留 2 位小数)。 */
 export function formatCents(cents: number): string {
   const yuan = Number(cents ?? 0) / 100
   const digits = Number.isInteger(yuan) ? 0 : 2
-  return `¥${yuan.toFixed(digits)}`
+  return formatCny(yuan, { digits })
 }
 
 /** token 紧凑显示;-1 = 不限,0 = 未配置(显示为 "-")。 */

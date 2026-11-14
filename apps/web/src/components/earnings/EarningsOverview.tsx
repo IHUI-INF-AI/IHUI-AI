@@ -13,6 +13,7 @@ import { useLocale, useTranslations } from 'next-intl'
 import { Wallet, TrendingUp, Users, Percent } from 'lucide-react'
 
 import { StatCard } from '@/components/data'
+import { formatCny } from '@/lib/display-currency'
 import type { EarningsOverview as EarningsOverviewData } from '@/hooks/use-earnings'
 
 interface Props {
@@ -23,7 +24,6 @@ interface Props {
 export function EarningsOverview({ data, loading }: Props) {
   const t = useTranslations('earnings')
   const locale = useLocale()
-  const currencyFmt = new Intl.NumberFormat(locale, { style: 'currency', currency: 'CNY' })
   const numFmt = new Intl.NumberFormat(locale)
 
   // BUG-91:后端可能返回非 null 却缺字段的对象,旧 `data ?? {…}` 只兜底 data===null,
@@ -43,14 +43,14 @@ export function EarningsOverview({ data, loading }: Props) {
   const cards = [
     {
       title: t('todayIncome'),
-      value: currencyFmt.format(d.todayIncome),
+      value: formatCny(d.todayIncome, { digits: 2 }),
       icon: Wallet,
       trend: d.todayIncomeTrend,
       trendLabel: t('vsYesterday'),
     },
     {
       title: t('byokIncome'),
-      value: currencyFmt.format(d.byokIncome),
+      value: formatCny(d.byokIncome, { digits: 2 }),
       icon: TrendingUp,
       trend: d.byokIncomeTrend,
       trendLabel: t('vsYesterday'),
