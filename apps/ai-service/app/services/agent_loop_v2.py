@@ -5888,13 +5888,14 @@ class AgentLoopV2:
                     from .tool_image_delivery import (
                         build_image_followup_message,
                         collect_image_ids,
-                        take_images,
+                        take_images_with_report,
                     )
 
+                    _images, _missing = take_images_with_report(
+                        collect_image_ids([tr.result for tr in tool_results])
+                    )
                     _image_msg = build_image_followup_message(
-                        take_images(
-                            collect_image_ids([tr.result for tr in tool_results])
-                        )
+                        _images, missing=len(_missing)
                     )
                     if _image_msg is not None:
                         messages.append(_image_msg)

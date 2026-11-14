@@ -217,12 +217,23 @@ def stash_image(prepared: dict[str, Any]) -> str:
 
 def take_images(content_ids: list[str]) -> list[dict[str, Any]]:
     """按 content_id 取出并弹出图片条目;取不到的条目跳过(降级文字元数据)。"""
+    images, _ = take_images_with_report(content_ids)
+    return images
+
+
+def take_images_with_report(
+    content_ids: list[str],
+) -> tuple[list[dict[str, Any]], list[str]]:
+    """弹出图片并如实回报缺失条目(超出暂存上限/已过期),供循环提示模型。"""
     images: list[dict[str, Any]] = []
+    missing: list[str] = []
     for content_id in content_ids:
         item = _PENDING.pop(content_id, None)
         if isinstance(item, dict):
             images.append(item)
-    return images
+        else:
+            missing.append(content_id)
+    return images, missing
 
 
 def collect_image_ids(results: list[Any]) -> list[str]:
@@ -269,13 +280,17 @@ def format_image_envelope(item: dict[str, Any]) -> str:
     )
 
 
-def build_image_followup_message(images: list[dict[str, Any]]) -> dict[str, Any] | None:
+def build_image_followup_message(
+    images: list[dict[str, Any]], *, missing: int = 0
+) -> dict[str, Any] | None:
     """把图片组装成一条 role=user 的多模态消息;无图返回 None。
 
     位置必须在**本轮全部 tool 消息之后**(OpenAI 协议:tool 结果紧跟 assistant
     的 tool_calls;user 消息可以出现在 tool 结果之后)。
+    `missing>0` 时追加一条如实回执:暂存有界(IMAGE_STASH_KEYS),超额/过期的
+    图片不会静默消失,免得模型以为"没看到就是图里没有"。
     """
-    if not images:
+    if not images and missing <= 0:
         return None
     parts: list[dict[str, Any]] = []
     for item in images:
@@ -283,6 +298,18 @@ def build_image_followup_message(images: list[dict[str, Any]]) -> dict[str, Any]
         parts.append(
             {"type": "image_url", "image_url": {"url": str(item.get("data_url", ""))}}
         )
+    if missing > 0:
+        parts.append(
+            {
+                "type": "text",
+                "text": (
+                    f"另有 {missing} 张图片未送达(单轮交付上限 {IMAGE_STASH_KEYS} 张或暂存已过期);"
+                    "如仍需要,请重新调用 read_image"
+                ),
+            }
+        )
+    if not parts:
+        return None
     return {"role": "user", "content": parts}
 
 
