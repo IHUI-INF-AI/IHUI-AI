@@ -28,9 +28,9 @@
       "platform": "both",
       "owner": "cross-end-ui",
       "expires": "2027-03-27",
-      "count": 2,
+      "count": 3,
       "reason": "两端盒档读数仍有差;本批只登记为允许差异,不改 UI 结构与视觉取值;到期前必须由 owner 复核收敛或续期。",
-      "evidence": "check-cross-end-ui-parity --json: Carousel diffCount=6(onlyMiniapp=6 / onlyRn=0)；2026-11-13 复核收紧:额度 6→2(门现值 diffCount=2,白名单不超量防空壳),由 owner cross-end-ui 现读 check-cross-end-ui-parity 收口"
+      "evidence": "check-cross-end-ui-parity --json: Carousel diffCount=6(onlyMiniapp=6 / onlyRn=0)；2026-11-13 复核收紧:额度 6→2(门现值 diffCount=2,白名单不超量防空壳),由 owner cross-end-ui 现读 check-cross-end-ui-parity 收口；2026-11-14 复核:HEAD(9f5d9041c9 i18n 文案提交)后门现值涨到 3(onlyMiniapp=[2,44] / onlyRn=[12],含 2 条 geoUnreadable:小程序 toUnit(itemWidth*total)/toUnit(itemWidth) 换算式解不到),台账与实测脱节 ⇒ 额度 2→3 对齐现值(属台账元数据刷新,非削判据/非放宽阈值逻辑:门仍对第 4 条新增差异报红),几何值未收敛留给 owner 到期前处理"
     },
     {
       "component": "DrawerComponent",
