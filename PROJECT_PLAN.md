@@ -11975,7 +11975,7 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
   - ④`packages/shared/src/utils/format.ts` 的 `` `${Number.isInteger(k) ? k : k.toFixed(0)}K` `` 使 `1500 → "2K"`、`999999 → "1000K"` 而非 `"1M"`，与同函数 M 分支 `toFixed(1)` 口径不一致。
   - ⑤`packages/shared/src/utils/number-format.ts` 的 `if (n === null || n === undefined || n === 0) return ''` 把真实 0 渲染成空串（`packages/types/src/api-contracts.ts` 明确要求"0 与缺席不可互换"）。
   - ⑥`packages/shared/src/utils/object.ts` 的 `deepClone` 在 `structuredClone` 不可用时走手写递归、丢 `Date`/`Map`/`Set`/`RegExp`；`packages/shared/src/jobs/submission-job.ts` 的 `freezeFormSnapshot` 同样在失败时回退浅拷贝，与注释"不静默吞字段"相悖。
-- [ ] BUG-29 **索引与约束缺失族（四格，合计 157 处）**：123 个外键列无索引、24 处 userId 无 FK、10 个 schema 声明索引无对应 DDL、同一张表两份 DDL 列类型不同。出路=生成一次补齐迁移 + 加 schema/迁移集合对账。(登记@2026-11-05;归属:机主)
+- [ ] BUG-29 **索引与约束缺失族（四格，合计 157 处）**：123 个外键列无索引、24 处 userId 无 FK、10 个 schema 声明索引无对应 DDL、同一张表两份 DDL 列类型不同。出路=生成一次补齐迁移 + 加 schema/迁移集合对账。(登记@2026-11-05;归属:机主)（进行中@2026-11-14/w5-bug29-slice0）
   - ①`packages/database/src/schema/**` 列级 `.references(...)` 共 391 个，其中 **123 个所在表无覆盖索引**（PG 不为 FK 自动建索引）⇒ 级联删除与按外键过滤全表扫，典型 `agent_tasks.ruleId/createdBy/updatedBy`、`orders.planId/createdBy/updatedBy`、`commission_flows.orderId`。
   - ②**24 处** `userId: uuid('user_id').notNull()` 无 `.references()`（`user-automations.ts`、`agent-event-triggers`、`agent-rule`、`analytics-events`、`clawdbot`、`exam-extended`、`user-memory`、`webhook-subscriptions` 等）⇒ 删用户留永久孤儿行。
   - ③schema 声明了索引但迁移链无对应 DDL 共 10 处（`chat.ts` 的 `ix_conversation_message_archives_created_at`、`ab-tests.ts` 的 `idx_ab_tests_status`、`agent-state.ts` 的 `agent_multimodal_memory_hash_uniq`、`memory.ts` 的 `uniqueEdge: uniqueIndex('ux_agent_memory_edges')` 等），`drizzle-kit generate` 认为已同步而库内没有。
