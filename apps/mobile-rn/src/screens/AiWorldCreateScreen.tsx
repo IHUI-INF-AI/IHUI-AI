@@ -15,7 +15,7 @@ import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { Globe2, Send } from 'lucide-react-native'
 import { fetchApi } from '@ihui/api-client'
-import { apiFailureToText, toFriendlyOr } from '@ihui/shared/utils'
+import { apiFailureToText } from '@ihui/shared/utils'
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { TextField } from '@ihui/rn-app'
 import { tokens } from '../theme/active-tokens'
@@ -71,7 +71,7 @@ export default function AiWorldCreateScreen() {
       }
       setCategories(Array.isArray(res.data) ? res.data : [])
     } catch (e) {
-      setCategoriesError(toFriendlyOr(e, t('aiWorldCreate.categoryLoadFailed')))
+      setCategoriesError(e instanceof Error ? e.message : t('aiWorldCreate.categoryLoadFailed'))
     } finally {
       setCategoriesLoading(false)
     }
@@ -112,7 +112,7 @@ export default function AiWorldCreateScreen() {
       if (!res.success) throw new Error(apiFailureToText(res, t('aiWorldCreate.saveFailed')))
       navigation.goBack()
     } catch (e) {
-      setError(toFriendlyOr(e, t('aiWorldCreate.saveFailed')))
+      setError(e instanceof Error ? e.message : t('aiWorldCreate.saveFailed'))
     } finally {
       setSaving(false)
     }
@@ -264,7 +264,7 @@ function Chip({
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: tokens.surface.bg },
   body: { padding: rnSpacing.md, paddingBottom: rnSpacing['3xl'], gap: rnSpacing['sm-loose'] },
-  subtitle: { fontSize: rnType.label.size, color: tokens.text.medium },
+  subtitle: { fontSize: rnType.label.size, color: tokens.text.tertiary },
   muted: { fontSize: rnType.label.size, color: tokens.text.secondary },
   card: {
     gap: rnSpacing.md,
@@ -292,7 +292,7 @@ const styles = StyleSheet.create({
   textarea: { minHeight: 120, lineHeight: 21 },
   categoriesLoading: { alignSelf: 'flex-start', paddingVertical: rnSpacing.xs },
   inlineError: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing['sm-loose'] },
-  errorText: { fontSize: rnType.label.size, color: tokens.danger.deepText },
+  errorText: { fontSize: rnType.label.size, color: tokens.danger.DEFAULT },
   retryText: { fontSize: rnType.label.size, fontWeight: '600', color: tokens.text.primary },
   chipRow: {
     flexDirection: 'row',

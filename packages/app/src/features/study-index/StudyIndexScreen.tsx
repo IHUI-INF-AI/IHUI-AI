@@ -84,15 +84,6 @@ export interface StudyIndexScreenProps {
   loadingMoreText: string
   /** 提供时在右下渲染发布 FAB（缺省不渲染，避免假按钮） */
   onPublish?: () => void
-  /**
-   * 视频卡片点击（2026-11-14 补）。
-   *
-   * 注意：`@ihui/types` 里另有一份同名 `StudyIndexScreenProps`，那份把 `onVideoClick`
-   * 声明成**必填**，而本文件这份本地定义**没有该字段** —— 两份已漂移。宿主按本地这份传参，
-   * 所以类型检查不报错、回调也从来没被消费过，视频卡片是一整片点不动的死区。
-   * 这里按可选补上：宿主不传卡片退化为不可点（不再假装能点），传了才响应。
-   */
-  onVideoClick?: (item: StudyVideoItem) => void
 }
 
 /** 网格封面高度(对齐 Uniapp study_list .video height: 178rpx ≈ 89dp) */
@@ -133,7 +124,6 @@ export function StudyIndexScreen({
   loadingText,
   loadingMoreText,
   onPublish,
-  onVideoClick,
 }: StudyIndexScreenProps) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
@@ -195,14 +185,7 @@ export function StudyIndexScreen({
       // gridCard 在这份表里是**纯布局档**(flex:1 占双列槽位 + 边距),留在外层作静态对象;
       // 按压淡出随内层承载 —— 外层无底色,可见像素全在内层里,淡出的范围与改前逐像素相同
       // (守门 131 那一型:函数形态 style 落在注册过 cssInterop 的 Pressable 上会整份静默失效)。
-      <Pressable
-        style={styles.gridCard}
-        onPress={onVideoClick ? () => onVideoClick(item) : undefined}
-        disabled={!onVideoClick}
-        accessibilityRole="button"
-        accessibilityLabel={item.title}
-        accessibilityState={{ disabled: !onVideoClick }}
-      >
+      <Pressable style={styles.gridCard} accessibilityRole="button" accessibilityLabel={item.title}>
         {({ pressed }) => (
           <View style={pressed ? styles.gridCardPressed : null}>
             <View style={styles.gridCoverWrap}>
@@ -210,7 +193,7 @@ export function StudyIndexScreen({
                 <Image source={{ uri: item.cover }} style={styles.gridCover} resizeMode="cover" />
               ) : (
                 <View style={styles.gridCoverPlaceholder}>
-                  <Play size={24} color={tk.text.secondary} />
+                  <Play size={24} color={tk.text.tertiary} />
                 </View>
               )}
               <View style={styles.gridCoverInfo}>
@@ -375,7 +358,7 @@ export function StudyIndexScreen({
             <RefreshControl
               refreshing={refreshing}
               onRefresh={onRefresh}
-              tintColor={tk.text.secondary}
+              tintColor={tk.text.tertiary}
             />
           }
           onEndReached={onEndReached}
@@ -408,15 +391,14 @@ export function StudyIndexScreen({
       )}
 
       {onPublish ? (
-        <Tappable
+        <Pressable
           onPress={onPublish}
-          // 悬浮发布钮是全屏最显眼的单一动作,按下必须立刻有回执(2026-11-13)。
           style={styles.fab}
           accessibilityRole="button"
           accessibilityLabel="发布视频"
         >
           <Plus size={24} color={tk.brand.ctaForeground} />
-        </Tappable>
+        </Pressable>
       ) : null}
     </View>
   )
@@ -534,14 +516,14 @@ function createStyles(tk: AppThemeTokens) {
       fontSize: rnType.caption.size,
     } as TextStyle,
     previewBadgeFreeText: {
-      color: tk.success.deepText,
+      color: tk.success.DEFAULT,
     } as TextStyle,
     previewBadgePaidText: {
       color: tk.warning.amberText,
     } as TextStyle,
     previewEmpty: {
       fontSize: rnType.body.size,
-      color: tk.text.medium,
+      color: tk.text.tertiary,
       textAlign: 'center',
       paddingVertical: rnSpacing.lg,
     } as TextStyle,
@@ -590,7 +572,7 @@ function createStyles(tk: AppThemeTokens) {
     } as ViewStyle,
     gridCoverPlaceholderText: {
       fontSize: rnType.display.size,
-      color: tk.text.medium,
+      color: tk.text.tertiary,
     } as TextStyle,
     // 标题+日期覆盖层
     gridCoverInfo: {
@@ -709,7 +691,7 @@ function createStyles(tk: AppThemeTokens) {
     } as ViewStyle,
     emptyText: {
       fontSize: rnType.title.size,
-      color: tk.text.medium,
+      color: tk.text.tertiary,
       textAlign: 'center',
     } as TextStyle,
     loadingText: {
@@ -726,7 +708,7 @@ function createStyles(tk: AppThemeTokens) {
     } as ViewStyle,
     footerText: {
       fontSize: rnType.body.size,
-      color: tk.text.medium,
+      color: tk.text.tertiary,
     } as TextStyle,
   })
 }

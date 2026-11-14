@@ -279,20 +279,21 @@ interface AiHomeState {
  * - showToast 兜底显示通知(简化版,原项目是有 UI 渲染的弹窗)
  */
 function PushNotification() {
-  // 稳定 handler:同一引用供 on/off 成对使用,避免切后台再回前台重复注册导致一条推送弹多次
-  const handler = useCallback((options: { title?: string; content?: string }) => {
-    if (options?.title) {
-      onToast(options.title, { kind: 'info', duration: 3000 })
+  // 对齐原项目:监听 showPushNotification 全局事件
+  useDidShow(() => {
+    Taro.eventCenter.on('showPushNotification', (options: { title?: string; content?: string }) => {
+      if (options?.title) {
+        onToast(options.title, { kind: 'info', duration: 3000 })
+      }
+    })
+  })
+
+  // 清理监听(防止内存泄漏)
+  useEffect(() => {
+    return () => {
+      Taro.eventCenter.off('showPushNotification')
     }
   }, [])
-
-  useEffect(() => {
-    // 只在挂载注册一次;卸载时按引用 off,绝不用无参 off 清空同名事件的全部监听
-    Taro.eventCenter.on('showPushNotification', handler)
-    return () => {
-      Taro.eventCenter.off('showPushNotification', handler)
-    }
-  }, [handler])
 
   return null
 }
@@ -789,17 +790,6 @@ export default function Index() {
     }
   }, [groupDataByDate])
 
-  // 下拉刷新停动画:定时器只作兜底,纳入 ref 并在卸载时清理
-  const pullRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  useEffect(() => {
-    return () => {
-      if (pullRefreshTimerRef.current !== null) {
-        clearTimeout(pullRefreshTimerRef.current)
-        pullRefreshTimerRef.current = null
-      }
-    }
-  }, [])
-
   // 下拉刷新(对齐原项目 onPullDownRefresh)
   usePullDownRefresh(() => {
     // 重置分页并刷新数据
@@ -809,24 +799,9 @@ export default function Index() {
       hasMore: true,
       isLoadingMore: false,
     }))
-    // 停动画改由真实取数(loadModels)的 finally 驱动,不再固定 500ms 盲停;
-    // 另留兜底定时器防接口挂起把动画卡死,统一走 ref 便于清理
-    const stopRefresh = () => {
-      if (pullRefreshTimerRef.current !== null) {
-        clearTimeout(pullRefreshTimerRef.current)
-        pullRefreshTimerRef.current = null
-      }
-      try {
-        Taro.stopPullDownRefresh()
-      } catch {
-        // 静默:未处于下拉刷新态时该调用为空操作
-      }
-    }
-    if (pullRefreshTimerRef.current !== null) {
-      clearTimeout(pullRefreshTimerRef.current)
-    }
-    pullRefreshTimerRef.current = setTimeout(stopRefresh, 500)
-    void loadModels().finally(stopRefresh)
+    setTimeout(() => {
+      Taro.stopPullDownRefresh()
+    }, 500)
   })
 
   // 上拉加载更多(对齐原项目 onReachBottom)
@@ -863,7 +838,8 @@ export default function Index() {
     } catch {
       // 静默:部分平台可能不支持
     }
-    // shareSuccess / shareFail 全仓无对应 on( 监听:这两行 off 是会清空同名事件全部监听的死代码,移除
+    Taro.eventCenter.off('shareSuccess')
+    Taro.eventCenter.off('shareFail')
     setState((s) => ({ ...s, showSharePointsPopup: false }))
   }
 
@@ -1000,42 +976,14 @@ export default function Index() {
     // 键盘弹出时可选调整布局
   }, [])
 
-  // 分页定时器与防重判据都走 ref:同步、可清理、卸载后不再 setState
-  const loadMoreTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const loadMorePendingRef = useRef(false)
-  const loadMoreAliveRef = useRef(true)
-  useEffect(() => {
-    loadMoreAliveRef.current = true
-    return () => {
-      loadMoreAliveRef.current = false
-      loadMorePendingRef.current = false
-      if (loadMoreTimeoutRef.current !== null) {
-        clearTimeout(loadMoreTimeoutRef.current)
-        loadMoreTimeoutRef.current = null
-      }
-    }
-  }, [])
-
   // 分页加载更多模型
   const loadMoreModels = useCallback(() => {
-    // 同步防重:一轮未结束忽略后续触底(原判据只在 setState 回调里,挡不住 1s 内叠多个 timeout)
-    if (loadMorePendingRef.current) return
-    loadMorePendingRef.current = true
-    // 创建前清旧:同一 ref 上不残留旧定时器
-    if (loadMoreTimeoutRef.current !== null) {
-      clearTimeout(loadMoreTimeoutRef.current)
-      loadMoreTimeoutRef.current = null
-    }
     setState((s) => {
       if (s.isLoadingMore || !s.hasMore) return s
       return { ...s, isLoadingMore: true, page: s.page + 1 }
     })
     // 模拟异步加载
-    loadMoreTimeoutRef.current = setTimeout(() => {
-      loadMoreTimeoutRef.current = null
-      loadMorePendingRef.current = false
-      // 卸载守卫:组件卸载后不再 setState
-      if (!loadMoreAliveRef.current) return
+    setTimeout(() => {
       setState((s) => ({
         ...s,
         isLoadingMore: false,

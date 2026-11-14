@@ -162,15 +162,7 @@
     "tasksUsageCancel": "usage: /tasks cancel <id>",
     "tasksUsageBlock": "usage: /tasks block <id>",
     "taskCancelledFeedback": "✓ Task #{id} cancelled: {content}",
-    "taskBlockedFeedback": "✓ Task #{id} blocked: {content}",
-    "questionAsk": "AI is asking: {prompt}",
-    "questionAskCustom": "  Type your answer (empty line = dismiss this question)",
-    "questionAskHint": "  Type your answer (empty line = dismiss this question)",
-    "questionAnswered": "Answered: {answer}",
-    "questionResolved": "The question has been resolved",
-    "questionNoSession": "No session key — cannot submit the answer",
-    "questionFailed": "Failed to submit the answer, please retry",
-    "questionLegacy": "This server does not support blocking questions; the answer was not applied"
+    "taskBlockedFeedback": "✓ Task #{id} blocked: {content}"
   },
   "waiting": {
     "agent": {
@@ -592,8 +584,5 @@
     "rejectedTitle": "Rejected entries:",
     "statusTitle": "Active knowledge cards ({total}):",
     "statusEmpty": "(No active knowledge cards. Run: ihui wiki compile)"
-  },
-  "chat": {
-    "admissionAhead": "{n} ahead of you"
   }
 }

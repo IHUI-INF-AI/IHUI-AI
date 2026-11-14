@@ -24,7 +24,6 @@ import VideoPlayer from '../components/VideoPlayer'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
-import { toFriendlyOr } from '@ihui/shared/utils'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 type ShareLandingRoute = RouteProp<RootStackParamList, 'ShareLanding'>
@@ -68,7 +67,7 @@ export function ShareLandingScreen() {
       setContent(toShareLandingContent(record))
       setAgentId(record.agentId || '')
     } catch (e) {
-      setError(toFriendlyOr(e, t('share.creation.loadFailed')))
+      setError(e instanceof Error ? e.message : t('share.creation.loadFailed'))
     } finally {
       setLoading(false)
     }

@@ -386,7 +386,7 @@ const styles = StyleSheet.create({
   },
   badgeText: {
     fontSize: rpx(22),
-    color: tokens.warning.amberText,
+    color: tokens.warning.DEFAULT,
   },
   // 徽章推到行尾(与 tags 同行时右对齐)
   metaBadge: {

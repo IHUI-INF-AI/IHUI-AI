@@ -332,7 +332,7 @@ function makeStyles() {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tokens.surface.bg },
     body: { padding: rnSpacing.md, gap: rnSpacing['sm-loose'], paddingBottom: rnSpacing['3xl'] },
-    subtitle: { fontSize: rnType.label.size, color: tokens.text.medium },
+    subtitle: { fontSize: rnType.label.size, color: tokens.text.tertiary },
     card: {
       padding: rnSpacing.lg,
       borderRadius: rnRadius.lg,
@@ -374,7 +374,7 @@ function makeStyles() {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    dangerText: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tokens.danger.deepText },
+    dangerText: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tokens.danger.DEFAULT },
     filterRow: { flexDirection: 'row', gap: rnSpacing.sm },
     chip: {
       paddingHorizontal: rnSpacing.md,
@@ -401,7 +401,7 @@ function makeStyles() {
     itemMain: { flex: 1, gap: rnSpacing['2xs'] },
     itemName: { fontSize: rnType.strong.size, fontWeight: '600', color: tokens.text.primary },
     itemDesc: { fontSize: rnType.label.size, color: tokens.text.secondary, lineHeight: 17 },
-    meta: { fontSize: rnType.caption.size, color: tokens.text.medium },
+    meta: { fontSize: rnType.caption.size, color: tokens.text.tertiary },
     stateBox: {
       alignItems: 'center',
       justifyContent: 'center',
@@ -409,7 +409,7 @@ function makeStyles() {
       paddingVertical: rnSpacing['5xl'],
     },
     muted: { fontSize: rnType.bodySm.size, color: tokens.text.secondary, lineHeight: 19 },
-    errorText: { fontSize: rnType.bodySm.size, color: tokens.danger.deepText },
+    errorText: { fontSize: rnType.bodySm.size, color: tokens.danger.DEFAULT },
     retry: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tokens.text.primary },
     overlay: { flex: 1, justifyContent: 'flex-end' },
     mask: {
@@ -435,7 +435,7 @@ function makeStyles() {
       fontWeight: '600',
       color: tokens.text.primary,
     },
-    hint: { fontSize: rnType.caption.size, color: tokens.text.medium },
+    hint: { fontSize: rnType.caption.size, color: tokens.text.tertiary },
     memberRow: { flexDirection: 'row', gap: rnSpacing.sm, alignItems: 'center' },
     memberInput: {
       flex: 1,

@@ -430,13 +430,12 @@ export default function AgentDetailPage() {
                       )}
                     </View>
                     {/* 编辑入口 — 对齐共享屏头右侧编辑键(后端 PUT 归属校验兜,前端不另判) */}
-                    <View
+                    <Text
                       className="flex-shrink-0 ml-[16rpx] px-[20rpx] py-[8rpx] text-label text-foreground border border-border rounded-sm"
                       onClick={onEdit}
-                      hoverClass="opacity-60"
                     >
-                      <Text>{t('agentEdit.entry')}</Text>
-                    </View>
+                      {t('agentEdit.entry')}
+                    </Text>
                   </View>
                   <Text className="block text-caption text-muted-foreground mt-[12rpx]">
                     {t('agentDetail.description')}

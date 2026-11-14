@@ -70,7 +70,7 @@ function dayOf(value?: string | null): string {
 function badgeTone(tk: AppThemeTokens, status: string): { bg: string; fg: string } {
   if (status === 'active') return { bg: tk.brandAccent.light, fg: tk.brandAccent.deep }
   if (status === 'completed') return { bg: tk.success.light, fg: tk.success.deepText }
-  if (status === 'archived') return { bg: tk.surface.muted, fg: tk.text.secondary }
+  if (status === 'archived') return { bg: tk.surface.muted, fg: tk.text.tertiary }
   return { bg: tk.surface.muted, fg: tk.text.secondary }
 }
 
@@ -724,7 +724,7 @@ export function EduTeacherStudyPlanScreen({
                       value={form.title}
                       onChangeText={(value) => onFormChange('title', value)}
                       placeholder={t('eduTeacherStudyPlan.titlePlaceholder')}
-                      placeholderTextColor={tk.text.secondary}
+                      placeholderTextColor={tk.text.tertiary}
                       maxLength={200}
                     />
 
@@ -761,7 +761,7 @@ export function EduTeacherStudyPlanScreen({
                           value={form.startDate}
                           onChangeText={(value) => onFormChange('startDate', value)}
                           placeholder="YYYY-MM-DD"
-                          placeholderTextColor={tk.text.secondary}
+                          placeholderTextColor={tk.text.tertiary}
                           autoCapitalize="none"
                           maxLength={10}
                         />
@@ -774,7 +774,7 @@ export function EduTeacherStudyPlanScreen({
                           value={form.endDate}
                           onChangeText={(value) => onFormChange('endDate', value)}
                           placeholder="YYYY-MM-DD"
-                          placeholderTextColor={tk.text.secondary}
+                          placeholderTextColor={tk.text.tertiary}
                           autoCapitalize="none"
                           maxLength={10}
                         />
@@ -788,7 +788,7 @@ export function EduTeacherStudyPlanScreen({
                       value={form.description}
                       onChangeText={(value) => onFormChange('description', value)}
                       placeholder={t('eduTeacherStudyPlan.descriptionPlaceholder')}
-                      placeholderTextColor={tk.text.secondary}
+                      placeholderTextColor={tk.text.tertiary}
                       multiline
                       textAlignVertical="top"
                     />
@@ -845,7 +845,7 @@ function createStyles(tk: AppThemeTokens) {
     subtitle: {
       fontSize: rnType.label.size,
       lineHeight: rnType.bodySm.lineHeight,
-      color: tk.text.medium,
+      color: tk.text.tertiary,
     },
     notice: {
       marginTop: rnSpacing.sm,
@@ -904,7 +904,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     selectRowDisabled: { opacity: 0.5 },
     selectValue: { flex: 1, fontSize: rnType.body.size, color: tk.text.primary },
-    selectPlaceholder: { flex: 1, fontSize: rnType.body.size, color: tk.text.medium },
+    selectPlaceholder: { flex: 1, fontSize: rnType.body.size, color: tk.text.tertiary },
     selectHint: { fontSize: rnType.caption.size, color: tk.brandAccent.deep },
     createBtn: {
       marginTop: rnSpacing.md,
@@ -928,11 +928,11 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'space-between',
     },
     sectionTitle: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
-    sectionCount: { fontSize: rnType.caption.size, color: tk.text.medium },
+    sectionCount: { fontSize: rnType.caption.size, color: tk.text.tertiary },
     emptyText: {
       marginTop: rnSpacing.sm,
       fontSize: rnType.body.size,
-      color: tk.text.medium,
+      color: tk.text.tertiary,
       textAlign: 'center',
       paddingVertical: rnSpacing.lg,
     },
@@ -958,7 +958,7 @@ function createStyles(tk: AppThemeTokens) {
       fontWeight: '600',
       color: tk.text.primary,
     },
-    planTitleDone: { color: tk.text.medium, textDecorationLine: 'line-through' },
+    planTitleDone: { color: tk.text.tertiary, textDecorationLine: 'line-through' },
     badge: {
       flexShrink: 0,
       paddingHorizontal: rnSpacing.sm,
@@ -987,7 +987,7 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.warning.amberText,
       backgroundColor: tk.warning.light,
     },
-    metaText: { fontSize: rnType.caption.size, color: tk.text.medium },
+    metaText: { fontSize: rnType.caption.size, color: tk.text.tertiary },
     actionRow: {
       marginTop: rnSpacing.sm,
       flexDirection: 'row',
@@ -1006,7 +1006,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     actionText: { fontSize: rnType.caption.size, color: tk.text.primary },
     actionDanger: { borderColor: tk.danger.DEFAULT, backgroundColor: tk.danger.light },
-    actionDangerText: { color: tk.danger.deepText },
+    actionDangerText: { color: tk.danger.DEFAULT },
     childRow: {
       marginTop: rnSpacing.xs,
       flexDirection: 'row',
@@ -1021,7 +1021,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     childRowActive: { backgroundColor: tk.brandAccent.light },
     childTitle: { flex: 1, fontSize: rnType.label.size, color: tk.text.primary },
-    childMeta: { fontSize: rnType.caption.size, color: tk.text.medium },
+    childMeta: { fontSize: rnType.caption.size, color: tk.text.tertiary },
     /* 详情 */
     detailCard: {
       marginTop: rnSpacing.lg,
@@ -1093,11 +1093,11 @@ function createStyles(tk: AppThemeTokens) {
     itemMain: { flex: 1 },
     itemText: { fontSize: rnType.body.size, color: tk.text.primary },
     itemTextSm: { fontSize: rnType.label.size, color: tk.text.primary },
-    itemTextDone: { color: tk.text.medium, textDecorationLine: 'line-through' },
+    itemTextDone: { color: tk.text.tertiary, textDecorationLine: 'line-through' },
     itemMeta: {
       marginTop: rnSpacing['2xs'],
       fontSize: rnType.caption.size,
-      color: tk.text.medium,
+      color: tk.text.tertiary,
     },
     /* 弹层 */
     modalRoot: { flex: 1, justifyContent: 'flex-end' },

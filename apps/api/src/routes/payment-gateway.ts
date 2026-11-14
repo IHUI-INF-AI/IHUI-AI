@@ -770,9 +770,10 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
             }
             try {
               if (!result.order.userId) throw new Error('order has no userId')
-              const tokenQuantity = await getBalance(result.order.userId)
+              // F-404:返佣基数由 commission-service 内部按本单充值流水(orderNo+opType=0)取增量，
+              // 不再用 getBalance 的钱包总余额(含历史)——消除小额复购对历史余额反复抽佣。
               await feedbackInvite(
-                { id: result.order.userId, tokenQuantity },
+                { id: result.order.userId },
                 {
                   id: result.order.id,
                   amount: result.order.amount,
@@ -1279,9 +1280,9 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
             }
             try {
               if (!result.order.userId) throw new Error('order has no userId')
-              const tokenQuantity = await getBalance(result.order.userId)
+              // F-404:返佣基数由服务内按本单充值流水取增量,不再用钱包总余额。
               await feedbackInvite(
-                { id: result.order.userId, tokenQuantity },
+                { id: result.order.userId },
                 {
                   id: result.order.id,
                   amount: result.order.amount,
@@ -1609,9 +1610,9 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
           }
           try {
             if (!result.order.userId) throw new Error('order has no userId')
-            const tokenQuantity = await getBalance(result.order.userId)
+            // F-404:返佣基数由服务内按本单充值流水取增量,不再用钱包总余额。
             await feedbackInvite(
-              { id: result.order.userId, tokenQuantity },
+              { id: result.order.userId },
               {
                 id: result.order.id,
                 amount: result.order.amount,
@@ -1780,9 +1781,9 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
             }
             try {
               if (!result.order.userId) throw new Error('order has no userId')
-              const tokenQuantity = await getBalance(result.order.userId)
+              // F-404:返佣基数由服务内按本单充值流水取增量,不再用钱包总余额。
               await feedbackInvite(
-                { id: result.order.userId, tokenQuantity },
+                { id: result.order.userId },
                 {
                   id: result.order.id,
                   amount: result.order.amount,

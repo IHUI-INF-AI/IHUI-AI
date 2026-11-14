@@ -80,7 +80,7 @@ export default function MessageVersionMenu({
           color={prev ? 'var(--color-muted-foreground)' : 'var(--color-border)'}
         />
       </View>
-      <Text className="min-w-8 text-center text-caption font-semibold leading-none tabular-nums text-muted-foreground">
+      <Text className="min-w-8 text-center text-[11px] font-semibold leading-none tabular-nums text-muted-foreground">
         {pos.index + 1}/{pos.total}
       </Text>
       <View
@@ -100,7 +100,7 @@ export default function MessageVersionMenu({
         hoverClass="opacity-60"
       >
         <LineIcon name="chevron-down" size={24} color="var(--color-muted-foreground)" />
-        <Text className="ml-xs text-badge text-muted-foreground">
+        <Text className="ml-xs text-[10px] text-muted-foreground">
           {t('ai.messageVersion.history')}
         </Text>
       </View>

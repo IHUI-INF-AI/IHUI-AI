@@ -496,7 +496,7 @@ function createStyles(tk: AppThemeTokens) {
     } as TextStyle,
     cardDate: {
       fontSize: rnType.caption.size,
-      color: tk.text.medium,
+      color: tk.text.tertiary,
       marginBottom: rnSpacing.sm,
     } as TextStyle,
     cardCycle: {
@@ -546,7 +546,7 @@ function createStyles(tk: AppThemeTokens) {
       fontWeight: '400',
     } as TextStyle,
     priceDone: {
-      color: tk.success.deepText,
+      color: tk.success.DEFAULT,
     } as TextStyle,
     chatBtn: {
       paddingHorizontal: rnSpacing['sm-loose'],
@@ -564,7 +564,7 @@ function createStyles(tk: AppThemeTokens) {
     } as TextStyle,
     statusDone: {
       fontSize: rnType.caption.size,
-      color: tk.success.deepText,
+      color: tk.success.DEFAULT,
     } as TextStyle,
     statusDev: {
       fontSize: rnType.caption.size,

@@ -3040,8 +3040,11 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     // 承载层出口(§5):鉴权先于形状闸;下方 confirmed 绑定校验保留(鉴权≠授权)。
     const authed = await checkAuthOrInternalService(request, reply)
     if (!authed) return
-    const childId = (request.params as { childId: string }).childId
-    if (!childId) return reply.status(400).send(error(400, '无效的孩子ID'))
+    // 形状闸(F-214 补):childId 必须是 UUID,畸形路径 400 而非下探到 UUID 列比较报 500。
+    const idParsed = childIdParamSchema.safeParse(request.params)
+    if (!idParsed.success)
+      return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
+    const childId = idParsed.data.childId
     const userId = request.userId!
 
     // 验证绑定
@@ -3089,8 +3092,11 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     // 承载层出口(§5):鉴权先于形状闸;下方 confirmed 绑定校验保留(鉴权≠授权)。
     const authed = await checkAuthOrInternalService(request, reply)
     if (!authed) return
-    const childId = (request.params as { childId: string }).childId
-    if (!childId) return reply.status(400).send(error(400, '无效的孩子ID'))
+    // 形状闸(F-214 补):childId 必须是 UUID,畸形路径 400 而非下探到 UUID 列比较报 500。
+    const idParsed = childIdParamSchema.safeParse(request.params)
+    if (!idParsed.success)
+      return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
+    const childId = idParsed.data.childId
     const userId = request.userId!
 
     const [binding] = await db
@@ -3121,8 +3127,11 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     // 承载层出口(§5):鉴权先于形状闸;下方 confirmed 绑定校验保留(鉴权≠授权)。
     const authed = await checkAuthOrInternalService(request, reply)
     if (!authed) return
-    const childId = (request.params as { childId: string }).childId
-    if (!childId) return reply.status(400).send(error(400, '无效的孩子ID'))
+    // 形状闸(F-214 补):childId 必须是 UUID,畸形路径 400 而非下探到 UUID 列比较报 500。
+    const idParsed = childIdParamSchema.safeParse(request.params)
+    if (!idParsed.success)
+      return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
+    const childId = idParsed.data.childId
     const userId = request.userId!
 
     const [binding] = await db
@@ -3259,8 +3268,11 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     // 承载层出口(§5):鉴权先于形状闸;下方 confirmed 绑定校验保留(鉴权≠授权)。
     const authed = await checkAuthOrInternalService(request, reply)
     if (!authed) return
-    const childId = (request.params as { childId: string }).childId
-    if (!childId) return reply.status(400).send(error(400, '无效的孩子ID'))
+    // 形状闸(F-214 补):childId 必须是 UUID,畸形路径 400 而非下探到 UUID 列比较报 500。
+    const idParsed = childIdParamSchema.safeParse(request.params)
+    if (!idParsed.success)
+      return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
+    const childId = idParsed.data.childId
     const userId = request.userId!
 
     const [binding] = await db

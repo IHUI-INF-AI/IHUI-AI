@@ -46,13 +46,6 @@ const activityFields = {
   rules: activities.rules,
   createdAt: activities.createdAt,
   updatedAt: activities.updatedAt,
-  // 参与人数:此前 Activity 表没有这个计数,前端列表却渲染「参与人数: {item.participants}」,
-  // 而 participants 全仓没有任何赋值来源 ⇒ 真机上恒显示 undefined。子查询而非 leftJoin+groupBy,
-  // 是为了不给 activityFields 增加分组维度(该字段被列表/详情/按 id 查三处共用)。
-  participants: sql<number>`(
-    SELECT count(*)::int FROM ${activityParticipants}
-    WHERE ${activityParticipants.activityId} = ${activities.id}
-  )`,
 }
 
 const participantFields = {
@@ -79,6 +72,7 @@ const couponFields = {
 }
 
 export type InvitationRow = typeof invitationFields
+export type ActivityRow = typeof activityFields
 export type ParticipantRow = typeof participantFields
 export type CouponRow = typeof couponFields
 
@@ -192,9 +186,7 @@ export async function markInvitationUsed(data: MarkUsedInput): Promise<Invitatio
       status: 'used',
       usedAt: new Date(),
     })
-    // F-15:占用必须是条件 UPDATE —— 仅当仍是 unused 才抢占成功。并发两个注册请求
-    // 只有一个能拿到 returning 行,抢不到的一方返回 undefined,调用方据此不发放奖励。
-    .where(and(eq(invitationCodes.id, data.id), eq(invitationCodes.status, 'unused')))
+    .where(eq(invitationCodes.id, data.id))
     .returning(invitationFields)
   return rows[0]
 }
@@ -224,15 +216,8 @@ export async function findInviteesByUser(inviterId: string): Promise<InviteeRow[
 // Activities
 // =============================================================================
 
-/**
- * 活动行的对外形状:表列 + participants 子查询计数。
- * 注意不能用 `typeof activityFields` —— 那是 **列定义** 对象(PgColumn),不是行数据,
- * 拿它当返回类型会把 status 变成 PgColumn,调用方的 `status !== 'published'` 直接报「无重叠」。
- */
-export type ActivityRow = Activity & { participants: number }
-
 /** 公开查询：返回所有 published 活动（含即将开始/进行中/已结束），前端按时间计算展示态。 */
-export async function findActivities(): Promise<ActivityRow[]> {
+export async function findActivities(): Promise<Activity[]> {
   return db
     .select(activityFields)
     .from(activities)
@@ -240,7 +225,7 @@ export async function findActivities(): Promise<ActivityRow[]> {
     .orderBy(asc(activities.startAt))
 }
 
-export async function findActivityBySlug(slug: string): Promise<ActivityRow | undefined> {
+export async function findActivityBySlug(slug: string): Promise<Activity | undefined> {
   const rows = await db
     .select(activityFields)
     .from(activities)
@@ -249,28 +234,13 @@ export async function findActivityBySlug(slug: string): Promise<ActivityRow | un
   return rows[0]
 }
 
-export async function findActivityById(id: string): Promise<ActivityRow | undefined> {
+export async function findActivityById(id: string): Promise<Activity | undefined> {
   const rows = await db
     .select(activityFields)
     .from(activities)
     .where(eq(activities.id, id))
     .limit(1)
   return rows[0]
-}
-
-/**
- * 某用户已参与的活动 id 集合 —— 列表回填 `joined` 用。
- *
- * 不这么做的话:已报名用户回到列表仍看到「立即参与」,点下去拿到 409「已参与该活动」,
- * 而「取消报名」入口在列表上永远不可达(详情页此前也是只读的,整条退订链路不通)。
- * 一次查全量再在内存里比对,避免逐条活动查一次(列表长度 × 一次往返)。
- */
-export async function findJoinedActivityIds(userId: string): Promise<Set<string>> {
-  const rows = await db
-    .select({ activityId: activityParticipants.activityId })
-    .from(activityParticipants)
-    .where(eq(activityParticipants.userId, userId))
-  return new Set(rows.map((r) => r.activityId))
 }
 
 export interface CreateActivityInput {

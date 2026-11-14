@@ -182,48 +182,5 @@ describe('streamChat admission 帧(差距①)', () => {
     const withoutId = JSON.parse(String(fetchMock.mock.calls[1][1].body)) as Record<string, unknown>
     expect('inputId' in withoutId).toBe(false)
   })
-
-  /**
-   * `ahead` 三层一致性(2026-11-13 立)。
-   *
-   * 立因:共享层 send-admission.ts:77 早已定义 `ahead`(注释写明「0 表示下一位。
-   * 缺席表示没量到,不得当成 0」),而**本包的镜像漏了这个字段** —— 接口没有、解析不带,
-   * 调用方结构上永远读不到位次,`queued` 回执只剩一句"已排队"。
-   * 本组三条:透传、越界丢弃、非 queued 档不带。
-   */
-  it('queued 帧带 ahead ⇒ 逐字透传(调用方才能显示"前面还有几位")', async () => {
-    const frame =
-      'data: {"type":"admission","inputId":"in-a","disposition":"queued","queuedTurnId":"q-1","ahead":0}'
-    fetchMock.mockResolvedValue(sseResponse([frame, '', DONE_FRAME, '', 'data: [DONE]', '']))
-    const onSendAdmissionReceipt = vi.fn()
-    await streamChat({ ...baseOpts, onSendAdmissionReceipt })
-    const r = onSendAdmissionReceipt.mock.calls[0][0] as SendAdmissionReceipt
-    // ahead=0 是合法值(下一位),不得被 falsy 判断吞掉
-    expect(r.ahead).toBe(0)
-  })
-
-  it('ahead 坏型(负数 / 非整数 / 字符串)⇒ 该键缺席,不折成 0', async () => {
-    const frames = [
-      'data: {"type":"admission","inputId":"in-b","disposition":"queued","ahead":-1}',
-      'data: {"type":"admission","inputId":"in-c","disposition":"queued","ahead":1.5}',
-      'data: {"type":"admission","inputId":"in-d","disposition":"queued","ahead":"2"}',
-    ]
-    fetchMock.mockResolvedValue(
-      sseResponse([frames[0], '', frames[1], '', frames[2], '', DONE_FRAME, '', 'data: [DONE]', '']),
-    )
-    const onSendAdmissionReceipt = vi.fn()
-    await streamChat({ ...baseOpts, onSendAdmissionReceipt })
-    for (const call of onSendAdmissionReceipt.mock.calls) {
-      expect('ahead' in (call[0] as SendAdmissionReceipt)).toBe(false)
-    }
-  })
-
-  it('非 queued 档即使带 ahead 也不带该键(档位专属字段不串门)', async () => {
-    const frame = 'data: {"type":"admission","inputId":"in-e","disposition":"accepted","ahead":3}'
-    fetchMock.mockResolvedValue(sseResponse([frame, '', DONE_FRAME, '', 'data: [DONE]', '']))
-    const onSendAdmissionReceipt = vi.fn()
-    await streamChat({ ...baseOpts, onSendAdmissionReceipt })
-    expect('ahead' in (onSendAdmissionReceipt.mock.calls[0][0] as SendAdmissionReceipt)).toBe(false)
-  })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

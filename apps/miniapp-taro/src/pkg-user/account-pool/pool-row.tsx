@@ -63,31 +63,28 @@ export function PoolRowCard({
         {t('accountPool.uid')}: {row.uid}
       </Text>
       <View className="mt-[16rpx] flex flex-wrap gap-[12rpx]">
-        <View
+        <Text
           className="rounded-md bg-muted px-[20rpx] py-[10rpx] text-label text-foreground"
-          hoverClass="opacity-60"
           onClick={() => onCheckin(row)}
         >
-          <Text>{t('accountPool.checkin')}</Text>
-        </View>
-        <View
+          {t('accountPool.checkin')}
+        </Text>
+        <Text
           className="rounded-md bg-muted px-[20rpx] py-[10rpx] text-label text-foreground"
-          hoverClass="opacity-60"
           onClick={() => onToggle(row)}
         >
-          <Text>{row.isEnabled ? t('accountPool.disable') : t('accountPool.enable')}</Text>
-        </View>
-        <View
+          {row.isEnabled ? t('accountPool.disable') : t('accountPool.enable')}
+        </Text>
+        <Text
           className={`rounded-md px-[20rpx] py-[10rpx] text-label ${
             confirming
               ? 'bg-[var(--color-destructive)] text-[var(--color-destructive-foreground)]'
               : 'bg-muted text-muted-foreground'
           }`}
-          hoverClass="opacity-60"
           onClick={() => onDelete(row)}
         >
-          <Text>{confirming ? t('accountPool.confirmDelete') : t('accountPool.delete')}</Text>
-        </View>
+          {confirming ? t('accountPool.confirmDelete') : t('accountPool.delete')}
+        </Text>
       </View>
     </View>
   )

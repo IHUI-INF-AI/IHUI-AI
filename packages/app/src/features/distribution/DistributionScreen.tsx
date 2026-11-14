@@ -6,6 +6,7 @@ import { useMemo } from 'react'
 import {
   Image,
   Modal,
+  Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -32,7 +33,6 @@ import { ELEVATION_STEPS, rnRadius, rnSpacing, rnType } from '@ihui/design-token
 import { formatPrice } from '@ihui/shared/utils'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
-import { Tappable } from '@ihui/ui-native'
 
 export type {
   DistributionProduct,
@@ -105,7 +105,7 @@ export function DistributionScreen({
       {functionBlocks?.length ? (
         <View style={styles.functionGrid}>
           {functionBlocks.map((block) => (
-            <Tappable
+            <Pressable
               key={block.key}
               style={styles.functionBlock}
               onPress={block.onPress}
@@ -132,7 +132,7 @@ export function DistributionScreen({
                   </Text>
                 ) : null}
               </View>
-            </Tappable>
+            </Pressable>
           ))}
         </View>
       ) : null}
@@ -184,7 +184,7 @@ export function DistributionScreen({
             <View style={styles.earningsTabsCard}>
               <View style={styles.earningsTabs}>
                 {earningsCard.tabs.map((tab) => (
-                  <Tappable
+                  <Pressable
                     key={tab.key}
                     style={[
                       styles.earningsTab,
@@ -202,7 +202,7 @@ export function DistributionScreen({
                     >
                       {tab.label}
                     </Text>
-                  </Tappable>
+                  </Pressable>
                 ))}
               </View>
               <View style={styles.earningsItems}>
@@ -328,7 +328,7 @@ export function DistributionScreen({
       )}
 
       {serviceFloat ? (
-        <Tappable
+        <Pressable
           style={styles.serviceFloat}
           onPress={serviceFloat.onPress}
           accessibilityRole="button"
@@ -339,13 +339,13 @@ export function DistributionScreen({
             <Text style={styles.serviceFloatLabel}>{serviceFloat.label}</Text>
             <Text style={styles.serviceFloatAmount}>{formatPrice(serviceFloat.amount)}</Text>
           </View>
-        </Tappable>
+        </Pressable>
       ) : null}
 
       {qrSheet?.visible ? (
         <Modal visible transparent animationType="fade" onRequestClose={qrSheet.onClose}>
           <View style={styles.qrBackdrop}>
-            <Tappable
+            <Pressable
               style={styles.qrBackdropFill}
               onPress={qrSheet.onClose}
               accessibilityRole="button"
@@ -355,14 +355,14 @@ export function DistributionScreen({
                 <Text style={styles.qrTitle} numberOfLines={1}>
                   {qrSheet.title}
                 </Text>
-                <Tappable
+                <Pressable
                   style={styles.qrCloseBtn}
                   onPress={qrSheet.onClose}
                   accessibilityRole="button"
                   accessibilityLabel={qrSheet.title}
                 >
                   <Text style={styles.qrClose}>×</Text>
-                </Tappable>
+                </Pressable>
               </View>
 
               <View style={styles.qrCodeBox}>
@@ -380,7 +380,7 @@ export function DistributionScreen({
               </View>
 
               {qrSheet.linkText && qrSheet.onCopy ? (
-                <Tappable
+                <Pressable
                   style={styles.qrLinkBtn}
                   onPress={qrSheet.onCopy}
                   accessibilityRole="button"
@@ -389,7 +389,7 @@ export function DistributionScreen({
                   <Text style={styles.qrLinkText} numberOfLines={1}>
                     {qrSheet.linkText}
                   </Text>
-                </Tappable>
+                </Pressable>
               ) : null}
 
               {qrSheet.tips?.length
@@ -407,26 +407,26 @@ export function DistributionScreen({
               <View style={styles.qrActions}>
                 {qrSheet.shareAction ??
                   (qrSheet.shareLabel && qrSheet.onShare ? (
-                    <Tappable
+                    <Pressable
                       style={styles.qrActionBtn}
                       onPress={qrSheet.onShare}
                       accessibilityRole="button"
                       accessibilityLabel={qrSheet.shareLabel}
                     >
                       <Text style={styles.qrActionText}>{qrSheet.shareLabel}</Text>
-                    </Tappable>
+                    </Pressable>
                   ) : null)}
                 {qrSheet.copyLabel && qrSheet.onCopy ? (
-                  <Tappable
+                  <Pressable
                     style={[styles.qrActionBtn, styles.qrActionGhost]}
                     onPress={qrSheet.onCopy}
                     accessibilityRole="button"
                     accessibilityLabel={qrSheet.copyLabel}
                   >
                     <Text style={styles.qrActionGhostText}>{qrSheet.copyLabel}</Text>
-                  </Tappable>
+                  </Pressable>
                 ) : null}
-                <Tappable
+                <Pressable
                   style={[styles.qrActionBtn, qrSheet.saving ? styles.qrActionDisabled : null]}
                   onPress={qrSheet.onSave}
                   disabled={qrSheet.saving}
@@ -438,7 +438,7 @@ export function DistributionScreen({
                       ? (qrSheet.savingLabel ?? qrSheet.saveLabel)
                       : qrSheet.saveLabel}
                   </Text>
-                </Tappable>
+                </Pressable>
               </View>
             </View>
           </View>
@@ -476,7 +476,7 @@ function createStyles(tk: AppThemeTokens) {
     functionBlockIconImg: { width: 28, height: 28 },
     functionBlockText: { flex: 1, gap: rnSpacing['2xs'] },
     functionBlockLabel: { fontSize: rnType.body.size, fontWeight: '600', color: tk.text.primary },
-    functionBlockDesc: { fontSize: rnType.caption.size, color: tk.text.medium },
+    functionBlockDesc: { fontSize: rnType.caption.size, color: tk.text.tertiary },
     qrBackdrop: {
       flex: 1,
       backgroundColor: 'rgba(0,0,0,0.55)',
@@ -504,7 +504,7 @@ function createStyles(tk: AppThemeTokens) {
     qrClose: { fontSize: rnType.heading.size, color: tk.text.secondary },
     qrCodeBox: { alignItems: 'center', justifyContent: 'center', minHeight: 180 },
     qrImage: { width: 180, height: 180 },
-    qrPlaceholder: { fontSize: rnType.caption.size, color: tk.text.medium },
+    qrPlaceholder: { fontSize: rnType.caption.size, color: tk.text.tertiary },
     qrLinkBtn: {
       paddingVertical: rnSpacing.sm,
       paddingHorizontal: rnSpacing.md,
@@ -513,8 +513,8 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
     },
     qrLinkText: { fontSize: rnType.caption.size, color: tk.text.secondary },
-    qrTip: { fontSize: rnType.caption.size, color: tk.text.medium, textAlign: 'center' },
-    qrCopyright: { fontSize: rnType.badge.size, color: tk.text.medium, textAlign: 'center' },
+    qrTip: { fontSize: rnType.caption.size, color: tk.text.tertiary, textAlign: 'center' },
+    qrCopyright: { fontSize: rnType.badge.size, color: tk.text.tertiary, textAlign: 'center' },
     qrActions: {
       flexDirection: 'row',
       flexWrap: 'wrap',
@@ -574,7 +574,7 @@ function createStyles(tk: AppThemeTokens) {
     overviewInfo: { flex: 1, gap: rnSpacing['2xs'] },
     overviewName: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
     overviewIdentity: { fontSize: rnType.caption.size, color: tk.text.secondary },
-    overviewCompany: { fontSize: rnType.caption.size, color: tk.text.medium },
+    overviewCompany: { fontSize: rnType.caption.size, color: tk.text.tertiary },
     earningsTabsCard: {
       marginHorizontal: rnSpacing['sm-loose'],
       marginTop: rnSpacing.sm,
@@ -596,11 +596,11 @@ function createStyles(tk: AppThemeTokens) {
     earningsItems: { flexDirection: 'row', marginTop: rnSpacing.md },
     earningsItemValue: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.text.primary },
     earningsItemPrimary: { color: tk.brand.cta },
-    earningsItemWarning: { color: tk.success.deepText },
+    earningsItemWarning: { color: tk.success.DEFAULT },
     earningsItemLabel: {
       marginTop: rnSpacing.sm,
       fontSize: rnType.caption.size,
-      color: tk.text.medium,
+      color: tk.text.tertiary,
     },
     earningsFooter: {
       flexDirection: 'row',
@@ -636,7 +636,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     errorText: {
       fontSize: rnType.body.size,
-      color: tk.danger.deepText,
+      color: tk.danger.DEFAULT,
       textAlign: 'center',
       marginTop: rnSpacing.sm,
     },
@@ -655,7 +655,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: rnSpacing.sm,
       fontSize: rnType.heading.size,
       fontWeight: '700',
-      color: tk.success.deepText,
+      color: tk.success.DEFAULT,
     },
     commissionBox: { alignItems: 'flex-end' },
     commissionLabel: { fontSize: rnType.caption.size, color: tk.success.deepText },
@@ -663,7 +663,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: rnSpacing.sm,
       fontSize: rnType.heading.size,
       fontWeight: '700',
-      color: tk.success.deepText,
+      color: tk.success.DEFAULT,
     },
     earningsCard: {
       marginHorizontal: rnSpacing['sm-loose'],
@@ -676,11 +676,11 @@ function createStyles(tk: AppThemeTokens) {
     earningsRow: { flexDirection: 'row', justifyContent: 'space-between', flexWrap: 'wrap' },
     earningsItem: { alignItems: 'center', flex: 1, minWidth: 88 },
     earningsValue: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.text.primary },
-    pendingValue: { color: tk.success.deepText },
+    pendingValue: { color: tk.success.DEFAULT },
     earningsLabel: {
       marginTop: rnSpacing.sm,
       fontSize: rnType.caption.size,
-      color: tk.text.medium,
+      color: tk.text.tertiary,
     },
     withdrawBtn: {
       marginTop: rnSpacing['md-loose'],
@@ -699,7 +699,7 @@ function createStyles(tk: AppThemeTokens) {
     withdrawHint: {
       marginTop: rnSpacing.sm,
       fontSize: rnType.caption.size,
-      color: tk.text.medium,
+      color: tk.text.tertiary,
       textAlign: 'center',
     },
     ratesCard: {
@@ -719,11 +719,11 @@ function createStyles(tk: AppThemeTokens) {
       gap: rnSpacing.sm,
     },
     rateLevel: { flex: 1, fontSize: rnType.body.size, color: tk.text.secondary },
-    rateValue: { fontSize: rnType.title.size, fontWeight: '700', color: tk.success.deepText },
+    rateValue: { fontSize: rnType.title.size, fontWeight: '700', color: tk.success.DEFAULT },
     ratesEmpty: {
       marginTop: rnSpacing.sm,
       fontSize: rnType.caption.size,
-      color: tk.text.medium,
+      color: tk.text.tertiary,
     },
     sectionTitle: {
       paddingHorizontal: rnSpacing['sm-loose'],
@@ -750,9 +750,9 @@ function createStyles(tk: AppThemeTokens) {
       gap: rnSpacing.sm,
       flexWrap: 'wrap',
     },
-    productPrice: { fontSize: rnType.body.size, fontWeight: '600', color: tk.success.deepText },
+    productPrice: { fontSize: rnType.body.size, fontWeight: '600', color: tk.success.DEFAULT },
     productCommission: { fontSize: rnType.caption.size, color: tk.text.secondary },
-    productSales: { fontSize: rnType.caption.size, color: tk.text.medium },
+    productSales: { fontSize: rnType.caption.size, color: tk.text.tertiary },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

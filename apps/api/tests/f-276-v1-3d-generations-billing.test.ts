@@ -12,7 +12,6 @@
  *  - 提交响应 Status=FAILED → 先扣后退,refundTaskCall(taskId);
  *  - 内部转发失败(5xx) → 不产生任何计费流水(失败零费用)。
  */
-import type * as __relayBillingServiceType from '../src/services/relay-billing-service.js'
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest'
 import Fastify from 'fastify'
 
@@ -45,7 +44,7 @@ const spies = vi.hoisted(() => ({
 }))
 
 vi.mock('../src/services/relay-billing-service.js', async (importOriginal) => {
-  const actual = await importOriginal<typeof __relayBillingServiceType>()
+  const actual = await importOriginal<typeof import('../src/services/relay-billing-service.js')>()
   return { ...actual, recordCall: spies.recordCall, refundTaskCall: spies.refundTaskCall }
 })
 

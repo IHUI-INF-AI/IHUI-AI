@@ -11,8 +11,7 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback, useRef } from 'react'
 import { getCircleDetail, get, post, del, type Circle } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
-import LineIcon, { type IconName } from '@/components/LineIcon'
-import { projectPostActions } from '@ihui/shared/social/post-actions'
+import LineIcon from '@/components/LineIcon'
 import { EmptyState } from '@/components/ScreenStates.taro'
 import './detail.css'
 import { onToast } from '@/host/on-toast'
@@ -298,40 +297,51 @@ export default function CircleDetailPage() {
             </View>
           ) : null}
 
-          {/* 互动动作栏:项数/顺序/图标名/可点性全部来自 post-actions.contract 单一源。
-              2026-11-14 收敛前是 4 段手写 JSX;可点性判据(没回调 ⇒ 只读 View)现在只写在契约里。 */}
           <View className="cd-actions">
-            {projectPostActions(
-              {
-                likes: data.likes || 0,
-                comments: data.comments || 0,
-                favorites: data.favorites || 0,
-                shares: data.shares || 0,
-              },
-              { liked, favorited },
-              { onLike, onFavorite, onShare },
-            ).map((action) => (
-              <View
-                key={action.id}
-                className={`cd-action${action.active ? ' active' : ''}`}
-                onClick={action.interactive ? action.onPress : undefined}
-                hoverClass={action.interactive ? 'opacity-60' : undefined}
-              >
-                <LineIcon
-                  name={action.icon as IconName}
-                  size={36}
-                  className="cd-action-icon"
-                  color={
-                    action.active
-                      ? 'var(--color-brand)'
-                      : action.id === 'favorite'
-                        ? 'var(--color-text-medium)'
-                        : 'var(--color-muted-foreground)'
-                  }
-                />
-                <Text className="cd-action-num">{action.count}</Text>
-              </View>
-            ))}
+            <View
+              className={`cd-action${liked ? ' active' : ''}`}
+              onClick={onLike}
+              hoverClass="opacity-60"
+            >
+              <LineIcon
+                name="heart"
+                size={36}
+                className="cd-action-icon"
+                color={liked ? 'var(--color-brand)' : 'var(--color-muted-foreground)'}
+              />
+              <Text className="cd-action-num">{data.likes || 0}</Text>
+            </View>
+            <View className="cd-action">
+              <LineIcon
+                name="message-circle"
+                size={36}
+                className="cd-action-icon"
+                color="var(--color-muted-foreground)"
+              />
+              <Text className="cd-action-num">{data.comments || 0}</Text>
+            </View>
+            <View
+              className={`cd-action${favorited ? ' active' : ''}`}
+              onClick={onFavorite}
+              hoverClass="opacity-60"
+            >
+              <LineIcon
+                name="star"
+                size={36}
+                className="cd-action-icon"
+                color={favorited ? 'var(--color-brand)' : 'var(--color-text-medium)'}
+              />
+              <Text className="cd-action-num">{data.favorites || 0}</Text>
+            </View>
+            <View className="cd-action" onClick={onShare} hoverClass="opacity-60">
+              <LineIcon
+                name="share-2"
+                size={36}
+                className="cd-action-icon"
+                color="var(--color-muted-foreground)"
+              />
+              <Text className="cd-action-num">{data.shares || 0}</Text>
+            </View>
           </View>
 
           <View className="cd-comments-section">
@@ -382,8 +392,6 @@ export default function CircleDetailPage() {
             placeholder={tt('circle.detail.commentPlaceholder', '说点什么…')}
             onInput={(e) => setCommentText(e.detail.value)}
             confirmType="send"
-            cursorSpacing={44}
-            adjustPosition={false}
             onConfirm={onSendComment}
           />
           <Button

@@ -21,7 +21,7 @@
 **License**: Apache 2.0 (open source)
 **Tagline (EN)**: One platform, six clients, every AI you need.
 **Tagline (ZH)**: 一码六端,一站 AI。
-**Contact**: lizong@aizhs.top (sales), lizong@aizhs.top (support)
+**Contact**: contact@aizhs.top (sales), support@aizhs.top (support)
 
 ---
 

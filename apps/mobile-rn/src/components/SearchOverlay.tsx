@@ -53,7 +53,6 @@ import { tokens } from '../theme/active-tokens'
 import { useSearchHistory } from '../hooks/use-search-history'
 import { useAppFrameWidth } from './Carousel'
 import { Tappable } from '@ihui/ui-native'
-import { toFriendlyOr } from '@ihui/shared/utils'
 
 /** 面板水平留白(对应 web `calc(100% - 2rem)` 的 2×16px) */
 const PANEL_SCREEN_MARGIN = 16
@@ -212,7 +211,7 @@ export const SearchOverlay = memo(function SearchOverlay({
         if (seq !== seqRef.current) return
         setLoading(false)
         setResults([])
-        setError(toFriendlyOr(e, t('search.failed')))
+        setError(e instanceof Error && e.message ? e.message : t('search.failed'))
       }
     },
     [addHistory, t],
@@ -450,12 +449,12 @@ const styles = StyleSheet.create({
   },
   sectionLabel: {
     fontSize: SECTION_LABEL_FONT,
-    color: tokens.text.medium,
+    color: tokens.text.tertiary,
     flexShrink: 1,
   },
   sectionAction: {
     fontSize: SECTION_LABEL_FONT,
-    color: tokens.text.medium,
+    color: tokens.text.tertiary,
   },
   wordRow: {
     // 命中区 = 整行(face 的盒子在子 View,外层只承接点击与无障碍语义)
@@ -496,7 +495,7 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: rnType.body.size,
-    color: tokens.danger.deepText,
+    color: tokens.danger.DEFAULT,
   },
   card: {
     // 外层裸 Pressable 只承接点击与无障碍语义,盒子(边框/圆角/内距/按压态)整体落在 face

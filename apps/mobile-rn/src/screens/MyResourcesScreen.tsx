@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useCallback, useEffect, useState } from 'react'
-import { appAlert } from '../components/BottomPops'
+import { Alert } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { deleteMyResource, getMyResources } from '@ihui/api-client'
@@ -34,41 +34,31 @@ export function MyResourcesScreen() {
   const [page, setPage] = useState(1)
   const [deleting, setDeleting] = useState(false)
 
-  const load = useCallback(
-    async (isActive: () => boolean = () => true) => {
-      setLoading(true)
-      setError(null)
-      try {
-        const res = await getMyResources({ page, pageSize: PAGE_SIZE })
-        if (!isActive()) return
-        if (!res.success || !res.data) {
-          setError(t('studentPage.fetchFailed'))
-          return
-        }
-        setItems(res.data.list ?? [])
-        setTotal(res.data.total ?? 0)
-      } catch (err) {
-        if (!isActive()) return
-        console.warn('[MyResourcesScreen] load failed', err)
+  const load = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await getMyResources({ page, pageSize: PAGE_SIZE })
+      if (!res.success || !res.data) {
         setError(t('studentPage.fetchFailed'))
-      } finally {
-        if (isActive()) setLoading(false)
+        return
       }
-    },
-    [t, page],
-  )
+      setItems(res.data.list ?? [])
+      setTotal(res.data.total ?? 0)
+    } catch {
+      setError(t('studentPage.fetchFailed'))
+    } finally {
+      setLoading(false)
+    }
+  }, [t, page])
 
   useEffect(() => {
-    let alive = true
-    void load(() => alive)
-    return () => {
-      alive = false
-    }
+    void load()
   }, [load])
 
   const handleDelete = useCallback(
     (resource: MyResourceRow) => {
-      appAlert(t('studentPage.deleteConfirmTitle'), undefined, [
+      Alert.alert(t('studentPage.deleteConfirmTitle'), undefined, [
         { text: t('studentPage.cancel'), style: 'cancel' },
         {
           text: t('studentPage.delete'),
@@ -79,12 +69,12 @@ export function MyResourcesScreen() {
               try {
                 const res = await deleteMyResource(resource.id)
                 if (!res.success) {
-                  appAlert(t('studentPage.deleteFailed'))
+                  Alert.alert(t('studentPage.deleteFailed'))
                   return
                 }
                 await load()
               } catch {
-                appAlert(t('studentPage.deleteFailed'))
+                Alert.alert(t('studentPage.deleteFailed'))
               } finally {
                 setDeleting(false)
               }

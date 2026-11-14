@@ -205,7 +205,7 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
   },
   labelPromote: {
-    color: tokens.danger.deepText,
+    color: tokens.danger.DEFAULT,
   },
 })
 

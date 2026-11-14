@@ -243,17 +243,19 @@ export async function redeemCode(
       // 4. 原子充值(事务内,内联 rechargeByKey 核心 CASE WHEN 逻辑以纳入回滚)
       //    rechargeByKey 用全局 db 无法随事务回滚,这里用 tx 重放:
       //    tokenBalance = -1(无限额度)保持 -1,否则累加 tokenAmount
+      //    F-396:where 必须同时约束属主 userId,否则可用他人 Key 的 id 把额度充到他人账下。
+      //    命中 0 行(不存在 / 不属于当前用户)统一按 key_not_found 回滚拒绝,不泄露存在性。
       const [updated] = await tx
         .update(developerApiKeys)
         .set({
           tokenBalance: sql`CASE WHEN ${developerApiKeys.tokenBalance} = -1 THEN -1 ELSE ${developerApiKeys.tokenBalance} + ${claimed.tokenAmount} END`,
           updatedAt: new Date(),
         })
-        .where(eq(developerApiKeys.id, targetKeyId))
+        .where(and(eq(developerApiKeys.id, targetKeyId), eq(developerApiKeys.userId, userId)))
         .returning({ tokenBalance: developerApiKeys.tokenBalance })
 
       if (!updated) {
-        // Key 不存在(提供的 apiKeyId 无效,或并发删除),抛错触发事务回滚
+        // Key 不存在、不属于当前用户(或并发删除),抛错触发事务回滚(码保持 unused)
         throw new Error(ERR_KEY_RECHARGE_FAILED)
       }
 

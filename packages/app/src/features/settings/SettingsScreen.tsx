@@ -155,7 +155,7 @@ export function SettingsScreen({
               <Text style={styles.nickname}>{user.nickname || t('profile.nickname')}</Text>
               <Text style={styles.subText}>{t('profile.editProfile')}</Text>
             </View>
-            <ChevronRight size={20} color={tk.text.secondary} />
+            <ChevronRight size={20} color={tk.text.tertiary} />
           </PressableCard>
         ) : null}
 
@@ -191,7 +191,7 @@ export function SettingsScreen({
         <Section title={t('settings.account')} styles={styles}>
           <TouchableOpacity style={styles.plainRow} onPress={openPwdModal}>
             <Text style={styles.rowLabel}>{t('settings.changePassword')}</Text>
-            <ChevronRight size={20} color={tk.text.secondary} />
+            <ChevronRight size={20} color={tk.text.tertiary} />
           </TouchableOpacity>
           {menuItems.map((item) => (
             <TouchableOpacity
@@ -200,7 +200,7 @@ export function SettingsScreen({
               onPress={() => onMenuPress(item.key)}
             >
               <Text style={styles.rowLabel}>{item.label}</Text>
-              <ChevronRight size={20} color={tk.text.secondary} />
+              <ChevronRight size={20} color={tk.text.tertiary} />
             </TouchableOpacity>
           ))}
         </Section>
@@ -377,7 +377,7 @@ function SelectRow({
         <View style={styles.rowLead}>
           <Glyph
             size={rnGeometry.glyphMd}
-            color={selected ? tk.brandAccent.deep : tk.text.secondary}
+            color={selected ? tk.brandAccent.deep : tk.text.tertiary}
           />
           <View style={styles.rowMeta}>
             <Text style={styles.rowLabel}>{label}</Text>
@@ -495,7 +495,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
     },
     /** 副行容器(仅 description 存在时渲染;RN 不传 ⇒ 这两格不进布局) */
     rowMeta: { flex: 1, minWidth: 0, gap: rnSpacing['2xs'] },
-    rowSubLabel: { fontSize: rnType.label.size, color: tk.text.medium },
+    rowSubLabel: { fontSize: rnType.label.size, color: tk.text.tertiary },
     checkMark: { fontSize: rnType.title.size, color: tk.brandAccent.deep, fontWeight: '700' },
     switchRow: {
       flexDirection: 'row',
@@ -514,11 +514,11 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    logoutText: { fontSize: rnType.title.size, fontWeight: '600', color: tk.danger.deepText },
+    logoutText: { fontSize: rnType.title.size, fontWeight: '600', color: tk.danger.DEFAULT },
     versionText: {
       textAlign: 'center',
       fontSize: rnType.label.size,
-      color: tk.text.medium,
+      color: tk.text.tertiary,
       marginTop: rnSpacing.xs,
     },
     modalOverlay: {

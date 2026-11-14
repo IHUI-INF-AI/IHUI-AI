@@ -10,12 +10,18 @@ import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
 import { eq } from 'drizzle-orm'
 import { db } from '../../db/index.js'
-import { eduOrders, orders, withdrawalFlows } from '@ihui/database'
+import { eduOrders, orders } from '@ihui/database'
 import { requireAdmin } from '../../plugins/require-permission.js'
 import { success, error, parseOrThrow } from '../../utils/response.js'
 import { idParamSchema } from './_shared.js'
 import { isUuidString } from '../../utils/uuid.js'
 import { logAction } from '../../services/audit-service.js'
+// F-453:此第 5 条提现写入口原先直接 status=2|3、where 只有 id——无冻结释放、无退款、无
+// 前置状态断言:0→2 后回调只处理 0/1(payment-extended:147),冻结永久沉淀;reject 把终态
+// 改回 3 使 token 永久丢失;且可把任意终态改写。保留路由契约(前端两处审批仍调
+// /admin/shop/withdrawals/:id/:action),但改调 commission-queries 单源服务,与主链路同一份
+// 资金守恒逻辑:approve 只允许 0→1、reject 只允许 0→3 并退还冻结(带「冻结够才退」守卫)。
+import { approveWithdrawal, rejectWithdrawal } from '../../db/commission-queries.js'
 
 const updateOrderSchema = z.strictObject({
   status: z.enum(['pending', 'paid', 'cancelled', 'refunded']).optional(),
@@ -132,14 +138,19 @@ export const orderRoutes: FastifyPluginAsync = async (server) => {
         z.object({ id: z.string().min(1), action: z.enum(['approve', 'reject']) }),
         request.params,
       )
-      const status = action === 'approve' ? 2 : 3
-      const [row] = await db
-        .update(withdrawalFlows)
-        .set({ status, processedAt: new Date() })
-        .where(eq(withdrawalFlows.id, id))
-        .returning()
-      if (!row) return reply.status(404).send(error(404, '提现记录不存在'))
-      return reply.send(success(row))
+      // F-453:改调统一提现服务(单源资金守恒),不再直接写 status。
+      // approve:仅 pending(0)→processing(1) 条件 UPDATE;冻结释放交给支付回调。
+      // reject:仅 pending(0)→failed(3),事务内退还冻结(token+=amount / frozen-=amount,带守卫)。
+      // rejectReason 为空时补兜底文案(服务不要求必填,但留痕更可读)。
+      const operatorId = request.userId ?? null
+      const updated =
+        action === 'approve'
+          ? await approveWithdrawal(id, operatorId)
+          : await rejectWithdrawal(id, '管理端驳回', operatorId)
+      if (!updated) {
+        return reply.status(409).send(error(409, '提现记录不存在或已被处理(仅待审核可审批/驳回)'))
+      }
+      return reply.send(success(updated))
     },
   )
 }

@@ -44,9 +44,9 @@ export function ExamScreen({
       return { bg: tk.success.lighter, text: tk.success.deepText }
     }
     if (status === 'ended') {
-      return { bg: tk.danger.light, text: tk.danger.deepText }
+      return { bg: tk.danger.light, text: tk.danger.DEFAULT }
     }
-    return { bg: tk.surface.muted, text: tk.text.secondary }
+    return { bg: tk.surface.muted, text: tk.text.tertiary }
   }
 
   const statusKey = (status: ExamStatus) => {
@@ -185,7 +185,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingHorizontal: rnSpacing['sm-loose'],
       paddingVertical: rnSpacing.xs,
       fontSize: rnType.body.size,
-      color: tk.danger.deepText,
+      color: tk.danger.DEFAULT,
     },
     listBody: { padding: rnSpacing['md-loose'], paddingBottom: rnSpacing['3xl'] },
     separator: { height: 10 },

@@ -38,7 +38,6 @@ import { appAlert } from '../components/BottomPops'
 import { useTheme } from '../context/ThemeContext'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
-import { toFriendlyOr } from '@ihui/shared/utils'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 type Format = 'md' | 'html' | 'docx' | 'pdf' | 'image' | 'video'
@@ -96,34 +95,29 @@ export default function PublishNewScreen() {
   const [scheduleAt, setScheduleAt] = useState<Date | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
-  // isCancelled:首屏两个请求跨 await 写状态,用户在下拉刷新途中返回即卸载,
-  // 无条件 setState 会落在已卸载组件上。与 Resources/Settings 等屏同一形态。
-  const load = useCallback(async (isCancelled: () => boolean = () => false) => {
+  const load = useCallback(async () => {
     setLoading(true)
     setFailed(false)
     try {
       const res = await fetchApi<{ items?: Account[] }>('/api/publish/accounts/me')
       if (!res.success) throw new Error(res.error)
-      if (isCancelled()) return
       setAccounts((res.data?.items ?? []).filter((a) => a.status === 'active'))
     } catch {
-      if (isCancelled()) return
       setAccounts([])
       setFailed(true)
     } finally {
-      if (!isCancelled()) setLoading(false)
+      setLoading(false)
     }
   }, [])
 
   useEffect(() => {
-    let cancelled = false
-    void load(() => cancelled)
+    void load()
     void (async () => {
       try {
         const res = await fetchApi<{ items?: Array<{ platformId: string; platformName: string }> }>(
           '/api/publish/platforms',
         )
-        if (!res.success || cancelled) return
+        if (!res.success) return
         const map: Record<string, string> = {}
         for (const item of res.data?.items ?? []) map[item.platformId] = item.platformName
         setPlatformNames(map)
@@ -131,9 +125,6 @@ export default function PublishNewScreen() {
         // 平台名取不到时回落平台 id
       }
     })()
-    return () => {
-      cancelled = true
-    }
   }, [load])
 
   const toggleAccount = (id: number) => {
@@ -180,11 +171,7 @@ export default function PublishNewScreen() {
       const detected = res.data.format as Format
       if (FORMATS.includes(detected) && !TEXT_FORMATS.has(detected)) setFormat(detected)
     } catch (e) {
-      // 无详情不显示副标题:toFriendlyOr 只需给出「有信号时返回什么」,空串即不显示。
-      appAlert(
-        t('publishNew.uploadFailed'),
-        e instanceof Error && e.message.trim() ? toFriendlyOr(e, '') : undefined,
-      )
+      appAlert(t('publishNew.uploadFailed'), e instanceof Error ? e.message : undefined)
     } finally {
       setUploading(false)
     }
@@ -243,10 +230,7 @@ export default function PublishNewScreen() {
       setSelected(new Set())
       setScheduleAt(null)
     } catch (e) {
-      appAlert(
-        t('publishNew.submitFailed'),
-        e instanceof Error && e.message.trim() ? toFriendlyOr(e, '') : undefined,
-      )
+      appAlert(t('publishNew.submitFailed'), e instanceof Error ? e.message : undefined)
     } finally {
       setSubmitting(false)
     }
@@ -434,7 +418,7 @@ function makeStyles() {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tokens.surface.bg },
     body: { padding: rnSpacing.md, gap: rnSpacing['sm-loose'], paddingBottom: rnSpacing['3xl'] },
-    subtitle: { fontSize: rnType.label.size, color: tokens.text.medium },
+    subtitle: { fontSize: rnType.label.size, color: tokens.text.tertiary },
     stateBox: {
       alignItems: 'center',
       justifyContent: 'center',
@@ -443,10 +427,10 @@ function makeStyles() {
     },
     hint: {
       fontSize: rnType.caption.size,
-      color: tokens.text.medium,
+      color: tokens.text.tertiary,
       lineHeight: rnType.label.lineHeight,
     },
-    errorText: { fontSize: rnType.label.size, color: tokens.danger.deepText },
+    errorText: { fontSize: rnType.label.size, color: tokens.danger.DEFAULT },
     retry: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tokens.text.primary },
     notice: {
       padding: rnSpacing.md,
@@ -515,7 +499,7 @@ function makeStyles() {
     outlineBtnText: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tokens.text.primary },
     fileRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing['xs-loose'] },
     fileName: { flex: 1, fontSize: rnType.label.size, color: tokens.text.secondary },
-    removeFile: { fontSize: rnType.caption.size, color: tokens.danger.deepText },
+    removeFile: { fontSize: rnType.caption.size, color: tokens.danger.DEFAULT },
     accountRow: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -543,7 +527,7 @@ function makeStyles() {
     },
     accountMain: { flex: 1, gap: rnSpacing['2xs'] },
     accountName: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tokens.text.primary },
-    meta: { fontSize: rnType.caption.size, color: tokens.text.medium },
+    meta: { fontSize: rnType.caption.size, color: tokens.text.tertiary },
     quickRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.md, flexWrap: 'wrap' },
     scheduleValue: { fontSize: rnType.label.size, color: tokens.text.secondary },
     quickText: { fontSize: rnType.caption.size, fontWeight: '600', color: tokens.text.primary },

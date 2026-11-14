@@ -161,7 +161,7 @@ export function ImportAnalysisSheet({
 
           {catalog.phase === 'loading' && (
             <View style={styles.stateRow}>
-              <ActivityIndicator size="small" color={tk.brand.cta} />
+              <ActivityIndicator size="small" color={tk.brand.ctaForeground} />
               <Text style={styles.hint}>{t('conversationImport.analysisLoading')}</Text>
             </View>
           )}
@@ -266,7 +266,7 @@ export function ImportAnalysisSheet({
                           style={styles.input}
                           value={variables[name] ?? ''}
                           placeholder={t('conversationImport.analysisVarPlaceholder', { name })}
-                          placeholderTextColor={tk.text.secondary}
+                          placeholderTextColor={tk.text.tertiary}
                           onChangeText={(v: string) =>
                             setVariables((prev) => ({ ...prev, [name]: v }))
                           }
@@ -404,7 +404,7 @@ function createStyles(tk: AppThemeTokens) {
     hint: {
       fontSize: rnType.caption.size,
       lineHeight: rnType.label.lineHeight,
-      color: tk.text.medium,
+      color: tk.text.tertiary,
     },
     errorBox: {
       flexDirection: 'row',
@@ -418,7 +418,7 @@ function createStyles(tk: AppThemeTokens) {
       flex: 1,
       fontSize: rnType.caption.size,
       lineHeight: rnType.label.lineHeight,
-      color: tk.danger.deepText,
+      color: tk.danger.DEFAULT,
     },
     scenarioRow: {
       padding: rnSpacing['sm-loose'],
@@ -430,7 +430,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     scenarioRowActive: { borderColor: tk.brandAccent.deep, backgroundColor: tk.surface.muted },
     scenarioTitle: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tk.text.primary },
-    scenarioSubtitle: { fontSize: rnType.caption.size, lineHeight: 15, color: tk.text.medium },
+    scenarioSubtitle: { fontSize: rnType.caption.size, lineHeight: 15, color: tk.text.tertiary },
     browseToggle: { paddingVertical: rnSpacing['xs-loose'] },
     browseBox: {
       gap: rnSpacing['xs-loose'],
@@ -466,7 +466,7 @@ function createStyles(tk: AppThemeTokens) {
     // chipActive × chipActiveText 成对 ⇒ 免债;叫 chipTextActive 时底那侧配不上,行内色它更看不见。
     chipActiveText: { color: tk.brand.ctaForeground },
     chipText: { fontSize: rnType.caption.size },
-    linkText: { fontSize: rnType.label.size, color: tk.success.deepText },
+    linkText: { fontSize: rnType.label.size, color: tk.brand.dark },
     field: { gap: rnSpacing['2xs'], marginBottom: rnSpacing['xs-loose'] },
     fieldLabel: { fontSize: rnType.caption.size, color: tk.text.secondary },
     input: {
@@ -486,7 +486,7 @@ function createStyles(tk: AppThemeTokens) {
       gap: rnSpacing.sm,
       paddingTop: rnSpacing.sm,
     },
-    footerHint: { flex: 1, fontSize: rnType.caption.size, color: tk.text.medium },
+    footerHint: { flex: 1, fontSize: rnType.caption.size, color: tk.text.tertiary },
     submit: {
       flexDirection: 'row',
       alignItems: 'center',

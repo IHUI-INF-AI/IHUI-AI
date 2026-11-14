@@ -38,7 +38,7 @@ export function TopupFailScreen({
         <Text style={styles.title}>充值结果</Text>
       </View>
       <View style={styles.body}>
-        <XCircle size={64} color={tk.danger.deepText} />
+        <XCircle size={64} color={tk.danger.DEFAULT} />
         <Text style={styles.titleText}>{t('wallet.rechargeFail')}</Text>
         <View style={styles.card}>
           <Text style={styles.reason}>{reason}</Text>
@@ -73,14 +73,14 @@ function createStyles(tk: AppThemeTokens) {
     title: { fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.primary },
     body: { flex: 1, alignItems: 'center', padding: rnSpacing['2xl'], gap: rnSpacing.md },
     icon: { fontSize: 64, marginTop: rnSpacing.md },
-    titleText: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.danger.deepText },
+    titleText: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.danger.DEFAULT },
     card: {
       width: '100%',
       backgroundColor: tk.danger.light,
       borderRadius: rnRadius.lg,
       padding: rnSpacing.md,
     },
-    reason: { fontSize: rnType.title.size, color: tk.danger.deepText, textAlign: 'center' },
+    reason: { fontSize: rnType.title.size, color: tk.danger.DEFAULT, textAlign: 'center' },
     actions: { width: '100%', gap: rnSpacing.md, marginTop: rnSpacing.sm },
     primaryBtn: {
       borderRadius: rnRadius.sm,

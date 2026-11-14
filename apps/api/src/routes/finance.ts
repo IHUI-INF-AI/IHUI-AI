@@ -29,7 +29,6 @@ import {
 import { orders } from '@ihui/database'
 import { eq, and, desc, sql } from 'drizzle-orm'
 import { db } from '../db/index.js'
-import { LockAcquireError, LockReleaseError } from '../utils/distributed-lock.js'
 
 export const financeRoutes: FastifyPluginAsync = async (server) => {
   const pageLimitQuery = z.object({
@@ -57,39 +56,25 @@ export const financeRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ sufficient: balance >= minTokens, balance }))
   })
 
-  // F-65(2026-11-13):资金面数量统一口径 —— 必须是正整数且有上限。
-  // 原 `z.coerce.number()` 放行 0 / 负数 / 小数 / NaN:
-  //  · deductToken 的 `token_quantity >= quantity` 对负数恒真,且 `- (-N)` 等于加钱;
-  //  · recharge / commission 同样可被负数写成反向铸币。
-  // 上限 10 亿分(= 1000 万元)远超任何真实单笔流水,只用于兜住 1e18 之类的溢出/滥用值。
-  const MARGIN_QUANTITY_MAX = 1_000_000_000
-  const marginQuantity = z.coerce
-    .number({ error: '数量必须是数字' })
-    .int({ error: '数量必须是整数' })
-    .positive({ error: '数量必须大于 0' })
-    .max(MARGIN_QUANTITY_MAX, { error: `数量不能超过 ${MARGIN_QUANTITY_MAX}` })
-  // F-65:目标账户可由请求参数指定;缺省仍是调用者(与既有文档口径一致)。
-  // 账号归属校验落在各自的业务事实上:recharge/refund 必须与订单归属一致,
-  // refund 另禁止落到操作者本人。
-  const targetUserIdSchema = z.uuid({ error: 'userId 格式不正确' }).optional()
-
   // P1-4 修复:/finance/margin/* 资金操作全部加 admin 权限校验(roleId >= 1),禁止普通用户自助调用
+  // F-65(2026-11-14):数量守卫共享 schema —— 必须 .int().positive()。负数会绕过 deductToken
+  // 的 `token_quantity >= quantity` 条件(WHERE 恒真)且 `-(-N)` 等价加币;小数/0/非数字同理
+  // 会污染账目。safeParse 显式 400,不让 ZodError 冒泡成 500。
+  const quantitySchema = z.coerce.number().int('quantity 必须为整数').positive('quantity 必须为正数')
+  // F-64/F-65:目标账户可由参数指定,缺省仍是调用者。UUID 校验防 22P02 变 500。
+  const targetUserSchema = z.string().uuid('userId 必须是合法 UUID').optional()
+
   server.post('/finance/margin/deduct', async (request, reply) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
     const parsed = z
-      .object({
-        quantity: marginQuantity,
-        remark: z.string().optional().default(''),
-        userId: targetUserIdSchema,
-      })
+      .object({ quantity: quantitySchema, remark: z.string().optional().default(''), userId: targetUserSchema })
       .safeParse(request.query)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-    const { quantity, remark, userId: targetUserId } = parsed.data
-    const userId = targetUserId ?? request.userId!
-    const balance = await deductToken(userId, quantity, remark)
+    const targetUserId = parsed.data.userId ?? request.userId!
+    const balance = await deductToken(targetUserId, parsed.data.quantity, parsed.data.remark)
     return reply.send(success({ balance }))
   })
 
@@ -97,22 +82,17 @@ export const financeRoutes: FastifyPluginAsync = async (server) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
     const parsed = z
-      .object({
-        quantity: marginQuantity,
-        outTradeNo: z.string(),
-        userId: targetUserIdSchema,
-      })
+      .object({ quantity: quantitySchema, outTradeNo: z.string(), userId: targetUserSchema })
       .safeParse(request.query)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-    const { quantity, outTradeNo, userId: targetUserId } = parsed.data
-    const userId = targetUserId ?? request.userId!
+    const targetUserId = parsed.data.userId ?? request.userId!
     // G8: 补 JOIN orders 校验,确认 outTradeNo 对应已支付订单,堵住"凭任意订单号印钞"漏洞
     const orderRows = await db
       .select({ status: orders.status, userId: orders.userId, amount: orders.amount })
       .from(orders)
-      .where(eq(orders.orderNo, outTradeNo))
+      .where(eq(orders.orderNo, parsed.data.outTradeNo))
       .limit(1)
     const order = orderRows[0]
     if (!order) {
@@ -121,14 +101,16 @@ export const financeRoutes: FastifyPluginAsync = async (server) => {
     if (order.status !== 'paid') {
       return reply.status(400).send(error(400, `订单状态非已支付(当前: ${order.status})`))
     }
-    if (order.userId !== userId) {
+    if (order.userId !== targetUserId) {
       return reply.status(403).send(error(403, '订单归属与目标账户不匹配'))
     }
-    // F-65:按订单金额限幅,堵住「0.01 元已支付单充 1e9 token」
-    if (quantity > order.amount) {
-      return reply.status(400).send(error(400, `充值数量不能超过订单金额(${order.amount})`))
+    // F-65:充值数量不得超过订单金额(orders.amount 单位与 token 同为分,1:1)。
+    // 小额已支付单不能凭同一单号反复充大额。
+    const orderAmount = Number(order.amount)
+    if (Number.isFinite(orderAmount) && parsed.data.quantity > orderAmount) {
+      return reply.status(400).send(error(400, `充值数量 ${parsed.data.quantity} 超过订单金额上限 ${orderAmount}`))
     }
-    const balance = await rechargeToken(userId, quantity, outTradeNo)
+    const balance = await rechargeToken(targetUserId, parsed.data.quantity, parsed.data.outTradeNo)
     return reply.send(success({ balance }))
   })
 
@@ -136,67 +118,58 @@ export const financeRoutes: FastifyPluginAsync = async (server) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
     const parsed = z
-      .object({
-        quantity: marginQuantity,
-        source: z.string().optional().default('到期清零'),
-        userId: targetUserIdSchema,
-      })
+      .object({ quantity: quantitySchema, source: z.string().optional().default('到期清零') })
       .safeParse(request.query)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-    const { quantity, source, userId: targetUserId } = parsed.data
-    const userId = targetUserId ?? request.userId!
-    const balance = await expireToken(userId, quantity, source)
+    const userId = request.userId!
+    const balance = await expireToken(userId, parsed.data.quantity, parsed.data.source)
     return reply.send(success({ balance }))
   })
 
   server.post('/finance/margin/commission', async (request, reply) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
+    // F-65:quantity 必须 .int().positive()。invitedUserId 是佣金的**实际收件人**
+    // (邀请者),不再被 void 掉——负数/小数此前会绕过 rechargeToken 直接反向铸币。
     const parsed = z
       .object({
-        quantity: marginQuantity,
-        invitedUserId: targetUserIdSchema,
+        quantity: quantitySchema,
+        invitedUserId: z.string().uuid('invitedUserId 必须是合法 UUID').optional(),
         source: z.string().optional().default('invite'),
       })
       .safeParse(request.query)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-    const { quantity, invitedUserId, source } = parsed.data
-    // F-65:invitedUserId 不再被 void —— 它就是佣金要入账的目标账户;
-    // 缺省(不传)仍是调用者,保持既有文档口径。
-    const userId = invitedUserId ?? request.userId!
-    const balance = await rechargeToken(userId, quantity, undefined, source)
+    const beneficiaryId = parsed.data.invitedUserId ?? request.userId!
+    const balance = await rechargeToken(beneficiaryId, parsed.data.quantity, undefined, parsed.data.source)
     return reply.send(success({ balance }))
   })
 
   server.post('/finance/margin/refund', async (request, reply) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
-    // F-64(2026-11-13):退款方向反了 —— 原实现走 rechargeToken(opType=0),
-    // 把 token 加给操作者(管理员)自己,且与原充值共用 (related_order_no, op_type=0)
-    // 幂等键,退款被 23505 静默吞掉(接口成功但什么都没发生)。
-    // 现在:必须显式指定目标账户 + 原单号;目标账户的 token 被扣回(opType=3,
-    // related_order_no=`refund:<orderNo>`),与充值的 opType=0 幂等键互不干扰。
+    // F-64:退款必须**显式指定目标账户**(userId),不得默认落到操作者自己;且 userId 不得等于
+    // 操作者(那等于从公账提给自己)。改走 refundTokenDeduct(独立 opType=3 + refund:orderNo
+    // 幂等键),与充值的 (orderNo, opType=0) 互不干扰。F-65:quantity 守卫同上。
     const parsed = z
       .object({
-        quantity: marginQuantity,
-        // 归属校验要落到具体订单上,故单号不再是可选项(缺单号时也无法做幂等)
-        orderNo: z.string().min(1, { error: 'orderNo 必填' }),
-        remark: z.string().optional().default(''),
-        // 拒绝默认操作者:退款目标必须显式指定
-        userId: z.uuid({ error: 'userId 必填且格式正确' }),
+        quantity: quantitySchema,
+        remark: z.string().optional(),
+        orderNo: z.string().min(1, 'orderNo 必填'),
+        userId: z.string().uuid('userId 必须是合法 UUID'),
       })
       .safeParse(request.query)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-    const { quantity, orderNo, remark, userId: targetUserId } = parsed.data
+    const { quantity, remark, orderNo, userId: targetUserId } = parsed.data
     if (targetUserId === request.userId) {
-      return reply.status(400).send(error(400, '退款目标账户不能是操作者本人'))
+      return reply.status(400).send(error(400, '退款目标不能是操作者本人'))
     }
+    // 订单归属与金额校验:订单必须存在、必须已支付、归属必须是退款目标、金额必须 ≥ 退款量
     const orderRows = await db
       .select({ status: orders.status, userId: orders.userId, amount: orders.amount })
       .from(orders)
@@ -206,14 +179,17 @@ export const financeRoutes: FastifyPluginAsync = async (server) => {
     if (!order) {
       return reply.status(400).send(error(400, '订单不存在'))
     }
+    if (order.status !== 'paid') {
+      return reply.status(400).send(error(400, `订单状态非已支付(当前: ${order.status})`))
+    }
     if (order.userId !== targetUserId) {
-      return reply.status(403).send(error(403, '订单归属与目标账户不匹配'))
+      return reply.status(403).send(error(403, '订单归属与退款目标不符'))
     }
-    // F-64:退款扣回不得超过原单金额
-    if (quantity > order.amount) {
-      return reply.status(400).send(error(400, `退款数量不能超过订单金额(${order.amount})`))
+    const orderAmount = Number(order.amount)
+    if (Number.isFinite(orderAmount) && quantity > orderAmount) {
+      return reply.status(400).send(error(400, `退款数量 ${quantity} 超过订单金额上限 ${orderAmount}`))
     }
-    const balance = await refundTokenDeduct(targetUserId, quantity, orderNo, remark || undefined)
+    const balance = await refundTokenDeduct(targetUserId, quantity, orderNo, remark)
     return reply.send(success({ balance }))
   })
 
@@ -366,9 +342,7 @@ export const financeRoutes: FastifyPluginAsync = async (server) => {
       )
     }
 
-    // 分布式锁防并发重复提现；只有「锁不可用(acquire 失败)」才允许降级直接执行。
-    // F-67:业务异常 / 释放锁失败绝不降级 —— applyWithdrawal 已提交后再跑一次 doApply()
-    // 会插入第二笔提现并重复冻结(partnerTradeNo 由服务端生成，客户端无幂等键)。
+    // 分布式锁防并发重复提现；锁不可用时降级直接执行
     try {
       const flow = await server.distributedLock.withLock(
         `withdrawal:user:${userId}`,
@@ -377,27 +351,8 @@ export const financeRoutes: FastifyPluginAsync = async (server) => {
       )
       return reply.send(success(flow))
     } catch (e) {
-      if (e instanceof LockReleaseError) {
-        if (e.businessError !== undefined) {
-          request.log.error(
-            { err: e.cause ?? e, userId },
-            '提现业务失败且分布式锁释放失败：锁残留由 TTL 兜底',
-          )
-          throw e.businessError
-        }
-        // 业务已提交、锁残留由 TTL 兜底：error 级留痕并原样上抛，不得重试/降级
-        request.log.error(
-          { err: e.cause ?? e, userId },
-          '提现已提交但分布式锁释放失败：锁残留由 TTL 兜底，禁止重试/降级执行',
-        )
-        throw e
-      }
-      // 业务异常(含带 statusCode 的校验失败)：原样上抛，绝不降级重跑
-      if (!(e instanceof LockAcquireError)) throw e
-      // 锁争用(如 423)沿用原拒绝语义
-      const acquireCause = e.cause as Error & { statusCode?: number }
-      if (acquireCause?.statusCode) throw acquireCause
-      request.log.warn({ err: acquireCause ?? e, userId }, '分布式锁不可用，降级执行提现')
+      if ((e as Error & { statusCode?: number }).statusCode) throw e
+      request.log.warn({ err: e, userId }, '分布式锁不可用，降级执行提现')
       const flow = await doApply()
       return reply.send(success(flow))
     }

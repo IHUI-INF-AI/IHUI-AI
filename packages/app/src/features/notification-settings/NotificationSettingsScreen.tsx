@@ -158,8 +158,8 @@ function createStyles(tk: AppThemeTokens) {
     linkText: { flex: 1, marginRight: rnSpacing.md },
     linkDesc: { ...rnType.caption, color: tk.text.secondary, marginTop: rnSpacing.xs },
     linkChevron: { ...rnType.body, color: tk.text.secondary },
-    errorText: { ...rnType.body, color: tk.danger.deepText, marginBottom: rnSpacing.sm },
-    successText: { ...rnType.body, color: tk.success.deepText, marginBottom: rnSpacing.sm },
+    errorText: { ...rnType.body, color: tk.danger.DEFAULT, marginBottom: rnSpacing.sm },
+    successText: { ...rnType.body, color: tk.success.DEFAULT, marginBottom: rnSpacing.sm },
     saveBtn: {
       marginTop: rnSpacing.sm,
       borderRadius: rnRadius.sm,
@@ -168,7 +168,7 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
       backgroundColor: tk.brand.cta,
     },
-    saveBtnDisabled: { backgroundColor: tk.text.secondary },
+    saveBtnDisabled: { backgroundColor: tk.text.tertiary },
     saveBtnText: { color: tk.surface.light, ...rnType.title },
   })
 }

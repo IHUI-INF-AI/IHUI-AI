@@ -69,7 +69,7 @@ export function ReferrerScreen({
               value={code}
               onChangeText={onCodeChange}
               placeholder={t('referrer.codePlaceholder')}
-              placeholderTextColor={tk.text.secondary}
+              placeholderTextColor={tk.text.tertiary}
               autoCapitalize="none"
             />
             {error ? <Text style={styles.errorText}>{error}</Text> : null}
@@ -115,9 +115,9 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: rnSpacing.sm,
       fontSize: rnType.subtitle.size,
       fontWeight: '600',
-      color: tk.success.deepText,
+      color: tk.success.DEFAULT,
     },
-    desc: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.medium },
+    desc: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.tertiary },
     muted: { fontSize: rnType.body.size, color: tk.text.secondary, marginTop: rnSpacing.sm },
     input: {
       marginTop: rnSpacing.sm,
@@ -130,8 +130,8 @@ function createStyles(tk: AppThemeTokens) {
       fontSize: rnType.title.size,
       color: tk.text.primary,
     },
-    errorText: { fontSize: rnType.body.size, color: tk.danger.deepText, marginTop: rnSpacing.sm },
-    successText: { fontSize: rnType.body.size, color: tk.success.deepText, marginTop: rnSpacing.sm },
+    errorText: { fontSize: rnType.body.size, color: tk.danger.DEFAULT, marginTop: rnSpacing.sm },
+    successText: { fontSize: rnType.body.size, color: tk.success.DEFAULT, marginTop: rnSpacing.sm },
     submitBtn: {
       marginTop: rnSpacing.md,
       height: 50,
@@ -140,7 +140,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.brand.cta,
       alignItems: 'center',
     },
-    submitDisabled: { backgroundColor: tk.text.secondary },
+    submitDisabled: { backgroundColor: tk.text.tertiary },
     submitText: { color: tk.brand.ctaForeground, fontSize: rnType.title.size, fontWeight: '600' },
   })
 }

@@ -108,7 +108,7 @@ export function LiveChatScreen({
           value={input}
           onChangeText={onInputChange}
           placeholder={t('liveChat.placeholder')}
-          placeholderTextColor={tk.text.secondary}
+          placeholderTextColor={tk.text.tertiary}
         />
         <TouchableOpacity
           style={[styles.sendBtn, (!input.trim() || sending) && styles.sendDisabled]}
@@ -143,9 +143,9 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.muted,
       marginBottom: rnSpacing.sm,
     },
-    user: { fontSize: rnType.body.size, fontWeight: '600', color: tk.success.deepText },
+    user: { fontSize: rnType.body.size, fontWeight: '600', color: tk.success.DEFAULT },
     content: { marginTop: rnSpacing.sm, fontSize: rnType.title.size, color: tk.text.primary },
-    meta: { marginTop: rnSpacing.sm, fontSize: rnType.badge.size, color: tk.text.medium },
+    meta: { marginTop: rnSpacing.sm, fontSize: rnType.badge.size, color: tk.text.tertiary },
     inputRow: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -169,7 +169,7 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
     },
-    sendDisabled: { backgroundColor: tk.text.secondary },
+    sendDisabled: { backgroundColor: tk.text.tertiary },
     sendText: { color: tk.surface.light, fontSize: rnType.title.size, fontWeight: '600' },
   })
 }

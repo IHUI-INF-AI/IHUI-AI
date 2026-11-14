@@ -24,7 +24,7 @@
 - **License**:Apache-2.0(商业可用)
 - **国内镜像**:**无**(2026-10-23 起停止对外镜像,代码只托管在 GitHub;历史镜像仓已弃用,勿再引用)
 - **一句话**:一个仓库,干翻 40+ 商业产品 — 8 端 / 176 模型 / LangGraph+MCP+A2A / 340 表 / 1300+ API / Apache 2.0
-- **联系方式**:微信 `ok502319984` · 邮箱 lizong@aizhs.top
+- **联系方式**:微信 `ok502319984` · 邮箱 IHUI-AI@aizhs.top
 
 ---
 
@@ -205,7 +205,7 @@ manifest 写了 `'session'`(不是合法权限),`chrome.alarms` 用到了但没�
 
 体验在线 Demo:https://aizhs.top
 
-加群交流:微信 `ok502319984` · 邮箱 `lizong@aizhs.top`
+加群交流:微信 `ok502319984` · 邮箱 `IHUI-AI@aizhs.top`
 
 ---
 
@@ -389,7 +389,7 @@ button 内"图标 + 中文"垂直对齐偏差 ≤ 0.15px,超过就阻塞。这�
 
 Star 支持一下,提 issue 讨论架构,PR 任何端都行。
 
-联系方式:微信 `ok502319984` · 邮箱 `lizong@aizhs.top`
+联系方式:微信 `ok502319984` · 邮箱 `IHUI-AI@aizhs.top`
 
 ---
 
@@ -551,7 +551,7 @@ pnpm dev
 - GitHub:https://github.com/IHUI-INF-AI/IHUI-AI
 - 在线 Demo:https://aizhs.top
 - 微信群:微信号 `ok502319984`(加好友备注 "IHUI")
-- 邮箱:`lizong@aizhs.top`
+- 邮箱:`IHUI-AI@aizhs.top`
 
 如果觉得有帮助,Star 支持一下 ⭐,这是开源作者最大的动力!
 
@@ -728,7 +728,7 @@ manifest 写了 `'session'`(不是合法 MV3 权限),`chrome.alarms` 用到了�
 
 如果觉得有点意思,Star 支持一下:https://github.com/IHUI-INF-AI/IHUI-AI
 
-加群交流:微信 `ok502319984` · 邮箱 `lizong@aizhs.top`
+加群交流:微信 `ok502319984` · 邮箱 `IHUI-AI@aizhs.top`
 
 ---
 
@@ -767,7 +767,7 @@ cd IHUI-AI && pnpm install && pnpm dev
 
 求 Star,欢迎拍砖。
 
-联系方式:微信 `ok502319984` · 邮箱 `lizong@aizhs.top`
+联系方式:微信 `ok502319984` · 邮箱 `IHUI-AI@aizhs.top`
 
 ---
 
@@ -859,7 +859,7 @@ https://www.oschina.net/p/submit
 
 不是 PPT 或脚手架,是支撑商业化主平台的生产级代码,所有数字(340 表 / 1300 API / 5346 测试 / 176 模型)都能在代码里 grep 到。
 
-**联系方式**:微信 `ok502319984` · 邮箱 `lizong@aizhs.top`
+**联系方式**:微信 `ok502319984` · 邮箱 `IHUI-AI@aizhs.top`
 
 ---
 

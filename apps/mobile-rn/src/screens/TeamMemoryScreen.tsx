@@ -32,7 +32,6 @@ import { NavChrome } from '../components/NavChrome'
 import { useTheme } from '../context/ThemeContext'
 import { useI18n } from '../i18n'
 import { tokens } from '../theme/active-tokens'
-import { toFriendlyOr } from '@ihui/shared/utils'
 
 const SCOPE_KEY = 'ihui:team-memory:scopeId'
 const KINDS: TeamMemoryKind[] = ['decision', 'convention', 'pitfall', 'fingerprint']
@@ -94,7 +93,7 @@ export function TeamMemoryScreen() {
           }),
         )
       } catch (e) {
-        setError(toFriendlyOr(e, t('common.loadFailed')))
+        setError(e instanceof Error ? e.message : t('common.loadFailed'))
         setRows([])
       } finally {
         setLoading(false)
@@ -179,7 +178,7 @@ export function TeamMemoryScreen() {
         setEditing(null)
         await load(scopeId, kind, keyword)
       } catch (e) {
-        setError(toFriendlyOr(e, t('teamMemory.saveFailed')))
+        setError(e instanceof Error ? e.message : t('teamMemory.saveFailed'))
       } finally {
         setSaving(false)
       }
@@ -202,7 +201,7 @@ export function TeamMemoryScreen() {
               } catch (e) {
                 appAlert(
                   t('common.failed'),
-                  toFriendlyOr(e, t('teamMemory.saveFailed')),
+                  e instanceof Error ? e.message : t('teamMemory.saveFailed'),
                 )
               } finally {
                 setBusyId('')

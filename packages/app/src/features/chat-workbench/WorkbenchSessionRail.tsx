@@ -56,7 +56,7 @@ export function WorkbenchSessionRail({
     return (
       <View style={styles.center}>
         <EmptyState
-          icon={<MessageSquare size={22} color={tk.text.secondary} strokeWidth={2} />}
+          icon={<MessageSquare size={22} color={tk.text.tertiary} strokeWidth={2} />}
           title={emptyTitle}
           colorScheme={colorScheme}
         />
@@ -83,7 +83,7 @@ export function WorkbenchSessionRail({
           >
             <MessageSquare
               size={14}
-              color={active ? tk.brandAccent.deep : tk.text.secondary}
+              color={active ? tk.brandAccent.deep : tk.text.tertiary}
               strokeWidth={2}
             />
             <Text style={styles.rowTitle} numberOfLines={1}>

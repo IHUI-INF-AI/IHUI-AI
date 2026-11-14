@@ -294,14 +294,6 @@ export interface RegisterScreenProps {
   onOpenTerms?: () => void
   /** 隐私政策点击回调 */
   onOpenPrivacy?: () => void
-  /**
-   * 手机号输入框前缀节点(可选,2026-11-14 增补)。
-   * 为什么要有:小程序注册页在手机号输入框左侧挂了区号选择器(`PhoneAreaCodePicker`),
-   * 共享屏原先无此槽位 ⇒ 该端只能整页手抄一份带区号的表单。
-   */
-  renderPhonePrefix?: () => ReactNode
-  /** 验证码行下方的行内错误(可选;如发送验证码失败,由 wrapper 取词后传入) */
-  codeSendError?: string
   /** 宿主轻提示端口(展示字段 toast 与本回调无关,不得复用) */
   onToast: OnToast
 }

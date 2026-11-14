@@ -27,20 +27,6 @@ IHUI-AI 通过 Husky git hooks 在 4 个阶段部署自动守门,从 commit 到 
 
 ## 2. 钩子架构
 
-### 2.0 钩子必须先被安装(2026-11-12 立)
-
-钩子本体在受版本管理的 `.husky/`,但 git 只在 `core.hooksPath` 指向它时才执行。2026-11-12 实测本机
-`core.hooksPath` 为空、`.git/hooks` 仅剩 `.sample` —— **全部守门空转**,一次 `git add -A` 把 9038 件
-生成物直接提交进历史,全程零报警。安装器 `scripts/install-git-hooks.mjs` 已接入 `postinstall`(新克隆
-装依赖即生效),存量克隆手工跑一次:
-
-```
-node scripts/install-git-hooks.mjs          # 安装/对齐
-node scripts/install-git-hooks.mjs --check  # 只对账(未安装 exit 1)
-```
-
-缺失时的表现是"守门看起来都绿/都不跑",不是"守门放行" —— 任何一次提交只有 2 秒内结束,就应怀疑钩子没装。
-
 ### 2.1 pre-commit 流程
 
 `.husky/pre-commit` 是跨平台 Node.js 脚本(Windows 兼容),按 runner 清单执行全部登记项(项数以 `node scripts/guardian-runner.mjs --help` 现读为准;本节旧版写死 "29 项",那是 2026-09-21 的读数,早已失真)。执行语义(2026-09-22 起):**跑完再汇总**,任一 blocking 失败不再中断本轮,末尾列失败门清单 + 单独复现命令后 exit 1(逃生舱 `GUARDIAN_STOP_ON_FIRST=1` 恢复旧的 fail-fast);**warn-only / info-only** 项只打印不阻塞。
@@ -48,7 +34,6 @@ node scripts/install-git-hooks.mjs --check  # 只对账(未安装 exit 1)
 ```
 git commit
   └─ .husky/pre-commit
-       ├─ 0c check-staged-artifacts    (阻塞,生成物/实验沙箱/日志不得入库)
        ├─ 1  check-api-key-leak        (阻塞)
        ├─ 2  check-i18n-keys           (阻塞)
        ├─ 2b scan-i18n-zh-residue zh-TW (阻塞)
@@ -99,7 +84,6 @@ git commit
 ### 2.4 pre-push 流程
 
 `.husky/pre-push` 在 Git LFS pre-push 之后跑全量 typecheck:
-- 推送前先跑生成物拦截(`check-staged-artifacts.mjs --rev`,防 `--no-verify` 提交被自动 push 带走)
 - 清 `.tsbuildinfo` 缓存后跑 `pnpm typecheck:full`(防止缓存假象)
 - 工作区有未提交改动时打印明确指引(3 个选项)
 - 跳过:`HUSKY_SKIP_TYPECHECK=1 git push`(紧急 push,不推荐)
@@ -109,26 +93,6 @@ git commit
 ## 3. 守门脚本分类详解
 
 > 编号对应 `.husky/pre-commit` 中的执行顺序。每项说明:用途 / 检测什么 / 失败原因 / 修复方法 / 跳过方式 / 阻塞 vs warn。
-
-### 第 0c 项 check-staged-artifacts.mjs(阻塞)
-
-- **立因**:2026-11-12 一次 `git add -A` 把 9038 件生成物纳入提交面——`.archify/verify/snapshot-backfill`
-  的 33 份隔离实验目录(7128 件)、`.agent_tmp/`(828 件)、迁移目录副本 `drizzle-copy*`(800 件)、
-  逆向抓包副本 `*.keep.ts`、编译日志。生成物入库会永久加重历史并淹没真实代码改动。
-- **判据**(单源 `judgePath`,三档任一命中即 exit 1):① 路径段命中生成物目录名
-  (`.archify` / `.agent_tmp` / `archify-work` / `node_modules` / `drizzle-copy*` / `.next` / `.turbo` /
-  `coverage` / `.screenshots` / `.box-agent-scratch` / `_itmp_*` / `iso-*`);② 文件名命中一次性产物名
-  (`.commit-msg.txt` / `*.keep.ts` / `*.log`);③ 仓库根目录出现媒体/压缩包,或非 `*.config.ts` 的错位 `.ts`。
-- **放行面**:删除与重命名删除侧(清垃圾本身正确)、`*.config.ts` 等工程配置、`docs/` 下交付物。
-- **提交画像**:放行时打印「本次提交画像:共 N 件 · 源码/文档/配置/其他」,用于判定"这次到底改了哪些真实代码"。
-- **三态**:真 0 = 无生成物;真违规 = exit 1 阻断并逐条列出路;未判定 = 取不到索引面 exit 2 点名。
-- **自查**:`node scripts/check-staged-artifacts.mjs --report`(只画像不拦)。单测 `node --test scripts/tests/check-staged-artifacts.test.mjs`。
-- **应急跳过**:`HUSKY_SKIP_STAGED_ARTIFACTS=1`(仅判据确有误报时按,日常不得用)。
-- **接线位置**:`scripts/lib/pre-commit-hook.js` 第 0c 步(文件数预检之后、复活闸之后)。
-- **推送侧(2026-11-12 补)**:`git commit --no-verify` 可绕过 pre-commit,而 post-commit 会自动 push,
-  因此 `.husky/pre-push` 在 tag/凭据门之前用 `--rev <remote_sha>..<local_sha>` 复核被推区间
-  (新分支取 `origin/main` 合并基点),判据复用同一份 `judgePath`。三态:0 放行 / 1 阻断 / 2 未判定
-  (不报绿,阻断;应急 `HUSKY_SKIP_STAGED_ARTIFACTS=1`)。
 
 ### 第 1 项 check-api-key-leak.mjs(阻塞)
 

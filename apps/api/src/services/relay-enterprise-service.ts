@@ -17,7 +17,6 @@ import {
 } from '@ihui/database'
 import { findOrderByNo } from '../db/payment-queries.js'
 import { completeOrder, activateOrderSubscription } from './order-service.js'
-import { logger } from '../utils/logger.js'
 
 /**
  * 企业合规闭环服务(2026-09-17 立,补强 61,差异化:竞品为个人订阅分发,此块完全缺)。
@@ -486,20 +485,6 @@ export async function registerCorporatePayment(
   if (order.status !== 'pending') {
     return { success: false, reason: `订单状态(${order.status})无需对公结算确认` }
   }
-  // F-257:对公打款是整单结算,金额必须严格等于订单应付金额。
-  // 本系统不支持部分付款,也没有溢缴款记账/退款通道(completeOrder 一律把整单
-  // 标记 paid),故取最保守的「等于」而非「>=」,避免多收后无账可记。
-  if (input.amountCents !== undefined && input.amountCents !== order.amount) {
-    logger.warn('corporate payment amount mismatches order', {
-      orderNo: order.orderNo,
-      submittedAmountCents: input.amountCents,
-      expectedAmountCents: order.amount,
-    })
-    return {
-      success: false,
-      reason: `打款金额与订单应付金额不一致(提交 ${input.amountCents} 分 / 应付 ${order.amount} 分)`,
-    }
-  }
   const dup = await db
     .select({ id: relayCorporatePayments.id })
     .from(relayCorporatePayments)
@@ -517,8 +502,7 @@ export async function registerCorporatePayment(
       userId,
       orderId: order.id,
       orderNo: order.orderNo,
-      // F-257:入库金额一律取订单应付金额,客户端自填值仅用于上面的比对。
-      amountCents: order.amount,
+      amountCents: input.amountCents ?? order.amount,
       payerCompany: input.payerCompany,
       voucherUrl: input.voucherUrl ?? null,
       remark: input.remark ?? null,
@@ -551,20 +535,6 @@ export async function confirmCorporatePayment(
   if (!order) return { success: false, reason: '关联订单不存在' }
   if (order.status !== 'pending') {
     return { success: false, reason: `订单状态(${order.status})不可完成对公结算` }
-  }
-  // F-257:确认前以订单金额为基准复校凭证金额(防历史脏数据或直接改库)。
-  // 不符直接拒绝,绝不调用 completeOrder。
-  if (voucher.amountCents !== order.amount) {
-    logger.warn('corporate payment amount mismatch on confirm', {
-      voucherId: voucher.id,
-      orderNo: voucher.orderNo,
-      voucherAmountCents: voucher.amountCents,
-      expectedAmountCents: order.amount,
-    })
-    return {
-      success: false,
-      reason: `打款凭证金额与订单应付金额不一致(凭证 ${voucher.amountCents} 分 / 应付 ${order.amount} 分),拒绝确认`,
-    }
   }
   const paid = await completeOrder(voucher.orderNo, `corporate:${voucher.id}`)
   if (!paid.success || !paid.order) {

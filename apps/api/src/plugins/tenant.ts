@@ -5,8 +5,8 @@
 import type { FastifyInstance, FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import fp from 'fastify-plugin'
 import { eq, sql } from 'drizzle-orm'
-import { db, dbRead } from '../db/index.js'
-import { tenants, tenantMembers, tenantQuotas, type Tenant } from '@ihui/database'
+import { db } from '../db/index.js'
+import { tenants, tenantQuotas, type Tenant } from '@ihui/database'
 import { normalizeHeaderStrict, parsePath } from '../utils/http-normalize.js'
 // BUG-4:公开面清单与匹配收归单一真相源(plugins/public-paths.ts),租户隔离绕过与它共用同一把尺。
 import { isTenantBypassPath as sharedIsPublicPath } from './public-paths.js'
@@ -71,55 +71,9 @@ async function lookupTenant(identifier: string): Promise<Tenant | null> {
   return result
 }
 
-/** F-209：用户 -> 成员校验后的租户归属缓存（见 resolveVerifiedTenantIdForUser）。 */
-const memberTenantCache = new Map<string, { tenantId: string | null; expiredAt: number }>()
-const MEMBER_TENANT_TTL_MS = 60_000
-const MEMBER_TENANT_CACHE_MAX = 5_000
-
 /** 清空租户缓存（租户变更后调用）。 */
 export function clearTenantCache(): void {
   tenantCache.clear()
-  memberTenantCache.clear()
-}
-
-/**
- * F-209:解析某个用户**成员校验后**的租户归属（服务端可信）。
- *
- * 与 `resolveTenantIdentifier()` 的区别：后者采信请求头/子域名（客户端可控），
- * 这里只按 `tenant_members.user_id` 反查，请求头完全不参与。
- * 一个用户可能属于多个租户（联合唯一是 `(tenant_id, user_id)`），取最早加入的，
- * 与 `plugins/ai-cost.ts` 的 resolveTenantIdForUser 同口径。
- *
- * 60s 进程内缓存：限流热路径不能每个请求打一次库；查不到/查询异常一律返回 null，
- * 由调用方退化为 userId/IP 分桶（DB 故障不得放大成共享桶）。
- */
-export async function resolveVerifiedTenantIdForUser(userId: string): Promise<string | null> {
-  const now = Date.now()
-  const cached = memberTenantCache.get(userId)
-  if (cached && now < cached.expiredAt) return cached.tenantId
-
-  let tenantId: string | null = null
-  try {
-    const [member] = await dbRead
-      .select({ tenantId: tenantMembers.tenantId })
-      .from(tenantMembers)
-      .where(eq(tenantMembers.userId, userId))
-      .orderBy(tenantMembers.joinedAt)
-      .limit(1)
-    tenantId = member?.tenantId ?? null
-  } catch {
-    tenantId = null
-  }
-
-  if (memberTenantCache.size >= MEMBER_TENANT_CACHE_MAX) {
-    let evicted = 0
-    for (const key of memberTenantCache.keys()) {
-      memberTenantCache.delete(key)
-      if (++evicted >= 500) break
-    }
-  }
-  memberTenantCache.set(userId, { tenantId, expiredAt: now + MEMBER_TENANT_TTL_MS })
-  return tenantId
 }
 
 /**

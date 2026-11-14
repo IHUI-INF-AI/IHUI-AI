@@ -14,30 +14,7 @@ import {
   type ViewStyle,
 } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
-import { Heart, MessageSquare, Share2, Star } from 'lucide-react-native'
-import type { PostActionHandlers, PostActionId } from '@ihui/shared/social/post-actions'
-import { projectPostActions } from '@ihui/shared/social/post-actions'
-
-/**
- * 契约里的图标名 → RN 图标组件。
- *
- * 为什么用映射而不是让契约直接带组件:契约是纯数据文件(三端都 import),
- * 若它 import lucide 就绑死了 RN 侧实现,小程序端无法消费。
- */
-function actionIcon(id: PostActionId) {
-  switch (id) {
-    case 'like':
-      return Heart
-    case 'comment':
-      return MessageSquare
-    case 'favorite':
-      return Star
-    case 'share':
-      return Share2
-    default:
-      return Heart
-  }
-}
+import { Heart, MessageCircle } from 'lucide-react-native'
 import type { PostDetailScreenProps } from '../../types'
 
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
@@ -62,16 +39,7 @@ export function PostDetailScreen({
   colorScheme = 'light',
   onNavigate,
   onToast,
-  actionHandlers,
-}: PostDetailScreenProps & {
-  onRetry?: () => void
-  /**
-   * 动作栏回调(可选)。**没给 = 该项只读**。
-   * 为什么不放在 PostDetailScreenProps 里:该接口是跨端契约面,加字段要三端同时理解;
-   * 动作栏当前只有部分端有写能力,用局部可选参数表达"这端有没有这个能力"更诚实。
-   */
-  actionHandlers?: PostActionHandlers
-}) {
+}: PostDetailScreenProps & { onRetry?: () => void }) {
   assertRequiredPort('onNavigate', onNavigate)
   assertRequiredPort('onToast', onToast)
 
@@ -121,11 +89,9 @@ export function PostDetailScreen({
           contentContainerStyle={styles.imageRow}
         >
           {imageUrls.map((url, index) => (
-            // 图片同样只读:共享屏 props 里没有"看大图"端口,原先包一层 TouchableOpacity
-            // 只是让图片按下去变暗再弹回,没有任何后续。改 View 后视觉不变、不再假装可点。
-            <View key={`${url}-${index}`}>
+            <TouchableOpacity key={`${url}-${index}`} activeOpacity={0.8}>
               <Image source={{ uri: url }} style={styles.detailImage} />
-            </View>
+            </TouchableOpacity>
           ))}
         </ScrollView>
       ) : null}
@@ -157,48 +123,15 @@ export function PostDetailScreen({
         <Text style={styles.detailText}>截止时间：{item.closingTime}</Text>
       ) : null}
       {item.contact ? <Text style={styles.detailText}>联系方式：{item.contact}</Text> : null}
-      {/* 互动动作栏:项数/顺序/可点性全部由 post-actions.contract 判定,不再在此硬编码。
-          2026-11-14 的教训:这里曾写死两颗 TouchableOpacity —— 按下去会变暗、却什么都不发生,
-          是标准的假按钮。契约里"没回调 ⇒ interactive=false ⇒ 渲染只读 View"就是那条判据的固化。 */}
       <View style={styles.statRow}>
-        {projectPostActions(
-          {
-            likes: item.likes ?? 0,
-            comments: item.comments ?? 0,
-            favorites: item.favorites ?? 0,
-            shares: item.shares ?? 0,
-          },
-          { liked: item.liked, favorited: item.favorited },
-          actionHandlers,
-        ).map((action) => {
-          const Icon = actionIcon(action.id)
-          const content = (
-            <>
-              <Icon
-                size={12}
-                color={action.active ? tk.brand.DEFAULT : tk.text.medium}
-              />
-              <Text style={styles.statText}>{action.count}</Text>
-            </>
-          )
-          // 可点性由契约唯一判定:interactive=false 一律渲染只读 View
-          return action.interactive ? (
-            <TouchableOpacity
-              key={action.id}
-              style={styles.statBtn}
-              onPress={action.onPress}
-              activeOpacity={0.7}
-              accessibilityRole="button"
-              accessibilityLabel={t(`postDetail.action.${action.id}`)}
-            >
-              {content}
-            </TouchableOpacity>
-          ) : (
-            <View key={action.id} style={styles.statBtn}>
-              {content}
-            </View>
-          )
-        })}
+        <TouchableOpacity style={styles.statBtn}>
+          <Heart size={12} color={tk.text.medium} />
+          <Text style={styles.statText}>{item.likes}</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.statBtn}>
+          <MessageCircle size={12} color={tk.text.medium} />
+          <Text style={styles.statText}>{item.comments}</Text>
+        </TouchableOpacity>
       </View>
     </ScrollView>
   )
@@ -234,7 +167,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingVertical: rnSpacing['2xs'],
       borderRadius: rnRadius.sm,
     },
-    meta: { fontSize: rnType.caption.size, color: tk.text.medium },
+    meta: { fontSize: rnType.caption.size, color: tk.text.tertiary },
     content: {
       fontSize: rnType.title.size,
       lineHeight: rnType.strong.lineHeight,

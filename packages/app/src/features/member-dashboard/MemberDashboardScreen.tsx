@@ -162,7 +162,7 @@ function createStyles(tk: AppThemeTokens) {
       gap: rnSpacing.xs,
     },
     cardValue: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
-    cardLabel: { fontSize: rnType.caption.size, color: tk.text.medium },
+    cardLabel: { fontSize: rnType.caption.size, color: tk.text.tertiary },
     banner: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -189,7 +189,7 @@ function createStyles(tk: AppThemeTokens) {
     orderRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.sm },
     orderMain: { flex: 1, gap: rnSpacing['2xs'] },
     orderTitle: { fontSize: rnType.body.size, color: tk.text.primary },
-    orderMeta: { fontSize: rnType.caption.size, color: tk.text.medium },
+    orderMeta: { fontSize: rnType.caption.size, color: tk.text.tertiary },
     orderAmount: { fontSize: rnType.body.size, fontWeight: '600', color: tk.text.primary },
   })
 }

@@ -291,7 +291,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginLeft: rnSpacing.sm,
   } as ViewStyle,
-  closeText: { fontSize: rnType.body.size, color: tokens.text.medium } as TextStyle,
+  closeText: { fontSize: rnType.body.size, color: tokens.text.tertiary } as TextStyle,
   body: { paddingLeft: rnSpacing['4xl'] } as ViewStyle,
   message: {
     fontSize: rnType.body.size,

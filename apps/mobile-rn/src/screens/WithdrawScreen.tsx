@@ -37,15 +37,10 @@ export function WithdrawScreen() {
   const [stepUpError, setStepUpError] = useState('')
 
   useEffect(() => {
-    void getBalance()
-      .then((res) => {
-        // XUI-014:getBalance 的 balance 单位是分,共享屏按元展示 ⇒ 这里先除 100。
-        if (res.success) setBalance(res.data.balance / 100)
-        else setError('余额加载失败，请检查网络后重试')
-      })
-      .catch(() => {
-        setError('余额加载失败，请检查网络后重试')
-      })
+    void getBalance().then((res) => {
+      // XUI-014:getBalance 的 balance 单位是分,共享屏按元展示 ⇒ 这里先除 100。
+      if (res.success) setBalance(res.data.balance / 100)
+    })
   }, [])
 
   /**
@@ -164,10 +159,6 @@ export function WithdrawScreen() {
         success={success}
         onAmountChange={setAmount}
         onBankCardIdChange={setBankCardId}
-        // 「全部提现」:共享屏的 resolveWithdrawSegments 以 typeof onFillAll === 'function' 门控,
-        // RN 侧此前一个都没传 ⇒ 这一行在小程序有、在 RN 根本不渲染(不是死按钮,是功能缺口)。
-        // 刻意不加千分位:RN 侧提交走 Number(amount),带逗号会直接 NaN(小程序踩过,见其 parseWithdrawAmount)。
-        onFillAll={() => setAmount(balance.toFixed(2))}
         onSubmit={handleSubmit}
         onBack={() => navigation.goBack()}
         colorScheme={resolvedTheme}
@@ -206,7 +197,7 @@ export function WithdrawScreen() {
             onSubmitEditing={() => void submitStepUp()}
           />
           {stepUpError ? (
-            <Text style={[styles.error, { color: tk.danger.deepText }]}>{stepUpError}</Text>
+            <Text style={[styles.error, { color: tk.danger.DEFAULT }]}>{stepUpError}</Text>
           ) : null}
           <View style={[sheetButton.row, styles.btnRow]}>
             <Pressable

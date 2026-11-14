@@ -13,9 +13,9 @@
  * - 祖父级（必须为操盘手）：按订单金额 × grand 比例返佣
  */
 
-import { and, eq } from 'drizzle-orm'
+import { and, eq, sql } from 'drizzle-orm'
 import { db } from '../db/index.js'
-import { commissionFlows, orders, type IdentityProportion } from '@ihui/database'
+import { commissionFlows, orders, tokenFlows, type IdentityProportion } from '@ihui/database'
 import {
   createCommissionFlow,
   getParentUsers,
@@ -129,20 +129,38 @@ export async function createCommissionFlows(user: UserLike, order: OrderLike): P
   // 事务 + SELECT FOR UPDATE 锁定 orders 行,串行化同一订单的并发返佣
   await db.transaction(async (tx) => {
     // ① 锁定 order 行(若 order 已不存在则放弃,避免对不存在的订单返佣)
+    //    同时取 orderNo——F-404:返佣基数须按订单号查 token_flows 本单充值增量，
+    //    原取 user.tokenQuantity 是钱包总余额(含历史),小额复购可对历史余额反复抽佣。
     const [lockedOrder] = await tx
-      .select({ id: orders.id })
+      .select({ id: orders.id, orderNo: orders.orderNo })
       .from(orders)
       .where(eq(orders.id, order.id))
       .for('update')
       .limit(1)
     if (!lockedOrder) return
 
+    // ①b 按本单充值流水取"实际入账 token 增量"(opType=0=充值，relatedOrderNo=本单 orderNo)。
+    //    非 token 充值单(会员/活动/身份)无此流水 → baseTokens=0 → 不发 token 佣金。
+    //    与 rechargeToken 的写入点(opType:0, relatedOrderNo: orderNo)严格对齐；
+    //    token_flows_order_op_unique_idx 保证同单同 opType 唯一，此处 sum() 天然最多一条。
+    let baseTokens = 0
+    if (lockedOrder.orderNo) {
+      const [rechargeRow] = await tx
+        .select({ total: sql<number>`COALESCE(SUM(${tokenFlows.quantity}), 0)::int` })
+        .from(tokenFlows)
+        .where(and(eq(tokenFlows.relatedOrderNo, lockedOrder.orderNo), eq(tokenFlows.opType, 0)))
+        .limit(1)
+      baseTokens = rechargeRow?.total ?? 0
+    }
+
     // 父级（level 1）
     const parent = parentUsers[0]!
     const parentIsVip = parent.isVip >= 1
     if (!parentIsVip) {
       // 普通用户：按 token 返佣
-      const token = calcReturnToken(user.tokenQuantity ?? 0, proportion)
+      // F-404:基数改为本单充值增量 baseTokens(非 user.tokenQuantity 钱包总余额)。
+      // 非充值单(会员/活动/身份)baseTokens=0 → token=0 → 不发 token 佣金。
+      const token = calcReturnToken(baseTokens, proportion)
       // ② 幂等检查:同 (orderId, beneficiaryId, type) 已存在则跳过
       const existing = await tx
         .select({ id: commissionFlows.id })

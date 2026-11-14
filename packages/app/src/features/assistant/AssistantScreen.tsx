@@ -67,7 +67,7 @@ export function AssistantScreen({
     if (a.status === 'published')
       return {
         text: t('assistant.badgePublished'),
-        color: tk.success.deepText,
+        color: tk.success.DEFAULT,
         bg: tk.success.light,
       }
     if (a.status === 'reviewing')
@@ -210,7 +210,7 @@ export function AssistantScreen({
           value={keyword}
           onChangeText={onKeywordChange}
           placeholder={t('assistant.searchPlaceholder')}
-          placeholderTextColor={tk.text.secondary}
+          placeholderTextColor={tk.text.tertiary}
         />
       </View>
 
@@ -317,7 +317,7 @@ function createStyles(tk: AppThemeTokens) {
       gap: rnSpacing.md,
       marginTop: rnSpacing['sm-loose'],
     },
-    metaText: { fontSize: rnType.caption.size, color: tk.text.medium },
+    metaText: { fontSize: rnType.caption.size, color: tk.text.tertiary },
     cardActions: { flexDirection: 'row', gap: rnSpacing['sm-loose'], marginTop: rnSpacing.md },
     actionPrimary: {
       paddingHorizontal: rnSpacing.lg,

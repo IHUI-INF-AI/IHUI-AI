@@ -110,7 +110,7 @@ export default function MyPayrollPage() {
         <label className="font-[weight:inherit] text-body">
           {th('colMonth')}
           <input
-            className="rounded-md border border-input bg-background px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+            className="font-[weight:inherit] rounded-md border border-input bg-background px-2 py-1 text-body focus:outline-none focus:ring-1 focus:ring-primary"
             type="month"
             value={month}
             onChange={(e) => setMonth(e.target.value)}
@@ -160,7 +160,7 @@ export default function MyPayrollPage() {
                   </div>
 
                   {/* 摘要:实发 + 应发 + 个税 */}
-                  <div className="flex flex-wrap gap-4 rounded-md bg-muted/50 px-3 py-2 text-sm">
+                  <div className="font-[weight:inherit] flex flex-wrap gap-4 rounded-md bg-muted/50 px-3 py-2 text-body">
                     <span>
                       {th('colGrossPay')}: <strong>{r.grossPay}</strong>
                     </span>
@@ -186,10 +186,10 @@ export default function MyPayrollPage() {
 
                   {expanded && r.breakdown?.steps && (
                     <div className="space-y-1 rounded-md border bg-muted/30 px-3 py-2">
-                      <div className="text-xs font-medium text-muted-foreground">
+                      <div className="text-label font-medium text-muted-foreground">
                         {th('breakdownTitle')}
                       </div>
-                      <div className="grid grid-cols-2 gap-x-6 gap-y-0.5 text-xs md:grid-cols-4">
+                      <div className="font-[weight:inherit] grid grid-cols-2 gap-x-6 gap-y-0.5 text-label md:grid-cols-4">
                         {BREAKDOWN_STEPS.map(([stepKey, labelKey]) => {
                           const v = r.breakdown?.steps?.[stepKey]
                           return (
@@ -203,7 +203,7 @@ export default function MyPayrollPage() {
                         })}
                       </div>
                       {r.breakdown?.warnings && r.breakdown.warnings.length > 0 && (
-                        <div className="mt-1 space-y-0.5 text-xs text-destructive">
+                        <div className="font-[weight:inherit] mt-1 space-y-0.5 text-label text-destructive">
                           {r.breakdown.warnings.map((w, i) => (
                             <div key={i}>⚠ {w}</div>
                           ))}

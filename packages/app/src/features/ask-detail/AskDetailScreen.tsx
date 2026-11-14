@@ -63,7 +63,7 @@ export function AskDetailScreen({
               <Text style={styles.author}>{a.author}</Text>
               {a.isAccepted ? (
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <Check size={12} color={tk.success.deepText} strokeWidth={3} />
+                  <Check size={12} color={tk.success.DEFAULT} strokeWidth={3} />
                   <Text style={styles.acceptedTag}>{t('askDetail.accepted')}</Text>
                 </View>
               ) : null}
@@ -95,7 +95,7 @@ function createStyles(tk: AppThemeTokens) {
     muted: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.secondary },
     error: {
       fontSize: rnType.body.size,
-      color: tk.danger.deepText,
+      color: tk.danger.DEFAULT,
       marginBottom: rnSpacing.sm,
       textAlign: 'center',
     },
@@ -119,7 +119,7 @@ function createStyles(tk: AppThemeTokens) {
       marginBottom: rnSpacing.md,
     },
     author: { fontSize: rnType.body.size, color: tk.text.secondary, fontWeight: '500' },
-    meta: { fontSize: rnType.caption.size, color: tk.text.medium },
+    meta: { fontSize: rnType.caption.size, color: tk.text.tertiary },
     content: {
       fontSize: rnType.title.size,
       lineHeight: rnType.strong.lineHeight,
@@ -142,7 +142,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     accepted: { borderColor: tk.success.DEFAULT, backgroundColor: tk.success.light },
     answerHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-    acceptedTag: { fontSize: rnType.caption.size, color: tk.success.deepText, fontWeight: '600' },
+    acceptedTag: { fontSize: rnType.caption.size, color: tk.success.DEFAULT, fontWeight: '600' },
     answerContent: {
       marginTop: rnSpacing['xs-loose'],
       fontSize: rnType.body.size,

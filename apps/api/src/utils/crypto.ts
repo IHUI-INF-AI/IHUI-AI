@@ -8,34 +8,12 @@ import { config } from '../config/index.js'
 const ALGORITHM = 'aes-256-gcm'
 const KEY_LENGTH = 32 // 256 bits
 
-/**
- * F-218(2026-11-13):按 **字节** 而不是 UTF-16 字符数校验密钥,并拒绝多字节截断。
- *
- * 派生路径保持与历史实现完全一致:旧实现取 `key.slice(0, 32)`(32 个字符)再按 UTF-8
- * 编码,对纯 ASCII 密钥等价于「前 32 字节」。存量密文就是用该派生结果加密的,因此这里
- * 不换 KDF、不加版本前缀,只把长度判据从字符换成字节:
- *   - 少于 32 字节 → 立即报错(旧实现会静默产出不足 256 位的密钥,或让 createCipheriv
- *     抛出不指向配置项的 ERR_CRYPTO_INVALID_KEYLEN);
- *   - 前 32 字节切在多字节字符中间 → 立即报错(旧实现按字符截断后字节数 > 32,同样在
- *     createCipheriv 处失败,且错误信息无法定位到配置)。
- * 报错信息只含字节数,不含密钥内容(不得把密钥写进日志/响应)。
- */
 function getKey(): Buffer {
   const key = config.CREDENTIALS_ENCRYPTION_KEY
-  const keyBytes = Buffer.from(key, 'utf8')
-  if (keyBytes.length < KEY_LENGTH) {
-    throw new Error(
-      `CREDENTIALS_ENCRYPTION_KEY 字节长度不足:需要至少 ${KEY_LENGTH} 字节,当前 ${keyBytes.length} 字节`,
-    )
+  if (key.length < KEY_LENGTH) {
+    throw new Error('CREDENTIALS_ENCRYPTION_KEY 必须至少 32 字符')
   }
-  const derived = keyBytes.subarray(0, KEY_LENGTH)
-  // 32 字节边界若落在多字节字符中间,toString('utf8') 会出现替换字符,往返编码不再相等。
-  if (!Buffer.from(derived.toString('utf8'), 'utf8').equals(derived)) {
-    throw new Error(
-      `CREDENTIALS_ENCRYPTION_KEY 前 ${KEY_LENGTH} 字节不是完整字符边界(含多字节字符),请改用 ${KEY_LENGTH} 字节 ASCII/hex 随机串`,
-    )
-  }
-  return derived
+  return Buffer.from(key.slice(0, KEY_LENGTH))
 }
 
 export interface EncryptedPayload {

@@ -274,21 +274,20 @@ export function startLiteLLMPriceSyncScheduler(): void {
         error: err instanceof Error ? err.message : err,
       })
     }
-    // 零价/占位价巡检(2026-11-13 立;2026-11-14 收紧为只认权威价):
-    // 价表同步完紧接着清一遍「启用但零价/占位价/哨兵价」的模型。
+    // 零价巡检(2026-11-13 立):价表同步完紧接着清一遍「启用但零价」的模型。
     // 这是防回潮的关键一环 —— 新渠道同步/审批上架随时会引入零价行,只靠人工补价必然漏。
-    // 只接受三源价表 exact/alias 命中;拿不到权威价的一律下架,禁止家族插值/中位数猜测。
+    // 解析失败会下架(不能定价就不能卖),与 sweepUnpricedModels 的语义一致。
     try {
       const { db } = await import('../db/index.js')
       const { upsertPricing } = await import('./pricing-service.js')
-      const { repricePlaceholderModels } = await import('./model-price-resolver.js')
-      const swept = await repricePlaceholderModels(
+      const { sweepUnpricedModels } = await import('./model-price-resolver.js')
+      const swept = await sweepUnpricedModels(
         db as unknown as { execute: (q: unknown) => Promise<unknown> },
         upsertPricing,
       )
-      if (swept.delisted.length > 0) {
+      if (swept.unresolved.length > 0) {
         logger.warn(
-          `[model-price-sweep] ${swept.delisted.length} 个模型无权威价已下架: ${swept.delisted.slice(0, 10).join(', ')}`,
+          `[model-price-sweep] ${swept.unresolved.length} 个模型无法定价已下架: ${swept.unresolved.slice(0, 10).join(', ')}`,
         )
       }
     } catch (err) {

@@ -101,7 +101,7 @@ export function CartScreen({
         <Image source={{ uri: item.coverUrl }} style={styles.cover} />
       ) : (
         <View style={[styles.cover, styles.coverFallback]}>
-          <Package size={22} color={tk.text.secondary} strokeWidth={2} />
+          <Package size={22} color={tk.text.tertiary} strokeWidth={2} />
         </View>
       )}
       <View style={styles.info}>
@@ -117,7 +117,7 @@ export function CartScreen({
             accessibilityRole="button"
             accessibilityLabel="-"
           >
-            <Minus size={14} color={item.quantity <= 1 ? tk.text.secondary : tk.text.secondary} />
+            <Minus size={14} color={item.quantity <= 1 ? tk.text.tertiary : tk.text.secondary} />
           </Tappable>
           <Text style={styles.qtyValue}>{item.quantity}</Text>
           <Tappable

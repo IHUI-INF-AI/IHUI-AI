@@ -111,7 +111,7 @@ export function ImageGenGalleryScreen({
     <View style={styles.header}>
       <Text style={styles.subtitle}>{t('imageGenGallery.subtitle')}</Text>
       {loading ? (
-        <ActivityIndicator style={styles.loading} color={tk.text.secondary} />
+        <ActivityIndicator style={styles.loading} color={tk.text.tertiary} />
       ) : error ? (
         <View style={styles.errorBox}>
           <Text style={styles.errorText}>{error}</Text>
@@ -127,7 +127,7 @@ export function ImageGenGalleryScreen({
         </View>
       ) : items.length === 0 ? (
         <View style={styles.emptyBox}>
-          <Images size={32} color={tk.text.secondary} />
+          <Images size={32} color={tk.text.tertiary} />
           <Text style={styles.emptyText}>{t('imageGenGallery.empty')}</Text>
         </View>
       ) : null}
@@ -159,7 +159,7 @@ export function ImageGenGalleryScreen({
                 <Image source={{ uri: item.imageUrl }} style={styles.image} resizeMode="cover" />
               ) : (
                 <View style={styles.placeholder}>
-                  <ImageOff size={24} color={tk.text.secondary} />
+                  <ImageOff size={24} color={tk.text.tertiary} />
                   <Text style={styles.placeholderText}>{t('imageGenGallery.noImage')}</Text>
                 </View>
               )}
@@ -180,14 +180,14 @@ export function ImageGenGalleryScreen({
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor={tk.text.secondary}
+            tintColor={tk.text.tertiary}
           />
         }
         onEndReached={onLoadMore}
         onEndReachedThreshold={0.3}
         ListFooterComponent={
           error ? null : loadingMore ? (
-            <ActivityIndicator style={styles.footerLoading} color={tk.text.secondary} />
+            <ActivityIndicator style={styles.footerLoading} color={tk.text.tertiary} />
           ) : items.length > 0 && items.length >= total ? (
             <Text style={styles.footerText}>{t('imageGenGallery.noMore')}</Text>
           ) : null
@@ -221,7 +221,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.card,
       gap: rnSpacing.sm,
     },
-    errorText: { fontSize: rnType.bodySm.size, color: tk.danger.deepText },
+    errorText: { fontSize: rnType.bodySm.size, color: tk.danger.DEFAULT },
     retryBtn: {
       alignSelf: 'flex-start',
       paddingHorizontal: rnSpacing['md-loose'],
@@ -256,18 +256,18 @@ function createStyles(tk: AppThemeTokens) {
     },
     placeholderText: {
       fontSize: rnType.caption.size,
-      color: tk.text.medium,
+      color: tk.text.tertiary,
       textAlign: 'center',
     },
     cardBody: { padding: rnSpacing.lg, gap: rnSpacing.xs },
     prompt: { fontSize: rnType.label.size, lineHeight: 17, color: tk.text.primary },
-    metaText: { fontSize: rnType.caption.size, color: tk.text.medium },
+    metaText: { fontSize: rnType.caption.size, color: tk.text.tertiary },
     footerLoading: { paddingVertical: rnSpacing.lg },
     footerText: {
       paddingVertical: rnSpacing.lg,
       textAlign: 'center',
       fontSize: rnType.label.size,
-      color: tk.text.medium,
+      color: tk.text.tertiary,
     },
   })
 }

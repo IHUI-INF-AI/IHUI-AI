@@ -181,13 +181,42 @@
 
 飞书侧无需映射：`user_tasks/query` 走 `employee_type=employee_no`，工号直用。
 
-### 7.4 仍未核实（实现前补）
+### 7.4 审批类枚举映射（RP-16）
 
-- 各平台**枚举值完整映射表**（假别/加班类型/审批状态 → 系统字典）：飞书审批枚举、钉钉请假/OA 审批枚举，本轮未逐值核对。
-- 审批类拉取的**分页与模板 code 过滤**细节（请假/加班/外出按模板区分）。
-- 各平台**调用配额/限流**精确值（飞书打卡接口标注约 50 次/秒；钉钉标准版约 1 万次/月，需确认对目标企业规模是否够）→ 决定拉取频率与分批。
+**状态**：类型/状态枚举已联网核实（2026-11-14）；假别枚举仍需租户取样。**飞书三类已从 501 放开**。
 
-> 已核实端点与字段口径上表为凭；上述未核实项实现前补齐，否则易因枚举/分页/配额不符导致返工。
+**飞书已核实（官方文档 2026-11-14 检索）**：
+
+| 枚举 | 官方取值 | 来源 |
+|---|---|---|
+| 审批类型（`approval_type`） | `leave` 请假 / `out` 外出 / `overtime` 加班 / `trip` 出差 / `remedy` 补卡 | [通知审批状态更新](https://open.feishu.cn/document/server-docs/attendance-v1/user_approval/process) |
+| 审批状态（`status`） | `0` 待审批 / `1` 未通过 / `2` 已通过 / `3` 已撤回 / `4` 已撤销 | [获取审批数据](https://open.feishu.cn/document/server-docs/attendance-v1/user_approval/query) |
+| 审批实例唯一 ID | `approval_id`（在 `leaves`/`outs`/`overtimes` 数组元素中） | 同上 |
+
+**钉钉已核实（官方文档 2026-11-14 检索）**：
+
+| 枚举 | 官方取值 | 来源 |
+|---|---|---|
+| 审批结果（`result`） | `agree` 同意 / `refuse` 拒绝 | [审批实例状态变更](https://open.dingtalk.com/document/development/approve-instance-state-change-event-broadcast-stream) |
+| 实例状态类型（`type`） | `start` 开始 / `finish` 正常结束（同意或拒绝）/ `terminate` 终止 | 同上 |
+| 审批实例唯一 ID | `processInstanceId`（事件推送）/ `process_instance_id`（API 入参） | [获取单个审批实例详情](https://open.dingtalk.com/document/orgapp-server/obtains-the-details-of-a-single-approval-instance) |
+
+**仍需租户取样（红线：未取样前不得写死）**：
+
+- **飞书假别（`i18n_names`）**：`user_approval/query` 返回的 `leaves[].i18n_names` 是多语言对象 `{"ch":"事假","en":"Personal"}`，**非固定枚举**——由企业后台自定义假期类型。provider 透传 `ch` 文本交现有 `normalizeLeaveType` 正则匹配（年假/事假/病假…），不写死假别枚举。
+- **飞书 overtime/outgoing 的类型/时长字段名**：官方响应快照未明示 → provider 留 null，留待取样补。
+- **飞书假期单位（`unit`/`interval`）**：单位换算规则由企业考勤设置决定，需取样确认。
+- **钉钉假别**：请假审批的假别来自 OA 表单控件，**完全租户自定义**，每个企业假别名称/代码均不同。
+- **钉钉审批端点选择**：考勤审批数据的获取路径尚未核实——`getupdatedata` 按单员工单日返回「流水+结果+审批」，OA 审批（请假/加班/外出）需按 `process_code` 区分类型，而 process_code 各租户不同。**实现前须核实**：① 用哪个端点批量拉审批；② process_code 从哪来（企业模板列表）；③ 表单字段名（假别/时长/事由的控件 key）。这些均租户相关，凭真实凭证取样后才能写映射，**钉钉三类暂保持 501**。
+
+**飞书已实现（provider 可直用）**：
+- 三类审批的 `approval_type` → `leave`/`overtime`/`out` 三分支分流
+- `employeeNo` 取 `uniq_id`；`externalId` 取 `approval_id`（幂等键）
+- leave 的 `typeText` 取 `i18n_names.ch` 透传；start_time/end_time 转日期与打卡时分
+- 审批状态官方字段名未核实 → statusText 留空，交人工裁决（不猜测）
+- 映射逻辑抽为纯函数 `mapApprovalDataToRows`，6 项单测钉住
+
+**结论**：枚举骨架可写死（类型/状态/ID 字段名），假别值不可写死。另注：分页/模板 code 过滤细节、平台调用配额/限流精确值仍待核实（飞书打卡约 50 次/秒、钉钉标准版约 1 万次/月需确认够否）。
 
 ### 7.5 飞书打卡目标工号来源（已落地）
 

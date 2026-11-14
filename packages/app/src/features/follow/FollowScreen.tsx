@@ -56,10 +56,6 @@ export function FollowScreen({
   colorScheme = 'light',  
   onNavigate,
   onToast,
-  renderListHeader,
-  emptyAction,
-  emptyLabel,
-  showNoMore = false,
 }: FollowScreenProps & { onRetry?: () => void }) {
   assertRequiredPort('onNavigate', onNavigate)
   assertRequiredPort('onToast', onToast)
@@ -111,35 +107,17 @@ export function FollowScreen({
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         onEndReached={onLoadMore}
         onEndReachedThreshold={0.3}
-        ListHeaderComponent={renderListHeader ? () => <>{renderListHeader()}</> : null}
         ListEmptyComponent={
           loading ? (
             <ScreenSkeleton variant="list" count={4} colorScheme={colorScheme} />
           ) : (
-            <View style={styles.emptyWrap}>
-              <EmptyState title={emptyLabel ?? t('follow.empty')} colorScheme={colorScheme} />
-              {emptyAction ? (
-                <TouchableOpacity
-                  style={styles.emptyAction}
-                  onPress={emptyAction.onPress}
-                  activeOpacity={0.7}
-                  accessibilityRole="button"
-                  accessibilityLabel={emptyAction.label}
-                >
-                  <Text style={styles.emptyActionText}>{emptyAction.label}</Text>
-                </TouchableOpacity>
-              ) : null}
-            </View>
+            <EmptyState title={t('follow.empty')} colorScheme={colorScheme} />
           )
         }
         ListFooterComponent={
           loadingMore ? (
             <View style={styles.footer}>
               <Text style={styles.footerText}>{t('common.loading')}</Text>
-            </View>
-          ) : showNoMore ? (
-            <View style={styles.footer}>
-              <Text style={styles.footerText}>{t('common.noMore')}</Text>
             </View>
           ) : null
         }
@@ -237,7 +215,7 @@ function createStyles(tk: AppThemeTokens) {
     cardInfo: { flex: 1, marginLeft: rnSpacing.md },
     cardName: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
     cardBio: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.secondary },
-    cardMeta: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.medium },
+    cardMeta: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.tertiary },
     unfollowBtn: {
       paddingHorizontal: rnSpacing.md,
       paddingVertical: rnSpacing['xs-loose'],
@@ -247,15 +225,6 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.bg,
     },
     unfollowBtnText: { fontSize: rnType.body.size, color: tk.text.primary },
-    emptyWrap: { alignItems: 'center', paddingVertical: rnSpacing['3xl'] },
-    emptyAction: {
-      marginTop: rnSpacing.md,
-      paddingHorizontal: rnSpacing.lg,
-      paddingVertical: rnSpacing.sm,
-      borderRadius: rnRadius.lg,
-      backgroundColor: tk.brand.DEFAULT,
-    },
-    emptyActionText: { fontSize: rnType.body.size, color: tk.brand.foreground },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

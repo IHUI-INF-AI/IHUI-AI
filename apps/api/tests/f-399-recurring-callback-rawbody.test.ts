@@ -13,7 +13,6 @@
  *  - 入库 wx_pay_notifications.rawXml 同样存原始字节;
  *  - 验签 false → 401,且不写通知行。
  */
-import type * as __wechatPayType from '../src/services/wechat-pay.js'
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest'
 import Fastify from 'fastify'
 
@@ -26,7 +25,7 @@ const spies = vi.hoisted(() => ({
 }))
 
 vi.mock('../src/services/wechat-pay.js', async (importOriginal) => {
-  const actual = await importOriginal<typeof __wechatPayType>()
+  const actual = await importOriginal<typeof import('../src/services/wechat-pay.js')>()
   return {
     ...actual,
     verifyCallbackSignature: spies.verifyCallbackSignature,
@@ -89,7 +88,9 @@ describe('F-399 周期扣款回调基于原始报文字节验签', () => {
       raw,
       'sig-f399',
     )
-    expect(spies.insertValues).toHaveBeenCalledWith(expect.objectContaining({ rawXml: raw }))
+    expect(spies.insertValues).toHaveBeenCalledWith(
+      expect.objectContaining({ rawXml: raw }),
+    )
   })
 
   it('验签不通过 → 401,且不写通知行', async () => {

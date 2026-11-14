@@ -66,7 +66,12 @@ export interface AgentTeamRepository {
   insertInbox(input: InsertInboxInput): Promise<{ entry: AgentTeamInboxEntry; duplicated: boolean }>
   listInbox(teamId: string, to?: AgentTeamMemberRef): Promise<AgentTeamInboxEntry[]>
   findInboxById(teamId: string, id: string): Promise<AgentTeamInboxEntry | null>
-  markInboxRead(teamId: string, id: string, readAt: Date): Promise<AgentTeamInboxEntry | null>
+  markInboxRead(
+    teamId: string,
+    id: string,
+    readAt: Date,
+    to?: AgentTeamMemberRef,
+  ): Promise<AgentTeamInboxEntry | null>
   countInboxByKey(teamId: string, idempotencyKey: string): Promise<number>
 }
 
@@ -253,11 +258,19 @@ export const postgresAgentTeamRepository: AgentTeamRepository = {
     return rows[0] ?? null
   },
 
-  async markInboxRead(teamId, id, readAt) {
+  async markInboxRead(teamId, id, readAt, to) {
+    const conditions = [eq(agentTeamInbox.teamId, teamId), eq(agentTeamInbox.id, id)]
+    // F-591:写条件同时绑定接收人,避免"已校验归属"与更新之间被换成本人不拥有的条目。
+    if (to) {
+      conditions.push(
+        eq(agentTeamInbox.toMemberKind, to.memberKind),
+        eq(agentTeamInbox.toMemberId, to.memberId),
+      )
+    }
     const [row] = await db
       .update(agentTeamInbox)
       .set({ readAt })
-      .where(and(eq(agentTeamInbox.teamId, teamId), eq(agentTeamInbox.id, id)))
+      .where(and(...conditions))
       .returning()
     return row ?? null
   },

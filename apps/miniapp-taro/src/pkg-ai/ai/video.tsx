@@ -21,7 +21,6 @@ import { formatDateByTemplate } from '@ihui/shared'
 import { safeDecodeURIComponent } from '@ihui/shared'
 import ThemeRoot from '@/components/ThemeRoot'
 import { onToast } from '@/host/on-toast'
-import { toFriendlyOr } from '@ihui/shared/utils'
 
 type Vendor = 'sora2' | 'kling' | 'doubao' | 'dashscope'
 type Status = 'idle' | 'pending' | 'running' | 'succeeded' | 'failed'
@@ -192,7 +191,7 @@ export default function VideoPage() {
     } catch (e) {
       logger.error('ai/video', '生成视频', e)
       setStatus('failed')
-      setErrorMsg(toFriendlyOr(e, t('ai.video.generateFailed')))
+      setErrorMsg(e instanceof Error ? e.message : t('ai.video.generateFailed'))
     }
   }, [prompt, status, currentVendor, vendor, params, t])
 
@@ -270,7 +269,7 @@ export default function VideoPage() {
                 </Text>
                 <View className="flex gap-[8rpx]">
                   {p.options.map((opt) => (
-                    <View
+                    <Text
                       key={opt}
                       className={`flex-1 py-[12rpx] text-center text-badge rounded-md ${
                         params[p.key] === opt
@@ -278,10 +277,9 @@ export default function VideoPage() {
                           : 'bg-secondary text-muted-foreground'
                       }`}
                       onClick={() => setParams((prev) => ({ ...prev, [p.key]: opt }))}
-                      hoverClass="opacity-60"
                     >
-                      <Text>{opt}</Text>
-                    </View>
+                      {opt}
+                    </Text>
                   ))}
                 </View>
               </View>
