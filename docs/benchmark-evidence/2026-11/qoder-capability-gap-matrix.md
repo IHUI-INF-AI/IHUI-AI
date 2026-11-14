@@ -28,10 +28,10 @@ Qoder 全部能力承载于 **66 张状态表**。地毯式枚举后归入四系
 
 | 模块                           | 复现自 Qoder                                     | 超越点                                                         |
 | ------------------------------ | ------------------------------------------------ | -------------------------------------------------------------- |
-| `acp/subagent-journal.ts`      | journal.js 通知日志(compact/append/KMP 边界去重) | 复用 message-identity 单一真相源,13 测试全绿                   |
+| `acp/subagent-journal.ts`      | journal.js 通知日志(compact/append/KMP 边界去重) | 复用 message-identity 单一真相源,15 测试全绿                   |
 | `acp/message-identity.ts`      | 身份断言 + canonicalJson + 字节上限              | 独立成共享层,可被 journal/inbox 复用,23 测试                   |
-| `acp/mcp-status-projection.ts` | MCP 状态投影                                     | 带测试                                                         |
-| `acp/agent-inbox.ts`           | agent_inbox_items/progress 8 语义点              | **+retryPlanFor full-jitter 退避 · +compact 终态回收**,21 测试 |
+| `acp/mcp-status-projection.ts` | MCP 状态投影                                     | 已接线 `x.ai/mcp/serverStatus`(projection 字段),8 测试        |
+| `acp/agent-inbox.ts`           | agent_inbox_items/progress 8 语义点              | **+retryPlanFor full-jitter 退避 · +compact 终态回收**,23 测试 |
 
 > ⚠️ 早期记录把 `preview-envelope`(J2)/`bounded-json`(J4)列为已落地,复核不在工作区,已从本表移除。
 
@@ -153,11 +153,12 @@ Qoder 的主战场 = `discussion_*` 群聊式多 agent 团队。核心机制(age
 
 ## 8. 验证
 
-- 已落地模块测试:`npx vitest run tests/subagent-profile-revisions.test.ts`(12)+ `tests/workspace-receipts.test.ts`(17)+ `tests/skill-evolution.test.ts`(24)+ `tests/skill-evolution-apply.test.ts`(8)+ `tests/deletion-tombstones.test.ts`(15)+ `tests/tombstone-wiring.test.ts`(5)+ `tests/subagent-journal.test.ts`(13)+ `tests/message-identity.test.ts`(23)+ `tests/mcp-status-projection.test.ts`(8)+ `tests/agent-inbox.test.ts`(21)= **146/146 全绿**
+- 已落地模块测试:`npx vitest run tests/subagent-profile-revisions.test.ts`(12)+ `tests/workspace-receipts.test.ts`(17)+ `tests/skill-evolution.test.ts`(24)+ `tests/skill-evolution-dup-guard.test.ts`(3)+ `tests/skill-evolution-apply.test.ts`(8)+ `tests/deletion-tombstones.test.ts`(15)+ `tests/tombstone-wiring.test.ts`(5)+ `tests/subagent-journal.test.ts`(15)+ `tests/message-identity.test.ts`(23)+ `tests/mcp-status-projection.test.ts`(8)+ `tests/agent-inbox.test.ts`(23)= **153/153 全绿**(另 `tests/backoff.test.ts` 9 条退避单测同绿,共 162)
 - 类型:`npx tsc --noEmit` 全项目 0 错误
 - 取证:全部判定基于 `.archify/verify/qoder-extract/dumps/*.json` 的真实 SQLite DDL,非推测
+- 本轮吃透审计(剩余 4 模块 journal/identity/mcp-status/inbox):修复 agent-inbox 游标水位两处语义漏洞(乱序送达越过更早 pending → 永久盲区;compact 回收终态后序号回退 → 新条目被旧游标挡死)与 `mergeHistoricalJournal.addedHistory` 方向反转,补 4 条回归测试;接线核对:inbox 已接 `subagent-collab` 跨重启死信重投;mcp 投影已接 `x.ai/mcp/serverStatus`(响应新增可选 `projection`,原始 status 字段不变;补 2 条接线测试);journal/identity 为纯库层(生产 ACP 帧暂无 messageId,身份守卫无可消费输入),如实标注不虚报
 
-> 结论:**Qoder 四大系统的通用机制已榨取并超越,当前工作区实际落地 9 模块**:`subagent-journal` / `message-identity` / `mcp-status-projection` / `agent-inbox` + **`skill-evolution`(内容指纹 + 七态提议状态机)+ `skill-evolution-apply`(进化执行链)+ `workspace-receipts`(工作区写盘幂等回执审计层)+ `subagent-profile-revisions`(配置版本链 + 执行时版本锁定)+ `deletion-tombstones`(墓碑 + 迟到写守卫,已接线 skill-evolution 真实竞态)**,后五者把原判为"前提缺失/产品绑定"的缺口从零补齐,共 146 测试全绿。**用户授权"建前提基建"后,已亲手补齐四枚缺口(技能进化系统 + 工作区命令幂等审计 + subagent 配置版本链 + 删除墓碑竞态守卫)。** 剩余项仍为架构级或前提基建缺失(peer 策略需多设备 P2P 层、pending_turn 需 SDK 投影流、input_replacements 需给 ChatMessage 加 id),26+ 平台绑定项如实标注不硬抄。
+> 结论:**Qoder 四大系统的通用机制已榨取并超越,当前工作区实际落地 9 模块**:`subagent-journal` / `message-identity` / `mcp-status-projection` / `agent-inbox` + **`skill-evolution`(内容指纹 + 七态提议状态机)+ `skill-evolution-apply`(进化执行链)+ `workspace-receipts`(工作区写盘幂等回执审计层)+ `subagent-profile-revisions`(配置版本链 + 执行时版本锁定)+ `deletion-tombstones`(墓碑 + 迟到写守卫,已接线 skill-evolution 真实竞态)**,后五者把原判为"前提缺失/产品绑定"的缺口从零补齐,共 153 测试全绿。**用户授权"建前提基建"后,已亲手补齐四枚缺口(技能进化系统 + 工作区命令幂等审计 + subagent 配置版本链 + 删除墓碑竞态守卫)。** 剩余项仍为架构级或前提基建缺失(peer 策略需多设备 P2P 层、pending_turn 需 SDK 投影流、input_replacements 需给 ChatMessage 加 id),26+ 平台绑定项如实标注不硬抄。
 >
 > **最终判定:能在我方 `apps/cli` 当前架构内真实落地并超越的价值,已全部收割完毕。剩余项要么需先建前提基建(自修改技能系统 / SDK 会话编排器 / 多设备同步层),要么属平台绑定不搬 —— 没有可在当前架构内"再榨一枚"的余地。这不是未完成,而是把"能榨的已榨干、不能榨的说清为什么"如实钉死的诚实收口。**
 >
