@@ -277,8 +277,7 @@ export function extractTokenUses(line) {
  * 这不是"猜底":依据是同一文件里可读的调用点,可复核。
  */
 export function buildReturnRoleMap(src) {
-  const lines = src.split(/?
-/)
+  const lines = src.split(/\r?\n/)
   const declared = new Set()
   const fgUse = new Set()
   const bgUse = new Set()
@@ -292,7 +291,7 @@ export function buildReturnRoleMap(src) {
   // 调用点归类:`backgroundColor: X(` / `backgroundColor: cond ? X(` / style 里 `bg:` 等
   for (const line of lines) {
     for (const name of declared) {
-      const call = new RegExp(`\b${name}\s*\(`)
+      const call = new RegExp("\b" + name + "\s*\(")
       if (!call.test(line)) continue
       const idx = line.search(call)
       const before = line.slice(0, idx)

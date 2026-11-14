@@ -5470,6 +5470,9 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-14**
+- 🐞 修复:design-token 对比度语义档迁移(brandAccent/danger/success/warning) (35d8ab967e)
+
+**2026-11-14**
 - 🐞 修复:audit-app-text-contrast TDZ 修复 + repl pendingQuestionRef 提升模块级 (56780a1d7f)
 - 🚀 新功能/改进:门320 接线 guardian-runner + RP-80 基线盲区清账票 (f81673f27d)
 - 🔧 工程/其他:补齐溯源水印覆盖 + audit-app-text-contrast 同族配对 (fd8cb9c30a)

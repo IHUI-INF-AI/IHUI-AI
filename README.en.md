@@ -99,6 +99,9 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-14**
+- 🐞 Fix:design-token 对比度语义档迁移(brandAccent/danger/success/warning) (35d8ab967e)
+
+**2026-11-14**
 - 🐞 Fix:audit-app-text-contrast TDZ 修复 + repl pendingQuestionRef 提升模块级 (56780a1d7f)
 - 🚀 Feature/Improvement:门320 接线 guardian-runner + RP-80 基线盲区清账票 (f81673f27d)
 - 🔧 Chore/Other:补齐溯源水印覆盖 + audit-app-text-contrast 同族配对 (fd8cb9c30a)
@@ -1069,10 +1072,6 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 - 🐞 Fix:结清 F-519 死路由清理 + F-520 组织接口鉴权 + F-529 repo-wiki 模型校验 + F-537 PDF 失败如实 503 + F-552 缓存写失败隔离 (1c095a309c1)
 - 🐞 Fix:结清 F-508 USDT RPC 超时 + F-511 通知失败重试 + F-513 健康检查互斥合并写 + F-514 平台密钥调用计费 + F-518 引擎 RPC 可达回归锁 (041304b9856)
 - 🐞 Fix:结清 F-494 批处理先扣费后落键 + F-496 账号池退出码判定 + F-498 回调帧两段确认 + F-504 收藏按用户过滤 + F-507 工具超时取消 (5d949c01a9e)
-
-**2026-11-13**
-- 🔧 Chore/Other:结清 O69(调度轮 sweepLocalDevDbRotation 与镜像 10 例已入库)与 12A/DG-12(发布 tag 闸改发布件对账,同批提交) (6c2a28998f7)
-- 🐞 Fix:结清 F-422 Qoder 桥关停竞态 + F-461 WS 活动时间刷新 + F-466 live-chat 单用户连接上限 + F-475 chat 历史表上限 + F-492 生图 worker 租约归属 (c1252d160d6)
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)

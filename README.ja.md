@@ -2227,6 +2227,9 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-14**
+- 🐞 修正:design-token 对比度语义档迁移(brandAccent/danger/success/warning) (35d8ab967e)
+
+**2026-11-14**
 - 🐞 修正:audit-app-text-contrast TDZ 修复 + repl pendingQuestionRef 提升模块级 (56780a1d7f)
 - 🚀 機能/改善:门320 接线 guardian-runner + RP-80 基线盲区清账票 (f81673f27d)
 - 🔧 その他:补齐溯源水印覆盖 + audit-app-text-contrast 同族配对 (fd8cb9c30a)
@@ -2911,9 +2914,6 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 - 📚 ドキュメント:重跑 report-rn-miniapp-gaps 派生账本清偿 doc-stale(镜像自述258→257,对应 study 撤除registry假配对) (bb89abb173)
 - 🐞 修正:AppUpdateBanner 圆角改用 rnRadius.lg 单一真相源,对齐 RN UpdatePrompt/ApkUpdatePrompt (675c2803c4)
 - 🐞 修正:补齐小程序 style-tiers 字号等值腿(--font-safe)在守护轮与CI级联的派发口径,land-miniapp 探针补 changedFiles,parity-auto 接入 RN 原生屏承载差集只读 gate (435b861fce)
-
-**2026-11-13**
-- 🐞 修正:check-miniapp-style-tiers 裸字面量正则加负向后行断言,治 CSS 连写属性误报 (5195023089)
 <!-- END RECENT UPDATES -->
 
 <p align="center">
