@@ -27,6 +27,8 @@
  * 刷新连续失败 REFRESH_FAILURE_LIMIT 次 → tempUnschedulable=true(自动摘除,admin 可见原因)。
  * 与 relay-channel-router 的进程级熔断互补:这里是「账号凭证生命周期」,那里是「渠道调用质量」。
  */
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import { and, eq, gt, isNotNull, isNull, lt, lte, or, inArray, sql } from 'drizzle-orm'
 import { db, dbRead } from '../db/index.js'
 import { aiRelayAccountPool, type AiRelayAccountPool } from '@ihui/database'
@@ -377,13 +379,87 @@ export function keepaliveIdleWhere(cutoff: Date, foreverCutoff?: Date) {
 }
 
 /**
- * 永久保活号的解摘候选 where(导出供镜像测试锁形状)。
+ * 永久保活解摘区(2026-10-31 立;2026-11-15 叠加判死闸门)。
+ *
+ * 下方判死码清单与 revive 闸门是 §0.6 单一真相源(config/relay-irreversible-verdicts.json):
+ * 上游已明确判死的号不再进解摘动作(否则每 6h 拿死票再撞一次上游鉴权、失败累计到 3 再摘,
+ * 无限循环)。revive 动作只叠加排除,keepAliveReviveWhere 的既有 where 语义一字不动。
  *
  * 为什么需要这一档:`refreshOne` 连续失败 3 次会置 `tempUnschedulable=true`,而四档候选
  * 全部要求未摘除 ⇒ 摘除对普通号是「停止打上游、等 admin 看一眼」,对「登不回来」的号是
  * **永久死亡**。这里把摘除改回它名字本来的含义(临时):退避窗之后自动解摘、再给一次机会。
  * 摘除本身保留 —— 去掉它就变成坏票每 5 分钟死撞鉴权点,那正是本仓反复点名的封号前兆型。
  */
+// ── 上游「不可逆判死码」单一真相源(2026-11-15 立;与 scripts 侧同读 config JSON) ──────
+// §0.6:判据全仓只许一份。清单下沉在 config/relay-irreversible-verdicts.json(语言无关
+// 数据),mjs 侧(scripts/relay-account-keepalive.mjs)与本 ts 侧都从它编译 RegExp ——
+// 谁都不许再抄一份正则字面量。命中即「上游已明确判死」,不是「本轮抖动」。
+// 5xx / 网络超时 / 裸 401 / 403 / 429 一律不算判死(反向牙:别一刀切静默所有失败)。
+
+type IrreversibleVerdict = {
+  readonly id: string
+  readonly provider: string
+  readonly pattern: RegExp
+}
+
+// src/services 与 dist/services 到仓库根同为 4 层(与 i18n-outbound.ts 同一把相对尺),
+// tsc 编译前后同一个相对位 ⇒ 不依赖构建产物、不改 tsconfig、不新增 workspace 包。
+const VERDICTS_JSON_URL = new URL(
+  '../../../../config/relay-irreversible-verdicts.json',
+  import.meta.url,
+)
+
+function loadIrreversibleVerdicts(): readonly IrreversibleVerdict[] {
+  const raw = JSON.parse(readFileSync(fileURLToPath(VERDICTS_JSON_URL), 'utf8')) as Array<{
+    id: string
+    provider: string
+    pattern: string
+    flags?: string
+  }>
+  return Object.freeze(
+    raw.map((v) =>
+      Object.freeze({
+        id: v.id,
+        provider: v.provider,
+        pattern: new RegExp(v.pattern, v.flags ?? ''),
+      }),
+    ),
+  )
+}
+
+/** 判死码清单(冻结;与 mjs 侧 IRREVERSIBLE_VERDICTS 同形:4 条、每项 pattern 为 RegExp)。 */
+export const IRREVERSIBLE_VERDICTS = loadIrreversibleVerdicts()
+
+/** 命中的判死码 id;未命中(可逆失败/无错误信息)返回 null。兼容 snake/camel 两种字段名。 */
+export function irreversibleVerdictOf(
+  row: { lastErrorMessage?: unknown; last_error_message?: unknown } | null | undefined,
+): string | null {
+  const msg = String(row?.lastErrorMessage ?? row?.last_error_message ?? '')
+  if (!msg) return null
+  for (const v of IRREVERSIBLE_VERDICTS) {
+    if (v.pattern.test(msg)) return v.id
+  }
+  return null
+}
+
+export function isTerminalFailure(
+  row: { lastErrorMessage?: unknown; last_error_message?: unknown } | null | undefined,
+): boolean {
+  return irreversibleVerdictOf(row) !== null
+}
+
+/**
+ * 解摘闸门(JS 层叠加排除):从 keepAliveReviveWhere 取回的候选里剔除判死行。
+ * 判死行保持 tempUnschedulable=true ∧ refreshFailureCount>=LIMIT ⇒ 临期刷新/空闲保活/
+ * down 恢复四档候选全部看不到它们 ⇒ 不再拿已判死的 refresh token 撞上游鉴权。
+ * 只叠加、不重写任何既有 where 语义(含 recredentialableCondition)。
+ */
+export function revivableCandidatesOf<
+  T extends { lastErrorMessage?: unknown; last_error_message?: unknown },
+>(rows: readonly T[]): T[] {
+  return rows.filter((r) => !isTerminalFailure(r))
+}
+
 export function keepAliveReviveWhere(before: Date) {
   return and(
     keepAliveForeverCondition(),
@@ -424,7 +500,14 @@ export async function reviveKeepAliveForeverAccounts(
     .from(aiRelayAccountPool)
     .where(keepAliveReviveWhere(before))
     .limit(KEEPALIVE_MAX_PER_SWEEP)
-  for (const row of stale) {
+  // 叠加排除(2026-11-15,§0.6 判死码单源):上游已判死的行不再进解摘动作 —— 它们保持
+  // tempUnschedulable=true ∧ refreshFailureCount>=LIMIT,临期刷新/空闲保活/down 恢复
+  // 四档候选全部看不到它们 ⇒ 根治「每 6h 拿死票再撞一次上游鉴权」的无限循环。
+  // 排除落在 where 取回候选之后的 JS 层:正则判据只有 config JSON 一份,SQL 里再抄
+  // 一遍 !~* 正则就是第二份真相源(§0.6 禁);recredentialableCondition() 与既有
+  // where 语义一字不动(只叠加、不重写)。
+  const revivable = revivableCandidatesOf(stale)
+  for (const row of revivable) {
     await db
       .update(aiRelayAccountPool)
       .set({
@@ -441,7 +524,7 @@ export async function reviveKeepAliveForeverAccounts(
       .where(eq(aiRelayAccountPool.id, row.id))
       .catch(() => {})
   }
-  return stale
+  return revivable
 }
 
 /**

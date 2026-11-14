@@ -74,10 +74,15 @@ const CN_PROJECT_KEY_NAME =
 const GLOBAL_PROJECT_KEY_NAME =
   'project-key-location:v1:%5B%22https%3A%2F%2Fz.ai%22%2C%22zai%22%2C%2267890%22%2Cnull%2C1%2C%22non-team%22%5D'
 
+// 合成假票据(非真实凭据):合法三段式明文 JWT,满足 planJwt 的 ^eyJ… 形态闸门。
+// 形态非法会在发请求前被诚实拦截(authFailed),夹具就跑不到 mock 分支,故必须用合法明文 JWT。
+const FAKE_PLAN_JWT =
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJmaXh0dXJlIiwiaWF0IjoxNzAwMDAwMDAwMH0.ZmFrZS1zaWduYXR1cmUtZm9yLXRlc3Rz'
+
 function makeCredMap(overrides: Record<string, string> = {}): Record<string, string> {
   return {
     'oauth:bigmodel:access_token': 'zc-oauth-token-fixture',
-    zcodejwttoken: 'zc-jwt-fixture',
+    zcodejwttoken: FAKE_PLAN_JWT,
     'oauth:bigmodel:user_info': 'zc-userinfo-fixture',
     'oauth:login_attribution': 'attr-fixture',
     'oauth:active_provider': 'bigmodel-fixture',
@@ -102,7 +107,7 @@ describe('zcode extractZcodeAccounts(两态)', () => {
     expect(acc!['regions']).toEqual(['cn'])
     // §0.6 raw 直通:credentials.json 整图逐字保留
     expect(acc!['oauth:bigmodel:access_token']).toBe('zc-oauth-token-fixture')
-    expect(acc!['zcodejwttoken']).toBe('zc-jwt-fixture')
+    expect(acc!['zcodejwttoken']).toBe(FAKE_PLAN_JWT)
     expect(acc![CN_PROJECT_KEY_NAME]).toBe('zc-project-key-fixture')
     // meta 摘要零回显:只有指纹/长度/布尔
     expect(result.meta.sessions[0]).toMatchObject({
@@ -167,7 +172,7 @@ function makeCtx(region?: 'cn' | 'global'): AdapterAccountContext {
         ...(region ? { region } : {}),
         credentialMap: {
           'oauth:bigmodel:access_token': 'zc-token',
-          zcodejwttoken: 'zc-jwt-fixture',
+          zcodejwttoken: FAKE_PLAN_JWT,
         },
       },
     },
@@ -395,7 +400,7 @@ describe('zcode getQuota(zcode-plan 通道,2026-10-27 实弹闭环)', () => {
     expect(url).toBe('https://zcode.z.ai/api/v1/zcode-plan/billing/balance?app_version=3.16.3')
     expect(init.method).toBe('GET')
     const headers = init.headers as Record<string, string>
-    expect(headers['authorization']).toBe('Bearer zc-jwt-fixture')
+    expect(headers['authorization']).toBe(`Bearer ${FAKE_PLAN_JWT}`)
     expect(headers['X-Device-Mid']).toMatch(/^[0-9a-f-]{36}$/)
     expect(headers['X-ZCode-App-Version']).toBe('3.16.3')
     expect(headers['X-Os-Category']).toBe('windows')
@@ -550,7 +555,7 @@ describe('zcode summarizeCredentials(零回显)', () => {
     const s = zcodeExtract.summarizeCredentials(makeCredMap(), ['cn'])
     const json = JSON.stringify(s)
     expect(json).not.toContain('zc-oauth-token-fixture')
-    expect(json).not.toContain('zc-jwt-fixture')
+    expect(json).not.toContain(FAKE_PLAN_JWT)
     expect(json).not.toContain('zc-project-key-fixture')
     expect(s).toMatchObject({ region: 'cn', hasOauthAccessToken: true, projectKeyCount: 1 })
   })
