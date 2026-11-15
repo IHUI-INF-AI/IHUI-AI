@@ -8080,7 +8080,7 @@ const checks = [
       '  外泄项目外。既有三把尺子都拦不到:盘根门认盘根 literal、C盘门认 C:\\ literal、',
       '  fixture 门只扫 scripts/ 测试夹具。',
       '  合规出口(唯一):',
-      '    JS/TS → import { getRuntimeTempRoot } from @ihui/shared(→ ~/.ihui/tmp,junction 落 D:)',
+      '    JS/TS → import { getRuntimeTempRoot } from @ihui/shared(→ <仓根>/.DevEnv/tmp,项目文件夹内)',
       '    Python → from app.core.runtime_temp import install_runtime_temp_root(把 tempfile 全局重定向到同一合规根)',
       '  差值棘轮:只拦本次新增,存量按该文件 HEAD 自身命中数只报数(§12e)。',
       '  取证:node scripts/check-runtime-tmp-landing.mjs [--staged|--json]',
