@@ -851,7 +851,14 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
           refund_status: string
         }
         if (['SUCCESS', 'CHANGE'].includes(decrypted.refund_status)) {
-          await refundOrder(decrypted.out_trade_no)
+          // F-09:微信渠道侧已实际退款,本地必须无条件同步状态并做退款副作用(token 扣回/佣金
+          // 冲减/权益回收)。用 claimRefund 抢占(paid→refunded)——若管理员主动退款已先抢占落库,
+          // 这里 0 行命中,说明副作用已由主动路径处理,按幂等跳过(返回 SUCCESS 让微信停止重推),
+          // 不返回 FAIL 否则微信会持续重试一条已落账的回调。
+          const claim = await claimRefund(decrypted.out_trade_no)
+          if (claim.success) {
+            await refundOrder(decrypted.out_trade_no, { alreadyClaimed: true })
+          }
         }
       }
       return reply.send({ code: 'SUCCESS', message: 'OK' })
@@ -949,18 +956,40 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
       // 部分退/整单退语义区分:仅全额退款才把订单置为 refunded(并回退 token 余额)
       const fullRefund = amount >= order.amount
       const refundNo = `refund_${outTradeNo}`
+      // F-09:与支付宝退款端点同模式——调微信渠道之前先用条件 UPDATE 抢占订单(paid→refunded)。
+      // 并发第二笔(另一管理员请求 / 微信异步退款回调)在此 0 行命中直接 409,不再重复调渠道,
+      // 否则两个路径都读到 paid、各退一次渠道就是真实资金双出。渠道失败/异常必须 abortRefund
+      // 回退到 paid,否则订单被误记 refunded、用户无法再次发起退款。
+      const claim = await claimRefund(outTradeNo)
+      if (!claim.success) {
+        return reply.status(409).send(error(409, claim.reason ?? '订单状态已变更,退款未落库'))
+      }
       if (isWechatPayConfigured()) {
-        await wxRefund({
-          outTradeNo,
-          refundNo,
-          refundAmount: amount,
-          totalAmount: order.amount,
-          reason,
-          notifyUrl: env.WX_PAY_NOTIFY_URL ?? '',
-        })
+        try {
+          await wxRefund({
+            outTradeNo,
+            refundNo,
+            refundAmount: amount,
+            totalAmount: order.amount,
+            reason,
+            notifyUrl: env.WX_PAY_NOTIFY_URL ?? '',
+          })
+        } catch (e) {
+          // 微信渠道调用异常:解除抢占回到 paid,保持原 500 错误语义,允许重试。
+          // 微信渠道无独立成功布尔返回(异常即失败),故不设 wxOk 死分支;支付宝侧
+          // 有 result.success 布尔才需对应 if(!result.success) abort。
+          await abortRefund(outTradeNo)
+          throw e
+        }
       }
       if (fullRefund) {
-        await refundOrder(outTradeNo)
+        // F-09:状态已在调渠道前抢占落库,这里只做退款副作用(token 扣回/佣金冲减/权益回收)。
+        const localResult = await refundOrder(outTradeNo, { alreadyClaimed: true })
+        if (!localResult.success) {
+          return reply
+            .status(409)
+            .send(error(409, localResult.reason ?? '订单状态已变更,退款未落库'))
+        }
       }
       return reply.send(success({ outTradeNo, refundNo, full: fullRefund }))
     },
@@ -1924,13 +1953,34 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
       if (!captureId) {
         return reply.status(400).send(error(400, 'PayPal 退款必须提供 captureId'))
       }
+      // F-09:与支付宝/微信退款端点同模式——调渠道之前先用条件 UPDATE 抢占订单(paid→refunded)。
+      // 并发第二笔(另一管理员请求 / PayPal webhook)在此 0 行命中直接 409,不再重复调渠道,
+      // 否则两个路径都读到 paid、各退一次渠道就是真实资金双出。渠道失败/异常必须 abortRefund
+      // 回退到 paid,否则订单被误记 refunded、用户无法再次发起退款。
+      const claim = await claimRefund(outTradeNo)
+      if (!claim.success) {
+        return reply.status(409).send(error(409, claim.reason ?? '订单状态已变更,退款未落库'))
+      }
       if (isPaypalConfigured()) {
-        const refundResult = await refundPaypalCapture({
-          captureId,
-          amountYuan: centsToYuanString(refundCents),
-          note: reason,
-        })
-        await refundOrder(outTradeNo)
+        let refundResult
+        try {
+          refundResult = await refundPaypalCapture({
+            captureId,
+            amountYuan: centsToYuanString(refundCents),
+            note: reason,
+          })
+        } catch (e) {
+          // PayPal 渠道调用异常:解除抢占回到 paid,保持原 500 错误语义,允许重试
+          await abortRefund(outTradeNo)
+          throw e
+        }
+        // F-09:状态已在调渠道前抢占落库,这里只做退款副作用(token 扣回/佣金冲减/权益回收)。
+        const localResult = await refundOrder(outTradeNo, { alreadyClaimed: true })
+        if (!localResult.success) {
+          return reply
+            .status(409)
+            .send(error(409, localResult.reason ?? '订单状态已变更,退款未落库'))
+        }
         return reply.send(
           success({
             outTradeNo,
@@ -1940,8 +1990,13 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
           }),
         )
       }
-      // 未配置 PayPal:仅本地退款
-      await refundOrder(outTradeNo)
+      // 未配置 PayPal:仅本地退款(状态已抢占,复用 alreadyClaimed 做副作用)
+      const localOnly = await refundOrder(outTradeNo, { alreadyClaimed: true })
+      if (!localOnly.success) {
+        return reply
+          .status(409)
+          .send(error(409, localOnly.reason ?? '订单状态已变更,退款未落库'))
+      }
       return reply.send(success({ outTradeNo, mock: true }))
     },
   )
