@@ -131,7 +131,7 @@ export function ContextAssemblyBar({
 
   return (
     <div
-      className={cn('mt-1 rounded-md border border-border/60 bg-muted/30', className)}
+      className={cn('mt-1 rounded-md border border-stroke-subtle bg-muted/30', className)}
       data-testid="context-assembly-bar"
     >
       <button

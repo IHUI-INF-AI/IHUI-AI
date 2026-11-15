@@ -128,7 +128,7 @@ function NewsCard({ item }: { item: AiNewsItem }) {
   return (
     <Link
       href={item.relatedModelIds[0] ? `/models?provider=${item.relatedModelIds[0]}` : '/news'}
-      className="group flex h-full flex-col gap-1.5 rounded-md border border-border bg-background p-2.5 transition-colors hover:border-primary/40 hover:bg-accent/40"
+      className="group flex h-full flex-col gap-1.5 rounded-md border border-border bg-background p-2.5 transition-colors hover:border-stroke-strong hover:bg-accent/40"
     >
       <div className="flex items-center gap-1 text-[10px] text-muted-foreground [&>span]:translate-y-[var(--text-vcenter-offset)]">
         <Calendar className="h-2.5 w-2.5" />
@@ -159,7 +159,7 @@ function FallbackNewsCard({ item }: { item: FallbackItem }) {
   return (
     <Link
       href="/models"
-      className="group flex h-full flex-col gap-1.5 rounded-md border border-border bg-muted/30 p-2.5 transition-colors hover:border-primary/40 hover:bg-accent/40"
+      className="group flex h-full flex-col gap-1.5 rounded-md border border-border bg-muted/30 p-2.5 transition-colors hover:border-stroke-strong hover:bg-accent/40"
     >
       <div className="flex items-center gap-1 text-[10px] text-muted-foreground [&>span]:translate-y-[var(--text-vcenter-offset)]">
         <Calendar className="h-2.5 w-2.5" />

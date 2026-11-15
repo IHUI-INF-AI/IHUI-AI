@@ -325,7 +325,7 @@ export function SubAgentActivityFeed({
                   <div
                     key={lane.key}
                     data-testid={`subagent-lane-${lane.key}`}
-                    className="min-w-0 rounded-md border border-border/30 bg-card/60 p-1.5"
+                    className="min-w-0 rounded-md border border-stroke-subtle bg-card/60 p-1.5"
                   >
                     <div className="mb-1 flex h-6 items-center gap-1.5 text-label leading-none">
                       <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />

@@ -235,8 +235,8 @@ export default function PersonasPage() {
                 className={cn(
                   'transition-colors',
                   isSelected
-                    ? 'border-brand-accent-deep ring-1 ring-primary/30'
-                    : 'cursor-pointer hover:border-primary/40 hover:bg-accent/40',
+                    ? 'border-brand-accent-deep ring-1 ring-stroke-selected/30'
+                    : 'cursor-pointer hover:border-stroke-strong hover:bg-accent/40',
                 )}
               >
                 <button

@@ -26,7 +26,13 @@ interface CostRow {
 }
 
 const costRows: CostRow[] = [
-  { model: 'DeepSeek V3.2', mult: '0.3x', cost: '0.3 积分 / 1K Token', tag: '几乎免费', Icon: Gift },
+  {
+    model: 'DeepSeek V3.2',
+    mult: '0.3x',
+    cost: '0.3 积分 / 1K Token',
+    tag: '几乎免费',
+    Icon: Gift,
+  },
   { model: 'Qwen-Turbo', mult: '0.5x', cost: '0.5 积分 / 1K Token', tag: '便宜', Icon: Gift },
   { model: 'GPT-4o-mini', mult: '0.5x', cost: '0.5 积分 / 1K Token', tag: '便宜', Icon: Coins },
   { model: 'Claude Haiku 3.5', mult: '1x', cost: '1 积分 / 1K Token', tag: '标准', Icon: Coins },
@@ -55,7 +61,9 @@ export const metadata: Metadata = {
     description: '积分规则、套餐对比、充值、发票、共享池。',
     url: `${SITE_URL}/docs/manual/billing`,
     type: 'article',
-    images: [{ url: '/images/logo.png?v=20261021', width: 1200, height: 630, alt: '智汇 AI 积分订阅' }],
+    images: [
+      { url: '/images/logo.png?v=20261021', width: 1200, height: 630, alt: '智汇 AI 积分订阅' },
+    ],
   },
 }
 
@@ -64,7 +72,9 @@ export default function ManualBillingPage() {
     <main className="px-4 mx-auto w-full max-w-3xl py-4">
       {/* Hero */}
       <header className="space-y-3">
-        <div className="font-[weight:inherit] text-label font-mono text-muted-foreground">第 05 章 · 使用说明手册</div>
+        <div className="font-[weight:inherit] text-label font-mono text-muted-foreground">
+          第 05 章 · 使用说明手册
+        </div>
         <h1 className="text-display min-[768px]:text-3xl font-bold tracking-tight">积分与订阅</h1>
         <p className="font-[weight:inherit] text-body text-muted-foreground min-[768px]:text-base">
           智汇 AI 用积分计费,一套积分全模型通用,无需每家厂商单独充值。
@@ -76,7 +86,9 @@ export default function ManualBillingPage() {
       <section id="credits-rule" className="mt-10 space-y-3">
         <h2 className="text-heading font-bold">5.1 积分消耗规则</h2>
         <div className="font-[weight:inherit] rounded-lg border bg-card p-3 space-y-3 text-body text-muted-foreground">
-          <p><strong>1 积分 ≈ 1000 Token</strong>(标准模型),贵模型消耗多,便宜模型消耗少:</p>
+          <p>
+            <strong>1 积分 ≈ 1000 Token</strong>(标准模型),贵模型消耗多,便宜模型消耗少:
+          </p>
           <div className="space-y-2">
             {costRows.map(({ model, mult, cost, tag, Icon }, i) => (
               <div
@@ -106,8 +118,11 @@ export default function ManualBillingPage() {
         <h2 className="text-heading font-bold">5.2 查看积分余额与消耗</h2>
         <div className="font-[weight:inherit] rounded-lg border bg-card p-3 space-y-2 text-body text-muted-foreground">
           <ul className="ml-4 list-disc space-y-1">
-            <li><strong>右上角</strong>:头像旁实时显示余额(如"1,234 积分")</li>
-            <li><strong>设置 → 积分</strong>:详细记录
+            <li>
+              <strong>右上角</strong>:头像旁实时显示余额(如"1,234 积分")
+            </li>
+            <li>
+              <strong>设置 → 积分</strong>:详细记录
               <ul className="font-[weight:inherit] ml-4 list-disc space-y-1 mt-1 text-label">
                 <li>当前余额</li>
                 <li>本月消耗(按日折线图)</li>
@@ -115,7 +130,9 @@ export default function ManualBillingPage() {
                 <li>最近 30 天的消耗流水(时间 / Agent / 模型 / Token / 积分)</li>
               </ul>
             </li>
-            <li><strong>预警</strong>:余额低于 100 积分自动邮件提醒</li>
+            <li>
+              <strong>预警</strong>:余额低于 100 积分自动邮件提醒
+            </li>
           </ul>
         </div>
       </section>
@@ -139,13 +156,15 @@ export default function ManualBillingPage() {
               <li>社区支持</li>
             </ul>
           </div>
-          <div className="rounded-lg border bg-primary/5 p-3 ring-1 ring-primary/30">
+          <div className="rounded-lg border bg-primary/5 p-3 ring-1 ring-stroke-selected/30">
             <p className="flex items-center text-body font-semibold">
               <Star className="mr-1.5 inline h-4 w-4" />
               Pro
             </p>
             <p className="mt-1 text-display font-bold">¥49/月</p>
-            <p className="font-[weight:inherit] text-label text-muted-foreground">按月订阅,随时取消</p>
+            <p className="font-[weight:inherit] text-label text-muted-foreground">
+              按月订阅,随时取消
+            </p>
             <ul className="font-[weight:inherit] mt-3 ml-4 list-disc space-y-1 text-label text-muted-foreground">
               <li>10,000 积分 / 月(用完可单独购买)</li>
               <li>优先队列(高峰期不排队)</li>
@@ -162,7 +181,9 @@ export default function ManualBillingPage() {
               Team
             </p>
             <p className="mt-1 text-display font-bold">¥299/月</p>
-            <p className="font-[weight:inherit] text-label text-muted-foreground">/ 5 人(每加 1 人 +¥49)</p>
+            <p className="font-[weight:inherit] text-label text-muted-foreground">
+              / 5 人(每加 1 人 +¥49)
+            </p>
             <ul className="font-[weight:inherit] mt-3 ml-4 list-disc space-y-1 text-label text-muted-foreground">
               <li>共享 50,000 积分 / 月</li>
               <li>5 个成员席位</li>
@@ -199,7 +220,8 @@ export default function ManualBillingPage() {
         <div className="font-[weight:inherit] rounded-lg border bg-card p-3 space-y-3 text-body text-muted-foreground">
           <ol className="ml-4 list-decimal space-y-1">
             <li>设置 → 积分 → "充值"按钮</li>
-            <li>选择充值档位:
+            <li>
+              选择充值档位:
               <ul className="font-[weight:inherit] ml-4 list-disc space-y-1 mt-1 text-label">
                 <li>1,000 积分 ¥9.9</li>
                 <li>5,000 积分 ¥45(95 折)</li>
@@ -225,10 +247,15 @@ export default function ManualBillingPage() {
           <ol className="ml-4 list-decimal space-y-1">
             <li>设置 → 积分 → "账单与发票"</li>
             <li>选择要开票的订单(可合并多单)</li>
-            <li>填写发票信息:
+            <li>
+              填写发票信息:
               <ul className="font-[weight:inherit] ml-4 list-disc space-y-1 mt-1 text-label">
-                <li><strong>个人</strong>:姓名 + 邮箱(电子普票)</li>
-                <li><strong>企业</strong>:公司名 + 税号 + 邮箱 + 开户行 + 账号(专票)</li>
+                <li>
+                  <strong>个人</strong>:姓名 + 邮箱(电子普票)
+                </li>
+                <li>
+                  <strong>企业</strong>:公司名 + 税号 + 邮箱 + 开户行 + 账号(专票)
+                </li>
               </ul>
             </li>
             <li>提交后 1-3 工作日开票,邮件通知</li>

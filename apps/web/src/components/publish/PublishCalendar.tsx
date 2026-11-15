@@ -192,7 +192,7 @@ export function PublishCalendar({ tasks, onReschedule, onCreateTask }: PublishCa
                   isCurrentMonth ? 'bg-card' : 'bg-muted/20 text-muted-foreground',
                   isToday && 'border-brand-accent-deep',
                   isSelected && 'ring-1 ring-ring',
-                  !isSelected && !isToday && 'border-border/40 hover:border-border',
+                  !isSelected && !isToday && 'border-stroke-subtle hover:border-border',
                 )}
               >
                 <div className="text-right text-[10px]">{date.getDate()}</div>
@@ -223,7 +223,7 @@ export function PublishCalendar({ tasks, onReschedule, onCreateTask }: PublishCa
         </div>
 
         {selectedDate && (
-          <div className="mt-3 space-y-2 rounded-md border border-border/60 bg-muted/20 p-2.5">
+          <div className="mt-3 space-y-2 rounded-md border border-stroke-subtle bg-muted/20 p-2.5">
             <div className="flex items-center justify-between">
               <span className="text-label font-medium">
                 {selectedDate} · {t('calendar.taskCount', { count: selectedTasks.length })}

@@ -63,7 +63,9 @@ export default function ModelTypeButton({
   return (
     <View
       className={`flex flex-col items-center justify-center mr-md px-md py-sm rounded-sm transition-colors ${
-        active ? 'bg-primary/10 border border-primary/30' : 'bg-muted border border-transparent'
+        active
+          ? 'bg-primary/10 border border-stroke-selected'
+          : 'bg-muted border border-transparent'
       }`}
       onClick={() => onClick?.(type)}
       hoverClass="opacity-60"

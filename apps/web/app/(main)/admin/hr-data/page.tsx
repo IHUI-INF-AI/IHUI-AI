@@ -94,7 +94,7 @@ export default function HrDataPage() {
             onClick={() => setTab(tb.key)}
             className={`flex items-center gap-1 px-3 py-2 text-body ${
               tab === tb.key
-                ? 'border-b-2 border-primary font-medium text-primary'
+                ? 'border-b-2 border-stroke-selected font-medium text-primary'
                 : 'text-muted-foreground'
             }`}
           >

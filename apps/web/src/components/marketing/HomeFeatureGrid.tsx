@@ -69,7 +69,7 @@ export function HomeFeatureGrid() {
           <RevealOnView
             key={title}
             delay={0.08 * (i + 1)}
-            className="group relative flex flex-col items-center justify-center gap-2 overflow-hidden rounded-lg border bg-card p-3 text-center transition-all duration-300 hover:border-primary/30 min-[640px]:p-3"
+            className="group relative flex flex-col items-center justify-center gap-2 overflow-hidden rounded-lg border bg-card p-3 text-center transition-all duration-300 hover:border-stroke-strong min-[640px]:p-3"
           >
             {/* Ghost 编号 */}
             <span

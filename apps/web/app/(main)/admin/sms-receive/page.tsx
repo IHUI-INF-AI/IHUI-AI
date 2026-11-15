@@ -963,7 +963,7 @@ export default function SmsReceivePage() {
                         {usedUnion.items.map((u) => (
                           <div
                             key={u.id}
-                            className="rounded-md border border-primary/20 bg-primary/5 p-2 text-label"
+                            className="rounded-md border border-stroke-selected bg-primary/5 p-2 text-label"
                           >
                             <div className="flex flex-wrap items-center gap-2">
                               <span className="font-mono font-semibold">{u.phone}</span>

@@ -250,12 +250,12 @@ export default function VoicesPage() {
       )}
 
       {info && (
-        <div className="rounded-md border border-primary/40 bg-primary/10 p-3 text-body text-primary">
+        <div className="rounded-md border border-stroke-selected bg-primary/10 p-3 text-body text-primary">
           {info}
         </div>
       )}
 
-      <div className="overflow-hidden rounded-md border border-border/50 bg-card/50">
+      <div className="overflow-hidden rounded-md border border-stroke-subtle bg-card/50">
         {!allow ? (
           <AuthGatePrompt message={tGate('loginRequired')} />
         ) : listQuery.isLoading ? (

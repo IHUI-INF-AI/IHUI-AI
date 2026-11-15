@@ -800,7 +800,7 @@ export function BatchScanLoginDialog({
                   className={cn(
                     'flex items-center gap-2 rounded-md px-2 py-1 text-label',
                     ITEM_STATUS_STYLE[it.status],
-                    it.status === 'active' && 'ring-1 ring-primary/40',
+                    it.status === 'active' && 'ring-1 ring-stroke-selected/40',
                   )}
                 >
                   <span className="w-8 shrink-0 text-right text-[10px] opacity-70">{idx + 1}.</span>

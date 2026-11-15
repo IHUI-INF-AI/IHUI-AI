@@ -67,7 +67,7 @@ export default function HelpPage() {
   const catCls = (on: boolean) =>
     cn(
       'flex w-full items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors',
-      on ? 'border-primary/40 bg-primary/5 text-primary' : 'bg-card hover:bg-accent',
+      on ? 'border-stroke-selected bg-primary/5 text-primary' : 'bg-card hover:bg-accent',
     )
 
   return (

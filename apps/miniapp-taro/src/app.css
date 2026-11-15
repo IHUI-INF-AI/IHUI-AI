@@ -177,8 +177,8 @@ progress {
   --color-accent-foreground: hsl(0 0% 9%);
   --color-destructive: hsl(0 100% 60%);
   --color-destructive-foreground: hsl(0 0% 98%);
-  --color-border: hsl(0 0% 89.8%);
-  --color-input: hsl(0 0% 91%);
+  --color-border: rgba(0, 0, 0, 0.1);
+  --color-input: rgba(0, 0, 0, 0.08);
   --color-ring: hsl(0 0% 70%);
   --color-success: hsl(142 71% 45%);
   --color-success-foreground: hsl(0 0% 98%);
@@ -242,7 +242,7 @@ progress {
   --color-warm-bg: #fff4e6;
   --color-text-tertiary: #a3a3a3;
   --color-text-medium: #404040;
-  --color-border-medium: #d4d4d4;
+  --color-border-medium: rgba(0, 0, 0, 0.16);
   --color-brand-accent-light: #eaf2f7;
   --color-surface-dark: #262626;
   --color-vip-card: #262626;
@@ -456,6 +456,26 @@ progress {
   --text-display-xl: 56rpx;
   --text-display-xl--line-height: 72rpx;
   --text-display-xl--font-weight: 700;
+
+  /* 以下 5 档为 tokens.css 中存在而本区尚缺,由 sync-design-tokens.mjs 自动补入(勿手改) */
+  --color-toast-success-bg: #15803d;
+  --color-toast-error-bg: #b91c1c;
+  --color-toast-warning-bg: #b45309;
+  --color-toast-info-bg: #1f2937;
+  --color-toast-foreground: #ffffff;
+
+  /* 以下 8 档为 tokens.css 中存在而本区尚缺,由 sync-design-tokens.mjs 自动补入(勿手改) */
+  --color-stroke-subtle: rgba(0, 0, 0, 0.06);
+  --color-stroke-default: rgba(0, 0, 0, 0.1);
+  --color-stroke-strong: rgba(0, 0, 0, 0.16);
+  --color-stroke-inverse: rgba(255, 255, 255, 0.2);
+  --color-stroke-field: rgba(0, 0, 0, 0.08);
+  --color-stroke-focus: #000000;
+  --color-stroke-selected: #4a7a96;
+  --color-stroke-danger: #dc2626;
+
+  /* 以下 1 档为 tokens.css 中存在而本区尚缺,由 sync-design-tokens.mjs 自动补入(勿手改) */
+  --color-muted-soft: hsl(0 0% 94%);
 }
 
 /* ===== 阿里妈妈方圆体 VF — 统一项目字体 (对齐原项目) =====
@@ -599,8 +619,8 @@ iframe#webpack-dev-server-client-overlay {
   --color-accent-foreground: hsl(0 0% 9%);
   --color-destructive: hsl(0 100% 60%);
   --color-destructive-foreground: hsl(0 0% 98%);
-  --color-border: hsl(0 0% 89.8%);
-  --color-input: hsl(0 0% 91%);
+  --color-border: rgba(0, 0, 0, 0.1);
+  --color-input: rgba(0, 0, 0, 0.08);
   --color-ring: hsl(0 0% 70%);
   --color-success: hsl(142 71% 45%);
   --color-success-foreground: hsl(0 0% 98%);
@@ -666,7 +686,7 @@ iframe#webpack-dev-server-client-overlay {
   --color-warm-bg: #fff4e6;
   --color-text-tertiary: #a3a3a3;
   --color-text-medium: #404040;
-  --color-border-medium: #d4d4d4;
+  --color-border-medium: rgba(0, 0, 0, 0.16);
   --color-brand-accent-light: #eaf2f7;
   --color-surface-dark: #262626;
   --color-vip-card: #262626;
@@ -722,7 +742,26 @@ iframe#webpack-dev-server-client-overlay {
   /* 2026-11-11 收口:此处曾有 --shadow-2xs/xs/sm/md/lg/xl/2xl 七个别名(第二套档名),
      全仓已统一为 --shadow-elevation-*(唯一源 elevation.ts),别名删除、不得回填。 */
 
-  /* ===== Tailwind v3 alpha 通道三元组(自动同步自 tokens.css,勿手动编辑;
+  /* 以下 5 档为 tokens.css 中存在而本区尚缺,由 sync-design-tokens.mjs 自动补入(勿手改) */
+  --color-toast-success-bg: #15803d;
+  --color-toast-error-bg: #b91c1c;
+  --color-toast-warning-bg: #b45309;
+  --color-toast-info-bg: #1f2937;
+  --color-toast-foreground: #ffffff;
+
+  /* 以下 8 档为 tokens.css 中存在而本区尚缺,由 sync-design-tokens.mjs 自动补入(勿手改) */
+  --color-stroke-subtle: rgba(0, 0, 0, 0.06);
+  --color-stroke-default: rgba(0, 0, 0, 0.1);
+  --color-stroke-strong: rgba(0, 0, 0, 0.16);
+  --color-stroke-inverse: rgba(255, 255, 255, 0.2);
+  --color-stroke-field: rgba(0, 0, 0, 0.08);
+  --color-stroke-focus: #000000;
+  --color-stroke-selected: #4a7a96;
+  --color-stroke-danger: #dc2626;
+
+  /* 以下 1 档为 tokens.css 中存在而本区尚缺,由 sync-design-tokens.mjs 自动补入(勿手改) */
+  --color-muted-soft: hsl(0 0% 94%);
+/* ===== Tailwind v3 alpha 通道三元组(自动同步自 tokens.css,勿手动编辑;
      给 bg/text/border-*-/<透明度> 用,见 packages/design-tokens/src/tailwind-alpha-plugin.js)===== */
   --color-foreground-rgb: 10, 10, 10;
   --color-primary-rgb: 0, 0, 0;
@@ -828,8 +867,8 @@ iframe#webpack-dev-server-client-overlay {
   --color-accent-foreground: hsl(0 0% 98%);
   --color-destructive: hsl(0 100% 60%);
   --color-destructive-foreground: hsl(0 0% 98%);
-  --color-border: hsl(0 0% 22%);
-  --color-input: hsl(0 0% 26%);
+  --color-border: rgba(255, 255, 255, 0.12);
+  --color-input: rgba(255, 255, 255, 0.16);
   --color-ring: hsl(0 0% 35%);
   --color-success: hsl(142 65% 50%);
   --color-success-foreground: hsl(0 0% 98%);
@@ -876,7 +915,7 @@ iframe#webpack-dev-server-client-overlay {
   --color-warm-bg: rgba(250, 204, 21, 0.14);
   --color-text-tertiary: #737373;
   --color-text-medium: #d4d4d4;
-  --color-border-medium: #525252;
+  --color-border-medium: rgba(255, 255, 255, 0.2);
   --color-surface-dark: #171717;
   --color-vip-card: #262626;
   --color-brand-accent-light: #1e2e36;
@@ -927,6 +966,21 @@ iframe#webpack-dev-server-client-overlay {
   --color-success-text: hsl(142 65% 50%);
   --color-warning-text: hsl(38 85% 55%);
   --color-danger-text: #f87171;
+
+  /* 以下 2 档为 tokens.css 中存在而本区尚缺,由 sync-design-tokens.mjs 自动补入(勿手改) */
+  --color-stroke-subtle: rgba(255, 255, 255, 0.08);
+  --color-stroke-inverse: rgba(0, 0, 0, 0.3);
+
+  /* 以下 6 档为 tokens.css 中存在而本区尚缺,由 sync-design-tokens.mjs 自动补入(勿手改) */
+  --color-stroke-default: rgba(255, 255, 255, 0.12);
+  --color-stroke-strong: rgba(255, 255, 255, 0.2);
+  --color-stroke-field: rgba(255, 255, 255, 0.16);
+  --color-stroke-focus: #ffffff;
+  --color-stroke-selected: #a3c4d6;
+  --color-stroke-danger: #ef4444;
+
+  /* 以下 1 档为 tokens.css 中存在而本区尚缺,由 sync-design-tokens.mjs 自动补入(勿手改) */
+  --color-muted-soft: hsl(0 0% 14.9%);
 }
 
 /* ===== 通用工具类 ===== */

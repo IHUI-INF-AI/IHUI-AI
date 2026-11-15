@@ -102,7 +102,7 @@ export default async function N8nAgentsPage() {
       </header>
 
       {/* 介绍卡片 */}
-      <Card className="border-primary/20 bg-primary/5">
+      <Card className="border-stroke-selected bg-primary/5">
         <CardContent className="min-[640px]:p-3 flex flex-col gap-4 p-3 min-[640px]:flex-row min-[640px]:items-center min-[640px]:justify-between">
           <div className="space-y-1">
             <div className="flex items-center gap-2">

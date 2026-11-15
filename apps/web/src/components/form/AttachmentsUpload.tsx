@@ -220,7 +220,7 @@ export function AttachmentsUpload({
         onDrop={onDrop}
         className={cn(
           'flex cursor-pointer flex-col items-center justify-center rounded-md border border-dashed border-border px-4 py-6 text-center transition-colors hover:bg-muted/50',
-          dragOver && 'border-primary/60 bg-primary/5',
+          dragOver && 'border-stroke-selected bg-primary/5',
         )}
       >
         <input
