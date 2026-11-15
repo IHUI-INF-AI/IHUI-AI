@@ -10,10 +10,13 @@
  * **不实现** refreshToken(刷新端点无公开文档,不猜)⇒ 池自身没有任何自愈通道,本腿是唯一出路。
  *
  * 与 `relay-import-*.ts`(整条覆盖 + 重置健康状态)不同:本脚本只动凭证列并
- * `credVersion + 1`(签到侧按版本防降级),并存**证据**上恢复健康态(见 `revivePatchOf`):
- * 只有当客户端递来「与池内不同且尚未过期」的票时,才把 down/degraded/被摘除的行放回 unknown
- * 让巡检重新定级 —— 同票 / 过期票一律不碰健康字段(否则每 10 分钟一次的回灌会把 down 洗成
- * unknown,§0.3 取不到 ≠ 失效)。
+ * `credVersion + 1`(签到侧按版本防降级),并在**真的写入本机新票**那一次把异常行复位到
+ * unknown + 清零失败面(见 `revivePatchOf`)。**判据住在 `relay-credential-revival.ts`
+ * (`healthRevivalPatchOf`),本腿只做调用**,不复算「客户端票是否过期 / 池是否 healthy /
+ * broken 信号」—— 那正是 §0.6 要收归单源的第二份判据。
+ * 这不会造成「拿死票空撞上游」:复位只在 `decideSync` 判定票确实轮换、`final.apply` 为真的
+ * 那一次写库里发生(同票 / 池内更新 / 过期票一律走不到这里),且单源对过期票返回 null
+ * ⇒ 死票既不会被复活,也不会被每 10 分钟一次的回灌反复洗成 unknown(§0.3 取不到 ≠ 失效)。
  *
  * 身份识别(2026-10-31 立,2026-11-06 实测更正):`mapMinimaxImport` 的 uid 是
  * `auto:sha256(recordKey:token)`,**随 token 旋转而变**,照 uid 找行在票一换之后找不到。
@@ -63,6 +66,8 @@ const touchClientHeartbeat = traeSync.touchClientHeartbeat
 // 目标行选择单源(2026-11-01 第四条腿收口):运营池优先 / 个人池唯一行 / 多行拒写。
 // 候选查询去掉 owner 过滤,本机号落个人池时不再走自动入池造重复行(与 qoder 事故同型)。
 const { chooseSyncTargetRow } = await import('../src/services/relay-session-sync-target.js')
+// 健康态复位判据单源(§0.6):本腿的 revivePatchOf 只做签名适配,判据全住在这里,不再各写一份。
+const { healthRevivalPatchOf } = await import('../src/services/relay-credential-revival.js')
 
 import type { SyncReason } from '../src/services/relay-session-sync-decision.js'
 import type { ImportAccountInput } from '../src/services/relay-account-pool-service.js'
@@ -276,32 +281,19 @@ export function buildMinimaxAutoImportInput(acc: MinimaxSyncCandidate): ImportAc
 }
 
 /**
- * 健康态恢复判据(纯函数)。**只上行不下行**:
- * - 客户端没给到期 / 票已过期 ⇒ null(过期票不是"账号活着"的证据,交巡检判);
- * - 池内已是 healthy ⇒ null(不回退健康态,也不替 admin 解摘);
- * - down / degraded / 有刷新失败计数 / 被临时摘除 ⇒ 放回 unknown + 清零失败面
- *   (与巡检"刷新成功"分支同形;minimax 无刷新能力,不这么做这行永远回不来)。
+ * 健康态恢复判据(纯函数,**只做签名适配**)。
+ *
+ * 判据住在 `relay-credential-revival.ts`(`healthRevivalPatchOf`),本腿只做调用:保留既有
+ * 测试 import 的导出名与 `(pool, clientExpiresAt, now)` 签名,把三个实参原样转交单源,
+ * 本文件不再复算「客户端票未过期 / 池非 healthy / broken」—— 那正是要收归的第二份判据。
+ * 单源的反向牙(过期票 ⇒ null、健康且无失败面的行 ⇒ null)原样生效,不在本腿再写一遍。
  */
 export function revivePatchOf(
   pool: { healthStatus: string; refreshFailureCount: number; tempUnschedulable: boolean },
   clientExpiresAt: Date | null,
   now: Date,
 ): HealthRevival | null {
-  if (!clientExpiresAt) return null
-  if (clientExpiresAt.getTime() <= now.getTime()) return null
-  if (pool.healthStatus === 'healthy') return null
-  const broken =
-    pool.healthStatus === 'down' ||
-    pool.healthStatus === 'degraded' ||
-    pool.refreshFailureCount > 0 ||
-    pool.tempUnschedulable
-  if (!broken) return null
-  return {
-    healthStatus: 'unknown',
-    refreshFailureCount: 0,
-    lastErrorMessage: null,
-    tempUnschedulable: false,
-  }
+  return healthRevivalPatchOf(pool, { clientExpiresAt, now })
 }
 
 /**

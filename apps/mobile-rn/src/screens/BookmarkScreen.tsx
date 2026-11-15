@@ -38,7 +38,7 @@ export function BookmarkScreen() {
           success: true as const,
           data: {
             ...res.data,
-            list: res.data.list.map((f) => ({
+            list: (res.data.list ?? []).map((f) => ({
               id: f.id,
               targetId: f.resourceId,
               targetType: f.resourceType,

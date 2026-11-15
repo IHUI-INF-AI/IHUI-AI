@@ -80,7 +80,7 @@ export default function AiGroupScreen() {
         // 并行补成员腿(G-998102 AiGroup 票):列表行只有 user_groups 本行,members 恒空
         // ⇒ 详情页成员数/卡片头像名全空。GET /:id/members 已 join users 返回 name/avatar。
         const withMembers = await Promise.all(
-          res.data.list.map(async (g) => {
+          (res.data?.list ?? []).map(async (g) => {
             try {
               const mres = await fetchApi<{
                 list: Array<{ userId: string; role: string | null; name: string | null }>
