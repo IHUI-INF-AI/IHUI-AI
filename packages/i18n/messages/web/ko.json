@@ -30007,7 +30007,9 @@
     "suggestionReviewFiles": "방금 수정한 파일 확인",
     "suggestionAnswerQuestion": "AI 질문에 답변",
     "suggestionContinueTopic": "위 내용에 대해 이어서 질문",
-    "dismiss": "이 제안 무시"
+    "dismiss": "이 제안 무시",
+    "close": "제안 숨기기",
+    "restore": "제안 표시"
   },
   "taskMonitor": {
     "group": {

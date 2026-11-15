@@ -30004,7 +30004,9 @@
     "suggestionReviewFiles": "Review the files just modified",
     "suggestionAnswerQuestion": "Answer the AI's question",
     "suggestionContinueTopic": "Ask a follow-up on the above",
-    "dismiss": "Dismiss this suggestion"
+    "dismiss": "Dismiss this suggestion",
+    "close": "Hide suggestions",
+    "restore": "Show suggestions"
   },
   "taskMonitor": {
     "group": {

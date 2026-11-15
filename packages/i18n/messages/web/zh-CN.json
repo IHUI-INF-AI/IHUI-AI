@@ -30008,7 +30008,9 @@
     "suggestionReviewFiles": "查看刚才修改的文件",
     "suggestionAnswerQuestion": "回答 AI 的提问",
     "suggestionContinueTopic": "就上述内容继续追问",
-    "dismiss": "忽略这条建议"
+    "dismiss": "忽略这条建议",
+    "close": "隐藏建议",
+    "restore": "显示建议"
   },
   "taskMonitor": {
     "group": {

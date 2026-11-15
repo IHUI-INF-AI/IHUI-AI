@@ -29979,7 +29979,9 @@
     "suggestionReviewFiles": "檢視剛才修改的檔案",
     "suggestionAnswerQuestion": "回答 AI 的提問",
     "suggestionContinueTopic": "就上述內容繼續追問",
-    "dismiss": "忽略這條建議"
+    "dismiss": "忽略這條建議",
+    "close": "隱藏建議",
+    "restore": "顯示建議"
   },
   "taskMonitor": {
     "group": {
