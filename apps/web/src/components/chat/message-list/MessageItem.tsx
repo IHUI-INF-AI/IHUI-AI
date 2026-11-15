@@ -39,6 +39,9 @@ import { CommunityPublishDialog } from '@/components/chat/community-publish-dial
 import CheckpointRewindPanel from '@/components/checkpoint/CheckpointRewindPanel'
 import { MarkdownStream, type FileMention } from '@/components/ai/markdown-stream'
 import { useAppearanceStore } from '@/stores/appearance-settings'
+// 外观 v3(2026-11-15 补):单条消息样式覆盖。该模块曾因未入仓被 2026-11-15 的
+// fix(web) 摘除过一轮(当时是为了救部署),模块补齐后接线一并装回。
+import { messageStyleVars, useAppearanceScopeStore } from '@/stores/appearance-scope'
 import { extractRefs } from './file-chips'
 import { resolveFileMention } from '@/lib/file-mention'
 import { openWorkspaceFileInIde } from '@/lib/workspace-file-open'
@@ -48,6 +51,7 @@ import { RichAnchorText } from '@/components/chat/rich-anchor-text'
 // D129:用户气泡的正文渲染器(附件拍平形态的止血;详见该文件头注)
 import { UserMessageBody } from './user-message-body'
 import { MessageVersionMenu, type MessageVersionEntry } from './message-version-menu'
+import { MessageStyleMenu } from './message-style-menu'
 // G-825(2026-09-29 立):消息级 markdown 错误边界 —— 一条消息的渲染异常此前会冒泡到路由级 error(整页挂掉)。
 // 复位语义复用既有 ErrorBoundary 的 resetKeys 档,不写第二份边界实现;键的形状住纯函数层。
 import { ErrorBoundary } from '@/components/common/ErrorBoundary'
@@ -286,6 +290,9 @@ const MessageItem = React.memo(function MessageItem({
   // 外观 v2:长消息折叠(默认关闭,不改变既有观感)
   const longMessageCollapse = useAppearanceStore((s) => s.longMessageCollapse)
   const collapseLines = useAppearanceStore((s) => s.collapseLines)
+  // 外观 v3:单条消息样式覆盖(只产出 --message-* 增量变量)
+  const messageOverride = useAppearanceScopeStore((s) => s.messages[m.id])
+  const messageVars = React.useMemo(() => messageStyleVars(messageOverride), [messageOverride])
   const [messageExpanded, setMessageExpanded] = React.useState(false)
   const failureResolution = m.error
     ? resolveViewFailure({ errorCode: m.errorCode, message: m.content })
@@ -1248,7 +1255,7 @@ const MessageItem = React.memo(function MessageItem({
   )
 
   const answerBodyStyled = (
-    <div>
+    <div style={messageVars} data-message-style={messageOverride ? 'custom' : undefined}>
       {answerBodyRaw}
     </div>
   )
@@ -1399,7 +1406,7 @@ const MessageItem = React.memo(function MessageItem({
           // 2026-10-01 S15 按 V4 #87 止血步翻转:交给 UserMessageBody 拆附件渲染,
           // **正文与助手侧走同一套 MarkdownStream**(危险项天然关闭 —— 无 rehype-raw),
           // 被拒不安全/判不出的行由共享层摘出、组件按字面渲染,绝不静默消失。
-          <div>
+          <div style={messageVars} data-message-style={messageOverride ? 'custom' : undefined}>
             <UserMessageBody content={m.content} testId={`user-message-body-${m.id}`} />
           </div>
         ) : (
@@ -1879,6 +1886,8 @@ const MessageItem = React.memo(function MessageItem({
                   onSelect={(id) => onSelectMessageVersion(versionInfo.rootId, id)}
                 />
               )}
+              {/* 外观 v3:单条消息样式覆盖(字号/字体/行高/字距/对齐/代码字号) */}
+              <MessageStyleMenu messageId={m.id} />
               {/* AI 消息:Eye/EyeOff(内容可见性切换)— 原项目 toggleAssistantContentVisibility */}
               {!isUser && (
                 <Tooltip

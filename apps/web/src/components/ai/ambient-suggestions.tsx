@@ -73,9 +73,31 @@ export function deriveAmbientSuggestions(messages: readonly ChatMessage[]): Ambi
 
 interface AmbientSuggestionsProps {
   messages: readonly ChatMessage[]
+  /**
+   * 会话 id。用途只有一个:切换会话时把「本会话已忽略」集合清空。
+   * 可缺省 —— 缺省等于"不区分会话"(老调用点行为逐字不变)。
+   */
+  conversationId?: string | null
+  /**
+   * 是否正在流式输出。注入且为 true 时不出现建议:
+   * 回答还没写完就推「下一步做什么」,只会抢在用户读完之前把视线拽走。
+   * 缺省(不注入)等于不做这个抑制,老行为不变。
+   */
+  isStreaming?: boolean
+  /**
+   * 采纳建议的回调。注入后由宿主决定写哪个 store:多窗格并存时必须写**本窗格**
+   * 的 store(见 MessageList 2026-11-14 注释),写根单例会串到别的窗格。
+   * 不注入时回落到根单例写法,保持既有单窗格行为与既有测试不变。
+   */
+  onAdopt?: (prompt: string) => void
 }
 
-export function AmbientSuggestions({ messages }: AmbientSuggestionsProps) {
+export function AmbientSuggestions({
+  messages,
+  conversationId,
+  isStreaming,
+  onAdopt,
+}: AmbientSuggestionsProps) {
   const t = useTranslations('ambientSuggestions')
   // 票60 普查批:本组件只在 MessageList 尾部挂载,而 MessageList 也进非根窗格(ChatPaneBody)
   // ⇒ 开关按窗格寻址(键含窗格身份);Provider 外回落根单例,既有单窗格行为零变化。
@@ -84,6 +106,11 @@ export function AmbientSuggestions({ messages }: AmbientSuggestionsProps) {
   const setEnabled = detailStore((s) => s.setSuggestionsEnabled)
   /** 忽略/采纳过的建议本会话内不再出现(会话级,不持久化) */
   const [dismissed, setDismissed] = React.useState<ReadonlySet<string>>(() => new Set())
+
+  // 切会话:清掉上一个会话的忽略记录。集合已空时返回同一引用,不触发多余重渲。
+  React.useEffect(() => {
+    setDismissed((prev) => (prev.size === 0 ? prev : new Set()))
+  }, [conversationId])
 
   const suggestions = React.useMemo(() => deriveAmbientSuggestions(messages), [messages])
 
@@ -105,6 +132,9 @@ export function AmbientSuggestions({ messages }: AmbientSuggestionsProps) {
     )
   }
 
+  // 流式中不推建议(见 isStreaming 属性注释);不注入该属性时行为不变
+  if (isStreaming) return null
+
   const visible = suggestions.filter((s) => !dismissed.has(s.id))
   if (visible.length === 0) return null
 
@@ -117,7 +147,9 @@ export function AmbientSuggestions({ messages }: AmbientSuggestionsProps) {
   }
   const adopt = (s: AmbientSuggestion) => {
     // 采纳 = 把建议文本填入输入框(draftInput 由 MessageInput 消费后置 null)
-    useChatStore.setState({ draftInput: t(SUGGESTION_LABEL_KEYS[s.kind]) })
+    const prompt = t(SUGGESTION_LABEL_KEYS[s.kind])
+    if (onAdopt) onAdopt(prompt)
+    else useChatStore.setState({ draftInput: prompt })
     dismiss(s.id)
   }
 
