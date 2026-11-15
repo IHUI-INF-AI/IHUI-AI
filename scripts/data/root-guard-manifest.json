@@ -3,7 +3,7 @@
   "version": 1,
   "sealedAt": "2026-11-15T07:20:57.000Z",
   "sealedBy": "AI智汇社 <lizong@aizhs.top>",
-  "reason": "收敛合并树重封: 解门号323撞车(runtime-tmp-landing→320), 并同步 AGENTS.md 等受保护文件真实 sha, 使合并树恢复部署可过",
+  "reason": "修正重封口径: AGENTS.md 为 mode=section, 应按「## 0. 全局铁律」段哈希而非整文件哈希; 恢复 origin 段哈希(内容未变)",
   "targets": [
     {
       "id": "guardian-runner",
@@ -22,7 +22,7 @@
       "path": "AGENTS.md",
       "mode": "section",
       "start": "## 0. 全局铁律",
-      "sha256": "60913d502ba76fcd96b9f56a4453ef2b2b38db436b5d0c06a60897aad4bec301"
+      "sha256": "541f86a3f77632be00f3cdfd0564fa4405af25c9d130b136094b66286da35573"
     },
     {
       "id": "git-guardian",
