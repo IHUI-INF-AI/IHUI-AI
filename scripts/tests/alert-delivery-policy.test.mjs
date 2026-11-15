@@ -292,4 +292,20 @@ test('防误删闸:策略表可解析、顶层数组、条目数≥17、关键�
     seen.add(e.id)
   }
 })
+
+test('2026-11-15 制度闸:保活腿误报已在判据层根治,禁止再靠调冷却窗口压症状', () => {
+  const raw = readFileSync(new URL('../data/alert-delivery-policy.json', import.meta.url), 'utf8')
+  const parsed = JSON.parse(raw)
+  const wb = parsed.find((e) => e.id === 'client-sync-leg-workbuddy')
+  assert.ok(wb, 'client-sync-leg-workbuddy 条目缺失 ⇒ 被误删')
+  // 五次历史处置都落在派发抑制层(改窗口),判据层零改动 ⇒ 窗口一回收误报即回,累计 30 封。
+  // 本闸把「改窗口」钉成显式决策:定案文字、单一真相源、判据不复制,三项缺一即红。
+  assert.equal(wb.cooldownMs, 43200000, '窗口现值锁死:改窗口必须同步修订本测试')
+  assert.match(wb.evidence, /2026-11-15 根因定案/, '定案不得被改写掉')
+  assert.match(wb.evidence, /client-sync-verdict\.mjs 单一真相源/, '必须点名契约层根治')
+  assert.match(wb.evidence, /不要再靠拉长 cooldownMs/, '必须保留禁止抑制层复发的口径')
+  const ruler = readFileSync(new URL('../check-qoder-session-sync-task.mjs', import.meta.url), 'utf8')
+  assert.match(ruler, /from '\.\/lib\/client-sync-verdict\.mjs'/, '尺子必须共用契约')
+  assert.doesNotMatch(ruler, /export const CLIENT_NOT_READY_RE/, '判据不得被复制回尺子')
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
