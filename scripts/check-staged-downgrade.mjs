@@ -151,6 +151,38 @@ export function worktreeBlobOid(rel, root = ROOT) {
 }
 
 /**
+ * 批量档:一次 `hash-object --stdin-paths` 取整批磁盘 oid。
+ * 2026-11-15 性能:此前工作树臂对每个 M 路径起一个 git 进程,2000 文件在 Windows 上要十几分钟,
+ * 会被单门超时看门狗判成"未判定"。这里只并把读取改成一次进程;三态语义(ABSENT/UNKNOWN/oid)
+ * 与逐条档完全一致,批量失败时回落到逐条档(不猜)。
+ */
+export function worktreeBlobOids(rels, root = ROOT) {
+  const result = new Map()
+  const present = []
+  for (const rel of rels) {
+    if (existsSync(resolve(root, rel))) present.push(rel)
+    else result.set(rel, 'ABSENT')
+  }
+  if (present.length === 0) return result
+  try {
+    const out = String(
+      gitRaw(['-c', 'core.autocrlf=false', 'hash-object', '--stdin-paths'], root, {
+        input: present.join('\n'),
+      }),
+    )
+    const lines = out.split(/\r?\n/).filter(Boolean)
+    if (lines.length !== present.length) throw new Error('hash-object --stdin-paths 行数不匹配')
+    for (let i = 0; i < present.length; i++) {
+      const oid = lines[i].trim()
+      result.set(present[i], /^[0-9a-f]{40}$/i.test(oid) ? oid.toLowerCase() : 'UNKNOWN')
+    }
+  } catch {
+    for (const rel of present) result.set(rel, worktreeBlobOid(rel, root))
+  }
+  return result
+}
+
+/**
  * 判一轮。返回五态对象(调用方不得把 undetermined / not-applicable 折成 pass):
  *   { state:'pass', judged, paths }
  *   { state:'not-applicable', judged:0, paths:[] }   ← 索引面无暂存改动,没东西可判,不记绿
@@ -320,6 +352,7 @@ export function judge({
   // 独立审计(未传声明集)判**全部**工作树 M 路径,专门兜"索引对齐、磁盘旧档"这格。
   // 这不是放宽:要提交的旧档必在声明集里,索引臂本身就已点名(make 时 index blob = 祖先)。
   const worktreeScoped = scope.length > 0
+  const wtOidMap = worktreeBlobOids(worktreePaths, root)
   for (const p of worktreePaths) {
     if (stale.some((s) => s.path === p)) continue // 同一路径已被索引面点名,不重复报
     if (worktreeScoped && !scope.includes(p)) continue // 提交路径:别席残渣不替他们判(射程同归一化臂)
@@ -327,7 +360,7 @@ export function judge({
     if (!hb.judged)
       return { state: 'undetermined', judged: judgedSet.size, why: `${p}: ${hb.why ?? 'HEAD blob 取不到'}` }
     if (hb.missing) continue // HEAD 没有该路径(真新文件/已被删):不构成"HEAD 已有更新档"这一格
-    const wtOid = worktreeBlobOid(p, root)
+    const wtOid = wtOidMap.get(p) ?? 'ABSENT'
     if (wtOid === 'ABSENT') continue // 磁盘没有该路径:删除残局另有专档
     if (wtOid === 'UNKNOWN')
       return { state: 'undetermined', judged: judgedSet.size, why: `${p}: 工作树 blob 取不到(不猜)` }
