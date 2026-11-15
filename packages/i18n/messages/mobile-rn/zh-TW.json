@@ -2427,7 +2427,9 @@
     "confirmPasswordPlaceholder": "請再次輸入密碼",
     "password": "密碼",
     "passwordPlaceholder": "請輸入密碼",
-    "title": "註冊"
+    "title": "註冊",
+    "show": "顯示",
+    "hide": "隱藏"
   },
   "withdraw": {
     "availableBalance": "可提現金額(元)",
