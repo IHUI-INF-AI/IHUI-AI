@@ -8,7 +8,13 @@ import { resolvePostLoginLanding, ADMIN_POST_LOGIN_LANDING } from '../post-login
 describe('resolvePostLoginLanding', () => {
   it('管理员 + 无显式目标 → 落到监控大屏', () => {
     expect(resolvePostLoginLanding({ roleId: 1 })).toBe(ADMIN_POST_LOGIN_LANDING)
-    expect(resolvePostLoginLanding({ roleId: 9 })).toBe(ADMIN_POST_LOGIN_LANDING)
+  })
+
+  it('非 role_id=1 的角色(含 manager=2、任意 roleId>1)一律不算管理员(DBG-23 收紧口径)', () => {
+    // 与 packages/shared/src/auth/auth-utils.ts isAdmin 一致:本仓系统管理员仅 role_id=1。
+    // 旧期望 roleId>=1 视为管理员,会把 manager(roleId=2) 引到 /admin 监控大屏 ⇒ 越权面。
+    expect(resolvePostLoginLanding({ roleId: 9 })).toBeNull()
+    expect(resolvePostLoginLanding({ roleId: 2 })).toBeNull()
   })
 
   it('role 字符串形态的管理员同样认(与 isAdmin 同口径)', () => {

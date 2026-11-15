@@ -23,7 +23,8 @@ export interface PostLoginUser {
  * 计算登录成功后的默认落点。
  *
  * - 有显式 redirect 目标(如登录守卫带回的 `/chat/history`)⇒ 原样返回,由调用方走安全判据跳转;
- * - 无显式目标且是管理员(roleId >= 1,与后端 requireAdmin 同口径)⇒ 监控大屏;
+ * - 无显式目标且是管理员(经 isAdmin:本仓系统管理员仅 role_id=1,见 DBG-23 口径收敛)⇒ 监控大屏;
+ *   注意不沿用后端 requireAdmin 的 roleId>=1 口径 —— 那会把 manager(roleId=2) 误判为管理员引入 /admin 面。
  * - 其余(普通用户 / 身份缺失)⇒ null,维持原语义(留在当前页)。
  */
 export function resolvePostLoginLanding(
