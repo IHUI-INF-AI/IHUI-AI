@@ -2226,6 +2226,12 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 ## 최근 업데이트 (자동 유지)
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
+**2026-11-16**
+- 🐞 수정:排版令牌对齐 —— 定价管控台 heading/label 字号档 + ProfileScreen avatarText 走 rnType.displayXl (5a4f007eda)
+
+**2026-11-15**
+- 🔧 기타:收拢本地工作区改动(全量提交 9 项)+撤回 4 条失效有意删除登记 (32c35c4c2d)
+
 **2026-11-15**
 - 📚 문서:刷新 README「最近更新」生成块 + 补门 320 R4 点名缺口 + last-sha 指针 (d30402dbc2)
 
@@ -2306,12 +2312,6 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 **2026-11-15**
 - 📚 문서:README 派生区按 fcee207727 新 HEAD 重算(钩子自动补登最近更新条目) (2b21dab8d8)
-
-**2026-11-15**
-- 🐞 수정:README.en 最近更新区真合并 HEAD/origin 条目清冲突标记(门79);.gitignore 忽略会话一次性中间产物(治门44 未判定) (fcee207727)
-
-**2026-11-15**
-- 🐞 수정:face-reader worktreeHashObjectBatch 去 -z,修 unknown switch z 取材失败 (329dfd7b56)
 <!-- END RECENT UPDATES -->
 
 <p align="center">
