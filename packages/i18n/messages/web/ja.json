@@ -30007,7 +30007,9 @@
     "suggestionReviewFiles": "先ほど変更したファイルを確認",
     "suggestionAnswerQuestion": "AI の質問に回答",
     "suggestionContinueTopic": "上記の内容についてさらに質問",
-    "dismiss": "この候補を閉じる"
+    "dismiss": "この候補を閉じる",
+    "close": "候補を非表示",
+    "restore": "候補を表示"
   },
   "taskMonitor": {
     "group": {
