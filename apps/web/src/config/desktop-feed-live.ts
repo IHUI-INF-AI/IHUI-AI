@@ -38,14 +38,14 @@
 import { DESKTOP_FEED } from './desktop-feed.generated'
 import type { DesktopFeed, DesktopFeedAsset } from './desktop-feed.generated'
 import type { DesktopFeedPayload } from './desktop-feed-payload'
-import { getApkUrl } from './downloads.config'
+import { getApkUrl, IHUI_GITHUB_REPO as DEFAULT_REPO } from './downloads.config'
 
 const RELEASE_PREFIX = 'desktop-v'
-const DEFAULT_REPO = 'IHUI-INF-AI/IHUI-AI'
 /**
  * 发布仓坐标的唯一取法(CI 里是 `GITHUB_REPOSITORY`,本机/自建跑时退回默认)。
- * 此前它在两处各自 `process.env.GITHUB_REPOSITORY || DEFAULT_REPO`(L376 / L623),
- * 而地域分流要的是**同一个** repo —— 再开第三处就等于允许两处的值和这一处不一样。
+ * 2026-11-16:默认值不再在本文件抄一份字面量,而是 import downloads.config.ts 的
+ * IHUI_GITHUB_REPO —— iOS 底稿直链、桌面 feed 地域分流、运行期 GitHub 解析共用同一个
+ * 仓库坐标;任何一处单独改值都会让底稿指向一个发布链根本不更新的地址。
  */
 export function desktopRepo(): string {
   return process.env.GITHUB_REPOSITORY || DEFAULT_REPO
@@ -56,7 +56,9 @@ export function githubDownloadUrl(tag: string, assetName: string): string {
 }
 /** 桌面 release 的 tag 形态(`desktop-v<语义版本>`),分流与快照反解都只认这一份规则 */
 export function desktopTagOf(version: string): string {
-  return `${RELEASE_PREFIX}${String(version ?? '').trim().replace(/^v/, '')}`
+  return `${RELEASE_PREFIX}${String(version ?? '')
+    .trim()
+    .replace(/^v/, '')}`
 }
 /** tauri-action 在每次发版时随产物一起上传的标准更新器清单 */
 const FEED_ASSET_NAME = 'latest.json'

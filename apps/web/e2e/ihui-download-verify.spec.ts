@@ -21,7 +21,8 @@ import { test, expect } from '@playwright/test'
  * 2. 点子菜单入口 → 8 端下载项全部列出(DOWNLOADS 条目)
  * 3. 已接入端真的可点(点「桌面客户端」→ 跳 /download/desktop)
  * 4. 未接入端显示"即将上线",且禁用态与角标逐条同起同落(环境前提:CI/本地均未配
- *    NEXT_PUBLIC_DOWNLOAD_*,resolveIosHref/resolveAndroidHref/resolveWechatHref 返回 '' ⇒ 3 端未接入)
+ *    NEXT_PUBLIC_DOWNLOAD_*,但 iOS 底稿已自足 ⇒ resolveIosHref 回落 /download/ios、不再置灰;
+ *    env 未配时仅 android-apk / wechat-miniapp 可能仍显示「即将上线」)
  * 5. 截图:默认态 + dark mode
  *
  * 使用 admin storageState(已登录),baseURL=http://localhost:8801
@@ -112,6 +113,13 @@ test.describe('下载功能验证', () => {
       coupling.filter((c) => !c.disabled).length,
       '至少有一个已接入端可点',
     ).toBeGreaterThanOrEqual(1)
+
+    // 回归钉子(2026-11-16 iOS 底稿自足):8 端中「iOS App」必须可点,不得再置灰
+    const iosItem = submenu.locator('[role="menuitem"]', { hasText: 'iOS App' }).first()
+    const iosDisabled = await iosItem.evaluate(
+      (el) => el.hasAttribute('data-disabled') || el.getAttribute('aria-disabled') === 'true',
+    )
+    expect(iosDisabled, 'iOS App 底稿自足后不得再置灰').toBe(false)
 
     // 6. dark mode 截图(同一子菜单展开态)
     await page.evaluate(() => {

@@ -21,13 +21,29 @@
  *  - desktop 接入真实 NSIS .exe + MSI 安装包(从 apps/desktop 构建产物复制)
  *  - extension 接入真实 Chrome MV3 .zip 包(从 apps/extension 构建产物打包)
  *  - cli/mobile 走 /download/[platform] 详情页展示 npm 安装命令 / 构建说明
- *  - ios/android-apk/wechat-miniapp 暂未接入,详情页显示"即将上线"+ Web 端使用引导
+ *  - android-apk / wechat-miniapp 由 env 驱动,未配置时显示"即将上线"+ Web 端使用引导
+ *  - ios 自 2026-11-16 起底稿自足(见下段),不再依赖 env 才能显示下载入口
  *  - 详情页路由 `apps/web/app/(main)/download/[platform]/page.tsx` 渲染 PLATFORM_META
+ *
+ * 2026-11-16 iOS 底稿自足(真浏览器实测收口,不要回退):
+ *  - 病灶:此前 resolveIosHref() 未配 env 时返回 '';而运行期 /downloads.json 的 iOS 腿
+ *    要同时探站点腿(实测 502)与 GitHub API(未认证 60 次/小时,实测 remaining=0),
+ *    两腿皆挂 ⇒ source=snapshot ⇒ liveEntryView.hasLiveAsset=false。于是 iOS 成了
+ *    「构建期 href 空 ∧ 运行期无资产」唯一双空的端 ⇒ 侧栏 iOS App 一格被置灰。
+ *  - 修法:底稿自足,运行期只做增强 ——
+ *    ① 侧栏落点回落到站内 `/download/ios`(与 desktop / extension / cli 同形),不再返回空串;
+ *    ② 详情页 ios.assets 恒定给出一枚真实 IPA 直链(常量单源见 IOS_* 一组),
+ *       于是 isDownloadAvailable / isPlatformLaunched / getLaunchedPlatforms 全部转真;
+ *    ③ 运行期 mergeLiveMeta 仍是唯一覆盖口(站点腿 302 或 GitHub 资产会替换 assets/version),
+ *       "发版即更新"不被破坏 —— 故**绝不能**把 IPA 直链塞进侧栏 href:
+ *       liveEntryView 在 fallbackHref 非空时会锁定 href,那样运行期新直链将永不生效。
+ *  - 上架 App Store 后,NEXT_PUBLIC_DOWNLOAD_APPSTORE_URL / _ID 仍按原优先级覆盖侧栏与详情页。
  *
  * 2026-08-06 运营数据 env 化(本次改造):
  *  - 原先 10 处 `@doc TODO(运营)` 占位全部改为**运行时环境变量**配置,运营无需改代码。
- *  - 所有 env 以 `NEXT_PUBLIC_` 前缀暴露,未配置的 getter 返回 null(归一为空字符串),
- *    前端自动走"即将上线"占位逻辑;配置后自动生成下载入口 + 详情页 assets。
+ *  - 所有 env 以 `NEXT_PUBLIC_` 前缀暴露,未配置的 getter 返回 null(归一为空字符串);
+ *    android-apk / wechat-miniapp 未配置时走"即将上线"占位,配置后生成下载入口 + assets。
+ *  - **iOS 是例外**:env 只决定"是否改用 App Store 条目",不再决定"有没有下载入口"。
  *  - `DOWNLOADS_CONFIG` / `PLATFORM_META` 保留为模块级常量(由 env 计算)以兼容现有调用方;
  *    推荐新代码使用 `getDownloadsConfig()` / `getPlatformMetaMap()` getter。
  *
@@ -70,6 +86,8 @@
  *  - 保留默认值结构:未配置项 getter 返回 null,`DOWNLOADS_CONFIG`/`PLATFORM_META`
  *    内部归一为空字符串,现有调用方(`href.length > 0` 等真值判断)无需改动。
  *  - Desktop / Mobile / Extension / CLI 4 端走代码内路由(/download/[platform]),不依赖 env。
+ *  - iOS 自 2026-11-16 起同样走代码内路由:未上架 App Store 时 resolveIosHref() 回落
+ *    /download/ios,详情页 assets 用 IOS_IPA_DOWNLOAD_URL —— 不依赖任何 env。
  *
  * 接入流程(等价于旧版"改常量"流程,现在改 env):
  *  1. iOS 上架后:填 NEXT_PUBLIC_DOWNLOAD_APPSTORE_ID,自动生成 App Store URL + 详情页资源
@@ -92,6 +110,32 @@ import extensionPkg from '../../../extension/package.json'
 import mobileRnPkg from '../../../mobile-rn/package.json'
 import { withBasePath } from './base-path'
 import { DESKTOP_FEED } from './desktop-feed.generated'
+
+/* -------------------------------------------------------------------------- */
+/* iOS 发布源单一真相源(2026-11-16 收口,构建期底稿与运行期解析共用)        */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * 发布仓坐标 + iOS IPA 的固定 tag / 资产名 / 站点腿指针名(2026-11-16 收口)。
+ *
+ * 此前 downloads-live.ts 另抄了一份 iOS 字面量、desktop-feed-live.ts 又抄了一份
+ * repo 字面量,而构建期底稿根本没有 URL ⇒ 页面只能等运行期解析。现在只在这里定义一次:
+ *  - 本文件用它拼出底稿直链 IOS_IPA_DOWNLOAD_URL(详情页 assets);
+ *  - downloads-live.ts import 同一组常量去探站点腿 / 问 GitHub ios-nightly tag;
+ *  - desktop-feed-live.ts 的 DEFAULT_REPO 改为本常量的别名(桌面 feed 地域分流同源);
+ *  - scripts/publish-mobile-ipa.mjs 的 LATEST_IPA_KEY / IPA_ASSET_NAME / DEFAULT_TAG
+ *    是发布侧镜像(Node 脚本无法 import .ts),改这几个值时必须同步那三处。
+ *
+ * tag 是固定指针(发版覆盖同名资产),所以底稿 URL 恒定有效,不存在"发版后链接腐烂";
+ * 运行期仍可用站点腿 302 的更优直链覆盖 assets。
+ */
+export const IHUI_GITHUB_REPO = 'IHUI-INF-AI/IHUI-AI'
+export const IOS_RELEASE_TAG = 'ios-nightly'
+export const IOS_IPA_ASSET_NAME = 'ihui-ai-latest.ipa'
+/** 站点腿 /remote-images/download/ 下的恒定指针名(与发布侧 LATEST_IPA_KEY 同形) */
+export const IOS_POINTER_KEY = IOS_IPA_ASSET_NAME
+/** 构建期底稿用的 IPA 直链;唯一拼装点,别在别处再拼一份 */
+export const IOS_IPA_DOWNLOAD_URL = `https://github.com/${IHUI_GITHUB_REPO}/releases/download/${IOS_RELEASE_TAG}/${IOS_IPA_ASSET_NAME}`
 
 /**
  * 下载中心「已上线」平台的唯一运行时清单(2026-11-03 收口)。
@@ -304,19 +348,24 @@ export function getDownloadsConfig(): DownloadsConfig {
 export const DOWNLOADS_CONFIG: DownloadsConfig = getDownloadsConfig()
 
 /* -------------------------------------------------------------------------- */
-/* URL 解析函数(优先显式 URL,其次自动生成,最后空串占位)                     */
+/* URL 解析函数(优先显式 URL,其次自动生成;iOS 另有站内详情页兜底)             */
 /* -------------------------------------------------------------------------- */
 
 /**
- * 解析 iOS 下载 URL:优先用 hrefs.ios,其次用 appStoreId 自动生成,最后占位。
- * 返回空字符串表示"未接入",调用方用占位状态。
+ * 解析 iOS 侧栏落点:优先用 hrefs.ios,其次用 appStoreId 生成的 App Store 链接,
+ * 最后回落到站内详情页 /download/ios(2026-11-16 起不再返回空串)。
+ *
+ * 为什么是站内详情页而不是 IPA 直链:liveEntryView(downloads-live-meta.ts)在
+ * fallbackHref 非空时会锁定 href,侧栏若直接写死 IPA 直链,运行期探到的更优直链
+ * (站点腿 302 / GitHub 资产)将永不生效 —— 等于把"发版即更新"废掉。
+ * 真直链由详情页 assets 提供(见 IOS_IPA_DOWNLOAD_URL),运行期可覆盖。
  */
 export function resolveIosHref(): string {
   if (DOWNLOADS_CONFIG.hrefs.ios) return DOWNLOADS_CONFIG.hrefs.ios
   if (DOWNLOADS_CONFIG.appStoreId) {
     return `https://apps.apple.com/cn/app/id${DOWNLOADS_CONFIG.appStoreId}`
   }
-  return ''
+  return '/download/ios'
 }
 
 /**
@@ -387,14 +436,21 @@ function resolveDesktopMeta(): Pick<
 /**
  * 由 env 计算 8 端完整元数据。
  *
- * ios / android-apk / wechat-miniapp 三端 assets 由对应 env 配置自动生成:
- *  - 配置了 App Store ID / URL → ios.assets 出现 App Store 下载条目
+ * android-apk / wechat-miniapp 两端 assets 由对应 env 配置自动生成:
  *  - 配置了 Google Play / APK 直链 → android-apk.assets 出现 APK 下载条目
  *  - 配置了小程序 QR / 入口 → wechat-miniapp.assets 出现扫码落地页条目
- * 未配置的端 assets 保持空数组 → 详情页显示"即将上线"占位。
+ * 未配置时 assets 保持空数组 → 详情页显示"即将上线"占位。
+ *
+ * iOS 底稿自足(2026-11-16):assets 恒有一枚 —— 未上架 App Store 时用
+ * IOS_IPA_DOWNLOAD_URL(TrollStore IPA);配了 App Store URL / ID 时换成商店条目。
+ * 这保证运行期解析腿(站点腿 502 / GitHub 限流)全挂时详情页仍可下载。
  */
 export function getPlatformMetaMap(): Record<DownloadPlatform, PlatformMeta> {
-  const iosHref = resolveIosHref()
+  // 只取「上架 App Store 后」的商店链接;未上架时为空,底稿走 IPA 直链。
+  // 不用 resolveIosHref():它回落的是站内详情页 /download/ios,不是可下载资产。
+  const iosStoreId = getAppStoreId()
+  const iosStoreHref =
+    getAppStoreUrl() ?? (iosStoreId ? `https://apps.apple.com/cn/app/id${iosStoreId}` : '')
   const androidHref = resolveAndroidHref()
   const wechatHref = resolveWechatHref()
   const desktopMeta = resolveDesktopMeta()
@@ -430,12 +486,18 @@ export function getPlatformMetaMap(): Record<DownloadPlatform, PlatformMeta> {
     },
     ios: {
       platform: 'ios',
-      // 2026-08-06 起由 env 驱动:填 NEXT_PUBLIC_DOWNLOAD_APPSTORE_ID 后自动上架
+      // env 只覆盖"上架 App Store 后的展示值";底稿可用性不再依赖 env(2026-11-16)
       version: readEnv(process.env.NEXT_PUBLIC_DOWNLOAD_IOS_VERSION) ?? undefined,
       releaseDate: readEnv(process.env.NEXT_PUBLIC_DOWNLOAD_IOS_RELEASE_DATE) ?? undefined,
       systemRequirementsKey: 'downloadIOSSysReq',
       installGuideKey: 'downloadIOSInstallGuide',
-      assets: iosHref ? [{ href: iosHref, sizeBytes: 0, format: 'App Store' }] : [],
+      // 底稿恒定有货:未上架用真实 IPA 直链,上架后换成商店条目。
+      // sizeBytes 一律 0 = "未量"(§0.3 取不到不猜);运行期 mergeLiveMeta 会带真实字节。
+      assets: [
+        iosStoreHref
+          ? { href: iosStoreHref, sizeBytes: 0, format: 'App Store' }
+          : { href: IOS_IPA_DOWNLOAD_URL, sizeBytes: 0, format: 'iOS IPA (TrollStore)' },
+      ],
     },
     'android-apk': {
       platform: 'android-apk',
@@ -518,8 +580,8 @@ export function getPlatformMetaMap(): Record<DownloadPlatform, PlatformMeta> {
  *  - assets 为空 + version 未填 → 显示"即将上线"占位
  *  - assets 为空 + installGuideKey 已填 → 显示安装/构建说明(CLI/Mobile)
  *
- * ios / android-apk / wechat-miniapp 三端 assets 由 NEXT_PUBLIC_DOWNLOAD_* env 自动生成,
- * 见 `getPlatformMetaMap()` 注释。
+ * ios 自 2026-11-16 起底稿自足(见 getPlatformMetaMap 注释);
+ * android-apk / wechat-miniapp 两端 assets 仍由 NEXT_PUBLIC_DOWNLOAD_* env 自动生成。
  */
 export const PLATFORM_META: Record<DownloadPlatform, PlatformMeta> = getPlatformMetaMap()
 
@@ -559,7 +621,7 @@ export interface DownloadsStatusItem {
 /**
  * 下载配置自检:返回 8 端配置状态,运营/运维可直接调用确认「哪些端已上架、缺什么」。
  * 判断口径与详情页一致:platform meta assets 非空 = 已配置;desktop/extension/mobile/cli/web
- * 为代码内资源(不依赖 env),恒为 configured=true。
+ * 为代码内资源(不依赖 env),恒为 configured=true;ios 自 2026-11-16 起同为代码内资源。
  */
 export function getDownloadsStatus(): DownloadsStatusItem[] {
   const meta = getPlatformMetaMap()
@@ -569,7 +631,7 @@ export function getDownloadsStatus(): DownloadsStatusItem[] {
     mobile: 'mobile 走源码构建(GitHub 链接),无需配置',
     extension: 'extension 安装包随 CI 构建同步,无需配置',
     cli: 'cli 走 npm install,无需配置',
-    ios: 'NEXT_PUBLIC_DOWNLOAD_APPSTORE_ID(或 NEXT_PUBLIC_DOWNLOAD_APPSTORE_URL)',
+    ios: '底稿自足(内置 IPA 直链);上架 App Store 后填 NEXT_PUBLIC_DOWNLOAD_APPSTORE_ID 或 _URL 覆盖',
     'android-apk':
       'NEXT_PUBLIC_DOWNLOAD_APK_URL(或 NEXT_PUBLIC_DOWNLOAD_GOOGLE_PLAY_URL / CDN_BASE)',
     'wechat-miniapp': 'NEXT_PUBLIC_DOWNLOAD_WECHAT_QR(或 NEXT_PUBLIC_DOWNLOAD_WECHAT_URL)',

@@ -21084,7 +21084,7 @@
     "downloadGithubReleases": "GitHub Releases",
     "downloadIOS": "iOS アプリ",
     "downloadIOSDesc": "iPhone / iPad でいつでも",
-    "downloadIOSInstallGuide": "App Store 公開後、ダウンロードボタンが App Store のインストールページにリダイレクトします。",
+    "downloadIOSInstallGuide": "現在は IPA を直接ダウンロードし、自身で署名するか TrollStore（巨魔商店）でサイドロードしてインストールできます（App Store からではありません）。将来 App Store で公開された場合、ダウンロードボタンは App Store のインストールページへ優先的にリダイレクトします。",
     "downloadIOSSysReq": "iOS 14.0 以上",
     "downloadInstallGuide": "インストール手順",
     "downloadMiniDesc": "QR スキャンで開くだけ",
