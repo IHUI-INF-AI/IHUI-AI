@@ -41,8 +41,8 @@ export function CapabilityAppRail() {
         <div className="pointer-events-auto flex max-h-[70vh] w-[min(92vw,380px)] flex-col overflow-hidden rounded-xl border border-border bg-background shadow-xl">
           <div className="flex items-center gap-2 border-b border-border px-3 py-2">
             <LayoutGrid className="h-4 w-4 text-muted-foreground" aria-hidden />
-            <span className="text-sm font-medium">{t('railTitle')}</span>
-            <Link href="/apps" className="ml-auto text-xs text-primary hover:underline">
+            <span className="text-body font-medium">{t('railTitle')}</span>
+            <Link href="/apps" className="font-[weight:inherit] ml-auto text-label text-primary hover:underline">
               {t('railManage')}
             </Link>
             <button
@@ -61,7 +61,7 @@ export function CapabilityAppRail() {
                 type="button"
                 onClick={() => setActiveId(app.id)}
                 className={cn(
-                  'flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-xs',
+                  'flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-label',
                   app.id === active?.id
                     ? 'bg-muted font-medium'
                     : 'text-muted-foreground hover:bg-muted',
@@ -81,7 +81,7 @@ export function CapabilityAppRail() {
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
-        className="pointer-events-auto flex items-center gap-1.5 rounded-full border border-border bg-background px-3 py-2 text-sm shadow-lg hover:bg-muted"
+        className="font-[weight:inherit] pointer-events-auto flex items-center gap-1.5 rounded-full border border-border bg-background px-3 py-2 text-body shadow-lg hover:bg-muted"
         aria-expanded={open}
       >
         <LayoutGrid className="h-4 w-4" aria-hidden />

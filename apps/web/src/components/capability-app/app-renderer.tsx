@@ -350,7 +350,7 @@ function HeadingBlock({ block }: BlockProps) {
     <Tag
       className={cn(
         'font-semibold leading-tight',
-        level === 1 ? 'text-2xl' : level === 2 ? 'text-lg' : 'text-base',
+        level === 1 ? 'text-display' : level === 2 ? 'text-lg' : 'text-base',
       )}
     >
       {block.text}
@@ -361,7 +361,7 @@ function HeadingBlock({ block }: BlockProps) {
 function TextBlock({ block }: BlockProps) {
   if (block.kind !== 'text') return null
   return (
-    <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground/90">{block.text}</p>
+    <p className="font-[weight:inherit] whitespace-pre-wrap text-body leading-relaxed text-foreground/90">{block.text}</p>
   )
 }
 
@@ -369,7 +369,7 @@ function CalloutBlock({ block }: BlockProps) {
   if (block.kind !== 'callout') return null
   const tone = block.tone ?? 'info'
   return (
-    <div className={cn('rounded-lg border px-3 py-2 text-sm', TONE_CLASS[tone])}>
+    <div className={cn('font-[weight:inherit] rounded-lg border px-3 py-2 text-body', TONE_CLASS[tone])}>
       {block.title ? <div className="mb-1 font-medium">{block.title}</div> : null}
       <div className="whitespace-pre-wrap leading-relaxed">{block.text}</div>
     </div>
@@ -382,7 +382,7 @@ function BadgeBlock({ block }: BlockProps) {
   return (
     <span
       className={cn(
-        'inline-flex items-center rounded-full border px-2 py-0.5 text-xs',
+        'font-[weight:inherit] inline-flex items-center rounded-full border px-2 py-0.5 text-label',
         TONE_CLASS[tone],
       )}
     >
@@ -407,7 +407,7 @@ function KeyValueBlock({ block, bindings }: BlockProps) {
   return (
     <dl className="grid gap-1.5">
       {items.map((item) => (
-        <div key={item.label} className="flex items-baseline justify-between gap-4 text-sm">
+        <div key={item.label} className="font-[weight:inherit] flex items-baseline justify-between gap-4 text-body">
           <dt className="text-muted-foreground">{item.label}</dt>
           <dd className="font-medium tabular-nums">{item.value}</dd>
         </div>
@@ -429,8 +429,8 @@ function StatBlock({ block, bindings }: BlockProps) {
     <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
       {items.map((item) => (
         <div key={item.label} className="rounded-lg border border-border bg-card px-3 py-2">
-          <div className="text-xs text-muted-foreground">{item.label}</div>
-          <div className="mt-0.5 text-xl font-semibold tabular-nums">{item.value}</div>
+          <div className="font-[weight:inherit] text-label text-muted-foreground">{item.label}</div>
+          <div className="mt-0.5 text-heading font-semibold tabular-nums">{item.value}</div>
           {item.hint ? (
             <div className="mt-0.5 text-[11px] text-muted-foreground">{item.hint}</div>
           ) : null}
@@ -446,7 +446,7 @@ function ProgressBlock({ block }: BlockProps) {
   const pct = Math.max(0, Math.min(100, (block.value / max) * 100))
   return (
     <div className="space-y-1">
-      <div className="flex justify-between text-xs text-muted-foreground">
+      <div className="font-[weight:inherit] flex justify-between text-label text-muted-foreground">
         <span>{block.label}</span>
         <span className="tabular-nums">
           {block.value}/{max}
@@ -472,7 +472,7 @@ function ListBlock({ block, bindings }: BlockProps) {
   if (items.length === 0) return null
   const Tag = block.ordered ? 'ol' : 'ul'
   return (
-    <Tag className={cn('space-y-1 pl-5 text-sm', block.ordered ? 'list-decimal' : 'list-disc')}>
+    <Tag className={cn('font-[weight:inherit] space-y-1 pl-5 text-body', block.ordered ? 'list-decimal' : 'list-disc')}>
       {items.map((item, index) => (
         <li key={`${index}-${item}`} className="leading-relaxed">
           {item}
@@ -489,7 +489,7 @@ function TableBlock({ block, bindings }: BlockProps) {
   if (rows.length === 0) return null
   return (
     <div className="overflow-x-auto rounded-lg border border-border">
-      <table className="w-full border-collapse text-sm">
+      <table className="font-[weight:inherit] w-full border-collapse text-body">
         <thead className="bg-muted/60">
           <tr>
             {block.columns.map((column) => (
@@ -532,7 +532,7 @@ function CodeBlock({ block }: BlockProps) {
           {block.language}
         </div>
       ) : null}
-      <pre className="overflow-x-auto px-3 py-2 text-xs leading-relaxed">
+      <pre className="font-[weight:inherit] overflow-x-auto px-3 py-2 text-label leading-relaxed">
         <code>{block.code}</code>
       </pre>
     </div>
@@ -551,7 +551,7 @@ function ImageBlock({ block }: BlockProps) {
         className="max-h-80 w-auto rounded-lg border border-border"
       />
       {block.caption ? (
-        <figcaption className="text-xs text-muted-foreground">{block.caption}</figcaption>
+        <figcaption className="font-[weight:inherit] text-label text-muted-foreground">{block.caption}</figcaption>
       ) : null}
     </figure>
   )
@@ -571,7 +571,7 @@ function ButtonBlock({ block, runAction }: BlockProps) {
         void runAction(block.action).finally(() => setPending(false))
       }}
       className={cn(
-        'inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
+        'inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-body font-medium transition-colors',
         pending && 'opacity-60',
         variant === 'primary'
           ? 'bg-cta text-cta-foreground hover:bg-cta/90'
@@ -599,7 +599,7 @@ function ChartBlock({ block, bindings }: BlockProps) {
   const max = Math.max(...items.map((item) => item.value), 1)
   return (
     <div className="space-y-2 rounded-lg border border-border p-3">
-      {block.title ? <div className="text-sm font-medium">{block.title}</div> : null}
+      {block.title ? <div className="text-body font-medium">{block.title}</div> : null}
       {block.chartType === 'pie' ? (
         <div className="flex items-center gap-4">
           <PieChart items={items} />
@@ -608,7 +608,7 @@ function ChartBlock({ block, bindings }: BlockProps) {
       ) : (
         <div className="space-y-1.5">
           {items.map((item) => (
-            <div key={item.label} className="flex items-center gap-2 text-xs">
+            <div key={item.label} className="font-[weight:inherit] flex items-center gap-2 text-label">
               <span className="w-24 shrink-0 truncate text-muted-foreground">{item.label}</span>
               <div className="h-2.5 flex-1 overflow-hidden rounded bg-muted">
                 <div
@@ -659,7 +659,7 @@ function PieChart({ items }: { items: Array<{ label: string; value: number }> })
 
 function Legend({ items }: { items: Array<{ label: string; value: number }> }) {
   return (
-    <ul className="space-y-1 text-xs">
+    <ul className="font-[weight:inherit] space-y-1 text-label">
       {items.map((item) => (
         <li key={item.label} className="flex items-center justify-between gap-3">
           <span className="text-muted-foreground">{item.label}</span>
@@ -684,7 +684,7 @@ function TabsBlock(props: BlockProps) {
             type="button"
             onClick={() => setActive(index)}
             className={cn(
-              '-mb-px border-b-2 px-3 py-1.5 text-sm',
+              '-mb-px border-b-2 px-3 py-1.5 text-body',
               index === active
                 ? 'border-stroke-selected font-medium text-foreground'
                 : 'border-transparent text-muted-foreground hover:text-foreground',
@@ -709,7 +709,7 @@ function ColumnsBlock(props: BlockProps) {
       {block.columns.map((column, index) => (
         <div key={`${index}-${column.label ?? ''}`} className="space-y-2">
           {column.label ? (
-            <div className="text-xs font-medium text-muted-foreground">{column.label}</div>
+            <div className="text-label font-medium text-muted-foreground">{column.label}</div>
           ) : null}
           <BlockList blocks={column.blocks} bindings={props.bindings} runAction={props.runAction} />
         </div>
@@ -811,7 +811,7 @@ function FormBlock({ block, runAction }: BlockProps) {
     >
       {block.fields.map((field) => (
         <div key={field.name} className="space-y-1">
-          <label htmlFor={field.name} className="text-xs font-medium text-muted-foreground">
+          <label htmlFor={field.name} className="text-label font-medium text-muted-foreground">
             {field.label}
             {field.required ? <span className="ml-0.5 text-red-500">*</span> : null}
           </label>
@@ -825,7 +825,7 @@ function FormBlock({ block, runAction }: BlockProps) {
       <button
         type="submit"
         disabled={pending}
-        className="inline-flex items-center rounded-md bg-cta px-3 py-1.5 text-sm font-medium text-cta-foreground hover:bg-cta/90 disabled:opacity-60"
+        className="inline-flex items-center rounded-md bg-cta px-3 py-1.5 text-body font-medium text-cta-foreground hover:bg-cta/90 disabled:opacity-60"
       >
         {block.submitLabel}
       </button>
@@ -910,12 +910,12 @@ export function CapabilityAppRenderer({ app, className }: CapabilityAppRendererP
 
   return (
     <div className={cn('space-y-3', className)}>
-      {app.description ? <p className="text-sm text-muted-foreground">{app.description}</p> : null}
-      {loading ? <div className="text-xs text-muted-foreground">{t('dataLoading')}</div> : null}
+      {app.description ? <p className="font-[weight:inherit] text-body text-muted-foreground">{app.description}</p> : null}
+      {loading ? <div className="font-[weight:inherit] text-label text-muted-foreground">{t('dataLoading')}</div> : null}
       {failures.length > 0 && !loading ? (
         <div
           className={cn(
-            'rounded-lg border px-3 py-2 text-xs',
+            'font-[weight:inherit] rounded-lg border px-3 py-2 text-label',
             allFailed ? TONE_CLASS.error : TONE_CLASS.warn,
           )}
         >

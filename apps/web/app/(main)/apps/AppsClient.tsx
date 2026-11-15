@@ -176,19 +176,19 @@ export function AppsClient() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
+        <p className="font-[weight:inherit] text-body text-muted-foreground">{t('subtitle')}</p>
         <div className="flex gap-2">
           <button
             type="button"
             onClick={copyPrompt}
-            className="rounded-md border border-border px-3 py-1.5 text-sm hover:bg-muted"
+            className="font-[weight:inherit] rounded-md border border-border px-3 py-1.5 text-body hover:bg-muted"
           >
             {t('copyPrompt')}
           </button>
           <button
             type="button"
             onClick={() => setCreating((value) => !value)}
-            className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+            className="rounded-md bg-primary px-3 py-1.5 text-body font-medium text-primary-foreground hover:bg-primary/90"
           >
             {creating ? t('collapse') : t('newApp')}
           </button>
@@ -198,30 +198,30 @@ export function AppsClient() {
       {creating ? (
         <section className="space-y-3 rounded-lg border border-border bg-card p-4">
           <div className="grid gap-3 sm:grid-cols-3">
-            <label className="space-y-1 text-sm">
-              <span className="text-xs text-muted-foreground">{t('appId')}</span>
+            <label className="font-[weight:inherit] space-y-1 text-body">
+              <span className="font-[weight:inherit] text-label text-muted-foreground">{t('appId')}</span>
               <input
                 value={appId}
                 onChange={(event) => setAppId(event.target.value)}
                 placeholder="my-dashboard"
-                className="w-full rounded-md border border-border bg-background px-2.5 py-1.5 text-sm"
+                className="font-[weight:inherit] w-full rounded-md border border-border bg-background px-2.5 py-1.5 text-body"
               />
             </label>
-            <label className="space-y-1 text-sm">
-              <span className="text-xs text-muted-foreground">{t('titleLabel')}</span>
+            <label className="font-[weight:inherit] space-y-1 text-body">
+              <span className="font-[weight:inherit] text-label text-muted-foreground">{t('titleLabel')}</span>
               <input
                 value={title}
                 onChange={(event) => setTitle(event.target.value)}
                 placeholder="我的应用"
-                className="w-full rounded-md border border-border bg-background px-2.5 py-1.5 text-sm"
+                className="font-[weight:inherit] w-full rounded-md border border-border bg-background px-2.5 py-1.5 text-body"
               />
             </label>
-            <label className="space-y-1 text-sm">
-              <span className="text-xs text-muted-foreground">{t('slotLabel')}</span>
+            <label className="font-[weight:inherit] space-y-1 text-body">
+              <span className="font-[weight:inherit] text-label text-muted-foreground">{t('slotLabel')}</span>
               <select
                 value={slot}
                 onChange={(event) => setSlot(event.target.value as CapabilityAppSlot)}
-                className="w-full rounded-md border border-border bg-background px-2.5 py-1.5 text-sm"
+                className="font-[weight:inherit] w-full rounded-md border border-border bg-background px-2.5 py-1.5 text-body"
               >
                 {CAPABILITY_APP_SLOTS.map((item) => (
                   <option key={item} value={item}>
@@ -232,16 +232,16 @@ export function AppsClient() {
             </label>
           </div>
           <label className="block space-y-1">
-            <span className="text-xs text-muted-foreground">{t('specLabel')}</span>
+            <span className="font-[weight:inherit] text-label text-muted-foreground">{t('specLabel')}</span>
             <textarea
               value={json}
               onChange={(event) => setJson(event.target.value)}
               spellCheck={false}
-              className="min-h-64 w-full rounded-md border border-border bg-background px-3 py-2 font-mono text-xs"
+              className="font-[weight:inherit] min-h-64 w-full rounded-md border border-border bg-background px-3 py-2 font-mono text-label"
             />
           </label>
           {issues.length > 0 ? (
-            <ul className="space-y-1 rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-700 dark:text-red-300">
+            <ul className="font-[weight:inherit] space-y-1 rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-label text-red-700 dark:text-red-300">
               {issues.map((item, index) => (
                 <li key={index}>{item}</li>
               ))}
@@ -252,14 +252,14 @@ export function AppsClient() {
               type="button"
               disabled={saving}
               onClick={() => void handleCreate()}
-              className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+              className="rounded-md bg-primary px-3 py-1.5 text-body font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
             >
               {saving ? t('saving') : t('save')}
             </button>
             <button
               type="button"
               onClick={resetForm}
-              className="rounded-md border border-border px-3 py-1.5 text-sm hover:bg-muted"
+              className="font-[weight:inherit] rounded-md border border-border px-3 py-1.5 text-body hover:bg-muted"
             >
               {t('reset')}
             </button>
@@ -268,21 +268,21 @@ export function AppsClient() {
       ) : null}
 
       {!authenticated && !loading ? (
-        <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-300">
+        <div className="font-[weight:inherit] rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-body text-amber-700 dark:text-amber-300">
           {t('loginHint')}
         </div>
       ) : null}
 
       {error ? (
-        <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-700 dark:text-red-300">
+        <div className="font-[weight:inherit] rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-body text-red-700 dark:text-red-300">
           {error}
         </div>
       ) : null}
 
-      {loading ? <div className="text-sm text-muted-foreground">{t('loading')}</div> : null}
+      {loading ? <div className="font-[weight:inherit] text-body text-muted-foreground">{t('loading')}</div> : null}
 
       {!loading && apps.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground">
+        <div className="font-[weight:inherit] rounded-lg border border-dashed border-border px-4 py-8 text-center text-body text-muted-foreground">
           {t('emptyHint')}
         </div>
       ) : null}
@@ -298,20 +298,20 @@ export function AppsClient() {
                 <CapabilityAppIcon name={app.icon} className="h-4 w-4" />
               </span>
               <div className="min-w-0 flex-1">
-                <div className="truncate text-sm font-medium">{app.title}</div>
+                <div className="truncate text-body font-medium">{app.title}</div>
                 <div className="truncate text-[11px] text-muted-foreground">
                   {app.id} · {t(SLOT_KEY[app.slot])}
                 </div>
               </div>
             </div>
             {app.description ? (
-              <p className="line-clamp-2 text-xs text-muted-foreground">{app.description}</p>
+              <p className="font-[weight:inherit] line-clamp-2 text-label text-muted-foreground">{app.description}</p>
             ) : null}
             <div className="mt-auto flex items-center gap-2 pt-1">
               <Link
                 href={`/apps/${encodeURIComponent(app.id)}`}
                 className={cn(
-                  'rounded-md bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground',
+                  'rounded-md bg-primary px-2.5 py-1 text-label font-medium text-primary-foreground',
                   'hover:bg-primary/90',
                 )}
               >
@@ -320,7 +320,7 @@ export function AppsClient() {
               <button
                 type="button"
                 onClick={() => void handleDelete(app)}
-                className="rounded-md border border-border px-2.5 py-1 text-xs hover:bg-muted"
+                className="font-[weight:inherit] rounded-md border border-border px-2.5 py-1 text-label hover:bg-muted"
               >
                 {t('delete')}
               </button>
