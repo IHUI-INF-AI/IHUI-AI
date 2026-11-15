@@ -353,7 +353,11 @@ export function readSteerAppliedFromMetadata(raw: unknown): SteerNotice[] | unde
     const rec = item as Record<string, unknown>
     out = appendSteerFrames(out, {
       phase: 'injected',
-      text: typeof rec.text === 'string' ? rec.text : '',
+      // 2026-11-13 对齐(与小程序端 readSteerAppliedFromMetadata 逐字一致):
+      // 那里存的是 `rec.text.trim()`,本端原本存原文 ⇒ 同一条 metadata 在两个端
+      // 渲染出的引导文案会差首尾空白。虽然影响小,但"同一事实两端不同形"正是
+      // 判据漂移的起点(ahead 那次就是这个模式)。此处补 trim,两端从此同形。
+      text: typeof rec.text === 'string' ? rec.text.trim() : '',
       ...(typeof rec.timestamp === 'string' ? { timestamp: rec.timestamp } : {}),
     })
   }

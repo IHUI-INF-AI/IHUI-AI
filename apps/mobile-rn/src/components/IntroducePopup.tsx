@@ -76,13 +76,15 @@ export interface IntroducePopupProps {
 type ButtonAction = 'confirm' | 'close'
 
 interface ButtonConfig {
-  text: string
+  /** i18n key(§19):按钮文案不再硬编码,由渲染处 tStatic(`introducePopup.${btn.key}`) 解析 */
+  key: string
   primary: boolean
   action: ButtonAction
 }
 
 interface VariantConfig {
-  title: string
+  /** i18n key 段名:渲染处 tStatic(`introducePopup.${seg}.title`) 解析 */
+  seg: string
   benefits: string[]
   moreBenefits: string
   buttons: ButtonConfig[]
@@ -93,78 +95,38 @@ interface VariantConfig {
 
 const VARIANT_CONFIG: Record<IntroducePopupVariant, VariantConfig> = {
   index: {
-    title: '会员权益介绍',
-    benefits: [
-      '限时优惠 588 元,8 月 8 日恢复 1288 元',
-      '赠送 800 万算力,爽用独家 Agent',
-      '获得分销权益,用 AI 降本增效 100 倍赚米',
-      '私人 AI 客服定制权,拥有只属于自己的私密 AI',
-      '无限次查看垂类赛道每日整理资讯,远超他人认知',
-      '创始人排队咨询资格,AI 创业项目获取资格',
-      '多对一答疑陪跑:AI 教学 / 自媒体账号搭建 / AI+全域流量陪跑 / MCN 超级个人 IP 孵化权',
-      '免费 AI 导航站,AI 服务成本价,不用再被割韭菜',
-      '最新研发 Agentic 内测使用资格一个月',
-      '升级系统增加算力充值 / 课程开通 / 服务开通折扣',
-    ],
-    moreBenefits: '............约 20 项权益, 且持续增加 ↑',
-    buttons: [{ text: '去开通', primary: true, action: 'confirm' }],
+    seg: 'index',
+    benefits: ['b1', 'b2', 'b3', 'b4', 'b5', 'b6', 'b7', 'b8', 'b9', 'b10'],
+    moreBenefits: 'moreBenefits',
+    buttons: [{ key: 'btnConfirm', primary: true, action: 'confirm' }],
     // 对齐 Uniapp index.vue padding 10rpx 0(≈5px)
     benefitGap: 5,
   },
   indexs: {
-    title: '操盘手权益介绍',
-    benefits: [
-      '享受大额分销资格,入驻社区服务商名列',
-      '会员等级拉满,享受全部满级折扣等权益',
-      '二级分销权益,快速扩张团队及收益,创办一人公司',
-      '最新研发前沿 agentic 内测免费使用资格一年',
-      '插队定制独家定制 agent 功能 8 折优惠',
-      '创始人一对一随时答疑陪跑',
-      'AI 深度认知课 / AI 专家一对一陪跑教学 / 升维课程 / 深度商业课 / 流量全链路打法课程 / 免费观看',
-      'AI+垂类账号孵化优先陪跑机会 / 加入 MCN 机会',
-      '公司总部入驻及线下学习实操机会',
-      '插队 AI 分身 / AI 客服定制开通',
-    ],
-    moreBenefits: '............约 20 项权益, 且持续增加 ↑',
+    seg: 'indexs',
+    benefits: ['b1', 'b2', 'b3', 'b4', 'b5', 'b6', 'b7', 'b8', 'b9', 'b10'],
+    moreBenefits: 'moreBenefits',
     buttons: [
-      { text: '加入我们', primary: true, action: 'confirm' },
-      { text: '再咨询一下', primary: false, action: 'close' },
+      { key: 'btnConfirm', primary: true, action: 'confirm' },
+      { key: 'btnClose', primary: false, action: 'close' },
     ],
     // 对齐 Uniapp indexs.vue gap 12rpx(≈6px)
     benefitGap: 6,
   },
   levelIndex: {
-    title: '会员等级权益',
-    benefits: [
-      '限时消费 588 开通会员,获赠 588 点成长值,达到 1 级:算法萌芽',
-      '达到 1500 智汇力达到 2 级:数智启源,享受 588 点成长值,达到 9.8 折',
-      '达到 3000 智汇力达到 3 级:模型初阶,享受 588 点成长值,达到 9.5 折',
-      '达到 4500 智汇力达到 4 级:智探先驱,享受 588 点成长值,达到 9.2 折',
-      '达到 6000 智汇力达到 5 级:算构初阶,享受 588 点成长值,达到 8.9 折',
-      '达到 7500 智汇力达到 6 级:数据专家,享受 588 点成长值,达到 8.6 折',
-      '达到 9000 智汇力达到 7 级:智垒中枢,享受 588 点成长值,达到 8.3 折',
-      '达到 10500 智汇力达到 8 级:智能领航,享受 588 点成长值,达到 8 折',
-      '达到 12000 智汇力达到 9 级:量子智脑,享受 588 点成长值,达到 7.7 折',
-      '达到 18888 智汇力达到 10 级:超维先知,享受 588 点成长值,达到 7 折',
-    ],
+    seg: 'levelIndex',
+    benefits: ['lv1', 'lv2', 'lv3', 'lv4', 'lv5', 'lv6', 'lv7', 'lv8', 'lv9', 'lv10'],
     moreBenefits: '',
-    levelText:
-      '0 级:智域访客,升级会员享受折扣包含全部课程 / 算力 / 自动化智能体 / 知识库 / 定制服务等,持续增加功能',
-    buttons: [{ text: '去开通', primary: true, action: 'confirm' }],
+    levelText: 'levelText',
+    buttons: [{ key: 'btnConfirm', primary: true, action: 'confirm' }],
     // 对齐 Uniapp levelIndex.vue gap 6rpx(≈3px)
     benefitGap: 3,
   },
   privateAdvisory: {
-    title: '私人顾问介绍',
-    benefits: [
-      '权益一:顶流人脉资源圈链接机会',
-      '权益二:优质创业项目分享',
-      '权益三:对接资本权益',
-      '权益四:AI 圈技术大佬交流学习机会',
-      '权益五:AI 开源技术共享',
-    ],
+    seg: 'privateAdvisory',
+    benefits: ['b1', 'b2', 'b3', 'b4', 'b5'],
     moreBenefits: '',
-    buttons: [{ text: '加入我们', primary: true, action: 'confirm' }],
+    buttons: [{ key: 'btnConfirm', primary: true, action: 'confirm' }],
     // 对齐 Uniapp privateAdvisory 默认间距 12rpx(≈6px)
     benefitGap: 6,
   },
@@ -206,8 +168,13 @@ export function IntroducePopup({
   showAvatar = true,
 }: IntroducePopupProps) {
   const config = VARIANT_CONFIG[variant]
-  const listItems = benefits ?? config.benefits
-  const moreBenefitsText = moreBenefits ?? config.moreBenefits
+  // VARIANT_CONFIG 存的是 i18n key 后缀(§19),渲染处统一经 tStatic 解析;
+  // 外部传入的 benefits / moreBenefits / title / confirmText props 已是成品字符串,不经解析。
+  const listItems =
+    benefits ?? config.benefits.map((k) => tStatic(`introducePopup.${config.seg}.${k}`))
+  const moreBenefitsText =
+    moreBenefits ??
+    (config.moreBenefits ? tStatic(`introducePopup.${config.seg}.${config.moreBenefits}`) : '')
   const [closing, setClosing] = useState(false)
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -255,13 +222,14 @@ export function IntroducePopup({
         ) : null}
         <View style={styles.buttonRow}>
           {config.buttons.map((btn) => {
-            const btnText = btn.primary && confirmText ? confirmText : btn.text
+            const fallback = tStatic(`introducePopup.${config.seg}.${btn.key}`)
+            const btnText = btn.primary && confirmText ? confirmText : fallback
             return (
               // 按压态不得写成「函数形态 style」挂在 Pressable 上:Pressable 注册过 cssInterop,
               // interop 对非数组声明执行「展开函数」得到空对象 ⇒ 整份内联 style 静默消失
               // (守门 131 那一型)。外框拿盒与布局,面层只拿 pressed。
               <Pressable
-                key={btn.text}
+                key={btn.key}
                 style={btn.primary ? styles.primaryButton : styles.secondaryButton}
                 onPress={() => handleButton(btn.action)}
                 accessibilityRole="button"
@@ -302,7 +270,7 @@ export function IntroducePopup({
         <Pressable
           style={StyleSheet.absoluteFill}
           onPress={requestClose}
-          accessibilityLabel="关闭介绍弹窗"
+          accessibilityLabel={tStatic('introducePopup.closeA11y')}
         />
         <View style={styles.sheet}>
           {/* 顶部装饰图(对齐原版 headertitley + headertitlet 左右双图) */}
@@ -336,13 +304,15 @@ export function IntroducePopup({
           ) : null}
 
           <Text style={styles.title} numberOfLines={2}>
-            {title ?? config.title}
+            {title ?? tStatic(`introducePopup.${config.seg}.title`)}
           </Text>
 
           {content ? <Text style={styles.subtitle}>{content}</Text> : null}
 
           {variant === 'levelIndex' && config.levelText ? (
-            <Text style={styles.levelText}>{config.levelText}</Text>
+            <Text style={styles.levelText}>
+              {tStatic(`introducePopup.${config.seg}.${config.levelText}`)}
+            </Text>
           ) : null}
 
           <ScrollView

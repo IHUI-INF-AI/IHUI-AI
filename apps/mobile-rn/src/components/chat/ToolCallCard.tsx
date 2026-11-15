@@ -43,7 +43,7 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   toolRowStatusRunning: { color: tokens.text.secondary },
-  toolRowStatusSuccess: { color: tokens.success.deep },
+  toolRowStatusSuccess: { color: tokens.success.deepText },
   toolRowStatusError: { color: tokens.error.text },
   toolDiffBlock: {
     marginTop: rpx(2),

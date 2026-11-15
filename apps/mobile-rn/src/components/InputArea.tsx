@@ -571,7 +571,7 @@ export function InputArea({
                       )
                     }
                     placeholder={placeholder}
-                    placeholderTextColor={tokens.text.tertiary}
+                    placeholderTextColor={tokens.text.secondary}
                     maxLength={maxLength}
                     multiline
                     textAlignVertical="top"
@@ -672,7 +672,7 @@ export function InputArea({
                   )
                 }
                 placeholder={placeholder}
-                placeholderTextColor={tokens.text.tertiary}
+                placeholderTextColor={tokens.text.secondary}
                 maxLength={maxLength}
                 multiline
                 textAlignVertical="top"

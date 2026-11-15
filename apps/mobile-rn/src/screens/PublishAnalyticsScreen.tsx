@@ -146,7 +146,7 @@ export default function PublishAnalyticsScreen() {
         </View>
 
         {loading ? (
-          <ActivityIndicator style={styles.stateBox} color={tokens.text.tertiary} />
+          <ActivityIndicator style={styles.stateBox} color={tokens.text.secondary} />
         ) : failed ? (
           <View style={styles.stateBox}>
             <Text style={styles.errorText}>{t('publishAnalytics.loadFailed')}</Text>
@@ -156,7 +156,7 @@ export default function PublishAnalyticsScreen() {
           </View>
         ) : !hasData ? (
           <View style={styles.stateBox}>
-            <BarChart3 size={28} color={tokens.text.tertiary} />
+            <BarChart3 size={28} color={tokens.text.secondary} />
             <Text style={styles.muted}>{t('publishAnalytics.empty')}</Text>
             <Text style={styles.hint}>{t('publishAnalytics.emptyHint')}</Text>
           </View>
@@ -374,7 +374,7 @@ function makeStyles() {
     accountRight: { alignItems: 'flex-end', gap: rnSpacing['2xs'] },
     rate: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tokens.text.primary },
     risk: { fontSize: rnType.badge.size },
-    riskSafe: { color: tokens.success.deep },
+    riskSafe: { color: tokens.success.deepText },
     riskWarn: { color: tokens.danger.deepText },
   })
 }

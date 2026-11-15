@@ -14,6 +14,7 @@ import { render } from '@testing-library/react'
 
 // NavBar 接入 useI18n(文案国际化)后,不包 Provider/mock ⇒ 渲染即炸(fenlei 同款形态)
 vi.mock('../src/i18n', () => ({
+  t: (key: string) => key,
   I18nProvider: ({ children }: { children: unknown }) => children,
   useI18n: () => ({ t: (key: string) => key }),
 }))

@@ -324,7 +324,7 @@ export default function PublishAccountsScreen() {
         <Text style={styles.subtitle}>{t('publishAccounts.subtitle')}</Text>
 
         {loading ? (
-          <ActivityIndicator style={styles.stateBox} color={tokens.text.tertiary} />
+          <ActivityIndicator style={styles.stateBox} color={tokens.text.secondary} />
         ) : failed ? (
           <View style={styles.stateBox}>
             <Text style={styles.errorText}>{t('publishAccounts.loadFailed')}</Text>
@@ -334,7 +334,7 @@ export default function PublishAccountsScreen() {
           </View>
         ) : accounts.length === 0 ? (
           <View style={styles.stateBox}>
-            <AlertCircle size={28} color={tokens.text.tertiary} />
+            <AlertCircle size={28} color={tokens.text.secondary} />
             <Text style={styles.muted}>{t('publishAccounts.empty')}</Text>
             <Text style={styles.hint}>{t('publishAccounts.emptyHint')}</Text>
           </View>
@@ -407,7 +407,7 @@ export default function PublishAccountsScreen() {
                     onError={onQrError}
                   />
                 ) : (
-                  <ActivityIndicator color={tokens.text.tertiary} />
+                  <ActivityIndicator color={tokens.text.secondary} />
                 )}
                 <Text style={styles.hint}>{t('publishAccounts.scanHint')}</Text>
                 {scanError ? <Text style={styles.errorText}>{scanError}</Text> : null}

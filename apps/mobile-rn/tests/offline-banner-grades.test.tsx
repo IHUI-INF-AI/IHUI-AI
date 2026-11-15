@@ -17,6 +17,7 @@ import { rnTokens } from '@ihui/design-tokens'
 
 // 假 t 直接把键回显:组件若写死中文(本票的旧形态),断言就会拿到中文而不是键名。
 vi.mock('../src/i18n', () => ({
+  t: (key: string) => key,
   useI18n: () => ({
     locale: 'zh-CN',
     setLocale: async () => {},

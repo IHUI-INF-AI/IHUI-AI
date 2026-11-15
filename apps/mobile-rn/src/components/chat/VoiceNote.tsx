@@ -506,7 +506,7 @@ export function VoiceNote({ conversationId = null, sttEnabled = true, onInsert }
               value={query}
               onChangeText={setQuery}
               placeholder={t('chat.voiceNote.searchPlaceholder')}
-              placeholderTextColor={tokens.text.tertiary}
+              placeholderTextColor={tokens.text.secondary}
               testID="voice-note-search"
             />
 
@@ -645,7 +645,7 @@ export function VoiceNote({ conversationId = null, sttEnabled = true, onInsert }
                           value={groupDraft}
                           onChangeText={setGroupDraft}
                           placeholder={t('quickNotes.groupPlaceholder')}
-                          placeholderTextColor={tokens.text.tertiary}
+                          placeholderTextColor={tokens.text.secondary}
                           testID="voice-note-group-input"
                         />
                         <Tappable

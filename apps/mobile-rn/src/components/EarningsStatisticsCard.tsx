@@ -97,7 +97,7 @@ export default function EarningsStatisticsCard({
   const { t } = useI18n()
   const [currentTab, setCurrentTab] = useState<EarningsTab>('today')
 
-  const trendColor = trend?.direction === 'up' ? tokens.success.DEFAULT : tokens.danger.DEFAULT
+  const trendColor = trend?.direction === 'up' ? tokens.success.deepText : tokens.danger.DEFAULT
   const trendText = trend ? `${TREND_ARROW[trend.direction]} ${trend.percent}%` : ''
 
   // 三组统计(优先结构化对象;缺省降级:主金额 → today amount)

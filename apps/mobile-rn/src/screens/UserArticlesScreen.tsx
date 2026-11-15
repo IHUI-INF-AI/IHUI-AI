@@ -113,7 +113,7 @@ export default function UserArticlesScreen() {
 
       <ScrollView contentContainerStyle={styles.body}>
         {loading ? (
-          <ActivityIndicator style={styles.stateBox} color={tokens.text.tertiary} />
+          <ActivityIndicator style={styles.stateBox} color={tokens.text.secondary} />
         ) : failed ? (
           <View style={styles.stateBox}>
             <Text style={styles.errorText}>{t('userArticles.loadFailed')}</Text>
@@ -123,7 +123,7 @@ export default function UserArticlesScreen() {
           </View>
         ) : rows.length === 0 ? (
           <View style={styles.stateBox}>
-            <FileText size={28} color={tokens.text.tertiary} />
+            <FileText size={28} color={tokens.text.secondary} />
             <Text style={styles.muted}>{t('userArticles.empty')}</Text>
           </View>
         ) : (
@@ -169,7 +169,7 @@ export default function UserArticlesScreen() {
                   ) : null}
                   <View style={styles.metaRow}>
                     <View style={styles.metaItem}>
-                      <Eye size={12} color={tokens.text.tertiary} />
+                      <Eye size={12} color={tokens.text.secondary} />
                       <Text style={styles.metaText}>{a.viewCount ?? 0}</Text>
                     </View>
                     <Text style={styles.metaText}>{fmtDate(a.publishedAt ?? a.createdAt)}</Text>

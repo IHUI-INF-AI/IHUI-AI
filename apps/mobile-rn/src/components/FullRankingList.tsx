@@ -102,7 +102,7 @@ function rankBadgeStyle(rank: number): RankBadgeStyle {
     return { backgroundColor: tokens.warning.DEFAULT, color: tokens.surface.light }
   }
   if (rank === 3) {
-    return { backgroundColor: tokens.text.tertiary, color: tokens.surface.light }
+    return { backgroundColor: tokens.text.secondary, color: tokens.surface.light }
   }
   return { backgroundColor: tokens.surface.card, color: tokens.text.secondary }
 }
@@ -118,7 +118,7 @@ function RankChange({
   if (num === undefined) return null
   const flat = num === 0
   const up = num > 0
-  const color = flat ? tokens.text.tertiary : up ? tokens.danger.DEFAULT : tokens.success.DEFAULT
+  const color = flat ? tokens.text.secondary : up ? tokens.danger.DEFAULT : tokens.success.deep
   return (
     <View style={styles.rankChange}>
       {icon ? (

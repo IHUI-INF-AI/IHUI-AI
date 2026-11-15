@@ -90,9 +90,9 @@ export function WebPortalScreen() {
                     {section.entries.length}
                   </Text>
                   {isOpen ? (
-                    <ChevronUp size={14} color={tokens.text.tertiary} />
+                    <ChevronUp size={14} color={tokens.text.secondary} />
                   ) : (
-                    <ChevronDown size={14} color={tokens.text.tertiary} />
+                    <ChevronDown size={14} color={tokens.text.secondary} />
                   )}
                 </View>
               </Tappable>
@@ -113,7 +113,7 @@ export function WebPortalScreen() {
                         {t(entry.titleKey)}
                       </Text>
                       {/* 行尾与小程序端同形:chevron-right 矢量图标;path 只进跳转 URL,不上屏 */}
-                      <ChevronRight size={16} color={tokens.text.tertiary} />
+                      <ChevronRight size={16} color={tokens.text.secondary} />
                     </Tappable>
                   ))}
                 </View>

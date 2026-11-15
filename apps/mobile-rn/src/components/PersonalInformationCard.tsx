@@ -166,7 +166,8 @@ export function PersonalInformationCard({
           {level ? <Text style={styles.legacyText}>{level}</Text> : null}
           {inviteCode ? (
             <Text style={styles.legacyText}>
-              {tStatic('invite.inviteCode')} {inviteCode}
+              {t('invite.inviteCode')}
+              {inviteCode}
             </Text>
           ) : null}
           {commissionRate !== undefined ? (

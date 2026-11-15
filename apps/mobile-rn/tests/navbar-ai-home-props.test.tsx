@@ -8,6 +8,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 
 vi.mock('../src/i18n', () => ({
+  t: (key: string) => key,
   useI18n: () => ({ t: (key: string) => key }),
 }))
 

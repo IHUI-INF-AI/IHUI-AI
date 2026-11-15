@@ -1277,7 +1277,7 @@ export function ChatScreen() {
         setQuestionSubmitting(false)
       }
     },
-    [questionSelected, questionCustom, questionSubmitting, t],
+    [questionSelected, questionCustom, questionSubmitting, showToast, t],
   )
 
   const send = async (overrideText?: string, baseHistory?: ChatMessage[]): Promise<void> => {
@@ -2956,6 +2956,10 @@ export function ChatScreen() {
     tishiShow,
     tokenQuantity,
     onNavigate,
+    answeringQuestionId,
+    questionSelected,
+    questionSubmitting,
+    submitQuestionAnswer,
   ])
 
   const renderListFooter = useCallback((): React.ReactNode => {

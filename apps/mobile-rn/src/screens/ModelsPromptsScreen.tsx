@@ -59,7 +59,7 @@ function ModelsPromptsScreen() {
     } finally {
       setLoading(false)
     }
-  }, [fmtDate])
+  }, [fmtDate, t])
 
   useEffect(() => {
     void load()

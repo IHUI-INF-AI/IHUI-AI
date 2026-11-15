@@ -51,6 +51,18 @@ import { formatTokenCount } from '@ihui/shared/utils'
 import { createSmoothDeltaBatcher } from '@ihui/shared/utils/smooth-delta-batcher'
 // 差距①第 ① 腿:准入回执配对的稳定输入 ID —— 生成的唯一实现在共享层,端内不造第二源。
 import { createInputId } from '@ihui/shared/chat/send-admission'
+import {
+  HOOK_FAILURES_NAMESPACE,
+  hookFailureView,
+  readHookFailureEvent,
+} from '@ihui/shared/chat/hook-failures'
+// 2026-11-13:提问答复链路 —— 传输走 api-client 统一封装(小程序无原生 fetch,必须经 transport),
+// 判据走共享层三档归宿(与 web / extension / cli 同一份,端内不复制)。
+import { postQuestionAnswerResponse } from '@ihui/api-client'
+import {
+  buildLegacyAnswerText,
+  interpretQuestionResponse,
+} from '@ihui/shared/chat/question-response'
 // D4(2026-11-12):跟底判据与 RN 同源(shared/chat/stream-follow)—— 回退即交还滚动权。
 // 旧实现每 token 强制拽底:流式期间用户根本滑不动,与 web 端"上滑即交还"完全相反。
 import {
@@ -673,7 +685,9 @@ export default function ChatPage() {
   const dropStreamActivity = useCallback(
     (id: string) => {
       commitActivities((prev) => prev.filter((a) => a.id !== id))
-  }, [])
+    },
+    [commitActivities],
+  )
 
   /**
    * #12 小程序 AI 增强:把 SSE 工具事件(计划 / 工具 / 终端)累积写入最后一条 assistant 消息的
@@ -866,44 +880,48 @@ export default function ChatPage() {
     resetEarlierPaging()
     void replayServerConversation({
       fetchMessages: () => getMessages(routeSessionId, { direction: 'initial', pageSize: 100 }),
-    }).then((outcome) => {
-      if (outcome.ok) {
-        setMessages(outcome.messages)
-        // 切到该服务端会话:留痕按会话分区,旧会话的记录不带到新会话(读回本会话盘上记录)
-        switchNoticeScope(routeSessionId)
-        // D20 留尾2:首页响应自带头部分页游标 —— hasMore=true 才亮「加载更早消息」入口
-        setEarlierHasMore(outcome.hasMore)
-        earlierCursorRef.current = outcome.nextCursor
-        setImgsList([])
-        setInputValue('')
-        setSelectedMaterial(null)
-        scrollToBottom()
-        // D28 补齐层(2026-10-03):导入页「用场景分析」带来的分析指令,在**回放落定后**发出。
-        // 门必须落在回放成功分支内(而不是 didShow 末尾):sendMessage 用的是闭包里的
-        // messages,历史未回填就发 ⇒ 本轮上下文里没有导入记录,提示词里那句
-        // "以上是本次导入的会话记录全文"会指向不存在的上文,分析退化成凭空生成。
-        // setTimeout(0) 让 setMessages 先落一轮渲染,sendMessage 闭包才拿到回放后的 messages。
-        // autoSendDoneRef 保证只发一次(页面每次 didShow 都会走到这段)。
-        if (routeAutoSendPrompt && !autoSendDoneRef.current) {
-          autoSendDoneRef.current = true
-          setTimeout(() => {
-            void sendMessageRef.current(routeAutoSendPrompt)
-          }, 0)
-        }
-        return
-      }
-      // 半个租约都比没有更危险 —— 允许下一次 didShow 重新尝试前先清掉"已试"标记
-      replayedSessionRef.current = ''
-      Taro.showModal({
-        title: t('common.hint'),
-        content: t('ai.chat.replayFailed'),
-        confirmText: t('common.retry'),
-        cancelText: t('common.cancel'),
-        success: (res) => {
-          if (res.confirm) runServerReplay()
-        },
-      })
     })
+      .then((outcome) => {
+        if (outcome.ok) {
+          setMessages(outcome.messages)
+          // 切到该服务端会话:留痕按会话分区,旧会话的记录不带到新会话(读回本会话盘上记录)
+          switchNoticeScope(routeSessionId)
+          // D20 留尾2:首页响应自带头部分页游标 —— hasMore=true 才亮「加载更早消息」入口
+          setEarlierHasMore(outcome.hasMore)
+          earlierCursorRef.current = outcome.nextCursor
+          setImgsList([])
+          setInputValue('')
+          setSelectedMaterial(null)
+          scrollToBottom()
+          // D28 补齐层(2026-10-03):导入页「用场景分析」带来的分析指令,在**回放落定后**发出。
+          // 门必须落在回放成功分支内(而不是 didShow 末尾):sendMessage 用的是闭包里的
+          // messages,历史未回填就发 ⇒ 本轮上下文里没有导入记录,提示词里那句
+          // "以上是本次导入的会话记录全文"会指向不存在的上文,分析退化成凭空生成。
+          // setTimeout(0) 让 setMessages 先落一轮渲染,sendMessage 闭包才拿到回放后的 messages。
+          // autoSendDoneRef 保证只发一次(页面每次 didShow 都会走到这段)。
+          if (routeAutoSendPrompt && !autoSendDoneRef.current) {
+            autoSendDoneRef.current = true
+            setTimeout(() => {
+              void sendMessageRef.current(routeAutoSendPrompt)
+            }, 0)
+          }
+          return
+        }
+        // 半个租约都比没有更危险 —— 允许下一次 didShow 重新尝试前先清掉"已试"标记
+        replayedSessionRef.current = ''
+        Taro.showModal({
+          title: t('common.hint'),
+          content: t('ai.chat.replayFailed'),
+          confirmText: t('common.retry'),
+          cancelText: t('common.cancel'),
+          success: (res) => {
+            if (res.confirm) runServerReplay()
+          },
+        })
+      })
+      .catch(() => {
+        /* replay failed: keep current messages */
+      })
   }, [
     routeSessionId,
     routeAutoSendPrompt,
@@ -1028,13 +1046,17 @@ export default function ChatPage() {
           fetchConversationLatestBudgetStop(conversationId),
           fetchConversationContextLedgers(conversationId, 5),
           fetchConversationCompactionBoundaries(conversationId, 5),
-        ]).then(([stop, ledgers, boundaries]) => {
-          if (stop) setBudgetStop(stop)
-          const latestLedger = ledgers[0]
-          if (latestLedger) setContextLedger(latestLedger)
-          const latestBoundary = boundaries[0]
-          if (latestBoundary) setCompactionBoundary(latestBoundary)
-        })
+        ])
+          .then(([stop, ledgers, boundaries]) => {
+            if (stop) setBudgetStop(stop)
+            const latestLedger = ledgers[0]
+            if (latestLedger) setContextLedger(latestLedger)
+            const latestBoundary = boundaries[0]
+            if (latestBoundary) setCompactionBoundary(latestBoundary)
+          })
+          .catch(() => {
+            /* context fetch failed: keep defaults */
+          })
       }
     }
     // 加载收藏消息(对标原 ai_assistant.vue 收藏列表)
@@ -1639,6 +1661,17 @@ export default function ChatPage() {
             },
             // 2026-11-13:记忆更新交代。此前本端 0 命中 —— 服务端明明回了"本轮记住了哪些"
             // 却整帧丢弃,用户不知道助手在积累记忆。空数组 = 本轮无新记忆 ⇒ 不打扰。
+            // 2026-11-13:hook 执行失败交代。判据走共享层(端内不复制六态收窄),
+            // 只渲染 failed / timedOut 两档 —— 那是服务端唯一下发的两档。
+            onHookFailure: (evt) => {
+              const rec = readHookFailureEvent(evt)
+              if (!rec) return
+              const view = hookFailureView(rec.state, rec.context)
+              const name = rec.context.hookName ?? rec.context.hookEvent ?? '?'
+              pushStreamActivity(
+                `${t('chat.hookFailureTitle', { name })} · ${t(`${HOOK_FAILURES_NAMESPACE}.${view.titleKey}`)}`,
+              )
+            },
             onMemoryUpdates: (evt) => {
               if (evt.items.length === 0) return
               pushStreamActivity(t('ai.stream.memoryRemembered', { n: evt.items.length }))
@@ -1760,6 +1793,8 @@ export default function ChatPage() {
       tt,
       checkSpecialModel,
       pushStreamActivity,
+      upsertStreamActivity,
+      dropStreamActivity,
       upsertCard,
     ],
   )
@@ -1808,6 +1843,60 @@ export default function ChatPage() {
   const stopGeneration = useCallback(() => {
     terminateStream()
   }, [terminateStream])
+
+  /**
+   * 提交 AI 提问的答复(2026-11-13 修)。
+   *
+   * ⚠️ 这次修的是一个**看着能用其实错链路**的实现:旧代码在选项点击里只做
+   * `setInputValue(o.label)` —— 把文本填回输入框让用户手动再发。后果三条:
+   *  ① 没调 `/question-response` 续流,而是**开了一轮普通对话**(服务端那条挂着的流仍在等);
+   *  ② `questionId` 被丢掉,服务端无从配对;
+   *  ③ 原 assistant 的 `pendingQuestion` 状态永不清除。
+   * 也就是说界面能点、点了有反应,但那反应与"回答这个提问"无关。
+   *
+   * 现改为走共享层判据的三档归宿(blocking / legacy / failed)——
+   * 与 web / extension / cli 同一份判据、同一个传输封装。
+   */
+  const submitQuestionAnswer = useCallback(
+    async (action: 'answer' | 'withdraw', selected: string[], custom: string) => {
+      const q = pendingQuestion
+      if (!q) return
+      if (action === 'answer' && selected.length === 0 && custom.trim() === '') return
+      const sid = sessionId
+      if (!sid) {
+        onToast(t('chat.questionNoSession'), { kind: 'error' })
+        return
+      }
+      const r = await postQuestionAnswerResponse(sid, {
+        questionId: q.questionId,
+        action,
+        selectedOptionIds: selected,
+        ...(custom.trim() ? { customText: custom.trim() } : {}),
+      })
+      if (r.networkError !== undefined) {
+        onToast(t('chat.questionFailed'), { kind: 'error' })
+        return
+      }
+      const outcome = interpretQuestionResponse(r.httpStatus, r.data)
+      if (outcome.kind === 'blocking') {
+        // 服务端认下 ⇒ 关卡片,流自己续跑(不能再发一轮)
+        setPendingQuestion(null)
+      } else if (outcome.kind === 'legacy') {
+        // 旧服务端没有阻塞式端点 ⇒ 回退旧链路:把答案当普通消息发出去
+        const text = buildLegacyAnswerText(q.options, {
+          questionId: q.questionId,
+          action,
+          selectedOptionIds: selected,
+          customText: custom,
+        })
+        setPendingQuestion(null)
+        if (text) void sendMessage(text)
+      } else {
+        onToast(t('chat.questionFailed'), { kind: 'error' })
+      }
+    },
+    [pendingQuestion, sessionId, t, sendMessage],
+  )
 
   // 票 68(语义照 web `use-chat.ts` 的换档 effect):流式中切换模型 → 终止当前这一轮,
   // 并让本轮/下一轮自动带入新模型(用户不必重发、也不必重开对话)。
@@ -2376,6 +2465,11 @@ export default function ChatPage() {
     openModelDrawer,
     openSkillsPopup,
     pendingQuestion,
+    /** 2026-11-13:提交提问答复(取代旧的"填入输入框"错误链路) */
+    onSubmitQuestionAnswer: (selected: string[], custom: string) =>
+      void submitQuestionAnswer('answer', selected, custom),
+    /** 撤回/关闭这道提问(服务端会据此标 withdrawn 并让流收场) */
+    onWithdrawQuestion: () => void submitQuestionAnswer('withdraw', [], ''),
     reasoningPopupContent,
     reasoningPopupVisible,
     scrollToBottom,

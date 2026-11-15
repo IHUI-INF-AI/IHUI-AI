@@ -228,7 +228,7 @@ export function BottomPops({ visible, onClose, children, title, height }: Bottom
               >
                 {({ pressed }) => (
                   <View style={pressed ? styles.closeButtonPressed : null}>
-                    <X size={rnGeometry.glyphMd} color={tokens.text.tertiary} />
+                    <X size={rnGeometry.glyphMd} color={tokens.text.secondary} />
                   </View>
                 )}
               </Pressable>

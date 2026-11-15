@@ -326,7 +326,7 @@ export default function DataRightsScreen() {
                     <Text
                       style={[
                         styles.receiptStatus,
-                        { color: r.ok ? tokens.success.DEFAULT : tokens.danger.DEFAULT },
+                        { color: r.ok ? tokens.success.deep : tokens.danger.DEFAULT },
                       ]}
                     >
                       {r.ok ? t('dataRights.statusSuccess') : t('dataRights.statusFailed')}

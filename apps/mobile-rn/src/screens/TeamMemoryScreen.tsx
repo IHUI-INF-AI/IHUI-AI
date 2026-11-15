@@ -200,10 +200,7 @@ export function TeamMemoryScreen() {
                 await deleteTeamMemory(row.id)
                 await load(scopeId, kind, keyword)
               } catch (e) {
-                appAlert(
-                  t('common.failed'),
-                  toFriendlyOr(e, t('teamMemory.saveFailed')),
-                )
+                appAlert(t('common.failed'), toFriendlyOr(e, t('teamMemory.saveFailed')))
               } finally {
                 setBusyId('')
               }
@@ -235,7 +232,7 @@ export function TeamMemoryScreen() {
             value={scopeId}
             onChangeText={setScopeId}
             placeholder={t('teamMemory.scopePlaceholder')}
-            placeholderTextColor={tokens.text.tertiary}
+            placeholderTextColor={tokens.text.secondary}
             autoCapitalize="none"
             autoCorrect={false}
             className="mt-2 h-9 rounded-sm border border-neutral-300 px-3 text-sm text-neutral-900 dark:border-neutral-700 dark:text-neutral-100"
@@ -246,7 +243,7 @@ export function TeamMemoryScreen() {
               value={keyword}
               onChangeText={setKeyword}
               placeholder={t('teamMemory.searchPlaceholder')}
-              placeholderTextColor={tokens.text.tertiary}
+              placeholderTextColor={tokens.text.secondary}
               className="mr-2 h-9 flex-1 rounded-sm border border-neutral-300 px-3 text-sm text-neutral-900 dark:border-neutral-700 dark:text-neutral-100"
             />
             <TouchableOpacity
@@ -307,7 +304,7 @@ export function TeamMemoryScreen() {
               value={editing.title}
               onChangeText={(v) => setEditing((prev) => (prev ? { ...prev, title: v } : prev))}
               placeholder={t('teamMemory.titlePlaceholder')}
-              placeholderTextColor={tokens.text.tertiary}
+              placeholderTextColor={tokens.text.secondary}
               className="h-9 rounded-sm border border-neutral-300 px-3 text-sm text-neutral-900 dark:border-neutral-700 dark:text-neutral-100"
             />
             <TextField
@@ -315,7 +312,7 @@ export function TeamMemoryScreen() {
               value={editing.content}
               onChangeText={(v) => setEditing((prev) => (prev ? { ...prev, content: v } : prev))}
               placeholder={t('teamMemory.contentPlaceholder')}
-              placeholderTextColor={tokens.text.tertiary}
+              placeholderTextColor={tokens.text.secondary}
               multiline
               className="mt-2 min-h-[72px] rounded-sm border border-neutral-300 px-3 py-2 text-sm text-neutral-900 dark:border-neutral-700 dark:text-neutral-100"
             />
@@ -324,7 +321,7 @@ export function TeamMemoryScreen() {
               value={editing.tags}
               onChangeText={(v) => setEditing((prev) => (prev ? { ...prev, tags: v } : prev))}
               placeholder={t('teamMemory.tagsPlaceholder')}
-              placeholderTextColor={tokens.text.tertiary}
+              placeholderTextColor={tokens.text.secondary}
               className="mt-2 h-9 rounded-sm border border-neutral-300 px-3 text-sm text-neutral-900 dark:border-neutral-700 dark:text-neutral-100"
             />
             <View className="mt-2 flex-row flex-wrap">

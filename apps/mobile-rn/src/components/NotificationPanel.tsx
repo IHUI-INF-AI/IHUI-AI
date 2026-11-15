@@ -219,7 +219,7 @@ export function PushBanner({
                   accessibilityRole="button"
                   accessibilityLabel={t('common.close')}
                 >
-                  <X size={14} color={tokens.text.tertiary} />
+                  <X size={14} color={tokens.text.secondary} />
                 </Tappable>
               </View>
               {content ? (

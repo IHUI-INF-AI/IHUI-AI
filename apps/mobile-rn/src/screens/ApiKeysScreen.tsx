@@ -325,7 +325,7 @@ export default function ApiKeysScreen() {
             <Text style={styles.cardTitle}>{t('apiKeys.listTitle')}</Text>
           </View>
           {loading ? (
-            <ActivityIndicator style={styles.loading} color={tokens.text.tertiary} />
+            <ActivityIndicator style={styles.loading} color={tokens.text.secondary} />
           ) : loadError ? (
             <View style={styles.centerBox}>
               <Text style={styles.error}>{loadError}</Text>
@@ -355,7 +355,7 @@ export default function ApiKeysScreen() {
                       <Text
                         style={[
                           styles.badgeText,
-                          { color: active ? tokens.success.DEFAULT : tokens.text.tertiary },
+                          { color: active ? tokens.success.deep : tokens.text.secondary },
                         ]}
                       >
                         {active ? t('apiKeys.statusActive') : t('apiKeys.statusRevoked')}
@@ -537,7 +537,7 @@ function makeStyles() {
       borderRadius: rnRadius.md,
       borderWidth: 1,
     },
-    badgeOn: { borderColor: tokens.success.DEFAULT },
+    badgeOn: { borderColor: tokens.success.deep },
     badgeOff: { borderColor: tokens.border.medium },
     badgeText: { fontSize: rnType.badge.size, fontWeight: '600' },
     mono: { fontFamily: 'monospace', fontSize: rnType.label.size, color: tokens.text.secondary },

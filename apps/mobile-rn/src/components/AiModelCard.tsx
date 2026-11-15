@@ -244,7 +244,7 @@ export default function AiModelCard({
                 activeOpacity={0.7}
                 onPress={stopBubble(() => onBuyPress?.(data))}
               >
-                <Text style={styles.buyBtnText}>{tStatic('purchase.title')}</Text>
+                <Text style={styles.buyBtnText}>{t('purchase.title')}</Text>
               </TouchableOpacity>
             ) : hasDetail ? (
               <TouchableOpacity
@@ -280,7 +280,7 @@ export default function AiModelCard({
             activeOpacity={0.7}
             onPress={stopBubble(() => onSettingPress?.(data))}
           >
-            <Text style={styles.settingBtnText}>{tStatic('chat.navSettings')}</Text>
+            <Text style={styles.settingBtnText}>{t('chat.navSettings')}</Text>
           </TouchableOpacity>
         </View>
       ) : null}

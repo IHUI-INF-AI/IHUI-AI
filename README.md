@@ -5470,6 +5470,9 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-15**
+- 🐞 修复:API 层全量路径段补 encodeURIComponent(对齐 api-client 惯例) (b2ec9922eb)
+
+**2026-11-15**
 - 🐞 修复:修复 API 层路径编码缺失与响应解包空判 (b4057d9e5d)
 - 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (8ee1f8d48e)
 

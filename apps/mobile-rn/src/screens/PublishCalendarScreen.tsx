@@ -232,7 +232,7 @@ export default function PublishCalendarScreen() {
         <Text style={styles.subtitle}>{t('publishCalendar.subtitle')}</Text>
 
         {loading ? (
-          <ActivityIndicator style={styles.stateBox} color={tokens.text.tertiary} />
+          <ActivityIndicator style={styles.stateBox} color={tokens.text.secondary} />
         ) : failed ? (
           <View style={styles.stateBox}>
             <Text style={styles.errorText}>{t('publishCalendar.loadFailed')}</Text>
@@ -242,7 +242,7 @@ export default function PublishCalendarScreen() {
           </View>
         ) : tasks.length === 0 ? (
           <View style={styles.stateBox}>
-            <CalendarDays size={28} color={tokens.text.tertiary} />
+            <CalendarDays size={28} color={tokens.text.secondary} />
             <Text style={styles.muted}>{t('publishCalendar.empty')}</Text>
             <Text style={styles.hint}>{t('publishCalendar.emptyHint')}</Text>
           </View>
@@ -286,7 +286,7 @@ export default function PublishCalendarScreen() {
                     </View>
                   </View>
                   <View style={styles.metaRow}>
-                    <Clock size={11} color={tokens.text.tertiary} />
+                    <Clock size={11} color={tokens.text.secondary} />
                     <Text style={styles.meta}>{fmtDate(taskTime(task), true)}</Text>
                   </View>
                   <Text style={styles.meta} numberOfLines={1}>

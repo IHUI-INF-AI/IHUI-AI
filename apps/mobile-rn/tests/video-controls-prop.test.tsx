@@ -17,6 +17,7 @@ vi.mock('react-native-video', () => ({
 }))
 
 vi.mock('../src/i18n', () => ({
+  t: (key: string) => key,
   useI18n: () => ({ t: (key: string) => key }),
 }))
 

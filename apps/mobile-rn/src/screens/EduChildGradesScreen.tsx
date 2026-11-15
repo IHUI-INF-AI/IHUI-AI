@@ -65,7 +65,7 @@ function EduChildGradesScreen() {
     } finally {
       setLoading(false)
     }
-  }, [childId])
+  }, [childId, t])
 
   useEffect(() => {
     void load()

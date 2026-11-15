@@ -141,7 +141,7 @@ export default function PendingDecisionsScreen() {
           <Text style={styles.muted}>{t('pendingDecisions.hint')}</Text>
 
           {loading ? (
-            <ActivityIndicator style={styles.loading} color={tokens.text.tertiary} />
+            <ActivityIndicator style={styles.loading} color={tokens.text.secondary} />
           ) : error ? (
             <View style={styles.centerBox}>
               <Text style={styles.error}>{error}</Text>

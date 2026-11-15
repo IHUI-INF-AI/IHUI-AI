@@ -67,7 +67,9 @@ export default function InformationItem({
     e.stopPropagation()
     Taro.showShareMenu({
       withShareTicket: true,
-    }).catch(() => {})
+    }).catch(() => {
+      onToast(tt('setting.operationFailed', '操作失败'), { kind: 'error' })
+    })
     onShare?.(item)
   }
 

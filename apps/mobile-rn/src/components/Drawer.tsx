@@ -362,10 +362,7 @@ function SwipeableConversationItem({
         className="absolute top-0 bottom-0 right-0 flex-row items-stretch justify-end"
         style={styles.swipeRow}
       >
-        <View
-          className="items-center justify-center"
-          style={styles.swipeFavoriteBtn}
-        >
+        <View className="items-center justify-center" style={styles.swipeFavoriteBtn}>
           <Pressable
             className="items-center justify-center active:opacity-60"
             style={styles.swipeBtn}
@@ -378,18 +375,12 @@ function SwipeableConversationItem({
               color={tokens.surface.light}
               fill={item.favorited ? tokens.surface.light : 'transparent'}
             />
-            <Text
-              className="mt-1"
-              style={styles.swipeBtnText}
-            >
+            <Text className="mt-1" style={styles.swipeBtnText}>
               {item.favorited ? t('drawer.collected') : t('drawer.collect')}
             </Text>
           </Pressable>
         </View>
-        <View
-          className="items-center justify-center"
-          style={styles.swipeDeleteBtn}
-        >
+        <View className="items-center justify-center" style={styles.swipeDeleteBtn}>
           <Pressable
             className="items-center justify-center active:opacity-60"
             style={styles.swipeBtn}
@@ -397,10 +388,7 @@ function SwipeableConversationItem({
             accessibilityLabel={`${t('drawer.delete')} ${item.title}`}
           >
             <Trash2 size={rnGeometry.glyphMd} color={tokens.surface.light} />
-            <Text
-              className="mt-1"
-              style={styles.swipeBtnText}
-            >
+            <Text className="mt-1" style={styles.swipeBtnText}>
               {t('drawer.delete')}
             </Text>
           </Pressable>
@@ -519,7 +507,7 @@ function NavExpandableRow({ item }: { item: NavRowModel }) {
           android_ripple={{ color: tokens.surface.muted }}
         >
           <View style={{ transform: [{ rotate: expanded ? '0deg' : '-90deg' }] }}>
-            <ChevronDown size={rnGeometry.glyphSm} color={tokens.text.tertiary} />
+            <ChevronDown size={rnGeometry.glyphSm} color={tokens.text.secondary} />
           </View>
         </Pressable>
       </View>
@@ -553,7 +541,7 @@ function NavDomainRow({ label, Icon, onPress }: NavDomainRowProps) {
       <Text numberOfLines={1} className="flex-1 font-medium" style={styles.navRowText}>
         {label}
       </Text>
-      <ChevronRight size={rnGeometry.glyphSm} color={tokens.text.tertiary} />
+      <ChevronRight size={rnGeometry.glyphSm} color={tokens.text.secondary} />
     </Pressable>
   )
 }
@@ -583,12 +571,12 @@ function NavGroupSection({ title, variant, defaultOpen, items }: NavGroupSection
         <Text
           numberOfLines={1}
           className="flex-1 text-xs font-semibold uppercase tracking-wider"
-          style={{ color: variant === 'hot' ? tokens.danger.DEFAULT : tokens.text.tertiary }}
+          style={{ color: variant === 'hot' ? tokens.danger.DEFAULT : tokens.text.secondary }}
         >
           {title}
         </Text>
         <View style={{ transform: [{ rotate: expanded ? '0deg' : '-90deg' }] }}>
-          <ChevronDown size={rnGeometry.glyphSm} color={tokens.text.tertiary} />
+          <ChevronDown size={rnGeometry.glyphSm} color={tokens.text.secondary} />
         </View>
       </Pressable>
       {expanded ? (
