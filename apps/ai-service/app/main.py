@@ -213,6 +213,13 @@ for _key in ("REDIS_URL", "DATABASE_URL", "JWT_SECRET", "AI_CALLBACK_SECRET",
     if _val:
         os.environ.setdefault(_key, _val)
 
+# §15b 运行时合规临时根(2026-11-15 立):把 tempfile 全局重定向到 ~/.ihui/tmp
+# (junction 落 D: 卷,不写 C 盘、不依赖 TEMP 环境变量),根治全仓 Python
+# tempfile.mkdtemp/NamedTemporaryFile/TemporaryDirectory 外泄项目外。
+# 必须早于任何业务模块首次 tempfile 调用;单一真相源 = app/core/runtime_temp.py。
+from app.core.runtime_temp import install_runtime_temp_root
+install_runtime_temp_root()
+
 # LLM provider keys(2026-07-27 立):同步到 os.environ 让 LiteLLM 库内部调用
 # (不走 _resolve_provider 的路径)也能从环境变量读到配置。
 # 仅在变量非空 + 未设置时 setdefault,不覆盖用户系统环境变量。
