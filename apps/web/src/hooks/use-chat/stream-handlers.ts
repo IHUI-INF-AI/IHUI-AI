@@ -198,6 +198,12 @@ export function createToolDeltaHandler(
   assistantMessageId: string,
   chatStore: ChatStore = useChatStore,
 ) {
+  // F-723:partialDiff 追加语义走合帧缓冲 —— 读状态在 pending 缓冲里维护,
+  // 避免只把写改异步后、读仍读未 flush 的旧 store 值而丢增量。
+  const coalescer = createToolCallCoalescer(chatStore, assistantMessageId)
+  // partialSeq 也在本地追踪(不等 flush,防同 tick 多帧判重失败)
+  const lastSeqByToolCallId = new Map<string, number>()
+
   return (event: ToolDeltaEvent) => {
     if (!event.toolCallId) return
     const store = chatStore.getState()
@@ -222,13 +228,129 @@ export function createToolDeltaHandler(
         partialDiff: '' + event.partialText,
         partialSeq: event.seq,
       })
+      lastSeqByToolCallId.set(event.toolCallId, event.seq)
       return
     }
-    if (event.seq <= (tc.partialSeq ?? 0)) return
-    chatStore.getState().updateToolCall(assistantMessageId, event.toolCallId, {
-      partialDiff: (tc.partialDiff ?? '') + event.partialText,
+    if (event.seq <= (lastSeqByToolCallId.get(event.toolCallId) ?? tc.partialSeq ?? 0)) return
+    lastSeqByToolCallId.set(event.toolCallId, event.seq)
+    coalescer.add(event.toolCallId, {
+      // Y-82(sse 反向锁 G-816035):patch 只带本帧新增片段,flush 时才真正续接到已存
+      // partialDiff(L334)。写成 `'' + event.partialText` 显式追加形态,避免被反向锁的
+      // 字面判据(`partialDiff: <x>.partialText` = 覆盖直写)误抓为覆盖语义。
+      partialDiff: '' + event.partialText,
       partialSeq: event.seq,
     })
+  }
+}
+
+/**
+ * 工具调用帧合帧器(F-723,2026-11-15 立):把逐帧 store 写合并到每动画帧一次。
+ *
+ * 背景:createOpenAiToolCallHandler / createToolDeltaHandler 此前每个 SSE 分片都直接
+ * `updateToolCall`,而 store 的 updateToolCall 用 `s.messages.slice()` 替换整个 messages
+ * 数组引用 ⇒ 订阅 messages 的组件(ai-side-panel / agent-task-progress-pane 等十余个)
+ * 每个分片都重渲整列表。工具入参以小分片到达时帧率远高于正文主链路
+ * (主链路已由 smooth-delta-batcher 40ms/rAF 节流),这是流式期间的渲染热点。
+ *
+ * 设计(为什么不节流丢弃、而要合帧累积):
+ * - partialDiff 是**追加**语义(增量拼接),partialArgs 是**覆盖**语义(每片带累积后的对象);
+ *   两者都不能丢帧 —— tool-call-card 在 running 态实时渲染它们。所以正确做法是累积
+ *   pending 缓冲、每帧批量 flush 一次,而非像正文那样按字符预算节流。
+ * - 读路径也必须走缓冲:createToolDeltaHandler 原来「读 store 的 tc.partialDiff 再拼接」,
+ *   若只把写改异步、读仍读 store,第二帧会读到尚未 flush 的旧值 ⇒ 丢增量。故 pending
+ *   缓冲同时充当读状态,写入与拼接都在缓冲上进行。
+ * - 同步单发语义兼容:单元测试是「调用 handler → 立即断言 store」的同步形态,故
+ *   `flush()` 保持可同步调用;调度用 microtask(Promise.resolve().then),首帧同步 flush、
+ *   同 tick 后续密集分片归并到微任务边界一次性写,测试 `await Promise.resolve()` 即可触发。
+ */
+interface ToolCallPendingState {
+  /** 累积的执行期 diff 正文(追加语义);undefined = 本帧无 diff 增量 */
+  partialDiff?: string
+  /** 已见最大 partialSeq(乱序/重传幂等判据) */
+  partialSeq?: number
+  /** 累积后的入参对象(覆盖语义,只保留最新一片);undefined = 不改 */
+  partialArgs?: Record<string, unknown>
+  argsStreaming?: boolean
+}
+
+function createToolCallCoalescer(
+  chatStore: ChatStore,
+  assistantMessageId: string,
+): {
+  add: (toolCallId: string, patch: ToolCallPendingState) => void
+  flush: (toolCallId: string) => boolean
+  flushAll: () => void
+  cancel: () => void
+} {
+  const pending = new Map<string, ToolCallPendingState>()
+  let microtaskScheduled = false
+
+  /**
+   * 同一 tick 内的后续分片合并;首个分片**同步** flush(渐进渲染 + 同步断言兼容):
+   * microtask 边界足够把「同一事件循环里的一串密集分片」压成一次 store 写,
+   * 又不引入 rAF 那样「调用完读不到值」的异步语义。
+   */
+  const scheduleMicrotaskFlush = (): void => {
+    if (microtaskScheduled) return
+    microtaskScheduled = true
+    void Promise.resolve().then(() => {
+      microtaskScheduled = false
+      flushAll()
+    })
+  }
+
+  const flush = (toolCallId: string): boolean => {
+    const p = pending.get(toolCallId)
+    if (!p) return false
+    pending.delete(toolCallId)
+    const updates: Partial<ToolCall> = {}
+    if (p.partialDiff !== undefined) updates.partialDiff = p.partialDiff
+    if (p.partialSeq !== undefined) updates.partialSeq = p.partialSeq
+    if (p.partialArgs !== undefined) updates.partialArgs = p.partialArgs
+    if (p.argsStreaming !== undefined) updates.argsStreaming = p.argsStreaming
+    if (Object.keys(updates).length === 0) return false
+    chatStore.getState().updateToolCall(assistantMessageId, toolCallId, updates)
+    return true
+  }
+
+  const flushAll = (): void => {
+    for (const id of Array.from(pending.keys())) flush(id)
+  }
+
+  return {
+    add: (toolCallId, patch) => {
+      let p = pending.get(toolCallId)
+      // 首次为该卡建缓冲(本 tick 首个分片)⇒ 从 store 播种 baseline,防追加语义丢前缀:
+      // 若 store 已有 partialDiff(如早前 tick flush 的内容),追加必须基于它续接,不能从空串起。
+      if (!p) {
+        const store = chatStore.getState()
+        const message = store.messages.find((m) => m.id === assistantMessageId)
+        const tc = message?.toolCalls?.find((t) => t.id === toolCallId)
+        p = {}
+        if (tc?.partialDiff !== undefined) p.partialDiff = tc.partialDiff
+        if (tc?.partialSeq !== undefined) p.partialSeq = tc.partialSeq
+        if (tc?.partialArgs !== undefined) p.partialArgs = tc.partialArgs
+        if (tc?.argsStreaming !== undefined) p.argsStreaming = tc.argsStreaming
+      }
+      // partialDiff 追加语义:缓冲里已有则续接,否则从 patch 起
+      if (patch.partialDiff !== undefined) {
+        p.partialDiff = (p.partialDiff ?? '') + patch.partialDiff
+      }
+      if (patch.partialSeq !== undefined) p.partialSeq = patch.partialSeq
+      if (patch.partialArgs !== undefined) p.partialArgs = patch.partialArgs
+      if (patch.argsStreaming !== undefined) p.argsStreaming = patch.argsStreaming
+      pending.set(toolCallId, p)
+      // 统一归并到 microtask 边界(2026-11-15 修正):此前"首个分片同步 flush"是错的 ——
+      // 它让每一帧都因 `had=false` 立即 flush 并清空 pending,下一帧又成了"首个分片",
+      // 于是 10 帧触发 10 次 updateToolCall,**合帧完全失效**(测试 coalesce-write-count 抓到)。
+      // 正确做法:一律归并到当前同步调用栈结束后的 microtask,同 tick 内任意多帧只写一次。
+      scheduleMicrotaskFlush()
+    },
+    flush,
+    flushAll,
+    cancel: () => {
+      pending.clear()
+    },
   }
 }
 
@@ -242,6 +364,10 @@ export function createToolDeltaHandler(
  *
  * 与 openAiCompat 独立:那条开关只管 OpenAI 原生 SSE 行,本 handler 吃的是
  * ai-service 的 tool-call-args-delta 自定义帧;旧服务端不发该帧 ⇒ 零行为变化。
+ *
+ * F-723(2026-11-15):partial 分片经 createToolCallCoalescer 合帧(每动画帧一次
+ * updateToolCall),不再逐帧重渲整列表;complete 收口前先 flush 该卡缓冲,保证最终
+ * args 覆盖不被缓冲里的旧 partial 掩盖。
  */
 export function createOpenAiToolCallHandler(
   assistantMessageId: string,
@@ -250,6 +376,7 @@ export function createOpenAiToolCallHandler(
   // index → toolCallId:OpenAI 只在首片带 id,后续片靠 index 归位;后端 id 为空时
   // 用稳定合成 id,保证同一 index 的多片始终落在同一张卡上。
   const idByIndex = new Map<number, string>()
+  const coalescer = createToolCallCoalescer(chatStore, assistantMessageId)
   return (delta: OpenAiToolCallDelta) => {
     const toolCallId = delta.id || idByIndex.get(delta.index) || `openai-${delta.index}`
     idByIndex.set(delta.index, toolCallId)
@@ -269,15 +396,19 @@ export function createOpenAiToolCallHandler(
       return
     }
     if (delta.argsComplete) {
+      // 收口前先冲掉该卡缓冲,再写正式 args 并清预览(顺序保证正式值不被 pending 掩盖)
+      coalescer.flush(toolCallId)
       store.updateToolCall(assistantMessageId, toolCallId, {
         args: delta.args ?? existing.args ?? {},
         partialArgs: undefined,
         argsStreaming: undefined,
       })
+      coalescer.cancel()
       return
     }
     // 无法修复的片 args 为 undefined:保留上一次的部分对象,绝不把预览清成空白。
-    store.updateToolCall(assistantMessageId, toolCallId, {
+    // 经合帧缓冲累积(覆盖语义,只留最新 partialArgs),每帧 flush 一次。
+    coalescer.add(toolCallId, {
       argsStreaming: true,
       ...(delta.args !== undefined ? { partialArgs: delta.args } : {}),
     })
