@@ -2227,6 +2227,9 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-15**
+- 🐞 修正:修跨端交互/逻辑缺陷——pay applyCoupon 补 in-flight 守卫防并发改价、AppUpdateBanner 裸 setTimeout 补 cleanup 治卸载闪没、TagInput 可删列表改按 tag 值作 key 解耦下标、user 历史静默 catch 补失败 toast;ui-routes.generated.ts 按当前输入重生成对齐 (a3df780e70)
+
+**2026-11-15**
 - 📚 ドキュメント:README 派生区按 fcee207727 新 HEAD 重算(钩子自动补登最近更新条目) (2b21dab8d8)
 
 **2026-11-15**
@@ -2284,12 +2287,6 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 - 🐞 修正:深度扫描第二批收口 RN/小程序端样式、交互与逻辑缺陷 (97b7a7ac96)
 - 🐞 修正:门302 rendersSharedIn 认深子路径导入(补正/反例测试);接线 check-line-endings/check-mirror-surface-parity 判面层(门312 R1);rn-miniapp 矩阵文档重生成为现值(镜像257→258,门302修复后真实现读) (ab211603b9)
 - 🔧 その他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (62368b7976)
-
-**2026-11-14**
-- 🐞 修正:两端 JSX 裸中文清零 + Taro 静默失败兜底 + 延迟导航定时器清理 (9f5d9041c9)
-- 🐞 修正:深度扫描修复 RN/小程序端样式、交互与逻辑缺陷 (4a007dfecd)
-- 🐞 修正:补齐 RN/Taro 图标按钮无障碍语义标签 (247c8da480)
-- 🐞 修正:修复前端遗留问题——RN/Taro 冲突、i18n 源文件还原、promise、定时器 (b276b21957)
 <!-- END RECENT UPDATES -->
 
 <p align="center">
