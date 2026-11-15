@@ -2427,7 +2427,9 @@
     "confirmPasswordPlaceholder": "请再次输入密码",
     "password": "密码",
     "passwordPlaceholder": "请输入密码",
-    "title": "注册"
+    "title": "注册",
+    "show": "显示",
+    "hide": "隐藏"
   },
   "withdraw": {
     "availableBalance": "可提现金额(元)",

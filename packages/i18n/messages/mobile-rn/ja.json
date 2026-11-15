@@ -2427,7 +2427,9 @@
     "confirmPasswordPlaceholder": "パスワードを再入力",
     "password": "パスワード",
     "passwordPlaceholder": "パスワードを入力",
-    "title": "新規登録"
+    "title": "新規登録",
+    "show": "表示",
+    "hide": "非表示"
   },
   "withdraw": {
     "availableBalance": "引き出し可能額(元)",

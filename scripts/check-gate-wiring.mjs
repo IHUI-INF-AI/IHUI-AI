@@ -56,8 +56,10 @@
  *              `findR3RegisterRot` 现读 0 枚)才升档;条目存在而已被接线(不再命中未接集)仍是
  *              warning(现读存量 1 枚 check-format-support-parity.mjs ⇒ 升红即恒红,§12e)。
  *   弱接线    :仅点 5 命中 → 不算红,单独计数如实报出
- *   R4 blocking:**反向**差集 —— 已在五处权威点登记的门,AGENTS.md/README.md(文档面取材 =
- *              HEAD∪索引)通篇没点名(文档看不见的门会被重复造或被绕过)。2026-09-24 由"仅报数"升档,前置 =
+ *   R4 blocking:**反向**差集 —— 已在五处权威点登记的门,AGENTS.md/README.md/docs/GATEKEEPERS.md
+ *              (文档面取材 = HEAD∪索引;GATEKEEPERS 于 2026-11-15 并入 —— 速查整节 2026-11-04
+ *              迁入该文件后,R2 已随迁扩面而 R4 漏扩,导致"补在正确位置反判红")通篇没点名
+ *              (文档看不见的门会被重复造或被绕过)。2026-09-24 由"仅报数"升档,前置 =
  *              真仓缺口 48→0 已清零;比对宽松到"出现去后缀同名即算点名",只会漏报不会误拦。
  *   R5 blocking:同一 id 在 guardian-runner 里登记多道门 ⇒ 串 skipEnv 与失败归属(同日实测撞号)。
  *   R8 blocking:某道门的 `stagedTriggers` 一旦让归一层(`lib/guardian-triggers.mjs`)当场抛错,
@@ -1258,7 +1260,7 @@ export function validateDispatcherClaims(entries, readAtHead) {
 }
 
 /**
- * 纯函数:反向差集(R4)—— 已在权威点登记的门,但 AGENTS.md / README.md 通篇**没点过它的名**。
+ * 纯函数:反向差集(R4)—— 已在权威点登记的门,但 AGENTS.md / README.md / docs/GATEKEEPERS.md 通篇**没点过它的名**。
  *
  * 为什么需要:文档看不到的门,下一个人只会重复造或干脆绕过(实测三例在 hook.js 生效却零见于速查:
  * `check-staged-files-count` / `check-portal-fixed` / `check-agent-engine-parity`;本仓又新增 85–89 五档)。
@@ -2194,8 +2196,14 @@ async function main(argv = process.argv.slice(2)) {
   }
   // R4 反向差集:已接线但文档通篇没点名 ⇒ 文档看不见的门会被重复造或被绕过。
   // 文档面口径 = HEAD∪索引(同 R2,见「取材铁律」例外):AGENTS.md 直接复用上面已读的并集文本,
-  // 不再单独 HEAD-only 读一次;README.md 同口径。实际用的口径由 docReader.modes() 如实报出。
-  const docText = agentsText + '\n' + readmeText
+  // 不再单独 HEAD-only 读一次;README.md / docs/GATEKEEPERS.md 同口径。实际口径由 docReader.modes() 如实报出。
+  //
+  // 扩面(2026-11-15):`docs/GATEKEEPERS.md` 并入 R4 文档面。立因 —— AGENTS.md 的
+  // 「守门脚本速查」整节已于 2026-11-04 逐字迁入该文件、本体只留一行指针,而 R2 在
+  // 2026-11-05 就随迁移扩了面,**R4 漏扩**:此后把点名行补在正确位置(GATEKEEPERS)反而判红,
+  // 唯一出路是往 AGENTS 二次抄一份 —— 与「改一处、两端自动生效」的单一真相源取向相反。
+  // 复用上面已读的 gatekeepersText,不新增一次读取,也不改变 HEAD∪索引 口径。
+  const docText = agentsText + '\n' + readmeText + '\n' + gatekeepersText
   const undocumented = findUndocumentedGates(
     [...by('wired'), ...by('wired-weak')].map((r) => r.script),
     docText,
@@ -2209,7 +2217,8 @@ async function main(argv = process.argv.slice(2)) {
     reds.push({
       script: n,
       status: 'red-r4',
-      reason: '已接线但 AGENTS 文档与 README 文档通篇未点名(文档看不见的门会被重复造或绕过)',
+      reason:
+        '已接线但 AGENTS / README / docs/GATEKEEPERS 三份文档通篇未点名(文档看不见的门会被重复造或绕过)',
     })
   }
 
@@ -2525,7 +2534,7 @@ async function main(argv = process.argv.slice(2)) {
     for (const x of r3FaceSummary.expired)
       console.log(`     ⚠ R3 扩面条目已过 reviewBy(仅 warning): ${x.path}(${x.state} · ${x.reviewBy})`)
     console.log(
-      `   R4(已接线但 AGENTS 文档与 README 文档通篇未点名,判红): ${undocumented.length ? `${undocumented.length} 枚` : '0 枚'}`,
+      `   R4(已接线但 AGENTS / README / GATEKEEPERS 三份文档通篇未点名,判红): ${undocumented.length ? `${undocumented.length} 枚` : '0 枚'}`,
     )
     console.log(`   R5(重复 id,判红): ${dupIds.length ? dupIds.join(' / ') : '0 枚'}`)
     console.log(
@@ -2652,7 +2661,7 @@ async function main(argv = process.argv.slice(2)) {
       )
       console.error('         或改正脚本头部/AGENTS.md 里那句撒谎的表述;')
       console.error(
-        '         R4 → 在 AGENTS.md「守门脚本速查」或 README 补一行点名(写清判据/自检/跳过变量);',
+        '         R4 → 在 docs/GATEKEEPERS.md(或 AGENTS.md 速查指针 / README)补一行点名(写清判据/自检/跳过变量);',
       )
       console.error('         R5 → 后来者改用空闲编号。')
       console.error('         R8 → stagedTriggers 必须是字符串数组(裸字符串会中止整批门,空数组则该门恒不跑)。')
