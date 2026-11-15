@@ -14,8 +14,8 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use serde::Serialize;
-use tauri::webview::cookie::Expiration;
-use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
+use tauri::webview::cookie::{Cookie, Expiration, SameSite};
+use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
 
 const STORE_WINDOW_PREFIX: &str = "store-account-";
 /// 已打开账号窗口的静默保活间隔:太密会触发平台风控,太疏起不到滑动续期作用。
@@ -103,8 +103,10 @@ fn build_seed_script(seed: &serde_json::Value) -> String {
     for (var k2 in ss) {{
       try {{ if (sessionStorage.getItem(k2) === null) sessionStorage.setItem(k2, ss[k2]); }} catch (e) {{}}
     }}
-    // 哨兵在 ⇒ 本 profile 已种过:后续导航一律不动持久存储(平台/用户自己的新值优先)
-    if (seeded) return;
+    // 哨兵在也不提前返回:下面每个 Cookie 都只在「document.cookie 里没有同名」时才补,
+    // 永远不会覆盖平台/用户刚更新的值。真 HttpOnly 会话 Cookie 浏览器禁止 JS 改写,
+    // 补写会被静默忽略 —— 所以「每页补缺」对它们是安全空操作,却能救回原生接口拒收的
+    // 个别值(实测 base64 尾 `=` 的两枚会话 Cookie 落不进 WebView2 CookieManager)。
     var applied = 0;
     var cookies = seed.cookies || [];
     for (var i = 0; i < cookies.length; i++) {{
@@ -143,6 +145,157 @@ fn build_seed_script(seed: &serde_json::Value) -> String {
 }})();
 "#
     )
+}
+
+/// 把种子 Cookie **以原生 CookieManager 写进窗口 profile**(支持 HttpOnly)。
+///
+/// 为什么不能只靠初始化脚本:`document.cookie` 既读不到也写不了 HttpOnly Cookie,而
+/// Google/vivo/华为的关键会话 Cookie 恰恰是 HttpOnly —— 只走 JS 的种子对它们等于没种
+/// (还会因回读不到而反复重试)。这里改由 WebView2 CookieManager 直写,页面首帧请求即带上。
+///
+/// 安全:只允许写该平台自己的 Cookie 域(与 `build_store_page_script` 同一条判据),
+/// 防止被 XSS 的线上页借 IPC 把 Cookie 注入任意站点。返回写入条数。
+fn seed_native_cookies(win: &WebviewWindow, host: &str, seed: &serde_json::Value) -> usize {
+    let Some(domain) = seed
+        .get("cookieDomain")
+        .and_then(|v| v.as_str())
+        .map(|s| s.trim().trim_start_matches('.').to_ascii_lowercase())
+    else {
+        return 0;
+    };
+    let host = host.to_ascii_lowercase();
+    if domain.is_empty() || !(host == domain || host.ends_with(&format!(".{domain}"))) {
+        return 0;
+    }
+    let Some(list) = seed.get("cookies").and_then(|v| v.as_array()) else {
+        return 0;
+    };
+    let ttl = tauri::webview::cookie::time::Duration::days(30);
+    let mut applied = 0usize;
+    for item in list {
+        let name = item.get("name").and_then(|v| v.as_str()).unwrap_or("");
+        if name.is_empty() {
+            continue;
+        }
+        let value = item.get("value").and_then(|v| v.as_str()).unwrap_or("");
+        let path = item.get("path").and_then(|v| v.as_str()).unwrap_or("/");
+        let http_only = item
+            .get("httpOnly")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
+        // `__Host-` 前缀按规范禁止带 domain(否则浏览器拒收),这些只能落在当前主机上
+        let mut builder = Cookie::build((name.to_string(), value.to_string()))
+            .path(path.to_string())
+            .secure(true)
+            .http_only(http_only)
+            .same_site(SameSite::Lax)
+            .max_age(ttl);
+        if !name.starts_with("__Host-") {
+            builder = builder.domain(domain.clone());
+        }
+        if win.set_cookie(builder.build()).is_ok() {
+            applied += 1;
+        }
+    }
+    applied
+}
+
+/// 把各账号窗口当前 profile 里的 Cookie 回写到本机密钥库种子文件(跨机恢复用)。
+///
+/// 只改 `systems.<platform>.cookies` 与 `savedAt`,其余字段(localStorage/sessionStorage/
+/// 注释)原样保留;种子文件不存在时跳过 —— 不在密钥目录里凭空造文件。
+/// **不打印任何 Cookie 值**,只在调用方日志里报条数。
+fn dump_store_sessions(app: &AppHandle) -> usize {
+    let Some(dir) = secret_dir() else {
+        return 0;
+    };
+    let path = dir.join("store-sessions.json");
+    let Ok(raw) = std::fs::read_to_string(&path) else {
+        return 0;
+    };
+    let Ok(mut root) = serde_json::from_str::<serde_json::Value>(&raw) else {
+        return 0;
+    };
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_secs() as i64)
+        .unwrap_or(0);
+    let mut written = 0usize;
+    for p in STORE_AUTO_OPEN {
+        let key = format!("{}__{}", p.provider_code, fnv1a_base36(p.default_uid));
+        let Some(win) = app.get_webview_window(&window_label(&key)) else {
+            continue;
+        };
+        // 反方向也判域:只回写本平台自己域下的 Cookie,别把第三方埋点 Cookie 抄进密钥库
+        let Ok(cookies) = win.cookies() else {
+            continue;
+        };
+        let domain = load_session_seed(p.provider_code)
+            .and_then(|s| {
+                s.get("cookieDomain")
+                    .and_then(|v| v.as_str())
+                    .map(|d| d.trim_start_matches('.').to_ascii_lowercase())
+            })
+            .unwrap_or_else(|| p.api_hosts.first().map(|h| h.to_string()).unwrap_or_default());
+        let arr: Vec<serde_json::Value> = cookies
+            .iter()
+            .filter(|c| {
+                let d = c.domain().unwrap_or("").trim_start_matches('.').to_ascii_lowercase();
+                !d.is_empty()
+                    && !domain.is_empty()
+                    && (d == domain || d.ends_with(&format!(".{domain}")) || domain.ends_with(&format!(".{d}")))
+            })
+            .map(|c| {
+                let mut obj = serde_json::Map::new();
+                obj.insert(
+                    "name".to_string(),
+                    serde_json::Value::String(c.name().to_string()),
+                );
+                obj.insert(
+                    "value".to_string(),
+                    serde_json::Value::String(c.value().to_string()),
+                );
+                if let Some(d) = c.domain() {
+                    obj.insert(
+                        "domain".to_string(),
+                        serde_json::Value::String(d.to_string()),
+                    );
+                }
+                if let Some(p) = c.path() {
+                    obj.insert("path".to_string(), serde_json::Value::String(p.to_string()));
+                }
+                if c.http_only().unwrap_or(false) {
+                    obj.insert("httpOnly".to_string(), serde_json::Value::Bool(true));
+                }
+                if let Some(Expiration::DateTime(dt)) = c.expires() {
+                    obj.insert(
+                        "expires".to_string(),
+                        serde_json::Value::Number(dt.unix_timestamp().into()),
+                    );
+                }
+                serde_json::Value::Object(obj)
+            })
+            .collect();
+        if arr.is_empty() {
+            continue;
+        }
+        if let Some(slot) = root
+            .get_mut("systems")
+            .and_then(|v| v.as_object_mut())
+            .and_then(|m| m.get_mut(p.provider_code))
+            .and_then(|v| v.as_object_mut())
+        {
+            slot.insert("cookies".to_string(), serde_json::Value::Array(arr));
+            slot.insert("savedAt".to_string(), serde_json::Value::Number(now.into()));
+            written += 1;
+        }
+    }
+    if written > 0 {
+        if let Ok(text) = serde_json::to_string_pretty(&root) {
+            let _ = std::fs::write(&path, text);
+        }
+    }
+    written
 }
 
 /// 注入每个账号登录窗的页面脚本。
@@ -469,6 +622,12 @@ fn ensure_keepalive(app: &AppHandle) {
             // 错峰 3 秒,避免多个账号同时请求形成机器特征
             std::thread::sleep(Duration::from_secs(3));
         }
+        // 每轮心跳后把各账号窗口的 Cookie 回写本机密钥库种子:登录一次后即自动备份,
+        // 换机/重装时把种子带回即可复原登录态(只写密钥目录,不进仓、不打日志值)。
+        let written = dump_store_sessions(&app);
+        if written > 0 {
+            log::info!("[store-browser] 已回写 {} 个平台的登录态种子", written);
+        }
     });
 }
 
@@ -637,9 +796,31 @@ fn open_store_window(
     if hidden {
         builder = builder.visible(false);
     }
-    builder
+    let win = builder
         .build()
         .map_err(|e| format!("打开账号登录窗失败:{e}"))?;
+    // 原生种 Cookie(HttpOnly 也能种):建窗时已按 login_url 起过一次加载,这里把种子写进
+    // profile 的 CookieManager 后再导航一次,保证真正那一次请求的首帧就带登录态。
+    let platform = key.split("__").next().unwrap_or("");
+    if let Some(seed) = load_session_seed(platform) {
+        let applied = seed_native_cookies(&win, parsed.host_str().unwrap_or(""), &seed);
+        if applied > 0 {
+            // WebView2 会对个别不合规 Cookie 值静默拒收(实测 base64 尾 `=` 的两枚会话 Cookie
+            // 落不进库),所以这里同时报「写入成功数 / 种子里应有数」,差异一眼可见。
+            let want = seed
+                .get("cookies")
+                .and_then(|v| v.as_array())
+                .map(|a| a.len())
+                .unwrap_or(0);
+            let _ = win.navigate(parsed.clone());
+            log::info!(
+                "[store-browser] 平台 {} 已从本机种子注入 {}/{} 枚 Cookie",
+                platform,
+                applied,
+                want
+            );
+        }
+    }
     Ok(())
 }
 
