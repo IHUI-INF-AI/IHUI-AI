@@ -2227,6 +2227,10 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-15**
+- 🐞 수정:修复 API 层路径编码缺失与响应解包空判 (b4057d9e5d)
+- 🔧 기타:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (8ee1f8d48e)
+
+**2026-11-15**
 - 🐞 수정:修跨端交互/逻辑缺陷——pay applyCoupon 补 in-flight 守卫防并发改价、AppUpdateBanner 裸 setTimeout 补 cleanup 治卸载闪没、TagInput 可删列表改按 tag 值作 key 解耦下标、user 历史静默 catch 补失败 toast;ui-routes.generated.ts 按当前输入重生成对齐 (a3df780e70)
 
 **2026-11-15**
@@ -2270,23 +2274,6 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 **2026-11-15**
 - 🐞 수정:实名验证弹层补关闭途径(T-01 P0) (4ce181f754)
-
-**2026-11-15**
-- 🔧 기타:解合面冲突(PROJECT_PLAN RP-80/RP-4 union + AGENTS 门名清单 union) (71c7d304c1)
-- 🔧 기타:刷新 302p 跨端漂移基线(推送尖现读,两维恶化留档) (8835130fe3)
-- 🔧 기타:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (4f8f58ccda)
-- 🐞 수정:解 stash pop 格式冲突(RN) + README 超集落地清标记 (669cfb91cf)
-- 🔧 기타:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (bfe80e6b01)
-- 🔧 기타:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (47b2db1f35)
-- 🐞 수정:手势/触摸冲突 5 处修复 (11cc70a2a0)
-- 🔧 기타:Carousel geometry 额度 2→3 对齐 HEAD 现值 (de8dbcd5b6)
-- 🐞 수정:check-line-endings git 派生补显式 stdio(治门193 blocking) (2b53a1b1cf)
-- 🔧 기타:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (3f8ec5adef)
-- 🐞 수정:RN 色值对齐 web 源 + design-tokens dist 重建闸门 (619cc1253a)
-- 🔧 기타:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (56d8dae2a7)
-- 🐞 수정:深度扫描第二批收口 RN/小程序端样式、交互与逻辑缺陷 (97b7a7ac96)
-- 🐞 수정:门302 rendersSharedIn 认深子路径导入(补正/反例测试);接线 check-line-endings/check-mirror-surface-parity 判面层(门312 R1);rn-miniapp 矩阵文档重生成为现值(镜像257→258,门302修复后真实现读) (ab211603b9)
-- 🔧 기타:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (62368b7976)
 <!-- END RECENT UPDATES -->
 
 <p align="center">
