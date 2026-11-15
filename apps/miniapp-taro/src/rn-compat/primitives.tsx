@@ -1199,7 +1199,7 @@ function TextInputInner(props: RNBaseProps, ref: ForwardedRef<TextInputHandle>) 
   return (
     <Input
       {...common}
-      type={typeMap[keyTypeOf(keyboardType)]}
+      type={typeMap[keyTypeOf(keyboardType)] ?? 'text'}
       password={props.secureTextEntry === true}
       onInput={(e) =>
         (props.onChangeText as ((t: string) => void) | undefined)?.(String(e.detail?.value ?? ''))
@@ -1220,7 +1220,11 @@ export const TextInput = forwardRef(TextInputInner) as unknown as (
 ) => ReactElement
 
 function keyTypeOf(keyboardType: string): string {
-  return keyboardType === 'default' ? 'text' : keyboardType
+  if (keyboardType === 'default') return 'text'
+  // RN 还有 numeric / number-pad 两档数字键盘;weapp 无同名 type,统一落 number。
+  // 漏映射会让 typeMap 取到 undefined ⇒ <Input type={undefined}> 回落全键盘。
+  if (keyboardType === 'numeric' || keyboardType === 'number-pad') return 'number'
+  return keyboardType
 }
 
 /**

@@ -1144,10 +1144,12 @@ export function ChatScreen() {
   const loadDrawerConversations = useCallback(async (): Promise<void> => {
     const res = await listConversations({ page: 1, pageSize: 50 })
     if (res.success) {
-      setDrawerConversations(res.data.conversations.map((c) => mapConversationToDrawer(c, t)))
+      setDrawerConversations(
+        (res.data?.conversations ?? []).map((c) => mapConversationToDrawer(c, t)),
+      )
       // D153b:把本端已知的会话 id 交进账本 —— 账本只覆盖"这一端正在显示的行",
       // 没交进去的会话收到广播会报 known:false,由 pullOnly 明示而不是凭空长出一行。
-      conversationMetaLedger.remember(res.data.conversations.map((c) => c.id))
+      conversationMetaLedger.remember((res.data?.conversations ?? []).map((c) => c.id))
     } else {
       setDrawerConversations([])
     }
