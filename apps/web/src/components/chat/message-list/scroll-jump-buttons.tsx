@@ -5,7 +5,7 @@
 'use client'
 
 import * as React from 'react'
-import { ChevronUp, ArrowDown } from 'lucide-react'
+import { ChevronDown, ChevronUp } from 'lucide-react'
 import { Button } from '@ihui/ui-react'
 import { useTranslations } from 'next-intl'
 
@@ -57,14 +57,20 @@ function visibilityProps(on: boolean, extraClass = '') {
   }
 }
 
-/** 右下角浮动 affordance 列(对标主流 IDE 对话流)。
+/** 消息视口上/下边缘各一枚浮动箭头:上=跳顶,下=跳到最新(对标主流 IDE 对话流)。
  *  - 用 @ihui/ui-react Button size="icon-sm",图标走项目既有 lucide
  *  - 跳顶 = 距顶>800px 才显;跳到最新 = 距底>800px 或用户主动上滚才显(真在底部时恒不显)
+ *  - 2026-11-15 定位改判:两枚此前都堆在聊天面板右下角(跟随整个面板,含输入区),
+ *    用户反馈上翻箭头应在对话显示区上方、下翻在下方。现容器锚定消息滚动视口的
+ *    relative 包裹层(见 MessageList),上/下按钮各自贴视口边缘,不再挤在一个角;
+ *    水平方向按用户要求对齐对话列正中(left-1/2 + -translate-x-1/2),不贴右缘。
  *  - 2026-09-22 归一:此前 MessageList 底部居中另挂了一枚同义的「跳到最新」
  *    (data-testid="message-list-jump-latest"),同屏两枚语义重复的按钮共处一条 300px 宽的
  *    对话列。现合并为本列的唯一「跳到最新」,行为改用 hook 的 scrollToBottom(滚到底 + 复位
  *    userScrolledUp),流式红点随该按钮。文案键沿用 jumpToTop/jumpToLatest,不新增键。
- *  - 禁发光/蓝光边框;红点属 ≤8px 装饰点(AGENTS.md 圆角豁免项) */
+ *  - 禁发光/蓝光边框;红点属 ≤8px 装饰点(AGENTS.md 圆角豁免项)
+ *  - 2026-11-15 字形归族:跳底改用 ChevronDown(= 跳顶 ChevronUp 的翻转),
+ *    不再混用带竖杆的 ArrowDown —— 同列两枚箭头必须同字形族,否则上下不像一套 */
 export function ScrollJumpButtons({
   isFarFromTop,
   isFarFromBottom,
@@ -77,10 +83,7 @@ export function ScrollJumpButtons({
   const t = useTranslations('chat')
   const showLatest = hasMessages && (isFarFromBottom || userScrolledUp)
   return (
-    <div
-      data-testid="scroll-jump-buttons"
-      className="pointer-events-none absolute bottom-4 right-4 z-20 flex flex-col gap-2 transition-opacity duration-300"
-    >
+    <div data-testid="scroll-jump-buttons" className="pointer-events-none absolute inset-0 z-20">
       <Button
         type="button"
         size="icon-sm"
@@ -88,7 +91,7 @@ export function ScrollJumpButtons({
         aria-label={t('jumpToTop')}
         onClick={onJumpTop}
         data-testid="scroll-jump-top"
-        {...visibilityProps(isFarFromTop)}
+        {...visibilityProps(isFarFromTop, 'absolute left-1/2 top-4 -translate-x-1/2')}
       >
         <ChevronUp />
       </Button>
@@ -99,9 +102,9 @@ export function ScrollJumpButtons({
         aria-label={t('jumpToLatest')}
         onClick={onJumpLatest}
         data-testid="scroll-jump-bottom"
-        {...visibilityProps(showLatest, 'relative')}
+        {...visibilityProps(showLatest, 'absolute bottom-4 left-1/2 -translate-x-1/2')}
       >
-        <ArrowDown />
+        <ChevronDown />
         {isStreaming && (
           <span
             data-testid="message-list-jump-latest-dot"

@@ -16639,7 +16639,8 @@ _TOOL_ALIASES: dict[str, str] = {
     "bash": "run_command",
     "shell": "run_command",
     "run_shell": "run_command",
-    "terminal": "run_command",
+    # 2026-11-15:移除 "terminal" -> run_command 别名 —— 真工具 terminal 已注册,归一化会把
+    # 正确调用静默改写成 run_command,导致 terminal 不可达(守门 J3 拦截)。
     # 目录列举
     "list_directory": "list_files",
     "list_dir": "list_files",

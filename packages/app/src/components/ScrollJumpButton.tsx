@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native'
-import { ArrowDown, ChevronUp } from 'lucide-react-native'
+import { ChevronDown, ChevronUp } from 'lucide-react-native'
 import {
   scrollJumpBoxStyle,
   scrollJumpGlyphPx,
@@ -18,7 +18,7 @@ import { getTokens, type AppThemeMode } from '../theme/tokens'
  *
  * 数字与居中结构在 `@ihui/shared/ui/scroll-jump-spec`,基准是 web 端
  * `apps/web/src/components/chat/message-list/scroll-jump-buttons.tsx` 的
- * `<Button size="icon-sm" variant="outline">` + lucide `ChevronUp` / `ArrowDown`。
+ * `<Button size="icon-sm" variant="outline">` + lucide `ChevronUp` / `ChevronDown`。
  *
  * 为什么本文件必须薄:改判前 RN 侧有 6 份各自写的 `backToTopBtn`/`backToTopIcon`
  * (浅蓝底居中 / 白卡右下 / TabBar 上方 / 顶部居中半透明白 ×2 / 灰蓝底居中),
@@ -41,7 +41,7 @@ const GEOMETRY = StyleSheet.create({
 const GLYPH = scrollJumpGlyphPx()
 
 export interface ScrollJumpButtonProps {
-  /** `top` = 回到顶部(chevron-up);`latest` = 跳到最新(arrow-down)。只决定方向,不决定外观。 */
+  /** `top` = 回到顶部(chevron-up);`latest` = 跳到最新(chevron-down,上箭头的翻转)。只决定方向,不决定外观。 */
   direction: ScrollJumpDirection
   onPress: () => void
   /**
@@ -93,7 +93,7 @@ export function ScrollJumpButton({
           {iconName === 'chevron-up' ? (
             <ChevronUp size={GLYPH} color={tk.text.primary} />
           ) : (
-            <ArrowDown size={GLYPH} color={tk.text.primary} />
+            <ChevronDown size={GLYPH} color={tk.text.primary} />
           )}
         </View>
       )}

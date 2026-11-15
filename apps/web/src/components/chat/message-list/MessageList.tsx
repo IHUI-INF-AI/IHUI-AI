@@ -853,6 +853,23 @@ export function MessageList({
       <div className="relative flex min-h-0 flex-1 flex-col">
         {inlinePanelNode}
         <ScrollEdgeFades scrollRef={containerRef} />
+        {/* D3(2026-09-18 立):跳顶 / 跳到最新浮动箭头。
+            2026-11-15:容器移入本 relative 包裹层 ⇒ 绝对定位锚到消息滚动视口而不是整个
+            聊天面板;上箭头贴视口上方、下箭头贴视口下方,不再双双堆在右下角。
+            2026-09-22 归一:原先此处另有一枚底部居中的「跳到最新」,与列内「跳底」同义重复,
+            现合并进 ScrollJumpButtons,行为沿用 scrollToBottom(滚到底 + 复位 userScrolledUp)。 */}
+        <ScrollJumpButtons
+          isFarFromTop={isFarFromTop}
+          isFarFromBottom={isFarFromBottom}
+          userScrolledUp={userScrolledUp}
+          hasMessages={messages.length > 0}
+          isStreaming={isStreaming}
+          onJumpTop={() => {
+            const el = containerRef.current
+            if (el) el.scrollTo({ top: 0, behavior: 'smooth' })
+          }}
+          onJumpLatest={scrollToBottom}
+        />
       </div>
       {/* D45(2026-09-24 立,G-54):ambient suggestions 环境建议条。
           2026-11-04 第三轮:从滚动内容尾部移到滚动容器**下方**的常驻带。
@@ -866,21 +883,6 @@ export function MessageList({
           2026-09-21 归一:并入 D3 定位器的滚动联动高亮,删除 ConversationLocatorRail,
           右侧只保留这一条 rail(此前两 rail 并挂,用户反馈"怎么有两个 nav") */}
       <QueryThumbRail messages={visibleMessages} containerRef={containerRef} />
-      {/* D3(2026-09-18 立):右下角浮动 affordance 列(跳顶 / 跳到最新)。
-          2026-09-22 归一:原先此处另有一枚底部居中的「跳到最新」,与列内「跳底」同义重复,
-          现合并进 ScrollJumpButtons,行为沿用 scrollToBottom(滚到底 + 复位 userScrolledUp)。 */}
-      <ScrollJumpButtons
-        isFarFromTop={isFarFromTop}
-        isFarFromBottom={isFarFromBottom}
-        userScrolledUp={userScrolledUp}
-        hasMessages={messages.length > 0}
-        isStreaming={isStreaming}
-        onJumpTop={() => {
-          const el = containerRef.current
-          if (el) el.scrollTo({ top: 0, behavior: 'smooth' })
-        }}
-        onJumpLatest={scrollToBottom}
-      />
       {/* Phase 19: MessageContextMenu(全局单实例,visible/position 由 hook 控制) */}
       <MessageContextMenu
         visible={contextMenu.visible}
