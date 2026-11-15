@@ -75,6 +75,7 @@ export default function DeveloperIndex() {
 
   const [list, setList] = useState<AgentItem[]>([])
   const [loading, setLoading] = useState(false)
+  const loadingRef = useRef(false)
   const [status, setStatus] = useState(0) // 0/1/2 主 tab,4/5 子 tab
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
@@ -82,6 +83,7 @@ export default function DeveloperIndex() {
   const [modelTypes, setModelTypes] = useState<ModelType[]>([])
 
   const fetchList = useCallback(async (opts: { page: number; status: number; search: string }) => {
+    loadingRef.current = true
     setLoading(true)
     try {
       const res = (await api.getZntList({
@@ -106,6 +108,7 @@ export default function DeveloperIndex() {
     } catch {
       // ignore
     } finally {
+      loadingRef.current = false
       setLoading(false)
     }
   }, [])
@@ -148,9 +151,8 @@ export default function DeveloperIndex() {
   }
 
   const onScrollToLower = () => {
-    if (!loading && list.length < total) {
-      fetchList({ page: page + 1, status, search })
-    }
+    if (loadingRef.current || list.length >= total) return
+    fetchList({ page: page + 1, status, search })
   }
 
   const onEdit = (agent: AgentItem) => {

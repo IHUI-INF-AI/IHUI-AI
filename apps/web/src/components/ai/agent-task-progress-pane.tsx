@@ -18,7 +18,6 @@ import {
   ChevronsDownUp,
   ChevronDown,
   ChevronRight,
-  ArrowDown,
   Sparkles,
   HelpCircle,
   Keyboard,
@@ -1688,7 +1687,7 @@ export function AgentTaskProgressPane() {
                         className="flex items-center justify-between gap-2 text-[10px] text-muted-foreground/80"
                       >
                         <span>{t(item.i18nKey)}</span>
-                        <kbd className="inline-flex h-4 shrink-0 items-center rounded-sm border border-border/60 bg-background px-1 font-mono text-[9px] font-medium text-foreground/80 shadow-elevation-sm">
+                        <kbd className="inline-flex h-4 shrink-0 items-center rounded-sm border border-stroke-subtle bg-background px-1 font-mono text-[9px] font-medium text-foreground/80 shadow-elevation-sm">
                           {item.keys}
                         </kbd>
                       </li>
@@ -2039,7 +2038,8 @@ export function AgentTaskProgressPane() {
                 className="absolute bottom-2 left-1/2 inline-flex h-6 -translate-x-1/2 items-center gap-0.5 rounded-sm border border-border bg-popover px-2 text-[10px] text-muted-foreground shadow-elevation-sm transition-all hover:bg-accent hover:text-accent-foreground"
                 data-testid="pane-jump-latest"
               >
-                <ArrowDown className="h-2.5 w-2.5" />
+                {/* 与对话列滚动按钮同字形族:跳到最新一律 ChevronDown,不用带竖杆的 ArrowDown */}
+                <ChevronDown className="h-2.5 w-2.5" />
                 <span>{t('latest')}</span>
               </button>
             </Tooltip>

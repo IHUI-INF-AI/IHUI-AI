@@ -12,7 +12,7 @@ import {
   FolderGit2,
   Globe,
   ArrowUp,
-  ArrowDownToLine,
+  ArrowDown,
   Loader2,
   RefreshCw,
 } from 'lucide-react'
@@ -191,7 +191,7 @@ function FullBody({
               <span className="tabular-nums">
                 <ArrowUp className="mr-0.5 inline h-3 w-3" aria-hidden />
                 {snapshot.ahead}
-                <ArrowDownToLine className="mx-0.5 inline h-3 w-3" aria-hidden />
+                <ArrowDown className="mx-0.5 inline h-3 w-3" aria-hidden />
                 {snapshot.behind}
               </span>
             }
