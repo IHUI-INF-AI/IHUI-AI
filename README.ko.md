@@ -2227,6 +2227,9 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-15**
+- 🔧 기타:补 push scope 内 7 文件溯源水印 + post-commit 自动更新登记 (f129775539)
+
+**2026-11-15**
 - 🐞 수정:补齐 T1 typecheck 门反复失败的 4 处缺失导出 + 消合面冲突 (23018cf596)
 
 **2026-11-15**
@@ -2311,9 +2314,6 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 **2026-11-15**
 - 🔧 기타:门IG 追认 71c7d304c1 入库 + 门89 撞号修复(320→323) + 门322 判面层配套 + root-guard 重封 + 门89 判据取面收口 (2f95c46397)
-
-**2026-11-15**
-- 🐞 수정:圈子页下拉刷新失效(T-03 P1) (4f3161aac0)
 <!-- END RECENT UPDATES -->
 
 <p align="center">

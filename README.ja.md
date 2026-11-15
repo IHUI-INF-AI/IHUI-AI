@@ -2227,6 +2227,9 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-15**
+- 🔧 その他:补 push scope 内 7 文件溯源水印 + post-commit 自动更新登记 (f129775539)
+
+**2026-11-15**
 - 🐞 修正:补齐 T1 typecheck 门反复失败的 4 处缺失导出 + 消合面冲突 (23018cf596)
 
 **2026-11-15**
@@ -2311,9 +2314,6 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 
 **2026-11-15**
 - 🔧 その他:门IG 追认 71c7d304c1 入库 + 门89 撞号修复(320→323) + 门322 判面层配套 + root-guard 重封 + 门89 判据取面收口 (2f95c46397)
-
-**2026-11-15**
-- 🐞 修正:圈子页下拉刷新失效(T-03 P1) (4f3161aac0)
 <!-- END RECENT UPDATES -->
 
 <p align="center">

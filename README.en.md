@@ -68,10 +68,10 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 | ---- | ---- | ------ |
 | 数据库表 | 650 | `dbTables` |
 | schema 文件 | 252 | `dbSchemaFiles` |
-| API 路由 | 4815 | `apiRoutes` |
-| 路由文件 | 697 | `apiRouteFiles` |
+| API 路由 | 4798 | `apiRoutes` |
+| 路由文件 | 699 | `apiRouteFiles` |
 | AI 服务路由 | 676 | `aiServiceRoutes` |
-| WebSocket 端点 | 43 | `wsEndpoints` |
+| WebSocket 端点 | 40 | `wsEndpoints` |
 | 入库模型清单 | 100 | `llmModels` |
 | 发布平台 | 38 | `publishPlatforms` |
 | 端应用包 | 9 | `appPackages` |
@@ -81,15 +81,15 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 5465 | `testFiles` |
+| 测试文件 | 5288 | `testFiles` |
 | CI 工作流 | 59 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
-| 工程守门 | 368 | `guardianGates` |
-| — blocking | 335 | `guardianBlocking` |
+| 工程守门 | 367 | `guardianGates` |
+| — blocking | 337 | `guardianBlocking` |
 | — warn | 32 | `guardianWarn` |
-| 跟踪文件 | 21849 | `trackedFiles` |
+| 跟踪文件 | 21664 | `trackedFiles` |
 
-上表由 `node scripts/sync-readme-numbers.mjs`(唯一写入口,索引面取数)生成,最后核对日期 2026-11-14。
+上表由 `node scripts/sync-readme-numbers.mjs`(唯一写入口,索引面取数)生成,最后核对日期 2026-11-15。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
 
 <!-- END GENERATED NUMBERS -->
@@ -98,6 +98,9 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 ## Recent updates (auto-maintained)
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
+**2026-11-15**
+- 🔧 Chore/Other:补 push scope 内 7 文件溯源水印 + post-commit 自动更新登记 (f129775539)
+
 **2026-11-15**
 - 🐞 Fix:补齐 T1 typecheck 门反复失败的 4 处缺失导出 + 消合面冲突 (23018cf596)
 
