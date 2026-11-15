@@ -20,6 +20,7 @@ vi.hoisted(() => {
 
 import { __test__ } from '../scripts/relay-minimax-session-sync.js'
 import { __test__ as traeTest } from '../scripts/relay-trae-session-sync.js'
+import { healthRevivalPatchOf } from '../src/services/relay-credential-revival.js'
 
 const {
   decideSync,
@@ -161,71 +162,62 @@ describe('自动入池条目 · 与手动导入同一键位面', () => {
   })
 })
 
-describe('健康态恢复 · 只上行、要证据', () => {
+describe('健康态恢复 · 判据收归单源(revivePatchOf 只做签名适配,不再自带第二份判据)', () => {
   const now = new Date('2026-11-01T00:00:00.000Z')
   const future = new Date('2026-11-10T00:00:00.000Z')
   const past = new Date('2026-10-31T00:00:00.000Z')
 
+  const down = { healthStatus: 'down', refreshFailureCount: 2, tempUnschedulable: true }
+  const brokenCount = { healthStatus: 'unknown', refreshFailureCount: 3, tempUnschedulable: false }
+  const healthyClean = { healthStatus: 'healthy', refreshFailureCount: 0, tempUnschedulable: false }
+
+  // 反向牙 ①(单源对过期票返回 null):死票绝不复活,不拿它空撞上游。
+  it('票已过期 ⇒ null(不把死票复活)', () => {
+    expect(revivePatchOf(down, past, now)).toBeNull()
+    expect(revivePatchOf(brokenCount, past, now)).toBeNull()
+  })
+
+  // 反向牙 ②(单源「行本来健康且无失败面 ⇒ null」):不回退健康态,也不替 admin 解摘。
+  it('healthy 且失败面干净 ⇒ null(不产生无意义写)', () => {
+    expect(revivePatchOf(healthyClean, future, now)).toBeNull()
+  })
+
+  // 正例:异常行 + 有效新票 ⇒ 放回 unknown 并清零失败面。
   it('down + 未过期新票 ⇒ 放回 unknown 并清零失败面', () => {
-    expect(
-      revivePatchOf(
-        { healthStatus: 'down', refreshFailureCount: 2, tempUnschedulable: true },
-        future,
-        now,
-      ),
-    ).toEqual({
+    expect(revivePatchOf(down, future, now)).toEqual({
       healthStatus: 'unknown',
       refreshFailureCount: 0,
       lastErrorMessage: null,
       tempUnschedulable: false,
     })
+    expect(revivePatchOf(brokenCount, future, now)).not.toBeNull()
   })
 
-  it('healthy 不动(不回退健康态,也不替 admin 解摘)', () => {
-    expect(
-      revivePatchOf(
-        { healthStatus: 'healthy', refreshFailureCount: 0, tempUnschedulable: true },
-        future,
-        now,
-      ),
-    ).toBeNull()
-  })
-
-  it('票已过期 / 无到期 ⇒ 不恢复(过期票不是"账号活着"的证据)', () => {
-    expect(
-      revivePatchOf(
-        { healthStatus: 'down', refreshFailureCount: 1, tempUnschedulable: false },
-        past,
-        now,
-      ),
-    ).toBeNull()
-    expect(
-      revivePatchOf(
-        { healthStatus: 'down', refreshFailureCount: 1, tempUnschedulable: false },
-        null,
-        now,
-      ),
-    ).toBeNull()
-  })
-
-  it('unknown 且失败面干净 ⇒ 不写(不产生无意义写)', () => {
+  // 新语义(旧实现细节已按单源调整,反向牙 ①②仍在上面):
+  // 单源只在「给了 clientExpiresAt 且已过期」时返回 null;拿不到到期时刻就按调用方
+  // 「本轮确实写入了本机新票」处理(单源不因缺证据而拒),unknown 干净行也按「有留痕要清」复位。
+  it('拿不到到期 / unknown 干净行 ⇒ 交单源裁决(不在本腿再补一刀「不复活」)', () => {
+    expect(revivePatchOf(down, null, now)).not.toBeNull()
     expect(
       revivePatchOf(
         { healthStatus: 'unknown', refreshFailureCount: 0, tempUnschedulable: false },
         future,
         now,
       ),
-    ).toBeNull()
+    ).not.toBeNull()
   })
 
-  it('unknown 但被临时摘除/有失败计数 ⇒ 也要救(与巡检刷新成功分支同形)', () => {
-    expect(
-      revivePatchOf(
-        { healthStatus: 'unknown', refreshFailureCount: 3, tempUnschedulable: false },
-        future,
-        now,
-      ),
-    ).not.toBeNull()
+  // 单源锁:任意行面/到期组合下,revivePatchOf 恒等于 healthRevivalPatchOf —— 一旦本腿
+  // 又长出一份额外判据(过期/healthy/broken),这张矩阵当场翻红。
+  it('全域同形:revivePatchOf 恒等于单源 healthRevivalPatchOf', () => {
+    const rows = [down, brokenCount, healthyClean, { healthStatus: 'degraded', refreshFailureCount: 0, tempUnschedulable: false }]
+    for (const row of rows) {
+      for (const exp of [future, past, null]) {
+        expect(revivePatchOf(row, exp, now)).toEqual(
+          healthRevivalPatchOf(row, { clientExpiresAt: exp, now }),
+        )
+      }
+    }
   })
 })
 
