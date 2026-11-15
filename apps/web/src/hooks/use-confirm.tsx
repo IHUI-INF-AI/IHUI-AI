@@ -17,6 +17,7 @@ import {
   Input,
 } from '@ihui/ui-react'
 import { ConfirmDialog } from '@/components/common/ConfirmDialog'
+import { NESTED_FLOATING_OVERLAY_Z_CLASS, NESTED_FLOATING_Z_CLASS } from '@/lib/floating-layer'
 
 // ===== useConfirm =====
 
@@ -141,7 +142,10 @@ export function usePrompt(): UsePromptReturn {
         if (!s) return null
         return (
           <Dialog open={true} onOpenChange={(o) => !o && handleClose(null)}>
-            <DialogContent>
+            <DialogContent
+              className={NESTED_FLOATING_Z_CLASS}
+              overlayClassName={NESTED_FLOATING_OVERLAY_Z_CLASS}
+            >
               <DialogHeader>
                 <DialogTitle>{s.title}</DialogTitle>
                 {s.description ? <DialogDescription>{s.description}</DialogDescription> : null}

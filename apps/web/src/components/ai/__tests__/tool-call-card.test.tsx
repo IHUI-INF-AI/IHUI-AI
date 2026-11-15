@@ -222,6 +222,45 @@ describe('ToolCallCard image rendering', () => {
   })
 })
 
+/**
+ * g12(2026-11-15):read_image 缩略图渲染守门。
+ * 数据源 = SSE tool-result 顶层 image_preview(stream-handlers 写入 ToolCall);
+ * 仅 status=success 且非空时在结果 JSON 上方渲染,点击新窗看原图。
+ */
+describe('ToolCallCard 工具图片缩略图(g12)', () => {
+  afterEach(() => cleanup())
+
+  const PREVIEW = 'data:image/jpeg;base64,AAAA'
+
+  it('success + imagePreview → 展开后渲染预览按钮(img src 即缩略图)', () => {
+    render(
+      <ToolCallCard
+        toolName="read_image"
+        args={{ file_path: '/tmp/a.png' }}
+        result={{ ok: true }}
+        status="success"
+        imagePreview={PREVIEW}
+      />,
+    )
+    fireEvent.click(rowOf('read_image'))
+    const button = screen.getByTestId('tool-call-image-preview')
+    expect(button).toBeTruthy()
+    expect(button.querySelector('img')?.getAttribute('src')).toBe(PREVIEW)
+  })
+
+  it('不传 imagePreview → 不渲染预览按钮', () => {
+    render(<ToolCallCard toolName="read_image" args={{}} result={{ ok: true }} status="success" />)
+    fireEvent.click(rowOf('read_image'))
+    expect(screen.queryByTestId('tool-call-image-preview')).toBeNull()
+  })
+
+  it('status=error 时即使有预览也不渲染(失败调用不展示"看到什么")', () => {
+    render(<ToolCallCard toolName="read_image" args={{}} status="error" imagePreview={PREVIEW} />)
+    fireEvent.click(rowOf('read_image'))
+    expect(screen.queryByTestId('tool-call-image-preview')).toBeNull()
+  })
+})
+
 describe('ToolCallCard summary rendering', () => {
   afterEach(() => cleanup())
 

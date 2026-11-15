@@ -18,6 +18,7 @@ import {
   Play,
   Settings,
   Calculator,
+  RefreshCw,
 } from 'lucide-react'
 
 import { HasPermi } from '@/components/auth/HasPermi'
@@ -25,6 +26,7 @@ import { Button } from '@ihui/ui-react'
 
 import { RESOURCE, PERM, api } from './helpers'
 import { MonthlyTab, SalaryConfigTab, PayrollTab } from './payroll-tabs'
+import { SyncPanel } from './sync-panel'
 import type {
   HrDepartment,
   HrEmployee,
@@ -45,9 +47,10 @@ type TabKey =
   | 'monthly'
   | 'salaryConfig'
   | 'payroll'
+  | 'sync'
 
 const inputCls =
-  'rounded-md border border-input bg-background px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary'
+  'rounded-md border border-input bg-background px-2 py-1 text-sm focus:outline outline-2 outline-offset-2 outline-stroke-focus'
 
 export default function HrAttendancePage() {
   const t = useTranslations('hrAttendance')
@@ -64,6 +67,7 @@ export default function HrAttendancePage() {
     { key: 'monthly', label: t('tabMonthly'), icon: <Play className="h-4 w-4" /> },
     { key: 'salaryConfig', label: t('tabSalaryConfig'), icon: <Settings className="h-4 w-4" /> },
     { key: 'payroll', label: t('tabPayroll'), icon: <Calculator className="h-4 w-4" /> },
+    { key: 'sync', label: t('tabSync'), icon: <RefreshCw className="h-4 w-4" /> },
   ]
 
   return (
@@ -81,7 +85,7 @@ export default function HrAttendancePage() {
             onClick={() => setTab(tb.key)}
             className={`flex items-center gap-1 px-3 py-2 text-body ${
               tab === tb.key
-                ? 'border-b-2 border-primary font-medium text-primary'
+                ? 'border-b-2 border-stroke-selected font-medium text-primary'
                 : 'text-muted-foreground'
             }`}
           >
@@ -100,6 +104,7 @@ export default function HrAttendancePage() {
       {tab === 'monthly' && <MonthlyTab t={t} />}
       {tab === 'salaryConfig' && <SalaryConfigTab t={t} />}
       {tab === 'payroll' && <PayrollTab t={t} />}
+      {tab === 'sync' && <SyncPanel t={t} />}
     </div>
   )
 }

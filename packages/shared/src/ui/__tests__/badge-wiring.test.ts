@@ -399,7 +399,7 @@ describe('⑥ 档名集合两端一致 + 色档分歧在案', () => {
   })
 
   it('本锁有牙:web 壳掉了一档(outline)⇒ 档名集合判据必须红', () => {
-    const dirty = WEB_SRC.replace("  outline: 'text-foreground',\n", '')
+    const dirty = WEB_SRC.replace("  outline: 'border-stroke-default text-foreground',\n", '')
     expect(dirty).not.toBe(WEB_SRC)
     expect(variantTierProblems(dirty, 'web').length).toBeGreaterThan(0)
   })

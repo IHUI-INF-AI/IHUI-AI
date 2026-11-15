@@ -38,7 +38,8 @@
  *  - `w-full`(web:14):web 的块级宽度承载;RN 的 `TextInput` 宽度由父容器决定,无此通道。
  *  - `transition-colors` / `focus-visible:*` / `file:*` / `disabled:*`(web:14):仅 web,
  *    依赖 CSS 伪类 / 伪元素通道。
- *  - focus 边框色:web 走 `focus-visible:border-primary`(CSS 通道);RN 走 **style prop**
+ *  - focus 外观:web 走 `focus-visible:outline outline-2 outline-offset-2 outline-stroke-focus`
+ *    (CSS 通道,2px 墨环、不占布局);RN 走 **style prop**
  *    (RN:127 `style={[style, focused ? { borderColor: primaryColor } : null]}`)。
  *    ⚠️ 这一条**不是**"web 薄壳可以用内联 style"的例外:内联 style 的禁令只针对 **web 端**
  *    (调用方大量用 `className` 覆盖,内联会盖死覆盖);RN 端之所以走 style,是 2026-07-28 修
@@ -46,7 +47,7 @@
  *    必须把动态边框色迁到 style 让 className 保持稳定(见 input.tsx:33-37 原注释)。
  *    本票没有触碰这条:它管的是**色**,本票管的是**几何**。
  *  - `placeholderTextColor="#9ca3af"`(RN:128):RN 端没有 `placeholder:text-*` 伪元素通道。
- *  - `border-input` 两端同名但取值来源不同(web 走 CSS 变量,RN 走 nativewind 主题)
+ *  - `border-stroke-field` 两端同名但取值来源不同(web 走 CSS 变量,RN 走 nativewind 主题)
  *    ⇒ 同 badge-spec 的色值裁定:**色值不下沉**,本表只沉几何(边框**宽度**)。
  *  - AI 可填注册(RN:20-31,:38-119):仅 RN,web 端没有 field-host 通道 ⇒ 规则6。
  *  - 类名字面量:两端都写 Tailwind 风格类,但**字面量必须留在两端壳里** —— spec 文件不在
@@ -105,7 +106,7 @@ export const INPUT_TEXT_TIER = 'sm'
 
 /**
  * 边框宽度 1(规则1):两端同为 `border` = 1(web:14 / RN:124)。已同值 ⇒ 回归锁。
- * 只收**宽度**不收**色**:`border-input` 两端同名但取值来源不同(web CSS 变量 / RN nativewind 主题),
+ * 只收**宽度**不收**色**:`border-stroke-field` 两端同名但取值来源不同(web CSS 变量 / RN nativewind 主题),
  * 色值是 token 消费,搬进 spec 会脱离扫描面 ⇒ 同 badge-spec 的色值裁定。
  */
 export const INPUT_BORDER_WIDTH_PX = 1

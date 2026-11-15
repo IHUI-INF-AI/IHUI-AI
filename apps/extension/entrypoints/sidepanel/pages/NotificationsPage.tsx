@@ -104,7 +104,7 @@ export default function NotificationsPage() {
         items.map((n) => (
           <Card
             key={n.id}
-            className={`cursor-pointer hover:bg-muted/50 transition-colors ${n.isRead ? '' : 'border-primary/40'}`}
+            className={`cursor-pointer hover:bg-muted/50 transition-colors ${n.isRead ? '' : 'border-stroke-selected'}`}
             onClick={() => !n.isRead && onMarkOne(n.id)}
           >
             <CardContent className="p-3 min-[640px]:p-3">

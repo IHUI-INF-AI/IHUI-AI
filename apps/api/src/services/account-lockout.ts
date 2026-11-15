@@ -12,19 +12,26 @@
  * - Redis 后端 → 多实例部署时计数一致(进程内 Map 不一致)。
  * - Redis 不可用时降级为进程内 Map,保证基础可用性。
  *
- * Redis 键设计(2026-10-27 安全修正):
- * - fail:login:{account}    失败计数(纯 INCR,15 分钟 TTL)
- * - lock:login:{account}    锁定标记(SET NX EX,15 分钟)
+ * Redis 键设计(2026-11-13 F-556 修正):
+ * - fail:login:{identity}    失败计数(纯 INCR,15 分钟 TTL)
+ * - lock:login:{identity}    锁定标记(SET NX EX,15 分钟)
  *
- * 修正前 key 为 {account}:{ip} —— 同一账号换 IP 即重置计数,锁定近乎失效
- * (分布式撞库每 IP 每 15 分钟 5 次无限续)。现改为按账号全局计数:账号标识
- * 统一小写归一(username/phone/email 大小写变体不分摊配额的意义同此),
+ * identity 优先取登录路由解析到的用户 id(`user:{id}`):username / phone / email
+ * 三个可互换标识指向同一用户时共享同一份失败计数与锁定窗口。修正前按原始账号串
+ * 分桶,攻击者对同一账号的三种标识各失败 5 次即拿到 15 次配额(配额放大 3 倍)。
+ * 解析不到用户、或解析查询失败(调用方拿不到 userId)时回退到规范化原始串
+ * (手机号去空白/统一区号,邮箱与用户名 trim + 小写)—— 仍然计数并锁定,不因解析失败放行。
+ *
+ * 更早的修正(2026-10-27):key 曾为 {account}:{ip},同一账号换 IP 即重置计数,
+ * 锁定近乎失效(分布式撞库每 IP 每 15 分钟 5 次无限续)。现改为按账号全局计数,
  * ip 参数保留于签名(调用点不动),暂不参与 key —— IP 维度滥用由全局
  * rate-limit(100 req/min/IP)与 anti-automation 兜底。
  */
 import IORedis, { type Redis } from 'ioredis'
+import type { FastifyRequest } from 'fastify'
 import { config } from '../config/index.js'
 import { logger } from '../utils/logger.js'
+import { isPrivateIp } from './ip-reputation.js'
 
 const MAX_FAILURES = 5
 const LOCK_DURATION_SEC = 15 * 60
@@ -64,42 +71,66 @@ const fallbackStore = new Map<
   { failures: number; lockedUntil: number; lastFailAt: number }
 >()
 
-/** 账号标识归一:去空白 + 小写(大小写变体不产生平行计数) */
+/** F-558:Redis 故障期降级存储的容量上限,防随机账号名撑爆内存。 */
+const MAX_FALLBACK_ENTRIES = 10_000
+
+/**
+ * F-558:主动过期 + 容量淘汰。删除「失败窗口已过且锁定已解除」的条目,
+ * 超上限时按 Map 插入顺序淘汰最旧。仅作用于本进程降级账本,不影响 Redis 主账本。
+ */
+function pruneFallbackStore(now: number): void {
+  for (const [key, rec] of fallbackStore) {
+    if (now - rec.lastFailAt > FAILURE_WINDOW_SEC * 1000 && rec.lockedUntil <= now) {
+      fallbackStore.delete(key)
+    }
+  }
+  while (fallbackStore.size > MAX_FALLBACK_ENTRIES) {
+    const oldest = fallbackStore.keys().next().value
+    if (oldest === undefined) break
+    fallbackStore.delete(oldest)
+  }
+}
+
+/** 账号标识归一:去空白 + 小写(免锁定名单匹配用,大小写变体不产生平行项) */
 function normalizeAccount(account: string): string {
   return account.trim().toLowerCase()
 }
 
 /**
- * 免锁定账号名单(2026-11-11):逗号分隔,大小写不敏感,匹配用户名/邮箱/手机号任一标识。
- * 典型用途:本地开发环境把机主自己的 admin 账号排除在"5 次失败锁 15 分钟"之外,
- * 避免自己调试时被自己的安全策略锁死。生产通过环境变量留空即保持原有严格锁定。
+ * F-556:解析不到用户时的兜底身份键 —— 规范化原始账号串。
+ * 手机号去空白/连字符/括号并统一 +86 / 0086 区号前缀;邮箱与用户名 trim + 小写。
  */
-const LOCKOUT_EXEMPT_ACCOUNTS = new Set(
-  (process.env.AUTH_LOCKOUT_EXEMPT_ACCOUNTS ?? '')
-    .split(',')
-    .map((s) => s.trim().toLowerCase())
-    .filter(Boolean),
-)
-
-function isLockoutExempt(account: string): boolean {
-  if (LOCKOUT_EXEMPT_ACCOUNTS.size === 0) return false
-  return LOCKOUT_EXEMPT_ACCOUNTS.has(normalizeAccount(account))
+export function normalizeLockoutIdentity(account: string): string {
+  const lower = account.trim().toLowerCase()
+  const compact = lower.replace(/[\s\-()]/g, '')
+  if (!/^(\+|00)?\d{7,15}$/.test(compact)) return lower
+  const digits = compact.replace(/^\+/, '').replace(/^00/, '')
+  return digits.length > 11 && digits.startsWith('86') ? digits.slice(2) : digits
 }
 
-function fallbackKey(account: string, _ip: string): string {
-  return `${normalizeAccount(account)}`
+/**
+ * F-556:账号 → 锁定身份键。调用方(登录路由)已按标识解析出用户时传 userId,
+ * username / phone / email 三个可互换标识因此共享同一份配额;解析不到用户
+ * (或解析查询失败)时回退到规范化原始串 —— 仍然计数并锁定,不因解析失败放行。
+ */
+function lockoutIdentity(account: string, userId?: string | number | null): string {
+  if (userId !== null && userId !== undefined) {
+    const id = String(userId).trim()
+    if (id) return `user:${id.toLowerCase()}`
+  }
+  return normalizeLockoutIdentity(account)
 }
 
-function fallbackRecordFailure(account: string, ip: string): number {
-  const k = fallbackKey(account, ip)
+function fallbackRecordFailure(identity: string): number {
   const now = Date.now()
-  const existing = fallbackStore.get(k)
+  pruneFallbackStore(now)
+  const existing = fallbackStore.get(identity)
   if (!existing) {
-    fallbackStore.set(k, { failures: 1, lockedUntil: 0, lastFailAt: now })
+    fallbackStore.set(identity, { failures: 1, lockedUntil: 0, lastFailAt: now })
     return MAX_FAILURES - 1
   }
   if (now - existing.lastFailAt > FAILURE_WINDOW_SEC * 1000) {
-    fallbackStore.set(k, { failures: 1, lockedUntil: 0, lastFailAt: now })
+    fallbackStore.set(identity, { failures: 1, lockedUntil: 0, lastFailAt: now })
     return MAX_FAILURES - 1
   }
   existing.failures += 1
@@ -110,80 +141,224 @@ function fallbackRecordFailure(account: string, ip: string): number {
   return Math.max(0, MAX_FAILURES - existing.failures)
 }
 
-function fallbackGetLockRemainingMs(account: string, ip: string): number {
-  const record = fallbackStore.get(fallbackKey(account, ip))
+function fallbackGetLockRemainingMs(identity: string): number {
+  const record = fallbackStore.get(identity)
   if (!record) return 0
   const remaining = record.lockedUntil - Date.now()
   return remaining > 0 ? remaining : 0
 }
 
-function fallbackClearFailures(account: string, ip: string): void {
-  fallbackStore.delete(fallbackKey(account, ip))
+function fallbackClearFailures(identity: string): void {
+  fallbackStore.delete(identity)
+}
+
+/**
+ * 把 fallback 计数抬到至少 target(两存储取最大值,只升不降),达阈值时一并置锁。
+ * F-555:Redis 故障期的失败账本在 fallback,恢复后必须以它为准补齐,
+ * 否则累计失败与锁定状态在恢复瞬间清零。
+ */
+function fallbackRaiseFailures(identity: string, target: number): void {
+  const now = Date.now()
+  pruneFallbackStore(now)
+  const existing = fallbackStore.get(identity)
+  if (!existing) {
+    fallbackStore.set(identity, {
+      failures: target,
+      lockedUntil: target >= MAX_FAILURES ? now + LOCK_DURATION_SEC * 1000 : 0,
+      lastFailAt: now,
+    })
+    return
+  }
+  if (target > existing.failures) existing.failures = target
+  if (existing.failures >= MAX_FAILURES) {
+    existing.lockedUntil = Math.max(existing.lockedUntil, now + LOCK_DURATION_SEC * 1000)
+  }
+}
+
+/**
+ * 免锁定账号名单(2026-11-11):逗号分隔,大小写不敏感,匹配用户名/邮箱/手机号任一标识。
+ * 典型用途:本地开发环境把机主自己的 admin 账号排除在"5 次失败锁 15 分钟"之外,
+ * 避免自己调试时被自己的安全策略锁死。生产通过环境变量留空即保持原有严格锁定。
+ */
+const LOCKOUT_EXEMPT_ACCOUNTS = new Set(
+  (process.env.AUTH_LOCKOUT_EXEMPT_ACCOUNTS ?? '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+    // 同时存原样与小写形式:手机号再存一份归一化形式,否则 `+8618643389808`
+    // 与名单里的 `18643389808` 对不上,免锁定形同虚设。
+    .flatMap((s) => [normalizeAccount(s), normalizeLockoutIdentity(s)]),
+)
+
+export function isLockoutExemptAccount(account: string): boolean {
+  if (LOCKOUT_EXEMPT_ACCOUNTS.size === 0) return false
+  return (
+    LOCKOUT_EXEMPT_ACCOUNTS.has(normalizeAccount(account)) ||
+    LOCKOUT_EXEMPT_ACCOUNTS.has(normalizeLockoutIdentity(account))
+  )
+}
+
+/** 登录体里可能承载账号标识的字段(各登录端点命名不一致,统一在这一处收口)。 */
+const LOGIN_IDENTITY_FIELDS = ['account', 'username', 'email', 'phone'] as const
+
+/**
+ * 登录请求体是否携带免锁定/免限流的账号标识(2026-11-15)。
+ *
+ * 供 @fastify/rate-limit 的 allowList 使用:登录端的限流钩子已改到 preValidation,
+ * 此时 body 已解析。只做字段比对,不查库;认不出(缺字段/非字符串)一律按普通账号计数。
+ */
+export function isExemptLoginBody(body: unknown): boolean {
+  if (!body || typeof body !== 'object') return false
+  const record = body as Record<string, unknown>
+  return LOGIN_IDENTITY_FIELDS.some((field) => {
+    const value = record[field]
+    return typeof value === 'string' && isLockoutExemptAccount(value)
+  })
+}
+
+/**
+ * 登录端点的限流配置(2026-11-15 收口)。
+ *
+ * 原先各登录路由直接写 `{ max, timeWindow }`,限流钩子落在 onRequest —— 此时 body 还没解析,
+ * 无法按账号豁免,机主在公网反复调试登录时会先撞上 5~10 次/分钟的 429。
+ *
+ * 改为 `hook: 'preValidation'`:body 已解析、schema 校验尚未执行,因此:
+ * - 能按账号(account/username/email/phone)识别免锁定名单(admin)并直接放行;
+ * - 普通账号、缺字段、非字符串一律照常计数,口径不变;
+ * - 畸形 JSON 在 body 解析阶段就 400,不进本钩子,仍由全局 anti-automation 与
+ *   httpConnGuard 的 onRequest 兜底,不会形成无限重放面。
+ *
+ * allowList 同时保留开发档回环/内网豁免(原全局 allowList 在路由级配置下会被覆盖)。
+ */
+export function loginRateLimit(max: number, timeWindow: string) {
+  return {
+    max,
+    timeWindow,
+    hook: 'preValidation' as const,
+    allowList: (request: FastifyRequest): boolean =>
+      (!config.isProductionGuard && isPrivateIp(request.ip)) || isExemptLoginBody(request.body),
+  }
 }
 
 /** 记录一次登录失败。返回剩余可重试次数;已达上限返回 0。 */
-export async function recordLoginFailure(account: string, ip: string): Promise<number> {
+export async function recordLoginFailure(
+  account: string,
+  _ip: string,
+  userId?: string | number | null,
+): Promise<number> {
   // 免锁定账号:既不计失败次数,也不置锁,剩余次数恒为满额。
-  if (isLockoutExempt(account)) return MAX_FAILURES
+  if (isLockoutExemptAccount(account)) return MAX_FAILURES
+
+  // F-556:按账号归一化身份分桶,username/phone/email 命中同一用户时共享配额。
+  const identity = lockoutIdentity(account, userId)
+
+  // F-555:写路径双写。fallback 先记一次(Redis 故障时它就是唯一账本),
+  // Redis 可用时再取两存储最大计数,并把 fallback 的累计值回填,避免恢复后清零。
+  const localRemaining = fallbackRecordFailure(identity)
+  const localCount = MAX_FAILURES - localRemaining
 
   const redis = getRedis()
-  if (!redis) return fallbackRecordFailure(account, ip)
+  if (!redis) return localRemaining
 
-  const failKey = `${KEY_PREFIX_FAIL}${normalizeAccount(account)}`
-  const lockKey = `${KEY_PREFIX_LOCK}${normalizeAccount(account)}`
+  const failKey = `${KEY_PREFIX_FAIL}${identity}`
+  const lockKey = `${KEY_PREFIX_LOCK}${identity}`
   try {
-    const count = await redis.incr(failKey)
-    if (count === 1) {
-      await redis.expire(failKey, FAILURE_WINDOW_SEC)
+    // F-557:INCR 与首次建 TTL 必须原子。旧实现两条命令,EXPIRE 因错误/崩溃未执行
+    // 时会留下永不过期的失败键,且此后 INCR 因 count!==1 永不补 TTL。
+    // 用 Lua 在 Redis 内一次完成「自增 + 首次计数时设 TTL」。
+    const count = Number(
+      await redis.eval(
+        "local c = redis.call('INCR', KEYS[1])\n" +
+          "if c == 1 then redis.call('EXPIRE', KEYS[1], ARGV[1]) end\n" +
+          'return c',
+        1,
+        failKey,
+        FAILURE_WINDOW_SEC,
+      ),
+    )
+    const effective = Math.max(count, localCount)
+    if (effective > count) {
+      // 故障期 fallback 计得更多:回填 Redis(best-effort,失败只告警)
+      try {
+        await redis.set(failKey, String(effective), 'EX', FAILURE_WINDOW_SEC)
+      } catch (e) {
+        logger.warn('[account-lockout] backfill failure count to redis failed', { error: e })
+      }
     }
-    if (count >= MAX_FAILURES) {
+    if (effective > localCount) {
+      fallbackRaiseFailures(identity, effective)
+    }
+    if (effective >= MAX_FAILURES) {
       await redis.set(lockKey, '1', 'EX', LOCK_DURATION_SEC, 'NX')
     }
-    return Math.max(0, MAX_FAILURES - count)
+    return Math.max(0, MAX_FAILURES - effective)
   } catch (e) {
     logger.error('[account-lockout] recordLoginFailure redis failed, fallback to memory', {
       error: e,
     })
-    return fallbackRecordFailure(account, ip)
+    // 本次失败已在上方写入 fallback,不再重复计数(会放大失败次数)。
+    return localRemaining
   }
 }
 
 /** 查询账号/IP 是否被锁定。返回剩余锁定毫秒数,0 表示未锁。 */
-export async function getLockRemainingMs(account: string, ip: string): Promise<number> {
-  if (isLockoutExempt(account)) return 0
+export async function getLockRemainingMs(
+  account: string,
+  _ip: string,
+  userId?: string | number | null,
+): Promise<number> {
+  if (isLockoutExemptAccount(account)) return 0
 
+  // F-556:读取与写入共用同一归一化身份键(带 userId 优先)。
+  const identity = lockoutIdentity(account, userId)
+
+  // F-555:读路径合并两存储,取更严格(剩余更长)的结果。
+  const localRemaining = fallbackGetLockRemainingMs(identity)
   const redis = getRedis()
-  if (!redis) return fallbackGetLockRemainingMs(account, ip)
+  if (!redis) return localRemaining
 
-  const lockKey = `${KEY_PREFIX_LOCK}${normalizeAccount(account)}`
+  const lockKey = `${KEY_PREFIX_LOCK}${identity}`
   try {
     const ttl = await redis.ttl(lockKey)
-    if (ttl > 0) return ttl * 1000
-    return 0
+    const redisRemaining = ttl > 0 ? ttl * 1000 : 0
+    if (localRemaining > redisRemaining) {
+      // Redis 恢复后把 fallback 中的锁定回填(best-effort,失败只告警),让多实例同口径
+      try {
+        await redis.set(lockKey, '1', 'EX', Math.ceil(localRemaining / 1000))
+      } catch (e) {
+        logger.warn('[account-lockout] backfill lock to redis failed', { error: e })
+      }
+      return localRemaining
+    }
+    return redisRemaining
   } catch (e) {
     logger.error('[account-lockout] getLockRemainingMs redis failed, fallback to memory', {
       error: e,
     })
-    return fallbackGetLockRemainingMs(account, ip)
+    return localRemaining
   }
 }
 
 /** 登录成功时清空失败计数与锁定。 */
-export async function clearLoginFailures(account: string, ip: string): Promise<void> {
+export async function clearLoginFailures(
+  account: string,
+  _ip: string,
+  userId?: string | number | null,
+): Promise<void> {
+  // F-556:清空同样按归一化身份键,避免成功登录后三种标识的配额不同步。
+  const identity = lockoutIdentity(account, userId)
+  // F-555:双写之后成功路径必须同时清两存储,否则 fallback 残留计数/锁会继续生效。
+  fallbackClearFailures(identity)
   const redis = getRedis()
-  if (!redis) {
-    fallbackClearFailures(account, ip)
-    return
-  }
+  if (!redis) return
   try {
-    const failKey = `${KEY_PREFIX_FAIL}${normalizeAccount(account)}`
-    const lockKey = `${KEY_PREFIX_LOCK}${normalizeAccount(account)}`
+    const failKey = `${KEY_PREFIX_FAIL}${identity}`
+    const lockKey = `${KEY_PREFIX_LOCK}${identity}`
     await redis.del(failKey, lockKey)
   } catch (e) {
-    logger.error('[account-lockout] clearLoginFailures redis failed, fallback to memory', {
+    logger.error('[account-lockout] clearLoginFailures redis failed, fallback already cleared', {
       error: e,
     })
-    fallbackClearFailures(account, ip)
   }
 }
 

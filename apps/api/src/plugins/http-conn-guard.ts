@@ -4,6 +4,7 @@
 
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import fp from 'fastify-plugin'
+import { isAdminRequest } from './require-permission.js'
 
 /**
  * HTTP 单 IP 并发连接守卫（对应安全审计 P1：应用层此前缺连接/FD 上限）。
@@ -105,6 +106,10 @@ const httpConnGuardPlugin: FastifyPluginAsync = async (server) => {
     // 只有「路径」这一条服务端事实可豁免（监控探活并发极低，不会占满阈值）。
     // F-208：UA 是客户端可控头，连读都不读 —— 任何按 UA 放行的判定都可被伪造。
     if (HEALTH_PATHS.some((p) => url.startsWith(p))) return
+
+    // 管理员请求不占单 IP 并发槽(2026-11-15):公网调试时并行拉接口不该被 429。
+    // 认 JWT(roleId>=1),不依赖 request.userId(根级 preHandler 早于路由级 authenticate)。
+    if (await isAdminRequest(request)) return
 
     // 计数一律按真实维度 IP 执行。本插件没有令牌维度可用：根级 preHandler 早于路由级
     // authenticate，此时的 request.userId 恒未填充（与 anti-automation.ts 同一结论），

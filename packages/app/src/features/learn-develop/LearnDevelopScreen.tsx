@@ -291,9 +291,17 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.border.light,
     } as ImageStyle,
     courseBody: { flex: 1, gap: rnSpacing.xs } as ViewStyle,
-    courseTitle: { fontSize: rnType.subtitle.size, fontWeight: '600', color: tk.text.primary } as TextStyle,
+    courseTitle: {
+      fontSize: rnType.subtitle.size,
+      fontWeight: '600',
+      color: tk.text.primary,
+    } as TextStyle,
     courseMeta: { fontSize: rnType.label.size, color: tk.text.secondary } as TextStyle,
-    coursePrice: { fontSize: rnType.title.size, fontWeight: '700', color: tk.text.primary } as TextStyle,
+    coursePrice: {
+      fontSize: rnType.title.size,
+      fontWeight: '700',
+      color: tk.text.primary,
+    } as TextStyle,
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

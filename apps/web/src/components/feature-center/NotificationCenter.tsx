@@ -6,7 +6,18 @@
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
-import { Bell, X, CheckCheck, ListTodo, Info, CheckCircle2, AlertTriangle, XCircle, ArrowUpRight, type LucideIcon } from 'lucide-react'
+import {
+  Bell,
+  X,
+  CheckCheck,
+  ListTodo,
+  Info,
+  CheckCircle2,
+  AlertTriangle,
+  XCircle,
+  ArrowUpRight,
+  type LucideIcon,
+} from 'lucide-react'
 
 import { Button } from '@ihui/ui-react'
 import { formatDate } from '@/lib/date-utils'
@@ -77,7 +88,7 @@ export function NotificationCenter({
     <div className="flex w-full flex-col">
       {/* 头部右侧留出 pr-12:宿主的 Modal 会在右上角绝对定位统一的关闭按钮,
           不留位时「全部已读」会与关闭按钮重叠(2026-11-11 用户反馈)。 */}
-      <div className="flex items-center justify-between border-b border-border/60 px-4 py-3 pr-12">
+      <div className="flex items-center justify-between border-b border-stroke-default px-4 py-3 pr-12">
         <div className="flex items-center gap-2">
           <Bell className="h-4 w-4 text-primary" />
           <span className="text-body font-semibold">通知中心</span>
@@ -103,7 +114,7 @@ export function NotificationCenter({
       </div>
       {pendingDecisions && (
         <div
-          className="border-b border-border/60 px-2 pb-2 pt-1"
+          className="border-b border-stroke-default px-2 pb-2 pt-1"
           data-testid="decision-inbox-section"
         >
           <div className="flex items-center gap-2 px-2 py-1.5">

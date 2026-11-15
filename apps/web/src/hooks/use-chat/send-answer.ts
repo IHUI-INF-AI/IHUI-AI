@@ -9,6 +9,8 @@ import { useLoginDialogStore } from '@/stores/login-dialog'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import { getModeStoreForChatStore } from '@/stores/mode'
 import { getSamplingParams } from '@/stores/sampling-params'
+import { getAppearanceConfig } from '@/stores/appearance-settings'
+import { buildAiStyleDirective } from '@/lib/ai-style-directive'
 import { getTimelineStoreForChatStore } from '@/stores/timeline-store'
 import { toast } from '@/components/common'
 // D131:主对话流连接状态位的信号出口(侧问题流与主流同一状态位,不得各立一套)
@@ -49,7 +51,13 @@ import {
   mapEndToTimelineUpdate,
 } from '@/lib/subagent-timeline-mapper'
 import { loadBrowserWorkspaceContext } from './workspace'
-import { eduToolsFor, fileToolsFor, financeToolsFor, mergeAgentTools, videoToolsFor } from './tool-config'
+import {
+  eduToolsFor,
+  fileToolsFor,
+  financeToolsFor,
+  mergeAgentTools,
+  videoToolsFor,
+} from './tool-config'
 // Runtime 插话能力声明落库口(与 send-message.ts 同一入口)
 import { noteRuntimeCapabilities } from './runtime-capabilities'
 import {
@@ -277,6 +285,14 @@ export function createSendAnswer(
 
       // P1-7(2026-09-13 立):续答同样应用会话级高级参数(与 sendMessage 对称)
       const samplingParams = getSamplingParams(store.conversationId)
+      // 2026-11-15(外观设置):追问应答与首答同一份风格指令,避免多轮语气不一致。
+      const mergedSystemPrompt = [
+        samplingParams.systemPrompt,
+        buildAiStyleDirective(getAppearanceConfig()),
+      ]
+        .map((s) => s?.trim())
+        .filter((s): s is string => !!s)
+        .join('\n\n')
 
       const streamOpts: StreamChatOptions & {
         onQuestionResolved?: (frame: unknown) => void
@@ -313,7 +329,7 @@ export function createSendAnswer(
           // 2026-07-28 移除独立 PlanActToggle 后,plan_mode 字段已废弃,仅传 mode
           mode: modeStore.getState().currentMode,
           // P1-7:自定义 system prompt(未设置时不传,保持上游默认)
-          ...(samplingParams.systemPrompt ? { systemPrompt: samplingParams.systemPrompt } : {}),
+          ...(mergedSystemPrompt ? { systemPrompt: mergedSystemPrompt } : {}),
         },
         signal: controller.signal,
         metadata: {
@@ -795,7 +811,7 @@ export function createSubmitQuestionResponse(
         chatStore.getState().clearPendingQuestion()
         return
       }
-      await sendLegacyAnswer(buildLegacyAnswerText(pending.options, response))
+      await sendLegacyAnswer(buildLegacyAnswerText(pending, response))
     }
 
     const sessionId = store.aiStreamSessionId

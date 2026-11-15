@@ -192,7 +192,7 @@ function TaskKanbanCard({
 
   return (
     <li
-      className="space-y-1.5 rounded-lg border border-border/50 bg-card/60 p-2"
+      className="space-y-1.5 rounded-lg border border-stroke-subtle bg-card/60 p-2"
       data-testid={`kanban-card-${task.task_id || task.id}`}
     >
       <div className="flex flex-wrap items-center gap-1.5">
@@ -214,7 +214,7 @@ function TaskKanbanCard({
         <img
           src={toMediaImageUrl(imageThumb)}
           alt={task.message || 'media'}
-          className="max-h-24 w-full rounded-sm border border-border/50 object-cover"
+          className="max-h-24 w-full rounded-sm border border-stroke-subtle object-cover"
         />
       )}
       {!imageThumb && urls.video_url && (
@@ -234,7 +234,7 @@ function TaskKanbanCard({
         {canJump && (
           <Link
             href={`/chat?conversationId=${encodeURIComponent(task.chat_id!)}`}
-            className="inline-flex items-center gap-1 rounded-sm border border-border/60 px-1.5 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-accent/40 hover:text-foreground"
+            className="inline-flex items-center gap-1 rounded-sm border border-stroke-subtle px-1.5 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-accent/40 hover:text-foreground"
             data-testid={`kanban-jump-${task.task_id || task.id}`}
           >
             <ExternalLink className="h-2.5 w-2.5" />

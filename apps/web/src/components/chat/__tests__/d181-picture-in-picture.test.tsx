@@ -6,17 +6,19 @@
 // D181 电脑使用画中画(2026-10-23 立项落地,对标竞品 chatSession.pictureInPicture.* 五键)。
 // 与 d182-d183-header-actions.test.tsx 同型三层合围:
 //   行为层:真跑 picture-in-picture-prefs store —— 两档隐藏翻转 + persist 落 localStorage;
-//   组件层:挂载 PictureInPictureSection —— 空态占位随隐藏档出现/消失、
-//           开关真接 Document Picture-in-Picture 能力面(隐藏即关窗)、写入抛错报 updateFailed;
+//   能力层:openPictureInPictureWindow 真接 Document Picture-in-Picture 能力面;
+//   锚点层:ai-side-panel 菜单项在位,消息流不再挂常驻条;
 //   词包层:aiChat.pictureInPicture 五语言直锁。
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { usePictureInPicturePrefsStore } from '@/stores/picture-in-picture-prefs'
-import { PictureInPictureSection } from '../picture-in-picture-section'
+import {
+  isDocumentPictureInPictureSupported,
+  openPictureInPictureWindow,
+} from '../picture-in-picture-section'
 
 vi.mock('next-intl', () => ({
   useTranslations: (ns: string) => (key: string) => `${ns}.${key}`,
@@ -38,11 +40,6 @@ beforeEach(() => {
     hiddenConversationIds: [],
   })
   window.localStorage.clear()
-})
-
-afterEach(() => {
-  cleanup()
-  vi.restoreAllMocks()
 })
 
 describe('D181 行为层:picture-in-picture-prefs store 两档隐藏', () => {
@@ -67,34 +64,15 @@ describe('D181 行为层:picture-in-picture-prefs store 两档隐藏', () => {
   })
 })
 
-describe('D181 组件层:PictureInPictureSection 挂载行为', () => {
-  it('默认可见 ⇒ 渲染节名/标题/两开关/空态占位;无能力面时不出现开窗外挂', () => {
-    render(<PictureInPictureSection conversationId="conv-a" />)
-    expect(screen.getByText('aiChat.pictureInPicture.sectionLabel')).toBeTruthy()
-    expect(screen.getByText('aiChat.pictureInPicture.title')).toBeTruthy()
-    expect(screen.getByTestId('pip-hide-in-session')).toBeTruthy()
-    expect(screen.getByTestId('pip-hide-in-all-sessions')).toBeTruthy()
-    expect(screen.getByTestId('pip-empty-state')).toBeTruthy()
-    expect(screen.queryByTestId('pip-open-window')).toBeNull()
+describe('D181 能力层:Document Picture-in-Picture 开窗', () => {
+  it('能力缺失 ⇒ 判定不支持,调用不抛错(菜单项也不出现)', () => {
+    expect(isDocumentPictureInPictureSupported()).toBe(false)
+    expect(() => openPictureInPictureWindow({ title: 't', emptyState: 'e' })).not.toThrow()
   })
 
-  it('无会话 id 时"在此会话中隐藏"禁用(能用才显示)', () => {
-    render(<PictureInPictureSection conversationId={null} />)
-    expect((screen.getByTestId('pip-hide-in-session') as HTMLInputElement).disabled).toBe(true)
-  })
-
-  it('勾选在此会话中隐藏 ⇒ 空态占位消失且 store 记该会话', () => {
-    render(<PictureInPictureSection conversationId="conv-a" />)
-    fireEvent.click(screen.getByTestId('pip-hide-in-session'))
-    expect(screen.queryByTestId('pip-empty-state')).toBeNull()
-    expect(usePictureInPicturePrefsStore.getState().hiddenConversationIds).toEqual(['conv-a'])
-    fireEvent.click(screen.getByTestId('pip-hide-in-session'))
-    expect(screen.getByTestId('pip-empty-state')).toBeTruthy()
-  })
-
-  it('开关真接画中画能力面:可见+能力在位 ⇒ 出开窗按钮,点击真调 requestWindow;翻隐藏 ⇒ 真关浮窗', async () => {
+  it('能力在位 ⇒ requestWindow 真调用并写入标题/空态文案', async () => {
     const pipWin = {
-      document: { title: '', body: {} as { textContent?: string } },
+      document: { title: '', body: { textContent: '' } },
       addEventListener: vi.fn(),
       close: vi.fn(),
       closed: false,
@@ -105,40 +83,31 @@ describe('D181 组件层:PictureInPictureSection 挂载行为', () => {
       configurable: true,
     })
     try {
-      render(<PictureInPictureSection conversationId="conv-a" />)
-      fireEvent.click(await screen.findByTestId('pip-open-window'))
+      expect(isDocumentPictureInPictureSupported()).toBe(true)
+      openPictureInPictureWindow({ title: 'PIP-T', emptyState: 'PIP-E' })
       await vi.waitFor(() => expect(requestWindow).toHaveBeenCalledTimes(1))
-      fireEvent.click(screen.getByTestId('pip-hide-in-all-sessions'))
-      expect(pipWin.close).toHaveBeenCalledTimes(1)
+      expect(pipWin.document.title).toBe('PIP-T')
+      expect(pipWin.document.body.textContent).toBe('PIP-E')
     } finally {
-      // 清掉模块级浮窗引用残留,避免串到后续用例
       pipWin.closed = true
       delete (window as { documentPictureInPicture?: unknown }).documentPictureInPicture
     }
   })
-
-  it('偏好写入抛错(存储配额型)⇒ 按规格报 updateFailed,不静默吞', () => {
-    usePictureInPicturePrefsStore.setState({
-      setHideInAllSessions: () => {
-        throw new Error('quota')
-      },
-    })
-    render(<PictureInPictureSection conversationId="conv-a" />)
-    fireEvent.click(screen.getByTestId('pip-hide-in-all-sessions'))
-    expect(screen.getByRole('alert').textContent).toContain('aiChat.pictureInPicture.updateFailed')
-  })
 })
 
-describe('D181 锚点层:会话面挂载点', () => {
-  it('MessageList 真挂 PictureInPictureSection 并把当前会话 id 传入', () => {
+describe('D181 锚点层:面板溢出菜单入口', () => {
+  it('ai-side-panel 菜单挂「打开画中画窗口」;消息流不再挂常驻 summary 条', () => {
+    const panel = readFileSync(
+      resolve(process.cwd(), 'src/components/ai/ai-side-panel.tsx'),
+      'utf-8',
+    )
+    expect(panel).toContain('data-testid="ai-panel-open-pip"')
+    expect(panel).toContain('openPictureInPictureWindow')
     const host = readFileSync(
       resolve(process.cwd(), 'src/components/chat/message-list/MessageList.tsx'),
       'utf-8',
     )
-    expect(host).toContain(
-      "import { PictureInPictureSection } from '../picture-in-picture-section'",
-    )
-    expect(host).toMatch(/<PictureInPictureSection conversationId=\{conversationId\} \/>/)
+    expect(host).not.toContain('PictureInPictureSection')
   })
 })
 

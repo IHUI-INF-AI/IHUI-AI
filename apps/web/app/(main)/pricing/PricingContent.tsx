@@ -12,6 +12,7 @@ import { Button, Card, CardContent } from '@ihui/ui-react'
 import { BackButton } from '@/components/common'
 import { fetchApi } from '@/lib/api'
 import { cn } from '@/lib/utils'
+import { formatCnyCents } from '@/lib/display-currency'
 import { SocialProof } from './SocialProof'
 import { ComparisonTable } from './ComparisonTable'
 import { Testimonials } from './Testimonials'
@@ -50,8 +51,7 @@ async function fetchVipLevels(): Promise<VipLevel[]> {
   return r.data.items
 }
 
-const formatCNY = (cents: number) =>
-  new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'CNY' }).format(cents / 100)
+const formatCNY = (cents: number) => formatCnyCents(cents, { digits: 2 })
 
 const TIER_BADGE: Record<number, string> = {
   0: '免费',
@@ -132,7 +132,8 @@ export function PricingContent(): React.JSX.Element {
                 key={level.id}
                 className={cn(
                   'relative flex flex-col',
-                  isPopular && 'border-brand-accent-deep shadow-elevation-md min-[1024px]:scale-[1.02]',
+                  isPopular &&
+                    'border-brand-accent-deep shadow-elevation-md min-[1024px]:scale-[1.02]',
                 )}
               >
                 {isPopular && (
@@ -213,7 +214,7 @@ export function PricingContent(): React.JSX.Element {
 
       <Guarantee />
 
-      <section className="mt-14 rounded-lg border border-primary/30 bg-cta/5 p-3 text-center">
+      <section className="mt-14 rounded-lg border border-stroke-selected bg-cta/5 p-3 text-center">
         <h2 className="text-heading font-bold tracking-tight text-foreground min-[768px]:text-display">
           还不确定?免费试用 30 天
         </h2>

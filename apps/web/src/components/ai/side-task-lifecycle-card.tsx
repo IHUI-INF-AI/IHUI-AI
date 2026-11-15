@@ -109,7 +109,10 @@ export function SideTaskLifecycleCard({
           ) : null}
 
           {/* 并行运行位置:同文件夹 / 同环境 —— 用户得知道自己改动落在哪儿 */}
-          <p className="text-[11px] text-muted-foreground/80" data-side-task-location={view.location}>
+          <p
+            className="text-[11px] text-muted-foreground/80"
+            data-side-task-location={view.location}
+          >
             {`${t('location.label')} · ${t(view.locationKey)}`}
           </p>
 
@@ -162,7 +165,7 @@ export function SideTaskLifecycleCard({
               aria-modal="true"
               aria-label={t('closeConfirm.title')}
               data-side-task-confirm="open"
-              className="flex flex-col gap-2 rounded-md border border-border/60 bg-background p-2"
+              className="flex flex-col gap-2 rounded-md border border-stroke-subtle bg-background p-2"
             >
               <p className="text-label font-medium" data-side-task-confirm-title="true">
                 {t('closeConfirm.title')}

@@ -39,6 +39,7 @@ import { AnnotationStylePanel, type PickedVisualElement } from './annotation-sty
 import { buildBrowserWsUrl, setBrowserWsToken } from '@ihui/api-client'
 import { useAuthStore } from '@/stores/auth'
 import { isTopOverlay, popOverlay, pushOverlay } from '@/lib/overlay-stack'
+import { MENU_ITEM_CLASS, MENU_ITEM_ICON_CLASS } from '@/lib/menu-item'
 import { boundedAppend, droppedNotice } from '@/lib/bounded-append'
 
 /** 层栈 id(见 @/lib/overlay-stack):画布右键菜单浮层 */
@@ -757,7 +758,7 @@ export function CdpBrowserView({
         data-testid="pick-element-toggle"
         className={`absolute right-2 top-9 z-20 inline-flex items-center gap-1 rounded-sm border px-2 py-1 text-[10px] shadow-elevation-sm transition-colors ${
           pickMode
-            ? 'border-primary/40 bg-cta text-cta-foreground'
+            ? 'border-stroke-selected bg-cta text-cta-foreground'
             : 'border-border bg-background/90 text-muted-foreground hover:bg-accent hover:text-foreground'
         }`}
       >
@@ -832,7 +833,7 @@ export function CdpBrowserView({
           <div
             role="menu"
             tabIndex={-1}
-            className="fixed z-popover min-w-[180px] rounded-md border border-border bg-popover p-1 shadow-elevation-md animate-in fade-in-0 zoom-in-95 duration-(--duration-unified) ease-unified focus:outline-none"
+            className="fixed z-popover min-w-[180px] rounded-md border border-stroke-strong bg-popover p-1 shadow-elevation-md animate-in fade-in-0 zoom-in-95 duration-(--duration-unified) ease-unified focus:outline-none"
             style={{
               left: Math.min(ctxMenu.x, window.innerWidth - 188),
               top: Math.min(ctxMenu.y, window.innerHeight - menuItems.length * 30 - 16),
@@ -848,10 +849,10 @@ export function CdpBrowserView({
                   role="menuitem"
                   disabled={item.disabled}
                   onClick={item.onClick}
-                  className="font-[weight:inherit] flex w-full items-center gap-2 rounded-sm px-2.5 py-1.5 text-left text-label text-foreground transition-colors hover:bg-muted disabled:pointer-events-none disabled:opacity-40"
+                  className={MENU_ITEM_CLASS}
                 >
-                  <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                  <span>{item.label}</span>
+                  <Icon className={MENU_ITEM_ICON_CLASS} />
+                  <span className="min-w-0 flex-1 truncate">{item.label}</span>
                 </button>
               )
             })}

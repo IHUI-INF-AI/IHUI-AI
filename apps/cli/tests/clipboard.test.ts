@@ -10,25 +10,181 @@
  *   - 重点测试工具 schema / 错误处理 / write 校验
  *   - readClipboard/writeClipboard 在 Windows CI 上做往返一致验证
  */
+import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { describe, it, expect } from 'vitest';
 import {
   clipboard_read,
   clipboard_write,
+  clipboard_token,
+  clipboard_rich_read,
+  clipboard_rich_write,
   CLIPBOARD_TOOLS,
   readClipboard,
   writeClipboard,
+  readClipboardToken,
   isClipboardAvailable,
   clipToClipboardBudget,
   clipboardTruncationNote,
 } from '../src/tools/clipboard.js';
+import { readRichClipboard, writeRichClipboard, isRichFormat } from '../src/tools/clipboard-rich.js';
 
 const SKIP_END_TO_END = !isClipboardAvailable();
 
 describe('工具注册', () => {
-  it('CLIPBOARD_TOOLS 包含 clipboard_read 和 clipboard_write 两个工具', () => {
-    expect(CLIPBOARD_TOOLS.length).toBe(2);
+  it('CLIPBOARD_TOOLS 包含 read/write/token/rich_read/rich_write 五个工具', () => {
+    expect(CLIPBOARD_TOOLS.length).toBe(5);
     expect(CLIPBOARD_TOOLS[0]!.name).toBe('clipboard_read');
     expect(CLIPBOARD_TOOLS[1]!.name).toBe('clipboard_write');
+    expect(CLIPBOARD_TOOLS[2]!.name).toBe('clipboard_token');
+    expect(CLIPBOARD_TOOLS[3]!.name).toBe('clipboard_rich_read');
+    expect(CLIPBOARD_TOOLS[4]!.name).toBe('clipboard_rich_write');
+  });
+});
+
+describe('clipboard_token 工具', () => {
+  it('schema 正确:name/description/dangerLevel/parameters/required', () => {
+    expect(clipboard_token.name).toBe('clipboard_token');
+    expect(clipboard_token.description).toContain('序号');
+    expect(clipboard_token.dangerLevel).toBe('read');
+    expect(clipboard_token.parameters).toEqual({});
+    expect(clipboard_token.required).toEqual([]);
+  });
+
+  it('平台不支持时点名返回错误,不冒绿', async () => {
+    const result = await clipboard_token.execute({}, { workspacePath: '/tmp' });
+    if (process.platform !== 'win32') {
+      // 非 Windows 必走 error 分支(§0.10 不冒绿)
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('仅 Windows 可用');
+    } else {
+      // Windows:可用 ⇒ 纯数字序号;resolvePowerShell 缺失 ⇒ 同样点名
+      expect(result).toBeDefined();
+      if (result.success) {
+        expect(/^\d+$/.test(result.output)).toBe(true);
+      } else {
+        expect(typeof result.error).toBe('string');
+      }
+    }
+  });
+
+  it('readClipboardToken 返回 number 或 null(不抛异常)', () => {
+    const v = readClipboardToken();
+    if (process.platform === 'win32' && isClipboardAvailable()) {
+      expect(typeof v).toBe('number');
+    } else {
+      expect(v).toBeNull();
+    }
+  });
+
+  it('写剪贴板后序号单调不减(Windows 可用性下端到端)', () => {
+    if (process.platform !== 'win32' || !isClipboardAvailable()) return;
+    const before = readClipboardToken();
+    expect(typeof before).toBe('number');
+    writeClipboard('ihui-token-roundtrip');
+    const after = readClipboardToken();
+    // 写入会推进序号(至少不变,严格应 +n);断言不回退
+    expect(after as number).toBeGreaterThanOrEqual(before as number);
+  });
+});
+
+describe('clipboard_rich_read 工具', () => {
+  it('schema 正确:name/description/dangerLevel/parameters', () => {
+    expect(clipboard_rich_read.name).toBe('clipboard_rich_read');
+    expect(clipboard_rich_read.description).toContain('富格式');
+    expect(clipboard_rich_read.dangerLevel).toBe('read');
+    expect(clipboard_rich_read.parameters.format).toBeDefined();
+  });
+
+  it('非法 format 点名报错', async () => {
+    const r = await clipboard_rich_read.execute({ format: 'bogus' }, { workspacePath: '/tmp' });
+    expect(r.success).toBe(false);
+    expect(r.error).toContain('html | rtf | files');
+  });
+
+  it('非 Windows 点名平台不支持,不冒绿', async () => {
+    if (process.platform === 'win32') return;
+    const r = await clipboard_rich_read.execute({ format: 'html' }, { workspacePath: '/tmp' });
+    expect(r.success).toBe(false);
+    expect(r.error).toContain('platform-unsupported');
+  });
+
+  it('isRichFormat 类型守卫', () => {
+    expect(isRichFormat('html')).toBe(true);
+    expect(isRichFormat('rtf')).toBe(true);
+    expect(isRichFormat('files')).toBe(true);
+    expect(isRichFormat('text')).toBe(false);
+    expect(isRichFormat(undefined)).toBe(false);
+  });
+
+  it('readRichClipboard 非 Windows 返回 platform-unsupported', () => {
+    if (process.platform === 'win32') return;
+    const out = readRichClipboard('html');
+    expect(out.ok).toBe(false);
+    expect(out.reason).toBe('platform-unsupported');
+  });
+});
+
+describe('clipboard_rich_write 工具', () => {
+  it('schema 正确:required=["value"],dangerLevel=write,带 format', () => {
+    expect(clipboard_rich_write.name).toBe('clipboard_rich_write');
+    expect(clipboard_rich_write.required).toEqual(['value']);
+    expect(clipboard_rich_write.dangerLevel).toBe('write');
+    expect(clipboard_rich_write.parameters.format).toBeDefined();
+    expect(clipboard_rich_write.parameters.value).toBeDefined();
+  });
+
+  it('非法 format 点名报错', async () => {
+    const r = await clipboard_rich_write.execute({ format: 'x', value: 'v' }, { workspacePath: '/tmp' });
+    expect(r.success).toBe(false);
+    expect(r.error).toContain('html | rtf | files');
+  });
+
+  it('缺少/空 value 点名报错', async () => {
+    const r1 = await clipboard_rich_write.execute({ format: 'html' }, { workspacePath: '/tmp' });
+    expect(r1.success).toBe(false);
+    expect(r1.error).toContain('value');
+    const r2 = await clipboard_rich_write.execute({ format: 'html', value: '   ' }, { workspacePath: '/tmp' });
+    expect(r2.success).toBe(false);
+    expect(r2.error).toContain('value');
+  });
+
+  it('非 Windows 点名平台不支持,不冒绿', async () => {
+    if (process.platform === 'win32') return;
+    const r = await clipboard_rich_write.execute({ format: 'files', value: 'C:/x' }, { workspacePath: '/tmp' });
+    expect(r.success).toBe(false);
+    expect(r.error).toContain('platform-unsupported');
+  });
+
+  it('format=files 写不存在路径点名 file-missing(Windows)', () => {
+    if (process.platform !== 'win32' || !isClipboardAvailable()) return;
+    const out = writeRichClipboard('files', 'C:/definitely-not-exist-ihui-9x.txt');
+    expect(out.ok).toBe(false);
+    expect(out.reason?.startsWith('file-missing')).toBe(true);
+  });
+
+  it('HTML 富文本端到端往返(Windows 可用性下)', () => {
+    if (process.platform !== 'win32' || !isClipboardAvailable()) return;
+    const marker = 'ihui-rich-roundtrip';
+    const w = writeRichClipboard('html', `<b>${marker}</b>`);
+    expect(w.ok).toBe(true);
+    const r = readRichClipboard('html');
+    expect(r.ok).toBe(true);
+    expect(r.value).toContain(marker);
+  });
+
+  it('文件拖放端到端往返(Windows 可用性下)', () => {
+    if (process.platform !== 'win32' || !isClipboardAvailable()) return;
+    const dir = mkdtempSync(join(tmpdir(), 'ihui-drop-'));
+    const f = join(dir, 'a.txt');
+    writeFileSync(f, 'x');
+    const w = writeRichClipboard('files', f);
+    expect(w.ok).toBe(true);
+    const r = readRichClipboard('files');
+    expect(r.ok).toBe(true);
+    expect(r.value).toContain(f);
+    rmSync(dir, { recursive: true, force: true });
   });
 });
 

@@ -56,19 +56,21 @@ describe('post-actions 契约', () => {
   })
 
   it('only 可把 4 项裁到 2 项(共享屏只读 2 项的场景)', () => {
-    const rows = projectPostActions(
-      { likes: 1, comments: 2, favorites: 3, shares: 4 },
-      {},
-      {},
-      ['like', 'comment'],
-    )
+    const rows = projectPostActions({ likes: 1, comments: 2, favorites: 3, shares: 4 }, {}, {}, [
+      'like',
+      'comment',
+    ])
     expect(rows.map((r) => r.id)).toEqual(['like', 'comment'])
     expect(rows.map((r) => r.count)).toEqual([1, 2])
   })
 
   it('投影结果与可点性判据同源(不会自相矛盾)', () => {
     const handlers: PostActionHandlers = { onLike: () => {} }
-    const rows = projectPostActions({ likes: 0, comments: 0, favorites: 0, shares: 0 }, {}, handlers)
+    const rows = projectPostActions(
+      { likes: 0, comments: 0, favorites: 0, shares: 0 },
+      {},
+      handlers,
+    )
     for (const row of rows) {
       expect(row.interactive).toBe(isPostActionInteractive(row.id, handlers))
     }

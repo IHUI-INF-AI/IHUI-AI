@@ -2,9 +2,9 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import Image from 'next/image'
 import { Loader2 } from 'lucide-react'
 import { PromptTemplates } from '@/components/ai/prompt-templates'
+import { Xiaofang } from '@/components/brand/Xiaofang'
 
 export interface EmptyStateProps {
   isLoading?: boolean
@@ -41,18 +41,10 @@ export function EmptyState({
       : []
   return (
     <div className="flex h-full flex-col items-center justify-center gap-4 p-3 text-center">
-      {/* 与 LoginDialog / 全站统一:纯图标版 logo.png(蝴蝶结 + IHUI INF 弧形,无横向文字),非左上角位置统一资产。
-          56px 适配小空状态,加 rounded-xl + select-none + priority + draggable=false 与品牌主视觉一致。 */}
-      <Image
-        src="/images/logo.png?v=20261021"
-        alt="IHUI AI"
-        width={56}
-        height={56}
-        className="h-14 w-14 select-none rounded-xl"
-        draggable={false}
-        unoptimized
-        priority
-      />
+      {/* 品牌吉祥物「小方」接入空态(2026-11-15):AI 对话的"在场者"由品牌角色承担,
+          替代此前的纯图标版 logo.png。这里用原始「招手」动图,空态是唯一需要"打招呼"的位;
+          其余位置用矢量化静态版。alt="" —— 下方标题+提示已是同一信息的可读文本。 */}
+      <Xiaofang variant="wave" size={144} alt="" priority />
       {isLoading && <Loader2 className="h-7 w-7 animate-spin" />}
       {isLoading ? (
         <p className="text-body text-muted-foreground">{loadingLabel}</p>

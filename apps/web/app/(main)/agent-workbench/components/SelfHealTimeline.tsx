@@ -54,7 +54,7 @@ function HealItem({ evt, isLast }: { evt: SelfHealEvent; isLast: boolean }) {
             {finished ? (ok ? t('resultOk') : t('resultFail')) : t('phaseStarted')}
           </span>
           {evt.iteration !== null && (
-            <span className="shrink-0 rounded-sm border border-border/50 bg-muted/40 px-1 py-0.5 text-[9px] text-muted-foreground">
+            <span className="shrink-0 rounded-sm border border-stroke-subtle bg-muted/40 px-1 py-0.5 text-[9px] text-muted-foreground">
               {t('iterationLabel', { n: evt.iteration })}
             </span>
           )}

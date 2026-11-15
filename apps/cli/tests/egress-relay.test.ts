@@ -13,7 +13,7 @@ import { readFileSync, unlinkSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, describe, it, expect } from 'vitest';
 
-import { parseRequestHead, startEgressRelay, type RunningRelay } from '../src/sandbox/egress/proxy-relay.js';
+import { parseRequestHead, sniffEgressProtocol, startEgressRelay, type RunningRelay } from '../src/sandbox/egress/proxy-relay.js';
 import {
   ensureManagedEgressRelay,
   resetManagedEgressRelayForTests,
@@ -78,7 +78,70 @@ describe('relay 请求头解析 — 认不出=拒绝面,不猜', () => {
   });
 });
 
+describe('票 A — 非应用层隧道协议嗅探(SSH/TLS/SOCKS 判死前先点名)', () => {
+  const tunnelLedgers: string[] = [];
+  afterEach(() => {
+    for (const f of tunnelLedgers.splice(0)) {
+      if (existsSync(f)) unlinkSync(f);
+    }
+  });
+
+  it('⑥ sniffEgressProtocol 认出 SSH/TLS/SOCKS5/SOCKS4,认不出返回 null', () => {
+    // SSH 客户端 ident:"SSH-2.0-..."(前缀字节)
+    expect(sniffEgressProtocol(Buffer.from('SSH-2.0-OpenSSH\r\n'))).toBe('ssh');
+    // SSH 前置空行(0x00)再 ident:RFC 4253 §4.1 允许
+    expect(sniffEgressProtocol(Buffer.concat([Buffer.from([0x00]), Buffer.from('SSH-2.0-x\r\n')]))).toBe('ssh');
+    // TLS ClientHello:0x16 = handshake record
+    const tlsHello = Buffer.concat([Buffer.from([0x16, 0x03, 0x01, 0x00, 0x05, 0x00]), Buffer.alloc(4)]);
+    expect(sniffEgressProtocol(tlsHello)).toBe('tls');
+    // SOCKS5 问候:VER=5, NMETHODS
+    expect(sniffEgressProtocol(Buffer.from([0x05, 0x01, 0x00]))).toBe('socks5');
+    // SOCKS4 请求:VER=4, CMD, PORT(2), IP(4) = 至少 8 字节
+    expect(sniffEgressProtocol(Buffer.from([0x04, 0x01, 0x00, 0x50, 0x7f, 0x00, 0x00, 0x01, 0x00]))).toBe('socks4');
+    // 认不出:HTTP 已由 parseRequestHead 处理;纯垃圾返回 null
+    expect(sniffEgressProtocol(Buffer.from('GARBAGE\r\n'))).toBeNull();
+    expect(sniffEgressProtocol(Buffer.alloc(0))).toBeNull();
+  });
+
+  it('⑦ 隧道连接判死并留痕点协议名:目的地零字节、无 200', async () => {
+    const dest = await listenEcho();
+    const ledger = join(findProjectRoot(process.cwd()) as string, '.ihui-agent', 'tmp', 'egress-relay-test', `led-tunnel-${Date.now()}-${Math.random().toString(36).slice(2)}.jsonl`);
+    tunnelLedgers.push(ledger);
+    process.env[EGRESS_ENV.ledger] = ledger;
+    const relay = await startEgressRelay({ policy: policyOf([rule('127.0.0.1', 'allow')]), startDir: process.cwd(), lookup: async () => null });
+    try {
+      const client = connect({ host: '127.0.0.1', port: relay.port });
+      // 发 TLS ClientHello,不是 HTTP ⇒ relay 判不出 HTTP 目的地
+      await writeThenRead(client, Buffer.from([0x16, 0x03, 0x01, 0x00, 0x05, 0x00, 0x01, 0x02, 0x03, 0x04]).toString('latin1'), 0, 1200).catch(() => '');
+      await new Promise((r) => setTimeout(r, 150));
+      expect(dest.hits()).toBe(0); // 副作用未发生:隧道无真目的地,从未拨号
+      expect(dest.bytes()).toBe(0);
+      client.destroy();
+      // 台账 append 是非 await 的观测腿,轮询等它落盘再断言(与票 A 嗅探同一把尺)
+      let lines: string[] = [];
+      for (let i = 0; i < 20; i += 1) {
+        if (existsSync(ledger)) {
+          lines = readFileSync(ledger, 'utf8').trim().split('\n');
+          if (lines.some((l) => l.includes('tunnel:tls'))) break;
+        }
+        await new Promise((r) => setTimeout(r, 50));
+      }
+      expect(lines.some((l) => l.includes('tunnel:tls') && l.includes('"decision":"deny"') && l.includes('"enforced":true'))).toBe(true);
+    } finally {
+      delete process.env[EGRESS_ENV.ledger];
+      await relay.close();
+      dest.server.close();
+    }
+  }, 15_000);
+});
+
 describe('relay 端到端 — 真本地 socket,断言副作用未发生', () => {
+  const tunnelLedgers: string[] = [];
+  afterEach(() => {
+    for (const f of tunnelLedgers.splice(0)) {
+      if (existsSync(f)) unlinkSync(f);
+    }
+  });
   const ledgers: string[] = [];
   afterEach(() => {
     for (const f of ledgers.splice(0)) {

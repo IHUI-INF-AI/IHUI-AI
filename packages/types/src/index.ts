@@ -54,6 +54,16 @@ export * from './api-key.js'
 export * from './capability-catalog.js'
 // 声明式扩展 manifest 契约(2026-11-04 立):schema/逐字段校验类型 + 已注册扩展查询类型
 export * from './capability-extensions.js'
+// 能力应用契约(2026-11-14):AI 创建应用记录 / 调用白名单 / 声明式块协议
+export * from './capability-app.js'
+// 智能体组合契约(2026-11-14):组合记录 / 校验 / 宽松解析
+export * from './agent-combo.js'
+// 会话消息检索契约(2026-11-13 立):命中片段 + 总数(api-client 共享)
+export * from './chat-search.js'
+// 思维链翻译契约(2026-11-13 立):语言枚举 + 长度上限 + 响应体(前后端共用判据)
+export * from './reasoning-translation.js'
+// 变更请求台账契约(F-Forge,2026-11-13 立):快照/四态/CI 聚合 + 纯函数判据
+export * from './change-request.js'
 // 技能按模型能力分档契约(2026-11-04 立):模型画像 + 档位声明 + 选档结果类型
 export * from './skill-tiers.js'
 // 产品形态 → 能力布尔 的声明式单源(goal-b49 Y3,2026-11-05 立):本仓四个端形态 × 三块执行面,

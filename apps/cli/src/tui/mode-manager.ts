@@ -48,6 +48,8 @@ const READONLY_TOOLS: readonly string[] = [
   'git_diff',
   'git_log',
   'clipboard_read',
+  'clipboard_token',
+  'clipboard_rich_read',
   'fetch_url',
   'web_search',
   'lsp_goto_definition',

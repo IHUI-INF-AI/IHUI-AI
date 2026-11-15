@@ -63,6 +63,8 @@ const PROVIDER_TO_CHECKIN: Record<RelayProviderCode, CheckinPlatform | null> = {
   // 2026-11-11:商汤小浣熊(raccoon)只有对话侧协议,无签到引擎 ⇒ null(映射即拦截);
   // 缺这一行会让 Record<RelayProviderCode,…> 在加平台后静默不完整,tsc 直接报错兜住。
   raccoon: null,
+  // 2026-11-14:Cursor 无签到引擎 ⇒ null(映射即拦截;补齐 Record 防漏项)
+  cursor: null,
 }
 
 /** providerCode → 签到平台;未知平台或无签到引擎 → null(调用方整批跳过) */

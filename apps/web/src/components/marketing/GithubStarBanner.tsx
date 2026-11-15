@@ -63,7 +63,7 @@ export function GithubStarBanner(): React.JSX.Element {
           href="https://github.com/IHUI-INF-AI/IHUI-AI"
           target="_blank"
           rel="noopener noreferrer"
-          className="group inline-flex items-center gap-1.5 ui-control rounded-sm border bg-card px-2.5 py-1 text-label font-medium transition-colors hover:border-primary/40 hover:bg-primary/5"
+          className="group inline-flex items-center gap-1.5 ui-control rounded-sm border bg-card px-2.5 py-1 text-label font-medium transition-colors hover:bg-primary/5"
         >
           <Code className="h-3.5 w-3.5" />
           <span>Star on GitHub</span>
@@ -79,7 +79,7 @@ export function GithubStarBanner(): React.JSX.Element {
           href="https://github.com/IHUI-INF-AI/IHUI-AI/discussions"
           target="_blank"
           rel="noopener noreferrer"
-          className="group inline-flex items-center gap-1.5 ui-control rounded-sm border bg-card px-2.5 py-1 text-label text-muted-foreground transition-colors hover:border-primary/40 hover:bg-primary/5"
+          className="group inline-flex items-center gap-1.5 ui-control rounded-sm border bg-card px-2.5 py-1 text-label text-muted-foreground transition-colors hover:bg-primary/5"
         >
           <MessageCircle className="h-3.5 w-3.5" />
           <span>社区讨论</span>

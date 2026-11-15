@@ -128,6 +128,13 @@ export const DEFAULT_BACKFILL_DAYS = 3
  */
 export const MAX_BACKFILL_DAYS = 30
 
+/**
+ * 单条 INSERT 的行数上限(F-589)。一行 = 一个 (学生, 日期) 对,6 个绑定参数
+ * ⇒ 500 行 = 3000 参数,距 PG 的 65,535 参数上限留足余量;超出即分片,
+ * 不让超大班 × 长回溯把"单条语句"变成整轮中断。
+ */
+export const ABSENT_INSERT_CHUNK_SIZE = 500
+
 /** 跑批可选入参;不新开环境变量族,默认值一律落上面的常量。 */
 export interface AbsentRunOptions {
   /** 回溯天数(不含当日)。非法/越界 ⇒ 回落默认值或封顶,并在日志点名,不静默。 */
@@ -156,6 +163,12 @@ export interface AbsentRunResult {
   skipped: number
   /** 未落库的学生 id 集合(供二次核对/告警;门 134 要求"响应带 missedIds";按学生去重) */
   missedIds: string[]
+  /**
+   * 本轮判定失败并被隔离跳过的规则数(F-589)。单条规则异常(如连续分片写失败)不再中断
+   * 整轮:逐条 logger.error 点名,轮末再汇总一次;这些规则覆盖的班级本轮**未判**。
+   * 可选(非必填)是为了不砸本文件之外的既有零计数对象字面量(见下方注释)。
+   */
+  failed?: number
 }
 
 /** 只暴露判据与主入口给测试;`judgeStatus` 在 edu-attendance-rule.ts,本文件不复制 */
@@ -497,7 +510,7 @@ export async function runAbsentAttendance(
     }))
     .filter((entry) => entry.dueDates.length > 0)
   if (actionable.length === 0) {
-    return { rules: 0, students: 0, created: 0, skipped: 0, missedIds: [] }
+    return { rules: 0, students: 0, created: 0, skipped: 0, missedIds: [], failed: 0 }
   }
 
   // ②b 排课门控:整轮**一条 SQL** 取候选班级的有效排课(口径 = isNull(deletedAt),见头注)。
@@ -538,126 +551,147 @@ export async function runAbsentAttendance(
   let gatedOutDates = 0
   let undeterminedDates = 0
   const missedAll: string[] = []
+  // F-589:逐规则隔离计数(失败数 + 失败班级身份),轮末汇总点名
+  let failedTotal = 0
+  const failedClassIds = new Set<string>()
 
   // ③ 逐规则:排课门控筛掉"当日无课"的日子 → 取该班在册学生 → 剔掉窗口内已有未软删记录的
-  //    (学生,日期)对 → 一批 insert
+  //    (学生,日期)对 → 按 ABSENT_INSERT_CHUNK_SIZE 分片 insert
+  // F-589:整条规则体包 try/catch —— 一条规则失败(单批写失败/超大班回溯触顶)不得中断整轮,
+  //        计数 + logger.error 后继续下一条规则,轮末再汇总一次。
   for (const { rule, dueDates: rawDueDates } of actionable) {
     const classKey = String(rule.classId)
-    const gate = gateSummary?.gates.get(classKey)
-    const { dates: dueDates, gatedOut, undetermined } = gateDueDates(rawDueDates, gate)
-    if (gatedOut.length > 0) gatedOutDates += gatedOut.length
-    if (undetermined.length > 0) undeterminedDates += undetermined.length
-    if (gate?.malformedWeekdays) malformedWeekdayRows += gate.malformedWeekdays
-    if (scheduleReadFailed) unjudgedClassIds.add(classKey)
-    else if (gate && gate.state === 'no-schedule') noScheduleClassIds.add(classKey)
-    else if (gate && gate.state === 'unjudged') unjudgedClassIds.add(classKey)
-    if (dueDates.length === 0) {
-      // 该班整窗无课(排课表判得出的"没课")⇒ 一条不写;**这是门控的正解,不是漏判**
-      fullyGatedClassIds.add(classKey)
-      logger.info('edu attendance absent job: 该班窗口内全无排课 ⇒ 整轮不判缺勤', {
-        classId: rule.classId,
-        weekdays: Array.from(gate?.weekdays ?? NO_WEEKDAYS).sort((a, b) => a - b),
-        gatedOut,
-      })
-      continue
-    }
-    const enrolledStudents = await db
-      .select({
-        studentId: eduEnrollment.studentId,
-        enrollDate: eduEnrollment.enrollDate,
-      })
-      .from(eduEnrollment)
-      .where(
-        and(
-          eq(eduEnrollment.classId, rule.classId),
-          eq(eduEnrollment.status, 'enrolled'),
-          isNull(eduEnrollment.deletedAt),
-        ),
-      )
-    // 同人多行报名 ⇒ 去重,下界取**较晚**的一行(最保守:绝不把"还没进班"的日子判成缺勤)
-    const floorByStudent = new Map<string, string | null>()
-    for (const row of enrolledStudents) {
-      const studentId = String(row.studentId)
-      const enrollFloor = dayFloorOf(row.enrollDate)
-      floorByStudent.set(
+    try {
+      const gate = gateSummary?.gates.get(classKey)
+      const { dates: dueDates, gatedOut, undetermined } = gateDueDates(rawDueDates, gate)
+      if (gatedOut.length > 0) gatedOutDates += gatedOut.length
+      if (undetermined.length > 0) undeterminedDates += undetermined.length
+      if (gate?.malformedWeekdays) malformedWeekdayRows += gate.malformedWeekdays
+      if (scheduleReadFailed) unjudgedClassIds.add(classKey)
+      else if (gate && gate.state === 'no-schedule') noScheduleClassIds.add(classKey)
+      else if (gate && gate.state === 'unjudged') unjudgedClassIds.add(classKey)
+      if (dueDates.length === 0) {
+        // 该班整窗无课(排课表判得出的"没课")⇒ 一条不写;**这是门控的正解,不是漏判**
+        fullyGatedClassIds.add(classKey)
+        logger.info('edu attendance absent job: 该班窗口内全无排课 ⇒ 整轮不判缺勤', {
+          classId: rule.classId,
+          weekdays: Array.from(gate?.weekdays ?? NO_WEEKDAYS).sort((a, b) => a - b),
+          gatedOut,
+        })
+        continue
+      }
+      const enrolledStudents = await db
+        .select({
+          studentId: eduEnrollment.studentId,
+          enrollDate: eduEnrollment.enrollDate,
+        })
+        .from(eduEnrollment)
+        .where(
+          and(
+            eq(eduEnrollment.classId, rule.classId),
+            eq(eduEnrollment.status, 'enrolled'),
+            isNull(eduEnrollment.deletedAt),
+          ),
+        )
+      // 同人多行报名 ⇒ 去重,下界取**较晚**的一行(最保守:绝不把"还没进班"的日子判成缺勤)
+      const floorByStudent = new Map<string, string | null>()
+      for (const row of enrolledStudents) {
+        const studentId = String(row.studentId)
+        const enrollFloor = dayFloorOf(row.enrollDate)
+        floorByStudent.set(
+          studentId,
+          floorByStudent.has(studentId)
+            ? laterDayFloor(floorByStudent.get(studentId) ?? null, enrollFloor)
+            : enrollFloor,
+        )
+      }
+      const studentIds = Array.from(floorByStudent.keys())
+      studentTotal += studentIds.length
+      if (studentIds.length === 0) continue
+
+      const ruleFloor = dayFloorOf(rule.createdAt)
+
+      // 已有未软删记录(整窗一条 SQL;本 job 幂等的**主实现**,不是靠撞唯一索引)
+      const existing = await db
+        .select({ studentId: eduAttendanceRecord.studentId, date: eduAttendanceRecord.date })
+        .from(eduAttendanceRecord)
+        .where(
+          and(
+            eq(eduAttendanceRecord.classId, rule.classId),
+            inArray(eduAttendanceRecord.date, dueDates),
+            inArray(eduAttendanceRecord.studentId, studentIds),
+            isNull(eduAttendanceRecord.deletedAt),
+          ),
+        )
+
+      const studentEntries = studentIds.map((studentId) => ({
         studentId,
-        floorByStudent.has(studentId)
-          ? laterDayFloor(floorByStudent.get(studentId) ?? null, enrollFloor)
-          : enrollFloor,
-      )
-    }
-    const studentIds = Array.from(floorByStudent.keys())
-    studentTotal += studentIds.length
-    if (studentIds.length === 0) continue
+        floor: floorByStudent.get(studentId) ?? null,
+      }))
 
-    const ruleFloor = dayFloorOf(rule.createdAt)
-
-    // 已有未软删记录(整窗一条 SQL;本 job 幂等的**主实现**,不是靠撞唯一索引)
-    const existing = await db
-      .select({ studentId: eduAttendanceRecord.studentId, date: eduAttendanceRecord.date })
-      .from(eduAttendanceRecord)
-      .where(
-        and(
-          eq(eduAttendanceRecord.classId, rule.classId),
-          inArray(eduAttendanceRecord.date, dueDates),
-          inArray(eduAttendanceRecord.studentId, studentIds),
-          isNull(eduAttendanceRecord.deletedAt),
-        ),
-      )
-
-    const studentEntries = studentIds.map((studentId) => ({
-      studentId,
-      floor: floorByStudent.get(studentId) ?? null,
-    }))
-
-    const { candidates, existingHits, unplacedExisting } = absentCandidatePairsForRule({
-      classId: rule.classId,
-      dueDates,
-      students: studentEntries,
-      ruleFloor,
-      existing,
-    })
-    unplacedExistingTotal += unplacedExisting
-
-    if (candidates.length === 0) {
-      // 口径照现状:该班整轮无待写对 ⇒ 按在册学生数计 skipped
-      skippedTotal += studentIds.length
-      continue
-    }
-    if (existingHits > 0) {
-      logger.info('edu attendance absent job: 窗口内已有记录者不补', {
+      const { candidates, existingHits, unplacedExisting } = absentCandidatePairsForRule({
         classId: rule.classId,
-        existingHits,
+        dueDates,
+        students: studentEntries,
+        ruleFloor,
+        existing,
       })
-    }
+      unplacedExistingTotal += unplacedExisting
 
-    const inserted = await db
-      .insert(eduAttendanceRecord)
-      .values(
-        candidates.map((candidate) => ({
-          studentId: candidate.studentId,
-          classId: candidate.classId,
-          date: candidate.date,
-          status: 'absent',
-          checkInMethod: 'manual',
-          operatedBy: null,
-        })),
-      )
-      .onConflictDoNothing()
-      .returning({
-        id: eduAttendanceRecord.id,
-        studentId: eduAttendanceRecord.studentId,
-        date: eduAttendanceRecord.date,
+      if (candidates.length === 0) {
+        // 口径照现状:该班整轮无待写对 ⇒ 按在册学生数计 skipped
+        skippedTotal += studentIds.length
+        continue
+      }
+      if (existingHits > 0) {
+        logger.info('edu attendance absent job: 窗口内已有记录者不补', {
+          classId: rule.classId,
+          existingHits,
+        })
+      }
+
+      // F-589:candidates 行数 = 学生数 × 待补日期数,每行 6 个绑定参数 ⇒ 单条语句会越过
+      // PG 的 65,535 参数上限。按 500 行一片写(批间独立:参数上限是单条语句的约束)。
+      const landedSet = new Set<string>()
+      for (let offset = 0; offset < candidates.length; offset += ABSENT_INSERT_CHUNK_SIZE) {
+        const batch = candidates.slice(offset, offset + ABSENT_INSERT_CHUNK_SIZE)
+        const inserted = await db
+          .insert(eduAttendanceRecord)
+          .values(
+            batch.map((candidate) => ({
+              studentId: candidate.studentId,
+              classId: candidate.classId,
+              date: candidate.date,
+              status: 'absent',
+              checkInMethod: 'manual',
+              operatedBy: null,
+            })),
+          )
+          .onConflictDoNothing()
+          .returning({
+            id: eduAttendanceRecord.id,
+            studentId: eduAttendanceRecord.studentId,
+            date: eduAttendanceRecord.date,
+          })
+        // 逐批入账:前几批已落库的行必须计进 created,不被后面一批的失败抹掉
+        createdTotal += inserted.length
+        for (const row of inserted) {
+          landedSet.add(pairKey(String(row.studentId), String(row.date)))
+        }
+      }
+      const missed = candidates.filter((c) => !landedSet.has(pairKey(c.studentId, c.date)))
+      if (missed.length > 0) {
+        skippedTotal += missed.length
+        for (const m of missed) if (!missedAll.includes(m.studentId)) missedAll.push(m.studentId)
+      }
+    } catch (cause) {
+      failedTotal += 1
+      failedClassIds.add(classKey)
+      logger.error('edu attendance absent job: 该规则判定失败 ⇒ 隔离跳过,继续下一条规则', {
+        ruleId: rule.id,
+        classId: rule.classId,
+        reason: cause instanceof Error ? cause.message : String(cause),
       })
-
-    createdTotal += inserted.length
-    const landedSet = new Set(
-      inserted.map((row) => pairKey(String(row.studentId), String(row.date))),
-    )
-    const missed = candidates.filter((c) => !landedSet.has(pairKey(c.studentId, c.date)))
-    if (missed.length > 0) {
-      skippedTotal += missed.length
-      for (const m of missed) if (!missedAll.includes(m.studentId)) missedAll.push(m.studentId)
     }
   }
 
@@ -682,6 +716,15 @@ export async function runAbsentAttendance(
     )
   }
 
+  // F-589:失败规则在轮末再汇总一次(逐条已在 catch 里点名),不留"整轮跑完看不出少判"的口子
+  if (failedTotal > 0) {
+    logger.error('edu attendance absent job: 本轮有规则判定失败并被隔离跳过', {
+      rules: actionable.length,
+      failed: failedTotal,
+      ...listedIds(failedClassIds),
+    })
+  }
+
   logger.info('edu attendance absent job done', {
     dateKey: todayKey,
     window: windowKeys,
@@ -692,6 +735,7 @@ export async function runAbsentAttendance(
     skipped: skippedTotal,
     missedIds: missedAll.length,
     unplacedExisting: unplacedExistingTotal,
+    failed: failedTotal,
     // ── 排课门控三态(全部点名,不静默;rules 仍含被门控整窗剔除的班,见 AbsentRunResult.rules 注)
     scheduleReadFailed,
     scheduleGatedOutDates: gatedOutDates,
@@ -709,6 +753,7 @@ export async function runAbsentAttendance(
     created: createdTotal,
     skipped: skippedTotal,
     missedIds: missedAll,
+    failed: failedTotal,
   }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -76,6 +76,16 @@ vi.mock('@ihui/auth', () => ({
   signRefreshToken: vi.fn().mockResolvedValue('mock-refresh-token'),
   verifyAccessToken: mockVerifyAccessToken,
   createFamilyId: vi.fn().mockReturnValue('00000000-0000-4000-8000-000000000002'),
+  // 2026-11-11:生产 authenticateInner 为 fail-closed —— 黑名单对象建不起来即判已吊销 ⇒ 401。
+  // 测试环境 new IORedis 连不上 ⇒ createBlacklist 未 mock 时合法 token 被 401。
+  // 这里覆盖为内存假黑名单(has 恒 false),不回退生产 fail-closed 语义。
+  createBlacklist: vi.fn(() => ({
+    async has() {
+      return false
+    },
+    async add() {},
+    async revoke() {},
+  })),
 }))
 vi.mock('../src/db/usercenter-queries.js', () => ({ getUserStatus: vi.fn().mockResolvedValue(1) }))
 

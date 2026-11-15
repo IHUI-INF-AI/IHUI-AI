@@ -40,7 +40,9 @@ import type {
 } from '@ihui/types'
 import type { ChatMessage } from '@ihui/shared'
 import {
+  applyChatSyncSurfaceMerge,
   chatSyncStore,
+  planChatSyncSurfaceMerge,
   type ChatSyncStoreCounters,
   type ChatSyncStoreFrameOutcome,
 } from '@ihui/shared/chat'
@@ -87,122 +89,13 @@ function getChatSyncVersion(): number {
   return chatSyncRnStore.getState().version
 }
 
-/** 页面消息行的最小可匹配面(ChatScreen 的运行时形状;flagTargetId 未进 ChatMessage 类型)。 */
-interface LocalChatRow {
-  id: string
-  role: string
-  content: string
-  reasoning?: string
-  /** 历史回放行的服务端 id(ChatScreen 写在运行时对象上,类型层未声明) */
-  flagTargetId?: unknown
-}
-
-export interface ChatSyncSurfaceUpdate {
-  index: number
-  content: string
-  reasoning?: string
-}
-
-export interface ChatSyncSurfaceMergePlan {
-  updates: readonly ChatSyncSurfaceUpdate[]
-  appends: readonly ChatSyncMessageSurface[]
-}
-
-function serverIdOfRow(row: LocalChatRow): string | null {
-  return typeof row.flagTargetId === 'string' && row.flagTargetId.length > 0
-    ? row.flagTargetId
-    : null
-}
-
 /**
- * 服务端消息在本地消息列表里的位置。
- *
- * 三种约定都要认,缺一种就会把"已显示的这条"当成新消息再追加一条:
- *  ① 本端追加行 / 流式行:id 就是服务端 messageId(或本地生成的 `msg-N`);
- *  ② 历史回放行:ChatScreen 把服务端 id 写在 flagTargetId,显示 id 是 `serverId-序号`;
- *  ③ 兜底:`serverId-序号` 前缀(分隔符必须在,否则短 id 会吞长 id)。
+ * 投影判据的唯一实现在 `@ihui/shared/chat` 的 `chat-sync-surface`(同 id 覆盖 /
+ * 终态粘性 / 回声不追加 / 零变化 null)。本端只保留原名导出给现有 hook 与用例,
+ * 不再维护第二套合并算法。
  */
-function indexOfSurface(local: readonly LocalChatRow[], surfaceId: string): number {
-  const exact = local.findIndex((row) => row.id === surfaceId)
-  if (exact >= 0) return exact
-  const flagged = local.findIndex((row) => serverIdOfRow(row) === surfaceId)
-  if (flagged >= 0) return flagged
-  return local.findIndex((row) => row.id.startsWith(`${surfaceId}-`))
-}
-
-function sameText(a: string | undefined, b: string | undefined): boolean {
-  return (a ?? '') === (b ?? '')
-}
-
-/**
- * 计算"把共享消息面投影进本地列表"的最小变更集。返回 null = 零变化(调用方不得发布)。
- * 纯函数:不读全局、不写状态,node 用例直接喂数组即可。
- */
-export function planChatSyncSurfaceMerge(
-  local: readonly LocalChatRow[],
-  surfaces: readonly ChatSyncMessageSurface[],
-): ChatSyncSurfaceMergePlan | null {
-  const updates: ChatSyncSurfaceUpdate[] = []
-  const appends: ChatSyncMessageSurface[] = []
-  const updated = new Set<number>()
-
-  for (const surface of surfaces) {
-    const index = indexOfSurface(local, surface.id)
-    if (index >= 0) {
-      if (updated.has(index)) continue
-      const row = local[index]!
-      const contentChanged = row.content !== surface.content
-      const reasoningChanged =
-        surface.reasoning !== undefined && !sameText(row.reasoning, surface.reasoning)
-      if (!contentChanged && !reasoningChanged) continue
-      updated.add(index)
-      updates.push({
-        index,
-        content: surface.content,
-        ...(surface.reasoning !== undefined ? { reasoning: surface.reasoning } : {}),
-      })
-      continue
-    }
-    // 回声:本端刚写完的那条没有服务端 id,但内容逐字相同 ⇒ 不是"另一端的新消息"
-    const echo = local.some(
-      (row) =>
-        row.role === surface.role && row.content.length > 0 && row.content === surface.content,
-    )
-    if (echo) continue
-    appends.push(surface)
-  }
-
-  if (updates.length === 0 && appends.length === 0) return null
-  return { updates, appends }
-}
-
-function toLocalMessage(surface: ChatSyncMessageSurface): ChatMessage {
-  return {
-    id: surface.id,
-    role: surface.role as ChatMessage['role'],
-    content: surface.content,
-    ...(surface.reasoning !== undefined ? { reasoning: surface.reasoning } : {}),
-  }
-}
-
-/** 应用 plan。局部更新保留行上其它字段(工具卡 / 附件 / 标记全部原样)。 */
-export function applyChatSyncSurfaceMerge(
-  local: readonly ChatMessage[],
-  plan: ChatSyncSurfaceMergePlan,
-): ChatMessage[] {
-  const next = local.slice()
-  for (const update of plan.updates) {
-    const row = next[update.index]
-    if (!row) continue
-    next[update.index] = {
-      ...row,
-      content: update.content,
-      ...(update.reasoning !== undefined ? { reasoning: update.reasoning } : {}),
-    }
-  }
-  for (const surface of plan.appends) next.push(toLocalMessage(surface))
-  return next
-}
+export { applyChatSyncSurfaceMerge, planChatSyncSurfaceMerge }
+export type { ChatSyncSurfaceMergePlan, ChatSyncSurfaceUpdate } from '@ihui/shared/chat'
 
 export interface UseRemoteChatSyncMessagesOptions {
   /** 当前打开的会话;null = 尚未关联后端会话(不合并,别会话的帧不得串进来) */

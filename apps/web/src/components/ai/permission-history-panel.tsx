@@ -46,6 +46,7 @@ import { useTranslations } from 'next-intl'
 import { toast } from '@/components/common'
 
 import { Tooltip } from '@/components/feedback'
+import { NESTED_FLOATING_Z_CLASS } from '@/lib/floating-layer'
 import { IconButton } from '@ihui/ui-react'
 // 浮层治理(2026-09-15):迁移到统一 PortalPanel(内置 portal/定位/clamp/翻转/外点与 Escape 关闭)
 import { PortalPanel } from '@/components/feedback/portal-panel'
@@ -143,7 +144,7 @@ function HistoryList({ entries, now }: HistoryListProps) {
         return (
           <li
             key={`${entry.timestamp}-${idx}`}
-            className="flex items-start gap-2 rounded-md border border-border/60 bg-card/40 px-2 py-1.5"
+            className="flex items-start gap-2 rounded-md border border-stroke-subtle bg-card/40 px-2 py-1.5"
           >
             <Icon
               className={cn(
@@ -176,7 +177,7 @@ function HistoryList({ entries, now }: HistoryListProps) {
                 {entry.workspacePath && (
                   <>
                     <span aria-hidden="true">·</span>
-                    <Tooltip content={entry.workspacePath}>
+                    <Tooltip content={entry.workspacePath} className={NESTED_FLOATING_Z_CLASS}>
                       <span className="truncate font-mono">{shortenPath(entry.workspacePath)}</span>
                     </Tooltip>
                   </>
@@ -434,7 +435,7 @@ export function PermissionHistoryPanel({
         gap={8}
         testId="permission-history-panel"
         panelRef={panelRef}
-        className="w-[min(320px,calc(100vw-2rem))] rounded-xl border bg-popover p-3 text-popover-foreground shadow-elevation-md"
+        className="w-[min(320px,calc(100vw-2rem))] rounded-xl border border-stroke-strong bg-popover p-3 text-popover-foreground shadow-elevation-md"
       >
         {/* dialog 语义保留在内容层(PortalPanel 不透传 aria 属性与 tabIndex) */}
         <div

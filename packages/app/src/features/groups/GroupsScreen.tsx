@@ -275,7 +275,11 @@ export function GroupsScreen({
               <Text style={styles.secondaryButtonText}>{t('common.cancel')}</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.button, styles.actionGrow, (saving || !editName.trim()) && styles.buttonDisabled]}
+              style={[
+                styles.button,
+                styles.actionGrow,
+                (saving || !editName.trim()) && styles.buttonDisabled,
+              ]}
               onPress={() => void handleUpdate()}
               disabled={saving || !editName.trim()}
               activeOpacity={0.7}
@@ -344,7 +348,10 @@ export function GroupsScreen({
                           {group.name}
                         </Text>
                         <Text
-                          style={[styles.badge, group.type === 'custom' ? styles.badgeMuted : styles.badgeBrand]}
+                          style={[
+                            styles.badge,
+                            group.type === 'custom' ? styles.badgeMuted : styles.badgeBrand,
+                          ]}
                         >
                           {group.type === 'custom' ? t('eduAi.groups.custom') : group.type}
                         </Text>
@@ -390,7 +397,10 @@ export function GroupsScreen({
                           style={styles.memberInput}
                         />
                         <TouchableOpacity
-                          style={[styles.smallButton, (adding || !memberId.trim()) && styles.buttonDisabled]}
+                          style={[
+                            styles.smallButton,
+                            (adding || !memberId.trim()) && styles.buttonDisabled,
+                          ]}
                           onPress={() => void handleAddMember(group)}
                           disabled={adding || !memberId.trim()}
                           activeOpacity={0.7}
@@ -530,7 +540,12 @@ function createStyles(tk: AppThemeTokens) {
     avatarText: { fontSize: rnType.title.size, fontWeight: '700', color: tk.text.secondary },
     itemMain: { flex: 1, gap: rnSpacing['2xs'] },
     titleRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.sm },
-    itemName: { flexShrink: 1, fontSize: rnType.strong.size, fontWeight: '600', color: tk.text.primary },
+    itemName: {
+      flexShrink: 1,
+      fontSize: rnType.strong.size,
+      fontWeight: '600',
+      color: tk.text.primary,
+    },
     badge: {
       paddingHorizontal: rnSpacing.sm,
       paddingVertical: rnSpacing['2xs'],

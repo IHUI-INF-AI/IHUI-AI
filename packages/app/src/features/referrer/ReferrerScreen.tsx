@@ -131,7 +131,11 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.primary,
     },
     errorText: { fontSize: rnType.body.size, color: tk.danger.deepText, marginTop: rnSpacing.sm },
-    successText: { fontSize: rnType.body.size, color: tk.success.deepText, marginTop: rnSpacing.sm },
+    successText: {
+      fontSize: rnType.body.size,
+      color: tk.success.deepText,
+      marginTop: rnSpacing.sm,
+    },
     submitBtn: {
       marginTop: rnSpacing.md,
       height: 50,

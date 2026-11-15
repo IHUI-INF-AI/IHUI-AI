@@ -175,10 +175,7 @@ export function PatrolScreen() {
           )
           await load()
         } catch (e) {
-          appAlert(
-            t('patrol.runNowFailed'),
-            toFriendlyOr(e, t('patrol.runNowFailed')),
-          )
+          appAlert(t('patrol.runNowFailed'), toFriendlyOr(e, t('patrol.runNowFailed')))
         } finally {
           setBusyId('')
         }
@@ -197,10 +194,7 @@ export function PatrolScreen() {
           appAlert(next === 'active' ? t('patrol.toast.resumed') : t('patrol.toast.paused'))
           await load()
         } catch (e) {
-          appAlert(
-            t('patrol.updateFailed'),
-            toFriendlyOr(e, t('patrol.updateFailed')),
-          )
+          appAlert(t('patrol.updateFailed'), toFriendlyOr(e, t('patrol.updateFailed')))
         } finally {
           setBusyId('')
         }
@@ -224,10 +218,7 @@ export function PatrolScreen() {
                 appAlert(t('patrol.deleteDone'))
                 await load()
               } catch (e) {
-                appAlert(
-                  t('patrol.deleteFailed'),
-                  toFriendlyOr(e, t('patrol.deleteFailed')),
-                )
+                appAlert(t('patrol.deleteFailed'), toFriendlyOr(e, t('patrol.deleteFailed')))
               } finally {
                 setBusyId('')
               }

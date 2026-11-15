@@ -888,11 +888,12 @@ async function buildBusiness(): Promise<BusinessSnapshot | null> {
         .groupBy(signInRecords.signInDate)
         .orderBy(signInRecords.signInDate)
         .catch(() => null),
-      // 近 14 日每日新增用户(上海日界,与 usersTodayNew 同口径:createdAt + 8h 后按日切分)。
+      // 近 14 日每日新增用户(上海日界,与 usersTodayNew 的 bizDayStartUtc(0) 同口径):
+      // timestamptz 显式 AT TIME ZONE 'Asia/Shanghai' 取上海日,不得再手工 +8h(会话已钉上海)。
       // 这张表出问题不拖垮整块业务纵深 ⇒ 同样单表独立 catch(null)。
       dbRead
         .select({
-          date: sql<string>`to_char(${users.createdAt} + interval '8 hours', 'YYYY-MM-DD')`,
+          date: sql<string>`to_char(${users.createdAt} AT TIME ZONE 'Asia/Shanghai', 'YYYY-MM-DD')`,
           count: sql<number>`count(*)::bigint`,
         })
         .from(users)
@@ -956,7 +957,12 @@ async function buildBusiness(): Promise<BusinessSnapshot | null> {
       usersTrader: aggNum(u?.trader),
       usersInvited: aggNum(u?.invited),
       usersInvited7d: aggNum(u?.invited7d),
-      usersByLevel: [aggNum(u?.level0), aggNum(u?.level1), aggNum(u?.level2), aggNum(u?.level3)],
+      usersByLevel: [
+        aggNum(u?.level0),
+        aggNum(u?.level1),
+        aggNum(u?.level2),
+        aggNum(u?.level3),
+      ],
       activeUsers7d: aggNumOrNull(activeUsers7dRows?.[0]?.users),
       ordersTodayPaid: aggNum(o?.paid),
       ordersTodayAmountCents: aggNum(o?.amountCents),

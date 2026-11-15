@@ -108,6 +108,12 @@ export const orders = pgTable(
     userIdx: index('orders_user_idx').on(t.userId),
     statusIdx: index('orders_status_idx').on(t.status),
     typeIdx: index('orders_type_idx').on(t.orderType),
+    // F-358:财务与 BI 聚合按 `status='paid' AND paid_at >= ...` 分组(营收趋势)、
+    // 按 `status='paid' AND created_at >= ...` 取本月/今日营收,而 paid_at / created_at
+    // 此前无索引 ⇒ 看板与财报接口随订单量线性变慢。
+    // 复合索引前导列 = 等值条件列,次列 = 范围列;迁移 20261114091400。
+    statusPaidAtIdx: index('orders_status_paid_at_idx').on(t.status, t.paidAt),
+    userCreatedAtIdx: index('orders_user_created_at_idx').on(t.userId, t.createdAt),
   }),
 )
 
@@ -252,7 +258,10 @@ export const apiSubscriptions = pgTable(
   (t) => ({
     userStatusIdx: index('api_subscriptions_user_status_idx').on(t.userId, t.status),
     endIdx: index('api_subscriptions_end_at_idx').on(t.endAt),
-    orderNoIdx: index('api_subscriptions_order_no_idx').on(t.orderNo),
+    // F-587:order_no 是订阅创建的幂等键。普通索引挡不住并发回调的「双查双插」,
+    // 改为 UNIQUE(PG 唯一索引允许多个 NULL,不约束无单号订阅)。
+    // 对应迁移:packages/database/drizzle/20261112000001_api_subscriptions_order_no_uniq.sql
+    orderNoUniq: uniqueIndex('api_subscriptions_order_no_uniq').on(t.orderNo),
   }),
 )
 

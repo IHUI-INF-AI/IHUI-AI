@@ -6,6 +6,7 @@ import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import fp from 'fastify-plugin'
 import { monitorEventLoopDelay } from 'node:perf_hooks'
 import { normalizeHeader } from '../utils/http-normalize.js'
+import { isAdminRequest } from './require-permission.js'
 import { resolveVerifiedTenantIdForUser } from './tenant.js'
 /**
  * 分布式限流插件。
@@ -150,6 +151,18 @@ const distributedRateLimitPlugin: FastifyPluginAsync = async (server) => {
     const rule = rules.get(ruleName)
     if (!rule) {
       return { allowed: true, count: 0, limit: 0, retryAfterMs: 0, remaining: -1, rule: ruleName }
+    }
+    // 管理员不做任何分布式限流(2026-11-15):管理面联调/公网调试不设限,普通用户/租户照旧。
+    // 判据复用 require-permission 的集中谓词,不在此处抄 roleId 比较。
+    if (await isAdminRequest(request)) {
+      return {
+        allowed: true,
+        count: 0,
+        limit: rule.limit,
+        retryAfterMs: 0,
+        remaining: -1,
+        rule: ruleName,
+      }
     }
     const scopeValue = await extractScope(rule.scope, request)
     const weight = weights.get(scopeValue) ?? 1

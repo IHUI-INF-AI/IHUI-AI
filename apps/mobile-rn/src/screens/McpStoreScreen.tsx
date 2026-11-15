@@ -105,10 +105,7 @@ export function McpStoreScreen() {
           if (!res.success) throw new Error(res.error || t('mcpStore.actionFailed'))
           await load()
         } catch (e) {
-          appAlert(
-            t('common.loadFailed'),
-            toFriendlyOr(e, t('mcpStore.actionFailed')),
-          )
+          appAlert(t('common.loadFailed'), toFriendlyOr(e, t('mcpStore.actionFailed')))
         } finally {
           setBusyKey('')
         }
@@ -146,10 +143,7 @@ export function McpStoreScreen() {
           if (!res.success) throw new Error(res.error || t('mcpStore.actionFailed'))
           await load()
         } catch (e) {
-          appAlert(
-            t('common.loadFailed'),
-            toFriendlyOr(e, t('mcpStore.actionFailed')),
-          )
+          appAlert(t('common.loadFailed'), toFriendlyOr(e, t('mcpStore.actionFailed')))
         } finally {
           setBusyKey('')
         }
@@ -173,10 +167,7 @@ export function McpStoreScreen() {
                 if (!res.success) throw new Error(res.error || t('mcpStore.actionFailed'))
                 await load()
               } catch (e) {
-                appAlert(
-                  t('common.loadFailed'),
-                  toFriendlyOr(e, t('mcpStore.actionFailed')),
-                )
+                appAlert(t('common.loadFailed'), toFriendlyOr(e, t('mcpStore.actionFailed')))
               } finally {
                 setBusyKey('')
               }

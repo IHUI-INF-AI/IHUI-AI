@@ -16,6 +16,7 @@
 'use client'
 
 import * as React from 'react'
+import { createPortal } from 'react-dom'
 import { useTranslations } from 'next-intl'
 import {
   Archive,
@@ -32,6 +33,7 @@ import {
 import { Button, SearchInput } from '@ihui/ui-react'
 
 import { cn } from '@/lib/utils'
+import { NESTED_FLOATING_Z_CLASS } from '@/lib/floating-layer'
 import {
   COMPOSER_MENU_ROW_CHEVRON_CLASS,
   COMPOSER_MENU_ROW_CLASS,
@@ -97,6 +99,11 @@ export function VoiceNote({
   const token = useWebAuthStore((s) => s.token)
 
   const [open, setOpen] = React.useState(false)
+  // 2026-11-15:「+ → 更多工具」是 240px 宽、overflow-y-auto 的抽屉,面板 w-72 直接
+  // absolute 在行内会被抽屉右缘裁掉。改为 portal 到 body + fixed 定位(锚在触发行上方),
+  // 并打 data-composer-nested-panel 让 + 菜单把面板内点击视为内部交互。
+  const rootRef = React.useRef<HTMLDivElement | null>(null)
+  const [panelPos, setPanelPos] = React.useState<{ left: number; bottom: number } | null>(null)
   const [phase, setPhase] = React.useState<VoiceNotePhase>('ready')
   const [durationSec, setDurationSec] = React.useState(0)
   const [errorCode, setErrorCode] = React.useState<
@@ -131,6 +138,32 @@ export function VoiceNote({
   // 行内改分组:只为一行开一个输入位,避免整列表常驻输入框
   const [groupEditing, setGroupEditing] = React.useState<string | null>(null)
   const [groupDraft, setGroupDraft] = React.useState('')
+
+  // portal 面板的锚点:打开时量一次触发行的位置,窗口缩放/滚动时跟随。
+  // 宽 288(w-72),左右各留 8px 安全边;bottom 以视口高度反推,保证向上展开。
+  React.useEffect(() => {
+    if (!open) {
+      setPanelPos(null)
+      return
+    }
+    const update = () => {
+      const el = rootRef.current
+      if (!el) return
+      const rect = el.getBoundingClientRect()
+      const panelWidth = 288
+      setPanelPos({
+        left: Math.max(8, Math.min(rect.left, window.innerWidth - panelWidth - 8)),
+        bottom: window.innerHeight - rect.top + 8,
+      })
+    }
+    update()
+    window.addEventListener('resize', update)
+    window.addEventListener('scroll', update, true)
+    return () => {
+      window.removeEventListener('resize', update)
+      window.removeEventListener('scroll', update, true)
+    }
+  }, [open])
 
   const loadArchive = React.useCallback(async () => {
     const res = await listVoiceNotes({
@@ -384,7 +417,7 @@ export function VoiceNote({
   const recording = phase === 'recording'
 
   return (
-    <div className="relative" data-testid="voice-note">
+    <div className="relative" data-testid="voice-note" ref={rootRef}>
       {variant === 'row' ? (
         <button
           type="button"
@@ -422,325 +455,343 @@ export function VoiceNote({
         </Button>
       )}
 
-      {open && (
-        <div
-          className="z-popover absolute bottom-full left-0 mb-2 w-72 rounded-md border bg-popover p-3 text-popover-foreground shadow-elevation-md"
-          data-testid="voice-note-panel"
-        >
-          <div className="mb-2 flex items-center justify-between">
-            <span className="text-label font-medium">{t('title')}</span>
-            <button
-              type="button"
-              aria-label={t('action.dismiss')}
-              className="text-muted-foreground hover:text-foreground"
-              data-testid="voice-note-close"
-              onClick={() => {
-                if (recording) stopRecording()
-                setOpen(false)
-              }}
-            >
-              <X className="h-3.5 w-3.5" />
-            </button>
-          </div>
-
-          {/* phase 徽章(12 相文案逐字对齐原文) */}
-          {showPhaseLabel && (
-            <div
-              className={cn(
-                'mb-2 rounded-md border px-2 py-1 text-label',
-                phase === 'completed' && 'border-emerald-500/30 bg-emerald-500/5 text-emerald-600',
-                phase === 'cancelled' && 'border-muted bg-muted/30 text-muted-foreground',
-                (phase === 'failed' || phase === 'error' || phase === 'interrupted') &&
-                  'border-destructive/30 bg-destructive/5 text-destructive',
-                busy && phase !== 'failed' && 'border-border bg-muted/30 text-foreground',
-              )}
-              data-testid="voice-note-phase"
-              data-phase={phase}
-            >
-              {t(`phase.${phase}`)}
-              {(recording || phase === 'waitingTranscript') && (
-                <span className="ml-2 font-mono tabular-nums">
-                  {formatVoiceNoteDuration(durationSec * 1000)}
-                </span>
-              )}
-            </div>
-          )}
-
-          {/* 错误文案(权限拒绝/无设备/启动失败/保存失败/识别中断) */}
-          {errorCode && (
-            <div
-              className="mb-2 rounded-md border border-destructive/30 bg-destructive/5 px-2 py-1 text-label text-destructive"
-              data-testid="voice-note-error"
-            >
-              {t(`errors.${errorCode}`)}
-            </div>
-          )}
-
-          {/* 转写结果 */}
-          {phase === 'completed' && transcript && !emptyResult && (
-            <div
-              className="mb-2 max-h-32 overflow-auto rounded-md border bg-muted/30 px-2 py-1 text-label"
-              data-testid="voice-note-transcript"
-            >
-              {transcript}
-            </div>
-          )}
-          {phase === 'completed' && emptyResult && (
-            <div className="mb-2 text-label text-muted-foreground" data-testid="voice-note-empty">
-              {t('errors.emptyTranscript')}
-            </div>
-          )}
-
-          {/* 降级文案:waitingTranscript 停留 pending(端点缺失) */}
-          {isVoiceNoteTranscriptPending(phase) && !sttEnabled && (
-            <div
-              className="mb-2 text-label text-muted-foreground"
-              data-testid="voice-note-stt-pending"
-            >
-              {t('errors.sttPending')}
-            </div>
-          )}
-
-          <div className="flex items-center gap-1.5">
-            {phase === 'ready' && (
-              <Button size="sm" onClick={startRecording} data-testid="voice-note-start">
-                <Mic className="h-4 w-4" />
-                {t('action.start')}
-              </Button>
+      {open &&
+        panelPos &&
+        createPortal(
+          <div
+            className={cn(
+              'fixed w-72 rounded-md border border-stroke-strong bg-popover p-3 text-popover-foreground shadow-elevation-md',
+              NESTED_FLOATING_Z_CLASS,
             )}
-            {recording && (
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={stopRecording}
-                data-testid="voice-note-stop"
-              >
-                <Square className="h-3.5 w-3.5" />
-                {t('action.stop')}
-              </Button>
-            )}
-            {/* 可恢复失败相:retry */}
-            {(phase === 'failed' || phase === 'error' || phase === 'interrupted') && (
-              <Button
-                variant="outline"
-                size="sm"
+            style={{ left: panelPos.left, bottom: panelPos.bottom }}
+            data-composer-nested-panel=""
+            data-testid="voice-note-panel"
+          >
+            <div className="mb-2 flex items-center justify-between">
+              <span className="text-label font-medium">{t('title')}</span>
+              <button
+                type="button"
+                aria-label={t('action.dismiss')}
+                className="text-muted-foreground hover:text-foreground"
+                data-testid="voice-note-close"
                 onClick={() => {
-                  resetToReady()
-                  dispatch('retry')
+                  if (recording) stopRecording()
+                  setOpen(false)
                 }}
-                data-testid="voice-note-retry"
-              >
-                <RefreshCw className="h-3.5 w-3.5" />
-                {t('action.retry')}
-              </Button>
-            )}
-            {/* 转写 pending 中用户显式存盘(dismiss → completed) */}
-            {isVoiceNoteTranscriptPending(phase) && sttEnabled && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  void persistNote(null)
-                  dispatch('dismiss')
-                }}
-                data-testid="voice-note-save-audio-only"
-              >
-                {t('action.saveAudioOnly')}
-              </Button>
-            )}
-            {phase !== 'ready' && !busy && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={resetToReady}
-                data-testid="voice-note-reset"
               >
                 <X className="h-3.5 w-3.5" />
-                {t('action.dismiss')}
-              </Button>
-            )}
-          </div>
+              </button>
+            </div>
 
-          {/* 检索与分组入口(票面②「按分组检索→命中」):条件交给服务端,列表按结果渲染 */}
-          <div className="mb-2 space-y-1.5" data-testid="voice-note-filters">
-            <div className="flex items-center gap-1">
-              <div className="min-w-0 flex-1">
-                <SearchInput
-                  size="sm"
-                  clearable
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder={t('searchPlaceholder')}
-                  aria-label={t('searchPlaceholder')}
-                  clearAriaLabel={t('action.dismiss')}
-                  data-testid="voice-note-search"
-                />
-              </div>
-              {/* 分区切换:活跃 ⇄ 已归档。归档分区是"能看见自己归档了什么"的唯一入口,
-                  也是票面②「新建→归档」在界面上可见的那一半 */}
-              <Tooltip content={tTeam('status.archived')}>
-                <Button
-                  size="icon-sm"
-                  variant={partition === 'archived' ? 'secondary' : 'ghost'}
-                  aria-label={tTeam('status.archived')}
-                  aria-pressed={partition === 'archived'}
-                  data-testid="voice-note-partition-toggle"
-                  onClick={() =>
-                    setPartition((prev) => (prev === 'active' ? 'archived' : 'active'))
-                  }
-                >
-                  <Archive className="h-3.5 w-3.5" />
-                </Button>
-              </Tooltip>
-            </div>
-            {groups.length > 0 && (
-              <div className="flex flex-wrap gap-1">
-                <Button
-                  size="xs"
-                  variant={groupKey === null ? 'secondary' : 'ghost'}
-                  data-testid="voice-note-group-chip-all"
-                  onClick={() => setGroupKey(null)}
-                >
-                  {t('groupAll')}
-                </Button>
-                {groups.map((facet) => (
-                  <Button
-                    key={facet.groupKey}
-                    size="xs"
-                    variant={groupKey === facet.groupKey ? 'secondary' : 'ghost'}
-                    data-testid="voice-note-group-chip"
-                    onClick={() => setGroupKey(facet.groupKey)}
-                  >
-                    {facet.groupKey}
-                    <span className="ml-1 inline-flex min-w-4 items-center justify-center rounded-md bg-muted px-1 text-[10px] font-semibold leading-none tabular-nums">
-                      {facet.count}
-                    </span>
-                  </Button>
-                ))}
+            {/* phase 徽章(12 相文案逐字对齐原文) */}
+            {showPhaseLabel && (
+              <div
+                className={cn(
+                  'mb-2 rounded-md border px-2 py-1 text-label',
+                  phase === 'completed' &&
+                    'border-emerald-500/30 bg-emerald-500/5 text-emerald-600',
+                  phase === 'cancelled' && 'border-muted bg-muted/30 text-muted-foreground',
+                  (phase === 'failed' || phase === 'error' || phase === 'interrupted') &&
+                    'border-destructive/30 bg-destructive/5 text-destructive',
+                  busy && phase !== 'failed' && 'border-border bg-muted/30 text-foreground',
+                )}
+                data-testid="voice-note-phase"
+                data-phase={phase}
+              >
+                {t(`phase.${phase}`)}
+                {(recording || phase === 'waitingTranscript') && (
+                  <span className="ml-2 font-mono tabular-nums">
+                    {formatVoiceNoteDuration(durationSec * 1000)}
+                  </span>
+                )}
               </div>
             )}
-          </div>
-          {/* 归档列表(服务端事实源:新建→落库→插入对话→删除) */}
-          {listError && (
-            <div
-              className="mt-3 rounded-md border border-destructive/30 bg-destructive/5 px-2 py-1 text-label text-destructive"
-              data-testid="voice-note-list-error"
-            >
-              {t('errors.loadFailed')}
+
+            {/* 错误文案(权限拒绝/无设备/启动失败/保存失败/识别中断) */}
+            {errorCode && (
+              <div
+                className="mb-2 rounded-md border border-destructive/30 bg-destructive/5 px-2 py-1 text-label text-destructive"
+                data-testid="voice-note-error"
+              >
+                {t(`errors.${errorCode}`)}
+              </div>
+            )}
+
+            {/* 转写结果 */}
+            {phase === 'completed' && transcript && !emptyResult && (
+              <div
+                className="mb-2 max-h-32 overflow-auto rounded-md border bg-muted/30 px-2 py-1 text-label"
+                data-testid="voice-note-transcript"
+              >
+                {transcript}
+              </div>
+            )}
+            {phase === 'completed' && emptyResult && (
+              <div className="mb-2 text-label text-muted-foreground" data-testid="voice-note-empty">
+                {t('errors.emptyTranscript')}
+              </div>
+            )}
+
+            {/* 降级文案:waitingTranscript 停留 pending(端点缺失) */}
+            {isVoiceNoteTranscriptPending(phase) && !sttEnabled && (
+              <div
+                className="mb-2 text-label text-muted-foreground"
+                data-testid="voice-note-stt-pending"
+              >
+                {t('errors.sttPending')}
+              </div>
+            )}
+
+            <div className="flex items-center gap-1.5">
+              {phase === 'ready' && (
+                <Button size="sm" onClick={startRecording} data-testid="voice-note-start">
+                  <Mic className="h-4 w-4" />
+                  {t('action.start')}
+                </Button>
+              )}
+              {recording && (
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={stopRecording}
+                  data-testid="voice-note-stop"
+                >
+                  <Square className="h-3.5 w-3.5" />
+                  {t('action.stop')}
+                </Button>
+              )}
+              {/* 可恢复失败相:retry */}
+              {(phase === 'failed' || phase === 'error' || phase === 'interrupted') && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    resetToReady()
+                    dispatch('retry')
+                  }}
+                  data-testid="voice-note-retry"
+                >
+                  <RefreshCw className="h-3.5 w-3.5" />
+                  {t('action.retry')}
+                </Button>
+              )}
+              {/* 转写 pending 中用户显式存盘(dismiss → completed) */}
+              {isVoiceNoteTranscriptPending(phase) && sttEnabled && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    void persistNote(null)
+                    dispatch('dismiss')
+                  }}
+                  data-testid="voice-note-save-audio-only"
+                >
+                  {t('action.saveAudioOnly')}
+                </Button>
+              )}
+              {phase !== 'ready' && !busy && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={resetToReady}
+                  data-testid="voice-note-reset"
+                >
+                  <X className="h-3.5 w-3.5" />
+                  {t('action.dismiss')}
+                </Button>
+              )}
             </div>
-          )}
-          {archived.length > 0 && (
-            <div className="mt-3 pt-2" data-testid="voice-note-archive">
-              {archived
-                .slice()
-                .reverse()
-                .map((note) => (
-                  <React.Fragment key={note.id}>
-                    <div
-                      className="flex items-center gap-1.5 rounded px-1 py-1 text-label hover:bg-accent"
-                      data-testid="voice-note-archive-item"
+
+            {/* 检索与分组入口(票面②「按分组检索→命中」):条件交给服务端,列表按结果渲染 */}
+            <div className="mb-2 space-y-1.5" data-testid="voice-note-filters">
+              <div className="flex items-center gap-1">
+                <div className="min-w-0 flex-1">
+                  <SearchInput
+                    size="sm"
+                    clearable
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder={t('searchPlaceholder')}
+                    aria-label={t('searchPlaceholder')}
+                    clearAriaLabel={t('action.dismiss')}
+                    data-testid="voice-note-search"
+                  />
+                </div>
+                {/* 分区切换:活跃 ⇄ 已归档。归档分区是"能看见自己归档了什么"的唯一入口,
+                  也是票面②「新建→归档」在界面上可见的那一半 */}
+                <Tooltip content={tTeam('status.archived')} className={NESTED_FLOATING_Z_CLASS}>
+                  <Button
+                    size="icon-sm"
+                    variant={partition === 'archived' ? 'secondary' : 'ghost'}
+                    aria-label={tTeam('status.archived')}
+                    aria-pressed={partition === 'archived'}
+                    data-testid="voice-note-partition-toggle"
+                    onClick={() =>
+                      setPartition((prev) => (prev === 'active' ? 'archived' : 'active'))
+                    }
+                  >
+                    <Archive className="h-3.5 w-3.5" />
+                  </Button>
+                </Tooltip>
+              </div>
+              {groups.length > 0 && (
+                <div className="flex flex-wrap gap-1">
+                  <Button
+                    size="xs"
+                    variant={groupKey === null ? 'secondary' : 'ghost'}
+                    data-testid="voice-note-group-chip-all"
+                    onClick={() => setGroupKey(null)}
+                  >
+                    {t('groupAll')}
+                  </Button>
+                  {groups.map((facet) => (
+                    <Button
+                      key={facet.groupKey}
+                      size="xs"
+                      variant={groupKey === facet.groupKey ? 'secondary' : 'ghost'}
+                      data-testid="voice-note-group-chip"
+                      onClick={() => setGroupKey(facet.groupKey)}
                     >
-                      <span className="font-mono tabular-nums text-muted-foreground">
-                        {formatVoiceNoteDuration(note.durationMs)}
+                      {facet.groupKey}
+                      <span className="ml-1 inline-flex min-w-4 items-center justify-center rounded-md bg-muted px-1 text-[10px] font-semibold leading-none tabular-nums">
+                        {facet.count}
                       </span>
-                      <span className="min-w-0 flex-1 truncate">
-                        {/* 无转写=只存了音频,给命名空间自带的"语音笔记"文案,不猜任何相 */}
-                        {note.transcript ?? t('title')}
-                      </span>
-                      {voiceNoteHasInsertableText(note) && (
-                        <Tooltip content={t('action.insertToInput')}>
+                    </Button>
+                  ))}
+                </div>
+              )}
+            </div>
+            {/* 归档列表(服务端事实源:新建→落库→插入对话→删除) */}
+            {listError && (
+              <div
+                className="mt-3 rounded-md border border-destructive/30 bg-destructive/5 px-2 py-1 text-label text-destructive"
+                data-testid="voice-note-list-error"
+              >
+                {t('errors.loadFailed')}
+              </div>
+            )}
+            {archived.length > 0 && (
+              <div className="mt-3 pt-2" data-testid="voice-note-archive">
+                {archived
+                  .slice()
+                  .reverse()
+                  .map((note) => (
+                    <React.Fragment key={note.id}>
+                      <div
+                        className="flex items-center gap-1.5 rounded px-1 py-1 text-label hover:bg-accent"
+                        data-testid="voice-note-archive-item"
+                      >
+                        <span className="font-mono tabular-nums text-muted-foreground">
+                          {formatVoiceNoteDuration(note.durationMs)}
+                        </span>
+                        <span className="min-w-0 flex-1 truncate">
+                          {/* 无转写=只存了音频,给命名空间自带的"语音笔记"文案,不猜任何相 */}
+                          {note.transcript ?? t('title')}
+                        </span>
+                        {voiceNoteHasInsertableText(note) && (
+                          <Tooltip
+                            content={t('action.insertToInput')}
+                            className={NESTED_FLOATING_Z_CLASS}
+                          >
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              data-testid="voice-note-insert"
+                              onClick={() => insertToInput(note.transcript ?? '')}
+                            >
+                              <ClipboardPaste className="h-3.5 w-3.5" />
+                            </Button>
+                          </Tooltip>
+                        )}
+                        {/* 改分组:分组键只落到服务端,输入框开在本行下方,不做本地暂存 */}
+                        <Tooltip content={tLlm('group')} className={NESTED_FLOATING_Z_CLASS}>
                           <Button
                             variant="ghost"
                             size="icon-sm"
-                            data-testid="voice-note-insert"
-                            onClick={() => insertToInput(note.transcript ?? '')}
+                            aria-label={tLlm('group')}
+                            data-testid="voice-note-group-set"
+                            onClick={() => {
+                              setGroupEditing(note.id)
+                              setGroupDraft('')
+                            }}
                           >
-                            <ClipboardPaste className="h-3.5 w-3.5" />
+                            <Tag className="h-3.5 w-3.5" />
                           </Button>
                         </Tooltip>
-                      )}
-                      {/* 改分组:分组键只落到服务端,输入框开在本行下方,不做本地暂存 */}
-                      <Tooltip content={tLlm('group')}>
+                        {/* 归档/恢复:方向由当前分区决定;归档是写时刻、可撤销,与下面的硬删分家 */}
+                        {partition === 'active' ? (
+                          <Tooltip
+                            content={tAiChat('actions.archive')}
+                            className={NESTED_FLOATING_Z_CLASS}
+                          >
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              aria-label={tAiChat('actions.archive')}
+                              data-testid="voice-note-archive-action"
+                              onClick={() => void toggleArchived(note.id, true)}
+                            >
+                              <Archive className="h-3.5 w-3.5" />
+                            </Button>
+                          </Tooltip>
+                        ) : (
+                          <Tooltip
+                            content={tAiChat('actions.unarchive')}
+                            className={NESTED_FLOATING_Z_CLASS}
+                          >
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              aria-label={tAiChat('actions.unarchive')}
+                              data-testid="voice-note-unarchive-action"
+                              onClick={() => void toggleArchived(note.id, false)}
+                            >
+                              <ArchiveRestore className="h-3.5 w-3.5" />
+                            </Button>
+                          </Tooltip>
+                        )}
                         <Button
                           variant="ghost"
                           size="icon-sm"
-                          aria-label={tLlm('group')}
-                          data-testid="voice-note-group-set"
-                          onClick={() => {
-                            setGroupEditing(note.id)
-                            setGroupDraft('')
-                          }}
+                          data-testid="voice-note-archive-delete"
+                          onClick={() => void removeNote(note.id)}
                         >
-                          <Tag className="h-3.5 w-3.5" />
-                        </Button>
-                      </Tooltip>
-                      {/* 归档/恢复:方向由当前分区决定;归档是写时刻、可撤销,与下面的硬删分家 */}
-                      {partition === 'active' ? (
-                        <Tooltip content={tAiChat('actions.archive')}>
-                          <Button
-                            variant="ghost"
-                            size="icon-sm"
-                            aria-label={tAiChat('actions.archive')}
-                            data-testid="voice-note-archive-action"
-                            onClick={() => void toggleArchived(note.id, true)}
-                          >
-                            <Archive className="h-3.5 w-3.5" />
-                          </Button>
-                        </Tooltip>
-                      ) : (
-                        <Tooltip content={tAiChat('actions.unarchive')}>
-                          <Button
-                            variant="ghost"
-                            size="icon-sm"
-                            aria-label={tAiChat('actions.unarchive')}
-                            data-testid="voice-note-unarchive-action"
-                            onClick={() => void toggleArchived(note.id, false)}
-                          >
-                            <ArchiveRestore className="h-3.5 w-3.5" />
-                          </Button>
-                        </Tooltip>
-                      )}
-                      <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        data-testid="voice-note-archive-delete"
-                        onClick={() => void removeNote(note.id)}
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
-                    {/* 分组输入位:只为本行展开;回车与按钮同一条上行路径(updateVoiceNote) */}
-                    {groupEditing === note.id && (
-                      <div
-                        className="flex items-center gap-1 px-1 pb-1"
-                        data-testid="voice-note-group-editor"
-                      >
-                        <input
-                          className="min-w-0 flex-1 rounded-sm border bg-background px-1.5 py-0.5 text-label"
-                          value={groupDraft}
-                          onChange={(e) => setGroupDraft(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') void assignGroup(note.id, groupDraft)
-                          }}
-                          placeholder={tLlm('group')}
-                          aria-label={tLlm('group')}
-                          data-testid="voice-note-group-input"
-                        />
-                        <Button
-                          size="xs"
-                          data-testid="voice-note-group-submit"
-                          onClick={() => void assignGroup(note.id, groupDraft)}
-                        >
-                          {tLlm('group')}
+                          <Trash2 className="h-3.5 w-3.5" />
                         </Button>
                       </div>
-                    )}
-                  </React.Fragment>
-                ))}
-            </div>
-          )}
-        </div>
-      )}
+                      {/* 分组输入位:只为本行展开;回车与按钮同一条上行路径(updateVoiceNote) */}
+                      {groupEditing === note.id && (
+                        <div
+                          className="flex items-center gap-1 px-1 pb-1"
+                          data-testid="voice-note-group-editor"
+                        >
+                          <input
+                            className="min-w-0 flex-1 rounded-sm border bg-background px-1.5 py-0.5 text-label"
+                            value={groupDraft}
+                            onChange={(e) => setGroupDraft(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') void assignGroup(note.id, groupDraft)
+                            }}
+                            placeholder={tLlm('group')}
+                            aria-label={tLlm('group')}
+                            data-testid="voice-note-group-input"
+                          />
+                          <Button
+                            size="xs"
+                            data-testid="voice-note-group-submit"
+                            onClick={() => void assignGroup(note.id, groupDraft)}
+                          >
+                            {tLlm('group')}
+                          </Button>
+                        </div>
+                      )}
+                    </React.Fragment>
+                  ))}
+              </div>
+            )}
+          </div>,
+          document.body,
+        )}
     </div>
   )
 }

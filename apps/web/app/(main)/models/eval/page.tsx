@@ -438,7 +438,7 @@ export default function EvalPage() {
               </div>
               <div className="max-h-80 space-y-2 overflow-y-auto">
                 {viewDataset.items.map((item: DatasetItem, i: number) => (
-                  <div key={i} className="rounded-lg border border-border/60 p-3 text-label">
+                  <div key={i} className="rounded-lg border border-stroke-subtle p-3 text-label">
                     <p className="mb-1 font-medium text-muted-foreground">
                       {t('eval.datasets.detail.item', { index: i + 1 })}
                     </p>
@@ -639,7 +639,7 @@ function CreateDatasetDialog({ open, onOpenChange, onSuccess }: CreateDatasetDia
             <Label className="text-label">{t('eval.datasets.form.items')}</Label>
             <div className="max-h-64 space-y-2 overflow-y-auto">
               {items.map((item, i) => (
-                <div key={i} className="space-y-1.5 rounded-lg border border-border/60 p-3">
+                <div key={i} className="space-y-1.5 rounded-lg border border-stroke-subtle p-3">
                   <div className="flex items-center justify-between">
                     <span className="text-[10px] font-medium text-muted-foreground">
                       {t('eval.datasets.detail.item', { index: i + 1 })}
@@ -894,7 +894,7 @@ function RunDetailDialog({ run, onClose }: RunDetailDialogProps) {
         ) : detail ? (
           <div className="space-y-4">
             {/* summary */}
-            <div className="rounded-lg border border-border/60 bg-muted/30 p-3">
+            <div className="rounded-lg border border-stroke-subtle bg-muted/30 p-3">
               <h4 className="mb-2 text-label font-medium text-muted-foreground">
                 {t('eval.runs.detail.summary')}
               </h4>
@@ -945,7 +945,7 @@ function RunDetailDialog({ run, onClose }: RunDetailDialogProps) {
                   </p>
                 ) : (
                   (detail.results ?? []).map((result: EvalRunResult, i: number) => (
-                    <div key={i} className="rounded-lg border border-border/60 p-3 text-label">
+                    <div key={i} className="rounded-lg border border-stroke-subtle p-3 text-label">
                       <div className="mb-1.5 flex items-center justify-between">
                         <span className="font-medium text-muted-foreground">
                           {t('eval.runs.detail.item', { index: i + 1 })}

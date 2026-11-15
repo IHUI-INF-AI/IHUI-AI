@@ -140,7 +140,10 @@ export default function StudyPlan() {
                 </Text>
               </View>
               <View className="h-[12rpx] bg-muted rounded-xl mt-[20rpx] overflow-hidden">
-                <View className="h-full bg-success rounded-xl" style={{ width: `${p.progress}%` }} />
+                <View
+                  className="h-full bg-success rounded-xl"
+                  style={{ width: `${p.progress}%` }}
+                />
               </View>
               <View className="flex justify-between items-center mt-[16rpx]">
                 <Text className="text-caption text-[var(--color-text-tertiary)]">

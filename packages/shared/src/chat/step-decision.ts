@@ -6,7 +6,7 @@
  * 步骤决策(D55 / G-66)词汇表 —— 跨端单一真相源。
  *
  * 数据来源:`apps/ai-service` 的 `_derive_step_decision()`(从结果可见路径推导)与
- * `_decision_hints`(auto 免审批等不可见路径手工写入),两处合计 21 个字面量。
+ * `_decision_hints`(auto 免审批等不可见路径手工写入),两处合计 22 个字面量。
  * 本模块只认**全集**,不另建第二套枚举(后端新增字面量时由用例与守门 57 一起逼齐)。
  *
  * 纪律:
@@ -29,6 +29,8 @@ export const STEP_DECISIONS = [
   'approval_persist_hit',
   'exec_policy_approved',
   'auto_skip_approval',
+  // 审查模型判定可自动放行(tool_auto_review 出口,agent_loop_v2 写 _decision_hints)
+  'auto_review_allow',
   'bypass_skip_approval',
   'mcp_annotations_require_approval',
   'taint_egress_gate',
@@ -61,6 +63,7 @@ const DECISION_WORD_KEY: Record<StepDecision, string> = {
   approval_persist_hit: 'decision.approvalPersistHit',
   exec_policy_approved: 'decision.execPolicyApproved',
   auto_skip_approval: 'decision.autoSkipApproval',
+  auto_review_allow: 'decision.autoReviewAllow',
   bypass_skip_approval: 'decision.bypassSkipApproval',
   mcp_annotations_require_approval: 'decision.mcpRequiresApproval',
   taint_egress_gate: 'decision.taintEgressGate',
@@ -86,6 +89,7 @@ const DECISION_STATE: Record<StepDecision, StepDecisionState> = {
   approval_persist_hit: 'approved',
   exec_policy_approved: 'approved',
   auto_skip_approval: 'approved',
+  auto_review_allow: 'approved',
   bypass_skip_approval: 'approved',
   mcp_annotations_require_approval: 'needsUser',
   // 会话级污点闸门把出网工具抬升为需人工审批(agent_loop_v2 在此置 needs_approval=True 后走审批),

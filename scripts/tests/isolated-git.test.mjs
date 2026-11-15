@@ -23,6 +23,7 @@ import { fileURLToPath } from 'node:url'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import {
   INDEX_DIR_NAME,
+  assertGitDirInsideRepoTree,
   childEnv,
   restoreIndexFromSnapshot,
   takeIndexSnapshot,
@@ -883,4 +884,52 @@ test('⑮ 空派生集 + 污染条目:语义不退化,仍拒绝并点名', () =>
     rmScratch(dir)
   }
 })
+
+// ── ⑯ 写锁越界闸(2026-11-14 git 写锁外流根治,根因回归锁)───────────────────────
+// 立因:D:\IHUI-AI-git-repo 盘根一份手工隔离 clone,gitDir 被指到项目盘根、仓根树之外,
+// git 钩子据此把全仓写锁算到那里,lib/lock-atomic-init.mjs 的 pending 兄弟目录散在仓外
+// ⇒ 32 个 .pending 外流(11/04~06 产出,9.6 天后才发现)。本组钉死 assertGitDirInsideRepoTree:
+// 落在仓根树外的 gitdir 一律拒建写锁,盘根克隆/别的盘/上级目录/不存在/空值逐态点名。
+// 纯函数构造面:注入 repoRoot/exists,不赌本机盘符、不建真仓(§15/§22c)。
+
+const GATE_ROOT = 'D:\\FakeRepo'   // 构造的假仓根(测试不依赖真实盘符)
+
+test('⑯a 写锁越界闸:盘根克隆/别的盘/上级目录一律拒建写锁并点名', () => {
+  const rejects = [
+    ['盘根克隆(本次真实案发现场同形)', 'D:\\FakeRepo-git-clone\\.git'],
+    ['盘根克隆本身', 'D:\\FakeRepo-git-clone'],
+    ['别的盘', 'E:\\elsewhere\\.git'],
+    ['仓根上一级', 'D:\\'],
+    ['仓根的兄弟目录', 'D:\\OtherRepo\\.git'],
+  ]
+  for (const [name, gd] of rejects) {
+    assert.throws(
+      () => assertGitDirInsideRepoTree(gd, { repoRoot: GATE_ROOT, exists: () => true }),
+      /仓库树之外|拒绝建写锁/,
+      `${name}(${gd}) 必须被拒建写锁`,
+    )
+  }
+})
+
+test('⑯b 写锁越界闸:仓内 gitdir 正常放行(不误伤本仓工作树)', () => {
+  // 仓内 .git、仓内私有 gitdir、仓内深层 gitdir 都应放行
+  assert.doesNotThrow(() =>
+    assertGitDirInsideRepoTree('D:\\FakeRepo\\.git', { repoRoot: GATE_ROOT, exists: () => true }))
+  assert.doesNotThrow(() =>
+    assertGitDirInsideRepoTree('D:\\FakeRepo\\scripts\\.gitdir-x', { repoRoot: GATE_ROOT, exists: () => true }))
+  assert.doesNotThrow(() =>
+    assertGitDirInsideRepoTree('D:\\FakeRepo\\a\\b\\.git', { repoRoot: GATE_ROOT, exists: () => true }))
+})
+
+test('⑯c 写锁越界闸:未判定不冒充合规(取不到/不存在一律拒)', () => {
+  // gitDir 为空/undefined ⇒ 拒(未判定绝不放行)
+  assert.throws(() => assertGitDirInsideRepoTree('', { repoRoot: GATE_ROOT, exists: () => true }),
+    /取不到 gitDir/)
+  assert.throws(() => assertGitDirInsideRepoTree(undefined, { repoRoot: GATE_ROOT, exists: () => true }),
+    /取不到 gitDir/)
+  // gitDir 不存在 ⇒ 拒(exists 注入为 false)
+  assert.throws(() => assertGitDirInsideRepoTree('D:\\FakeRepo\\.git', { repoRoot: GATE_ROOT, exists: () => false }),
+    /不存在/)
+})
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

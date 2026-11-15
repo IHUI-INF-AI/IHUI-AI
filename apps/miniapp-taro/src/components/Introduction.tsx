@@ -26,7 +26,9 @@ export default function Introduction({
       {content ? (
         <Text className="block text-body text-foreground leading-relaxed">{content}</Text>
       ) : (
-        <Text className="block text-body text-muted-foreground">{tt('intro.empty', '暂无简介')}</Text>
+        <Text className="block text-body text-muted-foreground">
+          {tt('intro.empty', '暂无简介')}
+        </Text>
       )}
       {agents.length > 0 && (
         <View className="mt-md pt-md">
@@ -37,7 +39,7 @@ export default function Introduction({
             {agents.map((agent) => (
               <View
                 key={agent.id}
-                className="mr-sm mb-[12rpx] px-[20rpx] py-xs rounded-md border border-primary/20 bg-primary/10"
+                className="mr-sm mb-[12rpx] px-[20rpx] py-xs rounded-md border border-stroke-selected bg-primary/10"
                 onClick={() => onAgentClick?.(agent)}
                 hoverClass="opacity-60"
               >

@@ -74,6 +74,9 @@ class Settings(BaseSettings):
     # InternalServerError,新注册用户首条消息直接报错;gemini/gemini-3.8-flash 对全新
     # 账号全轨成功(见 docs/benchmark-evidence/2026-10/d150-runtime-reconciliation.md 轨 A)。
     litellm_model: str = "gemini/gemini-3.8-flash"
+    # 外部 Anthropic 兼容客户端透传的 model 名(如 claude-sonnet-4-5)不是本池可解析
+    # 的 id 时,Anthropic 兼容端点回落到该模型;为空 = 不回落(保持原 model)。
+    anthropic_compat_default_model: str = ""
     # 默认链同族兜底(D208):首选不可用时(auto-route 降级/候选池为空)退到该模型,
     # 同为 D150 当轮实测健康档(轨 B @cf/zai-org/glm-4.7-flash 全轨成功)。
     litellm_fallback_model: str = "@cf/zai-org/glm-4.7-flash"

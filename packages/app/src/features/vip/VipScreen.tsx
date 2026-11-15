@@ -174,11 +174,7 @@ export function VipScreen({
         ) : null}
 
         {/* 权益卡(平台注入 benefitItems 时渲染;段实现已抽到 VipSections,整屏与"只要一段"的页面共用) */}
-        <VipBenefitsSection
-          t={t}
-          items={benefitItems ?? []}
-          colorScheme={colorScheme}
-        />
+        <VipBenefitsSection t={t} items={benefitItems ?? []} colorScheme={colorScheme} />
 
         <VipLevelsSection
           t={t}

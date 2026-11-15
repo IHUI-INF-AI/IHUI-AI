@@ -534,6 +534,8 @@ interface ImageTask {
   prompt: string
   /** 发起任务的下游用户(异步 worker 调上游计费链路需要) */
   userId?: string
+  /** 发起任务的 API Key id(F-675 乐观扣费对账:创建即按次 recordCall) */
+  apiKeyId?: string
   createdAt: string
   /** 生图结果:图片 URL / base64 数组(仅 succeeded 时存在)。 */
   result?: string[]
@@ -2423,19 +2425,41 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
       const { model, prompt } = parsed.data
-      // 计费不在本任务范围:OpenAI 异步图片的计费随既有同步链路 /images/generations 走。
-      // 这里只落地任务编排骨架,先置 pending(乐观计费 / failed 退款由同步链路负责)。
-      // n / size 已在 zod 中校验并接收,本骨架暂不持久化(预留给未来 worker 透传上游)。
+      // F-675(2026-11-13):异步图片创建此前零计费(仅 requireApiKeyQuota 余额校验,
+      // 无 recordCall)⇒ 持 images:write 的 Key 可无限提交,平台承担 100% 上游成本。
+      // 口径与 3D(/v1/3d/generations,F-276)/视频分支一致:提交即乐观按次扣费
+      // (billingUnits=1,callType=image),metadata.task_id 挂任务号对账;
+      // 失败退款链暂不接 —— worker 消费时无 request/apiKey 上下文,refundTaskCall 按
+      // taskId 查计费流水会找不到对应行,贸然接会误退款;缺口如实记录在票面。
+      // task 保存后再扣费:saveImageTask 失败则任务未入 Redis/Map,不产生费用。
       const task: ImageTask = {
         id: crypto.randomUUID(),
         status: 'pending',
         model,
         prompt,
-        // 补强 60:记录发起用户,worker 消费时通过 forwardToChannel 传给选路/计费
         userId,
+        apiKeyId: apiKeyOf(request)?.id,
         createdAt: new Date().toISOString(),
       }
       await saveImageTask(task)
+      const apiKey = apiKeyOf(request)
+      if (apiKey) {
+        await recordCall({
+          apiKeyId: apiKey.id,
+          userId: apiKey.userId,
+          model,
+          prompt,
+          response: null,
+          promptTokens: 0,
+          completionTokens: 0,
+          totalTokens: 0,
+          latencyMs: 0,
+          status: 'success',
+          callType: 'image',
+          billingUnits: 1,
+          metadata: { endpoint: 'v1_images_generations_async', task_id: task.id },
+        })
+      }
       // 扩展点:未来由 worker 消费上游生图(既有同步端点 / 调用方体系)后,
       // 调用 completeImageTask(id, result) / failImageTask(id, error) 推进状态。
       // 本端点内部不自动推进。

@@ -9,6 +9,8 @@ import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react
 import { jsonLdHtml } from '@/lib/seo/json-ld'
 import { generateProductSchema, type ProductSchema } from '@/lib/seo/schema-product'
 import { BackButton } from '@/components/common'
+import { formatCny } from '@/lib/display-currency'
+import { seedServerCurrency } from '@/lib/server-currency'
 
 /** i18n 静态映射表 — 用于消除 `t(`billing.transactions.types.${var}`)` 动态拼接 */
 const BILLING_TX_TYPE_KEY: Record<string, string> = {
@@ -22,6 +24,8 @@ const BILLING_TX_STATUS_KEY: Record<string, string> = {
 }
 
 export default async function BillingPage() {
+  // SSR 首帧按 cookie 口径 + 汇率快照直出(layout 与 page 模块实例隔离,必须逐页播种)
+  await seedServerCurrency()
   const t = await getTranslations('models')
   const tp = await getTranslations('modelsBillingPage')
 
@@ -58,7 +62,7 @@ export default async function BillingPage() {
   const packages = [
     {
       name: t('billing.packages.starter'),
-      price: '¥ 9.9',
+      price: 9.9,
       bonus: t('billing.packages.starterBonus'),
       features: tp.raw('packages.starter.features') as string[],
       cta: t('billing.packages.cta'),
@@ -66,7 +70,7 @@ export default async function BillingPage() {
     },
     {
       name: t('billing.packages.pro'),
-      price: '¥ 99',
+      price: 99,
       bonus: t('billing.packages.proBonus'),
       features: tp.raw('packages.pro.features') as string[],
       cta: t('billing.packages.cta'),
@@ -74,7 +78,7 @@ export default async function BillingPage() {
     },
     {
       name: t('billing.packages.enterprise'),
-      price: '¥ 999',
+      price: 999,
       bonus: t('billing.packages.enterpriseBonus'),
       features: tp.raw('packages.enterprise.features') as string[],
       cta: t('billing.packages.cta'),
@@ -157,7 +161,7 @@ export default async function BillingPage() {
                 {t('billing.currentBalance')}
               </div>
               <div className="mt-2 text-heading font-bold tracking-tight min-[768px]:text-display">
-                ¥ 128.50
+                {formatCny(128.5, { digits: 2 })}
               </div>
               <Button size="sm" className="mt-3 w-full gap-1.5 text-label px-4">
                 <DollarSign className="h-3.5 w-3.5" />
@@ -168,7 +172,7 @@ export default async function BillingPage() {
           <Card>
             <CardContent className="min-[640px]:p-3 p-3">
               <div className="text-label text-muted-foreground">{t('billing.monthConsume')}</div>
-              <div className="mt-2 text-display font-bold">¥ 285.40</div>
+              <div className="mt-2 text-display font-bold">{formatCny(285.4, { digits: 2 })}</div>
               <div className="mt-1 flex items-center gap-1 text-label text-rose-600 dark:text-rose-400">
                 <ArrowUpRight className="h-3 w-3" />
                 {tp('consumeTrend', { n: 8.7 })}
@@ -178,7 +182,7 @@ export default async function BillingPage() {
           <Card>
             <CardContent className="min-[640px]:p-3 p-3">
               <div className="text-label text-muted-foreground">{t('billing.totalRecharge')}</div>
-              <div className="mt-2 text-display font-bold">¥ 1,500.00</div>
+              <div className="mt-2 text-display font-bold">{formatCny(1500, { digits: 2 })}</div>
               <div className="mt-1 text-label text-muted-foreground">
                 {tp('rechargeCount', { n: 6 })}
               </div>
@@ -194,7 +198,9 @@ export default async function BillingPage() {
               <Card
                 key={p.name}
                 className={
-                  p.highlighted ? 'relative border-brand-accent-deep shadow-elevation-md' : 'relative'
+                  p.highlighted
+                    ? 'relative border-brand-accent-deep shadow-elevation-md'
+                    : 'relative'
                 }
               >
                 {p.highlighted && (
@@ -206,7 +212,7 @@ export default async function BillingPage() {
                   <div className="text-body font-semibold">{p.name}</div>
                   <div className="mt-2 flex items-baseline gap-1">
                     <span className="text-heading font-bold tracking-tight min-[768px]:text-display">
-                      {p.price}
+                      {formatCny(p.price)}
                     </span>
                     <span className="text-label text-muted-foreground">
                       {t('billing.packages.once')}
@@ -274,10 +280,11 @@ export default async function BillingPage() {
                             : 'px-4 py-2.5 font-medium text-foreground'
                         }
                       >
-                        {tx.amount > 0 ? '+' : ''}¥ {Math.abs(tx.amount).toFixed(2)}
+                        {tx.amount > 0 ? '+' : ''}
+                        {formatCny(Math.abs(tx.amount), { digits: 2 })}
                       </td>
                       <td className="px-4 py-2.5 text-muted-foreground">
-                        ¥ {tx.balance.toFixed(2)}
+                        {formatCny(tx.balance, { digits: 2 })}
                       </td>
                       <td className="px-4 py-2.5 text-muted-foreground">{tx.time}</td>
                       <td className="px-4 py-2.5">

@@ -53,6 +53,7 @@ from app.core.file_read_state import (
 )
 from app.core.internal_ticket import internal_service_headers
 from app.core.vault import filter_vault_env as _filter_vault_env
+from app.utils.atomic_io import write_bytes_atomic
 
 from .agent_security_prefs import (
     current_security_principal,
@@ -796,7 +797,7 @@ def _active_extra_roots() -> tuple[str, ...]:
 # 工具权限矩阵:admin 专属工具(role >= 1),其他工具所有用户可用
 # 危险工具:写文件 / 执行命令 / 数据库查询 / git 操作 / 自动化配置 / 电脑控制 / 截图(SSRF 入口)
 _ADMIN_ONLY_TOOLS: set[str] = {
-    "write_file", "run_command", "sandbox_session", "db_query", "git_operations",
+    "write_file", "run_command", "sandbox_session", "terminal", "db_query", "git_operations",
     "configure_automation_task",
     # 2026-07-24 file_edit:写文件操作(精细编辑),必须 admin
     "file_edit",
@@ -867,6 +868,64 @@ _FILE_BASE_MAX = 256
 # AIS-082:read_file 单次读取上限,与写侧(write_file)的 10MB 门对齐。读侧此前
 # 无上限 → 整文件进内存并全量进 _FILE_BASE_CONTENT(最多 256 份),GB 级文件直接 OOM。
 _READ_FILE_MAX_BYTES = 10 * 1024 * 1024
+# 大文件分页读(对齐 DSH read 的有界分页):调用方传 offset/limit 时按行窗口返回。
+# 不传时保持旧的整文件语义,避免改变既有调用方与测试的契约。
+_READ_WINDOW_MAX_LINES = 2000
+_READ_WINDOW_MAX_LINE_CHARS = 2000
+_READ_WINDOW_MAX_BYTES = 50 * 1024
+
+
+def _render_read_window(content: str, offset: int, limit: int) -> dict[str, Any]:
+    """把整文件内容渲染成带行号的单页窗口。
+
+    约束:每行最多 2000 字符(超出以省略号收尾),整页最多 50KB;页脚给出
+    总行数与下一页 offset,模型不必猜。行号从 1 起,与编辑器/IDE 一致。
+    """
+    lines = content.splitlines()
+    total = len(lines)
+    if offset > total and not (total == 0 and offset == 1):
+        return {
+            "ok": False,
+            "errorCode": "OFFSET_OUT_OF_RANGE",
+            "error": f"offset={offset} 超出文件行数(共 {total} 行);offset 从 1 开始。",
+            "totalLines": total,
+        }
+    rendered: list[str] = []
+    used = 0
+    truncated_by_bytes = False
+    last = min(offset - 1 + limit, total)
+    for idx in range(offset - 1, last):
+        text = lines[idx]
+        if len(text) > _READ_WINDOW_MAX_LINE_CHARS:
+            text = (
+                text[:_READ_WINDOW_MAX_LINE_CHARS]
+                + f"… (本行超过 {_READ_WINDOW_MAX_LINE_CHARS} 字符,已截断)"
+            )
+        line = f"{idx + 1}: {text}"
+        cost = len(line.encode("utf-8")) + (1 if rendered else 0)
+        if used + cost > _READ_WINDOW_MAX_BYTES:
+            truncated_by_bytes = True
+            break
+        used += cost
+        rendered.append(line)
+    end_line = offset + len(rendered) - 1 if rendered else offset - 1
+    if truncated_by_bytes:
+        footer = (
+            f"(至字节上限,已显示第 {offset}-{end_line} 行,共 {total} 行;"
+            f"用 offset={end_line + 1} 继续。)"
+        )
+    elif end_line < total:
+        footer = f"(已显示第 {offset}-{end_line} 行,共 {total} 行;用 offset={end_line + 1} 继续。)"
+    else:
+        footer = f"(文件结束,共 {total} 行)"
+    body = "\n".join(rendered)
+    return {
+        "ok": True,
+        "content": f"{body}\n\n{footer}" if body else footer,
+        "offset": offset,
+        "totalLines": total,
+        "truncatedByBytes": truncated_by_bytes,
+    }
 
 
 def _normalize_eol(text: str) -> str:
@@ -2563,6 +2622,24 @@ async def _tool_read_file(arguments: dict[str, Any]) -> dict[str, Any]:
     if not ok:
         return {"tool": "read_file", "path": path, "content": "", "ok": False, "error": info}
     resolved_path = info
+    # 大文件分页:offset/limit 任一显式给出即进入窗口模式;不传保持整文件旧契约。
+    windowed = arguments.get("offset") is not None or arguments.get("limit") is not None
+    offset, limit = 1, _READ_WINDOW_MAX_LINES
+    if windowed:
+        try:
+            offset = int(arguments.get("offset", 1))
+            limit = int(arguments.get("limit", _READ_WINDOW_MAX_LINES))
+        except (TypeError, ValueError):
+            return {
+                "tool": "read_file", "path": resolved_path, "content": "", "ok": False,
+                "error": "offset/limit 必须是整数", "errorCode": "INVALID_ARGUMENT",
+            }
+        if offset < 1 or limit < 1 or limit > _READ_WINDOW_MAX_LINES:
+            return {
+                "tool": "read_file", "path": resolved_path, "content": "", "ok": False,
+                "error": f"offset 从 1 开始,limit 必须在 1-{_READ_WINDOW_MAX_LINES} 之间",
+                "errorCode": "INVALID_ARGUMENT",
+            }
     # 2026-07-24 安全加固:敏感文件读取拦截(防 .env/*.key/*.pem 泄露 API key/私钥)
     # 工作区白名单只防路径穿越,不防敏感文件内容泄露;此处补敏感文件名黑名单。
     if _is_sensitive_file(resolved_path):
@@ -2625,6 +2702,19 @@ async def _tool_read_file(arguments: dict[str, Any]) -> dict[str, Any]:
             record_read(arguments.get("__session_id"), resolved_path, content)
         except Exception:  # noqa: BLE001 - 登记层故障不得让读失败
             pass
+        if windowed:
+            window = _render_read_window(content, offset, limit)
+            if not window.get("ok"):
+                return {
+                    "tool": "read_file", "path": resolved_path, "content": "", "ok": False,
+                    "error": window["error"], "errorCode": window["errorCode"],
+                    "totalLines": window["totalLines"],
+                }
+            return {
+                "tool": "read_file", "path": resolved_path, "content": window["content"],
+                "ok": True, "offset": window["offset"], "totalLines": window["totalLines"],
+                "truncatedByBytes": window["truncatedByBytes"],
+            }
         return {"tool": "read_file", "path": resolved_path, "content": content, "ok": True}
     except Exception as e:
         return {"tool": "read_file", "path": resolved_path, "content": "", "ok": False, "error": str(e)}
@@ -2851,8 +2941,10 @@ async def _tool_write_file(arguments: dict[str, Any]) -> dict[str, Any]:
                     "concurrency": {"verdict": verdict, "forced": False},
                 }
             _note_ai_before("write_file", resolved_path, content, arguments)
-            with open(resolved_path, "w", encoding="utf-8") as f:
-                f.write(content)
+            # 原子写:同目录临时件 + os.replace(崩溃/断电只留旧完整文件或新完整文件,
+            # 不会留下被截断的目标);父目录自动创建,避免模型先跑一条 mkdir 命令。
+            Path(resolved_path).parent.mkdir(parents=True, exist_ok=True)
+            write_bytes_atomic(resolved_path, content.encode("utf-8"))
             # 1-2:写盘后刷新 base(agent 视角最新内容)
             _record_file_base(resolved_path, content)
             # C 格自我写入登记:本会话自己的改动不报成他席覆盖;失败不影响写
@@ -2987,8 +3079,8 @@ async def _tool_file_edit(arguments: dict[str, Any]) -> dict[str, Any]:
             try:
                 with open(backup_path, "wb") as bf:
                     bf.write(raw)
-                with open(resolved_path, "wb") as wf:
-                    wf.write(new_content.encode("utf-8"))
+                # 原子替换:编辑中途崩溃不会把目标留成半截文件(.bak 仍是上一版)。
+                write_bytes_atomic(resolved_path, new_content.encode("utf-8"))
             except OSError as e:
                 # 失败回滚:恢复原内容(raw),删除 .bak(不保留)
                 try:
@@ -3086,8 +3178,8 @@ async def _tool_resolve_conflict(arguments: dict[str, Any]) -> dict[str, Any]:
         try:
             with open(backup_path, "wb") as bf:
                 bf.write(raw)
-            with open(resolved_path, "wb") as wf:
-                wf.write(final_content.encode("utf-8"))
+            # 原子替换:同 file_edit,冲突解决写盘也不留半截目标。
+            write_bytes_atomic(resolved_path, final_content.encode("utf-8"))
         except OSError as e:
             # 失败回滚:恢复磁盘原内容
             try:
@@ -4591,13 +4683,15 @@ async def _tool_run_command(
 async def _tool_web_search(arguments: dict[str, Any]) -> dict[str, Any]:
     """web_search: 网页搜索(复用 DuckDuckGo Lite HTML 搜索)。
 
-    与 search_web 功能等价,但接口更简洁(仅 query 参数,默认 5 条结果)。
+    与 search_web 功能等价,但接口更简洁(默认 5 条结果)。
+    支持 `query` 单查询或 `queries` 多查询合并(与 search_web 同源)。
     无网络或解析失败时返回空结果 + 错误信息。
     """
     query = arguments.get("query", "")
+    queries_raw = arguments.get("queries")
     max_results = int(arguments.get("max_results", 5))
 
-    if not query:
+    if not query and not isinstance(queries_raw, list):
         return {
             "tool": "web_search",
             "ok": False,
@@ -4607,11 +4701,13 @@ async def _tool_web_search(arguments: dict[str, Any]) -> dict[str, Any]:
             "message": "搜索关键词为空",
         }
 
-    # 复用 search_web 的实现
-    sub_result = await _tool_search_web({
-        "query": query,
-        "max_results": max_results,
-    })
+    # 复用 search_web 的实现(多查询扇出与合并口径同源)
+    sub_args: dict[str, Any] = {"max_results": max_results}
+    if isinstance(queries_raw, list):
+        sub_args["queries"] = queries_raw
+    else:
+        sub_args["query"] = query
+    sub_result = await _tool_search_web(sub_args)
 
     # 转换字段名(tool → web_search,保留 results);AIS-054:失败态必须透传,
     # 不能把检索故障包装成"成功但无结果"。
@@ -4619,10 +4715,12 @@ async def _tool_web_search(arguments: dict[str, Any]) -> dict[str, Any]:
     payload: dict[str, Any] = {
         "tool": "web_search",
         "ok": ok,
-        "query": query,
+        "query": sub_result.get("query", query),
+        "queries": sub_result.get("queries", []),
         "max_results": max_results,
         "results": sub_result.get("results", []),
         "total": sub_result.get("total", 0),
+        "truncated": bool(sub_result.get("truncated", False)),
         "message": sub_result.get("message", ""),
     }
     if not ok:
@@ -4641,20 +4739,175 @@ async def _tool_image_search(arguments: dict[str, Any]) -> dict[str, Any]:
     )
 
 
+WEB_SEARCH_MAX_QUERIES: Final = 10
+_WEB_SEARCH_MAX_RESULTS_CAP: Final = 50
+
+
+def _normalize_web_queries(arguments: dict[str, Any]) -> tuple[list[str], dict[str, Any] | None]:
+    """归一 `query`/`queries` 两种入参(2026-11-14,对标 DSH dsh-tool-web/search.ts)。
+
+    规则与 DSH `parseSearchArgs` 对齐:queries 非空、每项非空白、至多 10 个;
+    数量上限检查在去重之前做,去重保首次出现顺序。`query` 作为单查询兼容入口,
+    与 queries 同时出现时前插并以首个去重结果为准。
+    """
+    raw_queries = arguments.get("queries")
+    collected: list[str] = []
+    if raw_queries is not None:
+        if not isinstance(raw_queries, list):
+            return [], {
+                "ok": False,
+                "errorCode": "search_invalid_queries",
+                "error": "queries 必须是字符串数组",
+            }
+        if not raw_queries:
+            return [], {
+                "ok": False,
+                "errorCode": "search_invalid_queries",
+                "error": "queries 至少包含 1 个关键词",
+            }
+        if len(raw_queries) > WEB_SEARCH_MAX_QUERIES:
+            return [], {
+                "ok": False,
+                "errorCode": "search_invalid_queries",
+                "error": f"queries 最多 {WEB_SEARCH_MAX_QUERIES} 个关键词",
+            }
+        for item in raw_queries:
+            if not isinstance(item, str) or not item.strip():
+                return [], {
+                    "ok": False,
+                    "errorCode": "search_invalid_queries",
+                    "error": "每个查询都必须是非空字符串",
+                }
+            collected.append(item.strip())
+
+    single = arguments.get("query")
+    if isinstance(single, str) and single.strip():
+        collected.insert(0, single.strip())
+
+    # 去重保序(与 DSH `[...new Set(queries)]` 同义)
+    return list(dict.fromkeys(collected)), None
+
+
+async def _search_ddg_lite_once(
+    client: Any, query: str, max_results: int
+) -> list[dict[str, str]]:
+    """一次 DuckDuckGo Lite 检索(只出网 + 解析,不做结果合并)。"""
+    url = f"https://lite.duckduckgo.com/lite/?q={quote_plus(query)}&kl=wt-wt"
+    headers = {
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/120.0.0.0 Safari/537.36"
+        ),
+    }
+    resp = await client.get(url, headers=headers)
+    resp.raise_for_status()
+    return _parse_ddg_lite_html(resp.text, max_results)
+
+
+async def _search_queries_fanout(
+    queries: list[str], max_results: int
+) -> list[list[dict[str, str]]]:
+    """并发执行多个查询;任一失败即取消同批其余查询,等全部收口后抛出首个失败。
+
+    与 DSH `runSearchQueries` 的失败语义一致:多查询是一个原子调用,**不**把
+    部分成功伪装成整体成功(否则模型会以为已覆盖全部查询)。
+    """
+    import httpx
+
+    tasks: list[asyncio.Task[list[dict[str, str]]]] = []
+    async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
+        try:
+            tasks = [
+                asyncio.create_task(_search_ddg_lite_once(client, query, max_results))
+                for query in queries
+            ]
+            done, pending = await asyncio.wait(
+                tasks, return_when=asyncio.FIRST_EXCEPTION
+            )
+            failure = next(
+                (task.exception() for task in done if task.exception() is not None),
+                None,
+            )
+            if failure is not None:
+                for task in pending:
+                    task.cancel()
+                await asyncio.gather(*pending, return_exceptions=True)
+                raise failure
+            return [task.result() for task in tasks]
+        finally:
+            for task in tasks:
+                if not task.done():
+                    task.cancel()
+
+
+def _merge_search_pages(
+    pages: list[list[dict[str, str]]], max_results: int
+) -> tuple[list[dict[str, str]], bool]:
+    """多查询结果合并:按名次轮转、按 URL 去重、总量截断到 max_results。
+
+    轮转合并(而非页拼接)让每个查询的第 1 名都有机会进入结果,避免首个查询
+    独占配额;返回 (results, truncated)。
+    """
+    seen: set[str] = set()
+    merged: list[dict[str, str]] = []
+    truncated = False
+    ranks = max((len(page) for page in pages), default=0)
+    stop = False
+    for rank in range(ranks):
+        for page in pages:
+            if rank >= len(page):
+                continue
+            item = page[rank]
+            url = str(item.get("url") or "")
+            if url and url in seen:
+                continue
+            if len(merged) >= max_results:
+                truncated = True
+                stop = True
+                break
+            if url:
+                seen.add(url)
+            merged.append(item)
+        if stop:
+            break
+    return merged, truncated
+
+
 async def _tool_search_web(arguments: dict[str, Any]) -> dict[str, Any]:
     """search_web: DuckDuckGo HTML 搜索,返回解析后的结果列表。
 
-    使用 DuckDuckGo Lite HTML 版本(无需 API key),解析结果。
-    无网络或解析失败时返回空结果 + 错误信息。
+    单查询 `query` 与多查询 `queries` 两种入参(2026-11-14,对标 DSH web_search):
+    多查询并发扇出后按名次轮转、URL 去重合并,截断到 max_results 并置 truncated。
+    无网络或解析失败时返回结构化失败 + 错误信息。
     """
-    query = arguments.get("query", "")
-    max_results = int(arguments.get("max_results", 5))
+    raw_single = arguments.get("query", "")
+    queries, query_error = _normalize_web_queries(arguments)
+    try:
+        max_results = int(arguments.get("max_results", 5))
+    except (TypeError, ValueError):
+        max_results = 5
+    max_results = max(1, min(max_results, _WEB_SEARCH_MAX_RESULTS_CAP))
 
-    if not query:
+    if query_error is not None:
+        return {
+            "tool": "search_web",
+            "ok": False,
+            "query": raw_single,
+            "queries": [],
+            "max_results": max_results,
+            "results": [],
+            "total": 0,
+            **query_error,
+            "message": str(query_error.get("error") or "查询参数非法"),
+        }
+
+    if not queries:
         return {
             "tool": "search_web",
             "ok": True,
-            "query": query,
+            "query": raw_single,
+            "queries": [],
             "max_results": max_results,
             "results": [],
             "message": "搜索关键词为空",
@@ -4668,47 +4921,55 @@ async def _tool_search_web(arguments: dict[str, Any]) -> dict[str, Any]:
             return {
                 "tool": "search_web",
                 "ok": True,
-                "query": query,
+                "query": queries[0],
+                "queries": queries,
                 "max_results": max_results,
                 "results": [],
                 "message": "[stub] httpx 未安装,无法执行真实搜索",
             }
 
-        # DuckDuckGo Lite HTML 搜索
-        url = f"https://lite.duckduckgo.com/lite/?q={quote_plus(query)}&kl=wt-wt"
-        headers = {
-            "User-Agent": (
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                "AppleWebKit/537.36 (KHTML, like Gecko) "
-                "Chrome/120.0.0.0 Safari/537.36"
-            ),
-        }
+        if len(queries) == 1:
+            async with httpx.AsyncClient(
+                timeout=10.0, follow_redirects=True
+            ) as client:
+                results = await _search_ddg_lite_once(
+                    client, queries[0], max_results
+                )
+            truncated = False
+        else:
+            pages = await _search_queries_fanout(queries, max_results)
+            results, truncated = _merge_search_pages(pages, max_results)
 
-        async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
-            resp = await client.get(url, headers=headers)
-            resp.raise_for_status()
-            html = resp.text
-
-        # 解析 DuckDuckGo Lite HTML 结果
-        results = _parse_ddg_lite_html(html, max_results)
-
+        if len(queries) == 1:
+            message = f"找到 {len(results)} 条结果" if results else "未找到结果"
+        else:
+            message = (
+                f"从 {len(queries)} 个查询合并到 {len(results)} 条结果"
+                if results
+                else f"{len(queries)} 个查询均未找到结果"
+            )
         return {
             "tool": "search_web",
             "ok": True,
-            "query": query,
+            "query": queries[0],
+            "queries": queries,
             "max_results": max_results,
             "results": results,
             "total": len(results),
-            "message": f"找到 {len(results)} 条结果" if results else "未找到结果",
+            "truncated": truncated,
+            "message": message,
         }
 
     except Exception as e:
         return {
             "tool": "search_web",
             "ok": False,
-            "query": query,
+            "query": queries[0],
+            "queries": queries,
             "max_results": max_results,
             "results": [],
+            "total": 0,
+            "truncated": False,
             "message": f"搜索失败: {e}",
             "error": str(e),
         }
@@ -6072,6 +6333,71 @@ def _get_agent_control_api_url() -> str:
     return f"{settings.api_service_url}/api/agent-control/execute"
 
 
+def _deliver_inline_image(
+    result: dict[str, Any],
+    *,
+    raw_b64: str,
+    label: str,
+    name: str = "screenshot.png",
+    remove_keys: tuple[str, ...] = (),
+) -> dict[str, Any]:
+    """把工具结果里的内联 base64 图片转入图片交付暂存(只留元数据,原地修改)。
+
+    为什么必须转:call_tool 出口有 8000 token 截断护栏,10MB 截图的 base64 会被
+    截成无效串(call_tool 的 _truncate_tool_output 按 token 截断文本),模型既看
+    不到图,也拿不到可用数据;SSE tool-result 事件同样会被单帧撑爆。
+    交付失败绝不把工具整体判失败:保留原结果并追加 image_error(模型可改用
+    vision_analyze / 重试)。
+    """
+    import base64
+    import binascii
+
+    from .tool_image_delivery import prepare_image_bytes, stash_image
+
+    text = raw_b64.strip()
+    if text.startswith("data:"):
+        _, _, text = text.partition(",")
+    try:
+        raw = base64.b64decode(text, validate=True)
+    except (binascii.Error, ValueError) as e:
+        result["image_error"] = f"内联图片 base64 解码失败: {e}"
+        return result
+    prepared, error = prepare_image_bytes(raw, path_label=label, name=name)
+    if prepared is None or error is not None:
+        result["image_error"] = (error or {}).get("error") or "图片交付失败"
+        return result
+    content_id = stash_image(prepared)
+    for key in remove_keys:
+        result.pop(key, None)
+    result["image"] = {
+        "content_id": content_id,
+        "media_type": prepared["media_type"],
+        "bytes": prepared["bytes"],
+        "width": prepared["width"],
+        "height": prepared["height"],
+        "source_width": prepared["source_width"],
+        "source_height": prepared["source_height"],
+        "name": prepared["name"],
+    }
+    result["note"] = "图片本体随本轮 tool 结果之后的 user 多模态消息送达"
+    return result
+
+
+def _screenshot_b64_from_agent_result(data: Any) -> str:
+    """从 agent-control 的 data 载荷里取截图 base64(兼容双层 data 与三个键名)。"""
+    if not isinstance(data, dict):
+        return ""
+    inner = data.get("data")
+    for payload in (inner, data):
+        if not isinstance(payload, dict):
+            continue
+        for key in ("screenshot", "imageBase64", "base64"):
+            value = payload.get(key)
+            if isinstance(value, str) and value:
+                return value
+    return ""
+
+
 async def _tool_agent_control(
     category: str, action: str, arguments: dict[str, Any]
 ) -> dict[str, Any]:
@@ -6135,13 +6461,31 @@ async def _tool_agent_control(
             payload = response.json()
             # api 层返回 ApiResponse<AgentActionResponse> = { code, message, data }
             data = payload.get("data", payload) if isinstance(payload, dict) else {}
-            return {
+            result = {
                 "tool": tool_name,
                 "ok": bool(data.get("success", False)),
                 "action": action,
                 "category": category,
                 "result": data,
             }
+            if action in ("screenshot", "screenshot_screen"):
+                # 截图 base64 不能留在 tool 正文:8000 token 截断会把它截成无效串。
+                # 取出 → 有界暂存 → 元数据交付(agent loop 追加 user 多模态消息)。
+                # 覆盖 computer 与 browser 两个截图动作(载荷键名由提取器兼容)。
+                shot = _screenshot_b64_from_agent_result(data)
+                if shot:
+                    inner = data.get("data") if isinstance(data, dict) else None
+                    for holder in (inner, data):
+                        if isinstance(holder, dict):
+                            for key in ("screenshot", "imageBase64", "base64"):
+                                holder.pop(key, None)
+                    _deliver_inline_image(
+                        result,
+                        raw_b64=shot,
+                        label=f"{category}:{action}",
+                        name="screenshot.png",
+                    )
+            return result
     except httpx.TimeoutException:
         return {
             "tool": tool_name,
@@ -6280,7 +6624,7 @@ async def _tool_browser_selfcheck_screenshot(arguments: dict[str, Any]) -> dict[
             "errorCode": "TOOL_FAILED",
         }
 
-    return {
+    payload = {
         "tool": "browser_selfcheck_screenshot",
         "ok": result.get("ok", False),
         "url": result.get("finalUrl", url),
@@ -6289,10 +6633,16 @@ async def _tool_browser_selfcheck_screenshot(arguments: dict[str, Any]) -> dict[
         "width": result.get("width", 0),
         "height": result.get("height", 0),
         "consoleErrors": result.get("consoleErrors", []),
-        "imageBase64": result.get("imageBase64"),
         "error": result.get("error"),
         "errorCode": result.get("errorCode"),
     }
+    # 截图 base64 不进正文(截断护栏会截坏):转图片交付,主模型直接看图。
+    shot = result.get("imageBase64")
+    if isinstance(shot, str) and shot:
+        _deliver_inline_image(
+            payload, raw_b64=shot, label=url, name="selfcheck.png"
+        )
+    return payload
 
 
 async def _tool_browser_selfcheck(arguments: dict[str, Any]) -> dict[str, Any]:
@@ -6686,6 +7036,53 @@ async def _tool_vision_analyze(arguments: dict[str, Any]) -> dict[str, Any]:
         }
 
 
+async def _tool_read_image(arguments: dict[str, Any]) -> dict[str, Any]:
+    """read_image: 读取工作区内图片并交给**主模型**直接看(多模态工具结果)。
+
+    与 vision_analyze 的分工:后者把图片转交给另一个视觉模型并只回文字结论;
+    本工具把图片本体送回当前主模型。返回值刻意只带元数据 + content_id ——
+    图片本体经 tool_image_delivery 的有界暂存交付,避免被 call_tool 的 token
+    截断护栏截坏、也避免 SSE tool-result 事件承载 10MB data URL。
+    """
+    from pathlib import Path
+
+    from .tool_image_delivery import prepare_image_file, stash_image
+
+    raw_path = arguments.get("file_path") or ""
+    ok, info = _validate_path_in_workspace(str(raw_path))
+    if not ok:
+        return {
+            "tool": "read_image", "ok": False,
+            "error": info, "errorCode": "PATH_NOT_ALLOWED",
+        }
+    path = Path(info)
+    if not path.exists() or not path.is_file():
+        return {
+            "tool": "read_image", "ok": False,
+            "error": f"文件不存在: {info}", "errorCode": "FILE_NOT_FOUND",
+        }
+    prepared, error = prepare_image_file(path)
+    if prepared is None or error is not None:
+        return {"tool": "read_image", "ok": False, **(error or {})}
+    content_id = stash_image(prepared)
+    return {
+        "tool": "read_image",
+        "ok": True,
+        "path": str(path),
+        "image": {
+            "content_id": content_id,
+            "media_type": prepared["media_type"],
+            "bytes": prepared["bytes"],
+            "width": prepared["width"],
+            "height": prepared["height"],
+            "source_width": prepared["source_width"],
+            "source_height": prepared["source_height"],
+            "name": prepared["name"],
+        },
+        "note": "图片本体随本轮 tool 结果之后的一条 user 多模态消息送达;不要安装图像库或生成缩略图来查看",
+    }
+
+
 # ---------------------------------------------------------------------------
 # 子智能体派发工具(2026-07-24 新增)
 # 让 LLM 在 tool loop 中能自主派发子智能体执行任务
@@ -6864,6 +7261,116 @@ def _mark_stub_payload(payload: dict[str, Any]) -> dict[str, Any]:
         payload["status"] = "stub"
         payload["errorCode"] = "STUB_RESPONSE"
     return payload
+
+
+async def _invoke_subagent_for_job(
+    agent_name: str, user_input: str, session_id: str | None
+) -> dict[str, Any]:
+    """后台作业/续跑共用的单子代理调用(并发闸 + 嵌套深度 + 超时同同步路径)。"""
+    orchestrator = _get_orchestrator()
+    if _SUBAGENT_SEMAPHORE.locked():
+        raise RuntimeError(
+            f"子代理并发数已达上限({_SUBAGENT_MAX_CONCURRENT}),后台作业未执行"
+        )
+    async with _SUBAGENT_SEMAPHORE:
+        _dtok = _subagent_depth.set(_subagent_depth.get() + 1)
+        try:
+            step_result = await asyncio.wait_for(
+                orchestrator.invoke(
+                    agent_name=agent_name,
+                    user_input=user_input,
+                    session_id=session_id,
+                ),
+                timeout=_get_subagent_timeout(),
+            )
+        finally:
+            _subagent_depth.reset(_dtok)
+    return {
+        "status": step_result.status,
+        "output": step_result.output,
+        "iterations": step_result.iterations,
+        "error": step_result.error,
+        "ok": step_result.status == "completed",
+    }
+
+
+async def _tool_subagent_job(arguments: dict[str, Any]) -> dict[str, Any]:
+    """subagent_job:后台子代理作业的 list/wait/send 最小闭环(2026-11-14 立)。
+
+    对齐 DSH continuable subagent:spawn(dispatch_subagent background=true)立即
+    返回 job_id;list/wait 查询;终态后 send 以同一 lineage 续跑(上一轮任务与
+    输出作为上下文)。所有权只认宿主注入身份,越权与不存在同形。
+    """
+    from . import subagent_jobs as jobs_store
+
+    action = str(arguments.get("action") or "list")
+    user_id = str(arguments.get("__user_id") or "").strip() or None
+    session_id = str(arguments.get("__session_id") or "").strip() or None
+
+    if action == "list":
+        try:
+            limit = int(arguments.get("limit", 20))
+        except (TypeError, ValueError):
+            limit = 20
+        result = jobs_store.list_jobs(
+            user_id=user_id, session_id=session_id, limit=max(1, min(limit, 100))
+        )
+        return {"tool": "subagent_job", "action": "list", **result}
+
+    job_id = str(arguments.get("job_id") or "").strip()
+    if not job_id:
+        return {
+            "tool": "subagent_job", "ok": False, "errorCode": "MISSING_PARAMS",
+            "error": f"{action} 需要 job_id",
+        }
+
+    if action == "wait":
+        try:
+            wait_s = float(arguments.get("wait_s", 30))
+        except (TypeError, ValueError):
+            wait_s = 30.0
+        result = await jobs_store.wait_job(
+            job_id,
+            user_id=user_id,
+            session_id=session_id,
+            wait_s=max(1.0, min(wait_s, 300.0)),
+        )
+        return {"tool": "subagent_job", "action": "wait", **result}
+
+    if action == "send":
+        job = jobs_store.get_job(job_id)
+        if job is None:
+            return {
+                "tool": "subagent_job", "ok": False,
+                "errorCode": "SUBAGENT_NOT_FOUND", "error": "作业不存在或无权访问",
+            }
+
+        def _builder(task_text: str) -> Callable[[], Awaitable[dict[str, Any]]]:
+            async def _invoke() -> dict[str, Any]:
+                return await _invoke_subagent_for_job(job.name, task_text, job.session_id)
+
+            return _invoke
+
+        result = await jobs_store.send_job(
+            job_id,
+            str(arguments.get("message") or ""),
+            user_id=user_id,
+            session_id=session_id,
+            invoker_builder=_builder,
+            timeout_s=float(_get_subagent_timeout()),
+        )
+        return {"tool": "subagent_job", "action": "send", **result}
+
+    if action == "cancel":
+        result = await jobs_store.cancel_job(
+            job_id, user_id=user_id, session_id=session_id
+        )
+        return {"tool": "subagent_job", "action": "cancel", **result}
+
+    return {
+        "tool": "subagent_job", "ok": False, "errorCode": "INVALID_PARAMS",
+        "error": f"不支持的 action: {action}(list/wait/send/cancel)",
+    }
 
 
 async def _tool_dispatch_subagent(
@@ -7062,6 +7569,55 @@ async def _tool_dispatch_subagent(
         }
         _settle_dispatch_ticket(ticket_id, _missing)
         return _missing
+    # 后台可续跑模式(2026-11-14 立,对标 DSH continuable subagent):
+    # 只支持单 agent;立即返回 job_id,父级用 subagent_job(list/wait/send)闭环。
+    if bool(arguments.get("background")):
+        if has_tasks:
+            return {
+                "tool": "dispatch_subagent", "ok": False, "mode": "background",
+                "error": "background 模式只支持单 agent(name/task),不支持 tasks 并行数组",
+                "errorCode": "BACKGROUND_PARALLEL_UNSUPPORTED",
+            }
+        from . import subagent_jobs as jobs_store
+
+        _bg_session = (
+            str(arguments.get("__session_id") or session_id or "").strip() or None
+        )
+        _bg_user = str(arguments.get("__user_id") or "").strip() or None
+
+        async def _invoke() -> dict[str, Any]:
+            return await _invoke_subagent_for_job(name, task, session_id)
+
+        started = await jobs_store.start_job(
+            name=name,
+            task=task,
+            user_id=_bg_user,
+            session_id=_bg_session,
+            invoker=_invoke,
+            timeout_s=float(_get_subagent_timeout()),
+        )
+        if not started.get("ok"):
+            return {"tool": "dispatch_subagent", "mode": "background", **started}
+        _job = started["job"]
+        # 工单不在此结算:后台作业仍在跑,结算权在整个作业结束(与同步路径同义)。
+        return _truncate_tool_output(
+            {
+                "tool": "dispatch_subagent",
+                "ok": True,
+                "mode": "background",
+                "agent": name,
+                "job_id": _job["job_id"],
+                "lineage_id": _job["lineage_id"],
+                "status": _job["status"],
+                "message": (
+                    "后台子智能体已启动。用 subagent_job(action='wait', job_id=...) "
+                    "等待终态,或 action='list' 查看;终态后 action='send' 可续跑同一任务线。"
+                ),
+            },
+            tool_name="dispatch_subagent",
+            session_id=session_id,
+        )
+
     _emit({"phase": "single_started", "agentName": name})
     try:
         orchestrator = _get_orchestrator()
@@ -7235,10 +7791,171 @@ def _team_task_now() -> str:
     return datetime.now(UTC).isoformat()
 
 
-def _team_task_add(
-    team_id: str, title: str, *, detail: str = "", created_by: str = "", owner: str = ""
+_TEAM_TASK_MAX_DEPS: Final = 20
+_TEAM_TASK_MAX_SCOPES: Final = 20
+
+
+def _team_task_str_list(
+    raw: object, field: str, limit: int
+) -> tuple[list[str] | None, dict[str, Any] | None]:
+    """把模型给的字符串数组归一(去空白、去重保序、限量);非法值结构化拒绝。"""
+    if raw is None:
+        return None, None
+    if not isinstance(raw, list):
+        return None, {
+            "ok": False, "errorCode": "INVALID_PARAMS",
+            "error": f"{field} 必须是字符串数组",
+        }
+    if len(raw) > limit:
+        return None, {
+            "ok": False, "errorCode": "INVALID_PARAMS",
+            "error": f"{field} 最多 {limit} 项",
+        }
+    out: list[str] = []
+    for item in raw:
+        if not isinstance(item, str) or not item.strip():
+            return None, {
+                "ok": False, "errorCode": "INVALID_PARAMS",
+                "error": f"{field} 每项必须是非空字符串",
+            }
+        out.append(item.strip())
+    return list(dict.fromkeys(out)), None
+
+
+def _team_task_would_cycle(
+    board: dict[str, dict[str, Any]], task_id: str, depends_on: list[str]
+) -> bool:
+    """依赖环判定:从新依赖集合出发沿 depends_on 上溯,能回到 task_id 即成环。"""
+    stack = list(depends_on)
+    seen: set[str] = set()
+    while stack:
+        current = stack.pop()
+        if current == task_id:
+            return True
+        if current in seen:
+            continue
+        seen.add(current)
+        entry = board.get(current)
+        if entry is not None:
+            stack.extend(entry.get("depends_on") or [])
+    return False
+
+
+def _team_task_validate_dependencies(
+    board: dict[str, dict[str, Any]], task_id: str, depends_on: list[str]
+) -> dict[str, Any] | None:
+    """依赖合法性:自依赖/不存在/成环一律整条拒绝(不静默丢弃)。"""
+    for dep in depends_on:
+        if dep == task_id:
+            return {
+                "ok": False, "errorCode": "TASK_DEPENDENCY_SELF",
+                "error": "条目不能依赖自身",
+            }
+        if dep not in board:
+            return {
+                "ok": False, "errorCode": "TASK_NOT_FOUND",
+                "error": f"依赖条目 {dep} 不存在",
+                "missing_dependency": dep,
+            }
+    if task_id and _team_task_would_cycle(board, task_id, depends_on):
+        return {
+            "ok": False, "errorCode": "TASK_DEPENDENCY_CYCLE",
+            "error": "依赖关系会形成环",
+        }
+    return None
+
+
+def _team_task_blockers(
+    board: dict[str, dict[str, Any]], entry: dict[str, Any]
+) -> list[str]:
+    """未完成的直接前置(缺失的依赖也按未完成处理,宁可挡住不放过)。"""
+    return [
+        dep
+        for dep in entry.get("depends_on") or []
+        if (board.get(dep) or {}).get("status") != "done"
+    ]
+
+
+def _team_task_scopes_overlap(left: str, right: str) -> bool:
+    """规范化路径前缀是否相交(同 DSH scopesOverlap:相等或互为目录前缀)。"""
+    left = left.rstrip("/")
+    right = right.rstrip("/")
+    return (
+        left == right
+        or left.startswith(f"{right}/")
+        or right.startswith(f"{left}/")
+    )
+
+
+def _team_task_view(
+    board: dict[str, dict[str, Any]], entry: dict[str, Any]
 ) -> dict[str, Any]:
-    """新增一条待办(进入 pending,谁都可领)。"""
+    """条目视图:原字段 + 派生态(ready/blocked_by/文件触碰提示)。
+
+    派生态只读、不回写条目;写范围重叠提示只和 `claimed`(进行中)的兄弟条目比,
+    与 DSH `projectTaskView` 只比 in_progress 同义。
+    """
+    view = dict(entry)
+    blockers = _team_task_blockers(board, entry)
+    view["blocked_by"] = blockers
+    view["ready"] = entry.get("status") == "pending" and not blockers
+    warnings: list[str] = []
+    scopes = entry.get("write_scopes") or []
+    if scopes:
+        for other in board.values():
+            if other.get("id") == entry.get("id"):
+                continue
+            if other.get("status") != "claimed":
+                continue
+            other_scopes = other.get("write_scopes") or []
+            if any(
+                _team_task_scopes_overlap(left, right)
+                for left in scopes
+                for right in other_scopes
+            ):
+                warnings.append(f"write scopes overlap with {other.get('id')}")
+    view["write_scope_warnings"] = warnings
+    return view
+
+
+def _team_task_stale(entry: dict[str, Any], expected_revision: object) -> dict[str, Any] | None:
+    """CAS:调用方带了 expected_revision 且与当前 revision 不符 → 整条拒绝。"""
+    if expected_revision is None:
+        return None
+    if not isinstance(expected_revision, (str, int, float)):
+        return {
+            "ok": False, "errorCode": "INVALID_PARAMS",
+            "error": "expected_revision 必须是整数",
+        }
+    try:
+        expected = int(expected_revision)
+    except (TypeError, ValueError):
+        return {
+            "ok": False, "errorCode": "INVALID_PARAMS",
+            "error": "expected_revision 必须是整数",
+        }
+    current = int(entry.get("revision", 1))
+    if expected != current:
+        return {
+            "ok": False, "errorCode": "TASK_STALE_REVISION",
+            "error": f"条目 {entry.get('id')} 已被并发修改(revision {current},期望 {expected})",
+            "revision": current,
+            "task": dict(entry),
+        }
+    return None
+
+
+def _team_task_add(
+    team_id: str,
+    title: str,
+    *,
+    detail: str = "",
+    created_by: str = "",
+    owner: str = "",
+    depends_on: list[str] | None = None,
+    write_scopes: list[str] | None = None,
+) -> dict[str, Any]:
+    """新增一条待办(进入 pending,谁都可领);依赖/写范围可选。"""
     board = _team_task_board(team_id, owner)
     if len(board) >= _TEAM_TASK_BOARD_LIMIT:
         return {
@@ -7246,6 +7963,11 @@ def _team_task_add(
             "error": f"团队 {team_id} 任务表已达上限({_TEAM_TASK_BOARD_LIMIT})",
         }
     import uuid
+
+    deps = list(depends_on or [])
+    dependency_error = _team_task_validate_dependencies(board, "", deps)
+    if dependency_error is not None:
+        return {**dependency_error, "tool": "team_task", "team_id": team_id}
 
     now = _team_task_now()
     entry: dict[str, Any] = {
@@ -7258,13 +7980,29 @@ def _team_task_add(
         "created_ts": now,
         "updated_ts": now,
         "note": "",
+        # 依赖/CAS/写范围(2026-11-14 立,对标 DSH dsh-agent-team task-board):
+        # revision 从 1 起,每次成功 mutation +1;depends_on 未 done 时不可 claim;
+        # write_scopes 只做重叠提示,不阻断。
+        "revision": 1,
+        "depends_on": deps,
+        "write_scopes": list(write_scopes or []),
     }
     board[entry["id"]] = entry
-    return {"ok": True, "tool": "team_task", "team_id": team_id, "task": dict(entry)}
+    return {
+        "ok": True, "tool": "team_task", "team_id": team_id,
+        "task": _team_task_view(board, entry),
+    }
 
 
-def _team_task_claim(team_id: str, task_id: str, agent_id: str, *, owner: str = "") -> dict[str, Any]:
-    """独占认领:已被他人领走则拒绝并回带持有者(调用方据此换领别条)。"""
+def _team_task_claim(
+    team_id: str,
+    task_id: str,
+    agent_id: str,
+    *,
+    owner: str = "",
+    expected_revision: object = None,
+) -> dict[str, Any]:
+    """独占认领:依赖未完成/已被他人领走/已结束都会拒绝并回带现状。"""
     if not agent_id:
         return {
             "ok": False, "errorCode": "MISSING_PARAMS",
@@ -7277,6 +8015,20 @@ def _team_task_claim(team_id: str, task_id: str, agent_id: str, *, owner: str = 
             "ok": False, "errorCode": "TASK_NOT_FOUND",
             "error": f"团队 {team_id} 内没有条目 {task_id}",
         }
+    stale_error = _team_task_stale(entry, expected_revision)
+    if stale_error is not None:
+        return {**stale_error, "tool": "team_task", "team_id": team_id}
+
+    # 依赖闸:任何直接前置未 done 都不可认领(和 DSH taskReady 同义)。
+    blockers = _team_task_blockers(board, entry)
+    if blockers:
+        return {
+            "ok": False, "errorCode": "TASK_BLOCKED",
+            "error": f"条目 {task_id} 的前置未完成: {', '.join(blockers)}",
+            "blocked_by": blockers,
+            "task": _team_task_view(board, entry),
+        }
+
     holder = entry.get("claimed_by") or ""
     # 生命周期优先于持有者判定:已完结/已受阻的条目谁都不可再领(领了也没人更新,只会污染看板)。
     # 先判 closed 再判 holder —— 否则"他人已做完的条目"会被报成"被他人领着",把"已完结"
@@ -7297,13 +8049,18 @@ def _team_task_claim(team_id: str, task_id: str, agent_id: str, *, owner: str = 
         }
     entry["claimed_by"] = agent_id
     entry["status"] = "claimed"
+    entry["revision"] = int(entry.get("revision", 1)) + 1
     entry["updated_ts"] = _team_task_now()
-    return {"ok": True, "tool": "team_task", "team_id": team_id, "task": dict(entry)}
+    return {
+        "ok": True, "tool": "team_task", "team_id": team_id,
+        "task": _team_task_view(board, entry),
+    }
 
 
 def _team_task_update(
     team_id: str, task_id: str, agent_id: str, *, status: str | None = None,
-    note: str | None = None, owner: str = "",
+    note: str | None = None, owner: str = "", depends_on: list[str] | None = None,
+    write_scopes: list[str] | None = None, expected_revision: object = None,
 ) -> dict[str, Any]:
     """更新条目:只有持有者可改;status 非法值整条拒绝(不静默吞掉)。"""
     if not agent_id:
@@ -7323,6 +8080,13 @@ def _team_task_update(
             "ok": False, "errorCode": "TASK_NOT_FOUND",
             "error": f"团队 {team_id} 内没有条目 {task_id}",
         }
+    stale_error = _team_task_stale(entry, expected_revision)
+    if stale_error is not None:
+        return {**stale_error, "tool": "team_task", "team_id": team_id}
+    if depends_on is not None:
+        dependency_error = _team_task_validate_dependencies(board, task_id, depends_on)
+        if dependency_error is not None:
+            return {**dependency_error, "tool": "team_task", "team_id": team_id}
     holder = entry.get("claimed_by") or ""
     if holder != agent_id:
         return {
@@ -7335,8 +8099,16 @@ def _team_task_update(
         entry["status"] = status
     if note is not None:
         entry["note"] = str(note)[:500]
+    if depends_on is not None:
+        entry["depends_on"] = list(depends_on)
+    if write_scopes is not None:
+        entry["write_scopes"] = list(write_scopes)
+    entry["revision"] = int(entry.get("revision", 1)) + 1
     entry["updated_ts"] = _team_task_now()
-    return {"ok": True, "tool": "team_task", "team_id": team_id, "task": dict(entry)}
+    return {
+        "ok": True, "tool": "team_task", "team_id": team_id,
+        "task": _team_task_view(board, entry),
+    }
 
 
 def _team_task_list(team_id: str, *, owner: str = "") -> dict[str, Any]:
@@ -7345,7 +8117,7 @@ def _team_task_list(team_id: str, *, owner: str = "") -> dict[str, Any]:
     return {
         "ok": True, "tool": "team_task", "team_id": team_id,
         "total": len(board),
-        "tasks": [dict(t) for t in board.values()],
+        "tasks": [_team_task_view(board, t) for t in board.values()],
     }
 
 
@@ -7360,6 +8132,19 @@ async def _tool_team_task(arguments: dict[str, Any]) -> dict[str, Any]:
     team_id = str(arguments.get("team_id") or "default")
     agent_id = str(arguments.get("agent_id") or "")
     task_id = str(arguments.get("task_id") or "")
+    # 依赖/CAS/写范围(2026-11-14):字段级校验先做,不持锁;依赖存在性与成环
+    # 判定在锁内(要读整表)。
+    depends_on, depends_error = _team_task_str_list(
+        arguments.get("depends_on"), "depends_on", _TEAM_TASK_MAX_DEPS
+    )
+    if depends_error is not None:
+        return {**depends_error, "tool": "team_task", "team_id": team_id}
+    write_scopes, scopes_error = _team_task_str_list(
+        arguments.get("write_scopes"), "write_scopes", _TEAM_TASK_MAX_SCOPES
+    )
+    if scopes_error is not None:
+        return {**scopes_error, "tool": "team_task", "team_id": team_id}
+    expected_revision = arguments.get("expected_revision")
     # AIS-109:看板归属取宿主注入的主体(LLM 不可控),模型自报的 team_id 只做展示分栏。
     owner = str(arguments.get("__user_id") or "").strip()
     # 全表操作串行化:claim 的"读-判-写"必须原子,否则并发下两人都能领到同一条。
@@ -7376,6 +8161,8 @@ async def _tool_team_task(arguments: dict[str, Any]) -> dict[str, Any]:
                 detail=str(arguments.get("detail") or ""),
                 created_by=agent_id,
                 owner=owner,
+                depends_on=depends_on,
+                write_scopes=write_scopes,
             )
         if action == "claim":
             if not task_id:
@@ -7383,7 +8170,10 @@ async def _tool_team_task(arguments: dict[str, Any]) -> dict[str, Any]:
                     "tool": "team_task", "ok": False, "errorCode": "MISSING_PARAMS",
                     "error": "claim 需要 task_id",
                 }
-            return _team_task_claim(team_id, task_id, agent_id, owner=owner)
+            return _team_task_claim(
+                team_id, task_id, agent_id, owner=owner,
+                expected_revision=expected_revision,
+            )
         if action == "update":
             if not task_id:
                 return {
@@ -7396,12 +8186,217 @@ async def _tool_team_task(arguments: dict[str, Any]) -> dict[str, Any]:
                 status=str(_status) if _status is not None else None,
                 note=arguments.get("note"),
                 owner=owner,
+                depends_on=depends_on,
+                write_scopes=write_scopes,
+                expected_revision=expected_revision,
             )
         if action == "list":
             return _team_task_list(team_id, owner=owner)
     return {
         "tool": "team_task", "ok": False, "errorCode": "INVALID_PARAMS",
         "error": f"不支持的 action: {action}(add/claim/update/list)",
+    }
+
+
+async def _tool_terminal(arguments: dict[str, Any]) -> dict[str, Any]:
+    """terminal:长驻交互式终端(open/send/read/signal/close/list)。
+
+    2026-11-14 立,对标 DSH dsh-tool-terminal。与 run_command 的差别是**同一进程
+    跨多次调用**:open 后可用 send 分步输入、read 增量取输出、signal 中断、close 收尾。
+    权限:admin-only + 高危审批(与 run_command 同档);cwd 必须落在工作区白名单内;
+    子进程环境走 sandbox 严档白名单,不整份继承宿主环境。
+    """
+    from . import interactive_terminal as term
+
+    action = str(arguments.get("action") or "").strip()
+    user_id = str(arguments.get("__user_id") or "").strip() or None
+    session_id = str(arguments.get("__session_id") or "").strip() or None
+    if not user_id and not session_id:
+        return {
+            "tool": "terminal", "ok": False,
+            "errorCode": "TERMINAL_NO_IDENTITY",
+            "error": "无宿主会话身份,拒绝打开或访问终端",
+        }
+
+    if action == "open":
+        command = str(arguments.get("command") or "").strip() or term.default_shell()
+        cwd_raw = str(arguments.get("cwd") or "").strip()
+        if not cwd_raw:
+            roots = _get_workspace_roots()
+            cwd_raw = roots[0] if roots else os.getcwd()
+        ok, resolved = _validate_path_in_workspace(cwd_raw)
+        if not ok:
+            return {
+                "tool": "terminal", "ok": False,
+                "errorCode": "PATH_NOT_ALLOWED", "error": resolved,
+            }
+        env_raw = arguments.get("env")
+        env_extra = (
+            {str(k): str(v) for k, v in env_raw.items()}
+            if isinstance(env_raw, dict)
+            else None
+        )
+        result = await asyncio.to_thread(
+            term.open_terminal,
+            command=command,
+            cwd=resolved,
+            user_id=user_id,
+            session_id=session_id,
+            env_extra=env_extra,
+        )
+        return {"tool": "terminal", "action": "open", **result}
+
+    if action == "list":
+        result = await asyncio.to_thread(
+            term.list_terminals, user_id=user_id, session_id=session_id
+        )
+        return {"tool": "terminal", "action": "list", **result}
+
+    terminal_id = str(arguments.get("terminal_id") or "").strip()
+    if not terminal_id:
+        return {
+            "tool": "terminal", "ok": False, "errorCode": "MISSING_PARAMS",
+            "error": f"{action or '该操作'} 需要 terminal_id",
+        }
+
+    if action == "send":
+        text = arguments.get("input")
+        if not isinstance(text, str):
+            return {
+                "tool": "terminal", "ok": False, "errorCode": "INVALID_PARAMS",
+                "error": "send 需要字符串 input",
+            }
+        result = await asyncio.to_thread(
+            term.send_terminal,
+            terminal_id,
+            text,
+            user_id=user_id,
+            session_id=session_id,
+            enter=bool(arguments.get("enter", True)),
+        )
+        return {"tool": "terminal", "action": "send", **result}
+
+    if action == "read":
+        try:
+            since_seq = int(arguments.get("since_seq", 0))
+        except (TypeError, ValueError):
+            since_seq = 0
+        try:
+            wait_s = float(arguments.get("wait_s", 1.0))
+        except (TypeError, ValueError):
+            wait_s = 1.0
+        try:
+            max_chars = int(arguments.get("max_chars", 8000))
+        except (TypeError, ValueError):
+            max_chars = 8000
+        result = await asyncio.to_thread(
+            term.read_terminal,
+            terminal_id,
+            user_id=user_id,
+            session_id=session_id,
+            since_seq=max(0, since_seq),
+            wait_s=max(0.0, min(wait_s, 10.0)),
+            max_chars=max(1, min(max_chars, term.MAX_READ_CHARS)),
+        )
+        return {"tool": "terminal", "action": "read", **result}
+
+    if action == "signal":
+        result = await asyncio.to_thread(
+            term.signal_terminal,
+            terminal_id,
+            signal_name=str(arguments.get("signal") or "interrupt"),
+            user_id=user_id,
+            session_id=session_id,
+        )
+        return {"tool": "terminal", "action": "signal", **result}
+
+    if action == "close":
+        result = await asyncio.to_thread(
+            term.close_terminal,
+            terminal_id,
+            user_id=user_id,
+            session_id=session_id,
+        )
+        return {"tool": "terminal", "action": "close", **result}
+
+    return {
+        "tool": "terminal", "ok": False, "errorCode": "INVALID_PARAMS",
+        "error": f"不支持的 action: {action}(open/send/read/signal/close/list)",
+    }
+
+
+async def _tool_session_search(arguments: dict[str, Any]) -> dict[str, Any]:
+    """session_search:跨会话全文检索(只读)。
+
+    对标 DSH dsh-tool-session-query 的 `session_search`(2026-11-14):
+    - 授权只认宿主注入的 `__user_id`(模型自报无效);命中过滤写在 SQL 里;
+    - **始终省略调用方会话**(`__session_id`),与 DSH 一致;
+    - 可显式 `thread_id` 限定单个会话,但属主不符与"不存在"同形(不做存在性预言机);
+    - 无身份(未绑用户的 dev 通道)直接拒绝,不退回全量检索。
+    """
+    query = str(arguments.get("query") or "").strip()
+    if not query:
+        return {
+            "tool": "session_search", "ok": False, "errorCode": "MISSING_PARAMS",
+            "error": "session_search 需要 query(非空检索词)",
+        }
+    try:
+        limit = int(arguments.get("limit", 10))
+    except (TypeError, ValueError):
+        limit = 10
+    limit = max(1, min(limit, 50))
+    thread_id = str(arguments.get("thread_id") or "").strip() or None
+    caller_user = str(arguments.get("__user_id") or "").strip()
+    caller_thread = str(arguments.get("__session_id") or "").strip() or None
+
+    if not caller_user:
+        return {
+            "tool": "session_search", "ok": False,
+            "errorCode": "SESSION_SEARCH_UNAUTHORIZED",
+            "error": "无宿主身份,拒绝跨会话检索",
+        }
+
+    # 懒导入:routers.sessions 依赖 app 装配,模块顶层导入会引入启动环。
+    from app.routers.sessions import get_session_store
+
+    store = get_session_store()
+    if thread_id is not None:
+        thread = store.get_thread(thread_id)
+        owner = (thread.metadata or {}).get("userId") if thread is not None else None
+        if thread is None or owner != caller_user:
+            return {
+                "tool": "session_search", "ok": False,
+                "errorCode": "SESSION_SEARCH_UNAUTHORIZED",
+                "error": "无权检索该会话",
+                "thread_id": thread_id,
+            }
+
+    hits = store.full_text_search(
+        query,
+        thread_id=thread_id,
+        limit=limit,
+        owner_user_id=caller_user,
+        # 限定单会话时无需排除;全库检索时始终省略调用方会话。
+        exclude_thread_id=None if thread_id else caller_thread,
+    )
+    results: list[dict[str, Any]] = []
+    for hit in hits:
+        thread = store.get_thread(hit.thread_id)
+        results.append({
+            "thread_id": hit.thread_id,
+            "title": thread.title if thread is not None else "",
+            "item_type": hit.item_type,
+            "seq": hit.seq,
+            "snippet": hit.snippet,
+            "score": hit.score,
+        })
+    return {
+        "tool": "session_search",
+        "ok": True,
+        "query": query,
+        "fts_enabled": bool(store.fts_enabled),
+        "total": len(results),
+        "hits": results,
     }
 
 
@@ -7427,6 +8422,12 @@ __all__ = ["_ARTIFACTS_CACHE"]
 # (isort 落点:同模块语句按首名 ai_* 排在 create_* 之前;finance_tools 语句在段尾)
 from ..tools import (  # noqa: E402
     ai_bookkeeping as _ai_bookkeeping,
+)
+
+# 人事部→财务部 AI 交割(2026-11-13 立):生成某月薪资的财务交割凭证(payroll_handoff_tools,
+# 经 internal 凭证腿调 apps/api POST /api/hr-payroll/handoff;create_automation 同路线)
+from ..tools import (  # noqa: E402
+    ai_payroll_handoff as _ai_payroll_handoff,
 )
 from ..tools import (  # noqa: E402
     ai_tax_filing as _ai_tax_filing,
@@ -7469,10 +8470,24 @@ from ..tools import (
     parse_document as _parse_document,
 )
 
+# G1(2026-11-14,对标 WorkBuddy sheetagent):xlsx 公式重算/校验。
+# 零新增依赖(zipfile+ElementTree),逐格 provenance + 依赖图 + 结构化错误。
+from ..tools import (
+    sheet_formula_eval as _sheet_formula_eval,
+)
+from ..tools import (
+    sheet_formula_validate as _sheet_formula_validate,
+)
+
 # 财务部插件描述常量(RP-46):与上方 ai_* import 同源,文案单源在 finance_tools
 from ..tools.finance_tools import (  # noqa: E402
     AI_BOOKKEEPING_DESCRIPTION,
     AI_TAX_FILING_DESCRIPTION,
+)
+
+# 人事部→财务部交割描述常量(2026-11-13 立):文案单源在 payroll_handoff_tools
+from ..tools.payroll_handoff_tools import (  # noqa: E402
+    PAYROLL_HANDOFF_DESCRIPTION,
 )
 
 
@@ -10776,100 +11791,6 @@ async def _tool_summarize_artifacts(arguments: dict[str, Any]) -> dict[str, Any]
     return result
 
 
-# present_files 声明面上限:每次最多 8 个文件(超出直接拒绝,不静默截断 ——
-# 静默截断会让"我以为都交付了"和"实际只交付了一半"在账面同形);
-# 路径/说明的长度上限只防无界输入,不参与任何文件系统判定。
-_PRESENT_FILES_MAX = 8
-_PRESENT_FILE_PATH_MAX = 500
-_PRESENT_FILE_DESC_MAX = 200
-
-
-def _normalize_present_path(raw: Any) -> str:
-    """归一化交付路径:去空白、统一分隔符、拒绝控制字符;不做文件系统访问。
-
-    为什么这里**不**调 `_validate_path_in_workspace`:本工具只登记交付物,
-    不读取也不改写。本地工作区模式(workspace_context 委托读写)下服务端本来
-    就看不到用户磁盘,按服务端根判存会把合法的本地产物全判死;而路径最终由
-    前端工作区文件预览解析,那一层才有真实的文件句柄。安全边界因此不在本工具,
-    但空路径 / 控制字符 / 超长仍一律拒绝。
-    """
-    if not isinstance(raw, str):
-        return ""
-    text = raw.strip().replace("\\", "/")
-    if not text or len(text) > _PRESENT_FILE_PATH_MAX:
-        return ""
-    if any(ord(ch) < 0x20 or ord(ch) == 0x7F for ch in text):
-        return ""
-    return text
-
-
-async def _tool_present_files(arguments: dict[str, Any]) -> dict[str, Any]:
-    """present_files: 把已存在的文件显式声明为交付物(对标 DSH dsh-tool-present)。
-
-    病灶:自动交付清单只收得到「经由文件工具写入」的变更证据;由 run_command
-    构建出来的产物、office_document 转换出的 docx/pdf、脚本导出的图表都不会
-    出现在 filesChanged 里 —— 模型没有任何办法告诉界面"这些才是最终交付物"。
-
-    判据:
-      - 只登记,不读、不写、不判存在(见 `_normalize_present_path` 的理由);
-      - 空路径 / 非字符串 / 控制字符 / 超过 500 字 → 整次拒绝(失败闭合,不半登记);
-      - 一次最多 8 个,超出整次拒绝(不静默截断);
-      - 同路径(忽略大小写)保首现,重复项不重复展示。
-    """
-    raw_files = arguments.get("files")
-    if not isinstance(raw_files, list) or not raw_files:
-        return {
-            "tool": "present_files", "ok": False,
-            "errorCode": "INVALID_ARGUMENTS",
-            "error": "files 必须是非空数组,每项形如 {\"path\": \"...\", \"description\": \"...\"}",
-            "presented": [],
-        }
-    if len(raw_files) > _PRESENT_FILES_MAX:
-        return {
-            "tool": "present_files", "ok": False,
-            "errorCode": "TOO_MANY_FILES",
-            "error": f"一次最多登记 {_PRESENT_FILES_MAX} 个交付文件(收到 {len(raw_files)} 个),请挑选最终交付物",
-            "presented": [],
-        }
-
-    presented: list[dict[str, Any]] = []
-    seen: set[str] = set()
-    for index, item in enumerate(raw_files):
-        if not isinstance(item, dict):
-            return {
-                "tool": "present_files", "ok": False,
-                "errorCode": "INVALID_ARGUMENTS",
-                "error": f"files[{index}] 必须是对象",
-                "presented": [],
-            }
-        path = _normalize_present_path(item.get("path"))
-        if not path:
-            return {
-                "tool": "present_files", "ok": False,
-                "errorCode": "INVALID_PATH",
-                "error": f"files[{index}].path 为空、含控制字符或超过 {_PRESENT_FILE_PATH_MAX} 字",
-                "presented": [],
-            }
-        key = path.casefold()
-        if key in seen:
-            continue
-        seen.add(key)
-        entry: dict[str, Any] = {"path": path}
-        desc_raw = item.get("description")
-        if isinstance(desc_raw, str):
-            desc = " ".join(desc_raw.split())[:_PRESENT_FILE_DESC_MAX]
-            if desc:
-                entry["description"] = desc
-        presented.append(entry)
-
-    return {
-        "tool": "present_files", "ok": True,
-        "presented": presented,
-        "count": len(presented),
-        "message": f"已登记 {len(presented)} 个交付文件",
-    }
-
-
 def _parse_simple_cron(cron: str) -> str | None:
     """降级解析简单 cron 表达式(croniter 未安装时,仅支持 'M H * * *' 形式)。"""
     parts = cron.split()
@@ -11444,12 +12365,53 @@ async def _tool_bg_task_status(arguments: dict[str, Any]) -> dict[str, Any]:
         }
 
     task_id = arguments.get("task_id")
+    raw_cancel = arguments.get("cancel")
+    want_cancel = raw_cancel is True or str(raw_cancel).strip().lower() in {"1", "true", "yes", "on"}
+    try:
+        wait_s = float(arguments.get("wait_s") or 0)
+    except (TypeError, ValueError):
+        return {"ok": False, "errorCode": "INVALID_ARGUMENT", "error": "wait_s 必须是数字"}
+    wait_s = min(max(wait_s, 0.0), 300.0)
+    if not task_id and (want_cancel or wait_s > 0):
+        return {
+            "ok": False,
+            "errorCode": "INVALID_ARGUMENT",
+            "error": "cancel/wait_s 只在指定 task_id 时可用;列表模式不接受这两个参数",
+        }
     if task_id:
         status = await background_task_manager.get_status(str(task_id))
         # 非本人的任务与"不存在"同形返回:否则 task_id 就是他人任务的枚举面
         # (任务名、状态、result 原文一并读出)。
         if status is None or status.get("user_id") != host_user_id:
             return {"ok": False, "error": f"任务不存在: {task_id}"}
+        if want_cancel:
+            cancel_result = await background_task_manager.cancel(str(task_id))
+            current = await background_task_manager.get_status(str(task_id))
+            return {
+                "ok": True,
+                "task": current or status,
+                "cancel": cancel_result,
+                "cancelled": bool(cancel_result.get("ok")),
+            }
+        if wait_s > 0:
+            # 等待终态:按 0.25s 轮询,最长 wait_s(上限 300s);到点未终态如实回 waitTimedOut,
+            # 不把"还在跑"伪装成"已完成"。wait_s=0 时保持旧的非阻塞语义。
+            terminal = {"succeeded", "failed", "timeout", "cancelled"}
+            deadline = time.monotonic() + wait_s
+            while status.get("state") not in terminal:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    break
+                await asyncio.sleep(min(0.25, remaining))
+                status = await background_task_manager.get_status(str(task_id))
+                if status is None or status.get("user_id") != host_user_id:
+                    return {"ok": False, "error": f"任务不存在: {task_id}"}
+            return {
+                "ok": True,
+                "task": status,
+                "waited": True,
+                "waitTimedOut": status.get("state") not in terminal,
+            }
         return {"ok": True, "task": status}
 
     # 列表模式的过滤主体只认宿主注入值。原写法 `arguments.get("user_id") or __user_id`
@@ -12214,6 +13176,47 @@ async def _tool_run_workflow(arguments: dict[str, Any]) -> dict[str, Any]:
 
     resume_raw = arguments.get("resume_from_run_id")
     resume = str(resume_raw).strip() if resume_raw is not None and str(resume_raw).strip() else None
+    # 后台化(对齐 DSH tool-workflow 的 run_in_background):提交即返回 task_id,
+    # 工作流按同一 run_workflow 语义在后台执行,结果经 bg_task_status 取回。
+    # 拒绝/禁用态显式回 BACKGROUND_REJECTED,绝不伪装成"已开始"。
+    raw_bg = arguments.get("run_in_background")
+    run_bg = raw_bg is True or str(raw_bg).strip().lower() in {"1", "true", "yes", "on"}
+    if run_bg:
+        from .background_tasks import background_task_manager
+
+        try:
+            timeout_s = float(arguments.get("timeout_s") or 1800)
+        except (TypeError, ValueError):
+            timeout_s = 1800.0
+        timeout_s = min(max(timeout_s, 1.0), 3600.0)
+        node_count = len(nodes_raw) if isinstance(nodes_raw, list) else 0
+        raw_notify = arguments.get("notify_on_done")
+        notify = raw_notify is True or str(raw_notify).strip().lower() in {"1", "true", "yes", "on"}
+        submitted = await background_task_manager.submit(
+            lambda: run_workflow(
+                arguments.get("nodes"),
+                principal=_uid,
+                user_role=arguments.get("__user_role"),
+                resume_from_run_id=resume,
+            ),
+            name=f"后台工作流({node_count} 节点)",
+            user_id=_uid,
+            session_id=_sid,
+            notify_on_done=notify,
+            timeout_s=timeout_s,
+        )
+        if isinstance(submitted, dict):
+            return {
+                "tool": "run_workflow", "ok": False,
+                "errorCode": "BACKGROUND_REJECTED",
+                "error": str(submitted.get("error") or "后台任务被拒绝"),
+                "detail": submitted,
+            }
+        return {
+            "tool": "run_workflow", "ok": True, "background": True,
+            "task_id": submitted, "status": "pending", "run_id": None,
+            "executed": [], "cached": [], "skipped": {}, "failed": {}, "results": {},
+        }
     result = await run_workflow(
         arguments.get("nodes"),
         principal=_uid,
@@ -12535,11 +13538,46 @@ _TOOLS: list[MCPTool] = [
     ),
     MCPTool(
         name="read_file",
-        description="读取本地文件内容",
+        description=(
+            "读取本地文件内容。大文件用 offset/limit 按行分页:返回带行号的窗口、总行数"
+            "和下一页 offset;不传 offset/limit 时返回整文件原文"
+        ),
         input_schema={
             "type": "object",
-            "properties": {"path": {"type": "string", "description": "文件绝对或相对路径"}},
+            "properties": {
+                "path": {"type": "string", "description": "文件绝对或相对路径"},
+                "offset": {
+                    "type": "integer",
+                    "description": "起始行号(从 1 开始);只在大文件分页时传",
+                    "minimum": 1,
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": f"本次最多读取行数(1-{_READ_WINDOW_MAX_LINES},默认 {_READ_WINDOW_MAX_LINES})",
+                    "minimum": 1,
+                    "maximum": _READ_WINDOW_MAX_LINES,
+                },
+            },
             "required": ["path"],
+        },
+    ),
+    MCPTool(
+        name="read_image",
+        description=(
+            "读取 PNG/JPEG/WebP/GIF 图片并把图片本身交给当前主模型直接查看"
+            "(不是 OCR、也不转交其它视觉模型)。大图会自动降采样并给出坐标换算倍数;"
+            "不要为了看图安装图像库或生成缩略图"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "file_path": {
+                    "type": "string",
+                    "description": "图片文件路径(必须在工作区白名单内)",
+                },
+            },
+            "required": ["file_path"],
+            "additionalProperties": False,
         },
     ),
     MCPTool(
@@ -12706,6 +13744,75 @@ _TOOLS: list[MCPTool] = [
             },
         },
     ),
+    # ===== 模型侧交互式终端(2026-11-14,对标 DSH dsh-tool-terminal)=====
+    MCPTool(
+        name="terminal",
+        description=(
+            "长驻交互式终端(同一进程跨多次调用):open 启动 → send 分步输入 → "
+            "read 按 seq 增量读 → signal 中断/终止 → close 收尾;list 列出本会话终端。"
+            "适合 REPL、调试器、交互式脚手架等 run_command 一次跑不完的场景。"
+            "cwd 必须在工作区白名单内;子进程环境走沙箱严档白名单;"
+            "admin-only 且与 run_command 同档审批。"
+        ),
+        input_schema={
+            "type": "object",
+            "required": ["action"],
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["open", "send", "read", "signal", "close", "list"],
+                    "description": "open 启动 / send 输入 / read 读输出 / signal 发信号 / close 关闭 / list 列出",
+                },
+                "terminal_id": {
+                    "type": "string",
+                    "description": "open 之外的操作必填",
+                },
+                "command": {
+                    "type": "string",
+                    "description": "open:启动命令(省略则用默认 shell)",
+                },
+                "cwd": {
+                    "type": "string",
+                    "description": "open:工作目录(必须在工作区白名单内;省略用首个工作区根)",
+                },
+                "env": {
+                    "type": "object",
+                    "additionalProperties": {"type": "string"},
+                    "description": "open:附加环境变量(仍受沙箱白名单约束)",
+                },
+                "input": {
+                    "type": "string",
+                    "description": "send:写入的文本",
+                },
+                "enter": {
+                    "type": "boolean",
+                    "description": "send:是否自动追加换行(默认 true)",
+                    "default": True,
+                },
+                "since_seq": {
+                    "type": "integer",
+                    "description": "read:从哪个序号之后开始读(用上次返回的 next_seq 续读)",
+                    "default": 0,
+                },
+                "wait_s": {
+                    "type": "number",
+                    "description": "read:等待新输出的秒数(0-10,默认 1)",
+                    "default": 1,
+                },
+                "max_chars": {
+                    "type": "integer",
+                    "description": "read:本次最多返回字符数(默认 8000)",
+                    "default": 8000,
+                },
+                "signal": {
+                    "type": "string",
+                    "enum": ["interrupt", "terminate", "kill"],
+                    "description": "signal:信号类型(默认 interrupt)",
+                    "default": "interrupt",
+                },
+            },
+        },
+    ),
     MCPTool(
         name="run_command",
         description="运行 shell 命令(asyncio.subprocess 流式读取 stdout/stderr,白名单: git/ls/cat/echo/python/node/npm/pnpm/ruff/mypy/pytest 等,禁止 rm/mv/cp/curl/重定向/管道)。支持 sandbox_backend 切换 local/docker/ssh,支持 env 透传(禁止覆盖 PATH/HOME),cwd 校验工作区,超时 kill 进程并返回 partial_output",
@@ -12740,14 +13847,21 @@ _TOOLS: list[MCPTool] = [
     ),
     MCPTool(
         name="web_search",
-        description="网页搜索(复用 DuckDuckGo Lite HTML,无 API key)",
+        description="网页搜索(复用 DuckDuckGo Lite HTML,无 API key)。支持 1-10 个 queries 并发检索并按 URL 去重合并",
         input_schema={
             "type": "object",
             "properties": {
-                "query": {"type": "string", "description": "搜索关键词"},
-                "max_results": {"type": "integer", "description": "最大返回数", "default": 5},
+                "query": {"type": "string", "description": "单个搜索关键词(与 queries 二选一)"},
+                "queries": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "minItems": 1,
+                    "maxItems": 10,
+                    "description": "1-10 个搜索关键词;并发检索后按 URL 去重合并(query 可省略)",
+                },
+                "max_results": {"type": "integer", "description": "合并后的最大返回数", "default": 5},
             },
-            "required": ["query"],
+            "required": [],
         },
     ),
     MCPTool(
@@ -12764,14 +13878,21 @@ _TOOLS: list[MCPTool] = [
     ),
     MCPTool(
         name="search_web",
-        description="DuckDuckGo Lite 搜索",
+        description="DuckDuckGo Lite 搜索(支持 query 单查询或 queries 多查询并发合并)",
         input_schema={
             "type": "object",
             "properties": {
-                "query": {"type": "string"},
+                "query": {"type": "string", "description": "单个搜索关键词(与 queries 二选一)"},
+                "queries": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "minItems": 1,
+                    "maxItems": 10,
+                    "description": "1-10 个搜索关键词;并发检索后按名次轮转、URL 去重合并",
+                },
                 "max_results": {"type": "integer", "default": 5},
             },
-            "required": ["query"],
+            "required": [],
         },
     ),
     MCPTool(
@@ -13248,17 +14369,26 @@ _TOOLS: list[MCPTool] = [
     MCPTool(
         name="vision_analyze",
         description=(
-            "图像分析(支持 URL 和 base64)。传入图片 + 分析任务描述,"
+            "图像分析(支持本地文件、URL 和 base64)。传入图片 + 分析任务描述,"
             "调用支持视觉的 LLM 模型返回分析结果。"
             "适用于'描述这张图片的内容'/'识别图中的文字'/'分析 UI 截图'等场景。"
         ),
         input_schema={
             "type": "object",
             "properties": {
+                "image_path": {
+                    "type": "string",
+                    "description": "本地图片路径(工作区内 png/jpg/jpeg/webp/gif,≤10MB)——分析本地截图首选",
+                },
                 "image": {
                     "type": "string",
                     "description": "图片 URL(http/https)或 base64 编码(如 data:image/png;base64,...)",
                 },
+                "image_base64": {
+                    "type": "string",
+                    "description": "base64 编码图片(可带 data: 前缀)",
+                },
+                "image_url": {"type": "string", "description": "图片 URL(http/https)"},
                 "task": {
                     "type": "string",
                     "description": "分析任务描述(如'描述这张图片的内容')",
@@ -13268,7 +14398,7 @@ _TOOLS: list[MCPTool] = [
                     "description": "期望模型(可选,缺省用支持视觉的模型,如 gpt-4o)",
                 },
             },
-            "required": ["image", "task"],
+            "required": ["task"],
         },
     ),
     # ===== 子智能体派发工具(2026-07-24 新增)=====
@@ -13329,7 +14459,55 @@ _TOOLS: list[MCPTool] = [
                         "可选。并入子代理禁止名单;同一名字同时被允许和禁止时,禁止优先。"
                     ),
                 },
+                "background": {
+                    "type": "boolean",
+                    "description": (
+                        "true=后台执行并立即返回 job_id(仅单 agent 模式);"
+                        "随后用 subagent_job(list/wait/send)收结果与续跑。"
+                        "长任务或需要与子代理并行推进时使用。"
+                    ),
+                },
             },
+        },
+    ),
+    # ===== 可续跑 subagent 作业台(2026-11-14,对标 DSH continuable subagent)=====
+    MCPTool(
+        name="subagent_job",
+        description=(
+            "后台子代理作业的查询、续跑与中断:list 列出本会话作业;wait 有限等待到终态;"
+            "send 向**已结束**的作业追加消息,以同一任务线(lineage)续跑,"
+            "上一轮任务与输出自动作为上下文;cancel 中断运行中的作业。"
+            "运行中的作业 send 返回 SUBAGENT_BUSY。"
+            "spawn 入口是 dispatch_subagent(background=true)。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["list", "wait", "send", "cancel"],
+                    "description": "list 列出 / wait 等待 / send 续跑 / cancel 中断",
+                },
+                "job_id": {
+                    "type": "string",
+                    "description": "wait/send/cancel 必填:dispatch_subagent(background=true) 返回的 job_id",
+                },
+                "wait_s": {
+                    "type": "integer",
+                    "description": "wait 等待秒数(1-300,默认 30;到期未完成返回 running)",
+                    "default": 30,
+                },
+                "message": {
+                    "type": "string",
+                    "description": "send 必填:追加给同一任务线的新消息",
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "list 返回上限(1-100,默认 20)",
+                    "default": 20,
+                },
+            },
+            "required": ["action"],
         },
     ),
     # ===== D08①(2026-10-25):团队共享任务列表(子 agent 可认领/更新条目)=====
@@ -13337,8 +14515,11 @@ _TOOLS: list[MCPTool] = [
         name="team_task",
         description=(
             "团队共享任务列表:同一次协作里的多个子 agent 共用的待办表。"
-            "add 建条目(pending)→ claim 认领(独占,已被他人领走则回 ALREADY_CLAIMED 并带持有者)"
-            "→ update 更新状态/备注(仅持有者可改)→ list 读整表快照。"
+            "add 建条目(pending,可带 depends_on/write_scopes)→ claim 认领"
+            "(独占;前置未完成回 TASK_BLOCKED)→ update 更新状态/备注/依赖"
+            "(仅持有者可改;带 expected_revision 做 CAS,过期回 TASK_STALE_REVISION)"
+            "→ list 读整表快照(含 ready/blocked_by/write_scope_warnings)。"
+            "write_scopes 只是文件触碰提示(与进行中条目路径前缀重叠时告警),不阻断。"
             "与 dispatch_subagent 搭配用:派发是一次性往返,本表补上共同事实源。"
         ),
         input_schema={
@@ -13370,8 +14551,58 @@ _TOOLS: list[MCPTool] = [
                     "description": "update:目标状态;非法值整条拒绝",
                 },
                 "note": {"type": "string", "description": "update:备注(可选,截断 500 字)"},
+                "depends_on": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "maxItems": 20,
+                    "description": (
+                        "add/update:前置条目 id 列表;任一前置未 done 时不可 claim"
+                        "(回 TASK_BLOCKED),成环整条拒绝(TASK_DEPENDENCY_CYCLE)"
+                    ),
+                },
+                "write_scopes": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "maxItems": 20,
+                    "description": (
+                        "add/update:预计写入的路径前缀;与其它进行中条目的前缀重叠时"
+                        "list 返回 write_scope_warnings(仅提示,不阻断)"
+                    ),
+                },
+                "expected_revision": {
+                    "type": "integer",
+                    "description": "claim/update:CAS 期望版本;与当前 revision 不符回 TASK_STALE_REVISION",
+                },
             },
             "required": ["action"],
+        },
+    ),
+    # ===== 跨会话检索(2026-11-14,对标 DSH dsh-tool-session-query session_search)=====
+    MCPTool(
+        name="session_search",
+        description=(
+            "跨会话全文检索:在**当前用户自己的**历史会话里找相关旧工作,返回会话标题"
+            "与最佳匹配摘录(只读)。始终省略调用方会话;可显式 thread_id 限定单个"
+            "会话。无宿主身份时拒绝。用于开工前先查'这件事以前做过没有'。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "字面检索词(非空;FTS 可用时按全文匹配,否则 LIKE)",
+                },
+                "thread_id": {
+                    "type": "string",
+                    "description": "限定单个会话;省略则检索该用户全部历史会话",
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "命中上限(1-50,默认 10)",
+                    "default": 10,
+                },
+            },
+            "required": ["query"],
         },
     ),
     # ===== 扩展工具(2026-07-24 新增,自研)=====
@@ -13862,42 +15093,6 @@ _TOOLS: list[MCPTool] = [
         },
     ),
     MCPTool(
-        name="present_files",
-        description=(
-            "把已经存在的文件显式声明为本次答复的交付物。"
-            "用于补自动变更清单漏掉的产物:由 run_command 构建/导出的文件、"
-            "office_document 转换出的 docx/pdf、脚本生成的图表等。"
-            "只登记路径与可选说明,不读取、不改写、不校验文件是否存在;"
-            "一次最多 8 个,前端交付清单按路径渲染。所有用户可用。"
-        ),
-        input_schema={
-            "type": "object",
-            "properties": {
-                "files": {
-                    "type": "array",
-                    "minItems": 1,
-                    "maxItems": 8,
-                    "items": {
-                        "type": "object",
-                        "properties": {
-                            "path": {
-                                "type": "string",
-                                "description": "文件路径(工作区相对路径或绝对路径)",
-                            },
-                            "description": {
-                                "type": "string",
-                                "description": "一句话说明这个文件是什么(可选,最多 200 字)",
-                            },
-                        },
-                        "required": ["path"],
-                    },
-                    "description": "要声明为交付物的文件列表(最多 8 个)",
-                },
-            },
-            "required": ["files"],
-        },
-    ),
-    MCPTool(
         name="schedule_task",
         description=(
             "调度定时任务(once/recurring)。"
@@ -14250,6 +15445,23 @@ _TOOLS: list[MCPTool] = [
         },
     ),
     MCPTool(
+        # 人事部→财务部·AI 交割(2026-11-13 立):生成某月薪资的财务交割凭证
+        # 纯产出凭证不入账;权限 hr:payroll:manage 由 api RBAC 逐请求现问
+        name="ai_payroll_handoff",
+        description=PAYROLL_HANDOFF_DESCRIPTION,
+        input_schema={
+            "type": "object",
+            "properties": {
+                "periodMonth": {
+                    "type": "string",
+                    "description": "薪资期间,格式 YYYY-MM(必填,如 2026-10);须该月薪资周期已财务审批通过(approved)",
+                },
+            },
+            "required": ["periodMonth"],
+            "additionalProperties": False,
+        },
+    ),
+    MCPTool(
         name="parse_document",
         description=(
             "解析本地文档为可注入上下文的文本/Markdown,支持 15 种格式:"
@@ -14263,6 +15475,71 @@ _TOOLS: list[MCPTool] = [
             "properties": {
                 "path": {"type": "string", "description": "文件绝对路径或相对项目根路径"},
                 "max_chars": {"type": "integer", "description": "返回内容上限,默认 20000(500-100000)", "default": 20000},
+            },
+            "required": ["path"],
+            "additionalProperties": False,
+        },
+    ),
+    MCPTool(
+        name="sheet_formula_eval",
+        description=(
+            "重算本地 xlsx/xlsm 表格里的公式,返回逐格 {value, formula, source} 三态 provenance、"
+            "依赖图(每个公式格引用了谁)与结构化错误(循环引用/坏引用/未知函数/类型错/除零/无匹配)。"
+            "支持 SUM/AVERAGE/MIN/MAX/ROUND/ABS/IF/VLOOKUP/COUNT/COUNTA/CONCAT、四则运算、"
+            "A1/$A$1/区域/跨表引用。只读不写;文件里上次存盘的缓存值单独给出并标记是否与重算一致。"
+            "用于核对表格计算结果、排查公式错误、审计数据来源。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "path": {"type": "string", "description": "xlsx/xlsm 文件绝对路径或相对项目根路径"},
+                "sheet": {"type": "string", "description": "可选。只处理该工作表(大小写不敏感)"},
+                "range": {
+                    "type": "string",
+                    "description": "可选。只处理该区域内的公式格,如 A1:C20 或 'Sheet1!A1:C20'",
+                },
+                "include_inputs": {
+                    "type": "boolean",
+                    "description": "是否附带公式引用到的输入格(默认 true,便于追溯数据来源)",
+                    "default": True,
+                },
+                "max_cells": {
+                    "type": "integer",
+                    "description": "返回格数上限,默认 2000(1-20000)",
+                    "default": 2000,
+                },
+            },
+            "required": ["path"],
+            "additionalProperties": False,
+        },
+    ),
+    MCPTool(
+        name="sheet_formula_validate",
+        description=(
+            "校验本地 xlsx/xlsm 表格的公式,逐条返回 findings(severity/code/cell/formula/message):"
+            "语法错、未知函数、坏引用、循环引用(带闭环路径)、类型错、除零、VLOOKUP 无匹配,"
+            "以及文件缓存值与重算值不一致(CACHED_VALUE_MISMATCH,提示缓存是旧值)。"
+            "clean=true 表示没有任何 error 级问题。只读不写,用于交付前自检表格。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "path": {"type": "string", "description": "xlsx/xlsm 文件绝对路径或相对项目根路径"},
+                "sheet": {"type": "string", "description": "可选。只校验该工作表(大小写不敏感)"},
+                "range": {
+                    "type": "string",
+                    "description": "可选。只校验该区域内的公式格,如 A1:C20 或 'Sheet1!A1:C20'",
+                },
+                "max_findings": {
+                    "type": "integer",
+                    "description": "findings 上限,默认 200(1-2000)",
+                    "default": 200,
+                },
+                "include_cache_mismatch": {
+                    "type": "boolean",
+                    "description": "是否检查缓存值漂移(默认 true)",
+                    "default": True,
+                },
             },
             "required": ["path"],
             "additionalProperties": False,
@@ -14470,13 +15747,27 @@ _TOOLS: list[MCPTool] = [
     ),
     MCPTool(
         name="bg_task_status",
-        description="查询后台任务状态(凭 task_id)或列出某用户的任务;只读,不阻塞循环",
+        description=(
+            "查询后台任务状态(凭 task_id)或列出某用户的任务。只传 task_id 时立即返回;"
+            "wait_s>0 时最多等待该秒数到终态,到点未终态如实回 waitTimedOut;"
+            "cancel=true 终止任务(已终态则不再变更)。cancel/wait_s 仅指定 task_id 时可用"
+        ),
         input_schema={
             "type": "object",
             "properties": {
                 "task_id": {
                     "type": "string",
                     "description": "查询指定任务状态(不传则进入列表模式)",
+                },
+                "wait_s": {
+                    "type": "number",
+                    "description": "等待终态的最长秒数(0-300,默认 0=立即返回);仅指定 task_id 时有效",
+                    "minimum": 0,
+                    "maximum": 300,
+                },
+                "cancel": {
+                    "type": "boolean",
+                    "description": "true=取消该任务(仅指定 task_id 时有效);已终态时返回不再变更",
                 },
                 # user_id 已从本工具的对外 schema 摘除(2026-10-31):它是路由身份键
                 # (ROUTING_IDENTITY_KEYS),只能由宿主注入 __user_id,不得作为模型可填参数
@@ -15063,6 +16354,8 @@ _TOOLS: list[MCPTool] = [
             "按拓扑序逐节点执行(agent 取已注册任务类型)。带 resume_from_run_id 续跑时,"
             "入参未变的节点瞬时回缓存不重跑,只有入参变化或此前失败的节点真执行;"
             "run 不存在/脚本非法/跨主体一律显式错误码且零执行。身份只认承载层注入,不接受模型自报。"
+            "长工作流传 run_in_background=true:立即返回 task_id,用 bg_task_status 查结果;"
+            "后台任务被拒/禁用时显式回 BACKGROUND_REJECTED,不会伪装成已开始。"
         ),
         input_schema={
             "type": "object",
@@ -15077,6 +16370,20 @@ _TOOLS: list[MCPTool] = [
                 "resume_from_run_id": {
                     "type": "string",
                     "description": "续跑的目标 run_id(可选;缺省=新建 run 全量执行)",
+                },
+                "run_in_background": {
+                    "type": "boolean",
+                    "description": "true=提交后台执行并立即返回 task_id;缺省=false 同步等待结果",
+                },
+                "timeout_s": {
+                    "type": "number",
+                    "description": "后台执行超时秒数(1-3600,默认 1800);仅 run_in_background=true 生效",
+                    "minimum": 1,
+                    "maximum": 3600,
+                },
+                "notify_on_done": {
+                    "type": "boolean",
+                    "description": "后台完成时是否推送 IM 通知(默认 false)",
                 },
             },
             "required": ["nodes"],
@@ -15249,9 +16556,12 @@ _TOOLS: list[MCPTool] = [
     MCPTool(
         name="ask_user_question",
         description=(
-            "向用户提一个结构化问题并**阻塞等待**答复(交互宿主会把问题帧下发到"
-            "当前会话,用户答复后本调用才返回)。schema 对齐 CLI AskUserQuestion:"
+            "向用户提一个结构化问题并等待答复(交互宿主会把问题帧下发到"
+            "当前会话)。schema 对齐 CLI AskUserQuestion:"
             "单选默认、multiSelect=true 为多选、allowCustom=true 允许自由文本。"
+            "可选 timeout_s 进入定时模式:前台等待到期后返回 pending(pending=true),"
+            "模型继续推进;用户之后仍可答复并以 answer_to_pending_question 消息送达。"
+            "省略 timeout_s 为阻塞等待(默认 300s),-1 表示等到答复/会话中断。"
             "无交互宿主的执行面会直接返回 question_host_unsupported,不会等待。"
         ),
         input_schema={
@@ -15277,6 +16587,14 @@ _TOOLS: list[MCPTool] = [
                 },
                 "multiSelect": {"type": "boolean", "description": "true=允许多选,默认 false(单选)"},
                 "allowCustom": {"type": "boolean", "description": "true=允许自由文本答复,默认 true"},
+                "timeout_s": {
+                    "type": "integer",
+                    "description": (
+                        "前台等待秒数(定时继续):到期返回 pending=true,模型继续;"
+                        "用户仍可后续答复。-1 表示等到答复/会话中断。"
+                        "省略则阻塞等待(默认 300s)。"
+                    ),
+                },
             },
             "required": ["question"],
             "additionalProperties": False,
@@ -15321,7 +16639,8 @@ _TOOL_ALIASES: dict[str, str] = {
     "bash": "run_command",
     "shell": "run_command",
     "run_shell": "run_command",
-    "terminal": "run_command",
+    # 2026-11-15:移除 "terminal" -> run_command 别名 —— 真工具 terminal 已注册,归一化会把
+    # 正确调用静默改写成 run_command,导致 terminal 不可达(守门 J3 拦截)。
     # 目录列举
     "list_directory": "list_files",
     "list_dir": "list_files",
@@ -15957,6 +17276,7 @@ _TOOL_HANDLERS: dict[str, Any] = {
     # test_tools_count_matches_registry 的"定义 ↔ 处理函数"双射。
     "request_business_form": _tool_request_business_form,
     "read_file": _tool_read_file,
+    "read_image": _tool_read_image,
     "read_tool_output": _tool_read_tool_output,
     "list_files": _tool_list_files,
     "render_repo_tree": _tool_render_repo_tree,
@@ -15964,6 +17284,7 @@ _TOOL_HANDLERS: dict[str, Any] = {
     "file_edit": _tool_file_edit,
     "run_command": _tool_run_command,
     "sandbox_session": _tool_sandbox_session,
+    "terminal": _tool_terminal,
     "web_search": _tool_web_search,
     "image_search": _tool_image_search,
     "search_web": _tool_search_web,
@@ -16026,16 +17347,15 @@ _TOOL_HANDLERS: dict[str, Any] = {
     "vision_analyze": _tool_vision_analyze,
     # ===== 子智能体派发(2026-07-24 新增)=====
     "dispatch_subagent": _tool_dispatch_subagent,
+    "subagent_job": _tool_subagent_job,
     # ===== D08①(2026-10-25):团队共享任务列表(与派发面同一协作域)=====
     "team_task": _tool_team_task,
+    "session_search": _tool_session_search,
     # ===== 扩展工具(2026-07-24 新增,自研)=====
     "fetch_url": _tool_fetch_url,
     "image_generation": _tool_image_generation,
     "review_pr": _tool_review_pr,
     "summarize_artifacts": _tool_summarize_artifacts,
-    # 显式交付声明(2026-11-14,对标 DSH dsh-tool-present):补"命令产物不进
-    # filesChanged"的缺口;只登记不读盘,故不进 _ADMIN_ONLY_TOOLS / 委托面。
-    "present_files": _tool_present_files,
     "schedule_task": _tool_schedule_task,
     # 定时任务工具面投影(2026-10-30 立):服务层早有 list_tasks/remove_task,
     # 此前只有创建动词 ⇒ 模型自建的任务看不见也撤不掉。
@@ -16054,11 +17374,16 @@ _TOOL_HANDLERS: dict[str, Any] = {
     # 财务部板块插件(RP-46,2026-11-12):AI 一键代账 / AI 一键报税(分阶段+实时进度回显)
     "ai_bookkeeping": _ai_bookkeeping,
     "ai_tax_filing": _ai_tax_filing,
+    # 人事部→财务部交割(2026-11-13 立):生成某月薪资的财务交割凭证
+    "ai_payroll_handoff": _ai_payroll_handoff,
     # G3 Beyond-Coding 泛化(2026-10-30 立):统一交付物工具
     "create_artifact": _create_artifact,
     # G2 Automations 产品闭环(2026-10-30 立):对话式创建定时自动化(调 apps/api 端点)
     "create_automation": _create_automation,
     "parse_document": _parse_document,
+    # G1(2026-11-14):表格公式重算/校验(与 _TOOLS 同名条目双射)
+    "sheet_formula_eval": _sheet_formula_eval,
+    "sheet_formula_validate": _sheet_formula_validate,
     # D07 残余②:AGENTS.md 草稿生成(默认不落盘,写盘须显式 output_path;
     # workspace_root 经 MCP 面校验后才下传,见 _init_agents_md_guarded)
     "init_agents_md": _init_agents_md_guarded,

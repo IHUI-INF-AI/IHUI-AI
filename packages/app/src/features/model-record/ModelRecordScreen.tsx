@@ -394,7 +394,10 @@ export function ModelRecordScreen({
                     pressed && !prevDisabled ? styles.pressedSoft : null,
                   ]}
                 >
-                  <ChevronLeft size={14} color={prevDisabled ? tk.text.secondary : tk.text.medium} />
+                  <ChevronLeft
+                    size={14}
+                    color={prevDisabled ? tk.text.secondary : tk.text.medium}
+                  />
                   <Text style={[styles.pagerText, prevDisabled ? styles.pagerTextDisabled : null]}>
                     {t('modelRecord.prev')}
                   </Text>

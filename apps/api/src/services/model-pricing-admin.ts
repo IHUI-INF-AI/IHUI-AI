@@ -22,7 +22,11 @@
 import { sql } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { logger } from '../utils/logger.js'
-import { sweepUnpricedModels, PROFIT_FACTOR } from './model-price-resolver.js'
+import {
+  repricePlaceholderModels,
+  PROFIT_FACTOR,
+  type ApplyPricingArgs,
+} from './model-price-resolver.js'
 
 function rowsOf<T>(r: unknown): T[] {
   if (Array.isArray(r)) return r as T[]
@@ -101,7 +105,12 @@ export async function listModelPricing(query: ListModelPricingQuery): Promise<{
         and not exists (
           select 1 from ai_pricing p
           where p.model_id = lower(m.model_id)
-            and (p.input_token_price > 0 or p.output_token_price > 0)
+            and (
+              p.input_token_price > 0
+              or p.output_token_price > 0
+              or (p.billing_mode in ('per_image', 'per_video') and coalesce(p.per_unit_price, 0) > 0)
+              or (p.billing_mode = 'per_call' and p.tiered_call_prices is not null)
+            )
         )
       )
       or (m.metadata->'priceSource'->>'tier') in ('provider-fallback', 'global-fallback')
@@ -378,17 +387,16 @@ export async function listPriceAudits(query: {
   return { items: rowsOf<Record<string, unknown>>(listRes), total }
 }
 
-/** 手动触发零价巡检(与定时任务同一个出口) */
+/**
+ * 手动触发零价/占位价巡检(与定时任务同一个出口)。
+ * 2026-11-14 起只走 repricePlaceholderModels:三源 exact/alias 权威命中才定价,
+ * 拿不到权威价的一律下架 —— 不再使用家族插值/中位数猜测。
+ */
 export async function sweepNow(args: {
   dryRun: boolean
-  applyPricing: (a: {
-    modelId: string
-    inputTokenPrice: number
-    outputTokenPrice: number
-    billingMode: 'token'
-  }) => Promise<unknown>
-}): Promise<Awaited<ReturnType<typeof sweepUnpricedModels>>> {
-  return sweepUnpricedModels(
+  applyPricing: (a: ApplyPricingArgs) => Promise<unknown>
+}): Promise<Awaited<ReturnType<typeof repricePlaceholderModels>>> {
+  return repricePlaceholderModels(
     db as unknown as { execute: (q: unknown) => Promise<unknown> },
     args.applyPricing,
     {
@@ -1021,40 +1029,110 @@ export interface PublishPricingCheck {
   reason?: string
 }
 
-/** 上架前定价校验:输入/输出售价均 <= 0 时拒绝上架。 */
+/**
+ * 上架前定价校验(2026-11-14 立;同日扩展占位价拦截)。
+ * 拒绝:任一方向售价 <= 0、或无权威来源留痕的 1分/2分 占位价、或 -100000 哨兵价。
+ */
 export async function assertPricedForPublish(modelRowId: number): Promise<PublishPricingCheck> {
   const res = await db.execute(sql`
     select
-      model_id,
-      coalesce(input_price_per_1k, 0) as pin,
-      coalesce(output_price_per_1k, 0) as pout
-    from ai_model_config_models
-    where id = ${modelRowId}
+      m.model_id,
+      coalesce(m.input_price_per_1k, 0) as pin,
+      coalesce(m.output_price_per_1k, 0) as pout,
+      m.metadata->'priceSource'->>'tier' as tier,
+      m.metadata->'priceSource'->>'outputNotApplicable' as out_na,
+      p.billing_mode as bmode,
+      coalesce(p.input_token_price, 0) as p_in,
+      coalesce(p.output_token_price, 0) as p_out,
+      coalesce(p.per_unit_price, 0) as p_unit,
+      p.tiered_call_prices as p_tiers
+    from ai_model_config_models m
+    left join lateral (
+      select * from ai_pricing
+      where model_id = lower(m.model_id)
+      order by effective_at desc nulls last
+      limit 1
+    ) p on true
+    where m.id = ${modelRowId}
   `)
   const row = rowsOf<Record<string, unknown>>(res)[0]
   if (!row) {
-    return { ok: false, modelId: '', inputPricePer1k: 0, outputPricePer1k: 0, reason: '模型行不存在' }
+    return {
+      ok: false,
+      modelId: '',
+      inputPricePer1k: 0,
+      outputPricePer1k: 0,
+      reason: '模型行不存在',
+    }
   }
   const modelId = String(row['model_id'] ?? '')
   const pin = asNum(row['pin'])
   const pout = asNum(row['pout'])
+  const tier = row['tier'] ? String(row['tier']) : ''
+  const outNotApplicable = row['out_na'] === true || row['out_na'] === 'true'
   // 上游真免费模型(OpenRouter 的 ":free" 后缀)零价是合法状态,必须放行,
   // 否则运营无法上架免费模型 —— 护栏只针对"该收费却没定价"的漏计费。
   if (/:free\b/i.test(modelId)) {
     return { ok: true, modelId, inputPricePer1k: pin, outputPricePer1k: pout }
   }
-  if (pin <= 0 && pout <= 0) {
+  // 厂商官方价目明确标注的免费模型(零价同样是合法状态)
+  if (tier === 'official-free') {
+    return { ok: true, modelId, inputPricePer1k: pin, outputPricePer1k: pout }
+  }
+  // 非 token 计费(按张/按秒/按次):ai_pricing 里有正的单位价即可上架,
+  // 配置行的 token 价保持 0 不代表白送。
+  const bmode = row['bmode'] ? String(row['bmode']) : 'token'
+  // 动态成本模型(2026-11-14):无固定单价,按每次调用上游实际成本 ×3 记账。
+  // 存在 dynamic_cost 定价行即视为"已有价",零 token 价是合法状态。
+  if (bmode === 'dynamic_cost') {
+    return { ok: true, modelId, inputPricePer1k: pin, outputPricePer1k: pout }
+  }
+  if (bmode === 'per_image' || bmode === 'per_video') {
+    if (asNum(row['p_unit']) > 0) {
+      return { ok: true, modelId, inputPricePer1k: pin, outputPricePer1k: pout }
+    }
+  }
+  if (bmode === 'per_call') {
+    const tiers = row['p_tiers'] as Record<string, unknown> | null
+    if (asNum(tiers?.['le256k']) > 0 || asNum(tiers?.['mid']) > 0 || asNum(tiers?.['gt512k']) > 0) {
+      return { ok: true, modelId, inputPricePer1k: pin, outputPricePer1k: pout }
+    }
+  }
+  // token 模式:优先看 ai_pricing(真实计费依据),再退回配置行
+  const effIn = asNum(row['p_in']) > 0 ? asNum(row['p_in']) : pin
+  const effOut = asNum(row['p_out']) > 0 ? asNum(row['p_out']) : pout
+  // 任一方向 <=0 都是缺口(此前只拦"两个都为 0",漏掉半个价为 0 的行)
+  if (effIn <= 0 || (effOut <= 0 && !outNotApplicable)) {
     return {
       ok: false,
       modelId,
       inputPricePer1k: pin,
       outputPricePer1k: pout,
       reason:
-        `模型 ${modelId} 售价为 0(输入 ${pin} 分/千 token,输出 ${pout} 分/千 token),` +
+        `模型 ${modelId} 售价存在非正数(输入 ${effIn} 分/千 token,输出 ${effOut} 分/千 token),` +
         '请先定价再上架 —— 零价上架会让所有调用按 0 记账,造成漏计费',
     }
   }
-  return { ok: true, modelId, inputPricePer1k: pin, outputPricePer1k: pout }
+  // 1分/2分 是 2026-07-30 批量写入的占位默认价(跨厂商全同价),不是真实单价。
+  // 除非该行带有权威命中留痕,否则禁止上架。
+  if (effectivePlaceholderCheck(effIn, effOut, tier)) {
+    return { ok: true, modelId, inputPricePer1k: pin, outputPricePer1k: pout }
+  }
+  return {
+    ok: false,
+    modelId,
+    inputPricePer1k: pin,
+    outputPricePer1k: pout,
+    reason:
+      `模型 ${modelId} 仍是 1分/2分 占位价(无权威价来源留痕),` +
+      '请先执行「修复占位价」或人工按上游真实价调价再上架',
+  }
+}
+
+/** 占位价检查:非 1分/2分 直接通过;是 1分/2分 则要求有权威来源留痕 */
+function effectivePlaceholderCheck(inP: number, outP: number, tier: string): boolean {
+  if (!(inP === 1 && outP === 2)) return true
+  return tier === 'exact' || tier === 'alias' || tier === 'official'
 }
 
 export interface UnpricedAlertRow {
@@ -1093,6 +1171,8 @@ export async function getUnpricedAlerts(days = 30): Promise<UnpricedAlertReport>
         is_relay_public,
         coalesce(input_price_per_1k, 0) as pin,
         coalesce(output_price_per_1k, 0) as pout,
+        coalesce(metadata->'priceSource'->>'tier', '') as tier,
+        coalesce((metadata->'priceSource'->>'perUnitPrice')::numeric, 0) as unit_price,
         coalesce(
           cost_input_price_per_1k,
           coalesce(input_price_per_1k, 0)
@@ -1130,8 +1210,23 @@ export async function getUnpricedAlerts(days = 30): Promise<UnpricedAlertReport>
       ) as estimated_cost_cents
     from price p
     left join usage u on u.mid = p.mid
-    where coalesce(p.pin, 0) <= 0 and coalesce(p.pout, 0) <= 0
+    where (
+        coalesce(p.pin, 0) <= 0
+        or coalesce(p.pout, 0) <= 0
+        -- 1分/2分 是 2026-07-30 批量写入的占位价(跨厂商全同价),同样算定价缺口
+        or (coalesce(p.pin, 0) = 1 and coalesce(p.pout, 0) = 2)
+      )
       and p.mid not like '%:free'
+      -- 厂商官方明确免费的模型(priceSource.tier=official-free)零价是合法状态
+      and p.tier <> 'official-free'
+      -- 动态成本模型零 token 价是合法状态(按上游实际成本×3,无回传时最低 1 分/次)
+      and p.tier <> 'official-dynamic'
+      and not exists (
+        select 1 from ai_pricing dp
+        where dp.model_id = p.mid and dp.billing_mode = 'dynamic_cost'
+      )
+      -- 非 token 计费(按张/按秒/按次)的单位价才是真实售价,配置行 token 价 0 不算缺口
+      and not (p.tier = 'official' and p.unit_price > 0)
       and (p.is_relay_public = true or coalesce(u.calls, 0) > 0)
     order by estimated_cost_cents desc, calls desc
   `)
@@ -1176,9 +1271,14 @@ export async function syncConfigPricesFromPricing(): Promise<ConfigPriceSyncResu
   const scanRes = await db.execute(sql`
     select count(*)::int as n
     from ai_model_config_models m
-    where coalesce(m.input_price_per_1k, 0) = 0
-      and coalesce(m.output_price_per_1k, 0) = 0
+    where coalesce(m.input_price_per_1k, 0) <= 0
+      and coalesce(m.output_price_per_1k, 0) <= 0
       and lower(m.model_id) not like '%:free'
+      -- 动态成本模型零单价是合法状态,不计入"待回填"缺口
+      and not exists (
+        select 1 from ai_pricing dp
+        where dp.model_id = lower(m.model_id) and dp.billing_mode = 'dynamic_cost'
+      )
   `)
   const scanned = asNum(rowsOf<{ n: number }>(scanRes)[0]?.n)
 
@@ -1189,7 +1289,9 @@ export async function syncConfigPricesFromPricing(): Promise<ConfigPriceSyncResu
         input_token_price as pin,
         output_token_price as pout
       from ai_pricing
-      where (input_token_price > 0 or output_token_price > 0)
+      where input_token_price > 0
+        and output_token_price > 0
+        and not (input_token_price = 1 and output_token_price = 2)
         and lower(model_id) not like '%:free'
       order by lower(model_id), effective_at desc nulls last
     )
@@ -1199,8 +1301,8 @@ export async function syncConfigPricesFromPricing(): Promise<ConfigPriceSyncResu
         updated_at = now()
     from src s
     where lower(m.model_id) = s.mid
-      and coalesce(m.input_price_per_1k, 0) = 0
-      and coalesce(m.output_price_per_1k, 0) = 0
+      and coalesce(m.input_price_per_1k, 0) <= 0
+      and coalesce(m.output_price_per_1k, 0) <= 0
     returning m.id
   `)
   const updated = rowsOf<Record<string, unknown>>(updRes).length

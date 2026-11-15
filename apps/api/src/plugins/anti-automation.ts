@@ -20,6 +20,7 @@
  *    (UA 是纯客户端头,可任意伪造,不能作为放行依据);
  *    监控探针与自助解封面豁免(见 utils/block-exempt-paths.ts)。
  * 5. 路由级开关:routeOptions.config.antiAutomation = { enabled: false } 可关闭。
+ * 6. 开发档(显式 development)整体放行:本地测试的高频重放不该把开发者自己的出口封掉。
  *
  * Redis 不可用时 fail-open(放行),保障可用性。
  */
@@ -28,6 +29,8 @@ import type { FastifyInstance, FastifyPluginAsync, FastifyRequest, FastifyReply 
 import fp from 'fastify-plugin'
 import { verifyAccessToken } from '@ihui/auth'
 import type { Redis } from 'ioredis'
+import { config } from '../config/index.js'
+import { isAdminRequest } from './require-permission.js'
 import { logger } from '../utils/logger.js'
 import {
   isBotUserAgent,
@@ -180,6 +183,18 @@ const antiAutomationPlugin: FastifyPluginAsync = async (server: FastifyInstance)
     const healthCheckUa = isHealthCheckUa(ua)
 
     const path = (request.url.split('?')[0] ?? request.url).toLowerCase()
+
+    // 管理员请求不做任何反自动化处置(2026-11-15):包括公网访问 —— 机主需要随时能进管理面调试。
+    // 认 JWT(roleId>=1),未登录/普通用户照旧。
+    if (await isAdminRequest(request)) return
+
+    // 开发档整体放行(2026-11-15 立):本插件是面向公网滥用的前置防线,而本地测试/自测
+    // 会在几十秒内打出远超人类的请求量(接口连点、脚本重放、前端扇出),于是"自己人封自己人":
+    // 15 分钟 403、甚至被 threat-detector 叠加到 1 小时起。档位判据走 config 唯一出口,
+    // 只在**显式声明**的 development 档成立(缺省 fail-safe 为 production),生产/测试档行为不变。
+    if (config.isDevelopmentRuntime ?? config.NODE_ENV === 'development') {
+      return
+    }
 
     // 监控探针与自助解封面:既不占频率预算,也不该被已有封禁挡住
     if (isBlockExemptPath(path)) return

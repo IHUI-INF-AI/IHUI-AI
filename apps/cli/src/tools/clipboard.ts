@@ -22,6 +22,7 @@ import { spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import * as path from 'node:path';
 import type { Tool, ToolResult } from './index.js';
+import { readRichClipboard, writeRichClipboard, isRichFormat } from './clipboard-rich.js';
 
 /**
  * Windows 上可用的 PowerShell 引擎绝对路径(PS7 优先,Windows PowerShell 5.1 兜底)。
@@ -30,7 +31,7 @@ import type { Tool, ToolResult } from './index.js';
  * 执行只 spawn 'pwsh.exe'"导致只装 5.1 的机器上功能静默全灭。
  * 全绝对路径 + existsSync 预筛,不落 PATH 短名(防 PATH 被顶替)。
  */
-function resolvePowerShell(): string | null {
+export function resolvePowerShell(): string | null {
   const localAppData = process.env.LOCALAPPDATA ?? '';
   const candidates = [
     'C:\\Program Files\\PowerShell\\7\\pwsh.exe',
@@ -251,6 +252,51 @@ export function isClipboardAvailable(): boolean {
   return false;
 }
 
+/**
+ * 剪贴板变更序号(Win32 `GetClipboardSequenceNumber`)。
+ *
+ * 立票理由(2026-11-14,逆向-复现-超越 对位 Qoder CN 0.5.6 的 `bin/native_clipboard.node`):
+ * 对方原生件导出三接口 readClipboard / writeClipboard / getClipboardToken —— 第三枚对应
+ * Win32 的剪贴板**变更序号**(每次剪贴板被改写都 +1),用于"不搬运全文就能判断内容变没变",
+ * 让 Agent 轮询等用户复制新内容成为可能。本仓此前只有纯文本读写,缺这一格。
+ *
+ * 逆向四步:
+ *   ③ 复现 —— 不引第三方包、不编译原生件(§0.12 红线):走 PowerShell 内置 `Add-Type`
+ *      P/Invoke 调 user32,与本文件既有的 PS 引擎同源(`resolvePowerShell`),零新依赖。
+ *   ④ 超越 —— 对方的 getClipboardToken 只藏在编译型 .node 里(要分发原生件);
+ *      本仓做成独立工具 + 纯托管 P/Invoke,跨端可判定(非 Windows 返回 null 点名不支持),
+ *      与 clipboard_read/write 共用同一引擎判定,可在 CI 里跑可用性断言。
+ *
+ * 返回:null = 当前平台无此能力(macOS/Linux 暂不实现,不冒绿);number = 当前序号。
+ */
+export function readClipboardToken(): number | null {
+  const platform = currentPlatform();
+  if (platform !== 'win32') return null;
+  try {
+    const ps = resolvePowerShell();
+    if (ps === null) return null;
+    // 序号源与读写同源:只认 resolvePowerShell 会 spawn 的那个引擎绝对路径。
+    // Add-Type P/Invoke 调 user32!GetClipboardSequenceNumber(无参,返回 uint)。
+    const r = spawnSync(
+      ps,
+      [
+        '-NoProfile',
+        '-NonInteractive',
+        '-Command',
+        "$s='[DllImport(\"user32.dll\")] public static extern uint GetClipboardSequenceNumber();';" +
+          '$t=Add-Type -MemberDefinition $s -Name IHUIClipSeq -Namespace IHUI -PassThru;' +
+          '$t::GetClipboardSequenceNumber()',
+      ],
+      { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf-8', windowsHide: true, timeout: 5000 },
+    );
+    if (r.error || r.status !== 0) return null;
+    const n = Number.parseInt((r.stdout ?? '').trim(), 10);
+    return Number.isFinite(n) ? n : null;
+  } catch {
+    return null;
+  }
+}
+
 /** clipboard_read 工具:读取系统剪贴板文本 */
 export const clipboard_read: Tool = {
   name: 'clipboard_read',
@@ -319,5 +365,89 @@ export const clipboard_write: Tool = {
   },
 };
 
-export const CLIPBOARD_TOOLS: Tool[] = [clipboard_read, clipboard_write];
-// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+/** clipboard_token 工具:读剪贴板变更序号(不搬运全文,用于判断内容变没变/轮询等用户复制)。 */
+export const clipboard_token: Tool = {
+  name: 'clipboard_token',
+  description:
+    '读取系统剪贴板的变更序号(token):每次剪贴板被改写都 +1。用于不搬运全文就判断"内容变没变"或轮询等待用户复制新内容。当前仅 Windows 可用。',
+  dangerLevel: 'read',
+  parameters: {},
+  required: [],
+  async execute(): Promise<ToolResult> {
+    // 平台不支持 ⇒ 点名返回,不冒绿(§0.3/§0.10)
+    const token = readClipboardToken();
+    if (token === null) {
+      return {
+        success: false,
+        output: '',
+        error: '当前平台不支持剪贴板变更序号(仅 Windows 可用;macOS/Linux 暂未实现)',
+      };
+    }
+    return { success: true, output: String(token) };
+  },
+};
+
+/** clipboard_rich_read 工具:读剪贴板富格式(HTML/RTF 富文本 或 文件拖放路径列表)。 */
+export const clipboard_rich_read: Tool = {
+  name: 'clipboard_rich_read',
+  description:
+    '读取系统剪贴板的富格式内容。format=html|rtf 返回富文本字符串;format=files 返回文件拖放路径列表(每行一个绝对路径)。当前仅 Windows 可用。',
+  dangerLevel: 'read',
+  parameters: {
+    format: {
+      type: 'string',
+      description: '要读取的富格式:html(默认) | rtf | files',
+    },
+  },
+  required: [],
+  async execute(args): Promise<ToolResult> {
+    const fmt = args.format === undefined ? 'html' : args.format;
+    if (!isRichFormat(fmt)) {
+      return { success: false, output: '', error: 'format 必须是 html | rtf | files 之一' };
+    }
+    const out = readRichClipboard(fmt);
+    if (!out.ok) {
+      // 平台不支持 / 引擎缺失 / 该格式不在剪贴板 / 执行失败,一律点名 reason,不冒绿
+      return { success: false, output: '', error: `读取富格式失败(${out.reason ?? 'unknown'})` };
+    }
+    const value = out.value;
+    if (value === '') return { success: true, output: '(剪贴板该格式为空)' };
+    return { success: true, output: value };
+  },
+};
+
+/** clipboard_rich_write 工具:写富格式到剪贴板(HTML/RTF 富文本 或 文件拖放路径列表)。 */
+export const clipboard_rich_write: Tool = {
+  name: 'clipboard_rich_write',
+  description:
+    '写入富格式到系统剪贴板。format=html|rtf 时 value 为富文本字符串;format=files 时 value 为换行分隔的绝对路径(路径必须存在)。当前仅 Windows 可用。',
+  dangerLevel: 'write',
+  parameters: {
+    format: { type: 'string', description: '要写入的富格式:html(默认) | rtf | files' },
+    value: { type: 'string', description: '富文本内容(format=html|rtf)或换行分隔的绝对路径(format=files)' },
+  },
+  required: ['value'],
+  async execute(args): Promise<ToolResult> {
+    const fmt = args.format === undefined ? 'html' : args.format;
+    const value = args.value as string;
+    if (!isRichFormat(fmt)) {
+      return { success: false, output: '', error: 'format 必须是 html | rtf | files 之一' };
+    }
+    if (typeof value !== 'string' || value.trim() === '') {
+      return { success: false, output: '', error: '缺少 value 参数(必须是字符串)' };
+    }
+    const out = writeRichClipboard(fmt, value);
+    if (!out.ok) {
+      return { success: false, output: '', error: `写入富格式失败(${out.reason ?? 'unknown'})` };
+    }
+    return { success: true, output: `已写入 ${fmt} 到剪贴板` };
+  },
+};
+
+export const CLIPBOARD_TOOLS: Tool[] = [
+  clipboard_read,
+  clipboard_write,
+  clipboard_token,
+  clipboard_rich_read,
+  clipboard_rich_write,
+];// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

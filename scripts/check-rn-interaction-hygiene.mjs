@@ -683,7 +683,7 @@ function hasNativeFeedback(tag, props) {
  * 反例由自检钉住:`style={({ pressed }) => ({})}`、`style={() => a}`、
  * `style={({ pressed }) => [pressed && null]}` 都必须照判。
  */
-function pressStateStyle(tag, props, text, end) {
+function pressStateStyle(tag, props, _text, _end) {
   // 1) 必须能取到函数式 style:形参解构里含 pressed
   const m = props.match(/style\s*=\s*\{\s*\(\s*\{([^}]*)\}\s*\)\s*=>/)
   if (!m) return false

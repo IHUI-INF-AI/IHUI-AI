@@ -47,7 +47,7 @@ export function MyAgentsScreen({
   onPressItem,
   onBack,
   onRetry,
-  colorScheme = 'light'
+  colorScheme = 'light',
 }: MyAgentsScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])

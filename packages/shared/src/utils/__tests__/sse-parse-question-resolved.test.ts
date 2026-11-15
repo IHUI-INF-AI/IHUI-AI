@@ -57,7 +57,9 @@ describe('sse-parse question-resolved 帧(与 api-client 同源)', () => {
   })
 
   it('questionId 缺失或空串不认领', () => {
-    expect(one('{"type":"question-resolved","status":"answered"}')?.questionResolved).toBeUndefined()
+    expect(
+      one('{"type":"question-resolved","status":"answered"}')?.questionResolved,
+    ).toBeUndefined()
     expect(
       one('{"type":"question-resolved","questionId":"","status":"answered"}')?.questionResolved,
     ).toBeUndefined()

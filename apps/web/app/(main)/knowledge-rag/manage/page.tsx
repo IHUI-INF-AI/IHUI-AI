@@ -150,7 +150,7 @@ export default function KnowledgeRagManagePage() {
           className={cn(
             'flex items-center gap-2 rounded-md border px-3 py-2 text-body',
             feedback.type === 'success'
-              ? 'border-primary/30 bg-primary/10 text-primary'
+              ? 'border-stroke-selected bg-primary/10 text-primary'
               : 'border-destructive/50 bg-destructive/10 text-destructive',
           )}
         >

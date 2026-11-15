@@ -74,10 +74,10 @@ describe('句柄族动词已进入能力申报（防"能执行但没人知道自
     )
   })
 
-  it('运行期真值：PAGE_ACTIONS 七条全部进入 DOM_ACTIONS，因此申报出去的名字端上确实接得住', () => {
+  it('运行期真值：PAGE_ACTIONS 十条全部进入 DOM_ACTIONS，因此申报出去的名字端上确实接得住', () => {
     // 上面那条管"有没有装车"，这条管"装的是不是同一份"：断言的是集合关系，
     // 不重复抄一遍动词清单（抄了就又成了第三份真相）。
-    expect(PAGE_ACTIONS).toHaveLength(7)
+    expect(PAGE_ACTIONS).toHaveLength(10)
     for (const action of PAGE_ACTIONS) expect(DOM_ACTIONS.has(action)).toBe(true)
   })
 })

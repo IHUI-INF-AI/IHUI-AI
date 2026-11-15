@@ -2739,14 +2739,70 @@
       "version": "7",
       "idx": 393,
       "when": 1794388740000,
-      "tag": "20261112180000_relay_pool_shared_to_ops_default_true",
+      "tag": "20261112180000_hr_approval_snapshot",
       "breakpoints": true
     },
     {
       "version": "7",
       "idx": 394,
-      "when": 1794388740000,
-      "tag": "20261112180000_hr_approval_snapshot",
+      "when": 1794388800000,
+      "tag": "20261112190000_hr_import",
+      "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 395,
+      "when": 1794388860000,
+      "tag": "20261112200000_hr_import_leave_overtime",
+      "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 396,
+      "when": 1794388920000,
+      "tag": "20261112210000_hr_outgoing",
+      "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 397,
+      "when": 1794388980000,
+      "tag": "20261112220000_hr_monthly_payroll",
+      "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 398,
+      "when": 1794389040000,
+      "tag": "20261112230000_hr_payroll_permission",
+      "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 399,
+      "when": 1794389100000,
+      "tag": "20261113100000_workflow_todo",
+      "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 400,
+      "when": 1794643200000,
+      "tag": "20261114160000_relay_account_pool_provider_uid_unique",
+      "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 401,
+      "when": 1794646800000,
+      "tag": "20261114191000_audit_logs_chain_prev_hash_idx",
+      "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 402,
+      "when": 1794650400000,
+      "tag": "20261114091500_audit_logs_chain_seq",
       "breakpoints": true
     }
   ]

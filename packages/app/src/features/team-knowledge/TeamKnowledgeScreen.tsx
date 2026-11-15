@@ -101,10 +101,7 @@ export interface TeamKnowledgeScreenProps {
   /** 默认条目区的新建能力(RN 宿主注入;web 用 renderItems 覆盖时可不传) */
   onCreateItem?: (values: TeamKnowledgeCreateItemValues) => Promise<void>
   /** 默认条目区的发布/归档能力(RN 宿主注入) */
-  onSetItemStatus?: (
-    item: TeamKnowledgeItemView,
-    status: 'published' | 'archived',
-  ) => Promise<void>
+  onSetItemStatus?: (item: TeamKnowledgeItemView, status: 'published' | 'archived') => Promise<void>
   /** 危险动作二次确认(默认条目区的发布/归档用;web 富面板自带确认) */
   onConfirm?: (options: TeamKnowledgeConfirmOptions) => Promise<boolean>
   /** web 独有成员面板(授权/撤权)整段注入;RN 走默认只读列表 */
@@ -254,16 +251,10 @@ export function TeamKnowledgeScreen({
     }
   }
 
-  const handleStatus = async (
-    item: TeamKnowledgeItemView,
-    status: 'published' | 'archived',
-  ) => {
+  const handleStatus = async (item: TeamKnowledgeItemView, status: 'published' | 'archived') => {
     if (!onSetItemStatus || !onConfirm) return
     const ok = await onConfirm({
-      title:
-        status === 'published'
-          ? t('teamKnowledge.publishBtn')
-          : t('teamKnowledge.archiveBtn'),
+      title: status === 'published' ? t('teamKnowledge.publishBtn') : t('teamKnowledge.archiveBtn'),
       message: item.title,
       destructive: status === 'archived',
     })
@@ -337,9 +328,7 @@ export function TeamKnowledgeScreen({
         </TouchableOpacity>
 
         {shownError ? <Text style={styles.error}>{shownError}</Text> : null}
-        {!teamId.trim() ? (
-          <Text style={styles.muted}>{t('teamKnowledge.needTeam')}</Text>
-        ) : null}
+        {!teamId.trim() ? <Text style={styles.muted}>{t('teamKnowledge.needTeam')}</Text> : null}
 
         {spaceForm ? (
           <View style={styles.formCard}>
@@ -469,10 +458,7 @@ export function TeamKnowledgeScreen({
                   <Text style={styles.sectionTitle}>{t('teamKnowledge.itemsTitle')}</Text>
                   {onCreateItem ? (
                     <TouchableOpacity
-                      style={[
-                        styles.outlineBtn,
-                        (!canEdit || loading) && styles.disabled,
-                      ]}
+                      style={[styles.outlineBtn, (!canEdit || loading) && styles.disabled]}
                       disabled={!canEdit || loading}
                       onPress={() => setItemForm((open) => !open)}
                       activeOpacity={0.7}
@@ -528,9 +514,7 @@ export function TeamKnowledgeScreen({
                         }}
                         activeOpacity={0.7}
                       >
-                        <Text style={styles.outlineBtnText}>
-                          {t('teamKnowledge.cancelBtn')}
-                        </Text>
+                        <Text style={styles.outlineBtnText}>{t('teamKnowledge.cancelBtn')}</Text>
                       </TouchableOpacity>
                     </View>
                   </View>
@@ -565,9 +549,7 @@ export function TeamKnowledgeScreen({
                           {item.title}
                         </Text>
                         <View style={styles.badge}>
-                          <Text style={styles.badgeText}>
-                            {statusLabel(t, item.status)}
-                          </Text>
+                          <Text style={styles.badgeText}>{statusLabel(t, item.status)}</Text>
                         </View>
                       </View>
                       <Text style={styles.meta}>
@@ -621,9 +603,7 @@ export function TeamKnowledgeScreen({
                             activeOpacity={0.7}
                           >
                             <Archive size={14} color={tk.danger.deepText} />
-                            <Text style={styles.dangerText}>
-                              {t('teamKnowledge.archiveBtn')}
-                            </Text>
+                            <Text style={styles.dangerText}>{t('teamKnowledge.archiveBtn')}</Text>
                           </TouchableOpacity>
                         </View>
                       ) : null}

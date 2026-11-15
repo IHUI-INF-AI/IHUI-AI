@@ -17,6 +17,7 @@ import {
 } from '@ihui/shared/chat'
 import { StreamRow, useLiveElapsed } from '@/components/chat/stream/stream-ui'
 import { computeMessageCostCny, formatCompactTokens, useModelPriceCny } from './use-model-price'
+import { formatCny, formatUsd } from '@/lib/display-currency'
 
 /**
  * next-intl locale → 等待池 locale;未知回退 zh-CN(不抛错)。
@@ -147,21 +148,40 @@ export function TypingIndicator({
 
 /** 把消息 createdAt 格式化为"今天 HH:MM / MM-DD HH:MM" 风格 footer 时间戳(2026-07-28 立)
  *  - hover 消息气泡时在 footer 显示完整时间,便于用户回溯精确时刻
- *  - 与 timeline-event.tsx 内的 formatRelativeTime 互为补充:相对时间用于时间线,绝对时间用于消息气泡 */
-export function formatMessageTimestamp(createdAt: number): string {
+ *  - 与 timeline-event.tsx 内的 formatRelativeTime 互为补充:相对时间用于时间线,绝对时间用于消息气泡
+ *  - 2026-11-15:新增 format 参数(24h/12h/relative),由设置页「时间格式」控制;
+ *    默认 24h,与接线前逐字节同形。relative 用 Intl.RelativeTimeFormat(浏览器语言),
+ *    超过 7 天回落绝对时间,避免"300 天前"这类无信息量文案。 */
+export function formatMessageTimestamp(
+  createdAt: number,
+  format: '24h' | '12h' | 'relative' = '24h',
+): string {
   const d = new Date(createdAt)
   if (Number.isNaN(d.getTime())) return ''
+
+  if (format === 'relative') {
+    const diffMs = Date.now() - d.getTime()
+    const abs = Math.abs(diffMs)
+    const rtf = new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' })
+    if (abs < 60_000) return rtf.format(0, 'second')
+    if (abs < 3_600_000) return rtf.format(-Math.round(diffMs / 60_000), 'minute')
+    if (abs < 86_400_000) return rtf.format(-Math.round(diffMs / 3_600_000), 'hour')
+    if (abs < 7 * 86_400_000) return rtf.format(-Math.round(diffMs / 86_400_000), 'day')
+  }
+
   const now = new Date()
   const sameDay =
     d.getFullYear() === now.getFullYear() &&
     d.getMonth() === now.getMonth() &&
     d.getDate() === now.getDate()
-  const hh = String(d.getHours()).padStart(2, '0')
-  const mm = String(d.getMinutes()).padStart(2, '0')
-  if (sameDay) return `${hh}:${mm}`
+  const timeText =
+    format === '12h'
+      ? d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: true })
+      : `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+  if (sameDay) return timeText
   const mo = String(d.getMonth() + 1).padStart(2, '0')
   const dd = String(d.getDate()).padStart(2, '0')
-  return `${mo}-${dd} ${hh}:${mm}`
+  return `${mo}-${dd} ${timeText}`
 }
 
 /** 元数据 usage 展开面板(2026-08-02 立,原项目 toggleMetadata 展开内容)
@@ -204,18 +224,18 @@ export function UsageBreakdown({ usage, model }: { usage: unknown; model?: strin
         </span>
       )}
       {inputCost !== null && (
-        <span className="text-muted-foreground">
-          {t('sessionUsage.inputCost')}: ¥{inputCost.toFixed(6)}
+        <span className="text-muted-foreground" suppressHydrationWarning>
+          {t('sessionUsage.inputCost')}: {formatCny(inputCost, { digits: 6 })}
         </span>
       )}
       {outputCost !== null && (
-        <span className="text-muted-foreground">
-          {t('sessionUsage.outputCost')}: ¥{outputCost.toFixed(6)}
+        <span className="text-muted-foreground" suppressHydrationWarning>
+          {t('sessionUsage.outputCost')}: {formatCny(outputCost, { digits: 6 })}
         </span>
       )}
       {totalCost !== null && (
-        <span className="text-muted-foreground">
-          {t('messageUsage.total')} ¥{totalCost.toFixed(6)}
+        <span className="text-muted-foreground" suppressHydrationWarning>
+          {t('messageUsage.total')} {formatCny(totalCost, { digits: 6 })}
         </span>
       )}
       {price === null && model !== null && model !== '' && (
@@ -256,7 +276,9 @@ export function MessageUsageBadge({
         data-testid={`message-usage-${messageId}`}
       >
         · {formatCompactTokens(total)} {tm('tokens')}
-        {totalCost !== null && <span> · ¥{totalCost.toFixed(4)}</span>}
+        {totalCost !== null && (
+          <span suppressHydrationWarning> · {formatCny(totalCost, { digits: 4 })}</span>
+        )}
       </span>
     </Tooltip>
   )
@@ -267,10 +289,6 @@ export function MessageUsageBadge({
 // _message-list.scss .message-actions: display:flex; gap:8px; opacity:1(始终显示)
 export const ACTION_BTN_CLASS =
   'inline-flex items-center justify-center h-7 w-7 rounded-md text-muted-foreground hover:text-primary hover:bg-muted/60 transition-all duration-200 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
-
-/** 近似展示汇率(USD→CNY):仅用于消息底部成本徽章的展示换算,权威成本以后端 costUsd 为准。
- * 非实时汇率,不用于账单/扣费。 */
-const USD_TO_CNY = 7.2
 
 /** 毫秒 → 紧凑秒串(用于首 token / 总耗时):<1s 显示两位小数,>=1s 一位小数。 */
 function formatSeconds(ms: number): string {
@@ -308,7 +326,8 @@ export function MessageUsageMetrics({
   if (!usage || usage.totalTokens <= 0) return null
 
   const model = usage.model || fallbackModel || ''
-  const costCny = usage.costUsd !== null ? usage.costUsd * USD_TO_CNY : null
+  // 展示层按实时汇率折算;costUsd 是后端权威口径(USD),不参与扣费
+  const costText = usage.costUsd !== null ? formatUsd(usage.costUsd, { digits: 2 }) : null
 
   // 明细(悬浮展示):复用 chat.messageUsage/sessionUsage 既有键 + ai.message.metrics.reasoningTokens
   const detail = (
@@ -347,9 +366,9 @@ export function MessageUsageMetrics({
           {t('modelDetail')}: <span className="tabular-nums">{model}</span>
         </div>
       )}
-      {costCny !== null && (
+      {costText !== null && (
         <div>
-          {t('costDetail')}: <span className="tabular-nums">¥{costCny.toFixed(2)}</span>
+          {t('costDetail')}: <span className="tabular-nums">{costText}</span>
         </div>
       )}
     </div>
@@ -380,9 +399,9 @@ export function MessageUsageMetrics({
             {SEP} {model}
           </span>
         )}
-        {costCny !== null && (
-          <span data-testid="usage-cost" className="tabular-nums">
-            {SEP} {t('cost', { cost: costCny.toFixed(2) })}
+        {costText !== null && (
+          <span data-testid="usage-cost" className="tabular-nums" suppressHydrationWarning>
+            {SEP} {t('cost', { cost: costText })}
           </span>
         )}
       </span>

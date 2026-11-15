@@ -44,7 +44,7 @@ export function hasRestingBorder(className?: string): boolean {
 
 /**
  * 常态:没画过描边的输入框先占 1px 透明位 —— weapp 全局 `box-sizing: border-box` 由 preflight 给定,
- * 预留后聚焦只换颜色 ⇒ 不产生 1px 布局跳动(与 web `border border-input` → `focus-visible:border-primary` 同形)。
+ * 预留后聚焦只换颜色 ⇒ 不产生 1px 布局跳动(与 web `border border-stroke-field` → 聚焦 2px outline 墨环同形)。
  * 聚焦:换成墨档。已画描边的调用方:两种情况下都**只**在聚焦时改颜色。
  */
 export function computeFocusStyle(

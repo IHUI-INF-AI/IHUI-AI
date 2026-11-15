@@ -524,7 +524,7 @@ function DetailPanel({
                   value={values[f.name] ?? ''}
                   onChange={(e) => setValues((prev) => ({ ...prev, [f.name]: e.target.value }))}
                   placeholder={f.description || ''}
-                  className="h-6 rounded-sm border border-border bg-background px-2 text-label outline-none focus:border-ring/50"
+                  className="h-6 rounded-sm border border-border bg-background px-2 text-label outline-none focus:outline outline-2 outline-offset-2 outline-stroke-focus"
                 />
               </label>
             ))
@@ -564,7 +564,7 @@ function DetailPanel({
             value={values.args ?? ''}
             onChange={(e) => setValues((prev) => ({ ...prev, args: e.target.value }))}
             placeholder={t('mcpPane.slashArgsHint')}
-            className="h-6 rounded-sm border border-border bg-background px-2 text-label outline-none focus:border-ring/50"
+            className="h-6 rounded-sm border border-border bg-background px-2 text-label outline-none focus:outline outline-2 outline-offset-2 outline-stroke-focus"
           />
         </div>
       )}

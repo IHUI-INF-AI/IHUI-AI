@@ -198,7 +198,7 @@ export function MemoryGraphPanel() {
             if (e.key === 'Enter') void handleSearch()
           }}
           placeholder={t('searchPlaceholder')}
-          className="h-7 min-w-0 flex-1 rounded-sm border border-border bg-card px-2 text-label outline-none focus:border-primary/60"
+          className="h-7 min-w-0 flex-1 rounded-sm border border-border bg-card px-2 text-label outline-none focus:outline outline-2 outline-offset-2 outline-stroke-focus"
           data-testid="memory-graph-input"
         />
         <button
@@ -225,7 +225,7 @@ export function MemoryGraphPanel() {
               className={cn(
                 'rounded-sm border px-2 py-0.5 text-label font-medium transition-colors',
                 layoutMode === mode
-                  ? 'border-primary/60 bg-primary/10 text-primary'
+                  ? 'border-stroke-selected bg-primary/10 text-primary'
                   : 'border-border bg-card text-muted-foreground hover:bg-accent/40',
               )}
             >
@@ -245,7 +245,7 @@ export function MemoryGraphPanel() {
 
       {/* 环形图(SVG) */}
       {nodes && nodes.length > 0 && (
-        <div className="overflow-hidden rounded-md border border-border/60 bg-muted/20">
+        <div className="overflow-hidden rounded-md border border-stroke-subtle bg-muted/20">
           <svg viewBox="0 0 300 300" className="h-auto w-full" data-testid="memory-graph-svg">
             {/* 边 */}
             {edges.map((e, i) => {

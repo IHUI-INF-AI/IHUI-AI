@@ -209,7 +209,18 @@ describe('streamChat admission 帧(差距①)', () => {
       'data: {"type":"admission","inputId":"in-d","disposition":"queued","ahead":"2"}',
     ]
     fetchMock.mockResolvedValue(
-      sseResponse([frames[0], '', frames[1], '', frames[2], '', DONE_FRAME, '', 'data: [DONE]', '']),
+      sseResponse([
+        frames[0],
+        '',
+        frames[1],
+        '',
+        frames[2],
+        '',
+        DONE_FRAME,
+        '',
+        'data: [DONE]',
+        '',
+      ]),
     )
     const onSendAdmissionReceipt = vi.fn()
     await streamChat({ ...baseOpts, onSendAdmissionReceipt })

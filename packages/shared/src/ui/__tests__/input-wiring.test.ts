@@ -363,7 +363,7 @@ describe('④ 平台专属项:允许不同形,但不许下沉时误删,也不许
   })
 
   it('本锁有牙:web 壳删掉 focus-visible ⇒ 平台专属判据必须红', () => {
-    const dirty = WEB_SRC.replace('focus-visible:outline-none focus-visible:border-primary ', '')
+    const dirty = WEB_SRC.replaceAll('focus-visible:', '')
     expect(dirty).not.toBe(WEB_SRC)
     expect(platformOnlyProblems(dirty, 'web').length).toBeGreaterThan(0)
   })

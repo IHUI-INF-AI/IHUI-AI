@@ -8,6 +8,7 @@ import * as React from 'react'
 import Link from 'next/link'
 import { useTranslations } from 'next-intl'
 import { Button } from '@ihui/ui-react'
+import { Xiaofang } from '@/components/brand/Xiaofang'
 
 interface Slide {
   titleKey: string
@@ -87,6 +88,11 @@ export function HomeBanner() {
             </Link>
           </div>
         ))}
+        {/* 品牌吉祥物(2026-11-15):首页 banner 右侧常驻,三张轮播共用同一个"小方"。
+            1024px 以下不显示 —— banner 与会员卡同排时可用宽度不足,角色会压到标题/CTA。 */}
+        <div className="pointer-events-none absolute right-6 bottom-6 z-10 hidden min-[1024px]:block">
+          <Xiaofang variant="full" size={120} alt="" priority />
+        </div>
       </div>
       <div className="mt-3 flex justify-center gap-1.5">
         {SLIDES.map((_, idx) => (

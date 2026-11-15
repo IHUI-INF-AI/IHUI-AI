@@ -21,8 +21,7 @@
  *  T5 未判定:空清单不得记绿(判了 0 个文件不等于没有 CRLF)
  *  T6 反证:退化实现(任意 \r 都算)会同时咬住孤立 CR —— 证明判据收窄是有意义的
  */
-import { readFileSync } from 'node:fs'
-import { dirname, join, resolve } from 'node:path'
+import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import assert from 'node:assert/strict'
 import { test } from 'node:test'

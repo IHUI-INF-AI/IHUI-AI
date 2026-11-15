@@ -36,7 +36,11 @@ def test_高危表内每个名字都必须在工具注册面存在():
     registered = _registered_names(mcp)
     ghosts = sorted(
         n for n in loop._DEFAULT_HIGH_RISK_TOOLS
-        if not n.startswith(loop._HIGH_RISK_PREFIXES) and n not in registered
+        if not n.startswith(loop._HIGH_RISK_PREFIXES)
+        and n not in registered
+        # 两座 API 桥接入口在 lifespan 运行时注入,静态 _TOOLS 快照读不到 ——
+        # 判据盲区不是幽灵名(登记见 agent_loop_v2.BRIDGE_ENTRY_RUNTIME_TOOLS)。
+        and n not in loop.BRIDGE_ENTRY_RUNTIME_TOOLS
     )
     assert ghosts == [], (
         f"内置高危表里有 {len(ghosts)} 个注册表不存在的幽灵名(注册面共 {len(registered)} 名): {ghosts}\n"

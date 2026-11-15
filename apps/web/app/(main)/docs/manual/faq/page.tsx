@@ -248,14 +248,14 @@ export default function ManualFaqPage() {
         <h2 className="text-heading font-bold">没找到答案?</h2>
         <div className="grid grid-cols-1 gap-3 min-[768px]:grid-cols-2">
           <a
-            href="mailto:lizong@aizhs.top"
+            href="mailto:support@aizhs.top"
             className="rounded-lg border bg-card p-3 transition-colors hover:bg-accent"
           >
             <p className="flex items-center text-body font-semibold">
               <Mail className="mr-1.5 inline h-4 w-4" />
               邮件支持
             </p>
-            <p className="font-[weight:inherit] mt-1 text-label text-muted-foreground">lizong@aizhs.top</p>
+            <p className="font-[weight:inherit] mt-1 text-label text-muted-foreground">support@aizhs.top</p>
             <p className="font-[weight:inherit] mt-1 text-label text-muted-foreground">工作时间:9:00-22:00,通常 2 小时内回复</p>
           </a>
           <a
@@ -300,7 +300,7 @@ export default function ManualFaqPage() {
       </section>
 
       {/* 完结 */}
-      <section className="mt-12 rounded-lg border bg-cta/5 p-3 text-center ring-1 ring-primary/20">
+      <section className="mt-12 rounded-lg border bg-cta/5 p-3 text-center ring-1 ring-stroke-selected/20">
         <p className="text-lg font-semibold">
           <PartyPopper className="mr-1.5 inline h-5 w-5 align-text-bottom" aria-hidden />
           手册完结

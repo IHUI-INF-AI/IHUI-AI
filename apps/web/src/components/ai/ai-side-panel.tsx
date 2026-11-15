@@ -36,7 +36,18 @@ import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import { IconButton } from '@ihui/ui-react'
 import { rnRadius } from '@ihui/design-tokens'
 import { toast, AuthGatePrompt } from '@/components/common'
+import {
+  isDocumentPictureInPictureSupported,
+  openPictureInPictureWindow,
+} from '@/components/chat/picture-in-picture-section'
 import { cn } from '@/lib/utils'
+import {
+  MENU_ITEM_CHECK_CLASS,
+  MENU_ITEM_CLASS,
+  MENU_ITEM_ICON_CLASS,
+  MENU_ITEM_LABEL_CLASS,
+  MENU_ITEM_SECTION_CLASS,
+} from '@/lib/menu-item'
 import { useChat } from '@/hooks/use-chat'
 import { useConversationPaneCache } from '@/hooks/use-conversation-pane-cache'
 import { useAuthGate } from '@/hooks/use-auth-gate'
@@ -102,10 +113,13 @@ import {
   getFloatSize,
   getPanelBucket,
   planFormMigration,
+  resizeFloatRect,
   resolveFloatRect,
   snapFabPosition,
   snapFloatPosition,
   useViewportSize,
+  type AiFloatRect,
+  type FloatResizeEdge,
 } from '@/lib/ai-panel-bucket'
 import { useDesktop } from '@/hooks/use-desktop'
 import { armWindowDragOnFirstMove, isDraggableBlankArea } from '@/lib/window-drag'
@@ -163,9 +177,14 @@ const EnvironmentInfoPopover = dynamic(
   () => import('@/components/ai/environment-info-popover').then((m) => m.EnvironmentInfoPopover),
   { ssr: false },
 )
-/** D176 任务回顾/移交到新任务入口(301 行 + Dialog):点击才展开,头部按钮组常驻入口 */
-const TaskRecapEntry = dynamic(
-  () => import('@/components/ai/d176-task-recap').then((m) => m.TaskRecapEntry),
+/** D176 任务回顾/移交到新任务:菜单行与 Dialog 拆开 —— 行在 DropdownMenu.Content 内,
+ * Dialog 由面板根节点常驻挂载,菜单关闭不会连带卸载生成结果(2026-11-15 结构修复)。 */
+const TaskRecapMenuItem = dynamic(
+  () => import('@/components/ai/d176-task-recap').then((m) => m.TaskRecapMenuItem),
+  { ssr: false },
+)
+const TaskRecapDialog = dynamic(
+  () => import('@/components/ai/d176-task-recap').then((m) => m.TaskRecapDialog),
   { ssr: false },
 )
 /** 工具面板(818 行 + 15 个下游面板):默认折叠 */
@@ -223,10 +242,6 @@ function BrandIconDeferred({ size = 16, className, vendor, fallbackIcon }: Brand
   )
 }
 
-/** 头部「⋯」溢出菜单项的统一视觉规格(Radix Item 的高亮态与项目 DropdownMenu 惯例一致) */
-const HEADER_MENU_ITEM_CLASS =
-  'flex cursor-default select-none items-center gap-2 rounded-sm px-2.5 py-1.5 text-label outline-none data-[highlighted]:bg-accent data-[highlighted]:text-accent-foreground'
-
 /** 全局 AI docked 侧边面板(对齐旧架构 .ai-side-panel 设计)。
  * - 默认 display:none,由 useAiPanelStore.open 控制
  * - 紧贴 Sidebar 右侧(flex 顺序:Sidebar → AISidePanel → main)
@@ -275,6 +290,77 @@ function getDefaultFabPosition(size: number): { x: number; y: number } {
   const anchor = getFloatAnchor()
   return { x: anchor.left, y: anchor.bottom - size }
 }
+
+/**
+ * 浮窗八向缩放手柄(2026-11-15):4 条边 + 4 个角。
+ * - 命中区跨在面板真实边缘上(向内 4px / 向外 4px),边缘细线居中在边界;
+ * - 4 条边可键盘操作(Tab 聚焦 + 方向键),4 个角只接指针 —— 避免一次多出 8 个 Tab 停靠点;
+ * - 角在数组末尾,与边命中区重叠时后渲染的角优先。
+ */
+const FLOAT_RESIZE_HANDLES: ReadonlyArray<{
+  edge: FloatResizeEdge
+  hitClass: string
+  lineClass: string | null
+  orientation: 'horizontal' | 'vertical'
+  keyboard: boolean
+}> = [
+  {
+    edge: 'n',
+    hitClass: '-top-1 left-3 right-3 h-2 cursor-ns-resize',
+    lineClass: 'left-0 right-0 top-1/2 h-0.5 -translate-y-1/2 ai-float-resize-line--h',
+    orientation: 'horizontal',
+    keyboard: true,
+  },
+  {
+    edge: 's',
+    hitClass: '-bottom-1 left-3 right-3 h-2 cursor-ns-resize',
+    lineClass: 'left-0 right-0 top-1/2 h-0.5 -translate-y-1/2 ai-float-resize-line--h',
+    orientation: 'horizontal',
+    keyboard: true,
+  },
+  {
+    edge: 'w',
+    hitClass: '-left-1 top-3 bottom-3 w-2 cursor-ew-resize',
+    lineClass: 'top-0 bottom-0 left-1/2 w-0.5 -translate-x-1/2',
+    orientation: 'vertical',
+    keyboard: true,
+  },
+  {
+    edge: 'e',
+    hitClass: '-right-1 top-3 bottom-3 w-2 cursor-ew-resize',
+    lineClass: 'top-0 bottom-0 left-1/2 w-0.5 -translate-x-1/2',
+    orientation: 'vertical',
+    keyboard: true,
+  },
+  {
+    edge: 'nw',
+    hitClass: '-left-1 -top-1 z-20 h-3 w-3 cursor-nwse-resize',
+    lineClass: null,
+    orientation: 'horizontal',
+    keyboard: false,
+  },
+  {
+    edge: 'ne',
+    hitClass: '-right-1 -top-1 z-20 h-3 w-3 cursor-nesw-resize',
+    lineClass: null,
+    orientation: 'horizontal',
+    keyboard: false,
+  },
+  {
+    edge: 'sw',
+    hitClass: '-left-1 -bottom-1 z-20 h-3 w-3 cursor-nesw-resize',
+    lineClass: null,
+    orientation: 'horizontal',
+    keyboard: false,
+  },
+  {
+    edge: 'se',
+    hitClass: '-right-1 -bottom-1 z-20 h-3 w-3 cursor-nwse-resize',
+    lineClass: null,
+    orientation: 'horizontal',
+    keyboard: false,
+  },
+]
 
 /** 自定义"工作展示区"图标(对标设计稿):大圆角面板 + 短竖线,竖线两端不贴外框
  *  left=false 竖线在右侧(工作区展开状态);left=true 竖线在左侧(工作区收起状态) */
@@ -381,6 +467,11 @@ function findPanelScrollContainer(root: HTMLElement | null): HTMLElement | null 
 export function AISidePanel() {
   const t = useTranslations('chat')
   const tc = useTranslations('aiChat')
+  // D181:画中画入口已并入本菜单;能力面只在客户端探测,不支持时不渲染该菜单项
+  const [pipSupported, setPipSupported] = React.useState(false)
+  React.useEffect(() => {
+    setPipSupported(isDocumentPictureInPictureSupported())
+  }, [])
   const tcommon = useTranslations('common')
   // 登录态门(与 settings 页同型):未就绪/未登录不发注定 401 的会话历史请求,消息区改显登录引导
   const tGate = useTranslations('chatHistory')
@@ -407,6 +498,9 @@ export function AISidePanel() {
   const floatMinimized = useAiPanelStore((s) => s.floatMinimized)
   const floatCollapsed = useAiPanelStore((s) => s.floatCollapsed)
   const floatPosition = useAiPanelStore((s) => s.floatPosition)
+  // 浮窗尺寸(八向拉伸后的偏好;缺省 360×600,渲染前统一按视口收口)
+  const floatSize = useAiPanelStore((s) => s.floatSize)
+  const setFloatSize = useAiPanelStore((s) => s.setFloatSize)
   // FAB 拖拽后的独立位置(null = 跟随浮窗矩形左下角)
   const floatFabPosition = useAiPanelStore((s) => s.floatFabPosition)
   const viewport = useViewportSize()
@@ -418,9 +512,15 @@ export function AISidePanel() {
   const floatRect = React.useMemo(
     () =>
       floatMode
-        ? resolveFloatRect(floatPosition, getFloatAnchor(), viewport.width, viewport.height)
+        ? resolveFloatRect(
+            floatPosition,
+            getFloatAnchor(),
+            viewport.width,
+            viewport.height,
+            floatSize,
+          )
         : null,
-    [floatMode, floatPosition, viewport.width, viewport.height],
+    [floatMode, floatPosition, floatSize, viewport.width, viewport.height],
   )
   /** 非空视图(零值占位):浮窗外的分支不会消费它的几何字段 */
   const floatBox = floatRect ?? { x: 0, y: 0, width: 0, height: 0 }
@@ -443,6 +543,8 @@ export function AISidePanel() {
   //  - modeFx:docked ↔ float 切换时给根节点临时补一次入场(挂载入场由 CSS 类负责)
   const [leaving, setLeaving] = React.useState(false)
   const [modeFx, setModeFx] = React.useState(false)
+  /** 正在缩放的方向(仅用于让当前手柄细线在拖拽中保持显现;移动面板时不亮缩放线) */
+  const [floatResizeEdge, setFloatResizeEdge] = React.useState<FloatResizeEdge | null>(null)
   const leaveTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
   React.useEffect(
     () => () => {
@@ -528,6 +630,9 @@ export function AISidePanel() {
   // (draft:true 透传 GitHub API);成功 toast 带 PR 链接并刷新环境快照,失败统一降级提示。
   // hooks 规则:组件下方有早退 return,本块必须留在所有 early return 之前(无条件执行)。
   const [creatingDraftPR, setCreatingDraftPR] = React.useState(false)
+  // D176 任务回顾 Dialog 的受控开关:Dialog 必须挂在溢出菜单之外,否则菜单(2200)
+  // 会盖住 Dialog(2000),且点进 Dialog 会被 Radix 判定为菜单外点击而整体卸载。
+  const [recapOpen, setRecapOpen] = React.useState(false)
   const handleCreateDraftPR = React.useCallback(async () => {
     if (creatingDraftPR) return
     const wsPath = useAiPanelStore.getState().activeWorkspace?.path
@@ -1353,6 +1458,8 @@ export function AISidePanel() {
     startY: number
     originX: number
     originY: number
+    /** 拖拽起手时的尺寸:移动只改位置,尺寸全程不变(缩放走 handleFloatResizeStart) */
+    size: { width: number; height: number }
     frame: number | null
     next: { x: number; y: number } | null
   } | null>(null)
@@ -1381,6 +1488,7 @@ export function AISidePanel() {
         getFloatAnchor(),
         window.innerWidth,
         window.innerHeight,
+        useAiPanelStore.getState().floatSize,
       )
       const el = e.currentTarget as HTMLElement
       e.preventDefault()
@@ -1396,6 +1504,7 @@ export function AISidePanel() {
         startY: e.clientY,
         originX: rect.x,
         originY: rect.y,
+        size: { width: rect.width, height: rect.height },
         frame: null,
         next: null,
       }
@@ -1418,6 +1527,7 @@ export function AISidePanel() {
           drag.originY + (ev.clientY - drag.startY),
           window.innerWidth,
           window.innerHeight,
+          drag.size,
         )
         drag.next = { x, y }
         if (drag.frame === null) drag.frame = window.requestAnimationFrame(flush)
@@ -1435,7 +1545,13 @@ export function AISidePanel() {
         // 落点统一过 snapFloatPosition:贴到左右边距 24px 内自动吸住,中间位置不动。
         if (drag.next) {
           setFloatPosition(
-            snapFloatPosition(drag.next.x, drag.next.y, window.innerWidth, window.innerHeight),
+            snapFloatPosition(
+              drag.next.x,
+              drag.next.y,
+              window.innerWidth,
+              window.innerHeight,
+              drag.size,
+            ),
           )
         }
         floatDragRef.current = null
@@ -1457,6 +1573,154 @@ export function AISidePanel() {
       el.addEventListener('lostpointercapture', finish)
     },
     [floatMode, floatMinimized, isSheet, setFloatPosition, setResizing, setFloatFabPosition],
+  )
+
+  // ─── 浮窗八向缩放(2026-11-15 用户需求:悬浮态支持上下左右拉伸)───
+  // 纯几何在 lib/ai-panel-bucket 的 resizeFloatRect(有单测);这里只负责指针生命周期与落库。
+  // 与移动同款:pointer capture + rAF 合帧 + 三路收尾,避免 pointerup 丢失后 isResizing 卡死。
+  const floatResizeRef = React.useRef<{
+    pointerId: number
+    edge: FloatResizeEdge
+    startX: number
+    startY: number
+    origin: AiFloatRect
+    /** 本帧最新矩形(rAF 合帧前先记账,收尾时补最后一帧) */
+    latest: AiFloatRect | null
+    frame: number | null
+  } | null>(null)
+
+  const handleFloatResizeStart = React.useCallback(
+    (e: React.PointerEvent<HTMLDivElement>, edge: FloatResizeEdge) => {
+      if (!floatMode || isMobileSmall || floatCollapsed) return
+      if (e.button !== 0) return
+      e.preventDefault()
+      e.stopPropagation()
+      const state = useAiPanelStore.getState()
+      const origin = resolveFloatRect(
+        state.floatPosition,
+        getFloatAnchor(),
+        window.innerWidth,
+        window.innerHeight,
+        state.floatSize,
+      )
+      const el = e.currentTarget
+      try {
+        el.setPointerCapture(e.pointerId)
+      } catch {
+        // 合成事件 / 旧浏览器没有 pointer capture:退回窗口监听
+      }
+      setResizing(true)
+      setFloatResizeEdge(edge)
+      floatResizeRef.current = {
+        pointerId: e.pointerId,
+        edge,
+        startX: e.clientX,
+        startY: e.clientY,
+        origin,
+        latest: null,
+        frame: null,
+      }
+
+      const flush = () => {
+        const drag = floatResizeRef.current
+        if (!drag) return
+        drag.frame = null
+        const rect = drag.latest
+        if (!rect) return
+        // 同一帧写位置 + 尺寸:React 18 自动批处理,渲染只会拿到一致的最终矩形。
+        setFloatPosition({ x: rect.x, y: rect.y })
+        setFloatSize({ width: rect.width, height: rect.height })
+      }
+
+      const onMove = (ev: PointerEvent) => {
+        const drag = floatResizeRef.current
+        if (!drag || ev.pointerId !== drag.pointerId) return
+        drag.latest = resizeFloatRect(
+          drag.origin,
+          drag.edge,
+          ev.clientX - drag.startX,
+          ev.clientY - drag.startY,
+          window.innerWidth,
+          window.innerHeight,
+        )
+        if (drag.frame === null) drag.frame = window.requestAnimationFrame(flush)
+      }
+
+      const finish = (ev?: PointerEvent) => {
+        const drag = floatResizeRef.current
+        if (!drag) return
+        if (ev && ev.pointerId !== drag.pointerId) return
+        if (drag.frame !== null) {
+          window.cancelAnimationFrame(drag.frame)
+          drag.frame = null
+        }
+        const rect = drag.latest
+        if (rect) {
+          // 收尾补最终帧:缩放不再做水平吸边 —— 用户拖的是某条边,边缘落点就是意图,
+          // 吸附会把整块面板平移、连带移动对侧边(与拖拽移动的语义不同)。
+          setFloatPosition({ x: rect.x, y: rect.y })
+          setFloatSize({ width: rect.width, height: rect.height })
+        }
+        floatResizeRef.current = null
+        setResizing(false)
+        setFloatResizeEdge(null)
+        window.removeEventListener('pointermove', onMove)
+        window.removeEventListener('pointerup', finish)
+        window.removeEventListener('pointercancel', finish)
+        el.removeEventListener('lostpointercapture', finish)
+        try {
+          el.releasePointerCapture(drag.pointerId)
+        } catch {
+          // 已释放或无 capture:忽略
+        }
+      }
+
+      window.addEventListener('pointermove', onMove)
+      window.addEventListener('pointerup', finish)
+      window.addEventListener('pointercancel', finish)
+      el.addEventListener('lostpointercapture', finish)
+    },
+    [
+      floatMode,
+      isMobileSmall,
+      floatCollapsed,
+      setFloatPosition,
+      setFloatSize,
+      setResizing,
+      setFloatResizeEdge,
+    ],
+  )
+
+  /** 键盘缩放:方向键移动当前手柄所在边(Shift = 48px 大步),与停靠手柄同一步长。 */
+  const handleFloatResizeKeyDown = React.useCallback(
+    (e: React.KeyboardEvent<HTMLDivElement>, edge: FloatResizeEdge) => {
+      const horizontal = edge.includes('w') || edge.includes('e')
+      const vertical = edge.includes('n') || edge.includes('s')
+      const dx = e.key === 'ArrowLeft' ? -1 : e.key === 'ArrowRight' ? 1 : 0
+      const dy = e.key === 'ArrowUp' ? -1 : e.key === 'ArrowDown' ? 1 : 0
+      if ((dx === 0 && dy === 0) || (dx !== 0 && !horizontal) || (dy !== 0 && !vertical)) return
+      e.preventDefault()
+      e.stopPropagation()
+      const step = e.shiftKey ? 48 : 16
+      const state = useAiPanelStore.getState()
+      const rect = resizeFloatRect(
+        resolveFloatRect(
+          state.floatPosition,
+          getFloatAnchor(),
+          window.innerWidth,
+          window.innerHeight,
+          state.floatSize,
+        ),
+        edge,
+        dx * step,
+        dy * step,
+        window.innerWidth,
+        window.innerHeight,
+      )
+      setFloatPosition({ x: rect.x, y: rect.y })
+      setFloatSize({ width: rect.width, height: rect.height })
+    },
+    [setFloatPosition, setFloatSize],
   )
 
   // ─── FAB(最小化图标)拖拽(2026-11-11 补)───
@@ -1576,6 +1840,9 @@ export function AISidePanel() {
       const drag = floatDragRef.current
       if (drag && drag.frame !== null) window.cancelAnimationFrame(drag.frame)
       floatDragRef.current = null
+      const resize = floatResizeRef.current
+      if (resize && resize.frame !== null) window.cancelAnimationFrame(resize.frame)
+      floatResizeRef.current = null
       const fabDrag = fabDragRef.current
       if (fabDrag && fabDrag.frame !== null) window.cancelAnimationFrame(fabDrag.frame)
       fabDragRef.current = null
@@ -1589,7 +1856,16 @@ export function AISidePanel() {
   React.useEffect(() => {
     if (!floatMode || isSheet) return
     const onResize = () => {
-      const pos = useAiPanelStore.getState().floatPosition
+      const state = useAiPanelStore.getState()
+      // 先收尺寸再用新尺寸收位置:窗口变小时若只收位置,浮窗仍会大于视口。
+      const nextSize = getFloatSize(window.innerWidth, window.innerHeight, state.floatSize)
+      if (
+        nextSize.width !== state.floatSize.width ||
+        nextSize.height !== state.floatSize.height
+      ) {
+        setFloatSize(nextSize)
+      }
+      const pos = state.floatPosition
       // 锚点未初始化(-1)时无需回写:渲染时按新视口重算
       if (pos.x >= 0 || pos.y >= 0) {
         const next = clampFloatPosition(
@@ -1597,10 +1873,11 @@ export function AISidePanel() {
           pos.y < 0 ? 0 : pos.y,
           window.innerWidth,
           window.innerHeight,
+          nextSize,
         )
         if (next.x !== pos.x || next.y !== pos.y) setFloatPosition(next)
       }
-      const fabPos = useAiPanelStore.getState().floatFabPosition
+      const fabPos = state.floatFabPosition
       if (fabPos) {
         const nextFab = clampFabPosition(fabPos.x, fabPos.y, window.innerWidth, window.innerHeight)
         if (nextFab.x !== fabPos.x || nextFab.y !== fabPos.y) setFloatFabPosition(nextFab)
@@ -1608,7 +1885,7 @@ export function AISidePanel() {
     }
     window.addEventListener('resize', onResize)
     return () => window.removeEventListener('resize', onResize)
-  }, [floatMode, isSheet, setFloatPosition, setFloatFabPosition])
+  }, [floatMode, isSheet, setFloatPosition, setFloatSize, setFloatFabPosition])
 
   // ─── 浮窗焦点接力(2026-11-11 a11y)───
   // FAB ⇄ 面板是两个互斥的 return 分支,切换时 React 会把焦点丢给 body —— 键盘用户下一次
@@ -1875,13 +2152,19 @@ export function AISidePanel() {
             // 展开后最小化跳回 746)。图标位置只在用户**重新拖面板**时作废。
             const fabPos = useAiPanelStore.getState().floatFabPosition
             if (fabPos && !isMobileSmall) {
-              const { height } = getFloatSize(window.innerWidth, window.innerHeight)
+              const state = useAiPanelStore.getState()
+              const { height } = getFloatSize(
+                window.innerWidth,
+                window.innerHeight,
+                state.floatSize,
+              )
               setFloatPosition(
                 clampFloatPosition(
                   fabPos.x,
                   fabPos.y + fabSize - height,
                   window.innerWidth,
                   window.innerHeight,
+                  state.floatSize,
                 ),
               )
             }
@@ -2323,7 +2606,7 @@ export function AISidePanel() {
                   <IconButton
                     onClick={() => setWorkAreaFullscreen(false)}
                     aria-label={tc('headerActions.exitWorkspaceFullscreen')}
-                    className="border border-border bg-popover/90 shadow-elevation-sm"
+                    className="border border-stroke-strong bg-popover/90 shadow-elevation-sm"
                   >
                     <Minimize2 />
                   </IconButton>
@@ -2545,10 +2828,10 @@ export function AISidePanel() {
                       align="end"
                       sideOffset={6}
                       collisionPadding={8}
-                      className="pointer-events-auto z-[2200] min-w-[13rem] rounded-md border bg-popover p-1 text-popover-foreground shadow-elevation-md"
+                      className="pointer-events-auto z-[2200] min-w-[13rem] rounded-md border border-stroke-strong bg-popover p-1 text-popover-foreground shadow-elevation-md"
                       data-testid="ai-panel-overflow-menu"
                     >
-                      <DropdownMenu.Label className="px-2.5 pb-0.5 pt-1 text-[11px] font-medium text-muted-foreground">
+                      <DropdownMenu.Label className={MENU_ITEM_SECTION_CLASS}>
                         {tc('headerActions.groupPanel')}
                       </DropdownMenu.Label>
                       {/* 浮窗模式切换(原头部第一枚):docked → 浮窗折叠态;float → 停靠。
@@ -2557,7 +2840,7 @@ export function AISidePanel() {
                       {bucket === 'docked' && (
                         <DropdownMenu.Item
                           data-testid="ai-panel-float-toggle"
-                          className={HEADER_MENU_ITEM_CLASS}
+                          className={MENU_ITEM_CLASS}
                           onSelect={() => {
                             if (floatMode) {
                               setFloatMode(false)
@@ -2570,18 +2853,19 @@ export function AISidePanel() {
                             }
                           }}
                         >
-                          {floatMode ? <PanelRightRounded left /> : <PictureInPicture2 />}
+                          {floatMode ? (
+                            <PanelRightRounded left className={MENU_ITEM_ICON_CLASS} />
+                          ) : (
+                            <PictureInPicture2 className={MENU_ITEM_ICON_CLASS} />
+                          )}
                           <span className="truncate">
                             {floatMode ? tc('dockPanel') : tc('floatMode')}
                           </span>
                         </DropdownMenu.Item>
                       )}
                       {floatMode && (
-                        <DropdownMenu.Item
-                          className={HEADER_MENU_ITEM_CLASS}
-                          onSelect={handleMinimize}
-                        >
-                          <Minus />
+                        <DropdownMenu.Item className={MENU_ITEM_CLASS} onSelect={handleMinimize}>
+                          <Minus className={MENU_ITEM_ICON_CLASS} />
                           <span className="truncate">{tc('minimize')}</span>
                         </DropdownMenu.Item>
                       )}
@@ -2589,76 +2873,98 @@ export function AISidePanel() {
                           浮窗 / 手机档面板不占 flex 位,折叠工作区只会让整页变空 */}
                       {!floatMode && (
                         <DropdownMenu.Item
-                          className={HEADER_MENU_ITEM_CLASS}
+                          className={MENU_ITEM_CLASS}
                           onSelect={() => toggleWorkPanel()}
                         >
-                          <PanelRightRounded left={workAreaCollapsed} />
-                          <span className="min-w-0 flex-1 truncate">
+                          <PanelRightRounded
+                            left={workAreaCollapsed}
+                            className={MENU_ITEM_ICON_CLASS}
+                          />
+                          <span className={MENU_ITEM_LABEL_CLASS}>
                             {workAreaCollapsed ? tc('openWorkPanel') : tc('closeWorkPanel')}
                           </span>
-                          {!workAreaCollapsed && <Check className="h-3.5 w-3.5 shrink-0" />}
+                          {!workAreaCollapsed && <Check className={MENU_ITEM_CHECK_CLASS} />}
                         </DropdownMenu.Item>
                       )}
                       {/* D182 工作面全屏(仅 docked;浮窗本身是独立小窗,再全屏无意义) */}
                       {!floatMode && !workspaceUnavailable && (
                         <DropdownMenu.Item
                           data-testid="ai-panel-workspace-fullscreen"
-                          className={HEADER_MENU_ITEM_CLASS}
+                          className={MENU_ITEM_CLASS}
                           onSelect={() => setWorkAreaFullscreen(!workAreaFullscreen)}
                         >
-                          {workAreaFullscreen ? <Minimize2 /> : <Maximize2 />}
-                          <span className="min-w-0 flex-1 truncate">
+                          {workAreaFullscreen ? (
+                            <Minimize2 className={MENU_ITEM_ICON_CLASS} />
+                          ) : (
+                            <Maximize2 className={MENU_ITEM_ICON_CLASS} />
+                          )}
+                          <span className={MENU_ITEM_LABEL_CLASS}>
                             {workAreaFullscreen
                               ? tc('headerActions.exitWorkspaceFullscreen')
                               : tc('headerActions.enterWorkspaceFullscreen')}
                           </span>
-                          {workAreaFullscreen && <Check className="h-3.5 w-3.5 shrink-0" />}
+                          {workAreaFullscreen && <Check className={MENU_ITEM_CHECK_CLASS} />}
                         </DropdownMenu.Item>
                       )}
                       {/* 向右拆分:只在停靠态可用 —— 360px 浮窗内再分两栏,
                           每栏不到 170px,输入框必然溢出(历史缺陷:只排除了 <640) */}
                       {!d73Expanded && !floatMode && (
                         <DropdownMenu.Item
-                          className={HEADER_MENU_ITEM_CLASS}
+                          className={MENU_ITEM_CLASS}
                           aria-label={tp('splitRight')}
                           onSelect={() => d73HandleSplit()}
                         >
-                          <Columns2 />
+                          <Columns2 className={MENU_ITEM_ICON_CLASS} />
                           <span className="truncate">{tp('splitRight')}</span>
                         </DropdownMenu.Item>
                       )}
-                      <DropdownMenu.Separator className="my-1 h-px bg-border" />
-                      <DropdownMenu.Label className="px-2.5 pb-0.5 pt-1 text-[11px] font-medium text-muted-foreground">
+                      <DropdownMenu.Label className={MENU_ITEM_SECTION_CLASS}>
                         {tc('headerActions.groupTools')}
                       </DropdownMenu.Label>
                       {/* 环境信息 / 终端(原 2026-08-17 三按钮组):勾选态与原高亮态等价 */}
                       <DropdownMenu.Item
-                        className={HEADER_MENU_ITEM_CLASS}
+                        className={MENU_ITEM_CLASS}
                         onSelect={() => toggleEnvInfo()}
                       >
-                        <EnvInfoRounded checked={envInfoOpen} />
-                        <span className="min-w-0 flex-1 truncate">{tc('envInfoButton')}</span>
-                        {envInfoOpen && <Check className="h-3.5 w-3.5 shrink-0" />}
+                        <EnvInfoRounded checked={envInfoOpen} className={MENU_ITEM_ICON_CLASS} />
+                        <span className={MENU_ITEM_LABEL_CLASS}>{tc('envInfoButton')}</span>
+                        {envInfoOpen && <Check className={MENU_ITEM_CHECK_CLASS} />}
                       </DropdownMenu.Item>
                       <DropdownMenu.Item
-                        className={HEADER_MENU_ITEM_CLASS}
+                        className={MENU_ITEM_CLASS}
                         onSelect={() => toggleTerminalDock()}
                       >
-                        <SquareTerminal />
-                        <span className="min-w-0 flex-1 truncate">{tc('openTerminal')}</span>
-                        {terminalDockOpen && <Check className="h-3.5 w-3.5 shrink-0" />}
+                        <SquareTerminal className={MENU_ITEM_ICON_CLASS} />
+                        <span className={MENU_ITEM_LABEL_CLASS}>{tc('openTerminal')}</span>
+                        {terminalDockOpen && <Check className={MENU_ITEM_CHECK_CLASS} />}
                       </DropdownMenu.Item>
-                      <DropdownMenu.Separator className="my-1 h-px bg-border" />
-                      <DropdownMenu.Label className="px-2.5 pb-0.5 pt-1 text-[11px] font-medium text-muted-foreground">
+                      {/* D181 电脑使用画中画:原消息流顶部常驻条已移除,入口收进本菜单 */}
+                      {pipSupported && (
+                        <DropdownMenu.Item
+                          data-testid="ai-panel-open-pip"
+                          className={MENU_ITEM_CLASS}
+                          onSelect={() =>
+                            openPictureInPictureWindow({
+                              title: tc('pictureInPicture.title'),
+                              emptyState: tc('pictureInPicture.emptyState'),
+                            })
+                          }
+                        >
+                          <PictureInPicture2 className={MENU_ITEM_ICON_CLASS} />
+                          <span className="truncate">{tc('pictureInPicture.openWindow')}</span>
+                        </DropdownMenu.Item>
+                      )}
+                      <DropdownMenu.Label className={MENU_ITEM_SECTION_CLASS}>
                         {tc('headerActions.groupSession')}
                       </DropdownMenu.Label>
-                      {/* D176 任务回顾(菜单项形态,组件内部自带 Dialog;不再占头部槽位) */}
-                      <TaskRecapEntry variant="menu-item" />
+                      {/* D176 任务回顾:菜单行(Radix Item)+ 菜单外的受控 Dialog,
+                          菜单关闭不再连带卸载生成结果 */}
+                      <TaskRecapMenuItem onSelect={() => setRecapOpen(true)} />
                       {/* D183 一键创建 Draft PR:仅 docked、且有可用工作区时出现 */}
                       {!floatMode && (!workspaceUnavailable || creatingDraftPR) && (
                         <DropdownMenu.Item
                           data-testid="ai-panel-create-draft-pr"
-                          className={HEADER_MENU_ITEM_CLASS}
+                          className={MENU_ITEM_CLASS}
                           disabled={creatingDraftPR}
                           onSelect={(e) => {
                             // 保持菜单关闭后再跑异步动作,避免 loading 态留在已卸载的菜单里
@@ -2667,27 +2973,29 @@ export function AISidePanel() {
                           }}
                         >
                           {creatingDraftPR ? (
-                            <Loader2 className="animate-spin" />
+                            <Loader2 className={cn(MENU_ITEM_ICON_CLASS, 'animate-spin')} />
                           ) : (
-                            <GitPullRequest />
+                            <GitPullRequest className={MENU_ITEM_ICON_CLASS} />
                           )}
                           <span className="truncate">
                             {tc('headerActions.createDraftPullRequest')}
                           </span>
                         </DropdownMenu.Item>
                       )}
-                      <DropdownMenu.Separator className="my-1 h-px bg-border" />
                       <DropdownMenu.Item
                         data-testid="ai-panel-close"
-                        className={HEADER_MENU_ITEM_CLASS}
+                        className={MENU_ITEM_CLASS}
                         onSelect={handleClosePanel}
                       >
-                        <X />
+                        <X className={MENU_ITEM_ICON_CLASS} />
                         <span className="truncate">{tcommon('close')}</span>
                       </DropdownMenu.Item>
                     </DropdownMenu.Content>
                   </DropdownMenu.Portal>
                 </DropdownMenu.Root>
+                {/* D176 回顾 Dialog 的宿主位:必须在 DropdownMenu 之外,菜单关闭(选中项)
+                    后仍保持挂载;z-modal(2000)低于任何浮层但不会被 2200 的菜单盖住。 */}
+                <TaskRecapDialog open={recapOpen} onOpenChange={setRecapOpen} />
               </div>
             </header>
 
@@ -2723,6 +3031,38 @@ export function AISidePanel() {
               d73ConversationBody(storeConversationId, false)
             )}
           </aside>
+          {/* 浮窗八向缩放手柄(2026-11-15 用户需求):上/下/左/右 4 条边 + 4 个角。
+              命中区跨在面板真实边缘上,不进入 aside(避免 overflow-hidden 裁掉外侧 4px)。
+              边缘细线只在命中区 hover / 键盘聚焦 / 拖拽中显现(样式见 globals.css),
+              与拖拽移动共用 isResizing:缩放过程中禁用宽高过渡,指针跟手不拖尾。 */}
+          {floatMode && !isMobileSmall
+            ? FLOAT_RESIZE_HANDLES.map((h) => (
+                <div
+                  key={h.edge}
+                  onPointerDown={(e) => handleFloatResizeStart(e, h.edge)}
+                  onKeyDown={(e) => handleFloatResizeKeyDown(e, h.edge)}
+                  tabIndex={h.keyboard ? 0 : -1}
+                  role="separator"
+                  aria-orientation={h.orientation}
+                  aria-label={tc('resizeFloatHint')}
+                  className={cn(
+                    'ai-float-resize-hit absolute z-20 touch-none select-none outline-none',
+                    h.hitClass,
+                  )}
+                >
+                  {h.lineClass ? (
+                    <span
+                      aria-hidden="true"
+                      className={cn(
+                        'ai-float-resize-line pointer-events-none absolute',
+                        h.lineClass,
+                        floatResizeEdge === h.edge && 'is-resizing',
+                      )}
+                    />
+                  ) : null}
+                </div>
+              ))
+            : null}
           {/* 右侧拖拽手柄:外层 8px 命中区 right-[-4px] 居中跨越 aside 右边缘(左右各 4px),
         内层 0.5px 线 left-[calc(50%-0.25px)] -translate-x-1/2 居中在命中区中心,与 aside 右边缘重合。
         手柄置于 aside 外层(父 div),避免 overflow-hidden 裁剪命中区。

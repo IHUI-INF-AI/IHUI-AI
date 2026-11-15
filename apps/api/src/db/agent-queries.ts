@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { eq, desc, sql } from 'drizzle-orm'
+import { eq, desc, and, or, isNull, inArray, sql, type SQL } from 'drizzle-orm'
 import { db, dbRead } from './index.js'
 import { agents, agentTasks, type Agent, type AgentTask } from '@ihui/database'
 
@@ -39,8 +39,13 @@ export interface AgentTaskViewer {
   isAdmin: boolean
 }
 
-/** 单 agent 历史扫描窗口:先取最近 500 行,按可见性过滤后再截 limit(默认 50) */
-const AGENT_TASK_SCAN_LIMIT = 500
+/** 查询可选过滤(全部下推 SQL;不传时行为与旧调用一致) */
+export interface AgentTaskQueryOptions {
+  /** 任务状态(单值或列表),非空时进入 WHERE */
+  status?: string | string[]
+  /** 偏移量,>0 时进入 OFFSET(配合 limit 分页) */
+  offset?: number
+}
 
 /** agent_tasks 创建者回填的迁移标记 scope(与 drizzle 迁移里的标记行同值) */
 const AGENT_TASK_BACKFILL_SCOPE = 'agent_tasks.creator'
@@ -107,27 +112,54 @@ export function _resetAgentTaskBackfillCache(): void {
  * 详情页 progress/swarm/checkpoint/plan/background 5 个 Tab 均由此聚合。
  *
  * 2026-11-02 收紧:此前完全不过滤创建者 —— 已上架 agent 的汇总会把其他租户的
- * goal/产出一起返回。现在按 `isAgentTaskVisibleTo` 单一判据过滤:
- *  - 后过滤而非 SQL 条件,是为了让「谓词回退 fail-open」的反向例能直接打红;
- *  - 扫描窗口 500 行,过滤后截 limit;本人历史行仍在该窗口内(单 agent 历史有界)。
+ * goal/产出一起返回。现在按 `isAgentTaskVisibleTo` 单一判据过滤。
+ *
+ * F-601(2026-11-13):可见性 / 状态条件全部下推 SQL WHERE,排序与分页交给
+ * ORDER BY + LIMIT/OFFSET。旧实现先取最近 500 行再内存 filter/slice,热门 agent 下
+ * 本人历史会被挤出窗口(页面误显示无数据),且每次多拉 500 行。
  *
  * @param agentId 智能体公开 ID(agents.agentId,uuid)
  * @param viewer  调用方(路由经 isAdminViewer 注入管理员档)
  * @param limit   最多返回条数(默认 50)
+ * @param options 可选过滤:status / offset(不传保持旧行为)
  */
 export async function findAgentTasksByAgentId(
   agentId: string,
   viewer: AgentTaskViewer,
   limit = 50,
+  options: AgentTaskQueryOptions = {},
 ): Promise<AgentTask[]> {
-  const rows = await dbRead
-    .select()
-    .from(agentTasks)
-    .where(eq(agentTasks.agentId, agentId))
-    .orderBy(desc(agentTasks.createdAt))
-    .limit(AGENT_TASK_SCAN_LIMIT)
   // 管理员恒可见,不需要探测迁移标记(省一次查询);普通用户按标记三态过滤
   const backfillApplied = viewer.isAdmin ? true : await isAgentTaskBackfillApplied()
-  return rows.filter((row) => isAgentTaskVisibleTo(row, viewer, backfillApplied)).slice(0, limit)
+
+  const conditions: SQL[] = [eq(agentTasks.agentId, agentId)]
+  if (!viewer.isAdmin) {
+    // 与 isAgentTaskVisibleTo 同口径:本人恒可见;created_by 为空在迁移前维持旧口径可见
+    const ownership = backfillApplied
+      ? eq(agentTasks.createdBy, viewer.userId)
+      : or(eq(agentTasks.createdBy, viewer.userId), isNull(agentTasks.createdBy))
+    if (ownership) conditions.push(ownership)
+  }
+  const statuses = (Array.isArray(options.status) ? options.status : [options.status])
+    .filter((s): s is string => typeof s === 'string' && s.trim().length > 0)
+    .map((s) => s.trim())
+  const uniqueStatuses = Array.from(new Set(statuses))
+  if (uniqueStatuses.length > 1) {
+    conditions.push(inArray(agentTasks.status, uniqueStatuses))
+  } else if (uniqueStatuses.length === 1) {
+    const onlyStatus = uniqueStatuses[0]
+    if (onlyStatus) conditions.push(eq(agentTasks.status, onlyStatus))
+  }
+
+  const offset = options.offset && options.offset > 0 ? Math.floor(options.offset) : 0
+  const query = dbRead
+    .select()
+    .from(agentTasks)
+    .where(and(...conditions))
+    .orderBy(desc(agentTasks.createdAt), desc(agentTasks.id))
+    .limit(limit)
+  const rows = offset > 0 ? await query.offset(offset) : await query
+  // SQL 已按同一判据过滤;此处仅保留单一判据的防御性复筛(不改变结果与顺序)
+  return rows.filter((row) => isAgentTaskVisibleTo(row, viewer, backfillApplied))
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

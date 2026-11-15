@@ -259,7 +259,7 @@ export class ContentToolbar {
       #${TOOLBAR_ID}, .ihui-ctx-popup {
         --color-card: hsl(0 0% 10%);
         --color-foreground: hsl(0 0% 98%);
-        --color-border: hsl(0 0% 22%);
+        --color-border: rgba(255, 255, 255, 0.12);
         --color-accent: hsl(0 0% 19%);
         --color-accent-strong: #404040;
         --color-accent-foreground: #fafafa;

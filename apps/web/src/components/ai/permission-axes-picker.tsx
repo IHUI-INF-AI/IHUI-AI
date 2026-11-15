@@ -119,7 +119,7 @@ export function PermissionAxesPicker({ disabled }: { disabled?: boolean }) {
     <section
       data-testid="permission-axes-picker"
       aria-label={t('axesTitle')}
-      className="mt-1 space-y-1.5 rounded-lg border border-border/60 p-2"
+      className="mt-1 space-y-1.5 rounded-lg border border-stroke-subtle p-2"
     >
       <div className="flex items-center gap-1.5">
         <Layers className="h-3 w-3 shrink-0 text-muted-foreground" aria-hidden="true" />
@@ -169,7 +169,7 @@ export function PermissionAxesPicker({ disabled }: { disabled?: boolean }) {
                 'inline-flex h-6 items-center rounded-sm border px-1.5 text-[10px] font-medium transition-colors',
                 'disabled:cursor-not-allowed disabled:opacity-60',
                 selected
-                  ? 'border-primary/60 bg-primary/5 text-foreground'
+                  ? 'border-stroke-selected bg-primary/5 text-foreground'
                   : 'border-border text-muted-foreground hover:border-foreground/20 hover:bg-muted/40 hover:text-foreground',
               )}
             >

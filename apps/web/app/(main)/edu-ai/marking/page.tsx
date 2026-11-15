@@ -229,7 +229,7 @@ export default function EduAiMarkingPage() {
         </div>
       ) : result ? (
         <div className="space-y-4">
-          <Card className="border-primary/30 bg-primary/5">
+          <Card className="border-stroke-selected bg-primary/5">
             <CardContent className="min-[640px]:p-3 flex items-center gap-4 p-3">
               <Sparkles className="h-8 w-8 shrink-0 text-primary" />
               <div>

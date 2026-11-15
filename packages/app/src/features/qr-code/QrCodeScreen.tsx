@@ -22,7 +22,7 @@ export function QrCodeScreen({
   onShare,
   onBack,
   onRetry,
-  colorScheme = 'light'
+  colorScheme = 'light',
 }: QrCodeScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])

@@ -22,9 +22,9 @@ import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react
 import { StatCard } from '@/components/data'
 import { AuthGatePrompt } from '@/components/common'
 import { useAuthGate } from '@/hooks/use-auth-gate'
-import { formatPrice } from '@ihui/shared/utils/format'
+import { formatCnyCents } from '@/lib/display-currency'
 
-const fmtYuan = (cents: number) => `¥${formatPrice(cents)}`
+const fmtYuan = (cents: number) => formatCnyCents(cents, { digits: 2 })
 
 async function apiOverview(): Promise<CommissionOverview> {
   const r = await getOverview()

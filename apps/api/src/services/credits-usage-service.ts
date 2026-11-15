@@ -3,22 +3,23 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 // 按日积分消耗聚合(只读)。数据源 = point_transactions(type='spend')。
-// 分桶口径:UTC 日期(与 utils/checkin-helpers.ts 的 todayString/shiftDate 同一 UTC 约定);
+// 分桶口径:上海业务日 Asia/Shanghai(与 utils/biz-day.ts 的 bizDayKey/bizDayStartUtc 同源);
 // 区间内无消耗的日期补零;区间上限由路由层 Zod 约束(days ≤ MAX_CREDITS_USAGE_DAYS),
 // 任意值不拼接进 SQL(天数只参与 JS 侧日期偏移,查询参数全部走 drizzle 占位符)。
 
 import { and, eq, gte, sql } from 'drizzle-orm'
 import { chatConversations, pointTransactions } from '@ihui/database'
 import { db } from '../db/index.js'
+import { bizDayKey, bizDayStartUtc } from '../utils/biz-day.js'
 import { shiftDate } from '../utils/checkin-helpers.js'
 
 /** 分桶时区(唯一口径,前端热力图 dateKey 与之逐位对应) */
-const CREDITS_USAGE_TIMEZONE = 'UTC' as const
+const CREDITS_USAGE_TIMEZONE = 'Asia/Shanghai' as const
 /** 查询区间天数上限 */
 export const MAX_CREDITS_USAGE_DAYS = 365
 
 export interface DailyUsageBucket {
-  /** YYYY-MM-DD(UTC) */
+  /** YYYY-MM-DD(Asia/Shanghai 业务日) */
   date: string
   /** 当日消耗笔数 */
   count: number
@@ -49,14 +50,9 @@ interface RawUsageRow {
   points: number | string | null
 }
 
-/** Date → UTC 日期键 YYYY-MM-DD(边界:23:59:59.999Z 仍属当日,00:00:00Z 属次日) */
-export function utcDateKey(d: Date): string {
-  return d.toISOString().slice(0, 10)
-}
-
-/** UTC 日期表达式:to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD') */
+/** 上海业务日表达式:to_char(created_at AT TIME ZONE 'Asia/Shanghai', 'YYYY-MM-DD') */
 function usageDateSql() {
-  return sql<string>`to_char(${pointTransactions.createdAt} AT TIME ZONE 'UTC', 'YYYY-MM-DD')`
+  return sql<string>`to_char(${pointTransactions.createdAt} AT TIME ZONE 'Asia/Shanghai', 'YYYY-MM-DD')`
 }
 
 function toFiniteNumber(v: number | string | null | undefined): number {
@@ -105,7 +101,7 @@ function daySpan(startDate: string, endDate: string): number {
 }
 
 /**
- * 查询某用户最近 `days` 天(含今日,UTC)的按日积分消耗聚合。纯只读,不写表。
+ * 查询某用户最近 `days` 天(含今日,上海业务日)的按日积分消耗聚合。纯只读,不写表。
  */
 export async function getDailyCreditsUsage(input: {
   userId: string
@@ -114,8 +110,9 @@ export async function getDailyCreditsUsage(input: {
 }): Promise<CreditsDailyUsage> {
   const days = Math.min(Math.max(1, Math.trunc(input.days)), MAX_CREDITS_USAGE_DAYS)
   const now = input.now ?? new Date()
-  const endDate = utcDateKey(now)
+  const endDate = bizDayKey(now)
   const startDate = shiftDate(endDate, -(days - 1))
+  const sinceDate = bizDayStartUtc(days - 1, now)
   const dateExpr = usageDateSql()
 
   const rows = await db
@@ -129,13 +126,12 @@ export async function getDailyCreditsUsage(input: {
       and(
         eq(pointTransactions.userId, input.userId),
         eq(pointTransactions.type, 'spend'),
-        gte(pointTransactions.createdAt, new Date(`${startDate}T00:00:00.000Z`)),
+        gte(pointTransactions.createdAt, sinceDate),
       ),
     )
     .groupBy(dateExpr)
 
-  const sinceDate = new Date(`${startDate}T00:00:00.000Z`)
-  const convDateExpr = sql<string>`to_char(${chatConversations.createdAt} AT TIME ZONE 'UTC', 'YYYY-MM-DD')`
+  const convDateExpr = sql<string>`to_char(${chatConversations.createdAt} AT TIME ZONE 'Asia/Shanghai', 'YYYY-MM-DD')`
   const convRows = await db
     .select({
       date: convDateExpr,

@@ -164,8 +164,8 @@ export function InlineQuestionCard({ question, onSubmit, className }: InlineQues
       // Esc 只拦卡内按键,不注册全局快捷键
       onKeyDownCapture={handleCardKeyDown}
       className={cn(
-        'font-[weight:inherit] mx-auto w-full max-w-3xl rounded-lg border border-border/70 bg-card/95 p-3 text-body shadow-elevation-sm',
-        'focus-within:border-primary/40 focus-within:ring-2 focus-within:ring-primary/20',
+        'font-[weight:inherit] mx-auto w-full max-w-3xl rounded-lg border border-stroke-default bg-card/95 p-3 text-body shadow-elevation-sm',
+        'focus-within:outline outline-2 outline-offset-2 outline-stroke-focus',
         className,
       )}
     >
@@ -220,10 +220,10 @@ export function InlineQuestionCard({ question, onSubmit, className }: InlineQues
                 className={cn(
                   'flex cursor-pointer items-start gap-2 rounded-lg border px-2.5 py-2 transition-colors',
                   checked
-                    ? 'border-primary/50 bg-primary/5'
-                    : 'border-border/60 hover:border-primary/30 hover:bg-accent/40',
+                    ? 'border-stroke-selected bg-primary/5'
+                    : 'border-stroke-subtle hover:border-stroke-strong hover:bg-accent/40',
                   disabled && 'cursor-default opacity-80',
-                  'focus-within:ring-2 focus-within:ring-primary/20',
+                  'focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-stroke-focus',
                 )}
               >
                 <input

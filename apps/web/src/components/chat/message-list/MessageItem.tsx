@@ -37,12 +37,18 @@ import type { ChatMessage } from '@/stores/chat'
 import type { InlineDiffInfo } from '@/components/ai/types'
 import { CommunityPublishDialog } from '@/components/chat/community-publish-dialog'
 import CheckpointRewindPanel from '@/components/checkpoint/CheckpointRewindPanel'
-import { MarkdownStream } from '@/components/ai/markdown-stream'
+import { MarkdownStream, type FileMention } from '@/components/ai/markdown-stream'
+import { useAppearanceStore } from '@/stores/appearance-settings'
+import { extractRefs } from './file-chips'
+import { resolveFileMention } from '@/lib/file-mention'
+import { openWorkspaceFileInIde } from '@/lib/workspace-file-open'
 // D04(2026-10-24 接线):模型输出里的白名单动作锚点(<action>/<detail>/<link>…)走
 // chat 侧唯一受控渲染器(与 t.rich 共用同一张表),**不**打开裸 HTML 通道。
 import { RichAnchorText } from '@/components/chat/rich-anchor-text'
 // D129:用户气泡的正文渲染器(附件拍平形态的止血;详见该文件头注)
+import { messageStyleVars, useAppearanceScopeStore } from '@/stores/appearance-scope'
 import { UserMessageBody } from './user-message-body'
+import { MessageStyleMenu } from './message-style-menu'
 import { MessageVersionMenu, type MessageVersionEntry } from './message-version-menu'
 // G-825(2026-09-29 立):消息级 markdown 错误边界 —— 一条消息的渲染异常此前会冒泡到路由级 error(整页挂掉)。
 // 复位语义复用既有 ErrorBoundary 的 resetKeys 档,不写第二份边界实现;键的形状住纯函数层。
@@ -265,12 +271,27 @@ const MessageItem = React.memo(function MessageItem({
   const paneId = useOptionalPaneId()
   // 2026-09-12 立:Checkpoint/Rewind 相关文案走 aiChat 命名空间(与 CheckpointRewindPanel 保持一致)
   const tAiChat = useTranslations('aiChat')
+  // 外观 v2:长消息折叠按钮文案走外观设置命名空间(与设置页同源)
+  const tAppearance = useTranslations('appearanceSettings')
   // 消息流活动区统一文面(与 stream-ui 基元同一命名空间)
   const tStream = useTranslations('taskStatus')
   // diff 卡取不到路径时的占位(工具卡同一文案源)
   const tTool = useTranslations('ai.toolCall')
   // D92(2026-09-24):错误卡与 MCP 面板共用同一张失败分类表(单一真相,禁止另起)
   const tFailure = useTranslations(VIEW_FAILURE_NAMESPACE)
+  // 外观设置(2026-11-15):页脚三段(时间戳/用量/操作按钮)与时间格式由设置页统一管理。
+  // 读 store 而不是 props:MessageItem 的记忆化边界不因这些偏好变化而扩大。
+  const showTimestamps = useAppearanceStore((s) => s.showTimestamps)
+  const showUsage = useAppearanceStore((s) => s.showUsage)
+  const showActions = useAppearanceStore((s) => s.showActions)
+  const timestampFormat = useAppearanceStore((s) => s.timestampFormat)
+  // 外观 v2:长消息折叠(默认关闭,不改变既有观感)
+  const longMessageCollapse = useAppearanceStore((s) => s.longMessageCollapse)
+  const collapseLines = useAppearanceStore((s) => s.collapseLines)
+  const [messageExpanded, setMessageExpanded] = React.useState(false)
+  // 外观 v3:单条消息样式覆盖(只产出 --message-* 增量变量)
+  const messageOverride = useAppearanceScopeStore((s) => s.messages[m.id])
+  const messageVars = React.useMemo(() => messageStyleVars(messageOverride), [messageOverride])
   const failureResolution = m.error
     ? resolveViewFailure({ errorCode: m.errorCode, message: m.content })
     : null
@@ -286,6 +307,43 @@ const MessageItem = React.memo(function MessageItem({
   // D22(2026-09-19 立):system 角色独立渲染分支 — /chat 请求侧已拒绝 system(防上下文注入),
   // 渲染侧仅服务历史会话回放/恢复场景后端下发的只读 system 条目:居中灰字提示条,无操作栏。
   const isSystem = m.role === 'system'
+  // 2026-11-14(对标 DSH producedFileMentions):行内 code 文件引用只认本轮真实产出/交付。
+  // 产出 = 成功的写/改工具;交付 = present_files 的 files;artifacts 同属产物。
+  // 歧义/未知由 resolveFileMention 保持惰性(不按后缀或 cwd 猜),点了才落 IDE。
+  const fileMention = React.useMemo<FileMention | undefined>(() => {
+    if (isUser) return undefined
+    const paths: string[] = []
+    const successful = (m.toolCalls ?? []).filter((tc) => tc.status === 'success')
+    for (const ref of extractRefs(successful)) {
+      if (ref.action === 'changedFile' || ref.action === 'createdFile') paths.push(ref.path)
+    }
+    for (const tc of successful) {
+      if (tc.toolName === 'present_files') {
+        const files = tc.args?.files
+        if (Array.isArray(files)) {
+          for (const file of files) {
+            const path =
+              typeof file === 'string'
+                ? file
+                : file && typeof (file as { path?: unknown }).path === 'string'
+                  ? String((file as { path: string }).path)
+                  : ''
+            if (path.trim()) paths.push(path.trim())
+          }
+        }
+      }
+      for (const artifact of tc.summary_data?.artifacts ?? []) {
+        if (artifact && typeof artifact.path === 'string' && artifact.path.trim()) {
+          paths.push(artifact.path.trim())
+        }
+      }
+    }
+    if (paths.length === 0) return undefined
+    return {
+      resolve: (value: string) => resolveFileMention(value, paths),
+      open: (path: string) => openWorkspaceFileInIde(path),
+    }
+  }, [isUser, m.toolCalls])
   // #17 折叠中间步骤区总数(四类区段)。2026-11-05 上移到此:showTyping 必须复用它。
   // 「活动组 StreamGroup」挂在 showTyping 三元表达式的 else 分支里 —— 助手正文为空
   // 且流式时若恒走 typing 占位,工具卡/计划/终端/子代理整段都不进 DOM,逐分片
@@ -297,8 +355,7 @@ const MessageItem = React.memo(function MessageItem({
     (m.planSteps?.length ?? 0) +
     (m.terminalTasks?.length ?? 0) +
     (m.subagentActivities?.length ?? 0)
-  const showTyping =
-    !isUser && m.content === '' && isStreaming && stepSectionsCount === 0
+  const showTyping = !isUser && m.content === '' && isStreaming && stepSectionsCount === 0
   const streamingThis = !isUser && isStreaming && isLast
   // 2026-09-12 立:Checkpoint 面板按会话维度的 session_id 查询,
   // 前端当前可用的会话标识即 chat store 的 conversationId(详见交付说明)。
@@ -1158,7 +1215,7 @@ const MessageItem = React.memo(function MessageItem({
 
   // 差距⑥(2026-10-30 立):正文块抽出为单一构造点 —— 过程段要折进 StreamGroup、
   // 非过程段原样直出,两处**共用同一份 JSX**(不产生第二套正文渲染口径,§0.6)。
-  const answerBody = (
+  const answerBodyRaw = (
     <ReplyAnnotationLayer messageId={m.id} conversationId={conversationId}>
       {/* G-825:消息级 markdown 边界。降级形态是 pre-wrap 纯文本 ⇒ 内容还在,只是不格式化
           (刻意零文案:要写一句"渲染失败"就得新增 i18n 键,而语言包此刻由并行会话持有)。 */}
@@ -1188,10 +1245,59 @@ const MessageItem = React.memo(function MessageItem({
             content={m.content}
             isStreaming={streamingThis}
             collapseLines={codeCollapseLines}
+            fileMention={fileMention}
           />
         )}
       </ErrorBoundary>
     </ReplyAnnotationLayer>
+  )
+
+  const answerBodyStyled = (
+    <div style={messageVars} data-message-style={messageOverride ? 'custom' : undefined}>
+      {answerBodyRaw}
+    </div>
+  )
+
+  // 外观 v2(2026-11-15):长消息折叠只对「非流式、助手侧、超过阈值」的正文生效;
+  // 折叠由 CSS max-height + 底部渐隐承担,不触碰 MarkdownStream 的解析与虚拟化。
+  const answerCollapsible =
+    longMessageCollapse && !isUser && !streamingThis && m.content.length > 800
+  const answerCollapsed = answerCollapsible && !messageExpanded
+  const answerBody = answerCollapsible ? (
+    <div
+      data-testid={`message-collapse-${m.id}`}
+      data-collapsed={answerCollapsed ? 'true' : 'false'}
+    >
+      <div
+        style={
+          answerCollapsed
+            ? {
+                maxHeight: `calc(${collapseLines} * var(--chat-line-height, 1.65) * 1em)`,
+                fontSize: 'calc(15px * var(--chat-font-scale, 1))',
+                overflow: 'hidden',
+                maskImage: 'linear-gradient(to bottom, #000 78%, transparent 100%)',
+                WebkitMaskImage: 'linear-gradient(to bottom, #000 78%, transparent 100%)',
+              }
+            : undefined
+        }
+      >
+        {answerBodyStyled}
+      </div>
+      <div className="flex justify-center pt-1">
+        <Button
+          type="button"
+          size="xs"
+          variant="ghost"
+          onClick={() => setMessageExpanded((previous) => !previous)}
+          aria-expanded={messageExpanded}
+          data-testid={`message-collapse-toggle-${m.id}`}
+        >
+          {tAppearance(messageExpanded ? 'collapseMessage' : 'expandFullMessage')}
+        </Button>
+      </div>
+    </div>
+  ) : (
+    answerBodyStyled
   )
 
   return (
@@ -1214,14 +1320,16 @@ const MessageItem = React.memo(function MessageItem({
     >
       {/* 2026-08-02:用户消息保留气泡(rounded-lg),AI 消息无气泡平铺 */}
       {/* 2026-08-06:用户消息气泡 bg-primary → bg-muted + text-foreground(亮色浅灰黑字/暗色深灰白字,降低视觉突兀感) */}
+      {/* 2026-11-15:bg-muted → bg-muted-soft(更贴近画布的实色档,不用 /N 透明度) */}
       {/* 2026-08-06:AI 消息 w-full 占满可用宽度 —— 原 max-w-[85%] 导致右侧 15% 留白、
           表格(如架构表)被压缩到 85% 内显示不全;表格自身 overflow-x-auto 已保证超宽可横滚 */}
       <div
         className={cn(
           isUser
-            ? 'relative max-w-[85%] rounded-lg rounded-br-sm bg-muted px-4 py-2.5 text-foreground'
+            ? 'relative rounded-lg rounded-br-sm bg-muted-soft px-4 py-2.5 text-foreground'
             : 'w-full text-left',
         )}
+        style={isUser ? { maxWidth: 'var(--chat-user-bubble-width, 85%)' } : undefined}
       >
         {showTyping ? (
           // P0 修复(2026-08-02):TypingIndicator 加 fade-in,流式开始时平滑出现;
@@ -1296,7 +1404,9 @@ const MessageItem = React.memo(function MessageItem({
           // 2026-10-01 S15 按 V4 #87 止血步翻转:交给 UserMessageBody 拆附件渲染,
           // **正文与助手侧走同一套 MarkdownStream**(危险项天然关闭 —— 无 rehype-raw),
           // 被拒不安全/判不出的行由共享层摘出、组件按字面渲染,绝不静默消失。
-          <UserMessageBody content={m.content} testId={`user-message-body-${m.id}`} />
+          <div style={messageVars} data-message-style={messageOverride ? 'custom' : undefined}>
+            <UserMessageBody content={m.content} testId={`user-message-body-${m.id}`} />
+          </div>
         ) : (
           <div
             ref={contentAreaRef}
@@ -1499,6 +1609,7 @@ const MessageItem = React.memo(function MessageItem({
                           audioUrl={effectiveAudioUrl}
                           videoUrl={effectiveVideoUrl}
                           taskId={effectiveTaskId}
+                          imagePreview={tc.image_preview}
                           summaryData={effectiveSummaryData}
                           serverSource={tc.serverSource}
                           serverId={tc.serverId}
@@ -1731,354 +1842,364 @@ const MessageItem = React.memo(function MessageItem({
           - 按钮 28x28px / 6px 圆角 / 16px 图标(原项目 --fcd-btn-size/--fcd-btn-radius/--fcd-btn-icon-size)
           - AI 消息(9按钮): Eye/EyeOff / Like / Copy / Download(条件) / Share / Code(条件) / Regenerate / Megaphone / Reply
           - 用户消息(4按钮): Copy / Edit / Reply / Delete */}
-      {!streamingThis && m.content.length > 0 && (
+      {!streamingThis && m.content.length > 0 && (showTimestamps || showUsage || showActions) && (
         <div className="msg-hover-reveal flex items-center gap-1">
-          {/* 时间戳 — 随按钮一起 hover 显示,所有消息都展示 */}
-          {(() => {
-            const label = formatMessageTimestamp(m.createdAt) || '--'
-            // 2026-09-13 批次 2 #16:消息级运行时长 + 工具调用计数
-            const durationMs = m.meta?.durationMs as number | undefined
-            const toolCallCount = m.meta?.toolCallCount as number | undefined
-            return (
-              <span
-                className="text-label text-muted-foreground shrink-0 mr-auto flex items-center gap-1"
-                data-testid={`message-timestamp-${m.id}`}
-              >
-                <span>{label}</span>
-                {durationMs !== undefined && durationMs > 0 && (
-                  <span className="text-muted-foreground/70">· {formatDuration(durationMs)}</span>
-                )}
-                {toolCallCount !== undefined && toolCallCount > 0 && (
-                  <span className="text-muted-foreground/70">
-                    · {tStream('toolCallCount', { n: toolCallCount })}
-                  </span>
-                )}
-                {/* W12(2026-09-13 立):AI 消息 token/成本内联徽章 `· 1.2k tok · ¥0.0034` */}
-                {!isUser && (
-                  <MessageUsageBadge usage={m.meta?.usage} model={m.model} messageId={m.id} />
-                )}
-              </span>
-            )
-          })()}
-          <div className="flex items-center gap-1" data-testid={`message-actions-${m.id}`}>
-            {/* 票59 2/3(2026-10-22 立):版本族切换器 —— 交互与 CanvasVersionMenu 同构
+          {/* 时间戳 — 随按钮一起 hover 显示;时间戳/用量可分别在设置页关闭 */}
+          {(showTimestamps || showUsage) &&
+            (() => {
+              const label = formatMessageTimestamp(m.createdAt, timestampFormat) || '--'
+              // 2026-09-13 批次 2 #16:消息级运行时长 + 工具调用计数
+              const durationMs = m.meta?.durationMs as number | undefined
+              const toolCallCount = m.meta?.toolCallCount as number | undefined
+              return (
+                <span
+                  className="text-label text-muted-foreground shrink-0 mr-auto flex items-center gap-1"
+                  data-testid={`message-timestamp-${m.id}`}
+                >
+                  {showTimestamps && <span>{label}</span>}
+                  {showTimestamps && durationMs !== undefined && durationMs > 0 && (
+                    <span className="text-muted-foreground/70">· {formatDuration(durationMs)}</span>
+                  )}
+                  {showTimestamps && toolCallCount !== undefined && toolCallCount > 0 && (
+                    <span className="text-muted-foreground/70">
+                      · {tStream('toolCallCount', { n: toolCallCount })}
+                    </span>
+                  )}
+                  {/* W12(2026-09-13 立):AI 消息 token/成本内联徽章 `· 1.2k tok · ¥0.0034` */}
+                  {showUsage && !isUser && (
+                    <MessageUsageBadge usage={m.meta?.usage} model={m.model} messageId={m.id} />
+                  )}
+                </span>
+              )
+            })()}
+          {showActions && (
+            <div className="flex items-center gap-1" data-testid={`message-actions-${m.id}`}>
+              {/* 票59 2/3(2026-10-22 立):版本族切换器 —— 交互与 CanvasVersionMenu 同构
                 (History 图标 + 下拉 + 点选)。只有族内 ≥2 个版本才渲染;切换只改读投影的
                 激活版本,不写库、不发请求。 */}
-            {versionInfo && onSelectMessageVersion && (
-              <MessageVersionMenu
-                versions={versionInfo.entries}
-                activeId={m.id}
-                onSelect={(id) => onSelectMessageVersion(versionInfo.rootId, id)}
-              />
-            )}
-            {/* AI 消息:Eye/EyeOff(内容可见性切换)— 原项目 toggleAssistantContentVisibility */}
-            {!isUser && (
-              <Tooltip
-                content={contentVisible ? t('message.hideContent') : t('message.showContent')}
-              >
+              {versionInfo && onSelectMessageVersion && (
+                <MessageVersionMenu
+                  versions={versionInfo.entries}
+                  activeId={m.id}
+                  onSelect={(id) => onSelectMessageVersion(versionInfo.rootId, id)}
+                />
+              )}
+              {/* 外观 v3:单条消息样式覆盖(字号/字体/行高/字距/对齐/代码字号) */}
+              <MessageStyleMenu messageId={m.id} />
+              {/* AI 消息:Eye/EyeOff(内容可见性切换)— 原项目 toggleAssistantContentVisibility */}
+              {!isUser && (
+                <Tooltip
+                  content={contentVisible ? t('message.hideContent') : t('message.showContent')}
+                >
+                  <button
+                    type="button"
+                    onClick={handleToggleVisibility}
+                    data-testid={`message-visibility-${m.id}`}
+                    aria-label={
+                      contentVisible ? t('message.hideContent') : t('message.showContent')
+                    }
+                    className={ACTION_BTN_CLASS}
+                  >
+                    {contentVisible ? (
+                      <Eye className="h-4 w-4" aria-hidden />
+                    ) : (
+                      <EyeOff className="h-4 w-4" aria-hidden />
+                    )}
+                  </button>
+                </Tooltip>
+              )}
+              {/* Copy(复制)— AI + 用户,原项目 copyMessage */}
+              <Tooltip content={copyLabel} side="top">
                 <button
                   type="button"
-                  onClick={handleToggleVisibility}
-                  data-testid={`message-visibility-${m.id}`}
-                  aria-label={contentVisible ? t('message.hideContent') : t('message.showContent')}
+                  onClick={handleCopy}
+                  data-testid={`message-copy-${m.id}`}
+                  aria-label={copyLabel}
                   className={ACTION_BTN_CLASS}
                 >
-                  {contentVisible ? (
-                    <Eye className="h-4 w-4" aria-hidden />
+                  {copied ? (
+                    <Check className="h-4 w-4" aria-hidden />
                   ) : (
-                    <EyeOff className="h-4 w-4" aria-hidden />
+                    <Copy className="h-4 w-4" aria-hidden />
                   )}
                 </button>
               </Tooltip>
-            )}
-            {/* Copy(复制)— AI + 用户,原项目 copyMessage */}
-            <Tooltip content={copyLabel} side="top">
-              <button
-                type="button"
-                onClick={handleCopy}
-                data-testid={`message-copy-${m.id}`}
-                aria-label={copyLabel}
-                className={ACTION_BTN_CLASS}
-              >
-                {copied ? (
-                  <Check className="h-4 w-4" aria-hidden />
-                ) : (
-                  <Copy className="h-4 w-4" aria-hidden />
-                )}
-              </button>
-            </Tooltip>
-            {/* 票64(2026-10-18 立):钉选 / 收藏 —— 图标形态按服务端盖章的两个时刻切,
+              {/* 票64(2026-10-18 立):钉选 / 收藏 —— 图标形态按服务端盖章的两个时刻切,
                 不引入第三份本地布尔态(那会造出"界面显示已钉选、库里没写"的不可判定态)。 */}
-            {!isSystem && (
-              <Tooltip content={m.pinnedAt ? t('message.unpin') : t('message.pin')} side="top">
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    void handleToggleFlag('pinned')
-                  }}
-                  data-testid={`message-pin-${m.id}`}
-                  aria-label={m.pinnedAt ? t('message.unpin') : t('message.pin')}
-                  aria-pressed={!!m.pinnedAt}
-                  disabled={flagPending}
-                  className={ACTION_BTN_CLASS}
+              {!isSystem && (
+                <Tooltip content={m.pinnedAt ? t('message.unpin') : t('message.pin')} side="top">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      void handleToggleFlag('pinned')
+                    }}
+                    data-testid={`message-pin-${m.id}`}
+                    aria-label={m.pinnedAt ? t('message.unpin') : t('message.pin')}
+                    aria-pressed={!!m.pinnedAt}
+                    disabled={flagPending}
+                    className={ACTION_BTN_CLASS}
+                  >
+                    {m.pinnedAt ? (
+                      <PinOff className="h-4 w-4" aria-hidden />
+                    ) : (
+                      <Pin className="h-4 w-4" aria-hidden />
+                    )}
+                  </button>
+                </Tooltip>
+              )}
+              {!isSystem && (
+                <Tooltip
+                  content={m.bookmarkedAt ? t('message.unbookmark') : t('message.bookmark')}
+                  side="top"
                 >
-                  {m.pinnedAt ? (
-                    <PinOff className="h-4 w-4" aria-hidden />
-                  ) : (
-                    <Pin className="h-4 w-4" aria-hidden />
-                  )}
-                </button>
-              </Tooltip>
-            )}
-            {!isSystem && (
-              <Tooltip
-                content={m.bookmarkedAt ? t('message.unbookmark') : t('message.bookmark')}
-                side="top"
-              >
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    void handleToggleFlag('bookmarked')
-                  }}
-                  data-testid={`message-bookmark-${m.id}`}
-                  aria-label={m.bookmarkedAt ? t('message.unbookmark') : t('message.bookmark')}
-                  aria-pressed={!!m.bookmarkedAt}
-                  disabled={flagPending}
-                  className={ACTION_BTN_CLASS}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      void handleToggleFlag('bookmarked')
+                    }}
+                    data-testid={`message-bookmark-${m.id}`}
+                    aria-label={m.bookmarkedAt ? t('message.unbookmark') : t('message.bookmark')}
+                    aria-pressed={!!m.bookmarkedAt}
+                    disabled={flagPending}
+                    className={ACTION_BTN_CLASS}
+                  >
+                    {m.bookmarkedAt ? (
+                      <BookmarkCheck className="h-4 w-4" aria-hidden />
+                    ) : (
+                      <Bookmark className="h-4 w-4" aria-hidden />
+                    )}
+                  </button>
+                </Tooltip>
+              )}
+              {/* AI 消息:朗读(TTS)/停止朗读 — 走 ai-service /api/voice/tts */}
+              {!isUser && (
+                <Tooltip
+                  content={speaking ? t('message.stopReadAloud') : t('message.readAloud')}
+                  side="top"
                 >
-                  {m.bookmarkedAt ? (
-                    <BookmarkCheck className="h-4 w-4" aria-hidden />
-                  ) : (
-                    <Bookmark className="h-4 w-4" aria-hidden />
-                  )}
-                </button>
-              </Tooltip>
-            )}
-            {/* AI 消息:朗读(TTS)/停止朗读 — 走 ai-service /api/voice/tts */}
-            {!isUser && (
-              <Tooltip
-                content={speaking ? t('message.stopReadAloud') : t('message.readAloud')}
-                side="top"
-              >
-                <button
-                  type="button"
-                  onClick={() => (speaking ? stop() : void speak(m.content))}
-                  disabled={streamingThis}
-                  data-testid={`message-read-aloud-${m.id}`}
-                  aria-label={speaking ? t('message.stopReadAloud') : t('message.readAloud')}
-                  className={cn(
-                    ACTION_BTN_CLASS,
-                    speaking && 'text-primary bg-muted/60',
-                    'disabled:opacity-40 disabled:cursor-not-allowed',
-                  )}
-                >
-                  {speaking ? (
-                    <Square className="h-4 w-4" aria-hidden />
-                  ) : (
-                    <Volume2 className="h-4 w-4" aria-hidden />
-                  )}
-                </button>
-              </Tooltip>
-            )}
-            {/* AI 消息:常驻轻评分 👍/👎(2026-10-28 reaction 档;流式中禁用;
+                  <button
+                    type="button"
+                    onClick={() => (speaking ? stop() : void speak(m.content))}
+                    disabled={streamingThis}
+                    data-testid={`message-read-aloud-${m.id}`}
+                    aria-label={speaking ? t('message.stopReadAloud') : t('message.readAloud')}
+                    className={cn(
+                      ACTION_BTN_CLASS,
+                      speaking && 'text-primary bg-muted/60',
+                      'disabled:opacity-40 disabled:cursor-not-allowed',
+                    )}
+                  >
+                    {speaking ? (
+                      <Square className="h-4 w-4" aria-hidden />
+                    ) : (
+                      <Volume2 className="h-4 w-4" aria-hidden />
+                    )}
+                  </button>
+                </Tooltip>
+              )}
+              {/* AI 消息:常驻轻评分 👍/👎(2026-10-28 reaction 档;流式中禁用;
                 写面与问卷卡共写同一 upsert 端点,读面走 m.rating(服务端盖章),
                 会话内另有 rating-sync 事件把问卷折算票实时合流到同一处)。
                 `?? null`:字段缺失(老服务端)与明确无票在渲染上等价,都显示未表态。 */}
-            {!isUser && !streamingThis && m.content.length > 0 && (
-              <MessageFeedbackActions messageId={m.id} initialRating={m.rating ?? null} />
-            )}
-            {/* AI 消息:Download(下载图片)— 原项目 downloadAssistantImages,有图片时显示 */}
-            {!isUser && messageImages.length > 0 && (
-              <Tooltip content={t('message.downloadImages')} side="top">
-                <button
-                  type="button"
-                  onClick={handleDownloadImages}
-                  data-testid={`message-download-${m.id}`}
-                  aria-label={t('message.downloadImages')}
-                  className={ACTION_BTN_CLASS}
-                >
-                  <Download className="h-4 w-4" aria-hidden />
-                </button>
-              </Tooltip>
-            )}
-            {/* AI 消息:Share(分享)— 原项目 shareAssistantMessage */}
-            {!isUser && (
-              <Tooltip content={t('message.share')} side="top">
-                <button
-                  type="button"
-                  onClick={handleShare}
-                  data-testid={`message-share-${m.id}`}
-                  aria-label={t('message.share')}
-                  className={ACTION_BTN_CLASS}
-                >
-                  <Share2 className="h-4 w-4" aria-hidden />
-                </button>
-              </Tooltip>
-            )}
-            {/* 差距⑤(2026-10-30):AI 消息「分享此回合」深链。序号不可推导(null)时
+              {!isUser && !streamingThis && m.content.length > 0 && (
+                <MessageFeedbackActions messageId={m.id} initialRating={m.rating ?? null} />
+              )}
+              {/* AI 消息:Download(下载图片)— 原项目 downloadAssistantImages,有图片时显示 */}
+              {!isUser && messageImages.length > 0 && (
+                <Tooltip content={t('message.downloadImages')} side="top">
+                  <button
+                    type="button"
+                    onClick={handleDownloadImages}
+                    data-testid={`message-download-${m.id}`}
+                    aria-label={t('message.downloadImages')}
+                    className={ACTION_BTN_CLASS}
+                  >
+                    <Download className="h-4 w-4" aria-hidden />
+                  </button>
+                </Tooltip>
+              )}
+              {/* AI 消息:Share(分享)— 原项目 shareAssistantMessage */}
+              {!isUser && (
+                <Tooltip content={t('message.share')} side="top">
+                  <button
+                    type="button"
+                    onClick={handleShare}
+                    data-testid={`message-share-${m.id}`}
+                    aria-label={t('message.share')}
+                    className={ACTION_BTN_CLASS}
+                  >
+                    <Share2 className="h-4 w-4" aria-hidden />
+                  </button>
+                </Tooltip>
+              )}
+              {/* 差距⑤(2026-10-30):AI 消息「分享此回合」深链。序号不可推导(null)时
                 整钮不渲染 —— 验收「无序号可取的消息不渲染入口,不猜」。 */}
-            {!isUser && typeof turnOrdinal === 'number' && (
-              <Tooltip content={t('message.shareTurn')} side="top">
-                <button
-                  type="button"
-                  onClick={handleShareTurn}
-                  data-testid={`message-share-turn-${m.id}`}
-                  aria-label={t('message.shareTurn')}
-                  className={ACTION_BTN_CLASS}
-                >
-                  <Link2 className="h-4 w-4" aria-hidden />
-                </button>
-              </Tooltip>
-            )}
-            {/* AI 消息:Code(元数据 toggle)— 原项目 toggleMetadata,有 metadata 时显示 */}
-            {!isUser && hasMetadata && (
-              <Tooltip content={t('message.toggleMetadata')} side="top">
-                <button
-                  type="button"
-                  onClick={handleToggleMetadata}
-                  data-testid={`message-metadata-${m.id}`}
-                  aria-label={t('message.toggleMetadata')}
-                  className={cn(ACTION_BTN_CLASS, metadataExpanded && 'text-primary bg-muted/60')}
-                >
-                  <Code className="h-4 w-4" aria-hidden />
-                </button>
-              </Tooltip>
-            )}
-            {/* AI 消息:Regenerate(重新生成)— 原项目 regenerateMessage,streaming 时禁用 */}
-            {!isUser && (
-              <Tooltip content={t('message.regenerate')} side="top">
-                <button
-                  type="button"
-                  onClick={handleRegenerate}
-                  disabled={streamingThis}
-                  data-testid={`message-regenerate-${m.id}`}
-                  aria-label={t('message.regenerate')}
-                  className={cn(
-                    ACTION_BTN_CLASS,
-                    'disabled:opacity-40 disabled:cursor-not-allowed',
-                  )}
-                >
-                  <RefreshCw className="h-4 w-4" aria-hidden />
-                </button>
-              </Tooltip>
-            )}
-            {/* AI 消息:Rewind(回退到此处)— 2026-09-12 立,修复 D9:接入 Checkpoint/Rewind 面板。
+              {!isUser && typeof turnOrdinal === 'number' && (
+                <Tooltip content={t('message.shareTurn')} side="top">
+                  <button
+                    type="button"
+                    onClick={handleShareTurn}
+                    data-testid={`message-share-turn-${m.id}`}
+                    aria-label={t('message.shareTurn')}
+                    className={ACTION_BTN_CLASS}
+                  >
+                    <Link2 className="h-4 w-4" aria-hidden />
+                  </button>
+                </Tooltip>
+              )}
+              {/* AI 消息:Code(元数据 toggle)— 原项目 toggleMetadata,有 metadata 时显示 */}
+              {!isUser && hasMetadata && (
+                <Tooltip content={t('message.toggleMetadata')} side="top">
+                  <button
+                    type="button"
+                    onClick={handleToggleMetadata}
+                    data-testid={`message-metadata-${m.id}`}
+                    aria-label={t('message.toggleMetadata')}
+                    className={cn(ACTION_BTN_CLASS, metadataExpanded && 'text-primary bg-muted/60')}
+                  >
+                    <Code className="h-4 w-4" aria-hidden />
+                  </button>
+                </Tooltip>
+              )}
+              {/* AI 消息:Regenerate(重新生成)— 原项目 regenerateMessage,streaming 时禁用 */}
+              {!isUser && (
+                <Tooltip content={t('message.regenerate')} side="top">
+                  <button
+                    type="button"
+                    onClick={handleRegenerate}
+                    disabled={streamingThis}
+                    data-testid={`message-regenerate-${m.id}`}
+                    aria-label={t('message.regenerate')}
+                    className={cn(
+                      ACTION_BTN_CLASS,
+                      'disabled:opacity-40 disabled:cursor-not-allowed',
+                    )}
+                  >
+                    <RefreshCw className="h-4 w-4" aria-hidden />
+                  </button>
+                </Tooltip>
+              )}
+              {/* AI 消息:Rewind(回退到此处)— 2026-09-12 立,修复 D9:接入 Checkpoint/Rewind 面板。
                 无会话 id 时禁用;点击后打开面板,由面板自行加载 checkpoint 列表(空态不报错)。 */}
-            {!isUser && (
-              <Tooltip content={tAiChat('checkpoint.rewindHere')} side="top">
+              {!isUser && (
+                <Tooltip content={tAiChat('checkpoint.rewindHere')} side="top">
+                  <button
+                    type="button"
+                    onClick={() => setRewindDialogOpen(true)}
+                    disabled={!conversationId}
+                    data-testid={`message-rewind-${m.id}`}
+                    aria-label={tAiChat('checkpoint.rewindHere')}
+                    className={cn(
+                      ACTION_BTN_CLASS,
+                      'disabled:opacity-40 disabled:cursor-not-allowed',
+                    )}
+                  >
+                    <RotateCcw className="h-4 w-4" aria-hidden />
+                  </button>
+                </Tooltip>
+              )}
+              {/* AI 消息:Megaphone(发布到社区)— 原项目 publishToCommunity,Promotion 图标不在 lucide-react 用 Megaphone 替代 */}
+              {!isUser && (
+                <Tooltip content={t('message.publishToCommunity')} side="top">
+                  <button
+                    type="button"
+                    onClick={() => setPublishDialogOpen(true)}
+                    data-testid={`message-publish-${m.id}`}
+                    aria-label={t('message.publishToCommunity')}
+                    className={ACTION_BTN_CLASS}
+                  >
+                    <Megaphone className="h-4 w-4" aria-hidden />
+                  </button>
+                </Tooltip>
+              )}
+              {/* 用户消息:Edit(编辑)— 2026-09-12 立,四竞品对标 P0-1,打开编辑 Dialog(保存后从该条重跑) */}
+              {isUser && (
+                <Tooltip content={t('message.edit')} side="top">
+                  <button
+                    type="button"
+                    onClick={handleEdit}
+                    disabled={isStreaming}
+                    data-testid={`message-edit-${m.id}`}
+                    aria-label={t('message.edit')}
+                    className={cn(
+                      ACTION_BTN_CLASS,
+                      'disabled:opacity-40 disabled:cursor-not-allowed',
+                    )}
+                  >
+                    <Pencil className="h-4 w-4" aria-hidden />
+                  </button>
+                </Tooltip>
+              )}
+              {/* AI 消息:Edit(编辑为新版本)— 票64,保存后不重跑、不截断,只多一个可切换的版本 */}
+              {!isUser && !isSystem && (
+                <Tooltip content={t('message.editAiReply')} side="top">
+                  <button
+                    type="button"
+                    onClick={handleAiEdit}
+                    disabled={isStreaming}
+                    data-testid={`message-ai-edit-${m.id}`}
+                    aria-label={t('message.editAiReply')}
+                    className={cn(
+                      ACTION_BTN_CLASS,
+                      'disabled:opacity-40 disabled:cursor-not-allowed',
+                    )}
+                  >
+                    <Pencil className="h-4 w-4" aria-hidden />
+                  </button>
+                </Tooltip>
+              )}
+              {/* Reply(回复)— AI + 用户,原项目 replyToMessage */}
+              <Tooltip content={t('message.reply')} side="top">
                 <button
                   type="button"
-                  onClick={() => setRewindDialogOpen(true)}
-                  disabled={!conversationId}
-                  data-testid={`message-rewind-${m.id}`}
-                  aria-label={tAiChat('checkpoint.rewindHere')}
-                  className={cn(
-                    ACTION_BTN_CLASS,
-                    'disabled:opacity-40 disabled:cursor-not-allowed',
-                  )}
-                >
-                  <RotateCcw className="h-4 w-4" aria-hidden />
-                </button>
-              </Tooltip>
-            )}
-            {/* AI 消息:Megaphone(发布到社区)— 原项目 publishToCommunity,Promotion 图标不在 lucide-react 用 Megaphone 替代 */}
-            {!isUser && (
-              <Tooltip content={t('message.publishToCommunity')} side="top">
-                <button
-                  type="button"
-                  onClick={() => setPublishDialogOpen(true)}
-                  data-testid={`message-publish-${m.id}`}
-                  aria-label={t('message.publishToCommunity')}
+                  onClick={handleReply}
+                  data-testid={`message-reply-${m.id}`}
+                  aria-label={t('message.reply')}
                   className={ACTION_BTN_CLASS}
                 >
-                  <Megaphone className="h-4 w-4" aria-hidden />
+                  <MessageCircle className="h-4 w-4" aria-hidden />
                 </button>
               </Tooltip>
-            )}
-            {/* 用户消息:Edit(编辑)— 2026-09-12 立,四竞品对标 P0-1,打开编辑 Dialog(保存后从该条重跑) */}
-            {isUser && (
-              <Tooltip content={t('message.edit')} side="top">
-                <button
-                  type="button"
-                  onClick={handleEdit}
-                  disabled={isStreaming}
-                  data-testid={`message-edit-${m.id}`}
-                  aria-label={t('message.edit')}
-                  className={cn(
-                    ACTION_BTN_CLASS,
-                    'disabled:opacity-40 disabled:cursor-not-allowed',
-                  )}
-                >
-                  <Pencil className="h-4 w-4" aria-hidden />
-                </button>
-              </Tooltip>
-            )}
-            {/* AI 消息:Edit(编辑为新版本)— 票64,保存后不重跑、不截断,只多一个可切换的版本 */}
-            {!isUser && !isSystem && (
-              <Tooltip content={t('message.editAiReply')} side="top">
-                <button
-                  type="button"
-                  onClick={handleAiEdit}
-                  disabled={isStreaming}
-                  data-testid={`message-ai-edit-${m.id}`}
-                  aria-label={t('message.editAiReply')}
-                  className={cn(
-                    ACTION_BTN_CLASS,
-                    'disabled:opacity-40 disabled:cursor-not-allowed',
-                  )}
-                >
-                  <Pencil className="h-4 w-4" aria-hidden />
-                </button>
-              </Tooltip>
-            )}
-            {/* Reply(回复)— AI + 用户,原项目 replyToMessage */}
-            <Tooltip content={t('message.reply')} side="top">
-              <button
-                type="button"
-                onClick={handleReply}
-                data-testid={`message-reply-${m.id}`}
-                aria-label={t('message.reply')}
-                className={ACTION_BTN_CLASS}
-              >
-                <MessageCircle className="h-4 w-4" aria-hidden />
-              </button>
-            </Tooltip>
-            {/* D125(2026-10-23 立):逐消息评论开关 —— 协作会话消费面入口。
+              {/* D125(2026-10-23 立):逐消息评论开关 —— 协作会话消费面入口。
                 无会话 id(未落库的新会话)时禁用;授权判定在服务端,这里不做第二套。 */}
-            <Tooltip content={tComments('title')} side="top">
-              <button
-                type="button"
-                onClick={() => setCommentsOpen((v) => !v)}
-                disabled={!conversationId}
-                data-testid={`message-comments-toggle-${m.id}`}
-                aria-label={tComments('title')}
-                aria-expanded={commentsOpen}
-                className={cn(
-                  ACTION_BTN_CLASS,
-                  commentsOpen && 'text-primary bg-muted/60',
-                  'disabled:opacity-40 disabled:cursor-not-allowed',
-                )}
-              >
-                <MessagesSquare className="h-4 w-4" aria-hidden />
-              </button>
-            </Tooltip>
-            {/* 用户消息:Delete(删除)— 原项目 deleteMessage,hover 红色 */}
-            {isUser && (
-              <Tooltip content={t('message.delete')} side="top">
+              <Tooltip content={tComments('title')} side="top">
                 <button
                   type="button"
-                  onClick={handleDelete}
-                  data-testid={`message-delete-${m.id}`}
-                  aria-label={t('message.delete')}
-                  className={cn(ACTION_BTN_CLASS, 'hover:text-destructive hover:bg-destructive/10')}
+                  onClick={() => setCommentsOpen((v) => !v)}
+                  disabled={!conversationId}
+                  data-testid={`message-comments-toggle-${m.id}`}
+                  aria-label={tComments('title')}
+                  aria-expanded={commentsOpen}
+                  className={cn(
+                    ACTION_BTN_CLASS,
+                    commentsOpen && 'text-primary bg-muted/60',
+                    'disabled:opacity-40 disabled:cursor-not-allowed',
+                  )}
                 >
-                  <Trash2 className="h-4 w-4" aria-hidden />
+                  <MessagesSquare className="h-4 w-4" aria-hidden />
                 </button>
               </Tooltip>
-            )}
-          </div>
+              {/* 用户消息:Delete(删除)— 原项目 deleteMessage,hover 红色 */}
+              {isUser && (
+                <Tooltip content={t('message.delete')} side="top">
+                  <button
+                    type="button"
+                    onClick={handleDelete}
+                    data-testid={`message-delete-${m.id}`}
+                    aria-label={t('message.delete')}
+                    className={cn(
+                      ACTION_BTN_CLASS,
+                      'hover:text-destructive hover:bg-destructive/10',
+                    )}
+                  >
+                    <Trash2 className="h-4 w-4" aria-hidden />
+                  </button>
+                </Tooltip>
+              )}
+            </div>
+          )}
         </div>
       )}
       {/* AI 消息:元数据展开面板(Code 按钮切换)— 原项目 metadata 详情
@@ -2175,7 +2296,7 @@ const MessageItem = React.memo(function MessageItem({
             type="button"
             onClick={handleQuoteSelection}
             data-testid={`message-quote-selection-${m.id}`}
-            className="inline-flex items-center gap-1 rounded-sm border border-border bg-card px-2 py-1 text-label text-muted-foreground shadow-elevation-sm transition-colors hover:border-primary/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            className="inline-flex items-center gap-1 rounded-sm border border-border bg-card px-2 py-1 text-label text-muted-foreground shadow-elevation-sm transition-colors hover:border-stroke-strong hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           >
             <Quote className="h-3 w-3" aria-hidden />
             <span>{t('quoteSelection')}</span>
@@ -2184,7 +2305,7 @@ const MessageItem = React.memo(function MessageItem({
             type="button"
             onClick={handleAddSelectionAttachment}
             data-testid={`message-selection-attachment-${m.id}`}
-            className="inline-flex items-center gap-1 rounded-sm border border-border bg-card px-2 py-1 text-label text-muted-foreground shadow-elevation-sm transition-colors hover:border-primary/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            className="inline-flex items-center gap-1 rounded-sm border border-border bg-card px-2 py-1 text-label text-muted-foreground shadow-elevation-sm transition-colors hover:border-stroke-strong hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           >
             <Paperclip className="h-3 w-3" aria-hidden />
             <span>{t('selectionActions.addAsAttachment')}</span>
@@ -2193,7 +2314,7 @@ const MessageItem = React.memo(function MessageItem({
             type="button"
             onClick={handleAnnotateSelection}
             data-testid={`message-selection-annotate-${m.id}`}
-            className="inline-flex items-center gap-1 rounded-sm border border-border bg-card px-2 py-1 text-label text-muted-foreground shadow-elevation-sm transition-colors hover:border-primary/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            className="inline-flex items-center gap-1 rounded-sm border border-border bg-card px-2 py-1 text-label text-muted-foreground shadow-elevation-sm transition-colors hover:border-stroke-strong hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           >
             <PenLine className="h-3 w-3" aria-hidden />
             <span>{t('selectionAnnotations.add')}</span>

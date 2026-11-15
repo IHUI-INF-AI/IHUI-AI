@@ -12,6 +12,8 @@ import { getModeStoreForChatStore } from '@/stores/mode'
 // 服务端主副本变了就覆盖它(判序与幂等口径都在 applyServerGoal 里,此处只接线)。
 import { useGoalStore } from '@/stores/goal'
 import { getSamplingParams } from '@/stores/sampling-params'
+import { getAppearanceConfig } from '@/stores/appearance-settings'
+import { buildAiStyleDirective } from '@/lib/ai-style-directive'
 import { getTimelineStoreForChatStore } from '@/stores/timeline-store'
 import { toast } from '@/components/common'
 import {
@@ -53,6 +55,8 @@ import {
 import { listCheckpoints, restoreCheckpoint, type CheckpointMeta } from '@/api/checkpoint-api'
 import { expandRuleToken } from '@/stores/memory'
 import { expandContextTokens } from '@/lib/context-token-expander'
+// 2026-11-12 立:号池 WS 流式客户端 —— 选中「我的号池」模型时,主对话改走 /ws/relay/chat
+import { streamRelayChat } from '@/lib/relay-chat-stream'
 // P3 #30(2026-09-16 立):diff 评审意见 → agent 上下文注入
 import { appendDiffComments } from '@/lib/diff-comments'
 import { emitAgentHook } from '@/stores/agent-hooks'
@@ -197,31 +201,6 @@ export interface SendMessageOptions {
    *  只由"被拦 toast 的『仍要发送』"传入 —— 走与普通发送**同一条**链(不另开一条绕过判定的
    *  发送路径),但准入判定按 force 语义结算旧条目后重新登记。 */
   forcePending?: boolean
-  /** 就地发起(2026-11-12 立,财务部板块实测缺口):
-   *  缺省行为不变 —— 建会话后把 URL 换成 `/chat?conversationId=…`(停靠侧栏形态的既有契约)。
-   *  但「板块页一键发起」这类**自带页内进度卡**的页面,跳走会把刚出现的 plan 步骤看板连根拔掉,
-   *  用户再也看不到过程。true 时保留当前 pathname,只清掉旧 query(会话已由 store 承载,
-   *  全局 AISidePanel 照常展示该会话),页面留在原处继续看进度。
-   *  只改 URL 落点,不动发送链路任何一步。 */
-  stayOnPage?: boolean
-}
-
-/**
- * 发送链「建会话后同步 URL」的落点解析(2026-11-12 立)。
- *
- * 唯一实现,三处 router.replace 共用 —— 复制三份必然漂移(§0.6 单一真相源)。
- *
- * - `stayOnPage !== true`:行为与既有一模一样,交给 `chatDeeplinkPath` 定档
- *   (工作台留在工作台、其余一律回 /chat)。
- * - `stayOnPage === true`:保留当前 pathname,**只**把 conversationId 写进 query。
- *   用于「板块页一键发起」这类自带页内进度卡的页面:会话本身由 store 承载、
- *   全局 AISidePanel 照常显示,URL 不需要也不应该换页。
- */
-function resolveDeeplinkTarget(opts: SendMessageOptions | undefined, conversationId: string): string {
-  const sp = new URLSearchParams(window.location.search)
-  sp.set('conversationId', conversationId)
-  const pathname = opts?.stayOnPage === true ? window.location.pathname : chatDeeplinkPath(window.location.pathname)
-  return `${pathname}?${sp.toString()}`
 }
 
 /**
@@ -453,12 +432,17 @@ export function createSendMessage(
         const createRes = await createConversation({ model: store.currentModel })
         if (!createRes.success) {
           if (createRes.status === 401) {
-            toast.warning('登录已过期', {
-              description: '请重新登录后继续对话',
-            })
-            useAuthStore.setState({ isAuthenticated: false, user: null })
-            const { isAuthenticated: isAuth, token } = useAuthStore.getState()
-            if (!(isAuth && !token)) {
+            // 幽灵态(isAuthenticated=true 但 access token 尚未恢复):不清登录态、不弹窗,交给 bootstrap 续期
+            const { isAuthenticated: wasAuthenticated, token: wasToken } = useAuthStore.getState()
+            if (wasAuthenticated && !wasToken) {
+              toast.info('登录态恢复中', {
+                description: '正在恢复会话，请稍后重新发送',
+              })
+            } else {
+              toast.warning('登录已过期', {
+                description: '请重新登录后继续对话',
+              })
+              useAuthStore.setState({ isAuthenticated: false, user: null })
               openLoginDialogOnce('/')
             }
           } else {
@@ -477,7 +461,9 @@ export function createSendMessage(
         store.setConversationId(slashCid)
         // 工作区按会话隔离(2026-09-04):新会话挂上当前待绑定工作区
         useAiPanelStore.getState().bindWorkspaceToConversation(slashCid)
-        router.replace(resolveDeeplinkTarget(opts, slashCid), {
+        const sp = new URLSearchParams(window.location.search)
+        sp.set('conversationId', slashCid)
+        router.replace(`${chatDeeplinkPath(window.location.pathname)}?${sp.toString()}`, {
           scroll: false,
         })
         queryClient.invalidateQueries({ queryKey: ['chat', 'conversations'] })
@@ -513,13 +499,17 @@ export function createSendMessage(
         // createConversation 返回 401 时需明确提示用户重新登录,而非静默 setError。
         // fetchApi wrapper 已调 openLoginDialogOnce 打开弹窗,此处补 toast + 同步 auth 状态。
         if (createRes.status === 401) {
-          toast.warning('登录已过期', {
-            description: '请重新登录后继续对话',
-          })
-          useAuthStore.setState({ isAuthenticated: false, user: null })
-          const { isAuthenticated: isAuth, token } = useAuthStore.getState()
           // bootstrap 幽灵态不弹窗(避免刷新后并发请求的 401 打断自动登录)
-          if (!(isAuth && !token)) {
+          const { isAuthenticated: wasAuthenticated, token: wasToken } = useAuthStore.getState()
+          if (wasAuthenticated && !wasToken) {
+            toast.info('登录态恢复中', {
+              description: '正在恢复会话，请稍后重新发送',
+            })
+          } else {
+            toast.warning('登录已过期', {
+              description: '请重新登录后继续对话',
+            })
+            useAuthStore.setState({ isAuthenticated: false, user: null })
             openLoginDialogOnce('/')
           }
         } else {
@@ -553,7 +543,9 @@ export function createSendMessage(
       // 工作区按会话隔离(2026-09-04):新会话挂上当前待绑定工作区,
       // 必须先于 ai-side-panel 的换装 effect 执行,否则会被"未绑定→解绑"逻辑清掉
       useAiPanelStore.getState().bindWorkspaceToConversation(conversationId)
-      router.replace(resolveDeeplinkTarget(opts, conversationId), {
+      const sp = new URLSearchParams(window.location.search)
+      sp.set('conversationId', conversationId)
+      router.replace(`${chatDeeplinkPath(window.location.pathname)}?${sp.toString()}`, {
         scroll: false,
       })
       queryClient.invalidateQueries({ queryKey: ['chat', 'conversations'] })
@@ -899,6 +891,15 @@ export function createSendMessage(
       // 发送时一次性快照,避免流式过程中用户改参数导致同一轮请求参数不一致。
       const samplingParams = getSamplingParams(conversationId)
 
+      // 2026-11-15(外观设置):AI 回复风格偏好编译为风格指令,与用户自定义 systemPrompt 合并。
+      // 全默认时指令为空串 ⇒ 不写该 key,请求体与接线前逐字节一致。
+      // 同一快照时刻读取,避免流式途中改风格导致"界面显示"与"本轮实际下发"分叉。
+      const appearanceStyleDirective = buildAiStyleDirective(getAppearanceConfig())
+      const mergedSystemPrompt = [samplingParams.systemPrompt, appearanceStyleDirective]
+        .map((s) => s?.trim())
+        .filter((s): s is string => !!s)
+        .join('\n\n')
+
       // W28 Hooks 事件:message.send(用户消息即将发送给 LLM)
       emitAgentHook('message.send', { summary: llmText.slice(0, 80) })
 
@@ -988,7 +989,8 @@ export function createSendMessage(
           mode: modeStore.getState().currentMode,
           // P1-7:自定义 system prompt(会话级),ai-service 注入系统消息最顶部;
           // 未设置时不传该 key,保持上游默认行为。
-          ...(samplingParams.systemPrompt ? { systemPrompt: samplingParams.systemPrompt } : {}),
+          // 2026-11-15:外观设置里的回复风格会追加在自定义 prompt 之后(见上方合并逻辑)。
+          ...(mergedSystemPrompt ? { systemPrompt: mergedSystemPrompt } : {}),
         },
         // V3 #58(2026-09-26 立):权限模式档位透传 —— ai-service 工具审批门据此
         // 决定高危工具是否弹审批(bypass-permissions 不拦截;accept-edits 放行
@@ -1686,7 +1688,23 @@ export function createSendMessage(
           }
         },
       }
-      await streamChat(streamOpts)
+      // 2026-11-12 立:模型通道分流 —— 「我的号池」模型走 /ws/relay/chat(登录态直连号池),
+      // 平台模型保持既有 agent runtime。两条腿共用同一套 onDelta/onError/onDone 回调,
+      // 气泡渲染、错误卡、收尾与账本完全复用,不另起一条 UI 通路。
+      if (chatStore.getState().currentModelChannel === 'pool') {
+        await streamRelayChat({
+          model: effectiveModel,
+          messages: streamOpts.messages,
+          signal: controller.signal,
+          conversationId: conversationId ?? undefined,
+          onDelta: streamOpts.onDelta,
+          onDone: streamOpts.onDone,
+          // 号池错误只给一句人话给既有错误卡;errorCode 由上层文案兜底(formatSSEError)
+          onError: (msg) => streamOpts.onError?.(msg),
+        })
+      } else {
+        await streamChat(streamOpts)
+      }
     } catch (err) {
       // #9 catch 前先 flush 累积 token,避免最后一批内容丢失
       contentBatcher.flush()
@@ -2180,7 +2198,9 @@ export async function branchMessage(
     ctx.queryClient.invalidateQueries({ queryKey: ['chat', 'conversations'] })
     // 更新 URL 便于分享/书签(?conversationId=)
     if (typeof window !== 'undefined') {
-      ctx.router.replace(resolveDeeplinkTarget(undefined, newId), {
+      const sp = new URLSearchParams(window.location.search)
+      sp.set('conversationId', newId)
+      ctx.router.replace(`${chatDeeplinkPath(window.location.pathname)}?${sp.toString()}`, {
         scroll: false,
       })
     }

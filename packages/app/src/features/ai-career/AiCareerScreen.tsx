@@ -276,7 +276,11 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.primary,
       lineHeight: rnType.strong.lineHeight,
     },
-    errorText: { color: tk.danger.deepText, fontSize: rnType.body.size, marginBottom: rnSpacing.sm },
+    errorText: {
+      color: tk.danger.deepText,
+      fontSize: rnType.body.size,
+      marginBottom: rnSpacing.sm,
+    },
     submitContainer: {
       paddingVertical: rnSpacing['2xl'],
       alignItems: 'center',

@@ -24,6 +24,39 @@ const errorSchema = {
   },
 }
 
+/**
+ * 带 errorCode 的 error schema(2026-11-13 立)。
+ *
+ * 与 errorSchema 的唯一差别:properties 显式声明 errorCode。用途见 response.ts error()
+ * 的注释(票 L7648):设计意图是 AppError.errorCode 要送到端上分型(如 PAYROLL_NOT_APPROVED /
+ * PAYROLL_NO_ITEMS),而不是被序列化裁掉、让前端/AI 层只能按 HTTP 状态码猜。
+ *
+ * **为什么不能直接把它套给全局 standardResponses**:fast-json-stringify 会裁掉未声明的字段
+ * (实测确认:配了 response schema ⇒ errorCode 被裁,不配则保留)。全量放开会让既有 75 处
+ * `toEqual({ code, message })` 严格断言(那些用例今天能过正是依赖全局裁剪)整体变红,
+ * 跨 115 端点的行为变更超出单票范围。故只给**确实需要端上分型**的端点(如 hr-payroll/handoff)
+ * 显式传 response 用这一份,零波及其他路由。
+ */
+const errorWithCodeSchema = {
+  type: 'object',
+  properties: {
+    code: { type: 'number', example: 1 },
+    message: { type: 'string' },
+    errorCode: { type: 'string', example: 'PAYROLL_NOT_APPROVED' },
+  },
+}
+
+/** 需要端上 error 分型(errorCode 可见)的路由用这份 response,而非默认 standardResponses。 */
+export const errorCodeResponses = {
+  200: successSchema,
+  400: errorWithCodeSchema,
+  401: errorWithCodeSchema,
+  403: errorWithCodeSchema,
+  404: errorWithCodeSchema,
+  409: errorWithCodeSchema,
+  500: errorWithCodeSchema,
+}
+
 const standardResponses = {
   200: successSchema,
   400: errorSchema,

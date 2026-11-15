@@ -99,7 +99,7 @@ export function TraceReplay({ toolCalls }: { toolCalls: ToolCall[] }) {
 
   return (
     <div
-      className="mt-2 rounded-md border border-border/60 bg-muted/20 p-2"
+      className="mt-2 rounded-md border border-stroke-subtle bg-muted/20 p-2"
       data-testid="trace-replay"
     >
       {/* 控制行 */}

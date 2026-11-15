@@ -108,7 +108,7 @@ export function PermissionSelector({ value, onChange, disabled }: Props) {
             className={cn(
               'flex cursor-pointer items-center gap-2 rounded-md border px-2.5 py-1.5 text-label transition-colors',
               checked
-                ? 'border-primary/40 bg-primary/5 text-foreground'
+                ? 'border-stroke-selected bg-primary/5 text-foreground'
                 : 'border-border bg-muted/30 text-muted-foreground hover:bg-muted',
               disabled && 'cursor-not-allowed opacity-60',
             )}

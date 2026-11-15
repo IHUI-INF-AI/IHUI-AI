@@ -15,9 +15,10 @@
  *
  * 读写分离:写用 db,读用 dbRead(参照现有 service 模式)。
  */
-import { randomUUID } from 'node:crypto'
+import { randomUUID, createHash } from 'node:crypto'
 import { eq, and, desc, asc, sql } from 'drizzle-orm'
 import { db, dbRead } from '../db/index.js'
+import { logger } from '../utils/logger.js'
 import {
   relayConversations,
   relayMessages,
@@ -142,6 +143,17 @@ export async function appendMessage(input: AppendMessageInput): Promise<RelayMes
   } = input
 
   return db.transaction(async (tx) => {
+    // F-538 幂等:同一调用日志的同一角色只落一条 —— 上游重试/链路重放会让
+    // recordCall 之后的写入被重复触发,靠 logId + role 去重避免统计重复累加。
+    if (logId) {
+      const [existing] = await tx
+        .select()
+        .from(relayMessages)
+        .where(and(eq(relayMessages.logId, logId), eq(relayMessages.role, role)))
+        .limit(1)
+      if (existing) return existing
+    }
+
     // 写消息
     const [message] = await tx
       .insert(relayMessages)
@@ -178,6 +190,85 @@ export async function appendMessage(input: AppendMessageInput): Promise<RelayMes
       .where(eq(relayConversations.id, conversationDbId))
 
     return message
+  })
+}
+
+// =============================================================================
+// 2b. relay 完成链路写入口(F-538)
+// =============================================================================
+
+/**
+ * 中转站会话 id 派生:写入方是 /v1/chat/completions 这类无客户端会话标识的代理链路,
+ * 因此按「userId + model」复用同一条会话(稳定键,不会跨用户串号)。
+ */
+export function deriveRelayConversationId(userId: string, model: string): string {
+  return `conv_${createHash('sha1').update(`${userId}:${model}`).digest('hex').slice(0, 32)}`
+}
+
+export interface RecordRelayTurnInput {
+  userId: string
+  apiKeyId: string
+  model: string
+  /** 本轮发给上游的完整 prompt(与 recordCall.prompt 同源) */
+  promptText: string
+  /** 上游返回的正文 */
+  responseText: string
+  /** llm_call_logs.id,幂等键 */
+  logId: string
+  promptTokens?: number
+  completionTokens?: number
+  totalTokens?: number
+  costCents?: number
+  latencyMs?: number
+  errorMessage?: string
+}
+
+/**
+ * 在 relay 完成链路落一轮会话历史(user message + assistant message)。
+ *
+ * 只由完成链路在拿到 logId 后调用;失败向上抛由调用方 fire-and-forget 告警,
+ * 不影响已完成的补全响应。write 侧只写库,不参与计费。
+ */
+export async function recordRelayConversationTurn(input: RecordRelayTurnInput): Promise<void> {
+  const conversation = await getOrCreateConversation({
+    conversationId: deriveRelayConversationId(input.userId, input.model),
+    userId: input.userId,
+    apiKeyId: input.apiKeyId,
+    model: input.model,
+    firstUserMessage: input.promptText,
+  })
+
+  await appendMessage({
+    conversationDbId: conversation.id,
+    role: 'user',
+    content: input.promptText,
+    model: input.model,
+    logId: input.logId,
+  })
+  await appendMessage({
+    conversationDbId: conversation.id,
+    role: 'assistant',
+    content: input.responseText,
+    model: input.model,
+    logId: input.logId,
+    promptTokens: input.promptTokens ?? 0,
+    completionTokens: input.completionTokens ?? 0,
+    totalTokens: input.totalTokens ?? 0,
+    costCents: input.costCents ?? 0,
+    latencyMs: input.latencyMs,
+    status: input.errorMessage ? 'error' : 'success',
+    errorMessage: input.errorMessage,
+  })
+}
+
+/** fire-and-forget 包装:任何失败只 warn,绝不影响主链路。 */
+export function recordRelayConversationTurnSafe(input: RecordRelayTurnInput): void {
+  void recordRelayConversationTurn(input).catch((e: unknown) => {
+    logger.warn('[relay-conversation] 会话历史写入失败', {
+      err: e instanceof Error ? e : new Error(String(e)),
+      conversationKey: `${input.userId}:${input.model}`,
+      logId: input.logId,
+    })
   })
 }
 

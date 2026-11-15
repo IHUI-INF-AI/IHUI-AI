@@ -342,7 +342,7 @@ export async function updateAgentStatus(
   const rows = await db
     .update(customerServiceAgents)
     .set({ status, updatedAt: new Date() })
-  // status-guard-exempt: 通用状态 setter——目标值由调用方传入,终态合法性由服务层/路由层裁决,非固定出向终态写点
+    // status-guard-exempt: 通用状态 setter——目标值由调用方传入,终态合法性由服务层/路由层裁决,非固定出向终态写点
     .where(eq(customerServiceAgents.id, id))
     .returning()
   return rows[0]
@@ -414,10 +414,7 @@ export async function findActiveSessionsByAgent(
     .select()
     .from(customerServiceSessions)
     .where(
-      and(
-        eq(customerServiceSessions.agentId, agentId),
-        eq(customerServiceSessions.status, 'open'),
-      ),
+      and(eq(customerServiceSessions.agentId, agentId), eq(customerServiceSessions.status, 'open')),
     )
 }
 

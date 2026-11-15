@@ -214,6 +214,7 @@ export default function LoginPopUp({
           maxWidth: toUnit(LOGIN_POPUP_DIALOG_MAX_WIDTH_PX),
         }}
         onClick={(e) => e.stopPropagation()}
+        hoverClass="opacity-60"
       >
         {/* 授权卡标题/描述(RN 授权卡模式;本端缺省不渲染,不影响现有调用点) */}
         {title ? (
@@ -317,7 +318,7 @@ export default function LoginPopUp({
             <Image
               src={avatar || defaultAvatar}
               mode="aspectFill"
-              className="rounded-2xl bg-muted border border-primary/20"
+              className="rounded-2xl bg-muted border border-stroke-selected"
               style={{
                 width: toUnit(LOGIN_POPUP_AVATAR_BOX_PX),
                 height: toUnit(LOGIN_POPUP_AVATAR_BOX_PX),
@@ -533,14 +534,13 @@ export default function LoginPopUp({
                 </Button>
               </>
             ) : (
-              <View hoverClass="opacity-60" onClick={() => setPwdOpen(true)}>
-                <Text
-                  className="text-label text-muted-foreground"
-                  style={{ lineHeight: toUnit(LOGIN_POPUP_ROW_HEIGHT_PX) }}
-                >
-                  {tt('login.passwordLogin', '密码登录')}
-                </Text>
-              </View>
+              <Text
+                className="text-label text-muted-foreground"
+                style={{ lineHeight: toUnit(LOGIN_POPUP_ROW_HEIGHT_PX) }}
+                onClick={() => setPwdOpen(true)}
+              >
+                {tt('login.passwordLogin', '密码登录')}
+              </Text>
             )}
           </View>
         ) : null}

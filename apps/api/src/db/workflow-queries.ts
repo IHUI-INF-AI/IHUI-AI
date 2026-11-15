@@ -74,13 +74,10 @@ export async function findWorkflows(opts: {
       .select()
       .from(workflows)
       .where(ownerCond)
-      .orderBy(desc(workflows.updatedAt))
+      .orderBy(desc(workflows.updatedAt), desc(workflows.id))
       .limit(opts.pageSize)
       .offset((opts.page - 1) * opts.pageSize),
-    db
-      .select({ count: sql<number>`COUNT(*)` })
-      .from(workflows)
-      .where(ownerCond),
+    db.select({ count: sql<number>`COUNT(*)` }).from(workflows).where(ownerCond),
   ])
   return { list, total: Number(totalRows[0]?.count ?? 0) }
 }
@@ -164,7 +161,10 @@ export async function findInstances(opts: {
     conds.push(
       inArray(
         workflowInstances.workflowId,
-        db.select({ id: workflows.id }).from(workflows).where(eq(workflows.createdBy, opts.userId)),
+        db
+          .select({ id: workflows.id })
+          .from(workflows)
+          .where(eq(workflows.createdBy, opts.userId)),
       ),
     )
   }
@@ -177,7 +177,7 @@ export async function findInstances(opts: {
       .select()
       .from(workflowInstances)
       .where(where)
-      .orderBy(desc(workflowInstances.createdAt))
+      .orderBy(desc(workflowInstances.createdAt), desc(workflowInstances.id))
       .limit(opts.pageSize)
       .offset((opts.page - 1) * opts.pageSize),
     db
@@ -225,7 +225,7 @@ export async function cancelInstance(id: string): Promise<WorkflowInstance | und
   const rows = await db
     .update(workflowInstances)
     .set({ status: 'cancelled', completedAt: new Date() })
-    // status-guard-exempt: 入向终态(取消实例→cancelled),非出向
+  // status-guard-exempt: 入向终态(取消实例→cancelled),非出向
     .where(eq(workflowInstances.id, id))
     .returning()
   return rows[0]
@@ -339,7 +339,7 @@ export async function findLogs(
       .select()
       .from(workflowLogs)
       .where(where)
-      .orderBy(desc(workflowLogs.createdAt))
+      .orderBy(desc(workflowLogs.createdAt), desc(workflowLogs.id))
       .limit(opts.pageSize)
       .offset((opts.page - 1) * opts.pageSize),
     db

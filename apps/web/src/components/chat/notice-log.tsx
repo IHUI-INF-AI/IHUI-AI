@@ -50,7 +50,7 @@ export function ChatNoticeLog({
   if (notices.length === 0) return null
   return (
     <div
-      className="mt-2 space-y-1 border-t border-border/60 px-3 pt-2"
+      className="mt-2 space-y-1 border-t border-stroke-default px-3 pt-2"
       data-testid="chat-notice-log"
       aria-label="本次会话的系统提示记录"
     >

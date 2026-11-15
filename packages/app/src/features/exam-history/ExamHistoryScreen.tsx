@@ -140,7 +140,11 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.success.deepText,
       fontWeight: '600',
     },
-    badgeFailedText: { fontSize: rnType.caption.size, color: tk.danger.deepText, fontWeight: '600' },
+    badgeFailedText: {
+      fontSize: rnType.caption.size,
+      color: tk.danger.deepText,
+      fontWeight: '600',
+    },
     metaRow: {
       flexDirection: 'row',
       justifyContent: 'space-between',

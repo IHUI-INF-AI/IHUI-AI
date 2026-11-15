@@ -53,7 +53,7 @@ export function FollowScreen({
   onUnfollow,
   onBack,
   onRetry,
-  colorScheme = 'light',  
+  colorScheme = 'light',
   onNavigate,
   onToast,
   renderListHeader,

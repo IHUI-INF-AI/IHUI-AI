@@ -73,7 +73,7 @@ export default async function BlogIndexPage() {
                 <Card
                   className={cn(
                     'h-full overflow-hidden border-border bg-card transition-colors',
-                    'group-hover:border-primary/40 group-hover:bg-accent/40',
+                    'group-hover:border-stroke-strong group-hover:bg-accent/40',
                   )}
                 >
                   <CardContent className="min-[640px]:p-3 flex h-full flex-col gap-3 p-3">

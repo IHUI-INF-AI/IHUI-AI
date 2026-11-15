@@ -111,10 +111,13 @@ describe('classifyRefreshFailureStatus(刷新失败分型)', () => {
     expect(classifyRefreshFailureStatus(0)).toBe('transient')
   })
 
-  it('其余 4xx 一律瞬时(只有 401/403 才构成"凭据被否定")', () => {
-    expect(classifyRefreshFailureStatus(400)).toBe('transient')
+  it('400 = 匿名调用 / 429 = 限流,其余 4xx 瞬时(只有 401/403 才构成"凭据被否定")', () => {
+    // 400(没带 refreshToken):匿名冷启动。判 transient 会无限重试 —— 实测真浏览器一次
+    // 页面加载打出 21 次 /auth/refresh,撞上 20 次/分钟限流后整条续期链雪崩。
+    expect(classifyRefreshFailureStatus(400)).toBe('anonymous')
+    // 429(限流):不得被当成"可立即重试",否则「限流→重试→更限流」自锁。
+    expect(classifyRefreshFailureStatus(429)).toBe('rate-limited')
     expect(classifyRefreshFailureStatus(404)).toBe('transient')
-    expect(classifyRefreshFailureStatus(429)).toBe('transient')
   })
 
   it('陈旧副本(REFRESH_TOKEN_STALE)虽随 401 到达,但服务端未否定凭据 ⇒ 瞬时、不结束会话', () => {

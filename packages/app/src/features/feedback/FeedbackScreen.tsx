@@ -286,7 +286,11 @@ function createStyles(tk: AppThemeTokens) {
     },
     imageAddText: { fontSize: rnType.display.size, color: tk.text.medium },
     errorText: { fontSize: rnType.body.size, color: tk.danger.deepText, marginTop: rnSpacing.sm },
-    successText: { fontSize: rnType.body.size, color: tk.success.deepText, marginTop: rnSpacing.sm },
+    successText: {
+      fontSize: rnType.body.size,
+      color: tk.success.deepText,
+      marginTop: rnSpacing.sm,
+    },
     submitBtn: {
       marginTop: rnSpacing.md,
       height: 50,

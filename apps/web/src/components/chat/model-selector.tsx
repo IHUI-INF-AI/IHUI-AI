@@ -26,6 +26,7 @@ import { SearchInput } from '@ihui/ui-react'
 import { useTranslations } from 'next-intl'
 
 import { cn } from '@/lib/utils'
+import { formatCny } from '@/lib/display-currency'
 import { MODEL_CATEGORY_META, normalizeCategory, normalizeTier } from '@ihui/shared'
 import { useAuthStore } from '@/stores/auth'
 import { Tooltip } from '@/components/feedback'
@@ -39,6 +40,8 @@ import {
 } from '@/lib/models-api'
 // 2026-11-10 立:个人号池模型(「我的号池」分组)与平台模型并行拉取,失败静默降级为空
 import { fetchPoolChatModels, type PoolChatModel } from '@ihui/api-client'
+// 2026-11-14 立:号池模型 id 登记(发送时据此改走 /ws/relay/chat)
+import { rememberPoolModelIds } from '@/hooks/use-chat/pool-model-routing'
 // 2026-10-21 首屏瘦身:图标全集与纯函数分家(同 ai-side-panel.tsx:15-17 的既有口径)。
 // 本文件此前静态 `import { BrandIcon }`,而 message-input → AISidePanel → GlobalShell →
 // 根 layout 全是静态边,于是纯展示的营销页(/、/en、/pricing)也被迫下载整包
@@ -118,6 +121,10 @@ interface ModelSelectorProps {
   /** 弹层底部扩展段(2026-09-30 底栏单行化):推理强度轴 + 采样参数入口等
    *  "模型相关调参"控件收纳进模型弹层 footer,宿主以 ReactNode 传入。 */
   footer?: React.ReactNode
+  /** 受控开合(2026-11-15):宿主需要在 footer 里的动作弹窗打开前先关掉本弹层,
+   * 否则 z-popover 弹层会盖住 z-modal 对话框,且 menu 关闭会卸载 footer 内的 Dialog 状态。 */
+  menuOpen?: boolean
+  onMenuOpenChange?: (open: boolean) => void
 }
 
 // ============================================================================
@@ -374,12 +381,24 @@ function ModelOptionRow({
   )
 }
 
+/** 能力摘要行末尾追加真实单价(2026-11-13 立)。
+ *  倍率只是官方对标档位,横比模型必须看真实单价,否则会出现"倍率低但实际更贵"的误判。
+ *  单价是 CNY 元/百万 token,统一走 formatCny 按展示币种换算。 */
+function pricePerMillionText(opt: ModelOption): string | null {
+  const inM = opt.inputPricePerMillion
+  const outM = opt.outputPricePerMillion
+  if (inM === undefined || outM === undefined) return null
+  const fmt = (v: number) => formatCny(v, { digits: 2 })
+  return inM === outM ? `${fmt(inM)}/M` : `${fmt(inM)}–${fmt(outM)}/M`
+}
+
 /**
  * 实测能力摘要行(2026-11-11 立):名称下方的 10px 灰色一行,
  * 三段 "流式 · 工具 · 长上下文" 用 ` · ` 分隔。
  * - 已验证段 text-muted-foreground,失败段 amber,未知段 muted-foreground/60
  * - 失败/未知段 title 优先展示后端错误,否则固定说明(尚未实测/实测未通过)
  * - capsVerified 整体缺失时仍显示三段问号,保证所有行结构一致
+ * - 号池预设模型末尾追加真实单价(元/百万 token,2026-11-13)
  */
 export function ModelCapsSummary({ opt }: { opt: ModelOption }) {
   const t = useTranslations('chat')
@@ -391,6 +410,7 @@ export function ModelCapsSummary({ opt }: { opt: ModelOption }) {
   // 后端可能追加分段错误字段(类型未固定声明),存在即优先展示
   const caps = opt.capsVerified as
     (CapsVerified & { tools_error?: string; context_error?: string }) | undefined
+  const priceText = pricePerMillionText(opt)
   return (
     <span className="flex min-w-0 items-center overflow-hidden whitespace-nowrap text-[10px] leading-tight">
       {segments.map((seg, index) => {
@@ -425,6 +445,17 @@ export function ModelCapsSummary({ opt }: { opt: ModelOption }) {
           </span>
         )
       })}
+      {priceText && (
+        <>
+          <span aria-hidden className="px-0.5 text-muted-foreground/40">
+            ·
+          </span>
+          {/* 真实单价:横比模型以此为准,倍率只是官方对标档位 */}
+          <span className="shrink-0 text-muted-foreground" title={t('capPriceHint')}>
+            {priceText}
+          </span>
+        </>
+      )}
     </span>
   )
 }
@@ -756,6 +787,8 @@ export function buildOptionsFromApi(models: SelectorModel[]): ModelOption[] {
  * 走的是用户自己的平台账号,不产生平台积分消耗,显示为免费档。
  */
 function withPoolModels(base: ModelOption[], pool: PoolChatModel[]): ModelOption[] {
+  // 登记号池 id:发送时据此把本轮改走 /ws/relay/chat(见 hooks/use-chat/pool-model-routing.ts)
+  rememberPoolModelIds(pool.map((m) => m.id))
   if (pool.length === 0) return base
   const seen = new Set(base.map((o) => o.value))
   for (const m of pool) {
@@ -767,7 +800,16 @@ function withPoolModels(base: ModelOption[], pool: PoolChatModel[]): ModelOption
       // 用平台 code 当 vendor:命中 VENDOR_LABEL 的(豆包/MiniMax 等)显示中文名,
       // 其余按品牌 code 原样分组,语义就是「这是我名下某个平台的号」
       vendor: m.provider,
-      pointsMultiplier: 0,
+      // 2026-11-13 改:倍率以平台登记行为准(公共池调用会真实扣积分,不能再硬编码免费档);
+      // 未登记指的上游补缺模型才回落 0(无定价,不是"免费")
+      pointsMultiplier: m.pointsMultiplier ?? 0,
+      // 真实单价随行下发:倍率只作官方对标档位,横比模型以这两个数为准
+      ...(m.inputPricePerMillion !== undefined && m.outputPricePerMillion !== undefined
+        ? {
+            inputPricePerMillion: m.inputPricePerMillion,
+            outputPricePerMillion: m.outputPricePerMillion,
+          }
+        : {}),
       // 2026-11-11 立:个人号池模型未做连通性探测,按未验证展示并说明原因
       verified: false,
       healthError: '个人号池模型,未做连通性探测',
@@ -793,6 +835,8 @@ export function ModelSelector({
   label,
   autoResolvedModel,
   footer,
+  menuOpen: controlledMenuOpen,
+  onMenuOpenChange,
 }: ModelSelectorProps) {
   const t = useTranslations('chat')
   const router = useRouter()
@@ -1082,7 +1126,15 @@ export function ModelSelector({
   // D117 /model 斜杠命令(2026-09-27):程序化打开选择器。
   // Radix DropdownMenu 受控 open,trigger 常驻 DOM ⇒ 程序化置 true 时
   // content 仍以 trigger 为锚定位,无需额外坐标。
-  const [menuOpen, setMenuOpen] = React.useState(false)
+  const [internalMenuOpen, setInternalMenuOpen] = React.useState(false)
+  const menuOpen = controlledMenuOpen ?? internalMenuOpen
+  const setMenuOpen = React.useCallback(
+    (next: boolean) => {
+      setInternalMenuOpen(next)
+      onMenuOpenChange?.(next)
+    },
+    [onMenuOpenChange],
+  )
   // 打开菜单时节流重拉(60s):重新打开能看到最新可用列表,又不至于每次都打接口
   const lastMenuReloadRef = React.useRef(0)
   React.useEffect(() => {
@@ -1096,7 +1148,7 @@ export function ModelSelector({
     const onOpen = () => setMenuOpen(true)
     window.addEventListener('ihui:model-selector:open', onOpen)
     return () => window.removeEventListener('ihui:model-selector:open', onOpen)
-  }, [])
+  }, [setMenuOpen])
 
   return (
     <DropdownMenu.Root open={menuOpen} onOpenChange={setMenuOpen}>
@@ -1181,7 +1233,6 @@ export function ModelSelector({
                 {refreshingModels ? t('modelRefreshRunning') : t('modelRefresh')}
               </span>
             </DropdownMenu.Item>
-            {grouped.length > 0 && <DropdownMenu.Separator className="my-1 h-px bg-border/60" />}
           </DropdownMenu.Group>
           {/* 自动选项(2026-08-06 改:自动模式显示 "Auto Mode" + "0.05x" 风格,
               实际无积分倍数,保持纯文本 "自动" + 描述) */}
@@ -1203,7 +1254,6 @@ export function ModelSelector({
               <Sparkles className="h-3.5 w-3.5 shrink-0 text-primary" />
               <span className="flex-1 truncate font-medium">{t('modelAuto')}</span>
             </DropdownMenu.Item>
-            <DropdownMenu.Separator className="my-1 h-px bg-border/60" />
           </DropdownMenu.Group>
           {grouped.map(([vendor, items]) => (
             <DropdownMenu.Group key={vendor}>
@@ -1233,7 +1283,6 @@ export function ModelSelector({
                   onSelect={() => onChange(opt.value)}
                 />
               ))}
-              <DropdownMenu.Separator className="my-1 h-px bg-border/60 last:hidden" />
             </DropdownMenu.Group>
           ))}
 
@@ -1241,7 +1290,6 @@ export function ModelSelector({
               (当前 34/53 是 pending 的平台中转模型,混排会误导用户),组内仍按厂商顺序排列。 */}
           {unverifiedPrimary.length > 0 && (
             <DropdownMenu.Group>
-              <DropdownMenu.Separator className="my-1 h-px bg-border/60" />
               <DropdownMenu.Label
                 className={cn(
                   'flex items-center gap-1.5 px-2 py-1.5 text-label font-semibold uppercase tracking-wide',
@@ -1272,7 +1320,6 @@ export function ModelSelector({
               (嵌入/重排/语音/图像等),并按用途分类分组标注,避免上千个模型糊成一片。 */}
           {archived.length > 0 && (
             <DropdownMenu.Group>
-              <DropdownMenu.Separator className="my-1 h-px bg-border/60" />
               <DropdownMenu.Item
                 onSelect={(e) => {
                   // preventDefault 阻止 Radix 选中后自动关闭菜单

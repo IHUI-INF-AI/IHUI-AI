@@ -156,7 +156,7 @@ export function RoleAssignDialog({
           </Select>
         </div>
 
-        <div className="rounded-md border border-border/60 bg-muted/30 p-2.5">
+        <div className="rounded-md border border-stroke-subtle bg-muted/30 p-2.5">
           <p className="flex items-center gap-1.5 text-label font-medium text-muted-foreground">
             <KeyRound className="h-3.5 w-3.5" />
             RBAC 细粒度角色(参考)
