@@ -17,18 +17,32 @@ export interface VerifySheetProps {
   nameValue: string
   copyright: string
   confirmLabel: string
+  /** 关闭按钮的无障碍标签(可选,缺省用「关闭」) */
+  closeLabel?: string
   onInputId: (value: string) => void
   onInputName: (value: string) => void
   onConfirm: () => void
+  /** 关闭弹层(点遮罩 / 点 X);缺省则不渲染关闭途径 */
+  onClose?: () => void
 }
 
 /** 实名验证折叠弹层(原 pages/distribution/index.tsx 的仅小程序弹层,原样下沉宿主模块) */
 export function renderVerifySheet(props: VerifySheetProps) {
   return (
-    <View className="dist-mask">
-      <View className="dist-verify">
+    <View className="dist-mask" catchMove onClick={props.onClose}>
+      <View className="dist-verify" onClick={(e) => e.stopPropagation()}>
         <View className="dist-verify-header">
           <Text className="dist-verify-title">{props.title}</Text>
+          {props.onClose ? (
+            <Text
+              className="dist-verify-close"
+              aria-role="button"
+              aria-label={props.closeLabel ?? '关闭'}
+              onClick={props.onClose}
+            >
+              ×
+            </Text>
+          ) : null}
         </View>
         <View className="dist-verify-avatar">
           {props.avatar ? (
