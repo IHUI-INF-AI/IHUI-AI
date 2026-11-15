@@ -2227,6 +2227,9 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-15**
+- 📚 문서:刷新 README「最近更新」生成块 + 补门 320 R4 点名缺口 + last-sha 指针 (d30402dbc2)
+
+**2026-11-15**
 - 📚 문서:同步 README 三语「最近更新」块（补 11-15 文档刷新条目） (f4ce41abc5)
 
 **2026-11-15**
@@ -2309,10 +2312,6 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 **2026-11-15**
 - 🐞 수정:face-reader worktreeHashObjectBatch 去 -z,修 unknown switch z 取材失败 (329dfd7b56)
-
-**2026-11-15**
-- 🐞 수정:ancestor-downgrade 批量 HEAD blob,治门298 工作树臂第二腿 fork 风暴 (757e8748c2)
-- 🐞 수정:face-reader 批量工作树 hash 原语,治门298 工作树臂 fork 风暴超时 (1c8c684ae5)
 <!-- END RECENT UPDATES -->
 
 <p align="center">
