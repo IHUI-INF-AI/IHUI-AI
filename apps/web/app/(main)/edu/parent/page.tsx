@@ -48,6 +48,7 @@ import {
 import { CHART_BLUE } from '@ihui/design-tokens'
 import { AuthGatePrompt, BackButton } from '@/components/common'
 import { useAuthGate } from '@/hooks/use-auth-gate'
+import { formatCny } from '@/lib/display-currency'
 import {
   Card,
   CardContent,
@@ -719,7 +720,7 @@ function BillsView({ childId }: { childId: string }) {
                 >
                   {ledger
                     ? ledger.arrears > 0
-                      ? `${t('arrearsLabel')} ¥${ledger.arrears}`
+                      ? `${t('arrearsLabel')} ${formatCny(ledger.arrears)}`
                       : t('allPaid')
                     : t('ledgerNotReady')}
                 </span>
@@ -728,11 +729,11 @@ function BillsView({ childId }: { childId: string }) {
             <CardContent className="space-y-3">
               <div className="flex items-center justify-between text-body">
                 <span className="text-muted-foreground">{t('totalFeeLabel')}</span>
-                <span>¥{b.totalFee}</span>
+                <span>{formatCny(b.totalFee)}</span>
               </div>
               <div className="flex items-center justify-between text-body">
                 <span className="text-muted-foreground">{t('paidLabel')}</span>
-                <span>¥{ledger?.paidAmount ?? 0}</span>
+                <span>{formatCny(ledger?.paidAmount ?? 0)}</span>
               </div>
               {ledger?.schedules?.length ? (
                 <div className="space-y-1">
@@ -742,7 +743,7 @@ function BillsView({ childId }: { childId: string }) {
                       className="flex items-center justify-between text-label"
                     >
                       <span className="text-muted-foreground">
-                        {`${s.dueDate} · ¥${s.amountDue}`}
+                        {`${s.dueDate} · ${formatCny(s.amountDue)}`}
                       </span>
                       <span
                         className={

@@ -26,6 +26,7 @@ import { SearchInput } from '@ihui/ui-react'
 import { useTranslations } from 'next-intl'
 
 import { cn } from '@/lib/utils'
+import { formatCny } from '@/lib/display-currency'
 import { MODEL_CATEGORY_META, normalizeCategory, normalizeTier } from '@ihui/shared'
 import { useAuthStore } from '@/stores/auth'
 import { Tooltip } from '@/components/feedback'
@@ -376,20 +377,15 @@ function ModelOptionRow({
   )
 }
 
-/** 元/百万 token 的展示口径:统一 2 位小数(10.038→10.04 / 0.12→0.12) */
-function formatPerMillion(v: number): string {
-  return v.toFixed(2)
-}
-
 /** 能力摘要行末尾追加真实单价(2026-11-13 立)。
- *  倍率只是官方对标档位,横比模型必须看真实单价,否则会出现"倍率低但实际更贵"的误判。 */
+ *  倍率只是官方对标档位,横比模型必须看真实单价,否则会出现"倍率低但实际更贵"的误判。
+ *  单价是 CNY 元/百万 token,统一走 formatCny 按展示币种换算。 */
 function pricePerMillionText(opt: ModelOption): string | null {
   const inM = opt.inputPricePerMillion
   const outM = opt.outputPricePerMillion
   if (inM === undefined || outM === undefined) return null
-  return inM === outM
-    ? `¥${formatPerMillion(inM)}/M`
-    : `¥${formatPerMillion(inM)}–${formatPerMillion(outM)}/M`
+  const fmt = (v: number) => formatCny(v, { digits: 2 })
+  return inM === outM ? `${fmt(inM)}/M` : `${fmt(inM)}–${fmt(outM)}/M`
 }
 
 /**

@@ -15,6 +15,7 @@ import { apiOrThrow } from '@/lib/api'
 import { Card, CardContent, Button } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { cn } from '@/lib/utils'
+import { formatCnyCents } from '@/lib/display-currency'
 import { isTopOverlay, popOverlay, pushOverlay } from '@/lib/overlay-stack'
 import { BackButton } from '@/components/common'
 import { useConfirm } from '@/hooks/use-confirm'
@@ -317,7 +318,9 @@ export default function ConversationsPage() {
                               <div className="mt-1 flex items-center gap-3 text-label text-muted-foreground">
                                 <span>{num.format(m.totalTokens)} token</span>
                                 {m.latencyMs !== null && <span>{m.latencyMs} ms</span>}
-                                {m.costCents > 0 && <span>¥{(m.costCents / 100).toFixed(4)}</span>}
+                                {m.costCents > 0 && (
+                                  <span>{formatCnyCents(m.costCents, { digits: 4 })}</span>
+                                )}
                               </div>
                             </div>
                           ))
