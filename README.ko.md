@@ -2227,6 +2227,9 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-15**
+- 📚 문서:README 派生区按 fcee207727 新 HEAD 重算(钩子自动补登最近更新条目) (2b21dab8d8)
+
+**2026-11-15**
 - 🐞 수정:README.en 最近更新区真合并 HEAD/origin 条目清冲突标记(门79);.gitignore 忽略会话一次性中间产物(治门44 未判定) (fcee207727)
 
 **2026-11-15**
@@ -2287,9 +2290,6 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 - 🐞 수정:深度扫描修复 RN/小程序端样式、交互与逻辑缺陷 (4a007dfecd)
 - 🐞 수정:补齐 RN/Taro 图标按钮无障碍语义标签 (247c8da480)
 - 🐞 수정:修复前端遗留问题——RN/Taro 冲突、i18n 源文件还原、promise、定时器 (b276b21957)
-
-**2026-11-14**
-- 🐞 수정:audit-app-text-contrast 判据重构 —— 承载面穷举法消除假红 (54be2a991d)
 <!-- END RECENT UPDATES -->
 
 <p align="center">

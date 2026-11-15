@@ -99,6 +99,9 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-15**
+- 📚 Docs:README 派生区按 fcee207727 新 HEAD 重算(钩子自动补登最近更新条目) (2b21dab8d8)
+
+**2026-11-15**
 - 🐞 Fix:README.en 最近更新区真合并 HEAD/origin 条目清冲突标记(门79);.gitignore 忽略会话一次性中间产物(治门44 未判定) (fcee207727)
 
 **2026-11-14**

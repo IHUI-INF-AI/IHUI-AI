@@ -108,6 +108,9 @@ export default function PayIndex() {
   const [balance, setBalance] = useState(0)
   const [coupons, setCoupons] = useState<CouponItem[]>([])
   const [selectedCouponId, setSelectedCouponId] = useState('')
+  // 选券落库防重复提交:applyCoupon 是本页唯一的裸异步落库动作(改价 + 核销券),
+  // 无守卫时连点券卡片会并发多次 POST,后到的失败响应可能覆盖先到的成功 setAmount。
+  const [couponApplying, setCouponApplying] = useState(false)
   const [orderDetail, setOrderDetail] = useState<OrderDetailInfo>({})
   const [remaining, setRemaining] = useState(COUNTDOWN_TOTAL)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -216,6 +219,9 @@ export default function PayIndex() {
       onToast(t('pay.orderAbnormal'), { kind: 'info' })
       return
     }
+    // in-flight 守卫:请求未返回前忽略重复选券,避免并发改价相互覆盖
+    if (couponApplying) return
+    setCouponApplying(true)
     try {
       const res = await post<{ amount: number; originalPrice: number; discountAmount: number }>(
         `/orders/${encodeURIComponent(orderNo)}/apply-coupon`,
@@ -226,6 +232,8 @@ export default function PayIndex() {
       setSelectedCouponId(id)
     } catch {
       // 失败原因已由 unwrapApi 统一 toast（门槛不足/已使用/已过期…），不再叠一条通用文案
+    } finally {
+      setCouponApplying(false)
     }
   }
 
