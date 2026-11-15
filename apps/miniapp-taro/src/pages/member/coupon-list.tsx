@@ -42,7 +42,7 @@ export default function CouponListPage() {
     setError(false)
     try {
       const res = await getAvailableCoupons({ page: 1, pageSize: 50 })
-      setList(res.list)
+      setList(res.list ?? [])
     } catch (e) {
       logger.error('member/coupon-list', '获取可领券', e)
       setError(true)
