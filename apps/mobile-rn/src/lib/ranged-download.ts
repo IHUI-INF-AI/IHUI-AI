@@ -240,13 +240,17 @@ export function createXhrTransport(): RangeTransport {
       return new Promise<RangeResponse>((resolve, reject) => {
         const xhr = new XMLHttpRequest()
         let settled = false
+        // 先占位再赋值:令牌若在进入本函数前就已取消,onCancel 会**同步**回调,
+        // 此时 settle 里读 off 会撞 TDZ(ReferenceError 而非取消)。与 multipart-download
+        // 的 createXhrPartTransport 同型收口(孪生实现已修,本文件此前漏改)。
+        let off: () => void = () => {}
         const settle = (fn: () => void): void => {
           if (settled) return
           settled = true
           off()
           fn()
         }
-        const off = cancellation.onCancel(() => {
+        off = cancellation.onCancel(() => {
           try {
             xhr.abort()
           } catch {
