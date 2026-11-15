@@ -264,6 +264,124 @@ def sanitize_auth_request(request: dict[str, object]) -> SanitizeOutcome:
     )
 
 
+# ── submission_diagnostics(提交过程非秘密遥测,Codex §6) ─────────────────────
+
+
+class AttemptEvent(StrEnum):
+    """提交尝试事件(Codex §6 attempt_events[] 逐项,顺序即典型时序)。"""
+
+    PROMPT_COMPLETED = "prompt_completed"
+    FIELD_FILL_STARTED = "field_fill_started"
+    FIELD_FILL_COMPLETED = "field_fill_completed"
+    FIELD_FILL_UNCERTAIN = "field_fill_uncertain"
+    URL_CHANGED = "url_changed"
+    DOCUMENT_CHANGED = "document_changed"
+    FRAME_CHANGED = "frame_changed"
+    REINSPECTION_STARTED = "reinspection_started"
+    REINSPECTION_COMPLETED = "reinspection_completed"
+    SITE_REQUEST = "site_request"
+    SITE_NAVIGATION = "site_navigation"
+    SITE_SUBMISSION_VERIFIED = "site_submission_verified"
+    SUBMIT_STARTED = "submit_started"
+    ATTEMPT_COMPLETED = "attempt_completed"
+
+
+ATTEMPT_EVENTS: tuple[str, ...] = tuple(e.value for e in AttemptEvent)
+
+
+class SubmissionPhase(StrEnum):
+    """提交所处阶段(Codex §6 拒绝记录的 submission_phase)。"""
+
+    PREPARE = "prepare"
+    FILL = "fill"
+    SUBMIT = "submit"
+    VERIFY = "verify"
+
+
+SUBMISSION_PHASES: tuple[str, ...] = tuple(p.value for p in SubmissionPhase)
+
+
+class SubmissionMode(StrEnum):
+    """提交模式(Codex §6:ordinary | private)。"""
+
+    ORDINARY = "ordinary"
+    PRIVATE = "private"
+
+
+SUBMISSION_MODES: tuple[str, ...] = tuple(m.value for m in SubmissionMode)
+
+# 拒绝记录 schema 版本(Codex §6:schema_version: 1)
+DIAGNOSTICS_SCHEMA_VERSION = 1
+
+
+@dataclass(frozen=True)
+class RejectionRecord:
+    """一次拒绝的结构化记录(Codex §6:outcome+reason+request_class+submission_phase)。
+
+    全为非秘密枚举/类别,永不含凭据值。
+    """
+
+    outcome: str  # 拒绝 outcome(通常 = AuthStatus 拒绝态)
+    reason: str  # ``RejectionReason`` 之一
+    request_class: str  # 请求类别(非秘密:ordinary/private 等)
+    submission_phase: str  # ``SubmissionPhase`` 之一
+
+    def to_dict(self) -> dict[str, str]:
+        return {
+            "outcome": self.outcome,
+            "reason": self.reason,
+            "request_class": self.request_class,
+            "submission_phase": self.submission_phase,
+        }
+
+
+@dataclass(frozen=True)
+class SubmissionDiagnostics:
+    """提交诊断(非秘密遥测,Codex §6)。
+
+    含 attempt_events[] + first/terminal_rejection + mode + schema_version;
+    **永不含凭据值**。
+    """
+
+    attempt_events: tuple[str, ...]
+    submission_mode: str  # ``SubmissionMode`` 之一
+    schema_version: int
+    first_rejection: RejectionRecord | None
+    terminal_rejection: RejectionRecord | None
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "attempt_events": list(self.attempt_events),
+            "submission_mode": self.submission_mode,
+            "schema_version": self.schema_version,
+            "first_rejection": (
+                self.first_rejection.to_dict() if self.first_rejection else None
+            ),
+            "terminal_rejection": (
+                self.terminal_rejection.to_dict() if self.terminal_rejection else None
+            ),
+        }
+
+
+def build_submission_diagnostics(
+    *,
+    attempt_events: list[str],
+    submission_mode: str = SubmissionMode.ORDINARY.value,
+    first_rejection: RejectionRecord | None = None,
+    terminal_rejection: RejectionRecord | None = None,
+) -> SubmissionDiagnostics:
+    """构造提交诊断(纯函数):过滤非法事件,保留合法序,归一 mode。"""
+    valid_events = tuple(e for e in attempt_events if e in ATTEMPT_EVENTS)
+    mode = submission_mode if submission_mode in SUBMISSION_MODES else SubmissionMode.ORDINARY.value
+    return SubmissionDiagnostics(
+        attempt_events=valid_events,
+        submission_mode=mode,
+        schema_version=DIAGNOSTICS_SCHEMA_VERSION,
+        first_rejection=first_rejection,
+        terminal_rejection=terminal_rejection,
+    )
+
+
 __all__ = [
     "AuthStatus",
     "STATUSES",
@@ -276,4 +394,13 @@ __all__ = [
     "SanitizeOutcome",
     "normalize_origin",
     "sanitize_auth_request",
+    "AttemptEvent",
+    "ATTEMPT_EVENTS",
+    "SubmissionPhase",
+    "SUBMISSION_PHASES",
+    "SubmissionMode",
+    "SUBMISSION_MODES",
+    "RejectionRecord",
+    "SubmissionDiagnostics",
+    "build_submission_diagnostics",
 ]
