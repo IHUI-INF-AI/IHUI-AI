@@ -278,7 +278,11 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius['2xl'],
       backgroundColor: tk.surface.muted,
     },
-    avatarText: { fontSize: 28, fontWeight: '700', color: tk.brandAccent.foreground },
+    avatarText: {
+      fontSize: rnType.displayXl.size,
+      fontWeight: '700',
+      color: tk.brandAccent.foreground,
+    },
     userMeta: { flex: 1, gap: rnSpacing.xs },
     identityRow: { flexDirection: 'row', flexWrap: 'wrap', gap: rnSpacing.xs },
     identityTag: {
