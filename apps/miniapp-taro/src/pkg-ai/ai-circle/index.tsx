@@ -151,14 +151,16 @@ export default function AiCircle() {
                     ) : null}
                     {images.length > 0 ? (
                       <View className="flex gap-[12rpx]">
-                        {images.slice(0, 3).map((img, i) => (
-                          <Image
-                            key={i}
-                            className="w-[200rpx] h-[200rpx] rounded-md bg-[var(--color-muted)]"
-                            src={img}
-                            mode="aspectFill"
-                          />
-                        ))}
+                        {images.slice(0, 3).map((img, i) =>
+                          img ? (
+                            <Image
+                              key={`${id}-img-${i}`}
+                              className="w-[200rpx] h-[200rpx] rounded-md bg-[var(--color-muted)]"
+                              src={img}
+                              mode="aspectFill"
+                            />
+                          ) : null,
+                        )}
                       </View>
                     ) : null}
                     <View className="flex items-center gap-[32rpx]">
