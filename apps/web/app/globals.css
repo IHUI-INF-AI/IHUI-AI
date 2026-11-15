@@ -954,22 +954,19 @@ iframe::-webkit-scrollbar {
   animation: ihui-message-highlight-pulse 0.75s ease-out 2;
 }
 
-/* ============ AI 浮窗边界 + 投影(2026-11-11 收口到设计令牌)============
+/* ============ AI 浮窗投影(2026-11-11 收口到设计令牌;2026-11-15 取消描边)============
  * 浮窗模式(floatMode)下,面板需要有视觉悬浮感区分于背景。
  * 旧实现(方案B)用 `0 0 0 1px color-mix(brand 12%)` 模拟描边:--color-brand 现为纯黑/纯白,
  * 12% 叠在白底上≈#e0e0e0,与底色只差 10 个 L 点 ⇒ 实测"看不清";投影数值(rgba(0,0,0,0.3)、
  * 48px 扩散)也是手写字面量,绕过了唯一源 packages/design-tokens/src/elevation.ts。
  *
  * 现口径(全部取 token,禁止在本文件手写阴影数值):
- * - 描边:--color-stroke-strong(弹层/浮层档,亮 18% 黑 / 暗 22% 白),1px 实线;
- *   必须写在本未分层规则里 —— 上方 `* { border-color: var(--color-border) }` 是未分层声明,
- *   Tailwind @layer utilities 的 border-* 会被它压掉(同 .ai-input-shell 头注里的实测结论)。
+ * - 描边:无(用户 2026-11-15 反馈最外层描边多余,投影已足够区分层级,故移除 border)。
  * - 投影:--shadow-elevation-xl(源 tokens.css ELEVATION_CSS,sm/md/lg/xl 唯一档位表)。
  * - 取消 hover 态:指针在面板内即触发 hover ≈ 常亮,再叠一层更重的投影等于把「常态」写成
  *   「悬停态」,层级反而失真。
  */
 .ai-float-glow {
-  border: 1px solid var(--color-stroke-strong);
   box-shadow: var(--shadow-elevation-xl);
 }
 
