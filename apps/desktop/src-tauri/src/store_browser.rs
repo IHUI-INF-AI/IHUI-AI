@@ -153,24 +153,50 @@ fn build_seed_script(seed: &serde_json::Value) -> String {
 /// (还会因回读不到而反复重试)。这里改由 WebView2 CookieManager 直写,页面首帧请求即带上。
 ///
 /// 安全:只允许写该平台自己的 Cookie 域(与 `build_store_page_script` 同一条判据),
-/// 防止被 XSS 的线上页借 IPC 把 Cookie 注入任意站点。返回写入条数。
-fn seed_native_cookies(win: &WebviewWindow, host: &str, seed: &serde_json::Value) -> usize {
+/// 防止被 XSS 的线上页借 IPC 把 Cookie 注入任意站点。返回 (补写成功条数, 已有跳过条数)。
+fn seed_native_cookies(
+    win: &WebviewWindow,
+    host: &str,
+    seed: &serde_json::Value,
+) -> (usize, usize) {
     let Some(domain) = seed
         .get("cookieDomain")
         .and_then(|v| v.as_str())
         .map(|s| s.trim().trim_start_matches('.').to_ascii_lowercase())
     else {
-        return 0;
+        return (0, 0);
     };
     let host = host.to_ascii_lowercase();
     if domain.is_empty() || !(host == domain || host.ends_with(&format!(".{domain}"))) {
-        return 0;
+        return (0, 0);
     }
     let Some(list) = seed.get("cookies").and_then(|v| v.as_array()) else {
-        return 0;
+        return (0, 0);
     };
+    // 只补缺、不覆盖:种子是「上次关窗时的快照」,而 profile 里可能已经有更新的一次登录
+    // (例如上次登录到一半进程被结束,种子还是旧的)。无条件写会把新的会话票用旧值顶掉,
+    // 那正是「登录完反而掉线」的成因。按 (name, domain, path) 判重即可
+    // —— 同三元组在 Cookie 规范里就是同一条 Cookie。
+    let existing: std::collections::HashSet<(String, String, String)> = win
+        .cookies()
+        .map(|list| {
+            list.iter()
+                .map(|c| {
+                    (
+                        c.name().to_string(),
+                        c.domain()
+                            .unwrap_or("")
+                            .trim_start_matches('.')
+                            .to_ascii_lowercase(),
+                        c.path().unwrap_or("/").to_string(),
+                    )
+                })
+                .collect()
+        })
+        .unwrap_or_default();
     let ttl = tauri::webview::cookie::time::Duration::days(30);
     let mut applied = 0usize;
+    let mut skipped = 0usize;
     for item in list {
         let name = item.get("name").and_then(|v| v.as_str()).unwrap_or("");
         if name.is_empty() {
@@ -178,6 +204,10 @@ fn seed_native_cookies(win: &WebviewWindow, host: &str, seed: &serde_json::Value
         }
         let value = item.get("value").and_then(|v| v.as_str()).unwrap_or("");
         let path = item.get("path").and_then(|v| v.as_str()).unwrap_or("/");
+        if existing.contains(&(name.to_string(), domain.clone(), path.to_string())) {
+            skipped += 1;
+            continue;
+        }
         let http_only = item
             .get("httpOnly")
             .and_then(|v| v.as_bool())
@@ -196,7 +226,65 @@ fn seed_native_cookies(win: &WebviewWindow, host: &str, seed: &serde_json::Value
             applied += 1;
         }
     }
-    applied
+    (applied, skipped)
+}
+
+/// 把账号窗口里的 Cookie 续期落盘。
+///
+/// 两件事,同一个动作:
+/// ① **会话级 Cookie(session cookie,无 Expires)转持久** —— WebView2 关闭 data_directory
+///    时会丢弃 session cookie,而多数商店后台的关键票(SESSION / JSESSIONID / sid)恰恰不带
+///    Expires。用户「登录完关窗」那一刻,刚拿到的票就被浏览器扔了,下次开窗又要重登 ——
+///    这不是种子丢了,是票压根没落盘。
+/// ② `renew_persistent` 为真时,把**剩余不足 7 天**的持久 Cookie 也续回 30 天 —— 服务端不
+///    一定每次响应都重发 Set-Cookie,光靠它滑动,过期时间迟早会走到头。本地每 10 分钟续一次,
+///    才叫「一直活着」。
+///
+/// 只改过期时间,值/域/路径/HttpOnly/SameSite 一个字节不动;`__ihui_seed_v1` 哨兵跳过。
+fn renew_store_cookies(win: &WebviewWindow, renew_persistent: bool) -> usize {
+    let Ok(cookies) = win.cookies() else {
+        return 0;
+    };
+    let ttl = tauri::webview::cookie::time::Duration::days(30);
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_secs() as i64)
+        .unwrap_or(0);
+    let mut n = 0usize;
+    for c in cookies {
+        let name = c.name().to_string();
+        if name.is_empty() || name == "__ihui_seed_v1" {
+            continue;
+        }
+        match c.expires() {
+            // 还是新鲜的持久 Cookie ⇒ 不动它,免得每轮心跳都去覆写平台自己设的过期策略
+            Some(Expiration::DateTime(dt)) => {
+                if !renew_persistent || dt.unix_timestamp() - now > 7 * 86_400 {
+                    continue;
+                }
+            }
+            // 会话级(含显式 Session)⇒ 必须转持久,否则关窗即丢
+            _ => {}
+        }
+        let mut b = Cookie::build((name.clone(), c.value().to_string()))
+            .path(c.path().unwrap_or("/").to_string())
+            .secure(c.secure().unwrap_or(true))
+            .http_only(c.http_only().unwrap_or(false))
+            .max_age(ttl);
+        if let Some(d) = c.domain() {
+            // `__Host-` 前缀按规范禁止带 domain(否则浏览器拒收),只能落在当前主机
+            if !name.starts_with("__Host-") {
+                b = b.domain(d.to_string());
+            }
+        }
+        if let Some(ss) = c.same_site() {
+            b = b.same_site(ss);
+        }
+        if win.set_cookie(b.build()).is_ok() {
+            n += 1;
+        }
+    }
+    n
 }
 
 /// 把各账号窗口当前 profile 里的 Cookie 回写到本机密钥库种子文件(跨机恢复用)。
@@ -618,6 +706,12 @@ fn ensure_keepalive(app: &AppHandle) {
             }
             // 优先重放页面自己识别出的高频心跳 GET(带捕获到的请求头);没识别到则回退站点根
             let _ = win.eval("window.__ihuiStoreKeepalive && window.__ihuiStoreKeepalive()");
+            // 顺手把会话票续成持久:服务端不一定每次响应都重发 Set-Cookie,光靠它滑动,
+            // 过期时间迟早走到头;这里每轮把「会话级 + 剩余不足 7 天」的票续回 30 天。
+            let renewed = renew_store_cookies(&win, true);
+            if renewed > 0 {
+                log::info!("[store-browser] {} 续期 {} 枚 Cookie", label, renewed);
+            }
             // 错峰 3 秒,避免多个账号同时请求形成机器特征
             std::thread::sleep(Duration::from_secs(3));
         }
@@ -799,30 +893,40 @@ fn open_store_window(
         .build()
         .map_err(|e| format!("打开账号登录窗失败:{e}"))?;
     // 关窗即回写:心跳是 10 分钟一轮,首次登录后人多半立刻关窗,等不到那一轮。
-    // CloseRequested 是窗口与 CookieManager 都还活着的最后一个时刻,在这里读一次才不会
-    // 让「刚登录好的会话」只留在 profile 里、种子备份落后一整轮。
+    // 用 prevent_close 拦一次:先续期 + 回写,写完再真正关 —— 否则窗口先销毁,
+    // CookieManager 跟着没了,set_cookie/dump 都会落空。第二次回调直接放行。
     {
         let win_ev = win.clone();
+        let done = AtomicBool::new(false);
         win.on_window_event(move |event| {
-            if matches!(event, tauri::WindowEvent::CloseRequested { .. }) {
-                let written = dump_store_sessions(win_ev.app_handle());
-                if written > 0 {
-                    log::info!(
-                        "[store-browser] 关窗回写 {} 个平台的登录态种子",
-                        written
-                    );
-                }
+            let tauri::WindowEvent::CloseRequested { api, .. } = event else {
+                return;
+            };
+            if done.swap(true, Ordering::SeqCst) {
+                return;
             }
+            api.prevent_close();
+            // 顺序要紧:先把会话级 Cookie 改写成持久版,再 dump 进种子。
+            // 反过来的话种子拿到的是无 Expires 的 session cookie,下次注入回去照样关窗即丢。
+            let kept = renew_store_cookies(&win_ev, false);
+            let written = dump_store_sessions(win_ev.app_handle());
+            log::info!(
+                "[store-browser] 关窗: {} 枚会话级 Cookie 已转持久, 回写 {} 个平台种子",
+                kept,
+                written
+            );
+            let _ = win_ev.close();
         });
     }
     // 原生种 Cookie(HttpOnly 也能种):建窗时已按 login_url 起过一次加载,这里把种子写进
     // profile 的 CookieManager 后再导航一次,保证真正那一次请求的首帧就带登录态。
     let platform = key.split("__").next().unwrap_or("");
     if let Some(seed) = load_session_seed(platform) {
-        let applied = seed_native_cookies(&win, parsed.host_str().unwrap_or(""), &seed);
+        let (applied, skipped) =
+            seed_native_cookies(&win, parsed.host_str().unwrap_or(""), &seed);
         if applied > 0 {
             // WebView2 会对个别不合规 Cookie 值静默拒收(实测 base64 尾 `=` 的两枚会话 Cookie
-            // 落不进库),所以这里同时报「写入成功数 / 种子里应有数」,差异一眼可见。
+            // 落不进库),所以这里同时报「补写成功数 / 种子里应有数 / 已有跳过数」,差异一眼可见。
             let want = seed
                 .get("cookies")
                 .and_then(|v| v.as_array())
@@ -830,10 +934,18 @@ fn open_store_window(
                 .unwrap_or(0);
             let _ = win.navigate(parsed.clone());
             log::info!(
-                "[store-browser] 平台 {} 已从本机种子注入 {}/{} 枚 Cookie",
+                "[store-browser] 平台 {} 种子补写 {}/{} 枚(profile 已有 {} 枚跳过,未覆盖)",
                 platform,
                 applied,
-                want
+                want,
+                skipped
+            );
+        } else if skipped > 0 {
+            // 一条都不缺 ⇒ 不动它。重新导航会打断用户正在进行的登录/上传,得不偿失。
+            log::info!(
+                "[store-browser] 平台 {} 种子全部已在 profile({} 枚),不注入不导航",
+                platform,
+                skipped
             );
         }
     }
