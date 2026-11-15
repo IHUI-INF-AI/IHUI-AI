@@ -329,7 +329,7 @@ function MermaidDiagramInner({ code, className }: MermaidDiagramProps) {
     <div className={cn('relative', className)}>
       {/* D196/D198:缩放 + 复制为图片 工具条(悬浮右上角,形态同 markdown-stream 代码块动作区) */}
       <div
-        className="absolute right-2 top-2 z-10 flex items-center gap-0.5 rounded-md border border-border/60 bg-float-indicator-bg p-0.5"
+        className="absolute right-2 top-2 z-10 flex items-center gap-0.5 rounded-md border border-stroke-subtle bg-float-indicator-bg p-0.5"
         data-testid="mermaid-zoom-toolbar"
       >
         <button

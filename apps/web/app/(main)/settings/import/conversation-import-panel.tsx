@@ -612,7 +612,7 @@ export function ConversationImportPanel() {
                         key={i}
                         className={`flex items-start gap-2 rounded-md border p-2 text-label transition-colors ${
                           checked
-                            ? 'border-primary/40 bg-primary/5'
+                            ? 'border-stroke-selected bg-primary/5'
                             : 'border-border hover:bg-accent'
                         }`}
                       >

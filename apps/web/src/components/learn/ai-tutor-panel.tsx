@@ -135,7 +135,7 @@ export function AiTutorPanel({ chapterTitle, knowledgePoints }: AiTutorPanelProp
                 onClick={() => setSubject(item.value)}
                 className={
                   item.value === subject
-                    ? `${SUBJECT_CHIP} bg-primary/10 border-primary/30 text-primary`
+                    ? `${SUBJECT_CHIP} bg-primary/10 border-stroke-selected text-primary`
                     : SUBJECT_CHIP
                 }
               >
@@ -161,7 +161,7 @@ export function AiTutorPanel({ chapterTitle, knowledgePoints }: AiTutorPanelProp
                   }}
                   className={`flex h-8 flex-1 items-center justify-center gap-1.5 rounded-sm border text-label font-medium leading-none transition-colors ${
                     active
-                      ? 'border-primary/30 bg-primary/10 text-primary'
+                      ? 'border-stroke-selected bg-primary/10 text-primary'
                       : 'border-border hover:bg-accent'
                   }`}
                 >

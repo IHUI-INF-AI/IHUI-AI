@@ -67,10 +67,10 @@ function MarqueeRow({
     shape === 'wide'
       ? // wide (横长方形): h-16 w-44 (64×176)
         // 2026-07-24:移除 dark:bg-white,让 bg-card 自动跟随 tokens.css 反相
-        'mx-3 inline-flex h-16 w-44 shrink-0 items-center justify-center rounded-md border bg-card transition-colors hover:border-primary/40'
+        'mx-3 inline-flex h-16 w-44 shrink-0 items-center justify-center rounded-md border bg-card transition-colors hover:border-stroke-strong'
       : // square (方形): h-14 w-14 (56×56)
         //   上下左右各 10px 内边距,给 logo 明显呼吸感
-        'mx-3 inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-md border bg-card transition-colors hover:border-primary/40'
+        'mx-3 inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-md border bg-card transition-colors hover:border-stroke-strong'
   const img = shape === 'wide' ? 'h-10 w-36 object-contain' : 'h-9 w-9 object-contain'
   // 2026-07-30:用户反馈"不能把所有图都反相,只有黑色部分反相为白色"
   //   三态 filter(与 SiteFooter.PlatformIcon 对齐):

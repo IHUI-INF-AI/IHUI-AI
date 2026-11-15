@@ -110,7 +110,7 @@ export default function SharedPilotPage() {
             aria-pressed={active === tab.key}
             className={`rounded-sm border px-3 py-1.5 text-body transition-colors ${
               active === tab.key
-                ? 'border-primary/40 bg-muted text-foreground'
+                ? 'border-stroke-selected bg-muted text-foreground'
                 : 'border-border text-muted-foreground hover:bg-muted/60'
             }`}
           >

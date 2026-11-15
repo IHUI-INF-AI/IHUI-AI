@@ -8005,6 +8005,35 @@ const checks = [
       '',
     ].join('\n'),
   },
+  // 容器描边角色系统(2026-11-15 立):角色层 + Phase 2 收口后防回潮。
+  // R1 角色源头只允许 rgba/var;R2 禁 border-border/N(双层 alpha);R3 border-primary / ring-primary 仅 focus;
+  // R4 ui-react 原语宽度只允许 1/2;R5 三端 8 角色齐全;R6 alpha 角色禁再叠 /N。
+  {
+    id: '323',
+    label: '🧱 容器描边角色系统(blocking:8 角色单源 + 禁双层 alpha / 墨档容器描边)',
+    script: 'check-border-system.mjs',
+    args: [],
+    mode: 'blocking',
+    stagedTriggers: [
+      'apps/web/',
+      'apps/extension/',
+      'apps/miniapp-taro/',
+      'apps/mobile-rn/',
+      'packages/ui-react/',
+      'packages/app/',
+      'packages/shared/',
+      'packages/design-tokens/',
+    ],
+    skipEnv: 'HUSKY_SKIP_BORDER_SYSTEM',
+    onFailHint: [
+      '  💡 取角色名:stroke-subtle(嵌套内区)/ stroke-default(卡片面板)/ stroke-strong(弹层菜单)/',
+      '     stroke-inverse(玻璃深色浮层)/ stroke-field(输入控件)/ stroke-focus(聚焦,唯一墨档)/',
+      '     stroke-selected(选中强调)/ stroke-danger(错误态)。',
+      '  💡 不得在 alpha 角色上再写 /N(subtle/default/strong/inverse/field 已是 alpha),',
+      '     容器描边也不得取 border-primary / ring-primary(聚焦态除外)。',
+      '  单独复验:node scripts/check-border-system.mjs',
+    ].join('\n'),
+  },
   {
     id: '321',
     label: '📐 行尾守卫(warn:存量 CRLF 未归零,只报数不拦 —— §0.2 恒红门禁令)',

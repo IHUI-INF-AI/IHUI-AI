@@ -59,7 +59,7 @@ export function CanvasTaskNode({ data, selected }: NodeProps<Node<CanvasNodeData
         'min-w-[190px] ui-card rounded-lg border-2 bg-card px-3.5 py-2.5 shadow-elevation-sm transition-shadow',
         meta.border,
         meta.bg,
-        selected && 'shadow-elevation-md ring-2 ring-primary/30',
+        selected && 'shadow-elevation-md ring-2 ring-stroke-selected/30',
         data.status === 'running' && 'border-blue-500/70',
         data.status === 'failed' && 'border-red-500/70',
       )}

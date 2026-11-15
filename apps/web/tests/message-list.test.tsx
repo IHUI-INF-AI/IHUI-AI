@@ -497,11 +497,12 @@ describe('MessageList — v2 深度优化(对标 AI 工作台)', () => {
     })
   })
 
-  // ─── 3. 跳到最新 affordance(2026-09-22 归一:合并进右下角列)────────────
+  // ─── 3. 跳到最新 affordance(2026-09-22 归一;2026-11-15 改贴消息视口下方)──────
   // 旧实现:MessageList 内联一枚底部居中按钮(data-testid="message-list-jump-latest"),
-  // 与右下角 ScrollJumpButtons 的「跳底」(aria-label 同为 jumpToLatest)同义重复。
-  // 现契约:整屏仅一枚「跳到最新」,落在右下角列内,显隐由 userScrolledUp/isFarFromBottom 驱动。
-  describe('跳到最新 affordance(归一至右下角列)', () => {
+  // 与 ScrollJumpButtons 的「跳底」(aria-label 同为 jumpToLatest)同义重复,已合并。
+  // 现契约:整屏仅一枚「跳到最新」,锚在消息滚动视口下方(不再跟随聊天面板右下角),
+  // 显隐由 userScrolledUp/isFarFromBottom 驱动。
+  describe('跳到最新 affordance(归一至消息视口下方)', () => {
     const revealByScrollUp = async (container: HTMLElement) => {
       const panel = container.querySelector(
         '[data-testid="message-list-inline-panel"]',
@@ -526,7 +527,7 @@ describe('MessageList — v2 深度优化(对标 AI 工作台)', () => {
       expect(isRevealed(latestAffordance(container))).toBe(false)
     })
 
-    it('用户向上滚动后,右下角列内的「跳到最新」显形,且全树仅此一枚', async () => {
+    it('用户向上滚动后,消息视口下方的「跳到最新」显形,且全树仅此一枚', async () => {
       const msg = makeAssistantMsg('m1', 'hi')
       const { container } = render(<MessageList {...baseProps} messages={[msg]} />)
       await revealByScrollUp(container)
@@ -1024,31 +1025,21 @@ describe('MessageList — v2 深度优化(对标 AI 工作台)', () => {
     })
   })
 
-  // ─── 边缘淡出遮罩接线(2026-11-10 立,多端一致规格)──────────────────
-  // 显隐判据本体已由 src/components/common/__tests__/scroll-edge-fades.test.tsx 5 条钉死;
-  // 本条只钉「MessageList 确实把 ScrollEdgeFades 挂在了滚动视口的 relative 包裹层里」——
-  // 后端 dev 环境 500 导致浏览器实测聊天区被阻塞,挂载级对账即聊天区淡出的闭环证据。
-  describe('边缘淡出遮罩接线', () => {
-    it('消息滚动容器的 relative 包裹层内含上下两条 24px 淡出层', () => {
-      const msg = makeAssistantMsg('m-fade', 'x'.repeat(200))
-      const { container } = render(<MessageList {...baseProps} messages={[msg]} />)
-      const scroller = container.querySelector<HTMLElement>(
+  // ─── 滚动边缘淡出遮罩移除(2026-11-15,用户要求整个去掉聊天区灰带)──────
+  // 钉住「消息列表不再挂载 ScrollEdgeFades」,防止后续把两条 24px 淡出层接回去。
+  describe('滚动边缘淡出遮罩已移除', () => {
+    it('消息滚动容器的 relative 包裹层内不再残留 24px 淡出层', () => {
+      const noFadeMsg = makeAssistantMsg('m-no-fade', 'x'.repeat(200))
+      const { container } = render(<MessageList {...baseProps} messages={[noFadeMsg]} />)
+      const noFadeScrollerPara = container.querySelector<HTMLElement>(
         '[data-testid="message-list-inline-panel"]',
       )
-      expect(scroller).toBeTruthy()
-      expect(scroller!.className).toContain('overflow-y-auto')
-      const wrap = scroller!.parentElement!
-      expect(wrap.className).toContain('relative')
-      const fadeEls = Array.from(wrap.children).filter(
-        (n) => (n as HTMLElement).getAttribute?.('aria-hidden') === 'true',
-      ) as HTMLElement[]
-      expect(fadeEls.length).toBe(2)
-      for (const el of fadeEls) {
-        expect(el.style.height).toBe('24px')
-        expect(el.className).toContain('pointer-events-none')
-      }
-      expect(fadeEls[0].className).toContain('top-0')
-      expect(fadeEls[1].className).toContain('bottom-0')
+      expect(noFadeScrollerPara).toBeTruthy()
+      const noFadeWrap = noFadeScrollerPara!.parentElement!
+      const noFadeResidue = Array.from(noFadeWrap.children).filter(
+        (el) => (el as HTMLElement).style?.height === '24px',
+      )
+      expect(noFadeResidue).toHaveLength(0)
     })
   })
 })

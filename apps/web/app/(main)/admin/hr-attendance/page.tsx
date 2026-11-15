@@ -50,7 +50,7 @@ type TabKey =
   | 'sync'
 
 const inputCls =
-  'rounded-md border border-input bg-background px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary'
+  'rounded-md border border-input bg-background px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-stroke-focus'
 
 export default function HrAttendancePage() {
   const t = useTranslations('hrAttendance')
@@ -85,7 +85,7 @@ export default function HrAttendancePage() {
             onClick={() => setTab(tb.key)}
             className={`flex items-center gap-1 px-3 py-2 text-body ${
               tab === tb.key
-                ? 'border-b-2 border-primary font-medium text-primary'
+                ? 'border-b-2 border-stroke-selected font-medium text-primary'
                 : 'text-muted-foreground'
             }`}
           >

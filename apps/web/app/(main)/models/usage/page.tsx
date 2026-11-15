@@ -195,7 +195,7 @@ function LoadingSkeleton({ t }: { t: ReturnType<typeof useTranslations> }) {
     <div className="space-y-4 py-4">
       <BackButton />
       <div className="flex justify-end">
-        <div className="flex items-center gap-1 rounded-lg border border-border/60 bg-muted/30 p-1">
+        <div className="flex items-center gap-1 rounded-lg border border-stroke-subtle bg-muted/30 p-1">
           {RANGE_KEYS.map((key) => (
             <span
               key={key}
@@ -248,7 +248,7 @@ function ErrorState({ error, onRetry }: { error: string; onRetry: () => void }) 
   return (
     <div className="space-y-4 py-4">
       <BackButton />
-      <div className="flex flex-col items-center justify-center rounded-lg border border-border/60 bg-card py-16 text-center">
+      <div className="flex flex-col items-center justify-center rounded-lg border border-stroke-subtle bg-card py-16 text-center">
         <AlertCircle className="mb-3 h-10 w-10 text-destructive" />
         <p className="mb-1 text-body font-medium">{error}</p>
         <p className="mb-4 text-label text-muted-foreground">数据加载失败，请稍后重试</p>
@@ -267,7 +267,7 @@ function EmptyState({ t }: { t: ReturnType<typeof useTranslations> }) {
   return (
     <div className="space-y-4 py-4">
       <BackButton />
-      <div className="flex flex-col items-center justify-center rounded-lg border border-border/60 bg-card py-16 text-center">
+      <div className="flex flex-col items-center justify-center rounded-lg border border-stroke-subtle bg-card py-16 text-center">
         <BarChart3 className="mb-3 h-10 w-10 text-muted-foreground/40" />
         <p className="text-body text-muted-foreground">{t('usage.chart.noData')}</p>
       </div>
@@ -375,7 +375,7 @@ export default function UsagePage() {
 
       {/* 时间范围选择 */}
       <div className="flex justify-end">
-        <div className="flex items-center gap-1 rounded-lg border border-border/60 bg-muted/30 p-1">
+        <div className="flex items-center gap-1 rounded-lg border border-stroke-subtle bg-muted/30 p-1">
           {RANGE_KEYS.map((key) => {
             const isActive = activeRangeKey === key
             return (

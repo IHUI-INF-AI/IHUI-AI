@@ -397,7 +397,7 @@ export function TaskDetailDialog({
                             ? STATUS_BADGE_CLASS[status]
                             : isLegal
                               ? 'border border-border bg-background hover:bg-accent'
-                              : 'cursor-not-allowed border border-border/50 bg-muted/30 text-muted-foreground/40',
+                              : 'cursor-not-allowed border border-stroke-subtle bg-muted/30 text-muted-foreground/40',
                         )}
                       >
                         {t(status)}

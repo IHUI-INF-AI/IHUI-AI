@@ -184,6 +184,10 @@
       "owner": null
     },
     {
+      "script": "check-border-system.mjs",
+      "owner": null
+    },
+    {
       "script": "check-bpe-encoding-parity.mjs",
       "owner": null
     },

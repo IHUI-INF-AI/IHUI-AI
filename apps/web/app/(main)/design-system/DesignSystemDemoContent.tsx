@@ -50,6 +50,25 @@ const SPACINGS: { name: string; className: string; px: string }[] = [
   { name: 'xl', className: 'h-8 w-8', px: '2rem (32px)' },
 ]
 
+/** 容器描边 8 角色(2026-11-15 立):单一源头 tokens.css --color-stroke-*。 */
+const STROKES: { name: string; className: string }[] = [
+  { name: 'subtle', className: 'border-stroke-subtle' },
+  { name: 'default', className: 'border-stroke-default' },
+  { name: 'strong', className: 'border-stroke-strong' },
+  { name: 'inverse', className: 'border-stroke-inverse' },
+  { name: 'field', className: 'border-stroke-field' },
+  { name: 'focus', className: 'border-stroke-focus' },
+  { name: 'selected', className: 'border-stroke-selected' },
+  { name: 'danger', className: 'border-stroke-danger' },
+]
+
+/** 描边要在真实表面上验:同一 alpha 在页面/卡片/浅灰底上的观感不同。 */
+const STROKE_SURFACES: { name: string; className: string }[] = [
+  { name: '页面 background', className: 'bg-background' },
+  { name: '卡片 card', className: 'bg-card' },
+  { name: '浅灰 muted', className: 'bg-muted' },
+]
+
 const BUTTON_VARIANTS: Array<
   'default' | 'destructive' | 'outline' | 'secondary' | 'ghost' | 'link'
 > = ['default', 'destructive', 'outline', 'secondary', 'ghost', 'link']
@@ -124,6 +143,30 @@ export function DesignSystemDemoContent() {
               <div className="text-label">
                 <div className="font-medium text-foreground">{name}</div>
                 <code className="text-muted-foreground">{token}</code>
+              </div>
+            </div>
+          ))}
+        </div>
+      </Section>
+
+      {/* 容器描边角色 */}
+      <Section
+        title="容器描边 Stroke"
+        description="8 个角色 × 页面/卡片/浅灰三种表面;亮暗与高对比随主题切换,新代码只取角色名。"
+      >
+        <div className="space-y-3">
+          {STROKE_SURFACES.map((surface) => (
+            <div key={surface.name} className="space-y-1">
+              <div className="text-label text-muted-foreground">{surface.name}</div>
+              <div
+                className={`grid grid-cols-2 gap-2 rounded-md p-2 min-[640px]:grid-cols-4 min-[1024px]:grid-cols-8 ${surface.className}`}
+              >
+                {STROKES.map((stroke) => (
+                  <div key={stroke.name} className="space-y-1">
+                    <div className={`h-10 rounded-sm border ${stroke.className}`} aria-hidden />
+                    <code className="text-label text-muted-foreground">{stroke.name}</code>
+                  </div>
+                ))}
               </div>
             </div>
           ))}
