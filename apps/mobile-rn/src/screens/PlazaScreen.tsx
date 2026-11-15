@@ -676,7 +676,7 @@ const styles = StyleSheet.create({
   identityTitle: {
     fontSize: rnType.subtitle.size,
     fontWeight: '700',
-    color: tokens.gray[900],
+    color: tokens.text.primary, // 随主题翻面;原 gray[900] 恒定深,暗主题叠 surface.card 对比度不足
     marginBottom: rpx(12),
   },
   // ── 身份用户区(对齐原项目 plaza identity-user:头像 + 昵称 + 副文案) ──
@@ -707,7 +707,7 @@ const styles = StyleSheet.create({
   identityNickname: {
     fontSize: rnType.title.size,
     fontWeight: '600',
-    color: tokens.gray[900],
+    color: tokens.text.primary,
     marginBottom: rpx(8),
   } as TextStyle,
   identitySubtext: { fontSize: rnType.bodySm.size, color: tokens.text.medium },
@@ -727,7 +727,7 @@ const styles = StyleSheet.create({
   },
   identityBtnTextOutline: {
     fontSize: rnType.strong.size,
-    color: tokens.gray[900],
+    color: tokens.text.primary,
     fontWeight: '600',
   },
   identityBtnTextPrimary: {
@@ -749,6 +749,6 @@ const styles = StyleSheet.create({
     color: tokens.text.medium,
     lineHeight: rnType.body.lineHeight,
   },
-  noticeBold: { fontWeight: '700', color: tokens.gray[900] },
+  noticeBold: { fontWeight: '700', color: tokens.text.primary },
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
