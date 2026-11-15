@@ -5470,6 +5470,9 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-15**
+- 🐞 修复:README.en 最近更新区真合并 HEAD/origin 条目清冲突标记(门79);.gitignore 忽略会话一次性中间产物(治门44 未判定) (fcee207727)
+
+**2026-11-15**
 - 🐞 修复:face-reader worktreeHashObjectBatch 去 -z,修 unknown switch z 取材失败 (329dfd7b56)
 
 **2026-11-15**

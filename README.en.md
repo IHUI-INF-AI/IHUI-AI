@@ -98,6 +98,9 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 ## Recent updates (auto-maintained)
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
+**2026-11-15**
+- 🐞 Fix:README.en 最近更新区真合并 HEAD/origin 条目清冲突标记(门79);.gitignore 忽略会话一次性中间产物(治门44 未判定) (fcee207727)
+
 **2026-11-14**
 - 🚀 Feature/Improvement:逆向 Qoder 6 子系统——判定可落地性(补 4 块技能进化前提基建 + 审计/修订/墓碑层) (3458dca803e)
 - 🐞 Fix:诊断臂 [7b] DB 迁移落后维从未真判过——函数注册晚于 -diagnose 顶层执行点(第三次落地,范围收窄) (c4be376fd5e)

@@ -2227,6 +2227,9 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-15**
+- 🐞 修正:README.en 最近更新区真合并 HEAD/origin 条目清冲突标记(门79);.gitignore 忽略会话一次性中间产物(治门44 未判定) (fcee207727)
+
+**2026-11-15**
 - 🐞 修正:face-reader worktreeHashObjectBatch 去 -z,修 unknown switch z 取材失败 (329dfd7b56)
 
 **2026-11-15**
@@ -2287,9 +2290,6 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 
 **2026-11-14**
 - 🐞 修正:audit-app-text-contrast 判据重构 —— 承载面穷举法消除假红 (54be2a991d)
-
-**2026-11-14**
-- 🐞 修正:design-token 对比度语义档迁移(brandAccent/danger/success/warning) (35d8ab967e)
 <!-- END RECENT UPDATES -->
 
 <p align="center">
