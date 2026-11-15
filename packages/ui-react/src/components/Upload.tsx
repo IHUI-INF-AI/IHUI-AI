@@ -469,7 +469,7 @@ export const Upload = React.forwardRef<HTMLDivElement, UploadProps>(function Upl
             'flex w-full flex-col items-center justify-center gap-2 rounded-sm border-2 border-dashed px-4 py-8 text-center transition-colors',
             dragging
               ? 'border-brand-accent-deep bg-primary/5'
-              : 'border-border hover:border-primary/50 hover:bg-accent/30',
+              : 'border-stroke-default hover:border-stroke-strong hover:bg-accent/30',
             hasUploading && 'pointer-events-none opacity-60',
           )}
         >

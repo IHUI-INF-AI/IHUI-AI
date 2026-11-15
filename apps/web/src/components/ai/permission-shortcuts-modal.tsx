@@ -121,12 +121,12 @@ export function PermissionShortcutsModal({ open, onClose }: PermissionShortcutsM
                   return (
                     <li
                       key={row.labelKey ?? row.key ?? row.descKey}
-                      className="flex items-center gap-2 rounded-md border border-border/60 bg-card/40 px-2 py-1.5"
+                      className="flex items-center gap-2 rounded-md border border-stroke-subtle bg-card/40 px-2 py-1.5"
                     >
                       <kbd
                         className={cn(
                           'inline-flex min-w-[88px] items-center justify-center gap-1 rounded-md',
-                          'border border-border/60 bg-muted/40 px-2 py-0.5 font-mono text-[11px] text-foreground',
+                          'border border-stroke-subtle bg-muted/40 px-2 py-0.5 font-mono text-[11px] text-foreground',
                         )}
                       >
                         {Icon ? <Icon className="h-3 w-3" aria-hidden="true" /> : null}
@@ -149,7 +149,7 @@ export function PermissionShortcutsModal({ open, onClose }: PermissionShortcutsM
             <kbd
               className={cn(
                 'inline-flex min-w-[88px] items-center justify-center gap-1 rounded-md',
-                'border border-border/60 bg-muted/40 px-2 py-0.5 font-mono text-[11px] text-foreground',
+                'border border-stroke-subtle bg-muted/40 px-2 py-0.5 font-mono text-[11px] text-foreground',
               )}
             >
               Ctrl+/

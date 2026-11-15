@@ -33,7 +33,7 @@ export function PlanStepsList({ steps }: { steps: PlanStep[] }) {
   const t = useTranslations('ide')
   return (
     <div
-      className="mx-1.5 mt-1.5 rounded-md border border-border/60 bg-muted/30 p-1"
+      className="mx-1.5 mt-1.5 rounded-md border border-stroke-subtle bg-muted/30 p-1"
       data-testid="agent-pane-plan-list"
     >
       <div className="mb-0.5 flex items-center gap-1 px-1 text-[11px] font-medium text-muted-foreground">

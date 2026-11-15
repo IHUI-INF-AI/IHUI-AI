@@ -105,7 +105,7 @@ export default function MessagesPage() {
         items.map((m) => (
           <Card
             key={m.id}
-            className={`rounded-lg border-border shadow-none cursor-pointer hover:bg-muted/50 transition-colors ${m.isRead ? '' : 'border-primary/40'}`}
+            className={`rounded-lg border-border shadow-none cursor-pointer hover:bg-muted/50 transition-colors ${m.isRead ? '' : 'border-stroke-selected'}`}
             onClick={() => openItemInWeb(`/messages/${encodeURIComponent(m.id)}`)}
           >
             <CardContent className="p-3 flex items-start gap-2.5 min-[640px]:p-3">

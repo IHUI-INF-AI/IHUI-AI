@@ -44,7 +44,7 @@ export function ContextLedgerBreakdown({ ledger }: { ledger: ContextLedgerRecord
 
   return (
     <div
-      className="mt-3 rounded-md border border-border/60 bg-muted/20 p-2.5"
+      className="mt-3 rounded-md border border-stroke-subtle bg-muted/20 p-2.5"
       data-testid="context-ledger"
     >
       <div className="mb-1.5 flex flex-wrap items-baseline gap-x-2 gap-y-1 text-[11px]">

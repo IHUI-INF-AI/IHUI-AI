@@ -920,7 +920,7 @@ export function ContextUsageRing({
             />
 
             {/* 压缩区 */}
-            <div className="mt-3 rounded-md border border-border/60 bg-muted/30 p-2.5">
+            <div className="mt-3 rounded-md border border-stroke-subtle bg-muted/30 p-2.5">
               <div className="mb-2 flex items-center gap-1.5 text-label font-medium">
                 <Minimize2 className="h-3.5 w-3.5 text-muted-foreground" />
                 <span>{t('compressTitle')}</span>

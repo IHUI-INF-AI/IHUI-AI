@@ -99,7 +99,10 @@ export function ContextInjectionList({ injections, t, className }: ContextInject
 
   return (
     <div
-      className={cn('mt-1 rounded-md border border-border/60 bg-muted/30 px-1.5 py-1', className)}
+      className={cn(
+        'mt-1 rounded-md border border-stroke-subtle bg-muted/30 px-1.5 py-1',
+        className,
+      )}
       data-testid="injection-bar"
     >
       <button

@@ -30,7 +30,7 @@ const HR_SAL_CFG = '/api/hr-salary-config'
 const PAY_PERM = 'hr:payroll'
 
 const inputCls =
-  'rounded-md border border-input bg-background px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary'
+  'rounded-md border border-input bg-background px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-stroke-focus'
 
 type TFunc = ReturnType<typeof useTranslations>
 
@@ -310,7 +310,7 @@ export function SalaryConfigTab({ t }: { t: TFunc }) {
             onClick={() => setSubTab(st.key)}
             className={`px-2 py-1 text-body ${
               subTab === st.key
-                ? 'border-b-2 border-primary font-medium text-primary'
+                ? 'border-b-2 border-stroke-selected font-medium text-primary'
                 : 'text-muted-foreground'
             }`}
           >

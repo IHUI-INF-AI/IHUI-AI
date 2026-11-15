@@ -75,7 +75,7 @@ const ECOSYSTEM_GROUPS: readonly { titleKey: string; items: readonly Icon[] }[] 
 //   Page 7 同步减小 minHeight = calc(100vh - 1rem - 12rem) 让 footer 整体可见不被切。
 const SECTION_TITLE = 'text-[11px] font-semibold uppercase tracking-wider text-foreground/60'
 const ICON_BOX =
-  'flex h-7 w-7 items-center justify-center rounded border bg-card transition-colors hover:border-primary/40'
+  'flex h-7 w-7 items-center justify-center rounded border bg-card transition-colors hover:border-stroke-strong'
 const ICON_IMG = 'h-4 w-4 object-contain'
 const QR_BOX = 'h-16 w-16 overflow-hidden rounded border border-zinc-900 bg-zinc-900 p-0.5'
 const QR_IMG = 'h-full w-full object-contain'

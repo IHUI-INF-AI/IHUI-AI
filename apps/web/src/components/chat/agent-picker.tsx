@@ -80,7 +80,7 @@ export function AgentPicker({ variant = 'pill' }: { variant?: 'pill' | 'row' }) 
                   'inline-flex h-8 min-w-0 items-center gap-1 rounded-sm border border-input bg-card px-2 text-body font-medium transition-colors',
                   'hover:bg-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60',
                   // 选中专家时主色描边,让"当前不是默认助手"在底栏一眼可见
-                  selectedAgentId && 'border-primary/50 text-primary',
+                  selectedAgentId && 'border-stroke-selected text-primary',
                 ),
           )}
         >

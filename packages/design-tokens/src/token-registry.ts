@@ -85,12 +85,13 @@ const SEMANTIC_COLOR_ENTRIES: ReadonlyArray<TokenEntry> = [
   { name: '--color-secondary-foreground', type: 'color', defaultValue: 'hsl(0 0% 9%)' },
   { name: '--color-muted', type: 'color', defaultValue: 'hsl(0 0% 92%)' },
   { name: '--color-muted-foreground', type: 'color', defaultValue: 'hsl(0 0% 40%)' },
+  { name: '--color-muted-soft', type: 'color', defaultValue: 'hsl(0 0% 94%)' },
   { name: '--color-accent', type: 'color', defaultValue: 'hsl(0 0% 95%)' },
   { name: '--color-accent-foreground', type: 'color', defaultValue: 'hsl(0 0% 9%)' },
   { name: '--color-destructive', type: 'color', defaultValue: 'hsl(0 100% 60%)' },
   { name: '--color-destructive-foreground', type: 'color', defaultValue: 'hsl(0 0% 98%)' },
-  { name: '--color-border', type: 'color', defaultValue: 'hsl(0 0% 89.8%)' },
-  { name: '--color-input', type: 'color', defaultValue: 'hsl(0 0% 91%)' },
+  { name: '--color-border', type: 'color', defaultValue: 'rgba(0, 0, 0, 0.1)' },
+  { name: '--color-input', type: 'color', defaultValue: 'rgba(0, 0, 0, 0.08)' },
   { name: '--color-ring', type: 'color', defaultValue: 'hsl(0 0% 70%)' },
   { name: '--color-success', type: 'color', defaultValue: 'hsl(142 71% 45%)' },
   { name: '--color-success-foreground', type: 'color', defaultValue: 'hsl(0 0% 98%)' },
@@ -98,6 +99,60 @@ const SEMANTIC_COLOR_ENTRIES: ReadonlyArray<TokenEntry> = [
   { name: '--color-warning-foreground', type: 'color', defaultValue: 'hsl(0 0% 98%)' },
   { name: '--color-info', type: 'color', defaultValue: 'hsl(199 89% 48%)' },
   { name: '--color-info-foreground', type: 'color', defaultValue: 'hsl(0 0% 98%)' },
+]
+
+/** 容器描边角色层(2026-11-15 立,跨端共用语义名)。
+ *  旧名 --color-border / --color-input / --color-border-medium 保留为底层值,
+ *  新代码优先取角色名;中性描边走 alpha,随表面色相自适应。 */
+const STROKE_COLOR_ENTRIES: ReadonlyArray<TokenEntry> = [
+  {
+    name: '--color-stroke-subtle',
+    type: 'color',
+    defaultValue: 'rgba(0, 0, 0, 0.06)',
+    description: '弱描边:嵌套内区/弱分区',
+  },
+  {
+    name: '--color-stroke-default',
+    type: 'color',
+    defaultValue: 'var(--color-border)',
+    description: '默认描边:卡片/面板/表格',
+  },
+  {
+    name: '--color-stroke-strong',
+    type: 'color',
+    defaultValue: 'var(--color-border-medium)',
+    description: '强描边:弹层/菜单/选中候选',
+  },
+  {
+    name: '--color-stroke-inverse',
+    type: 'color',
+    defaultValue: 'rgba(255, 255, 255, 0.2)',
+    description: '反色描边:玻璃/深色浮层',
+  },
+  {
+    name: '--color-stroke-field',
+    type: 'color',
+    defaultValue: 'var(--color-input)',
+    description: '输入控件描边',
+  },
+  {
+    name: '--color-stroke-focus',
+    type: 'color',
+    defaultValue: 'var(--color-foreground)',
+    description: '聚焦描边(墨档,唯一例外位)',
+  },
+  {
+    name: '--color-stroke-selected',
+    type: 'color',
+    defaultValue: 'var(--color-brand-accent-deep)',
+    description: '选中/强调容器描边',
+  },
+  {
+    name: '--color-stroke-danger',
+    type: 'color',
+    defaultValue: 'var(--color-danger)',
+    description: '错误态容器描边',
+  },
 ]
 
 /** sidebar 色 token(web 独占,miniapp-taro / mobile-rn 不复制)。 */
@@ -188,7 +243,7 @@ const RN_FINE_COLOR_ENTRIES: ReadonlyArray<TokenEntry> = [
   {
     name: '--color-border-medium',
     type: 'color',
-    defaultValue: '#d4d4d4',
+    defaultValue: 'rgba(0, 0, 0, 0.16)',
     description: '中档描边(RN border.medium,徽章描边)',
   },
   {
@@ -593,6 +648,7 @@ const BLACK_OPACITY_ENTRIES: ReadonlyArray<TokenEntry> = buildOpacityEntries(
 /** 所有 token 类别数组,用于合并为最终注册表。 */
 const ALL_TOKEN_GROUPS: ReadonlyArray<ReadonlyArray<TokenEntry>> = [
   SEMANTIC_COLOR_ENTRIES,
+  STROKE_COLOR_ENTRIES,
   SIDEBAR_COLOR_ENTRIES,
   BRAND_COLOR_ENTRIES,
   EXTENDED_COLOR_ENTRIES,

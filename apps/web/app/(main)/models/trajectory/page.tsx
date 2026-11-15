@@ -181,7 +181,7 @@ function TraceDetailCard({
   t: ReturnType<typeof useTranslations<'models'>>
 }) {
   return (
-    <div className="space-y-3 border-l-2 border-primary/20 pl-4">
+    <div className="space-y-3 border-l-2 border-stroke-selected pl-4">
       {detail.steps.map((step) => (
         <Card key={step.step}>
           <CardHeader className="pb-2">
@@ -293,7 +293,7 @@ function ErrorState({
         <History className="h-5 w-5" />
         <h1 className="text-lg font-semibold">{t('trajectory.title')}</h1>
       </div>
-      <div className="flex flex-col items-center justify-center rounded-lg border border-border/60 bg-card py-16 text-center">
+      <div className="flex flex-col items-center justify-center rounded-lg border border-stroke-subtle bg-card py-16 text-center">
         <AlertCircle className="mb-3 h-10 w-10 text-destructive" />
         <p className="mb-1 text-body font-medium">{error}</p>
         <p className="mb-4 text-label text-muted-foreground">{t('trajectory.error')}</p>
@@ -316,7 +316,7 @@ function EmptyState({ t }: { t: ReturnType<typeof useTranslations<'models'>> }) 
         <History className="h-5 w-5" />
         <h1 className="text-lg font-semibold">{t('trajectory.title')}</h1>
       </div>
-      <div className="flex flex-col items-center justify-center rounded-lg border border-border/60 bg-card py-16 text-center">
+      <div className="flex flex-col items-center justify-center rounded-lg border border-stroke-subtle bg-card py-16 text-center">
         <Activity className="mb-3 h-10 w-10 text-muted-foreground/40" />
         <p className="text-body text-muted-foreground">{t('trajectory.noData')}</p>
       </div>
@@ -385,7 +385,7 @@ export default function TrajectoryPage() {
             value={search}
             onChange={handleSearch}
             placeholder={t('trajectory.searchPlaceholder')}
-            className="h-9 w-full rounded-sm border border-border/60 bg-background pl-9 pr-3 text-body outline-none transition-colors placeholder:text-muted-foreground/50 focus:border-primary/50 focus:ring-1 focus:ring-primary/30"
+            className="h-9 w-full rounded-sm border border-stroke-subtle bg-background pl-9 pr-3 text-body outline-none transition-colors placeholder:text-muted-foreground/50 focus:border-stroke-focus focus:ring-1 focus:ring-stroke-focus/30"
           />
         </div>
 
