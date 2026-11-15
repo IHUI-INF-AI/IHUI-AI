@@ -236,7 +236,7 @@ export async function detectWorkspaceIssues(params: {
 // =============================================================================
 
 /** 磁盘清理白名单:仅允许删除 workspacePath 下这些相对目录(防越界) */
-const DISK_CLEAN_TARGETS = ['node_modules/.cache', '.ihui/tmp', 'tmp', '.cache']
+const DISK_CLEAN_TARGETS = ['node_modules/.cache', '.DevEnv/tmp', 'tmp', '.cache']
 
 function stepPlanned(step: string, command: string | null, output: string): SelfHealStep {
   return { step, command, status: 'planned', output, durationMs: 0 }

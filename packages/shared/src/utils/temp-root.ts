@@ -8,14 +8,14 @@
  * 问题：各端业务源码里散落 `os.tmpdir()`，而 TEMP 环境变量可能钉在
  * `C:\Users\...\AppData\Local\Temp`，导致 agent 运行时把中间文件外泄到
  * 项目文件夹之外。scratch-dir.mjs（`mkScratch`/`rmScratch`）是**开发
- * 夹具专用**（`DevEnv/Temp/ihui-scratch`），不适用于运行时业务路径。
+ * 夹具专用**（`.DevEnv/Temp/ihui-scratch`），不适用于运行时业务路径。
  *
- * 本工厂把运行时临时根收敛到 `~/.ihui/tmp`（优先 `IHUI_HOME` 环境变量
- * > `HOME` > `USERPROFILE` > `os.homedir()`，与 plugins/paths.ts 保持
- * 一致的优先级链）。在生产机上 `~/.ihui` 是 junction → `D:\DevEnv\cache\
- * userhome\.ihui`，**不写 C 盘**、普通用户可写、不依赖 TEMP 环境变量。
+ * 本工厂把运行时临时根收敛到仓树内 `<仓根>/.DevEnv/tmp`：**在项目文件夹内**
+ * （2026-11-15 收口，替代旧的 `~/.ihui/tmp` junction 方案——那个虽不写 C 盘
+ * 却落在项目文件夹之外 `D:\DevEnv\cache\userhome\.ihui\tmp`）、已被 .gitignore
+ * 覆盖、不写 C 盘、普通用户可写、不依赖 TEMP 环境变量。
  *
- * 单一真相源：apps/cli 与 apps/api 的 6 个运行时落盘点全部改道此处，
+ * 单一真相源：apps/cli 与 apps/api 的运行时落盘点全部改道此处，
  * 端内不得再新建第二份 `os.tmpdir()` / `mkdtempSync(join(os.tmpdir()…))`。
  *
  * 安全闸性质（三档）：
@@ -24,30 +24,27 @@
  *   · `runtimeTempPath(...segments)` — 追加段名，仍不建目录
  */
 
-import * as os from 'node:os'
 import * as path from 'node:path'
 import * as fs from 'node:fs'
-
-/** 测试用 home 覆盖环境变量（优先级最高，与 plugins/paths.ts HOME_OVERRIDE_ENV 同名） */
-const HOME_OVERRIDE_ENV = 'IHUI_HOME'
-
-/**
- * 获取用户 home 目录。
- * 优先级：IHUI_HOME > HOME > USERPROFILE > os.homedir()。
- * （与 apps/cli/src/plugins/paths.ts 保持同链，但独立实现避免跨层循环依赖）
- */
-export function resolveUserHome(): string {
-  return (
-    process.env[HOME_OVERRIDE_ENV] || process.env.HOME || process.env.USERPROFILE || os.homedir()
-  )
-}
+import { fileURLToPath } from 'node:url'
 
 /**
  * 运行时合规临时根的绝对路径（纯计算，不建目录）。
- * 落点：`~/.ihui/tmp`（junction 到 D: 卷，不写 C 盘）。
+ *
+ * 落点：`<仓根>/.DevEnv/tmp`（仓树内、已被 .gitignore 覆盖、不写 C 盘、不依赖
+ * TEMP 环境变量）。2026-11-15 收口：旧设计用 `~/.ihui/tmp`（junction 到
+ * D:\DevEnv\cache\userhome\.ihui\tmp），虽不写 C 盘但落在项目文件夹之外；
+ * 现按「所有文件都在项目文件夹内」要求改到仓内 `.DevEnv/tmp`。
+ *
+ * 仓根推导：本文件位于 packages/shared/src/utils/，向上 4 层即仓根
+ * （utils→src→shared→packages→仓根）；
+ * 用 import.meta.url 自身位置推导（禁 process.cwd()，共享工作区 cwd 不可靠，
+ * AGENTS §15b 铁律）。
  */
 export function getRuntimeTempRoot(): string {
-  return path.join(resolveUserHome(), '.ihui', 'tmp')
+  const here = path.dirname(fileURLToPath(import.meta.url))
+  const repoRoot = path.resolve(here, '../../../..')
+  return path.join(repoRoot, '.DevEnv', 'tmp')
 }
 
 /**
