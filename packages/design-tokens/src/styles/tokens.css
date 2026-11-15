@@ -241,6 +241,18 @@
   --color-notification-bg: #fff8e1;
   --color-notification-text: #7c5e1e;
 
+  /* 提示条语义实底(2026-11-13 立,收编 RN FloatBox 的 toast 四色硬编码)
+   * 用途:顶部滑入式 toast/提示条的**实底**,底暗、其上统一纯白字,正文对比度稳定 ≥4.5:1
+   * (亮档鲜艳、暗档提亮),拿它做 toast 实底会在亮档得到 22c55e/f59e0b 这类中亮度底,
+   * 消费方:RN FloatBox(RN_TOAST_SURFACES)、小程序 Toast、web Toaster(`--toast-*-bg` 覆盖位)。
+   * 2026-11-15 恢复:69ce958a9b 全量同步误删本族却留下 FloatBox 消费 ⇒ rnCssColor 键悬空、
+   * @ihui/mobile-rn 全量 typecheck 红(TS2345),按 1be9d1e2c7 原值原样取回。 */
+  --color-toast-success-bg: #15803d;
+  --color-toast-error-bg: #b91c1c;
+  --color-toast-warning-bg: #b45309;
+  --color-toast-info-bg: #1f2937;
+  --color-toast-foreground: #ffffff;
+
   /* 统一金牌/品牌蓝/浅绿标签/媒体遮罩(2026-09-06 立,收编小程序端硬编码色)
    * - --color-gold:统一直播/权益/积分等处相近金色(原 #d97706 / rgba(240,173,78) / rgba(212,175,106))
    * - --color-gold-muted:金色徽章浅金底
