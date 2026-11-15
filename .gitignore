@@ -774,3 +774,6 @@ scripts/data/findings-staleness.json
 /.tmp_diag2.mjs
 /merge-resolve/
 apps/ai-service/.pytest_tmp/
+
+# 根级 scratch/ 工作区(他席 QA 审计产物,未跟踪;门44 判定走 git check-ignore => 忽略后不阻塞 commit)
+/scratch/

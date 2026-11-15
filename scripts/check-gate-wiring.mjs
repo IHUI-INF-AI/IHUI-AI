@@ -2083,8 +2083,24 @@ async function main(argv = process.argv.slice(2)) {
     )
     return 2
   }
-  const runnerText = runnerHead
-  const dupIds = findDuplicateIds(runnerText)
+  // R5 撞号判据:与 R8 同型时序修正(2026-11-15)。修撞号的提交会被 R5 读 HEAD 自判红
+  // (撞号已在 HEAD,而修撞号只能靠本次提交落地)⇒ 结构性死锁逼人跳门。--staged 档优先读
+  // 索引(= 本枚提交将要带走的注册面),撞号检测看"即将落地的面"才正确;取不到索引退回 HEAD。
+  // 非削判据 —— 索引里真有撞号照样判红(与 R2/R4/R8 在本门为时序开的例外逐字同源)。
+  let r5Text = runnerHead
+  let r5Face = 'HEAD'
+  if (opts.staged) {
+    const idxRunnerR5 = blobOf(`:${RUNNER_REL}`)
+    if (idxRunnerR5 === null) {
+      console.log('   ⚠️ R5 取不到索引版 guardian-runner(索引 blob 不存在)⇒ 退回 HEAD 面')
+    } else {
+      r5Text = idxRunnerR5
+      r5Face = '索引'
+    }
+  }
+  const dupIds = findDuplicateIds(r5Text)
+  // R6(共用 skipEnv)/R8(注册形态)吃同一张注册面 —— 统一指向 R5 已定的 face(索引优先)。
+  const runnerText = r5Text
   // R13 两道门被合并进同一个对象 ⇒ 被吞的那道**从注册表静默消失**(R5 看不见,因为 id 不重复)。
   // 判序放在下面 R8 之后:它必须与 R8/R9 吃**同一张注册面**(--staged 读索引),否则"造出合并的那枚
   // 提交"反而能过关,红要等下一次提交才响 —— 而注册表被吞的代价正是那枚提交里的门从没跑过。
@@ -2103,7 +2119,7 @@ async function main(argv = process.argv.slice(2)) {
       ...dupIds.map((id) => ({
         script: `(runner id '${id}')`,
         status: 'red-r5',
-        reason: '同一 id 在 guardian-runner 里登记了多道门 ⇒ 串 skipEnv 与失败归属;后来者必须改号',
+        reason: `同一 id 在 guardian-runner 里登记了多道门(${r5Face}面)⇒ 串 skipEnv 与失败归属;后来者必须改号`,
       })),
     )
   }
