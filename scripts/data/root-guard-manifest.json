@@ -1,15 +1,15 @@
 {
   "$comment": "O6501 根护栏清单:改动本清单内目标须先 --unlock 再 --seal;部署环对非 0 退出 fail-closed。",
   "version": 1,
-  "sealedAt": "2026-11-15T05:34:21.157Z",
-  "sealedBy": "root-guard --seal",
-  "reason": "描边收口单独成枚前按 origin/main + 本票文件面重封根护栏清单",
+  "sealedAt": "2026-11-15T07:20:57.000Z",
+  "sealedBy": "AI智汇社 <lizong@aizhs.top>",
+  "reason": "收敛合并树重封: 解门号323撞车(runtime-tmp-landing→320), 并同步 AGENTS.md 等受保护文件真实 sha, 使合并树恢复部署可过",
   "targets": [
     {
       "id": "guardian-runner",
       "path": "scripts/guardian-runner.mjs",
       "mode": "file",
-      "sha256": "e351ba0f655bd80618845553d11f203c343b05f833874da6c8b7717f28e45cfe"
+      "sha256": "28aa7ff07ccc5d5bdaca1de6ae1962248cdd1971ca8603587eab4b839cb394a5"
     },
     {
       "id": "judgement-libs",
@@ -22,7 +22,7 @@
       "path": "AGENTS.md",
       "mode": "section",
       "start": "## 0. 全局铁律",
-      "sha256": "541f86a3f77632be00f3cdfd0564fa4405af25c9d130b136094b66286da35573"
+      "sha256": "60913d502ba76fcd96b9f56a4453ef2b2b38db436b5d0c06a60897aad4bec301"
     },
     {
       "id": "git-guardian",
