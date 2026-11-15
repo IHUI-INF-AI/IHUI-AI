@@ -187,7 +187,15 @@ export function RegisterScreen({
             secureTextEntry={!passwordVisible}
           />
           {onTogglePasswordVisible ? (
-            <TouchableOpacity style={styles.pwdToggle} onPress={onTogglePasswordVisible}>
+            <TouchableOpacity
+              style={styles.pwdToggle}
+              onPress={onTogglePasswordVisible}
+              accessibilityRole="button"
+              // 无障碍标签复用既有正典键(与 LoginScreen / ApiSettingsScreen 同一对),
+              // 可见文案才是端内 register.show / register.hide —— 两套不可互相顶替:
+              // a11y 键描述"点它会做什么",可见键是按钮面(2 字,受布局宽度约束)。
+              accessibilityLabel={passwordVisible ? t('a11y.hidePassword') : t('a11y.showPassword')}
+            >
               <Text style={styles.pwdToggleText}>
                 {passwordVisible ? t('register.hide') : t('register.show')}
               </Text>
