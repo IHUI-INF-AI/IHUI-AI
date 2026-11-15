@@ -6,7 +6,7 @@
  * 滚动方向浮动按钮族(「返回顶部 / 跳到最新」那枚悬浮箭头)的单一源。
  *
  * 基准 = web 端活体实现 `apps/web/src/components/chat/message-list/scroll-jump-buttons.tsx`:
- * `<Button size="icon-sm" variant="outline">` + lucide `ChevronUp` / `ArrowDown`,
+ * `<Button size="icon-sm" variant="outline">` + lucide `ChevronUp` / `ChevronDown`,
  * 折成数值就是 32×32 / 圆角 sm(4px) / 1px 中性描边 / 页面底 / 前景墨字 / 16px 图标。
  *
  * 立因(2026-10-20 用户指令「这种上滑下滑的箭头应该跟 web 端同样的样式,不可以有单独的设定,
@@ -27,11 +27,7 @@
  * 消费方式只能是子路径 `@ihui/shared/ui/scroll-jump-spec`(禁挂根桶:根桶 main 指向
  * src/index.ts,消费端 tsc 会沿桶把整棵 src/chat 拉进被检程序)。
  */
-import {
-  GEOMETRY_PX,
-  TARO_RPX_PER_PX,
-  rnRadius,
-} from '@ihui/design-tokens'
+import { GEOMETRY_PX, TARO_RPX_PER_PX, rnRadius } from '@ihui/design-tokens'
 
 /** 每端注入的单位换算(一个逻辑 px 到该平台数值);泛型把单位类型带出来。 */
 export type ScrollJumpUnit<U extends string | number> = (px: number) => U
@@ -64,15 +60,18 @@ function scrollJumpRadiusPx(): number {
 
 /**
  * 方向 → 图标语义。方向是**语义**,不是外观开关:
- *  - `top`    = 回到顶部(web 用 ChevronUp)
- *  - `latest` = 跳到最新 / 到底部(web 用 ArrowDown)
+ *  - `top`    = 回到顶部(ChevronUp)
+ *  - `latest` = 跳到最新 / 到底部(ChevronDown,即 `top` 的翻转)
  * 小程序端 LineIcon 与 RN 端 lucide 必须吃同一个名字,否则两端各画一个箭头。
+ *
+ * 2026-11-15 字形归族:此前 `latest` 取 `arrow-down`(带竖杆),与 `chevron-up` 并排时
+ * 上下不像一套(用户直接指出)。同列两枚箭头必须是同一字形族的翻转关系,故改 `chevron-down`。
  */
 export type ScrollJumpDirection = 'top' | 'latest'
 
 /** 方向对应的 lucide 图标名(唯一出口;端内不得自选箭头字形或换图标)。 */
-export function scrollJumpIconName(direction: ScrollJumpDirection): 'chevron-up' | 'arrow-down' {
-  return direction === 'top' ? 'chevron-up' : 'arrow-down'
+export function scrollJumpIconName(direction: ScrollJumpDirection): 'chevron-up' | 'chevron-down' {
+  return direction === 'top' ? 'chevron-up' : 'chevron-down'
 }
 
 /** 浮动列距屏幕右缘 16(web `right-4`;几何表里 16 的既有档即 `glyphSm`,不另造间距档)。 */

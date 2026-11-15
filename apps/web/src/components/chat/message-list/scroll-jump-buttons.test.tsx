@@ -149,15 +149,33 @@ describe('ScrollJumpButtons — 跳到最新(归一后)', () => {
     expect(idle.container.querySelector('[data-testid="message-list-jump-latest-dot"]')).toBeNull()
   })
 
-  it('整列定位仍锚在消息区右下角(bottom-4 right-4 z-20),不随归一改变', () => {
-    const { container } = renderButtons({ userScrolledUp: true })
+  it('两枚箭头同字形族:上 chevron-up、下 chevron-down(下是上的翻转,不混用 arrow-down)', () => {
+    const { container } = renderButtons({ isFarFromTop: true, userScrolledUp: true })
+    expect(top(container).querySelector('svg')?.getAttribute('class')).toContain(
+      'lucide-chevron-up',
+    )
+    expect(latest(container).querySelector('svg')?.getAttribute('class')).toContain(
+      'lucide-chevron-down',
+    )
+    expect(container.querySelector('.lucide-arrow-down')).toBeNull()
+  })
+
+  it('定位:容器覆盖消息视口,上箭头贴视口顶部、下箭头贴视口底部(不再同堆右下角)', () => {
+    const { container } = renderButtons({ isFarFromTop: true, userScrolledUp: true })
     const rail = container.querySelector('[data-testid="scroll-jump-buttons"]')
     expect(rail).not.toBeNull()
-    const cls = (rail as HTMLElement).className
-    for (const token of ['absolute', 'bottom-4', 'right-4', 'z-20', 'flex-col']) {
-      expect(cls, `缺少 ${token}`).toContain(token)
+    for (const token of ['absolute', 'inset-0', 'z-20']) {
+      expect((rail as HTMLElement).className, `容器缺少 ${token}`).toContain(token)
     }
-    expect(cls).not.toContain('left-1/2')
+    const topCls = top(container).className
+    for (const token of ['absolute', 'top-4', 'left-1/2', '-translate-x-1/2']) {
+      expect(topCls, `上箭头缺少 ${token}`).toContain(token)
+    }
+    const bottomCls = latest(container).className
+    for (const token of ['absolute', 'bottom-4', 'left-1/2', '-translate-x-1/2']) {
+      expect(bottomCls, `下箭头缺少 ${token}`).toContain(token)
+    }
+    expect(topCls).not.toContain('bottom-4')
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

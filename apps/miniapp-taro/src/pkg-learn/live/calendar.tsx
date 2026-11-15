@@ -223,7 +223,11 @@ export default function LiveCalendar() {
           return (
             <ThemeRoot key={live.id}>
               <View key={live.id} className="cal-card">
-                <Image className="cal-card-cover" src={live.coverUrl} mode="aspectFill" />
+                {live.coverUrl ? (
+                  <Image className="cal-card-cover" src={live.coverUrl} mode="aspectFill" />
+                ) : (
+                  <View className="cal-card-cover" />
+                )}
                 <View className="cal-card-row">
                   <Text className="cal-card-title">{live.title}</Text>
                   <Text className={`cal-badge ${cfg.badge}`}>{tt(cfg.labelKey, cfg.labelFb)}</Text>
