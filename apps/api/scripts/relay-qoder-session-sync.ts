@@ -12,8 +12,14 @@
  *
  * 与 `relay-import-qoder.ts`(整条覆盖 + 重置健康状态)不同:本脚本只动凭证四列
  * (token/refreshToken/到期时刻)与 Cosy 设备头,并 `credVersion + 1`(签到侧按版本
- * 防降级,不涨版本新票推不过去),**绝不碰** healthStatus / tempUnschedulable /
- * refreshFailureCount / lastErrorMessage。
+ * 防降级,不涨版本新票推不过去);健康字段**只在真的写入本机新票那一次**被复位
+ * (见 `buildRevivalSetPatch`),同票 / 池内更新的 skip 分支一律不碰。
+ *
+ * 本腿在写入新票的同时把异常行复位到 unknown(判据单源在 `relay-credential-revival.ts`
+ * 的 `healthRevivalPatchOf`,并清掉 extra_metadata 里的判死留痕键)。这不会造成「拿死票空撞
+ * 上游」:复位只在 `decideSync` 判定票确实轮换、真的执行这次写库时才发生(同票 / 池内更新
+ * 走 skip,一次都不写健康字段),且单源对过期票返回 null ⇒ 死票既不会被复活,也不会被
+ * 每 10 分钟一次的回灌反复推去撞上游。
  *
  * 是否覆盖由 `relay-trae-session-sync.ts` 的 `decideSync` 判定(单一判据源,不复制规则):
  * - 同票 ⇒ 不写;池内到期时刻更新 ⇒ 不写;客户端更新/轮换 ⇒ 写。
@@ -59,6 +65,9 @@ const touchClientHeartbeat = traeSync.touchClientHeartbeat
 const parseIso = traeSync.__test__.parseIso
 // rt 终点键名单源与 Trae 腿共用(§0.6):两种拼写都认,消费端不得各写一份字面量
 const clientRefreshExpiryRaw = traeSync.__test__.clientRefreshExpiryRaw
+// 即时复活 + 清判死留痕的判据单源(§0.6):本腿只调用,不在 scripts 里再写一份判据。
+const { healthRevivalPatchOf, stripTerminalVerdict, TERMINAL_VERDICT_KEY } =
+  await import('../src/services/relay-credential-revival.js')
 
 export interface QoderSyncCandidate {
   uid: string
@@ -116,6 +125,40 @@ export function buildCosyPatch(
       ? (cur as Record<string, unknown>)
       : {}
   return JSON.stringify({ ...cosy, ...next }) === JSON.stringify(cosy) ? null : { ...cosy, ...next }
+}
+
+/**
+ * 写票分支的「即时复活 + 清判死留痕」补丁(纯函数,测试锁)。判据住在
+ * `relay-credential-revival.ts`(`healthRevivalPatchOf` / `stripTerminalVerdict`),本函数只
+ * 组装 `.set()` 形状,不复算任何判据 —— 不在本腿再长一份「过期 / healthy / broken」。
+ * 只在调用方确认「本轮真的写入了本机新票」时调用(skip 分支一次都不调)。
+ *
+ * - rowLike 只用本腿已查到的池行健康三列;能拿到客户端票到期时刻就传 clientExpiresAt,
+ *   启用单源「票过期不复活」反向牙;拿不到就不传(调用方已确认写入新票,按单源语义处理)。
+ * - extraMetadataOverride = 本腿原本要整对象回写的 extra_metadata(既有档 + 本次 cosy 档);
+ *   给了就交 `stripTerminalVerdict` 摘掉 terminalVerdict 后写,keepAliveForever /
+ *   sessionTemplate / cosy 等键一个不丢;没给(本腿这一轮不写 extra_metadata)就用 drizzle
+ *   `sql` 原子删键 `coalesce(extra_metadata,'{}'::jsonb) - 'terminalVerdict'`,绝不整对象
+ *   覆盖成 `{}`(并发会丢既有键)。
+ */
+export function buildRevivalSetPatch(
+  row: { healthStatus?: unknown; refreshFailureCount?: unknown; tempUnschedulable?: unknown },
+  clientExpiresAt?: Date | null,
+  extraMetadataOverride?: Record<string, unknown> | null,
+) {
+  const rowLike = {
+    healthStatus: row.healthStatus,
+    refreshFailureCount: row.refreshFailureCount,
+    tempUnschedulable: row.tempUnschedulable,
+  }
+  const stripped = extraMetadataOverride ? stripTerminalVerdict(extraMetadataOverride) : null
+  return {
+    ...(healthRevivalPatchOf(rowLike, clientExpiresAt ? { clientExpiresAt } : {}) ?? {}),
+    extraMetadata:
+      stripped && Object.keys(stripped).length > 0
+        ? stripped
+        : sql`coalesce(${aiRelayAccountPool.extraMetadata}, '{}'::jsonb) - '${sql.raw(TERMINAL_VERDICT_KEY)}'`,
+  }
 }
 
 interface RowOutcome {
@@ -303,14 +346,15 @@ export async function runSync(payloadText: string, dryRun: boolean): Promise<Qod
         clientRefreshExpiresAt: parseIso(clientRefreshExpiryRaw(acc)),
       })
       const cosyPatch = buildCosyPatch(row.extraMetadata as Record<string, unknown> | null, acc)
-      const extraUpdate = cosyPatch
+      // 本腿原本会整对象回写 extra_metadata(既有档 + 本次 cosy 档)。skip 分支仍用
+      // extraUpdate 原样;写票分支把这枚合并对象交 buildRevivalSetPatch 摘判死留痕后再写。
+      const cosyMerged = cosyPatch
         ? {
-            extraMetadata: {
-              ...((row.extraMetadata as Record<string, unknown> | null) ?? {}),
-              cosy: cosyPatch,
-            },
+            ...((row.extraMetadata as Record<string, unknown> | null) ?? {}),
+            cosy: cosyPatch,
           }
-        : {}
+        : null
+      const extraUpdate = cosyMerged ? { extraMetadata: cosyMerged } : {}
       const deviceUpdate =
         typeof acc.machineId === 'string' && acc.machineId ? { machineId: acc.machineId } : {}
       const deviceIdUpdate =
@@ -352,7 +396,9 @@ export async function runSync(payloadText: string, dryRun: boolean): Promise<Qod
             : {}),
           tokenExpiresAt: final.next.tokenExpiresAt,
           refreshExpiresAt: final.next.refreshExpiresAt,
-          ...extraUpdate,
+          // 判据单源:只在真的写入本机新票这一次复位异常行 + 清判死留痕。cosyMerged 为
+          // null(本轮无 cosy 变更)时本函数用 jsonb 原子删键,绝不把整对象覆盖成 {}。
+          ...buildRevivalSetPatch(row, parseIso(acc.expiresAt), cosyMerged),
           ...deviceUpdate,
           ...deviceIdUpdate,
           // 签到侧按 cred_version 防降级:不涨版本,新票永远推不过去
@@ -449,5 +495,5 @@ if (isDirectRun) {
     })
 }
 
-export const __test__ = { buildCosyPatch, parseArgs, parseIso }
+export const __test__ = { buildCosyPatch, parseArgs, parseIso, buildRevivalSetPatch }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

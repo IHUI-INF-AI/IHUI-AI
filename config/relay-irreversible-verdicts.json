@@ -12,12 +12,6 @@
     "flags": "i"
   },
   {
-    "id": "doubao-712012001",
-    "provider": "doubao",
-    "pattern": "\\b712012001\\b",
-    "flags": ""
-  },
-  {
     "id": "http401-auth-rejected",
     "provider": "*",
     "pattern": "HTTP\\s*401\\b[^\\n]{0,40}鉴权失效|鉴权失效[^\\n]{0,40}HTTP\\s*401\\b",

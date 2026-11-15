@@ -11,10 +11,16 @@
  * 重新捞取的凭据推回号池 —— 与 trae / qoder / minimax 同族的客户端会话回灌(§0.6 判据单源复用)。
  *
  * 与 qoder / trae 腿同构:只动凭证三列(token / refreshToken / expiresAt)+ credVersion + 1,
- * **绝不碰** healthStatus / tempUnschedulable / refreshFailureCount / lastErrorMessage。
- * 目标行选择(chooseSyncTargetRow)、写入判据(decideSync)、心跳(touchClientHeartbeat)、
- * 自动入池(importAccounts)、uid 推导(resolveImportAccountUid)、凭据槽位
- * (resolveRelayCredentialSlots)全部复用既有单源,本文件零复算。
+ * 健康字段**只在真的写入本机新票那一次**被复位(见 `buildRevivalSetPatch`),同票 / 池内更新
+ * 的 skip 分支一律不碰。目标行选择(chooseSyncTargetRow)、写入判据(decideSync)、心跳
+ * (touchClientHeartbeat)、自动入池(importAccounts)、uid 推导(resolveImportAccountUid)、
+ * 凭据槽位(resolveRelayCredentialSlots)全部复用既有单源,本文件零复算。
+ *
+ * 本腿在写入新票的同时把异常行复位到 unknown(判据单源在 `relay-credential-revival.ts`
+ * 的 `healthRevivalPatchOf`,并清掉 extra_metadata 里的判死留痕键)。这不会造成「拿死票空撞
+ * 上游」:复位只在 `decideSync` 判定票确实轮换、真的执行这次写库时才发生(同票 / 池内更新
+ * 走 skip,一次都不写健康字段),且单源对过期票返回 null ⇒ 死票既不会被复活,也不会被
+ * 每 10 分钟一次的回灌反复推去撞上游。
  *
  * 编排上游 = scripts/sync-{loomy,zcode,raccoon}-client-session.mjs(提取本机凭据 → stdin)。
  * 退出码:0 全部处理完(含 skip)/ 1 有行写入失败 / 2 参数·输入·环境未判定。
@@ -48,6 +54,9 @@ const parseIso = traeSync.__test__.parseIso
 const touchClientHeartbeat = traeSync.touchClientHeartbeat
 const { describeAutoImportOwner, resolveAutoImportOwner } =
   await import('./relay-session-autoimport-owner.js')
+// 即时复活 + 清判死留痕的判据单源(§0.6):本腿只调用,不在 scripts 里再写一份判据。
+const { healthRevivalPatchOf, stripTerminalVerdict, TERMINAL_VERDICT_KEY } =
+  await import('../src/services/relay-credential-revival.js')
 import type { ImportAccountInput } from '../src/services/relay-account-pool-service.js'
 import type { RelayProviderCode } from '../src/services/relay-account-format.js'
 import type { AutoImportOwnerDecision } from './relay-session-autoimport-owner.js'
@@ -82,6 +91,39 @@ function clientTokenOf(account: Record<string, unknown>, providerCode: RelayProv
     if (h && typeof h.value === 'string' && h.value.trim() !== '') return h.value
   }
   return ''
+}
+
+/**
+ * 写票分支的「即时复活 + 清判死留痕」补丁(纯函数,测试锁)。判据住在
+ * `relay-credential-revival.ts`(`healthRevivalPatchOf` / `stripTerminalVerdict`),本函数只
+ * 组装 `.set()` 形状,不复算任何判据 —— 不在本腿再长一份「过期 / healthy / broken」。
+ * 只在调用方确认「本轮真的写入了本机新票」时调用(skip 分支一次都不调)。
+ *
+ * - rowLike 只用本腿已查到的池行健康三列;能拿到客户端票到期时刻(racoon 的 JWT exp)就传
+ *   clientExpiresAt,启用单源「票过期不复活」反向牙;loomy/zcode 无显式 expiry ⇒ 不传
+ *   (调用方已确认写入新票,按单源语义处理)。
+ * - 本腿原本不写 extra_metadata ⇒ 用 drizzle `sql` 原子删键
+ *   `coalesce(extra_metadata,'{}'::jsonb) - 'terminalVerdict'`,绝不整对象覆盖成 `{}`
+ *   (并发会丢 keepAliveForever / sessionTemplate 等既有键)。
+ */
+export function buildRevivalSetPatch(
+  row: { healthStatus?: unknown; refreshFailureCount?: unknown; tempUnschedulable?: unknown },
+  clientExpiresAt?: Date | null,
+  extraMetadataOverride?: Record<string, unknown> | null,
+) {
+  const rowLike = {
+    healthStatus: row.healthStatus,
+    refreshFailureCount: row.refreshFailureCount,
+    tempUnschedulable: row.tempUnschedulable,
+  }
+  const stripped = extraMetadataOverride ? stripTerminalVerdict(extraMetadataOverride) : null
+  return {
+    ...(healthRevivalPatchOf(rowLike, clientExpiresAt ? { clientExpiresAt } : {}) ?? {}),
+    extraMetadata:
+      stripped && Object.keys(stripped).length > 0
+        ? stripped
+        : sql`coalesce(${aiRelayAccountPool.extraMetadata}, '{}'::jsonb) - '${sql.raw(TERMINAL_VERDICT_KEY)}'`,
+  }
 }
 
 export async function runSync(
@@ -272,6 +314,8 @@ export async function runSync(
           tokenExpiresAt: final.next.tokenExpiresAt,
           // 客户端没给 refresh ⇒ 沿用池内既有 refreshExpiresAt(保留不动)
           refreshExpiresAt: final.next.refreshExpiresAt,
+          // 判据单源:只在真的写入本机新票这一次,把异常行复位到 unknown 并清判死留痕
+          ...buildRevivalSetPatch(row, expiresAt),
           // 签到侧按 cred_version 防降级:不涨版本,新票永远推不过去
           credVersion: sql`${aiRelayAccountPool.credVersion} + 1`,
           updatedAt: new Date(),
@@ -386,5 +430,5 @@ if (isDirectRun) {
     })
 }
 
-export const __test__ = { clientTokenOf, parseArgs }
+export const __test__ = { clientTokenOf, parseArgs, buildRevivalSetPatch }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
