@@ -1795,7 +1795,7 @@ export default function AdminRelayAccountPoolPage() {
           </div>
 
           {selectedIds.length > 0 && (
-            <div className="flex flex-wrap items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-body">
+            <div className="flex flex-wrap items-center gap-2 rounded-lg border border-stroke-selected bg-primary/5 px-3 py-2 text-body">
               <span className="text-muted-foreground">已选 {selectedIds.length} 项</span>
               <Button
                 size="sm"
@@ -3079,7 +3079,7 @@ export default function AdminRelayAccountPoolPage() {
                   textareaClass +
                   ' transition-colors' +
                   (importDragOver
-                    ? ' border-brand-accent-deep bg-primary/5 ring-1 ring-primary/40'
+                    ? ' border-brand-accent-deep bg-primary/5 ring-1 ring-stroke-selected/40'
                     : '')
                 }
               />

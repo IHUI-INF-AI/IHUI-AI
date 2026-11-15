@@ -472,7 +472,7 @@ export function DiffViewerPane({ pullRequestUrl, pullRequestNumber }: DiffViewer
       />
       {/* D98②④⑤:审阅工具条 —— 文件跳转 / 生成文件隐藏 / 已审计数 / PR 入口 / 导出迁移命令 */}
       <div className="flex flex-wrap items-center gap-1.5 px-2 py-1 text-label">
-        <div className="flex min-w-0 items-center gap-1 rounded-sm border border-border/60 bg-background px-1.5 py-0.5">
+        <div className="flex min-w-0 items-center gap-1 rounded-sm border border-stroke-subtle bg-background px-1.5 py-0.5">
           <Search className="h-3 w-3 shrink-0 text-muted-foreground" aria-hidden />
           <input
             value={searchQuery}

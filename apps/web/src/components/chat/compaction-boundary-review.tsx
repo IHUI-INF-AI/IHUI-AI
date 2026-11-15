@@ -32,7 +32,7 @@ export function CompactionBoundaryReview({ conversationId }: { conversationId: s
 
   return (
     <div
-      className="mx-2 my-1.5 rounded-md border border-border/60 bg-muted/30 px-3 py-2 text-[12px]"
+      className="mx-2 my-1.5 rounded-md border border-stroke-subtle bg-muted/30 px-3 py-2 text-[12px]"
       data-testid="compaction-boundary-review"
     >
       <button

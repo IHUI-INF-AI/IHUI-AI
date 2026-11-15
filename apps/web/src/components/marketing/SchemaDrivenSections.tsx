@@ -114,7 +114,7 @@ function HeroSection({ pageIndex }: SectionProps) {
               key={i}
               as="li"
               delay={0.5 + i * 0.06}
-              className="group relative flex items-center gap-2 overflow-hidden rounded-lg border bg-card px-3 py-2 text-label transition-all duration-200 hover:border-primary/40 hover:bg-primary/5 min-[768px]:text-body"
+              className="group relative flex items-center gap-2 overflow-hidden rounded-lg border bg-card px-3 py-2 text-label transition-all duration-200 hover:border-stroke-strong hover:bg-primary/5 min-[768px]:text-body"
             >
               <Check
                 className="h-3.5 w-3.5 shrink-0 text-success-text transition-transform duration-200 group-hover:scale-110"
@@ -170,7 +170,7 @@ function PricingSection({ pageIndex }: SectionProps) {
               <RevealOnView
                 key={i}
                 delay={0.2 + 0.08 * i}
-                className="group relative flex flex-col items-center gap-0.5 overflow-hidden rounded-lg border bg-card/80 px-3 py-2 text-center backdrop-blur-sm transition-all duration-300 hover:border-primary/40 hover:bg-primary/5 min-[768px]:py-3"
+                className="group relative flex flex-col items-center gap-0.5 overflow-hidden rounded-lg border bg-card/80 px-3 py-2 text-center backdrop-blur-sm transition-all duration-300 hover:border-stroke-strong hover:bg-primary/5 min-[768px]:py-3"
               >
                 <span className="bg-gradient-to-r from-primary to-emerald-500 bg-clip-text text-heading font-bold tracking-tight text-transparent transition-transform duration-300 group-hover:scale-110 min-[768px]:text-display">
                   {s.money ? (

@@ -163,20 +163,20 @@ describe('TextField 与 web/小程序同源', () => {
   // 旧断言 `/border border-input/` 把「同一条 class 字符串里的排版相邻」当成了契约,
   // 实现缩到档位映射后即假红 —— 两件都丢才是真红,于是拆成两把尺子并按原文摘除取证。
   const WIDTH_TIER = /BORDER_WIDTH_CLASS\s*(?::[^=\n]+)?=\s*\{[^{}]*\bborder\b[^{}]*\}/
-  const COLOR_TIER = /['"]border-input['"]/
+  const COLOR_TIER = /['"]border-stroke-field['"]/
 
-  it('web 端聚焦仍是 border-primary(墨档),三端取同一档而非各取一档', () => {
+  it('web 端聚焦仍是 stroke-focus(墨档),三端取同一档而非各取一档', () => {
     const here = dirname(fileURLToPath(import.meta.url))
     const css = readFileSync(join(here, '../../ui-react/src/components/input.tsx'), 'utf8')
-    expect(css).toMatch(/focus-visible:border-primary/)
+    expect(css).toMatch(/focus-visible:border-stroke-focus/)
     // ① 描边宽度档仍是 1px ⇒ `border`
     expect(css).toMatch(WIDTH_TIER)
-    // ② 描边色档仍是 `border-input`(不落硬编码色值)
+    // ② 描边色档仍是 `border-stroke-field`(不落硬编码色值)
     expect(css).toMatch(COLOR_TIER)
     // 反向牙:把真实正文里的对应字面量摘掉,同一把尺子必须当场翻红 ——
     // 否则上面两条只是"文件里出现了 border 字样"的装饰,抓不住原始缺陷(丢宽度档/丢色档)。
     expect(css.replace("'border'", '')).not.toMatch(WIDTH_TIER)
-    expect(css.replace("'border-input'", '')).not.toMatch(COLOR_TIER)
+    expect(css.replace("'border-stroke-field'", '')).not.toMatch(COLOR_TIER)
   })
 })
 describe('colorScheme 必填(类型层强制,票面 G-978007 要求)', () => {

@@ -65,7 +65,7 @@ export function SelectionAnnotationBar({ conversationId, messageId }: SelectionA
           className={cn(
             'inline-flex items-center gap-1 rounded-sm border border-border bg-card px-2 py-1',
             'text-label text-muted-foreground shadow-elevation-sm transition-colors',
-            'hover:border-primary/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
+            'hover:border-stroke-strong hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
           )}
         >
           <MessageSquareText className="h-3 w-3" aria-hidden />
@@ -140,7 +140,7 @@ export function SelectionAnnotationBar({ conversationId, messageId }: SelectionA
                       data-testid={`selection-annotation-comment-add-${messageId}-${index}`}
                       className={cn(
                         'rounded-sm border border-border bg-card px-2 py-1 text-label text-muted-foreground',
-                        'shadow-elevation-sm transition-colors hover:border-primary/40 hover:text-foreground',
+                        'shadow-elevation-sm transition-colors hover:border-stroke-strong hover:text-foreground',
                         'disabled:cursor-not-allowed disabled:opacity-50',
                         'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
                       )}

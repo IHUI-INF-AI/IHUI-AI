@@ -164,7 +164,7 @@ export function ArtifactCanvas({ artifact, turnMessageId }: ArtifactCanvasProps)
 
   return (
     <div
-      className="overflow-hidden rounded-sm border border-border/30 bg-card/50"
+      className="overflow-hidden rounded-sm border border-stroke-subtle bg-card/50"
       data-artifact-path={artifactAnchor}
     >
       <div className="flex items-center justify-between gap-2 bg-muted/30 px-2 py-1">

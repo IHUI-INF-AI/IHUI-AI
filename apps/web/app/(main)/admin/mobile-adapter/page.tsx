@@ -170,7 +170,7 @@ export default function MobileAdapterPage() {
             <CardContent>
               <div className="flex justify-center rounded-md border bg-muted/30 p-3">
                 <div
-                  className="rounded-md border-2 border-primary/30 bg-background shadow-elevation-sm transition-all"
+                  className="rounded-md border-2 border-stroke-selected bg-background shadow-elevation-sm transition-all"
                   style={{
                     width: Math.min(
                       previewMode === 'mobile' ? 280 : previewMode === 'tablet' ? 380 : 520,
@@ -179,7 +179,7 @@ export default function MobileAdapterPage() {
                     height: 200,
                   }}
                 >
-                  <div className="border-b border-primary/20 px-2 py-1 text-label text-muted-foreground">
+                  <div className="border-b border-stroke-selected px-2 py-1 text-label text-muted-foreground">
                     {PREVIEW_MODES.find((m) => m.id === previewMode)?.label} ·{' '}
                     {PREVIEW_MODES.find((m) => m.id === previewMode)?.width}px
                   </div>

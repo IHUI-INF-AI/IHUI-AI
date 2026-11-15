@@ -191,7 +191,7 @@ export function EnterpriseContent() {
                 <Card
                   key={m.title}
                   className={`relative transition-colors hover:bg-accent ${
-                    MODULE_FEATURED[i] ? 'border-primary/40' : ''
+                    MODULE_FEATURED[i] ? 'border-stroke-selected' : ''
                   }`}
                 >
                   {MODULE_FEATURED[i] && (
@@ -237,7 +237,7 @@ export function EnterpriseContent() {
           <div className="text-label font-medium uppercase tracking-wider text-muted-foreground">
             {t('join.label')}
           </div>
-          <Card className="overflow-hidden border-primary/20">
+          <Card className="overflow-hidden border-stroke-selected">
             <CardContent className="min-[640px]:p-3 space-y-5 p-3">
               <div className="flex flex-col items-start justify-between gap-4 min-[768px]:flex-row min-[768px]:items-center">
                 <div className="space-y-1">

@@ -203,7 +203,7 @@ export const WebInputCore = React.forwardRef<WebInputCoreHandle, WebInputCorePro
         {predictionVisible ? (
           <div
             data-testid="predictive-edit-suggestion"
-            className="mb-1 flex items-center gap-2 rounded-sm border border-dashed border-border/60 px-2 py-1 text-[11px] text-muted-foreground"
+            className="mb-1 flex items-center gap-2 rounded-sm border border-dashed border-stroke-subtle px-2 py-1 text-[11px] text-muted-foreground"
           >
             <span aria-live="polite" className="min-w-0 flex-1 truncate">
               {t('predictiveEditHint')}

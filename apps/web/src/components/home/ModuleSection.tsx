@@ -107,7 +107,7 @@ function ModuleItemCard({ item }: { item: HomeItem }) {
   return (
     <Link
       href={item.href}
-      className="group flex flex-col overflow-hidden rounded-lg border bg-card transition-colors hover:border-primary/30 hover:bg-primary/5"
+      className="group flex flex-col overflow-hidden rounded-lg border bg-card transition-colors hover:border-stroke-strong hover:bg-primary/5"
     >
       <div className="relative aspect-video overflow-hidden bg-muted">
         {item.cover ? (

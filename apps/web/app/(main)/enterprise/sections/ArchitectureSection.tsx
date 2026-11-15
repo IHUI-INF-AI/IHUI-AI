@@ -110,7 +110,7 @@ export function ArchitectureSection() {
           </CardContent>
         </Card>
 
-        <Card className="border-primary/20">
+        <Card className="border-stroke-selected">
           <CardContent className="min-[640px]:p-3 space-y-3 p-3">
             <div className="flex items-center gap-2">
               <span className="rounded-md bg-primary/10 px-2 py-0.5 text-label font-medium text-primary">

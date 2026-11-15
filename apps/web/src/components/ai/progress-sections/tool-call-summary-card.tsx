@@ -442,7 +442,7 @@ export const ToolCallSummaryCard = React.memo(function ToolCallSummaryCard({
       // 流式中已有 toolCalls 但未到 summary 阶段:显示轻量"统计中..."提示
       return (
         <div
-          className="mx-1.5 mt-1.5 rounded-sm border border-border/30 bg-muted/15 px-2 py-0.5"
+          className="mx-1.5 mt-1.5 rounded-sm border border-stroke-subtle bg-muted/15 px-2 py-0.5"
           data-testid={testId ?? 'tool-call-summary-card'}
           data-state="streaming"
         >

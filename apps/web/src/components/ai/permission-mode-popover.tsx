@@ -595,11 +595,11 @@ export function PermissionModePopover({
                           // 高风险:琥珀色 outline(替代普通 border,避免双层边框)
                           opt.risk === 'high'
                             ? 'outline outline-1 outline-amber-500/60 dark:outline-amber-500/60 bg-amber-500/5'
-                            : 'border border-primary/60',
+                            : 'border border-stroke-selected',
                         )
                       : cn(
                           'border border-border',
-                          isFocused && 'border-ring/60',
+                          isFocused && 'border-stroke-focus/60',
                           opt.risk === 'high'
                             ? 'hover:border-red-500/80 hover:bg-red-500/5'
                             : 'hover:border-foreground/20 hover:bg-muted/30',
@@ -661,7 +661,7 @@ export function PermissionModePopover({
               'mt-1 flex w-full items-center gap-2 rounded-sm border px-2 py-1.5 text-left transition-colors',
               currentMode === 'bypass-permissions'
                 ? 'border-amber-500/40 bg-amber-500/5'
-                : 'border-border/60 hover:border-amber-500/30 hover:bg-amber-500/5',
+                : 'border-stroke-subtle hover:border-amber-500/30 hover:bg-amber-500/5',
               'disabled:cursor-not-allowed disabled:opacity-60',
             )}
           >

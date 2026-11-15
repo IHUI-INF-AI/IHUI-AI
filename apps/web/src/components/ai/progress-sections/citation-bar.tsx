@@ -85,7 +85,7 @@ export const CitationBar = React.memo(function CitationBar({ citations }: Citati
             </>
           )
           const baseCls =
-            'inline-flex max-w-full items-center gap-1 rounded-sm border border-border/60 bg-background/60 px-1.5 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-accent/40'
+            'inline-flex max-w-full items-center gap-1 rounded-sm border border-stroke-subtle bg-background/60 px-1.5 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-accent/40'
           const url = c.url
           return url ? (
             /* key 须挂在 map 返回的顶层元素(Tooltip)上,内层 a 不在数组中挂 key 无效 */

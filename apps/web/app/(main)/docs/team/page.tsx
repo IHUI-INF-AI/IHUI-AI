@@ -170,8 +170,12 @@ export default function TeamDocsPage() {
                   <tr key={role} className={i % 2 === 0 ? 'bg-background' : 'bg-muted/40'}>
                     <td className="p-3 font-medium whitespace-nowrap">{role}</td>
                     <td className="font-[weight:inherit] p-3 font-mono text-label">{level}</td>
-                    <td className="font-[weight:inherit] p-3 text-label text-muted-foreground">{scope}</td>
-                    <td className="font-[weight:inherit] p-3 text-label text-muted-foreground">{perms}</td>
+                    <td className="font-[weight:inherit] p-3 text-label text-muted-foreground">
+                      {scope}
+                    </td>
+                    <td className="font-[weight:inherit] p-3 text-label text-muted-foreground">
+                      {perms}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -367,7 +371,7 @@ export default function TeamDocsPage() {
               <li>邮件支持</li>
             </ul>
           </div>
-          <div className="rounded-lg border bg-primary/5 p-3 ring-1 ring-primary/30">
+          <div className="rounded-lg border bg-primary/5 p-3 ring-1 ring-stroke-selected/30">
             <p className="text-body font-semibold"> Business</p>
             <p className="mt-2 text-display font-bold">¥1299/月</p>
             <p className="font-[weight:inherit] text-label text-muted-foreground">/ 20 人</p>
@@ -413,13 +417,20 @@ export default function TeamDocsPage() {
             <Bot className="mr-1 inline h-4 w-4" aria-hidden />
             <span>Agent 开发 →</span>
             <br />
-            <span className="font-[weight:inherit] text-label text-muted-foreground">团队共建 Agent</span>
+            <span className="font-[weight:inherit] text-label text-muted-foreground">
+              团队共建 Agent
+            </span>
           </Link>
-          <Link href="/docs/api" className="font-[weight:inherit] rounded-lg border bg-card p-3 text-body hover:bg-accent">
+          <Link
+            href="/docs/api"
+            className="font-[weight:inherit] rounded-lg border bg-card p-3 text-body hover:bg-accent"
+          >
             <Wrench className="mr-1 inline h-4 w-4" aria-hidden />
             <span>API 参考 →</span>
             <br />
-            <span className="font-[weight:inherit] text-label text-muted-foreground">团队 API Key 调用</span>
+            <span className="font-[weight:inherit] text-label text-muted-foreground">
+              团队 API Key 调用
+            </span>
           </Link>
           <Link
             href="/docs/self-host"
@@ -428,7 +439,9 @@ export default function TeamDocsPage() {
             <Server className="mr-1 inline h-4 w-4" aria-hidden />
             <span>自托管部署 →</span>
             <br />
-            <span className="font-[weight:inherit] text-label text-muted-foreground">企业版私有化部署</span>
+            <span className="font-[weight:inherit] text-label text-muted-foreground">
+              企业版私有化部署
+            </span>
           </Link>
         </div>
       </section>

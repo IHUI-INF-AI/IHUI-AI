@@ -183,7 +183,7 @@ export function WritingBlockCard({
           {blocks.map((block) => (
             <li
               key={block.id}
-              className="flex flex-col gap-1 rounded-sm border border-border/30 bg-card/50 p-2"
+              className="flex flex-col gap-1 rounded-sm border border-stroke-subtle bg-card/50 p-2"
               data-writing-block={block.id}
               data-block-status={block.status}
               data-block-phase={writingBlockPhaseOf(block.status) ?? 'none'}

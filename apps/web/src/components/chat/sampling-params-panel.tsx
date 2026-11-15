@@ -376,7 +376,7 @@ export function SamplingParamsButton({ disabled = false }: { disabled?: boolean 
             onClick={() => setOpen(true)}
             className={cn(
               'relative bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground',
-              activeCount > 0 && 'text-primary ring-1 ring-primary/40',
+              activeCount > 0 && 'text-primary ring-1 ring-stroke-selected/40',
             )}
           >
             <SlidersHorizontal aria-hidden="true" />

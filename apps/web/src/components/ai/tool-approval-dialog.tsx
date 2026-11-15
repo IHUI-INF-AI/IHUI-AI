@@ -966,7 +966,7 @@ export function ToolApprovalDialog() {
                   data-testid={`tool-approval-scope-${opt.value}`}
                   className={`inline-flex h-7 items-center rounded-sm border px-2.5 text-label font-medium transition-colors ${
                     scope === opt.value
-                      ? 'border-primary/40 bg-primary/10 text-primary'
+                      ? 'border-stroke-selected bg-primary/10 text-primary'
                       : 'border-border bg-background text-muted-foreground hover:bg-accent'
                   }`}
                 >
@@ -987,7 +987,7 @@ export function ToolApprovalDialog() {
                 data-testid="tool-approval-grant-rule"
                 className={`inline-flex h-7 items-center gap-1.5 rounded-sm border px-2.5 text-label font-medium transition-colors ${
                   grantRule
-                    ? 'border-primary/40 bg-primary/10 text-primary'
+                    ? 'border-stroke-selected bg-primary/10 text-primary'
                     : 'border-border bg-background text-muted-foreground hover:bg-accent'
                 }`}
               >
