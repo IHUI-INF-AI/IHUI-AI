@@ -798,6 +798,23 @@ fn open_store_window(
     let win = builder
         .build()
         .map_err(|e| format!("打开账号登录窗失败:{e}"))?;
+    // 关窗即回写:心跳是 10 分钟一轮,首次登录后人多半立刻关窗,等不到那一轮。
+    // CloseRequested 是窗口与 CookieManager 都还活着的最后一个时刻,在这里读一次才不会
+    // 让「刚登录好的会话」只留在 profile 里、种子备份落后一整轮。
+    {
+        let win_ev = win.clone();
+        win.on_window_event(move |event| {
+            if matches!(event, tauri::WindowEvent::CloseRequested { .. }) {
+                let written = dump_store_sessions(win_ev.app_handle());
+                if written > 0 {
+                    log::info!(
+                        "[store-browser] 关窗回写 {} 个平台的登录态种子",
+                        written
+                    );
+                }
+            }
+        });
+    }
     // 原生种 Cookie(HttpOnly 也能种):建窗时已按 login_url 起过一次加载,这里把种子写进
     // profile 的 CookieManager 后再导航一次,保证真正那一次请求的首帧就带登录态。
     let platform = key.split("__").next().unwrap_or("");
@@ -853,12 +870,34 @@ fn to_base36(mut n: u32) -> String {
     String::from_utf8_lossy(&buf[i..]).into_owned()
 }
 
-/// 桌面启动时自动打开全部应用上架平台账号的浏览器窗(隐藏,接 10 分钟心跳)。
+/// 首次登录引导:判断本次启动是否要把某个平台的自动窗建成**可见**。
+///
+/// 默认隐藏 —— 登录态已就位时用户不该看见 7 个后台窗。但「首次登录」必须由人来做,
+/// 隐藏窗里没法输入账号密码,所以留一个启动期开关 `IHUI_STORE_LOGIN_VISIBLE`:
+/// 取 `1` / `all` 全平台可见,取平台码(逗号分隔,如 `xiaomi-store,vivo-store`)按白名单,
+/// 未设或空则维持隐藏。只在建窗瞬间读一次,运行期改环境变量不影响已建窗口。
+fn store_login_visible(provider_code: &str) -> bool {
+    let raw = std::env::var("IHUI_STORE_LOGIN_VISIBLE").unwrap_or_default();
+    let raw = raw.trim();
+    if raw.is_empty() {
+        return false;
+    }
+    if raw == "1" || raw.eq_ignore_ascii_case("all") {
+        return true;
+    }
+    raw.split(',')
+        .map(str::trim)
+        .any(|s| !s.is_empty() && s.eq_ignore_ascii_case(provider_code))
+}
+
+/// 桌面启动时自动打开全部应用上架平台账号的浏览器窗(默认隐藏,接 10 分钟心跳)。
 ///
 /// 与手动「打开 / 切换」(`store_account_open`)共享同一套种子注入/页面脚本/心跳逻辑,
 /// 只是窗口建为隐藏、且已存在则跳过(不重新导航,保护已登录会话)。各账号独立 profile
 /// 落盘,登录态跨重启保留 —— 这就是「真实保活」:桌面一启动,7 个商店后台的登录态就自动
 /// 维持,无需人工点开;首次由各后台面板手动打开登录一次后,后续全自动续。
+///
+/// 首次登录不想逐个去面板点,可用 `IHUI_STORE_LOGIN_VISIBLE` 让本次启动直接亮窗。
 pub fn auto_open_store_accounts(app: &AppHandle) -> Result<(), String> {
     for p in STORE_AUTO_OPEN {
         let parsed: tauri::Url = match p.login_url.parse() {
@@ -881,13 +920,19 @@ pub fn auto_open_store_accounts(app: &AppHandle) -> Result<(), String> {
         let hosts: Vec<String> = p.api_hosts.iter().map(|h| (*h).to_string()).collect();
         match build_store_page_script(&parsed, p.provider_code, hosts, p.keepalive_hint.to_string()) {
             Ok(script) => {
+                let visible = store_login_visible(p.provider_code);
                 if let Err(e) =
-                    open_store_window(app, &parsed, &key, p.label, script, true, true)
+                    open_store_window(app, &parsed, &key, p.label, script, !visible, true)
                 {
                     log::warn!(
                         "[store-browser] 自动打开 {} 失败: {}",
                         p.provider_code,
                         e
+                    );
+                } else if visible {
+                    log::info!(
+                        "[store-browser] 平台 {} 以可见窗打开(首次登录引导),登录后关闭即可落盘",
+                        p.provider_code
                     );
                 }
             }
