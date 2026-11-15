@@ -2227,6 +2227,9 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-15**
+- 🔧 その他:登记 pkg-hr/hr-attendance/index 为 intentional copy(pure-copy,共享屏 packages/app HrAttendanceScreen) (50ae2ba54f)
+
+**2026-11-15**
 - 🔧 その他:Merge origin/main: 行尾归一化+小程序RN前端修复落库 (bda89c77c0)
 - 🔧 その他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (849cb17cc1)
 - 🐞 修正:收敛前序治理批次(i18n 文案拼接/设计令牌/交互与解包加固) (1632762bf4)
@@ -2311,9 +2314,6 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 
 **2026-11-15**
 - 🐞 修正:pkg-ai 主 CTA 走 bg-cta+text-cta-foreground 同源对(T-16 P1) (4d322dc3d2)
-
-**2026-11-15**
-- 🐞 修正:提现确认按钮防连点(T-20 P1 资金操作) (95c95fc42e)
 <!-- END RECENT UPDATES -->
 
 <p align="center">
