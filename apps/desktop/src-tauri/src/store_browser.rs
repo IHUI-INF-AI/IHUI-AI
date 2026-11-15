@@ -472,6 +472,257 @@ fn ensure_keepalive(app: &AppHandle) {
     });
 }
 
+/// 应用上架平台:每次启动自动打开的清单(与 packages/shared/src/constants/store-platforms.ts 对齐)。
+///
+/// 桌面端无 HTTP client,这里只保留「启动自动打开」所必需的最小字段;
+/// 完整展示名/登录 URL/API 主机/保活入口仍以 TS 注册表为单一源。
+struct AutoOpenPlatform {
+    provider_code: &'static str,
+    login_url: &'static str,
+    default_uid: &'static str,
+    label: &'static str,
+    api_hosts: &'static [&'static str],
+    keepalive_hint: &'static str,
+}
+
+const STORE_AUTO_OPEN: &[AutoOpenPlatform] = &[
+    AutoOpenPlatform {
+        provider_code: "huawei-agc",
+        login_url: "https://developer.huawei.com/consumer/cn/",
+        default_uid: "186******08",
+        label: "华为AGC",
+        api_hosts: &["developer.huawei.com", "svc-drcn.developer.huawei.com"],
+        keepalive_hint: "/consumer/cn/consoleIframe/api/credentials/0",
+    },
+    AutoOpenPlatform {
+        provider_code: "oppo-store",
+        login_url: "https://open.oppomobile.com/new/ecological/app",
+        default_uid: "1267328360",
+        label: "OPPO开放平台",
+        api_hosts: &["open.oppomobile.com"],
+        keepalive_hint: "/new/ecological/app",
+    },
+    AutoOpenPlatform {
+        provider_code: "vivo-store",
+        login_url: "https://dev.vivo.com.cn/manageCenter",
+        default_uid: "iHui_Inf",
+        label: "vivo开放平台",
+        api_hosts: &["dev.vivo.com.cn"],
+        keepalive_hint: "/webapi/user/info",
+    },
+    AutoOpenPlatform {
+        provider_code: "xiaomi-store",
+        login_url: "https://dev.mi.com/xiaomihyperos/console/app-manage/mobile",
+        default_uid: "851635970",
+        label: "小米开放平台",
+        api_hosts: &["dev.mi.com"],
+        keepalive_hint: "/xiaomihyperos",
+    },
+    AutoOpenPlatform {
+        provider_code: "honor-store",
+        login_url: "https://developer.honor.com/cn/manageCenter/overview",
+        default_uid: "李春川",
+        label: "荣耀开发者平台",
+        api_hosts: &["developer.honor.com", "auth-drcn.developer.honor.com", "apigw.yun.hihonor.com"],
+        keepalive_hint: "https://auth-drcn.developer.honor.com/certification/portalWeb/auth/user",
+    },
+    AutoOpenPlatform {
+        provider_code: "yyb-store",
+        login_url: "https://app.open.qq.com/",
+        default_uid: "7350840021430848512",
+        label: "腾讯应用宝",
+        api_hosts: &["app.open.qq.com"],
+        keepalive_hint: "/api/org/user/staffs",
+    },
+    AutoOpenPlatform {
+        provider_code: "google-play",
+        login_url: "https://play.google.com/console",
+        default_uid: "ok502319984@gmail.com",
+        label: "Google Play",
+        api_hosts: &[
+            "play.google.com",
+            "playconsoleplatform-pa.clients6.google.com",
+            "playconsoleapps-pa.clients6.google.com",
+        ],
+        keepalive_hint: "/console/developers",
+    },
+];
+
+/// 组装账号窗口的页面脚本:在 STORE_PAGE_SCRIPT 前注入登录态种子(若本机密钥库有该平台种子)。
+///
+/// 种子只能用于该平台自己的域,否则拒绝打开(防 XSS 远程页借命令把 Cookie 注入任意站点)。
+/// `platform_code` 为空时只返回基础页面脚本(无种子)。
+fn build_store_page_script(
+    parsed: &tauri::Url,
+    platform_code: &str,
+    hosts: Vec<String>,
+    hint: String,
+) -> Result<String, String> {
+    let hosts_json =
+        serde_json::to_string(&hosts).unwrap_or_else(|_| "[]".to_string());
+    let hint_json = serde_json::to_string(&hint).unwrap_or_else(|_| "\"\"".to_string());
+    let mut page_script = STORE_PAGE_SCRIPT
+        .replace("__IHUI_API_HOSTS__", &hosts_json)
+        .replace("__IHUI_KEEPALIVE_HINT__", &hint_json);
+    if !platform_code.is_empty() {
+        if let Some(seed) = load_session_seed(platform_code) {
+            // 种子只能用于该平台自己的域:防止被 XSS 的线上页借命令把 Cookie 注入任意站点
+            let domain = seed
+                .get("cookieDomain")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .trim()
+                .trim_start_matches('.')
+                .to_ascii_lowercase();
+            let host = parsed.host_str().unwrap_or("").to_ascii_lowercase();
+            if domain.is_empty() || !(host == domain || host.ends_with(&format!(".{domain}"))) {
+                return Err("登录页域名与该平台登录态不匹配,已拒绝打开".to_string());
+            }
+            page_script = format!("{}\n{}", build_seed_script(&seed), page_script);
+        }
+    }
+    Ok(page_script)
+}
+
+/// 打开/聚焦某个商店账号的独立登录窗。
+///
+/// - `hidden=true`:建窗后立即隐藏(启动自动打开用,不抢焦点、不弹登录页到眼前)。
+/// - `skip_if_exists=true`:窗口已存在则直接返回,不重新导航(避免冲掉已登录会话)。
+/// 已存在的窗口默认按既有语义 navigate + show + focus;新建窗口写入独立 profile 并挂上初始化脚本。
+fn open_store_window(
+    app: &AppHandle,
+    parsed: &tauri::Url,
+    key: &str,
+    title: &str,
+    page_script: String,
+    hidden: bool,
+    skip_if_exists: bool,
+) -> Result<(), String> {
+    ensure_keepalive(app);
+    let label = window_label(key);
+    if let Some(win) = app.get_webview_window(&label) {
+        if skip_if_exists {
+            return Ok(());
+        }
+        win.navigate(parsed.clone())
+            .map_err(|e| format!("切换登录页失败:{e}"))?;
+        let _ = win.show();
+        let _ = win.set_focus();
+        return Ok(());
+    }
+
+    let data_dir: PathBuf = app
+        .path()
+        .app_local_data_dir()
+        .map_err(|e| format!("取本机数据目录失败:{e}"))?
+        .join("store-browser-profiles")
+        .join(key);
+    std::fs::create_dir_all(&data_dir)
+        .map_err(|e| format!("创建账号浏览器配置失败:{e}"))?;
+
+    let mut builder = WebviewWindowBuilder::new(app, label, WebviewUrl::External(parsed.clone()))
+        .title(title)
+        .inner_size(1280.0, 860.0)
+        .min_inner_size(900.0, 640.0)
+        .resizable(true)
+        .center()
+        .decorations(true)
+        .user_agent(crate::embedded_browser::CHROME_UA)
+        .additional_browser_args(crate::embedded_browser::WEBVIEW2_BROWSER_ARGS)
+        .data_directory(data_dir)
+        // 页面侧请求分析 + 心跳识别 + 保活重放(值只在页面内存,不落盘)
+        .initialization_script(page_script)
+        // OAuth/扫码弹窗走 WebView2 默认实现(同一账号环境,登录后回跳主窗)
+        .on_new_window(|_, _| tauri::webview::NewWindowResponse::Allow);
+    if hidden {
+        builder = builder.visible(false);
+    }
+    builder
+        .build()
+        .map_err(|e| format!("打开账号登录窗失败:{e}"))?;
+    Ok(())
+}
+
+/// 复刻 web 端 `storeProfileKey` 的 FNV-1a 32 位哈希(base36),与
+/// `apps/web/app/(main)/admin/relay/account-pool/page.tsx` 的 `storeProfileKey` 严格同形:
+/// 窗口 label 必须完全一致,否则自动打开的隐藏窗与后台面板打开的可见窗会是两个独立
+/// profile(登录态不共享,自动续命失效)。BMP 字符(含中文 uid)`charCodeAt` 等于其标量值,
+/// 故按 `ch as u32` 迭代即可与 JS `charCodeAt` 对齐(JS 按 UTF-16 码元,但本清单的 uid 全在 BMP)。
+fn fnv1a_base36(s: &str) -> String {
+    let mut h: u32 = 0x811c_9dc5;
+    for ch in s.chars() {
+        h ^= ch as u32;
+        h = h.wrapping_mul(0x0100_0193);
+    }
+    to_base36(h)
+}
+
+/// u32 → base36(JS `Number.prototype.toString(36)` 的对应实现)。
+fn to_base36(mut n: u32) -> String {
+    if n == 0 {
+        return "0".to_string();
+    }
+    const DIGITS: &[u8] = b"0123456789abcdefghijklmnopqrstuvwxyz";
+    let mut buf = [0u8; 7]; // u32 的 base36 最长 7 位
+    let mut i = buf.len();
+    while n > 0 {
+        i -= 1;
+        buf[i] = DIGITS[(n % 36) as usize];
+        n /= 36;
+    }
+    String::from_utf8_lossy(&buf[i..]).into_owned()
+}
+
+/// 桌面启动时自动打开全部应用上架平台账号的浏览器窗(隐藏,接 10 分钟心跳)。
+///
+/// 与手动「打开 / 切换」(`store_account_open`)共享同一套种子注入/页面脚本/心跳逻辑,
+/// 只是窗口建为隐藏、且已存在则跳过(不重新导航,保护已登录会话)。各账号独立 profile
+/// 落盘,登录态跨重启保留 —— 这就是「真实保活」:桌面一启动,7 个商店后台的登录态就自动
+/// 维持,无需人工点开;首次由各后台面板手动打开登录一次后,后续全自动续。
+pub fn auto_open_store_accounts(app: &AppHandle) -> Result<(), String> {
+    for p in STORE_AUTO_OPEN {
+        let parsed: tauri::Url = match p.login_url.parse() {
+            Ok(u) => u,
+            Err(e) => {
+                log::warn!(
+                    "[store-browser] 平台 {} 登录 URL 非法,跳过自动打开: {}",
+                    p.provider_code,
+                    e
+                );
+                continue;
+            }
+        };
+        if parsed.scheme() != "https" && parsed.scheme() != "http" {
+            continue;
+        }
+        // 窗口 key 必须与 web 端 `store_profile_key` 严格一致(providerCode__FNV1a(uid)),
+        // 否则自动打开的隐藏窗与后台面板打开的可见窗会是两套独立 profile,登录态不共享。
+        let key = format!("{}__{}", p.provider_code, fnv1a_base36(p.default_uid));
+        let hosts: Vec<String> = p.api_hosts.iter().map(|h| (*h).to_string()).collect();
+        match build_store_page_script(&parsed, p.provider_code, hosts, p.keepalive_hint.to_string()) {
+            Ok(script) => {
+                if let Err(e) =
+                    open_store_window(app, &parsed, &key, p.label, script, true, true)
+                {
+                    log::warn!(
+                        "[store-browser] 自动打开 {} 失败: {}",
+                        p.provider_code,
+                        e
+                    );
+                }
+            }
+            Err(e) => {
+                log::warn!(
+                    "[store-browser] 平台 {} 种子域名不匹配,跳过自动打开: {}",
+                    p.provider_code,
+                    e
+                );
+            }
+        }
+    }
+    Ok(())
+}
+
 /// 打开/聚焦某个商店账号的独立登录窗。已存在则导航到最新登录页并聚焦。
 #[tauri::command]
 pub async fn store_account_open(
@@ -533,77 +784,8 @@ pub async fn store_account_open(
     } else {
         String::new()
     };
-    let hosts_json = serde_json::to_string(&hosts).unwrap_or_else(|_| "[]".to_string());
-    let hint_json = serde_json::to_string(&hint).unwrap_or_else(|_| "\"\"".to_string());
-    let page_script = STORE_PAGE_SCRIPT
-        .replace("__IHUI_API_HOSTS__", &hosts_json)
-        .replace("__IHUI_KEEPALIVE_HINT__", &hint_json);
-    // 本机密钥库有该平台登录态种子时,先注入再跑页面脚本;没有就正常走登录页
-    let seed = platform_code.as_deref().and_then(load_session_seed);
-    if let Some(s) = seed.as_ref() {
-        // 种子只能用于该平台自己的域:防止被 XSS 的线上页借命令把 Cookie 注入任意站点
-        let domain = s
-            .get("cookieDomain")
-            .and_then(|v| v.as_str())
-            .unwrap_or("")
-            .trim()
-            .trim_start_matches('.')
-            .to_ascii_lowercase();
-        let host = parsed.host_str().unwrap_or("").to_ascii_lowercase();
-        if domain.is_empty() || !(host == domain || host.ends_with(&format!(".{domain}"))) {
-            return Err("登录页域名与该平台登录态不匹配,已拒绝打开".to_string());
-        }
-        // profile 键必须属于该平台(前端格式 providerCode__xxx),避免跨平台复用账号目录
-        let prefix = format!(
-            "{}__",
-            sanitize_profile_key(platform_code.as_deref().unwrap_or(""))
-        );
-        if !key.starts_with(&prefix) {
-            return Err("账号与平台不匹配,已拒绝打开".to_string());
-        }
-    }
-    let page_script = if let Some(seed) = seed.as_ref() {
-        format!("{}\n{}", build_seed_script(seed), page_script)
-    } else {
-        page_script
-    };
-
-    ensure_keepalive(&app);
-    let label = window_label(&key);
-    if let Some(win) = app.get_webview_window(&label) {
-        win.navigate(parsed)
-            .map_err(|e| format!("切换登录页失败:{e}"))?;
-        let _ = win.show();
-        let _ = win.set_focus();
-        return Ok(());
-    }
-
-    let data_dir: PathBuf = app
-        .path()
-        .app_local_data_dir()
-        .map_err(|e| format!("取本机数据目录失败:{e}"))?
-        .join("store-browser-profiles")
-        .join(&key);
-    std::fs::create_dir_all(&data_dir)
-        .map_err(|e| format!("创建账号浏览器配置失败:{e}"))?;
-
-    WebviewWindowBuilder::new(&app, label, WebviewUrl::External(parsed))
-        .title(title)
-        .inner_size(1280.0, 860.0)
-        .min_inner_size(900.0, 640.0)
-        .resizable(true)
-        .center()
-        .decorations(true)
-        .user_agent(crate::embedded_browser::CHROME_UA)
-        .additional_browser_args(crate::embedded_browser::WEBVIEW2_BROWSER_ARGS)
-        .data_directory(data_dir)
-        // 页面侧请求分析 + 心跳识别 + 保活重放(值只在页面内存,不落盘)
-        .initialization_script(page_script)
-        // OAuth/扫码弹窗走 WebView2 默认实现(同一账号环境,登录后回跳主窗)
-        .on_new_window(|_, _| tauri::webview::NewWindowResponse::Allow)
-        .build()
-        .map_err(|e| format!("打开账号登录窗失败:{e}"))?;
-    Ok(())
+    let page_script = build_store_page_script(&parsed, platform, hosts, hint)?;
+    open_store_window(&app, &parsed, &key, &title, page_script, false, false)
 }
 
 /// 读取某个账号登录窗的当前 URL;窗口未打开返回 null。
