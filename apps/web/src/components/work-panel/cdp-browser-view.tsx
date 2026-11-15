@@ -760,7 +760,7 @@ export function CdpBrowserView({
         data-testid="pick-element-toggle"
         className={`absolute right-2 top-9 z-20 inline-flex items-center gap-1 rounded-sm border px-2 py-1 text-[10px] shadow-elevation-sm transition-colors ${
           pickMode
-            ? 'border-primary/40 bg-cta text-cta-foreground'
+            ? 'border-stroke-selected bg-cta text-cta-foreground'
             : 'border-border bg-background/90 text-muted-foreground hover:bg-accent hover:text-foreground'
         }`}
       >

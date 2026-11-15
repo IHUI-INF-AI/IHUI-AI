@@ -13,7 +13,7 @@
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
-import { Wallet, Loader2, Calculator } from 'lucide-react'
+import { Wallet, Loader2, Calculator, TriangleAlert } from 'lucide-react'
 
 import { Card, CardContent, Button } from '@ihui/ui-react'
 import { apiOrThrow as api } from '@/lib/api'
@@ -110,7 +110,7 @@ export default function MyPayrollPage() {
         <label className="font-[weight:inherit] text-body">
           {th('colMonth')}
           <input
-            className="font-[weight:inherit] rounded-md border border-input bg-background px-2 py-1 text-body focus:outline-none focus:ring-1 focus:ring-primary"
+            className="font-[weight:inherit] rounded-md border border-input bg-background px-2 py-1 text-body focus:outline-none focus:ring-1 focus:ring-stroke-focus"
             type="month"
             value={month}
             onChange={(e) => setMonth(e.target.value)}
@@ -205,7 +205,10 @@ export default function MyPayrollPage() {
                       {r.breakdown?.warnings && r.breakdown.warnings.length > 0 && (
                         <div className="font-[weight:inherit] mt-1 space-y-0.5 text-label text-destructive">
                           {r.breakdown.warnings.map((w, i) => (
-                            <div key={i}>⚠ {w}</div>
+                            <div key={i} className="flex items-start gap-1">
+                              <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+                              <span>{w}</span>
+                            </div>
                           ))}
                         </div>
                       )}

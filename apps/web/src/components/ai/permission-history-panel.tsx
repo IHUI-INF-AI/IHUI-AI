@@ -143,7 +143,7 @@ function HistoryList({ entries, now }: HistoryListProps) {
         return (
           <li
             key={`${entry.timestamp}-${idx}`}
-            className="flex items-start gap-2 rounded-md border border-border/60 bg-card/40 px-2 py-1.5"
+            className="flex items-start gap-2 rounded-md border border-stroke-subtle bg-card/40 px-2 py-1.5"
           >
             <Icon
               className={cn(

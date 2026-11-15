@@ -170,7 +170,7 @@ export function UnifiedDiffBody({
             'group flex',
             isAdd && ADD_BG,
             isDel && DEL_BG,
-            isActive && 'ring-1 ring-inset ring-primary/60',
+            isActive && 'ring-1 ring-inset ring-stroke-selected/60',
           )}
           data-testid={`diff-urow-${idx}`}
         >
@@ -236,7 +236,7 @@ function SplitCellView({
         'group flex',
         op === 'add' && ADD_BG,
         op === 'del' && DEL_BG,
-        isActive && 'ring-1 ring-inset ring-primary/60',
+        isActive && 'ring-1 ring-inset ring-stroke-selected/60',
       )}
       data-testid={`diff-scell-${side}`}
     >

@@ -64,7 +64,7 @@ export function NewsSection() {
             <Link
               key={n.id}
               href={`/news/${n.id}`}
-              className="group flex flex-col overflow-hidden rounded-lg border bg-card transition-colors hover:border-primary/40 hover:bg-primary/5"
+              className="group flex flex-col overflow-hidden rounded-lg border bg-card transition-colors hover:border-stroke-strong hover:bg-primary/5"
             >
               <div className="relative aspect-video overflow-hidden bg-muted">
                 {n.coverImage ? (

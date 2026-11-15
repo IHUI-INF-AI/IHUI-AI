@@ -8,6 +8,7 @@ import * as React from 'react'
 import dynamic from 'next/dynamic'
 import {
   Check,
+  ChevronRight,
   Copy,
   Download,
   FileText,
@@ -45,6 +46,8 @@ import { openImageSource } from '@/lib/open-image-source'
 import { toMediaImageUrl, toMediaStreamUrl } from '@/lib/media-proxy'
 import { useCanvasStore } from '@/stores/canvas-store'
 import { applyCodeBlockToFile } from '@/lib/apply-code-block'
+import { bionicizeText } from '@/lib/bionic-reading'
+import { useResolvedAppearanceConfig } from '@/hooks/use-resolved-appearance'
 // D197:代码块「自动换行」偏好(zustand persist,跨会话记忆);D198:代码块「复制为图片」落盘
 import { useCodeBlockPrefsStore } from '@/stores/code-block-prefs'
 import { codeTextToPngBlob } from '@/lib/copy-as-image'
@@ -295,9 +298,9 @@ function CodeRunOutput({ result, onClose }: { result: RunResult; onClose: () => 
   return (
     <div
       data-testid="code-run-output"
-      className="mt-2 overflow-hidden rounded-lg border border-zinc-200 bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-950"
+      className="mt-2 overflow-hidden rounded-lg border border-stroke-default bg-muted-soft"
     >
-      <div className="flex items-center justify-between gap-2 bg-zinc-200/60 px-2 py-1 dark:bg-zinc-900">
+      <div className="flex items-center justify-between gap-2 px-2 py-1">
         <span className="truncate text-[10px] font-medium text-muted-foreground">
           {t('codeRun.title')}
         </span>
@@ -422,6 +425,8 @@ const CodeBlockImpl = function CodeBlock({
   // 时,该块首拍挂载前一刻刚入簿仍被认可);历史重载被闸死(见 sessionStreamedRef 注记),
   // 在写尾块不入簿。
   const [collapsed, setCollapsed] = React.useState(() => !preserveExpanded)
+  // 2026-11-15:collapseLines > 0 才允许折叠;<=0(如 repo-wiki 传 0)保持始终展开。
+  const canCollapse = collapseLines > 0
   // 2026-10-29 流式观感档⑩(e2e 像素守门现形):闭合沿变那一拍,prop preserveExpanded
   // 已为 true 但 collapsed 还是挂载旧值 true —— 档③ 的 setCollapsed(false) 在 effect 里
   // (paint 之后),中间存在**一帧折叠闪位**(实浏览器逐帧量到 302px→99px→302px;jsdom 恒不可见)。
@@ -441,14 +446,15 @@ const CodeBlockImpl = function CodeBlock({
 
   /* 2026-10-28 流式观感档③:流式中代码块**尾部跟随全展**(Qoder 式"看着写完"),
      此前流式只冻前 5 行 = 中段在写、屏幕上纹丝不动,观感断档最大的一处。
-     刚结束(本会话内 流式→完成)的块保持展开不闪折;历史重载(挂载即非流式)维持
-     既有"长块默认折叠"设计 —— 用 wasStreaming ref 只接 in-session 沿变。 */
+     刚结束(本会话内 流式→完成)的块保持展开不闪折;历史重载(挂载即非流式)默认折叠
+     为 header 卡片、点击 header 展开 —— 用 wasStreaming ref 只接 in-session 沿变。 */
   const wasStreamingRef = React.useRef(Boolean(isStreaming))
   React.useEffect(() => {
     if (isStreaming) wasStreamingRef.current = true
     else if (wasStreamingRef.current) {
       wasStreamingRef.current = false
-      setCollapsed(false)
+      // 用户流式中途亲手折叠过 ⇒ 保持其意志,不强行展开
+      if (!userToggledCollapseRef.current) setCollapsed(false)
     }
   }, [isStreaming])
 
@@ -457,15 +463,16 @@ const CodeBlockImpl = function CodeBlock({
   // 防抖把高亮重排频率钳到 3.3Hz,字符流本身仍逐帧平滑。完成态(含中止/flush)恒取
   // 最新 code,防抖快照不可能盖住终值(非流式分支直接用原值)。
   const hlSource = isStreaming ? debouncedCode : code
-  const codeLines = hlSource.split('\n')
-  const shouldCollapse = collapseLines > 0 && codeLines.length > collapseLines
   // 档⑩:未亲手点过钮时,carry 事实(preserveExpanded)与 collapsed 取并集判展开 ——
   // 闭合沿变那一拍不再闪一帧折叠;用户一旦操作,其意志立即接管。
-  const effectiveCollapsed = isStreaming
+  // 2026-11-15:默认折叠 = 只露 header,点击 header 才展开正文(canCollapse=false 恒展开)。
+  const effectiveCollapsed = !canCollapse
     ? false
     : userToggledCollapseRef.current
       ? collapsed
-      : collapsed && !preserveExpanded
+      : isStreaming
+        ? false
+        : collapsed && !preserveExpanded
 
   const lang = (language ?? '').trim().toLowerCase()
   const isPlain = PLAIN_TEXT_LANGS.has(lang)
@@ -499,7 +506,7 @@ const CodeBlockImpl = function CodeBlock({
       <InlineHtmlPreview code={debouncedCode} />
     ) : null
 
-  // 复制按钮(absolute 定位在 <pre> 右上角)
+  // 代码块操作按钮组(置于 header 右侧)
   // 2026-07-31 对标 主流 AI IDE + 与 code-generator.tsx 保持一致:
   // 默认无背景色,hover 时显示 bg-muted(纯色),确保按钮在任意代码块背景上都可读。
   // 2026-09-12 P0-2:追加「应用到文件」「插入光标」(对标 CodeX/Trae/Qoder 代码块动作)。
@@ -508,7 +515,7 @@ const CodeBlockImpl = function CodeBlock({
   // 代码块语境保留 text-foreground + hover:bg-muted 覆盖默认 ghost 样式。
   const iconBtnClass = 'text-foreground hover:bg-muted'
   const copyButton = (
-    <div className="absolute right-2 top-2 z-10 flex items-center gap-0.5">
+    <div className="ml-auto flex shrink-0 items-center gap-0.5">
       {/* 一键运行:仅非流式且语言在可运行集合内显示(对标 Codex/Trae 对话内运行) */}
       {showRunButton && (
         <Tooltip content={isRunning ? t('codeRun.running') : t('codeRun.run')}>
@@ -599,50 +606,63 @@ const CodeBlockImpl = function CodeBlock({
   // 流式中的代码块不再整块压暗(2026-10-28 档④:此前 opacity-60 "草稿灰"+完成瞬间翻亮,
   // 观感断档;在写信号已交给硬闪光标与流式指示条,代码本体保持正常色=所见即终稿)。
   // 2026-08-02:对话文字整体放大,代码块 14px → 15px(text-[15px])
-  // 2026-08-17 P3:dark 模式代码块统一用更深 zinc-950(与 markdown-stream.test 期望对齐,
-  // 原实现用 zinc-900 + 注释"较浅避免同色",但实际测试断言 zinc-950 已通过,改为一致 token)
+  // 2026-08-17 P3:dark 模式代码块曾用 zinc-950;2026-11-15 起统一走 --color-muted-soft 实色档
   // G-842:边框/圆角上移到外层 frame(header + <pre> 同框),<pre> 只保留底色与排版
   // D197:开启自动换行时横滚让位于 pre-wrap(白空格继承到内层 code),否则维持横滚原状
+  // 2026-11-15:代码底色统一取 --color-muted-soft(与气泡/header 同一实色档,不再用 zinc 色阶)
   const preClassName = cn(
     'relative my-0 p-3 text-[15px]',
     wrap ? 'whitespace-pre-wrap break-words' : 'overflow-x-auto',
-    'bg-zinc-100 text-zinc-900',
-    'dark:bg-zinc-950 dark:text-zinc-100',
+    'bg-transparent text-foreground',
   )
   // G-842:外层 frame(仿本文件 CodeRunOutput 的「外框 + header 条 + 主体」形态)
-  const codeFrameClass = 'overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-700'
-  // G-842:代码块 header —— 文件图标 + 语言名映射的示例文件名(纯展示,非交互)
+  // 2026-11-15:底色只画在 frame 这一层,header/正文一律透明 ⇒ 同一块底面,不再有分段色差
+  // 2026-11-15:header 不要描边 ⇒ frame 去掉 border,整块只用底色+圆角
+  const codeFrameClass = 'overflow-hidden rounded-lg bg-muted-soft'
+  // G-842:代码块 header —— 折叠开关(chevron + 文件图标 + 示例文件名)+ 右侧操作按钮组
+  // 2026-11-15:header 即折叠开关,默认只露 header,点击展开正文。
+  // 底色取 --color-muted-soft(与用户气泡/行内 code 同一实色档,不用 zinc + /N 透明度)。
   const codeHeader = (
     <div
       data-testid="code-block-header"
-      className="flex items-center gap-1.5 bg-zinc-200/60 px-3 py-1.5 dark:bg-zinc-900"
+      className="flex items-center gap-1.5 bg-muted-soft pl-1 pr-1 py-1"
     >
-      <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
-      <span className="truncate font-mono text-label text-muted-foreground">
-        {resolveCodeFileName(language)}
-      </span>
+      {canCollapse ? (
+        <button
+          type="button"
+          onClick={() => {
+            userToggledCollapseRef.current = true
+            setCollapsed(!effectiveCollapsed)
+          }}
+          aria-expanded={!effectiveCollapsed}
+          aria-label={effectiveCollapsed ? '展开代码' : '收起代码'}
+          data-testid="code-block-toggle"
+          // 2026-11-15:去掉 hover 变色 —— header 是整块底面的一部分,悬停不得改变其颜色(用户要求上下一致)
+          className="flex min-w-0 flex-1 items-center gap-1.5 rounded-sm px-2 py-1 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <ChevronRight
+            className={cn(
+              'h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform',
+              !effectiveCollapsed && 'rotate-90',
+            )}
+            aria-hidden="true"
+          />
+          <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+          <span className="min-w-0 truncate font-mono text-label text-muted-foreground">
+            {resolveCodeFileName(language)}
+          </span>
+        </button>
+      ) : (
+        <div className="flex min-w-0 flex-1 items-center gap-1.5 pl-2">
+          <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+          <span className="min-w-0 truncate font-mono text-label text-muted-foreground">
+            {resolveCodeFileName(language)}
+          </span>
+        </div>
+      )}
+      {copyButton}
     </div>
   )
-
-  // 折叠按钮(absolute 定位在 <pre> 右下角)
-  const collapseButton = shouldCollapse && !isStreaming && (
-    <button
-      type="button"
-      onClick={() => {
-        // 档⑩:用户意志接管展开判定(carry 让位);标签/动作统一以 effectiveCollapsed 为准
-        userToggledCollapseRef.current = true
-        setCollapsed(!effectiveCollapsed)
-      }}
-      className="absolute bottom-2 right-2 z-10 inline-flex items-center gap-1 rounded-sm border border-border/60 bg-float-indicator-bg px-2 py-1 text-label text-foreground transition-colors hover:bg-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-      aria-label={effectiveCollapsed ? '展开代码' : '收起代码'}
-    >
-      {effectiveCollapsed ? `展开 (${codeLines.length} 行)` : '收起'}
-    </button>
-  )
-
-  // 计算折叠后的显示内容(流式=尾随全展;折叠判定与高亮输入同源 hlSource)
-  const displayCode =
-    effectiveCollapsed && shouldCollapse ? codeLines.slice(0, 5).join('\n') : hlSource
 
   // 纯文本或无语言:不调 SyntaxHighlighter,避免开销
   if (isPlain) {
@@ -652,13 +672,19 @@ const CodeBlockImpl = function CodeBlock({
         <div className={codeFrameClass}>
           {codeHeader}
           {/* G-827:横滚代码块的方向阴影线索。wrap 档无横向溢出,不套壳(避免无意义 DOM)。 */}
-          <CodeOverflowShell wrap={!!wrap}>
-            <pre ref={preRef} className={preClassName}>
-              {copyButton}
-              {collapseButton}
-              <code className="font-mono">{displayCode}</code>
-            </pre>
-          </CodeOverflowShell>
+          <div hidden={effectiveCollapsed}>
+            <CodeOverflowShell wrap={!!wrap}>
+              <pre
+                ref={preRef}
+                className={preClassName}
+                style={{
+                  fontSize: 'var(--message-code-font-size, var(--chat-code-font-size, 15px))',
+                }}
+              >
+                <code className="font-mono">{hlSource}</code>
+              </pre>
+            </CodeOverflowShell>
+          </div>
         </div>
         {runResult && <CodeRunOutput result={runResult} onClose={clearRunResult} />}
       </>
@@ -669,13 +695,17 @@ const CodeBlockImpl = function CodeBlock({
   const fallback = (
     <div className={codeFrameClass}>
       {codeHeader}
-      <CodeOverflowShell wrap={!!wrap}>
-        <pre ref={preRef} className={preClassName}>
-          {copyButton}
-          {collapseButton}
-          <code className={cn('font-mono', language && `language-${language}`)}>{displayCode}</code>
-        </pre>
-      </CodeOverflowShell>
+      <div hidden={effectiveCollapsed}>
+        <CodeOverflowShell wrap={!!wrap}>
+          <pre
+            ref={preRef}
+            className={preClassName}
+            style={{ fontSize: 'var(--message-code-font-size, var(--chat-code-font-size, 15px))' }}
+          >
+            <code className={cn('font-mono', language && `language-${language}`)}>{hlSource}</code>
+          </pre>
+        </CodeOverflowShell>
+      </div>
     </div>
   )
 
@@ -685,28 +715,28 @@ const CodeBlockImpl = function CodeBlock({
       <CodeBlockErrorBoundary fallback={fallback}>
         <div className={codeFrameClass}>
           {codeHeader}
-          <CodeOverflowShell wrap={!!wrap}>
-            <pre ref={preRef} className={preClassName}>
-              {copyButton}
-              {collapseButton}
-              <SyntaxHighlighter
-                language={lang}
-                style={syntaxStyle}
-                showLineNumbers={!!lineNumberStyle}
-                lineNumberStyle={lineNumberStyle}
-                // D197:换行偏好传导进高亮器(code 标签 whiteSpace: pre-wrap;与行号并存时行转 flex)
-                wrapLongLines={wrap}
-                customStyle={{
-                  margin: 0,
-                  padding: 0,
-                  background: 'transparent',
-                  fontSize: '15px',
-                }}
-              >
-                {displayCode}
-              </SyntaxHighlighter>
-            </pre>
-          </CodeOverflowShell>
+          <div hidden={effectiveCollapsed}>
+            <CodeOverflowShell wrap={!!wrap}>
+              <pre ref={preRef} className={preClassName}>
+                <SyntaxHighlighter
+                  language={lang}
+                  style={syntaxStyle}
+                  showLineNumbers={!!lineNumberStyle}
+                  lineNumberStyle={lineNumberStyle}
+                  // D197:换行偏好传导进高亮器(code 标签 whiteSpace: pre-wrap;与行号并存时行转 flex)
+                  wrapLongLines={wrap}
+                  customStyle={{
+                    margin: 0,
+                    padding: 0,
+                    background: 'transparent',
+                    fontSize: 'var(--message-code-font-size, var(--chat-code-font-size, 15px))',
+                  }}
+                >
+                  {hlSource}
+                </SyntaxHighlighter>
+              </pre>
+            </CodeOverflowShell>
+          </div>
         </div>
       </CodeBlockErrorBoundary>
       {runResult && <CodeRunOutput result={runResult} onClose={clearRunResult} />}
@@ -1122,6 +1152,36 @@ const ActiveBlock = React.memo(function ActiveBlock({
   )
 })
 
+/**
+ * 仿生阅读(2026-11-15 v2):只改写字符串子节点,React 元素与代码块原样透传。
+ * 无可加粗 token 时返回原 children(保持节点身份,避免无意义的子树重建)。
+ */
+function bionicizeChildren(children: React.ReactNode, enabled: boolean): React.ReactNode {
+  if (!enabled) return children
+  const nodes = React.Children.toArray(children)
+  let changed = false
+  const next = nodes.map((child, index) => {
+    if (typeof child !== 'string') return child
+    const segments = bionicizeText(child)
+    if (!segments) return child
+    changed = true
+    return (
+      <React.Fragment key={`bionic-${index}`}>
+        {segments.map((segment, segmentIndex) =>
+          segment.bold ? (
+            <b key={segmentIndex} data-bionic="">
+              {segment.text}
+            </b>
+          ) : (
+            <React.Fragment key={segmentIndex}>{segment.text}</React.Fragment>
+          ),
+        )}
+      </React.Fragment>
+    )
+  })
+  return changed ? next : children
+}
+
 export function MarkdownStream({
   content,
   isStreaming,
@@ -1232,6 +1292,9 @@ export function MarkdownStream({
   // "PDF/CSV 流式中渲染下载卡,完成后升级富预览"(P3 #32)行为逐字不变。
   const isStreamingRef = React.useRef(isStreaming)
   isStreamingRef.current = isStreaming
+  // 仿生阅读偏好:变化时重建 components(一次性重解析),其余渲染路径不变。
+  // 走 resolved 配置 ⇒ 工作区覆盖开启时也能生效。
+  const { bionicReading } = useResolvedAppearanceConfig()
   const parseContent = React.useMemo(() => {
     const healed = healIncompleteMarkdown(throttledContent)
     isStreamingCodeRef.current = healed.fenceHealed
@@ -1290,7 +1353,7 @@ export function MarkdownStream({
               title={mention.path}
               data-testid="inline-file-mention"
               onClick={() => fileMentionRef.current?.open(mention.path)}
-              className="rounded bg-muted px-1.5 py-0.5 font-mono text-[0.85em] underline decoration-dotted underline-offset-2 hover:bg-muted/70"
+              className="rounded bg-muted-soft px-1.5 py-0.5 font-mono text-[0.85em] underline decoration-dotted underline-offset-2 hover:bg-muted"
             >
               {children}
             </button>
@@ -1299,7 +1362,7 @@ export function MarkdownStream({
 
         // 行内 code
         return (
-          <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-[0.85em]" {...props}>
+          <code className="rounded bg-muted-soft px-1.5 py-0.5 font-mono text-[0.85em]" {...props}>
             {children}
           </code>
         )
@@ -1332,11 +1395,17 @@ export function MarkdownStream({
       },
       th({ children }) {
         return (
-          <th className="border border-border px-3 py-1.5 text-left font-medium">{children}</th>
+          <th className="border border-border px-3 py-1.5 text-left font-medium">
+            {bionicizeChildren(children, bionicReading)}
+          </th>
         )
       },
       td({ children }) {
-        return <td className="border border-border px-3 py-1.5">{children}</td>
+        return (
+          <td className="border border-border px-3 py-1.5">
+            {bionicizeChildren(children, bionicReading)}
+          </td>
+        )
       },
       // 分隔线:已移除,不需要
       hr() {
@@ -1375,35 +1444,37 @@ export function MarkdownStream({
             className={cn('my-0', isTaskItem && 'list-none')}
             {...(props as React.LiHTMLAttributes<HTMLLIElement>)}
           >
-            {children}
+            {bionicizeChildren(children, bionicReading)}
           </li>
         )
       },
       blockquote({ children }) {
         return (
           <blockquote className="my-0 border-l-2 border-border pl-3 text-muted-foreground italic">
-            {children}
+            {bionicizeChildren(children, bionicReading)}
           </blockquote>
         )
       },
-      // 标题样式
+      // 标题样式(2026-11-15):改用 em 倍率而非 text-* 固定档位,
+      // 让「AI 对话字号」把标题/正文/表格一起等比缩放(1x 时数值与原档位一致:
+      // 24/20/18/16/14/14px ÷ 15px 基准)。
       h1({ children }) {
-        return <h1 className="my-0 text-display font-semibold">{children}</h1>
+        return <h1 className="my-0 text-[1.6em] font-semibold">{children}</h1>
       },
       h2({ children }) {
-        return <h2 className="my-0 text-heading font-semibold">{children}</h2>
+        return <h2 className="my-0 text-[1.33em] font-semibold">{children}</h2>
       },
       h3({ children }) {
-        return <h3 className="my-0 text-lg font-semibold">{children}</h3>
+        return <h3 className="my-0 text-[1.2em] font-semibold">{children}</h3>
       },
       h4({ children }) {
-        return <h4 className="my-0 text-base font-semibold">{children}</h4>
+        return <h4 className="my-0 text-[1.07em] font-semibold">{children}</h4>
       },
       h5({ children }) {
-        return <h5 className="my-0 text-body font-semibold">{children}</h5>
+        return <h5 className="my-0 text-[0.93em] font-semibold">{children}</h5>
       },
       h6({ children }) {
-        return <h6 className="my-0 text-body font-medium">{children}</h6>
+        return <h6 className="my-0 text-[0.93em] font-medium">{children}</h6>
       },
       p({ children }) {
         // 过滤掉由 markdown 多余空行产生的空段落(<br>)和纯空白段落
@@ -1416,7 +1487,7 @@ export function MarkdownStream({
           return true // 其他 React 元素(如 strong、em、code、a)视为有效内容
         })
         if (!hasRealContent) return null
-        return <p className="my-0 leading-relaxed">{children}</p>
+        return <p className="my-0 leading-relaxed">{bionicizeChildren(children, bionicReading)}</p>
       },
       ul({ children }) {
         return <ul className="my-0 list-disc space-y-1 pl-6">{children}</ul>
@@ -1437,7 +1508,7 @@ export function MarkdownStream({
     // G-737(2026-09-28):isStreaming **移出 deps** —— 解析模式不得进入渲染器身份,
     // 否则它一翻 components 新引用 ⇒ StableBlock memo 失效、冻结前缀整段重 parse。
     // a 组件改读 isStreamingRef(渲染 pass 前已同步),语义不变、身份不再抖动。
-    [collapseLines],
+    [collapseLines, bionicReading],
   )
 
   // P3 #35(2026-09-16 立):稳定段/活跃段切分。
@@ -1690,6 +1761,12 @@ export function MarkdownStream({
     <div
       ref={containerRef}
       className={cn('!m-0 !p-0 !space-y-0 text-[15px]', isStreaming && 'stream-caret-host')}
+      style={{
+        fontSize: 'calc(15px * var(--chat-font-scale, 1) * var(--message-font-multiplier, 1))',
+        lineHeight: 'var(--message-line-height, var(--chat-line-height, 1.65))',
+        letterSpacing: 'var(--message-letter-spacing, var(--chat-letter-spacing, normal))',
+        fontFamily: 'var(--message-font-family, inherit)',
+      }}
       data-testid="markdown-stream"
       data-markdown-virtualized={blockWindow.enabled ? 'true' : undefined}
     >

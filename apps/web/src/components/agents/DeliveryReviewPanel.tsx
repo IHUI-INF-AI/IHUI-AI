@@ -86,7 +86,7 @@ export function DeliveryFileChangeList({ files }: { files: DeliverableFileChange
               }
             >
               <span
-                className="shrink-0 rounded-sm border border-border/60 px-1 py-px text-[9px] text-muted-foreground cursor-default"
+                className="shrink-0 rounded-sm border border-stroke-subtle px-1 py-px text-[9px] text-muted-foreground cursor-default"
                 data-testid={`delivery-review-steps-${i}`}
               >
                 S{f.stepIds.length}

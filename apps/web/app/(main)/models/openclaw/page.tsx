@@ -36,7 +36,7 @@ export default async function OpenClawPage() {
       </header>
 
       {/* Hero */}
-      <Card className="overflow-hidden border-primary/30 bg-gradient-to-br from-primary/10 via-primary/5 to-transparent">
+      <Card className="overflow-hidden border-stroke-selected bg-gradient-to-br from-primary/10 via-primary/5 to-transparent">
         <CardContent className="min-[640px]:p-3 p-3">
           <div className="flex items-start gap-4">
             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-cta text-cta-foreground">

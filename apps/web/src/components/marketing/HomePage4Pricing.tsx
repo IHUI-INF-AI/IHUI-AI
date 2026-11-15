@@ -112,7 +112,7 @@ export function HomePage4Pricing() {
                 className={
                   isRecommended
                     ? 'relative flex h-full flex-col overflow-hidden rounded-lg border-2 border-brand-accent-deep bg-card p-3 shadow-elevation-lg shadow-primary/20 transition-all duration-300 animate-pulse-glow-light group-hover:border-brand-accent-deep group-hover:bg-primary/5'
-                    : 'relative flex h-full flex-col overflow-hidden rounded-lg border border-border bg-card p-3 shadow-elevation-sm transition-all duration-300 group-hover:border-primary/40 group-hover:bg-primary/5'
+                    : 'relative flex h-full flex-col overflow-hidden rounded-lg border border-border bg-card p-3 shadow-elevation-sm transition-all duration-300 group-hover:border-stroke-strong group-hover:bg-primary/5'
                 }
               >
                 {/* 卡片顶部渐变高光(所有卡片 hover 时显现) */}

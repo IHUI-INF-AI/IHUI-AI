@@ -339,7 +339,7 @@ export function AddMenuPopover(props: {
                   />
                   <span className="min-w-0 flex-1 truncate">{t('backToMenu')}</span>
                 </button>
-                <div className="mt-1 flex flex-col gap-0.5 border-t border-border/60 pt-1">
+                <div className="mt-1 flex flex-col gap-0.5 border-t border-stroke-subtle pt-1">
                   {toolsMenuItems}
                 </div>
               </div>
@@ -352,7 +352,7 @@ export function AddMenuPopover(props: {
                     role="group"
                     aria-label={t('quickSettings')}
                     data-testid="composer-quick-settings"
-                    className="mb-1 border-b border-border/60 pb-1"
+                    className="mb-1 border-b border-stroke-subtle pb-1"
                   >
                     <span className="block px-1.5 pb-0.5 pt-0.5 text-[11px] font-medium text-muted-foreground">
                       {t('quickSettings')}
@@ -526,7 +526,7 @@ export function AddMenuPopover(props: {
                     </span>
                   </button>
                 )}
-                <div className="my-1 border-t border-border/60" aria-hidden />
+                <div className="my-1 border-t border-stroke-subtle" aria-hidden />
                 {/* 更多工具入口(2026-11-04 信息架构重构):底栏降级的次要控件
                     (任务进度 / 上下文环 / 语音输入 / 语音笔记 / 流式 Steer)收纳于此,
                     点击进入 tools 子层;不改变任何控件自身的弹层与状态机。 */}

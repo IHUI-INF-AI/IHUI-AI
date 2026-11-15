@@ -142,7 +142,7 @@ export function VersionTable({ skills, loading, error }: VersionTableProps) {
                           key={v.version}
                           className={`flex items-center justify-between rounded-md border px-3 py-2 text-label transition-colors ${
                             isCompareTarget
-                              ? 'border-primary/50 bg-primary/5'
+                              ? 'border-stroke-selected bg-primary/5'
                               : 'border-transparent bg-muted/20'
                           }`}
                         >

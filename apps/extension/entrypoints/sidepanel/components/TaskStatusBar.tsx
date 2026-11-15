@@ -166,7 +166,7 @@ export function TaskStatusBar({
     <div className="px-2.5 pt-2" data-testid="task-status-bar" data-kind={view.kind}>
       <div
         className={`rounded-lg border bg-muted/40 transition-colors ${
-          view.active ? 'border-primary/30' : 'border-border/60'
+          view.active ? 'border-stroke-selected' : 'border-stroke-subtle'
         }`}
       >
         <TooltipProvider>

@@ -85,7 +85,7 @@ export function DiffCommentPanel({
             : t('diffComment.placeholderFile')
         }
         rows={2}
-        className="w-full resize-none rounded-sm border border-border/60 bg-background px-2 py-1.5 text-[11px] text-foreground placeholder:text-muted-foreground/60 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/40"
+        className="w-full resize-none rounded-sm border border-stroke-subtle bg-background px-2 py-1.5 text-[11px] text-foreground placeholder:text-muted-foreground/60 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-stroke-focus/40"
         data-testid="diff-comment-input"
       />
       <div className="flex items-center gap-1.5">

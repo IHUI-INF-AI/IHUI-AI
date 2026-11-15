@@ -929,7 +929,7 @@ export function MessageContent({
             {message.citations.map((c, i) => (
               <span
                 key={`${c.source}_${i}`}
-                className="inline-flex max-w-full items-center gap-1 rounded-sm border border-border/60 bg-muted/30 px-1.5 py-0.5 text-[11px] text-muted-foreground"
+                className="inline-flex max-w-full items-center gap-1 rounded-sm border border-stroke-subtle bg-muted/30 px-1.5 py-0.5 text-[11px] text-muted-foreground"
               >
                 <span className="rounded-sm bg-muted px-1 py-px text-[9px] font-medium">
                   {c.source}

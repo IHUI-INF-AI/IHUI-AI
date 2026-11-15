@@ -171,7 +171,11 @@ export function DiagramPreviewModal({
     return pointAt(rect.left + rect.width / 2, rect.top + rect.height / 2)
   }
 
-  const applyZoom = (rawNext: number, point: DiagramContentPoint, override?: DiagramScroll): void => {
+  const applyZoom = (
+    rawNext: number,
+    point: DiagramContentPoint,
+    override?: DiagramScroll,
+  ): void => {
     const next = clampZoom(rawNext)
     const view = currentView()
     const el = scrollRef.current
@@ -182,14 +186,24 @@ export function DiagramPreviewModal({
     }
     const scroll =
       override ??
-      scrollToKeepPoint({ ...measure(), zoomFrom: view.zoom, zoomTo: next, point, scroll: view.scroll })
+      scrollToKeepPoint({
+        ...measure(),
+        zoomFrom: view.zoom,
+        zoomTo: next,
+        point,
+        scroll: view.scroll,
+      })
     if (next === view.zoom) {
       // 倍率没变 ⇒ transform 已是最终态,滚动可以立刻写,不必等下一次提交
       pendingRef.current = null
       writeScroll(scroll)
       return
     }
-    pendingRef.current = { zoomTo: next, scrollTop: scroll.scrollTop, scrollLeft: scroll.scrollLeft }
+    pendingRef.current = {
+      zoomTo: next,
+      scrollTop: scroll.scrollTop,
+      scrollLeft: scroll.scrollLeft,
+    }
     setZoom(next)
   }
 
@@ -441,7 +455,7 @@ export function DiagramPreviewModal({
     <Modal open={open} onClose={onClose} size="full" title={title ?? t('mermaidPreviewTitle')}>
       <div className="flex flex-col gap-2">
         <div
-          className="flex items-center gap-0.5 self-end rounded-md border border-border/60 bg-float-indicator-bg p-0.5"
+          className="flex items-center gap-0.5 self-end rounded-md border border-stroke-subtle bg-float-indicator-bg p-0.5"
           data-testid="diagram-preview-toolbar"
         >
           <Button

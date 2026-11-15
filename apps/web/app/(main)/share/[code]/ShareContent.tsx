@@ -48,7 +48,7 @@ export function ShareContent({ shareData, copy, copied }: ShareContentProps) {
       <div className="px-5 py-5">
         {/* 用户提问 */}
         <div className="flex justify-end">
-          <div className="w-full rounded-2xl border border-primary/40 bg-primary p-3 text-white">
+          <div className="w-full rounded-2xl border border-stroke-selected bg-primary p-3 text-white">
             <p className="whitespace-pre-wrap break-words text-body leading-7">{question || ''}</p>
           </div>
         </div>

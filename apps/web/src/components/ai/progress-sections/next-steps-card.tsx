@@ -193,7 +193,7 @@ function NextStepsCardBase({
             key={s.key}
             type="button"
             onClick={() => handleSuggestionClick(s.label)}
-            className="flex w-full items-center gap-1.5 rounded-sm border border-border/60 bg-background px-2 py-1 text-left text-[11px] text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+            className="flex w-full items-center gap-1.5 rounded-sm border border-stroke-subtle bg-background px-2 py-1 text-left text-[11px] text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
             data-testid={`${testId}-suggestion-${s.key}`}
           >
             <s.icon className="h-3 w-3 shrink-0 text-primary" aria-hidden />

@@ -201,7 +201,7 @@ export function TaskStatusBar() {
       <div
         className={cn(
           'rounded-lg border bg-muted/40 transition-colors',
-          view.active ? 'border-primary/30' : 'border-border/60',
+          view.active ? 'border-stroke-selected' : 'border-stroke-subtle',
         )}
       >
         <button

@@ -336,7 +336,7 @@ export function SidebarUserRow({
           key: 'messages-view-all',
           // 底部入口做成整块分隔式 footer:去掉圆角与左侧内边距,顶部一条细分隔线
           itemClassName:
-            'mt-1 justify-center rounded-none border-t border-border/60 px-2.5 pt-2 text-label font-medium text-muted-foreground',
+            'mt-1 justify-center rounded-none border-t border-stroke-subtle px-2.5 pt-2 text-label font-medium text-muted-foreground',
           label: t('messagesViewAll'),
           onSelect: () => setMsgOpen(true),
         },
