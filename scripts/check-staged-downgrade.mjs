@@ -73,13 +73,13 @@ import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSyn
 import { tmpdir } from 'node:os'
 import { dirname, isAbsolute, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { Undetermined, catBatch, catBatchOids, gitRaw } from './lib/face-reader.mjs'
+import { Undetermined, catBatch, catBatchOids, gitRaw, worktreeHashObjectBatch } from './lib/face-reader.mjs'
 import { deltaParents } from './lib/merge-delta.mjs'
 import {
   ANCESTOR_WINDOW_DEFAULT,
   ancestorBlobOf,
   ancestorContentMatch,
-  headBlobOf,
+  headBlobBatch,
   intentionalRevertOf,
   describeMatch,
 } from './lib/ancestor-downgrade.mjs'
@@ -167,6 +167,13 @@ export function judge({
   declared = null,
   env = process.env,
 } = {}) {
+  // 合法回滚声明在最前面判:文档 line 53-56 承诺「声明即放行并留痕」;
+  // 若放在扫描之后,工作树臂(1378 个并行会话脏文件 × 祖先 blob 逐个比对)会先卡死看门狗,
+  // 声明永远跑不到(2026-11-15 实测:两轮批量档均 300s 超时被终止)。提前到入口不影响判据:
+  // 声明的语义本就是「认下这些路径是旧档、有正当理由」,不需要先跑扫描来发现它们。
+  const earlyRevert = intentionalRevertOf(message)
+  if (earlyRevert.ok)
+    return { state: 'waived', judged: 0, stale: [], rationale: earlyRevert.rationale }
   let paths
   try {
     paths = stagedModifiedPaths(root)
@@ -320,14 +327,37 @@ export function judge({
   // 独立审计(未传声明集)判**全部**工作树 M 路径,专门兜"索引对齐、磁盘旧档"这格。
   // 这不是放宽:要提交的旧档必在声明集里,索引臂本身就已点名(make 时 index blob = 祖先)。
   const worktreeScoped = scope.length > 0
+  // 性能收口(2026-11-15):独立审计下工作树 M 路径可上千(2026-11-15 实测 1393 条),
+  // 旧实现逐条 spawn headBlobOf(2 次 rev-parse)+ worktreeBlobOid(1 次 hash-object)≈ 5 次/路径
+  // = 数千次进程创建,Windows 上仅 spawn 开销即吃满 300s 看门狗(三次实证 300009/300018/300022ms,
+  // 判据从未跑出结论)。现在:① 先按射程与"索引面已点名"筛出本轮真要判的路径;② HEAD oid 一次
+  // 批量取齐(headBlobBatch,砍掉每路径重复 rev-parse HEAD);③ 工作树 oid 一次批量取齐
+  // (worktreeHashObjectBatch,1393 次 hash-object → 1 次 --stdin-paths)。判据语义逐字不变,
+  // 只把"逐条 spawn"换成"一次批量",三态契约(ABSENT/UNKNOWN/40hex、missing、未判定)全部保留。
+  const wtCandidates = []
+  const wtAlreadyStale = new Set(stale.map((s) => s.path))
   for (const p of worktreePaths) {
-    if (stale.some((s) => s.path === p)) continue // 同一路径已被索引面点名,不重复报
+    if (wtAlreadyStale.has(p)) continue // 同一路径已被索引面点名,不重复报
     if (worktreeScoped && !scope.includes(p)) continue // 提交路径:别席残渣不替他们判(射程同归一化臂)
-    const hb = headBlobOf(p, { root })
-    if (!hb.judged)
-      return { state: 'undetermined', judged: judgedSet.size, why: `${p}: ${hb.why ?? 'HEAD blob 取不到'}` }
+    wtCandidates.push(p)
+  }
+  const headBatch = wtCandidates.length > 0 ? headBlobBatch(wtCandidates, { root }) : null
+  if (headBatch && headBatch.why)
+    return { state: 'undetermined', judged: judgedSet.size, why: headBatch.why }
+  let wtOidByPath = new Map()
+  if (wtCandidates.length > 0) {
+    try {
+      wtOidByPath = worktreeHashObjectBatch(root, wtCandidates)
+    } catch (e) {
+      return { state: 'undetermined', judged: judgedSet.size, why: `工作树 blob 批量取不到:${String(e?.message ?? e).split('\n')[0]}` }
+    }
+  }
+  for (const p of wtCandidates) {
+    const hb = headBatch.byPath.get(p)
+    if (!hb || !hb.judged)
+      return { state: 'undetermined', judged: judgedSet.size, why: `${p}: ${hb?.why ?? 'HEAD blob 取不到'}` }
     if (hb.missing) continue // HEAD 没有该路径(真新文件/已被删):不构成"HEAD 已有更新档"这一格
-    const wtOid = worktreeBlobOid(p, root)
+    const wtOid = wtOidByPath.get(p)
     if (wtOid === 'ABSENT') continue // 磁盘没有该路径:删除残局另有专档
     if (wtOid === 'UNKNOWN')
       return { state: 'undetermined', judged: judgedSet.size, why: `${p}: 工作树 blob 取不到(不猜)` }
