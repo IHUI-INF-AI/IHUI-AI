@@ -8389,3 +8389,6 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 | 路由文件 | 703 | `apiRouteFiles` |
 | 测试文件 | 5625 | `testFiles` |
 | 跟踪文件 | 22272 | `trackedFiles` |
+| 工程守门 | 368 | `guardianGates` |
+| — blocking | 338 | `guardianBlocking` |
+| 跟踪文件 | 22273 | `trackedFiles` |
