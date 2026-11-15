@@ -17,7 +17,7 @@ import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { type useTranslations } from 'next-intl'
 import { toast } from 'sonner'
-import { BookOpen, Calculator, Download, Settings, Play } from 'lucide-react'
+import { BookOpen, Calculator, Download, Settings, Play, TriangleAlert } from 'lucide-react'
 
 import { HasPermi } from '@/components/auth/HasPermi'
 import { Button } from '@ihui/ui-react'
@@ -1095,7 +1095,10 @@ function BreakdownDetail({ breakdown, t }: { breakdown: PayrollItem['breakdown']
       {breakdown?.warnings && breakdown.warnings.length > 0 && (
         <div className="font-[weight:inherit] mt-1 space-y-0.5 text-label text-destructive">
           {breakdown.warnings.map((w, i) => (
-            <div key={i}>⚠ {w}</div>
+            <div key={i} className="flex items-start gap-1">
+              <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+              <span>{w}</span>
+            </div>
           ))}
         </div>
       )}
