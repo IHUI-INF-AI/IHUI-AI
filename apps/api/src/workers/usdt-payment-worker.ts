@@ -12,7 +12,12 @@
  */
 import type { FastifyInstance } from 'fastify'
 import { Queue, Worker } from 'bullmq'
-import { pollPendingUsdtPayments } from '../services/payment-usdt-service.js'
+import {
+  pollPendingUsdtPayments,
+  UsdtPollFailureError,
+  type PollOptions,
+  type PollResult,
+} from '../services/payment-usdt-service.js'
 import { queueNameWithDbIdentity } from '../services/relay-queue-name.js'
 
 /**
@@ -27,6 +32,51 @@ export const USDT_PAYMENT_QUEUE_NAME = queueNameWithDbIdentity(USDT_PAYMENT_QUEU
 
 /** 每 1 分钟轮询一次（cron 表达式见 CRON_PATTERN） */
 const CRON_PATTERN = '* * * * *'
+
+/** F-509:job 执行体只依赖这两个日志级别，便于单测注入假 logger */
+export interface UsdtPollJobLogger {
+  info: (obj: Record<string, unknown>, msg: string) => void
+  error: (obj: Record<string, unknown>, msg: string) => void
+}
+
+/**
+ * F-509:USDT 轮询 job 的可单测执行体。
+ *
+ * 旧实现直接 `return result`：service 把链上故障咽成 pending，failed 恒 0，
+ * BullMQ 每分钟把 job 记成 completed，监控永远显示健康。
+ * 现在 service 在 failed>0 时抛 UsdtPollFailureError（带统计+摘要），这里
+ * 结构化记录后再上抛，由 BullMQ 记为 failed 并触发既有 failed 日志/重试策略。
+ */
+export async function runUsdtPaymentPollJob(
+  log: UsdtPollJobLogger,
+  options?: PollOptions,
+): Promise<PollResult> {
+  try {
+    const result = await pollPendingUsdtPayments(50, options)
+    log.info(
+      {
+        checked: result.checked,
+        confirmed: result.confirmed,
+        failed: result.failed,
+      },
+      'usdt-payment poll done',
+    )
+    return result
+  } catch (err) {
+    const result = err instanceof UsdtPollFailureError ? err.result : undefined
+    log.error(
+      {
+        checked: result?.checked ?? 0,
+        confirmed: result?.confirmed ?? 0,
+        failed: result?.failed ?? 0,
+        failures: result?.errors ?? [],
+        err: err instanceof Error ? err.message : String(err),
+      },
+      'usdt-payment poll failed',
+    )
+    throw err
+  }
+}
 
 export function startUsdtPaymentWorker(server: FastifyInstance): Worker {
   const connection = server.redisForQueue
@@ -64,15 +114,7 @@ export function startUsdtPaymentWorker(server: FastifyInstance): Worker {
         server.log.warn({ jobName: job.name }, 'usdt-payment: unknown job')
         return null
       }
-      const result = await pollPendingUsdtPayments()
-      server.log.info(
-        {
-          checked: result.checked,
-          confirmed: result.confirmed,
-          failed: result.failed,
-        },
-        'usdt-payment poll done',
-      )
+      const result = await runUsdtPaymentPollJob(server.log)
       return result
     },
     { connection, concurrency: 1 },

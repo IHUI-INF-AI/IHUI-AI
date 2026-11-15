@@ -234,7 +234,7 @@ export const RN_ROUTE_MAP: Record<string, string> = {
   Status: '/pkg-mirror3/status/index',
   Student: '/pkg-mirror3/student-center/index',
   StudyPlan: '/pages/study/plan',
-  StudyProgress: '/pkg-mirror3/study-progress/index',
+  StudyProgress: '/pages/study/index',
   StudyRecord: '/pages/study/record',
   SubPackageIndex: '/pkg-user/sub-package-index/index',
   Subscriptions: '/pkg-user/subscriptions/index',

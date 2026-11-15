@@ -153,7 +153,7 @@ describe('MarkdownStream 档⑦:围栏晋升 stable 不回塌折叠', () => {
     expect(expandButton(container)).toBeNull()
   })
 
-  it('历史重载(未经流式)默认折叠设计逐字不变', async () => {
+  it('历史重载(未经流式)默认折叠为 header 卡片,点击 header 展开正文', async () => {
     vi.useFakeTimers()
     const sp = splitMarkdownStable(DONE)
     // 自证腿:历史块恰好落在晋升会走的那条腿(stable)里;折叠设计判的正是这条腿的首挂载
@@ -161,10 +161,13 @@ describe('MarkdownStream 档⑦:围栏晋升 stable 不回塌折叠', () => {
     expect(sp.active).toBe('尾追段落')
     const { container } = render(<MarkdownStream content={DONE} isStreaming={false} />)
     await tick()
+    // 默认折叠:header 折叠钮在场(展开代码形态),正文被 hidden 收起
     expect(expandButton(container)).not.toBeNull()
-    const texts = hlTexts(container)
-    expect(texts.some((t) => t.includes('alpha1 = 1'))).toBe(true)
-    expect(texts.some((t) => t.includes('alpha8 = 8'))).toBe(false)
+    expect(container.querySelector('pre')?.closest('[hidden]')).not.toBeNull()
+    // 点击 header ⇒ 正文展开,折叠钮翻"收起代码"
+    fireEvent.click(expandButton(container) as Element)
+    expect(container.querySelector('pre')?.closest('[hidden]')).toBeNull()
+    expect(container.querySelector('button[aria-label="收起代码"]')).not.toBeNull()
   })
 
   it('前块闭合 + 后块开栏挤同一拍:先记后判,前块同拍晋升也不塌', async () => {
@@ -203,7 +206,7 @@ describe('MarkdownStream 档⑦:围栏晋升 stable 不回塌折叠', () => {
     expect(expandButton(container)).toBeNull()
   })
 
-  it('⑩ 折叠钮用户意志接管:carry 在场时首拍即"收起代码"形态,点折叠后当拍翻"展开代码"并收缩显文', async () => {
+  it('⑩ 折叠钮用户意志接管:carry 在场时首拍即"收起代码"形态,点折叠后当拍翻"展开代码"并隐藏正文', async () => {
     vi.useFakeTimers()
     // 走完整晋升路径(S1→S3)使 A 块以 preserveExpanded 携带态挂进 stable
     const { container, rerender } = render(<MarkdownStream content={S1} isStreaming />)
@@ -213,11 +216,10 @@ describe('MarkdownStream 档⑦:围栏晋升 stable 不回塌折叠', () => {
     // 携带态:按钮标签应为"收起代码"(当前展开),而非旧实现沿变前一拍的"展开代码"
     expect(container.querySelector('button[aria-label="收起代码"]')).not.toBeNull()
     expect(expandButton(container)).toBeNull()
-    // 用户主动折叠 ⇒ 当拍翻标签 + 显文收缩到前 5 行(carry 让位于用户意志)
+    // 用户主动折叠 ⇒ 当拍翻标签 + 正文 hidden 收起(carry 让位于用户意志)
     fireEvent.click(container.querySelector('button[aria-label="收起代码"]') as Element)
     expect(expandButton(container)).not.toBeNull()
-    const texts = hlTexts(container)
-    expect(texts.some((t) => t.includes('alpha1 = 1') && !t.includes('alpha8 = 8'))).toBe(true)
+    expect(container.querySelector('pre')?.closest('[hidden]')).not.toBeNull()
     // 尾段续写不应把用户折叠洗回展开(userToggled 闸)
     await step(rerender, S4)
     expect(expandButton(container)).not.toBeNull()

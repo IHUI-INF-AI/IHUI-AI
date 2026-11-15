@@ -10,13 +10,10 @@
  * **不实现** refreshToken(刷新端点无公开文档,不猜)⇒ 池自身没有任何自愈通道,本腿是唯一出路。
  *
  * 与 `relay-import-*.ts`(整条覆盖 + 重置健康状态)不同:本脚本只动凭证列并
- * `credVersion + 1`(签到侧按版本防降级),并在**真的写入本机新票**那一次把异常行复位到
- * unknown + 清零失败面(见 `revivePatchOf`)。**判据住在 `relay-credential-revival.ts`
- * (`healthRevivalPatchOf`),本腿只做调用**,不复算「客户端票是否过期 / 池是否 healthy /
- * broken 信号」—— 那正是 §0.6 要收归单源的第二份判据。
- * 这不会造成「拿死票空撞上游」:复位只在 `decideSync` 判定票确实轮换、`final.apply` 为真的
- * 那一次写库里发生(同票 / 池内更新 / 过期票一律走不到这里),且单源对过期票返回 null
- * ⇒ 死票既不会被复活,也不会被每 10 分钟一次的回灌反复洗成 unknown(§0.3 取不到 ≠ 失效)。
+ * `credVersion + 1`(签到侧按版本防降级),并存**证据**上恢复健康态(见 `revivePatchOf`):
+ * 只有当客户端递来「与池内不同且尚未过期」的票时,才把 down/degraded/被摘除的行放回 unknown
+ * 让巡检重新定级 —— 同票 / 过期票一律不碰健康字段(否则每 10 分钟一次的回灌会把 down 洗成
+ * unknown,§0.3 取不到 ≠ 失效)。
  *
  * 身份识别(2026-10-31 立,2026-11-06 实测更正):`mapMinimaxImport` 的 uid 是
  * `auto:sha256(recordKey:token)`,**随 token 旋转而变**,照 uid 找行在票一换之后找不到。
@@ -66,8 +63,6 @@ const touchClientHeartbeat = traeSync.touchClientHeartbeat
 // 目标行选择单源(2026-11-01 第四条腿收口):运营池优先 / 个人池唯一行 / 多行拒写。
 // 候选查询去掉 owner 过滤,本机号落个人池时不再走自动入池造重复行(与 qoder 事故同型)。
 const { chooseSyncTargetRow } = await import('../src/services/relay-session-sync-target.js')
-// 健康态复位判据单源(§0.6):本腿的 revivePatchOf 只做签名适配,判据全住在这里,不再各写一份。
-const { healthRevivalPatchOf } = await import('../src/services/relay-credential-revival.js')
 
 import type { SyncReason } from '../src/services/relay-session-sync-decision.js'
 import type { ImportAccountInput } from '../src/services/relay-account-pool-service.js'
@@ -98,7 +93,30 @@ export interface MinimaxSyncPayload {
   accounts: MinimaxSyncCandidate[]
   /** 客户端心跳时刻(编排器探测在跑/未知时带;不带 = 没证据,不写心跳) */
   clientActiveAt?: string | null
+  /**
+   * 本机 mcode 登录态 auth-state.json 的 status(非凭据;取数端读到才带)。
+   * 非可续态(非 authenticated/refreshing)⇒ 死票守卫:凭证列一律 skip(见 runSync),
+   * 防止退出登录后残留的死票每 10 分钟镜回池、覆盖池里已轮换出的新 rt。
+   * 不带(旧取数端/人工载荷)⇒ 放行,行为与既有完全一致。
+   */
+  clientAuthStatus?: string | null
   meta?: Record<string, unknown>
+}
+
+/**
+ * 可续期登录态名单 —— 与 `scripts/lib/minimax-auth-extract.mjs` 的 `RENEWING_STATUSES`
+ * 同一份镜像(tsx 不 import mjs,两处改一处必须同步;名单只有两个取值,漂移风险由测试锁)。
+ */
+const RENEWING_CLIENT_AUTH = new Set(['authenticated', 'refreshing'])
+
+/**
+ * 死票守卫判据(纯函数,测试直打):载荷缺省/空白 ⇒ false(放行,旧行为原样);
+ * 可续态 ⇒ false(放行);已知死态(anonymous/logging_out/expired/error…)⇒ true
+ * ⇒ runSync 对全部账号只记 skip、不写凭证列、不拨心跳。
+ */
+export function clientAuthDeadOf(status: string | null | undefined): boolean {
+  const s = typeof status === 'string' ? status.trim() : ''
+  return s !== '' && !RENEWING_CLIENT_AUTH.has(s)
 }
 
 /** 池面单行切片(secrets 已解密;解不出 ⇒ null 并计入 undecryptable) */
@@ -281,19 +299,32 @@ export function buildMinimaxAutoImportInput(acc: MinimaxSyncCandidate): ImportAc
 }
 
 /**
- * 健康态恢复判据(纯函数,**只做签名适配**)。
- *
- * 判据住在 `relay-credential-revival.ts`(`healthRevivalPatchOf`),本腿只做调用:保留既有
- * 测试 import 的导出名与 `(pool, clientExpiresAt, now)` 签名,把三个实参原样转交单源,
- * 本文件不再复算「客户端票未过期 / 池非 healthy / broken」—— 那正是要收归的第二份判据。
- * 单源的反向牙(过期票 ⇒ null、健康且无失败面的行 ⇒ null)原样生效,不在本腿再写一遍。
+ * 健康态恢复判据(纯函数)。**只上行不下行**:
+ * - 客户端没给到期 / 票已过期 ⇒ null(过期票不是"账号活着"的证据,交巡检判);
+ * - 池内已是 healthy ⇒ null(不回退健康态,也不替 admin 解摘);
+ * - down / degraded / 有刷新失败计数 / 被临时摘除 ⇒ 放回 unknown + 清零失败面
+ *   (与巡检"刷新成功"分支同形;minimax 无刷新能力,不这么做这行永远回不来)。
  */
 export function revivePatchOf(
   pool: { healthStatus: string; refreshFailureCount: number; tempUnschedulable: boolean },
   clientExpiresAt: Date | null,
   now: Date,
 ): HealthRevival | null {
-  return healthRevivalPatchOf(pool, { clientExpiresAt, now })
+  if (!clientExpiresAt) return null
+  if (clientExpiresAt.getTime() <= now.getTime()) return null
+  if (pool.healthStatus === 'healthy') return null
+  const broken =
+    pool.healthStatus === 'down' ||
+    pool.healthStatus === 'degraded' ||
+    pool.refreshFailureCount > 0 ||
+    pool.tempUnschedulable
+  if (!broken) return null
+  return {
+    healthStatus: 'unknown',
+    refreshFailureCount: 0,
+    lastErrorMessage: null,
+    tempUnschedulable: false,
+  }
 }
 
 /**
@@ -407,6 +438,10 @@ export async function runSync(payloadText: string, dryRun: boolean): Promise<Min
   }
 
   let pool: { rows: PoolRowSlice[]; undecryptable: number } | null = null
+  // 死票守卫(载荷缺省 ⇒ 不拦,旧行为原样;判据单源 = clientAuthDeadOf)
+  const clientAuthStatus =
+    typeof payload.clientAuthStatus === 'string' ? payload.clientAuthStatus.trim() : ''
+  const authDead = clientAuthDeadOf(clientAuthStatus)
   // 心跳只拨给「本轮真认到的那一行」(一台机一个会话槽 ⇒ 每份载荷至多一行);
   // 整族都拨会把其余号的 client-first 让位判据洗成常亮(2026-11-05 同型缺陷已踩过一次)
   const heartbeatRowIds: string[] = []
@@ -425,6 +460,18 @@ export async function runSync(payloadText: string, dryRun: boolean): Promise<Min
     const recordKey = cstr(acc.recordKey)
     const label = uidIn || recordKeyLabel(recordKey)
     try {
+      // 死票守卫(2026-11-12,计划 §3):登录态非可续 ⇒ 客户端手里已没票,载荷凭证是
+      // 退出前的残影 —— 全部 skip(仅日志),heartbeatRowIds 不进人 ⇒ 心跳自然停摆,
+      // 30 分钟后永久保活档接管续票。缺省(clientAuthStatus 不带)⇒ 放行,行为不变。
+      if (authDead) {
+        summary.skipped++
+        summary.rows.push({
+          uid: label,
+          decision: `client-auth-${clientAuthStatus}`,
+          applied: false,
+        })
+        continue
+      }
       if (!token) {
         summary.failed++
         summary.rows.push({
@@ -666,5 +713,6 @@ export const __test__ = {
   buildMinimaxAutoImportInput,
   revivePatchOf,
   buildSecretsPatch,
+  clientAuthDeadOf,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

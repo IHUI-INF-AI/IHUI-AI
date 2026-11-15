@@ -310,7 +310,7 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
     },
     batchBtnDisabled: { opacity: 0.4 },
-    batchText: { fontSize: rnType.label.size, fontWeight: '600', color: tk.surface.light },
+    batchText: { fontSize: rnType.label.size, fontWeight: '600', color: tk.surface.onBrand },
     cardRow: { flexDirection: 'row', alignItems: 'flex-start', gap: rnSpacing.sm },
     cardBody: { flex: 1 },
     checkBox: {
@@ -355,7 +355,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     deleteText: {
       fontSize: rnType.label.size,
-      color: tk.danger.DEFAULT,
+      color: tk.danger.deepText,
     },
   } satisfies Record<string, ViewStyle | TextStyle>)
 }

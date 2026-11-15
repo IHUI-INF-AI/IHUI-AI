@@ -10050,6 +10050,7 @@
       "title": "대화 이름 변경"
     },
     "resizeHandleHint": "드래그하여 너비 조정",
+    "resizeFloatHint": "가장자리를 드래그하여 패널 크기 조절",
     "settings": "설정",
     "share": "공유",
     "shareConversation": "공유된 대화",

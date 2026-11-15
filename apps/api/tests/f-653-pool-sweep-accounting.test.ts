@@ -94,7 +94,10 @@ vi.mock('../src/services/relay-client-session-mirror.js', () => ({
   shouldAdoptClientRt: vi.fn(() => false),
 }))
 
-import { __test__ as schedulerTest, sweepAccountPool } from '../src/services/relay-account-pool-scheduler.js'
+import {
+  __test__ as schedulerTest,
+  sweepAccountPool,
+} from '../src/services/relay-account-pool-scheduler.js'
 import { __test__ as sharedState } from '../src/services/relay-account-shared-state.js'
 import { registerRelayAdapter } from '../src/services/relay-upstream-adapters.js'
 

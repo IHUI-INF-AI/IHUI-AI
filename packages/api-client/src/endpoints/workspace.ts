@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import type { ApiResult, GitStatusSnapshot } from '@ihui/types'
+import type { ApiResult, ChangeRequestSnapshot, GitStatusSnapshot } from '@ihui/types'
 // 权限档 wire 拼写的唯一来源是共享类型(本包不再自抄一份,见 528 行附近)
 import type { PermissionModeWire as WorkspacePermissionMode } from '@ihui/types/permission-mode'
 
@@ -474,6 +474,53 @@ export async function pollGithubDeviceToken(params: {
       body: JSON.stringify(params),
     },
   )
+}
+
+// =============================================================================
+// Change Request — 变更请求台账(F-Forge)
+// =============================================================================
+
+/**
+ * 拉取工作区变更请求快照(GET,query 参数)。
+ *
+ * 快照语义全由服务端 `buildChangeRequestSnapshot` 给出:`supported` / `credentialsReady` /
+ * `fetchFailed` 不得在端内二次推断,否则「平台没适配器」会被渲染成「没有变更请求」。
+ */
+export async function getChangeRequests(params: {
+  workspacePath: string
+}): Promise<ApiResult<ChangeRequestSnapshot>> {
+  return fetchApi<ChangeRequestSnapshot>(
+    `/api/workspace/change-requests${buildQs({ workspacePath: params.workspacePath })}`,
+  )
+}
+
+/** 创建 GitHub PR 后服务端透传的 PR 字段子集(原始响应见 GitHub REST API) */
+export interface GithubPullRequest {
+  number: number
+  title: string
+  html_url: string
+  state: 'open' | 'closed'
+  draft: boolean
+  merged_at: string | null
+  head: { ref: string; sha: string }
+  base: { ref: string }
+  user: { login: string } | null
+}
+
+/** 一键创建 GitHub PR(后端 workspace-ai 的 POST /github/prs,成功返回 201) */
+export async function createGithubPullRequest(params: {
+  owner: string
+  repo: string
+  title: string
+  head: string
+  base: string
+  body?: string
+  draft?: boolean
+}): Promise<ApiResult<GithubPullRequest>> {
+  return fetchApi<GithubPullRequest>('/api/workspace/github/prs', {
+    method: 'POST',
+    body: JSON.stringify(params),
+  })
 }
 
 // =============================================================================

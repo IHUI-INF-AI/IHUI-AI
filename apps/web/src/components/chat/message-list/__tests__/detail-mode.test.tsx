@@ -45,10 +45,7 @@ vi.mock('next-intl', async () => {
   }
 })
 
-import {
-  applyConversationDetailMode,
-  isCommandToolCall,
-} from '../detail-mode-filter'
+import { applyConversationDetailMode, isCommandToolCall } from '../detail-mode-filter'
 import { DetailModeSwitcher } from '../detail-mode-switcher'
 import { useConversationDetailModeStore } from '@/stores/conversation-detail-mode'
 import type { ChatMessage, ToolCall } from '@/stores/chat'
@@ -60,7 +57,9 @@ function toolCall(toolName: string, id: string): ToolCall {
   return { id, toolName, args: {}, status: 'success' }
 }
 
-function msg(partial: Partial<ChatMessage> & { id: string; role: ChatMessage['role'] }): ChatMessage {
+function msg(
+  partial: Partial<ChatMessage> & { id: string; role: ChatMessage['role'] },
+): ChatMessage {
   return { content: '', createdAt: 1, ...partial }
 }
 
@@ -73,7 +72,11 @@ function baseMessages(): ChatMessage[] {
       id: 'a2',
       role: 'assistant',
       content: '叙述正文,执行了命令并读了文件。',
-      toolCalls: [toolCall('read_file', 't1'), toolCall('bash', 't2'), toolCall('write_file', 't3')],
+      toolCalls: [
+        toolCall('read_file', 't1'),
+        toolCall('bash', 't2'),
+        toolCall('write_file', 't3'),
+      ],
     }),
     msg({ id: 'a3', role: 'assistant', content: '' }),
   ]
@@ -115,7 +118,13 @@ describe('D45 detail-mode-filter 三档过滤', () => {
         id: 'q1',
         role: 'assistant',
         content: '请选择方案',
-        question: { questionId: 'q', prompt: '请选择方案', options: [], allowCustom: true, allowMultiple: false },
+        question: {
+          questionId: 'q',
+          prompt: '请选择方案',
+          options: [],
+          allowCustom: true,
+          allowMultiple: false,
+        },
       }),
       msg({ id: 'e1', role: 'assistant', content: '执行失败:超时', error: true }),
     ]
@@ -135,7 +144,15 @@ describe('D45 detail-mode-filter 三档过滤', () => {
   })
 
   it('isCommandToolCall:命令与文件写入类为真,读/搜/浏览为假', () => {
-    for (const name of ['bash', 'run_command', 'execute_command', 'shell', 'write_file', 'edit_file', 'delete_file']) {
+    for (const name of [
+      'bash',
+      'run_command',
+      'execute_command',
+      'shell',
+      'write_file',
+      'edit_file',
+      'delete_file',
+    ]) {
       expect(isCommandToolCall(name)).toBe(true)
     }
     for (const name of ['read_file', 'grep', 'web_search', 'browser_navigate', 'mcp__x__y']) {
@@ -164,7 +181,9 @@ describe('D45 档位切换器与持久化', () => {
     expect(useConversationDetailModeStore.getState().mode).toBe('commands')
     const raw = window.localStorage.getItem('ihui-conversation-detail-mode')
     expect(raw).not.toBeNull()
-    const parsed = JSON.parse(raw as string) as { state: { mode: string; suggestionsEnabled: boolean } }
+    const parsed = JSON.parse(raw as string) as {
+      state: { mode: string; suggestionsEnabled: boolean }
+    }
     expect(parsed.state.mode).toBe('commands')
   })
 
@@ -199,12 +218,13 @@ describe('D45 五语词包 parity', () => {
       expect(mk).toBe(modeKeys)
       expect(ak).toBe(ambientKeys)
       // 值非空
-      for (const v of Object.values(pack.conversationDetailMode)) expect(v.length).toBeGreaterThan(0)
+      for (const v of Object.values(pack.conversationDetailMode))
+        expect(v.length).toBeGreaterThan(0)
       for (const v of Object.values(pack.ambientSuggestions)) expect(v.length).toBeGreaterThan(0)
     }
     expect(modeKeys).toBe('commands,label,narrative,steps')
     expect(ambientKeys).toBe(
-      'close,dismiss,restore,suggestionAnswerQuestion,suggestionContinueTopic,suggestionResumeTask,suggestionReviewFiles,title',
+      'dismiss,suggestionAnswerQuestion,suggestionContinueTopic,suggestionResumeTask,suggestionReviewFiles,title',
     )
   })
 })

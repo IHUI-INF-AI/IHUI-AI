@@ -40,17 +40,17 @@ export async function autoCloseExpiredActivities(): Promise<ActivityStatusResult
     return { scanned: 0, endedActivities: 0, errors: [] }
   }
 
-  // 2. 批量更新活动状态为 ended
-  let endedActivities = 0
-  for (const activity of expiredActivities) {
-    try {
-      await db.update(activities).set({ status: 'ended' }).where(eq(activities.id, activity.id))
-      endedActivities++
-    } catch (err) {
-      errors.push(`Failed to end activity ${activity.id} (${activity.title}): ${String(err)}`)
-    }
+  // 2. F-478: 单条集合 UPDATE 取代逐条往返(N+1),过期活动积压时不再上千次 DB 往返
+  try {
+    const ended = await db
+      .update(activities)
+      .set({ status: 'ended' })
+      .where(and(eq(activities.status, 'published'), lt(activities.endAt, new Date())))
+      .returning({ id: activities.id })
+    return { scanned, endedActivities: ended.length, errors }
+  } catch (err) {
+    errors.push(`批量结束活动失败: ${String(err)}`)
+    return { scanned, endedActivities: 0, errors }
   }
-
-  return { scanned, endedActivities, errors }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

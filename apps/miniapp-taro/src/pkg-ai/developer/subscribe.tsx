@@ -262,12 +262,13 @@ export default function DeveloperSubscribePage() {
                       {m.description || tt('developer.subscribe.noDesc', '暂无描述')}
                     </Text>
                   </View>
-                  <Text
+                  <View
                     className="flex-shrink-0 px-[24rpx] py-[12rpx] text-label font-medium text-[var(--color-brand-accent-deep)] border-[length:2rpx] border-[var(--color-brand-accent-deep)] rounded-xl"
                     onClick={() => handleUseModel(m)}
+                    hoverClass="opacity-60"
                   >
-                    {tt('developer.subscribe.use', '使用')}
-                  </Text>
+                    <Text>{tt('developer.subscribe.use', '使用')}</Text>
+                  </View>
                 </View>
               ))}
             </View>

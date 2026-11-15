@@ -121,7 +121,7 @@ export function CirclePostScreen({
             value={title}
             onChangeText={onTitleChange}
             placeholder={t('circlePostPage.titlePlaceholder')}
-            placeholderTextColor={tk.text.tertiary}
+            placeholderTextColor={tk.text.secondary}
             maxLength={200}
           />
         </View>
@@ -135,7 +135,7 @@ export function CirclePostScreen({
             value={content}
             onChangeText={onContentChange}
             placeholder={t('circlePostPage.contentPlaceholder')}
-            placeholderTextColor={tk.text.tertiary}
+            placeholderTextColor={tk.text.secondary}
             textAlignVertical="top"
           />
         </View>
@@ -162,9 +162,9 @@ export function CirclePostScreen({
                 disabled={uploading || images.length >= MAX_IMAGES}
               >
                 {uploading ? (
-                  <ActivityIndicator size="small" color={tk.text.tertiary} />
+                  <ActivityIndicator size="small" color={tk.text.secondary} />
                 ) : (
-                  <Plus size={22} color={tk.text.tertiary} />
+                  <Plus size={22} color={tk.text.secondary} />
                 )}
               </TouchableOpacity>
             ) : null}
@@ -282,7 +282,7 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
       backgroundColor: tk.surface.muted,
     },
-    error: { marginTop: rnSpacing.md, fontSize: rnType.body.size, color: tk.danger.DEFAULT },
+    error: { marginTop: rnSpacing.md, fontSize: rnType.body.size, color: tk.danger.deepText },
     actions: { flexDirection: 'row', gap: rnSpacing.md, marginTop: rnSpacing.lg },
     submitBtn: {
       paddingHorizontal: rnSpacing.xl,

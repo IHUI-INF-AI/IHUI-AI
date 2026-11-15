@@ -59,6 +59,8 @@
     "toolCreateArtifact": "生成交付物",
     "toolCreateAutomation": "创建自动化",
     "toolSummarizeArtifacts": "汇总任务产物",
+    "toolPresentFiles": "交付文件",
+    "presentedTitle": "已交付 {count} 个文件",
     "activityMcp": "调用 {mcp} MCP",
     "activityPlugin": "调用 {plugin} 插件",
     "activityPlanning": "规划进度",
@@ -367,7 +369,7 @@
       "ch9Title": "第 9 章 争议解决",
       "ch9Body": "本条款适用中华人民共和国法律。因本条款产生的争议,双方应优先协商解决;协商不成的,提交北京仲裁委员会按其仲裁规则仲裁。",
       "ch10Title": "第 10 章 联系方式",
-      "ch10Body": "如对本条款有任何疑问,请联系:support@ihui.ai。"
+      "ch10Body": "如对本条款有任何疑问,请联系:lizong@aizhs.top。"
     },
     "usagePolicy": {
       "title": "使用政策",
@@ -597,6 +599,10 @@
       "submit": "发送",
       "timeoutNoInput": "{{seconds}} 秒内未收到输入",
       "mobileUnsupported": "此命令需要键盘输入，手机端暂不能代答，请在桌面端处理或停止本次执行"
+    },
+    "compactionNotice": "上下文已自动压缩:{before} → {after}(移除 {removed} 条历史)",
+    "truncation": {
+      "maxLengthNotice": "回答因达到长度上限被截断,可发送\"继续\"让它接着说"
     }
   },
   "richAnchorProbe": {
@@ -2327,6 +2333,7 @@
       "approvalPersistHit": "沿用你保存的批准",
       "execPolicyApproved": "执行策略放行",
       "autoSkipApproval": "自动批准(免审批)",
+      "autoReviewAllow": "自动审查放行",
       "skillGrantSkipApproval": "技能授权放行(免审批)",
       "bypassSkipApproval": "已跳过审批",
       "mcpRequiresApproval": "MCP 标注要求确认",
@@ -3636,7 +3643,8 @@
       "title": "执行过程",
       "toolSummary": "工具汇总:{calls} 次调用",
       "terminal": "终端任务:{status}",
-      "usage": "用量:{n} tokens"
+      "usage": "用量:{n} tokens",
+      "memoryRemembered": "已记住 {n} 条"
     },
     "switchAgent": {
       "confirm": "确认切换"

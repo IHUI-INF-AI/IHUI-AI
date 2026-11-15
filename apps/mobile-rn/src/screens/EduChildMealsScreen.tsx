@@ -20,6 +20,7 @@ import { ConsoleTableScreen, type ConsoleColumn, type ConsoleRowView } from '@ih
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { toFriendlyOr } from '@ihui/shared/utils'
 
 interface MealItem {
   id: string
@@ -60,7 +61,7 @@ function EduChildMealsScreen() {
         })),
       )
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'load failed')
+      setError(toFriendlyOr(e, t('common.loadFailed')))
     } finally {
       setLoading(false)
     }

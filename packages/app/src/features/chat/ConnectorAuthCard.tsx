@@ -79,7 +79,7 @@ export function ConnectorAuthCard({
   testID = 'connector-auth-card',
 }: ConnectorAuthCardProps) {
   const tk = getTokens(colorScheme)
-  const styles = useMemo(() => createStyles(tk), [tk])
+  const styles = useMemo(() => createStyles(tk, colorScheme === 'dark'), [tk, colorScheme])
 
   const needsDecision = isConnectorAuthDecisionState(state)
 
@@ -192,7 +192,7 @@ export function ConnectorAuthCard({
  * `text-emerald-600 / dark:text-emerald-500`→light 取 success.deep、dark 取 success.DEFAULT
  * (同一"绿"语义按主题挑可读档,不是第二色源)。
  */
-function createStyles(tk: AppThemeTokens) {
+function createStyles(tk: AppThemeTokens, dark: boolean) {
   return StyleSheet.create({
     container: {
       backgroundColor: tk.surface.muted,
@@ -214,16 +214,16 @@ function createStyles(tk: AppThemeTokens) {
     connectedLabel: {
       fontSize: rnType.label.size,
       fontWeight: '500',
-      color: tk.success.deepText,
+      color: dark ? tk.success.DEFAULT : tk.success.deep,
     },
     mutedLabel: {
       fontSize: rnType.label.size,
       fontWeight: '500',
-      color: tk.text.tertiary,
+      color: tk.text.medium,
     },
     smallMutedLabel: {
       fontSize: rnType.caption.size,
-      color: tk.text.tertiary,
+      color: tk.text.medium,
     },
     actionRow: {
       flexDirection: 'row',
@@ -254,7 +254,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     declineText: {
       fontSize: rnType.caption.size,
-      color: tk.text.tertiary,
+      color: tk.text.medium,
     },
     moreInfoBox: {
       alignSelf: 'flex-start',
@@ -266,7 +266,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     moreInfoText: {
       fontSize: rnType.caption.size,
-      color: tk.text.tertiary,
+      color: tk.text.medium,
     },
   })
 }

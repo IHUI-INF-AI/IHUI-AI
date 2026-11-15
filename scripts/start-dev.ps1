@@ -157,6 +157,29 @@ function Test-PidAlive([int]$procId) {
 }
 
 # ============================================================
+# 函数:检测服务是否已由 dev-stack 托管
+# 2026-11-14 API 周期性卡死事故:另一会话用 run-start-dev -Force 又拉了一条
+# node --watch 链,与 dev-stack 抢 8802,产生 EADDRINUSE 与冷启动空窗。
+# dev-stack 把受管服务的 PID 写在 .tmp-sync/dev-stack-<name>.pid;只有
+# "PID 存活且(端口未监听或监听者正是该 PID)"才认定托管,避免陈旧 pid 文件误判。
+# ============================================================
+function Get-DevStackManagedPid([string]$name, [int]$port) {
+  $pidFile = Join-Path $RepoRoot ".tmp-sync\dev-stack-$name.pid"
+  if (-not (Test-Path $pidFile)) { return $null }
+  try {
+    $raw = (Get-Content -Raw -Path $pidFile -Encoding UTF8).Trim()
+    if (-not $raw) { return $null }
+    $managedPid = [int]$raw
+  } catch {
+    return $null
+  }
+  if (-not (Test-PidAlive $managedPid)) { return $null }
+  $owner = Get-PortOwner $port
+  if ($owner -and $owner -ne $managedPid) { return $null }
+  return $managedPid
+}
+
+# ============================================================
 # 函数:通过 HTTP 探活
 # 2026-08-07 修复:默认超时 3s → 10s。api/ai-service 冷启动首次响应
 # (tsx 编译 + DB 连接 + provider 探活)常超 2s,探针超时短会误判 FAIL
@@ -243,6 +266,18 @@ function Start-ServiceProcess {
   )
 
   Write-Hdr "启动 $Name"
+
+  # 0. 单链路守卫:dev-stack(watchdog/dev-with-warmup)已托管本服务时,绝不再拉第二条链。
+  #    -Force 也不越过:Force 的语义只是"杀掉非受管的外部端口占用者",重复拉起
+  #    会与 dev-stack 抢同一端口(node --watch 子进程 EADDRINUSE 崩溃/重启),
+  #    造成周期性不可用。需要本脚本接管时,先停止 dev-with-warmup/dev-stack。
+  $devStackPid = Get-DevStackManagedPid -name $Name -port $Port
+  if ($devStackPid) {
+    Write-Warn "$Name 已由 dev-stack 托管(PID=$devStackPid, port=$Port)⇒ 跳过,不重复拉起。"
+    Write-Host "       -Force 不覆盖此判定(重复拉起会抢端口并造成 API 周期性不可用)。" -ForegroundColor DarkGray
+    Write-Host "       如需本脚本接管:先停止 dev-with-warmup / dev-stack,再运行。" -ForegroundColor DarkGray
+    return $true
+  }
 
   # 1. 端口冲突检测
   if (Test-PortInUse $port) {

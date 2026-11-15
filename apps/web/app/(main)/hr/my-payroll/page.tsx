@@ -206,7 +206,10 @@ export default function MyPayrollPage() {
                         <div className="font-[weight:inherit] mt-1 space-y-0.5 text-label text-destructive">
                           {r.breakdown.warnings.map((w, i) => (
                             <div key={i} className="flex items-start gap-1">
-                              <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+                              <TriangleAlert
+                                className="mt-0.5 h-4 w-4 shrink-0"
+                                aria-hidden="true"
+                              />
                               <span>{w}</span>
                             </div>
                           ))}

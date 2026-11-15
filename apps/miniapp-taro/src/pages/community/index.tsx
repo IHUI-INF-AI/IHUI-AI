@@ -4,7 +4,6 @@
 
 import { aizhsUrl } from '@/constants/icon-urls'
 import { TAB_BAR_OCCUPIED_PX, TAB_BAR_PAGE_RESERVE_CSS } from '@/constants/tab-bar-metrics'
-import { MINI_TAB_PAGE_LIST } from '@/constants/tab-bar-pages'
 import ScrollJumpButton, { pxToTaroRpx, scrollJumpInsetRpx } from '@/components/ScrollJumpButton'
 import { useTt, t } from '@/i18n'
 import { View, Text, Image } from '@tarojs/components'
@@ -114,7 +113,12 @@ export default function Community() {
   const [myAgents, setMyAgents] = useState<MyAgentItem[]>([])
   const [agentList, setAgentList] = useState<AgentItem[]>([])
   const [fullAgentList, setFullAgentList] = useState<AgentItem[]>([])
-  const [loading, setLoading] = useState(false)
+  // 首帧就当"加载中":初值 false 会让第一帧先画一次「暂无智能体」,接口回来才换成列表(闪空态)
+  const [loading, setLoading] = useState(true)
+  // 接口失败要能区分于"真的没有智能体",否则本页会永久停在空态且没有重试出口
+  const [loadError, setLoadError] = useState(false)
+  // 并发去重改用 ref:state 做闸门时,loading 初值 true 会把首屏那次 loadData 直接吞掉
+  const loadingRef = useRef(false)
   const [page, setPage] = useState(1)
   const [hasMore, setHasMore] = useState(true)
   const [searchKeyword, setSearchKeyword] = useState('')
@@ -150,7 +154,7 @@ export default function Community() {
 
   const loadData = useCallback(
     async (reset = false) => {
-      if (loading) return
+      if (loadingRef.current) return
       let curPage = page
       if (reset) {
         curPage = 1
@@ -158,6 +162,7 @@ export default function Community() {
         setPage(1)
       }
       if (!hasMore && !reset) return
+      loadingRef.current = true
       setLoading(true)
       try {
         const res = await api.getAgentList()
@@ -179,6 +184,8 @@ export default function Community() {
           isNew: 0,
           type: 1,
         }))
+        // 取到了就清错误:重试成功后不能继续挂着上一次的错误面
+        setLoadError(false)
         if (reset) {
           const firstPage = mappedList.slice(0, PAGE_SIZE)
           setAgentList(firstPage)
@@ -195,16 +202,18 @@ export default function Community() {
           setPage(curPage + 1)
         }
       } catch {
-        // API 失败时降级到空列表(不再用 mock)
+        // API 失败时不再用 mock,但也不能只清空列表:空列表看起来就是"本来没有智能体"
+        setLoadError(true)
         if (reset) {
           setAgentList([])
           setFullAgentList([])
         }
       } finally {
+        loadingRef.current = false
         setLoading(false)
       }
     },
-    [loading, page, hasMore, tt],
+    [page, hasMore, tt],
   )
 
   /** 加载历史对话(对齐原项目 loadHistoryChat) */
@@ -534,15 +543,9 @@ export default function Community() {
     }
     const url = routeMap[item.key]
     if (url) {
-      // tabBar 页只能 switchTab;失败兜底绝不能再用 navigateTo 打同一个 tabBar 页
-      // (微信硬约束,navigateTo 打 tab 页必然失败),否则点了完全没反馈。
-      // 按名单判定而非只认 appStore:dynamic → /pages/share/index 同为 tabBar 页。
-      const isTabPage = MINI_TAB_PAGE_LIST.some((p) => `/${p}` === url)
-      if (isTabPage) {
-        Taro.switchTab({
-          url,
-          fail: () => onToast(tt('community.text8', '页面未配置'), { kind: 'error' }),
-        })
+      // appStore 用 switchTab(因为是 tabbar 页),其他用 navigateTo
+      if (item.key === 'appStore') {
+        Taro.switchTab({ url, fail: () => Taro.navigateTo({ url }) })
       } else {
         Taro.navigateTo({
           url,
@@ -555,26 +558,16 @@ export default function Community() {
   function handleDrawerLabelClick(item: { key: string }) {
     setShowDrawer(false)
     if (item.key === 'newChat') {
-      // 对齐原项目 addNewChat:跳首页 AI 对话;失败降级到已注册聊天页并给反馈
+      // 对齐原项目 addNewChat:跳首页 AI 对话
       Taro.switchTab({
         url: '/pages/index/index',
-        fail: () =>
-          Taro.navigateTo({
-            url: '/pkg-ai/ai/chat',
-            fail: () => onToast(tt('community.text8', '页面未配置'), { kind: 'error' }),
-          }),
+        fail: () => Taro.navigateTo({ url: '/pkg-ai/ai/chat' }),
       })
     } else if (item.key === 'company') {
-      // 对齐原项目 gotocompany:跳分销页。fallback 必须是 app.config.ts 里注册的
-      // /pages/distribution/company/index(分包 root=pages/distribution);旧写法
-      // /pages/company/index 根本不存在,两次跳转都会静默失败。
+      // 对齐原项目 gotocompany:跳分销页
       Taro.navigateTo({
         url: '/pages/distribution/index',
-        fail: () =>
-          Taro.navigateTo({
-            url: '/pages/distribution/company/index',
-            fail: () => onToast(tt('community.text8', '页面未配置'), { kind: 'error' }),
-          }),
+        fail: () => Taro.navigateTo({ url: '/pages/company/index' }),
       })
     } else if (item.key === 'freebie') {
       // 对齐原项目 lingqu:复制飞书 wiki 链接到剪贴板
@@ -793,8 +786,6 @@ export default function Community() {
                  语音搜索需端侧录音+STT 链路,当前仅聊天输入框接入;小程序端暂不提供,
                   统一提示该能力在完整版提供,避免「开发中」误导) */}
                 <LineIcon
-                  ariaRole="button"
-                  ariaLabel={tt('community.search13', '语音搜索请在完整版使用')}
                   size={40}
                   name="mic"
                   color="var(--color-muted-foreground)"
@@ -806,8 +797,6 @@ export default function Community() {
                 {/* 图片搜索按钮(对齐原项目 handleIconClick L1113-1207。
                  后端无图搜智能体接口,小程序端仅保留入口,提示在完整版提供) */}
                 <LineIcon
-                  ariaRole="button"
-                  ariaLabel={tt('taskStatus.toolImageSearch', '图片搜索')}
                   size={40}
                   name="search"
                   color="var(--color-muted-foreground)"
@@ -864,7 +853,20 @@ export default function Community() {
                 onSelect={onAgentListSelect}
                 onPurchase={handlePurchase}
               />
-              {!loading && agentList.length === 0 ? (
+              {/* 错误优先于空态:失败时给出可点的重试出口,否则本页看不到任何反馈。
+                  样式复用本页既有的 community-empty/community-empty-text,不新造样式 */}
+              {!loading && loadError ? (
+                <View
+                  className="community-empty"
+                  onClick={() => void loadData(true)}
+                  hoverClass="opacity-60"
+                >
+                  <Text className="community-empty-text">
+                    {tt('community.loadFailedTapRetry', '加载失败，点击重试')}
+                  </Text>
+                </View>
+              ) : null}
+              {!loading && !loadError && agentList.length === 0 ? (
                 <EmptyState text={tt('agent.empty', '暂无智能体')} />
               ) : null}
               {!loading && !hasMore && agentList.length > 0 ? (

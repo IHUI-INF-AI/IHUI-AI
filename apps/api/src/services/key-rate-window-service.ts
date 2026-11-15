@@ -12,13 +12,18 @@
  *
  * 限额语义:developer_api_keys.rate_limit_5h/1d/7d,NULL = 不限;>0 = 窗口内最大请求数。
  * 计数:key_rate_window_counts 表 UPSERT(唯一索引 key×type×windowStart)。
- * 校验在 checkQuota(每次调用必经),计数在 recordCall 成功路径 fire-and-forget。
+ *
+ * F-620(2026-11-14):准入判定与计数合并为一次原子占位 —— `claimKeyRateWindows` 在
+ * 单事务内对三窗口执行 `INSERT ... ON CONFLICT DO UPDATE ... WHERE request_count < limit
+ * RETURNING`,并发下不会超发;请求进入即计数,失败请求同样占用额度(不再依赖成功回调)。
+ * 主库写入,不再读副本预检(`checkKeyRateWindows` 仅保留为无副作用的快速预检视图)。
  *
  * 兼容:三列全 NULL 的 Key(存量全部)零开销——直接跳过任何窗口查询/写入。
  */
 import { and, eq, inArray, sql } from 'drizzle-orm'
 import { db, dbRead } from '../db/index.js'
 import { developerApiKeys, keyRateWindowCounts } from '@ihui/database'
+import { currentPrincipalScope } from '../plugins/principal.js'
 import { getUtc8DayStart, getUtc8WeekStart } from './subscription-window-service.js'
 
 const FIVE_HOURS_MS = 5 * 60 * 60 * 1000
@@ -26,6 +31,13 @@ const FIVE_HOURS_MS = 5 * 60 * 60 * 1000
 export type KeyWindowType = '5h' | '1d' | '7d'
 
 const ALL_KEY_WINDOWS: KeyWindowType[] = ['5h', '1d', '7d']
+
+/** 各窗口长度(用于计算 resetsAtMs)。 */
+const WINDOW_LENGTH_MS: Record<KeyWindowType, number> = {
+  '5h': FIVE_HOURS_MS,
+  '1d': 24 * 3600_000,
+  '7d': 7 * 24 * 3600_000,
+}
 
 /** 窗口起点(半开区间 [start, start+len)):5h 固定对齐,1d/7d 用 UTC+8。 */
 export function getKeyWindowStart(windowType: KeyWindowType, at: Date = new Date()): Date {
@@ -63,17 +75,105 @@ export interface KeyWindowCheckResult {
 }
 
 /**
- * 校验 Key 的三窗口请求数(仅对配置了限额的窗口生效)。
- * - failMode='open'(默认,relay 计费路径历史行为):任何异常(表未迁移等)放行——
- *   窗口是附加约束,余额/熔断已兜底。
- * - failMode='close'(O2 2026-09-21,requireApiKeyAuth 主链路):异常不再静默放行,
- *   返回 backendUnavailable=true,由调用方按能力目录判据决定是否 503。
+ * 本请求内已完成窗口占位:既是"同一请求重复预检"的复用缓存(鉴权钩子 + 计费链路各调一次),
+ * 也是 recordCall / reply finish 补计的幂等标记 —— 一次请求只计一次。
+ */
+const claimedRequests = new WeakMap<object, KeyWindowCheckResult>()
+
+/** 某窗口已达上限:抛错以回滚整个占位事务(三窗口全占或全不占)。 */
+class KeyWindowBlockedError extends Error {
+  constructor(
+    readonly windowType: KeyWindowType,
+    readonly limit: number,
+    readonly resetsAtMs: number,
+  ) {
+    super(`key rate window exceeded: ${windowType}`)
+    this.name = 'KeyWindowBlockedError'
+  }
+}
+
+/**
+ * F-620:准入原子占位 —— 三窗口在同一事务内各自执行
+ * `INSERT ... ON CONFLICT DO UPDATE SET request_count = request_count + 1
+ *  WHERE request_count < limit RETURNING request_count`。
+ *
+ * - 判定与自增在同一条语句里完成 ⇒ 并发请求不会读到同一旧值而超发;
+ * - 任一窗口 RETURNING 空行(已满)⇒ 抛错回滚 ⇒ 三窗口都不占、请求不放行;
+ * - 计数发生在请求进入时而非成功回调 ⇒ 失败请求同样计数,不能靠失败刷免费额度;
+ * - 写主库,不再依赖副本读数(副本只在异常兜底时用于旧口径判定)。
+ *
+ * failMode 仅用于兜底:占位本身异常(表未迁移等)时退回 `peekKeyRateWindows` 的历史
+ * 判定口径 —— 'open' 放行、'close' 返回 backendUnavailable 由调用方决定 503。
  */
 export async function checkKeyRateWindows(
   apiKeyId: string,
   limits: KeyWindowLimits,
   at: Date = new Date(),
   failMode: 'open' | 'close' = 'open',
+): Promise<KeyWindowCheckResult> {
+  const configured = ALL_KEY_WINDOWS.filter((w) => (limits[w] ?? 0) > 0)
+  if (configured.length === 0) return { allowed: true }
+  const request = currentPrincipalScope()?.request
+  const cached = request ? claimedRequests.get(request) : undefined
+  if (cached) return cached
+  let result: KeyWindowCheckResult
+  try {
+    const starts = configured.map((w) => ({ w, start: getKeyWindowStart(w, at) }))
+    await db.transaction(async (tx) => {
+      for (const { w, start } of starts) {
+        const limit = limits[w] as number
+        const rows = await tx
+          .insert(keyRateWindowCounts)
+          .values({ keyId: apiKeyId, windowType: w, windowStart: start, requestCount: 1 })
+          .onConflictDoUpdate({
+            target: [
+              keyRateWindowCounts.keyId,
+              keyRateWindowCounts.windowType,
+              keyRateWindowCounts.windowStart,
+            ],
+            set: {
+              requestCount: sql`${keyRateWindowCounts.requestCount} + 1`,
+              updatedAt: new Date(),
+            },
+            where: sql`${keyRateWindowCounts.requestCount} < ${limit}`,
+          })
+          .returning({ requestCount: keyRateWindowCounts.requestCount })
+        if (rows.length === 0) {
+          throw new KeyWindowBlockedError(w, limit, start.getTime() + WINDOW_LENGTH_MS[w])
+        }
+      }
+    })
+    result = { allowed: true }
+  } catch (e) {
+    result =
+      e instanceof KeyWindowBlockedError
+        ? {
+            allowed: false,
+            blocked: {
+              windowType: e.windowType,
+              limit: e.limit,
+              // WHERE 未命中即 request_count >= limit;精确值只在旧只读判定里可得
+              used: e.limit,
+              resetsAtMs: e.resetsAtMs,
+            },
+          }
+        : await peekKeyRateWindows(apiKeyId, limits, at, failMode)
+  }
+  if (request) claimedRequests.set(request, result)
+  return result
+}
+
+/**
+ * 旧只读判定(读副本):仅作原子占位异常时的兜底,行为与修复前逐字节一致。
+ * - failMode='open'(默认,历史):任何异常放行 —— 窗口是附加约束,余额/熔断已兜底;
+ * - failMode='close'(O2 2026-09-21,requireApiKeyAuth 主链路):异常返回
+ *   backendUnavailable=true,由调用方按能力目录判据决定是否 503。
+ */
+async function peekKeyRateWindows(
+  apiKeyId: string,
+  limits: KeyWindowLimits,
+  at: Date,
+  failMode: 'open' | 'close',
 ): Promise<KeyWindowCheckResult> {
   const configured = ALL_KEY_WINDOWS.filter((w) => (limits[w] ?? 0) > 0)
   if (configured.length === 0) return { allowed: true }
@@ -105,10 +205,14 @@ export async function checkKeyRateWindows(
       const limit = limits[w] as number
       const used = usedMap.get(w) ?? 0
       if (used >= limit) {
-        const len = w === '5h' ? FIVE_HOURS_MS : w === '1d' ? 24 * 3600_000 : 7 * 24 * 3600_000
         return {
           allowed: false,
-          blocked: { windowType: w, limit, used, resetsAtMs: start.getTime() + len },
+          blocked: {
+            windowType: w,
+            limit,
+            used,
+            resetsAtMs: start.getTime() + WINDOW_LENGTH_MS[w],
+          },
         }
       }
     }
@@ -120,11 +224,14 @@ export async function checkKeyRateWindows(
 }
 
 /**
- * 窗口请求数 +1(recordCall 成功路径 fire-and-forget 调用)。
+ * 窗口请求数 +1(非准入路径的补计,如未经计费的非 model 端点、WS 会话响应)。
+ * 本请求已由 `checkKeyRateWindows` 原子占位时直接返回 —— 一次请求只计一次。
  * 自查该 Key 的三窗口限额(一次读),全 NULL 直接返回(存量 Key 零写入)。
  * UPSERT 累加,并发安全;失败静默,不影响调用结果。
  */
 export async function incrKeyRateWindows(apiKeyId: string, at: Date = new Date()): Promise<void> {
+  const request = currentPrincipalScope()?.request
+  if (request && claimedRequests.has(request)) return
   try {
     const [row] = await dbRead
       .select({

@@ -52,8 +52,7 @@ export const API_BASE_URL =
 // 设备侧 localhost 不是宿主机(连不上);更严重的是它会把**生产 token** 送到 dev API ——
 // 两边 JWT 密钥不同 ⇒ refresh 判 401 ⇒ App 按"服务端明确否定"清会话(实测:机主账号被登出)。
 // 开发档豁免:__DEV__ / NODE_ENV≠production 时本机回环正是开发形态。
-const IS_DEV_BUILD =
-  typeof __DEV__ === 'boolean' ? __DEV__ : process.env.NODE_ENV !== 'production'
+const IS_DEV_BUILD = typeof __DEV__ === 'boolean' ? __DEV__ : process.env.NODE_ENV !== 'production'
 if (
   !IS_DEV_BUILD &&
   /^(?:https?:\/\/)?(?:localhost|127\.0\.0\.1|10\.0\.2\.2)(?::\d+)?(?:\/|$)/.test(ENV_API_BASE_URL)
@@ -110,6 +109,11 @@ export const SSO_REDIRECT_URI = 'ihui://sso/callback'
  * 横幅却一路亮红)。取 `eas.json` production profile 的同一域名 ⇒ 与装机配置无关,答了就证明
  * 设备出口是通的。
  */
+// 2026-11-12 真机实测更正落点:裸域 `aizhs.top/api/health` 返回 403 且耗时 4.93s,
+// 6s 探测窗在移动网络上常态超时 ⇒ 旁证格长期判"没答",登录页跟着挂误导性错误条。
+// `www.aizhs.top/api/health` 实测 200/0.33s,正是 eas.json production 的 WEB 域;
+// 不取 `api.aizhs.top` 是因为它与 primary(API_BASE_URL)同源,两格重复探同一台机,
+// 旁证就失去"换一条出口验证设备连通性"的意义。
 export const EGRESS_PROBE_URL =
-  process.env.EXPO_PUBLIC_EGRESS_PROBE_URL || 'https://aizhs.top/api/health'
+  process.env.EXPO_PUBLIC_EGRESS_PROBE_URL || 'https://www.aizhs.top/api/health'
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

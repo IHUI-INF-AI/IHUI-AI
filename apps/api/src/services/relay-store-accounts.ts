@@ -65,9 +65,6 @@ export async function createStoreAccount(
       healthStatus: 'unknown',
       extraMetadata: {
         storePlatform: true,
-        // 应用上架平台账号也纳入「永久保活」登记(与 AI 客户端号同口径):
-        // 不被巡检/临期刷新/池健康分母命中,但登记位让号池与桌面侧明确其为受保活项。
-        keepAliveForever: true,
         loginUrl: platform.loginUrl,
         ...(platform.note ? { note: platform.note } : {}),
         createdAt: now.toISOString(),

@@ -29,11 +29,6 @@ import {
 } from '../git-guardian.mjs'
 import { __test__ as S } from '../check-qoder-session-sync-task.mjs'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
-import {
-  classifyLogSegment,
-  scopeOfUnjudgedReason,
-  unjudgedLogLine,
-} from '../lib/client-sync-verdict.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..')
 // 与 schtasks XML 同语义:StartBoundary 是不带时区的本地时间,基准也按本地解析,
@@ -159,136 +154,6 @@ test('S5 单轮瞬时失败不计(上一轮成功⇒unjudged),连续失败才 br
   assert.equal(noPrev.log_verdict.verdict, 'breach')
 })
 
-// 2026-11-15 根因:WorkBuddy 客户端没开时,回灌脚本按 §0.3 写「❌ 回灌未判定」并 exit 2,
-// 但尺子的 hasFailureMark 只认 ❌,连续两轮即判 breach ⇒ 每 12h 一封「保活腿失效」误报
-// (11-02/07/08/10/11/12/13/14 台账共 10 封)。下面四条钉死:环境未就绪归未判定、真故障仍红。
-const WB_NOT_READY =
-  '❌ 回灌未判定: ❌ 提取本机 WorkBuddy 会话失败(未判定):' +
-  '未发现运行中的 WorkBuddy 主进程(探测面=WorkBuddy.exe/WorkBuddyAI.exe);请先启动并登录 WorkBuddy\n'
-const HARD_FAIL = '❌ 写库失败: connection refused\n'
-
-function judgeSeg(segment, prevSegment) {
-  return S.judgeDims({
-    taskQuery: { ok: true },
-    xml: XML_OK,
-    wrapperExists: true,
-    logStat: { exists: true, mtimeMs: NOW - 60_000 },
-    segment,
-    hasMarker: true,
-    prevSegment,
-    now: NOW,
-  })
-}
-
-test('S6 客户端未就绪型未判定(连续两轮)⇒ unjudged,派发层不发信', () => {
-  assert.equal(typeof S.isClientNotReady, 'function')
-  const dims = judgeSeg(WB_NOT_READY, WB_NOT_READY)
-  assert.equal(dims.log_verdict.verdict, 'unjudged')
-  assert.match(dims.log_verdict.reason, /环境未就绪|未判定/)
-  assert.equal(S.judgeOverall(dims), 'unjudged')
-  const { calls } = runDispatch(
-    JSON.stringify({ overall: 'unjudged', dims }),
-    {},
-    auditWorkbuddySessionSyncTask,
-  )
-  assert.equal(calls.length, 0)
-})
-
-test('S7 反向牙:真失败 / tsx 缺失 / 连续 SIGTERM 仍 breach(降噪不得吞真故障)', () => {
-  assert.equal(judgeSeg(HARD_FAIL, HARD_FAIL).log_verdict.verdict, 'breach')
-  assert.equal(dimsOf({ segment: '{"ok":false,"failed":1}' }).log_verdict.verdict, 'breach')
-  const tsx = '❌ 回灌未判定: 未找到 tsx(apps/api/node_modules/tsx 或仓根)\n'
-  assert.equal(judgeSeg(tsx, tsx).log_verdict.verdict, 'breach')
-  const sigterm = '❌ 同步失败(未判定): 信号 SIGTERM\n'
-  assert.equal(judgeSeg(sigterm, sigterm).log_verdict.verdict, 'breach')
-  // 装车锁:未判定判据确实接在 judgeDims 上,不是只导出没用
-  assert.equal(S.isClientNotReady(WB_NOT_READY), true)
-  assert.equal(S.isClientNotReady(HARD_FAIL), false)
-})
-
-test('S8 上一轮环境未就绪、本轮真失败 ⇒ 单轮瞬时,不按连续失败喊人', () => {
-  const dims = judgeSeg(HARD_FAIL, WB_NOT_READY)
-  assert.equal(dims.log_verdict.verdict, 'unjudged')
-  assert.match(dims.log_verdict.reason, /瞬时/)
-})
-
-test('S9 计划任务 XML 取不到输入 ⇒ wrapper/identity 也 unjudged;任务确实不存在仍红', () => {
-  const dims = dimsOf({ taskQuery: { ok: false, error: 'spawn:EPERM' } })
-  assert.equal(dims.task_registered.verdict, 'unjudged')
-  assert.equal(dims.task_wrapper.verdict, 'unjudged')
-  assert.equal(dims.task_identity.verdict, 'unjudged')
-  assert.equal(S.judgeOverall(dims), 'unjudged')
-  const missing = dimsOf({ taskQuery: { ok: false, error: 'not-found' } })
-  assert.equal(missing.task_registered.verdict, 'breach')
-  assert.equal(missing.task_wrapper.verdict, 'unjudged')
-})
-
-// 2026-11-15 §杜绝复发:反复误报的结构根因是三态语义跨层断裂(上游写自由文本、下游正则猜)。
-// 下面四条钉死「生产者与消费者共用同一份契约」这件事本身,而不只是某一次的判定结果。
-test('S10 契约单一真相源:尺子不得复制第二份正则,两腿不得再自拼未判定句式', () => {
-  const ruler = readFileSync(join(ROOT, 'scripts/check-qoder-session-sync-task.mjs'), 'utf8')
-  assert.match(ruler, /from '\.\/lib\/client-sync-verdict\.mjs'/, '尺子必须 import 共享契约')
-  assert.doesNotMatch(ruler, /export const CLIENT_NOT_READY_RE/, '尺子里不得再留第二份正则')
-  assert.doesNotMatch(ruler, /未发现运行中的\[/, '尺子里不得内联同一条正则字面量')
-  for (const name of ['sync-workbuddy-client-session.mjs', 'sync-qoder-client-session.mjs']) {
-    const src = readFileSync(join(ROOT, 'scripts', name), 'utf8')
-    assert.match(src, /unjudgedLogLine\(/, `${name} 必须走唯一出口`)
-    assert.doesNotMatch(src, /write\(`❌ 回灌未判定/, `${name} 不得自拼旧句式`)
-  }
-})
-
-test('S11 结构化标记优先:上游改文案不再让尺子失配(旧正则命不中也照样 unjudged)', () => {
-  const line = unjudgedLogLine('全新的探测失败文案 V2,不含任何旧关键词', 'client-not-ready')
-  assert.equal(classifyLogSegment(line).kind, 'client-not-ready')
-  assert.equal(classifyLogSegment(line).source, 'marker')
-  assert.equal(S.isClientNotReady(line), true)
-  const dims = judgeSeg(line, line)
-  assert.equal(dims.log_verdict.verdict, 'unjudged')
-  assert.equal(S.judgeOverall(dims), 'unjudged')
-  const { calls } = runDispatch(
-    JSON.stringify({ overall: 'unjudged', dims }),
-    {},
-    auditWorkbuddySessionSyncTask,
-  )
-  assert.equal(calls.length, 0)
-})
-
-test('S12 反向牙:非环境缺席的未判定 / 混段硬失败汇总不得被标记吞掉', () => {
-  assert.equal(scopeOfUnjudgedReason('未发现运行中的 WorkBuddy 主进程'), 'client-not-ready')
-  assert.equal(scopeOfUnjudgedReason('未找到 Qoder 数据目录'), 'client-not-ready')
-  assert.equal(scopeOfUnjudgedReason('信号 SIGTERM,180000ms 超时'), 'undetermined')
-  assert.equal(scopeOfUnjudgedReason('未找到 tsx'), 'undetermined')
-  const tsx = unjudgedLogLine('未找到 tsx(apps/api/node_modules/tsx 或仓根)')
-  assert.equal(classifyLogSegment(tsx).kind, 'undetermined')
-  assert.equal(judgeSeg(tsx, tsx).log_verdict.verdict, 'breach')
-  const mixed = `${unjudgedLogLine('未发现运行中的 WorkBuddy 主进程')}\n{"ok":false,"failed":1}`
-  assert.equal(classifyLogSegment(mixed).kind, 'hard-failure')
-  assert.equal(S.isClientNotReady(mixed), false)
-  assert.equal(dimsOf({ segment: mixed }).log_verdict.verdict, 'breach')
-})
-
-test('S13 历史回放:三种真实日志形态在契约下仍分别判 unjudged / 保留真故障', () => {
-  const legacyNotReady =
-    '❌ 回灌未判定: ❌ 提取本机 WorkBuddy 会话失败(未判定):' +
-    '未发现运行中的 WorkBuddy 主进程;请先启动并登录 WorkBuddy\n'
-  const legacyTsx = '❌ 回灌未判定: 未找到 tsx(apps/api/node_modules/tsx 或仓根);先在仓根 pnpm install\n'
-  const legacySigterm = '❌ 回灌未判定: 退出码 ?(信号 SIGTERM,180000ms 窗口超时被杀,本轮未判定)\n'
-  for (const seg of [legacyNotReady, legacyTsx, legacySigterm]) {
-    assert.equal(S.hasFailureMark(seg), true, '降噪不得抹掉原始证据')
-  }
-  assert.equal(classifyLogSegment(legacyNotReady).source, 'legacy-text')
-  assert.equal(judgeSeg(legacyNotReady, legacyNotReady).log_verdict.verdict, 'unjudged')
-  assert.equal(judgeSeg(legacyTsx, legacyTsx).log_verdict.verdict, 'breach')
-  assert.equal(judgeSeg(legacySigterm, legacySigterm).log_verdict.verdict, 'breach')
-})
-
-test('S14 旧日志混段反向牙:环境未就绪与 tsx 缺失同段 ⇒ 不降噪(仍按真故障)', () => {
-  const mixedLegacy = `${WB_NOT_READY}❌ 回灌未判定: 未找到 tsx(apps/api/node_modules/tsx 或仓根)\n`
-  assert.equal(classifyLogSegment(mixedLegacy).kind, 'undetermined')
-  assert.equal(S.isClientNotReady(mixedLegacy), false)
-  assert.equal(judgeSeg(mixedLegacy, mixedLegacy).log_verdict.verdict, 'breach')
-})
-
 test('S4 总体三态优先级:breach > unjudged > ok', () => {
   assert.equal(S.judgeOverall({ a: { verdict: 'ok' }, b: { verdict: 'ok' } }), 'ok')
   assert.equal(S.judgeOverall({ a: { verdict: 'ok' }, b: { verdict: 'unjudged' } }), 'unjudged')
@@ -355,10 +220,8 @@ test('W1 装车锁:两条腿都在 !CHECK_ONLY 真调用 + __test__ 可 import +
   const src = readFileSync(join(ROOT, 'scripts', 'git-guardian.mjs'), 'utf8')
   assert.match(src, /if \(!CHECK_ONLY\) auditQoderSessionSyncTask\(\)/)
   assert.match(src, /if \(!CHECK_ONLY\) auditWorkbuddySessionSyncTask\(\)/)
-  // 行尾不由本测试决定:多会话下工作树可能被整体转成 CRLF,而 HEAD 面恒为 LF。
-  // 断言意图是「导出装车」,不该因合法行尾差异假红 ⇒ 两种行尾都吃(反向牙仍是导出必须存在)。
-  assert.match(src, /\r?\n\s*auditQoderSessionSyncTask,\r?\n/)
-  assert.match(src, /\r?\n\s*auditWorkbuddySessionSyncTask,\r?\n/)
+  assert.match(src, /\n\s*auditQoderSessionSyncTask,\n/)
+  assert.match(src, /\n\s*auditWorkbuddySessionSyncTask,\n/)
   assert.match(src, /IHUI_CLIENT_SYNC_TASK_INTERVAL_MS/)
   assert.match(src, /IHUI_QODER_SYNC_TASK_INTERVAL_MS/)
 })

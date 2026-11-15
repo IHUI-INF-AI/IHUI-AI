@@ -81,7 +81,7 @@ export function AuthShell({
   return (
     <div
       className={cn(
-        'login-scope relative w-full rounded-xl border border-border bg-card',
+        'login-scope relative w-full rounded-xl border border-stroke-default bg-card',
         'shadow-elevation-lg',
         compact ? 'p-3' : 'p-3',
         className,

@@ -34,7 +34,7 @@ import { selectChannelCandidates, recordChannelResult } from './relay-channel-ro
 // 账号池回落(2026-10-22):无渠道候选时尝试第三方 AI IDE 账号池(trae/workbuddy/codearts)
 // F-676:渠道腿的 429 退避与账号池腿共用同一套退避头解析(秒 / HTTP-date / epoch 秒),
 // 不再"账号池读懂 Retry-After、渠道腿固定 60s"。
-import { forwardToAccountPool } from './relay-account-forwarder.js'
+import { forwardToAccountPool, planRateBackoff } from './relay-account-forwarder.js'
 // 出网复检(SSRF 硬化,2026-10-28):渠道 base_url 保存时已校验,这里在"请求发出那一刻"再验一次,
 // 防保存后 DNS 改指内网 / 重绑定。档位与 relay-account-forwarder 同源(allowPrivate+allowCustomPort)。
 import { assertRelayEgressSafe, directEgressDispatcher } from '../utils/relay-egress-guard.js'
@@ -492,14 +492,16 @@ export async function forwardToChannel(req: UpstreamForwardRequest): Promise<For
         lastError = `upstream ${resp.status}`
         // F-676:429 的退避头同样喂给渠道熔断 —— 上游说 300s 就 300s 不进 half-open,
         // 不再一律 60s 后重新 probe(那等于每 60s 主动撞一次限流)。
-        // (rateBackoffMs 计算已移除:recordChannelResult 现签名只收 3 参,退避头留给 lastRetryAfter 留底)
+        const rateBackoffMs = resp.status === 429 ? planRateBackoff(resp.headers).ms : 0
         // F-618:非 2xx 的 body 必须消费/取消,否则 undici 不归还 socket(失败风暴下连接池耗尽)
         await resp.body?.cancel().catch(() => {})
         // F-617:只有 5xx / 429 / 网络错误才是渠道故障;4xx 是请求本身的问题,
         // 一律计进熔断 ⇒ 3 个坏参数请求就能把全部候选打掉(自伤式熔断)。
         const isClientError = resp.status >= 400 && resp.status < 500 && resp.status !== 429
         if (!isClientError) {
-          await recordChannelResult(channel.keyPoolId, false, breakerLatency).catch(() => {})
+          await recordChannelResult(channel.keyPoolId, false, breakerLatency, rateBackoffMs).catch(
+            () => {},
+          )
           continue // failover:下一候选
         }
         // 401/403:该 key 凭据异常 ⇒ 换下一候选,但不计渠道熔断(不是渠道挂了)

@@ -34,7 +34,7 @@ const Card = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElemen
     <div
       ref={ref}
       className={cn(
-        'ui-lift border bg-card text-card-foreground',
+        'ui-lift border border-stroke-default bg-card text-card-foreground',
         RADIUS_CLASS[CARD_RADIUS_TIER],
         className,
       )}

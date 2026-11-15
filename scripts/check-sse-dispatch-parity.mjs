@@ -121,6 +121,73 @@ export function resolveFrameCallbacks(source, toolCallbacks) {
 }
 
 /**
+ * 回调别名表(2026-11-13 立):端内用**自研命名**承载同一帧语义时,让门禁仍能正确认定。
+ *
+ * 立因(实测):`miniapp-taro` 把 `onDelta` 这个帧的回调叫 `onChunk`,且是 `chatStream(...)` 的
+ * **位置参数**而不是命名成员;`api/index.ts:561` 声明 `onChunk: (delta: string) => void`,
+ * 载荷与 `client.ts:2076` 的 `onDelta: (delta: string) => void` **逐字同构**,绑定同一个
+ * `chunk` 帧的 `content`,消费点在 `chat.tsx:1139`。旧判据按 `client.ts` 的回调名做字面量
+ * grep ⇒ 该帧恒判"未命中",登记里那句"未逐 delta 消费"因此写错了事实。
+ *
+ * **为什么不做前缀/模糊匹配**:那会把"名字沾边"当"已实现",等于给骗绿开后门。别名必须
+ * **逐条显式登记**,且每条都要带:
+ *   - `why`:为什么这两个名字是同一件事(载荷形状 + 帧来源 + 消费点)
+ *   - `anchor`:端内承载点的**代码锚点**(文件:行号附近的特征串),门禁会现读源码核对它真在
+ * `anchor` 核对不过 ⇒ 该别名整条失效并判红 —— 豁免必须"验过才免"(AGENTS §0.7)。
+ *
+ * @returns {Map<string, {canonical: string, eps: Set<string>, why: string, anchor: string}>}
+ *   key = 端内别名,value.canonical = client.ts 的规范帧名
+ */
+export function resolveAliases(data) {
+  const out = new Map()
+  for (const [alias, spec] of Object.entries(data.dispatchAliases ?? {})) {
+    if (!spec || typeof spec !== 'object') continue
+    const canonical = spec.canonical
+    if (typeof canonical !== 'string' || !canonical) continue
+    out.set(alias, {
+      canonical,
+      eps: new Set(Array.isArray(spec.eps) ? spec.eps : []),
+      why: String(spec.why ?? ''),
+      anchor: String(spec.anchor ?? ''),
+    })
+  }
+  return out
+}
+
+/**
+ * 别名登记自检:**每条必须 why + anchor 齐备,且 canonical 必须是真帧名**。
+ * 这一层只判形状;anchor 的"真在源码里"由调用方按被审面现读核对(见 `verifyAliasAnchors`)。
+ */
+export function validateAliases(data, callbacks) {
+  const errors = []
+  const known = new Set(callbacks)
+  for (const [alias, spec] of Object.entries(data.dispatchAliases ?? {})) {
+    if (!spec || typeof spec !== 'object') {
+      errors.push(`dispatchAliases.${alias} 必须是对象`)
+      continue
+    }
+    if (typeof spec.why !== 'string' || spec.why.trim() === '') {
+      errors.push(`dispatchAliases.${alias} 缺 why(别名必须说明为什么是同一件事)`)
+    }
+    if (typeof spec.anchor !== 'string' || spec.anchor.trim() === '') {
+      errors.push(`dispatchAliases.${alias} 缺 anchor(必须给端内承载点的代码锚点,验过才免)`)
+    }
+    if (typeof spec.canonical !== 'string' || !known.has(spec.canonical)) {
+      errors.push(
+        `dispatchAliases.${alias}.canonical=${JSON.stringify(spec.canonical)} 不是 client.ts 里的帧回调名`,
+      )
+    }
+    if (!Array.isArray(spec.eps) || spec.eps.length === 0) {
+      errors.push(`dispatchAliases.${alias} 必须点名 eps(该别名适用于哪些端,不得全端默认生效)`)
+    }
+    if (alias === spec.canonical) {
+      errors.push(`dispatchAliases.${alias} 的别名与规范名相同 —— 无意义登记,删掉`)
+    }
+  }
+  return errors
+}
+
+/**
  * 纯判据(可离线自测):喂"每端命中集合"与数据文件,输出违规。
  * @param {{ hit: Record<string, Set<string>>, callbacks: string[], known: Set<string>, data: object }} input
  */
@@ -207,12 +274,135 @@ export function evaluateDispatchParity({ hit, callbacks, known, data, parentMiss
  * @param {'head'|'index'} basis 与帧清单**同一修订**(head = HEAD 提交树,index = 暂存区)
  */
 /**
+ * 自检专用:用**内存夹具**跑一遍别名折算,不碰真 git。
+ *
+ * 不能复用 `confirmedFrameHits` —— 它走真实 `git grep`,而夹具里的文件并不在仓库里,
+ * 那样"别名①"验的就成了仓库内容而不是折算判据(自检必须与仓库状态无关)。
+ * 这里直接构造命中并走与 `collectHitMap` **同一段**别名折算逻辑。
+ */
+export function collectHitMapFromFixture(data, callbacks, fileBodies) {
+  const hit = {}
+  for (const ep of Object.keys(data.endpoints ?? {})) hit[ep] = new Set()
+  const aliases = resolveAliases(data)
+  // 夹具命中 = 每个文件里真实出现的帧名/别名(按文件归属的端归集)
+  const dirsByEp = Object.entries(data.endpoints ?? {})
+  for (const [file, body] of Object.entries(fileBodies)) {
+    const ep = dirsByEp.find(([, dirs]) => dirs.some((d) => file.startsWith(`${d}/`)))?.[0]
+    if (!ep) continue
+    for (const token of [...callbacks, ...aliases.keys()]) {
+      if (!body.includes(token)) continue
+      const spec = aliases.get(token)
+      if (spec && spec.eps.has(ep)) hit[ep].add(spec.canonical)
+      else if (!spec) hit[ep].add(token)
+    }
+  }
+  return hit
+}
+
+/**
+ * 自检专用:anchor 核对的内存夹具版(正文来自入参,不读盘)。
+ */
+export function verifyAliasAnchorsWithFixture(data, fileBodies) {
+  const errors = []
+  for (const [alias, spec] of resolveAliases(data)) {
+    const sep = spec.anchor.indexOf('::')
+    if (sep <= 0) {
+      errors.push(`${alias}: anchor 形态不对`)
+      continue
+    }
+    const file = spec.anchor.slice(0, sep)
+    const needle = spec.anchor.slice(sep + 2)
+    const body = fileBodies[file]
+    if (typeof body !== 'string') {
+      errors.push(`${alias}: ${file} 读不到`)
+      continue
+    }
+    if (!body.includes(needle)) errors.push(`${alias}: ${file} 里找不到特征串`)
+  }
+  return errors
+}
+
+/**
+ * 别名 anchor 核对:**逐条按被审面现读源码**,锚点找不到即该别名不得生效。
+ *
+ * 为什么必须有这一层:别名本质是"我声称这个名字等于那个帧"。只填一个字面量就能让门禁
+ * 认定已实现 —— 那正是本仓反复记过的"注释里的提及把缺口洗成通过"的同型后门。所以每条
+ * 别名都要带一个**端内承载点的代码锚点**(`文件:特征串`),门禁现读那个文件、确认特征串
+ * 真在,才让它折算。
+ *
+ * anchor 格式:`<仓库相对路径>::<特征串>`,特征串按**字面量**匹配(不做正则,避免歧义)。
+ *
+ * @returns {string[]} 不通过清单(空 = 全部验过)
+ */
+export function verifyAliasAnchors(data, basis = 'head') {
+  const errors = []
+  const aliases = resolveAliases(data)
+  if (aliases.size === 0) return errors
+  // 一次性批量取正文(禁止逐文件 spawn —— 守门 83 的耗时教训)
+  const specs = [...new Set([...aliases.values()].map((s) => s.anchor))]
+    .map((a) => {
+      const sep = a.indexOf('::')
+      return sep > 0 ? { raw: a, file: a.slice(0, sep), needle: a.slice(sep + 2) } : null
+    })
+    .filter(Boolean)
+  const files = [...new Set(specs.map((s) => s.file))]
+  const bodies = new Map()
+  for (const f of files) {
+    let text = null
+    try {
+      if (basis === 'worktree') text = readWorktreeFile(ROOT, f)
+      else {
+        const rev = basis === 'index' ? '' : basis === 'head' ? 'HEAD' : basis
+        const got = catBatch(ROOT, [`${rev}:${f}`], { maxBuffer: 1 << 28, timeout: 120000 })
+        const v = got.get(`${rev}:${f}`)
+        text = typeof v === 'string' ? v : null
+      }
+    } catch {
+      text = null
+    }
+    bodies.set(f, typeof text === 'string' ? text : null)
+  }
+  for (const [alias, spec] of aliases) {
+    const sep = spec.anchor.indexOf('::')
+    if (sep <= 0) {
+      errors.push(`dispatchAliases.${alias}.anchor 必须是「路径::特征串」形态,实得 ${spec.anchor}`)
+      continue
+    }
+    const file = spec.anchor.slice(0, sep)
+    const needle = spec.anchor.slice(sep + 2)
+    const body = bodies.get(file)
+    if (typeof body !== 'string') {
+      errors.push(`dispatchAliases.${alias}.anchor 指向的 ${file} 在被审面读不到 —— 别名不得生效`)
+      continue
+    }
+    if (!body.includes(needle)) {
+      errors.push(
+        `dispatchAliases.${alias}.anchor 特征串在 ${file} 里找不到(${JSON.stringify(needle)})—— 端内承载点已漂开,别名不得生效`,
+      )
+    }
+  }
+  return errors
+}
+
+/**
  * 命中集合(端 → 已接帧名)。**必须走代码面复核**,见 `filterHitsToCodeFace` 头注。
+ *
+ * 别名折算(2026-11-13):端内用自研命名承载同一帧语义时(如 miniapp-taro 的 `onChunk`
+ * ≙ `onDelta`),把别名折回 `canonical` 再计入该端命中。只在 `eps` 点名过的端生效,
+ * 且别名必须已通过 `validateAliases` 的形状判与 anchor 现读核对 —— 否则一个名字写错地方
+ * 就能把"没实现"洗成"已实现"。
  */
 export function collectHitMap(data, callbacks, basis = 'head', readBody = null) {
   const hit = {}
   for (const ep of Object.keys(data.endpoints ?? {})) hit[ep] = new Set()
-  for (const { name, ep } of confirmedFrameHits(data, callbacks, basis, readBody)) hit[ep].add(name)
+  const aliases = resolveAliases(data)
+  for (const { name, ep } of confirmedFrameHits(data, callbacks, basis, readBody)) {
+    const spec = aliases.get(name)
+    // 别名只在登记的端生效;未点名的端即使源码里出现该名字,也不折算(不蔓延)
+    if (spec && spec.eps.has(ep)) hit[ep].add(spec.canonical)
+    else if (!spec) hit[ep].add(name)
+    // spec 存在但该端未点名:不计入任何帧 —— 保持"这条别名与本端无关"
+  }
   return hit
 }
 
@@ -346,7 +536,10 @@ function buildBodyReader(hits, basis) {
 
 /** 共享同一次 grep 与同一套失败口径 —— 两张图不允许各自跑一遍再出现分歧 */
 function* grepFrameHits(data, callbacks, basis) {
-  const alt = callbacks.join('|')
+  // 别名一并纳入 grep 模式:端内自研命名也要能被搜到(否则恒判未命中,见 resolveAliases 头注)。
+  // 归集时由 collectHitMap 把别名折回 canonical —— 这里只负责"搜得到",不负责"算已接"。
+  const aliases = [...resolveAliases(data).keys()]
+  const alt = [...callbacks, ...aliases].join('|')
   const paths = Object.values(data.endpoints ?? {}).flat()
   // ⚠️ 修订位置不是可选风格:`git grep -o -E <pat> --cached` 会把 `--cached` 当**修订名**
   // 解析并 `unable to resolve revision` 退出,届时五端命中全为 0 —— 门会报一堆
@@ -820,6 +1013,60 @@ function selfTest() {
     })(),
   ])
 
+  /**
+   * 别名折算(2026-11-13 立)。锁四件事,每件都是"别名不得变成骗绿通道"的必要条件:
+   *   ① eps 点名的端折算成 canonical;② eps 未点名的端不折算(不蔓延);
+   *   ③ 形状判咬住缺 why/anchor/eps 与假 canonical;④ anchor 读不到 ⇒ 别名不得生效。
+   */
+  const aliasData = {
+    toolCallbacks: ['onAbort'],
+    endpoints: { alpha: ['a'], beta: ['b'] },
+    groups: {},
+    missing: { alpha: {}, beta: {} },
+    dispatchAliases: {
+      onAlias: {
+        canonical: 'onRealFrame',
+        eps: ['alpha'],
+        why: '夹具:端内自命名承载同一帧',
+        anchor: 'a/x.ts::onAlias',
+      },
+    },
+  }
+  const aliasBodies = { 'a/x.ts': 'export const o = { onAlias: (d) => push(d) }\n' }
+  const aliasHit = collectHitMapFromFixture(aliasData, ['onRealFrame'], aliasBodies)
+  cases.push([
+    '别名①:eps 点名的端把自研命名折算成 canonical(alpha 计到 onRealFrame)',
+    aliasHit.alpha.has('onRealFrame') === true,
+  ])
+  cases.push([
+    '别名②:eps 未点名的端不得折算(beta 不因出现该名字而多出命中)',
+    aliasHit.beta.has('onRealFrame') === false && aliasHit.beta.size === 0,
+  ])
+  cases.push([
+    '别名③:缺 why/anchor/eps 或 canonical 非真帧名 ⇒ 形状判必咬(至少 4 条)',
+    validateAliases(
+      { dispatchAliases: { onX: { canonical: 'onNotAFrame', eps: [], why: '', anchor: '' } } },
+      ['onRealFrame'],
+    ).length >= 4,
+  ])
+  cases.push([
+    '别名④:anchor 指向的文件读不到 ⇒ 别名不得生效(不许静默放过)',
+    verifyAliasAnchorsWithFixture(aliasData, {}).length === 1,
+  ])
+  cases.push([
+    '别名⑤:anchor 特征串不在正文里 ⇒ 别名不得生效(承载点漂开即失效)',
+    verifyAliasAnchorsWithFixture(aliasData, { 'a/x.ts': 'export const o = {}\n' }).length === 1,
+  ])
+  cases.push([
+    '别名⑥ 装车反证:真仓 HEAD 面登记的每条别名 anchor 必须真找得到',
+    (() => {
+      const { data: realData } = readLedger('head')
+      if (!realData) return true // 取不到台账时不在自检里冒充判过
+      if (Object.keys(realData.dispatchAliases ?? {}).length === 0) return true
+      return verifyAliasAnchors(realData, 'head').length === 0
+    })(),
+  ])
+
   let failed = 0
   for (const [name, pass] of cases) {
     console.log(`${pass ? '✅' : '❌'} ${name}`)
@@ -860,6 +1107,20 @@ function main() {
   }
   const known = extractCallbackNames(source)
   const callbacks = resolveFrameCallbacks(source, data.toolCallbacks)
+  // 别名登记的形状判(why/anchor/eps/canonical 齐备)。形状不过 ⇒ 判据失效,不猜。
+  const aliasShapeErrors = validateAliases(data, callbacks)
+  if (aliasShapeErrors.length > 0) {
+    console.log('❌ 回调别名登记不合法:')
+    for (const e of aliasShapeErrors) console.log(`   · ${e}`)
+    process.exit(1)
+  }
+  // anchor 现读核对:豁免必须"验过才免"(§0.7)。锚点不在被审面里 ⇒ 该别名不得生效。
+  const aliasAnchorErrors = verifyAliasAnchors(data, basis)
+  if (aliasAnchorErrors.length > 0) {
+    console.log('❌ 回调别名的 anchor 核对不过(别名不得生效):')
+    for (const e of aliasAnchorErrors) console.log(`   · ${e}`)
+    process.exit(1)
+  }
   let hit
   try {
     hit = collectHitMap(data, callbacks, basis)

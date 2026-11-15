@@ -73,11 +73,16 @@ const HEALTHY_CLEAN = {
   tempUnschedulable: false,
 }
 
-const REVIVAL_KEYS = ['healthStatus', 'refreshFailureCount', 'lastErrorMessage', 'tempUnschedulable'] as const
+const REVIVAL_KEYS = [
+  'healthStatus',
+  'refreshFailureCount',
+  'lastErrorMessage',
+  'tempUnschedulable',
+] as const
 
 /** 把 drizzle SQL 表达式的 queryChunks 拼回可断言的文本(不需要 dialect)。 */
 function flattenSql(v: unknown): string {
-  if (v == null) return ''
+  if (v === null || v === undefined) return ''
   const node = v as { queryChunks?: unknown[]; value?: unknown }
   if (Array.isArray(node.queryChunks)) return node.queryChunks.map(flattenSql).join('')
   if (Array.isArray(node.value)) return node.value.join('')
@@ -200,7 +205,9 @@ describe('合法改动仍绿 · uid / 版本号 / 失败计数换成别的值,�
 
   it('失败计数换值(3 → 9)仍是异常行,结论不变', () => {
     for (const leg of LEGS) {
-      expect(leg.patch(abnormalRow({ refreshFailureCount: 9 }), FUTURE).healthStatus).toBe('unknown')
+      expect(leg.patch(abnormalRow({ refreshFailureCount: 9 }), FUTURE).healthStatus).toBe(
+        'unknown',
+      )
     }
   })
 })

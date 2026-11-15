@@ -102,7 +102,7 @@ export function NewsCategoryScreen({
           />
         </View>
         <View style={styles.centerBlock}>
-          <FolderOpen size={36} color={tk.text.tertiary} />
+          <FolderOpen size={36} color={tk.text.secondary} />
           <Text style={styles.muted}>{categoriesError ?? t('newsCategoryPage.notFound')}</Text>
         </View>
       </View>
@@ -134,7 +134,7 @@ export function NewsCategoryScreen({
           <Text style={styles.error}>{articlesError}</Text>
         ) : articles.length === 0 ? (
           <View style={styles.emptyBlock}>
-            <FileText size={28} color={tk.text.tertiary} />
+            <FileText size={28} color={tk.text.secondary} />
             <Text style={styles.muted}>{t('newsCategoryPage.empty')}</Text>
           </View>
         ) : (
@@ -144,7 +144,7 @@ export function NewsCategoryScreen({
                 {item.coverUri ? (
                   <Image source={{ uri: item.coverUri }} style={styles.coverImage} />
                 ) : (
-                  <Newspaper size={28} color={tk.text.tertiary} />
+                  <Newspaper size={28} color={tk.text.secondary} />
                 )}
               </View>
               <View style={styles.articleMain}>
@@ -182,7 +182,7 @@ export function NewsCategoryScreen({
                 onPress={onPrevPage}
                 disabled={page <= 1}
               >
-                <ChevronLeft size={15} color={page <= 1 ? tk.text.tertiary : tk.text.primary} />
+                <ChevronLeft size={15} color={page <= 1 ? tk.text.secondary : tk.text.primary} />
                 <Text style={styles.pagerText}>{t('newsCategoryPage.prev')}</Text>
               </TouchableOpacity>
               <Text style={styles.muted}>
@@ -196,7 +196,7 @@ export function NewsCategoryScreen({
                 <Text style={styles.pagerText}>{t('newsCategoryPage.next')}</Text>
                 <ChevronRight
                   size={15}
-                  color={page >= totalPages ? tk.text.tertiary : tk.text.primary}
+                  color={page >= totalPages ? tk.text.secondary : tk.text.primary}
                 />
               </TouchableOpacity>
             </View>
@@ -242,7 +242,7 @@ function createStyles(tk: AppThemeTokens) {
       borderColor: tk.border.light,
     },
     muted: { fontSize: rnType.label.size, color: tk.text.secondary },
-    error: { fontSize: rnType.body.size, color: tk.danger.DEFAULT, paddingVertical: rnSpacing.md },
+    error: { fontSize: rnType.body.size, color: tk.danger.deepText, paddingVertical: rnSpacing.md },
     articleCard: {
       flexDirection: 'row',
       gap: rnSpacing.md,

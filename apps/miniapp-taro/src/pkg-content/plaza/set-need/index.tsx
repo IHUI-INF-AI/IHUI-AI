@@ -72,7 +72,6 @@ export default function SetNeed() {
       navigateTimerRef.current = setTimeout(() => Taro.navigateBack(), 800)
     } catch (e) {
       logger.error('plaza/set-need', 'save', e)
-      onToast(t('common.operationFailed'), { kind: 'error' })
     } finally {
       setSaving(false)
     }
@@ -172,8 +171,7 @@ export default function SetNeed() {
       </View>
 
       <Button
-        className="fixed left-[20rpx] right-[20rpx] h-[100rpx] leading-[100rpx] bg-cta text-cta-foreground rounded-sm text-title font-semibold"
-        style={{ bottom: 'calc(32rpx + env(safe-area-inset-bottom))' }}
+        className="fixed bottom-[32rpx] left-[20rpx] right-[20rpx] h-[100rpx] leading-[100rpx] bg-cta text-cta-foreground rounded-sm text-title font-semibold"
         loading={saving}
         onClick={save}
         disabled={saving}

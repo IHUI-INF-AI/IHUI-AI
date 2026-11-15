@@ -1883,6 +1883,9 @@ export function checkGrowth({
  * P5b:部署环"在跑但跑不成"。安静有两种成因(正在构建 / 真的停了),所以心跳那一维**不能**用来判失败 ——
  * 这里读日志尾部最近一次轮询的收尾退出码(实测版式 `———— 部署轮询结束(exit=1) ————`),
  * 并带出最近一条 FAIL 原文当证据。读不到收尾行 ⇒ 未判定(可能正在构建中),不读成"没问题"。
+ *
+ * DG-13(2026-11-13):`exit=3` 是 ihui-deploy.ps1「健康门禁未过已回滚」的专用码 —— 这一轮
+ * **是失败轮**(旧版本在线,但新版本没上线);旧写法回滚后 exit 0,本函数会把它记成 ok。
  */
 export function checkDeployLoopOutcome({
   logFile = prodDeployLoopLog(),
@@ -1908,7 +1911,15 @@ export function checkDeployLoopOutcome({
     return { id: 'P5b', state: 'ok', detail: `最近一轮收尾 exit=0${fails.length ? `(同段有 ${fails.length} 条 FAIL 历史行,只报数)` : ''}` }
   }
   const why = fails.length ? fails[fails.length - 1][1].trim().slice(0, 160) : '(尾部该段没抓到 FAIL 原文)'
-  const base = `最近一轮 exit=1,未切流。最后一条 FAIL:${why}`
+  if (last[1] === '3') {
+    // 回滚轮必须记红:DG-13 之前这一支是 exit=0,于是"回滚"被读成"部署成功"。
+    return {
+      id: 'P5b',
+      state: 'finding',
+      detail: `最近一轮 exit=3,健康门禁未过已自动回滚(旧版本在线,本轮不是成功轮)。最后一条 FAIL:${why}`,
+    }
+  }
+  const base = `最近一轮 exit=${last[1]},未切流。最后一条 FAIL:${why}`
   const attribution = attribBuildFailures(after, { readHeadLine, isDirty })
   return { id: 'P5b', state: 'finding', detail: `${base}${attribution}` }
 }
@@ -3305,7 +3316,7 @@ function junctionNotFollowed() {
   }
 }
 
-/** P5b 的三态成对:红/绿/未判定各喂一份构造日志(只测其中一态等于没测)。 */
+/** P5b 的四态成对:红/绿/未判定/已回滚(exit=3)各喂一份构造日志(只测其中一态等于没测)。 */
 function p5bThreeStates() {
   const root = scratchRoot()
   mkdirSync(root, { recursive: true })
@@ -3314,13 +3325,28 @@ function p5bThreeStates() {
     const bad = join(base, 'bad.log')
     const good = join(base, 'good.log')
     const busy = join(base, 'busy.log')
+    const rolled = join(base, 'rolled.log')
     writeFileSync(bad, '[09:08:34] FAIL  git merge --ff-only 本轮远端 tip 分叉需人工收敛\n———— 部署轮询结束(exit=1) ————\n', 'utf8')
     writeFileSync(good, '———— 部署轮询结束(exit=0) ————\n', 'utf8')
     writeFileSync(busy, '[09:14:56] 构建尝试 1/4 -> .next-staging\n', 'utf8')
+    // DG-13:健康门禁未过 → 回滚 → exit 3 必须落 finding(旧写法这里 exit 0 ⇒ 读成 ok)。
+    writeFileSync(
+      rolled,
+      '[09:20:00] === 门禁未过已回滚,旧版本在线;已记冷却,30 分钟后自动重试构建 ===\n———— 部署轮询结束(exit=3) ————\n',
+      'utf8',
+    )
     const a = checkDeployLoopOutcome({ logFile: bad })
     const b = checkDeployLoopOutcome({ logFile: good })
     const c = checkDeployLoopOutcome({ logFile: busy })
-    return a.state === 'finding' && a.detail.includes('分叉') && b.state === 'ok' && c.state === 'undetermined'
+    const d = checkDeployLoopOutcome({ logFile: rolled })
+    return (
+      a.state === 'finding' &&
+      a.detail.includes('分叉') &&
+      b.state === 'ok' &&
+      c.state === 'undetermined' &&
+      d.state === 'finding' &&
+      d.detail.includes('已自动回滚')
+    )
   } catch {
     return false
   } finally {
@@ -3752,7 +3778,7 @@ export async function selfTest() {
     const seg = src.slice(i, i + 3000)
     return seg.includes('heartbeatRecord({') && !/if \(!json\) \{/.test(seg) && seg.includes('ops-patrol-last.json')
   })())
-  t('P5b 三态成对(exit=1 红 / exit=0 绿 / 正在构建 未判定)', p5bThreeStates())
+  t('P5b 四态成对(exit=1 红 / exit=0 绿 / 正在构建 未判定 / exit=3 已回滚 红)', p5bThreeStates())
   // 2026-10-01 补的两条:失败通报的下游可见性(P8)与备份产出的**归属**(P5 逐库、只认本链)。
   // 各自的旧形态都在同一份夹具上现算对照 —— 只测新规则那一臂,等于把实现复读一遍。
   const p8fix = undeliveredMarkerFixture()

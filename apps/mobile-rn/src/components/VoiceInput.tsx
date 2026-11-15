@@ -27,7 +27,12 @@ import {
   type TextStyle,
   type ViewStyle,
 } from 'react-native'
-import { AudioModule, RecordingPresets, setAudioModeAsync, useAudioRecorder } from '@/platform/audio'
+import {
+  AudioModule,
+  RecordingPresets,
+  setAudioModeAsync,
+  useAudioRecorder,
+} from '@/platform/audio'
 import { tokens } from '../theme/active-tokens'
 import { useI18n } from '../i18n'
 import { formatShortDuration } from '@ihui/shared/utils'
@@ -335,7 +340,7 @@ const styles = StyleSheet.create({
     marginLeft: VOICE_INPUT_RECORD_ROW_GAP_PX,
     // 与小程序 text-sm(14)同档
     fontSize: rnType.body.size,
-    color: tokens.danger.DEFAULT,
+    color: tokens.danger.deepText,
   } as TextStyle,
   transcribingText: {
     fontSize: rnType.body.size,

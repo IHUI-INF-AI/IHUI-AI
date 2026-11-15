@@ -686,35 +686,9 @@ function extractPort(redirectUri: string): number | null {
  *   - macOS:open <url>
  *   - Windows:cmd /c start <url>(用 spawn 避免 shell 注入)
  *   - Linux/其他:xdg-open <url>(失败回退到打印 URL)
- * 安全:与 sso.ts openBrowser 同规则 fail-closed —— url 必须仅 http/https 且不含 cmd
- * 元字符;校验不过不打开(resolve 让调用方回退打印 URL),绝不走不安全路径。
  */
-/** 校验待打开 URL:仅 http/https 且不含 cmd shell 危险元字符。返回拒绝原因或 null。 */
-function validateBrowserUrl(url: string): string | null {
-  if (typeof url !== 'string' || url.length === 0 || url.includes('\0')) return 'URL 为空或含空字节';
-  let parsed: URL;
-  try {
-    parsed = new URL(url);
-  } catch {
-    return 'URL 无法解析';
-  }
-  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-    return `协议必须为 http/https,实得 ${parsed.protocol}`;
-  }
-  // 这些元字符即使被双引号包裹,cmd.exe 仍会在 quoted 内解释,必须整体拒绝。
-  // (& 由调用方加引号后保留为合法 query 分隔符,见 sso.ts 同源处理。)
-  if (/[|<>^"%!]/.test(url)) return 'URL 含 cmd shell 危险元字符(| < > ^ " % !)';
-  return null;
-}
-
 export async function openBrowser(url: string): Promise<void> {
   const platform = process.platform;
-  const rejectReason = validateBrowserUrl(url);
-  if (rejectReason) {
-    // 校验不过不打开任何东西;resolve 让调用方回退到打印 URL,不抛错(保持原契约)。
-    console.warn(`openBrowser 拒绝打开不安全的 URL(${rejectReason}),请手动访问`);
-    return;
-  }
   let cmd: string;
   let args: string[];
   if (platform === 'darwin') {
@@ -722,8 +696,7 @@ export async function openBrowser(url: string): Promise<void> {
     args = [url];
   } else if (platform === 'win32') {
     cmd = 'cmd';
-    // 第二个参数为引用后的 URL,防 cmd.exe 拆参。
-    args = ['/c', 'start', '', `"${url}"`];
+    args = ['/c', 'start', '', url];
   } else {
     cmd = 'xdg-open';
     args = [url];

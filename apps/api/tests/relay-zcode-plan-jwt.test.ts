@@ -30,11 +30,16 @@ const { planJwt, PLAN_JWT_SHAPE_RE } = __test__
 /** 合法明文 JWT:三段式 base64url,eyJ 开头(RFC 7515 / jwt.io 标准示例) */
 const JWT_PLAIN_A =
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIn0.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c'
-const JWT_PLAIN_B = 'eyJhbGciOiJIUzI1NiJ9.eyJ1aWQiOiJ6Y29kZS1jbiJ9.YWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXoxMjM0NTY'
+const JWT_PLAIN_B =
+  'eyJhbGciOiJIUzI1NiJ9.eyJ1aWQiOiJ6Y29kZS1jbiJ9.YWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXoxMjM0NTY'
 
 /** 形态非法样本:[标签, 值, 错误里必须能点名的前缀(可空)] */
 const BAD_SHAPES: Array<[label: string, raw: string, marker: string]> = [
-  ['enc:v2:os: OS 级加密信封(生产 down 号真身)', 'enc:v2:os:c2c3e9ae1234567890abcdef1234567890', 'enc:v2:os:'],
+  [
+    'enc:v2:os: OS 级加密信封(生产 down 号真身)',
+    'enc:v2:os:c2c3e9ae1234567890abcdef1234567890',
+    'enc:v2:os:',
+  ],
   ['enc:v1: 提取器旧密文信封', 'enc:v1:9f8e7d6c5b4a3210fedcba9876543210', 'enc:v1:'],
   ['只有两段的伪 JWT', 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ4In0', ''],
   ['带非法字符 ! 的伪 JWT', 'eyJ!!.cGF5bG9hZA.c2ln', ''],
@@ -171,19 +176,22 @@ describe('planJwt JWT 形态闸门(enc:v2:os: 信封不得当 Bearer 盲发)', (
   })
 
   describe('④ getQuota 闸门前置:形态非法不发请求', () => {
-    it.each(BAD_SHAPES)('%s ⇒ fetch 0 次 + authFailed:true + 错误可点名', async (_label, raw, marker) => {
-      const spy = vi.fn()
-      const q = await zcodeAdapter.getQuota!(makeCtx(raw), {
-        fetchImpl: spy as unknown as typeof fetch,
-      })
-      expect(spy).toHaveBeenCalledTimes(0) // 闸门在发请求之前,绝不盲发
-      expect(boomFetch).not.toHaveBeenCalled() // 也没碰全局真实 fetch
-      expect(q.ok).toBe(false)
-      expect(q.authFailed).toBe(true)
-      expect(q.error).toContain('zcodejwttoken 形态非法')
-      expect(q.error).not.toContain('套餐点查失败') // 没被 catch 包装成含糊失败
-      if (marker) expect(q.error).toContain(marker)
-    })
+    it.each(BAD_SHAPES)(
+      '%s ⇒ fetch 0 次 + authFailed:true + 错误可点名',
+      async (_label, raw, marker) => {
+        const spy = vi.fn()
+        const q = await zcodeAdapter.getQuota!(makeCtx(raw), {
+          fetchImpl: spy as unknown as typeof fetch,
+        })
+        expect(spy).toHaveBeenCalledTimes(0) // 闸门在发请求之前,绝不盲发
+        expect(boomFetch).not.toHaveBeenCalled() // 也没碰全局真实 fetch
+        expect(q.ok).toBe(false)
+        expect(q.authFailed).toBe(true)
+        expect(q.error).toContain('zcodejwttoken 形态非法')
+        expect(q.error).not.toContain('套餐点查失败') // 没被 catch 包装成含糊失败
+        if (marker) expect(q.error).toContain(marker)
+      },
+    )
   })
 
   describe('⑤ 合法改动仍绿:healthy 号(明文 JWT)走 getQuota 全链路不受影响', () => {

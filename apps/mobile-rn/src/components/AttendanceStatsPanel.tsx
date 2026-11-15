@@ -59,7 +59,10 @@ export function AttendanceStatsPanel({
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createPanelStyles(tk), [tk])
   const readout = useMemo(() => readAttendanceStats(payload), [payload])
-  const series = useMemo(() => buildAttendanceTrendSeries(payload?.periodBreakdown ?? []), [payload])
+  const series = useMemo(
+    () => buildAttendanceTrendSeries(payload?.periodBreakdown ?? []),
+    [payload],
+  )
 
   /** 段色档:四档 tone 唯一映射(与小程序侧 TONE_BG_CLASS 同族:success/warning/destructive/中性) */
   const fillOf = (tone: ConsoleBadgeTone): string =>
@@ -206,7 +209,7 @@ function createPanelStyles(tk: ReturnType<typeof getTokens>) {
     scopeText: {
       flexShrink: 0,
       fontSize: rnType.caption.size,
-      color: tk.text.tertiary,
+      color: tk.text.medium,
       marginLeft: 'auto',
     },
     dim: { fontSize: rnType.caption.size, color: tk.text.secondary },

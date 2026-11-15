@@ -244,7 +244,6 @@ export function ChatRoomScreen({
         >
           <View style={styles.previewOverlay}>
             <TouchableOpacity
-              accessibilityRole="button"
               style={styles.previewClose}
               onPress={() => setPreviewUrl(null)}
               activeOpacity={0.8}

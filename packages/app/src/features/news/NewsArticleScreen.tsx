@@ -131,14 +131,14 @@ export function NewsArticleScreen({
           {article.authorName ? <Text style={styles.author}>{article.authorName}</Text> : null}
           {article.publishedAt ? (
             <View style={styles.metaInline}>
-              <Calendar size={12} color={tk.text.tertiary} strokeWidth={2} />
+              <Calendar size={12} color={tk.text.secondary} strokeWidth={2} />
               <Text style={styles.metaText}>
                 {t('news.publishedAt', { date: formatDate(article.publishedAt) })}
               </Text>
             </View>
           ) : null}
           <View style={styles.metaInline}>
-            <Eye size={12} color={tk.text.tertiary} strokeWidth={2} />
+            <Eye size={12} color={tk.text.secondary} strokeWidth={2} />
             <Text style={styles.metaText}>
               {t('news.viewCount', { count: article.viewCount ?? 0 })}
             </Text>
@@ -257,7 +257,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     metaText: {
       fontSize: rnType.caption.size,
-      color: tk.text.tertiary,
+      color: tk.text.medium,
     },
     statRow: {
       marginTop: rnSpacing.sm,
@@ -304,7 +304,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     contentEmpty: {
       fontSize: rnType.label.size,
-      color: tk.text.tertiary,
+      color: tk.text.medium,
     },
     /* 标签行 */
     tagRow: {
@@ -316,7 +316,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     tagLabel: {
       fontSize: rnType.caption.size,
-      color: tk.text.tertiary,
+      color: tk.text.medium,
     },
     tagChip: {
       paddingHorizontal: rnSpacing.sm,

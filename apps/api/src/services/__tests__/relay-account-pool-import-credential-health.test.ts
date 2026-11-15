@@ -159,14 +159,62 @@ beforeEach(() => {
 // =============================================================================
 describe('isNonRenewableResidualTicket 判据纯函数(经 __test__ 直用生产实现)', () => {
   it.each([
-    { hasRefreshToken: false, hasCookies: false, hasSecrets: false, expected: true, label: '三者全无 = 裸残票' },
-    { hasRefreshToken: true, hasCookies: false, hasSecrets: false, expected: false, label: '仅 rt' },
-    { hasRefreshToken: false, hasCookies: true, hasSecrets: false, expected: false, label: '仅 cookies' },
-    { hasRefreshToken: false, hasCookies: false, hasSecrets: true, expected: false, label: '仅 secrets' },
-    { hasRefreshToken: true, hasCookies: true, hasSecrets: false, expected: false, label: 'rt + cookies' },
-    { hasRefreshToken: true, hasCookies: false, hasSecrets: true, expected: false, label: 'rt + secrets' },
-    { hasRefreshToken: false, hasCookies: true, hasSecrets: true, expected: false, label: 'cookies + secrets' },
-    { hasRefreshToken: true, hasCookies: true, hasSecrets: true, expected: false, label: '三者齐备' },
+    {
+      hasRefreshToken: false,
+      hasCookies: false,
+      hasSecrets: false,
+      expected: true,
+      label: '三者全无 = 裸残票',
+    },
+    {
+      hasRefreshToken: true,
+      hasCookies: false,
+      hasSecrets: false,
+      expected: false,
+      label: '仅 rt',
+    },
+    {
+      hasRefreshToken: false,
+      hasCookies: true,
+      hasSecrets: false,
+      expected: false,
+      label: '仅 cookies',
+    },
+    {
+      hasRefreshToken: false,
+      hasCookies: false,
+      hasSecrets: true,
+      expected: false,
+      label: '仅 secrets',
+    },
+    {
+      hasRefreshToken: true,
+      hasCookies: true,
+      hasSecrets: false,
+      expected: false,
+      label: 'rt + cookies',
+    },
+    {
+      hasRefreshToken: true,
+      hasCookies: false,
+      hasSecrets: true,
+      expected: false,
+      label: 'rt + secrets',
+    },
+    {
+      hasRefreshToken: false,
+      hasCookies: true,
+      hasSecrets: true,
+      expected: false,
+      label: 'cookies + secrets',
+    },
+    {
+      hasRefreshToken: true,
+      hasCookies: true,
+      hasSecrets: true,
+      expected: false,
+      label: '三者齐备',
+    },
   ])('$label ⇒ $expected', ({ hasRefreshToken, hasCookies, hasSecrets, expected }) => {
     expect(__test__.isNonRenewableResidualTicket({ hasRefreshToken, hasCookies, hasSecrets })).toBe(
       expected,
@@ -235,11 +283,9 @@ describe('importAccounts 凭据形态准入闸门(默认登记窗口内)', () =>
     expect(insertedExtra()['keepAliveForever']).toBe(true)
   })
 
-  it('空凭据边界:refreshToken=\'\' 且 cookies=[] (字段在但为空)⇒ 仍算残票被拦', async () => {
+  it("空凭据边界:refreshToken='' 且 cookies=[] (字段在但为空)⇒ 仍算残票被拦", async () => {
     queueInsert()
-    const r = await importAccounts('workbuddy', [
-      wb('empty', { refreshToken: '', cookies: [] }),
-    ])
+    const r = await importAccounts('workbuddy', [wb('empty', { refreshToken: '', cookies: [] })])
 
     expect(r.imported).toBe(1)
     expect(hoisted.insertValues[0]?.['refreshTokenEnc']).toBeNull()
@@ -263,11 +309,13 @@ describe('importAccounts 凭据形态准入闸门(默认登记窗口内)', () =>
     const r = await importAccounts('workbuddy', [wb('default', { refreshToken: 'drt-ok' })])
 
     expect(r.imported).toBe(1)
-    expect(__test__.isNonRenewableResidualTicket({
-      hasRefreshToken: true,
-      hasCookies: false,
-      hasSecrets: false,
-    })).toBe(false) // 判据纯函数对该形态恒返回 false
+    expect(
+      __test__.isNonRenewableResidualTicket({
+        hasRefreshToken: true,
+        hasCookies: false,
+        hasSecrets: false,
+      }),
+    ).toBe(false) // 判据纯函数对该形态恒返回 false
     expect(insertedExtra()['keepAliveForever']).toBe(true)
   })
 

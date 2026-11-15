@@ -19,6 +19,7 @@ import {
 import { appAlert } from '../components/BottomPops'
 import { useTheme } from '../context/ThemeContext'
 import { useI18n } from '../i18n'
+import { toFriendlyOr } from '@ihui/shared/utils'
 
 /**
  * MCP 商店 / 已注册 Server 管理屏(RN 端),对应 Web 端 /mcp-store。
@@ -74,7 +75,7 @@ export function McpStoreScreen() {
       }
       setEntries(res.data?.servers ?? [])
     } catch (e) {
-      setError(e instanceof Error ? e.message : t('mcpStore.loadFailed'))
+      setError(toFriendlyOr(e, t('mcpStore.loadFailed')))
       setEntries([])
     } finally {
       setLoading(false)
@@ -104,10 +105,7 @@ export function McpStoreScreen() {
           if (!res.success) throw new Error(res.error || t('mcpStore.actionFailed'))
           await load()
         } catch (e) {
-          appAlert(
-            t('common.loadFailed'),
-            e instanceof Error ? e.message : t('mcpStore.actionFailed'),
-          )
+          appAlert(t('common.loadFailed'), toFriendlyOr(e, t('mcpStore.actionFailed')))
         } finally {
           setBusyKey('')
         }
@@ -145,10 +143,7 @@ export function McpStoreScreen() {
           if (!res.success) throw new Error(res.error || t('mcpStore.actionFailed'))
           await load()
         } catch (e) {
-          appAlert(
-            t('common.loadFailed'),
-            e instanceof Error ? e.message : t('mcpStore.actionFailed'),
-          )
+          appAlert(t('common.loadFailed'), toFriendlyOr(e, t('mcpStore.actionFailed')))
         } finally {
           setBusyKey('')
         }
@@ -172,10 +167,7 @@ export function McpStoreScreen() {
                 if (!res.success) throw new Error(res.error || t('mcpStore.actionFailed'))
                 await load()
               } catch (e) {
-                appAlert(
-                  t('common.loadFailed'),
-                  e instanceof Error ? e.message : t('mcpStore.actionFailed'),
-                )
+                appAlert(t('common.loadFailed'), toFriendlyOr(e, t('mcpStore.actionFailed')))
               } finally {
                 setBusyKey('')
               }

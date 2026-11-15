@@ -25,6 +25,8 @@ import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { X, ShieldAlert } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@ihui/ui-react'
+import { cn } from '@/lib/utils'
+import { NESTED_FLOATING_OVERLAY_Z_CLASS, NESTED_FLOATING_Z_CLASS } from '@/lib/floating-layer'
 
 export interface PermissionModeInfoModalProps {
   /** 当前权限模式,为 null 时不显示 */
@@ -43,7 +45,11 @@ export function PermissionModeInfoModal({ mode, onClose }: PermissionModeInfoMod
         if (!o) onClose()
       }}
     >
-      <DialogContent className="max-w-md" data-testid="permission-mode-info-modal">
+      <DialogContent
+        className={cn('max-w-md', NESTED_FLOATING_Z_CLASS)}
+        overlayClassName={NESTED_FLOATING_OVERLAY_Z_CLASS}
+        data-testid="permission-mode-info-modal"
+      >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <ShieldAlert className="h-4 w-4" aria-hidden="true" />

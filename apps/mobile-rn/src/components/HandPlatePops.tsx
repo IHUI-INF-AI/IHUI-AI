@@ -341,7 +341,7 @@ export function HandPlatePops({
                             : styles.purchaseBenefit
                         }
                       >
-                        <Check size={14} color={tokens.success.DEFAULT} /> {b}
+                        <Check size={14} color={tokens.success.deepText} /> {b}
                       </Text>
                     ))}
                   </View>
@@ -507,18 +507,18 @@ const styles = StyleSheet.create({
     fontSize: rnType.title.size,
     lineHeight: rnType.title.lineHeight,
     fontWeight: '700',
-    color: tokens.success.DEFAULT,
+    color: tokens.success.deepText,
   } as TextStyle,
   purchasePrice: {
     fontSize: rnType.heading.size,
     lineHeight: rnType.heading.lineHeight,
     fontWeight: '700',
-    color: tokens.success.DEFAULT,
+    color: tokens.success.deepText,
   } as TextStyle,
   purchaseOriginal: {
     fontSize: rnType.bodySm.size,
     lineHeight: rnType.bodySm.lineHeight,
-    color: tokens.text.tertiary,
+    color: tokens.text.medium,
     textDecorationLine: 'line-through',
   } as TextStyle,
   purchaseBenefits: {
@@ -540,7 +540,7 @@ const styles = StyleSheet.create({
   } as ViewStyle,
   purchasePaymentTitle: {
     fontSize: rnType.label.size,
-    color: tokens.text.tertiary,
+    color: tokens.text.medium,
   } as TextStyle,
   purchasePaymentOption: {
     flexDirection: 'row',

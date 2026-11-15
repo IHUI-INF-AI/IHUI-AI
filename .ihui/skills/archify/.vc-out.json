@@ -1,0 +1,1227 @@
+{
+  "schemaVersion": 1,
+  "ok": false,
+  "command": "visual-check",
+  "evidenceKind": "automated-browser",
+  "status": "fail",
+  "visualReview": "pending",
+  "provenance": "current",
+  "deliveryReceiptId": "8714aa73-01b7-4208-99be-1b67ec8a8022",
+  "artifact": {
+    "path": "G:\\IHUI-AI\\.archify\\trae-native-runtime-20261114-232132\\trae-native-runtime.html",
+    "sha256": "635888904f895c32af615f74c5f31f5e7a149b6102617430a90779eb3f9c0ce7",
+    "bytes": 107333
+  },
+  "state": {
+    "detail": "read",
+    "motion": "still"
+  },
+  "chrome": {
+    "status": "available",
+    "executable": "C:\\Users\\Administrator\\AppData\\Local\\Google\\Chrome\\Application\\chrome.exe"
+  },
+  "diagnostics": [
+    {
+      "code": "viewer/theme-state",
+      "severity": "error",
+      "message": "The rendered artifact resolved dark instead of the requested light theme at 1440x900.",
+      "subject": {
+        "artifact": "G:\\IHUI-AI\\.archify\\trae-native-runtime-20261114-232132\\trae-native-runtime.html",
+        "viewport": {
+          "width": 1440,
+          "height": 900,
+          "theme": "light"
+        }
+      },
+      "evidence": {
+        "requestedTheme": "light",
+        "resolvedTheme": "dark"
+      },
+      "supportedFixes": ["restore deterministic light theme resolution, then rerun visual-check"]
+    },
+    {
+      "code": "viewer/viewport-overflow",
+      "severity": "error",
+      "message": "The rendered artifact overflows the 1440x900 light viewport.",
+      "subject": {
+        "artifact": "G:\\IHUI-AI\\.archify\\trae-native-runtime-20261114-232132\\trae-native-runtime.html",
+        "viewport": {
+          "width": 1440,
+          "height": 900,
+          "theme": "light"
+        }
+      },
+      "evidence": {
+        "innerWidth": 1440,
+        "innerHeight": 900,
+        "scrollWidth": 1440,
+        "scrollHeight": 1406,
+        "overflowX": false,
+        "overflowY": true,
+        "overflowDisposition": "unexpected-overflow",
+        "readerLayout": null,
+        "readerOverflow": null,
+        "readerFit": "intrinsic-height",
+        "pageComposition": {
+          "bodyPaddingPx": 48,
+          "headerPx": 58,
+          "diagramChromePx": 121,
+          "svgPx": 989,
+          "cardsPx": 158,
+          "viewBoxHeight": 742
+        },
+        "pageCompositionMeasurement": "CSS pixels at this viewport; body padding, header, diagram chrome, SVG and cards stack vertically and sum to scrollHeight"
+      },
+      "supportedFixes": [
+        "the page is 506px too tall (48px body padding + 58px header + 121px diagram chrome + 989px SVG + 158px cards = 1406px against 900px); the SVG spans the full 1358px reader width because its viewBox ratio is below 1.55 and it declares no automatic Reader fit, so the Reader can neither narrow it nor accept readable vertical scroll: either remove meta.viewBox so the renderer sizes the canvas and declares the fit, or make the viewBox at least 1.55x wider than tall"
+      ]
+    },
+    {
+      "code": "viewer/theme-state",
+      "severity": "error",
+      "message": "The rendered artifact resolved dark instead of the requested light theme at 1600x1000.",
+      "subject": {
+        "artifact": "G:\\IHUI-AI\\.archify\\trae-native-runtime-20261114-232132\\trae-native-runtime.html",
+        "viewport": {
+          "width": 1600,
+          "height": 1000,
+          "theme": "light"
+        }
+      },
+      "evidence": {
+        "requestedTheme": "light",
+        "resolvedTheme": "dark"
+      },
+      "supportedFixes": ["restore deterministic light theme resolution, then rerun visual-check"]
+    },
+    {
+      "code": "viewer/viewport-overflow",
+      "severity": "error",
+      "message": "The rendered artifact overflows the 1600x1000 light viewport.",
+      "subject": {
+        "artifact": "G:\\IHUI-AI\\.archify\\trae-native-runtime-20261114-232132\\trae-native-runtime.html",
+        "viewport": {
+          "width": 1600,
+          "height": 1000,
+          "theme": "light"
+        }
+      },
+      "evidence": {
+        "innerWidth": 1600,
+        "innerHeight": 1000,
+        "scrollWidth": 1600,
+        "scrollHeight": 1450,
+        "overflowX": false,
+        "overflowY": true,
+        "overflowDisposition": "unexpected-overflow",
+        "readerLayout": null,
+        "readerOverflow": null,
+        "readerFit": "intrinsic-height",
+        "pageComposition": {
+          "bodyPaddingPx": 48,
+          "headerPx": 58,
+          "diagramChromePx": 86,
+          "svgPx": 1067,
+          "cardsPx": 158,
+          "viewBoxHeight": 742
+        },
+        "pageCompositionMeasurement": "CSS pixels at this viewport; body padding, header, diagram chrome, SVG and cards stack vertically and sum to scrollHeight"
+      },
+      "supportedFixes": [
+        "the page is 450px too tall (48px body padding + 58px header + 86px diagram chrome + 1067px SVG + 158px cards = 1450px against 1000px); the SVG spans the full 1466px reader width because its viewBox ratio is below 1.55 and it declares no automatic Reader fit, so the Reader can neither narrow it nor accept readable vertical scroll: either remove meta.viewBox so the renderer sizes the canvas and declares the fit, or make the viewBox at least 1.55x wider than tall"
+      ]
+    },
+    {
+      "code": "viewer/theme-state",
+      "severity": "error",
+      "message": "The rendered artifact resolved dark instead of the requested light theme at 1920x1080.",
+      "subject": {
+        "artifact": "G:\\IHUI-AI\\.archify\\trae-native-runtime-20261114-232132\\trae-native-runtime.html",
+        "viewport": {
+          "width": 1920,
+          "height": 1080,
+          "theme": "light"
+        }
+      },
+      "evidence": {
+        "requestedTheme": "light",
+        "resolvedTheme": "dark"
+      },
+      "supportedFixes": ["restore deterministic light theme resolution, then rerun visual-check"]
+    },
+    {
+      "code": "viewer/viewport-overflow",
+      "severity": "error",
+      "message": "The rendered artifact overflows the 1920x1080 light viewport.",
+      "subject": {
+        "artifact": "G:\\IHUI-AI\\.archify\\trae-native-runtime-20261114-232132\\trae-native-runtime.html",
+        "viewport": {
+          "width": 1920,
+          "height": 1080,
+          "theme": "light"
+        }
+      },
+      "evidence": {
+        "innerWidth": 1920,
+        "innerHeight": 1080,
+        "scrollWidth": 1920,
+        "scrollHeight": 1450,
+        "overflowX": false,
+        "overflowY": true,
+        "overflowDisposition": "unexpected-overflow",
+        "readerLayout": null,
+        "readerOverflow": null,
+        "readerFit": "intrinsic-height",
+        "pageComposition": {
+          "bodyPaddingPx": 48,
+          "headerPx": 58,
+          "diagramChromePx": 86,
+          "svgPx": 1067,
+          "cardsPx": 158,
+          "viewBoxHeight": 742
+        },
+        "pageCompositionMeasurement": "CSS pixels at this viewport; body padding, header, diagram chrome, SVG and cards stack vertically and sum to scrollHeight"
+      },
+      "supportedFixes": [
+        "the page is 370px too tall (48px body padding + 58px header + 86px diagram chrome + 1067px SVG + 158px cards = 1450px against 1080px); the SVG spans the full 1466px reader width because its viewBox ratio is below 1.55 and it declares no automatic Reader fit, so the Reader can neither narrow it nor accept readable vertical scroll: either remove meta.viewBox so the renderer sizes the canvas and declares the fit, or make the viewBox at least 1.55x wider than tall"
+      ]
+    },
+    {
+      "code": "viewer/theme-state",
+      "severity": "error",
+      "message": "The rendered artifact resolved dark instead of the requested light theme at 2048x1320.",
+      "subject": {
+        "artifact": "G:\\IHUI-AI\\.archify\\trae-native-runtime-20261114-232132\\trae-native-runtime.html",
+        "viewport": {
+          "width": 2048,
+          "height": 1320,
+          "theme": "light"
+        }
+      },
+      "evidence": {
+        "requestedTheme": "light",
+        "resolvedTheme": "dark"
+      },
+      "supportedFixes": ["restore deterministic light theme resolution, then rerun visual-check"]
+    },
+    {
+      "code": "viewer/viewport-overflow",
+      "severity": "error",
+      "message": "The rendered artifact overflows the 2048x1320 light viewport.",
+      "subject": {
+        "artifact": "G:\\IHUI-AI\\.archify\\trae-native-runtime-20261114-232132\\trae-native-runtime.html",
+        "viewport": {
+          "width": 2048,
+          "height": 1320,
+          "theme": "light"
+        }
+      },
+      "evidence": {
+        "innerWidth": 2048,
+        "innerHeight": 1320,
+        "scrollWidth": 2048,
+        "scrollHeight": 1450,
+        "overflowX": false,
+        "overflowY": true,
+        "overflowDisposition": "unexpected-overflow",
+        "readerLayout": null,
+        "readerOverflow": null,
+        "readerFit": "intrinsic-height",
+        "pageComposition": {
+          "bodyPaddingPx": 48,
+          "headerPx": 58,
+          "diagramChromePx": 86,
+          "svgPx": 1067,
+          "cardsPx": 158,
+          "viewBoxHeight": 742
+        },
+        "pageCompositionMeasurement": "CSS pixels at this viewport; body padding, header, diagram chrome, SVG and cards stack vertically and sum to scrollHeight"
+      },
+      "supportedFixes": [
+        "the page is 130px too tall (48px body padding + 58px header + 86px diagram chrome + 1067px SVG + 158px cards = 1450px against 1320px); the SVG spans the full 1466px reader width because its viewBox ratio is below 1.55 and it declares no automatic Reader fit, so the Reader can neither narrow it nor accept readable vertical scroll: either remove meta.viewBox so the renderer sizes the canvas and declares the fit, or make the viewBox at least 1.55x wider than tall",
+        "alternatively, conclusion cards occupy 158px below the diagram; shortening card copy or dropping a card row so cards take at most 28px also fits"
+      ]
+    },
+    {
+      "code": "viewer/viewport-overflow",
+      "severity": "error",
+      "message": "The rendered artifact overflows the 1440x900 dark viewport.",
+      "subject": {
+        "artifact": "G:\\IHUI-AI\\.archify\\trae-native-runtime-20261114-232132\\trae-native-runtime.html",
+        "viewport": {
+          "width": 1440,
+          "height": 900,
+          "theme": "dark"
+        }
+      },
+      "evidence": {
+        "innerWidth": 1440,
+        "innerHeight": 900,
+        "scrollWidth": 1440,
+        "scrollHeight": 1406,
+        "overflowX": false,
+        "overflowY": true,
+        "overflowDisposition": "unexpected-overflow",
+        "readerLayout": null,
+        "readerOverflow": null,
+        "readerFit": "intrinsic-height",
+        "pageComposition": {
+          "bodyPaddingPx": 48,
+          "headerPx": 58,
+          "diagramChromePx": 121,
+          "svgPx": 989,
+          "cardsPx": 158,
+          "viewBoxHeight": 742
+        },
+        "pageCompositionMeasurement": "CSS pixels at this viewport; body padding, header, diagram chrome, SVG and cards stack vertically and sum to scrollHeight"
+      },
+      "supportedFixes": [
+        "the page is 506px too tall (48px body padding + 58px header + 121px diagram chrome + 989px SVG + 158px cards = 1406px against 900px); the SVG spans the full 1358px reader width because its viewBox ratio is below 1.55 and it declares no automatic Reader fit, so the Reader can neither narrow it nor accept readable vertical scroll: either remove meta.viewBox so the renderer sizes the canvas and declares the fit, or make the viewBox at least 1.55x wider than tall"
+      ]
+    },
+    {
+      "code": "viewer/viewport-overflow",
+      "severity": "error",
+      "message": "The rendered artifact overflows the 2048x1320 dark viewport.",
+      "subject": {
+        "artifact": "G:\\IHUI-AI\\.archify\\trae-native-runtime-20261114-232132\\trae-native-runtime.html",
+        "viewport": {
+          "width": 2048,
+          "height": 1320,
+          "theme": "dark"
+        }
+      },
+      "evidence": {
+        "innerWidth": 2048,
+        "innerHeight": 1320,
+        "scrollWidth": 2048,
+        "scrollHeight": 1450,
+        "overflowX": false,
+        "overflowY": true,
+        "overflowDisposition": "unexpected-overflow",
+        "readerLayout": null,
+        "readerOverflow": null,
+        "readerFit": "intrinsic-height",
+        "pageComposition": {
+          "bodyPaddingPx": 48,
+          "headerPx": 58,
+          "diagramChromePx": 86,
+          "svgPx": 1067,
+          "cardsPx": 158,
+          "viewBoxHeight": 742
+        },
+        "pageCompositionMeasurement": "CSS pixels at this viewport; body padding, header, diagram chrome, SVG and cards stack vertically and sum to scrollHeight"
+      },
+      "supportedFixes": [
+        "the page is 130px too tall (48px body padding + 58px header + 86px diagram chrome + 1067px SVG + 158px cards = 1450px against 1320px); the SVG spans the full 1466px reader width because its viewBox ratio is below 1.55 and it declares no automatic Reader fit, so the Reader can neither narrow it nor accept readable vertical scroll: either remove meta.viewBox so the renderer sizes the canvas and declares the fit, or make the viewBox at least 1.55x wider than tall",
+        "alternatively, conclusion cards occupy 158px below the diagram; shortening card copy or dropping a card row so cards take at most 28px also fits"
+      ]
+    }
+  ],
+  "containment": {
+    "status": "fail",
+    "policy": "fit-or-reader-declared-readable-vertical-scroll",
+    "viewports": [
+      {
+        "width": 1440,
+        "height": 900,
+        "theme": "light",
+        "innerWidth": 1440,
+        "innerHeight": 900,
+        "scrollWidth": 1440,
+        "scrollHeight": 1406,
+        "overflowX": false,
+        "overflowY": true,
+        "verticalScrollAccepted": false,
+        "overflowDisposition": "unexpected-overflow",
+        "readerLayout": null,
+        "readerOverflow": null,
+        "readerFit": "intrinsic-height",
+        "ok": false,
+        "readerWidth": 1392,
+        "diagramWidth": 1358,
+        "pageComposition": {
+          "bodyPaddingPx": 48,
+          "headerPx": 58,
+          "diagramChromePx": 121,
+          "svgPx": 989,
+          "cardsPx": 158,
+          "viewBoxHeight": 742
+        },
+        "viewBoxWidth": 1019,
+        "minimumProjectedNodeTextPx": 7.7,
+        "minimumProjectedNonEdgeTextPx": 7.7,
+        "minimumProjectedEdgeTextPx": 8,
+        "minimumProjectedNodeText": "代码知识图 :50000 / local_embedding / sqlite_vec",
+        "minimumProjectedNodeTextDetail": "context",
+        "minimumProjectedNodeTextOwner": {
+          "kind": "node",
+          "id": "ckg"
+        },
+        "minimumRequiredNodeTextPx": 6,
+        "readabilityOk": true,
+        "hasLegend": true,
+        "hasNavigationDock": true,
+        "legendDockIntersectionArea": 0,
+        "dockStageIntersectionArea": 0,
+        "dockStageGap": 12,
+        "requiredDockStageGap": 0,
+        "viewerChromeStageOk": true,
+        "viewerChromeReserve": 0,
+        "viewerChromeActive": false,
+        "viewerChromeOk": true,
+        "resolvedTheme": "dark"
+      },
+      {
+        "width": 1600,
+        "height": 1000,
+        "theme": "light",
+        "innerWidth": 1600,
+        "innerHeight": 1000,
+        "scrollWidth": 1600,
+        "scrollHeight": 1450,
+        "overflowX": false,
+        "overflowY": true,
+        "verticalScrollAccepted": false,
+        "overflowDisposition": "unexpected-overflow",
+        "readerLayout": null,
+        "readerOverflow": null,
+        "readerFit": "intrinsic-height",
+        "ok": false,
+        "readerWidth": 1500,
+        "diagramWidth": 1466,
+        "pageComposition": {
+          "bodyPaddingPx": 48,
+          "headerPx": 58,
+          "diagramChromePx": 86,
+          "svgPx": 1067,
+          "cardsPx": 158,
+          "viewBoxHeight": 742
+        },
+        "viewBoxWidth": 1019,
+        "minimumProjectedNodeTextPx": 7.7,
+        "minimumProjectedNonEdgeTextPx": 7.7,
+        "minimumProjectedEdgeTextPx": 8,
+        "minimumProjectedNodeText": "代码知识图 :50000 / local_embedding / sqlite_vec",
+        "minimumProjectedNodeTextDetail": "context",
+        "minimumProjectedNodeTextOwner": {
+          "kind": "node",
+          "id": "ckg"
+        },
+        "minimumRequiredNodeTextPx": 6,
+        "readabilityOk": true,
+        "hasLegend": true,
+        "hasNavigationDock": true,
+        "legendDockIntersectionArea": 0,
+        "dockStageIntersectionArea": 0,
+        "dockStageGap": 12,
+        "requiredDockStageGap": 0,
+        "viewerChromeStageOk": true,
+        "viewerChromeReserve": 0,
+        "viewerChromeActive": false,
+        "viewerChromeOk": true,
+        "resolvedTheme": "dark"
+      },
+      {
+        "width": 1920,
+        "height": 1080,
+        "theme": "light",
+        "innerWidth": 1920,
+        "innerHeight": 1080,
+        "scrollWidth": 1920,
+        "scrollHeight": 1450,
+        "overflowX": false,
+        "overflowY": true,
+        "verticalScrollAccepted": false,
+        "overflowDisposition": "unexpected-overflow",
+        "readerLayout": null,
+        "readerOverflow": null,
+        "readerFit": "intrinsic-height",
+        "ok": false,
+        "readerWidth": 1500,
+        "diagramWidth": 1466,
+        "pageComposition": {
+          "bodyPaddingPx": 48,
+          "headerPx": 58,
+          "diagramChromePx": 86,
+          "svgPx": 1067,
+          "cardsPx": 158,
+          "viewBoxHeight": 742
+        },
+        "viewBoxWidth": 1019,
+        "minimumProjectedNodeTextPx": 7.7,
+        "minimumProjectedNonEdgeTextPx": 7.7,
+        "minimumProjectedEdgeTextPx": 8,
+        "minimumProjectedNodeText": "代码知识图 :50000 / local_embedding / sqlite_vec",
+        "minimumProjectedNodeTextDetail": "context",
+        "minimumProjectedNodeTextOwner": {
+          "kind": "node",
+          "id": "ckg"
+        },
+        "minimumRequiredNodeTextPx": 6,
+        "readabilityOk": true,
+        "hasLegend": true,
+        "hasNavigationDock": true,
+        "legendDockIntersectionArea": 0,
+        "dockStageIntersectionArea": 0,
+        "dockStageGap": 12,
+        "requiredDockStageGap": 0,
+        "viewerChromeStageOk": true,
+        "viewerChromeReserve": 0,
+        "viewerChromeActive": false,
+        "viewerChromeOk": true,
+        "resolvedTheme": "dark"
+      },
+      {
+        "width": 2048,
+        "height": 1320,
+        "theme": "light",
+        "innerWidth": 2048,
+        "innerHeight": 1320,
+        "scrollWidth": 2048,
+        "scrollHeight": 1450,
+        "overflowX": false,
+        "overflowY": true,
+        "verticalScrollAccepted": false,
+        "overflowDisposition": "unexpected-overflow",
+        "readerLayout": null,
+        "readerOverflow": null,
+        "readerFit": "intrinsic-height",
+        "ok": false,
+        "readerWidth": 1500,
+        "diagramWidth": 1466,
+        "pageComposition": {
+          "bodyPaddingPx": 48,
+          "headerPx": 58,
+          "diagramChromePx": 86,
+          "svgPx": 1067,
+          "cardsPx": 158,
+          "viewBoxHeight": 742
+        },
+        "viewBoxWidth": 1019,
+        "minimumProjectedNodeTextPx": 7.7,
+        "minimumProjectedNonEdgeTextPx": 7.7,
+        "minimumProjectedEdgeTextPx": 8,
+        "minimumProjectedNodeText": "代码知识图 :50000 / local_embedding / sqlite_vec",
+        "minimumProjectedNodeTextDetail": "context",
+        "minimumProjectedNodeTextOwner": {
+          "kind": "node",
+          "id": "ckg"
+        },
+        "minimumRequiredNodeTextPx": 6,
+        "readabilityOk": true,
+        "hasLegend": true,
+        "hasNavigationDock": true,
+        "legendDockIntersectionArea": 0,
+        "dockStageIntersectionArea": 0,
+        "dockStageGap": 12,
+        "requiredDockStageGap": 0,
+        "viewerChromeStageOk": true,
+        "viewerChromeReserve": 0,
+        "viewerChromeActive": false,
+        "viewerChromeOk": true,
+        "resolvedTheme": "dark"
+      }
+    ]
+  },
+  "themeStates": {
+    "status": "fail",
+    "viewports": [
+      {
+        "width": 1440,
+        "height": 900,
+        "requestedTheme": "light",
+        "resolvedTheme": "dark",
+        "ok": false
+      },
+      {
+        "width": 1600,
+        "height": 1000,
+        "requestedTheme": "light",
+        "resolvedTheme": "dark",
+        "ok": false
+      },
+      {
+        "width": 1920,
+        "height": 1080,
+        "requestedTheme": "light",
+        "resolvedTheme": "dark",
+        "ok": false
+      },
+      {
+        "width": 2048,
+        "height": 1320,
+        "requestedTheme": "light",
+        "resolvedTheme": "dark",
+        "ok": false
+      },
+      {
+        "width": 1440,
+        "height": 900,
+        "requestedTheme": "dark",
+        "resolvedTheme": "dark",
+        "ok": true
+      },
+      {
+        "width": 2048,
+        "height": 1320,
+        "requestedTheme": "dark",
+        "resolvedTheme": "dark",
+        "ok": true
+      }
+    ]
+  },
+  "readability": {
+    "status": "pass",
+    "minimumProjectedNodeTextPx": 6,
+    "viewports": [
+      {
+        "width": 1440,
+        "height": 900,
+        "theme": "light",
+        "innerWidth": 1440,
+        "innerHeight": 900,
+        "scrollWidth": 1440,
+        "scrollHeight": 1406,
+        "overflowX": false,
+        "overflowY": true,
+        "verticalScrollAccepted": false,
+        "overflowDisposition": "unexpected-overflow",
+        "readerLayout": null,
+        "readerOverflow": null,
+        "readerFit": "intrinsic-height",
+        "ok": false,
+        "readerWidth": 1392,
+        "diagramWidth": 1358,
+        "pageComposition": {
+          "bodyPaddingPx": 48,
+          "headerPx": 58,
+          "diagramChromePx": 121,
+          "svgPx": 989,
+          "cardsPx": 158,
+          "viewBoxHeight": 742
+        },
+        "viewBoxWidth": 1019,
+        "minimumProjectedNodeTextPx": 7.7,
+        "minimumProjectedNonEdgeTextPx": 7.7,
+        "minimumProjectedEdgeTextPx": 8,
+        "minimumProjectedNodeText": "代码知识图 :50000 / local_embedding / sqlite_vec",
+        "minimumProjectedNodeTextDetail": "context",
+        "minimumProjectedNodeTextOwner": {
+          "kind": "node",
+          "id": "ckg"
+        },
+        "minimumRequiredNodeTextPx": 6,
+        "readabilityOk": true,
+        "hasLegend": true,
+        "hasNavigationDock": true,
+        "legendDockIntersectionArea": 0,
+        "dockStageIntersectionArea": 0,
+        "dockStageGap": 12,
+        "requiredDockStageGap": 0,
+        "viewerChromeStageOk": true,
+        "viewerChromeReserve": 0,
+        "viewerChromeActive": false,
+        "viewerChromeOk": true,
+        "resolvedTheme": "dark"
+      },
+      {
+        "width": 1600,
+        "height": 1000,
+        "theme": "light",
+        "innerWidth": 1600,
+        "innerHeight": 1000,
+        "scrollWidth": 1600,
+        "scrollHeight": 1450,
+        "overflowX": false,
+        "overflowY": true,
+        "verticalScrollAccepted": false,
+        "overflowDisposition": "unexpected-overflow",
+        "readerLayout": null,
+        "readerOverflow": null,
+        "readerFit": "intrinsic-height",
+        "ok": false,
+        "readerWidth": 1500,
+        "diagramWidth": 1466,
+        "pageComposition": {
+          "bodyPaddingPx": 48,
+          "headerPx": 58,
+          "diagramChromePx": 86,
+          "svgPx": 1067,
+          "cardsPx": 158,
+          "viewBoxHeight": 742
+        },
+        "viewBoxWidth": 1019,
+        "minimumProjectedNodeTextPx": 7.7,
+        "minimumProjectedNonEdgeTextPx": 7.7,
+        "minimumProjectedEdgeTextPx": 8,
+        "minimumProjectedNodeText": "代码知识图 :50000 / local_embedding / sqlite_vec",
+        "minimumProjectedNodeTextDetail": "context",
+        "minimumProjectedNodeTextOwner": {
+          "kind": "node",
+          "id": "ckg"
+        },
+        "minimumRequiredNodeTextPx": 6,
+        "readabilityOk": true,
+        "hasLegend": true,
+        "hasNavigationDock": true,
+        "legendDockIntersectionArea": 0,
+        "dockStageIntersectionArea": 0,
+        "dockStageGap": 12,
+        "requiredDockStageGap": 0,
+        "viewerChromeStageOk": true,
+        "viewerChromeReserve": 0,
+        "viewerChromeActive": false,
+        "viewerChromeOk": true,
+        "resolvedTheme": "dark"
+      },
+      {
+        "width": 1920,
+        "height": 1080,
+        "theme": "light",
+        "innerWidth": 1920,
+        "innerHeight": 1080,
+        "scrollWidth": 1920,
+        "scrollHeight": 1450,
+        "overflowX": false,
+        "overflowY": true,
+        "verticalScrollAccepted": false,
+        "overflowDisposition": "unexpected-overflow",
+        "readerLayout": null,
+        "readerOverflow": null,
+        "readerFit": "intrinsic-height",
+        "ok": false,
+        "readerWidth": 1500,
+        "diagramWidth": 1466,
+        "pageComposition": {
+          "bodyPaddingPx": 48,
+          "headerPx": 58,
+          "diagramChromePx": 86,
+          "svgPx": 1067,
+          "cardsPx": 158,
+          "viewBoxHeight": 742
+        },
+        "viewBoxWidth": 1019,
+        "minimumProjectedNodeTextPx": 7.7,
+        "minimumProjectedNonEdgeTextPx": 7.7,
+        "minimumProjectedEdgeTextPx": 8,
+        "minimumProjectedNodeText": "代码知识图 :50000 / local_embedding / sqlite_vec",
+        "minimumProjectedNodeTextDetail": "context",
+        "minimumProjectedNodeTextOwner": {
+          "kind": "node",
+          "id": "ckg"
+        },
+        "minimumRequiredNodeTextPx": 6,
+        "readabilityOk": true,
+        "hasLegend": true,
+        "hasNavigationDock": true,
+        "legendDockIntersectionArea": 0,
+        "dockStageIntersectionArea": 0,
+        "dockStageGap": 12,
+        "requiredDockStageGap": 0,
+        "viewerChromeStageOk": true,
+        "viewerChromeReserve": 0,
+        "viewerChromeActive": false,
+        "viewerChromeOk": true,
+        "resolvedTheme": "dark"
+      },
+      {
+        "width": 2048,
+        "height": 1320,
+        "theme": "light",
+        "innerWidth": 2048,
+        "innerHeight": 1320,
+        "scrollWidth": 2048,
+        "scrollHeight": 1450,
+        "overflowX": false,
+        "overflowY": true,
+        "verticalScrollAccepted": false,
+        "overflowDisposition": "unexpected-overflow",
+        "readerLayout": null,
+        "readerOverflow": null,
+        "readerFit": "intrinsic-height",
+        "ok": false,
+        "readerWidth": 1500,
+        "diagramWidth": 1466,
+        "pageComposition": {
+          "bodyPaddingPx": 48,
+          "headerPx": 58,
+          "diagramChromePx": 86,
+          "svgPx": 1067,
+          "cardsPx": 158,
+          "viewBoxHeight": 742
+        },
+        "viewBoxWidth": 1019,
+        "minimumProjectedNodeTextPx": 7.7,
+        "minimumProjectedNonEdgeTextPx": 7.7,
+        "minimumProjectedEdgeTextPx": 8,
+        "minimumProjectedNodeText": "代码知识图 :50000 / local_embedding / sqlite_vec",
+        "minimumProjectedNodeTextDetail": "context",
+        "minimumProjectedNodeTextOwner": {
+          "kind": "node",
+          "id": "ckg"
+        },
+        "minimumRequiredNodeTextPx": 6,
+        "readabilityOk": true,
+        "hasLegend": true,
+        "hasNavigationDock": true,
+        "legendDockIntersectionArea": 0,
+        "dockStageIntersectionArea": 0,
+        "dockStageGap": 12,
+        "requiredDockStageGap": 0,
+        "viewerChromeStageOk": true,
+        "viewerChromeReserve": 0,
+        "viewerChromeActive": false,
+        "viewerChromeOk": true,
+        "resolvedTheme": "dark"
+      }
+    ]
+  },
+  "viewerChrome": {
+    "status": "pass",
+    "viewports": [
+      {
+        "width": 1440,
+        "height": 900,
+        "theme": "light",
+        "innerWidth": 1440,
+        "innerHeight": 900,
+        "scrollWidth": 1440,
+        "scrollHeight": 1406,
+        "overflowX": false,
+        "overflowY": true,
+        "verticalScrollAccepted": false,
+        "overflowDisposition": "unexpected-overflow",
+        "readerLayout": null,
+        "readerOverflow": null,
+        "readerFit": "intrinsic-height",
+        "ok": false,
+        "readerWidth": 1392,
+        "diagramWidth": 1358,
+        "pageComposition": {
+          "bodyPaddingPx": 48,
+          "headerPx": 58,
+          "diagramChromePx": 121,
+          "svgPx": 989,
+          "cardsPx": 158,
+          "viewBoxHeight": 742
+        },
+        "viewBoxWidth": 1019,
+        "minimumProjectedNodeTextPx": 7.7,
+        "minimumProjectedNonEdgeTextPx": 7.7,
+        "minimumProjectedEdgeTextPx": 8,
+        "minimumProjectedNodeText": "代码知识图 :50000 / local_embedding / sqlite_vec",
+        "minimumProjectedNodeTextDetail": "context",
+        "minimumProjectedNodeTextOwner": {
+          "kind": "node",
+          "id": "ckg"
+        },
+        "minimumRequiredNodeTextPx": 6,
+        "readabilityOk": true,
+        "hasLegend": true,
+        "hasNavigationDock": true,
+        "legendDockIntersectionArea": 0,
+        "dockStageIntersectionArea": 0,
+        "dockStageGap": 12,
+        "requiredDockStageGap": 0,
+        "viewerChromeStageOk": true,
+        "viewerChromeReserve": 0,
+        "viewerChromeActive": false,
+        "viewerChromeOk": true,
+        "resolvedTheme": "dark"
+      },
+      {
+        "width": 1600,
+        "height": 1000,
+        "theme": "light",
+        "innerWidth": 1600,
+        "innerHeight": 1000,
+        "scrollWidth": 1600,
+        "scrollHeight": 1450,
+        "overflowX": false,
+        "overflowY": true,
+        "verticalScrollAccepted": false,
+        "overflowDisposition": "unexpected-overflow",
+        "readerLayout": null,
+        "readerOverflow": null,
+        "readerFit": "intrinsic-height",
+        "ok": false,
+        "readerWidth": 1500,
+        "diagramWidth": 1466,
+        "pageComposition": {
+          "bodyPaddingPx": 48,
+          "headerPx": 58,
+          "diagramChromePx": 86,
+          "svgPx": 1067,
+          "cardsPx": 158,
+          "viewBoxHeight": 742
+        },
+        "viewBoxWidth": 1019,
+        "minimumProjectedNodeTextPx": 7.7,
+        "minimumProjectedNonEdgeTextPx": 7.7,
+        "minimumProjectedEdgeTextPx": 8,
+        "minimumProjectedNodeText": "代码知识图 :50000 / local_embedding / sqlite_vec",
+        "minimumProjectedNodeTextDetail": "context",
+        "minimumProjectedNodeTextOwner": {
+          "kind": "node",
+          "id": "ckg"
+        },
+        "minimumRequiredNodeTextPx": 6,
+        "readabilityOk": true,
+        "hasLegend": true,
+        "hasNavigationDock": true,
+        "legendDockIntersectionArea": 0,
+        "dockStageIntersectionArea": 0,
+        "dockStageGap": 12,
+        "requiredDockStageGap": 0,
+        "viewerChromeStageOk": true,
+        "viewerChromeReserve": 0,
+        "viewerChromeActive": false,
+        "viewerChromeOk": true,
+        "resolvedTheme": "dark"
+      },
+      {
+        "width": 1920,
+        "height": 1080,
+        "theme": "light",
+        "innerWidth": 1920,
+        "innerHeight": 1080,
+        "scrollWidth": 1920,
+        "scrollHeight": 1450,
+        "overflowX": false,
+        "overflowY": true,
+        "verticalScrollAccepted": false,
+        "overflowDisposition": "unexpected-overflow",
+        "readerLayout": null,
+        "readerOverflow": null,
+        "readerFit": "intrinsic-height",
+        "ok": false,
+        "readerWidth": 1500,
+        "diagramWidth": 1466,
+        "pageComposition": {
+          "bodyPaddingPx": 48,
+          "headerPx": 58,
+          "diagramChromePx": 86,
+          "svgPx": 1067,
+          "cardsPx": 158,
+          "viewBoxHeight": 742
+        },
+        "viewBoxWidth": 1019,
+        "minimumProjectedNodeTextPx": 7.7,
+        "minimumProjectedNonEdgeTextPx": 7.7,
+        "minimumProjectedEdgeTextPx": 8,
+        "minimumProjectedNodeText": "代码知识图 :50000 / local_embedding / sqlite_vec",
+        "minimumProjectedNodeTextDetail": "context",
+        "minimumProjectedNodeTextOwner": {
+          "kind": "node",
+          "id": "ckg"
+        },
+        "minimumRequiredNodeTextPx": 6,
+        "readabilityOk": true,
+        "hasLegend": true,
+        "hasNavigationDock": true,
+        "legendDockIntersectionArea": 0,
+        "dockStageIntersectionArea": 0,
+        "dockStageGap": 12,
+        "requiredDockStageGap": 0,
+        "viewerChromeStageOk": true,
+        "viewerChromeReserve": 0,
+        "viewerChromeActive": false,
+        "viewerChromeOk": true,
+        "resolvedTheme": "dark"
+      },
+      {
+        "width": 2048,
+        "height": 1320,
+        "theme": "light",
+        "innerWidth": 2048,
+        "innerHeight": 1320,
+        "scrollWidth": 2048,
+        "scrollHeight": 1450,
+        "overflowX": false,
+        "overflowY": true,
+        "verticalScrollAccepted": false,
+        "overflowDisposition": "unexpected-overflow",
+        "readerLayout": null,
+        "readerOverflow": null,
+        "readerFit": "intrinsic-height",
+        "ok": false,
+        "readerWidth": 1500,
+        "diagramWidth": 1466,
+        "pageComposition": {
+          "bodyPaddingPx": 48,
+          "headerPx": 58,
+          "diagramChromePx": 86,
+          "svgPx": 1067,
+          "cardsPx": 158,
+          "viewBoxHeight": 742
+        },
+        "viewBoxWidth": 1019,
+        "minimumProjectedNodeTextPx": 7.7,
+        "minimumProjectedNonEdgeTextPx": 7.7,
+        "minimumProjectedEdgeTextPx": 8,
+        "minimumProjectedNodeText": "代码知识图 :50000 / local_embedding / sqlite_vec",
+        "minimumProjectedNodeTextDetail": "context",
+        "minimumProjectedNodeTextOwner": {
+          "kind": "node",
+          "id": "ckg"
+        },
+        "minimumRequiredNodeTextPx": 6,
+        "readabilityOk": true,
+        "hasLegend": true,
+        "hasNavigationDock": true,
+        "legendDockIntersectionArea": 0,
+        "dockStageIntersectionArea": 0,
+        "dockStageGap": 12,
+        "requiredDockStageGap": 0,
+        "viewerChromeStageOk": true,
+        "viewerChromeReserve": 0,
+        "viewerChromeActive": false,
+        "viewerChromeOk": true,
+        "resolvedTheme": "dark"
+      }
+    ]
+  },
+  "captures": {
+    "status": "pass",
+    "screenshots": [
+      {
+        "width": 1440,
+        "height": 900,
+        "theme": "light",
+        "innerWidth": 1440,
+        "innerHeight": 900,
+        "scrollWidth": 1440,
+        "scrollHeight": 1406,
+        "overflowX": false,
+        "overflowY": true,
+        "verticalScrollAccepted": false,
+        "overflowDisposition": "unexpected-overflow",
+        "readerLayout": null,
+        "readerOverflow": null,
+        "readerFit": "intrinsic-height",
+        "ok": false,
+        "readerWidth": 1392,
+        "diagramWidth": 1358,
+        "pageComposition": {
+          "bodyPaddingPx": 48,
+          "headerPx": 58,
+          "diagramChromePx": 121,
+          "svgPx": 989,
+          "cardsPx": 158,
+          "viewBoxHeight": 742
+        },
+        "viewBoxWidth": 1019,
+        "minimumProjectedNodeTextPx": 7.7,
+        "minimumProjectedNonEdgeTextPx": 7.7,
+        "minimumProjectedEdgeTextPx": 8,
+        "minimumProjectedNodeText": "代码知识图 :50000 / local_embedding / sqlite_vec",
+        "minimumProjectedNodeTextDetail": "context",
+        "minimumProjectedNodeTextOwner": {
+          "kind": "node",
+          "id": "ckg"
+        },
+        "minimumRequiredNodeTextPx": 6,
+        "readabilityOk": true,
+        "hasLegend": true,
+        "hasNavigationDock": true,
+        "legendDockIntersectionArea": 0,
+        "dockStageIntersectionArea": 0,
+        "dockStageGap": 12,
+        "requiredDockStageGap": 0,
+        "viewerChromeStageOk": true,
+        "viewerChromeReserve": 0,
+        "viewerChromeActive": false,
+        "viewerChromeOk": true,
+        "resolvedTheme": "dark",
+        "file": "trae-native-runtime.visual-check.1440x900.light.png"
+      },
+      {
+        "width": 1440,
+        "height": 900,
+        "theme": "dark",
+        "innerWidth": 1440,
+        "innerHeight": 900,
+        "scrollWidth": 1440,
+        "scrollHeight": 1406,
+        "overflowX": false,
+        "overflowY": true,
+        "verticalScrollAccepted": false,
+        "overflowDisposition": "unexpected-overflow",
+        "readerLayout": null,
+        "readerOverflow": null,
+        "readerFit": "intrinsic-height",
+        "ok": false,
+        "readerWidth": 1392,
+        "diagramWidth": 1358,
+        "pageComposition": {
+          "bodyPaddingPx": 48,
+          "headerPx": 58,
+          "diagramChromePx": 121,
+          "svgPx": 989,
+          "cardsPx": 158,
+          "viewBoxHeight": 742
+        },
+        "viewBoxWidth": 1019,
+        "minimumProjectedNodeTextPx": 7.7,
+        "minimumProjectedNonEdgeTextPx": 7.7,
+        "minimumProjectedEdgeTextPx": 8,
+        "minimumProjectedNodeText": "代码知识图 :50000 / local_embedding / sqlite_vec",
+        "minimumProjectedNodeTextDetail": "context",
+        "minimumProjectedNodeTextOwner": {
+          "kind": "node",
+          "id": "ckg"
+        },
+        "minimumRequiredNodeTextPx": 6,
+        "readabilityOk": true,
+        "hasLegend": true,
+        "hasNavigationDock": true,
+        "legendDockIntersectionArea": 0,
+        "dockStageIntersectionArea": 0,
+        "dockStageGap": 12,
+        "requiredDockStageGap": 0,
+        "viewerChromeStageOk": true,
+        "viewerChromeReserve": 0,
+        "viewerChromeActive": false,
+        "viewerChromeOk": true,
+        "resolvedTheme": "dark",
+        "file": "trae-native-runtime.visual-check.1440x900.dark.png"
+      },
+      {
+        "width": 2048,
+        "height": 1320,
+        "theme": "light",
+        "innerWidth": 2048,
+        "innerHeight": 1320,
+        "scrollWidth": 2048,
+        "scrollHeight": 1450,
+        "overflowX": false,
+        "overflowY": true,
+        "verticalScrollAccepted": false,
+        "overflowDisposition": "unexpected-overflow",
+        "readerLayout": null,
+        "readerOverflow": null,
+        "readerFit": "intrinsic-height",
+        "ok": false,
+        "readerWidth": 1500,
+        "diagramWidth": 1466,
+        "pageComposition": {
+          "bodyPaddingPx": 48,
+          "headerPx": 58,
+          "diagramChromePx": 86,
+          "svgPx": 1067,
+          "cardsPx": 158,
+          "viewBoxHeight": 742
+        },
+        "viewBoxWidth": 1019,
+        "minimumProjectedNodeTextPx": 7.7,
+        "minimumProjectedNonEdgeTextPx": 7.7,
+        "minimumProjectedEdgeTextPx": 8,
+        "minimumProjectedNodeText": "代码知识图 :50000 / local_embedding / sqlite_vec",
+        "minimumProjectedNodeTextDetail": "context",
+        "minimumProjectedNodeTextOwner": {
+          "kind": "node",
+          "id": "ckg"
+        },
+        "minimumRequiredNodeTextPx": 6,
+        "readabilityOk": true,
+        "hasLegend": true,
+        "hasNavigationDock": true,
+        "legendDockIntersectionArea": 0,
+        "dockStageIntersectionArea": 0,
+        "dockStageGap": 12,
+        "requiredDockStageGap": 0,
+        "viewerChromeStageOk": true,
+        "viewerChromeReserve": 0,
+        "viewerChromeActive": false,
+        "viewerChromeOk": true,
+        "resolvedTheme": "dark",
+        "file": "trae-native-runtime.visual-check.2048x1320.light.png"
+      },
+      {
+        "width": 2048,
+        "height": 1320,
+        "theme": "dark",
+        "innerWidth": 2048,
+        "innerHeight": 1320,
+        "scrollWidth": 2048,
+        "scrollHeight": 1450,
+        "overflowX": false,
+        "overflowY": true,
+        "verticalScrollAccepted": false,
+        "overflowDisposition": "unexpected-overflow",
+        "readerLayout": null,
+        "readerOverflow": null,
+        "readerFit": "intrinsic-height",
+        "ok": false,
+        "readerWidth": 1500,
+        "diagramWidth": 1466,
+        "pageComposition": {
+          "bodyPaddingPx": 48,
+          "headerPx": 58,
+          "diagramChromePx": 86,
+          "svgPx": 1067,
+          "cardsPx": 158,
+          "viewBoxHeight": 742
+        },
+        "viewBoxWidth": 1019,
+        "minimumProjectedNodeTextPx": 7.7,
+        "minimumProjectedNonEdgeTextPx": 7.7,
+        "minimumProjectedEdgeTextPx": 8,
+        "minimumProjectedNodeText": "代码知识图 :50000 / local_embedding / sqlite_vec",
+        "minimumProjectedNodeTextDetail": "context",
+        "minimumProjectedNodeTextOwner": {
+          "kind": "node",
+          "id": "ckg"
+        },
+        "minimumRequiredNodeTextPx": 6,
+        "readabilityOk": true,
+        "hasLegend": true,
+        "hasNavigationDock": true,
+        "legendDockIntersectionArea": 0,
+        "dockStageIntersectionArea": 0,
+        "dockStageGap": 12,
+        "requiredDockStageGap": 0,
+        "viewerChromeStageOk": true,
+        "viewerChromeReserve": 0,
+        "viewerChromeActive": false,
+        "viewerChromeOk": true,
+        "resolvedTheme": "dark",
+        "file": "trae-native-runtime.visual-check.2048x1320.dark.png"
+      }
+    ],
+    "contactSheet": "trae-native-runtime.visual-check.html"
+  },
+  "sidecars": {
+    "directory": "G:\\IHUI-AI\\.archify\\trae-native-runtime-20261114-232132\\visual-check",
+    "receipt": "trae-native-runtime.visual-check.json",
+    "contactSheet": "trae-native-runtime.visual-check.html",
+    "files": [
+      {
+        "sha256": "958ed4b55b50d43a5b23dbc06fc2ff716a976809cc3d89c1bb66492ac4804fa0",
+        "bytes": 27810,
+        "file": "trae-native-runtime.visual-check.html"
+      },
+      {
+        "sha256": "774cfbbb9f060b68a9aafc26a96c65bfabf6fb49b5f41c6c47d8dd47e190cda8",
+        "bytes": 94475,
+        "file": "trae-native-runtime.visual-check.1440x900.light.png"
+      },
+      {
+        "sha256": "774cfbbb9f060b68a9aafc26a96c65bfabf6fb49b5f41c6c47d8dd47e190cda8",
+        "bytes": 94475,
+        "file": "trae-native-runtime.visual-check.1440x900.dark.png"
+      },
+      {
+        "sha256": "107595196fbbf7459e2fe77802884c27633a04d56ef4e5bf9de168b9811f2e66",
+        "bytes": 153301,
+        "file": "trae-native-runtime.visual-check.2048x1320.light.png"
+      },
+      {
+        "sha256": "107595196fbbf7459e2fe77802884c27633a04d56ef4e5bf9de168b9811f2e66",
+        "bytes": 153301,
+        "file": "trae-native-runtime.visual-check.2048x1320.dark.png"
+      }
+    ]
+  }
+}

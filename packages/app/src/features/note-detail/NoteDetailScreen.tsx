@@ -113,7 +113,7 @@ function createStyles(tk: AppThemeTokens) {
       marginBottom: rnSpacing['xs-loose'],
     },
     author: { fontSize: rnType.body.size, color: tk.text.secondary, fontWeight: '500' },
-    meta: { fontSize: rnType.caption.size, color: tk.text.tertiary },
+    meta: { fontSize: rnType.caption.size, color: tk.text.medium },
     tagRow: {
       flexDirection: 'row',
       flexWrap: 'wrap',
@@ -122,7 +122,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     tag: {
       fontSize: rnType.caption.size,
-      color: tk.success.DEFAULT,
+      color: tk.success.deepText,
       backgroundColor: tk.success.light,
       paddingHorizontal: rnSpacing['xs-loose'],
       paddingVertical: rnSpacing['2xs'],

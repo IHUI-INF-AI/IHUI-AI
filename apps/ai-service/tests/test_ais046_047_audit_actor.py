@@ -8,6 +8,9 @@ AIS-046: `/api/audit/recent` 成功码必须为 0，与 `/api/audit/logs`(audit.
          旧码写 200 ⇒ 按 code===0 判成功的前端把"查到了"误判成失败。旧码红。
 AIS-047: 审计中间件必须把 `request.state.user_id` 传给 `log_agent_action`。
          旧码固定 agent_id="system" 且不传 user_id ⇒ 事后无法定位改动主体。旧码红。
+AIS-047 落库半边: `_persist_entry` 的 INSERT 必须带 user_id 列 —— 中间件传了参数
+         但 SQL 不写列,主体照样到不了 audit_logs,追责链仍断(列已存在于 R70
+         分区重建,本处只补写入)。
 """
 
 from __future__ import annotations
@@ -26,7 +29,7 @@ from starlette.responses import Response  # noqa: E402
 
 from app.core.config import settings  # noqa: E402
 from app.middleware.audit import AuditMiddleware  # noqa: E402
-from app.services.audit_service import audit_service  # noqa: E402
+from app.services.audit_service import AuditEntry, audit_service  # noqa: E402
 
 TEST_SECRET = "ais046-audit-code-secret"
 
@@ -89,4 +92,50 @@ async def test_audit_middleware_records_actor_user_id(monkeypatch: pytest.Monkey
     assert captured.get("user_id") == "u-me"
     assert captured.get("agent_id") == "system"
     assert captured.get("trace_id") is None
+
+
+async def test_persist_entry_writes_user_id_column(monkeypatch: pytest.MonkeyPatch) -> None:
+    """AIS-047 落库半边:audit_logs 的 INSERT 必须带 user_id 列且参数为主体值。
+
+    中间件传参只是前半 —— `_persist_entry` 的 INSERT 列里没有 user_id 时,
+    主体到不了库,追责链照样断(列已在 R70 分区重建中存在,只补写入不加迁移)。
+    假池把 execute 参数收下来当场判,零 SQL 出站(AGENTS §5 测试隔离铁律)。
+    """
+    captured: list[tuple[str, tuple[object, ...]]] = []
+
+    class _FakeConn:
+        async def execute(self, sql: str, *args: object) -> None:
+            captured.append((sql, args))
+
+    class _FakeAcquire:
+        async def __aenter__(self) -> _FakeConn:
+            return _FakeConn()
+
+        async def __aexit__(self, *exc: object) -> bool:
+            return False
+
+    class _FakePool:
+        def acquire(self) -> _FakeAcquire:
+            return _FakeAcquire()
+
+    async def _fake_get_db_pool() -> _FakePool:
+        return _FakePool()
+
+    # _persist_entry 函数内 `from app.core.db import get_db_pool`(晚绑定),
+    # patch 模块属性即可命中它真正执行的那一份。
+    monkeypatch.setattr("app.core.db.get_db_pool", _fake_get_db_pool)
+
+    entry = AuditEntry(
+        action="POST /api/hooks/x",
+        details={"status": 200},
+        agent_id="system",
+        user_id="u-me",
+    )
+    await audit_service._persist_entry(entry)
+
+    assert len(captured) == 1, f"落库面必须恰好发一条 INSERT,实得 {len(captured)} 条"
+    sql, args = captured[0]
+    assert "user_id" in sql, f"INSERT 列缺 user_id:{sql}"
+    # 参数序:action / resource_type / resource_id / details / created_at / user_id
+    assert args[5] == "u-me", f"user_id 参数应为主体值,实得 {args[5]!r}"
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

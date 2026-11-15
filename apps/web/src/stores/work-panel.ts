@@ -357,12 +357,8 @@ interface WorkPanelState {
   onFailed: (error?: string) => void
   /** 设置截图模式 */
   setScreenshot: (screenshot: string, title?: string) => void
-  /** CDP 浏览器导航完成(后端推送 navigation 事件时调用,更新 tab url + title + 地址栏)
-   *  @param sessionId 产生该导航事件的 CDP 会话 ID —— Y-81:多 cdp tab 并存时,WS 事件
-   *                   只按 sessionId 归属,绝不落到"当前 activeTab"(那可能是另一个 tab,
-   *                   会把 A tab 的导航地址写到 B tab 上)。调用方(web-work-panel)必须把
-   *                   建 WS 时用的同一个 sessionId 传回。 */
-  onCdpNavigation: (url: string, title: string, sessionId?: string) => void
+  /** CDP 浏览器导航完成(后端推送 navigation 事件时调用,更新 tab url + title + 地址栏) */
+  onCdpNavigation: (url: string, title: string) => void
   /** 代理 iframe 内导航桥接(代理页 postMessage,更新 tab url + 地址栏 + 历史栈)
    *  @param title 页面真实 <title>(代理页桥接广播),缺省时保留原标题
    *  @param kind 'nav' = 用户发起导航(链接点击/pushState → 压入历史栈,默认);
@@ -570,7 +566,7 @@ export const useWorkPanelStore = create<WorkPanelState>()(
             // 先关闭旧 CDP 会话(同 tab 重新导航时)
             const preTab = proxyTabs.find((t) => t.id === proxyId)
             if (preTab?.state.sessionId) {
-              void closeBrowserSession(preTab.state.sessionId).catch(() => {})
+              void closeBrowserSession(preTab.state.sessionId)
             }
 
             set({
@@ -601,7 +597,7 @@ export const useWorkPanelStore = create<WorkPanelState>()(
 
         // CDP 模式:后端浏览器后退(navigation 事件会更新地址栏 + title)
         if (tab.state.mode === 'cdp' && tab.state.sessionId) {
-          void browserHubBack(tab.state.sessionId).catch(() => {})
+          void browserHubBack(tab.state.sessionId)
           return
         }
 
@@ -654,7 +650,7 @@ export const useWorkPanelStore = create<WorkPanelState>()(
 
         // CDP 模式:后端浏览器前进
         if (tab.state.mode === 'cdp' && tab.state.sessionId) {
-          void browserHubForward(tab.state.sessionId).catch(() => {})
+          void browserHubForward(tab.state.sessionId)
           return
         }
 
@@ -799,7 +795,7 @@ export const useWorkPanelStore = create<WorkPanelState>()(
         // CDP 模式:关闭后端会话(异步,不阻塞 UI)
         const closingTab = tabs[idx]
         if (closingTab?.state.mode === 'cdp' && closingTab.state.sessionId) {
-          void closeBrowserSession(closingTab.state.sessionId).catch(() => {})
+          void closeBrowserSession(closingTab.state.sessionId)
         }
 
         const newTabs = tabs.filter((t) => t.id !== tabId)
@@ -996,19 +992,9 @@ export const useWorkPanelStore = create<WorkPanelState>()(
         })
       },
 
-      onCdpNavigation: (url, title, sessionId) => {
+      onCdpNavigation: (url, title) => {
         const { tabs, activeTabId } = get()
         if (!activeTabId) return
-        // Y-81:多 cdp tab 并存时,某个非 active tab 的 WS 也会推送 navigation 事件。
-        // 若按 activeTabId 落账,会把别 tab 的导航地址写到当前 tab 上(串号)。
-        // 校验归属:传了 sessionId 就只认"active tab 的 sessionId 与之相同"的事件;
-        // 不匹配 ⇒ 丢弃(该 tab 不是当前展示目标,其导航无需驱动地址栏/标题)。
-        if (sessionId) {
-          const activeTab = tabs.find((t) => t.id === activeTabId)
-          if (activeTab?.state.mode === 'cdp' && activeTab.state.sessionId !== sessionId) {
-            return
-          }
-        }
         set({
           tabs: patchActiveTabState(tabs, activeTabId, {
             url,

@@ -148,7 +148,7 @@ export function AiAssistantN8nScreen({
           <RefreshControl
             refreshing={refreshing ?? false}
             onRefresh={onRefresh}
-            tintColor={tk.text.tertiary}
+            tintColor={tk.text.secondary}
           />
         }
         onEndReached={onEndReached}
@@ -191,7 +191,7 @@ export function AiAssistantN8nScreen({
           <Settings size={14} color={tk.text.secondary} />
           <Text style={styles.modelConfigBtnLabel}>{t('agent.config')}</Text>
         </Tappable>
-        <ChevronRight size={20} color={tk.text.tertiary} style={styles.modelBarArrow} />
+        <ChevronRight size={20} color={tk.text.secondary} style={styles.modelBarArrow} />
       </Tappable>
 
       {/* 输入区 */}
@@ -202,7 +202,7 @@ export function AiAssistantN8nScreen({
           value={searchInput}
           onChangeText={onSearchInputChange}
           placeholder={t('aiAssistantN8n.placeholder')}
-          placeholderTextColor={tk.text.tertiary}
+          placeholderTextColor={tk.text.secondary}
           maxLength={2000}
           editable={!sending}
           returnKeyType="send"
@@ -343,7 +343,7 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.secondary,
     } as TextStyle,
     modelBarArrow: {
-      color: tk.text.tertiary,
+      color: tk.text.medium,
       marginLeft: rnSpacing.sm,
     } as TextStyle,
     // 输入区
@@ -388,7 +388,7 @@ function createStyles(tk: AppThemeTokens) {
     } as ViewStyle,
     streamingText: {
       fontSize: rnType.body.size,
-      color: tk.text.tertiary,
+      color: tk.text.medium,
     } as TextStyle,
     footerWrap: {
       flexDirection: 'row',

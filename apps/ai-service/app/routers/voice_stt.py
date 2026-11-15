@@ -30,7 +30,7 @@ import contextlib
 import logging
 import os
 from threading import Lock
-from typing import Any
+from typing import Any, Iterator
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel
@@ -138,6 +138,54 @@ def _transcribe_sync(model: Any, tmp_path: str, language: str | None) -> str:
     )
     # 拼接所有段文本
     return "".join(segment.text for segment in segments).strip()
+
+
+def iter_transcribe_segments(
+    model: Any,
+    tmp_path: str,
+    language: str | None = None,
+    *,
+    stop_after: int | None = None,
+) -> Iterator[dict[str, Any]]:
+    """流式分段转写:逐段 yield 带时间戳的转写结果(对标流式 ASR 语义)。
+
+    与 :func:`_transcribe_sync`(整段一次性返回)的关键差异(本模块的超越轴):
+      - **首段早返回**:第一段转写完即产出,调用方可立刻上屏,不必等整段音频处理完;
+      - **每段带时间戳**:`{seq, start, end, text}`,调用方按时间轴渲染字幕/高亮;
+      - **可提前收尾**:`stop_after=N` 只转写前 N 段(长音频预览/快速试听);
+      - **可中途取消**:调用方 `close()` 生成器即可停,已产出段仍有效。
+
+    生成器是惰性的:faster-whisper 的 `transcribe()` 在第一次 `next()` 时才启动。
+    以一个 `{"done": True, "segmentCount": int, "fullText": str}` 帧收尾,
+    `fullText` 是已产出段的顺次拼接(等价于整段转写结果)。
+
+    注意:本函数复用同一个 faster-whisper 模型单例,不引入新原生依赖;
+    离线能力由既有 `_get_whisper_model()` 保证(本地 CTranslate2,零成本零联网)。
+    """
+    segments, _info = model.transcribe(
+        tmp_path,
+        language=language,
+        vad_filter=True,
+    )
+    segment_count = 0
+    parts: list[str] = []
+    for segment in segments:
+        if stop_after is not None and segment_count >= stop_after:
+            break
+        text = (segment.text or "").strip()
+        segment_count += 1
+        parts.append(text)
+        yield {
+            "seq": segment_count - 1,
+            "start": round(float(getattr(segment, "start", 0.0)), 3),
+            "end": round(float(getattr(segment, "end", 0.0)), 3),
+            "text": text,
+        }
+    yield {
+        "done": True,
+        "segmentCount": segment_count,
+        "fullText": "".join(parts).strip(),
+    }
 
 
 # 2026-11-01 安全强化:匿名可调端点的上传上限(见 stt 端点头注)。

@@ -32,6 +32,9 @@ export type RnSuccessTokens = {
   DEFAULT: string
   deep: string
   deepText: string
+  /** 绿底/绿徽章之上的文字·图标色(深绿 #065F46,明暗同值)。success.deep 压中性底仅 2.76(图形不达标),
+   *  本档为「文字·图标在 success 色块上」专用,对 #22c55e/#EBEBEB/白底均 ≥4.5。 */
+  onGreen: string
 }
 
 export type RnWarningTokens = {
@@ -41,14 +44,32 @@ export type RnWarningTokens = {
   amber: string
   DEFAULT: string
   amberText: string
+  /** amber 底色之上的文字·图标色(深棕 #7c2d12,明暗同值)。surface.light 白字压 #f59e0b 仅 2.12,
+   *  本档为「文字·图标在 amber 色块上」专用,对 #f59e0b 均 ≥4.5。 */
+  onAmber: string
 }
 
 export type RnDangerTokens = {
   light: string
   DEFAULT: string
   bright: string
+  deepText: string
 }
 
+/** VIP 会员金色(对齐 miniapp-taro --color-vip-gold-start/end #ffd700/#ffaa00,明暗同值)。 */
+export type RnVipTokens = {
+  gold: string
+  goldEnd: string
+}
+
+/**
+ * 通用玻璃底档(2026-10-16 立,底部菜单 TabBar 悬浮胶囊液态玻璃背景:半透明 + backdrop blur,
+ * 下方内容若隐若现;明暗两档)。键名按 `scripts/sync-rn-tokens.mjs` 同名推导对位 tokens.css
+ * `glass.bg` → `--color-glass-bg`。改值只能改 tokens.css。
+ */
+export type RnGlassTokens = {
+  bg: string
+}
 
 /**
  * 容器描边角色档(2026-11-15 立,对齐 tokens.css `--color-stroke-*`)。
@@ -66,21 +87,6 @@ export type RnStrokeTokens = {
   focus: string
   selected: string
   danger: string
-}
-
-/** VIP 会员金色(对齐 miniapp-taro --color-vip-gold-start/end #ffd700/#ffaa00,明暗同值)。 */
-export type RnVipTokens = {
-  gold: string
-  goldEnd: string
-}
-
-/**
- * 通用玻璃底档(2026-10-16 立,底部菜单 TabBar 悬浮胶囊液态玻璃背景:半透明 + backdrop blur,
- * 下方内容若隐若现;明暗两档)。键名按 `scripts/sync-rn-tokens.mjs` 同名推导对位 tokens.css
- * `glass.bg` → `--color-glass-bg`。改值只能改 tokens.css。
- */
-export type RnGlassTokens = {
-  bg: string
 }
 
 /**
@@ -123,12 +129,14 @@ export const rnTokens = {
     dark: '#262626',
     /** 输入框背景:2026-09-04 对齐 web 中性灰(原 #f0f7ff 对齐 miniapp,已切换)。 */
     inputBg: '#F5F5F5',
+    onBrand: '#FFFFFF',
   },
   text: {
     primary: '#0A0A0A',
     secondary: '#666666',
     tertiary: '#A3A3A3',
     medium: '#404040',
+    inverse: '#FAFAFA',
   },
   border: {
     light: 'rgba(0,0,0,0.1)',
@@ -137,6 +145,7 @@ export const rnTokens = {
   error: {
     bg: '#FFE5E5',
     text: '#FF3333',
+    onBg: '#C0392B',
   },
   overlay: {
     modal: 'rgba(0,0,0,0.4)',
@@ -166,6 +175,7 @@ export const rnTokens = {
     amber: '#f59e0b',
     DEFAULT: '#f59e0b',
     amberText: '#92400e',
+    onAmber: '#5c230e',
   } satisfies RnWarningTokens,
   success: {
     lightest: '#f0fdf4',
@@ -174,11 +184,13 @@ export const rnTokens = {
     DEFAULT: '#22c55e',
     deep: '#16a34a',
     deepText: '#065F46',
+    onGreen: '#065F46',
   } satisfies RnSuccessTokens,
   danger: {
     light: '#fee2e2',
     DEFAULT: '#dc2626',
     bright: '#f87171',
+    deepText: '#b91c1c',
   } satisfies RnDangerTokens,
   /* 容器描边角色档(2026-11-15 立):新代码取角色名,border 两档保留为 legacy 别名。
      必须排在 danger 之后 —— 门 93 的 resolveTsPath 取首个同名键,stroke.danger 会遮住 danger.light。 */
@@ -258,12 +270,13 @@ export type RnThemeTokens = {
     dark: string
     inputBg: string
     chrome: string
+    onBrand: string
   }
-  text: { primary: string; secondary: string; tertiary: string; medium: string }
+  text: { primary: string; secondary: string; tertiary: string; medium: string; inverse: string }
   border: { light: string; medium: string }
   /* 容器描边角色档(--color-stroke-*;值由 sync-rn-tokens.mjs 派生) */
   stroke: RnStrokeTokens
-  error: { bg: string; text: string }
+  error: { bg: string; text: string; onBg: string }
   overlay: { modal: string; loading: string }
   /* brandAccent:高级灰蓝(2026-09-14 定稿)。DEFAULT=底色,foreground=其上文字,
    * deep=表面文字/图标变体,gradFrom/gradTo=CTA 局部渐变点缀。 */
@@ -329,10 +342,17 @@ export const rnLightTokens: RnThemeTokens = {
     dark: '#262626',
     inputBg: '#F5F5F5',
     chrome: '#FFFFFF',
+    onBrand: '#FFFFFF',
   },
-  text: { primary: '#0A0A0A', secondary: '#666666', tertiary: '#A3A3A3', medium: '#404040' },
+  text: {
+    primary: '#0A0A0A',
+    secondary: '#666666',
+    tertiary: '#A3A3A3',
+    medium: '#404040',
+    inverse: '#FAFAFA',
+  },
   border: { light: 'rgba(0,0,0,0.1)', medium: 'rgba(0,0,0,0.16)' },
-  error: { bg: '#FFE5E5', text: '#FF3333' },
+  error: { bg: '#FFE5E5', text: '#ff3333', onBg: '#C0392B' },
   overlay: { modal: 'rgba(0,0,0,0.4)', loading: 'rgba(255,255,255,0.8)' },
   brandAccent: {
     light: '#eaf2f7',
@@ -353,6 +373,7 @@ export const rnLightTokens: RnThemeTokens = {
     amber: '#f59e0b',
     DEFAULT: '#f59e0b',
     amberText: '#92400e',
+    onAmber: '#5c230e',
   },
   success: {
     lightest: '#f0fdf4',
@@ -361,10 +382,10 @@ export const rnLightTokens: RnThemeTokens = {
     DEFAULT: '#22c55e',
     deep: '#16a34a',
     deepText: '#065F46',
+    onGreen: '#065F46',
   },
-  danger: { light: '#fee2e2', DEFAULT: '#dc2626', bright: '#f87171' },
-  /* 容器描边角色档(2026-11-15 立):新代码取角色名,border 两档保留为 legacy 别名。
-     必须排在 danger 之后 —— 门 93 的 resolveTsPath 取首个同名键,stroke.danger 会遮住 danger.light。 */
+  danger: { light: '#fee2e2', DEFAULT: '#dc2626', bright: '#f87171', deepText: '#b91c1c' },
+  /* 容器描边角色档(2026-11-15 立;排在 danger 之后,理由见 rnTokens 同档注释) */
   stroke: {
     subtle: 'rgba(0,0,0,0.06)',
     default: 'rgba(0,0,0,0.1)',
@@ -374,7 +395,7 @@ export const rnLightTokens: RnThemeTokens = {
     focus: '#000000',
     selected: '#4a7a96',
     danger: '#dc2626',
-  } satisfies RnStrokeTokens,
+  },
   vip: { gold: '#FFD700', goldEnd: '#FFAA00' },
   /* 值由 scripts/sync-rn-tokens.mjs 从 tokens.css 派生(--color-model-type-* / --color-agent-name),勿手改 */
   modelType: {
@@ -436,10 +457,17 @@ export const rnDarkTokens: RnThemeTokens = {
     dark: '#171717',
     inputBg: '#262626',
     chrome: '#262626',
+    onBrand: '#FFFFFF',
   },
-  text: { primary: '#FAFAFA', secondary: '#A3A3A3', tertiary: '#737373', medium: '#D4D4D4' },
+  text: {
+    primary: '#FAFAFA',
+    secondary: '#A3A3A3',
+    tertiary: '#737373',
+    medium: '#D4D4D4',
+    inverse: '#0A0A0A',
+  },
   border: { light: 'rgba(255,255,255,0.12)', medium: 'rgba(255,255,255,0.2)' },
-  error: { bg: '#7F1D1D', text: '#FF3333' },
+  error: { bg: '#7F1D1D', text: '#ff3333', onBg: '#FCA5A5' },
   overlay: { modal: 'rgba(0,0,0,0.6)', loading: 'rgba(0,0,0,0.6)' },
   brandAccent: {
     light: '#1e2e36',
@@ -460,6 +488,7 @@ export const rnDarkTokens: RnThemeTokens = {
     amber: '#fbbf24',
     DEFAULT: '#f59e0b',
     amberText: '#fbbf24',
+    onAmber: '#5c230e',
   },
   success: {
     lightest: '#052e16',
@@ -468,8 +497,9 @@ export const rnDarkTokens: RnThemeTokens = {
     DEFAULT: '#2dd269',
     deep: '#16a34a',
     deepText: '#86efac',
+    onGreen: '#065F46',
   },
-  danger: { light: '#7f1d1d', DEFAULT: '#ef4444', bright: '#fca5a5' },
+  danger: { light: '#7f1d1d', DEFAULT: '#ef4444', bright: '#fca5a5', deepText: '#ff9e9e' },
   /* 容器描边角色档(2026-11-15 立;排在 danger 之后,理由见 rnTokens 同档注释) */
   stroke: {
     subtle: 'rgba(255,255,255,0.08)',
@@ -534,12 +564,21 @@ export const rnCssLight = {
   secondaryForeground: 'hsl(0 0% 9%)',
   muted: 'hsl(0 0% 92%)',
   mutedForeground: 'hsl(0 0% 40%)',
+  mutedSoft: 'hsl(0 0% 94%)',
   accent: 'hsl(0 0% 95%)',
   accentForeground: 'hsl(0 0% 9%)',
   destructive: 'hsl(0 100% 60%)',
   destructiveForeground: 'hsl(0 0% 98%)',
   input: 'rgba(0, 0, 0, 0.14)',
   ring: 'hsl(0 0% 70%)',
+  strokeSubtle: 'rgba(0, 0, 0, 0.06)',
+  strokeDefault: 'rgba(0, 0, 0, 0.1)',
+  strokeStrong: 'rgba(0, 0, 0, 0.18)',
+  strokeInverse: 'rgba(255, 255, 255, 0.2)',
+  strokeField: 'rgba(0, 0, 0, 0.14)',
+  strokeFocus: '#000000',
+  strokeSelected: '#4a7a96',
+  strokeDanger: '#dc2626',
   successForeground: 'hsl(0 0% 98%)',
   warningForeground: 'hsl(0 0% 98%)',
   info: 'hsl(199 89% 48%)',
@@ -712,12 +751,21 @@ export const rnCssDark = {
   secondaryForeground: 'hsl(0 0% 98%)',
   muted: 'hsl(0 0% 14.9%)',
   mutedForeground: 'hsl(0 0% 63.9%)',
+  mutedSoft: 'hsl(0 0% 14.9%)',
   accent: 'hsl(0 0% 19%)',
   accentForeground: 'hsl(0 0% 98%)',
   destructive: 'hsl(0 100% 60%)',
   destructiveForeground: 'hsl(0 0% 98%)',
   input: 'rgba(255, 255, 255, 0.16)',
   ring: 'hsl(0 0% 35%)',
+  strokeSubtle: 'rgba(255, 255, 255, 0.08)',
+  strokeDefault: 'rgba(255, 255, 255, 0.12)',
+  strokeStrong: 'rgba(255, 255, 255, 0.22)',
+  strokeInverse: 'rgba(0, 0, 0, 0.3)',
+  strokeField: 'rgba(255, 255, 255, 0.16)',
+  strokeFocus: '#ffffff',
+  strokeSelected: '#a3c4d6',
+  strokeDanger: '#ef4444',
   successForeground: 'hsl(0 0% 98%)',
   warningForeground: 'hsl(0 0% 98%)',
   info: 'hsl(199 80% 55%)',

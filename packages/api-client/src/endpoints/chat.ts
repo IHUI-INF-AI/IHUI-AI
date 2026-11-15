@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { fetchApi, fetchText, aiServiceBaseUrl, fetchWithAuthRefresh } from '../client.js'
+import { fetchApi, fetchText, fetchRaw, aiServiceBaseUrl, fetchWithAuthRefresh } from '../client.js'
 
 export type ChatRole = 'user' | 'assistant' | 'system'
 
@@ -448,6 +448,22 @@ export function autoTitleConversation(
   )
 }
 
+/** 对话后续指令推荐(2026-11-14 立):
+ * 基于最近几条 user/assistant 文本,由模型产出 2-4 条用户视角、可直接发送的完整指令。
+ * 生成失败/超时服务端返回空数组(success:true),调用方据此不渲染建议条。 */
+export function generateFollowUpSuggestions(input: {
+  messages: ReadonlyArray<{ role: 'user' | 'assistant'; content: string }>
+  model?: string
+  signal?: AbortSignal
+}) {
+  const { signal, ...body } = input
+  return fetchApi<{ suggestions: string[] }>('/api/chat/follow-up-suggestions', {
+    method: 'POST',
+    body: JSON.stringify(body),
+    signal,
+  })
+}
+
 /** 分支/回退(2026-08-30 立):基于指定消息之前的内容创建新会话,返回新会话 */
 export function branchConversation(
   conversationId: string,
@@ -707,6 +723,11 @@ export function unarchiveConversation(id: string) {
 /** 导出对话为纯文本（txt/md） */
 export function exportConversation(id: string, format: 'txt' | 'md' = 'md'): Promise<string> {
   return fetchText(`/api/chat/conversations/${encodeURIComponent(id)}/export?format=${format}`)
+}
+
+/** 导出会话 ZIP（服务端二进制;含 conversation.md / messages.json / manifest.json） */
+export function exportConversationZip(id: string): Promise<Blob> {
+  return fetchRaw(`/api/chat/conversations/${encodeURIComponent(id)}/export/zip`)
 }
 
 /** 压缩归档列表项("归档记忆" 2026-09-01 立;列表不含 messages 大字段) */

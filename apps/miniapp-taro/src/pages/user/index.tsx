@@ -1199,17 +1199,15 @@ export default function UserIndex() {
                       </View>
                       {/* 纵向单列大图(对齐 RN imageColumn gap rpx(16) + imageColumnImg 高 200dp)*/}
                       <View className="flex flex-col" style={{ gap: rpx(16) }}>
-                        {(item.imageList || []).map((imgUrl, imgIdx) =>
-                          imgUrl ? (
-                            <Image
-                              key={`${index}-img-${imgIdx}`}
-                              src={imgUrl}
-                              mode="aspectFill"
-                              style={{ width: '100%', height: rpx(400), borderRadius: rnRadius.lg }}
-                              onClick={() => previewImage(imgUrl, item.imageList)}
-                            />
-                          ) : null,
-                        )}
+                        {(item.imageList || []).map((imgUrl, imgIdx) => (
+                          <Image
+                            key={imgIdx}
+                            src={imgUrl}
+                            mode="aspectFill"
+                            style={{ width: '100%', height: rpx(400), borderRadius: rnRadius.lg }}
+                            onClick={() => previewImage(imgUrl, item.imageList)}
+                          />
+                        ))}
                       </View>
                     </View>
                   ))

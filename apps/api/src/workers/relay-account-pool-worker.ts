@@ -128,11 +128,6 @@ async function runClientSessionSync(scriptName: string): Promise<ClientSyncOutco
     const child = spawn(process.execPath, [script, '--json'], {
       cwd: REPO_ROOT,
       windowsHide: true,
-      // Y-75:回灌编排脚本自身可能派生孙进程(如 git/构建子命令)。Unix 下 `detached: true`
-      // 让子进程自成进程组(pgid == child.pid),超时 kill 才能用 `process.kill(-pid)` 整树
-      // 回收,否则只杀单 pid ⇒ 孙进程成孤儿累积。Windows 无进程组语义,detached 省略,
-      // 超时按单 pid 终止(Node 的 child.kill + windowsHide 已足够;这类脚本不再派生树)。
-      ...(process.platform === 'win32' ? {} : { detached: true }),
       // 显式 stdio(§12g);凭据走 stdin,stdout 只回 JSON 汇总。
       // 超时改由下方显式定时器负责:spawn 自带的 timeout 只留下 SIGTERM,
       // 分不清「超时被杀」与「自己崩了」,而 F-496 的判据需要这个区分。
@@ -145,17 +140,7 @@ async function runClientSessionSync(scriptName: string): Promise<ClientSyncOutco
     child.stderr.on('data', (d: Buffer) => (err += d))
     const timer = setTimeout(() => {
       timedOut = true
-      // 整树终止(Y-75):Unix 优先按进程组杀(负 pid),失败/Windows 回落单 pid。
-      try {
-        if (child.pid !== undefined && process.platform !== 'win32') {
-          process.kill(-child.pid, 'SIGTERM')
-        } else {
-          child.kill('SIGTERM')
-        }
-      } catch {
-        // 进程组已退出:忽略
-        child.kill('SIGTERM')
-      }
+      child.kill('SIGTERM')
     }, CLIENT_SYNC_TIMEOUT_MS)
     child.on('error', (e) => {
       clearTimeout(timer)

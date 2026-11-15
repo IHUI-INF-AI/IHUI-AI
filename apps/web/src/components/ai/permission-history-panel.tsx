@@ -46,6 +46,7 @@ import { useTranslations } from 'next-intl'
 import { toast } from '@/components/common'
 
 import { Tooltip } from '@/components/feedback'
+import { NESTED_FLOATING_Z_CLASS } from '@/lib/floating-layer'
 import { IconButton } from '@ihui/ui-react'
 // 浮层治理(2026-09-15):迁移到统一 PortalPanel(内置 portal/定位/clamp/翻转/外点与 Escape 关闭)
 import { PortalPanel } from '@/components/feedback/portal-panel'
@@ -176,7 +177,7 @@ function HistoryList({ entries, now }: HistoryListProps) {
                 {entry.workspacePath && (
                   <>
                     <span aria-hidden="true">·</span>
-                    <Tooltip content={entry.workspacePath}>
+                    <Tooltip content={entry.workspacePath} className={NESTED_FLOATING_Z_CLASS}>
                       <span className="truncate font-mono">{shortenPath(entry.workspacePath)}</span>
                     </Tooltip>
                   </>

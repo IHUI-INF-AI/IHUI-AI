@@ -132,11 +132,17 @@ describe('飞书审批映射 mapApprovalDataToRows(已核实字段)', () => {
 
   it('kind 与字段错配 ⇒ 不跨类取数(leave 请求不读 outs,反之亦然)', () => {
     // leave 请求只看 leaves
-    expect(mapApprovalDataToRows('leave', { outs: [{ uniq_id: 'x', approval_id: 'a' }] })).toHaveLength(0)
+    expect(
+      mapApprovalDataToRows('leave', { outs: [{ uniq_id: 'x', approval_id: 'a' }] }),
+    ).toHaveLength(0)
     // overtime 请求只看 overtimes
-    expect(mapApprovalDataToRows('overtime', { leaves: [{ uniq_id: 'y', approval_id: 'b' }] })).toHaveLength(0)
+    expect(
+      mapApprovalDataToRows('overtime', { leaves: [{ uniq_id: 'y', approval_id: 'b' }] }),
+    ).toHaveLength(0)
     // outgoing 请求只看 outs
-    expect(mapApprovalDataToRows('outgoing', { overtimes: [{ uniq_id: 'z', approval_id: 'c' }] })).toHaveLength(0)
+    expect(
+      mapApprovalDataToRows('outgoing', { overtimes: [{ uniq_id: 'z', approval_id: 'c' }] }),
+    ).toHaveLength(0)
     // attendance 走打卡 fetch,不经本函数;本函数不产行
     expect(mapApprovalDataToRows('attendance', {})).toHaveLength(0)
   })

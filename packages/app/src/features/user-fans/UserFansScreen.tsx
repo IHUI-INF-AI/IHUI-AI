@@ -115,7 +115,7 @@ export function UserFansScreen({
                 </View>
                 {fan.followed ? (
                   <View style={styles.followedTag}>
-                    <UserCheck size={13} color={tk.success.DEFAULT} />
+                    <UserCheck size={13} color={tk.success.deepText} />
                     <Text style={styles.followedText}>{t('userFans.followed')}</Text>
                   </View>
                 ) : (

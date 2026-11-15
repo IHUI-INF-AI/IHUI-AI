@@ -149,16 +149,16 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: rnSpacing.sm,
       fontSize: rnType.title.size,
       fontWeight: '600',
-      color: tk.danger.DEFAULT,
+      color: tk.danger.deepText,
     },
     rankText: {
       marginTop: rnSpacing.xs,
       fontSize: rnType.caption.size,
-      color: tk.text.tertiary,
+      color: tk.text.medium,
     },
     submittedAt: {
       fontSize: rnType.caption.size,
-      color: tk.text.tertiary,
+      color: tk.text.medium,
       marginBottom: rnSpacing.lg,
     },
   })

@@ -99,7 +99,7 @@ export function UserPublicScreen({
           />
         ) : !user ? (
           <EmptyState
-            icon={<User size={26} color={tk.text.tertiary} />}
+            icon={<User size={26} color={tk.text.secondary} />}
             title={t('userPublic.notFound')}
             colorScheme={colorScheme}
           />
@@ -216,11 +216,11 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.muted,
     },
     avatarFallback: { alignItems: 'center', justifyContent: 'center' },
-    avatarFallbackText: { ...rnType.display, color: tk.text.tertiary },
+    avatarFallbackText: { ...rnType.display, color: tk.text.medium },
     profileMeta: { flex: 1, minWidth: 0, gap: rnSpacing.xs },
     nickname: { ...rnType.heading, color: tk.text.primary },
     bio: { ...rnType.body, color: tk.text.secondary },
-    joined: { fontSize: rnType.label.size, color: tk.text.tertiary },
+    joined: { fontSize: rnType.label.size, color: tk.text.medium },
     statsRow: { flexDirection: 'row', gap: rnSpacing.md },
     statCard: {
       flex: 1,
@@ -234,7 +234,7 @@ function createStyles(tk: AppThemeTokens) {
       gap: rnSpacing.xs,
     },
     statValue: { ...rnType.title, color: tk.text.primary },
-    statLabel: { fontSize: rnType.label.size, color: tk.text.tertiary },
+    statLabel: { fontSize: rnType.label.size, color: tk.text.medium },
     actions: {
       flexDirection: 'row',
       gap: rnSpacing.sm,

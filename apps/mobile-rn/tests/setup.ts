@@ -25,11 +25,6 @@ import { resetAsyncStorageMock } from './__mocks__/async-storage'
 
 configure({ asyncUtilTimeout: 4000 })
 
-// Expo 依赖链(模块 require 阶段)读 `__DEV__`;jsdom 环境无此全局 ⇒ 任何引到 expo 的
-// 组件测试都会在 import 求值时 ReferenceError。必须在 setup(早于测试体 import)用
-// globalThis 直接赋值,不能用 vi.stubGlobal —— 本文件 afterEach 的 restoreAllMocks 会把它撤掉。
-;(globalThis as Record<string, unknown>).__DEV__ = false
-
 beforeEach(() => {
   resetAsyncStorageMock()
   vi.clearAllMocks()

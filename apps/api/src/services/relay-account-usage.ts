@@ -206,24 +206,46 @@ const KEEP_DAYS = (() => {
   return Number.isFinite(raw) && raw > 0 ? raw : KEEP_DAYS_DEFAULT
 })()
 
+/** 单批删除上限:积压时不再一条 DELETE 全量删除(长事务/长锁/WAL 膨胀)。 */
+const PURGE_BATCH_SIZE = 5000
+/** 单轮最多批次:防御异常数据导致死循环,剩余留待下一轮 sweep。 */
+const PURGE_MAX_BATCHES = 1000
+
 /**
- * 清理早于保留期的台账行,返回删除行数。**永不抛**(失败返回 0)。
+ * 清理早于保留期的台账行,返回删除行数。**永不抛**。
+ * 分批删除(每批最多 5000 行,子查询 LIMIT 收口);失败记 error(表名/已删数量/错误)
+ * 并返回已删总数,不再把失败静默当成 0。
  * 由调度每轮 sweep 调用(调度侧做 24h 节流),避免台账无限膨胀。
  */
 export async function purgeAccountUsage(beforeDays = KEEP_DAYS): Promise<number> {
-  try {
-    const days = Number.isFinite(beforeDays) && beforeDays > 0 ? beforeDays : KEEP_DAYS_DEFAULT
-    const cutoff = new Date(Date.now() - days * DAY_MS)
-    const deleted = await db
-      .delete(aiRelayAccountUsageLedger)
-      .where(lt(aiRelayAccountUsageLedger.ts, cutoff))
-      .returning({ id: aiRelayAccountUsageLedger.id })
-    return deleted.length
-  } catch (e) {
-    logger.warn('[relay-account-usage] 台账过期清理失败(已吞)', {
-      error: e instanceof Error ? e.message : String(e),
-    })
-    return 0
+  const days = Number.isFinite(beforeDays) && beforeDays > 0 ? beforeDays : KEEP_DAYS_DEFAULT
+  const cutoff = new Date(Date.now() - days * DAY_MS)
+  let deleted = 0
+  for (let batch = 1; batch <= PURGE_MAX_BATCHES; batch++) {
+    try {
+      const rows = await db
+        .delete(aiRelayAccountUsageLedger)
+        .where(
+          sql`${aiRelayAccountUsageLedger.id} IN (SELECT ${aiRelayAccountUsageLedger.id} FROM ${aiRelayAccountUsageLedger} WHERE ${lt(aiRelayAccountUsageLedger.ts, cutoff)} LIMIT ${PURGE_BATCH_SIZE})`,
+        )
+        .returning({ one: sql<number>`1` })
+      deleted += rows.length
+      if (rows.length < PURGE_BATCH_SIZE) return deleted
+    } catch (e) {
+      logger.error('[relay-account-usage] 台账过期清理失败(批次中断,已删数量如实返回)', {
+        table: 'ai_relay_account_usage_ledger',
+        deleted,
+        batch,
+        error: e instanceof Error ? e.message : String(e),
+      })
+      return deleted
+    }
   }
+  logger.warn('[relay-account-usage] 台账过期清理达到单轮批次上限,剩余留待下轮', {
+    table: 'ai_relay_account_usage_ledger',
+    deleted,
+    maxBatches: PURGE_MAX_BATCHES,
+  })
+  return deleted
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

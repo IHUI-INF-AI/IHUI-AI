@@ -43,7 +43,6 @@ import Taro, {
 } from '@tarojs/taro'
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import { isLoggedIn, getUserInfo, type UserInfo } from '@/utils/auth'
-import { saveNetworkImageToAlbum } from '@/utils/save-album'
 import { getSystemInfoCompat } from '@/utils/system-info'
 import NavBar from '@/components/NavBar'
 import LineIcon from '@/components/LineIcon'
@@ -280,21 +279,20 @@ interface AiHomeState {
  * - showToast 兜底显示通知(简化版,原项目是有 UI 渲染的弹窗)
  */
 function PushNotification() {
-  // 对齐原项目:监听 showPushNotification 全局事件
-  useDidShow(() => {
-    Taro.eventCenter.on('showPushNotification', (options: { title?: string; content?: string }) => {
-      if (options?.title) {
-        onToast(options.title, { kind: 'info', duration: 3000 })
-      }
-    })
-  })
-
-  // 清理监听(防止内存泄漏)
-  useEffect(() => {
-    return () => {
-      Taro.eventCenter.off('showPushNotification')
+  // 稳定 handler:同一引用供 on/off 成对使用,避免切后台再回前台重复注册导致一条推送弹多次
+  const handler = useCallback((options: { title?: string; content?: string }) => {
+    if (options?.title) {
+      onToast(options.title, { kind: 'info', duration: 3000 })
     }
   }, [])
+
+  useEffect(() => {
+    // 只在挂载注册一次;卸载时按引用 off,绝不用无参 off 清空同名事件的全部监听
+    Taro.eventCenter.on('showPushNotification', handler)
+    return () => {
+      Taro.eventCenter.off('showPushNotification', handler)
+    }
+  }, [handler])
 
   return null
 }
@@ -323,30 +321,20 @@ function MaterialCards({
               className="material-card-item"
               style={{ marginRight: rpx(12) }}
             >
-              {/* 命中区与视觉图标分离:图标仍 32rpx、中心仍在卡片角 +8rpx,
-                  但可点盒子扩到 88rpx(=44px)满足最小触摸目标;卡片本体无可点 handler,不会遮挡。 */}
-              <View
+              <Image
+                src={closeInputPng}
+                mode="widthFix"
                 className="material-card-close"
-                ariaRole="button"
-                ariaLabel={tt('a11y.close', '关闭')}
-                hoverClass="opacity-60"
-                onClick={() => onRemove(index)}
                 style={{
-                  top: rpx(-36),
-                  right: rpx(-36),
-                  width: rpx(88),
-                  height: rpx(88),
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
+                  width: rpx(32),
+                  height: rpx(32),
+                  position: 'absolute',
+                  top: rpx(-8),
+                  right: rpx(-8),
+                  zIndex: 2,
                 }}
-              >
-                <Image
-                  src={closeInputPng}
-                  mode="widthFix"
-                  style={{ width: rpx(32), height: rpx(32) }}
-                />
-              </View>
+                onClick={() => onRemove(index)}
+              />
               {card.type === 1 && (
                 <View
                   className="material-card-body material-card-text"
@@ -666,28 +654,16 @@ export default function Index() {
     }))
   })
 
-  /** 首屏四支请求的卸载守卫:waitUntilReady 回调与 useDidShow 会重复触发,
-   *  页面卸载后旧回包仍会 setState(RN 首页已有同款防线,本端此前漏接)。 */
-  const firstLoadAliveRef = useRef(true)
-  useEffect(() => {
-    firstLoadAliveRef.current = true
-    return () => {
-      firstLoadAliveRef.current = false
-    }
-  }, [])
-
   // 拉取模型列表(唯一权威源:后端过滤后的可用模型);失败/空时降级为共享已验证兜底
   const loadModels = useCallback(async () => {
     setModelsLoading(true)
     try {
       const res = await api.fetchModels()
-      if (!firstLoadAliveRef.current) return
       setModels(res?.models && res.models.length > 0 ? res.models : FALLBACK_MODEL_ITEMS)
     } catch {
-      if (!firstLoadAliveRef.current) return
       setModels(FALLBACK_MODEL_ITEMS)
     } finally {
-      if (firstLoadAliveRef.current) setModelsLoading(false)
+      setModelsLoading(false)
     }
   }, [])
 
@@ -714,7 +690,6 @@ export default function Index() {
         fetchMyCreation('plugin', { page: 1, pageSize: 50 }),
         fetchMyCreation('workflow', { page: 1, pageSize: 50 }),
       ])
-      if (!firstLoadAliveRef.current) return
       materialsLoadedRef.current = true
       setState((s) => ({
         ...s,
@@ -747,7 +722,6 @@ export default function Index() {
     setState((s) => ({ ...s, agentsLoading: true }))
     try {
       const res = await fetchAgents({ page: 1, pageSize: 50 })
-      if (!firstLoadAliveRef.current) return
       if (res.success) {
         agentsLoadedRef.current = true
         const list = res.data.list
@@ -760,7 +734,7 @@ export default function Index() {
     } catch {
       // 网络/接口异常:保持空态(组件既有空态渲染),agentsLoading 由 finally 回收
     } finally {
-      if (firstLoadAliveRef.current) setState((s) => ({ ...s, agentsLoading: false }))
+      setState((s) => ({ ...s, agentsLoading: false }))
     }
   }, [])
 
@@ -809,10 +783,9 @@ export default function Index() {
         list?: Array<{ id: string; title: string; time: string; modelName?: string }>
       }
       const rawList = Array.isArray(res?.list) ? res.list : []
-      if (!firstLoadAliveRef.current) return
       setState((s) => ({ ...s, groupedData: groupDataByDate(rawList) }))
     } catch {
-      if (firstLoadAliveRef.current) setState((s) => ({ ...s, groupedData: [] }))
+      setState((s) => ({ ...s, groupedData: [] }))
     }
   }, [groupDataByDate])
 
@@ -827,23 +800,6 @@ export default function Index() {
     }
   }, [])
 
-  // 两处 500ms 交互延时(自动选模型 / 分享弹窗事件)各用一个 ref,与下拉刷新同款:
-  // 分持句柄避免跨交互互相清旧而改变各自的 500ms 语义,起新前先停旧防叠加,卸载统一清理。
-  const autoSelectModelTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const sharePopupTriggerTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  useEffect(() => {
-    return () => {
-      if (autoSelectModelTimerRef.current !== null) {
-        clearTimeout(autoSelectModelTimerRef.current)
-        autoSelectModelTimerRef.current = null
-      }
-      if (sharePopupTriggerTimerRef.current !== null) {
-        clearTimeout(sharePopupTriggerTimerRef.current)
-        sharePopupTriggerTimerRef.current = null
-      }
-    }
-  }, [])
-
   // 下拉刷新(对齐原项目 onPullDownRefresh)
   usePullDownRefresh(() => {
     // 重置分页并刷新数据
@@ -853,9 +809,24 @@ export default function Index() {
       hasMore: true,
       isLoadingMore: false,
     }))
-    setTimeout(() => {
-      Taro.stopPullDownRefresh()
-    }, 500)
+    // 停动画改由真实取数(loadModels)的 finally 驱动,不再固定 500ms 盲停;
+    // 另留兜底定时器防接口挂起把动画卡死,统一走 ref 便于清理
+    const stopRefresh = () => {
+      if (pullRefreshTimerRef.current !== null) {
+        clearTimeout(pullRefreshTimerRef.current)
+        pullRefreshTimerRef.current = null
+      }
+      try {
+        Taro.stopPullDownRefresh()
+      } catch {
+        // 静默:未处于下拉刷新态时该调用为空操作
+      }
+    }
+    if (pullRefreshTimerRef.current !== null) {
+      clearTimeout(pullRefreshTimerRef.current)
+    }
+    pullRefreshTimerRef.current = setTimeout(stopRefresh, 500)
+    void loadModels().finally(stopRefresh)
   })
 
   // 上拉加载更多(对齐原项目 onReachBottom)
@@ -892,8 +863,7 @@ export default function Index() {
     } catch {
       // 静默:部分平台可能不支持
     }
-    Taro.eventCenter.off('shareSuccess')
-    Taro.eventCenter.off('shareFail')
+    // shareSuccess / shareFail 全仓无对应 on( 监听:这两行 off 是会清空同名事件全部监听的死代码,移除
     setState((s) => ({ ...s, showSharePointsPopup: false }))
   }
 
@@ -951,12 +921,7 @@ export default function Index() {
         }))
         // 自动选第一个模型(对齐原项目,从对应分类列表取第一个)
         // 2026-08-27:改取后端列表/已验证兜底第一个(id 与后端一致),不再用 MOCK_MODELS
-        // 自动选模型的 500ms 延时纳入 ref:起新前先停旧(不叠加),卸载时统一清理
-        if (autoSelectModelTimerRef.current !== null) {
-          clearTimeout(autoSelectModelTimerRef.current)
-        }
-        autoSelectModelTimerRef.current = setTimeout(() => {
-          autoSelectModelTimerRef.current = null
+        setTimeout(() => {
           setState((s) => {
             if (s.currentModelType !== type) return s // 用户已切换走,不自动选
             const firstModel = models[0] ?? FALLBACK_MODEL_ITEMS[0]
@@ -1035,14 +1000,42 @@ export default function Index() {
     // 键盘弹出时可选调整布局
   }, [])
 
+  // 分页定时器与防重判据都走 ref:同步、可清理、卸载后不再 setState
+  const loadMoreTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const loadMorePendingRef = useRef(false)
+  const loadMoreAliveRef = useRef(true)
+  useEffect(() => {
+    loadMoreAliveRef.current = true
+    return () => {
+      loadMoreAliveRef.current = false
+      loadMorePendingRef.current = false
+      if (loadMoreTimeoutRef.current !== null) {
+        clearTimeout(loadMoreTimeoutRef.current)
+        loadMoreTimeoutRef.current = null
+      }
+    }
+  }, [])
+
   // 分页加载更多模型
   const loadMoreModels = useCallback(() => {
+    // 同步防重:一轮未结束忽略后续触底(原判据只在 setState 回调里,挡不住 1s 内叠多个 timeout)
+    if (loadMorePendingRef.current) return
+    loadMorePendingRef.current = true
+    // 创建前清旧:同一 ref 上不残留旧定时器
+    if (loadMoreTimeoutRef.current !== null) {
+      clearTimeout(loadMoreTimeoutRef.current)
+      loadMoreTimeoutRef.current = null
+    }
     setState((s) => {
       if (s.isLoadingMore || !s.hasMore) return s
       return { ...s, isLoadingMore: true, page: s.page + 1 }
     })
     // 模拟异步加载
-    setTimeout(() => {
+    loadMoreTimeoutRef.current = setTimeout(() => {
+      loadMoreTimeoutRef.current = null
+      loadMorePendingRef.current = false
+      // 卸载守卫:组件卸载后不再 setState
+      if (!loadMoreAliveRef.current) return
       setState((s) => ({
         ...s,
         isLoadingMore: false,
@@ -1458,7 +1451,6 @@ export default function Index() {
             >
               <View className="titlebox-right">
                 <Image
-                  ariaLabel={tt('share.title', '分享')}
                   className="share-image"
                   style={{ width: rpx(80), height: rpx(80) }}
                   src={aizhsUrl('remote-images/share_zhuanmi.png')}
@@ -1467,12 +1459,7 @@ export default function Index() {
                     Taro.switchTab({
                       url: '/pages/user/index',
                       success: () => {
-                        // 分享弹窗事件的 500ms 延时纳入 ref:起新前先停旧(不重复触发),卸载时统一清理
-                        if (sharePopupTriggerTimerRef.current !== null) {
-                          clearTimeout(sharePopupTriggerTimerRef.current)
-                        }
-                        sharePopupTriggerTimerRef.current = setTimeout(() => {
-                          sharePopupTriggerTimerRef.current = null
+                        setTimeout(() => {
                           Taro.eventCenter.trigger('showImageSharePopup', { current: 0 })
                         }, 500)
                       },
@@ -1578,9 +1565,7 @@ export default function Index() {
                     t={(key: string) => t(key)}
                     item={msg as unknown as Parameters<typeof ChatMessageBubble>[0]['item']}
                     onCopyText={(text: string) => {
-                      void Taro.setClipboardData({ data: text }).catch(() => {
-                        onToast(tt('ai.aiAssistant.copyFailed', '复制失败'), { kind: 'error' })
-                      })
+                      void Taro.setClipboardData({ data: text }).catch(() => undefined)
                     }}
                   />
                 </View>
@@ -1950,7 +1935,6 @@ export default function Index() {
               <Image src={SHARE_ZHZ_IMG} style={{ width: rpx(440) }} mode="widthFix" />
               {/* 分享按钮(对齐原项目 popup-share-btn,open-type="share" 用于微信小程序) */}
               <Button
-                ariaLabel={tt('share.title', '分享')}
                 openType="share"
                 className="absolute inset-0 w-full h-full"
                 style={{ opacity: 0, zIndex: 10 }}
@@ -1981,21 +1965,15 @@ export default function Index() {
               hoverClass="opacity-60"
             >
               <Image
-                ariaLabel={tt('vipScreen.qr.hint', '长按二维码保存到相册')}
                 src={QRCODE_IMG}
                 style={{ width: rpx(480), height: rpx(480), borderRadius: rnRadius.lg }}
                 mode="aspectFit"
                 onLongPress={() => {
-                  // 长按保存二维码(对齐原项目 handleLongPressQrCode)。QRCODE_IMG 是远端图,
-                  // 必须真走「下载 → 写入相册」链路;此前只在 ActionSheet 回调里弹成功 toast,
-                  // 相册里根本没有图(假成功反馈),且末尾 .catch 把一切异常一并吞掉。
+                  // 长按保存二维码(对齐原项目 handleLongPressQrCode)
                   Taro.showActionSheet({
                     itemList: [tt('pagesindexindex.r1', '保存图片到相册')],
                     success: () => {
-                      void saveNetworkImageToAlbum(QRCODE_IMG).catch(() => {
-                        // 失败态由 save-album 按下载失败/权限拒绝/写入失败三态分别提示,
-                        // 这里只吞 rejection,不再重复弹「图片已保存」。
-                      })
+                      onToast(tt('pagesindexindex.save3', '图片已保存'), { kind: 'success' })
                     },
                     fail: () => {
                       // 用户取消操作

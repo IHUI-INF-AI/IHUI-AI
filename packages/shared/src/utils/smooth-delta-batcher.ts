@@ -28,12 +28,7 @@
 // D1b(2026-11-14):切点判据从「码点边界」升级为「字素簇边界」,复用 truncate.ts 的
 // Intl.Segmenter 真相源(§0.6 单一真相源 —— D1 注释本就说与 truncate「BUG-52」同源,
 // 但此前只对齐了码点、漏了 ZWJ/FE0F/肤色修饰符连接的多码点 emoji)。
-// D1c(2026-11-15):同一真相源改用**惰性迭代**(`graphemeSegments`),不再用急切展开整串的
-// `splitGraphemes` —— 本函数只需要"切点所在那一段",旧写法每提交帧把整个积压缓冲重新分段,
-// 代价随 pending 线性放大(与 HEAD 原文同轮实测:pending=50000 单次 3.65ms→0.064ms,
-// 排空 50k 累计 732ms→16.1ms,45x),长回答/后台页恢复/续传突发时 align 挤占帧预算 ⇒
-// "越到后面越卡、后段一坨一坨蹦"。逐点等值由 53074 组随机+定向比对钉死(零差异)。
-import { graphemeSegments } from './truncate'
+import { splitGraphemes } from './truncate'
 
 /**
  * 把候选切点挪到**字素簇边界**(绝不劈开代理对,也绝不劈开 ZWJ/FE0F/肤色修饰符连接的多码点 emoji)。
@@ -68,11 +63,8 @@ export function alignSliceToCodePointBoundary(s: string, end: number): number {
   //   簇终点 > 切点 ⇒ 切点落在簇中间 ⇒ 回退到簇起点(退无可退就整簇带走,超预算但有界);
   //   簇终点 === 切点 ⇒ 切点在簇边界;但若最后这枚是孤立高代理(流尾残缺)则让位下一帧。
   // 代理对是一枚字素簇的子集 ⇒ 原 D1 码点对齐被字素对齐严格覆盖,行为不退化。
-  // D1c:走 `graphemeSegments` 惰性迭代器(for-of 在 return 时中断生成器),引擎只推进到
-  // 切点所在簇为止 —— 代价随**切点**不随全串。改成先 slice 前缀再分段是**错的**:
-  // slice 会把跨切点的代理对/字素簇劈开,半代理会被分段器当成独立簇,判据当场失效。
   let acc = 0
-  for (const seg of graphemeSegments(s)) {
+  for (const seg of splitGraphemes(s)) {
     const segEnd = acc + seg.length
     if (segEnd < cut) {
       acc = segEnd

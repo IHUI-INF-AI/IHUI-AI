@@ -74,6 +74,9 @@ class Settings(BaseSettings):
     # InternalServerError,新注册用户首条消息直接报错;gemini/gemini-3.8-flash 对全新
     # 账号全轨成功(见 docs/benchmark-evidence/2026-10/d150-runtime-reconciliation.md 轨 A)。
     litellm_model: str = "gemini/gemini-3.8-flash"
+    # 外部 Anthropic 兼容客户端透传的 model 名(如 claude-sonnet-4-5)不是本池可解析
+    # 的 id 时,Anthropic 兼容端点回落到该模型;为空 = 不回落(保持原 model)。
+    anthropic_compat_default_model: str = ""
     # 默认链同族兜底(D208):首选不可用时(auto-route 降级/候选池为空)退到该模型,
     # 同为 D150 当轮实测健康档(轨 B @cf/zai-org/glm-4.7-flash 全轨成功)。
     litellm_fallback_model: str = "@cf/zai-org/glm-4.7-flash"
@@ -113,11 +116,6 @@ class Settings(BaseSettings):
     # 凭据加密密钥(与 apps/api 的 CREDENTIALS_ENCRYPTION_KEY 共享,
     # 用于解密 ai_model_config.api_key_enc)
     credentials_encryption_key: str = ""
-
-    # Anthropic 协议适配端点(/api/llm/anthropic/v1/messages)的外部客户端默认模型:
-    # Anthropic 形态客户端(Craft Anything、Claude Code 类)透传 model 名,可能不是
-    # 本池可解析的 id;命中不了时回落到本配置(须是网关可解析的带 provider 前缀模型 id)。
-    anthropic_compat_default_model: str = ""
 
     # JWT 验证(与 apps/api 共享 JWT_SECRET,用于 SSO 跨服务认证)
     jwt_secret: str = ""

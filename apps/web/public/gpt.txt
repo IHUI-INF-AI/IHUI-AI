@@ -107,5 +107,5 @@ Chinese Simplified (zh-CN), Chinese Traditional (zh-TW), English (en), Korean (k
 - Founded: 2024
 - Headquarters: Shanghai, China
 - License: Apache 2.0
-- Contact: contact@aizhs.top (sales) / support@aizhs.top (support)
+- Contact: lizong@aizhs.top (sales) / lizong@aizhs.top (support)
 - Social: GitHub, 知乎, 掘金, Twitter @ihui_ai

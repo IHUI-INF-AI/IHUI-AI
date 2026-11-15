@@ -66,59 +66,17 @@ function firstQueryValue(raw: string | string[] | undefined): string {
   return typeof raw === 'string' ? raw : '';
 }
 
-// cmd.exe 在 quoted string 内仍会解释的元字符(即使加了双引号也逃不掉)。
-// `"` 提前闭合引用,`%` 触发变量展开(%PATH% 等),`!` 触发 delayed expansion,
-// `^` cmd 转义符,`| < >` 管道/重定向 —— quoted 内 cmd.exe 也都认。
-// `&` 单独不列入:本函数 Windows 分支对 targetUrl 显式加双引号,quoted 内的
-// `&` 是安全 query 分隔符;若未来移除引号则必须把 `&` 加回来。
-const CMD_DANGEROUS_CHARS = /[|<>^"%!]/;
-
-/**
- * 校验待打开的 URL:仅允许 http/https 协议,且不得含 cmd shell 元字符。
- * 返回 null 表示合法;返回字符串表示拒绝原因。
- */
-function validateTargetUrl(targetUrl: string): string | null {
-  if (typeof targetUrl !== 'string' || targetUrl.length === 0) {
-    return 'URL 不能为空';
-  }
-  if (targetUrl.includes('\0')) {
-    return 'URL 含空字节';
-  }
-  let parsed: URL;
-  try {
-    parsed = new URL(targetUrl);
-  } catch {
-    return 'URL 格式非法';
-  }
-  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-    return `仅允许 http/https 协议,实际: ${parsed.protocol}`;
-  }
-  if (CMD_DANGEROUS_CHARS.test(targetUrl)) {
-    return 'URL 含 cmd shell 危险元字符(| < > ^ " % !)';
-  }
-  return null;
-}
-
 /**
  * 跨平台打开默认浏览器到指定 URL。
  * Windows: start, macOS: open, Linux: xdg-open。
- *
- * 安全:targetUrl 必须过 validateTargetUrl 校验(仅 http/https + 拒绝 cmd 元字符),
- * 不过则抛错不打开(fail-closed),绝不回退到不安全路径。
- * Windows 分支对 targetUrl 显式加双引号,避免含空格/特殊字符被 cmd.exe 拆参。
  */
 function openBrowser(targetUrl: string): void {
-  const rejectReason = validateTargetUrl(targetUrl);
-  if (rejectReason) {
-    throw new Error(`openBrowser 拒绝打开不安全的 URL(${rejectReason}): ${targetUrl.slice(0, 100)}`);
-  }
   const platform = process.platform;
   let cmd: string;
   let args: string[];
   if (platform === 'win32') {
-    // start 的第一个 "" 是窗口标题占位符,第二个参数为引用后的 URL,防 cmd.exe 拆参。
     cmd = 'cmd';
-    args = ['/c', 'start', '', `"${targetUrl}"`];
+    args = ['/c', 'start', '', targetUrl];
   } else if (platform === 'darwin') {
     cmd = 'open';
     args = [targetUrl];

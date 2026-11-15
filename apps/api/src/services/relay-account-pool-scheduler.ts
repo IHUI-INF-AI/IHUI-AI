@@ -27,9 +27,7 @@
  * 刷新连续失败 REFRESH_FAILURE_LIMIT 次 → tempUnschedulable=true(自动摘除,admin 可见原因)。
  * 与 relay-channel-router 的进程级熔断互补:这里是「账号凭证生命周期」,那里是「渠道调用质量」。
  */
-import { readFileSync } from 'node:fs'
-import { fileURLToPath } from 'node:url'
-import { and, eq, gt, isNotNull, isNull, lt, lte, or, inArray, sql, type SQL } from 'drizzle-orm'
+import { and, eq, gt, gte, isNotNull, isNull, lt, lte, or, inArray, sql } from 'drizzle-orm'
 import { db, dbRead } from '../db/index.js'
 import { aiRelayAccountPool, type AiRelayAccountPool } from '@ihui/database'
 import { decryptAccountCredentials, type AccountCredentials } from './relay-account-pool-service.js'
@@ -44,7 +42,6 @@ import {
 import { purgeAccountUsage } from './relay-account-usage.js'
 import { pickProxyForAccount } from './relay-proxy-pool.js'
 import { reconcileCheckinSync, fetchPoolAccounts } from './relay-account-pool-reconcile.js'
-import { dedupeCrossPoolDuplicates } from './relay-account-pool-dedupe.js'
 import {
   CHECKIN_RECONCILE_MAX_PER_ROUND,
   checkinReconcileIntervalMs,
@@ -59,13 +56,6 @@ import {
   shouldAdoptClientRt,
   shouldPushAfterRefresh,
 } from './relay-client-session-mirror.js'
-import {
-  TERMINAL_VERDICT_KEY,
-  terminalVerdictOf,
-  terminalVerdictSnapshotOf,
-  shouldReviveTerminal,
-  type RevivalEvidenceRow,
-} from './relay-credential-revival.js'
 
 /** 临期刷新窗口:距过期 15 分钟内触发(上游 token 寿命 ~14 天,窗口足够宽) */
 const REFRESH_AHEAD_MS = 15 * 60 * 1000
@@ -259,12 +249,10 @@ export function keepAliveForeverVerdictOf(
   now: Date,
   clientRunning: boolean | null | undefined,
 ): KeepAliveForeverVerdict {
-  /** 单源判据:客户端是否真握着同一枚「轮换型」refresh_token(= 池抢刷会顶号)。 */
-  const renewingClient = hasLocalRenewingClient(row.providerCode ?? '')
-  if (clientRunning === true && renewingClient) {
+  if (clientRunning === true) {
     return { defer: true, reason: 'client-running-or-unjudged' }
   }
-  if (clientRunning !== false && renewingClient) {
+  if (clientRunning !== false) {
     // 未判定时的默认方向必须是「多让」—— 但它只在「本机客户端手里也握着同一枚轮换型 rt」的
     // 平台上成立(判据单源 = hasLocalRenewingClient,不是 renewalPolicyOf 的开关值):
     // 让位会造成的不可逆损伤只有一种 —— 池抢刷把机主客户端顶下线;反过来,没有客户端握票的
@@ -272,13 +260,10 @@ export function keepAliveForeverVerdictOf(
     // 2026-11-10 现读反例:workbuddy 三枚 forever 号 lastRefreshAt 停在 11-03/11-04,
     // 而探针表只有 trae/qoder/minimax ⇒ 恒 null ⇒ 恒让位 ⇒ token 12-03~12-09 到期后
     // 「安静地整批死亡」,与永久保活档的立因正相反。
-    return { defer: true, reason: 'client-running-or-unjudged' }
+    if (hasLocalRenewingClient(row.providerCode ?? '')) {
+      return { defer: true, reason: 'client-running-or-unjudged' }
+    }
   }
-  // 非轮换型平台(workbuddy/codearts/zcode…):客户端刷新不废池票(非共享轮换型 rt),
-  // 故客户端在跑**不再让位** ⇒ 池离线续期,彻底消除对客户端进程的单点依赖。
-  // 根治立因(2026-11-14):workbuddy forever 号原被上面「clientRunning===true 无条件让位」
-  // 命中,续期全押在「客户端每 10 分钟回灌」那条脆弱腿上 —— 客户端一停/回灌一断即断源
-  // (实测 11-13 两枚 workbuddy 401、会话回灌连续 breach)。改后客户端在不在都由池续期。
   const activeAt = clientActiveAtOf(row)
   if (activeAt !== null && now.getTime() - activeAt.getTime() < CLIENT_ACTIVE_TTL_MS) {
     return { defer: true, reason: 'heartbeat-fresh' }
@@ -386,122 +371,73 @@ export function keepaliveIdleWhere(cutoff: Date, foreverCutoff?: Date) {
 }
 
 /**
- * 永久保活解摘区(2026-10-31 立;2026-11-15 叠加判死闸门)。
+ * 摘除来源标记(2026-11-13 F-647):`extraMetadata.unschedulableSource`。
  *
- * 下方判死码清单与 revive 闸门是 §0.6 单一真相源(config/relay-irreversible-verdicts.json):
- * 上游已明确判死的号不再进解摘动作(否则每 6h 拿死票再撞一次上游鉴权、失败累计到 3 再摘,
- * 无限循环)。revive 动作只叠加排除,keepAliveReviveWhere 的既有 where 语义一字不动。
+ * 立因:`tempUnschedulable` 一列同时承载巡检自动摘除与管理员人工止血,而巡检的成功
+ * 回写无脑写 `tempUnschedulable=false` ⇒ 人工摘除的号会在 5 分钟内被下一轮换票顺手
+ * 撤销,止血失效。来源标记落进既有 jsonb 列(不新增 schema):管理面人工摘除写
+ * `'manual'`,巡检自动摘除写 `'auto'`。历史行没有标记,按「未达自动摘除失败阈值」
+ * 反推为人工 —— 自动摘除必然累计到 REFRESH_FAILURE_LIMIT。
+ */
+export const UNSCHEDULABLE_SOURCE_KEY = 'unschedulableSource'
+export type UnschedulableSource = 'manual' | 'auto'
+
+/** 读来源标记:只认两个合法字面量;缺失/坏形态 ⇒ null(不宽松转换)。 */
+export function unschedulableSourceOf(row: {
+  extraMetadata?: unknown
+}): UnschedulableSource | null {
+  const meta = row.extraMetadata
+  if (meta === null || typeof meta !== 'object' || Array.isArray(meta)) return null
+  const raw = (meta as Record<string, unknown>)[UNSCHEDULABLE_SOURCE_KEY]
+  return raw === 'manual' || raw === 'auto' ? raw : null
+}
+
+/**
+ * 这枚号的摘除是不是人工做的(唯一判据)。
+ * 人工摘除只能由人解除;换票成功、永久保活解摘等自动通道一律不得撤旗。
+ */
+export function isManuallyUnschedulable(row: {
+  tempUnschedulable?: boolean | null
+  refreshFailureCount?: number | null
+  extraMetadata?: unknown
+}): boolean {
+  if (row.tempUnschedulable !== true) return false
+  const source = unschedulableSourceOf(row)
+  if (source === 'manual') return true
+  if (source === 'auto') return false
+  return (row.refreshFailureCount ?? 0) < REFRESH_FAILURE_LIMIT
+}
+
+/**
+ * 「自动摘除」的 SQL 判据:只有巡检自己摘的号才允许被自动解摘/恢复。
+ * 缺标记的历史行只有在失败计数达到自动摘除阈值时才当作自动摘除。
+ */
+function autoUnschedulableCondition() {
+  return and(
+    eq(aiRelayAccountPool.tempUnschedulable, true),
+    or(
+      sql`${aiRelayAccountPool.extraMetadata}->>'unschedulableSource' = 'auto'`,
+      and(
+        sql`${aiRelayAccountPool.extraMetadata}->>'unschedulableSource' is null`,
+        gte(aiRelayAccountPool.refreshFailureCount, REFRESH_FAILURE_LIMIT),
+      ),
+    ),
+  )
+}
+
+/**
+ * 永久保活号的解摘候选 where(导出供镜像测试锁形状)。
  *
  * 为什么需要这一档:`refreshOne` 连续失败 3 次会置 `tempUnschedulable=true`,而四档候选
  * 全部要求未摘除 ⇒ 摘除对普通号是「停止打上游、等 admin 看一眼」,对「登不回来」的号是
  * **永久死亡**。这里把摘除改回它名字本来的含义(临时):退避窗之后自动解摘、再给一次机会。
  * 摘除本身保留 —— 去掉它就变成坏票每 5 分钟死撞鉴权点,那正是本仓反复点名的封号前兆型。
  */
-// ── 上游「不可逆判死码」单一真相源(2026-11-15 立;与 scripts 侧同读 config JSON) ──────
-// §0.6:判据全仓只许一份。清单下沉在 config/relay-irreversible-verdicts.json(语言无关
-// 数据),mjs 侧(scripts/relay-account-keepalive.mjs)与本 ts 侧都从它编译 RegExp ——
-// 谁都不许再抄一份正则字面量。命中即「上游已明确判死」,不是「本轮抖动」。
-// 5xx / 网络超时 / 裸 401 / 403 / 429 一律不算判死(反向牙:别一刀切静默所有失败)。
-
-type IrreversibleVerdict = {
-  readonly id: string
-  readonly provider: string
-  readonly pattern: RegExp
-}
-
-// src/services 与 dist/services 到仓库根同为 4 层(与 i18n-outbound.ts 同一把相对尺),
-// tsc 编译前后同一个相对位 ⇒ 不依赖构建产物、不改 tsconfig、不新增 workspace 包。
-const VERDICTS_JSON_URL = new URL(
-  '../../../../config/relay-irreversible-verdicts.json',
-  import.meta.url,
-)
-
-function loadIrreversibleVerdicts(): readonly IrreversibleVerdict[] {
-  const raw = JSON.parse(readFileSync(fileURLToPath(VERDICTS_JSON_URL), 'utf8')) as Array<{
-    id: string
-    provider: string
-    pattern: string
-    flags?: string
-  }>
-  return Object.freeze(
-    raw.map((v) =>
-      Object.freeze({
-        id: v.id,
-        provider: v.provider,
-        pattern: new RegExp(v.pattern, v.flags ?? ''),
-      }),
-    ),
-  )
-}
-
-/**
- * 判死码清单(冻结;与 mjs 侧 IRREVERSIBLE_VERDICTS 同形:3 条、每项 pattern 为 RegExp)。
- *
- * 2026-11-15 移除 doubao-712012001(清单 4 → 3):doubao-adapter.ts:220-225 有代码级硬
- * 反例 —— `712012001 登录校验不合法` 可能只是 ttwid 票被错套成 sessionid 键名,同一枚票
- * 改键名后 status_code=0 判活通过,根本不是账号死亡;且 doubao 的
- * isRefreshableProviderCode 恒 false(空壳),移除后不会退回「拿死票空撞刷新」的循环。
- * 清单是纯数据(config JSON),理由只写在两侧消费端注释与提交信息里,不进 JSON。
- */
-export const IRREVERSIBLE_VERDICTS = loadIrreversibleVerdicts()
-
-/**
- * 留痕键名的 SQL 字面量(单源 = TERMINAL_VERDICT_KEY,sql.raw 内联)。
- * 绝不写成 sql`... - '${TERMINAL_VERDICT_KEY}'`:那样 ${} 会被 drizzle 当成绑定参数
- * 占位符却又嵌在 SQL 字符串引号里,生成 `- '$1'` 这种既非法又删不掉键的表达式。
- */
-const TERMINAL_VERDICT_KEY_SQL = sql.raw(`'${TERMINAL_VERDICT_KEY}'`)
-
-/**
- * 原子删留痕键:coalesce(extra_metadata,'{}'::jsonb) - 'terminalVerdict'。
- * 解摘成功与换票成功两处共用;jsonb - text 只摘这一个键,并发下不会整对象覆盖丢掉
- * keepalive / checkinSync / sessionTemplate 等别的键(§0.6)。
- */
-function terminalVerdictRemovalPatch() {
-  return sql`coalesce(${aiRelayAccountPool.extraMetadata}, '{}'::jsonb) - ${TERMINAL_VERDICT_KEY_SQL}`
-}
-
-/** 命中的判死码 id;未命中(可逆失败/无错误信息)返回 null。兼容 snake/camel 两种字段名。 */
-export function irreversibleVerdictOf(
-  row: { lastErrorMessage?: unknown; last_error_message?: unknown } | null | undefined,
-): string | null {
-  const msg = String(row?.lastErrorMessage ?? row?.last_error_message ?? '')
-  if (!msg) return null
-  for (const v of IRREVERSIBLE_VERDICTS) {
-    if (v.pattern.test(msg)) return v.id
-  }
-  return null
-}
-
-export function isTerminalFailure(
-  row: { lastErrorMessage?: unknown; last_error_message?: unknown } | null | undefined,
-): boolean {
-  return irreversibleVerdictOf(row) !== null
-}
-
-/**
- * 解摘闸门(JS 层叠加排除,2026-11-15 立 / 同日补「新票已进池」半格):从
- * keepAliveReviveWhere 取回的候选里剔除判死行 —— **不删闸门,只补新证据这半格**。
- *
- * 判据单源 = relay-credential-revival.shouldReviveTerminal:行有判死留痕 ∧ 当前
- * credVersion > 留痕里的版本(refreshOne 成功换票 / 六条会话回灌腿 / importAccounts
- * 覆盖导入 / 镜像 pull 采纳客户端 rt 四者都令 credVersion + 1)⇒ 新票已到池,放行解摘;
- * 版本没变 / 倒退 / 无留痕 / 留痕坏 ⇒ 继续静默(否则退回「每 6h 拿死票空撞上游」的循环)。
- *
- * 只叠加、不重写任何既有 where 语义(含 recredentialableCondition);可逆行照常放行。
- * 泛型交叉 RevivalEvidenceRow 以容纳 credVersion / extraMetadata 两列 —— 取不到这两列时
- * shouldReviveTerminal 恒 false,等于没修,故 reviveKeepAliveForeverAccounts 的 select 必带。
- */
-export function revivableCandidatesOf<
-  T extends { lastErrorMessage?: unknown; last_error_message?: unknown } & RevivalEvidenceRow,
->(rows: readonly T[]): T[] {
-  return rows.filter((r) => !isTerminalFailure(r) || shouldReviveTerminal(r))
-}
-
 export function keepAliveReviveWhere(before: Date) {
   return and(
     keepAliveForeverCondition(),
-    eq(aiRelayAccountPool.tempUnschedulable, true),
+    // F-647:只解摘巡检自己摘的号;人工摘除(标记 manual)必须等人来解。
+    autoUnschedulableCondition(),
     // 2026-11-12 补「解摘的前提是解摘后真能续上」:
     // 无 refreshToken 且无 cookie 的号,解摘后既进不了临期刷新(expiringRefreshWhere)、
     // 也进不了 down 恢复(downRecoveryWhere)——两档候选都要求 recredentialableCondition。
@@ -534,43 +470,44 @@ export async function reviveKeepAliveForeverAccounts(
       uid: aiRelayAccountPool.uid,
       providerCode: aiRelayAccountPool.providerCode,
       lastErrorMessage: aiRelayAccountPool.lastErrorMessage,
-      // 解摘闸门要读这两列判「判死后新票是否已进池」(§0.6 单源):不带则
-      // shouldReviveTerminal 恒 false,等于没修。
-      credVersion: aiRelayAccountPool.credVersion,
-      extraMetadata: aiRelayAccountPool.extraMetadata,
     })
     .from(aiRelayAccountPool)
     .where(keepAliveReviveWhere(before))
     .limit(KEEPALIVE_MAX_PER_SWEEP)
-  // 叠加排除(2026-11-15 立 / 补新证据半格,§0.6 判死码单源):无新证据的判死行不再进
-  // 解摘动作 —— 它们保持 tempUnschedulable=true ∧ refreshFailureCount>=LIMIT,四档候选
-  // 全部看不到 ⇒ 根治「每 6h 拿死票再撞一次鉴权」的无限循环。而「判死留痕 ∧ credVersion
-  // 已前进」的行 = 客户端重登后新票已进池,闸门放行解摘并原子清留痕(见 .set 的 extraMetadata)。
-  // 排除落在 where 取回候选之后的 JS 层:正则判据只有 config JSON 一份,SQL 里再抄
-  // 一遍 !~* 正则就是第二份真相源(§0.6 禁);recredentialableCondition() 与既有
-  // where 语义一字不动(只叠加、不重写)。select 必带 credVersion/extraMetadata 两列。
-  const revivable = revivableCandidatesOf(stale)
-  for (const row of revivable) {
-    await db
-      .update(aiRelayAccountPool)
-      .set({
-        tempUnschedulable: false,
-        refreshFailureCount: 0,
-        // 刻意**不写** healthStatus:解摘的语义是「解除调度封锁」,不是「判它健康」。
-        // 保留 down 反而更正确 —— downRecoveryWhere 不看健康白名单,会立刻按再凭证通道重试,
-        // 刷成功时由 refreshOne 把 down 收回 unknown(既有口径),失败则继续累计并再摘。
-        // 2026-11-01 实测:凭空写 unknown 会把这条既有不变量洗掉,还与既有测试
-        // 「按 healthStatus 键存在性识别健康写入」的选取器撞形,把定级读数顶成解摘留痕。
-        lastErrorMessage: `永久保活自动解摘(摘除满 ${backoffHours}h,重新纳入续期):前因 ${(row.lastErrorMessage ?? '未知').slice(0, 200)}`,
-        updatedAt: now,
-        // 解摘成功即原子摘掉判死留痕键(jsonb - text,不整对象覆盖):留痕不摘会让下一轮
-        // 解摘继续拿旧版本比,形成假阳性(§0.6 单源表达式 = terminalVerdictRemovalPatch)。
-        extraMetadata: terminalVerdictRemovalPatch(),
+  // F-654:只把「写库成功」的行返回给调用方记「已解摘 N 个」。此前把查到的候选行
+  // 全量返回且吞掉写失败,DB 抖动时日志谎报成功、账号实际仍被摘且每轮重复失败无告警。
+  const revived: typeof stale = []
+  let failed = 0
+  for (const row of stale) {
+    try {
+      await db
+        .update(aiRelayAccountPool)
+        .set({
+          tempUnschedulable: false,
+          refreshFailureCount: 0,
+          // 刻意**不写** healthStatus:解摘的语义是「解除调度封锁」,不是「判它健康」。
+          // 保留 down 反而更正确 —— downRecoveryWhere 不看健康白名单,会立刻按再凭证通道重试,
+          // 刷成功时由 refreshOne 把 down 收回 unknown(既有口径),失败则继续累计并再摘。
+          // 2026-11-01 实测:凭空写 unknown 会把这条既有不变量洗掉,还与既有测试
+          // 「按 healthStatus 键存在性识别健康写入」的选取器撞形,把定级读数顶成解摘留痕。
+          lastErrorMessage: `永久保活自动解摘(摘除满 ${backoffHours}h,重新纳入续期):前因 ${(row.lastErrorMessage ?? '未知').slice(0, 200)}`,
+          updatedAt: now,
+        })
+        .where(eq(aiRelayAccountPool.id, row.id))
+      revived.push(row)
+    } catch (e) {
+      failed += 1
+      logger.warn('[relay-account-pool] 永久保活自动解摘写库失败(不计入已解摘)', {
+        providerCode: row.providerCode,
+        uid: row.uid,
+        error: e instanceof Error ? e.message.slice(0, 200) : String(e),
       })
-      .where(eq(aiRelayAccountPool.id, row.id))
-      .catch(() => {})
+    }
   }
-  return revivable
+  if (failed > 0) {
+    logger.warn('[relay-account-pool] 永久保活自动解摘部分失败', { failed, total: stale.length })
+  }
+  return revived
 }
 
 /**
@@ -909,6 +846,9 @@ export function downRecoveryWhere() {
     eq(aiRelayAccountPool.isEnabled, true),
     inArray(aiRelayAccountPool.healthStatus, ['down', 'degraded']),
     recredentialableCondition(),
+    // F-647:人工摘除的号不自动拉回恢复轮;无标记的历史行仍按原口径进恢复
+    // (行级 isManuallyUnschedulable 会兜住它们的撤旗,见 refreshOne 成功回写)。
+    sql`${aiRelayAccountPool.extraMetadata}->>'unschedulableSource' is distinct from 'manual'`,
   )
 }
 
@@ -1086,14 +1026,13 @@ async function refreshOneLocked(
         credVersion: sql`${aiRelayAccountPool.credVersion} + 1`,
         lastRefreshAt: now,
         refreshFailureCount: 0,
-        // 刷新成功即解除「凭证失效」型摘除;健康状态回 unknown 等巡检定级
-        tempUnschedulable: false,
+        // 刷新成功即解除「凭证失效」型摘除;健康状态回 unknown 等巡检定级。
+        // F-647:人工摘除不在此列 —— 换票成功只证明票还能换,不证明止血可以撤;
+        // 只有巡检自己摘的号(含历史行按失败计数反推)才允许自动清理摘除态。
+        ...(isManuallyUnschedulable(row) ? {} : { tempUnschedulable: false }),
         healthStatus: row.healthStatus === 'down' ? 'unknown' : row.healthStatus,
         lastErrorMessage: null,
         updatedAt: now,
-        // 换票成功 = 凭据代次前进 ⇒ 旧判死留痕(对应旧版本)必须原子摘掉,避免下一轮
-        // shouldReviveTerminal 拿新版本比旧留痕恒真、形成假阳性(同解摘 #3 的表达式)。
-        extraMetadata: terminalVerdictRemovalPatch(),
       })
       // 写入侧 CAS(SDB-32):以快照 credVersion 为条件;别的路径(本机重登 / 管理面自愈 /
       // 转发链路)已抢先换票时整笔作废,旧票绝不覆盖新票。
@@ -1153,43 +1092,6 @@ async function refreshOneLocked(
     // 连续 108 次 expired 也无人知道(§0.3:没判不写成判过,静默不写成健康)。
     const enteringRemove = shouldRemove && row.tempUnschedulable !== true
     const failedAt = new Date()
-    // 判死留痕(2026-11-15 补,§0.6 单源):本次失败原因命中判死码 ∧ 该行尚无留痕 ⇒
-    // 把「判死那一刻的 credVersion」记进 extraMetadata.terminalVerdict,作为日后解摘闸门
-    // 判断「新票是否已进池」的唯一基线。row.credVersion 取不到(快照返回 null)⇒ fail-closed,
-    // 不写假证据;已有留痕不重复写(不覆盖原版本/时刻)。
-    const verdictId = irreversibleVerdictOf({ lastErrorMessage: note })
-    const snap =
-      verdictId !== null && terminalVerdictOf(row) === null
-        ? terminalVerdictSnapshotOf(row, verdictId)
-        : null
-    // 失败落账的 extra_metadata 叠加层:既有 enteringRemove 的 keepalive 留痕 + 判死留痕,
-    // 两者都走 coalesce(...) || jsonb_build_object(...) 原子叠加,绝不整对象覆盖(并发会丢别的键)。
-    const extraLayers: SQL[] = []
-    if (enteringRemove) {
-      extraLayers.push(
-        sql`jsonb_build_object('keepalive', jsonb_build_object(
-          'lastFailureAt', ${failedAt.toISOString()}::text,
-          'failureCount', ${failures}::int,
-          'lastError', ${reason.slice(0, 200)}::text
-        ))`,
-      )
-    }
-    if (snap) {
-      extraLayers.push(
-        sql`jsonb_build_object(${TERMINAL_VERDICT_KEY_SQL}, jsonb_build_object(
-          'id', ${snap.id}::text,
-          'credVersion', ${snap.credVersion}::int,
-          'at', ${snap.at}::text
-        ))`,
-      )
-    }
-    const extraMetadataPatch: SQL | undefined =
-      extraLayers.length > 0
-        ? extraLayers.reduce(
-            (acc, layer) => sql`${acc} || ${layer}`,
-            sql`coalesce(${aiRelayAccountPool.extraMetadata}, '{}'::jsonb)`,
-          )
-        : undefined
     const failedApplied = await db
       .update(aiRelayAccountPool)
       .set({
@@ -1199,7 +1101,19 @@ async function refreshOneLocked(
         lastErrorMessage: note.slice(0, 500),
         updatedAt: failedAt,
         ...(authRejected ? { tokenExpiresAt: failedAt } : {}),
-        ...(extraMetadataPatch ? { extraMetadata: extraMetadataPatch } : {}),
+        ...(enteringRemove
+          ? {
+              // F-647:自动摘除必须自带来源标记,否则下一轮换票成功会把人工止血一起撤掉。
+              extraMetadata: sql`coalesce(${aiRelayAccountPool.extraMetadata}, '{}'::jsonb) || jsonb_build_object(
+                'unschedulableSource', 'auto',
+                'keepalive', jsonb_build_object(
+                  'lastFailureAt', ${failedAt.toISOString()}::text,
+                  'failureCount', ${failures}::int,
+                  'lastError', ${reason.slice(0, 200)}::text
+                )
+              )`,
+            }
+          : {}),
       })
       // 失败计数同样走 CAS(SDB-32):快照之后已被别的路径换票成功的号,旧快照的
       // 失败计数/摘除态不得把新票与健康度一起盖回旧值。
@@ -1342,26 +1256,6 @@ async function runSweepOnce(
 
   // ── 0. 台账保留期清理(24h 节流;每 5 分钟一轮 sweep 但不会每轮 delete) ──
   if (!scope) await maybePurgeUsageLedger()
-
-  // ── 0b. 跨池重复自愈(2026-11-14) ──
-  // 同一上游账号被导入两次会留下两条行(运营池一份 + 个人池一份):轮换式 refreshToken 是一次性
-  // 票,两条行各自续期就互相消费 —— 先刷的吃掉票,后刷的必然 401 被摘除,并每 24h 报一封
-  // 「号池保活摘除」。两套部分唯一索引只管得住同一归属内,跨归属这层结构上允许重复 ⇒ 只能业务
-  // 侧收敛,且必须每轮自动做,不依赖人工发现。点名单轮不跑(局部巡检不得顺带全池动作);
-  // 零重复只付一次 GROUP BY。删除行的签到侧由对账收敛器象限 2 兜底,这里不重复推送。
-  if (!scope) {
-    try {
-      const dedupe = await dedupeCrossPoolDuplicates()
-      if (dedupe.merged > 0) {
-        logger.warn('[relay-account-pool] 跨池重复自愈完成(同一上游账号只保留一条续期链)', {
-          merged: dedupe.merged,
-          droppedRows: dedupe.droppedRows,
-        })
-      }
-    } catch (e) {
-      logger.warn('[relay-account-pool] 跨池重复自愈失败(不阻断本轮巡检)', { err: e })
-    }
-  }
 
   // ── 1. 临期刷新(并发上限 SWEEP_CONCURRENCY) ──
   const expiringWhere = expiringRefreshWhere(deadline)

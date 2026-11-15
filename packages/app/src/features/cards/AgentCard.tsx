@@ -193,17 +193,17 @@ function createStyles(tk: AppThemeTokens) {
     },
     tagText: { fontSize: rnType.caption.size, color: tk.text.secondary },
     footerRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.md, flexWrap: 'wrap' },
-    footerText: { fontSize: rnType.caption.size, color: tk.text.tertiary },
-    ratingText: { fontSize: rnType.caption.size, color: tk.warning.DEFAULT, fontWeight: '600' },
+    footerText: { fontSize: rnType.caption.size, color: tk.text.medium },
+    ratingText: { fontSize: rnType.caption.size, color: tk.warning.amberText, fontWeight: '600' },
     footerSpacer: { flex: 1, minWidth: 8 },
-    price: { fontSize: rnType.title.size, fontWeight: '700', color: tk.danger.bright },
+    price: { fontSize: rnType.title.size, fontWeight: '700', color: tk.danger.deepText },
     freeTag: {
       backgroundColor: FREE_TINT,
       borderRadius: rnRadius.md,
       paddingHorizontal: rnSpacing.sm,
       paddingVertical: rnSpacing['2xs'],
     },
-    freeTagText: { fontSize: rnType.caption.size, fontWeight: '700', color: tk.success.DEFAULT },
+    freeTagText: { fontSize: rnType.caption.size, fontWeight: '700', color: tk.success.deepText },
     footer: { marginTop: rnSpacing.sm },
   })
 }

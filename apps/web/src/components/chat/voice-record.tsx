@@ -10,6 +10,7 @@ import { Mic, Square, Play, Pause, Trash2, Download } from 'lucide-react'
 import { Button } from '@ihui/ui-react'
 
 import { cn } from '@/lib/utils'
+import { NESTED_FLOATING_Z_CLASS } from '@/lib/floating-layer'
 import { toMediaStreamUrl } from '@/lib/media-proxy'
 import { Tooltip } from '@/components/feedback'
 
@@ -212,7 +213,7 @@ export function VoiceRecord({ maxDuration = 60, onRecordComplete }: VoiceRecordP
             <track kind="captions" />
           </audio>
           <div className="ml-auto flex items-center gap-1">
-            <Tooltip content={t('download')}>
+            <Tooltip content={t('download')} className={NESTED_FLOATING_Z_CLASS}>
               <Button
                 variant="ghost"
                 size="icon-sm"
@@ -222,7 +223,7 @@ export function VoiceRecord({ maxDuration = 60, onRecordComplete }: VoiceRecordP
                 <Download className="h-4 w-4" />
               </Button>
             </Tooltip>
-            <Tooltip content={t('remove')}>
+            <Tooltip content={t('remove')} className={NESTED_FLOATING_Z_CLASS}>
               <Button
                 variant="ghost"
                 size="icon-sm"

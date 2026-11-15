@@ -8,6 +8,7 @@ import * as React from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { toast } from '@/components/common'
+import { NESTED_FLOATING_Z_CLASS } from '@/lib/floating-layer'
 import {
   Check,
   ChevronDown,
@@ -508,9 +509,9 @@ export function PermissionModePopover({
         side="top"
         align="end"
         gap={8}
-        // z-[2300](2026-11-04 第二轮收敛):触发器嵌在 + 菜单(z-[2200])第一层,
-        // PortalPanel 默认 z-popover(2001)会被外层盖住。
-        zIndexClassName="z-[2300]"
+        // 触发器嵌在 + 菜单(z-[2200])第一层,PortalPanel 默认 z-popover(2001)
+        // 会被外层盖住;层级走 floating-layer 唯一源。
+        zIndexClassName={NESTED_FLOATING_Z_CLASS}
         className="w-[min(360px,calc(100vw-2rem))] rounded-xl border border-stroke-strong bg-popover p-3 text-popover-foreground shadow-elevation-md"
       >
         {/* dialog 语义与焦点属性保留在内容层(PortalPanel 容器只负责定位,
@@ -539,7 +540,7 @@ export function PermissionModePopover({
               {/* 高风险模式 ⓘ 详细说明(2026-09-30 底栏单行化,从输入框标题栏迁入):
                   只在 bypass-permissions 模式显示,点击唤起宿主的 PermissionModeInfoModal */}
               {currentMode === 'bypass-permissions' && onExplainMode && (
-                <Tooltip content={t('infoButtonTitle')}>
+                <Tooltip content={t('infoButtonTitle')} className={NESTED_FLOATING_Z_CLASS}>
                   <button
                     type="button"
                     onClick={() => onExplainMode('bypass-permissions')}
@@ -677,7 +678,7 @@ export function PermissionModePopover({
           <PermissionAxesPicker disabled={updateMode.isPending} />
 
           {/* P3 3-3 权限继承:把当前模式设为用户全局默认(未显式配置的工作区沿用) */}
-          <Tooltip content={t('setDefaultHint')}>
+          <Tooltip content={t('setDefaultHint')} className={NESTED_FLOATING_Z_CLASS}>
             <span className="inline-flex w-full">
               <button
                 type="button"

@@ -25,11 +25,16 @@ import { behaviorFavorite } from '@ihui/database'
 // Zod schemas
 // =============================================================================
 
+// F-174:单次上报的增量上限 = 24h = 86400 秒。观看进度/心跳是秒级小增量,
+// 合法用户一天最多也只有 86400 秒;不设上限时客户端可报 2147483647 把累计值
+// 一步顶到 int4 边界(或污染统计),因此超限直接 400,而不是静默截断。
+const MAX_WATCH_DURATION_PER_REQUEST = 24 * 60 * 60
+
 const recordWatchSchema = z.object({
   topicId: z.string().min(1).max(128),
   topicType: z.string().min(1).max(50),
   topicTitle: z.string().max(200).optional(),
-  watchDuration: z.number().int().min(0).default(0),
+  watchDuration: z.number().int().min(0).max(MAX_WATCH_DURATION_PER_REQUEST).default(0),
   lastPosition: z.number().int().min(0).default(0),
 })
 

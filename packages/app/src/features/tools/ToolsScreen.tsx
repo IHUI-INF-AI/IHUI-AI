@@ -161,7 +161,7 @@ export function ToolsScreen({
                         <Text style={styles.cardTitle}>{tool.name}</Text>
                         <Text style={styles.cardDesc}>{tool.description}</Text>
                       </View>
-                      <ArrowRight size={16} color={tk.text.tertiary} strokeWidth={2} />
+                      <ArrowRight size={16} color={tk.text.secondary} strokeWidth={2} />
                     </TouchableOpacity>
                   ))}
                 </View>

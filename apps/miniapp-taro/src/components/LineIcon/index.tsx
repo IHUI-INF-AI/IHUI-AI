@@ -31,10 +31,6 @@ export interface LineIconProps {
   className?: string
   style?: React.CSSProperties
   onClick?: (event: ITouchEvent) => void
-  /** 无障碍角色,透传到原生 View(对齐 Taro View.ariaRole) */
-  ariaRole?: string
-  /** 无障碍名称,透传到原生 View(对齐 Taro View.ariaLabel) */
-  ariaLabel?: string
 }
 
 export default function LineIcon({
@@ -44,8 +40,6 @@ export default function LineIcon({
   className,
   style,
   onClick,
-  ariaRole,
-  ariaLabel,
 }: LineIconProps) {
   const raw = ICONS[name]
   if (!raw) return null
@@ -67,8 +61,6 @@ export default function LineIcon({
     <View
       className={className}
       onClick={onClick}
-      ariaRole={ariaRole}
-      ariaLabel={ariaLabel}
       style={{
         width: dim,
         height: dim,

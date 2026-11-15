@@ -17,8 +17,8 @@
  */
 
 import type { Dirent } from 'node:fs'
-import { readdir, stat, unlink } from 'node:fs/promises'
-import { join, resolve, sep } from 'node:path'
+import { lstat, readdir, realpath, unlink } from 'node:fs/promises'
+import { isAbsolute, join, relative, resolve, sep } from 'node:path'
 
 /** 文件最大保留时长（小时）。 */
 const MAX_AGE_HOURS = 24
@@ -40,19 +40,68 @@ const MAX_RECORDED_ERRORS = 100
  * `uploads/public`(合并成品,静态白名单对外)与 `uploads/private` 是已持久化、
  * 被 files 表引用的交付物,绝不能被"过期/超容量"扫描误删。
  */
-const TARGET_DIRS = ['uploads/chunks', 'uploads/tmp', 'outputs']
+/**
+ * F-561:清理根与上传模块(routes/files.ts 的 UPLOAD_DIR)共用配置。
+ * 部署设置 UPLOAD_DIR=/data/uploads 时,上传写 /data/uploads,清理也必须扫同一处,
+ * 否则扫 <cwd>/uploads(不存在)会静默空转,监控显示「成功、0 个文件」而磁盘永不释放。
+ */
+function resolveUploadRoot(): string {
+  return process.env.UPLOAD_DIR ? resolve(process.env.UPLOAD_DIR) : resolve('uploads')
+}
+function resolveOutputRoot(): string {
+  return resolve('outputs')
+}
 
-/** 持久化目录保护前缀(相对 cwd):即使未来误把 uploads 根加入扫描,也不得删这两处。 */
-const PROTECTED_PREFIXES = ['uploads/public', 'uploads/private']
+/** 持久化目录保护前缀(绝对路径):即使未来误把 uploads 根加入扫描,也不得删这两处。 */
+function protectedPrefixesOf(uploadRoot: string): string[] {
+  return [join(uploadRoot, 'public'), join(uploadRoot, 'private')]
+}
 
-function isProtectedPath(filePath: string): boolean {
+function isProtectedPath(filePath: string, protectedPrefixes: string[]): boolean {
   // 按解析后的路径做前缀判定(带路径分隔符)，而不是字符串 includes/裸 startsWith，
   // 避免 uploads/public-backup 之类同前缀目录被误判为受保护(或反之漏保护)。
   const absolute = resolve(filePath)
-  return PROTECTED_PREFIXES.some((prefix) => {
+  return protectedPrefixes.some((prefix) => {
     const protectedRoot = resolve(prefix)
     return absolute === protectedRoot || absolute.startsWith(protectedRoot + sep)
   })
+}
+
+/**
+ * 判定 target 是否位于 root 之内(含 root 本身)。
+ * 用 path.relative 而非字符串 startsWith,避免 uploads-backup 之类同前缀被误判。
+ */
+function isWithin(root: string, target: string): boolean {
+  const rel = relative(root, target)
+  return rel === '' || (!rel.startsWith('..') && !isAbsolute(rel))
+}
+
+/**
+ * 待清理目录所属的删除边界根。
+ * F-561:TARGET_DIRS 现为绝对路径(基于 UPLOAD_ROOT/OUTPUT_ROOT),不能再用「首个路径段」
+ * (绝对路径首段为空 ⇒ 误解析成 cwd,会把删除边界放大到整个工作目录)。
+ * 落在 UPLOAD_ROOT 下的取 UPLOAD_ROOT,落在 OUTPUT_ROOT 下的取 OUTPUT_ROOT。
+ */
+function boundaryRootOf(dir: string, uploadRoot: string, outputRoot: string): string {
+  const absolute = resolve(dir)
+  if (absolute === uploadRoot || absolute.startsWith(uploadRoot + sep)) return uploadRoot
+  if (absolute === outputRoot || absolute.startsWith(outputRoot + sep)) return outputRoot
+  const first = relative(process.cwd(), absolute).split(/[\\/]/)[0]
+  return first ? resolve(first) : absolute
+}
+
+/** 解析边界根的 realpath;目录尚不存在时退回绝对路径,不中断整轮清理。 */
+async function resolveBoundaryRoot(
+  dir: string,
+  uploadRoot: string,
+  outputRoot: string,
+): Promise<string> {
+  const absolute = boundaryRootOf(dir, uploadRoot, outputRoot)
+  try {
+    return await realpath(absolute)
+  } catch {
+    return absolute
+  }
 }
 
 export interface CleanupStats {
@@ -103,12 +152,16 @@ async function walkFiles(
       const visited = await Promise.all(
         batch.map(async (entry) => {
           const fullPath = join(dir, entry.name)
-          // 不跟随符号链接(既不下钻也不删除)，避免越出清理目录边界。
+          // 符号链接一律不跟随:既不下钻目录链接,也不删除链接(链接指向可能在清理根之外)。
+          if (entry.isSymbolicLink()) return null
           if (!entry.isDirectory() && !entry.isFile()) return null
           if (exclude(fullPath)) return null
           if (entry.isDirectory()) return { kind: 'dir' as const, path: fullPath }
           try {
-            const info = await stat(fullPath)
+            // lstat 不跟随链接:即使 dirent 类型缺失或竞态把链接当成普通文件,
+            // 也在这里再判一次并跳过。
+            const info = await lstat(fullPath)
+            if (info.isSymbolicLink() || !info.isFile()) return null
             return {
               kind: 'file' as const,
               entry: { path: fullPath, mtime: info.mtimeMs, size: info.size },
@@ -136,7 +189,28 @@ function getTotalSize(files: FileEntry[]): number {
 }
 
 /** 删除单个文件：失败只记录(限量)并 warn，不中断整轮清理。 */
-async function safeDelete(filePath: string, errors: string[]): Promise<boolean> {
+async function safeDelete(
+  filePath: string,
+  boundaryRoot: string,
+  errors: string[],
+): Promise<boolean> {
+  // 删除前 realpath 校验:真实路径必须仍在删除边界根内,防止链接/挂载把删除带出 uploads。
+  let realPath: string
+  try {
+    realPath = await realpath(filePath)
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code !== 'ENOENT') {
+      console.warn('[cleanup] realpath 失败，已跳过删除', filePath, (e as Error).message)
+    }
+    return false
+  }
+  if (!isWithin(boundaryRoot, realPath)) {
+    if (errors.length < MAX_RECORDED_ERRORS) {
+      errors.push(`${filePath}: realpath 越界(${realPath})，已跳过删除`)
+    }
+    console.warn('[cleanup] 路径越界，已跳过删除', filePath, '->', realPath)
+    return false
+  }
   try {
     await unlink(filePath)
     return true
@@ -168,10 +242,26 @@ export async function runFileCleanup(): Promise<CleanupResult> {
 
   const now = Date.now()
   const ageCutoff = now - MAX_AGE_MS
+  // 根目录按调用时点解析:测试会在 import 后切换 cwd,UPLOAD_DIR 也可能在运行期注入。
+  const uploadRoot = resolveUploadRoot()
+  const outputRoot = resolveOutputRoot()
+  const targetDirs = [join(uploadRoot, 'chunks'), join(uploadRoot, 'tmp'), outputRoot]
+  const protectedPrefixes = protectedPrefixesOf(uploadRoot)
 
-  for (const dir of TARGET_DIRS) {
+  for (const dir of targetDirs) {
     const remaining: FileEntry[] = []
     let totalSize = 0
+    // F-561:顶层清理目录不存在/不可读时必须告警,不能静默当作「0 个文件」。
+    try {
+      await lstat(dir)
+    } catch {
+      // 必须留告警(不能静默当作「成功、0 个文件」);但不计入 errors ——
+      // errors 仅收「本轮真实删除失败」,新装环境 output/tmp 尚未创建属正常态。
+      console.warn('[cleanup] 清理目录不存在或不可访问(检查 UPLOAD_DIR 配置),已跳过:', dir)
+      continue
+    }
+    // 本轮删除边界:uploads/chunks → uploads,outputs → outputs。
+    const boundaryRoot = await resolveBoundaryRoot(dir, uploadRoot, outputRoot)
 
     // 1. 单趟遍历：边删过期文件边累计剩余文件与总大小(供容量清理使用)
     await walkFiles(
@@ -179,13 +269,13 @@ export async function runFileCleanup(): Promise<CleanupResult> {
       async (entry) => {
         result.scanned += 1
         if (entry.mtime < ageCutoff) {
-          if (await safeDelete(entry.path, result.errors)) result.deletedByAge += 1
+          if (await safeDelete(entry.path, boundaryRoot, result.errors)) result.deletedByAge += 1
           return
         }
         remaining.push(entry)
         totalSize += entry.size
       },
-      isProtectedPath,
+      (absolutePath) => isProtectedPath(absolutePath, protectedPrefixes),
     )
 
     // 2. 按大小清理：对未过期文件按最旧优先删除至阈值以下
@@ -193,7 +283,7 @@ export async function runFileCleanup(): Promise<CleanupResult> {
       remaining.sort((a, b) => a.mtime - b.mtime)
       for (const f of remaining) {
         if (totalSize <= MAX_TOTAL_SIZE_BYTES) break
-        if (await safeDelete(f.path, result.errors)) {
+        if (await safeDelete(f.path, boundaryRoot, result.errors)) {
           totalSize -= f.size
           result.deletedBySize += 1
         }
@@ -207,17 +297,19 @@ export async function runFileCleanup(): Promise<CleanupResult> {
 
 /** 获取清理服务配置与当前目录状态统计（供监控端点使用）。 */
 export async function getCleanupStats(): Promise<CleanupStats> {
+  const uploadRoot = resolveUploadRoot()
+  const outputRoot = resolveOutputRoot()
   const uploads: FileEntry[] = []
-  await walkFiles('uploads', (entry) => {
+  await walkFiles(uploadRoot, (entry) => {
     uploads.push(entry)
   })
   const outputs: FileEntry[] = []
-  await walkFiles('outputs', (entry) => {
+  await walkFiles(outputRoot, (entry) => {
     outputs.push(entry)
   })
   return {
-    uploadDir: 'uploads',
-    outputDir: 'outputs',
+    uploadDir: uploadRoot,
+    outputDir: outputRoot,
     maxAgeHours: MAX_AGE_HOURS,
     maxSizeMb: MAX_TOTAL_SIZE_MB,
     uploadsFiles: uploads.length,

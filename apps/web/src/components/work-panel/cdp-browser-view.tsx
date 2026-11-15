@@ -39,6 +39,7 @@ import { AnnotationStylePanel, type PickedVisualElement } from './annotation-sty
 import { buildBrowserWsUrl, setBrowserWsToken } from '@ihui/api-client'
 import { useAuthStore } from '@/stores/auth'
 import { isTopOverlay, popOverlay, pushOverlay } from '@/lib/overlay-stack'
+import { MENU_ITEM_CLASS, MENU_ITEM_ICON_CLASS } from '@/lib/menu-item'
 import { boundedAppend, droppedNotice } from '@/lib/bounded-append'
 
 /** 层栈 id(见 @/lib/overlay-stack):画布右键菜单浮层 */
@@ -47,9 +48,8 @@ const CDP_CTX_MENU_OVERLAY_ID = 'cdp-browser-view-ctx-menu'
 export interface CdpBrowserViewProps {
   /** Browser Hub 会话 ID(后端 createBrowserSession 返回) */
   sessionId: string
-  /** 页面导航完成回调(传递最终 url + title + 产生事件的 sessionId)
-   *  Y-81:sessionId 用于 store 侧 tab 归属校验,防多 cdp tab 导航事件串号 */
-  onNavigation?: (url: string, title: string, sessionId?: string) => void
+  /** 页面导航完成回调(传递最终 url + title) */
+  onNavigation?: (url: string, title: string) => void
   /** 首帧渲染成功回调(等价于 iframe 的 onLoad) */
   onLoaded?: () => void
   /** 连接失败回调(等价于 iframe 的 onError) */
@@ -423,9 +423,7 @@ export function CdpBrowserView({
           imgRef.current = img
         } else if (msg.type === 'navigation' && msg.url) {
           if (disposed) return
-          // Y-81:把建 WS 用的 sessionId 回传给 store,供 onCdpNavigation 做 tab 归属校验
-          // (多 cdp tab 并存时非 active tab 的导航事件须被丢弃,不串号到当前 tab)。
-          cbRefs.current.onNavigation?.(msg.url, msg.title ?? '', sessionId)
+          cbRefs.current.onNavigation?.(msg.url, msg.title ?? '')
         }
       } catch {
         // 静默处理解析错误
@@ -851,10 +849,10 @@ export function CdpBrowserView({
                   role="menuitem"
                   disabled={item.disabled}
                   onClick={item.onClick}
-                  className="font-[weight:inherit] flex w-full items-center gap-2 rounded-sm px-2.5 py-1.5 text-left text-label text-foreground transition-colors hover:bg-muted disabled:pointer-events-none disabled:opacity-40"
+                  className={MENU_ITEM_CLASS}
                 >
-                  <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                  <span>{item.label}</span>
+                  <Icon className={MENU_ITEM_ICON_CLASS} />
+                  <span className="min-w-0 flex-1 truncate">{item.label}</span>
                 </button>
               )
             })}

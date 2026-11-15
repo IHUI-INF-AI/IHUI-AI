@@ -27,16 +27,20 @@
  *   本门的价值在于"结构面永不静默漂开",而不是替代行为测试。
  *
  * CLI 用法:
- *   node scripts/check-mirror-surface-parity.mjs [--self-test] [--json] [--help]
+ *   node scripts/check-mirror-surface-parity.mjs [--staged|--worktree] [--self-test] [--json] [--help]
+ *
+ * 判定面(2026-11-15 接入 scripts/lib/face-reader.mjs,与守门 70/77/83 同口径):
+ *   - 默认        ⇒ HEAD blob(两侧取材同面、同轮);
+ *   - `--staged`  ⇒ 索引 blob(提交进去的那一份才算数);
+ *   - `--worktree`⇒ 磁盘(人工排查逃生舱)。
+ *   取不到被审面 ⇒ exit 2(不记绿也不冒红)。
  *
  * 退出码:0 绿 / 1 红 / 2 未判定(取材失败,不记绿也不冒红)。
  */
-import { readFileSync } from 'node:fs'
-import { dirname, join, resolve } from 'node:path'
+import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-// 守门 118 取材面纪律:门体判仓库内容必须经 scripts/lib/face-reader.mjs。
-// 默认判 HEAD blob,`--staged` 判索引,`--worktree` 只是人工逃生舱。
-import { selectFace, catBatch } from './lib/face-reader.mjs'
+
+import { catBatch, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 export const ROOT = resolve(HERE, '..')
@@ -181,34 +185,61 @@ export function compareEnums(sharedValues, mirrorValues, label = '') {
   return errors
 }
 
-/** 读文件;读不到返回 null(调用方判未判定,不猜)。face 缺省取工作树,便于夹具自检。 */
-export function readSource(file, root = ROOT, face = null) {
-  if (face === null || face === 'worktree') {
-    try {
-      return readFileSync(join(root, file), 'utf8')
-    } catch {
-      return null
-    }
+/**
+ * 按判定面批量读源码 —— 本门读仓库内容的**唯一**出口。
+ *
+ * 面语义与 lib/face-reader.mjs 一致:默认 worktree(纯判据/单测按磁盘,与本门原语义一致)、
+ * `head` HEAD blob、`staged` 索引 blob。CLI 侧由 selectFace 显式给面(缺省 HEAD)。
+ * 取不到(路径不在该面 / 非 blob)⇒ null,由调用方判未判定;派生失败 ⇒ 抛 Undetermined。
+ *
+ * @returns {Map<string, string|null>} 键为传入的相对路径
+ */
+export function readSources(files, root = ROOT, face = 'worktree') {
+  const map = new Map()
+  if (files.length === 0) return map
+  if (face === 'worktree') {
+    for (const f of files) map.set(f, readWorktreeFile(root, f))
+    return map
   }
-  const prefix = face === 'staged' ? ':' : 'HEAD:'
-  const spec = prefix + file
-  try {
-    const got = catBatch(root, [spec], { maxBuffer: 1 << 28 })
-    const t = got.get(spec)
-    return t === undefined ? null : t
-  } catch {
-    return null
-  }
+  const rev = face === 'staged' ? '' : 'HEAD'
+  const specs = files.map((f) => `${rev}:${String(f).replace(/\\/g, '/')}`)
+  const got = catBatch(root, specs, { maxBuffer: 1 << 29, timeout: 120000 })
+  for (let i = 0; i < files.length; i += 1) map.set(files[i], got.get(specs[i]) ?? null)
+  return map
 }
 
-/** 主判据:返回 { ok, errors, undetermined }。face 由 main 经 selectFace 决定(守门 118)。 */
-export function inspect(root = ROOT, face = null) {
+/** 读单文件;读不到返回 null(调用方判未判定,不猜)。默认面同 readSources(worktree) */
+export function readSource(file, root = ROOT, face = 'worktree') {
+  return readSources([file], root, face).get(file) ?? null
+}
+
+/** 主判据:返回 { ok, errors, undetermined }。CLI 传显式面,直调/单测缺省按磁盘(原语义) */
+export function inspect(root = ROOT, face = 'worktree') {
   const errors = []
   const undetermined = []
 
+  const need = [
+    ...new Set([
+      ...MIRROR_PAIRS.flatMap((p) => [p.shared.file, p.mirror.file]),
+      ...MIRROR_ENUM_PAIRS.flatMap((p) => [p.shared.file, p.mirror.file]),
+    ]),
+  ]
+  let sources
+  try {
+    sources = readSources(need, root, face)
+  } catch (e) {
+    // 一次派生失败 ⇒ 整面取材不可用。如实报未判定,绝不折成"两侧都没漂移"
+    return {
+      ok: false,
+      errors: [],
+      undetermined: [`${face} 面取材失败:${e instanceof Error ? e.message : String(e)}`],
+    }
+  }
+  const srcOf = (file) => sources.get(file) ?? null
+
   for (const pair of MIRROR_PAIRS) {
-    const sharedSrc = readSource(pair.shared.file, root, face)
-    const mirrorSrc = readSource(pair.mirror.file, root, face)
+    const sharedSrc = srcOf(pair.shared.file)
+    const mirrorSrc = srcOf(pair.mirror.file)
     if (sharedSrc === null) {
       undetermined.push(`${pair.id}: 共享层 ${pair.shared.file} 读不到`)
       continue
@@ -231,8 +262,8 @@ export function inspect(root = ROOT, face = null) {
   }
 
   for (const pair of MIRROR_ENUM_PAIRS) {
-    const sharedSrc = readSource(pair.shared.file, root, face)
-    const mirrorSrc = readSource(pair.mirror.file, root, face)
+    const sharedSrc = srcOf(pair.shared.file)
+    const mirrorSrc = srcOf(pair.mirror.file)
     if (sharedSrc === null || mirrorSrc === null) {
       undetermined.push(`${pair.id}: 枚举对账取材失败(一侧文件读不到)`)
       continue
@@ -389,12 +420,14 @@ function printHelp() {
 check-mirror-surface-parity.mjs — 跨包镜像结构字段对账门禁
 
 用法:
-  node scripts/check-mirror-surface-parity.mjs [--self-test] [--json] [--help]
+  node scripts/check-mirror-surface-parity.mjs [--staged|--worktree] [--self-test] [--json] [--help]
 
 判据:
   ① 两侧同名类型的字段名集合逐字相等(多一个 / 少一个都红)
   ② 每个字段的可选性一致(? 与必填不混用)
   ③ 登记为对账对象的枚举,两侧取值集合逐字相等
+
+判定面:默认 HEAD blob / --staged 索引 blob / --worktree 磁盘;取不到即 exit 2。
 
 不判:解析函数体的行为等价(静态不可判),那一层由两侧单测各自覆盖。
 
@@ -409,7 +442,6 @@ function main(argv = process.argv.slice(2)) {
   }
   if (argv.includes('--self-test')) return selfTest() ? 0 : 1
 
-  // 守门 118:清单与内容同面同轮。默认 HEAD,--staged 索引,--worktree 人工逃生舱。
   const picked = selectFace({
     staged: argv.includes('--staged'),
     worktree: argv.includes('--worktree'),
@@ -419,23 +451,24 @@ function main(argv = process.argv.slice(2)) {
     console.log(`⏭ 未判定:${picked.error}`)
     return 2
   }
+
   const r = inspect(ROOT, picked.face)
   if (argv.includes('--json')) {
-    console.log(JSON.stringify(r, null, 2))
+    console.log(JSON.stringify({ ...r, face: picked.face }, null, 2))
     return r.ok ? 0 : r.undetermined.length > 0 && r.errors.length === 0 ? 2 : 1
   }
   if (r.undetermined.length > 0) {
-    console.log('⏭ 未判定(取材失败,不记绿也不冒红):')
+    console.log(`⏭ 未判定(取材失败,不记绿也不冒红,面=${picked.face}):`)
     for (const u of r.undetermined) console.log(`   · ${u}`)
     return 2
   }
   if (r.errors.length > 0) {
-    console.log(`❌ 跨包镜像对账失败 ${r.errors.length} 项:`)
+    console.log(`❌ 跨包镜像对账失败 ${r.errors.length} 项(面=${picked.face}):`)
     for (const e of r.errors) console.log(`   · ${e}`)
     return 1
   }
   console.log(
-    `✅ 跨包镜像对账通过(结构 ${MIRROR_PAIRS.length} 项 / 枚举 ${MIRROR_ENUM_PAIRS.length} 项)`,
+    `✅ 跨包镜像对账通过(结构 ${MIRROR_PAIRS.length} 项 / 枚举 ${MIRROR_ENUM_PAIRS.length} 项,面=${picked.face})`,
   )
   return 0
 }
@@ -458,6 +491,7 @@ export const __test__ = {
   extractEnumValues,
   compareFields,
   compareEnums,
+  readSources,
   readSource,
   inspect,
   selfTest,

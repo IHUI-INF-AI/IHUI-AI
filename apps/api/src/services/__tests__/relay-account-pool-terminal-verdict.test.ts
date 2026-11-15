@@ -182,7 +182,9 @@ describe('判死码清单:ts 侧从 config JSON 编译(单一真相源)', () => 
     // 反向牙:清单一旦被复制成第二份/条数漂移,上面的条数与 id 有序断言当场红。
     // 2026-11-15 移除 doubao-712012001:清单不再含它,712012001 文案也不再判死(硬反例)。
     expect(IRREVERSIBLE_VERDICTS.map((v) => v.id)).not.toContain('doubao-712012001')
-    expect(irreversibleVerdictOf({ lastErrorMessage: 'status_code 712012001 登录校验不合法' })).toBeNull()
+    expect(
+      irreversibleVerdictOf({ lastErrorMessage: 'status_code 712012001 登录校验不合法' }),
+    ).toBeNull()
     for (const v of IRREVERSIBLE_VERDICTS) {
       expect(v.pattern).toBeInstanceOf(RegExp)
       expect(Object.isFrozen(v)).toBe(true)
@@ -220,10 +222,7 @@ describe('解摘闸门 revivableCandidatesOf', () => {
   })
 
   it('反向牙:可逆失败 / 空 / null 一行都不排除', () => {
-    const rows = [
-      ...REVERSIBLE_MESSAGES.map((m, i) => rowOf(`v${i}`, m)),
-      rowOf('v-null', null),
-    ]
+    const rows = [...REVERSIBLE_MESSAGES.map((m, i) => rowOf(`v${i}`, m)), rowOf('v-null', null)]
     expect(revivableCandidatesOf(rows).map((r) => r.id)).toEqual(rows.map((r) => r.id))
     // 「无字段」由上面 irreversibleVerdictOf({}) / isTerminalFailure({}) 覆盖;带别的属性
     // 却无共同属性的异构字面量混进同形数组会把泛型推断拖回约束(tsc weak-type 报错),故不混入。

@@ -60,7 +60,7 @@ export function ShareScreen({
             value={remark}
             onChangeText={onRemarkChange}
             placeholder={t('share.remarkPlaceholder')}
-            placeholderTextColor={tk.text.tertiary}
+            placeholderTextColor={tk.text.secondary}
           />
           <TouchableOpacity
             style={[styles.createBtn, loading && styles.btnDisabled]}
@@ -137,7 +137,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.brand.cta,
       alignItems: 'center',
     },
-    btnDisabled: { backgroundColor: tk.text.tertiary },
+    btnDisabled: { backgroundColor: tk.text.secondary },
     createText: { color: tk.brand.ctaForeground, fontSize: rnType.title.size, fontWeight: '600' },
     muted: {
       marginTop: rnSpacing.md,
@@ -145,7 +145,7 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.secondary,
       textAlign: 'center',
     },
-    error: { marginTop: rnSpacing.md, fontSize: rnType.body.size, color: tk.danger.DEFAULT },
+    error: { marginTop: rnSpacing.md, fontSize: rnType.body.size, color: tk.danger.deepText },
     card: {
       marginTop: rnSpacing.lg,
       padding: rnSpacing.md,
@@ -153,7 +153,7 @@ function createStyles(tk: AppThemeTokens) {
       borderWidth: 1,
       borderColor: tk.border.light,
     },
-    cardLabel: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.tertiary },
+    cardLabel: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.medium },
     cardValue: { marginTop: rnSpacing.sm, fontSize: rnType.title.size, color: tk.text.primary },
     shareBtnWrap: { paddingHorizontal: rnSpacing['sm-loose'], paddingVertical: rnSpacing.md },
     shareBtn: {

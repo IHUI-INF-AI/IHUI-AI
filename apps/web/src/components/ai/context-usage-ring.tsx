@@ -18,6 +18,7 @@ import { useTranslations } from 'next-intl'
 import { toast } from '@/components/common'
 
 import { cn } from '@/lib/utils'
+import { NESTED_FLOATING_Z_CLASS } from '@/lib/floating-layer'
 import {
   COMPOSER_MENU_ROW_CHEVRON_CLASS,
   COMPOSER_MENU_ROW_CLASS,
@@ -686,7 +687,11 @@ export function ContextUsageRing({
             // style 里,portal 挂 body 的容器一旦被读 DOM 的一方(守门 check-portal-fixed、
             // 无障碍遍历、后续改样式的人)检查,类名上看不出它是浮层 —— 而"忘了写定位"
             // 正是弹层跟着页面滚走那一类事故的成因。top/left 仍由 inline 给(坐标是动态的)。
-            className="fixed z-popover w-72 ui-popover rounded-md border border-stroke-strong bg-popover p-3 text-popover-foreground shadow-elevation-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className={cn(
+              'fixed ui-popover rounded-md border border-stroke-strong bg-popover p-3 text-popover-foreground shadow-elevation-md outline-none focus-visible:ring-2 focus-visible:ring-ring',
+              NESTED_FLOATING_Z_CLASS,
+              'w-72',
+            )}
             style={
               coords
                 ? { top: coords.top, left: coords.left, maxHeight: 'calc(100vh - 16px)' }

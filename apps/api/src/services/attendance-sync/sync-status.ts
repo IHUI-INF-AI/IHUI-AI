@@ -21,10 +21,8 @@ import type { AttendanceSyncJobResult } from '../attendance-sync-job.js'
 
 export const LAST_RUN_KEY = 'sync:attendance:last-run'
 
-/** 最近一次同步运行的运维快照(比 AttendanceSyncJobResult 多一个 finishedAt) */
-export interface SyncLastRunStatus extends AttendanceSyncJobResult {
-  finishedAt: string
-}
+/** 最近一次同步运行的运维快照(字段可能随版本增减,读取侧按需取) */
+export type SyncLastRunStatus = Partial<AttendanceSyncJobResult> & { finishedAt: string }
 
 /** 读最近一次运行状态;从未跑过 → null */
 export async function readLastRunStatus(): Promise<SyncLastRunStatus | null> {
@@ -47,8 +45,11 @@ export async function readLastRunStatus(): Promise<SyncLastRunStatus | null> {
 }
 
 /** 覆盖写最近一次运行状态(upsert:key 唯一;仅保留最近一次) */
-export async function writeLastRunStatus(result: AttendanceSyncJobResult): Promise<void> {
-  const status: SyncLastRunStatus = { ...result, finishedAt: new Date().toISOString() }
+export async function writeLastRunStatus(result: Partial<AttendanceSyncJobResult>): Promise<void> {
+  const status: SyncLastRunStatus = {
+    ...result,
+    finishedAt: result.finishedAt ?? new Date().toISOString(),
+  }
   const value = JSON.stringify(status)
 
   const [existing] = await db

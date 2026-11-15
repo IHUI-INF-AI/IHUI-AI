@@ -24,6 +24,7 @@ import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import { useAuth } from '../context/AuthContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { toFriendlyOr } from '@ihui/shared/utils'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 type UserPublicRoute = RouteProp<RootStackParamList, 'UserPublic'>
@@ -82,7 +83,7 @@ function UserPublicScreen() {
       const st = await fetchApi<{ following: boolean }>(`/api/follows/${userId}/status`)
       if (st.success && st.data) setFollowing(st.data.following)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'load failed')
+      setError(toFriendlyOr(e, t('common.loadFailed')))
       setUser(null)
     } finally {
       setLoading(false)
@@ -104,7 +105,7 @@ function UserPublicScreen() {
       setFollowing(!following)
       void load()
     } catch (e) {
-      void appAlert(t('common.error'), e instanceof Error ? e.message : t('common.retry'))
+      void appAlert(t('common.error'), toFriendlyOr(e, t('common.retry')))
     } finally {
       setFollowPending(false)
     }
@@ -119,10 +120,7 @@ function UserPublicScreen() {
       if (!res.success || !res.data?.conversation?.id) throw new Error(res.error)
       navigation.navigate('Chat', { conversationId: res.data.conversation.id })
     } catch (e) {
-      void appAlert(
-        t('common.error'),
-        e instanceof Error ? e.message : t('user.public.sendMessage'),
-      )
+      void appAlert(t('common.error'), toFriendlyOr(e, t('user.public.sendMessage')))
     }
   }, [userId, navigation, t])
 

@@ -15,6 +15,7 @@ import { requireAdmin } from '../plugins/require-permission.js'
 import { success, error, parseOrThrow, emptyToUndefined } from '../utils/response.js'
 import { eduInvoiceTitles } from '@ihui/database'
 import { isUuidString } from '../utils/uuid.js'
+import { encryptInvoiceTitleFields, decryptInvoiceTitleFields } from '../utils/pii-field.js'
 
 const idParamSchema = z.object({ id: z.string().min(1) })
 
@@ -81,7 +82,8 @@ export const adminInvoicesRoutes: FastifyPluginAsync = async (server) => {
           .from(eduInvoiceTitles)
           .where(where)
       )[0]?.c ?? 0
-    return reply.send(success({ list: rows, total, page, pageSize }))
+    const decrypted = rows.map((r) => decryptInvoiceTitleFields(r))
+    return reply.send(success({ list: decrypted, total, page, pageSize }))
   })
 
   // 详情查询
@@ -94,27 +96,30 @@ export const adminInvoicesRoutes: FastifyPluginAsync = async (server) => {
       .where(eq(eduInvoiceTitles.id, id))
       .limit(1)
     if (!row) return reply.status(404).send(error(404, '发票抬头不存在'))
-    return reply.send(success(row))
+    return reply.send(success(decryptInvoiceTitleFields(row)))
   })
 
   // 2. 创建发票抬头
   server.post('/invoices/titles', async (request: FastifyRequest, reply: FastifyReply) => {
     const body = parseOrThrow(createBodySchema, request.body)
+    const pii = encryptInvoiceTitleFields({
+      taxNo: body.taxNo,
+      bank: body.bank,
+      bankAccount: body.bankAccount,
+      address: body.address,
+      phone: body.phone,
+    })
     const [row] = await db
       .insert(eduInvoiceTitles)
       .values({
         userId: body.userId,
         titleType: body.titleType,
         title: body.title,
-        taxNo: body.taxNo,
-        bank: body.bank,
-        bankAccount: body.bankAccount,
-        address: body.address,
-        phone: body.phone,
+        ...pii,
       })
       .returning()
     if (!row) return reply.status(500).send(error(500, '创建失败'))
-    return reply.status(201).send(success(row))
+    return reply.status(201).send(success(decryptInvoiceTitleFields(row)))
   })
 
   // 3. 更新发票抬头
@@ -122,13 +127,30 @@ export const adminInvoicesRoutes: FastifyPluginAsync = async (server) => {
     const { id } = parseOrThrow(idParamSchema, request.params)
     if (!isUuidString(id)) return reply.status(400).send(error(400, 'id 格式不正确'))
     const body = parseOrThrow(updateBodySchema, request.body)
+    const pii = encryptInvoiceTitleFields({
+      taxNo: body.taxNo,
+      bank: body.bank,
+      bankAccount: body.bankAccount,
+      address: body.address,
+      phone: body.phone,
+    })
     const [row] = await db
       .update(eduInvoiceTitles)
-      .set({ ...body, updatedAt: new Date() })
+      .set({
+        ...(body.userId !== undefined ? { userId: body.userId } : {}),
+        ...(body.titleType !== undefined ? { titleType: body.titleType } : {}),
+        ...(body.title !== undefined ? { title: body.title } : {}),
+        ...(pii.taxNo !== undefined ? { taxNo: pii.taxNo } : {}),
+        ...(pii.bank !== undefined ? { bank: pii.bank } : {}),
+        ...(pii.bankAccount !== undefined ? { bankAccount: pii.bankAccount } : {}),
+        ...(pii.address !== undefined ? { address: pii.address } : {}),
+        ...(pii.phone !== undefined ? { phone: pii.phone } : {}),
+        updatedAt: new Date(),
+      })
       .where(eq(eduInvoiceTitles.id, id))
       .returning()
     if (!row) return reply.status(404).send(error(404, '发票抬头不存在'))
-    return reply.send(success(row))
+    return reply.send(success(decryptInvoiceTitleFields(row)))
   })
 
   // 4. 删除发票抬头

@@ -35,7 +35,7 @@ import { config } from '../config/index.js'
 import { requireCapability, requireCapabilityRules } from '../utils/capability-guard.js'
 import { requireApiKeyAuth } from '../plugins/api-key-auth.js'
 import { error } from '../utils/response.js'
-import { aiServiceFetch } from '../utils/ai-service-fetch.js'
+import { aiServiceSystemFetch } from '../utils/ai-service-fetch.js'
 import { recordCall, modelToProviderCode } from '../services/relay-billing-service.js'
 // 格②(2026-09-26):耗时一律走单调钟出口,落库形态经唯一适配器投影
 import { startStopwatch } from '../utils/elapsed-ms.js'
@@ -298,11 +298,13 @@ function listPageQuerySchema(): Record<string, unknown> {
       },
       after: {
         type: 'string',
-        description: '分页锚点:旧模式传上一页 last_id;page_format=cursor 时传 next_cursor 返回的不透明游标',
+        description:
+          '分页锚点:旧模式传上一页 last_id;page_format=cursor 时传 next_cursor 返回的不透明游标',
       },
       page_format: {
         type: 'string',
-        description: "传 'cursor' 启用不透明游标分页,响应追加 next_cursor;省略即既有 limit/after 语义",
+        description:
+          "传 'cursor' 启用不透明游标分页,响应追加 next_cursor;省略即既有 limit/after 语义",
       },
     },
   }
@@ -1204,9 +1206,17 @@ const v1Assistants: FastifyPluginAsync = async (server) => {
       }
 
       try {
-        const resp = await aiServiceFetch(request, '/api/llm/complete', {
+        // F-193:入站 Authorization 是开发者 API Key(ihui_...),ai-service 的 jwt_auth
+        // 只认 JWT,原样透传会恒定 401/502。改走服务间票据(aiServiceSystemFetch 注入
+        // 系统 access token),开发者 Key 不再出站;调用者身份仍经既有 x-user-id /
+        // x-tenant-id 头透传,不丢。
+        const resp = await aiServiceSystemFetch('/api/llm/complete', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'x-user-id': apiKey.userId,
+            ...(request.tenantId ? { 'x-tenant-id': request.tenantId } : {}),
+          },
           body: JSON.stringify({ messages: aiMessages, model: effectiveModel }),
         })
 
@@ -1218,12 +1228,10 @@ const v1Assistants: FastifyPluginAsync = async (server) => {
             failed_at: Math.floor(Date.now() / 1000),
           }
           await updateRun(redis, failedRun)
-          return reply
-            .status(502)
-            .send({
-              ...error(502, `AI service unavailable (${resp.status}): ${errText.slice(0, 200)}`),
-              ...runHandles(),
-            })
+          return reply.status(502).send({
+            ...error(502, `AI service unavailable (${resp.status}): ${errText.slice(0, 200)}`),
+            ...runHandles(),
+          })
         }
 
         const data = (await resp.json()) as {
@@ -1330,12 +1338,10 @@ const v1Assistants: FastifyPluginAsync = async (server) => {
           failed_at: Math.floor(Date.now() / 1000),
         }
         await updateRun(redis, failedRun)
-        return reply
-          .status(503)
-          .send({
-            ...error(503, (e as Error).message || 'AI service unavailable'),
-            ...runHandles(),
-          })
+        return reply.status(503).send({
+          ...error(503, (e as Error).message || 'AI service unavailable'),
+          ...runHandles(),
+        })
       }
     },
   )

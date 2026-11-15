@@ -70,7 +70,9 @@ function asRecord(v: unknown): Record<string, unknown> | null {
  * 读判死留痕。形状不合法(缺 id / credVersion 不是有限数)一律 null = 未判定 ⇒ 不放行。
  * 绝不因为「看着像」就猜一个版本出来 —— 猜错会把死票放回撞上游的循环里。
  */
-export function terminalVerdictOf(row: RevivalEvidenceRow | null | undefined): TerminalVerdictSnapshot | null {
+export function terminalVerdictOf(
+  row: RevivalEvidenceRow | null | undefined,
+): TerminalVerdictSnapshot | null {
   const extra = asRecord(row?.extraMetadata)
   if (!extra) return null
   const snap = asRecord(extra[TERMINAL_VERDICT_KEY])
@@ -147,7 +149,10 @@ export function healthRevivalPatchOf(
 ): HealthRevivalPatch | null {
   const { clientExpiresAt, now = new Date() } = opts
   if (clientExpiresAt) {
-    const exp = clientExpiresAt instanceof Date ? clientExpiresAt.getTime() : Date.parse(String(clientExpiresAt))
+    const exp =
+      clientExpiresAt instanceof Date
+        ? clientExpiresAt.getTime()
+        : Date.parse(String(clientExpiresAt))
     if (!Number.isFinite(exp) || exp <= now.getTime()) return null
   }
   const status = String(row?.healthStatus ?? '')

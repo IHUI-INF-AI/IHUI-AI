@@ -33,8 +33,6 @@ import { spawnSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-// §15b 运行时合规临时根(~/.ihui/tmp → junction D:),禁 os.tmpdir()(TEMP 可能钉 C 盘)
-import { getRuntimeTempRoot } from '@ihui/shared';
 import { resolveBinaryPath } from '../lsp/probe.js';
 
 /** 唯一切号编排口(本层只派发) */
@@ -164,7 +162,7 @@ function decodeChildOutput(buf: Buffer): string {
  *  文件没有写端引用计数问题:进程退出即拿到全部内容,不会因后代进程拖延。
  */
 function runCaptured(command: string, args: string[], cwd: string): RunResult {
-  const dir = fs.mkdtempSync(path.join(getRuntimeTempRoot(), 'ihui-relay-'));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ihui-relay-'));
   const outPath = path.join(dir, 'out.txt');
   const errPath = path.join(dir, 'err.txt');
   let outFd: number | null = null;

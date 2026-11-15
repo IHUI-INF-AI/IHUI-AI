@@ -154,7 +154,15 @@ export async function aiServiceFetch(
     if (request) {
       const authHeader = request.headers.authorization
       if (authHeader) {
-        headers.Authorization = authHeader
+        // F-193: /v1/* 网关以开发者 API Key(ihui_...)鉴权,该值不是用户 JWT;
+        // ai-service 的 jwt_auth 只接受 JWT,原样透传会恒定 401/502(Assistants
+        // /v1/threads/:id/runs 链路曾因此整体不可用)。改为注入内部系统票据
+        // (与 aiServiceSystemFetch 同语义,真实 userId 由调用方经请求体透传),
+        // 用户 JWT 仍按原样透传,不受影响。
+        const bearer = authHeader.replace(/^Bearer\s+/i, '').trim()
+        headers.Authorization = bearer.startsWith('ihui_')
+          ? `Bearer ${await getSystemAccessToken()}`
+          : authHeader
       } else {
         const queryToken = (request.query as Record<string, unknown> | undefined)?.token
         if (typeof queryToken === 'string' && queryToken.length > 0) {
