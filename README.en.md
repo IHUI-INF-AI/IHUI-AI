@@ -69,7 +69,7 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 | 数据库表 | 650 | `dbTables` |
 | schema 文件 | 252 | `dbSchemaFiles` |
 | API 路由 | 4831 | `apiRoutes` |
-| 路由文件 | 702 | `apiRouteFiles` |
+| 路由文件 | 703 | `apiRouteFiles` |
 | AI 服务路由 | 677 | `aiServiceRoutes` |
 | WebSocket 端点 | 40 | `wsEndpoints` |
 | 入库模型清单 | 100 | `llmModels` |
@@ -81,13 +81,13 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 5616 | `testFiles` |
+| 测试文件 | 5625 | `testFiles` |
 | CI 工作流 | 59 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
 | 工程守门 | 367 | `guardianGates` |
 | — blocking | 337 | `guardianBlocking` |
 | — warn | 32 | `guardianWarn` |
-| 跟踪文件 | 22251 | `trackedFiles` |
+| 跟踪文件 | 22272 | `trackedFiles` |
 
 上表由 `node scripts/sync-readme-numbers.mjs`(唯一写入口,索引面取数)生成,最后核对日期 2026-11-15。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
@@ -98,107 +98,6 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 ## Recent updates (auto-maintained)
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
-**2026-11-15**
-- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (510e4291b5b)
-- 🐞 Fix:输入框清空按钮加卡片底色、字数统计贴住第三行末尾 (328b8dec13d)
-
-**2026-11-15**
-- 🔧 Chore/Other:全量同步工作区并交付 AI 浮窗八向拉伸缩放 (69ce958a9b2)
-- 🚀 Feature/Improvement:补齐外观设置 v1-v4 交付(收编 origin 后重放) (d22653b4f56)
-- ♻️ Refactor:容器描边 2.0 档位与聚焦收口 (4492f0db995)
-- 🐞 Fix:修 relay-chat-stream 提前发帧 + post-login-landing 管理员口径矛盾 (ec794ca83a5)
-- ♻️ Refactor:种 Cookie 注释与语义对齐, 删已无用的 seeded 哨兵变量 (aeffbfeb598)
-- 📚 Docs:生成块按 HEAD 面重算 —— 门 338/33 落地, 测试/跟踪数回到 5415/21888 (4b38858ea10)
-- 📚 Docs:生成块四数对齐现算 —— 门 338/33, 测试文件 5413, 跟踪 21886 (5bc6f63bbb8)
-- 🐞 Fix:门320 运行时TEMP落盘回归锁由 warn 升 blocking (e4cda03e69b)
-- 🐞 Fix:temp-root 去 Node 内建静态导入, 修 app 构建 Turbopack node:fs 失败 (a1b8b8567d8)
-- 🐞 Fix:门320判据配套修复 + 门320文档落点同步(第二批) (510193d9d41)
-- 🐞 Fix:去重 4 条重复门名点名行(真子集), AGENTS 体积 98970→94766 压回 96000 预算内 (0f29ba0e6dd)
-- 📚 Docs:报告补 §12 — 上游缺陷收口、与 c9490eb992 的冲突处置、剩余三个坑 (a24e0060a84)
-- 🐞 Fix:摘除 markdown-stream 对未入仓外观模块的依赖, 解除构建第二道 Module not found (ba2ff3ce804)
-- 🐞 Fix:装回外观 v3 的单条消息样式接线(悬空引用已由模块补齐消除) (d1b5df589ca)
-- 🐞 Fix:运行时临时根收进项目文件夹内 .DevEnv/tmp (2cd1e920b67)
-- 🐞 Fix:补齐 4 个未入库模块 + 3 处半落地接口, 恢复两端 typecheck 全绿 (f4ebc98df80)
-- 🐞 Fix:摘除 MessageItem 悬空引用 message-style-menu/appearance-scope, 恢复可构建 (c9490eb9925)
-- 📚 Docs:登记本轮已修复 BUG-31/32/33 留痕（bot-sites mass-assignment / joinActivity 异常吞没 / findAiWorldFavorites 故障静默）；本次按 §15b 逃生阀放行 C 盘 scratch（环境既有钉死，不改注册表） (b5f10e7405e)
-- 📚 Docs:跨端对齐报告补齐 §9 修订终裁 / §10 门 89 缺陷 / §11 交付终态 (32dba2528a1)
-- 🐞 Fix:修正 AGENTS.md 重封口径 — section 面应按段哈希, 恢复 origin 段值 (4f7f73accbc)
-- 📚 Docs:同步生成块数字 — 新增 5 文件致 trackedFiles/testFiles/门数漂移 (52897df875f)
-- 🔧 Chore/Other:补齐 5 个文件溯源水印(3 枚载荷已损坏 + 2 枚缺失) (b0f35ddc713)
-- 🔧 Chore/Other:注册屏对齐端口补行为级回归 + 无障碍标签走正典键 (960fc934d54)
-- 🚀 Feature/Improvement:补齐 mobile-rn 五语言 register.show / register.hide (a7b6f4e0038)
-- 🐞 Fix:解门号 323 撞车 — runtime-tmp-landing 改号 320 并整份重封根护栏清单 (db358374d2f)
-- 🐞 Fix:R4 文档面并入 docs/GATEKEEPERS.md 并补登 321/322 (3db99725fd3)
-- 🔧 Chore/Other:收敛前将根护栏清单对齐 origin 权威版 消除合并冲突 (27bc8aaffbc)
-- ♻️ Refactor:register 页转薄壳并为共享 RegisterScreen 补齐对齐端口 (e7ec7ea0ba3)
-- 🐞 Fix:补 bot-sites mass-assignment 校验 + 修两处异常吞没(BUG-31/32/33) (72870ccdc40)
-- 📚 Docs:同步守门统计至合并结果真值 消除收敛器假阳性吞行自证 (df74ca14f23)
-- 🐞 Fix:门322撞号改号323 + R5时序对齐R8索引面 + AGENTS补点名 + 重封清单 (b1ee3dc8c24)
-- 🔧 Chore/Other:en 外观设置 Detail level 措辞改为 Verbosity (bcfd20334af)
-- 🐞 Fix:五语言补 ambientSuggestions.close/restore 两键，消除缺键 (ace05f05cbe)
-- 🚀 Feature/Improvement:补齐 en 外观设置命名空间 291 键，五语言 parity 收口 (70369dc8ed5)
-- 🚀 Feature/Improvement:应用商店账号纳入永久保活登记并桌面启动自动开窗口真实保活 (dc71d740f0b)
-- 🔧 Chore/Other:web 五语言键集同步落地（zh-CN/zh-TW/ja/ko parity，消除缺键） (d88ff211d6a)
-- 📚 Docs:刷新 README 守门计数为 371/337(门 323 入库后) (07372d04e7c)
-- 🐞 Fix:仓库卫生收口——emoji 图标改 lucide、补齐 ja/ko 翻译、阅读标尺底色回档位 (d1b94aa9e3b)
-- 📚 Docs:刷新 README 守门计数为 371/337(门 323 入库后) (cf6f065a646)
-- 📚 Docs:刷新 README 守门计数为 371/337(门 323 入库后) (94c59a78e4a)
-- 🐞 Fix:补齐聊天消息列表外观设置 store 依赖 + 移除滚动边缘淡出遮罩的回归单测 (ce53925ef7c)
-- 🐞 Fix:全栈运行时 tmp/scratch 落地仓树内 + 加活闸守门 (615ebc71529)
-- ♻️ Refactor:容器描边收口为 8 角色单源并新增守门 323 (c6ce232d0c5)
-- ⚡ Perf:冲突标记/水印/旧 blob 门改批量取证 (5cdf89186a7)
-- 🐞 Fix:修复分页竞态重复加载、封面空 src 破图、列表 index key 错位 (6ae0209ad70)
-- 🐞 Fix:清偿 Y-75/76/77 + BUG-29 切片1 补索引 (f5ea66c5c91)
-- 🐞 Fix:对话滚动箭头归族并居中锚定消息视口上下边缘 (5d0be25c184)
-- 🐞 Fix:第十批 13 文件 —— 兼容层键盘档 / 响应空值兜底 / tabBar 跳转契约 (c3532195b8d)
-- 📚 Docs:同步生成块数字对齐本轮新增 4 文件 (e9b25a8bd83)
-- 🐞 Fix:彻底杜绝账号掉线后自动恢复链被锁死 (cf1aaa4af0f)
-- 📚 Docs:align README generated block to origin side (trackedFiles 21863), unblock ff divergence (554147a53c0)
-- 🐞 Fix:保活腿误报根治收尾——长期追认、CRLF 假红修复与制度闸补齐 (f4c8dab106f)
-- 🚀 Feature/Improvement:盘根外流严口径实时监听装车(live-watch + 轮询哨兵 + 执法闸自证) (76599d688eb)
-- 🐞 Fix:管理后台面补租户豁免,根治 /api/admin/* 严格模式整面 401 (ddca1beac28)
-- 🐞 Fix:深度扫描第八批 小程序兼容层 AsyncStorage.mergeItem 契约修复 (graft) (4cd3111f342)
-- 🔧 Chore/Other:具名追认保活腿误报根治枚并附受保护面签名 (0f95124d215)
-- 📚 Docs:生成块 trackedFiles 21862→21863 配套刷新 (78ec4a8d0f7)
-- 🐞 Fix:保活腿误报根治——三态语义收归单一契约并加防复发闸 (abd52f0a775)
-- 🐞 Fix:深度扫描第七批 RN/小程序端定时器与竞态缺陷收口 (graft) (f750728ab52)
-- 🔧 Chore/Other:重封 root-guard 清单(06c2030 货币审计) (89fc794ad58)
-- 🐞 Fix:全站金额展示收口货币切换(审计遗留) (06c20309829)
-- 📚 Docs:按 head 面现算刷新生成块七项数字 (fa299a39508)
-- 🐞 Fix:回补收敛合并丢行,清零范围内类型错,补六枚判据面具名追认 (19ced4f555f)
-- 🐞 Fix:修复旁路合并行重数封顶误删门禁注册表结构行 (e46073b746a)
-- 🐞 Fix:迁移账本三方对齐归零,水印存量修复,重载判据误判根治 (95bc80e0702)
-- 🐞 Fix:号池告警链四处根因收口,残票不进池不空撞不误报 (b945c3f4576)
-- 🐞 Fix:SSR 汇率预取兼容 {code:0} 响应壳,首帧金额真正换算 (f6f47e0910c)
-- 🐞 Fix:展示货币状态改挂 globalThis,修复 Turbopack 分包导致 SSR 永不换算 (c6b69d2242a)
-- 🐞 Fix:深度扫描第六批 RN/小程序端样式、交互与逻辑缺陷收口 (graft) (1906f78aa83)
-- 🐞 Fix:服务端逐页播种展示货币与汇率,消除 SSR 首帧混币 (8ff44575f11)
-- 🐞 Fix:凭证脱敏加固 + relay-forward-failure 抽取 + ACP message-identity + 门44白名单登记DevEnv (2044a92755c)
-- 🐞 Fix:模型详情中转价与卡片同源 + SSR 预取汇率消除混币首帧 (23498ac15a3)
-- ⚡ Perf:heal 层消除逐帧重复全文拆分(等价重构) (2baa31dd707)
-- 🚀 Feature/Improvement:盘根外流内核级阻断执法器入库 —— 补齐三层防护的根基 (53bf1a95a61)
-- 🐞 Fix:剩余建议项全量收口 —— a11y label / 门322 对比度 / 定时器与失败反馈 (graft) (d4b4efd1bc9)
-- 🔧 Chore/Other:D:\ 盘根白名单严口径收紧 —— 清 24 项幽灵申报 (8b6a52b1f55)
-- 🐞 Fix:加固商店窗口平台绑定与种子会话存储，排除 AI 池统计误计 (b46fed47d2e)
-- 🔧 Chore/Other:按 HEAD 面重封 root-guard 清单(guardian-runner=f39717),解部署 fail-closed (ea923d31ca2)
-- 🐞 Fix:脱敏/截断/平滑批处理加固 + label-set/输入接线/自动登录回归锁 (3936f052e13)
-- 🚀 Feature/Improvement:展示货币切换移入头像菜单 + 全站金额单位统一 (9622d786f2e)
-- 🐞 Fix:私有会话持久化统一清收口(Y-91/94/95/106-112) + 流式与 work-panel 修复 (447b6b9c422)
-- 🐞 Fix:check-line-endings.mjs 派生 git 补显式 stdio (e468e4d7962)
-- 🚀 Feature/Improvement:g12 工具图片在对话内可见(SSE 缩略图,不进模型上下文) (55560a32878)
-- 🐞 Fix:补齐 code_symbol_graph/ckg_relation 类型标注，解 mypy 阻断 (b0417fde972)
-- 🚀 Feature/Improvement:货币切换 + 官方价目快照全站落地(api + web + api-client + i18n) (6369302ff82)
-- 🐞 Fix:深度扫描第二批收口 RN/小程序端样式、交互与逻辑缺陷 (graft) (6f4765cd210)
-- 🐞 Fix:五票修复与两套回归锁落地 + hr-e2e 联调脚本类型清零 (c9a72232a13)
-- 🐞 Fix:考勤端到端联调脚本防御加固 + 同步面板字号对齐 design token (02332ffc7b4)
-
-**2026-11-14**
-- 📚 Docs:deploy-feedback 自动登记(deploy_outcome;端到端反馈闭环第二切片,O65 自进化系列) (397a6fef52f)
-- 📚 Docs:deploy-feedback 自动登记(deploy_outcome;端到端反馈闭环第二切片,O65 自进化系列) (be6e35c6456)
-- 📚 Docs:deploy-feedback 自动登记(deploy_outcome;端到端反馈闭环第二切片,O65 自进化系列) (4dcf8cabdd5)
-- 🚀 Feature/Improvement:D135 提问卡阻塞式作答补齐 —— 与 web/RN 三端对等 (bcfece7ff92)
-- 🐞 Fix:check-findings-freshness 接判面层单源 + 追认落地枚 9f05f5082db(机主授权) (a15e72bef4e)
-
 **2026-11-14**
 - 🐞 Fix:design-token 对比度语义档迁移(brandAccent/danger/success/warning) (35d8ab967e)
 
@@ -1025,6 +924,22 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 - 🔧 Chore/Other:收敛多端改动并纳入号池/中继流式/移动端产物 (0390eac81a6)
 - 🔧 Chore/Other:违禁桶兜底清扫——HEAD面等条件/待拍板未勾行自动摘除(两道机主禁令的执行器物化,留痕f12-purge;复翻席请同步摘形态,事实内容按各批结清提交保留) (a7622bf7169)
 - 🚀 Feature/Improvement:号池全缺口开发验证 + 能力登记表 + reextract 兜底 + 接口参数补齐 (e04bfc4a31d)
+
+**2026-11-12**
+- 🔧 Chore/Other:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (06239c8f000)
+
+**2026-11-13**
+- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (231f9458798)
+- 🔧 Chore/Other:结清批次46 —— F-602/F-625/F-630/F-631/F-632 (03cda13b2fb)
+- 🐞 Fix:结清 F-602 语音笔记分面口径 + F-625 探针超时取消 + F-630 大屏日界重复平移 + F-631 账单归月上海日 + F-632 积分日历上海日 (c8bba3ff8a5)
+- 🔧 Chore/Other:结清批次37-45 —— F-382/388/389/393/396/392/406/441/450/417/422/461/466/475/492/494/496/498/504/507/508/511/513/514/518/519/520/529/537/552/538/549/553/554/555/562/569/578/579/589/591/598/606/607/608/621/622/623 共 45 行 (85c98e76bbc)
+- 🐞 Fix:结清 F-598 点赞幂等 + F-606 OTel query 脱敏 + F-607/F-608 Bulkhead 名额退还与复位解挂 + F-621 代理池原子计数 + F-622 代理日志脱敏 + F-623 提示词全文扫描 (14a0f49ec2f)
+- 🐞 Fix:结清 F-569 资源发布态闸 + F-578 访问趋势业务日 + F-579 食堂采购日 + F-589 缺勤分批写入 + F-591 收件箱归属 (4229823a4ba)
+- 🐞 Fix:结清 F-538 中转会话落库 + F-549 清理范围收敛 + F-553 归档分批删除 + F-554 快照保留与孤儿自清 + F-555 锁定双存储合并 + F-562 清理异步单趟 (f34475d3e4a)
+- 🐞 Fix:收口 ProcessGroupChild.kill 签名以对齐 ChildProcess,解除 typecheck:full 的 apps/cli 红 (a0cfa61ddd8)
+- 🐞 Fix:结清 F-519 死路由清理 + F-520 组织接口鉴权 + F-529 repo-wiki 模型校验 + F-537 PDF 失败如实 503 + F-552 缓存写失败隔离 (1c095a309c1)
+- 🐞 Fix:结清 F-508 USDT RPC 超时 + F-511 通知失败重试 + F-513 健康检查互斥合并写 + F-514 平台密钥调用计费 + F-518 引擎 RPC 可达回归锁 (041304b9856)
+- 🐞 Fix:结清 F-494 批处理先扣费后落键 + F-496 账号池退出码判定 + F-498 回调帧两段确认 + F-504 收藏按用户过滤 + F-507 工具超时取消 (5d949c01a9e)
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)
