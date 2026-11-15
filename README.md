@@ -5470,6 +5470,12 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-15**
+- 📚 文档:同步 README 三语「最近更新」块（补 11-15 文档刷新条目） (f4ce41abc5)
+
+**2026-11-15**
+- 📚 文档:刷新 README 生成块数字 + 裁剪「最近更新」块到最近一条 (b087f51dcd)
+
+**2026-11-15**
 - 🔧 工程/其他:补 push scope 内 7 文件溯源水印 + post-commit 自动更新登记 (f129775539)
 
 **2026-11-15**
@@ -5550,13 +5556,6 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 **2026-11-15**
 - 🐞 修复:ancestor-downgrade 批量 HEAD blob,治门298 工作树臂第二腿 fork 风暴 (757e8748c2)
 - 🐞 修复:face-reader 批量工作树 hash 原语,治门298 工作树臂 fork 风暴超时 (1c8c684ae5)
-
-**2026-11-15**
-- 🐞 修复:face-reader 批量工作树 hash 原语,治门298 工作树臂 fork 风暴超时 (1c8c684ae5)
-
-**2026-11-15**
-- 🐞 修复:门298 提前判合法回滚声明,防工作树脏文件祖先比对超时 (c566663e2d)
-- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (0048ce2254)
 <!-- END RECENT UPDATES -->
 ## 守门脚本索引(已接线门点名 · R4 对账)
 <!-- 2026-11-12: 门 89 R4 要求「已接线的门必须在 AGENTS.md/README.md 点名」。
@@ -5756,6 +5755,8 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - `scripts/check-percent-clamp-single-source.mjs`
 **plan-archive**
 - `scripts/check-plan-archive-monotonic.mjs`
+**plan-claims**
+- `scripts/check-plan-claims-vs-head.mjs`
 **plan-dup**
 - `scripts/check-plan-dup-pointer-ratchet.mjs`
 **plan-id**

@@ -2227,6 +2227,9 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-15**
+- 📚 ドキュメント:同步 README 三语「最近更新」块（补 11-15 文档刷新条目） (f4ce41abc5)
+
+**2026-11-15**
 - 📚 ドキュメント:刷新 README 生成块数字 + 裁剪「最近更新」块到最近一条 (b087f51dcd)
 
 **2026-11-15**
@@ -2310,10 +2313,6 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 **2026-11-15**
 - 🐞 修正:ancestor-downgrade 批量 HEAD blob,治门298 工作树臂第二腿 fork 风暴 (757e8748c2)
 - 🐞 修正:face-reader 批量工作树 hash 原语,治门298 工作树臂 fork 风暴超时 (1c8c684ae5)
-
-**2026-11-15**
-- 🐞 修正:门298 提前判合法回滚声明,防工作树脏文件祖先比对超时 (c566663e2d)
-- 🔧 その他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (0048ce2254)
 <!-- END RECENT UPDATES -->
 
 <p align="center">

@@ -99,6 +99,9 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-15**
+- 📚 Docs:同步 README 三语「最近更新」块（补 11-15 文档刷新条目） (f4ce41abc5)
+
+**2026-11-15**
 - 📚 Docs:刷新 README 生成块数字 + 裁剪「最近更新」块到最近一条 (b087f51dcd)
 
 **2026-11-15**
