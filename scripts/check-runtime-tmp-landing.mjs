@@ -19,7 +19,7 @@
  * 可能仍钉在 C 盘(§26 已实测证伪"TEMP 必走 D 盘"),于是运行时把中间文件外泄项目外。
  *
  * 合规出口(唯一):JS/TS = `@ihui/shared` 的 `getRuntimeTempRoot/ensureRuntimeTempRoot/
- * runtimeTempPath`(→ `~/.ihui/tmp`,junction 落 D:);Python = `app/core/runtime_temp.py` 的
+ * runtimeTempPath`(→ 仓树内 `<仓根>/.DevEnv/tmp`,项目文件夹内);Python = `app/core/runtime_temp.py` 的
  * `install_runtime_temp_root`(把 tempfile 全局重定向到同一合规根)。两端共用同一落点不漂移。
  *
  * ## 判据(接线豁免制,与 check-fixture-tmpdir 的 applyLedger 同型)
@@ -223,7 +223,6 @@ export const STRUCTURAL_EXCLUDES = new Set([SELF, OWN_TEST])
 const argv = process.argv.slice(2)
 const JSON_OUT = argv.includes('--json')
 const QUIET = argv.includes('--quiet')
-const STRICT = argv.includes('--strict')
 const SHOW_HELP = argv.includes('--help') || argv.includes('-h')
 const isDirectRun =
   process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
@@ -283,7 +282,9 @@ export function decide({ judged, anchor, face }) {
  */
 export function analyze({ face = 'head', root = ROOT } = {}) {
   const top = assertRepoRoot(root, 'runtime-tmp-landing 的判定根')
-  const listed = gitRaw(['ls-tree', '-r', '--name-only', face === 'staged' ? '' : 'HEAD', '-z'], top, { timeout: GIT_TIMEOUT })
+  // staged 面不传 tree-ish(`ls-tree -r` 默认列 index),否则空字符串被当 tree-ish 会
+  // `fatal: Not a valid object name`(worktree 形态实测);head 面显式传 HEAD。
+  const listed = gitRaw(['ls-tree', '-r', '--name-only', ...(face === 'staged' ? [] : ['HEAD']), '-z'], top, { timeout: GIT_TIMEOUT })
     .split('\0').filter(Boolean)
     .filter((p) => TARGET_EXTS.has((p.match(/\.[a-z]+$/) || [''])[0]) && inScope(p) && !STRUCTURAL_EXCLUDES.has(p))
   const rev = face === 'staged' ? '' : 'HEAD'
