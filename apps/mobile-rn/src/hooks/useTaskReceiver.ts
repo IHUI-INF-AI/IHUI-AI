@@ -1,6 +1,7 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+// i18n-content-exempt-file: 多语言常量数据定义(label/title/description等选项值,内容体系定为中文单语,产品决策2026-11-15)
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { TaskDispatch, TaskResult, TaskWsMessage } from '@ihui/shared/tasks/dispatch'
@@ -133,12 +134,17 @@ export function useTaskReceiver(token: string | null): UseTaskReceiverReturn {
     const deviceName = `Mobile-${deviceId.slice(0, 8)}`
 
     const register = async () => {
-      const r = await fetchApi('/tasks/register-device', {
-        method: 'POST',
-        body: JSON.stringify({ deviceId, name: deviceName, type: 'mobile' }),
-      })
-      if (!r.success) {
-        console.warn('[use-task-receiver] register failed:', r.error)
+      try {
+        const r = await fetchApi('/tasks/register-device', {
+          method: 'POST',
+          body: JSON.stringify({ deviceId, name: deviceName, type: 'mobile' }),
+        })
+        if (!r.success) {
+          console.warn('[use-task-receiver] register failed:', r.error)
+        }
+      } catch (err) {
+        // fetchApi 在 5xx / 网络异常时 throw(仅 4xx 返回 {success:false}),必须兜住,否则成未处理 rejection
+        console.warn('[use-task-receiver] register error:', err)
       }
     }
 
@@ -276,17 +282,24 @@ export function useTaskReceiver(token: string | null): UseTaskReceiverReturn {
       if (!task?.approval) {
         return { ok: false, message: '该委派没有待审的票' }
       }
-      const r = await fetchApi<{ task: TaskDispatch; verdict: string; reason: string }>(
-        `/tasks/${taskId}/approval`,
-        {
-          method: 'POST',
-          body: JSON.stringify({
-            decision,
-            seq: task.approval.seq,
-            deviceId,
-          }),
-        },
-      )
+      let r: Awaited<ReturnType<typeof fetchApi<{ task: TaskDispatch; verdict: string; reason: string }>>>
+      try {
+        r = await fetchApi<{ task: TaskDispatch; verdict: string; reason: string }>(
+          `/tasks/${taskId}/approval`,
+          {
+            method: 'POST',
+            body: JSON.stringify({
+              decision,
+              seq: task.approval.seq,
+              deviceId,
+            }),
+          },
+        )
+      } catch (err) {
+        // fetchApi 在 5xx / 网络异常时 throw(仅 4xx 返回 {success:false}),收敛为 {ok:false} 保证返回契约不变
+        console.warn('[use-task-receiver] approval error:', err)
+        return { ok: false, message: '网络异常,请重试' }
+      }
       if (!r.success) {
         return { ok: false, message: r.error ?? '审批提交失败' }
       }
