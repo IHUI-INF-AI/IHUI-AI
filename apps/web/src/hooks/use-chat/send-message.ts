@@ -12,6 +12,8 @@ import { getModeStoreForChatStore } from '@/stores/mode'
 // 服务端主副本变了就覆盖它(判序与幂等口径都在 applyServerGoal 里,此处只接线)。
 import { useGoalStore } from '@/stores/goal'
 import { getSamplingParams } from '@/stores/sampling-params'
+import { getAppearanceConfig } from '@/stores/appearance-settings'
+import { buildAiStyleDirective } from '@/lib/ai-style-directive'
 import { getTimelineStoreForChatStore } from '@/stores/timeline-store'
 import { toast } from '@/components/common'
 import {
@@ -880,6 +882,15 @@ export function createSendMessage(
       // 发送时一次性快照,避免流式过程中用户改参数导致同一轮请求参数不一致。
       const samplingParams = getSamplingParams(conversationId)
 
+      // 2026-11-15(外观设置):AI 回复风格偏好编译为风格指令,与用户自定义 systemPrompt 合并。
+      // 全默认时指令为空串 ⇒ 不写该 key,请求体与接线前逐字节一致。
+      // 同一快照时刻读取,避免流式途中改风格导致"界面显示"与"本轮实际下发"分叉。
+      const appearanceStyleDirective = buildAiStyleDirective(getAppearanceConfig())
+      const mergedSystemPrompt = [samplingParams.systemPrompt, appearanceStyleDirective]
+        .map((s) => s?.trim())
+        .filter((s): s is string => !!s)
+        .join('\n\n')
+
       // W28 Hooks 事件:message.send(用户消息即将发送给 LLM)
       emitAgentHook('message.send', { summary: llmText.slice(0, 80) })
 
@@ -969,7 +980,8 @@ export function createSendMessage(
           mode: modeStore.getState().currentMode,
           // P1-7:自定义 system prompt(会话级),ai-service 注入系统消息最顶部;
           // 未设置时不传该 key,保持上游默认行为。
-          ...(samplingParams.systemPrompt ? { systemPrompt: samplingParams.systemPrompt } : {}),
+          // 2026-11-15:外观设置里的回复风格会追加在自定义 prompt 之后(见上方合并逻辑)。
+          ...(mergedSystemPrompt ? { systemPrompt: mergedSystemPrompt } : {}),
         },
         // V3 #58(2026-09-26 立):权限模式档位透传 —— ai-service 工具审批门据此
         // 决定高危工具是否弹审批(bypass-permissions 不拦截;accept-edits 放行
