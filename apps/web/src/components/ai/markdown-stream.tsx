@@ -46,8 +46,6 @@ import { openImageSource } from '@/lib/open-image-source'
 import { toMediaImageUrl, toMediaStreamUrl } from '@/lib/media-proxy'
 import { useCanvasStore } from '@/stores/canvas-store'
 import { applyCodeBlockToFile } from '@/lib/apply-code-block'
-import { bionicizeText } from '@/lib/bionic-reading'
-import { useResolvedAppearanceConfig } from '@/hooks/use-resolved-appearance'
 // D197:代码块「自动换行」偏好(zustand persist,跨会话记忆);D198:代码块「复制为图片」落盘
 import { useCodeBlockPrefsStore } from '@/stores/code-block-prefs'
 import { codeTextToPngBlob } from '@/lib/copy-as-image'
@@ -1152,36 +1150,6 @@ const ActiveBlock = React.memo(function ActiveBlock({
   )
 })
 
-/**
- * 仿生阅读(2026-11-15 v2):只改写字符串子节点,React 元素与代码块原样透传。
- * 无可加粗 token 时返回原 children(保持节点身份,避免无意义的子树重建)。
- */
-function bionicizeChildren(children: React.ReactNode, enabled: boolean): React.ReactNode {
-  if (!enabled) return children
-  const nodes = React.Children.toArray(children)
-  let changed = false
-  const next = nodes.map((child, index) => {
-    if (typeof child !== 'string') return child
-    const segments = bionicizeText(child)
-    if (!segments) return child
-    changed = true
-    return (
-      <React.Fragment key={`bionic-${index}`}>
-        {segments.map((segment, segmentIndex) =>
-          segment.bold ? (
-            <b key={segmentIndex} data-bionic="">
-              {segment.text}
-            </b>
-          ) : (
-            <React.Fragment key={segmentIndex}>{segment.text}</React.Fragment>
-          ),
-        )}
-      </React.Fragment>
-    )
-  })
-  return changed ? next : children
-}
-
 export function MarkdownStream({
   content,
   isStreaming,
@@ -1292,9 +1260,6 @@ export function MarkdownStream({
   // "PDF/CSV 流式中渲染下载卡,完成后升级富预览"(P3 #32)行为逐字不变。
   const isStreamingRef = React.useRef(isStreaming)
   isStreamingRef.current = isStreaming
-  // 仿生阅读偏好:变化时重建 components(一次性重解析),其余渲染路径不变。
-  // 走 resolved 配置 ⇒ 工作区覆盖开启时也能生效。
-  const { bionicReading } = useResolvedAppearanceConfig()
   const parseContent = React.useMemo(() => {
     const healed = healIncompleteMarkdown(throttledContent)
     isStreamingCodeRef.current = healed.fenceHealed
@@ -1396,14 +1361,14 @@ export function MarkdownStream({
       th({ children }) {
         return (
           <th className="border border-border px-3 py-1.5 text-left font-medium">
-            {bionicizeChildren(children, bionicReading)}
+            {children}
           </th>
         )
       },
       td({ children }) {
         return (
           <td className="border border-border px-3 py-1.5">
-            {bionicizeChildren(children, bionicReading)}
+            {children}
           </td>
         )
       },
@@ -1444,14 +1409,14 @@ export function MarkdownStream({
             className={cn('my-0', isTaskItem && 'list-none')}
             {...(props as React.LiHTMLAttributes<HTMLLIElement>)}
           >
-            {bionicizeChildren(children, bionicReading)}
+            {children}
           </li>
         )
       },
       blockquote({ children }) {
         return (
           <blockquote className="my-0 border-l-2 border-border pl-3 text-muted-foreground italic">
-            {bionicizeChildren(children, bionicReading)}
+            {children}
           </blockquote>
         )
       },
@@ -1487,7 +1452,7 @@ export function MarkdownStream({
           return true // 其他 React 元素(如 strong、em、code、a)视为有效内容
         })
         if (!hasRealContent) return null
-        return <p className="my-0 leading-relaxed">{bionicizeChildren(children, bionicReading)}</p>
+        return <p className="my-0 leading-relaxed">{children}</p>
       },
       ul({ children }) {
         return <ul className="my-0 list-disc space-y-1 pl-6">{children}</ul>
@@ -1508,7 +1473,7 @@ export function MarkdownStream({
     // G-737(2026-09-28):isStreaming **移出 deps** —— 解析模式不得进入渲染器身份,
     // 否则它一翻 components 新引用 ⇒ StableBlock memo 失效、冻结前缀整段重 parse。
     // a 组件改读 isStreamingRef(渲染 pass 前已同步),语义不变、身份不再抖动。
-    [collapseLines, bionicReading],
+    [collapseLines],
   )
 
   // P3 #35(2026-09-16 立):稳定段/活跃段切分。
