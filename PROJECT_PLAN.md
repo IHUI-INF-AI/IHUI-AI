@@ -12340,7 +12340,6 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 715G. **缺陷普查 API F-716** [P3] readNoProxy 首个已配置变量未命中即 return，注释声称“继续找另一个大小写档位”（证据 docs/tickets/2026-11/findings-api.md#F-716）
 - [ ] 725G. **缺陷普查 API F-726** [P2] /v1/messages、/v1/responses 流式计费完全脱离上游 usage（且丢弃 tool/thinking 输出）（证据 docs/tickets/2026-11/findings-api.md#F-726）
   - 2026-11-14 进展：凭据子切片已随 `002ade40cc0` 落地（AI 模型 apiKey / 教育平台 apiSecret / IM webhookSecret|botToken|appSecret 写库加密 + 读侧解密，15 例回归锁）；PII 子切片已落地（两张发票抬头表的税号/开户行/账号/地址/电话写读加解密 + 列宽迁移 `20261114180000_pii_invoice_title_widen.sql`；后台实名 CRUD 的 idCard 明文写/原样返回旁路修复；17 例回归锁）。残余：`users.phone/email` 与可检索身份字段（`user_auth_info.real_name/phone`）保持明文——与后台模糊搜索/唯一性语义强耦合，须先引入盲索引/哈希检索列并接受搜索降级；本机无可用 PostgreSQL，无法实跑回填与唯一索引验证。按“安全可控范围”明确不做，不虚报结清。
-
 - [ ] 〔归:机主收款地址面｜等:—〕 RP-37 `USDT_TRC20_ADDRESS` 仍空:地址值是机主掌握的收款信息(七份 env 备份从未有非空值;同族 `USDT_ERC20_ADDRESS` 早有值),而 sponsor 页 `CryptoDonation.tsx:36` 已硬编码 `TMtTpPEMduWurHLi6Fe8XjfcP5Y5AMMnbG` 并上线(枚 ff5ea30d1c87ee76499b9cd3848145c5f030309a)⇒ 同一信息已交付两处、env 一处为空。校验面已收口:TRON 正则 + `assertUsdtAddressFormat` 两调用点共用,新增 14 例绿(含 ERC20 不误拒/400/500 两失败路径/脏地址不落库);fail-closed 37 例绿。余两格归配置面:① env 填哪个地址(现成 sponsor 值或专用充值地址);② 两套 ERC20 地址(现读 sponsor 值与 env 值前缀不同)收敛为 env 权威。〔结清@2026-10-24/主会话-强制令:校验与失败路径已绿,余为地址值配置格〕
 <!-- 〔RP-79 裁并锚 @2026-11-03:同号双行 2→1(保留剩余面行,原 git-sync 守卫行全文并入);本行原为 Z-1 重复登记,已被 HEAD 85f1c08855 删除,此处仅作 plan-union-merge 冲突锚,无任务语义〕 -->
 - [x] RP-61 〔千段租约〕 本机=lichunchuan-4d8db25b 段=RP-52~RP-61(取号器专用行:占用面只取本行主键=段尾号 ⇒ 无租约感知的 max+1 落在段外;段内连号自段首起、由持有机取号器递增;段满由取号器另立下一段,占段撞号由 CAS 终止,不是让号自我循环)
