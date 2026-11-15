@@ -36,6 +36,8 @@ export interface EngineModeToggleProps {
   className?: string
   /** 无障碍标签 */
   ariaLabel?: string
+  /** 禁用态(如流式期间切换引擎无意义,由调用方传入) */
+  disabled?: boolean
 }
 
 export function EngineModeToggle({
@@ -44,6 +46,7 @@ export function EngineModeToggle({
   modes = ['local', 'cloud', 'auto'],
   className,
   ariaLabel = 'agent 执行引擎',
+  disabled = false,
 }: EngineModeToggleProps) {
   return (
     <div
@@ -62,6 +65,7 @@ export function EngineModeToggle({
             type="button"
             role="radio"
             aria-checked={active}
+            disabled={disabled}
             onClick={() => onChange(m)}
             className={cn(
               'rounded-sm px-2.5 py-1 text-xs font-medium transition-colors',
