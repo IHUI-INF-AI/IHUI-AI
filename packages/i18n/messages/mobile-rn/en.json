@@ -2427,7 +2427,9 @@
     "confirmPasswordPlaceholder": "Confirm your password",
     "password": "Password",
     "passwordPlaceholder": "Enter your password",
-    "title": "Sign up"
+    "title": "Sign up",
+    "show": "Show",
+    "hide": "Hide"
   },
   "withdraw": {
     "availableBalance": "Available Balance (CNY)",
