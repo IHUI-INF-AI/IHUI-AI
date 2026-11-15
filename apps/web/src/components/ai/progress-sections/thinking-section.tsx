@@ -11,6 +11,7 @@ import { thinkingTitleView } from '@ihui/shared/chat/element-pack'
 import { Tooltip } from '@/components/feedback'
 import { StreamDetail, StreamRow } from '@/components/chat/stream/stream-ui'
 import { splitReasoningSections } from '@/lib/reasoning-sections'
+import type { ReasoningSection } from '@/lib/reasoning-sections'
 
 // Phase 22: localStorage key(ihui: 命名空间)
 const STORAGE_KEY = 'ihui:thinking-expanded'
@@ -37,6 +38,51 @@ function saveExpandedToStorage(expanded: boolean): void {
     // 静默失败(隐私模式 / 存储已满)
   }
 }
+
+/**
+ * 2026-11-15 流式优化:单节渲染抽成 React.memo 子组件。
+ *
+ * 旧写法在 ThinkingSection 每帧重渲染时,sections.map 对**全部**节重建 React 元素树
+ * (包括早已冻结的前缀节)。配合 thinkingContent 里对 sections 数组做的"稳定前缀引用
+ * 复用"(:see splitReasoningSectionsStable),前缀节的 ReasoningSection 对象引用不变
+ * ⇒ 这里 memo 浅比较命中 ⇒ 整节跳过重渲染,流式追加时每帧只重渲染正在生长的末节。
+ *
+ * 光标只在末节显示(见下方 isLast prop),前缀节无光标逻辑,纯文本 + 标题,可安全 memo。
+ */
+const ReasoningSectionView = React.memo(function ReasoningSectionView({
+  section,
+  index,
+  isLast,
+  showCursor,
+}: {
+  section: ReasoningSection
+  index: number
+  isLast: boolean
+  showCursor: boolean
+}) {
+  return (
+    <div className={index > 0 ? 'mt-2' : ''} data-testid={`thinking-section-${index}`}>
+      {section.title && (
+        <div
+          className="mb-0.5 text-[11px] font-medium text-foreground/85"
+          data-testid={`thinking-section-title-${index}`}
+        >
+          {section.title}
+        </div>
+      )}
+      <div className="whitespace-pre-wrap break-all">
+        {section.body}
+        {showCursor && isLast && (
+          <span
+            className="ml-0.5 inline-block w-0.5 animate-cursor-blink bg-primary/60 align-middle motion-reduce:animate-none"
+            style={{ height: '10px' }}
+            aria-hidden
+          />
+        )}
+      </div>
+    </div>
+  )
+})
 
 interface ThinkingSectionProps {
   /** LLM 累积输出内容(来自 token 事件) */
@@ -158,7 +204,27 @@ export const ThinkingSection = React.memo(function ThinkingSection({
 
   // P3 #33(2026-09-16 立):reasoning 分节(对标 Codex reasoning sections)。
   // 按空行切段、显式 markdown 标题优先、隐式取首行截断;短内容退化为无标题单节。
-  const sections = React.useMemo(() => splitReasoningSections(content), [content])
+  //
+  // 2026-11-15 流式优化:稳定前缀引用复用。
+  // splitReasoningSections 每帧对全文重切返回**全新对象数组** ⇒ 即使前缀段落未变,
+  // 每节都是新对象引用 ⇒ 下方 ReasoningSectionView 的 React.memo 全部失效、每帧重渲染全部节。
+  // 修法:记住上一帧 sections 数组,新结果若前缀节内容相同(title + body === 值相等)则复用旧引用。
+  // reasoning 是纯追加流 ⇒ 已成型的段落永不变化,只有末段在生长 ⇒ 稳定帧全部前缀节 memo 命中。
+  const prevSectionsRef = React.useRef<ReasoningSection[]>([])
+  const sections = React.useMemo(() => {
+    const next = splitReasoningSections(content)
+    const prev = prevSectionsRef.current
+    // 前缀节数量 = min(prev.length, next.length);逐节比对,内容相同则复用旧引用。
+    // 末节(body 在生长)与新增节保持新引用(内容确实变了,需要重渲染)。
+    const reused = next.map((section, i) => {
+      if (i < prev.length && prev[i]!.title === section.title && prev[i]!.body === section.body) {
+        return prev[i]!
+      }
+      return section
+    })
+    prevSectionsRef.current = reused
+    return reused
+  }, [content])
 
   // v2: 复制状态
   const [copied, setCopied] = React.useState<boolean>(false)
@@ -270,30 +336,15 @@ export const ThinkingSection = React.memo(function ThinkingSection({
               data-testid="thinking-content"
             >
               {sections.map((s, i) => (
-                <div key={i} className={i > 0 ? 'mt-2' : ''} data-testid={`thinking-section-${i}`}>
-                  {s.title && (
-                    <div
-                      className="mb-0.5 text-[11px] font-medium text-foreground/85"
-                      data-testid={`thinking-section-title-${i}`}
-                    >
-                      {s.title}
-                    </div>
-                  )}
-                  <div className="whitespace-pre-wrap break-all">
-                    {s.body}
-                    {/* 2026-08-29:流式/交错增长期光标(思考仍在输出),内联在最后节正文末尾。
-                        2026-10-28 观感档:软呼吸 pulse → 与正文终端光标同一 step-end 硬闪节拍
-                        —— 同一屏两种光标节奏打架(正文脆闪/思考慢呼吸),统一"在敲"语义;
-                        透明度取 /60 比正文 /100 低一档,保留主次层级;motion-reduce 常亮。 */}
-                    {thinkingActive && i === sections.length - 1 && (
-                      <span
-                        className="ml-0.5 inline-block w-0.5 animate-cursor-blink bg-primary/60 align-middle motion-reduce:animate-none"
-                        style={{ height: '10px' }}
-                        aria-hidden
-                      />
-                    )}
-                  </div>
-                </div>
+                // 2026-11-15 流式优化:改用 ReasoningSectionView(memo),配合下方 sections
+                // 的稳定前缀引用复用,前缀节 memo 命中跳过重渲染,每帧只重渲染末节。
+                <ReasoningSectionView
+                  key={i}
+                  section={s}
+                  index={i}
+                  isLast={i === sections.length - 1}
+                  showCursor={thinkingActive}
+                />
               ))}
             </div>
           )}
