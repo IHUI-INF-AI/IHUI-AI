@@ -139,11 +139,15 @@ export default function CourseList() {
                 onClick={() => goDetail(item.id)}
               >
                 {/* 对齐 RN courseImage:110×110dp→220×220rpx,圆角 12dp→24rpx,底色 border.light */}
-                <Image
-                  className="w-[220rpx] h-[220rpx] bg-border flex-shrink-0"
-                  src={item.coverUrl}
-                  mode="aspectFill"
-                />
+                {item.coverUrl ? (
+                  <Image
+                    className="w-[220rpx] h-[220rpx] bg-border flex-shrink-0"
+                    src={item.coverUrl}
+                    mode="aspectFill"
+                  />
+                ) : (
+                  <View className="w-[220rpx] h-[220rpx] bg-border flex-shrink-0" />
+                )}
                 {/* 对齐 RN courseInfo:padding 12dp→24rpx,纵向 gap 6dp→12rpx;价格独立成行(RN pricePaid:16dp→32rpx/600/text.primary) */}
                 <View className="flex-1 p-[24rpx] flex flex-col gap-[12rpx]">
                   <Text className="text-title text-foreground font-semibold">
