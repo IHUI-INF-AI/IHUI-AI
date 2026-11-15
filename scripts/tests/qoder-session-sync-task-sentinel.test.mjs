@@ -355,8 +355,10 @@ test('W1 装车锁:两条腿都在 !CHECK_ONLY 真调用 + __test__ 可 import +
   const src = readFileSync(join(ROOT, 'scripts', 'git-guardian.mjs'), 'utf8')
   assert.match(src, /if \(!CHECK_ONLY\) auditQoderSessionSyncTask\(\)/)
   assert.match(src, /if \(!CHECK_ONLY\) auditWorkbuddySessionSyncTask\(\)/)
-  assert.match(src, /\n\s*auditQoderSessionSyncTask,\n/)
-  assert.match(src, /\n\s*auditWorkbuddySessionSyncTask,\n/)
+  // 行尾不由本测试决定:多会话下工作树可能被整体转成 CRLF,而 HEAD 面恒为 LF。
+  // 断言意图是「导出装车」,不该因合法行尾差异假红 ⇒ 两种行尾都吃(反向牙仍是导出必须存在)。
+  assert.match(src, /\r?\n\s*auditQoderSessionSyncTask,\r?\n/)
+  assert.match(src, /\r?\n\s*auditWorkbuddySessionSyncTask,\r?\n/)
   assert.match(src, /IHUI_CLIENT_SYNC_TASK_INTERVAL_MS/)
   assert.match(src, /IHUI_QODER_SYNC_TASK_INTERVAL_MS/)
 })
