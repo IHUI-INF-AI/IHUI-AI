@@ -88,8 +88,8 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | ---- | ---- | ------ |
 | 数据库表 | 650 | `dbTables` |
 | schema 文件 | 252 | `dbSchemaFiles` |
-| API 路由 | 4831 | `apiRoutes` |
-| 路由文件 | 702 | `apiRouteFiles` |
+| API 路由 | 4832 | `apiRoutes` |
+| 路由文件 | 703 | `apiRouteFiles` |
 | AI 服务路由 | 677 | `aiServiceRoutes` |
 | WebSocket 端点 | 40 | `wsEndpoints` |
 | 入库模型清单 | 100 | `llmModels` |
@@ -101,15 +101,17 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 5616 | `testFiles` |
+| 测试文件 | 5632 | `testFiles` |
 | CI 工作流 | 59 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
-| 工程守门 | 367 | `guardianGates` |
-| — blocking | 337 | `guardianBlocking` |
+| 工程守门 | 368 | `guardianGates` |
+| — blocking | 338 | `guardianBlocking` |
 | — warn | 32 | `guardianWarn` |
-| 跟踪文件 | 22251 | `trackedFiles` |
+| 跟踪文件 | 22289 | `trackedFiles` |
+
 上表由 `node scripts/sync-readme-numbers.mjs`(唯一写入口,索引面取数)生成,最后核对日期 2026-11-15。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
+
 <!-- END GENERATED NUMBERS -->
 **一句话口径**:数字一律现读,文档里不写「约 N 个」——那种写法必然腐烂。
 ---
@@ -5473,8 +5475,13 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-15**
+- 🚀 新功能/改进:逆向能力目录 34→37 条 + 复现沙箱失败归因/插件 vm 沙箱两模块 (ee4564963a9)
+- 🐞 修复:一键切号快捷方式图标改用项目桌面端 icon.ico (7a1161f1213)
+
+**2026-11-15**
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (510e4291b5b)
 - 🐞 修复:输入框清空按钮加卡片底色、字数统计贴住第三行末尾 (328b8dec13d)
+
 **2026-11-15**
 - 🔧 工程/其他:全量同步工作区并交付 AI 浮窗八向拉伸缩放 (69ce958a9b2)
 - 🚀 新功能/改进:补齐外观设置 v1-v4 交付(收编 origin 后重放) (d22653b4f56)
@@ -5564,14 +5571,17 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🐞 修复:深度扫描第二批收口 RN/小程序端样式、交互与逻辑缺陷 (graft) (6f4765cd210)
 - 🐞 修复:五票修复与两套回归锁落地 + hr-e2e 联调脚本类型清零 (c9a72232a13)
 - 🐞 修复:考勤端到端联调脚本防御加固 + 同步面板字号对齐 design token (02332ffc7b4)
+
 **2026-11-14**
 - 📚 文档:deploy-feedback 自动登记(deploy_outcome;端到端反馈闭环第二切片,O65 自进化系列) (397a6fef52f)
 - 📚 文档:deploy-feedback 自动登记(deploy_outcome;端到端反馈闭环第二切片,O65 自进化系列) (be6e35c6456)
 - 📚 文档:deploy-feedback 自动登记(deploy_outcome;端到端反馈闭环第二切片,O65 自进化系列) (4dcf8cabdd5)
 - 🚀 新功能/改进:D135 提问卡阻塞式作答补齐 —— 与 web/RN 三端对等 (bcfece7ff92)
 - 🐞 修复:check-findings-freshness 接判面层单源 + 追认落地枚 9f05f5082db(机主授权) (a15e72bef4e)
+
 **2026-11-14**
 - 🐞 修复:design-token 对比度语义档迁移(brandAccent/danger/success/warning) (35d8ab967e)
+
 **2026-11-14**
 - 🐞 修复:audit-app-text-contrast TDZ 修复 + repl pendingQuestionRef 提升模块级 (56780a1d7f)
 - 🚀 新功能/改进:门320 接线 guardian-runner + RP-80 基线盲区清账票 (f81673f27d)
@@ -5626,6 +5636,7 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🐞 修复:workbuddy 永久保活不再依赖客户端进程 (a9d2d526aa)
 - 🔧 工程/其他:夹具备份产物目录改名 switch-profiles,避开保护闸 backups 的精确等值 (29d71f9c26)
 - 🐞 修复:根治项目文件盘根外流——scratch 逃生舱合规闸+拔系统盘脏env+盘根卫生增申报目录内容对账与C盘覆盖面 (2a85a5024c)
+
 **2026-11-13**
 - 🐞 修复:AIS-077 知识卡注入面属主裁剪 + AIS-046 审计接口分工说明 (4fa66bc12b9)
 - 🔧 工程/其他:一键切号排序补 4 道变异判据 + 桌面 README 沉淀三层入口 + 补 2 枚并发提交具名追认 (eccf5d6d6fc)
@@ -5739,6 +5750,7 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🔧 工程/其他:302p 基线定向对账 tierWebOffN 228→229(定价批 pl-7 落账带取证) (888f730da3)
 - 🐞 修复:流式工具参数缓冲上限 + defect 终态 + errorCode 端侧接线 (4759055a3b)
 - 🐞 修复:派发腿级失败不再吃日预算,登录过期告警单独立身份 (11a6ee9fb6)
+
 **2026-11-14**
 - 🚀 新功能/改进:以 ai_pricing 权威价回填配置零价行 (476127d306)
 - 🐞 修复:诊断臂 [7b] DB 迁移落后维从未真判过——函数注册晚于 -diagnose 顶层执行点(第三次落地,范围收窄) (c4be376fd5)
@@ -5748,10 +5760,13 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🐞 修复:流式打字机切批升到字素簇边界 —— ZWJ/肤色/旗帜 emoji 不再拆裂(D1b) (a143634115)
 - 🔧 工程/其他:重封根护栏清单(git-guardian 变更后漂移) (ad06d9d1f8)
 - 🚀 新功能/改进:present_files 显式交付声明 + 交付清单 presentedFiles (904e129c14)
+
 **2026-11-14**
 - 🚀 新功能/改进:新增 3 个未跟踪文件 (da1823aa1d)
+
 **2026-11-14**
 - 🔧 工程/其他:收尾提交 plan-heal/tag-sync 副产物 (f05491e678)
+
 **2026-11-14**
 - 🔧 工程/其他:收拢本地工作区改动(全量提交) (1be9d1e2c7)
 - 🔧 工程/其他:重封根护栏清单(merge round2 后 gate-scope 漂移) (4b0fc5a3e6)
@@ -5873,6 +5888,7 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🔧 工程/其他:认领 F-221(RLS 上下文复位不绑连接) (5aae2a4458)
 - 🐞 修复:routine 调度器只在唯一角色启动 (bf70b42bef)
 - 🔧 工程/其他:结清 F-267(自愈依赖修复走受控通道不再 126,0b61b43d557) (e41adafaba)
+
 **2026-11-13**
 - 🚀 新功能/改进:findings survey 反向对账 — 12f/12g 棘轮门 + plan-tasks 派单降级 (fd5b05b9c3)
 - 🐞 修复:E-P1 鉴权失败(401/403)归 content 不走 resume 阶梯 (f841c69006)
@@ -6034,6 +6050,7 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🐞 修复:结清 F-352 定时清理集合化分批 + F-353 积分渠道事务 + F-367 清理器显式生命周期 + F-369 订阅配额原子累加 + F-372 日成本熔断 (3320620624)
 - 🐞 修复:ab_test_results schema 补 UNIQUE(variant_id,bucket) 表约束 + bucket NOT NULL,对齐已入库迁移 20261112000002,防 onConflict 42P10 + 回归锁 5/5 (d1b4766f6b)
 - 🔧 工程/其他:结清 F-448 —— ab_test_results schema 侧补 UNIQUE(variant_id,bucket) 表约束 + bucket NOT NULL,对齐已入库迁移 20261112000002(证据:迁移 + 回归锁 f448 5/5) (72ec4aad2b)
+
 **2026-11-14**
 - 🔧 工程/其他:收拢本地工作区改动(全量提交) (1be9d1e2c7)
 - 🔧 工程/其他:重封根护栏清单(merge round2 后 gate-scope 漂移) (4b0fc5a3e6)
@@ -6155,6 +6172,7 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🔧 工程/其他:认领 F-221(RLS 上下文复位不绑连接) (5aae2a4458)
 - 🐞 修复:routine 调度器只在唯一角色启动 (bf70b42bef)
 - 🔧 工程/其他:结清 F-267(自愈依赖修复走受控通道不再 126,0b61b43d557) (e41adafaba)
+
 **2026-11-13**
 - 🚀 新功能/改进:findings survey 反向对账 — 12f/12g 棘轮门 + plan-tasks 派单降级 (fd5b05b9c3)
 - 🐞 修复:E-P1 鉴权失败(401/403)归 content 不走 resume 阶梯 (f841c69006)
@@ -6316,6 +6334,7 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🐞 修复:结清 F-352 定时清理集合化分批 + F-353 积分渠道事务 + F-367 清理器显式生命周期 + F-369 订阅配额原子累加 + F-372 日成本熔断 (3320620624)
 - 🐞 修复:ab_test_results schema 补 UNIQUE(variant_id,bucket) 表约束 + bucket NOT NULL,对齐已入库迁移 20261112000002,防 onConflict 42P10 + 回归锁 5/5 (d1b4766f6b)
 - 🔧 工程/其他:结清 F-448 —— ab_test_results schema 侧补 UNIQUE(variant_id,bucket) 表约束 + bucket NOT NULL,对齐已入库迁移 20261112000002(证据:迁移 + 回归锁 f448 5/5) (72ec4aad2b)
+
 **2026-11-13**
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (b0dcad26995)
 - 🔧 工程/其他:认领 F-371(退款回收 VIP/订阅/配额,P1) (e53eba81b75)
@@ -6456,6 +6475,332 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🔧 工程/其他:收敛多端改动并纳入号池/中继流式/移动端产物 (0390eac81a6)
 - 🔧 工程/其他:违禁桶兜底清扫——HEAD面等条件/待拍板未勾行自动摘除(两道机主禁令的执行器物化,留痕f12-purge;复翻席请同步摘形态,事实内容按各批结清提交保留) (a7622bf7169)
 - 🚀 新功能/改进:号池全缺口开发验证 + 能力登记表 + reextract 兜底 + 接口参数补齐 (e04bfc4a31d)
+<!-- END RECENT UPDATES -->
+## 守门脚本索引(已接线门点名 · R4 对账)
+<!-- 2026-11-12: 门 89 R4 要求「已接线的门必须在 AGENTS.md/README.md 点名」。
+     AGENTS.md 有 96000B 体积硬顶,故本索引落 README.md。以下 158 枚门已接线
+     (scripts/guardian-runner.mjs 注册),按前缀分组列出脚本名以满足 R4 点名。
+     判据/自检/跳过变量详见各脚本头注与 docs/GATEKEEPERS.md。 -->
+**aasa-public**
+- `scripts/check-aasa-public-health.mjs`
+**adapter-style**
+- `scripts/check-adapter-style-parity.mjs`
+**ai-panel**
+- `scripts/check-ai-panel-mount-guards.mjs`
+**ai-task**
+- `scripts/check-ai-task-background-reference.mjs`
+**analytics-page**
+- `scripts/check-analytics-page-coverage.mjs`
+**api-endpoint**
+- `scripts/check-api-endpoint-delta.mjs`
+**api-key**
+- `scripts/check-api-key-permission-labels.mjs`
+**api-route**
+- `scripts/check-api-route-uniqueness.mjs`
+**app-version**
+- `scripts/check-app-version-latest.mjs`
+**asset-path**
+- `scripts/check-asset-path-health.mjs`
+**auth-cookie**
+- `scripts/check-auth-cookie-domain-scope.mjs`
+**authorization-column**
+- `scripts/check-authorization-column-isolation.mjs`
+**baseline-freshness**
+- `scripts/check-baseline-freshness.mjs`
+**biz-day**
+- `scripts/check-biz-day-single-source.mjs`
+**bpe-encoding**
+- `scripts/check-bpe-encoding-parity.mjs`
+**bypass-landing**
+- `scripts/check-bypass-landing-scope.mjs`
+**capability-field**
+- `scripts/check-capability-field-not-client-supplied.mjs`
+**ci-failure**
+- `scripts/check-ci-failure-triage-wiring.mjs`
+**cli-i18n**
+- `scripts/check-cli-i18n-parity.mjs`
+**crash-report**
+- `scripts/check-crash-report-redaction.mjs`
+**credential-leak**
+- `scripts/check-credential-leak-in-message.mjs`
+**credential-presence**
+- `scripts/check-credential-presence-bypass.mjs`
+**cross-end**
+- `scripts/check-cross-end-screen-coverage.mjs`
+- `scripts/check-cross-end-spec-coverage.mjs`
+**csrf-exemption**
+- `scripts/check-csrf-exemption-shape.mjs`
+**dangling-local**
+- `scripts/check-dangling-local-imports.mjs`
+**db-blind**
+- `scripts/check-db-blind-updatedat-set.mjs`
+**db-migration**
+- `scripts/check-db-migration-gaps.mjs`
+**ddos-guard**
+- `scripts/check-ddos-guard-wiring.mjs`
+**declared-carriage**
+- `scripts/check-declared-carriage.mjs`
+**desktop-release**
+- `scripts/check-desktop-release-discovery-budget.mjs`
+**diagnostic-redaction**
+- `scripts/check-diagnostic-redaction.mjs`
+**digest-name**
+- `scripts/check-digest-name-reality.mjs`
+**dockerfile-copy**
+- `scripts/check-dockerfile-copy-paths.mjs`
+**docs-public**
+- `scripts/check-docs-public-health.mjs`
+**doom-loop**
+- `scripts/check-doom-loop-parity.mjs`
+**downloads-live**
+- `scripts/check-downloads-live-health.mjs`
+**drizzle-journal**
+- `scripts/check-drizzle-journal-sync.mjs`
+**e2e-coverage**
+- `scripts/check-e2e-coverage-gap.mjs`
+**edu-arrears**
+- `scripts/check-edu-arrears-single-source.mjs`
+**egress-ip**
+- `scripts/check-egress-ip-drift.mjs`
+**enum-default**
+- `scripts/check-enum-default-widening.mjs`
+**enum-fallback**
+- `scripts/check-enum-fallback-terminal.mjs`
+**error-attribution**
+- `scripts/check-error-attribution-single-source.mjs`
+**error-code**
+- `scripts/check-error-code-not-text-matching.mjs`
+**error-message**
+- `scripts/check-error-message-bounded.mjs`
+**file-write**
+- `scripts/check-file-write-safety.mjs`
+**format-support**
+- `scripts/check-format-support-parity.mjs`
+**gate-rot**
+- `scripts/check-gate-rot.mjs`
+**gate-triggers**
+- `scripts/check-gate-triggers.mjs`
+**generator-resource**
+- `scripts/check-generator-resource-release.mjs`
+**git-read**
+- `scripts/check-git-read-timeout.mjs`
+**grafana-metric**
+- `scripts/check-grafana-metric-exists.mjs`
+**guarded-write**
+- `scripts/check-guarded-write-affected.mjs`
+**guardian-review**
+- `scripts/check-guardian-review-wired.mjs`
+**head-recall**
+- `scripts/check-head-recall-stock.mjs`
+**head-typecheck**
+- `scripts/check-head-typecheck.mjs`
+**hover-lift**
+- `scripts/check-hover-lift-single-source.mjs`
+**husky-hook**
+- `scripts/check-husky-hook-form.mjs`
+**i18n-cross**
+- `scripts/check-i18n-cross-end-wording.mjs`
+**identity-principal**
+- `scripts/check-identity-principal-source.mjs`
+**image-placeholders**
+- `scripts/check-image-placeholders.mjs`
+**inbound-schema**
+- `scripts/check-inbound-schema-strict.mjs`
+**index-unmerged**
+- `scripts/check-index-unmerged-age.mjs`
+**input-focus**
+- `scripts/check-input-focus-feedback.mjs`
+**line-split**
+- `scripts/check-line-split-parity.mjs`
+**lint-staged**
+- `scripts/check-lint-staged-stdio-pin.mjs`
+**list-cap**
+- `scripts/check-list-cap-honesty.mjs`
+**list-predicate**
+- `scripts/check-list-predicate-has-positive-proof.mjs`
+**live-doc**
+- `scripts/check-live-doc-duplicates.mjs`
+- `scripts/check-live-doc-merge-recall.mjs`
+- `scripts/check-live-doc-references.mjs`
+**load-state**
+- `scripts/check-load-state-loaded-marks.mjs`
+- `scripts/check-load-state-projection-parity.mjs`
+**lock-manifest**
+- `scripts/check-lock-manifest-consistency.mjs`
+**lsp-language**
+- `scripts/check-lsp-language-table.mjs`
+**mention-engine**
+- `scripts/check-mention-engine-wired.mjs`
+**metric-existence**
+- `scripts/check-metric-existence.mjs`
+**migration-immutable**
+- `scripts/check-migration-immutable.mjs`
+**miniapp-build**
+- `scripts/check-miniapp-build-artifacts.mjs`
+**miniapp-mirror**
+- `scripts/check-miniapp-mirror-fidelity.mjs`
+**miniapp-shell**
+- `scripts/check-miniapp-shell-form.mjs`
+**miniapp-taro**
+- `scripts/check-miniapp-taro-design-tokens.mjs`
+**mjs-export**
+- `scripts/check-mjs-export-resolution.mjs`
+**mobile-api**
+- `scripts/check-mobile-api-base-bake.mjs`
+**mobile-download**
+- `scripts/check-mobile-download-leg-cn.mjs`
+- `scripts/check-mobile-download-leg.mjs`
+**mobile-version**
+- `scripts/check-mobile-version-code.mjs`
+**modal-keyboard**
+- `scripts/check-modal-keyboard-avoid.mjs`
+**mode-permission**
+- `scripts/check-mode-permission-matrix.mjs`
+**money-display**
+- `scripts/check-money-display-single-source.mjs`
+**mrn-vitest**
+- `scripts/check-mrn-vitest-mock-alias-surface.mjs`
+**nested-additional**
+- `scripts/check-nested-additional-properties.mjs`
+**no-nested**
+- `scripts/check-no-nested-git-sites-durability.mjs`
+**no-warm**
+- `scripts/check-no-warm-border.mjs`
+**origin-guard**
+- `scripts/check-origin-guard-liveness.mjs`
+**orphan-deletion**
+- `scripts/check-orphan-deletion-refs.mjs`
+**percent-clamp**
+- `scripts/check-percent-clamp-single-source.mjs`
+**plan-archive**
+- `scripts/check-plan-archive-monotonic.mjs`
+**plan-dup**
+- `scripts/check-plan-dup-pointer-ratchet.mjs`
+**plan-id**
+- `scripts/check-plan-id-pool.mjs`
+**plan-sha**
+- `scripts/check-plan-sha-form.mjs`
+- `scripts/check-plan-sha-resolvable.mjs`
+**plan-truncated**
+- `scripts/check-plan-truncated-rows.mjs`
+**plugin-manifest**
+- `scripts/check-plugin-manifest-integrity.mjs`
+**principal-consumed**
+- `scripts/check-principal-consumed.mjs`
+**process-exit**
+- `scripts/check-process-exit-attribution.mjs`
+**prod-checkout**
+- `scripts/check-prod-checkout-foreign-work.mjs`
+**prod-dep**
+- `scripts/check-prod-dep-advisories.mjs`
+**ps1-bom**
+- `scripts/check-ps1-bom.mjs`
+**public-admin**
+- `scripts/check-public-admin-default.mjs`
+**push-sync**
+- `scripts/check-push-sync.mjs`
+**python-import**
+- `scripts/check-python-import-landed.mjs`
+**qoder-session**
+- `scripts/check-qoder-session-sync-task.mjs`
+**readme-recent**
+- `scripts/check-readme-recent-containment.mjs`
+**readout-and**
+- `scripts/check-readout-and-timer-hygiene.mjs`
+**registry-sync**
+- `scripts/check-registry-sync-health.mjs`
+**registry-worktree**
+- `scripts/check-registry-worktree-superset.mjs`
+**relay-capacity**
+- `scripts/check-relay-capacity-zero.mjs`
+**relay-queue**
+- `scripts/check-relay-queue-db-isolation.mjs`
+**rich-anchor**
+- `scripts/check-rich-anchor-renderer-single-source.mjs`
+**rn-compat**
+- `scripts/check-rn-compat-coverage.mjs`
+**rn-interaction**
+- `scripts/check-rn-interaction-hygiene.mjs`
+**rn-type**
+- `scripts/check-rn-type-floor.mjs`
+**root-guard**
+- `scripts/check-root-guard-consistency.mjs`
+- `scripts/check-root-guard-manifest-sync.mjs`
+**ruff-python**
+- `scripts/check-ruff-python.mjs`
+**selftest-registrant**
+- `scripts/check-selftest-registrant-evaluates.mjs`
+**sequence-lag**
+- `scripts/check-sequence-lag.mjs`
+**shared-type**
+- `scripts/check-shared-type-not-redeclared.mjs`
+**sheet-flex**
+- `scripts/check-sheet-flex-contract.mjs`
+**skip-env**
+- `scripts/check-skip-env-promise.mjs`
+**slash-command**
+- `scripts/check-slash-command-wired.mjs`
+**sse-frame**
+- `scripts/check-sse-frame-watermark.mjs`
+**sse-no**
+- `scripts/check-sse-no-blind-merge.mjs`
+**staged-resurrection**
+- `scripts/check-staged-resurrection.mjs`
+**stale-baseline**
+- `scripts/check-stale-baseline-sentinel.mjs`
+**stale-stashes**
+- `scripts/check-stale-stashes.mjs`
+**style-key**
+- `scripts/check-style-key-consumption.mjs`
+**subagent-permission**
+- `scripts/check-subagent-permission-inherited.mjs`
+**sweeper-liveness**
+- `scripts/check-sweeper-liveness.mjs`
+**tool-exec**
+- `scripts/check-tool-exec-budget.mjs`
+**tool-family**
+- `scripts/check-tool-family-registered.mjs`
+**tool-schema**
+- `scripts/check-tool-schema-projection.mjs`
+**truncation-accounting**
+- `scripts/check-truncation-accounting.mjs`
+**turn-ordinal**
+- `scripts/check-turn-ordinal-lock.mjs`
+**txn-cancel**
+- `scripts/check-txn-cancel-boundary.mjs`
+**ui-spec**
+- `scripts/check-ui-spec-mirror.mjs`
+**upload-budget**
+- `scripts/check-upload-budget.mjs`
+**v3-62**
+- `scripts/check-v3-62-conversation-mount.mjs`
+**verbatim-resurrection**
+- `scripts/check-verbatim-resurrection.mjs`
+**web-mp**
+- `scripts/check-web-mp-route-carriers.mjs`
+**web-portal**
+- `scripts/check-web-portal-label-keys.mjs`
+**web-rn**
+- `scripts/check-web-rn-gap-ratchet.mjs`
+- `scripts/check-web-rn-parity.mjs`
+- `scripts/check-web-rn-screen-parity.mjs`
+- `scripts/check-web-rn-style-tiers.mjs`
+**wire-strictness**
+- `scripts/check-wire-strictness.mjs`
+| 测试文件 | 5012 | `testFiles` |
+| 跟踪文件 | 21054 | `trackedFiles` |
+| 测试文件 | 5064 | `testFiles` |
+| 跟踪文件 | 21125 | `trackedFiles` |
+| 测试文件 | 5065 | `testFiles` |
+| 跟踪文件 | 21126 | `trackedFiles` |
+| API 路由 | 4771 | `apiRoutes` |
+| WebSocket 端点 | 43 | `wsEndpoints` |
+| CLI 命令文件 | 76 | `cliCommandFiles` |
+| CLI 工具文件 | 104 | `cliToolFiles` |
+| 测试文件 | 5113 | `testFiles` |
+| 工程守门 | 362 | `guardianGates` |
+| — blocking | 333 | `guardianBlocking` |
+| 跟踪文件 | 21187 | `trackedFiles` |
 **2026-11-12**
 - 🔧 工程/其他:结清 CLI F-002/003/006/007/008 与 API F-700/704 七条缺陷票（修复与回归已入库 b46128f309c） (559599bb3f)
 - 🐞 修复:结清 F-002/003/006/007/008/700/704——退出码、进程树回收、审计与 argv 脱敏、钱包与看板 int8 溢出 (b46128f309)
@@ -7907,334 +8252,6 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 | API 路由 | 4797 | `apiRoutes` |
 | 工程守门 | 368 | `guardianGates` |
 | — blocking | 335 | `guardianBlocking` |
-| — warn | 32 | `guardianWarn` |
-<!-- END RECENT UPDATES -->
-## 守门脚本索引(已接线门点名 · R4 对账)
-<!-- 2026-11-12: 门 89 R4 要求「已接线的门必须在 AGENTS.md/README.md 点名」。
-     AGENTS.md 有 96000B 体积硬顶,故本索引落 README.md。以下 158 枚门已接线
-     (scripts/guardian-runner.mjs 注册),按前缀分组列出脚本名以满足 R4 点名。
-     判据/自检/跳过变量详见各脚本头注与 docs/GATEKEEPERS.md。 -->
-**aasa-public**
-- `scripts/check-aasa-public-health.mjs`
-**adapter-style**
-- `scripts/check-adapter-style-parity.mjs`
-**ai-panel**
-- `scripts/check-ai-panel-mount-guards.mjs`
-**ai-task**
-- `scripts/check-ai-task-background-reference.mjs`
-**analytics-page**
-- `scripts/check-analytics-page-coverage.mjs`
-**api-endpoint**
-- `scripts/check-api-endpoint-delta.mjs`
-**api-key**
-- `scripts/check-api-key-permission-labels.mjs`
-**api-route**
-- `scripts/check-api-route-uniqueness.mjs`
-**app-version**
-- `scripts/check-app-version-latest.mjs`
-**asset-path**
-- `scripts/check-asset-path-health.mjs`
-**auth-cookie**
-- `scripts/check-auth-cookie-domain-scope.mjs`
-**authorization-column**
-- `scripts/check-authorization-column-isolation.mjs`
-**baseline-freshness**
-- `scripts/check-baseline-freshness.mjs`
-**biz-day**
-- `scripts/check-biz-day-single-source.mjs`
-**bpe-encoding**
-- `scripts/check-bpe-encoding-parity.mjs`
-**bypass-landing**
-- `scripts/check-bypass-landing-scope.mjs`
-**capability-field**
-- `scripts/check-capability-field-not-client-supplied.mjs`
-**ci-failure**
-- `scripts/check-ci-failure-triage-wiring.mjs`
-**cli-i18n**
-- `scripts/check-cli-i18n-parity.mjs`
-**crash-report**
-- `scripts/check-crash-report-redaction.mjs`
-**credential-leak**
-- `scripts/check-credential-leak-in-message.mjs`
-**credential-presence**
-- `scripts/check-credential-presence-bypass.mjs`
-**cross-end**
-- `scripts/check-cross-end-screen-coverage.mjs`
-- `scripts/check-cross-end-spec-coverage.mjs`
-**csrf-exemption**
-- `scripts/check-csrf-exemption-shape.mjs`
-**dangling-local**
-- `scripts/check-dangling-local-imports.mjs`
-**db-blind**
-- `scripts/check-db-blind-updatedat-set.mjs`
-**db-migration**
-- `scripts/check-db-migration-gaps.mjs`
-**ddos-guard**
-- `scripts/check-ddos-guard-wiring.mjs`
-**declared-carriage**
-- `scripts/check-declared-carriage.mjs`
-**desktop-release**
-- `scripts/check-desktop-release-discovery-budget.mjs`
-**diagnostic-redaction**
-- `scripts/check-diagnostic-redaction.mjs`
-**digest-name**
-- `scripts/check-digest-name-reality.mjs`
-**dockerfile-copy**
-- `scripts/check-dockerfile-copy-paths.mjs`
-**docs-public**
-- `scripts/check-docs-public-health.mjs`
-**doom-loop**
-- `scripts/check-doom-loop-parity.mjs`
-**downloads-live**
-- `scripts/check-downloads-live-health.mjs`
-**drizzle-journal**
-- `scripts/check-drizzle-journal-sync.mjs`
-**e2e-coverage**
-- `scripts/check-e2e-coverage-gap.mjs`
-**edu-arrears**
-- `scripts/check-edu-arrears-single-source.mjs`
-**egress-ip**
-- `scripts/check-egress-ip-drift.mjs`
-**enum-default**
-- `scripts/check-enum-default-widening.mjs`
-**enum-fallback**
-- `scripts/check-enum-fallback-terminal.mjs`
-**error-attribution**
-- `scripts/check-error-attribution-single-source.mjs`
-**error-code**
-- `scripts/check-error-code-not-text-matching.mjs`
-**error-message**
-- `scripts/check-error-message-bounded.mjs`
-**file-write**
-- `scripts/check-file-write-safety.mjs`
-**format-support**
-- `scripts/check-format-support-parity.mjs`
-**gate-rot**
-- `scripts/check-gate-rot.mjs`
-**gate-triggers**
-- `scripts/check-gate-triggers.mjs`
-**generator-resource**
-- `scripts/check-generator-resource-release.mjs`
-**git-read**
-- `scripts/check-git-read-timeout.mjs`
-**grafana-metric**
-- `scripts/check-grafana-metric-exists.mjs`
-**guarded-write**
-- `scripts/check-guarded-write-affected.mjs`
-**guardian-review**
-- `scripts/check-guardian-review-wired.mjs`
-**head-recall**
-- `scripts/check-head-recall-stock.mjs`
-**head-typecheck**
-- `scripts/check-head-typecheck.mjs`
-**hover-lift**
-- `scripts/check-hover-lift-single-source.mjs`
-**husky-hook**
-- `scripts/check-husky-hook-form.mjs`
-**i18n-cross**
-- `scripts/check-i18n-cross-end-wording.mjs`
-**identity-principal**
-- `scripts/check-identity-principal-source.mjs`
-**image-placeholders**
-- `scripts/check-image-placeholders.mjs`
-**inbound-schema**
-- `scripts/check-inbound-schema-strict.mjs`
-**index-unmerged**
-- `scripts/check-index-unmerged-age.mjs`
-**input-focus**
-- `scripts/check-input-focus-feedback.mjs`
-**line-split**
-- `scripts/check-line-split-parity.mjs`
-**lint-staged**
-- `scripts/check-lint-staged-stdio-pin.mjs`
-**list-cap**
-- `scripts/check-list-cap-honesty.mjs`
-**list-predicate**
-- `scripts/check-list-predicate-has-positive-proof.mjs`
-**live-doc**
-- `scripts/check-live-doc-duplicates.mjs`
-- `scripts/check-live-doc-merge-recall.mjs`
-- `scripts/check-live-doc-references.mjs`
-**load-state**
-- `scripts/check-load-state-loaded-marks.mjs`
-- `scripts/check-load-state-projection-parity.mjs`
-**lock-manifest**
-- `scripts/check-lock-manifest-consistency.mjs`
-**lsp-language**
-- `scripts/check-lsp-language-table.mjs`
-**mention-engine**
-- `scripts/check-mention-engine-wired.mjs`
-**metric-existence**
-- `scripts/check-metric-existence.mjs`
-**migration-immutable**
-- `scripts/check-migration-immutable.mjs`
-**miniapp-build**
-- `scripts/check-miniapp-build-artifacts.mjs`
-**miniapp-mirror**
-- `scripts/check-miniapp-mirror-fidelity.mjs`
-**miniapp-shell**
-- `scripts/check-miniapp-shell-form.mjs`
-**miniapp-taro**
-- `scripts/check-miniapp-taro-design-tokens.mjs`
-**mjs-export**
-- `scripts/check-mjs-export-resolution.mjs`
-**mobile-api**
-- `scripts/check-mobile-api-base-bake.mjs`
-**mobile-download**
-- `scripts/check-mobile-download-leg-cn.mjs`
-- `scripts/check-mobile-download-leg.mjs`
-**mobile-version**
-- `scripts/check-mobile-version-code.mjs`
-**modal-keyboard**
-- `scripts/check-modal-keyboard-avoid.mjs`
-**mode-permission**
-- `scripts/check-mode-permission-matrix.mjs`
-**money-display**
-- `scripts/check-money-display-single-source.mjs`
-**mrn-vitest**
-- `scripts/check-mrn-vitest-mock-alias-surface.mjs`
-**nested-additional**
-- `scripts/check-nested-additional-properties.mjs`
-**no-nested**
-- `scripts/check-no-nested-git-sites-durability.mjs`
-**no-warm**
-- `scripts/check-no-warm-border.mjs`
-**origin-guard**
-- `scripts/check-origin-guard-liveness.mjs`
-**orphan-deletion**
-- `scripts/check-orphan-deletion-refs.mjs`
-**percent-clamp**
-- `scripts/check-percent-clamp-single-source.mjs`
-**plan-archive**
-- `scripts/check-plan-archive-monotonic.mjs`
-**plan-dup**
-- `scripts/check-plan-dup-pointer-ratchet.mjs`
-**plan-id**
-- `scripts/check-plan-id-pool.mjs`
-**plan-sha**
-- `scripts/check-plan-sha-form.mjs`
-- `scripts/check-plan-sha-resolvable.mjs`
-**plan-truncated**
-- `scripts/check-plan-truncated-rows.mjs`
-**plugin-manifest**
-- `scripts/check-plugin-manifest-integrity.mjs`
-**principal-consumed**
-- `scripts/check-principal-consumed.mjs`
-**process-exit**
-- `scripts/check-process-exit-attribution.mjs`
-**prod-checkout**
-- `scripts/check-prod-checkout-foreign-work.mjs`
-**prod-dep**
-- `scripts/check-prod-dep-advisories.mjs`
-**ps1-bom**
-- `scripts/check-ps1-bom.mjs`
-**public-admin**
-- `scripts/check-public-admin-default.mjs`
-**push-sync**
-- `scripts/check-push-sync.mjs`
-**python-import**
-- `scripts/check-python-import-landed.mjs`
-**qoder-session**
-- `scripts/check-qoder-session-sync-task.mjs`
-**readme-recent**
-- `scripts/check-readme-recent-containment.mjs`
-**readout-and**
-- `scripts/check-readout-and-timer-hygiene.mjs`
-**registry-sync**
-- `scripts/check-registry-sync-health.mjs`
-**registry-worktree**
-- `scripts/check-registry-worktree-superset.mjs`
-**relay-capacity**
-- `scripts/check-relay-capacity-zero.mjs`
-**relay-queue**
-- `scripts/check-relay-queue-db-isolation.mjs`
-**rich-anchor**
-- `scripts/check-rich-anchor-renderer-single-source.mjs`
-**rn-compat**
-- `scripts/check-rn-compat-coverage.mjs`
-**rn-interaction**
-- `scripts/check-rn-interaction-hygiene.mjs`
-**rn-type**
-- `scripts/check-rn-type-floor.mjs`
-**root-guard**
-- `scripts/check-root-guard-consistency.mjs`
-- `scripts/check-root-guard-manifest-sync.mjs`
-**ruff-python**
-- `scripts/check-ruff-python.mjs`
-**selftest-registrant**
-- `scripts/check-selftest-registrant-evaluates.mjs`
-**sequence-lag**
-- `scripts/check-sequence-lag.mjs`
-**shared-type**
-- `scripts/check-shared-type-not-redeclared.mjs`
-**sheet-flex**
-- `scripts/check-sheet-flex-contract.mjs`
-**skip-env**
-- `scripts/check-skip-env-promise.mjs`
-**slash-command**
-- `scripts/check-slash-command-wired.mjs`
-**sse-frame**
-- `scripts/check-sse-frame-watermark.mjs`
-**sse-no**
-- `scripts/check-sse-no-blind-merge.mjs`
-**staged-resurrection**
-- `scripts/check-staged-resurrection.mjs`
-**stale-baseline**
-- `scripts/check-stale-baseline-sentinel.mjs`
-**stale-stashes**
-- `scripts/check-stale-stashes.mjs`
-**style-key**
-- `scripts/check-style-key-consumption.mjs`
-**subagent-permission**
-- `scripts/check-subagent-permission-inherited.mjs`
-**sweeper-liveness**
-- `scripts/check-sweeper-liveness.mjs`
-**tool-exec**
-- `scripts/check-tool-exec-budget.mjs`
-**tool-family**
-- `scripts/check-tool-family-registered.mjs`
-**tool-schema**
-- `scripts/check-tool-schema-projection.mjs`
-**truncation-accounting**
-- `scripts/check-truncation-accounting.mjs`
-**turn-ordinal**
-- `scripts/check-turn-ordinal-lock.mjs`
-**txn-cancel**
-- `scripts/check-txn-cancel-boundary.mjs`
-**ui-spec**
-- `scripts/check-ui-spec-mirror.mjs`
-**upload-budget**
-- `scripts/check-upload-budget.mjs`
-**v3-62**
-- `scripts/check-v3-62-conversation-mount.mjs`
-**verbatim-resurrection**
-- `scripts/check-verbatim-resurrection.mjs`
-**web-mp**
-- `scripts/check-web-mp-route-carriers.mjs`
-**web-portal**
-- `scripts/check-web-portal-label-keys.mjs`
-**web-rn**
-- `scripts/check-web-rn-gap-ratchet.mjs`
-- `scripts/check-web-rn-parity.mjs`
-- `scripts/check-web-rn-screen-parity.mjs`
-- `scripts/check-web-rn-style-tiers.mjs`
-**wire-strictness**
-- `scripts/check-wire-strictness.mjs`
-| 测试文件 | 5012 | `testFiles` |
-| 跟踪文件 | 21054 | `trackedFiles` |
-| 测试文件 | 5064 | `testFiles` |
-| 跟踪文件 | 21125 | `trackedFiles` |
-| 测试文件 | 5065 | `testFiles` |
-| 跟踪文件 | 21126 | `trackedFiles` |
-| API 路由 | 4771 | `apiRoutes` |
-| WebSocket 端点 | 43 | `wsEndpoints` |
-| CLI 命令文件 | 76 | `cliCommandFiles` |
-| CLI 工具文件 | 104 | `cliToolFiles` |
-| 测试文件 | 5113 | `testFiles` |
-| 工程守门 | 362 | `guardianGates` |
-| — blocking | 333 | `guardianBlocking` |
-| 跟踪文件 | 21187 | `trackedFiles` |
-**2026-11-12**
 - 🚀 新功能/改进:全局对话框接入个人号池通道 + 根因修 WS 全族租户闸 401 (4a004892616)
 - 🔧 工程/其他:员工请假端到端联调转 CI 契约回归测试(HR-3 固化防回归) (ab55a054849)
 - 🐞 修复:F-98 文章详情仅返回已发布稿件，草稿/下线返回 404 且不计浏览 (a7ba9ce514c)
@@ -8387,8 +8404,3 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🐞 修复:修复源码文件溯源水印载荷丢失+清理死代码 (2af1a280cc2)
 - 🐞 修复:AI对话流式显示P1修复 —— web早退持久化/并发幂等 + ai-service网关三缺陷 (274b1b6eda6)
 | 路由文件 | 703 | `apiRouteFiles` |
-| 测试文件 | 5625 | `testFiles` |
-| 跟踪文件 | 22272 | `trackedFiles` |
-| 工程守门 | 368 | `guardianGates` |
-| — blocking | 338 | `guardianBlocking` |
-| 跟踪文件 | 22273 | `trackedFiles` |
