@@ -308,4 +308,82 @@
 3. `packages/app/tests/text-field.test.tsx` 普查锁点名 `FinanceAiHubScreen` / `Sag2Screen`（存量红，未随本轮修复）。
 
 **下一步（承接第 9 节方法论）**：剩余 7 屏（share / order-refund / vip-details / learn-develop / study-plan / study-record / video-player）应按「缺口能否用可选缺省端口表达」重判一遍 `SAFE_THIN_SHELL`  vs `NEEDS_ALIGN_UP`，不要沿用"共享屏没有 ⇒ 不可降级"的旧判。
+
+## 12. 缺陷收口（2026-11-15 16:5x）：§11 列的上游缺陷已修，接线已装回
+
+§11 把三类上游缺陷判为"建议单独立票"。同日 16:3x–16:5x 已直接修完并推上 `origin/main`，
+本节记录**根因、处置与仍然存在的坑**，供下一个会话不必重踩。
+
+### 12.1 根因：一次「全量提交工作树」把半成品整包入库
+
+`093e778d7e`（`chore: 提交工作树全部未提交改动(1540文件)+清理临时物`）与 `c6ce232d0c5`
+这两笔兜底提交的共同形态是：**引用方已经改好进库，被引用文件在同一刻不在工作树里**
+（或被误删），于是留下"看得见 `import`、看不见文件"的结构性红。它的杀伤力不在当笔，
+而在**此后每一笔**——任何票的 pre-push `typecheck` 腿都必然失败，且失败点与本票无关，
+逼得所有人绕门走 `--no-verify`，门就逐渐失去意义。
+
+本次实测到的完整体（`apps/web` 一度 6 处、`apps/miniapp-taro` 3 处）：
+
+| 形态 | 实例 | 判据 |
+|---|---|---|
+| 模块整份没入库 | `@/stores/appearance-scope`、`./message-style-menu`、`@/lib/bionic-reading`、`@/hooks/use-resolved-appearance` | `git cat-file -e HEAD:<path>` 失败，且全历史从未出现 |
+| 文件被误删但仍被引用 | `apps/miniapp-taro/src/rn-compat/press-handlers.ts`（`093e778d7e` 删除，`primitives.tsx` 仍在 import） | `git log --diff-filter=AD` 可见"加了又删" |
+| 调用方改了、被调方没改 | `formatMessageTimestamp(ts, '12h')`；`AmbientSuggestions` 的 `conversationId/onAdopt/isStreaming` | TS2554 / TS2322 |
+
+### 12.2 处置：补齐实现，不删功能
+
+- 4 个模块按**消费端已在读的契约**补齐，不另起一套：
+  `--message-font-multiplier` / `-line-height` / `-letter-spacing` / `-font-family` /
+  `-code-font-size` 全部倒推自 `components/ai/markdown-stream.tsx` 里现存的 `var(--message-*)`；
+  单测把这几个变量名抄成断言，改任何一边都会红。i18n 五语言键（`appearanceSettings.messageStyle*`）
+  本就齐备，因此菜单不硬编码任何自然语言。
+- `press-handlers.ts` 按 `1be9d1e2c7` 版本恢复，与主仓工作树副本**逐字相同（5861 字节）**，
+  不存在"取他人 WIP"的歧义。
+- `formatMessageTimestamp` 追加第二参数，**缺省 `'24h'` 输出与改造前逐字相同**，老调用点零改动；
+  `relative` 走 `Intl.RelativeTimeFormat` 取浏览器区域，不往纯函数里塞中文。
+- `AmbientSuggestions` 三个属性全部可选，不注入则行为与既有测试逐字不变。
+
+### 12.3 与 `c9490eb992` 的冲突：摘除是权宜，不是终态
+
+同日 14:13 起部署环每轮 `Module not found`，`c9490eb992` 按最小外科**摘掉了 MessageItem 的
+整条消息级样式接线**（2 import + 3 行派生 state + 2 处解引用 + 1 处挂载）。这在缺件状态下
+是对的：先用最少改动把线上从旧构建里救出来。
+
+模块补齐后（`f4ebc98df8`）前提消失，`d1b5df589c` 按**与之严格互逆**的方式把接线装回，
+并把"为什么装回"写进代码注释与提交信息——避免下一次有人看到"摘除记录"又把它删一遍。
+未覆盖时 `messageVars` 为 `{}`，节点属性与摘除前渲染等价，不存在新增观感风险。
+
+### 12.4 取证（全部现读，非记忆）
+
+| 判定面 | 修前 | 修后 |
+|---|---|---|
+| `apps/web` typecheck | 6 处（含 4 个 TS2307） | **EXIT=0 / 0 error** |
+| `apps/miniapp-taro` typecheck | 3 处 | **EXIT=0 / 0 error** |
+| 新增单测 | — | **27/27 通过**（仿生阅读 7 + 作用域 store 20） |
+| 受影响既有套件 | — | 47 文件跑 46 过、317 用例跑 316 过 |
+| pre-commit（39 门） | — | 两笔提交均 **阻断 0、immutable-guard pass、scope 通过** |
+
+### 12.5 仍然存在、但与本轮无关的三个坑（下次别当成新问题）
+
+1. **`appearance-settings` 有 620 行配置、没有任何设置页**：全仓只有 `MessageItem` 与
+   `MessageList` 读它，且只读少数展示开关；`update/importConfig/resetAll` 无 UI 调用者。
+   连带后果是 `--chat-*`（`--chat-font-scale` / `-line-height` / `-letter-spacing` /
+   `-code-font-size`）**全仓没有任何生产者**——消费端写的是
+   `var(--message-x, var(--chat-x, 回退值))`，所以现在能跑，但"全局外观设置不生效"。
+   要真正生效需要一个写 `--chat-*` 的容器层 + 设置页，属独立一票。
+2. **`markdown-stream.test.tsx` 断言过期**：它要求 `<pre>` 的 className 含 `bg-zinc-100`，
+   而源码里 `<pre>` 一直是 `bg-transparent text-foreground`（`bg-zinc-100` 只出现在
+   代码块标题栏）。属该主题改动自己的遗留，未在本轮改动。
+3. **`packages/app/tests/text-field.test.tsx` 普查锁**仍点名 `FinanceAiHubScreen` / `Sag2Screen`。
+
+### 12.6 建议的治本门（本次只建议、未落地）
+
+「**import 目标必须存在于同一棵树**」：对改动面里的每个 `import`/`require`，解析相对路径与
+`@/` 别名后判目标文件是否在**同一棵提交树**里；按**差值棘轮**只拦"本笔新增的悬空引用"，
+存量先记 warn 直到归零——否则新门一立就是恒红（§12e 禁令）。另可加一条反向对账：
+`git log --diff-filter=D` 里被删的源文件若仍被引用，直接判红。
+
+落地这个门要动 `scripts/check-*.mjs`（受保护面，需 `immutable-exempt` 双行签名）+ 门三件套
+（guardian 注册块 / `stagedTriggers` / README·AGENTS 点名），建议单独立票，别混在跨端票里。
+
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
