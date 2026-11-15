@@ -509,7 +509,20 @@ async function verifyClientAccepted(
   newUid: string,
   sinceMs: number,
   waitMs = 15_000,
+  // 等"客户端进程真的起来"再开验收窗口(2026-11-15 立):用户实测 relaunch 平均 19.3s > launch
+  // 内建的 6s verifyWaitMs ⇒ launch 提前返回时进程还没稳定,验收窗口从那时起算会被剩余启动
+  // 耗时吃掉 ⇒ 必然 unobserved("启动很慢")。传入 upProbe 后,窗口只在客户端起来后才开始,
+  // 15s 就是纯"换票+重写 storage.json"预算,慢启动不再误报。
+  upProbe?: () => boolean,
 ): Promise<{ verdict: 'accepted' | 'rejected' | 'unobserved'; detail: string }> {
+  // 先等客户端进程起来(最多再等 waitMs;起来即止,不占验收窗口预算)
+  if (upProbe) {
+    const upDeadline = Date.now() + waitMs
+    while (!upProbe()) {
+      if (Date.now() >= upDeadline) break
+      await sleep(500)
+    }
+  }
   const deadline = Date.now() + waitMs
   let touched = false
   for (;;) {
@@ -1070,7 +1083,11 @@ export async function main(argv: string[]): Promise<number> {
    * 把用户送回切前那个能用的登录态,绝不把人留在未登录态。
    */
   if (!o.noLaunch && (report.launch as { launched?: boolean } | undefined)?.launched) {
-    const acc = await verifyClientAccepted(storageFile, newUid, writeAt)
+    // 传入 upProbe:客户端进程起来前不开验收窗口,慢启动不再吃掉 15s 验收预算(见函数注释)
+    const acc = await verifyClientAccepted(storageFile, newUid, writeAt, 15_000, () => {
+      const pids = proc.listProductPids(product)
+      return Array.isArray(pids) && pids.length > 0
+    })
     report.clientAcceptance = acc
     steps.push(`client-acceptance:${acc.verdict}`)
     if (acc.verdict === 'rejected') {
