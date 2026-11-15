@@ -364,7 +364,10 @@ export default function UserIndex() {
         groupDataByDate(rawList.map((c) => ({ id: c.id, title: c.title, time: c.time }))),
       )
     } catch {
+      // 历史对话加载失败:清空态 + 明确提示(本支在鉴权就绪后调用,失败多为网络/服务端,
+      // 静默会让用户误以为"确实没有历史",无重试线索)
       setGroupedData([])
+      onToast(t('common.failed'), { kind: 'error' })
     }
   }, [groupDataByDate])
 
