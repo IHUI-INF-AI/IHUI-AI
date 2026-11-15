@@ -357,6 +357,8 @@ export default function DistributionIndex() {
         onInputId: setIdNum,
         onInputName: setIdName,
         onConfirm: onSaveUserInfo,
+        onClose: () => setShowVerify(false),
+        closeLabel: tt('common.close', '关闭'),
       })
     : null
 
