@@ -187,7 +187,7 @@ export default function ImagePage() {
           <Button
             className={`flex-1 text-label rounded-sm h-[80rpx] leading-[80rpx] ${
               isFavorited
-                ? 'bg-primary text-[var(--color-surface-light)]'
+                ? 'bg-cta text-cta-foreground'
                 : 'border border-border bg-transparent text-muted-foreground'
             }`}
             onClick={onToggleFavorite}
