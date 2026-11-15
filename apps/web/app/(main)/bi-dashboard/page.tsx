@@ -13,6 +13,7 @@ import { fetchApi } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { BarChart } from '@/components/charts/BarChart'
 import { formatNumber } from '@/lib/date-utils'
+import { formatCny } from '@/lib/display-currency'
 import { BackButton, AuthGatePrompt } from '@/components/common'
 import { useAuthGate } from '@/hooks/use-auth-gate'
 
@@ -55,7 +56,7 @@ export default function BiDashboardPage() {
     { label: t('totalOrders'), value: formatNumber(stats.totalOrders), Icon: ShoppingCart },
     {
       label: t('totalRevenue'),
-      value: `¥${formatNumber(stats.totalRevenue)}`,
+      value: formatCny(stats.totalRevenue, { digits: 0 }),
       Icon: DollarSign,
     },
     { label: t('activeUsers'), value: formatNumber(stats.activeUsers), Icon: Activity },
