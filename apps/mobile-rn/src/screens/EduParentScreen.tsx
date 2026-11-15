@@ -66,7 +66,7 @@ function EduParentScreen() {
     } catch (e) {
       setError(toFriendlyOr(e, t('common.loadFailed')))
     }
-  }, [])
+  }, [t])
 
   const retry = useCallback(() => {
     setLoading(true)
@@ -165,8 +165,8 @@ function EduParentScreen() {
                   {
                     color:
                       child.status === 'active' || child.status === 'confirmed'
-                        ? tk.success.DEFAULT
-                        : tk.text.tertiary,
+                        ? tk.success.deep
+                        : tk.text.secondary,
                   },
                 ]}
               >

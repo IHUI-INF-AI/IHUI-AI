@@ -69,8 +69,20 @@
   max-width: 600rpx;
 }
 .dist-verify-header {
+  position: relative;
   text-align: center;
   margin-bottom: var(--spacing-lg);
+}
+.dist-verify-close {
+  position: absolute;
+  top: 0;
+  right: 0;
+  min-width: 48rpx;
+  min-height: 48rpx;
+  line-height: 48rpx;
+  text-align: center;
+  font-size: var(--text-title);
+  color: var(--color-muted-foreground);
 }
 .dist-verify-title {
   font-size: var(--text-title);

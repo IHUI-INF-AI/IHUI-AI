@@ -43,6 +43,7 @@ import Taro, {
 } from '@tarojs/taro'
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import { isLoggedIn, getUserInfo, type UserInfo } from '@/utils/auth'
+import { saveNetworkImageToAlbum } from '@/utils/save-album'
 import { getSystemInfoCompat } from '@/utils/system-info'
 import NavBar from '@/components/NavBar'
 import LineIcon from '@/components/LineIcon'
@@ -321,20 +322,30 @@ function MaterialCards({
               className="material-card-item"
               style={{ marginRight: rpx(12) }}
             >
-              <Image
-                src={closeInputPng}
-                mode="widthFix"
+              {/* 命中区与视觉图标分离:图标仍 32rpx、中心仍在卡片角 +8rpx,
+                  但可点盒子扩到 88rpx(=44px)满足最小触摸目标;卡片本体无可点 handler,不会遮挡。 */}
+              <View
                 className="material-card-close"
-                style={{
-                  width: rpx(32),
-                  height: rpx(32),
-                  position: 'absolute',
-                  top: rpx(-8),
-                  right: rpx(-8),
-                  zIndex: 2,
-                }}
+                ariaRole="button"
+                ariaLabel={tt('a11y.close', '关闭')}
+                hoverClass="opacity-60"
                 onClick={() => onRemove(index)}
-              />
+                style={{
+                  top: rpx(-36),
+                  right: rpx(-36),
+                  width: rpx(88),
+                  height: rpx(88),
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Image
+                  src={closeInputPng}
+                  mode="widthFix"
+                  style={{ width: rpx(32), height: rpx(32) }}
+                />
+              </View>
               {card.type === 1 && (
                 <View
                   className="material-card-body material-card-text"
@@ -654,16 +665,28 @@ export default function Index() {
     }))
   })
 
+  /** 首屏四支请求的卸载守卫:waitUntilReady 回调与 useDidShow 会重复触发,
+   *  页面卸载后旧回包仍会 setState(RN 首页已有同款防线,本端此前漏接)。 */
+  const firstLoadAliveRef = useRef(true)
+  useEffect(() => {
+    firstLoadAliveRef.current = true
+    return () => {
+      firstLoadAliveRef.current = false
+    }
+  }, [])
+
   // 拉取模型列表(唯一权威源:后端过滤后的可用模型);失败/空时降级为共享已验证兜底
   const loadModels = useCallback(async () => {
     setModelsLoading(true)
     try {
       const res = await api.fetchModels()
+      if (!firstLoadAliveRef.current) return
       setModels(res?.models && res.models.length > 0 ? res.models : FALLBACK_MODEL_ITEMS)
     } catch {
+      if (!firstLoadAliveRef.current) return
       setModels(FALLBACK_MODEL_ITEMS)
     } finally {
-      setModelsLoading(false)
+      if (firstLoadAliveRef.current) setModelsLoading(false)
     }
   }, [])
 
@@ -690,6 +713,7 @@ export default function Index() {
         fetchMyCreation('plugin', { page: 1, pageSize: 50 }),
         fetchMyCreation('workflow', { page: 1, pageSize: 50 }),
       ])
+      if (!firstLoadAliveRef.current) return
       materialsLoadedRef.current = true
       setState((s) => ({
         ...s,
@@ -722,6 +746,7 @@ export default function Index() {
     setState((s) => ({ ...s, agentsLoading: true }))
     try {
       const res = await fetchAgents({ page: 1, pageSize: 50 })
+      if (!firstLoadAliveRef.current) return
       if (res.success) {
         agentsLoadedRef.current = true
         const list = res.data.list
@@ -734,7 +759,7 @@ export default function Index() {
     } catch {
       // 网络/接口异常:保持空态(组件既有空态渲染),agentsLoading 由 finally 回收
     } finally {
-      setState((s) => ({ ...s, agentsLoading: false }))
+      if (firstLoadAliveRef.current) setState((s) => ({ ...s, agentsLoading: false }))
     }
   }, [])
 
@@ -783,9 +808,10 @@ export default function Index() {
         list?: Array<{ id: string; title: string; time: string; modelName?: string }>
       }
       const rawList = Array.isArray(res?.list) ? res.list : []
+      if (!firstLoadAliveRef.current) return
       setState((s) => ({ ...s, groupedData: groupDataByDate(rawList) }))
     } catch {
-      setState((s) => ({ ...s, groupedData: [] }))
+      if (firstLoadAliveRef.current) setState((s) => ({ ...s, groupedData: [] }))
     }
   }, [groupDataByDate])
 
@@ -796,6 +822,23 @@ export default function Index() {
       if (pullRefreshTimerRef.current !== null) {
         clearTimeout(pullRefreshTimerRef.current)
         pullRefreshTimerRef.current = null
+      }
+    }
+  }, [])
+
+  // 两处 500ms 交互延时(自动选模型 / 分享弹窗事件)各用一个 ref,与下拉刷新同款:
+  // 分持句柄避免跨交互互相清旧而改变各自的 500ms 语义,起新前先停旧防叠加,卸载统一清理。
+  const autoSelectModelTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const sharePopupTriggerTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => {
+    return () => {
+      if (autoSelectModelTimerRef.current !== null) {
+        clearTimeout(autoSelectModelTimerRef.current)
+        autoSelectModelTimerRef.current = null
+      }
+      if (sharePopupTriggerTimerRef.current !== null) {
+        clearTimeout(sharePopupTriggerTimerRef.current)
+        sharePopupTriggerTimerRef.current = null
       }
     }
   }, [])
@@ -921,7 +964,12 @@ export default function Index() {
         }))
         // 自动选第一个模型(对齐原项目,从对应分类列表取第一个)
         // 2026-08-27:改取后端列表/已验证兜底第一个(id 与后端一致),不再用 MOCK_MODELS
-        setTimeout(() => {
+        // 自动选模型的 500ms 延时纳入 ref:起新前先停旧(不叠加),卸载时统一清理
+        if (autoSelectModelTimerRef.current !== null) {
+          clearTimeout(autoSelectModelTimerRef.current)
+        }
+        autoSelectModelTimerRef.current = setTimeout(() => {
+          autoSelectModelTimerRef.current = null
           setState((s) => {
             if (s.currentModelType !== type) return s // 用户已切换走,不自动选
             const firstModel = models[0] ?? FALLBACK_MODEL_ITEMS[0]
@@ -1451,6 +1499,7 @@ export default function Index() {
             >
               <View className="titlebox-right">
                 <Image
+                  ariaLabel={tt('share.title', '分享')}
                   className="share-image"
                   style={{ width: rpx(80), height: rpx(80) }}
                   src={aizhsUrl('remote-images/share_zhuanmi.png')}
@@ -1459,7 +1508,12 @@ export default function Index() {
                     Taro.switchTab({
                       url: '/pages/user/index',
                       success: () => {
-                        setTimeout(() => {
+                        // 分享弹窗事件的 500ms 延时纳入 ref:起新前先停旧(不重复触发),卸载时统一清理
+                        if (sharePopupTriggerTimerRef.current !== null) {
+                          clearTimeout(sharePopupTriggerTimerRef.current)
+                        }
+                        sharePopupTriggerTimerRef.current = setTimeout(() => {
+                          sharePopupTriggerTimerRef.current = null
                           Taro.eventCenter.trigger('showImageSharePopup', { current: 0 })
                         }, 500)
                       },
@@ -1565,7 +1619,9 @@ export default function Index() {
                     t={(key: string) => t(key)}
                     item={msg as unknown as Parameters<typeof ChatMessageBubble>[0]['item']}
                     onCopyText={(text: string) => {
-                      void Taro.setClipboardData({ data: text }).catch(() => undefined)
+                      void Taro.setClipboardData({ data: text }).catch(() => {
+                        onToast(tt('ai.aiAssistant.copyFailed', '复制失败'), { kind: 'error' })
+                      })
                     }}
                   />
                 </View>
@@ -1935,6 +1991,7 @@ export default function Index() {
               <Image src={SHARE_ZHZ_IMG} style={{ width: rpx(440) }} mode="widthFix" />
               {/* 分享按钮(对齐原项目 popup-share-btn,open-type="share" 用于微信小程序) */}
               <Button
+                ariaLabel={tt('share.title', '分享')}
                 openType="share"
                 className="absolute inset-0 w-full h-full"
                 style={{ opacity: 0, zIndex: 10 }}
@@ -1965,15 +2022,21 @@ export default function Index() {
               hoverClass="opacity-60"
             >
               <Image
+                ariaLabel={tt('vipScreen.qr.hint', '长按二维码保存到相册')}
                 src={QRCODE_IMG}
                 style={{ width: rpx(480), height: rpx(480), borderRadius: rnRadius.lg }}
                 mode="aspectFit"
                 onLongPress={() => {
-                  // 长按保存二维码(对齐原项目 handleLongPressQrCode)
+                  // 长按保存二维码(对齐原项目 handleLongPressQrCode)。QRCODE_IMG 是远端图,
+                  // 必须真走「下载 → 写入相册」链路;此前只在 ActionSheet 回调里弹成功 toast,
+                  // 相册里根本没有图(假成功反馈),且末尾 .catch 把一切异常一并吞掉。
                   Taro.showActionSheet({
                     itemList: [tt('pagesindexindex.r1', '保存图片到相册')],
                     success: () => {
-                      onToast(tt('pagesindexindex.save3', '图片已保存'), { kind: 'success' })
+                      void saveNetworkImageToAlbum(QRCODE_IMG).catch(() => {
+                        // 失败态由 save-album 按下载失败/权限拒绝/写入失败三态分别提示,
+                        // 这里只吞 rejection,不再重复弹「图片已保存」。
+                      })
                     },
                     fail: () => {
                       // 用户取消操作

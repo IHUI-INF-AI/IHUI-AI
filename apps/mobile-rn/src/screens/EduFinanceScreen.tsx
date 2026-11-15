@@ -90,7 +90,7 @@ function EduFinanceScreen() {
     } finally {
       setLoading(false)
     }
-  }, [fmtDate, statusLabel])
+  }, [fmtDate, statusLabel, t])
 
   useEffect(() => {
     void load()

@@ -146,7 +146,7 @@ export default function AgentCategoriesScreen() {
         <Text style={styles.subtitle}>{t('agentCategories.subtitle')}</Text>
 
         {loading ? (
-          <ActivityIndicator style={styles.stateBox} color={tokens.text.tertiary} />
+          <ActivityIndicator style={styles.stateBox} color={tokens.text.secondary} />
         ) : failed ? (
           <View style={styles.stateBox}>
             <Text style={styles.errorText}>{t('agentCategories.loadFailed')}</Text>
@@ -156,7 +156,7 @@ export default function AgentCategoriesScreen() {
           </View>
         ) : categories.length === 0 ? (
           <View style={styles.stateBox}>
-            <Tag size={28} color={tokens.text.tertiary} />
+            <Tag size={28} color={tokens.text.secondary} />
             <Text style={styles.muted}>{t('agentCategories.empty')}</Text>
             <Text style={styles.hint}>{t('agentCategories.emptyHint')}</Text>
           </View>
@@ -248,12 +248,12 @@ export default function AgentCategoriesScreen() {
                 </View>
 
                 {agentsLoading ? (
-                  <ActivityIndicator color={tokens.text.tertiary} />
+                  <ActivityIndicator color={tokens.text.secondary} />
                 ) : agentsFailed ? (
                   <Text style={styles.errorText}>{t('agentCategories.agentsLoadFailed')}</Text>
                 ) : agents.length === 0 ? (
                   <View style={styles.agentsEmpty}>
-                    <Sparkles size={22} color={tokens.text.tertiary} />
+                    <Sparkles size={22} color={tokens.text.secondary} />
                     <Text style={styles.hint}>{t('agentCategories.noAgents')}</Text>
                   </View>
                 ) : (
@@ -418,7 +418,7 @@ function makeStyles() {
     agentMain: { flex: 1, gap: rnSpacing['2xs'] },
     agentName: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tokens.text.primary },
     price: { fontSize: rnType.label.size, fontWeight: '600', color: tokens.text.primary },
-    free: { color: tokens.success.deep },
+    free: { color: tokens.success.deepText },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

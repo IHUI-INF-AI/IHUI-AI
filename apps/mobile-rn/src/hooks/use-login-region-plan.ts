@@ -76,9 +76,13 @@ export function useLoginRegionPlan(locale: string): LoginRegionPlan {
 
   useEffect(() => {
     let alive = true
-    void loadServerLoginRegion().then((region) => {
-      if (alive) setIpRegion(region)
-    })
+    void loadServerLoginRegion()
+      .then((region) => {
+        if (alive) setIpRegion(region)
+      })
+      .catch(() => {
+        if (alive) setIpRegion(null)
+      })
     return () => {
       alive = false
     }

@@ -120,6 +120,9 @@ vi.mock('@react-navigation/native', () => ({
 vi.mock('react-native-webview', () => ({ WebView: () => createElement('div', null) }))
 
 vi.mock('../src/i18n', () => ({
+  // 模块级 t:src/i18n/index.tsx:158 导出的具名函数,组件用 `import { t as tStatic }` 消费。
+  // mock 只给 useI18n 会让该引用在运行时抛 'No t export is defined'。
+  t: (key: string) => key,
   useI18n: () => ({ t: (key: string) => key, locale: env.locale }),
 }))
 
@@ -201,8 +204,26 @@ async function renderLogin(): Promise<void> {
 
 // linuxdo 于 2026-11-07 追加在两个排序档位末尾：它没有原生 SDK，走网页端 SSO 闭环，
 // 所以不参与「国内优先 / 海外优先」的原生渠道排序，恒落表尾。
-const DOMESTIC = ['wechat', 'enterpriseWechat', 'dingtalk', 'feishu', 'alipay', 'google', 'github', 'linuxdo']
-const OVERSEAS = ['google', 'github', 'wechat', 'feishu', 'dingtalk', 'enterpriseWechat', 'alipay', 'linuxdo']
+const DOMESTIC = [
+  'wechat',
+  'enterpriseWechat',
+  'dingtalk',
+  'feishu',
+  'alipay',
+  'google',
+  'github',
+  'linuxdo',
+]
+const OVERSEAS = [
+  'google',
+  'github',
+  'wechat',
+  'feishu',
+  'dingtalk',
+  'enterpriseWechat',
+  'alipay',
+  'linuxdo',
+]
 
 describe('票 L28754 RN 端第三方登录优先级(共享判据)', () => {
   beforeEach(() => {

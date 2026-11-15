@@ -55,21 +55,21 @@ export default function AppDetailClient() {
     <PageContainer className="space-y-4">
       <Link
         href="/apps"
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+        className="font-[weight:inherit] inline-flex items-center gap-1 text-body text-muted-foreground hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" aria-hidden />
         返回我的应用
       </Link>
 
       {loading ? (
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+        <div className="font-[weight:inherit] flex items-center gap-2 text-body text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
           正在加载应用…
         </div>
       ) : null}
 
       {error ? (
-        <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-700 dark:text-red-300">
+        <div className="font-[weight:inherit] rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-body text-red-700 dark:text-red-300">
           {error}
         </div>
       ) : null}
@@ -81,8 +81,8 @@ export default function AppDetailClient() {
               <CapabilityAppIcon name={app.icon} className="h-5 w-5" />
             </span>
             <div className="min-w-0">
-              <h1 className="truncate text-xl font-bold leading-tight">{app.title}</h1>
-              <p className="truncate text-xs text-muted-foreground">
+              <h1 className="truncate text-heading font-bold leading-tight">{app.title}</h1>
+              <p className="font-[weight:inherit] truncate text-label text-muted-foreground">
                 {app.id} · v{app.version} · {app.source === 'ai' ? 'AI 生成' : '手动创建'}
               </p>
             </div>

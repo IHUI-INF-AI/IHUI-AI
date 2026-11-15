@@ -882,4 +882,37 @@ describe('rn-compat View 测量句柄', () => {
     await act(async () => root.unmount())
   })
 })
+
+// === 7. className 与 VIEW_BASE 基线的优先级(2026-11-15) ===
+describe('rn-compat View className 让位', () => {
+  it('className 声明了方向/间距类时,基线不得以内联样式覆盖 wxss', async () => {
+    const { View } = await import('../src/rn-compat/primitives')
+    const root = await renderNode(
+      createElement(View as never, {
+        className: 'flex-row items-center px-3 py-2 mx-2',
+        style: { flex: 1 },
+      }),
+    )
+    const style = (captured.taroView?.style ?? {}) as Record<string, unknown>
+    expect(captured.taroView?.className).toBe('flex-row items-center px-3 py-2 mx-2')
+    expect(style.flexDirection).toBeUndefined()
+    expect(style.alignItems).toBeUndefined()
+    expect(style.padding).toBeUndefined()
+    expect(style.margin).toBeUndefined()
+    // 调用方 style 显式给的键仍要赢
+    expect(style.flex).toBe(1)
+    // display:flex 是小程序 view 从 block 切到 RN 语义的必需基线,不能让位
+    expect(style.display).toBe('flex')
+    await act(async () => root.unmount())
+  })
+
+  it('没有 className 时基线照旧输出(RN 默认 column/stretch 不能丢)', async () => {
+    const { View } = await import('../src/rn-compat/primitives')
+    const root = await renderNode(createElement(View as never, { style: { flex: 1 } }))
+    const style = (captured.taroView?.style ?? {}) as Record<string, unknown>
+    expect(style.flexDirection).toBe('column')
+    expect(style.alignItems).toBe('stretch')
+    await act(async () => root.unmount())
+  })
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

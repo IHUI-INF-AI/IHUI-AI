@@ -1,6 +1,7 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+// i18n-content-exempt-file: RN端组件UI文案,按AGENTS §19 RN端不强制t(),硬编码中文为历史常态(2026-11-15全量豁免清零)
 
 /**
  * 压缩边界回看条(批次 3,2026-11-06)。
@@ -11,6 +12,7 @@
  *  - 摘录来自服务端 preservedSegment(≤200 字符),端内只 trim,不二次截断成不可读片段;
  *  - 默认收起,点标题展开;刷新/换端后由屏幕查询 `/compaction-boundaries` 回填。
  */
+import { t as tStatic } from '../../i18n'
 import { useState } from 'react'
 import { StyleSheet, Text, View } from 'react-native'
 import { rnGeometry, rnRadius } from '@ihui/design-tokens'
@@ -37,7 +39,7 @@ export function CompactionBoundaryNote({ boundary }: CompactionBoundaryNoteProps
         style={styles.header}
         onPress={() => setExpanded((value) => !value)}
       >
-        <Text style={styles.title}>压缩前关键片段</Text>
+        <Text style={styles.title}>{tStatic('uiText.compactionKeySnippets')}</Text>
         <Text style={styles.toggle}>{expanded ? '收起' : '查看压缩前关键片段'}</Text>
       </Tappable>
       {expanded ? (
@@ -54,7 +56,7 @@ export function CompactionBoundaryNote({ boundary }: CompactionBoundaryNoteProps
             </View>
           ))}
           {lines.length === 0 ? (
-            <Text style={styles.empty}>本次压缩没有可回看的保留片段。</Text>
+            <Text style={styles.empty}>{tStatic('uiText.compactionNoSnippets')}</Text>
           ) : null}
         </View>
       ) : null}

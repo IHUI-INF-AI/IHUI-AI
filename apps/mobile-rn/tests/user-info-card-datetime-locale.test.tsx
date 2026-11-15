@@ -29,7 +29,15 @@ const DATE_OPTS: Intl.DateTimeFormatOptions = {
 const localeBox = vi.hoisted(() => ({ value: 'en' as AppLocale }))
 
 vi.mock('../src/i18n', () => ({
-  useI18n: () => ({ t: (key: string) => key, locale: localeBox.value }),
+  // 本用例断言的是**到期时间的格式化结果**,前缀「到期时间:」是定位该行的锚点 ——
+  // 必须渲染成真实译文。回显 key(=> key)会让该行变成
+  // 'uiText.expiryTime2026/03/06 00:09',与断言里的 `到期时间:...` 对不上,
+  // 用例会失败在一个与 locale 格式化无关的理由上。只硬编码这一个键。
+  t: (key: string) => (key === 'uiText.expiryTime' ? '到期时间:' : key),
+  useI18n: () => ({
+    t: (key: string) => (key === 'uiText.expiryTime' ? '到期时间:' : key),
+    locale: localeBox.value,
+  }),
   getCurrentLocale: () => localeBox.value,
 }))
 

@@ -135,7 +135,7 @@ export function ImageGenCreateScreen() {
             value={prompt}
             onChangeText={setPrompt}
             placeholder={t('imageGen.promptPlaceholder')}
-            placeholderTextColor={tk.text.tertiary}
+            placeholderTextColor={tk.text.secondary}
             multiline
             numberOfLines={4}
             textAlignVertical="top"

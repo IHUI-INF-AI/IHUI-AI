@@ -9,6 +9,7 @@ import { render, screen } from '@testing-library/react'
 import type { UserInfo } from '@ihui/types'
 
 vi.mock('../src/i18n', () => ({
+  t: (key: string) => key,
   useI18n: () => ({ t: (key: string) => key }),
   // UserInfoCard 的到期时间读模块镜像;缺这个出口时组件在收集期就加载失败。
   getCurrentLocale: () => 'zh-CN',

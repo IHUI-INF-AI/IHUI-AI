@@ -45,6 +45,10 @@ const TIMBRE_KEY: Record<string, string> = {
 
 const WAVE_DELAYS = [0, 0.1, 0.2, 0.3, 0.4]
 
+// 滚到底用的固定"远值":每次直接赋它(非累加),长会话里 scrollTop 不再无界增长。
+// 取一个远超任何单屏内容高度、又远小于 ScrollView 数值可靠性上限的值。
+const RELATIVE_JUMP_PX = 100000
+
 export default function VoicePage() {
   const { t } = useI18n()
   const tt = useCallback((k: string, fb: string) => (t(k) === k ? fb : t(k)), [t])
@@ -81,6 +85,13 @@ export default function VoicePage() {
     }, 1000)
   }, [])
 
+  // recorder 监听只在挂载时绑一次:getRecorderManager 返回全局单例,若随 tt/t 重跑会反复 onStop/onError
+  // 累积监听(旧闭包持废弃 tt 不释放)。文案/回调经 ref 间接取,保证绑定的 onStop/onError 永远读最新值。
+  const ttRef = useRef(tt)
+  ttRef.current = tt
+  const stopTimerRef = useRef(stopTimer)
+  stopTimerRef.current = stopTimer
+
   useEffect(() => {
     const recorder = Taro.getRecorderManager()
     recorderRef.current = recorder
@@ -92,7 +103,7 @@ export default function VoicePage() {
         ...prev,
         {
           role: 'user',
-          content: tt('ai.voice.voiceMessage', '[语音消息]'),
+          content: ttRef.current('ai.voice.voiceMessage', '[语音消息]'),
           isVoice: true,
           duration: dur,
         },
@@ -115,35 +126,40 @@ export default function VoicePage() {
             })
             .catch((e) => {
               logger.error('ai/voice', t('aiVoice.q6'), e)
-              onToast(tt('ai.voice.chatFailed', '对话失败,请重试'), { kind: 'error' })
+              onToast(ttRef.current('ai.voice.chatFailed', '对话失败,请重试'), { kind: 'error' })
             })
             .finally(() => setLoading(false))
         },
         fail: () => {
-          onToast(tt('ai.voice.recordFailed', '录音失败,请重试'), { kind: 'error' })
+          onToast(ttRef.current('ai.voice.recordFailed', '录音失败,请重试'), { kind: 'error' })
           setLoading(false)
         },
       })
     }
 
     const onError = () => {
-      onToast(tt('ai.voice.recordFailed', '录音失败,请重试'), { kind: 'error' })
+      onToast(ttRef.current('ai.voice.recordFailed', '录音失败,请重试'), { kind: 'error' })
       setRecording(false)
       setLoading(false)
-      stopTimer()
+      stopTimerRef.current()
     }
 
     recorder.onStop(onStop)
     recorder.onError(onError)
 
     return () => {
-      stopTimer()
+      stopTimerRef.current()
+      // RecorderManager 是全局单例且无 offStop/offError:这里只清 timer 与引用。
+      // 依赖为 [] ⇒ onStop/onError 全生命周期只挂一次,不存在累积监听。
       recorderRef.current = null
     }
-  }, [tt, stopTimer, t])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
+  // 滚到底:每次赋一个固定远值而非累加。累加会在长会话里把 scrollTop 顶到千万级
+  // (超出 ScrollView 可靠范围并触发整页重排);固定值每次都触发一次"跳到底",无累积。
   useEffect(() => {
-    setScrollTop((s) => s + 100000)
+    setScrollTop(RELATIVE_JUMP_PX)
   }, [messages.length, loading])
 
   const onStartRecord = useCallback(() => {

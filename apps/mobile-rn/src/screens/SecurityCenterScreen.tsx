@@ -308,11 +308,11 @@ export default function SecurityCenterScreen() {
 
   const toneOfScore = score
     ? score.level === 'high'
-      ? tokens.success.DEFAULT
+      ? tokens.success.deep
       : score.level === 'medium'
         ? (tokens.warning?.DEFAULT ?? tokens.brand.DEFAULT)
         : tokens.danger.DEFAULT
-    : tokens.text.tertiary
+    : tokens.text.secondary
 
   const styles = makeStyles()
 
@@ -327,7 +327,7 @@ export default function SecurityCenterScreen() {
         <View style={styles.card}>
           <Text style={styles.cardTitle}>{t('securityCenter.score.title')}</Text>
           {scoreLoading ? (
-            <ActivityIndicator style={styles.loading} color={tokens.text.tertiary} />
+            <ActivityIndicator style={styles.loading} color={tokens.text.secondary} />
           ) : score ? (
             <>
               <View style={styles.scoreRow}>
@@ -362,7 +362,7 @@ export default function SecurityCenterScreen() {
           </View>
 
           {twoFactorLoading ? (
-            <ActivityIndicator style={styles.loading} color={tokens.text.tertiary} />
+            <ActivityIndicator style={styles.loading} color={tokens.text.secondary} />
           ) : twoFactor?.enabled ? (
             <>
               <Text style={styles.statusOn}>{t('securityCenter.twoFactor.enabled')}</Text>
@@ -463,7 +463,7 @@ export default function SecurityCenterScreen() {
             <Text style={styles.cardTitle}>{t('securityCenter.sessions.title')}</Text>
           </View>
           {sessionsLoading ? (
-            <ActivityIndicator style={styles.loading} color={tokens.text.tertiary} />
+            <ActivityIndicator style={styles.loading} color={tokens.text.secondary} />
           ) : sessions.length === 0 ? (
             <Text style={styles.muted}>{t('settings.noAuthorizations')}</Text>
           ) : (
@@ -495,7 +495,7 @@ export default function SecurityCenterScreen() {
             <Text style={styles.cardTitle}>{t('securityCenter.logs.title')}</Text>
           </View>
           {logsLoading ? (
-            <ActivityIndicator style={styles.loading} color={tokens.text.tertiary} />
+            <ActivityIndicator style={styles.loading} color={tokens.text.secondary} />
           ) : logs.length === 0 ? (
             <Text style={styles.muted}>{t('securityCenter.logs.empty')}</Text>
           ) : (
@@ -520,7 +520,7 @@ export default function SecurityCenterScreen() {
         >
           <ShieldCheck size={16} color={tokens.text.secondary} />
           <Text style={styles.linkText}>{t('securityCenter.openSwitches')}</Text>
-          <ChevronRight size={16} color={tokens.text.tertiary} />
+          <ChevronRight size={16} color={tokens.text.secondary} />
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -530,12 +530,12 @@ export default function SecurityCenterScreen() {
         >
           <ShieldCheck size={16} color={tokens.text.secondary} />
           <Text style={styles.linkText}>{t('securityAudit.title')}</Text>
-          <ChevronRight size={16} color={tokens.text.tertiary} />
+          <ChevronRight size={16} color={tokens.text.secondary} />
         </TouchableOpacity>
 
         {!twoFactor?.enabled && !setup ? (
           <View style={styles.footerNote}>
-            <ShieldOff size={14} color={tokens.text.tertiary} />
+            <ShieldOff size={14} color={tokens.text.secondary} />
             <Text style={styles.footerText}>{t('securityCenter.twoFactor.footerHint')}</Text>
           </View>
         ) : null}

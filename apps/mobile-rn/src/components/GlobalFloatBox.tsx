@@ -1,3 +1,4 @@
+import { t as tStatic } from '../i18n'
 import { useI18n } from '../i18n'
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
@@ -120,7 +121,7 @@ export function GlobalFloatBox({ onPromote, onConsult, onFeedback }: GlobalFloat
           accessibilityLabel={t('globalBox.earn')}
         >
           <Image source={ICON_TUIGUANG} style={styles.icon} resizeMode="contain" />
-          <Text style={[styles.label, styles.labelPromote]}>赚 米</Text>
+          <Text style={[styles.label, styles.labelPromote]}>{tStatic('uiText.earnMoney')}</Text>
         </Tappable>
         <Tappable
           style={styles.item}
@@ -129,7 +130,7 @@ export function GlobalFloatBox({ onPromote, onConsult, onFeedback }: GlobalFloat
           accessibilityLabel={t('globalBox.support')}
         >
           <Image source={ICON_KF} style={styles.icon} resizeMode="contain" />
-          <Text style={styles.label}>客 服</Text>
+          <Text style={styles.label}>{tStatic('uiText.customerService')}</Text>
         </Tappable>
         <Tappable
           style={styles.item}
@@ -138,7 +139,7 @@ export function GlobalFloatBox({ onPromote, onConsult, onFeedback }: GlobalFloat
           accessibilityLabel={t('globalBox.feedback')}
         >
           <Image source={ICON_FANKUI} style={styles.icon} resizeMode="contain" />
-          <Text style={styles.label}>反 馈</Text>
+          <Text style={styles.label}>{tStatic('uiText.feedback')}</Text>
         </Tappable>
       </View>
     </Animated.View>

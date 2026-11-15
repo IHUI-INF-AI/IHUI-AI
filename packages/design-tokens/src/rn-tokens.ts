@@ -72,24 +72,6 @@ export type RnGlassTokens = {
 }
 
 /**
- * 容器描边角色档(2026-11-15 立,对齐 tokens.css `--color-stroke-*`)。
- * subtle 嵌套内区 · default 卡片/面板/表格 · strong 弹层/菜单/选中候选
- * inverse 玻璃/深色浮层 · field 输入控件 · focus 聚焦(墨档,唯一例外位)
- * selected 选中/强调容器 · danger 错误态容器。
- * 值由 scripts/sync-rn-tokens.mjs 从 tokens.css 派生(守门 MAPPINGS 已登记),勿手改。
- */
-export type RnStrokeTokens = {
-  subtle: string
-  default: string
-  strong: string
-  inverse: string
-  field: string
-  focus: string
-  selected: string
-  danger: string
-}
-
-/**
  * 模型广场类型徽章三色(明暗同值)。
  * 键名按 `scripts/sync-rn-tokens.mjs` 的同名推导规则对位 tokens.css,不加第二张映射表:
  * `modelType.textBg` → `--color-model-type-text-bg`。改色值只能改 tokens.css 再跑派生器。
@@ -139,8 +121,8 @@ export const rnTokens = {
     inverse: '#FAFAFA',
   },
   border: {
-    light: 'rgba(0,0,0,0.1)',
-    medium: 'rgba(0,0,0,0.16)',
+    light: '#E5E5E5',
+    medium: '#D4D4D4',
   },
   error: {
     bg: '#FFE5E5',
@@ -192,18 +174,6 @@ export const rnTokens = {
     bright: '#f87171',
     deepText: '#b91c1c',
   } satisfies RnDangerTokens,
-  /* 容器描边角色档(2026-11-15 立):新代码取角色名,border 两档保留为 legacy 别名。
-     必须排在 danger 之后 —— 门 93 的 resolveTsPath 取首个同名键,stroke.danger 会遮住 danger.light。 */
-  stroke: {
-    subtle: 'rgba(0,0,0,0.06)',
-    default: 'rgba(0,0,0,0.1)',
-    strong: 'rgba(0,0,0,0.18)',
-    inverse: 'rgba(255,255,255,0.2)',
-    field: 'rgba(0,0,0,0.14)',
-    focus: '#000000',
-    selected: '#4a7a96',
-    danger: '#dc2626',
-  } satisfies RnStrokeTokens,
   vip: {
     gold: '#FFD700',
     goldEnd: '#FFAA00',
@@ -274,8 +244,6 @@ export type RnThemeTokens = {
   }
   text: { primary: string; secondary: string; tertiary: string; medium: string; inverse: string }
   border: { light: string; medium: string }
-  /* 容器描边角色档(--color-stroke-*;值由 sync-rn-tokens.mjs 派生) */
-  stroke: RnStrokeTokens
   error: { bg: string; text: string; onBg: string }
   overlay: { modal: string; loading: string }
   /* brandAccent:高级灰蓝(2026-09-14 定稿)。DEFAULT=底色,foreground=其上文字,
@@ -351,7 +319,7 @@ export const rnLightTokens: RnThemeTokens = {
     medium: '#404040',
     inverse: '#FAFAFA',
   },
-  border: { light: 'rgba(0,0,0,0.1)', medium: 'rgba(0,0,0,0.16)' },
+  border: { light: '#E5E5E5', medium: '#D4D4D4' },
   error: { bg: '#FFE5E5', text: '#ff3333', onBg: '#C0392B' },
   overlay: { modal: 'rgba(0,0,0,0.4)', loading: 'rgba(255,255,255,0.8)' },
   brandAccent: {
@@ -385,17 +353,6 @@ export const rnLightTokens: RnThemeTokens = {
     onGreen: '#065F46',
   },
   danger: { light: '#fee2e2', DEFAULT: '#dc2626', bright: '#f87171', deepText: '#b91c1c' },
-  /* 容器描边角色档(2026-11-15 立;排在 danger 之后,理由见 rnTokens 同档注释) */
-  stroke: {
-    subtle: 'rgba(0,0,0,0.06)',
-    default: 'rgba(0,0,0,0.1)',
-    strong: 'rgba(0,0,0,0.18)',
-    inverse: 'rgba(255,255,255,0.2)',
-    field: 'rgba(0,0,0,0.14)',
-    focus: '#000000',
-    selected: '#4a7a96',
-    danger: '#dc2626',
-  },
   vip: { gold: '#FFD700', goldEnd: '#FFAA00' },
   /* 值由 scripts/sync-rn-tokens.mjs 从 tokens.css 派生(--color-model-type-* / --color-agent-name),勿手改 */
   modelType: {
@@ -466,7 +423,7 @@ export const rnDarkTokens: RnThemeTokens = {
     medium: '#D4D4D4',
     inverse: '#0A0A0A',
   },
-  border: { light: 'rgba(255,255,255,0.12)', medium: 'rgba(255,255,255,0.2)' },
+  border: { light: '#383838', medium: '#525252' },
   error: { bg: '#7F1D1D', text: '#ff3333', onBg: '#FCA5A5' },
   overlay: { modal: 'rgba(0,0,0,0.6)', loading: 'rgba(0,0,0,0.6)' },
   brandAccent: {
@@ -500,17 +457,6 @@ export const rnDarkTokens: RnThemeTokens = {
     onGreen: '#065F46',
   },
   danger: { light: '#7f1d1d', DEFAULT: '#ef4444', bright: '#fca5a5', deepText: '#ff9e9e' },
-  /* 容器描边角色档(2026-11-15 立;排在 danger 之后,理由见 rnTokens 同档注释) */
-  stroke: {
-    subtle: 'rgba(255,255,255,0.08)',
-    default: 'rgba(255,255,255,0.12)',
-    strong: 'rgba(255,255,255,0.22)',
-    inverse: 'rgba(0,0,0,0.3)',
-    field: 'rgba(255,255,255,0.16)',
-    focus: '#FFFFFF',
-    selected: '#a3c4d6',
-    danger: '#ef4444',
-  },
   vip: { gold: '#FFD700', goldEnd: '#FFAA00' },
   /* 明暗同值档:暗档值同样由 scripts/sync-rn-tokens.mjs 派生(tokens.css .dark 里成对声明) */
   modelType: {
@@ -564,21 +510,12 @@ export const rnCssLight = {
   secondaryForeground: 'hsl(0 0% 9%)',
   muted: 'hsl(0 0% 92%)',
   mutedForeground: 'hsl(0 0% 40%)',
-  mutedSoft: 'hsl(0 0% 94%)',
   accent: 'hsl(0 0% 95%)',
   accentForeground: 'hsl(0 0% 9%)',
   destructive: 'hsl(0 100% 60%)',
   destructiveForeground: 'hsl(0 0% 98%)',
-  input: 'rgba(0, 0, 0, 0.14)',
+  input: 'hsl(0 0% 91%)',
   ring: 'hsl(0 0% 70%)',
-  strokeSubtle: 'rgba(0, 0, 0, 0.06)',
-  strokeDefault: 'rgba(0, 0, 0, 0.1)',
-  strokeStrong: 'rgba(0, 0, 0, 0.18)',
-  strokeInverse: 'rgba(255, 255, 255, 0.2)',
-  strokeField: 'rgba(0, 0, 0, 0.14)',
-  strokeFocus: '#000000',
-  strokeSelected: '#4a7a96',
-  strokeDanger: '#dc2626',
   successForeground: 'hsl(0 0% 98%)',
   warningForeground: 'hsl(0 0% 98%)',
   info: 'hsl(199 89% 48%)',
@@ -620,17 +557,17 @@ export const rnCssLight = {
   brandAccentGradTo: '#8fb8cc',
   notificationBg: '#fff8e1',
   notificationText: '#7c5e1e',
-  toastSuccessBg: '#15803d',
-  toastErrorBg: '#b91c1c',
-  toastWarningBg: '#b45309',
-  toastInfoBg: '#1f2937',
-  toastForeground: '#ffffff',
   gold: '#d4af6a',
   goldMuted: 'rgba(212, 175, 106, 0.12)',
   alipayBlue: '#1677ff',
   successTagBg: '#e8f5e9',
   scrim: 'rgba(0, 0, 0, 0.6)',
   scrimForeground: 'rgba(255, 255, 255, 0.85)',
+  toastSuccessBg: '#15803d',
+  toastErrorBg: '#b91c1c',
+  toastWarningBg: '#b45309',
+  toastInfoBg: '#1f2937',
+  toastForeground: '#ffffff',
   dangerForeground: '#ffffff',
   successTint: 'rgba(22, 163, 74, 0.08)',
   successTintStrong: 'rgba(22, 163, 74, 0.25)',
@@ -648,7 +585,7 @@ export const rnCssLight = {
   warmBg: '#fff4e6',
   textTertiary: '#a3a3a3',
   textMedium: '#404040',
-  borderMedium: 'rgba(0, 0, 0, 0.16)',
+  borderMedium: '#d4d4d4',
   brandAccentLight: '#eaf2f7',
   surfaceDark: '#262626',
   vipCard: '#262626',
@@ -756,21 +693,12 @@ export const rnCssDark = {
   secondaryForeground: 'hsl(0 0% 98%)',
   muted: 'hsl(0 0% 14.9%)',
   mutedForeground: 'hsl(0 0% 63.9%)',
-  mutedSoft: 'hsl(0 0% 14.9%)',
   accent: 'hsl(0 0% 19%)',
   accentForeground: 'hsl(0 0% 98%)',
   destructive: 'hsl(0 100% 60%)',
   destructiveForeground: 'hsl(0 0% 98%)',
-  input: 'rgba(255, 255, 255, 0.16)',
+  input: 'hsl(0 0% 26%)',
   ring: 'hsl(0 0% 35%)',
-  strokeSubtle: 'rgba(255, 255, 255, 0.08)',
-  strokeDefault: 'rgba(255, 255, 255, 0.12)',
-  strokeStrong: 'rgba(255, 255, 255, 0.22)',
-  strokeInverse: 'rgba(0, 0, 0, 0.3)',
-  strokeField: 'rgba(255, 255, 255, 0.16)',
-  strokeFocus: '#ffffff',
-  strokeSelected: '#a3c4d6',
-  strokeDanger: '#ef4444',
   successForeground: 'hsl(0 0% 98%)',
   warningForeground: 'hsl(0 0% 98%)',
   info: 'hsl(199 80% 55%)',
@@ -812,17 +740,17 @@ export const rnCssDark = {
   brandAccentGradTo: '#a3c4d6',
   notificationBg: 'rgba(245, 158, 11, 0.15)',
   notificationText: 'hsl(38 85% 70%)',
-  toastSuccessBg: '#15803d',
-  toastErrorBg: '#b91c1c',
-  toastWarningBg: '#b45309',
-  toastInfoBg: '#1f2937',
-  toastForeground: '#ffffff',
   gold: '#e6c986',
   goldMuted: 'rgba(230, 201, 134, 0.14)',
   alipayBlue: '#1677ff',
   successTagBg: 'rgba(22, 163, 74, 0.16)',
   scrim: 'rgba(0, 0, 0, 0.6)',
   scrimForeground: 'rgba(255, 255, 255, 0.85)',
+  toastSuccessBg: '#15803d',
+  toastErrorBg: '#b91c1c',
+  toastWarningBg: '#b45309',
+  toastInfoBg: '#1f2937',
+  toastForeground: '#ffffff',
   dangerForeground: '#ffffff',
   successTint: 'rgba(74, 222, 128, 0.14)',
   successTintStrong: 'rgba(74, 222, 128, 0.3)',
@@ -840,7 +768,7 @@ export const rnCssDark = {
   warmBg: 'rgba(250, 204, 21, 0.14)',
   textTertiary: '#737373',
   textMedium: '#d4d4d4',
-  borderMedium: 'rgba(255, 255, 255, 0.2)',
+  borderMedium: '#525252',
   brandAccentLight: '#1e2e36',
   surfaceDark: '#171717',
   vipCard: '#262626',

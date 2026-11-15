@@ -364,7 +364,10 @@ export default function UserIndex() {
         groupDataByDate(rawList.map((c) => ({ id: c.id, title: c.title, time: c.time }))),
       )
     } catch {
+      // 历史对话加载失败:清空态 + 明确提示(本支在鉴权就绪后调用,失败多为网络/服务端,
+      // 静默会让用户误以为"确实没有历史",无重试线索)
       setGroupedData([])
+      onToast(t('common.failed'), { kind: 'error' })
     }
   }, [groupDataByDate])
 
@@ -656,7 +659,10 @@ export default function UserIndex() {
     // 且 fail 回退到同一条坏路径 ⇒ 三处悬浮按钮 + 本页反馈项点了全无反应。
     Taro.navigateTo({
       url: '/pkg-user/user/feedback?pageType=list',
-      fail: () => onToast('反馈页打开失败,请稍后重试', { kind: 'error' }),
+      fail: () =>
+        onToast(tt('toastFallback.feedbackOpenFailed', '反馈页打开失败,请稍后重试'), {
+          kind: 'error',
+        }),
     })
   }
 
@@ -941,6 +947,8 @@ export default function UserIndex() {
               </View>
               {/* 分享按钮 */}
               <View
+                ariaRole="button"
+                ariaLabel={tt('share.title', '分享')}
                 className="ml-[20rpx] flex-shrink-0 w-[72rpx] h-[72rpx] rounded-lg flex items-center justify-center border border-solid border-[var(--color-border)]"
                 style={{ background: 'var(--color-card)' }}
                 hoverClass="opacity-60"
@@ -1201,6 +1209,7 @@ export default function UserIndex() {
                       <View className="flex flex-col" style={{ gap: rpx(16) }}>
                         {(item.imageList || []).map((imgUrl, imgIdx) => (
                           <Image
+                            ariaLabel={tt('chat.imagePreviewA11y', '图片预览')}
                             key={imgIdx}
                             src={imgUrl}
                             mode="aspectFill"
@@ -1242,6 +1251,8 @@ export default function UserIndex() {
                         <Text className="text-label text-muted-foreground">{item.time}</Text>
                       </View>
                       <View
+                        ariaRole="button"
+                        ariaLabel={tt('livePlayback.play', '播放')}
                         className="relative mx-[24rpx] mb-[24rpx] rounded-lg overflow-hidden bg-muted"
                         style={{ height: rpx(400) }}
                         hoverClass="opacity-60"
@@ -1301,6 +1312,8 @@ export default function UserIndex() {
                       <View className="flex-row items-center gap-[12rpx]">
                         {/* 播放/暂停按钮(对齐 RN audioPlayBtn 36dp→72rpx 圆角 16rpx) */}
                         <View
+                          ariaRole="button"
+                          ariaLabel={audioPlayStates[index] ? t('ai.stop') : t('livePlayback.play')}
                           className="w-[72rpx] h-[72rpx] rounded-lg flex items-center justify-center"
                           style={{ background: 'var(--color-primary)', flexShrink: 0 }}
                           hoverClass="opacity-60"
@@ -1335,6 +1348,7 @@ export default function UserIndex() {
                         </Text>
                         {/* 下载按钮 */}
                         <Image
+                          ariaLabel={tt('common.download', '下载')}
                           src={downloadIcon}
                           mode="aspectFit"
                           className="w-[36rpx] h-[36rpx]"
@@ -1403,6 +1417,7 @@ export default function UserIndex() {
         {/* 官网链接 */}
         <View className="w-full flex items-center justify-center pb-[20rpx]">
           <Image
+            ariaLabel={tt('promote.copyLink', '复制链接')}
             src={yejiaoIcon}
             mode="widthFix"
             className="w-[348rpx]"

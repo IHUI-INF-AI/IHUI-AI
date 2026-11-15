@@ -254,7 +254,7 @@ export default function ChatTemplatesScreen() {
               setRefreshing(true)
               void load()
             }}
-            tintColor={tokens.text.tertiary}
+            tintColor={tokens.text.secondary}
           />
         }
         ListHeaderComponent={
@@ -270,7 +270,7 @@ export default function ChatTemplatesScreen() {
             />
             {renderChips()}
             {loading ? (
-              <ActivityIndicator style={styles.loading} color={tokens.text.tertiary} />
+              <ActivityIndicator style={styles.loading} color={tokens.text.secondary} />
             ) : error ? (
               <View style={styles.errorBox}>
                 <Text style={styles.errorText}>{error}</Text>
@@ -287,7 +287,7 @@ export default function ChatTemplatesScreen() {
               </View>
             ) : isEmpty ? (
               <View style={styles.emptyBox}>
-                <LayoutTemplate size={32} color={tokens.text.tertiary} />
+                <LayoutTemplate size={32} color={tokens.text.secondary} />
                 <Text style={styles.emptyText}>{emptyText}</Text>
               </View>
             ) : null}

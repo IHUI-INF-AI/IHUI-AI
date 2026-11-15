@@ -104,7 +104,7 @@ export function IpWhitelistPanel() {
 
       {loading ? (
         <View style={styles.center}>
-          <ActivityIndicator color={tokens.text.tertiary} />
+          <ActivityIndicator color={tokens.text.secondary} />
         </View>
       ) : loadError ? (
         <TouchableOpacity onPress={() => void load()} accessibilityRole="button">

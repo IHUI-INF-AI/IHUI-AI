@@ -13,6 +13,7 @@
  *   注:后端 POST /feedbacks 尚未接收 filePath 字段(schema 无 additionalProperties:false,
  *   未知字段被 fastify 忽略,不报错);后端 feedbacks 表加 file_path 字段后即可持久化。
  */
+import { t as tStatic } from '../i18n'
 import { rnSpacing, rnType } from '@ihui/design-tokens'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
@@ -107,7 +108,7 @@ export function FeedbackScreen() {
       >
         {({ pressed }) => (
           <View style={[styles.historyBtn, pressed ? styles.historyBtnPressed : null]}>
-            <Text style={styles.historyBtnText}>查看反馈记录 ›</Text>
+            <Text style={styles.historyBtnText}>{tStatic('uiText.viewFeedbackHistory')}</Text>
           </View>
         )}
       </Pressable>

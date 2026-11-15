@@ -191,7 +191,7 @@ export function SelectionAnnotationBar({
                     value={draft}
                     onChangeText={(v) => setDrafts((d) => ({ ...d, [a.id]: v }))}
                     placeholder={t('selectionAnnotations.commentPlaceholder')}
-                    placeholderTextColor={tokens.text.tertiary}
+                    placeholderTextColor={tokens.text.secondary}
                     accessibilityLabel={t('selectionAnnotations.commentAriaLabel')}
                   />
                   <Tappable

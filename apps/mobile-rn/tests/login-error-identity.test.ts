@@ -132,9 +132,13 @@ describe('出口在登录站参数形态下的身份优先行为', () => {
     expect(apiFailureToText({ error: '' }, LOGIN_FAILED_TEXT)).toBe(LOGIN_FAILED_TEXT)
   })
 
-  it('对照:同一 message 不带 status 只能落到参数类正则 —— 上一条判别的正是 status', () => {
+  it('对照:同一 message 不带 status 也落认证类 —— 词序覆盖生效(2026-11-14 修)', () => {
+    // 原断言期待「提交的信息有误」,靠它反证「带 status 时走的是 status 判序」。
+    // error-messages.ts:101-108 补上词序双向覆盖后(`Invalid or expired token`
+    // 形容词在前),这句**不带 status** 也正确落「登录已过期」。
+    // 继续断言旧值等于把已修好的缺陷钉回去。
     expect(apiFailureToText({ error: 'Invalid or expired token' }, LOGIN_FAILED_TEXT)).toBe(
-      '提交的信息有误,请检查后重试',
+      '登录已过期,请重新登录',
     )
   })
 })

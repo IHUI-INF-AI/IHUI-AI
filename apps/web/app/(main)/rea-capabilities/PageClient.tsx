@@ -92,7 +92,7 @@ export default function ReaCapabilitiesPageClient() {
         </div>
         <p className="text-label text-muted-foreground">
           每条能力均锚定 REA 取证实测函数名,不写臆测。证据目录:
-          <code className="text-xs">.ihui-agent/evidence/rea-reverse/</code>
+          <code className="font-[weight:inherit] text-label">.ihui-agent/evidence/rea-reverse/</code>
         </p>
       </header>
 
@@ -163,10 +163,10 @@ export default function ReaCapabilitiesPageClient() {
                   </div>
 
                   {/* 摘要 */}
-                  <p className="text-sm text-muted-foreground">{c.summary}</p>
+                  <p className="font-[weight:inherit] text-body text-muted-foreground">{c.summary}</p>
 
                   {/* 证据(REA 现场取证:版本 + sha8 + 实测要点)+ 落位 */}
-                  <div className="space-y-1 text-xs text-muted-foreground">
+                  <div className="font-[weight:inherit] space-y-1 text-label text-muted-foreground">
                     <div className="flex flex-wrap items-center gap-1.5">
                       <Search className="h-3 w-3 shrink-0" />
                       <span className="font-mono">{c.evidence.probe}</span>
@@ -178,7 +178,7 @@ export default function ReaCapabilitiesPageClient() {
                     <div className="text-[11px] leading-relaxed">{c.evidence.measured}</div>
                     <div className="flex items-center gap-1.5">
                       <Code className="h-3 w-3 shrink-0" />
-                      <code className="rounded-sm bg-muted px-1.5 py-0.5 font-mono text-xs">
+                      <code className="font-[weight:inherit] rounded-sm bg-muted px-1.5 py-0.5 font-mono text-label">
                         {c.target}
                       </code>
                       <Button
@@ -194,7 +194,7 @@ export default function ReaCapabilitiesPageClient() {
 
                   {/* 挂载视图(若有) */}
                   {c.view && (
-                    <div className="flex items-center gap-1.5 text-xs">
+                    <div className="font-[weight:inherit] flex items-center gap-1.5 text-label">
                       <ExternalLink className="h-3 w-3 text-primary" />
                       <span className="text-muted-foreground">
                         挂载视图:
@@ -218,13 +218,13 @@ export default function ReaCapabilitiesPageClient() {
           )
         })}
         {items.length === 0 && (
-          <li className="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">
+          <li className="font-[weight:inherit] rounded-md border border-dashed p-8 text-center text-body text-muted-foreground">
             无匹配能力,请调整筛选条件。
           </li>
         )}
       </ul>
 
-      <footer className="pt-2 text-xs text-muted-foreground">
+      <footer className="font-[weight:inherit] pt-2 text-label text-muted-foreground">
         <p>
           本目录是逆向复用的静态展示,不含运行时代码;每条能力的实际实现进度以
           <code className="mx-1 font-mono">PROJECT_PLAN.md</code>

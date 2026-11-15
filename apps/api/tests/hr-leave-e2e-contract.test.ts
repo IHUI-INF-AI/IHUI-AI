@@ -351,7 +351,12 @@ describe('HR-3 请假端到端联调(不连库契约回归)', () => {
     const instRow = H.instancesById.get(instId) as Row
     H.reads.instance = [[{ ...instRow, currentStep: 1 }]]
     H.reads.flow = [[twoLevelFlowRow()]]
-    await decideApproval({ instanceId: instId, approverId: MGR2, action: 'approved', remark: '批准' })
+    await decideApproval({
+      instanceId: instId,
+      approverId: MGR2,
+      action: 'approved',
+      remark: '批准',
+    })
 
     // 终态后待办查询:SQL 层过滤 status ∈ (pending, escalated) ⇒ 已终态实例不进假库读集 ⇒ 不返回
     H.reads.instance = [[]]

@@ -70,41 +70,47 @@ function EduShopScreen() {
     [locale],
   )
 
-  const loadCourses = useCallback(async (page: number, append: boolean) => {
-    setCoursesLoading(true)
-    setCoursesError(null)
-    try {
-      const res = await fetchApi<{ list: CourseRow[]; total: number }>(
-        `/api/edu/courses?page=${page}&pageSize=${COURSES_PAGE_SIZE}`,
-      )
-      if (!res.success) throw new Error(res.error || 'load failed')
-      const list = res.data?.list ?? []
-      setCourses((prev) => (append ? [...prev, ...list] : list))
-      setCoursesTotal(res.data?.total ?? list.length)
-    } catch (e) {
-      setCoursesError(toFriendlyOr(e, t('common.loadFailed')))
-    } finally {
-      setCoursesLoading(false)
-    }
-  }, [])
+  const loadCourses = useCallback(
+    async (page: number, append: boolean) => {
+      setCoursesLoading(true)
+      setCoursesError(null)
+      try {
+        const res = await fetchApi<{ list: CourseRow[]; total: number }>(
+          `/api/edu/courses?page=${page}&pageSize=${COURSES_PAGE_SIZE}`,
+        )
+        if (!res.success) throw new Error(res.error || 'load failed')
+        const list = res.data?.list ?? []
+        setCourses((prev) => (append ? [...prev, ...list] : list))
+        setCoursesTotal(res.data?.total ?? list.length)
+      } catch (e) {
+        setCoursesError(toFriendlyOr(e, t('common.loadFailed')))
+      } finally {
+        setCoursesLoading(false)
+      }
+    },
+    [t],
+  )
 
-  const loadOrders = useCallback(async (page: number, append: boolean) => {
-    setOrdersLoading(true)
-    setOrdersError(null)
-    try {
-      const res = await fetchApi<{ list: OrderRow[]; total: number }>(
-        `/api/edu/orders/my?page=${page}&pageSize=${ORDERS_PAGE_SIZE}`,
-      )
-      if (!res.success) throw new Error(res.error || 'load failed')
-      const list = res.data?.list ?? []
-      setOrders((prev) => (append ? [...prev, ...list] : list))
-      setOrdersTotal(res.data?.total ?? list.length)
-    } catch (e) {
-      setOrdersError(toFriendlyOr(e, t('common.loadFailed')))
-    } finally {
-      setOrdersLoading(false)
-    }
-  }, [])
+  const loadOrders = useCallback(
+    async (page: number, append: boolean) => {
+      setOrdersLoading(true)
+      setOrdersError(null)
+      try {
+        const res = await fetchApi<{ list: OrderRow[]; total: number }>(
+          `/api/edu/orders/my?page=${page}&pageSize=${ORDERS_PAGE_SIZE}`,
+        )
+        if (!res.success) throw new Error(res.error || 'load failed')
+        const list = res.data?.list ?? []
+        setOrders((prev) => (append ? [...prev, ...list] : list))
+        setOrdersTotal(res.data?.total ?? list.length)
+      } catch (e) {
+        setOrdersError(toFriendlyOr(e, t('common.loadFailed')))
+      } finally {
+        setOrdersLoading(false)
+      }
+    },
+    [t],
+  )
 
   useEffect(() => {
     void loadCourses(1, false)

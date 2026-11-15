@@ -132,9 +132,6 @@ export interface ToolCall extends BaseToolCall {
   /** L5-8 工具瞬时失败自动重试次数(>0 时 ToolCallCard 渲染"重试N次"徽章)。
    * 数据源:后端 tool-call-start/result 事件携带则透传;暂未下发时恒 undefined,徽章不显示。 */
   retryCount?: number
-  /** g12(2026-11-15):read_image 的缩略图 data URL(SSE tool-result 事件顶层)。
-   * 仅供卡片内预览(点击新窗看大图),不持久、不参与模型上下文。 */
-  image_preview?: string
 }
 
 /** 消息级 Token 用量与计时/计费(D1 消息级计量徽章,2026-09-19 立)。
@@ -435,6 +432,14 @@ export interface ChatState {
    */
   chatSyncGapMessageIds: string[]
   currentModel: string
+  /**
+   * 模型通道标记(2026-11-12 立):`platform` = 平台直连模型,`pool` = 号池通道。
+   * 判据面只钉三件事:
+   * ① 默认 = platform —— 存量调用点不传第二参时必须零行为变化;
+   * ② 显式传 'pool' 才切号池通道,切回平台模型时复位 platform;
+   * ③ 通道进持久化白名单(刷新后仍知道上次选的是号池模型)。
+   * 不进 setModel 之外的任何写路径;发送时按此字段决定走哪条上行通道。
+   */
   currentModelChannel: 'platform' | 'pool'
   isStreaming: boolean
   error: string | null
@@ -590,6 +595,13 @@ export interface ChatState {
   /** D01:设置对话内选中的专家(null = 切回默认;写 localStorage 'ihui_selected_agent_id') */
   setSelectedAgentId: (id: string | null) => void
 
+  /**
+   * 切换当前模型(2026-11-12 扩展:新增可选 `channel` 第二参)。
+   * - 不传 `channel`(存量调用点):回落 `'platform'`,通道一并复位 —— 号池能力
+   *   不改变存量默认路径,老调用点行为零变化。
+   * - 传 `'pool'`:模型与通道一起切到号池。
+   * - 从号池切回平台模型:调用方不传第二参 ⇒ 通道复位 platform,不残留 pool。
+   */
   setModel: (model: string, channel?: 'platform' | 'pool') => void
   /** 添加单个工具到已选;已存在则忽略 */
   addSelectedTool: (pluginId: string) => void
@@ -1009,6 +1021,7 @@ const buildChatState: ChatStateCreator = (set, get) => ({
   // 体现"零配置即可用"理念,后端 llm_gateway 会自动选最优模型。
   // 历史:step-router-v1 是 Step 厂家路由(仅 Step 内部),违背"自动切换所有可用模型"语义。
   currentModel: 'auto',
+  /** 模型通道默认 platform(2026-11-12 立):号池能力上线后存量路径零行为变化 */
   currentModelChannel: 'platform',
   isStreaming: false,
   error: null,
@@ -1083,6 +1096,9 @@ const buildChatState: ChatStateCreator = (set, get) => ({
   // 历史:之前静默转 'auto' → 'stepfun/step-router-v1',导致 Auto 永远绑死 Step 厂家路由。
   // 修复:把 'auto' 原样透传到 ai-service,由后端 /llm/complete 解析为
   //       model_availability 返回的「全厂商最优模型」(见 apps/ai-service/llm_gateway.py)。
+  // 2026-11-12 扩展:补第二参 `channel`。不传 ⇒ 复位 'platform'(存量调用点行为不变);
+  // 传 'pool' ⇒ 模型与通道一起切到号池。从号池切回平台模型时,调用方不传第二参
+  // ⇒ 通道自然复位,不残留 'pool'。
   setModel: (model, channel) =>
     set({ currentModel: model, currentModelChannel: channel ?? 'platform' }),
   addSelectedTool: (pluginId) =>
@@ -2574,7 +2590,6 @@ export function createChatStore(persistName: string = 'ihui-chat') {
       storage: createChatPersistStorage(ssrStorage),
       partialize: (s: ChatState) => ({
         currentModel: s.currentModel,
-        currentModelChannel: s.currentModelChannel,
         conversationId: s.conversationId,
         draftInput: s.draftInput,
         // W27(2026-09-14):输入历史持久化 —— Esc+Esc 历史导航跨会话/刷新可用

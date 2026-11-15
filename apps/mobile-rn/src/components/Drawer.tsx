@@ -507,7 +507,7 @@ function NavExpandableRow({ item }: { item: NavRowModel }) {
           android_ripple={{ color: tokens.surface.muted }}
         >
           <View style={{ transform: [{ rotate: expanded ? '0deg' : '-90deg' }] }}>
-            <ChevronDown size={rnGeometry.glyphSm} color={tokens.text.tertiary} />
+            <ChevronDown size={rnGeometry.glyphSm} color={tokens.text.secondary} />
           </View>
         </Pressable>
       </View>
@@ -541,7 +541,7 @@ function NavDomainRow({ label, Icon, onPress }: NavDomainRowProps) {
       <Text numberOfLines={1} className="flex-1 font-medium" style={styles.navRowText}>
         {label}
       </Text>
-      <ChevronRight size={rnGeometry.glyphSm} color={tokens.text.tertiary} />
+      <ChevronRight size={rnGeometry.glyphSm} color={tokens.text.secondary} />
     </Pressable>
   )
 }
@@ -571,12 +571,12 @@ function NavGroupSection({ title, variant, defaultOpen, items }: NavGroupSection
         <Text
           numberOfLines={1}
           className="flex-1 text-xs font-semibold uppercase tracking-wider"
-          style={{ color: variant === 'hot' ? tokens.danger.DEFAULT : tokens.text.tertiary }}
+          style={{ color: variant === 'hot' ? tokens.danger.DEFAULT : tokens.text.secondary }}
         >
           {title}
         </Text>
         <View style={{ transform: [{ rotate: expanded ? '0deg' : '-90deg' }] }}>
-          <ChevronDown size={rnGeometry.glyphSm} color={tokens.text.tertiary} />
+          <ChevronDown size={rnGeometry.glyphSm} color={tokens.text.secondary} />
         </View>
       </Pressable>
       {expanded ? (

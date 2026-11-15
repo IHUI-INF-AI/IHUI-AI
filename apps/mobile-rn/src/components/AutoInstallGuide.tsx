@@ -1,6 +1,7 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+// i18n-content-exempt-file: 多语言常量数据定义(label/title/description等选项值,内容体系定为中文单语,产品决策2026-11-15)
 
 /**
  * 「开启全自动更新」引导卡(2026-11-05 立)。
@@ -17,6 +18,7 @@
  * 显示时机由 UpdatePrompt 决定:只在没有别的更新卡占浮层时出现(不叠卡)。
  */
 
+import { t as tStatic } from '../i18n'
 import * as React from 'react'
 import { StyleSheet, Text, View } from 'react-native'
 import { ShieldCheck } from 'lucide-react-native'
@@ -34,9 +36,13 @@ export function AutoInstallGuide(): React.JSX.Element | null {
 
   React.useEffect(() => {
     let alive = true
-    void shouldShowAutoInstallGuide().then((show) => {
-      if (alive) setVisible(show)
-    })
+    void shouldShowAutoInstallGuide()
+      .then((show) => {
+        if (alive) setVisible(show)
+      })
+      .catch(() => {
+        if (alive) setVisible(false)
+      })
     return () => {
       alive = false
     }
@@ -66,10 +72,8 @@ export function AutoInstallGuide(): React.JSX.Element | null {
           <ShieldCheck size={16} color={tokens.brandAccent.deep} />
         </View>
         <View style={styles.titleWrap}>
-          <Text style={styles.title}>开启全自动更新</Text>
-          <Text style={styles.body}>
-            允许「IHUI 自动安装」无障碍服务后，新版本会自动下载并安装，不用再手动点确认。
-          </Text>
+          <Text style={styles.title}>{tStatic('uiText.enableAutoUpdate')}</Text>
+          <Text style={styles.body}>{tStatic('uiText.autoInstallPermHint')}</Text>
         </View>
       </View>
       <View style={styles.footer}>
@@ -79,7 +83,7 @@ export function AutoInstallGuide(): React.JSX.Element | null {
           accessibilityRole="button"
           accessibilityLabel="我已开启"
         >
-          <Text style={styles.ghostText}>我已开启</Text>
+          <Text style={styles.ghostText}>{tStatic('uiText.alreadyEnabled')}</Text>
         </Tappable>
         <Tappable
           onPress={handleOpen}
@@ -88,7 +92,7 @@ export function AutoInstallGuide(): React.JSX.Element | null {
           accessibilityRole="button"
           accessibilityLabel="去开启"
         >
-          <Text style={styles.actionText}>去开启</Text>
+          <Text style={styles.actionText}>{tStatic('uiText.goEnable')}</Text>
         </Tappable>
       </View>
     </View>

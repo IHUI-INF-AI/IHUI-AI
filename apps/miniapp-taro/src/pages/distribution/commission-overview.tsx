@@ -19,6 +19,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { View, Text } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { useTt } from '@/i18n'
+import { onToast } from '@/host/on-toast'
 import { get } from '@/api'
 import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import { formatPrice } from '@ihui/shared/utils/format'
@@ -106,7 +107,10 @@ export default function CommissionOverview({ reloadTick }: { reloadTick: number 
   const canWithdraw = (info.availableCommission ?? 0) >= WITHDRAW_MIN
   const onWithdraw = () => {
     if (!canWithdraw) return
-    Taro.navigateTo({ url: WITHDRAW_PATH }).catch(() => {})
+    // 页面栈满 / 分包未下载时旧写法把失败静默吞掉,用户点「提现」毫无反馈。
+    Taro.navigateTo({ url: WITHDRAW_PATH }).catch(() => {
+      onToast(tt('distribution.navFailed', '页面未配置'), { kind: 'error' })
+    })
   }
 
   return (

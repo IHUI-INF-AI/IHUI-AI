@@ -60,7 +60,7 @@ import { scrollJumpInsetPx } from '@ihui/shared/ui/scroll-jump-spec'
 import type { CarouselItem } from '@ihui/ui-native'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
-import { useI18n } from '../i18n'
+import { useI18n, t as tStatic } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { rpx } from '../utils/rpx'
 import { FREE_RESOURCE_URL } from '../constants/links'
@@ -730,7 +730,7 @@ export function AgentScreen() {
             activeOpacity={0.8}
           >
             <Text style={viewMode === 'shared' ? styles.tabTextActive : styles.tabText}>
-              智能体
+              {t('chat.navAgent')}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -739,7 +739,7 @@ export function AgentScreen() {
             activeOpacity={0.8}
           >
             <Text style={viewMode === 'local' ? styles.tabTextActive : styles.tabText}>
-              模型选择
+              {t('home.modelSelectTitle')}
             </Text>
           </TouchableOpacity>
         </View>
@@ -776,7 +776,8 @@ export function AgentScreen() {
               {selectedModelIds.length > 0 ? (
                 <View style={styles.modelSelectionBar}>
                   <Text style={styles.modelSelectionText} numberOfLines={1}>
-                    已选模型:{selectedModelName}
+                    {tStatic('uiText.selectedModel')}
+                    {selectedModelName}
                   </Text>
                   <TouchableOpacity
                     style={styles.modelStartBtn}

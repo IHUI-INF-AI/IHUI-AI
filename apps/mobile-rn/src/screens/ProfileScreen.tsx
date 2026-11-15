@@ -1011,7 +1011,7 @@ function EditProfileModal({
               value={nickname}
               onChangeText={setNickname}
               placeholder={t('profile.nickPlaceholder')}
-              placeholderTextColor={tokens.text.tertiary}
+              placeholderTextColor={tokens.text.secondary}
               maxLength={8}
             />
           </View>
@@ -1024,7 +1024,7 @@ function EditProfileModal({
               style={[styles.editProfileInput, styles.editProfileInputReadOnly]}
               value={user.email ?? t('profile.unbound')}
               editable={false}
-              placeholderTextColor={tokens.text.tertiary}
+              placeholderTextColor={tokens.text.secondary}
             />
           </View>
 
@@ -1036,7 +1036,7 @@ function EditProfileModal({
               style={[styles.editProfileInput, styles.editProfileInputReadOnly]}
               value={user.phone ?? t('profile.unbound')}
               editable={false}
-              placeholderTextColor={tokens.text.tertiary}
+              placeholderTextColor={tokens.text.secondary}
             />
           </View>
 

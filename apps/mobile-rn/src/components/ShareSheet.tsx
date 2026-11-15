@@ -1,4 +1,4 @@
-import { useI18n } from '../i18n'
+import { useI18n, t as tStatic } from '../i18n'
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
@@ -132,7 +132,7 @@ export function ShareSheet(props: ShareSheetProps): React.JSX.Element | null {
           accessibilityLabel={t('share.sheetCloseA11y')}
         />
         <View style={styles.sheet}>
-          <Text style={styles.title}>分享到</Text>
+          <Text style={styles.title}>{tStatic('uiText.shareTo')}</Text>
           <View style={styles.row}>
             {/* 微信好友 */}
             <Pressable
@@ -146,7 +146,7 @@ export function ShareSheet(props: ShareSheetProps): React.JSX.Element | null {
                   <View style={[styles.iconTile, styles.iconTileWechat]}>
                     <WechatFriendIcon size={24} />
                   </View>
-                  <Text style={styles.optionLabel}>微信好友</Text>
+                  <Text style={styles.optionLabel}>{tStatic('businesscard.shareWechat')}</Text>
                 </View>
               )}
             </Pressable>
@@ -162,7 +162,7 @@ export function ShareSheet(props: ShareSheetProps): React.JSX.Element | null {
                   <View style={styles.iconTile}>
                     <WechatMomentsIcon size={24} />
                   </View>
-                  <Text style={styles.optionLabel}>朋友圈</Text>
+                  <Text style={styles.optionLabel}>{tStatic('businesscard.shareMoments')}</Text>
                 </View>
               )}
             </Pressable>
@@ -178,7 +178,7 @@ export function ShareSheet(props: ShareSheetProps): React.JSX.Element | null {
                   <View style={styles.iconTile}>
                     <Link2 size={24} color={tokens.text.primary} />
                   </View>
-                  <Text style={styles.optionLabel}>复制链接</Text>
+                  <Text style={styles.optionLabel}>{tStatic('promote.copyLink')}</Text>
                 </View>
               )}
             </Pressable>
@@ -192,7 +192,7 @@ export function ShareSheet(props: ShareSheetProps): React.JSX.Element | null {
           >
             {({ pressed }) => (
               <View style={[styles.cancelFace, pressed ? styles.pressed : null]}>
-                <Text style={styles.cancelText}>取消</Text>
+                <Text style={styles.cancelText}>{tStatic('auth.twoFactorCancel')}</Text>
               </View>
             )}
           </Pressable>

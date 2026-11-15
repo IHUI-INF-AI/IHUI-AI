@@ -165,7 +165,7 @@ export function LiveDetailScreen() {
         >
           {({ pressed }) => (
             <View style={[styles.entryBtn, pressed ? styles.entryBtnPressed : null]}>
-              <Text style={styles.entryBtnText}>直播预告</Text>
+              <Text style={styles.entryBtnText}>{t('livePreview.title')}</Text>
             </View>
           )}
         </Pressable>
@@ -177,7 +177,7 @@ export function LiveDetailScreen() {
         >
           {({ pressed }) => (
             <View style={[styles.entryBtn, pressed ? styles.entryBtnPressed : null]}>
-              <Text style={styles.entryBtnText}>主播端</Text>
+              <Text style={styles.entryBtnText}>{t('liveDetail.hostMode')}</Text>
             </View>
           )}
         </Pressable>

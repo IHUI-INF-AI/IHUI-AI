@@ -156,17 +156,48 @@ export default function ShareIndexPage() {
     setPageScrollLocked(false)
   }, [])
 
+  /** 分页刷新的并发/生命周期防线(2026-11-15) */
+  const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const aliveRef = useRef(true)
+  const loadingRef = useRef(false)
+  const reqSeqRef = useRef(0)
+  const listLengthRef = useRef(0)
+  useEffect(() => {
+    aliveRef.current = true
+    return () => {
+      aliveRef.current = false
+      if (refreshTimerRef.current !== null) {
+        clearTimeout(refreshTimerRef.current)
+        refreshTimerRef.current = null
+      }
+    }
+  }, [])
+  // 三处刷新入口共用一枚定时器:先清后排,避免连点时多个宏任务回调在同一批次
+  // 重复发请求;卸载时一并撤销,不再出现"页面已销毁还在 setState"。
+  const scheduleRefresh = useCallback(() => {
+    if (refreshTimerRef.current !== null) clearTimeout(refreshTimerRef.current)
+    refreshTimerRef.current = setTimeout(() => {
+      refreshTimerRef.current = null
+      if (aliveRef.current) void loadRef.current(true)
+    }, 0)
+  }, [])
+
   const loadList = useCallback(
     async (reset = false) => {
-      if (loading) return
+      // 同步判据,不再依赖 re-render 后的 loading 快照:连点 Tab/分类时旧写法
+      // 多个定时器回调在同一宏任务批次都读到 loading=false,并发请求相互覆盖。
+      if (loadingRef.current) return
       let curPage = page
       if (reset) {
         curPage = 1
         setNoMore(false)
         setInfoList([])
         setPage(1)
+        listLengthRef.current = 0
       }
       if (!reset && noMore) return
+      loadingRef.current = true
+      const seq = ++reqSeqRef.current
       setLoading(true)
       try {
         const params: Record<string, unknown> = { page: curPage, pageSize: PAGE_SIZE }
@@ -175,19 +206,28 @@ export default function ShareIndexPage() {
         if (activeTab === 'hot') params['sort'] = 'hot'
         if (activeTab === 'following') params['following'] = 1
         const res = (await api.getNewsList(params)) as { list?: unknown[]; total?: number }
+        // 卸载后或已被更新的一次请求取代时丢弃回包,避免旧响应覆盖新列表。
+        if (!aliveRef.current || seq !== reqSeqRef.current) return
         const rawList = Array.isArray(res?.list) ? res.list : []
         const newList = rawList.map((r) => normalizeInfo(r as Record<string, unknown>))
-        const total = typeof res?.total === 'number' ? res.total : 0
+        const total = typeof res?.total === 'number' && res.total > 0 ? res.total : null
+        const nextLength = (reset ? 0 : listLengthRef.current) + newList.length
+        listLengthRef.current = nextLength
         setInfoList((prev) => (reset ? newList : [...prev, ...newList]))
-        setNoMore((reset ? newList.length : infoList.length + newList.length) >= total)
+        // 后端未给可信 total 时按「本页是否满页」推导;旧写法把缺失 total 当 0,
+        // newList.length >= 0 恒真 ⇒ 第一页就置 noMore,触底永远加载不出第二页。
+        setNoMore(total === null ? newList.length < PAGE_SIZE : nextLength >= total)
         setPage(curPage + 1)
       } catch {
         // ignore
       } finally {
-        setLoading(false)
+        if (aliveRef.current && seq === reqSeqRef.current) {
+          loadingRef.current = false
+          setLoading(false)
+        }
       }
     },
-    [loading, page, noMore, keyword, activeCategory, activeTab, infoList.length],
+    [page, noMore, keyword, activeCategory, activeTab],
   )
 
   const loadCategories = useCallback(async () => {
@@ -407,9 +447,9 @@ export default function ShareIndexPage() {
       setPage(1)
       setNoMore(false)
       setInfoList([])
-      setTimeout(() => void loadRef.current(true), 0)
+      scheduleRefresh()
     },
-    [activeTab],
+    [activeTab, scheduleRefresh],
   )
 
   const selectCategory = useCallback(
@@ -431,9 +471,9 @@ export default function ShareIndexPage() {
       } catch {
         // 静默
       }
-      setTimeout(() => void loadRef.current(true), 0)
+      scheduleRefresh()
     },
-    [unlockPageScroll],
+    [unlockPageScroll, scheduleRefresh],
   )
 
   /** TitleSwitchScrollTitle 选择分类回调 */
@@ -453,8 +493,8 @@ export default function ShareIndexPage() {
     setPage(1)
     setNoMore(false)
     setInfoList([])
-    setTimeout(() => void loadRef.current(true), 0)
-  }, [])
+    scheduleRefresh()
+  }, [scheduleRefresh])
 
   const goInfoDetail = useCallback((id: string | number) => {
     Taro.navigateTo({ url: `/pkg-content/news/detail?id=${id}` })

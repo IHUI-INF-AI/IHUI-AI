@@ -11,7 +11,7 @@
 // 长效令牌仍活着(可继续续签)。端内 `logout()` 封装不带参,故这里直连在册端点。
 // 薄壳后按钮渲染归共享屏,此文件只保留动作。
 import Taro from '@tarojs/taro'
-import { useCallback } from 'react'
+import { useCallback, useEffect } from 'react'
 import { useI18n } from '@/i18n'
 import { post } from '@/api'
 import { clearAuth, getRefreshToken, goToLogin } from '@/utils/auth'
@@ -24,6 +24,18 @@ type Translate = (key: string) => string
  * 无渲染的登出动作(共享屏 ProfileScreen / SettingsScreen 均由宿主注入 onLogout)。
  * settings 页的确认弹窗由共享屏 onConfirm 发起,故这里不再自带 showModal。
  */
+// 登出后跳登录页的 timer 存模块级:performLogout 是模块级函数不在组件作用域内,
+// 无法用 useRef。存这里有两用:① performLogout 重入先清旧 timer,防连点叠出多次跳转;
+// ② useProfileLogout 在 hook 卸载时经 cancelPendingLogoutTimer() 清理,防卸载后仍触发 goToLogin。
+let logoutNavTimer: ReturnType<typeof setTimeout> | null = null
+
+function cancelPendingLogoutTimer(): void {
+  if (logoutNavTimer !== null) {
+    clearTimeout(logoutNavTimer)
+    logoutNavTimer = null
+  }
+}
+
 async function performLogout(t: Translate): Promise<void> {
   // 令牌要在 clearAuth() 之前取(clear 之后就没了)
   const refreshToken = getRefreshToken()
@@ -37,11 +49,17 @@ async function performLogout(t: Translate): Promise<void> {
   // 清凭据 + 落登出标记是 clearAuth() 一件成对动作,顺序在它内部定死
   clearAuth()
   onToast(t('user.loggedOut'), { kind: 'success' })
-  setTimeout(goToLogin, 800)
+  cancelPendingLogoutTimer()
+  logoutNavTimer = setTimeout(() => {
+    logoutNavTimer = null
+    goToLogin()
+  }, 800)
 }
 
 export function useProfileLogout() {
   const { t } = useI18n()
+  // 卸载时清掉待触发的跳转 timer:用户确认登出后在 800ms 内自行返回/关页,定时器不应再拉走页面
+  useEffect(() => cancelPendingLogoutTimer, [])
   return useCallback(() => {
     Taro.showModal({
       title: t('setting.hint'),

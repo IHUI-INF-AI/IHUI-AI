@@ -96,7 +96,7 @@ function EduScheduleScreen() {
     } finally {
       setLoading(false)
     }
-  }, [weekdayLabel])
+  }, [weekdayLabel, t])
 
   useEffect(() => {
     void load()

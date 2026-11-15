@@ -169,7 +169,7 @@ export default function AskEditScreen() {
 
       {loading ? (
         <View style={styles.stateBox}>
-          <ActivityIndicator color={tokens.text.tertiary} />
+          <ActivityIndicator color={tokens.text.secondary} />
           <Text style={styles.muted}>{t('askEdit.loading')}</Text>
         </View>
       ) : loadError ? (

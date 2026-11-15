@@ -183,7 +183,7 @@ export function DeepResearchScreen() {
             multiline
             numberOfLines={3}
             placeholder={t('deepResearch.queryPlaceholder')}
-            placeholderTextColor={tokens.text.tertiary}
+            placeholderTextColor={tokens.text.secondary}
             className="rounded-sm border border-neutral-200 px-3 py-2 text-sm text-neutral-900 dark:border-neutral-700 dark:text-neutral-100"
           />
           <View className="mt-3 flex-row items-center">

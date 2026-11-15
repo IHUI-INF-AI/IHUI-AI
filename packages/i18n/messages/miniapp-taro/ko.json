@@ -3616,7 +3616,9 @@
     "terminal": {
       "waitingInput": "입력 대기",
       "mobileUnsupported": "모바일 터미널 미지원"
-    }
+    },
+    "questionNoSession": "세션을 찾을 수 없어 답변할 수 없습니다",
+    "questionFailed": "제출 실패, 다시 시도하세요"
   },
   "tabBar": {
     "community": "커뮤니티",
@@ -7311,5 +7313,13 @@
     "score": "점수",
     "bm25": "BM25",
     "hop": "홉"
+  },
+  "toastFallback": {
+    "shareFeature": "공유",
+    "serviceUnavailable": "고객 지원 기능 준비 중",
+    "feedbackUnavailable": "피드백 기능 준비 중",
+    "feedbackOpenFailed": "피드백 화면을 열지 못했습니다. 다시 시도해 주세요",
+    "navigationNotWired": "화면 이동이 연결되지 않았습니다",
+    "pageUnsupported": "아직 지원되지 않는 페이지입니다"
   }
 }
