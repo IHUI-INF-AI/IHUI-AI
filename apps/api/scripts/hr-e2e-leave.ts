@@ -27,8 +27,17 @@ const deptId = '770fb992-7fa3-4746-b378-3ea59a979054'
 import { hrApprovalFlow } from '@ihui/database'
 const flows = await db.select().from(hrApprovalFlow).where(eq(hrApprovalFlow.leaveType, '年假'))
 const twoLevel = flows.find((f) => f.minDays === 3) // 3~∞ 两级链
+if (!twoLevel) {
+  console.error('❌ 种子缺失:未找到 minDays=3 的年假审批链,请先跑种子脚本')
+  process.exit(1)
+}
+// 两级链要求 approverIds 至少两位;缺位 = 种子不完整,提前退出(不写错号进审批)
 const mgr1 = twoLevel.approverIds[0]
 const mgr2 = twoLevel.approverIds[1]
+if (!mgr1 || !mgr2) {
+  console.error('❌ 种子缺失:年假两级审批链 approverIds 长度 <2,请先补种子')
+  process.exit(1)
+}
 
 let step = 0
 const ok = (label: string, cond: boolean, extra?: unknown) => {
@@ -50,7 +59,11 @@ const leave = await createHrLeave({
   totalDays: 5,
   reason: '端到端联调·5天年假',
 })
-ok('创建请假单', !!leave?.id, { leaveId: leave.id.slice(0, 8), status: leave.status })
+if (!leave) {
+  console.error('❌ 创建请假单失败:service 返回 null(参数校验或库写入失败)')
+  process.exit(1)
+}
+ok('创建请假单', !!leave.id, { leaveId: leave.id.slice(0, 8), status: leave.status })
 
 // ② 提交进多级审批流(固化四件套快照)
 const submit = await submitApproval({ leaveRequestId: leave.id })
@@ -69,7 +82,13 @@ ok('超时时限快照 = 48h(规则值,非默认24)', inst.timeoutHoursSnapshot 
 ok('升级目标快照 = mgr2', inst.escalationApproverSnapshot === mgr2, {
   v: inst.escalationApproverSnapshot?.slice(0, 8),
 })
-const dueHours = (inst.dueAt.getTime() - inst.submittedAt.getTime()) / 3_600_000
+const dueAt = inst.dueAt
+const submittedAt = inst.submittedAt
+if (!dueAt || !submittedAt) {
+  console.error('❌ dueAt / submittedAt 为 null,审批实例未按预期初始化')
+  process.exit(1)
+}
+const dueHours = (dueAt.getTime() - submittedAt.getTime()) / 3_600_000
 ok('due_at 按 48h 折算', Math.round(dueHours) === 48, { dueHours: Math.round(dueHours) })
 
 // ④ 逐级审批:一级通过 → 推进到二级
@@ -96,7 +115,12 @@ const r2 = await decideApproval({
 })
 ok('末步审批通过 → status=approved', r2.instance.status === 'approved')
 
-const [leaveAfter] = await db.select().from(hrLeaveRequest).where(eq(hrLeaveRequest.id, leave.id))
+const leaveRows = await db.select().from(hrLeaveRequest).where(eq(hrLeaveRequest.id, leave.id))
+const leaveAfter = leaveRows[0]
+if (!leaveAfter) {
+  console.error('❌ 回读请假单失败:未找到 id =', leave.id)
+  process.exit(1)
+}
 ok('请假单回写 = approved', leaveAfter.status === 'approved', { status: leaveAfter.status })
 
 // ⑥ 待办列表:审批完成后 mgr1 不应再看到该实例

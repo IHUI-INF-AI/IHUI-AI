@@ -523,7 +523,9 @@ export async function refreshAccessTokenOnce(): Promise<string | null> {
     .catch((err) => {
       // 刷新失败:进入冷却窗口,阻止后续 401 在窗口内重复刷新
       // 429 需要退避到限流窗口之外(默认 5s 冷却敲不服 20 次/分钟的窗口)
-      startRefreshFailCooldown(err instanceof RefreshRateLimitedError ? REFRESH_RATE_LIMIT_COOLDOWN_MS : undefined)
+      startRefreshFailCooldown(
+        err instanceof RefreshRateLimitedError ? REFRESH_RATE_LIMIT_COOLDOWN_MS : undefined,
+      )
       // 2026-10-09 分型:端内实现抛 TransientRefreshError = 网络/5xx 性质的失败,
       // 不构成"会话不可恢复" —— fetchApi 的 401 出口据此外置标志跳过 notifyUnauthorized,
       // 防止端内出口把瞬时失败当会话终结(写持久登出标记 → 30 天 refresh 凭据被永久废掉)。
@@ -1064,9 +1066,104 @@ export function isAbortError(err: unknown): boolean {
   return true
 }
 
+/**
+ * 沿 `cause` 链向下找真 AbortError(2026-11-14 真机取证:登录页横幅直出英文原文)。
+ *
+ * 浏览器 / RN / undici 在 fetch 被 abort 时**抛的是 `TypeError('fetch failed')`**,
+ * 真 `AbortError` 藏在 `cause` 里 ⇒ 仅靠 `isAbortError` 判不出,"超时/取消"被当成
+ * 未知异常,英文 message 原样进了用户可见横幅。
+ *
+ * - 递归向下剥 `cause`,直到命中 `isAbortError` 或走到链尾;
+ * - **环检测**:`cause` 指回自身(或已访问集合内)时立即回落到**原错误**,
+ *   不死循环(调用方语义 = 拿不到真身就当普通错误处理);
+ * - 无 cause / 非 Error:原样返回,调用方按普通错误路径走。
+ *
+ * 与 `isAbortError` 的分工:`isAbortError` 只判一层(裸 AbortError);
+ * 本函数负责跨 `cause` 链找真身,调用方写 `isAbortError(unwrapAbortCause(err))`。
+ */
+export function unwrapAbortCause(err: unknown, depth = 0): unknown {
+  // 防御性深度上限(理论 4 层足够;防御性放宽到 8,再多必是环)
+  if (depth > 8) return err
+  if (isAbortError(err)) return err
+  const cause = (err as { cause?: unknown } | null)?.cause
+  if (cause === undefined || cause === null || cause === err) return err
+  // 防自引/环:已访问集合
+  const seen = new Set<unknown>([err])
+  let cur: unknown = cause
+  for (let i = 0; i < 8; i++) {
+    if (isAbortError(cur)) return cur
+    if (typeof cur !== 'object' || cur === null) return err
+    if (seen.has(cur)) return err
+    seen.add(cur)
+    const next = (cur as { cause?: unknown }).cause
+    if (next === undefined || next === null || next === cur) return err
+    cur = next
+  }
+  return err
+}
+
+/**
+ * 网络类英文 message 关键词闭集(2026-11-14 立判据)。
+ *
+ * 只收**确定是网络层抛出**的英文原文;业务侧的英文(如 `Invalid or expired token`)
+ * **不在**此列 —— 它要交给 @ihui/shared 的 `toUserFriendlyMessage` 映射成
+ * 「登录已过期,请重新登录」,若在这里吞成"网络异常"会把用户引导去查网络。
+ */
+const NETWORK_ERROR_MESSAGE_PATTERNS: readonly RegExp[] = [
+  /^fetch failed\b/i, // undici / Node fetch / RN fetch abort 的外壳
+  /^Network request failed$/i, // RN iOS / Android 原生 fetch
+  /^Network Error$/i, // axios 风格兜底
+  /^Failed to fetch$/i, // 浏览器 fetch
+  /^Load failed$/i, // Safari / WebKit fetch
+]
+
+/**
+ * 无 status 的传输层异常 → 用户可读文案(2026-11-14 立判据)。
+ *
+ * ## 为什么需要这一层
+ *
+ * `fetchApi` 把 `err.message` 原样塞进 `ApiResult.error`,而 239 处调用点写的是
+ * `setError(res.error || t('x'))` ⇒ 拦住 239 处的唯一出口是本函数,**不是**逐屏改文案。
+ *
+ * ## 判据
+ *
+ * 1. `cause` 链里有真 AbortError ⇒ 「网络连接异常,请检查网络后重试」
+ *    (超时 / 取消的真身被外壳包住的情况;打一条 `console.warn` 带原 message 做诊断);
+ * 2. message 命中 `NETWORK_ERROR_MESSAGE_PATTERNS` ⇒ 同上(真网络断);
+ * 3. 其他 Error 且 message 非空 ⇒ **原样透传**:
+ *    - 中文业务文案(「请先绑定手机号!」/「积分不足」)原样保留;
+ *    - 英文业务文案(`Invalid or expired token`)原样交给共享层正则分类;
+ *    - 非 Error 值(对象 / undefined / null)⇒ 「网络异常」通用兜底;
+ * 4. message 为空白 / 缺失 ⇒ 「网络异常」。
+ *
+ * ## 副作用纪律
+ *
+ * 只在命中第 1 / 2 条(确定是网络层)时打**一条** `console.warn`,带原 message 做诊断;
+ * 第 3 条(业务文案)不打 —— 调用方会自己决定要不要上报,这里刷屏是噪声。
+ */
+export function transportFailureText(err: unknown): string {
+  // ① cause 链里有真 AbortError(裸 TypeError 包真 AbortError 的真机形态)
+  if (isAbortError(unwrapAbortCause(err))) {
+    const msg = err instanceof Error ? err.message : ''
+    console.warn('[api-client] transport abort (wrapped):', msg || '(no message)')
+    return '网络连接异常,请检查网络后重试'
+  }
+  // ② 非 Error 值 ⇒ 通用兜底(不猜)
+  if (!(err instanceof Error)) return '网络异常'
+  const msg = err.message
+  if (typeof msg !== 'string' || msg.trim() === '') return '网络异常'
+  // ③ 网络类英文原文 ⇒ 用户可读文案 + 打一条诊断日志
+  if (NETWORK_ERROR_MESSAGE_PATTERNS.some((re) => re.test(msg))) {
+    console.warn('[api-client] transport network error:', msg)
+    return '网络连接异常,请检查网络后重试'
+  }
+  // ④ 业务文案(中英皆可)原样透传,不在本层抢职责
+  return msg
+}
+
 /** 把内部抛出的错误归一化为 ApiFailure(CircuitOpenError 由调用方处理) */
 function normalizeErrorToResult(err: unknown): ApiFailure {
-  if (isAbortError(err)) {
+  if (isAbortError(unwrapAbortCause(err))) {
     return { success: false, error: '请求已取消' }
   }
   const errAny = err as Error & { status?: number; errorCode?: string; retryAfter?: number }
@@ -1079,9 +1176,10 @@ function normalizeErrorToResult(err: unknown): ApiFailure {
       retryAfter: errAny.retryAfter,
     }
   }
+  // 无 status:走传输层文案判据(网络类英文原文 ⇒ 用户可读;业务文案原样透传)
   return {
     success: false,
-    error: err instanceof Error ? err.message : '网络异常',
+    error: err instanceof Error ? transportFailureText(err) : '网络异常',
   }
 }
 
