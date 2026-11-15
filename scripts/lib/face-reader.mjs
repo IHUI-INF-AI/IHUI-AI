@@ -1391,11 +1391,13 @@ export function worktreeHashObjectBatch(root, rels, opts = {}) {
   try {
     out = batchExecFileSync(
       GIT,
-      ['-c', 'safe.directory=*', '-C', root, '-c', 'core.autocrlf=false', 'hash-object', '--stdin-paths', '-z'],
+      // 注意:`hash-object --stdin-paths` **不支持 `-z`**(2026-11-15 实测 error: unknown switch `z`);
+      // 路径以 LF 分隔喂入,git 按行回显 oid 且与输入同序 —— 这就是为何 present 顺序必须与 rels 一致。
+      ['-c', 'safe.directory=*', '-C', root, '-c', 'core.autocrlf=false', 'hash-object', '--stdin-paths'],
       {
         cwd: root,
-        // `-z`:输入路径以 NUL 分隔、输出 oid 与路径也以 NUL 分隔(路径含空格/中文不拆错)
-        input: Buffer.from(present.map((r) => `${r}\0`).join(''), 'utf8'),
+        // LF 分隔路径(--stdin-paths 唯一接受的分隔);路径含空格安全,含换行的文件名本仓不存在。
+        input: Buffer.from(present.map((r) => `${r}\n`).join(''), 'utf8'),
         encoding: 'utf8',
         windowsHide: true,
         maxBuffer: opts.maxBuffer ?? GIT_MAX_BUFFER,
@@ -1408,13 +1410,13 @@ export function worktreeHashObjectBatch(root, rels, opts = {}) {
       `git hash-object --stdin-paths 失败(${present.length} 个工作树路径),${root} 的工作树 blob 无法取材: ${gitErrText(e)}`,
     )
   }
-  // `-z` 输出形态:每条 `<40hex oid> NUL <path> NUL`(路径原样回显)。按 NUL 切后两两配对。
-  const tokens = String(out).split('\0').filter((t) => t !== '')
+  // 无 `-z` 输出形态:每个 oid 独占一行,与输入路径同序(不回显路径)。
+  // 因此不能用「oid↔path 配对」,只能按行号对齐 present[i] ⇔ oid 行 i。
+  const lines = String(out).split('\n').map((l) => l.trim()).filter((l) => l !== '')
   const oidByPath = new Map()
-  for (let i = 0; i + 1 < tokens.length; i += 2) {
-    const oid = tokens[i].trim().split(/\s+/)[0]
-    const p = tokens[i + 1]
-    if (/^[0-9a-f]{40}$/i.test(oid) && p) oidByPath.set(p, oid.toLowerCase())
+  for (let i = 0; i < present.length && i < lines.length; i += 1) {
+    const oid = lines[i].split(/\s+/)[0]
+    if (/^[0-9a-f]{40}$/i.test(oid)) oidByPath.set(present[i], oid.toLowerCase())
   }
   for (const rel of present) {
     const oid = oidByPath.get(rel)
