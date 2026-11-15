@@ -176,8 +176,10 @@ function StatCard(props: {
       <CardContent className="flex items-center gap-3 p-4">
         <div className={`${tone} shrink-0`}>{props.icon}</div>
         <div className="min-w-0">
-          <div className={`text-xl font-semibold ${tone}`}>{props.value}</div>
-          <div className="truncate text-xs text-muted-foreground">{props.label}</div>
+          <div className={`text-heading font-semibold ${tone}`}>{props.value}</div>
+          <div className="font-[weight:inherit] truncate text-label text-muted-foreground">
+            {props.label}
+          </div>
           {props.hint ? (
             <div className="truncate text-[10px] text-muted-foreground/70">{props.hint}</div>
           ) : null}
@@ -414,7 +416,7 @@ export default function PricingConsolePage() {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h1 className="text-lg font-semibold">定价管控台</h1>
-          <p className="text-xs text-muted-foreground">
+          <p className="font-[weight:inherit] text-label text-muted-foreground">
             价格单位:分/千 token(括号内为 元/百万 token)。零价 = 白送,兜底 = 猜价待复核。
           </p>
         </div>
@@ -423,7 +425,7 @@ export default function PricingConsolePage() {
             type="button"
             onClick={() => sweep.mutate()}
             disabled={sweep.isPending}
-            className="inline-flex items-center gap-1 rounded-sm border border-border px-3 py-1.5 text-xs hover:bg-muted disabled:opacity-50"
+            className="font-[weight:inherit] inline-flex items-center gap-1 rounded-sm border border-border px-3 py-1.5 text-label hover:bg-muted disabled:opacity-50"
           >
             {sweep.isPending ? (
               <Loader2 className="size-3 animate-spin" />
@@ -436,7 +438,7 @@ export default function PricingConsolePage() {
             type="button"
             onClick={() => syncCatalog.mutate()}
             disabled={syncCatalog.isPending}
-            className="inline-flex items-center gap-1 rounded-sm border border-border px-3 py-1.5 text-xs hover:bg-muted disabled:opacity-50"
+            className="font-[weight:inherit] inline-flex items-center gap-1 rounded-sm border border-border px-3 py-1.5 text-label hover:bg-muted disabled:opacity-50"
           >
             {syncCatalog.isPending ? (
               <Loader2 className="size-3 animate-spin" />
@@ -449,7 +451,7 @@ export default function PricingConsolePage() {
       </div>
 
       {notice ? (
-        <div className="rounded-md border border-border bg-muted/40 px-3 py-2 text-xs">
+        <div className="font-[weight:inherit] rounded-md border border-border bg-muted/40 px-3 py-2 text-label">
           {notice}
         </div>
       ) : null}
@@ -506,11 +508,11 @@ export default function PricingConsolePage() {
       (unpricedAlerts.data.publishedUnpriced > 0 || unpricedAlerts.data.callingUnpriced > 0) ? (
         <Card className="border-amber-500/50">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-amber-600 dark:text-amber-500">
+            <CardTitle className="font-[weight:inherit] text-body text-amber-600 dark:text-amber-500">
               定价缺口告警
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-2 text-xs">
+          <CardContent className="font-[weight:inherit] space-y-2 text-label">
             <div>
               近 {unpricedAlerts.data.days} 天:
               <span className="font-medium"> {unpricedAlerts.data.publishedUnpriced} </span>
@@ -544,10 +546,10 @@ export default function PricingConsolePage() {
 
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm">利润看板(估算)</CardTitle>
+          <CardTitle className="font-[weight:inherit] text-body">利润看板(估算)</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          <div className="flex flex-wrap items-center gap-2 text-xs">
+          <div className="font-[weight:inherit] flex flex-wrap items-center gap-2 text-label">
             <span className="text-muted-foreground">时间窗口</span>
             {[7, 30, 90].map((d) => (
               <button
@@ -585,11 +587,13 @@ export default function PricingConsolePage() {
           </div>
 
           {profit.isLoading ? (
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <div className="font-[weight:inherit] flex items-center gap-2 text-label text-muted-foreground">
               <Loader2 className="size-4 animate-spin" /> 加载利润数据…
             </div>
           ) : profit.isError ? (
-            <div className="text-xs text-red-600">{(profit.error as Error).message}</div>
+            <div className="font-[weight:inherit] text-label text-red-600">
+              {(profit.error as Error).message}
+            </div>
           ) : profit.data ? (
             <>
               <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
@@ -624,7 +628,7 @@ export default function PricingConsolePage() {
               </div>
 
               <div className="overflow-x-auto">
-                <table className="w-full text-xs">
+                <table className="font-[weight:inherit] w-full text-label">
                   <thead>
                     <tr className="text-left text-muted-foreground">
                       <th className="px-2 py-1">{profitGroupBy === 'model' ? '模型' : '渠道'}</th>
@@ -669,10 +673,10 @@ export default function PricingConsolePage() {
 
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm">渠道成本与扣费对账</CardTitle>
+          <CardTitle className="font-[weight:inherit] text-body">渠道成本与扣费对账</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          <div className="flex flex-wrap items-center gap-2 text-xs">
+          <div className="font-[weight:inherit] flex flex-wrap items-center gap-2 text-label">
             <span className="text-muted-foreground">分组</span>
             {(['provider', 'keypool'] as const).map((g) => (
               <button
@@ -716,19 +720,25 @@ export default function PricingConsolePage() {
           </div>
 
           {channelCost.isLoading ? (
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <div className="font-[weight:inherit] flex items-center gap-2 text-label text-muted-foreground">
               <Loader2 className="size-4 animate-spin" /> 加载渠道成本…
             </div>
           ) : channelCost.isError ? (
-            <div className="text-xs text-red-600">{(channelCost.error as Error).message}</div>
+            <div className="font-[weight:inherit] text-label text-red-600">
+              {(channelCost.error as Error).message}
+            </div>
           ) : channelCost.data ? (
             <>
-              <div className="rounded-md border border-border bg-muted/30 px-3 py-2 text-xs">
-                <span className="text-muted-foreground">生命周期对账:</span>{' '}
-                调用实收 <span className="tabular-nums">{fmtYuan(channelCost.data.reconciliation.logsRevenueCents)}</span>
+              <div className="font-[weight:inherit] rounded-md border border-border bg-muted/30 px-3 py-2 text-label">
+                <span className="text-muted-foreground">生命周期对账:</span> 调用实收{' '}
+                <span className="tabular-nums">
+                  {fmtYuan(channelCost.data.reconciliation.logsRevenueCents)}
+                </span>
                 {' · '}
                 API Key 累计已用{' '}
-                <span className="tabular-nums">{fmtYuan(channelCost.data.reconciliation.keysUsedTotalCents)}</span>
+                <span className="tabular-nums">
+                  {fmtYuan(channelCost.data.reconciliation.keysUsedTotalCents)}
+                </span>
                 {' · '}
                 差异{' '}
                 <span
@@ -752,7 +762,7 @@ export default function PricingConsolePage() {
               </div>
 
               <div className="overflow-x-auto">
-                <table className="w-full text-xs">
+                <table className="font-[weight:inherit] w-full text-label">
                   <thead>
                     <tr className="text-left text-muted-foreground">
                       <th className="px-2 py-1">
@@ -829,7 +839,7 @@ export default function PricingConsolePage() {
 
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm">模型价目</CardTitle>
+          <CardTitle className="font-[weight:inherit] text-body">模型价目</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="flex flex-wrap items-center gap-2">
@@ -839,13 +849,13 @@ export default function PricingConsolePage() {
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
                 placeholder="搜模型名"
-                className="h-8 w-56 rounded-sm border border-input bg-transparent pl-7 pr-2 text-xs"
+                className="font-[weight:inherit] h-8 w-56 rounded-sm border border-input bg-transparent pl-7 pr-2 text-label"
               />
             </div>
             <select
               value={provider}
               onChange={(e) => setProvider(e.target.value)}
-              className="h-8 rounded-sm border border-input bg-transparent px-2 text-xs"
+              className="font-[weight:inherit] h-8 rounded-sm border border-input bg-transparent px-2 text-label"
             >
               <option value="">全部渠道</option>
               {(ov?.byProvider ?? []).map((p) => (
@@ -854,7 +864,7 @@ export default function PricingConsolePage() {
                 </option>
               ))}
             </select>
-            <label className="inline-flex items-center gap-1 text-xs">
+            <label className="font-[weight:inherit] inline-flex items-center gap-1 text-label">
               <input
                 type="checkbox"
                 checked={onlyProblems}
@@ -862,18 +872,18 @@ export default function PricingConsolePage() {
               />
               只看问题行
             </label>
-            <span className="text-xs text-muted-foreground">
+            <span className="font-[weight:inherit] text-label text-muted-foreground">
               共 {list.data?.total ?? 0} 行{onlyProblems ? '(仅问题)' : ''}
             </span>
           </div>
 
           {list.isLoading ? (
-            <div className="flex items-center gap-2 py-8 text-sm text-muted-foreground">
+            <div className="font-[weight:inherit] flex items-center gap-2 py-8 text-body text-muted-foreground">
               <Loader2 className="size-4 animate-spin" /> 加载中…
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-xs">
+              <table className="font-[weight:inherit] w-full text-label">
                 <thead className="text-left text-muted-foreground">
                   <tr className="border-b">
                     <th className="py-2 pr-2">模型</th>
@@ -1016,24 +1026,28 @@ export default function PricingConsolePage() {
       {auditModel ? (
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm">调价历史 · {auditModel}</CardTitle>
+            <CardTitle className="font-[weight:inherit] text-body">
+              调价历史 · {auditModel}
+            </CardTitle>
             <button
               type="button"
               onClick={() => setAuditModel(null)}
-              className="rounded-sm border border-border px-2 py-0.5 text-xs hover:bg-muted"
+              className="font-[weight:inherit] rounded-sm border border-border px-2 py-0.5 text-label hover:bg-muted"
             >
               关闭
             </button>
           </CardHeader>
           <CardContent>
             {audits.isLoading ? (
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <div className="font-[weight:inherit] flex items-center gap-2 text-label text-muted-foreground">
                 <Loader2 className="size-3 animate-spin" /> 加载中…
               </div>
             ) : (audits.data?.items.length ?? 0) === 0 ? (
-              <div className="text-xs text-muted-foreground">暂无调价记录(首次改价后开始记录)</div>
+              <div className="font-[weight:inherit] text-label text-muted-foreground">
+                暂无调价记录(首次改价后开始记录)
+              </div>
             ) : (
-              <ul className="space-y-1 text-xs">
+              <ul className="font-[weight:inherit] space-y-1 text-label">
                 {audits.data!.items.map((a) => (
                   <li
                     key={a.id}
