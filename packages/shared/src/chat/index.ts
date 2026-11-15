@@ -4,6 +4,8 @@
 
 // 对话渲染模型 barrel(W6 立;web / extension / mobile-rn 共用纯函数出口)
 export * from './render-model'
+// 会话导出(标题清洗 / 消息投影 / Markdown 与 manifest 组装;web 与 api 共用)
+export * from './conversation-export'
 // 任务进度状态条派生层(跨端单一真相源:纯函数,无平台依赖)
 export * from './task-status'
 // 工具码名 → i18n 键展示映射(界面禁止直显英文工具码名)
@@ -137,6 +139,9 @@ export * from './chat-sync-resync-pump'
 // 票 B02 / 票71 phase 2:gap-resync 的传输面(端点路径 + ApiResult 失败分型唯一真相)。
 // 四端只交 request 实现,不再各抄一份路径字符串(抄四份必然漂移)。
 export * from './chat-sync-snapshot'
+// 票 B02 / 票71 投影面:共享消息面 → 页面消息行的差异判据(同 id 覆盖 / 终态粘性 /
+// 回声不追加 / 零变化 null)。RN、小程序、扩展共用这一份,端内只留字段映射。
+export * from './chat-sync-surface'
 // D76 产物归属 turn 派生层(分型判据 + originating turn 序列 + 轮次序号 + 产物锚点→轮下标;
 // 纯函数零平台依赖,web 渲染层 artifact-turn-badge 原样 re-export,残余票 2026-09-25 自端内提取)
 export * from './artifact-turn'

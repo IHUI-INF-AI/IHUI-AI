@@ -147,18 +147,6 @@ resync 的客户端契约(2026-10-26,纯函数,不接网络/UI):
   `channel`/`room`/`emittedAt` 允许不同。
 - 允许 at-least-once(重复投递、乱序发送都合法);不允许跳过 rev 发明新键。
 - rev 分配点是服务端唯一写入方;接收端发现 rev 回退 = 生产端违约,按 stale 处理并另行告警。
-- **G-20261114 坐标系义务**:`message:created` 的 `messageId` 必须是合法 uuid,且即
-  `chat_messages.id`(前端占位 UUID 不再另起 DB uuid)。created 腿负责幂等建占位行;
-  patched 腿在 `allocateChatSyncRev` / 广播**之前**把全量 snapshot 写回该行,否则端侧
-  拿到 `rev=N` 后 gap-resync 会读到旧内容。created 未成功(建行或广播失败)⇒ patched
-  必须压住不发(fail-closed),否则 rev 账本必撞 FK。三型帧含 terminal 共用同一形态门禁。
-  **三型帧同进同退**:坐标齐备(含零 delta / 上游错误 / 客户端中止)时 `flush()` 恒发
-  一次 created ⇒ 幂等建行,terminal 只在该 created 真落地后发;created 失败 ⇒
-  patched 与 terminal 一并不发。零 delta 的 created 带空初面,内容由
-  `ai-callback-worker` 的 `updateMessage` 补;其降级 `createMessage` 也必须显式传
-  同一个 `metadata.messageId`,否则历史里出现第二个 uuid ⇒ 重复气泡。
-  形态门禁 `isChatSyncMessageId` 收在 `apps/api/src/db/chat-sync-rev-queries.ts`,
-  生成腿 / 终态腿 / worker 三处共用,非法 uuid 整腿降级(PG uuid 列 22P02 不落静默帧)。
 
 ## 7. 余面清单(2026-10-25 逐项状态)
 
@@ -184,21 +172,13 @@ resync 的客户端契约(2026-10-26,纯函数,不接网络/UI):
    `readChatSyncRev`(无账行返 0)、`packages/types/src/user-broadcast.ts` 的
    `USER_BROADCAST_EVENT_NAMES` / `DATA_GUARDS` 均已登记;
    ③ **各端 store 投影**:web 已落(`apps/web/src/stores/chat.ts` 的 `applyChatSyncEvent`);
-   2026-11-14 补齐 taro / RN / extension 的页级投影层(详见第 6 项);共享
-   `chat-sync-store.ts` 删除 `message:terminal` 的 `unwired` 分支,三型帧统一进 `runKernel`。
-   CLI 归第 6 项平台独占豁免。
+   taro 端由他席在飞(工作树 `apps/miniapp-taro/src/stores/chat-sync.ts` 未提交),RN/cli/extension
+   仍归第 6 项。
    **2026-10-31 残留已清(SSE 腿)**:`apps/api/src/routes/ai-chat-stream.ts` 的转发循环
    现在从**原样** data 行采集主对话 `chunk` / `reasoning`,按 `CHAT_SYNC_STREAM_FRAME_MIN_CHARS`
-   聚合后广播 `message:created`(有内容流带入队时刻的全量初面;零 delta 带空初面,
-   由 worker 补内容,端侧凭 terminal reason 渲染终态而非空白回复)+
-   `message:patched`(kind='snapshot',全量自包含);
-   流收尾先 flush 帧链再发 terminal(终态 rev = 链头);零 delta 时 rev=0 是
-   「链上无 patch」的合法链头,不是账本缺行,详见 §6。
-   只报 snapshot 不报 delta 的理由:delta 链路一旦跳号,端侧只能靠全量快照自愈。
-   **2026-11-14 更正**:旧文「流未落库时 resync 拉不到快照」已失效 ——
-   `ensureChatSyncStreamMessage` 在 created 帧把占位 UUID 幂等建成 `chat_messages.id`,
-   `writeChatSyncStreamSnapshot` 在每帧分配 rev / 广播之前全量写回,故流进行中
-   `GET .../sync-snapshot` 即可按同一 id 命中(见 §3、§6)。
+   聚合后广播 `message:created`(空初面)+ `message:patched`(kind='snapshot',全量自包含);
+   流收尾先 flush 帧链再发 terminal(终态 rev = 链头),终态不再落在"账本无行 ⇒ rev=0"。
+   只报 snapshot 不报 delta 的理由:流未落库时 resync 拉不到快照,delta 断链无法自愈。
    生成端自己会收到这些帧 —— 端侧按 `isStreaming && streamingAssistantId === messageId`
    判回声,只推进判据面、不投影渲染面(`apps/web/src/stores/chat.ts` 的 applyChatSync)。
    同期把 rev 分配收敛回 PG 账本单源(`ws-broadcast.ts` 的 Redis INCR / 壁钟回落两档退役),

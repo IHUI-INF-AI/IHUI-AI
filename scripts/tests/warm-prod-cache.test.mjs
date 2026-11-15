@@ -11,7 +11,7 @@
 //   ③ 结论行契约:纯 ASCII 单行键值(§5d —— 部署日志里中文会被码页吃掉)。
 //   ④ 装车证明(§0.9「造好没装车 = 没有」):deploy/win/ihui-deploy.ps1 里必须有
 //      Invoke-ProdCacheWarm 的定义与调用,且调用点落在「健康门禁判绿」那一支内、
-//      回滚那一支(exit 0)之后 —— 回滚路径预热等于把旧版重新钉在边缘。
+//      回滚那一支(exit 3,健康门禁未过已回滚)之后 —— 回滚路径预热等于把旧版重新钉在边缘。
 // 网络一律不碰真站:本文件只判纯函数与文本形态;真跑公网见交付报告里的现读输出。
 
 import { test } from 'node:test'
@@ -126,10 +126,16 @@ test('装车证明:deploy.ps1 定义并调用了 Invoke-ProdCacheWarm,且只挂�
   const elseAt = ps.indexOf('} else {', gateAt)
   assert.ok(elseAt > gateAt, '门禁分支没有 else(判绿那一支不存在)')
   const callAt = ps.search(callRe)
-  const rollbackExitAt = ps.indexOf('exit 0', gateAt)
+  // DG-13:回滚支必须以 exit 3 收口(失败轮非零退出),且非零退出必须在预热调用之前。
+  const rollbackExitAt = ps.indexOf('exit 3', gateAt)
   assert.ok(
     rollbackExitAt > -1 && rollbackExitAt < callAt,
-    '回滚那一支的 exit 0 必须在调用之前 —— 否则回滚路径也会预热',
+    '回滚那一支必须以 exit 3 收口且位于调用之前 —— 否则回滚路径也会预热,或失败轮又被 exit 0 记成成功',
+  )
+  assert.doesNotMatch(
+    ps.slice(gateAt, elseAt),
+    /^\s*exit 0\s*$/m,
+    '回滚支不许以 exit 0 收口(DG-13:按退出码记账的调用方会把失败轮记成成功)',
   )
   assert.ok(callAt > elseAt, '调用点不在"门禁判绿"那一支内')
   // 回滚支(门禁 → else 之间)一个字都不许出现预热调用

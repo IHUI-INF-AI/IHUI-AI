@@ -23,6 +23,7 @@ import type { TaskDeliverables } from '@/types/agent-delivery'
 const valid = {
   citations: [{ source: 'wiki', label: '架构页', url: 'https://aizhs.top/wiki/1' }],
   filesChanged: [{ path: 'a.ts', kind: 'add', stepIds: ['s1'], additions: 10, deletions: 0 }],
+  presentedFiles: [{ path: 'dist/report.pdf', description: '最终 PDF', stepIds: ['s9'] }],
   toolsSummary: { total: 3, byTool: { read_file: 2, grep: 1 } },
   outputSummary: '已完成交付',
   generatedAt: '2026-09-20T08:00:00.000Z',
@@ -31,6 +32,27 @@ const valid = {
 describe('normalizeTaskDeliverables(宽松守卫)', () => {
   it('合法完整对象返回规范化结果(字段逐项透传)', () => {
     expect(normalizeTaskDeliverables(valid)).toEqual(valid)
+  })
+
+  it('旧载荷无 presentedFiles → 规范化为空数组(向后兼容)', () => {
+    const { presentedFiles: _omit, ...legacy } = valid
+    expect(normalizeTaskDeliverables(legacy)!.presentedFiles).toEqual([])
+  })
+
+  it('presentedFiles 坏条目跳过:空路径/非对象;description 空串省略;stepIds 缺失补空', () => {
+    const parsed = normalizeTaskDeliverables({
+      ...valid,
+      presentedFiles: [
+        { path: '  ' },
+        null,
+        { path: 'out/a.pdf', description: '  ' },
+        { path: 'out/b.pdf', description: 'B', stepIds: ['s1', 2] },
+      ],
+    })
+    expect(parsed!.presentedFiles).toEqual([
+      { path: 'out/a.pdf', stepIds: [] },
+      { path: 'out/b.pdf', description: 'B', stepIds: ['s1'] },
+    ])
   })
 
   it('非对象输入(null/字符串/数组元素级坏值)返回 null 不抛错', () => {

@@ -15,7 +15,6 @@ import {
   PREDICTIVE_EDIT_LANGUAGE,
   type PredictiveEditAction,
 } from '@/lib/predictive-edit-api'
-import { useTextareaAutoHeight } from '@/hooks/use-textarea-auto-height'
 import { usePredictiveEditPrefsStore } from '@/stores/predictive-edit'
 import { Tooltip } from '@/components/feedback'
 import { shouldSubmitOnEnter } from './enter-submit-policy'
@@ -27,8 +26,20 @@ import {
 } from '@ihui/shared/chat/enter-submit'
 
 export const MAX_LENGTH = 10000
-const MAX_HEIGHT_PX = 320 // 最大约 16 行,超出后滚动
-const MIN_HEIGHT_PX = 96 // rows=3 基础高度,与 hook threeLinePx 阈值一致
+const MAX_HEIGHT_PX = 320 // 拖拽上限,超出后内部滚动
+// 2026-11-15 用户定档:默认高度 = 三整行正文(不预留底部统计条净空),字数统计固定在底栏。
+// 渲染高度直接走 CSS 3lh(见 textarea 的 style),避免硬编码像素在字号缩放下错位。
+const DEFAULT_LINES = 3
+const FALLBACK_DEFAULT_HEIGHT_PX = DEFAULT_LINES * 20 // 未测到行高时的兜底(3 行正文)
+/** 默认三行高度的像素值:只用于拖拽/键盘调整时的下限钳制(渲染本身走 CSS 3lh) */
+function readThreeLineHeight(el: HTMLTextAreaElement | null): number {
+  if (!el) return FALLBACK_DEFAULT_HEIGHT_PX
+  // 计算值在字号缩放(--chat-input-scale)下会变,不能复用模块常量
+  const lineHeight = Number.parseFloat(window.getComputedStyle(el).lineHeight)
+  return Number.isFinite(lineHeight) && lineHeight > 0
+    ? Math.ceil(lineHeight * DEFAULT_LINES)
+    : FALLBACK_DEFAULT_HEIGHT_PX
+}
 // Predictive Edit(V3 #82,2026-10-25 接线):停笔 400ms 取一次建议。高频输入不打后端,
 // 与 FIM 内联补全的 300ms 同族(输入区比编辑器慢一拍,给用户一个完整词的时间)。
 const PREDICTIVE_EDIT_DEBOUNCE_MS = 400
@@ -45,7 +56,7 @@ export interface WebInputCoreHandle {
 /** WebInputCore props(契约对齐 packages/types MessageInputProps 核心字段)
  * 共享层 `<MessageInput>`(rn/taro)用相同 props 名,本组件是 web 端实现(react-native-web 未配置,
  * 不能直接 import @ihui/app;详细论证见 2026-07-29 方案 A)。
- * 职责:渲染 textarea + 字符计数 + 清除按钮 + 发送/停止按钮
+ * 职责:渲染 textarea + 字符计数 + 清除按钮
  * 不包含:slash 触发按钮、@ 文件提及、模型选择、语音输入(由主组件工具栏承担) */
 export interface WebInputCoreProps {
   text: string
@@ -80,8 +91,9 @@ export interface WebInputCoreProps {
 }
 
 /** Web 端 MessageInput 实现(forwardRef,契约对齐 SharedMessageInputProps)
- * 渲染 textarea + 字符计数(2026-07-29 简化,清除/发送/停止按钮已挪到外层 toolbar)。
- * 内部托管 textarea ref + 自动高度,主组件通过 forwarded ref 调用 focus/setSelectionRange/resize。 */
+ * 渲染 textarea + 字符计数 + 清除按钮(2026-07-29 简化,发送/停止按钮在底栏)。
+ * 内部托管 textarea ref + 固定三行高度(可拖拽/键盘调整),主组件通过 forwarded ref 调用
+ * focus/setSelectionRange/resize(重新钳制拖拽高度)。 */
 export const WebInputCore = React.forwardRef<WebInputCoreHandle, WebInputCoreProps>(
   function WebInputCore(
     {
@@ -120,10 +132,45 @@ export const WebInputCore = React.forwardRef<WebInputCoreHandle, WebInputCorePro
     // V3 #82 两把钥匙之一(用户意志):设置页总开关关闭 ⇒ 本组件零请求、零建议。
     // 与「门槛位」(由后端 insufficient_context 判定)独立 —— 关 ≠ no_action,不折叠三态。
     const predictiveEditEnabled = usePredictiveEditPrefsStore((s) => s.enabled)
-    const { resize } = useTextareaAutoHeight<HTMLTextAreaElement>(text, {
-      threeLinePx: MIN_HEIGHT_PX,
-      maxHeightPx: MAX_HEIGHT_PX,
-    })
+    // 默认高度(2026-11-15):直接用 CSS 3lh(三倍行高),不落 React 状态
+    // —— 热更新/字号缩放都不会残留旧像素值;拖拽后改用 px 覆盖。
+    const [customHeight, setCustomHeight] = React.useState<number | null>(null)
+    const dragStateRef = React.useRef<{ startY: number; startH: number } | null>(null)
+    const clampHeight = (h: number) =>
+      Math.min(MAX_HEIGHT_PX, Math.max(readThreeLineHeight(innerRef.current), h))
+    const handleResizeStart = (e: React.PointerEvent<HTMLButtonElement>) => {
+      e.preventDefault()
+      dragStateRef.current = {
+        startY: e.clientY,
+        startH: customHeight ?? readThreeLineHeight(innerRef.current),
+      }
+      e.currentTarget.setPointerCapture(e.pointerId)
+    }
+    const handleResizeMove = (e: React.PointerEvent<HTMLButtonElement>) => {
+      const drag = dragStateRef.current
+      if (!drag) return
+      // 向上拖 = 变高
+      setCustomHeight(clampHeight(drag.startH + (drag.startY - e.clientY)))
+    }
+    const handleResizeEnd = (e: React.PointerEvent<HTMLButtonElement>) => {
+      dragStateRef.current = null
+      e.currentTarget.releasePointerCapture?.(e.pointerId)
+    }
+    const handleResizeKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>) => {
+      if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return
+      e.preventDefault()
+      setCustomHeight((h) =>
+        clampHeight((h ?? readThreeLineHeight(innerRef.current)) + (e.key === 'ArrowUp' ? 8 : -8)),
+      )
+    }
+    const resize = React.useCallback(() => {
+      // 字号缩放变更后重新钳制用户拖过的高度;默认高度由 CSS 3lh 自适应,无需状态参与。
+      setCustomHeight((h) =>
+        h === null
+          ? null
+          : Math.min(MAX_HEIGHT_PX, Math.max(readThreeLineHeight(innerRef.current), h)),
+      )
+    }, [])
     React.useImperativeHandle(
       ref,
       (): WebInputCoreHandle => ({
@@ -196,7 +243,20 @@ export const WebInputCore = React.forwardRef<WebInputCoreHandle, WebInputCorePro
     // 清除按钮(2026-07-30 用户规则:挪回 textarea 右上角,用 Brush 清洁刷图标,
     // 仅 hover textarea 容器时悬浮显示,避免占用 toolbar 槽位)
     return (
-      <div className="group relative px-3 pt-2 pb-2">
+      <div className="group relative px-3 pt-2">
+        {/* 顶部拖拽手柄(2026-11-15):上下拖动调整输入区高度,键盘 ↑/↓ 每次 ±8px。 */}
+        <button
+          type="button"
+          aria-label="调整输入框高度"
+          title="拖动调整输入框高度"
+          data-testid="composer-resize-handle"
+          onPointerDown={handleResizeStart}
+          onPointerMove={handleResizeMove}
+          onPointerUp={handleResizeEnd}
+          onPointerCancel={handleResizeEnd}
+          onKeyDown={handleResizeKeyDown}
+          className="absolute -top-1 left-1/2 z-10 h-2 w-14 -translate-x-1/2 cursor-ns-resize touch-none select-none rounded-full border border-input bg-card p-0 transition-colors hover:bg-accent focus:outline-none"
+        />
         {/* Predictive Edit 建议条(2026-10-25 接线):仅 suggested 且草稿未变时出现。
             no_action / undetermined / failed 都不渲染任何东西 —— 预测失败对用户不可见。
             渲染条件与接受率埋点的「展示中」判据同源(predictionVisible),两处不许各写一份。 */}
@@ -277,13 +337,15 @@ export const WebInputCore = React.forwardRef<WebInputCoreHandle, WebInputCorePro
           onCompositionEnd={() => setLatch(noteCompositionEnd())}
           onPaste={onPaste}
           placeholder={placeholder}
-          rows={3}
+          rows={DEFAULT_LINES}
           aria-label={placeholder}
-          style={{ maxHeight: MAX_HEIGHT_PX, minHeight: MIN_HEIGHT_PX }}
+          // 默认三行由 CSS 3lh 直接给出(字号缩放自动跟随);拖拽后改用 px 覆盖。
+          style={{ height: customHeight ?? '3lh', maxHeight: MAX_HEIGHT_PX }}
           className={cn(
-            'thin-scroll block w-full resize-none bg-transparent text-body leading-snug outline-none',
+            'thin-scroll block w-full resize-none overflow-y-auto bg-transparent text-body leading-snug outline-none',
             'placeholder:text-muted-foreground/70',
-            'pb-6',
+            // pr-3 给滚动条留位(原生滑块约 10px),正文不钻到滑块下面。
+            'pr-3',
           )}
         />
         {/* 清除按钮:仅 hover textarea 容器时显示,有内容时渲染,
@@ -299,7 +361,7 @@ export const WebInputCore = React.forwardRef<WebInputCoreHandle, WebInputCorePro
               onClick={onClear}
               disabled={isStreaming}
               className={cn(
-                'absolute right-2 top-1 inline-flex h-6 w-6 items-center justify-center rounded-sm',
+                'absolute right-6 top-1 inline-flex h-6 w-6 items-center justify-center rounded-sm',
                 'text-muted-foreground transition-opacity',
                 'opacity-0 hover:bg-accent hover:text-accent-foreground',
                 'group-hover:opacity-100 touch-reveal focus-visible:opacity-100',
@@ -311,16 +373,15 @@ export const WebInputCore = React.forwardRef<WebInputCoreHandle, WebInputCorePro
           </Tooltip>
         )}
         {/* 字符计数(2026-09-30 立):空输入时不渲染 —— 对标 Trae/Cursor,空白输入框
-            不应有任何常驻杂讯;有内容后才出现,90%+ 琥珀 / 100% 红的渐进警告不变 */}
+            不应有任何常驻杂讯;有内容后才出现,90%+ 琥珀 / 100% 红的渐进警告不变。
+            2026-11-15 用户定档:固定在第三行文字末尾(右下角),允许压住少量正文;
+            bg-card 不透明底负责遮挡,right-6 与 textarea 的 pr-3 对齐,避开滚动条。 */}
         {text.length > 0 && (
-          <div className="pointer-events-none absolute inset-x-3 bottom-2 flex items-center justify-end">
+          <div className="pointer-events-none absolute bottom-1 left-3 right-6 flex justify-end pr-0.5">
             <span
               aria-live="polite"
               className={cn(
-                'whitespace-nowrap text-[10px] tabular-nums text-muted-foreground/60 transition-colors',
-                // 渐进式字符计数警告(2026-07-31 对标 主流 AI IDE):
-                // - 90%+ 橙色警告(接近上限,提醒用户精简输入)
-                // - 100% 红色错误(已达上限,禁止继续输入)
+                'whitespace-nowrap rounded-sm bg-card px-1 text-[10px] tabular-nums text-muted-foreground/60 transition-colors',
                 text.length >= MAX_LENGTH && 'text-destructive',
                 text.length >= MAX_LENGTH * 0.9 && text.length < MAX_LENGTH && 'text-amber-500',
               )}

@@ -45,12 +45,12 @@ import {
   // postFormResponse 从 @ihui/api-client 导出,端内不另起传输层)。
   buildFormResponseEvent,
   postFormResponse,
-  // D135(2026-11-14):阻塞式提问答复 HTTP 出口 —— 与 web/RN 同一传输层,端内不另起。
-  fetchAiServiceJson,
 } from '@ihui/api-client'
 import { formatTokenCount } from '@ihui/shared/utils'
 // D4(2026-11-12 修"逐 token setData 风暴"):打字机合帧泵与 web/RN 同源(三端单一真相源)
 import { createSmoothDeltaBatcher } from '@ihui/shared/utils/smooth-delta-batcher'
+// 差距①第 ① 腿:准入回执配对的稳定输入 ID —— 生成的唯一实现在共享层,端内不造第二源。
+import { createInputId } from '@ihui/shared/chat/send-admission'
 // D4(2026-11-12):跟底判据与 RN 同源(shared/chat/stream-follow)—— 回退即交还滚动权。
 // 旧实现每 token 强制拽底:流式期间用户根本滑不动,与 web 端"上滑即交还"完全相反。
 import {
@@ -69,16 +69,14 @@ import {
   type ContextLedgerEntry,
 } from '@/lib/chat-budget-ledger-frames'
 import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
+// G-20261114:WS 同步面 → 页面消息行的投影挂载点(判据在 lib/chat-sync-surface,
+// 本页只把 setMessages 与流式暂停位交出去,不重写第二套合并裁判)。
+import { useRemoteChatSyncMessages } from '@/hooks/use-remote-chat-sync-messages'
 import { applyStreamError, isErrorTurn, resendTargetText } from '@ihui/shared/chat'
-// G-20261114 多端实时同步:其它端/其它标签的 created/patched/terminal 帧经共享 store
-// 落到本页消息面(此前只有绑定层,帧进 store 却没有任何消费者,屏幕零显示)。
-import { useRemoteChatSyncMessages } from '@/stores/chat-sync'
 // 票59 小程序腿:判族/投影唯一源(共享层;web 侧 lib/message-version-family 已收口为同报 re-export)。
 // 本屏只做两件事 —— 用投影决定「这条族消息当前显示哪一版」、把版本菜单挂在该条之后;
 // 判族/位置读数一律不在此复算(§3 共享层优先 + §4 跨端禁两份对账)。
 import { projectActiveMessages } from '@ihui/shared/chat/message-version-family'
-// D135(2026-11-14):小程序提问卡阻塞式答复编排(纯逻辑,判定层走 shared 单一真相源)
-import { respondMiniQuestion } from './question-card-core'
 import { effectiveMode } from '@ihui/shared/chat/queue-interactions'
 import { useSideQueue } from './side-queue-host'
 // 255fa96933 摘除端内手写轻对话页时的能力安置腿(§7:删除不得静默丢弃):
@@ -224,6 +222,13 @@ export default function ChatPage() {
   const [thinking, setThinking] = useState(false)
   const [scrollTop, setScrollTop] = useState(0)
   const [sessionId, setSessionId] = useState('')
+  // 帧进了共享 store 却没人消费 = 静默失效:这里把当前会话的内核面投影到页级行。
+  // 本端流式中必须暂停,否则 WS snapshot 会覆盖本端 SSE 已写出的前缀。
+  useRemoteChatSyncMessages({
+    conversationId: sessionId,
+    setMessages,
+    paused: thinking,
+  })
   // 票59 小程序腿:版本切换态(rootId → 激活版本消息 id),与 web stores/chat.ts 的
   // activeVersionByRoot 同语义;失效指针由投影层回落最新版本(判族唯一源在共享层)。
   // 纯本地读投影态:切换不写库、不发请求(与 web 同一口径)。
@@ -261,28 +266,13 @@ export default function ChatPage() {
   const [businessForms, setBusinessForms] = useState<readonly BusinessFormView[]>([])
   // BUG-67:AI 主动提问卡(question 帧)。载荷由 api/index.ts 的 onRawLine 旁路认领后
   // 经 onQuestion 回调落到这里;同 questionId 幂等覆盖(断线重连回放不重复挂卡)。
-  // D135(2026-11-14):补齐 header/expiresAt/sessionId 三字段 —— 阻塞式答复需 sessionId,
-  // 倒计时超时需 expiresAt,新帧小标题需 header(旧帧均没有 ⇒ 全部可选)。
   const [pendingQuestion, setPendingQuestion] = useState<{
     questionId: string
     prompt: string
     options: Array<{ id: string; label: string }>
     allowCustom: boolean
     allowMultiple: boolean
-    header?: string
-    expiresAt?: string | number
-    /** 阻塞式提问所属的 ai-service 流会话 ID(旧帧没有 ⇒ 无阻塞式通道,如实走 legacy) */
-    sessionId?: string
   } | null>(null)
-  // ── D135(2026-11-14):提问卡本地作答态 + 防重锁 ──
-  const [questionAnswer, setQuestionAnswer] = useState<{
-    selectedIds: string[]
-    customText: string
-  }>({ selectedIds: [], customText: '' })
-  const [questionPhase, setQuestionPhase] = useState<
-    'idle' | 'submitting' | 'answered' | 'withdrawn' | 'timeout' | 'failed'
-  >('idle')
-  const questionSubmitLockRef = useRef(false)
   // 上行在途标记(防重复提交;与 approvalSending 同纪律,按条目 requestId 标记)
   const [formSendingRequestId, setFormSendingRequestId] = useState<string | null>(null)
   // ── G-403(2026-10-07):消息级 usage 缓存两维(onUsage 帧 → 归因条)──
@@ -302,16 +292,6 @@ export default function ChatPage() {
   const [compactionBoundary, setCompactionBoundary] = useState<CompactBoundary | null>(null)
   const conversationId =
     sessionId || (routeSessionId && !routeSessionId.startsWith('hist_') ? routeSessionId : '')
-
-  // G-20261114:把共享 chat-sync 消息面投影进本页。本端流式期间暂停 —— 本端 SSE
-  // 单播面才是权威,WS snapshot 回放会把正在累积的前缀覆盖回去(与 web 的
-  // localStreamEcho、RN 的 paused 同一条纪律)。conversationId 为空时不合并,
-  // 别会话的帧不得串进草稿页。
-  useRemoteChatSyncMessages({
-    conversationId: conversationId || null,
-    setMessages,
-    paused: thinking,
-  })
 
   // ── 提示留痕(2026-11)──
   // 独立 state:不混入 messages ⇒ 不会被当成对话内容发给模型,也不落后端库,只是客户端 trace。
@@ -607,13 +587,101 @@ export default function ChatPage() {
   }, [])
   // W5:流式执行事件(工具调用 / subagent / 计划 / 终端 / 用量等)的最小可视化列表
   const [streamActivities, setStreamActivities] = useState<{ id: string; text: string }[]>([])
+  /**
+   * 活动列表的镜像 ref(2026-11-13 立)。
+   * 用途:upsert 需要**同步**判断"这一行是否还在列表里"(20 条上限会裁掉旧行)。
+   * 在 setState 回调里读结果不行 —— 那是 React 的渲染期回调,可能异步、可能重复执行,
+   * 拿它做控制流等于赌调度时机。所以另存一份同步镜像,与 set 同批更新。
+   */
+  const streamActivitiesRef = useRef<{ id: string; text: string }[]>([])
   const [streamActivityExpanded, setStreamActivityExpanded] = useState(true)
   const activitySeqRef = useRef(0)
-  const pushStreamActivity = useCallback((text: string) => {
-    activitySeqRef.current += 1
-    const id = `act_${activitySeqRef.current}`
-    // 仅保留最近 20 条,避免长会话列表无限增长
-    setStreamActivities((prev) => [...prev, { id, text }].slice(-20))
+  /**
+   * queuedTurnId → 活动 id 的配对表(2026-11-13 立)。
+   * 晋升帧只带 queuedTurnId,不带活动 id;不记这张表就无从知道该撤回哪一条。
+   * 用 ref 而非 state:它只在回调里读写,进 state 会引发无意义重渲染。
+   */
+  const queuedActivityRef = useRef<Record<string, string>>({})
+  /**
+   * pending 态活动 id 表(2026-11-13 立)。
+   *
+   * 存的是**写未来时**的提示:reconnect("X 秒后重连")、retryScheduled("X 秒后继续")。
+   * 它们的共同点是一旦条件满足就失效,但文案不会自己改 —— 首个正文 delta 到达时统一撤回
+   * (见 onDelta)。与 queuedActivityRef 分开存:queued 有精确配对凭据(queuedTurnId),
+   * 这两条没有,只能按"连接已恢复"这个信号整批撤。
+   */
+  const pendingActivityRef = useRef<string[]>([])
+  /**
+   * 业务键 → activityId 表(2026-11-13 立)。
+   * 工具行的 start/result 是同一调用的两阶段,靠 `tool:<toolCallId>` 认出彼此。
+   * 与 queuedActivityRef 分开存:那张表是准入回执专用的配对,键空间不同。
+   */
+  const activityKeyRef = useRef<Record<string, string>>({})
+  /**
+   * 活动列表的**唯一写入出口**(2026-11-13 收敛)。
+   *
+   * 三件事一起做:同步更新镜像 ref(供 upsert 判存在)、上限 20 条、返回 id。
+   * 所有写入都必须过这里 —— 分散在各处 setState 会让 ref 与 state 漂开,
+   * 而 upsert 的存在判断正是靠 ref。
+   */
+  const commitActivities = useCallback(
+    (mutate: (prev: { id: string; text: string }[]) => { id: string; text: string }[]) => {
+      const next = mutate(streamActivitiesRef.current).slice(-20)
+      streamActivitiesRef.current = next
+      setStreamActivities(next)
+    },
+    [],
+  )
+  const pushStreamActivity = useCallback(
+    (text: string) => {
+      activitySeqRef.current += 1
+      const id = `act_${activitySeqRef.current}`
+      // 仅保留最近 20 条,避免长会话列表无限增长
+      commitActivities((prev) => [...prev, { id, text }])
+      return id
+    },
+    [commitActivities],
+  )
+  /**
+   * 按业务键原位更新活动行(2026-11-13 立,工具行 running→完成用)。
+   *
+   * 立此出口的因由:工具调用的 start 与 result 是**同一次调用**的两个阶段。旧实现两次都
+   * `pushStreamActivity`,于是活动列表里留下**两行**("调用 X 中" + "调用 X 完成"),读起来
+   * 像调用了两次。本端 card 层(`toolCalls`)早已按 toolCallId 原位 upsert,只有这套活动列表
+   * 是追加式的 —— 那是端内多造的第二套表示,web 端根本没有这套(见 web `use-chat` 无
+   * streamActivities),所以无跨端口径可对,按 card 层同一语义收敛即可。
+   *
+   * @param key 业务键(`tool:<toolCallId>`);同键第二次调用即替换文本,不新增行
+   * @returns 该行的 activityId
+   */
+  const upsertStreamActivity = useCallback(
+    (key: string, text: string) => {
+      const existing = activityKeyRef.current[key]
+      // 20 条上限会裁掉旧行:被裁掉就当作不存在、重新追加。
+      // 不判这一格的话,upsert 会更新一个不在列表里的 id ⇒ 这次工具结果**静默不显示**。
+      if (existing && streamActivitiesRef.current.some((a) => a.id === existing)) {
+        commitActivities((prev) => prev.map((a) => (a.id === existing ? { ...a, text } : a)))
+        return existing
+      }
+      if (existing) delete activityKeyRef.current[key]
+      activitySeqRef.current += 1
+      const id = `act_${activitySeqRef.current}`
+      activityKeyRef.current[key] = id
+      commitActivities((prev) => [...prev, { id, text }])
+      return id
+    },
+    [commitActivities],
+  )
+  /**
+   * 撤回一条活动(2026-11-13 立,准入回执晋升用)。
+   *
+   * 为什么必须有这个出口:`queued` 是**中间态**——后端在排队回合被晋升时会再发一帧
+   * `admission{disposition:'accepted', queuedTurnId}`(llm.py 现读)。若只把"已排队"推进列表
+   * 却收不回来,那条提示会**永久停留**,用户看着"已排队"而回答早就在跑了。
+   * 这比一开始不显示更糟:它把用户引向错误的等待预期。
+   */
+  const dropStreamActivity = useCallback((id: string) => {
+    commitActivities((prev) => prev.filter((a) => a.id !== id))
   }, [])
 
   /**
@@ -1109,6 +1177,13 @@ export default function ChatPage() {
       setThinking(true)
       // W5:新一轮对话开始,清空上一轮的执行过程列表
       setStreamActivities([])
+      streamActivitiesRef.current = []
+      // 同批清空 pending 表(2026-11-13):列表已清空,ref 里留着的旧 id 永远不会再被命中,
+      // 却会在下一轮的首个 delta 触发一次无意义的 filter —— 更要紧的是它会让人误读
+      // "还有 pending 提示挂着"。清列表就必须同批清配对表(与 queuedActivityRef 同理)。
+      pendingActivityRef.current = []
+      queuedActivityRef.current = {}
+      activityKeyRef.current = {}
       // G-403:新一轮开始,重置上一轮的缓存读数(旧账不得挂到新消息上)
       setLatestCacheTokens({ cacheReadTokens: null, cacheWriteTokens: null })
       // 批次 3:新一轮开始清掉上一轮的停止提示与压缩边界回看(本轮若再压缩/再停止会重新落)。
@@ -1150,6 +1225,10 @@ export default function ChatPage() {
       // 票 68:把 payload 交出去之前复核一次档位 —— chatStream 内部在触达网关前仍有 await,
       // 这期间用户换了档就得跟到新档(而不是拿入口快照发新一轮);最新档为空则退回入口档。
       const roundModel = resolveRoundModel(currentModel, currentModelRef.current)
+      // 差距①第 ① 腿(2026-11-13):本轮发送的稳定输入 ID。由共享 `createInputId()` 生成
+      // (端内不造第二源),服务端凭它回显准入回执并判定 duplicate。
+      // 一次 `sendMessage` 调用只生成一次 ⇒ 重连重发沿用同值(不重造,否则服务端会把它当成新的一条)。
+      const roundInputId = createInputId()
       try {
         await chatStream(
           history,
@@ -1163,11 +1242,24 @@ export default function ChatPage() {
             siblingIndex: siblingVersion?.siblingIndex,
             // 跨端统一 88% 阈值自动压缩:从模型 ID 推断 contextLimit,后端压缩后通过 SSE 回调提示用户
             contextLimit: roundModel ? getModelContextCapacity(roundModel) : 0,
+            // 差距①:带上准入回执配对的两把上行键(inputId + metadata.conversationId,
+            // 后者由 api 层按 sessionId 补),服务端才会在首个内容帧之前回显 admission。
+            inputId: roundInputId,
           },
           (delta) => {
             // [能力安置@255fa96933] 正文媒资抽取(承接被摘端内页逐 delta extractImageUrls 口径,
             // 扩展到图/视频/音频):媒资判据在**喂入点逐帧**做,合并发生在提交回调(appendLastTurnContent)。
             // D4(2026-11-12):帧只入泵,不再逐 token 全列表 map+setData;滚动由提交节拍带(见上)。
+            //
+            // 2026-11-13(中间态收回):首个正文 delta 到达 = 连接已通、重试/重连已成功。
+            // 此刻把"X 秒后继续"/"X 秒后重连"这类 **pending 态**提示撤回 —— 它们写的是未来时,
+            // 留在列表里会一直说"X 秒后",而那个 X 秒早就过去了(与 queued 提示同型的缺陷)。
+            // 只撤 pending 态,不碰已完成的事实行(工具结果 / 处置结果 / 压缩边界)。
+            if (pendingActivityRef.current.length > 0) {
+              const stale = pendingActivityRef.current
+              pendingActivityRef.current = []
+              setStreamActivities((prev) => prev.filter((a) => !stale.includes(a.id)))
+            }
             contentBatcher.batch(delta)
           },
           (reasoningDelta) => {
@@ -1228,7 +1320,11 @@ export default function ChatPage() {
                   startedAt,
                 ),
               }))
-              pushStreamActivity(
+              // 2026-11-13:按 toolCallId **原位更新**,不新增行。
+              // start/result 是同一次调用的两阶段,两次都 push 会在列表里留下"调用中"与
+              // "已完成"两行,读起来像调用了两次(与 card 层 applyToolCallStart 的原位语义一致)。
+              upsertStreamActivity(
+                `tool:${evt.toolCallId}`,
                 toolActivityText(
                   {
                     id: evt.toolCallId,
@@ -1268,7 +1364,11 @@ export default function ChatPage() {
                     : x,
                 ),
               }))
-              pushStreamActivity(
+              // 2026-11-13:同一 toolCallId 原位更新成最终状态(不新增第二行)。
+              // 若 result 先于 start 到达(乱序),upsert 会追加一行 —— 那是正确降级,
+              // 总比丢掉结果好(共享层 toolCallId 是配对唯一凭据)。
+              upsertStreamActivity(
+                `tool:${evt.toolCallId}`,
                 toolActivityText(
                   {
                     id: evt.toolCallId,
@@ -1309,7 +1409,11 @@ export default function ChatPage() {
                 subagentTasks: applySubagentEnd(c.subagentTasks ?? [], evt),
               })),
             onToolSummary: (evt) =>
-              pushStreamActivity(t('ai.stream.toolSummary', { calls: evt.totalCalls })),
+              // 2026-11-13:一轮只有一条汇总,按固定键原位更新(重复 summary 帧不得堆行)
+              upsertStreamActivity(
+                'tool-summary',
+                t('ai.stream.toolSummary', { calls: evt.totalCalls }),
+              ),
             onToolDelegate: (evt) =>
               pushStreamActivity(
                 toolActivityText(
@@ -1493,26 +1597,31 @@ export default function ChatPage() {
                 return [...prev, entry]
               })
             },
-            // BUG-67 + D135(2026-11-14):AI 主动提问(question 帧)→ 页级挂起态 →
-            // chat-shell-extras 的 overlaySlot 提问卡。帧带 sessionId 时走阻塞式答复
-            // (投 /question-response,不新增用户消息、不发起新一轮);无 sessionId 时回退
-            // 旧链路(选项写回输入框→用户点发送续流)。同 questionId 幂等覆盖。
+            // BUG-67:AI 主动提问(question 帧)→ 页级挂起态 → ./chat-shell-extras 的
+            // overlaySlot 提问卡。选项点击把回答写回输入框,用户点发送即续流;消费端不新起 answer 端点。
             onQuestion: (q) => {
               setPendingQuestion((prev) => (prev?.questionId === q.questionId ? prev : q))
             },
-            // D135:结算帧 —— 一个 questionId 只结算一次,到达即摘卡(与 web/RN 同语义)。
-            // 挂起态匹配才清,不误抹别的提问。
-            onQuestionResolved: (event) => {
-              setPendingQuestion((prev) => (prev?.questionId === event.questionId ? null : prev))
+            // 提问结算(2026-11-13 立):服务端在 answered/timeout/withdrawn/interrupted 四态都会发
+            // 这一帧。此前本端没有这个出口 ⇒ 非用户主动关闭的三态(超时/撤回/打断)永远清不掉卡片,
+            // 界面停在"待回答"且点了没反应(问题早已失效)。按 questionId 精确清理:
+            // 不能无条件 setPendingQuestion(null) —— 那会把"另一条更新的提问"误清掉。
+            onQuestionResolved: (resolved) => {
+              setPendingQuestion((prev) =>
+                prev && prev.questionId === resolved.questionId ? null : prev,
+              )
             },
-            onRetryScheduled: (evt) =>
-              pushStreamActivity(
+            onRetryScheduled: (evt) => {
+              // pending 态:同上,"X 秒后继续"在继续之后必须撤回
+              const id = pushStreamActivity(
                 t('ai.stream.gatewayRetry', {
                   attempt: evt.attempt,
                   max: evt.maxRetries,
                   seconds: Math.max(1, Math.round(evt.retryInMs / 1000)),
                 }),
-              ),
+              )
+              pendingActivityRef.current.push(id)
+            },
             onFallback: (evt) =>
               pushStreamActivity(t('ai.stream.fallback', { model: evt.backupModel })),
             onUsage: (info) => {
@@ -1537,10 +1646,58 @@ export default function ChatPage() {
             onBudget: (evt) => {
               setBudgetStop((prev) => applyBudgetStopEvent(prev, evt))
             },
-            onReconnect: (attempt, delayMs) =>
-              pushStreamActivity(
+            // 2026-11-13:记忆更新交代。此前本端 0 命中 —— 服务端明明回了"本轮记住了哪些"
+            // 却整帧丢弃,用户不知道助手在积累记忆。空数组 = 本轮无新记忆 ⇒ 不打扰。
+            onMemoryUpdates: (evt) => {
+              if (evt.items.length === 0) return
+              pushStreamActivity(t('ai.stream.memoryRemembered', { n: evt.items.length }))
+            },
+            onReconnect: (attempt, delayMs) => {
+              // pending 态:写的是"X 秒后重连"这个未来时,连上之后必须撤回(见 onDelta)
+              const id = pushStreamActivity(
                 t('ai.stream.reconnect', { attempt, seconds: Math.round(delayMs / 1000) }),
-              ),
+              )
+              pendingActivityRef.current.push(id)
+            },
+            // 差距①第 ③④ 腿(2026-11-13):发送准入回执上屏。
+            //
+            // 为什么必须**接进既有 pushStreamActivity** 而不是只吞进 state:台账明确记着
+            // 「回执落进没人读的内存键」是本分组要防的复发形态 —— 接一条没有可见出口的
+            // 回调,账面变绿而用户看不到任何区别。执行过程列表本就承载流级事件
+            // (onReconnect 同款),回执是它的天然同类。
+            //
+            // 只对**有信息量**的档位出提示:accepted 与"我发出去了"同义反复(用户已经看到
+            // 自己的消息上屏),再报一次是噪音;queued/rejected 才是服务端**新增**的信息。
+            // duplicate 更特殊:它说明这次是重复提交,必须让用户知道(否则会以为发了两条)。
+            //
+            // ⚠️ accepted 虽不出提示,但**必须收回 queued 那条**(2026-11-13 修):
+            // 后端在排队回合被晋升时会再发一帧 `admission{disposition:'accepted', queuedTurnId}`
+            // (llm.py 现读)。旧实现在 accepted 处直接 return ⇒ "已排队"永久留在执行过程列表里,
+            // 用户看着"已排队"而回答早在跑 —— 比不显示更糟,它制造错误的等待预期。
+            // 配对凭据:`queuedTurnId` 两帧同值(共享层 send-admission.ts 定义该字段为
+            // "queued 档专用:排队项标识,供队列面板后续插队/撤回")。
+            onSendAdmissionReceipt: (receipt) => {
+              if (receipt.disposition === 'accepted') {
+                // 晋升:把同 queuedTurnId 的那条排队提示收回(无则不动,不误伤别的活动)
+                const qid = receipt.queuedTurnId
+                if (qid && queuedActivityRef.current[qid]) {
+                  dropStreamActivity(queuedActivityRef.current[qid])
+                  delete queuedActivityRef.current[qid]
+                }
+                return
+              }
+              const label = t(`streamErrors.admission.${receipt.disposition}`)
+              // 词表未命中(后端新增处置码)原样回显处置码,不吞数据(与 attendanceStatusLabel 同纪律)
+              const text =
+                label === `streamErrors.admission.${receipt.disposition}`
+                  ? receipt.disposition
+                  : label
+              const activityId = pushStreamActivity(text)
+              // 记住 queued 那条的 activity id,供晋升时撤回
+              if (receipt.disposition === 'queued' && receipt.queuedTurnId) {
+                queuedActivityRef.current[receipt.queuedTurnId] = activityId
+              }
+            },
             // G-248 R2:帧级 traceId 进客户端日志(非视觉消费,不上屏)。
             // 值由共享 sse-parse 认领、api/index 的 dispatch 透传,端内不再解帧、不再判合法性。
             onTraceId: (traceId) => {
@@ -1590,7 +1747,7 @@ export default function ChatPage() {
               : { code: formatted.code, message: formatted.message, traceId: roundTraceId },
           )
           // 失败轮要"可辨认":标 error + 保留已产出的部分内容(共享层同一标记规则,与 web 端一致)
-          setMessages((prev) => applyStreamError(prev, formatted.message, formatted.errorCode))
+          setMessages((prev) => applyStreamError(prev, formatted.message))
           onToast(formatted.title, { kind: 'info', duration: 2500 })
         }
       } finally {
@@ -1604,6 +1761,7 @@ export default function ChatPage() {
       sessionId,
       messages,
       scrollToBottom,
+      stickIfFollowing,
       currentModel,
       activeAgentId,
       selectedMaterial,
@@ -2158,98 +2316,6 @@ export default function ChatPage() {
     [versionList, messages, businessForms, formSendingRequestId, handleBusinessFormAction, tt],
   )
 
-  // ── D135(2026-11-14):提问卡本地作答回调(须在 shellCtx 之前声明,避免 TDZ) ──
-  // 保持 ref 最新(pendingQuestion/questionAnswer 可能在回调闭包里过期)
-  const pendingQuestionRef = useRef(pendingQuestion)
-  pendingQuestionRef.current = pendingQuestion
-  const questionAnswerRef = useRef(questionAnswer)
-  questionAnswerRef.current = questionAnswer
-
-  // 选项点选:多选切换、单选独占;自由输入并入 customText。
-  const selectQuestionOption = useCallback((optId: string): void => {
-    setQuestionAnswer((prev) => {
-      const pq = pendingQuestionRef.current
-      if (!pq) return prev
-      if (pq.allowMultiple) {
-        return {
-          ...prev,
-          selectedIds: prev.selectedIds.includes(optId)
-            ? prev.selectedIds.filter((x) => x !== optId)
-            : [...prev.selectedIds, optId],
-        }
-      }
-      return { ...prev, selectedIds: [optId] }
-    })
-  }, [])
-
-  // 自由输入变更
-  const setQuestionCustomText = useCallback((text: string): void => {
-    setQuestionAnswer((prev) => ({ ...prev, customText: text }))
-  }, [])
-
-  // 重置卡片(切换帧/关闭时调用)
-  const resetQuestionCard = useCallback((): void => {
-    setQuestionAnswer({ selectedIds: [], customText: '' })
-    setQuestionPhase('idle')
-    questionSubmitLockRef.current = false
-  }, [])
-
-  // 摘卡:同时清状态和作答态
-  const dismissQuestionCard = useCallback((): void => {
-    setPendingQuestion(null)
-    resetQuestionCard()
-  }, [resetQuestionCard])
-
-  // 提交/撤回一个阻塞式答复(双击只发一次;终态后卡片只读)
-  const submitQuestion = useCallback(
-    async (action: 'answer' | 'withdraw'): Promise<void> => {
-      const entry = pendingQuestionRef.current
-      if (!entry || questionSubmitLockRef.current || questionPhase !== 'idle') return
-      if (
-        action === 'answer' &&
-        questionAnswerRef.current.selectedIds.length === 0 &&
-        !questionAnswerRef.current.customText.trim()
-      )
-        return
-      questionSubmitLockRef.current = true
-      setQuestionPhase('submitting')
-      const outcome = await respondMiniQuestion({
-        entry,
-        action,
-        answer: questionAnswerRef.current,
-        phase: 'idle',
-        submitLock: false,
-        sendLegacyAnswer: async (text: string) => {
-          await sendMessageRef.current?.(text)
-        },
-        postJson: fetchAiServiceJson,
-      })
-      if (outcome === null) {
-        questionSubmitLockRef.current = false
-        setQuestionPhase('idle')
-        return
-      }
-      if (outcome.kind === 'failed') {
-        questionSubmitLockRef.current = false
-        setQuestionPhase('failed')
-        return
-      }
-      // blocking 或 legacy:legacy 已摘卡,blocking 置终态(等结算帧再摘)
-      if (outcome.kind === 'blocking') {
-        setQuestionPhase(outcome.status === 'withdrawn' ? 'withdrawn' : outcome.status)
-      } else {
-        // legacy 回退:已通过 sendLegacyAnswer 续流,摘卡
-        dismissQuestionCard()
-      }
-    },
-    [questionPhase, dismissQuestionCard],
-  )
-
-  // 帧到达时重置作答态(不同 questionId 不复用旧选中)
-  useEffect(() => {
-    resetQuestionCard()
-  }, [pendingQuestion?.questionId, resetQuestionCard])
-
   // 最终壳:页内 JSX 只剩「ThemeRoot + 共享 ChatScreen 入口」两枚;
   // 视觉节点在 ./chat-shell-extras 装配进共享屏槽位(status/queue/input/overlay...)。
   // 页内保留 SSE/数据/判定逻辑,壳层不判端。
@@ -2319,13 +2385,6 @@ export default function ChatPage() {
     openModelDrawer,
     openSkillsPopup,
     pendingQuestion,
-    // D135(2026-11-14):提问卡阻塞式作答回调(overlaySlot 提问卡消费)
-    questionAnswer,
-    questionPhase,
-    selectQuestionOption,
-    setQuestionCustomText,
-    submitQuestion,
-    dismissQuestionCard,
     reasoningPopupContent,
     reasoningPopupVisible,
     scrollToBottom,
@@ -2368,7 +2427,6 @@ export default function ChatPage() {
     versionList,
     workspaceTier,
   }
-
   return (
     <ThemeRoot className="page">
       <SharedChatScreen {...buildChatShellProps(shellCtx)} />

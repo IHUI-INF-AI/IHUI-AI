@@ -23,6 +23,7 @@ import { usePaneModeStore } from '@/stores/mode'
 import { usePaneAiToolsPanelStore } from '@/stores/ai-tools-panel'
 import type { ChatMode } from '@ihui/types'
 import { cn } from '@/lib/utils'
+import { NESTED_FLOATING_Z_CLASS } from '@/lib/floating-layer'
 import {
   COMPOSER_MENU_ROW_CHEVRON_CLASS,
   COMPOSER_MENU_ROW_CLASS,
@@ -124,9 +125,9 @@ export function ModeSwitcher({
           )}
         </button>
       </DropdownMenuTrigger>
-      {/* z-[2300](2026-11-04 第二轮收敛):本触发器现嵌在 + 菜单(z-[2200])第一层,
-          默认 z-popover(2001)会被外层盖住;抬高后才能看到并点到菜单项。 */}
-      <DropdownMenuContent align="start" style={{ zIndex: 2300 }} className="w-56">
+      {/* 触发器现嵌在 + 菜单(z-[2200])第一层,默认 z-popover 会被外层盖住;
+          层级走 floating-layer 唯一源。 */}
+      <DropdownMenuContent align="start" className={cn('w-56', NESTED_FLOATING_Z_CLASS)}>
         {/* 工具面板入口(2026-09-14 合并收口):AiSidePanelTools 的唯一开关。
             ai-side-panel.tsx 挂载的 <AiSidePanelTools />(承载 Plan/Memory/Checkpoints/
             Best-of/Hooks/RepoWiki 等 W21–W29 面板)依赖本入口,缺失则永远无法打开。 */}

@@ -26,7 +26,8 @@
  *   node scripts/check-rn-compat-coverage.mjs --staged   # 索引 blob
  *   node scripts/check-rn-compat-coverage.mjs --self-test
  */
-import { dirname } from 'node:path'
+import { readdirSync } from 'node:fs'
+import { dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { catBatch, gitRaw, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
@@ -526,7 +527,47 @@ export function judge(reader) {
     if (declSrc === null || declSrc === undefined) {
       findings.c9.push(`${shellTypes.OUT_REL}:被审面上没有这份派生件 ⇒ 壳承载页在 tsc 里等于 any(跑 node scripts/gen-rn-shell-types.mjs --write)`)
     } else {
-      const pageTexts = pageRoutes.map((r) => PAGE_EXTS.map((e) => contents.get(`${MP_SRC}/${r}${e}`)).find((t) => t !== null && t !== undefined) ?? '')
+      // 覆盖面必须与生成器**同一把尺**(2026-11-13 修判据漂移):生成器扫的是 tsconfig
+      // `include: ["./src"]` 覆盖的**全部** .tsx 页(含未被 app.config 登记进路由的组件/子页),
+      // 而这里原来只取"在册路由页" ⇒ 同一份派生件在两套口径下比较,只要仓里存在
+      // 「引用壳但不在路由表里」的页(现读 9 枚,如 pkg-user/api-keys、ChatMessageItem),
+      // 门就恒红而生成器恒"无变化",谁也修不掉。修法是把门的取材面扩到与生成器逐字一致,
+      // 不得反过来让生成器只认路由页(那会让未登记页的壳契约静默丢失)。
+      // 枚举走 listPaths(面上全部路径),**不得**复用 listFiles —— 那是按 import 模式 grep 出来的
+      // 消费面清单,拿它当"页集合"会得到 0 枚(本门此前正是这样与生成器各取一套口径)。
+      const pageTexts = (() => {
+        // 夹具 reader(自检用)可能只实现 readMany/listFiles 中的一个 ⇒ 一律先判有没有。
+        const paths = typeof reader.listPaths === 'function' ? reader.listPaths() : null
+        const allSrc = paths
+          ? [...paths].filter((p) => p.startsWith(`${MP_SRC}/`) && p.endsWith('.tsx'))
+          : // worktree 档 `listPaths()` 按设计返回 null(它只服务"确认面上不存在"那类探路),
+            // 此时**不能**回落到 listFiles —— 那是按 import 模式 grep 出来的消费面清单,
+            // 拿它当"页集合"会得到 0 枚,于是与生成器(磁盘枚举)永远对不上,门恒红而生成器恒"无变化"。
+            // 正解 = 与生成器 facePages('worktree') 同一把尺:直接枚举磁盘上的 .tsx。
+            (() => {
+              const root = process.cwd()
+              const out = []
+              const walk = (rel) => {
+                const abs = join(root, rel)
+                let entries
+                try {
+                  entries = readdirSync(abs, { withFileTypes: true })
+                } catch {
+                  return
+                }
+                for (const e of entries) {
+                  if (e.name === 'node_modules' || e.name.startsWith('.')) continue
+                  const childRel = `${rel}/${e.name}`
+                  if (e.isDirectory()) walk(childRel)
+                  else if (e.isFile() && childRel.endsWith('.tsx')) out.push(childRel)
+                }
+              }
+              walk(MP_SRC)
+              return out
+            })()
+        const got = reader.readMany(allSrc)
+        return allSrc.map((p) => got.get(p) ?? '')
+      })()
       const targets = [...new Set(shellTypes.specsOfPages(pageTexts).map((s) => shellTypes.targetOfSpecifier(s)).filter(Boolean))]
       let tmap
       try {
@@ -707,6 +748,9 @@ function selfTestCases() {
     return {
       label: '夹具',
       listFiles: () => ['packages/app/src/Control.tsx'],
+      // C9 的取材面与生成器同尺后,夹具也必须能枚举"面上的页"——
+      // 这里直接从夹具面里挑出小程序页路径(与真实 reader.listPaths 同语义:只报路径不产正文)。
+      listPaths: () => Object.keys(face).filter((r) => r.startsWith(`${MP_SRC}/`)),
       readMany: (rels) => new Map(rels.map((r) => [r, face[r] ?? null])),
     }
   }

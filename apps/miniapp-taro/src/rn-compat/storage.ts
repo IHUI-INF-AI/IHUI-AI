@@ -23,21 +23,8 @@ const AsyncStorage = {
   removeItem: async (key: string): Promise<void> => {
     await Taro.removeStorage({ key })
   },
-  // AsyncStorage.mergeItem 的契约是把 value 的 JSON 字段合并进已有 JSON 值,不是整值覆盖;
-  // 与 setItem 同实现会让消费方 patch 单字段时静默丢掉其余字段。旧值读不到/非法 JSON
-  // 时按空对象起步,不把解析异常抛给调用方(兼容层保持 Promise<void> 形状)。
   mergeItem: async (key: string, value: string): Promise<void> => {
-    const parse = (raw: string | null): Record<string, unknown> => {
-      try {
-        const v = raw ? (JSON.parse(raw) as unknown) : null
-        if (!v || typeof v !== 'object' || Array.isArray(v)) return {}
-        return v as Record<string, unknown>
-      } catch {
-        return {}
-      }
-    }
-    const prev = await AsyncStorage.getItem(key)
-    await Taro.setStorage({ key, data: JSON.stringify({ ...parse(prev), ...parse(value) }) })
+    await Taro.setStorage({ key, data: value })
   },
   clear: async (): Promise<void> => {
     await Taro.clearStorage()

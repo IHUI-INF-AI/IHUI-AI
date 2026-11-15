@@ -136,7 +136,7 @@ export function MyResourcesScreen({
           </View>
         ) : items.length === 0 ? (
           <View style={styles.emptyBox}>
-            <FileText size={28} color={tk.text.tertiary} strokeWidth={2} />
+            <FileText size={28} color={tk.text.secondary} strokeWidth={2} />
             <Text style={styles.emptyText}>{t('studentPage.empty')}</Text>
           </View>
         ) : (
@@ -166,11 +166,11 @@ export function MyResourcesScreen({
                     ) : null}
                     <View style={styles.rowMeta}>
                       <View style={styles.metaItem}>
-                        <Eye size={12} color={tk.text.tertiary} strokeWidth={2} />
+                        <Eye size={12} color={tk.text.secondary} strokeWidth={2} />
                         <Text style={styles.metaText}>{resource.viewCount}</Text>
                       </View>
                       <View style={styles.metaItem}>
-                        <Download size={12} color={tk.text.tertiary} strokeWidth={2} />
+                        <Download size={12} color={tk.text.secondary} strokeWidth={2} />
                         <Text style={styles.metaText}>{resource.downloadCount}</Text>
                       </View>
                       {resource.fileType ? (

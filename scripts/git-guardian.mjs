@@ -191,8 +191,6 @@ import {
 import { reapWorktrees } from './lib/git-guardian-worktree-reap.mjs'
 // 自陈述版本的判定口径:本进程 import 闭包单源(§0.6 不在守护里再拼一份 import 解析)
 import { relativeImportClosure } from './lib/scratch-module-closure.mjs'
-import { auditDiskRootWatch } from './lib/disk-root-watch.mjs'
-import { startDiskRootLiveWatch } from './lib/disk-root-live-watch.mjs'
 // 回收站「到期清理」调度层(2026-11-05 立,goal-b49 W7 未竟 1):判据与执行全在端内
 // (apps/cli/src/tools/trash-prune-entry.ts + packages/shared/src/delete-guard/),
 // 本层只负责 24h 节流地派生它、读它那一行结论、并把「自动退休」这一档寄到人通道。
@@ -2305,14 +2303,13 @@ function auditDiskRootHygiene() {
     }
     const c = parsed.counts || {}
     const uN = Number(c.diskRootUndetermined) || 0
-    const cuN = Number(c.declaredContentUndetermined) || 0
     const wN = Number(c.worktreeUndetermined) || 0
     const nN = Number(c.diskRootNotApplicable) || 0
     if (parsed.verdict === 'undetermined') {
       // 未判定必须**逐维**报名:旧写法只印 worktree 一维,于是"本机盘根没在 config 申报"
       // 这一整格在日志里长得像"盘根那维已经判过了"(把没判写成判过了,同一条禁令)。
       log(
-        `ℹ️ 盘根卫生:未判定(盘根维 ${uN}、申报内容维 ${cuN}、worktree 维 ${wN};不适用盘根 ${nN})—— 不寄信,也别当已判过`,
+        `ℹ️ 盘根卫生:未判定(盘根维 ${uN}、worktree 维 ${wN};不适用盘根 ${nN})—— 不寄信,也别当已判过`,
       )
       return
     }
@@ -2322,9 +2319,6 @@ function auditDiskRootHygiene() {
       // 那会把"尺子看不懂载荷"伪装成"又有一处落点外",既误导整改方向也污染信文)。
       const LABEL = {
         'stray-root-entry': (v) => `盘根外流: ${v.path || `${v.root}${v.entry}`}`,
-        // H3(2026-11-13 盘根外流根治):申报了目录 ≠ 申报了目录里的一切。
-        'stray-content-in-declared-dir': (v) =>
-          `申报目录内项目外流: ${v.path}(超龄 ${v.ageHours}h;收走手痕,或具名申报进 config 的 contents 清单)`,
         'worktree-outside-sanctioned-root': (v) =>
           `worktree 落点外: ${v.path}${v.prunable ? '(prunable)' : ''}`,
         // Y-71(临时派生检出寿命闸@2026-11-14):孤儿壳 = .git 链接已断,git prune 与
@@ -3098,39 +3092,6 @@ function trySelfHeal({
   } catch (e) {
     logger(`⚠️ 自愈层异常(忽略,回退报警):${String((e && e.message) || e).slice(0, 120)}`)
     return false
-  }
-}
-
-/**
- * startDiskRootLiveWatch 的幂等包装(2026-11-15 严口径接线)。
- * daemon 常驻进程每轮健康检查都会走到挂点行;fs.watch 句柄必须只挂一次,重复挂会:
- *   ① 泄漏 watcher(旧句柄永不 close);② 同一条目被 N 个 watcher 重复 onStray 刷屏。
- * 本守卫用模块级标志位保证全进程只 start 一次,后续调用零副作用。
- * onStray 点名走 notifyGuardRed(人通道),严口径白名单外的盘根一级条目当场报。
- */
-let __diskRootLiveWatchStarted = false
-function startDiskRootLiveWatchOnce({ notifyGuardRed: red = notifyGuardRed } = {}) {
-  if (__diskRootLiveWatchStarted) return
-  __diskRootLiveWatchStarted = true
-  try {
-    const started = startDiskRootLiveWatch({
-      onStray: (path, eventType) => {
-        // 严口径白名单外条目出现即点名。发现层不删不动(§26 清理归归属席)。
-        red(
-          '盘根外流实时监听',
-          `盘根一级出现非严口径白名单条目:${path}(事件 ${eventType})—— 已实时发现,请验明身份再决定。` +
-            `判据 = config/disk-root-allowlist.json 的 roots.liveWatch.allow(严口径节,只窄不宽)。` +
-            `本信不构成删除依据;新增合法落点须显式改配置并随 commit 审批。`,
-          { severity: 'warning', dedupKey: `disk-root-live-watch:${path}` },
-        )
-      },
-      logger: log,
-    })
-    if (started.watchers.length > 0) {
-      log(`✅ 盘根实时监听已挂(严口径):${started.watchers.map((w) => w.root).join(' · ')}`)
-    }
-  } catch (e) {
-    log(`⚠️ 盘根实时监听启动异常(不阻断主流程):${String((e && e.message) || e).slice(0, 160)}`)
   }
 }
 
@@ -6212,30 +6173,6 @@ const KEEPALIVE_FOREVER_ALERT_INTERVAL_MS = Number(
  */
 const KEEPALIVE_FOREVER_AHEAD_MARGIN_MS = 30 * 60 * 1000
 
-/**
- * 终态短路的复活 TTL(2026-11-15 续,补「纯终态不再重派」优化的设计缺口)。
- *
- * 缺口:上一轮把 terminalIdle:true 写进 tick 后,原短路是**无条件**的 —— 号池一旦全部
- * silent,这条腿就永久 ran:false。若之后号池新增号、或人工换票把判死号救活,系统再也不会
- * 自动重新巡检/告警,必须人工删 keepalive-forever-last.json。这与「救活优先」的运维语义
- * 相悖:账号复活后系统必须自己重新开始巡检。
- *
- * 修法(方案 a,纯 tick 内自洽):短路不是「永久」而是带 TTL。TTL 期内仍一次性都不派生
- * (优化不倒退:判死号池静默期间零上游请求);到期那一刻短路自动失效,落到既有节流检查
- * —— 由于 TTL(24h) 显著长于所有 window(alert 档最长 6h),到期时窗口必然已过 ⇒
- * 按正常节流重探一轮。重探后复用既有二次写 tick 的正交判定:
- *   · 仍是纯终态 ⇒ 重新写 terminalIdle:true 且 attemptAt 刷新(短路重新计时 24h);
- *   · 出现可逆失败 / 新号 / 旧格式 ⇒ pureTerminalRound=false ⇒ 不写 terminalIdle
- *     ⇒ 短路被清空,自动回到常规 6h(alert)/1h(ok) 节流。
- * 于是「新增号 / 复活号」在最长一个自然日内必被重新看到,且全程不引入数据库依赖、
- * 不改器物调用面、不动 state 三态与 window 三分支、四个 return 分支一字不改。
- *
- * 取 24h 的依据:常规节流最长是 alert 档 6h(T10 反向牙),24h = 4×6h 显著长于;
- * 24h 才重探一次器物,比 6h/1h 节拍低一个量级,对上游不打扰;同时是一个自然日,
- * 运维语义清楚 —— 判死号池每天自检一次,不会让救活号等超过一天。
- */
-const KEEPALIVE_FOREVER_TERMINAL_IDLE_TTL_MS = 24 * 60 * 60 * 1000
-
 export function sweepKeepAliveForever(opts = {}) {
   const {
     now = Date.now(),
@@ -6254,14 +6191,10 @@ export function sweepKeepAliveForever(opts = {}) {
   }
   let last = NaN
   let lastState = ''
-  // 正交终态闸门(2026-11-15 立):读上一轮结论行的「纯终态」独立标记,与 state 三态完全解耦 ——
-  // state 只管节流窗口(alert=6h),这个标记只管「判死号已一次性通知过、重派只会空转」。
-  let lastTerminalIdle = false
   try {
     const rec = JSON.parse(readFileSync(tickFile, 'utf8'))
     last = Date.parse(String(rec.attemptAt ?? '').trim())
     lastState = String(rec.state ?? '')
-    lastTerminalIdle = rec.terminalIdle === true
   } catch {
     /* 没跑过 */
   }
@@ -6278,18 +6211,6 @@ export function sweepKeepAliveForever(opts = {}) {
       : lastState === 'alert'
         ? alertIntervalMs
         : intervalMs
-  // 正交终态闸门:上一轮是「全部判死 + 四计数全 0」的纯终态轮次 ⇒ 不再派生器物
-  // (再跑一轮器物也只会 skipThisRound 静默跳过,属纯空转)。判定写进 tick 的是独立字段,
-  // 不改 state 三态、不动 window 三分支:可逆失败 / 混合轮次一次都拦不到。
-  // 正交终态闸门(带复活 TTL):TTL 期内纯终态轮次仍一次性都不派生(优化不倒退);
-  // 到期则本短路自动失效 ⇒ 落到下面的节流检查并按正常窗口重探一轮(见 TTL 常量头注)。
-  // 仅给短路这一行加时间维度:state 三态 / window 三分支 / 四个 return / 二次写 tick 一字不动。
-  if (
-    Number.isFinite(last) &&
-    lastTerminalIdle === true &&
-    now - last < KEEPALIVE_FOREVER_TERMINAL_IDLE_TTL_MS
-  )
-    return { ran: false, why: '上一轮纯终态轮次(判死号已一次性通知),重派只会空转' }
   if (Number.isFinite(last) && now - last < window) return { ran: false, why: '未到节流窗口' }
   try {
     mkdirSync(dirname(tickFile), { recursive: true })
@@ -6340,34 +6261,11 @@ export function sweepKeepAliveForever(opts = {}) {
     const mm = tail.match(new RegExp(`\\b${key}=(\\S+)`))
     return mm ? mm[1] : null
   }
-  // 正交终态判定(2026-11-15 立,与 state 三态解耦):只读结论行新增的机读计数,不读 state。
-  // 「纯终态轮次」= 至少一枚判死(terminal>0) 且 delivered/suppressed/failed/undetermined
-  // 全为 0 —— 对应器物 alertPlanFor 的 silent 分支(判死号已通知过 ⇒ skipThisRound 静默跳过,
-  // tallyMailOutcomes 把 skipped 单列,不进这四个计数)。旧格式结论行没有 terminal 字段 ⇒
-  // num('terminal')=null ⇒ 判定恒 false ⇒ 既有 T4/T10 的 6h 重派语义一字不动(§22c 反向牙)。
-  // 字段缺失 / 为 '?' / 非数字一律返回 null ⇒ 判 false ⇒ fail-closed 保守保留 6h 重派
-  // (§0.3:没判不写成判过,宁可多跑一轮也不误停保活)。
-  const num = (key) => {
-    const v = kv(key)
-    return v !== null && /^\d+$/.test(v) ? Number(v) : null
-  }
-  const pureTerminalRound =
-    num('terminal') !== null &&
-    num('terminal') > 0 &&
-    num('delivered') === 0 &&
-    num('suppressed') === 0 &&
-    num('failed') === 0 &&
-    num('undetermined') === 0
   const counts = `registered=${kv('registered') ?? '?'} refreshed=${kv('refreshed') ?? '?'} refreshFailed=${kv('refreshFailed') ?? '?'} keepalive=${kv('keepalive') ?? '?'} heartbeat=${kv('heartbeat') ?? '?'} alerts=${kv('alerts') ?? '?'} mailed=${kv('mailed') ?? '?'}`
   try {
     writeFileSync(
       tickFile,
-      JSON.stringify({
-        attemptAt: new Date(now).toISOString(),
-        state: state ?? 'no-result-line',
-        // 正交字段:只在「纯终态轮次」出现,既有轮次的台账结构一字不动(T8 只读 attemptAt)。
-        ...(pureTerminalRound ? { terminalIdle: true } : {}),
-      }),
+      JSON.stringify({ attemptAt: new Date(now).toISOString(), state: state ?? 'no-result-line' }),
       'utf8',
     )
   } catch {
@@ -14849,14 +14747,6 @@ async function main() {
     // 盘根卫生巡检(G 盘清理收口 2026-09-30):同一挂点语义 —— 健康轮次早退之前 + !CHECK_ONLY。
     beatRoundLock()
     if (!CHECK_ONLY) auditDiskRootHygiene()
-    // 盘根外流实时哨兵(2026-11-14 立,严口径 2026-11-15):轮询兜底点名 + 执法闸行为自证,
-    //   判据各归其源(卫生尺 / disk-root-acl.mjs),本腿只调度。10min 节流,挂 !CHECK_ONLY。
-    beatRoundLock()
-    if (!CHECK_ONLY) auditDiskRootWatch({ notifyGuardRed })
-    // 盘根外流毫秒级实时监听(严口径):fs.watch 一级挂盘根,白名单外条目一出现即点名;
-    //   幂等守卫防 daemon 每轮重复挂 watcher。同块内紧跟轮询哨兵。
-    beatRoundLock()
-    if (!CHECK_ONLY) startDiskRootLiveWatchOnce({ notifyGuardRed })
     // 开工前基线新鲜度:只报数的一层(③轴绝不进提交链,故这里既不判红也不喊人)。
     if (!CHECK_ONLY && legThrottle(BASELINE_FRESHNESS_TICK, 60 * 60 * 1000, Date.now(), log))
       beatRoundLock()
@@ -16651,8 +16541,6 @@ export const __test__ = {
   // 永久保活派发腿(2026-11-01 接线;镜像测试 keepalive-forever-dispatch 按名 import 判据,
   // 不复制 §22c;不登记进本台账 ⇒ 接线锁结构上打不到这一格)。
   sweepKeepAliveForever,
-  // 终态短路复活 TTL(2026-11-15 续):复活探针镜像测试按名 import 这一份本体,零复制 TTL 值(§22c)。
-  KEEPALIVE_FOREVER_TERMINAL_IDLE_TTL_MS,
   sweepPoolIsolation,
   // 悬空 commit 自动保活派发腿(2026-10-30 立;镜像测试 dangling-commit-autotag-dispatch 按名 import,
   // 不复制判据 §22c;此条不登记进本台账 ⇒ 接线锁结构上打不到这一格)。

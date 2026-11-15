@@ -19,8 +19,6 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import * as os from 'node:os'
 import { spawnSync } from 'node:child_process'
-// 运行时合规临时根(§15b):~/.ihui/tmp → junction D:;禁 os.tmpdir()(TEMP 可能钉 C 盘)
-import { getRuntimeTempRoot } from '@ihui/shared'
 import { assertPathInside } from './util/path-guard.js'
 import { writeFileAtomicSync, SymlinkTargetError } from './util/atomic-write.js'
 
@@ -180,7 +178,7 @@ function detectCowKindImpl(dir: string): CowKind {
   }
 
   // Linux/macOS: 创建临时文件尝试 CoW 复制
-  const tmpBase = getRuntimeTempRoot()
+  const tmpBase = os.tmpdir()
   const suffix = `${Date.now()}-${process.pid}-${Math.random().toString(36).slice(2)}`
   const src = path.join(tmpBase, `ihui-cow-src-${suffix}`)
   const dst = path.join(tmpBase, `ihui-cow-dst-${suffix}`)

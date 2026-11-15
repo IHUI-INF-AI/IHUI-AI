@@ -65,7 +65,7 @@ export function CategoryHeader({
             ) : null}
             {createdAtLabel ? (
               <View style={styles.meta}>
-                <Calendar size={12} color={tk.text.tertiary} />
+                <Calendar size={12} color={tk.text.secondary} />
                 <Text style={styles.metaText}>{createdAtLabel}</Text>
               </View>
             ) : null}
@@ -109,7 +109,7 @@ function createStyles(tk: AppThemeTokens) {
     badgeDisabledText: { color: tk.text.secondary },
     badgePaidText: { color: tk.warning.amberText },
     meta: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.xs },
-    metaText: { fontSize: rnType.label.size, color: tk.text.tertiary },
+    metaText: { fontSize: rnType.label.size, color: tk.text.medium },
     description: {
       fontSize: rnType.body.size,
       lineHeight: rnType.strong.lineHeight,

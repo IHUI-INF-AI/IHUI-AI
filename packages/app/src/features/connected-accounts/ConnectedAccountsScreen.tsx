@@ -120,7 +120,7 @@ export function ConnectedAccountsScreen({
           <Text style={styles.muted}>{t('connectedAccounts.subtitle')}</Text>
 
           {loading ? (
-            <ActivityIndicator style={styles.loading} color={tk.text.tertiary} />
+            <ActivityIndicator style={styles.loading} color={tk.text.secondary} />
           ) : error ? (
             <View style={styles.centerBox}>
               <Text style={styles.error}>{error}</Text>
@@ -157,7 +157,7 @@ export function ConnectedAccountsScreen({
                         accessibilityRole="button"
                         accessibilityLabel={t('settings.connectedAccountsUnbind')}
                       >
-                        <Link2Off size={13} color={tk.danger.DEFAULT} />
+                        <Link2Off size={13} color={tk.danger.deepText} />
                         <Text style={styles.dangerLink}>
                           {t('settings.connectedAccountsUnbind')}
                         </Text>
@@ -195,7 +195,7 @@ export function ConnectedAccountsScreen({
                     accessibilityRole="button"
                     accessibilityLabel={t('settings.connectedAccountsUnbind')}
                   >
-                    <Link2Off size={13} color={tk.danger.DEFAULT} />
+                    <Link2Off size={13} color={tk.danger.deepText} />
                     <Text style={styles.dangerLink}>{t('settings.connectedAccountsUnbind')}</Text>
                   </TouchableOpacity>
                 </View>
@@ -235,11 +235,11 @@ function createStyles(tk: AppThemeTokens) {
     muted: { fontSize: rnType.bodySm.size, color: tk.text.secondary, lineHeight: 19 },
     hint: {
       fontSize: rnType.label.size,
-      color: tk.text.tertiary,
+      color: tk.text.medium,
       lineHeight: 17,
       marginTop: rnSpacing['2xs'],
     },
-    error: { fontSize: rnType.bodySm.size, color: tk.danger.DEFAULT },
+    error: { fontSize: rnType.bodySm.size, color: tk.danger.deepText },
     loading: { paddingVertical: rnSpacing.lg },
     centerBox: { alignItems: 'center', gap: rnSpacing.sm, paddingVertical: rnSpacing.lg },
     row: {
@@ -252,7 +252,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     rowMain: { flex: 1, gap: rnSpacing['2xs'] },
     platformName: { fontSize: rnType.strong.size, fontWeight: '600', color: tk.text.primary },
-    meta: { fontSize: rnType.label.size, color: tk.text.tertiary },
+    meta: { fontSize: rnType.label.size, color: tk.text.medium },
     button: {
       height: 32,
       paddingHorizontal: rnSpacing['sm-loose'],
@@ -275,7 +275,7 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
       gap: rnSpacing.xs,
     },
-    dangerLink: { fontSize: rnType.label.size, fontWeight: '600', color: tk.danger.DEFAULT },
+    dangerLink: { fontSize: rnType.label.size, fontWeight: '600', color: tk.danger.deepText },
     outlineButton: {
       height: 36,
       paddingHorizontal: rnSpacing.lg,

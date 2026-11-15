@@ -3,6 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
+import { randomUUID } from 'node:crypto'
 import { z } from 'zod'
 import { and, eq, inArray, sql } from 'drizzle-orm'
 import { users } from '@ihui/database'
@@ -428,15 +429,22 @@ export const notificationRoutes: FastifyPluginAsync = async (server) => {
         const notificationQueue = (
           server as unknown as {
             notificationQueue?: {
-              addBulk: (jobs: { name: string; data: unknown }[]) => Promise<unknown>
+              addBulk: (
+                jobs: { name: string; data: unknown; opts?: { jobId?: string } }[],
+              ) => Promise<unknown>
             }
           }
         ).notificationQueue
         if (notificationQueue) {
+          // F-512:每条目标一个确定性 jobId(本次广播批次 × 收件人)—— addBulk 内部重试
+          // 或生产侧重放同批次时,BullMQ 直接按 jobId 去重,不再产生第二条投递。
+          // 注意:BullMQ 禁止 jobId 含 ':',故用 '-' 连接。
+          const broadcastBatchId = randomUUID()
           // 批量入队,Worker 会异步完成 DB 落库 + WebSocket 推送
           await notificationQueue.addBulk(
             allUsers.map((u) => ({
               name: 'broadcast',
+              opts: { jobId: `notif-broadcast-${broadcastBatchId}-${u.id}` },
               data: {
                 userId: u.id,
                 type: parsed.data.type,

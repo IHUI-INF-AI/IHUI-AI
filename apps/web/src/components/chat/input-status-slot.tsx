@@ -49,6 +49,7 @@ import {
   type ConnectionState,
 } from '@/components/ai/progress-sections/connection-status'
 import { PortalPanel } from '@/components/feedback/portal-panel'
+import { MENU_ITEM_CLASS, MENU_ITEM_ICON_CLASS } from '@/lib/menu-item'
 
 import {
   clearStreamConnection,
@@ -239,9 +240,9 @@ export function InputStatusSlot({
                 setManual(kind)
                 setPanelOpen(false)
               }}
-              className="flex items-center gap-2 px-2.5 py-1.5 text-left text-label text-popover-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+              className={MENU_ITEM_CLASS}
             >
-              <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+              <Icon className={MENU_ITEM_ICON_CLASS} aria-hidden="true" />
               <span className="min-w-0 flex-1 truncate">{t(statusSlotLabelKey(kind))}</span>
             </button>
           )

@@ -467,7 +467,7 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: EMPTY_FONT_SIZE,
     lineHeight: EMPTY_FONT_SIZE + 4,
-    color: tokens.text.tertiary,
+    color: tokens.text.medium,
   } as TextStyle,
 })
 

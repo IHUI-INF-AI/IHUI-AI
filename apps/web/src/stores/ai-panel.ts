@@ -12,7 +12,16 @@ import { createPersistConfig } from './persist-helpers'
 import { useChatStore } from './chat'
 // 形态档唯一真相源(2026-11-11):openPanel 必须按视口能力决定「打开成什么形态」,
 // 不能只把 open 置 true —— 停靠位在 640–1279 不存在,只置 open 等于「点了没反应」。
-import { getPanelBucket, readViewportWidth } from '@/lib/ai-panel-bucket'
+// 2026-11-15:浮窗支持八向拉伸,尺寸收口同样复用这里的纯函数(视口边界/最小档唯一源)。
+import {
+  AI_FLOAT_DEFAULT_HEIGHT,
+  AI_FLOAT_DEFAULT_WIDTH,
+  getFloatSize,
+  getPanelBucket,
+  readViewportSize,
+  readViewportWidth,
+  type AiFloatSize,
+} from '@/lib/ai-panel-bucket'
 
 /** AI 侧边 docked 面板默认宽度
  * - 2026-09-30 重构(输入框底栏单行化,深度对标 Trae/Qoder/Codex):
@@ -43,6 +52,12 @@ export interface ActiveWorkspace {
 /** 浮窗位置哨兵:-1 = 未初始化。真实落点由 lib/ai-panel-bucket 的 resolveFloatRect 解析成
  *  「工作区左下角、向上展开」,并统一做视口收口;不持久化(每次刷新回默认锚点)。 */
 export const FLOAT_DEFAULT_POSITION = { x: -1, y: -1 }
+
+/** 浮窗默认尺寸(首次打开 / 刷新后回默认;用户拖拽任意边角后持久化偏好)。 */
+export const FLOAT_DEFAULT_SIZE: AiFloatSize = {
+  width: AI_FLOAT_DEFAULT_WIDTH,
+  height: AI_FLOAT_DEFAULT_HEIGHT,
+}
 
 interface AiPanelState {
   /** 面板是否展开(全局唯一,任何路由可触发) */
@@ -100,6 +115,12 @@ interface AiPanelState {
   /** 浮窗位置(视口坐标,持久化) */
   floatPosition: { x: number; y: number }
   /**
+   * 浮窗尺寸(2026-11-15 八向拉伸,持久化)。
+   * 用户拖拽任意边 / 角后写入;写入与渲染都经 getFloatSize 按视口收口,
+   * 因此刷新到更小窗口也不会出现「面板比屏幕还大」的死态。
+   */
+  floatSize: AiFloatSize
+  /**
    * FAB(最小化图标)拖拽后的独立位置(2026-11-11 立)。
    * null = 从未拖过 ⇒ 跟随浮窗矩形左下角(与最小化瞬间视觉连续)。
    * 不能复用 floatPosition:那是 360×600 浮窗的钳制范围,会把 48px 圆钮锁在左侧带内。
@@ -136,6 +157,8 @@ interface AiPanelState {
   setWorkAreaFullscreen: (v: boolean) => void
   setFloatCollapsed: (v: boolean) => void
   setFloatPosition: (pos: { x: number; y: number }) => void
+  /** 写入浮窗尺寸(调用方已按 resizeFloatRect 算好;此处再按当前视口兜一次底) */
+  setFloatSize: (size: AiFloatSize) => void
   setFloatFabPosition: (pos: { x: number; y: number } | null) => void
 }
 
@@ -162,6 +185,7 @@ export const useAiPanelStore = create<AiPanelState>()(
       floatMinimized: false,
       floatCollapsed: false,
       floatPosition: FLOAT_DEFAULT_POSITION,
+      floatSize: FLOAT_DEFAULT_SIZE,
       floatFabPosition: null,
       workAreaCollapsed: false,
       workAreaFullscreen: false,
@@ -224,12 +248,19 @@ export const useAiPanelStore = create<AiPanelState>()(
       setWorkAreaFullscreen: (v: boolean) => set({ workAreaFullscreen: v }),
       setFloatCollapsed: (v: boolean) => set({ floatCollapsed: v }),
       setFloatPosition: (pos: { x: number; y: number }) => set({ floatPosition: pos }),
+      setFloatSize: (size) => {
+        const vp = readViewportSize()
+        set({ floatSize: getFloatSize(vp.width, vp.height, size) })
+      },
       setFloatFabPosition: (pos) => set({ floatFabPosition: pos }),
     }),
     {
       ...createPersistConfig<AiPanelState>('ihui-ai-panel', (s) => ({
         width: s.width,
         activeWorkspace: s.activeWorkspace,
+        // 浮窗缩放偏好持久化(2026-11-15):用户拉大/缩小的尺寸刷新后保留,
+        // 位置仍按用户规则不持久化(刷新回工作区左下角)。
+        floatSize: s.floatSize,
         // 会话级工作区映射持久化(2026-09-04):刷新后各对话绑定关系保留
         conversationWorkspaces: s.conversationWorkspaces,
       })),
@@ -251,24 +282,31 @@ export const useAiPanelStore = create<AiPanelState>()(
         }
         return s as Partial<AiPanelState>
       },
-      merge: (persistedState, currentState) => ({
-        ...currentState,
-        ...((persistedState as Partial<AiPanelState>) || {}),
-        open: true,
-        floatMode: false,
-        // D182 工作面全屏同为会话级:rehydrate 后强制回默认,防旧残留把工作面锁在全屏
-        workAreaFullscreen: false,
-        // 79 号票:双轴是请求级偏好,未进 partialize;此处再强制一次,
-        // 防旧版本/手改的 localStorage 把高危双轴残留到刷新之后
-        permissionAxes: null,
-        // 强制非最小化/非折叠:防旧版本 localStorage 残留 floatMinimized:true
-        // 导致 AI 对话框默认收成 FAB(用户规则:默认展开正常态)
-        floatMinimized: false,
-        floatCollapsed: false,
-        floatPosition: FLOAT_DEFAULT_POSITION,
-        // FAB 独立位置同为会话级:刷新回「跟随浮窗矩形」的默认锚点
-        floatFabPosition: null,
-      }),
+      merge: (persistedState, currentState) => {
+        const persisted = (persistedState as Partial<AiPanelState>) || {}
+        const viewport = readViewportSize()
+        return {
+          ...currentState,
+          ...persisted,
+          open: true,
+          floatMode: false,
+          // D182 工作面全屏同为会话级:rehydrate 后强制回默认,防旧残留把工作面锁在全屏
+          workAreaFullscreen: false,
+          // 79 号票:双轴是请求级偏好,未进 partialize;此处再强制一次,
+          // 防旧版本/手改的 localStorage 把高危双轴残留到刷新之后
+          permissionAxes: null,
+          // 强制非最小化/非折叠:防旧版本 localStorage 残留 floatMinimized:true
+          // 导致 AI 对话框默认收成 FAB(用户规则:默认展开正常态)
+          floatMinimized: false,
+          floatCollapsed: false,
+          floatPosition: FLOAT_DEFAULT_POSITION,
+          // 尺寸偏好持久化,但必须过视口收口:旧值/手改值超出当前窗口时按最小档与
+          // 8px 边距夹住,否则刷新后浮窗会比视口还大(位置收口也救不回来)。
+          floatSize: getFloatSize(viewport.width, viewport.height, persisted.floatSize),
+          // FAB 独立位置同为会话级:刷新回「跟随浮窗矩形」的默认锚点
+          floatFabPosition: null,
+        }
+      },
     },
   ),
 )

@@ -24,9 +24,9 @@ const BILLING_TX_STATUS_KEY: Record<string, string> = {
 }
 
 export default async function BillingPage() {
-  const t = await getTranslations('models')
   // SSR 首帧按 cookie 口径 + 汇率快照直出(layout 与 page 模块实例隔离,必须逐页播种)
   await seedServerCurrency()
+  const t = await getTranslations('models')
   const tp = await getTranslations('modelsBillingPage')
 
   // 2026-07-26 GEO 强化:Product schema(适配 AI 引擎对"充值套餐"页面的结构化抓取)
@@ -198,7 +198,9 @@ export default async function BillingPage() {
               <Card
                 key={p.name}
                 className={
-                  p.highlighted ? 'relative border-brand-accent-deep shadow-elevation-md' : 'relative'
+                  p.highlighted
+                    ? 'relative border-brand-accent-deep shadow-elevation-md'
+                    : 'relative'
                 }
               >
                 {p.highlighted && (

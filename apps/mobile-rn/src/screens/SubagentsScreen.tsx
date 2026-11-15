@@ -42,6 +42,7 @@ import { useTheme } from '../context/ThemeContext'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { NavChrome } from '../components/NavChrome'
+import { toFriendlyOr } from '@ihui/shared/utils'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -153,7 +154,7 @@ export function SubagentsScreen() {
       setDispatches(dispatchRes.dispatches)
       setTopology(topoRes.topology)
     } catch (e) {
-      setError(e instanceof Error ? e.message : t('common.loadFailed'))
+      setError(toFriendlyOr(e, t('common.loadFailed')))
     } finally {
       setLoading(false)
       setRefreshing(false)
@@ -187,10 +188,7 @@ export function SubagentsScreen() {
               await cancelSubagentDispatch(d.id)
               setDispatches((prev) => prev.filter((x) => x.id !== d.id))
             } catch (e) {
-              appAlert(
-                t('common.loadFailed'),
-                e instanceof Error ? e.message : t('subagents.cancelFail'),
-              )
+              appAlert(t('common.loadFailed'), toFriendlyOr(e, t('subagents.cancelFail')))
             } finally {
               setCancellingId('')
             }

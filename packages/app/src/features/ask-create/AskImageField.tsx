@@ -83,6 +83,17 @@ export interface AskImageFieldProps {
   onRemove: (index: number) => void
   maxCount?: number
   colorScheme?: 'light' | 'dark'
+  /**
+   * 删除角标的读屏文案,由宿主注入(2026-11-14)。
+   *
+   * 为什么是 prop 而不是写死:本组件是共享层,`packages/app` 里不许有界面中文
+   * (`scripts/scan-hardcoded-zh.mjs` 对该文件的额度是 0 处)。此前这里写死
+   * `移除第 N 张图片`,在 ja/ko/en 三个语言包里读屏会照念中文。
+   * 传 `1` 起的序号(与视觉上的"第几张"一致),不是数组下标。
+   * 不传时**不渲染 accessibilityLabel** —— 宁缺不错:猜一句英文默认值,
+   * 会让 zh 用户听到英文,反而比没有更糟。
+   */
+  removeLabel?: (index: number) => string
 }
 
 /** 配图共享段:缩略图网格 + 删除角标 + 添加入口。 */
@@ -95,6 +106,7 @@ export function AskImageField({
   onRemove,
   maxCount = ASK_IMAGE_MAX,
   colorScheme = 'light',
+  removeLabel,
 }: AskImageFieldProps) {
   const tk = getTokens(colorScheme)
   const styles = createStyles(tk)
@@ -112,6 +124,11 @@ export function AskImageField({
             style={styles.del}
             onPress={() => onRemove(index)}
             accessibilityRole="button"
+            accessibilityLabel={removeLabel ? removeLabel(index + 1) : undefined}
+            // 命中区补足(2026-11-13):视觉尺寸是 18×18(缩略图角标,刻意做小),
+            // 但触控下限是 36 ⇒ 缺 hitSlop 时实得只有 18,拇指点不中(反而易误触缩略图)。
+            // 补 (36-18)/2 = 9,实得 18+18=36,视觉不变。
+            hitSlop={9}
           >
             <Text style={styles.delText}>×</Text>
           </TouchableOpacity>
@@ -153,7 +170,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.danger.DEFAULT,
       zIndex: 2,
     },
-    delText: { color: tk.surface.light, ...rnType.label },
+    delText: { color: tk.surface.onBrand, ...rnType.label },
     add: {
       width: 80,
       height: 80,

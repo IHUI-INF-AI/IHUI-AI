@@ -37,15 +37,14 @@ export default function VipPayConfirm({
       <View
         className="relative vip-surface rounded-t-2xl w-full px-2xl pb-2xl pt-lg"
         onClick={(e) => e.stopPropagation()}
-        hoverClass="opacity-60"
       >
         <View className="flex items-center justify-between mb-lg">
           <Text className="text-title font-medium vip-text">
             {tt('pay.confirmOrder', '确认订单')}
           </Text>
-          <Text className="text-body vip-text-muted" onClick={onCancel}>
-            ×
-          </Text>
+          <View className="text-body vip-text-muted" hoverClass="opacity-60" onClick={onCancel}>
+            <Text>×</Text>
+          </View>
         </View>
 
         <View className="bg-muted rounded-xl p-lg mb-lg">

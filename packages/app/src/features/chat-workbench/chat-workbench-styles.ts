@@ -64,7 +64,7 @@ export function createChatWorkbenchStyles(tk: AppThemeTokens) {
     /** 栏标题(web sticky 分组头在移动端只留一枚标签,不做 sticky) */
     sectionLabel: {
       ...rnType.caption,
-      color: tk.text.tertiary,
+      color: tk.text.medium,
       paddingHorizontal: rnSpacing.xs,
       paddingTop: rnSpacing.xs,
       paddingBottom: rnSpacing.xs,
@@ -86,7 +86,7 @@ export function createChatWorkbenchStyles(tk: AppThemeTokens) {
       backgroundColor: tk.brandAccent.light,
     },
     rowTitle: { ...rnType.body, flex: 1, color: tk.text.primary },
-    rowTime: { ...rnType.caption, color: tk.text.tertiary, flexShrink: 0 },
+    rowTime: { ...rnType.caption, color: tk.text.medium, flexShrink: 0 },
     /** 居中提示面(未选会话 / 空列表) */
     center: {
       flex: 1,
@@ -94,7 +94,7 @@ export function createChatWorkbenchStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
       padding: rnSpacing.xl,
     },
-    hint: { ...rnType.caption, color: tk.text.tertiary, textAlign: 'center' },
+    hint: { ...rnType.caption, color: tk.text.medium, textAlign: 'center' },
   })
 }
 

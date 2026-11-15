@@ -60,6 +60,8 @@ export interface CrewStreamEvent {
   }
   /** G7: complete/error 事件携带本次会话的 LLM 用量汇总(用于路由层扣费) */
   usage?: UsageAccumulator
+  /** F-200: complete/error 事件携带分步成败统计(仅存在失败步骤时出现) */
+  stepStats?: CrewStepStats
   /** G7: complete/error 事件携带会话所属用户(用于路由层扣费) */
   userId?: string
   /** SDB-30: 本次执行的唯一 runId —— 计费幂等键按 run 而非 session*/
@@ -70,6 +72,14 @@ export interface SessionConfig {
   modelId?: string
   collectionName?: string
   maxRetries?: number
+}
+
+/** F-200: 一次执行的分步成败统计 */
+export interface CrewStepStats {
+  total: number
+  completed: number
+  failed: number
+  failedRoles: string[]
 }
 
 /** G7: 会话级 LLM 用量汇总 */
@@ -88,6 +98,8 @@ export interface SessionResult {
   runId: string
   result?: string
   error?: string
+  /** F-200: 分步成败统计 —— 仅当存在失败步骤时返回,全成功路径响应形状不变 */
+  stepStats?: CrewStepStats
   /** G7: 本次会话的 LLM 用量汇总(用于路由层扣费) */
   usage?: UsageAccumulator
   /** G7: 会话所属用户(用于路由层扣费) */
@@ -214,19 +226,36 @@ class CrewOrchestrator {
     const config = (session.config ?? {}) as SessionConfig
     this.initUsage(runId) // G7: 每次执行各一份 usage(重跑互不影响)
     try {
-      const result = await this.runSimplified(
+      const { result, anyOk, stepStats } = await this.runSimplified(
         sessionId,
         session.inputMessage,
         session.userId,
         config,
         runId,
       )
+      // F-200:终态按真实成败判定,不再无条件 completed + success:true。
+      // 全部 LLM 步骤失败 ⇒ session failed 且 success:false;至少一步成功才记 completed。
+      if (!anyOk) {
+        await this.updateSessionStatus(sessionId, 'failed', result)
+        return {
+          success: false,
+          sessionId,
+          runId,
+          result,
+          error: '所有执行步骤均失败',
+          stepStats,
+          usage: this.clearUsage(runId),
+          userId: session.userId,
+        }
+      }
       await this.updateSessionStatus(sessionId, 'completed', result)
       return {
         success: true,
         sessionId,
         runId,
         result,
+        // F-200:部分失败保留 completed,但把失败步骤统计带给调用方;全成功不新增字段。
+        ...(stepStats.failed > 0 ? { stepStats } : {}),
         usage: this.clearUsage(runId),
         userId: session.userId,
       }
@@ -285,6 +314,9 @@ class CrewOrchestrator {
 
       const context: Record<string, string> = { input: session.inputMessage }
       const results: Record<string, string> = {}
+      // F-200:流式同样按真实成败累计 —— 全失败不得发 complete / 写 completed
+      let completedSteps = 0
+      const failedRoles: string[] = []
 
       for (let i = 0; i < taskPlan.length; i++) {
         // G9: 客户端断连/主动取消检测,中止后续 step
@@ -310,6 +342,7 @@ class CrewOrchestrator {
         }
 
         let output: string
+        let stepOk = false
         try {
           // executor 角色:启用工具调用循环(function calling)
           if (plan.role === 'executor') {
@@ -326,11 +359,15 @@ class CrewOrchestrator {
             output = await this.callLlm(prompt, config, sessionId, session.userId, runId)
           }
           await this.updateTaskStatus(taskId, 'completed', output)
+          stepOk = true
         } catch (e) {
           output = `[${plan.role} 执行失败: ${e instanceof Error ? e.message : String(e)}]`
           await this.updateTaskStatus(taskId, 'failed', undefined, output)
           yield { type: 'task_error', role: plan.role, content: output }
         }
+
+        if (stepOk) completedSteps++
+        else failedRoles.push(plan.role)
 
         results[plan.role] = output
         context[plan.role] = output
@@ -359,6 +396,28 @@ class CrewOrchestrator {
         return
       }
 
+      const stepStats: CrewStepStats = {
+        total: completedSteps + failedRoles.length,
+        completed: completedSteps,
+        failed: failedRoles.length,
+        failedRoles,
+      }
+
+      // F-200:所有步骤均失败 ⇒ 终态 failed + error 事件(带失败统计),不得伪报 complete。
+      if (completedSteps === 0) {
+        await this.updateSessionStatus(sessionId, 'failed', '所有执行步骤均失败')
+        yield {
+          type: 'error',
+          content: '所有执行步骤均失败',
+          sessionId,
+          stepStats,
+          usage: this.clearUsage(runId),
+          userId: session.userId,
+          runId,
+        }
+        return
+      }
+
       const finalResult = results['reporter'] ?? results['executor'] ?? '无结果'
       await this.updateSessionStatus(sessionId, 'completed', finalResult)
       // 保存最终产物
@@ -367,6 +426,8 @@ class CrewOrchestrator {
         type: 'complete',
         content: finalResult,
         sessionId,
+        // F-200:部分失败保留 complete,但把失败步骤统计带给客户端;全成功不新增字段。
+        ...(stepStats.failed > 0 ? { stepStats } : {}),
         usage: this.clearUsage(runId),
         userId: session.userId,
         runId,
@@ -613,15 +674,19 @@ class CrewOrchestrator {
     userId: string,
     config: SessionConfig,
     runId: string,
-  ): Promise<string> {
+  ): Promise<{ result: string; anyOk: boolean; stepStats: CrewStepStats }> {
     const taskPlan = this.planTasks(inputMessage)
     const context: Record<string, string> = { input: inputMessage }
     const results: Record<string, string> = {}
+    let anyOk = false
+    let totalSteps = 0
+    const failedRoles: string[] = []
 
     for (let i = 0; i < taskPlan.length; i++) {
       const plan = taskPlan[i]!
       const cfg = agentRegistry.getRole(plan.role)
       if (!cfg) continue
+      totalSteps++
 
       const taskId = await this.createTaskRecord(sessionId, i, plan.role, plan.description)
       await this.updateTaskStatus(taskId, 'running')
@@ -635,30 +700,48 @@ class CrewOrchestrator {
       const maxRetries = config.maxRetries ?? 2
       let output: string | null = null
       let lastError: Error | null = null
+      let taskOk = false
 
       for (let attempt = 0; attempt <= maxRetries; attempt++) {
         try {
           output = await this.callLlm(prompt, config, sessionId, userId, runId)
+          taskOk = true
           break
         } catch (e) {
           lastError = e as Error
           if (attempt < maxRetries) {
             prompt += `\n\n注意: 上次执行失败(${lastError.message}), 请重试.`
           } else {
+            // F-200:失败文本不再是「成功产出」。它只作错误信息留痕,任务记 failed,
+            // 不再靠 truthy 分支洗成 completed。
             output = `[${plan.role} 执行失败 (重试${maxRetries}次): ${lastError.message}]`
           }
         }
       }
 
-      if (output) {
+      if (taskOk && output) {
         results[plan.role] = output
         context[plan.role] = output
         await this.updateTaskStatus(taskId, 'completed', output)
         await this.logMessage(sessionId, plan.role, 'next', output)
+        anyOk = true
+      } else {
+        // F-200:全步骤重试耗尽 → 任务终态如实记 failed(带失败文本),不再 completed
+        failedRoles.push(plan.role)
+        await this.updateTaskStatus(taskId, 'failed', undefined, output ?? lastError?.message)
       }
     }
 
-    return results['reporter'] ?? results['executor'] ?? '无结果'
+    return {
+      result: results['reporter'] ?? results['executor'] ?? '无结果',
+      anyOk,
+      stepStats: {
+        total: totalSteps,
+        completed: totalSteps - failedRoles.length,
+        failed: failedRoles.length,
+        failedRoles,
+      },
+    }
   }
 
   // ===== 持久化辅助 =====

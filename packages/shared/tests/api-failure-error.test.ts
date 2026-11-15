@@ -4,9 +4,10 @@
 
 // 真机取证过的两件事,在这里钉成回归:
 //  ① toUserFriendlyMessage 的判序必须是 errorCode → HTTP status → 文案正则。
-//     顺序一旦反过来,401 的 "Invalid or expired token" 会先撞上参数类正则
-//     /invalid|missing|required/,用户看到「提交的信息有误,请检查后重试」——
-//     这不是措辞问题:它把"去登录"引导成"改表单",照着做永远修不好。
+//     顺序一旦反过来,带 /invalid|missing|required/ 文案的 429 会先说「提交的信息
+//     有误」而不是「操作过于频繁」,把"稍后再试"引导成"改表单"。
+//     (2026-11-14 起认证正则已双向覆盖 `Invalid or expired token` 的词序,该句即便
+//     没有 status 也归登录档;判序本身仍由下面 429 那条守着。)
 //  ② apiFailureToError 必须把 ApiResult 失败分支的 status/errorCode/retryAfter 带上,
 //     且**只带真的有值的**(挂 status: undefined 会让"字段不存在"与"字段为 0/空"混成一类)。
 // 起因:2026-09-26 真机 vc44 进「广场」tab 一进入即弹该框,全仓同型 throw 实测 213 处。
@@ -20,11 +21,21 @@ describe('apiFailureToError', () => {
     expect(toUserFriendlyMessage(e)).toBe('登录已过期,请重新登录')
   })
 
-  it('缺陷对照:同样的服务端文案,只抛 message 就会被降级成"提交的信息有误"', () => {
-    // 这条断言的是**旧写法的后果**,不是期望行为 —— 它证明上面那条阳性对照有牙:
-    // 若判序或出口哪天被改回去,这条会跟着变,而人能从红语里看出是哪一侧漂了。
+  it('无 status 的裸 Error 也能归到登录档(2026-11-14 词序双向匹配后不再降级)', () => {
+    // 旧写法:文案正则只认 `token (expired|invalid)` 词序,裸 Error 的
+    // `Invalid or expired token` 会落到参数类 /invalid|…/,用户被引导去改表单。
+    // 2026-11-14 起认证正则双向覆盖"形容词在前"的词序,这条不再是缺陷 ——
+    // 同日后端真机仍下发该句(见 error-messages-friendly-or.test.ts 的 toFriendlyOr 用例)。
     expect(toUserFriendlyMessage(new Error('Invalid or expired token'))).toBe(
-      '提交的信息有误,请检查后重试',
+      '登录已过期,请重新登录',
+    )
+  })
+
+  it('判序仍是 status 在文案正则之前:同样带 /invalid/,429 必须说"太频繁"', () => {
+    // 守住①的原意:若哪天把文案正则提到 status 前面,这条会变红,
+    // 用户会看到「提交的信息有误」而不是「操作过于频繁」。
+    expect(toUserFriendlyMessage({ status: 429, message: 'invalid parameter' })).toBe(
+      '操作过于频繁,请稍后再试',
     )
   })
 

@@ -10,6 +10,7 @@ import type { useChatStore } from '@/stores/chat'
 import type { InlineDiffInfo } from '@/components/ai/types'
 import type { StreamErrorLabelSet } from '@/lib/stream-error-view'
 import type { QuestionAnswerPayload, QuestionResponseStatus } from './question-response'
+import type { SendMessageOptions } from './send-message'
 
 /** 自媒体斜杠命令 API 返回数据 */
 export interface SlashCommandData {
@@ -41,8 +42,9 @@ export interface UseChatReturn {
   pendingQuestion: ReturnType<typeof useChatStore.getState>['pendingQuestion']
   /** P4-2: fallback 通知(主模型失败切换到备用模型时非 null,UI 展示横幅) */
   fallbackNotice: FallbackEvent | null
-  /** 发送消息(2026-07-24 立,返回 Promise<boolean>,true=已提交可清空输入框,false=未发送需保留输入内容) */
-  sendMessage: (content: string) => Promise<boolean>
+  /** 发送消息(2026-07-24 立,返回 Promise<boolean>,true=已提交可清空输入框,false=未发送需保留输入内容)。
+   *  opts 与实现 createSendMessage 的签名对齐(此前接口漏声明,调用方传第二参即 TS2554 编译失败)。 */
+  sendMessage: (content: string, opts?: SendMessageOptions) => Promise<boolean>
   /** 用户回答 AI 主动提问,触发 /chat/answer 续流 */
   sendAnswer: (answer: string) => Promise<void>
   /**

@@ -12,6 +12,9 @@ import {
   type EncryptedPayload,
 } from '../utils/crypto.js'
 
+/** F-640:事务句柄类型,供 clearOtherDefaults 在同一事务内复用。 */
+type DbTx = Parameters<Parameters<typeof db.transaction>[0]>[0]
+
 /** 解密单条驱动的 credentials(若已加密),原地修改并返回。 */
 function decryptOssCredentials(row: OssDriver | undefined): OssDriver | undefined {
   if (row && row.credentials && isEncryptedPayload(row.credentials)) {
@@ -102,24 +105,27 @@ export interface CreateOssDriverInput {
 }
 
 export async function createOssDriver(input: CreateOssDriverInput): Promise<OssDriver | undefined> {
-  // 若设为默认,先清除其他默认
-  if (input.isDefault) await clearOtherDefaults()
   const encryptedCredentials =
     input.credentials !== undefined ? encryptJSON(input.credentials) : undefined
-  const rows = await db
-    .insert(ossDrivers)
-    .values({
-      name: input.name,
-      driver: input.driver,
-      credentials: encryptedCredentials,
-      config: input.config,
-      isEnabled: input.isEnabled,
-      isDefault: input.isDefault,
-      sort: input.sort,
-      description: input.description,
-      updatedBy: input.updatedBy,
-    })
-    .returning()
+  // F-640:「清其它默认」与「写入新驱动」必须在同一事务,否则 insert 失败(name 冲突/
+  // 加密失败/DB 抖动)会留下全站无默认驱动、全部上传失败;并发创建也不会留下两条默认。
+  const rows = await db.transaction(async (tx) => {
+    if (input.isDefault) await clearOtherDefaults(undefined, tx)
+    return tx
+      .insert(ossDrivers)
+      .values({
+        name: input.name,
+        driver: input.driver,
+        credentials: encryptedCredentials,
+        config: input.config,
+        isEnabled: input.isEnabled,
+        isDefault: input.isDefault,
+        sort: input.sort,
+        description: input.description,
+        updatedBy: input.updatedBy,
+      })
+      .returning()
+  })
   return decryptOssCredentials(rows[0])
 }
 
@@ -139,18 +145,21 @@ export async function updateOssDriver(
   id: string,
   patch: UpdateOssDriverInput,
 ): Promise<OssDriver | undefined> {
-  if (patch.isDefault) await clearOtherDefaults(id)
   const { credentials, ...rest } = patch
   const encryptedCredentials = credentials !== undefined ? encryptJSON(credentials) : undefined
-  const rows = await db
-    .update(ossDrivers)
-    .set({
-      ...rest,
-      ...(encryptedCredentials !== undefined ? { credentials: encryptedCredentials } : {}),
-      updatedAt: new Date(),
-    })
-    .where(eq(ossDrivers.id, id))
-    .returning()
+  // F-640:与 create 同口径,清默认 + 更新放同一事务。
+  const rows = await db.transaction(async (tx) => {
+    if (patch.isDefault) await clearOtherDefaults(id, tx)
+    return tx
+      .update(ossDrivers)
+      .set({
+        ...rest,
+        ...(encryptedCredentials !== undefined ? { credentials: encryptedCredentials } : {}),
+        updatedAt: new Date(),
+      })
+      .where(eq(ossDrivers.id, id))
+      .returning()
+  })
   return decryptOssCredentials(rows[0])
 }
 
@@ -160,10 +169,11 @@ export async function deleteOssDriver(id: string): Promise<OssDriver | undefined
 }
 
 /** 清除其他驱动的默认标记(excludeId 排除当前正在设置的驱动)。 */
-export async function clearOtherDefaults(excludeId?: string): Promise<void> {
+export async function clearOtherDefaults(excludeId?: string, tx?: DbTx): Promise<void> {
+  const q = tx ?? db
   const cond = excludeId
     ? and(eq(ossDrivers.isDefault, true), sql`${ossDrivers.id} != ${excludeId}`)
     : eq(ossDrivers.isDefault, true)
-  await db.update(ossDrivers).set({ isDefault: false, updatedAt: new Date() }).where(cond)
+  await q.update(ossDrivers).set({ isDefault: false, updatedAt: new Date() }).where(cond)
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

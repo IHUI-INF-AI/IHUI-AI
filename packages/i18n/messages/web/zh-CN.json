@@ -10050,6 +10050,7 @@
       "title": "重命名任务"
     },
     "resizeHandleHint": "拖拽调整宽度",
+    "resizeFloatHint": "拖动边缘调整面板大小",
     "settings": "任务设置",
     "share": "分享任务",
     "shareConversation": "分享对话",

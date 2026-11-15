@@ -96,8 +96,9 @@ async function runSinglePhase(
   let timer: ReturnType<typeof setTimeout> | undefined
   const timeoutP = new Promise<'timedOut'>((resolve) => {
     timer = setTimeout(() => resolve('timedOut'), effectiveTimeoutMs)
-    // 计时器不得钉住事件循环(真挂死时靠它只能等预算;正常路径它本就该被 clear)
-    timer.unref()
+    // F-326: 该计时器必须 ref。若工作体永不 settle 又已销毁全部其它句柄,
+    // unref 会让事件循环自然退出(码 0),timedOut 分支与非零退出码永远不可达。
+    // 正常路径由下方 finally 的 clearTimeout 回收,不会拖住关停。
   })
   const workP = Promise.resolve()
     .then(() => phase.run())
@@ -164,8 +165,7 @@ export async function runShutdownPhases(
   const failedPhases = outcomes.filter((o) => o.status === 'failed').map((o) => o.phase)
   const timedOutPhases = outcomes.filter((o) => o.status === 'timedOut').map((o) => o.phase)
   const notRunPhases = outcomes.filter((o) => o.status === 'notRun').map((o) => o.phase)
-  const dirty =
-    failedPhases.length + timedOutPhases.length + notRunPhases.length > 0 ? 1 : 0
+  const dirty = failedPhases.length + timedOutPhases.length + notRunPhases.length > 0 ? 1 : 0
   const totalDurationMs = Date.now() - startedAt
 
   // 一行结构化摘要:相位/结果/耗时全量入 meta(既有 pino 链),消息本身可 grep
@@ -215,16 +215,20 @@ export class ServingError extends Error {
 function memoizeClose<T extends { close: () => unknown | Promise<unknown> }>(instance: T): void {
   const original = instance.close.bind(instance)
   let settled: { ok: true } | { ok: false; error: unknown } | undefined
+  // F-325: 首次调用立刻持有 in-flight promise,并发调用共用同一份,
+  // 否则两个调用都能在 settled===undefined 时各执行一次非幂等 close。
+  let inflight: Promise<void> | undefined
   instance.close = async (): Promise<void> => {
-    if (settled === undefined) {
+    inflight ??= (async () => {
       try {
         await original()
         settled = { ok: true }
       } catch (e) {
         settled = { ok: false, error: e }
       }
-    }
-    if (settled.ok === false) throw settled.error
+    })()
+    await inflight
+    if (settled?.ok === false) throw settled.error
   }
 }
 
@@ -316,7 +320,8 @@ export function createLateDisposeGate(
   log: ShutdownPhasesLogger = logger,
 ): LateDisposeGate {
   let stopping = false
-  const registered: Array<{ name: string; handle: { close: () => unknown | Promise<unknown> } }> = []
+  const registered: Array<{ name: string; handle: { close: () => unknown | Promise<unknown> } }> =
+    []
 
   async function disposeOnce(
     name: string,

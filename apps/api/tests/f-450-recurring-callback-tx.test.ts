@@ -385,7 +385,10 @@ describe('F-450 代扣回调全程共用外层事务', () => {
 
     const done = await completeOrder(order.orderNo, 'TX-OTHER')
     expect(done.success).toBe(true)
-    expect(h.ctl.transactions).toBe(2)
+    // 3 = placeOrder 自建 1 + completeOrder 自建 1 + F-585 的「消费积分/order.paid Outbox」
+    // 出口自建 1(无外层事务时 awardPointsAndEmitOutbox 自开 db.transaction)。
+    // 有外层 tx 的调用点仍是 1(见 ①/⑤:externalTx 透传后不再另开)。
+    expect(h.ctl.transactions).toBe(3)
   })
 
   it('⑤ completeOrder(tx) 内的 token 充值并入外层,不另开事务', async () => {

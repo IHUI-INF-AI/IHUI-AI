@@ -5,14 +5,24 @@
 import { useMemo } from 'react'
 import { View, Text, TouchableOpacity, Switch, StyleSheet } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
-import type { NotificationSettingsItem, NotificationSettingsLink, NotificationSettingsRow, NotificationSettingsScreenProps } from '../../types'
+import type {
+  NotificationSettingsItem,
+  NotificationSettingsLink,
+  NotificationSettingsRow,
+  NotificationSettingsScreenProps,
+} from '../../types'
 
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 
 /** 通知设置共享屏 — props 注入式跨端组件 */
-export type { NotificationSettingsItem, NotificationSettingsLink, NotificationSettingsRow, NotificationSettingsScreenProps }
+export type {
+  NotificationSettingsItem,
+  NotificationSettingsLink,
+  NotificationSettingsRow,
+  NotificationSettingsScreenProps,
+}
 
 export function NotificationSettingsScreen({
   t,
@@ -158,8 +168,8 @@ function createStyles(tk: AppThemeTokens) {
     linkText: { flex: 1, marginRight: rnSpacing.md },
     linkDesc: { ...rnType.caption, color: tk.text.secondary, marginTop: rnSpacing.xs },
     linkChevron: { ...rnType.body, color: tk.text.secondary },
-    errorText: { ...rnType.body, color: tk.danger.DEFAULT, marginBottom: rnSpacing.sm },
-    successText: { ...rnType.body, color: tk.success.DEFAULT, marginBottom: rnSpacing.sm },
+    errorText: { ...rnType.body, color: tk.danger.deepText, marginBottom: rnSpacing.sm },
+    successText: { ...rnType.body, color: tk.success.deepText, marginBottom: rnSpacing.sm },
     saveBtn: {
       marginTop: rnSpacing.sm,
       borderRadius: rnRadius.sm,
@@ -168,7 +178,7 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
       backgroundColor: tk.brand.cta,
     },
-    saveBtnDisabled: { backgroundColor: tk.text.tertiary },
+    saveBtnDisabled: { backgroundColor: tk.text.secondary },
     saveBtnText: { color: tk.surface.light, ...rnType.title },
   })
 }

@@ -228,51 +228,6 @@ export const TENANT_BYPASS_PREFIX_PATHS: readonly string[] = [
    * 回归锁:public-paths.test.ts「个人号池面免租户、且免租户不免鉴权」。
    */
   '/api/account-pool',
-  /**
-   * 管理后台面(2026-11-15 立,与 `/api/account-pool` / HR 同型问题,生产实测暴露)。
-   *
-   * 事实:浏览器端**从不携带** `X-Tenant-Id`(`apps/web` + `packages/api-client` 全仓零引用),
-   * 租户闸只认 header/子域 ⇒ 严格模式下 `/api/admin/*` 整面 401。生产实测(真实 admin
-   * 登录态 Bearer):`GET /api/admin/relay/accounts?category=store` →
-   * `{"code":401,"message":"多租户严格模式已启用…path=/api/admin/relay/accounts"}`;
-   * 补 `X-Tenant-Id` 后变成 404「租户不存在」⇒ 租户闸是唯一阻断点,浏览器端无解。
-   * 后果不是某个接口报错,而是管理后台每张页面都拿不到数据(号池商店账号列表恒「共 0 条」)。
-   *
-   * 为什么整段前缀豁免:
-   *   · admin 路由**零引用** `request.tenantId`(全仓 grep 证实;relay-api-keys.ts 里的
-   *     tenantId 是 developerApiKeys 表的业务字段,不是租户上下文),不存在跨租户串数据路径;
-   *   · 逐条补必然在下一次新增 admin 端点时再漏一次(号池面、HR 面都踩过同一坑);
-   *   · 免租户 ≠ 免鉴权:admin 面统一挂 requireAdminRouteGuard / requireAdmin(roleId>=1
-   *     + TOTP 闸),且该前缀**不在** AUTH_PUBLIC_PREFIX_PATHS,兜底鉴权闸语义不受影响。
-   * 段边界:裸前缀经 matchesPrefix 只覆盖自身与 `/api/admin/…` 子段,`/api/adminXYZ` 不放行。
-   * 回归锁:public-paths.test.ts「管理后台面免租户、且免租户不免鉴权」。
-   */
-  '/api/admin',
-  /**
-   * 人事面(2026-11-12 立,与 `/api/account-pool` 同型问题)。
-   *
-   * 事实一致:浏览器端从不携带 `X-Tenant-Id`(全仓 apps/web 零引用),
-   * 而租户闸只认 header/子域 ⇒ HR 全族在严格模式下恒定 401,
-   * 页面点任何按钮都只会看到"多租户严格模式已启用"。
-   *
-   * 为什么整段前缀豁免:
-   *   · hr_* 全部业务表(hr_employee / hr_attendance_record / hr_import_batch /
-   *     hr_leave_request / hr_overtime_record / hr_outgoing_record / hr_payroll_item …)
-   *     均**无 tenant 列**,数据维度是 employeeId 与 departmentId,与租户无关;
-   *   · 逐条补必然在下一次新增 HR 端点时再漏一次(号池面已经踩过同一坑);
-   *   · 免租户 ≠ 免鉴权:整段仍走 hr:attendance:* / hr:payroll:* 权限点闸,
-   *     且**不在** AUTH_PUBLIC_PREFIX_PATHS,兜底鉴权语义不受影响。
-   * 段边界:裸前缀经 matchesPrefix 只覆盖自身与子段,`/api/hr-importXYZ` 不放行。
-   */
-  '/api/hr-attendance',
-  '/api/hr-daily',
-  '/api/hr-approval',
-  '/api/hr-jobs',
-  '/api/hr-import',
-  '/api/hr-settle',
-  '/api/hr-payroll',
-  // 流程待办(HR-6 第 4 期):与 HR 同族,业务表无 tenant 列,数据维度是 employeeId
-  '/api/workflow-todos',
   '/api/csrf-token',
   '/api/configs',
   '/api/settings',

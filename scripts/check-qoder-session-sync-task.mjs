@@ -18,32 +18,10 @@
  *
  * 用法:`node scripts/check-qoder-session-sync-task.mjs [--json]`
  * 退出码:0 ok / 1 breach / 2 unjudged。
- *
- * §根因(2026-11-15 定案):11-02~11-14 该腿每 12h 一封「保活腿失效」告警,而任务本体
- * 五维一直全绿、日志每 10 分钟新鲜。真因 = 回灌脚本在 WorkBuddy 客户端主进程不在时
- * 按 §0.3 写「❌ 回灌未判定」(exit 2,探测面取不到输入),本尺子的 hasFailureMark 只认 ❌,
- * 把连续两轮「未判定」当成连续真故障 ⇒ log_verdict=breach ⇒ 发信。历次处置(11-03 拉
- * 168h 窗口 / 11-05 重建任务并回收 12h 窗口)全在抑制层,没动判据,所以反复复发。
- * 本轮修在判据:isClientNotReady 把「探测面取不到输入」归 unjudged;真失败 / tsx 缺失 /
- * SIGTERM 超时 / 结构化失败汇总仍走原有连续失败判定(镜像测试 S6~S9 双向钉死)。
- * 另修同族假红:schtasks 查询失败时空 XML 曾让 task_wrapper 凭空判 breach,
- * 现整组派生维一并 unjudged。
- *
- * §杜绝复发(2026-11-15):判据不再自己持有「什么算未判定」的规则。生产者在日志里写
- * 结构化标记,消费者与生产者共用 scripts/lib/client-sync-verdict.mjs 这一份契约;
- * 旧日志无标记才回退文本正则。上游改文案不会再让本尺子失配,历次「改冷却窗口压症状」
- * 的路径已从结构上堵住(alert-delivery-policy.json 该族 reason 有定案,镜像测试钉死)。
  */
 import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync, statSync } from 'node:fs'
 import { pathToFileURL } from 'node:url'
-import {
-  CLIENT_NOT_READY_RE,
-  classifyLogSegment,
-  hasFailureMark,
-  hasHardFailureLine,
-  isClientNotReady,
-} from './lib/client-sync-verdict.mjs'
 
 /** 计划任务名(env 可覆盖,便于镜像测试与换名演练) */
 export const DEFAULT_TASK_NAME = 'IHUI-Qoder-Session-Sync'
@@ -104,11 +82,10 @@ export function parseLastJson(segment) {
   return null
 }
 
-/**
- * 段级语义判据一律取自 scripts/lib/client-sync-verdict.mjs(唯一真相源,见文件头 §杜绝复发)。
- * 本文件不再持有第二份正则/句式:生产者写结构标记、消费者优先读标记,旧日志才回退文本口径。
- * 转出到 __test__ 只是给镜像测试一个稳定入口,不是新实现。
- */
+/** 段内是否出现明确的失败标记(捕获失败/写库失败)。 */
+export function hasFailureMark(segment) {
+  return /❌|"ok":false|"failed":[1-9]/.test(String(segment ?? ''))
+}
 
 /**
  * 判据主体(纯函数,镜像测试直接调)。入参全部由调用方现读,不做第二份取值。
@@ -158,19 +135,7 @@ export function judgeDims({
     }
   }
 
-  // 计划任务 XML 取不到输入(查询被拒 / spawn 失败)⇒ 整组派生维都未判定(§0.3)。
-  // 旧版把空 XML 解析出的空 wrapperPath 直接判 breach,会在 schtasks 被拒时凭空发一封告警。
-  const xmlUnavailable = taskQuery?.ok !== true
-  if (xmlUnavailable) {
-    dims.task_wrapper = {
-      verdict: 'unjudged',
-      reason: '计划任务 XML 取不到输入 ⇒ 无法判 action(§0.3,不冒红)',
-    }
-    dims.task_identity = {
-      verdict: 'unjudged',
-      reason: '计划任务 XML 取不到输入 ⇒ 无法判 LogonType(§0.3,不冒红)',
-    }
-  } else if (!task.wrapperPath) {
+  if (!task.wrapperPath) {
     dims.task_wrapper = { verdict: 'breach', reason: '任务 action 未指向隐藏包装脚本' }
   } else if (!wrapperExists) {
     dims.task_wrapper = {
@@ -182,17 +147,15 @@ export function judgeDims({
     dims.task_wrapper = { verdict: 'ok', reading: task.wrapperPath }
   }
 
-  if (!xmlUnavailable) {
-    if (!task.logonType) {
-      dims.task_identity = { verdict: 'unjudged', reason: '任务 XML 未给出 LogonType' }
-    } else if (task.logonType !== 'InteractiveToken') {
-      dims.task_identity = {
-        verdict: 'breach',
-        reason: `LogonType=${task.logonType};DPAPI 只在交互登录会话可用,S4U/ServiceAccount 读不到 Qoder 凭据`,
-      }
-    } else {
-      dims.task_identity = { verdict: 'ok', reading: task.logonType }
+  if (!task.logonType) {
+    dims.task_identity = { verdict: 'unjudged', reason: '任务 XML 未给出 LogonType' }
+  } else if (task.logonType !== 'InteractiveToken') {
+    dims.task_identity = {
+      verdict: 'breach',
+      reason: `LogonType=${task.logonType};DPAPI 只在交互登录会话可用,S4U/ServiceAccount 读不到 Qoder 凭据`,
     }
+  } else {
+    dims.task_identity = { verdict: 'ok', reading: task.logonType }
   }
 
   const ageMs = logStat?.exists ? now - logStat.mtimeMs : null
@@ -223,29 +186,11 @@ export function judgeDims({
   }
 
   const summary = parseLastJson(segment)
-  if (isClientNotReady(segment)) {
-    // 客户端主进程/数据目录不在 ⇒ 探测面取不到输入,回灌脚本自己标的是「未判定」(exit 2)。
-    // 这是环境未就绪而非保活腿失效;票面由池侧兜底,号池健康另有 relay-keepalive-* 告警族。
-    // 按 §0.3 取不到输入 ⇒ 未判定,不记绿也不冒红。
-    dims.log_verdict = {
-      verdict: 'unjudged',
-      reason:
-        '最后一轮为探测面取不到输入(客户端主进程/数据目录不在,回灌脚本自述未判定);' +
-        '环境未就绪,不是保活腿失效 ⇒ 按 §0.3 不记绿也不冒红',
-      reading:
-        String(segment)
-          .trim()
-          .split(/\r?\n/)
-          .find((l) => l.includes('❌'))
-          ?.slice(0, 200) ?? '',
-    }
-  } else if (hasFailureMark(segment)) {
+  if (hasFailureMark(segment)) {
     // §报警前先自愈:同步任务每几分钟自跑即重试。单轮瞬时失败(机器饱和被 SIGTERM /
     // 并发改文件短暂缺失)下一轮即恢复,不应占人通道;只有连续失败才是真故障(qoder 号要掉)。
     const hasPrev = Boolean(prevSegment) && prevSegment.trim().length > 0
-    // 上一轮只是「环境未就绪」不算失败:客户端一开就恢复,不能和本轮真失败拼成「连续两轮」
-    const prevFailed =
-      hasPrev && hasFailureMark(prevSegment) && !isClientNotReady(prevSegment)
+    const prevFailed = hasPrev && hasFailureMark(prevSegment)
     if (prevFailed) {
       dims.log_verdict = {
         verdict: 'breach',
@@ -414,9 +359,6 @@ export const __test__ = {
   splitLastRun,
   parseLastJson,
   hasFailureMark,
-  hasHardFailureLine,
-  isClientNotReady,
-  CLIENT_NOT_READY_RE,
   judgeDims,
   judgeOverall,
 }

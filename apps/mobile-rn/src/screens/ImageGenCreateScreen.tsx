@@ -5,7 +5,15 @@
 import { rnRadius, rnSpacing } from '@ihui/design-tokens'
 
 import { useState } from 'react'
-import { Image, ScrollView, Text, TouchableOpacity, View } from 'react-native'
+import {
+  Image,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native'
 import { appAlert } from '../components/BottomPops'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
@@ -19,6 +27,7 @@ import { useUiTextField } from '../lib/use-ui-text-field'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { BackChevron, TextField } from '@ihui/rn-app'
+import { toFriendlyOr } from '@ihui/shared/utils'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -66,7 +75,7 @@ export function ImageGenCreateScreen() {
       // 503「图像生成能力未接通」的服务端 message 经 fetchApi 取 body.message 优先透出,
       // 这里原样上屏(机主 2026-10-18 拍板「显式报未接通」);旧写法把原因静默吞成通用文案,
       // 用户分不清「参数错/未接通/网络断」。取不到才回退通用文案。
-      appAlert(e instanceof Error && e.message ? e.message : t('imageGen.genFailed'))
+      appAlert(toFriendlyOr(e, t('imageGen.genFailed')))
     } finally {
       setGenerating(false)
     }
@@ -101,85 +110,90 @@ export function ImageGenCreateScreen() {
 
   return (
     <View className={`flex-1 ${dark ? 'bg-neutral-900' : 'bg-white'}`}>
-      <View className="flex-row items-center justify-between px-4 pb-2 pt-3">
-        <BackChevron
-          onPress={() => navigation.goBack()}
-          label={t('common.back')}
-          colorScheme={resolvedTheme}
-        />
-        <Text className="text-base font-medium">{t('imageGen.createTitle')}</Text>
-        <View className="w-8" />
-      </View>
-
-      <ScrollView
-        contentContainerStyle={{ padding: rnSpacing.lg }}
-        keyboardShouldPersistTaps="handled"
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        {/* G-978007:TextInput → 共享 TextField(聚焦墨档描边,亮纯黑/暗纯白);聚焦只换色
-            不改描边宽度(变粗会压缩内容区令文字与换行位置跳动;同型位移 2026-10-20 在登录框真机实测) */}
-        <TextField
-          colorScheme={resolvedTheme}
-          value={prompt}
-          onChangeText={setPrompt}
-          placeholder={t('imageGen.promptPlaceholder')}
-          placeholderTextColor={tk.text.tertiary}
-          multiline
-          numberOfLines={4}
-          textAlignVertical="top"
-          className="min-h-[96px] rounded-sm border border-gray-200 p-3 text-sm dark:border-neutral-700 dark:text-neutral-100"
-        />
-
-        {/* 尺寸 chips */}
-        <View className="mt-3 flex-row gap-2">
-          {SIZES.map((item) => {
-            const active = size === item.value
-            return (
-              <TouchableOpacity
-                key={item.value}
-                onPress={() => setSize(item.value)}
-                className={`rounded-md px-3 py-1.5 ${active ? 'bg-orange-600' : 'bg-gray-100 dark:bg-neutral-800'}`}
-              >
-                <Text
-                  className={`text-xs ${active ? 'text-white' : 'text-gray-600 dark:text-neutral-300'}`}
-                >
-                  {t(item.labelKey)}
-                </Text>
-              </TouchableOpacity>
-            )
-          })}
+        <View className="flex-row items-center justify-between px-4 pb-2 pt-3">
+          <BackChevron
+            onPress={() => navigation.goBack()}
+            label={t('common.back')}
+            colorScheme={resolvedTheme}
+          />
+          <Text className="text-base font-medium">{t('imageGen.createTitle')}</Text>
+          <View className="w-8" />
         </View>
 
-        <TouchableOpacity
-          onPress={() => void onGenerate()}
-          disabled={generating}
-          className={`mt-4 items-center rounded-md py-3 ${generating ? 'bg-orange-400' : 'bg-orange-600'}`}
+        <ScrollView
+          contentContainerStyle={{ padding: rnSpacing.lg }}
+          keyboardShouldPersistTaps="handled"
         >
-          <Text className="text-sm font-medium text-white">
-            {generating ? t('imageGen.generating') : t('imageGen.generate')}
-          </Text>
-        </TouchableOpacity>
+          {/* G-978007:TextInput → 共享 TextField(聚焦墨档描边,亮纯黑/暗纯白);聚焦只换色
+            不改描边宽度(变粗会压缩内容区令文字与换行位置跳动;同型位移 2026-10-20 在登录框真机实测) */}
+          <TextField
+            colorScheme={resolvedTheme}
+            value={prompt}
+            onChangeText={setPrompt}
+            placeholder={t('imageGen.promptPlaceholder')}
+            placeholderTextColor={tk.text.tertiary}
+            multiline
+            numberOfLines={4}
+            textAlignVertical="top"
+            className="min-h-[96px] rounded-sm border border-gray-200 p-3 text-sm dark:border-neutral-700 dark:text-neutral-100"
+          />
 
-        {result?.imageUrl ? (
-          <View className="mt-4">
-            <Image
-              source={{ uri: resolveFileUrl(result.imageUrl) }}
-              style={{ width: '100%', aspectRatio: 1, borderRadius: rnRadius.lg }}
-              resizeMode="cover"
-            />
-            {/* revisedPrompt 是死字段(后端零产出通路,见 @ihui/types 的 ImageGenResult 注记)
-                ⇒ 死渲染腿于 2026-10-23 撤除,与 web /image-gen 同批;接通日两端一起改回。 */}
-            <TouchableOpacity
-              onPress={() => void onSave()}
-              disabled={saving}
-              className="mt-3 items-center rounded-md border border-gray-200 py-2.5 dark:border-neutral-600"
-            >
-              <Text className="text-sm text-gray-600 dark:text-neutral-300">
-                {saving ? t('common.loading') : t('imageGen.saveToAlbum')}
-              </Text>
-            </TouchableOpacity>
+          {/* 尺寸 chips */}
+          <View className="mt-3 flex-row gap-2">
+            {SIZES.map((item) => {
+              const active = size === item.value
+              return (
+                <TouchableOpacity
+                  key={item.value}
+                  onPress={() => setSize(item.value)}
+                  className={`rounded-md px-3 py-1.5 ${active ? 'bg-orange-600' : 'bg-gray-100 dark:bg-neutral-800'}`}
+                >
+                  <Text
+                    className={`text-xs ${active ? 'text-white' : 'text-gray-600 dark:text-neutral-300'}`}
+                  >
+                    {t(item.labelKey)}
+                  </Text>
+                </TouchableOpacity>
+              )
+            })}
           </View>
-        ) : null}
-      </ScrollView>
+
+          <TouchableOpacity
+            onPress={() => void onGenerate()}
+            disabled={generating}
+            className={`mt-4 items-center rounded-md py-3 ${generating ? 'bg-orange-400' : 'bg-orange-600'}`}
+          >
+            <Text className="text-sm font-medium text-white">
+              {generating ? t('imageGen.generating') : t('imageGen.generate')}
+            </Text>
+          </TouchableOpacity>
+
+          {result?.imageUrl ? (
+            <View className="mt-4">
+              <Image
+                source={{ uri: resolveFileUrl(result.imageUrl) }}
+                style={{ width: '100%', aspectRatio: 1, borderRadius: rnRadius.lg }}
+                resizeMode="cover"
+              />
+              {/* revisedPrompt 是死字段(后端零产出通路,见 @ihui/types 的 ImageGenResult 注记)
+                ⇒ 死渲染腿于 2026-10-23 撤除,与 web /image-gen 同批;接通日两端一起改回。 */}
+              <TouchableOpacity
+                onPress={() => void onSave()}
+                disabled={saving}
+                className="mt-3 items-center rounded-md border border-gray-200 py-2.5 dark:border-neutral-600"
+              >
+                <Text className="text-sm text-gray-600 dark:text-neutral-300">
+                  {saving ? t('common.loading') : t('imageGen.saveToAlbum')}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          ) : null}
+        </ScrollView>
+      </KeyboardAvoidingView>
     </View>
   )
 }

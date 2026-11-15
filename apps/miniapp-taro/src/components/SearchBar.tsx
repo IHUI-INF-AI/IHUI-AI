@@ -71,9 +71,9 @@ export default function SearchBar({
         onConfirm={() => onSearch?.()}
       />
       {value && (
-        <Text className="text-body text-muted-foreground" onClick={onClear}>
-          ×
-        </Text>
+        <View className="text-body text-muted-foreground" hoverClass="opacity-60" onClick={onClear}>
+          <Text>×</Text>
+        </View>
       )}
     </View>
   )

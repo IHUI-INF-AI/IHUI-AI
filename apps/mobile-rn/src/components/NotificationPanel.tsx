@@ -18,7 +18,7 @@ import { tokens } from '../theme/active-tokens'
 import { useNotificationStore } from '../stores/notification'
 import { formatShortDateTime } from '../utils/date-utils'
 import { Bell, X } from 'lucide-react-native'
-import { useI18n, t as tStatic } from '../i18n'
+import { useI18n } from '../i18n'
 import { ELEVATION_STEPS, rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { Tappable } from '@ihui/ui-native'
 
@@ -57,7 +57,7 @@ export default function NotificationPanel() {
         >
           <View className="flex-row items-center justify-between px-4 py-3">
             <Text className="text-[15px] font-semibold text-gray-900 dark:text-neutral-100">
-              {tStatic('notificationList.title')}
+              通知
             </Text>
             <View className="flex-row items-center gap-2">
               <TouchableOpacity
@@ -105,7 +105,7 @@ export default function NotificationPanel() {
             )}
             ListEmptyComponent={
               <Text className="py-10 text-center text-gray-400 dark:text-neutral-500 text-[13px]">
-                {tStatic('notificationList.empty')}
+                暂无通知
               </Text>
             }
             contentContainerStyle={{ padding: rnSpacing.sm }}
@@ -219,7 +219,7 @@ export function PushBanner({
                   accessibilityRole="button"
                   accessibilityLabel={t('common.close')}
                 >
-                  <X size={14} color={tokens.text.secondary} />
+                  <X size={14} color={tokens.text.tertiary} />
                 </Tappable>
               </View>
               {content ? (
@@ -291,7 +291,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginLeft: rnSpacing.sm,
   } as ViewStyle,
-  closeText: { fontSize: rnType.body.size, color: tokens.text.tertiary } as TextStyle,
+  closeText: { fontSize: rnType.body.size, color: tokens.text.medium } as TextStyle,
   body: { paddingLeft: rnSpacing['4xl'] } as ViewStyle,
   message: {
     fontSize: rnType.body.size,

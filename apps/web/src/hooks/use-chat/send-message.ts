@@ -432,12 +432,17 @@ export function createSendMessage(
         const createRes = await createConversation({ model: store.currentModel })
         if (!createRes.success) {
           if (createRes.status === 401) {
-            toast.warning('登录已过期', {
-              description: '请重新登录后继续对话',
-            })
-            useAuthStore.setState({ isAuthenticated: false, user: null })
-            const { isAuthenticated: isAuth, token } = useAuthStore.getState()
-            if (!(isAuth && !token)) {
+            // 幽灵态(isAuthenticated=true 但 access token 尚未恢复):不清登录态、不弹窗,交给 bootstrap 续期
+            const { isAuthenticated: wasAuthenticated, token: wasToken } = useAuthStore.getState()
+            if (wasAuthenticated && !wasToken) {
+              toast.info('登录态恢复中', {
+                description: '正在恢复会话，请稍后重新发送',
+              })
+            } else {
+              toast.warning('登录已过期', {
+                description: '请重新登录后继续对话',
+              })
+              useAuthStore.setState({ isAuthenticated: false, user: null })
               openLoginDialogOnce('/')
             }
           } else {
@@ -494,13 +499,17 @@ export function createSendMessage(
         // createConversation 返回 401 时需明确提示用户重新登录,而非静默 setError。
         // fetchApi wrapper 已调 openLoginDialogOnce 打开弹窗,此处补 toast + 同步 auth 状态。
         if (createRes.status === 401) {
-          toast.warning('登录已过期', {
-            description: '请重新登录后继续对话',
-          })
-          useAuthStore.setState({ isAuthenticated: false, user: null })
-          const { isAuthenticated: isAuth, token } = useAuthStore.getState()
           // bootstrap 幽灵态不弹窗(避免刷新后并发请求的 401 打断自动登录)
-          if (!(isAuth && !token)) {
+          const { isAuthenticated: wasAuthenticated, token: wasToken } = useAuthStore.getState()
+          if (wasAuthenticated && !wasToken) {
+            toast.info('登录态恢复中', {
+              description: '正在恢复会话，请稍后重新发送',
+            })
+          } else {
+            toast.warning('登录已过期', {
+              description: '请重新登录后继续对话',
+            })
+            useAuthStore.setState({ isAuthenticated: false, user: null })
             openLoginDialogOnce('/')
           }
         } else {

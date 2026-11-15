@@ -91,7 +91,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingHorizontal: rnSpacing['sm-loose'],
       paddingVertical: rnSpacing.sm,
       fontSize: rnType.body.size,
-      color: tk.danger.DEFAULT,
+      color: tk.danger.deepText,
     },
     listBody: { padding: rnSpacing['sm-loose'] },
     separator: { height: 12 },

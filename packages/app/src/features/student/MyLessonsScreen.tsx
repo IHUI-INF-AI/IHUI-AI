@@ -110,7 +110,7 @@ export function MyLessonsScreen({
           </View>
         ) : items.length === 0 ? (
           <View style={styles.emptyBox}>
-            <BookOpen size={28} color={tk.text.tertiary} strokeWidth={2} />
+            <BookOpen size={28} color={tk.text.secondary} strokeWidth={2} />
             <Text style={styles.emptyText}>{t('studentPage.empty')}</Text>
           </View>
         ) : (
@@ -131,7 +131,7 @@ export function MyLessonsScreen({
                     />
                   ) : (
                     <View style={styles.thumbPlaceholder}>
-                      <BookOpen size={18} color={tk.text.tertiary} strokeWidth={2} />
+                      <BookOpen size={18} color={tk.text.secondary} strokeWidth={2} />
                     </View>
                   )}
                   <View style={styles.rowMain}>

@@ -206,7 +206,7 @@
 - **投资合作**:天使轮/A 轮投资(联系商务)
 - **媒体合作**:科技媒体 / KOL / 公众号(联系 PR)
 
-联系方式:微信 `ok502319984` · 邮箱 `IHUI-AI@aizhs.top`
+联系方式:微信 `ok502319984` · 邮箱 `lizong@aizhs.top`
 
 ---
 
@@ -268,10 +268,10 @@ A:持续上架高质量智能体(评分 ≥ 4.5),积累用户口碑与收入。�
 - **官网**:https://aizhs.top
 - **GitHub**:https://github.com/IHUI-INF-AI/IHUI-AI
 - **微信群**:微信号 `ok502319984`(加好友备注 "智汇")
-- **邮箱**:IHUI-AI@aizhs.top
-- **商务合作**:IHUI-AI@aizhs.top
-- **媒体合作**:pr@aizhs.top
-- **客服**:support@aizhs.top(24h 在线)
+- **邮箱**:lizong@aizhs.top
+- **商务合作**:lizong@aizhs.top
+- **媒体合作**:lizong@aizhs.top
+- **客服**:lizong@aizhs.top(24h 在线)
 
 ---
 

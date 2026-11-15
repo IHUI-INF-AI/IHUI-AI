@@ -942,7 +942,8 @@
       "agree": "赞同",
       "disagree": "反对"
     },
-    "loadFailed": "加载失败"
+    "loadFailed": "加载失败",
+    "admissionAhead": "前面还有 {n} 位"
   },
   "settings": {
     "title": "设置",
@@ -2427,9 +2428,7 @@
     "confirmPasswordPlaceholder": "请再次输入密码",
     "password": "密码",
     "passwordPlaceholder": "请输入密码",
-    "title": "注册",
-    "show": "显示",
-    "hide": "隐藏"
+    "title": "注册"
   },
   "withdraw": {
     "availableBalance": "可提现金额(元)",
@@ -3708,6 +3707,7 @@
   "activity": {
     "empty": "暂无活动",
     "endTime": "结束时间",
+    "joining": "提交中…",
     "loadFailed": "加载失败",
     "participants": "参与人数",
     "startTime": "开始时间",
@@ -5061,7 +5061,7 @@
     "analysisEstimate": "预计约 {tokens} tokens · 难度 {difficulty}",
     "analysisPickFirst": "请先选择一个场景",
     "analysisSubmit": "发起分析",
-      "noValidContent": "无可导入的有效内容"
+    "noValidContent": "无可导入的有效内容"
   },
   "permissionTier": {
     "label": "权限档",
@@ -5693,6 +5693,7 @@
       "approvalPersistHit": "沿用你保存的批准",
       "execPolicyApproved": "执行策略放行",
       "autoSkipApproval": "自动批准(免审批)",
+      "autoReviewAllow": "自动审查放行",
       "skillGrantSkipApproval": "技能授权放行(免审批)",
       "bypassSkipApproval": "已跳过审批",
       "mcpRequiresApproval": "MCP 标注要求确认",
@@ -7543,6 +7544,7 @@
     "wrongBookTitle": "错题本"
   },
   "activities": {
+    "cancelJoin": "取消报名",
     "join": "立即参与",
     "notFound": "活动不存在或已下线"
   },

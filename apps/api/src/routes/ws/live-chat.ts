@@ -117,12 +117,12 @@ export function createLiveChatConnectionHandler(
           /* ignore */
         }
       }
-      /** 统一的断开/清理路径:退房 + 指标 + 限流窗口 + F-466 槽位释放 */
+      /** 统一的断开/清理路径:退房 + 指标 + F-466 槽位释放 */
       const cleanup = (): void => {
         chatServer.leave(roomId, socket)
         syncRoomGauge()
-        // P2 修复(2026-08-06):断开时清除用户消息频率窗口,防内存累积
-        chatServer.resetUserRateLimit(uid)
+        // F-467:断线不得重置全局限流窗口。窗口按 userId 共享、按时间自然过期,
+        // 此前无条件 reset 会让"发满 60 条 → 断开重连"直接清桶绕过限流。
         releaseSlot()
       }
       syncRoomGauge()

@@ -59,6 +59,8 @@
     "toolCreateArtifact": "成果物を生成",
     "toolCreateAutomation": "自動化を作成",
     "toolSummarizeArtifacts": "成果物を要約",
+    "toolPresentFiles": "ファイルを提示",
+    "presentedTitle": "{count} 件のファイルを納品しました",
     "activityMcp": "{mcp} MCP を呼び出し",
     "activityPlugin": "{plugin} プラグインを呼び出し",
     "activityPlanning": "計画を立案中",
@@ -367,7 +369,7 @@
       "ch9Title": "第 9 章 紛争解決",
       "ch9Body": "本規約は中華人民共和国の法律に準拠します。本規約から生じる紛争は、まず協議により解決すべきです。協議が不成立の場合、北京仲裁委員会にその仲裁規則に従い仲裁を提起します。",
       "ch10Title": "第 10 章 連絡先",
-      "ch10Body": "本規約に関するご質問は support@ihui.ai までご連絡ください。"
+      "ch10Body": "本規約に関するご質問は lizong@aizhs.top までご連絡ください。"
     },
     "usagePolicy": {
       "title": "利用ポリシー",
@@ -597,6 +599,10 @@
       "submit": "送信",
       "timeoutNoInput": "{{seconds}} 秒間、入力がありませんでした",
       "mobileUnsupported": "このコマンドはキーボード入力が必要です。モバイルでは代行できません。デスクトップで処理するか、この実行を停止してください"
+    },
+    "compactionNotice": "コンテキストを自動圧縮しました:{before} → {after}({removed} 件削除)",
+    "truncation": {
+      "maxLengthNotice": "長さ上限に達したため応答が打ち切られました。「続けて」で再開できます"
     }
   },
   "richAnchorProbe": {
@@ -2327,6 +2333,7 @@
       "approvalPersistHit": "保存済みの承認を適用",
       "execPolicyApproved": "実行ポリシーで許可",
       "autoSkipApproval": "自動承認(承認スキップ)",
+      "autoReviewAllow": "自動レビューで許可",
       "skillGrantSkipApproval": "スキルの許可により承認をスキップ",
       "bypassSkipApproval": "承認をスキップ",
       "mcpRequiresApproval": "MCP 注釈が承認を要求",
@@ -3636,7 +3643,8 @@
       "title": "実行プロセス",
       "toolSummary": "ツール集計: {calls} 回",
       "terminal": "ターミナルタスク: {status}",
-      "usage": "使用量: {n} tokens"
+      "usage": "使用量: {n} tokens",
+      "memoryRemembered": "{n} 件を記憶しました"
     },
     "switchAgent": {
       "confirm": "切り替えを確認"

@@ -26,6 +26,7 @@ import { useRefreshOnFocus } from '../hooks'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { toFriendlyOr } from '@ihui/shared/utils'
 
 const COURSES_PAGE_SIZE = 12
 const ORDERS_PAGE_SIZE = 10
@@ -81,7 +82,7 @@ function EduShopScreen() {
       setCourses((prev) => (append ? [...prev, ...list] : list))
       setCoursesTotal(res.data?.total ?? list.length)
     } catch (e) {
-      setCoursesError(e instanceof Error ? e.message : 'load failed')
+      setCoursesError(toFriendlyOr(e, t('common.loadFailed')))
     } finally {
       setCoursesLoading(false)
     }
@@ -99,7 +100,7 @@ function EduShopScreen() {
       setOrders((prev) => (append ? [...prev, ...list] : list))
       setOrdersTotal(res.data?.total ?? list.length)
     } catch (e) {
-      setOrdersError(e instanceof Error ? e.message : 'load failed')
+      setOrdersError(toFriendlyOr(e, t('common.loadFailed')))
     } finally {
       setOrdersLoading(false)
     }
@@ -136,7 +137,7 @@ function EduShopScreen() {
         void appAlert(t('eduShop.buy'), t('eduShop.orderCreated'))
         refreshOrders()
       } catch (e) {
-        void appAlert(t('common.error'), e instanceof Error ? e.message : t('eduShop.buy'))
+        void appAlert(t('common.error'), toFriendlyOr(e, t('eduShop.buy')))
       } finally {
         setActionPending(false)
       }
@@ -152,7 +153,7 @@ function EduShopScreen() {
         if (!res.success) throw new Error(res.error)
         refreshOrders()
       } catch (e) {
-        void appAlert(t('common.error'), e instanceof Error ? e.message : t('eduShop.cancelOrder'))
+        void appAlert(t('common.error'), toFriendlyOr(e, t('eduShop.cancelOrder')))
       } finally {
         setActionPending(false)
       }

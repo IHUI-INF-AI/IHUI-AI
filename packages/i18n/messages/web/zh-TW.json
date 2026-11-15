@@ -10041,6 +10041,7 @@
       "title": "重命名任務"
     },
     "resizeHandleHint": "拖拽調整寬度",
+    "resizeFloatHint": "拖曳邊緣調整面板大小",
     "settings": "任務設置",
     "share": "分享任務",
     "shareConversation": "分享對話",

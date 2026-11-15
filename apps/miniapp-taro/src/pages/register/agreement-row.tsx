@@ -40,13 +40,13 @@ export default function AgreementRow({
         </View>
         <Text className="reg-agreement-text">
           {t('auth.agreePrefix')}
-          <Text className="reg-agreement-link" onClick={onOpenTerms}>
-            {t('auth.termsOfService')}
-          </Text>
+          <View className="inline-block" hoverClass="opacity-60" onClick={onOpenTerms}>
+            <Text className="reg-agreement-link">{t('auth.termsOfService')}</Text>
+          </View>
           {t('auth.and')}
-          <Text className="reg-agreement-link" onClick={onOpenPrivacy}>
-            {t('auth.privacyPolicy')}
-          </Text>
+          <View className="inline-block" hoverClass="opacity-60" onClick={onOpenPrivacy}>
+            <Text className="reg-agreement-link">{t('auth.privacyPolicy')}</Text>
+          </View>
         </Text>
       </View>
       {showError ? (

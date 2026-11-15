@@ -267,10 +267,13 @@ export interface Settings {
     flushIntervalMs?: number;
   };
   /**
-   * P2-3 剪贴板工具(默认关闭,启用后注册 clipboard_read/clipboard_write 两个 Agent 工具)。
+   * P2-3 剪贴板工具(默认关闭,启用后注册 clipboard_read/clipboard_write/clipboard_token/
+   * clipboard_rich_read/clipboard_rich_write 五个 Agent 工具)。
    *
    * 启用方式:settings.clipboard.enabled = true。
    * 关闭时 setupAgentTools 不注册剪贴板工具(零回归)。
+   * clipboard_token = 剪贴板变更序号(仅 Windows,对位 Qoder CN 原生件的 getClipboardToken)。
+   * clipboard_rich_read/write = 富格式(HTML/RTF 富文本 + 文件拖放路径,仅 Windows,补齐 Qoder 的富文本/拖放维)。
    */
   clipboard?: {
     /** 启用剪贴板工具(默认 false) */

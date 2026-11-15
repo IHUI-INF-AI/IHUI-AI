@@ -83,6 +83,25 @@ export function parseRequestHead(head: string): RelayRequestHead | null {
   return { kind: isConnect ? 'connect' : 'forward', host, dialHost: hostPart, port, method: upper, path };
 }
 
+/** 非应用层首行 → 传输协议指纹(goal-b49 Z3 补的判据点名格)。认不出 ⇒ null(relay 仍按"读不出目的地=拒")。 */
+export function sniffEgressProtocol(head: Buffer): string | null {
+  if (head.length < 1) return null;
+  const b0 = head[0];
+  // SOCKS5 客户端问候:VER(0x05) NMETHODS ...
+  if (b0 === 0x05 && head.length >= 2 && (head[1] ?? 0xff) <= 0x20) return 'socks5';
+  // SOCKS4/4a 请求:VER(0x04) CMD DSTPORT(2) DSTIP(4) ...
+  if (b0 === 0x04 && head.length >= 8) return 'socks4';
+  // TLS ClientHello:CONTENTTYPE(0x16=handshake) VERSION(2) LENGTH(2)
+  if (b0 === 0x16 && head.length >= 6) return 'tls';
+  // SSH:客户端/服务端都以 "SSH-" 起(ident 前可有一个换行)
+  if (b0 === 0x00) {
+    if (head.length >= 5 && head.subarray(1, 5).toString('latin1') === 'SSH-') return 'ssh';
+    return null;
+  }
+  if (head.subarray(0, 4).toString('latin1') === 'SSH-') return 'ssh';
+  return null;
+}
+
 /** 名字裁决先行;策略要求地址证据时才向(注入的)异步解析器要地址,结果喂回同一把尺。 */
 async function judgeRelayTarget(
   host: string,
@@ -92,6 +111,20 @@ async function judgeRelayTarget(
   if (policy.addressProof !== true) return adjudicateDomain(host, { policy, resolver: null });
   const addresses = await lookup(host).catch(() => null);
   return adjudicateDomain(host, { policy, resolver: () => addresses });
+}
+
+/** 隧道(SSH/TLS/SOCKS)留痕行:目的地判不出 ⇒ 恒 deny,protocol 点名进 reason。 */
+function judgementForTunnel(proto: string | null): EgressJudgement {
+  const named = proto ?? 'unknown';
+  return {
+    target: `<tunnel:${named}>`,
+    decision: 'deny',
+    layer: 'input',
+    ruleId: null,
+    reason: `TUNNEL_PROTOCOL_${named.toUpperCase()}`,
+    hint: 'relay 只判应用层 HTTP 代理;传输层隧道无法读出目的地,已判死。改走允许的 HTTP(S) 代理目标。',
+    enforcement: 'enforce',
+  };
 }
 
 export interface EgressRelayOptions {
@@ -164,31 +197,67 @@ function findHeaderEnd(buf: Buffer): number {
 }
 
 /** 逐字节读头 → 裁决 → 放行才拨号;被拒路径不写客户端一个字节、更不触目的地。 */
+/** HTTP 头读不出 \r\n\r\n 时的兜底:非应用层流量(SSH/TLS/SOCKS)本就没有 HTTP 头分隔,靠 idle 判定。 */
+const TUNNEL_IDLE_MS = 150;
+
 async function handleConnection(socket: Socket, ctx: HandleCtx): Promise<void> {
   socket.on('error', () => undefined);
   let buffer = Buffer.alloc(0);
   let decided = false;
+  // 非 HTTP 隧道没有 \r\n\r\n 结尾,永远等不到 findHeaderEnd ⇒ idle 超时按二进制判死并留痕
+  let idleTimer: NodeJS.Timeout | null = setTimeout(() => {
+    if (decided) return;
+    decided = true;
+    const raw = buffer;
+    buffer = Buffer.alloc(0);
+    socket.pause();
+    void decideAndDial(raw.toString('latin1'), Buffer.alloc(0), raw);
+  }, TUNNEL_IDLE_MS);
   socket.on('data', (chunk: Buffer) => {
     if (decided) return;
     buffer = Buffer.concat([buffer, chunk]);
+    if (idleTimer !== null) {
+      clearTimeout(idleTimer);
+      idleTimer = null;
+    }
     if (buffer.length > HEAD_CAP_BYTES) {
       decided = true;
       socket.destroy(); // 请求头超上限仍读不出 = relay 面拒绝
       return;
     }
     const end = findHeaderEnd(buffer);
-    if (end === -1) return;
+    if (end === -1) {
+      // 头还没读满:重启 idle 计时,数据持续到来时最终由超时判死
+      idleTimer = setTimeout(() => {
+        if (decided) return;
+        decided = true;
+        const raw = buffer;
+        buffer = Buffer.alloc(0);
+        socket.pause();
+        void decideAndDial(raw.toString('latin1'), Buffer.alloc(0), raw);
+      }, TUNNEL_IDLE_MS);
+      return;
+    }
     decided = true;
     const head = buffer.subarray(0, end + 4).toString('latin1');
+    const rawHead = buffer.subarray(0, end + 4);
     const rest = buffer.subarray(end + 4);
     buffer = Buffer.alloc(0);
     socket.pause(); // 裁决(await)期间冻结客户端字节,放行后由 pipe 续流
-    void decideAndDial(head, rest);
+    void decideAndDial(head, rest, rawHead);
   });
-  const decideAndDial = async (head: string, rest: Buffer): Promise<void> => {
+  const decideAndDial = async (head: string, rest: Buffer, rawHead: Buffer): Promise<void> => {
     const req = parseRequestHead(head);
     if (req === null) {
-      socket.destroy(); // 读不出目的地 = 判不了 = 拒绝(§0.3 折向更严一侧)
+      // 非 HTTP 应用层形态(SSH/TLS/SOCKS):先点协议名留痕,再判死。
+      // relay 面只有传输层字节、判不出真目的地(host/dialHost 为空),故按"读不出目的地=拒"
+      // (§0.3 折向更严一侧),不靠 defaultDecision 兜底 —— 隧道无目的地可判,不进 allow 档。
+      const proto = sniffEgressProtocol(rawHead);
+      appendEgressAuditRows(
+        [toAuditRow(judgementForTunnel(proto), () => new Date(), process.pid, true)],
+        { startDir: ctx.startDir },
+      );
+      socket.destroy();
       return;
     }
     const judgement = await judgeRelayTarget(req.host, ctx.policy, ctx.lookup);

@@ -16,8 +16,7 @@
 
 import { spawn } from 'node:child_process';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
-// §15b 运行时合规临时根(~/.ihui/tmp → junction D:),禁 os.tmpdir()(TEMP 可能钉 C 盘)
-import { getRuntimeTempRoot } from '@ihui/shared';
+import { tmpdir } from 'node:os';
 import * as path from 'node:path';
 
 import type { SandboxExecOptions, SandboxExecResult, SandboxPolicy } from '../policy.js';
@@ -128,7 +127,7 @@ async function runWithSandboxExec(policy: SandboxPolicy, commandLine: string, op
   const cwd = options.cwd ?? policy.workspaceRoot;
   let workDir: string | undefined;
   try {
-    workDir = await mkdtemp(path.join(getRuntimeTempRoot(), 'ihui-sb-'));
+    workDir = await mkdtemp(path.join(tmpdir(), 'ihui-sb-'));
     const profileFile = path.join(workDir, 'sandbox.sb');
     await writeFile(profileFile, buildSeatbeltProfile(policy), 'utf8');
     const shellCmd = `exec ${commandLine}`;
@@ -184,6 +183,12 @@ async function runWithPlain(policy: SandboxPolicy, commandLine: string, options:
 /** killProcessGroup 只依赖的最小 child 形状(spawn 返回值天然满足)。 */
 export interface ProcessGroupChild {
   pid?: number;
+  /**
+   * Node 的 `ChildProcess.kill` 签名是 `kill(signal?: number | Signals)`,
+   * 而本门只按 POSIX 语义传 `'SIGKILL'`。这里必须写成**兼容 Node 的**可选参形态:
+   * 写成 `kill(signal: string)` 会让 `spawn()` 的返回值因参数逆变而不可赋值
+   * (TS2345,实测于 2026-11-14),把一个本来天然成立的形状判成不兼容。
+   */
   kill(signal?: NodeJS.Signals | number): unknown;
   stdout?: { destroy(): void } | null;
   stderr?: { destroy(): void } | null;

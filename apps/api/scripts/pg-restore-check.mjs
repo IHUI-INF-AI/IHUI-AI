@@ -52,8 +52,7 @@
 import { spawn } from 'node:child_process'
 import { readFileSync, existsSync, readdirSync, statSync, createReadStream, createWriteStream, unlinkSync } from 'node:fs'
 import { join, resolve } from 'node:path'
-// 运行时合规临时根(§15b):~/.ihui/tmp → junction D:;禁 os.tmpdir()(TEMP 可能钉 C 盘)
-import { getRuntimeTempRoot } from '@ihui/shared'
+import { tmpdir } from 'node:os'
 import { createGunzip } from 'node:zlib'
 import { fileURLToPath } from 'node:url'
 
@@ -186,7 +185,7 @@ async function restoreDrill(file, conn) {
     result = await run(pr, ['--no-owner', '--no-privileges', ...adminArgs, '-d', TEMP_DB, file], baseEnv)
     if (result.code !== 0) throw new Error(`pg_restore 恢复退出码 ${result.code}: ${(result.err || result.out).trim().slice(0, 500)}`)
   } else if (/\.sql\.gz$/i.test(file)) {
-    const tmpSql = join(getRuntimeTempRoot(), `${TEMP_DB}.sql`)
+    const tmpSql = join(tmpdir(), `${TEMP_DB}.sql`)
     await new Promise((resolve, reject) => {
       const gunzip = createGunzip()
       const rs = createReadStream(file)

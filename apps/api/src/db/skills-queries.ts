@@ -186,40 +186,14 @@ export async function upsertSkillBySlug(data: SyncUpsertInput): Promise<{
     return { skill: existing, action: 'unchanged' }
   }
 
-  if (existing) {
-    // 已存在但内容不同:更新内容,若已软删除则复活(清空 deletedAt)
-    const rows = await db
-      .update(skills)
-      .set({
-        name: data.name,
-        description: data.description,
-        content: data.content,
-        contentHash: data.contentHash,
-        lastSyncedAt: now,
-        syncSource: data.syncSource ?? 'cli',
-        updatedAt: now,
-        deletedAt: null, // 复活:内容变更即视为重新启用
-      })
-      .where(eq(skills.id, existing.id))
-      .returning()
-    const updated = rows[0]
-    if (!updated) throw new Error('更新技能失败')
-    // G-815962 写后必须回读:复活声明(deletedAt=null)要按活行面重读确认 ——
-    // "写成功但活行面看不见"(软删未清干净)从下次同步丢内容提前到本次即抛。
-    // 返回回读到的记录,不是 update().returning() 的输入面回声。
-    const [readBack] = await db
-      .select()
-      .from(skills)
-      .where(and(eq(skills.id, existing.id), isNull(skills.deletedAt)))
-      .limit(1)
-    if (!readBack) {
-      throw new Error(
-        `Skill not found after upsert (软删复活未生效): authorId=${data.authorId} slug=${data.slug}`,
-      )
-    }
-    return { skill: readBack, action: 'updated' }
-  }
-
+  // F-175:落库收敛为**一条** INSERT ... ON CONFLICT (author_id, slug) DO UPDATE。
+  // 旧写法先 findSkillByAuthorAndSlug 再 update/insert,两台设备并发 push 同一 slug
+  // 时两边都查到"不存在"⇒ 各插一行,(author_id, slug) 从此有重复行;之后所有
+  // limit(1) 读都会随机命中其中一条,内容与删除语义长期漂移。
+  // 现在唯一索引是唯一的裁决者:后到的 INSERT 撞索引后改为更新**同一行**。
+  //
+  // DO UPDATE 的 WHERE 保留旧语义「同 hash 不写」:并发窗口内若另一路已写入相同内容,
+  // 本路不覆盖、不复活(deleted_at 保持原状),返回 unchanged。
   const rows = await db
     .insert(skills)
     .values({
@@ -233,10 +207,59 @@ export async function upsertSkillBySlug(data: SyncUpsertInput): Promise<{
       authorId: data.authorId,
       isPublished: data.isPublished ?? false,
     })
+    .onConflictDoUpdate({
+      target: [skills.authorId, skills.slug],
+      set: {
+        name: data.name,
+        description: data.description,
+        content: data.content,
+        contentHash: data.contentHash,
+        lastSyncedAt: now,
+        syncSource: data.syncSource ?? 'cli',
+        updatedAt: now,
+        deletedAt: null, // 复活:内容变更即视为重新启用
+      },
+      setWhere: data.contentHash
+        ? sql`${skills.contentHash} is distinct from ${data.contentHash}`
+        : undefined,
+    })
     .returning()
-  const created = rows[0]
-  if (!created) throw new Error('创建技能失败')
-  return { skill: created, action: 'created' }
+
+  const written = rows[0]
+  if (!written) {
+    // DO UPDATE 的 WHERE 不成立 ⇒ 本次没有落行(并发下另一路已写入相同内容)。
+    // 回读现网行返回 unchanged;读不到才是真的异常。
+    const [current] = await db
+      .select()
+      .from(skills)
+      .where(and(eq(skills.authorId, data.authorId), eq(skills.slug, data.slug)))
+      .limit(1)
+    if (!current) {
+      throw new Error(
+        `Skill not found after upsert (并发 upsert 未落行): authorId=${data.authorId} slug=${data.slug}`,
+      )
+    }
+    return { skill: current, action: 'unchanged' }
+  }
+
+  if (existing) {
+    // G-815962 写后必须回读:复活声明(deletedAt=null)要按活行面重读确认 ——
+    // "写成功但活行面看不见"(软删未清干净)从下次同步丢内容提前到本次即抛。
+    // 返回回读到的记录,不是 insert().returning() 的输入面回声。
+    const [readBack] = await db
+      .select()
+      .from(skills)
+      .where(and(eq(skills.id, written.id), isNull(skills.deletedAt)))
+      .limit(1)
+    if (!readBack) {
+      throw new Error(
+        `Skill not found after upsert (软删复活未生效): authorId=${data.authorId} slug=${data.slug}`,
+      )
+    }
+    return { skill: readBack, action: 'updated' }
+  }
+
+  return { skill: written, action: 'created' }
 }
 
 /**

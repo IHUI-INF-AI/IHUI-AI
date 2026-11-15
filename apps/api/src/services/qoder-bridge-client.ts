@@ -143,11 +143,9 @@ function launchOnce(): Promise<QoderBridgeEndpoint> {
   const key = crypto.randomBytes(16).toString('hex')
 
   return new Promise<QoderBridgeEndpoint>((resolve, reject) => {
-    // F-658(2026-11-14 立,2026-11-15 以 HEAD 现形重施):密钥不入 argv。
-    // argv 对同机同用户的任何进程可读(tasklist /wmic 的 CommandLine 字段直接印出),
-    // 拿到 key 即可直调本机桥接端口白嫖额度;环境变量不经进程列表暴露。
-    // 桥脚本本就支持 QODER_BRIDGE_KEY(见 scripts/qoder-chat-bridge.mjs 的 arg('key', env) 回退),
-    // 其 respawn 复用 ...process.env,故 key 自动随环境继承,无需再进 argv。
+    // F-658:密钥不再放进子进程 argv(同机同用户可读进程命令行),改走环境变量
+    // QODER_BRIDGE_KEY —— 桥脚本 arg('key', process.env.QODER_BRIDGE_KEY) 本就支持该
+    // 回退,且其自重启分支继承 env,行为等价且不再泄漏到进程列表。
     const proc = spawn(exe, [BRIDGE_SCRIPT, '--port', '0', '--cwd', BRIDGE_CWD], {
       env: { ...process.env, ELECTRON_RUN_AS_NODE: '1', QODER_BRIDGE_KEY: key },
       stdio: ['ignore', 'pipe', 'pipe'],

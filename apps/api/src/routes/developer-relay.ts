@@ -33,8 +33,6 @@ import { createMapping, listMappings } from '../services/model-mapping-service.j
 import { redeemCode } from '../services/redemption-code-service.js'
 import { requireStepUpForTwoFactorUser } from '../services/two-factor-step-up-store.js'
 import { idParamSchema } from './admin/_shared.js'
-// F-24 同类:用量日趋势按上海日切。
-import { bizDayStartFromKeyUtc } from '../utils/biz-day.js'
 import {
   createKey,
   updateKey,
@@ -98,6 +96,22 @@ const rechargeBodySchema = z
   .refine((d) => d.tokenDelta !== undefined || d.costDeltaCents !== undefined, {
     message: 'tokenDelta 或 costDeltaCents 至少填一个',
   })
+
+/**
+ * F-576:充值成功邮件的展示口径。
+ *
+ * 金额只有一个来源 = 订单金额 `costDeltaCents`(分→元,两位小数);
+ * `tokenDelta` 是到账额度条数,量纲不同,只作为独立的「到账额度」文案,绝不参与金额加法。
+ */
+export function buildWalletRechargeMailAmounts(input: {
+  costDeltaCents?: number
+  tokenDelta?: number
+}): { costYuan: string; creditTokens: number } {
+  return {
+    costYuan: ((input.costDeltaCents ?? 0) / 100).toFixed(2),
+    creditTokens: input.tokenDelta ?? 0,
+  }
+}
 
 /** 兑换码兑换 body(P0-5 刮刮卡式裂变充值,2026-07-31 立) */
 const redeemBodySchema = z.object({
@@ -351,8 +365,7 @@ const developerRelayRoutes: FastifyPluginAsync = async (server) => {
 
     const conds: ReturnType<typeof eq>[] = [eq(llmCallLogs.userId, userId)]
     if (startDate) {
-      // F-24 同类:用户用量日趋势按上海日界。
-      conds.push(gte(llmCallLogs.createdAt, bizDayStartFromKeyUtc(startDate)))
+      conds.push(gte(llmCallLogs.createdAt, new Date(`${startDate}T00:00:00Z`)))
     } else {
       // 默认近 30 天
       conds.push(gte(llmCallLogs.createdAt, new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)))
@@ -584,14 +597,12 @@ const developerRelayRoutes: FastifyPluginAsync = async (server) => {
           ])
         const user = await findUserById(userId)
         if (user?.email) {
+          const mailAmounts = buildWalletRechargeMailAmounts(parsed.data)
           const mail = renderWalletRechargeEmail({
             userName: user.nickname ?? undefined,
             keyName: existing.name,
-            costYuan: (
-              ((parsed.data.tokenDelta ?? 0) + (parsed.data.costDeltaCents ?? 0)) /
-              100
-            ).toFixed(2),
-            creditTokens: parsed.data.tokenDelta ?? 0,
+            costYuan: mailAmounts.costYuan,
+            creditTokens: mailAmounts.creditTokens,
             newTokenBalance: result.tokenBalance,
             keysUrl: `${resolveWebOrigin()}/models/keys`,
           })

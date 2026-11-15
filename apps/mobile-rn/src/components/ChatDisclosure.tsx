@@ -269,7 +269,7 @@ const disclosureStyles = StyleSheet.create({
   blockTitle: {
     fontSize: rnType.caption.size,
     fontWeight: '600',
-    color: tokens.text.tertiary,
+    color: tokens.text.medium,
   },
   steerHead: {
     flexDirection: 'row',
@@ -303,9 +303,9 @@ const disclosureStyles = StyleSheet.create({
     paddingHorizontal: rpx(16),
     paddingVertical: rpx(6),
   },
-  tierLabel: { fontSize: rnType.caption.size, fontWeight: '600', color: tokens.text.tertiary },
+  tierLabel: { fontSize: rnType.caption.size, fontWeight: '600', color: tokens.text.medium },
   tierTitle: { fontSize: rnType.caption.size, color: tokens.text.secondary },
-  tierDesc: { fontSize: rnType.caption.size, color: tokens.text.tertiary },
+  tierDesc: { fontSize: rnType.caption.size, color: tokens.text.medium },
   approvalRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -329,6 +329,6 @@ const disclosureStyles = StyleSheet.create({
     lineHeight: rnType.bodySm.lineHeight,
     color: tokens.text.primary,
   },
-  meta: { fontSize: rnType.badge.size, color: tokens.text.tertiary },
+  meta: { fontSize: rnType.badge.size, color: tokens.text.medium },
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

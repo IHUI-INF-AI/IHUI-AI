@@ -19,9 +19,6 @@ import {
 } from '@ihui/database'
 // 用途词汇表的唯一持有者是分类器所在的服务层;这里只 import 它,不再抄第二份字面量联合。
 import { toSmsUsageKind, type SmsUsageKind } from '../services/d1jiema-service.js'
-// F-83 修正:today/yesterday 此前用 `toISOString().slice(0,10)`(UTC 日历),上海 00:00–08:00 期间
-// 会把当天记成昨天。统一走 biz-day 单一真相源。
-import { bizDayKey } from '../utils/biz-day.js'
 
 export interface RecordSmsReceivedInput {
   phone: string
@@ -50,15 +47,12 @@ export async function recordSmsReceived(input: RecordSmsReceivedInput): Promise<
 
 /** 查某号码的接码历史(倒序,默认最近 20 条) */
 export async function getPhoneHistory(phone: string, limit = 20): Promise<SmsReceiveHistory[]> {
-  return (
-    db
-      .select()
-      .from(smsReceiveHistory)
-      .where(eq(smsReceiveHistory.phone, phone))
-      // F-83:receivedAt 有秒级同值(收码成功即写),单字段排序不稳定 ⇒ 加 id 主键 tiebreaker。
-      .orderBy(desc(smsReceiveHistory.receivedAt), desc(smsReceiveHistory.id))
-      .limit(Math.min(Math.max(limit, 1), 100))
-  )
+  return db
+    .select()
+    .from(smsReceiveHistory)
+    .where(eq(smsReceiveHistory.phone, phone))
+    .orderBy(desc(smsReceiveHistory.receivedAt))
+    .limit(Math.min(Math.max(limit, 1), 100))
 }
 
 /** 查某号码的本地台账全量条数(不受最近 N 条截断,用于「本机累计使用 K 次」) */
@@ -117,10 +111,24 @@ export async function snapshotRelatedMsgs(
 ): Promise<number> {
   if (records.length === 0) return 0
   const now = new Date()
-  const nowHHMM = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
-  // 上海日历(不用 UTC —— 上海 00:00–08:00 UTC 视角还停留在昨天)
-  const today = bizDayKey(now)
-  const yesterday = bizDayKey(new Date(now.getTime() - 86_400_000))
+  // F-81:归日与时刻必须同一套上海日历。原 nowHHMM 取服务器本地时(上海)、而
+  // today/yesterday 取 toISOString() 的 UTC 日 —— 上海 00:00–08:00 归到前一天,
+  // rec_date 唯一键跨 08:00 后还会把同一条再插一次。此处显式钉死时区,不依赖容器 TZ。
+  const shParts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Shanghai',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(now)
+  const shPart = (type: string): string => shParts.find((p) => p.type === type)?.value ?? ''
+  const nowHHMM = `${shPart('hour')}:${shPart('minute')}`
+  const today = `${shPart('year')}-${shPart('month')}-${shPart('day')}`
+  const yesterdayDate = new Date(`${today}T04:00:00Z`)
+  yesterdayDate.setUTCDate(yesterdayDate.getUTCDate() - 1)
+  const yesterday = yesterdayDate.toISOString().slice(0, 10)
   const values = records.map((r) => ({
     phone,
     recDate: r.time > nowHHMM ? yesterday : today,

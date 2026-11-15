@@ -63,7 +63,7 @@ export function AgentCreateScreen({
         value={name}
         onChangeText={onNameChange}
         placeholder={t('agentCreate.namePlaceholder')}
-        placeholderTextColor={tk.text.tertiary}
+        placeholderTextColor={tk.text.secondary}
       />
       <Text style={styles.label}>{t('agent.fieldCategory')}</Text>
       <TextField
@@ -72,7 +72,7 @@ export function AgentCreateScreen({
         value={category}
         onChangeText={onCategoryChange}
         placeholder={t('agentCreate.categoryPlaceholder')}
-        placeholderTextColor={tk.text.tertiary}
+        placeholderTextColor={tk.text.secondary}
       />
       <Text style={styles.label}>{t('agent.fieldDescription')}</Text>
       <TextField
@@ -81,7 +81,7 @@ export function AgentCreateScreen({
         value={description}
         onChangeText={onDescriptionChange}
         placeholder={t('agentCreate.descPlaceholder')}
-        placeholderTextColor={tk.text.tertiary}
+        placeholderTextColor={tk.text.secondary}
         multiline
         textAlignVertical="top"
       />
@@ -92,7 +92,7 @@ export function AgentCreateScreen({
         value={systemPrompt}
         onChangeText={onSystemPromptChange}
         placeholder={t('agentCreate.promptPlaceholder')}
-        placeholderTextColor={tk.text.tertiary}
+        placeholderTextColor={tk.text.secondary}
         multiline
         textAlignVertical="top"
       />

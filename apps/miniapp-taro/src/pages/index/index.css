@@ -30,11 +30,6 @@
 
   /* 文字色 */
 
-  /* 边框色 */
-  --color-border-list-item: var(--color-border);
-  --color-border-card: var(--color-border);
-  --color-border-subtle: var(--color-border);
-
   /* 强调色 */
   --color-brand-purple-bright: var(--color-brand);
   --color-brand-purple-soft: var(--color-brand);
@@ -233,7 +228,7 @@
   height: var(--spacing-4xl);
   border-radius: var(--radius-lg);
   background: var(--color-card);
-  border: 4rpx solid var(--color-border-list-item);
+  border: 4rpx solid var(--color-border);
   margin: 5rpx 0;
   padding: 0 var(--spacing-md);
 }
@@ -421,7 +416,7 @@
 
 .material-card-text {
   background: var(--color-card);
-  border: 2rpx solid var(--color-border-subtle);
+  border: 2rpx solid var(--color-border);
 }
 
 .material-card-title {

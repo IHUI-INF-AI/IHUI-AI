@@ -49,7 +49,7 @@ const SAMPLE = {
   attempted: 4,
   syncedBatches: 3,
   skippedNotImplemented: 1,
-  errors: ['feishu/leave/user=u1: boom'],
+  errors: [{ provider: 'feishu', kind: 'leave', message: 'user=u1: boom' }],
 }
 
 describe('sync-status — 最近运行状态 upsert', () => {
@@ -98,7 +98,7 @@ describe('sync-status — 最近运行状态 upsert', () => {
     expect(s).not.toBeNull()
     expect(s!.enabled).toBe(true)
     expect(s!.scannedUsers).toBe(2)
-    expect(s!.errors).toEqual(['feishu/leave/user=u1: boom'])
+    expect(s!.errors).toEqual([{ provider: 'feishu', kind: 'leave', message: 'user=u1: boom' }])
     expect(s!.finishedAt).toBe('2026-11-13T02:00:00.000Z')
   })
 })

@@ -149,13 +149,13 @@
 </p>
 
 <p align="center">
-  <strong>邮箱</strong> · <a href="mailto:IHUI-AI@aizhs.top">IHUI-AI@aizhs.top</a><br/>
+  <strong>邮箱</strong> · <a href="mailto:lizong@aizhs.top">lizong@aizhs.top</a><br/>
   <strong>微信客服</strong> · <code>ok502319984</code> &nbsp;|&nbsp; <strong>电话</strong> · <code>18643389808</code><br/>
   <strong>官网</strong> · <a href="https://github.com/AIZHS2025">https://github.com/AIZHS2025</a>
 </p>
 
 <p align="center">
-  <sub>合作咨询 · 企业接入 · 技术交流 · 投资对接 — 请扫码文末 <a href="#联系我们">联系我们</a> 微信二维码,或致信 <a href="mailto:IHUI-AI@aizhs.top">IHUI-AI@aizhs.top</a>,24 小时内回复。</sub>
+  <sub>合作咨询 · 企业接入 · 技术交流 · 投资对接 — 请扫码文末 <a href="#联系我们">联系我们</a> 微信二维码,或致信 <a href="mailto:lizong@aizhs.top">lizong@aizhs.top</a>,24 小时内回复。</sub>
 </p>
 
 ---

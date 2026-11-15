@@ -192,9 +192,7 @@ export default function BusinessCardScreen() {
         if (listRes.success) {
           const profile = await getProfile()
           if (profile.success) {
-            const mine = (listRes.data?.list ?? []).find(
-              (item) => item.authorId === profile.data.id,
-            )
+            const mine = listRes.data.list.find((item) => item.authorId === profile.data.id)
             if (mine) {
               setCard({
                 id: mine.id,

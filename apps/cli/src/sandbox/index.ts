@@ -15,9 +15,8 @@
 
 import { spawnSync, spawn, type SpawnSyncOptions, type SpawnOptions, type ChildProcess } from 'node:child_process';
 import * as path from 'node:path';
+import * as os from 'node:os';
 import * as fs from 'node:fs';
-// 运行时合规临时根(§15b):~/.ihui/tmp → junction D:;禁 os.tmpdir()(TEMP 可能钉 C 盘)
-import { getRuntimeTempRoot } from '@ihui/shared';
 
 // 失败归因/安全边界文案走 cli 语言包(AGENTS §19)。与 tools/command-safety.ts 同一既有形态
 // (端内同层 import,不新建跨层依赖)。失效方向:t() 取不到键时回显键名,且各条 note 的
@@ -1238,7 +1237,7 @@ export function runSandboxedAsync(commandLine: string, opts: SandboxOptions): Sa
       if (part.length === 0) return;
       if (!spill || !spillPath) {
         spillPath = path.join(
-          getRuntimeTempRoot(),
+          os.tmpdir(),
           `ihui-sandbox-spill-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.log`,
         );
         spill = fs.createWriteStream(spillPath, { flags: 'w' });

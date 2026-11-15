@@ -37,7 +37,7 @@ import { CategoryInlineBar } from '../../components/category/CategoryInlineBar'
 import { Lightbulb, Play, Flame, Bot, Clapperboard, Plus } from 'lucide-react-native'
 import type { AppIcon, StudyTrackCategory, StudyVideoItem } from '@ihui/types'
 
-import { ELEVATION_STEPS, rnGeometry, rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { rnGeometry, rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { Tappable } from '@ihui/ui-native'
 export type { StudyTrackCategory, StudyVideoItem }
 
@@ -84,6 +84,15 @@ export interface StudyIndexScreenProps {
   loadingMoreText: string
   /** 提供时在右下渲染发布 FAB（缺省不渲染，避免假按钮） */
   onPublish?: () => void
+  /**
+   * 视频卡片点击（2026-11-14 补）。
+   *
+   * 注意：`@ihui/types` 里另有一份同名 `StudyIndexScreenProps`，那份把 `onVideoClick`
+   * 声明成**必填**，而本文件这份本地定义**没有该字段** —— 两份已漂移。宿主按本地这份传参，
+   * 所以类型检查不报错、回调也从来没被消费过，视频卡片是一整片点不动的死区。
+   * 这里按可选补上：宿主不传卡片退化为不可点（不再假装能点），传了才响应。
+   */
+  onVideoClick?: (item: StudyVideoItem) => void
 }
 
 /** 网格封面高度(对齐 Uniapp study_list .video height: 178rpx ≈ 89dp) */
@@ -124,6 +133,7 @@ export function StudyIndexScreen({
   loadingText,
   loadingMoreText,
   onPublish,
+  onVideoClick,
 }: StudyIndexScreenProps) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
@@ -185,7 +195,14 @@ export function StudyIndexScreen({
       // gridCard 在这份表里是**纯布局档**(flex:1 占双列槽位 + 边距),留在外层作静态对象;
       // 按压淡出随内层承载 —— 外层无底色,可见像素全在内层里,淡出的范围与改前逐像素相同
       // (守门 131 那一型:函数形态 style 落在注册过 cssInterop 的 Pressable 上会整份静默失效)。
-      <Pressable style={styles.gridCard} accessibilityRole="button" accessibilityLabel={item.title}>
+      <Pressable
+        style={styles.gridCard}
+        onPress={onVideoClick ? () => onVideoClick(item) : undefined}
+        disabled={!onVideoClick}
+        accessibilityRole="button"
+        accessibilityLabel={item.title}
+        accessibilityState={{ disabled: !onVideoClick }}
+      >
         {({ pressed }) => (
           <View style={pressed ? styles.gridCardPressed : null}>
             <View style={styles.gridCoverWrap}>
@@ -193,7 +210,7 @@ export function StudyIndexScreen({
                 <Image source={{ uri: item.cover }} style={styles.gridCover} resizeMode="cover" />
               ) : (
                 <View style={styles.gridCoverPlaceholder}>
-                  <Play size={24} color={tk.text.tertiary} />
+                  <Play size={24} color={tk.text.secondary} />
                 </View>
               )}
               <View style={styles.gridCoverInfo}>
@@ -358,7 +375,7 @@ export function StudyIndexScreen({
             <RefreshControl
               refreshing={refreshing}
               onRefresh={onRefresh}
-              tintColor={tk.text.tertiary}
+              tintColor={tk.text.secondary}
             />
           }
           onEndReached={onEndReached}
@@ -391,14 +408,15 @@ export function StudyIndexScreen({
       )}
 
       {onPublish ? (
-        <Pressable
+        <Tappable
           onPress={onPublish}
+          // 悬浮发布钮是全屏最显眼的单一动作,按下必须立刻有回执(2026-11-13)。
           style={styles.fab}
           accessibilityRole="button"
           accessibilityLabel="发布视频"
         >
           <Plus size={24} color={tk.brand.ctaForeground} />
-        </Pressable>
+        </Tappable>
       ) : null}
     </View>
   )
@@ -414,18 +432,15 @@ function createStyles(tk: AppThemeTokens) {
       width: rnGeometry.fabBox,
       height: rnGeometry.fabBox,
       /**
-       * 正方 FAB 用几何表达式取半边(design-tokens/geometry.js 的明文口径):
-       * RN 的 borderRadius 只吃 number,字符串 `'50%'` 会被 Yoga 静默丢弃 ⇒
-       * 56×56 的 FAB 退化成直角方形。这里不写死 28(28 超 2xl=16 的定档上限),
-       * 由 rnGeometry.fabBox / 2 取半边,与守门 77 的 B9「几何正圆」例外同形。
+       * 正方 FAB 用相对式正圆:宽高同值(rnGeometry.fabBox=56)且半径恒为短边一半,
+       * 属守门 77 的 B9 / 守门 11 的 C7 明文承认的"几何正圆"例外,不写死 28
+       * (28 超 2xl=16 的定档上限)。视觉与原 56×56 / 半径 28 完全一致。
        */
-      borderRadius: rnGeometry.fabBox / 2,
+      borderRadius: '50%',
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: tk.brand.cta,
-      // elevation 只在 Android 生效;单写它会让 iOS 上这枚 FAB 完全没有投影。
-      // 取唯一层级档(四元组 + elevation 同档携带),两端同一层级,不另写裸值。
-      ...ELEVATION_STEPS.md,
+      elevation: 4,
     } as ViewStyle,
     searchBar: {
       paddingHorizontal: rnSpacing['sm-loose'],
@@ -519,14 +534,14 @@ function createStyles(tk: AppThemeTokens) {
       fontSize: rnType.caption.size,
     } as TextStyle,
     previewBadgeFreeText: {
-      color: tk.success.DEFAULT,
+      color: tk.success.deepText,
     } as TextStyle,
     previewBadgePaidText: {
       color: tk.warning.amberText,
     } as TextStyle,
     previewEmpty: {
       fontSize: rnType.body.size,
-      color: tk.text.tertiary,
+      color: tk.text.medium,
       textAlign: 'center',
       paddingVertical: rnSpacing.lg,
     } as TextStyle,
@@ -575,7 +590,7 @@ function createStyles(tk: AppThemeTokens) {
     } as ViewStyle,
     gridCoverPlaceholderText: {
       fontSize: rnType.display.size,
-      color: tk.text.tertiary,
+      color: tk.text.medium,
     } as TextStyle,
     // 标题+日期覆盖层
     gridCoverInfo: {
@@ -694,7 +709,7 @@ function createStyles(tk: AppThemeTokens) {
     } as ViewStyle,
     emptyText: {
       fontSize: rnType.title.size,
-      color: tk.text.tertiary,
+      color: tk.text.medium,
       textAlign: 'center',
     } as TextStyle,
     loadingText: {
@@ -711,7 +726,7 @@ function createStyles(tk: AppThemeTokens) {
     } as ViewStyle,
     footerText: {
       fontSize: rnType.body.size,
-      color: tk.text.tertiary,
+      color: tk.text.medium,
     } as TextStyle,
   })
 }

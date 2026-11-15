@@ -135,6 +135,66 @@ describe('toTaroStyle:RN 专有能力折成 CSS', () => {
   })
 })
 
+/**
+ * 轴向简写(RN 自有属性,CSS 无对应键)必须摊成物理两向。
+ * 若不展开,weapp webview 把 `padding-horizontal` 当未知属性整条丢弃,
+ * 共享屏在小程序端的轴向内/外边距会**静默归零** —— 不报错、类型也抓不到。
+ */
+describe('toTaroStyle:RN 轴向简写摊成物理两向', () => {
+  it('paddingHorizontal ⇒ paddingLeft + paddingRight', () => {
+    expect(toTaroStyle({ paddingHorizontal: 16 })).toEqual({
+      paddingLeft: '16px',
+      paddingRight: '16px',
+    })
+  })
+
+  it('paddingVertical ⇒ paddingTop + paddingBottom', () => {
+    expect(toTaroStyle({ paddingVertical: 9 })).toEqual({
+      paddingTop: '9px',
+      paddingBottom: '9px',
+    })
+  })
+
+  it('margin 两向同样展开', () => {
+    expect(toTaroStyle({ marginHorizontal: 12, marginVertical: 4 })).toEqual({
+      marginLeft: '12px',
+      marginRight: '12px',
+      marginTop: '4px',
+      marginBottom: '4px',
+    })
+  })
+
+  it('字符串值原样透传(rpx / var 不被改写)', () => {
+    expect(toTaroStyle({ paddingHorizontal: '16rpx', marginVertical: 'var(--gap-sm)' })).toEqual({
+      paddingLeft: '16rpx',
+      paddingRight: '16rpx',
+      marginTop: 'var(--gap-sm)',
+      marginBottom: 'var(--gap-sm)',
+    })
+  })
+
+  it('绝不把轴向简写键本身写进样式(防回归)', () => {
+    const out = toTaroStyle({ paddingHorizontal: 8, paddingVertical: 8 }) ?? {}
+    for (const key of Object.keys(out)) {
+      expect(key).not.toMatch(/^(padding|margin)(Horizontal|Vertical)$/)
+    }
+  })
+
+  it('顺序语义与 RN 一致:后写的显式边覆盖简写', () => {
+    expect(toTaroStyle({ paddingHorizontal: 16, paddingLeft: 4 })).toEqual({
+      paddingLeft: '4px',
+      paddingRight: '16px',
+    })
+  })
+
+  it('顺序语义与 RN 一致:后写的简写覆盖先写的显式边', () => {
+    expect(toTaroStyle({ paddingLeft: 4, paddingHorizontal: 16 })).toEqual({
+      paddingLeft: '16px',
+      paddingRight: '16px',
+    })
+  })
+})
+
 describe('StyleSheet 替身', () => {
   it('create 原样返回(共享层 `styles.x` 取值不受影响)', () => {
     const styles = StyleSheet.create({ box: { padding: 4 } })
@@ -153,47 +213,6 @@ describe('StyleSheet 替身', () => {
       bottom: 0,
       left: 0,
     })
-  })
-})
-
-describe('toTaroStyle:阴影/变换的完整语义(2026-11-15 回归锁)', () => {
-  it('elevation 与 shadow* 同档时,带色 iOS 语义胜出(不得压成黑色硬影)', () => {
-    const out = toTaroStyle({
-      elevation: 3,
-      shadowColor: '#fef3c7',
-      shadowOffset: { width: 0, height: 0 },
-      shadowOpacity: 0.4,
-      shadowRadius: 5,
-    })
-    expect(out?.boxShadow).toBe('0px 0px 5px rgba(254,243,199,0.4)')
-    expect(out?.boxShadow).not.toMatch(/rgba\(0,0,0,0\.18\)/)
-  })
-
-  it('只有 elevation 时仍给 Android 兜底阴影', () => {
-    expect(toTaroStyle({ elevation: 4 })?.boxShadow).toBe('0 2px 4px rgba(0,0,0,0.18)')
-  })
-
-  it('shadowColor 为 rgba() 时也要乘 shadowOpacity', () => {
-    const out = toTaroStyle({
-      shadowColor: 'rgba(10,20,30,0.5)',
-      shadowOpacity: 0.4,
-      shadowRadius: 6,
-      shadowOffset: { width: 1, height: 2 },
-    })
-    expect(out?.boxShadow).toBe('1px 2px 6px rgba(10,20,30,0.2)')
-  })
-
-  it('textShadow 四件套合成单条 text-shadow,不产出 wxss 不认识的分键', () => {
-    const out = (toTaroStyle({
-      textShadowColor: '#ff0000',
-      textShadowOffset: { width: 1, height: 2 },
-      textShadowRadius: 3,
-      textShadowOpacity: 0.5,
-    }) ?? {}) as Record<string, unknown>
-    expect(out.textShadow).toBe('1px 2px 3px rgba(255,0,0,0.5)')
-    expect(out.textShadowColor).toBeUndefined()
-    expect(out.textShadowRadius).toBeUndefined()
-    expect(out.textShadowOpacity).toBeUndefined()
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

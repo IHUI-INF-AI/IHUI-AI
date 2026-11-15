@@ -95,7 +95,7 @@ function createStyles(tk: AppThemeTokens) {
     errorText: {
       paddingHorizontal: rnSpacing['sm-loose'],
       fontSize: rnType.body.size,
-      color: tk.danger.DEFAULT,
+      color: tk.danger.deepText,
     },
     listBody: { padding: rnSpacing['md-loose'] },
     separator: { height: 12 },
@@ -115,11 +115,11 @@ function createStyles(tk: AppThemeTokens) {
       flexShrink: 0,
       fontSize: rnType.title.size,
       fontWeight: '600',
-      color: tk.danger.DEFAULT,
+      color: tk.danger.deepText,
     },
-    cardStatus: { fontSize: rnType.body.size, color: tk.success.DEFAULT },
+    cardStatus: { fontSize: rnType.body.size, color: tk.success.deepText },
     cardReason: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.secondary },
-    cardTime: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.tertiary },
+    cardTime: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.medium },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

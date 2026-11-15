@@ -942,7 +942,8 @@
       "agree": "贊同",
       "disagree": "反對"
     },
-    "loadFailed": "載入失敗"
+    "loadFailed": "載入失敗",
+    "admissionAhead": "前面還有 {n} 位"
   },
   "settings": {
     "title": "設定",
@@ -2427,9 +2428,7 @@
     "confirmPasswordPlaceholder": "請再次輸入密碼",
     "password": "密碼",
     "passwordPlaceholder": "請輸入密碼",
-    "title": "註冊",
-    "show": "顯示",
-    "hide": "隱藏"
+    "title": "註冊"
   },
   "withdraw": {
     "availableBalance": "可提現金額(元)",
@@ -3708,6 +3707,7 @@
   "activity": {
     "empty": "暫無活動",
     "endTime": "結束時間",
+    "joining": "提交中…",
     "loadFailed": "載入失敗",
     "participants": "參與人數",
     "startTime": "開始時間",
@@ -5061,7 +5061,7 @@
     "analysisEstimate": "預計約 {tokens} tokens · 難度 {difficulty}",
     "analysisPickFirst": "請先選擇一個場景",
     "analysisSubmit": "發起分析",
-      "noValidContent": "無可匯入的有效內容"
+    "noValidContent": "無可匯入的有效內容"
   },
   "permissionTier": {
     "label": "權限檔",
@@ -5693,6 +5693,7 @@
       "approvalPersistHit": "沿用你儲存的批准",
       "execPolicyApproved": "執行策略放行",
       "autoSkipApproval": "自動批准(免審批)",
+      "autoReviewAllow": "自動審查放行",
       "skillGrantSkipApproval": "技能授權放行(免審批)",
       "bypassSkipApproval": "已跳過審批",
       "mcpRequiresApproval": "MCP 標註要求確認",
@@ -7543,6 +7544,7 @@
     "wrongBookTitle": "錯題本"
   },
   "activities": {
+    "cancelJoin": "取消報名",
     "join": "立即參與",
     "notFound": "活動不存在或已下線"
   },

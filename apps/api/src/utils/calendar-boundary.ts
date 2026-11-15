@@ -66,15 +66,50 @@ export interface WeekBoundary {
 /** 输入类型：Date / ISO 字符串 / 毫秒时间戳。 */
 export type DateInput = Date | string | number
 
+/** 带时区标识结尾：Z 或显式偏移（±HH:MM / ±HHMM）。 */
+const TZ_SUFFIX = /(?:[zZ]|[+-]\d{2}:?\d{2})$/
+
+/** 无时区 ISO 8601：YYYY-MM-DD[THH:mm[:ss[.SSS]]]（日期与时间之间也容忍空格）。 */
+const NAIVE_ISO = /^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2})(?::(\d{2})(?:\.(\d{1,3}))?)?)?$/
+
+/**
+ * 把无时区 ISO 串按 UTC 墙钟时间构造；非法日期（如 2024-13-45）返回 null 交给后续兜底。
+ */
+function fromNaiveIso(m: RegExpExecArray): Date | null {
+  const year = Number(m[1])
+  const month = Number(m[2])
+  const day = Number(m[3])
+  const hour = Number(m[4] ?? 0)
+  const minute = Number(m[5] ?? 0)
+  const second = Number(m[6] ?? 0)
+  const ms = Number((m[7] ?? '0').padEnd(3, '0'))
+  const d = new Date(Date.UTC(year, month - 1, day, hour, minute, second, ms))
+  // Date.UTC 把 0-99 当作 1900+year，这里还原成字面年份
+  if (year >= 0 && year < 100) d.setUTCFullYear(year)
+  const valid =
+    d.getUTCFullYear() === year &&
+    d.getUTCMonth() === month - 1 &&
+    d.getUTCDate() === day &&
+    d.getUTCHours() === hour &&
+    d.getUTCMinutes() === minute &&
+    d.getUTCSeconds() === second
+  return valid ? d : null
+}
+
 /** 把各种输入转成 Date（UTC）。 */
 export function toDate(v: DateInput): Date {
   if (v instanceof Date) return new Date(v.getTime())
   if (typeof v === 'number') return new Date(v)
   if (typeof v === 'string') {
     const s = v.trim()
-    // 处理 Z 后缀
-    const normalized = s.endsWith('Z') ? s : s
-    const d = new Date(normalized)
+    // 无时区：直接交给 new Date 会按进程本地时区解析（TZ=Asia/Shanghai 时错一天），
+    // 必须先拆成 UTC 墙钟时间；有 Z / 显式偏移的保持原义。
+    if (!TZ_SUFFIX.test(s)) {
+      const m = NAIVE_ISO.exec(s)
+      const naive = m ? fromNaiveIso(m) : null
+      if (naive) return naive
+    }
+    const d = new Date(s)
     if (Number.isNaN(d.getTime())) {
       // 尝试常见无时区格式
       const d2 = new Date(s + 'Z')

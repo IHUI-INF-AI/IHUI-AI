@@ -294,8 +294,8 @@ describe('④ 平台专属项:允许不同形,但不许下沉时误删', () => {
 
   it('本锁有牙:web 壳删掉 ui-lift ⇒ 平台专属判据必须红', () => {
     const dirty = WEB_SRC.replace(
-      "'ui-lift border bg-card text-card-foreground'",
-      "'border bg-card text-card-foreground'",
+      "'ui-lift border border-stroke-default bg-card text-card-foreground'",
+      "'border border-stroke-default bg-card text-card-foreground'",
     )
     expect(dirty).not.toBe(WEB_SRC)
     expect(platformOnlyProblems(dirty, 'web').length).toBeGreaterThan(0)

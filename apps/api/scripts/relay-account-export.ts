@@ -18,9 +18,8 @@
  *   任一条不过 ⇒ 该行**拒出**并点名原因,绝不静默产出"导不回去"的载荷。
  *
  * ⚠️ 安全:导出 JSON 含**明文凭据**(token/refreshToken/cookies/secrets 逆向回填),
- * 只写 --out 目录(缺省 = 合规临时根 ~/.ihui/tmp/ihui-pool-export,junction 落 D: 卷,
- * 不写系统盘 C:),**用毕即删**,严禁复制进仓库。stdout/stderr 只报平台、条数、uid、
- * 文件名,绝不回显任何凭据值。
+ * 只写 --out 目录(缺省 = OS 临时目录下 ihui-pool-export),**用毕即删**,
+ * 严禁复制进仓库。stdout/stderr 只报平台、条数、uid、文件名,绝不回显任何凭据值。
  *
  * 用法:
  *   cd apps/api && pnpm exec tsx scripts/relay-account-export.ts
@@ -33,9 +32,7 @@
  */
 import { config } from 'dotenv'
 import { resolve as resolvePath, dirname, join } from 'node:path'
-// 运行时合规临时根(§15b):~/.ihui/tmp → junction D:;禁 os.tmpdir()(TEMP 可能钉 C 盘)。
-// 导出 JSON 含明文凭据,更不得落系统盘。
-import { getRuntimeTempRoot } from '@ihui/shared'
+import { tmpdir } from 'node:os'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import type { RelayProviderCode } from '../src/services/relay-account-format.js'
@@ -76,7 +73,7 @@ function parseArgs(argv: string[]): {
 } {
   const options: CliOptions = {
     providerCode: null,
-    outDir: join(getRuntimeTempRoot(), 'ihui-pool-export'),
+    outDir: join(tmpdir(), 'ihui-pool-export'),
   }
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i]

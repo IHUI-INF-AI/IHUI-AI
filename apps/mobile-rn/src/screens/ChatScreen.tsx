@@ -1144,12 +1144,10 @@ export function ChatScreen() {
   const loadDrawerConversations = useCallback(async (): Promise<void> => {
     const res = await listConversations({ page: 1, pageSize: 50 })
     if (res.success) {
-      setDrawerConversations(
-        (res.data?.conversations ?? []).map((c) => mapConversationToDrawer(c, t)),
-      )
+      setDrawerConversations(res.data.conversations.map((c) => mapConversationToDrawer(c, t)))
       // D153b:把本端已知的会话 id 交进账本 —— 账本只覆盖"这一端正在显示的行",
       // 没交进去的会话收到广播会报 known:false,由 pullOnly 明示而不是凭空长出一行。
-      conversationMetaLedger.remember((res.data?.conversations ?? []).map((c) => c.id))
+      conversationMetaLedger.remember(res.data.conversations.map((c) => c.id))
     } else {
       setDrawerConversations([])
     }
@@ -1560,7 +1558,17 @@ export function ChatScreen() {
         }
         // 失败轮要"可辨认":此前只 toast,那条空 assistant 气泡既不进上下文也不给出口,
         // 界面上看成一轮"回答完了"。标记后由 renderMessage 渲染错误卡片 + 重试。
-        setMessages((prev) => applyStreamError(prev, formatted.message, formatted.errorCode))
+        // errorCode 不落在 applyStreamError 的形参上(共享层当前仅 2 参),标记后补写到
+        // 被标轮的尾部消息,保住 D92 的目录化判据(否则 live 失败轮只剩兜底文案)。
+        setMessages((prev) => {
+          const next = applyStreamError(prev, formatted.message)
+          const idx = next.length - 1
+          const tail = next[idx]
+          if (tail && tail.role === 'assistant' && tail.error && formatted.errorCode) {
+            next[idx] = { ...tail, errorCode: formatted.errorCode }
+          }
+          return next
+        })
         setIsStreaming(false)
         abortRef.current = null
         if (formatted.severity === 'auth') {

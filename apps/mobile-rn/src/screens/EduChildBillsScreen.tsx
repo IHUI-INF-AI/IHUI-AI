@@ -21,6 +21,7 @@ import { ConsoleTableScreen, type ConsoleColumn, type ConsoleRowView } from '@ih
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { toFriendlyOr } from '@ihui/shared/utils'
 
 interface BillItem {
   enrollmentId: string
@@ -86,7 +87,7 @@ function EduChildBillsScreen() {
         })),
       )
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'load failed')
+      setError(toFriendlyOr(e, t('common.loadFailed')))
     } finally {
       setLoading(false)
     }

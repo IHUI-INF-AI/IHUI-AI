@@ -20,6 +20,7 @@ import {
   Check as CheckIcon,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { MENU_ITEM_CLASS, MENU_ITEM_ICON_CLASS } from '@/lib/menu-item'
 import { isTopOverlay, popOverlay, pushOverlay } from '@/lib/overlay-stack'
 import { Checklist, type ChecklistItemData } from './checklist'
 import {
@@ -349,9 +350,9 @@ export const SubAgentTaskTree = React.memo(function SubAgentTaskTree({
             role="menuitem"
             onClick={() => void onMenuClick('threadId')}
             data-testid="subagent-context-menu-copy-threadId"
-            className="flex w-full items-center gap-1.5 rounded-sm px-2 py-1 text-left text-[11px] text-foreground/90 transition-colors hover:bg-accent/50 hover:text-foreground focus-visible:bg-accent/50 focus-visible:outline-none"
+            className={MENU_ITEM_CLASS}
           >
-            <Hash className="h-3 w-3 shrink-0 text-muted-foreground/70" aria-hidden />
+            <Hash className={MENU_ITEM_ICON_CLASS} aria-hidden />
             <span className="flex-1 truncate">复制 Thread ID</span>
             {copied === 'threadId' && (
               <CheckIcon className="h-3 w-3 shrink-0 text-emerald-500" aria-hidden />
@@ -362,9 +363,9 @@ export const SubAgentTaskTree = React.memo(function SubAgentTaskTree({
             role="menuitem"
             onClick={() => void onMenuClick('handle')}
             data-testid="subagent-context-menu-copy-handle"
-            className="flex w-full items-center gap-1.5 rounded-sm px-2 py-1 text-left text-[11px] text-foreground/90 transition-colors hover:bg-accent/50 hover:text-foreground focus-visible:bg-accent/50 focus-visible:outline-none"
+            className={MENU_ITEM_CLASS}
           >
-            <AtSign className="h-3 w-3 shrink-0 text-muted-foreground/70" aria-hidden />
+            <AtSign className={MENU_ITEM_ICON_CLASS} aria-hidden />
             <span className="flex-1 truncate">复制 Handle</span>
             {copied === 'handle' && (
               <CheckIcon className="h-3 w-3 shrink-0 text-emerald-500" aria-hidden />
@@ -375,9 +376,9 @@ export const SubAgentTaskTree = React.memo(function SubAgentTaskTree({
             role="menuitem"
             onClick={() => void onMenuClick('nickname')}
             data-testid="subagent-context-menu-copy-nickname"
-            className="flex w-full items-center gap-1.5 rounded-sm px-2 py-1 text-left text-[11px] text-foreground/90 transition-colors hover:bg-accent/50 hover:text-foreground focus-visible:bg-accent/50 focus-visible:outline-none"
+            className={MENU_ITEM_CLASS}
           >
-            <User className="h-3 w-3 shrink-0 text-muted-foreground/70" aria-hidden />
+            <User className={MENU_ITEM_ICON_CLASS} aria-hidden />
             <span className="flex-1 truncate">复制 Nickname</span>
             {copied === 'nickname' && (
               <CheckIcon className="h-3 w-3 shrink-0 text-emerald-500" aria-hidden />
@@ -388,9 +389,9 @@ export const SubAgentTaskTree = React.memo(function SubAgentTaskTree({
             role="menuitem"
             onClick={() => void onMenuClick('details')}
             data-testid="subagent-context-menu-copy-details"
-            className="flex w-full items-center gap-1.5 rounded-sm px-2 py-1 text-left text-[11px] text-foreground/90 transition-colors hover:bg-accent/50 hover:text-foreground focus-visible:bg-accent/50 focus-visible:outline-none"
+            className={MENU_ITEM_CLASS}
           >
-            <FileText className="h-3 w-3 shrink-0 text-muted-foreground/70" aria-hidden />
+            <FileText className={MENU_ITEM_ICON_CLASS} aria-hidden />
             <span className="flex-1 truncate">复制详情</span>
             {copied === 'details' && (
               <CheckIcon className="h-3 w-3 shrink-0 text-emerald-500" aria-hidden />

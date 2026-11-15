@@ -14,7 +14,7 @@
  * 负向纪律:本文件不得出现 SSE/接口/持久化逻辑;行为一律来自页内回调或端内子件。
  */
 
-import { Text, View, ScrollView, Image, Input } from '@tarojs/components'
+import { Text, View, ScrollView, Image } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import type { ReactNode } from 'react'
 import { rnRadius, taroSpacing } from '@ihui/design-tokens'
@@ -145,13 +145,6 @@ export function buildChatShellProps(ctx: ChatShellCtx): ChatScreenProps {
     setInputValue,
     pendingQuestion,
     setPendingQuestion,
-    // D135(2026-11-14):提问卡阻塞式作答(选项选中态/自由输入/提交/撤回/相位/摘卡)
-    questionAnswer,
-    questionPhase,
-    selectQuestionOption,
-    setQuestionCustomText,
-    submitQuestion,
-    dismissQuestionCard,
     imgsList,
     sendMessage,
     handleImageAdd,
@@ -243,17 +236,15 @@ export function buildChatShellProps(ctx: ChatShellCtx): ChatScreenProps {
       </Text>
       <View className="nav-right">
         {agent ? (
-          <Text className="nav-agent" onClick={() => setAgentDrawerVisible(true)}>
-            {agent.name}
-          </Text>
+          <View hoverClass="opacity-60" onClick={() => setAgentDrawerVisible(true)}>
+            <Text className="nav-agent">{agent.name}</Text>
+          </View>
         ) : null}
-        <Text
-          className="nav-history"
-          style={{ fontSize: '30rpx', fontWeight: '600' }}
-          onClick={() => setAgentTipVisible(true)}
-        >
-          ?
-        </Text>
+        <View hoverClass="opacity-60" onClick={() => setAgentTipVisible(true)}>
+          <Text className="nav-history" style={{ fontSize: '30rpx', fontWeight: '600' }}>
+            ?
+          </Text>
+        </View>
         <Image
           src={fileIcon}
           className="nav-history w-[30rpx] h-[30rpx]"
@@ -261,9 +252,9 @@ export function buildChatShellProps(ctx: ChatShellCtx): ChatScreenProps {
           onClick={() => setHistoryDrawerVisible(true)}
         />
         {messages.length ? (
-          <Text className="nav-clear" onClick={clearChat}>
-            {t('ai.clear')}
-          </Text>
+          <View hoverClass="opacity-60" onClick={clearChat}>
+            <Text className="nav-clear">{t('ai.clear')}</Text>
+          </View>
         ) : null}
       </View>
     </View>
@@ -538,11 +529,10 @@ export function buildChatShellProps(ctx: ChatShellCtx): ChatScreenProps {
         onClear={handleClearHistory}
       />
       <AgentTipDialog visible={agentTipVisible} onClose={closeAgentTip} />
-      {/* BUG-67 + D135(2026-11-14):AI 主动提问卡。
-          帧带 sessionId ⇒ 阻塞式答复:点选项→选中态;提交投 /question-response(不新增用户消息);
-          404/失败回退旧链路 sendLegacyAnswer 续流;终态后卡片只读。
-          帧无 sessionId ⇒ 旧链路:点选项把回答写回输入框,用户点发送即续流。
-          两条路径共用同一 overlaySlot(视口固定定位 + zIndex 层级语义)。 */}
+      {/* BUG-67:AI 主动提问卡(question 帧 → onRawLine 认领 → onQuestion → 页级挂起态)。
+          挂共享屏既有 overlaySlot(容器内最后渲染位,视口固定定位 + zIndex 层级语义),
+          不再以页级浮层写回 chat.tsx;点选项把回答写回输入框,用户点发送即续流;
+          关闭只收卡,不吞掉已有输入。 */}
       {pendingQuestion ? (
         <View
           style={{
@@ -560,102 +550,30 @@ export function buildChatShellProps(ctx: ChatShellCtx): ChatScreenProps {
           <Text style={{ fontSize: '15px', fontWeight: 'bold', color: '#222222' }}>
             {pendingQuestion.prompt}
           </Text>
-          {pendingQuestion.options.map((o: { id: string; label: string }) => {
-            const selected = questionAnswer.selectedIds.includes(o.id)
-            const readOnly = questionPhase !== 'idle'
-            return (
-              <View
-                key={o.id}
-                onClick={() => {
-                  if (readOnly) return
-                  if (pendingQuestion.sessionId) {
-                    selectQuestionOption(o.id)
-                  } else {
-                    setInputValue(o.label)
-                    setPendingQuestion(null)
-                  }
-                }}
-                style={{
-                  marginTop: '10px',
-                  padding: '10px',
-                  borderRadius: rnRadius.lg,
-                  borderWidth: selected ? '2px' : '1px',
-                  borderColor: selected ? '#4f46e5' : '#dddddd',
-                  backgroundColor: selected ? '#eef2ff' : '#ffffff',
-                }}
-              >
-                <Text style={{ fontSize: '14px', color: '#333333' }}>{o.label}</Text>
-              </View>
-            )
-          })}
-          {pendingQuestion.allowCustom && pendingQuestion.sessionId ? (
-            <Input
-              value={questionAnswer.customText}
-              onInput={(e: { detail: { value?: string } }) =>
-                setQuestionCustomText(String(e.detail.value ?? ''))
-              }
-              placeholder="补充说明…"
-              disabled={questionPhase !== 'idle'}
+          {pendingQuestion.options.map((o: { id: string; label: string }) => (
+            <View
+              key={o.id}
+              hoverClass="opacity-60"
+              onClick={() => {
+                setInputValue(o.label)
+                setPendingQuestion(null)
+              }}
               style={{
                 marginTop: '10px',
-                padding: '8px',
-                borderRadius: rnRadius.md,
+                padding: '10px',
+                borderRadius: rnRadius.lg,
                 borderWidth: '1px',
                 borderColor: '#dddddd',
-                fontSize: '13px',
               }}
-            />
-          ) : null}
-          {pendingQuestion.sessionId ? (
-            <View style={{ flexDirection: 'row', marginTop: '10px', gap: '8px' }}>
-              <View
-                onClick={() => {
-                  if (questionPhase === 'idle') void submitQuestion('withdraw')
-                }}
-                style={{
-                  flex: 1,
-                  padding: '8px',
-                  borderRadius: rnRadius.md,
-                  borderWidth: '1px',
-                  borderColor: '#cccccc',
-                  textAlign: 'center',
-                }}
-              >
-                <Text style={{ fontSize: '13px', color: '#666666' }}>跳过</Text>
-              </View>
-              <View
-                onClick={() => {
-                  if (questionPhase === 'idle') void submitQuestion('answer')
-                }}
-                style={{
-                  flex: 2,
-                  padding: '8px',
-                  borderRadius: rnRadius.md,
-                  backgroundColor:
-                    questionAnswer.selectedIds.length > 0 ||
-                    questionAnswer.customText.trim().length > 0
-                      ? '#4f46e5'
-                      : '#cccccc',
-                  textAlign: 'center',
-                }}
-              >
-                <Text style={{ fontSize: '13px', color: '#ffffff' }}>
-                  {questionPhase === 'submitting'
-                    ? '提交中…'
-                    : questionPhase === 'answered'
-                      ? '已回答'
-                      : questionPhase === 'withdrawn'
-                        ? '已跳过'
-                        : questionPhase === 'timeout'
-                          ? '已超时'
-                          : questionPhase === 'failed'
-                            ? '提交失败,请重试'
-                            : '提交'}
-                </Text>
-              </View>
+            >
+              <Text style={{ fontSize: '14px', color: '#333333' }}>{o.label}</Text>
             </View>
-          ) : null}
-          <View onClick={dismissQuestionCard} style={{ marginTop: '10px', padding: '8px' }}>
+          ))}
+          <View
+            hoverClass="opacity-60"
+            onClick={() => setPendingQuestion(null)}
+            style={{ marginTop: '10px', padding: '8px' }}
+          >
             <Text style={{ fontSize: '13px', color: '#888888' }}>
               {pendingQuestion.allowCustom
                 ? pendingQuestion.allowMultiple
@@ -791,14 +709,18 @@ export function buildChatShellProps(ctx: ChatShellCtx): ChatScreenProps {
           <View className="msg-item assistant">
             <View className="avatar assistant">{t('ai.chatMessageItem.ai')}</View>
             <View className="bubble">
-              <Text
-                className="bubble-text"
-                style={{ fontSize: '24rpx', color: 'var(--color-muted-foreground)' }}
+              <View
+                hoverClass="opacity-60"
                 onClick={() => setStreamActivityExpanded((v: boolean) => !v)}
               >
-                {t('ai.stream.title')} ({streamActivities.length}){' '}
-                {streamActivityExpanded ? t('ai.chatMessageItem.collapse') : t('ai.tishi.view')}
-              </Text>
+                <Text
+                  className="bubble-text"
+                  style={{ fontSize: '24rpx', color: 'var(--color-muted-foreground)' }}
+                >
+                  {t('ai.stream.title')} ({streamActivities.length}){' '}
+                  {streamActivityExpanded ? t('ai.chatMessageItem.collapse') : t('ai.tishi.view')}
+                </Text>
+              </View>
               {streamActivityExpanded ? (
                 <View style={{ marginTop: 'var(--spacing-xs)' }}>
                   {streamActivities.map((a: { id: string; text: string }) => (
