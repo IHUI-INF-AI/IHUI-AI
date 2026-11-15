@@ -13,7 +13,7 @@
 import { useTt, useI18n, t } from '@/i18n'
 import { View, Text, ScrollView, Image } from '@tarojs/components'
 import Taro, { useDidShow, navigateTo } from '@tarojs/taro'
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import * as api from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
 import SearchBar from '@/components/SearchBar'
