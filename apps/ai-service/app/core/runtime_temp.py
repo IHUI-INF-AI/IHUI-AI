@@ -8,12 +8,14 @@
 默认落点随 TMPDIR/TEMP 环境变量漂,可能钉在 ``C:\\Users\\...\\AppData\\Local\\Temp``,
 导致 agent 运行时把中间文件外泄到项目文件夹之外。
 
-根治:服务启动早期把 ``tempfile.tempdir`` 整体重定向到 ``~/.ihui/tmp``(经 junction
-落 D:\\DevEnv\\cache\\userhome\\.ihui\\tmp,不写 C 盘、普通用户可写、不依赖 TEMP 变量)。
+根治:服务启动早期把 ``tempfile.tempdir`` 整体重定向到仓树内 ``<仓根>/.DevEnv/tmp``
+(已被 .gitignore 覆盖、不写 C 盘、普通用户可写、不依赖 TEMP 变量)。
+2026-11-15 收口:旧设计用 ``~/.ihui/tmp``(junction 到 D:\\DevEnv\\cache\\userhome\\.ihui\\tmp),
+虽不写 C 盘却落在项目文件夹之外;现按「所有文件都在项目文件夹内」要求改到仓内。
 一处改动覆盖全仓 Python ``tempfile.*`` 调用,各模块无需逐处改。
 
-与 TS 侧的单一真相源 ``@ihui/shared`` temp-root.ts 落点保持一致(同为 ``~/.ihui/tmp``),
-两个运行时端共用同一个合规根,不漂移。
+与 TS 侧的单一真相源 ``@ihui/shared`` temp-root.ts 落点保持一致
+(同为仓树内 ``.DevEnv/tmp``),两个运行时端共用同一个合规根,不漂移。
 """
 
 from __future__ import annotations
@@ -25,22 +27,17 @@ import tempfile
 
 logger = logging.getLogger(__name__)
 
-_HOME_OVERRIDE_ENV = "IHUI_HOME"
-
-
-def resolve_user_home() -> Path:
-    """用户 home 目录。优先级:IHUI_HOME > HOME > USERPROFILE > Path.home()。"""
-    return Path(
-        os.environ.get(_HOME_OVERRIDE_ENV)
-        or os.environ.get("HOME")
-        or os.environ.get("USERPROFILE")
-        or Path.home()
-    )
-
 
 def get_runtime_temp_root() -> Path:
-    """运行时合规临时根的绝对路径(纯计算,不建目录):``~/.ihui/tmp``。"""
-    return resolve_user_home() / ".ihui" / "tmp"
+    """运行时合规临时根的绝对路径(纯计算,不建目录):仓树内 ``.DevEnv/tmp``。
+
+    仓根推导:本文件位于 apps/ai-service/app/core/,向上 4 层即仓根
+    (core→app→ai-service→apps→仓根);
+    用 __file__ 自身位置推导(禁 process.cwd(),共享工作区 cwd 不可靠,
+    AGENTS §15b 铁律)。
+    """
+    repo_root = Path(__file__).resolve().parents[4]
+    return repo_root / ".DevEnv" / "tmp"
 
 
 def install_runtime_temp_root() -> Path:
