@@ -381,7 +381,7 @@ export default function PricingConsolePage() {
                     return (
                       <tr
                         key={`${m.configId}:${m.id}`}
-                        className="border-b border-stroke-subtle align-top"
+                        className="border-b border-stroke-default align-top"
                       >
                         <td className="max-w-[240px] py-2 pr-2">
                           <div className="truncate font-medium" title={m.modelId}>
@@ -527,7 +527,7 @@ export default function PricingConsolePage() {
                 {audits.data!.items.map((a) => (
                   <li
                     key={a.id}
-                    className="flex flex-wrap items-center gap-2 border-b border-stroke-subtle py-1"
+                    className="flex flex-wrap items-center gap-2 border-b border-stroke-default py-1"
                   >
                     <span className="text-muted-foreground">
                       {new Date(a.created_at).toLocaleString('zh-CN')}

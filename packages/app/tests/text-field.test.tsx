@@ -9,7 +9,7 @@
 //      根因就是这一族在 60+ 个输入框里从来没写过;写成 brandAccent(蓝)或 surface.light
 //      (深色档案下 #262626,压在同色页面上等于没有)都会让"有聚焦态"这件事账面成立而屏幕上看不见。
 //   2. **常态必须已经占好 1px 边框位**,聚焦只换颜色 —— 聚焦才加粗会让整屏内容跳动
-//      (web 端 `border border-input` → `focus-visible:border-primary` 同样是换色不换宽)。
+//      (web 端 `border border-stroke-field` 宽度不变,聚焦只加 2px outline 墨环,同样是零布局跳动)。
 //   3. **调用方自带描边时不得被本组件覆盖** —— 否则登录页等已定稿的输入框会被顺手改脸。
 //
 // 断言取的是 fake TextInput 落进 DOM 的 `data-style`(flatten 后的样式对象),而不是截图:
@@ -156,7 +156,7 @@ describe('TextField 聚焦描边', () => {
 })
 
 describe('TextField 与 web/小程序同源', () => {
-  // 契约是「1px 描边 + border-input 色档」两件都在,不是两者字符**相邻**:
+  // 契约是「1px 描边 + stroke-field 色档 + 2px outline 墨环」三件都在,不是两者字符**相邻**:
   // 宽度档已按文档口径经 BORDER_WIDTH_CLASS 映射自 @ihui/shared/ui/input-spec
   // (packages/ui-react/src/components/input.tsx:30 定义 `{ 1: 'border' }`、:41 铺设),
   // 色档字面量按同一文件的注释(:21-24「类名字面量必须留在本文件」)留在 :44 单列一行。
@@ -165,10 +165,14 @@ describe('TextField 与 web/小程序同源', () => {
   const WIDTH_TIER = /BORDER_WIDTH_CLASS\s*(?::[^=\n]+)?=\s*\{[^{}]*\bborder\b[^{}]*\}/
   const COLOR_TIER = /['"]border-stroke-field['"]/
 
-  it('web 端聚焦仍是 stroke-focus(墨档),三端取同一档而非各取一档', () => {
+  it('web 端聚焦仍是 2.0 墨色 outline 套件,不再回潮 border 换色', () => {
     const here = dirname(fileURLToPath(import.meta.url))
     const css = readFileSync(join(here, '../../ui-react/src/components/input.tsx'), 'utf8')
-    expect(css).toMatch(/focus-visible:border-stroke-focus/)
+    expect(css).toMatch(/focus-visible:outline\b/)
+    expect(css).toMatch(/outline-2\b/)
+    expect(css).toMatch(/outline-offset-2\b/)
+    expect(css).toMatch(/outline-stroke-focus\b/)
+    expect(css).not.toMatch(/focus-visible:border-stroke-focus/)
     // ① 描边宽度档仍是 1px ⇒ `border`
     expect(css).toMatch(WIDTH_TIER)
     // ② 描边色档仍是 `border-stroke-field`(不落硬编码色值)

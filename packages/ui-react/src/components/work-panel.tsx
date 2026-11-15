@@ -330,7 +330,7 @@ export const WorkPanel = React.forwardRef<HTMLDivElement, WorkPanelProps>(
               onAddressSubmit()
             }}
           >
-            <div className="flex w-full items-center gap-1.5 rounded-md border border-border bg-background px-2 py-1">
+            <div className="flex w-full items-center gap-1.5 rounded-md border border-stroke-default bg-background px-2 py-1">
               {isSecure === false ? null : isSecure ? (
                 <Lock className="h-3 w-3 shrink-0 text-emerald-500" />
               ) : null}
@@ -381,7 +381,7 @@ export const WorkPanel = React.forwardRef<HTMLDivElement, WorkPanelProps>(
             ref={dropdownRef}
             role="dialog"
             aria-label={labels.favoritesAndHistory}
-            className="absolute right-2 top-11 z-50 flex w-72 flex-col ui-popover rounded-md border border-border bg-popover p-1.5 shadow-elevation-md animate-in fade-in-0 zoom-in-95 duration-(--duration-unified) ease-unified"
+            className="absolute right-2 top-11 z-50 flex w-72 flex-col ui-popover rounded-md border border-stroke-strong bg-popover p-1.5 shadow-elevation-md animate-in fade-in-0 zoom-in-95 duration-(--duration-unified) ease-unified"
           >
             {/* tab 切换 */}
             <div className="flex items-center gap-0.5 px-1 pb-1">

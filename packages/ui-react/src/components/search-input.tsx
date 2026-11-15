@@ -23,7 +23,7 @@ import { cn } from '../lib/utils'
  * 依赖受控键盘导航的特殊输入),保证与 SearchInput 视觉完全一致。
  */
 export const searchInputWellClassName =
-  'rounded-sm border border-stroke-default bg-muted/40 transition-colors focus-within:border-stroke-focus focus-within:bg-muted/60'
+  'rounded-sm border border-stroke-default bg-muted/40 transition-colors focus-within:outline outline-2 outline-offset-2 outline-stroke-focus focus-within:bg-muted/60'
 
 type SearchInputSize = 'sm' | 'md' | 'lg'
 
@@ -101,7 +101,7 @@ const SearchInput = React.forwardRef<HTMLInputElement, SearchInputProps>(
     }
     return (
       <div className={cn('relative', wrapperClassName)}>
-        <div className="relative flex items-center gap-1.5 rounded-sm border border-stroke-default bg-muted/40 px-2.5 transition-colors focus-within:border-stroke-focus focus-within:bg-muted/60">
+        <div className="relative flex items-center gap-1.5 rounded-sm border border-stroke-default bg-muted/40 px-2.5 transition-colors focus-within:outline outline-2 outline-offset-2 outline-stroke-focus focus-within:bg-muted/60">
           <Search className={cn('pointer-events-none shrink-0 text-muted-foreground', s.icon)} />
           <input
             ref={ref}

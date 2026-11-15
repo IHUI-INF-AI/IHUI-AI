@@ -511,7 +511,7 @@ export function PermissionModePopover({
         // z-[2300](2026-11-04 第二轮收敛):触发器嵌在 + 菜单(z-[2200])第一层,
         // PortalPanel 默认 z-popover(2001)会被外层盖住。
         zIndexClassName="z-[2300]"
-        className="w-[min(360px,calc(100vw-2rem))] rounded-xl border bg-popover p-3 text-popover-foreground shadow-elevation-md"
+        className="w-[min(360px,calc(100vw-2rem))] rounded-xl border border-stroke-strong bg-popover p-3 text-popover-foreground shadow-elevation-md"
       >
         {/* dialog 语义与焦点属性保留在内容层(PortalPanel 容器只负责定位,
             不透传 aria 属性与 tabIndex;与原 panel div 属性一致,行为等价) */}
@@ -599,7 +599,7 @@ export function PermissionModePopover({
                         )
                       : cn(
                           'border border-border',
-                          isFocused && 'border-stroke-focus/60',
+                          isFocused && 'outline outline-2 outline-offset-2 outline-stroke-focus',
                           opt.risk === 'high'
                             ? 'hover:border-red-500/80 hover:bg-red-500/5'
                             : 'hover:border-foreground/20 hover:bg-muted/30',

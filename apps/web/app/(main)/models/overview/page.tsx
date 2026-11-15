@@ -141,7 +141,7 @@ export default async function OverviewPage() {
                 <a
                   key={a.href}
                   href={a.href}
-                  className="flex flex-col items-start gap-2 rounded-lg border border-stroke-subtle bg-muted/30 p-3 transition-colors hover:border-stroke-strong hover:bg-primary/5"
+                  className="flex flex-col items-start gap-2 rounded-lg border border-stroke-subtle bg-muted/30 p-3 transition-colors hover:bg-primary/5"
                 >
                   <div className="flex h-8 w-8 items-center justify-center rounded-md bg-background text-primary">
                     <Icon className="h-4 w-4" />

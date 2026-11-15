@@ -91,7 +91,12 @@ const SEMANTIC_COLOR_ENTRIES: ReadonlyArray<TokenEntry> = [
   { name: '--color-destructive', type: 'color', defaultValue: 'hsl(0 100% 60%)' },
   { name: '--color-destructive-foreground', type: 'color', defaultValue: 'hsl(0 0% 98%)' },
   { name: '--color-border', type: 'color', defaultValue: 'rgba(0, 0, 0, 0.1)' },
-  { name: '--color-input', type: 'color', defaultValue: 'rgba(0, 0, 0, 0.08)' },
+  {
+    name: '--color-input',
+    type: 'color',
+    defaultValue: 'rgba(0, 0, 0, 0.14)',
+    description: 'legacy 输入框描边别名(与 stroke-field 同值,仅兼容未迁移调用点)',
+  },
   { name: '--color-ring', type: 'color', defaultValue: 'hsl(0 0% 70%)' },
   { name: '--color-success', type: 'color', defaultValue: 'hsl(142 71% 45%)' },
   { name: '--color-success-foreground', type: 'color', defaultValue: 'hsl(0 0% 98%)' },
@@ -102,8 +107,9 @@ const SEMANTIC_COLOR_ENTRIES: ReadonlyArray<TokenEntry> = [
 ]
 
 /** 容器描边角色层(2026-11-15 立,跨端共用语义名)。
- *  旧名 --color-border / --color-input / --color-border-medium 保留为底层值,
- *  新代码优先取角色名;中性描边走 alpha,随表面色相自适应。 */
+ *  旧名 --color-border / --color-input / --color-border-medium 保留为兼容别名:
+ *  --color-input 与 stroke-field 同值(14%),--color-border 与 stroke-default 同值(10%),
+ *  --color-border-medium 维持独立 16% 中档;新代码优先取角色名。 */
 const STROKE_COLOR_ENTRIES: ReadonlyArray<TokenEntry> = [
   {
     name: '--color-stroke-subtle',
@@ -120,8 +126,8 @@ const STROKE_COLOR_ENTRIES: ReadonlyArray<TokenEntry> = [
   {
     name: '--color-stroke-strong',
     type: 'color',
-    defaultValue: 'var(--color-border-medium)',
-    description: '强描边:弹层/菜单/选中候选',
+    defaultValue: 'rgba(0, 0, 0, 0.18)',
+    description: '强描边:弹层/菜单/选中候选(独立于 legacy border-medium 的 16%)',
   },
   {
     name: '--color-stroke-inverse',
@@ -132,8 +138,8 @@ const STROKE_COLOR_ENTRIES: ReadonlyArray<TokenEntry> = [
   {
     name: '--color-stroke-field',
     type: 'color',
-    defaultValue: 'var(--color-input)',
-    description: '输入控件描边',
+    defaultValue: 'rgba(0, 0, 0, 0.14)',
+    description: '输入控件描边(必须比容器 default 更实)',
   },
   {
     name: '--color-stroke-focus',

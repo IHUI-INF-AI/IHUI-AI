@@ -165,7 +165,7 @@ export function InlineQuestionCard({ question, onSubmit, className }: InlineQues
       onKeyDownCapture={handleCardKeyDown}
       className={cn(
         'font-[weight:inherit] mx-auto w-full max-w-3xl rounded-lg border border-stroke-default bg-card/95 p-3 text-body shadow-elevation-sm',
-        'focus-within:border-stroke-focus focus-within:ring-2 focus-within:ring-stroke-focus/20',
+        'focus-within:outline outline-2 outline-offset-2 outline-stroke-focus',
         className,
       )}
     >
@@ -223,7 +223,7 @@ export function InlineQuestionCard({ question, onSubmit, className }: InlineQues
                     ? 'border-stroke-selected bg-primary/5'
                     : 'border-stroke-subtle hover:border-stroke-strong hover:bg-accent/40',
                   disabled && 'cursor-default opacity-80',
-                  'focus-within:ring-2 focus-within:ring-stroke-focus/20',
+                  'focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-stroke-focus',
                 )}
               >
                 <input

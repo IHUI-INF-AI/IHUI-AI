@@ -498,7 +498,7 @@ export function SwarmTopologyView({
 
           {/* 图例(右上角,显示状态色 + 计数) */}
           {statusCounts.size > 0 && (
-            <div className="absolute right-1 top-1 flex flex-col gap-0.5 rounded-sm border border-border bg-popover/80 px-1.5 py-1 text-[9px] backdrop-blur-sm">
+            <div className="absolute right-1 top-1 flex flex-col gap-0.5 rounded-sm border border-stroke-strong bg-popover/80 px-1.5 py-1 text-[9px] backdrop-blur-sm">
               {Array.from(statusCounts.entries()).map(([status, count]) => {
                 const s = DISPATCH_STATUS_STYLE[status]
                 return (
@@ -532,7 +532,7 @@ export function SwarmTopologyView({
             align="start"
             gap={4}
             role="tooltip"
-            className="pointer-events-none w-max max-w-[220px] rounded-xl border border-border bg-popover px-2 py-1 text-[10px] shadow-elevation-md"
+            className="pointer-events-none w-max max-w-[220px] rounded-xl border border-stroke-strong bg-popover px-2 py-1 text-[10px] shadow-elevation-md"
           >
             <div className="font-medium text-foreground">
               {node.label}
@@ -557,7 +557,7 @@ export function SwarmTopologyView({
           align="start"
           gap={4}
           onClose={() => setSelectedNodeId(null)}
-          className="w-48 rounded-xl border border-border bg-popover px-2.5 py-2 text-[10px] shadow-elevation-lg"
+          className="w-48 rounded-xl border border-stroke-strong bg-popover px-2.5 py-2 text-[10px] shadow-elevation-lg"
         >
           <div className="mb-1 flex items-center gap-1 font-medium text-foreground">
             <span>{selectedNode.label}</span>

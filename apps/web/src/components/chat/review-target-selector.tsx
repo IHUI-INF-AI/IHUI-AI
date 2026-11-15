@@ -166,7 +166,7 @@ export function ReviewTargetSelector({
           aria-label={t('reviewTargetSnippetLabel')}
           data-testid="review-target-snippet-input"
           rows={3}
-          className="w-full resize-y rounded-sm border border-input bg-transparent px-2 py-1 font-mono text-label shadow-elevation-sm transition-colors placeholder:text-muted-foreground focus-visible:border-stroke-focus focus-visible:outline-none"
+          className="w-full resize-y rounded-sm border border-input bg-transparent px-2 py-1 font-mono text-label shadow-elevation-sm transition-colors placeholder:text-muted-foreground focus-visible:outline outline-2 outline-offset-2 outline-stroke-focus"
         />
       )}
     </div>
