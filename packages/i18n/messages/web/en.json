@@ -30605,7 +30605,7 @@
     "userBubbleWidth": "Max user bubble width",
     "readingTitle": "Display & Detail",
     "readingDesc": "Switch information density in one click, or fine-tune each item.",
-    "verbosity": "Detail level",
+    "verbosity": "Verbosity",
     "verbosityCustom": "Custom",
     "verbosityConcise": "Concise",
     "verbosityConciseDesc": "Body text only",
