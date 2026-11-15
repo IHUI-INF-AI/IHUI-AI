@@ -36,6 +36,15 @@ export interface RegisterCodeOptions {
   sendingCode?: boolean
 }
 
+export interface RegisterAffordanceOptions {
+  /** 手机号前缀(如 "+86"),纯展示;注入后在手机号输入框左侧渲染 */
+  phonePrefix?: string
+  /** 密码明文可见(受控);注入 onTogglePasswordVisible 后密码框右侧出现显示/隐藏切换 */
+  passwordVisible?: boolean
+  /** 密码可见性切换回调 */
+  onTogglePasswordVisible?: () => void
+}
+
 export function RegisterScreen({
   t,
   account,
@@ -62,7 +71,11 @@ export function RegisterScreen({
   countdown: countdownProp,
   sendingCode: sendingCodeProp,
   onToast,
-}: RegisterScreenProps & RegisterCodeOptions) {
+  // ===== 可选 UI 增强端口(不注入则布局与行为保持原样) =====
+  phonePrefix,
+  passwordVisible = false,
+  onTogglePasswordVisible,
+}: RegisterScreenProps & RegisterCodeOptions & RegisterAffordanceOptions) {
   assertRequiredPort('onToast', onToast)
 
   const tk = getTokens(colorScheme)
@@ -109,15 +122,32 @@ export function RegisterScreen({
       </View>
       <View style={styles.card}>
         <Text style={styles.label}>{t('register.phone')}</Text>
-        <TextField
-          colorScheme={colorScheme}
-          style={styles.input}
-          value={account}
-          onChangeText={onAccountChange}
-          placeholder={t('register.phonePlaceholder')}
-          placeholderTextColor={tk.text.tertiary}
-          autoCapitalize="none"
-        />
+        {phonePrefix ? (
+          <View style={styles.phoneRow}>
+            <View style={styles.phonePrefix}>
+              <Text style={styles.phonePrefixText}>{phonePrefix}</Text>
+            </View>
+            <TextField
+              colorScheme={colorScheme}
+              style={[styles.input, styles.phoneInput]}
+              value={account}
+              onChangeText={onAccountChange}
+              placeholder={t('register.phonePlaceholder')}
+              placeholderTextColor={tk.text.tertiary}
+              autoCapitalize="none"
+            />
+          </View>
+        ) : (
+          <TextField
+            colorScheme={colorScheme}
+            style={styles.input}
+            value={account}
+            onChangeText={onAccountChange}
+            placeholder={t('register.phonePlaceholder')}
+            placeholderTextColor={tk.text.tertiary}
+            autoCapitalize="none"
+          />
+        )}
         <Text style={styles.label}>{t('register.code')}</Text>
         <View style={styles.codeRow}>
           <TextField
@@ -146,15 +176,24 @@ export function RegisterScreen({
         </View>
         {codeSendError ? <Text style={styles.error}>{codeSendError}</Text> : null}
         <Text style={styles.label}>{t('register.password')}</Text>
-        <TextField
-          colorScheme={colorScheme}
-          style={styles.input}
-          value={password}
-          onChangeText={onPasswordChange}
-          placeholder={t('register.passwordPlaceholder')}
-          placeholderTextColor={tk.text.tertiary}
-          secureTextEntry
-        />
+        <View style={styles.passwordRow}>
+          <TextField
+            colorScheme={colorScheme}
+            style={[styles.input, styles.passwordInput]}
+            value={password}
+            onChangeText={onPasswordChange}
+            placeholder={t('register.passwordPlaceholder')}
+            placeholderTextColor={tk.text.tertiary}
+            secureTextEntry={!passwordVisible}
+          />
+          {onTogglePasswordVisible ? (
+            <TouchableOpacity style={styles.pwdToggle} onPress={onTogglePasswordVisible}>
+              <Text style={styles.pwdToggleText}>
+                {passwordVisible ? t('register.hide') : t('register.show')}
+              </Text>
+            </TouchableOpacity>
+          ) : null}
+        </View>
         <Text style={styles.label}>{t('register.confirmPassword')}</Text>
         <TextField
           colorScheme={colorScheme}
@@ -323,6 +362,31 @@ function createStyles(tk: AppThemeTokens) {
       fontSize: rnType.title.size,
       fontWeight: '600',
     },
+    // ===== 区号前缀 / 密码可见性(align-up 端口,仅在注入时生效) =====
+    phoneRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.sm },
+    phonePrefix: {
+      height: 50,
+      paddingHorizontal: rnSpacing.md,
+      justifyContent: 'center',
+      borderWidth: 1,
+      borderColor: tk.border.light,
+      borderRadius: rnRadius.sm,
+      backgroundColor: tk.surface.muted,
+    },
+    phonePrefixText: { fontSize: rnType.title.size, color: tk.text.primary },
+    phoneInput: { flex: 1 },
+    passwordRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.sm },
+    passwordInput: { flex: 1 },
+    pwdToggle: {
+      height: 50,
+      paddingHorizontal: rnSpacing.md,
+      justifyContent: 'center',
+      borderRadius: rnRadius.sm,
+      borderWidth: 1,
+      borderColor: tk.border.light,
+      backgroundColor: tk.surface.light,
+    },
+    pwdToggleText: { color: tk.brand.DEFAULT, fontSize: rnType.body.size, fontWeight: '600' },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
