@@ -7750,7 +7750,7 @@ const checks = [
     ].join('\n'),
   },
   {
-    id: '320',
+    id: '323',
     label: '🪞 跨包镜像结构字段对账(blocking:api-client 零依赖镜像 shared 的字段集/可选性/枚举必须逐字一致)',
     script: 'check-mirror-surface-parity.mjs',
     args: [],
@@ -7798,6 +7798,47 @@ const checks = [
       '  复验:node scripts/check-line-endings.mjs --staged',
       '  自检:node scripts/check-line-endings.mjs --self-test(10 例)',
       '  紧急跳过(不推荐):HUSKY_SKIP_LINE_ENDINGS=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+  // ─── 322 (2026-11-14 新增,RN 双端文字/图标 token 对比度,WCAG AA) ───
+  // 立因(现读):本轮"把 tertiary 全量换 secondary"起初只换了 `color: tk.text.tertiary`
+  // (style 属性形态),漏了图标 prop / 占位符 / 未选中态 / 字型工厂参数 / 函数返回值 / 骨架 tint
+  // ⇒ "残留 0" 的计数自证成立,实际仍有 440 处 tertiary 图标压在浅底上(2.12–2.31)。
+  // 本门钉消费面每一处 token 取值,不分它写在 style 还是 prop 里。
+  //
+  // 判据(承载面穷举法,零假红优先):对每处前景 token 量全部中性承载面
+  // (surface.bg / card / muted):三面全败 ⇒ 无争议缺陷判红;部分不达标 ⇒ 只报窄位预警。
+  // 不需要知道它实际压在哪,因此不会把"白字压黑 CTA = 21:1"误算成 1.09(实测踩过)。
+  // 门槛:文字 4.5(WCAG AA)、图形 3.0(WCAG 1.4.11)。
+  //
+  // 现状:packages/app + apps/mobile-rn 共 964 文件 / 9938 处取值,确定缺陷 = 0,故为 blocking。
+  // 豁免(非 WCAG 射程,已在判据内):SVG 渐变/光晕、二维码模块色、第三方品牌色、
+  // pointerEvents="none" 容器内的纯装饰图标。
+  {
+    id: '322',
+    label: '🎨  RN 双端文字/图标 token 对比度(blocking,文字 4.5 / 图形 3.0)',
+    script: 'audit-app-text-contrast.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_APP_TEXT_CONTRAST',
+    // 仅当暂存区触及这两棵 RN 源码树(或本门体/镜像测试)时才跑 —— 全量约 2s,
+    // 不该让每次无关提交都付这个成本。
+    stagedTriggers: [
+      'packages/app/src/',
+      'apps/mobile-rn/src/',
+      'scripts/audit-app-text-contrast.mjs',
+      'scripts/tests/audit-app-text-contrast.test.mjs',
+    ],
+    onFailHint: [
+      '  💡 红 = 该 token 在 surface.bg / card / muted 三面全部不达标(窄位只报数不拦)。',
+      '  出路(优先 A,不新增 token):',
+      '     A. 换成实测通过的现有深档 —— success.deep / warning.amberText / danger.deepText /',
+      '        brandAccent.deep / text.primary(本轮 74 处即按此收口);',
+      '     B. 确需新档(如深金文字)时,先落 rn-tokens 并同步 tokens.css。',
+      '  基线明细:node scripts/audit-app-text-contrast.mjs --json <路径>',
+      '  自检:node scripts/audit-app-text-contrast.mjs --self-test',
+      '  紧急跳过(不推荐):HUSKY_SKIP_APP_TEXT_CONTRAST=1 git commit ...',
       '',
     ].join('\n'),
   },
