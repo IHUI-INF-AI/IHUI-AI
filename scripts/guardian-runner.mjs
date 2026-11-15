@@ -8059,6 +8059,35 @@ const checks = [
       '',
     ].join('\n'),
   },
+  // --- 运行时 TEMP 落盘回归锁(1 项,warn 起步,差值棘轮只拦新增)---
+  {
+    id: '320',
+    label:
+      '🛡️ 运行时 TEMP 落盘回归锁(运行时源码别再把临时落点交给进程 TEMP;§15b 运行时对偶;差值棘轮只拦新增)',
+    script: 'check-runtime-tmp-landing.mjs',
+    args: [],
+    // §0.2:本门存量已在 2026-11-15 全量改道到合规工厂(HEAD 面剩 43 处历史注释/防御闸,
+    // 均 wired 豁免),但刚落地即刻升 blocking 会与"存量是否真清零"的复核脱钩 ⇒ 先 warn 让
+    // 问题可见 + 差值棘轮拦新增,HEAD 面复核清零后再升 blocking(与门 321 同一节奏)。
+    mode: 'warn',
+    stagedTriggers: ['**/*'],
+    skipEnv: 'HUSKY_SKIP_RUNTIME_TMP_LANDING',
+    onFailHint: [
+      '',
+      '  本门守的是第四型:运行时业务源码(apps/ + packages/,非测试)里把临时落点交给',
+      '  进程 TEMP —— os.tmpdir() / mkdtempSync(join(tmpdir()…)) / Python tempfile.mkdtemp。',
+      '  活进程的 TEMP 可能仍钉在 C 盘(§26 已证伪"TEMP 必走 D 盘"),于是运行时把中间文件',
+      '  外泄项目外。既有三把尺子都拦不到:盘根门认盘根 literal、C盘门认 C:\\ literal、',
+      '  fixture 门只扫 scripts/ 测试夹具。',
+      '  合规出口(唯一):',
+      '    JS/TS → import { getRuntimeTempRoot } from @ihui/shared(→ ~/.ihui/tmp,junction 落 D:)',
+      '    Python → from app.core.runtime_temp import install_runtime_temp_root(把 tempfile 全局重定向到同一合规根)',
+      '  差值棘轮:只拦本次新增,存量按该文件 HEAD 自身命中数只报数(§12e)。',
+      '  取证:node scripts/check-runtime-tmp-landing.mjs [--staged|--json]',
+      '  紧急跳过(不推荐):HUSKY_SKIP_RUNTIME_TMP_LANDING=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
 ]
 
 // === push 门检查集(2026-08-31 新增) ===

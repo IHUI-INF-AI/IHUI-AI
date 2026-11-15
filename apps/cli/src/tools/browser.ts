@@ -19,9 +19,10 @@
 import * as http from 'node:http';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import * as os from 'node:os';
 import { spawn, type ChildProcess } from 'node:child_process';
 import WebSocket from 'ws';
+// 运行时合规临时根(§15b):~/.ihui/tmp → junction D:;禁 os.tmpdir()(TEMP 可能钉 C 盘)
+import { getRuntimeTempRoot } from '@ihui/shared';
 import { checkNavigableUrl } from '@ihui/shared/utils/navigable-url';
 import type { Tool, ToolResult } from './index.js';
 
@@ -289,7 +290,7 @@ async function spawnBrowser(port: number): Promise<void> {
         `或手动以 --remote-debugging-port=${port} 启动浏览器后设置 IHUI_BROWSER_CDP_URL=http://127.0.0.1:${port}`,
     );
   }
-  const userDataDir = path.join(os.tmpdir(), `ihui-cli-browser-${port}`);
+  const userDataDir = path.join(getRuntimeTempRoot(), `ihui-cli-browser-${port}`);
   const headless = process.env.IHUI_BROWSER_HEADLESS !== 'false';
   const baseArgs = [
     `--remote-debugging-port=${port}`,

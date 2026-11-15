@@ -319,9 +319,13 @@ export async function joinActivity(
       .values({ activityId, userId, data: data as Record<string, unknown> | null })
       .returning(participantFields)
     return rows[0]
-  } catch {
-    // 已参与（unique 冲突）→ 返回 undefined，由上层处理
-    return undefined
+  } catch (e) {
+    // 仅 PostgreSQL unique_violation (23505) 表示"已参与"，返回 undefined 由上层处理；
+    // 其余错误（连接/FK/约束等）必须重抛，不能静默吞成"已参与"造成状态误判。
+    if (e && typeof e === 'object' && 'code' in e && e.code === '23505') {
+      return undefined
+    }
+    throw e
   }
 }
 

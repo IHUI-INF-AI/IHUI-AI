@@ -4814,6 +4814,22 @@ pub fn run() {
                     }
                 }
             });
+            // 应用上架平台账号:桌面启动后自动隐藏打开 7 个后台窗口,接入 10 分钟心跳保活。
+            // 窗口独立 profile 落盘,首次手动登录后登录态跨重启保留,之后每次启动自动续。
+            {
+                let sa_app = app.handle().clone();
+                std::thread::spawn(move || {
+                    std::thread::sleep(std::time::Duration::from_secs(6));
+                    match store_browser::auto_open_store_accounts(&sa_app) {
+                        Ok(()) => log::info!(
+                            "[store-browser] 已自动打开应用上架平台账号窗口(隐藏),接入心跳保活"
+                        ),
+                        Err(e) => {
+                            log::warn!("[store-browser] 自动打开商店账号窗口失败: {}", e)
+                        }
+                    }
+                });
+            }
             let _ = app;
             Ok(())
         })

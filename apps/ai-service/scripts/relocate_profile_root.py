@@ -52,8 +52,14 @@ import json
 import os
 import pathlib
 import shutil
+import sys
 import tempfile
 from typing import Literal
+
+# 独立脚本不经 main.py 启动,须自行把 tempfile 重定向到合规根(§15b,不写 C 盘)
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from app.core.runtime_temp import install_runtime_temp_root  # noqa: E402
+install_runtime_temp_root()
 
 Action = Literal["move", "archive-shell-source", "archive-shell-target", "refuse", "noop"]
 

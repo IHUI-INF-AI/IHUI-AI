@@ -12,6 +12,21 @@ import { requireAdmin } from '../plugins/require-permission.js'
 
 const idParamSchema = z.object({ id: z.string().min(1) })
 
+// Bot 站点可编辑字段白名单：显式 omit 服务端列（id/createdAt/updatedAt），
+// 防止 mass-assignment 覆写主键/时间戳；并对各列施加与 DB 一致的长度/格式约束。
+const botSiteBodySchema = z
+  .object({
+    name: z.string().min(1).max(255),
+    shortDesc: z.string().max(20000).nullable().optional(),
+    section: z.string().max(128).nullable().optional(),
+    subSection: z.string().max(255).nullable().optional(),
+    iconUrl: z.string().max(512).nullable().optional(),
+    detailUrl: z.string().max(512).nullable().optional(),
+    officialUrl: z.string().max(512).nullable().optional(),
+    panelHtml: z.string().max(200000).nullable().optional(),
+  })
+  .strict()
+
 // =============================================================================
 // 通用 raw SQL 辅助（适用于尚未迁移到 Drizzle schema 的旧表）
 // =============================================================================
@@ -289,11 +304,12 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     }
   })
   server.post('/bot-sites', async (req, reply) => {
+    const parsed = botSiteBodySchema.safeParse(req.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, '参数校验失败'))
+    }
     try {
-      const rows = await db
-        .insert(aibotSites)
-        .values(req.body as typeof aibotSites.$inferInsert)
-        .returning()
+      const rows = await db.insert(aibotSites).values(parsed.data).returning()
       return reply.status(201).send(success(rows[0]))
     } catch (e) {
       req.log.error(e)
@@ -301,14 +317,18 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     }
   })
   server.put('/bot-sites/:id', async (req, reply) => {
-    const parsed = idParamSchema.safeParse(req.params)
-    if (!parsed.success) return reply.status(400).send(error(400, '无效的 ID'))
-    const numId = Number(parsed.data.id)
+    const parsedParam = idParamSchema.safeParse(req.params)
+    if (!parsedParam.success) return reply.status(400).send(error(400, '无效的 ID'))
+    const numId = Number(parsedParam.data.id)
     if (!Number.isFinite(numId)) return reply.status(400).send(error(400, '无效的 ID'))
+    const parsed = botSiteBodySchema.partial().safeParse(req.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, '参数校验失败'))
+    }
     try {
       const rows = await db
         .update(aibotSites)
-        .set(req.body as Partial<typeof aibotSites.$inferInsert>)
+        .set(parsed.data)
         .where(eq(aibotSites.id, numId))
         .returning()
       if (!rows[0]) return reply.status(404).send(error(404, 'Bot 站点不存在'))
