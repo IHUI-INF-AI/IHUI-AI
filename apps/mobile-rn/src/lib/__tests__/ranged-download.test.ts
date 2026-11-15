@@ -347,5 +347,46 @@ describe('downloadRanged', () => {
       }),
     ).rejects.toBeInstanceOf(RangeStalledError)
   })
+
+  // 真机 createXhrTransport 的 pre-cancelled TDZ 钉子(孪生 multipart 已修,本文件漏改回归):
+  // 令牌在进入 get() 前就已 cancel ⇒ onCancel **同步**回调 ⇒ settle 里读 off,
+  // 旧实现 `const off` 声明在 settle 之后,同步路径撞 TDZ 抛 ReferenceError 而非 DownloadCancelledError。
+  // 这里装一个最小 XHR 替身驱动真 createXhrTransport 走完这条同步取消路径。
+  it('真 createXhrTransport + 已取消令牌 ⇒ DownloadCancelledError,不撞 TDZ', async () => {
+    const g = globalThis as unknown as { XMLHttpRequest?: unknown }
+    const originalXhr = g.XMLHttpRequest
+    class FakeXhr {
+      responseType = ''
+      timeout = 0
+      status = 0
+      response: ArrayBuffer = new ArrayBuffer(0)
+      onprogress: ((e: { loaded: number }) => void) | null = null
+      onload: (() => void) | null = null
+      onerror: (() => void) | null = null
+      ontimeout: (() => void) | null = null
+      onabort: (() => void) | null = null
+      open(): void {}
+      abort(): void {
+        // 真机 abort 触发 onabort;替身直接走 onabort 回调
+        this.onabort?.()
+      }
+      send(): void {}
+      setRequestHeader(): void {}
+      getAllResponseHeaders(): string {
+        return ''
+      }
+    }
+    g.XMLHttpRequest = FakeXhr
+    try {
+      const { createXhrTransport } = await import('../ranged-download')
+      const cancellation = new DownloadCancellation()
+      cancellation.cancel() // 进入 get 前就已取消 ⇒ 同步回调路径
+      await expect(createXhrTransport().get(URL, {}, 5000, cancellation)).rejects.toBeInstanceOf(
+        DownloadCancelledError,
+      )
+    } finally {
+      g.XMLHttpRequest = originalXhr
+    }
+  })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
