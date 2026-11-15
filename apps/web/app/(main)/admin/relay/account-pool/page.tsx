@@ -1051,6 +1051,38 @@ export default function AdminRelayAccountPoolPage() {
     onError: (e: Error) => toast.error(e.message || '写入本机登录态失败'),
   })
 
+  // 安装桌面切号快捷方式(2026-11-15 立):一键驱动 api 宿主机跑仓内唯一真相源安装器
+  // scripts/install-relay-shortcut.ps1。同机边界与上面「登录本机」一致:不同机 / 缺 pwsh /
+  // 缺安装器时后端 409 点名出路,toast 原样转述 —— 前端绝不猜"装没装上"。
+  const installShortcutMut = useMutation({
+    mutationFn: async () => {
+      const r = await fetchApi<{
+        installed: Array<{ link: string; target: string; icon: string }>
+        warnings: string[]
+        installerExitCode: number
+      }>('/api/admin/relay/desktop-shortcut/install', {
+        method: 'POST',
+        timeoutMs: 60_000,
+      })
+      if (!r.success) throw apiFailureToError(r)
+      return r.data
+    },
+    onSuccess: (d) => {
+      if (d.installed.length === 0) {
+        toast.warning('安装器已跑完,但没有新建快捷方式(桌面入口缺失会被点名跳过)', {
+          description: d.warnings.length > 0 ? d.warnings.join('\n') : undefined,
+        })
+        return
+      }
+      toast.success(`已在桌面生成 ${d.installed.length} 枚「AI 客户端一键切号」快捷方式`, {
+        description:
+          d.installed.map((s) => `${s.link}\n  目标:${s.target}\n  图标:${s.icon}`).join('\n') +
+          (d.warnings.length > 0 ? `\n${d.warnings.join('\n')}` : ''),
+      })
+    },
+    onError: (e: Error) => toast.error(e.message || '桌面切号快捷方式安装失败'),
+  })
+
   const healthMut = useMutation({
     mutationFn: async (id: string) => {
       const r = await fetchApi<{ id: string; ok: boolean; error: string | null }>(
@@ -1685,6 +1717,14 @@ export default function AdminRelayAccountPoolPage() {
           </Button>
           <Button variant="outline" onClick={() => setMatchOpen(true)}>
             批量归位
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => installShortcutMut.mutate()}
+            disabled={installShortcutMut.isPending}
+          >
+            <MonitorDown className="h-4 w-4" />
+            {installShortcutMut.isPending ? '安装中…' : '安装桌面切号'}
           </Button>
           <Button onClick={() => setImportOpen(true)}>
             <Plus className="h-4 w-4" />
