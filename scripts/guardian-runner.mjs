@@ -8063,13 +8063,14 @@ const checks = [
   {
     id: '320',
     label:
-      '🛡️ 运行时 TEMP 落盘回归锁(运行时源码别再把临时落点交给进程 TEMP;§15b 运行时对偶;差值棘轮只拦新增)',
+      '🛡️ 运行时 TEMP 落盘回归锁(blocking:运行时源码别再把临时落点交给进程 TEMP;§15b 运行时对偶;差值棘轮只拦新增,存量 wired 豁免不追溯)',
     script: 'check-runtime-tmp-landing.mjs',
     args: [],
     // §0.2:本门存量已在 2026-11-15 全量改道到合规工厂(HEAD 面剩 43 处历史注释/防御闸,
-    // 均 wired 豁免),但刚落地即刻升 blocking 会与"存量是否真清零"的复核脱钩 ⇒ 先 warn 让
-    // 问题可见 + 差值棘轮拦新增,HEAD 面复核清零后再升 blocking(与门 321 同一节奏)。
-    mode: 'warn',
+    // 均 wired 豁免)。2026-11-15 二次复核后升 blocking:判据 exit 语义只判「新增 F1>0」
+    // (存量 wired 豁免恒 exit 0,不复算不追溯)⇒ 升 blocking 不会因存量变恒红门(§0.2)。
+    // 这是"运行时临时落点不得外泄项目外"的机器级硬拦:新增绕过合规工厂的 TEMP 调用即拦提交。
+    mode: 'blocking',
     stagedTriggers: ['**/*'],
     skipEnv: 'HUSKY_SKIP_RUNTIME_TMP_LANDING',
     onFailHint: [
