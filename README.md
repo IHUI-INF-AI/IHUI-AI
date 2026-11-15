@@ -5470,6 +5470,9 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-16**
+- 🔧 工程/其他:收拢并发会话工作区改动（README 自动更新块 + 三语同步） (384c9d790b)
+
+**2026-11-16**
 - 🐞 修复:排版令牌对齐 —— 定价管控台 heading/label 字号档 + ProfileScreen avatarText 走 rnType.displayXl (5a4f007eda)
 
 **2026-11-15**

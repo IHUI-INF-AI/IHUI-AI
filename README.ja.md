@@ -2227,6 +2227,9 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-16**
+- 🔧 その他:收拢并发会话工作区改动（README 自动更新块 + 三语同步） (384c9d790b)
+
+**2026-11-16**
 - 🐞 修正:排版令牌对齐 —— 定价管控台 heading/label 字号档 + ProfileScreen avatarText 走 rnType.displayXl (5a4f007eda)
 
 **2026-11-15**
@@ -2309,9 +2312,6 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 
 **2026-11-15**
 - 🐞 修正:修跨端交互/逻辑缺陷——pay applyCoupon 补 in-flight 守卫防并发改价、AppUpdateBanner 裸 setTimeout 补 cleanup 治卸载闪没、TagInput 可删列表改按 tag 值作 key 解耦下标、user 历史静默 catch 补失败 toast;ui-routes.generated.ts 按当前输入重生成对齐 (a3df780e70)
-
-**2026-11-15**
-- 📚 ドキュメント:README 派生区按 fcee207727 新 HEAD 重算(钩子自动补登最近更新条目) (2b21dab8d8)
 <!-- END RECENT UPDATES -->
 
 <p align="center">
