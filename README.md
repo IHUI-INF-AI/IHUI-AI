@@ -5470,6 +5470,9 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-15**
+- 🐞 修复:收敛前序治理批次(i18n 文案拼接/设计令牌/交互与解包加固) (1632762bf4)
+
+**2026-11-15**
 - 🐞 修复:API 层全量路径段补 encodeURIComponent(对齐 api-client 惯例) (b2ec9922eb)
 
 **2026-11-15**

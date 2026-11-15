@@ -2227,6 +2227,9 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-15**
+- 🐞 修正:收敛前序治理批次(i18n 文案拼接/设计令牌/交互与解包加固) (1632762bf4)
+
+**2026-11-15**
 - 🐞 修正:API 层全量路径段补 encodeURIComponent(对齐 api-client 惯例) (b2ec9922eb)
 
 **2026-11-15**
@@ -2271,9 +2274,6 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 
 **2026-11-15**
 - 🐞 修正:task-status-bar 激活态描边去墨档(T-15 P0 铁律违规) (86981bcff8)
-
-**2026-11-15**
-- 🐞 修正:useTaskReceiver register/answerApproval 包 try/catch 收敛 5xx/网络异常(T-02 P0) (8e0c889bf4)
 <!-- END RECENT UPDATES -->
 
 <p align="center">
