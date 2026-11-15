@@ -314,7 +314,7 @@ export function PlazaScreen() {
   const loadDrawerConversations = useCallback(async () => {
     const res = await listConversations({ page: 1, pageSize: 50 })
     if (res.success) {
-      const list: DrawerConversationItem[] = res.data.conversations.map((c) =>
+      const list: DrawerConversationItem[] = (res.data?.conversations ?? []).map((c) =>
         mapConversationToDrawer(c, t('plaza.index.untitledConv')),
       )
       setDrawerConversations(list)

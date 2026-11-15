@@ -126,8 +126,8 @@ export function ImageGenHistoryScreen() {
           pageSize: PAGE_SIZE,
         })
         if (res.success) {
-          setHistoryItems(res.data.list.map((row) => toGridHistoryRow(row, timeFormatter)))
-          setHasMore(res.data.list.length >= PAGE_SIZE)
+          setHistoryItems((res.data?.list ?? []).map((row) => toGridHistoryRow(row, timeFormatter)))
+          setHasMore((res.data?.list ?? []).length >= PAGE_SIZE)
         } else {
           setError(apiFailureToText(res, t('imageGen.loadFailed')))
         }
@@ -137,8 +137,8 @@ export function ImageGenHistoryScreen() {
           pageSize: PAGE_SIZE,
         })
         if (res.success) {
-          setFavItems(res.data.list.map((item) => toGridFavoriteItem(item, timeFormatter)))
-          setHasMore(res.data.list.length >= PAGE_SIZE)
+          setFavItems((res.data?.list ?? []).map((item) => toGridFavoriteItem(item, timeFormatter)))
+          setHasMore((res.data?.list ?? []).length >= PAGE_SIZE)
         } else {
           setError(apiFailureToText(res, t('imageGen.loadFailed')))
         }
@@ -163,7 +163,9 @@ export function ImageGenHistoryScreen() {
           pageSize: PAGE_SIZE,
         })
         if (res.success) {
-          const nextItems = res.data.list.map((row) => toGridHistoryRow(row, timeFormatter))
+          const nextItems = (res.data?.list ?? []).map((row) =>
+            toGridHistoryRow(row, timeFormatter),
+          )
           if (nextItems.length < PAGE_SIZE) setHasMore(false)
           setHistoryItems((prev) => [...prev, ...nextItems])
         }
@@ -173,7 +175,9 @@ export function ImageGenHistoryScreen() {
           pageSize: PAGE_SIZE,
         })
         if (res.success) {
-          const nextItems = res.data.list.map((item) => toGridFavoriteItem(item, timeFormatter))
+          const nextItems = (res.data?.list ?? []).map((item) =>
+            toGridFavoriteItem(item, timeFormatter),
+          )
           if (nextItems.length < PAGE_SIZE) setHasMore(false)
           setFavItems((prev) => [...prev, ...nextItems])
         }
