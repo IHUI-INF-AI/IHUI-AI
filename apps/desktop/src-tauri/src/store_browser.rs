@@ -66,10 +66,11 @@ fn load_session_seed(platform_code: &str) -> Option<serde_json::Value> {
 
 /// 把登录态种子拼成页面初始化脚本:在页面脚本之前写 Cookie/LocalStorage/SessionStorage。
 ///
-/// 每个 profile **只种一次**:第一次成功后种下哨兵 Cookie(同 cookieDomain),之后任何导航
-/// 或重新打开直接跳过。为什么不能每页重写:HttpOnly Cookie 在 document.cookie 里不可见,
-/// 「只补缺失」对它们永远成立;每导航重写就必然用旧种子覆盖平台/用户刚登录得到的新值,
-/// 那不是保活,是制造掉线(Google/vivo 的关键会话 Cookie 正是 HttpOnly)。
+/// 语义是**每页只补缺**(见下方循环里的 `if (existing[c.name])`):同名 Cookie 已在就跳过,
+/// 所以永远不会用旧种子覆盖平台/用户刚登录得到的新值。为什么不做「一次性哨兵」:
+/// 原生 CookieManager 会静默拒收个别值(实测 base64 尾 `=` 的两枚会话 Cookie),
+/// 一次即弃就再也补不回来;而 HttpOnly Cookie 浏览器禁止 JS 改写,补写被静默忽略,
+/// 所以「每页补缺」对真会话是安全空操作(Google/vivo/华为 的关键会话正是 HttpOnly)。
 fn build_seed_script(seed: &serde_json::Value) -> String {
     let seed_json = serde_json::to_string(seed).unwrap_or_else(|_| "null".to_string());
     format!(
@@ -88,16 +89,14 @@ fn build_seed_script(seed: &serde_json::Value) -> String {
     if (host !== domain && host.slice(-(domain.length + 1)) !== '.' + domain) return;
     var SENTINEL = '__ihui_seed_v1';
     var existing = {{}};
-    var seeded = false;
     document.cookie.split(';').forEach(function (p) {{
       var eq = p.indexOf('=');
       if (eq > 0) {{
         var name = p.slice(0, eq).trim();
         existing[name] = 1;
-        if (name === SENTINEL) seeded = true;
       }}
     }});
-    // sessionStorage 是「每会话」存储:哨兵已存在也要补,否则重启后种子里的
+    // sessionStorage 是「每会话」存储:哨兵在也要补,否则重启后种子里的
     // sessionStorage 永远缺失(vivo 的内置登录态就依赖它)。
     var ss = seed.sessionStorage || {{}};
     for (var k2 in ss) {{
