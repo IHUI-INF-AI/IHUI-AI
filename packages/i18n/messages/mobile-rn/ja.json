@@ -942,7 +942,8 @@
       "agree": "賛同",
       "disagree": "反対"
     },
-    "loadFailed": "読み込みに失敗しました"
+    "loadFailed": "読み込みに失敗しました",
+    "admissionAhead": "前に {n} 件あります"
   },
   "settings": {
     "title": "設定",
@@ -3711,7 +3712,8 @@
     "loadFailed": "読み込みに失敗しました",
     "participants": "参加人数",
     "startTime": "開始時間",
-    "title": "アクティビティ"
+    "title": "アクティビティ",
+    "joining": "送信中…"
   },
   "agentDetail": {
     "creator": "作成者",
@@ -5061,7 +5063,7 @@
     "analysisEstimate": "約 {tokens} tokens・難易度 {difficulty}",
     "analysisPickFirst": "まずシナリオを選択してください",
     "analysisSubmit": "分析を開始",
-      "noValidContent": "インポート可能な有効な内容がありません"
+    "noValidContent": "インポート可能な有効な内容がありません"
   },
   "permissionTier": {
     "label": "権限モード",
@@ -5699,7 +5701,8 @@
       "policyRequiresApproval": "ポリシーが承認を要求",
       "policySkipsApproval": "ポリシーにより承認省略",
       "guardianReviewSuggested": "レビューがより安全な手順を提案",
-      "guardianReviewAlternativeApplied": "レビュー提案の手順を採用"
+      "guardianReviewAlternativeApplied": "レビュー提案の手順を採用",
+      "autoReviewAllow": "自動レビューで許可"
     },
     "perm": {
       "allow": "許可しました",
@@ -7544,7 +7547,8 @@
   },
   "activities": {
     "join": "今すぐ参加",
-    "notFound": "つかりません"
+    "notFound": "つかりません",
+    "cancelJoin": "参加をキャンセル"
   },
   "eduAttendanceQr": {
     "chooseClass": "クラスを選択",

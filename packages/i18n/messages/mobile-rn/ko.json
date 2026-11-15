@@ -942,7 +942,8 @@
       "agree": "동의",
       "disagree": "반대"
     },
-    "loadFailed": "불러오기 실패"
+    "loadFailed": "불러오기 실패",
+    "admissionAhead": "앞에 {n}건 있습니다"
   },
   "settings": {
     "title": "설정",
@@ -3711,7 +3712,8 @@
     "loadFailed": "불러오기 실패",
     "participants": "참여 인원",
     "startTime": "시작 시간",
-    "title": "활동"
+    "title": "활동",
+    "joining": "제출 중…"
   },
   "agentDetail": {
     "creator": "제작자",
@@ -5061,7 +5063,7 @@
     "analysisEstimate": "약 {tokens} tokens · 난이도 {difficulty}",
     "analysisPickFirst": "먼저 시나리오를 선택하세요",
     "analysisSubmit": "분석 시작",
-      "noValidContent": "가져올 수 있는 유효한 내용이 없습니다"
+    "noValidContent": "가져올 수 있는 유효한 내용이 없습니다"
   },
   "permissionTier": {
     "label": "권한 등급",
@@ -5699,7 +5701,8 @@
       "policyRequiresApproval": "정책상 승인 필요",
       "policySkipsApproval": "정책상 승인 생략",
       "guardianReviewSuggested": "검토가 더 안전한 경로를 제안",
-      "guardianReviewAlternativeApplied": "검토 제안 경로 적용됨"
+      "guardianReviewAlternativeApplied": "검토 제안 경로 적용됨",
+      "autoReviewAllow": "자동 검토 승인"
     },
     "perm": {
       "allow": "허용함",
@@ -7544,7 +7547,8 @@
   },
   "activities": {
     "join": "지금 참여",
-    "notFound": "찾을 수 없음"
+    "notFound": "찾을 수 없음",
+    "cancelJoin": "참여 취소"
   },
   "eduAttendanceQr": {
     "chooseClass": "클래스 선택",

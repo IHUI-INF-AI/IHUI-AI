@@ -942,7 +942,8 @@
       "agree": "Agree",
       "disagree": "Dislike"
     },
-    "loadFailed": "Failed to load"
+    "loadFailed": "Failed to load",
+    "admissionAhead": "{n} ahead of you"
   },
   "settings": {
     "title": "Settings",
@@ -3711,7 +3712,8 @@
     "loadFailed": "Failed to load",
     "participants": "Participants",
     "startTime": "Start time",
-    "title": "Activities"
+    "title": "Activities",
+    "joining": "Submitting…"
   },
   "agentDetail": {
     "creator": "Creator",
@@ -5061,7 +5063,7 @@
     "analysisEstimate": "About {tokens} tokens · {difficulty}",
     "analysisPickFirst": "Pick a scenario first",
     "analysisSubmit": "Start analysis",
-      "noValidContent": "No importable content found"
+    "noValidContent": "No importable content found"
   },
   "permissionTier": {
     "label": "Permission tier",
@@ -5699,7 +5701,8 @@
       "policyRequiresApproval": "Policy requires approval",
       "policySkipsApproval": "Policy skips approval",
       "guardianReviewSuggested": "Review suggests a safer alternative",
-      "guardianReviewAlternativeApplied": "Safer alternative applied"
+      "guardianReviewAlternativeApplied": "Safer alternative applied",
+      "autoReviewAllow": "Auto-review allowed"
     },
     "perm": {
       "allow": "Allowed",
@@ -7544,7 +7547,8 @@
   },
   "activities": {
     "join": "Join Now",
-    "notFound": "Activity not found or offline"
+    "notFound": "Activity not found or offline",
+    "cancelJoin": "Cancel registration"
   },
   "eduAttendanceQr": {
     "chooseClass": "Select class",
