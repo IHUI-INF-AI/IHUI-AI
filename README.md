@@ -8431,3 +8431,5 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 | 跟踪文件 | 22272 | `trackedFiles` |
 **接线同代与镜像面守门族**(注册与门体必须同枚入库):`scripts/check-line-endings.mjs`(行尾纪律:CRLF / LF / 孤立 CR 分判)、
 `scripts/check-mirror-surface-parity.mjs`(镜像面取值集合双向对账)、`scripts/check-border-system.mjs`(描边 8 角色单源,门 323)。
+| 工程守门 | 368 | `guardianGates` |
+| 跟踪文件 | 22273 | `trackedFiles` |
