@@ -6,7 +6,7 @@
 
 import * as React from 'react'
 import {
-  ArrowDownToLine,
+  ArrowDown,
   ArrowUp,
   ChevronDown,
   ChevronUp,
@@ -352,7 +352,7 @@ function PopoverBody({
           <div className="flex items-center gap-1.5 tabular-nums">
             <ArrowUp className="mr-0.5 inline h-3.5 w-3.5" aria-hidden />
             {ahead}
-            <ArrowDownToLine className="mx-0.5 inline h-3.5 w-3.5" aria-hidden />
+            <ArrowDown className="mx-0.5 inline h-3.5 w-3.5" aria-hidden />
             {behind}
           </div>
           <div className="flex items-center gap-1.5" data-testid="env-info-last-commit">

@@ -24,7 +24,7 @@ import {
 
 /** 图标字形原语的入参:方向已归一成 lucide 名,墨迹边长按该端单位换算后给数。 */
 export interface ScrollJumpGlyphProps {
-  name: 'chevron-up' | 'arrow-down'
+  name: 'chevron-up' | 'chevron-down'
   size: number
   color: string
 }
@@ -97,11 +97,7 @@ export function ScrollJumpButtonCore<B, S, E>({
       pressedStyle={{ opacity: SCROLL_JUMP_PRESSED_OPACITY }}
       style={style}
     >
-      <platform.Glyph
-        name={scrollJumpIconName(direction)}
-        size={glyphSize}
-        color={glyphColor}
-      />
+      <platform.Glyph name={scrollJumpIconName(direction)} size={glyphSize} color={glyphColor} />
     </platform.Pressable>
   )
 }
