@@ -81,13 +81,13 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 5614 | `testFiles` |
+| 测试文件 | 5616 | `testFiles` |
 | CI 工作流 | 59 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
 | 工程守门 | 367 | `guardianGates` |
 | — blocking | 337 | `guardianBlocking` |
 | — warn | 32 | `guardianWarn` |
-| 跟踪文件 | 22247 | `trackedFiles` |
+| 跟踪文件 | 22251 | `trackedFiles` |
 
 上表由 `node scripts/sync-readme-numbers.mjs`(唯一写入口,索引面取数)生成,最后核对日期 2026-11-15。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
@@ -98,6 +98,10 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 ## Recent updates (auto-maintained)
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
+**2026-11-15**
+- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (510e4291b5b)
+- 🐞 Fix:输入框清空按钮加卡片底色、字数统计贴住第三行末尾 (328b8dec13d)
+
 **2026-11-15**
 - 🔧 Chore/Other:全量同步工作区并交付 AI 浮窗八向拉伸缩放 (69ce958a9b2)
 - 🚀 Feature/Improvement:补齐外观设置 v1-v4 交付(收编 origin 后重放) (d22653b4f56)
@@ -1021,9 +1025,6 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 - 🔧 Chore/Other:收敛多端改动并纳入号池/中继流式/移动端产物 (0390eac81a6)
 - 🔧 Chore/Other:违禁桶兜底清扫——HEAD面等条件/待拍板未勾行自动摘除(两道机主禁令的执行器物化,留痕f12-purge;复翻席请同步摘形态,事实内容按各批结清提交保留) (a7622bf7169)
 - 🚀 Feature/Improvement:号池全缺口开发验证 + 能力登记表 + reextract 兜底 + 接口参数补齐 (e04bfc4a31d)
-
-**2026-11-12**
-- 🔧 Chore/Other:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (06239c8f000)
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)
