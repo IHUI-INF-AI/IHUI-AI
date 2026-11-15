@@ -22,7 +22,8 @@
 }
 
 .task-status-bar-card.is-active {
-  border-color: var(--color-brand);
+  /* 描边禁取墨档(brand.DEFAULT);激活态走强调描边档 */
+  border-color: var(--color-brand-accent-deep);
 }
 
 .task-status-bar-row {
