@@ -763,7 +763,7 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
   // 管理 分组(2026-07-20 重构):
   // 整合原 AdminNav.tsx 的 11 个运营域分组(作为二级可展开项)+ /admin/theme 9 项(作为二级可展开项)。
   // admin 扁平 80 项通过 useAdminRouters() 动态加载,在 Sidebar 组件中合并到本组 items 前部。
-  // 仅 admin 用户可见(items 全部 adminOnly),默认展开(见 NavGroupSection.defaultOpen)。
+  // 仅 admin 用户可见(items 全部 adminOnly),默认折叠(见 NavGroupSection.defaultOpen;展开偏好由 localStorage 记忆)。
   {
     label: 'adminGroupLabel',
     items: [

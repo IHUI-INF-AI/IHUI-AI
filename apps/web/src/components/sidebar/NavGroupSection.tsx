@@ -6,7 +6,7 @@
 
 import * as React from 'react'
 import { cn } from '@/lib/utils'
-import { ChevronDown, Flame } from 'lucide-react'
+import { ChevronDown } from 'lucide-react'
 import { NavLink } from './NavLink'
 import { ExpandableNavItem } from './ExpandableNavItem'
 import type { NavItem, RegisterRef } from './types'
@@ -25,15 +25,16 @@ const COLLAPSE_UNMOUNT_DELAY_MS = 200
 /**
  * 顶级分组渲染器(2026-07-20 立):支持分组级别的展开/折叠。
  *
- * 业务诉求:AI教育 / 内容 / 交易 / 个人 / 管理 等次要分类默认折叠(只显示分组标题),
- * 仅 "AI" 核心分类默认展开,降低视觉噪音。点击分组标题切换。
+ * 业务诉求(2026-11-15 分类收口):对外只保留「自定义」「热门」「管理」分类标题;
+ * 「热门」是高频入口默认展开,「管理」admin 专属且条目多默认折叠,点击标题切换;
+ * 其余分组(AI/教育/内容/交易/个人/开发者)不渲染标题,域入口直接平铺。
  *
  * 行为细则:
  *  - 折叠态(collapsed=true):沿用旧行为(不显示 label,所有 items 直接铺开),
  *    因为折叠态下分组标题本就不渲染,无法承载点击切换。
  *  - 无 label 分组(首页):不参与折叠,沿用旧行为(items 直接铺开)。
- *  - 有 label 分组(展开态):
- *      · 默认值:label === 'AI' → true,其他 → false
+ *  - 有 label 且可折叠的分组(仅「热门」「管理」,展开态):
+ *      · 默认值:热门 → true,管理 → false
  *      · hydration 后真实状态优先级:命中当前路由 > localStorage > 默认值
  *      · localStorage 持久化用户切换结果,跨会话保留偏好
  *  - SSR 安全:初始 open 固定 defaultOpen(hydration 一致),真实状态由 useEffect 注入;
@@ -69,18 +70,16 @@ const NavGroupSection = React.memo(function NavGroupSection({
   isFirst,
   onBeforeNav,
 }: NavGroupSectionProps) {
-  // 分组是否参与折叠:展开态 + 有 label
-  const isCollapsible = !collapsed && group.label !== ''
-  // 分组标题:i18n 解析(group.label 是 nav namespace 下的 key,如 'adminGroup' / 'AI')
+  // 分组是否参与折叠(2026-11-15 用户要求):对外分类标题只保留「自定义」与「热门」。
+  // 其余分组(原 AI 教育/内容/交易/个人等)不再显示标题,其内已收敛的域入口直接平铺;
+  // 「管理」是 admin 专属的运维分组,条目多且与普通导航不同层,保留可折叠标题避免刷屏。
+  const isCollapsible =
+    !collapsed && (group.label === 'hotGroupLabel' || group.label === 'adminGroupLabel')
+  // 分组标题:i18n 解析(group.label 是 nav namespace 下的 key,如 'adminGroupLabel' / 'hotGroupLabel')
   const groupLabel = group.label ? t(group.label) : group.label
-  // 默认展开的分组(2026-07-20 立):
-  //   - AI:核心分类,所有用户高频入口
-  //   - 管理:admin 用户的核心入口(非 admin 用户此分组被 visibleGroups 过滤掉,此设置不影响)
-  // 其余分组(AI教育/内容/交易/个人)默认折叠,降低视觉噪音。
-  const defaultOpen =
-    group.label === 'hotGroupLabel' ||
-    group.label === 'aiGroupLabel' ||
-    group.label === 'adminGroupLabel'
+  // 默认展开的分组(2026-11-15 调整):仅「热门」首帧展开。
+  // 「管理」admin 专属且条目多,默认折叠避免刷屏;用户手动展开后仍由 localStorage 记忆。
+  const defaultOpen = group.label === 'hotGroupLabel'
   // v3 后缀:版本化 key。重要:旧实现用 useEffect 在 open 变化时写 localStorage,
   // 导致首次挂载 setOpen(defaultOpen) 触发写入,污染了测试环境的 localStorage。
   // 新实现只在用户主动 toggle 时写,首次挂载只读不写,因此 localStorage 在用户切换前保持空,
@@ -97,13 +96,13 @@ const NavGroupSection = React.memo(function NavGroupSection({
 
   // hydration-safe 持久化展开(2026-08-28 根因修复):
   // 旧实现(2026-07-22)用 useState lazy initializer 读 localStorage,看似"首帧即持久化值",
-  // 实际是 hydration 陷阱:SSR HTML 固定为 defaultOpen(如 eduGroup 折叠),
+  // 实际是 hydration 陷阱:SSR HTML 固定为 defaultOpen(如「管理」默认折叠),
   // client hydration 时 React 对不一致的属性只警告不 patch(suppressHydrationWarning 连警告也压制),
   // 且后续 re-render diff 的是 client vdom(已是 open=true),DOM 永远停留在服务端折叠版本——
   // 用户持久化的展开偏好在首屏永不生效。
   // 正确方案:首帧(hydration)用 defaultOpen,与 SSR HTML 完全一致;
   // mount 后 effect 读取持久化值 setOpen → 真实 state 变化 → React diff defaultOpen→stored,DOM 被正确 patch。
-  // - 默认展开分组(hot/AI/admin):defaultOpen=true 即持久化意图,首帧无过渡无闪烁(保留 2026-07-22 收益)
+  // - 默认展开分组(热门):defaultOpen=true 即持久化意图,首帧无过渡无闪烁(保留 2026-07-22 收益)
   // - 持久化展开的非默认分组:mount 后一次 0fr→1fr 过渡,属于持久化状态恢复的正确行为
   // - 本 effect 只读不写,不复发 2026-07-20 的"mount 时写 localStorage 污染测试环境"问题
   const [open, setOpen] = React.useState(defaultOpen)
@@ -113,8 +112,7 @@ const NavGroupSection = React.memo(function NavGroupSection({
   //
   // 2026-10-16 CLS 修复:初值由 `!open` 改为 `open`。
   // 实测:@1280px /checkin 量到 value=0.10094@2502ms,sources 含本组件根节点
-  // `div.pt-2` 144x40@8,335 -> 144x330@8,526 —— 分组本身首帧就是展开的(aiGroupLabel ∈ defaultOpen,
-  // nav-data.ts:423 的分组装 /checkin,见 :456),但旧初值 `!open` 让**展开态首帧反而不渲染内容**:
+  // `div.pt-2` 144x40@8,335 -> 144x330@8,526 —— 分组本身首帧就是展开的(当时 /checkin 所在分组命中 defaultOpen 白名单),
   // grid 是 1fr 而内层是空的 ⇒ 首帧只有 40px 的分组标题,挂载后下面的 effect 才 setContentMounted(true),
   // 整组在第二帧长出 290px,把侧栏底部用户行一起顶下去,再叠上 TagsViewChevronButton 的 40px 横向位移。
   // 改成 `open` 后「展开 ⇒ 内容在场」在首帧即成立,内容高度一次到位,偏移为 0。
@@ -195,18 +193,9 @@ const NavGroupSection = React.memo(function NavGroupSection({
     )
   }
 
-  // 不参与折叠:沿用旧行为(折叠态或无 label 分组)
+  // 不参与折叠:不渲染分组标题(分类标题只保留「自定义」与「热门」两处)
   if (!isCollapsible) {
-    return (
-      <div className={isFirst ? '' : 'pt-2'}>
-        {!collapsed && group.label && (
-          <div className="px-2.5 pb-1 pt-1 text-label font-semibold uppercase tracking-wider text-muted-foreground/60">
-            {groupLabel}
-          </div>
-        )}
-        {group.items.map(renderItem)}
-      </div>
-    )
+    return <div className={isFirst ? '' : 'pt-2'}>{group.items.map(renderItem)}</div>
   }
 
   // 可折叠分组(展开态 + 有 label)
@@ -219,24 +208,23 @@ const NavGroupSection = React.memo(function NavGroupSection({
         aria-controls={contentId}
         aria-label={groupLabel}
         data-testid={`nav-group-${group.label}-toggle`}
-        className="group/grp flex h-9 w-full items-center gap-2.5 rounded-sm px-2.5 py-2 text-body font-semibold uppercase tracking-wider text-muted-foreground/60 transition-colors hover:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+        className="group/grp flex h-9 w-full items-center gap-2 rounded-md px-2.5 py-2 text-body font-semibold tracking-wider text-muted-foreground/60 transition-colors hover:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
       >
-        {group.label === 'hotGroupLabel' ? (
-          <>
-            <span className="min-w-0 whitespace-nowrap text-left text-red-600 transition-colors group-hover/grp:text-red-700 dark:text-red-400 dark:group-hover/grp:text-red-300">
-              {groupLabel}
-            </span>
-            <Flame
-              className="h-4 w-4 shrink-0 text-orange-500 transition-colors group-hover/grp:text-orange-600 dark:text-orange-400 dark:group-hover/grp:text-orange-300"
-              aria-hidden="true"
-            />
-          </>
-        ) : (
-          <span className="min-w-0 whitespace-nowrap text-left">{groupLabel}</span>
-        )}
+        <span
+          className={cn(
+            'min-w-0 whitespace-nowrap text-left',
+            // 2026-11-15 用户要求:「热门」标题与右侧箭头用主题红突出,其余分组保持灰阶
+            group.label === 'hotGroupLabel' && 'text-destructive',
+          )}
+        >
+          {groupLabel}
+        </span>
         <ChevronDown
           className={cn(
-            'ml-auto h-4 w-4 shrink-0 transition-transform',
+            'ml-auto h-4 w-4 shrink-0 transition-all',
+            group.label === 'hotGroupLabel'
+              ? 'text-destructive'
+              : 'text-muted-foreground/40 group-hover/grp:text-muted-foreground',
             COLLAPSE_DURATION_CLASS,
             !open && '-rotate-90',
           )}
@@ -265,8 +253,9 @@ const NavGroupSection = React.memo(function NavGroupSection({
         )}
       >
         <div className="overflow-hidden">
+          {/* 2026-11-15 用户要求:展开后的所属菜单整体右缩进 8px,与分组标题形成层级 */}
           {contentMounted ? (
-            <div className="flex flex-col gap-0.5">{group.items.map(renderItem)}</div>
+            <div className="flex flex-col gap-0.5 pl-2">{group.items.map(renderItem)}</div>
           ) : null}
         </div>
       </div>
