@@ -223,6 +223,8 @@ Windows 一键启动(9 个启动脚本)、环境变量逐项说明、REST/WebSoc
 node scripts/guardian-runner.mjs --staged     # pre-commit 全批
 node scripts/check-gate-wiring.mjs            # 「门造好了但没装车」对账
 ```
+**行尾与镜像面一致性**由 `scripts/check-line-endings.mjs`、`scripts/check-mirror-surface-parity.mjs` 判
+(均已接统一判面层,`--staged` 判索引面)。
 新增一道门**必须**用 `node scripts/gate-registry-insert.mjs`(自己取空闲号、自己保住别人的注册块),
 **缺陷普查快照新鲜度**由 `check-findings-freshness` 判(八份 findings survey 快照的过期警告与基线一致性;过期即红)。守门全表、执行语义与补登台账见
 不得手填编号;并同步在 `AGENTS.md` 点名。守门全表、执行语义与补登台账见
