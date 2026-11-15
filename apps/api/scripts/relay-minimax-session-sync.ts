@@ -144,7 +144,13 @@ export interface HealthRevival {
 
 interface RowOutcome {
   uid: string
-  decision: SyncReason | 'auto-import'
+  /**
+   * 单行处置原因。除 SyncReason / 'auto-import' 之外,允许 `client-auth-*` 形态:
+   * 死票守卫(2026-11-12,计划 §3)按 `client-auth-${clientAuthStatus}` 上报
+   * (如 `client-auth-expired` / `client-auth-logged-out`),summary.json 消费侧
+   * 按前缀分流统计,不丢这条诊断信息。前缀闭合在本文件内,不外溢。
+   */
+  decision: SyncReason | 'auto-import' | `client-auth-${string}`
   applied: boolean
   error?: string
 }

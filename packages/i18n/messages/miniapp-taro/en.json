@@ -3030,7 +3030,8 @@
     "failed5": "Unsubscribe failed, please contact support",
     "text6": "Level intro page not configured",
     "menu": {
-      "subscriptions": "My subscriptions"
+      "subscriptions": "My subscriptions",
+      "about": "About us"
     },
     "security": {
       "code": "Verification code",

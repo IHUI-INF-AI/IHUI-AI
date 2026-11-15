@@ -432,6 +432,15 @@ export interface ChatState {
    */
   chatSyncGapMessageIds: string[]
   currentModel: string
+  /**
+   * 模型通道标记(2026-11-12 立):`platform` = 平台直连模型,`pool` = 号池通道。
+   * 判据面只钉三件事:
+   * ① 默认 = platform —— 存量调用点不传第二参时必须零行为变化;
+   * ② 显式传 'pool' 才切号池通道,切回平台模型时复位 platform;
+   * ③ 通道进持久化白名单(刷新后仍知道上次选的是号池模型)。
+   * 不进 setModel 之外的任何写路径;发送时按此字段决定走哪条上行通道。
+   */
+  currentModelChannel: 'platform' | 'pool'
   isStreaming: boolean
   error: string | null
   /** 当前绑定的会话 ID；为 null 表示新会话尚未持久化 */
@@ -586,7 +595,14 @@ export interface ChatState {
   /** D01:设置对话内选中的专家(null = 切回默认;写 localStorage 'ihui_selected_agent_id') */
   setSelectedAgentId: (id: string | null) => void
 
-  setModel: (model: string) => void
+  /**
+   * 切换当前模型(2026-11-12 扩展:新增可选 `channel` 第二参)。
+   * - 不传 `channel`(存量调用点):回落 `'platform'`,通道一并复位 —— 号池能力
+   *   不改变存量默认路径,老调用点行为零变化。
+   * - 传 `'pool'`:模型与通道一起切到号池。
+   * - 从号池切回平台模型:调用方不传第二参 ⇒ 通道复位 platform,不残留 pool。
+   */
+  setModel: (model: string, channel?: 'platform' | 'pool') => void
   /** 添加单个工具到已选;已存在则忽略 */
   addSelectedTool: (pluginId: string) => void
   /** 从已选移除单个工具 */
@@ -1005,6 +1021,8 @@ const buildChatState: ChatStateCreator = (set, get) => ({
   // 体现"零配置即可用"理念,后端 llm_gateway 会自动选最优模型。
   // 历史:step-router-v1 是 Step 厂家路由(仅 Step 内部),违背"自动切换所有可用模型"语义。
   currentModel: 'auto',
+  /** 模型通道默认 platform(2026-11-12 立):号池能力上线后存量路径零行为变化 */
+  currentModelChannel: 'platform',
   isStreaming: false,
   error: null,
   conversationId: null,
@@ -1078,7 +1096,11 @@ const buildChatState: ChatStateCreator = (set, get) => ({
   // 历史:之前静默转 'auto' → 'stepfun/step-router-v1',导致 Auto 永远绑死 Step 厂家路由。
   // 修复:把 'auto' 原样透传到 ai-service,由后端 /llm/complete 解析为
   //       model_availability 返回的「全厂商最优模型」(见 apps/ai-service/llm_gateway.py)。
-  setModel: (model) => set({ currentModel: model }),
+  // 2026-11-12 扩展:补第二参 `channel`。不传 ⇒ 复位 'platform'(存量调用点行为不变);
+  // 传 'pool' ⇒ 模型与通道一起切到号池。从号池切回平台模型时,调用方不传第二参
+  // ⇒ 通道自然复位,不残留 'pool'。
+  setModel: (model, channel) =>
+    set({ currentModel: model, currentModelChannel: channel ?? 'platform' }),
   addSelectedTool: (pluginId) =>
     set((s) =>
       s.selectedTools.includes(pluginId) ? s : { selectedTools: [...s.selectedTools, pluginId] },
