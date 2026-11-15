@@ -191,6 +191,8 @@ import {
 import { reapWorktrees } from './lib/git-guardian-worktree-reap.mjs'
 // 自陈述版本的判定口径:本进程 import 闭包单源(§0.6 不在守护里再拼一份 import 解析)
 import { relativeImportClosure } from './lib/scratch-module-closure.mjs'
+import { auditDiskRootWatch } from './lib/disk-root-watch.mjs'
+import { startDiskRootLiveWatch } from './lib/disk-root-live-watch.mjs'
 // 回收站「到期清理」调度层(2026-11-05 立,goal-b49 W7 未竟 1):判据与执行全在端内
 // (apps/cli/src/tools/trash-prune-entry.ts + packages/shared/src/delete-guard/),
 // 本层只负责 24h 节流地派生它、读它那一行结论、并把「自动退休」这一档寄到人通道。
@@ -3096,6 +3098,39 @@ function trySelfHeal({
   } catch (e) {
     logger(`⚠️ 自愈层异常(忽略,回退报警):${String((e && e.message) || e).slice(0, 120)}`)
     return false
+  }
+}
+
+/**
+ * startDiskRootLiveWatch 的幂等包装(2026-11-15 严口径接线)。
+ * daemon 常驻进程每轮健康检查都会走到挂点行;fs.watch 句柄必须只挂一次,重复挂会:
+ *   ① 泄漏 watcher(旧句柄永不 close);② 同一条目被 N 个 watcher 重复 onStray 刷屏。
+ * 本守卫用模块级标志位保证全进程只 start 一次,后续调用零副作用。
+ * onStray 点名走 notifyGuardRed(人通道),严口径白名单外的盘根一级条目当场报。
+ */
+let __diskRootLiveWatchStarted = false
+function startDiskRootLiveWatchOnce({ notifyGuardRed: red = notifyGuardRed } = {}) {
+  if (__diskRootLiveWatchStarted) return
+  __diskRootLiveWatchStarted = true
+  try {
+    const started = startDiskRootLiveWatch({
+      onStray: (path, eventType) => {
+        // 严口径白名单外条目出现即点名。发现层不删不动(§26 清理归归属席)。
+        red(
+          '盘根外流实时监听',
+          `盘根一级出现非严口径白名单条目:${path}(事件 ${eventType})—— 已实时发现,请验明身份再决定。` +
+            `判据 = config/disk-root-allowlist.json 的 roots.liveWatch.allow(严口径节,只窄不宽)。` +
+            `本信不构成删除依据;新增合法落点须显式改配置并随 commit 审批。`,
+          { severity: 'warning', dedupKey: `disk-root-live-watch:${path}` },
+        )
+      },
+      logger: log,
+    })
+    if (started.watchers.length > 0) {
+      log(`✅ 盘根实时监听已挂(严口径):${started.watchers.map((w) => w.root).join(' · ')}`)
+    }
+  } catch (e) {
+    log(`⚠️ 盘根实时监听启动异常(不阻断主流程):${String((e && e.message) || e).slice(0, 160)}`)
   }
 }
 
@@ -14814,6 +14849,14 @@ async function main() {
     // 盘根卫生巡检(G 盘清理收口 2026-09-30):同一挂点语义 —— 健康轮次早退之前 + !CHECK_ONLY。
     beatRoundLock()
     if (!CHECK_ONLY) auditDiskRootHygiene()
+    // 盘根外流实时哨兵(2026-11-14 立,严口径 2026-11-15):轮询兜底点名 + 执法闸行为自证,
+    //   判据各归其源(卫生尺 / disk-root-acl.mjs),本腿只调度。10min 节流,挂 !CHECK_ONLY。
+    beatRoundLock()
+    if (!CHECK_ONLY) auditDiskRootWatch({ notifyGuardRed })
+    // 盘根外流毫秒级实时监听(严口径):fs.watch 一级挂盘根,白名单外条目一出现即点名;
+    //   幂等守卫防 daemon 每轮重复挂 watcher。同块内紧跟轮询哨兵。
+    beatRoundLock()
+    if (!CHECK_ONLY) startDiskRootLiveWatchOnce({ notifyGuardRed })
     // 开工前基线新鲜度:只报数的一层(③轴绝不进提交链,故这里既不判红也不喊人)。
     if (!CHECK_ONLY && legThrottle(BASELINE_FRESHNESS_TICK, 60 * 60 * 1000, Date.now(), log))
       beatRoundLock()

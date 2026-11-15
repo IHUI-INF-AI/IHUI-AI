@@ -23,6 +23,7 @@ import { spawn } from 'node:child_process'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { resolveTsxCli } from './lib/tsx-cli.mjs'
+import { unjudgedLogLine } from './lib/client-sync-verdict.mjs'
 
 const HERE = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.resolve(HERE, '..')
@@ -127,7 +128,9 @@ async function main(argv) {
   }
   const result = await runJudge(parsed.dryRun)
   if (result.error && !result.summary) {
-    process.stderr.write(`❌ 回灌未判定: ${result.error}\n`)
+    // 结构标记与尺子判据同源(scripts/lib/client-sync-verdict.mjs):客户端没开 ⇒ unjudged,
+    // 不再让尺子把「探测面取不到输入」读成连续故障(2026-11-15 误报根因)。
+    process.stderr.write(`${unjudgedLogLine(result.error)}\n`)
     return 2
   }
   const text = JSON.stringify(result.summary)

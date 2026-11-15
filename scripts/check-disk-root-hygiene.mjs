@@ -394,6 +394,16 @@ export function auditWorktreeRegistry(porcelainText, policy, derived) {
  *   · 失败语义保持不变:层抛 `Undetermined`(Error 子类),这里 catch 后仍返回 null,
  *     交 main() 落"未判定"那一维 —— 迁移不把"取不到"折叠成"没有违规"。 */
 const WORKTREE_GIT_TIMEOUT_MS = 60_000
+/**
+ * 判断 config.roots 的键是不是一块真正的盘根(`X:\` / `X:/` / POSIX `/`)。
+ * roots 下还有非盘根的元数据节(roots.liveWatch = 2026-11-15 严口径实时监听的 fs.watch
+ * 放行集),它们**不是一块盘** —— 若被当盘根扫,readdirSync('liveWatch') 会
+ * `object is not iterable` 崩掉整尺。提升到模块级:main() 过滤盘根清单、self-test 钉行为,
+ * 两处共用同一判据(§22c 单一真相源,不各抄一份正则)。
+ */
+export function isRootKey(k) {
+  return /^[A-Za-z]:[\\/]$/.test(k) || k === '/'
+}
 function currentWorktreePorcelain() {
   try {
     return gitRaw(['worktree', 'list', '--porcelain'], REPO_ROOT, { timeout: WORKTREE_GIT_TIMEOUT_MS })
@@ -668,6 +678,30 @@ export function selfTest() {
     assert(/\\$/.test(r ?? ''), '键必须与 config 里 "G:\\\\" 同形,否则本机盘根永远匹配不上声明')
   })
 
+  t('isRootKey 只认真盘根键,liveWatch 元数据节不认(2026-11-15 严口径回归锁)', () => {
+    // roots.liveWatch 是 fs.watch 放行集的元数据节,不是一块盘;若被 declaredRoots 误收,
+    // main() 会 readdirSync('liveWatch') 崩成 `object is not iterable`(实测 rc=2)。
+    assert(isRootKey('D:\\'), 'D:\\ 是盘根')
+    assert(isRootKey('C:/'), 'C:/ 是盘根(正斜杠收尾也认)')
+    assert(isRootKey('G:\\'), 'G:\\ 是盘根')
+    assert(isRootKey('/'), 'POSIX / 是盘根')
+    assert(!isRootKey('liveWatch'), 'liveWatch 是元数据节,不是盘根 ⇒ 必须被滤除')
+    assert(!isRootKey('contents'), 'contents 同理')
+    assert(!isRootKey('worktreePolicy'), 'worktreePolicy 同理')
+    // 真实 config 全量复核:roots 里被收进 declaredRoots 的必须全是盘根键
+    const conf = readJson(join(REPO_ROOT, 'config', 'disk-root-allowlist.json'))
+    const declared = Object.keys(conf?.roots ?? {}).filter(isRootKey)
+    const meta = Object.keys(conf?.roots ?? {}).filter((k) => !isRootKey(k))
+    assert(
+      declared.every((k) => /^[A-Za-z]:[\\/]$/.test(k) || k === '/'),
+      `declaredRoots 里混进了非盘根:${declared.join(', ')}`,
+    )
+    assert(
+      meta.includes('liveWatch'),
+      `config.roots 应含 liveWatch 元数据节且被滤出 declaredRoots(实滤出:${meta.join(', ')})`,
+    )
+  })
+
   console.log(cases.join('\n'))
   console.log(`\n自检:pass ${cases.filter((c) => c.includes('✅')).length} / fail ${cases.filter((c) => c.includes('❌')).length}`)
 }
@@ -682,7 +716,11 @@ async function main() {
   const json = !!argv.json
   const configPath = argv.config ? resolve(argv.config) : join(REPO_ROOT, 'config', 'disk-root-allowlist.json')
   const confAll = readJson(configPath)
-  const declaredRoots = Object.keys(confAll?.roots ?? {})
+  // 只认真正的盘根形态键(`X:\` 或 POSIX `/`),排除 roots 下非盘根的元数据节。
+  // roots.liveWatch(2026-11-15 严口径实时监听)是 fs.watch 放行集的独立节,不是一块盘 ——
+  // 若不滤掉,下方 readdirSync('liveWatch')/把它当 root 扫会 `object is not iterable` 崩掉整尺。
+  // 判据 = 模块级 export isRootKey(与 self-test 共用,不在此重抄正则)。
+  const declaredRoots = Object.keys(confAll?.roots ?? {}).filter(isRootKey)
   const here = currentDriveRoot()
   // 扫哪些盘根 = 配置声明的 ∪ 本机仓根所在盘。后者必须并进来,否则"这台机的盘根"
   // 这一维永远没人看(配置只有 G:\,而本仓在 D:\ 也有一份 checkout)。
