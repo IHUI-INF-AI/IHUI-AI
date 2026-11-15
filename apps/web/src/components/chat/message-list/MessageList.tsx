@@ -887,7 +887,7 @@ export function MessageList({
             ref={rulerRef}
             aria-hidden="true"
             data-testid="reading-ruler"
-            className="pointer-events-none fixed inset-x-0 top-0 z-30 h-14 border-y border-stroke-selected bg-primary/[0.04] opacity-0"
+            className="pointer-events-none fixed inset-x-0 top-0 z-30 h-14 border-y border-stroke-selected bg-primary/5 opacity-0"
           />
         ) : null}
         {/* D3(2026-09-18 立):跳顶 / 跳到最新浮动箭头。
