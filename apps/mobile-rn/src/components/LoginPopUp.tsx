@@ -345,7 +345,7 @@ export function LoginPopUp({
                         value={account}
                         onChangeText={setAccount}
                         placeholder={t('login.accountPlaceholder')}
-                        placeholderTextColor={tokens.text.tertiary}
+                        placeholderTextColor={tokens.text.secondary}
                         autoCapitalize="none"
                       />
                       <TextField
@@ -354,7 +354,7 @@ export function LoginPopUp({
                         value={password}
                         onChangeText={setPassword}
                         placeholder={t('login.passwordPlaceholder')}
-                        placeholderTextColor={tokens.text.tertiary}
+                        placeholderTextColor={tokens.text.secondary}
                         secureTextEntry
                       />
                       <Pressable
@@ -498,7 +498,7 @@ function ProfileForm({
   const showUpgrade = role === 'normal' || role === 'vip'
   const roleColor =
     role === 'vip'
-      ? tokens.success.DEFAULT
+      ? tokens.success.deep
       : role === 'trader'
         ? tokens.brandAccent.deep
         : tokens.text.secondary
@@ -536,7 +536,7 @@ function ProfileForm({
           value={nickname}
           onChangeText={handleNicknameChange}
           placeholder={t('lp.usernamePh')}
-          placeholderTextColor={tokens.text.tertiary}
+          placeholderTextColor={tokens.text.secondary}
           maxLength={20}
         />
       </View>
@@ -578,7 +578,7 @@ function ProfileForm({
           value={phone}
           onChangeText={handlePhoneChange}
           placeholder={t('lp.phonePh')}
-          placeholderTextColor={tokens.text.tertiary}
+          placeholderTextColor={tokens.text.secondary}
           maxLength={11}
           keyboardType="phone-pad"
         />

@@ -246,10 +246,7 @@ export function TeamKnowledgeScreen() {
                   await setKnowledgeItemStatus(item.id, { status })
                   if (selected) await loadItems(selected.id, kind)
                 } catch (e) {
-                  appAlert(
-                    t('common.failed'),
-                    toFriendlyOr(e, t('teamKnowledge.saveFailed')),
-                  )
+                  appAlert(t('common.failed'), toFriendlyOr(e, t('teamKnowledge.saveFailed')))
                 } finally {
                   setBusyId('')
                 }
@@ -283,7 +280,7 @@ export function TeamKnowledgeScreen() {
               value={teamId}
               onChangeText={setTeamId}
               placeholder={t('teamKnowledge.teamPlaceholder')}
-              placeholderTextColor={tokens.text.tertiary}
+              placeholderTextColor={tokens.text.secondary}
               autoCapitalize="none"
               autoCorrect={false}
               className="mr-2 h-9 flex-1 rounded-sm border border-neutral-300 px-3 text-sm text-neutral-900 dark:border-neutral-700 dark:text-neutral-100"
@@ -318,7 +315,7 @@ export function TeamKnowledgeScreen() {
               value={spaceName}
               onChangeText={setSpaceName}
               placeholder={t('teamKnowledge.spaceNamePlaceholder')}
-              placeholderTextColor={tokens.text.tertiary}
+              placeholderTextColor={tokens.text.secondary}
               className="mt-2 h-9 rounded-sm border border-neutral-300 px-3 text-sm text-neutral-900 dark:border-neutral-700 dark:text-neutral-100"
             />
             <View className="mt-2 flex-row items-center">
@@ -485,7 +482,7 @@ export function TeamKnowledgeScreen() {
                   value={itemTitle}
                   onChangeText={setItemTitle}
                   placeholder={t('teamKnowledge.titlePlaceholder')}
-                  placeholderTextColor={tokens.text.tertiary}
+                  placeholderTextColor={tokens.text.secondary}
                   className="h-9 rounded-sm border border-neutral-300 px-3 text-sm text-neutral-900 dark:border-neutral-700 dark:text-neutral-100"
                 />
                 <TextField
@@ -493,7 +490,7 @@ export function TeamKnowledgeScreen() {
                   value={itemText}
                   onChangeText={setItemText}
                   placeholder={t('teamKnowledge.contentPlaceholder')}
-                  placeholderTextColor={tokens.text.tertiary}
+                  placeholderTextColor={tokens.text.secondary}
                   multiline
                   className="mt-2 min-h-[72px] rounded-sm border border-neutral-300 px-3 py-2 text-sm text-neutral-900 dark:border-neutral-700 dark:text-neutral-100"
                 />

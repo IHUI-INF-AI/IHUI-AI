@@ -473,7 +473,7 @@ export function useToolApprovalQueue(): UseToolApprovalQueueResult {
                     value={reason}
                     onChangeText={setReason}
                     placeholder={t('editor.toolApproval.reasonPlaceholder')}
-                    placeholderTextColor={tokens.text.tertiary}
+                    placeholderTextColor={tokens.text.secondary}
                     style={styles.reasonInput}
                   />
                 </View>

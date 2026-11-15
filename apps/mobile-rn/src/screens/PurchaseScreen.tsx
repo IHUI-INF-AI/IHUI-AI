@@ -258,7 +258,7 @@ export default function PurchaseScreen() {
 
         {tab === 'subscribe' ? (
           subLoading ? (
-            <ActivityIndicator style={styles.stateBox} color={tokens.text.tertiary} />
+            <ActivityIndicator style={styles.stateBox} color={tokens.text.secondary} />
           ) : subFailed ? (
             <View style={styles.stateBox}>
               <Text style={styles.errorText}>{t('purchase.loadFailed')}</Text>
@@ -387,7 +387,7 @@ export default function PurchaseScreen() {
             </View>
 
             <View style={styles.noteBox}>
-              <Wallet size={14} color={tokens.text.tertiary} />
+              <Wallet size={14} color={tokens.text.secondary} />
               <Text style={styles.noteText}>{t('purchase.topupNote')}</Text>
             </View>
 

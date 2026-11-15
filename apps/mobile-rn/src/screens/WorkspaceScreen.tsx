@@ -152,10 +152,7 @@ export function WorkspaceScreen() {
         setFormOpen(false)
         await loadProjects()
       } catch (e) {
-        appAlert(
-          t('workspace.createFailed'),
-          toFriendlyOr(e, t('workspace.createFailed')),
-        )
+        appAlert(t('workspace.createFailed'), toFriendlyOr(e, t('workspace.createFailed')))
       } finally {
         setCreating(false)
       }
@@ -176,10 +173,7 @@ export function WorkspaceScreen() {
                 if (!res.success) throw new Error(res.error || t('workspace.deleteFailed'))
                 await loadProjects()
               } catch (e) {
-                appAlert(
-                  t('workspace.deleteFailed'),
-                  toFriendlyOr(e, t('workspace.deleteFailed')),
-                )
+                appAlert(t('workspace.deleteFailed'), toFriendlyOr(e, t('workspace.deleteFailed')))
               }
             })()
           },
@@ -366,7 +360,7 @@ export function WorkspaceScreen() {
                     value={name}
                     onChangeText={setName}
                     placeholder={t('workspace.namePlaceholder')}
-                    placeholderTextColor={tokens.text.tertiary}
+                    placeholderTextColor={tokens.text.secondary}
                     className="rounded-sm border border-neutral-200 px-3 py-2 text-sm text-neutral-900 dark:border-neutral-700 dark:text-neutral-100"
                   />
                   <TextField
@@ -376,7 +370,7 @@ export function WorkspaceScreen() {
                     multiline
                     numberOfLines={3}
                     placeholder={t('workspace.descriptionPlaceholder')}
-                    placeholderTextColor={tokens.text.tertiary}
+                    placeholderTextColor={tokens.text.secondary}
                     className="mt-2 rounded-sm border border-neutral-200 px-3 py-2 text-sm text-neutral-900 dark:border-neutral-700 dark:text-neutral-100"
                   />
                   <TouchableOpacity
@@ -455,7 +449,7 @@ export function WorkspaceScreen() {
                         })}
                       </Text>
                     </View>
-                    <ChevronRight size={16} color={tokens.text.tertiary} strokeWidth={2} />
+                    <ChevronRight size={16} color={tokens.text.secondary} strokeWidth={2} />
                   </TouchableOpacity>
                   <TouchableOpacity
                     onPress={() => onDeleteProject(item)}

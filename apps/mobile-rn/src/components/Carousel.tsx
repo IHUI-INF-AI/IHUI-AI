@@ -249,7 +249,9 @@ export default function Carousel({
                   </Text>
                 ) : null}
                 <Text style={styles.coursePrice}>
-                  {courseMeta[index].isFree ? '免费' : `¥${courseMeta[index].price ?? ''}`}
+                  {courseMeta[index].isFree
+                    ? tStatic('course.free')
+                    : `¥${courseMeta[index].price ?? ''}`}
                 </Text>
               </View>
             ) : null}

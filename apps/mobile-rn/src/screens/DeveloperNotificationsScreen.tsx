@@ -48,7 +48,7 @@ function DeveloperNotificationsScreen() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [t])
 
   useEffect(() => {
     void load()
@@ -67,10 +67,7 @@ function DeveloperNotificationsScreen() {
         if (!res.success) throw new Error(res.error)
       } catch (e) {
         setValues(values) // 回滚
-        void appAlert(
-          t('common.error'),
-          toFriendlyOr(e, t('developerNotifications.title')),
-        )
+        void appAlert(t('common.error'), toFriendlyOr(e, t('developerNotifications.title')))
       } finally {
         setPendingKey(null)
       }

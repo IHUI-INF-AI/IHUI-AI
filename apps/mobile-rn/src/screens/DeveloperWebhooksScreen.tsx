@@ -80,7 +80,7 @@ function DeveloperWebhooksScreen() {
         setLoading(false)
       }
     },
-    [toRows],
+    [toRows, t],
   )
 
   useEffect(() => {
@@ -103,10 +103,7 @@ function DeveloperWebhooksScreen() {
                 if (!res.success) throw new Error(res.error)
                 void load(1, false)
               } catch (e) {
-                void appAlert(
-                  t('common.error'),
-                  toFriendlyOr(e, t('developerWebhooks.delete')),
-                )
+                void appAlert(t('common.error'), toFriendlyOr(e, t('developerWebhooks.delete')))
               }
             },
           },

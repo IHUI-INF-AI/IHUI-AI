@@ -169,7 +169,7 @@ export default function AiWorldCreateScreen() {
               <ActivityIndicator
                 style={styles.categoriesLoading}
                 size="small"
-                color={tokens.text.tertiary}
+                color={tokens.text.secondary}
               />
             ) : categoriesError ? (
               <View style={styles.inlineError}>

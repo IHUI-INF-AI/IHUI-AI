@@ -37,6 +37,10 @@ vi.mock('@react-navigation/native', () => ({
 
 vi.mock('@ihui/ui-native', () => ({
   Card: (props: { children?: ReactNode }) => createElement('div', null, props.children),
+  // Tappable 由 packages/ui-native/src/index.ts:36 导出,OrderScreen 的依赖链用到它。
+  // mock 只给 Card 会让该引用在运行时抛 'No Tappable export is defined'。
+  Tappable: (props: { children?: ReactNode; onPress?: () => void }) =>
+    createElement('div', { onClick: props.onPress }, props.children),
 }))
 
 import { OrderScreen } from '../src/screens/OrderScreen'

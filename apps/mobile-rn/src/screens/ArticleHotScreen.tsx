@@ -93,7 +93,7 @@ export default function ArticleHotScreen() {
 
       {loading ? (
         <View style={styles.stateBox}>
-          <ActivityIndicator color={tokens.text.tertiary} />
+          <ActivityIndicator color={tokens.text.secondary} />
           <Text style={styles.muted}>{t('articleHot.loading')}</Text>
         </View>
       ) : error ? (
@@ -111,7 +111,7 @@ export default function ArticleHotScreen() {
         </View>
       ) : items.length === 0 ? (
         <View style={styles.stateBox}>
-          <Flame size={32} color={tokens.text.tertiary} />
+          <Flame size={32} color={tokens.text.secondary} />
           <Text style={styles.muted}>{t('articleHot.empty')}</Text>
           <TouchableOpacity
             style={styles.retryBtn}
@@ -128,7 +128,7 @@ export default function ArticleHotScreen() {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={() => void load(true)}
-              tintColor={tokens.text.tertiary}
+              tintColor={tokens.text.secondary}
             />
           }
         >
@@ -158,7 +158,7 @@ export default function ArticleHotScreen() {
                     {t('articleHot.publishedAt', { date: fmtDate(item.publishedAt) })}
                   </Text>
                   <View style={styles.viewMeta}>
-                    <Eye size={12} color={tokens.text.tertiary} />
+                    <Eye size={12} color={tokens.text.secondary} />
                     <Text style={styles.meta}>
                       {t('articleHot.viewCount', { count: item.viewCount })}
                     </Text>
@@ -175,7 +175,7 @@ export default function ArticleHotScreen() {
             </TouchableOpacity>
           ))}
           <View style={styles.footer}>
-            <Newspaper size={14} color={tokens.text.tertiary} />
+            <Newspaper size={14} color={tokens.text.secondary} />
             <Text style={styles.meta}>{t('articleHot.footer')}</Text>
           </View>
         </ScrollView>

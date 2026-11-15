@@ -275,10 +275,20 @@ export default function ImagePreviewModal({
           <View style={styles.row}>
             {multi ? (
               <>
-                <Tappable onPress={() => go(-1)} hitSlop={10} accessibilityRole="button">
+                <Tappable
+                  onPress={() => go(-1)}
+                  hitSlop={10}
+                  accessibilityRole="button"
+                  accessibilityLabel={t(`${ELEMENT_PACK_NAMESPACE}.imagePreview.prev`)}
+                >
                   <ChevronLeft size={26} color={HUD_COLOR} />
                 </Tappable>
-                <Tappable onPress={() => go(1)} hitSlop={10} accessibilityRole="button">
+                <Tappable
+                  onPress={() => go(1)}
+                  hitSlop={10}
+                  accessibilityRole="button"
+                  accessibilityLabel={t(`${ELEMENT_PACK_NAMESPACE}.imagePreview.next`)}
+                >
                   <ChevronRight size={26} color={HUD_COLOR} />
                 </Tappable>
               </>
@@ -287,6 +297,7 @@ export default function ImagePreviewModal({
               onPress={() => setZoom((z) => zoomStep(z, 'out'))}
               hitSlop={10}
               accessibilityRole="button"
+              accessibilityLabel={t(`${ELEMENT_PACK_NAMESPACE}.imagePreview.zoomOut`)}
             >
               <Minus size={22} color={HUD_COLOR} />
             </Tappable>
@@ -295,6 +306,7 @@ export default function ImagePreviewModal({
               onPress={() => setZoom((z) => zoomStep(z, 'in'))}
               hitSlop={10}
               accessibilityRole="button"
+              accessibilityLabel={t(`${ELEMENT_PACK_NAMESPACE}.imagePreview.zoomIn`)}
             >
               <Plus size={22} color={HUD_COLOR} />
             </Tappable>
@@ -304,6 +316,7 @@ export default function ImagePreviewModal({
                   onPress={() => void transfer('save')}
                   hitSlop={10}
                   accessibilityRole="button"
+                  accessibilityLabel={t(`${ELEMENT_PACK_NAMESPACE}.imagePreview.save`)}
                 >
                   <Download size={22} color={HUD_COLOR} />
                 </Tappable>
@@ -311,6 +324,7 @@ export default function ImagePreviewModal({
                   onPress={() => void transfer('copy')}
                   hitSlop={10}
                   accessibilityRole="button"
+                  accessibilityLabel={t(`${ELEMENT_PACK_NAMESPACE}.imagePreview.copy`)}
                 >
                   <Copy size={22} color={HUD_COLOR} />
                 </Tappable>

@@ -234,11 +234,11 @@ export function CircleIndexScreen() {
             ) : null}
             <View style={styles.actions}>
               <View style={styles.stat}>
-                <Heart size={13} color={tk.text.tertiary} />
+                <Heart size={13} color={tk.text.secondary} />
                 <Text style={styles.statNum}>{item.likes ?? 0}</Text>
               </View>
               <View style={styles.stat}>
-                <MessageCircle size={13} color={tk.text.tertiary} />
+                <MessageCircle size={13} color={tk.text.secondary} />
                 <Text style={styles.statNum}>{item.comments ?? 0}</Text>
               </View>
             </View>
@@ -359,7 +359,7 @@ export function CircleIndexScreen() {
             </Tappable>
           ) : (
             <View style={styles.center}>
-              <Inbox size={40} color={tk.text.tertiary} />
+              <Inbox size={40} color={tk.text.secondary} />
               <Text style={styles.stateText}>{t('circle.empty')}</Text>
               <Tappable
                 style={styles.emptyBtn}

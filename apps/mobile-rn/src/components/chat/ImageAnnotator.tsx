@@ -669,7 +669,7 @@ export function ImageAnnotator({ visible, imageUri, onCancel, onSave }: ImageAnn
                 value={textValue}
                 onChangeText={setTextValue}
                 placeholder={t('annot.markPh')}
-                placeholderTextColor={tokens.text.tertiary}
+                placeholderTextColor={tokens.text.secondary}
                 maxLength={MAX_TEXT_LENGTH}
                 autoFocus
                 onSubmitEditing={confirmPendingText}

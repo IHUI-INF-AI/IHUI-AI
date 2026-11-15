@@ -287,7 +287,7 @@ export default function BusinessCardEditScreen() {
 
       {loading ? (
         <View style={styles.stateBox}>
-          <ActivityIndicator color={tokens.text.tertiary} />
+          <ActivityIndicator color={tokens.text.secondary} />
           <Text style={styles.muted}>{t('businessCardEdit.loading')}</Text>
         </View>
       ) : loadError ? (

@@ -52,6 +52,7 @@ vi.mock('../src/context/ThemeContext', () => ({
 
 const t = (key: string) => key
 vi.mock('../src/i18n', () => ({
+  t: (key: string) => key,
   useI18n: () => ({ t }),
 }))
 

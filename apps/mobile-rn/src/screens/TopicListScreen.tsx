@@ -162,7 +162,7 @@ export function TopicListScreen() {
               <Text style={styles.meta}>{t('topic.list.posts', { n: item.count ?? 0 })}</Text>
             </View>
           </View>
-          <ChevronRight size={18} color={tk.text.tertiary} />
+          <ChevronRight size={18} color={tk.text.secondary} />
         </View>
       )}
     </Pressable>
@@ -191,14 +191,14 @@ export function TopicListScreen() {
         ListHeaderComponent={
           <View>
             <View style={styles.searchWrap}>
-              <Search size={16} color={tk.text.tertiary} />
+              <Search size={16} color={tk.text.secondary} />
               <TextField
                 colorScheme={resolvedTheme}
                 style={styles.searchInput}
                 value={searchText}
                 onChangeText={setSearchText}
                 placeholder={t('topic.list.searchPlaceholder')}
-                placeholderTextColor={tk.text.tertiary}
+                placeholderTextColor={tk.text.secondary}
                 returnKeyType="search"
                 onSubmitEditing={onSubmitSearch}
               />

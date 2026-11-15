@@ -184,12 +184,11 @@ export function useTaskReceiver(token: string | null): UseTaskReceiverReturn {
         if (cancelled || !r.success || !r.data) return
         const list = r.data.tasks ?? []
         if (list.length === 0) return
-        setTasks((prev) => {
-          const next = upsertIncremental(prev, list, deviceId, seenIds.current)
-          const maxTs = list.reduce((max, t) => Math.max(max, Date.parse(t.updatedAt) || 0), since)
-          if (maxTs > lastSeenTsRef.current) saveLastSeenTs(maxTs)
-          return next
-        })
+        // 副作用必须在 updater 外:并发渲染下 updater 可能重放,
+        // 内部推进 lastSeenTsRef 会把"新任务差量"重复吃掉(Safe Area 纪律)。
+        const maxTs = list.reduce((max, t) => Math.max(max, Date.parse(t.updatedAt) || 0), since)
+        if (maxTs > lastSeenTsRef.current) saveLastSeenTs(maxTs)
+        setTasks((prev) => upsertIncremental(prev, list, deviceId, seenIds.current))
       } catch {
         /* 忽略补拉任务错误 */
       }
@@ -218,6 +217,14 @@ export function useTaskReceiver(token: string | null): UseTaskReceiverReturn {
     const taskId = msg.taskId
     if (!taskId) return
 
+    // 持久化副作用移到 updater 之外(React 要求 updater 为纯函数,并发渲染下可能重放,
+    // 否则同一批 saveLastSeenTs 触发两次、lastSeenTsRef 重复推进丢「新任务」差量)。
+    // 所有 kind 分支统一在此取「本条消息的最新时间戳」一次:TaskDispatch 取 updatedAt,
+    // TaskResult 取 finishedAt;取不到(如 task-progress 无这两个字段)则 NaN 被下方守卫挡掉。
+    const payload = msg.payload as { updatedAt?: string; finishedAt?: string }
+    const msgTs = Date.parse(payload.updatedAt ?? payload.finishedAt ?? '')
+    if (Number.isFinite(msgTs) && msgTs > lastSeenTsRef.current) saveLastSeenTs(msgTs)
+
     setTasks((prev) => {
       if (kind === 'task-dispatch') {
         const task = msg.payload as TaskDispatch
@@ -230,14 +237,10 @@ export function useTaskReceiver(token: string | null): UseTaskReceiverReturn {
           const arr = Array.from(seenIds.current)
           seenIds.current = new Set(arr.slice(-100))
         }
-        const ts = Date.parse(task.updatedAt)
-        if (Number.isFinite(ts) && ts > lastSeenTsRef.current) saveLastSeenTs(ts)
         return [task, ...prev]
       }
       if (kind === 'task-cancelled') {
         const cancelledTask = msg.payload as TaskDispatch
-        const ts = Date.parse(cancelledTask.updatedAt)
-        if (Number.isFinite(ts) && ts > lastSeenTsRef.current) saveLastSeenTs(ts)
         return prev.map((x) =>
           x.id === taskId
             ? { ...x, status: 'cancelled' as const, updatedAt: cancelledTask.updatedAt }
@@ -250,18 +253,14 @@ export function useTaskReceiver(token: string | null): UseTaskReceiverReturn {
         const approvalTask = msg.payload as TaskDispatch
         if (!approvalTask.approval) return prev
         if (!delegationApprovalAudienceOf(approvalTask.approval).includes(deviceId)) return prev
-        const ats = Date.parse(approvalTask.updatedAt)
-        if (Number.isFinite(ats) && ats > lastSeenTsRef.current) saveLastSeenTs(ats)
         return prev.some((x) => x.id === approvalTask.id)
           ? prev.map((x) => (x.id === approvalTask.id ? approvalTask : x))
           : [approvalTask, ...prev]
       }
       const result = msg.payload as TaskResult
-      const ts = Date.parse(result.finishedAt)
-      if (Number.isFinite(ts) && ts > lastSeenTsRef.current) saveLastSeenTs(ts)
       return prev.map((x) => (x.id === taskId ? { ...x, status: result.status, result } : x))
     })
-  }, [lastMessage, deviceId, saveLastSeenTs])
+  }, [lastMessage, deviceId])
 
   /** 待我拍板的委派:票仍在 awaiting ∧ 本设备在 audience 内 */
   const pendingApprovals = useMemo(
@@ -282,7 +281,9 @@ export function useTaskReceiver(token: string | null): UseTaskReceiverReturn {
       if (!task?.approval) {
         return { ok: false, message: '该委派没有待审的票' }
       }
-      let r: Awaited<ReturnType<typeof fetchApi<{ task: TaskDispatch; verdict: string; reason: string }>>>
+      let r: Awaited<
+        ReturnType<typeof fetchApi<{ task: TaskDispatch; verdict: string; reason: string }>>
+      >
       try {
         r = await fetchApi<{ task: TaskDispatch; verdict: string; reason: string }>(
           `/tasks/${taskId}/approval`,

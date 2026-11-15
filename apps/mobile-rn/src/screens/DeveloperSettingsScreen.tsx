@@ -59,7 +59,7 @@ function DeveloperSettingsScreen() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [t])
 
   useEffect(() => {
     void load()
@@ -80,10 +80,7 @@ function DeveloperSettingsScreen() {
         setPrefs((p) => ({ ...p, [key]: next }))
       } catch (e) {
         setValues(prevValues)
-        void appAlert(
-          t('common.error'),
-          toFriendlyOr(e, t('developerSettings.title')),
-        )
+        void appAlert(t('common.error'), toFriendlyOr(e, t('developerSettings.title')))
       } finally {
         setPendingKey(null)
       }

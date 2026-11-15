@@ -2227,6 +2227,9 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-15**
+- 🐞 修正:API 层全量路径段补 encodeURIComponent(对齐 api-client 惯例) (b2ec9922eb)
+
+**2026-11-15**
 - 🐞 修正:修复 API 层路径编码缺失与响应解包空判 (b4057d9e5d)
 - 🔧 その他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (8ee1f8d48e)
 
@@ -2271,9 +2274,6 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 
 **2026-11-15**
 - 🐞 修正:useTaskReceiver register/answerApproval 包 try/catch 收敛 5xx/网络异常(T-02 P0) (8e0c889bf4)
-
-**2026-11-15**
-- 🐞 修正:实名验证弹层补关闭途径(T-01 P0) (4ce181f754)
 <!-- END RECENT UPDATES -->
 
 <p align="center">

@@ -74,6 +74,22 @@ describe('readSteerAppliedFromMetadata(D106 收尾:历史读回映射)', () => {
     }
   })
 
+  /**
+   * 2026-11-13 立:与小程序端逐字同形。
+   *
+   * 两端的同名函数 `readSteerAppliedFromMetadata` 原本有一处静默分叉:
+   * 小程序存 `rec.text.trim()`,本端存原文 ⇒ 同一条 metadata 在两个端渲染出的
+   * 引导文案差首尾空白。影响虽小,但"同一事实两端不同形"正是判据漂移的起点。
+   * 这条锁钉住 trim,回退即红。
+   */
+  it('text 首尾空白被裁掉(与小程序端 readSteerAppliedFromMetadata 逐字同形)', () => {
+    const out = readSteerAppliedFromMetadata([{ text: '  已注入引导  ' }])
+    expect(out).toHaveLength(1)
+    expect(out?.[0]?.text).toBe('已注入引导')
+    // 反向:纯空白帧整帧丢弃(两端一致)
+    expect(readSteerAppliedFromMetadata([{ text: '   ' }])).toBeUndefined()
+  })
+
   it(`超过 ${STEER_NOTICE_MAX_PER_MESSAGE} 条封顶(复用 appendSteerFrames 口径),只留前 8 条`, () => {
     const raw = Array.from({ length: STEER_NOTICE_MAX_PER_MESSAGE + 3 }, (_, i) => ({
       text: `引导 ${i}`,

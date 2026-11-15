@@ -194,13 +194,13 @@ function MaterialRow({
     ) : (
       <View style={[styles.thumb, styles.thumbPlaceholder]}>
         {item.type === 'audio' ? (
-          <Music size={22} color={tokens.text.tertiary} strokeWidth={1.5} />
+          <Music size={22} color={tokens.text.secondary} strokeWidth={1.5} />
         ) : item.type === 'video' ? (
-          <Video size={22} color={tokens.text.tertiary} strokeWidth={1.5} />
+          <Video size={22} color={tokens.text.secondary} strokeWidth={1.5} />
         ) : item.type === 'image' ? (
-          <ImageIcon size={22} color={tokens.text.tertiary} strokeWidth={1.5} />
+          <ImageIcon size={22} color={tokens.text.secondary} strokeWidth={1.5} />
         ) : (
-          <FileText size={22} color={tokens.text.tertiary} strokeWidth={1.5} />
+          <FileText size={22} color={tokens.text.secondary} strokeWidth={1.5} />
         )}
       </View>
     )
@@ -288,7 +288,7 @@ export default function MaterialList({
           >
             {({ pressed }) => (
               <View style={pressed ? styles.headerClosePressed : null}>
-                <X size={rnGeometry.glyphMd} color={tokens.text.tertiary} />
+                <X size={rnGeometry.glyphMd} color={tokens.text.secondary} />
               </View>
             )}
           </Pressable>
@@ -314,7 +314,7 @@ export default function MaterialList({
         ListEmptyComponent={
           !loading ? (
             <View style={styles.empty}>
-              <Library size={32} color={tokens.text.tertiary} strokeWidth={1.5} />
+              <Library size={32} color={tokens.text.secondary} strokeWidth={1.5} />
               <Text style={styles.emptyText}>{emptyText}</Text>
             </View>
           ) : null

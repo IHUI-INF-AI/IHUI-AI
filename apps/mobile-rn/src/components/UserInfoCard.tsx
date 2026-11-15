@@ -581,7 +581,7 @@ const newStyles = StyleSheet.create({
     paddingVertical: USER_INFO_CARD_ACTION_PADDING_Y_PX,
     borderRadius: rnRadius.sm,
     borderWidth: 1,
-    borderColor: tokens.text.tertiary,
+    borderColor: tokens.text.secondary,
   },
   unsubscribeText: {
     fontSize: USER_INFO_CARD_SMALL_FONT_PX,

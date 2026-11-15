@@ -498,7 +498,7 @@ const styles = StyleSheet.create({
   } as ViewStyle,
   cardTitle: {
     fontSize: rnType.title.size,
-    color: tokens.agentName.DEFAULT,
+    color: tokens.brandAccent.deep,
   } as TextStyle,
   cardDesc: {
     fontSize: rnType.label.size,
@@ -595,7 +595,7 @@ const styles = StyleSheet.create({
   } as TextStyle,
   promptConfirmText: {
     fontSize: rnType.label.size,
-    color: tokens.gray.black,
+    color: tokens.text.primary,
   } as TextStyle,
 })
 

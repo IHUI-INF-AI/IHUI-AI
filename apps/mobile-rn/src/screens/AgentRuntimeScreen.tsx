@@ -131,10 +131,7 @@ export function AgentRuntimeScreen() {
             [session.sessionId]: { status: String(res.status), count: res.messageCount },
           }))
         } catch (e) {
-          appAlert(
-            t('common.loadFailed'),
-            toFriendlyOr(e, t('agentRuntime.loadFailed')),
-          )
+          appAlert(t('common.loadFailed'), toFriendlyOr(e, t('agentRuntime.loadFailed')))
         }
       })()
     },
@@ -149,10 +146,7 @@ export function AgentRuntimeScreen() {
           await resumeAgentRuntimeSession(session.sessionId)
           await load()
         } catch (e) {
-          appAlert(
-            t('agentRuntime.actionFailed'),
-            toFriendlyOr(e, t('agentRuntime.actionFailed')),
-          )
+          appAlert(t('agentRuntime.actionFailed'), toFriendlyOr(e, t('agentRuntime.actionFailed')))
         } finally {
           setBusyKey('')
         }
@@ -209,10 +203,7 @@ export function AgentRuntimeScreen() {
           decision: String(res.decision),
         })
       } catch (e) {
-        appAlert(
-          t('agentRuntime.probeFailed'),
-          toFriendlyOr(e, t('agentRuntime.probeFailed')),
-        )
+        appAlert(t('agentRuntime.probeFailed'), toFriendlyOr(e, t('agentRuntime.probeFailed')))
       } finally {
         setProbing(false)
       }
@@ -239,7 +230,7 @@ export function AgentRuntimeScreen() {
             value={probeTool}
             onChangeText={setProbeTool}
             placeholder={t('agentRuntime.probeToolPlaceholder')}
-            placeholderTextColor={tokens.text.tertiary}
+            placeholderTextColor={tokens.text.secondary}
             className="rounded-sm border border-neutral-200 px-3 py-2 text-sm text-neutral-900 dark:border-neutral-700 dark:text-neutral-100"
           />
 

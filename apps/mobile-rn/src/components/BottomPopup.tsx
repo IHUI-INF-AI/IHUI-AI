@@ -190,7 +190,7 @@ export function BottomPopup({ visible, onClose, levels, onConfirm }: BottomPopup
                   pressed ? styles.confirmButtonPressed : null,
                 ]}
               >
-                <Text style={styles.confirmButtonText}>{tStatic('vipScreen.subscribe')}</Text>
+                <Text style={styles.confirmButtonText}>{t('vipScreen.subscribe')}</Text>
               </View>
             )}
           </Pressable>

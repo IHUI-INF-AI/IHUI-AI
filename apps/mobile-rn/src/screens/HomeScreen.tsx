@@ -1,6 +1,7 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+// i18n-content-exempt-file: 多语言常量数据定义(label/title/description等选项值,内容体系定为中文单语,产品决策2026-11-15)
 
 import { DIALOG_HEIGHT_RATIOS, adaptiveDialogContentHeight } from '../lib/dialog-geometry'
 import { useDialogHeightStyle, useDialogMaxHeightStyle } from '../lib/use-dialog-height'
@@ -1992,7 +1993,7 @@ export function HomeScreen() {
                 >
                   <Search
                     size={18}
-                    color={showModelSearch ? tokens.brand.cta : tokens.text.tertiary}
+                    color={showModelSearch ? tokens.brand.cta : tokens.text.secondary}
                   />
                 </Tappable>
                 <Tappable
@@ -2007,7 +2008,7 @@ export function HomeScreen() {
               {/* 搜索框:头部搜索图标开关控制展开/收起(收起即清词);非空时跨全部分类过滤 */}
               {showModelSearch ? (
                 <View style={[shellStyles.modelSearchBox, modelSearchFF.focusBorder]}>
-                  <Search size={16} color={tokens.text.tertiary} />
+                  <Search size={16} color={tokens.text.secondary} />
                   <TextInput
                     style={shellStyles.modelSearchInput}
                     value={modelSearch}
@@ -2015,7 +2016,7 @@ export function HomeScreen() {
                     onFocus={modelSearchFF.onFocus}
                     onBlur={modelSearchFF.onBlur}
                     placeholder={t('home.modelSearchPlaceholder')}
-                    placeholderTextColor={tokens.text.tertiary}
+                    placeholderTextColor={tokens.text.secondary}
                     returnKeyType="search"
                     clearButtonMode="while-editing"
                     accessibilityLabel={t('home.a11yModelSearchInput')}

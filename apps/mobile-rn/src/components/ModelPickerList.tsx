@@ -190,14 +190,14 @@ export default function ModelPickerList({
           {showArchive ? (
             <View style={styles.archiveWrap}>
               <View style={styles.searchRow}>
-                <Search size={16} color={tokens.text.tertiary} />
+                <Search size={16} color={tokens.text.secondary} />
                 <TextField
                   colorScheme={currentRnTheme()}
                   style={styles.searchInput}
                   value={keyword}
                   onChangeText={setKeyword}
                   placeholder={t('chat.modelHistorySearch')}
-                  placeholderTextColor={tokens.text.tertiary}
+                  placeholderTextColor={tokens.text.secondary}
                   autoCapitalize="none"
                   autoCorrect={false}
                   accessibilityLabel={t('chat.modelHistorySearch')}

@@ -88,7 +88,7 @@ function UserPublicScreen() {
     } finally {
       setLoading(false)
     }
-  }, [userId])
+  }, [userId, t])
 
   useEffect(() => {
     void load()
@@ -120,10 +120,7 @@ function UserPublicScreen() {
       if (!res.success || !res.data?.conversation?.id) throw new Error(res.error)
       navigation.navigate('Chat', { conversationId: res.data.conversation.id })
     } catch (e) {
-      void appAlert(
-        t('common.error'),
-        toFriendlyOr(e, t('user.public.sendMessage')),
-      )
+      void appAlert(t('common.error'), toFriendlyOr(e, t('user.public.sendMessage')))
     }
   }, [userId, navigation, t])
 

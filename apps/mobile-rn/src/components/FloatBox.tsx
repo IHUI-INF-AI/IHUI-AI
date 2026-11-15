@@ -1,6 +1,7 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+// i18n-content-exempt-file: 多语言常量数据定义(label/title/description等选项值,内容体系定为中文单语,产品决策2026-11-15)
 
 /**
  * FloatBox 悬浮消息提示框(mobile-rn 端) —— 统一对齐 web 端 sonner 观感(M4 单一源样式)。
@@ -86,9 +87,15 @@ export const RN_TOAST_SURFACES: Readonly<Record<FloatBoxType, { bg: string; fg: 
   // 已由 sync-rn-tokens 派生为 rnCssLight/rnCssDark 的同名键 —— 端内不再留第二份字面量。
   // 用 rnCssColor 而非直接 rnCssLight.x:后者在暗档会静默取亮值(本族明暗同值,
   // 但走同一入口才能让"档位单一真相"这条纪律在类型与运行时都成立)。
-  success: { bg: rnCssColor('light', 'toastSuccessBg'), fg: rnCssColor('light', 'toastForeground') },
+  success: {
+    bg: rnCssColor('light', 'toastSuccessBg'),
+    fg: rnCssColor('light', 'toastForeground'),
+  },
   error: { bg: rnCssColor('light', 'toastErrorBg'), fg: rnCssColor('light', 'toastForeground') },
-  warning: { bg: rnCssColor('light', 'toastWarningBg'), fg: rnCssColor('light', 'toastForeground') },
+  warning: {
+    bg: rnCssColor('light', 'toastWarningBg'),
+    fg: rnCssColor('light', 'toastForeground'),
+  },
   info: { bg: rnCssColor('light', 'toastInfoBg'), fg: rnCssColor('light', 'toastForeground') },
 }
 

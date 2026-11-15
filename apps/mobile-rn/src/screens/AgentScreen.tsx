@@ -730,7 +730,7 @@ export function AgentScreen() {
             activeOpacity={0.8}
           >
             <Text style={viewMode === 'shared' ? styles.tabTextActive : styles.tabText}>
-              {tStatic('chat.navAgent')}
+              {t('chat.navAgent')}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -739,7 +739,7 @@ export function AgentScreen() {
             activeOpacity={0.8}
           >
             <Text style={viewMode === 'local' ? styles.tabTextActive : styles.tabText}>
-              {tStatic('home.modelSelectTitle')}
+              {t('home.modelSelectTitle')}
             </Text>
           </TouchableOpacity>
         </View>

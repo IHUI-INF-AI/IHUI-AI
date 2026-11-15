@@ -15,6 +15,7 @@ vi.mock('../src/lib/carrier-one-click', () => ({
   CarrierOneClickError: class extends Error {},
 }))
 vi.mock('../src/i18n', () => ({
+  t: (key: string) => key,
   useI18n: () => ({ t: (key: string) => key }),
 }))
 // TextField 是共享输入框(单源),这里只替成受控 DOM input —— 判据在登录回调,不在它身上

@@ -147,9 +147,7 @@ export default function AskEditScreen() {
     setError('')
     try {
       const payload = { title, content, tags }
-      const res = editingId
-        ? await updateAsk(editingId, payload)
-        : await createAsk(payload)
+      const res = editingId ? await updateAsk(editingId, payload) : await createAsk(payload)
       if (!res.success) throw new Error(apiFailureToText(res, t('askEdit.saveFailed')))
       if (editingId) navigation.navigate('AskDetail', { id: editingId })
       else navigation.navigate('AskList')
@@ -171,7 +169,7 @@ export default function AskEditScreen() {
 
       {loading ? (
         <View style={styles.stateBox}>
-          <ActivityIndicator color={tokens.text.tertiary} />
+          <ActivityIndicator color={tokens.text.secondary} />
           <Text style={styles.muted}>{t('askEdit.loading')}</Text>
         </View>
       ) : loadError ? (

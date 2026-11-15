@@ -826,6 +826,23 @@ export default function Index() {
     }
   }, [])
 
+  // 两处 500ms 交互延时(自动选模型 / 分享弹窗事件)各用一个 ref,与下拉刷新同款:
+  // 分持句柄避免跨交互互相清旧而改变各自的 500ms 语义,起新前先停旧防叠加,卸载统一清理。
+  const autoSelectModelTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const sharePopupTriggerTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => {
+    return () => {
+      if (autoSelectModelTimerRef.current !== null) {
+        clearTimeout(autoSelectModelTimerRef.current)
+        autoSelectModelTimerRef.current = null
+      }
+      if (sharePopupTriggerTimerRef.current !== null) {
+        clearTimeout(sharePopupTriggerTimerRef.current)
+        sharePopupTriggerTimerRef.current = null
+      }
+    }
+  }, [])
+
   // 下拉刷新(对齐原项目 onPullDownRefresh)
   usePullDownRefresh(() => {
     // 重置分页并刷新数据
@@ -947,7 +964,12 @@ export default function Index() {
         }))
         // 自动选第一个模型(对齐原项目,从对应分类列表取第一个)
         // 2026-08-27:改取后端列表/已验证兜底第一个(id 与后端一致),不再用 MOCK_MODELS
-        setTimeout(() => {
+        // 自动选模型的 500ms 延时纳入 ref:起新前先停旧(不叠加),卸载时统一清理
+        if (autoSelectModelTimerRef.current !== null) {
+          clearTimeout(autoSelectModelTimerRef.current)
+        }
+        autoSelectModelTimerRef.current = setTimeout(() => {
+          autoSelectModelTimerRef.current = null
           setState((s) => {
             if (s.currentModelType !== type) return s // 用户已切换走,不自动选
             const firstModel = models[0] ?? FALLBACK_MODEL_ITEMS[0]
@@ -1486,7 +1508,12 @@ export default function Index() {
                     Taro.switchTab({
                       url: '/pages/user/index',
                       success: () => {
-                        setTimeout(() => {
+                        // 分享弹窗事件的 500ms 延时纳入 ref:起新前先停旧(不重复触发),卸载时统一清理
+                        if (sharePopupTriggerTimerRef.current !== null) {
+                          clearTimeout(sharePopupTriggerTimerRef.current)
+                        }
+                        sharePopupTriggerTimerRef.current = setTimeout(() => {
+                          sharePopupTriggerTimerRef.current = null
                           Taro.eventCenter.trigger('showImageSharePopup', { current: 0 })
                         }, 500)
                       },
@@ -1592,7 +1619,9 @@ export default function Index() {
                     t={(key: string) => t(key)}
                     item={msg as unknown as Parameters<typeof ChatMessageBubble>[0]['item']}
                     onCopyText={(text: string) => {
-                      void Taro.setClipboardData({ data: text }).catch(() => undefined)
+                      void Taro.setClipboardData({ data: text }).catch(() => {
+                        onToast(tt('ai.aiAssistant.copyFailed', '复制失败'), { kind: 'error' })
+                      })
                     }}
                   />
                 </View>

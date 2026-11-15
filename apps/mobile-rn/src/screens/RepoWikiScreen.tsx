@@ -137,10 +137,7 @@ export function RepoWikiScreen() {
                   setDetail('')
                 }
               } catch (e) {
-                appAlert(
-                  t('common.failed'),
-                  toFriendlyOr(e, t('repoWiki.loadFailed')),
-                )
+                appAlert(t('common.failed'), toFriendlyOr(e, t('repoWiki.loadFailed')))
               } finally {
                 setBusyId('')
               }
@@ -204,7 +201,7 @@ export function RepoWikiScreen() {
                 value={repoName}
                 onChangeText={setRepoName}
                 placeholder={t('repoWiki.repoNamePlaceholder')}
-                placeholderTextColor={tokens.text.tertiary}
+                placeholderTextColor={tokens.text.secondary}
                 autoCapitalize="none"
                 autoCorrect={false}
                 className="mr-2 h-9 flex-1 rounded-sm border border-neutral-300 px-3 text-sm text-neutral-900 dark:border-neutral-700 dark:text-neutral-100"

@@ -60,7 +60,9 @@ vi.mock('../src/context/AuthContext', () => ({
 }))
 vi.mock('../src/i18n', () => {
   const t = (key: string) => key
-  return { useI18n: () => ({ locale: 'zh-CN', t }) }
+  // 模块级 t:src/i18n/index.tsx:158 的具名导出,组件用 `import { t as tStatic }` 消费。
+  // 只给 useI18n 会让该引用抛 'No t export is defined'。
+  return { t, useI18n: () => ({ locale: 'zh-CN', t }) }
 })
 vi.mock('react-native-qrcode-svg', () => ({ default: () => null }))
 vi.mock('react-native-view-shot', () => ({ captureRef: vi.fn(async () => 'file://qr.png') }))
