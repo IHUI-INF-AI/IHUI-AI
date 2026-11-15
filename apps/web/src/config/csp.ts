@@ -95,7 +95,12 @@ export function buildCsp({ nonce, dev }: BuildCspOptions): string {
         // 浏览器真正会连的外部源只有 api.aizhs.top 的 https + wss(WS 换票与流式),
         // 其余(静态图/下载/媒体)都经同源 /api/* 代理;桌面壳另有 ipc.localhost(自定义协议)。
         // 与 apps/desktop/src-tauri/tauri.conf.json 的 CSP 同源同名单,改一处必须同改另一处。
-        "connect-src 'self' https://api.aizhs.top wss://api.aizhs.top http://ipc.localhost https://ipc.localhost",
+        // 2026-11-15 增补:浏览器 local 引擎连通性 —— 引擎模式为 local 时浏览器 fetch 直连
+        // 用户本机 ai-service,故生产档放行该**精确 host:port**(http://127.0.0.1:8803)。
+        // 只放本机 ai-service 的精确地址,绝不引入 `127.0.0.1:*` / `localhost:*` 端口通配
+        // —— 那等于开放用户机全部端口给 XSS 探测。守卫见 csp-connect-src-tight.test.ts:
+        // ① 只禁裸通配 token(https:/wss:/*),带具体主机的照旧允许 → 加精确地址不破守卫。
+        "connect-src 'self' https://api.aizhs.top wss://api.aizhs.top http://ipc.localhost https://ipc.localhost http://127.0.0.1:8803",
     // 2026-10-30 末已根治收紧:视频/音频全部走同源代理(<video src="/api/media/stream?url=…">,
     // 经 web rewrites 同源访问,浏览器自动带 httpOnly auth cookie),故不需要 https: 通配;
     // 后端复用下载代理的 SSRF 闸门并透传 Range(播放器可拖拽 seek)。blob: 保留 —— 下载按钮

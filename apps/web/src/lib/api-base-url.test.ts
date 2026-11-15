@@ -9,10 +9,12 @@ import {
   isRemoteWindow,
   isTauriRuntime,
   resolveAiServiceBaseUrl,
+  resolveAiServiceBaseUrlForEngineMode,
   resolveApiBaseUrl,
   resolveStreamApiBaseUrl,
   resolveWsApiBaseUrl,
 } from './api-base-url'
+import { setGlobalEngineMode } from '@ihui/shared'
 
 /**
  * 后端寻址契约测试(2026-09-21 立)。
@@ -224,6 +226,60 @@ describe('显式环境变量最高优先(桌面端 SaaS 烘焙)', () => {
     expect(resolveApiBaseUrl()).toBe('https://staging.example.com')
     expect(resolveStreamApiBaseUrl()).toBe('https://staging.example.com')
     expect(resolveWsApiBaseUrl()).toBe('https://ws.example.com')
+  })
+})
+
+describe('resolveAiServiceBaseUrlForEngineMode(引擎模式 → ai-service 基址,2026-11-15 第②片)', () => {
+  afterEach(() => {
+    setGlobalEngineMode('auto')
+  })
+
+  it('mode=auto 在桌面远端薄壳走同源(现状零回归)', () => {
+    setTauriRuntime(true)
+    setWindowLocation('https://aizhs.top/agents')
+    clearBakedEnv()
+    setGlobalEngineMode('auto')
+
+    expect(resolveAiServiceBaseUrlForEngineMode()).toBe('')
+    expect(resolveAiServiceBaseUrlForEngineMode()).not.toContain('8803')
+  })
+
+  it('mode=local 在桌面远端薄壳强制本机 8803(真减负:编排+工具跑用户机)', () => {
+    setTauriRuntime(true)
+    setWindowLocation('https://aizhs.top/agents')
+    clearBakedEnv()
+    setGlobalEngineMode('local')
+
+    expect(resolveAiServiceBaseUrlForEngineMode()).toBe('http://127.0.0.1:8803')
+  })
+
+  it('mode=cloud 在桌面本地壳强制同源(覆盖现状直连 8803,想用服务器大模型)', () => {
+    setTauriRuntime(true)
+    setWindowLocation('http://tauri.localhost/agents')
+    clearBakedEnv()
+    setGlobalEngineMode('cloud')
+
+    expect(resolveAiServiceBaseUrlForEngineMode()).toBe('')
+  })
+
+  it('mode=local 在浏览器端也返回本机 8803(基址按模式给,连通性由运行时定)', () => {
+    setTauriRuntime(false)
+    setWindowLocation('http://localhost:8801/agents')
+    clearBakedEnv()
+    setGlobalEngineMode('local')
+
+    // 本函数不判定浏览器能否连通本机 8803(CSP/CORS/跨站 cookie 可能让其不可用),
+    // 只按模式给出目标基址 —— 这是与 engine-mode-store「不判定连通性」一致的语义。
+    expect(resolveAiServiceBaseUrlForEngineMode()).toBe('http://127.0.0.1:8803')
+  })
+
+  it('NEXT_PUBLIC_AI_SERVICE_URL 显式非空时最高优先,覆盖 local 强制', () => {
+    setTauriRuntime(true)
+    setWindowLocation('https://aizhs.top/agents')
+    vi.stubEnv('NEXT_PUBLIC_AI_SERVICE_URL', 'https://ai-staging.example.com')
+    setGlobalEngineMode('local')
+
+    expect(resolveAiServiceBaseUrlForEngineMode()).toBe('https://ai-staging.example.com')
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

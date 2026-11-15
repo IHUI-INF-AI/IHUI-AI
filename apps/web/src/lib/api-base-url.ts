@@ -34,6 +34,15 @@
 /** 视为"本地开发 / 本地壳"的 hostname —— 命中才走本机 API */
 const LOCAL_HOSTNAMES = new Set(['localhost', '127.0.0.1', '::1', '[::1]', 'tauri.localhost'])
 
+// 2026-11-15:引擎模式工具走子路径直引,禁止从 @ihui/shared 桶导入 ——
+// 桶的 ./hooks / ./notifications 依赖 useState,被 Server Component
+// (ai-news/page.tsx、layout.tsx → api-base-url.ts)拉入会直接构建失败。
+import {
+  getGlobalEngineMode,
+  resolveEffectiveEngineLeg,
+  type EngineModeWindowContext,
+} from '@ihui/shared/stores/engine-mode-store'
+
 /** 本机 API(本地三端联调)。用 127.0.0.1 避免系统代理/PAC 影响 */
 const LOCAL_API_BASE = 'http://127.0.0.1:8802'
 
@@ -138,9 +147,11 @@ export function resolveApiBaseUrl(): string {
  *        · **中间件顺序**:CORS 在 main.py **最后** add_middleware ⇒ Starlette LIFO 下位于
  *          链最外层,所以鉴权失败的 401 短路响应仍能补上 CORS 头(实测即此路径);
  *          若把 CORS 挪到 JWTAuth/RateLimit 内侧,桌面端直连会退化成 "TypeError: Failed to fetch"。
- *        · **CSP**:apps/web/next.config.ts 的 connect-src 仅**开发模式**放行
- *          `http://localhost:*` 与 `http://127.0.0.1:*`;生产档不含本机地址。
- *          tauri.conf.json `csp: null`(不额外收口)。
+ *        · **CSP**:apps/web/next.config.ts 的 connect-src 开发模式放行
+ *          `http://localhost:*` 与 `http://127.0.0.1:*`;生产档 2026-11-15 起也放行
+ *          **精确地址** `http://127.0.0.1:8803`(引擎模式 local 时浏览器直连本机
+ *          ai-service 所需,见 csp.ts + csp-connect-src-tight.test.ts 断言④;
+ *          只放精确 host:port,不引入端口通配)。tauri.conf.json CSP 同步追加同一地址。
  *        · **跨站 cookie 不可用**:窗口 origin 是 `localhost:8801` 而目标是 `127.0.0.1:8803`
  *          —— 两个不同 registrable host = **跨站**,真 Chromium 实测 SameSite=Lax 的
  *          auth_token 不随该请求发出(服务器实收 `Cookie=(NONE)`)。所以这条路的身份**只靠
@@ -174,6 +185,34 @@ export function resolveAiServiceBaseUrl(): string {
     return LOCAL_AI_SERVICE_BASE
   }
   return ''
+}
+
+/**
+ * engineMode 感知的 ai-service 基址(2026-11-15 阶段 3 接线第 ② 片)。
+ *
+ * 与 resolveAiServiceBaseUrl 的区别:先按用户选的引擎模式解析成 local/cloud 腿,
+ * 再映射到具体基址:
+ *  - leg=local → 强制本机 8803(忽略远端薄壳/同源判定,编排+工具跑用户机 = 真减负);
+ *  - leg=cloud → 强制 ''(同源,经网关反代到服务器 ai-service);
+ *  - mode=auto → 原样走 resolveAiServiceBaseUrl()(现状,零回归)。
+ *
+ * 注意:浏览器(非 Tauri)强制 local 时,本函数仍返回本机 8803 —— 浏览器能否连通由
+ * 运行时决定(CSP 已于 2026-11-15 放行 127.0.0.1:8803;CORS 已配 allow_origins、
+ * 预检已实测 200;但浏览器端 local 仍可能因跨站 cookie 不可用而只走 Bearer 鉴权),
+ * 本函数只负责按模式给出目标基址,不判定连通性(与 engine-mode-store §不判定连通性 同语义)。
+ * env NEXT_PUBLIC_AI_SERVICE_URL 显式非空时仍最高优先(桌面 SaaS 烘焙场景优先级不变)。
+ */
+export function resolveAiServiceBaseUrlForEngineMode(): string {
+  const env = process.env.NEXT_PUBLIC_AI_SERVICE_URL
+  if (env) return env
+  if (typeof window === 'undefined') return ''
+  const leg = resolveEffectiveEngineLeg(getGlobalEngineMode(), {
+    isTauri: isTauriRuntime(),
+    isRemoteWindow: isRemoteWindow(),
+  } satisfies EngineModeWindowContext)
+  if (leg === 'local') return LOCAL_AI_SERVICE_BASE
+  if (leg === 'cloud') return ''
+  return resolveAiServiceBaseUrl()
 }
 
 /**
