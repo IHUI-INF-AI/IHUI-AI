@@ -77,6 +77,9 @@ pnpm doc:numbers                                      # 人读表(每个数旁�
 node scripts/gen-doc-numbers.mjs --markdown           # 重新生成下面这个块
 node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 ```
+**行尾与镜像面一致性**由 `scripts/check-line-endings.mjs`、`scripts/check-mirror-surface-parity.mjs` 判
+(均已接统一判面层,`--staged` 判索引面)。
+**容器描边角色系统**由 `scripts/check-border-system.mjs` 守门(8 角色单源、档位阶梯与聚焦契约)。
 对外关键数字声明(与本页生成块同源,均现算):**数据库表 · API 路由 · WebSocket 端点 ·
 大模型 · 平台自动发布 · 测试文件 · 工程守门 · CI workflows ·
 多语言 i18n parity · 9 个 app 包 · 16 共享包 · 15 Compose 服务**。
@@ -85,7 +88,7 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | ---- | ---- | ------ |
 | 数据库表 | 650 | `dbTables` |
 | schema 文件 | 252 | `dbSchemaFiles` |
-| API 路由 | 4813 | `apiRoutes` |
+| API 路由 | 4816 | `apiRoutes` |
 | 路由文件 | 698 | `apiRouteFiles` |
 | AI 服务路由 | 676 | `aiServiceRoutes` |
 | WebSocket 端点 | 43 | `wsEndpoints` |
@@ -98,13 +101,13 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 5415 | `testFiles` |
+| 测试文件 | 5426 | `testFiles` |
 | CI 工作流 | 59 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
 | 工程守门 | 372 | `guardianGates` |
 | — blocking | 338 | `guardianBlocking` |
 | — warn | 33 | `guardianWarn` |
-| 跟踪文件 | 21888 | `trackedFiles` |
+| 跟踪文件 | 21921 | `trackedFiles` |
 
 上表由 `node scripts/sync-readme-numbers.mjs`(唯一写入口,索引面取数)生成,最后核对日期 2026-11-15。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
@@ -223,12 +226,12 @@ Windows 一键启动(9 个启动脚本)、环境变量逐项说明、REST/WebSoc
 node scripts/guardian-runner.mjs --staged     # pre-commit 全批
 node scripts/check-gate-wiring.mjs            # 「门造好了但没装车」对账
 ```
-**行尾与镜像面一致性**由 `scripts/check-line-endings.mjs`、`scripts/check-mirror-surface-parity.mjs` 判
-(均已接统一判面层,`--staged` 判索引面)。
 新增一道门**必须**用 `node scripts/gate-registry-insert.mjs`(自己取空闲号、自己保住别人的注册块),
 **缺陷普查快照新鲜度**由 `check-findings-freshness` 判(八份 findings survey 快照的过期警告与基线一致性;过期即红)。守门全表、执行语义与补登台账见
 不得手填编号;并同步在 `AGENTS.md` 点名。守门全表、执行语义与补登台账见
 [`readme-06`](./docs/engineering/readme-06-security-observability-gates.md)。
+**接线同代与镜像面守门族**(注册与门体必须同枚入库):`scripts/check-line-endings.mjs`(行尾纪律:CRLF / LF / 孤立 CR 分判)、
+`scripts/check-mirror-surface-parity.mjs`(镜像面取值集合双向对账)、`scripts/check-border-system.mjs`(描边 8 角色单源,门 323)。
 **版本号漂移守门** `scripts/check-version-drift.mjs`(已接 `ci.yml`):判据不是"版本号是多少",
 而是**每个对外可见的版本号都必须可追溯到某个源头** —— A 桌面 `tauri.conf.json` 与
 `apps/desktop/package.json` 双写一致;B/C `apps/mobile-rn` 的原生 `versionName` 与界面

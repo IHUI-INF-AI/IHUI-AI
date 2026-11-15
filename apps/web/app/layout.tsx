@@ -24,6 +24,7 @@ import './globals.css'
 // 后者在 Tailwind v4 + pnpm 软链下生产构建无法解析)。
 import 'katex/dist/katex.min.css'
 import { ThemeProvider } from '@/providers/theme-provider'
+import { AppearanceProvider } from '@/providers/appearance-provider'
 import { QueryProvider } from '@/providers/query-provider'
 import { GlobalHooksProvider } from '@/providers/global-hooks-provider'
 import { I18nProvider } from '@/providers/i18n-provider'
@@ -576,11 +577,12 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           disableTransitionOnChange
           nonce={nonce}
         >
-          <I18nProvider>
-            <QueryProvider>
-              <TooltipProvider>
-                <GlobalHooksProvider>
-                  {/*
+          <AppearanceProvider>
+            <I18nProvider>
+              <QueryProvider>
+                <TooltipProvider>
+                  <GlobalHooksProvider>
+                    {/*
                     GlobalShell 提供真全局骨架:左侧 Sidebar + 内容槽 + 右侧 AISidePanel + PWA 提示。
                     所有路由组((main)/(marketing)/(auth)/sso/h5/forbidden)共享同一套全局组件,
                     符合"本项目所有内容都应包含在工作区"的全局设定(2026-07-19)。
@@ -591,31 +593,32 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                     以 key 重挂载内容树让全站金额就地重算 —— 不整页刷新,避免 CDN 对 HTML 的
                     300s 共享缓存把旧币种页面又发回来(实测切换后 reload 仍看到 CNY)。
                   */}
-                  <CurrencyRuntime
-                    initialCurrency={selectedDisplayCurrency}
-                    initialEffective={effectiveDisplayCurrency}
-                    initialRates={initialFxRates}
-                  >
-                    <GlobalShell>
-                      <MobileLoginGate>{children}</MobileLoginGate>
-                    </GlobalShell>
-                  </CurrencyRuntime>
-                  {/* output: 'export' 模式:useSearchParams() 必须包裹 Suspense */}
-                  <Suspense fallback={null}>
-                    <LoginRedirectListener />
-                  </Suspense>
-                  <LoginDialog />
-                  <ConfirmServiceHost />
-                </GlobalHooksProvider>
-              </TooltipProvider>
-            </QueryProvider>
-            <Toaster
-              position="top-center"
-              richColors
-              closeButton
-              style={{ zIndex: 'var(--z-notification)' }}
-            />
-          </I18nProvider>
+                    <CurrencyRuntime
+                      initialCurrency={selectedDisplayCurrency}
+                      initialEffective={effectiveDisplayCurrency}
+                      initialRates={initialFxRates}
+                    >
+                      <GlobalShell>
+                        <MobileLoginGate>{children}</MobileLoginGate>
+                      </GlobalShell>
+                    </CurrencyRuntime>
+                    {/* output: 'export' 模式:useSearchParams() 必须包裹 Suspense */}
+                    <Suspense fallback={null}>
+                      <LoginRedirectListener />
+                    </Suspense>
+                    <LoginDialog />
+                    <ConfirmServiceHost />
+                  </GlobalHooksProvider>
+                </TooltipProvider>
+              </QueryProvider>
+              <Toaster
+                position="top-center"
+                richColors
+                closeButton
+                style={{ zIndex: 'var(--z-notification)' }}
+              />
+            </I18nProvider>
+          </AppearanceProvider>
         </ThemeProvider>
         {/*
           Service Worker 注册(2026-10-16 根因修复)。

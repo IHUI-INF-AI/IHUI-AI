@@ -176,6 +176,43 @@ const settingsRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ success: true }))
   })
 
+  // ── 外观与排版云同步(2026-11-15 立)────────────────────────────────────────
+  // 单行 JSON 快照:全局配置 + 工作区覆盖 + 单条消息覆盖 + updatedAt。
+  // 冲突策略由前端按 updatedAt 比较(新者胜),服务端只做"整包原子读写"。
+  // 上限 512KB:足够 1000 条消息覆盖 + 全量配置,同时挡住恶意超长写入
+  // (value 是 text 列,不设界等于开放无界存储)。
+  const APPEARANCE_GROUP = USER_PREFERENCE_GROUPS.appearance
+  const APPEARANCE_KEY = 'state'
+  const APPEARANCE_STATE_MAX = 512_000
+
+  const appearanceBodySchema = z.object({
+    state: z.string().min(2).max(APPEARANCE_STATE_MAX),
+  })
+
+  server.get('/settings/appearance', async (request, reply) => {
+    const { list } = await findUserPreferences(request.userId!, APPEARANCE_GROUP)
+    const row = list.find((item) => item.key === APPEARANCE_KEY)
+    return reply.send(
+      success({
+        state: row?.value ?? null,
+        // 毫秒时间戳交给前端直接比较,避免时区/序列化差异
+        updatedAt: row?.updatedAt ? new Date(row.updatedAt).getTime() : null,
+      }),
+    )
+  })
+
+  server.put('/settings/appearance', async (request, reply) => {
+    const parsed = appearanceBodySchema.safeParse(request.body ?? {})
+    if (!parsed.success) return reply.status(400).send(error(400, '参数错误'))
+    await upsertUserPreference(request.userId!, APPEARANCE_GROUP, APPEARANCE_KEY, parsed.data.state)
+    return reply.send(success({ success: true }))
+  })
+
+  server.delete('/settings/appearance', async (request, reply) => {
+    await deleteUserPreferencesByGroup(request.userId!, APPEARANCE_GROUP)
+    return reply.send(success({ success: true }))
+  })
+
   // ── 侧边栏「自定义」栏(2026-10-16 立)────────────────────────────────────────
   // 用户自选的常用侧边栏功能键,有序。存 user_preferences 的独立 group 'sidebar',
   // 与 'preferences'(主题/语言/时区)分开:两者生命周期与消费方完全不同 ——

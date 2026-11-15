@@ -31,6 +31,8 @@
 @import '../src/styles/theme-presets.css';
 @import '../src/styles/glass.css';
 @import '../src/styles/premium.css';
+/* 颜色 token 的唯一定义处(@theme 亮档 + .dark 暗档):packages/design-tokens/src/styles/tokens.css。
+   此处只 import,不重复声明颜色,避免双源;新增色档改 tokens.css + token-registry.ts。 */
 @import '../../../packages/design-tokens/src/styles/tokens.css';
 @import '../../../packages/design-tokens/src/styles/base.css';
 
@@ -226,6 +228,41 @@
   unicode-range: U+0020-007F, U+00A0-00FF, U+0100-017F, U+0180-024F;
 }
 
+/* Lexend(阅读障碍友好字体,2026-11-15 v3 内置)
+ * 只带拉丁子集(3 档字重 ≈ 43KB):中文字面仍回退到 HarmonyOS/雅黑,
+ * 但「字距 + 行高」补偿对中英文同时生效。来源 @fontsource/lexend(OFL-1.1,
+ * 许可证随字体放在 public/fonts/Lexend-OFL.txt)。 */
+@font-face {
+  font-family: 'Lexend';
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  src: url('/fonts/Lexend-latin-400.woff2') format('woff2');
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Lexend';
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+  src: url('/fonts/Lexend-latin-500.woff2') format('woff2');
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Lexend';
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+  src: url('/fonts/Lexend-latin-600.woff2') format('woff2');
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
 /* @theme + vcenter 全局规则 + .dark 深色覆盖 已移至 packages/design-tokens/src/styles/tokens.css — 共享单一来源(2026-07-23 立) */
 
 /* 登录栏 hover 高亮(.login-scope 内 CSS 变量覆盖 + outline 按钮 hover 边框 + welcome 图浅/深切换)
@@ -381,80 +418,304 @@
   }
 }
 
-/* AI 对话 markdown 渲染样式 */
-.chat-markdown {
-  font-size: 0.875rem;
-  line-height: 1.6;
-  word-break: break-word;
+/* AI 对话 markdown 样式的唯一来源:
+ * 正文/代码字号、行高、字间距由 AppearanceProvider 写到 <html> 的
+ * --chat-font-scale / --chat-line-height / --chat-letter-spacing / --chat-code-font-size
+ * 驱动,渲染点在 components/ai/markdown-stream.tsx 的内联样式上。
+ * 2026-11-15:移除本文件里从未被任何组件引用的 .chat-markdown 死样式块
+ * (类名全仓零引用,却与真实 15px 正文形成两套口径)。
+ */
+
+/* ============================================================================
+ * 外观与排版偏好(2026-11-15 立)
+ *
+ * 变量由 AppearanceProvider 写到 <html>:
+ *   --chat-font-scale / --chat-line-height / --chat-letter-spacing
+ *   --chat-code-font-size / --chat-content-width / --chat-user-bubble-width
+ *   --chat-message-gap
+ * data-* 只承载"开关型"偏好,让 CSS 选择器单一处生效:
+ *   data-font-family / data-reduce-motion / data-high-contrast
+ *   data-link-underline / data-tabular-nums
+ *
+ * 字号表本身仍由 design-tokens 的 --text-* 派生(Provider 运行时按倍率覆盖),
+ * 本段不复制任何字号数值。
+ * ========================================================================== */
+
+html[data-font-family='serif'] {
+  --font-sans:
+    'Noto Serif SC', 'Source Han Serif SC', 'Songti SC', SimSun, Georgia, 'Times New Roman', serif;
+  --font-sans-sc: 'Noto Serif SC', 'Source Han Serif SC', 'Songti SC', SimSun, system-ui, serif;
 }
-.chat-markdown > :first-child {
-  margin-top: 0;
+
+html[data-font-family='mono'] {
+  --font-sans: ui-monospace, 'JetBrains Mono', 'Cascadia Code', Consolas, 'Courier New', monospace;
+  --font-sans-sc:
+    ui-monospace, 'JetBrains Mono', 'Cascadia Code', Consolas, 'Courier New', monospace;
 }
-.chat-markdown > :last-child {
-  margin-bottom: 0;
+
+html[data-tabular-nums='true'] body {
+  font-variant-numeric: tabular-nums;
 }
-.chat-markdown p {
-  margin: 0.5rem 0;
+
+html[data-reduce-motion='true'] *,
+html[data-reduce-motion='true'] *::before,
+html[data-reduce-motion='true'] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
 }
-.chat-markdown h1,
-.chat-markdown h2,
-.chat-markdown h3,
-.chat-markdown h4 {
-  margin: 1rem 0 0.5rem;
-  font-weight: 600;
-  line-height: 1.3;
+
+html[data-high-contrast='true'] {
+  --color-border: hsl(0 0% 55%);
+  --color-border-medium: hsl(0 0% 45%);
+  --color-input: hsl(0 0% 50%);
+  --color-stroke-subtle: rgba(0, 0, 0, 0.3);
+  --color-stroke-default: hsl(0 0% 55%);
+  --color-stroke-strong: hsl(0 0% 45%);
+  --color-stroke-field: hsl(0 0% 50%);
+  --color-stroke-inverse: rgba(255, 255, 255, 0.5);
+  --color-muted-foreground: hsl(0 0% 30%);
 }
-.chat-markdown h1 {
-  font-size: 1.25rem;
+
+html.dark[data-high-contrast='true'] {
+  --color-border: hsl(0 0% 55%);
+  --color-border-medium: hsl(0 0% 65%);
+  --color-input: hsl(0 0% 60%);
+  --color-stroke-subtle: rgba(255, 255, 255, 0.3);
+  --color-stroke-default: hsl(0 0% 55%);
+  --color-stroke-strong: hsl(0 0% 65%);
+  --color-stroke-field: hsl(0 0% 60%);
+  --color-stroke-inverse: rgba(0, 0, 0, 0.5);
+  --color-muted-foreground: hsl(0 0% 82%);
 }
-.chat-markdown h2 {
-  font-size: 1.15rem;
+
+html[data-link-underline='true'] a {
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
-.chat-markdown h3 {
-  font-size: 1.05rem;
+
+/* ---- v2:主色档(2026-11-15)---------------------------------------------
+ * store 只存枚举,颜色值全在这一段(亮/暗各一套),不产生第二套主题系统。
+ * 覆盖的 4 个变量都是既有语义 token:主色、主色前景、焦点环、品牌深色描边。
+ * ---------------------------------------------------------------------- */
+html[data-accent='blue'],
+[data-accent-preview='blue'] {
+  --color-primary: hsl(217 91% 45%);
+  --color-primary-foreground: hsl(0 0% 100%);
+  --color-primary-foreground-rgb: 255, 255, 255;
+  --color-ring: hsl(217 91% 60%);
+  --color-brand-accent-deep: hsl(217 91% 34%);
 }
-.chat-markdown ul,
-.chat-markdown ol {
-  margin: 0.5rem 0;
-  padding-left: 1.5rem;
+
+html.dark[data-accent='blue'],
+html.dark [data-accent-preview='blue'] {
+  --color-primary: hsl(213 94% 68%);
+  --color-primary-foreground: hsl(222 47% 11%);
+  --color-primary-foreground-rgb: 17, 24, 39;
+  --color-ring: hsl(213 94% 70%);
+  --color-brand-accent-deep: hsl(213 94% 80%);
 }
-.chat-markdown ul {
-  list-style: disc;
+
+html[data-accent='violet'],
+[data-accent-preview='violet'] {
+  --color-primary: hsl(262 83% 52%);
+  --color-primary-foreground: hsl(0 0% 100%);
+  --color-primary-foreground-rgb: 255, 255, 255;
+  --color-ring: hsl(262 83% 64%);
+  --color-brand-accent-deep: hsl(262 83% 40%);
 }
-.chat-markdown ol {
-  list-style: decimal;
+
+html.dark[data-accent='violet'],
+html.dark [data-accent-preview='violet'] {
+  --color-primary: hsl(258 90% 72%);
+  --color-primary-foreground: hsl(260 40% 12%);
+  --color-primary-foreground-rgb: 29, 20, 45;
+  --color-ring: hsl(258 90% 74%);
+  --color-brand-accent-deep: hsl(258 90% 82%);
 }
-.chat-markdown li {
-  margin: 0.25rem 0;
+
+html[data-accent='emerald'],
+[data-accent-preview='emerald'] {
+  --color-primary: hsl(160 84% 30%);
+  --color-primary-foreground: hsl(0 0% 100%);
+  --color-primary-foreground-rgb: 255, 255, 255;
+  --color-ring: hsl(160 84% 40%);
+  --color-brand-accent-deep: hsl(160 84% 22%);
 }
-.chat-markdown blockquote {
-  margin: 0.5rem 0;
-  padding-left: 0.75rem;
-  border-left: 3px solid var(--color-border);
-  color: var(--color-muted-foreground);
+
+html.dark[data-accent='emerald'],
+html.dark [data-accent-preview='emerald'] {
+  --color-primary: hsl(152 76% 62%);
+  --color-primary-foreground: hsl(160 60% 10%);
+  --color-primary-foreground-rgb: 10, 41, 32;
+  --color-ring: hsl(152 76% 64%);
+  --color-brand-accent-deep: hsl(152 76% 78%);
 }
-.chat-markdown pre {
-  margin: 0.5rem 0;
+
+html[data-accent='amber'],
+[data-accent-preview='amber'] {
+  --color-primary: hsl(32 95% 38%);
+  --color-primary-foreground: hsl(0 0% 100%);
+  --color-primary-foreground-rgb: 255, 255, 255;
+  --color-ring: hsl(32 95% 50%);
+  --color-brand-accent-deep: hsl(32 95% 28%);
 }
-.chat-markdown table {
-  width: 100%;
-  margin: 0.5rem 0;
-  border-collapse: collapse;
-  font-size: 0.8rem;
+
+html.dark[data-accent='amber'],
+html.dark [data-accent-preview='amber'] {
+  --color-primary: hsl(38 92% 62%);
+  --color-primary-foreground: hsl(30 50% 10%);
+  --color-primary-foreground-rgb: 38, 26, 13;
+  --color-ring: hsl(38 92% 64%);
+  --color-brand-accent-deep: hsl(38 92% 78%);
 }
-.chat-markdown th,
-.chat-markdown td {
-  border: 1px solid var(--color-border);
-  padding: 0.35rem 0.6rem;
-  text-align: left;
+
+html[data-accent='rose'],
+[data-accent-preview='rose'] {
+  --color-primary: hsl(347 77% 46%);
+  --color-primary-foreground: hsl(0 0% 100%);
+  --color-primary-foreground-rgb: 255, 255, 255;
+  --color-ring: hsl(347 77% 58%);
+  --color-brand-accent-deep: hsl(347 77% 34%);
 }
-.chat-markdown th {
-  background: var(--color-muted);
-  font-weight: 600;
+
+html.dark[data-accent='rose'],
+html.dark [data-accent-preview='rose'] {
+  --color-primary: hsl(350 89% 68%);
+  --color-primary-foreground: hsl(345 50% 10%);
+  --color-primary-foreground-rgb: 38, 13, 20;
+  --color-ring: hsl(350 89% 70%);
+  --color-brand-accent-deep: hsl(350 89% 80%);
 }
-.chat-markdown hr {
-  margin: 1rem 0;
-  border: none;
+
+/* ---- v3:全量自定义主题(2026-11-15)--------------------------------------
+ * Provider 把亮/暗两套色板写成 --custom-{mode}-* 内联变量;
+ * 这里只做「语义 token → 自定义色」的映射,切主题由 .dark 选择器完成。
+ * 放在 accent 段之后 ⇒ 自定义主题优先于预设主色。
+ * ---------------------------------------------------------------------- */
+html[data-custom-theme='true'] {
+  --color-primary: var(--custom-light-primary);
+  --color-primary-foreground: var(--custom-light-primary-foreground);
+  --color-primary-foreground-rgb: var(--custom-light-primary-foreground-rgb);
+  --color-brand-accent-deep: color-mix(in srgb, var(--custom-light-primary) 72%, black);
+  --color-ring: var(--custom-light-primary);
+  --color-background: var(--custom-light-background);
+  --color-foreground: var(--custom-light-foreground);
+  --color-card: var(--custom-light-card);
+  --color-card-foreground: var(--custom-light-foreground);
+  --color-popover: var(--custom-light-card);
+  --color-popover-foreground: var(--custom-light-foreground);
+  --color-muted: var(--custom-light-muted);
+  --color-muted-foreground: color-mix(
+    in srgb,
+    var(--custom-light-foreground) 55%,
+    var(--custom-light-muted)
+  );
+  --color-border: var(--custom-light-border);
+  --color-input: var(--custom-light-border);
+  --color-secondary: var(--custom-light-muted);
+  --color-secondary-foreground: var(--custom-light-foreground);
+  --color-accent: var(--custom-light-muted);
+  --color-accent-foreground: var(--custom-light-foreground);
+}
+
+html.dark[data-custom-theme='true'] {
+  --color-primary: var(--custom-dark-primary);
+  --color-primary-foreground: var(--custom-dark-primary-foreground);
+  --color-primary-foreground-rgb: var(--custom-dark-primary-foreground-rgb);
+  --color-brand-accent-deep: color-mix(in srgb, var(--custom-dark-primary) 72%, white);
+  --color-ring: var(--custom-dark-primary);
+  --color-background: var(--custom-dark-background);
+  --color-foreground: var(--custom-dark-foreground);
+  --color-card: var(--custom-dark-card);
+  --color-card-foreground: var(--custom-dark-foreground);
+  --color-popover: var(--custom-dark-card);
+  --color-popover-foreground: var(--custom-dark-foreground);
+  --color-muted: var(--custom-dark-muted);
+  --color-muted-foreground: color-mix(
+    in srgb,
+    var(--custom-dark-foreground) 55%,
+    var(--custom-dark-muted)
+  );
+  --color-border: var(--custom-dark-border);
+  --color-input: var(--custom-dark-border);
+  --color-secondary: var(--custom-dark-muted);
+  --color-secondary-foreground: var(--custom-dark-foreground);
+  --color-accent: var(--custom-dark-muted);
+  --color-accent-foreground: var(--custom-dark-foreground);
+}
+
+/* ---- v2:阅读辅助 --------------------------------------------------------
+ * 只作用于对话正文根节点,不污染全站排版。
+ * ---------------------------------------------------------------------- */
+html[data-paragraph-gap='true'] [data-testid='markdown-stream'] p {
+  margin-block: 0.6em;
+}
+
+html[data-first-line-indent='true'] [data-testid='markdown-stream'] p {
+  text-indent: 2em;
+}
+
+/* 对话正文对齐:只作用于段落与列表项,表格数字仍保持自身对齐。
+ * --message-* 是单条消息覆盖(MessageItem 写入),缺省回退到全局。 */
+[data-testid='markdown-stream'] p,
+[data-testid='markdown-stream'] li {
+  text-align: var(--message-text-align, var(--chat-text-align, left));
+}
+
+html[data-table-zebra='true'] [data-testid='markdown-stream'] tbody tr:nth-child(even) {
+  background: color-mix(in srgb, var(--color-muted) 55%, transparent);
+}
+
+/* 仿生阅读:首段加粗的 <b> 只提升字重,不引新字号 */
+[data-testid='markdown-stream'] b[data-bionic] {
+  font-weight: 700;
+}
+
+/* 键盘焦点环强化(仅在开关开启时接管 :focus-visible 外观) */
+html[data-focus-ring='true'] :focus-visible {
+  outline: 2px solid var(--color-ring);
+  outline-offset: 2px;
+}
+
+/* 全站灰度:作用在根元素,不影响组件自身的颜色变量计算 */
+html[data-grayscale='true'] {
+  filter: grayscale(1);
+}
+
+/* 色觉辅助:滤镜定义由 AppearanceProvider 内联挂在文档里。
+ * 放在灰度之后 ⇒ 同时开启时色觉辅助优先(无障碍场景更具体)。 */
+html[data-color-vision='protanopia'] {
+  filter: url(#ihui-cv-protanopia);
+}
+
+html[data-color-vision='deuteranopia'] {
+  filter: url(#ihui-cv-deuteranopia);
+}
+
+html[data-color-vision='tritanopia'] {
+  filter: url(#ihui-cv-tritanopia);
+}
+
+html[data-color-vision='achromatopsia'] {
+  filter: grayscale(1);
+}
+
+/* 阅读障碍友好:字体栈已由 Provider 覆盖,这里只加字距/行高的可读性补偿 */
+html[data-legibility-font='true'] {
+  word-spacing: 0.06em;
+}
+
+html[data-legibility-font='true'] [data-testid='markdown-stream'] p,
+html[data-legibility-font='true'] [data-testid='markdown-stream'] li {
+  line-height: calc(var(--message-line-height, var(--chat-line-height, 1.65)) + 0.15);
+  letter-spacing: 0.02em;
+}
+
+/* 输入框字号:基准仍取 --text-body(单源),1x 时数值与 text-body 完全一致 */
+.ai-input-shell textarea {
+  font-size: calc(var(--text-body) * var(--chat-input-scale, 1));
 }
 
 /* 自定义滚动条:无背景、无箭头、细滑块。用法:加到需要细滚动条的容器/textarea className */
@@ -697,7 +958,7 @@ iframe::-webkit-scrollbar {
  * 48px 扩散)也是手写字面量,绕过了唯一源 packages/design-tokens/src/elevation.ts。
  *
  * 现口径(全部取 token,禁止在本文件手写阴影数值):
- * - 描边:--color-stroke-strong(弹层/浮层档,亮 18% 黑 / 暗 22% 白),1px 实线;
+ * - 描边:--color-border-medium(中档描边档,亮 #d4d4d4 / 暗 #525252),1px 实线;
  *   必须写在本未分层规则里 —— 上方 `* { border-color: var(--color-border) }` 是未分层声明,
  *   Tailwind @layer utilities 的 border-* 会被它压掉(同 .ai-input-shell 头注里的实测结论)。
  * - 投影:--shadow-elevation-xl(源 tokens.css ELEVATION_CSS,sm/md/lg/xl 唯一档位表)。
@@ -705,15 +966,15 @@ iframe::-webkit-scrollbar {
  *   「悬停态」,层级反而失真。
  */
 .ai-float-glow {
-  border: 1px solid var(--color-stroke-strong);
+  border: 1px solid var(--color-border-medium);
   box-shadow: var(--shadow-elevation-xl);
 }
 
 /* 跳转到主内容链接:键盘用户可见,平时屏幕阅读器外隐藏 — 由 app/(main)/layout.tsx 中的 sr-only 元素承担 */
 
-/* 主内容区焦点可见(配合 skip link 使用),同取墨色聚焦档 */
+/* 主内容区焦点可见(配合 skip link 使用) */
 #main:focus-visible {
-  outline: 2px solid var(--color-stroke-focus);
+  outline: 2px solid var(--color-ring);
   outline-offset: -2px;
 }
 
@@ -736,11 +997,25 @@ iframe::-webkit-scrollbar {
 @media (prefers-contrast: high) {
   :root {
     --color-border: hsl(0 0% 0%);
+    --color-border-medium: hsl(0 0% 0%);
+    --color-input: hsl(0 0% 0%);
+    --color-stroke-subtle: rgba(0, 0, 0, 0.6);
+    --color-stroke-default: hsl(0 0% 0%);
+    --color-stroke-strong: hsl(0 0% 0%);
+    --color-stroke-field: hsl(0 0% 0%);
+    --color-stroke-inverse: rgba(255, 255, 255, 0.6);
     --color-foreground: hsl(0 0% 0%);
     --color-background: hsl(0 0% 100%);
   }
   .dark {
     --color-border: hsl(0 0% 100%);
+    --color-border-medium: hsl(0 0% 100%);
+    --color-input: hsl(0 0% 100%);
+    --color-stroke-subtle: rgba(255, 255, 255, 0.6);
+    --color-stroke-default: hsl(0 0% 100%);
+    --color-stroke-strong: hsl(0 0% 100%);
+    --color-stroke-field: hsl(0 0% 100%);
+    --color-stroke-inverse: rgba(0, 0, 0, 0.6);
     --color-foreground: hsl(0 0% 100%);
     --color-background: hsl(0 0% 0%);
   }
@@ -748,11 +1023,25 @@ iframe::-webkit-scrollbar {
 
 .high-contrast {
   --color-border: hsl(0 0% 0%);
+  --color-border-medium: hsl(0 0% 0%);
+  --color-input: hsl(0 0% 0%);
+  --color-stroke-subtle: rgba(0, 0, 0, 0.6);
+  --color-stroke-default: hsl(0 0% 0%);
+  --color-stroke-strong: hsl(0 0% 0%);
+  --color-stroke-field: hsl(0 0% 0%);
+  --color-stroke-inverse: rgba(255, 255, 255, 0.6);
   --color-foreground: hsl(0 0% 0%);
   --color-background: hsl(0 0% 100%);
 }
 :where(.dark.high-contrast) {
   --color-border: hsl(0 0% 100%);
+  --color-border-medium: hsl(0 0% 100%);
+  --color-input: hsl(0 0% 100%);
+  --color-stroke-subtle: rgba(255, 255, 255, 0.6);
+  --color-stroke-default: hsl(0 0% 100%);
+  --color-stroke-strong: hsl(0 0% 100%);
+  --color-stroke-field: hsl(0 0% 100%);
+  --color-stroke-inverse: rgba(0, 0, 0, 0.6);
   --color-foreground: hsl(0 0% 100%);
   --color-background: hsl(0 0% 0%);
 }
@@ -1945,5 +2234,25 @@ button[data-state='closed']:focus-visible {
    DropdownMenu / Popover 等可交互浮层。 */
 [data-radix-popper-content-wrapper]:has(> [data-ihui-tooltip]) {
   pointer-events: none;
+}
+
+/* 2026-11-15 机主定档:全站键盘聚焦态不再画外圈 ring(整块外框),改为与 hover 同源的
+   轻量颜色叠加 —— 只保留"这一点被选中"的区分。data-focus-ring='true' 的无障碍强化档不受影响。 */
+html:not([data-focus-ring='true'])
+  :is(
+    button,
+    a[href],
+    [role='button'],
+    [role='menuitem'],
+    [role='tab'],
+    [role='option'],
+    [role='switch']
+  ):focus-visible {
+  outline: none;
+  box-shadow: none;
+  background-image: linear-gradient(
+    color-mix(in srgb, currentColor 9%, transparent),
+    color-mix(in srgb, currentColor 9%, transparent)
+  );
 }
 /* ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ */
