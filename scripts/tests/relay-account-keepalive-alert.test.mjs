@@ -16,7 +16,10 @@ import { __test__ as k } from '../relay-account-keepalive.mjs'
 
 // 现场残留的非法字符样本:uid 形如 `auto:f15` ⇒ alertId 含半角冒号。
 const WIN_ILLEGAL_RE = /[<>:"/\\|?*\x00-\x1f]/
+// 2026-11-15 起 DOUBAO_DEAD 是「硬反例 / 可逆」样本(不再是判死码):712012001 只是 ttwid 票
+// 被错套成 sessionid 键名,改键名后判活通过(见 doubao-adapter.ts:220-225)⇒ 不得静默。
 const DOUBAO_DEAD = { providerCode: 'doubao', uid: 'auto:580', lastErrorMessage: 'status_code 712012001 登录校验不合法' }
+// 仍判死的样本(命中 http401-auth-rejected)—— 判死语义的正例改用它。
 const ZCODE_DEAD = { providerCode: 'zcode', uid: 'auto:cb6', lastErrorMessage: 'HTTP 401 鉴权失效' }
 
 // ── 缺陷①:投递口径与台账一致 ────────────────────────────────────────────────
@@ -107,25 +110,32 @@ test('② alertIdOf 逻辑身份保留冒号(只净化文件名,不改去重身�
 })
 
 // ── 缺陷③:判死码单一真相源 ──────────────────────────────────────────────────
-test('③ IRREVERSIBLE_VERDICTS:单一真相源冻结、4 条、id 唯一、每条都是正则', () => {
+test('③ IRREVERSIBLE_VERDICTS:单一真相源冻结、3 条、id 唯一/有序、每条都是正则', () => {
   assert.ok(Object.isFrozen(k.IRREVERSIBLE_VERDICTS), '判死码清单必须冻结,杜绝运行期漂移')
-  assert.equal(k.IRREVERSIBLE_VERDICTS.length, 4, 'CodeArts/Trae/豆包/HTTP401 四条一个不少')
+  assert.equal(k.IRREVERSIBLE_VERDICTS.length, 3, 'CodeArts/Trae/HTTP401 三条一个不少')
   const ids = k.IRREVERSIBLE_VERDICTS.map((v) => v.id)
-  assert.equal(new Set(ids).size, 4, 'id 不得重复')
+  assert.equal(new Set(ids).size, 3, 'id 不得重复')
+  // id 有序断言:清单现为 3 条,doubao-712012001 已移除(硬反例,见文件头注释)。
+  assert.deepEqual(ids, ['codearts-sts5.1806', 'trae-refresh-invalid', 'http401-auth-rejected'])
+  assert.ok(!ids.includes('doubao-712012001'), 'doubao-712012001 不得再进清单')
   for (const v of k.IRREVERSIBLE_VERDICTS) assert.ok(v.pattern instanceof RegExp)
 })
 
-test('③ irreversibleVerdictOf:四类上游判死码逐个命中(同形正例)', () => {
+test('③ irreversibleVerdictOf:三类上游判死码逐个命中(同形正例)+ doubao 硬反例不再判死', () => {
   const cases = [
     ['codearts-sts5.1806', { providerCode: 'codearts', lastErrorMessage: '刷新失败: STS5.1806 / invalid_grant' }],
     ['trae-refresh-invalid', { providerCode: 'trae', lastErrorMessage: '20101 refresh token is invalid (rt 已废)' }],
-    ['doubao-712012001', DOUBAO_DEAD],
     ['http401-auth-rejected', ZCODE_DEAD],
   ]
   for (const [id, row] of cases) {
     assert.equal(k.irreversibleVerdictOf(row), id, `${id} 必须命中`)
     assert.equal(k.isTerminalFailure(row), true, `${id} 必须判为 terminal`)
   }
+  // 反向牙(2026-11-15 移除 doubao-712012001):712012001 只是 ttwid 错套键名,不是账号死亡,
+  // 不得再被判死一刀切静默(硬反例见 doubao-adapter.ts:220-225)。
+  assert.equal(k.irreversibleVerdictOf(DOUBAO_DEAD), null, '712012001 不再判死')
+  assert.equal(k.isTerminalFailure(DOUBAO_DEAD), false)
+  assert.equal(k.alertPlanFor(DOUBAO_DEAD).verdict, 'reversible', '712012001 回到可逆语义')
   // 兼容 snake_case 字段(last_error_message 列名)。
   assert.equal(
     k.irreversibleVerdictOf({ last_error_message: 'STS5.1806' }),
@@ -146,6 +156,7 @@ test('③ 反向牙:可逆失败/普通故障绝不被判死(别一刀切把所�
     { lastErrorMessage: '' },
     {}, // 无字段
     { lastErrorMessage: null },
+    DOUBAO_DEAD, // 2026-11-15 新增牙:712012001 已移出判死清单 ⇒ 一律不静默(硬反例)
   ]
   for (const row of reversible) {
     assert.equal(k.irreversibleVerdictOf(row), null, `可逆失败被误判死: ${JSON.stringify(row)}`)
@@ -157,9 +168,9 @@ test('③ 反向牙:可逆失败/普通故障绝不被判死(别一刀切把所�
 
 // ── 缺陷③:判死命中跳过重试 / 可逆仍按 6h 解摘再试 ────────────────────────────
 test('③ alertPlanFor:判死且已通知 ⇒ 跳过本轮保活重试(skipThisRound/silent,不再 6h 撞上游)', () => {
-  const silent = k.alertPlanFor(DOUBAO_DEAD, { alreadyNotified: true })
+  const silent = k.alertPlanFor(ZCODE_DEAD, { alreadyNotified: true })
   assert.equal(silent.verdict, 'terminal')
-  assert.equal(silent.verdictId, 'doubao-712012001')
+  assert.equal(silent.verdictId, 'http401-auth-rejected')
   assert.equal(silent.skipThisRound, true, '命中判死码且已通知 ⇒ 本轮必须跳过')
   assert.equal(silent.mode, 'silent')
   assert.equal(silent.dedupeHours, null, '跳过即不再派发去重窗口')
@@ -168,7 +179,7 @@ test('③ alertPlanFor:判死且已通知 ⇒ 跳过本轮保活重试(skipThisR
 })
 
 test('③ alertPlanFor:判死首封 = 一次性通知(超长窗,不再每 24h 放行),可逆失败仍按 24h 重报', () => {
-  const once = k.alertPlanFor(DOUBAO_DEAD, { alreadyNotified: false })
+  const once = k.alertPlanFor(ZCODE_DEAD, { alreadyNotified: false })
   assert.equal(once.verdict, 'terminal')
   assert.equal(once.mode, 'once')
   assert.equal(once.skipThisRound, false, '首封仍要通知一次(一次性通知,不是直接静默)')
@@ -184,7 +195,7 @@ test('③ alertPlanFor:判死首封 = 一次性通知(超长窗,不再每 24h �
 
 test('③ 核心对照(证伪一刀切):可逆失败仍按 6h 解摘再试,判死才摘掉这条语义', () => {
   const rev = k.alertPlanFor({ lastErrorMessage: 'HTTP 500 抖动' })
-  const dead = k.alertPlanFor(DOUBAO_DEAD, { alreadyNotified: true })
+  const dead = k.alertPlanFor(ZCODE_DEAD, { alreadyNotified: true })
   // 正例:可逆失败完整保留既有语义 —— 6h 解摘再试 + 24h 重报。
   assert.equal(k.REVIVE_BACKOFF_HOURS, 6)
   assert.equal(k.ALERT_DEDUPE_HOURS, 24)

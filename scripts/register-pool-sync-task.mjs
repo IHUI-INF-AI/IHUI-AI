@@ -227,11 +227,18 @@ function ensureHiddenWrapper(nodeExe, arg, { write = true, label = 'sync', vbsPa
 // action 走 wscript + 隐藏包装(与 PowerShell 主路径一致),spec: { taskName, description,
 // trigger:{kind:'interval',minutes}|{kind:'daily',time}, startBoundaryExpr }
 function comRegisterScript(taskArg, spec) {
-  const trigInit =
-    spec.trigger.kind === 'daily'
-      ? `$trig.StartBoundary=${spec.startBoundaryExpr}
+  // COM 的 Triggers.Create(type):1 = TASK_TRIGGER_TIME(一次性时刻),2 = TASK_TRIGGER_DAILY。
+  // 2026-11-15 实测根因:原实现恒 Create(1),而 daily 分支却去设只有 DailyTrigger 才有的
+  // DaysInterval ⇒ PowerShell 抛 "The property 'DaysInterval' cannot be found on this object"
+  // ⇒ 主路径(PS7 无 ScheduledTasks 模块)失败后 COM 兜底也失败,本机重扫兜底任务
+  // IHUI-Pool-Local-Reextract 从来就没真正装上过(--query 恒报「未安装」)。
+  // 修法 = 按 trigger.kind 选对 COM 触发器类型;interval 分支仍用 TimeTrigger + Repetition。
+  const isDaily = spec.trigger.kind === 'daily'
+  const triggerType = isDaily ? 2 : 1
+  const trigInit = isDaily
+    ? `$trig.StartBoundary=${spec.startBoundaryExpr}
 $trig.DaysInterval=1`
-      : `$trig.StartBoundary=(Get-Date).AddMinutes(1).ToString('yyyy-MM-ddTHH:mm:ss')
+    : `$trig.StartBoundary=(Get-Date).AddMinutes(1).ToString('yyyy-MM-ddTHH:mm:ss')
 $trig.Repetition.Interval='PT${spec.trigger.minutes}M'
 $trig.Repetition.Duration='P3650D'
 $trig.Repetition.StopAtDurationEnd=$true`
@@ -242,7 +249,7 @@ $s.Connect()
 $root=$s.GetFolder('\\')
 $td=$s.NewTask(0)
 $td.RegistrationInfo.Description='${spec.description}'
-$trig=$td.Triggers.Create(1)
+$trig=$td.Triggers.Create(${triggerType})
 ${trigInit}
 $act=$td.Actions.Create(0)
 $act.Path=${psQuote(WSCRIPT_EXE)}
@@ -533,6 +540,7 @@ export const __test__ = {
   ensureHiddenWrapper,
   resolveStableNode,
   buildTaskArgument,
+  comRegisterScript,
   VBS_PATH,
   WSCRIPT_EXE,
 }

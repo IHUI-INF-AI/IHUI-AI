@@ -86,6 +86,11 @@ export function alertIdOf(row) {
 // §0.6 判据单源(2026-11-15 下沉):清单搬到 config/relay-irreversible-verdicts.json,
 // 本文件与 ts 侧(scheduler)都从这份语言无关数据编译 RegExp —— 正则字面量全仓只此一份。
 // Object.freeze(数组 + 每个元素) 与 pattern instanceof RegExp 的既有形态一字不动。
+// 清单现为 3 条(2026-11-15 移除 doubao-712012001):doubao-adapter.ts:220-225 有代码级硬
+// 反例 —— `712012001 登录校验不合法` 可能只是 ttwid 票被错套成 sessionid 键名,同一枚票
+// 改键名后 status_code=0 判活通过,根本不是账号死亡;且 doubao 的 isRefreshableProviderCode
+// 恒 false(空壳),移除后不会退回「拿死票空撞刷新」的循环。理由只写在两侧消费端注释与
+// 提交信息里,不进 config JSON(它是纯数据)。加载逻辑 / alertPlanFor 三分支 / 去重常量不动。
 const IRREVERSIBLE_VERDICTS_JSON = new URL(
   '../config/relay-irreversible-verdicts.json',
   import.meta.url,
