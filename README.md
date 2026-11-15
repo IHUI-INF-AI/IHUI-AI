@@ -101,8 +101,8 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | 测试文件 | 5411 | `testFiles` |
 | CI 工作流 | 59 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
-| 工程守门 | 370 | `guardianGates` |
-| — blocking | 336 | `guardianBlocking` |
+| 工程守门 | 371 | `guardianGates` |
+| — blocking | 337 | `guardianBlocking` |
 | — warn | 33 | `guardianWarn` |
 | 跟踪文件 | 21872 | `trackedFiles` |
 
