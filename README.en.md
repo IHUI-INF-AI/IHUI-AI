@@ -99,6 +99,9 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-15**
+- 🐞 Fix:修跨端交互/逻辑缺陷——pay applyCoupon 补 in-flight 守卫防并发改价、AppUpdateBanner 裸 setTimeout 补 cleanup 治卸载闪没、TagInput 可删列表改按 tag 值作 key 解耦下标、user 历史静默 catch 补失败 toast;ui-routes.generated.ts 按当前输入重生成对齐 (a3df780e70)
+
+**2026-11-15**
 - 📚 Docs:README 派生区按 fcee207727 新 HEAD 重算(钩子自动补登最近更新条目) (2b21dab8d8)
 
 **2026-11-15**

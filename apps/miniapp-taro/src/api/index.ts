@@ -18,7 +18,7 @@ import { formatDateByTemplate } from '@ihui/shared'
 // 本文件只透传类型;解析腿在 lib/tool-approval-frame.ts 的 parseAdmissionLine,
 // 那里调用共享 readSendAdmissionReceipt —— 端内不复制四档值域判据。
 import type { SendAdmissionReceipt } from '@ihui/shared/chat/send-admission'
-import type { MemoryUpdatesEvent } from '@ihui/api-client'
+import type { MemoryUpdatesEvent, HookFailureEvent } from '@ihui/api-client'
 // #12 小程序 AI 增强,D138(承 V4 #96)收口:传输层收敛到 src/lib/sse.ts 薄壳 +
 // @ihui/api-client 的 runResumableSSEStream(重连/退避/读超时/续传游标的唯一实现);
 // 仅本端保留读超时常量传参。
@@ -82,7 +82,12 @@ import type { GoalUpdateEvent } from '@ihui/api-client'
 // D136(2026-10-01 立,承 V4 #94/D84):高危工具审批(tool-approval)载荷类型同纪律。
 import type { ToolApprovalEvent } from '@ihui/api-client'
 // D136:tool-approval 帧的端内认领层(共享解析面不认领该帧族,见该文件头注)。
-import { parseToolApprovalLine, parseQuestionLine, parseAdmissionLine } from '@/lib/tool-approval-frame'
+import {
+  parseToolApprovalLine,
+  parseQuestionLine,
+  parseAdmissionLine,
+  parseHookFailureLine,
+} from '@/lib/tool-approval-frame'
 import {
   parseBudgetStopData,
   parseCompactBoundary,
@@ -99,6 +104,9 @@ import {
 // 留着旁路就是同一条帧两处认领 —— 共享面改了字段口径时端内这份会静默比它旧。
 // 投影层仍从该共享件取(与 web/RN 同一份判定),只是接线改由 dispatch 承接已认领的事件。
 import type { CompactBoundary, ContextLedger, FormRequestFramePayload } from '@ihui/shared'
+// D155(2026-11-13):告警记录的收敛形状。类型取自共享判据层(唯一真相源),
+// 端内不重定义一份 —— 两份就会在加字段时静默漂开。
+import type { StreamAlertRecord } from '@ihui/shared'
 import type { ChatMessage as BaseChatMessage } from '@ihui/shared'
 import type {
   PlanUpdateEvent,
@@ -407,6 +415,8 @@ export interface MiniappStreamOptions extends ChatOptions {
    *  服务端凭它回显准入回执并判 duplicate;同一轮重发须沿用同值。
    *  缺省 ⇒ 服务端结构上不发 admission 帧(与改造前逐字等价)。 */
   inputId?: string
+  /** 2026-11-13:会话模式(与 web extraBody.mode 同键)。通道在先,控件另票。 */
+  mode?: string
 }
 
 /**
@@ -474,6 +484,8 @@ export interface StreamEventCallbacks {
   /** 记忆更新交代(2026-11-13):本轮新增写入长期记忆的条目摘要。空数组 = 无新记忆。
    *  载荷复用 @ihui/api-client 的 MemoryUpdatesEvent,端内不重复定义。 */
   onMemoryUpdates?: (event: MemoryUpdatesEvent) => void
+  /** hook 执行失败交代(2026-11-13):六态判据在共享层,端内只取词与上屏 */
+  onHookFailure?: (event: HookFailureEvent) => void
   /**
    * D152(2026-09-29 立,拍板「服务化,但存会话元数据、不建新表」):会话目标(goal)的服务端
    * 主副本变了 ⇒ 一帧 `goal_updated`。载荷复用 @ihui/api-client 的 GoalUpdateEvent。
@@ -516,6 +528,18 @@ export interface StreamEventCallbacks {
     selectedOptionIds: string[]
     customText?: string
   }) => void
+  /**
+   * D155(2026-11-13 收编):下行告警三档(config-warning / deprecation-notice /
+   * guardian-warning)。
+   *
+   * 载荷由共享解析层认领并收敛(`@ihui/shared` 的 `chat/stream-alerts.ts`:
+   * severity 归一 + 专属可选字段逐字段收窄),本层只透传、不另判 —— 三端若各判一遍,
+   * 漂开的表现是"同一个帧在有的端显示、有的端不显示"。
+   *
+   * **不注册就不显示**:后端已在 llm.py 流首产 deprecation-notice(厂商下发
+   * `deprecation_date` 且进入提醒窗口时),本回调是让那条帧真的到用户眼前的唯一出口。
+   */
+  onStreamAlert?: (evt: StreamAlertRecord) => void
   /**
    * D77(2026-10-17 落地小程序腿):对话流业务表单请求帧(form_request)。
    * 载荷由本文件 streamSSE 的 onRawLine 旁路经 parseFormRequestLine 认领解析
@@ -682,6 +706,15 @@ export const chatStream = async (
       case 'question-resolved':
         if (evt.questionResolved) callbacks?.onQuestionResolved?.(evt.questionResolved)
         break
+      // D155 下行告警三档(2026-11-13 收编):共享 sse-parse 已认领三帧并把载荷收敛成
+      // `evt.streamAlert`(severity 归一 + 专属可选字段逐字段收窄,判据在
+      // @ihui/shared 的 chat/stream-alerts.ts,端内不复算)。此前后端零生产点、
+      // 共享解析面也不认领 ⇒ 即使产帧本端也收不到,静默丢弃。
+      case 'config-warning':
+      case 'deprecation-notice':
+      case 'guardian-warning':
+        if (evt.streamAlert) callbacks?.onStreamAlert?.(evt.streamAlert)
+        break
       case 'done':
         onDone?.({
           totalTokens: evt.usage?.totalTokens,
@@ -830,6 +863,11 @@ export const chatStream = async (
     workspaceContext: options.workspaceContext,
     agentTools,
     plan_mode: options.plan_mode,
+    // 2026-11-13:ChatMode 5 态(ask/build/plan/review/spec)的会话模式。
+    // 与 web 的 extraBody.mode 同一个键(ai-service `_resolve_chat_mode` 读它);
+    // `plan_mode` 是 2026-07-28 已废弃的旧字段,语义已合并到 mode,这里不复活它。
+    // undefined 时 JSON.stringify 省略该键 ⇒ 旧调用方零行为变化。
+    mode: options.mode,
     // D130(2026-09-30 立):推理强度档位。键名按**网关** chatStreamSchema 的 camel 拼写发
     // (与本 body 里 plan_mode/tool_choice 的 snake 不同形,是网关 schema 就长这样的两套:
     // 网关只对 permissionMode/reasoningEffort 用 camel,转发行再改 snake 给 ai-service)。
@@ -877,6 +915,13 @@ export const chatStream = async (
       const admission = parseAdmissionLine(line)
       if (admission && callbacks && typeof callbacks.onSendAdmissionReceipt === 'function') {
         callbacks.onSendAdmissionReceipt(admission)
+      }
+      // G-87(2026-11-13):hook-failed 帧认领。共享 sse-parse 不认领该帧族
+      // ⇒ 不走旁路就一路静默丢弃(与 tool-approval / admission 同一条先例)。
+      // 载荷形状由共享层 readHookFailureEvent 收窄,本层只透传。
+      const hookFailure = parseHookFailureLine(line)
+      if (hookFailure && callbacks && typeof callbacks.onHookFailure === 'function') {
+        callbacks.onHookFailure(hookFailure as never)
       }
       // 批次 3:共享解析面只折 usage/compaction 的旧字段,七类账本与压缩边界
       // 会在那一层被静默丢掉 ⇒ 这两维在本端旁路认领(形状不认即丢弃,不猜不补)。
@@ -1054,13 +1099,18 @@ export const getIntegral = (params?: { page?: number; pageSize?: number }) =>
     }>
     total: number
   }>('/api/points/transactions', params).then((r) => ({
-    list: (r.list ?? []).map((row) => ({
-      id: row.id,
-      type: row.description ?? row.source,
-      amount: row.type === 'spend' ? -Math.abs(row.amount) : row.amount,
-      time: formatDateByTemplate(row.createdAt, 'YYYY-MM-DD HH:mm:ss'),
-    })),
-    total: r.total,
+    list: (r.list ?? []).map((row) => {
+      // 先统一强转再取负:负分支经 Math.abs 强转 number、正分支原样透传会让同字段类型漂移
+      // (string 时下游算术变拼接);total 缺席透传 undefined,下游算术会 NaN。
+      const amt = Number(row.amount ?? 0)
+      return {
+        id: row.id,
+        type: row.description ?? row.source,
+        amount: row.type === 'spend' ? -Math.abs(amt) : amt,
+        time: formatDateByTemplate(row.createdAt, 'YYYY-MM-DD HH:mm:ss'),
+      }
+    }),
+    total: r.total ?? 0,
   }))
 export const getCouponList = (params?: { status?: string }) =>
   get<{
@@ -1133,10 +1183,14 @@ export const claimAvailableCoupon = (couponId: string) =>
 
 export const getPayResult = async (orderNo: string) => {
   const res = await get<{ order: { status: string; amount: number } }>(`/payment/orders/${orderNo}`)
-  const raw = res.order.status
+  // 订单未落库/查询无果/网关异常时后端可能回 {order:null},直接 res.order.status 会抛 TypeError
+  // 让支付结果页整页报错;order 缺席时降级为 pending 由订单页按服务端刷新,而非崩溃。
+  const order = res?.order
+  if (!order) return { status: 'pending' as const, amount: 0 }
+  const raw = order.status
   const status: 'pending' | 'paid' | 'failed' =
     raw === 'paid' ? 'paid' : raw === 'pending' ? 'pending' : 'failed'
-  return { status, amount: res.order.amount }
+  return { status, amount: order.amount ?? 0 }
 }
 /**
  * 订单详情 — 对接后端 GET /orders/:orderNo(支持 orderNo 或 UUID id 查询)。
@@ -1246,7 +1300,8 @@ export const getDistributionRank = () =>
       id: r.userId ?? '',
       nickname: r.nickname ?? '',
       avatar: r.avatar ?? undefined,
-      commission: Number(r.totalCommission),
+      // totalCommission 缺席时 Number(undefined)=NaN 会透传排行榜;兜底 0 对齐同文件归一口径
+      commission: Number(r.totalCommission ?? 0),
     })),
   }))
 
@@ -1307,7 +1362,8 @@ export interface Circle {
 export const getCircleList = (params?: { page?: number; pageSize?: number }) =>
   get<{ list: Circle[]; total: number }>('/circles', params)
 export const getCircleDetail = (id: string | number) =>
-  get<{ circle: Circle }>(`/circles/${id}`).then((r) => r.circle)
+  // 数据缺失时显式回 null(逼调用方处理)而非伪装成 undefined 的正常返回,崩溃点后移到页面层
+  get<{ circle: Circle }>(`/circles/${id}`).then((r) => r?.circle ?? null)
 export const createCircle = (data: { title: string; content: string; images?: string[] }) =>
   post('/circles', data)
 
@@ -1324,7 +1380,8 @@ export interface Ask {
 export const getAskList = (params?: { page?: number; pageSize?: number; keyword?: string }) =>
   get<{ list: Ask[]; total: number }>('/asks', params)
 export const getAskDetail = (id: string | number) =>
-  get<{ ask: Ask }>(`/asks/${id}`).then((r) => r.ask)
+  // 数据缺失时显式回 null(逼调用方处理)而非伪装成 undefined 的正常返回
+  get<{ ask: Ask }>(`/asks/${id}`).then((r) => r?.ask ?? null)
 // POST /asks 的同名薄封装已退役:唯一消费方 apps/miniapp-taro/src/pages/ask/create.tsx 改打
 // @ihui/api-client 的 createAsk(endpoints/community.ts),与 web 的 asks/edit 页、RN 的
 // AskCreateScreen 同一份端点真相源(§3 共享层优先:端内不得留第二份同名封装)。
@@ -1470,7 +1527,7 @@ export const getExamSignup = (id: string) =>
     `/api/legacy/exam/signups/${encodeURIComponent(id)}`,
   )
 export const cancelExamSignup = (id: string) =>
-  del<{ deleted: boolean }>(`/api/legacy/exam/signups/${id}`)
+  del<{ deleted: boolean }>(`/api/legacy/exam/signups/${encodeURIComponent(id)}`)
 export const checkExamSignup = (params: { examId: string; userId: string }) =>
   get<{ signed: boolean; signup: { id: string } | null }>('/api/legacy/exam/signups/check', params)
 export const getExamRecommend = () => get<{ list: Exam[] }>('/api/legacy/exam/recommend')
