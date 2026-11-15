@@ -53,6 +53,7 @@ import {
   useLiveElapsed,
   type StreamStatus,
 } from '@/components/chat/stream/stream-ui'
+import { JsonCode } from '@/components/chat/stream/json-code'
 import { InlineDiffCard } from './inline-diff-card'
 import { ToolDiffJumpButton } from './open-tool-diff'
 // 2026-10-21 首屏瘦身:走**子路径**而不是 @/components/media 的 barrel。
@@ -421,7 +422,7 @@ function ArtifactPathCard({
       <p className="mb-0.5 text-[10px] font-medium text-muted-foreground/70">
         {t('chartGenerated')}
       </p>
-      <div className="rounded-sm border border-stroke-subtle bg-muted/30 p-2">
+      <div className="rounded-sm border border-border/40 bg-muted/30 p-2">
         <div className="flex items-center justify-between gap-2">
           <span className="flex min-w-0 items-center gap-1.5 text-[10px] font-medium text-foreground/80">
             <BarChart3 className="h-3.5 w-3.5 shrink-0 text-primary" />
@@ -431,7 +432,7 @@ function ArtifactPathCard({
             type="button"
             onClick={() => void copy(filePath)}
             data-testid="tool-call-copy-path"
-            className="inline-flex shrink-0 items-center gap-1 rounded-sm border border-stroke-subtle bg-background/80 px-1.5 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"
+            className="inline-flex shrink-0 items-center gap-1 rounded-sm border border-border/40 bg-background/80 px-1.5 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"
           >
             {copied ? <Check className="h-3 w-3 text-green-600" /> : <Copy className="h-3 w-3" />}
             <span>{copied ? t('pathCopied') : t('copyPath')}</span>
@@ -497,7 +498,7 @@ function ChartArtifactBlock({
       <p className="mb-0.5 text-[10px] font-medium text-muted-foreground/70">
         {t('chartGenerated')}
       </p>
-      <div className="overflow-hidden rounded-sm border border-stroke-subtle bg-white">
+      <div className="overflow-hidden rounded-sm border border-border/40 bg-white">
         {tokenLoading || !iframeSrc ? (
           <div className="flex h-[280px] w-full items-center justify-center">
             <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
@@ -666,7 +667,7 @@ function PresentedFilesBlock({ files }: { files: PresentedFileEntry[] }) {
   return (
     <div data-testid="tool-call-presented-files" className="space-y-1.5">
       <StreamLabel>{t('presentedTitle', { count: files.length })}</StreamLabel>
-      <div className="divide-y divide-border/40 overflow-hidden rounded-sm border border-stroke-subtle">
+      <div className="divide-y divide-border/40 overflow-hidden rounded-sm border border-border/40">
         {files.map((file) => (
           <button
             key={file.path}
@@ -817,7 +818,7 @@ function ImageResultBlock({
   }, [imageUrl, fileName, copy])
 
   const actionBtn =
-    'inline-flex items-center gap-1 rounded-sm border border-stroke-subtle bg-background/80 px-1.5 py-0.5 text-xs text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground'
+    'inline-flex items-center gap-1 rounded-sm border border-border/40 bg-background/80 px-1.5 py-0.5 text-xs text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground'
 
   // D64 ②:画廊只在「多图 ∧ 当前图确在画廊内」时启用 —— 轮询取件的图片可能不在
   // 宿主画廊里(宿主只收集 tc.image_url),那时退回单图模式,绝不显示成别张图。
@@ -1041,7 +1042,7 @@ function VideoResultBlock({ videoUrl, prompt }: { videoUrl: string; prompt?: str
   }, [videoUrl, fileName, copy])
 
   const actionBtn =
-    'inline-flex items-center gap-1 rounded-sm border border-stroke-subtle bg-background/80 px-1.5 py-0.5 text-xs text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground'
+    'inline-flex items-center gap-1 rounded-sm border border-border/40 bg-background/80 px-1.5 py-0.5 text-xs text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground'
 
   return (
     <div className="space-y-2">
@@ -1262,7 +1263,7 @@ function PendingTaskBlock({
           type="button"
           onClick={onRefresh}
           disabled={checking}
-          className="inline-flex shrink-0 items-center gap-1 rounded-sm border border-stroke-subtle px-1.5 py-0.5 text-[11px] text-primary hover:bg-muted/40 disabled:cursor-not-allowed disabled:opacity-50"
+          className="inline-flex shrink-0 items-center gap-1 rounded-sm border border-border/40 px-1.5 py-0.5 text-[11px] text-primary hover:bg-muted/40 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {checking ? (
             <>
@@ -1650,7 +1651,13 @@ export const ToolCallCard = React.memo(function ToolCallCard({
                   {t('streamingPreviewLabel')}
                 </span>
               </StreamLabel>
-              <StreamCode text={partialDiff} testId="tool-call-partial-diff" />
+              {/* 增量帧增长时贴底看最新段(容器级跟底由 use-message-list-scroll test7/8 纪律负责) */}
+              <StreamCode
+                text={partialDiff}
+                testId="tool-call-partial-diff"
+                autoScrollToBottom
+                streaming
+              />
             </div>
           )}
           {/* 2026-11-05 立:工具入参逐分片渐进渲染。与 diff 预览并列的独立块 ——
@@ -1664,9 +1671,10 @@ export const ToolCallCard = React.memo(function ToolCallCard({
                   {t('streamingPreviewLabel')}
                 </span>
               </StreamLabel>
-              <StreamCode
+              <JsonCode
                 text={JSON.stringify(partialArgs, null, 2)}
                 testId="tool-call-partial-args"
+                streaming
               />
             </div>
           )}
@@ -1783,7 +1791,7 @@ export const ToolCallCard = React.memo(function ToolCallCard({
                         type="button"
                         aria-label={rowTitle}
                         data-testid="tool-call-image-preview"
-                        className="w-fit overflow-hidden rounded-sm border border-stroke-subtle"
+                        className="w-fit overflow-hidden rounded-sm border border-border/40"
                         onClick={() => {
                           try {
                             const base64 = imagePreview.slice(imagePreview.indexOf(',') + 1)
@@ -1826,7 +1834,7 @@ export const ToolCallCard = React.memo(function ToolCallCard({
             <button
               type="button"
               onClick={handleOpenInWorkPanel}
-              className="inline-flex items-center gap-1 rounded-sm border border-stroke-subtle bg-background/80 px-2 py-1 text-[10px] hover:bg-muted/40"
+              className="inline-flex items-center gap-1 rounded-sm border border-border/40 bg-background/80 px-2 py-1 text-[10px] hover:bg-muted/40"
             >
               <ExternalLink className="h-3 w-3" />
               <span>{t('openInWorkPanel')}</span>

@@ -221,8 +221,7 @@ export function StreamRow({
       aria-expanded={expanded}
       aria-label={ariaLabel ?? title}
       className={cn(
-        // 2026-11-15:可点击活动行加一档低对比描边,把"可展开容器"从正文里轻量区分出来
-        'group/stream-row rounded-sm border border-stroke-subtle px-1 text-left transition-colors',
+        'group/stream-row rounded-sm px-1 text-left transition-colors',
         'hover:bg-accent/40 focus-visible:bg-accent/40 focus-visible:outline-none',
         STREAM_ROW_CLASS,
         dimmed && 'opacity-60',
@@ -332,8 +331,8 @@ export interface StreamGroupProps {
 /**
  * 活动组:一段过程信息的容器。
  *
- * 除一行与行同字号的头外不设独立底色;2026-11-15 起头按钮带一档低对比描边,
- * 与正文拉开"可展开容器"的轻量边界,但不抢正文的视觉重量。
+ * 刻意**不带边框与底色**:过程内容不该抢正文的视觉重量(此前是一个 rounded-lg + border +
+ * bg-muted 的盒子,把 AI 回复"包"成了卡片)。这里只有一条竖向导引线和一行与行同字号的头。
  */
 export function StreamGroup({
   active,
@@ -372,8 +371,7 @@ export function StreamGroup({
           aria-label={ariaLabel ?? (open ? t('collapseSteps') : t('expandSteps'))}
           className={cn(
             STREAM_ROW_CLASS,
-            // 2026-11-15:与可点击活动行同一档低对比描边(展开容器轻量区分)
-            'min-w-0 flex-1 rounded-sm border border-stroke-subtle px-1 text-left text-muted-foreground transition-colors hover:bg-accent/40 focus-visible:bg-accent/40 focus-visible:outline-none',
+            'min-w-0 flex-1 rounded-sm px-1 text-left text-muted-foreground transition-colors hover:bg-accent/40 focus-visible:bg-accent/40 focus-visible:outline-none',
           )}
           data-stream-group-trigger="true"
         >
@@ -435,17 +433,22 @@ export function StreamLabel({ children }: { children: React.ReactNode }) {
   return <p className="text-[11px] font-medium text-muted-foreground/70">{children}</p>
 }
 
-/** 明细里的等宽输出块:限高 200px 后滚动;流式输出时 autoScrollToBottom 保证贴底 */
+/** 明细里的等宽输出块:限高 200px 后滚动;`autoScrollToBottom` 时新内容追加即贴底。
+ * D113 文件写工具的 partialDiff 预览传 true(增量帧增长时始终看最新段),
+ * partialArgs 预览保持 false(入参 JSON 从头读更自然,不夺滚动位置)。 */
 export function StreamCode({
   text,
   className,
   testId,
   autoScrollToBottom = false,
+  streaming = false,
 }: {
   text: string
   className?: string
   testId?: string
   autoScrollToBottom?: boolean
+  /** 流式进行中:渲染尾部光标(仅装饰,不进 a11y 树语义) */
+  streaming?: boolean
 }) {
   const ref = React.useRef<HTMLPreElement>(null)
   React.useEffect(() => {
@@ -463,6 +466,12 @@ export function StreamCode({
       data-testid={testId}
     >
       {text}
+      {streaming && (
+        <span
+          aria-hidden="true"
+          className="ml-0.5 inline-block h-[0.9em] w-[2px] translate-y-[0.15em] animate-pulse bg-teal-500/80 dark:bg-teal-400/80"
+        />
+      )}
     </pre>
   )
 }

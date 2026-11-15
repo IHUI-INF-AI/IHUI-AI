@@ -13,7 +13,7 @@
  * 安全性:所有文本均以 React 子节点渲染(React 自动对文本做 HTML 转义,不注入 innerHTML),
  * 链接仅放行 http(s) / mailto / # 协议,其余降级为纯文本,杜绝 javascript: 注入。
  */
-import { type ComponentType, useMemo, useState, type ReactNode } from 'react'
+import { type ComponentType, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Check, CircleDashed, Keyboard, Loader2, Terminal, X } from 'lucide-react'
 import {
   buildRenderModel,
@@ -219,6 +219,30 @@ function terminalStatusClass(status: TerminalRenderBlock['status']): string {
 /** 毫秒 → 可读时长 */
 function formatDurationMs(ms: number): string {
   return ms < 1000 ? `${ms}ms` : `${(ms / 1000).toFixed(1)}s`
+}
+
+/** D113 partialDiff 流式预览:增量帧增长时贴底看最新段,并渲染尾部光标。
+ * 与 web StreamCode(streaming + autoScrollToBottom)对齐;容器样式沿用本卡既有等宽块形态。
+ * 容器级跟底/hold 由 use-message-list-scroll 那侧的纪律负责,本组件只管自身滚动区贴底。 */
+function PartialDiffPreview({ text }: { text: string }) {
+  const ref = useRef<HTMLPreElement>(null)
+  useEffect(() => {
+    const el = ref.current
+    if (el) el.scrollTop = el.scrollHeight
+  }, [text])
+  return (
+    <pre
+      ref={ref}
+      data-testid="tool-call-partial-diff"
+      className="m-0 mt-1 max-h-[200px] overflow-auto whitespace-pre-wrap break-all rounded-sm bg-background/70 p-1.5 font-mono text-[11px] leading-4"
+    >
+      {text}
+      <span
+        aria-hidden="true"
+        className="ml-0.5 inline-block h-[0.9em] w-[2px] translate-y-[0.15em] animate-pulse bg-teal-500/80 dark:bg-teal-400/80"
+      />
+    </pre>
+  )
 }
 
 /** 值 → 缩进 JSON 文本(字符串原样;空值返回空串) */
@@ -533,12 +557,7 @@ function ToolBlockView({
           容器沿用本卡内既有等宽块形态(p-1.5 / bg-background/70),限高滚动同 web StreamCode。
           不新增文案标签:内容由服务端下发,标签要么多余要么得补五语言键。 */}
       {block.status === 'running' && block.partialDiff ? (
-        <pre
-          data-testid="tool-call-partial-diff"
-          className="m-0 mt-1 max-h-[200px] overflow-auto whitespace-pre-wrap break-all rounded-sm bg-background/70 p-1.5 font-mono text-[11px] leading-4"
-        >
-          {block.partialDiff}
-        </pre>
+        <PartialDiffPreview text={block.partialDiff} />
       ) : null}
       {argsText || resultText ? (
         <details className="mt-1">
@@ -929,7 +948,7 @@ export function MessageContent({
             {message.citations.map((c, i) => (
               <span
                 key={`${c.source}_${i}`}
-                className="inline-flex max-w-full items-center gap-1 rounded-sm border border-stroke-subtle bg-muted/30 px-1.5 py-0.5 text-[11px] text-muted-foreground"
+                className="inline-flex max-w-full items-center gap-1 rounded-sm border border-border/60 bg-muted/30 px-1.5 py-0.5 text-[11px] text-muted-foreground"
               >
                 <span className="rounded-sm bg-muted px-1 py-px text-[9px] font-medium">
                   {c.source}
