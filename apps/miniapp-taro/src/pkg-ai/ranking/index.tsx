@@ -63,6 +63,7 @@ export default function RankingIndex() {
   const [keyword, setKeyword] = useState('')
   const [page, setPage] = useState(1)
   const [hasMore, setHasMore] = useState(true)
+  const loadingRef = useRef(false)
 
   const fetchPage = useCallback(
     async (curPage: number, ft: FileType, kw: string): Promise<boolean> => {
@@ -123,14 +124,16 @@ export default function RankingIndex() {
   }, [fileType, keyword, reload])
 
   const onScrollToLower = useCallback(() => {
-    if (loading || !hasMore) return
+    if (loadingRef.current || !hasMore) return
     const next = page + 1
+    loadingRef.current = true
     setLoading(true)
     void fetchPage(next, fileType, keyword).then(() => {
       setPage(next)
       setLoading(false)
+      loadingRef.current = false
     })
-  }, [loading, hasMore, page, fileType, keyword, fetchPage])
+  }, [hasMore, page, fileType, keyword, fetchPage])
 
   useReachBottom(onScrollToLower)
   usePullDownRefresh(() => {
