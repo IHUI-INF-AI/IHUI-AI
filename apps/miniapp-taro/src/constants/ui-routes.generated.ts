@@ -8,8 +8,8 @@
 
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/miniapp-taro/scripts/generate-ui-routes.mjs
-// sourceCommit: 23498ac15a34e750ccfb74cb826185abdc47b2ff
-// inputsSha256: 9a9456d6edf5583b5fa09219b7d2472d55a9f96678eae578223065a3bbc77708
+// sourceCommit: 130ba2ea83a786c082b8321275b36209258e0e64
+// inputsSha256: 13e8c1681fd80a624dde485f6ddae7a5dfc45a16360db126338108ba93627f37
 // input: apps/miniapp-taro/src/api/distribution-normalize.ts 62a708396542da48f89190063ffc8214b029dad7de3f20552dd71a03f6f5d334
 // input: apps/miniapp-taro/src/api/index.ts 2eddfc13ae7bcca7dfea5d38f64d37f4a22e0a7312a04fbc117c9b2078a751c4
 // input: apps/miniapp-taro/src/api/order-normalize.ts ac45439228bec81c57cc4135fda449d1e667c154cce9e006b497a7107aa73e37
@@ -60,7 +60,7 @@
 // input: apps/miniapp-taro/src/components/LineIcon/icons.ts 1bfba8cfcb058c6f1daec1e313673d1dc0638ce8a88b4334efa504fb353fe036
 // input: apps/miniapp-taro/src/components/LineIcon/index.tsx 3ac7e63d5ee3f2e7e206717ba82e726205e11f793d75d50c539b216e83c00833
 // input: apps/miniapp-taro/src/components/LoadingSpinner.tsx dfc86cf298a7c7271e4bf6911f4d46ed527562d83330eb45d49ca0ba064c2c29
-// input: apps/miniapp-taro/src/components/LoginPopUp.tsx a303430ecc51758bb712fb98b081766edb295af9ddb8b143e2933c17c88b24fb
+// input: apps/miniapp-taro/src/components/LoginPopUp.tsx 629b7416d713df817fdd36329a197173fcfa51f82b2a56553f9687221ef11345
 // input: apps/miniapp-taro/src/components/MaterialPopup.tsx 980d0db73ac37574b7c315d9ba90f1963eeb577f0254bcbfae797557fd801a50
 // input: apps/miniapp-taro/src/components/MessageActions.tsx f8dba7abbc8deb73f10adc7edf0065e66cc057305db06249e3ebef99abf9b9ac
 // input: apps/miniapp-taro/src/components/MessageDetail.tsx 2a911a99265fe3e5e16bdad5dfc4536e1b12ae1acdd9e47873ba12bfdd17a618
@@ -98,7 +98,7 @@
 // input: apps/miniapp-taro/src/components/ThemeRoot.tsx 5ead09e84ae54e9d2e37d87052f522ac35d2ff3fcb46cd0a6c4055242ccd3e47
 // input: apps/miniapp-taro/src/components/TitleSwitchScrollTitle.tsx 95f4c47117a7c1990a7a464eb3a1c934bc80458bbbc27bf567237dee873e4474
 // input: apps/miniapp-taro/src/components/Toast.tsx ed9860149591f19b3af11df349f91b8e50b3abe0eb016b11120d1bb74bcb3275
-// input: apps/miniapp-taro/src/components/Tooltip.tsx 138740e750bd0017071d8870027e2e3ce007b4e769cc3497b615844dd6b4fd59
+// input: apps/miniapp-taro/src/components/Tooltip.tsx b3f515a1c531afb2be17833b4f321841cd666902f01d725d7bdc8abac4192f12
 // input: apps/miniapp-taro/src/components/UnreadBadge.tsx 47b174734583b42ecdb7aafe9337f0a9eb5099fb8f425ee5c03a5988f26878aa
 // input: apps/miniapp-taro/src/components/UserInfoCard.tsx f3d01b9aa5f97906cca9ef8937c59f556a8cdeb1b544f57079e3b0db27a81d3d
 // input: apps/miniapp-taro/src/components/VideoInfo.tsx 7b9561f31aca184bedcca31de08dbb284e261132729a3dd83ba9200567fcf734
@@ -114,7 +114,7 @@
 // input: apps/miniapp-taro/src/components/adapters/SectionHeader.taro.tsx a65c374cc388104f11bf6f3b4ad03a1e680b005df5be2857988fd978009173dc
 // input: apps/miniapp-taro/src/components/adapters/Selecter.taro.tsx b14b581864ae5d471382af3b1d8c5be460d98234406e35c588294555f14265c0
 // input: apps/miniapp-taro/src/components/adapters/index.ts b0ca0ec78de34f1cea0998217f96caa53c3d76220c031047bec4b54c8d4baec9
-// input: apps/miniapp-taro/src/components/focus-field-style.ts 1cce18006028520e204089bcd9b7b40a3c3f25ae52811351d015b776c3dc8002
+// input: apps/miniapp-taro/src/components/focus-field-style.ts a0e1a2b5d44573ab70f04d31866ae89c7e485419cc2d34690eb6e457f151a658
 // input: apps/miniapp-taro/src/components/index.ts b89a9f178c0705853c98bba279be9e4ad276c5afa63faef7f9c80a6b21021f61
 // input: apps/miniapp-taro/src/constants/events.ts 2069e998391d49294c5a6228c26146da6eeaba568741a5d620a3573c036f1992
 // input: apps/miniapp-taro/src/constants/external-urls.ts e5665c60134cd7968a106d0e278922cf3ab8d4036eb147760b86c4be7bbc0e05
@@ -258,7 +258,7 @@
 // input: apps/miniapp-taro/src/pages/study/record.config.ts 63199eca9fc79561731df66d1c2a8b150d77a569236769edb40b588708013270
 // input: apps/miniapp-taro/src/pages/study/record.tsx 38512e01767ff162377c300089eeb8d8053c035c104c5c5a2e228e57eb9d319e
 // input: apps/miniapp-taro/src/pages/study/video-detail/index.config.ts 25501702785e2d21848ca6715a67d8c8e6ca0e678108d867420965fb903ea7c0
-// input: apps/miniapp-taro/src/pages/study/video-detail/index.tsx 3ec07c68b413fee38c2eb342842d2f656f28286467ff740282fb912c496d403d
+// input: apps/miniapp-taro/src/pages/study/video-detail/index.tsx ff47f7ef7a09ebef14aba1916caf07c26383b6ccb5d9b899de9cb397935dac77
 // input: apps/miniapp-taro/src/pages/user/components/UserCard.tsx fdb44c94b2ea2098a7270d5fb5c7474e000663ccbcdfeef839d4a5612c185410
 // input: apps/miniapp-taro/src/pages/user/index.config.ts fb47e1b55b9f740820c57343a77f8ced282817a3016f730f82725bc50a2a4054
 // input: apps/miniapp-taro/src/pages/user/index.tsx 07f87bb75a66bb09eac34d7e8c7e9051eb386a43e11535ce97907a29091aebff
@@ -418,7 +418,7 @@
 // input: apps/miniapp-taro/src/pkg-learn/course/detail.config.ts b9c8acdd8b76e754305e30be809e0b0ab393f67d11467895e563b58e48c2b26c
 // input: apps/miniapp-taro/src/pkg-learn/course/detail.tsx ce3121c83ad260a701aa3052a1a62b223eb4b43ec371515dd47e0e21ce36fa67
 // input: apps/miniapp-taro/src/pkg-learn/course/list.config.ts 92547aaf062806dd63ce73d01a4d76cb7cba26864c64a4b8811b12f97dac1e29
-// input: apps/miniapp-taro/src/pkg-learn/course/list.tsx 1bb13f77921aaced73582957440eb4c6542d7fa22c05327ff92f37f308060307
+// input: apps/miniapp-taro/src/pkg-learn/course/list.tsx e96a19ad510fa27ed97bb725d92d00193a6195370487d1ca7776a3d2bb780f60
 // input: apps/miniapp-taro/src/pkg-learn/learn-develop/index.tsx 575089b45da488796aafb1de32995fe93221055258df61fa069d801ae1873548
 // input: apps/miniapp-taro/src/pkg-learn/learn/index.tsx f24df6e320f09fa4f9d14b422853fad09c07988c62e805f7ba6a9e9a99199d1e
 // input: apps/miniapp-taro/src/pkg-learn/live/calendar.config.ts 837faf74d131a27fe4fe49488c9c0a70e3df6d9f5e3fb36dd4a4835a64ba5a63
@@ -773,7 +773,7 @@
 // input: apps/miniapp-taro/src/utils/wechat-login.ts 08992a45fbbfb70b37f5a3518c5a82d2c55b9337f6ece0e0192b3c8d9c29470e
 // scanned: 637 source files(navigateTo url 参数探测,requiresParams 的依据)
 // skipped: pagesWithoutOwnConfig=209(标题回落 app window / tabBar 文案)
-// generatedAt: 2026-11-14T20:59:38.835Z
+// generatedAt: 2026-11-15T12:09:26.900Z
 // IHUI-GEN-PIN-END
 
 /** AI 可导航页面条目:path 为 Taro 导航全路径(含前导斜杠,分包已拼 root) */
