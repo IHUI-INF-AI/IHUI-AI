@@ -577,7 +577,10 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.tertiary,
     },
     fileLine: { fontSize: rnType.label.size, color: tk.text.medium },
-    errorText: { fontSize: rnType.label.size, color: tk.danger.deepText },
+    // error 档取 `tk.error.text`(全仓错误文案的既有约定),`danger` 档只有
+    // light/DEFAULT/bright 三键,没有 deepText —— 此前的写法引用了不存在的字段,
+    // 让本屏在 typecheck 里长期报 TS2339。
+    errorText: { fontSize: rnType.label.size, color: tk.error.text },
     doneText: { fontSize: rnType.label.size, color: tk.success.deepText },
     card: {
       padding: rnSpacing.md,

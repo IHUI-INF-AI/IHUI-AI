@@ -45,7 +45,13 @@ describe('D5 滚到底步长算法(受控 scrollTop 单调递增超界)', () => 
       observed.push(scrollTop)
     }
     for (let i = 1; i < observed.length; i += 1) {
-      expect(observed[i]).toBeGreaterThan(observed[i - 1])
+      // noUncheckedIndexedAccess:先把「取不到」判定掉,再比大小 —— 拿 undefined 去比
+      // 会得到 false 而非报错,失败原因会变得看不出来。
+      const prev = observed[i - 1]
+      const curr = observed[i]
+      expect(prev).toBeDefined()
+      expect(curr).toBeDefined()
+      expect(curr as number).toBeGreaterThan(prev as number)
     }
     // 第一次就把原生 clamp 推到底:任何合理列表高度都被覆盖
     expect(observed[0]).toBeGreaterThanOrEqual(LIST_HEIGHT_CEILING_PX)
