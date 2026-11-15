@@ -221,7 +221,7 @@ export function ArtifactsScreen({
         paddingVertical: rnSpacing['xs-loose'],
       },
       pagerBtnText: { fontSize: rnType.label.size, color: tk.text.primary },
-      pagerBtnTextDisabled: { fontSize: rnType.label.size, color: tk.text.tertiary },
+      pagerBtnTextDisabled: { fontSize: rnType.label.size, color: tk.text.medium },
       pageInfo: { fontSize: rnType.label.size, color: tk.text.secondary },
     }),
     [tk],

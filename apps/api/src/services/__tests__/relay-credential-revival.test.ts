@@ -37,13 +37,21 @@ describe('terminalVerdictOf / terminalVerdictSnapshotOf', () => {
   })
 
   it('反向牙:缺 id / 版本非有限数 / extra 为 null 或数组 / 无留痕键 ⇒ 未判定', () => {
-    expect(terminalVerdictOf(rowOf(20, { [TERMINAL_VERDICT_KEY]: { credVersion: 17, at: SNAP.at } }))).toBeNull()
     expect(
-      terminalVerdictOf(rowOf(20, { [TERMINAL_VERDICT_KEY]: { id: 'x', credVersion: 'not-a-number', at: SNAP.at } })),
+      terminalVerdictOf(rowOf(20, { [TERMINAL_VERDICT_KEY]: { credVersion: 17, at: SNAP.at } })),
+    ).toBeNull()
+    expect(
+      terminalVerdictOf(
+        rowOf(20, {
+          [TERMINAL_VERDICT_KEY]: { id: 'x', credVersion: 'not-a-number', at: SNAP.at },
+        }),
+      ),
     ).toBeNull()
     expect(terminalVerdictOf({ credVersion: 20, extraMetadata: null })).toBeNull()
     expect(terminalVerdictOf({ credVersion: 20, extraMetadata: [] })).toBeNull()
-    expect(terminalVerdictOf({ credVersion: 20, extraMetadata: { keepAliveForever: true } })).toBeNull()
+    expect(
+      terminalVerdictOf({ credVersion: 20, extraMetadata: { keepAliveForever: true } }),
+    ).toBeNull()
     expect(terminalVerdictOf(null)).toBeNull()
   })
 
@@ -51,7 +59,11 @@ describe('terminalVerdictOf / terminalVerdictSnapshotOf', () => {
     expect(
       terminalVerdictOf(
         rowOf(20, {
-          [TERMINAL_VERDICT_KEY]: { id: 'trae-refresh-invalid', credVersion: '17', at: '2026-01-01T00:00:00.000Z' },
+          [TERMINAL_VERDICT_KEY]: {
+            id: 'trae-refresh-invalid',
+            credVersion: '17',
+            at: '2026-01-01T00:00:00.000Z',
+          },
           keepAliveForever: true,
           checkinSync: { state: null },
         }),
@@ -90,7 +102,10 @@ describe('hasFreshCredentials / shouldReviveTerminal', () => {
     expect(shouldReviveTerminal(rowOf('18'))).toBe(true)
     expect(
       shouldReviveTerminal(
-        rowOf(19, { [TERMINAL_VERDICT_KEY]: { ...SNAP, id: 'any-other-verdict' }, keepAliveForever: true }),
+        rowOf(19, {
+          [TERMINAL_VERDICT_KEY]: { ...SNAP, id: 'any-other-verdict' },
+          keepAliveForever: true,
+        }),
       ),
     ).toBe(true)
   })
@@ -98,7 +113,11 @@ describe('hasFreshCredentials / shouldReviveTerminal', () => {
 
 describe('stripTerminalVerdict', () => {
   it('只摘留痕键,其余键逐字保留,不改入参', () => {
-    const extra = { [TERMINAL_VERDICT_KEY]: SNAP, keepAliveForever: true, sessionTemplate: { a: 1 } }
+    const extra = {
+      [TERMINAL_VERDICT_KEY]: SNAP,
+      keepAliveForever: true,
+      sessionTemplate: { a: 1 },
+    }
     const out = stripTerminalVerdict(extra)
     expect(out).toEqual({ keepAliveForever: true, sessionTemplate: { a: 1 } })
     expect(extra[TERMINAL_VERDICT_KEY]).toEqual(SNAP)
@@ -115,28 +134,47 @@ describe('healthRevivalPatchOf', () => {
   const now = new Date('2026-11-15T03:00:00.000Z')
 
   it('同形正例:down / 已摘除 / 有失败计数的行 + 有效客户端票 ⇒ 复位到 unknown', () => {
-    const patch = { healthStatus: 'unknown', refreshFailureCount: 0, lastErrorMessage: null, tempUnschedulable: false }
+    const patch = {
+      healthStatus: 'unknown',
+      refreshFailureCount: 0,
+      lastErrorMessage: null,
+      tempUnschedulable: false,
+    }
     expect(
       healthRevivalPatchOf(
         { healthStatus: 'down', refreshFailureCount: 3, tempUnschedulable: true },
         { clientExpiresAt: new Date('2026-12-01T00:00:00.000Z'), now },
       ),
     ).toEqual(patch)
-    expect(healthRevivalPatchOf({ healthStatus: 'unknown', refreshFailureCount: 0 }, { now })).toEqual(patch)
-    expect(healthRevivalPatchOf({ healthStatus: 'healthy', refreshFailureCount: 2 }, { now })).toEqual(patch)
-    expect(healthRevivalPatchOf({ healthStatus: 'healthy', tempUnschedulable: true }, { now })).toEqual(patch)
+    expect(
+      healthRevivalPatchOf({ healthStatus: 'unknown', refreshFailureCount: 0 }, { now }),
+    ).toEqual(patch)
+    expect(
+      healthRevivalPatchOf({ healthStatus: 'healthy', refreshFailureCount: 2 }, { now }),
+    ).toEqual(patch)
+    expect(
+      healthRevivalPatchOf({ healthStatus: 'healthy', tempUnschedulable: true }, { now }),
+    ).toEqual(patch)
   })
 
   it('反向牙:客户端票已过期 / 到期时刻非法 / 健康行 / 空行 ⇒ null', () => {
     const broken = { healthStatus: 'down', refreshFailureCount: 3, tempUnschedulable: true }
-    expect(healthRevivalPatchOf(broken, { clientExpiresAt: new Date('2026-11-14T00:00:00.000Z'), now })).toBeNull()
-    expect(healthRevivalPatchOf(broken, { clientExpiresAt: new Date('invalid') as Date, now })).toBeNull()
-    expect(healthRevivalPatchOf({ healthStatus: 'healthy', refreshFailureCount: 0 }, { now })).toBeNull()
+    expect(
+      healthRevivalPatchOf(broken, { clientExpiresAt: new Date('2026-11-14T00:00:00.000Z'), now }),
+    ).toBeNull()
+    expect(
+      healthRevivalPatchOf(broken, { clientExpiresAt: new Date('invalid') as Date, now }),
+    ).toBeNull()
+    expect(
+      healthRevivalPatchOf({ healthStatus: 'healthy', refreshFailureCount: 0 }, { now }),
+    ).toBeNull()
     expect(healthRevivalPatchOf(null, { now })).toBeNull()
   })
 
   it('合法改动仍绿:不给 clientExpiresAt 时按「调用方已确认写入新票」处理,异常行仍复位', () => {
-    expect(healthRevivalPatchOf({ healthStatus: 'degraded', refreshFailureCount: 0 }, { now })).toEqual({
+    expect(
+      healthRevivalPatchOf({ healthStatus: 'degraded', refreshFailureCount: 0 }, { now }),
+    ).toEqual({
       healthStatus: 'unknown',
       refreshFailureCount: 0,
       lastErrorMessage: null,

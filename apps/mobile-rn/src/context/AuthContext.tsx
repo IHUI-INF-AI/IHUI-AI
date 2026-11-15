@@ -2,7 +2,15 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react'
 import { loginByAccount, logout as apiLogout, type AuthUser } from '@ihui/api-client'
 import { initApi, getRefreshToken } from '../lib/token'
 import { getInitialSsoCode, subscribeSsoDeepLink, exchangeSsoCode } from '../lib/sso'
@@ -53,7 +61,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // returnUrl:跳登录前记录的原页面路由名,登录成功后回跳(对齐 uniapp returnUrl 机制)
   const [returnUrl, setReturnUrl] = useState<string | null>(null)
 
+  /**
+   * 用 sso_code 换 token 并写入 auth-store(同步镜像 tokenStore)。
+   * isAlive 由启动链注入:SSO 回跳可能晚于卸载落地,写 auth 前先判活跃。
+   */
+  const applySsoCode = useCallback(
+    (code: string, isAlive: () => boolean = () => true): Promise<boolean> =>
+      exchangeSsoCodeOnce(code, exchangeSsoCode, async (data) => {
+        if (!isAlive()) return
+        await rnAuthStore.getState().setAuth({
+          token: data.accessToken,
+          refreshToken: data.refreshToken,
+          user: data.user,
+        })
+      }),
+    [],
+  )
+
   useEffect(() => {
+    let alive = true
     let unsub: (() => void) | null = null
     // 启动门 fail-open:上限一到先放 UI(凭据镜像若随后才完成,登录态会自己追上;
     // 只是这一轮可能少一次主动续期 —— 401 拦截器仍在,不会把已登录用户判成未登录)。
@@ -61,53 +87,49 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.warn(
         `[boot] initApi 超过 ${INIT_GATE_TIMEOUT_MS}ms 未落定,先放行 UI(启动门 fail-open)`,
       )
-      setReady(true)
+      if (alive) setReady(true)
     }, INIT_GATE_TIMEOUT_MS)
     initApi()
       .then(async () => {
         clearTimeout(gate)
-        // 镜像 tokenStore → auth-store,统一数据源
-        hydrateAuth()
-        setReady(true)
+        // 整条启动链都可能跨越卸载:dead 后不再动本地 state,也不再发起 SSO 交换。
+        if (alive) {
+          // 镜像 tokenStore → auth-store,统一数据源
+          hydrateAuth()
+          setReady(true)
 
-        // 冷启动时检查 SSO deep link(若应用因 ihui://sso/callback?sso_code=xxx 唤起)
-        const initialCode = await getInitialSsoCode()
-        if (initialCode) {
-          await applySsoCode(initialCode)
+          // 冷启动时检查 SSO deep link(若应用因 ihui://sso/callback?sso_code=xxx 唤起)
+          const initialCode = await getInitialSsoCode()
+          if (alive && initialCode) {
+            await applySsoCode(initialCode, () => alive)
+          }
         }
-
-        // 已运行时监听 deep link
+        // 订阅必须落地拿到 unsub:cleanup 早于赋值时它恒为 null,卸载后 deep link
+        // 监听仍挂着;若此刻已 dead,拿到 unsub 后立即自行退订。
         unsub = subscribeSsoDeepLink(async (code) => {
-          await applySsoCode(code)
+          if (!alive) return
+          await applySsoCode(code, () => alive)
         })
+        if (!alive) {
+          unsub()
+          unsub = null
+        }
       })
       .catch((e) => {
         // 兜到最后一道:initApi 自身已 catch 了它知道的失败,这里接的是"它之外的意外"。
         // 失败也不许把用户钉在启动页(§0.3:不静默降级,所以照旧喊出来)。
         clearTimeout(gate)
         console.error('[boot] initApi 意外失败,按无凭据继续启动:', e)
-        setReady(true)
+        if (alive) setReady(true)
       })
     return () => {
+      alive = false
       clearTimeout(gate)
       if (unsub) unsub()
     }
-  }, [])
+  }, [applySsoCode])
 
-  /**
-   * 用 sso_code 换 token 并写入 auth-store(同步镜像 tokenStore)
-   */
-  async function applySsoCode(code: string): Promise<boolean> {
-    return exchangeSsoCodeOnce(code, exchangeSsoCode, async (data) => {
-      await rnAuthStore.getState().setAuth({
-        token: data.accessToken,
-        refreshToken: data.refreshToken,
-        user: data.user,
-      })
-    })
-  }
-
-  const login = async (account: string, password: string): Promise<LoginResult> => {
+  const login = useCallback(async (account: string, password: string): Promise<LoginResult> => {
     const res = await loginByAccount(account, password)
     if (res.success) {
       await rnAuthStore.getState().setAuth({
@@ -118,9 +140,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { success: true }
     }
     return { success: false, error: res.error }
-  }
+  }, [])
 
-  const loginBySso = async (): Promise<LoginResult> => {
+  const loginBySso = useCallback(async (): Promise<LoginResult> => {
     const { openSsoLogin } = await import('../lib/sso')
     const redirectUrl = await openSsoLogin()
     if (!redirectUrl) {
@@ -134,24 +156,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     const ok = await applySsoCode(code)
     return ok ? { success: true } : { success: false, error: 'SSO 换取 token 失败' }
-  }
+  }, [applySsoCode])
 
-  const logout = async (): Promise<void> => {
+  const logout = useCallback(async (): Promise<void> => {
     const refreshToken = getRefreshToken()
     if (refreshToken) {
       await apiLogout(refreshToken)
     }
     // auth-store.logout 清 tokenStore + 本地镜像 + user 持久化
     await rnAuthStore.getState().logout()
-  }
+  }, [])
 
-  return (
-    <AuthContext.Provider
-      value={{ user, token, ready, login, loginBySso, logout, returnUrl, setReturnUrl }}
-    >
-      {children}
-    </AuthContext.Provider>
+  // 依赖要齐:函数经 useCallback 稳定后,value 只在真实状态变化时换身份,
+  // 避免每次渲染新对象把全部 useAuth() 消费者无谓重渲染。
+  const value = useMemo<AuthContextValue>(
+    () => ({ user, token, ready, login, loginBySso, logout, returnUrl, setReturnUrl }),
+    [user, token, ready, login, loginBySso, logout, returnUrl, setReturnUrl],
   )
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
 
 export function useAuth(): AuthContextValue {

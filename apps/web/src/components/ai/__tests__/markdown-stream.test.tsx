@@ -277,7 +277,7 @@ describe('MarkdownStream - P2-1 流式 Markdown 增强', () => {
  * 验证项:
  *   - resolvedTheme='light' 时,SyntaxHighlighter 收到 oneLight 样式对象
  *   - resolvedTheme='dark' 时,SyntaxHighlighter 收到 oneDark 样式对象
- *   - <pre> 容器背景在 light/dark 下使用不同 bg 类(bg-zinc-100 / dark:bg-zinc-950)
+ *   - 代码容器底色统一取 --color-muted-soft(实色 token,明暗由 token 自身覆盖)
  */
 describe('MarkdownStream - P2 中期增强 oneDark → oneLight 主题切换', () => {
   beforeEach(() => {
@@ -341,7 +341,7 @@ describe('MarkdownStream - P2 中期增强 oneDark → oneLight 主题切换', (
     })
   })
 
-  it('<pre> 容器背景在 light 模式下使用浅色,在 dark 模式下使用深色', async () => {
+  it('代码容器底色统一使用 --color-muted-soft(不再按明暗写死 zinc 色阶)', async () => {
     const content = '```js\nconst x = 1\n```'
     const { container } = render(<MarkdownStream content={content} />)
 
@@ -350,9 +350,11 @@ describe('MarkdownStream - P2 中期增强 oneDark → oneLight 主题切换', (
     })
 
     const pre = container.querySelector('pre') as HTMLElement
-    // 容器使用 theme-aware 类:bg-zinc-100(light) + dark:bg-zinc-950
-    expect(pre.className).toContain('bg-zinc-100')
-    expect(pre.className).toContain('dark:bg-zinc-950')
+    // 底色统一画在外层 frame(单一底面),header/正文透明 ⇒ 分段之间不可能出现色差
+    expect(pre.className).toContain('bg-transparent')
+    expect(pre.closest('.bg-muted-soft')).not.toBeNull()
+    expect(pre.className).not.toContain('bg-zinc-100')
+    expect(pre.className).not.toContain('dark:bg-zinc-950')
   })
 
   // 2026-10-28 观感档⑥:「完成瞬间 active→stable 重排」回归锁。

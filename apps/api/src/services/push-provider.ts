@@ -173,11 +173,17 @@ async function sendFcm(target: PushTarget, message: PushMessage): Promise<PushRe
     return { provider: 'fcm', success: false, error: 'FCM access token 获取失败' }
   }
   const url = `https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`
+  // F-687:FCM v1 的 message.data 契约是 map<string,string>,业务侧 data 允许
+  // 数字/布尔/嵌套对象;不逐项转字符串会让整批推送被 FCM 判 400。
+  const fcmData: Record<string, string> = {}
+  for (const [k, v] of Object.entries(message.data ?? {})) {
+    fcmData[k] = typeof v === 'string' ? v : (JSON.stringify(v) ?? '')
+  }
   const body = {
     message: {
       token: target.token,
       notification: { title: message.title, body: message.body },
-      data: message.data ?? {},
+      data: fcmData,
       ...(message.clickUrl ? { webpush: { fcm_options: { link: message.clickUrl } } } : {}),
     },
   }

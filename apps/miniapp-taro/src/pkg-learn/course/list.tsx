@@ -139,24 +139,16 @@ export default function CourseList() {
                 onClick={() => goDetail(item.id)}
               >
                 {/* 对齐 RN courseImage:110×110dp→220×220rpx,圆角 12dp→24rpx,底色 border.light */}
-                {item.coverUrl ? (
-                  <Image
-                    className="w-[220rpx] h-[220rpx] bg-border flex-shrink-0"
-                    src={item.coverUrl}
-                    mode="aspectFill"
-                  />
-                ) : (
-                  <View className="w-[220rpx] h-[220rpx] bg-border flex-shrink-0" />
-                )}
+                <Image
+                  className="w-[220rpx] h-[220rpx] bg-border flex-shrink-0"
+                  src={item.coverUrl}
+                  mode="aspectFill"
+                />
                 {/* 对齐 RN courseInfo:padding 12dp→24rpx,纵向 gap 6dp→12rpx;价格独立成行(RN pricePaid:16dp→32rpx/600/text.primary) */}
                 <View className="flex-1 p-[24rpx] flex flex-col gap-[12rpx]">
-                  <Text className="text-title text-foreground font-semibold">
-                    {item.title}
-                  </Text>
+                  <Text className="text-title text-foreground font-semibold">{item.title}</Text>
                   {item.subtitle && (
-                    <Text className="text-body text-muted-foreground">
-                      {item.subtitle}
-                    </Text>
+                    <Text className="text-body text-muted-foreground">{item.subtitle}</Text>
                   )}
                   {/* 对齐 RN courseMeta:讲师 · 「N 人学过」同一行(metaText 11dp→22rpx) */}
                   {(item.teacher || (item.signupCount ?? 0) > 0) && (
@@ -179,9 +171,7 @@ export default function CourseList() {
         {/* 对齐 RN emptyWrap/emptyText:paddingY 48dp→96rpx,字号 14dp→28rpx,text.secondary */}
         {!loading && list.length === 0 && (
           <View className="text-center py-[96rpx]">
-            <Text className="text-body text-muted-foreground">
-              {t('course.list.empty')}
-            </Text>
+            <Text className="text-body text-muted-foreground">{t('course.list.empty')}</Text>
           </View>
         )}
 

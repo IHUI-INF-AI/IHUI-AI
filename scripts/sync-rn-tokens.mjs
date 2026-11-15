@@ -1247,7 +1247,7 @@ function loadInputs(staged) {
   }
   const rels = [TOKENS_SOURCE_REL, RN_TOKENS_REL, BARREL_REL]
   const got = catBatch(ROOT, rels.map((r) => `:${r}`))
-  const missing = rels.filter((r) => got.get(`:${r}`) == null)
+  const missing = rels.filter((r) => got.get(`:${r}`) === undefined)
   if (missing.length > 0)
     throw new UndeterminedError(`索引面取不到正文:${missing.join(', ')} ⇒ 不回落工作树,不记绿`)
   return {

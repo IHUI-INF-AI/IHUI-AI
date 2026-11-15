@@ -34,15 +34,18 @@ export default function NoteEditor({
       <View
         className="relative bg-card ui-card rounded-t-lg w-full px-lg pb-2xl pt-lg"
         onClick={(e) => e.stopPropagation()}
-        hoverClass="opacity-60"
       >
         <View className="flex items-center justify-between mb-md">
           <Text className="text-body font-medium text-foreground">
             {tt('study.noteTitle', title)}
           </Text>
-          <Text className="text-body text-muted-foreground" onClick={onCancel}>
-            {tt('study.noteClose', '关闭')}
-          </Text>
+          <View
+            className="text-body text-muted-foreground"
+            hoverClass="opacity-60"
+            onClick={onCancel}
+          >
+            <Text>{tt('study.noteClose', '关闭')}</Text>
+          </View>
         </View>
 
         <FocusTextarea

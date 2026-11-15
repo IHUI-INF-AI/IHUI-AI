@@ -31,6 +31,7 @@ import { NavChrome } from '../components/NavChrome'
 import { useTheme } from '../context/ThemeContext'
 import { useI18n } from '../i18n'
 import { tokens } from '../theme/active-tokens'
+import { toFriendlyOr } from '@ihui/shared/utils'
 
 const REPO_NAME_KEY = 'ihui:repo-wiki:repoName'
 
@@ -78,7 +79,7 @@ export function RepoWikiScreen() {
       try {
         setDocs(await listRepoWiki(name.trim()))
       } catch (e) {
-        setError(e instanceof Error ? e.message : t('repoWiki.loadFailed'))
+        setError(toFriendlyOr(e, t('repoWiki.loadFailed')))
         setDocs([])
       } finally {
         setLoading(false)
@@ -109,7 +110,7 @@ export function RepoWikiScreen() {
         const full = await getRepoWikiDoc(doc.id)
         setDetail(full.content)
       } catch (e) {
-        setError(e instanceof Error ? e.message : t('repoWiki.loadFailed'))
+        setError(toFriendlyOr(e, t('repoWiki.loadFailed')))
         setViewingId('')
       } finally {
         setLoadingDetail(false)
@@ -136,10 +137,7 @@ export function RepoWikiScreen() {
                   setDetail('')
                 }
               } catch (e) {
-                appAlert(
-                  t('common.failed'),
-                  e instanceof Error ? e.message : t('repoWiki.loadFailed'),
-                )
+                appAlert(t('common.failed'), toFriendlyOr(e, t('repoWiki.loadFailed')))
               } finally {
                 setBusyId('')
               }

@@ -18,9 +18,10 @@
  */
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
-import { AtSign, Compass, Layers, Hammer, Slash } from 'lucide-react'
+import { AtSign, Compass, Hammer, Slash } from 'lucide-react'
 
 import { PromptTemplates } from '@/components/ai/prompt-templates'
+import { Xiaofang } from '@/components/brand/Xiaofang'
 import { SHARED_QUICK_ACTION_BORDER_CLASS } from '@ihui/design-tokens'
 import { cn } from '@/lib/utils'
 
@@ -79,9 +80,9 @@ export function WorkbenchWelcome({ onPrefill }: WorkbenchWelcomeProps) {
   return (
     <div className="flex h-full flex-col items-center justify-center gap-5 px-6 py-8">
       <div className="text-center">
-        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10">
-          <Layers className="h-7 w-7 text-primary" aria-hidden />
-        </div>
+        {/* 品牌吉祥物头像版接管原 Layers 图标位(2026-11-15):新任务态是全站最高频的
+            "从零开始"入口,由小方出面比通用图标更有品牌记忆点。 */}
+        <Xiaofang variant="face" size={64} alt="" priority className="mx-auto mb-3" />
         <h2 className="text-lg font-semibold tracking-tight">{t('workbenchHeroTitle')}</h2>
         <p className="mt-1.5 max-w-md text-body leading-relaxed text-muted-foreground">
           {t('workbenchHeroHint')}

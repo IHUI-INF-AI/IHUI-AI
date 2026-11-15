@@ -15,6 +15,7 @@
  * 3. 评分超阈值(>=80)自动封禁 + 递增封禁时长(1h→24h→7d→30d)
  * 4. 评分中风险(>=60)告警日志(允许通过但标记监控)
  * 5. 威胁事件计数 + 实时统计
+ * 6. 开发档(显式 development)不自动封禁:本地自测流量不该把开发者自己的出口封掉。
  *
  * 协同:
  * - sqli-guard / xss-protection / anti-automation 调用 recordBadEvent → 评分升高
@@ -24,6 +25,8 @@
 import type { FastifyInstance, FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import fp from 'fastify-plugin'
 import type { Redis } from 'ioredis'
+import { config } from '../config/index.js'
+import { isAdminRequest } from './require-permission.js'
 import { getIpReputationService, isPrivateIp } from '../services/ip-reputation.js'
 import { notifyThreatBlock, notifyThreatWatch } from '../services/threat-ops-alert.js'
 import { isBlockExemptPath } from '../utils/block-exempt-paths.js'
@@ -78,6 +81,9 @@ const watchedIps = new Map<string, { score: number; reasons: string[]; lastSeen:
 /** 最近封禁记录 */
 const recentBlocks: Array<{ ip: string; score: number; duration: string; timestamp: number }> = []
 const MAX_RECENT_BLOCKS = 20
+/** F-610:两个按 IP 累加的 Map 硬上限。原仅按时间淘汰,5 分钟内新 key 一律删不掉,
+ * IPv6 /64 轮转下可无界增长直至 OOM。写入前超限淘汰最早插入项(Map 保序)兜底。 */
+const MAX_TRACKED_IPS = 10000
 
 const threatDetectorPlugin: FastifyPluginAsync = async (server: FastifyInstance) => {
   const redis: Redis | null = (server as unknown as { redis?: Redis }).redis ?? null
@@ -93,8 +99,8 @@ const threatDetectorPlugin: FastifyPluginAsync = async (server: FastifyInstance)
     for (const [ip, info] of watchedIps) {
       if (info.lastSeen < cutoff) watchedIps.delete(ip)
     }
-    // 清理 lastCheckTime(避免 Map 无限增长)
-    if (lastCheckTime.size > 10000) {
+    // 清理 lastCheckTime(避免 Map 无限增长,F-610 阈值统一引用硬上限)
+    if (lastCheckTime.size >= MAX_TRACKED_IPS) {
       const oldCutoff = Date.now() - 5 * 60 * 1000
       for (const [ip, ts] of lastCheckTime) {
         if (ts < oldCutoff) lastCheckTime.delete(ip)
@@ -118,6 +124,14 @@ const threatDetectorPlugin: FastifyPluginAsync = async (server: FastifyInstance)
     // 内网跳过(开发环境友好)
     if (SKIP_PRIVATE_IP && isPrivateIp(ip)) return
 
+    // 管理员请求不做威胁累积/自动封禁(2026-11-15):公网调试同样不设限。
+    if (await isAdminRequest(request)) return
+
+    // 开发档不自动封禁(2026-11-15 立):本插件的分数来自 anti-automation 等事件的累积,
+    // 本地自测的高频/脚本流量会把开发者自己的公网出口打到 >=80,封禁 1 小时起且逐次递增
+    // (1h→24h→7d→30d)。档位判据走 config 唯一出口,只在显式 development 档豁免。
+    if (config.isDevelopmentRuntime ?? config.NODE_ENV === 'development') return
+
     totalChecks++
 
     // 1. 快速路径:检查是否已被封禁
@@ -135,6 +149,11 @@ const threatDetectorPlugin: FastifyPluginAsync = async (server: FastifyInstance)
     const now = Date.now()
     const lastCheck = lastCheckTime.get(ip) ?? 0
     if (now - lastCheck < REPUTATION_CHECK_INTERVAL_SEC * 1000) return
+    // F-610:写入前兜底硬上限,超限淘汰最早插入项,保证 Map 内存有界。
+    if (!lastCheckTime.has(ip) && lastCheckTime.size >= MAX_TRACKED_IPS) {
+      const oldest = lastCheckTime.keys().next().value
+      if (oldest !== undefined) lastCheckTime.delete(oldest)
+    }
     lastCheckTime.set(ip, now)
 
     const rep = await ipRep.getIpReputation(ip)
@@ -201,6 +220,11 @@ const threatDetectorPlugin: FastifyPluginAsync = async (server: FastifyInstance)
     // 4. 评分 >= WARN_THRESHOLD:告警但允许通过
     if (rep.score >= THREAT_WARN_THRESHOLD) {
       totalWarnings++
+      // F-610:同 lastCheckTime,写入前兜底硬上限防无界增长。
+      if (!watchedIps.has(ip) && watchedIps.size >= MAX_TRACKED_IPS) {
+        const oldest = watchedIps.keys().next().value
+        if (oldest !== undefined) watchedIps.delete(oldest)
+      }
       watchedIps.set(ip, {
         score: rep.score,
         reasons: rep.reasons,

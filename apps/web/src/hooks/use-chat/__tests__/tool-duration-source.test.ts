@@ -52,7 +52,11 @@ describe('resolveToolDurationMs 两条分支', () => {
   })
 
   it('后端未下发(undefined)→ 回退本地时钟,source=client', () => {
-    const resolved = resolveToolDurationMs({ serverDurationMs: undefined, startedAt: 1_000, now: 1_500 })
+    const resolved = resolveToolDurationMs({
+      serverDurationMs: undefined,
+      startedAt: 1_000,
+      now: 1_500,
+    })
     expect(resolved).toEqual({ durationMs: 500, source: 'client' })
   })
 
@@ -61,9 +65,9 @@ describe('resolveToolDurationMs 两条分支', () => {
       durationMs: 500,
       source: 'client',
     })
-    expect(resolveToolDurationMs({ serverDurationMs: Number.NaN, startedAt: 1_000, now: 1_500 })).toEqual(
-      { durationMs: 500, source: 'client' },
-    )
+    expect(
+      resolveToolDurationMs({ serverDurationMs: Number.NaN, startedAt: 1_000, now: 1_500 }),
+    ).toEqual({ durationMs: 500, source: 'client' })
   })
 
   it('两者都没有 → null(不写 durationMs,卡片不给假耗时)', () => {
@@ -110,7 +114,12 @@ describe('createToolCallHandler 的耗时接线', () => {
     const handler = createToolCallHandler('msg-2')
     handler({ type: 'tool-call-start', toolCallId: 'tc-2', toolName: 'read_file', args: {} })
     vi.advanceTimersByTime(1_200)
-    handler({ type: 'tool-result', toolCallId: 'tc-2', toolName: 'read_file', result: { ok: true } })
+    handler({
+      type: 'tool-result',
+      toolCallId: 'tc-2',
+      toolName: 'read_file',
+      result: { ok: true },
+    })
 
     expect(lastUpdates().durationMs).toBe(1_200)
   })
@@ -139,7 +148,12 @@ describe('createToolCallHandler 的耗时接线', () => {
     })
     vi.clearAllMocks()
     vi.advanceTimersByTime(5_000)
-    handler({ type: 'tool-result', toolCallId: 'tc-4', toolName: 'run_command', result: { ok: true } })
+    handler({
+      type: 'tool-result',
+      toolCallId: 'tc-4',
+      toolName: 'run_command',
+      result: { ok: true },
+    })
     expect('durationMs' in lastUpdates()).toBe(false)
   })
 

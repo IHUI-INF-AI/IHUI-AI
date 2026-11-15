@@ -16,7 +16,6 @@
   --vip-gold: var(--color-vip-gold-start);
   --vip-text: var(--color-foreground);
   --vip-text-muted: var(--color-muted-foreground);
-  --vip-border: var(--color-border);
   --vip-card-bg: var(--color-card);
   --vip-card-bg-hover: var(--color-muted);
   --vip-buy-bg: var(--color-card);
@@ -130,7 +129,7 @@
   padding: var(--spacing-md);
   background: var(--vip-card-bg);
   border-radius: var(--radius-lg);
-  border: 1px solid var(--vip-border);
+  border: 1px solid var(--color-border);
 }
 .feature-icon {
   font-size: var(--text-heading);
@@ -177,7 +176,7 @@
   font-size: var(--text-label);
   color: var(--vip-gold);
   background: var(--vip-card-bg);
-  border: 1px solid var(--vip-border);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
 }
 
@@ -186,7 +185,7 @@
   margin: var(--spacing-sm-loose) var(--spacing-lg) var(--spacing-md);
   padding: var(--spacing-md-loose);
   background: var(--vip-card-bg);
-  border: 1px solid var(--vip-border);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
 }
 
@@ -195,7 +194,7 @@
 /* 类名刻意不叫 bg-card / border-border / text-foreground / text-muted-foreground:
    那四个是 Tailwind 档名,同名会让本页在色档 utility 到端后被换色。声明体保持逐字不变。 */
 .vip-page .vip-border {
-  border-color: var(--vip-border);
+  border-color: var(--color-border);
 }
 .vip-page .vip-surface {
   background: var(--color-card);
@@ -220,7 +219,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 2rpx solid var(--vip-border);
+  border: 2rpx solid var(--color-border);
   border-radius: var(--radius-sm);
   background: var(--vip-card-bg);
   flex-shrink: 0;
@@ -329,7 +328,7 @@
 .pp-card {
   width: 600rpx;
   background: var(--color-card);
-  border: 1px solid var(--vip-border);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   padding: var(--spacing-xl);
 }
@@ -376,7 +375,7 @@
   align-items: center;
   padding: var(--spacing-md);
   background: var(--vip-card-bg);
-  border: 1px solid var(--vip-border);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
 }
 .pp-plan-name {
@@ -404,7 +403,7 @@
 .pp-checkbox {
   width: 36rpx;
   height: 36rpx;
-  border: 2rpx solid var(--vip-border);
+  border: 2rpx solid var(--color-border);
   border-radius: var(--radius-sm);
   margin-right: var(--spacing-sm);
   display: flex;
@@ -431,7 +430,7 @@
   background: var(--vip-card-bg);
   border-radius: var(--radius-md);
   margin-bottom: var(--spacing-sm);
-  border: 1px solid var(--vip-border);
+  border: 1px solid var(--color-border);
 }
 .pp-pay-item.active {
   /* 选中态对齐 RN brandAccent.light 浅底 + brandAccent 描边(前景描边用 deep 保对比) */

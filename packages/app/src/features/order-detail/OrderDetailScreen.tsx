@@ -98,13 +98,13 @@ function createStyles(tk: AppThemeTokens) {
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
     },
-    label: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.tertiary },
+    label: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.medium },
     value: { marginTop: rnSpacing.sm, fontSize: rnType.title.size, color: tk.text.primary },
     price: {
       marginTop: rnSpacing.sm,
       fontSize: rnType.heading.size,
       fontWeight: '700',
-      color: tk.success.DEFAULT,
+      color: tk.success.deepText,
     },
   })
 }

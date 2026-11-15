@@ -100,7 +100,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     error: {
       fontSize: rnType.body.size,
-      color: tk.danger.DEFAULT,
+      color: tk.danger.deepText,
       marginBottom: rnSpacing.sm,
       textAlign: 'center',
     },
@@ -129,8 +129,8 @@ function createStyles(tk: AppThemeTokens) {
     },
     cardTitle: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
     row: { flexDirection: 'row', justifyContent: 'space-between', marginTop: rnSpacing.sm },
-    author: { fontSize: rnType.caption.size, color: tk.text.tertiary },
-    meta: { fontSize: rnType.caption.size, color: tk.text.tertiary },
+    author: { fontSize: rnType.caption.size, color: tk.text.medium },
+    meta: { fontSize: rnType.caption.size, color: tk.text.medium },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

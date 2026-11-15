@@ -6,7 +6,7 @@
  * AI 模块 /ai/*, /ai-ext/*(8 个端点:index/team/chat 会话/ext reports + career-advice)。
  * 注:/ai/chat (POST) 和 /ai/history (GET) 已由 ai-user-model-chat.ts 真实实现。
  */
-import type { FastifyPluginAsync } from 'fastify'
+import type { FastifyPluginAsync, FastifyRequest } from 'fastify'
 import { z } from 'zod'
 import { eq, asc, sql } from 'drizzle-orm'
 import {
@@ -25,10 +25,13 @@ import {
 import { success, error } from '../../utils/response.js'
 import { db } from '../../db/index.js'
 import { aiModelConfig } from '@ihui/database'
-import { config } from '../../config/index.js'
 import { authenticate } from '../../plugins/auth.js'
-import { aiServiceFetch } from '../../utils/ai-service-fetch.js'
+import { aiServiceFetch, AiServiceTimeoutError } from '../../utils/ai-service-fetch.js'
 import { resolveDefaultChatModel } from '../../utils/retired-providers.js'
+import { resolveAiCost, recordAiCost } from '../../plugins/ai-cost.js'
+import { estimateTokens } from '../../services/context-manager-service.js'
+import type { TokenBalanceService } from '../../plugins/token-balance-service.js'
+import { checkPlatformKeyQuota } from './ai-capabilities-routes.js'
 import {
   findAiIndexBanners,
   findAiTeamMembers,
@@ -64,6 +67,48 @@ const careerAdviceSchema = z.object({
  */
 function hexNoHash(hex: string): string {
   return hex.replace('#', '').toUpperCase()
+}
+
+/**
+ * F-157:career-advice 的计量/扣费收口 —— 与 crew-llm-adapter(能力 invoke / 聊天)同口径:
+ * ai_cost_records 记成本(喂用户日配额),钱包扣同一个数(不在这里再算一遍)。
+ * 上游成本已经发生,扣费失败不回滚用户结果,只留审计日志。
+ */
+async function settleCareerAdviceUsage(input: {
+  request: FastifyRequest
+  userId: string
+  model: string
+  tokenBalance: TokenBalanceService | undefined
+  prompt: string
+  content: string
+  usage?: { prompt_tokens?: number; completion_tokens?: number }
+}): Promise<void> {
+  const { request, userId, model, tokenBalance, prompt, content, usage } = input
+  const promptTokens = usage?.prompt_tokens ?? estimateTokens(prompt)
+  const completionTokens = usage?.completion_tokens ?? estimateTokens(content)
+  try {
+    const { cost } = await recordAiCost({
+      userId,
+      model,
+      provider: model.includes('/') ? model.split('/')[0]! : 'unknown',
+      promptTokens,
+      completionTokens,
+      totalTokens: promptTokens + completionTokens,
+      requestType: 'career-advice',
+    })
+    const costCents = Math.ceil(cost)
+    if (tokenBalance && costCents > 0) {
+      const settlement = await tokenBalance.deductTokens(userId, costCents, 'ai_career_advice')
+      if (!settlement.success) {
+        request.log.warn(
+          { userId, model, costCents, remaining: settlement.remaining },
+          'F-157 career-advice 钱包扣费不足,已记账待审计',
+        )
+      }
+    }
+  } catch (e) {
+    request.log.warn({ err: e, userId, model }, 'F-157 career-advice 计量/扣费失败(不影响响应)')
+  }
 }
 
 const aiModulesRoutes: FastifyPluginAsync = async (server) => {
@@ -158,7 +203,9 @@ const aiModulesRoutes: FastifyPluginAsync = async (server) => {
       if (payload.code !== 0 || !payload.data) {
         return reply.status(502).send(error(502, payload.message ?? 'ai-service 响应缺少交接内容'))
       }
-      return reply.send(success({ summary: payload.data.summary, nextAction: payload.data.next_action }))
+      return reply.send(
+        success({ summary: payload.data.summary, nextAction: payload.data.next_action }),
+      )
     } catch (e) {
       request.log.error({ err: e }, 'recap handoff forward failed')
       return reply.status(502).send(error(502, '交接内容生成失败,请稍后重试'))
@@ -196,7 +243,9 @@ const aiModulesRoutes: FastifyPluginAsync = async (server) => {
         }
       }
       if (payload.code !== 0 || !payload.data) {
-        return reply.status(502).send(error(502, payload.message ?? 'ai-service 响应缺少待决策数据'))
+        return reply
+          .status(502)
+          .send(error(502, payload.message ?? 'ai-service 响应缺少待决策数据'))
       }
       return reply.send(
         success({ items: payload.data.items ?? [], total: payload.data.total ?? 0 }),
@@ -317,62 +366,117 @@ const aiModulesRoutes: FastifyPluginAsync = async (server) => {
       '请从升学方向、学科提升、兴趣发展、职业规划四个维度给出具体可执行的建议,800 字以内。',
     ].join('\n')
 
-    const aiUrl = `${config.AI_SERVICE_URL}/api/llm/complete`
-    // 30s 超时:常规档正常 5-15s,留 2x 余量,超时则走兜底
-    const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), 30000)
+    // F-157:平台 Key 调用必须计量/限额 —— 与能力 invoke 同口径,先过用户日配额闸;
+    // 配额不足 402,且不发起上游调用。
+    const userId = request.userId
+    if (!userId) return reply.status(401).send(error(401, 'Authentication required'))
+    const quota = await checkPlatformKeyQuota(server, request, userId)
+    if (!quota.allowed) {
+      const quotaStatus = quota.statusCode ?? 402
+      return reply
+        .status(quotaStatus)
+        .send(error(quotaStatus, quota.message ?? 'AI 配额不足', quota.errorCode))
+    }
+
+    const model = resolveDefaultChatModel()
+    const tokenBalance = server.tokenBalance
+    if (tokenBalance) {
+      // 与 callRealLlm 同口径:按 prompt 侧预估成本预检,余额不足 402,不发起上游调用。
+      try {
+        const wallet = await tokenBalance.getBalance(userId)
+        const estimated = await resolveAiCost({
+          model,
+          promptTokens: estimateTokens(prompt),
+          completionTokens: 0,
+        })
+        const estimatedCents = Math.ceil(estimated.cost)
+        if (wallet.balance <= 0 || estimatedCents > wallet.balance) {
+          return reply
+            .status(402)
+            .send(
+              error(
+                402,
+                `余额不足(当前 ${wallet.balance} 分,预估需 ${estimatedCents} 分),请充值后重试`,
+                'INSUFFICIENT_BALANCE',
+              ),
+            )
+        }
+      } catch (e) {
+        request.log.error({ err: e, userId }, 'F-157 career-advice 余额预检失败')
+        return reply.status(503).send(error(503, '计费服务暂不可用,请稍后重试'))
+      }
+    }
+
+    // 2026-11-13 F-99:此前手写 fetch 只带 Content-Type,ai-service /api/llm/complete
+    // 默认需 JWT ⇒ 恒 401,却被 catch 成 200 + 静态模板,功能长期静默失效。
+    // 改走 aiServiceFetch(统一鉴权/超时/错误契约);失败如实返回错误,不再伪成功。
     try {
-      const resp = await fetch(aiUrl, {
+      const resp = await aiServiceFetch(request, '/api/llm/complete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        signal: controller.signal,
+        // 30s 超时:常规档正常 5-15s,留 2x 余量
+        timeoutMs: 30_000,
         body: JSON.stringify({
           // ai-service /llm/complete 契约:OpenAI 格式 messages 数组(非 prompt 字段)
           messages: [{ role: 'user', content: prompt }],
           // 2026-10-26 stepfun 永久退役 ⇒ 不再写死已退役档;经 utils/retired-providers.ts
           // 的统一解析入口取(与 crew-llm-adapter / conversation-title / semantic-summary 同源)。
-          model: resolveDefaultChatModel(),
+          model,
           max_tokens: 2500,
           temperature: 0.7,
         }),
       })
-      if (resp.ok) {
-        const data = (await resp.json()) as {
-          text?: string
-          content?: string
-          output?: string
-          reasoning?: string
-        }
-        // 优先 content;reasoning 模型可能把建议放 reasoning 字段(content 为空时回退)
-        // reasoning 是模型的真实输出(个性化建议),非模板,作为兜底比静态文本更贴合用户需求
-        const content =
-          data.content?.trim() ||
-          data.reasoning?.trim() ||
-          data.text?.trim() ||
-          data.output?.trim() ||
-          ''
-        if (content) {
-          return reply.send(success({ content }))
-        }
-        request.log.warn({ data }, 'AI 服务返回空 content,返回兜底建议')
+      if (!resp.ok) {
+        const errBody = await resp.text().catch(() => '')
+        const status = resp.status === 504 ? 504 : 502
+        request.log.warn(
+          { status: resp.status, errBody: errBody.slice(0, 500) },
+          'career-advice upstream failed',
+        )
+        return reply
+          .status(status)
+          .send(error(status, `AI 服务调用失败: ${resp.status} ${errBody.slice(0, 200)}`))
       }
-      const errBody = await resp.text().catch(() => '')
-      request.log.warn({ status: resp.status, errBody }, 'AI 服务调用失败,返回兜底建议')
+      const data = (await resp.json()) as {
+        text?: string
+        content?: string
+        output?: string
+        reasoning?: string
+        model?: string
+        usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number }
+      }
+      // 优先 content;reasoning 模型可能把建议放 reasoning 字段(content 为空时回退)
+      // reasoning 是模型的真实输出(个性化建议),非模板
+      const content =
+        data.content?.trim() ||
+        data.reasoning?.trim() ||
+        data.text?.trim() ||
+        data.output?.trim() ||
+        ''
+      if (!content) {
+        // 上游 200 但正文为空:同样是失败,不得用静态模板冒充成功
+        request.log.warn({ data }, 'career-advice upstream returned empty content')
+        return reply.status(502).send(error(502, 'AI 服务返回内容为空,请稍后重试'))
+      }
+      // F-157:上游已产生成本 —— 先计量/扣费再返回,与能力 invoke 同口径。
+      await settleCareerAdviceUsage({
+        request,
+        userId,
+        model: data.model ?? model,
+        tokenBalance,
+        prompt,
+        content,
+        usage: data.usage,
+      })
+      return reply.send(success({ content }))
     } catch (e) {
-      request.log.warn({ err: (e as Error).message }, 'AI 服务不可用,返回兜底建议')
-    } finally {
-      clearTimeout(timeout)
+      if (e instanceof AiServiceTimeoutError) {
+        request.log.error({ err: e }, 'career-advice upstream timed out')
+        return reply.status(504).send(error(504, 'AI 服务响应超时,请稍后重试'))
+      }
+      request.log.error({ err: e }, 'career-advice upstream call failed')
+      return reply.status(502).send(error(502, 'AI 服务调用失败,请稍后重试'))
     }
-
-    const fallback = [
-      `针对${input.classLevel || '该'}阶段同学的生涯指导建议:`,
-      '1. 升学方向:结合自身成绩区间与学科特点,优先考虑与优势学科匹配的专业方向。',
-      '2. 学科提升:针对学习障碍制定阶段性小目标,弱科每日固定时间攻坚,强科保持稳定。',
-      '3. 兴趣发展:将兴趣爱好与升学目标结合,参与相关竞赛或实践活动,丰富综合素质评价。',
-      '4. 职业规划:多了解目标行业的真实工作内容,通过职业体验、学长交流等方式验证兴趣。',
-      '(此为兜底建议,AI 服务暂不可用,请稍后重试获取个性化建议)',
-    ].join('\n')
-    return reply.send(success({ content: fallback }))
   })
 
   // ----- 导出 AI 生涯指导报告(PDF / Word / PPT)-----

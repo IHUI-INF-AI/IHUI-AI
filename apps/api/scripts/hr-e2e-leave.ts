@@ -27,18 +27,10 @@ const deptId = '770fb992-7fa3-4746-b378-3ea59a979054'
 import { hrApprovalFlow } from '@ihui/database'
 const flows = await db.select().from(hrApprovalFlow).where(eq(hrApprovalFlow.leaveType, '年假'))
 const twoLevel = flows.find((f) => f.minDays === 3) // 3~∞ 两级链
-if (!twoLevel) {
-  console.error('❌ 未找到「年假」3 天以上的两级审批链规则,请先在后台配置后再跑本联调')
-  process.exit(1)
-}
-// approverIds 是 string[] 且在本仓 noUncheckedIndexedAccess 下解构元素推成 string | undefined;
-// 故先用 length 守卫把"不足 2 人"这条真分支挡掉,再逐位断定非空 —— 守卫恒假的写法(!mgr1)挡不住。
-if (twoLevel.approverIds.length < 2) {
-  console.error(`❌ 两级审批链 approverIds 不足 2 人(实得 ${twoLevel.approverIds.length})`)
-  process.exit(1)
-}
-const mgr1 = twoLevel.approverIds[0] as string
-const mgr2 = twoLevel.approverIds[1] as string
+if (!twoLevel) throw new Error('未找到 minDays=3 的年假审批规则(需先跑种子)')
+const mgr1 = twoLevel.approverIds[0]
+const mgr2 = twoLevel.approverIds[1]
+if (!mgr1 || !mgr2) throw new Error('两级链审批人不足 2 人(需先跑种子)')
 
 let step = 0
 const ok = (label: string, cond: boolean, extra?: unknown) => {
@@ -60,11 +52,8 @@ const leave = await createHrLeave({
   totalDays: 5,
   reason: '端到端联调·5天年假',
 })
-if (!leave?.id) {
-  console.error('❌ 创建请假单失败(未取回 id),后续步骤无法进行')
-  process.exit(1)
-}
-ok('创建请假单', true, { leaveId: leave.id.slice(0, 8), status: leave.status })
+if (!leave) throw new Error('创建请假单失败:未返回落库行')
+ok('创建请假单', !!leave.id, { leaveId: leave.id.slice(0, 8), status: leave.status })
 
 // ② 提交进多级审批流(固化四件套快照)
 const submit = await submitApproval({ leaveRequestId: leave.id })
@@ -83,11 +72,8 @@ ok('超时时限快照 = 48h(规则值,非默认24)', inst.timeoutHoursSnapshot 
 ok('升级目标快照 = mgr2', inst.escalationApproverSnapshot === mgr2, {
   v: inst.escalationApproverSnapshot?.slice(0, 8),
 })
-// dueAt 在实例未真正排期时为 null:此时判 NaN 即失败,不让缺值伪装成 48h
-const dueHours =
-  inst.dueAt && inst.submittedAt
-    ? (inst.dueAt.getTime() - inst.submittedAt.getTime()) / 3_600_000
-    : Number.NaN
+if (!inst.dueAt) throw new Error('审批实例缺 dueAt(超时时限未固化)')
+const dueHours = (inst.dueAt.getTime() - inst.submittedAt.getTime()) / 3_600_000
 ok('due_at 按 48h 折算', Math.round(dueHours) === 48, { dueHours: Math.round(dueHours) })
 
 // ④ 逐级审批:一级通过 → 推进到二级
@@ -114,10 +100,9 @@ const r2 = await decideApproval({
 })
 ok('末步审批通过 → status=approved', r2.instance.status === 'approved')
 
-const leaveAfter = (
-  await db.select().from(hrLeaveRequest).where(eq(hrLeaveRequest.id, leave.id))
-)[0]
-ok('请假单回写 = approved', leaveAfter?.status === 'approved', { status: leaveAfter?.status })
+const [leaveAfter] = await db.select().from(hrLeaveRequest).where(eq(hrLeaveRequest.id, leave.id))
+if (!leaveAfter) throw new Error(`请假单回读失败:${leave.id}`)
+ok('请假单回写 = approved', leaveAfter.status === 'approved', { status: leaveAfter.status })
 
 // ⑥ 待办列表:审批完成后 mgr1 不应再看到该实例
 const pending = await listMyPendingApprovals({ approverId: mgr1, limit: 10, offset: 0 })

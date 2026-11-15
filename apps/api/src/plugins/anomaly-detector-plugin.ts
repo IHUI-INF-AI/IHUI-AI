@@ -31,6 +31,7 @@ import fp from 'fastify-plugin'
 import type { Redis } from 'ioredis'
 import { getAnomalyDetector, type AnomalyResult } from '../services/anomaly-detector.js'
 import { isPrivateIp } from '../services/ip-reputation.js'
+import { isAdminRequest } from './require-permission.js'
 
 /**
  * 健康检查 / 监控 / 高频无害轮询路径白名单(避免高频请求被 dimFrequency 误判)。
@@ -82,6 +83,10 @@ const anomalyDetectorPluginRaw: FastifyPluginAsync = async (server: FastifyInsta
     if (!ip) return
     // 内网跳过(开发环境友好,与 threat-detector 同模式)
     if (isPrivateIp(ip)) return
+
+    // 管理员行为不参与异常评分(2026-11-15):管理面联调/公网调试的高频与陌生出口
+    // 会被判成 challenge/block(403),这里直接放行;普通用户照旧。
+    if (await isAdminRequest(request)) return
 
     // F-605:userId 只有路由级 authenticate(preHandler/preValidation)才写入。
     // 原实现挂 onRequest,恒为 undefined,时间/地理/设备/基线四维全部短路

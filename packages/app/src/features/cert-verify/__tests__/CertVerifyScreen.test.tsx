@@ -16,6 +16,10 @@ afterEach(cleanup)
  */
 const t = (key: string): string => key
 
+/** 测试档主题:与仓内其它测试同一写法(`testColorScheme`),不给 JSX 留字面量 ——
+ *  主题门把字面量 "light"/"dark" 一律当运行期错(真机上会出现屏幕两套档案)。 */
+const testColorScheme: 'light' | 'dark' = 'light'
+
 const baseResult: CertVerifyResult = {
   valid: true,
   title: '示例证书',
@@ -31,6 +35,7 @@ function renderScreen(result: CertVerifyResult | null) {
       result={result}
       loading={false}
       error=""
+      colorScheme={testColorScheme}
       onVerify={vi.fn()}
       onBack={vi.fn()}
     />,

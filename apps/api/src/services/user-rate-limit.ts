@@ -23,6 +23,18 @@ import { logger } from '../utils/logger.js'
 const WINDOW_SECONDS = 60
 const DEFAULT_MAX_PER_MINUTE = 600
 
+/**
+ * 免限流账号(2026-11-15 立):逗号分隔 userId,大小写不敏感。
+ * 用途与 AUTH_LOCKOUT_EXEMPT_ACCOUNTS 同一条纪律 —— 本机开发/自测时把机主自己的账号
+ * 排出按用户限流,避免自己调试时被自己的安全策略挡住。生产留空即保持原有严格限流。
+ */
+const EXEMPT_USER_IDS = new Set(
+  (process.env.USER_RATE_LIMIT_EXEMPT_USER_IDS ?? '')
+    .split(',')
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean),
+)
+
 let redis: IORedis | null = null
 let initFailed = false
 
@@ -52,6 +64,7 @@ function maxPerMinute(): number {
 /** true = 放行;false = 该用户本分钟已超阈值(调用方回 429)。 */
 export async function checkUserRateLimit(userId: string): Promise<boolean> {
   if (!userId) return true
+  if (EXEMPT_USER_IDS.has(userId.trim().toLowerCase())) return true
   const client = getRedis()
   if (!client) return true
   const bucket = Math.floor(Date.now() / (WINDOW_SECONDS * 1000))

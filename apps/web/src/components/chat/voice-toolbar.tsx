@@ -30,6 +30,7 @@ import { Mic, AudioLines, Volume2, VolumeX } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
 import { cn } from '@/lib/utils'
+import { NESTED_FLOATING_Z_CLASS } from '@/lib/floating-layer'
 import { COMPOSER_MENU_ROW_CLASS, COMPOSER_MENU_ROW_ICON_CLASS } from '@/lib/composer-menu-row'
 import { Tooltip } from '@/components/feedback'
 import {
@@ -127,6 +128,7 @@ export function VoiceToolbar(props: VoiceToolbarProps) {
               'Ctrl+Alt+V',
             )}
             side="top"
+            className={NESTED_FLOATING_Z_CLASS}
           >
             <button
               type="button"
@@ -226,7 +228,10 @@ export function VoiceToolbar(props: VoiceToolbarProps) {
           <DropdownMenu.Content
             align="end"
             sideOffset={6}
-            className="z-popover w-56 rounded-lg border bg-card p-1 text-card-foreground shadow-elevation-md"
+            className={cn(
+              'w-56 rounded-lg border bg-card p-1 text-card-foreground shadow-elevation-md',
+              NESTED_FLOATING_Z_CLASS,
+            )}
           >
             {/* 语音输入:主按钮同款 toggle;用普通 Item + 右侧状态指示方点,与 model-selector 风格一致 */}
             <DropdownMenu.Item

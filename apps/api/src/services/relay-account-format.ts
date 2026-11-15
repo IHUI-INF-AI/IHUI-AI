@@ -16,7 +16,7 @@
  */
 import { createHash } from 'node:crypto'
 
-/** 支持反代的第三方 AI IDE 平台(2026-10-27 扩容:8 平台五件套,提取器 raw 直通) */
+/** 支持反代的第三方 AI IDE 平台(2026-10-27 扩容:8 平台五件套,提取器 raw 直通;2026-11-14 收录 cursor) */
 export const RELAY_PROVIDERS = [
   'trae',
   'workbuddy',
@@ -31,6 +31,7 @@ export const RELAY_PROVIDERS = [
   'lingma',
   'grokbot',
   'raccoon',
+  'cursor',
 ] as const
 export type RelayProviderCode = (typeof RELAY_PROVIDERS)[number]
 
@@ -122,6 +123,8 @@ export const RELAY_ACCOUNT_PHONE_KEYS: Record<RelayProviderCode, readonly string
   lingma: ['phone'],
   grokbot: ['phone'],
   raccoon: ['phone'],
+  // Cursor(2026-11-14 收录):本机 state.vscdb 提取器只解 JWT 的 email/name,无手机号维度
+  cursor: ['phone'],
 }
 
 /**
@@ -148,6 +151,8 @@ export const RELAY_ACCOUNT_NAME_KEYS: Record<RelayProviderCode, readonly string[
   lingma: ['name', 'user_name'],
   grokbot: ['name'],
   raccoon: ['name'],
+  // Cursor:JWT claims 的 email 优先,其次 name;提取器两者都没有时以 `cursor:<sub 尾8>` 兜底
+  cursor: ['email', 'name'],
 }
 
 /** 统一名入库列宽上限(与 `ai_relay_account_pool.name` 及 applyPhoneCompletion 同值) */
@@ -802,6 +807,8 @@ const RELAY_IMPORT_CREDENTIAL_SLOTS: Record<RelayProviderCode, RelayCredentialSl
   grokbot: [{ sealed: { parent: 'credential', keys: ['sandSealedFile', 'data'] } }],
   // 商汤小浣熊:提取器把 auth.json 的 access_token 折成顶层 token(2026-11-11 实证)
   raccoon: [{ top: ['token'] }],
+  // Cursor:state.vscdb 解出的 accessToken 折成顶层 token(refreshToken/machineId 另存,2026-11-14)
+  cursor: [{ top: ['token'] }],
 }
 
 /**
@@ -823,6 +830,7 @@ const RELAY_IMPORT_SHAPE_REASON: Record<RelayProviderCode, string> = {
   lingma: '灵码导入 raw 凭证无 token/accessToken/access_token 字段(字段级形状未实证)',
   grokbot: 'GrokBot 本机凭证为 sandSealedFile 密封串,无明文 token 可导入(待解封方案取证)',
   raccoon: '小浣熊导入缺少 token(auth.json 形状不符或 access_token 为空)',
+  cursor: 'Cursor 导入缺少 token(state.vscdb 形状不符或 accessToken 解密为空)',
 }
 
 /** 形状认不出时的预检 issue code(按平台;validateAccountExport 用) */
@@ -840,6 +848,7 @@ const RELAY_IMPORT_SHAPE_ISSUE_CODE: Record<RelayProviderCode, string> = {
   lingma: 'missing-token',
   grokbot: 'grokbot-sealed',
   raccoon: 'missing-token',
+  cursor: 'missing-token',
 }
 
 /** 凭据槽位命中(只报键名;值由调用方自行加密,不得回显) */

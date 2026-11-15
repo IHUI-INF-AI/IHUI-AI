@@ -459,13 +459,17 @@ export async function evaluateAllAlertRules(now = new Date()): Promise<{
       if (!hits(rule, observation.value)) continue
 
       const message = `[${rule.name}] ${observation.label}(阈值 ${Number(rule.threshold)},${rule.comparison === 'gt' ? '>' : '<'})`
-      await db.insert(relayAlertEvents).values({
-        ruleId: rule.id,
-        observedValue: String(observation.value),
-        threshold: String(Number(rule.threshold)),
-        message,
-        pushStatus: 'pushed',
-      })
+      // F-342: 推送状态先落 pending,按推送结果回写,不再把"未送达"显示成已推送
+      const [event] = await db
+        .insert(relayAlertEvents)
+        .values({
+          ruleId: rule.id,
+          observedValue: String(observation.value),
+          threshold: String(Number(rule.threshold)),
+          message,
+          pushStatus: 'pending',
+        })
+        .returning({ id: relayAlertEvents.id })
       triggered++
       logger.warn('[relay-alert] 规则触发', { rule: rule.name, value: observation.value })
 
@@ -484,8 +488,21 @@ export async function evaluateAllAlertRules(now = new Date()): Promise<{
             threshold: Number(rule.threshold),
           },
         })
+        // F-342: 推送成功才置 pushed
+        if (event) {
+          await db
+            .update(relayAlertEvents)
+            .set({ pushStatus: 'pushed' })
+            .where(eq(relayAlertEvents.id, event.id))
+        }
       } catch (pushErr) {
-        // 推送失败不回滚事件(事件流保留触发记录)
+        // 推送失败不回滚事件(事件流保留触发记录),但状态必须回写为失败
+        if (event) {
+          await db
+            .update(relayAlertEvents)
+            .set({ pushStatus: 'push_failed' })
+            .where(eq(relayAlertEvents.id, event.id))
+        }
         logger.error('[relay-alert] 推送失败', {
           rule: rule.name,
           err: pushErr instanceof Error ? pushErr.message : String(pushErr),

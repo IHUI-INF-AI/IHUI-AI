@@ -2,6 +2,15 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // D141 控制帧三帧的客户端出口(2026-10-28 立):reload_plugins / refresh_memory /
 // mcp_clear_auth。第四帧 resume_goal 的出口在 client.ts(与 postSessionGoal 同族)。
+// 2026-11-13:AI 主动提问的上行答复传输封装(端点在 ai-service,不走 fetchApi 的 api 基址)。
+// 三端(web / extension / cli)共用这一份,避免各自拼 URL 与认证头。
+export {
+  postQuestionResponse as postQuestionAnswerResponse,
+  questionResponseUrl,
+  questionAnswerBody,
+  type QuestionAnswerRequest,
+  type PostQuestionResponseResult,
+} from './question-response-transport.js'
 export * from './endpoints/control-frames.js'
 export * from './endpoints/ai-world.js'
 export * from './endpoints/edu-ai.js'
@@ -116,6 +125,9 @@ export type {
   // D152(2026-09-29 立):会话目标状态帧的类型 —— 与 postSessionGoal 同批入入口,否则
   // 端内要写 onGoalUpdate 回调就点不到参数类型(§3 类型零技术债禁止自抄或 any)。
   GoalUpdateEvent,
+  // P1 #27(2026-11-13):done 帧携带的记忆更新载荷类型 —— 与 onMemoryUpdates 同批入入口,
+  // 否则端内要写该回调就点不到参数类型(§3 类型零技术债禁止自抄或 any)。
+  MemoryUpdatesEvent,
   // 控制帧 `resume_goal`(2026-10-28 立):恢复帧的回执类型 —— 与 resumeSessionGoal 同批
   // 入入口,否则端内要写 onResume 回调就点不到参数类型(§3 类型零技术债禁止自抄或 any)。
   SessionGoalResumeResult,
@@ -457,6 +469,9 @@ export * from './endpoints/wallet.js'
 export * from './endpoints/workspace.js'
 // 外部会话导入端点(2026-09-20 立,D28,web /settings/import 页跨端共享)
 export * from './endpoints/conversation-import.js'
+// 能力应用端点(2026-11-14 补 re-export:端内已按 @ihui/api-client 消费
+// list/get/save/delete/invokeCapabilityApp,入口漏列 ⇒ TS2305 整片红)
+export * from './endpoints/capability-app.js'
 // SAG2 词法多跳检索(2026-11-13 立,web /sag2 工作台跨端共享:web/RN/miniapp-taro 三端消费)
 export * from './endpoints/sag2-lexical.js'
 

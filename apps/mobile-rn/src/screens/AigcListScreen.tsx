@@ -139,10 +139,9 @@ export default function AigcListScreen() {
         ...(fileTypeRef.current !== undefined ? { fileType: fileTypeRef.current } : {}),
       })
       if (res.success) {
-        const list = res.data?.list ?? []
-        setItems(list.map((task) => toAigcWork(task, t)))
+        setItems(res.data.list.map((task) => toAigcWork(task, t)))
         setPage(1)
-        setHasMore(list.length >= PAGE_SIZE)
+        setHasMore(res.data.list.length >= PAGE_SIZE)
       } else {
         setError(res.error || t('chat.notes.loadFailShort'))
       }
@@ -167,7 +166,7 @@ export default function AigcListScreen() {
         ...(fileTypeRef.current !== undefined ? { fileType: fileTypeRef.current } : {}),
       })
       if (res.success) {
-        const nextItems = (res.data?.list ?? []).map((task) => toAigcWork(task, t))
+        const nextItems = res.data.list.map((task) => toAigcWork(task, t))
         if (nextItems.length < PAGE_SIZE) setHasMore(false)
         setItems((prev) => [...prev, ...nextItems])
         setPage(nextPage)

@@ -253,20 +253,18 @@ export default function CircleIndexPage() {
                   <Text className="ci-content">{c.content}</Text>
                   {imgs.length ? (
                     <View className="ci-images">
-                      {imgs.slice(0, 3).map((img, i) =>
-                        img ? (
-                          <Image
-                            key={`${c.id}-img-${i}`}
-                            className="ci-img"
-                            src={img}
-                            mode="aspectFill"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              previewImgs(imgs, i)
-                            }}
-                          />
-                        ) : null,
-                      )}
+                      {imgs.slice(0, 3).map((img, i) => (
+                        <Image
+                          key={i}
+                          className="ci-img"
+                          src={img}
+                          mode="aspectFill"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            previewImgs(imgs, i)
+                          }}
+                        />
+                      ))}
                       {imgs.length > 3 ? (
                         <View className="ci-img ci-img-more">
                           <Text className="ci-img-more-text">+{imgs.length - 3}</Text>

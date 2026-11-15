@@ -14,7 +14,7 @@
  * 但 users.is_vip 字段永不自动重置，导致依赖该字段的业务逻辑（如佣金计算）误判。
  */
 
-import { eq, and, lt } from 'drizzle-orm'
+import { eq, and, lt, gt, inArray, notExists, sql } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { userVips, users } from '@ihui/database'
 
@@ -23,6 +23,29 @@ export interface VipExpireResult {
   expiredVips: number
   downgradedUsers: number
   errors: string[]
+}
+
+/**
+ * F-232:降级判定的纯函数镜像(离线可断言,不碰 DB)。
+ *
+ * 唯一判据 —— 只有「本轮出现过期记录」且「已无任何未过期 VIP」的用户才进候选集:
+ * - 仍持有未过期 VIP(降级窗口内续费)的用户不在集合里;
+ * - 没有任何 VIP 记录的用户压根不在到期集合里,保持 users.is_vip 原状,绝不被误降。
+ * 生产实现由下方 `expireVipMembers` 的第二条集合 SQL(NOT EXISTS 未过期 VIP)落地,
+ * 两者语义必须一致;该函数只用于回归测试锁定判据,不参与线上写路径。
+ */
+export function collectVipDowngradeCandidates(
+  expiredUserIds: readonly string[],
+  activeVipCountByUser: ReadonlyMap<string, number>,
+): string[] {
+  const candidates: string[] = []
+  const seen = new Set<string>()
+  for (const userId of expiredUserIds) {
+    if (seen.has(userId)) continue
+    seen.add(userId)
+    if ((activeVipCountByUser.get(userId) ?? 0) === 0) candidates.push(userId)
+  }
+  return candidates
 }
 
 /**
@@ -75,67 +98,74 @@ export async function expireVipMembers(): Promise<VipExpireResult> {
   const errors: string[] = []
   let expiredVips = 0
   let downgradedUsers = 0
+  const now = new Date()
 
-  // 1. 查询所有已过期但状态仍为生效的 VIP 记录
-  const expiredRecords = await db
-    .select({
-      id: userVips.id,
-      userId: userVips.userId,
-      endTime: userVips.endTime,
+  try {
+    // F-232:两条集合 SQL 在同一事务内完成「到期 + 降级/通知」。
+    // 旧实现先全表加载过期记录再逐条 update、逐用户查一次再逐个覆盖 is_vip:
+    // 续费用户在两条语句之间写入的 status=1 卡片会被「查不到就置 0」覆盖误降。
+    const outcome = await db.transaction(async (tx) => {
+      // ① 到期:集合式更新,只把本轮过期的 user_id / end_time 取回内存(无逐条 UPDATE)
+      const expiredRows = await tx
+        .update(userVips)
+        .set({ status: 0 })
+        .where(and(eq(userVips.status, 1), lt(userVips.endTime, now)))
+        .returning({ userId: userVips.userId, endTime: userVips.endTime })
+
+      const userIds = [...new Set(expiredRows.map((r) => r.userId))]
+      if (userIds.length === 0) return { expiredRows, downgradedIds: [] as string[] }
+
+      // ② 降级:唯一判据 = 该用户已无任何未过期 VIP(status=1 且 end_time > now),
+      //    而不是「某条 VIP 记录刚过期」;窗口内续费的用户被 NOT EXISTS 保护。
+      const downgraded = await tx
+        .update(users)
+        .set({ isVip: 0 })
+        .where(
+          and(
+            inArray(users.id, userIds),
+            notExists(
+              tx
+                .select({ one: sql`1` })
+                .from(userVips)
+                .where(
+                  and(
+                    eq(userVips.userId, users.id),
+                    eq(userVips.status, 1),
+                    gt(userVips.endTime, now),
+                  ),
+                ),
+            ),
+          ),
+        )
+        .returning({ id: users.id })
+
+      return { expiredRows, downgradedIds: downgraded.map((r) => r.id) }
     })
-    .from(userVips)
-    .where(and(eq(userVips.status, 1), lt(userVips.endTime, new Date())))
 
-  const scanned = expiredRecords.length
+    expiredVips = outcome.expiredRows.length
+    downgradedUsers = outcome.downgradedIds.length
 
-  if (scanned === 0) {
-    return { scanned: 0, expiredVips: 0, downgradedUsers: 0, errors: [] }
-  }
-
-  // userId → 最晚过期时间(取该用户多条过期记录中最近失效的一条,用于到期通知)
-  const expiredEndTimes = new Map<string, Date>()
-
-  // 2. 批量更新 VIP 记录状态为过期（status=0）
-  for (const record of expiredRecords) {
-    try {
-      await db.update(userVips).set({ status: 0 }).where(eq(userVips.id, record.id))
-      expiredVips++
-      const prev = expiredEndTimes.get(record.userId)
-      if (!prev || (record.endTime && record.endTime > prev)) {
-        expiredEndTimes.set(record.userId, record.endTime)
+    // ③ 通知只发给真正被降级的用户;到期时刻取本轮该用户最晚的一条过期记录
+    if (outcome.downgradedIds.length > 0) {
+      const downgradedSet = new Set(outcome.downgradedIds)
+      const expiredEndTimes = new Map<string, Date>()
+      for (const row of outcome.expiredRows) {
+        if (!downgradedSet.has(row.userId)) continue
+        const prev = expiredEndTimes.get(row.userId)
+        if (!prev || row.endTime > prev) expiredEndTimes.set(row.userId, row.endTime)
       }
-    } catch (err) {
-      errors.push(`Failed to expire VIP record ${record.id}: ${String(err)}`)
-    }
-  }
-
-  // 3. 检查这些用户是否还有其他生效的 VIP 记录，如果没有则降级 users.is_vip
-  const userIds = [...new Set(expiredRecords.map((r) => r.userId))]
-  for (const userId of userIds) {
-    try {
-      // 查询该用户是否还有其他生效的 VIP
-      const [activeVip] = await db
-        .select({ id: userVips.id })
-        .from(userVips)
-        .where(and(eq(userVips.userId, userId), eq(userVips.status, 1)))
-        .limit(1)
-
-      // 如果没有其他生效的 VIP，将 users.is_vip 降级为 0
-      if (!activeVip) {
-        await db.update(users).set({ isVip: 0 }).where(eq(users.id, userId))
-        downgradedUsers++
-        // VIP 过期邮件通知(fire-and-forget,不阻塞降级循环)
+      for (const userId of downgradedSet) {
         const expiredAt = expiredEndTimes.get(userId)
-        if (expiredAt) {
-          void notifyVipExpired(userId, expiredAt)
-          void notifyVipExpiredSms(userId, expiredAt)
-        }
+        if (!expiredAt) continue
+        void notifyVipExpired(userId, expiredAt)
+        void notifyVipExpiredSms(userId, expiredAt)
       }
-    } catch (err) {
-      errors.push(`Failed to downgrade user ${userId}: ${String(err)}`)
     }
+  } catch (err) {
+    // 事务整体失败:不部分提交,记录后由定时任务下一轮重试
+    errors.push(`Failed to expire VIP members: ${String(err)}`)
   }
 
-  return { scanned, expiredVips, downgradedUsers, errors }
+  return { scanned: expiredVips, expiredVips, downgradedUsers, errors }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

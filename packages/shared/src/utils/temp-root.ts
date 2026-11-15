@@ -70,8 +70,9 @@ interface NodeFsLike {
 }
 
 function loadNodeFs(): NodeFsLike {
-  const proc = (globalThis as unknown as { process?: { getBuiltinModule?: (id: string) => unknown } })
-    .process
+  const proc = (
+    globalThis as unknown as { process?: { getBuiltinModule?: (id: string) => unknown } }
+  ).process
   const mod = proc?.getBuiltinModule?.('node:fs') as NodeFsLike | undefined
   if (!mod || typeof mod.mkdirSync !== 'function') {
     throw new Error(

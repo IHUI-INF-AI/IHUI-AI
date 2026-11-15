@@ -120,7 +120,10 @@ function collectSchemas(text: string): Map<string, string> {
   return map
 }
 
-function classifySchema(block: string | undefined, mediaFace: boolean): 'inline-binary' | 'media-url' | null {
+function classifySchema(
+  block: string | undefined,
+  mediaFace: boolean,
+): 'inline-binary' | 'media-url' | null {
   if (!block) return null
   const lines = block.split('\n')
   if (lines.some((l) => INLINE_BINARY.test(l))) return 'inline-binary'
@@ -199,7 +202,9 @@ function scanMissingBodyLimits(): Missing[] {
       const refA = opts.match(/body:\s*([A-Za-z_$][\w$]*)/)?.[1]
       if (refA && schemas.has(refA)) schemaName = refA
       if (!schemaName) {
-        const refB = handler.match(/([A-Za-z_$][\w$]*)\s*\.(?:safeParse|parse)\(\s*request\.body/)?.[1]
+        const refB = handler.match(
+          /([A-Za-z_$][\w$]*)\s*\.(?:safeParse|parse)\(\s*request\.body/,
+        )?.[1]
         if (refB) schemaName = refB
       }
 
@@ -219,14 +224,14 @@ function scanMissingBodyLimits(): Missing[] {
 describe('DDoS P2 — 请求体上限常量单一真相源', () => {
   const serverSrc = readFileSync(SERVER_TS, 'utf-8')
 
-  it('server.ts 全局值必须引用常量(不得就地写字面量,也不得回潮到 10MiB)', () => {
+  it('server.ts 全局值必须引用常量(不得就地写字面量)', () => {
     expect(serverSrc).toContain('bodyLimit: GLOBAL_JSON_BODY_LIMIT,')
     expect(serverSrc).not.toContain('bodyLimit: 1048576 * 10,')
     expect(serverSrc).not.toContain('bodyLimit: 2 * 1024 * 1024,')
   })
 
-  it('常量取值符合设计:全局 2MiB,媒体类上限均大于全局', () => {
-    expect(GLOBAL_JSON_BODY_LIMIT).toBe(2 * 1024 * 1024)
+  it('常量取值符合设计:全局 10MiB;大媒体类上限大于全局,小图上限有意更严', () => {
+    expect(GLOBAL_JSON_BODY_LIMIT).toBe(10 * 1024 * 1024)
     expect(MEDIA_BASE64_BODY_LIMIT).toBe(34 * 1024 * 1024)
     expect(MEDIA_FILE_UPLOAD_BODY_LIMIT).toBe(26 * 1024 * 1024)
     expect(FILE_UPLOAD_BODY_LIMIT).toBe(100 * 1024 * 1024 + 1024 * 1024)
@@ -235,10 +240,11 @@ describe('DDoS P2 — 请求体上限常量单一真相源', () => {
       MEDIA_BASE64_BODY_LIMIT,
       MEDIA_FILE_UPLOAD_BODY_LIMIT,
       FILE_UPLOAD_BODY_LIMIT,
-      SMALL_IMAGE_UPLOAD_BODY_LIMIT,
     ]) {
       expect(v).toBeGreaterThan(GLOBAL_JSON_BODY_LIMIT)
     }
+    // 路由级 bodyLimit 比全局更严时照样生效,小图(3MiB)是有意收紧的上限。
+    expect(SMALL_IMAGE_UPLOAD_BODY_LIMIT).toBeLessThan(GLOBAL_JSON_BODY_LIMIT)
   })
 })
 
@@ -247,9 +253,7 @@ describe('DDoS P2 — 请求体上限常量单一真相源', () => {
 describe('DDoS P2 — 媒体路由 bodyLimit 全覆盖', () => {
   it('凡请求体可能携带二进制媒体的路由都必须显式声明 bodyLimit', () => {
     const missing = scanMissingBodyLimits()
-    const detail = missing
-      .map((m) => `  ${m.file}:${m.line}  ${m.route}  [${m.kind}]`)
-      .join('\n')
+    const detail = missing.map((m) => `  ${m.file}:${m.line}  ${m.route}  [${m.kind}]`).join('\n')
     expect(
       missing,
       missing.length === 0
@@ -263,7 +267,7 @@ describe('DDoS P2 — 媒体路由 bodyLimit 全覆盖', () => {
 // ───────────────────────── 3. 行为验证 ─────────────────────────
 
 describe('DDoS P2 — bodyLimit 行为', () => {
-  it('默认 JSON 路由 >2MiB 被 413,≤2MiB 放行;显式放开的路由可收远超全局的 body', async () => {
+  it('默认 JSON 路由 >10MiB 被 413,≤10MiB 放行;显式放开的路由可收远超全局的 body', async () => {
     const app = Fastify({ bodyLimit: GLOBAL_JSON_BODY_LIMIT })
     app.post('/default', async (req) => ({ len: JSON.stringify(req.body).length }))
     // 镜像"媒体路由显式放开"的形态(远大于全局)
@@ -282,15 +286,15 @@ describe('DDoS P2 — bodyLimit 行为', () => {
     const tooBig = await app.inject({
       method: 'POST',
       url: '/default',
-      payload: { x: 'a'.repeat(3 * 1024 * 1024) },
+      payload: { x: 'a'.repeat(12 * 1024 * 1024) },
     })
     expect(tooBig.statusCode).toBe(413)
 
-    // 媒体路由:10MiB(远超 2MiB 全局、未越 34MiB 自身)必须放行 —— 证明上传不被误伤
+    // 媒体路由:12MiB(远超 10MiB 全局、未越 34MiB 自身)必须放行 —— 证明上传不被误伤
     const mediaOk = await app.inject({
       method: 'POST',
       url: '/media',
-      payload: { x: 'a'.repeat(10 * 1024 * 1024) },
+      payload: { x: 'a'.repeat(12 * 1024 * 1024) },
     })
     expect(mediaOk.statusCode).toBe(200)
 

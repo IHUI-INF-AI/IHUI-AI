@@ -146,7 +146,7 @@
 | 参数 | 当前值 | 代码位置 |
 |---|---|---|
 | 档位断点 | 639 / 1279 | `apps/web/src/lib/ai-panel-bucket.ts`（`AI_PANEL_BREAKPOINTS`） |
-| 浮窗尺寸 | 360 × ≤600，边距 8 | 同上（`AI_FLOAT_WIDTH/MAX_HEIGHT/MARGIN`） |
+| 浮窗尺寸 | 默认 360 × 600，可八向拉伸，最小 320 × 280，边距 8 | 同上（`AI_FLOAT_DEFAULT_WIDTH/DEFAULT_HEIGHT/MIN_WIDTH/MIN_HEIGHT/MARGIN`） |
 | 吸边阈值 | 24px | 同上（`AI_FLOAT_SNAP_DISTANCE`） |
 | 下拉收起阈值 | `max(96, min(180, H×15%))` | `apps/web/src/components/ai/ai-side-panel.tsx`（`dismissThreshold`） |
 | 下拉透明度 | 下限 0.4，按 `max(240, H×60%)` 衰减 | 同上 |

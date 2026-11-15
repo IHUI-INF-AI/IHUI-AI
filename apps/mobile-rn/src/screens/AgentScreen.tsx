@@ -35,7 +35,7 @@ import {
   type AiModel,
   type ConversationDetail,
 } from '@ihui/api-client'
-import { apiFailureToText } from '@ihui/shared/utils'
+import { apiFailureToText, toFriendlyOr } from '@ihui/shared/utils'
 import { AgentScreen as SharedAgentScreen, type AgentScreenItem } from '@ihui/rn-app'
 import { tokens } from '../theme/active-tokens'
 import Carousel from '../components/Carousel'
@@ -315,7 +315,7 @@ export function AgentScreen() {
     try {
       await Promise.all([loadAgents(), loadModels(), loadCategories()])
     } catch (e) {
-      setError(e instanceof Error ? e.message : t('agentScreen.loadFailed'))
+      setError(toFriendlyOr(e, t('agentScreen.loadFailed')))
     } finally {
       setLoading(false)
       setRefreshing(false)
@@ -747,7 +747,9 @@ export function AgentScreen() {
           {viewMode === 'shared' ? (
             <SharedAgentScreen
               t={t}
-              onRetry={() => { void load(); }}
+              onRetry={() => {
+                void load()
+              }}
               colorScheme={resolvedTheme}
               items={items.slice(0, visibleCount)}
               loading={loading}
@@ -924,7 +926,11 @@ const styles = StyleSheet.create({
   },
   tabActive: { backgroundColor: tokens.brand.cta },
   tabText: { fontSize: rnType.bodySm.size, color: tokens.text.secondary },
-  tabTextActive: { fontSize: rnType.bodySm.size, color: tokens.brand.ctaForeground, fontWeight: '600' },
+  tabTextActive: {
+    fontSize: rnType.bodySm.size,
+    color: tokens.brand.ctaForeground,
+    fontWeight: '600',
+  },
   viewport: { minHeight: 400, paddingHorizontal: rpx(20) },
   // 已选模型操作条(模型选择视图下方,消费 selectedModelIds)
   modelSelectionBar: {
@@ -949,7 +955,11 @@ const styles = StyleSheet.create({
     borderRadius: rnRadius.sm,
     backgroundColor: tokens.brand.cta,
   },
-  modelStartBtnText: { fontSize: rnType.bodySm.size, color: tokens.brand.ctaForeground, fontWeight: '600' },
+  modelStartBtnText: {
+    fontSize: rnType.bodySm.size,
+    color: tokens.brand.ctaForeground,
+    fontWeight: '600',
+  },
   loadMoreBtn: {
     marginTop: rpx(12),
     marginBottom: rpx(24),

@@ -30,12 +30,17 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import os
+import sys
 import tempfile
 import time
+from types import TracebackType
+from typing import Literal
 
-if os.name == "nt":  # pragma: no cover - 平台分支
+# 用 sys.platform 而非 os.name:除了运行时分支正确,mypy 也能按目标平台静态剪枝,
+# 在 Windows 上不会去检查 Linux-only 的 fcntl 符号。
+if sys.platform == "win32":
     import msvcrt
-else:  # pragma: no cover - 平台分支
+else:
     import fcntl
 
 # 进程外锁:超时前每 20ms 重试一次。测试可通过 env 或直接改模块常量缩短。
@@ -60,14 +65,14 @@ def _os_lock_path(key: str) -> str:
 
 
 def _try_lock_fd(fd: int) -> None:
-    if os.name == "nt":
+    if sys.platform == "win32":
         msvcrt.locking(fd, msvcrt.LK_NBLCK, 1)
     else:
         fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
 
 
 def _unlock_fd(fd: int) -> None:
-    if os.name == "nt":
+    if sys.platform == "win32":
         msvcrt.locking(fd, msvcrt.LK_UNLCK, 1)
     else:
         fcntl.flock(fd, fcntl.LOCK_UN)
@@ -108,42 +113,49 @@ def _release_os_lock(fd: int) -> None:
             pass
 
 
-class _PathWriteLock(asyncio.Lock):
+class _PathWriteLock:
     """asyncio 互斥 + OS 文件锁的组合锁。
 
-    继承 asyncio.Lock 是为了让现有 `async with get_path_write_lock(path)` 调用点
-    零改动获得跨进程语义:进锁先拿协程锁,再在线程里等 OS 锁;退出时先放 OS 锁
+    组合(而非继承 asyncio.Lock)是因为基类的 `__aenter__` 契约返回 None,
+    无法声明"返回 self"且不破坏 override 兼容;调用点只用 `async with`,组合
+    不改变任何现有用法。进锁先拿协程锁,再在线程里等 OS 锁;退出时先放 OS 锁
     再放协程锁。OS 锁超时会释放协程锁并抛 TimeoutError,不会把路径永久卡死。
     """
 
     def __init__(self, key: str) -> None:
-        super().__init__()
+        self._lock = asyncio.Lock()
         self._key = key
         self._os_fd: int | None = None
 
     async def __aenter__(self) -> _PathWriteLock:
-        await super().__aenter__()
+        await self._lock.acquire()
         try:
             self._os_fd = await asyncio.to_thread(
                 _acquire_os_lock_blocking, self._key, _CROSS_PROCESS_LOCK_TIMEOUT
             )
         except BaseException:
             self._os_fd = None
-            await super().__aexit__(None, None, None)
+            self._lock.release()
             raise
         return self
 
-    async def __aexit__(self, exc_type, exc, tb) -> bool | None:
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        tb: TracebackType | None,
+    ) -> Literal[False]:
         try:
             if self._os_fd is not None:
                 _release_os_lock(self._os_fd)
                 self._os_fd = None
         finally:
-            released = await super().__aexit__(exc_type, exc, tb)
-        return released
+            self._lock.release()
+        # 返回 False = 不吞异常,与基类 asyncio.Lock 的语义一致。
+        return False
 
 
-def get_path_write_lock(resolved_path: str) -> asyncio.Lock:
+def get_path_write_lock(resolved_path: str) -> _PathWriteLock:
     """取(或惰性创建)该路径的写互斥锁。同一文件的写段必须全程持锁。
 
     返回对象同时持进程内 asyncio 锁与进程外 OS 文件锁。

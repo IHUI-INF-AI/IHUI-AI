@@ -180,6 +180,19 @@ def _action_allowed(action_type: str) -> bool:
     return action_type in allowed
 
 
+def _effective_high_risk_action(action_type: str, channel: str | None = None) -> str | None:
+    """AIS-036:算出这条动作实际要过白名单判定的高危档(非高危返回 None)。
+
+    notify 的 **webhook 渠道**与 type=webhook 同档:执行时同样把请求打向配置的
+    任意地址,若仍按 "notify" 走判定就成了绕过 HOOK_ALLOWED_ACTIONS 的旁路。
+    创建闸(routers/hooks.py `_validate_action`)与执行兜底 `_execute_hook` 共用
+    本函数 —— 判据只此一处(§0.6 单源纪律)。
+    """
+    if action_type == "notify" and (channel or "toast") == "webhook":
+        action_type = "webhook"
+    return action_type if action_type in HIGH_RISK_ACTIONS else None
+
+
 def _owned_by(entity: dict[str, Any], owner_id: str) -> bool:
     """归属判据的**唯一实现**:这条资源(Hook 或 A/B 测试)是否属于 `owner_id`。
 
@@ -940,12 +953,16 @@ class HookEngine:
         # 2026-08-05 策略生效前入库的 script/webhook 存量、以及绕过创建接口直改 Redis 的记录,
         # 此前在 HOOK_ALLOWED_ACTIONS 为空时仍会照常执行 —— 判据仍走 _action_allowed 单源
         # (§0.6),失效方向是"拒绝并记失败日志"(静默放行与假装成功都不许)。
+        # AIS-036:notify 的 webhook 渠道经 _effective_high_risk_action 归入 webhook 档,
+        # 不再以 "notify" 之名绕过白名单;低风险 notify(toast/notification/email)不受影响。
         # 早退不入 DLQ:白名单拒绝是终态裁决,DLQ 重处理回到这里仍会被拒,重试无意义。
-        if action_type in HIGH_RISK_ACTIONS and not _action_allowed(action_type):
+        gated_type = _effective_high_risk_action(action_type, config.get("channel"))
+        if gated_type is not None and not _action_allowed(gated_type):
             logger.warning(
-                "[hook_engine] 高危动作执行被白名单拒绝: hook_id=%s type=%s (HOOK_ALLOWED_ACTIONS 未含该项)",
+                "[hook_engine] 高危动作执行被白名单拒绝: hook_id=%s type=%s channel=%s (HOOK_ALLOWED_ACTIONS 未含该项)",
                 hook.get("id"),
                 action_type,
+                config.get("channel"),
             )
             return self._make_log(
                 hook_id=hook["id"],
@@ -953,7 +970,7 @@ class HookEngine:
                 success=False,
                 duration=0,
                 result=None,
-                error=f"高危动作 {action_type} 未获执行授权:需服务端 HOOK_ALLOWED_ACTIONS 白名单显式放行(2026-08-05 P0-5 策略,执行侧兜底)",
+                error=f"高危动作 {gated_type} 未获执行授权:需服务端 HOOK_ALLOWED_ACTIONS 白名单显式放行(2026-08-05 P0-5 策略,执行侧兜底)",
                 input_payload=context,
                 replay=replay,
             )
@@ -1150,6 +1167,20 @@ class HookEngine:
         url = config.get("url")
         if not url:
             return None, "webhook url 未配置"
+        # AIS-036 SSRF 防线(出站前必过,notify(channel=webhook) 经 _run_notify 复用本
+        # 函数同受此闸):复用 screenshot_service._validate_url_ssrf 单源 —— 仅 http/https、
+        # 禁显式非白名单端口、私网/回环/链路本地/云元数据地址一律拒绝,域名过 DNS 校验。
+        # 被拒即早退,不发任何请求(httpx 客户端尚未创建)。
+        from .screenshot_service import _validate_url_ssrf
+
+        ok_ssrf, ssrf_reason = _validate_url_ssrf(str(url))
+        if not ok_ssrf:
+            logger.warning(
+                "[hook_engine] webhook 出站被 SSRF 策略拒绝: url=%s reason=%s",
+                url,
+                ssrf_reason,
+            )
+            return None, f"webhook URL 被 SSRF 策略拒绝: {ssrf_reason}"
         method = config.get("method", "POST").upper()
         headers = dict(config.get("headers") or {"Content-Type": "application/json"})
         body_template = config.get("body")

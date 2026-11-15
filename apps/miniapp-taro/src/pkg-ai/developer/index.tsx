@@ -13,7 +13,7 @@
 import { useTt, useI18n, t } from '@/i18n'
 import { View, Text, ScrollView, Image } from '@tarojs/components'
 import Taro, { useDidShow, navigateTo } from '@tarojs/taro'
-import { useState, useCallback, useEffect, useRef } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import * as api from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
 import SearchBar from '@/components/SearchBar'
@@ -75,7 +75,6 @@ export default function DeveloperIndex() {
 
   const [list, setList] = useState<AgentItem[]>([])
   const [loading, setLoading] = useState(false)
-  const loadingRef = useRef(false)
   const [status, setStatus] = useState(0) // 0/1/2 主 tab,4/5 子 tab
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
@@ -83,7 +82,6 @@ export default function DeveloperIndex() {
   const [modelTypes, setModelTypes] = useState<ModelType[]>([])
 
   const fetchList = useCallback(async (opts: { page: number; status: number; search: string }) => {
-    loadingRef.current = true
     setLoading(true)
     try {
       const res = (await api.getZntList({
@@ -108,7 +106,6 @@ export default function DeveloperIndex() {
     } catch {
       // ignore
     } finally {
-      loadingRef.current = false
       setLoading(false)
     }
   }, [])
@@ -151,8 +148,9 @@ export default function DeveloperIndex() {
   }
 
   const onScrollToLower = () => {
-    if (loadingRef.current || list.length >= total) return
-    fetchList({ page: page + 1, status, search })
+    if (!loading && list.length < total) {
+      fetchList({ page: page + 1, status, search })
+    }
   }
 
   const onEdit = (agent: AgentItem) => {
@@ -366,7 +364,7 @@ export default function DeveloperIndex() {
                   <View className="flex items-center gap-[16rpx]">
                     {/* RN setBtn: px 16rpx py 6rpx radius 6dp=12rpx bg brand(→primary) 白字 12dp=24rpx */}
                     <Text
-                      className="text-label px-[16rpx] py-[6rpx] rounded-md text-cta-foreground bg-cta font-medium"
+                      className="text-label px-[16rpx] py-[6rpx] rounded-md text-cta-foreground bg-cta font-medium active:opacity-80"
                       onClick={() => onEdit(agent)}
                     >
                       {status === 2
@@ -374,12 +372,13 @@ export default function DeveloperIndex() {
                         : tt('developer.index.editBtn', '设置')}
                     </Text>
                     {/* RN offlineBtn: 14dp=28rpx brandAccent(→brand-accent) 下划线文字钮 */}
-                    <Text
+                    <View
                       className="text-body text-[var(--color-brand-accent-deep)] font-medium underline"
                       onClick={() => onDelete(agent)}
+                      hoverClass="opacity-60"
                     >
-                      {tt('developer.index.deleteBtn', '删除')}
-                    </Text>
+                      <Text>{tt('developer.index.deleteBtn', '删除')}</Text>
+                    </View>
                   </View>
                 </View>
               </View>

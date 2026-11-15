@@ -23,7 +23,7 @@ export function CustomerServiceScreen({
   onEmail,
   onBack,
   onRetry,
-  colorScheme = 'light'
+  colorScheme = 'light',
 }: CustomerServiceScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
@@ -39,7 +39,11 @@ export function CustomerServiceScreen({
   if (error || !info) {
     return (
       <View style={styles.container}>
-        <ErrorState message={error || t('customerService.empty')} onRetry={onRetry} colorScheme={colorScheme} />
+        <ErrorState
+          message={error || t('customerService.empty')}
+          onRetry={onRetry}
+          colorScheme={colorScheme}
+        />
       </View>
     )
   }
@@ -112,11 +116,11 @@ function createStyles(tk: AppThemeTokens) {
     label: { fontSize: rnType.body.size, color: tk.text.secondary },
     dot: { width: 8, height: 8, borderRadius: rnRadius.sm },
     dotOnline: { backgroundColor: tk.success.DEFAULT },
-    dotOffline: { backgroundColor: tk.text.tertiary },
+    dotOffline: { backgroundColor: tk.text.secondary },
     statusText: { fontSize: rnType.body.size, fontWeight: '600' },
-    textOnline: { color: tk.success.DEFAULT },
-    textOffline: { color: tk.text.tertiary },
-    workHours: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.tertiary },
+    textOnline: { color: tk.success.deepText },
+    textOffline: { color: tk.text.medium },
+    workHours: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.medium },
     contactRow: {
       flexDirection: 'row',
       alignItems: 'center',

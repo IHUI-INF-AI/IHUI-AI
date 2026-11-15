@@ -60,7 +60,6 @@ const mk = (tag: string) =>
       onSubmitEditing,
       onLongPress,
       accessibilityLabel,
-      testID,
       ref,
       ...rest
     } = props
@@ -98,19 +97,6 @@ const mk = (tag: string) =>
       }
     if (typeof accessibilityLabel === 'string') extra['aria-label'] = accessibilityLabel
     /**
-     * RN 的 testID:两种 DOM 形态都要落,缺一不可。
-     * ① `testid` 原样 —— 既有套件(carte-screen-render 等)按"替身把未知 prop 原样落 DOM"
-     *    的约定,用 `querySelector('[testid="…"]')` 检索;摘掉它那些套件即红。
-     * ② `data-testid` —— RTL 的 queryByTestId 只认这个;错误卡目录化接线测试靠它锚定
-     *    卡片/标题/建议行。不映射则 testID 被当未知属性丢弃、锚点检索不到。
-     * testID 必须从 rest 里解构出来,否则会以未知属性重复 spread(与①打架)。
-     * (D-AI-3 补 ②,2026-11-13。)
-     */
-    if (typeof testID === 'string') {
-      extra['testid'] = testID
-      extra['data-testid'] = testID
-    }
-    /**
      * RN 的 onLongPress 在 DOM 侧最近的对应事件是 contextMenu(桌面右键 / 移动长按)。
      * 不映射则"长按二维码保存到相册"这一类判据在测试里根本点不着 —— 而"这枚二维码真的能长按"
      * 正是必须量到、不能只写在注释里的能力(RecruitmentScreen / HomeScreen 社群码),
@@ -128,15 +114,7 @@ const mk = (tag: string) =>
     )
   }
 
-// Platform 补 select:RN 标准 API,真包 Platform.select({ ios, android, web, default })
-// 按当前 OS 取值。替身只有 OS 时,ToolCallCard 等组件用 fontFamily: Platform.select({…})
-// 会抛 "Platform.select is not a function" ⇒ 模块求值期炸、收集期整体失败。
-export const Platform = {
-  OS: 'web' as const,
-  select: <T>(spec: { ios?: T; android?: T; web?: T; native?: T; default?: T }): T | undefined =>
-    spec.web ?? spec.default,
-  Version: 0,
-}
+export const Platform = { OS: 'web' as const }
 
 // 共享替身必须覆盖真身用到的 RN API:MoreLink 经 PixelRatio 换算 hairline/字号,替身缺这个出口时
 // 表现是"渲染即抛 No PixelRatio export",而它影响的不止一枚测试(端内 6 个文件从 @ihui/rn-app 引

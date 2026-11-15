@@ -201,7 +201,7 @@ export function ChatComposer({
                   value={v.value}
                   onChangeText={(next: string) => onAgentVariableTextChange?.(index, next)}
                   placeholder={v.description}
-                  placeholderTextColor={tk.text.tertiary}
+                  placeholderTextColor={tk.text.secondary}
                 />
               ) : (
                 <TouchableOpacity
@@ -298,7 +298,7 @@ export function ChatComposer({
               <Text style={styles.modelName} numberOfLines={1}>
                 {currentModelName}
               </Text>
-              <ChevronDown size={12} color={tk.text.tertiary} />
+              <ChevronDown size={12} color={tk.text.secondary} />
             </TouchableOpacity>
           ) : (
             <Text style={styles.modelName} numberOfLines={1}>
@@ -358,7 +358,7 @@ export function ChatComposer({
             value={value}
             onChangeText={onChangeText}
             placeholder={placeholder || t('messageInput.placeholder')}
-            placeholderTextColor={tk.text.tertiary}
+            placeholderTextColor={tk.text.secondary}
             onFocus={onFocus}
             onBlur={onBlur}
             multiline
@@ -518,7 +518,7 @@ function createStyles(tk: AppThemeTokens) {
     fullscreenHint: {
       fontSize: rnType.label.size,
       lineHeight: rnType.label.lineHeight,
-      color: tk.text.tertiary,
+      color: tk.text.medium,
     },
     agentVars: {
       paddingVertical: rnSpacing.sm,
@@ -531,7 +531,7 @@ function createStyles(tk: AppThemeTokens) {
     agentVarLabel: {
       fontSize: rnType.label.size,
       lineHeight: rnType.label.lineHeight,
-      color: tk.text.tertiary,
+      color: tk.text.medium,
       marginBottom: rnSpacing.xs,
     },
     agentVarInput: {
@@ -559,7 +559,7 @@ function createStyles(tk: AppThemeTokens) {
     agentVarImageText: {
       fontSize: rnType.caption.size,
       lineHeight: rnType.caption.lineHeight,
-      color: tk.text.tertiary,
+      color: tk.text.medium,
     },
     filesWrap: { paddingVertical: rnSpacing.sm },
     filesRow: {
@@ -601,7 +601,7 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
     },
     fileRemoveText: {
-      color: tk.surface.light,
+      color: tk.surface.onBrand,
       fontSize: rnType.label.size,
       lineHeight: rnType.label.lineHeight,
       fontWeight: '700',
@@ -646,7 +646,7 @@ function createStyles(tk: AppThemeTokens) {
     modelName: {
       fontSize: rnType.label.size,
       lineHeight: rnType.label.lineHeight,
-      color: tk.text.tertiary,
+      color: tk.text.medium,
       flexShrink: 1,
     },
     inputRow: {
@@ -719,7 +719,7 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.primary,
       fontWeight: '600',
     },
-    sendBtnDisabled: { backgroundColor: tk.text.tertiary },
+    sendBtnDisabled: { backgroundColor: tk.text.secondary },
     sendBtnText: {
       color: tk.brand.ctaForeground,
       fontSize: rnType.body.size,
@@ -730,7 +730,7 @@ function createStyles(tk: AppThemeTokens) {
       marginBottom: rnSpacing.xs,
       fontSize: rnType.body.size,
       lineHeight: rnType.body.lineHeight,
-      color: tk.danger.DEFAULT,
+      color: tk.danger.deepText,
     },
     pickerOverlay: {
       flex: 1,

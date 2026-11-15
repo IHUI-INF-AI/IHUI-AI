@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { useColorScheme } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
@@ -43,15 +43,6 @@ export function RegisterScreen() {
   const colorScheme = useColorScheme()
   const accountRef = useRef('')
   const passwordRef = useRef('')
-  // 自动登录失败后的延迟跳转收进 ref:浮层淡出这 1.5s 内用户可能已自行离开,
-  // 卸载时清掉,避免幽灵导航把人从别的页面强行拉回登录页。
-  const navTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  useEffect(
-    () => () => {
-      if (navTimerRef.current) clearTimeout(navTimerRef.current)
-    },
-    [],
-  )
   const [verifyVisible, setVerifyVisible] = useState(false)
   const [verifyPhone, setVerifyPhone] = useState('')
   // FloatBox 浮层提示状态
@@ -107,9 +98,8 @@ export function RegisterScreen() {
       if (!r.success) {
         showToast('warning', t('auth.autoLoginFailed'))
         // 浮层淡出后再跳 Login,避免页面提前销毁
-        if (navTimerRef.current) clearTimeout(navTimerRef.current)
-        navTimerRef.current = setTimeout(() => {
-          navTimerRef.current = null
+        const navTimer = setTimeout(() => {
+          clearTimeout(navTimer)
           navigation.navigate('Login')
         }, 1500)
         return

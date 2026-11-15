@@ -346,10 +346,15 @@ export function SamplingParamsPanel({
   )
 }
 
-/** 工具栏触发器 + 面板(自带 open 状态),与 ModeSwitcher / 截图按钮同排使用 */
-export function SamplingParamsButton({ disabled = false }: { disabled?: boolean }) {
+/** 工具栏触发器(只负责开面板;面板由宿主挂在模型弹层之外,避免被弹层盖住/随弹层卸载) */
+export function SamplingParamsButton({
+  disabled = false,
+  onOpen,
+}: {
+  disabled?: boolean
+  onOpen: () => void
+}) {
   const t = useTranslations('chat.sampling')
-  const [open, setOpen] = React.useState(false)
   const chatStore = usePaneChatStore()
   const conversationId = chatStore((s) => s.conversationId)
   const defaults = useSamplingParamsStore((s) => s.defaults)
@@ -361,36 +366,33 @@ export function SamplingParamsButton({ disabled = false }: { disabled?: boolean 
   }, [byConversation, conversationId, defaults])
 
   return (
-    <>
-      <Tooltip
-        content={activeCount > 0 ? t('triggerActive', { count: activeCount }) : t('trigger')}
-        side="top"
-      >
-        <span className="inline-flex">
-          <IconButton
-            data-testid="sampling-params-trigger"
-            data-active={activeCount > 0 ? 'true' : 'false'}
-            aria-label={t('triggerAria')}
-            aria-haspopup="dialog"
-            disabled={disabled}
-            onClick={() => setOpen(true)}
-            className={cn(
-              'relative bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground',
-              activeCount > 0 && 'text-primary ring-1 ring-stroke-selected/40',
-            )}
-          >
-            <SlidersHorizontal aria-hidden="true" />
-            {activeCount > 0 && (
-              <span
-                className="absolute right-0.5 top-0.5 h-1.5 w-1.5 rounded-full bg-primary"
-                aria-hidden="true"
-              />
-            )}
-          </IconButton>
-        </span>
-      </Tooltip>
-      <SamplingParamsPanel open={open} onOpenChange={setOpen} />
-    </>
+    <Tooltip
+      content={activeCount > 0 ? t('triggerActive', { count: activeCount }) : t('trigger')}
+      side="top"
+    >
+      <span className="inline-flex">
+        <IconButton
+          data-testid="sampling-params-trigger"
+          data-active={activeCount > 0 ? 'true' : 'false'}
+          aria-label={t('triggerAria')}
+          aria-haspopup="dialog"
+          disabled={disabled}
+          onClick={onOpen}
+          className={cn(
+            'relative bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+            activeCount > 0 && 'text-primary ring-1 ring-stroke-selected/40',
+          )}
+        >
+          <SlidersHorizontal aria-hidden="true" />
+          {activeCount > 0 && (
+            <span
+              className="absolute right-0.5 top-0.5 h-1.5 w-1.5 rounded-full bg-primary"
+              aria-hidden="true"
+            />
+          )}
+        </IconButton>
+      </span>
+    </Tooltip>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

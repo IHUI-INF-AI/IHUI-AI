@@ -48,10 +48,6 @@ from app.services.sag2_lexical import ocr_text  # noqa: E402
 from app.services.sag2_lexical.folder_ingest import FolderIngest  # noqa: E402
 from app.services.sag2_lexical.service import Sag2LexicalService  # noqa: E402
 
-# 独立脚本不经 main.py 启动,须自行把 tempfile 重定向到合规根(§15b,不写 C 盘)
-from app.core.runtime_temp import install_runtime_temp_root  # noqa: E402
-install_runtime_temp_root()
-
 try:  # 生成样本需要 PIL；极简部署未装时整脚本降级为"无法判定"，不伪装成功。
     import numpy as np
     from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageFont

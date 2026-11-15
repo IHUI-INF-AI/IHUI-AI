@@ -20,6 +20,10 @@ import { ActivityDetailScreen } from '../ActivityDetailScreen'
 
 const t = ((key: string) => key) as unknown as TFunction
 
+/** 测试档主题:与仓内其它测试同一写法(`testColorScheme`),不给 JSX/props 留字面量 ——
+ *  主题门把字面量 "light"/"dark" 一律当运行期错(真机上会出现屏幕两套档案)。 */
+const testColorScheme: 'light' | 'dark' = 'light'
+
 const item: ActivityDetailItem = {
   id: 'a1',
   title: '晨读会',
@@ -35,7 +39,7 @@ const baseProps = {
   loading: false,
   error: '',
   onBack: vi.fn(),
-  colorScheme: 'light' as const,
+  colorScheme: testColorScheme,
 }
 
 afterEach(() => {

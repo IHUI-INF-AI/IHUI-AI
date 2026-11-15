@@ -219,4 +219,46 @@ test('H13 服务账号优先于 HMS 文本件;JWT 为 PS256 且签名可验', ()
     rmScratch(dir)
   }
 })
+
+test('H14 AGC 下载的 JSON 凭据件(键值带引号/行尾逗号)必须读成 connect-api', () => {
+  // 2026-11-15 现场:控制台「下载认证凭证」导出的 JSON 与文本件同义,旧解析器读成 none
+  const json = JSON.stringify({ type: 'project_client_id', project_id: '461323198430636223', client_id: '1798030717595177408', client_secret: SECRET, configuration_version: '3.0', region: 'CN' }, null, 2)
+  const p = H.parseCredentialText(json)
+  assert.equal(p.kind, 'connect-api', 'JSON 导出格式不得读成 none')
+  assert.equal(p.clientId, '1798030717595177408')
+  assert.equal(p.clientSecret, SECRET)
+  assert.equal(p.fields.includes('client_id'), true, '字段名必须剥掉包裹引号')
+})
+
+test('H15 先扫到不可解析件(credentials.csv)不得吞掉后面的真凭据', () => {
+  const dir = mkScratch('hw-cred-order')
+  try {
+    writeFileSync(join(dir, '华为0credentials.csv'), 'User Name,Access Key Id,Secret Access Key\nok,AK,SK', 'utf8')
+    writeFileSync(join(dir, '华为AGC-ConnectAPI-credential.json'), JSON.stringify({ client_id: '1798030717595177408', client_secret: SECRET }), 'utf8')
+    const r = H.resolveCredentials({ root: dir, env: {} })
+    assert.equal(r.status, 'found', '首个件无字段不得把整目录判成 unjudged')
+    assert.equal(r.value.kind, 'connect-api')
+    assert.equal(r.value.clientId, '1798030717595177408')
+    assert.ok(!r.detail.includes(SECRET), '脱敏:detail 只出 sha8')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('H16 服务账号件与 Connect API 客户端同目录时,先交能换 token 的客户端', () => {
+  const kp = generateKeyPairSync('rsa', { modulusLength: 2048 })
+  const pem = kp.privateKey.export({ type: 'pkcs8', format: 'pem' })
+  const dir = mkScratch('hw-cred-priority')
+  try {
+    writeFileSync(join(dir, '华为服务账号.json'), JSON.stringify({ key_id: 'kid-1', private_key: pem, sub_account: '100000001' }), 'utf8')
+    writeFileSync(join(dir, '华为AGC-ConnectAPI-credential.json'), JSON.stringify({ client_id: 'cid-9', client_secret: SECRET }), 'utf8')
+    const r = H.resolveCredentials({ root: dir, env: {} })
+    assert.equal(r.status, 'found')
+    assert.equal(r.value.kind, 'connect-api', '服务账号 2026-11-15 实测 1101 不可换 token ⇒ 客户端优先')
+    assert.ok(!r.detail.includes(SECRET), '脱敏:detail 只出 sha8')
+    assert.ok(!r.detail.includes('PRIVATE KEY'), '脱敏:不得含私钥原文')
+  } finally {
+    rmScratch(dir)
+  }
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

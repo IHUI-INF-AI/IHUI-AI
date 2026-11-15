@@ -39,6 +39,7 @@ import {
 } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
+import { NESTED_FLOATING_OVERLAY_Z_CLASS, NESTED_FLOATING_Z_CLASS } from '@/lib/floating-layer'
 
 interface ShortcutRow {
   /** 按键标签(纯展示,如 "Shift+Tab" / "?" / "/permission full") */
@@ -97,7 +98,10 @@ export function PermissionShortcutsModal({ open, onClose }: PermissionShortcutsM
         if (!o) onClose()
       }}
     >
-      <DialogContent className="max-w-md">
+      <DialogContent
+        className={cn('max-w-md', NESTED_FLOATING_Z_CLASS)}
+        overlayClassName={NESTED_FLOATING_OVERLAY_Z_CLASS}
+      >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Keyboard className="h-4 w-4" aria-hidden="true" />

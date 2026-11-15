@@ -42,10 +42,14 @@ export function getPanelBucket(viewportWidth: number): AiPanelBucket {
   return 'docked'
 }
 
-/** 浮窗几何常量:宽度固定(与停靠宽度解耦),高度上限 600,四周最少留 8px */
-export const AI_FLOAT_WIDTH = 360
-export const AI_FLOAT_MAX_HEIGHT = 600
+/** 浮窗默认尺寸(与停靠宽度解耦),四周最少留 8px */
+export const AI_FLOAT_DEFAULT_WIDTH = 360
+export const AI_FLOAT_DEFAULT_HEIGHT = 600
 export const AI_FLOAT_MARGIN = 8
+/** 浮窗可缩放的最小尺寸(2026-11-15):再小输入底栏与消息区就不可用;
+ *  最小档必须小于默认档,否则用户只能放大不能缩小。 */
+export const AI_FLOAT_MIN_WIDTH = 320
+export const AI_FLOAT_MIN_HEIGHT = 280
 /** 松手吸边阈值:拖到距左右边距这么近时自动贴边(避免「差 3px 没贴住」的别扭观感) */
 export const AI_FLOAT_SNAP_DISTANCE = 24
 /** 桌面 FAB(最小化图标)直径,与组件里的 h-12 w-12 对齐;手机 56px 固定左下不参与拖拽 */
@@ -61,11 +65,25 @@ export interface AiFloatRect extends AiFloatSize {
   y: number
 }
 
-/** 浮窗尺寸:任何视口都不越界(窄屏收窄,矮屏收矮)。 */
-export function getFloatSize(viewportWidth: number, viewportHeight: number): AiFloatSize {
+/**
+ * 浮窗尺寸:优先用户缩放后的尺寸(2026-11-15 八向拉伸),再按视口收口。
+ * - 未传 preferred = 默认 360×600(与历史行为逐字一致);
+ * - 任何视口都不越界(窄屏收窄,矮屏收矮);视口比最小档还小时以视口为准。
+ */
+export function getFloatSize(
+  viewportWidth: number,
+  viewportHeight: number,
+  preferred?: AiFloatSize | null,
+): AiFloatSize {
+  const maxWidth = Math.max(0, viewportWidth - AI_FLOAT_MARGIN * 2)
+  const maxHeight = Math.max(0, viewportHeight - AI_FLOAT_MARGIN * 2)
+  const wantWidth =
+    preferred && Number.isFinite(preferred.width) ? preferred.width : AI_FLOAT_DEFAULT_WIDTH
+  const wantHeight =
+    preferred && Number.isFinite(preferred.height) ? preferred.height : AI_FLOAT_DEFAULT_HEIGHT
   return {
-    width: Math.min(AI_FLOAT_WIDTH, Math.max(0, viewportWidth - AI_FLOAT_MARGIN * 2)),
-    height: Math.min(AI_FLOAT_MAX_HEIGHT, Math.max(0, viewportHeight - AI_FLOAT_MARGIN * 2)),
+    width: Math.min(maxWidth, Math.max(AI_FLOAT_MIN_WIDTH, wantWidth)),
+    height: Math.min(maxHeight, Math.max(AI_FLOAT_MIN_HEIGHT, wantHeight)),
   }
 }
 
@@ -73,14 +91,16 @@ export function getFloatSize(viewportWidth: number, viewportHeight: number): AiF
  * 把浮窗左上角收进视口。
  * 历史缺陷:水平钳制误用了**停靠**宽度(480),垂直只留 120px ⇒ 拖到下沿时大半个面板出界。
  * 这里统一按浮窗自身尺寸 + 8px 边距收口,resize 时同样走本函数。
+ * preferred:当前缩放尺寸,缺省按默认尺寸收口。
  */
 export function clampFloatPosition(
   x: number,
   y: number,
   viewportWidth: number,
   viewportHeight: number,
+  preferred?: AiFloatSize | null,
 ): { x: number; y: number } {
-  const { width, height } = getFloatSize(viewportWidth, viewportHeight)
+  const { width, height } = getFloatSize(viewportWidth, viewportHeight, preferred)
   const maxX = Math.max(AI_FLOAT_MARGIN, viewportWidth - width - AI_FLOAT_MARGIN)
   const maxY = Math.max(AI_FLOAT_MARGIN, viewportHeight - height - AI_FLOAT_MARGIN)
   return {
@@ -100,10 +120,11 @@ export function snapFloatPosition(
   y: number,
   viewportWidth: number,
   viewportHeight: number,
+  preferred?: AiFloatSize | null,
   threshold: number = AI_FLOAT_SNAP_DISTANCE,
 ): { x: number; y: number } {
-  const clamped = clampFloatPosition(x, y, viewportWidth, viewportHeight)
-  const { width } = getFloatSize(viewportWidth, viewportHeight)
+  const clamped = clampFloatPosition(x, y, viewportWidth, viewportHeight, preferred)
+  const { width } = getFloatSize(viewportWidth, viewportHeight, preferred)
   const left = AI_FLOAT_MARGIN
   const right = Math.max(left, viewportWidth - width - AI_FLOAT_MARGIN)
   if (right - left <= threshold * 2) return clamped
@@ -113,21 +134,76 @@ export function snapFloatPosition(
 }
 
 /**
+ * 八向缩放的纯几何(2026-11-15):把「按住了哪条边/哪个角 + 指针位移」换算成新矩形。
+ * - 拖左边/上边时同步平移 x/y,固定的是**对侧边**,不是左上角(否则会「拉左边、右边也跑」);
+ * - 宽高先按 minimum / 视口上限收口,再用固定边反推移动边,保证任何方向都不越界;
+ * - 输出取整数,避免拖拽累积子像素产生 1px 抖动。
+ */
+export type FloatResizeEdge = 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw'
+
+export function resizeFloatRect(
+  rect: AiFloatRect,
+  edge: FloatResizeEdge,
+  dx: number,
+  dy: number,
+  viewportWidth: number,
+  viewportHeight: number,
+): AiFloatRect {
+  const right = rect.x + rect.width
+  const bottom = rect.y + rect.height
+  const maxWidth = Math.max(0, viewportWidth - AI_FLOAT_MARGIN * 2)
+  const maxHeight = Math.max(0, viewportHeight - AI_FLOAT_MARGIN * 2)
+  const minWidth = Math.min(AI_FLOAT_MIN_WIDTH, maxWidth)
+  const minHeight = Math.min(AI_FLOAT_MIN_HEIGHT, maxHeight)
+
+  let width = rect.width
+  let height = rect.height
+  if (edge.includes('e')) width = rect.width + dx
+  if (edge.includes('w')) width = rect.width - dx
+  if (edge.includes('s')) height = rect.height + dy
+  if (edge.includes('n')) height = rect.height - dy
+
+  width = Math.round(Math.min(maxWidth, Math.max(minWidth, width)))
+  height = Math.round(Math.min(maxHeight, Math.max(minHeight, height)))
+
+  let x = rect.x
+  let y = rect.y
+  if (edge.includes('w')) {
+    width = Math.max(1, Math.min(width, Math.round(right - AI_FLOAT_MARGIN)))
+    x = Math.round(right) - width
+  } else if (edge.includes('e')) {
+    width = Math.max(1, Math.min(width, Math.round(viewportWidth - AI_FLOAT_MARGIN - x)))
+  }
+  if (edge.includes('n')) {
+    height = Math.max(1, Math.min(height, Math.round(bottom - AI_FLOAT_MARGIN)))
+    y = Math.round(bottom) - height
+  } else if (edge.includes('s')) {
+    height = Math.max(1, Math.min(height, Math.round(viewportHeight - AI_FLOAT_MARGIN - y)))
+  }
+  return { x, y, width, height }
+}
+
+/**
  * 解析当前浮窗矩形。
  * - position.x / y 为负 = 未初始化(store 的 FLOAT_DEFAULT_POSITION),回落到锚点:
  *   锚点是工作区左下角,height 向上展开 ⇒ 视觉上「从底部向上弹出」。
  * - 无论哪种来源,出口都经过 clampFloatPosition,因此不存在越界坐标。
+ * - preferred 为用户缩放后的尺寸;缺省按默认 360×600,保证未缩放时行为不变。
  */
 export function resolveFloatRect(
   position: { x: number; y: number },
   anchor: { left: number; bottom: number },
   viewportWidth: number,
   viewportHeight: number,
+  preferred?: AiFloatSize | null,
 ): AiFloatRect {
-  const { width, height } = getFloatSize(viewportWidth, viewportHeight)
+  const { width, height } = getFloatSize(viewportWidth, viewportHeight, preferred)
   const rawX = position.x < 0 ? anchor.left : position.x
   const rawY = position.y < 0 ? anchor.bottom - height : position.y
-  const { x, y } = clampFloatPosition(rawX, rawY, viewportWidth, viewportHeight)
+  const { x, y } = clampFloatPosition(rawX, rawY, viewportWidth, viewportHeight, {
+    width,
+    height,
+  })
   return { x, y, width, height }
 }
 
@@ -212,6 +288,13 @@ function readServerViewportKey(): string {
  */
 export function readViewportWidth(): number {
   return typeof window === 'undefined' ? SERVER_VIEWPORT.width : window.innerWidth
+}
+
+/** 同步读取视口尺寸(store 收口浮窗缩放尺寸用);服务端回落到同一份兜底视口。 */
+export function readViewportSize(): AiFloatSize {
+  return typeof window === 'undefined'
+    ? { ...SERVER_VIEWPORT }
+    : { width: window.innerWidth, height: window.innerHeight }
 }
 
 /** 视口尺寸订阅:resize / orientationchange 触发重渲染,bucket 与浮窗几何都从这里派生。 */

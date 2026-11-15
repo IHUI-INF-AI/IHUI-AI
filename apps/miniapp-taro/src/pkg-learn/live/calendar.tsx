@@ -177,9 +177,9 @@ export default function LiveCalendar() {
             <LineIcon name="chevron-right" size={32} />
           </View>
         </View>
-        <Text className="cal-today-btn" onClick={goToday}>
-          {tt('live.calendar.today', '今天')}
-        </Text>
+        <View className="cal-today-btn" hoverClass="opacity-60" onClick={goToday}>
+          <Text>{tt('live.calendar.today', '今天')}</Text>
+        </View>
       </View>
       <View className="cal-stat">
         <Text>{tt('live.calendar.monthStat', '本月')}</Text>
@@ -223,11 +223,7 @@ export default function LiveCalendar() {
           return (
             <ThemeRoot key={live.id}>
               <View key={live.id} className="cal-card">
-                {live.coverUrl ? (
-                  <Image className="cal-card-cover" src={live.coverUrl} mode="aspectFill" />
-                ) : (
-                  <View className="cal-card-cover" />
-                )}
+                <Image className="cal-card-cover" src={live.coverUrl} mode="aspectFill" />
                 <View className="cal-card-row">
                   <Text className="cal-card-title">{live.title}</Text>
                   <Text className={`cal-badge ${cfg.badge}`}>{tt(cfg.labelKey, cfg.labelFb)}</Text>
@@ -240,9 +236,13 @@ export default function LiveCalendar() {
                   )}
                   {live.startTime && <Text>{live.startTime}</Text>}
                 </View>
-                <Text className={`cal-action ${cfg.actionCls}`} onClick={() => onAction(live)}>
-                  {tt(cfg.actionKey, cfg.actionFb)}
-                </Text>
+                <View
+                  className={`cal-action ${cfg.actionCls}`}
+                  hoverClass="opacity-60"
+                  onClick={() => onAction(live)}
+                >
+                  <Text>{tt(cfg.actionKey, cfg.actionFb)}</Text>
+                </View>
               </View>
             </ThemeRoot>
           )

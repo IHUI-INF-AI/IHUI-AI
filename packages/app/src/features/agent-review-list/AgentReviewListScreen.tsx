@@ -38,9 +38,7 @@ export function AgentReviewListScreen({
           <Text style={styles.agentName} numberOfLines={1}>
             {item.agentName}
           </Text>
-          <Text style={styles.stars}>
-            {'★'.repeat(Math.max(1, Math.min(5, item.rating || 0)))}
-          </Text>
+          <Text style={styles.stars}>{'★'.repeat(Math.max(1, Math.min(5, item.rating || 0)))}</Text>
         </View>
         <Text style={styles.content} numberOfLines={2}>
           {item.content}
@@ -103,7 +101,7 @@ function createStyles(tk: AppThemeTokens) {
     errorText: {
       paddingHorizontal: rnSpacing['sm-loose'],
       fontSize: rnType.body.size,
-      color: tk.danger.DEFAULT,
+      color: tk.danger.deepText,
     },
     listContent: { padding: rnSpacing['md-loose'] },
     separator: { height: 8 },
@@ -127,9 +125,9 @@ function createStyles(tk: AppThemeTokens) {
       fontWeight: '700',
       color: tk.text.primary,
     },
-    stars: { fontSize: rnType.body.size, color: tk.warning.amber },
+    stars: { fontSize: rnType.body.size, color: tk.warning.amberText },
     content: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.secondary },
-    author: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.tertiary },
+    author: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.medium },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

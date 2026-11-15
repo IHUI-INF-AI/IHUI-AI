@@ -3040,10 +3040,15 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     // 承载层出口(§5):鉴权先于形状闸;下方 confirmed 绑定校验保留(鉴权≠授权)。
     const authed = await checkAuthOrInternalService(request, reply)
     if (!authed) return
-    // 形状闸(F-214 补):childId 必须是 UUID,畸形路径 400 而非下探到 UUID 列比较报 500。
+    // F-214(2026-11-13):childId 进 uuid 列比较前必须过形状闸 —— 此前只判空,
+    // 非 uuid 路径直落 PG `invalid input syntax for type uuid` 变 500(日志噪声+可探测)。
+    // 闸与同族 bills 端点(:3218)共用 childIdParamSchema,只认 `childId` 键,不新写第二份判据。
     const idParsed = childIdParamSchema.safeParse(request.params)
-    if (!idParsed.success)
-      return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
+    if (!idParsed.success) {
+      return reply
+        .status(400)
+        .send(error(400, idParsed.error.issues[0]?.message ?? '无效的 childId'))
+    }
     const childId = idParsed.data.childId
     const userId = request.userId!
 
@@ -3092,10 +3097,15 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     // 承载层出口(§5):鉴权先于形状闸;下方 confirmed 绑定校验保留(鉴权≠授权)。
     const authed = await checkAuthOrInternalService(request, reply)
     if (!authed) return
-    // 形状闸(F-214 补):childId 必须是 UUID,畸形路径 400 而非下探到 UUID 列比较报 500。
+    // F-214(2026-11-13):childId 进 uuid 列比较前必须过形状闸 —— 此前只判空,
+    // 非 uuid 路径直落 PG `invalid input syntax for type uuid` 变 500(日志噪声+可探测)。
+    // 闸与同族 bills 端点(:3218)共用 childIdParamSchema,只认 `childId` 键,不新写第二份判据。
     const idParsed = childIdParamSchema.safeParse(request.params)
-    if (!idParsed.success)
-      return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
+    if (!idParsed.success) {
+      return reply
+        .status(400)
+        .send(error(400, idParsed.error.issues[0]?.message ?? '无效的 childId'))
+    }
     const childId = idParsed.data.childId
     const userId = request.userId!
 
@@ -3127,10 +3137,15 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     // 承载层出口(§5):鉴权先于形状闸;下方 confirmed 绑定校验保留(鉴权≠授权)。
     const authed = await checkAuthOrInternalService(request, reply)
     if (!authed) return
-    // 形状闸(F-214 补):childId 必须是 UUID,畸形路径 400 而非下探到 UUID 列比较报 500。
+    // F-214(2026-11-13):childId 进 uuid 列比较前必须过形状闸 —— 此前只判空,
+    // 非 uuid 路径直落 PG `invalid input syntax for type uuid` 变 500(日志噪声+可探测)。
+    // 闸与同族 bills 端点(:3218)共用 childIdParamSchema,只认 `childId` 键,不新写第二份判据。
     const idParsed = childIdParamSchema.safeParse(request.params)
-    if (!idParsed.success)
-      return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
+    if (!idParsed.success) {
+      return reply
+        .status(400)
+        .send(error(400, idParsed.error.issues[0]?.message ?? '无效的 childId'))
+    }
     const childId = idParsed.data.childId
     const userId = request.userId!
 
@@ -3174,8 +3189,16 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     // 承载层出口(§5):鉴权先于形状闸;下方 confirmed 绑定校验保留(鉴权≠授权)。
     const authed = await checkAuthOrInternalService(request, reply)
     if (!authed) return
-    const childId = (request.params as { childId: string }).childId
-    if (!childId) return reply.status(400).send(error(400, '无效的孩子ID'))
+    // F-214(2026-11-13):childId 进 uuid 列比较前必须过形状闸 —— 此前只判空,
+    // 非 uuid 路径直落 PG `invalid input syntax for type uuid` 变 500(日志噪声+可探测)。
+    // 闸与同族 bills 端点(:3218)共用 childIdParamSchema,只认 `childId` 键,不新写第二份判据。
+    const idParsed = childIdParamSchema.safeParse(request.params)
+    if (!idParsed.success) {
+      return reply
+        .status(400)
+        .send(error(400, idParsed.error.issues[0]?.message ?? '无效的 childId'))
+    }
+    const childId = idParsed.data.childId
     // 查询形状闸(2026-11-04 补):此前这条端点**根本没有 query 闸**,传任何 status 都被
     // 静默忽略 ⇒ 客户端以为筛了、服务端按全量回,与同族 GET /parent/child/:id/attendance
     // 的「非法值 400 点名 + 合法值真筛」两张脸对不上。取证(现读 web 家长子页 PageClient 与
@@ -3268,10 +3291,15 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     // 承载层出口(§5):鉴权先于形状闸;下方 confirmed 绑定校验保留(鉴权≠授权)。
     const authed = await checkAuthOrInternalService(request, reply)
     if (!authed) return
-    // 形状闸(F-214 补):childId 必须是 UUID,畸形路径 400 而非下探到 UUID 列比较报 500。
+    // F-214(2026-11-13):childId 进 uuid 列比较前必须过形状闸 —— 此前只判空,
+    // 非 uuid 路径直落 PG `invalid input syntax for type uuid` 变 500(日志噪声+可探测)。
+    // 闸与同族 bills 端点(:3218)共用 childIdParamSchema,只认 `childId` 键,不新写第二份判据。
     const idParsed = childIdParamSchema.safeParse(request.params)
-    if (!idParsed.success)
-      return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
+    if (!idParsed.success) {
+      return reply
+        .status(400)
+        .send(error(400, idParsed.error.issues[0]?.message ?? '无效的 childId'))
+    }
     const childId = idParsed.data.childId
     const userId = request.userId!
 
@@ -4568,6 +4596,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
         const { totalIncome, paidStudentCount } = await loadPaymentIncomeSummary(
           tx,
           parsed.data.classId ?? null,
+          parsed.data.termId ?? null,
         )
 
         // 欠费人数和欠费总额（从 enrollment 表计算）

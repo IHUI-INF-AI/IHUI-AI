@@ -11,7 +11,6 @@ import { generateReportPDF } from '../services/pdf-service.js'
 import { db } from '../db/index.js'
 import { visitLogs, users, orders, auditLogs } from '@ihui/database'
 import { sql, and, gte, lte, desc } from 'drizzle-orm'
-import { bizDayStartFromKeyUtc } from '../utils/biz-day.js'
 
 // =============================================================================
 // Zod schemas
@@ -90,9 +89,6 @@ const REPORT_DEFS: Record<
       { header: '总金额', field: 'totalAmount', width: 14, type: 'float' },
     ],
     query: async (startDate, endDate) => {
-      // F-24 同类:订单日报按上海日界(此前 startDate 直接 `new Date(startDate)`,endDate 用 UTC 23:59:59)。
-      const startAt = bizDayStartFromKeyUtc(startDate)
-      const endAt = new Date(bizDayStartFromKeyUtc(endDate).getTime() + 86_400_000 - 1)
       const rows = await db
         .select({
           date: sql<string>`to_char(${orders.createdAt}, 'YYYY-MM-DD')`,
@@ -100,7 +96,12 @@ const REPORT_DEFS: Record<
           totalAmount: sql<number>`coalesce(sum(${orders.amount}), 0)::float`,
         })
         .from(orders)
-        .where(and(gte(orders.createdAt, startAt), lte(orders.createdAt, endAt)))
+        .where(
+          and(
+            gte(orders.createdAt, new Date(startDate)),
+            lte(orders.createdAt, new Date(`${endDate}T23:59:59.999Z`)),
+          ),
+        )
         .groupBy(sql`to_char(${orders.createdAt}, 'YYYY-MM-DD')`)
         .orderBy(sql`to_char(${orders.createdAt}, 'YYYY-MM-DD')`)
       return rows.map((r) => ({ date: r.date, count: r.count, totalAmount: r.totalAmount }))
@@ -129,11 +130,8 @@ const REPORT_DEFS: Record<
         .from(users)
         .where(
           and(
-            gte(users.createdAt, bizDayStartFromKeyUtc(startDate)),
-            lte(
-              users.createdAt,
-              new Date(bizDayStartFromKeyUtc(endDate).getTime() + 86_400_000 - 1),
-            ),
+            gte(users.createdAt, new Date(startDate)),
+            lte(users.createdAt, new Date(`${endDate}T23:59:59.999Z`)),
           ),
         )
         .groupBy(sql`to_char(${users.createdAt}, 'YYYY-MM-DD')`)
@@ -177,11 +175,8 @@ const REPORT_DEFS: Record<
         .from(auditLogs)
         .where(
           and(
-            gte(auditLogs.createdAt, bizDayStartFromKeyUtc(startDate)),
-            lte(
-              auditLogs.createdAt,
-              new Date(bizDayStartFromKeyUtc(endDate).getTime() + 86_400_000 - 1),
-            ),
+            gte(auditLogs.createdAt, new Date(startDate)),
+            lte(auditLogs.createdAt, new Date(`${endDate}T23:59:59.999Z`)),
           ),
         )
         .groupBy(auditLogs.action, auditLogs.resourceType)
@@ -266,9 +261,6 @@ export const adminReportRoutes: FastifyPluginAsync = async (server) => {
       sections: def.sections(data),
       generatedAt: new Date(),
     })
-    if (!pdfResult.ok) {
-      return reply.status(503).send(error(503, '报表 PDF 生成失败,请稍后重试'))
-    }
     return reply
       .header('Content-Type', 'application/pdf')
       .header('Content-Disposition', `attachment; filename="${type}-${startDate}-${endDate}.pdf"`)

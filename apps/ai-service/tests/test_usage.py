@@ -105,10 +105,57 @@ class TestGetUsageStats:
 
 class TestGetGlobalStats:
     async def test_success(self, fake_service):
-        resp = await usage_router.get_global_stats(days=14)
+        # AIS-079 后 /global 是管理员视图,正例必须带 role_id ≥ 1 的请求
+        resp = await usage_router.get_global_stats(
+            _req(user_id="u1", role_id=1), days=14
+        )
         assert resp["code"] == 0
         assert resp["data"] == {"total_tokens": 1000}
         fake_service.get_global_stats.assert_called_once_with(days=14)
+
+
+# ---------------------------------------------------------------------------
+# AIS-079:/global /budget-events /agent 三个只读面的 admin 门
+# 票面:三面此前无 Request/Depends,任意登录用户可读全站成本、预算超支事件
+# 与支柱预算摘要(认证 ≠ 授权);修法与 _scope_user_id 同一角色判定形状。
+# ---------------------------------------------------------------------------
+
+READ_FACES = ("global", "budget-events", "agent")
+
+
+async def _call_read_face(face: str, req: SimpleNamespace) -> dict[str, Any]:
+    """三个只读面的统一分派入口(签名各异)。"""
+    if face == "global":
+        return await usage_router.get_global_stats(req, days=7)
+    if face == "budget-events":
+        return await usage_router.get_budget_events(req, limit=5)
+    return await usage_router.get_agent_budget_usage(req)
+
+
+@pytest.mark.parametrize("face", READ_FACES)
+class TestAdminGateOnReadFaces:
+    async def test_non_admin_is_403(self, fake_service, face):
+        """role=0 登录用户 ⇒ 403,且未触达数据面。"""
+        with pytest.raises(HTTPException) as ei:
+            await _call_read_face(face, _req(user_id="u1", role_id=0))
+        assert ei.value.status_code == 403
+        if face == "global":
+            fake_service.get_global_stats.assert_not_called()
+
+    async def test_no_identity_401_when_auth_enforced(
+        self, fake_service, monkeypatch, face
+    ):
+        """缺身份(强制鉴权)⇒ 401:门先立身份再判角色,不因端点无 user_id 参数漏过。"""
+        _enforce_auth(monkeypatch, True)
+        req = SimpleNamespace(state=SimpleNamespace(user_id=None, role_id=0))
+        with pytest.raises(HTTPException) as ei:
+            await _call_read_face(face, req)
+        assert ei.value.status_code == 401
+
+    async def test_admin_still_200(self, fake_service, face):
+        """管理员(role_id ≥ 1)⇒ 200(门不误伤管理视图)。"""
+        resp = await _call_read_face(face, _req(user_id="u1", role_id=1))
+        assert resp["code"] == 0
 
 
 # ---------------------------------------------------------------------------

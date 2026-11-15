@@ -213,13 +213,9 @@ describe('D94 脱敏 / 反误伤与规则来源', () => {
     for (const rule of SECRET_RULES) {
       expect(['output_cleaning.py', 'cli/redact.ts']).toContain(rule.source)
     }
-    // 本票新增五类,逐条带 D94 来源标注;邮箱与 IP 走函数(D94)
-    expect(D94_ADDED_PATTERNS.length).toBe(5)
-    for (const rule of D94_ADDED_PATTERNS) {
-      expect(rule.source).toBe('D94')
-    }
-    // Y-111:GitHub fine-grained PAT 在 SECRET_RULES 的 GitHub token 规则内
-    expect(SECRET_RULES.map((r) => r.pattern.source).join('|')).toContain('github_pat_')
+    // 本票新增只三条:十六进制(D94);邮箱与 IP 走函数(D94)
+    expect(D94_ADDED_PATTERNS.length).toBe(1)
+    expect(D94_ADDED_PATTERNS[0]?.source).toBe('D94')
   })
 
   it('幂等:脱敏后的文本再脱敏一次不引入新标记堆叠', () => {

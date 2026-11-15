@@ -24,7 +24,50 @@ import {
   shouldSkipResumeLadder,
 } from '@ihui/shared/chat'
 import { refreshAccessTokenOnce } from '@ihui/api-client'
+// 引擎模式接线(2026-11-15):本地腿时 agent SSE 直连 ai-service 8803 /api/langgraph,
+// 云端路径字节不变(零回归)。单一真相源 = shared engine-mode-store 的 getGlobalEngineMode。
+import {
+  getGlobalEngineMode,
+  resolveEffectiveEngineLeg,
+  type EngineModeWindowContext,
+} from '@ihui/shared/stores'
+import {
+  isRemoteWindow,
+  isTauriRuntime,
+  resolveAiServiceBaseUrl,
+} from '@/lib/api-base-url'
 import { getStreamBaseUrl, getToken } from '@/lib/api'
+
+/**
+ * Agent SSE 流基址(2026-11-15 引擎模式接线)。
+ *
+ * 云端腿:沿用 getStreamBaseUrl()(本机 dev 8802,经网关 /api/agent-langgraph/* 映射)——字节不变。
+ * 本地腿:改用 ai-service 基址(本机 8803),前缀改写为 ai-service 真实路由 /api/langgraph
+ * (agent_runtime 的 langgraph 子图挂载点,见 apps/ai-service/app/main.py 的 include_router)。
+ *
+ * 协议兼容性已核实:两端均为 GET /…/{threadId}/stream?input=<JSON>,SSE 帧格式一致;
+ * 鉴权消费端已带 Authorization: Bearer(getToken),ai-service jwt_auth 亦接受 Bearer。
+ * 故此处只改 base + 前缀,method/query/headers 全部不变。
+ */
+function resolveAgentStreamUrl(
+  threadId: string,
+  inputJson: string | undefined,
+): string {
+  const query = inputJson ? `?input=${encodeURIComponent(inputJson)}` : ''
+  const leg = resolveEffectiveEngineLeg(getGlobalEngineMode(), {
+    isTauri: isTauriRuntime(),
+    isRemoteWindow: isRemoteWindow(),
+  } satisfies EngineModeWindowContext)
+
+  if (leg === 'local') {
+    const aiBase = resolveAiServiceBaseUrl()
+    if (aiBase) return `${aiBase}/api/langgraph/${encodeURIComponent(threadId)}/stream${query}`
+  }
+  // 云端腿(或本地 ai-service 基址未解析,回退云端语义)
+  const base = getStreamBaseUrl()
+  const relativeUrl = `/api/agent-langgraph/${encodeURIComponent(threadId)}/stream${query}`
+  return base ? `${base}${relativeUrl}` : relativeUrl
+}
 
 /**
  * LangGraph Agent SSE 流消费 hook(2026-07-23 立,Q1 HITL web 端)
@@ -290,10 +333,7 @@ export function useAgentStream(options: UseAgentStreamOptions): UseAgentStreamRe
         setReconnectAttempt(0)
       }
 
-      const query = input ? `?input=${encodeURIComponent(JSON.stringify(input))}` : ''
-      const relativeUrl = `/api/agent-langgraph/${threadId}/stream${query}`
-      const baseUrl = getStreamBaseUrl()
-      const url = baseUrl ? `${baseUrl}${relativeUrl}` : relativeUrl
+      const url = resolveAgentStreamUrl(threadId, input ? JSON.stringify(input) : undefined)
 
       const controller = new AbortController()
       abortRef.current = controller

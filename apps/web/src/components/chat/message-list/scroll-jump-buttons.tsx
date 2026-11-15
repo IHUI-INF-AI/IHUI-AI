@@ -91,7 +91,14 @@ export function ScrollJumpButtons({
         aria-label={t('jumpToTop')}
         onClick={onJumpTop}
         data-testid="scroll-jump-top"
-        {...visibilityProps(isFarFromTop, 'absolute left-1/2 top-4 -translate-x-1/2')}
+        // 2026-11-15:用户要求上/下翻按钮明暗两种模式下都是纯白底 + 深色图标;
+        // hover 不改底色(outline 变体自带 hover:bg-accent,必须显式压回白),
+        // 悬浮感交给全站统一的 ui-lift(位移 + 投影升档)。
+        // 必须并进 visibilityProps 的 className(它自带 className,展开在其后会覆盖本属性)。
+        {...visibilityProps(
+          isFarFromTop,
+          'absolute left-1/2 top-4 -translate-x-1/2 bg-white text-zinc-900 hover:bg-white hover:text-zinc-900 ui-lift',
+        )}
       >
         <ChevronUp />
       </Button>
@@ -102,7 +109,12 @@ export function ScrollJumpButtons({
         aria-label={t('jumpToLatest')}
         onClick={onJumpLatest}
         data-testid="scroll-jump-bottom"
-        {...visibilityProps(showLatest, 'absolute bottom-4 left-1/2 -translate-x-1/2')}
+        // 2026-11-15:同上,跳到最新按钮保持纯白底(暗色模式也白底),hover 只走 ui-lift 悬浮
+        // 2026-11-15:位置继续下移 → bottom-4(16px) → bottom-1(4px),几乎贴住消息视口底边
+        {...visibilityProps(
+          showLatest,
+          'absolute bottom-1 left-1/2 -translate-x-1/2 bg-white text-zinc-900 hover:bg-white hover:text-zinc-900 ui-lift',
+        )}
       >
         <ChevronDown />
         {isStreaming && (

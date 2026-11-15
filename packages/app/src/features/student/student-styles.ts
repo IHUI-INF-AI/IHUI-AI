@@ -21,7 +21,7 @@ import type { AppThemeTokens } from '../../theme/tokens'
 export const STUDENT_PALETTE = {
   pending: { bg: rnHue.amber.tintStrong, fg: rnHue.amber.fg },
   completed: { bg: rnHue.emerald.tint, fg: rnHue.emerald.fg },
-  muted: { bg: rnHue.zinc.tintStrong, fg: rnDarkTokens.text.tertiary },
+  muted: { bg: rnHue.zinc.tintStrong, fg: rnDarkTokens.text.secondary },
   rejected: { bg: rnHue.rose.tintStrong, fg: rnHue.rose.fg },
 } as const
 
@@ -144,7 +144,7 @@ export function createStudentStyles(tk: AppThemeTokens) {
     },
     rowMain: { flex: 1, gap: rnSpacing.xs },
     rowTitle: { fontSize: rnType.body.size, fontWeight: '600', color: tk.text.primary },
-    rowSub: { fontSize: rnType.caption.size, color: tk.text.tertiary },
+    rowSub: { fontSize: rnType.caption.size, color: tk.text.medium },
     rowBody: { fontSize: rnType.bodySm.size, color: tk.text.secondary, lineHeight: 19 },
     rowMeta: {
       flexDirection: 'row',
@@ -153,7 +153,7 @@ export function createStudentStyles(tk: AppThemeTokens) {
       gap: rnSpacing['sm-loose'],
     },
     metaItem: { flexDirection: 'row', alignItems: 'center', gap: 3 },
-    metaText: { fontSize: rnType.caption.size, color: tk.text.tertiary },
+    metaText: { fontSize: rnType.caption.size, color: tk.text.medium },
     thumb: {
       width: 84,
       height: 48,
@@ -226,7 +226,7 @@ export function createStudentStyles(tk: AppThemeTokens) {
       borderColor: tk.border.medium,
     },
     pagerBtnText: { fontSize: rnType.bodySm.size, color: tk.text.primary },
-    pagerBtnTextDisabled: { fontSize: rnType.bodySm.size, color: tk.text.tertiary },
+    pagerBtnTextDisabled: { fontSize: rnType.bodySm.size, color: tk.text.medium },
     pageInfo: { fontSize: rnType.label.size, color: tk.text.secondary },
     // —— 空态 / 错误 / 骨架 ——
     emptyBox: {
@@ -238,7 +238,7 @@ export function createStudentStyles(tk: AppThemeTokens) {
       borderColor: tk.border.medium,
       borderStyle: 'dashed',
     },
-    emptyText: { fontSize: rnType.bodySm.size, color: tk.text.tertiary },
+    emptyText: { fontSize: rnType.bodySm.size, color: tk.text.medium },
     errorBox: { alignItems: 'center', gap: rnSpacing.sm, paddingVertical: rnSpacing['2xl'] },
     errorText: { fontSize: rnType.body.size, fontWeight: '600', color: tk.text.primary },
     errorSub: { fontSize: rnType.label.size, color: tk.text.secondary },

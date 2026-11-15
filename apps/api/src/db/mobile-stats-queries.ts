@@ -129,10 +129,19 @@ export async function getDauTrend(days: number): Promise<DauPoint[]> {
 
 /** 设备分布(基于 visit_logs.user_agent 分桶: iOS / Android / 其他),无记录返回空数组。 */
 export async function getDeviceDistribution(since: Date): Promise<DeviceSlice[]> {
+  // F-697: 分桶下推到 SQL,只回 3 行;不再把全部 distinct user_agent 拉回进程
+  // 后逐行正则归并(数万行全量传输 + 无 LIMIT 遍历)。
   const rows = await dbRead.execute(sql`
-    SELECT user_agent, COUNT(*)::int AS visits FROM visit_logs
+    SELECT
+      CASE
+        WHEN lower(user_agent) LIKE '%iphone%' OR lower(user_agent) LIKE '%ipad%' OR lower(user_agent) LIKE '%ipod%' THEN 'iOS'
+        WHEN lower(user_agent) LIKE '%android%' THEN 'Android'
+        ELSE 'others'
+      END AS device,
+      COUNT(*)::int AS visits
+    FROM visit_logs
     WHERE user_agent IS NOT NULL AND user_agent <> '' AND created_at >= ${since}
-    GROUP BY user_agent
+    GROUP BY 1
   `)
   const raw = toRows(rows)
   if (raw.length === 0) return []
@@ -141,11 +150,11 @@ export async function getDeviceDistribution(since: Date): Promise<DeviceSlice[]>
   let android = 0
   let other = 0
   for (const r of raw) {
-    const ua = String(r['user_agent'] ?? '')
-    const lower = ua.toLowerCase()
-    if (/iphone|ipad|ipod/.test(lower)) ios += num(r['visits'])
-    else if (/android/.test(lower)) android += num(r['visits'])
-    else other += num(r['visits'])
+    const device = String(r['device'] ?? '')
+    const visits = num(r['visits'])
+    if (device === 'iOS') ios += visits
+    else if (device === 'Android') android += visits
+    else other += visits
   }
   const total = ios + android + other
   if (total <= 0) return []

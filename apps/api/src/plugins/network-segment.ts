@@ -20,6 +20,7 @@ import type { FastifyInstance, FastifyPluginAsync, FastifyRequest, FastifyReply 
 import fp from 'fastify-plugin'
 import { BlockList, isIP } from 'node:net'
 import { logger } from '../utils/logger.js'
+import { isAdminRequest } from './require-permission.js'
 
 export type IpClassification = 'internal' | 'external' | 'blacklisted' | 'unknown'
 
@@ -72,7 +73,11 @@ export function hasProxyHeaders(headers: Record<string, unknown>): boolean {
   return PROXY_HEADERS.some((name) => headers[name] !== undefined)
 }
 
-const BLACKLIST_KEY = 'ip_blacklist'
+/** F-613:每 IP 一个 Redis 键(ip_blacklist:<ip>),成员级 TTL 由 SET EX 表达。
+ * 旧实现用单个 Set + key 级 TTL:先有永封成员再整体 expire 会整批清除,
+ * 临时封禁也会沿用别人的 TTL,与成员级封禁语义冲突。 */
+const BLACKLIST_KEY_PREFIX = 'ip_blacklist:'
+const blacklistKey = (ip: string): string => `${BLACKLIST_KEY_PREFIX}${ip}`
 
 // 默认内网 CIDR 段(RFC 1918 + loopback + IPv6 本地)
 const DEFAULT_INTERNAL_CIDRS: { address: string; prefix: number; family: 'ipv4' | 'ipv6' }[] = [
@@ -176,9 +181,9 @@ const networkSegmentPlugin: FastifyPluginAsync = async (server: FastifyInstance)
       memoryBlacklist.delete(ip) // 已过期,清理
     }
 
-    // Redis 黑名单检查
+    // Redis 黑名单检查(F-613:每 IP 单键,EXISTS 判该键是否仍在有效期内)
     try {
-      const exists = await server.redis.sismember(BLACKLIST_KEY, ip)
+      const exists = await server.redis.exists(blacklistKey(ip))
       return exists === 1
     } catch (e) {
       // Redis 不可用时,内存黑名单已检查,返回 false(fail-open for non-blacklisted)
@@ -199,13 +204,13 @@ const networkSegmentPlugin: FastifyPluginAsync = async (server: FastifyInstance)
     memoryBlacklist.set(ip, ttlSec > 0 ? Date.now() + ttlSec * 1000 : 0)
 
     try {
-      await server.redis.sadd(BLACKLIST_KEY, ip)
-      // Redis Set 不支持成员级 TTL,设置 key 级 TTL 作为兜底清理
+      const key = blacklistKey(ip)
+      // F-613:成员级 TTL —— 每 IP 一个键,ttl>0 时 SET ... EX,永久则不带 EX。
+      // 不再依赖整个 Set 的 key 级 TTL(会误清永封成员/沿用他人 TTL)。
       if (ttlSec > 0) {
-        const currentTtl = await server.redis.ttl(BLACKLIST_KEY)
-        if (currentTtl < 0) {
-          await server.redis.expire(BLACKLIST_KEY, ttlSec)
-        }
+        await server.redis.set(key, '1', 'EX', ttlSec)
+      } else {
+        await server.redis.set(key, '1')
       }
       logger.info('IP added to blacklist', { ip, ttlSec })
     } catch (e) {
@@ -222,7 +227,7 @@ const networkSegmentPlugin: FastifyPluginAsync = async (server: FastifyInstance)
   async function removeFromBlacklist(ip: string): Promise<void> {
     memoryBlacklist.delete(ip)
     try {
-      await server.redis.srem(BLACKLIST_KEY, ip)
+      await server.redis.del(blacklistKey(ip))
       logger.info('IP removed from blacklist', { ip })
     } catch (e) {
       logger.warn('Failed to remove IP from Redis blacklist', {
@@ -244,6 +249,11 @@ const networkSegmentPlugin: FastifyPluginAsync = async (server: FastifyInstance)
     const routeConfig = request.routeOptions.config
     const networkConfig = routeConfig?.network
     if (!networkConfig) return // 未配置 network 的路由不强制分段(向后兼容)
+
+    // 系统管理员(JWT roleId>=1)不受网络分段限制(2026-11-15):机主需要从公网调试
+    // /api/admin/* 与 /api/debug/*。服务间通道 /api/internal/* 不在此列 ——
+    // 它靠 internal-secret 票据,不认用户身份,放行管理员会凭空多出一个提权入口。
+    if (!request.url.startsWith('/api/internal/') && (await isAdminRequest(request))) return
 
     // denyProxied 必须排在任何 IP 分类之前:经代理的请求其 request.ip 可被 XFF 整写,
     // 先分类就等于把伪造值当事实(见 NetworkRouteConfig.denyProxied 头注)。

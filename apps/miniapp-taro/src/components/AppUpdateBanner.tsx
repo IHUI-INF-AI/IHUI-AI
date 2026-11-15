@@ -15,7 +15,7 @@
  */
 
 import { View, Text } from '@tarojs/components'
-import { useEffect, useRef, useState, type CSSProperties } from 'react'
+import { useEffect, useState, type CSSProperties } from 'react'
 import { useLaunch } from '@tarojs/taro'
 import { useI18n } from '@/i18n'
 import { rnRadius } from '@ihui/design-tokens'
@@ -35,9 +35,6 @@ export function AppUpdateBanner() {
   const [entered, setEntered] = useState(false)
   const [closing, setClosing] = useState(false)
   const [starting, setStarting] = useState(false)
-  // 「更新」「关闭」两条腿都会在卸载后仍触发副作用(applyAppUpdate 是冷重启,
-  // setMounted 则是对已卸载组件写 state) ⇒ 统一收进 ref,卸载时清空。
-  const timersRef = useRef<ReturnType<typeof setTimeout>[]>([])
 
   // 进入可见态才挂载并播放入场;关闭走 closing 退场动画,结束再卸载(否则看不到"滑回去")
   useEffect(() => {
@@ -48,27 +45,19 @@ export function AppUpdateBanner() {
     }
   }, [visible])
 
-  useEffect(
-    () => () => {
-      timersRef.current.forEach((id) => clearTimeout(id))
-      timersRef.current = []
-    },
-    [],
-  )
-
   if (!mounted) return null
 
   const handleUpdate = () => {
     if (starting) return
     setStarting(true)
     // 让"已点按"的禁用态先画出来,再冷重启(小程序 applyUpdate 即原生重启,无 overlay 机会)
-    timersRef.current.push(setTimeout(() => applyAppUpdate(), 300))
+    setTimeout(() => applyAppUpdate(), 300)
   }
 
   const handleClose = () => {
     dismissAppUpdate()
     setClosing(true)
-    timersRef.current.push(setTimeout(() => setMounted(false), SLIDE_MS))
+    setTimeout(() => setMounted(false), SLIDE_MS)
   }
 
   const wrapStyle: CSSProperties = {

@@ -34,6 +34,14 @@ export const USER_PREFERENCE_GROUPS = {
   permission: 'permission',
   // 超级智能体控制面快照(2026-11-07):同一套路 —— 存算分离用,key='state' 单行 JSON。
   superAgent: 'super_agent',
+  // 能力应用(2026-11-14):AI 创建的能力应用按用户持久化,key='apps'。
+  capabilityApp: 'capability_app',
+  // 智能体组合(2026-11-14):组合编排快照按用户持久化,key='combos'。
+  agentCombo: 'agent_combo',
+  // 外观与排版(2026-11-15):账号级云同步快照,key='state' 单行 JSON
+  // (全局配置 + 工作区覆盖 + 单条消息覆盖)。与 'preferences' 分开:
+  // 外观快照体积随消息数增长,不能挤进设置页通用的 preferences 键空间。
+  appearance: 'appearance',
 } as const
 
 export type UserPreferenceGroup =

@@ -26,11 +26,7 @@ import { CameraView, useCameraPermissions } from '@/platform/camera'
 import { useNavigation, type NavigationProp } from '@react-navigation/native'
 import { ChevronLeft, QrCode, RefreshCw, ScanLine } from 'lucide-react-native'
 import QRCodeSvg from 'react-native-qrcode-svg'
-import {
-  eduAttendanceQrcode,
-  eduAttendanceQrcodeCheckIn,
-  eduClassList,
-} from '@ihui/api-client'
+import { eduAttendanceQrcode, eduAttendanceQrcodeCheckIn, eduClassList } from '@ihui/api-client'
 import { getTokens } from '@ihui/rn-app'
 import { Tappable } from '@ihui/ui-native'
 import { rnRadius, rnRadiusFor, rnSpacing, rnType, rnCssLight } from '@ihui/design-tokens'
@@ -39,6 +35,7 @@ import { useAuthStore, selectIsAuthenticated } from '../stores/auth-store'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { toFriendlyOr } from '@ihui/shared/utils'
 
 /** 班级行(只取本屏用得上的三列;后端 /class 返回整行,多字段无害)。 */
 interface ClassRow {
@@ -145,7 +142,7 @@ export function EduAttendanceQrScreen() {
       setQrError(res.error || 'load failed')
     } catch (e) {
       setQr(null)
-      setQrError(e instanceof Error ? e.message : 'load failed')
+      setQrError(toFriendlyOr(e, t('common.loadFailed')))
     } finally {
       setGenerating(false)
     }

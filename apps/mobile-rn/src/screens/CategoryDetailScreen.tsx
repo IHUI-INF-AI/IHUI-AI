@@ -9,7 +9,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useI18n } from '../i18n'
 import { CategoryDetailScreen as SharedCategoryDetailScreen } from '@ihui/rn-app'
 import { getAgents } from '@ihui/api-client'
-import { toUserFriendlyMessage } from '@ihui/shared/utils'
+import { apiFailureToText, toUserFriendlyMessage } from '@ihui/shared/utils'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
@@ -48,16 +48,19 @@ export default function CategoryDetailScreen() {
     setError('')
     try {
       const agentsRes = await getAgents({ page, pageSize: 20 })
-      const mapped = agentsRes.success
-        ? (agentsRes.data?.list ?? []).map((a) => ({
-            id: a.agentId,
-            name: a.name,
-            description: a.description,
-            cover: a.cover ?? undefined,
-            avatar: a.avatar,
-            useCount: a.usageCount,
-          }))
-        : []
+      // success:false 不会抛异常,旧代码把它当空列表 ⇒ 用户看到"暂无数据"以为分类下真没智能体
+      if (!agentsRes.success) {
+        setError(apiFailureToText(agentsRes, t('common.loadFailPullRetry')))
+        return
+      }
+      const mapped = (agentsRes.data?.list ?? []).map((a) => ({
+        id: a.agentId,
+        name: a.name,
+        description: a.description,
+        cover: a.cover ?? undefined,
+        avatar: a.avatar,
+        useCount: a.usageCount,
+      }))
       const list = sortItems(mapped, activeTab)
       setItems((prev) => (page === 1 ? list : [...prev, ...list]))
       setHasMore(list.length >= 20)
@@ -97,8 +100,12 @@ export default function CategoryDetailScreen() {
       hasMore={hasMore}
       error={error}
       onTabChange={(tab) => {
+        if (tab === activeTab) return
+        // 切 tab 必须回到第 1 页并清空上一档数据:旧代码只改 tab 和本地排序、page 留在
+        // 上档翻到的页码,新 tab 的第 1 页从不请求,追加分支还会把两档数据拼在一起(重复+串味)
         setActiveTab(tab)
-        setItems((prev) => sortItems(prev, tab))
+        setPage(1)
+        setItems([])
       }}
       onLoadMore={onLoadMore}
       onAgentPress={onAgentPress}

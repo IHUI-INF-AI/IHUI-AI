@@ -28,11 +28,11 @@ import { checkAuth } from '../plugins/auth.js'
 import { db, dbRead } from '../db/index.js'
 import { orders, userMargins, tokenFlows, userCoupons, promoCoupons } from '@ihui/database'
 import {
+  assertCouponUsable,
   calcCouponDiscount,
   redeemCoupon,
   refundCoupon,
-  assertCouponUsable,
-  type CouponUseScope,
+  type CouponScope,
 } from '../services/coupon-service.js'
 import { activateOrderSubscription } from '../services/order-service.js'
 
@@ -47,6 +47,16 @@ const COUPON_REASON_TEXT: Record<string, string> = {
   not_owner: '优惠券不属于当前用户',
   already_used: '已使用',
   not_unused: '状态不可用',
+  model_not_applicable: '不适用于该模型',
+}
+
+/**
+ * 订单业务类型 → 券适用范围(F-310)。
+ * orders.orderType:2=VIP / 5=开发者套餐 / 6=API 订阅 / 7=课程 / 8=课程卡。
+ * 开发者套餐与 API 订阅属中转站(relay),其余(VIP/课程等)属订阅(subscription)。
+ */
+function couponScopeOfOrder(orderType: number): CouponScope {
+  return orderType === 5 || orderType === 6 ? 'relay' : 'subscription'
 }
 
 const availableQuerySchema = z.object({
@@ -67,20 +77,6 @@ const applyCouponBodySchema = z.object({
 const orderNoParamsSchema = z.object({
   orderNo: z.string().min(1).max(64),
 })
-
-/**
- * 订单类型 → 用券业务范围(F-310)。枚举单源 = billing orders.orderType
- * (1=会员 2=按量/VIP 3=活动 4=实名 6=API 订阅 7=课程 8=卡;5=开发者套餐)。
- * 5/6 属中转站(relay)面,1/2/7/8 属订阅面;其余未知类型返回 'all' = 不因未知而误拒,
- * 但已知面必须校 —— 未知面若将来收紧,改这里而不是在调用点各写一份。
- */
-function couponScopeOfOrder(orderType: number | null | undefined): CouponUseScope {
-  if (orderType === 5 || orderType === 6) return 'relay'
-  if (orderType === 1 || orderType === 2 || orderType === 7 || orderType === 8) {
-    return 'subscription'
-  }
-  return 'all'
-}
 
 /** 订单原价基准:有 original_price 用它,否则用「现价 + 已折减」还原(下单时 original_price 落 0 的存量单)。 */
 function basePriceOf(order: {
@@ -118,7 +114,6 @@ export const miniappPayRoutes: FastifyPluginAsync = async (server) => {
       .where(and(eq(userCoupons.userId, userId), eq(userCoupons.status, 'unused')))
       .orderBy(desc(userCoupons.createdAt))
 
-    const now = Date.now()
     const items = rows.map(({ userCoupon, coupon }) => {
       const base = {
         id: userCoupon.id,
@@ -131,11 +126,8 @@ export const miniappPayRoutes: FastifyPluginAsync = async (server) => {
         usable: true,
         reason: '',
       }
-      // 资格判据走单一真相源(F-310):不再在此逐条手写 enabled / startsAt /
-      // expiresAt / applicableScope —— 那几条与 redeemCoupon 必须是同一份实现,
-      // 否则"预览说能用、核销拒之"与"预览拦住、核销放过"两种漂移都会出现。
-      // 支付页这一路结算的是 VIP/课程订单(subscription),relay 券在此不适用。
-      const unusable = assertCouponUsable(coupon, { scope: 'subscription' }, new Date(now))
+      // 停用/未生效/过期/适用范围与核销走同一判据(assertCouponUsable),不在此另写分支
+      const unusable = assertCouponUsable(coupon, { scope: 'subscription' })
       if (unusable) {
         return { ...base, usable: false, reason: COUPON_REASON_TEXT[unusable] ?? unusable }
       }
@@ -180,10 +172,7 @@ export const miniappPayRoutes: FastifyPluginAsync = async (server) => {
       await dbRead.select().from(orders).where(eq(orders.orderNo, params.data.orderNo)).limit(1)
     )[0]
     if (!order) return reply.status(404).send(error(404, '订单不存在'))
-    // F-655(2026-11-14):无主订单(userId=null,注销用户 onDelete:set null 留下)必须与支付
-    // 接口(:278)同口径判 403,不得把"归属未知"当放行——否则可改无主待支付订单金额、
-    // 核销/退还其上优惠券。
-    if (!order.userId || order.userId !== userId) {
+    if (order.userId && order.userId !== userId) {
       return reply.status(403).send(error(403, '无权操作此订单'))
     }
     if (order.status !== 'pending') {
@@ -235,11 +224,10 @@ export const miniappPayRoutes: FastifyPluginAsync = async (server) => {
 
     // 先核销新券(原子翻转 unused→used 能挡住并发双用),成功后再动订单与旧券:
     // 反过来做(先退旧券再核销新券)一旦新券不可用,用户就会"券被退了、订单还是原价"
-    // scope 必须由承载层显式喂进核销端(F-310):订单业务范围只能从订单本身推,
-    // 不能信客户端自报,更不能让核销端"不校范围"——否则 relay 券可被用到 VIP 订单上。
     const redeemed = await redeemCoupon(userId, userCouponId, {
       spendCents: basePrice,
       orderId: order.id,
+      // F-310:带订单业务范围,让 applicableScope 在核销入口真正生效
       scope: couponScopeOfOrder(order.orderType),
     })
     if (!redeemed.success) {

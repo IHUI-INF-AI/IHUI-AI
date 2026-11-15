@@ -25,6 +25,7 @@ import {
   Monitor,
   ShieldCheck,
   UserShield,
+  Palette,
 } from 'lucide-react'
 
 export const SIDEBAR_KEY = 'sidebar-collapsed'
@@ -72,6 +73,8 @@ export const NAV_GROUPS: readonly SettingsNavGroup[] = [
       { href: '/settings/notifications', labelKey: 'notificationsTitle', icon: Bell },
       { href: '/settings/activity', labelKey: 'activityTitle', icon: Activity },
       { href: '/settings/preferences', labelKey: 'preferencesTitle', icon: Settings },
+      // 2026-11-15:外观与排版(字号/字重/行高/宽度/详细度/AI 回复风格)独立成页
+      { href: '/settings/appearance', labelKey: 'appearance', icon: Palette },
     ],
   },
   {

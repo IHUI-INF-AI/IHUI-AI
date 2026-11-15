@@ -20,9 +20,15 @@ vi.mock('@ihui/api-client', async (importOriginal) => {
 const { wsState } = vi.hoisted(() => ({
   wsState: { workspacePath: '/tmp/ws', activeWorkspace: null as { path: string } | null },
 }))
-vi.mock('@/stores/ai-panel', () => ({
-  useAiPanelStore: { getState: () => ({ activeWorkspace: wsState.activeWorkspace }) },
-}))
+vi.mock('@/stores/ai-panel', () => {
+  const state = () => ({ activeWorkspace: wsState.activeWorkspace })
+  const useAiPanelStore = Object.assign(
+    (selector?: (s: ReturnType<typeof state>) => unknown) =>
+      selector ? selector(state()) : state(),
+    { getState: state },
+  )
+  return { useAiPanelStore }
+})
 vi.mock('@/stores/ide-workspace', () => ({
   useIDEWorkspace: { getState: () => ({ workspacePath: wsState.workspacePath }) },
 }))

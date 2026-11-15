@@ -23,7 +23,6 @@
  * 安全:令牌只在两个进程的管道里流动,任何输出都不含凭据明文。
  */
 import { resolveTsxCli } from './lib/tsx-cli.mjs'
-import { unjudgedLogLine } from './lib/client-sync-verdict.mjs'
 import {
   CAPTURE_TIMEOUT_MS,
   DB_WRITE_TIMEOUT_MS,
@@ -259,7 +258,7 @@ async function main(argv) {
 
   const captured = captureSessions()
   if (captured.error) {
-    process.stderr.write(`${unjudgedLogLine(captured.error)}\n`)
+    process.stderr.write(`❌ 提取失败(未判定): ${captured.error}\n`)
     return 2
   }
   // 心跳在捕获之后、落库之前取:探测的是「本轮跑起来时客户端在不在」,与票是否变化无关
@@ -278,13 +277,13 @@ async function main(argv) {
       `客户端心跳=${heartbeatAt ?? '未写(客户端未在跑)'}\n`,
   )
   if (payload.accounts.length === 0) {
-    process.stderr.write(`${unjudgedLogLine('没有可回灌的会话(缺 uid/token)')}\n`)
+    process.stderr.write('❌ 没有可回灌的会话(缺 uid/token)⇒ 未判定\n')
     return 2
   }
 
   const result = await runSyncTs(JSON.stringify(payload), parsed.dryRun)
   if (result.error) {
-    process.stderr.write(`${unjudgedLogLine(result.error)}\n`)
+    process.stderr.write(`❌ 同步失败(未判定): ${result.error}\n`)
     return 2
   }
   if (parsed.json && result.json) {

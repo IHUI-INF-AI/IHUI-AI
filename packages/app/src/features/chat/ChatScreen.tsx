@@ -295,7 +295,7 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.primary,
     },
     errorWrap: { paddingHorizontal: rnSpacing.lg, paddingBottom: rnSpacing.sm },
-    errorText: { fontSize: rnType.body.size, color: tk.danger.DEFAULT },
+    errorText: { fontSize: rnType.body.size, color: tk.danger.deepText },
     pickerOverlay: { flex: 1, backgroundColor: rnCssLight.black20 },
     pickerSheet: {
       marginTop: 'auto',
@@ -312,7 +312,7 @@ function createStyles(tk: AppThemeTokens) {
     pickerItemProvider: {
       marginTop: rnSpacing['2xs'],
       fontSize: rnType.label.size,
-      color: tk.text.tertiary,
+      color: tk.text.medium,
     },
   })
 }

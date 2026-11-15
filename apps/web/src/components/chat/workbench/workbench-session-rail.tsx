@@ -282,27 +282,27 @@ function RailRowMenu({
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-44">
         <DropdownMenuItem onSelect={onRename}>
-          <Pencil className="mr-2 h-3.5 w-3.5" aria-hidden />
+          <Pencil className="h-3.5 w-3.5" aria-hidden />
           {t('actions.rename')}
         </DropdownMenuItem>
         <DropdownMenuItem onSelect={onToggleFavorite}>
-          <Star className="mr-2 h-3.5 w-3.5" aria-hidden />
+          <Star className="h-3.5 w-3.5" aria-hidden />
           {item.favorite ? t('unfavorite') : t('favorite')}
         </DropdownMenuItem>
         <DropdownMenuItem onSelect={onTogglePin}>
           {item.pinned ? (
-            <PinOff className="mr-2 h-3.5 w-3.5" aria-hidden />
+            <PinOff className="h-3.5 w-3.5" aria-hidden />
           ) : (
-            <Pin className="mr-2 h-3.5 w-3.5" aria-hidden />
+            <Pin className="h-3.5 w-3.5" aria-hidden />
           )}
           {item.pinned ? t('actions.unpin') : t('actions.pin')}
         </DropdownMenuItem>
         <DropdownMenuItem onSelect={onArchive}>
-          <Archive className="mr-2 h-3.5 w-3.5" aria-hidden />
+          <Archive className="h-3.5 w-3.5" aria-hidden />
           {t('actions.archive')}
         </DropdownMenuItem>
         <DropdownMenuItem onSelect={onDelete} className="text-destructive">
-          <Trash2 className="mr-2 h-3.5 w-3.5" aria-hidden />
+          <Trash2 className="h-3.5 w-3.5" aria-hidden />
           {t('actions.delete')}
         </DropdownMenuItem>
       </DropdownMenuContent>

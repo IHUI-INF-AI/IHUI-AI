@@ -163,7 +163,7 @@ export function QrTab({
           <QrComponent platform={platform} refreshKey={refreshKey} />
         ) : (
           <>
-            <div className="flex aspect-square w-full max-w-[300px] items-center justify-center rounded-md border border-dashed border-border bg-muted/30">
+            <div className="flex aspect-square w-full max-w-[300px] items-center justify-center rounded-md border border-dashed border-stroke-default bg-muted/30">
               <QrCode className="h-12 w-12 text-muted-foreground" aria-hidden="true" />
             </div>
             <Button

@@ -120,6 +120,10 @@ export interface SSEEvent {
     // BUG-67:AI 主动提问帧,契约见 sse/contract.ts::SSE_EVENTS.QUESTION 与 sse/families.ts 的
     // question 登记;必须在泛化兜底前认领(否则带 sessionId 会被折成 meta 而静默丢帧)。
     | 'question'
+    // 提问结算帧(question-resolved):与 api-client client.ts:4714 同一帧,两端解析必须同源
+    // (判据 scripts/check-sse-parser-parity.mjs)。漏接的后果是静默的:小程序没有结算就
+    // 永远停在"待回答",用户以为还能点。
+    | 'question-resolved'
   content?: string
   sessionId?: string
   /**
@@ -175,6 +179,11 @@ export interface SSEEvent {
    * 截断判定按小写 ∈ {length, max_tokens},语义解释不在本解析层。
    */
   finishReason?: string
+  /**
+   * done 帧携带的本轮新增长期记忆条目摘要(P1 #27)。
+   * 空数组 = 本轮无新记忆(与"没采到"不同:缺席才是没采到)。
+   */
+  memoryUpdates?: string[]
   // ===== W5 新增事件负载(类型复用 @ihui/api-client / @ihui/types) =====
   /** fallback 事件:主模型失败切换到备用模型 */
   fallback?: FallbackEvent
@@ -225,6 +234,20 @@ export interface SSEEvent {
   }
   /** BUG-67:AI 主动提问帧载荷(契约 sse/contract.ts:406-407 type:'question' / question: Record<string, unknown>)。 */
   question?: Record<string, unknown>
+  /**
+   * 提问结算帧(question-resolved):字段口径与 api-client `tryParseQuestionResolved`
+   * (client.ts:4684-4724)逐字一致 —— 含同一个四值 status 白名单。
+   *
+   * 为什么必须两端同源:小程序端此前没有这一帧的解析,而 api-client 有 ⇒ 小程序在提问被
+   * 回答/超时/撤回/打断后**永远收不到结算**,界面上的问题卡停在"待回答"不变(用户以为
+   * 还能点,点了也没反应)。这正是本仓最反复的失效型:「协议两处解析,漏接是静默的」。
+   */
+  questionResolved?: {
+    questionId: string
+    status: 'answered' | 'timeout' | 'withdrawn' | 'interrupted'
+    selectedOptionIds: string[]
+    customText?: string
+  }
 }
 
 function applyErrorMeta(evt: SSEEvent, json: Record<string, unknown>): void {
@@ -260,6 +283,13 @@ export interface SSEReplayGuard {
 
 /** 非 `{prefix}-{seq}` 形态 id 的精确去重缓存上限(防长流内存无界)。 */
 const REPLAY_SEEN_NON_SEQ_CAP = 1024
+
+/**
+ * 提问结算帧的 status 值域(唯一真相源在契约侧,这里是与 api-client
+ * `tryParseQuestionResolved` 里 `QUESTION_RESOLVED_STATUSES` 的同源副本)。
+ * 未知 status ⇒ 丢弃该帧,不用它伪造终态。
+ */
+const QUESTION_RESOLVED_STATUSES = new Set(['answered', 'timeout', 'withdrawn', 'interrupted'])
 
 /** 守卫实例的缺省代际编号(每一次连接尝试各建一个实例 ⇒ 跨连接不可比的序号天然分代)。 */
 let GUARD_INSTANCE_SEQ = 0
@@ -803,6 +833,31 @@ function parseLineEvent(line: string): SSEEvent | null {
     if (json?.type === 'question' && json.question && typeof json.question === 'object') {
       return { type: 'question', question: json.question as Record<string, unknown> }
     }
+    // question-resolved:提问结算帧。判别与 api-client tryParseQuestionResolved(client.ts:4684)
+    // 逐字同源 —— 同一个四值白名单、同一套结构校验;未知 status 一律**忽略**(旧/坏帧不能伪造终态)。
+    // 必须排在 content/delta/text 兜底之前认领,否则带 content 的结算帧会被折成 chunk。
+    if (json?.type === 'question-resolved') {
+      if (
+        typeof json.questionId !== 'string' ||
+        !json.questionId ||
+        typeof json.status !== 'string' ||
+        !QUESTION_RESOLVED_STATUSES.has(json.status)
+      ) {
+        // 结构不成立 ⇒ 继续往下走(交给其它分支/兜底),不在这里吞掉整行
+      } else {
+        return {
+          type: 'question-resolved',
+          questionResolved: {
+            questionId: json.questionId,
+            status: json.status as 'answered' | 'timeout' | 'withdrawn' | 'interrupted',
+            selectedOptionIds: Array.isArray(json.selectedOptionIds)
+              ? json.selectedOptionIds.filter((id: unknown): id is string => typeof id === 'string')
+              : [],
+            ...(typeof json.customText === 'string' ? { customText: json.customText } : {}),
+          },
+        }
+      }
+    }
     if (typeof json?.content === 'string') return { type: 'chunk', content: json.content }
     if (typeof json?.delta === 'string') return { type: 'chunk', content: json.delta }
     if (typeof json?.text === 'string') return { type: 'chunk', content: json.text }
@@ -832,6 +887,14 @@ function parseLineEvent(line: string): SSEEvent | null {
         // G-425:finish/stop reason 原样透传;缺席不带键(不写空串/null)
         ...(typeof json.finishReason === 'string' && json.finishReason
           ? { finishReason: json.finishReason }
+          : {}),
+        // P1 #27(2026-11-13 补透传):done 帧的 memoryUpdates 原样透传。
+        // 此前本层不认该字段 ⇒ 小程序端即使注册了 onMemoryUpdates 也读不到,
+        // api-client 那边有独立解析(begin-done 分支),两端口径因此漂开。
+        // 判据:必须是 string[] 才带(非数组/含非字符串 ⇒ 整键缺席,不猜不补)。
+        ...(Array.isArray(json.memoryUpdates) &&
+        json.memoryUpdates.every((x: unknown) => typeof x === 'string')
+          ? { memoryUpdates: json.memoryUpdates as string[] }
           : {}),
       }
     }

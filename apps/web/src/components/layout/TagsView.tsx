@@ -11,6 +11,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { X, ChevronDown, XCircle, Search, Pin, PinOff } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { MENU_ITEM_CLASS } from '@/lib/menu-item'
 import { isTopOverlay, popOverlay, pushOverlay } from '@/lib/overlay-stack'
 import { useNavigateWithProgress } from '@/stores/navigation'
 import { useIsoLayoutEffect } from '@/hooks/use-iso-layout-effect'
@@ -664,7 +665,7 @@ export function TagsView() {
               handleClose(new MouseEvent('click') as unknown as React.MouseEvent, ctxMenu.path)
               setCtxMenu(null)
             }}
-            className="flex w-full cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-body hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground focus:outline-none"
+            className={MENU_ITEM_CLASS}
           >
             <X className="h-4 w-4" />
             {tCommon('close')}
@@ -677,7 +678,7 @@ export function TagsView() {
               togglePin(ctxMenu.path)
               setCtxMenu(null)
             }}
-            className="flex w-full cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-body hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground focus:outline-none"
+            className={MENU_ITEM_CLASS}
           >
             {pinnedPaths.has(ctxMenu.path) ? (
               <PinOff className="h-4 w-4" />
@@ -694,7 +695,10 @@ export function TagsView() {
               closeAll()
               setCtxMenu(null)
             }}
-            className="flex w-full cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-body text-destructive hover:bg-destructive/20 focus:bg-destructive/20 focus:outline-none"
+            className={cn(
+              MENU_ITEM_CLASS,
+              'text-destructive hover:text-destructive focus:text-destructive',
+            )}
           >
             <XCircle className="h-4 w-4" />
             {tCommon('closeAll')}

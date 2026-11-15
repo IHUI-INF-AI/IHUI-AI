@@ -151,7 +151,7 @@ export function TaskCenterScreen({
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.bg },
-    errorText: { fontSize: rnType.body.size, color: tk.danger.DEFAULT },
+    errorText: { fontSize: rnType.body.size, color: tk.danger.deepText },
     header: { paddingHorizontal: rnSpacing['sm-loose'], paddingBottom: rnSpacing.sm },
     title: {
       marginTop: rnSpacing.sm,
@@ -213,7 +213,7 @@ function createStyles(tk: AppThemeTokens) {
     rewardText: {
       fontSize: rnType.body.size,
       fontWeight: '600',
-      color: tk.success.DEFAULT,
+      color: tk.success.deepText,
     },
     taskDesc: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.secondary },
     progressRow: {
@@ -233,7 +233,7 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.lg,
       backgroundColor: tk.success.DEFAULT,
     },
-    progressText: { fontSize: rnType.caption.size, color: tk.text.tertiary },
+    progressText: { fontSize: rnType.caption.size, color: tk.text.medium },
     actionBtn: {
       marginTop: rnSpacing['sm-loose'],
       height: 44,
@@ -245,7 +245,7 @@ function createStyles(tk: AppThemeTokens) {
     goBtn: { backgroundColor: tk.surface.card },
     claimedBtn: { backgroundColor: tk.surface.card },
     actionBtnText: { fontSize: rnType.body.size, color: tk.surface.light },
-    claimedBtnText: { fontSize: rnType.body.size, color: tk.text.tertiary },
+    claimedBtnText: { fontSize: rnType.body.size, color: tk.text.medium },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

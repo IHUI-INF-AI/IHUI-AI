@@ -2,65 +2,42 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
+'use client'
+
 /**
- * 生效外观配置(resolved appearance)。
+ * 作用域解析(2026-11-15 v3 立)。
  *
- * 立因(2026-11-15):`components/ai/markdown-stream.tsx` 早在「外观 v2」那批就
- * import 了本 hooks 的 `useResolvedAppearanceConfig`,但本文件当时没随提交入库 ⇒
- * web typecheck 结构性失败(TS2307)。本次补实现。
- *
- * 为什么需要「resolved」这一层,而不是让组件直接读 `useAppearanceStore`:
- *   ① **缺键回落**:盘上旧快照不会带后来新增的字段(比如 11-15 才加的 `bionicReading`)。
- *      直接读原始 state 会拿到 `undefined`,`if (undefined)` 与 `if (false)` 走同一条路,
- *      但 `undefined` 传给需要 boolean 的地方就是类型/行为双坑。这里一次性补齐默认值。
- *   ② **分层单一出入口**:生效值 = 默认值 ← 全局用户配置 ← (预留)工作区覆盖。
- *      目前只有前两层有存储(工作区级外观覆盖尚未落地,见 `stores/appearance-settings.ts`
- *      顶部注释),将来加第三层只改这里,消费方一行不用动。
- *   ③ **与消息级覆盖的分工**:单条消息的 `--message-*` 覆盖在
- *      `stores/appearance-scope.ts`,属"渲染期变量增量",不属于本配置对象。
- *
- * 性能:返回对象每次都是新建的 ⇒ 必须用 `useShallow` 做浅比较,否则 store 任何
- * 无关字段变动都会把所有消费方重渲一遍。
+ * 优先级:全局外观 < 工作区覆盖。单条消息覆盖不在这里合并 —— 它只产出
+ * 消息级 CSS 变量,由 MessageItem 包在正文外层,避免每读一条消息都构造整份配置。
  */
 
-import { useShallow } from 'zustand/react/shallow'
+import * as React from 'react'
 
 import {
-  APPEARANCE_DEFAULTS,
+  sanitizeAppearanceConfig,
   useAppearanceStore,
   type AppearanceConfig,
 } from '@/stores/appearance-settings'
+import { useAppearanceScopeStore } from '@/stores/appearance-scope'
+import { useAiPanelStore } from '@/stores/ai-panel'
 
-/**
- * 配置键表 —— 从默认值对象的键派生,**不手写第二份清单**:
- * `AppearanceConfig` 加字段 ⇒ `APPEARANCE_DEFAULTS` 必须同步加 ⇒ 这里自动跟上。
- */
-const CONFIG_KEYS = Object.keys(APPEARANCE_DEFAULTS) as (keyof AppearanceConfig)[]
-
-/**
- * 把任意来路的(可能是旧版/残缺的)配置收敛成完整生效配置。
- *
- * 纯函数,便于单测;store 里同时带着方法(update/importConfig…),
- * 所以这里按键表白名单取值,**不整体展开 state** —— 否则方法会被一起拷进配置对象。
- */
-export function resolveAppearanceConfig(source: Partial<AppearanceConfig>): AppearanceConfig {
-  const resolved: AppearanceConfig = { ...APPEARANCE_DEFAULTS }
-  // 具体接口没有字符串索引签名,写回缺省项必须显式绕一次(不能直接断言)
-  const target = resolved as unknown as Record<string, unknown>
-  const input = source as Record<string, unknown>
-  for (const key of CONFIG_KEYS) {
-    const value = input[key]
-    if (value !== undefined) target[key] = value
-  }
-  return resolved
+/** 当前工作区路径(无工作区时为 null) */
+export function useActiveWorkspacePath(): string | null {
+  return useAiPanelStore((state) => state.activeWorkspace?.path ?? null)
 }
 
-function selectResolved(s: Partial<AppearanceConfig>): AppearanceConfig {
-  return resolveAppearanceConfig(s)
-}
-
-/** 当前生效的外观配置(默认值已补齐,可直接当 boolean/number 用) */
+/** 合并工作区覆盖后的有效外观配置 */
 export function useResolvedAppearanceConfig(): AppearanceConfig {
-  return useAppearanceStore(useShallow(selectResolved))
+  const config = useAppearanceStore()
+  const workspacePath = useActiveWorkspacePath()
+  const override = useAppearanceScopeStore((state) =>
+    workspacePath ? state.workspaces[workspacePath] : undefined,
+  )
+  return React.useMemo(() => {
+    if (!override?.enabled) return config
+    // 工作区快照可能来自旧版本或被手工改坏的 localStorage:按字段级回退补齐,
+    // 缺字段回落当前全局值(而不是出厂默认),避免把 CSS 变量写成 undefined。
+    return { ...config, ...sanitizeAppearanceConfig(override.config) }
+  }, [config, override])
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -397,8 +397,9 @@ function createStyles(tk: AppThemeTokens) {
     badge: {
       paddingHorizontal: rnSpacing.sm,
       paddingVertical: rnSpacing.xs,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
+      borderColor: tk.border.medium,
     } as ViewStyle,
     badgeReady: { backgroundColor: tk.brand.DEFAULT, borderColor: tk.brand.DEFAULT } as ViewStyle,
     badgeMuted: { backgroundColor: tk.surface.muted, borderColor: tk.border.medium } as ViewStyle,
@@ -421,7 +422,7 @@ function createStyles(tk: AppThemeTokens) {
     modeBtn: {
       flex: 1,
       paddingVertical: rnSpacing.sm,
-      borderRadius: rnRadius.md,
+      borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tk.border.medium,
       alignItems: 'center',
@@ -435,7 +436,7 @@ function createStyles(tk: AppThemeTokens) {
     input: {
       borderWidth: 1,
       borderColor: tk.border.medium,
-      borderRadius: rnRadius.md,
+      borderRadius: rnRadius.sm,
       paddingHorizontal: rnSpacing.md,
       paddingVertical: rnSpacing.sm,
       fontSize: rnType.body.size,
@@ -447,7 +448,7 @@ function createStyles(tk: AppThemeTokens) {
     primaryBtn: {
       backgroundColor: tk.brand.cta,
       paddingVertical: rnSpacing.sm,
-      borderRadius: rnRadius.md,
+      borderRadius: rnRadius.sm,
       alignItems: 'center',
     } as ViewStyle,
     primaryBtnText: {
@@ -468,7 +469,7 @@ function createStyles(tk: AppThemeTokens) {
     resultCard: {
       borderWidth: 1,
       borderColor: tk.border.light,
-      borderRadius: rnRadius.md,
+      borderRadius: rnRadius.lg,
       padding: rnSpacing.sm,
       gap: rnSpacing.xs,
       backgroundColor: tk.surface.card,

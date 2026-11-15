@@ -2,7 +2,6 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-
 /**
  * 考勤 IM 同步面板契约锁(2026-11-14,HR 考勤同步面板与端点)。
  *
@@ -63,17 +62,21 @@ function renderPanel() {
     React.createElement(
       QueryClientProvider,
       { client: qc },
-      React.createElement(NextIntlClientProvider, { locale: 'zh-CN', messages },
-        React.createElement(SyncPanel, { t: ((k: string, v?: unknown) => {
-          // 最小 t 替身:从真词包取词条并做 ICU 简单插值,供断言对齐真实文案
-          let s = w(k)
-          if (v && typeof v === 'object') {
-            for (const [pk, pv] of Object.entries(v as Record<string, unknown>)) {
-              s = s.replace(new RegExp(`\\{${pk}\\}`, 'g'), String(pv))
+      React.createElement(
+        NextIntlClientProvider,
+        { locale: 'zh-CN', messages },
+        React.createElement(SyncPanel, {
+          t: ((k: string, v?: unknown) => {
+            // 最小 t 替身:从真词包取词条并做 ICU 简单插值,供断言对齐真实文案
+            let s = w(k)
+            if (v && typeof v === 'object') {
+              for (const [pk, pv] of Object.entries(v as Record<string, unknown>)) {
+                s = s.replace(new RegExp(`\\{${pk}\\}`, 'g'), String(pv))
+              }
             }
-          }
-          return s
-        }) as never }),
+            return s
+          }) as never,
+        }),
       ),
     ),
   )
@@ -138,9 +141,7 @@ describe('SyncPanel · 状态回读(GET /sync/status)', () => {
     const { container } = renderPanel()
 
     await waitFor(() =>
-      expect(container.textContent).toContain(
-        w('syncErrors').replace('{count}', '1'),
-      ),
+      expect(container.textContent).toContain(w('syncErrors').replace('{count}', '1')),
     )
     expect(container.textContent).toContain(msg)
   })

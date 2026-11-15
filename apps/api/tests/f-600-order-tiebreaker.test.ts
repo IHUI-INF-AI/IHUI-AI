@@ -79,7 +79,10 @@ describe('F-600 分页 orderBy 主键 tiebreaker', () => {
 
   it('ai-feed-post 列表:created_at DESC 后追加 id DESC', async () => {
     await findAiFeedPosts({ page: 1, pageSize: 20 })
-    expect(orderKeysAt(0)).toEqual(['"ai_feed_posts"."created_at" desc', '"ai_feed_posts"."id" desc'])
+    expect(orderKeysAt(0)).toEqual([
+      '"ai_feed_posts"."created_at" desc',
+      '"ai_feed_posts"."id" desc',
+    ])
   })
 
   it('statistics 访问明细:created_at DESC 后追加 id DESC', async () => {
@@ -134,7 +137,9 @@ describe('F-600 分页 orderBy 主键 tiebreaker', () => {
       '"message_private_letter"."created_at" desc',
       '"message_private_letter"."id" desc',
     ])
-    expect(orderKeysAt(3)).toEqual(['"security_logs"."created_at" desc', '"security_logs"."id" desc'])
+    expect(orderKeysAt(3)).toEqual([
+      '"security_logs"."created_at" desc',
+      '"security_logs"."id" desc',
+    ])
   })
 })
-

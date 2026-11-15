@@ -24,6 +24,8 @@ import {
   Camera,
   Image as ImageIcon,
   Link2,
+  Copy,
+  FileArchive,
   LogIn,
   ListFilter,
   FolderOpen,
@@ -96,6 +98,8 @@ import {
   downloadConversationJson,
   downloadConversationSnapshot,
   downloadConversationShareCard,
+  downloadConversationZip,
+  copyConversationMarkdown,
   copyConversationShareLink,
   printConversationPdf,
   type ExportRoleLabel,
@@ -810,6 +814,18 @@ export function SidebarChatHistory({
     )
   }
 
+  const handleCopyMarkdown = (item: ConversationItem) => {
+    runExportAction(item.id, te('copyMarkdownCopied'), () =>
+      copyConversationMarkdown(item.id, item.title, exportRoleLabel),
+    )
+  }
+
+  const handleExportZip = (item: ConversationItem) => {
+    runExportAction(item.id, te('exportStarted'), () =>
+      downloadConversationZip(item.id, item.title),
+    )
+  }
+
   const handleSnapshot = (item: ConversationItem) => {
     runExportAction(item.id, te('exportStarted'), () =>
       downloadConversationSnapshot(item.id, item.title, exportRoleLabel),
@@ -1002,7 +1018,7 @@ export function SidebarChatHistory({
               }}
               disabled={busyId === item.id}
             >
-              <Pencil className="mr-2 h-3.5 w-3.5" />
+              <Pencil className="h-3.5 w-3.5" />
               <span>{tc('actions.rename')}</span>
             </DropdownMenuItem>
             {/* D20(G-11):置顶/取消置顶 —— 与会话历史页同款语义,复用既有 toast 键 */}
@@ -1016,12 +1032,12 @@ export function SidebarChatHistory({
             >
               {item.pinned ? (
                 <>
-                  <PinOff className="mr-2 h-3.5 w-3.5" />
+                  <PinOff className="h-3.5 w-3.5" />
                   <span>{tc('actions.unpin')}</span>
                 </>
               ) : (
                 <>
-                  <Pin className="mr-2 h-3.5 w-3.5" />
+                  <Pin className="h-3.5 w-3.5" />
                   <span>{tc('actions.pin')}</span>
                 </>
               )}
@@ -1035,7 +1051,7 @@ export function SidebarChatHistory({
               disabled={busyId === item.id || !userId}
               data-testid="conversation-mark-unread-action"
             >
-              <Mail className="mr-2 h-3.5 w-3.5" />
+              <Mail className="h-3.5 w-3.5" />
               <span>{t('markUnread')}</span>
             </DropdownMenuItem>
             {/* D20(G-11):文件夹/标签编辑(客户端元数据 v1) */}
@@ -1047,7 +1063,7 @@ export function SidebarChatHistory({
               disabled={busyId === item.id || !userId}
               data-testid="conversation-org-action"
             >
-              <Tags className="mr-2 h-3.5 w-3.5" />
+              <Tags className="h-3.5 w-3.5" />
               <span>{tc('org.title')}</span>
             </DropdownMenuItem>
             {/* D165:移动到分组(单选入口;批量入口在多选态动作条上) */}
@@ -1059,7 +1075,7 @@ export function SidebarChatHistory({
               disabled={busyId === item.id || !userId}
               data-testid="conversation-move-to-group-action"
             >
-              <FolderInput className="mr-2 h-3.5 w-3.5" />
+              <FolderInput className="h-3.5 w-3.5" />
               <span>{t('moveToGroup')}</span>
             </DropdownMenuItem>
             {/* D179:「绑定 Issue」(竞品 bindIssue;已绑定时同入口可换绑,解绑在对话框内) */}
@@ -1071,7 +1087,7 @@ export function SidebarChatHistory({
               disabled={busyId === item.id}
               data-testid="conversation-issue-bind-action"
             >
-              <Link2 className="mr-2 h-3.5 w-3.5" />
+              <Link2 className="h-3.5 w-3.5" />
               <span>{tc('bindIssue')}</span>
             </DropdownMenuItem>
             <DropdownMenuItem
@@ -1084,12 +1100,12 @@ export function SidebarChatHistory({
             >
               {item.archivedAt ? (
                 <>
-                  <ArchiveRestore className="mr-2 h-3.5 w-3.5" />
+                  <ArchiveRestore className="h-3.5 w-3.5" />
                   <span>{tc('actions.unarchive')}</span>
                 </>
               ) : (
                 <>
-                  <Archive className="mr-2 h-3.5 w-3.5" />
+                  <Archive className="h-3.5 w-3.5" />
                   <span>{tc('actions.archive')}</span>
                 </>
               )}
@@ -1099,7 +1115,7 @@ export function SidebarChatHistory({
                 压缩两档归入「压缩会话」二级子菜单；一线只留高频动作。 */}
             <DropdownMenuSub>
               <DropdownMenuSubTrigger data-testid="conversation-export-submenu">
-                <Download className="mr-2 h-3.5 w-3.5" />
+                <Download className="h-3.5 w-3.5" />
                 <span>{te('label')}</span>
               </DropdownMenuSubTrigger>
               <DropdownMenuSubContent className="w-44">
@@ -1110,8 +1126,30 @@ export function SidebarChatHistory({
                   }}
                   disabled={busyId === item.id}
                 >
-                  <FileCode className="mr-2 h-3.5 w-3.5" />
+                  <FileCode className="h-3.5 w-3.5" />
                   <span>{tc('actions.exportMd')}</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleCopyMarkdown(item)
+                  }}
+                  disabled={busyId === item.id}
+                  data-testid="conversation-copy-markdown"
+                >
+                  <Copy className="h-3.5 w-3.5" />
+                  <span>{te('copyMarkdown')}</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleExportZip(item)
+                  }}
+                  disabled={busyId === item.id}
+                  data-testid="conversation-export-zip"
+                >
+                  <FileArchive className="h-3.5 w-3.5" />
+                  <span>{te('exportZip')}</span>
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={(e) => {
@@ -1120,7 +1158,7 @@ export function SidebarChatHistory({
                   }}
                   disabled={busyId === item.id}
                 >
-                  <FileText className="mr-2 h-3.5 w-3.5" />
+                  <FileText className="h-3.5 w-3.5" />
                   <span>{tc('actions.exportTxt')}</span>
                 </DropdownMenuItem>
                 {/* D20(G-11):导出 PDF(打印通道,用户侧"另存为 PDF") */}
@@ -1132,7 +1170,7 @@ export function SidebarChatHistory({
                   disabled={busyId === item.id}
                   data-testid="conversation-export-pdf"
                 >
-                  <FileDown className="mr-2 h-3.5 w-3.5" />
+                  <FileDown className="h-3.5 w-3.5" />
                   <span>{te('exportPdf')}</span>
                 </DropdownMenuItem>
                 <DropdownMenuItem
@@ -1142,7 +1180,7 @@ export function SidebarChatHistory({
                   }}
                   disabled={busyId === item.id}
                 >
-                  <FileJson className="mr-2 h-3.5 w-3.5" />
+                  <FileJson className="h-3.5 w-3.5" />
                   <span>{te('exportJson')}</span>
                 </DropdownMenuItem>
                 <DropdownMenuItem
@@ -1152,7 +1190,7 @@ export function SidebarChatHistory({
                   }}
                   disabled={busyId === item.id}
                 >
-                  <Camera className="mr-2 h-3.5 w-3.5" />
+                  <Camera className="h-3.5 w-3.5" />
                   <span>{te('snapshot')}</span>
                 </DropdownMenuItem>
                 <DropdownMenuItem
@@ -1162,7 +1200,7 @@ export function SidebarChatHistory({
                   }}
                   disabled={busyId === item.id}
                 >
-                  <ImageIcon className="mr-2 h-3.5 w-3.5" />
+                  <ImageIcon className="h-3.5 w-3.5" />
                   <span>{te('exportCard')}</span>
                 </DropdownMenuItem>
                 <DropdownMenuItem
@@ -1172,14 +1210,14 @@ export function SidebarChatHistory({
                   }}
                   disabled={busyId === item.id}
                 >
-                  <Link2 className="mr-2 h-3.5 w-3.5" />
+                  <Link2 className="h-3.5 w-3.5" />
                   <span>{te('share')}</span>
                 </DropdownMenuItem>
               </DropdownMenuSubContent>
             </DropdownMenuSub>
             <DropdownMenuSub>
               <DropdownMenuSubTrigger data-testid="conversation-compress-submenu">
-                <Shrink className="mr-2 h-3.5 w-3.5" />
+                <Shrink className="h-3.5 w-3.5" />
                 <span>{te('compression')}</span>
               </DropdownMenuSubTrigger>
               <DropdownMenuSubContent className="w-44">
@@ -1190,7 +1228,7 @@ export function SidebarChatHistory({
                   }}
                   disabled={busyId === item.id}
                 >
-                  <Shrink className="mr-2 h-3.5 w-3.5" />
+                  <Shrink className="h-3.5 w-3.5" />
                   <span>{tc('actions.compressTo200k')}</span>
                 </DropdownMenuItem>
                 <DropdownMenuItem
@@ -1200,7 +1238,7 @@ export function SidebarChatHistory({
                   }}
                   disabled={busyId === item.id}
                 >
-                  <Shrink className="mr-2 h-3.5 w-3.5" />
+                  <Shrink className="h-3.5 w-3.5" />
                   <span>{tc('actions.compressTo1m')}</span>
                 </DropdownMenuItem>
               </DropdownMenuSubContent>
@@ -1214,7 +1252,7 @@ export function SidebarChatHistory({
               className="text-destructive focus:bg-destructive/10 focus:text-destructive"
               data-testid="conversation-delete-action"
             >
-              <Trash2 className="mr-2 h-3.5 w-3.5" />
+              <Trash2 className="h-3.5 w-3.5" />
               <span>{tc('actions.delete')}</span>
             </DropdownMenuItem>
           </DropdownMenuContent>

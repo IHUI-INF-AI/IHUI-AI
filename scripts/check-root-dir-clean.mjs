@@ -270,12 +270,6 @@ const ALLOWED_DIRS = new Set([
   'output',
   // 2026-09-10 显式审批:wt-push 推送工具目录(批量推送运维工具)
   'wt-push',
-  // 2026-11-15 登记:并行会话一次性隔离备份产物(根级 DevEnv/,内含 backups/stray-quarantine-*/
-  // 日志与快照,非 git 跟踪,归属并行会话工具链,现读 80K)。与 .screenshots/.runtime/.box-agent-scratch
-  // 同类:只登记、不搬不删(框架保留扫描禁删,搬动会打断在飞会话)。它以"未跟踪、非忽略"形态让守门 44
-  // 在 --staged 面报"无法判定"(exit 2)⇒ 批量按未判定收口 ⇒ 提交被阻(2026-11-15 实测:多批提交由此
-  // 反复受阻)。登记即解除 §12e 同型恒红。注意:此处是**不带点**的 DevEnv(与上方 .DevEnv IDE 工具态家目录不同名)。
-  'DevEnv',
 ])
 
 /** 合法隐藏文件(.env / .gitignore 等) */

@@ -15,7 +15,11 @@ vi.mock('../src/plugins/auth.js', () => ({
 }))
 
 vi.mock('../src/db/index.js', () => ({
-  db: { insert: () => ({ values: mockValues }) },
+  db: {
+    insert: () => ({ values: mockValues }),
+    // createUploadSession 的单用户活跃会话预算查询:无活跃会话
+    select: () => ({ from: () => ({ where: async () => [] }) }),
+  },
   dbRead: { insert: () => ({ values: mockValues }) },
 }))
 
@@ -92,7 +96,7 @@ describe('oss-resource routes — /api/oss/resource/file', () => {
     const body = res.json()
     expect(body.code).toBe(0)
     expect(body.data.uploadId).toMatch(/^[0-9a-f-]{36}$/)
-    expect(body.data.uploadUrl).toBe('/api/chunked-upload/chunk')
+    expect(body.data.uploadUrl).toBe('/api/chunked-upload/upload')
     expect(body.data.mergeUrl).toBe('/api/chunked-upload/merge')
     expect(body.data.statusUrl).toBe('/api/chunked-upload/status')
     expect(body.data.totalChunks).toBe(2)

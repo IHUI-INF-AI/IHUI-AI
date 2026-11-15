@@ -105,10 +105,8 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | — blocking | 338 | `guardianBlocking` |
 | — warn | 33 | `guardianWarn` |
 | 跟踪文件 | 21888 | `trackedFiles` |
-
 上表由 `node scripts/sync-readme-numbers.mjs`(唯一写入口,索引面取数)生成,最后核对日期 2026-11-15。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
-
 <!-- END GENERATED NUMBERS -->
 **一句话口径**:数字一律现读,文档里不写「约 N 个」——那种写法必然腐烂。
 ---
@@ -5473,7 +5471,6 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-14**
 - 🐞 修复:design-token 对比度语义档迁移(brandAccent/danger/success/warning) (35d8ab967e)
-
 **2026-11-14**
 - 🐞 修复:audit-app-text-contrast TDZ 修复 + repl pendingQuestionRef 提升模块级 (56780a1d7f)
 - 🚀 新功能/改进:门320 接线 guardian-runner + RP-80 基线盲区清账票 (f81673f27d)
@@ -5528,13 +5525,11 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🐞 修复:workbuddy 永久保活不再依赖客户端进程 (a9d2d526aa)
 - 🔧 工程/其他:夹具备份产物目录改名 switch-profiles,避开保护闸 backups 的精确等值 (29d71f9c26)
 - 🐞 修复:根治项目文件盘根外流——scratch 逃生舱合规闸+拔系统盘脏env+盘根卫生增申报目录内容对账与C盘覆盖面 (2a85a5024c)
-
 **2026-11-13**
 - 🐞 修复:E-P1 鉴权失败(401/403)归 content 不走 resume 阶梯 (f841c69006)
 - 🔧 工程/其他:302p 基线定向对账 tierWebOffN 228→229(定价批 pl-7 落账带取证) (888f730da3)
 - 🐞 修复:流式工具参数缓冲上限 + defect 终态 + errorCode 端侧接线 (4759055a3b)
 - 🐞 修复:派发腿级失败不再吃日预算,登录过期告警单独立身份 (11a6ee9fb6)
-
 **2026-11-14**
 - 🚀 新功能/改进:以 ai_pricing 权威价回填配置零价行 (476127d306)
 - 🐞 修复:诊断臂 [7b] DB 迁移落后维从未真判过——函数注册晚于 -diagnose 顶层执行点(第三次落地,范围收窄) (c4be376fd5)
@@ -5544,13 +5539,10 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🐞 修复:流式打字机切批升到字素簇边界 —— ZWJ/肤色/旗帜 emoji 不再拆裂(D1b) (a143634115)
 - 🔧 工程/其他:重封根护栏清单(git-guardian 变更后漂移) (ad06d9d1f8)
 - 🚀 新功能/改进:present_files 显式交付声明 + 交付清单 presentedFiles (904e129c14)
-
 **2026-11-14**
 - 🚀 新功能/改进:新增 3 个未跟踪文件 (da1823aa1d)
-
 **2026-11-14**
 - 🔧 工程/其他:收尾提交 plan-heal/tag-sync 副产物 (f05491e678)
-
 **2026-11-14**
 - 🔧 工程/其他:收拢本地工作区改动(全量提交) (1be9d1e2c7)
 - 🔧 工程/其他:重封根护栏清单(merge round2 后 gate-scope 漂移) (4b0fc5a3e6)
@@ -5672,7 +5664,6 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🔧 工程/其他:认领 F-221(RLS 上下文复位不绑连接) (5aae2a4458)
 - 🐞 修复:routine 调度器只在唯一角色启动 (bf70b42bef)
 - 🔧 工程/其他:结清 F-267(自愈依赖修复走受控通道不再 126,0b61b43d557) (e41adafaba)
-
 **2026-11-13**
 - 🚀 新功能/改进:findings survey 反向对账 — 12f/12g 棘轮门 + plan-tasks 派单降级 (fd5b05b9c3)
 - 🐞 修复:E-P1 鉴权失败(401/403)归 content 不走 resume 阶梯 (f841c69006)
@@ -5834,7 +5825,6 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🐞 修复:结清 F-352 定时清理集合化分批 + F-353 积分渠道事务 + F-367 清理器显式生命周期 + F-369 订阅配额原子累加 + F-372 日成本熔断 (3320620624)
 - 🐞 修复:ab_test_results schema 补 UNIQUE(variant_id,bucket) 表约束 + bucket NOT NULL,对齐已入库迁移 20261112000002,防 onConflict 42P10 + 回归锁 5/5 (d1b4766f6b)
 - 🔧 工程/其他:结清 F-448 —— ab_test_results schema 侧补 UNIQUE(variant_id,bucket) 表约束 + bucket NOT NULL,对齐已入库迁移 20261112000002(证据:迁移 + 回归锁 f448 5/5) (72ec4aad2b)
-
 **2026-11-14**
 - 🔧 工程/其他:收拢本地工作区改动(全量提交) (1be9d1e2c7)
 - 🔧 工程/其他:重封根护栏清单(merge round2 后 gate-scope 漂移) (4b0fc5a3e6)
@@ -5956,7 +5946,6 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🔧 工程/其他:认领 F-221(RLS 上下文复位不绑连接) (5aae2a4458)
 - 🐞 修复:routine 调度器只在唯一角色启动 (bf70b42bef)
 - 🔧 工程/其他:结清 F-267(自愈依赖修复走受控通道不再 126,0b61b43d557) (e41adafaba)
-
 **2026-11-13**
 - 🚀 新功能/改进:findings survey 反向对账 — 12f/12g 棘轮门 + plan-tasks 派单降级 (fd5b05b9c3)
 - 🐞 修复:E-P1 鉴权失败(401/403)归 content 不走 resume 阶梯 (f841c69006)
@@ -6118,7 +6107,6 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🐞 修复:结清 F-352 定时清理集合化分批 + F-353 积分渠道事务 + F-367 清理器显式生命周期 + F-369 订阅配额原子累加 + F-372 日成本熔断 (3320620624)
 - 🐞 修复:ab_test_results schema 补 UNIQUE(variant_id,bucket) 表约束 + bucket NOT NULL,对齐已入库迁移 20261112000002,防 onConflict 42P10 + 回归锁 5/5 (d1b4766f6b)
 - 🔧 工程/其他:结清 F-448 —— ab_test_results schema 侧补 UNIQUE(variant_id,bucket) 表约束 + bucket NOT NULL,对齐已入库迁移 20261112000002(证据:迁移 + 回归锁 f448 5/5) (72ec4aad2b)
-
 **2026-11-13**
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (b0dcad26995)
 - 🔧 工程/其他:认领 F-371(退款回收 VIP/订阅/配额,P1) (e53eba81b75)
@@ -6259,14 +6247,12 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🔧 工程/其他:收敛多端改动并纳入号池/中继流式/移动端产物 (0390eac81a6)
 - 🔧 工程/其他:违禁桶兜底清扫——HEAD面等条件/待拍板未勾行自动摘除(两道机主禁令的执行器物化,留痕f12-purge;复翻席请同步摘形态,事实内容按各批结清提交保留) (a7622bf7169)
 - 🚀 新功能/改进:号池全缺口开发验证 + 能力登记表 + reextract 兜底 + 接口参数补齐 (e04bfc4a31d)
-
 **2026-11-12**
 - 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (06239c8f000)
 | API 路由 | 4797 | `apiRoutes` |
 | 工程守门 | 368 | `guardianGates` |
 | — blocking | 335 | `guardianBlocking` |
 | — warn | 32 | `guardianWarn` |
-
 **2026-11-13**
 - 🔧 工程/其他:结清 O69(调度轮 sweepLocalDevDbRotation 与镜像 10 例已入库)与 12A/DG-12(发布 tag 闸改发布件对账,同批提交) (6c2a28998f7)
 - 🐞 修复:结清 F-422 Qoder 桥关停竞态 + F-461 WS 活动时间刷新 + F-466 live-chat 单用户连接上限 + F-475 chat 历史表上限 + F-492 生图 worker 租约归属 (c1252d160d6)
@@ -8432,3 +8418,16 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🐞 修复:修复24源码文件溯源水印载荷丢失(hr/db/i18n/craft)+清理import类型注解 (41cd9760853)
 - 🐞 修复:修复源码文件溯源水印载荷丢失+清理死代码 (2af1a280cc2)
 - 🐞 修复:AI对话流式显示P1修复 —— web早退持久化/并发幂等 + ai-service网关三缺陷 (274b1b6eda6)
+**容器描边角色系统**由 `scripts/check-border-system.mjs` 守门(8 角色单源、档位阶梯与聚焦契约)。
+| API 路由 | 4831 | `apiRoutes` |
+| 路由文件 | 703 | `apiRouteFiles` |
+| AI 服务路由 | 677 | `aiServiceRoutes` |
+| WebSocket 端点 | 40 | `wsEndpoints` |
+| CLI 工具文件 | 112 | `cliToolFiles` |
+| 测试文件 | 5625 | `testFiles` |
+| 工程守门 | 367 | `guardianGates` |
+| — blocking | 337 | `guardianBlocking` |
+| — warn | 32 | `guardianWarn` |
+| 跟踪文件 | 22272 | `trackedFiles` |
+**接线同代与镜像面守门族**(注册与门体必须同枚入库):`scripts/check-line-endings.mjs`(行尾纪律:CRLF / LF / 孤立 CR 分判)、
+`scripts/check-mirror-surface-parity.mjs`(镜像面取值集合双向对账)、`scripts/check-border-system.mjs`(描边 8 角色单源,门 323)。

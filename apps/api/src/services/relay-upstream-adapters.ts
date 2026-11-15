@@ -232,10 +232,8 @@ export interface ChatExecuteOptions {
 export interface AdapterCallOptions {
   proxyUrl?: string | null
   fetchImpl?: typeof fetch
-  /**
-   * 中止信号:超时即中止底层 fetch,不留悬挂句柄。
-   * checkHealth/refreshToken/listModels/executeChat 均透传给 fetch 的 signal。
-   */
+  /** 调用方取消信号(2026-11-13 类型契约补齐):relay-live-probe 与 trae-adapter
+   *  已在透传该字段,此前接口未登记导致全量 typecheck 报 TS2339/TS2353。 */
   signal?: AbortSignal
 }
 
@@ -375,10 +373,7 @@ export interface RelayUpstreamAdapter {
    * 构造上游长连接请求(socketSupported=true 时必实现)。
    * 与 buildChatRequest 并列:同一份 NormalizedChatRequest,两种运输方式。
    */
-  buildSocketRequest?(
-    ctx: AdapterAccountContext,
-    req: NormalizedChatRequest,
-  ): UpstreamSocketRequest
+  buildSocketRequest?(ctx: AdapterAccountContext, req: NormalizedChatRequest): UpstreamSocketRequest
   /**
    * 长连接帧 → OpenAI chunk(可选)。
    * 省略时转发层按 SSE 语义透传文本帧,复用 translateStreamChunk 翻译
@@ -487,9 +482,7 @@ export function isRefreshableProviderCode(providerCode: string): boolean {
 export function hasVerifiedQuotaEndpoint(
   adapter: Pick<RelayUpstreamAdapter, 'getQuota' | 'quotaSupported'> | null | undefined,
 ): adapter is RelayUpstreamAdapter & { getQuota: NonNullable<RelayUpstreamAdapter['getQuota']> } {
-  return (
-    !!adapter && typeof adapter.getQuota === 'function' && adapter.quotaSupported !== false
-  )
+  return !!adapter && typeof adapter.getQuota === 'function' && adapter.quotaSupported !== false
 }
 
 /**

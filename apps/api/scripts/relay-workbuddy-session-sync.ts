@@ -19,13 +19,6 @@
  *    `chooseSyncTargetRow` 判 —— 运营池优先、运营池无行而个人池恰一行则写该行、多行拒写点名。
  *    此前只查运营池行 ⇒ 本机号落在个人池时恒"池内没有该 uid",模板永不回灌。
  *
- * 本机重登后回灌新会话模板的同时把异常行复位到 unknown(判据单源在
- * `relay-credential-revival.ts` 的 `healthRevivalPatchOf`,并清掉 extra_metadata 里的判死
- * 留痕键)。**本腿不带 `credVersion + 1`,也不写 token/到期时刻**:新证据是「本机重登后的
- * 会话模板」而非新票,靠解摘闸门的既有语义(本机已有新证据)+ 清留痕后 lastErrorMessage
- * 复位,绝不谎称凭证版本前进。这不会造成「拿死票空撞上游」:复位只在真的写入本机新模板
- * 那一次才发生,且单源对过期票返回 null ⇒ 死票既不会被复活,也不会被反复推去撞上游。
- *
  * 退出码:0 写入(或 dry-run 判定可写)/ 1 DB 失败 / 2 未判定(无客户端/进程歧义/无模板/池内无行)。
  * 任何输出面零凭据:只报 uid/edition/键计数/文件路径。
  */
@@ -40,15 +33,12 @@ const REPO_ROOT = resolvePath(API_DIR, '..', '..')
 import { config } from 'dotenv'
 config({ path: resolvePath(API_DIR, '.env') })
 
-const { and, eq, sql } = await import('drizzle-orm')
+const { and, eq } = await import('drizzle-orm')
 const { aiRelayAccountPool } = await import('@ihui/database')
 const { encryptField, decryptField } = await import('../src/utils/crypto.js')
 const { db } = await import('../src/db/index.js')
 // 目标行选择判据单源(与 trae/qoder 腿共用):运营池优先,运营池无行时认个人池唯一行
 const { chooseSyncTargetRow } = await import('../src/services/relay-session-sync-target.js')
-// 即时复活 + 清判死留痕的判据单源(§0.6):本腿只调用,不在 scripts 里再写一份判据。
-const { healthRevivalPatchOf, stripTerminalVerdict, TERMINAL_VERDICT_KEY } =
-  await import('../src/services/relay-credential-revival.js')
 
 /** 未判定:环境/数据没就绪 ⇒ 不写库、不算失败(退出码 2) */
 export class UndeterminedError extends Error {
@@ -96,37 +86,6 @@ export function mergeWorkbuddyTemplate(
     sessionTemplate: tpl.sessionTemplate,
     sealedPaths: tpl.sealedPaths,
     edition: tpl.edition,
-  }
-}
-
-/**
- * 写模板分支的「即时复活 + 清判死留痕」补丁(纯函数,测试锁)。判据住在
- * `relay-credential-revival.ts`(`healthRevivalPatchOf` / `stripTerminalVerdict`),本函数只
- * 组装 `.set()` 形状,不复算任何判据 —— 不在本腿再长一份「过期 / healthy / broken」。
- *
- * 本腿不写 token / 到期时刻 / `credVersion + 1`,没有客户端票到期时刻可传 ⇒ 不传
- * clientExpiresAt(调用方已确认「本轮真的写入了本机重登后的新模板」这份新证据,按单源语义
- * 处理);本腿原本不写 extra_metadata ⇒ 用 drizzle `sql` 原子删键
- * `coalesce(extra_metadata,'{}'::jsonb) - 'terminalVerdict'`,绝不整对象覆盖成 `{}`
- * (并发会丢 keepAliveForever / sessionTemplate 等既有键)。
- */
-export function buildRevivalSetPatch(
-  row: { healthStatus?: unknown; refreshFailureCount?: unknown; tempUnschedulable?: unknown },
-  clientExpiresAt?: Date | null,
-  extraMetadataOverride?: Record<string, unknown> | null,
-) {
-  const rowLike = {
-    healthStatus: row.healthStatus,
-    refreshFailureCount: row.refreshFailureCount,
-    tempUnschedulable: row.tempUnschedulable,
-  }
-  const stripped = extraMetadataOverride ? stripTerminalVerdict(extraMetadataOverride) : null
-  return {
-    ...(healthRevivalPatchOf(rowLike, clientExpiresAt ? { clientExpiresAt } : {}) ?? {}),
-    extraMetadata:
-      stripped && Object.keys(stripped).length > 0
-        ? stripped
-        : sql`coalesce(${aiRelayAccountPool.extraMetadata}, '{}'::jsonb) - '${sql.raw(TERMINAL_VERDICT_KEY)}'`,
   }
 }
 
@@ -218,9 +177,6 @@ export async function runSync(dryRun: boolean): Promise<WorkbuddySyncSummary> {
     .update(aiRelayAccountPool)
     .set({
       secretsEnc: encryptField(JSON.stringify(secrets)),
-      // 判据单源:本机重登后的新模板是「新证据」,只在真的写入这一次复位异常行 +
-      // 清判死留痕;本腿不写 token / credVersion,见文件头注。
-      ...buildRevivalSetPatch(row),
       updatedAt: new Date(),
     })
     .where(eq(aiRelayAccountPool.id, row.id))
@@ -277,5 +233,5 @@ if (isDirectRun) {
     })
 }
 
-export const __test__ = { parseArgs, parseSealedPaths, mergeWorkbuddyTemplate, buildRevivalSetPatch }
+export const __test__ = { parseArgs, parseSealedPaths, mergeWorkbuddyTemplate }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

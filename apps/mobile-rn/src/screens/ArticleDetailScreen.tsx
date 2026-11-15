@@ -38,7 +38,7 @@ import {
   ArticleDetailScreen as SharedArticleDetailScreen,
   type ArticleDetailItem,
 } from '@ihui/rn-app'
-import { useI18n, t as tStatic } from '../i18n'
+import { useI18n } from '../i18n'
 import { useRefreshOnFocus } from '../hooks'
 import { useUiTextField } from '../lib/use-ui-text-field'
 import type { RootStackParamList } from '../navigation/RootNavigator'
@@ -184,7 +184,7 @@ export function ArticleDetailScreen() {
           <TouchableOpacity style={styles.actionItem} onPress={handleLike} activeOpacity={0.7}>
             <Heart
               size={18}
-              color={liked ? tokens.danger.DEFAULT : tokens.text.secondary}
+              color={liked ? tokens.danger.bright : tokens.text.secondary}
               fill={liked ? tokens.danger.bright : 'transparent'}
             />
             <Text style={styles.actionCount}>{likeCount}</Text>
@@ -196,7 +196,7 @@ export function ArticleDetailScreen() {
           </TouchableOpacity>
           <TouchableOpacity style={styles.actionItem} onPress={handleShare} activeOpacity={0.7}>
             <Share2 size={18} color={tokens.text.secondary} />
-            <Text style={styles.actionLabel}>{tStatic('chat.msg.share2')}</Text>
+            <Text style={styles.actionLabel}>分享</Text>
           </TouchableOpacity>
         </View>
       ) : null}
@@ -212,7 +212,7 @@ export function ArticleDetailScreen() {
           <Tappable style={styles.commentMask} onPress={() => setCommentVisible(false)} />
           <View style={[styles.commentSheet, dialogHeightStyle]}>
             <View style={styles.commentHeader}>
-              <Text style={styles.commentTitle}>{tStatic('tagsPage.groupComment')}</Text>
+              <Text style={styles.commentTitle}>评论</Text>
               <Tappable
                 hitSlop={8}
                 onPress={() => setCommentVisible(false)}
@@ -260,7 +260,7 @@ export function ArticleDetailScreen() {
                 value={commentText}
                 onChangeText={setCommentText}
                 placeholder={t('article.commentPh')}
-                placeholderTextColor={tokens.text.secondary}
+                placeholderTextColor={tokens.text.tertiary}
                 style={styles.commentInput}
                 multiline
               />
@@ -313,7 +313,7 @@ const styles = StyleSheet.create({
     color: tokens.text.secondary,
   } as TextStyle,
   actionIconActive: {
-    color: tokens.danger.bright,
+    color: tokens.danger.deepText,
   } as TextStyle,
   actionCount: {
     fontSize: rnType.bodySm.size,
@@ -362,7 +362,7 @@ const styles = StyleSheet.create({
   commentClose: {
     fontSize: rnType.display.size,
     lineHeight: rnType.subtitle.lineHeight,
-    color: tokens.text.tertiary,
+    color: tokens.text.medium,
     fontWeight: '300',
   } as TextStyle,
   commentLoading: {
@@ -382,7 +382,7 @@ const styles = StyleSheet.create({
   } as ViewStyle,
   commentEmptyText: {
     fontSize: rnType.bodySm.size,
-    color: tokens.text.tertiary,
+    color: tokens.text.medium,
   } as TextStyle,
   commentItem: {
     flexDirection: 'row',
@@ -418,7 +418,7 @@ const styles = StyleSheet.create({
   } as TextStyle,
   commentTime: {
     fontSize: rnType.caption.size,
-    color: tokens.text.tertiary,
+    color: tokens.text.medium,
     marginTop: rnSpacing.xs,
   } as TextStyle,
   commentInputRow: {

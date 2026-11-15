@@ -92,6 +92,11 @@ class PermissionCheckResponse(BaseModel):
     mode: str
     dangerLevel: str
     decision: str
+    # C 类权限沙箱(2026-11-15):Workspace Trust 第一层判定结果。
+    # workspace 为空 ⇒ 不做信任层判定(纯工具级),trustLayer 恒 None 保持既有语义。
+    workspace: str | None = None
+    trustLayer: str | None = None  # workspace_trust(被拦/放行) | delegated(信任过,转后续判定)
+    trustReason: str | None = None
 
 
 # ============ 会话存储(Redis 优先 + 内存降级,最大 1000 条)============
@@ -482,11 +487,36 @@ async def resume_session(session_id: str, request: Request) -> dict[str, Any]:
 
 @router.get("/permission/check")
 async def check_permission(
-    toolName: str, mode: str = "default", dangerLevel: str = "read"
+    toolName: str, mode: str = "default", dangerLevel: str = "read",
+    workspace: str | None = None,
 ) -> PermissionCheckResponse:
+    """权限检查(2026-11-15 C 类装车)：先过 Workspace Trust 第一关，再走工具级判定。
+
+    - ``workspace`` 为空 ⇒ 跳过信任层（纯工具级判定，既有语义零变化）；
+    - ``workspace`` 非空 ⇒ 先查 workspace_trust；未信任/撤销/异常 ⇒ 直接 ``deny``，
+      **不到工具级判定**；信任通过 ⇒ ``trustLayer=delegated``，继续既有 mode/dangerLevel。
+    """
+    trust_layer: str | None = None
+    trust_reason: str | None = None
+
+    if workspace and workspace.strip():
+        from app.core.permission_entry import check_permission as _trust_gate
+        gate = await _trust_gate(workspace.strip())
+        trust_layer = gate.layer  # workspace_trust | delegated
+        trust_reason = gate.reason
+        if not gate.allow:
+            # Workspace Trust 未过 ⇒ 阻断，不到工具级判定
+            return PermissionCheckResponse(
+                toolName=toolName, mode=mode, dangerLevel=dangerLevel,
+                decision="deny", workspace=workspace.strip(),
+                trustLayer=trust_layer, trustReason=trust_reason,
+            )
+
     decision = _check_permission(toolName, mode, dangerLevel)
     return PermissionCheckResponse(
-        toolName=toolName, mode=mode, dangerLevel=dangerLevel, decision=decision
+        toolName=toolName, mode=mode, dangerLevel=dangerLevel, decision=decision,
+        workspace=workspace.strip() if workspace else None,
+        trustLayer=trust_layer, trustReason=trust_reason,
     )
 
 

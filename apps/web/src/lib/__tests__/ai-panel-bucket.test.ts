@@ -4,18 +4,22 @@
 
 import { describe, it, expect, afterEach } from 'vitest'
 import {
+  AI_FLOAT_DEFAULT_HEIGHT,
+  AI_FLOAT_DEFAULT_WIDTH,
   AI_FLOAT_MARGIN,
-  AI_FLOAT_MAX_HEIGHT,
-  AI_FLOAT_WIDTH,
+  AI_FLOAT_MIN_HEIGHT,
+  AI_FLOAT_MIN_WIDTH,
   clampFabPosition,
   clampFloatPosition,
   getFloatSize,
   getPanelBucket,
   planFormMigration,
+  resizeFloatRect,
   resolveFloatRect,
   snapFabPosition,
   snapFloatPosition,
   type AiPanelFormSnapshot,
+  type AiFloatRect,
 } from '../ai-panel-bucket'
 import { useAiPanelStore } from '@/stores/ai-panel'
 
@@ -39,7 +43,10 @@ describe('getPanelBucket(形态档唯一真相源)', () => {
 
 describe('getFloatSize', () => {
   it('常规视口:360 × 600', () => {
-    expect(getFloatSize(1280, 800)).toEqual({ width: AI_FLOAT_WIDTH, height: AI_FLOAT_MAX_HEIGHT })
+    expect(getFloatSize(1280, 800)).toEqual({
+      width: AI_FLOAT_DEFAULT_WIDTH,
+      height: AI_FLOAT_DEFAULT_HEIGHT,
+    })
   })
 
   it('矮视口:高度按视口收小,四周留 8px', () => {
@@ -48,6 +55,31 @@ describe('getFloatSize', () => {
 
   it('窄视口:宽度按视口收小,不越界', () => {
     expect(getFloatSize(300, 800).width).toBe(300 - AI_FLOAT_MARGIN * 2)
+  })
+
+  it('优先用户缩放后的尺寸', () => {
+    expect(getFloatSize(1440, 900, { width: 720, height: 820 })).toEqual({
+      width: 720,
+      height: 820,
+    })
+  })
+
+  it('缩放尺寸低于最小档时抬到最小档(但仍不得越界)', () => {
+    expect(getFloatSize(1280, 800, { width: 100, height: 100 })).toEqual({
+      width: AI_FLOAT_MIN_WIDTH,
+      height: AI_FLOAT_MIN_HEIGHT,
+    })
+    // 视口本身就小于最小档:以视口为准,而不是硬撑出屏幕
+    expect(getFloatSize(300, 200, { width: 100, height: 100 })).toEqual({
+      width: 300 - AI_FLOAT_MARGIN * 2,
+      height: 200 - AI_FLOAT_MARGIN * 2,
+    })
+  })
+
+  it('非法持久化值回落到默认尺寸(手改 localStorage 不炸布局)', () => {
+    expect(
+      getFloatSize(1280, 800, { width: Number.NaN, height: Number.POSITIVE_INFINITY }),
+    ).toEqual({ width: AI_FLOAT_DEFAULT_WIDTH, height: AI_FLOAT_DEFAULT_HEIGHT })
   })
 })
 
@@ -72,6 +104,13 @@ describe('clampFloatPosition', () => {
     const pos = clampFloatPosition(300, 300, 360, 300)
     expect(pos.x).toBe(AI_FLOAT_MARGIN)
     expect(pos.y).toBe(AI_FLOAT_MARGIN)
+  })
+
+  it('按用户缩放后的尺寸收口右下边界', () => {
+    expect(clampFloatPosition(5000, 5000, 1280, 800, { width: 720, height: 700 })).toEqual({
+      x: 1280 - 720 - AI_FLOAT_MARGIN,
+      y: 800 - 700 - AI_FLOAT_MARGIN,
+    })
   })
 })
 
@@ -104,6 +143,86 @@ describe('resolveFloatRect', () => {
     const after = resolveFloatRect(before, anchor, 1000, 700)
     expect(after.x + after.width).toBeLessThanOrEqual(1000 - AI_FLOAT_MARGIN)
     expect(after.y + after.height).toBeLessThanOrEqual(700 - AI_FLOAT_MARGIN)
+  })
+
+  it('带用户缩放尺寸时按该尺寸定位(未初始化仍从锚点向上展开)', () => {
+    expect(
+      resolveFloatRect({ x: -1, y: -1 }, anchor, 1280, 800, { width: 720, height: 700 }),
+    ).toEqual({ x: 256, y: 84, width: 720, height: 700 })
+  })
+})
+
+describe('resizeFloatRect(八向拉伸)', () => {
+  const base: AiFloatRect = { x: 200, y: 100, width: 360, height: 600 }
+  const vw = 1280
+  const vh = 800
+
+  it('东/南边:只改宽高,左上角不动', () => {
+    expect(resizeFloatRect(base, 'e', 80, 0, vw, vh)).toEqual({
+      x: 200,
+      y: 100,
+      width: 440,
+      height: 600,
+    })
+    expect(resizeFloatRect(base, 's', 0, 50, vw, vh)).toEqual({
+      x: 200,
+      y: 100,
+      width: 360,
+      height: 650,
+    })
+  })
+
+  it('西/北边:拖的是移动边,对侧边(右/下)固定', () => {
+    const west = resizeFloatRect(base, 'w', -60, 0, vw, vh)
+    expect(west).toEqual({ x: 140, y: 100, width: 420, height: 600 })
+    expect(west.x + west.width).toBe(base.x + base.width)
+
+    const north = resizeFloatRect(base, 'n', 0, -80, vw, vh)
+    expect(north).toEqual({ x: 200, y: 20, width: 360, height: 680 })
+    expect(north.y + north.height).toBe(base.y + base.height)
+  })
+
+  it('四角:两个方向同时生效', () => {
+    expect(resizeFloatRect(base, 'se', 40, 40, vw, vh)).toEqual({
+      x: 200,
+      y: 100,
+      width: 400,
+      height: 640,
+    })
+    expect(resizeFloatRect(base, 'nw', -40, -40, vw, vh)).toEqual({
+      x: 160,
+      y: 60,
+      width: 400,
+      height: 640,
+    })
+  })
+
+  it('缩小到最小档就停住,不会把面板拖没', () => {
+    const tiny = resizeFloatRect(base, 'se', -9999, -9999, vw, vh)
+    expect(tiny).toEqual({
+      x: 200,
+      y: 100,
+      width: AI_FLOAT_MIN_WIDTH,
+      height: AI_FLOAT_MIN_HEIGHT,
+    })
+  })
+
+  it('放大不越界:东/南边到 8px 边距为止', () => {
+    const big = resizeFloatRect(base, 'se', 9999, 9999, vw, vh)
+    expect(big.x).toBe(200)
+    expect(big.y).toBe(100)
+    expect(big.x + big.width).toBe(vw - AI_FLOAT_MARGIN)
+    expect(big.y + big.height).toBe(vh - AI_FLOAT_MARGIN)
+  })
+
+  it('西/北边拖出视口时停在 8px 边距,对侧边仍固定', () => {
+    const west = resizeFloatRect(base, 'w', -9999, 0, vw, vh)
+    expect(west.x).toBe(AI_FLOAT_MARGIN)
+    expect(west.x + west.width).toBe(base.x + base.width)
+
+    const north = resizeFloatRect(base, 'n', 0, -9999, vw, vh)
+    expect(north.y).toBe(AI_FLOAT_MARGIN)
+    expect(north.y + north.height).toBe(base.y + base.height)
   })
 })
 

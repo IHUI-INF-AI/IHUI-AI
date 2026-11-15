@@ -44,10 +44,6 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { tryParseJson, isRecord } from '../util/json.js';
-// Y-75:fork 走 detached 建进程组,kill 收口走 killProcessTree(POSIX kill(-pid) / win32 taskkill /T)。
-// 单 pid kill 够不着 worker 在自己 isolate 里再起的孙进程(dev server / npm node / 后台化的 sleep),
-// 只收 worker 主 pid 会让孙进程成孤儿反复累积 —— 整树回收是唯一正确射程。
-import { killProcessTree } from '../util/kill-tree.js';
 import { DENIED_HOST_NAMES, DENIED_HOST_SUFFIXES } from '@ihui/shared/utils/ssrf-guard';
 import { EGRESS_ENV } from '../sandbox/egress/policy.js';
 import { createWorktree, removeWorktree, type WorktreeInfo } from './worktree.js';
@@ -379,14 +375,7 @@ export class SubagentWorkerPool {
    */
   private signalWorker(w: WorkerEntry, signal: NodeJS.Signals, reason: string, budgetMs?: number): Promise<boolean> {
     try {
-      // Y-75:两段式整树回收。
-      // ① proc.kill(signal) 保留原有语义面 —— 给 worker 主 pid 发指定信号(SIGTERM 优雅档 /
-      //    SIGKILL 升级档),同时维持 kill 证据面;
-      // ② killProcessTree(pid) 打整棵树 —— detached 派生使 worker 自成进程组,POSIX 走
-      //    kill(-pid),win32 走 taskkill /T,覆盖 worker 在自己 isolate 里再起的孙进程
-      //    (dev server / npm node / 后台化的 sleep),单 pid kill 够不着它们 ⇒ 不再孤儿累积。
       w.proc.kill(signal);
-      killProcessTree(w.proc.pid);
     } catch (e) {
       this.recordResidualKill(w, signal, reason, `信号派发失败:${e instanceof Error ? e.message : String(e)}`);
       return Promise.resolve(false);
@@ -396,7 +385,7 @@ export class SubagentWorkerPool {
       const budget = budgetMs ?? this.killExitBudgetMs;
       const timer = setTimeout(() => {
         w.proc.removeListener('exit', onExit);
-        this.recordResidualKill(w, signal, reason, `exit 事件超过 ${budget}ms 未到(整树 ${signal} 已发,含孙进程)`);
+        this.recordResidualKill(w, signal, reason, `exit 事件超过 ${budget}ms 未到`);
         resolve(false);
       }, budget);
       const onExit = () => {
@@ -779,11 +768,6 @@ export class SubagentWorkerPool {
       stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
       env: { ...process.env, IHUI_SUBAGENT_ID: subagentId },
       execArgv: process.execArgv, // 继承 tsx loader flags(dev 模式)
-      // Y-75:detached 使 child 自成进程组(POSIX setsid,child.pid 即组 ID),这样回收时
-      // killProcessTree 的 kill(-pid) 才有组可打。**刻意不 unref()** —— 池要靠 IPC message /
-      // exit 事件跟踪 worker 生命周期并采集终态证据,unref 会把它从父进程事件循环摘出去。
-      // Windows 无 POSIX 进程组语义,detached 仅避免共享控制台;整树回收由 taskkill /T 承担。
-      detached: true,
     };
     if (this.config.resourceLimits) {
       (forkOptions as Record<string, unknown>).resourceLimits = {
@@ -1423,9 +1407,6 @@ export function attemptKillSignal(
   const pid = proc.pid ?? pidFallback;
   try {
     // exit 证据由调用点收口(residual 残留进程见 exit 事件);此处只记 kill 发出结果。
-    // Y-75:本函数只对 worker 主 pid 发信号(单 pid 射程)。孙进程的整树回收不在这里 ——
-    // 它由池的 signalWorker() 在发信号后追加 killProcessTree(pid) 完成(detached 建组后
-    // POSIX kill(-pid) / win32 taskkill /T),本函数保持纯证据语义不被单测断言绑死。
     const sent = proc.kill(signal);
     if (sent) return { signal, pid, sent: true };
     return { signal, pid, sent: false, error: 'kill returned false (signal not delivered)' };

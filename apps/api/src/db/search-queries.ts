@@ -14,8 +14,6 @@ import {
   type AuditLog,
   type SearchHistory,
 } from '@ihui/database'
-// F-24 同类:审计日志按上海日切,不用 UTC。
-import { bizDayStartFromKeyUtc } from '../utils/biz-day.js'
 
 // =============================================================================
 // 全局搜索
@@ -597,12 +595,8 @@ export async function findAuditLogs(
   if (opts.userId) conds.push(eq(auditLogs.userId, opts.userId))
   if (opts.action) conds.push(eq(auditLogs.action, opts.action))
   if (opts.resourceType) conds.push(eq(auditLogs.resourceType, opts.resourceType))
-  // F-24 同类:上海日界。
-  if (opts.startDate) conds.push(gte(auditLogs.createdAt, bizDayStartFromKeyUtc(opts.startDate)))
-  if (opts.endDate) {
-    const nextDay = new Date(bizDayStartFromKeyUtc(opts.endDate).getTime() + 86_400_000 - 1)
-    conds.push(lte(auditLogs.createdAt, nextDay))
-  }
+  if (opts.startDate) conds.push(gte(auditLogs.createdAt, new Date(opts.startDate)))
+  if (opts.endDate) conds.push(lte(auditLogs.createdAt, new Date(`${opts.endDate}T23:59:59.999Z`)))
   const where = conds.length > 0 ? and(...conds) : undefined
 
   const [list, totalRows] = await Promise.all([
@@ -637,12 +631,8 @@ export async function exportAuditLogs(
   if (opts.userId) conds.push(eq(auditLogs.userId, opts.userId))
   if (opts.action) conds.push(eq(auditLogs.action, opts.action))
   if (opts.resourceType) conds.push(eq(auditLogs.resourceType, opts.resourceType))
-  // F-24 同类:上海日界。
-  if (opts.startDate) conds.push(gte(auditLogs.createdAt, bizDayStartFromKeyUtc(opts.startDate)))
-  if (opts.endDate) {
-    const nextDay = new Date(bizDayStartFromKeyUtc(opts.endDate).getTime() + 86_400_000 - 1)
-    conds.push(lte(auditLogs.createdAt, nextDay))
-  }
+  if (opts.startDate) conds.push(gte(auditLogs.createdAt, new Date(opts.startDate)))
+  if (opts.endDate) conds.push(lte(auditLogs.createdAt, new Date(`${opts.endDate}T23:59:59.999Z`)))
   const where = conds.length > 0 ? and(...conds) : undefined
 
   return dbRead

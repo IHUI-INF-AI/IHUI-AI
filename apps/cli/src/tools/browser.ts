@@ -19,10 +19,9 @@
 import * as http from 'node:http';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import * as os from 'node:os';
 import { spawn, type ChildProcess } from 'node:child_process';
 import WebSocket from 'ws';
-// 运行时合规临时根(§15b):~/.ihui/tmp → junction D:;禁 os.tmpdir()(TEMP 可能钉 C 盘)
-import { getRuntimeTempRoot } from '@ihui/shared';
 import { checkNavigableUrl } from '@ihui/shared/utils/navigable-url';
 import type { Tool, ToolResult } from './index.js';
 
@@ -290,7 +289,7 @@ async function spawnBrowser(port: number): Promise<void> {
         `或手动以 --remote-debugging-port=${port} 启动浏览器后设置 IHUI_BROWSER_CDP_URL=http://127.0.0.1:${port}`,
     );
   }
-  const userDataDir = path.join(getRuntimeTempRoot(), `ihui-cli-browser-${port}`);
+  const userDataDir = path.join(os.tmpdir(), `ihui-cli-browser-${port}`);
   const headless = process.env.IHUI_BROWSER_HEADLESS !== 'false';
   const baseArgs = [
     `--remote-debugging-port=${port}`,
@@ -329,11 +328,7 @@ async function spawnBrowser(port: number): Promise<void> {
       // stdout 仍丢——本工具从不读它,留着只会撞 §12g 那条"丢了又去读"的反面判据。
       stdio: ['ignore', 'ignore', 'pipe'],
       windowsHide: true,
-      // Y-80:Chrome 自身会派生 renderer/GPU/sandbox 等子进程。`detached: true`(仅非
-      // Windows)让浏览器自成进程组(pgid == child.pid),stopSpawned 才能用
-      // `process.kill(-pid)` 按**进程组整树**回收;Windows 无进程组语义,沿用单 pid kill
-      // + windowsHide(Chrome 主进程退出时会连带收掉其子进程,泄漏面可接受)。
-      detached: process.platform !== 'win32',
+      detached: false,
     });
     child.stderr?.on('data', (chunk: Buffer) => {
       stderrTail = (stderrTail + chunk.toString('utf8')).slice(-1200);
@@ -352,19 +347,9 @@ async function spawnBrowser(port: number): Promise<void> {
   const stopSpawned = (): void => {
     if (spawnedChild) {
       try {
-        if (spawnedChild.pid !== undefined && process.platform !== 'win32') {
-          // 负 pid = 杀整个进程组(见 launch 的 detached 注释),连带 renderer/GPU 孙进程
-          process.kill(-spawnedChild.pid);
-        } else {
-          spawnedChild.kill();
-        }
+        spawnedChild.kill();
       } catch {
-        // 进程组已退出:兜底再试单 pid kill,忽略二次失败
-        try {
-          spawnedChild?.kill();
-        } catch {
-          // 忽略
-        }
+        // 忽略
       }
       spawnedChild = undefined;
     }
@@ -383,10 +368,6 @@ async function spawnBrowser(port: number): Promise<void> {
     launch(['--no-sandbox', '--disable-setuid-sandbox']);
     if (await waitCdpReady()) return;
   }
-
-  // Y-80:走到这里 = 两腿 CDP 都没就绪。最终 throw 前必须先回收已拉起的浏览器子进程
-  // (此前两腿 launch 各拉起一个 Chrome,失败路径直接 throw 会把主进程遗弃 ⇒ 泄漏)。
-  stopSpawned();
 
   throw new Error(
     `浏览器已拉起但 CDP 端口 ${port} 未就绪(${Math.round(waitMs / 1000)}s 超时)` +
@@ -1145,39 +1126,6 @@ const browserEvaluate: Tool = {
   },
 };
 
-const browserClose: Tool = {
-  name: 'browser_close',
-  description: '关闭当前浏览器会话。若浏览器是由本工具自动拉起的,会一并终止该浏览器进程。',
-  parameters: {},
-  required: [],
-  dangerLevel: 'write',
-  async execute() {
-    try {
-      if (activeSession) {
-        // Browser.close 直接优雅退出浏览器进程
-        await activeSession.send('Browser.close', {}, 5000).catch(() => {});
-        activeSession.close();
-        activeSession = undefined;
-      }
-      // 句柄账随会话一起清空:关掉浏览器之后旧 ref 不得在新会话里撞上同号元素。
-      resetBrowserRefBook();
-      if (spawnedChild) {
-        try {
-          spawnedChild.kill();
-        } catch {
-          // 忽略
-        }
-        spawnedChild = undefined;
-        spawnedPort = undefined;
-        return ok('浏览器会话已关闭,自拉起的浏览器进程已终止');
-      }
-      return ok('浏览器会话已关闭(外部浏览器实例保持运行)');
-    } catch (err) {
-      return fail(err);
-    }
-  },
-};
-
 /** ref 路径:经 gateRef + evalOnRef 取值;失败时统一降级 stale_ref(不静默点错)。 */
 async function refQuery(
   session: CdpSession,
@@ -1365,6 +1313,39 @@ const browserGetAttribute: Tool = {
   },
 };
 
+const browserClose: Tool = {
+  name: 'browser_close',
+  description: '关闭当前浏览器会话。若浏览器是由本工具自动拉起的,会一并终止该浏览器进程。',
+  parameters: {},
+  required: [],
+  dangerLevel: 'write',
+  async execute() {
+    try {
+      if (activeSession) {
+        // Browser.close 直接优雅退出浏览器进程
+        await activeSession.send('Browser.close', {}, 5000).catch(() => {});
+        activeSession.close();
+        activeSession = undefined;
+      }
+      // 句柄账随会话一起清空:关掉浏览器之后旧 ref 不得在新会话里撞上同号元素。
+      resetBrowserRefBook();
+      if (spawnedChild) {
+        try {
+          spawnedChild.kill();
+        } catch {
+          // 忽略
+        }
+        spawnedChild = undefined;
+        spawnedPort = undefined;
+        return ok('浏览器会话已关闭,自拉起的浏览器进程已终止');
+      }
+      return ok('浏览器会话已关闭(外部浏览器实例保持运行)');
+    } catch (err) {
+      return fail(err);
+    }
+  },
+};
+
 /** 浏览器自动化工具集(真实 CDP 实现)。 */
 export const BROWSER_TOOLS: Tool[] = [
   browserNavigate,
@@ -1374,9 +1355,9 @@ export const BROWSER_TOOLS: Tool[] = [
   browserType,
   browserPressKey,
   browserEvaluate,
-  browserClose,
   browserGetBoundingBox,
   browserGetState,
   browserGetAttribute,
+  browserClose,
 ];
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

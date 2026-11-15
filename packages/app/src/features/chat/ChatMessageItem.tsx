@@ -20,7 +20,7 @@
 import { useCallback, useMemo, useState, type ReactElement } from 'react'
 import { Image, Text, View } from 'react-native'
 import { rnRadius, taroSpacing } from '@ihui/design-tokens'
-import { isErrorTurn, buildStreamErrorLabelSet, buildStreamErrorView } from '@ihui/shared/chat'
+import { isErrorTurn } from '@ihui/shared/chat'
 import { thinkingTitleView } from '@ihui/shared/chat/element-pack'
 import type {
   ChatMessageItemMessage,
@@ -272,72 +272,39 @@ export function ChatMessageItemView({
         <V className="agent-content-item">
           {/* 失败轮 → 错误卡片(警示头 + 正文 + 重试出口),整块替换正文:失败不产出内容。 */}
           {isFailed ? (
-            (() => {
-              // D-AI-3(2026-11-13,错误卡目录化):与小程序同一拼装层,按命名 errorCode 出
-              // 具体标题 + 建议动作;未收录码回落 fallback,不喷键名。
-              const labels = buildStreamErrorLabelSet({
-                tStream: (k) => t(`streamErrors.${k}`),
-                tCatalog: (k) => t(`ai.pane.errorCatalog.${k}`),
-              })
-              const view = buildStreamErrorView({
-                errorCode: msg.errorCode,
-                fallbackTitle: '',
-                fallbackMessage: msg.content ?? '',
-                labels,
-              })
-              const catalogHit = view.action !== null || view.retryable !== null
-              const cardTitle =
-                catalogHit && view.title ? view.title : t('ai.chatMessageItem.errorCardTitle')
-              const nextStepDetail = view.detail
-              const actionButtonLabel =
-                view.actionLabel ?? (view.retryable ? t('ai.chatMessageItem.retry') : null)
-              return (
-                <V className="w-full overflow-hidden rounded-lg border border-destructive/40 bg-destructive/5">
-                  <V className="flex items-center bg-destructive/10 px-md py-sm">
+            <V className="w-full overflow-hidden rounded-lg border border-destructive/40 bg-destructive/5">
+              <V className="flex items-center bg-destructive/10 px-md py-sm">
+                {renderIcon({
+                  name: 'triangle-alert',
+                  size: 28,
+                  color: 'var(--color-destructive)',
+                  style: { marginRight: 'var(--spacing-xs)' },
+                })}
+                <T className="text-label font-medium text-destructive">
+                  {t('ai.chatMessageItem.errorCardTitle')}
+                </T>
+              </V>
+              <T className="block whitespace-pre-wrap break-words px-md py-sm text-body text-destructive">
+                {msg.content}
+              </T>
+              {onRegenerate ? (
+                <V className="px-md pb-sm">
+                  <V
+                    className="inline-flex items-center"
+                    onClick={onRegenerate}
+                    hoverClass="opacity-60"
+                  >
                     {renderIcon({
-                      name: 'triangle-alert',
-                      size: 28,
+                      name: 'refresh-cw',
+                      size: 24,
                       color: 'var(--color-destructive)',
-                      style: { marginRight: 'var(--spacing-xs)' },
+                      style: { marginRight: '6rpx' },
                     })}
-                    <T className="text-label font-medium text-destructive">{cardTitle}</T>
+                    <T className="text-label text-destructive">{t('ai.chatMessageItem.retry')}</T>
                   </V>
-                  <T className="block whitespace-pre-wrap break-words px-md py-sm text-body text-destructive">
-                    {msg.content}
-                  </T>
-                  {catalogHit && nextStepDetail ? (
-                    <V className="flex-row items-start px-md pb-xs">
-                      {renderIcon({
-                        name: 'lightbulb',
-                        size: 24,
-                        color: 'var(--color-destructive)',
-                        style: { marginRight: '6rpx', marginTop: '2rpx' },
-                      })}
-                      <T className="flex-1 text-label leading-relaxed text-destructive/80">
-                        {nextStepDetail}
-                      </T>
-                    </V>
-                  ) : null}
-                  {onRegenerate && actionButtonLabel ? (
-                    <V className="px-md pb-sm">
-                      <V
-                        className="inline-flex items-center"
-                        onClick={onRegenerate}
-                        hoverClass="opacity-60"
-                      >
-                        {renderIcon({
-                          name: 'refresh-cw',
-                          size: 24,
-                          color: 'var(--color-destructive)',
-                          style: { marginRight: '6rpx' },
-                        })}
-                        <T className="text-label text-destructive">{actionButtonLabel}</T>
-                      </V>
-                    </V>
-                  ) : null}
                 </V>
-              )
-            })()
+              ) : null}
+            </V>
           ) : !answerHidden ? (
             <V className="content_agent_nei">
               {/* 段渲染:link 色,header 加粗块级 */}

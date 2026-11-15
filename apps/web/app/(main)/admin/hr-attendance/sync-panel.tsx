@@ -59,9 +59,7 @@ export function SyncPanel({ t }: { t: TFunc }) {
   const statusQuery = useQuery({
     queryKey: ['hr', 'attendance-sync', 'status'],
     queryFn: async () => {
-      const res = await api<{ lastRun: SyncLastRun | null }>(
-        `${ATT_RESOURCE}/sync/status`,
-      )
+      const res = await api<{ lastRun: SyncLastRun | null }>(`${ATT_RESOURCE}/sync/status`)
       return res.lastRun ?? null
     },
   })
@@ -98,11 +96,7 @@ export function SyncPanel({ t }: { t: TFunc }) {
 
       <div className="flex flex-wrap items-center gap-2">
         <HasPermi code={`${PERM}:manage`}>
-          <Button
-            size="sm"
-            disabled={runMut.isPending}
-            onClick={() => runMut.mutate()}
-          >
+          <Button size="sm" disabled={runMut.isPending} onClick={() => runMut.mutate()}>
             <RefreshCw className="mr-1 h-4 w-4" />
             {runMut.isPending ? t('syncRunning') : t('syncRunNow')}
           </Button>
@@ -129,10 +123,7 @@ export function SyncPanel({ t }: { t: TFunc }) {
             <StatRow label={t('syncScannedUsers')} value={last.scannedUsers} />
             <StatRow label={t('syncAttempted')} value={last.attempted} />
             <StatRow label={t('syncSyncedBatches')} value={last.syncedBatches} />
-            <StatRow
-              label={t('syncSkippedNotImplemented')}
-              value={last.skippedNotImplemented}
-            />
+            <StatRow label={t('syncSkippedNotImplemented')} value={last.skippedNotImplemented} />
             <StatRow label={t('syncFinishedAt')} value={formatTime(last.finishedAt)} />
           </div>
 
@@ -141,7 +132,7 @@ export function SyncPanel({ t }: { t: TFunc }) {
               <div className="font-medium text-destructive">
                 {t('syncErrors', { count: last.errors.length })}
               </div>
-              <ul className="font-[weight:inherit] mt-1 list-inside list-disc space-y-0.5 text-body">
+              <ul className="mt-1 list-inside list-disc space-y-0.5 text-sm">
                 {last.errors.map((e, i) => (
                   <li key={i} className="text-muted-foreground">
                     {e}

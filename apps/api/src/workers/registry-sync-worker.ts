@@ -193,7 +193,9 @@ export function startRegistrySyncWorker(server: FastifyInstance): Worker {
 
       const errorParts: string[] = []
       if (fetchFailures.length > 0) {
-        errorParts.push(`来源拉取失败 ${fetchFailures.length} 项: ${formatFetchFailures(fetchFailures)}`)
+        errorParts.push(
+          `来源拉取失败 ${fetchFailures.length} 项: ${formatFetchFailures(fetchFailures)}`,
+        )
       }
       if (failed > 0) {
         errorParts.push(`${failed} 个条目 upsert 失败${upsertErr ? `: ${upsertErr}` : ''}`)
@@ -233,6 +235,12 @@ export function startRegistrySyncWorker(server: FastifyInstance): Worker {
             'registry-sync: 回写 webhook trigger processed 失败',
           )
         }
+      }
+
+      // F-497: 全量 upsert 失败 / 来源拉取失败不得让 BullMQ 记 completed。
+      // sync_log 已记 fail、trigger 已标 failed,这里必须抛错让 worker 的 failed 事件可见。
+      if (status === 'fail') {
+        throw new Error(`registry-sync: 同步失败 ${errorMessage ?? '无错误信息'}`)
       }
 
       if (deduped > 0) {

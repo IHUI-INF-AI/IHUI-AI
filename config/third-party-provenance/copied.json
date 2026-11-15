@@ -6,7 +6,7 @@
     "attributionBoundary 字段声明「同一 roots 目录内本仓自研文件不归属上游」,防止反向把自家代码也算成第三方。"
   ],
   "schemaVersion": 1,
-  "updatedOn": "2026-10-31",
+  "updatedOn": "2026-11-15",
   "entries": [
     {
       "id": "pdfjs-worker-6.x",
@@ -134,6 +134,40 @@
       "modificationNote": "上游 22 枚构件(LICENSE + core.js + diagrams/ 6 枚 + chunks/ 14 枚)按 vendor README 的声明『copied, unmodified』原样入库;实测文件内无本仓编辑痕迹,也无我方水印横幅(vendor/** 因 watermark.mjs 的 SKIP_DIRS 从未被注入)。",
       "attributionBoundary": "roots 目录内唯一非上游件是 README.md(本仓自著的 vendoring 说明,不属于 Pele 上游);其余 22 枚跟踪文件归 Pele。目录外的 explainer 宿主代码为本仓自研,不随本条目主张第三方来源。",
       "obligations": "① 升级 Pele 时重抽 tarball,同笔更新本条 version / acquisition 里的 tarball sha256 / 许可原文的 sha256+byteLength(许可原文是 inRepo 内容寻址自证,文本一变 P3 当场判红);② 不得在本仓编辑 vendor 内的 .js(改了下次同步就丢,还毁掉『unmodified-copy』断言);③ 门 98 D4 对这批纯 JS 打包产物的误判问题不在本条射程,登记面只回答来源与许可。"
+    },
+    {
+      "id": "lexend-font-5.2.5",
+      "kind": "copied",
+      "name": "Lexend 字体(拉丁子集 woff2,400/500/600 三档)",
+      "purpose": "apps/web 外观设置「阅读障碍友好字体」的内置字面:FONT_STACKS.legibility 优先本机 OpenDyslexic,其次用本仓自带的 Lexend 拉丁子集(引用方:apps/web/app/globals.css 的 @font-face、apps/web/src/lib/appearance-tokens.ts)。",
+      "upstream": {
+        "project": "lexend",
+        "repository": "https://github.com/googlefonts/lexend",
+        "acquisition": "取自 npm 包 @fontsource/lexend@5.2.5 的 files/lexend-latin-{400,500,600}-normal.woff2,原样复制为 apps/web/public/fonts/Lexend-latin-{400,500,600}.woff2;许可原文同包 LICENSE 复制为 Lexend-OFL.txt",
+        "version": "5.2.5",
+        "gitRevision": null,
+        "gitRevisionNote": "字体是 @fontsource 的构建产物,包内不携带上游仓库 commit;本条以 npm 包版本 5.2.5 为来源锚点,不主张等于 lexend 仓库某个 commit。"
+      },
+      "license": {
+        "spdx": "OFL-1.1",
+        "texts": [
+          {
+            "form": "inRepo",
+            "inRepo": "apps/web/public/fonts/Lexend-OFL.txt",
+            "sha256": "18aabf190848725e2576eefb5c29ba06aac1029d02132252a7f312eac2e50cf3",
+            "byteLength": 4314
+          }
+        ]
+      },
+      "roots": [
+        "apps/web/public/fonts/Lexend-latin-400.woff2",
+        "apps/web/public/fonts/Lexend-latin-500.woff2",
+        "apps/web/public/fonts/Lexend-latin-600.woff2"
+      ],
+      "modification": "unmodified-copy",
+      "modificationNote": "fontsource 的 latin 子集产物原样复制,未做二次子集化、未改字形、未注入水印(二进制且非 watermark.mjs 覆盖类型)。",
+      "attributionBoundary": "apps/web/public/fonts/ 目录内的 HarmonyOS Sans SC、EDIX 等既有字体不属本条;本条只覆盖 Lexend-latin-*.woff2 三个文件与随附的 Lexend-OFL.txt。",
+      "obligations": "OFL-1.1:再分发时保留版权声明与许可原文(已随字体入库);不得单独售卖字体;若修改字形须以不同名称发布(本条未修改)。升级 @fontsource/lexend 时同笔更新 version 与许可 sha256+byteLength。"
     }
   ]
 }

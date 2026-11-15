@@ -53,6 +53,9 @@ export const AGENT_TOOLS = [
   // 只在构建模式(ChatMode build,对标 Agent/Edit)由 mergeAgentTools 按模式开关追加。
   // 问答(ask)与未传模式的普通路径不带它,避免每条闲聊都进工具循环。
   'summarize_artifacts',
+  // 显式交付声明(2026-11-14,对标 DSH present):命令/文档转换产物不进 filesChanged,
+  // 由模型点名交付;只登记不读盘,普通用户可用。
+  'present_files',
   'proactive_suggestion',
   // 12 browser tools
   'browser_screenshot',
@@ -542,7 +545,18 @@ export function financeToolsFor(content: string): string[] {
   const has = (...kws: string[]) => kws.some((kw) => text.includes(kw))
   const out = new Set<string>()
   if (
-    has('一键代账', '代账', '做账', '记账', '凭证', '结账', '试算平衡', '科目余额表', '账簿', '登账')
+    has(
+      '一键代账',
+      '代账',
+      '做账',
+      '记账',
+      '凭证',
+      '结账',
+      '试算平衡',
+      '科目余额表',
+      '账簿',
+      '登账',
+    )
   )
     out.add('ai_bookkeeping')
   if (

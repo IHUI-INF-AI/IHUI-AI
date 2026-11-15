@@ -15,7 +15,7 @@ import type { Tool, ToolResult } from './index.js';
 import { runPreToolCall, runPostToolCall } from '../hooks/index.js';
 import { tryParseJson, isRecord, isJsonArray } from '../util/json.js';
 
-interface Diagnostic {
+export interface Diagnostic {
   file: string;
   line: number;
   column: number;
@@ -24,7 +24,8 @@ interface Diagnostic {
   ruleId?: string;
 }
 
-function runTsc(cwd: string): Diagnostic[] {
+/** 导出供 auto-review 复用 —— 诊断调用只此一份,另写必然漂移。 */
+export function runTsc(cwd: string): Diagnostic[] {
   const result = spawnSync('npx', ['tsc', '--noEmit', '--pretty', 'false'], {
     cwd,
     encoding: 'utf-8',
@@ -53,7 +54,7 @@ function runTsc(cwd: string): Diagnostic[] {
   return diags;
 }
 
-function runEslint(cwd: string, targetPath?: string): Diagnostic[] {
+export function runEslint(cwd: string, targetPath?: string): Diagnostic[] {
   const args = ['eslint', '--format', 'json', targetPath || '.'];
   const result = spawnSync('npx', args, {
     cwd,
