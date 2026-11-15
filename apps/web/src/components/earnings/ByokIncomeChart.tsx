@@ -73,7 +73,7 @@ export function ByokIncomeChart({ data, loading }: Props) {
                       style={{ height: `${h}%`, marginTop: 'auto' }}
                     />
                     {isHover && (
-                      <div className="absolute bottom-full left-1/2 z-10 mb-1 -translate-x-1/2 whitespace-nowrap rounded-md border bg-popover px-2 py-1 text-label shadow-elevation-md">
+                      <div className="absolute bottom-full left-1/2 z-10 mb-1 -translate-x-1/2 whitespace-nowrap rounded-md border border-stroke-strong bg-popover px-2 py-1 text-label shadow-elevation-md">
                         <span className="font-medium text-emerald-600 dark:text-emerald-400">
                           {formatCny(p.amount, { digits: 2 })}
                         </span>

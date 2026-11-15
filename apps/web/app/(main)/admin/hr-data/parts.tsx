@@ -32,7 +32,7 @@ import type {
 import { api } from './types'
 
 export const inputCls =
-  'rounded-md border border-input bg-background px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-stroke-focus'
+  'rounded-md border border-input bg-background px-2 py-1 text-sm focus:outline outline-2 outline-offset-2 outline-stroke-focus'
 
 /** Badge 在 page.tsx 里也有,这里需要独立一份(跨文件不复用内部组件) */
 function Badge({ tone, children }: { tone: string; children: React.ReactNode }) {

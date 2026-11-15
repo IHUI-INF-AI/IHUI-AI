@@ -246,7 +246,7 @@ export function AppQrPanel({ refreshKey, agreementAccepted }: AppQrPanelProps) {
   return (
     <div className={`${QR_PANEL_STATE_BOX} gap-3`}>
       <div
-        className={`relative rounded-lg border border-border bg-popover p-3${isExpired ? ' opacity-30' : ''}`}
+        className={`relative rounded-lg border border-stroke-strong bg-popover p-3${isExpired ? ' opacity-30' : ''}`}
       >
         {qrContent && <QRCodeSVG value={qrContent} size={QR_SIZE} level="M" />}
         {isExpired && (

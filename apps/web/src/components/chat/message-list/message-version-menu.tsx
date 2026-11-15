@@ -75,7 +75,7 @@ export function MessageVersionMenu({ versions, activeId, onSelect }: MessageVers
         side="top"
         align="start"
         gap={4}
-        className="max-h-48 w-64 overflow-y-auto rounded-xl border border-stroke-subtle bg-popover p-1 shadow-elevation-lg"
+        className="max-h-48 w-64 overflow-y-auto rounded-xl border border-stroke-strong bg-popover p-1 shadow-elevation-lg"
       >
         <p className="px-2 py-1 text-[10px] font-medium text-muted-foreground">
           {t('canvasVersions')}

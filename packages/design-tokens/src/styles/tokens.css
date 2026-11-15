@@ -97,26 +97,29 @@
      亮色 10% 黑在纯白卡上 ≈ #E6E6E6,与旧 hsl(0 0% 89.8%) 观感一致。 */
   --color-border: rgba(0, 0, 0, 0.1);
   /* 2026-07-31 收紧:输入框描边更柔和(用户偏好"light mode colors to be whiter")。
-     Input 组件默认 `border border-input` + `bg-transparent`,更浅的描边让输入框在白底卡片上几乎隐形,
-     只在 focus 时通过 ring 强调,符合 modern UI 趋势(Tailwind 4 / shadcn 4.x 默认配置)。
-     2026-11-15:改为 8% 黑 alpha,在 muted/tinted 表面上同样保持"似有若无"。 */
-  --color-input: rgba(0, 0, 0, 0.08);
+     2026-11-15 二轮修正:提到 14% 黑 alpha,与 --color-stroke-field 同值。
+     立因:仓库里仍有约 150 处未迁移的 `border-input`(表单/二级按钮/上传区),
+     若兼容层停在 8%,同一语义的输入控件就会出现"新代码 14% / 旧调用点 8%"两种深浅,
+     2.0 的 field 档等于白加;且 8% 比卡片 default(10%)还虚,正是用户报的"输入框比卡片淡"。
+     新代码仍应写 `border-stroke-field`,本档只作兼容兜底。 */
+  --color-input: rgba(0, 0, 0, 0.14);
   --color-ring: hsl(0 0% 70%);
 
-  /* ===== 容器描边角色层(2026-11-15 立) =====
-   * 旧名 --color-border / --color-input / --color-border-medium 保留为底层值,
-   * 新代码一律取角色名;中性描边走 alpha,在页面/卡片/tinted 表面上保持同一视觉厚度。
-   * subtle 嵌套内区 · default 卡片/面板/表格 · strong 弹层/菜单/选中候选
-   * inverse 玻璃/深色浮层 · field 输入控件 · focus 聚焦(墨档,唯一例外位)
-   * selected 选中/强调容器 · danger 错误态容器 */
-  /* 注:default/strong/field/focus/selected/danger 的取值与 --color-border / --color-border-medium /
-     --color-input / --color-primary / --color-brand-accent-deep / --color-danger 逐位同值。
-     这里必须写字面值:门 93 的跨端对账不解析 var() 链,写别名会被判成"与 RN 不同值"。 */
+  /* ===== 容器描边角色层 2.0(2026-11-15 第二轮) =====
+   * 固定顺序:subtle < default < field < strong —— 输入控件必须比容器更实,
+   * 弹层必须比页内卡片更重,否则"控件比卡片还虚、弹层和卡片一样平"。
+   * subtle 嵌套内区 · default 卡片/面板/表格/分隔线 · field 输入控件
+   * strong 弹层/菜单/选中候选 · inverse 玻璃/深色浮层
+   * focus 聚焦(墨档,唯一例外位,2px outline) · selected 选中/强调容器 · danger 错误态容器 */
+  /* 注:default/focus/selected/danger 仍与 --color-border / --color-foreground /
+     --color-brand-accent-deep / --color-danger 同值;strong/field 是 2.0 主动取值
+     (strong 18% 不再等于 legacy --color-border-medium 16%;field 14% 与 legacy --color-input
+     同值,兼容层不得产生第二档)。必须写字面值:门 93 不解析 var() 链。 */
   --color-stroke-subtle: rgba(0, 0, 0, 0.06);
   --color-stroke-default: rgba(0, 0, 0, 0.1);
-  --color-stroke-strong: rgba(0, 0, 0, 0.16);
+  --color-stroke-strong: rgba(0, 0, 0, 0.18);
   --color-stroke-inverse: rgba(255, 255, 255, 0.2);
-  --color-stroke-field: rgba(0, 0, 0, 0.08);
+  --color-stroke-field: rgba(0, 0, 0, 0.14);
   --color-stroke-focus: #000000;
   --color-stroke-selected: #4a7a96;
   --color-stroke-danger: #dc2626;
@@ -706,10 +709,11 @@ select:-webkit-autofill:focus {
      避免用户找不到光标位置)。2026-11-15:改为 16% 白 alpha,随暗色表面自适应。 */
   --color-input: rgba(255, 255, 255, 0.16);
   --color-ring: hsl(0 0% 35%);
-  /* 容器描边角色层暗色覆盖:白 alpha 比亮色黑 alpha 更柔和,避免"粉笔描边" */
+  /* 容器描边角色层暗色覆盖:与亮色同一顺序 subtle < default < field < strong,
+     白 alpha 比黑 alpha 更柔和,避免"粉笔描边" */
   --color-stroke-subtle: rgba(255, 255, 255, 0.08);
   --color-stroke-default: rgba(255, 255, 255, 0.12);
-  --color-stroke-strong: rgba(255, 255, 255, 0.2);
+  --color-stroke-strong: rgba(255, 255, 255, 0.22);
   --color-stroke-inverse: rgba(0, 0, 0, 0.3);
   --color-stroke-field: rgba(255, 255, 255, 0.16);
   --color-stroke-focus: #ffffff;

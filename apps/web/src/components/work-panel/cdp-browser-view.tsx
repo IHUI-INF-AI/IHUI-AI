@@ -835,7 +835,7 @@ export function CdpBrowserView({
           <div
             role="menu"
             tabIndex={-1}
-            className="fixed z-popover min-w-[180px] rounded-md border border-border bg-popover p-1 shadow-elevation-md animate-in fade-in-0 zoom-in-95 duration-(--duration-unified) ease-unified focus:outline-none"
+            className="fixed z-popover min-w-[180px] rounded-md border border-stroke-strong bg-popover p-1 shadow-elevation-md animate-in fade-in-0 zoom-in-95 duration-(--duration-unified) ease-unified focus:outline-none"
             style={{
               left: Math.min(ctxMenu.x, window.innerWidth - 188),
               top: Math.min(ctxMenu.y, window.innerHeight - menuItems.length * 30 - 16),

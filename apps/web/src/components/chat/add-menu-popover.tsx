@@ -276,7 +276,7 @@ export function AddMenuPopover(props: {
             // z-popover(2026-09-14 补):portal 挂 body 且 z-auto,营销首页 hero 区
             // 祖先 z-10 会整体压住弹层 —— 菜单可见但所有点击被 H1 拦截(实测
             // prompt-templates/chat-manual-compact e2e 与真实用户同路径失败)。
-            className="pointer-events-auto z-[2200] max-h-[calc(100vh-1rem)] w-60 overflow-y-auto overscroll-contain rounded-md border bg-popover text-popover-foreground shadow-elevation-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="pointer-events-auto z-[2200] max-h-[calc(100vh-1rem)] w-60 overflow-y-auto overscroll-contain rounded-md border border-stroke-strong bg-popover text-popover-foreground shadow-elevation-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
             style={
               coords
                 ? { position: 'fixed', top: coords.top, left: coords.left }
@@ -339,7 +339,7 @@ export function AddMenuPopover(props: {
                   />
                   <span className="min-w-0 flex-1 truncate">{t('backToMenu')}</span>
                 </button>
-                <div className="mt-1 flex flex-col gap-0.5 border-t border-stroke-subtle pt-1">
+                <div className="mt-1 flex flex-col gap-0.5 border-t border-stroke-default pt-1">
                   {toolsMenuItems}
                 </div>
               </div>
@@ -352,7 +352,7 @@ export function AddMenuPopover(props: {
                     role="group"
                     aria-label={t('quickSettings')}
                     data-testid="composer-quick-settings"
-                    className="mb-1 border-b border-stroke-subtle pb-1"
+                    className="mb-1 border-b border-stroke-default pb-1"
                   >
                     <span className="block px-1.5 pb-0.5 pt-0.5 text-[11px] font-medium text-muted-foreground">
                       {t('quickSettings')}
@@ -526,7 +526,7 @@ export function AddMenuPopover(props: {
                     </span>
                   </button>
                 )}
-                <div className="my-1 border-t border-stroke-subtle" aria-hidden />
+                <div className="my-1 border-t border-stroke-default" aria-hidden />
                 {/* 更多工具入口(2026-11-04 信息架构重构):底栏降级的次要控件
                     (任务进度 / 上下文环 / 语音输入 / 语音笔记 / 流式 Steer)收纳于此,
                     点击进入 tools 子层;不改变任何控件自身的弹层与状态机。 */}
