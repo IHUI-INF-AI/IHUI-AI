@@ -13,6 +13,7 @@ import { REMOTE_ICONS } from '@/constants/remote-icons'
 import ThemeRoot from '@/components/ThemeRoot'
 import CategoryBar from '@/components/CategoryBar'
 import { onToast } from '@/host/on-toast'
+import { MINI_TAB_PAGE_LIST } from '@/constants/tab-bar-pages'
 
 /**
  * 远程图标静态注册表:noUncheckedIndexedAccess 下 Record 点号访问返回 string | undefined,
@@ -199,7 +200,12 @@ export default function SpecialModelsPage() {
   const onEnter = useCallback(
     (m: ModelEntry) => {
       if (m.route) {
-        Taro.navigateTo({ url: m.route }).catch((e) => {
+        const route = m.route
+        // tabBar 页必须 switchTab:navigateTo 打 tab 页会被微信直接拒绝,入口永远不可达。
+        const go = MINI_TAB_PAGE_LIST.some((p) => `/${p}` === route)
+          ? Taro.switchTab({ url: route })
+          : Taro.navigateTo({ url: route })
+        go.catch((e) => {
           logger.error('ai/special', t('aiSpecial.y1', { p1: m.key }), e)
           onToast(tt('ai.special.pageError', '操作失败'), { kind: 'error' })
         })

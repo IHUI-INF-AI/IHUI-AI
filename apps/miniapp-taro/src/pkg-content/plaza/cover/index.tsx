@@ -106,7 +106,7 @@ export default function PlazaCover() {
   }, [])
 
   const toPlaza = useCallback(() => {
-    Taro.navigateTo({ url: '/pages/plaza/index/index' })
+    Taro.switchTab({ url: '/pages/plaza/index/index' })
   }, [])
 
   const toWeb = useCallback((url: string) => {
