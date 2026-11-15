@@ -942,7 +942,8 @@
       "agree": "贊同",
       "disagree": "反對"
     },
-    "loadFailed": "載入失敗"
+    "loadFailed": "載入失敗",
+    "admissionAhead": "前面還有 {n} 位"
   },
   "settings": {
     "title": "設定",
@@ -3711,7 +3712,8 @@
     "loadFailed": "載入失敗",
     "participants": "參與人數",
     "startTime": "開始時間",
-    "title": "活動"
+    "title": "活動",
+    "joining": "提交中…"
   },
   "agentDetail": {
     "creator": "建立者",
@@ -5061,7 +5063,7 @@
     "analysisEstimate": "預計約 {tokens} tokens · 難度 {difficulty}",
     "analysisPickFirst": "請先選擇一個場景",
     "analysisSubmit": "發起分析",
-      "noValidContent": "無可匯入的有效內容"
+    "noValidContent": "無可匯入的有效內容"
   },
   "permissionTier": {
     "label": "權限檔",
@@ -5699,7 +5701,8 @@
       "policyRequiresApproval": "策略要求審批",
       "policySkipsApproval": "策略免審批",
       "guardianReviewSuggested": "複核建議改用更安全路徑",
-      "guardianReviewAlternativeApplied": "已改用複核建議的路徑"
+      "guardianReviewAlternativeApplied": "已改用複核建議的路徑",
+      "autoReviewAllow": "自動審查放行"
     },
     "perm": {
       "allow": "已放行",
@@ -7544,7 +7547,8 @@
   },
   "activities": {
     "join": "立即參與",
-    "notFound": "活動不存在或已下線"
+    "notFound": "活動不存在或已下線",
+    "cancelJoin": "取消報名"
   },
   "eduAttendanceQr": {
     "chooseClass": "選擇班級",

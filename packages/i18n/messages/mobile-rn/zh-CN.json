@@ -942,7 +942,8 @@
       "agree": "赞同",
       "disagree": "反对"
     },
-    "loadFailed": "加载失败"
+    "loadFailed": "加载失败",
+    "admissionAhead": "前面还有 {n} 位"
   },
   "settings": {
     "title": "设置",
@@ -3711,7 +3712,8 @@
     "loadFailed": "加载失败",
     "participants": "参与人数",
     "startTime": "开始时间",
-    "title": "活动"
+    "title": "活动",
+    "joining": "提交中…"
   },
   "agentDetail": {
     "creator": "创建者",
@@ -5061,7 +5063,7 @@
     "analysisEstimate": "预计约 {tokens} tokens · 难度 {difficulty}",
     "analysisPickFirst": "请先选择一个场景",
     "analysisSubmit": "发起分析",
-      "noValidContent": "无可导入的有效内容"
+    "noValidContent": "无可导入的有效内容"
   },
   "permissionTier": {
     "label": "权限档",
@@ -5699,7 +5701,8 @@
       "policyRequiresApproval": "策略要求审批",
       "policySkipsApproval": "策略免审批",
       "guardianReviewSuggested": "复核建议改用更安全路径",
-      "guardianReviewAlternativeApplied": "已改用复核建议的路径"
+      "guardianReviewAlternativeApplied": "已改用复核建议的路径",
+      "autoReviewAllow": "自动审查放行"
     },
     "perm": {
       "allow": "已放行",
@@ -7544,7 +7547,8 @@
   },
   "activities": {
     "join": "立即参与",
-    "notFound": "活动不存在或已下线"
+    "notFound": "活动不存在或已下线",
+    "cancelJoin": "取消报名"
   },
   "eduAttendanceQr": {
     "chooseClass": "选择班级",
