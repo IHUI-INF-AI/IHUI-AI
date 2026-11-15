@@ -191,7 +191,7 @@ export function AnnotationAnchorCapture({
             onChange={(e) => setNote(e.target.value)}
             placeholder={t('taskInputPlaceholder')}
             rows={2}
-            className="w-full resize-none rounded-sm border border-stroke-subtle bg-background px-2 py-1 text-[11px] text-foreground placeholder:text-muted-foreground/60 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-stroke-focus/40"
+            className="w-full resize-none rounded-sm border border-stroke-subtle bg-background px-2 py-1 text-[11px] text-foreground placeholder:text-muted-foreground/60 focus-visible:outline outline-2 outline-offset-2 outline-stroke-focus"
             data-testid="annotation-anchor-note"
           />
           <div className="flex flex-wrap items-center gap-1">

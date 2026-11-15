@@ -112,7 +112,7 @@ export function TerminalTab({
             }
           }}
           onBlur={() => onConfirmRename()}
-          className="w-24 rounded-sm border border-border bg-background px-1 py-0 text-label outline-none focus:border-stroke-focus/50"
+          className="w-24 rounded-sm border border-border bg-background px-1 py-0 text-label outline-none focus:outline outline-2 outline-offset-2 outline-stroke-focus"
           maxLength={32}
           aria-label={t('terminalTabBar.renameAria')}
         />

@@ -697,7 +697,7 @@ iframe::-webkit-scrollbar {
  * 48px 扩散)也是手写字面量,绕过了唯一源 packages/design-tokens/src/elevation.ts。
  *
  * 现口径(全部取 token,禁止在本文件手写阴影数值):
- * - 描边:--color-border-medium(中档描边档,亮 #d4d4d4 / 暗 #525252),1px 实线;
+ * - 描边:--color-stroke-strong(弹层/浮层档,亮 18% 黑 / 暗 22% 白),1px 实线;
  *   必须写在本未分层规则里 —— 上方 `* { border-color: var(--color-border) }` 是未分层声明,
  *   Tailwind @layer utilities 的 border-* 会被它压掉(同 .ai-input-shell 头注里的实测结论)。
  * - 投影:--shadow-elevation-xl(源 tokens.css ELEVATION_CSS,sm/md/lg/xl 唯一档位表)。
@@ -705,15 +705,15 @@ iframe::-webkit-scrollbar {
  *   「悬停态」,层级反而失真。
  */
 .ai-float-glow {
-  border: 1px solid var(--color-border-medium);
+  border: 1px solid var(--color-stroke-strong);
   box-shadow: var(--shadow-elevation-xl);
 }
 
 /* 跳转到主内容链接:键盘用户可见,平时屏幕阅读器外隐藏 — 由 app/(main)/layout.tsx 中的 sr-only 元素承担 */
 
-/* 主内容区焦点可见(配合 skip link 使用) */
+/* 主内容区焦点可见(配合 skip link 使用),同取墨色聚焦档 */
 #main:focus-visible {
-  outline: 2px solid var(--color-ring);
+  outline: 2px solid var(--color-stroke-focus);
   outline-offset: -2px;
 }
 

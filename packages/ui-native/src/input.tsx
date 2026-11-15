@@ -24,7 +24,7 @@ import { registerUiField, type UiFieldHandle } from './field-host'
  *    + React 19 的样式订阅警告 ⇒ 那是**色**的承载,不是几何;web 端仍严格走类名;
  *  - **AI 可填注册逻辑**(下面 :38-119 的 register / useEffect):本端独有的行为契约,
  *    web 端没有 field-host 通道 ⇒ 规则6。本票只沉几何,那一段一行未动;
- *  - `border-input`:边框色(nativewind 主题)⇒ 色值不下沉,只沉宽度;
+ *  - `border-stroke-field`:边框色(nativewind 主题)⇒ 色值不下沉,只沉宽度;
  *  - 无 `py-1` / `shadow-sm` / `w-full`:本端高度已由 INPUT_HEIGHT_PX 单点定档、无控件投影通道;
  *  - 类名字面量:必须留在本文件 —— nativewind 只扫本包源,spec 文件不在扫描面内,拼串产不出规则。
  *  ⇒ 取值档一律取自 input-spec,本文件只做"档 → 本端承载类"的映射。
@@ -153,7 +153,7 @@ export function Input({
         BORDER_WIDTH_CLASS[INPUT_BORDER_WIDTH_PX],
         PADDING_X_CLASS[INPUT_PADDING_X_PX],
         TEXT_CLASS[INPUT_TEXT_TIER],
-        'border-input',
+        'border-stroke-field',
         className,
       )}
       style={[style, focused ? { borderColor: primaryColor } : null]}

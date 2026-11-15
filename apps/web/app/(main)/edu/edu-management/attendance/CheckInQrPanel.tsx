@@ -130,7 +130,7 @@ export function CheckInQrPanel({
         ) : qr ? (
           <>
             <div
-              className="rounded-md border border-border bg-popover p-3"
+              className="rounded-md border border-stroke-strong bg-popover p-3"
               data-testid="attendance-qr"
             >
               <QRCodeSVG value={qr.payload} size={QR_SIZE} level="M" />

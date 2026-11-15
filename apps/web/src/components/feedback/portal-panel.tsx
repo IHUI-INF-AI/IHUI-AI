@@ -28,7 +28,7 @@ import { cn } from '@/lib/utils'
  *
  * 用法:
  *   <PortalPanel open={open} anchorRef={triggerRef} side="bottom" align="start"
- *     onClose={() => setOpen(false)} className="w-60 rounded-md border bg-popover shadow-md">
+ *     onClose={() => setOpen(false)} className="w-60 rounded-md border border-stroke-strong bg-popover shadow-md">
  *     ...内容...
  *   </PortalPanel>
  *

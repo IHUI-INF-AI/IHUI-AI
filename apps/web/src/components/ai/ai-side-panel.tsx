@@ -2323,7 +2323,7 @@ export function AISidePanel() {
                   <IconButton
                     onClick={() => setWorkAreaFullscreen(false)}
                     aria-label={tc('headerActions.exitWorkspaceFullscreen')}
-                    className="border border-border bg-popover/90 shadow-elevation-sm"
+                    className="border border-stroke-strong bg-popover/90 shadow-elevation-sm"
                   >
                     <Minimize2 />
                   </IconButton>
@@ -2545,7 +2545,7 @@ export function AISidePanel() {
                       align="end"
                       sideOffset={6}
                       collisionPadding={8}
-                      className="pointer-events-auto z-[2200] min-w-[13rem] rounded-md border bg-popover p-1 text-popover-foreground shadow-elevation-md"
+                      className="pointer-events-auto z-[2200] min-w-[13rem] rounded-md border border-stroke-strong bg-popover p-1 text-popover-foreground shadow-elevation-md"
                       data-testid="ai-panel-overflow-menu"
                     >
                       <DropdownMenu.Label className="px-2.5 pb-0.5 pt-1 text-[11px] font-medium text-muted-foreground">

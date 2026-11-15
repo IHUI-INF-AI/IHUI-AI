@@ -1456,7 +1456,7 @@ export function AgentTaskProgressPane() {
           // (2026-07-31 根因修复:原 z-popover=2001 > z-modal=2000,pane 浮在登录框之上)
           'absolute z-sticky',
           'flex w-full min-[768px]:w-[280px] max-h-[60vh] flex-col',
-          'overflow-hidden rounded-lg border border-border bg-popover text-popover-foreground shadow-elevation-md',
+          'overflow-hidden rounded-lg border border-stroke-strong bg-popover text-popover-foreground shadow-elevation-md',
         )}
         style={positionStyle}
         role="complementary"
@@ -2035,7 +2035,7 @@ export function AgentTaskProgressPane() {
                 type="button"
                 onClick={jumpToLatest}
                 aria-label={t('followEvents')}
-                className="absolute bottom-2 left-1/2 inline-flex h-6 -translate-x-1/2 items-center gap-0.5 rounded-sm border border-border bg-popover px-2 text-[10px] text-muted-foreground shadow-elevation-sm transition-all hover:bg-accent hover:text-accent-foreground"
+                className="absolute bottom-2 left-1/2 inline-flex h-6 -translate-x-1/2 items-center gap-0.5 rounded-sm border border-stroke-strong bg-popover px-2 text-[10px] text-muted-foreground shadow-elevation-sm transition-all hover:bg-accent hover:text-accent-foreground"
                 data-testid="pane-jump-latest"
               >
                 {/* 与对话列滚动按钮同字形族:跳到最新一律 ChevronDown,不用带竖杆的 ArrowDown */}
