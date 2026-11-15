@@ -27,7 +27,7 @@ import {
   type ImportParseResult,
   type ImportPreviewRow,
   type PickedImportFile,
-} from '@ihui/rn-app'
+} from '@ihui/rn-app/features/conversation-import/ConversationImportScreen'
 import { useHostPorts } from '../host/use-host-ports'
 import { apiFailureToText } from '@ihui/shared/utils'
 import type { ImportSource } from '@ihui/shared/import-analysis'

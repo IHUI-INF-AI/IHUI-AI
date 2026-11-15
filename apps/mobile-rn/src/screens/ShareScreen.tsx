@@ -2,6 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
+import { t as tStatic } from '../i18n'
 import { rnRadius, rnType } from '@ihui/design-tokens'
 
 /**
@@ -344,7 +345,7 @@ export function ShareScreen() {
 
             {/* 分享素材 — expo-image-picker 选图 */}
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>分享素材</Text>
+              <Text style={styles.sectionTitle}>{tStatic('uiText.shareMaterial')}</Text>
               {imageUri ? (
                 <View style={styles.previewWrap}>
                   <Image source={{ uri: imageUri }} style={styles.preview} resizeMode="cover" />
@@ -374,7 +375,7 @@ export function ShareScreen() {
                   {({ pressed }) => (
                     <View style={[styles.pickerBox, pressed ? styles.pickerBoxPressed : null]}>
                       <Text style={styles.pickerIcon}>+</Text>
-                      <Text style={styles.pickerHint}>点击选择图片</Text>
+                      <Text style={styles.pickerHint}>{tStatic('uiText.tapToPickImage')}</Text>
                     </View>
                   )}
                 </Pressable>
@@ -507,7 +508,7 @@ function createStyles(tk: RnThemeTokens) {
     } as ViewStyle,
     pickerIcon: {
       fontSize: rnType.displayXl.size,
-      color: tk.text.tertiary,
+      color: tk.text.secondary,
     } as TextStyle,
     pickerHint: {
       fontSize: rnType.label.size,

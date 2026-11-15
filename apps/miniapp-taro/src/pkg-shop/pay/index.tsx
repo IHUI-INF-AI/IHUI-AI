@@ -108,6 +108,9 @@ export default function PayIndex() {
   const [balance, setBalance] = useState(0)
   const [coupons, setCoupons] = useState<CouponItem[]>([])
   const [selectedCouponId, setSelectedCouponId] = useState('')
+  // 选券落库防重复提交:applyCoupon 是本页唯一的裸异步落库动作(改价 + 核销券),
+  // 无守卫时连点券卡片会并发多次 POST,后到的失败响应可能覆盖先到的成功 setAmount。
+  const [couponApplying, setCouponApplying] = useState(false)
   const [orderDetail, setOrderDetail] = useState<OrderDetailInfo>({})
   const [remaining, setRemaining] = useState(COUNTDOWN_TOTAL)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -154,35 +157,39 @@ export default function PayIndex() {
       get<{ items: CouponItem[] } | CouponItem[]>('/pay/coupons/available', { amount: amt }).catch(
         () => null,
       ),
-    ]).then(([wallet, orderRes, couponRes]) => {
-      // 钱包余额 getBalance → user_margins.token_quantity，单位就是**分**
-      // （充值回调 rechargeToken(order.amount) 落的是订单分金额、赠送按分入账，
-      //  见 services/order-service.ts 的 rechargeIfTokenOrder / creditTopupBonus），
-      // 与本页订单金额同尺度，直接比较，不要再乘 100。
-      if (wallet && typeof wallet.balance === 'number') {
-        setBalance(wallet.balance)
-      }
-      const order = orderRes?.order
-      if (order) {
-        if (typeof order.amount === 'number' && order.amount > 0) setAmount(order.amount)
-        // 原价基准：有 original_price 用它，否则用「现价 + 已折减」还原存量单（下单时该列落 0）
-        const base =
-          typeof order.originalPrice === 'number' && order.originalPrice > 0
-            ? order.originalPrice
-            : (order.amount ?? 0) + Math.max(0, order.discountAmount ?? 0)
-        if (base > 0) setOriginalAmount(base)
-        setOrderDetail({
-          goodsName: order.targetTitle ?? undefined,
-          createTime: fmtDateTime(order.createdAt),
-        })
-      }
-      if (couponRes) {
-        const list = Array.isArray(couponRes) ? couponRes : couponRes.items || []
-        setCoupons(list)
-      }
-      deadlineRef.current = resolveDeadline(order)
-      setRemaining(Math.max(0, Math.round((deadlineRef.current - Date.now()) / 1000)))
-    })
+    ])
+      .then(([wallet, orderRes, couponRes]) => {
+        // 钱包余额 getBalance → user_margins.token_quantity，单位就是**分**
+        // （充值回调 rechargeToken(order.amount) 落的是订单分金额、赠送按分入账，
+        //  见 services/order-service.ts 的 rechargeIfTokenOrder / creditTopupBonus），
+        // 与本页订单金额同尺度，直接比较，不要再乘 100。
+        if (wallet && typeof wallet.balance === 'number') {
+          setBalance(wallet.balance)
+        }
+        const order = orderRes?.order
+        if (order) {
+          if (typeof order.amount === 'number' && order.amount > 0) setAmount(order.amount)
+          // 原价基准：有 original_price 用它，否则用「现价 + 已折减」还原存量单（下单时该列落 0）
+          const base =
+            typeof order.originalPrice === 'number' && order.originalPrice > 0
+              ? order.originalPrice
+              : (order.amount ?? 0) + Math.max(0, order.discountAmount ?? 0)
+          if (base > 0) setOriginalAmount(base)
+          setOrderDetail({
+            goodsName: order.targetTitle ?? undefined,
+            createTime: fmtDateTime(order.createdAt),
+          })
+        }
+        if (couponRes) {
+          const list = Array.isArray(couponRes) ? couponRes : couponRes.items || []
+          setCoupons(list)
+        }
+        deadlineRef.current = resolveDeadline(order)
+        setRemaining(Math.max(0, Math.round((deadlineRef.current - Date.now()) / 1000)))
+      })
+      .catch(() => {
+        /* 三个子请求已各自兜底;渲染回调异常不应产生未处理的拒绝 */
+      })
 
     timerRef.current = setInterval(() => {
       const deadline = deadlineRef.current
@@ -212,6 +219,9 @@ export default function PayIndex() {
       onToast(t('pay.orderAbnormal'), { kind: 'info' })
       return
     }
+    // in-flight 守卫:请求未返回前忽略重复选券,避免并发改价相互覆盖
+    if (couponApplying) return
+    setCouponApplying(true)
     try {
       const res = await post<{ amount: number; originalPrice: number; discountAmount: number }>(
         `/orders/${encodeURIComponent(orderNo)}/apply-coupon`,
@@ -222,6 +232,8 @@ export default function PayIndex() {
       setSelectedCouponId(id)
     } catch {
       // 失败原因已由 unwrapApi 统一 toast（门槛不足/已使用/已过期…），不再叠一条通用文案
+    } finally {
+      setCouponApplying(false)
     }
   }
 

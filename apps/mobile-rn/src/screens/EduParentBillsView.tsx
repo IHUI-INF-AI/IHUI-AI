@@ -85,7 +85,7 @@ export function EduParentBillsView({ colorScheme, childRefs, onOpenChild }: Prop
     } catch (e) {
       setError(toFriendlyOr(e, t('common.loadFailed')))
     }
-  }, [childRefs])
+  }, [childRefs, t])
 
   const retry = useCallback(() => {
     setLoading(true)

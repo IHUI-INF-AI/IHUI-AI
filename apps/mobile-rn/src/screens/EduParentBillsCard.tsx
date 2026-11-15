@@ -42,7 +42,7 @@ export function EduParentBillsCard({ t, colorScheme, group, fmtDate, onPress }: 
         <Text
           style={[
             styles.strongValue,
-            { color: group.arrears > 0 ? tk.danger.DEFAULT : tk.text.tertiary },
+            { color: group.arrears > 0 ? tk.danger.DEFAULT : tk.text.secondary },
           ]}
         >
           {group.failed

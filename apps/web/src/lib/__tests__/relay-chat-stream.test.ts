@@ -137,9 +137,9 @@ describe('streamRelayChat', () => {
 
     // 幂等:重复 ready(服务端重连/心跳语义变化)不得造成重复 chat 帧
     sock.emit({ type: 'ready', userId: 'u-1' })
-    expect(sock.sent.filter((s) => (JSON.parse(s) as { type: string }).type === 'chat')).toHaveLength(
-      1,
-    )
+    expect(
+      sock.sent.filter((s) => (JSON.parse(s) as { type: string }).type === 'chat'),
+    ).toHaveLength(1)
 
     sock.emit({ type: 'done', id })
     await p

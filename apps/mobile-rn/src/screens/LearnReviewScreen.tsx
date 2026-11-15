@@ -202,7 +202,7 @@ export default function LearnReviewScreen() {
         <Text style={styles.subtitle}>{t('learnReview.subtitle')}</Text>
         {loading ? (
           <View style={styles.stateBox}>
-            <ActivityIndicator color={tokens.text.tertiary} />
+            <ActivityIndicator color={tokens.text.secondary} />
             <Text style={styles.muted}>{t('learnReview.loading')}</Text>
           </View>
         ) : error ? (
@@ -316,7 +316,7 @@ export default function LearnReviewScreen() {
                     </View>
                     {submitting ? (
                       <View style={styles.inlineLoading}>
-                        <ActivityIndicator size="small" color={tokens.text.tertiary} />
+                        <ActivityIndicator size="small" color={tokens.text.secondary} />
                         <Text style={styles.muted}>{t('learnReview.submitting')}</Text>
                       </View>
                     ) : null}
@@ -327,7 +327,7 @@ export default function LearnReviewScreen() {
             )}
 
             <View style={styles.progressLine}>
-              <Calendar size={13} color={tokens.text.tertiary} />
+              <Calendar size={13} color={tokens.text.secondary} />
               <Text style={styles.progressText}>
                 {t('learnReview.progressLine', { done: progressDone, total: reviews.length })}
               </Text>

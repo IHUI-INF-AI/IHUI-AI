@@ -7,6 +7,7 @@ import type { ReactNode } from 'react'
 import { View } from '@tarojs/components'
 import { cn } from '@ihui/design-tokens'
 import LineIcon from '@/components/LineIcon'
+import { useTt } from '@/i18n'
 
 /**
  * 折叠/展开组件 —— 与 `packages/ui-native/src/collapsible.tsx` 逐契约对齐(「一模一样」契约)。
@@ -37,6 +38,7 @@ const ANIM_DURATION = 200
 export function Collapsible({ open = false, children, className }: CollapsibleProps) {
   // open 仅作初始值;触发区点击在内部状态上切换(对齐任务要求的「点击切换 open」)。
   const [expanded, setExpanded] = useState(open)
+  const tt = useTt()
 
   const arrowRotation = expanded ? '90deg' : '0deg'
   // max-height 大值兜底常见内容高度;overflow:hidden 收起即隐藏(对应 RN absolute + height 动画的隐藏语义)。
@@ -45,6 +47,8 @@ export function Collapsible({ open = false, children, className }: CollapsiblePr
   return (
     <View className={cn('w-full', className)}>
       <View
+        ariaRole="button"
+        ariaLabel={expanded ? tt('a11y.collapse', '折叠') : tt('a11y.expand', '展开')}
         className="flex flex-row items-center"
         onClick={() => setExpanded((v) => !v)}
         hoverClass="opacity-60"

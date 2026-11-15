@@ -1,6 +1,7 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+// i18n-content-exempt-file: 多语言常量数据定义(label/title/description等选项值,内容体系定为中文单语,产品决策2026-11-15)
 
 /**
  * BottomActionBar 底部操作栏 (mobile-rn 端)
@@ -35,7 +36,7 @@ import {
 } from 'react-native'
 import { appAlert } from './BottomPops'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { useI18n } from '../i18n'
+import { useI18n, t as tStatic } from '../i18n'
 import { formatShortDuration } from '@ihui/shared/utils'
 import { TextField } from '@ihui/rn-app'
 import { useUiTextField } from '../lib/use-ui-text-field'
@@ -572,7 +573,7 @@ function ChatInputBar(props: BottomActionBarProps) {
               <Text style={styles.modelNameLabel} numberOfLines={1}>
                 {modelName ?? t('bab.pickModel')}
               </Text>
-              <ChevronDown size={BOTTOM_ACTION_BAR_MODEL_BADGE_PX} color={tokens.text.tertiary} />
+              <ChevronDown size={BOTTOM_ACTION_BAR_MODEL_BADGE_PX} color={tokens.text.secondary} />
             </Tappable>
           ) : null}
           {onShowModelConfig !== undefined ? (
@@ -646,7 +647,7 @@ function ChatInputBar(props: BottomActionBarProps) {
           onBlur={onInputBlur}
           onTouchStart={() => onInputClick?.()}
           placeholder={inputPlaceholder ?? t('chat.inputPlaceholder')}
-          placeholderTextColor={tokens.text.tertiary}
+          placeholderTextColor={tokens.text.secondary}
           multiline
           editable={!isLoading && !recording && !inputDisabled}
         />
@@ -658,7 +659,7 @@ function ChatInputBar(props: BottomActionBarProps) {
           <View style={styles.recordingOverlay} pointerEvents="none">
             <RecordingWave />
             <Text style={styles.recordingDuration}>{formatShortDuration(recordingDuration)}</Text>
-            <Text style={styles.recordingHint}>松开结束</Text>
+            <Text style={styles.recordingHint}>{tStatic('uiText.releaseToFinish')}</Text>
           </View>
         ) : null}
 

@@ -49,13 +49,16 @@
 //
 // 注意:本脚本**只读**,不改任何文件,也不在提交链上(接线须满足守门 89 R4)。
 
-import { readFileSync, writeFileSync, readdirSync, statSync } from 'node:fs'
-import { dirname, resolve, join, relative } from 'node:path'
+import { readFileSync, writeFileSync } from 'node:fs'
+import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { selectFace, listFaceFiles, Undetermined } from './lib/face-reader.mjs'
+import { blobsAtFace } from './lib/gate-body-provenance.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const ROOT = resolve(HERE, '..')
 const SCAN_DIR = 'packages/app/src'
+const SCAN_DIRS = ['packages/app/src', 'apps/mobile-rn/src']
 const TOKENS_SRC = 'packages/design-tokens/src/rn-tokens.ts'
 
 const AA_TEXT = 4.5
@@ -224,7 +227,7 @@ export function thresholdFor(kind) {
  * 在一行里定位 token 取值并归类形态。
  * 返回 [{ field, kind, offset }] —— kind: 'text' | 'graphic'
  */
-export function extractTokenUses(line) {
+export function extractTokenUses(line, fileHint, prevLine) {
   const out = []
   const re = /\b([A-Za-z_$][\w$]*)\.((?:[a-zA-Z][\w$]*)(?:\.[a-zA-Z][\w$]*)*)/g
   let m
@@ -245,16 +248,39 @@ export function extractTokenUses(line) {
       ? (() => { const b = line.slice(0, Math.max(0, m.index)); const w = b.lastIndexOf('('); const t = b.lastIndexOf('`'); const cut = Math.max(w, t); return b.slice(Math.max(b.lastIndexOf(',', cut), b.lastIndexOf(';', cut)) + 1, cut) })()
       : seg
     const keyCtx = /([A-Za-z_$][\w$]*)\s*[:=]\s*\{?\s*(?:\([^)]*\)\s*=>\s*)?$/.exec(segKey)
+    // 三元/嵌套对象:`backgroundColor: cond ? A : B` 里 A、B 都是"这个底色键"的候选值。
+    // 段内只要出现过底色键,且本取值不与任何前景键相邻,就按"底"处理 —— 不猜具体分支。
+    const bgKeyInSeg = /(?:backgroundColor|bgColor|bg|borderColor|trackColor|fill)\s*[:=]/.test(seg)
+    const fgKeyInSeg = /(?:^|[^A-Za-z0-9_$])(?:color|placeholderTextColor|tintColor|inactiveColor|iconColor)\s*[:=](?![A-Za-z0-9_$])/.test(seg) && !/trackColor\s*=/.test(seg)
     const keyName = keyCtx ? keyCtx[1] : null
 
     // 底色位:显式底色键 / `xxxBg` 变量名 / withAlpha 包裹 —— 它在做"底",不当前景判。
     // 注意 `fill` 不是底色:lucide 的 `fill={...}` 是图形填充色(前景),`backgroundColor` 才是底。
     const varName = /(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=[^;]*$/.exec(seg)
     const targetIsBg = !!varName && /(?:Bg|Background)$/.test(varName[1])
+    // 纯赋值行(`const X = tk.y` / `X: tk.y` 无其它修饰)是"别名定义",不是使用处;
+    // 它的角色由引用处决定 —— 在定义处判红等于把"还没决定怎么用"当成"用错了"。
+    const isBareAlias = /^\s*(?:const|let|var)\s+[A-Za-z_$][\w$]*\s*=\s*[A-Za-z_$][\w$]*\.[A-Za-z_$.]+\s*$/.test(line)
     const keyIsBg = !!keyName && (/^(bg|shadowColor|border|borderColor|backgroundColor|bgColor|trackColor|thumbColor)$/.test(keyName)
       || /(?:Bg|Background)$/.test(keyName))
-    if (targetIsBg || keyIsBg || /withAlpha\s*\(\s*$/.test(seg)) {
+    // 容器型底色 prop:`trackColor={{ false, true }}` 里的两个分支都是轨道色,不是字
+    const inContainerBgProp = /(?:trackColor|thumbColor|StyleSheet)\s*=\s*\{\{/.test(line) && /trackColor/.test(line)
+    if (isBareAlias || targetIsBg || keyIsBg || inContainerBgProp || /withAlpha\s*\(\s*$/.test(seg) || (bgKeyInSeg && !fgKeyInSeg)) {
       out.push({ field: path, kind: 'bg', offset: m.index })
+      continue
+    }
+
+    // 豁免项:装饰性渐变/光晕、二维码模块、第三方品牌色 —— 都不属 WCAG 文本与控件对比度射程
+    const isDecorativeSvg = /(?:stopColor|stop-color|fill|stroke)\s*[=:]\s*\{?\s*$/.test(seg)
+    const isDecorative = /pointerEvents\s*=\s*"none"/.test(line) || /pointerEvents\s*=\s*"none"/.test(String(prevLine || ''))
+    const isQrModule = (() => {
+      if (!fileHint || !/qr/i.test(fileHint)) return false
+      const tail = seg.trimEnd()
+      return tail.endsWith(String.fromCharCode(123)) || tail.endsWith(String.fromCharCode(61))
+    })()
+    const isBrandColor = /\bbrandColor\s*[:=]/.test(seg)
+    if (isDecorativeSvg || isDecorative || isQrModule || isBrandColor) {
+      out.push({ field: path, kind: 'exempt', offset: m.index })
       continue
     }
 
@@ -279,40 +305,117 @@ export function extractTokenUses(line) {
 export function buildReturnRoleMap(src) {
   const lines = src.split(/\r?\n/)
   const declared = new Set()
+  const aliases = new Map() // alias -> callee
   const fgUse = new Set()
   const bgUse = new Set()
+
+  // 收集本文件里声明过的函数 / 变量名(它们的返回值角色由调用点决定)
   for (const line of lines) {
     const fn = /function\s+([A-Za-z_$][\w$]*)\s*\(/.exec(line)
-      || /(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*(?:\([^)]*\)|[A-Za-z_$][\w$]*)\s*=>/.exec(line)
+      || /(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*[^=]*=>/.exec(line)
     if (fn) declared.add(fn[1])
-    const v = /(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*\w+\s*\(/.exec(line)
-    if (v) declared.add(v[1])
-  }
-  // 调用点归类:`backgroundColor: X(` / `backgroundColor: cond ? X(` / style 里 `bg:` 等
-  for (const line of lines) {
-    for (const name of declared) {
-      const call = new RegExp("\b" + name + "\s*\(")
-      if (!call.test(line)) continue
-      const idx = line.search(call)
-      const before = line.slice(0, idx)
-      if (/(?:backgroundColor|bgColor|bg|borderColor|fill)\s*[:=]\s*[^,;]*$/.test(before)) bgUse.add(name)
-      else fgUse.add(name)
+    // 间接赋值:`const dotColor = f(...)` —— 角色要看 dotColor 怎么用
+    const alias = /(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*([A-Za-z_$][\w$]*)\s*\(/.exec(line)
+    if (alias) {
+      aliases.set(alias[1], alias[2])
+      declared.add(alias[1])
+      declared.add(alias[2])
     }
   }
+
+  const isDefinitionLine = (line) => line.includes('function ') || line.includes('=>')
+  const BG_KEYS = ['backgroundColor', 'bgColor', 'bg', 'borderColor', 'fill']
+
+  // 从某位置往前找所属的键:跳过成对括号,停在最近的 `键:` / `键=` 上。
+  const ownerKeyOf = (line, idx) => {
+    let depth = 0
+    for (let i = idx - 1; i >= 0; i -= 1) {
+      const ch = line[i]
+      if (ch === ')' || ch === ']' || ch === '}') depth += 1
+      else if (ch === '(' || ch === '[' || ch === '{') {
+        if (depth > 0) depth -= 1
+        else break
+      } else if (depth === 0 && (ch === ':' || ch === '=')) {
+        const left = line.slice(0, i)
+        const m = /([A-Za-z_$][\w$]*)\s*$/.exec(left)
+        return m ? m[1] : null
+      }
+    }
+    return null
+  }
+
+  // 找调用点:纯字符串匹配,不构造正则
+  const callIndexOf = (line, name) => {
+    for (let p = line.indexOf(name); p >= 0; p = line.indexOf(name, p + 1)) {
+      const beforeCh = p > 0 ? line[p - 1] : ' '
+      if (/[A-Za-z0-9_$]/.test(beforeCh)) continue
+      const after = line.slice(p + name.length).replace(/^\s+/, '')
+      if (after.startsWith('(')) return p
+    }
+    return -1
+  }
+
+  // 向上找这个键所在多行语句的开头(最多回看 6 行),用于识别
+  // `键: cond\n ? f(x)\n : g(x)` 这类多行三元 —— 单看当前行会误判成前景。
+  const ownerKeyAcross = (idxLine, idx) => {
+    const key = ownerKeyOf(lines[idxLine], idx)
+    if (key) return key
+    for (let back = 1; back <= 6 && idxLine - back >= 0; back += 1) {
+      const m = /([A-Za-z_$][\w$]*)\s*:\s*[^;]*$/.exec(lines[idxLine - back])
+      if (m && BG_KEYS.includes(m[1])) return m[1]
+    }
+    return null
+  }
+
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i]
+    if (isDefinitionLine(line)) continue
+    for (const name of declared) {
+      const idx = callIndexOf(line, name)
+      if (idx < 0) continue
+      // 别名本身被赋值的行不是"使用",它的角色由 alias 的后续用法决定
+      const isAliasDefinition = [...aliases.keys()].some(
+        (a) => new RegExp(`\\b${a}\\s*=`).test(line) && aliases.get(a) === name,
+      )
+      if (isAliasDefinition) continue
+      const key = ownerKeyAcross(i, idx)
+      // 别名 -> 实际被调函数
+      const target = aliases.has(name) ? aliases.get(name) : name
+      if (key && BG_KEYS.includes(key)) bgUse.add(target)
+      else fgUse.add(target)
+    }
+  }
+
   const map = new Map()
   for (const name of declared) {
+    if (aliases.has(name)) continue // 别名不单列,角色归到它指向的函数
     if (fgUse.has(name)) map.set(name, 'fg')
     else if (bgUse.has(name)) map.set(name, 'bg')
     else map.set(name, 'unknown')
   }
   return map
 }
-
 /**
  * 同族声明配对:`modelType.image` 与 `modelType.imageBg` 是**命名声明的**一对
  * (父级同名 + `Bg` 后缀),它的合法承载面就是那个 Bg,不是中性承载面。
  * 这不是"猜底":配对写在 token 表里,可核对;只在两侧都定义了颜色时才认。
  */
+/**
+ * 给定行号,向上找它所属的函数名(同文件内)。找不到返回 null(不猜)。
+ * 用于判断 `return tk.x` 的返回值角色 —— 角色由调用点定,调用点归属由函数名连起来。
+ */
+export function enclosingFunctionOf(src, lineIndex) {
+  const lines = src.split(/\r?\n/)
+  for (let i = Math.min(lineIndex, lines.length - 1); i >= 0; i -= 1) {
+    const line = lines[i]
+    const fn = /function\s+([A-Za-z_$][\w$]*)\s*\(/.exec(line)
+    if (fn) return fn[1]
+    const arrow = /(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*(?:\([^)]*\)|[A-Za-z_$][\w$]*)\s*=>/.exec(line)
+    if (arrow) return arrow[1]
+  }
+  return null
+}
+
 export function declaredPairOf(field, light, dark) {
   const dot = field.lastIndexOf('.')
   if (dot < 0) return null
@@ -359,18 +462,7 @@ export function judge(field, kind, light, dark, surfaces = SURFACES) {
 }
 
 // ───────────────────────── 采集 ─────────────────────────
-
-function walk(dir) {
-  const out = []
-  for (const name of readdirSync(dir)) {
-    if (name === 'node_modules' || name === '__tests__' || name === '__snapshots__') continue
-    const full = join(dir, name)
-    const st = statSync(full)
-    if (st.isDirectory()) out.push(...walk(full))
-    else if (/\.tsx?$/.test(name) && !/\.test\.tsx?$/.test(name) && !/\.d\.ts$/.test(name)) out.push(full)
-  }
-  return out
-}
+// 采集改走 face-aware 枚举(listFaceFiles + blobsAtFace),不再裸遍历工作区目录树。
 
 function run() {
   const args = process.argv.slice(2)
@@ -379,24 +471,37 @@ function run() {
   const jsonIdx = args.indexOf('--json')
   const jsonOut = jsonIdx >= 0 ? args[jsonIdx + 1] : null
 
-  const scanRoot = resolve(ROOT, SCAN_DIR)
+  // 判面层接线(守门 312):直跑按 face 读被审面(head/staged/worktree),不再是裸读工作区。
+  const { face, error } = selectFace({
+    staged: args.includes('--staged'),
+    worktree: args.includes('--worktree'),
+    def: 'worktree',
+  })
+  if (error) {
+    console.error(`未判定:[contrast] ${error}`)
+    process.exit(2)
+  }
+
   let files
   try {
-    files = walk(scanRoot)
+    files = listFaceFiles(ROOT, face, { paths: SCAN_DIRS })
+      .filter((rel) => /\.(tsx?)$/.test(rel) && !/\.test\.tsx?$/.test(rel) && !/\.d\.ts$/.test(rel))
+      .map((rel) => rel.replace(/\\/g, '/'))
   } catch (e) {
-    console.error(`未判定: 取不到被审面 ${SCAN_DIR} —— ${e.message}`)
+    console.error(`未判定: 枚举不到被审面 ${SCAN_DIRS.join(", ")}(${face}) —— ${e.message}`)
     process.exit(2)
   }
   if (!files.length) {
-    console.error(`未判定: ${SCAN_DIR} 下枚举到 0 个源码文件(消费面消失 ⇒ 尺子成摆设)`)
+    console.error(`未判定: ${SCAN_DIRS.join(", ")}(${face}) 下枚举到 0 个源码文件(消费面消失 ⇒ 尺子成摆设)`)
     process.exit(2)
   }
 
   let ts
   try {
-    ts = readFileSync(resolve(ROOT, TOKENS_SRC), 'utf8')
+    ts = blobsAtFace(ROOT, face, [TOKENS_SRC]).get(TOKENS_SRC)?.text
+    if (ts === null || ts === undefined) throw new Undetermined(`${TOKENS_SRC} 不在 ${face} 面`)
   } catch (e) {
-    console.error(`未判定: 取不到 token 源 ${TOKENS_SRC} —— ${e.message}`)
+    console.error(`未判定: 取不到 token 源 ${TOKENS_SRC}(${face}) —— ${e.message}`)
     process.exit(2)
   }
   const tables = parseRnTokenTables(ts)
@@ -421,24 +526,33 @@ function run() {
   const seen = new Set()
 
   for (const file of files) {
-    const rel = relative(ROOT, file).replace(/\\/g, '/')
+    const rel = file.replace(/\\/g, '/')
     let src
     try {
-      src = readFileSync(file, 'utf8')
+      src = blobsAtFace(ROOT, face, [rel]).get(rel)?.text
+      if (src === null || src === undefined) throw new Undetermined(`${rel} 不在 ${face} 面`)
     } catch {
       undetermined.push({ file: rel, reason: 'read-failed' })
       continue
     }
-    src.split(/\r?\n/).forEach((line, i) => {
+    // 返回值用途追踪:`return tk.x` 的角色由调用点决定(底色还是前景)
+    const returnRoles = buildReturnRoleMap(src)
+    const srcLines = src.split(/\r?\n/)
+    srcLines.forEach((line, i) => {
       if (/^\s*(\/\/|\*|\/\*)/.test(line)) return
-      for (const u of extractTokenUses(line)) {
+      for (const u of extractTokenUses(line, rel, srcLines[i - 1])) {
         scanned += 1
         // 明暗三元分支(如 `dark ? tk.x : tk.y`)无法静态归一 ⇒ 如实标出交人工复核,
         // 不硬套一档(硬套会放假红,比漏检更贵,AGENTS.md §0.2)
         const themeBranchy = /(?:dark|isDark)\s*\?|colorScheme\s*===\s*'dark'/.test(line)
+        // 若这处取值在  里,且所在函数全程只当底色用 ⇒ 它是底,不当前景判
+        // 若这处在 `return tk.x` / 多行三元里,且所在函数全程只当底色用 ⇒ 它是底,不当前景判
+        const retFn = enclosingFunctionOf(src, i)
+        const returnsIt = /\breturn\b/.test(line) || /^\s*\?/.test(line) || /^\s*:/.test(line)
+        if (returnsIt && retFn && returnRoles.get(retFn) === 'bg') continue
         const declared = declaredPairOf(u.field, light, dark)
         const rec = { file: rel, line: i + 1, field: u.field, kind: u.kind, themeBranch: themeBranchy, snippet: line.trim().slice(0, 150) }
-        if (u.kind === 'bg' || isBackgroundFamily(u.field)) continue
+        if (u.kind === 'bg' || u.kind === 'exempt' || isBackgroundFamily(u.field)) continue
         if (isInverseFamily(u.field)) { inverse.push(rec); continue }
         // 同族声明配对优先:该 token 的合法承载面就是它的 `*Bg` 兄弟档
         const j = declared
@@ -458,7 +572,7 @@ function run() {
   }
 
   if (scanned === 0) {
-    console.error(`未判定: ${SCAN_DIR} 下枚举到 0 处 token 取值(尺子成摆设)`)
+    console.error(`未判定: ${SCAN_DIRS.join(", ")} 下枚举到 0 处 token 取值(尺子成摆设)`)
     process.exit(2)
   }
 
@@ -577,12 +691,14 @@ export const __test__ = {
   judge,
   declaredPairOf,
   buildReturnRoleMap,
+  enclosingFunctionOf,
   isBackgroundFamily,
   isInverseFamily,
   SURFACES,
   AA_TEXT,
   AA_GRAPHIC,
   SCAN_DIR,
+  SCAN_DIRS,
   TOKENS_SRC,
 }
 

@@ -33,7 +33,7 @@ import { tokens } from '../theme/active-tokens'
 import { PRIVACY_POLICY_PARAGRAPHS, PRIVACY_POLICY_TITLE } from '../constants/privacyPolicy'
 
 import { ELEVATION_STEPS, rnRadius, rnRadiusFor, rnSpacing, rnType } from '@ihui/design-tokens'
-import { useI18n } from '../i18n'
+import { useI18n, t as tStatic } from '../i18n'
 import { Tappable } from '@ihui/ui-native'
 import { DIALOG_HEIGHT_RATIOS } from '../lib/dialog-geometry'
 import { useDialogHeightStyle } from '../lib/use-dialog-height'
@@ -99,13 +99,13 @@ export function PrivacyPolicyModal({ visible, onAgree }: PrivacyPolicyModalProps
               <Shield size={24} color={AGREE_BUTTON_COLOR} strokeWidth={2} />
             </View>
             <Text style={styles.title}>{PRIVACY_POLICY_TITLE}</Text>
-            <Text style={styles.subtitle}>请阅读并同意以下内容后继续使用</Text>
+            <Text style={styles.subtitle}>{tStatic('uiText.pleaseReadAndAgree')}</Text>
           </View>
 
           {/* 安全提示条(对齐 web 端) */}
           <View style={styles.safeBar}>
             <Lock size={12} color={tokens.text.secondary} strokeWidth={2} />
-            <Text style={styles.safeBarText}>你的信息将被加密传输,仅用于账户服务</Text>
+            <Text style={styles.safeBarText}>{tStatic('uiText.encryptedInfoNotice')}</Text>
           </View>
 
           {/* 隐私政策全文滚动区:flex:1 独占中间剩余空间 */}
@@ -126,7 +126,7 @@ export function PrivacyPolicyModal({ visible, onAgree }: PrivacyPolicyModalProps
               accessibilityRole="button"
               accessibilityLabel={t('privacy.disagreeA11y')}
             >
-              <Text style={styles.disagreeText}>不同意</Text>
+              <Text style={styles.disagreeText}>{tStatic('auth.agreementNoticeDisagree')}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.agreeButton}
@@ -136,7 +136,7 @@ export function PrivacyPolicyModal({ visible, onAgree }: PrivacyPolicyModalProps
               accessibilityLabel={t('privacy.agreeA11y')}
             >
               <CornerDownLeft size={14} color={tokens.surface.light} strokeWidth={2.25} />
-              <Text style={styles.agreeText}>同意并继续</Text>
+              <Text style={styles.agreeText}>{tStatic('auth.agreementNoticeAgree')}</Text>
             </TouchableOpacity>
           </View>
         </View>

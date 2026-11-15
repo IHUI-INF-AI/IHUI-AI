@@ -36,7 +36,10 @@ const locale = vi.hoisted(() => ({
   requestLocaleChange: vi.fn(() => true),
 }))
 
-vi.mock('../src/i18n', () => ({ requestLocaleChange: locale.requestLocaleChange }))
+vi.mock('../src/i18n', () => ({
+  t: (key: string) => key,
+  requestLocaleChange: locale.requestLocaleChange,
+}))
 
 import { themeStore } from '../src/context/ThemeContext'
 import {

@@ -66,7 +66,7 @@ export function AgentRuntimePanel({ sessionId: initialSessionId }: LegacyAgentRu
         ) : null}
         {status === 'running' ? <Loading size="sm" className="ml-2" /> : null}
         {status === 'completed' ? <Check size={12} color={tokens.success.deep} /> : null}
-        {status === 'failed' ? <X size={12} color={tokens.danger.bright} /> : null}
+        {status === 'failed' ? <X size={12} color={tokens.danger.deepText} /> : null}
         <View className="flex-1" />
         <Pressable
           onPress={handleClear}

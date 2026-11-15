@@ -111,7 +111,7 @@ export default function LearnMapScreen() {
 
         {loading ? (
           <View style={styles.stateBox}>
-            <ActivityIndicator color={tokens.text.tertiary} />
+            <ActivityIndicator color={tokens.text.secondary} />
             <Text style={styles.muted}>{t('learnMap.loading')}</Text>
           </View>
         ) : error ? (
@@ -127,7 +127,7 @@ export default function LearnMapScreen() {
           </View>
         ) : empty ? (
           <View style={styles.stateBox}>
-            <MapIcon size={32} color={tokens.text.tertiary} />
+            <MapIcon size={32} color={tokens.text.secondary} />
             <Text style={styles.muted}>{t('learnMap.empty')}</Text>
           </View>
         ) : (
@@ -163,7 +163,7 @@ export default function LearnMapScreen() {
                         <Text style={styles.cardDesc}>{item.description}</Text>
                       ) : null}
                       <View style={styles.metaRow}>
-                        <BookOpen size={13} color={tokens.text.tertiary} />
+                        <BookOpen size={13} color={tokens.text.secondary} />
                         <Text style={styles.metaText}>
                           {t('learnMap.nodeCount', { count: nodes.length })}
                         </Text>

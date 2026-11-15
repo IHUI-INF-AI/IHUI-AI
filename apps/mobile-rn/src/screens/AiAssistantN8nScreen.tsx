@@ -1,6 +1,7 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+// i18n-content-exempt-file: 多语言常量数据定义(label/title/description等选项值,内容体系定为中文单语,产品决策2026-11-15)
 
 /**
  * AiAssistantN8nScreen AI 助手对话(mobile-rn 端,流式版)
@@ -407,9 +408,9 @@ function ToolCallList({ items }: { items: readonly ToolCallItem[] }): React.JSX.
             >
               {expandable ? (
                 open ? (
-                  <ChevronDown size={10} color={tokens.text.tertiary} />
+                  <ChevronDown size={10} color={tokens.text.secondary} />
                 ) : (
-                  <ChevronRight size={10} color={tokens.text.tertiary} />
+                  <ChevronRight size={10} color={tokens.text.secondary} />
                 )
               ) : null}
               <Text style={bubbleStyles.cardTitle} numberOfLines={1}>
@@ -627,9 +628,9 @@ export function TerminalTaskList({
               accessibilityLabel={task.command}
             >
               {open ? (
-                <ChevronDown size={10} color={tokens.text.tertiary} />
+                <ChevronDown size={10} color={tokens.text.secondary} />
               ) : (
-                <ChevronRight size={10} color={tokens.text.tertiary} />
+                <ChevronRight size={10} color={tokens.text.secondary} />
               )}
               <Text style={bubbleStyles.terminalCommand} numberOfLines={1}>
                 {task.command}
@@ -2052,7 +2053,7 @@ export default function AiAssistantN8nScreen() {
             <Settings size={12} color={tokens.text.secondary} />
             <Text style={styles.modelConfigBtnLabel}>{t('agent.config')}</Text>
           </TouchableOpacity>
-          <ChevronRight size={18} color={tokens.text.tertiary} style={styles.modelBarArrow} />
+          <ChevronRight size={18} color={tokens.text.secondary} style={styles.modelBarArrow} />
         </TouchableOpacity>
         {/* VoiceInput 语音输入(对齐 Uniapp ai_assistant_n8n.vue 行 285/302 BottomActionBar
             :isVoiceInput + @toggle-voice-input:语音转文字回填输入框,随发送提交) */}

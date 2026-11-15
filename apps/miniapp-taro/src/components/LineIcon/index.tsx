@@ -31,6 +31,14 @@ export interface LineIconProps {
   className?: string
   style?: React.CSSProperties
   onClick?: (event: ITouchEvent) => void
+  /**
+   * 无障碍角色:图标本身没有语义,作为可点击按钮使用时由调用方传 'button'。
+   * LineIcon 内部承载体是 View(Taro 的 View 支持 ariaRole/ariaLabel,Image 只支持 ariaLabel),
+   * 故这两个 prop 在此透传,调用方无需为 a11y 再包一层 View(包层会改动既有盒模型)。
+   */
+  ariaRole?: string
+  /** 无障碍名称:务必传 i18n 文案,不得写裸中文字符串 */
+  ariaLabel?: string
 }
 
 export default function LineIcon({
@@ -40,6 +48,8 @@ export default function LineIcon({
   className,
   style,
   onClick,
+  ariaRole,
+  ariaLabel,
 }: LineIconProps) {
   const raw = ICONS[name]
   if (!raw) return null
@@ -61,6 +71,8 @@ export default function LineIcon({
     <View
       className={className}
       onClick={onClick}
+      ariaRole={ariaRole}
+      ariaLabel={ariaLabel}
       style={{
         width: dim,
         height: dim,

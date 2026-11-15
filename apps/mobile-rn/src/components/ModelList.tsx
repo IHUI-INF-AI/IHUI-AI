@@ -162,9 +162,10 @@ function resolveTitle(group: ModelListGroup, t: (k: string) => string): string {
 }
 
 function EmptyState(): React.ReactElement {
+  const { t } = useI18n()
   return (
     <View style={styles.empty}>
-      <Text style={styles.emptyText}>暂无模型</Text>
+      <Text style={styles.emptyText}>{t('n8nModel.empty')}</Text>
     </View>
   )
 }
@@ -194,6 +195,7 @@ function Row({
   animate: boolean
   onPress: () => void
 }): React.ReactElement {
+  const { t } = useI18n()
   const translateY = useRef(new Animated.Value(animate ? 12 : 0)).current
   const opacity = useRef(new Animated.Value(animate ? 0 : 1)).current
 
@@ -252,11 +254,11 @@ function Row({
         </View>
         {item.isFree ? (
           <View style={styles.freeBadge}>
-            <Text style={styles.freeBadgeText}>免费</Text>
+            <Text style={styles.freeBadgeText}>{t('common.free')}</Text>
           </View>
         ) : (
           <View style={styles.paidBadge}>
-            <Text style={styles.paidBadgeText}>付费</Text>
+            <Text style={styles.paidBadgeText}>{t('agentMarket.paid')}</Text>
           </View>
         )}
         {selected ? <Check /> : null}

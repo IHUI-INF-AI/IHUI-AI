@@ -226,7 +226,7 @@ export default function GroupsScreen() {
         ) : null}
 
         {loading ? (
-          <ActivityIndicator style={styles.stateBox} color={tokens.text.tertiary} />
+          <ActivityIndicator style={styles.stateBox} color={tokens.text.secondary} />
         ) : failed ? (
           <View style={styles.stateBox}>
             <Text style={styles.errorText}>{t('groups.loadFailed')}</Text>
@@ -236,7 +236,7 @@ export default function GroupsScreen() {
           </View>
         ) : visible.length === 0 ? (
           <View style={styles.stateBox}>
-            <Users size={28} color={tokens.text.tertiary} />
+            <Users size={28} color={tokens.text.secondary} />
             <Text style={styles.muted}>{t('groups.empty')}</Text>
           </View>
         ) : (

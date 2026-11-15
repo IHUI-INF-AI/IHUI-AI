@@ -35,7 +35,7 @@ const chuangkeIcon = aizhsUrl('remote-images/chuangke.png')
 /** 学习路径卡 → 共享 entries。meta 承载「N 门课 · 进度 X%」,progress 驱动进度条。 */
 const LEARN_PATHS = (tt: TtFn): LearnDevelopEntry[] => {
   const meta = (courses: number, progress: number) =>
-    `${courses} ${tt('learnDevelop.courseUnit', '门课')} · ${tt('learnDevelop.progressLabel', '进度')} ${progress}%`
+    `${courses} ${tt('learnDevelop.coursesUnit', '门课')} · ${tt('learnDevelop.progress', '进度')} ${progress}%`
   return [
     {
       icon: chuangkeIcon,

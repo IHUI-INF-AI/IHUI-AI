@@ -5,7 +5,7 @@
 import { useI18n } from '@/i18n'
 import { View, Text, Button } from '@tarojs/components'
 import Taro, { useDidShow, usePullDownRefresh } from '@tarojs/taro'
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import { claimAvailableCoupon, getAvailableCoupons } from '@/api'
 import { logger } from '@/utils/logger'
 import ThemeRoot from '@/components/ThemeRoot'
@@ -24,6 +24,7 @@ export default function CouponListPage() {
   const [list, setList] = useState<Coupon[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
+  const inFlightRef = useRef(false)
 
   const tt = useCallback(
     (key: string, fallback: string, params?: Record<string, string | number>) => {
@@ -38,6 +39,8 @@ export default function CouponListPage() {
   )
 
   const load = useCallback(async () => {
+    if (inFlightRef.current) return
+    inFlightRef.current = true
     setLoading(true)
     setError(false)
     try {
@@ -47,6 +50,7 @@ export default function CouponListPage() {
       logger.error('member/coupon-list', '获取可领券', e)
       setError(true)
     } finally {
+      inFlightRef.current = false
       setLoading(false)
     }
   }, [])

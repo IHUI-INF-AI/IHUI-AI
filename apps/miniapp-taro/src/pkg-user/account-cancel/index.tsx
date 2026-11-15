@@ -66,6 +66,8 @@ export default function AccountCancel() {
   const { count: codeCount, start: startCode, reset: resetCode, sync: syncCode } = useCountdown(60)
   const { count: confirmCount, start: startConfirm, sync: syncConfirm } = useCountdown(5)
   const codeSendingRef = useRef(false)
+  // 注销成功后延迟跳登录:用 ref 承接并在卸载时清理,避免页面已销毁后回调 setState/导航(对齐 navigateTimerRef 惯例)
+  const navigateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const phone = (info?.phone as string) || ''
   const maskedPhone = phone ? phone.replace(/(\d{3})\d{4}(\d{4})/, '$1****$2') : ''
@@ -101,6 +103,13 @@ export default function AccountCancel() {
   useEffect(() => {
     startConfirm()
   }, [startConfirm])
+
+  // 卸载时清理延迟跳转定时器,防止向已销毁页面写入/导航
+  useEffect(() => {
+    return () => {
+      if (navigateTimerRef.current) clearTimeout(navigateTimerRef.current)
+    }
+  }, [])
 
   const onSendCode = useCallback(async () => {
     if (codeCount > 0 || !phone) return
@@ -148,7 +157,8 @@ export default function AccountCancel() {
       // confirmText 后端 schema 不消费,继续留作端内二次确认闸门(上面的校验一条没减)。
       await api.post('/settings/delete-account', { code })
       onToast(t('accountCancel.cancelled'), { kind: 'success' })
-      setTimeout(goToLogin, 800)
+      if (navigateTimerRef.current) clearTimeout(navigateTimerRef.current)
+      navigateTimerRef.current = setTimeout(goToLogin, 800)
     } catch (e) {
       // 真实失败:如实提示,不假装注销成功
       logger.error('unknown', '注销', e)

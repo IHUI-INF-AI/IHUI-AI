@@ -26,6 +26,7 @@ vi.mock('../src/theme/active-tokens', async () => {
   return { tokens: rnLightTokens }
 })
 vi.mock('../src/i18n', () => ({
+  t: (key: string) => key,
   useI18n: () => ({ t: (key: string) => key }),
 }))
 

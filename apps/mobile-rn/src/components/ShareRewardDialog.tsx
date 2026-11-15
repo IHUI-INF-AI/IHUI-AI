@@ -157,7 +157,7 @@ export function ShareRewardDialog(props: ShareRewardDialogProps): React.JSX.Elem
           >
             {({ pressed }) => (
               <View style={pressed ? styles.closePressed : undefined}>
-                <X size={18} color={tokens.text.tertiary} />
+                <X size={18} color={tokens.text.secondary} />
               </View>
             )}
           </Pressable>

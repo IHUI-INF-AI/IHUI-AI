@@ -67,9 +67,13 @@ export function UpdatePrompt(): React.JSX.Element | null {
       void checkOtaUpdate()
       // 整包:查到就自动开始下载并拉起安装器(2026-11-05「完全自动」)。
       // 下载体积较大,节流与"OTA 已就绪则不整包"的判断在 lib/auto-install.ts 统一收口。
-      void checkApkUpdate().then(() => {
-        void tryAutoApplyApk()
-      })
+      void checkApkUpdate()
+        .then(() => {
+          void tryAutoApplyApk()
+        })
+        .catch(() => {
+          /* 整包检查失败:保留现有卡片状态 */
+        })
     }, CHECK_DELAY_MS)
     return () => clearTimeout(timer)
   }, [])
@@ -85,9 +89,13 @@ export function UpdatePrompt(): React.JSX.Element | null {
       // 两条通道各自判"该不该补查":OTA 看 ready/下载中,APK 看是否已有可点卡片
       if (shouldAutoRecheck(RECHECK_MIN_INTERVAL_MS)) void checkOtaUpdate()
       if (shouldAutoRecheckApk(RECHECK_MIN_INTERVAL_MS)) {
-        void checkApkUpdate().then(() => {
-          void tryAutoApplyApk()
-        })
+        void checkApkUpdate()
+          .then(() => {
+            void tryAutoApplyApk()
+          })
+          .catch(() => {
+            /* 前台补查失败:等下一轮再试 */
+          })
       }
     })
     return () => sub.remove()

@@ -173,7 +173,7 @@ export default function VoiceSttScreen() {
               activeOpacity={0.7}
               accessibilityRole="button"
             >
-              <Upload size={30} color={tokens.text.tertiary} />
+              <Upload size={30} color={tokens.text.secondary} />
               <Text style={styles.uploadTitle}>{t('voiceStt.selectFile')}</Text>
               <Text style={styles.uploadHint}>{t('voiceStt.supported')}</Text>
             </TouchableOpacity>
@@ -233,7 +233,7 @@ export default function VoiceSttScreen() {
 
         {busy ? (
           <View style={styles.stateBox}>
-            <ActivityIndicator color={tokens.text.tertiary} />
+            <ActivityIndicator color={tokens.text.secondary} />
             <Text style={styles.muted}>{t('voiceStt.transcribing')}</Text>
           </View>
         ) : result !== null ? (

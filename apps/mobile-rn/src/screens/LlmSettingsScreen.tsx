@@ -145,7 +145,7 @@ function LlmSettingsScreen() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [t])
 
   useEffect(() => {
     void load()

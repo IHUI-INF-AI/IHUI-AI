@@ -444,7 +444,7 @@ function createStyles(tk: AppThemeTokens) {
       marginRight: rnSpacing.sm,
       marginBottom: rnSpacing.xs,
       paddingHorizontal: rnSpacing.sm,
-      paddingVertical: 2,
+      paddingVertical: rnSpacing['2xs'],
       borderRadius: rnRadius.sm,
       backgroundColor: tk.surface.muted,
     },

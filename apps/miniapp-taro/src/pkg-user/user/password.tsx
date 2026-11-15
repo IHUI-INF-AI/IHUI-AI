@@ -84,8 +84,8 @@ export default function Password() {
 
   // 共享屏要求注入导航端口;本屏内只剩「忘记原密码」一条真实跳转(已单独走 onForgotOld)。
   const onNavigate = useCallback(() => {
-    onToast('导航未接入', { kind: 'error' })
-  }, [])
+    onToast(t('toastFallback.navigationNotWired'), { kind: 'error' })
+  }, [t])
 
   return (
     <ThemeRoot>

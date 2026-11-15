@@ -333,7 +333,7 @@ function WorkflowFormModal({
             value={name}
             onChangeText={onChangeName}
             placeholder={t('n8nModel.namePlaceholder')}
-            placeholderTextColor={tokens.text.tertiary}
+            placeholderTextColor={tokens.text.secondary}
           />
           <Text style={styles.modalLabel}>{t('n8nModel.descLabel')}</Text>
           <TextField
@@ -342,7 +342,7 @@ function WorkflowFormModal({
             value={desc}
             onChangeText={onChangeDesc}
             placeholder={t('n8nModel.descPlaceholder')}
-            placeholderTextColor={tokens.text.tertiary}
+            placeholderTextColor={tokens.text.secondary}
             multiline
           />
           <View style={styles.modalActions}>

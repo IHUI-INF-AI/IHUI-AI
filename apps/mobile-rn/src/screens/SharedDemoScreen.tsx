@@ -1,6 +1,7 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+// i18n-content-exempt-file: 多语言常量数据定义(label/title/description等选项值,内容体系定为中文单语,产品决策2026-11-15)
 
 import { useEffect, useState } from 'react'
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native'
@@ -23,7 +24,7 @@ import type {
 } from '@ihui/rn-app'
 import { BookOpen, Bot, Star } from 'lucide-react-native'
 import { getProfile, getUserStatistics, type AuthUser, type UserStatistics } from '@ihui/api-client'
-import { useI18n } from '../i18n'
+import { useI18n, t as tStatic } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import { rpx } from '../utils/rpx'
 import { APP_VERSION } from '../lib/config'
@@ -129,9 +130,9 @@ export function SharedDemoScreen() {
         </TouchableOpacity>
       </View>
       {loading ? (
-        <Text style={styles.statusText}>加载中...</Text>
+        <Text style={styles.statusText}>{tStatic('about.loading')}</Text>
       ) : !user ? (
-        <Text style={styles.statusText}>加载失败</Text>
+        <Text style={styles.statusText}>{tStatic('chat.notes.loadFailShort')}</Text>
       ) : null}
       {tab === 'about' && (
         <AboutScreen
@@ -183,7 +184,7 @@ export function SharedDemoScreen() {
       )}
       {tab === 'cards' && (
         <ScrollView style={styles.cardsScroll} contentContainerStyle={styles.cardsContent}>
-          <Text style={styles.sectionTitle}>VIP 卡片(带购买入口)</Text>
+          <Text style={styles.sectionTitle}>{tStatic('uiText.demoVipCard')}</Text>
           <VipCard
             level={3}
             levelName="黄金会员"
@@ -196,7 +197,7 @@ export function SharedDemoScreen() {
             onPress={() => console.info('vip:press')}
           />
 
-          <Text style={styles.sectionTitle}>用户信息卡片</Text>
+          <Text style={styles.sectionTitle}>{tStatic('uiText.demoUserInfoCard')}</Text>
           <UserInfoCard
             avatar="https://aizhs.top/remote-images/daixaodiming.png"
             nickname="李思涵"
@@ -211,7 +212,7 @@ export function SharedDemoScreen() {
             onPress={() => console.info('user:press')}
           />
 
-          <Text style={styles.sectionTitle}>商务名片</Text>
+          <Text style={styles.sectionTitle}>{tStatic('uiText.demoBusinessCard')}</Text>
           <BusinessCard
             avatar="https://aizhs.top/remote-images/daixaodiming.png"
             name="张明"
@@ -227,7 +228,7 @@ export function SharedDemoScreen() {
             onPress={() => console.info('biz:press')}
           />
 
-          <Text style={styles.sectionTitle}>Agent 卡片</Text>
+          <Text style={styles.sectionTitle}>{tStatic('uiText.demoAgentCard')}</Text>
           <AgentCard
             icon={Bot}
             name="文案润色助手"
@@ -242,7 +243,7 @@ export function SharedDemoScreen() {
             onPress={() => console.info('agent:press')}
           />
 
-          <Text style={styles.sectionTitle}>课程卡片</Text>
+          <Text style={styles.sectionTitle}>{tStatic('uiText.demoCourseCard')}</Text>
           <CourseCard
             cover="https://aizhs.top/remote-images/daixaodiming.png"
             title="AI 智能体开发实战"

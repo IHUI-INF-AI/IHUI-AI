@@ -12,6 +12,7 @@
  * 两条现读事实 join 出来,产出 route-map.generated.ts。
  * 映射不到时**显式点名并停在原地**,绝不静默跳到别的页(错跳比不跳更难查)。
  */
+import { t } from '@/i18n'
 import Taro, { useDidHide, useDidShow, useUnload } from '@tarojs/taro'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
@@ -348,8 +349,6 @@ export interface CompatNavigationContainerRef {
   getRootState: () => CompatNavigationState
 }
 
-
-
 /**
  * 焦点 effect 的纯控制器(可脱离 React 单测):
  * run 幂等(同一可见周期只执行一次)、stop 幂等、卸载/异常/重入都有确定终态。
@@ -593,7 +592,7 @@ export function useNavigation(): CompatNavigation {
     emitNavigationFailure({ name, reason, detail })
     if (!warnedRef.current.has(name)) {
       warnedRef.current.add(name)
-      void onToast('该页面暂未支持', { kind: 'error' })
+      void onToast(t('toastFallback.pageUnsupported'), { kind: 'error' })
     }
   }, [])
 

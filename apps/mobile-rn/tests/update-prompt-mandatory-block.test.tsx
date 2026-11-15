@@ -2,7 +2,6 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-
 /**
  * UpdatePrompt 的 mandatory 强制更新行为取证(2026-11-13,#5 展示面)。
  *
@@ -60,7 +59,10 @@ vi.mock('../src/components/ApkUpdatePrompt', () => ({
   isApkPromptVisible: () => false,
 }))
 vi.mock('../src/components/BottomPops', () => ({ appAlert: vi.fn() }))
-vi.mock('../src/i18n', () => ({ useI18n: () => ({ t: (key: string) => key }) }))
+vi.mock('../src/i18n', () => ({
+  t: (key: string) => key,
+  useI18n: () => ({ t: (key: string) => key }),
+}))
 // 主题替身:组件在模块求值期(StyleSheet.create)读一大片 token 路径(tokens.overlay.loading /
 // surface.inputBg / brandAccent.deep …)。用嵌套代理让任意 `tokens.x.y` 都返回字符串,避免
 // 逐键手抄漏一就整份套件收集期炸。颜色值与断言无关(断言走 accessibilityLabel),不掩盖任何行为。
@@ -91,7 +93,12 @@ vi.mock('@ihui/design-tokens', () => ({
 // accessibilityLabel 必须映射到 aria-label:共享 RN mock 的 mk() 做了这件事(替身 API 面纪律),
 // 这里自建的 Tappable 替身同样要补,否则 getByLabelText 检索不到 [更新]/关闭钮。
 vi.mock('@ihui/ui-native', () => ({
-  Tappable: (props: { children?: ReactNode; onPress?: () => void; accessibilityLabel?: string; [k: string]: unknown }) => {
+  Tappable: (props: {
+    children?: ReactNode
+    onPress?: () => void
+    accessibilityLabel?: string
+    [k: string]: unknown
+  }) => {
     const { children, onPress, accessibilityLabel, ...rest } = props
     const extra: Record<string, unknown> = {}
     if (typeof accessibilityLabel === 'string') extra['aria-label'] = accessibilityLabel

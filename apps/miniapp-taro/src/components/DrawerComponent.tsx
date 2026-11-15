@@ -195,7 +195,7 @@ export default function DrawerComponent(props: DrawerComponentProps) {
   if (side === 'left') {
     // ===== 左侧抽屉模式:对齐原项目 DrawerComponentall.vue =====
     return (
-      <View className="fixed inset-0 z-[1005]" onClick={handleMaskClick}>
+      <View className="fixed inset-0 z-[1005]" onClick={handleMaskClick} catchMove>
         {/* 遮罩:var(--color-black-40) */}
         <View className="absolute inset-0" style={{ background: 'var(--color-black-40)' }} />
         {/* 抽屉主体:宽取几何档 taroGeometry.drawerWidth(160px ⇒ 320rpx,与 web/RN 同值)
@@ -233,6 +233,8 @@ export default function DrawerComponent(props: DrawerComponentProps) {
               )}
             </View>
             <LineIcon
+              ariaRole="button"
+              ariaLabel={tt('a11y.close', '关闭')}
               name="x"
               size={taroGeometry.glyphMd}
               color="var(--color-muted-foreground)"
@@ -406,6 +408,8 @@ export default function DrawerComponent(props: DrawerComponentProps) {
                             {onRemoveChat ? (
                               // 删除键载体 = 矢量(RN 端左滑删除同为矢量),文字 × 冒充图标已收口
                               <LineIcon
+                                ariaRole="button"
+                                ariaLabel={tt('common.delete', '删除')}
                                 name="x"
                                 size={taroGeometry.controlGlyph}
                                 color="var(--color-muted-foreground)"
@@ -486,6 +490,7 @@ export default function DrawerComponent(props: DrawerComponentProps) {
       <View
         className="absolute inset-0 bg-[var(--color-black-40)] transition-opacity"
         onClick={handleMaskClick}
+        catchMove
       />
       <View
         className="relative bg-card ui-panel rounded-t-xl overflow-hidden transition-transform"

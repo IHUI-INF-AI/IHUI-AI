@@ -1,6 +1,7 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+// i18n-content-exempt-file: 多语言常量数据定义(label/title/description等选项值,内容体系定为中文单语,产品决策2026-11-15)
 
 import {
   useCallback,
@@ -62,7 +63,7 @@ import {
 import { tokens } from '../theme/active-tokens'
 import { isSessionLoggedOut } from '../lib/token'
 import { shouldAttemptAutoLogin } from '../lib/auto-login-policy'
-import { useI18n } from '../i18n'
+import { useI18n, t as tStatic } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import { orderThirdPartyOptionsByRegion, useLoginRegionPlan } from '../hooks/use-login-region-plan'
 import { FloatBox, type FloatBoxType } from '../components/FloatBox'
@@ -1317,16 +1318,14 @@ export function LoginScreen() {
               <Text style={styles.agreementModalTitle}>{t('login.agreeTermsTitle')}</Text>
             </View>
             <View style={styles.agreementModalBody}>
-              <Text style={styles.agreementModalText}>
-                您尚未同意服务条款和隐私政策。点击登录/注册按钮即表示您同意以下条款:
-              </Text>
+              <Text style={styles.agreementModalText}>{tStatic('uiText.loginTermsNotice')}</Text>
               <View style={styles.agreementModalLinks}>
                 <Text style={styles.agreementModalLink} onPress={openAgreementFromModal}>
-                  服务条款
+                  {tStatic('agreement.titleTermsOfService')}
                 </Text>
                 <Text style={styles.agreementModalLinkSeparator}>{t('auth.and')}</Text>
                 <Text style={styles.agreementModalLink} onPress={openPrivacyFromModal}>
-                  隐私政策
+                  {tStatic('agreement.privacyPolicy')}
                 </Text>
               </View>
             </View>
@@ -1383,7 +1382,7 @@ export function LoginScreen() {
                   setTwoFactorErr('')
                 }}
                 placeholder={t('auth.twoFactorPlaceholder')}
-                placeholderTextColor={tokens.text.tertiary}
+                placeholderTextColor={tokens.text.secondary}
                 autoCapitalize="characters"
                 autoCorrect={false}
                 autoFocus
