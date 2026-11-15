@@ -8061,7 +8061,7 @@ const checks = [
   },
   // --- 运行时 TEMP 落盘回归锁(1 项,warn 起步,差值棘轮只拦新增)---
   {
-    id: '323',
+    id: '320',
     label:
       '🛡️ 运行时 TEMP 落盘回归锁(运行时源码别再把临时落点交给进程 TEMP;§15b 运行时对偶;差值棘轮只拦新增)',
     script: 'check-runtime-tmp-landing.mjs',
