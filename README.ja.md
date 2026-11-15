@@ -2227,6 +2227,9 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-15**
+- 🐞 修正:补齐 T1 typecheck 门反复失败的 4 处缺失导出 + 消合面冲突 (23018cf596)
+
+**2026-11-15**
 - 🔧 その他:登记 pkg-hr/hr-attendance/index 为 intentional copy(pure-copy,共享屏 packages/app HrAttendanceScreen) (50ae2ba54f)
 
 **2026-11-15**
@@ -2311,9 +2314,6 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 
 **2026-11-15**
 - 🐞 修正:圈子页下拉刷新失效(T-03 P1) (4f3161aac0)
-
-**2026-11-15**
-- 🐞 修正:pkg-ai 主 CTA 走 bg-cta+text-cta-foreground 同源对(T-16 P1) (4d322dc3d2)
 <!-- END RECENT UPDATES -->
 
 <p align="center">

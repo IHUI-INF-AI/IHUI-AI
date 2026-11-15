@@ -99,6 +99,9 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-15**
+- 🐞 Fix:补齐 T1 typecheck 门反复失败的 4 处缺失导出 + 消合面冲突 (23018cf596)
+
+**2026-11-15**
 - 🔧 Chore/Other:登记 pkg-hr/hr-attendance/index 为 intentional copy(pure-copy,共享屏 packages/app HrAttendanceScreen) (50ae2ba54f)
 
 **2026-11-15**
