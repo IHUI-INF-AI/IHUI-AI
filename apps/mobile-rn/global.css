@@ -45,7 +45,7 @@
   --color-destructive: hsl(0 100% 60%);
   --color-destructive-foreground: hsl(0 0% 98%);
   --color-border: rgba(0, 0, 0, 0.1);
-  --color-input: rgba(0, 0, 0, 0.08);
+  --color-input: rgba(0, 0, 0, 0.14);
   --color-ring: hsl(0 0% 70%);
   --color-success: hsl(142 71% 45%);
   --color-success-foreground: hsl(0 0% 98%);
@@ -222,9 +222,9 @@
   /* 以下 8 档为 tokens.css 中存在而本文件尚缺,由 sync-rn-global-css.mjs 自动补入(勿手改) */
   --color-stroke-subtle: rgba(0, 0, 0, 0.06);
   --color-stroke-default: rgba(0, 0, 0, 0.1);
-  --color-stroke-strong: rgba(0, 0, 0, 0.16);
+  --color-stroke-strong: rgba(0, 0, 0, 0.18);
   --color-stroke-inverse: rgba(255, 255, 255, 0.2);
-  --color-stroke-field: rgba(0, 0, 0, 0.08);
+  --color-stroke-field: rgba(0, 0, 0, 0.14);
   --color-stroke-focus: #000000;
   --color-stroke-selected: #4a7a96;
   --color-stroke-danger: #dc2626;
@@ -367,7 +367,7 @@
 
   /* 以下 6 档为 tokens.css 中存在而本文件尚缺,由 sync-rn-global-css.mjs 自动补入(勿手改) */
   --color-stroke-default: rgba(255, 255, 255, 0.12);
-  --color-stroke-strong: rgba(255, 255, 255, 0.2);
+  --color-stroke-strong: rgba(255, 255, 255, 0.22);
   --color-stroke-field: rgba(255, 255, 255, 0.16);
   --color-stroke-focus: #ffffff;
   --color-stroke-selected: #a3c4d6;

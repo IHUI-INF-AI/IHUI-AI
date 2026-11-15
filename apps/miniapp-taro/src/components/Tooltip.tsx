@@ -59,7 +59,7 @@ export default function Tooltip({ text, children, placement = 'top' }: TooltipPr
       {show && (
         <View
           className={cn(
-            'absolute z-20 left-1/2 max-w-[240px] line-clamp-2 border border-border bg-popover',
+            'absolute z-20 left-1/2 max-w-[240px] line-clamp-2 border border-stroke-strong bg-popover',
             RADIUS_CLASS[TOOLTIP_RADIUS_TIER],
             PADDING_X_CLASS[TOOLTIP_PADDING_X_PX],
             PADDING_Y_CLASS[TOOLTIP_PADDING_Y_PX],
