@@ -85,10 +85,10 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | ---- | ---- | ------ |
 | 数据库表 | 650 | `dbTables` |
 | schema 文件 | 252 | `dbSchemaFiles` |
-| API 路由 | 4815 | `apiRoutes` |
-| 路由文件 | 697 | `apiRouteFiles` |
+| API 路由 | 4798 | `apiRoutes` |
+| 路由文件 | 699 | `apiRouteFiles` |
 | AI 服务路由 | 676 | `aiServiceRoutes` |
-| WebSocket 端点 | 43 | `wsEndpoints` |
+| WebSocket 端点 | 40 | `wsEndpoints` |
 | 入库模型清单 | 100 | `llmModels` |
 | 发布平台 | 38 | `publishPlatforms` |
 | 端应用包 | 9 | `appPackages` |
@@ -98,13 +98,13 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 5465 | `testFiles` |
+| 测试文件 | 5285 | `testFiles` |
 | CI 工作流 | 59 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
-| 工程守门 | 368 | `guardianGates` |
-| — blocking | 335 | `guardianBlocking` |
+| 工程守门 | 366 | `guardianGates` |
+| — blocking | 336 | `guardianBlocking` |
 | — warn | 32 | `guardianWarn` |
-| 跟踪文件 | 21849 | `trackedFiles` |
+| 跟踪文件 | 21658 | `trackedFiles` |
 
 上表由 `node scripts/sync-readme-numbers.mjs`(唯一写入口,索引面取数)生成,最后核对日期 2026-11-14。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
@@ -5534,7 +5534,6 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🐞 修复:派发腿级失败不再吃日预算,登录过期告警单独立身份 (11a6ee9fb6)
 
 **2026-11-14**
-<<<<<<< HEAD
 - 🚀 新功能/改进:逆向 Qoder 6 子系统——判定可落地性(补 4 块技能进化前提基建 + 审计/修订/墓碑层) (3458dca803e)
 - 🐞 修复:诊断臂 [7b] DB 迁移落后维从未真判过——函数注册晚于 -diagnose 顶层执行点(第三次落地,范围收窄) (c4be376fd5e)
 - 🐞 修复:零价护栏豁免上游真免费模型(:free) (88cfcfeba11)
@@ -5707,7 +5706,6 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🐞 修复:守门基础设施文件回退到origin/main版 —— 治陈旧底稿倒退 (6d289519792)
 - 🐞 修复:收敛 push 门3道判红 —— 193 stdio / 300 端点登记 / 303p 文案裁定 (c605db9ade1)
 - 🚀 新功能/改进:跨端功能更新 + DeepSeek UI 逆向复现 + 文档维护 (4b9d379d1a8)
-=======
 - 🚀 新功能/改进:以 ai_pricing 权威价回填配置零价行 (476127d306)
 - 🐞 修复:诊断臂 [7b] DB 迁移落后维从未真判过——函数注册晚于 -diagnose 顶层执行点(第三次落地,范围收窄) (c4be376fd5)
 - 🐞 修复:零价护栏豁免上游真免费模型(:free) (88cfcfeba1)
@@ -6290,7 +6288,6 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🐞 修复:结清 F-352 定时清理集合化分批 + F-353 积分渠道事务 + F-367 清理器显式生命周期 + F-369 订阅配额原子累加 + F-372 日成本熔断 (3320620624)
 - 🐞 修复:ab_test_results schema 补 UNIQUE(variant_id,bucket) 表约束 + bucket NOT NULL,对齐已入库迁移 20261112000002,防 onConflict 42P10 + 回归锁 5/5 (d1b4766f6b)
 - 🔧 工程/其他:结清 F-448 —— ab_test_results schema 侧补 UNIQUE(variant_id,bucket) 表约束 + bucket NOT NULL,对齐已入库迁移 20261112000002(证据:迁移 + 回归锁 f448 5/5) (72ec4aad2b)
->>>>>>> origin/main
 
 **2026-11-13**
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (b0dcad26995)
@@ -7062,8 +7059,8 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🔧 工程/其他:结清 O69/RP-3/RP-4/RP-79 四票(整行删除) (653b4e1b53)
 - 🔧 工程/其他:结清 Y-25 豆包键源退化档(整行删除) (cfc40787bf)
 - 🚀 新功能/改进:键源退化档根治——提取器派生账号级稳定 uid(uid_tt 族) (2d7728faa0)
-| 测试文件 | 5051 | `testFiles` |
-| 跟踪文件 | 21111 | `trackedFiles` |
+| 测试文件 | 5465 | `testFiles` |
+| 跟踪文件 | 21849 | `trackedFiles` |
 - 🔧 工程/其他:.gitignore 补凭据隔离+恢复核查临时件兜底,根治并发污染 (b66962b673)
 - 🔧 工程/其他:RP-76/77/78/81 认领释放号对齐远端(isolate: 与 origin 同一批摘牌的另一枚释放号,正文逐字相同) (52ca336fbb)
 - 🐞 修复:长上下文针测把 relay 错误帧与"上游无此模型服务"分开处理 (db5c3dc0c6)
@@ -7340,10 +7337,10 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🔧 工程/其他:自动落 2 枚小程序壳承载页(共 4 枚待产) (15ff9a606d)
 - 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (4ebde26fef)
 - 📚 文档:deploy-feedback 自动登记(deploy_outcome;端到端反馈闭环第二切片,O65 自进化系列) (a1678371fb)
-| 跟踪文件 | 21052 | `trackedFiles` |
+| 跟踪文件 | 21849 | `trackedFiles` |
 > ⚠️ 未判定 1 项:`guardianGates`(runner 里有 1 个重复 id ⇒ 撞号,条目数不可信)
-| 测试文件 | 5018 | `testFiles` |
-| 跟踪文件 | 21065 | `trackedFiles` |
+| 测试文件 | 5465 | `testFiles` |
+| 跟踪文件 | 21849 | `trackedFiles` |
 - 🔧 工程/其他:固化在飞README/守卫改动(并行会话成果), 为merge远端腾干净树 (4fa2fab3ff)
 - 🔧 工程/其他:违禁桶兜底清扫——HEAD面等条件/待拍板未勾行自动摘除(两道机主禁令的执行器物化,留痕f12-purge;复翻席请同步摘形态,事实内容按各批结清提交保留) (ef6741060a)
 - 🐞 修复:告警降噪补全与出口去重修复 (7bfb45a4c5)
@@ -8469,20 +8466,20 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - `scripts/check-web-rn-style-tiers.mjs`
 **wire-strictness**
 - `scripts/check-wire-strictness.mjs`
-| 测试文件 | 5012 | `testFiles` |
-| 跟踪文件 | 21054 | `trackedFiles` |
-| 测试文件 | 5064 | `testFiles` |
-| 跟踪文件 | 21125 | `trackedFiles` |
-| 测试文件 | 5065 | `testFiles` |
-| 跟踪文件 | 21126 | `trackedFiles` |
-| API 路由 | 4771 | `apiRoutes` |
+| 测试文件 | 5465 | `testFiles` |
+| 跟踪文件 | 21849 | `trackedFiles` |
+| 测试文件 | 5465 | `testFiles` |
+| 跟踪文件 | 21849 | `trackedFiles` |
+| 测试文件 | 5465 | `testFiles` |
+| 跟踪文件 | 21849 | `trackedFiles` |
+| API 路由 | 4815 | `apiRoutes` |
 | WebSocket 端点 | 43 | `wsEndpoints` |
 | CLI 命令文件 | 76 | `cliCommandFiles` |
 | CLI 工具文件 | 104 | `cliToolFiles` |
-| 测试文件 | 5113 | `testFiles` |
-| 工程守门 | 362 | `guardianGates` |
+| 测试文件 | 5465 | `testFiles` |
+| 工程守门 | 368 | `guardianGates` |
 | — blocking | 333 | `guardianBlocking` |
-| 跟踪文件 | 21187 | `trackedFiles` |
+| 跟踪文件 | 21849 | `trackedFiles` |
 **2026-11-12**
 - 🚀 新功能/改进:全局对话框接入个人号池通道 + 根因修 WS 全族租户闸 401 (4a004892616)
 - 🔧 工程/其他:员工请假端到端联调转 CI 契约回归测试(HR-3 固化防回归) (ab55a054849)
@@ -8595,8 +8592,8 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🔧 工程/其他:结清 F-049/F-050/F-051/F-055/F-057/F-059/F-108/F-110 八张缺陷普查工单 (1979716b829)
 - 🐞 修复:结清 F-049/F-050/F-051/F-055/F-057/F-059/F-108/F-110 八张缺陷普查工单 (e9c1ed47a81)
 - 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (184452a399d)
-| 测试文件 | 5318 | `testFiles` |
-| 跟踪文件 | 21474 | `trackedFiles` |
+| 测试文件 | 5465 | `testFiles` |
+| 跟踪文件 | 21849 | `trackedFiles` |
 - 🔧 工程/其他:收敛并行会话改动(水印补注+streaming-audit+考勤HR文档+cli文档) (53848eabcbe)
 - 🐞 修复:修复workflow-todo.ts溯源水印载荷丢失 (872f61b1255)
 - 🐞 修复:收口新四档 CSS 等值落档、装车 finance-ai-hub、修 lander null 崩溃 (79afad39223)
