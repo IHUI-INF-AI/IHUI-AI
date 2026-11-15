@@ -12264,14 +12264,11 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 279G. **缺陷普查 API F-279** [P2] /v1/files?purpose=batch 输入文件未与 API Key 绑定，且每请求新建 ioredis 仅成功路径 disconnect（证据 docs/tickets/2026-11/findings-api.md#F-279）
 - [ ] 281G. **缺陷普查 API F-281** [P2] 直播 GET /live/channels/:id 匿名无限刷浏览量，/live/notify/stream-end 免验签改指标（证据 docs/tickets/2026-11/findings-api.md#F-281）
 - [ ] 287G. **缺陷普查 API F-287** [P2] 取码配额键为 identifier/IP：换号即重置，与「同一 IP 换号唯一闸」自述矛盾（证据 docs/tickets/2026-11/findings-api.md#F-287）
-- [ ] 293G. **缺陷普查 API F-293** [P2] /v1/messages 与 /v1/responses 工具调用全链路丢失（证据 docs/tickets/2026-11/findings-api.md#F-293）
-- [ ] 295G. **缺陷普查 API F-295** [P2] /v1/messages 流式丢弃 done.finishReason，截断/内容过滤被报成 end_turn（证据 docs/tickets/2026-11/findings-api.md#F-295）
 - [ ] 298G. **缺陷普查 API F-298** [P3] /compress 把上游响应体与内部错误原文回传客户端（证据 docs/tickets/2026-11/findings-api.md#F-298）
 - [ ] 300G. **缺陷普查 API F-300** [P2] 权限档徽章的 workspacePath 取自客户端请求体，回调时才查库（证据 docs/tickets/2026-11/findings-api.md#F-300）
 - [ ] 301G. **缺陷普查 API F-301** [P2] /workspace-ai/routines 全家族无属主校验（IDOR），PATCH 接受任意字段（证据 docs/tickets/2026-11/findings-api.md#F-301）
 - [ ] 303G. **缺陷普查 API F-303** [P2] 定时器回调 persist() 抛错未被捕获 → uncaughtException → process.exit(1)（证据 docs/tickets/2026-11/findings-api.md#F-303）
 - [ ] 336G. **缺陷普查 API F-336** [P3] GET /circles/:id 与 /posts 对 slug 直接 404，slug 分享链路断裂（证据 docs/tickets/2026-11/findings-api.md#F-336）
-- [ ] 337G. **缺陷普查 API F-337** [P2] SSE 内错误帧被当成功：扣输入 token、不熔断、不切候选（证据 docs/tickets/2026-11/findings-api.md#F-337）
 - [ ] 370G. **缺陷普查 API F-370** [P2] 订阅模型白名单在两条分支被跳过，套餐限制形同虚设（证据 docs/tickets/2026-11/findings-api.md#F-370）
 - [ ] 371G. **缺陷普查 API F-371** [P1] 退款只冲订单金额，不回收已发放的 VIP/订阅/配额（证据 docs/tickets/2026-11/findings-api.md#F-371）
 - [ ] 373G. **缺陷普查 API F-373** [P2] 无额度套餐叠加有效期无上限，重复激活可无限延长（证据 docs/tickets/2026-11/findings-api.md#F-373）
@@ -12337,7 +12334,6 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 713G. **缺陷普查 API F-714** [P3] toAwareUtc 对斜杠格式按本地时区解析，UTC 兜底分支不可达（证据 docs/tickets/2026-11/findings-api.md#F-714）
 - [ ] 714G. **缺陷普查 API F-715** [P3] 死信队列只在 push 时清理：过期死信在 get/list 中仍可见且可重投（证据 docs/tickets/2026-11/findings-api.md#F-715）
 - [ ] 715G. **缺陷普查 API F-716** [P3] readNoProxy 首个已配置变量未命中即 return，注释声称“继续找另一个大小写档位”（证据 docs/tickets/2026-11/findings-api.md#F-716）
-- [ ] 725G. **缺陷普查 API F-726** [P2] /v1/messages、/v1/responses 流式计费完全脱离上游 usage（且丢弃 tool/thinking 输出）（证据 docs/tickets/2026-11/findings-api.md#F-726）
   - 2026-11-14 进展：凭据子切片已随 `002ade40cc0` 落地（AI 模型 apiKey / 教育平台 apiSecret / IM webhookSecret|botToken|appSecret 写库加密 + 读侧解密，15 例回归锁）；PII 子切片已落地（两张发票抬头表的税号/开户行/账号/地址/电话写读加解密 + 列宽迁移 `20261114180000_pii_invoice_title_widen.sql`；后台实名 CRUD 的 idCard 明文写/原样返回旁路修复；17 例回归锁）。残余：`users.phone/email` 与可检索身份字段（`user_auth_info.real_name/phone`）保持明文——与后台模糊搜索/唯一性语义强耦合，须先引入盲索引/哈希检索列并接受搜索降级；本机无可用 PostgreSQL，无法实跑回填与唯一索引验证。按“安全可控范围”明确不做，不虚报结清。
 
 - [ ] 〔归:机主收款地址面｜等:—〕 RP-37 `USDT_TRC20_ADDRESS` 仍空:地址值是机主掌握的收款信息(七份 env 备份从未有非空值;同族 `USDT_ERC20_ADDRESS` 早有值),而 sponsor 页 `CryptoDonation.tsx:36` 已硬编码 `TMtTpPEMduWurHLi6Fe8XjfcP5Y5AMMnbG` 并上线(枚 ff5ea30d1c87ee76499b9cd3848145c5f030309a)⇒ 同一信息已交付两处、env 一处为空。校验面已收口:TRON 正则 + `assertUsdtAddressFormat` 两调用点共用,新增 14 例绿(含 ERC20 不误拒/400/500 两失败路径/脏地址不落库);fail-closed 37 例绿。余两格归配置面:① env 填哪个地址(现成 sponsor 值或专用充值地址);② 两套 ERC20 地址(现读 sponsor 值与 env 值前缀不同)收敛为 env 权威。〔结清@2026-10-24/主会话-强制令:校验与失败路径已绿,余为地址值配置格〕
