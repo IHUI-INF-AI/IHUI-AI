@@ -20,6 +20,10 @@ vi.mock('node:child_process', async (importOriginal) => {
   return { ...actual, spawn: vi.fn() };
 });
 
+// Mock kill-tree:disconnect 走 killProcessTree 整树回收(Y-76),断言需引用它;
+// mock 掉避免测试真的派生 taskkill/kill 子进程。
+vi.mock('../src/util/kill-tree.js', () => ({ killProcessTree: vi.fn() }));
+
 // 绕过源码循环依赖 bug(git.ts ↔ git-advanced.ts):mock 这两个模块为空数组,
 // 不影响被测的 debug 工具行为(debug.ts 不依赖 git 模块)。
 vi.mock('../src/tools/git-advanced.js', () => ({ GIT_ADVANCED_TOOLS: [] }));
@@ -28,6 +32,8 @@ vi.mock('../src/tools/github-pr.js', () => ({ GITHUB_PR_TOOLS: [] }));
 // 先触发 index.js 完整加载,避免 debug.ts ↔ index.ts 循环依赖导致 registerLspTools 未定义
 import '../src/tools/index.js';
 import { spawn } from 'node:child_process';
+import { killProcessTree } from '../src/util/kill-tree.js';
+const killProcessTreeMock = vi.mocked(killProcessTree);
 import {
   debug_launch,
   debug_attach,
@@ -183,6 +189,7 @@ beforeEach(() => {
   ctx = { workspacePath: '/test-workspace' };
   sessionIds = [];
   setupSpawn(true);
+  killProcessTreeMock.mockClear();
 });
 
 afterEach(async () => {
@@ -672,8 +679,10 @@ describe('debug_disconnect', () => {
     const args = disconnectReq!.args as Record<string, unknown>;
     expect(args.terminateDebuggee).toBe(true);
 
-    // 验证子进程被 kill
-    expect(lastChild.kill).toHaveBeenCalled();
+    // 验证子进程整树回收(Y-76):disconnect 不再单 this.child.kill(),改走 killProcessTree
+    // 连 adapter 派生的被调试目标一并回收,故断言 killProcessTree 被调用且传入 adapter pid。
+    expect(killProcessTreeMock).toHaveBeenCalled();
+    expect(killProcessTreeMock).toHaveBeenCalledWith(lastChild.pid);
   });
 
   it('terminated 事件后 session 状态变为 terminated', async () => {
