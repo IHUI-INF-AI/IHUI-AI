@@ -45,6 +45,8 @@ export interface TranscodeJob {
   completedAt?: Date
   /** 转码结果文件大小（字节） */
   outputSize?: number
+  /** F-683:创建任务时请求的分辨率(720p/1080p...),startTranscodeJob 需透传给 buildFfmpegArgs */
+  resolution?: string
   /**
    * G-998115(b76-08a):退出归因三态 —— 宿主主动回收(cancel)写 expected 且首因锁定;
    * close 时没有归因记录 ⇒ unexpected(判据不接受"非零 code 即异常"的反面:被我们
@@ -213,6 +215,7 @@ export async function createTranscodeJob(input: TranscodeInput): Promise<Transco
     outputDir,
     outputPath,
     preset: input.preset,
+    resolution: input.resolution,
     status: 'pending',
     progress: 0,
     createdAt: new Date(),
@@ -230,6 +233,7 @@ export async function startTranscodeJob(jobId: string): Promise<TranscodeJob> {
   const jobWithResolution: TranscodeInput = {
     inputPath: job.inputPath,
     preset: job.preset,
+    resolution: job.resolution,
   }
   const args = buildFfmpegArgs(jobWithResolution, job.outputPath)
 
@@ -240,7 +244,10 @@ export async function startTranscodeJob(jobId: string): Promise<TranscodeJob> {
   return new Promise<TranscodeJob>((resolve, reject) => {
     // FFMPEG_PATH(2026-10-18):nssm SYSTEM 服务不继承交互式会话的 PATH 更新,
     // 靠 PATH 裸找 ffmpeg 在服务形态下不可靠 —— 支持显式二进制路径(env 优先)。
-    const child = spawn(process.env.FFMPEG_PATH || 'ffmpeg', args, { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true })
+    const child = spawn(process.env.FFMPEG_PATH || 'ffmpeg', args, {
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
+    })
     childProcesses.set(jobId, child)
 
     let stderrBuffer = ''
@@ -382,7 +389,10 @@ export async function isFfmpegAvailable(): Promise<boolean> {
   if (ffmpegProbeInFlight) return ffmpegProbeInFlight
   const probe = new Promise<boolean>((resolve) => {
     // 与转码主路径同源:FFMPEG_PATH 显式二进制(env 优先),否则 PATH 裸找
-    const child = spawn(process.env.FFMPEG_PATH || 'ffmpeg', ['-version'], { stdio: 'ignore', windowsHide: true })
+    const child = spawn(process.env.FFMPEG_PATH || 'ffmpeg', ['-version'], {
+      stdio: 'ignore',
+      windowsHide: true,
+    })
     child.on('close', (code) => resolve(code === 0))
     child.on('error', () => resolve(false))
   }).finally(() => {

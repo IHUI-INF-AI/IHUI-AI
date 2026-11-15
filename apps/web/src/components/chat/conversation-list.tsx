@@ -566,7 +566,7 @@ export function ConversationList({
                       onClick={() => handleRename(item)}
                       disabled={busyId === item.id}
                     >
-                      <Pencil className="mr-2 h-3.5 w-3.5" />
+                      <Pencil className="h-3.5 w-3.5" />
                       <span>{tc('actions.rename')}</span>
                     </DropdownMenuItem>
                     {/* 2026-08-30 立:置顶/取消置顶 */}
@@ -587,12 +587,12 @@ export function ConversationList({
                     >
                       {item.pinned ? (
                         <>
-                          <PinOff className="mr-2 h-3.5 w-3.5" />
+                          <PinOff className="h-3.5 w-3.5" />
                           <span>{tc('actions.unpin')}</span>
                         </>
                       ) : (
                         <>
-                          <Pin className="mr-2 h-3.5 w-3.5" />
+                          <Pin className="h-3.5 w-3.5" />
                           <span>{tc('actions.pin')}</span>
                         </>
                       )}
@@ -603,12 +603,12 @@ export function ConversationList({
                     >
                       {item.archivedAt ? (
                         <>
-                          <ArchiveRestore className="mr-2 h-3.5 w-3.5" />
+                          <ArchiveRestore className="h-3.5 w-3.5" />
                           <span>{tc('actions.unarchive')}</span>
                         </>
                       ) : (
                         <>
-                          <Archive className="mr-2 h-3.5 w-3.5" />
+                          <Archive className="h-3.5 w-3.5" />
                           <span>{tc('actions.archive')}</span>
                         </>
                       )}
@@ -617,7 +617,7 @@ export function ConversationList({
                         导出格式与压缩档位收进二级子菜单，一线只留高频动作。 */}
                     <DropdownMenuSub>
                       <DropdownMenuSubTrigger data-testid="conversation-export-submenu">
-                        <FileCode className="mr-2 h-3.5 w-3.5" />
+                        <FileCode className="h-3.5 w-3.5" />
                         <span>{tc('actions.exportSubmenu')}</span>
                       </DropdownMenuSubTrigger>
                       <DropdownMenuSubContent className="w-48">
@@ -625,21 +625,21 @@ export function ConversationList({
                           onClick={() => handleExport(item, 'md')}
                           disabled={busyId === item.id}
                         >
-                          <FileCode className="mr-2 h-3.5 w-3.5" />
+                          <FileCode className="h-3.5 w-3.5" />
                           <span>{tc('actions.exportMd')}</span>
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           onClick={() => handleExport(item, 'txt')}
                           disabled={busyId === item.id}
                         >
-                          <FileText className="mr-2 h-3.5 w-3.5" />
+                          <FileText className="h-3.5 w-3.5" />
                           <span>{tc('actions.exportTxt')}</span>
                         </DropdownMenuItem>
                       </DropdownMenuSubContent>
                     </DropdownMenuSub>
                     <DropdownMenuSub>
                       <DropdownMenuSubTrigger data-testid="conversation-compress-submenu">
-                        <Shrink className="mr-2 h-3.5 w-3.5" />
+                        <Shrink className="h-3.5 w-3.5" />
                         <span>{tc('actions.compressSubmenu')}</span>
                       </DropdownMenuSubTrigger>
                       <DropdownMenuSubContent className="w-48">
@@ -647,14 +647,14 @@ export function ConversationList({
                           onClick={() => handleCompress(item, 200000)}
                           disabled={busyId === item.id}
                         >
-                          <Shrink className="mr-2 h-3.5 w-3.5" />
+                          <Shrink className="h-3.5 w-3.5" />
                           <span>{tc('actions.compressTo200k')}</span>
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           onClick={() => handleCompress(item, 1000000)}
                           disabled={busyId === item.id}
                         >
-                          <Shrink className="mr-2 h-3.5 w-3.5" />
+                          <Shrink className="h-3.5 w-3.5" />
                           <span>{tc('actions.compressTo1m')}</span>
                         </DropdownMenuItem>
                       </DropdownMenuSubContent>
@@ -665,7 +665,7 @@ export function ConversationList({
                       className="text-destructive focus:bg-destructive/20 focus:text-destructive"
                       data-testid="conversation-delete-action"
                     >
-                      <Trash2 className="mr-2 h-3.5 w-3.5" />
+                      <Trash2 className="h-3.5 w-3.5" />
                       <span>{tc('actions.delete')}</span>
                     </DropdownMenuItem>
                   </DropdownMenuContent>

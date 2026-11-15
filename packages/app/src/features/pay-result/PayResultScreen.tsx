@@ -205,7 +205,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: rnSpacing.sm, // rpx(16)
       fontSize: rnType.heading.size,
       fontWeight: '600',
-      color: tk.danger.DEFAULT,
+      color: tk.danger.deepText,
     },
     checking: {
       marginTop: rnSpacing['sm-loose'], // rpx(20)

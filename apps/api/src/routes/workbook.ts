@@ -19,8 +19,8 @@
  * - 主体一律取承载层注入的 `request.userId`(人用 JWT;ai-service 经内部票 + X-User-Id,
  *   由 `checkAuthOrInternalService` 验票后注入)。**body 里没有任何身份字段**,
  *   模型/客户端自报的 userId 无处可写;也不从工作簿内容或文件元数据反推主体。
- * - 归属判据(谁能开这份档)在 `workbook-service.openWorkbook` 里现问元数据侧车并逐字比 subject,
- *   不符 ⇒ 与"文件不存在"同形回话(不给枚举留缝)。
+ * - 归属判据(谁能开这份档)在 `workbook-service.openWorkbook` 里现问**登记侧**(save 的 sidecar /
+ *   上传登记)并逐字比 subject,不符 ⇒ 与"文件不存在"同形回话(不给枚举留缝)。
  * - 会话句柄绑定主体:跨主体拿别人的句柄 ⇒ 403 + 零副作用。
  *
  * 三态诚实(§0.3):句柄取不到 ⇒ 410 `WORKBOOK_HANDLE_UNDETERMINED`(明写"无法判定",
@@ -51,7 +51,13 @@ const STATUS_BY_ERROR: Record<WorkbookErrorCode, number> = {
   WORKBOOK_FORMAT_UNSUPPORTED: 415,
   WORKBOOK_FORMULA_OVERWRITE: 409,
   WORKBOOK_RANGE_TOO_LARGE: 413,
+  WORKBOOK_FILE_TOO_LARGE: 413,
   WORKBOOK_SOURCE_CHANGED: 409,
+  // F-415:会话内保存次数超限 ⇒ 429(请求本身合法,是配额到顶);累计字节超限 ⇒ 413
+  WORKBOOK_SAVE_LIMIT_EXCEEDED: 429,
+  WORKBOOK_SAVE_BYTES_EXCEEDED: 413,
+  // F-540:会话正在保存(互斥窗内)⇒ 409,可重试;不是数据损坏
+  WORKBOOK_SAVING: 409,
   WORKBOOK_UNJUDGED: 503,
 }
 
@@ -106,7 +112,7 @@ export const workbookRoutes: FastifyPluginAsync = async (app) => {
       .send({ ...error(status, result.message, result.errorCode), detail: result.detail ?? null })
   }
 
-  // POST /open — 打开**已存在**的工作簿(按 storage 文件 id)
+  // POST /open — 打开**已存在**的工作簿(按文件 id;storage 保存产物或 /api/files 上传件)
   app.post('/open', async (request, reply) => {
     const body = parseOrThrow(openSchema, request.body)
     return send(reply, await openWorkbook({ subjectId: subjectOf(request), fileId: body.fileId }))

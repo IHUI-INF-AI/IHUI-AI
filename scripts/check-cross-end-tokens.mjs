@@ -211,7 +211,10 @@ const MAPPINGS = [
   },
   {
     label: 'surface.muted ↔ --color-muted',
-    rn: { light: ['rnLightTokens', 'surface', 'muted'], dark: ['rnDarkTokens', 'surface', 'muted'] },
+    rn: {
+      light: ['rnLightTokens', 'surface', 'muted'],
+      dark: ['rnDarkTokens', 'surface', 'muted'],
+    },
     css: { light: '--color-muted', dark: '--color-muted' },
     basis:
       '2026-10-27 由 plan-rn-token-pairing 量得(R3):RN 亮档 #EBEBEB / 暗档 (同亮) 与源 --color-muted 在 :root/@theme 与 .dark 两个面各自同值;同值候选 2 个(--color-muted, --color-streamed-container-bg),其中与 RN 档名同名的只有 --color-muted(命名口径取守门自己的 deriveCssVarNames)。此前 RN 侧是手抄字面量 ⇒ web 改这一档 RN 不动(§4 派生态纪律)。',
@@ -243,7 +246,10 @@ const MAPPINGS = [
   },
   {
     label: 'overlay.modal ↔ --color-black-40 / --color-black-60',
-    rn: { light: ['rnLightTokens', 'overlay', 'modal'], dark: ['rnDarkTokens', 'overlay', 'modal'] },
+    rn: {
+      light: ['rnLightTokens', 'overlay', 'modal'],
+      dark: ['rnDarkTokens', 'overlay', 'modal'],
+    },
     css: { light: '--color-black-40', dark: '--color-black-60' },
     basis:
       '2026-10-27 定档(证据:RN 亮 rgba(0,0,0,0.4) ↔ 源 --color-black-40 同值;RN 暗 rgba(0,0,0,0.6) ↔ 源 --color-black-60 同值)。' +
@@ -254,7 +260,10 @@ const MAPPINGS = [
   },
   {
     label: 'overlay.loading ↔ --color-white-80 / --color-black-60',
-    rn: { light: ['rnLightTokens', 'overlay', 'loading'], dark: ['rnDarkTokens', 'overlay', 'loading'] },
+    rn: {
+      light: ['rnLightTokens', 'overlay', 'loading'],
+      dark: ['rnDarkTokens', 'overlay', 'loading'],
+    },
     css: { light: '--color-white-80', dark: '--color-black-60' },
     basis:
       '2026-10-27 定档(证据:RN 亮 rgba(255,255,255,0.8) ↔ --color-white-80 同值;RN 暗 rgba(0,0,0,0.6) ↔ --color-black-60 同值)。' +
@@ -269,14 +278,20 @@ const MAPPINGS = [
   },
   {
     label: 'text.secondary ↔ --color-muted-foreground',
-    rn: { light: ['rnLightTokens', 'text', 'secondary'], dark: ['rnDarkTokens', 'text', 'secondary'] },
+    rn: {
+      light: ['rnLightTokens', 'text', 'secondary'],
+      dark: ['rnDarkTokens', 'text', 'secondary'],
+    },
     css: { light: '--color-muted-foreground', dark: '--color-muted-foreground' },
     basis:
       '2026-10-27 由 plan-rn-token-pairing 量得(R1):RN 亮档 #666666 / 暗档 (同亮) 与源 --color-muted-foreground 在 :root/@theme 与 .dark 两个面各自同值;源侧与该值同色的档唯一(--color-muted-foreground)。此前 RN 侧是手抄字面量 ⇒ web 改这一档 RN 不动(§4 派生态纪律)。',
   },
   {
     label: 'text.tertiary ↔ --color-text-tertiary',
-    rn: { light: ['rnLightTokens', 'text', 'tertiary'], dark: ['rnDarkTokens', 'text', 'tertiary'] },
+    rn: {
+      light: ['rnLightTokens', 'text', 'tertiary'],
+      dark: ['rnDarkTokens', 'text', 'tertiary'],
+    },
     css: { light: '--color-text-tertiary', dark: '--color-text-tertiary' },
     basis:
       '2026-10-27 由 plan-rn-token-pairing 量得(R1):RN 亮档 #A3A3A3 / 暗档 (同亮) 与源 --color-text-tertiary 在 :root/@theme 与 .dark 两个面各自同值;源侧与该值同色的档唯一(--color-text-tertiary)。此前 RN 侧是手抄字面量 ⇒ web 改这一档 RN 不动(§4 派生态纪律)。',
@@ -297,7 +312,10 @@ const MAPPINGS = [
   },
   {
     label: 'border.medium ↔ --color-border-medium',
-    rn: { light: ['rnLightTokens', 'border', 'medium'], dark: ['rnDarkTokens', 'border', 'medium'] },
+    rn: {
+      light: ['rnLightTokens', 'border', 'medium'],
+      dark: ['rnDarkTokens', 'border', 'medium'],
+    },
     css: { light: '--color-border-medium', dark: '--color-border-medium' },
     basis:
       '2026-10-27 由 plan-rn-token-pairing 量得(R1):RN 亮档 #D4D4D4 / 暗档 (同亮) 与源 --color-border-medium 在 :root/@theme 与 .dark 两个面各自同值;源侧与该值同色的档唯一(--color-border-medium)。此前 RN 侧是手抄字面量 ⇒ web 改这一档 RN 不动(§4 派生态纪律)。',
@@ -311,91 +329,130 @@ const MAPPINGS = [
   },
   {
     label: 'brandAccent.light ↔ --color-brand-accent-light',
-    rn: { light: ['rnLightTokens', 'brandAccent', 'light'], dark: ['rnDarkTokens', 'brandAccent', 'light'] },
+    rn: {
+      light: ['rnLightTokens', 'brandAccent', 'light'],
+      dark: ['rnDarkTokens', 'brandAccent', 'light'],
+    },
     css: { light: '--color-brand-accent-light', dark: '--color-brand-accent-light' },
     basis:
       '2026-10-27 由 plan-rn-token-pairing 量得(R1):RN 亮档 #eaf2f7 / 暗档 (同亮) 与源 --color-brand-accent-light 在 :root/@theme 与 .dark 两个面各自同值;源侧与该值同色的档唯一(--color-brand-accent-light)。此前 RN 侧是手抄字面量 ⇒ web 改这一档 RN 不动(§4 派生态纪律)。',
   },
   {
     label: 'brandAccent.DEFAULT ↔ --color-brand-accent',
-    rn: { light: ['rnLightTokens', 'brandAccent', 'DEFAULT'], dark: ['rnDarkTokens', 'brandAccent', 'DEFAULT'] },
+    rn: {
+      light: ['rnLightTokens', 'brandAccent', 'DEFAULT'],
+      dark: ['rnDarkTokens', 'brandAccent', 'DEFAULT'],
+    },
     css: { light: '--color-brand-accent', dark: '--color-brand-accent' },
     basis:
       '2026-10-27 由 plan-rn-token-pairing 量得(R2):RN 亮档 #8fb8cc / 暗档 (同亮) 与源 --color-brand-accent 在 :root/@theme 与 .dark 两个面各自同值;同值候选 2 个(--color-brand-accent, --color-brand-accent-grad-to),其中与 RN 档名同名的只有 --color-brand-accent(命名口径取守门自己的 deriveCssVarNames)。此前 RN 侧是手抄字面量 ⇒ web 改这一档 RN 不动(§4 派生态纪律)。',
   },
   {
     label: 'brandAccent.deep ↔ --color-brand-accent-deep',
-    rn: { light: ['rnLightTokens', 'brandAccent', 'deep'], dark: ['rnDarkTokens', 'brandAccent', 'deep'] },
+    rn: {
+      light: ['rnLightTokens', 'brandAccent', 'deep'],
+      dark: ['rnDarkTokens', 'brandAccent', 'deep'],
+    },
     css: { light: '--color-brand-accent-deep', dark: '--color-brand-accent-deep' },
     basis:
       '2026-10-27 由 plan-rn-token-pairing 量得(R2):RN 亮档 #4a7a96 / 暗档 (同亮) 与源 --color-brand-accent-deep 在 :root/@theme 与 .dark 两个面各自同值;同值候选 2 个(--color-link, --color-brand-accent-deep),其中与 RN 档名同名的只有 --color-brand-accent-deep(命名口径取守门自己的 deriveCssVarNames)。此前 RN 侧是手抄字面量 ⇒ web 改这一档 RN 不动(§4 派生态纪律)。',
   },
   {
     label: 'brandAccent.foreground ↔ --color-brand-accent-foreground',
-    rn: { light: ['rnLightTokens', 'brandAccent', 'foreground'], dark: ['rnDarkTokens', 'brandAccent', 'foreground'] },
+    rn: {
+      light: ['rnLightTokens', 'brandAccent', 'foreground'],
+      dark: ['rnDarkTokens', 'brandAccent', 'foreground'],
+    },
     css: { light: '--color-brand-accent-foreground', dark: '--color-brand-accent-foreground' },
     basis:
       '2026-10-27 由 plan-rn-token-pairing 量得(R1):RN 亮档 #1e3a47 / 暗档 (同亮) 与源 --color-brand-accent-foreground 在 :root/@theme 与 .dark 两个面各自同值;源侧与该值同色的档唯一(--color-brand-accent-foreground)。此前 RN 侧是手抄字面量 ⇒ web 改这一档 RN 不动(§4 派生态纪律)。',
   },
   {
     label: 'brandAccent.gradFrom ↔ --color-brand-accent-grad-from',
-    rn: { light: ['rnLightTokens', 'brandAccent', 'gradFrom'], dark: ['rnDarkTokens', 'brandAccent', 'gradFrom'] },
+    rn: {
+      light: ['rnLightTokens', 'brandAccent', 'gradFrom'],
+      dark: ['rnDarkTokens', 'brandAccent', 'gradFrom'],
+    },
     css: { light: '--color-brand-accent-grad-from', dark: '--color-brand-accent-grad-from' },
     basis:
       '2026-10-27 由 plan-rn-token-pairing 量得(R1):RN 亮档 #b8d4e3 / 暗档 (同亮) 与源 --color-brand-accent-grad-from 在 :root/@theme 与 .dark 两个面各自同值;源侧与该值同色的档唯一(--color-brand-accent-grad-from)。此前 RN 侧是手抄字面量 ⇒ web 改这一档 RN 不动(§4 派生态纪律)。',
   },
   {
     label: 'brandAccent.gradTo ↔ --color-brand-accent-grad-to',
-    rn: { light: ['rnLightTokens', 'brandAccent', 'gradTo'], dark: ['rnDarkTokens', 'brandAccent', 'gradTo'] },
+    rn: {
+      light: ['rnLightTokens', 'brandAccent', 'gradTo'],
+      dark: ['rnDarkTokens', 'brandAccent', 'gradTo'],
+    },
     css: { light: '--color-brand-accent-grad-to', dark: '--color-brand-accent-grad-to' },
     basis:
       '2026-10-27 由 plan-rn-token-pairing 量得(R2):RN 亮档 #8fb8cc / 暗档 (同亮) 与源 --color-brand-accent-grad-to 在 :root/@theme 与 .dark 两个面各自同值;同值候选 2 个(--color-brand-accent, --color-brand-accent-grad-to),其中与 RN 档名同名的只有 --color-brand-accent-grad-to(命名口径取守门自己的 deriveCssVarNames)。此前 RN 侧是手抄字面量 ⇒ web 改这一档 RN 不动(§4 派生态纪律)。',
   },
   {
     label: 'warning.light ↔ --color-warning-light',
-    rn: { light: ['rnLightTokens', 'warning', 'light'], dark: ['rnDarkTokens', 'warning', 'light'] },
+    rn: {
+      light: ['rnLightTokens', 'warning', 'light'],
+      dark: ['rnDarkTokens', 'warning', 'light'],
+    },
     css: { light: '--color-warning-light', dark: '--color-warning-light' },
     basis:
       '2026-10-27 由 plan-rn-token-pairing 量得(R1):RN 亮档 #fffbeb / 暗档 (同亮) 与源 --color-warning-light 在 :root/@theme 与 .dark 两个面各自同值;源侧与该值同色的档唯一(--color-warning-light)。此前 RN 侧是手抄字面量 ⇒ web 改这一档 RN 不动(§4 派生态纪律)。',
   },
   {
     label: 'warning.amberLight ↔ --color-warning-amber-light',
-    rn: { light: ['rnLightTokens', 'warning', 'amberLight'], dark: ['rnDarkTokens', 'warning', 'amberLight'] },
+    rn: {
+      light: ['rnLightTokens', 'warning', 'amberLight'],
+      dark: ['rnDarkTokens', 'warning', 'amberLight'],
+    },
     css: { light: '--color-warning-amber-light', dark: '--color-warning-amber-light' },
     basis:
       '2026-10-27 由 plan-rn-token-pairing 量得(R1):RN 亮档 #fef3c7 / 暗档 (同亮) 与源 --color-warning-amber-light 在 :root/@theme 与 .dark 两个面各自同值;源侧与该值同色的档唯一(--color-warning-amber-light)。此前 RN 侧是手抄字面量 ⇒ web 改这一档 RN 不动(§4 派生态纪律)。',
   },
   {
     label: 'warning.amber ↔ --color-warning-amber',
-    rn: { light: ['rnLightTokens', 'warning', 'amber'], dark: ['rnDarkTokens', 'warning', 'amber'] },
+    rn: {
+      light: ['rnLightTokens', 'warning', 'amber'],
+      dark: ['rnDarkTokens', 'warning', 'amber'],
+    },
     css: { light: '--color-warning-amber', dark: '--color-warning-amber' },
     basis:
       '2026-10-27 由 plan-rn-token-pairing 量得(R2):RN 亮档 #f59e0b / 暗档 (同亮) 与源 --color-warning-amber 在 :root/@theme 与 .dark 两个面各自同值;同值候选 3 个(--color-warning, --color-warning-amber, --chart-3),其中与 RN 档名同名的只有 --color-warning-amber(命名口径取守门自己的 deriveCssVarNames)。此前 RN 侧是手抄字面量 ⇒ web 改这一档 RN 不动(§4 派生态纪律)。',
   },
   {
     label: 'warning.amberText ↔ --color-warning-amber-text',
-    rn: { light: ['rnLightTokens', 'warning', 'amberText'], dark: ['rnDarkTokens', 'warning', 'amberText'] },
+    rn: {
+      light: ['rnLightTokens', 'warning', 'amberText'],
+      dark: ['rnDarkTokens', 'warning', 'amberText'],
+    },
     css: { light: '--color-warning-amber-text', dark: '--color-warning-amber-text' },
     basis:
       '2026-10-27 由 plan-rn-token-pairing 量得(R1):RN 亮档 #92400e / 暗档 (同亮) 与源 --color-warning-amber-text 在 :root/@theme 与 .dark 两个面各自同值;源侧与该值同色的档唯一(--color-warning-amber-text)。此前 RN 侧是手抄字面量 ⇒ web 改这一档 RN 不动(§4 派生态纪律)。',
   },
   {
     label: 'success.lighter ↔ --color-success-lighter',
-    rn: { light: ['rnLightTokens', 'success', 'lighter'], dark: ['rnDarkTokens', 'success', 'lighter'] },
+    rn: {
+      light: ['rnLightTokens', 'success', 'lighter'],
+      dark: ['rnDarkTokens', 'success', 'lighter'],
+    },
     css: { light: '--color-success-lighter', dark: '--color-success-lighter' },
     basis:
       '2026-10-27 由 plan-rn-token-pairing 量得(R1):RN 亮档 #d1fae5 / 暗档 (同亮) 与源 --color-success-lighter 在 :root/@theme 与 .dark 两个面各自同值;源侧与该值同色的档唯一(--color-success-lighter)。此前 RN 侧是手抄字面量 ⇒ web 改这一档 RN 不动(§4 派生态纪律)。',
   },
   {
     label: 'success.light ↔ --color-success-light',
-    rn: { light: ['rnLightTokens', 'success', 'light'], dark: ['rnDarkTokens', 'success', 'light'] },
+    rn: {
+      light: ['rnLightTokens', 'success', 'light'],
+      dark: ['rnDarkTokens', 'success', 'light'],
+    },
     css: { light: '--color-success-light', dark: '--color-success-light' },
     basis:
       '2026-10-27 由 plan-rn-token-pairing 量得(R1):RN 亮档 #ecfdf5 / 暗档 (同亮) 与源 --color-success-light 在 :root/@theme 与 .dark 两个面各自同值;源侧与该值同色的档唯一(--color-success-light)。此前 RN 侧是手抄字面量 ⇒ web 改这一档 RN 不动(§4 派生态纪律)。',
   },
   {
     label: 'success.DEFAULT ↔ --color-success',
-    rn: { light: ['rnLightTokens', 'success', 'DEFAULT'], dark: ['rnDarkTokens', 'success', 'DEFAULT'] },
+    rn: {
+      light: ['rnLightTokens', 'success', 'DEFAULT'],
+      dark: ['rnDarkTokens', 'success', 'DEFAULT'],
+    },
     css: { light: '--color-success', dark: '--color-success' },
     basis:
       '2026-10-27 由 plan-rn-token-pairing 量得(R1):RN 亮档 #22c55e / 暗档 (同亮) 与源 --color-success 在 :root/@theme 与 .dark 两个面各自同值;源侧与该值同色的档唯一(--color-success)。此前 RN 侧是手抄字面量 ⇒ web 改这一档 RN 不动(§4 派生态纪律)。',
@@ -409,7 +466,10 @@ const MAPPINGS = [
   },
   {
     label: 'success.deepText ↔ --color-success-deep-text',
-    rn: { light: ['rnLightTokens', 'success', 'deepText'], dark: ['rnDarkTokens', 'success', 'deepText'] },
+    rn: {
+      light: ['rnLightTokens', 'success', 'deepText'],
+      dark: ['rnDarkTokens', 'success', 'deepText'],
+    },
     css: { light: '--color-success-deep-text', dark: '--color-success-deep-text' },
     basis:
       '2026-10-27 由 plan-rn-token-pairing 量得(R1):RN 亮档 #065F46 / 暗档 (同亮) 与源 --color-success-deep-text 在 :root/@theme 与 .dark 两个面各自同值;源侧与该值同色的档唯一(--color-success-deep-text)。此前 RN 侧是手抄字面量 ⇒ web 改这一档 RN 不动(§4 派生态纪律)。',
@@ -423,28 +483,40 @@ const MAPPINGS = [
   },
   {
     label: 'modelType.text ↔ --color-model-type-text',
-    rn: { light: ['rnLightTokens', 'modelType', 'text'], dark: ['rnDarkTokens', 'modelType', 'text'] },
+    rn: {
+      light: ['rnLightTokens', 'modelType', 'text'],
+      dark: ['rnDarkTokens', 'modelType', 'text'],
+    },
     css: { light: '--color-model-type-text', dark: '--color-model-type-text' },
     basis:
       '2026-10-27 由 plan-rn-token-pairing 量得(R1):RN 亮档 #1888ee / 暗档 (同亮) 与源 --color-model-type-text 在 :root/@theme 与 .dark 两个面各自同值;源侧与该值同色的档唯一(--color-model-type-text)。此前 RN 侧是手抄字面量 ⇒ web 改这一档 RN 不动(§4 派生态纪律)。',
   },
   {
     label: 'modelType.textBg ↔ --color-model-type-text-bg',
-    rn: { light: ['rnLightTokens', 'modelType', 'textBg'], dark: ['rnDarkTokens', 'modelType', 'textBg'] },
+    rn: {
+      light: ['rnLightTokens', 'modelType', 'textBg'],
+      dark: ['rnDarkTokens', 'modelType', 'textBg'],
+    },
     css: { light: '--color-model-type-text-bg', dark: '--color-model-type-text-bg' },
     basis:
       '2026-10-27 由 plan-rn-token-pairing 量得(R1):RN 亮档 #e8f4fd / 暗档 (同亮) 与源 --color-model-type-text-bg 在 :root/@theme 与 .dark 两个面各自同值;源侧与该值同色的档唯一(--color-model-type-text-bg)。此前 RN 侧是手抄字面量 ⇒ web 改这一档 RN 不动(§4 派生态纪律)。',
   },
   {
     label: 'modelType.image ↔ --color-model-type-image',
-    rn: { light: ['rnLightTokens', 'modelType', 'image'], dark: ['rnDarkTokens', 'modelType', 'image'] },
+    rn: {
+      light: ['rnLightTokens', 'modelType', 'image'],
+      dark: ['rnDarkTokens', 'modelType', 'image'],
+    },
     css: { light: '--color-model-type-image', dark: '--color-model-type-image' },
     basis:
       '2026-10-27 由 plan-rn-token-pairing 量得(R1):RN 亮档 #c41e7a / 暗档 (同亮) 与源 --color-model-type-image 在 :root/@theme 与 .dark 两个面各自同值;源侧与该值同色的档唯一(--color-model-type-image)。此前 RN 侧是手抄字面量 ⇒ web 改这一档 RN 不动(§4 派生态纪律)。',
   },
   {
     label: 'modelType.imageBg ↔ --color-model-type-image-bg',
-    rn: { light: ['rnLightTokens', 'modelType', 'imageBg'], dark: ['rnDarkTokens', 'modelType', 'imageBg'] },
+    rn: {
+      light: ['rnLightTokens', 'modelType', 'imageBg'],
+      dark: ['rnDarkTokens', 'modelType', 'imageBg'],
+    },
     css: { light: '--color-model-type-image-bg', dark: '--color-model-type-image-bg' },
     basis:
       '2026-10-27 由 plan-rn-token-pairing 量得(R1):RN 亮档 #fde8f5 / 暗档 (同亮) 与源 --color-model-type-image-bg 在 :root/@theme 与 .dark 两个面各自同值;源侧与该值同色的档唯一(--color-model-type-image-bg)。此前 RN 侧是手抄字面量 ⇒ web 改这一档 RN 不动(§4 派生态纪律)。',
@@ -458,14 +530,20 @@ const MAPPINGS = [
   },
   {
     label: 'modelType.avBg ↔ --color-model-type-av-bg',
-    rn: { light: ['rnLightTokens', 'modelType', 'avBg'], dark: ['rnDarkTokens', 'modelType', 'avBg'] },
+    rn: {
+      light: ['rnLightTokens', 'modelType', 'avBg'],
+      dark: ['rnDarkTokens', 'modelType', 'avBg'],
+    },
     css: { light: '--color-model-type-av-bg', dark: '--color-model-type-av-bg' },
     basis:
       '2026-10-27 由 plan-rn-token-pairing 量得(R2):RN 亮档 #e8f5e9 / 暗档 (同亮) 与源 --color-model-type-av-bg 在 :root/@theme 与 .dark 两个面各自同值;同值候选 2 个(--color-success-tag-bg, --color-model-type-av-bg),其中与 RN 档名同名的只有 --color-model-type-av-bg(命名口径取守门自己的 deriveCssVarNames)。此前 RN 侧是手抄字面量 ⇒ web 改这一档 RN 不动(§4 派生态纪律)。',
   },
   {
     label: 'agentName.DEFAULT ↔ --color-agent-name',
-    rn: { light: ['rnLightTokens', 'agentName', 'DEFAULT'], dark: ['rnDarkTokens', 'agentName', 'DEFAULT'] },
+    rn: {
+      light: ['rnLightTokens', 'agentName', 'DEFAULT'],
+      dark: ['rnDarkTokens', 'agentName', 'DEFAULT'],
+    },
     css: { light: '--color-agent-name', dark: '--color-agent-name' },
     basis:
       '2026-10-27 由 plan-rn-token-pairing 量得(R1):RN 亮档 #517bff / 暗档 (同亮) 与源 --color-agent-name 在 :root/@theme 与 .dark 两个面各自同值;源侧与该值同色的档唯一(--color-agent-name)。此前 RN 侧是手抄字面量 ⇒ web 改这一档 RN 不动(§4 派生态纪律)。',
@@ -476,6 +554,75 @@ const MAPPINGS = [
     css: { light: '--color-glass-bg', dark: '--color-glass-bg' },
     basis:
       '2026-10-20 立(用户实拍「底部停靠区暗色下发白、与页面底色不一致」)。glass 两档:tokens.css @theme/:root L294 亮 rgba(255,255,255,0.66) / .dark L665 暗 rgba(26,26,26,0.66);rn-tokens.ts 两表 glass.bg 此前都是手抄白值 —— 注释声称「由 sync-rn-tokens.mjs 派生」但本 MAPPINGS 从未登记,暗档白玻璃即这一漏登记。登记后派生自动改写暗表;rn-tokens.ts 的「勿手改」注释自此才属实。',
+  },
+  // 2026-11-15 容器描边角色层(stroke.*):web tokens.css 首次落角色档,RN 同步 8 档。
+  // 角色值多是 var() 链(subtle/default/strong/field/focus/selected/danger),守门按 CSS 变量链解析后比对。
+  {
+    label: 'stroke.subtle ↔ --color-stroke-subtle',
+    rn: {
+      light: ['rnLightTokens', 'stroke', 'subtle'],
+      dark: ['rnDarkTokens', 'stroke', 'subtle'],
+    },
+    css: { light: '--color-stroke-subtle', dark: '--color-stroke-subtle' },
+    basis: '2026-11-15 立:嵌套内区描边档,亮 6% 黑 / 暗 8% 白;tokens.css @theme + .dark 显式覆盖',
+  },
+  {
+    label: 'stroke.default ↔ --color-stroke-default',
+    rn: {
+      light: ['rnLightTokens', 'stroke', 'default'],
+      dark: ['rnDarkTokens', 'stroke', 'default'],
+    },
+    css: { light: '--color-stroke-default', dark: '--color-stroke-default' },
+    basis: '2026-11-15 立:卡片/面板/表格默认描边,别名 --color-border(亮 10% 黑 / 暗 12% 白)',
+  },
+  {
+    label: 'stroke.strong ↔ --color-stroke-strong',
+    rn: {
+      light: ['rnLightTokens', 'stroke', 'strong'],
+      dark: ['rnDarkTokens', 'stroke', 'strong'],
+    },
+    css: { light: '--color-stroke-strong', dark: '--color-stroke-strong' },
+    basis: '2026-11-15 立:弹层/菜单/选中候选档,别名 --color-border-medium(亮 16% 黑 / 暗 20% 白)',
+  },
+  {
+    label: 'stroke.inverse ↔ --color-stroke-inverse',
+    rn: {
+      light: ['rnLightTokens', 'stroke', 'inverse'],
+      dark: ['rnDarkTokens', 'stroke', 'inverse'],
+    },
+    css: { light: '--color-stroke-inverse', dark: '--color-stroke-inverse' },
+    basis: '2026-11-15 立:玻璃/深色浮层描边,亮 20% 白 / 暗 30% 黑(与表面反极)',
+  },
+  {
+    label: 'stroke.field ↔ --color-stroke-field',
+    rn: { light: ['rnLightTokens', 'stroke', 'field'], dark: ['rnDarkTokens', 'stroke', 'field'] },
+    css: { light: '--color-stroke-field', dark: '--color-stroke-field' },
+    basis: '2026-11-15 立:输入控件描边,别名 --color-input(亮 8% 黑 / 暗 16% 白)',
+  },
+  {
+    label: 'stroke.focus ↔ --color-stroke-focus',
+    rn: { light: ['rnLightTokens', 'stroke', 'focus'], dark: ['rnDarkTokens', 'stroke', 'focus'] },
+    css: { light: '--color-stroke-focus', dark: '--color-stroke-focus' },
+    basis:
+      '2026-11-15 立:聚焦墨档,别名 --color-primary(亮 #000000 / 暗 #FFFFFF);全项目唯一允许取墨的描边角色',
+  },
+  {
+    label: 'stroke.selected ↔ --color-stroke-selected',
+    rn: {
+      light: ['rnLightTokens', 'stroke', 'selected'],
+      dark: ['rnDarkTokens', 'stroke', 'selected'],
+    },
+    css: { light: '--color-stroke-selected', dark: '--color-stroke-selected' },
+    basis: '2026-11-15 立:选中/强调容器,别名 --color-brand-accent-deep(亮 #4a7a96 / 暗 #a3c4d6)',
+  },
+  {
+    label: 'stroke.danger ↔ --color-stroke-danger',
+    rn: {
+      light: ['rnLightTokens', 'stroke', 'danger'],
+      dark: ['rnDarkTokens', 'stroke', 'danger'],
+    },
+    css: { light: '--color-stroke-danger', dark: '--color-stroke-danger' },
+    basis: '2026-11-15 立:错误态容器描边,别名 --color-danger(亮 #dc2626 / 暗 #ef4444)',
   },
   {
     label: 'vip.gold ↔ --color-vip-gold-start',
@@ -657,7 +804,7 @@ function resolveTsPath(body, path) {
       `映射表指向的常量表取不到(body=${String(body)};path=${String(path)}):` +
         ' rn-tokens.ts 里是否有名为 ' +
         String(path && path[0]) +
-        ' 的表?要么补表要么改映射,不得让它表现为崩溃。'
+        ' 的表?要么补表要么改映射,不得让它表现为崩溃。',
     )
   let text = body
   for (let idx = 0; idx < path.length; idx++) {
@@ -868,11 +1015,17 @@ function normalizeColor(v) {
  *  带 alpha 的档仍走字符串归一那条兜底支(补它是另一格,不在本票范围)。
  */
 function oklchToRgbTriple(c) {
-  const m = /^oklch\(\s*([\d.]+%?|none)\s+([\d.]+%?|none)(?:\s+(?:([\d.]+)(?:deg)?|none))?\s*(?:\/\s*[\d.]+%?)?\)/
-    .exec(c)
+  const m =
+    /^oklch\(\s*([\d.]+%?|none)\s+([\d.]+%?|none)(?:\s+(?:([\d.]+)(?:deg)?|none))?\s*(?:\/\s*[\d.]+%?)?\)/.exec(
+      c,
+    )
   if (!m) return null
   const num = (x, scale) =>
-    x === undefined || x === 'none' ? 0 : String(x).endsWith('%') ? (parseFloat(x) / 100) * scale : parseFloat(x)
+    x === undefined || x === 'none'
+      ? 0
+      : String(x).endsWith('%')
+        ? (parseFloat(x) / 100) * scale
+        : parseFloat(x)
   const L = num(m[1], 1)
   const C = num(m[2], 0.4)
   const H = m[3] === undefined ? 0 : parseFloat(m[3])
@@ -1070,7 +1223,8 @@ export const ALPHA_SCAN_FACES = ['apps/miniapp-taro/src', 'apps/mobile-rn/src', 
  * miniapp 的 alpha 用量仍**照数报出**,只是不判红 —— 它属于那条尚未接线的"utilities 到端"问题。
  */
 export const ALPHA_V4_FACES = ['apps/miniapp-taro/src']
-export const isV4Face = (rel) => ALPHA_V4_FACES.some((p) => rel === p || rel.startsWith(p + '/') || rel.startsWith(p + '\\'))
+export const isV4Face = (rel) =>
+  ALPHA_V4_FACES.some((p) => rel === p || rel.startsWith(p + '/') || rel.startsWith(p + '\\'))
 /** 真 v3 消费端 = 全部扫描面减去 v4 面。登记表与"必须登记"判据都只认这一份。 */
 export const ALPHA_V3_SCAN_FACES = ALPHA_SCAN_FACES.filter((p) => !ALPHA_V4_FACES.includes(p))
 export const ALPHA_SCAN_EXT = /\.(tsx|ts|css|scss)$/
@@ -1161,7 +1315,9 @@ export function parseLiteralObject(body) {
     while (i < s.length && /[\s,;]/.test(s[i])) i++
   }
   const fail = (at) => {
-    throw new UndeterminedError(`字面量登记表解析失败(位置 ${at}):${JSON.stringify(s.slice(at, at + 40))}`)
+    throw new UndeterminedError(
+      `字面量登记表解析失败(位置 ${at}):${JSON.stringify(s.slice(at, at + 40))}`,
+    )
   }
   const readString = () => {
     const q = s[i]
@@ -1225,7 +1381,9 @@ export function extractObjectBody(src, anchorRe) {
   const flags = anchorRe.flags.includes('g') ? anchorRe.flags : `${anchorRe.flags}g`
   const hits = [...src.matchAll(new RegExp(anchorRe.source, flags))]
   if (hits.length !== 1)
-    throw new UndeterminedError(`锚点 ${anchorRe} 命中 ${hits.length} 处(须恰好 1 处),登记表形态已超出判据`)
+    throw new UndeterminedError(
+      `锚点 ${anchorRe} 命中 ${hits.length} 处(须恰好 1 处),登记表形态已超出判据`,
+    )
   const m = hits[0]
   let i = m.index + m[0].length
   let depth = 1
@@ -1370,7 +1528,9 @@ export function extractAlphaUsages(masked, { tiers, isCss = false, original = nu
   }
   // 行内豁免只对命中行本身或紧邻上一行生效(取**原文**,豁免就写在注释里)
   for (const t of tokens) {
-    t.exempt = ALPHA_EXEMPT_RE.test(rawLines[t.line] || '') || ALPHA_EXEMPT_RE.test(rawLines[t.line - 1] || '')
+    t.exempt =
+      ALPHA_EXEMPT_RE.test(rawLines[t.line] || '') ||
+      ALPHA_EXEMPT_RE.test(rawLines[t.line - 1] || '')
   }
   return { tokens, undetermined }
 }
@@ -1417,7 +1577,11 @@ export function checkAlphaUsage({ usages, usage, colors, plugin, baselineRot = n
     for (const [kind, mods] of Object.entries(byKind || {}))
       for (const mod of mods || []) {
         const key = `${kind}-${tier}/${mod}`
-        if (covered.has(key) || usages.some((u) => u.exempt && `${u.kind}-${u.tier}/${u.mod}` === key)) continue
+        if (
+          covered.has(key) ||
+          usages.some((u) => u.exempt && `${u.kind}-${u.tier}/${u.mod}` === key)
+        )
+          continue
         rotAll.push({ key, tier, kind, mod })
       }
   }
@@ -1717,12 +1881,20 @@ export function extractBareRpxLengths(masked, original) {
     const col = masked.slice(0, at).split('\n').pop().length
     const line = masked.split('\n')[masked.slice(0, at).split('\n').length - 1]
     const ln = masked.slice(0, at).split('\n').length
-    hits.push({ fam: m[1], value: `${m[2]}rpx`, key: `${m[1]}-[${m[2]}rpx]`, ln, col, line: line.trim().slice(0, 120) })
+    hits.push({
+      fam: m[1],
+      value: `${m[2]}rpx`,
+      key: `${m[1]}-[${m[2]}rpx]`,
+      ln,
+      col,
+      line: line.trim().slice(0, 120),
+    })
   }
   // 括号里带插值的任意值(如 `text-[${size}rpx]`)结构上判不出单位,只报数不判红。
   // 刻意只认"方括号内部含 ${"这一形态 —— 早先用"全文任意插值"计数会报出上千处,
   // 那个数字与判据无关,只会让报告里的"判不出"看起来像一批待办。
-  const dyn = original.match(new RegExp(`\\b(?:${R7_PREFIX_ALT})-\\[[^\\]]*\\$\\{[^\\]]*\\]`, 'g')) || []
+  const dyn =
+    original.match(new RegExp(`\\b(?:${R7_PREFIX_ALT})-\\[[^\\]]*\\$\\{[^\\]]*\\]`, 'g')) || []
   undetermined += dyn.length
   return { hits, undetermined }
 }
@@ -1758,11 +1930,14 @@ export async function runR7({ face, quiet }) {
         : `改法:加显式类型前缀 \`${h.fam}-[length:${h.value}]\`。`
     failures.push({
       tag: `R7 裸 rpx 长度 ${h.key}`,
-      detail: `${h.rel}:${h.ln} —— rpx 长度写进 \`<族>-[…]\` 会被解析成**颜色属性**` +
-        `(v3.4.19 与 v4.3.3 实测同形,不是"只有 v3 才坏"):\`${h.key}\` → ${prop}: ${h.value},整条声明无效。` + fix,
+      detail:
+        `${h.rel}:${h.ln} —— rpx 长度写进 \`<族>-[…]\` 会被解析成**颜色属性**` +
+        `(v3.4.19 与 v4.3.3 实测同形,不是"只有 v3 才坏"):\`${h.key}\` → ${prop}: ${h.value},整条声明无效。` +
+        fix,
     })
   }
-  if (fresh.length > 12) failures.push({ tag: 'R7 裸 rpx 长度', detail: `…另有 ${fresh.length - 12} 处` })
+  if (fresh.length > 12)
+    failures.push({ tag: 'R7 裸 rpx 长度', detail: `…另有 ${fresh.length - 12} 处` })
 
   const counts = {
     files: corpus.length,
@@ -1835,7 +2010,10 @@ export function indexDerivedColors({ leavesByConst, cssLight, cssDark, paletteLe
     const norm = normalizeColor(lf.value)
     if (HAND_COPY_NEUTRALS.has(norm)) continue
     if (!idx.has(norm))
-      idx.set(norm, { rnPath: `rnCssLight.${Array.isArray(lf.path) ? lf.path.join('.') : lf.path}`, cssVar: '(源侧全量派生档)' })
+      idx.set(norm, {
+        rnPath: `rnCssLight.${Array.isArray(lf.path) ? lf.path.join('.') : lf.path}`,
+        cssVar: '(源侧全量派生档)',
+      })
   }
   return idx
 }
@@ -2018,7 +2196,11 @@ export async function runR9toR11({ face, quiet }) {
   ])
   let entries
   try {
-    entries = expectedEntries({ spacing: spacingTxt, typography: typographyTxt, elevation: elevationTxt })
+    entries = expectedEntries({
+      spacing: spacingTxt,
+      typography: typographyTxt,
+      elevation: elevationTxt,
+    })
   } catch (e) {
     if (e instanceof UndeterminedSource)
       throw new UndeterminedError(`R9–R11 的期望值算不出来(${e.message})⇒ 三族档位无从对账`)
@@ -2034,7 +2216,8 @@ export async function runR9toR11({ face, quiet }) {
   // 「多档」必须相对**全量期望集**判,否则每族都会把别族的档看成自己的多余档 —— 首版正是此错:
   // 47 档报出 94 处「多」,判据自己把自己判红,红点满天飞而真问题被淹掉。
   const diff = diffManaged(managed.vars, entries)
-  const ownedBy = (name) => CSS_TOKEN_FAMILY_RULES.find((r) => r.startsWith.some((p) => name.startsWith(p)))
+  const ownedBy = (name) =>
+    CSS_TOKEN_FAMILY_RULES.find((r) => r.startsWith.some((p) => name.startsWith(p)))
 
   const failures = []
   const unowned = diff.extra.filter((n) => !ownedBy(n))
@@ -2080,7 +2263,10 @@ export async function runR9toR11({ face, quiet }) {
       })
     const more = missing.length + mismatched.length + extra.length
     if (more > 18)
-      failures.push({ tag: `${rule.id} ${rule.label}`, detail: `…另有 ${more - 18} 处(每类只列前 18 条)` })
+      failures.push({
+        tag: `${rule.id} ${rule.label}`,
+        detail: `…另有 ${more - 18} 处(每类只列前 18 条)`,
+      })
   }
 
   for (const name of unowned.slice(0, 6))
@@ -2102,7 +2288,8 @@ export async function runR9toR11({ face, quiet }) {
   return { failures, counts }
 }
 
-export async function runR6({ face, quiet }) {  const reg = readAlphaRegistry(face)
+export async function runR6({ face, quiet }) {
+  const reg = readAlphaRegistry(face)
   const plugin = await loadAlphaPlugin()
   const tiers = flattenColorTiers(reg.colors)
   const corpus = collectAlphaCorpus({ face })
@@ -2141,7 +2328,13 @@ export async function runR6({ face, quiet }) {  const reg = readAlphaRegistry(fa
   const usages = sEff.tokens.filter((x) => !isV4Face(x.rel))
   const v4Only = sEff.tokens.length - usages.length
   const undetermined = sEff.undetermined
-  const r = checkAlphaUsage({ usages, usage: reg.usage, colors: reg.colors, plugin, baselineRot: baseRot })
+  const r = checkAlphaUsage({
+    usages,
+    usage: reg.usage,
+    colors: reg.colors,
+    plugin,
+    baselineRot: baseRot,
+  })
   const chans = checkAlphaChannelVars({
     usage: reg.usage,
     colors: reg.colors,
@@ -2153,8 +2346,11 @@ export async function runR6({ face, quiet }) {  const reg = readAlphaRegistry(fa
   for (const x of r.missing)
     failures.push({
       tag: `R6 未登记的 alpha 用量 ${x.key}`,
-      detail: `${x.rel}:${x.line + 1} —— v3 端写得出这个类名但**根本不产出 CSS**(typecheck/lint/build 全不红)。` +
-        `修复出口:` + `node scripts/sync-alpha-usage.mjs` + `(表由用量导出,勿手改 ALPHA_USAGE;` +
+      detail:
+        `${x.rel}:${x.line + 1} —— v3 端写得出这个类名但**根本不产出 CSS**(typecheck/lint/build 全不红)。` +
+        `修复出口:` +
+        `node scripts/sync-alpha-usage.mjs` +
+        `(表由用量导出,勿手改 ALPHA_USAGE;` +
         `它会在 ${ALPHA_PLUGIN_REL} 里原位写入 ${x.tier}: { …, ${x.kind}: [..., '${x.mod}'] })。` +
         `仅当该形态确属不该登记时,才用行内 alpha-plugin-exempt: <原因>。`,
     })
@@ -2688,7 +2884,7 @@ async function selfTest() {
     /取不到/.test(ghostThrew.message) &&
     /rnGhostTokens/.test(ghostThrew.message)
   console.log(
-    `${ghostOk ? '✅' : '❌'} 表名漂移必须抛具名"无法判定"并点名是哪张表(旧行为:裸 TypeError,不可诊断)`
+    `${ghostOk ? '✅' : '❌'} 表名漂移必须抛具名"无法判定"并点名是哪张表(旧行为:裸 TypeError,不可诊断)`,
   )
   let normalThrew = null
   try {
@@ -2728,7 +2924,9 @@ async function selfTest() {
     completeThrew = e
   }
   const completeOk = completeThrew === null
-  console.log(`${completeOk ? '✅' : '❌'} 反向对照:完整输出不得被截断判据误伤 → got=${completeThrew?.message}`)
+  console.log(
+    `${completeOk ? '✅' : '❌'} 反向对照:完整输出不得被截断判据误伤 → got=${completeThrew?.message}`,
+  )
   // 反例必须真红,否则形状尺子是无牙的(把旧形状写回本文件当证明会因语法错跑不起来,
   // 所以只能喂字符串 —— 门 103 T12 同一课)。
   // ⚠️ 被禁的两个形态**不能原样写进本文件**:这把尺子量的就是本文件自身,写进去等于自己制造一次
@@ -2748,7 +2946,7 @@ async function selfTest() {
   )
   const negOk = !neg.usesLayer && neg.selfBatchBack && neg.silentBreakBack
   console.log(
-    `${negOk ? '✅' : '❌'} 反例有牙:一段"自带 batch + 静默 break"的文本必须同时被三个字段抓到 → got=${JSON.stringify(neg)}`
+    `${negOk ? '✅' : '❌'} 反例有牙:一段"自带 batch + 静默 break"的文本必须同时被三个字段抓到 → got=${JSON.stringify(neg)}`,
   )
   if (!ghostOk || !normalOk || !shapeOk || !truncOk || !completeOk || !negOk) fail++
 
@@ -2799,26 +2997,44 @@ function selfTestR7() {
   // 每一族都有成对的反向例(实测本来就对的形态),判据覆盖面 = 缺陷面,不得多也不得少。
   t('border-t 必命中', 'className="border-t-[1rpx] border-border"', ['border-t-[1rpx]'])
   t('border-b 必命中', 'className="border-b-[2rpx]"', ['border-b-[2rpx]'])
-  t('border-l/r 必命中', 'className="border-l-[1rpx] border-r-[1rpx]"', ['border-l-[1rpx]', 'border-r-[1rpx]'])
+  t('border-l/r 必命中', 'className="border-l-[1rpx] border-r-[1rpx]"', [
+    'border-l-[1rpx]',
+    'border-r-[1rpx]',
+  ])
   t('border-x 必命中', 'className="border-x-[3rpx]"', ['border-x-[3rpx]'])
   t('border-y 必命中', 'className="border-y-[3rpx]"', ['border-y-[3rpx]'])
-  t('border-s/e 必命中', 'className="border-s-[2rpx] border-e-[2rpx]"', ['border-s-[2rpx]', 'border-e-[2rpx]'])
+  t('border-s/e 必命中', 'className="border-s-[2rpx] border-e-[2rpx]"', [
+    'border-s-[2rpx]',
+    'border-e-[2rpx]',
+  ])
   t('裸 divide 必命中', 'className="divide-[2rpx]"', ['divide-[2rpx]'])
   t('ring 必命中', 'className="focus:ring-[6rpx]"', ['ring-[6rpx]'])
   t('outline 必命中', 'className="outline-[2rpx]"', ['outline-[2rpx]'])
   // 反向例:夹具逐字证明这些形态在 v3 下落**正确属性**,纳进必制造噪音红
   t('divide-x 轴形式不命中(落 border-*-width,本就对)', 'className="divide-x-[4rpx]"', [])
   t('divide-y 轴形式不命中', 'className="divide-y-[4rpx]"', [])
-  t('单类型 length 插件不命中(w/p/gap 对 rpx 是透传)', 'className="w-[10rpx] p-[10rpx] gap-[10rpx]"', [])
+  t(
+    '单类型 length 插件不命中(w/p/gap 对 rpx 是透传)',
+    'className="w-[10rpx] p-[10rpx] gap-[10rpx]"',
+    [],
+  )
   t('border-t px 不命中', 'className="border-t-[1px]"', [])
   t('ring px 不命中', 'className="ring-[6px]"', [])
   t('outline px 不命中', 'className="outline-[2px]"', [])
-  t('方向性已带 length: 不命中(门自己产出的修复形态必须被认作合法)', 'className="border-t-[length:1rpx] border-b-[length:2rpx]"', [])
+  t(
+    '方向性已带 length: 不命中(门自己产出的修复形态必须被认作合法)',
+    'className="border-t-[length:1rpx] border-b-[length:2rpx]"',
+    [],
+  )
   t('ring/outline 已带 length: 不命中', 'className="ring-[length:6rpx] outline-[length:2rpx]"', [])
   t('border-t-0 标量不命中', 'className="border-t-0"', [])
   // 真实源码形状(notification.tsx 原样):同串里颜色档任意值与方向性裸 rpx 并存,
   // 只许命中前者之外的那一条,`border-[color:var(…)]` 不得被计债
-  t('方向性与 color 显式档混排只命中裸 rpx 那一条', 'className="border-t-[1rpx] border-solid border-[color:var(--color-border)]"', ['border-t-[1rpx]'])
+  t(
+    '方向性与 color 显式档混排只命中裸 rpx 那一条',
+    'className="border-t-[1rpx] border-solid border-[color:var(--color-border)]"',
+    ['border-t-[1rpx]'],
+  )
   // 单位决定对错:px/rem/em 在 v3 下本就落对属性,绝不该报
   t('px 不命中', 'className="text-[13px]"', [])
   t('border px 不命中', 'className="border-[2px]"', [])
@@ -2907,7 +3123,7 @@ async function selfTestR6() {
     },
     {
       name: 'R6 反向对照:串里的 /* 不得把后续真用量骗进块注释(守门 70 同型假绿)',
-      code: "const u = 'https://a/*x';\nconst c = \"bg-primary/10\"",
+      code: 'const u = \'https://a/*x\';\nconst c = "bg-primary/10"',
       usage: { primary: t('10') },
       want: { missing: 0, rot: 0, unprod: 0, unsup: 0, build: 0, nonPreset: 0, exempt: 0 },
       also: (x, s) => s.tokens.length === 1,
@@ -2980,9 +3196,7 @@ async function selfTestR6() {
     let ok = JSON.stringify(got) === JSON.stringify(c.want)
     if (ok && c.also) ok = c.also(full, s) === true
     if (!ok) fail++
-    console.log(
-      `${ok ? '✅' : '❌'} ${c.name} → got=${JSON.stringify(got)}`,
-    )
+    console.log(`${ok ? '✅' : '❌'} ${c.name} → got=${JSON.stringify(got)}`)
   }
   // 腐烂棘轮成对证明(缺了它,无关提交会被"别人欠的债"钉红 → 逼人 --no-verify → 全部守门作废)
   const rtTable = { card: t('50'), primary: t('10') }
@@ -3031,7 +3245,9 @@ async function selfTestR6() {
   // 那张表由 sync-alpha-usage.mjs 从用量导出,当天没人写 /alpha 它就是 {}(2026-09-25 即是)。
   // "解析得对不对"这件事改由下面的构造字面量证明,与仓库用量无关。
   const parsedOk = Object.values(reg.usage).every((byKind) =>
-    Object.values(byKind).every((mods) => Array.isArray(mods) && mods.every((m) => typeof m === 'string')),
+    Object.values(byKind).every(
+      (mods) => Array.isArray(mods) && mods.every((m) => typeof m === 'string'),
+    ),
   )
   const probeParsed = parseLiteralObject(
     extractObjectBody(
@@ -3107,7 +3323,8 @@ async function selfTestR6() {
       ` 其余硬红 ${hard.length}(须 0),` +
       `默认色板 ${r6Real.counts.nonPreset} 处不计、判不出 ${r6Real.counts.undetermined} 处不判红、腐烂 ${r6Real.counts.rot.length} 条(照红并点名)`,
   )
-  for (const f of r6Real.failures.slice(0, 6)) console.log(`     · ${f.tag}: ${f.detail.slice(0, 120)}`)
+  for (const f of r6Real.failures.slice(0, 6))
+    console.log(`     · ${f.tag}: ${f.detail.slice(0, 120)}`)
   return { fail, cases: r6Cases.length + 5 }
 }
 

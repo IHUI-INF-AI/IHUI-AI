@@ -71,20 +71,42 @@ export function sanitizeGeneratedTitle(raw: string): string | null {
   return title
 }
 
+/** 标题生成策略:首轮按首条消息 / 多轮按最近对话重估 */
+export const TITLE_STRATEGIES = ['first-turn', 'conversation'] as const
+export type TitleStrategy = (typeof TITLE_STRATEGIES)[number]
+/** 多轮重估读取的最近消息条数 */
+export const TITLE_CONTEXT_MESSAGES = 20
+
+/** 把最近消息投影为标题生成输入(仅保留有正文的 user/assistant) */
+export function buildConversationTranscript(
+  messages: ReadonlyArray<{ role: string; content: string }>,
+): string {
+  return messages
+    .filter((m) => (m.role === 'user' || m.role === 'assistant') && m.content.trim())
+    .map((m) => `${m.role === 'user' ? '用户' : '助手'}: ${m.content.trim()}`)
+    .join('\n')
+}
+
 /**
  * 生成会话标题。
  * @param request 当前 Fastify request(透传 traceparent + Authorization);null 时允许(后台任务)
  * @param userText 首条用户消息文本(已由调用方截断到合理长度)
  * @param model 当前会话模型;空则用 LITELLM_MODEL 兜底
+ * @param strategy 标题策略:first-turn 按首条消息,conversation 按最近对话重估
  * @returns 标题文本;任何失败返回 null(调用方静默跳过,保持默认标题)
  */
 export async function generateConversationTitle(
   request: FastifyRequest | null,
   userText: string,
   model?: string,
+  strategy: TitleStrategy = 'first-turn',
 ): Promise<string | null> {
   const trimmed = userText.trim()
   if (!trimmed) return null
+  const systemPrompt =
+    strategy === 'conversation'
+      ? '你是会话标题生成器。根据给定的最近对话内容,生成一个不超过 24 个字符的标题,概括整段对话的核心话题或用户意图。标题必须与对话使用相同语言,只输出标题正文本身:不要引号、不要标点结尾、不要"标题:"等前缀、不要任何解释。'
+      : '你是会话标题生成器。根据用户的第一条消息生成一个不超过 24 个字符的标题,概括用户的意图或话题。标题必须与用户消息使用相同语言,只输出标题正文本身:不要引号、不要标点结尾、不要"标题:"等前缀、不要任何解释。'
   try {
     const controller = new AbortController()
     const timer = setTimeout(() => controller.abort(), TITLE_TIMEOUT_MS)
@@ -97,8 +119,7 @@ export async function generateConversationTitle(
           messages: [
             {
               role: 'system',
-              content:
-                '你是会话标题生成器。根据用户的第一条消息生成一个不超过 24 个字符的标题,概括用户的意图或话题。标题必须与用户消息使用相同语言,只输出标题正文本身:不要引号、不要标点结尾、不要"标题:"等前缀、不要任何解释。',
+              content: systemPrompt,
             },
             { role: 'user', content: trimmed.slice(0, 2_000) },
           ],

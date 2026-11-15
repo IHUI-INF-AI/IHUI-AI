@@ -23,13 +23,14 @@
  * - 只读、零写入、零上游探测;鉴权走该面板既有 `requireAdmin`(roleId>=1),不新开鉴权通道。
  */
 import type { FastifyPluginAsync } from 'fastify'
-import { sql } from 'drizzle-orm'
+import { notInArray, sql } from 'drizzle-orm'
 import { dbRead } from '../../db/index.js'
 import { aiRelayAccountPool } from '@ihui/database'
 import { success, error } from '../../utils/response.js'
 import { requireAdmin } from '../../plugins/require-permission.js'
 import { exposeRelayPoolRoutesToPublicNetwork } from './_shared.js'
 import { RELAY_PROVIDERS } from '../../services/relay-account-format.js'
+import { STORE_PROVIDER_CODES } from '@ihui/shared/constants/store-platforms'
 import {
   getRelayAdapter,
   isRefreshableProviderCode,
@@ -90,6 +91,8 @@ const relayAccountPoolCapabilityRoutes: FastifyPluginAsync = async (server) => {
           accounts: sql<number>`count(*)::int`,
         })
         .from(aiRelayAccountPool)
+        // 应用上架平台账号不参与 AI 续期能力报表(其平台码不属于 RELAY_PROVIDERS)
+        .where(notInArray(aiRelayAccountPool.providerCode, [...STORE_PROVIDER_CODES]))
         .groupBy(aiRelayAccountPool.providerCode)
     } catch (e) {
       request.log.error(e)
@@ -104,7 +107,9 @@ const relayAccountPoolCapabilityRoutes: FastifyPluginAsync = async (server) => {
     // 枚举完整性自证:库里出现而 RELAY_PROVIDERS 未登记的平台码必须点名,
     // 不得静默丢掉(否则"该面板看不到这个平台"会变成"这个平台不存在")。
     const unlisted = [...countByProvider.keys()].filter(
-      (code) => !(RELAY_PROVIDERS as readonly string[]).includes(code),
+      (code) =>
+        !(RELAY_PROVIDERS as readonly string[]).includes(code) &&
+        !(STORE_PROVIDER_CODES as readonly string[]).includes(code),
     )
 
     const items: RenewalCapabilityItem[] = capability.map((c) => ({

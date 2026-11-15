@@ -35,13 +35,12 @@ vi.mock('@/stores/chat', () => ({
   ),
 }))
 
-import { TaskRecapEntry } from '../d176-task-recap'
+import { TaskRecapDialog } from '../d176-task-recap'
 
 afterEach(cleanup)
 
 function openHandoff() {
-  render(<TaskRecapEntry />)
-  fireEvent.click(screen.getByTestId('ai-panel-recap-entry'))
+  render(<TaskRecapDialog open onOpenChange={() => {}} />)
   fireEvent.click(screen.getByTestId('recap-handoff-menu-item'))
 }
 
@@ -124,13 +123,17 @@ describe('D176 交接生成流(出口翻真后)', () => {
     expect(chatStoreSetState).not.toHaveBeenCalled()
   })
 
-  it('装车层:入口确实挂在 AI 面板头部按钮组(dynamic import,不进主 chunk)', () => {
+  it('装车层:菜单行与 Dialog 分挂(行在菜单内,Dialog 在菜单外,关菜单不卸载生成结果)', () => {
     // 与 D175 装车断言同一模式:读宿主源码验挂载,不重复渲染整个面板
     const host = readFileSync(join(__dirname, '..', 'ai-side-panel.tsx'), 'utf8')
     expect(host).toContain(
-      "import('@/components/ai/d176-task-recap').then((m) => m.TaskRecapEntry)",
+      "import('@/components/ai/d176-task-recap').then((m) => m.TaskRecapMenuItem)",
     )
-    expect(host).toContain('<TaskRecapEntry variant="menu-item" />')
+    expect(host).toContain(
+      "import('@/components/ai/d176-task-recap').then((m) => m.TaskRecapDialog)",
+    )
+    expect(host).toContain('<TaskRecapMenuItem onSelect={() => setRecapOpen(true)} />')
+    expect(host).toContain('<TaskRecapDialog open={recapOpen} onOpenChange={setRecapOpen} />')
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

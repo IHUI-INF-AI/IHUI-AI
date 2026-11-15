@@ -673,9 +673,12 @@ html[data-table-zebra='true'] [data-testid='markdown-stream'] tbody tr:nth-child
   font-weight: 700;
 }
 
-/* 键盘焦点环强化(仅在开关开启时接管 :focus-visible 外观) */
+/* 键盘焦点环强化(仅在开关开启时接管 :focus-visible 外观)。
+ * 颜色必须与描边 2.0 组件内聚焦同源(--color-stroke-focus):本规则特异度高于
+ * `focus-visible:outline-stroke-focus` 工具类,若取 --color-ring(灰)会把输入框/弹层
+ * 已统一的墨色环整体改灰,形成第二套聚焦外观。此处只扩大覆盖面,不改变外观。 */
 html[data-focus-ring='true'] :focus-visible {
-  outline: 2px solid var(--color-ring);
+  outline: 2px solid var(--color-stroke-focus);
   outline-offset: 2px;
 }
 
@@ -958,7 +961,7 @@ iframe::-webkit-scrollbar {
  * 48px 扩散)也是手写字面量,绕过了唯一源 packages/design-tokens/src/elevation.ts。
  *
  * 现口径(全部取 token,禁止在本文件手写阴影数值):
- * - 描边:--color-border-medium(中档描边档,亮 #d4d4d4 / 暗 #525252),1px 实线;
+ * - 描边:--color-stroke-strong(弹层/浮层档,亮 18% 黑 / 暗 22% 白),1px 实线;
  *   必须写在本未分层规则里 —— 上方 `* { border-color: var(--color-border) }` 是未分层声明,
  *   Tailwind @layer utilities 的 border-* 会被它压掉(同 .ai-input-shell 头注里的实测结论)。
  * - 投影:--shadow-elevation-xl(源 tokens.css ELEVATION_CSS,sm/md/lg/xl 唯一档位表)。
@@ -966,15 +969,15 @@ iframe::-webkit-scrollbar {
  *   「悬停态」,层级反而失真。
  */
 .ai-float-glow {
-  border: 1px solid var(--color-border-medium);
+  border: 1px solid var(--color-stroke-strong);
   box-shadow: var(--shadow-elevation-xl);
 }
 
 /* 跳转到主内容链接:键盘用户可见,平时屏幕阅读器外隐藏 — 由 app/(main)/layout.tsx 中的 sr-only 元素承担 */
 
-/* 主内容区焦点可见(配合 skip link 使用) */
+/* 主内容区焦点可见(配合 skip link 使用),同取墨色聚焦档 */
 #main:focus-visible {
-  outline: 2px solid var(--color-ring);
+  outline: 2px solid var(--color-stroke-focus);
   outline-offset: -2px;
 }
 
@@ -1064,11 +1067,12 @@ iframe::-webkit-scrollbar {
    明色调使用品牌蓝(#3b82f6),暗色调使用偏亮蓝(#60a5fa)以适配深色背景。
    暗色模式 drop-shadow 使用亮蓝光晕,与明色调区分。
    例外说明:"不要蓝色发光边框"规则约束输入框/按钮 hover 描边,
-   resize 手柄是品牌色装饰元素,不在此规则范围内。 */
-.resize-handle-line {
-  background: linear-gradient(
-    to bottom,
-    transparent 0%,
+   resize 手柄是品牌色装饰元素,不在此规则范围内。
+   2026-11-15:色标抽成 --resize-line-stops 变量,竖线(.resize-handle-line / 浮窗左右边)
+   与横线(.ai-float-resize-line--h / 浮窗上下边)共用同一份停靠点,只换渐变方向。 */
+.resize-handle-line,
+.ai-float-resize-line {
+  --resize-line-stops: transparent 0%,
     color-mix(in srgb, var(--chart-1) 20%, transparent) 10%,
     color-mix(in srgb, var(--chart-1) 50%, transparent) 25%,
     color-mix(in srgb, var(--chart-1) 85%, transparent) 40%,
@@ -1076,8 +1080,8 @@ iframe::-webkit-scrollbar {
     color-mix(in srgb, var(--chart-1) 85%, transparent) 60%,
     color-mix(in srgb, var(--chart-1) 50%, transparent) 75%,
     color-mix(in srgb, var(--chart-1) 20%, transparent) 90%,
-    transparent 100%
-  );
+    transparent 100%;
+  background: linear-gradient(to bottom, var(--resize-line-stops));
   opacity: 0;
   transition:
     opacity 0.2s ease,
@@ -1085,10 +1089,9 @@ iframe::-webkit-scrollbar {
 }
 
 /* 暗色模式:中心色偏亮蓝,两端浅蓝,与深色背景形成对比 */
-.dark .resize-handle-line {
-  background: linear-gradient(
-    to bottom,
-    transparent 0%,
+.dark .resize-handle-line,
+.dark .ai-float-resize-line {
+  --resize-line-stops: transparent 0%,
     color-mix(in srgb, color-mix(in srgb, var(--chart-1) 25%, white) 20%, transparent) 10%,
     color-mix(in srgb, color-mix(in srgb, var(--chart-1) 25%, white) 50%, transparent) 25%,
     color-mix(in srgb, color-mix(in srgb, var(--chart-1) 25%, white) 85%, transparent) 40%,
@@ -1096,7 +1099,28 @@ iframe::-webkit-scrollbar {
     color-mix(in srgb, color-mix(in srgb, var(--chart-1) 25%, white) 85%, transparent) 60%,
     color-mix(in srgb, color-mix(in srgb, var(--chart-1) 25%, white) 50%, transparent) 75%,
     color-mix(in srgb, color-mix(in srgb, var(--chart-1) 25%, white) 20%, transparent) 90%,
-    transparent 100%
+    transparent 100%;
+}
+
+/* 浮窗上/下边的横向细线:色标不变,只把渐变方向换成向右 */
+.ai-float-resize-line--h {
+  background: linear-gradient(to right, var(--resize-line-stops));
+}
+
+/* 浮窗八向缩放显现规则(2026-11-15):hover / 键盘聚焦 / 拖拽中显示,
+   不依赖外层 .group —— 面板 aside 本身就是 .group,否则 hover 面板任意位置会亮起 8 条线。 */
+.ai-float-resize-hit:hover > .ai-float-resize-line,
+.ai-float-resize-hit:focus-visible > .ai-float-resize-line,
+:where(.ai-float-resize-line.is-resizing) {
+  opacity: 1;
+  filter: drop-shadow(0 0 3px color-mix(in srgb, var(--chart-1) 55%, transparent));
+}
+
+.dark .ai-float-resize-hit:hover > .ai-float-resize-line,
+.dark .ai-float-resize-hit:focus-visible > .ai-float-resize-line,
+:where(.dark .ai-float-resize-line.is-resizing) {
+  filter: drop-shadow(
+    0 0 3px color-mix(in srgb, color-mix(in srgb, var(--chart-1) 25%, white) 65%, transparent)
   );
 }
 
@@ -1442,14 +1466,14 @@ html[data-workbench-immersive='true'] aside[data-main-sidebar] {
 /* 聚焦反馈(2026-11-11 用户二次定档:不要描边,要「轻微浮起 + 四面同向阴影 + 一点科技紫光」):
  * 描边保持常态灰(--color-input),不做任何变色;
  * 只用对称(0 偏移)的双层辉光表达浮起:近层 8px + 远层 22px,同一紫色。
- * 紫取 violet-500 #8b5cf6:设计令牌里没有可用的紫色变量(--color-brand-accent-deep 是青蓝
- * #4a7a96,不满足"科技紫"),故此处按单点字面量处理,透明度压到 10%/18% 保持"轻微"。
- * 豁免类别:聚焦效果光(非 elevation 层级投影),2026-11-11 用户定档单点保留原值。*/
+ * 紫取 violet-500 #8b5cf6 = 单一源头既有令牌 --chart-5(tokens.css),透明度用 color-mix 承担(10%/18%),
+ * 保持「轻微」且颜色不散写字面量 ⇒ 守门器 effect-light 豁免认可(2026-11-13 收口)。
+ * 豁免类别:聚焦效果光(非 elevation 层级投影),2026-11-11 用户定档。*/
 .ai-input-shell--idle:focus-within {
   border-color: var(--color-input);
   box-shadow:
-    0 0 8px 0 rgb(139 92 246 / 0.1),
-    0 0 22px -2px rgb(139 92 246 / 0.18);
+    0 0 8px 0 color-mix(in srgb, var(--chart-5) 10%, transparent),
+    0 0 22px -2px color-mix(in srgb, var(--chart-5) 18%, transparent);
 }
 .ai-input-shell--high-risk {
   border-color: var(--color-border-medium);
@@ -2255,4 +2279,5 @@ html:not([data-focus-ring='true'])
     color-mix(in srgb, currentColor 9%, transparent)
   );
 }
+
 /* ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ */

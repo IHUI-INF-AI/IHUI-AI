@@ -41,7 +41,8 @@ export function StreamingSkeleton() {
     <div
       data-testid="streaming-skeleton"
       aria-hidden
-      className="mx-auto flex w-full max-w-3xl flex-col gap-3"
+      className="mx-auto flex w-full flex-col gap-3"
+      style={{ maxWidth: 'var(--chat-content-width, 48rem)' }}
     >
       {/* 短标题条 */}
       <div className="h-4 w-32 rounded-md bg-muted animate-pulse" />

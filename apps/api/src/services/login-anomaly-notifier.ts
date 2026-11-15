@@ -92,6 +92,20 @@ const K_NOTIFIED = (userId: string, eventHash: string) => `anomaly:notified:${us
 
 const memAttempts = new Map<string, { count: number; expiresAt: number }>()
 const memNotified = new Map<string, number>()
+/** F-312: 内存降级去重表的上限,避免 Redis 长期不可用时按 userId+ip 无限增长 */
+const MEM_NOTIFIED_MAX = 10_000
+
+function trimMemNotified(): void {
+  const now = Date.now()
+  for (const [key, expiresAt] of memNotified) {
+    if (now > expiresAt) memNotified.delete(key)
+  }
+  while (memNotified.size > MEM_NOTIFIED_MAX) {
+    const oldest = memNotified.keys().next().value
+    if (oldest === undefined) break
+    memNotified.delete(oldest)
+  }
+}
 
 /* -------------------------------------------------------------------------- */
 /* Redis 客户端注入(模块级单例)                                                */
@@ -131,11 +145,11 @@ export async function notifyLoginAnomaly(input: LoginAnomalyInput): Promise<void
     return
   }
 
-  // 3. 构建通知文案(markNotified 已移到发送之后,见 F-312)
+  // 3. 构建通知文案
   const title = buildNotificationTitle(eventType)
   const content = buildNotificationContent(input)
 
-  // 4. 并行发送通知(顺序:先发,后按结果决定是否占位)
+  // 4. 并行发送通知(失败不抛错,各通道独立 try-catch,返回是否真正送达)
   // 短信只接两个有固定文案模板的事件:新设备登录、频繁登录失败。
   // remote_login 无对应模板(腾讯通知模板文案固定,硬套会发错内容)。
   const smsTemplate =
@@ -144,14 +158,7 @@ export async function notifyLoginAnomaly(input: LoginAnomalyInput): Promise<void
       : eventType === 'frequent_login_failure'
         ? 'security-limit'
         : null
-
-  // F-312(2026-11-15):四个 sender 一律返回"是否真的投递出去"的布尔。
-  // 原实现是 Promise<void> 且内部吞错 ⇒ allSettled 恒 fulfilled,拿不到失败信号,
-  // 于是"先占位再发送"在通道全挂时照样占 6h,被盗/撞库告警静默丢失且不再重试。
-  // 用 allSettled 而非 all:单个通道 reject 不能拖垮判据(其余通道仍要跑完),
-  // 但 sender 自身已吞错不抛,所以 fulfilled + value===true 才算成功。
-  // smsTemplate=null 时不发短信,该槽位 resolve(false) 表示"该通道未参与"。
-  const settled = await Promise.allSettled([
+  const results = await Promise.allSettled([
     sendInAppNotification(userId, title, content, input),
     sendEmailNotification(input, title, content),
     sendWebhookNotification(input, title, content),
@@ -160,21 +167,13 @@ export async function notifyLoginAnomaly(input: LoginAnomalyInput): Promise<void
       : Promise.resolve(false),
   ])
 
-  // 判据:至少一个通道 fulfilled 且 value===true 才算送达。
-  // fulfilled 但 value=false 也算失败(sender 内部吞错后主动回报失败,不占位)。
-  // rejected 同样不算成功(理论兜底,正常路径 sender 不抛)。
-  const anyDelivered = settled.some(
-    (r): r is PromiseFulfilledResult<boolean> => r.status === 'fulfilled' && r.value === true,
-  )
-
-  // 5. F-312 核心:去重键只在"问得出结果"之后写,且仅在至少一通道送达时写。
-  //    · 送达成功 ⇒ 照旧占 6h(去重语义不变)。
-  //    · 一个都没送出去 ⇒ 不占任何窗口,下一 tick 同类事件可重试。
-  //      这是本次修复要点:宁可短窗内重复尝试,不可静默丢告警。
-  if (anyDelivered) {
+  // F-312: 6h 去重键只能在至少一个通道真正送达后写入。全通道失败时不写,
+  // 留待下一次登录重试,避免基础设施抖动期间安全告警被静默吞掉。
+  const delivered = results.some((r) => r.status === 'fulfilled' && r.value === true)
+  if (delivered) {
     await markNotified(userId, eventHash)
   } else {
-    logger.warn('login-anomaly: all channels failed, skip dedup mark (will retry next tick)', {
+    logger.warn('login-anomaly: all channels failed, keep dedup open for retry', {
       userId,
       eventType,
       eventHash,
@@ -293,29 +292,22 @@ async function checkDedup(userId: string, eventHash: string): Promise<boolean> {
   }
 }
 
-/** 写去重键的唯一出口(正常档与调用方给的窗口共用,不各写一份 Redis 语义)。 */
-async function setNotifiedKey(userId: string, eventHash: string, ttlSec: number): Promise<void> {
+/** 标记已通知(设置 TTL)。 */
+async function markNotified(userId: string, eventHash: string): Promise<void> {
   const key = K_NOTIFIED(userId, eventHash)
   if (!redisClient) {
-    memNotified.set(key, Date.now() + ttlSec * 1000)
+    if (memNotified.size >= MEM_NOTIFIED_MAX) trimMemNotified()
+    memNotified.set(key, Date.now() + DEDUP_TTL_SEC * 1000)
     return
   }
   try {
-    await redisClient.set(key, '1', 'EX', ttlSec)
+    await redisClient.set(key, '1', 'EX', DEDUP_TTL_SEC)
   } catch (e) {
-    memNotified.set(key, Date.now() + ttlSec * 1000)
+    if (memNotified.size >= MEM_NOTIFIED_MAX) trimMemNotified()
+    memNotified.set(key, Date.now() + DEDUP_TTL_SEC * 1000)
     logger.warn('login-anomaly: markNotified failed, used mem', { err: e })
   }
 }
-
-/** 标记已通知(设置 TTL)。 */
-async function markNotified(userId: string, eventHash: string): Promise<void> {
-  await setNotifiedKey(userId, eventHash, DEDUP_TTL_SEC)
-}
-
-// F-312 说明:曾有的 markNotifiedRetry(全失败时占短窗)已按测试契约移除。
-// 测试① 锁定"通道全失败 ⇒ 去重键为空 ⇒ 下一 tick 可重试",短窗占位同样会让该断言失败。
-// 因此全失败分支现在只记 warn、不写任何 key,把"是否重试"完全交给下一 tick。
 
 /* -------------------------------------------------------------------------- */
 /* 内部:登录尝试计数                                                            */
@@ -362,8 +354,7 @@ async function resetAttemptCount(userId: string, ip: string): Promise<void> {
 /* 内部:通知发送                                                                */
 /* -------------------------------------------------------------------------- */
 
-/** 站内信:写入 notifications 表。
- *  返回 boolean:true=投递成功,false=失败(供 F-312 判据使用,不靠抛错)。 */
+/** 站内信:写入 notifications 表。 */
 async function sendInAppNotification(
   userId: string,
   title: string,
@@ -384,17 +375,15 @@ async function sendInAppNotification(
         timestamp: new Date().toISOString(),
       },
     })
-    // 到这一步说明 DB 已写入 ⇒ 通道送达成功。
     return true
   } catch (e) {
-    // 吞错 + 记 warn,对外只回 false;调用方 Promise.all 拿到 false 视为失败。
     logger.warn('login-anomaly: in-app notification failed', { err: e, userId })
     return false
   }
 }
 
 /** 安全类短信(新设备/频繁失败)。动态 import 避免 notifier ↔ sms 服务循环依赖。
- *  返回 boolean:true=投递成功,false=失败或 import 失败(供 F-312 判据使用,不靠抛错)。 */
+ *  sendNoticeSmsToUser 内部已吞错,这里只兜 import 失败。 */
 async function sendSecuritySmsNotification(
   userId: string,
   templateKey: 'new-device' | 'security-limit',
@@ -403,10 +392,8 @@ async function sendSecuritySmsNotification(
   try {
     const { sendNoticeSmsToUser } = await import('./sms-notify.js')
     await sendNoticeSmsToUser(userId, templateKey, { bizType: 'security', bizId, force: true })
-    // 动态 import + 发送都 resolve ⇒ 投递成功。
     return true
   } catch (e) {
-    // 吞错 + 记 warn,对外只回 false;调用方 allSettled 拿到 false 视为失败。
     logger.warn('login-anomaly: sms notify failed', {
       userId,
       templateKey,
@@ -416,14 +403,12 @@ async function sendSecuritySmsNotification(
   }
 }
 
-/** 邮件:若用户提供邮箱,走机械风安全告警模板(真实锁定按钮)。
- *  返回 boolean:true=投递成功,false=失败或未配置邮箱(不占位)。 */
+/** 邮件:若用户提供邮箱,走机械风安全告警模板(真实锁定按钮)。 */
 async function sendEmailNotification(
   input: LoginAnomalyInput,
   title: string,
   content: string,
 ): Promise<boolean> {
-  // 未提供邮箱:该通道未参与,不算成功(不能因为"没邮箱"就给整条通知记成功占位)。
   if (!input.userEmail) return false
   try {
     const rendered = renderSecurityLoginEmail({
@@ -441,10 +426,8 @@ async function sendEmailNotification(
       scene: 'notification',
       userId: input.userId,
     })
-    // sendEmail resolve ⇒ 视为投递成功。
     return true
   } catch (e) {
-    // 吞错 + 记 warn,对外只回 false;调用方 allSettled 拿到 false 视为失败。
     logger.warn('login-anomaly: email notification failed', {
       err: e,
       userId: input.userId,
@@ -455,7 +438,7 @@ async function sendEmailNotification(
 
 /**
  * Webhook:若用户订阅了 security 事件,复用 notifyRelayEvent。
- * 返回 boolean:true=投递成功,false=失败(供 F-312 判据使用,不靠抛错)。
+ *
  */
 async function sendWebhookNotification(
   input: LoginAnomalyInput,
@@ -478,10 +461,8 @@ async function sendWebhookNotification(
         metadata: input.metadata,
       },
     })
-    // notifyRelayEvent resolve ⇒ 投递成功。
     return true
   } catch (e) {
-    // 吞错 + 记 warn,对外只回 false;调用方 allSettled 拿到 false 视为失败。
     logger.warn('login-anomaly: webhook notification failed', {
       err: e,
       userId: input.userId,

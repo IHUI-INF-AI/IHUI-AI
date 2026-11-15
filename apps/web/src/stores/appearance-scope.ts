@@ -3,226 +3,310 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * 单条消息外观作用域 store(「外观 v3」后半段)。
+ * 外观作用域 store(2026-11-15 v3 立):工作区覆盖 / 单条消息覆盖 / 云同步状态。
  *
- * 立因(2026-11-15):`MessageItem` 在 `外观 v3` 那一批里就 import 了本模块的
- * `useAppearanceScopeStore` / `messageStyleVars`,但本文件当时没随提交入库 ⇒
- * web 的 typecheck 与 build 结构性失败(TS2307 找不到模块),连带把 pre-push 的
- * typecheck 腿拖成 20 分钟也收敛不了的红。本次按 `components/ai/markdown-stream.tsx`
- * 里**已经在消费的变量名**倒推契约补齐实现,而不是重新设计一套。
+ * 为什么独立于 appearance-settings:
+ *   - 全局配置是"一个用户一份",会被导出/导入、参与 AI 风格指令;
+ *   - 作用域覆盖是"按 key 多份",体积随工作区与消息增长,不适合塞进同一份配置对象;
+ *   - 两者都会被云同步打包,但各自有独立的持久化键,互不污染。
  *
- * 作用域分层(与 i18n 文案 `appearanceSettings.messageStylesHint` 的口径一致):
- *   - 全局:`stores/appearance-settings.ts`(用户级偏好);
- *   - 单条消息:**本 store**,按 message id 记覆盖,只产出 `--message-*` 增量变量。
- *
- * 覆盖只做加法:消费端写法恒为 `var(--message-x, var(--chat-x, 回退值))`,
- * 未覆盖的字段自动落回全局档 ⇒ 本 store **不复制**全局值,也就不会出现
- * 「改了全局、单条消息还停在旧值」的双写漂移。
- *
- * 消费契约(**唯一真相源是 markdown-stream.tsx;改那边必须同步改这里**):
- *   --message-font-multiplier  字号倍率(基准 15px,与消费端 `calc(15px * ...)` 对齐)
- *   --message-line-height      行高
- *   --message-letter-spacing   字距
- *   --message-font-family      字体族
- *   --message-code-font-size   代码块字号
- *   text-align(普通内联样式)   对齐 —— text-align 可继承,由容器向下透传给 markdown 段落
+ * 优先级:全局外观 < 工作区覆盖 < 单条消息覆盖。
  */
-
-import type { CSSProperties } from 'react'
 
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
 import {
-  CODE_FONT_SIZE_MAX,
-  CODE_FONT_SIZE_MIN,
+  APPEARANCE_DEFAULTS,
+  sanitizeAppearanceConfig,
+  type AppearanceConfig,
   type FontFamilyMode,
   type LetterSpacingMode,
   type LineHeightMode,
   type TextAlignMode,
 } from './appearance-settings'
+import { FONT_STACKS, LETTER_SPACINGS, LINE_HEIGHTS } from '@/lib/appearance-tokens'
 import { createPersistConfig } from './persist-helpers'
 
-/* ============================== 常量 ============================== */
-
-/** 消费端基准字号(px)。markdown-stream 写死 `calc(15px * ...)`,这里必须同步。 */
-export const MESSAGE_BASE_FONT_SIZE = 15
-
-/** 单条消息字号可选区间(px)。比全局档更宽:单条微调常用来临时放大某段回答。 */
-export const MESSAGE_FONT_SIZE_MIN = 12
-export const MESSAGE_FONT_SIZE_MAX = 22
-
-/** 覆盖条数上限。消息 id 是短生命周期的,不设上限会让 localStorage 无界增长。 */
-export const MESSAGE_OVERRIDE_LIMIT = 500
-
-/* ============================== 类型 ============================== */
-
-/** 单条消息的样式覆盖。全部可缺省:缺省 = 继承(不产出该变量)。 */
+/** 单条消息的展示覆盖;缺省 = 继承上级作用域 */
 export interface MessageStyleOverride {
-  /** 字号(px),产出为 `--message-font-multiplier` */
-  fontSize?: number
-  /** 字体族档 */
-  fontFamily?: FontFamilyMode
-  /** 行高档 */
-  lineHeight?: LineHeightMode
-  /** 字距档 */
-  letterSpacing?: LetterSpacingMode
-  /** 对齐档(text-align) */
-  align?: TextAlignMode
-  /** 代码块字号(px) */
+  fontScale?: number
+  fontFamily?: 'inherit' | FontFamilyMode | 'legibility'
+  lineHeight?: 'inherit' | LineHeightMode
+  letterSpacing?: 'inherit' | LetterSpacingMode
+  textAlign?: 'inherit' | TextAlignMode
   codeFontSize?: number
 }
 
-/* ============================ 档位映射 ============================ */
-/*
- * 一律用 `Record<Union, ...>` 而不是数组:
- * 上游枚举一旦加档,TS 会在这里当场报缺键 ⇒ 强制同步,不会静默漏一个档。
- */
-
-const LINE_HEIGHT_VARS: Record<LineHeightMode, string> = {
-  compact: '1.45',
-  normal: '1.65',
-  relaxed: '1.9',
+export interface WorkspaceAppearanceOverride {
+  enabled: boolean
+  config: AppearanceConfig
 }
 
-const LETTER_SPACING_VARS: Record<LetterSpacingMode, string> = {
-  tight: '-0.01em',
-  normal: 'normal',
-  wide: '0.02em',
-}
-
-/** `system` 档 = 什么都不产出(继承宿主),其余走 design-tokens 的字体令牌。 */
-const FONT_FAMILY_VARS: Record<FontFamilyMode, string | undefined> = {
-  system: undefined,
-  sans: 'var(--font-sans)',
-  serif: 'var(--font-serif)',
-  mono: 'var(--font-mono)',
-}
-
-const TEXT_ALIGN_VARS: Record<TextAlignMode, string> = {
-  left: 'left',
-  justify: 'justify',
-}
-
-/* ============================== 净化 ============================== */
-
-function clampInt(raw: unknown, min: number, max: number): number | undefined {
-  if (typeof raw !== 'number' || !Number.isFinite(raw)) return undefined
-  return Math.min(max, Math.max(min, Math.round(raw)))
-}
-
-function pickEnum<T extends string>(raw: unknown, table: Record<T, unknown>): T | undefined {
-  if (typeof raw !== 'string') return undefined
-  return Object.hasOwn(table, raw) ? (raw as T) : undefined
-}
-
-/**
- * 把任意来路(盘上旧快照 / 导入文件)的覆盖对象收敛成合法形状。
- *
- * 幂等:对已净化的对象再调一次结果逐字相同,所以写入口与读出口可以各调一次
- * (写入防脏数据落盘,读取防盘上旧数据带崩渲染)。
- */
-export function sanitizeMessageStyleOverride(raw: unknown): MessageStyleOverride {
-  if (!raw || typeof raw !== 'object') return {}
-  const r = raw as Record<string, unknown>
-  const out: MessageStyleOverride = {}
-  const fontSize = clampInt(r.fontSize, MESSAGE_FONT_SIZE_MIN, MESSAGE_FONT_SIZE_MAX)
-  if (fontSize !== undefined) out.fontSize = fontSize
-  const codeFontSize = clampInt(r.codeFontSize, CODE_FONT_SIZE_MIN, CODE_FONT_SIZE_MAX)
-  if (codeFontSize !== undefined) out.codeFontSize = codeFontSize
-  const fontFamily = pickEnum(r.fontFamily, FONT_FAMILY_VARS)
-  if (fontFamily) out.fontFamily = fontFamily
-  const lineHeight = pickEnum(r.lineHeight, LINE_HEIGHT_VARS)
-  if (lineHeight) out.lineHeight = lineHeight
-  const letterSpacing = pickEnum(r.letterSpacing, LETTER_SPACING_VARS)
-  if (letterSpacing) out.letterSpacing = letterSpacing
-  const align = pickEnum(r.align, TEXT_ALIGN_VARS)
-  if (align) out.align = align
-  return out
-}
-
-/* ========================== 变量生成(纯函数) ========================== */
-
-function round4(n: number): number {
-  return Math.round(n * 10000) / 10000
-}
-
-/**
- * 覆盖对象 → 容器内联样式。
- *
- * 空覆盖返回 `{}`(而非 undefined):调用方 `style={messageVars}` 任何情况下都是
- * 合法入参,不必在每个调用点写一次 `?? undefined`。
- */
-export function messageStyleVars(override?: MessageStyleOverride): CSSProperties {
-  const o = sanitizeMessageStyleOverride(override)
-  const vars: Record<string, string> = {}
-  if (o.fontSize !== undefined) {
-    vars['--message-font-multiplier'] = String(round4(o.fontSize / MESSAGE_BASE_FONT_SIZE))
-  }
-  if (o.lineHeight) vars['--message-line-height'] = LINE_HEIGHT_VARS[o.lineHeight]
-  if (o.letterSpacing) vars['--message-letter-spacing'] = LETTER_SPACING_VARS[o.letterSpacing]
-  if (o.fontFamily) {
-    const family = FONT_FAMILY_VARS[o.fontFamily]
-    if (family) vars['--message-font-family'] = family
-  }
-  if (o.codeFontSize !== undefined) vars['--message-code-font-size'] = `${o.codeFontSize}px`
-  if (o.align) vars.textAlign = TEXT_ALIGN_VARS[o.align]
-  // CSS 自定义属性不在 React.CSSProperties 的键里,只能经 unknown 转一次
-  return vars as unknown as CSSProperties
-}
-
-/* ============================== store ============================== */
-
-export interface AppearanceScopeState {
-  /** message id → 覆盖。缺键 = 该消息完全继承全局档 */
+export interface AppearanceScopeSnapshot {
+  version: 1
+  workspaces: Record<string, WorkspaceAppearanceOverride>
   messages: Record<string, MessageStyleOverride>
-  /** 写入顺序(最近在末尾),仅用于上限淘汰,不是业务数据 */
-  order: string[]
-  /** 合并式写入:patch 里缺省的字段保留原值 */
-  setMessageStyle: (messageId: string, patch: MessageStyleOverride) => void
-  /** 清空单条消息的覆盖(回到继承) */
-  clearMessageStyle: (messageId: string) => void
-  /** 清空全部单条消息覆盖(设置页「清除全部单条消息样式」的落点) */
-  clearAllMessageStyles: () => void
+  cloudSyncEnabled: boolean
+  lastSyncedAt: number
+}
+
+export type AppearanceSyncState = 'idle' | 'syncing' | 'synced' | 'error'
+
+export const MESSAGE_OVERRIDE_LIMIT = 1000
+export const MESSAGE_FONT_SCALE_MIN = 0.7
+export const MESSAGE_FONT_SCALE_MAX = 1.6
+export const MESSAGE_CODE_FONT_SIZE_MIN = 11
+export const MESSAGE_CODE_FONT_SIZE_MAX = 22
+
+interface AppearanceScopeState {
+  workspaces: Record<string, WorkspaceAppearanceOverride>
+  messages: Record<string, MessageStyleOverride>
+  cloudSyncEnabled: boolean
+  lastSyncedAt: number
+  syncState: AppearanceSyncState
+  setWorkspaceConfig: (path: string, config: AppearanceConfig) => void
+  setWorkspaceEnabled: (path: string, enabled: boolean) => void
+  clearWorkspace: (path: string) => void
+  setMessageOverride: (messageId: string, patch: MessageStyleOverride) => void
+  clearMessageField: (messageId: string, field: keyof MessageStyleOverride) => void
+  clearMessageOverride: (messageId: string) => void
+  clearAllMessageOverrides: () => void
+  resetScope: () => void
+  setCloudSyncEnabled: (enabled: boolean) => void
+  setSyncState: (state: AppearanceSyncState) => void
+  setLastSyncedAt: (timestamp: number) => void
+  exportSnapshot: () => AppearanceScopeSnapshot
+  applySnapshot: (snapshot: unknown) => boolean
+}
+
+const FONT_FAMILIES: readonly MessageStyleOverride['fontFamily'][] = [
+  'inherit',
+  'system',
+  'sans',
+  'serif',
+  'mono',
+  'legibility',
+]
+const LINE_HEIGHT_MODES: readonly MessageStyleOverride['lineHeight'][] = [
+  'inherit',
+  'compact',
+  'normal',
+  'relaxed',
+]
+const LETTER_SPACING_MODES: readonly MessageStyleOverride['letterSpacing'][] = [
+  'inherit',
+  'tight',
+  'normal',
+  'wide',
+]
+const TEXT_ALIGN_MODES: readonly MessageStyleOverride['textAlign'][] = [
+  'inherit',
+  'left',
+  'justify',
+]
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value))
+}
+
+function sanitizeMessageOverride(raw: unknown): MessageStyleOverride | null {
+  if (typeof raw !== 'object' || raw === null) return null
+  const input = raw as Record<string, unknown>
+  const out: MessageStyleOverride = {}
+  if (typeof input.fontScale === 'number' && Number.isFinite(input.fontScale)) {
+    out.fontScale =
+      Math.round(clamp(input.fontScale, MESSAGE_FONT_SCALE_MIN, MESSAGE_FONT_SCALE_MAX) * 100) / 100
+  }
+  if (typeof input.codeFontSize === 'number' && Number.isFinite(input.codeFontSize)) {
+    out.codeFontSize = Math.round(
+      clamp(input.codeFontSize, MESSAGE_CODE_FONT_SIZE_MIN, MESSAGE_CODE_FONT_SIZE_MAX),
+    )
+  }
+  if (FONT_FAMILIES.includes(input.fontFamily as never)) {
+    out.fontFamily = input.fontFamily as MessageStyleOverride['fontFamily']
+  }
+  if (LINE_HEIGHT_MODES.includes(input.lineHeight as never)) {
+    out.lineHeight = input.lineHeight as MessageStyleOverride['lineHeight']
+  }
+  if (LETTER_SPACING_MODES.includes(input.letterSpacing as never)) {
+    out.letterSpacing = input.letterSpacing as MessageStyleOverride['letterSpacing']
+  }
+  if (TEXT_ALIGN_MODES.includes(input.textAlign as never)) {
+    out.textAlign = input.textAlign as MessageStyleOverride['textAlign']
+  }
+  return Object.keys(out).length > 0 ? out : null
+}
+
+/**
+ * 把单条消息覆盖编译成 CSS 变量。
+ * 只产生"消息级增量变量",全局值仍由 AppearanceProvider 提供 —— 回退链在 CSS 里完成。
+ */
+export function messageStyleVars(override?: MessageStyleOverride): Record<string, string> {
+  if (!override) return {}
+  const vars: Record<string, string> = {}
+  if (override.fontScale) vars['--message-font-multiplier'] = String(override.fontScale)
+  if (override.fontFamily && override.fontFamily !== 'inherit') {
+    vars['--message-font-family'] =
+      override.fontFamily === 'legibility'
+        ? FONT_STACKS.legibility
+        : override.fontFamily === 'system'
+          ? 'inherit'
+          : FONT_STACKS[override.fontFamily]
+  }
+  if (override.lineHeight && override.lineHeight !== 'inherit') {
+    vars['--message-line-height'] = LINE_HEIGHTS[override.lineHeight]
+  }
+  if (override.letterSpacing && override.letterSpacing !== 'inherit') {
+    vars['--message-letter-spacing'] = LETTER_SPACINGS[override.letterSpacing]
+  }
+  if (override.textAlign && override.textAlign !== 'inherit') {
+    vars['--message-text-align'] = override.textAlign
+  }
+  if (override.codeFontSize) vars['--message-code-font-size'] = `${override.codeFontSize}px`
+  return vars
 }
 
 export const useAppearanceScopeStore = create<AppearanceScopeState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
+      workspaces: {},
       messages: {},
-      order: [],
-      setMessageStyle: (messageId, patch) =>
-        set((s) => {
-          if (!messageId) return {}
-          const merged = sanitizeMessageStyleOverride({ ...s.messages[messageId], ...patch })
-          const messages = { ...s.messages }
-          const order = s.order.filter((id) => id !== messageId)
-          if (Object.keys(merged).length === 0) {
-            // 把每个字段都调回「继承」等价于没有覆盖:不留空对象占位
-            delete messages[messageId]
-          } else {
-            messages[messageId] = merged
-            order.push(messageId)
+      cloudSyncEnabled: false,
+      lastSyncedAt: 0,
+      syncState: 'idle',
+
+      setWorkspaceConfig: (path, config) =>
+        set((state) => ({
+          workspaces: {
+            ...state.workspaces,
+            [path]: { enabled: true, config: { ...config } },
+          },
+        })),
+
+      setWorkspaceEnabled: (path, enabled) =>
+        set((state) => {
+          const current = state.workspaces[path]
+          if (!current) {
+            if (!enabled) return state
+            return {
+              workspaces: {
+                ...state.workspaces,
+                [path]: { enabled: true, config: { ...APPEARANCE_DEFAULTS } },
+              },
+            }
           }
-          while (order.length > MESSAGE_OVERRIDE_LIMIT) {
-            const evicted = order.shift()
-            if (evicted) delete messages[evicted]
+          return {
+            workspaces: { ...state.workspaces, [path]: { ...current, enabled } },
           }
-          return { messages, order }
         }),
-      clearMessageStyle: (messageId) =>
-        set((s) => {
-          if (!s.messages[messageId]) return {}
-          const messages = { ...s.messages }
+
+      clearWorkspace: (path) =>
+        set((state) => {
+          if (!(path in state.workspaces)) return state
+          const next = { ...state.workspaces }
+          delete next[path]
+          return { workspaces: next }
+        }),
+
+      setMessageOverride: (messageId, patch) =>
+        set((state) => {
+          const sanitized = sanitizeMessageOverride(patch)
+          if (!sanitized) return state
+          const existing = state.messages[messageId] ?? {}
+          const merged = { ...existing, ...sanitized }
+          const messages = { ...state.messages, [messageId]: merged }
+          const keys = Object.keys(messages)
+          if (keys.length > MESSAGE_OVERRIDE_LIMIT) {
+            // 插入序近似 LRU:超限时丢弃最早的一条,避免 localStorage 无界增长
+            for (const key of keys.slice(0, keys.length - MESSAGE_OVERRIDE_LIMIT)) {
+              delete messages[key]
+            }
+          }
+          return { messages }
+        }),
+
+      clearMessageOverride: (messageId) =>
+        set((state) => {
+          if (!(messageId in state.messages)) return state
+          const messages = { ...state.messages }
           delete messages[messageId]
-          return { messages, order: s.order.filter((id) => id !== messageId) }
+          return { messages }
         }),
-      clearAllMessageStyles: () => set({ messages: {}, order: [] }),
+
+      clearMessageField: (messageId, field) =>
+        set((state) => {
+          const current = state.messages[messageId]
+          if (!current || !(field in current)) return state
+          const next = { ...current }
+          delete next[field]
+          const messages = { ...state.messages }
+          if (Object.keys(next).length === 0) delete messages[messageId]
+          else messages[messageId] = next
+          return { messages }
+        }),
+
+      clearAllMessageOverrides: () => set({ messages: {} }),
+      resetScope: () => set({ workspaces: {}, messages: {} }),
+
+      setCloudSyncEnabled: (cloudSyncEnabled) => set({ cloudSyncEnabled }),
+      setSyncState: (syncState) => set({ syncState }),
+      setLastSyncedAt: (lastSyncedAt) => set({ lastSyncedAt }),
+
+      exportSnapshot: () => {
+        const state = get()
+        return {
+          version: 1,
+          workspaces: state.workspaces,
+          messages: state.messages,
+          cloudSyncEnabled: state.cloudSyncEnabled,
+          lastSyncedAt: state.lastSyncedAt,
+        }
+      },
+
+      applySnapshot: (snapshot) => {
+        if (typeof snapshot !== 'object' || snapshot === null) return false
+        const input = snapshot as Record<string, unknown>
+        if (input.version !== 1) return false
+
+        const workspaces: Record<string, WorkspaceAppearanceOverride> = {}
+        if (typeof input.workspaces === 'object' && input.workspaces !== null) {
+          for (const [path, value] of Object.entries(input.workspaces)) {
+            if (typeof value !== 'object' || value === null) continue
+            const entry = value as Record<string, unknown>
+            const sanitized = sanitizeAppearanceConfig(entry.config)
+            workspaces[path] = {
+              enabled: entry.enabled === true,
+              config: { ...APPEARANCE_DEFAULTS, ...sanitized },
+            }
+          }
+        }
+
+        const messages: Record<string, MessageStyleOverride> = {}
+        if (typeof input.messages === 'object' && input.messages !== null) {
+          let count = 0
+          for (const [messageId, value] of Object.entries(input.messages)) {
+            if (count >= MESSAGE_OVERRIDE_LIMIT) break
+            const sanitized = sanitizeMessageOverride(value)
+            if (!sanitized) continue
+            messages[messageId] = sanitized
+            count += 1
+          }
+        }
+
+        set({
+          workspaces,
+          messages,
+          cloudSyncEnabled: input.cloudSyncEnabled === true,
+          lastSyncedAt:
+            typeof input.lastSyncedAt === 'number' && Number.isFinite(input.lastSyncedAt)
+              ? input.lastSyncedAt
+              : 0,
+        })
+        return true
+      },
     }),
-    createPersistConfig<AppearanceScopeState>('ihui-appearance-scope', (s) => ({
-      messages: s.messages,
-      order: s.order,
-    })),
+    createPersistConfig<AppearanceScopeState>('ihui-appearance-scope'),
   ),
 )
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

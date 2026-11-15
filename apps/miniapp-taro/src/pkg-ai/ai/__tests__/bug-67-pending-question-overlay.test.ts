@@ -58,25 +58,12 @@ describe('BUG-67 提问卡:页级浮层 → 共享屏 overlaySlot', () => {
     expect(OVERLAY_BLOCK).toMatch(/key=\{o\.id\}/u)
   })
 
-  it('无 sessionId 旧链路:选项写回输入框并收卡(用户点发送续流);关闭走 dismissQuestionCard', () => {
-    // 旧链路分支:帧无 sessionId 时点选项 → 回写输入框 + 收卡(原 BUG-67 行为保留)
-    expect(OVERLAY_BLOCK).toMatch(/setInputValue\(o\.label\)\s*\n\s*setPendingQuestion\(null\)/u)
-    // 关闭/摘卡统一走 dismissQuestionCard(阻塞式与旧链路共用,同时清状态)
-    expect(OVERLAY_BLOCK).toMatch(/onClick=\{dismissQuestionCard\}/u)
-  })
-
-  it('D135:帧带 sessionId 时走阻塞式作答(选中态 + 提交/跳过 + 自定义输入)', () => {
-    // 选项点选走 selectQuestionOption(切换选中态),不再写回输入框
-    expect(OVERLAY_BLOCK).toContain('selectQuestionOption(o.id)')
-    // 选中态高亮 + 只读(非 idle 时点选无效)
-    expect(OVERLAY_BLOCK).toContain('const selected = questionAnswer.selectedIds.includes(o.id)')
-    expect(OVERLAY_BLOCK).toContain("const readOnly = questionPhase !== 'idle'")
-    // 提交/跳过双键 + 自定义输入框
-    expect(OVERLAY_BLOCK).toContain("void submitQuestion('answer')")
-    expect(OVERLAY_BLOCK).toContain("void submitQuestion('withdraw')")
-    expect(OVERLAY_BLOCK).toContain('setQuestionCustomText')
-    // 旧链路仅当帧无 sessionId 时启用
-    expect(OVERLAY_BLOCK).toContain('pendingQuestion.sessionId ?')
+  it('选项点击先回写输入框再收卡;关闭只收卡,不吞掉已有输入', () => {
+    expect(OVERLAY_BLOCK).toMatch(
+      /onClick=\{\(\) => \{\s*setInputValue\(o\.label\)\s*setPendingQuestion\(null\)/u,
+    )
+    // 允许 View 上带按压反馈属性(hoverClass)后再跟 onClick —— A3 交互卫生要求可点元素带反馈。
+    expect(OVERLAY_BLOCK).toMatch(/<View\b[^>]*onClick=\{\(\) => setPendingQuestion\(null\)\}/u)
   })
 
   it('可多选 / 可自定义 / 关闭三态文案与 BUG-67 原文逐字相同', () => {

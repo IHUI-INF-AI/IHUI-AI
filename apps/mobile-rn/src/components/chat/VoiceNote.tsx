@@ -704,12 +704,12 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: rnType.label.size,
-    color: tokens.danger.DEFAULT,
+    color: tokens.danger.deepText,
     marginBottom: rnSpacing.sm,
   },
   pendingText: {
     fontSize: rnType.label.size,
-    color: tokens.text.tertiary,
+    color: tokens.text.medium,
     marginBottom: rnSpacing.sm,
   },
   transcriptBox: {
@@ -790,7 +790,7 @@ const styles = StyleSheet.create({
     paddingVertical: rnSpacing['xs-loose'],
     paddingHorizontal: rnSpacing['2xs'],
   },
-  archiveDuration: { fontSize: rnType.caption.size, color: tokens.text.tertiary },
+  archiveDuration: { fontSize: rnType.caption.size, color: tokens.text.medium },
   archiveText: { flex: 1, fontSize: rnType.label.size, color: tokens.text.primary },
   archiveAction: { fontSize: rnType.caption.size, color: tokens.text.secondary },
   groupEditor: {

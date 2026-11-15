@@ -13,7 +13,6 @@ import { BUSINESS_CARD_DATA_KEY } from '@/constants/storage'
 import ThemeRoot from '@/components/ThemeRoot'
 import './index.css'
 import { onToast } from '@/host/on-toast'
-import { showShareMenu } from '@/utils/share'
 
 type StoredData = {
   uuid?: string
@@ -74,15 +73,6 @@ export default function BusinessCardIndex() {
     Taro.navigateTo({ url: '/pkg-shop/wallet/recharge/index' })
   }, [])
 
-  // 微信 button 的 open-type 合法值里没有 'shareTimeline':朋友圈分享只能由页面级
-  // useShareTimeline + 右上角菜单触发。这里开启含朋友圈的分享入口并给引导,
-  // 不再用 as 'share' 断言伪装一个运行时不存在的开放能力(点下去本来毫无反应)。
-  const onSharePyq = useCallback(() => {
-    // 复用 utils/share.ts 的正典出口(默认即含 shareAppMessage + shareTimeline),不自造第二份
-    showShareMenu()
-    onToast(tt('businessCard.sharePyq', '分享到朋友圈'), { kind: 'info' })
-  }, [tt])
-
   const shareTitle = tt('businessCard.shareTitle', '我的社区名片')
 
   useShareAppMessage(() => ({
@@ -135,7 +125,7 @@ export default function BusinessCardIndex() {
                 <Button className="action-btn" openType="share">
                   {tt('businessCard.shareWx', '分享给好友')}
                 </Button>
-                <Button className="action-btn" onClick={onSharePyq}>
+                <Button className="action-btn" openType={'shareTimeline' as 'share'}>
                   {tt('businessCard.sharePyq', '分享到朋友圈')}
                 </Button>
               </View>

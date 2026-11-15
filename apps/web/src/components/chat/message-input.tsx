@@ -14,6 +14,7 @@ import {
 } from '@ihui/design-tokens'
 
 import { cn } from '@/lib/utils'
+import { MENU_ITEM_CLASS, MENU_ITEM_ICON_CLASS } from '@/lib/menu-item'
 import { SlashCommandPalette } from '@/components/ai/slash-command-palette'
 import { VoiceToolbar } from './voice-toolbar'
 import { VoiceCompanion } from './voice-companion'
@@ -51,7 +52,7 @@ import {
   AgentProgressShortcutHost,
 } from '@/components/ai/agent-progress-trigger'
 import { ModeSwitcher } from '@/components/chat/mode-switcher'
-import { SamplingParamsButton } from '@/components/chat/sampling-params-panel'
+import { SamplingParamsButton, SamplingParamsPanel } from '@/components/chat/sampling-params-panel'
 // D130(2026-09-30 立):推理强度第三轴 —— 输入区的档位控件。摘掉下面 JSX 里那一行挂载,
 // 档位就永远进不了请求(展示件、store、发送链全都还在,typecheck/lint 一路绿),
 //  apps/web/src/components/chat/__tests__/reasoning-effort-axis-mount.test.tsx 的①③正是守这一行。
@@ -209,13 +210,9 @@ export function PromptPolishEntry({
         disabled={disabled === true || busy || emptyDraft}
         onClick={onPolish}
         aria-label={t('ariaLabel')}
-        className={cn(
-          'flex w-full items-center gap-2 rounded-sm px-2.5 py-1.5 text-left text-label transition-colors',
-          'text-popover-foreground hover:bg-accent hover:text-accent-foreground',
-          'disabled:cursor-not-allowed disabled:opacity-50',
-        )}
+        className={MENU_ITEM_CLASS}
       >
-        <Wand2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+        <Wand2 className={MENU_ITEM_ICON_CLASS} aria-hidden="true" />
         <span className="min-w-0 flex-1 truncate">{t('entryLabel')}</span>
         <span className="shrink-0 text-[10px] text-muted-foreground">
           {phaseLabel[state.phase]}
@@ -258,8 +255,7 @@ interface MessageInputProps {
   sendLabel: string
   stopLabel: string
   model: string
-  /** 第二参 = 模型通道(2026-11-12 立):'pool' = 选中「我的号池」模型 */
-  onModelChange: (model: string, channel?: 'platform' | 'pool') => void
+  onModelChange: (model: string) => void
   modelLabel: string
   /** auto 模式下当前对话实际使用的模型(宿主传入),模型按钮据此显示真实模型名 */
   autoResolvedModel?: string
@@ -574,6 +570,10 @@ export function MessageInput({
   // - prompt:PromptTemplates 弹层
   // - skill:SkillLibrary 弹层
   const [addMenuOpen, setAddMenuOpen] = React.useState(false)
+  // 2026-11-15 层级修复:模型弹层 footer 里的采样参数入口不再把 Dialog 挂在菜单内部。
+  // 打开面板前先关模型弹层;面板由宿主常驻挂载,菜单关闭不会带走 Dialog 状态。
+  const [modelMenuOpen, setModelMenuOpen] = React.useState(false)
+  const [samplingOpen, setSamplingOpen] = React.useState(false)
   const [addMenuMode, setAddMenuMode] = React.useState<
     'menu' | 'prompt' | 'skill' | 'voice' | 'tools'
   >('menu')
@@ -868,8 +868,13 @@ export function MessageInput({
       if (draftAutoSend) {
         // 自动发送:显式传 draftInput 文本绕开 value state 异步更新的闭包旧值问题
         clearDraftAutoSend()
+        // 已发送的指令不留在输入框(失败时 submit 内部会把正文回填,不丢稿)
+        setValue('')
         void submitAndDismissLinkPreview(draftInput)
-        requestAnimationFrame(() => inputCoreRef.current?.focus())
+        requestAnimationFrame(() => {
+          inputCoreRef.current?.resize()
+          inputCoreRef.current?.focus()
+        })
         return
       }
       requestAnimationFrame(() => inputCoreRef.current?.focus())
@@ -1191,7 +1196,10 @@ export function MessageInput({
 
   return (
     <div>
-      <div className={cn('mx-auto max-w-3xl px-4 pb-px', compactTop ? 'pt-0' : 'pt-3')}>
+      <div
+        className={cn('mx-auto px-4 pb-px', compactTop ? 'pt-0' : 'pt-3')}
+        style={{ maxWidth: 'var(--chat-content-width, 48rem)' }}
+      >
         {/* 高风险模式持久化视觉警告(2026-07-25 深化,深度对标 Codex 高风险提示)
             - 提取到 HighRiskWarningBanner 子组件(2026-07-30),行为零变更
             - 内部消费 useAiPanelStore 计算 isHighRisk + useTranslations('chat')
@@ -1542,13 +1550,9 @@ export function MessageInput({
                           setAddMenuMode('menu')
                           setUnifiedOpen(true)
                         }}
-                        className={cn(
-                          'flex items-center gap-2 rounded-sm px-2.5 py-1.5 text-left text-label transition-colors',
-                          'text-popover-foreground hover:bg-accent hover:text-accent-foreground',
-                          'disabled:cursor-not-allowed disabled:opacity-50',
-                        )}
+                        className={MENU_ITEM_CLASS}
                       >
-                        <ListFilter className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                        <ListFilter className={MENU_ITEM_ICON_CLASS} />
                         <span className="min-w-0 flex-1 truncate">{tSuggest('title')}</span>
                       </button>
                       {/* D82 一键润色入口(2026-09-30 底栏单行化收纳):对当前草稿**就地改写**
@@ -1670,15 +1674,25 @@ export function MessageInput({
                     onChange={onModelChange}
                     label={modelLabel}
                     autoResolvedModel={autoResolvedModel}
+                    menuOpen={modelMenuOpen}
+                    onMenuOpenChange={setModelMenuOpen}
                     footer={
                       <>
                         <ReasoningEffortInputAxis model={model} disabled={isStreaming} />
                         {/* 高级参数入口(P1-7,2026-09-13):temperature/top_p/top_k/max_tokens +
-                          自定义 system prompt,会话级持久化,随请求下发 LLM 网关 */}
-                        <SamplingParamsButton disabled={isStreaming} />
+                          自定义 system prompt,会话级持久化,随请求下发 LLM 网关。
+                          2026-11-15:先关模型弹层再开面板(面板挂在本组件,不挂在菜单里)。 */}
+                        <SamplingParamsButton
+                          disabled={isStreaming}
+                          onOpen={() => {
+                            setModelMenuOpen(false)
+                            setSamplingOpen(true)
+                          }}
+                        />
                       </>
                     }
                   />
+                  <SamplingParamsPanel open={samplingOpen} onOpenChange={setSamplingOpen} />
                   {/* 语音转文字 / 语音笔记 / 任务进度 / 权限 / 模式 / Agent / 上下文环
                       已于 2026-11-04 移入「+ → 更多工具」抽屉(toolsMenuItems)。
                       底栏常驻锚点 = 状态芯片(仅活跃时) / + / 模型 / 发送·停止三动作。 */}
@@ -1780,7 +1794,7 @@ export function MessageInput({
             不进圆角描边卡内;字号 text-[9px] + muted;上下间距对称各 1px:上方 mt-px(卡→字),
             下方由 wrapper pb-px 承担(字→底),2026-09-30 用户指定 6px→1px) */}
         <p className="mt-px text-center text-[9px] text-muted-foreground">{t('aiDisclaimer')}</p>
-        {/* 2026-07-28 用户规则调整:删除外层 hint 行,字符数已迁移至输入框内右下角,
+        {/* 2026-07-28 用户规则调整:删除外层 hint 行,字符数固定在输入框第三行末尾(不随内容滚动),
             整体更紧凑、外层不再留空条;Enter 发送 · Shift+Enter 换行 用 textarea placeholder 承担(已有)。 */}
       </div>
       {/* 首次启用高风险模式确认弹窗(2026-07-25 深化,深度对标 Codex CLI safety guard)
@@ -1805,7 +1819,7 @@ export function MessageInput({
       <PermissionModeInfoModal mode={infoMode} onClose={() => setInfoMode(null)} />
       {/* 斜杠命令选中技能时触发的内联调用对话框(2026-08-08 立) */}
       {skillInvokeSkill && !skillInvokeResult && (
-        <div className="mx-auto mt-2 max-w-3xl px-4">
+        <div className="mx-auto mt-2 px-4" style={{ maxWidth: 'var(--chat-content-width, 48rem)' }}>
           <AiSkillInvokeDialog
             skill={skillInvokeSkill}
             error={skillInvokeError}
@@ -1826,7 +1840,7 @@ export function MessageInput({
         </div>
       )}
       {skillInvokeResult && (
-        <div className="mx-auto mt-2 max-w-3xl px-4">
+        <div className="mx-auto mt-2 px-4" style={{ maxWidth: 'var(--chat-content-width, 48rem)' }}>
           <AiSkillResultDialog
             result={skillInvokeResult}
             onClose={() => {

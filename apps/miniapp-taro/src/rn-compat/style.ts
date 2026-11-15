@@ -33,6 +33,35 @@ const UNITLESS = new Set([
   'scale',
 ])
 
+/**
+ * RN 的「轴向简写」→ 物理两向展开。
+ *
+ * 为什么必须展开(2026-11-14 实测取证,不是推测):
+ *   RN 的 `paddingHorizontal` / `paddingVertical` / `marginHorizontal` / `marginVertical`
+ *   是 **RN 自有属性**,CSS 里根本不存在 `padding-horizontal` 这种键(没有 `-horizontal`
+ *   / `-vertical` 作轴向后缀的 CSS 属性)。此前逐键原样透传,weapp 的 webview 遇到未知
+ *   属性整条丢弃 ⇒ 共享屏在小程序端**所有轴向内/外边距静默消失**,且不报任何错。
+ *
+ * 取证链(可复现):
+ *   1. `toTaroStyle({paddingHorizontal:16})` 实跑返回 `{paddingHorizontal:'16px'}`(旧行为);
+ *   2. `grep -r paddingHorizontal apps/miniapp-taro/node_modules/@tarojs/` 命中 **0**
+ *      —— Taro 运行时不认识这个键,不存在任何 RN 式兼容映射;
+ *   3. 产物 `dist/*.js` 里该键原样保留(`stateBtn:{…,paddingHorizontal:…,paddingVertical:9}`),
+ *      说明构建期也没有转译插件。
+ *
+ * 用量(packages/app/src + packages/ui-native/src 现读):paddingHorizontal 1602、
+ * paddingVertical 1392、marginHorizontal 106、marginVertical 19 —— 这不是边角料。
+ *
+ * 顺序语义与 RN/Yoga 一致:展开写在原键所在位置,后出现的显式 `paddingLeft` 覆盖它,
+ * 反之被它覆盖(与 RN 依对象键序逐次写入 Yoga 的行为同构)。
+ */
+const RN_AXIS_SHORTHAND: Readonly<Record<string, readonly [string, string]>> = {
+  paddingHorizontal: ['paddingLeft', 'paddingRight'],
+  paddingVertical: ['paddingTop', 'paddingBottom'],
+  marginHorizontal: ['marginLeft', 'marginRight'],
+  marginVertical: ['marginTop', 'marginBottom'],
+}
+
 /** 把 RN 的 shadowOpacity 折进颜色(CSS box-shadow 没有独立 alpha 通道) */
 function withAlpha(color: string | undefined, opacity: number | undefined): string {
   const alpha = opacity === undefined ? 1 : Math.max(0, Math.min(1, opacity))
@@ -50,17 +79,6 @@ function withAlpha(color: string | undefined, opacity: number | undefined): stri
     const g = parseInt(three.charAt(1) + three.charAt(1), 16)
     const b = parseInt(three.charAt(2) + three.charAt(2), 16)
     return `rgba(${r},${g},${b},${alpha})`
-  }
-  // rgb()/rgba() 也要与 opacity 相乘:否则 shadowOpacity(如 0.4)被整体忽略,
-  // 阴影退化成不透明色。颜色自带的 alpha 与 opacity 是同一通道的两次衰减。
-  const rgb = /^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*([\d.]+)\s*)?\)$/i.exec(base)
-  if (rgb) {
-    const r = Number(rgb[1])
-    const g = Number(rgb[2])
-    const b = Number(rgb[3])
-    const ownAlpha = rgb[4]
-    const combined = alpha * (ownAlpha === undefined ? 1 : Number(ownAlpha))
-    return `rgba(${r},${g},${b},${Math.max(0, Math.min(1, combined))})`
   }
   return base
 }
@@ -119,21 +137,17 @@ export function flattenStyle(style: unknown): Record<string, unknown> {
 
 /**
  * RN 样式 → Taro 可消费的内联样式对象。
- * 逐键转译:数字补 px、transform 归串、shadow 归 box-shadow、numberOfLines 归 line-clamp、
- * RN 专有键(非 CSS)丢弃 —— 丢弃即"小程序端不存在该能力",不是实现漏写。
+ * 逐键转译:数字补 px、轴向简写摊成物理两向、transform 归串、shadow 归 box-shadow、
+ * numberOfLines 归 line-clamp、RN 专有键(非 CSS)丢弃 —— 丢弃即"小程序端不存在该能力",
+ * 不是实现漏写。
  */
 export function toTaroStyle(style: unknown): CSSProperties | undefined {
   const src = flattenStyle(style)
   if (Object.keys(src).length === 0) return undefined
   const out: Record<string, string | number> = {}
-  // 先算 iOS 语义的 shadow* 四件套:它带颜色/透明度/偏移,优先级高于 elevation。
-  // ELEVATION_STEPS 的既定形态是两者同档携带,design-token 侧明确要求消费方 spread 一次
-  // 即得同一层级;若让 elevation 抢先占住 boxShadow,彩色效果光会被压成黑色硬影。
-  const shadow = boxShadowFrom(src)
   for (const [key, value] of Object.entries(src)) {
     if (value === undefined || value === null) continue
     if (key === 'transform') {
-      // 非数组一律不猜(既有单测锁定):共享层约定只给 RN 数组形态。
       const css = transformToCss(value)
       if (css) out.transform = css
       continue
@@ -147,39 +161,34 @@ export function toTaroStyle(style: unknown): CSSProperties | undefined {
       continue // 由下面 box-shadow 统一承接
     }
     if (key === 'elevation') {
-      // 只在没有 shadow* 四件套时用 Android 的无色层级兜底,避免覆盖带色效果光。
-      if (!shadow) {
-        const e = Number(value)
-        out.boxShadow = `0 ${Math.round(e / 2)}px ${e}px rgba(0,0,0,0.18)`
-      }
+      const e = Number(value)
+      out.boxShadow = `0 ${Math.round(e / 2)}px ${e}px rgba(0,0,0,0.18)`
       continue
     }
-    if (
-      key === 'textShadowOffset' ||
-      key === 'textShadowColor' ||
-      key === 'textShadowRadius' ||
-      key === 'textShadowOpacity'
-    ) {
-      continue // 四件套必须一起合成,单键透传会得到 wxss 不认识的 text-shadow-*
-    }
+    if (key === 'textShadowOffset' || key === 'textShadowOpacity') continue
     if (key === 'numberOfLines' || key === 'ellipsizeMode') continue
+    const axis = RN_AXIS_SHORTHAND[key]
+    if (axis) {
+      // 数字与字符串(含 rpx / var / calc)一视同仁:轴向简写不改变值的单位口径,
+      // 只把"一个键"摊成"两个物理边"。数字走与普通键同一套补 px 规则。
+      const expanded = typeof value === 'number' ? `${value}px` : (value as string)
+      out[axis[0]] = expanded
+      out[axis[1]] = expanded
+      continue
+    }
     if (typeof value === 'number') {
       out[key] = UNITLESS.has(key) ? value : `${value}px`
       continue
     }
     out[key] = value as string
   }
-  if (shadow) out.boxShadow = shadow
+  const shadow = boxShadowFrom(src)
+  if (shadow && !out.boxShadow) out.boxShadow = shadow
   const tsOffset = src.textShadowOffset as { width?: number; height?: number } | undefined
-  if (tsOffset || src.textShadowColor !== undefined || src.textShadowRadius !== undefined) {
-    const w = tsOffset?.width ?? 0
-    const h = tsOffset?.height ?? 0
-    const radius = typeof src.textShadowRadius === 'number' ? src.textShadowRadius : 0
-    const color =
-      src.textShadowColor === undefined
-        ? 'rgba(0,0,0,0.3)'
-        : withAlpha(String(src.textShadowColor), src.textShadowOpacity as number | undefined)
-    out.textShadow = `${w}px ${h}px ${radius}px ${color}`
+  if (tsOffset) {
+    out.textShadow = `${tsOffset.width ?? 0}px ${tsOffset.height ?? 0}px ${
+      (src.textShadowColor as string) ?? 'rgba(0,0,0,0.3)'
+    }`
   }
   Object.assign(out, clampFrom(src))
   return out as CSSProperties

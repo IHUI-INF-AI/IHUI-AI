@@ -43,8 +43,10 @@
  * `isRelayPoolRowSchedulable` 一份**(§0.6)。
  */
 
+import { notInArray } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { aiRelayKeyPool, aiRelayAccountPool } from '@ihui/database'
+import { STORE_PROVIDER_CODES } from '@ihui/shared/constants/store-platforms'
 import { logger } from '../utils/logger.js'
 import {
   isRelayPoolHealthState,
@@ -248,6 +250,8 @@ export async function loadRelayPoolRows(): Promise<RelayPoolRows> {
         lastRefreshAt: aiRelayAccountPool.lastRefreshAt,
       })
       .from(aiRelayAccountPool)
+      // 应用上架平台账号不是 AI 中转腿,不进可调度/容量分母
+      .where(notInArray(aiRelayAccountPool.providerCode, [...STORE_PROVIDER_CODES]))
       .orderBy(aiRelayAccountPool.providerCode, aiRelayAccountPool.uid),
   ])
   return { keyRows, accountRows }

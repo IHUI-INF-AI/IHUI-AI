@@ -17,9 +17,9 @@ const REDEEM_STATUS_KEY: Record<string, string> = {
 }
 
 export default async function RedeemPage() {
-  const t = await getTranslations('models')
   // SSR 首帧按 cookie 口径 + 汇率快照直出(layout 与 page 模块实例隔离,必须逐页播种)
   await seedServerCurrency()
+  const t = await getTranslations('models')
 
   const history = [
     { code: 'IHUI-2026-SUMMER-001', amount: 50, time: '2026-07-15 10:32', status: 'success' },

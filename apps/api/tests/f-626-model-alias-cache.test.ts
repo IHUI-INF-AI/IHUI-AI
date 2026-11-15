@@ -96,7 +96,9 @@ describe('F-626 别名解析:主库 + TTL 缓存 + 写后失效', () => {
   })
 
   it('② 命中缓存后不再查询(正结果与负结果都缓存)', async () => {
-    dbSelect.mockReturnValueOnce(selectRows([{ upstreamModel: 'up-cache', displayName: '缓存模型' }]))
+    dbSelect.mockReturnValueOnce(
+      selectRows([{ upstreamModel: 'up-cache', displayName: '缓存模型' }]),
+    )
 
     const first = await resolveModelAlias('f626-cache', 'alias-hit')
     const second = await resolveModelAlias('f626-cache', 'alias-hit')

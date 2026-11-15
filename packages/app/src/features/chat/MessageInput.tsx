@@ -119,7 +119,7 @@ export function MessageInput({
                   value={v.value}
                   onChangeText={(val: string) => onAgentVariableTextChange?.(i, val)}
                   placeholder={v.description}
-                  placeholderTextColor={tk.text.tertiary}
+                  placeholderTextColor={tk.text.secondary}
                 />
               ) : (
                 <TouchableOpacity
@@ -187,7 +187,6 @@ export function MessageInput({
       <View style={[styles.inputRow, isFocused && styles.inputRowFocused]}>
         {/* 语音/键盘切换按钮 */}
         <TouchableOpacity
-          accessibilityRole="button"
           style={styles.iconBtn}
           onPress={onVoiceToggle}
           hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
@@ -233,7 +232,7 @@ export function MessageInput({
             value={text}
             onChangeText={onTextChange}
             placeholder={placeholder || t('messageInput.placeholder')}
-            placeholderTextColor={tk.text.tertiary}
+            placeholderTextColor={tk.text.secondary}
             onFocus={onFocus}
             onBlur={onBlur}
             multiline
@@ -247,8 +246,6 @@ export function MessageInput({
         <View style={styles.rightActions}>
           {isFocused ? (
             <TouchableOpacity
-              accessibilityRole="button"
-              accessibilityLabel={t(isFullscreen ? 'a11y.collapse' : 'a11y.expand')}
               style={styles.iconBtn}
               onPress={onFullscreenToggle}
               hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
@@ -262,8 +259,6 @@ export function MessageInput({
           ) : null}
           {showAddFileBtn && !isFocused ? (
             <TouchableOpacity
-              accessibilityRole="button"
-              accessibilityLabel={t('a11y.addAttachment')}
               style={styles.iconBtn}
               onPress={onAddImage}
               hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
@@ -273,8 +268,6 @@ export function MessageInput({
           ) : null}
           {showAddFileBtn && isFocused ? (
             <TouchableOpacity
-              accessibilityRole="button"
-              accessibilityLabel={t('a11y.addAttachment')}
               style={styles.iconBtn}
               onPress={onAddFile}
               hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
@@ -284,8 +277,6 @@ export function MessageInput({
           ) : null}
           {text.length > 0 && !isStreaming ? (
             <TouchableOpacity
-              accessibilityRole="button"
-              accessibilityLabel={t('a11y.close')}
               style={styles.iconBtn}
               onPress={onClear}
               hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
@@ -338,7 +329,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingVertical: rnSpacing.md,
     },
     fullscreenBackBtn: { flexDirection: 'row', alignItems: 'center' },
-    fullscreenHint: { fontSize: rnType.label.size, color: tk.text.tertiary },
+    fullscreenHint: { fontSize: rnType.label.size, color: tk.text.medium },
     agentVarsContainer: {
       paddingVertical: rnSpacing.sm,
       paddingHorizontal: rnSpacing.xs,
@@ -346,7 +337,7 @@ function createStyles(tk: AppThemeTokens) {
     agentVarItem: { paddingHorizontal: rnSpacing.sm, paddingVertical: rnSpacing.xs },
     agentVarLabel: {
       fontSize: rnType.label.size,
-      color: tk.text.tertiary,
+      color: tk.text.medium,
       marginBottom: rnSpacing.xs,
     },
     agentVarInput: {
@@ -371,7 +362,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.muted,
     },
     agentVarImage: { width: '100%', height: '100%' },
-    agentVarImageText: { fontSize: rnType.caption.size, color: tk.text.tertiary },
+    agentVarImageText: { fontSize: rnType.caption.size, color: tk.text.medium },
     filesWrap: { paddingVertical: rnSpacing.sm },
     filesRow: { gap: rnSpacing.sm, paddingHorizontal: rnSpacing.xs },
     fileItem: {
@@ -427,7 +418,7 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
     },
     fileRemoveText: {
-      color: tk.surface.light,
+      color: tk.surface.onBrand,
       fontSize: rnType.label.size,
       lineHeight: rnType.badge.lineHeight,
       fontWeight: '700',
@@ -468,7 +459,7 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    voiceBarHint: { fontSize: rnType.label.size, color: tk.text.tertiary },
+    voiceBarHint: { fontSize: rnType.label.size, color: tk.text.medium },
     voiceBar: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -491,9 +482,9 @@ function createStyles(tk: AppThemeTokens) {
       borderWidth: 1,
       borderColor: tk.border.light,
     },
-    sendBtnDisabled: { backgroundColor: tk.text.tertiary },
+    sendBtnDisabled: { backgroundColor: tk.text.secondary },
     sendBtnText: { color: tk.surface.light, fontSize: rnType.body.size, fontWeight: '600' },
-    errorText: { marginTop: rnSpacing.xs, fontSize: rnType.body.size, color: tk.danger.DEFAULT },
+    errorText: { marginTop: rnSpacing.xs, fontSize: rnType.body.size, color: tk.danger.deepText },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

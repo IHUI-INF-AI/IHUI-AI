@@ -203,30 +203,26 @@ export function createToolDeltaHandler(
     const store = chatStore.getState()
     const message = store.messages.find((m) => m.id === assistantMessageId)
     const tc = message?.toolCalls?.find((t) => t.id === event.toolCallId)
-    // A1(2026-11-13):tool-delta 早于 tool-call-start 到达(resume/回放乱序)时,
-    // 旧实现 `if (!tc) return` 会静默丢弃该帧,D113 文件写工具的实时 diff 预览整段丢。
-    // 与 openai 路径(createOpenAiToolCallHandler L236 对"卡不存在"自建卡)对齐:
-    // 自建一张 running 占位卡接住 delta(ToolDeltaEvent 不带工具名/入参,只能占位,
-    // 后续 tool-call-start 到达时补全 toolName/args),delta 内容本身已保住不丢。
+    // A1(2026-11-13):tool-delta 早于 tool-call-start 到达时，旧实现 `if (!tc) return`
+    // 会静默丢弃整段实时 diff。改为自建占位卡接住 delta(status=running、toolName 待
+    // tool-call-start 到达补全)，与下方 createOpenAiToolCallHandler 的"无卡即建卡"路径对齐。
+    const prevPartialDiff = tc?.partialDiff ?? ''
     if (!tc) {
-      store.addToolCall(assistantMessageId, {
+      const card: Parameters<typeof store.addToolCall>[1] = {
         id: event.toolCallId,
         toolName: '',
         args: {},
         status: 'running',
-        // Y-82(sse 反向锁 G-816035):占位卡首帧也走**追加形态**(`'' + partialText`)。
-        // 此刻 partialDiff 尚不存在,首帧值等价于 `event.partialText`,但守卫把
-        // `partialDiff: <x>.partialText` 的字面形态判为覆盖直写(增量语义下不安全、
-        // 易被复制成真覆盖)。写成追加形态既保住首帧不丢,又与下方 updateToolCall 的
-        // 追加纪律同形,不破反向锁。
-        partialDiff: '' + event.partialText,
+        // partialText 是增量:占位卡同样只追加(首帧 prev 为空串),不得整帧覆盖。
+        partialDiff: prevPartialDiff + event.partialText,
         partialSeq: event.seq,
-      })
+      }
+      store.addToolCall(assistantMessageId, card)
       return
     }
     if (event.seq <= (tc.partialSeq ?? 0)) return
     chatStore.getState().updateToolCall(assistantMessageId, event.toolCallId, {
-      partialDiff: (tc.partialDiff ?? '') + event.partialText,
+      partialDiff: prevPartialDiff + event.partialText,
       partialSeq: event.seq,
     })
   }

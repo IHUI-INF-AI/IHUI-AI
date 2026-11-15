@@ -140,6 +140,12 @@
       "reviewBy": "2027-06-30"
     },
     {
+      "path": "scripts/check-no-conflict-markers.mjs",
+      "kind": "direct-run-uncovered",
+      "why": "直跑面无判面声明:本门按工作树文件/外部命令/git 读数取材、不经 selectFace ⇒ 缺门体同代自检;派发面已由 gate-body-provenance 拦截。用途:scripts/check-no-conflict-markers.mjs",
+      "reviewBy": "2027-06-30"
+    },
+    {
       "path": "scripts/check-overlay-zindex.mjs",
       "kind": "direct-run-uncovered",
       "why": "直跑面无判面声明:本门按工作树文件取材、不经 selectFace ⇒ 缺门体同代自检;派发面已由 gate-body-provenance 拦截。用途:check-overlay-zindex.mjs — 全屏遮罩 z-index 层级守门",
@@ -227,6 +233,12 @@
       "path": "scripts/check-verify-tmp-files.mjs",
       "kind": "direct-run-uncovered",
       "why": "直跑面无判面声明:本门按工作树文件取材、不经 selectFace ⇒ 缺门体同代自检;派发面已由 gate-body-provenance 拦截。用途:check-verify-tmp-files.mjs — 一次性验证/探针脚本落点守门(AGENTS.md §25 配套)",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "scripts/check-watermark-syntax.mjs",
+      "kind": "direct-run-uncovered",
+      "why": "直跑面无判面声明:本门按工作树文件/外部命令取材、不经 selectFace ⇒ 缺门体同代自检;派发面已由 gate-body-provenance 拦截。用途:check-watermark-syntax.mjs — 溯源水印语法门禁(2026-09-03 P1 落地 / 2026-09-24 判据缺陷修复)",
       "reviewBy": "2027-06-30"
     },
     {

@@ -2,7 +2,6 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-
 /**
  * 飞书审批映射单测(2026-11-14 立,RP-16)。
  *
@@ -51,9 +50,7 @@ describe('飞书审批映射 · leave', () => {
 
   it('④ i18n_names 缺 ch → 回落 en', () => {
     const rows = mapApprovalDataToRows('leave', {
-      leaves: [
-        { approval_id: 'a-002', uniq_id: 'E002', i18n_names: { en: 'Sick Leave' } },
-      ],
+      leaves: [{ approval_id: 'a-002', uniq_id: 'E002', i18n_names: { en: 'Sick Leave' } }],
     })
     expect(rows[0]!.typeText).toBe('Sick Leave')
   })
@@ -107,9 +104,7 @@ describe('飞书审批映射 · outgoing', () => {
 describe('飞书审批映射 · 边界', () => {
   it('⑤ 时间字符串缺时分 → HH:mm 为 null', () => {
     const rows = mapApprovalDataToRows('leave', {
-      leaves: [
-        { approval_id: 'a-003', uniq_id: 'E001', start_time: '2026-10-20' },
-      ],
+      leaves: [{ approval_id: 'a-003', uniq_id: 'E001', start_time: '2026-10-20' }],
     })
     expect(rows[0]?.checkInTime).toBeNull()
     expect(rows[0]?.startDate).toBe('2026-10-20')

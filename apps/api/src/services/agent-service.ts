@@ -7,7 +7,7 @@
  * 在 agents-queries 之上提供：详情聚合、发布状态机、审核提交、删除等业务编排。
  */
 
-import { eq, and, sql } from 'drizzle-orm'
+import { eq, and, sql, gt } from 'drizzle-orm'
 import { db, dbRead } from '../db/index.js'
 import { agents, users, zhsAgentBuy } from '@ihui/database'
 import {
@@ -150,6 +150,7 @@ export interface AgentPermission {
  *
  * 规则：
  * - agent.isVipExclusive=true 且用户 isVip=0 → type='vip_only', hasPermission=false
+ *   (系统内置 admin 豁免:is_system_admin=true 时跳过该门)
  * - agent.isFree=true → type='free', hasPermission=true
  * - 用户已购买（zhs_agent_buy 存在记录）→ type='purchased', hasPermission=true
  * - agent.price>0 → type='paid', hasPermission=true（需付费购买）
@@ -172,15 +173,18 @@ export async function calculateAgentPermission(
   // VIP 专享权限校验（对齐旧架构 group==1 && is_vip==0）
   if (agent.isVipExclusive) {
     let isVip = 0
+    let isAdmin = false
     if (userId) {
       const userRow = await dbRead
-        .select({ isVip: users.isVip })
+        .select({ isVip: users.isVip, isSystemAdmin: users.isSystemAdmin })
         .from(users)
         .where(eq(users.id, userId))
         .limit(1)
       isVip = userRow[0]?.isVip ?? 0
+      isAdmin = userRow[0]?.isSystemAdmin ?? false
     }
-    if (isVip < 1) {
+    // 系统内置 admin 不受 VIP 门限制(2026-11-15):机主 is_vip=0,但需要联调所有 VIP 专享智能体。
+    if (!isAdmin && isVip < 1) {
       result.hasPermission = false
       result.type = 'vip_only'
       result.reason = 'VIP 会员专享智能体，请先开通 VIP'
@@ -200,10 +204,20 @@ export async function calculateAgentPermission(
 
   // 已购买校验
   if (userId) {
+    // F-586:此前只按 (userId, agentId) 取一行,不校验 status/expiresAt,
+    // pending(未支付)/expired/cancelled 记录都会显示"已购买"。
+    // 只认 active 且未过期的购买记录(列定义见 agent-commerce.ts:31-32)。
     const purchased = await dbRead
       .select({ id: zhsAgentBuy.id })
       .from(zhsAgentBuy)
-      .where(and(eq(zhsAgentBuy.userId, userId), eq(zhsAgentBuy.agentId, agentId)))
+      .where(
+        and(
+          eq(zhsAgentBuy.userId, userId),
+          eq(zhsAgentBuy.agentId, agentId),
+          eq(zhsAgentBuy.status, 'active'),
+          gt(zhsAgentBuy.expiresAt, new Date()),
+        ),
+      )
       .limit(1)
     if (purchased.length > 0) {
       result.type = 'purchased'

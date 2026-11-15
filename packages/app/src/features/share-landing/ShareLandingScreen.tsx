@@ -3,13 +3,14 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useMemo, useState, type ReactNode } from 'react'
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { Image, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { Bot, ChevronDown, ChevronRight, Play } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 import type { TFunction } from '../../types'
+import { Tappable } from '@ihui/ui-native'
 
 export type ShareLandingState = 'loading' | 'error' | 'ready'
 
@@ -141,7 +142,7 @@ export function ShareLandingScreen({
                 <Image source={{ uri: content.modelIcon }} style={styles.modelIcon} />
               ) : (
                 <View style={[styles.modelIcon, styles.modelIconFallback]}>
-                  <Bot size={18} color={tk.text.tertiary} />
+                  <Bot size={18} color={tk.text.secondary} />
                 </View>
               )}
               <View style={styles.modelBody}>
@@ -182,18 +183,18 @@ export function ShareLandingScreen({
           <View style={styles.card}>
             {answer.thinking ? (
               <View style={styles.thinkingBlock}>
-                <Pressable
+                <Tappable
                   style={styles.thinkingHeader}
                   onPress={() => setThinkingOpen((open) => !open)}
                   accessibilityRole="button"
                 >
                   <Text style={styles.thinkingLabel}>{t('share.creation.thinkingProcess')}</Text>
                   {thinkingOpen ? (
-                    <ChevronDown size={14} color={tk.text.tertiary} />
+                    <ChevronDown size={14} color={tk.text.secondary} />
                   ) : (
-                    <ChevronRight size={14} color={tk.text.tertiary} />
+                    <ChevronRight size={14} color={tk.text.secondary} />
                   )}
-                </Pressable>
+                </Tappable>
                 {thinkingOpen ? <Text style={styles.thinkingText}>{answer.thinking}</Text> : null}
               </View>
             ) : null}
@@ -209,14 +210,14 @@ export function ShareLandingScreen({
             {images.length > 0 ? (
               <View style={styles.imageGrid}>
                 {images.map((url, index) => (
-                  <Pressable
+                  <Tappable
                     key={`${url}-${index}`}
                     style={styles.imageCell}
                     onPress={() => onPreviewImage(images, index)}
                     accessibilityRole="imagebutton"
                   >
                     <Image source={{ uri: url }} style={styles.gridImage} />
-                  </Pressable>
+                  </Tappable>
                 ))}
               </View>
             ) : null}
@@ -271,20 +272,20 @@ export function ShareLandingScreen({
 
           {footer ?? (
             <View style={styles.actions}>
-              <Pressable
+              <Tappable
                 style={[styles.actionButton, styles.actionPrimary]}
                 onPress={onRegenerate}
                 accessibilityRole="button"
               >
                 <Text style={styles.actionPrimaryText}>{t('share.creation.regenerate')}</Text>
-              </Pressable>
-              <Pressable
+              </Tappable>
+              <Tappable
                 style={[styles.actionButton, styles.actionSecondary]}
                 onPress={onShareFriend}
                 accessibilityRole="button"
               >
                 <Text style={styles.actionSecondaryText}>{t('share.creation.shareFriend')}</Text>
-              </Pressable>
+              </Tappable>
             </View>
           )}
         </ScrollView>
@@ -352,7 +353,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     modelBody: { flex: 1, gap: rnSpacing['2xs'] },
     modelName: { fontSize: rnType.body.size, fontWeight: '600', color: tk.text.primary },
-    meta: { fontSize: rnType.caption.size, color: tk.text.tertiary },
+    meta: { fontSize: rnType.caption.size, color: tk.text.medium },
     authorRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.xs },
     avatar: { width: 24, height: 24, borderRadius: rnRadius.md },
     questionRow: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: rnSpacing.xs },
@@ -375,7 +376,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingVertical: rnSpacing.xs,
     },
     thinkingHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-    thinkingLabel: { fontSize: rnType.caption.size, color: tk.text.tertiary },
+    thinkingLabel: { fontSize: rnType.caption.size, color: tk.text.medium },
     thinkingText: {
       marginTop: rnSpacing.xs,
       fontSize: rnType.caption.size,

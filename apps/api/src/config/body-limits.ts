@@ -16,9 +16,10 @@
  *   3. 本模块是这些数字的唯一出处:要调上限只改这里,不要在路由里另起一份。
  *
  * 取值依据(不是拍的,逐条可查):
- *   - GLOBAL 2MiB:普通业务 JSON(文本对话/表单/配置)实际峰值远低于此 —— 2MiB 已能装下
- *     约 40 万汉字;同时把"单请求内存放大"从 10MiB 压到 1/5,且与 headersTimeout 一起
- *     构成 slowloris 的第一道闸。
+ *   - GLOBAL 10MiB(2026-11-15 调整):普通业务 JSON(文本对话/表单/配置)此前收到 2MiB,
+ *     但管理面导入/联调会携带更大的配置与批量数据,2MiB 会把正常操作打成 413。
+ *     10MiB 是收紧前的原值,约 200 万汉字,仍远小于媒体类上限;媒体路由继续各自显式上限,
+ *     单请求内存放大的硬边界由此模块统一收口。
  *   - MEDIA 34MiB:对齐"上游 25MiB 单文件经 base64 膨胀(×4/3 ≈ 33.3MiB)"这一入参形态,
  *     与 ai-audio 既有 34MiB 先例同值(不新造第二个数)。
  *   - MEDIA_FILE_UPLOAD 26MiB:上游单文件上限 25MiB(Whisper 音频 / DALL·E 图像) + multipart 边界余量。
@@ -30,7 +31,7 @@
 import { MAX_MULTIPART_UPLOAD_SIZE } from '../utils/file-type-validator.js'
 
 /** 全局请求体上限(server.ts bodyLimit):只管普通 JSON / urlencoded。 */
-export const GLOBAL_JSON_BODY_LIMIT = 2 * 1024 * 1024
+export const GLOBAL_JSON_BODY_LIMIT = 10 * 1024 * 1024
 
 /** base64 内联媒体(图片/音频)入参上限:34MiB。 */
 export const MEDIA_BASE64_BODY_LIMIT = 34 * 1024 * 1024

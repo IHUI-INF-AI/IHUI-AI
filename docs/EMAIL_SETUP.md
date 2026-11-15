@@ -149,7 +149,7 @@ MAIL_PROVIDER=auto
 # 腾讯云 SES(国内邮箱)—— 已摘除通道,填了无人读
 TENCENT_SES_SECRET_ID=AKIDxxxxxxxxxxxxxxxxxxxx   # 替换成你的真值
 TENCENT_SES_SECRET_KEY=xxxxxxxxxxxxxxxxxxxxxxxx  # 替换成你的真值
-TENCENT_SES_FROM=noreply@aizhs.top               # 必须是 aizhs.top 域名下的地址
+TENCENT_SES_FROM=lizong@aizhs.top                # 必须是 aizhs.top 域名下的地址
 TENCENT_SES_REGION=ap-hongkong                   # 默认值,无需改
 ```
 
@@ -236,7 +236,7 @@ import('./src/services/email-service.js').then(async ({ sendEmail }) => {
 |---|---|---|
 | 收件在垃圾箱 | SPF / DKIM 未通过 | 看 SES 域名状态,确保两个都是 "已通过" |
 | 收件在垃圾箱 | 发件频率突增被反垃圾 | 控制发送速率(代码里加 jitter / 用队列) |
-| 收件在垃圾箱 | From 地址与 MAIL FROM 不一致 | `TENCENT_SES_FROM` 必须是 `noreply@aizhs.top`,跟实际 from 一致 |
+| 收件在垃圾箱 | From 地址与 MAIL FROM 不一致 | `TENCENT_SES_FROM` 必须是 `lizong@aizhs.top`,跟实际 from 一致 |
 
 ### 排错 3:SES 返回 429 / 限流
 

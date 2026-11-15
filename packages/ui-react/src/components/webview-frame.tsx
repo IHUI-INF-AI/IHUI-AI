@@ -332,7 +332,7 @@ export const WebViewFrame = React.forwardRef<HTMLDivElement, WebViewFrameProps>(
                   <img
                     src={`data:image/png;base64,${screenshot}`}
                     alt={title ?? url}
-                    className="h-auto w-full rounded-md border border-border shadow-elevation-sm"
+                    className="h-auto w-full rounded-md border border-stroke-default shadow-elevation-sm"
                   />
                 </div>
               </>
@@ -373,7 +373,7 @@ export const WebViewFrame = React.forwardRef<HTMLDivElement, WebViewFrameProps>(
                 <button
                   type="button"
                   onClick={onRetry}
-                  className="rounded-sm border border-border px-3 py-1.5 text-xs hover:bg-muted"
+                  className="rounded-sm border border-stroke-default px-3 py-1.5 text-xs hover:bg-muted"
                 >
                   {labels.retry}
                 </button>

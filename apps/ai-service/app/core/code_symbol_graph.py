@@ -97,7 +97,6 @@ def index_code(files: dict[str, str]) -> SymbolGraph:
         local_defs: list[tuple[int, str]] = []  # (line, name)
         for lineno, raw in enumerate(lines, start=1):
             line = raw
-            stripped = line.strip()
             for kind, pat in _SYMBOL_PATTERNS:
                 m = re.search(pat, line)
                 if m:
@@ -148,7 +147,7 @@ def impact_set(graph: SymbolGraph, name: str, max_depth: int = 3) -> set[str]:
     for _ in range(max_depth):
         nxt: set[str] = set()
         for node in frontier:
-            for f, caller in graph.call_edges.get(node, set()):
+            for _f, caller in graph.call_edges.get(node, set()):
                 if caller not in reached and caller != "<module>":
                     nxt.add(caller)
         reached |= nxt

@@ -20,13 +20,13 @@
  */
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
-import { eq, and, gte, lte, desc, like, sql, type SQL } from 'drizzle-orm'
+import { eq, and, gte, lt, lte, desc, like, sql, type SQL } from 'drizzle-orm'
 import { dbRead } from '../../db/index.js'
 import { orders, llmCallLogs, users, developerApiKeys } from '@ihui/database'
 import { error, emptyToUndefined } from '../../utils/response.js'
 import { requireAdmin } from '../../plugins/require-permission.js'
 import { sanitizeCsvCell } from '../../utils/csv-utils.js'
-import { bizDayStartFromKeyUtc } from '../../utils/biz-day.js'
+import { bizDayStartUtc } from '../../utils/biz-day.js'
 
 // =============================================================================
 // 常量
@@ -46,6 +46,29 @@ const RATE_LIMIT_WINDOW_MS = 60_000
 
 /** UTF-8 BOM(Excel 中文兼容) */
 const CSV_BOM = '\uFEFF'
+
+/**
+ * F-24:导出筛选的业务日界唯一出口。
+ *
+ * startDate/endDate 是前端传入的日历日(YYYY-MM-DD),业务日 = Asia/Shanghai(工单 F-2481)。
+ * 原 `${startDate}T00:00:00Z` / `${endDate}T23:59:59Z` 把上海 00:00–07:59 的订单错切到
+ * 前一天,且 `T23:59:59Z` 会丢 23:59:59.001–999ms。这里改走 utils/biz-day 的
+ * bizDayStartUtc(端内不再自写第四份时区算术):
+ * - 下界:该上海日 0 点(含),用 gte;
+ * - 上界:次日上海 0 点(不含),用 lt —— 整段自然日闭合且不丢毫秒。
+ * 只传一端时对应边界为 undefined(维持原「只设一端」语义)。
+ */
+export function bizDayBounds(
+  startDate?: string,
+  endDate?: string,
+): { start?: Date; endExclusive?: Date } {
+  // 以「该日 0 点 UTC(= 上海当日 08:00,必落同一上海日)」为锚点,交给 bizDayStartUtc 求日界
+  const start = startDate ? bizDayStartUtc(0, new Date(`${startDate}T00:00:00.000Z`)) : undefined
+  const endExclusive = endDate
+    ? bizDayStartUtc(-1, new Date(`${endDate}T00:00:00.000Z`))
+    : undefined
+  return { start, endExclusive }
+}
 
 // =============================================================================
 // 类型定义
@@ -286,13 +309,10 @@ const exportCsvRoutes: FastifyPluginAsync = async (server) => {
     if (userId) conds.push(eq(orders.userId, userId))
     if (status) conds.push(eq(orders.status, status))
     if (paymentMethod) conds.push(eq(orders.paymentMethod, paymentMethod))
-    // F-24:用户传的是「账单上海日」,不能按 UTC 日界切(上海 00:00–08:00 会漏当天前 8 小时)。
-    if (startDate) conds.push(gte(orders.createdAt, bizDayStartFromKeyUtc(startDate)))
-    if (endDate) {
-      // 结束日含当天,取次日上海日 00:00 的前一毫秒。
-      const nextDay = new Date(bizDayStartFromKeyUtc(endDate).getTime() + 86_400_000 - 1)
-      conds.push(lte(orders.createdAt, nextDay))
-    }
+    // F-24:上海业务日界(下界含当日 0 点、上界为次日 0 点开区间),不再用 UTC 日界
+    const dayRange = bizDayBounds(startDate, endDate)
+    if (dayRange.start) conds.push(gte(orders.createdAt, dayRange.start))
+    if (dayRange.endExclusive) conds.push(lt(orders.createdAt, dayRange.endExclusive))
     const where = conds.length > 0 ? and(...conds) : undefined
 
     try {
@@ -377,12 +397,10 @@ const exportCsvRoutes: FastifyPluginAsync = async (server) => {
     if (httpStatus !== undefined) conds.push(eq(llmCallLogs.httpStatus, httpStatus))
     if (minCost !== undefined) conds.push(gte(llmCallLogs.costCents, minCost))
     if (maxCost !== undefined) conds.push(lte(llmCallLogs.costCents, maxCost))
-    // F-81:与订单导出同一口径 —— 上海日界,不用 UTC。
-    if (startDate) conds.push(gte(llmCallLogs.createdAt, bizDayStartFromKeyUtc(startDate)))
-    if (endDate) {
-      const nextDay = new Date(bizDayStartFromKeyUtc(endDate).getTime() + 86_400_000 - 1)
-      conds.push(lte(llmCallLogs.createdAt, nextDay))
-    }
+    // F-24:上海业务日界(与 orders.csv 同一口径),不再用 UTC 日界
+    const dayRange = bizDayBounds(startDate, endDate)
+    if (dayRange.start) conds.push(gte(llmCallLogs.createdAt, dayRange.start))
+    if (dayRange.endExclusive) conds.push(lt(llmCallLogs.createdAt, dayRange.endExclusive))
     const where = conds.length > 0 ? and(...conds) : undefined
 
     try {

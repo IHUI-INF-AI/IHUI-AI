@@ -10050,6 +10050,7 @@
       "title": "Rename conversation"
     },
     "resizeHandleHint": "Drag to resize width",
+    "resizeFloatHint": "Drag edges to resize the panel",
     "settings": "Settings",
     "share": "Share",
     "shareConversation": "Shared conversation",

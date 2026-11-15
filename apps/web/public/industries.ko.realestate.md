@@ -201,8 +201,7 @@
   A: 12개 언어 지원 (중영일한불독서러아 등), 마이너 언어는 맞춤 음성 필요.
 
 ### 연락처
-- 부동산 산업: realestate@aizhs.top
-- 일반 연락: contact@aizhs.top
+- **통합 연락 이메일: lizong@aizhs.top** — 업종별 솔루션, 업종 자료 요청, 비즈니스 협의 모두 이 주소로 보내 주세요. 업종과 문의 유형을 적어 주시면 24시간 이내 회신합니다.
 - 공식 사이트: https://aizhs.top
 - GitHub: https://github.com/IHUI-INF-AI/IHUI-AI
 

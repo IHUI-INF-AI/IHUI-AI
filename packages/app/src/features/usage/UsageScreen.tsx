@@ -279,7 +279,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     cardTitleRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing['xs-loose'] },
     cardTitle: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
-    meta: { fontSize: rnType.label.size, color: tk.text.tertiary },
+    meta: { fontSize: rnType.label.size, color: tk.text.medium },
     muted: { fontSize: rnType.bodySm.size, color: tk.text.secondary, lineHeight: 19 },
     quotaRow: { flexDirection: 'row', gap: rnSpacing.sm, marginTop: rnSpacing.xs },
     quotaCell: { flex: 1, gap: rnSpacing['2xs'] },
@@ -295,7 +295,7 @@ function createStyles(tk: AppThemeTokens) {
     statsGrid: { flexDirection: 'row', gap: rnSpacing.sm, marginTop: rnSpacing.xs },
     statCell: { flex: 1, gap: rnSpacing['2xs'] },
     barRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.sm },
-    barLabel: { width: 38, fontSize: rnType.caption.size, color: tk.text.tertiary },
+    barLabel: { width: 38, fontSize: rnType.caption.size, color: tk.text.medium },
     barTrack: {
       flex: 1,
       height: 6,

@@ -123,14 +123,8 @@ export default function AgentDialogue() {
     userUuid: string | null
   }>({ id: null, content: null, time: null, userUuid: null })
 
-  // 滚底只保留一个在排定时器:逐 token 推送时逐次 clearTimeout 去重,卸载时清空。
-  const scrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const scrollToBottom = useCallback(() => {
-    if (scrollTimerRef.current) clearTimeout(scrollTimerRef.current)
-    scrollTimerRef.current = setTimeout(() => {
-      scrollTimerRef.current = null
-      setScrollTop((s) => (s === 99998 ? 99999 : 99998))
-    }, 60)
+    setTimeout(() => setScrollTop((s) => (s === 99998 ? 99999 : 99998)), 60)
   }, [])
 
   const loadChatHistory = useCallback(
@@ -496,10 +490,6 @@ export default function AgentDialogue() {
 
   useEffect(() => {
     return () => {
-      if (scrollTimerRef.current) {
-        clearTimeout(scrollTimerRef.current)
-        scrollTimerRef.current = null
-      }
       if (wsTaskRef.current) {
         try {
           wsTaskRef.current.close({})
@@ -557,9 +547,13 @@ export default function AgentDialogue() {
             />
             <Text>{tt('agentDialogue.audioMessage', '音频消息')}</Text>
           </View>
-          <Text className="text-label text-accent" onClick={() => openAudio(url)}>
-            {tt('agentDialogue.clickPlay', '点击播放')}
-          </Text>
+          <View
+            className="text-label text-accent"
+            hoverClass="opacity-60"
+            onClick={() => openAudio(url)}
+          >
+            <Text>{tt('agentDialogue.clickPlay', '点击播放')}</Text>
+          </View>
         </View>
       )
     }
@@ -581,9 +575,13 @@ export default function AgentDialogue() {
             />
             <Text>{tt('agentDialogue.fileMessage', '文件消息')}</Text>
           </View>
-          <Text className="text-label text-accent" onClick={() => openFile(url)}>
-            {tt('agentDialogue.clickView', '点击查看')}
-          </Text>
+          <View
+            className="text-label text-accent"
+            hoverClass="opacity-60"
+            onClick={() => openFile(url)}
+          >
+            <Text>{tt('agentDialogue.clickView', '点击查看')}</Text>
+          </View>
         </View>
       )
     }
@@ -670,6 +668,8 @@ export default function AgentDialogue() {
           onInput={onInputChange}
           confirmType="send"
           onConfirm={sendMessage}
+          cursorSpacing={44}
+          adjustPosition={false}
           disabled={sending}
         />
         <View

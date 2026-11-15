@@ -942,7 +942,8 @@
       "agree": "동의",
       "disagree": "반대"
     },
-    "loadFailed": "불러오기 실패"
+    "loadFailed": "불러오기 실패",
+    "admissionAhead": "앞에 {n}건 있습니다"
   },
   "settings": {
     "title": "설정",
@@ -2427,9 +2428,7 @@
     "confirmPasswordPlaceholder": "비밀번호를 다시 입력하세요",
     "password": "비밀번호",
     "passwordPlaceholder": "비밀번호를 입력하세요",
-    "title": "회원가입",
-    "show": "표시",
-    "hide": "숨기기"
+    "title": "회원가입"
   },
   "withdraw": {
     "availableBalance": "출금 가능 금액(원)",
@@ -3708,6 +3707,7 @@
   "activity": {
     "empty": "활동이 없습니다",
     "endTime": "종료 시간",
+    "joining": "제출 중…",
     "loadFailed": "불러오기 실패",
     "participants": "참여 인원",
     "startTime": "시작 시간",
@@ -5061,7 +5061,7 @@
     "analysisEstimate": "약 {tokens} tokens · 난이도 {difficulty}",
     "analysisPickFirst": "먼저 시나리오를 선택하세요",
     "analysisSubmit": "분석 시작",
-      "noValidContent": "가져올 수 있는 유효한 내용이 없습니다"
+    "noValidContent": "가져올 수 있는 유효한 내용이 없습니다"
   },
   "permissionTier": {
     "label": "권한 등급",
@@ -5693,6 +5693,7 @@
       "approvalPersistHit": "저장된 승인 재사용",
       "execPolicyApproved": "실행 정책에 따라 허용",
       "autoSkipApproval": "자동 승인(심사 생략)",
+      "autoReviewAllow": "자동 검토 승인",
       "skillGrantSkipApproval": "스킬 허용으로 승인 생략",
       "bypassSkipApproval": "심사 건너뜀",
       "mcpRequiresApproval": "MCP 주석이 승인 필요",
@@ -7543,6 +7544,7 @@
     "wrongBookTitle": "틀림"
   },
   "activities": {
+    "cancelJoin": "참여 취소",
     "join": "지금 참여",
     "notFound": "찾을 수 없음"
   },

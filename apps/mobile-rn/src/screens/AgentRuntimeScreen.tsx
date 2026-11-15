@@ -37,6 +37,7 @@ import { NavChrome } from '../components/NavChrome'
 import { useTheme } from '../context/ThemeContext'
 import { useI18n } from '../i18n'
 import { tokens } from '../theme/active-tokens'
+import { toFriendlyOr } from '@ihui/shared/utils'
 
 const SESSION_PAGE_SIZE = 50
 const DANGER_LEVELS = ['read', 'write', 'dangerous'] as const
@@ -98,7 +99,7 @@ export function AgentRuntimeScreen() {
       const res = await listAgentRuntimeSessions({ limit: SESSION_PAGE_SIZE, offset: 0 })
       setSessions(res.sessions ?? [])
     } catch (e) {
-      setError(e instanceof Error ? e.message : t('agentRuntime.loadFailed'))
+      setError(toFriendlyOr(e, t('agentRuntime.loadFailed')))
       setSessions([])
     } finally {
       setLoading(false)
@@ -130,10 +131,7 @@ export function AgentRuntimeScreen() {
             [session.sessionId]: { status: String(res.status), count: res.messageCount },
           }))
         } catch (e) {
-          appAlert(
-            t('common.loadFailed'),
-            e instanceof Error ? e.message : t('agentRuntime.loadFailed'),
-          )
+          appAlert(t('common.loadFailed'), toFriendlyOr(e, t('agentRuntime.loadFailed')))
         }
       })()
     },
@@ -148,10 +146,7 @@ export function AgentRuntimeScreen() {
           await resumeAgentRuntimeSession(session.sessionId)
           await load()
         } catch (e) {
-          appAlert(
-            t('agentRuntime.actionFailed'),
-            e instanceof Error ? e.message : t('agentRuntime.actionFailed'),
-          )
+          appAlert(t('agentRuntime.actionFailed'), toFriendlyOr(e, t('agentRuntime.actionFailed')))
         } finally {
           setBusyKey('')
         }
@@ -176,7 +171,7 @@ export function AgentRuntimeScreen() {
               } catch (e) {
                 appAlert(
                   t('agentRuntime.actionFailed'),
-                  e instanceof Error ? e.message : t('agentRuntime.actionFailed'),
+                  toFriendlyOr(e, t('agentRuntime.actionFailed')),
                 )
               } finally {
                 setBusyKey('')
@@ -208,10 +203,7 @@ export function AgentRuntimeScreen() {
           decision: String(res.decision),
         })
       } catch (e) {
-        appAlert(
-          t('agentRuntime.probeFailed'),
-          e instanceof Error ? e.message : t('agentRuntime.probeFailed'),
-        )
+        appAlert(t('agentRuntime.probeFailed'), toFriendlyOr(e, t('agentRuntime.probeFailed')))
       } finally {
         setProbing(false)
       }

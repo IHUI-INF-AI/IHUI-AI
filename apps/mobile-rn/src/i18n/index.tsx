@@ -83,32 +83,6 @@ export function getCurrentLocale(): Locale {
   return currentLocale
 }
 
-/**
- * 翻译逻辑唯一实现(Provider 内 t 与模块级 t 共用,避免两份语义漂移):
- * course.pay→courseDetail.pay 别名 + 当前语言 messages + DEFAULT_LOCALE 兜底 + 参数插值。
- */
-function translateKey(
-  locale: Locale,
-  key: string,
-  params?: Record<string, string | number>,
-): string {
-  const resolvedKey = key === 'course.pay' ? 'courseDetail.pay' : key
-  return translate(messages[locale], resolvedKey, {
-    fallback: messages[DEFAULT_LOCALE],
-    params,
-  })
-}
-
-/**
- * 模块级具名翻译入口(与 I18nContextValue.t 同签名、同语义,返回 string)。
- * 供组件树外 / 非 React 上下文 / 模块常量调用;语言取模块级镜像 currentLocale
- * (I18nProvider 每次渲染同步;未挂 Provider 时回落 DEFAULT_LOCALE),与 Provider 内 t 一致。
- * 2026-11-15 补:7 个组件以 `import { t as tStatic } from '../i18n'` 取用,此前未具名导出 ⇒ TS2305。
- */
-export function t(key: string, params?: Record<string, string | number>): string {
-  return translateKey(getCurrentLocale(), key, params)
-}
-
 export function I18nProvider({ children }: { children: ReactNode }) {
   const [locale, setLocaleState] = useState<Locale>(DEFAULT_LOCALE)
 
@@ -149,8 +123,13 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   // t 包 useCallback + value 走 useMemo —— 内联字面量每次渲染都新建 ⇒ 依赖 value/t 的
   // effect 全部跟着重跑。回归锁 tests/i18n-provider-value-identity.test.tsx。
   const t = useCallback(
-    (key: string, params?: Record<string, string | number>): string =>
-      translateKey(locale, key, params),
+    (key: string, params?: Record<string, string | number>): string => {
+      const resolvedKey = key === 'course.pay' ? 'courseDetail.pay' : key
+      return translate(messages[locale], resolvedKey, {
+        fallback: messages[DEFAULT_LOCALE],
+        params,
+      })
+    },
     [locale],
   )
 

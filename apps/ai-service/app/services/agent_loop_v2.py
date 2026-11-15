@@ -176,14 +176,8 @@ from .approval_generation_cas import (
     content_digest,
 )
 from .ask_user_question import (
-    STATUS_CONTINUED,
     cancel_session_questions,
-    continued_answer_message,
     create_question,
-    drain_continued_answers,
-    mark_continued,
-    normalize_timeout_s,
-    pending_question_notice,
     wait_for_answer,
 )
 from .durable_resume import (
@@ -229,6 +223,12 @@ from ..core.retry_after import hint_from_error, resolve_retry_delay_s
 
 # P0-2 会话级污点 + 凭据保险库(2026-10-26,对标 nanoMuse Sentinel)
 from ..core.session_taint import TaintSource as _TaintSource
+
+# 第五遍对标(2026-11-14,DSH dsh-tool-call-timeout-policy):per-tool 超时预算。
+# 外层 wait_for 不得早于工具自己声明的 timeout/max_timeout 与 handler 内部超时
+# (run_command 120s / dispatch_subagent 300s / office_document 300s);
+# 默认档(未登记工具)保持调用方传入的 tool_timeout 原值,行为不变。
+from ..core.tool_timeout_policy import resolve_tool_timeout_budget
 
 # Qoder 行为对齐(2026-11-08):轮次预算提示层。默认档不变(AGENT_MAX_ITERATIONS
 # 仍是 check-doom-loop-parity 的登记基准);部署侧可用 IHUI_AGENT_MAX_ITERATIONS
@@ -446,8 +446,6 @@ _DEFAULT_HIGH_RISK_TOOLS: frozenset[str] = frozenset({
     "resolve_conflict",
     # 命令类
     "run_command",
-    # 长驻交互式终端(2026-11-14):能力面等同 run_command,且能分步持续输入
-    "terminal",
     "computer_mouse_click",
     "computer_keyboard_type",
     "computer_screenshot_screen",
@@ -1760,6 +1758,7 @@ class AgentEventStream:
         blocked_network_targets: list[dict[str, Any]] | None = None,
         prompt_options: dict[str, Any] | None = None,
         decision_info: dict[str, Any] | None = None,
+        auto_review: dict[str, Any] | None = None,
     ) -> None:
         payload: dict[str, Any] = {
             "approval_id": approval_id,
@@ -1797,6 +1796,9 @@ class AgentEventStream:
         # G-09(2026-10-31):审批选项的真实可用性(可选附加键,老客户端按未知字段忽略)。
         if prompt_options is not None:
             payload[_APPROVAL_PROMPT_OPTIONS_KEY] = prompt_options
+        # 2026-11-14:Auto 档逐工具审查结论(可选附加键;缺席 = 未启用/无需审查)。
+        if auto_review is not None:
+            payload["auto_review"] = auto_review
         await self.emit("tool.approval", payload)
 
     async def question(
@@ -1820,23 +1822,15 @@ class AgentEventStream:
         selected_option_ids: list[str],
         custom_text: str,
         session_id: str,
-        continued: bool = False,
     ) -> None:
-        """question-resolved:问题结局帧(answered/timeout/withdrawn/interrupted)。
-
-        `continued=True` 只加一个附加键(前端词表仍是四态):timed 前台到期后
-        问题转入 continued,登记表保留可迟到答复,UI 按 timeout 结算。
-        """
-        payload: dict[str, Any] = {
+        """question-resolved:问题结局帧(answered/timeout/withdrawn/interrupted)。"""
+        await self.emit("question-resolved", {
             "questionId": question_id,
             "status": status,
             "selectedOptionIds": selected_option_ids,
             "customText": custom_text,
             "session_id": session_id,
-        }
-        if continued:
-            payload["continued"] = True
-        await self.emit("question-resolved", payload)
+        })
 
     async def permission_mode(
         self, *, mode: str, tool_name: str, decision: str, session_id: str
@@ -2618,6 +2612,12 @@ class AgentLoopV2:
         # builder 的构造入参(与 network_rule_amendments 喂 build_network_rule_saved_fragment
         # 同款方式),**不是第二份注入路径**。键与形态见该方法注释。
         instructional_inputs: dict[str, Any] | None = None,
+        # 第七遍对标(2026-11-14,DSH dsh-agent-instructions):会话工作目录。
+        # 非空时每个 LLM 迭代前重算工作区指令链 —— 本轮成功的 read/write/edit
+        # 到达更深目录、或指令文件被改写/删除时,向本次运行补发 REPLACEMENT/REMOVAL
+        # 片段;**只在本次运行内可见**(developer 角色,不回写用户可见历史)。
+        # None = 未接线,零行为变化(直接构造本循环的旧路径/测试不受影响)。
+        workspace: str | None = None,
     ):
         """
         Args:
@@ -2699,6 +2699,17 @@ class AgentLoopV2:
         # —— 工具在飞时仍等终态路径处理。
         self._stream_text_snapshot: str = ""
         self._tools: dict[str, ToolDefinition] = {t.name: t for t in tools}
+        # 第七遍对标(2026-11-14):工作区指令链的本次运行状态。
+        # _instruction_dirs = 本轮成功的 read/write/edit 触达的目录(深目录发现);
+        # _ws_instructions_last = 上一次实际生效的链正文(None=无指令)。
+        self._workspace: str | None = (
+            workspace.strip()
+            if isinstance(workspace, str) and workspace.strip()
+            else None
+        )
+        self._instruction_dirs: set[str] = set()
+        self._ws_instructions_initialized: bool = False
+        self._ws_instructions_last: str | None = None
         # Qoder 行为对齐(2026-11-08):env 显式放宽才生效,缺省与 AGENT_MAX_ITERATIONS
         # 逐字一致(不破 check-doom-loop-parity 的基准登记)。
         self.max_iterations = _resolve_turn_budget(max_iterations)
@@ -4206,9 +4217,6 @@ class AgentLoopV2:
         await self._inject_memory_context(messages)
         # W1(2026-09):入口:注入用户画像 snippet(对标 v1 P0 注入,复用 v1 实现)
         await self._inject_user_profile(messages)
-        # 2026-11-14(对标 DSH dsh-deliverable-file-references):注入交付物与文件引用规则。
-        # 静态段落、每轮幂等,失败降级不阻塞主循环。
-        self._inject_deliverable_guidance(messages)
         # 1-7 团队接力(P3-3,2026-09-03 立):入口:注入团队上一轮聚合摘要。
         # 默认关闭;开启且存在接力上下文时才改动 system prompt,否则为 no-op(零差异)。
         await self._inject_team_relay_context(messages)
@@ -4470,43 +4478,6 @@ class AgentLoopV2:
                 messages.insert(0, {"role": "system", "content": snippet})
         except Exception as e:
             logger.warning("user_profile snippet 注入失败(降级,不阻塞): %s", e)
-
-    def _inject_deliverable_guidance(self, messages: list[dict[str, Any]]) -> None:
-        """入口:交付物与文件引用规则注入(对标 DSH dsh-deliverable-file-references)。
-
-        为什么是 system prompt 段落而不是工具描述:规则要在"决定写最终答复"之前就生效
-        (内联图片、文件链接、何时 present),工具描述只在模型已经决定调用工具时才被读到。
-
-        纪律:静态文本、幂等(标记已在任意 system 消息里就跳过)、任何异常降级不阻塞。
-        """
-        try:
-            from ..core.deliverable_guidance import (
-                DELIVERABLE_FILE_REFERENCES,
-                DELIVERABLE_GUIDANCE_OPEN,
-            )
-
-            for msg in messages:
-                if (
-                    isinstance(msg, dict)
-                    and msg.get("role") == "system"
-                    and DELIVERABLE_GUIDANCE_OPEN in str(msg.get("content") or "")
-                ):
-                    return
-            if (
-                messages
-                and isinstance(messages[0], dict)
-                and messages[0].get("role") == "system"
-            ):
-                existing = messages[0].get("content", "")
-                messages[0]["content"] = (
-                    f"{existing}\n\n{DELIVERABLE_FILE_REFERENCES}"
-                    if existing
-                    else DELIVERABLE_FILE_REFERENCES
-                )
-            else:
-                messages.insert(0, {"role": "system", "content": DELIVERABLE_FILE_REFERENCES})
-        except Exception as e:
-            logger.warning("deliverable_guidance 注入失败(降级跳过): %s", e)
 
     # ------------------------------------------------------------------
     # 1-7 团队接力辅助(P3-3,2026-09-03 立;对标 meta_learner/metacognition 注入模式)
@@ -5435,20 +5406,6 @@ class AgentLoopV2:
                             "content": f"[steer] {steer_text}",
                         }
                     )
-                # 定时继续(2026-11-14 立,对标 DSH answer_to_pending_question):
-                # timed 提问到期后用户仍可答复,答复在下一轮 LLM 调用前作为 user 消息
-                # 注入(每条只交付一次)。失败隔离不阻塞回合。
-                if self._session_id:
-                    try:
-                        for _pending_item in drain_continued_answers(self._session_id):
-                            messages.append(
-                                {
-                                    "role": "user",
-                                    "content": continued_answer_message(_pending_item),
-                                }
-                            )
-                    except Exception as e:  # noqa: BLE001 - 迟到答复注入失败不阻塞主链路
-                        logger.warning("continued answer 注入异常(降级跳过): %s", e)
                 # 批 53:历史健全化(对标 codex context_manager/normalize.rs)——
                 # 压缩前先修历史:删孤儿 tool 回复 + 补缺位 tool 占位(中断/压缩/
                 # 宿主注入后可能产生残缺历史,残缺 assistant(tool_calls)↔tool 配对
@@ -5524,6 +5481,9 @@ class AgentLoopV2:
                 self._inject_context_fragments(messages)
                 self._inject_session_prefix(messages)
                 self._inject_instructional_fragments(messages)
+                # 第七遍对标(2026-11-14):工作区指令链增补注入。接线前是线程启动时
+                # 一次性拼接;本轮读到/写入更深目录或指令文件变动后,下一次请求即生效。
+                self._inject_workspace_instructions(messages)
                 # Qoder 行为对齐(2026-11-08):轮次预算提示。进入收尾窗口后注入一次,
                 # 让模型知道"还剩几轮"并自行收敛,而不是在最后一轮被突然截断成空回复。
                 # 只注入一次:短预算回合里每轮重发会把真正的工作上下文挤掉。
@@ -5881,26 +5841,6 @@ class AgentLoopV2:
                         tool_calls, tool_results, tool_messages
                     )
                 messages.extend(tool_messages)
-                # 2026-11-14(对标 DSH read_image):图片本体不进 tool 正文(会被
-                # token 截断护栏截坏、也会撑爆 SSE 帧),由工具侧有界暂存,这里在
-                # 本轮全部 tool 消息之后追加一条 user 多模态消息,让主模型直接看图。
-                try:
-                    from .tool_image_delivery import (
-                        build_image_followup_message,
-                        collect_image_ids,
-                        take_images_with_report,
-                    )
-
-                    _images, _missing = take_images_with_report(
-                        collect_image_ids([tr.result for tr in tool_results])
-                    )
-                    _image_msg = build_image_followup_message(
-                        _images, missing=len(_missing)
-                    )
-                    if _image_msg is not None:
-                        messages.append(_image_msg)
-                except Exception as e:  # noqa: BLE001 - 交付失败降级为纯文字元数据
-                    logger.warning("工具图片交付失败(降级): %s", e)
                 # V3#54(2026-09-28):结果侧观测上提主链路 ——
                 #   failure-streak 达阈值 ⇒ 换策略(注入反思提示,当前只有这一种动作,
                 #   不中断;阈值见 core/doom_loop.py FAILURE_STREAK_STRATEGY_THRESHOLD);
@@ -6493,12 +6433,16 @@ class AgentLoopV2:
     async def pause(self) -> str | None:
         """暂停当前 loop。
 
-        若 loop 正在运行:设置 _pause_requested 标志,loop 在下一轮 iteration 开始前
-        检测到并保存 checkpoint(status=paused),通过 AgentLoopResult.checkpoint_id 返回。
-        若 loop 未运行:从最近一次 _messages 状态保存 checkpoint 并返回 checkpoint_id。
+        先置 _pause_requested(循环在 _wait_interruptible / 轮次边界自行收口),
+        再用"此刻的 _messages"立刻落一份快照并返回其 id,让控制面当场拿到
+        checkpoint_id。AIS-114:这份快照可能落在工具批中途(assistant 的 tool_calls
+        还没有配对结果),所以必须带上本轮续跑元数据(phase=tools_interrupted +
+        回执版本)—— 续跑据此走零执行预检/回执重放,不跳过整轮也不盲目重跑。
+        它不是权威续跑点:权威点是循环真正停下时在轮次边界落的那一份(按 session
+        取最新),比这份多带最近完成的一轮。
 
         Returns:
-            checkpoint_id(若保存成功)或 None(无活动 loop 且无历史状态)
+            checkpoint_id(若保存成功)或 None(无历史状态)
         """
         # W9#6(2026-09-18):过渡事件先行 —— 前端在 done 落定前即可呈现"正在暂停"
         await self._events.emit(
@@ -6511,18 +6455,19 @@ class AgentLoopV2:
                 iteration=self._current_iteration,
                 messages=self._messages,
                 status="paused",
+                metadata=self._resume_interrupted_metadata(),
             )
         return None
 
     async def cancel(self) -> str | None:
         """取消当前 loop。
 
-        若 loop 正在运行:设置 _cancel_requested 标志,loop 在下一轮 iteration 开始前
-        检测到并保存 checkpoint(status=cancelled),通过 AgentLoopResult.checkpoint_id 返回。
-        若 loop 未运行:从最近一次 _messages 状态保存 checkpoint 并返回 checkpoint_id。
+        先置 _cancel_requested,再立刻用"此刻的 _messages"落一份快照并返回其 id
+        (与 pause 同一形状,差异只在 status)。工具批中途的快照同样必须带续跑
+        元数据,否则续跑会跳过整轮或盲目重跑(见 pause 的说明)。
 
         Returns:
-            checkpoint_id(若保存成功)或 None(无活动 loop 且无历史状态)
+            checkpoint_id(若保存成功)或 None(无历史状态)
         """
         # W9#6(2026-09-18):过渡事件先行 —— 前端在 done 落定前即可呈现"正在取消"
         await self._events.emit(
@@ -6535,6 +6480,7 @@ class AgentLoopV2:
                 iteration=self._current_iteration,
                 messages=self._messages,
                 status="cancelled",
+                metadata=self._resume_interrupted_metadata(),
             )
         return None
 
@@ -6647,7 +6593,9 @@ class AgentLoopV2:
             return None
         return self._admin_only_name(name)
 
-    async def _request_approval(self, tc: ToolCall) -> str | None:
+    async def _request_approval(
+        self, tc: ToolCall, *, auto_review: dict[str, Any] | None = None
+    ) -> str | None:
         """发起审批请求并等待用户决策(阻塞等待,超时后放弃)。
 
         Returns:
@@ -6801,6 +6749,7 @@ class AgentLoopV2:
                 # G-09:选项真实可用性随弹窗帧下发(持久选项受 elicitation 能力门控)
                 prompt_options=prompt_options.to_event_payload(),
                 decision_info=decision_info,
+                auto_review=auto_review,
             )
             # 等待用户决策(批准/拒绝/超时)
             #
@@ -7086,13 +7035,18 @@ class AgentLoopV2:
         )
         # 批 42:记录本 tc 为"用户批准后执行的命令"(工具结果回填 user_shell 片段用)
         self._approved_command_call_ids.add(tc.id)
+        # per-tool 预算:批准后的重执行也必须给足工具自己的 timeout(此前与
+        # 首跑同吃 60s 全局档,run_command 的 120s/subagent 的 300s 永远到不了)。
+        _budget = resolve_tool_timeout_budget(
+            tc.name, tc.args, default_s=self.tool_timeout
+        )
         try:
             new_result = await asyncio.wait_for(
                 tool.executor(tc.args),
-                timeout=self.tool_timeout,
+                timeout=_budget.loop_timeout_s,
             )
         except TimeoutError:
-            error_msg = f"工具执行超时({self.tool_timeout}s)"
+            error_msg = f"工具执行超时({_budget.tool_budget_s:g}s)"
             self._report_tool_error(
                 tc, error_msg, "timeout", (time.time() - start) * 1000
             )
@@ -7619,8 +7573,40 @@ class AgentLoopV2:
                 diff = candidate if isinstance(candidate, dict) else None
             self._deliverables.record_tool_call(tc.id, tc.name, dict(tc.args or {}), diff)
             self._record_deliverable_citation(tc.name, dict(tc.args or {}))
+            self._record_instruction_touch(tc, tr)
+            if not tr.error and (tr.name or tc.name) == "present_files":
+                self._record_presented_files(tr.result, tc.id)
         except Exception as e:
             logger.warning("交付清单工具聚合失败(降级,不阻塞): %s", e)
+
+    def _record_presented_files(self, result: Any, call_id: str) -> None:
+        """把 present_files 的结构化结果登记进交付清单(只认 presented 列表)。
+
+        工具结果可能是 dict(本地注册面)或 JSON 字符串(委托/回放路径),两种都认;
+        非 ok / 非结构化一律跳过,绝不由 args 反推路径(声明失败就是没声明)。
+        """
+        try:
+            payload = result
+            if isinstance(payload, str):
+                payload = json.loads(payload)
+            if not isinstance(payload, dict) or not payload.get("ok"):
+                return
+            entries = payload.get("presented")
+            if not isinstance(entries, list):
+                return
+            for item in entries:
+                if not isinstance(item, dict):
+                    continue
+                path = item.get("path")
+                if not isinstance(path, str) or not path.strip():
+                    continue
+                self._deliverables.record_presented(
+                    path,
+                    str(item.get("description") or ""),
+                    [call_id] if call_id else [],
+                )
+        except Exception as e:
+            logger.warning("交付清单 presentedFiles 聚合失败(降级,不阻塞): %s", e)
 
     def _record_deliverable_citation(self, tool_name: str, args: dict[str, Any]) -> None:
         """D27:按工具名启发式映射 citation(wiki/memory/skill/mcp),拿不到就跳过。
@@ -7693,18 +7679,6 @@ class AgentLoopV2:
         start = time.time()
         session_id = self._session_id or str(uuid.uuid4())
         args = tc.args if isinstance(tc.args, dict) else {}
-        # 定时继续(2026-11-14 立):显式 timeout_s 才进入 timed 模式;
-        # 缺省保持既有阻塞语义,-1 表示等到底(24h 实用上限)。
-        timeout_s, timed, timeout_error = normalize_timeout_s(args.get("timeout_s"))
-        if timeout_error is not None:
-            return ToolResult(
-                tool_call_id=tc.id,
-                name=tc.name,
-                result={**timeout_error, "status": "invalid"},
-                error=str(timeout_error.get("error") or "timeout_s 非法"),
-                duration_ms=(time.time() - start) * 1000,
-                error_type="question_invalid",
-            )
         item = create_question(
             session_id=session_id,
             user_id=self._user_id,
@@ -7713,8 +7687,6 @@ class AgentLoopV2:
             options=args.get("options"),
             allow_custom=bool(args.get("allowCustom", True)),
             allow_multiple=bool(args.get("multiSelect", False)),
-            timeout_s=timeout_s,
-            call_id=tc.id,
         )
         if isinstance(item, dict):
             return ToolResult(
@@ -7739,11 +7711,7 @@ class AgentLoopV2:
                     break
                 remaining = (item.expires_at - datetime.now(UTC)).total_seconds()
                 if remaining <= 0:
-                    if timed:
-                        # timed 模式:到期不判死,转入 continued(仍可迟到答复)。
-                        status = mark_continued(item, call_id=tc.id)
-                    else:
-                        status = await wait_for_answer(item, timeout_s=0.0)
+                    status = await wait_for_answer(item, timeout_s=0.0)
                     break
                 try:
                     await asyncio.wait_for(
@@ -7753,15 +7721,12 @@ class AgentLoopV2:
                     continue
                 status = item.status
                 break
-            _continued = status == STATUS_CONTINUED
             await self._events.question_resolved(
                 question_id=item.question_id,
-                # 前端词表只有四态:continued 以 timeout 结算,另带 continued 附加键。
-                status="timeout" if _continued else status,
+                status=status,
                 selected_option_ids=list(item.selected_ids),
                 custom_text=item.custom_text,
                 session_id=session_id,
-                continued=_continued,
             )
         except (asyncio.CancelledError, GeneratorExit):
             cancel_session_questions(session_id, reason="session_interrupted")
@@ -7778,19 +7743,8 @@ class AgentLoopV2:
         labels = [
             opt["label"] for opt in item.options if opt["id"] in item.selected_ids
         ]
-        if status == STATUS_CONTINUED:
+        if status == "answered":
             result: dict[str, Any] = {
-                "ok": True,
-                "pending": True,
-                "status": STATUS_CONTINUED,
-                "questionId": item.question_id,
-                "callId": tc.id,
-                "message": pending_question_notice(item, tc.id),
-            }
-            error = None
-            error_type = None
-        elif status == "answered":
-            result = {
                 "ok": True,
                 "status": "answered",
                 "selectedOptionIds": list(item.selected_ids),
@@ -8131,8 +8085,70 @@ class AgentLoopV2:
                         "污点会话出网:该工具被会话级污点闸门抬升为需人工审批",
                     )
 
+        # 2026-11-14:Auto 档逐工具审查闸(对标 DSH experimental-auto-review)。
+        # 只在「acceptEdits + 原本需人工审批 + 没有其它闸门留痕」时介入:
+        # - allow → 免弹窗执行;
+        # - deny  → 结构化拒绝,模型据此改道;
+        # - escalate / 任何异常 → 原审批照走,结论随 tool.approval 下发。
+        # 不介入的场景:污点闸门、双轴 REQUIRE_APPROVAL、approval_policy=always、
+        # MCP 保守注解、skill 授权 —— 这些在 tc.id 上已有 decision_hint,不得被模型放行覆盖。
+        auto_review_payload: dict[str, Any] | None = None
+        if (
+            needs_approval
+            and self._permission_mode == "acceptEdits"
+            and tc.id not in self._decision_hints
+        ):
+            try:
+                from .tool_auto_review import request_tool_auto_review
+
+                _auto_review = await request_tool_auto_review(
+                    tc.name, tc.args if isinstance(tc.args, dict) else {}
+                )
+            except Exception as exc:  # noqa: BLE001 - 审查出口异常不杀审批链
+                logger.warning("auto-review 出口异常(tool=%s): %s", tc.name, exc)
+                _auto_review = None
+            if _auto_review is not None:
+                auto_review_payload = _auto_review.to_event_payload()
+                if _auto_review.decision == "allow":
+                    needs_approval = False
+                    self._decision_hints[tc.id] = (
+                        "auto_review_allow",
+                        _auto_review.reason or "审查模型判定可自动放行",
+                    )
+                    await self._emit_permission_mode_event(tc.name, "auto_review_allow")
+                    logger.info(
+                        "auto-review 放行: tool=%s, session=%s",
+                        tc.name,
+                        self._session_id or "",
+                    )
+                elif _auto_review.decision == "deny":
+                    logger.info(
+                        "auto-review 拒绝: tool=%s reason=%s, session=%s",
+                        tc.name,
+                        _auto_review.reason,
+                        self._session_id or "",
+                    )
+                    self._report_tool_error(
+                        tc,
+                        _auto_review.reason,
+                        "auto_review_denied",
+                        (time.time() - start) * 1000,
+                    )
+                    return ToolResult(
+                        tool_call_id=tc.id,
+                        name=tc.name,
+                        result={
+                            "approved": False,
+                            "reason": "auto_review_denied",
+                            "auto_review": auto_review_payload,
+                        },
+                        error=f"自动审查拒绝执行: {_auto_review.reason}",
+                        duration_ms=(time.time() - start) * 1000,
+                        error_type="auto_review_denied",
+                    )
+
         if needs_approval:
-            denial = await self._request_approval(tc)
+            denial = await self._request_approval(tc, auto_review=auto_review_payload)
             if denial is not None:
                 if denial == "user_rejected":
                     error_msg = "User rejected tool call"
@@ -8331,6 +8347,11 @@ class AgentLoopV2:
         # ⇒ 一次超时后所有重试秒失败,超时永不恢复。
         cancel_event = asyncio.Event()
         cancel_token = set_tool_cancel_event(cancel_event)
+        # per-tool 预算(第五遍对标):run_command 取它自己的 timeout(受
+        # max_timeout / RUN_COMMAND_TIMEOUT_S 夹紧),dispatch_subagent 与
+        # office_document 取声明档;其余工具保持 self.tool_timeout 原值。
+        # 重试沿用同一预算 —— 预算由工具名/参数决定,与 attempt 无关。
+        _budget = resolve_tool_timeout_budget(tc.name, tc.args, default_s=self.tool_timeout)
         try:
             while True:
                 if retry_count > 0:
@@ -8345,7 +8366,7 @@ class AgentLoopV2:
                             self._open_tool_executor(tool.executor, tc.args, cancel_event),
                             cancel_event,
                         ),
-                        timeout=self.tool_timeout,
+                        timeout=_budget.loop_timeout_s,
                     )
                     # P0-3:exec_policy PROMPT 档转真实用户审批(命中时升级处理)。
                     tr_override = await self._resolve_exec_policy_approval(
@@ -8408,7 +8429,7 @@ class AgentLoopV2:
                         error_type="aborted",
                     )
                 except TimeoutError:
-                    error_msg = f"工具执行超时({self.tool_timeout}s)"
+                    error_msg = f"工具执行超时({_budget.tool_budget_s:g}s)"
                     error_type = "timeout"
                 except Exception as e:
                     error_msg = str(e)
@@ -8842,6 +8863,122 @@ class AgentLoopV2:
                             messages.append(_frag)
         except Exception as e:  # noqa: BLE001 - 注入失败隔离,不阻塞回合
             logger.debug("instructional_fragments 注入异常(降级跳过): %s", e)
+
+    def _inject_workspace_instructions(self, messages: list[dict[str, Any]]) -> None:
+        """工作区指令链增补注入(第七遍对标,2026-11-14,DSH dsh-agent-instructions)。
+
+        与引擎线程启动时的一次性拼接分工:
+        - 首次迭代:重算项目链;正文已在 system 里 ⇒ 不重复注入;
+          不在 ⇒ 补发一次(说明:线程启动后指令文件有变,或更深的目录先被读到);
+        - 后续迭代:本轮成功的 read/write/edit 触达更深目录、或指令文件被改写/删除 ⇒
+          追加 REPLACEMENT / REMOVAL 片段,下一次模型请求即看到新指令;
+        - 片段用 developer 角色,引擎 `_absorb_messages` 回写时丢弃 ⇒ 不污染用户可见历史。
+
+        失败一律降级不阻塞;`workspace` 未接线 = 整段零行为。
+        """
+        if not self._workspace:
+            return
+        try:
+            from app.core.agents_md import (
+                build_workspace_instructions_fragment,
+                build_workspace_instructions_removal_fragment,
+                load_workspace_instructions,
+            )
+            from app.core.agents_md_state import REMOVAL_NOTICE, REPLACEMENT_NOTICE
+
+            loaded = load_workspace_instructions(
+                self._workspace,
+                extra_dirs=sorted(self._instruction_dirs),
+            )
+            text = None if loaded.is_empty() else loaded.content
+
+            if not self._ws_instructions_initialized:
+                self._ws_instructions_initialized = True
+                self._ws_instructions_last = text
+                system_text = ""
+                for msg in messages:
+                    if isinstance(msg, dict) and msg.get("role") == "system":
+                        system_text = str(msg.get("content") or "")
+                        break
+                if text is None:
+                    # 线程启动时注入过、现在链已空(文件被删):必须告知模型旧指令失效,
+                    # 否则 system 里那份会一直被当成现行规则(跨轮删除路径)。
+                    if self._system_has_instructions(system_text):
+                        messages.append(
+                            build_workspace_instructions_removal_fragment(
+                                REMOVAL_NOTICE
+                            )
+                        )
+                    return
+                if text in system_text:
+                    return  # 线程启动那次拼接已经带着同一份链,不重复
+                # system 里已有旧一代指令(两种旧标记任一)⇒ 本次按 REPLACEMENT 说清
+                replaced = self._system_has_instructions(system_text)
+                messages.append(
+                    build_workspace_instructions_fragment(
+                        text, notice=REPLACEMENT_NOTICE if replaced else None
+                    )
+                )
+                return
+
+            if text == self._ws_instructions_last:
+                return
+            self._ws_instructions_last = text
+            if text is None:
+                messages.append(
+                    build_workspace_instructions_removal_fragment(REMOVAL_NOTICE)
+                )
+            else:
+                messages.append(
+                    build_workspace_instructions_fragment(
+                        text, notice=REPLACEMENT_NOTICE
+                    )
+                )
+        except Exception as e:  # noqa: BLE001 - 注入失败隔离,不阻塞回合
+            logger.warning("workspace_instructions 注入异常(降级跳过): %s", e)
+
+    @staticmethod
+    def _system_has_instructions(system_text: str) -> bool:
+        """system 里是否已有任何一代工作区指令块(旧拼接 / 状态机 / 本轮标记)。"""
+        return (
+            "[项目文档 AGENTS.md]" in system_text
+            or "# AGENTS.md instructions" in system_text
+            or "<workspace_instructions" in system_text
+        )
+
+    def _record_instruction_touch(self, tc: ToolCall, tr: ToolResult) -> None:
+        """记录本轮成功读/写/编辑到达的目录(供下一个迭代发现更深层指令文件)。
+
+        只认成功的文件类调用;路径解析失败/越界一律跳过 —— 发现失败只是少注入,
+        绝不让指令链把主链路拖红。
+        """
+        if not self._workspace or tr.error:
+            return
+        try:
+            from app.core.tool_name_sets import FILE_WRITE_TOOLS, PATH_ARG_KEYS
+
+            name = tr.name or tc.name
+            if name not in FILE_WRITE_TOOLS and name not in (
+                "read_file",
+                "read_dir",
+                "list_dir",
+            ):
+                return
+            args = dict(tc.args or {})
+            raw = ""
+            for key in PATH_ARG_KEYS:
+                value = args.get(key)
+                if isinstance(value, str) and value.strip():
+                    raw = value.strip()
+                    break
+            if not raw:
+                return
+            path = Path(raw)
+            if not path.is_absolute():
+                path = Path(self._workspace) / path
+            self._instruction_dirs.add(str(path.resolve().parent))
+        except Exception:  # noqa: BLE001 - 目录记账失败静默跳过
+            pass
 
     async def _prewarm_factory(self) -> None:
         """最佳努力的网关连接预热占位(对标 codex 预热体)。

@@ -280,10 +280,7 @@ export async function findAiWorldFavorites(userId: string): Promise<AiWorldFavor
       .where(and(eq(userFavorites.userId, userId), eq(userFavorites.resourceType, 'aiworld')))
       .orderBy(desc(userFavorites.createdAt))
     return rows
-  } catch (e) {
-    // 收藏数据存于 userFavorites 表，此处仅返回空列表；但 DB 故障必须留痕，
-    // 防止用户误以为收藏为空而无法察觉后端异常。
-    console.error('[ai-world-queries] findAiWorldFavorites 查询失败:', e)
+  } catch {
     return []
   }
 }

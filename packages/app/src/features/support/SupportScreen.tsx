@@ -294,7 +294,7 @@ export function SupportScreen({
         >
           <Star
             size={22}
-            color={n <= value ? RATING_AMBER : tk.text.tertiary}
+            color={n <= value ? RATING_AMBER : tk.text.secondary}
             fill={n <= value ? RATING_AMBER : undefined}
             strokeWidth={2}
           />
@@ -389,7 +389,7 @@ export function SupportScreen({
                   onChangeText={setReply}
                   multiline
                   placeholder={t('supportPage.replyPlaceholder')}
-                  placeholderTextColor={tk.text.tertiary}
+                  placeholderTextColor={tk.text.secondary}
                 />
                 <View style={styles.formActions}>
                   <TouchableOpacity
@@ -423,7 +423,7 @@ export function SupportScreen({
                     onChangeText={setRatingComment}
                     multiline
                     placeholder={t('supportPage.ratingCommentPlaceholder')}
-                    placeholderTextColor={tk.text.tertiary}
+                    placeholderTextColor={tk.text.secondary}
                   />
                   <View style={styles.formActions}>
                     <TouchableOpacity
@@ -498,7 +498,7 @@ export function SupportScreen({
               onChangeText={setTitle}
               maxLength={200}
               placeholder={t('supportPage.titlePlaceholder')}
-              placeholderTextColor={tk.text.tertiary}
+              placeholderTextColor={tk.text.secondary}
             />
 
             <Text style={styles.fieldLabel}>{t('supportPage.categoryLabel')}</Text>
@@ -554,7 +554,7 @@ export function SupportScreen({
               multiline
               maxLength={5000}
               placeholder={t('supportPage.descPlaceholder')}
-              placeholderTextColor={tk.text.tertiary}
+              placeholderTextColor={tk.text.secondary}
             />
 
             {formErr ? <Text style={styles.formErr}>{formErr}</Text> : null}
@@ -599,7 +599,7 @@ export function SupportScreen({
           </View>
         ) : tickets.length === 0 ? (
           <View style={styles.emptyBox}>
-            <Ticket size={32} color={tk.text.tertiary} strokeWidth={1.6} />
+            <Ticket size={32} color={tk.text.secondary} strokeWidth={1.6} />
             <Text style={styles.emptyText}>{t('supportPage.empty')}</Text>
             <TouchableOpacity
               style={styles.secondaryBtn}

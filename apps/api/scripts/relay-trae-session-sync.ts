@@ -10,14 +10,8 @@
  * 登录态被清)。定案 = 客户端负责续期,本脚本只把客户端轮换出的新票同步进池。
  *
  * 与 `relay-account-import.ts`(整条覆盖+重置健康状态)不同:本脚本只动凭证四列并
- * `credVersion + 1`(签到侧按版本防降级,不涨版本新票推不过去);健康字段**只在真的写入
- * 本机新票那一次**被复位(见 `buildRevivalSetPatch`),同票 / 池内更新的 skip 分支一律不碰。
- *
- * 本腿在写入新票的同时把异常行复位到 unknown(判据单源在 `relay-credential-revival.ts`
- * 的 `healthRevivalPatchOf`,并清掉 extra_metadata 里的判死留痕键)。这不会造成「拿死票空撞
- * 上游」:复位只在 `decideSync` 判定票确实轮换、真的执行这次写库时才发生(同票 / 池内更新
- * 走 skip,一次都不写健康字段),且单源对过期票返回 null ⇒ 死票既不会被复活,也不会被
- * 每 10 分钟一次的回灌反复推去撞上游。
+ * `credVersion + 1`(签到侧按版本防降级,不涨版本新票推不过去),**绝不碰**
+ * healthStatus / tempUnschedulable / refreshFailureCount / lastErrorMessage。
  *
  * 是否覆盖由 `decideSync` 纯函数判定(单一判据源,测试直接 import):
  * - 同票 ⇒ 不写;
@@ -59,9 +53,6 @@ export const parseIso = decision.parseIso
 const { CLIENT_ACTIVE_AT_KEY } = await import('../src/services/relay-account-pool-scheduler.js')
 // 目标行选择单源(2026-11-01):运营池优先,个人池唯一行兜底;写一律按主键 id
 const { chooseSyncTargetRow } = await import('../src/services/relay-session-sync-target.js')
-// 即时复活 + 清判死留痕的判据单源(§0.6):本腿只调用,不在 scripts 里再写一份判据。
-const { healthRevivalPatchOf, stripTerminalVerdict, TERMINAL_VERDICT_KEY } =
-  await import('../src/services/relay-credential-revival.js')
 // 本地作用域也要这个名字(RowOutcome.decision);export type from 只交出出口,不建本地绑定。
 // 2026-10-30 收口:此前的双份 import type 是 HEAD 就有的 tsc 重复声明(10-29 的「可转译锁」
 // 只钉 esbuild 声明面,tsc 的 TS2300 一直没被看到)——全文件只留这一份,零语义改动。
@@ -137,39 +128,6 @@ export function expiryBackfillOf(input: ExpiryBackfillInput): { refreshExpiresAt
   if (input.poolRefreshExpiresAt !== null) return {}
   if (input.clientRefreshExpiresAt === null) return {}
   return { refreshExpiresAt: input.clientRefreshExpiresAt }
-}
-
-/**
- * 写票分支的「即时复活 + 清判死留痕」补丁(纯函数,测试锁)。判据住在
- * `relay-credential-revival.ts`(`healthRevivalPatchOf` / `stripTerminalVerdict`),本函数只
- * 组装 `.set()` 形状,不复算任何判据 —— 不在本腿再长一份「过期 / healthy / broken」。
- * 只在调用方确认「本轮真的写入了本机新票」时调用(skip 分支一次都不调)。
- *
- * - rowLike 只用本腿已查到的池行健康三列;能拿到客户端票到期时刻就传 clientExpiresAt,
- *   启用单源「票过期不复活」反向牙;拿不到就不传(调用方已确认写入新票,按单源语义处理)。
- * - extra_metadata 的判死留痕键必须清掉:本腿原本就有整对象合并(extraMetadataOverride)时
- *   交 `stripTerminalVerdict` 摘键后写(其余键一个不丢);否则用 drizzle `sql` 原子删键
- *   `coalesce(extra_metadata,'{}'::jsonb) - 'terminalVerdict'`,绝不整对象覆盖成 `{}`
- *   (并发会丢 keepAliveForever / sessionTemplate 等既有键)。
- */
-export function buildRevivalSetPatch(
-  row: { healthStatus?: unknown; refreshFailureCount?: unknown; tempUnschedulable?: unknown },
-  clientExpiresAt?: Date | null,
-  extraMetadataOverride?: Record<string, unknown> | null,
-) {
-  const rowLike = {
-    healthStatus: row.healthStatus,
-    refreshFailureCount: row.refreshFailureCount,
-    tempUnschedulable: row.tempUnschedulable,
-  }
-  const stripped = extraMetadataOverride ? stripTerminalVerdict(extraMetadataOverride) : null
-  return {
-    ...(healthRevivalPatchOf(rowLike, clientExpiresAt ? { clientExpiresAt } : {}) ?? {}),
-    extraMetadata:
-      stripped && Object.keys(stripped).length > 0
-        ? stripped
-        : sql`coalesce(${aiRelayAccountPool.extraMetadata}, '{}'::jsonb) - '${sql.raw(TERMINAL_VERDICT_KEY)}'`,
-  }
 }
 
 export interface SyncInputPayload {
@@ -569,8 +527,6 @@ export async function runSync(payloadText: string, dryRun: boolean): Promise<Syn
           tokenExpiresAt: final.next.tokenExpiresAt,
           refreshExpiresAt: final.next.refreshExpiresAt,
           ...deviceUpdate,
-          // 判据单源:只在真的写入本机新票这一次,把异常行复位到 unknown 并清判死留痕
-          ...buildRevivalSetPatch(row, parseIso(acc.expiresAt)),
           // 签到侧按 cred_version 防降级:不涨版本,新票永远推不过去
           credVersion: sql`${aiRelayAccountPool.credVersion} + 1`,
           updatedAt: new Date(),
@@ -671,6 +627,5 @@ export const __test__ = {
   clientRefreshExpiryRaw,
   CLIENT_REFRESH_EXPIRY_KEYS,
   expiryBackfillOf,
-  buildRevivalSetPatch,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

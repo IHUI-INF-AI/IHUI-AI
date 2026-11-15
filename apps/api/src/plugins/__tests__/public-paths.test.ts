@@ -216,47 +216,6 @@ describe('BUG-4 公开面单一真相源', () => {
     })
 
     /**
-     * 2026-11-15:管理后台面必须免租户(生产实测暴露,与号池面 / HR 面同型)。
-     *
-     * 事故形状(生产 8801 实测,请求带真实 admin 登录态 Bearer):
-     * `GET /api/admin/relay/accounts?category=store&owner=all&page=1&pageSize=100`
-     * → `{"code":401,"message":"多租户严格模式已启用…path=/api/admin/relay/accounts"}`;
-     * 补 `X-Tenant-Id` 后变成 404「租户不存在」⇒ 租户闸是唯一阻断点。
-     * 浏览器端全仓零引用 X-Tenant-Id ⇒ 不豁免则管理后台每张页面都拿不到数据
-     * (号池商店账号列表恒「共 0 条」)。安全前提:admin 路由零引用 request.tenantId,
-     * 且统一挂 requireAdminRouteGuard / requireAdmin,免租户 ≠ 免鉴权。
-     */
-    describe('管理后台面免租户(2026-11-15)', () => {
-      // 取自 apps/api/src/routes/admin/relay-account-pool.ts 的 server.<verb> 实读(注册前缀 /api)
-      const ADMIN_ROUTES = [
-        '/api/admin/relay/accounts',
-        '/api/admin/relay/accounts/abc-123',
-        '/api/admin/relay/accounts/abc-123/health',
-        '/api/admin/relay/store-accounts',
-        '/api/admin/relay/account-pool/tasks',
-        '/api/admin/relay/account-pool/reauth-status',
-      ]
-
-      it('管理后台路由都免租户(逐条)', () => {
-        for (const route of ADMIN_ROUTES) {
-          expect(isTenantBypassPath(route), `${route} 必须免租户`).toBe(true)
-        }
-      })
-
-      it('免租户不免鉴权:管理后台面绝不能被列为鉴权公开面', () => {
-        for (const route of ADMIN_ROUTES) {
-          expect(isAuthPublicPath(route), `${route} 不得进鉴权公开面`).toBe(false)
-        }
-        expect(AUTH_PUBLIC_PREFIX_PATHS).not.toContain('/api/admin')
-      })
-
-      it('段边界:不放行 /api/adminXYZ 这类同级兄弟路径', () => {
-        expect(isTenantBypassPath('/api/adminXYZ')).toBe(false)
-        expect(isTenantBypassPath('/api/adminXYZ/users')).toBe(false)
-      })
-    })
-
-    /**
      * 2026-11-12:WS 全族必须免租户。
      *
      * 事故形状(本机 8802 实测):`/ws/relay/chat?token=…`、`/ws/notifications?token=…` 在

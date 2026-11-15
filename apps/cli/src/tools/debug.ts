@@ -20,9 +20,6 @@ import { randomUUID } from 'node:crypto';
 import { type Tool, type ToolResult } from './index.js';
 import { runPreToolCall, runPostToolCall } from '../hooks/index.js';
 import { tryParseJson, isRecord } from '../util/json.js';
-// Y-76:disconnect 收口走 killProcessTree 整树回收(win32 taskkill /T,POSIX kill(-pid))。
-// adapter(shell 形态 spawn)自己派生的被调试目标进程若只 kill 单 pid 会泄漏,故按整树收。
-import { killProcessTree } from '../util/kill-tree.js';
 
 const DAP_REQUEST_TIMEOUT_MS = 10_000;
 const DAP_INIT_TIMEOUT_MS = 15_000;
@@ -271,11 +268,7 @@ class DapClient {
     this.status = 'terminated';
     this.rejectAll('session 已关闭');
     try {
-      // Y-76:整树回收。先试 DAP disconnect(terminateDebuggee)让 adapter 礼貌收尾,再对
-      // adapter 进程树兜底 —— killProcessTree 对 detached 建组的 adapter 走 POSIX kill(-pid)
-      // 或 win32 taskkill /T,连 adapter 自己派生的被调试目标一并回收;单 this.child.kill()
-      // 只结束 adapter 本体,被调试目标会泄漏(spawnAdapter 现以 detached 建组,故成立)。
-      killProcessTree(this.child.pid);
+      this.child.kill();
     } catch {
       // 已退出
     }
@@ -326,10 +319,6 @@ async function spawnAdapter(language: string, cwd?: string): Promise<DapClient> 
         cwd,
         windowsHide: true,
         shell: true,
-        // Y-76:detached 使 adapter 自成进程组(POSIX child.pid 即组 ID),disconnect 时
-        // killProcessTree 的 kill(-pid) 才有组可打,连同 adapter 派生的被调试目标一并回收。
-        // **刻意不 unref()** —— 需读 adapter stdout(DAP 消息)并收 exit 事件。
-        detached: true,
       });
     } catch (err) {
       reject(new Error(`debug adapter 启动失败: ${err instanceof Error ? err.message : String(err)}`));

@@ -275,7 +275,11 @@ export function GroupsScreen({
               <Text style={styles.secondaryButtonText}>{t('common.cancel')}</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.button, styles.actionGrow, (saving || !editName.trim()) && styles.buttonDisabled]}
+              style={[
+                styles.button,
+                styles.actionGrow,
+                (saving || !editName.trim()) && styles.buttonDisabled,
+              ]}
               onPress={() => void handleUpdate()}
               disabled={saving || !editName.trim()}
               activeOpacity={0.7}
@@ -304,7 +308,7 @@ export function GroupsScreen({
       ) : null}
 
       {loading ? (
-        <ActivityIndicator style={styles.stateBox} color={tk.text.tertiary} />
+        <ActivityIndicator style={styles.stateBox} color={tk.text.secondary} />
       ) : error ? (
         <View style={styles.stateBox}>
           <Text style={styles.errorText}>{error}</Text>
@@ -316,7 +320,7 @@ export function GroupsScreen({
         </View>
       ) : visible.length === 0 ? (
         <View style={styles.stateBox}>
-          <Users size={28} color={tk.text.tertiary} />
+          <Users size={28} color={tk.text.secondary} />
           <Text style={styles.muted}>{t('eduAi.groups.empty')}</Text>
         </View>
       ) : (
@@ -344,7 +348,10 @@ export function GroupsScreen({
                           {group.name}
                         </Text>
                         <Text
-                          style={[styles.badge, group.type === 'custom' ? styles.badgeMuted : styles.badgeBrand]}
+                          style={[
+                            styles.badge,
+                            group.type === 'custom' ? styles.badgeMuted : styles.badgeBrand,
+                          ]}
                         >
                           {group.type === 'custom' ? t('eduAi.groups.custom') : group.type}
                         </Text>
@@ -358,11 +365,11 @@ export function GroupsScreen({
                   </View>
 
                   <View style={styles.metaRow}>
-                    <Users size={14} color={tk.text.tertiary} />
+                    <Users size={14} color={tk.text.secondary} />
                     <Text style={styles.meta}>
                       {t('eduAi.groups.members')}: {group.memberCount}
                     </Text>
-                    <UsersRound size={14} color={tk.text.tertiary} />
+                    <UsersRound size={14} color={tk.text.secondary} />
                     <Text style={styles.meta}>
                       {t('eduAi.groups.createdAt')}: {formatDate(group.createdAt)}
                     </Text>
@@ -371,7 +378,7 @@ export function GroupsScreen({
                   {expanded ? (
                     <View style={styles.panel}>
                       <View style={styles.panelMetaRow}>
-                        <Shield size={14} color={tk.text.tertiary} />
+                        <Shield size={14} color={tk.text.secondary} />
                         <Text style={styles.meta} numberOfLines={1}>
                           {t('eduAi.groups.owner')}: {group.ownerId ?? '-'}
                         </Text>
@@ -390,7 +397,10 @@ export function GroupsScreen({
                           style={styles.memberInput}
                         />
                         <TouchableOpacity
-                          style={[styles.smallButton, (adding || !memberId.trim()) && styles.buttonDisabled]}
+                          style={[
+                            styles.smallButton,
+                            (adding || !memberId.trim()) && styles.buttonDisabled,
+                          ]}
                           onPress={() => void handleAddMember(group)}
                           disabled={adding || !memberId.trim()}
                           activeOpacity={0.7}
@@ -433,7 +443,7 @@ export function GroupsScreen({
                       disabled={busy}
                       activeOpacity={0.7}
                     >
-                      <Trash2 size={14} color={tk.danger.DEFAULT} />
+                      <Trash2 size={14} color={tk.danger.deepText} />
                       <Text style={styles.dangerText}>{t('eduAi.groups.delete')}</Text>
                     </TouchableOpacity>
                   </View>
@@ -459,7 +469,7 @@ function createStyles(tk: AppThemeTokens) {
       gap: rnSpacing.sm,
     },
     cardTitle: { fontSize: rnType.strong.size, fontWeight: '600', color: tk.text.primary },
-    cardSubtitle: { fontSize: rnType.label.size, color: tk.text.tertiary },
+    cardSubtitle: { fontSize: rnType.label.size, color: tk.text.medium },
     input: {
       height: 40,
       paddingHorizontal: rnSpacing.md,
@@ -500,7 +510,7 @@ function createStyles(tk: AppThemeTokens) {
       gap: rnSpacing.sm,
       alignItems: 'center',
     },
-    dangerText: { fontSize: rnType.label.size, fontWeight: '600', color: tk.danger.DEFAULT },
+    dangerText: { fontSize: rnType.label.size, fontWeight: '600', color: tk.danger.deepText },
     filterRow: { flexDirection: 'row', gap: rnSpacing.sm },
     chip: {
       paddingHorizontal: rnSpacing.md,
@@ -530,7 +540,12 @@ function createStyles(tk: AppThemeTokens) {
     avatarText: { fontSize: rnType.title.size, fontWeight: '700', color: tk.text.secondary },
     itemMain: { flex: 1, gap: rnSpacing['2xs'] },
     titleRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.sm },
-    itemName: { flexShrink: 1, fontSize: rnType.strong.size, fontWeight: '600', color: tk.text.primary },
+    itemName: {
+      flexShrink: 1,
+      fontSize: rnType.strong.size,
+      fontWeight: '600',
+      color: tk.text.primary,
+    },
     badge: {
       paddingHorizontal: rnSpacing.sm,
       paddingVertical: rnSpacing['2xs'],
@@ -542,7 +557,7 @@ function createStyles(tk: AppThemeTokens) {
     badgeBrand: { backgroundColor: tk.brandAccent.light, color: tk.brandAccent.foreground },
     itemDesc: { fontSize: rnType.label.size, color: tk.text.secondary, lineHeight: 17 },
     metaRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: rnSpacing.xs },
-    meta: { fontSize: rnType.caption.size, color: tk.text.tertiary },
+    meta: { fontSize: rnType.caption.size, color: tk.text.medium },
     panel: {
       gap: rnSpacing.sm,
       padding: rnSpacing.md,
@@ -555,7 +570,7 @@ function createStyles(tk: AppThemeTokens) {
       gap: rnSpacing.xs,
       justifyContent: 'space-between',
     },
-    hint: { fontSize: rnType.caption.size, color: tk.text.tertiary },
+    hint: { fontSize: rnType.caption.size, color: tk.text.medium },
     memberRow: { flexDirection: 'row', gap: rnSpacing.sm, alignItems: 'center' },
     memberInput: {
       flex: 1,
@@ -586,7 +601,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingVertical: rnSpacing['5xl'],
     },
     muted: { fontSize: rnType.bodySm.size, color: tk.text.secondary, lineHeight: 19 },
-    errorText: { fontSize: rnType.bodySm.size, color: tk.danger.DEFAULT },
+    errorText: { fontSize: rnType.bodySm.size, color: tk.danger.deepText },
     retry: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tk.text.primary },
   })
 }

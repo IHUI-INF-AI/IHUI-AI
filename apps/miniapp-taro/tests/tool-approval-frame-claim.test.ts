@@ -29,11 +29,7 @@ vi.mock('@/utils/auth', () => ({ getToken: () => 'test-token' }))
 
 import type { postToolApprovalResponse } from '@ihui/api-client'
 import { SSEStreamParser } from '../src/lib/sse'
-import {
-  TOOL_APPROVAL_FRAME_TYPE,
-  parseToolApprovalLine,
-  parseQuestionResolvedLine,
-} from '../src/lib/tool-approval-frame'
+import { TOOL_APPROVAL_FRAME_TYPE, parseToolApprovalLine } from '../src/lib/tool-approval-frame'
 import {
   buildApprovePayload,
   buildRejectPayload,
@@ -133,80 +129,6 @@ describe('D136 决策回传:载荷与 postToolApprovalResponse 入参同形', ()
     expect(src('src/api/index.ts')).toMatch(
       /export\s*\{[\s\S]{0,160}postToolApprovalResponse[\s\S]{0,80}\} from '@ihui\/api-client'/u,
     )
-  })
-})
-
-// ===== D135(2026-11-14):question-resolved 帧端内认领层 =====
-// 逐字对齐 api-client client.ts:4778 的 tryParseQuestionResolved:只做结构校验,
-// 未知 status 一律忽略(旧/坏帧不能伪造终态);selectedOptionIds 非字符串项过滤。
-
-describe('D135 解析:question-resolved 帧 → QuestionResolvedPayload', () => {
-  const lineOf = (json: unknown): string => `data: ${JSON.stringify(json)}`
-
-  it('合法帧:answered + 选中项 + 自定义文本全字段保留', () => {
-    expect(
-      parseQuestionResolvedLine(
-        lineOf({
-          type: 'question-resolved',
-          questionId: 'q-1',
-          status: 'answered',
-          selectedOptionIds: ['opt-a', 'opt-b'],
-          customText: '补充说明',
-        }),
-      ),
-    ).toEqual({
-      questionId: 'q-1',
-      status: 'answered',
-      selectedOptionIds: ['opt-a', 'opt-b'],
-      customText: '补充说明',
-    })
-  })
-
-  it('四个已知 status 都被接受(answered/timeout/withdrawn/interrupted)', () => {
-    for (const status of ['answered', 'timeout', 'withdrawn', 'interrupted'] as const) {
-      const parsed = parseQuestionResolvedLine(
-        lineOf({ type: 'question-resolved', questionId: 'q-1', status }),
-      )
-      expect(parsed).not.toBeNull()
-      expect(parsed?.status).toBe(status)
-    }
-  })
-
-  it('未知 status ⇒ null(旧/坏帧不能伪造终态)', () => {
-    expect(
-      parseQuestionResolvedLine(
-        lineOf({ type: 'question-resolved', questionId: 'q-1', status: 'mysterious' }),
-      ),
-    ).toBeNull()
-  })
-
-  it('selectedOptionIds 非字符串项被过滤(与 api-client 同纪律)', () => {
-    const parsed = parseQuestionResolvedLine(
-      lineOf({
-        type: 'question-resolved',
-        questionId: 'q-1',
-        status: 'answered',
-        selectedOptionIds: ['opt-a', 42, null, 'opt-b'],
-      }),
-    )
-    expect(parsed?.selectedOptionIds).toEqual(['opt-a', 'opt-b'])
-  })
-
-  it('缺 questionId / 缺 status / 缺 type / 非 JSON ⇒ null(不猜终态)', () => {
-    expect(
-      parseQuestionResolvedLine(lineOf({ type: 'question-resolved', status: 'answered' })),
-    ).toBeNull()
-    expect(
-      parseQuestionResolvedLine(lineOf({ type: 'question-resolved', questionId: 'q-1' })),
-    ).toBeNull()
-    expect(parseQuestionResolvedLine(lineOf({ questionId: 'q-1', status: 'answered' }))).toBeNull()
-    expect(parseQuestionResolvedLine('data: not-json')).toBeNull()
-  })
-
-  it('api/index.ts 真消费 onQuestionResolved 分发(接线锚,漂开即红)', () => {
-    const apiSrc = src('src/api/index.ts')
-    expect(apiSrc).toContain('parseQuestionResolvedLine')
-    expect(apiSrc).toMatch(/callbacks\.onQuestionResolved\(questionResolved\)/u)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

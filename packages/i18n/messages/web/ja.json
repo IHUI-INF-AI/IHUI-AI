@@ -10050,6 +10050,7 @@
       "title": "会話の名前を変更"
     },
     "resizeHandleHint": "ドラッグして幅を調整",
+    "resizeFloatHint": "端をドラッグしてパネルのサイズを変更",
     "settings": "設定",
     "share": "共有",
     "shareConversation": "共有された会話",

@@ -67,6 +67,7 @@ export const rnTokens = {
     light: '#fee2e2',
     DEFAULT: '#dc2626',
     bright: '#f87171',
+    deepText: '#b91c1c',
   },
   gray: {
     50: '#f9fafb',
@@ -113,7 +114,7 @@ export const rnLightTokens = {
     deep: '#16a34a',
     deepText: '#065F46',
   },
-  danger: { light: '#fee2e2', DEFAULT: '#dc2626', bright: '#f87171' },
+  danger: { light: '#fee2e2', DEFAULT: '#dc2626', bright: '#f87171', deepText: '#b91c1c' },
   vip: { gold: '#FFD700', goldEnd: '#FFAA00' },
   gray: {
     50: '#fafafa',
@@ -161,7 +162,7 @@ export const rnDarkTokens = {
     deep: '#16a34a',
     deepText: '#86efac',
   },
-  danger: { light: '#7f1d1d', DEFAULT: '#ef4444', bright: '#fca5a5' },
+  danger: { light: '#7f1d1d', DEFAULT: '#ef4444', bright: '#fca5a5', deepText: '#ff9e9e' },
   gray: {
     50: '#f9fafb',
     100: '#f3f4f6',
@@ -246,6 +247,7 @@ export type RnDangerTokens = {
   light: string
   DEFAULT: string
   bright: string
+  deepText: string
 }
 
 // ── token-registry 导出（mock 最小实现，测试不需要完整注册表）──

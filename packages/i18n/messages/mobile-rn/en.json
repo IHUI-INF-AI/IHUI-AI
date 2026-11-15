@@ -942,7 +942,8 @@
       "agree": "Agree",
       "disagree": "Dislike"
     },
-    "loadFailed": "Failed to load"
+    "loadFailed": "Failed to load",
+    "admissionAhead": "{n} ahead of you"
   },
   "settings": {
     "title": "Settings",
@@ -2427,9 +2428,7 @@
     "confirmPasswordPlaceholder": "Confirm your password",
     "password": "Password",
     "passwordPlaceholder": "Enter your password",
-    "title": "Sign up",
-    "show": "Show",
-    "hide": "Hide"
+    "title": "Sign up"
   },
   "withdraw": {
     "availableBalance": "Available Balance (CNY)",
@@ -3708,6 +3707,7 @@
   "activity": {
     "empty": "No activities",
     "endTime": "End time",
+    "joining": "Submitting…",
     "loadFailed": "Failed to load",
     "participants": "Participants",
     "startTime": "Start time",
@@ -5061,7 +5061,7 @@
     "analysisEstimate": "About {tokens} tokens · {difficulty}",
     "analysisPickFirst": "Pick a scenario first",
     "analysisSubmit": "Start analysis",
-      "noValidContent": "No importable content found"
+    "noValidContent": "No importable content found"
   },
   "permissionTier": {
     "label": "Permission tier",
@@ -5693,6 +5693,7 @@
       "approvalPersistHit": "Reused your saved approval",
       "execPolicyApproved": "Allowed by execution policy",
       "autoSkipApproval": "Auto-approved (no approval needed)",
+      "autoReviewAllow": "Auto-review allowed",
       "skillGrantSkipApproval": "Skill grant allows this tool (no approval needed)",
       "bypassSkipApproval": "Approval skipped",
       "mcpRequiresApproval": "MCP annotations require approval",
@@ -7543,6 +7544,7 @@
     "wrongBookTitle": "Wrong Book"
   },
   "activities": {
+    "cancelJoin": "Cancel registration",
     "join": "Join Now",
     "notFound": "Activity not found or offline"
   },

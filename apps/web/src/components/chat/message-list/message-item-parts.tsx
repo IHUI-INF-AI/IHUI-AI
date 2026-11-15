@@ -149,50 +149,39 @@ export function TypingIndicator({
 /** 把消息 createdAt 格式化为"今天 HH:MM / MM-DD HH:MM" 风格 footer 时间戳(2026-07-28 立)
  *  - hover 消息气泡时在 footer 显示完整时间,便于用户回溯精确时刻
  *  - 与 timeline-event.tsx 内的 formatRelativeTime 互为补充:相对时间用于时间线,绝对时间用于消息气泡
- *
- * 2026-11-15(外观 v2):补第二参数 `format`,接上设置页的「时间戳格式」档。
- *  - 缺省 `'24h'` ⇒ **输出与改造前逐字相同**,老调用点(如 MessageCommentPanel)不必改;
- *  - `'12h'` ⇒ 12 小时制 + AM/PM 标记(格式记号,不是界面文案,故不进 i18n);
- *  - `'relative'` ⇒ 走 `Intl.RelativeTimeFormat`(取浏览器区域),**不给本函数塞中文**:
- *    这里没有 i18n 上下文,写死「分钟前」会在五个语言里全线出错。超过 26 天回落到绝对时间,
- *    避免出现"738 天前"这类没有信息量的读数。
- */
+ *  - 2026-11-15:新增 format 参数(24h/12h/relative),由设置页「时间格式」控制;
+ *    默认 24h,与接线前逐字节同形。relative 用 Intl.RelativeTimeFormat(浏览器语言),
+ *    超过 7 天回落绝对时间,避免"300 天前"这类无信息量文案。 */
 export function formatMessageTimestamp(
   createdAt: number,
   format: '24h' | '12h' | 'relative' = '24h',
 ): string {
   const d = new Date(createdAt)
   if (Number.isNaN(d.getTime())) return ''
+
+  if (format === 'relative') {
+    const diffMs = Date.now() - d.getTime()
+    const abs = Math.abs(diffMs)
+    const rtf = new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' })
+    if (abs < 60_000) return rtf.format(0, 'second')
+    if (abs < 3_600_000) return rtf.format(-Math.round(diffMs / 60_000), 'minute')
+    if (abs < 86_400_000) return rtf.format(-Math.round(diffMs / 3_600_000), 'hour')
+    if (abs < 7 * 86_400_000) return rtf.format(-Math.round(diffMs / 86_400_000), 'day')
+  }
+
   const now = new Date()
   const sameDay =
     d.getFullYear() === now.getFullYear() &&
     d.getMonth() === now.getMonth() &&
     d.getDate() === now.getDate()
-  const hh = String(d.getHours()).padStart(2, '0')
-  const mm = String(d.getMinutes()).padStart(2, '0')
+  const timeText =
+    format === '12h'
+      ? d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: true })
+      : `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+  if (sameDay) return timeText
   const mo = String(d.getMonth() + 1).padStart(2, '0')
   const dd = String(d.getDate()).padStart(2, '0')
-
-  if (format === 'relative') {
-    const diffMs = now.getTime() - d.getTime()
-    const sec = diffMs / 1000
-    const rtf = new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' })
-    if (Math.abs(sec) < 45) return rtf.format(0, 'second')
-    if (Math.abs(sec) < 45 * 60) return rtf.format(-Math.round(sec / 60), 'minute')
-    if (Math.abs(sec) < 22 * 3600) return rtf.format(-Math.round(sec / 3600), 'hour')
-    if (Math.abs(sec) < 26 * 86400) return rtf.format(-Math.round(sec / 86400), 'day')
-    // 超过 26 天:回落到绝对时间(走下面的 24 小时制分支)
-  }
-
-  if (format === '12h') {
-    const h12 = d.getHours() % 12 || 12
-    const meridiem = d.getHours() < 12 ? 'AM' : 'PM'
-    const clock = `${h12}:${mm} ${meridiem}`
-    return sameDay ? clock : `${mo}-${dd} ${clock}`
-  }
-
-  if (sameDay) return `${hh}:${mm}`
-  return `${mo}-${dd} ${hh}:${mm}`
+  return `${mo}-${dd} ${timeText}`
 }
 
 /** 元数据 usage 展开面板(2026-08-02 立,原项目 toggleMetadata 展开内容)

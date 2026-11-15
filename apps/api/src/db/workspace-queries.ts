@@ -150,6 +150,15 @@ export async function listFilesByProject(projectId: string): Promise<File[]> {
     .orderBy(desc(files.createdAt))
 }
 
+/** 列出项目下全部文件(含回收站),供孤儿 blob 清理等场景使用。 */
+export async function listAllFilesByProject(projectId: string): Promise<File[]> {
+  return db
+    .select()
+    .from(files)
+    .where(eq(files.projectId, projectId))
+    .orderBy(desc(files.createdAt))
+}
+
 /**
  * 按 id 查询文件（默认排除已删除文件）。
  */
@@ -269,6 +278,31 @@ export async function restoreFile(id: string): Promise<string[]> {
 export async function hardDeleteFile(id: string): Promise<File | undefined> {
   const rows = await db.delete(files).where(eq(files.id, id)).returning()
   return rows[0]
+}
+
+/**
+ * 批量取回文件的归属信息(文件 id + 所属项目的 owner id),供批量删除/恢复一次校验。
+ * F-79:此前路由侧对每个 id 依次 findFileById + findProjectById,100 个文件最多 200 次
+ * 串行往返(N+1)。这里用一条 `WHERE id IN (...)` 的 left join 取回全部目标行,查询次数
+ * 与文件数无关;`includeTrashed` 区分 batch-delete(排除回收站)与 batch-restore(含回收站)。
+ * left join 保留「文件存在但项目缺失」的行(projectUserId 为 null),使路由仍能按原语义
+ * 返回 403 而不是误判为 404。
+ */
+export async function findFileOwnershipBatch(
+  fileIds: string[],
+  includeTrashed: boolean,
+): Promise<Array<{ id: string; projectUserId: string | null }>> {
+  if (fileIds.length === 0) return []
+  const rows = await db
+    .select({ id: files.id, projectUserId: projects.userId })
+    .from(files)
+    .leftJoin(projects, eq(files.projectId, projects.id))
+    .where(
+      includeTrashed
+        ? inArray(files.id, fileIds)
+        : and(inArray(files.id, fileIds), isNull(files.deletedAt)),
+    )
+  return rows
 }
 
 /**

@@ -14,7 +14,7 @@
 
 ## 📜 行为准则(Code of Conduct)
 
-参与本项目的每一位贡献者都必须遵守 [Code of Conduct](CODE_OF_CONDUCT.md)。请在所有项目空间(Issues / PR / Discussions / 邮件 / 社交媒体提及本项目时)保持友善、包容、专业。如遇违规行为,请发邮件至 `conduct@aizhs.top` 举报,维护者会在 48 小时内响应。
+参与本项目的每一位贡献者都必须遵守 [Code of Conduct](CODE_OF_CONDUCT.md)。请在所有项目空间(Issues / PR / Discussions / 邮件 / 社交媒体提及本项目时)保持友善、包容、专业。如遇违规行为,请发邮件至 `lizong@aizhs.top` 举报,维护者会在 48 小时内响应。
 
 ---
 
@@ -390,7 +390,7 @@ IHUI-AI 的可扩展能力有三条标准化接入路径,欢迎第三方贡献:
 
 - [GitHub Discussions](https://github.com/IHUI-INF-AI/IHUI-AI/discussions) — 技术讨论 / Q&A / Ideas
 - [GitHub Issues](https://github.com/IHUI-INF-AI/IHUI-AI/issues) — Bug 报告 / 功能建议
-- 邮箱:`community@aizhs.top`(社区)/ `security@aizhs.top`(安全,见 [SECURITY.md](SECURITY.md))
+- 邮箱:`lizong@aizhs.top`(社区)/ `lizong@aizhs.top`(安全,见 [SECURITY.md](SECURITY.md))
 
 ---
 

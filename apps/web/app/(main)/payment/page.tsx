@@ -43,9 +43,9 @@ const PLAN_NAME_KEY: Record<Plan['id'], string> = {
 const formatCNY = (n: number) => formatCny(n, { digits: 0 })
 
 export default async function PaymentPage() {
-  const t = await getTranslations('payment')
   // SSR 首帧按 cookie 口径 + 汇率快照直出(layout 与 page 模块实例隔离,必须逐页播种)
   await seedServerCurrency()
+  const t = await getTranslations('payment')
 
   return (
     <div className="px-4 py-4 mx-auto w-full max-w-6xl space-y-4">

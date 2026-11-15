@@ -5142,6 +5142,7 @@
   "courseScreen": {
     "title": "全コース",
     "searchPlaceholder": "コースを検索",
+    "search": "検索",
     "empty": "コースはまだありません",
     "free": "無料",
     "studentCount": "{count} 人が学習",
@@ -6668,7 +6669,9 @@
     "enroll": "今すぐ申し込む",
     "pay": "¥{amount} を支払う",
     "lessons": "コース目次",
-    "completed": "修了済み"
+    "completed": "修了済み",
+    "learning": "学習中",
+    "locked": "ロック中"
   },
   "earnCommission": {
     "title": "コミッションプラン",

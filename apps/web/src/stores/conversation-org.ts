@@ -46,24 +46,13 @@ export const useConversationOrgStore = create<ConversationOrgState>()(
         // 那既是首次登录前的既有行为,也是本文件既有用例不必 mock 网络的前提。
         const srv = useOrgServerStore.getState()
         if (!srv.ready || srv.userId !== userId) return
-        // Y-78:`.then` 后必须接 `.catch` —— assign 失败(网络/401/超时)时上面分支已回滚
-        // 乐观值,但那是"服务端返回 ok:false"的正常路径;若 assign 本身 reject(抛异常),
-        // 裸链会产生未处理 rejection。这里补 catch:同样回滚乐观值 + 记原因,与 ok:false 分支同构。
-        void srv
-          .assign(userId, conversationId, folder)
-          .then((r) => {
-            if (r.ok) return
-            // 失败必须回滚乐观值并留下原因:留着改过的本地值,屏幕显示"已在组里"而库里没有,
-            // 下一次刷新又跳回去 —— 这是"改了个没发生的数"的界面版。
-            set((s) => ({ byUser: { ...s.byUser, [userId]: prev } }))
-            useOrgServerStore.setState({ lastError: r.reason })
-          })
-          .catch(() => {
-            // Y-78:assign reject = 网络层失败(请求没到服务端),回滚乐观值并标 'offline'。
-            // reason 必须取封闭联合 OrgFailureReason 的合法值,不能塞 err.message(string)。
-            set((s) => ({ byUser: { ...s.byUser, [userId]: prev } }))
-            useOrgServerStore.setState({ lastError: 'offline' })
-          })
+        void srv.assign(userId, conversationId, folder).then((r) => {
+          if (r.ok) return
+          // 失败必须回滚乐观值并留下原因:留着改过的本地值,屏幕显示"已在组里"而库里没有,
+          // 下一次刷新又跳回去 —— 这是"改了个没发生的数"的界面版。
+          set((s) => ({ byUser: { ...s.byUser, [userId]: prev } }))
+          useOrgServerStore.setState({ lastError: r.reason })
+        })
       },
       setTags: (userId, conversationId, tags) =>
         set((s) => {

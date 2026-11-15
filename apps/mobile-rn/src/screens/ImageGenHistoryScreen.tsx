@@ -70,7 +70,10 @@ function formatTime(iso: string, formatter: Intl.DateTimeFormat): string {
  * 该表无图片 URL 列(content 仅存提示词),故 coverUrl 恒空,与 web 渲染一致;
  * status 为内容启用标志(0/1),非生成任务状态,不映射。
  */
-function toGridHistoryRow(row: HistoryData['list'][number], formatter: Intl.DateTimeFormat): GridItem {
+function toGridHistoryRow(
+  row: HistoryData['list'][number],
+  formatter: Intl.DateTimeFormat,
+): GridItem {
   return {
     id: row.id,
     coverUrl: '',
@@ -126,8 +129,8 @@ export function ImageGenHistoryScreen() {
           pageSize: PAGE_SIZE,
         })
         if (res.success) {
-          setHistoryItems((res.data?.list ?? []).map((row) => toGridHistoryRow(row, timeFormatter)))
-          setHasMore((res.data?.list ?? []).length >= PAGE_SIZE)
+          setHistoryItems(res.data.list.map((row) => toGridHistoryRow(row, timeFormatter)))
+          setHasMore(res.data.list.length >= PAGE_SIZE)
         } else {
           setError(apiFailureToText(res, t('imageGen.loadFailed')))
         }
@@ -137,8 +140,8 @@ export function ImageGenHistoryScreen() {
           pageSize: PAGE_SIZE,
         })
         if (res.success) {
-          setFavItems((res.data?.list ?? []).map((item) => toGridFavoriteItem(item, timeFormatter)))
-          setHasMore((res.data?.list ?? []).length >= PAGE_SIZE)
+          setFavItems(res.data.list.map((item) => toGridFavoriteItem(item, timeFormatter)))
+          setHasMore(res.data.list.length >= PAGE_SIZE)
         } else {
           setError(apiFailureToText(res, t('imageGen.loadFailed')))
         }
@@ -163,9 +166,7 @@ export function ImageGenHistoryScreen() {
           pageSize: PAGE_SIZE,
         })
         if (res.success) {
-          const nextItems = (res.data?.list ?? []).map((row) =>
-            toGridHistoryRow(row, timeFormatter),
-          )
+          const nextItems = res.data.list.map((row) => toGridHistoryRow(row, timeFormatter))
           if (nextItems.length < PAGE_SIZE) setHasMore(false)
           setHistoryItems((prev) => [...prev, ...nextItems])
         }
@@ -175,9 +176,7 @@ export function ImageGenHistoryScreen() {
           pageSize: PAGE_SIZE,
         })
         if (res.success) {
-          const nextItems = (res.data?.list ?? []).map((item) =>
-            toGridFavoriteItem(item, timeFormatter),
-          )
+          const nextItems = res.data.list.map((item) => toGridFavoriteItem(item, timeFormatter))
           if (nextItems.length < PAGE_SIZE) setHasMore(false)
           setFavItems((prev) => [...prev, ...nextItems])
         }

@@ -202,7 +202,7 @@ function createStyles(tk: AppThemeTokens) {
     } as TextStyle,
     footerText: {
       fontSize: rnType.caption.size,
-      color: tk.text.tertiary,
+      color: tk.text.medium,
       textAlign: 'center',
     } as TextStyle,
   })

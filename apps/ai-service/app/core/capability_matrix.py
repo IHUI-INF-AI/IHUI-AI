@@ -696,6 +696,15 @@ CAPABILITY_MATRIX: list[dict[str, str]] = [
         "reason_if_off": "权限说明注入默认关,显式开启后生效",
     },
     {
+        "key": "mcp_office_tools",
+        "env": "MCP_OFFICE_TOOLS_ENABLED",
+        "default": "false",
+        "category": "开关类",
+        "owner_module": "app.tools.office_convert",
+        "doc_ref": "app/tools/office_convert.py:49",
+        "reason_if_off": "Office 文档转换/渲染/重算工具默认关(依赖宿主机 LibreOffice,写盘与子进程受资源配额约束),显式开启后生效",
+    },
+    {
         "key": "user_trial_daily_tokens",
         "env": "USER_TRIAL_DAILY_TOKENS",
         "default": "0",
@@ -1164,4 +1173,3 @@ async def get_capabilities(
             "text": format_matrix_text(),
         },
     }
-

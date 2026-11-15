@@ -68,6 +68,8 @@ import { sseRegistry } from './plugins/sse-registry.js'
 import { queue } from './plugins/queue.js'
 import { scheduler } from './plugins/scheduler.js'
 import { preloadRawRetentionOptOuts } from './services/raw-retention-optout.js'
+import { isPrivateIp } from './services/ip-reputation.js'
+import { isAdminRequest } from './plugins/require-permission.js'
 import { preloadCodeIndexEgressOptOuts } from './services/code-index-egress-consent.js'
 import { distributedRateLimit } from './plugins/distributed-rate-limit.js'
 import { paymentIdempotency } from './plugins/payment-idempotency.js'
@@ -117,7 +119,8 @@ import tenantDbPlugin from './plugins/tenant-db.js'
 import { tokenBalanceService } from './plugins/token-balance-service.js'
 import { resilienceToolkit } from './plugins/resilience-toolkit.js'
 import canaryRouterPlugin from './plugins/canary-router.js'
-import { startAutoRollbackMonitor } from './services/auto-rollback.js'
+import { startAutoRollbackMonitor, stopAutoRollbackMonitor } from './services/auto-rollback.js'
+import { registerPoolTrackerCleanup } from './db/index.js'
 // D30 无人值守修复闭环(2026-09-26 立,计划行 659):PAT 基础,与 D15 installation 体系解耦。
 // 内部 env 门控:IHUI_AUTOMATIONS_ENABLED 未开启时 startAutomationsScheduler() 直接返回,
 // 零定时器/零网络;关闭走下方 onClose 钩子优雅停。
@@ -463,6 +466,11 @@ export async function buildServer(): Promise<FastifyInstance> {
 
   // 启动金丝雀自动回滚监控（CANARY_ENABLED=true 时生效，默认空操作）
   startAutoRollbackMonitor()
+  // F-524:关停相位必须落在 buildServer() 内,worker 只走 server.close() 的 onClose,
+  // 若 stop 留在 index.ts 的关停相位,worker 侧的 ref 定时器永远停不掉。
+  server.addHook('onClose', async () => {
+    stopAutoRollbackMonitor()
+  })
 
   // D30 无人值守修复闭环:env 门控启动(IHUI_AUTOMATIONS_ENABLED=true 才生效);
   // 未开启 = 完全不启动(零定时器、零网络)。onClose 钩子负责优雅关停。
@@ -489,6 +497,10 @@ export async function buildServer(): Promise<FastifyInstance> {
       stopSuperAgentPumpLoop()
     })
   }
+
+  // F-524:poolTracker onClose 清理同样必须在 buildServer() 内注册,worker 不执行 index.ts 的
+  // 关停相位;此前 worker 进程的 DB 连接/定时器无清理路径。
+  registerPoolTrackerCleanup(server)
 
   return server
 }
@@ -672,6 +684,12 @@ async function registerPlugins(server: FastifyInstance) {
   await server.register(rateLimit, {
     max: isDev ? 1000 : 100,
     timeWindow: '1 minute',
+    // 开发档放行回环/内网来源:本机调试(接口连点、刷新重试、前端扇出)会先撞上
+    // 路由级 5~10 次/分钟的登录限流,而那不是外部滥用。只在非生产档生效,
+    // 且只豁免私有地址 —— 公网来源在开发档也照常限流。
+    // 管理员(JWT roleId>=1)在任何档位都不限流(2026-11-15):管理面联调/公网调试不该被自己的额度挡住。
+    allowList: async (req: FastifyRequest) =>
+      (isDev && isPrivateIp(req.ip)) || (await isAdminRequest(req)),
     // 失稳安全存储:Redis 故障 → 进程内保守兜底计数,而非 fail-open 放行
     store: createFailSafeRateLimitStore(
       rateLimitRedis,

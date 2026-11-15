@@ -289,7 +289,7 @@ function createStyles(tokens: AppThemeTokens) {
     },
     closeGlyph: {
       fontSize: rnType.title.size,
-      color: tokens.text.tertiary,
+      color: tokens.text.medium,
     },
     claimFree: {
       paddingHorizontal: rnSpacing.sm,
@@ -347,12 +347,12 @@ function createStyles(tokens: AppThemeTokens) {
     sectionLabel: {
       fontSize: rnType.label.size,
       fontWeight: '600',
-      color: tokens.text.tertiary,
+      color: tokens.text.medium,
       marginBottom: rnSpacing.xs,
     },
     emptyText: {
       fontSize: rnType.bodySm.size,
-      color: tokens.text.tertiary,
+      color: tokens.text.medium,
     },
     list: {
       flex: 1,
@@ -398,12 +398,12 @@ function createStyles(tokens: AppThemeTokens) {
     },
     conversationTime: {
       fontSize: rnType.caption.size,
-      color: tokens.text.tertiary,
+      color: tokens.text.medium,
     },
     conversationModel: {
       flex: 1,
       fontSize: rnType.caption.size,
-      color: tokens.text.tertiary,
+      color: tokens.text.medium,
     },
     actionButton: {
       paddingHorizontal: rnSpacing['2xs'],
@@ -417,7 +417,7 @@ function createStyles(tokens: AppThemeTokens) {
     },
     deleteText: {
       fontSize: rnType.caption.size,
-      color: tokens.danger.DEFAULT,
+      color: tokens.danger.deepText,
     },
     footer: {
       flexDirection: 'row',

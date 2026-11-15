@@ -851,44 +851,7 @@ function computeDeviceCollisions(
   return out.sort((a, b) => (a.deviceId < b.deviceId ? -1 : a.deviceId > b.deviceId ? 1 : 0))
 }
 
-// =============================================================================
-// 凭据形态准入闸门(O??@2026-11-15;判据纯函数,测试经 __test__ 直用生产实现)
-// =============================================================================
-
-/**
- * 落库后该号具备的三类续期材料(布尔,由 importAccounts 按各自单一真相源算好后传入)。
- * - hasRefreshToken:本批 refreshToken,或覆盖时保留的库内旧票(hasUsableRefresh);
- * - hasCookies:本批 cookies 非空(WorkBuddy 等靠 cookie 换登录态);
- * - hasSecrets:本批或既有的 secrets 图非空(设备 PEM / 永久 AK/SK / 会话模板 / 平台扩展凭据)。
- */
-interface ImportCredentialRenewalShape {
-  hasRefreshToken: boolean
-  hasCookies: boolean
-  hasSecrets: boolean
-}
-
-/**
- * 「明显无法续期的裸残票」判据(凭据形态准入闸门,2026-11-15 立)。
- *
- * 只看凭据形态:三类续期材料**全无**才判 true。有 refreshToken / 有 cookies / 有 secrets
- * 任一即放行 —— 登录态类凭据靠 rt 或 cookie 续期,永久/设备类凭据落在 secrets,本应至少
- * 具备其一;三者全空 = 裸 token 残票,放进永久保活档只会每 6h 空撞上游鉴权、连败 3 次
- * 被摘除、每 24h 报一封「号池保活摘除」(生产实证:workbuddy 两枚既无 refresh_token_enc
- * 也无 cookies_enc 的裸 token)。
- *
- * 刻意不接上游错误码、不接 providerCode:错误码判据由另一路集中实现(避免单一真相源分裂),
- * 平台差异已由调用点的形态归一化吸收(有映射的平台恒带 secrets 图 ⇒ 自然放行,判据天然窄)。
- * 返回 true = 拒绝登记 keepAliveForever(号仍照常入库,只不进保活档)。
- */
-function isNonRenewableResidualTicket(shape: ImportCredentialRenewalShape): boolean {
-  return !shape.hasRefreshToken && !shape.hasCookies && !shape.hasSecrets
-}
-
-export const __test__ = {
-  computeDeviceCollisions,
-  mapQoderImport,
-  isNonRenewableResidualTicket,
-}
+export const __test__ = { computeDeviceCollisions, mapQoderImport }
 
 // =============================================================================
 // 批量导入
@@ -1137,15 +1100,6 @@ export async function importAccounts(
       const healthStatus = down ? 'down' : 'unknown'
 
       const cookies = Array.isArray(acc.cookies) ? acc.cookies : []
-      // 本次导入的 secrets 图(口径与 gate 一致:mapped.secrets 优先,trae 设备材料独立成档)。
-      // 2026-11-15 逐字前移到 extra 构造之前:凭据形态准入闸门要复用同一份图判「有无
-      // secrets」,不许在闸门里再抄一份取值链(§0.6);搬迁只动声明位置,语义一字未改。
-      const incomingSecrets: Record<string, unknown> | null =
-        mapped && 'secrets' in mapped
-          ? (mapped.secrets as Record<string, unknown>)
-          : traeSecrets
-            ? traeSecrets.secrets
-            : null
       // 账号级代理:明文只用于签到侧推送载荷,落库一律 encryptField 加密
       const proxyUrlPlain =
         typeof acc.proxyUrl === 'string' && acc.proxyUrl.trim() ? acc.proxyUrl.trim() : null
@@ -1173,24 +1127,7 @@ export async function importAccounts(
       // 永久保活默认登记(2026-11-10 机主口径「所有的都要永久保活」):导入即进
       // keepAliveForever 档,新号不会因为没人手点而躺在普通档等退避摘除;
       // 载荷显式给 false 仍尊重(不做单向下压)。
-      // 凭据形态准入闸门(2026-11-15 立):仅在「载荷未显式表态」的默认登记窗口内,对
-      // 「明显无法续期的裸残票」(无 refreshToken / 无 cookies / 无 secrets,而登录态类
-      // 凭据本应至少具备其一)不登记永久保活 —— 这类号进保活档后每 6h 空撞上游鉴权、
-      // 连败 3 次被摘除、每 24h 报一封「号池保活摘除」。判据只看凭据形态(不碰上游
-      // 错误码,那一路判据另有其主);显式设置 keepAliveForever 的号、合法凭据、覆盖时
-      // 保留旧票/既有 secrets 的号一律不拦,行为逐字节不变。
-      if (extra['keepAliveForever'] === undefined) {
-        const residual = isNonRenewableResidualTicket({
-          // hasUsableRefresh 已含「覆盖时保留的库内旧票」,与「过期是否摘除」同源
-          hasRefreshToken: hasUsableRefresh,
-          hasCookies: cookies.length > 0,
-          // 本批 secrets 图优先;覆盖时既有 secrets 列被保留(不写该列)也算「有」
-          hasSecrets:
-            (incomingSecrets !== null && Object.keys(incomingSecrets).length > 0) ||
-            (existingSecrets !== null && Object.keys(existingSecrets).length > 0),
-        })
-        if (!residual) extra['keepAliveForever'] = true
-      }
+      if (extra['keepAliveForever'] === undefined) extra['keepAliveForever'] = true
       // 掩码待补全标记(2026-10-28 立):Trae 会话协议只下发脱敏号(前3后2),导入后
       // 统一名可能仍是掩码形态 ⇒ 落 extraMetadata.phoneMask 供管理面识别"待补全"、
       // complete-phone 归位校验与 match-phone 批量匹配。补全成功后该键被折成
@@ -1205,6 +1142,13 @@ export async function importAccounts(
           ? mapped.refreshExpiresAt
           : parseFlexibleExpiry(acc['refreshTokenExpiresAt'])
 
+      // 本次导入的 secrets 图(口径与 gate 一致:mapped.secrets 优先,trae 设备材料独立成档)
+      const incomingSecrets: Record<string, unknown> | null =
+        mapped && 'secrets' in mapped
+          ? (mapped.secrets as Record<string, unknown>)
+          : traeSecrets
+            ? traeSecrets.secrets
+            : null
       // 模板三键保留(2026-10-28,HEAD mergeSecrets 对这三键语义的最小恢复):secretsEnc 同时装
       // 凭据图与会话模板三键(sessionTemplate/sealedPaths/edition —— worker cron 每 10 分钟经
       // relay-workbuddy-session-sync 回灌,「登录本机」relay-local-login 唯一消费面)。导入载荷
@@ -1513,7 +1457,7 @@ export async function importAccounts(
  * - 生产机的 API 也会写(它同样在导号),但生产侧不装同步任务 ⇒ 标记只占几字节,零副作用;
  * - 路径可用 `IHUI_POOL_SYNC_DIRTY_FILE` 覆盖(NSSM 服务的 homedir 可能不是用户目录)。
  */
-function markPoolSyncDirty(): void {
+export function markPoolSyncDirty(): void {
   const file =
     process.env['IHUI_POOL_SYNC_DIRTY_FILE'] || join(homedir(), '.wb-switch', 'pool-sync-dirty')
   try {
@@ -1721,6 +1665,9 @@ export async function completeAccountPhone(
 
 // =============================================================================
 // 共享到运营池标记(2026-11-07 立,李总指令)
+// 2026-11-12 机主令改口:所有号池里的号默认同步运营生产 ⇒ 新建行默认 shared=true
+// (schema 默认值 + 库列默认值均已改 true);setAccountShared 现主要用于「显式关闭共享」。
+// 存量不共享行已由批量补齐收口,本函数仍是改该标记的唯一正当出口(含 cred bump + 签到同步)。
 // =============================================================================
 
 export interface SetSharedResult {
@@ -1744,12 +1691,18 @@ export interface SetSharedResult {
 export async function setAccountShared(
   accountId: string,
   shared: boolean,
+  actorUserId?: string | null,
 ): Promise<SetSharedResult> {
   const target = shared === true
+  // F-161 属主边界:有操作者时只允许「本人行 or 全局行(owner 为空)」;
+  // 未传操作者的内部/CLI 调用按最小权限收敛为仅全局行。个人行越权 ⇒ 落空 404。
+  const ownerScope = actorUserId
+    ? or(eq(aiRelayAccountPool.ownerUserId, actorUserId), isNull(aiRelayAccountPool.ownerUserId))
+    : isNull(aiRelayAccountPool.ownerUserId)
   const [row] = await dbRead
     .select()
     .from(aiRelayAccountPool)
-    .where(eq(aiRelayAccountPool.id, accountId))
+    .where(and(eq(aiRelayAccountPool.id, accountId), ownerScope))
     .limit(1)
   if (!row) {
     return {
@@ -1778,7 +1731,7 @@ export async function setAccountShared(
       credVersion: sql`${aiRelayAccountPool.credVersion} + 1`,
       updatedAt: new Date(),
     })
-    .where(eq(aiRelayAccountPool.id, row.id))
+    .where(and(eq(aiRelayAccountPool.id, row.id), ownerScope))
     .returning()
   if (!written) {
     return {
@@ -2283,18 +2236,6 @@ export interface UserPoolModelItem {
   accountCount: number
   /** preset = 全局登记行(有展示名/定价);upstream = 上游模型清单现拉 */
   source: 'preset' | 'upstream'
-  /**
-   * 积分消耗倍数(2026-11-13 立):预设行取 ai_model_config_models.points_multiplier;
-   * 上游补缺行没有登记价,缺省不下发(前端按免费档兜底)。小数口径(如 0.15 = 0.15x)。
-   */
-  pointsMultiplier?: number
-  /**
-   * 真实单价(2026-11-13 立):元/百万 token,进/出各一。
-   * 倍率是抽象档位,用户横比模型时必须以这两个数为准 —— 二者同时下发才能避免
-   * "倍率低的模型实际更贵" 的误导。预设行缺价(0 或空)时不下发。
-   */
-  inputPricePerMillion?: number
-  outputPricePerMillion?: number
 }
 
 interface UserPoolModelCacheEntry {
@@ -2450,9 +2391,6 @@ export async function listUserPoolModels(
       providerCode: aiModelConfig.providerCode,
       modelId: aiModelConfigModels.modelId,
       displayName: aiModelConfigModels.displayName,
-      pointsMultiplier: aiModelConfigModels.pointsMultiplier,
-      inputPricePer1k: aiModelConfigModels.inputPricePer1k,
-      outputPricePer1k: aiModelConfigModels.outputPricePer1k,
     })
     .from(aiModelConfigModels)
     .innerJoin(aiModelConfig, eq(aiModelConfigModels.configId, aiModelConfig.id))
@@ -2465,29 +2403,11 @@ export async function listUserPoolModels(
     )
     .orderBy(aiModelConfig.providerCode, aiModelConfigModels.modelId)
 
-  const presetByProvider = new Map<
-    string,
-    Array<{ id: string; name: string; points?: number; inM?: number; outM?: number }>
-  >()
+  const presetByProvider = new Map<string, Array<{ id: string; name: string }>>()
   for (const row of presetRows) {
     if (!row.modelId) continue
     const list = presetByProvider.get(row.providerCode) ?? []
-    // numeric 列在 pg 驱动下可能回字符串:统一转 number,非法值视为未登记(不下发)
-    const pts = row.pointsMultiplier === null ? undefined : Number(row.pointsMultiplier)
-    // 分/1k token → 元/百万 token:× 1000 / 100 = ×10
-    const toPerMillion = (v: unknown): number | undefined => {
-      if (v === null || v === undefined) return undefined
-      const n = Number(v)
-      if (!Number.isFinite(n) || n <= 0) return undefined
-      return Math.round(n * 10 * 1e4) / 1e4
-    }
-    list.push({
-      id: row.modelId,
-      name: row.displayName || row.modelId,
-      points: pts !== undefined && Number.isFinite(pts) ? pts : undefined,
-      inM: toPerMillion(row.inputPricePer1k),
-      outM: toPerMillion(row.outputPricePer1k),
-    })
+    list.push({ id: row.modelId, name: row.displayName || row.modelId })
     presetByProvider.set(row.providerCode, list)
   }
 
@@ -2541,9 +2461,6 @@ export async function listUserPoolModels(
         provider: code,
         accountCount: hit.count,
         source: 'preset',
-        ...(preset.points !== undefined ? { pointsMultiplier: preset.points } : {}),
-        ...(preset.inM !== undefined ? { inputPricePerMillion: preset.inM } : {}),
-        ...(preset.outM !== undefined ? { outputPricePerMillion: preset.outM } : {}),
       })
     }
     for (const upstreamId of info.ids) {

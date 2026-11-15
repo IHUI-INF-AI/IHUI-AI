@@ -14,6 +14,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@ihui/ui-react'
+import { NESTED_FLOATING_OVERLAY_Z_CLASS, NESTED_FLOATING_Z_CLASS } from '@/lib/floating-layer'
 
 export interface ConfirmDialogProps {
   open: boolean
@@ -40,7 +41,10 @@ export function ConfirmDialog({
 }: ConfirmDialogProps) {
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onCancel()}>
-      <DialogContent>
+      <DialogContent
+        className={NESTED_FLOATING_Z_CLASS}
+        overlayClassName={NESTED_FLOATING_OVERLAY_Z_CLASS}
+      >
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           {description ? <DialogDescription>{description}</DialogDescription> : null}

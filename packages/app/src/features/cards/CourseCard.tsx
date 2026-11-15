@@ -182,7 +182,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingVertical: rnSpacing['2xs'],
     },
     levelText: { fontSize: rnType.caption.size, fontWeight: '600', color: tk.brandAccent.deep },
-    ratingText: { fontSize: rnType.caption.size, color: tk.warning.DEFAULT, fontWeight: '600' },
+    ratingText: { fontSize: rnType.caption.size, color: tk.warning.amberText, fontWeight: '600' },
     tagsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: rnSpacing['xs-loose'] },
     tag: {
       backgroundColor: tk.surface.card,
@@ -192,15 +192,15 @@ function createStyles(tk: AppThemeTokens) {
     },
     tagText: { fontSize: rnType.caption.size, color: tk.text.secondary },
     footerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-    price: { fontSize: rnType.subtitle.size, fontWeight: '700', color: tk.danger.bright },
+    price: { fontSize: rnType.subtitle.size, fontWeight: '700', color: tk.danger.deepText },
     freeTag: {
       backgroundColor: FREE_TINT,
       borderRadius: rnRadius.md,
       paddingHorizontal: rnSpacing.sm,
       paddingVertical: rnSpacing['2xs'],
     },
-    freeTagText: { fontSize: rnType.body.size, fontWeight: '700', color: tk.success.DEFAULT },
-    enroll: { fontSize: rnType.caption.size, color: tk.text.tertiary },
+    freeTagText: { fontSize: rnType.body.size, fontWeight: '700', color: tk.success.deepText },
+    enroll: { fontSize: rnType.caption.size, color: tk.text.medium },
     footer: { marginTop: rnSpacing.sm },
   })
 }

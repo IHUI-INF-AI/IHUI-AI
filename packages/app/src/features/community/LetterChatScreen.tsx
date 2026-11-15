@@ -85,7 +85,7 @@ export function LetterChatScreen({
         <Text style={styles.error}>{error}</Text>
       ) : messages.length === 0 ? (
         <View style={styles.centerBlock}>
-          <MessageSquare size={30} color={tk.text.tertiary} />
+          <MessageSquare size={30} color={tk.text.secondary} />
           <Text style={styles.muted}>{t('lettersPage.empty')}</Text>
         </View>
       ) : (
@@ -104,7 +104,7 @@ export function LetterChatScreen({
                   disabled={isDeleting}
                   hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
                 >
-                  <Trash2 size={13} color={tk.text.tertiary} />
+                  <Trash2 size={13} color={tk.text.secondary} />
                 </TouchableOpacity>
                 <View style={item.mine ? styles.bubbleMine : styles.bubbleTheirs}>
                   <Text style={item.mine ? styles.bubbleMineText : styles.bubbleTextTheirs}>
@@ -136,7 +136,7 @@ export function LetterChatScreen({
           value={draft}
           onChangeText={onDraftChange}
           placeholder={t('lettersPage.sendPlaceholder')}
-          placeholderTextColor={tk.text.tertiary}
+          placeholderTextColor={tk.text.secondary}
           maxLength={1000}
           onSubmitEditing={onSend}
           returnKeyType="send"
@@ -192,7 +192,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingHorizontal: rnSpacing.md,
       paddingVertical: rnSpacing.sm,
       fontSize: rnType.body.size,
-      color: tk.danger.DEFAULT,
+      color: tk.danger.deepText,
     },
     listContent: { paddingHorizontal: rnSpacing.md, paddingTop: rnSpacing.md },
     rowMine: {
@@ -235,7 +235,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: rnSpacing['2xs'],
       textAlign: 'right',
       fontSize: rnType.caption.size,
-      color: tk.text.tertiary,
+      color: tk.text.medium,
     },
     composer: {
       flexDirection: 'row',

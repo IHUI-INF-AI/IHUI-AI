@@ -7,7 +7,6 @@ import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { useMemo } from 'react'
 import {
   FlatList,
-  Pressable,
   RefreshControl,
   StyleSheet,
   Text,
@@ -24,6 +23,7 @@ import {
   PressableCard,
   ScreenSkeleton,
 } from '../../components/ScreenStates'
+import { Tappable } from '@ihui/ui-native'
 
 /** AI 技能列表条目(平台无关,由 wrapper 从 AiSkillMeta 映射) */
 export interface AiSkillListItem {
@@ -98,18 +98,23 @@ export function AiSkillScreen({
           {t('aiSkill.title')}
         </Text>
         {onImport ? (
-          <Pressable
+          <Tappable
             onPress={onImport}
             disabled={importing}
             hitSlop={8}
             accessibilityRole="button"
             accessibilityLabel={t('aiSkill.importButton')}
+            accessibilityState={{ disabled: importing }}
+            // 按压反馈(2026-11-13):这里是纯 Pressable,RN 不提供默认按压态 ⇒
+            // 原来按下毫无变化,用户会以为没点上而连点。按压态由 Tappable 内部持有
+            // (2026-11-14 修正):函数形态 style 会被 cssInterop 吃掉、连整份内联样式一起丢,
+            // 故 style 只给静态档,不在这里手写 `pressed && ...`。
             style={styles.headerAction}
           >
             <Text style={[styles.headerActionText, importing ? styles.headerActionDisabled : null]}>
               {importing ? t('aiSkill.importing') : t('aiSkill.importButton')}
             </Text>
-          </Pressable>
+          </Tappable>
         ) : (
           <View style={styles.headerSidePlaceholder} />
         )}
@@ -276,7 +281,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     tagText: {
       fontSize: rnType.label.size, // text-xs
-      color: tk.warning.amber,
+      color: tk.warning.amberText,
     },
   } satisfies Record<string, ViewStyle | TextStyle>)
 }

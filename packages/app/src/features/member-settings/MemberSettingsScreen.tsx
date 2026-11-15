@@ -109,7 +109,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingVertical: rnSpacing.sm,
     },
     title: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
-    saving: { fontSize: rnType.caption.size, color: tk.text.tertiary, marginLeft: 'auto' },
+    saving: { fontSize: rnType.caption.size, color: tk.text.medium, marginLeft: 'auto' },
     body: { padding: rnSpacing.md, gap: rnSpacing.md },
     section: {
       borderRadius: rnRadius.lg,
@@ -121,7 +121,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     sectionTitle: {
       fontSize: rnType.caption.size,
-      color: tk.text.tertiary,
+      color: tk.text.medium,
       marginBottom: rnSpacing.xs,
     },
     row: {
@@ -132,7 +132,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     label: { fontSize: rnType.body.size, color: tk.text.primary },
     hint: { paddingHorizontal: rnSpacing.xs },
-    hintText: { fontSize: rnType.caption.size, color: tk.text.tertiary },
+    hintText: { fontSize: rnType.caption.size, color: tk.text.medium },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

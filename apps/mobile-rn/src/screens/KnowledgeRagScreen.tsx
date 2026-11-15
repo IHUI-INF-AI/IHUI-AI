@@ -5,7 +5,15 @@
 
 import { rnSpacing } from '@ihui/design-tokens'
 import { useCallback, useEffect, useState } from 'react'
-import { FlatList, RefreshControl, Text, TouchableOpacity, View } from 'react-native'
+import {
+  FlatList,
+  KeyboardAvoidingView,
+  Platform,
+  RefreshControl,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native'
 import { appAlert } from '../components/BottomPops'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
@@ -294,94 +302,99 @@ export function KnowledgeRagScreen() {
   // ---- 文档列表 / 搜索结果视图 ----
   return (
     <View className={`flex-1 ${dark ? 'bg-neutral-900' : 'bg-white'}`}>
-      {renderHeader(t('knowledgeRag.title'), () => navigation.goBack())}
-      {renderSearchBar()}
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        {renderHeader(t('knowledgeRag.title'), () => navigation.goBack())}
+        {renderSearchBar()}
 
-      {view === 'docs' ? (
-        loading ? (
+        {view === 'docs' ? (
+          loading ? (
+            <View className="flex-1 items-center justify-center">
+              <Text className="text-gray-500">{t('common.loading')}</Text>
+            </View>
+          ) : listError ? (
+            renderError(listError, () => {
+              setLoading(true)
+              void loadDocs()
+            })
+          ) : (
+            <FlatList
+              data={items}
+              keyExtractor={(item) => String(item.id)}
+              refreshControl={
+                <RefreshControl
+                  refreshing={refreshing}
+                  onRefresh={() => {
+                    setRefreshing(true)
+                    void loadDocs()
+                  }}
+                />
+              }
+              ListEmptyComponent={
+                <View className="items-center py-16">
+                  <Text className="text-sm text-gray-500">{t('knowledgeBase.empty')}</Text>
+                  <Text className="mt-1 text-xs text-gray-400">{t('knowledgeBase.emptyHint')}</Text>
+                </View>
+              }
+              contentContainerStyle={{ padding: rnSpacing.lg }}
+              renderItem={({ item }) => (
+                <View className={`mb-3 ui-card rounded-lg border p-4 ${cardCls}`}>
+                  <TouchableOpacity onPress={() => void openDetail(item.id, 'docs')}>
+                    <Text className={`text-base font-medium ${titleCls}`} numberOfLines={1}>
+                      {item.title}
+                    </Text>
+                    <Text className={`mt-1 text-xs ${metaCls}`}>
+                      {item.chunkCount} {t('knowledgeBase.chunks')}
+                      {item.createdAt ? ` · ${String(item.createdAt).slice(0, 10)}` : ''}
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => onDelete(item)}
+                    disabled={deleting}
+                    className="mt-2 self-start rounded-md border border-red-200 px-2 py-1"
+                  >
+                    <Text className="text-xs text-red-500">
+                      {t('knowledgeRag.manage.singleDelete')}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+            />
+          )
+        ) : searching ? (
           <View className="flex-1 items-center justify-center">
             <Text className="text-gray-500">{t('common.loading')}</Text>
           </View>
-        ) : listError ? (
-          renderError(listError, () => {
-            setLoading(true)
-            void loadDocs()
-          })
+        ) : searchError ? (
+          renderError(searchError, () => void onSearch())
         ) : (
           <FlatList
-            data={items}
-            keyExtractor={(item) => String(item.id)}
-            refreshControl={
-              <RefreshControl
-                refreshing={refreshing}
-                onRefresh={() => {
-                  setRefreshing(true)
-                  void loadDocs()
-                }}
-              />
-            }
+            data={hits}
+            keyExtractor={(hit) => String(hit.id)}
             ListEmptyComponent={
               <View className="items-center py-16">
-                <Text className="text-sm text-gray-500">{t('knowledgeBase.empty')}</Text>
-                <Text className="mt-1 text-xs text-gray-400">{t('knowledgeBase.emptyHint')}</Text>
+                <Text className="text-sm text-gray-500">{t('knowledgeRag.searchEmpty')}</Text>
               </View>
             }
             contentContainerStyle={{ padding: rnSpacing.lg }}
             renderItem={({ item }) => (
-              <View className={`mb-3 ui-card rounded-lg border p-4 ${cardCls}`}>
-                <TouchableOpacity onPress={() => void openDetail(item.id, 'docs')}>
-                  <Text className={`text-base font-medium ${titleCls}`} numberOfLines={1}>
-                    {item.title}
-                  </Text>
-                  <Text className={`mt-1 text-xs ${metaCls}`}>
-                    {item.chunkCount} {t('knowledgeBase.chunks')}
-                    {item.createdAt ? ` · ${String(item.createdAt).slice(0, 10)}` : ''}
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={() => onDelete(item)}
-                  disabled={deleting}
-                  className="mt-2 self-start rounded-md border border-red-200 px-2 py-1"
-                >
-                  <Text className="text-xs text-red-500">
-                    {t('knowledgeRag.manage.singleDelete')}
-                  </Text>
-                </TouchableOpacity>
-              </View>
+              <TouchableOpacity
+                onPress={() => void openDetail(item.docId, 'search')}
+                className={`mb-3 ui-card rounded-lg border p-4 ${cardCls}`}
+              >
+                <Text className={`text-sm leading-6 ${bodyCls}`} numberOfLines={3}>
+                  {item.content}
+                </Text>
+                <Text className={`mt-2 text-xs ${metaCls}`}>
+                  #{item.chunkIndex + 1} · {t('knowledgeRag.score')} {item.score.toFixed(2)}
+                </Text>
+              </TouchableOpacity>
             )}
           />
-        )
-      ) : searching ? (
-        <View className="flex-1 items-center justify-center">
-          <Text className="text-gray-500">{t('common.loading')}</Text>
-        </View>
-      ) : searchError ? (
-        renderError(searchError, () => void onSearch())
-      ) : (
-        <FlatList
-          data={hits}
-          keyExtractor={(hit) => String(hit.id)}
-          ListEmptyComponent={
-            <View className="items-center py-16">
-              <Text className="text-sm text-gray-500">{t('knowledgeRag.searchEmpty')}</Text>
-            </View>
-          }
-          contentContainerStyle={{ padding: rnSpacing.lg }}
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              onPress={() => void openDetail(item.docId, 'search')}
-              className={`mb-3 ui-card rounded-lg border p-4 ${cardCls}`}
-            >
-              <Text className={`text-sm leading-6 ${bodyCls}`} numberOfLines={3}>
-                {item.content}
-              </Text>
-              <Text className={`mt-2 text-xs ${metaCls}`}>
-                #{item.chunkIndex + 1} · {t('knowledgeRag.score')} {item.score.toFixed(2)}
-              </Text>
-            </TouchableOpacity>
-          )}
-        />
-      )}
+        )}
+      </KeyboardAvoidingView>
     </View>
   )
 }

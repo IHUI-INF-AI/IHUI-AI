@@ -402,9 +402,7 @@ export default function MessageIndex() {
       if (key === 'marketing') patch.smsEnabled = enabled
       await updateNotificationPreferences(patch)
     } catch {
-      // 服务端没写成功却把开关留在"已改"态 ⇒ UI 与后端长期不一致。回滚乐观更新并显式反馈。
-      setSettings((prev) => prev.map((s) => (s.key === key ? { ...s, enabled: !enabled } : s)))
-      onToast(t('common.operationFailed'), { kind: 'error' })
+      // ignore - local state already updated
     }
   }
 

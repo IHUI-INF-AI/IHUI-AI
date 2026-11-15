@@ -203,6 +203,17 @@ export interface PostDetailItem {
   imgs?: string | string[] | null
   types?: string[] | null
   categories?: string[] | null
+  /**
+   * 收藏数 / 分享数(2026-11-14 增补,可选)。
+   * 为什么要有:小程序 circle/detail 的动作栏是 **4 项**(赞/评/藏/享),
+   * 而这里原先只有 likes/comments ⇒ 该端两项无处安放,只能整段手抄。
+   * 缺省按 0 渲染(不造数据)。
+   */
+  favorites?: number
+  shares?: number
+  /** 当前用户是否已点赞 / 已收藏(驱动动作栏选中态);缺省 false */
+  liked?: boolean
+  favorited?: boolean
 }
 
 /** PostDetail 屏 props */
@@ -366,12 +377,21 @@ export type ActivityStatus = 'upcoming' | 'ongoing' | 'ended'
 /** 活动项(平台注入,字段对齐 mobile-rn ActivityScreen Activity) */
 export interface ActivityItem {
   id: string
+  /**
+   * 后端详情路由是 `GET /activities/:slug`(promotions.ts 里按 slug 查),
+   * 而列表导航此前只传 id ⇒ 详情页拿 uuid 当 slug 查,永远 404「活动不存在或已下线」。
+   * 所以列表映射必须把 slug 一并带出来。
+   */
+  slug: string
   title: string
   description: string
   startTime: string
   endTime: string
   status: ActivityStatus
-  participants: number
+  /** 后端 activityFields 已带 participants 计数;历史数据缺列时前端不渲染 0 这种假数。 */
+  participants?: number
+  /** 当前用户是否已报名(GET /activities/:id 回填 joined;列表恒 false)。 */
+  joined?: boolean
 }
 
 /** ActivityScreen props */
@@ -385,6 +405,15 @@ export interface ActivityScreenProps {
   onBack: () => void
   /** 可选:点卡片进详情(未传则无跳转,不破坏既有调用方) */
   onItemPress?: (item: ActivityItem) => void
+  /**
+   * 报名 / 取消报名。后端 `POST|DELETE /activities/:id/join` 早已就绪,
+   * 但列表页那颗「立即参与」此前是无 onPress 的 TouchableOpacity:既点不动,
+   * 又会抢走 responder 吞掉外层卡片的点击(见 PLATFORM-LIMITS 同型问题)。
+   * 未传时按钮降级为纯展示,不再占着可点区域。
+   */
+  onJoin?: (item: ActivityItem) => void
+  /** 正在提交报名的活动 id(防重复点 + 给出等待态)。 */
+  joiningId?: string
   colorScheme?: 'light' | 'dark'
 }
 
@@ -397,7 +426,14 @@ export interface ActivityDetailItem {
   content: string
   startAt: string
   endAt: string
-  location: string
+  /**
+   * 活动地点。可选:activities 表的列只有 title/slug/description/banner/start_at/end_at/
+   * status/rules —— **没有 location**。早期契约把 location 定成必填,宿主只能塞空串,
+   * 于是详情页恒显示一行「活动地点:」加空白。没有就不渲染该行,比显示空标签诚实。
+   */
+  location?: string
+  /** 后端 GET /activities/:slug 已回填 joined(未登录恒 false)⇒ 决定按钮是「立即参与」还是「取消报名」。 */
+  joined?: boolean
 }
 
 /** ActivityDetailScreen props */
@@ -407,6 +443,12 @@ export interface ActivityDetailScreenProps {
   loading: boolean
   error: string
   onBack: () => void
+  /** 报名:后端 POST /activities/:id/join。未传则不渲染动作区。 */
+  onJoin?: () => void
+  /** 取消报名:后端 DELETE /activities/:id/join。 */
+  onLeave?: () => void
+  /** 报名/退订请求进行中(禁用按钮 + 换等待文案)。 */
+  joining?: boolean
   colorScheme?: 'light' | 'dark'
 }
 

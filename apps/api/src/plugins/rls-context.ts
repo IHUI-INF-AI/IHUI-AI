@@ -39,12 +39,18 @@
  * 就踩过这个坑。要做到事务级语义,得把整条请求链路塞进一个事务并按请求路由连接,
  * 那是连接池语义改造,不在本次修复范围。
  *
- * 本修复的**边界(如实登记)**:它闭合的是「池化连接串行复用」——
- * A 结束后同一条连接上 B 拿到的是 B、role 残值被清掉(有真库同池用例)。
- * 并发场景下两个请求的交错仍可能让后写的上下文盖掉前一个(会话变量本征限制),
- * 彻底解法是「每请求固定一条连接」或「每查询/每事务 SET LOCAL」,两者都需要改
- * 连接获取语义;详见交付报告的方案 A/B 与风险评估,不要在没做那一步之前宣称
- * 并发隔离已成立。另:上下文只写在主池(`db`),读副本池未覆盖(见迁移头注 1b)。
+ * **F-221(2026-11-14)**:上面的 set/clear 原先各自 `db.execute()` 从池里随机借连接 ——
+ * 复位可能落在另一条 backend 上,真正持值的那条带着主体回到池里被下一个请求继承。
+ * 现在已鉴权请求先用 `db.$client.reserve()` 固定一条连接,set 与 clear 都在该句柄上
+ * (clear 后 `release()` 归还),请求结束不会再有任何连接带残值。租约连接只承载上下文,
+ * handler 的业务查询仍走 `db`/`dbRead` 池(见下一条边界)。
+ *
+ * 本修复的**边界(如实登记)**:它闭合的是「池化连接串行复用 + 复位打错连接」——
+ * A 结束后同一条连接上 B 拿到的是 B、role 残值被清掉(有真库同池用例与租约句柄用例)。
+ * 仍未闭合:handler 查询不经租约连接,所以"上下文能被 RLS 策略读到"这件事仍取决于
+ * 将来的每请求连接路由或每事务 SET LOCAL;当前 RLS 策略已被迁移删除,应用层数据闸
+ * (utils/scoped-guard.ts)才是真正在挡数据的那一层。另:上下文只写在主池(`db`),
+ * 读副本池未覆盖(见迁移头注 1b)。
  *
  * 零回归:仍只对 `/api/*` 前缀做与旧版等价的 set/clear 行为(`/v1/*` 是本次按需求
  * 新增覆盖);未鉴权请求走 clear 分支,与旧版一致。断言仅在 capability+apiKey
@@ -53,6 +59,8 @@
 import type { FastifyPluginAsync, FastifyRequest, RouteOptions } from 'fastify'
 import fp from 'fastify-plugin'
 import { sql } from 'drizzle-orm'
+import { drizzle } from 'drizzle-orm/postgres-js'
+import type postgres from 'postgres'
 import { db } from '../db/index.js'
 import {
   assertNonSuperuserForScopedMode,
@@ -92,6 +100,34 @@ function contextValuesOf(request: FastifyRequest): {
 
 /** 会话上下文语句的出口类型:默认主池;测试/脚本可注入只演一条连接的执行器。 */
 type ContextExecutor = Pick<typeof db, 'execute'>
+
+/**
+ * 请求级物理连接租约(F-221)。
+ *
+ * `reserve()` 从 `db` 同一个池里取一条**独占连接**,`executor` 是绑定在该句柄上的
+ * drizzle 出口 —— set 与 clear 都只走它,复位因此不会再落到池里另一条 backend 上。
+ * `release()` 必须与 set 成对出现(正常出口 / 抛错出口 / 客户端断开三条路径)。
+ */
+interface ContextLease {
+  reserved: Awaited<ReturnType<postgres.Sql['reserve']>>
+  executor: ContextExecutor
+}
+
+/** 每个请求最多持有一条租约;WeakMap 不持有 request,无泄漏。 */
+const requestLeases = new WeakMap<FastifyRequest, ContextLease>()
+
+/** 固定一条连接:拿到句柄就返回,失败由调用方决定是否降级(不在这里吞错)。 */
+async function acquireContextLease(): Promise<ContextLease> {
+  const client = (db as unknown as { $client?: postgres.Sql }).$client
+  if (!client || typeof client.reserve !== 'function') {
+    throw new Error('db 未暴露底层 postgres.js 客户端($client),无法固定上下文连接')
+  }
+  const reserved = await client.reserve()
+  return {
+    reserved,
+    executor: drizzle(reserved) as unknown as ContextExecutor,
+  }
+}
 
 /**
  * 写入四个会话变量(默认主池)。
@@ -141,7 +177,20 @@ async function releaseOnce(request: FastifyRequest): Promise<void> {
   if (!requestsWithContext.has(request)) return
   // 先摘标记再发语句:即使这条复位语句本身失败,也不会在同一请求上重复打库
   requestsWithContext.delete(request)
-  await releaseRequestContext()
+  const lease = requestLeases.get(request)
+  requestLeases.delete(request)
+  if (!lease) {
+    // 未固定连接(未鉴权空值路径 / reserve 降级):与旧版一致,在池上清零
+    await releaseRequestContext()
+    return
+  }
+  try {
+    // F-221:复位必须打回写入时那条连接
+    await releaseRequestContext(lease.executor)
+  } finally {
+    // 复位语句失败也要归还连接:泄漏一条池连接比残值更坏
+    lease.reserved.release()
+  }
 }
 
 /**
@@ -151,9 +200,24 @@ async function releaseOnce(request: FastifyRequest): Promise<void> {
 export async function applyRequestContext(request: FastifyRequest): Promise<void> {
   if (!isScopedContextUrl(request.url)) return
   const values = contextValuesOf(request)
-  await applyRequestContextValues(values)
-  // 只有写过非空主体才需要在出口复位:未鉴权请求写的是空值,本身就是干净状态
-  if (values.userId !== '' || values.apiKeyId !== '' || values.roleId !== '0') {
+  const hasSubject = values.userId !== '' || values.apiKeyId !== '' || values.roleId !== '0'
+
+  if (!hasSubject) {
+    // 未鉴权:写的是显式空值,本身就是干净状态 —— 不占用请求级连接
+    await applyRequestContextValues(values)
+  } else {
+    // F-221:写入与出口复位落在同一条物理连接上,否则复位清的是池里另一条 backend,
+    // 真正持值的那条会带着 A 的 user/role 回到池里被下一个请求继承。
+    let lease: ContextLease | null = null
+    try {
+      lease = await acquireContextLease()
+    } catch (error) {
+      // 固定连接不可用时不阻断主链路(与旧版一致),但必须留痕:
+      // 此时复位退化为"池上另一条连接",残值风险回到 F-221 之前。
+      console.error('[request-context] reserve connection failed:', (error as Error).message)
+    }
+    await applyRequestContextValues(values, lease?.executor)
+    if (lease) requestLeases.set(request, lease)
     requestsWithContext.add(request)
   }
 
@@ -204,9 +268,9 @@ export default fp(requestContextPlugin, {
 
 /**
  * 单元测试/脚本辅助:在指定上下文变量内执行 fn(结束即清空)。
- * 注意:连接池场景下 set_config 作用于"当时借到的连接",不保证覆盖 fn 内后续查询 ——
- * 这是 session 变量 + 池化的固有限制,只有事务级 SET LOCAL 才能消除;但"结束即清空"
- * 至少保证这条连接被下一个借用者拿到时不再带 fn 的主体(与插件出口同一动作)。
+ * F-221:set/clear 独占同一条 `reserve()` 连接,清空后立即归还 —— 池里不会留下带主体的连接。
+ * fn 内的查询仍走调用方自己的 `db`(不经这条租约连接),要让 RLS 策略真正看到上下文,
+ * 仍须把查询也固定到该连接(事务 + SET LOCAL 或每请求连接路由)。
  */
 export async function withRlsContext<T>(
   userId: string,
@@ -214,11 +278,22 @@ export async function withRlsContext<T>(
   fn: () => Promise<T>,
   apiKeyId = '',
 ): Promise<T> {
-  await applyRequestContextValues({ userId, roleId: String(roleId), apiKeyId })
+  // F-221:与请求路径同一口径 —— set/clear 固定在同一条连接上
+  let lease: ContextLease | null = null
   try {
+    lease = await acquireContextLease()
+  } catch (error) {
+    console.error('[request-context] reserve connection failed:', (error as Error).message)
+  }
+  try {
+    await applyRequestContextValues({ userId, roleId: String(roleId), apiKeyId }, lease?.executor)
     return await fn()
   } finally {
-    await releaseRequestContext()
+    try {
+      await releaseRequestContext(lease?.executor)
+    } finally {
+      lease?.reserved.release()
+    }
   }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

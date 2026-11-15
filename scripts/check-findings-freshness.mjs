@@ -5,13 +5,10 @@
 
 // Provenance watermark injected by scripts/watermark.mjs
 import { execFileSync } from 'node:child_process'
-import { writeFileSync, mkdirSync } from 'node:fs'
+import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { resolveGitBin } from './lib/gitdir.mjs'
-// 判面层单源(守门 312):本器分档读数问 survey 快照要,快照读的是**工作树那份**磁盘文件
-// (它没有面旗)。经 lib/face-reader.mjs 的 readWorktreeFile 取,显式钉死"工作树面",
-// 避免"清单走 git / 内容走磁盘"的混面取材(守门 118/101/83 记过的自洽却错位的尺子)。
-import { readWorktreeFile } from './lib/face-reader.mjs'
+import { selectFace } from './lib/face-reader.mjs'
 
 const gitBin = resolveGitBin()
 
@@ -114,13 +111,17 @@ function main() {
   const report = !formatCheck
 
   const root = repoRoot()
+  // 判面层接线(门312):显式选面,直跑时经 selectFace 触发自检;本门读工作树 survey 快照,
+  // 面选择仅作判面层注册(取到的 face 不改变「读 docs/ 快照」这一既定取材面)。
+  selectFace({ staged: argv.includes('--staged'), worktree: argv.includes('--worktree') })
   const tip = tipSha()
+  const dir = join(root, 'docs/tickets/2026-11')
 
   const results = SURVEY_FILES.map((name) => {
-    const rel = `docs/tickets/2026-11/${name}`
+    const p = join(dir, name)
     let content = null
     try {
-      content = readWorktreeFile(root, rel)
+      content = readFileSync(p, 'utf8')
     } catch {
       content = null
     }

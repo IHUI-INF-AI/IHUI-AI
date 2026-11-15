@@ -190,9 +190,7 @@ function platformOnlyProblems(src: string, side: string): string[] {
   const out: string[] = []
   if (side === 'web') {
     if (!/py-1/.test(code)) out.push('web 壳丢了平台专属 py-1(纵向承载补偿)')
-    // shadow-sm 已令牌化为 shadow-elevation-sm(elevation.ts 令牌 sm = var(--shadow-elevation-sm),
-    // 仓库 15 处同源)。反向锁的意图是"web 壳保留控件级投影通道",故认令牌名而非死字面。
-    if (!/shadow-(elevation-)?sm/.test(code)) out.push('web 壳丢了平台专属 shadow-sm(控件级投影)')
+    if (!/shadow-sm/.test(code)) out.push('web 壳丢了平台专属 shadow-sm(控件级投影)')
     if (!/w-full/.test(code)) out.push('web 壳丢了平台专属 w-full(块级宽度承载)')
     if (!/focus-visible:/.test(code)) out.push('web 壳丢了平台专属 focus-visible:(focus 可达性)')
     if (!/transition-colors/.test(code)) out.push('web 壳丢了平台专属 transition-colors')

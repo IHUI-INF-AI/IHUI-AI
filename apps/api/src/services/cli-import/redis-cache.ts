@@ -76,7 +76,7 @@ function getRedis(): Redis | null {
 /**
  * 缓存一条 preview,返回时也已带 previewId。
  */
-export async function savePreview(preview: ImportPreview): Promise<void> {
+export async function savePreview(preview: ImportPreview, _ownerId?: string): Promise<void> {
   const key = `${KEY_PREFIX}${preview.previewId}`
   const payload = JSON.stringify(preview)
   const redis = getRedis()
@@ -101,7 +101,10 @@ export async function savePreview(preview: ImportPreview): Promise<void> {
 /**
  * 读取 preview;不存在或过期返回 undefined。
  */
-export async function loadPreview(previewId: string): Promise<ImportPreview | undefined> {
+export async function loadPreview(
+  previewId: string,
+  _ownerId?: string,
+): Promise<ImportPreview | undefined> {
   if (!previewId) return undefined
   const key = `${KEY_PREFIX}${previewId}`
   const redis = getRedis()
@@ -128,7 +131,7 @@ export async function loadPreview(previewId: string): Promise<ImportPreview | un
 /**
  * 删除 preview(commit 后或显式取消)。
  */
-export async function deletePreview(previewId: string): Promise<void> {
+export async function deletePreview(previewId: string, _ownerId?: string): Promise<void> {
   if (!previewId) return
   const key = `${KEY_PREFIX}${previewId}`
   const redis = getRedis()

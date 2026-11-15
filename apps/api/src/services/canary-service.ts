@@ -282,23 +282,22 @@ export async function recordFailure(name: string, reason: string): Promise<Canar
   if (!config) throw new Error(`canary config "${name}" not found`)
 
   const now = new Date()
-  // F-659(2026-11-14):原子自增 `failure_count = failure_count + 1 ... RETURNING`,
-  // 消除读-改-写的丢更新竞态——并发上报时旧代码各自基于同一份 config.failureCount 写
-  // 绝对值,计数偏小会让 autoRollback 阈值可能永达不到。
-  let updated: Array<{ failure_count: number }>
+  // F-659:并发上报时「读 failureCount → 写绝对值 +1」会丢更新,autoRollback 阈值漏计。
+  // 改为数据库端原子自增 + RETURNING,以库内真值判定阈值。
+  let updated: Array<{ failure_count: number }> = []
   try {
     updated = (await db.execute(sql`
       UPDATE canary_configs
       SET failure_count = failure_count + 1,
           updated_at = ${now}
       WHERE name = ${name}
-      RETURNING failure_count AS "failureCount"
+      RETURNING failure_count
     `)) as unknown as Array<{ failure_count: number }>
   } catch (err) {
     logger.error('[canary] recordFailure DB update failed', { error: err })
     throw err
   }
-  const newFailureCount = Number(updated?.[0]?.failure_count ?? (config.failureCount + 1))
+  const newFailureCount = Number(updated[0]?.failure_count ?? config.failureCount + 1)
 
   await addAudit(config.id, 'failure', config.currentStage, config.currentStage, reason)
 

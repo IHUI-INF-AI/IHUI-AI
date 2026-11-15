@@ -51,7 +51,7 @@ import {
   View,
 } from 'react-native'
 import type { TextInput } from 'react-native'
-import { useI18n, t as tStatic } from '../i18n'
+import { useI18n } from '../i18n'
 import { useUiTextField } from '../lib/use-ui-text-field'
 import { tokens, currentRnTheme } from '../theme/active-tokens'
 import { formatShortDuration } from '@ihui/shared/utils'
@@ -415,7 +415,7 @@ export function InputArea({
             {/* 视频封面角标:播放图标(真实播放待接 expo-video) */}
             {isVideo ? (
               <View style={styles.videoBadge}>
-                <Play size={20} color={tokens.surface.light} />
+                <Play size={20} color={rnCssLight.white95} />
               </View>
             ) : null}
           </View>
@@ -542,13 +542,13 @@ export function InputArea({
                     <View style={styles.transcribingRow}>
                       {/* 2026-10-16 黑白定档:转写 spinner 取中性灰,不用红色 */}
                       <ActivityIndicator size="small" color={tokens.text.secondary} />
-                      <Text style={styles.voiceAreaText}>{tStatic('uiText.transcribing')}</Text>
+                      <Text style={styles.voiceAreaText}>转写中…</Text>
                     </View>
                   ) : (
                     <>
                       <VoiceWave />
                       <Text style={styles.voiceAreaDuration}>
-                        {formatShortDuration(voiceDuration)} {tStatic('uiText.releaseToFinish')}
+                        {formatShortDuration(voiceDuration)} 松开结束
                       </Text>
                     </>
                   )}
@@ -571,7 +571,7 @@ export function InputArea({
                       )
                     }
                     placeholder={placeholder}
-                    placeholderTextColor={tokens.text.secondary}
+                    placeholderTextColor={tokens.text.tertiary}
                     maxLength={maxLength}
                     multiline
                     textAlignVertical="top"
@@ -672,7 +672,7 @@ export function InputArea({
                   )
                 }
                 placeholder={placeholder}
-                placeholderTextColor={tokens.text.secondary}
+                placeholderTextColor={tokens.text.tertiary}
                 maxLength={maxLength}
                 multiline
                 textAlignVertical="top"
@@ -836,10 +836,12 @@ const styles = StyleSheet.create({
     bottom: 0,
     alignItems: 'center',
     justifyContent: 'center',
+    // 角标必须自带底:缩略图内容不可预知,原先无底时白色播放图标落在浅色封面上等于消失。
+    backgroundColor: rnCssLight.black40,
   },
   videoBadgeIcon: {
     fontSize: rnType.heading.size,
-    color: tokens.surface.light,
+    color: rnCssLight.white95,
     textShadowColor: rnCssLight.black50,
     // 绘制细节(文字阴影偏移),小程序端同类角标是实底色块、无阴影通道 —— 单端档,非取值分叉
     textShadowOffset: { width: 0, height: INPUT_AREA_LEGACY_SHADOW_OFFSET_PX },
@@ -1029,12 +1031,12 @@ const styles = StyleSheet.create({
     bottom: INPUT_AREA_COUNTER_BOTTOM_PX,
     // 收编前是 11 —— 不在 design-tokens 字号档上,按裁决规则 4 就近吸附到 12
     fontSize: INPUT_AREA_SECONDARY_FONT_PX,
-    color: tokens.text.tertiary,
+    color: tokens.text.medium,
     marginTop: rnSpacing.xs,
     textAlign: 'right',
   },
   counterWarning: {
-    color: tokens.warning.DEFAULT,
+    color: tokens.warning.amberText,
   },
   // 发送按钮
   sendButton: {

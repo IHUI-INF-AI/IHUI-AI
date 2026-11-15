@@ -6,7 +6,7 @@ import { useI18n } from '@/i18n'
 import { logger } from '@/utils/logger'
 import { View, Text, Button } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback } from 'react'
 import { clearCache } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
 import LineIcon from '@/components/LineIcon'
@@ -57,9 +57,6 @@ export default function CachePage() {
   const { t } = useI18n()
   const [size, setSize] = useState('0KB')
   const [clearing, setClearing] = useState(false)
-  // state 是渲染快照,快速连点两次会在同一批次里都通过 doClear 的 if (clearing) 守卫;
-  // 用 ref 做原子锁,保证一次只跑一条清理链。
-  const clearingRef = useRef(false)
   const [progress, setProgress] = useState(0)
   const tt = useCallback(
     (k: string, fb: string) => {
@@ -76,8 +73,7 @@ export default function CachePage() {
 
   const doClear = useCallback(
     async (type: ClearType) => {
-      if (clearingRef.current) return
-      clearingRef.current = true
+      if (clearing) return
       setClearing(true)
       setProgress(0)
       try {
@@ -116,12 +112,11 @@ export default function CachePage() {
         logger.error('setting/cache', '清理缓存', e)
         onToast(tt('setting.cache.failed', '清除失败'), { kind: 'error' })
       } finally {
-        clearingRef.current = false
         setClearing(false)
         setProgress(0)
       }
     },
-    [tt, loadSize],
+    [clearing, tt, loadSize],
   )
 
   const onClearImage = useCallback(() => doClear('image'), [doClear])

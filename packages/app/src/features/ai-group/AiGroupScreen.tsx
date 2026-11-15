@@ -216,7 +216,7 @@ export function AiGroupScreen({
             value={keyword ?? ''}
             onChangeText={onKeywordChange}
             placeholder={t('aiGroup.searchPlaceholder')}
-            placeholderTextColor={tk.text.tertiary}
+            placeholderTextColor={tk.text.secondary}
             style={styles.searchInput}
             returnKeyType="search"
           />
@@ -326,8 +326,8 @@ function createStyles(tk: AppThemeTokens) {
       borderColor: tk.surface.light,
     },
     miniAvatarText: { fontSize: rnType.badge.size, fontWeight: '600', color: tk.text.secondary },
-    moreText: { marginLeft: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.tertiary },
-    footMeta: { fontSize: rnType.caption.size, color: tk.text.tertiary },
+    moreText: { marginLeft: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.medium },
+    footMeta: { fontSize: rnType.caption.size, color: tk.text.medium },
     enterMiniBtn: {
       marginLeft: 'auto',
       paddingHorizontal: rnSpacing.md,
@@ -358,7 +358,7 @@ function createStyles(tk: AppThemeTokens) {
       lineHeight: rnType.body.lineHeight,
     },
     metaRow: { flexDirection: 'row', gap: rnSpacing.lg, marginTop: rnSpacing.sm },
-    metaText: { fontSize: rnType.caption.size, color: tk.text.tertiary },
+    metaText: { fontSize: rnType.caption.size, color: tk.text.medium },
     sectionTitle: {
       marginTop: rnSpacing.xl,
       marginBottom: rnSpacing['sm-loose'],
@@ -387,7 +387,7 @@ function createStyles(tk: AppThemeTokens) {
     memberAvatarText: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
     memberMain: { flex: 1 },
     memberName: { fontSize: rnType.body.size, fontWeight: '600', color: tk.text.primary },
-    memberRole: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.tertiary },
+    memberRole: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.medium },
     roleBadge: {
       paddingHorizontal: rnSpacing.sm,
       paddingVertical: rnSpacing.xs,

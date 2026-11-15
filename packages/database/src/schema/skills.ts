@@ -2,7 +2,16 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { pgTable, uuid, varchar, text, integer, boolean, timestamp } from 'drizzle-orm/pg-core'
+import {
+  pgTable,
+  uuid,
+  varchar,
+  text,
+  integer,
+  boolean,
+  timestamp,
+  uniqueIndex,
+} from 'drizzle-orm/pg-core'
 import { users } from './users.js'
 
 /**
@@ -18,27 +27,38 @@ import { users } from './users.js'
  * 软删除字段(0110 migration):
  *   - deletedAt      — tombstone,不为空表示已软删除,多端同步删除语义
  */
-export const skills = pgTable('skills', {
-  id: uuid('id').defaultRandom().primaryKey(),
-  name: varchar('name', { length: 100 }).notNull(),
-  description: text('description'),
-  icon: varchar('icon', { length: 500 }),
-  categoryId: uuid('category_id'),
-  difficulty: integer('difficulty').default(1).notNull(),
-  content: text('content'),
-  authorId: uuid('author_id').references(() => users.id, { onDelete: 'set null' }),
-  isPublished: boolean('is_published').default(false).notNull(),
-  status: integer('status').default(1).notNull(),
-  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-  // 同步字段(0107)
-  slug: varchar('slug', { length: 100 }),
-  contentHash: varchar('content_hash', { length: 64 }),
-  lastSyncedAt: timestamp('last_synced_at', { withTimezone: true }),
-  syncSource: varchar('sync_source', { length: 20 }).default('web'),
-  // 软删除(tombstone):多端同步删除语义
-  deletedAt: timestamp('deleted_at', { withTimezone: true }),
-})
+export const skills = pgTable(
+  'skills',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    name: varchar('name', { length: 100 }).notNull(),
+    description: text('description'),
+    icon: varchar('icon', { length: 500 }),
+    categoryId: uuid('category_id'),
+    difficulty: integer('difficulty').default(1).notNull(),
+    content: text('content'),
+    authorId: uuid('author_id').references(() => users.id, { onDelete: 'set null' }),
+    isPublished: boolean('is_published').default(false).notNull(),
+    status: integer('status').default(1).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+    // 同步字段(0107)
+    slug: varchar('slug', { length: 100 }),
+    contentHash: varchar('content_hash', { length: 64 }),
+    lastSyncedAt: timestamp('last_synced_at', { withTimezone: true }),
+    syncSource: varchar('sync_source', { length: 20 }).default('web'),
+    // 软删除(tombstone):多端同步删除语义
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
+  },
+  (t) => ({
+    // F-175:(author_id, slug) 是 CLI push/db-sync 的逻辑主键,此前只有普通查找、无唯一约束,
+    // 「先查后插」的 upsert 在并发 push 下会落重复行。唯一索引是并发裁决者,
+    // 应用侧 upsert 走 ON CONFLICT (author_id, slug) DO UPDATE。
+    // 迁移:20261114091000_skills_author_slug_uniq.sql。
+    // author_id / slug 可空:PG 唯一索引把 NULL 视为互不相等,手工创建的无 slug 技能不受影响。
+    authorSlugUniq: uniqueIndex('skills_author_slug_uniq').on(t.authorId, t.slug),
+  }),
+)
 
 export type Skill = typeof skills.$inferSelect
 export type NewSkill = typeof skills.$inferInsert

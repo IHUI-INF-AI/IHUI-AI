@@ -22,8 +22,11 @@
 import { sql } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { logger } from '../utils/logger.js'
-import { repricePlaceholderModels, PROFIT_FACTOR } from './model-price-resolver.js'
-import type { ApplyPricingArgs } from './model-price-resolver.js'
+import {
+  repricePlaceholderModels,
+  PROFIT_FACTOR,
+  type ApplyPricingArgs,
+} from './model-price-resolver.js'
 
 function rowsOf<T>(r: unknown): T[] {
   if (Array.isArray(r)) return r as T[]

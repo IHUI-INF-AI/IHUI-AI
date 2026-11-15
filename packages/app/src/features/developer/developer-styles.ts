@@ -66,7 +66,7 @@ export function createDeveloperStyles(tk: AppThemeTokens) {
       color: tk.brand.DEFAULT,
       paddingHorizontal: rnSpacing.xs,
     },
-    dangerText: { color: tk.danger.bright },
+    dangerText: { color: tk.danger.deepText },
     entryRow: {
       flexDirection: 'row',
       backgroundColor: tk.surface.card,

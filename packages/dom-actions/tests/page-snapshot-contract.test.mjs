@@ -107,8 +107,8 @@ describe('契约：句柄格式与动作面常量', () => {
     assert.equal(parsePageHandle(`el:${SCOPE}:-1`), null)
   })
 
-  it('七个动词全部在册，只读动词是其后子集', () => {
-    assert.equal(PAGE_ACTIONS.length, 7)
+  it('十个动词全部在册，只读动词是其后子集', () => {
+    assert.equal(PAGE_ACTIONS.length, 10)
     assert.equal(isPageAction('page_snapshot'), true)
     assert.equal(isPageAction('click_element'), false)
     for (const readonly of PAGE_READONLY_ACTIONS) {

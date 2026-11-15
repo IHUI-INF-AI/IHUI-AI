@@ -45,7 +45,7 @@ const VARIANT_CLASS: Record<(typeof BADGE_VARIANT_TIERS)[number], string> = {
   secondary: 'border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80',
   destructive:
     'border-transparent bg-destructive text-destructive-foreground hover:bg-destructive/80',
-  outline: 'text-foreground',
+  outline: 'border-stroke-default text-foreground',
 }
 
 const badgeVariants = cva(
