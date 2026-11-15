@@ -116,6 +116,7 @@ export function streamRelayChat(opts: StreamRelayChatOptions): Promise<void> {
     const id = `pool-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
     let settled = false
     let completed = false
+    let readySent = false
     let socket: WebSocket | null = null
     let idleTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -187,27 +188,9 @@ export function streamRelayChat(opts: StreamRelayChatOptions): Promise<void> {
 
     socket.onopen = (): void => {
       armIdle()
-      try {
-        socket?.send(
-          JSON.stringify({
-            type: 'chat',
-            id,
-            model: opts.model,
-            // 只保留 OpenAI 三角色 + 字符串正文;agent 帧里的 tool 消息不喂号池
-            messages: opts.messages
-              .filter(
-                (m) =>
-                  typeof m.content === 'string' &&
-                  (m.role === 'user' || m.role === 'assistant' || m.role === 'system'),
-              )
-              .map((m) => ({ role: m.role, content: m.content })),
-            stream: true,
-            ...(opts.conversationId ? { conversationId: opts.conversationId } : {}),
-          }),
-        )
-      } catch (err) {
-        finish(() => opts.onError?.(err instanceof Error ? err.message : '号池请求发送失败'))
-      }
+      // 2026-11-12 回归锁:必须等 ready 才发上行帧 —— 服务端在 wsAuth 期间会丢弃到达的帧,
+      // onopen 即发会导致"握手成功但帧被丢弃、永远等不到 start"的线上形状。
+      // 上行帧改由收到服务端 ready 后发出(见 socket.onmessage 的 ready 分支)。
     }
 
     socket.onmessage = (ev: MessageEvent): void => {
@@ -221,6 +204,32 @@ export function streamRelayChat(opts: StreamRelayChatOptions): Promise<void> {
       }
       if (frame.type === 'ready') {
         armIdle()
+        // 收到服务端 ready 才发上行帧(wsAuth 已完成,此时帧不会被丢弃);
+        // ready 重复到达不重复发送。
+        if (!readySent) {
+          readySent = true
+          try {
+            socket?.send(
+              JSON.stringify({
+                type: 'chat',
+                id,
+                model: opts.model,
+                // 只保留 OpenAI 三角色 + 字符串正文;agent 帧里的 tool 消息不喂号池
+                messages: opts.messages
+                  .filter(
+                    (m) =>
+                      typeof m.content === 'string' &&
+                      (m.role === 'user' || m.role === 'assistant' || m.role === 'system'),
+                  )
+                  .map((m) => ({ role: m.role, content: m.content })),
+                stream: true,
+                ...(opts.conversationId ? { conversationId: opts.conversationId } : {}),
+              }),
+            )
+          } catch (err) {
+            finish(() => opts.onError?.(err instanceof Error ? err.message : '号池请求发送失败'))
+          }
+        }
         return
       }
       // ready 之外的所有业务帧都带 id;不是本轮的帧一律忽略(连接内多路复用)
