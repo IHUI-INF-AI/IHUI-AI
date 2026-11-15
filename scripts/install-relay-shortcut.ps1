@@ -48,6 +48,13 @@ if (-not (Test-Path (Join-Path $repo 'package.json'))) {
 $desktop = if ($Desktop) { $Desktop } else { [Environment]::GetFolderPath('Desktop') }
 if (-not (Test-Path $desktop)) { throw "桌面目录不存在: $desktop" }
 
+function Resolve-IhuiIcon {
+  # 项目桌面端(Tauri)图标唯一源:与打包进 app.exe 的图标同一枚 ico(见 src-tauri/tauri.conf.json bundle.icon)。
+  $ico = Join-Path $repo 'apps\desktop\src-tauri\icons\icon.ico'
+  if (Test-Path $ico) { return "$ico,0" }
+  return $null
+}
+
 function Find-WorkBuddyIcon {
   foreach ($root in @(
       'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*',
@@ -97,9 +104,14 @@ function New-SwitcherShortcut {
 }
 
 $icon = Find-WorkBuddyIcon
+# 新入口用「我们自己的」图标:项目桌面端 ico 优先,取不到才回退 WorkBuddy 图标(再到默认)。
+$ihuiIcon = Resolve-IhuiIcon
+if (-not $ihuiIcon) {
+  Write-Warning '未找到桌面端图标 apps\desktop\src-tauri\icons\icon.ico,新入口将回退 WorkBuddy/默认图标'
+}
 
 # 新入口(当前主力,2026-11-05)
-New-SwitcherShortcut -Name 'AI 客户端一键切号' -CmdRel 'scripts\client-oneclick-switch.cmd' -Icon $icon `
+New-SwitcherShortcut -Name 'AI 客户端一键切号' -CmdRel 'scripts\client-oneclick-switch.cmd' -Icon ($ihuiIcon ?? $icon) `
   -Description 'AI 客户端一键切号:选客户端 -> 列号池 -> 切本机登录态(多平台)' -WhatIf:$WhatIfPreference
 
 # 旧入口(仅 WorkBuddy,relay-oneclick.cmd 还在才建)
