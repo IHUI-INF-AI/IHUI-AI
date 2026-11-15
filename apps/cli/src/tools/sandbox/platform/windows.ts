@@ -17,7 +17,8 @@
 import { spawn } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
+// §15b 运行时合规临时根(~/.ihui/tmp → junction D:),禁 os.tmpdir()(TEMP 可能钉 C 盘)
+import { getRuntimeTempRoot } from '@ihui/shared'
 import * as path from 'node:path'
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
@@ -177,7 +178,7 @@ export async function runSandboxedWindows(
   })
 
   try {
-    workDir = await mkdtemp(path.join(tmpdir(), 'ihui-sandbox-'))
+    workDir = await mkdtemp(path.join(getRuntimeTempRoot(), 'ihui-sandbox-'))
     const stdoutFile = path.join(workDir, 'stdout.txt')
     const stderrFile = path.join(workDir, 'stderr.txt')
     const batchFile = path.join(workDir, 'run.cmd')

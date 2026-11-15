@@ -87,6 +87,8 @@ export type { SmoothDeltaBatcherOptions, SmoothDeltaBatcher } from './smooth-del
 // 只剥行内符号、不做块级解析 —— 边界与理由见源文件头注。
 export * from './strip-inline-markdown'
 export * from './status-colors'
+// 运行时合规临时根（AGENTS.md §15b 铁律的运行时对偶;端内禁再建 os.tmpdir() 第二份)
+export * from './temp-root'
 export * from './storage-migration'
 // 跨端 Token 估算工具(2026-08-01 P3-4.2 批次5 立,从 apps/web/src/lib/token-estimate.ts 下沉)
 export * from './token-estimate'

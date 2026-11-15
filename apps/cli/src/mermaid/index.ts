@@ -19,10 +19,14 @@
  *   3. 文件路径回写到对话(用户可点击查看)
  */
 
+// 运行时合规临时根(§15b):~/.ihui/tmp → junction D:\DevEnv\cache\userhome\.ihui\tmp
+// 不写 C 盘、不依赖 TEMP 环境变量;跨端唯一出口 = @ihui/shared temp-root。
+// 路径含空格时由 spawn 参数数组安全传递,无需 shell 转义。
+import { getRuntimeTempRoot } from '@ihui/shared';
+
 import { spawn, type ChildProcess } from 'node:child_process';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
-import os from 'node:os';
 import { createHash } from 'node:crypto';
 
 /**
@@ -237,7 +241,7 @@ export class MmdcCliEngine implements MermaidEngine {
   }
 
   async render(source: string): Promise<Buffer> {
-    const tmpDir = os.tmpdir();
+    const tmpDir = getRuntimeTempRoot();
     const stamp = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
     const inputPath = path.join(tmpDir, `ihui-mermaid-${stamp}.mmd`);
     const outputPath = path.join(tmpDir, `ihui-mermaid-${stamp}.png`);
