@@ -136,7 +136,7 @@ export default async function BlogPostPage({ params }: PageProps) {
                   href={`/blog/${p.slug}`}
                   className="block rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
-                  <Card className="h-full transition-colors hover:bg-accent/40 hover:border-primary/40">
+                  <Card className="h-full transition-colors hover:bg-accent/40 hover:border-stroke-strong">
                     <CardContent className="min-[640px]:p-3 space-y-2 p-3">
                       <div className="text-xs text-muted-foreground">
                         <time dateTime={p.date}>{dateFmt.format(new Date(p.date))}</time>

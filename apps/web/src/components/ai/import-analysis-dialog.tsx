@@ -199,7 +199,7 @@ export function ImportAnalysisDialog({
                         onClick={() => handleSelect(s)}
                         className={
                           selectedId === s.id
-                            ? 'rounded-sm border border-primary/60 bg-primary/10 p-2 text-left'
+                            ? 'rounded-sm border border-stroke-selected bg-primary/10 p-2 text-left'
                             : 'rounded-sm border border-border p-2 text-left hover:bg-accent'
                         }
                       >
@@ -242,7 +242,7 @@ export function ImportAnalysisDialog({
                           onClick={() => handleSelect(s)}
                           className={
                             selectedId === s.id
-                              ? 'rounded-sm border border-primary/60 bg-primary/10 p-1.5 text-left text-[11px]'
+                              ? 'rounded-sm border border-stroke-selected bg-primary/10 p-1.5 text-left text-[11px]'
                               : 'rounded-sm border border-border p-1.5 text-left text-[11px] hover:bg-accent'
                           }
                         >

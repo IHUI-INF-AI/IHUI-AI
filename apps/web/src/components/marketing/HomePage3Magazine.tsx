@@ -49,7 +49,7 @@ function HeroCard({ item, tag }: { item: NewsItem; tag: string }) {
   return (
     <Link
       href={`/news/${item.id}`}
-      className="group relative flex h-full min-h-[220px] overflow-hidden rounded-lg border bg-card transition-colors hover:border-primary/40 hover:bg-primary/5"
+      className="group relative flex h-full min-h-[220px] overflow-hidden rounded-lg border bg-card transition-colors hover:border-stroke-strong hover:bg-primary/5"
     >
       <div className="absolute inset-0">
         {item.coverImage ? (
@@ -102,7 +102,7 @@ function SideCard({ item, tag }: { item: NewsItem; tag: string }) {
   return (
     <Link
       href={`/news/${item.id}`}
-      className="group flex flex-1 flex-col overflow-hidden rounded-lg border bg-card transition-colors hover:border-primary/40 hover:bg-primary/5"
+      className="group flex flex-1 flex-col overflow-hidden rounded-lg border bg-card transition-colors hover:border-stroke-strong hover:bg-primary/5"
     >
       <div className="relative h-24 w-full overflow-hidden bg-muted">
         {item.coverImage ? (
@@ -144,7 +144,7 @@ function MiniCard({ item }: { item: NewsItem }) {
   return (
     <Link
       href={`/news/${item.id}`}
-      className="group flex flex-col overflow-hidden rounded-lg border bg-card transition-colors hover:border-primary/40 hover:bg-primary/5"
+      className="group flex flex-col overflow-hidden rounded-lg border bg-card transition-colors hover:border-stroke-strong hover:bg-primary/5"
     >
       <div className="relative aspect-[16/9] w-full overflow-hidden bg-muted">
         {item.coverImage ? (

@@ -202,7 +202,7 @@ export function ReplyAnnotationLayer({
       {/* 选区「添加注释」入口 + 输入浮层 */}
       {popover && popover.anchor && (
         <div
-          className="absolute z-20 rounded-md border border-border/60 bg-popover p-2 shadow-elevation-md"
+          className="absolute z-20 rounded-md border border-stroke-subtle bg-popover p-2 shadow-elevation-md"
           style={{
             left: popover.x,
             top: Math.max(popover.y - 8, 8),
@@ -215,7 +215,7 @@ export function ReplyAnnotationLayer({
             onChange={(e) => setDraft(e.target.value)}
             placeholder={t('placeholder')}
             rows={2}
-            className="w-56 resize-none rounded-sm border border-border/60 bg-background px-2 py-1 text-[11px] text-foreground placeholder:text-muted-foreground/60 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/40"
+            className="w-56 resize-none rounded-sm border border-stroke-subtle bg-background px-2 py-1 text-[11px] text-foreground placeholder:text-muted-foreground/60 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-stroke-focus/40"
             data-testid="annotation-input"
           />
           <div className="mt-1 flex items-center gap-1.5">
@@ -324,7 +324,7 @@ export function ReplyAnnotationLayer({
                         value={editDraft}
                         onChange={(e) => setEditDraft(e.target.value)}
                         rows={2}
-                        className="w-full resize-none rounded-sm border border-border/60 bg-background px-2 py-1 text-[11px] text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/40"
+                        className="w-full resize-none rounded-sm border border-stroke-subtle bg-background px-2 py-1 text-[11px] text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-stroke-focus/40"
                         data-testid={`annotation-edit-input-${ann.id}`}
                       />
                       <div className="flex items-center gap-1.5">

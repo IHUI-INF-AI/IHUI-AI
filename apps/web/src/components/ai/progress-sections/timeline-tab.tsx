@@ -351,7 +351,7 @@ export const TimelineTab = React.memo(function TimelineTab({
                   'inline-flex shrink-0 items-center gap-0.5 whitespace-nowrap rounded-sm border px-1.5 py-0.5 text-[10px] tabular-nums transition-colors',
                   active
                     ? 'border-border bg-accent/30 text-foreground'
-                    : 'border-transparent text-muted-foreground/70 hover:border-border/60 hover:bg-accent/20 hover:text-foreground',
+                    : 'border-transparent text-muted-foreground/70 hover:border-stroke-subtle hover:bg-accent/20 hover:text-foreground',
                 )}
                 data-testid={`timeline-filter-${f.id}`}
                 data-active={active ? 'true' : undefined}

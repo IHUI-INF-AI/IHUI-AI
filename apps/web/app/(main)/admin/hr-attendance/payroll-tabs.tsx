@@ -17,7 +17,7 @@ import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { type useTranslations } from 'next-intl'
 import { toast } from 'sonner'
-import { BookOpen, Calculator, Download, Settings, Play } from 'lucide-react'
+import { BookOpen, Calculator, Download, Settings, Play, TriangleAlert } from 'lucide-react'
 
 import { HasPermi } from '@/components/auth/HasPermi'
 import { Button } from '@ihui/ui-react'
@@ -30,7 +30,7 @@ const HR_SAL_CFG = '/api/hr-salary-config'
 const PAY_PERM = 'hr:payroll'
 
 const inputCls =
-  'rounded-md border border-input bg-background px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary'
+  'rounded-md border border-input bg-background px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-stroke-focus'
 
 type TFunc = ReturnType<typeof useTranslations>
 
@@ -310,7 +310,7 @@ export function SalaryConfigTab({ t }: { t: TFunc }) {
             onClick={() => setSubTab(st.key)}
             className={`px-2 py-1 text-body ${
               subTab === st.key
-                ? 'border-b-2 border-primary font-medium text-primary'
+                ? 'border-b-2 border-stroke-selected font-medium text-primary'
                 : 'text-muted-foreground'
             }`}
           >
@@ -1095,7 +1095,10 @@ function BreakdownDetail({ breakdown, t }: { breakdown: PayrollItem['breakdown']
       {breakdown?.warnings && breakdown.warnings.length > 0 && (
         <div className="font-[weight:inherit] mt-1 space-y-0.5 text-label text-destructive">
           {breakdown.warnings.map((w, i) => (
-            <div key={i}>⚠ {w}</div>
+            <div key={i} className="flex items-start gap-1">
+              <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+              <span>{w}</span>
+            </div>
           ))}
         </div>
       )}

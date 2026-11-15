@@ -83,6 +83,9 @@
   --color-secondary-foreground: hsl(0 0% 9%);
   --color-muted: hsl(0 0% 92%);
   --color-muted-foreground: hsl(0 0% 40%);
+  /* 2026-11-15:软底档(用户气泡 / 行内 code / 代码块共用)。与画布 96.1% L 只差 2.1%,
+   * 比 --color-muted(92%) 更贴近背景;规范禁止用 /N 透明度微调,故单独立实色档。 */
+  --color-muted-soft: hsl(0 0% 94%);
   /* 2026-11-11 用户反馈:头像菜单等弹层内 hover:bg-accent 与 popover(纯白)对比过大(88% vs 100%,12% L)。
      全局 accent 下调到 95% L:与 popover 差 5% L(与侧栏 hover 的 4% L 同档),弹层/画布上的 hover 都变柔和;
      强调态组件已有 border/ring/text 兜底,不靠这一档背景单独承担辨识度。 */
@@ -90,12 +93,33 @@
   --color-accent-foreground: hsl(0 0% 9%);
   --color-destructive: hsl(0 100% 60%);
   --color-destructive-foreground: hsl(0 0% 98%);
-  --color-border: hsl(0 0% 89.8%);
-  /* 2026-07-31 收紧:输入框描边从 89.8% L → 91% L,亮色下更柔和(用户偏好"light mode colors to be whiter")。
+  /* 2026-11-15 自适应描边:中性档改用 alpha,随表面色相自动调和;
+     亮色 10% 黑在纯白卡上 ≈ #E6E6E6,与旧 hsl(0 0% 89.8%) 观感一致。 */
+  --color-border: rgba(0, 0, 0, 0.1);
+  /* 2026-07-31 收紧:输入框描边更柔和(用户偏好"light mode colors to be whiter")。
      Input 组件默认 `border border-input` + `bg-transparent`,更浅的描边让输入框在白底卡片上几乎隐形,
-     只在 focus 时通过 ring 强调,符合 modern UI 趋势(Tailwind 4 / shadcn 4.x 默认配置)。 */
-  --color-input: hsl(0 0% 91%);
+     只在 focus 时通过 ring 强调,符合 modern UI 趋势(Tailwind 4 / shadcn 4.x 默认配置)。
+     2026-11-15:改为 8% 黑 alpha,在 muted/tinted 表面上同样保持"似有若无"。 */
+  --color-input: rgba(0, 0, 0, 0.08);
   --color-ring: hsl(0 0% 70%);
+
+  /* ===== 容器描边角色层(2026-11-15 立) =====
+   * 旧名 --color-border / --color-input / --color-border-medium 保留为底层值,
+   * 新代码一律取角色名;中性描边走 alpha,在页面/卡片/tinted 表面上保持同一视觉厚度。
+   * subtle 嵌套内区 · default 卡片/面板/表格 · strong 弹层/菜单/选中候选
+   * inverse 玻璃/深色浮层 · field 输入控件 · focus 聚焦(墨档,唯一例外位)
+   * selected 选中/强调容器 · danger 错误态容器 */
+  /* 注:default/strong/field/focus/selected/danger 的取值与 --color-border / --color-border-medium /
+     --color-input / --color-primary / --color-brand-accent-deep / --color-danger 逐位同值。
+     这里必须写字面值:门 93 的跨端对账不解析 var() 链,写别名会被判成"与 RN 不同值"。 */
+  --color-stroke-subtle: rgba(0, 0, 0, 0.06);
+  --color-stroke-default: rgba(0, 0, 0, 0.1);
+  --color-stroke-strong: rgba(0, 0, 0, 0.16);
+  --color-stroke-inverse: rgba(255, 255, 255, 0.2);
+  --color-stroke-field: rgba(0, 0, 0, 0.08);
+  --color-stroke-focus: #000000;
+  --color-stroke-selected: #4a7a96;
+  --color-stroke-danger: #dc2626;
   --color-success: hsl(142 71% 45%);
   --color-success-foreground: hsl(0 0% 98%);
   --color-warning: hsl(38 92% 50%);
@@ -262,7 +286,9 @@
    * dark 覆盖见 .dark 块,值与 rnDarkTokens 一致 */
   --color-text-tertiary: #a3a3a3;
   --color-text-medium: #404040;
-  --color-border-medium: #d4d4d4;
+  /* 2026-11-15:中档描边改为 16% 黑 alpha,作为 stroke.strong 的底层值;
+     亮色在纯白卡上 ≈ #D6D6D6,与旧 #d4d4d4 观感一致。 */
+  --color-border-medium: rgba(0, 0, 0, 0.16);
   --color-brand-accent-light: #eaf2f7;
   --color-surface-dark: #262626;
   --color-vip-card: #262626;
@@ -663,6 +689,8 @@ select:-webkit-autofill:focus {
   --color-secondary-foreground: hsl(0 0% 98%);
   --color-muted: hsl(0 0% 14.9%);
   --color-muted-foreground: hsl(0 0% 63.9%);
+  /* 暗档与 --color-muted 同值(14.9% vs 画布 14%,本已是最低对比),不额外变化。 */
+  --color-muted-soft: hsl(0 0% 14.9%);
   /* 2026-11-11 用户反馈:弹层内 hover:bg-accent 与 popover(11% L)对比过大(24% vs 11%,13% L)。
      全局 accent 下调到 19% L:与 popover/card 差 8–9% L,仍是可辨的低调 hover;
      与 background(14% L)只差 5% L,画布上的整行 hover 会比旧版更弱 —— 这是"降低对比"的既有取舍,
@@ -671,13 +699,22 @@ select:-webkit-autofill:focus {
   --color-accent-foreground: hsl(0 0% 98%);
   --color-destructive: hsl(0 100% 60%);
   --color-destructive-foreground: hsl(0 0% 98%);
-  --color-border: hsl(0 0% 22%);
-  /* 2026-07-31 收紧:输入框描边从 22% L → 26% L,暗色下稍亮 4%,与 bg-card(10% L) 差距更明显
+  --color-border: rgba(255, 255, 255, 0.12);
+  /* 2026-07-31 收紧:输入框描边暗色下稍亮,与 bg-card 差距更明显
      (用户偏好"dark mode colors to be blacker" 适用于容器/背景,不适用于描边;
      描边是引导用户视线聚焦的辅助线,亮一点反而让输入框"凸出"在卡片之上,
-     避免用户找不到光标位置)。 */
-  --color-input: hsl(0 0% 26%);
+     避免用户找不到光标位置)。2026-11-15:改为 16% 白 alpha,随暗色表面自适应。 */
+  --color-input: rgba(255, 255, 255, 0.16);
   --color-ring: hsl(0 0% 35%);
+  /* 容器描边角色层暗色覆盖:白 alpha 比亮色黑 alpha 更柔和,避免"粉笔描边" */
+  --color-stroke-subtle: rgba(255, 255, 255, 0.08);
+  --color-stroke-default: rgba(255, 255, 255, 0.12);
+  --color-stroke-strong: rgba(255, 255, 255, 0.2);
+  --color-stroke-inverse: rgba(0, 0, 0, 0.3);
+  --color-stroke-field: rgba(255, 255, 255, 0.16);
+  --color-stroke-focus: #ffffff;
+  --color-stroke-selected: #a3c4d6;
+  --color-stroke-danger: #ef4444;
   --color-success: hsl(142 65% 50%);
   --color-success-foreground: hsl(0 0% 98%);
   --color-warning: hsl(38 85% 55%);
@@ -750,11 +787,11 @@ select:-webkit-autofill:focus {
   --color-brand-accent-tint-strong: rgba(163, 196, 214, 0.32);
   --color-warm-bg: rgba(250, 204, 21, 0.14);
   /* RN 对齐色暗色覆盖(与上方 @theme 亮色值成对,取自 rnDarkTokens):
-   * 文字层级 text.tertiary #737373 / text.medium #D4D4D4,描边 border.medium #525252,
+   * 文字层级 text.tertiary #737373 / text.medium #D4D4D4,描边 border.medium 20% 白 alpha,
    * 表面 surface.dark / vip-card,状态徽章底色与深字 */
   --color-text-tertiary: #737373;
   --color-text-medium: #d4d4d4;
-  --color-border-medium: #525252;
+  --color-border-medium: rgba(255, 255, 255, 0.2);
   --color-surface-dark: #171717;
   --color-vip-card: #262626;
   --color-brand-accent-light: #1e2e36;
@@ -907,7 +944,6 @@ select:-webkit-autofill:focus {
  * 引用 --el-* Element Plus 兼容变量(下方独立 :root 块定义) */
 :root {
   --header-dropdown-bg: var(--el-bg-color);
-  --header-dropdown-border: 1px solid var(--dropdown-border-color);
   --header-dropdown-border-radius: var(--global-border-radius);
   --header-dropdown-padding: 6px 8px;
   --header-dropdown-shadow: none;
@@ -933,14 +969,12 @@ select:-webkit-autofill:focus {
   --el-fill-color-light: var(--color-muted);
   --el-fill-color-darker: var(--color-secondary);
   --el-color-primary: var(--color-primary);
-  --dropdown-border-color: var(--color-border);
 }
 
 /* ============ App 语义层(2026-07-27 上提自 web 本地 design-tokens.css) ============ */
 :root {
   --app-bg: var(--color-background);
   --app-surface: var(--color-card);
-  --app-border: var(--color-border);
   --app-text-primary: var(--color-foreground);
   --app-text-secondary: var(--color-muted-foreground);
   --app-text-muted: var(--color-muted-foreground);
@@ -953,15 +987,6 @@ select:-webkit-autofill:focus {
   --header-btn-bg-hover: var(--color-muted);
   --header-btn-bg-active: var(--color-secondary);
   --header-btn-text: var(--color-foreground);
-  --header-btn-border: transparent;
-}
-
-/* ============ 统一描边系统(2026-07-27 上提自 web 本地 design-tokens.css) ============ */
-:root {
-  --border-unified-default: var(--color-border);
-  --border-unified-strong: var(--color-ring);
-  --border-unified-subtle: var(--color-black-6);
-  --border-unified-inverse: var(--color-white-20);
 }
 
 /* ============ 暗色模式覆盖(2026-07-27 上提自 web 本地 design-tokens.css) ============
@@ -972,14 +997,12 @@ select:-webkit-autofill:focus {
   --el-fill-color-light: var(--color-secondary);
   --el-fill-color-darker: var(--color-muted);
   --el-color-primary: var(--color-primary);
-  --dropdown-border-color: var(--color-border);
   --header-dropdown-item-hover-bg: var(--el-fill-color-darker);
   --header-dropdown-item-hover-color: var(--el-text-color-primary);
   --header-dropdown-item-active-bg: var(--el-fill-color-darker);
   --sidebar-light-bg: #2a2a2a;
   --app-bg: var(--color-background);
   --app-surface: var(--color-card);
-  --app-border: var(--color-border);
   --app-text-primary: var(--color-foreground);
   --app-text-secondary: var(--color-muted-foreground);
   --app-text-muted: var(--color-muted-foreground);
@@ -989,11 +1012,6 @@ select:-webkit-autofill:focus {
   --header-btn-bg-hover: var(--color-secondary);
   --header-btn-bg-active: var(--color-muted);
   --header-btn-text: var(--color-foreground);
-  --header-btn-border: transparent;
-  --border-unified-default: var(--color-border);
-  --border-unified-strong: var(--color-ring);
-  --border-unified-subtle: var(--color-white-10);
-  --border-unified-inverse: var(--color-black-30);
 }
 
 /* ============================================================

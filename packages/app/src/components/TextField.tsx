@@ -10,7 +10,7 @@ import { getTokens, type AppThemeMode } from '../theme/tokens'
  * 带聚焦描边的输入框 —— RN/共享屏的唯一实现。
  *
  * 立因:原生 TextInput 默认**没有任何聚焦视觉反馈**,而 web 端自 2026 起一直是
- * `focus-visible:border-primary`(墨档:亮纯黑/暗纯白)。登录页当时是就地手写的一份
+ * `focus-visible:border-stroke-focus`(墨档:亮纯黑/暗纯白)。登录页当时是就地手写的一份
  * `FocusInput`,其余 60+ 个输入框连聚焦态都没有 —— 于是同一个动作在三个端上
  * 表现成三种样子,而用户报的是"所有输入框的激活态描边没了"。
  *
@@ -20,9 +20,9 @@ import { getTokens, type AppThemeMode } from '../theme/tokens'
  *
  * 三档取色与 web 逐字同形,不是近似:
  *  - 常态:1px 描边、颜色透明 —— 占位恒定,聚焦时只换颜色,**不产生 1px 布局跳动**
- *    (web 的 `border border-input` → `focus-visible:border-primary` 也是换色不换宽);
+ *    (web 的 `border border-stroke-field` → `focus-visible:border-stroke-focus` 也是换色不换宽);
  *    调用方自带描边时排在后面,直接覆盖这一档,不会被本组件改写。
- *  - 聚焦:`tokens.brand.DEFAULT` 墨档(亮 #000000 / 暗 #FFFFFF,随主题反转)。
+ *  - 聚焦:`tokens.stroke.focus` 墨档(亮 #000000 / 暗 #FFFFFF,随主题反转)。
  *    这是 AGENTS §4"描边不得取墨档"的**唯一例外位**(聚焦态),守门 83 的 R8 按
  *    `focused ? …` 条件形态放行 —— 所以这里必须写成三元,不得改成 `&&` 短路
  *    (判据只认条件取值,写成 `focused && {…}` 会被算成绕门)。
@@ -64,7 +64,7 @@ export function TextField({
       style={[
         RESTING_BORDER,
         style,
-        focused ? { borderColor: tk.brand.DEFAULT } : null,
+        focused ? { borderColor: tk.stroke.focus } : null,
         focused ? focusedStyle : null,
       ]}
       onFocus={(e) => {

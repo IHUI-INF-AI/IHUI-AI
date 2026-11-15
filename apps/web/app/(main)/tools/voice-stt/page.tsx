@@ -150,7 +150,7 @@ export default function VoiceSttPage() {
 
           {/* 上传区:未选文件时显示空状态 */}
           {file ? (
-            <div className="flex flex-col gap-3 rounded-lg border border-primary/30 bg-primary/5 p-3">
+            <div className="flex flex-col gap-3 rounded-lg border border-stroke-selected bg-primary/5 p-3">
               <div className="flex items-start justify-between gap-2">
                 <div className="flex min-w-0 items-start gap-2">
                   <FileAudio className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
@@ -181,7 +181,7 @@ export default function VoiceSttPage() {
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="flex w-full flex-col items-center justify-center gap-2 rounded-sm border-2 border-dashed border-muted-foreground/30 py-10 text-center transition-colors hover:border-primary/50 hover:bg-accent"
+              className="flex w-full flex-col items-center justify-center gap-2 rounded-sm border-2 border-dashed border-muted-foreground/30 py-10 text-center transition-colors hover:border-stroke-strong hover:bg-accent"
             >
               <Upload className="h-8 w-8 text-muted-foreground" />
               <span className="text-body font-medium">{t('selectFile')}</span>

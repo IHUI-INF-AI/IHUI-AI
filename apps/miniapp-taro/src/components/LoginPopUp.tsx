@@ -317,7 +317,7 @@ export default function LoginPopUp({
             <Image
               src={avatar || defaultAvatar}
               mode="aspectFill"
-              className="rounded-2xl bg-muted border border-primary/20"
+              className="rounded-2xl bg-muted border border-stroke-selected"
               style={{
                 width: toUnit(LOGIN_POPUP_AVATAR_BOX_PX),
                 height: toUnit(LOGIN_POPUP_AVATAR_BOX_PX),

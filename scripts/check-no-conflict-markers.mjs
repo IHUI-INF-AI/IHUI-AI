@@ -81,6 +81,7 @@ import { dirname, join, resolve } from 'node:path'
 import { execFileSync } from 'node:child_process'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { resolveGitBin } from './lib/gitdir.mjs'
+import { catBatchBinary } from './lib/face-reader.mjs'
 // 配对判据的唯一实现(见头注"判据住在哪儿")。本文件只 re-export,不再各写一份正则。
 import { findMarkerPairs } from './lib/conflict-marker-triples.mjs'
 import { makeRegistrar } from './lib/selftest-registrant.mjs'
@@ -327,18 +328,6 @@ export function stagedPaths(repoRoot) {
     .filter(Boolean)
 }
 
-/** 索引 blob;取不到(未合并态 stage 1/2/3、或已从索引删除)返回 null,调用方退回工作区。 */
-function readIndexBlob(repoRoot, rel) {
-  try {
-    return git(['-C', repoRoot, 'show', `:${rel}`], {
-      encoding: 'buffer',
-      stdio: ['ignore', 'pipe', 'ignore'],
-    })
-  } catch {
-    return null
-  }
-}
-
 function readWorktreeFile(repoRoot, rel) {
   try {
     return readFileSync(join(repoRoot, rel))
@@ -400,10 +389,13 @@ export function audit(repoRoot, { staged = false } = {}) {
   const stats = newStats()
   const paths = staged ? stagedPaths(repoRoot) : trackedPaths(repoRoot)
   const violations = []
+  // 2026-11-15 性能:索引面 blob 改为一次 cat-file --batch 批量取证。此前逐文件 `git show :<path>`,
+  // 2000 个暂存文件在 Windows 上要十几分钟,会被单门超时看门狗判成"未判定"(判据与回退语义不变)。
+  const stagedBlobs = staged ? catBatchBinary(repoRoot, paths.map((p) => `:${p}`)) : null
   for (const rel of paths) {
     let buf = null
     if (staged) {
-      buf = readIndexBlob(repoRoot, rel)
+      buf = stagedBlobs.get(`:${rel}`) ?? null
       if (buf === null) buf = readWorktreeFile(repoRoot, rel)
     } else {
       buf = readWorktreeFile(repoRoot, rel)

@@ -221,7 +221,8 @@ export function StreamRow({
       aria-expanded={expanded}
       aria-label={ariaLabel ?? title}
       className={cn(
-        'group/stream-row rounded-sm px-1 text-left transition-colors',
+        // 2026-11-15:可点击活动行加一档低对比描边,把"可展开容器"从正文里轻量区分出来
+        'group/stream-row rounded-sm border border-stroke-subtle px-1 text-left transition-colors',
         'hover:bg-accent/40 focus-visible:bg-accent/40 focus-visible:outline-none',
         STREAM_ROW_CLASS,
         dimmed && 'opacity-60',
@@ -331,8 +332,8 @@ export interface StreamGroupProps {
 /**
  * 活动组:一段过程信息的容器。
  *
- * 刻意**不带边框与底色**:过程内容不该抢正文的视觉重量(此前是一个 rounded-lg + border +
- * bg-muted 的盒子,把 AI 回复"包"成了卡片)。这里只有一条竖向导引线和一行与行同字号的头。
+ * 除一行与行同字号的头外不设独立底色;2026-11-15 起头按钮带一档低对比描边,
+ * 与正文拉开"可展开容器"的轻量边界,但不抢正文的视觉重量。
  */
 export function StreamGroup({
   active,
@@ -371,7 +372,8 @@ export function StreamGroup({
           aria-label={ariaLabel ?? (open ? t('collapseSteps') : t('expandSteps'))}
           className={cn(
             STREAM_ROW_CLASS,
-            'min-w-0 flex-1 rounded-sm px-1 text-left text-muted-foreground transition-colors hover:bg-accent/40 focus-visible:bg-accent/40 focus-visible:outline-none',
+            // 2026-11-15:与可点击活动行同一档低对比描边(展开容器轻量区分)
+            'min-w-0 flex-1 rounded-sm border border-stroke-subtle px-1 text-left text-muted-foreground transition-colors hover:bg-accent/40 focus-visible:bg-accent/40 focus-visible:outline-none',
           )}
           data-stream-group-trigger="true"
         >

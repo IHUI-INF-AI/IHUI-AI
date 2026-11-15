@@ -43,7 +43,7 @@ export default async function ReferralPage() {
       </header>
 
       {/* 邀请链接 */}
-      <Card className="border-primary/40 bg-primary/5">
+      <Card className="border-stroke-selected bg-primary/5">
         <CardContent className="min-[640px]:p-3 p-3">
           <div className="flex items-center gap-2 text-body font-semibold">
             <Share2 className="h-4 w-4 text-primary" />

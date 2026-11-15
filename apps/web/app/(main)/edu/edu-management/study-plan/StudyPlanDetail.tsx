@@ -316,7 +316,7 @@ export function StudyPlanDetail({
                       key={dateStr}
                       className={cn(
                         'min-h-[120px] rounded-md border p-2',
-                        isToday(day) && 'bg-primary/5 border-primary/30',
+                        isToday(day) && 'bg-primary/5 border-stroke-selected',
                       )}
                     >
                       <div

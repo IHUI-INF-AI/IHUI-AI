@@ -300,7 +300,7 @@ export default function ManualFaqPage() {
       </section>
 
       {/* 完结 */}
-      <section className="mt-12 rounded-lg border bg-cta/5 p-3 text-center ring-1 ring-primary/20">
+      <section className="mt-12 rounded-lg border bg-cta/5 p-3 text-center ring-1 ring-stroke-selected/20">
         <p className="text-lg font-semibold">
           <PartyPopper className="mr-1.5 inline h-5 w-5 align-text-bottom" aria-hidden />
           手册完结

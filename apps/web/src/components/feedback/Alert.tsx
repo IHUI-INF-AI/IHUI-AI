@@ -26,7 +26,7 @@ const variantMap: Record<
   AlertVariant,
   { icon: React.ComponentType<{ className?: string }>; class: string }
 > = {
-  info: { icon: Info, class: 'border-primary/30 bg-primary/5 text-primary' },
+  info: { icon: Info, class: 'border-stroke-selected bg-primary/5 text-primary' },
   success: {
     icon: CheckCircle,
     class: 'border-emerald-500/30 bg-emerald-500/5 text-emerald-600 dark:text-emerald-500',

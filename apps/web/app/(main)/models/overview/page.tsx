@@ -17,6 +17,8 @@ const OVERVIEW_RECENTCALLS_STATUS_KEY: Record<string, string> = {
 }
 
 export default async function OverviewPage() {
+  // SSR 首帧按 cookie 口径 + 汇率快照直出(layout 与 page 模块实例隔离,必须逐页播种)
+  await seedServerCurrency()
   const t = await getTranslations('models')
   // SSR 首帧按 cookie 口径 + 汇率快照直出(layout 与 page 模块实例隔离,必须逐页播种)
   await seedServerCurrency()
@@ -139,7 +141,7 @@ export default async function OverviewPage() {
                 <a
                   key={a.href}
                   href={a.href}
-                  className="flex flex-col items-start gap-2 rounded-lg border border-border/60 bg-muted/30 p-3 transition-colors hover:border-primary/40 hover:bg-primary/5"
+                  className="flex flex-col items-start gap-2 rounded-lg border border-stroke-subtle bg-muted/30 p-3 transition-colors hover:border-stroke-strong hover:bg-primary/5"
                 >
                   <div className="flex h-8 w-8 items-center justify-center rounded-md bg-background text-primary">
                     <Icon className="h-4 w-4" />

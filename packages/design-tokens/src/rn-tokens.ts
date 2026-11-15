@@ -49,6 +49,25 @@ export type RnDangerTokens = {
   bright: string
 }
 
+
+/**
+ * 容器描边角色档(2026-11-15 立,对齐 tokens.css `--color-stroke-*`)。
+ * subtle 嵌套内区 · default 卡片/面板/表格 · strong 弹层/菜单/选中候选
+ * inverse 玻璃/深色浮层 · field 输入控件 · focus 聚焦(墨档,唯一例外位)
+ * selected 选中/强调容器 · danger 错误态容器。
+ * 值由 scripts/sync-rn-tokens.mjs 从 tokens.css 派生(守门 MAPPINGS 已登记),勿手改。
+ */
+export type RnStrokeTokens = {
+  subtle: string
+  default: string
+  strong: string
+  inverse: string
+  field: string
+  focus: string
+  selected: string
+  danger: string
+}
+
 /** VIP 会员金色(对齐 miniapp-taro --color-vip-gold-start/end #ffd700/#ffaa00,明暗同值)。 */
 export type RnVipTokens = {
   gold: string
@@ -112,8 +131,8 @@ export const rnTokens = {
     medium: '#404040',
   },
   border: {
-    light: '#E5E5E5',
-    medium: '#D4D4D4',
+    light: 'rgba(0,0,0,0.1)',
+    medium: 'rgba(0,0,0,0.16)',
   },
   error: {
     bg: '#FFE5E5',
@@ -161,6 +180,18 @@ export const rnTokens = {
     DEFAULT: '#dc2626',
     bright: '#f87171',
   } satisfies RnDangerTokens,
+  /* 容器描边角色档(2026-11-15 立):新代码取角色名,border 两档保留为 legacy 别名。
+     必须排在 danger 之后 —— 门 93 的 resolveTsPath 取首个同名键,stroke.danger 会遮住 danger.light。 */
+  stroke: {
+    subtle: 'rgba(0,0,0,0.06)',
+    default: 'rgba(0,0,0,0.1)',
+    strong: 'rgba(0,0,0,0.16)',
+    inverse: 'rgba(255,255,255,0.2)',
+    field: 'rgba(0,0,0,0.08)',
+    focus: '#000000',
+    selected: '#4a7a96',
+    danger: '#dc2626',
+  } satisfies RnStrokeTokens,
   vip: {
     gold: '#FFD700',
     goldEnd: '#FFAA00',
@@ -230,6 +261,8 @@ export type RnThemeTokens = {
   }
   text: { primary: string; secondary: string; tertiary: string; medium: string }
   border: { light: string; medium: string }
+  /* 容器描边角色档(--color-stroke-*;值由 sync-rn-tokens.mjs 派生) */
+  stroke: RnStrokeTokens
   error: { bg: string; text: string }
   overlay: { modal: string; loading: string }
   /* brandAccent:高级灰蓝(2026-09-14 定稿)。DEFAULT=底色,foreground=其上文字,
@@ -298,7 +331,7 @@ export const rnLightTokens: RnThemeTokens = {
     chrome: '#FFFFFF',
   },
   text: { primary: '#0A0A0A', secondary: '#666666', tertiary: '#A3A3A3', medium: '#404040' },
-  border: { light: '#E5E5E5', medium: '#D4D4D4' },
+  border: { light: 'rgba(0,0,0,0.1)', medium: 'rgba(0,0,0,0.16)' },
   error: { bg: '#FFE5E5', text: '#FF3333' },
   overlay: { modal: 'rgba(0,0,0,0.4)', loading: 'rgba(255,255,255,0.8)' },
   brandAccent: {
@@ -330,6 +363,18 @@ export const rnLightTokens: RnThemeTokens = {
     deepText: '#065F46',
   },
   danger: { light: '#fee2e2', DEFAULT: '#dc2626', bright: '#f87171' },
+  /* 容器描边角色档(2026-11-15 立):新代码取角色名,border 两档保留为 legacy 别名。
+     必须排在 danger 之后 —— 门 93 的 resolveTsPath 取首个同名键,stroke.danger 会遮住 danger.light。 */
+  stroke: {
+    subtle: 'rgba(0,0,0,0.06)',
+    default: 'rgba(0,0,0,0.1)',
+    strong: 'rgba(0,0,0,0.16)',
+    inverse: 'rgba(255,255,255,0.2)',
+    field: 'rgba(0,0,0,0.08)',
+    focus: '#000000',
+    selected: '#4a7a96',
+    danger: '#dc2626',
+  } satisfies RnStrokeTokens,
   vip: { gold: '#FFD700', goldEnd: '#FFAA00' },
   /* 值由 scripts/sync-rn-tokens.mjs 从 tokens.css 派生(--color-model-type-* / --color-agent-name),勿手改 */
   modelType: {
@@ -393,7 +438,7 @@ export const rnDarkTokens: RnThemeTokens = {
     chrome: '#262626',
   },
   text: { primary: '#FAFAFA', secondary: '#A3A3A3', tertiary: '#737373', medium: '#D4D4D4' },
-  border: { light: '#383838', medium: '#525252' },
+  border: { light: 'rgba(255,255,255,0.12)', medium: 'rgba(255,255,255,0.2)' },
   error: { bg: '#7F1D1D', text: '#FF3333' },
   overlay: { modal: 'rgba(0,0,0,0.6)', loading: 'rgba(0,0,0,0.6)' },
   brandAccent: {
@@ -425,6 +470,17 @@ export const rnDarkTokens: RnThemeTokens = {
     deepText: '#86efac',
   },
   danger: { light: '#7f1d1d', DEFAULT: '#ef4444', bright: '#fca5a5' },
+  /* 容器描边角色档(2026-11-15 立;排在 danger 之后,理由见 rnTokens 同档注释) */
+  stroke: {
+    subtle: 'rgba(255,255,255,0.08)',
+    default: 'rgba(255,255,255,0.12)',
+    strong: 'rgba(255,255,255,0.2)',
+    inverse: 'rgba(0,0,0,0.3)',
+    field: 'rgba(255,255,255,0.16)',
+    focus: '#FFFFFF',
+    selected: '#a3c4d6',
+    danger: '#ef4444',
+  },
   vip: { gold: '#FFD700', goldEnd: '#FFAA00' },
   /* 明暗同值档:暗档值同样由 scripts/sync-rn-tokens.mjs 派生(tokens.css .dark 里成对声明) */
   modelType: {
@@ -482,7 +538,7 @@ export const rnCssLight = {
   accentForeground: 'hsl(0 0% 9%)',
   destructive: 'hsl(0 100% 60%)',
   destructiveForeground: 'hsl(0 0% 98%)',
-  input: 'hsl(0 0% 91%)',
+  input: 'rgba(0, 0, 0, 0.08)',
   ring: 'hsl(0 0% 70%)',
   successForeground: 'hsl(0 0% 98%)',
   warningForeground: 'hsl(0 0% 98%)',
@@ -548,7 +604,7 @@ export const rnCssLight = {
   warmBg: '#fff4e6',
   textTertiary: '#a3a3a3',
   textMedium: '#404040',
-  borderMedium: '#d4d4d4',
+  borderMedium: 'rgba(0, 0, 0, 0.16)',
   brandAccentLight: '#eaf2f7',
   surfaceDark: '#262626',
   vipCard: '#262626',
@@ -660,7 +716,7 @@ export const rnCssDark = {
   accentForeground: 'hsl(0 0% 98%)',
   destructive: 'hsl(0 100% 60%)',
   destructiveForeground: 'hsl(0 0% 98%)',
-  input: 'hsl(0 0% 26%)',
+  input: 'rgba(255, 255, 255, 0.16)',
   ring: 'hsl(0 0% 35%)',
   successForeground: 'hsl(0 0% 98%)',
   warningForeground: 'hsl(0 0% 98%)',
@@ -726,7 +782,7 @@ export const rnCssDark = {
   warmBg: 'rgba(250, 204, 21, 0.14)',
   textTertiary: '#737373',
   textMedium: '#d4d4d4',
-  borderMedium: '#525252',
+  borderMedium: 'rgba(255, 255, 255, 0.2)',
   brandAccentLight: '#1e2e36',
   surfaceDark: '#171717',
   vipCard: '#262626',

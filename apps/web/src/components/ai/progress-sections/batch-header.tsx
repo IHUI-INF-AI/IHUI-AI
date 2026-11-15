@@ -39,7 +39,7 @@ const STATUS_CLS: Record<BatchStatus, { icon: string; bar: string; bg: string; b
     icon: 'text-primary',
     bar: 'bg-primary/60',
     bg: 'bg-primary/[0.04]',
-    border: 'border-primary/20',
+    border: 'border-stroke-selected',
   },
   completed: {
     icon: 'text-emerald-500',
