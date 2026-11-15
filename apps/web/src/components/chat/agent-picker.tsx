@@ -16,6 +16,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
+import { NESTED_FLOATING_Z_CLASS } from '@/lib/floating-layer'
+import { MENU_ITEM_CLASS, MENU_ITEM_SECTION_CLASS } from '@/lib/menu-item'
 import {
   COMPOSER_MENU_ROW_CHEVRON_CLASS,
   COMPOSER_MENU_ROW_CLASS,
@@ -80,7 +82,7 @@ export function AgentPicker({ variant = 'pill' }: { variant?: 'pill' | 'row' }) 
                   'inline-flex h-8 min-w-0 items-center gap-1 rounded-sm border border-input bg-card px-2 text-body font-medium transition-colors',
                   'hover:bg-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60',
                   // 选中专家时主色描边,让"当前不是默认助手"在底栏一眼可见
-                  selectedAgentId && 'border-primary/50 text-primary',
+                  selectedAgentId && 'border-stroke-selected text-primary',
                 ),
           )}
         >
@@ -120,18 +122,18 @@ export function AgentPicker({ variant = 'pill' }: { variant?: 'pill' | 'row' }) 
       <DropdownMenuContent
         align="end"
         sideOffset={6}
-        style={{ zIndex: 2300 }}
         className={cn(
-          // z-[2300](2026-11-04 第二轮收敛):触发器嵌在 + 菜单(z-[2200])第一层,
-          // 默认 z-popover(2001)会被外层盖住,菜单项看不到也点不到。
-          'z-[2300] max-h-[60vh] w-fit max-w-[320px] overflow-y-auto rounded-lg border bg-card p-1 text-card-foreground shadow-elevation-md',
+          // 触发器嵌在 + 菜单(z-[2200])第一层,默认 z-popover 会被外层盖住。
+          // 层级走 floating-layer 唯一源,不再写死 2300。
+          NESTED_FLOATING_Z_CLASS,
+          'max-h-[60vh] w-fit max-w-[320px] overflow-y-auto rounded-lg border bg-card p-1 text-card-foreground shadow-elevation-md',
           '[&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-sm [&::-webkit-scrollbar-thumb]:bg-muted-foreground/30',
         )}
       >
         <DropdownMenuItem
           onSelect={() => setSelectedAgentId(null)}
           data-testid="agent-picker-item-default"
-          className="flex cursor-pointer select-none items-center gap-2 rounded-md px-2 py-1.5 text-body outline-none focus:bg-accent focus:text-accent-foreground"
+          className={MENU_ITEM_CLASS}
         >
           <Check
             className={cn(
@@ -140,12 +142,12 @@ export function AgentPicker({ variant = 'pill' }: { variant?: 'pill' | 'row' }) 
             )}
           />
           <span className="flex-1 truncate font-medium">{t('agentPicker.default')}</span>
-          <span className="shrink-0 text-[11px] text-muted-foreground">
+          <span className="shrink-0 text-caption text-muted-foreground">
             {t('agentPicker.defaultDesc')}
           </span>
         </DropdownMenuItem>
         {personas.length > 0 && (
-          <DropdownMenuLabel className="px-2 py-1 text-label font-semibold uppercase tracking-wide text-muted-foreground">
+          <DropdownMenuLabel className={cn(MENU_ITEM_SECTION_CLASS, 'uppercase tracking-wide')}>
             {t('agentPicker.groupTitle')}
           </DropdownMenuLabel>
         )}
@@ -157,7 +159,7 @@ export function AgentPicker({ variant = 'pill' }: { variant?: 'pill' | 'row' }) 
               onSelect={() => setSelectedAgentId(p.name)}
               data-testid={`agent-picker-item-${p.name}`}
               data-active={active ? 'true' : 'false'}
-              className="flex cursor-pointer select-none items-start gap-2 rounded-md px-2 py-1.5 text-body outline-none focus:bg-accent focus:text-accent-foreground"
+              className={cn(MENU_ITEM_CLASS, 'items-start')}
             >
               <Check
                 className={cn('mt-0.5 h-4 w-4 shrink-0', active ? 'opacity-100' : 'opacity-0')}
@@ -165,13 +167,13 @@ export function AgentPicker({ variant = 'pill' }: { variant?: 'pill' | 'row' }) 
               <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                 <span className="truncate font-medium">{p.name}</span>
                 {p.description && (
-                  <span className="truncate text-[11px] font-normal text-muted-foreground">
+                  <span className="truncate text-caption font-normal text-muted-foreground">
                     {p.description}
                   </span>
                 )}
                 {p.tools.length > 0 && (
                   <span
-                    className="truncate text-[10px] font-normal text-muted-foreground/70"
+                    className="truncate text-badge font-normal text-muted-foreground"
                     data-testid={`agent-picker-tools-${p.name}`}
                   >
                     {t('agentPicker.toolsSummary', { tools: p.tools.join(' · ') })}

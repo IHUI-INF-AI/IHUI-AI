@@ -75,7 +75,7 @@ const ECOSYSTEM_GROUPS: readonly { titleKey: string; items: readonly Icon[] }[] 
 //   Page 7 同步减小 minHeight = calc(100vh - 1rem - 12rem) 让 footer 整体可见不被切。
 const SECTION_TITLE = 'text-[11px] font-semibold uppercase tracking-wider text-foreground/60'
 const ICON_BOX =
-  'flex h-7 w-7 items-center justify-center rounded border bg-card transition-colors hover:border-primary/40'
+  'flex h-7 w-7 items-center justify-center rounded border bg-card transition-colors hover:border-stroke-strong'
 const ICON_IMG = 'h-4 w-4 object-contain'
 const QR_BOX = 'h-16 w-16 overflow-hidden rounded border border-zinc-900 bg-zinc-900 p-0.5'
 const QR_IMG = 'h-full w-full object-contain'
@@ -213,7 +213,7 @@ function QrItem({ qr, t }: { qr: Qr; t: ReturnType<typeof useTranslations<'foote
         role="tooltip"
         className="pointer-events-none absolute bottom-full left-1/2 z-popover mb-2 -translate-x-1/2 scale-95 opacity-0 transition-all duration-200 group-hover/qr:scale-100 group-hover/qr:opacity-100"
       >
-        <div className="rounded-md border bg-popover p-3 shadow-elevation-lg">
+        <div className="rounded-md border border-stroke-strong bg-popover p-3 shadow-elevation-lg">
           <div className="h-[240px] w-[240px] overflow-hidden rounded-sm bg-zinc-900 p-3">
             <Image
               src={toMediaImageUrl(qr.src)}

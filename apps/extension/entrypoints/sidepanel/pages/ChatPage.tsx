@@ -17,7 +17,10 @@ import {
   postToolApprovalResponse,
   /** D151:把用户键入的那一行送回正在等待的子进程(唯一上行出口,端内不得自拼 fetch) */
   postTerminalInput,
-  type StreamChatOptions,  type TerminalDeltaEvent,
+  subscribeChatSync,
+  fetchApi,
+  type StreamChatOptions,
+  type TerminalDeltaEvent,
   type TerminalInteractionEvent,
   type ToolApprovalEvent,
   type LlmModel,
@@ -30,7 +33,7 @@ import { FALLBACK_MODELS as SHARED_FALLBACK_MODELS } from '@ihui/shared'
 import { Button, Input } from '@ihui/ui-react'
 import { useOutletContext } from 'react-router-dom'
 import { useI18n } from '../../../src/i18n'
-import { DEFAULT_AI_SERVICE_URL } from '../../../lib/config'
+import { DEFAULT_AI_SERVICE_URL, getApiBaseUrl } from '../../../lib/config'
 import { getToken } from '../../../lib/token'
 // 2026-11-13:AI 主动提问卡(此前本端对该帧 0 命中,提问整条闭环缺失)
 import {
@@ -42,16 +45,21 @@ import {
 // 判据与端点契约来自共享层,端内不复制字段名
 import {
   buildLegacyAnswerText,
-  buildQuestionResponseBody,
   interpretQuestionResponse,
   questionResponsePath,
 } from '@ihui/shared/chat/question-response'
+import { chatSyncStore } from '@ihui/shared/chat'
 import {
   PENDING_PROMPT_STORAGE_KEY,
   pendingPromptTextFromMessage,
   pendingPromptTextFromStorage,
 } from '../../../lib/pending-prompt'
-import { pickRetryTarget } from './chat-send-utils'
+import {
+  applyChatSyncSurfaceMerge,
+  pickRetryTarget,
+  planChatSyncSurfaceMerge,
+} from './chat-send-utils'
+import { startExtensionChatSyncResync } from '../../../src/lib/chat-sync-resync'
 import {
   branchTargetServerId,
   failureReasonText,
@@ -91,7 +99,7 @@ import {
   type ExtQueueItem,
 } from '../../../lib/ext-queue-ops'
 import type { FollowUpMode } from '@ihui/shared/chat/queue-interactions'
-import type { PlanStep, TerminalTask } from '@ihui/types'
+import type { ChatSyncEvent, PlanStep, TerminalTask } from '@ihui/types'
 import type { ChatMessage } from './types'
 
 interface Ctx {
@@ -191,6 +199,44 @@ export default function ChatPage() {
   /** 本地消息 id → 后端 chat_messages.id(只有持久化成功的消息才有) */
   const [serverIds, setServerIds] = useState<Record<string, string>>({})
   const [branching, setBranching] = useState(false)
+
+  // ── G-20261114 多端实时同步(两条 effect:订阅帧 / 投影到本页)────────────
+  // 帧判据全在共享层:chatSyncStore 按 (messageId, rev) 做幂等四态、gap 排 resync、
+  // 终态粘性;本页只算最小变更集,零复算。
+  //
+  // 票 B02 / 票71 phase 2:gap 排出来之后必须有发起器,否则 pending 只是躺着。
+  // 扩展端没有应用级常驻宿主(侧边栏关掉即卸载),本页就是可达的最长生命周期;
+  // 泵只订阅共享 store,没 gap 时零请求,挂在不依赖 conversationId。
+  useEffect(() => {
+    const pump = startExtensionChatSyncResync()
+    return () => pump.stop()
+  }, [])
+
+  useEffect(() => {
+    if (!conversationId) return
+    const config = { baseUrl: getApiBaseUrl(), tokenProvider: () => getToken() }
+    const sub = subscribeChatSync(config, conversationId, (evt) => {
+      chatSyncStore.applyEvent(evt.data as ChatSyncEvent)
+    })
+    return () => sub.close()
+  }, [conversationId])
+
+  useEffect(() => {
+    if (!conversationId) return
+    const project = (): void => {
+      // 本端流式单播面是权威;WS snapshot 回放会把正在累积的前缀覆盖回去
+      // (web 的 localStreamEcho / RN 的 paused 同一条纪律)。
+      if (streaming) return
+      const surfaces = chatSyncStore.messagesOf(conversationId)
+      if (surfaces.length === 0) return
+      setMessages((prev) => {
+        const plan = planChatSyncSurfaceMerge(prev, surfaces)
+        return plan === null ? prev : applyChatSyncSurfaceMerge(prev, plan)
+      })
+    }
+    project()
+    return chatSyncStore.subscribe(project)
+  }, [conversationId, streaming])
 
   // ===== D38 队列语义完整交互(G-42,H18 扩展格)=====
   // 端内排队 state:本端无 web 式 chat store,队列数组即 ChatPage 本地 state;
@@ -584,7 +630,9 @@ export default function ChatPage() {
         // 消息上(MessageContent.tsx 无条件渲染它),而那个 X 秒早就过去了 ——
         // 与 queued 提示同型的缺陷。只清自己(无则返回原对象,不触发多余重渲)。
         updateAssistantMessage((m) =>
-          m.retryNotice ? { ...m, content: m.content + delta, retryNotice: undefined } : { ...m, content: m.content + delta },
+          m.retryNotice
+            ? { ...m, content: m.content + delta, retryNotice: undefined }
+            : { ...m, content: m.content + delta },
         )
       },
       // W6:推理过程(reasoning model),追加到 assistant 消息的 reasoning 字段
@@ -867,7 +915,8 @@ export default function ChatPage() {
         }
         setNotice(text)
         // 记下"当前这条 notice 是排队提示",供晋升时判断能不能清
-        queuedNoticeRef.current = receipt.disposition === 'queued' ? (receipt.queuedTurnId ?? null) : null
+        queuedNoticeRef.current =
+          receipt.disposition === 'queued' ? (receipt.queuedTurnId ?? null) : null
       },
       // #11 引用溯源(第 52 轮):端内枚举式合并,不显式写 citations 就等于静默丢帧
       onCitations: (evt) => {
@@ -963,7 +1012,6 @@ export default function ChatPage() {
     }
   }
 
-
   /**
    * 提交提问答复(2026-11-13 立)。
    *
@@ -1008,17 +1056,24 @@ export default function ChatPage() {
     }
     setQuestionSubmitting(true)
     try {
-      const token = getToken()
-      const res = await fetch(`${DEFAULT_AI_SERVICE_URL}${questionResponsePath(cid)}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      // 走 api-client 出口(自动带凭据与 401 续期),不在宿主裸 fetch;返回分型同 web
+      const result = await fetchApi<unknown>(
+        `${DEFAULT_AI_SERVICE_URL}${questionResponsePath(cid)}`,
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            questionId: payload.questionId,
+            action: payload.action,
+            selectedOptionIds: payload.selectedOptionIds,
+            ...(payload.customText ? { customText: payload.customText } : {}),
+          }),
         },
-        body: JSON.stringify(buildQuestionResponseBody(payload)),
-      })
-      const data: unknown = await res.json().catch(() => null)
-      const outcome = interpretQuestionResponse(res.status, data)
+      )
+      const outcome = result.success
+        ? interpretQuestionResponse(result.status, result.data)
+        : result.status === 404
+          ? { kind: 'legacy' as const }
+          : { kind: 'failed' as const, message: result.error }
       if (outcome.kind === 'blocking') {
         // 服务端认下 ⇒ 只关卡片。流会自己续跑,不能再发一轮
         setPendingQuestion(null)
@@ -1026,7 +1081,7 @@ export default function ChatPage() {
         setQuestionCustom('')
       } else if (outcome.kind === 'legacy') {
         // 旧链路:把答案当普通消息发出去(与 web 的 sendLegacyAnswer 同语义)
-        const text = buildLegacyAnswerText(q.options, payload)
+        const text = buildLegacyAnswerText(q, payload)
         setPendingQuestion(null)
         setQuestionSelected([])
         setQuestionCustom('')

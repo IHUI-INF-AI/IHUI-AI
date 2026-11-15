@@ -31,7 +31,7 @@ export function AgentMarketScreen({
   onPressItem,
   onBack,
   onRetry,
-  colorScheme = 'light'
+  colorScheme = 'light',
 }: AgentMarketScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])

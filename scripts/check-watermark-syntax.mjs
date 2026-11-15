@@ -60,6 +60,7 @@ import { join, relative, basename, extname, resolve, dirname } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { isExcludedDirName } from './lib/exclude-dirs.mjs'
 import { resolveGitBin } from './lib/gitdir.mjs'
+import { catBatchBinary } from './lib/face-reader.mjs'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 import { makeRegistrar } from './lib/selftest-registrant.mjs'
 
@@ -740,10 +741,13 @@ export async function main(argv = process.argv.slice(2), defaultRoot) {
     const paths = stagedPaths(ROOT) // 抛错即由 catch 统一按异常退出(不静默放行)
     stats.listed = paths.length
     entries = []
-    for (const rel of paths) {
-      if (!isAuditCandidate(rel)) continue
+    // 2026-11-15 性能:索引面 blob 改为一次 cat-file --batch 批量取证。此前逐文件 `git show :<path>`,
+    // 2000 个暂存文件在 Windows 上要十几分钟,会被单门超时看门狗判成"未判定"(判据与计数语义不变)。
+    const candidates = paths.filter((rel) => isAuditCandidate(rel))
+    const blobs = catBatchBinary(ROOT, candidates.map((p) => `:${p}`))
+    for (const rel of candidates) {
       stats.candidate++
-      const bytes = readIndexBlob(ROOT, rel)
+      const bytes = blobs.get(`:${rel}`) ?? null
       if (bytes === null) {
         stats.missing++ // 索引取不到 = 如实报数,不得伪装成"通过"
         continue

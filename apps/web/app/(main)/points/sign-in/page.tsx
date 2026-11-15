@@ -228,7 +228,7 @@ export default function SignInPage() {
                 key={d}
                 className={cn(
                   'flex flex-col items-center gap-1 rounded-lg border p-2 text-center transition-colors',
-                  isSigned ? 'border-primary/40 bg-primary/5' : 'hover:bg-accent/50',
+                  isSigned ? 'border-stroke-selected bg-primary/5' : 'hover:bg-accent/50',
                 )}
               >
                 <span className="whitespace-nowrap text-label text-muted-foreground">

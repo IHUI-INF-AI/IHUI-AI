@@ -38,7 +38,8 @@ const buttonVariants = cva(
         outline: `${SHARED_BUTTON_VARIANT_CLASSES.outline} shadow-elevation-sm hover:bg-accent hover:text-accent-foreground`,
         ghost: `${SHARED_BUTTON_VARIANT_CLASSES.ghost} hover:bg-accent hover:text-accent-foreground`,
         // web 独占档位
-        secondary: 'bg-secondary text-secondary-foreground shadow-elevation-sm hover:bg-secondary/80',
+        secondary:
+          'bg-secondary text-secondary-foreground shadow-elevation-sm hover:bg-secondary/80',
         link: 'text-primary underline-offset-4 hover:underline',
 
         primary: 'bg-cta text-cta-foreground shadow-elevation-sm hover:bg-cta/90',
@@ -55,7 +56,7 @@ const buttonVariants = cva(
         'agreement-agree':
           'w-full bg-cta text-cta-foreground hover:bg-cta/90 h-12 rounded-sm font-medium',
         'switch-project':
-          'border border-input bg-background hover:bg-accent hover:text-accent-foreground rounded-sm px-3 py-1.5 text-sm',
+          'border border-stroke-field bg-background hover:bg-accent hover:text-accent-foreground rounded-sm px-3 py-1.5 text-sm',
       },
       size: {
         // 共享档位(唯一源)先展开;下面只在基座之外追加

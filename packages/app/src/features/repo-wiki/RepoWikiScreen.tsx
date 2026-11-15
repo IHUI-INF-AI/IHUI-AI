@@ -268,7 +268,9 @@ export function RepoWikiScreen({
                       </Text>
                       <View style={styles.badge}>
                         <Text style={styles.badgeText}>
-                          {t(doc.kind === 'module' ? 'repoWiki.kindModule' : 'repoWiki.kindOverview')}
+                          {t(
+                            doc.kind === 'module' ? 'repoWiki.kindModule' : 'repoWiki.kindOverview',
+                          )}
                         </Text>
                       </View>
                     </View>

@@ -27,8 +27,146 @@ export interface EmbeddingProvider {
    * 生成 embedding; 输入文本列表, 输出向量列表 (与输入顺序一致)。
    * 上游批量应答缺项/乱序、无法按 index/id 对齐时**整批抛错** (G-1080904),
    * 绝不返回错位或截断的向量列表。
+   *
+   * 实现内部必须按上游上限分片 (见 EMBEDDING_MAX_BATCH_ITEMS / token 预算, F-416),
+   * 逐批请求; 调用方可传 maxAttempts 启用单批有限重试; 最终失败抛错,
+   * 不得返回空列表冒充成功。
    */
-  embed(texts: string[]): Promise<number[][]>
+  embed(texts: string[], options?: EmbeddingRunOptions): Promise<number[][]>
+}
+
+// =============================================================================
+// 批量分片 + 重试 (F-416)
+// =============================================================================
+
+/**
+ * 上游单次批量 embedding 的条数上限。
+ *
+ * DashScope text-embedding-v2 单批最多 25 条; 超过后上游返回非 2xx, 旧实现把
+ * 整批文本一次提交 ⇒ 整批失败, 所有切片以 embedding=NULL 落库 (检索静默退化为
+ * 关键词匹配)。分片调用是修复的落点, 25 是上游硬上限而非调优值。
+ */
+export const EMBEDDING_MAX_BATCH_ITEMS = 25
+
+/**
+ * 单批 token 预算。OpenAI 单请求总 token 上限约 8191, 留余量取 8000;
+ * 条数达标但文本过长时仍会超限, 故条数与 token 两个维度同时切分。
+ */
+export const EMBEDDING_MAX_BATCH_TOKENS = 8_000
+
+/** 重试退避基数: 第 n 次重试等待 base * 2^(n-1) 毫秒。 */
+export const EMBEDDING_BATCH_RETRY_BASE_DELAY_MS = 200
+
+/**
+ * 估算文本的 token 数(无 tokenizer 依赖的保守上界)。
+ *
+ * CJK 字符按 1 字符 1 token 计, 其余按 4 字符 1 token 计 —— 宁可高估,
+ * 让分片偏小, 也不让单批超出上游 token 上限。
+ */
+export function estimateEmbeddingTokens(text: string): number {
+  let cjkUnits = 0
+  for (const ch of text) {
+    const code = ch.codePointAt(0) ?? 0
+    if (code >= 0x2e80) cjkUnits += ch.length
+  }
+  const otherUnits = Math.max(0, text.length - cjkUnits)
+  return cjkUnits + Math.ceil(otherUnits / 4)
+}
+
+export interface EmbeddingBatchPlanOptions {
+  /** 单批条数上限, 默认 EMBEDDING_MAX_BATCH_ITEMS */
+  maxItems?: number
+  /** 单批 token 预算, 默认 EMBEDDING_MAX_BATCH_TOKENS */
+  maxTokens?: number
+}
+
+/**
+ * 按条数 + token 预算把输入切成批。
+ *
+ * 单条文本自身超过 token 预算时仍独占一批 (文本不可再切); 其余情况每批都
+ * 同时满足 maxItems 与 maxTokens。输出顺序与输入一致, 拼接后与输入逐项相等
+ * (条数守恒, 不丢项不重复)。
+ */
+export function planEmbeddingBatches(
+  texts: readonly string[],
+  options: EmbeddingBatchPlanOptions = {},
+): string[][] {
+  const maxItems = Math.max(1, Math.floor(options.maxItems ?? EMBEDDING_MAX_BATCH_ITEMS))
+  const maxTokens = Math.max(1, Math.floor(options.maxTokens ?? EMBEDDING_MAX_BATCH_TOKENS))
+  const batches: string[][] = []
+  let current: string[] = []
+  let currentTokens = 0
+  for (const text of texts) {
+    const tokens = Math.min(estimateEmbeddingTokens(text), maxTokens)
+    if (current.length > 0 && (current.length >= maxItems || currentTokens + tokens > maxTokens)) {
+      batches.push(current)
+      current = []
+      currentTokens = 0
+    }
+    current.push(text)
+    currentTokens += tokens
+  }
+  if (current.length > 0) batches.push(current)
+  return batches
+}
+
+export interface EmbeddingRunOptions extends EmbeddingBatchPlanOptions {
+  /** 单批最多尝试次数 (含首次), 默认 1(不重试); 需要重试的调用方显式传入 */
+  maxAttempts?: number
+  /** 可注入的 sleep, 便于测试; 默认真实定时器 */
+  sleep?: (ms: number) => Promise<void>
+}
+
+/**
+ * 按批调用上游, 逐批返回结果并按输入顺序拼接。
+ *
+ * 失败语义 (F-416):
+ *   - maxAttempts > 1 时单批失败按指数退避重试, 最多 maxAttempts 次;
+ *   - 应答条数 ≠ 该批请求条数视为该批失败 (不按下标补齐);
+ *   - 重试用尽仍失败 ⇒ **抛错**, 绝不返回空数组/缺项数组冒充成功。
+ */
+export async function embedInBatches(
+  texts: readonly string[],
+  embedBatch: (batch: string[]) => Promise<number[][]>,
+  options: EmbeddingRunOptions = {},
+): Promise<number[][]> {
+  if (texts.length === 0) return []
+  const maxAttempts = Math.max(1, Math.floor(options.maxAttempts ?? 1))
+  const sleep =
+    options.sleep ?? ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)))
+  const batches = planEmbeddingBatches(texts, options)
+  const all: number[][] = []
+  for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
+    const batch = batches[batchIndex]!
+    let lastError: unknown
+    let embeddings: number[][] | undefined
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        const result = await embedBatch(batch)
+        if (!Array.isArray(result) || result.length !== batch.length) {
+          throw new Error(
+            `embedding 应答 ${Array.isArray(result) ? result.length : 0} 条 ≠ 请求 ${batch.length} 条`,
+          )
+        }
+        embeddings = result
+        break
+      } catch (err) {
+        lastError = err
+        if (attempt < maxAttempts) {
+          await sleep(EMBEDDING_BATCH_RETRY_BASE_DELAY_MS * 2 ** (attempt - 1))
+        }
+      }
+    }
+    if (!embeddings) {
+      const reason = lastError instanceof Error ? lastError.message : String(lastError)
+      throw new Error(
+        `embedding 第 ${batchIndex + 1}/${batches.length} 批(${batch.length} 条)` +
+          `共尝试 ${maxAttempts} 次后仍失败: ${reason}(F-416: 显式失败, 不返回空向量冒充成功)`,
+      )
+    }
+    all.push(...embeddings)
+  }
+  return all
 }
 
 // =============================================================================
@@ -164,7 +302,11 @@ class DashScopeEmbeddingProvider implements EmbeddingProvider {
 
   constructor(private readonly apiKey: string) {}
 
-  async embed(texts: string[]): Promise<number[][]> {
+  async embed(texts: string[], options?: EmbeddingRunOptions): Promise<number[][]> {
+    return embedInBatches(texts, (batch) => this.embedBatch(batch), options)
+  }
+
+  private async embedBatch(texts: string[]): Promise<number[][]> {
     const inputs = texts.map((t) => t.slice(0, DASHSCOPE_MAX_INPUT))
     const resp = await fetchEmbedding(this.name, DASHSCOPE_URL, {
       method: 'POST',
@@ -199,7 +341,11 @@ class OpenAIEmbeddingProvider implements EmbeddingProvider {
 
   constructor(private readonly apiKey: string) {}
 
-  async embed(texts: string[]): Promise<number[][]> {
+  async embed(texts: string[], options?: EmbeddingRunOptions): Promise<number[][]> {
+    return embedInBatches(texts, (batch) => this.embedBatch(batch), options)
+  }
+
+  private async embedBatch(texts: string[]): Promise<number[][]> {
     const resp = await fetchEmbedding(this.name, OPENAI_URL, {
       method: 'POST',
       headers: {
@@ -249,7 +395,11 @@ class MinimaxEmbeddingProvider implements EmbeddingProvider {
     private readonly endpoint: string,
   ) {}
 
-  async embed(texts: string[]): Promise<number[][]> {
+  async embed(texts: string[], options?: EmbeddingRunOptions): Promise<number[][]> {
+    return embedInBatches(texts, (batch) => this.embedBatch(batch), options)
+  }
+
+  private async embedBatch(texts: string[]): Promise<number[][]> {
     const resp = await fetchEmbedding(this.name, this.endpoint, {
       method: 'POST',
       headers: {

@@ -16,7 +16,7 @@ import { fetchApi, apiOrThrow } from '@/lib/api'
 import { useAuthGate } from '@/hooks/use-auth-gate'
 import { AuthGatePrompt } from '@/components/common'
 import { Button, Input, Label, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
-import { formatPrice } from '@ihui/shared/utils/format'
+import { formatCnyCents } from '@/lib/display-currency'
 
 interface AvailableData {
   available: number
@@ -32,7 +32,7 @@ interface ApplyResult {
   status: number
 }
 
-const fmtYuan = (cents: number) => `¥${formatPrice(cents)}`
+const fmtYuan = (cents: number) => formatCnyCents(cents, { digits: 2 })
 
 export default function WithdrawPage() {
   const t = useTranslations('distribution')

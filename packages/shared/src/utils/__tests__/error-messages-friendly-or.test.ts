@@ -21,9 +21,7 @@ describe('toFriendlyOr:原始异常 → 文案,识别不出回落调用方文案
     expect(toFriendlyOr(new Error('Invalid or expired token'), '加载失败')).toBe(
       '登录已过期,请重新登录',
     )
-    expect(toFriendlyOr(new Error('Too many requests'), '加载失败')).toBe(
-      '操作过于频繁,请稍后再试',
-    )
+    expect(toFriendlyOr(new Error('Too many requests'), '加载失败')).toBe('操作过于频繁,请稍后再试')
   })
 
   it('中文业务文案 ⇒ 原样保留', () => {
@@ -35,9 +33,7 @@ describe('toFriendlyOr:原始异常 → 文案,识别不出回落调用方文案
     expect(toFriendlyOr({ errorCode: 'RATE_LIMITED', message: 'whatever' }, '失败')).toBe(
       '操作过于频繁,请稍后再试',
     )
-    expect(toFriendlyOr({ status: 401, message: 'whatever' }, '失败')).toBe(
-      '登录已过期,请重新登录',
-    )
+    expect(toFriendlyOr({ status: 401, message: 'whatever' }, '失败')).toBe('登录已过期,请重新登录')
   })
 
   it('没有任何可用信息 ⇒ 回落调用方那句更具体的文案(不降级成通用兜底)', () => {

@@ -12,7 +12,7 @@
  */
 import { describe, it, expect, afterEach, vi } from 'vitest'
 import React from 'react'
-import { render, cleanup, screen } from '@testing-library/react'
+import { render, cleanup, screen, fireEvent } from '@testing-library/react'
 
 vi.mock('next-intl', () => ({
   useTranslations: () => (key: string, values?: Record<string, unknown>) => {
@@ -55,6 +55,7 @@ vi.mock('@/stores/work-panel', () => ({
 }))
 
 import { DeliveryReviewPanel, FILE_KIND_BADGE_CLS } from '../DeliveryReviewPanel'
+import { useIDEWorkspace } from '@/stores/ide-workspace'
 import type { TaskDeliverables } from '@/types/agent-delivery'
 
 /** 合法基线样本:四新 source 引用 + 三种 kind 文件变更 + 工具统计齐全 */
@@ -155,6 +156,49 @@ describe('DeliveryReviewPanel 渲染(D27 交付审查视图)', () => {
     expect(screen.getByTestId('delivery-review-files').textContent).toContain('无文件变更记录')
     // citations 为空时 CitationBar 返回 null,不产生引用条 DOM
     expect(screen.queryByTestId('citation-item-0')).toBeNull()
+  })
+})
+
+/**
+ * 2026-11-14(对标 DSH 交付卡可打开):交付行不再只是文本 —— 存在的文件点开 IDE,
+ * delete 行用 disabled 明确不可点;不挂"点了没反应"的死按钮。
+ */
+describe('交付行可打开', () => {
+  function setWorkspace() {
+    const openFile = vi.fn()
+    const setActiveTopTab = vi.fn()
+    useIDEWorkspace.setState({
+      workspacePath: '/ws',
+      openFile,
+      setActiveTopTab,
+      revealAt: null,
+    })
+    return { openFile, setActiveTopTab }
+  }
+
+  afterEach(() => {
+    cleanup()
+    useIDEWorkspace.setState({ workspacePath: '', revealAt: null })
+  })
+
+  it('显式交付行点击 → 在当前 IDE 打开', () => {
+    const { openFile, setActiveTopTab } = setWorkspace()
+    render(<DeliveryReviewPanel deliverables={baseDeliverables} />)
+    fireEvent.click(screen.getByTestId('delivery-review-presented-0'))
+    expect(openFile).toHaveBeenCalledTimes(1)
+    expect(openFile.mock.calls[0]?.[0]).toMatchObject({ path: 'dist/report.pdf' })
+    expect(setActiveTopTab).toHaveBeenCalledWith('editor')
+  })
+
+  it('变更行点击打开;delete 行 disabled 不打开', () => {
+    const { openFile } = setWorkspace()
+    render(<DeliveryReviewPanel deliverables={baseDeliverables} />)
+    fireEvent.click(screen.getByTestId('delivery-review-file-0'))
+    expect(openFile).toHaveBeenCalledTimes(1)
+    expect(openFile.mock.calls[0]?.[0]).toMatchObject({ path: 'src/a.ts' })
+    fireEvent.click(screen.getByTestId('delivery-review-file-1'))
+    expect(openFile).toHaveBeenCalledTimes(1)
+    expect((screen.getByTestId('delivery-review-file-1') as HTMLButtonElement).disabled).toBe(true)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

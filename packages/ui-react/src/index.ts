@@ -206,6 +206,11 @@ export type { PageShellProps } from './page-shell'
 export { CategoryBar } from './components/category-bar'
 export type { CategoryBarItem, CategoryBarProps } from './components/category-bar'
 
+// EngineModeToggle agent 执行引擎切换(阶段3,2026-11-15):本地/云端/自动三态,
+// 纯展示组件,模式值与回调由调用方注入(不依赖 zustand store,跨端复用)。
+export { EngineModeToggle } from './components/engine-mode-toggle'
+export type { EngineModeToggleProps } from './components/engine-mode-toggle'
+
 // AuthShell + LoginForm 共享样式(单一来源,web + extension globals.css 都 @import 这份)
 // BUG-33①:这两条是有副作用(注入样式)的顶层 import。契约由 package.json 补齐:
 //   · sideEffects:["**/*.css"] —— 消费方开 sideEffects:false 时样式不被摇掉;

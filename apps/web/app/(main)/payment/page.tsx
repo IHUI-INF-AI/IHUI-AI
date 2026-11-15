@@ -3,12 +3,14 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import Link from 'next/link'
-import { useTranslations } from 'next-intl'
+import { getTranslations } from 'next-intl/server'
 import { Check, Zap, Building2 } from 'lucide-react'
 import type { ComponentType } from 'react'
 
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { BackButton } from '@/components/common'
+import { formatCny } from '@/lib/display-currency'
+import { seedServerCurrency } from '@/lib/server-currency'
 import { cn } from '@/lib/utils'
 
 interface Plan {
@@ -38,11 +40,12 @@ const PLAN_NAME_KEY: Record<Plan['id'], string> = {
   enterprise: 'plans.enterprise.name',
 }
 
-const formatCNY = (n: number) =>
-  new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'CNY' }).format(n)
+const formatCNY = (n: number) => formatCny(n, { digits: 0 })
 
-export default function PaymentPage() {
-  const t = useTranslations('payment')
+export default async function PaymentPage() {
+  // SSR 首帧按 cookie 口径 + 汇率快照直出(layout 与 page 模块实例隔离,必须逐页播种)
+  await seedServerCurrency()
+  const t = await getTranslations('payment')
 
   return (
     <div className="px-4 py-4 mx-auto w-full max-w-6xl space-y-4">

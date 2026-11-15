@@ -105,6 +105,8 @@ export function createToolCallHandler(
     audio_url?: string
     video_url?: string
     task_id?: string
+    // g12(2026-11-15):read_image 缩略图 data URL(tool-result 顶层,仅供卡片预览)
+    image_preview?: string
     // L5-8 工具瞬时失败自动重试次数(后端 tool-call-start/result 透传;未下发则 undefined)
     retryCount?: number
     // D49②:后端实测耗时(去重跳过≈0 是合法值;断线/回放场景下它是唯一来源)
@@ -165,6 +167,8 @@ export function createToolCallHandler(
       if (event.audio_url !== undefined) updates.audio_url = event.audio_url
       if (event.video_url !== undefined) updates.video_url = event.video_url
       if (event.task_id !== undefined) updates.task_id = event.task_id
+      // g12:read_image 缩略图透传(仅卡片预览;不进 result、不持久)
+      if (event.image_preview !== undefined) updates.image_preview = event.image_preview
       // L5-8 重试次数透传(后端下发时写入,ToolCallCard 渲染"重试N次"徽章)
       if (event.retryCount !== undefined) updates.retryCount = event.retryCount
       // D113:tool-result 到达即清流中预览(最终 diff 以 result 的 diffInfo 为准)
@@ -202,13 +206,15 @@ export function createToolDeltaHandler(
     // A1(2026-11-13):tool-delta 早于 tool-call-start 到达时，旧实现 `if (!tc) return`
     // 会静默丢弃整段实时 diff。改为自建占位卡接住 delta(status=running、toolName 待
     // tool-call-start 到达补全)，与下方 createOpenAiToolCallHandler 的"无卡即建卡"路径对齐。
+    const prevPartialDiff = tc?.partialDiff ?? ''
     if (!tc) {
       const card: Parameters<typeof store.addToolCall>[1] = {
         id: event.toolCallId,
         toolName: '',
         args: {},
         status: 'running',
-        partialDiff: event.partialText,
+        // partialText 是增量:占位卡同样只追加(首帧 prev 为空串),不得整帧覆盖。
+        partialDiff: prevPartialDiff + event.partialText,
         partialSeq: event.seq,
       }
       store.addToolCall(assistantMessageId, card)
@@ -216,7 +222,7 @@ export function createToolDeltaHandler(
     }
     if (event.seq <= (tc.partialSeq ?? 0)) return
     chatStore.getState().updateToolCall(assistantMessageId, event.toolCallId, {
-      partialDiff: (tc.partialDiff ?? '') + event.partialText,
+      partialDiff: prevPartialDiff + event.partialText,
       partialSeq: event.seq,
     })
   }
@@ -241,8 +247,7 @@ export function createOpenAiToolCallHandler(
   // 用稳定合成 id,保证同一 index 的多片始终落在同一张卡上。
   const idByIndex = new Map<number, string>()
   return (delta: OpenAiToolCallDelta) => {
-    const toolCallId =
-      delta.id || idByIndex.get(delta.index) || `openai-${delta.index}`
+    const toolCallId = delta.id || idByIndex.get(delta.index) || `openai-${delta.index}`
     idByIndex.set(delta.index, toolCallId)
     const store = chatStore.getState()
     const message = store.messages.find((m) => m.id === assistantMessageId)

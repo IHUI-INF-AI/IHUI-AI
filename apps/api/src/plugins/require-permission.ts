@@ -3,6 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import type { FastifyRequest, FastifyReply, preHandlerAsyncHookHandler } from 'fastify'
+import { verifyAccessToken } from '@ihui/auth'
 import { authenticate, requireActiveUser } from './auth.js'
 import { checkInternalServiceToken, hasInternalServiceToken } from './internal-service-token.js'
 import { checkAnyPermission } from '../db/rbac-queries.js'
@@ -62,6 +63,31 @@ export function resolveAdminRoleId(request: FastifyRequest, policy: AdminChannel
  */
 export function isSystemAdmin(request: FastifyRequest, policy: AdminChannelPolicy): boolean {
   return resolveAdminRoleId(request, policy) >= ADMIN_ROLE_ID
+}
+
+/**
+ * 「这枚请求是不是管理员发的」—— 供认证钩子**之前**的安全闸门使用(2026-11-15)。
+ *
+ * 背景:全局限流(@fastify/rate-limit)注册在 auth 之前,那时 `request.jwtPayload` 还没填,
+ * 只能自己验一次签名;其余在 auth 之后运行的钩子(anti-automation / threat-detector /
+ * network-segment / http-conn-guard)会直接命中已解析的 payload,不产生额外开销。
+ *
+ * 只认人用 JWT(Bearer 或 auth_token cookie),**不**接 internal service token ——
+ * 服务身份不得因 X-User-Id 指向管理员而被升格(与 AdminChannelPolicy 同一纪律)。
+ */
+export async function isAdminRequest(request: FastifyRequest): Promise<boolean> {
+  if (isSystemAdmin(request, { includeInternalChannel: false })) return true
+  const header = request.headers.authorization
+  const cookieToken = (request as unknown as { cookies?: Record<string, string> }).cookies
+    ?.auth_token
+  const token = header?.startsWith('Bearer ') ? header.slice('Bearer '.length).trim() : cookieToken
+  if (!token) return false
+  try {
+    const payload = await verifyAccessToken(token)
+    return (payload.roleId ?? 0) >= ADMIN_ROLE_ID
+  } catch {
+    return false
+  }
 }
 
 /**

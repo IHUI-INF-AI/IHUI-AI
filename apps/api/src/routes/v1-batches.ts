@@ -62,6 +62,7 @@ import {
   saveTask,
   getTask,
   addBatchTask,
+  isBatchInputOwnedBy,
 } from '../queue/batch-queue.js'
 
 /** 鉴权后注入 request 的 API Key 上下文(与 v1-public.ts ApiKeyContext 结构一致) */
@@ -303,6 +304,12 @@ const v1Batches: FastifyPluginAsync = async (server) => {
       const apiKey = (request as FastifyRequest & { apiKey?: ApiKeyContext }).apiKey
       if (!apiKey) {
         return reply.status(401).send(error(401, 'API key authentication required'))
+      }
+
+      // F-279:输入文件必须属于当前 API Key。键按 apiKeyId 分区
+      // (`batch:input:<apiKeyId>:<fileId>`),他人 fileId 查不到 ⇒ 与 F-85 同口径回 404。
+      if (!(await isBatchInputOwnedBy(redis, input_file_id, apiKey.id))) {
+        return reply.status(404).send(error(404, 'Input file not found'))
       }
 
       const now = Date.now()

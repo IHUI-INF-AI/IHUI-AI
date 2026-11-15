@@ -67,20 +67,22 @@ export interface ZonedDateTime {
   readonly isDst: boolean
 }
 
-/** 常见无时区日期格式。 */
-const NAIVE_FORMATS = [
-  /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/,
-  /^\d{4}-\d{2}-\d{2}$/,
-  /^\d{4}\/\d{2}\/\d{2} \d{2}:\d{2}:\d{2}$/,
-  /^\d{4}\/\d{2}\/\d{2}$/,
-] as const
+/** 显式时区/偏移后缀：Z 或 ±HH:MM / ±HHMM。 */
+const EXPLICIT_TZ_RE = /(?:Z|[+-]\d{2}:?\d{2})$/i
+
+/**
+ * 无时区日期时间：`YYYY-MM-DD` / `YYYY/MM/DD`（分隔符可混用），
+ * 可带 `T` 或空格分隔的时:分[:秒[.毫秒]]。
+ */
+const NAIVE_DATETIME_RE =
+  /^(\d{4})[-/](\d{1,2})[-/](\d{1,2})(?:[T ](\d{1,2}):(\d{2})(?::(\d{2})(?:\.(\d{1,3}))?)?)?$/
 
 /**
  * 把各种时间值转成 aware UTC Date。
  *
  * - Date → 直接返回副本
  * - 数字 → 视为 Unix 时间戳（秒），转 Date
- * - 字符串 → 解析 ISO 8601（含 Z 后缀）；无时区的视为 UTC
+ * - 字符串 → 带显式偏移/Z 的按原义解析；无时区的视为 UTC
  */
 export function toAwareUtc(value: TimeInput): Date {
   if (value === null || value === undefined) {
@@ -97,48 +99,28 @@ export function toAwareUtc(value: TimeInput): Date {
   }
   if (typeof value === 'string') {
     const s = value.trim()
-    // 带 Z 后缀的 ISO 字符串
-    if (s.endsWith('Z')) {
-      const d = new Date(s)
-      if (!Number.isNaN(d.getTime())) return d
+    // 先判定“是否带时区”，再决定解析方式：
+    // 无时区（含斜杠/空格分隔、带不带时分秒）统一按 UTC 墙钟语义重建；
+    // 带显式偏移/Z 的保持原义交给 V8。
+    if (!EXPLICIT_TZ_RE.test(s)) {
+      const m = s.match(NAIVE_DATETIME_RE)
+      if (m) {
+        const [, y, mo, da, h = '0', mi = '0', se = '0', frac = '0'] = m
+        return new Date(
+          Date.UTC(
+            Number(y),
+            Number(mo) - 1,
+            Number(da),
+            Number(h),
+            Number(mi),
+            Number(se),
+            Number(frac.padEnd(3, '0')),
+          ),
+        )
+      }
     }
-    // 标准 ISO 解析
     const d = new Date(s)
-    if (!Number.isNaN(d.getTime())) {
-      // 如果字符串无时区信息（如 "2024-01-01T00:00:00"），new Date 按 local 解析
-      // 检测是否无时区
-      const hasTz = /[+-]\d{2}:?\d{2}$/.test(s) || s.endsWith('Z')
-      if (!hasTz) {
-        // 无时区：按 UTC 处理
-        // 重新解析：Date.UTC 各部分
-        const m = s.match(/^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2}):(\d{2}))?/)
-        if (m) {
-          const [, y, mo, da, h = '0', mi = '0', se = '0'] = m
-          return new Date(
-            Date.UTC(Number(y), Number(mo) - 1, Number(da), Number(h), Number(mi), Number(se)),
-          )
-        }
-      }
-      return d
-    }
-    // 尝试常见无时区格式
-    for (const fmt of NAIVE_FORMATS) {
-      if (fmt.test(s)) {
-        // 统一用 Date.UTC 解析
-        const parts = s.split(/[- :/]/)
-        if (parts.length >= 3) {
-          const y = Number(parts[0])
-          const mo = Number(parts[1])
-          const da = Number(parts[2])
-          const h = parts.length > 3 ? Number(parts[3]) : 0
-          const mi = parts.length > 4 ? Number(parts[4]) : 0
-          const se = parts.length > 5 ? Number(parts[5]) : 0
-          if (!Number.isNaN(y)) {
-            return new Date(Date.UTC(y, mo - 1, da, h, mi, se))
-          }
-        }
-      }
-    }
+    if (!Number.isNaN(d.getTime())) return d
     throw new TZError(`无法解析时间字符串: ${value}`)
   }
   throw new TZError(`不支持的时间类型: ${typeof value}`)

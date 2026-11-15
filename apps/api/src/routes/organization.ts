@@ -56,8 +56,10 @@ const updateMemberRoleSchema = z.object({
 export const organizationRoutes: FastifyPluginAsync = async (server) => {
   // -------------------------------------------------------------------------
   // GET /organizations/list - 组织列表
+  // F-520(2026-11-13):此前仅 authenticate,一旦挂载即向任意登录用户暴露全部组织;
+  // 现与同文件其余管理面一致收口到 requireAdmin,并随本文件一并注册。
   // -------------------------------------------------------------------------
-  server.get('/organizations/list', async (request, reply) => {
+  server.get('/organizations/list', { preHandler: requireAdmin }, async (request, reply) => {
     await authenticate(request)
     const q = z
       .object({

@@ -20,9 +20,7 @@ const t = (key: string): string => key
 const testColorScheme: 'light' | 'dark' = 'light'
 
 function renderScreen(props: Partial<Parameters<typeof IcpRecordScreen>[0]> = {}) {
-  return render(
-    <IcpRecordScreen t={t} onBack={vi.fn()} colorScheme={testColorScheme} {...props} />,
-  )
+  return render(<IcpRecordScreen t={t} onBack={vi.fn()} colorScheme={testColorScheme} {...props} />)
 }
 
 describe('IcpRecordScreen 可选展示位', () => {

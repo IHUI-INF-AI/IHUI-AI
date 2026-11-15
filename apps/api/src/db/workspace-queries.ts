@@ -150,6 +150,15 @@ export async function listFilesByProject(projectId: string): Promise<File[]> {
     .orderBy(desc(files.createdAt))
 }
 
+/** 列出项目下全部文件(含回收站),供孤儿 blob 清理等场景使用。 */
+export async function listAllFilesByProject(projectId: string): Promise<File[]> {
+  return db
+    .select()
+    .from(files)
+    .where(eq(files.projectId, projectId))
+    .orderBy(desc(files.createdAt))
+}
+
 /**
  * 按 id 查询文件（默认排除已删除文件）。
  */

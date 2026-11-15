@@ -19,7 +19,7 @@ import { BackButton, AuthGatePrompt } from '@/components/common'
 import { useAuthGate } from '@/hooks/use-auth-gate'
 import { cn } from '@/lib/utils'
 import { apiFailureToError } from '@ihui/shared/utils'
-import { formatPrice } from '@ihui/shared/utils/format'
+import { formatCnyCents } from '@/lib/display-currency'
 
 interface OrderLite {
   id: string
@@ -58,7 +58,7 @@ interface Voucher {
   status: string
 }
 
-const yuan = (c: number) => `¥${formatPrice(c)}`
+const yuan = (c: number) => formatCnyCents(c, { digits: 2 })
 
 const BADGE: Record<string, string> = {
   pending: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',

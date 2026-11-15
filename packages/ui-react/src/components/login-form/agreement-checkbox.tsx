@@ -92,7 +92,7 @@ export function AgreementCheckbox({
             ? 'border-destructive'
             : checked
               ? 'border-transparent bg-cta text-cta-foreground'
-              : 'border-input bg-background group-hover:border-foreground/60',
+              : 'border-stroke-field bg-background group-hover:border-foreground/60',
         )}
       >
         {checked && <Check className="h-3 w-3" strokeWidth={3} aria-hidden="true" />}

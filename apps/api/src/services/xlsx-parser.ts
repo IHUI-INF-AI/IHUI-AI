@@ -84,13 +84,26 @@ export interface XlsxSheetInfo {
 export interface XlsxParseResult {
   /** 纯文本:每行一个表格行,列用 \t 分隔,适合 RAG 分块 */
   text: string
-  /** Markdown 表格格式,首行作 header */
+  /** Markdown 表格格式,首行作 header(惰性:未取用时不构建) */
   markdown: string
   /** 各 sheet 元信息 */
   sheets: XlsxSheetInfo[]
-  /** 所有 sheet 非空行总数 */
+  /** 所有 sheet 非空行总数(截断前的真实值) */
   totalRows: number
 }
+
+export type XlsxOutputFormat = 'text' | 'markdown'
+
+export interface XlsxParseOptions {
+  /** 需要的输出形态,缺省 ['text'](RAG 入库只取 text) */
+  formats?: readonly XlsxOutputFormat[]
+}
+
+/** 缺省只生成 text,避免同时产出两份全量副本(F-417) */
+const DEFAULT_FORMATS: readonly XlsxOutputFormat[] = ['text']
+
+/** 单次解析输出的行数上限,超出截断并标注(F-417 大表保护) */
+export const XLSX_MAX_OUTPUT_ROWS = 20_000
 
 // =============================================================================
 // 内部工具
@@ -124,24 +137,40 @@ function exceljsCellToString(value: unknown): string {
   return String(value)
 }
 
-/** 把 string[][] 矩阵转成 text(每行 \t 分隔) */
-function matrixToText(matrix: string[][]): string {
-  return matrix.map((row) => row.join('\t')).join('\n')
-}
+/**
+ * 单次遍历矩阵,按需产出 text / markdown 行(F-417)。
+ *
+ * 两种形态共享同一份单元格中间结果:一次循环里同时生成,不再各遍历一遍。
+ * 未请求的形态返回 null,不构建任何字符串。
+ */
+export function renderMatrixLines(
+  matrix: string[][],
+  formats: readonly XlsxOutputFormat[],
+): { text: string[] | null; markdown: string[] | null } {
+  const wantText = formats.includes('text')
+  const wantMd = formats.includes('markdown')
+  const textLines: string[] | null = wantText ? [] : null
+  const mdLines: string[] | null = wantMd ? [] : null
+  const rowCount = matrix.length
 
-/** 把 string[][] 矩阵转成 markdown 表格(首行作 header) */
-function matrixToMarkdown(matrix: string[][]): string {
-  if (matrix.length === 0) return ''
-  const header = matrix[0] ?? []
-  const separator = header.map(() => '---').join(' | ')
-  const lines = [`| ${header.join(' | ')} |`, `| ${separator} |`]
-  for (let i = 1; i < matrix.length; i++) {
-    const row = matrix[i] ?? []
-    // 补齐列数(避免 markdown 表格错位)
-    const padded = header.map((_, idx) => row[idx] ?? '')
-    lines.push(`| ${padded.join(' | ')} |`)
+  let header: string[] = []
+  if (mdLines && rowCount > 0) {
+    header = matrix[0] ?? []
+    const separator = header.map(() => '---').join(' | ')
+    mdLines.push(`| ${header.join(' | ')} |`, `| ${separator} |`)
   }
-  return lines.join('\n')
+
+  for (let i = 0; i < rowCount; i++) {
+    const row = matrix[i] ?? []
+    if (textLines) textLines.push(row.join('\t'))
+    if (mdLines && i > 0) {
+      // 补齐列数(避免 markdown 表格错位)
+      const padded = header.map((_, idx) => row[idx] ?? '')
+      mdLines.push(`| ${padded.join(' | ')} |`)
+    }
+  }
+
+  return { text: textLines, markdown: mdLines }
 }
 
 /** 过滤全空行 */
@@ -354,29 +383,75 @@ function parseCsvBuffer(buffer: Buffer): Array<{ name: string; matrix: string[][
 // 汇总:多 sheet 矩阵 → XlsxParseResult
 // =============================================================================
 
-function buildResult(sheets: Array<{ name: string; matrix: string[][] }>): XlsxParseResult {
-  const sheetInfos: XlsxSheetInfo[] = []
-  const textParts: string[] = []
-  const mdParts: string[] = []
-  let totalRows = 0
+/**
+ * 汇总:按需渲染(F-417)。
+ *
+ * 缺省只生成 text;`markdown` 是 getter,首次取用时才构建,且与 text 共享同一份矩阵。
+ * 同一轮渲染同时请求两种形态时,每个 sheet 只遍历一次。
+ */
+function buildResult(
+  sheets: Array<{ name: string; matrix: string[][] }>,
+  formats: readonly XlsxOutputFormat[] = DEFAULT_FORMATS,
+): XlsxParseResult {
+  const sheetInfos = sheets.map((sheet) => buildSheetInfo(sheet.name, sheet.matrix))
+  const totalRows = sheets.reduce((sum, sheet) => sum + sheet.matrix.length, 0)
+  const requested = new Set<XlsxOutputFormat>(formats)
+  let text: string | undefined
+  let markdown: string | undefined
 
-  for (const sheet of sheets) {
-    sheetInfos.push(buildSheetInfo(sheet.name, sheet.matrix))
-    totalRows += sheet.matrix.length
+  const render = (): void => {
+    const wantText = requested.has('text') && text === undefined
+    const wantMd = requested.has('markdown') && markdown === undefined
+    if (!wantText && !wantMd) return
+    const need: XlsxOutputFormat[] = []
+    if (wantText) need.push('text')
+    if (wantMd) need.push('markdown')
 
-    // text 格式:sheet 名做标题行 + 表格行
-    if (sheets.length > 1) {
-      textParts.push(`## ${sheet.name}`)
-      mdParts.push(`### ${sheet.name}`)
+    const textParts: string[] = []
+    const mdParts: string[] = []
+    let emitted = 0
+
+    for (const sheet of sheets) {
+      const remaining = XLSX_MAX_OUTPUT_ROWS - emitted
+      if (remaining <= 0) break
+      // 超大表截断,避免生成巨型字符串
+      const matrix =
+        sheet.matrix.length > remaining ? sheet.matrix.slice(0, remaining) : sheet.matrix
+      if (matrix.length === 0) continue
+      if (sheets.length > 1) {
+        if (wantText) textParts.push(`## ${sheet.name}`)
+        if (wantMd) mdParts.push(`### ${sheet.name}`)
+      }
+      const lines = renderMatrixLines(matrix, need)
+      if (wantText) textParts.push(lines.text?.join('\n') ?? '')
+      if (wantMd) {
+        const md = lines.markdown?.join('\n') ?? ''
+        if (md) mdParts.push(md)
+      }
+      emitted += matrix.length
     }
-    textParts.push(matrixToText(sheet.matrix))
-    const md = matrixToMarkdown(sheet.matrix)
-    if (md) mdParts.push(md)
+
+    if (emitted < totalRows) {
+      const note = `…(已截断:仅输出前 ${emitted} 行,共 ${totalRows} 行)`
+      if (wantText) textParts.push(note)
+      if (wantMd) mdParts.push(note)
+    }
+
+    if (wantText) text = textParts.join('\n\n')
+    if (wantMd) markdown = mdParts.join('\n\n')
   }
 
   return {
-    text: textParts.join('\n\n'),
-    markdown: mdParts.join('\n\n'),
+    get text(): string {
+      requested.add('text')
+      render()
+      return text ?? ''
+    },
+    get markdown(): string {
+      requested.add('markdown')
+      render()
+      return markdown ?? ''
+    },
     sheets: sheetInfos,
     totalRows,
   }
@@ -393,7 +468,10 @@ function assertSize(buffer: Buffer): void {
 }
 
 /** 解析 .xlsx / .xlsm(优先 exceljs,失败降级 xlsx 库) */
-export async function parseXlsx(buffer: Buffer): Promise<XlsxParseResult> {
+export async function parseXlsx(
+  buffer: Buffer,
+  options: XlsxParseOptions = {},
+): Promise<XlsxParseResult> {
   assertSize(buffer)
   let sheets: Array<{ name: string; matrix: string[][] }> = []
   try {
@@ -411,26 +489,32 @@ export async function parseXlsx(buffer: Buffer): Promise<XlsxParseResult> {
   if (sheets.length === 0) {
     return { text: '', markdown: '', sheets: [], totalRows: 0 }
   }
-  return buildResult(sheets)
+  return buildResult(sheets, options.formats ?? DEFAULT_FORMATS)
 }
 
 /** 解析 .xls 老格式(xlsx 库独占,exceljs 不支持) */
-export async function parseXls(buffer: Buffer): Promise<XlsxParseResult> {
+export async function parseXls(
+  buffer: Buffer,
+  options: XlsxParseOptions = {},
+): Promise<XlsxParseResult> {
   assertSize(buffer)
   const sheets = parseWithXlsxLib(buffer)
   if (sheets.length === 0) {
     return { text: '', markdown: '', sheets: [], totalRows: 0 }
   }
-  return buildResult(sheets)
+  return buildResult(sheets, options.formats ?? DEFAULT_FORMATS)
 }
 
 /** 解析 CSV(直接 utf8 解码 + 手写解析) */
-export async function parseCsv(buffer: Buffer): Promise<XlsxParseResult> {
+export async function parseCsv(
+  buffer: Buffer,
+  options: XlsxParseOptions = {},
+): Promise<XlsxParseResult> {
   assertSize(buffer)
   const sheets = parseCsvBuffer(buffer)
   if (sheets.length === 0) {
     return { text: '', markdown: '', sheets: [], totalRows: 0 }
   }
-  return buildResult(sheets)
+  return buildResult(sheets, options.formats ?? DEFAULT_FORMATS)
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

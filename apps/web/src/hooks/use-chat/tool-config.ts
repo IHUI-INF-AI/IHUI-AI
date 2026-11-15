@@ -545,7 +545,18 @@ export function financeToolsFor(content: string): string[] {
   const has = (...kws: string[]) => kws.some((kw) => text.includes(kw))
   const out = new Set<string>()
   if (
-    has('一键代账', '代账', '做账', '记账', '凭证', '结账', '试算平衡', '科目余额表', '账簿', '登账')
+    has(
+      '一键代账',
+      '代账',
+      '做账',
+      '记账',
+      '凭证',
+      '结账',
+      '试算平衡',
+      '科目余额表',
+      '账簿',
+      '登账',
+    )
   )
     out.add('ai_bookkeeping')
   if (

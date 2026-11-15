@@ -50,7 +50,20 @@
  */
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
-import { eq, and, or, ilike, lt, gte, isNull, isNotNull, inArray, sql, type SQL } from 'drizzle-orm'
+import {
+  eq,
+  and,
+  or,
+  ilike,
+  lt,
+  gte,
+  isNull,
+  isNotNull,
+  inArray,
+  notInArray,
+  sql,
+  type SQL,
+} from 'drizzle-orm'
 import { db, dbRead } from '../../db/index.js'
 import { aiRelayAccountPool } from '@ihui/database'
 import { PROVIDER_HEALTH_STATUSES } from '@ihui/types'
@@ -71,6 +84,8 @@ import {
   recognizeImportShape,
   RELAY_PROVIDERS,
 } from '../../services/relay-account-format.js'
+import { seedStoreAccounts, createStoreAccount } from '../../services/relay-store-accounts.js'
+import { STORE_PROVIDER_CODES, storePlatformOf } from '@ihui/shared/constants/store-platforms'
 import {
   getRelayAdapter,
   hasVerifiedQuotaEndpoint,
@@ -272,6 +287,11 @@ function formatImportSchemaIssues(issues: { path: PropertyKey[]; message: string
 
 const listQuerySchema = paginationSchema.extend({
   provider: z.transform(emptyToUndefined).pipe(z.enum(RELAY_PROVIDERS).optional()),
+  /**
+   * 号池分类:relay = AI 中转账号(默认,与改造前行为一致);store = 应用上架平台;
+   * all = 不过滤。商店账号与 AI 账号同表不同类,列表面互不污染。
+   */
+  category: z.enum(['relay', 'store', 'all']).optional().default('relay'),
   enabled: z.transform(emptyToUndefined).pipe(z.enum(['true', 'false']).optional()),
   health: z.transform(emptyToUndefined).pipe(z.enum(PROVIDER_HEALTH_STATUSES).optional()),
   /** 账号代理管理页筛选用:true = 已配置账号级 proxyUrl,false = 直连(未配置) */
@@ -661,6 +681,42 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
     }
   })
 
+  // ===== 1a. POST /admin/relay/store-accounts/seed — 补齐应用上架平台内置账号 =====
+  // 幂等:只补缺失行,不覆盖人工改名;商店行不参与 AI 转发/刷新/签到/指标。
+  server.post('/admin/relay/store-accounts/seed', async (request, reply) => {
+    try {
+      const result = await seedStoreAccounts()
+      return reply.send(success(result))
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(500).send(error(500, '写入应用上架平台账号失败'))
+    }
+  })
+
+  // ===== 1a2. POST /admin/relay/store-accounts — 新增应用上架平台账号(同平台可多账号) =====
+  const storeAccountBodySchema = z.object({
+    providerCode: z.string().trim().min(1).max(64),
+    name: z.string().trim().min(1).max(128),
+    uid: z.string().trim().min(1).max(128),
+  })
+  server.post('/admin/relay/store-accounts', async (request, reply) => {
+    const body = storeAccountBodySchema.safeParse(request.body)
+    if (!body.success) return reply.status(400).send(error(400, '平台、账号名、uid 都不能为空'))
+    if (!storePlatformOf(body.data.providerCode)) {
+      return reply.status(400).send(error(400, `不支持的应用上架平台:${body.data.providerCode}`))
+    }
+    try {
+      const result = await createStoreAccount(body.data)
+      if (!result.created) {
+        return reply.status(409).send(error(409, '该平台下这个 uid/开发者 ID 已存在'))
+      }
+      return reply.send(success(result))
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(500).send(error(500, '新增应用上架平台账号失败'))
+    }
+  })
+
   // ===== 1b. POST /admin/relay/accounts/:id/share — 共享到运营池(全局开放标记) =====
   server.post('/admin/relay/accounts/:id/share', async (request, reply) => {
     const p = idParamSchema.safeParse(request.params)
@@ -714,7 +770,7 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
     const q = listQuerySchema.safeParse(request.query)
     if (!q.success)
       return reply.status(400).send(error(400, q.error.issues[0]?.message ?? '参数错误'))
-    const { page, pageSize, search, provider, enabled, health, hasProxy, owner } = q.data
+    const { page, pageSize, search, provider, category, enabled, health, hasProxy, owner } = q.data
 
     // me = 当前登录管理员的个人池(fail-closed:取不到登录态显式 401,绝不回落全局池冒充"我的")
     if (owner === 'me' && !request.userId) return reply.status(401).send(error(401, '未登录'))
@@ -723,6 +779,12 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
     const ownerCond = ownerListCondition(owner, request.userId)
     if (ownerCond) conds.push(ownerCond)
     if (provider) conds.push(eq(aiRelayAccountPool.providerCode, provider))
+    // 分类隔离:默认只回 AI 中转账号;商店账号只在 category=store 面出现
+    if (category === 'store') {
+      conds.push(inArray(aiRelayAccountPool.providerCode, [...STORE_PROVIDER_CODES]))
+    } else if (category === 'relay') {
+      conds.push(notInArray(aiRelayAccountPool.providerCode, [...STORE_PROVIDER_CODES]))
+    }
     if (enabled === 'true') conds.push(eq(aiRelayAccountPool.isEnabled, true))
     if (enabled === 'false') conds.push(eq(aiRelayAccountPool.isEnabled, false))
     if (health) conds.push(eq(aiRelayAccountPool.healthStatus, health))
@@ -764,6 +826,8 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
           .from(aiRelayAccountPool)
           .where(
             and(
+              // 商店账号不参与 AI 中转统计:即使被误改调度标记,也不能进补池告警
+              notInArray(aiRelayAccountPool.providerCode, [...STORE_PROVIDER_CODES]),
               // 公开服务池 = 运营池 ∪ 已共享到运营池的号(全局开放标记模型,2026-11-07 立)
               or(isNull(aiRelayAccountPool.ownerUserId), eq(aiRelayAccountPool.sharedToOps, true)),
               isNotNull(aiRelayAccountPool.tokenExpiresAt),
@@ -775,6 +839,8 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
           .from(aiRelayAccountPool)
           .where(
             and(
+              // 商店账号不参与 AI 中转统计:即使被误改调度标记,也不能进可用账号计数
+              notInArray(aiRelayAccountPool.providerCode, [...STORE_PROVIDER_CODES]),
               // 公开服务池 = 运营池 ∪ 已共享到运营池的号(全局开放标记模型,2026-11-07 立)
               or(isNull(aiRelayAccountPool.ownerUserId), eq(aiRelayAccountPool.sharedToOps, true)),
               eq(aiRelayAccountPool.isEnabled, true),
@@ -1292,6 +1358,8 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
     const conds: SQL[] = []
     const ownerCond = ownerListCondition(owner, request.userId)
     if (ownerCond) conds.push(ownerCond)
+    // 应用上架平台账号没有 AI 中转凭据,不进待人工处理/重登统计面(与列表 category=relay 同口径)
+    conds.push(notInArray(aiRelayAccountPool.providerCode, [...STORE_PROVIDER_CODES]))
     if (provider) conds.push(eq(aiRelayAccountPool.providerCode, provider))
     const where = conds.length > 0 ? and(...conds) : undefined
     try {

@@ -30,8 +30,7 @@ import zhTW from '@ihui/i18n/messages/extension/zh-TW.json'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 /** 剥注释:判的是"这行代码真在位",注释里提到不算接上(守门 90 同纪律)。 */
-const strip = (s: string): string =>
-  s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '')
+const strip = (s: string): string => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '')
 const PAGE = strip(readFileSync(join(HERE, '../entrypoints/sidepanel/pages/ChatPage.tsx'), 'utf8'))
 
 describe('差距① extension 上行两把键', () => {
@@ -84,9 +83,7 @@ describe('差距① extension 呈现腿', () => {
   })
 
   it('queued 带位次时补文案,缺席不当成 0', () => {
-    expect(PAGE).toMatch(
-      /receipt\.disposition === 'queued' && typeof receipt\.ahead === 'number'/,
-    )
+    expect(PAGE).toMatch(/receipt\.disposition === 'queued' && typeof receipt\.ahead === 'number'/)
     expect(PAGE).toContain("t('chat.admissionAhead', { n: receipt.ahead })")
   })
 
@@ -130,7 +127,9 @@ describe('中间态提示必须有收回出口', () => {
   })
 
   it('清除是条件式的,不无谓重渲(无 retryNotice 时走另一分支)', () => {
-    expect(PAGE).toMatch(/m\.retryNotice \? \{ \.\.\.m, content: m\.content \+ delta, retryNotice: undefined \}/)
+    expect(PAGE).toMatch(
+      /m\.retryNotice \? \{ \.\.\.m, content: m\.content \+ delta, retryNotice: undefined \}/,
+    )
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

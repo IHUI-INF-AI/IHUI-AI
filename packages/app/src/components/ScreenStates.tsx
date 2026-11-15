@@ -62,7 +62,11 @@ function Shimmer({ colorScheme, style }: { colorScheme: Scheme; style?: object }
   const opacity = v.interpolate({ inputRange: [0, 1], outputRange: [0.45, 0.85] })
   return (
     <Animated.View
-      style={[{ backgroundColor: tk.text.secondary, borderRadius: rnRadius.sm }, style, { opacity }]}
+      style={[
+        { backgroundColor: tk.text.secondary, borderRadius: rnRadius.sm },
+        style,
+        { opacity },
+      ]}
     />
   )
 }

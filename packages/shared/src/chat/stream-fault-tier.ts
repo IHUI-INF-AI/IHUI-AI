@@ -131,7 +131,7 @@ export function resolveStreamRecoveryDecision(
  * `apps/web/src/hooks/use-agent-stream.ts` 的 tryReconnect。
  */
 export function shouldSkipResumeLadder(tracker: StreamFaultFlightTracker): boolean {
-  return resolveStreamRecoveryDecision(tracker)?.strategy === 'force-snapshot';
+  return resolveStreamRecoveryDecision(tracker)?.strategy === 'force-snapshot'
 }
 
 /**

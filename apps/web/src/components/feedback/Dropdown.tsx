@@ -8,6 +8,7 @@ import * as React from 'react'
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import { ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { MENU_ITEM_CLASS, MENU_ITEM_ICON_CLASS } from '@/lib/menu-item'
 
 export interface DropdownItem {
   key: string
@@ -26,16 +27,12 @@ export interface DropdownItem {
   itemClassName?: string
 }
 
-const ITEM_CLASS = cn(
-  'relative flex cursor-pointer select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none',
-  'focus:bg-accent focus:text-accent-foreground',
-  'data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
-)
+const ITEM_CLASS = cn(MENU_ITEM_CLASS, 'relative')
 
 function ItemBody({ item }: { item: DropdownItem }) {
   return (
     <>
-      {item.icon && <item.icon className="h-4 w-4 shrink-0" />}
+      {item.icon && <item.icon className={MENU_ITEM_ICON_CLASS} />}
       {item.label}
       {item.trailing !== null && item.trailing !== undefined && (
         <span className="ml-auto flex shrink-0 items-center gap-1">{item.trailing}</span>
@@ -67,7 +64,7 @@ function DropdownItems({ items }: { items: DropdownItem[] }) {
                 <DropdownMenu.SubContent
                   sideOffset={4}
                   className={cn(
-                    'z-popover min-w-[10rem] overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-elevation-md',
+                    'z-popover min-w-[10rem] overflow-hidden rounded-md border border-stroke-strong bg-popover p-1 text-popover-foreground shadow-elevation-md',
                     'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 duration-(--duration-unified) ease-unified',
                     item.contentClassName,
                   )}
@@ -121,7 +118,7 @@ export function Dropdown({
           side={side}
           sideOffset={4}
           className={cn(
-            'z-popover min-w-[10rem] overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-elevation-md',
+            'z-popover min-w-[10rem] overflow-hidden rounded-md border border-stroke-strong bg-popover p-1 text-popover-foreground shadow-elevation-md',
             'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 duration-(--duration-unified) ease-unified',
             className,
           )}

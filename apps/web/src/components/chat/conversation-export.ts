@@ -9,8 +9,14 @@
 // - 分享链接:POST /api/chat/conversations/{id}/share → 复制 /chat/share/{token}
 // 消息来源按会话 ID 分页拉全量,不依赖前端当前加载的会话。
 
-import { getMessages } from '@ihui/api-client'
+import { getMessages, exportConversationZip } from '@ihui/api-client'
 import { fetchApi } from '@/lib/api'
+import {
+  buildConversationMarkdown,
+  buildConversationMessagesJson,
+  normalizeExportToolCalls,
+  type ConversationExportMessage,
+} from '@ihui/shared/chat/conversation-export'
 import {
   buildShareCardSvg,
   SHARE_CARD_WIDTH,
@@ -27,6 +33,9 @@ export interface ExportMessage {
   content: string
   createdAt?: string
   model?: string | null
+  reasoning?: string | null
+  /** 原始 metadata;toolCalls 由共享序列化层统一收敛 */
+  metadata?: unknown
 }
 
 export type ExportRoleLabel = Record<ExportRole, string>
@@ -79,37 +88,34 @@ function wrapText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number)
   return lines
 }
 
-/** 序列化为 Markdown:`## 用户 / ## 助手` 分节 + 正文 */
+/** 把前端消息投影为共享导出结构:metadata.toolCalls 收敛为导出工具调用。 */
+function toExportMessages(messages: ExportMessage[]): ConversationExportMessage[] {
+  return messages.map((m) => {
+    const metadata = (m.metadata ?? null) as { toolCalls?: unknown } | null
+    return {
+      id: m.id,
+      role: m.role,
+      content: m.content,
+      createdAt: m.createdAt,
+      model: m.model ?? null,
+      reasoning: m.reasoning ?? null,
+      toolCalls: normalizeExportToolCalls(metadata?.toolCalls),
+    }
+  })
+}
+
+/** 序列化为 Markdown:`## 用户 / ## 助手` 分节 + 正文 + 工具调用(共享层单一实现) */
 function buildMarkdown(
   title: string,
   messages: ExportMessage[],
   roleLabel: ExportRoleLabel,
 ): string {
-  const lines: string[] = [`# ${title}`, '']
-  for (const m of messages) {
-    if (!isExportableMessage(m)) continue
-    lines.push(`## ${roleLabel[m.role as ExportRole]}`, '', m.content.trimEnd(), '')
-  }
-  return lines.join('\n')
+  return buildConversationMarkdown(title, toExportMessages(messages), roleLabel)
 }
 
-/** 序列化为 JSON:结构与后端消息字段对齐(id/role/content/createdAt/model) */
-function buildJson(title: string, messages: ExportMessage[]): string {  return JSON.stringify(
-    {
-      title,
-      exportedAt: new Date().toISOString(),
-      messageCount: messages.filter(isExportableMessage).length,
-      messages: messages.filter(isExportableMessage).map((m) => ({
-        id: m.id,
-        role: m.role,
-        content: m.content,
-        createdAt: m.createdAt,
-        model: m.model ?? null,
-      })),
-    },
-    null,
-    2,
-  )
+/** 序列化为 JSON:字段白名单与 Markdown 共用同一份共享实现 */
+function buildJson(title: string, messages: ExportMessage[]): string {
+  return buildConversationMessagesJson(title, toExportMessages(messages), new Date().toISOString())
 }
 
 /** 触发浏览器下载(Blob 方案,内存即弃) */
@@ -268,6 +274,27 @@ export async function downloadConversationJson(id: string, title: string): Promi
   if (!messages.some(isExportableMessage)) return false
   const safeTitle = sanitizeText(title) || 'ai-chat'
   downloadBlob(buildJson(safeTitle, messages), `${toFileBase(title)}.json`, 'application/json')
+  return true
+}
+
+/** 复制整段会话为 Markdown。无可导出消息时返回 false(不触碰剪贴板)。 */
+export async function copyConversationMarkdown(
+  id: string,
+  title: string,
+  roleLabel: ExportRoleLabel,
+): Promise<boolean> {
+  const messages = await fetchConversationMessages(id)
+  if (!messages.some(isExportableMessage)) return false
+  const safeTitle = sanitizeText(title) || 'ai-chat'
+  await navigator.clipboard.writeText(buildMarkdown(safeTitle, messages, roleLabel))
+  return true
+}
+
+/** 导出会话 ZIP(服务端二进制:conversation.md / messages.json / manifest.json)。 */
+export async function downloadConversationZip(id: string, title: string): Promise<boolean> {
+  const blob = await exportConversationZip(id)
+  if (blob.size === 0) return false
+  downloadBlobFile(blob, `${toFileBase(title)}.zip`)
   return true
 }
 

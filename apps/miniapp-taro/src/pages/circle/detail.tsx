@@ -11,7 +11,7 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback, useRef } from 'react'
 import { getCircleDetail, get, post, del, type Circle } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
-import LineIcon, { type IconName } from '@/components/LineIcon'
+import LineIcon from '@/components/LineIcon'
 import { projectPostActions } from '@ihui/shared/social/post-actions'
 import { EmptyState } from '@/components/ScreenStates.taro'
 import './detail.css'
@@ -319,7 +319,7 @@ export default function CircleDetailPage() {
                 hoverClass={action.interactive ? 'opacity-60' : undefined}
               >
                 <LineIcon
-                  name={action.icon as IconName}
+                  name={action.icon}
                   size={36}
                   className="cd-action-icon"
                   color={

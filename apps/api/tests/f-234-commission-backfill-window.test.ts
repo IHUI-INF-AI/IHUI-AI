@@ -201,10 +201,12 @@ describe('F-234 佣金兜底校准窗口', () => {
     expect(mockGetBalance.mock.calls.map((c) => c[0])).toEqual(['u1', 'u2', 'u3'])
   })
 
-  it('④ 正常结算路径(feedbackInvite)行为不变,照常按父级身份建流水', async () => {
+  it('④ 正常结算路径(feedbackInvite)行为不变,照常按父级身份建流水(F-404:基数取本单充值增量)', async () => {
     mockGetActiveProportion.mockResolvedValue(proportion)
     mockGetParentUsers.mockResolvedValue([{ userId: 'p1', isVip: 0, level: 1 }])
-    mockTxQuery([[{ id: 'o1' }], []]) // ①锁订单成功 ②幂等检查无既有流水
+    // F-404 后事务内 3 次查询:①锁订单(带 orderNo) ②按 orderNo 查本单充值增量 ③幂等查既有流水
+    // 本单充值流水 total=200 → baseTokens=200 → token = floor(200*10/100) = 20(不再取钱包总余额)
+    mockTxQuery([[{ id: 'o1', orderNo: 'NO-234' }], [{ total: 200 }], []])
     mockCreateCommissionFlow.mockResolvedValue({ id: 'cf1' })
 
     const created = await feedbackInvite(
@@ -212,7 +214,7 @@ describe('F-234 佣金兜底校准窗口', () => {
       { id: 'o1', amount: 10000, orderType: 1, productId: null },
     )
 
-    // 普通父级:token = floor(200 * 10 / 100) = 20,type=0
+    // 普通父级:token = floor(baseTokens(200) * 10 / 100) = 20,type=0(基数为本单充值增量)
     expect(created).toBe(1)
     expect(mockCreateCommissionFlow).toHaveBeenCalledTimes(1)
     expect(mockCreateCommissionFlow.mock.calls[0]![0]).toMatchObject({

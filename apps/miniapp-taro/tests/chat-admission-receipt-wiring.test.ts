@@ -53,7 +53,9 @@ describe('差距① 上行两把键(inputId + metadata.conversationId)', () => {
     // 判据:赋值必须出现在 `if (options.inputId !== undefined && sessionId)` 的分支里。
     // 反向断言不能写成"全文不得出现 md.conversationId = sessionId"(那会把正确实现也咬掉),
     // 而要写"该赋值不得出现在条件之外" —— 用缩进层级证明它在 if 体内。
-    expect(API).toMatch(/if \(options\.inputId !== undefined && sessionId\) md\.conversationId = sessionId/)
+    expect(API).toMatch(
+      /if \(options\.inputId !== undefined && sessionId\) md\.conversationId = sessionId/,
+    )
     // 去掉那一条正确语句后,全文不得再有第二处给 conversationId 赋值(防"另起一路无条件补")
     const withoutBranch = API.replace(
       /if \(options\.inputId !== undefined && sessionId\) md\.conversationId = sessionId/g,
@@ -75,7 +77,9 @@ describe('差距① 上行两把键(inputId + metadata.conversationId)', () => {
 
 describe('差距① 解析腿:走共享判据,不复制四档值域', () => {
   it('accepted 回执被认领', () => {
-    const got = parseAdmissionLine(line({ type: 'admission', inputId: 'i-1', disposition: 'accepted' }))
+    const got = parseAdmissionLine(
+      line({ type: 'admission', inputId: 'i-1', disposition: 'accepted' }),
+    )
     expect(got).not.toBeNull()
     expect(got?.disposition).toBe('accepted')
     expect(got?.inputId).toBe('i-1')
@@ -83,7 +87,13 @@ describe('差距① 解析腿:走共享判据,不复制四档值域', () => {
 
   it('queued 回执带 ahead 与 queuedTurnId 时原样透传', () => {
     const got = parseAdmissionLine(
-      line({ type: 'admission', inputId: 'i-2', disposition: 'queued', ahead: 2, queuedTurnId: 'q-9' }),
+      line({
+        type: 'admission',
+        inputId: 'i-2',
+        disposition: 'queued',
+        ahead: 2,
+        queuedTurnId: 'q-9',
+      }),
     )
     expect(got?.disposition).toBe('queued')
     expect(got?.ahead).toBe(2)
@@ -99,16 +109,22 @@ describe('差距① 解析腿:走共享判据,不复制四档值域', () => {
   })
 
   it('反向:disposition 越界必须判 null(不许读成 accepted)', () => {
-    expect(parseAdmissionLine(line({ type: 'admission', inputId: 'i-4', disposition: 'bogus' }))).toBeNull()
+    expect(
+      parseAdmissionLine(line({ type: 'admission', inputId: 'i-4', disposition: 'bogus' })),
+    ).toBeNull()
   })
 
   it('反向:inputId 空串或缺席必须判 null(没有配对标 = 不该留)', () => {
-    expect(parseAdmissionLine(line({ type: 'admission', inputId: '', disposition: 'accepted' }))).toBeNull()
+    expect(
+      parseAdmissionLine(line({ type: 'admission', inputId: '', disposition: 'accepted' })),
+    ).toBeNull()
     expect(parseAdmissionLine(line({ type: 'admission', disposition: 'accepted' }))).toBeNull()
   })
 
   it('反向:非 admission 帧不得被误认(即使碰巧带 inputId+disposition)', () => {
-    expect(parseAdmissionLine(line({ type: 'chunk', inputId: 'i-5', disposition: 'accepted' }))).toBeNull()
+    expect(
+      parseAdmissionLine(line({ type: 'chunk', inputId: 'i-5', disposition: 'accepted' })),
+    ).toBeNull()
     expect(parseAdmissionLine('data: {"content":"hi"}')).toBeNull()
     expect(parseAdmissionLine('event: admission')).toBeNull()
     expect(parseAdmissionLine('')).toBeNull()
@@ -205,7 +221,9 @@ describe('中间态提示必须有收回出口', () => {
 
   it('撤回只碰 pending 态,不碰已完成的实事实行', () => {
     // 反向:不得出现"清空整个 streamActivities"的撤回式写法(那会抹掉工具结果等事实)
-    expect(CHAT).not.toMatch(/pendingActivityRef\.current\.length > 0\) \{\s*setStreamActivities\(\[\]\)/)
+    expect(CHAT).not.toMatch(
+      /pendingActivityRef\.current\.length > 0\) \{\s*setStreamActivities\(\[\]\)/,
+    )
   })
 })
 

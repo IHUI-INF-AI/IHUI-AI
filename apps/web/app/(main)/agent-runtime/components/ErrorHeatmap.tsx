@@ -129,7 +129,7 @@ export function ErrorHeatmap({ agentId, timeRange, refreshKey }: ErrorHeatmapPro
                       return (
                         <div
                           key={`${t}|${tool}`}
-                          className={`relative h-6 rounded-sm border border-border/40 ${cellColor(count)} cursor-default transition-colors hover:ring-1 hover:ring-ring`}
+                          className={`relative h-6 rounded-sm border border-stroke-subtle ${cellColor(count)} cursor-default transition-colors hover:ring-1 hover:ring-ring`}
                           onMouseEnter={() => setHover({ time: t, tool })}
                           onMouseLeave={() => setHover(null)}
                         >

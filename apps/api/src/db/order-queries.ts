@@ -6,6 +6,7 @@ import { randomUUID } from 'node:crypto'
 import { eq, and, desc, sql, ilike, inArray } from 'drizzle-orm'
 import { db } from './index.js'
 import { asContainsTerm } from '../utils/like-escape.js'
+import { encryptInvoiceTitleFields, decryptInvoiceTitleFields } from '../utils/pii-field.js'
 import {
   eduOrders,
   eduPayments,
@@ -312,7 +313,7 @@ export async function findPayments(
     .select()
     .from(eduPayments)
     .where(conds.length ? and(...conds) : undefined)
-    .orderBy(desc(eduPayments.createdAt), desc(eduPayments.id))
+    .orderBy(desc(eduPayments.id))
     .limit(pageSize)
     .offset((page - 1) * pageSize)
 
@@ -530,7 +531,7 @@ export async function findRefunds(
     .select()
     .from(eduRefunds)
     .where(conds.length ? and(...conds) : undefined)
-    .orderBy(desc(eduRefunds.createdAt), desc(eduRefunds.id))
+    .orderBy(desc(eduRefunds.id))
     .limit(pageSize)
     .offset((page - 1) * pageSize)
 
@@ -553,11 +554,12 @@ export async function findInvoiceTitles(
 ): Promise<EduInvoiceTitle[]> {
   const conds = [eq(eduInvoiceTitles.userId, userId)]
   if (titleType) conds.push(eq(eduInvoiceTitles.titleType, titleType))
-  return db
+  const rows = await db
     .select()
     .from(eduInvoiceTitles)
     .where(and(...conds))
-    .orderBy(desc(eduInvoiceTitles.createdAt), desc(eduInvoiceTitles.id))
+    .orderBy(desc(eduInvoiceTitles.id))
+  return rows.map((r) => decryptInvoiceTitleFields(r))
 }
 
 export interface CreateInvoiceTitleInput {
@@ -572,22 +574,25 @@ export interface CreateInvoiceTitleInput {
 }
 
 export async function createInvoiceTitle(data: CreateInvoiceTitleInput): Promise<EduInvoiceTitle> {
+  const pii = encryptInvoiceTitleFields({
+    taxNo: data.taxNo,
+    bank: data.bank,
+    bankAccount: data.bankAccount,
+    address: data.address,
+    phone: data.phone,
+  })
   const rows = await db
     .insert(eduInvoiceTitles)
     .values({
       userId: data.userId,
       title: data.title,
       titleType: data.titleType,
-      taxNo: data.taxNo,
-      bank: data.bank,
-      bankAccount: data.bankAccount,
-      address: data.address,
-      phone: data.phone,
+      ...pii,
     })
     .returning()
   const row = rows[0]
   if (!row) throw new Error('创建发票抬头失败')
-  return row
+  return decryptInvoiceTitleFields(row)
 }
 
 export interface UpdateInvoiceTitleInput {
@@ -604,21 +609,29 @@ export async function updateInvoiceTitle(
   id: string,
   data: UpdateInvoiceTitleInput,
 ): Promise<EduInvoiceTitle | undefined> {
+  const pii = encryptInvoiceTitleFields({
+    taxNo: data.taxNo,
+    bank: data.bank,
+    bankAccount: data.bankAccount,
+    address: data.address,
+    phone: data.phone,
+  })
   const rows = await db
     .update(eduInvoiceTitles)
     .set({
       ...(data.title !== undefined ? { title: data.title } : {}),
       ...(data.titleType !== undefined ? { titleType: data.titleType } : {}),
-      ...(data.taxNo !== undefined ? { taxNo: data.taxNo } : {}),
-      ...(data.bank !== undefined ? { bank: data.bank } : {}),
-      ...(data.bankAccount !== undefined ? { bankAccount: data.bankAccount } : {}),
-      ...(data.address !== undefined ? { address: data.address } : {}),
-      ...(data.phone !== undefined ? { phone: data.phone } : {}),
+      ...(pii.taxNo !== undefined ? { taxNo: pii.taxNo } : {}),
+      ...(pii.bank !== undefined ? { bank: pii.bank } : {}),
+      ...(pii.bankAccount !== undefined ? { bankAccount: pii.bankAccount } : {}),
+      ...(pii.address !== undefined ? { address: pii.address } : {}),
+      ...(pii.phone !== undefined ? { phone: pii.phone } : {}),
       updatedAt: new Date(),
     })
     .where(eq(eduInvoiceTitles.id, id))
     .returning()
-  return rows[0]
+  const row = rows[0]
+  return row ? decryptInvoiceTitleFields(row) : undefined
 }
 
 /** 删除发票抬头。返回库确认已删除的 id 集合(未命中为空数组,调用方据此判 deleted 真假)。 */
@@ -733,7 +746,7 @@ export async function findInvoiceApplications(
     .select()
     .from(eduInvoiceApplications)
     .where(conds.length ? and(...conds) : undefined)
-    .orderBy(desc(eduInvoiceApplications.createdAt), desc(eduInvoiceApplications.id))
+    .orderBy(desc(eduInvoiceApplications.id))
     .limit(pageSize)
     .offset((page - 1) * pageSize)
 

@@ -18,6 +18,7 @@ import { Loader2, Server, RefreshCw } from 'lucide-react'
 import { Button, Card, CardContent } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { fetchApi } from '@/lib/api'
+import { formatCny } from '@/lib/display-currency'
 
 /** 与 relay-public.ts 的 ChannelAcc 输出一致 */
 interface PublicChannel {
@@ -35,11 +36,11 @@ interface PublicChannel {
   visibility: 'public'
 }
 
-/** 分/千 token → 显示(保留 4 位有效小数,避免极低价显示为 0) */
+/** 分/千 token → 元/百万 token(×10)并按展示币种换算;极低价自动保留更多小数 */
 function price(v: number): string {
   const n = Number(v ?? 0)
-  if (!Number.isFinite(n) || n === 0) return '0'
-  return n >= 1 ? n.toFixed(2) : n.toFixed(4)
+  if (!Number.isFinite(n) || n === 0) return formatCny(0)
+  return formatCny(n * 10)
 }
 
 /** 倍率区间显示:min === max 时只显示一个值 */

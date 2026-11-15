@@ -521,7 +521,11 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
     },
-    inviteBtnText: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tk.brand.ctaForeground },
+    inviteBtnText: {
+      fontSize: rnType.bodySm.size,
+      fontWeight: '600',
+      color: tk.brand.ctaForeground,
+    },
     formTitle: { fontSize: rnType.bodySm.size, color: tk.text.secondary },
     fieldLabel: { fontSize: rnType.label.size, fontWeight: '600', color: tk.text.medium },
     input: {

@@ -15,6 +15,7 @@
  * 3. 评分超阈值(>=80)自动封禁 + 递增封禁时长(1h→24h→7d→30d)
  * 4. 评分中风险(>=60)告警日志(允许通过但标记监控)
  * 5. 威胁事件计数 + 实时统计
+ * 6. 开发档(显式 development)不自动封禁:本地自测流量不该把开发者自己的出口封掉。
  *
  * 协同:
  * - sqli-guard / xss-protection / anti-automation 调用 recordBadEvent → 评分升高
@@ -24,6 +25,8 @@
 import type { FastifyInstance, FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import fp from 'fastify-plugin'
 import type { Redis } from 'ioredis'
+import { config } from '../config/index.js'
+import { isAdminRequest } from './require-permission.js'
 import { getIpReputationService, isPrivateIp } from '../services/ip-reputation.js'
 import { notifyThreatBlock, notifyThreatWatch } from '../services/threat-ops-alert.js'
 import { isBlockExemptPath } from '../utils/block-exempt-paths.js'
@@ -120,6 +123,14 @@ const threatDetectorPlugin: FastifyPluginAsync = async (server: FastifyInstance)
 
     // 内网跳过(开发环境友好)
     if (SKIP_PRIVATE_IP && isPrivateIp(ip)) return
+
+    // 管理员请求不做威胁累积/自动封禁(2026-11-15):公网调试同样不设限。
+    if (await isAdminRequest(request)) return
+
+    // 开发档不自动封禁(2026-11-15 立):本插件的分数来自 anti-automation 等事件的累积,
+    // 本地自测的高频/脚本流量会把开发者自己的公网出口打到 >=80,封禁 1 小时起且逐次递增
+    // (1h→24h→7d→30d)。档位判据走 config 唯一出口,只在显式 development 档豁免。
+    if (config.isDevelopmentRuntime ?? config.NODE_ENV === 'development') return
 
     totalChecks++
 

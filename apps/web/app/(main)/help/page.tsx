@@ -67,7 +67,7 @@ export default function HelpPage() {
   const catCls = (on: boolean) =>
     cn(
       'flex w-full items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors',
-      on ? 'border-primary/40 bg-primary/5 text-primary' : 'bg-card hover:bg-accent',
+      on ? 'border-stroke-selected bg-primary/5 text-primary' : 'bg-card hover:bg-accent',
     )
 
   return (
@@ -166,7 +166,7 @@ export default function HelpPage() {
 
       <div className="flex justify-center pt-2">
         <Button asChild>
-          <Link href="mailto:lizong@aizhs.top">
+          <Link href="mailto:support@aizhs.top">
             <Mail className="h-4 w-4" />
             {t('contactSupport')}
           </Link>

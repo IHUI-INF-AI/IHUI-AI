@@ -65,7 +65,7 @@ export function BillingRules(): React.JSX.Element {
         </div>
 
         {/* 示例 */}
-        <div className="rounded-md border border-primary/30 bg-primary/5 p-3">
+        <div className="rounded-md border border-stroke-selected bg-primary/5 p-3">
           <div className="flex items-center gap-2 text-label font-semibold text-primary">
             <FileText className="h-3.5 w-3.5" />
             {t('exampleTitle')}

@@ -27,20 +27,6 @@ IHUI-AI 通过 Husky git hooks 在 4 个阶段部署自动守门,从 commit 到 
 
 ## 2. 钩子架构
 
-### 2.0 钩子必须先被安装(2026-11-12 立)
-
-钩子本体在受版本管理的 `.husky/`,但 git 只在 `core.hooksPath` 指向它时才执行。2026-11-12 实测本机
-`core.hooksPath` 为空、`.git/hooks` 仅剩 `.sample` —— **全部守门空转**,一次 `git add -A` 把 9038 件
-生成物直接提交进历史,全程零报警。安装器 `scripts/install-git-hooks.mjs` 已接入 `postinstall`(新克隆
-装依赖即生效),存量克隆手工跑一次:
-
-```
-node scripts/install-git-hooks.mjs          # 安装/对齐
-node scripts/install-git-hooks.mjs --check  # 只对账(未安装 exit 1)
-```
-
-缺失时的表现是"守门看起来都绿/都不跑",不是"守门放行" —— 任何一次提交只有 2 秒内结束,就应怀疑钩子没装。
-
 ### 2.1 pre-commit 流程
 
 `.husky/pre-commit` 是跨平台 Node.js 脚本(Windows 兼容),按 runner 清单执行全部登记项(项数以 `node scripts/guardian-runner.mjs --help` 现读为准;本节旧版写死 "29 项",那是 2026-09-21 的读数,早已失真)。执行语义(2026-09-22 起):**跑完再汇总**,任一 blocking 失败不再中断本轮,末尾列失败门清单 + 单独复现命令后 exit 1(逃生舱 `GUARDIAN_STOP_ON_FIRST=1` 恢复旧的 fail-fast);**warn-only / info-only** 项只打印不阻塞。
@@ -48,7 +34,6 @@ node scripts/install-git-hooks.mjs --check  # 只对账(未安装 exit 1)
 ```
 git commit
   └─ .husky/pre-commit
-       ├─ 0c check-staged-artifacts    (阻塞,生成物/实验沙箱/日志不得入库)
        ├─ 1  check-api-key-leak        (阻塞)
        ├─ 2  check-i18n-keys           (阻塞)
        ├─ 2b scan-i18n-zh-residue zh-TW (阻塞)
@@ -99,7 +84,6 @@ git commit
 ### 2.4 pre-push 流程
 
 `.husky/pre-push` 在 Git LFS pre-push 之后跑全量 typecheck:
-- 推送前先跑生成物拦截(`check-staged-artifacts.mjs --rev`,防 `--no-verify` 提交被自动 push 带走)
 - 清 `.tsbuildinfo` 缓存后跑 `pnpm typecheck:full`(防止缓存假象)
 - 工作区有未提交改动时打印明确指引(3 个选项)
 - 跳过:`HUSKY_SKIP_TYPECHECK=1 git push`(紧急 push,不推荐)
@@ -109,26 +93,6 @@ git commit
 ## 3. 守门脚本分类详解
 
 > 编号对应 `.husky/pre-commit` 中的执行顺序。每项说明:用途 / 检测什么 / 失败原因 / 修复方法 / 跳过方式 / 阻塞 vs warn。
-
-### 第 0c 项 check-staged-artifacts.mjs(阻塞)
-
-- **立因**:2026-11-12 一次 `git add -A` 把 9038 件生成物纳入提交面——`.archify/verify/snapshot-backfill`
-  的 33 份隔离实验目录(7128 件)、`.agent_tmp/`(828 件)、迁移目录副本 `drizzle-copy*`(800 件)、
-  逆向抓包副本 `*.keep.ts`、编译日志。生成物入库会永久加重历史并淹没真实代码改动。
-- **判据**(单源 `judgePath`,三档任一命中即 exit 1):① 路径段命中生成物目录名
-  (`.archify` / `.agent_tmp` / `archify-work` / `node_modules` / `drizzle-copy*` / `.next` / `.turbo` /
-  `coverage` / `.screenshots` / `.box-agent-scratch` / `_itmp_*` / `iso-*`);② 文件名命中一次性产物名
-  (`.commit-msg.txt` / `*.keep.ts` / `*.log`);③ 仓库根目录出现媒体/压缩包,或非 `*.config.ts` 的错位 `.ts`。
-- **放行面**:删除与重命名删除侧(清垃圾本身正确)、`*.config.ts` 等工程配置、`docs/` 下交付物。
-- **提交画像**:放行时打印「本次提交画像:共 N 件 · 源码/文档/配置/其他」,用于判定"这次到底改了哪些真实代码"。
-- **三态**:真 0 = 无生成物;真违规 = exit 1 阻断并逐条列出路;未判定 = 取不到索引面 exit 2 点名。
-- **自查**:`node scripts/check-staged-artifacts.mjs --report`(只画像不拦)。单测 `node --test scripts/tests/check-staged-artifacts.test.mjs`。
-- **应急跳过**:`HUSKY_SKIP_STAGED_ARTIFACTS=1`(仅判据确有误报时按,日常不得用)。
-- **接线位置**:`scripts/lib/pre-commit-hook.js` 第 0c 步(文件数预检之后、复活闸之后)。
-- **推送侧(2026-11-12 补)**:`git commit --no-verify` 可绕过 pre-commit,而 post-commit 会自动 push,
-  因此 `.husky/pre-push` 在 tag/凭据门之前用 `--rev <remote_sha>..<local_sha>` 复核被推区间
-  (新分支取 `origin/main` 合并基点),判据复用同一份 `judgePath`。三态:0 放行 / 1 阻断 / 2 未判定
-  (不报绿,阻断;应急 `HUSKY_SKIP_STAGED_ARTIFACTS=1`)。
 
 ### 第 1 项 check-api-key-leak.mjs(阻塞)
 
@@ -516,6 +480,15 @@ git commit
 
 ---
 
+### 第 323 项 check-border-system.mjs(容器描边角色系统)
+
+- **判什么**:六条判据,守住 2026-11-15 收口后的 8 个描边角色(`stroke-subtle/default/strong/inverse/field/focus/selected/danger`)。**R1** tokens.css 的 alpha 角色(subtle/default/strong/inverse/field)必须写 `rgba()` 阶梯,不许裸 hex/hsl(focus/selected/danger 是不透明强调色,允许 hex);**R2** 禁 `border-border/<N>`(token 本身已是 alpha,再叠 `/N` 就是双层 alpha,实际值不可读);**R3** `border-primary` / `ring-primary` 只允许出现在 focus 变体里,容器描边不得取墨档(聚焦是 AGENTS §4 唯一例外位);**R4** `packages/ui-react/src` 原语只允许 1px/2px 描边宽度(`border-3`…`border-9` 判红);**R5** tokens.css / tailwind-preset.js / rn-tokens.ts 三张表必须都有 8 个角色名(缺一档 = v3 端静默生成不出规则);**R6** alpha 角色上禁止再写 `/N`(双层 alpha),focus/selected/danger 允许单层 `/N`。注释行不判。
+- **2.0 视觉契约(2026-11-15 第二轮)**:档位固定 `subtle 6% < default 10% < field 14% < strong 18%`(暗色 8/12/16/22),输入控件必须比容器实、弹层必须比卡片重;**聚焦统一 2px `outline` + 2px `outline-offset` 的墨色,不得再用 `focus*:border-stroke-focus` / `focus*:ring-stroke-focus` 换色或叠 1px ring**(border 宽度不变,避免文字位移);无障碍开关 `html[data-focus-ring='true']` 的全局兜底环同取 `--color-stroke-focus`、同宽同偏移,只扩大覆盖面,不构成第二套聚焦外观;legacy `--color-input` 必须与 `stroke-field` 同值(14%),避免未迁移调用点停在旧 8% 形成第二档深浅;行分隔与表头下沿取 `stroke-default`,弹层/下拉/菜单容器取 `stroke-strong`。
+- **面**:默认读工作树全量(约 2000 个文件,~3s);`--staged` 读索引面,但只判本次新增行 —— 一次 `git diff --cached -U0` 取齐,避免 Windows 上逐文件 `git show` 把 pre-commit 拖到两分钟超时(实测单次 git 调用 ~0.7s)。tokens.css / preset / rn-tokens 三张源表在两面都直读对应面。
+- **出口**:`node scripts/check-border-system.mjs [--staged]`;应急 `HUSKY_SKIP_BORDER_SYSTEM=1`。新门未与被判面同枚提交时直跑会报"门体与被判面不同代" ⇒ `$env:IHUI_GATE_BODY_SOURCE='worktree'` 显式声明。
+
+---
+
 ## 4. post-commit git-push-guard.mjs
 
 `scripts/git-push-guard.mjs` 是 [AGENTS.md §21](../AGENTS.md) 任务完成硬定义的核心防线,解决"commit 后忘记 push"协作事故。
@@ -764,6 +737,8 @@ if (!run('🔍 检查 xxx...', 'node scripts/check-xxx.mjs --staged')) {
 - **工作流/部署脚本死引用(298,blocking,跳过 `HUSKY_SKIP_DEAD_SCRIPT_REFS=1`)**:`check-dead-script-refs.mjs` 判 `deploy/**` 与 `.github/workflows/**` 引用的 `scripts/*.ts|mjs` 是否存在:cwd 按 `working-directory`(步骤级>job 级 defaults)、`pnpm --filter` exec、shell `cd`、Dockerfile `WORKDIR`、相对/祖先路径解析;能定 cwd 判真死 exit 1,定不了 exit 2 不折绿;回滚态(HEAD 有、工作树缺)只报数。`--staged` 复验、`--self-test` 自检。
 - **自主环判据不变量守卫(299,blocking,跳过 `HUSKY_SKIP_AUTONOMY_INVARIANTS=1` 须附定向说明)**:`check-autonomy-invariants.mjs` 治多会话共树的**整片旧基线回写**这一型。立因(2026-11-05 实测):一席的在飞副本若是当天落地前的基线(当次现读工作树 `scripts/auto-evolve.mjs` 2851 行 vs HEAD 2263 行,且**缺当天全部 6 项判据**),它提交时是整文件回写,会把 HEAD 上今天的判据静默抹掉;而门 84 R1 要"暂存 blob == 某祖先"(它带新增 ⇒ 不等于任何祖先,放行)、`check-immutable-guard` 只管受保护面(调度器刻意不在面上)、分档对账测试住在 CI/nightly 层 ⇒ **提交链上原本没人抓得住**。判据 = **绝对要求,非差值棘轮**:清单 `scripts/data/autonomy-invariants.json` 的每条锚点必须在被审面逐字实有 —— 这里的失效型就是"悄悄少一条",拿该文件自身历史违规数当锚点等于自我豁免。清单取不到/JSON 坏/`entries` 空/某份文件取不到面 ⇒ 一律未判定不折绿(§0.3)。解禁某条锚点的唯一出路 = 改清单并在**同一枚提交**里带上改名后的新锚点(不留"清单还认旧名"的僵尸);无行内豁免位。射程由 `stagedTriggers` 收在调度器 + 阶梯 + 健康尺 + 清单 + 门体本身。自检 9 例含"整片回写成旧版 ⇒ drift"这条反向牙。
 - **新增共享屏必须壳或台账二选一**:`packages/app/src/features/**` 新增 `*Screen.tsx` 时,同一提交内必须给 `apps/mobile-rn/src/screens/` 落对应薄壳(可先 `node scripts/gen-rn-shell-scaffold.mjs --screen <spec> --write` 生成骨架再人工补数据源),或在 `scripts/data/rn-host-shell-manual.json` 登记 owner/expires/evidence;两者都没有 ⇒ `check-rn-host-shell-coverage.mjs` 判红并打印造壳命令。
+- **import 目标完整性(324,blocking,跳过 `HUSKY_SKIP_IMPORT_INTEGRITY=1`)**:`check-import-integrity.mjs`。立因 = 2026-11-15 一天内两批同型故障(`093e778d7e` / `c6ce232d0c5` 两笔"全量提交工作树"兜底提交):引用方进库、被引用文件当刻不在工作树 ⇒ `@/stores/appearance-scope`、`./message-style-menu`、`@/lib/bionic-reading`、`@/hooks/use-resolved-appearance`、`rn-compat/press-handlers.ts` 悬空,`apps/web` 与 `apps/miniapp-taro` 的 typecheck 结构性红。杀伤力不在当笔 —— **此后每一笔**的 pre-push typecheck 都必然红,逼所有人 `--no-verify`,一次绕门等于该提交上全部守门作废。判据 R1 本地/别名引用必须解析到同一棵树、R2 差值棘轮只拦本笔新增、R3 尺子失效 exit 2;测试面不判(虚拟模块/`?raw`/反向断言全是假红)。立门现读存量 0 处 / 0 文件(8256 候选),故直接 blocking。判据条文与出口见 §3g。
+- **容器描边角色系统(323,blocking,跳过 `HUSKY_SKIP_BORDER_SYSTEM=1`)**:`check-border-system.mjs`。6 条判据 R1–R6:alpha 角色只许 `rgba()` 阶梯、禁 `border-border/N` 双层 alpha、`border-primary`/`ring-primary` 仅 focus、ui-react 原语宽度仅 1/2、三端 8 角色齐全、alpha 角色禁再叠 `/N`(focus/selected/danger 不透明可单层 `/N`)。工作树面全量、`--staged` 只判新增行;2.0 起聚焦固定 2px `outline`(offset 2)、分隔线取 default、弹层取 strong。判据条文与出口见 §3f。2026-11-15 立,配套单源 = tokens.css 的 8 个 `--color-stroke-*`。
 - **字体面覆盖与回退链对账(313,blocking,跳过 `HUSKY_SKIP_TYPOGRAPHY_FACE_COVERAGE=1` 须附定向说明)**:`check-typography-face-coverage.mjs`。立因(2026-11-10 用户报"界面里字体一个粗一个细,看着不像一个字体";字体这一层此前全仓无门可守,字号/圆角/描边都有门)。三臂:
   - **T1 字重必须有面**:档位表(`typography.ts` 的 `FONT_WEIGHTS`/`TYPE_STEPS.weight` + `tokens.css` 的 `--text-*--font-weight`)请求的每个字重,必须在 `apps/web/app/globals.css` 里被某条 `@font-face` 的**显式字重区间**覆盖。HarmonyOS Sans 官方只有 Thin/Light/Regular/Medium/Bold/Black **无 Semibold** ⇒ 600 由 Bold 面以 `font-weight: 600 700` 显式代打,渲染不变而隐式猜测被写死;日后补真 Semibold 必须把该行收回 700,否则 600 被继续抢走。
   - **T2 子集防缩水**:`scripts/data/font-subset-manifest.json` 各 GB2312 档汉字数不得低于 `scripts/data/typography-face-baseline.json` 基线(唯一写入口 `--update-baseline`,只钉 gb2312 档 —— 窄档由源码扫描得出,钉它会造出"删一个中文字就红"的恒红门,§12e);`globals.css` 引用的每个 `/fonts/*.woff2` 必须在该判定面上存在;缺字哨兵 `ok` 必须为真。旧值实测 2292 汉字(GB2312 一级缺 2178),业务样本缺字率 13.87% ⇒ 动态中文落系统字体换脸,即用户所见。

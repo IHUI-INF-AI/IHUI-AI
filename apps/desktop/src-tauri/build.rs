@@ -27,6 +27,12 @@ fn main() {
             "embedded_browser_state",
             "embedded_browser_new_tab",
             "embedded_browser_devtools",
+            // 2026-11-14 应用上架平台:每账号独立 WebView2 profile 的登录窗
+            "store_account_open",
+            "store_account_url",
+            "store_account_session",
+            "store_account_keepalive_target",
+            "store_account_probe",
             "get_admin_window_info",
             "toggle_devtools",
             "quit_app",

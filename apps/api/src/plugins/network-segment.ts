@@ -20,6 +20,7 @@ import type { FastifyInstance, FastifyPluginAsync, FastifyRequest, FastifyReply 
 import fp from 'fastify-plugin'
 import { BlockList, isIP } from 'node:net'
 import { logger } from '../utils/logger.js'
+import { isAdminRequest } from './require-permission.js'
 
 export type IpClassification = 'internal' | 'external' | 'blacklisted' | 'unknown'
 
@@ -248,6 +249,11 @@ const networkSegmentPlugin: FastifyPluginAsync = async (server: FastifyInstance)
     const routeConfig = request.routeOptions.config
     const networkConfig = routeConfig?.network
     if (!networkConfig) return // 未配置 network 的路由不强制分段(向后兼容)
+
+    // 系统管理员(JWT roleId>=1)不受网络分段限制(2026-11-15):机主需要从公网调试
+    // /api/admin/* 与 /api/debug/*。服务间通道 /api/internal/* 不在此列 ——
+    // 它靠 internal-secret 票据,不认用户身份,放行管理员会凭空多出一个提权入口。
+    if (!request.url.startsWith('/api/internal/') && (await isAdminRequest(request))) return
 
     // denyProxied 必须排在任何 IP 分类之前:经代理的请求其 request.ip 可被 XFF 整写,
     // 先分类就等于把伪造值当事实(见 NetworkRouteConfig.denyProxied 头注)。

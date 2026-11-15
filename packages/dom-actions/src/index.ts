@@ -16,8 +16,16 @@
  *
  * 调用方:@ihui/extension 的 agent-control.ts(re-export 给 content.ts)、其他端可按需 import
  */
-import type { BrowserControlActionType, AgentActionErrorCode, BrowserPageControlActionType } from '@ihui/types'
-import { isPageAction, type PageActionErrorCode, type PageActionType } from './page-snapshot/contract.js'
+import type {
+  BrowserControlActionType,
+  AgentActionErrorCode,
+  BrowserPageControlActionType,
+} from '@ihui/types'
+import {
+  isPageAction,
+  type PageActionErrorCode,
+  type PageActionType,
+} from './page-snapshot/contract.js'
 import { runPageAction } from './page-snapshot/host.js'
 
 export * from './page-snapshot/contract.js'
@@ -59,6 +67,11 @@ export const DOM_ACTIONS = new Set<BrowserControlActionType | PageActionType>([
   'page_hover',
   'page_press_key',
   'page_pick_at_point',
+  // 2026-11-12 新增的只读/等待/拖拽动词也必须并入:否则类型面已申报,
+  // executeDomAction 的 isDomAction 前置判断却回 UNSUPPORTED_ACTION(申报与能力分叉)。
+  'page_scroll',
+  'page_wait_for',
+  'page_drag',
 ])
 
 export function isDomAction(action: BrowserControlActionType | PageActionType | string): boolean {

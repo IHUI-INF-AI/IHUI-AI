@@ -4,6 +4,8 @@
 
 // 对话渲染模型 barrel(W6 立;web / extension / mobile-rn 共用纯函数出口)
 export * from './render-model'
+// 会话导出(标题清洗 / 消息投影 / Markdown 与 manifest 组装;web 与 api 共用)
+export * from './conversation-export'
 // 任务进度状态条派生层(跨端单一真相源:纯函数,无平台依赖)
 export * from './task-status'
 // 工具码名 → i18n 键展示映射(界面禁止直显英文工具码名)
@@ -127,6 +129,19 @@ export * from './user-broadcast-store'
 // 帧 → 每会话消息面(幂等/四态/todo resync 全引用 @ihui/types 契约,本层零复算);
 // 小程序端 `stores/chat-sync.ts` 与 RN 端下一个 hook 包装共用这一份,端内不写第二套判据。
 export * from './chat-sync-store'
+// 票 B02 / 票71 跨端 resync 编排内核(零平台依赖:fetch/merge/drop 由端内注入);
+// web / taro / RN / extension 共用同一份失败分类 / 退避重试 / 在飞去重,端内不写第二套。
+export * from './chat-sync-resync'
+// 票 B02 / 票71 phase 2:store 驱动的 resync 泵(调度层唯一实现)。
+// web 用 React effect 驱动(既有 hook),taro / RN / extension 三端改用本泵,
+// 端内只注入 fetchSnapshot —— 调度语义(微任务合并/失败不自动重跑/停止即让路)四端同源。
+export * from './chat-sync-resync-pump'
+// 票 B02 / 票71 phase 2:gap-resync 的传输面(端点路径 + ApiResult 失败分型唯一真相)。
+// 四端只交 request 实现,不再各抄一份路径字符串(抄四份必然漂移)。
+export * from './chat-sync-snapshot'
+// 票 B02 / 票71 投影面:共享消息面 → 页面消息行的差异判据(同 id 覆盖 / 终态粘性 /
+// 回声不追加 / 零变化 null)。RN、小程序、扩展共用这一份,端内只留字段映射。
+export * from './chat-sync-surface'
 // D76 产物归属 turn 派生层(分型判据 + originating turn 序列 + 轮次序号 + 产物锚点→轮下标;
 // 纯函数零平台依赖,web 渲染层 artifact-turn-badge 原样 re-export,残余票 2026-09-25 自端内提取)
 export * from './artifact-turn'
@@ -168,6 +183,28 @@ export {
   uncoveredErrorCodes,
 } from './stream-error-disposition'
 export type { StreamErrorAction, StreamErrorDisposition } from './stream-error-disposition'
+// 流错误呈现层(纯函数拼装):errorCode → 标题/建议/动作按钮。上收自 web 独有层,
+// 让 RN / 小程序错误卡也能出对应动作(换模型/查额度/联系管理员/重新登录),不再只有"重试"。
+export {
+  STREAM_ERRORS_NS,
+  ERROR_CATALOG_NS,
+  actionText,
+  admissionPhaseText,
+  buildStreamErrorLabelSet,
+  buildStreamErrorView,
+  presentStreamError,
+  planStreamErrorToast,
+  emitPlannedStreamErrorToast,
+  assertLabelCoverage,
+  __test__,
+} from './stream-error-view'
+export type {
+  StreamErrorLabelSet,
+  StreamErrorView,
+  StreamErrorPresentation,
+  StreamErrorToastPlan,
+  PlannedToastSink,
+} from './stream-error-view'
 // 会话历史日期分桶(自然日/自然周(周一起)/自然月(1 号起)/更早 + 时间锚点回退链)的
 // 唯一实现:web 侧栏与小程序历史页共用。此前两端各写一套,web 改好后小程序仍是滚动 7 天。
 export * from './conversation-date-group'

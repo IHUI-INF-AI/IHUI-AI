@@ -56,7 +56,7 @@ export function SecurityAuditScreen({
   onRefresh,
   onBack,
   onRetry,
-  colorScheme = 'light'
+  colorScheme = 'light',
 }: SecurityAuditScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])

@@ -59,6 +59,10 @@ import { Tappable } from '@ihui/ui-native'
  * 抽离自 ChatScreen,供 ChatScreen 与下游(D99 富文本锚点)复用同一契约。
  */
 export interface ChatScreenMessageWithReasoning extends ChatScreenMessage {
+  /** 失败轮标记(对齐 @ihui/shared ChatMessage.error / isErrorTurn):由 applyStreamError 落 true */
+  error?: boolean
+  /** D92/D71②:后端业务错误码,供错误卡目录化取标题与建议动作(缺失即 unknown 回落态) */
+  errorCode?: string
   reasoning?: string
   /** G-166 交代区:本轮引用来源 / 带了哪些上下文(与 @ihui/shared ChatMessage 同一形状) */
   citations?: MessageCitation[]

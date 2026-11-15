@@ -28,7 +28,7 @@ export function RefundDetailScreen({
   error,
   onBack,
   onRetry,
-  colorScheme = 'light'
+  colorScheme = 'light',
 }: RefundDetailScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])

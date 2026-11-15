@@ -297,16 +297,24 @@ describe('③ 未知帧:点名计数且不写状态', () => {
     feed(createdFrame('m2', 'B', C2))
 
     expect(chatSyncStore.conversationIds()).toEqual([C1, C2])
-    expect(chatSyncRnStoreApi.getState().messagesOf(C1).map((m) => m.id)).toEqual(['m1'])
-    expect(chatSyncRnStoreApi.getState().messagesOf(C2).map((m) => m.id)).toEqual(['m2'])
+    expect(
+      chatSyncRnStoreApi
+        .getState()
+        .messagesOf(C1)
+        .map((m) => m.id),
+    ).toEqual(['m1'])
+    expect(
+      chatSyncRnStoreApi
+        .getState()
+        .messagesOf(C2)
+        .map((m) => m.id),
+    ).toEqual(['m2'])
   })
 })
 
 describe('④ 投影层纯函数(不依赖 React)', () => {
   it('历史行按 flagTargetId 命中 ⇒ 就地更新,不追加', () => {
-    const local = [
-      { id: 'svr-1-0', role: 'assistant', content: 'A', flagTargetId: 'svr-1' },
-    ]
+    const local = [{ id: 'svr-1-0', role: 'assistant', content: 'A', flagTargetId: 'svr-1' }]
     const plan = planChatSyncSurfaceMerge(local, [
       { id: 'svr-1', role: 'assistant', content: 'AB' },
     ])
@@ -386,6 +394,18 @@ describe('⑤ 结构纪律与装车证明', () => {
 
     const screenSource = readFileSync(SCREEN, 'utf8')
     expect(screenSource).toContain('useRemoteChatSyncMessages({ conversationId, setMessages')
+  })
+
+  it('phase 2 resync 接线锁:泵在应用级 hook 启停,端内不手抄端点路径', () => {
+    const hookSource = readFileSync(join(HERE, '../src/hooks/use-user-broadcast-sync.ts'), 'utf8')
+    expect(hookSource).toContain('startRnChatSyncResync()')
+    expect(hookSource).toContain('stopRnChatSyncResync()')
+
+    const adapter = readFileSync(join(HERE, '../src/lib/chat-sync-resync.ts'), 'utf8')
+    expect(adapter).toContain('startChatSyncResyncPump')
+    expect(adapter).toContain('createChatSyncSnapshotFetcher')
+    // 反向牙:端内出现端点字面量 = 又开始手抄(共享层已有一份,抄第二份必然漂移)
+    expect(adapter).not.toMatch(/['"`]\/chat\/conversations/)
   })
 
   it('一次订阅 = 一份账本:attach 成功后清空共享 store(换账号不串消息)', () => {

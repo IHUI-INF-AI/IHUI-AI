@@ -114,7 +114,7 @@ export function ContextChipsRow({
       {quoted && (
         <div
           data-testid="quoted-reply-chip"
-          className="flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-body"
+          className="flex items-center gap-2 rounded-lg border border-stroke-selected bg-primary/5 px-3 py-2 text-body"
         >
           <MessageCircle className="h-3.5 w-3.5 shrink-0 text-primary" aria-hidden />
           <div className="min-w-0 flex-1">

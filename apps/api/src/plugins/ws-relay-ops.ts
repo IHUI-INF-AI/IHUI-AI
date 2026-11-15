@@ -53,8 +53,13 @@ const wsRelayOpsPlugin: FastifyPluginAsync = async (server) => {
   const limiter = new WsUserConnectionLimiter(2)
   const sockets = new Set<WebSocket>()
 
-  function pushSnapshot(ws: WebSocket): void {
-    void buildRelayOpsSnapshot()
+  /**
+   * 推一帧快照(F-624):
+   * - 周期推送走 'cached' —— 进程内共享缓存,多 socket 只重建一次(默认 5s TTL);
+   * - refresh 走 'refresh' —— 受最小间隔节流 + 单飞去重,窗口内复用缓存帧。
+   */
+  function pushSnapshot(ws: WebSocket, isRefresh = false): void {
+    void buildRelayOpsSnapshot({ mode: isRefresh ? 'refresh' : 'cached' })
       .then((snapshot: RelayOpsSnapshot) => {
         if (ws.readyState === ws.OPEN) {
           ws.send(JSON.stringify({ event: 'relay-ops-snapshot', data: snapshot }))
@@ -99,24 +104,22 @@ const wsRelayOpsPlugin: FastifyPluginAsync = async (server) => {
       }
       try {
         const parsed = JSON.parse(text) as { type?: unknown }
-        if (parsed?.type === 'refresh') pushSnapshot(socket)
+        if (parsed?.type === 'refresh') pushSnapshot(socket, true)
       } catch {
         /* 非 JSON 消息忽略 */
       }
     })
 
-    // 断连收口(F-226):'error' 与随后的 'close' 都会触发本函数,
-    // 用 released 守卫保证同一连接只归还一次槽位,避免连接上限被低估。
-    let released = false
-    const handleDisconnect = (): void => {
-      if (released) return
-      released = true
+    socket.on('close', () => {
       clearInterval(timer)
       sockets.delete(socket)
       limiter.release(userId)
-    }
-    socket.on('close', handleDisconnect)
-    socket.on('error', handleDisconnect)
+    })
+    socket.on('error', () => {
+      clearInterval(timer)
+      sockets.delete(socket)
+      limiter.release(userId)
+    })
   })
 
   // 优雅关闭:清空全部连接(对齐 ws-broadcast 的停机语义)

@@ -423,7 +423,11 @@ function createStyles(tk: AppThemeTokens) {
     },
     convName: { flex: 1, fontSize: rnType.strong.size, fontWeight: '600', color: tk.text.primary },
     convTime: { fontSize: rnType.label.size, color: tk.text.medium },
-    convPreview: { marginTop: rnSpacing['2xs'], fontSize: rnType.bodySm.size, color: tk.text.secondary },
+    convPreview: {
+      marginTop: rnSpacing['2xs'],
+      fontSize: rnType.bodySm.size,
+      color: tk.text.secondary,
+    },
     convPinBtn: { paddingHorizontal: rnSpacing.xs, justifyContent: 'center' },
     convActionBtn: { paddingHorizontal: rnSpacing.xs, justifyContent: 'center' },
     loadMoreBtn: {

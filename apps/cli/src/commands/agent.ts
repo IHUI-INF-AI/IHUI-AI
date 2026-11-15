@@ -333,7 +333,7 @@ export interface AgentResult {
    * 五档:proceed/held/refused/unjudged。**unjudged 也意味着被拦下** ——
    * 调用方据此可区分「余额不足」与「量不到所以保守拦截」,不必从散文里猜。
    */
-  costApproval?: import('../tools/cost-approval.js').CostApproval;
+  costApproval?: CostApproval;
   /**
    * 自动复审(2026-11-12):本回合内是否已到"该复审了"的时机。
    * 只表示**时机到了**,不表示已经审过 —— 真正执行诊断在回合外。
@@ -365,7 +365,7 @@ import {
   endReasonFromStopReason,
   type TurnTransition,
 } from '../acp/turn-lifecycle.js'
-import { decideCostApproval } from '../tools/cost-approval.js'
+import { decideCostApproval, type CostApproval } from '../tools/cost-approval.js'
 import { applyCodeMode, describeCodeMode } from '../tools/code-mode.js'
 import {
   DEFAULT_REVIEW_POLICY,
@@ -2118,7 +2118,7 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
   let totalCostUsd = 0;
   let budgetLimited = false;
   /** cost-approval 的判定结果(只在传了 opts.costApproval 且触发预算闸时有值)。 */
-  let costApprovalVerdict: import('../tools/cost-approval.js').CostApproval | null = null;
+  let costApprovalVerdict: CostApproval | null = null;
   /** 自动复审的累积状态(跨迭代保持)。 */
   let reviewState: ReviewState = INITIAL_REVIEW_STATE;
   const reviewPolicy = opts.reviewPolicy ?? DEFAULT_REVIEW_POLICY;

@@ -11,6 +11,7 @@
         "public/**",
         "package.json",
         "tsconfig.json",
+        "tsconfig*.json",
         "next.config.*",
         "vite.config.*"
       ],
@@ -42,6 +43,7 @@
         "tests/**",
         "vitest.config.*",
         "jest.config.*",
+        "tsconfig*.json",
         "package.json"
       ],
       "outputs": []
@@ -53,7 +55,7 @@
     },
     "typecheck": {
       "dependsOn": ["^build"],
-      "inputs": ["src/**", "tsconfig.json", "package.json"]
+      "inputs": ["src/**", "tsconfig.json", "tsconfig*.json", "package.json"]
     },
     "db:generate": {
       "cache": false,

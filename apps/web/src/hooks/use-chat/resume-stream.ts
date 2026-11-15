@@ -12,6 +12,8 @@ import { useAuthStore } from '@/stores/auth'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import { getModeStoreForChatStore } from '@/stores/mode'
 import { getSamplingParams } from '@/stores/sampling-params'
+import { getAppearanceConfig } from '@/stores/appearance-settings'
+import { buildAiStyleDirective } from '@/lib/ai-style-directive'
 import { toast } from '@/components/common'
 import { fetchApi, getToken, getStreamBaseUrl, isAbortError } from '@/lib/api'
 import { getModelContextCapacity } from '@/lib/model-context-capacity'
@@ -276,6 +278,14 @@ async function runResumePendingMessage(
     const base = getStreamBaseUrl()
     // P1-7(2026-09-13 立):续接前快照会话级高级参数(全局默认 + 会话覆盖)
     const samplingParams = getSamplingParams(p.conversationId)
+    // 2026-11-15(外观设置):续接与首答使用同一份 AI 回复风格指令,避免断流续接后语气漂移。
+    const mergedSystemPrompt = [
+      samplingParams.systemPrompt,
+      buildAiStyleDirective(getAppearanceConfig()),
+    ]
+      .map((s) => s?.trim())
+      .filter((s): s is string => !!s)
+      .join('\n\n')
     // 凭据每次建连现取:续期后那一次重放拿的是新 token,不是闭包里那一枚过期的。
     const openOnce = (): Promise<Response> => {
       const token = getToken()
@@ -301,7 +311,7 @@ async function runResumePendingMessage(
           topP: samplingParams.topP,
           topK: samplingParams.topK,
           maxTokens: samplingParams.maxTokens,
-          ...(samplingParams.systemPrompt ? { systemPrompt: samplingParams.systemPrompt } : {}),
+          ...(mergedSystemPrompt ? { systemPrompt: mergedSystemPrompt } : {}),
           // P1-8 Repo Wiki(2026-09-13 立):仓库名透传后端,注入该仓库最新 overview 文档到
           // system prompt;无活跃工作区时为 undefined(JSON.stringify 自动省略该 key)。
           repoName: useAiPanelStore.getState().activeWorkspace?.name,

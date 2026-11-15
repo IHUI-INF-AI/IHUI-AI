@@ -148,6 +148,7 @@ const EXACT_MAP: Readonly<Record<string, CategoryKey>> = {
   // 文件读
   read_file: 'file_read',
   read_tool_output: 'file_read',
+  read_image: 'file_read',
   list_dir: 'file_read',
   read_dir: 'file_read',
   // 文件查
@@ -157,6 +158,7 @@ const EXACT_MAP: Readonly<Record<string, CategoryKey>> = {
   ripgrep: 'file_search',
   glob: 'file_search',
   find_files: 'file_search',
+  session_search: 'file_search',
   // 文件写
   write_file: 'file_write',
   create_file: 'file_write',
@@ -196,6 +198,10 @@ const EXACT_MAP: Readonly<Record<string, CategoryKey>> = {
   task_status: 'task_management',
   todo_write: 'task_management',
   todo_read: 'task_management',
+  // 任务编排类工具(团队任务板 / 可续跑子代理),与 Agent/Task 同档
+  team_task: 'task_management',
+  dispatch_subagent: 'task_management',
+  subagent_job: 'task_management',
   // 思考
   think: 'thinking',
   reasoning: 'thinking',

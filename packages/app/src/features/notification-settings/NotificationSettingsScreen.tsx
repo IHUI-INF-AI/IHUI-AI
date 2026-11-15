@@ -5,14 +5,24 @@
 import { useMemo } from 'react'
 import { View, Text, TouchableOpacity, Switch, StyleSheet } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
-import type { NotificationSettingsItem, NotificationSettingsLink, NotificationSettingsRow, NotificationSettingsScreenProps } from '../../types'
+import type {
+  NotificationSettingsItem,
+  NotificationSettingsLink,
+  NotificationSettingsRow,
+  NotificationSettingsScreenProps,
+} from '../../types'
 
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 
 /** 通知设置共享屏 — props 注入式跨端组件 */
-export type { NotificationSettingsItem, NotificationSettingsLink, NotificationSettingsRow, NotificationSettingsScreenProps }
+export type {
+  NotificationSettingsItem,
+  NotificationSettingsLink,
+  NotificationSettingsRow,
+  NotificationSettingsScreenProps,
+}
 
 export function NotificationSettingsScreen({
   t,

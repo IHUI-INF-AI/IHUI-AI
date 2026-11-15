@@ -15,6 +15,7 @@ from typing import Any
 
 import pytest
 
+from app.core.bundle_integrity import sign_bundle
 from app.services.external_runtime_import import (
     apply_bundle,
     automation_task_id,
@@ -184,4 +185,93 @@ async def test_apply_sessions_defer_and_capabilities_declare_only() -> None:
     assert out["sessions"]["owner"] == "relay-session-leg"
     assert out["capabilities"]["registered"] == 0
     assert out["capabilities"]["declared"][0]["id"] == "cap.web.search"
+
+
+# ---------------------------------------------------------------------------
+# H 类新增:孤儿引用 + 签名校验(2026-11-15)
+# ---------------------------------------------------------------------------
+
+
+def _orphan_bundle() -> dict[str, Any]:
+    return {
+        "specVersion": 1,
+        "source": "qoder",
+        "namespaces": {
+            "capabilities": {"items": []},
+            "automations": {
+                "items": [
+                    {
+                        "id": "t1",
+                        "name": "引用不存在的能力",
+                        "triggerType": "cron",
+                        "triggerConfig": {"hour": 9},
+                        "callback": {"type": "notify", "channel": "mail"},
+                        "capability_id": "cap-missing",
+                    }
+                ]
+            },
+        },
+    }
+
+
+async def test_apply_rejects_orphan_reference() -> None:
+    parsed = parse_external_bundle(_orphan_bundle())
+    assert parsed.ok
+    out = await apply_bundle(parsed, "u1")
+    assert out["status"] == "rejected"
+    assert "orphan_refs" in out
+    assert any("cap-missing" in o for o in out["orphan_refs"])
+
+
+async def test_apply_orphan_check_can_be_disabled() -> None:
+    parsed = parse_external_bundle(_orphan_bundle())
+    out = await apply_bundle(parsed, "u1", check_orphans=False)
+    assert out["status"] == "ok"
+
+
+async def test_apply_good_bundle_has_no_orphan() -> None:
+    out = await apply_bundle(parse_external_bundle(_good_bundle()), "u1")
+    assert out["status"] == "ok"
+
+
+async def test_apply_rejects_signature_without_secret() -> None:
+    out = await apply_bundle(
+        parse_external_bundle(_good_bundle()), "u1", signature="deadbeef"
+    )
+    assert out["status"] == "rejected"
+    assert "密钥" in out["reason"]
+
+
+async def test_apply_signature_roundtrip_ok() -> None:
+    bundle = _good_bundle()
+    parsed = parse_external_bundle(bundle)
+    # apply_bundle 用 _signable_payload(剥离 skipped 的规范化载荷 = 客户端提交的
+    # 原始形状)验签,故外部客户端对原始 bundle 签名即可匹配
+    canonical = {
+        "specVersion": bundle["specVersion"],
+        "source": bundle["source"],
+        "namespaces": bundle["namespaces"],
+    }
+    sig = sign_bundle(canonical, b"secret-key")
+    out = await apply_bundle(
+        parsed, "u1", signature=sig, signing_secret=b"secret-key"
+    )
+    assert out["status"] == "ok"
+
+
+async def test_apply_rejects_tampered_signature() -> None:
+    bundle = _good_bundle()
+    canonical = {
+        "specVersion": bundle["specVersion"],
+        "source": bundle["source"],
+        "namespaces": bundle["namespaces"],
+    }
+    sig = sign_bundle(canonical, b"secret-key")
+    # 篡改业务内容 ⇒ 客户端提交形状变化 ⇒ 签名不再匹配剥离 skipped 后的规范化载荷
+    bundle["namespaces"]["capabilities"]["items"][0]["id"] = "cap.evil"
+    tampered = parse_external_bundle(bundle)
+    out = await apply_bundle(
+        tampered, "u1", signature=sig, signing_secret=b"secret-key"
+    )
+    assert out["status"] == "rejected"
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -19,6 +19,7 @@ import { SamplingParamsCard } from '@/components/settings/sampling-params-card'
 import { FoldPolicyCard } from '@/components/settings/fold-policy-card'
 import { WebSearchCard } from '@/components/settings/web-search-card'
 import { PredictiveEditCard } from '@/components/settings/predictive-edit-card'
+import { EngineModeCard } from '@/components/settings/engine-mode-card'
 import { NavTierCard } from '@/components/settings/nav-tier-card'
 import { cn } from '@/lib/utils'
 
@@ -180,6 +181,9 @@ export default function PreferencesPage() {
 
         {/* 预测式编辑开关(V3 #82 两把钥匙之"开关"位;2026-11-01 接线) */}
         <PredictiveEditCard />
+
+        {/* agent 执行引擎切换(2026-11-15 接线):本地/云端/自动三态,让用户显式选引擎 */}
+        <EngineModeCard />
 
         {isDesktop && (
           <Card>

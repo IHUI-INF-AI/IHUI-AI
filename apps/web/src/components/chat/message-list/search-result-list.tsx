@@ -64,7 +64,11 @@ export function SearchResultList({ results, selectedId, onPick }: SearchResultLi
   const hidden = results.length - shown.length
 
   return (
-    <div className="mx-auto w-full max-w-3xl px-4 pb-1" data-testid="chat-search-result-list">
+    <div
+      className="mx-auto w-full px-4 pb-1"
+      style={{ maxWidth: 'var(--chat-content-width, 48rem)' }}
+      data-testid="chat-search-result-list"
+    >
       <ul aria-label={t('resultListLabel')} className="flex flex-col gap-0.5">
         {shown.map((result) => {
           const timeText = formatResultTime(result.createTime, locale)

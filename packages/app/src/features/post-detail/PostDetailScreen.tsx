@@ -174,10 +174,7 @@ export function PostDetailScreen({
           const Icon = actionIcon(action.id)
           const content = (
             <>
-              <Icon
-                size={12}
-                color={action.active ? tk.brand.DEFAULT : tk.text.medium}
-              />
+              <Icon size={12} color={action.active ? tk.brand.DEFAULT : tk.text.medium} />
               <Text style={styles.statText}>{action.count}</Text>
             </>
           )

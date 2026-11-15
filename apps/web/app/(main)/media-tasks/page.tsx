@@ -333,8 +333,8 @@ export default function MediaTasksPage() {
                 className={cn(
                   'rounded-sm border bg-card/50 p-3 text-left transition-colors',
                   statusFilter === c.filter
-                    ? 'border-primary/50 bg-primary/10'
-                    : 'border-border/50 hover:bg-muted/40',
+                    ? 'border-stroke-selected bg-primary/10'
+                    : 'border-stroke-subtle hover:bg-muted/40',
                 )}
               >
                 <p className="text-[11px] text-muted-foreground">{c.label}</p>
@@ -369,8 +369,8 @@ export default function MediaTasksPage() {
                   className={cn(
                     'inline-flex items-center gap-1 rounded-sm border px-2 py-0.5 text-[11px] transition-colors',
                     kindFilter === kind
-                      ? 'border-primary/50 bg-primary/10 text-primary'
-                      : 'border-border/50 text-muted-foreground hover:bg-muted/40',
+                      ? 'border-stroke-selected bg-primary/10 text-primary'
+                      : 'border-stroke-subtle text-muted-foreground hover:bg-muted/40',
                   )}
                 >
                   <span className={cn('font-medium', KIND_CLASS[kind])}>{kind}</span>
@@ -392,8 +392,8 @@ export default function MediaTasksPage() {
                   className={cn(
                     'rounded-sm border px-2.5 py-1 text-label transition-colors',
                     statusFilter === f.key
-                      ? 'border-primary/50 bg-primary/10 text-primary'
-                      : 'border-border/50 text-muted-foreground hover:bg-muted/40',
+                      ? 'border-stroke-selected bg-primary/10 text-primary'
+                      : 'border-stroke-subtle text-muted-foreground hover:bg-muted/40',
                   )}
                 >
                   {f.label}
@@ -409,8 +409,8 @@ export default function MediaTasksPage() {
                   className={cn(
                     'rounded-sm border px-2.5 py-1 text-label transition-colors',
                     kindFilter === f.key
-                      ? 'border-primary/50 bg-primary/10 text-primary'
-                      : 'border-border/50 text-muted-foreground hover:bg-muted/40',
+                      ? 'border-stroke-selected bg-primary/10 text-primary'
+                      : 'border-stroke-subtle text-muted-foreground hover:bg-muted/40',
                   )}
                 >
                   {f.label}
@@ -426,7 +426,7 @@ export default function MediaTasksPage() {
           )}
 
           {clearInfo && (
-            <div className="rounded-md border border-primary/40 bg-primary/10 p-3 text-body text-primary">
+            <div className="rounded-md border border-stroke-selected bg-primary/10 p-3 text-body text-primary">
               {clearInfo}
             </div>
           )}
@@ -440,8 +440,8 @@ export default function MediaTasksPage() {
               className={cn(
                 'inline-flex items-center gap-1 rounded-sm border px-2 py-1 text-label transition-colors',
                 viewMode === 'list'
-                  ? 'border-primary/50 bg-primary/10 text-primary'
-                  : 'border-border/50 text-muted-foreground hover:bg-muted/40',
+                  ? 'border-stroke-selected bg-primary/10 text-primary'
+                  : 'border-stroke-subtle text-muted-foreground hover:bg-muted/40',
               )}
               data-testid="view-toggle-list"
             >
@@ -455,8 +455,8 @@ export default function MediaTasksPage() {
               className={cn(
                 'inline-flex items-center gap-1 rounded-sm border px-2 py-1 text-label transition-colors',
                 viewMode === 'board'
-                  ? 'border-primary/50 bg-primary/10 text-primary'
-                  : 'border-border/50 text-muted-foreground hover:bg-muted/40',
+                  ? 'border-stroke-selected bg-primary/10 text-primary'
+                  : 'border-stroke-subtle text-muted-foreground hover:bg-muted/40',
               )}
               data-testid="view-toggle-board"
             >
@@ -477,7 +477,7 @@ export default function MediaTasksPage() {
               onDelete={deleteTask}
             />
           ) : (
-            <div className="overflow-hidden rounded-md border border-border/50 bg-card/50">
+            <div className="overflow-hidden rounded-md border border-stroke-subtle bg-card/50">
               {listQuery.isLoading ? (
                 <div className="flex items-center justify-center py-10 text-muted-foreground">
                   <Loader2 className="mr-2 h-5 w-5 animate-spin" />

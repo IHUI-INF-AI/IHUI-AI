@@ -127,7 +127,7 @@ export function AnnotationStylePanel({
       role="group"
       aria-label={t('panelTitle')}
       className={cn(
-        'thin-scroll flex flex-col gap-2 overflow-auto rounded-xl border border-border bg-popover p-3 shadow-elevation-lg animate-in fade-in-0 zoom-in-95 duration-(--duration-unified) ease-unified',
+        'thin-scroll flex flex-col gap-2 overflow-auto rounded-xl border border-stroke-strong bg-popover p-3 shadow-elevation-lg animate-in fade-in-0 zoom-in-95 duration-(--duration-unified) ease-unified',
         className,
       )}
       data-testid="annotation-style-panel"
@@ -185,7 +185,7 @@ export function AnnotationStylePanel({
         onChange={(e) => setNote(e.target.value)}
         placeholder={t('annotationPlaceholder')}
         rows={2}
-        className="w-full resize-none rounded-sm border border-border/60 bg-background px-2 py-1 text-[11px] text-foreground placeholder:text-muted-foreground/60 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/40"
+        className="w-full resize-none rounded-sm border border-stroke-subtle bg-background px-2 py-1 text-[11px] text-foreground placeholder:text-muted-foreground/60 focus-visible:outline outline-2 outline-offset-2 outline-stroke-focus"
         data-testid="annotation-note"
       />
 

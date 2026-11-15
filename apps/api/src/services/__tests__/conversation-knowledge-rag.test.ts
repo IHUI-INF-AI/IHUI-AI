@@ -30,7 +30,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 // ─────────────────────────────────────────────────────────────
 const EMBED_DIM = 1536
 /** 测试开关:置 false 模拟"未配置 embedding key" → 服务应降级关键词路 */
-const embedState = vi.hoisted(() => ({ enabled: true, fail: false }))
+const embedState = vi.hoisted(() => ({ enabled: true, fail: false, calls: 0 }))
 
 vi.mock('../embedding-provider.js', () => ({
   getEmbeddingProvider: () => {
@@ -38,6 +38,8 @@ vi.mock('../embedding-provider.js', () => ({
     return {
       async embed(texts: string[]) {
         if (embedState.fail) throw new Error('embedding provider unavailable')
+        // F-141:记账位 —— 并发的第二个请求不该再买一次 embedding,断言靠它。
+        embedState.calls += texts.length
         return texts.map(hashEmbed)
       },
     }
@@ -131,13 +133,31 @@ const mem = vi.hoisted(() => ({
   docs: [] as Array<Record<string, unknown>>,
   chunks: [] as Array<Record<string, unknown>>,
   seq: { doc: 0, chunk: 0 },
+  /** F-141:execute 过的 SQL 文本(advisory lock 的取证面) */
+  executed: [] as string[],
   reset: () => {
     mem.docs.length = 0
     mem.chunks.length = 0
+    mem.executed.length = 0
     mem.seq.doc = 0
     mem.seq.chunk = 0
   },
 }))
+
+/** 把 drizzle 的 SQL 树拍成文本(只取字符串/参数值,用于断言锁语句在场) */
+function sqlText(node: unknown): string {
+  if (node === null || node === undefined) return ''
+  if (typeof node === 'string' || typeof node === 'number' || typeof node === 'boolean') {
+    return String(node)
+  }
+  if (Array.isArray(node)) return node.map(sqlText).join(' ')
+  if (typeof node === 'object') {
+    const o = node as Record<string, unknown>
+    if ('queryChunks' in o) return sqlText(o.queryChunks)
+    if ('value' in o) return sqlText(o.value)
+  }
+  return ''
+}
 
 /**
  * 从向量路的 SQL 树里取回查询向量。
@@ -329,6 +349,8 @@ vi.mock('../../db/index.js', async () => {
     // 夹具的 tx 与 db 同形:内存表本来就是单进程顺序写,事务语义由调用方 await 保证。
     transaction: async <T>(fn: (tx: unknown) => Promise<T>): Promise<T> => fn(dbMock),
     execute: async (sqlObj: unknown) => {
+      // F-141:advisory lock 走 execute,把语句文本记下来供断言(不影响任何查询语义)
+      mem.executed.push(sqlText(sqlObj))
       // 向量路:从 SQL 树取回查询向量,对内存 chunk 算余弦并排序 —— 复刻 pgvector
       // `<=>` + ORDER BY 的语义,让"能否召回"成为真判定。
       const q = extractQueryVector(sqlObj)
@@ -390,7 +412,17 @@ beforeEach(() => {
   mem.reset()
   embedState.enabled = true
   embedState.fail = false
+  embedState.calls = 0
 })
+
+/** F-141 并发用例共用入参:同一会话 + 同一内容 ⇒ 同一幂等键 */
+const INGEST_ARGS = {
+  ownerUuid: OWNER,
+  conversationId: CONV_ID,
+  title: '产品研发群',
+  source: 'wechat',
+  messages: WECHAT_MESSAGES,
+}
 
 // ─────────────────────────────────────────────────────────────
 // 1. 入库:sourceType / 溯源 / 分块 / 幂等
@@ -492,6 +524,31 @@ describe('导入会话入库(ingestConversation)', () => {
     expect(second.docId).toBe(first.docId)
     expect(mem.docs).toHaveLength(docsAfterFirst)
     expect(mem.chunks).toHaveLength(chunksAfterFirst)
+  })
+
+  it('并发双请求(双击/前端重试)→ 只入库一份 doc,embedding 不重复计费(F-141)', async () => {
+    const [a, b] = await Promise.all([
+      knowledgeRagService.ingestConversation(INGEST_ARGS),
+      knowledgeRagService.ingestConversation(INGEST_ARGS),
+    ])
+
+    // 数据面:只有一篇 doc、一套 chunk —— 修复前这里是 2 篇 doc + 2 套 chunk
+    expect(mem.docs).toHaveLength(1)
+    expect(mem.chunks).toHaveLength(a.chunkCount)
+    // 两个调用都成功并指向同一篇知识,恰好一个真入库、一个判重
+    expect(b.docId).toBe(a.docId)
+    expect([a.deduped, b.deduped].filter((d) => !d)).toHaveLength(1)
+    // 费用面:embedding 只买了一遍(每个 chunk 一次)
+    expect(embedState.calls).toBe(a.chunkCount)
+  })
+
+  it('写库事务先取 pg_advisory_xact_lock,再复查再插入(F-141 跨实例互斥)', async () => {
+    const r = await knowledgeRagService.ingestConversation(INGEST_ARGS)
+    // 锁语句必须在场,且锁键与查重同键(owner + 集合 + 内容指纹)
+    const lockSql = mem.executed.find((s) => s.includes('pg_advisory_xact_lock'))
+    expect(lockSql).toBeTruthy()
+    expect(lockSql).toContain(`knowledge_ingest:${OWNER}:default:`)
+    expect(r.deduped).toBe(false)
   })
 
   it('会话内容变化 → hash 变,视为新知识追加一篇(不误判为重复)', async () => {

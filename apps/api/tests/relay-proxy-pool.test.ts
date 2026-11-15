@@ -6,6 +6,7 @@
 // DB 走仓内 Proxy chainable mock 模式(夹具写法参考 tests/admin-missing-routes.test.ts),纯单测无网络。
 
 import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { PgDialect } from 'drizzle-orm/pg-core'
 
 const { mockSelectResult, mockWriteResult, mockExecuteResult, sinks, rearmDbMockDefaults } =
   vi.hoisted(() => {
@@ -100,6 +101,13 @@ import {
   maskAccountProxyUrl,
 } from '../src/services/relay-proxy-pool.js'
 
+const dialect = new PgDialect()
+
+/** 把 drizzle SQL 片段编译成可在测试里断言的 SQL 文本 + 绑定参数。 */
+function compileSql(expr: unknown): { sql: string; params: unknown[] } {
+  return dialect.sqlToQuery(expr as Parameters<PgDialect['sqlToQuery']>[0])
+}
+
 describe('relay-proxy-pool', () => {
   beforeEach(() => {
     rearmDbMockDefaults()
@@ -178,48 +186,42 @@ describe('relay-proxy-pool', () => {
   })
 
   describe('reportProxyFailure', () => {
-    it('未达阈值:failCount+1,状态不变', async () => {
-      mockSelectResult.mockResolvedValueOnce([{ id: 'p1', failCount: 1, status: 'active' }])
+    it('failCount 用原子表达式 +1(不是字面量),且不先读副本', async () => {
       await reportProxyFailure('http://10.0.0.2:8080')
       const set = sinks.update.value as Record<string, unknown>
-      expect(set.failCount).toBe(2)
-      expect(set.status).toBe('active')
+      const compiled = compileSql(set.failCount)
+      expect(compiled.sql).toMatch(/fail_count"\s*\+\s*1/)
+      expect(compiled.params).toEqual([])
+      expect(mockSelectResult).not.toHaveBeenCalled()
     })
 
-    it('达阈值(5 次)→ 转 exhausted', async () => {
-      mockSelectResult.mockResolvedValueOnce([{ id: 'p1', failCount: 4, status: 'active' }])
+    it('达阈值 → 同一条 UPDATE 用 CASE 切 exhausted', async () => {
       await reportProxyFailure('http://10.0.0.2:8080')
       const set = sinks.update.value as Record<string, unknown>
-      expect(set.failCount).toBe(5)
-      expect(set.status).toBe('exhausted')
+      const compiled = compileSql(set.status)
+      expect(compiled.sql).toContain('CASE WHEN')
+      expect(compiled.sql).toContain("'exhausted'")
+      expect(compiled.params).toEqual([5])
     })
 
-    it('池内无该代理 → 静默无写', async () => {
-      mockSelectResult.mockResolvedValueOnce([])
-      await reportProxyFailure('http://unknown')
-      expect(sinks.update.value).toBeUndefined()
-    })
-
-    it('查询异常被吞,永不抛', async () => {
-      mockSelectResult.mockRejectedValueOnce(new Error('db down'))
+    it('UPDATE 异常被吞,永不抛', async () => {
+      mockWriteResult.mockRejectedValueOnce(new Error('db down'))
       await expect(reportProxyFailure('http://x')).resolves.toBeUndefined()
     })
   })
 
   describe('reportProxySuccess', () => {
-    it('清零 failCount,exhausted 位回升 active', async () => {
-      mockSelectResult.mockResolvedValueOnce([{ id: 'p1', status: 'exhausted' }])
+    it('只清零 failCount,不写 status(exhausted 不无条件复活)', async () => {
       await reportProxySuccess('http://10.0.0.2:8080')
       const set = sinks.update.value as Record<string, unknown>
       expect(set.failCount).toBe(0)
-      expect(set.status).toBe('active')
+      expect('status' in set).toBe(false)
+      expect(mockSelectResult).not.toHaveBeenCalled()
     })
 
-    it('dead 位不被成功上报复活(仅 exhausted 回升)', async () => {
-      mockSelectResult.mockResolvedValueOnce([{ id: 'p1', status: 'dead' }])
-      await reportProxySuccess('http://10.0.0.2:8080')
-      const set = sinks.update.value as Record<string, unknown>
-      expect(set.status).toBe('dead')
+    it('UPDATE 异常被吞,永不抛', async () => {
+      mockWriteResult.mockRejectedValueOnce(new Error('db down'))
+      await expect(reportProxySuccess('http://x')).resolves.toBeUndefined()
     })
   })
 

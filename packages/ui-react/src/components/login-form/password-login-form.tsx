@@ -391,7 +391,7 @@ export function PasswordLoginForm({
                 type="button"
                 onClick={() => void refreshCaptcha()}
                 aria-label={t('auth.captchaRefresh')}
-                className="inline-flex h-10 shrink-0 items-center justify-center rounded-sm border border-input bg-background px-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                className="inline-flex h-10 shrink-0 items-center justify-center rounded-sm border border-stroke-field bg-background px-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                 tabIndex={-1}
               >
                 <span
@@ -447,7 +447,7 @@ export function PasswordLoginForm({
               'focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
               rememberPassword
                 ? 'border-transparent bg-cta text-cta-foreground'
-                : 'border-input bg-background group-hover:border-foreground/60',
+                : 'border-stroke-field bg-background group-hover:border-foreground/60',
             )}
           >
             {rememberPassword && <Check aria-hidden="true" className="h-3 w-3" strokeWidth={3} />}

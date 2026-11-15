@@ -283,10 +283,10 @@ function hasUsableSignal(error: unknown): boolean {
  * `throw new Error(res.error)`,而 ApiResult 的失败分支本来带着 status/errorCode ——
  * 只取 message 就等于把"这个错误是鉴权失败 / 限流 / 校验失败"的身份信息整份丢掉。
  * 本文件的判序是 **errorCode → HTTP status → 文案正则**,前两档一旦被丢,
- * 401 的 "Invalid or expired token" 就只能落到参数类正则 `/invalid|missing|required/` 上,
- * 用户看到「提交的信息有误,请检查后重试」—— 真机实测:进「广场」tab 一进来就弹这句
- * (PROJECT_PLAN「广场 tab 一进即弹错误框」条)。这不是文案偏好问题:它把"去登录"
- * 引导成了"改表单",用户照着做永远修不好。
+ * 就只能靠文案正则猜身份 —— 英文文案千变万化,猜错时用户会被引到错误的方向
+ * (2026-09-26 真机:401 的 "Invalid or expired token" 撞上参数类 /invalid/,
+ * 进「广场」tab 一进来就弹「提交的信息有误」;文案正则已于 2026-11-14 补上词序
+ * 双向匹配兜住这一句,但 status/errorCode 仍是唯一可靠的判据)。
  *
  * 迁移这 213 处时**逐处换成本函数**,不要各处再手搓一次 Object.assign(那正是本仓
  * "两处算同一件事必漂移"反复记过的形态)。

@@ -594,7 +594,7 @@ export default function PromptsPage() {
               [...historyVersions].reverse().map((v) => {
                 const isCurrent = v.version === historyLatest
                 return (
-                  <Card key={v.version} className={isCurrent ? 'border-primary/30' : ''}>
+                  <Card key={v.version} className={isCurrent ? 'border-stroke-selected' : ''}>
                     <CardContent className="min-[640px]:p-3 p-3">
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0 flex-1">

@@ -34,6 +34,26 @@ const twMerge = extendTailwindMerge({
         'text-display-xl',
         'text-display-lg',
       ],
+      /**
+       * 具名 z-index 工具类必须注册(2026-11-15 实证):`z-popover`/`z-modal` 不在
+       * tailwind-merge 的 z-index 判据里,`cn('... z-popover', 'z-[2300]')` 会两个都保留,
+       * 最终由 globals.css `@layer utilities` 的源码顺序裁定(z-popover 胜) —— 于是所有
+       * 「给嵌套 Tooltip/Dialog 追加更高层级」的 className 覆盖全部静默失效(真机实测
+       * Tooltip 计算值仍是 2001)。名单与 globals.css 的 .z-* 定义逐一对应,新增必须同步。
+       * 组键必须是 `z`(tailwind-merge 默认组的真名,`z-index` 只是文档叫法)。
+       */
+      z: [
+        'z-base',
+        'z-header',
+        'z-sticky',
+        'z-dropdown',
+        'z-overlay',
+        'z-modal',
+        'z-popover',
+        'z-notification',
+        'z-loading',
+        'z-max',
+      ],
     },
   },
 })

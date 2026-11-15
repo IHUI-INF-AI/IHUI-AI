@@ -167,6 +167,17 @@ describe('cn():类名合并入口', () => {
   it('非冲突类名保持两者(不得把不同属性合并掉)', () => {
     expect(cn('flex', 'items-center')).toBe('flex items-center')
   })
+
+  it('具名 z-index token 与任意值互斥(2026-11-15:曾因未注册 z 组而静默双写)', () => {
+    // 立因:globals.css 的 .z-popover/.z-modal 是具名工具类,tailwind-merge 默认只认
+    // 数字与任意值。未注册时 `cn('… z-popover', 'z-[2300]')` 两个都保留,最终由 CSS
+    // 源码顺序裁定(z-popover 胜) —— 给嵌套 Tooltip/Dialog 追加层级的写法会无声失效
+    // (真机实测 computed z-index 仍是 2001)。本条锁住 `z` 组的注册,防止回退。
+    expect(cn('pointer-events-none z-popover', 'z-[2300]')).toBe('pointer-events-none z-[2300]')
+    expect(cn('fixed inset-0 z-modal', 'z-[2250]')).toBe('fixed inset-0 z-[2250]')
+    expect(cn('z-modal', 'z-sticky')).toBe('z-sticky')
+    expect(cn('z-popover', 'z-30')).toBe('z-30')
+  })
 })
 
 describe('阴影档位表:封闭档位集合(2026-11-12 立)', () => {

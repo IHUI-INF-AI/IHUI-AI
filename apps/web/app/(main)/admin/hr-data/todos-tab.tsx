@@ -56,7 +56,7 @@ export interface TodoSummary {
 }
 
 const inputCls =
-  'rounded-md border border-input bg-background px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary'
+  'rounded-md border border-input bg-background px-2 py-1 text-sm focus:outline outline-2 outline-offset-2 outline-stroke-focus'
 
 /** 严重度图标与配色 */
 function SeverityIcon({ severity }: { severity: string }) {

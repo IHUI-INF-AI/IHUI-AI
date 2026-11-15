@@ -587,7 +587,7 @@ export const TimelineEventRow = React.memo(function TimelineEventRow({
               )}
               {evidence!.diff && (
                 <div
-                  className="overflow-hidden rounded-sm border border-border/40"
+                  className="overflow-hidden rounded-sm border border-stroke-subtle"
                   data-testid="timeline-evidence-diff"
                 >
                   <div className="truncate bg-muted/30 px-1.5 py-0.5 text-[9px] text-muted-foreground/60">
@@ -646,7 +646,7 @@ export const TimelineEventRow = React.memo(function TimelineEventRow({
                       onClick={handleRollback}
                       disabled={!evidence!.rollback.available || rollbackState === 'rolling'}
                       data-testid="timeline-evidence-rollback"
-                      className="inline-flex cursor-pointer items-center gap-1 rounded-sm border border-border/50 px-1.5 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-accent/30 disabled:cursor-default disabled:opacity-50"
+                      className="inline-flex cursor-pointer items-center gap-1 rounded-sm border border-stroke-subtle px-1.5 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-accent/30 disabled:cursor-default disabled:opacity-50"
                     >
                       {rollbackState === 'rolling' ? (
                         <Loader2 className="h-2.5 w-2.5 animate-spin" aria-hidden />

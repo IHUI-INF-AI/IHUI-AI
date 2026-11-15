@@ -49,12 +49,8 @@ export interface ListQuery {
 }
 
 function paginate(query: ListQuery): { page: number; pageSize: number; offset: number } {
-  // F-642:此前 page/pageSize 原样透传,负值会让 OFFSET 变负报错、超大值会一次性全表载入。
-  // 统一夹到 page>=1、1<=pageSize<=100,并对非有限值(NaN/Infinity)回落到默认。
-  const rawPage = Number.isFinite(query.page) ? (query.page as number) : 1
-  const rawSize = Number.isFinite(query.pageSize) ? (query.pageSize as number) : 10
-  const page = Math.max(1, Math.trunc(rawPage))
-  const pageSize = Math.min(100, Math.max(1, Math.trunc(rawSize)))
+  const page = query.page ?? 1
+  const pageSize = query.pageSize ?? 10
   return { page, pageSize, offset: (page - 1) * pageSize }
 }
 
@@ -171,9 +167,26 @@ export async function deleteRoleMenuByRole(roleId: number): Promise<void> {
 
 export async function deleteMenuWithCascade(id: string): Promise<SysMenu | undefined> {
   return db.transaction(async (tx) => {
-    await tx.delete(sysRoleMenu).where(eq(sysRoleMenu.menuId, id))
-    const rows = await tx.delete(sysMenus).where(eq(sysMenus.id, id)).returning()
-    return rows[0]
+    // F-641:递归收集整棵子树再删。此前只删目标行,子节点因 parent_id 无外键残留,
+    // 从树上消失且后台再也无法选中/删除,role_menu 授权行也越删越脏。
+    // seen 防脏数据成环导致队列无限增长。
+    const ids: string[] = []
+    const seen = new Set<string>()
+    const queue = [id]
+    while (queue.length > 0) {
+      const parentId = queue.shift()!
+      if (seen.has(parentId)) continue
+      seen.add(parentId)
+      ids.push(parentId)
+      const children = await tx
+        .select({ id: sysMenus.id })
+        .from(sysMenus)
+        .where(eq(sysMenus.parentId, parentId))
+      for (const c of children) if (!seen.has(c.id)) queue.push(c.id)
+    }
+    await tx.delete(sysRoleMenu).where(inArray(sysRoleMenu.menuId, ids))
+    const rows = await tx.delete(sysMenus).where(inArray(sysMenus.id, ids)).returning()
+    return rows.find((r) => r.id === id)
   })
 }
 
@@ -695,7 +708,13 @@ export async function findConfigById(id: number): Promise<SysConfig | undefined>
 }
 
 export async function findConfigByKey(key: string): Promise<SysConfig | undefined> {
-  const rows = await db.select().from(sysConfigs).where(eq(sysConfigs.configKey, key)).limit(1)
+  // F-435: 无唯一约束时可能有多行同 key,固定排序让 limit(1) 结果确定(取最新一条)。
+  const rows = await db
+    .select()
+    .from(sysConfigs)
+    .where(eq(sysConfigs.configKey, key))
+    .orderBy(desc(sysConfigs.createdAt), desc(sysConfigs.configId))
+    .limit(1)
   return rows[0]
 }
 

@@ -174,7 +174,7 @@ function WorldBranchCard({
     <div
       className={cn(
         'flex flex-col gap-1.5 rounded-lg border p-2.5 transition-colors',
-        adopted ? 'border-primary/60 bg-primary/5' : 'border-border bg-card',
+        adopted ? 'border-stroke-selected bg-primary/5' : 'border-border bg-card',
       )}
       data-testid={`world-branch-${branch.id}`}
       data-world-status={branch.status}

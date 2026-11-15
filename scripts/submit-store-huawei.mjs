@@ -96,11 +96,34 @@ export function buildPaths({ baseUrl = 'https://connect-api.cloud.huawei.com', c
  *   none         两枚皆无 ⇒ 未判定,不冒充"没有凭据"也别冒充"有"
  */
 export function parseCredentialText(text) {
-  const pairs = String(text ?? '')
-    .split(/\r?\n/)
-    .map((l) => l.split(/[:：]/))
-    .filter((m) => m.length >= 2)
-    .map((m) => ({ k: m[0].trim(), v: m.slice(1).join(':').trim() }))
+  const raw = String(text ?? '')
+  // AGC 控制台「下载认证凭证」给的是 JSON(键与值都带引号、可能是单行也可能带行尾逗号),
+  // 而本器原先只认 `key:value` 文本行 ⇒ 同一份凭据换个导出格式就读成 none。
+  // 能 JSON.parse 就先按键值对摊平;否则退回文本行解析,两种形态走同一判据
+  // (§0.3:形态差异不等于无凭据)。
+  let pairs = null
+  let j = null
+  try {
+    j = JSON.parse(raw)
+  } catch {}
+  if (j && typeof j === 'object' && !Array.isArray(j)) {
+    pairs = []
+    const walk = (o) => {
+      for (const [k, v] of Object.entries(o)) {
+        if (v && typeof v === 'object') walk(v)
+        else pairs.push({ k, v: String(v ?? '') })
+      }
+    }
+    walk(j)
+  }
+  if (!pairs) {
+    const clean = (s) => String(s ?? '').trim().replace(/^["'\s]+|["'\s,;]+$/g, '')
+    pairs = raw
+      .split(/\r?\n/)
+      .map((l) => l.split(/[:：]/))
+      .filter((m) => m.length >= 2)
+      .map((m) => ({ k: clean(m[0]), v: clean(m.slice(1).join(':')) }))
+  }
   const pick = (re) => (pairs.find((p) => re.test(p.k)) ?? {}).v ?? null
   const clientId = pick(/^client[_\s-]?id$/i)
   const clientSecret = pick(/^client[_\s-]?secret$/i)
@@ -176,21 +199,29 @@ export function resolveCredentials({ env = process.env, read = readFileSync, roo
     }
     const s = parseServiceAccountJson(text)
     if (s.kind === 'service-account') {
-      sa = s
-      break
+      if (!sa) sa = s
+      continue
     }
-    if (!parsed) parsed = parseCredentialText(text)
+    // 不能"首个文件定生死":密钥目录里先被扫到的常是 credentials.csv(无冒号 ⇒ none),
+    // 旧写法会把 later 的真凭据整条吞掉,表现为「字段形态认不出」的假 unjudged。
+    // 判序:connect-api > hms-legacy > none;none 永不覆盖已有结论。
+    const p = parseCredentialText(text)
+    if (!parsed || parsed.kind === 'none' || (parsed.kind === 'hms-legacy' && p.kind === 'connect-api')) parsed = p
   }
+  // 选序:connect-api > service-account > hms-legacy。
+  // 官方文档把服务账号列为推荐,但本库那枚 2026-11-15 换 token 回 400 code=1101,
+  // 而 Connect API 客户端能换到 token ⇒ 先交能换 token 的那一类,服务账号只作兜底;
+  // 两类都不在时才落到 HMS 旧件(MISSING 并点名缺哪一枚)。
+  if (parsed?.kind === 'connect-api')
+    return { status: STATUS.FOUND, detail: `Connect API 客户端在位(client_id=${String(parsed.clientId).slice(0, 4)}***, secret sha8=${parsed.secretFp})`, value: parsed }
   if (sa) return { status: STATUS.FOUND, detail: `服务账号凭证在位(key_id=${sa.keyId.slice(0, 6)}***, sub_account=${sa.subAccount}, private_key sha8=${fp(sa.privateKey)};JWT PS256 本地签发)`, value: sa }
   if (!parsed) return { status: STATUS.UNJUDGED, detail: `凭据件读不到(${readErr?.code ?? readErr?.name})⇒ 不判"无凭据"`, value: null }
   if (parsed.kind === 'none') return { status: STATUS.UNJUDGED, detail: `凭据件字段形态认不出(字段=${parsed.fields.join('/')})`, value: null }
-  if (parsed.kind === 'hms-legacy')
-    return {
-      status: STATUS.MISSING,
-      detail: `密钥目录那枚是 HMS 客户端凭据(字段=${parsed.fields.join('/')}, secret sha8=${parsed.secretFp}),Publishing API 不认 ⇒ 需要 AGC 的「服务账号凭证(官方推荐)」或「API客户端凭证」`,
-      value: null,
-    }
-  return { status: STATUS.FOUND, detail: `Connect API 客户端在位(client_id=${String(parsed.clientId).slice(0, 4)}***, secret sha8=${parsed.secretFp})`, value: parsed }
+  return {
+    status: STATUS.MISSING,
+    detail: `密钥目录那枚是 HMS 客户端凭据(字段=${parsed.fields.join('/')}, secret sha8=${parsed.secretFp}),Publishing API 不认 ⇒ 需要 AGC 的「服务账号凭证(官方推荐)」或「API客户端凭证」`,
+    value: null,
+  }
 }
 
 /** 响应判读:HTTP 状态 + ret.code 决定三态;非 JSON/HTML 一律未判定(那是我的形态问题)。 */

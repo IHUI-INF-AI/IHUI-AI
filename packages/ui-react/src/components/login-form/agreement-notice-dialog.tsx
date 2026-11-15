@@ -119,14 +119,14 @@ export function AgreementNoticeDialog({
           //   AgreementNoticeDialog 内部无 Tabs/复选框/协议文本,完全不依赖
           //   .login-form-scope 的任何样式,安全移除。
           'w-[calc(100%-2rem)] max-w-[420px] gap-0 p-3 min-[640px]:rounded-xl',
-          'border border-border bg-card shadow-elevation-lg',
+          'border border-stroke-strong bg-card shadow-elevation-lg',
         )}
       >
         <div className="flex flex-col items-center text-center">
           <div
             className={cn(
               'mb-4 flex h-12 w-12 items-center justify-center rounded-lg',
-              'bg-primary/10 text-primary ring-1 ring-primary/20',
+              'bg-primary/10 text-primary ring-1 ring-stroke-selected/20',
             )}
           >
             <Shield className="h-6 w-6" strokeWidth={2} aria-hidden="true" />
@@ -147,9 +147,9 @@ export function AgreementNoticeDialog({
             rel="noopener noreferrer"
             data-testid="agreement-notice-terms"
             className={cn(
-              'group flex items-center gap-3 rounded-md border border-border bg-background',
+              'group flex items-center gap-3 rounded-md border border-stroke-default bg-background',
               'px-3 py-2.5 text-sm transition-all duration-200',
-              'hover:border-primary/40 hover:bg-accent/40',
+              'hover:border-stroke-strong hover:bg-accent/40',
             )}
           >
             <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary">
@@ -170,9 +170,9 @@ export function AgreementNoticeDialog({
             rel="noopener noreferrer"
             data-testid="agreement-notice-privacy"
             className={cn(
-              'group flex items-center gap-3 rounded-md border border-border bg-background',
+              'group flex items-center gap-3 rounded-md border border-stroke-default bg-background',
               'px-3 py-2.5 text-sm transition-all duration-200',
-              'hover:border-primary/40 hover:bg-accent/40',
+              'hover:border-stroke-strong hover:bg-accent/40',
             )}
           >
             <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary">

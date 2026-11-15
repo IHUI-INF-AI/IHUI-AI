@@ -188,10 +188,7 @@ export function SubagentsScreen() {
               await cancelSubagentDispatch(d.id)
               setDispatches((prev) => prev.filter((x) => x.id !== d.id))
             } catch (e) {
-              appAlert(
-                t('common.loadFailed'),
-                toFriendlyOr(e, t('subagents.cancelFail')),
-              )
+              appAlert(t('common.loadFailed'), toFriendlyOr(e, t('subagents.cancelFail')))
             } finally {
               setCancellingId('')
             }

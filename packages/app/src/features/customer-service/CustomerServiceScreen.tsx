@@ -23,7 +23,7 @@ export function CustomerServiceScreen({
   onEmail,
   onBack,
   onRetry,
-  colorScheme = 'light'
+  colorScheme = 'light',
 }: CustomerServiceScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
@@ -39,7 +39,11 @@ export function CustomerServiceScreen({
   if (error || !info) {
     return (
       <View style={styles.container}>
-        <ErrorState message={error || t('customerService.empty')} onRetry={onRetry} colorScheme={colorScheme} />
+        <ErrorState
+          message={error || t('customerService.empty')}
+          onRetry={onRetry}
+          colorScheme={colorScheme}
+        />
       </View>
     )
   }

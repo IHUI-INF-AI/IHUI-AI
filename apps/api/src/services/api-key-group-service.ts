@@ -320,9 +320,7 @@ export async function acceptInvite(inviteCode: string, apiKeyId: string): Promis
       .returning({ groupId: apiKeyGroupInvites.groupId })
     const row = rows[0]
     if (!row) return null
-    await tx
-      .insert(apiKeyGroupMembers)
-      .values({ groupId: row.groupId, apiKeyId, role: 'member' })
+    await tx.insert(apiKeyGroupMembers).values({ groupId: row.groupId, apiKeyId, role: 'member' })
     return row
   })
 

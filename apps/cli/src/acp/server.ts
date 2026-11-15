@@ -48,6 +48,10 @@ import {
 } from '../commands/session.js';
 import { planAcpReplay, type AcpReplayOutcome } from './session-replay.js';
 import {
+  projectMcpServerStatus,
+  type McpStatusProjection,
+} from './mcp-status-projection.js';
+import {
   applyTurnTransition,
   createTurnRecord,
   isWakeable,
@@ -575,6 +579,12 @@ interface McpListServersResponse {
 /** P1-6 `x.ai/mcp/serverStatus` 响应 */
 interface McpServerStatusResponse {
   server: McpServerStatus | null;
+  /**
+   * 归一化运行态投影(对齐 WorkBuddy projectMcpServerStatus):
+   * 把原始 liveness 布尔翻成 UI/调用方可直接消费的状态机 + 下一步行动指令。
+   * server 未注册时为 undefined。
+   */
+  projection?: McpStatusProjection;
 }
 
 /** P1-6 `x.ai/mcp/callTool` 响应 */
@@ -1432,11 +1442,15 @@ export class IhuiAcpAgent {
     return { servers };
   }
 
-  /** `x.ai/mcp/serverStatus` — 查询单个 server 的 liveness 状态 */
+  /** `x.ai/mcp/serverStatus` — 查询单个 server 的 liveness 状态 + 归一化投影 */
   async mcpServerStatus(params: McpServerStatusParams): Promise<McpServerStatusResponse> {
     const client = getManagedClient(params.serverName);
     if (!client) return { server: null };
-    return { server: client.getStatus() };
+    const status = client.getStatus();
+    return {
+      server: status,
+      projection: projectMcpServerStatus(status.serverName, status),
+    };
   }
 
   /**

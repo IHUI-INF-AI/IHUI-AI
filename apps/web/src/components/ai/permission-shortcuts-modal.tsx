@@ -39,6 +39,7 @@ import {
 } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
+import { NESTED_FLOATING_OVERLAY_Z_CLASS, NESTED_FLOATING_Z_CLASS } from '@/lib/floating-layer'
 
 interface ShortcutRow {
   /** 按键标签(纯展示,如 "Shift+Tab" / "?" / "/permission full") */
@@ -97,7 +98,10 @@ export function PermissionShortcutsModal({ open, onClose }: PermissionShortcutsM
         if (!o) onClose()
       }}
     >
-      <DialogContent className="max-w-md">
+      <DialogContent
+        className={cn('max-w-md', NESTED_FLOATING_Z_CLASS)}
+        overlayClassName={NESTED_FLOATING_OVERLAY_Z_CLASS}
+      >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Keyboard className="h-4 w-4" aria-hidden="true" />
@@ -121,12 +125,12 @@ export function PermissionShortcutsModal({ open, onClose }: PermissionShortcutsM
                   return (
                     <li
                       key={row.labelKey ?? row.key ?? row.descKey}
-                      className="flex items-center gap-2 rounded-md border border-border/60 bg-card/40 px-2 py-1.5"
+                      className="flex items-center gap-2 rounded-md border border-stroke-subtle bg-card/40 px-2 py-1.5"
                     >
                       <kbd
                         className={cn(
                           'inline-flex min-w-[88px] items-center justify-center gap-1 rounded-md',
-                          'border border-border/60 bg-muted/40 px-2 py-0.5 font-mono text-[11px] text-foreground',
+                          'border border-stroke-subtle bg-muted/40 px-2 py-0.5 font-mono text-[11px] text-foreground',
                         )}
                       >
                         {Icon ? <Icon className="h-3 w-3" aria-hidden="true" /> : null}
@@ -149,7 +153,7 @@ export function PermissionShortcutsModal({ open, onClose }: PermissionShortcutsM
             <kbd
               className={cn(
                 'inline-flex min-w-[88px] items-center justify-center gap-1 rounded-md',
-                'border border-border/60 bg-muted/40 px-2 py-0.5 font-mono text-[11px] text-foreground',
+                'border border-stroke-subtle bg-muted/40 px-2 py-0.5 font-mono text-[11px] text-foreground',
               )}
             >
               Ctrl+/

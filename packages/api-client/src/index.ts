@@ -341,6 +341,8 @@ export * from './endpoints/agent-chat-stream.js'
 export * from './endpoints/agent-usage.js'
 // AI 模型定价查询(W4 成本真网计价,2026-09-12)
 export * from './endpoints/ai-pricing.js'
+// 实时汇率(2026-11-14 立):USD/CNY/USDT 展示换算
+export * from './endpoints/exchange-rate.js'
 // Deep Research 深度研究(2026-09-07 工作线 B)
 export * from './endpoints/research.js'
 // 签到助手(2026-10-03 立,ai-service /api/checkin)
@@ -467,6 +469,9 @@ export * from './endpoints/wallet.js'
 export * from './endpoints/workspace.js'
 // 外部会话导入端点(2026-09-20 立,D28,web /settings/import 页跨端共享)
 export * from './endpoints/conversation-import.js'
+// 能力应用端点(2026-11-14 补 re-export:端内已按 @ihui/api-client 消费
+// list/get/save/delete/invokeCapabilityApp,入口漏列 ⇒ TS2305 整片红)
+export * from './endpoints/capability-app.js'
 // SAG2 词法多跳检索(2026-11-13 立,web /sag2 工作台跨端共享:web/RN/miniapp-taro 三端消费)
 export * from './endpoints/sag2-lexical.js'
 

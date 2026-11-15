@@ -5,8 +5,10 @@
 'use client'
 
 import * as React from 'react'
+import Link from 'next/link'
 import { useTranslations, useLocale } from 'next-intl'
 import { useTheme } from 'next-themes'
+import { ChevronRight, Palette } from 'lucide-react'
 
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
@@ -30,6 +32,7 @@ import { SIDEBAR_KEY } from './helpers'
 
 export default function SettingsPage() {
   const t = useTranslations('settings')
+  const ta = useTranslations('appearanceSettings')
   const locale = useLocale()
   const { theme, setTheme } = useTheme()
   const [mounted, setMounted] = React.useState(false)
@@ -62,6 +65,22 @@ export default function SettingsPage() {
 
         <TabsContent value="appearance" className="min-h-0">
           <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2">
+            {/* 2026-11-15:外观与排版的统一入口(字号/字重/行高/宽度/详细度/AI 回复风格) */}
+            <Link
+              href="/settings/appearance"
+              data-testid="settings-appearance-entry"
+              className="group flex items-center gap-3 rounded-sm border p-4 transition-colors hover:bg-accent min-[640px]:col-span-2"
+            >
+              <Palette className="h-5 w-5 shrink-0 text-primary" aria-hidden="true" />
+              <div className="min-w-0 flex-1">
+                <div className="text-body font-medium">{ta('title')}</div>
+                <p className="mt-0.5 text-label text-muted-foreground">{ta('subtitle')}</p>
+              </div>
+              <ChevronRight
+                className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5"
+                aria-hidden="true"
+              />
+            </Link>
             <ThemeCard t={t} mounted={mounted} theme={theme} onSelect={(k) => setTheme(k)} />
             <LanguageCard t={t} locale={locale} onSelect={switchLocale} />
             <SidebarCard t={t} collapsed={collapsed} onToggle={toggleCollapsed} />

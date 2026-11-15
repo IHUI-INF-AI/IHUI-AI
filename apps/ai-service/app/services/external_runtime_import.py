@@ -58,6 +58,12 @@ _TASK_ID_RE = re.compile(r"^[a-zA-Z0-9_-]{1,64}$")
 _VALID_TRIGGER_TYPES = ("cron", "date", "interval")
 
 
+from ..core.bundle_integrity import (
+    check_orphan_refs,
+    verify_bundle_signature,
+)
+
+
 @dataclass
 class ParsedBundle:
     """解析后的外部 bundle(ok=False 时 problems 逐条点名)。"""
@@ -148,12 +154,44 @@ def automation_task_id(source: str, item: dict[str, Any]) -> str:
     return tid
 
 
+def _signable_payload(parsed: ParsedBundle) -> dict[str, Any]:
+    """签名/验签用的规范化载荷:剥离 parse 注入的 ``skipped`` 元数据。
+
+    外部客户端签的是它提交的原始 bundle(每维只有 ``items``,无 ``skipped``);
+    ``parse_external_bundle`` 会给每维补 ``skipped`` 计数(服务端内部元数据,
+    客户端不可见)。若直接拿 ``parsed.namespaces`` 验签,外部签名永远匹配不上。
+    故此处还原成客户端可见形状再算 HMAC。
+    """
+    stripped = {
+        ns: {"items": block.get("items", [])}
+        for ns, block in parsed.namespaces.items()
+        if isinstance(block, dict)
+    }
+    return {"specVersion": parsed.spec_version, "source": parsed.source, "namespaces": stripped}
+
+
 async def apply_bundle(
     parsed: ParsedBundle,
     user_id: str,
     session_id: str | None = None,
+    *,
+    signature: str | None = None,
+    signing_secret: bytes | None = None,
+    check_orphans: bool = True,
 ) -> dict[str, Any]:
-    """逐维执行导入;各维独立计数,单维失败不拖垮其余维(逐条点名)。"""
+    """逐维执行导入;各维独立计数,单维失败不拖垮其余维(逐条点名)。
+
+    Args:
+        parsed: ``parse_external_bundle`` 的产物。
+        user_id: 导入产物归属者;空则拒绝。
+        session_id: 可选会话 id。
+        signature: 可选 HMAC-SHA256 签名(opt-in);提供时才验。
+        signing_secret: 签名密钥(opt-in);signature 提供但 secret 缺失 ⇒ 拒绝。
+        check_orphans: 孤儿引用校验(默认 True;引用指向不存在的父 ⇒ 拒绝)。
+
+    Returns:
+        含 ``status`` 键的 dict。孤儿/签名失败 ⇒ ``status="rejected"``,不执行导入。
+    """
     if not parsed.ok:
         return {
             "status": "rejected",
@@ -164,6 +202,39 @@ async def apply_bundle(
             "status": "skipped_missing_identity",
             "detail": "user_id 未注入:导入产物必须归属到人,拒绝无身份导入",
         }
+
+    # ------------------------------------------------------------------
+    # H 类新增:孤儿引用校验(默认开)
+    # ------------------------------------------------------------------
+    if check_orphans:
+        raw_bundle = {"specVersion": parsed.spec_version, "source": parsed.source,
+                      "namespaces": parsed.namespaces}
+        orphan_result = check_orphan_refs(raw_bundle)
+        if not orphan_result.valid:
+            return {
+                "status": "rejected",
+                "reason": "孤儿引用:bundle 内引用指向不存在的父条目",
+                "orphan_refs": orphan_result.orphan_refs,
+                "problems": orphan_result.problems,
+            }
+
+    # ------------------------------------------------------------------
+    # H 类新增:HMAC-SHA256 签名校验(opt-in;signature 提供 ⇒ 才验)
+    # ------------------------------------------------------------------
+    if signature is not None:
+        if signing_secret is None:
+            return {
+                "status": "rejected",
+                "reason": "签名校验要求提供密钥(signing_secret);缺失即拒绝(fail-closed)",
+            }
+        # 用剥离 skipped 的规范化载荷验签(= 客户端提交的原始形状,见 _signable_payload)
+        sig_result = verify_bundle_signature(_signable_payload(parsed), signature, signing_secret)
+        if not sig_result.ok:
+            return {
+                "status": "rejected",
+                "reason": f"签名验证失败: {sig_result.reason}",
+            }
+
     result: dict[str, Any] = {"status": "ok", "source": parsed.source}
 
     if "memory" in parsed.namespaces:

@@ -19,10 +19,18 @@
 // 已随残余②收口(2026-09-30):创建成功后经 chat store 待发草稿队列
 // draftInput + draftAutoSend 注入,MessageInput 消费后作为新会话首条用户消息发出
 // (通道与理由见 handleCreateSession 内注)。
+//
+// **2026-11-15 结构性修复**:菜单项与 Dialog 拆成两个导出的组件。
+// 旧版把 Dialog 挂在 DropdownMenu.Content 里的自绘 button 上 —— 菜单不关闭时
+// Dialog(z-modal 2000)被菜单(z-[2200])压在下面;点进 Dialog 又会被 Radix 判定
+// 为"菜单外部"而关闭菜单 → 整个 Dialog 随 Content 卸载。现在菜单项走 Radix
+// DropdownMenu.Item(选中即关菜单、键盘可达、高亮态同源),Dialog 由宿主挂在菜单
+// 之外常驻,两处生命周期彻底解耦。
 
 'use client'
 
 import * as React from 'react'
+import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import { ScrollText } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import {
@@ -32,12 +40,11 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  IconButton,
   Input,
 } from '@ihui/ui-react'
-import { Tooltip, TooltipProvider } from '@/components/feedback'
 import { createConversation, generateRecapHandoff } from '@ihui/api-client'
 import { useChatStore } from '@/stores/chat'
+import { MENU_ITEM_CLASS, MENU_ITEM_ICON_CLASS, MENU_ITEM_LABEL_CLASS } from '@/lib/menu-item'
 
 /**
  * 交接内容生成出口可达(2026-09-30 拍板立项,后端三段与本批同枚落地,依据见文件头)。
@@ -50,17 +57,34 @@ type RecapView = 'recap' | 'handoff'
 
 type GeneratePhase = 'idle' | 'generating' | 'done' | 'error'
 
-export function TaskRecapEntry(
-  props: {
-    /** 入口形态(2026-11-04 信息架构重构):
-     *  - 'icon'(默认):面板头部的独立图标按钮;
-     *  - 'menu-item':头部「⋯」溢出菜单内的一行菜单项(不再占标题栏槽位)。 */
-    variant?: 'icon' | 'menu-item'
-  } = {},
-) {
-  const { variant = 'icon' } = props
+/**
+ * 头部「⋯」溢出菜单内的一行(2026-11-04 信息架构重构:回顾入口不再占标题栏槽位)。
+ * 行为与菜单内其他 Radix Item 完全一致:方向键可达、选中后菜单自动关闭、
+ * 高亮态走共享 MENU_ITEM_CLASS,不再有自绘 hover-only 的第二套观感。
+ */
+export function TaskRecapMenuItem({ onSelect }: { onSelect: () => void }) {
   const tc = useTranslations('aiChat')
-  const [open, setOpen] = React.useState(false)
+  return (
+    <DropdownMenu.Item
+      data-testid="ai-panel-recap-entry"
+      className={MENU_ITEM_CLASS}
+      onSelect={onSelect}
+    >
+      <ScrollText className={MENU_ITEM_ICON_CLASS} />
+      <span className={MENU_ITEM_LABEL_CLASS}>{tc('recap.title')}</span>
+    </DropdownMenu.Item>
+  )
+}
+
+/** 回顾 + 交接 Dialog(受控)。由宿主挂在 DropdownMenu 之外,菜单关闭不丢状态。 */
+export function TaskRecapDialog({
+  open,
+  onOpenChange,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+}) {
+  const tc = useTranslations('aiChat')
   const [view, setView] = React.useState<RecapView>('recap')
   const [purpose, setPurpose] = React.useState('')
   const [phase, setPhase] = React.useState<GeneratePhase>('idle')
@@ -72,11 +96,6 @@ export function TaskRecapEntry(
   const conversationId = useChatStore((s) => s.conversationId)
   const setConversationId = useChatStore((s) => s.setConversationId)
 
-  const close = React.useCallback(() => {
-    setOpen(false)
-    setView('recap')
-  }, [])
-
   const resetResult = React.useCallback(() => {
     setPhase('idle')
     setSummary(null)
@@ -84,6 +103,14 @@ export function TaskRecapEntry(
     setErrorMsg(null)
     setCreateFailed(false)
   }, [])
+
+  const close = React.useCallback(() => {
+    // 与旧版"菜单关闭即整组件卸载"的观感对齐:每次重新打开都是干净的入口清单
+    resetResult()
+    setPurpose('')
+    setView('recap')
+    onOpenChange(false)
+  }, [onOpenChange, resetResult])
 
   const handleGenerate = React.useCallback(async () => {
     if (!conversationId) return
@@ -140,191 +167,160 @@ export function TaskRecapEntry(
   const generating = phase === 'generating'
 
   return (
-    <>
-      {variant === 'menu-item' ? (
-        /* 2026-11-04 信息架构重构:头部只留「标题 + ⋯」,回顾入口作为溢出菜单的一行。
-           样式与 ai-side-panel 的 HEADER_MENU_ITEM_CLASS 同规格(该常量不导出,避免跨文件耦合)。 */
-        <button
-          type="button"
-          role="menuitem"
-          onClick={() => setOpen(true)}
-          aria-label={tc('recap.title')}
-          data-testid="ai-panel-recap-entry"
-          className="flex w-full cursor-default select-none items-center gap-2 rounded-sm px-2.5 py-1.5 text-left text-label outline-none hover:bg-accent hover:text-accent-foreground"
-        >
-          <ScrollText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-          <span className="min-w-0 flex-1 truncate">{tc('recap.title')}</span>
-        </button>
-      ) : (
-        <TooltipProvider>
-          <Tooltip content={tc('recap.title')}>
-            <IconButton
-              onClick={() => setOpen(true)}
-              aria-label={tc('recap.title')}
-              data-testid="ai-panel-recap-entry"
+    <Dialog open={open} onOpenChange={(next) => (next ? onOpenChange(true) : close())}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle data-testid="recap-dialog-title">
+            {view === 'handoff' ? tc('recap.handoff.title') : tc('recap.title')}
+          </DialogTitle>
+        </DialogHeader>
+        {/* 恒挂载:Radix 要求 Content 内有描述位,取竞品的 previewDescription 原文 */}
+        <DialogDescription>{tc('recap.previewDescription')}</DialogDescription>
+
+        {view === 'recap' ? (
+          <div className="flex flex-col gap-2 pt-1" data-testid="recap-menu">
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              data-testid="recap-handoff-menu-item"
+              onClick={() => setView('handoff')}
             >
-              <ScrollText />
-            </IconButton>
-          </Tooltip>
-        </TooltipProvider>
-      )}
+              {tc('recap.handoff.menuItem')}
+            </Button>
+          </div>
+        ) : (
+          <>
+            <div className="flex flex-col gap-1.5 pt-2">
+              <label
+                className="text-label font-medium text-foreground/80"
+                htmlFor="recap-purpose-input"
+              >
+                {tc('recap.purposeLabel')}
+              </label>
+              <Input
+                id="recap-purpose-input"
+                data-testid="recap-purpose-input"
+                placeholder={tc('recap.purposePlaceholder')}
+                value={purpose}
+                onChange={(e) => setPurpose(e.target.value)}
+                disabled={unavailable || generating}
+                aria-disabled={unavailable || generating || undefined}
+              />
+            </div>
 
-      <Dialog open={open} onOpenChange={(next) => (next ? setOpen(true) : close())}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle data-testid="recap-dialog-title">
-              {view === 'handoff' ? tc('recap.handoff.title') : tc('recap.title')}
-            </DialogTitle>
-          </DialogHeader>
-          {/* 恒挂载:Radix 要求 Content 内有描述位,取竞品的 previewDescription 原文 */}
-          <DialogDescription>{tc('recap.previewDescription')}</DialogDescription>
+            {unavailable && (
+              <p
+                className="rounded-md border bg-muted/40 px-2.5 py-2 text-[11px] leading-relaxed text-muted-foreground"
+                data-testid="recap-generation-unavailable"
+              >
+                {tc('recap.handoffUnavailable')}
+              </p>
+            )}
 
-          {view === 'recap' ? (
-            <div className="flex flex-col gap-2 pt-1" data-testid="recap-menu">
+            {generating && (
+              <p
+                className="rounded-md border bg-muted/40 px-2.5 py-2 text-[11px] leading-relaxed text-muted-foreground"
+                data-testid="recap-phase-generating"
+                role="status"
+              >
+                {tc('recap.phase.generating')}
+              </p>
+            )}
+
+            {phase === 'done' && summary && (
+              <div
+                className="flex flex-col gap-1.5 rounded-md border bg-muted/30 px-2.5 py-2"
+                data-testid="recap-preview"
+              >
+                <p className="text-[11px] leading-relaxed text-muted-foreground">
+                  {tc('recap.phase.done')}
+                </p>
+                <p className="whitespace-pre-wrap text-label leading-relaxed text-foreground">
+                  {summary}
+                </p>
+                {nextAction && (
+                  <p className="whitespace-pre-wrap text-label leading-relaxed text-foreground/80">
+                    {nextAction}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {phase === 'error' && (
+              <p
+                className="rounded-md border border-destructive/40 bg-destructive/10 px-2.5 py-2 text-[11px] leading-relaxed text-destructive"
+                data-testid="recap-generation-error"
+                role="alert"
+              >
+                {errorMsg}
+              </p>
+            )}
+
+            {createFailed && (
+              <p
+                className="text-[11px] leading-relaxed text-destructive"
+                data-testid="recap-create-failed"
+                role="alert"
+              >
+                {tc('recap.createFailed')}
+              </p>
+            )}
+
+            <div className="flex flex-wrap items-center gap-2 pt-3">
+              {phase !== 'done' && (
+                <Button
+                  type="button"
+                  size="sm"
+                  data-testid="recap-generate-submit"
+                  disabled={unavailable || generating || !conversationId}
+                  aria-disabled={unavailable || generating || !conversationId || undefined}
+                  onClick={() => void handleGenerate()}
+                >
+                  {tc('recap.handoff.title')}
+                </Button>
+              )}
+              {phase === 'done' && (
+                <Button
+                  type="button"
+                  size="sm"
+                  data-testid="recap-create-session"
+                  disabled={creating}
+                  aria-disabled={creating || undefined}
+                  onClick={() => void handleCreateSession()}
+                >
+                  {creating ? tc('recap.creating') : tc('recap.createSession')}
+                </Button>
+              )}
               <Button
                 type="button"
                 size="sm"
                 variant="outline"
-                data-testid="recap-handoff-menu-item"
-                onClick={() => setView('handoff')}
+                data-testid="recap-reveal-file"
+                disabled
+                aria-disabled
+                title={unavailable ? tc('recap.handoffUnavailable') : undefined}
               >
-                {tc('recap.handoff.menuItem')}
+                {tc('recap.revealFile')}
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                data-testid="recap-back-to-list"
+                onClick={() => {
+                  resetResult()
+                  setView('recap')
+                }}
+              >
+                {tc('recap.title')}
               </Button>
             </div>
-          ) : (
-            <>
-              <div className="flex flex-col gap-1.5 pt-2">
-                <label
-                  className="text-label font-medium text-foreground/80"
-                  htmlFor="recap-purpose-input"
-                >
-                  {tc('recap.purposeLabel')}
-                </label>
-                <Input
-                  id="recap-purpose-input"
-                  data-testid="recap-purpose-input"
-                  placeholder={tc('recap.purposePlaceholder')}
-                  value={purpose}
-                  onChange={(e) => setPurpose(e.target.value)}
-                  disabled={unavailable || generating}
-                  aria-disabled={unavailable || generating || undefined}
-                />
-              </div>
-
-              {unavailable && (
-                <p
-                  className="rounded-md border bg-muted/40 px-2.5 py-2 text-[11px] leading-relaxed text-muted-foreground"
-                  data-testid="recap-generation-unavailable"
-                >
-                  {tc('recap.handoffUnavailable')}
-                </p>
-              )}
-
-              {generating && (
-                <p
-                  className="rounded-md border bg-muted/40 px-2.5 py-2 text-[11px] leading-relaxed text-muted-foreground"
-                  data-testid="recap-phase-generating"
-                  role="status"
-                >
-                  {tc('recap.phase.generating')}
-                </p>
-              )}
-
-              {phase === 'done' && summary && (
-                <div
-                  className="flex flex-col gap-1.5 rounded-md border bg-muted/30 px-2.5 py-2"
-                  data-testid="recap-preview"
-                >
-                  <p className="text-[11px] leading-relaxed text-muted-foreground">
-                    {tc('recap.phase.done')}
-                  </p>
-                  <p className="whitespace-pre-wrap text-label leading-relaxed text-foreground">
-                    {summary}
-                  </p>
-                  {nextAction && (
-                    <p className="whitespace-pre-wrap text-label leading-relaxed text-foreground/80">
-                      {nextAction}
-                    </p>
-                  )}
-                </div>
-              )}
-
-              {phase === 'error' && (
-                <p
-                  className="rounded-md border border-destructive/40 bg-destructive/10 px-2.5 py-2 text-[11px] leading-relaxed text-destructive"
-                  data-testid="recap-generation-error"
-                  role="alert"
-                >
-                  {errorMsg}
-                </p>
-              )}
-
-              {createFailed && (
-                <p
-                  className="text-[11px] leading-relaxed text-destructive"
-                  data-testid="recap-create-failed"
-                  role="alert"
-                >
-                  {tc('recap.createFailed')}
-                </p>
-              )}
-
-              <div className="flex flex-wrap items-center gap-2 pt-3">
-                {phase !== 'done' && (
-                  <Button
-                    type="button"
-                    size="sm"
-                    data-testid="recap-generate-submit"
-                    disabled={unavailable || generating || !conversationId}
-                    aria-disabled={unavailable || generating || !conversationId || undefined}
-                    onClick={() => void handleGenerate()}
-                  >
-                    {tc('recap.handoff.title')}
-                  </Button>
-                )}
-                {phase === 'done' && (
-                  <Button
-                    type="button"
-                    size="sm"
-                    data-testid="recap-create-session"
-                    disabled={creating}
-                    aria-disabled={creating || undefined}
-                    onClick={() => void handleCreateSession()}
-                  >
-                    {creating ? tc('recap.creating') : tc('recap.createSession')}
-                  </Button>
-                )}
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  data-testid="recap-reveal-file"
-                  disabled
-                  aria-disabled
-                  title={unavailable ? tc('recap.handoffUnavailable') : undefined}
-                >
-                  {tc('recap.revealFile')}
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  data-testid="recap-back-to-list"
-                  onClick={() => {
-                    resetResult()
-                    setView('recap')
-                  }}
-                >
-                  {tc('recap.title')}
-                </Button>
-              </div>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
-    </>
+          </>
+        )}
+      </DialogContent>
+    </Dialog>
   )
 }
 
-export default TaskRecapEntry
-// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+export default TaskRecapDialog

@@ -35,11 +35,11 @@ export const COLORS = {
   bgPrimary: { light: 'hsl(0 0% 96.1%)', dark: 'hsl(0 0% 14%)' },
   bgSecondary: { light: 'hsl(0 0% 100%)', dark: 'hsl(0 0% 10%)' },
   bgTertiary: { light: 'hsl(0 0% 92%)', dark: 'hsl(0 0% 14.9%)' },
-  border: { light: 'hsl(0 0% 89.8%)', dark: 'hsl(0 0% 22%)' },
-  divider: { light: 'hsl(0 0% 89.8%)', dark: 'hsl(0 0% 22%)' },
+  border: { light: 'rgba(0, 0, 0, 0.1)', dark: 'rgba(255, 255, 255, 0.12)' },
+  divider: { light: 'rgba(0, 0, 0, 0.1)', dark: 'rgba(255, 255, 255, 0.12)' },
   /* 以下 2 字段为 COLORS_MAPPING 中声明而本块尚缺,由 sync-design-tokens.mjs 自动补入(勿手改) */
   glassBg: { light: 'rgba(255, 255, 255, 0.6)', dark: 'rgba(26, 26, 26, 0.6)' },
-  borderMedium: { light: '#d4d4d4', dark: '#525252' },
+  borderMedium: { light: 'rgba(0, 0, 0, 0.16)', dark: 'rgba(255, 255, 255, 0.2)' },
   /* 以下 1 字段为 COLORS_MAPPING 中声明而本块尚缺,由 sync-design-tokens.mjs 自动补入(勿手改) */
   brandAccentDeep: { light: '#4a7a96', dark: '#a3c4d6' },
 } as const

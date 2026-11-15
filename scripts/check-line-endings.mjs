@@ -25,19 +25,25 @@
  * 为什么不做"自动修复":写盘归一属于工具层职责,门禁只负责**让问题当场可见**。
  * 自动改写会让"谁写坏了"这一信息永久丢失,而那道信息正是修工具的依据。
  *
+ * 判定面(2026-11-15 接入 scripts/lib/face-reader.mjs,与守门 70/77/83 同口径):
+ *   - `--staged`  ⇒ 索引 blob(`:<path>`):提交进去的那一份才算数,盘上随后改对不算修好;
+ *   - 默认        ⇒ HEAD blob(`HEAD:<path>`);
+ *   - `--worktree`⇒ 磁盘(人工排查逃生舱)。
+ *   取不到被审面 ⇒ exit 2,绝不回落另一个面、也绝不把"读不到"记成"干净"。
+ *
  * CLI 用法:
- *   node scripts/check-line-endings.mjs <file...>     # 判指定文件
- *   node scripts/check-line-endings.mjs --staged      # 判暂存面的新增/修改文件
+ *   node scripts/check-line-endings.mjs <file...>     # 判指定文件(默认 HEAD 面)
+ *   node scripts/check-line-endings.mjs --staged      # 判暂存面的新增/修改文件(索引面)
+ *   node scripts/check-line-endings.mjs --worktree <file...>  # 人工排查:判磁盘
  *   node scripts/check-line-endings.mjs --self-test
  *
- * 退出码:0 绿 / 1 红 / 2 未判定(取不到文件清单)
+ * 退出码:0 绿 / 1 红 / 2 未判定(取不到文件清单 / 取不到被审面)
  */
-import { execFileSync } from 'node:child_process'
 import { readFileSync, statSync } from 'node:fs'
-import { dirname, extname, resolve } from 'node:path'
+import { dirname, extname, isAbsolute, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { selectFace, Undetermined } from './lib/face-reader.mjs'
-import { blobsAtFace } from './lib/gate-body-provenance.mjs'
+
+import { catBatch, gitRaw, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 export const ROOT = resolve(HERE, '..')
@@ -95,23 +101,44 @@ export function inspectFile(absPath) {
   }
 }
 
-/** 取暂存面新增/修改的文件清单(A/C/M/R) */
+/** 取暂存面新增/修改的文件清单(A/C/M/R)—— 清单与正文必须同面,故派生统一走 face-reader 的 gitRaw */
 export function stagedFiles(root = ROOT) {
-  const out = execFileSync(
-    'git',
-    ['-c', 'safe.directory=*', 'diff', '--cached', '--name-only', '--diff-filter=ACMR'],
-    {
-      cwd: root,
-      encoding: 'utf8',
-      maxBuffer: 1 << 26,
-      // §12g:派生 git 必须显式接管 stdio(不写稳定 EBUSY,30 组对照实测)。只读 diff,不喂 stdin。
-      stdio: ['ignore', 'pipe', 'pipe'],
-    },
+  const out = gitRaw(
+    ['diff', '--cached', '--name-only', '--diff-filter=ACMR', '-z'],
+    root,
+    { timeout: 120000 },
   )
   return String(out ?? '')
-    .split('\n')
-    .map((l) => l.trim())
+    .split('\0')
     .filter(Boolean)
+    .map((p) => p.replace(/\\/g, '/'))
+}
+
+/** 绝对路径归一成仓库相对路径(git 规格只认相对路径),其余原样返回 */
+function faceRel(file) {
+  return isAbsolute(file) ? relative(ROOT, file).replace(/\\/g, '/') : String(file)
+}
+
+/**
+ * 按判定面取正文 —— 本门读仓库内容的**唯一**出口。
+ *
+ * 面语义与 lib/face-reader.mjs 一致:默认 HEAD blob、`--staged` 索引 blob、`--worktree` 磁盘。
+ * 取不到(路径不在该面 / 非 blob)⇒ null,由调用方判「未判定」;派生失败 ⇒ 抛 Undetermined。
+ *
+ * @returns {Map<string, string|null>} 键为传入的相对路径
+ */
+export function readFaceTexts(files, face, root = ROOT) {
+  const map = new Map()
+  if (files.length === 0) return map
+  if (face === 'worktree') {
+    for (const f of files) map.set(f, readWorktreeFile(root, f))
+    return map
+  }
+  const rev = face === 'staged' ? '' : 'HEAD'
+  const specs = files.map((f) => `${rev}:${f}`)
+  const got = catBatch(root, specs, { maxBuffer: 1 << 29, timeout: 120000 })
+  for (let i = 0; i < files.length; i += 1) map.set(files[i], got.get(specs[i]) ?? null)
+  return map
 }
 
 /** 自检:内存夹具 + 反证 */
@@ -159,11 +186,13 @@ function printHelp() {
 check-line-endings.mjs — 行尾守卫(防止写盘工具把文件改成 CRLF)
 
 用法:
-  node scripts/check-line-endings.mjs <file...>     # 判指定文件
-  node scripts/check-line-endings.mjs --staged      # 判暂存面新增/修改文件
+  node scripts/check-line-endings.mjs <file...>     # 判指定文件(默认 HEAD 面)
+  node scripts/check-line-endings.mjs --staged      # 判暂存面新增/修改文件(索引面)
+  node scripts/check-line-endings.mjs --worktree <file...>  # 人工排查:判磁盘
   node scripts/check-line-endings.mjs --self-test   # 纯夹具自检
 
 判据:正文里出现 \`\\r\\n\` 即红并点名行号;二进制扩展名跳过。
+判定面:--staged ⇒ 索引 blob / 默认 ⇒ HEAD blob / --worktree ⇒ 磁盘;取不到即 exit 2。
 
 为什么需要它:.gitattributes 的 eol=lf 只约束 git 入库,管不住工具直接写盘。
 实测后果:CRLF 会让 /^\\s*\\/\\/.*$/gm 这类"剥注释"正则在 \\r 前失配,
@@ -180,19 +209,19 @@ function main(argv = process.argv.slice(2)) {
   }
   if (argv.includes('--self-test')) return selfTest() ? 0 : 1
 
-  // 判面层接线(守门 312):--staged 时经 selectFace 按索引读,不再是裸读工作区。
-  const { face, error } = selectFace({
+  const picked = selectFace({
     staged: argv.includes('--staged'),
     worktree: argv.includes('--worktree'),
-    def: 'staged',
+    def: 'head',
   })
-  if (error) {
-    console.log(`⏭ 未判定:[check-line-endings] ${error}`)
+  if (picked.error) {
+    console.log(`⏭ 未判定:${picked.error}`)
     return 2
   }
+  const face = picked.face
 
   let files
-  if (argv.includes('--staged')) {
+  if (face === 'staged') {
     try {
       files = stagedFiles()
     } catch (e) {
@@ -202,26 +231,31 @@ function main(argv = process.argv.slice(2)) {
   } else {
     files = argv.filter((a) => !a.startsWith('--'))
   }
+  files = files.map(faceRel)
   if (files.length === 0) {
     console.log('⏭ 未判定:没有给出任何文件(空清单不代表干净 —— 判了 0 个文件不等于没有 CRLF)')
     return 2
   }
 
+  const targets = files.filter((f) => !shouldSkip(f))
+  let texts
+  try {
+    texts = readFaceTexts(targets, face)
+  } catch (e) {
+    console.log(`⏭ 未判定:${face} 面取材失败(${e instanceof Error ? e.message : String(e)})`)
+    return 2
+  }
+
   const bad = []
   const unreadable = []
-  for (const f of files) {
-    if (shouldSkip(f)) continue
-    // 按 face 读文件内容(索引/工作树/HEAD),而非裸读工作区
-    let text = null
-    try {
-      text = blobsAtFace(ROOT, face, [f]).get(f)?.text
-      if (text === null || text === undefined) throw new Undetermined(`${f} 不在 ${face} 面`)
-    } catch (e) {
-      unreadable.push(`${f}(${e instanceof Error ? e.message : String(e)})`)
+  for (const f of targets) {
+    const text = texts.get(f)
+    if (typeof text !== 'string') {
+      unreadable.push(`${f}(该判定面上取不到)`)
       continue
     }
-    const crlfLines = findCrlfLines(text)
-    if (crlfLines.length > 0) bad.push({ file: f, lines: crlfLines })
+    const lines = findCrlfLines(text)
+    if (lines.length > 0) bad.push({ file: f, lines })
   }
 
   if (unreadable.length > 0) {
@@ -230,7 +264,7 @@ function main(argv = process.argv.slice(2)) {
     return 2
   }
   if (bad.length > 0) {
-    console.log(`❌ 行尾守卫:${bad.length} 个文件含 CRLF(仓约定 LF):`)
+    console.log(`❌ 行尾守卫:${bad.length} 个文件含 CRLF(仓约定 LF,面=${face}):`)
     for (const b of bad) {
       const head = b.lines.slice(0, 8).join(', ')
       const more = b.lines.length > 8 ? ` …共 ${b.lines.length} 处` : ''
@@ -242,7 +276,7 @@ function main(argv = process.argv.slice(2)) {
     console.log('  把格式问题读成逻辑缺陷 —— 本仓已发生过,8 例测试因此假红。')
     return 1
   }
-  console.log(`✅ 行尾守卫通过(${files.length} 个文件均为 LF)`)
+  console.log(`✅ 行尾守卫通过(${targets.length} 个文件均为 LF,面=${face})`)
   return 0
 }
 

@@ -154,7 +154,7 @@ export function TopupTab() {
 
           <div
             className={cn(
-              'flex items-start gap-2 rounded-md border border-border/60 bg-muted/40 p-3',
+              'flex items-start gap-2 rounded-md border border-stroke-subtle bg-muted/40 p-3',
               'text-label text-muted-foreground',
             )}
           >

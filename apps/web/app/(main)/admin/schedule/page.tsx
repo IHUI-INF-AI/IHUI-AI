@@ -107,7 +107,7 @@ export default function AdminSchedulePage() {
               key={t.id}
               className={cn(
                 'transition-colors hover:bg-muted/30',
-                editingId === t.id && 'ring-1 ring-primary/30',
+                editingId === t.id && 'ring-1 ring-stroke-selected/30',
               )}
             >
               <CardContent className="flex items-center gap-3 py-3">

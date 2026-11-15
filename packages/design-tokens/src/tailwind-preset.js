@@ -110,6 +110,19 @@ export default {
           DEFAULT: 'var(--color-brand-accent)',
           foreground: 'var(--color-brand-accent-foreground)',
         },
+        /* 容器描边角色层(2026-11-15 立):v3 两端(miniapp-taro / mobile-rn)写
+         * border-stroke-* / ring-stroke-* 时必须有对应键,否则静默生成不出规则。
+         * 值统一指向 tokens.css 的角色变量,单一源头不变。 */
+        stroke: {
+          subtle: 'var(--color-stroke-subtle)',
+          default: 'var(--color-stroke-default)',
+          strong: 'var(--color-stroke-strong)',
+          inverse: 'var(--color-stroke-inverse)',
+          field: 'var(--color-stroke-field)',
+          focus: 'var(--color-stroke-focus)',
+          selected: 'var(--color-stroke-selected)',
+          danger: 'var(--color-stroke-danger)',
+        },
       },
       borderRadius: RADIUS_REM,
       /* 阴影档位(2026-11-12 立):v3 两端(miniapp-taro / mobile-rn)此前**没有** boxShadow 映射,

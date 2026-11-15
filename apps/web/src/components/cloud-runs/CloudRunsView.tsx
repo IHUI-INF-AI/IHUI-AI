@@ -211,7 +211,7 @@ export function CloudRunsView() {
               <li key={run.run_id}>
                 <button
                   onClick={() => void openDetail(run)}
-                  className="w-full rounded-sm border border-input p-3 text-left transition hover:border-primary/50 hover:bg-muted/30"
+                  className="w-full rounded-sm border border-input p-3 text-left transition hover:border-stroke-strong hover:bg-muted/30"
                 >
                   <div className="mb-1 flex items-center justify-between gap-3">
                     <code className="truncate rounded bg-muted px-1 text-label text-muted-foreground">

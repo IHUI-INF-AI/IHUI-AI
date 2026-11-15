@@ -42,7 +42,7 @@ export function ManageRow({
   onDelete,
 }: ManageRowProps) {
   return (
-    <Card className={cn(checked && 'border-primary/50 bg-primary/5')}>
+    <Card className={cn(checked && 'border-stroke-selected bg-primary/5')}>
       <CardContent className="min-[640px]:p-3 flex items-center gap-3 p-3">
         <Checkbox checked={checked} onCheckedChange={onToggle} aria-label={deleteLabel} />
         <Link href={`/knowledge-rag/${doc.id}`} className="min-w-0 flex-1">

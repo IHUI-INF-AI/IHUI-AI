@@ -37,6 +37,7 @@ import {
 } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { BackButton } from '@/components/common'
+import { formatCny } from '@/lib/display-currency'
 
 // =============================================================================
 // 类型定义(与 packages/database/src/schema 对齐,禁止 any)
@@ -365,7 +366,8 @@ export default function EduAiLearnMapPage() {
                   )}
                   {topic.price && Number(topic.price) > 0 && (
                     <span className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-md border border-amber-500/40 bg-amber-500/15 px-2 py-0.5 text-[10px] font-medium text-amber-700 shadow-elevation-sm backdrop-blur-sm dark:text-amber-300">
-                      <Sparkles className="h-3 w-3" />¥{topic.price}
+                      <Sparkles className="h-3 w-3" />
+                      {formatCny(Number(topic.price))}
                     </span>
                   )}
                 </div>
@@ -527,7 +529,8 @@ export default function EduAiLearnMapPage() {
                 </span>
                 {topicDetail.price && Number(topicDetail.price) > 0 ? (
                   <span className="flex items-center gap-1 text-label font-medium text-primary">
-                    <Sparkles className="h-3.5 w-3.5" />¥{topicDetail.price}
+                    <Sparkles className="h-3.5 w-3.5" />
+                    {formatCny(Number(topicDetail.price))}
                   </span>
                 ) : null}
               </div>

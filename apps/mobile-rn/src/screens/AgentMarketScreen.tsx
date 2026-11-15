@@ -31,9 +31,7 @@ export function AgentMarketScreen() {
     // 目录一次取全:本屏是市场全量页且用 FlatList(有虚拟化),不带 pageSize 会吃服务端默认 20
     // ⇒ 124 枚只见 20(2026-10-21 审计)。
     const PAGE = 'pageSize=200'
-    const url = kw
-      ? `/api/agents?keyword=${encodeURIComponent(kw)}&${PAGE}`
-      : `/api/agents?${PAGE}`
+    const url = kw ? `/api/agents?keyword=${encodeURIComponent(kw)}&${PAGE}` : `/api/agents?${PAGE}`
     // 后端 GET /agents(handleListAgents,与 web /agents/list 同一 handler)对公开面
     // 经 PUBLIC_AGENT_KEYS 逐键重建:只给 agentId/name/description/categoryId/
     // usageCount/isFree...,没有 id/rating/category。显式投影成共享屏 AgentMarketItem:
@@ -76,7 +74,9 @@ export function AgentMarketScreen() {
       error={error}
       onKeywordChange={setKeyword}
       onSearch={() => load(keyword)}
-      onRetry={() => { void load(keyword); }}
+      onRetry={() => {
+        void load(keyword)
+      }}
       onPressItem={(id) => navigation.navigate('AgentDetail', { id })}
       onBack={() => navigation.goBack()}
       colorScheme={resolvedTheme}

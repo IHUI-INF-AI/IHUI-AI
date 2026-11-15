@@ -20,6 +20,12 @@ import {
 import { useTranslations } from 'next-intl'
 
 import { cn } from '@/lib/utils'
+import {
+  MENU_ITEM_CHEVRON_CLASS,
+  MENU_ITEM_CLASS,
+  MENU_ITEM_ICON_CLASS,
+  MENU_ITEM_SECTION_CLASS,
+} from '@/lib/menu-item'
 import { isTopOverlay, popOverlay, pushOverlay } from '@/lib/overlay-stack'
 import { Tooltip } from '@/components/feedback'
 import { createPortal } from 'react-dom'
@@ -205,6 +211,11 @@ export function AddMenuPopover(props: {
       if (target instanceof Element && target.closest('[data-radix-popper-content-wrapper]')) return
       // PortalPanel 无 Radix 包装层,用其 dialog 语义识别(权限面板)。
       if (target instanceof Element && target.closest('[data-composer-nested-panel]')) return
+      // 嵌套对话框:面板内的确认/命名/提示对话 portal 到 body,位于本面板之外。
+      // 点击对话卡片属于对话层交互,不能连带关闭父菜单 —— 否则内部面板一卸载,
+      // 对话状态随之消失(与「任务回顾」旧版同一根因)。遮罩点击仍照常关闭。
+      if (target instanceof Element && target.closest('[role="dialog"], [role="alertdialog"]'))
+        return
       onOpenChange(false)
     }
     document.addEventListener('mousedown', handler)
@@ -276,7 +287,7 @@ export function AddMenuPopover(props: {
             // z-popover(2026-09-14 补):portal 挂 body 且 z-auto,营销首页 hero 区
             // 祖先 z-10 会整体压住弹层 —— 菜单可见但所有点击被 H1 拦截(实测
             // prompt-templates/chat-manual-compact e2e 与真实用户同路径失败)。
-            className="pointer-events-auto z-[2200] max-h-[calc(100vh-1rem)] w-60 overflow-y-auto overscroll-contain rounded-md border bg-popover text-popover-foreground shadow-elevation-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="pointer-events-auto z-[2200] max-h-[calc(100vh-1rem)] w-60 overflow-y-auto overscroll-contain rounded-md border border-stroke-strong bg-popover text-popover-foreground shadow-elevation-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
             style={
               coords
                 ? { position: 'fixed', top: coords.top, left: coords.left }
@@ -328,18 +339,12 @@ export function AddMenuPopover(props: {
                   onClick={() => {
                     onModeChange('menu')
                   }}
-                  className={cn(
-                    'flex items-center gap-2 rounded-sm px-2.5 py-1.5 text-left text-label transition-colors',
-                    'text-popover-foreground hover:bg-accent hover:text-accent-foreground',
-                  )}
+                  className={MENU_ITEM_CLASS}
                 >
-                  <ArrowRight
-                    className="h-3.5 w-3.5 shrink-0 rotate-180 text-muted-foreground"
-                    aria-hidden
-                  />
+                  <ArrowRight className={cn(MENU_ITEM_ICON_CLASS, 'rotate-180')} aria-hidden />
                   <span className="min-w-0 flex-1 truncate">{t('backToMenu')}</span>
                 </button>
-                <div className="mt-1 flex flex-col gap-0.5 border-t border-border/60 pt-1">
+                <div className="mt-1 flex flex-col gap-0.5 border-t border-stroke-default pt-1">
                   {toolsMenuItems}
                 </div>
               </div>
@@ -352,17 +357,15 @@ export function AddMenuPopover(props: {
                     role="group"
                     aria-label={t('quickSettings')}
                     data-testid="composer-quick-settings"
-                    className="mb-1 border-b border-border/60 pb-1"
+                    className="mb-1 border-b border-stroke-default pb-1"
                   >
-                    <span className="block px-1.5 pb-0.5 pt-0.5 text-[11px] font-medium text-muted-foreground">
-                      {t('quickSettings')}
-                    </span>
+                    <span className={MENU_ITEM_SECTION_CLASS}>{t('quickSettings')}</span>
                     {/* 第三轮(2026-11-04):第一层不再把三枚控件并排成「迷你工具栏」,
                         改为纵向统一设置行(图标 + 标签 + 当前值 + 箭头),行高 32px */}
                     <div className="flex flex-col gap-0.5">{primaryMenuItems}</div>
                   </div>
                 )}
-                <span className="mt-1 block px-1.5 pb-0.5 text-[11px] font-medium text-muted-foreground">
+                <span className={cn(MENU_ITEM_SECTION_CLASS, 'mt-1')}>
                   {t('composerSectionContent')}
                 </span>
                 <button
@@ -372,18 +375,11 @@ export function AddMenuPopover(props: {
                   onClick={() => {
                     onModeChange('prompt')
                   }}
-                  className={cn(
-                    'flex items-center gap-2 rounded-sm px-2.5 py-1.5 text-left text-label transition-colors',
-                    'text-popover-foreground hover:bg-accent hover:text-accent-foreground',
-                    'disabled:cursor-not-allowed disabled:opacity-50',
-                  )}
+                  className={MENU_ITEM_CLASS}
                 >
-                  <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                  <FileText className={MENU_ITEM_ICON_CLASS} />
                   <span className="min-w-0 flex-1 truncate">{t('promptTemplate')}</span>
-                  <ArrowRight
-                    className="ml-auto h-2.5 w-2.5 shrink-0 text-muted-foreground/60"
-                    aria-hidden
-                  />
+                  <ArrowRight className={MENU_ITEM_CHEVRON_CLASS} aria-hidden />
                 </button>
                 <button
                   type="button"
@@ -393,13 +389,9 @@ export function AddMenuPopover(props: {
                     if (!inputValue.trim()) return
                     onAddTextReference()
                   }}
-                  className={cn(
-                    'flex items-center gap-2 rounded-sm px-2.5 py-1.5 text-left text-label transition-colors',
-                    'text-popover-foreground hover:bg-accent hover:text-accent-foreground',
-                    'disabled:cursor-not-allowed disabled:opacity-50',
-                  )}
+                  className={MENU_ITEM_CLASS}
                 >
-                  <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                  <FileText className={MENU_ITEM_ICON_CLASS} />
                   <span className="min-w-0 flex-1 truncate">{t('addContextReference')}</span>
                 </button>
                 <button
@@ -409,13 +401,9 @@ export function AddMenuPopover(props: {
                   onClick={() => {
                     onAddFile()
                   }}
-                  className={cn(
-                    'flex items-center gap-2 rounded-sm px-2.5 py-1.5 text-left text-label transition-colors',
-                    'text-popover-foreground hover:bg-accent hover:text-accent-foreground',
-                    'disabled:cursor-not-allowed disabled:opacity-50',
-                  )}
+                  className={MENU_ITEM_CLASS}
                 >
-                  <Plus className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                  <Plus className={MENU_ITEM_ICON_CLASS} />
                   <span className="min-w-0 flex-1 truncate">{tA11y('addAttachment')}</span>
                 </button>
                 {/* 语音录制入口(2026-09-14 接线 VoiceRecord 孤儿组件):切换到 voice 子面板 */}
@@ -426,16 +414,12 @@ export function AddMenuPopover(props: {
                   onClick={() => {
                     onModeChange('voice')
                   }}
-                  className={cn(
-                    'flex items-center gap-2 rounded-sm px-2.5 py-1.5 text-left text-label transition-colors',
-                    'text-popover-foreground hover:bg-accent hover:text-accent-foreground',
-                    'disabled:cursor-not-allowed disabled:opacity-50',
-                  )}
+                  className={MENU_ITEM_CLASS}
                 >
-                  <Mic className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                  <Mic className={MENU_ITEM_ICON_CLASS} />
                   <span className="min-w-0 flex-1 truncate">{t('voiceRecord.menuLabel')}</span>
                 </button>
-                <span className="mt-1 block px-1.5 pb-0.5 text-[11px] font-medium text-muted-foreground">
+                <span className={cn(MENU_ITEM_SECTION_CLASS, 'mt-1')}>
                   {t('composerSectionCapability')}
                 </span>
                 <button
@@ -445,18 +429,11 @@ export function AddMenuPopover(props: {
                   onClick={() => {
                     onModeChange('skill')
                   }}
-                  className={cn(
-                    'flex items-center gap-2 rounded-sm px-2.5 py-1.5 text-left text-label transition-colors',
-                    'text-popover-foreground hover:bg-accent hover:text-accent-foreground',
-                    'disabled:cursor-not-allowed disabled:opacity-50',
-                  )}
+                  className={MENU_ITEM_CLASS}
                 >
-                  <Sparkles className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                  <Sparkles className={MENU_ITEM_ICON_CLASS} />
                   <span className="min-w-0 flex-1 truncate">{t('skillLibrary.title')}</span>
-                  <ArrowRight
-                    className="ml-auto h-2.5 w-2.5 shrink-0 text-muted-foreground/60"
-                    aria-hidden
-                  />
+                  <ArrowRight className={MENU_ITEM_CHEVRON_CLASS} aria-hidden />
                 </button>
                 <button
                   type="button"
@@ -465,13 +442,9 @@ export function AddMenuPopover(props: {
                   onClick={() => {
                     onOpenPluginMarket()
                   }}
-                  className={cn(
-                    'flex items-center gap-2 rounded-sm px-2.5 py-1.5 text-left text-label transition-colors',
-                    'text-popover-foreground hover:bg-accent hover:text-accent-foreground',
-                    'disabled:cursor-not-allowed disabled:opacity-50',
-                  )}
+                  className={MENU_ITEM_CLASS}
                 >
-                  <Package className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                  <Package className={MENU_ITEM_ICON_CLASS} />
                   <span className="min-w-0 flex-1 truncate">{tNav('pluginMarket')}</span>
                 </button>
                 {/* 深度研究入口(2026-09-07 工作线 B):跳转 /deep-research 页面发起多轮深挖研究 */}
@@ -482,12 +455,9 @@ export function AddMenuPopover(props: {
                   onClick={() => {
                     onOpenDeepResearch()
                   }}
-                  className={cn(
-                    'flex items-center gap-2 rounded-sm px-2.5 py-1.5 text-left text-label transition-colors',
-                    'text-popover-foreground hover:bg-accent hover:text-accent-foreground',
-                  )}
+                  className={MENU_ITEM_CLASS}
                 >
-                  <Telescope className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                  <Telescope className={MENU_ITEM_ICON_CLASS} />
                   <span className="min-w-0 flex-1 truncate">{t('deepResearchEntry')}</span>
                 </button>
                 {/* 底栏降级入口(2026-09-30 底栏单行化):多源建议 / 一键润色等
@@ -510,23 +480,19 @@ export function AddMenuPopover(props: {
                       onOpenChange(false)
                       onModeChange('menu')
                     }}
-                    className={cn(
-                      'flex items-center gap-2 rounded-sm px-2.5 py-1.5 text-left text-label transition-colors',
-                      'text-popover-foreground hover:bg-accent hover:text-accent-foreground',
-                      'disabled:cursor-not-allowed disabled:opacity-50',
-                    )}
+                    className={MENU_ITEM_CLASS}
                   >
                     {compacting ? (
-                      <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-muted-foreground" />
+                      <Loader2 className={cn(MENU_ITEM_ICON_CLASS, 'animate-spin')} />
                     ) : (
-                      <Scissors className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                      <Scissors className={MENU_ITEM_ICON_CLASS} />
                     )}
                     <span className="min-w-0 flex-1 truncate">
                       {compacting ? t('compaction.compacting') : t('compaction.compactButton')}
                     </span>
                   </button>
                 )}
-                <div className="my-1 border-t border-border/60" aria-hidden />
+                <div className="my-1 border-t border-stroke-default" aria-hidden />
                 {/* 更多工具入口(2026-11-04 信息架构重构):底栏降级的次要控件
                     (任务进度 / 上下文环 / 语音输入 / 语音笔记 / 流式 Steer)收纳于此,
                     点击进入 tools 子层;不改变任何控件自身的弹层与状态机。 */}
@@ -538,17 +504,11 @@ export function AddMenuPopover(props: {
                     onClick={() => {
                       onModeChange('tools')
                     }}
-                    className={cn(
-                      'flex items-center gap-2 rounded-sm px-2.5 py-1.5 text-left text-label transition-colors',
-                      'text-popover-foreground hover:bg-accent hover:text-accent-foreground',
-                    )}
+                    className={MENU_ITEM_CLASS}
                   >
-                    <Wrench className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                    <Wrench className={MENU_ITEM_ICON_CLASS} />
                     <span className="min-w-0 flex-1 truncate">{t('moreTools')}</span>
-                    <ArrowRight
-                      className="ml-auto h-2.5 w-2.5 shrink-0 text-muted-foreground/60"
-                      aria-hidden
-                    />
+                    <ArrowRight className={MENU_ITEM_CHEVRON_CLASS} aria-hidden />
                   </button>
                 )}
               </div>

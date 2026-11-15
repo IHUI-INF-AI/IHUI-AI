@@ -27,7 +27,7 @@ export function CertDetailScreen({
   onBack,
   onVerify,
   onRetry,
-  colorScheme = 'light'
+  colorScheme = 'light',
 }: CertDetailScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])

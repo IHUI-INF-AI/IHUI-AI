@@ -11,6 +11,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { X, ChevronDown, XCircle, Search, Pin, PinOff } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { MENU_ITEM_CLASS } from '@/lib/menu-item'
 import { isTopOverlay, popOverlay, pushOverlay } from '@/lib/overlay-stack'
 import { useNavigateWithProgress } from '@/stores/navigation'
 import { useIsoLayoutEffect } from '@/hooks/use-iso-layout-effect'
@@ -226,7 +227,7 @@ export const TagsViewSearchButton = React.memo(function TagsViewSearchButton() {
               aria-label={tCommon('searchPlaceholder')}
               className="absolute inset-x-0 top-2 z-popover mx-auto w-[min(640px,calc(100%-2rem))] animate-in fade-in-0 slide-in-from-top duration-(--duration-unified) ease-unified"
             >
-              <div className="ui-popover rounded-md border bg-popover text-popover-foreground shadow-elevation-md">
+              <div className="ui-popover rounded-md border border-stroke-strong bg-popover text-popover-foreground shadow-elevation-md">
                 <SearchBar
                   onSearch={handleSearch}
                   onHistoryClick={handleHistoryClick}
@@ -654,7 +655,7 @@ export function TagsView() {
         <div
           role="menu"
           data-testid="tagsview-context-menu"
-          className="fixed z-popover min-w-[10rem] overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-elevation-md"
+          className="fixed z-popover min-w-[10rem] overflow-hidden rounded-md border border-stroke-strong bg-popover p-1 text-popover-foreground shadow-elevation-md"
           style={menuStyle ?? undefined}
         >
           <button
@@ -664,7 +665,7 @@ export function TagsView() {
               handleClose(new MouseEvent('click') as unknown as React.MouseEvent, ctxMenu.path)
               setCtxMenu(null)
             }}
-            className="flex w-full cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-body hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground focus:outline-none"
+            className={MENU_ITEM_CLASS}
           >
             <X className="h-4 w-4" />
             {tCommon('close')}
@@ -677,7 +678,7 @@ export function TagsView() {
               togglePin(ctxMenu.path)
               setCtxMenu(null)
             }}
-            className="flex w-full cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-body hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground focus:outline-none"
+            className={MENU_ITEM_CLASS}
           >
             {pinnedPaths.has(ctxMenu.path) ? (
               <PinOff className="h-4 w-4" />
@@ -694,7 +695,10 @@ export function TagsView() {
               closeAll()
               setCtxMenu(null)
             }}
-            className="flex w-full cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-body text-destructive hover:bg-destructive/20 focus:bg-destructive/20 focus:outline-none"
+            className={cn(
+              MENU_ITEM_CLASS,
+              'text-destructive hover:text-destructive focus:text-destructive',
+            )}
           >
             <XCircle className="h-4 w-4" />
             {tCommon('closeAll')}

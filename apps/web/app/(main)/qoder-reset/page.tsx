@@ -627,7 +627,7 @@ export default function QoderResetPage() {
           )}
           {/* 事后自检面板:只在真的扫过之后出现(未扫过时 wizardAudit 为 null) */}
           {wizardAudit && (
-            <div className="space-y-1 rounded border border-border/60 bg-background/40 p-2">
+            <div className="space-y-1 rounded border border-stroke-subtle bg-background/40 p-2">
               <p className="text-label font-medium">{t('wizardAuditTitle')}</p>
               {wizardAuditing && (
                 <p className="text-muted-foreground text-label">{t('wizardAuditScanning')}</p>

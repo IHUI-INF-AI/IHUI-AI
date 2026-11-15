@@ -35,7 +35,9 @@ export type PostActionId = (typeof POST_ACTION_IDS)[number]
  * 动作图标名(与小程序 `LineIcon` 注册表同名)。
  * RN 侧由调用方映射到 lucide 组件,两端图标语义由此对齐。
  */
-export const POST_ACTION_ICON: Record<PostActionId, string> = {
+export type PostActionIcon = 'heart' | 'message-circle' | 'star' | 'share-2'
+
+export const POST_ACTION_ICON: Record<PostActionId, PostActionIcon> = {
   like: 'heart',
   comment: 'message-circle',
   favorite: 'star',
@@ -71,7 +73,7 @@ export interface PostActionHandlers {
 /** 单个动作的渲染描述:视图层只消费这个,不再自己判断"能不能点 / 亮不亮" */
 export interface PostActionDescriptor {
   id: PostActionId
-  icon: string
+  icon: PostActionIcon
   count: number
   /** 是否处于选中态(仅 like/favorite 有意义) */
   active: boolean

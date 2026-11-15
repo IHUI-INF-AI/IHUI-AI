@@ -70,7 +70,10 @@ function formatTime(iso: string, formatter: Intl.DateTimeFormat): string {
  * 该表无图片 URL 列(content 仅存提示词),故 coverUrl 恒空,与 web 渲染一致;
  * status 为内容启用标志(0/1),非生成任务状态,不映射。
  */
-function toGridHistoryRow(row: HistoryData['list'][number], formatter: Intl.DateTimeFormat): GridItem {
+function toGridHistoryRow(
+  row: HistoryData['list'][number],
+  formatter: Intl.DateTimeFormat,
+): GridItem {
   return {
     id: row.id,
     coverUrl: '',

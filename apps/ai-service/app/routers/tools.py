@@ -11,9 +11,10 @@ import asyncio
 from pathlib import Path
 from typing import Any, Literal
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, ConfigDict, Field
 
+from ..core.code_symbol_graph import impact_set, index_code, search_with_budget
 from ..core.jwt_auth import require_request_user_id
 from ..services.codebase_index_status import check_freshness, ensure_fresh, resolve_repo_id
 from ..services.codebase_indexer import codebase_indexer
@@ -42,6 +43,19 @@ class AnalyzeCodeRequest(BaseModel):
 
     code: str = Field(..., description="待分析代码")
     language: str = Field("text", description="代码语言")
+
+
+class SymbolImpactRequest(BaseModel):
+    """轻量符号影响面分析请求(D 类装车,2026-11-15)。
+
+    与既有 codebase catalog(重型持久索引,Redis)互补:本端点**按需传入文件映射**
+    做正则符号图分析,零建库、零 Redis、零索引状态,适合小范围即时影响面/符号
+    预算查询。大仓请用 catalog 持久索引。
+    """
+
+    files: dict[str, str] = Field(..., description="相对路径 -> 源码文本")
+    symbol: str = Field(..., description="目标符号名")
+    max_depth: int = Field(3, ge=1, le=10, description="影响面反向可达深度上限")
 
 
 class InitAgentsMdRequest(BaseModel):
@@ -186,5 +200,32 @@ async def codebase_index(
         "ok": outcome.action != "consent-required",
         "action": "refresh",
         "outcome": outcome.to_dict(),
+    }
+
+
+@router.post("/codebase/symbol-impact")
+async def symbol_impact(req: SymbolImpactRequest, request: Request) -> dict[str, Any]:
+    """轻量符号影响面/预算分析(2026-11-15 D 类装车)。
+
+    与既有 codebase catalog(重型持久索引)互补:按需传入文件映射做正则符号图分析,
+    零建库/零 Redis/零索引状态。返回影响面(反向可达)与符号搜索预算提示。
+    ``approximate=True`` 恒置——正则近似,非编译器级(宏/重载/动态属性会漏)。
+    """
+    await require_request_user_id(request)
+
+    graph = index_code(req.files)
+    refs = sorted(f"{f}:{caller}" for f, caller in graph.call_edges.get(req.symbol, set()))
+    impact = sorted(impact_set(graph, req.symbol, max_depth=req.max_depth))
+    budget = search_with_budget(graph, req.symbol)
+    return {
+        "ok": True,
+        "symbol": req.symbol,
+        "max_depth": req.max_depth,
+        "references": refs,
+        "impact_set": impact,
+        "impact_count": len(impact),
+        "search": budget,
+        "files_indexed": graph.files_indexed,
+        "approximate": graph.approximate,
     }
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

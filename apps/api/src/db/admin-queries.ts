@@ -45,7 +45,12 @@ export type AdminUser = {
  * 统计用户总数。
  */
 export async function countUsers(): Promise<number> {
-  const rows = await db.select({ count: sql<number>`COUNT(*)` }).from(users)
+  // F-695: 与 findUsers 默认口径一致(排除已注销用户 status=3),否则后台首页
+  // 「总用户数」恒大于用户管理列表 total,增长率/导出基数偏差。
+  const rows = await db
+    .select({ count: sql<number>`COUNT(*)` })
+    .from(users)
+    .where(notInArray(users.status, [3]))
   return Number(rows[0]?.count ?? 0)
 }
 

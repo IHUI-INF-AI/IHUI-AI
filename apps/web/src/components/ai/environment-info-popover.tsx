@@ -6,7 +6,7 @@
 
 import * as React from 'react'
 import {
-  ArrowDownToLine,
+  ArrowDown,
   ArrowUp,
   ChevronDown,
   ChevronUp,
@@ -99,7 +99,7 @@ export function EnvironmentInfoPopover() {
       data-testid="env-info-popover"
       className={cn(
         'absolute top-0 right-0 z-sticky flex flex-col overflow-hidden',
-        'ui-popover rounded-md border border-border bg-popover text-popover-foreground shadow-elevation-lg',
+        'ui-popover rounded-md border border-stroke-strong bg-popover text-popover-foreground shadow-elevation-lg',
         'w-[min(288px,calc(100%-16px))]',
       )}
       role="complementary"
@@ -352,7 +352,7 @@ function PopoverBody({
           <div className="flex items-center gap-1.5 tabular-nums">
             <ArrowUp className="mr-0.5 inline h-3.5 w-3.5" aria-hidden />
             {ahead}
-            <ArrowDownToLine className="mx-0.5 inline h-3.5 w-3.5" aria-hidden />
+            <ArrowDown className="mx-0.5 inline h-3.5 w-3.5" aria-hidden />
             {behind}
           </div>
           <div className="flex items-center gap-1.5" data-testid="env-info-last-commit">

@@ -22,10 +22,8 @@ import { MessageItem } from './MessageItem'
 import { QueryThumbRail } from './query-thumb-rail'
 import { StreamingSkeleton, shouldShowStreamingSkeleton } from './streaming-skeleton'
 import { ScrollJumpButtons } from './scroll-jump-buttons'
-import { DetailModeSwitcher } from './detail-mode-switcher'
-import { PictureInPictureSection } from '../picture-in-picture-section'
-import { applyConversationDetailMode } from './detail-mode-filter'
-import { usePaneConversationDetailModeStore } from '@/stores/conversation-detail-mode'
+import { AmbientSuggestions } from '@/components/ai/ambient-suggestions'
+import { useAppearanceStore } from '@/stores/appearance-settings'
 // 轮次呈现投影层(2026-10-29 立,对标 Qoder 0.4.11 第六层):UI 不直接渲染 messages,
 // 先投影成 presentation rows 再按行语义分流。本文件是它的**唯一生产消费方**
 // (装车证明见 `__tests__/presentation-wiring.test.tsx`)。
@@ -47,7 +45,6 @@ import { projectActiveMessages, versionFamilyPosition } from '@/lib/message-vers
 // 唯一计算点在本组件(与版本族位置同一处置),MessageItem 只消费透传的序号。
 import { projectTurnOrdinals } from '@/lib/turn-deeplink'
 import { useFocusArtifactScroll } from '@/components/media/artifact-turn-badge'
-import { AmbientSuggestions } from '@/components/ai/ambient-suggestions'
 import { CanvasOverlay } from '@/components/chat/canvas-overlay'
 import { EmptyState } from './EmptyState'
 import { FallbackBanner } from './FallbackBanner'
@@ -69,9 +66,6 @@ import { ChatNoticeLog } from '../notice-log'
 // 本组件不再手算 `offsets[len] - offsets[end+1]`。
 import { listItemEntranceMotion, windowPaddings } from '../windowing'
 import { useMessageListScroll } from './use-message-list-scroll'
-// 滚动视口上下边缘淡出(2026-11-10 立,多端一致规格:纯渐变 24px,仅溢出方向显示;
-// 与侧栏菜单共用同一组件,web/RN/小程序三端同参数)
-import { ScrollEdgeFades } from '@/components/common/ScrollEdgeFades'
 import { useMessageListDerivations } from './use-message-list-derivations'
 import { useMessageListSearch } from './use-message-list-search'
 import { useMessageListContextMenu } from './use-message-list-context-menu'
@@ -178,21 +172,32 @@ export function MessageList({
   const user = useAuthStore((s) => s.user)
   const freeTierAvailable = !user?.isVip
 
-  // D45(2026-09-24 立,G-53):会话详情聚合档位 —— 档位管信息聚合粒度
-  // (过滤哪些类别的活动条目呈现),与 D21 fold-policy(管 section 展开/折叠)语义正交。
-  // 'steps' 直通,零行为变化;'commands'/'narrative' 返回过滤拷贝。
-  // 票60 普查批:按窗格寻址 —— 非根窗格读本窗格实例,不再把根窗格的档位一起改掉。
-  const detailStore = usePaneConversationDetailModeStore()
-  const detailMode = detailStore((s) => s.mode)
+  // 2026-11-15:去掉「步骤/命令/叙述」档位切换与过滤 —— 思考、工具调用、正文
+  // 统一按同一条流式时间线完整呈现,不再按档位裁掉活动条目。
+  // 外观设置(2026-11-15):思考过程 / 工具调用的显示开关由设置页统一管理。
+  // 只在这两个开关关闭时才做浅拷贝过滤 ⇒ 默认路径返回原数组,零额外开销。
+  const showReasoning = useAppearanceStore((s) => s.showReasoning)
+  const showToolCalls = useAppearanceStore((s) => s.showToolCalls)
   // 票59 2/3:版本族手动切换态(按窗格寻址 —— 两窗格各看各的选择)
   const activeVersionByRoot = chatStore((s) => s.activeVersionByRoot)
   // 差距⑤:当前列表是否来自 around 居中窗口(窗口头部不是 turn 1 ⇒ 未盖章行不给号)
   const messagesTurnWindowed = chatStore((s) => s.messagesTurnWindowed)
-  const visibleMessages = React.useMemo(
-    () =>
-      applyConversationDetailMode(projectActiveMessages(messages, activeVersionByRoot), detailMode),
-    [messages, activeVersionByRoot, detailMode],
-  )
+  const visibleMessages = React.useMemo(() => {
+    const projected = projectActiveMessages(messages, activeVersionByRoot)
+    if (showReasoning && showToolCalls) return projected
+    return projected.map((m) => {
+      if (m.role !== 'assistant') return m
+      const next = { ...m }
+      if (!showReasoning) next.reasoning = undefined
+      if (!showToolCalls) {
+        next.toolCalls = undefined
+        next.planSteps = undefined
+        next.subagentActivities = undefined
+        next.terminalTasks = undefined
+      }
+      return next
+    })
+  }, [messages, activeVersionByRoot, showReasoning, showToolCalls])
 
   // 票59 2/3:每条带族坐标消息的版本位置(一次渲染算一遍)。
   // Map 的 value 引用在 messages 不变时保持稳定 ⇒ React.memo 的消息行不乱重渲染。
@@ -224,7 +229,7 @@ export function MessageList({
   }, [messages])
 
   // 差距⑤(2026-10-30):id → turnOrdinal 投影(口径见 @/lib/turn-deeplink)。
-  // 吃全量 messages(而非 detailMode 过滤后的可见行),续算不被过滤打断。
+  // 吃全量 messages(不受呈现过滤影响),续算不被打断。
   const turnOrdinalById = React.useMemo(
     () => projectTurnOrdinals(messages, { windowed: messagesTurnWindowed }),
     [messages, messagesTurnWindowed],
@@ -259,6 +264,36 @@ export function MessageList({
     isFarFromTop,
     isFarFromBottom,
   } = scroll
+
+  // 外观 v2(2026-11-15):阅读标尺 —— 指针移动直接改 DOM 样式,不进 React state,
+  // 避免每次 pointermove 触发整列消息重渲染。指针离开消息视口即隐藏。
+  const readingRuler = useAppearanceStore((s) => s.readingRuler)
+  const rulerRef = React.useRef<HTMLDivElement | null>(null)
+  React.useEffect(() => {
+    if (!readingRuler) return
+    const onMove = (event: PointerEvent) => {
+      const host = containerRef.current
+      const ruler = rulerRef.current
+      if (!host || !ruler) return
+      const rect = host.getBoundingClientRect()
+      if (event.clientY < rect.top || event.clientY > rect.bottom) {
+        ruler.style.opacity = '0'
+        return
+      }
+      ruler.style.opacity = '1'
+      ruler.style.transform = `translateY(${Math.round(event.clientY - 28)}px)`
+    }
+    const hide = () => {
+      if (rulerRef.current) rulerRef.current.style.opacity = '0'
+    }
+    window.addEventListener('pointermove', onMove, { passive: true })
+    window.addEventListener('pointerleave', hide)
+    return () => {
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerleave', hide)
+      hide()
+    }
+  }, [readingRuler, containerRef])
 
   // D2(2026-09-18 立):流式骨架屏显隐 —— 该轮尚无任何 AI 首帧时显示,首帧到达即卸载
   const showSkeleton = shouldShowStreamingSkeleton(messages, isStreaming)
@@ -723,7 +758,13 @@ export function MessageList({
       data-window-padding-top={paddingTop}
       data-window-padding-bottom={paddingBottom}
     >
-      <div className="mx-auto flex max-w-3xl flex-col gap-0.5 px-4 py-6">
+      <div
+        className="mx-auto flex flex-col px-4 py-6"
+        style={{
+          maxWidth: 'var(--chat-content-width, 48rem)',
+          rowGap: 'var(--chat-message-gap, 2px)',
+        }}
+      >
         {/* P4-2: fallback 通知横幅(主模型失败切换到备用模型时展示,amber 警告色) */}
         {fallbackNotice && (
           <FallbackBanner
@@ -837,22 +878,35 @@ export function MessageList({
           onPick={preview.scrollToMessage}
         />
       ) : null}
-      {/* D181 电脑使用画中画(2026-11-04 第三轮结构性调整,二次落点):从滚动内容
-          移到面板常驻条(折叠成一行),不再随消息流滚动。
-          理由:滚动内容一旦滚起来,卡片的布局盒有半截落在滚动视口之外,而视口顶边正好
-          贴着档位胶囊底边 —— 280 下审计采样有 40% 命中的是 detail-mode-* 而不是
-          开窗按钮(pip-open-window 只有 60%)。这不是 z-index 竞争:被裁掉的部分本来就
-          不在绘制区,靠 pointer-events/z-index 修不了。让它离开滚动容器才是结构解。
-          常驻条高度由组件自身折叠态约束(一行),不会像旧固定卡那样溢出面板盒盖住
-          `[data-queue-ops]`(e2e queue-interactions 命中自证仍在)。 */}
-      <PictureInPictureSection conversationId={conversationId} />
-      {/* D45 档位切换胶囊(2026-09-24 立):消息流顶部工具区,紧凑三选一,持久化 */}
-      <DetailModeSwitcher />
-      {/* relative 包裹层:ScrollEdgeFades 绝对定位钉在消息滚动视口上/下边缘,不随内容滚动;
-          滚动由消息容器自身 overflow-y-auto 承担(与侧栏菜单淡出同构) */}
+      {/* relative 包裹层:浮动控件(跳顶/跳底箭头、阅读尺)绝对定位锚到消息滚动视口,
+          不随内容滚动;滚动由消息容器自身 overflow-y-auto 承担 */}
       <div className="relative flex min-h-0 flex-1 flex-col">
         {inlinePanelNode}
-        <ScrollEdgeFades scrollRef={containerRef} />
+        {readingRuler ? (
+          <div
+            ref={rulerRef}
+            aria-hidden="true"
+            data-testid="reading-ruler"
+            className="pointer-events-none fixed inset-x-0 top-0 z-30 h-14 border-y border-stroke-selected bg-primary/5 opacity-0"
+          />
+        ) : null}
+        {/* D3(2026-09-18 立):跳顶 / 跳到最新浮动箭头。
+            2026-11-15:容器移入本 relative 包裹层 ⇒ 绝对定位锚到消息滚动视口而不是整个
+            聊天面板;上箭头贴视口上方、下箭头贴视口下方,不再双双堆在右下角。
+            2026-09-22 归一:原先此处另有一枚底部居中的「跳到最新」,与列内「跳底」同义重复,
+            现合并进 ScrollJumpButtons,行为沿用 scrollToBottom(滚到底 + 复位 userScrolledUp)。 */}
+        <ScrollJumpButtons
+          isFarFromTop={isFarFromTop}
+          isFarFromBottom={isFarFromBottom}
+          userScrolledUp={userScrolledUp}
+          hasMessages={messages.length > 0}
+          isStreaming={isStreaming}
+          onJumpTop={() => {
+            const el = containerRef.current
+            if (el) el.scrollTo({ top: 0, behavior: 'smooth' })
+          }}
+          onJumpLatest={scrollToBottom}
+        />
       </div>
       {/* D45(2026-09-24 立,G-54):ambient suggestions 环境建议条。
           2026-11-04 第三轮:从滚动内容尾部移到滚动容器**下方**的常驻带。
@@ -860,27 +914,19 @@ export function MessageList({
           切一半,切掉的那半截正好压在 cost-estimate-bar 上(280 命中 40% / 390 命中 20%)。
           建议条是「下一步做什么」的即时动作,本就不该藏进历史记录末尾;移出滚动容器后
           它恒在视口内、恒在成本条之上,命中区域由结构分离而非 z-index。
+          2026-11-14:建议改为服务端模型基于最近对话生成的真实指令,点击即发送;
+          写入的是本窗格 store(非根单例),多窗格并存时不会串到别的窗格。
           派生仍用原始 messages(建议独立于档位过滤的呈现粒度)。 */}
-      <AmbientSuggestions messages={messages} />
+      <AmbientSuggestions
+        messages={messages}
+        conversationId={conversationId}
+        isStreaming={isStreaming}
+        onAdopt={(prompt) => chatStore.setState({ draftInput: prompt, draftAutoSend: true })}
+      />
       {/* W18 对话流缩略导航(2026-09-13 立):右侧 Query 刻度条,点击跳转任一提问。
           2026-09-21 归一:并入 D3 定位器的滚动联动高亮,删除 ConversationLocatorRail,
           右侧只保留这一条 rail(此前两 rail 并挂,用户反馈"怎么有两个 nav") */}
       <QueryThumbRail messages={visibleMessages} containerRef={containerRef} />
-      {/* D3(2026-09-18 立):右下角浮动 affordance 列(跳顶 / 跳到最新)。
-          2026-09-22 归一:原先此处另有一枚底部居中的「跳到最新」,与列内「跳底」同义重复,
-          现合并进 ScrollJumpButtons,行为沿用 scrollToBottom(滚到底 + 复位 userScrolledUp)。 */}
-      <ScrollJumpButtons
-        isFarFromTop={isFarFromTop}
-        isFarFromBottom={isFarFromBottom}
-        userScrolledUp={userScrolledUp}
-        hasMessages={messages.length > 0}
-        isStreaming={isStreaming}
-        onJumpTop={() => {
-          const el = containerRef.current
-          if (el) el.scrollTo({ top: 0, behavior: 'smooth' })
-        }}
-        onJumpLatest={scrollToBottom}
-      />
       {/* Phase 19: MessageContextMenu(全局单实例,visible/position 由 hook 控制) */}
       <MessageContextMenu
         visible={contextMenu.visible}

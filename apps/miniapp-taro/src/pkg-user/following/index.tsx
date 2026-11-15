@@ -2,7 +2,6 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-
 // 镜像 packages/app/src/features/follow/FollowScreen.tsx
 //
 // 薄壳(2026-11-14 收敛):列表视图委托共享屏 `FollowScreen`,本端只保留平台职责:
@@ -169,7 +168,9 @@ export default function FollowingPage() {
         onNavigate={(url) => Taro.navigateTo({ url })}
         onToast={onToast}
         emptyLabel={
-          searchText ? tt('following.searchEmpty', '未找到匹配用户') : tt('follow.empty', '暂无数据')
+          searchText
+            ? tt('following.searchEmpty', '未找到匹配用户')
+            : tt('follow.empty', '暂无数据')
         }
         emptyAction={{ label: tt('following.goDiscover', '去发现更多'), onPress: goDiscover }}
         showNoMore={!hasMore && displayList.length > 0}
@@ -181,7 +182,9 @@ export default function FollowingPage() {
                 {tab === 'following' ? tt('follow.following', '关注') : tt('follow.fans', '粉丝')}
               </Text>
               <Text className="mx-[8rpx] text-heading font-bold text-primary">{totalCount}</Text>
-              <Text className="text-label text-muted-foreground">{tt('following.people', '人')}</Text>
+              <Text className="text-label text-muted-foreground">
+                {tt('following.people', '人')}
+              </Text>
             </View>
             {/* 搜索栏(统一圆角输入井,共享 SearchBar) */}
             <SearchBar

@@ -10,19 +10,23 @@
  *   (最久未用优先的简单轮换,取用即回写 lastPickedAt)。取用是**单条带行锁的 UPDATE**
  *   (2026-10-28 量测定档:不加锁的「UPDATE … WHERE id = (SELECT … LIMIT 1)」会把并发请求
  *   全摁在同一枚位上,详见 pickProxyForAccount 头注),多实例并发各取不同位。
- * - reportProxyFailure / reportProxySuccess:连续失败计数,达阈值转 exhausted,成功清零并回 active。
+ * - reportProxyFailure / reportProxySuccess:失败计数由 SQL 原子 +1,达阈值同条语句转 exhausted;
+ *   成功只清计数不改状态。exhausted 自愈走 recoverExhaustedProxies(供既有调度器调用)。
  * - markProxyChecked:活性检测**接口**(供未来探测/人工标记用,不强制外网探测)。
  * - listProxies / createProxy / updateProxy / deleteProxy / getProxyById:管理面 CRUD。
  * 全部永不抛:取代理失败返回 null(直连),上报失败静默 warn,CRUD 返回可判别结果。
  */
-import { desc, eq, sql } from 'drizzle-orm'
+import { and, desc, eq, isNull, lt, or, sql } from 'drizzle-orm'
 import { aiRelayProxyPool, type AiRelayProxyPool } from '@ihui/database'
 import { db, dbRead } from '../db/index.js'
 import { decryptField, encryptField } from '../utils/crypto.js'
 import { logger } from '../utils/logger.js'
 
-/** 连续失败阈值:达到即转 exhausted(暂冷,成功上报可回升 active) */
+/** 连续失败阈值:达到即转 exhausted(暂冷) */
 const PROXY_FAIL_LIMIT = 5
+
+/** exhausted 自愈冷却:距最近一次失败/检测超过该时长才允许重新入池(下次取用即探活) */
+const PROXY_RECOVER_AFTER_MS = 10 * 60 * 1000
 
 /** 日志脱敏:代理地址只留协议+主机,账密/路径/查询串一律不落日志 */
 function maskProxyUrlForLog(raw: string): string {
@@ -160,30 +164,24 @@ export async function pickProxyForAccount(account: {
   }
 }
 
-/** 上报一次代理失败:failCount+1,达阈值转 exhausted。永不抛。 */
+/**
+ * 上报一次代理失败:failCount 原子 +1,达阈值同一条 UPDATE 转 exhausted。永不抛。
+ *
+ * 计数必须由数据库表达式完成(`fail_count + 1`),不能先 dbRead 再写回:
+ * 副本读与主库写之间存在时间差,并发失败会互相覆盖(丢更新),坏代理永远达不到阈值。
+ * status 也用 CASE 在同一条语句里裁决,避免读到旧 status 后把 exhausted 写回 active。
+ */
 export async function reportProxyFailure(proxyUrl: string): Promise<void> {
   try {
-    const rows = await dbRead
-      .select({
-        id: aiRelayProxyPool.id,
-        failCount: aiRelayProxyPool.failCount,
-        status: aiRelayProxyPool.status,
-      })
-      .from(aiRelayProxyPool)
-      .where(eq(aiRelayProxyPool.proxyUrl, proxyUrl))
-      .limit(1)
-    const row = rows[0]
-    if (!row) return
-    const failures = row.failCount + 1
     await db
       .update(aiRelayProxyPool)
       .set({
-        failCount: failures,
-        status: failures >= PROXY_FAIL_LIMIT ? 'exhausted' : row.status,
+        failCount: sql`${aiRelayProxyPool.failCount} + 1`,
+        status: sql`CASE WHEN ${aiRelayProxyPool.failCount} + 1 >= ${PROXY_FAIL_LIMIT} THEN 'exhausted' ELSE ${aiRelayProxyPool.status} END`,
         lastCheckedAt: new Date(),
         updatedAt: new Date(),
       })
-      .where(eq(aiRelayProxyPool.id, row.id))
+      .where(eq(aiRelayProxyPool.proxyUrl, proxyUrl))
   } catch (e) {
     logger.warn('[relay-proxy-pool] 代理失败计数上报失败(已吞)', {
       proxyUrl: maskProxyUrlForLog(proxyUrl),
@@ -192,30 +190,58 @@ export async function reportProxyFailure(proxyUrl: string): Promise<void> {
   }
 }
 
-/** 上报一次代理成功:failCount 清零,exhausted 位回升 active。永不抛。 */
+/**
+ * 上报一次代理成功:只把 failCount 清零,**不**改 status。永不抛。
+ *
+ * exhausted 位在转冷后不会再被 pickProxyForAccount 选中,成功上报因此不会再发生;
+ * 把它无条件拉回 active 只会在读写交错时掩盖真实故障。复活统一走
+ * `recoverExhaustedProxies`(由既有调度器按冷却期调用)。
+ */
 export async function reportProxySuccess(proxyUrl: string): Promise<void> {
   try {
-    const rows = await dbRead
-      .select({ id: aiRelayProxyPool.id, status: aiRelayProxyPool.status })
-      .from(aiRelayProxyPool)
-      .where(eq(aiRelayProxyPool.proxyUrl, proxyUrl))
-      .limit(1)
-    const row = rows[0]
-    if (!row) return
     await db
       .update(aiRelayProxyPool)
       .set({
         failCount: 0,
-        status: row.status === 'exhausted' ? 'active' : row.status,
         lastCheckedAt: new Date(),
         updatedAt: new Date(),
       })
-      .where(eq(aiRelayProxyPool.id, row.id))
+      .where(eq(aiRelayProxyPool.proxyUrl, proxyUrl))
   } catch (e) {
     logger.warn('[relay-proxy-pool] 代理成功计数上报失败(已吞)', {
       proxyUrl: maskProxyUrlForLog(proxyUrl),
       error: e instanceof Error ? e.message : String(e),
     })
+  }
+}
+
+/**
+ * 冷代理自愈:把 exhausted 且超过冷却期未再检测的位重置回 active(计数清零),
+ * 下一次取用即相当于一次探活。由既有调度器调用,**不自起计时器**。
+ * 返回本轮恢复的行数;异常按 0 处理并 warn(永不抛)。
+ */
+export async function recoverExhaustedProxies(now: Date = new Date()): Promise<number> {
+  try {
+    const cutoff = new Date(now.getTime() - PROXY_RECOVER_AFTER_MS)
+    const rows = await db
+      .update(aiRelayProxyPool)
+      .set({ status: 'active', failCount: 0, updatedAt: now })
+      .where(
+        and(
+          eq(aiRelayProxyPool.status, 'exhausted'),
+          or(
+            isNull(aiRelayProxyPool.lastCheckedAt),
+            lt(aiRelayProxyPool.lastCheckedAt, cutoff),
+          ),
+        ),
+      )
+      .returning({ id: aiRelayProxyPool.id })
+    return rows.length
+  } catch (e) {
+    logger.warn('[relay-proxy-pool] 冷代理自愈失败(已吞)', {
+      error: e instanceof Error ? e.message : String(e),
+    })
+    return 0
   }
 }
 
