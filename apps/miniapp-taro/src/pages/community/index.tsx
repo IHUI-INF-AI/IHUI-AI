@@ -4,6 +4,7 @@
 
 import { aizhsUrl } from '@/constants/icon-urls'
 import { TAB_BAR_OCCUPIED_PX, TAB_BAR_PAGE_RESERVE_CSS } from '@/constants/tab-bar-metrics'
+import { MINI_TAB_PAGE_LIST } from '@/constants/tab-bar-pages'
 import ScrollJumpButton, { pxToTaroRpx, scrollJumpInsetRpx } from '@/components/ScrollJumpButton'
 import { useTt, t } from '@/i18n'
 import { View, Text, Image } from '@tarojs/components'
@@ -533,9 +534,11 @@ export default function Community() {
     }
     const url = routeMap[item.key]
     if (url) {
-      // appStore 是 tabBar 页:只能 switchTab。失败兜底绝不能再用 navigateTo 打同一个
-      // tabBar 页(微信硬约束,navigateTo 打 tab 页必然失败),否则点了完全没反馈。
-      if (item.key === 'appStore') {
+      // tabBar 页只能 switchTab;失败兜底绝不能再用 navigateTo 打同一个 tabBar 页
+      // (微信硬约束,navigateTo 打 tab 页必然失败),否则点了完全没反馈。
+      // 按名单判定而非只认 appStore:dynamic → /pages/share/index 同为 tabBar 页。
+      const isTabPage = MINI_TAB_PAGE_LIST.some((p) => `/${p}` === url)
+      if (isTabPage) {
         Taro.switchTab({
           url,
           fail: () => onToast(tt('community.text8', '页面未配置'), { kind: 'error' }),

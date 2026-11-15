@@ -170,7 +170,7 @@ export default function NewsScreenWrapper() {
     try {
       const res = await listConversations({ page: 1, pageSize: 20 })
       if (res.success) {
-        const list: DrawerConversationItem[] = res.data.conversations.map((c) =>
+        const list: DrawerConversationItem[] = (res.data?.conversations ?? []).map((c) =>
           mapConversationToDrawer(c, t),
         )
         setDrawerConversations(list)
