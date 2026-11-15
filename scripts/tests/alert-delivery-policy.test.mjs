@@ -292,4 +292,63 @@ test('防误删闸:策略表可解析、顶层数组、条目数≥17、关键�
     seen.add(e.id)
   }
 })
+
+test('2026-11-15 制度闸:保活腿误报已在判据层根治,禁止再靠调冷却窗口压症状', () => {
+  const raw = readFileSync(new URL('../data/alert-delivery-policy.json', import.meta.url), 'utf8')
+  const parsed = JSON.parse(raw)
+  const wb = parsed.find((e) => e.id === 'client-sync-leg-workbuddy')
+  assert.ok(wb, 'client-sync-leg-workbuddy 条目缺失 ⇒ 被误删')
+  // 五次历史处置都落在派发抑制层(改窗口),判据层零改动 ⇒ 窗口一回收误报即回,累计 30 封。
+  // 本闸把「改窗口」钉成显式决策:定案文字、单一真相源、判据不复制,三项缺一即红。
+  assert.equal(wb.cooldownMs, 43200000, '窗口现值锁死:改窗口必须同步修订本测试')
+  assert.match(wb.evidence, /2026-11-15 根因定案/, '定案不得被改写掉')
+  assert.match(wb.evidence, /client-sync-verdict\.mjs 单一真相源/, '必须点名契约层根治')
+  assert.match(wb.evidence, /不要再靠拉长 cooldownMs/, '必须保留禁止抑制层复发的口径')
+  const ruler = readFileSync(new URL('../check-qoder-session-sync-task.mjs', import.meta.url), 'utf8')
+  assert.match(ruler, /from '\.\/lib\/client-sync-verdict\.mjs'/, '尺子必须共用契约')
+  assert.doesNotMatch(ruler, /export const CLIENT_NOT_READY_RE/, '判据不得被复制回尺子')
+})
+
+// 2026-11-15 制度闸(补):上一闸只钉了 WorkBuddy 一族的窗口 + 三条定案短语。补三处真实缺口:
+//   ① 定案正文(30 封 / 五次处置 / 判据层零改动 / 真故障仍判红)逐句锁死,防止只留标题短语
+//      就把根因正文改写掉;② 遍历所有 client-sync-leg-* 族逐条锁窗口与定案 —— 策略表将来
+//      若补第二条腿的族,不能只加条目不写定案、不改本测试;③ 「另一条腿是另一个告警名、
+//      不受本条影响」这句定案与 Qoder 告警名的族窗边界一并钉死。
+test('2026-11-15 制度闸(补):所有 client-sync-leg-* 族逐条锁窗口与根因定案,另一条腿不被本族窗吃掉', () => {
+  const raw = readFileSync(new URL('../data/alert-delivery-policy.json', import.meta.url), 'utf8')
+  const parsed = JSON.parse(raw)
+  const fams = parsed.filter((e) => /^client-sync-leg-/.test(e.id))
+  assert.ok(fams.length >= 1, '保活腿族至少 WorkBuddy 一条在册')
+  for (const f of fams) {
+    assert.equal(f.cooldownMs, 43200000, `${f.id} 窗口锁死 12h;改窗口必须同步修订本测试`)
+    assert.match(f.evidence, /2026-11-15 根因定案/, `${f.id} 定案标题不得被改写掉`)
+    assert.match(f.evidence, /client-sync-verdict\.mjs 单一真相源/, `${f.id} 必须点名契约层根治`)
+    assert.match(f.evidence, /不要再靠拉长 cooldownMs/, `${f.id} 必须保留禁止抑制层复发的口径`)
+    assert.match(f.evidence, /累计寄出 30 封/, `${f.id} 定案不得抹掉 30 封误报读数`)
+    assert.match(f.evidence, /五次处置/, `${f.id} 定案不得抹掉五次处置全在抑制层`)
+    assert.match(f.evidence, /判据层零改动/, `${f.id} 定案不得抹掉判据层零改动这一根因`)
+    assert.match(
+      f.evidence,
+      /真失败 \/ tsx 缺失 \/ SIGTERM \/ ok:false 仍判红/,
+      `${f.id} 定案不得抹掉真故障仍判红的反向牙`,
+    )
+  }
+  const wb = parsed.find((e) => e.id === 'client-sync-leg-workbuddy')
+  assert.ok(wb, 'WorkBuddy 族缺失 ⇒ 被误删')
+  assert.match(
+    wb.reason,
+    /Qoder 腿是另一条腿、另一个告警名,不受本条影响/,
+    '「另一条腿不受本条影响」的定案不得被删',
+  )
+  const { entries } = parseAlertDeliveryPolicy(raw)
+  const hit = matchAlertDeliveryPolicy(
+    'Qoder 号池保活腿失效(本机会话不再回灌)',
+    entries,
+    { today: '2026-11-15' },
+  )
+  assert.ok(
+    !hit || !/^client-sync-leg-/.test(hit.entry.id),
+    'Qoder 告警名不得被保活腿族窗吃掉(另一条腿另一个告警名)',
+  )
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
