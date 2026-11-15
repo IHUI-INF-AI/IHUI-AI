@@ -18,8 +18,9 @@
  */
 import { execFile } from 'node:child_process'
 import { mkdirSync, realpathSync } from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
+// §15b 运行时合规临时根单一真相源(端内禁再建 os.tmpdir() 第二份)
+import { getRuntimeTempRoot } from '@ihui/shared'
 import { logger } from './clawdbot/logger.js'
 import { callRealLlm } from './crew-llm-adapter.js'
 import { knowledgeRagService } from './knowledge-rag-service.js'
@@ -56,7 +57,7 @@ interface CrewTool {
  * 为什么必须有:原先 execFile 不带 `cwd` ⇒ 进程继承 API 的工作目录(= 仓库根,里面有
  * `.env`:数据库口令 + 各厂商模型密钥)。白名单里的 cat/head/tail/find/grep 因此可以直接
  * 把密钥读进模型可见上下文 —— 命令合法、路径越权。
- * 默认落 `os.tmpdir()/ihui-crew-sandbox`(§26 口径:不硬编码 C 盘路径,用 TEMP);
+ * 默认落 `~/.ihui/tmp/ihui-crew-sandbox`(§15b 合规临时根,经 junction 落 D: 卷,不写 C 盘);
  * 运维想把沙箱挂到已登记的隔离卷上,显式设 `CREW_SANDBOX_ROOT`。
  * 取不到(创建失败/路径不可解析)⇒ 返回 null,调用方**拒绝执行**,绝不回落进程 cwd。
  */
@@ -65,7 +66,8 @@ let cachedSandboxRoot: string | null | undefined
 function crewSandboxRoot(): string | null {
   if (cachedSandboxRoot !== undefined) return cachedSandboxRoot
   const requested = String(process.env.CREW_SANDBOX_ROOT ?? '').trim()
-  const target = requested || path.join(os.tmpdir(), 'ihui-crew-sandbox')
+  // §15b 运行时合规临时根(~/.ihui/tmp → junction D:),禁 os.tmpdir()(TEMP 可能钉 C 盘)
+  const target = requested || path.join(getRuntimeTempRoot(), 'ihui-crew-sandbox')
   try {
     mkdirSync(target, { recursive: true })
     // 用 realpath 而不是 resolve 作为生效根:显式登记的沙箱若是一枚指向仓库根的链接,

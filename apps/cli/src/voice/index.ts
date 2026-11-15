@@ -21,8 +21,9 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import * as os from 'node:os';
 import { spawnSync, spawn } from 'node:child_process';
+// 运行时合规临时根(§15b):~/.ihui/tmp → junction D:;禁 os.tmpdir()(TEMP 可能钉 C 盘)
+import { getRuntimeTempRoot } from '@ihui/shared';
 
 /**
  * 录音默认超时(毫秒)。ffmpeg 卡在设备初始化时不会自己退出,
@@ -135,7 +136,7 @@ export async function recordAudio(opts: RecordAudioOptions = {}): Promise<Record
   const duration = opts.durationSec ?? 5;
   const sampleRate = opts.sampleRate ?? 16000;
   const channels = opts.channels ?? 1;
-  const outputPath = opts.outputPath ?? path.join(os.tmpdir(), `ihui-voice-${Date.now()}.wav`);
+  const outputPath = opts.outputPath ?? path.join(getRuntimeTempRoot(), `ihui-voice-${Date.now()}.wav`);
 
   // 平台特定的输入格式
   const platform = process.platform;

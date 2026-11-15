@@ -16,7 +16,8 @@
 
 import { spawn } from 'node:child_process';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+// §15b 运行时合规临时根(~/.ihui/tmp → junction D:),禁 os.tmpdir()(TEMP 可能钉 C 盘)
+import { getRuntimeTempRoot } from '@ihui/shared';
 import * as path from 'node:path';
 
 import type { SandboxExecOptions, SandboxExecResult, SandboxPolicy } from '../policy.js';
@@ -127,7 +128,7 @@ async function runWithSandboxExec(policy: SandboxPolicy, commandLine: string, op
   const cwd = options.cwd ?? policy.workspaceRoot;
   let workDir: string | undefined;
   try {
-    workDir = await mkdtemp(path.join(tmpdir(), 'ihui-sb-'));
+    workDir = await mkdtemp(path.join(getRuntimeTempRoot(), 'ihui-sb-'));
     const profileFile = path.join(workDir, 'sandbox.sb');
     await writeFile(profileFile, buildSeatbeltProfile(policy), 'utf8');
     const shellCmd = `exec ${commandLine}`;
