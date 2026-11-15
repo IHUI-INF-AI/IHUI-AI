@@ -2227,6 +2227,53 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-15**
+- 🔧 기타:Merge origin/main: 行尾归一化+小程序RN前端修复落库 (bda89c77c0)
+- 🔧 기타:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (849cb17cc1)
+- 🐞 수정:收敛前序治理批次(i18n 文案拼接/设计令牌/交互与解包加固) (1632762bf4)
+- 🐞 수정:API 层全量路径段补 encodeURIComponent(对齐 api-client 惯例) (b2ec9922eb)
+- 🐞 수정:修复 API 层路径编码缺失与响应解包空判 (b4057d9e5d)
+- 🔧 기타:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (8ee1f8d48e)
+- 🐞 수정:修跨端交互/逻辑缺陷——pay applyCoupon 补 in-flight 守卫防并发改价、AppUpdateBanner 裸 setTimeout 补 cleanup 治卸载闪没、TagInput 可删列表改按 tag 值作 key 解耦下标、user 历史静默 catch 补失败 toast;ui-routes.generated.ts 按当前输入重生成对齐 (a3df780e70)
+- 📚 문서:README 派生区按 fcee207727 新 HEAD 重算(钩子自动补登最近更新条目) (2b21dab8d8)
+- 🐞 수정:README.en 最近更新区真合并 HEAD/origin 条目清冲突标记(门79);.gitignore 忽略会话一次性中间产物(治门44 未判定) (fcee207727)
+- 🐞 수정:face-reader worktreeHashObjectBatch 去 -z,修 unknown switch z 取材失败 (329dfd7b56)
+- 🐞 수정:ancestor-downgrade 批量 HEAD blob,治门298 工作树臂第二腿 fork 风暴 (757e8748c2)
+- 🐞 수정:face-reader 批量工作树 hash 原语,治门298 工作树臂 fork 风暴超时 (1c8c684ae5)
+- 🐞 수정:门298 提前判合法回滚声明,防工作树脏文件祖先比对超时 (c566663e2d)
+- 🔧 기타:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (0048ce2254)
+- 🔧 기타:门IG 追认 71c7d304c1 入库 + 门89 撞号修复(320→323) + 门322 判面层配套 + root-guard 重封 + 门89 判据取面收口 (2f95c46397)
+- 🐞 수정:圈子页下拉刷新失效(T-03 P1) (4f3161aac0)
+- 🐞 수정:pkg-ai 主 CTA 走 bg-cta+text-cta-foreground 同源对(T-16 P1) (4d322dc3d2)
+- 🐞 수정:提现确认按钮防连点(T-20 P1 资金操作) (95c95fc42e)
+- 🐞 수정:PlazaScreen 正文色去墨档系(T-19 P1) (a00bfb7dab)
+- 🔧 기타:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (8081911764)
+- 🐞 수정:task-status-bar 激活态描边去墨档(T-15 P0 铁律违规) (86981bcff8)
+- 🐞 수정:useTaskReceiver register/answerApproval 包 try/catch 收敛 5xx/网络异常(T-02 P0) (8e0c889bf4)
+- 🐞 수정:实名验证弹层补关闭途径(T-01 P0) (4ce181f754)
+- 🔧 기타:解合面冲突(PROJECT_PLAN RP-80/RP-4 union + AGENTS 门名清单 union) (71c7d304c1)
+- 🔧 기타:刷新 302p 跨端漂移基线(推送尖现读,两维恶化留档) (8835130fe3)
+- 🔧 기타:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (4f8f58ccda)
+- 🐞 수정:解 stash pop 格式冲突(RN) + README 超集落地清标记 (669cfb91cf)
+- 🔧 기타:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (bfe80e6b01)
+- 🔧 기타:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (47b2db1f35)
+- 🐞 수정:手势/触摸冲突 5 处修复 (11cc70a2a0)
+- 🔧 기타:Carousel geometry 额度 2→3 对齐 HEAD 现值 (de8dbcd5b6)
+- 🐞 수정:check-line-endings git 派生补显式 stdio(治门193 blocking) (2b53a1b1cf)
+- 🔧 기타:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (3f8ec5adef)
+- 🐞 수정:RN 色值对齐 web 源 + design-tokens dist 重建闸门 (619cc1253a)
+- 🔧 기타:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (56d8dae2a7)
+- 🐞 수정:深度扫描第二批收口 RN/小程序端样式、交互与逻辑缺陷 (97b7a7ac96)
+- 🐞 수정:门302 rendersSharedIn 认深子路径导入(补正/反例测试);接线 check-line-endings/check-mirror-surface-parity 判面层(门312 R1);rn-miniapp 矩阵文档重生成为现值(镜像257→258,门302修复后真实现读) (ab211603b9)
+- 🔧 기타:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (62368b7976)
+
+**2026-11-14**
+- 🐞 수정:两端 JSX 裸中文清零 + Taro 静默失败兜底 + 延迟导航定时器清理 (9f5d9041c9)
+- 🐞 수정:深度扫描修复 RN/小程序端样式、交互与逻辑缺陷 (4a007dfecd)
+- 🐞 수정:补齐 RN/Taro 图标按钮无障碍语义标签 (247c8da480)
+- 🐞 수정:修复前端遗留问题——RN/Taro 冲突、i18n 源文件还原、promise、定时器 (b276b21957)
+- 🐞 수정:audit-app-text-contrast 判据重构 —— 承载面穷举法消除假红 (54be2a991d)
+
+**2026-11-15**
 - 🐞 수정:收敛前序治理批次(i18n 文案拼接/设计令牌/交互与解包加固) (1632762bf4)
 
 **2026-11-15**
@@ -2267,13 +2314,6 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 **2026-11-15**
 - 🐞 수정:提现确认按钮防连点(T-20 P1 资金操作) (95c95fc42e)
-
-**2026-11-15**
-- 🐞 수정:PlazaScreen 正文色去墨档系(T-19 P1) (a00bfb7dab)
-- 🔧 기타:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (8081911764)
-
-**2026-11-15**
-- 🐞 수정:task-status-bar 激活态描边去墨档(T-15 P0 铁律违规) (86981bcff8)
 <!-- END RECENT UPDATES -->
 
 <p align="center">
