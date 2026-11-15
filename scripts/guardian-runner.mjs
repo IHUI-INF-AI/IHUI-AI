@@ -6535,6 +6535,26 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- import 目标完整性(1 项,blocking)---
+  {
+    id: '324',
+    label:
+      '🧩 import 目标完整性(blocking:R1 本地/别名引用必须解析到同一棵树;R2 差值棘轮只拦本笔新增)',
+    script: 'check-import-integrity.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_IMPORT_INTEGRITY',
+    stagedTriggers: ['apps/', 'packages/'],
+    onFailHint: [
+      '',
+      '本笔引入了一条指向不存在的文件的 import(引用方进库、被引用文件没进库)。',
+      '两种正解:① 把被引用文件一起提交;② 删掉这条引用并把功能一并摘干净。',
+      '全量巡检(只报数不判红):node scripts/check-import-integrity.mjs',
+      '应急放行:HUSKY_SKIP_IMPORT_INTEGRITY=1(提交信息须写明责任归属)',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
