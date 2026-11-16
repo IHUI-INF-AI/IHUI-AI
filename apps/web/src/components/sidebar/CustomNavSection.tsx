@@ -172,6 +172,7 @@ const CustomNavSection = React.memo(function CustomNavSection({
   onBeforeNav,
   groups,
   allItems,
+  domainGroups,
 }: {
   collapsed: boolean
   onCloseMobile: () => void
@@ -181,6 +182,8 @@ const CustomNavSection = React.memo(function CustomNavSection({
   groups: { label: string; items: NavItem[] }[]
   /** 全量可见导航项(含域入口页清单),仅用于收藏解析;缺省回退 groups */
   allItems?: NavItem[]
+  /** 域内功能候选(按域分组,已按角色/RBAC 过滤),供添加面板浏览 */
+  domainGroups?: { labelKey: string; items: NavItem[] }[]
 }) {
   const t = useTranslations('nav')
   const pathname = usePathname()
@@ -273,6 +276,7 @@ const CustomNavSection = React.memo(function CustomNavSection({
       open={dialogOpen}
       onClose={closeDialog}
       groups={groups}
+      domainGroups={domainGroups}
       customHrefs={customHrefs}
       onAdd={addHref}
       onRemove={removeHref}

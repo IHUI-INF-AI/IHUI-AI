@@ -17,6 +17,8 @@ interface CustomNavDialogProps {
   onClose: () => void
   /** 已过滤、可显示的导航分组(来自 Sidebar 的 visibleGroups) */
   groups: { label: string; items: NavItem[] }[]
+  /** 域内功能候选(按域分组,labelKey 为 nav 命名空间键);域收敛后不在侧栏平铺 */
+  domainGroups?: { labelKey: string; items: NavItem[] }[]
   /** 当前已收藏的 href 集合 */
   customHrefs: string[]
   onAdd: (href: string) => void
@@ -55,6 +57,7 @@ export function CustomNavDialog({
   open,
   onClose,
   groups,
+  domainGroups,
   customHrefs,
   onAdd,
   onRemove,
@@ -72,49 +75,53 @@ export function CustomNavDialog({
   const candidates = React.useMemo<Candidate[]>(() => {
     const seen = new Map<string, Candidate>()
     const result: Candidate[] = []
-    for (const group of groups) {
-      const groupLabel = group.label ? t(group.label) : t('home')
-      const toCandidate = (item: NavItem): Candidate => ({
-        href: item.href,
-        labelKey: item.labelKey,
-        icon: item.icon,
-        dynamicLabel: item.dynamicLabel,
-        groupLabel,
-      })
-      const walk = (items: NavItem[]) => {
-        for (const item of items) {
-          const existing = seen.get(item.href)
-          if (existing) {
-            // 已见过(比如「热门」里的平铺版):补挂 children 供层级渲染
-            if (item.children?.length && !existing.children?.length) {
-              existing.children = item.children
-                .filter((c) => !seen.has(c.href))
-                .map((c) => {
-                  const cand = toCandidate(c)
-                  seen.set(cand.href, cand)
-                  return cand
-                })
-            }
-            continue
-          }
-          const cand = toCandidate(item)
-          if (item.children?.length) {
-            cand.children = item.children
+    const toCandidate = (item: NavItem, groupLabel: string): Candidate => ({
+      href: item.href,
+      labelKey: item.labelKey,
+      icon: item.icon,
+      dynamicLabel: item.dynamicLabel,
+      groupLabel,
+    })
+    const walk = (items: NavItem[], groupLabel: string) => {
+      for (const item of items) {
+        const existing = seen.get(item.href)
+        if (existing) {
+          // 已见过(比如「热门」里的平铺版):补挂 children 供层级渲染
+          if (item.children?.length && !existing.children?.length) {
+            existing.children = item.children
               .filter((c) => !seen.has(c.href))
               .map((c) => {
-                const child = toCandidate(c)
-                seen.set(child.href, child)
-                return child
+                const cand = toCandidate(c, groupLabel)
+                seen.set(cand.href, cand)
+                return cand
               })
           }
-          seen.set(cand.href, cand)
-          result.push(cand)
+          continue
         }
+        const cand = toCandidate(item, groupLabel)
+        if (item.children?.length) {
+          cand.children = item.children
+            .filter((c) => !seen.has(c.href))
+            .map((c) => {
+              const child = toCandidate(c, groupLabel)
+              seen.set(child.href, child)
+              return child
+            })
+        }
+        seen.set(cand.href, cand)
+        result.push(cand)
       }
-      walk(group.items)
+    }
+    for (const group of groups) {
+      walk(group.items, group.label ? t(group.label) : t('home'))
+    }
+    // 域内功能(2026-11-16):域收敛后这些页面不在侧栏平铺,但收藏/高亮仍按全量
+    // 清单解析;不补这组候选,用户就再也无法把域内页面加进自定义栏。
+    for (const group of domainGroups ?? []) {
+      walk(group.items, t(group.labelKey))
     }
     return result
-  }, [groups, t])
+  }, [groups, domainGroups, t])
 
   // 浏览态:按顶级分组归桶(候选本就按分组顺序生成,同组项天然连续)
   //

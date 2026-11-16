@@ -132,6 +132,21 @@ describe('CustomNavDialog', () => {
     expect(rowByLabel('nav.modelsLogs')).toBeTruthy()
   })
 
+  it('域内功能按域分组进入候选:收敛后仍可加入自定义栏', () => {
+    const { onAdd } = renderDialog({
+      domainGroups: [
+        {
+          labelKey: 'eduHubTitle',
+          items: [{ href: '/learn', labelKey: 'learn', icon: DummyIcon }],
+        },
+      ],
+    })
+    // 域分组桶头用 nav 命名空间键直译(与域入口同一 labelKey,不新增词条)
+    expect(document.querySelector('[data-testid="nav-custom-group-nav.eduHubTitle"]')).toBeTruthy()
+    fireEvent.click(rowByLabel('nav.learn'))
+    expect(onAdd).toHaveBeenCalledWith('/learn')
+  })
+
   it('同一 href 跨分组只渲染一行,children 补挂不产生重复行', () => {
     renderDialog()
     // /models 出现在两个分组里,但行只能有一行(否则重复 key + 视觉上一模一样的两个按钮)
