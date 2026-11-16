@@ -5475,6 +5475,9 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-16**
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (30661f36491)
+
+**2026-11-16**
 - 📚 文档:刷新生成块数字对齐 HEAD 面现算 (testFiles 5632→5672 / trackedFiles 22289→22393) (35e69d40642)
 - 🚀 新功能/改进:CUA 桌面环境快照(系统性能/进程表/浏览器状态)纯逻辑层 (072937f6c11)
 - 🔧 工程/其他:子功能模块页美化落地(CategoryShell 重做 × workspace-tokens 共享令牌)—— 他席 reset 覆盖后按本席上下文重建 (56772bcf61e)
