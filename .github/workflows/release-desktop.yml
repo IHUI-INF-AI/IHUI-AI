@@ -150,8 +150,18 @@ jobs:
             node scripts/desktop-signing-preflight.mjs --platform "${{ runner.os }}"
           fi
 
+      # 2026-11-17 固定 Rust 1.99 —— 根治 Linux 构建失败。
+      # 根因:Rust 1.100(2026-11-12 发布)把 never type fallback 从 () 改为 !,
+      # 且不再限于 edition 2024,而是覆盖所有 edition(含本项目 2021)。第三方 crate
+      # screenshots 0.8.10 的 Linux wayland_screenshot.rs 依赖旧 fallback,在新编译器下
+      # 报 E0277 `the trait bound !: ReadAll is not satisfied` ⇒ Linux tauri build 失败;
+      # macOS/Windows 不走该路径故全绿,0.1.76 时期 stable<1.100 故能过。
+      # 修法:固定到 1.100 前一版 1.99(远高于项目 MSRV 1.77,足以编 tauri 2.11),
+      # 让"能编译的组合"不再随 stable 漂移。将来升级到 1.100+ 须先升级/打补丁 screenshots。
       - name: Setup Rust
-        uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+        uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # 1.99
+        with:
+          toolchain: '1.99'
 
       # macOS Universal:补装 x86_64 目标(arm64 已就位)
       - name: Add macOS x86_64 target (universal build)
