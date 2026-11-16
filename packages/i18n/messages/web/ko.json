@@ -21084,7 +21084,7 @@
     "downloadGithubReleases": "GitHub Releases",
     "downloadIOS": "iOS 앱",
     "downloadIOSDesc": "iPhone / iPad 언제 어디서나",
-    "downloadIOSInstallGuide": "App Store 출시 후, 다운로드 버튼이 App Store 설치 페이지로 이동합니다.",
+    "downloadIOSInstallGuide": "이제 IPA를 직접 다운로드하여 직접 서명하거나 TrollStore(巨魔 상점)로 사이드로드해 설치할 수 있으며, App Store에서 설치하는 것이 아닙니다. 향후 App Store에 출시되면 다운로드 버튼이 App Store 설치 페이지로 우선 이동합니다.",
     "downloadIOSSysReq": "iOS 14.0 이상",
     "downloadInstallGuide": "설치 가이드",
     "downloadMiniDesc": "QR 스캔, 즉시 사용",

@@ -21081,7 +21081,7 @@
     "downloadGithubReleases": "GitHub Releases",
     "downloadIOS": "iOS App",
     "downloadIOSDesc": "iPhone / iPad anytime",
-    "downloadIOSInstallGuide": "Once published on the App Store, the download button will redirect to the App Store install page.",
+    "downloadIOSInstallGuide": "You can now download the IPA directly and sideload it by self-signing or with TrollStore - it is not installed from the App Store. Once the app is published on the App Store, the download button will redirect to the App Store install page instead.",
     "downloadIOSSysReq": "iOS 14.0 or later",
     "downloadInstallGuide": "Install guide",
     "downloadMiniDesc": "Scan QR, open and use",
