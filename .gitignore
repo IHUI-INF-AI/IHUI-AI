@@ -9,6 +9,13 @@ tmp/
 .tmp/
 # 浏览器自动化测试临时产物(截图 + ad-hoc 验证脚本,防回潮)
 browser_test_output/
+# 2026-11-16 显式审批:chat 框架保留的验证产物(retain_for_chat,框架禁删/禁搬)。
+# nul=Windows 保留名残留;tmp-verify-table*.mjs=表格补全(T)验证脚本。
+# 与上面 .tmp/ .screenshots/ 同型:登记忽略层=守门44从"归属无从判定(exit2)"落到只告警层,
+# 不入库、不搬不删(chat 保留扫描禁删)。
+nul
+tmp-verify-table-stress.mjs
+tmp-verify-tablesuffix.mjs
 # 同一族的另一个落点:自动化会话在仓库根就地建的截图暂存目录(2026-10-26 现读:并发席位 16:33 在用,
 # 内仅 .tmp;登记进忽略层 = 守门 44 从"归属无从判定(exit 2)"落到只告警层,不删他人现场)
 .screenshots/
@@ -768,3 +775,12 @@ tmp-*.png
 
 # findings 新鲜度门(check-findings-freshness.mjs)生成的快照缓存,每次运行重写,非交付源码
 scripts/data/findings-staleness.json
+
+# 临时诊断/合并分析残留(2026-11-14 清理提交前登记):非交付源码,不进版本库
+/.tmp_base_gitlock.mjs
+/.tmp_diag2.mjs
+/merge-resolve/
+apps/ai-service/.pytest_tmp/
+
+# 根级 scratch/ 工作区(他席 QA 审计产物,未跟踪;门44 判定走 git check-ignore => 忽略后不阻塞 commit)
+/scratch/

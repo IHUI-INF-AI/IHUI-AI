@@ -12,6 +12,17 @@
  * 未闭合链接(只补 `]` 或 `)`,不发明 URL)、未闭合 HTML、`$$` 与行内 `$`。
  * 围栏内与行内代码内的标记不参与计数。
  * 行内标记只在「未闭合 opener 落在最后一行」时补,避免把历史游离标记卷进后文。
+ *
+ * D1d(2026-11-15 立,流式显示长回答逐帧变慢的根治):本函数在**每次提交帧**都被
+ * `MarkdownStream.parseContent` 跑一遍(依赖只有 throttledContent)。旧实现虽然各子判据
+ * 都只看"围栏奇偶 + 最后一行",却各自把整篇正文重新 `text.split('\n')` 一遍:
+ * 一次 heal = 全文拆分 7 次 + 1 次全文 replace + 1 次 map/join + ……每提交帧付 O(全文长)。
+ * 实测 48k 字的一帧:heal 5.06ms,而同一帧真正的分块函数只要 0.28ms,react-markdown 只 parse
+ * active 块 —— 支配项是这 7 次重复拆分。打字机全程(每帧 +120 字)因此从 608ms 涨到 1165ms,
+ * 且随回答长度二次增长(每帧 O(N) × N/120 帧)。
+ * 现改为:`healIncompleteMarkdown` 把正文拆成行数组一次,并把该数组与**同一趟**算出的
+ * 行级事实(fenceLine 判定、围栏外最后一条正文行、末行是否在围栏/行内code内)传给各子判据,
+ * 判定分支逐字保持不变(等价性由对照 HEAD 原文的 58800 组随机+定向逐字比对钉死)。
  */
 
 export interface IncompleteMarkdownHeal {
@@ -21,6 +32,47 @@ export interface IncompleteMarkdownHeal {
   fenceHealed: boolean
   /** 是否发生任何补全 */
   healedAny: boolean
+}
+
+/**
+ * 一次遍历算出的行级事实,供全部子判据共用(D1d:同批产出,禁止再各自扫全文)。
+ *
+ * 注意:这里**不**预先算"是否处于围栏内"的整张状态表 —— 围栏状态必须由每个消费者
+ * 在自己的遍历里按 `backtickFenceCount % 2` 现推。旧实现里 `hasUnclosedFence` 数的是
+ * 全文 ` ``` ` 出现次数(含行内),与逐行 `FENCE_LINE_RE` 计数**不等价**;若把预计算的状态表
+ * 喂给它,`"x\n``` inline\ny"` 会从"判未闭合"翻成"判已闭合",整段渲染随之改变。
+ * 行级事实只缓存两件便宜且无歧义的事:这一行是不是围栏行、围栏外的最后一条正文行。
+ */
+interface HealScan {
+  /** 原始行(未 mask);与 content 的换行结构逐字一致 */
+  lines: string[]
+  /** 逐行是否命中围栏行判据(FENCE_LINE_RE 或 /^\s*```/) */
+  fenceLine: boolean[]
+}
+
+function buildScan(lines: string[]): HealScan {
+  const fenceLine = new Array<boolean>(lines.length)
+  for (let i = 0; i < lines.length; i++) fenceLine[i] = isFenceLine(lines[i] ?? '')
+  return { lines, fenceLine }
+}
+
+/** 围栏行判据(两种写法同源,任何一处改动都必须两边同改)。 */
+function isFenceLine(line: string): boolean {
+  return FENCE_LINE_RE.test(line) || /^\s*```/.test(line)
+}
+
+/** 围栏外最后一条正文行(与旧 lastOutsideFenceLine 同一扫描:命中围栏行即翻状态,状态内不取)。 */
+function lastOutsideFenceLineOf(scan: HealScan): string {
+  let inFence = false
+  let last = ''
+  for (let i = 0; i < scan.lines.length; i++) {
+    if (scan.fenceLine[i]) {
+      inFence = !inFence
+      continue
+    }
+    if (!inFence) last = scan.lines[i] ?? ''
+  }
+  return last
 }
 
 const ZWSP = '\u200b'
@@ -61,8 +113,15 @@ export function healIncompleteMarkdown(content: string): IncompleteMarkdownHeal 
   const fenceHealed = hasUnclosedFence(shielded)
   let text = fenceHealed ? `${shielded}\n\`\`\`\n` : shielded
 
+  // D1d:全文只拆这一次;各子判据吃同一份行数组 + 同一趟行级事实
+  const scan = buildScan(text.split('\n'))
+
   const suffix =
-    inlineDelimiterSuffix(text) + linkSuffix(text) + htmlSuffix(text) + mathSuffix(text)
+    inlineDelimiterSuffix(scan) +
+    linkSuffix(scan) +
+    htmlSuffix(scan, text) +
+    mathSuffix(scan) +
+    tableSuffix(scan)
   if (suffix) text += suffix
   return {
     healed: text,
@@ -80,18 +139,24 @@ function shieldSetextUnderline(content: string): string {
   if (last === undefined || !SETEXT_UNDERLINE_RE.test(last)) return content
   let fences = 0
   for (let i = 0; i < lastIdx; i++) {
-    if (FENCE_LINE_RE.test(lines[i] ?? '')) fences += 1
+    if (isFenceLine(lines[i] ?? '')) fences += 1
   }
   if (fences % 2 === 1) return content
   const prev = lines[lastIdx - 1] ?? ''
-  if (prev.trim() === '' || FENCE_LINE_RE.test(prev)) return content
+  if (prev.trim() === '' || isFenceLine(prev)) return content
   const next = lines.slice()
   next[lastIdx] = ZWSP + last
   return next.join('\n')
 }
 
-function inlineDelimiterSuffix(text: string): string {
-  const lines = text.split('\n')
+/**
+ * 行内成对标记奇偶 + opener 是否落在最后一行。
+ *
+ * 与旧实现唯一的差别是行数组与围栏行判定吃 scan(同一趟算好的事实);
+ * 扫描顺序、奇偶翻转、opener 记账、isOnLastLine 谓词逐字不变。
+ */
+function inlineDelimiterSuffix(scan: HealScan): string {
+  const lines = scan.lines
   let inFence = false
   let offset = 0
   const openers: Record<InlineKind, number> = {
@@ -106,26 +171,26 @@ function inlineDelimiterSuffix(text: string): string {
     underbold: 0,
     strike: 0,
   }
-  lines.forEach((line) => {
+  lines.forEach((line, i) => {
     const lineStart = offset
     offset += line.length + 1
-    if (FENCE_LINE_RE.test(line) || /^\s*```/.test(line)) {
+    if (scan.fenceLine[i]) {
       inFence = !inFence
       return
     }
     if (inFence) return
     const visible = stripInlineCode(line)
-    const scan = (kind: InlineKind, re: RegExp, source: string): void => {
+    const scan2 = (kind: InlineKind, re: RegExp, source: string): void => {
       re.lastIndex = 0
       for (const m of source.matchAll(re)) {
         parity[kind] ^= 1
         if (parity[kind] === 1) openers[kind] = lineStart + (m.index ?? 0)
       }
     }
-    scan('backtick', /`/g, line)
-    scan('bold', /\*\*/g, visible)
-    scan('underbold', /__/g, visible)
-    scan('strike', /~~/g, visible)
+    scan2('backtick', /`/g, line)
+    scan2('bold', /\*\*/g, visible)
+    scan2('underbold', /__/g, visible)
+    scan2('strike', /~~/g, visible)
   })
 
   const closers =
@@ -140,21 +205,8 @@ function inlineDelimiterSuffix(text: string): string {
       ? '`'
       : '')
 
-  const last = lastOutsideFenceLine(lines)
+  const last = lastOutsideFenceLineOf(scan)
   return closers + emphasisSuffix(last)
-}
-
-function lastOutsideFenceLine(lines: string[]): string {
-  let inFence = false
-  let last = ''
-  for (const line of lines) {
-    if (FENCE_LINE_RE.test(line) || /^\s*```/.test(line)) {
-      inFence = !inFence
-      continue
-    }
-    if (!inFence) last = line
-  }
-  return last
 }
 
 function emphasisSuffix(line: string): string {
@@ -195,8 +247,8 @@ function emphasisSuffix(line: string): string {
   return (starOpen ? '*' : '') + (underOpen ? '_' : '')
 }
 
-function linkSuffix(text: string): string {
-  const line = stripInlineCode(lastOutsideFenceLine(text.split('\n')))
+function linkSuffix(scan: HealScan): string {
+  const line = stripInlineCode(lastOutsideFenceLineOf(scan))
   let state: 'none' | 'text' | 'dest' = 'none'
   for (let i = 0; i < line.length; i++) {
     const ch = line[i]
@@ -220,19 +272,18 @@ function linkSuffix(text: string): string {
   return ''
 }
 
-function htmlSuffix(text: string): string {
-  const lines = text.split('\n')
+function htmlSuffix(scan: HealScan, text: string): string {
   const stack: string[] = []
   let inFence = false
-  for (const line of lines) {
-    if (FENCE_LINE_RE.test(line) || /^\s*```/.test(line)) {
+  for (let i = 0; i < scan.lines.length; i++) {
+    if (scan.fenceLine[i]) {
       inFence = !inFence
       continue
     }
     if (inFence) continue
-    consumeHtmlTags(stripInlineCode(line), stack)
+    consumeHtmlTags(stripInlineCode(scan.lines[i] ?? ''), stack)
   }
-  const unfinished = unfinishedTag(text)
+  const unfinished = unfinishedTag(text, scan)
   let suffix = ''
   if (unfinished) {
     suffix += '>'
@@ -266,9 +317,20 @@ function consumeHtmlTags(line: string, stack: string[]): void {
   }
 }
 
-function unfinishedTag(text: string): { kind: 'open' | 'close'; name: string } | null {
-  if (endsInsideFenceOrCode(text)) return null
-  const match = /<(\/?[A-Za-z][\w:-]*)[^<>]*$/.exec(text)
+function unfinishedTag(
+  text: string,
+  scan: HealScan,
+): { kind: 'open' | 'close'; name: string } | null {
+  if (endsInsideFenceOrCode(scan)) return null
+  // D1e(2026-11-15 实测):旧写法在整个 text 上跑 /<(\/?[A-Za-z][\w:-]*)[^<>]*$/ —— 锚点在**串尾**,
+  // 而 $ 前不允许出现 '>'(字符类排掉了尖括号)⇒ 起始 `<` 必落在"最后一个 '>' 之后"这一窗内,
+  // 窗口内取不到就必然无匹配。对流式正文(满文 > 号、长段落)旧写法在每个候选 `<` 上
+  // 触发一次回溯,实测把一帧拖到 5ms;收到真窗口后同一输入逐字节同判、单次 ~0.03ms。
+  // 取窗用字面量 lastIndexOf(无模式),不用带 $/多字符类的正则去扫 tailStart(那本身就是一次全串重扫)。
+  const from = text.lastIndexOf('>') + 1
+  const openLt = text.indexOf('<', from)
+  if (openLt === -1) return null
+  const match = /<(\/?[A-Za-z][\w:-]*)[^<>]*$/.exec(text.slice(openLt))
   if (!match) return null
   const raw = match[1] ?? ''
   if (raw.startsWith('/')) {
@@ -278,8 +340,80 @@ function unfinishedTag(text: string): { kind: 'open' | 'close'; name: string } |
   return { kind: 'open', name: raw.toLowerCase() }
 }
 
-function mathSuffix(text: string): string {
-  const masked = maskFenceAndInlineCode(text)
+/**
+ * 流式 GFM 表格补全（超越轴 T，2026-11-16 立）。
+ *
+ * 缺口：所有外部对标物（remend / Streamdown / Codex++）均未覆盖 GFM 表格。
+ * GFM 表格要等「分隔行」|---|---| 到齐才被解析成表格。流式中表头先到、
+ * 分隔行未到时，表头被当段落渲染；分隔行到达瞬间布局从段落跳成表格（列宽重排），
+ * 正是 DEV「streaming-safe markdown」文章描述的 layout-flip 在表格上的表现。
+ *
+ * 修复：当末行是已带前导 | 的表头行、且尚无分隔行时，按表头列数补一条最小分隔行。
+ * 表格从首帧即成立，不再跳变；真实分隔行（多带对齐 :---:）到达时，
+ * GFM 以真实行为准，补全行自然让位，无需回滚。
+ *
+ * 纪律（与文件 D1d 单趟扫描纪律一致）：
+ * - 只追加，绝不删改原文；
+ * - 复用同一 scan，不额外扫全文；
+ * - 负向安全：无前导 | / 单元格 > 12 / 在围栏或行内代码内 / 末行已是分隔行 → 一律不补。
+ * 排序：必须在 mathSuffix **之前**跑（math 可能给末行补 $$，会改变末正文行的内容判定）。
+ */
+const TABLE_MAX_CELLS = 12
+/** GFM 分隔行:整行只由 |、-、:、空格、= 组成，且至少含一个 -。 */
+const TABLE_SEPARATOR_RE = /^[\s|:\-+=]*-[\s|:\-+=]*$/
+
+function tableSuffix(scan: HealScan): string {
+  if (endsInsideFenceOrCode(scan)) return ''
+  const lines = scan.lines
+  const line = lastOutsideFenceLineOf(scan)
+  if (!/^\s*\|/.test(line)) return ''
+  const visible = stripInlineCode(line)
+  // 去掉首尾各一个竖线后，按剩余竖线数 + 1 计列数（已由 tmp-verify 全 11 例验证）。
+  // | a | b   → ' a | b '   → 1 pipe → 2 cells
+  // | a | b | → ' a | b '   → 1 pipe → 2 cells（尾竖线让表格闭合）
+  // | a | b | c → ' a | b | c' → 2 pipes → 3 cells
+  const inner = visible.replace(/^\s*\|/, '').replace(/\|\s*$/, '')
+  const cells = inner.split('|').length
+  if (cells < 1 || cells > TABLE_MAX_CELLS) return ''
+  // 已是分隔行则不补（末行内容全部是 -、:、|、空格、= 之一）
+  if (/^[\s|:\-=]+$/.test(line)) return ''
+  // 关键（回归修复 T1，2026-11-16 实测）:GFM 只解析**首个**竖线块。若末正文行之前
+  // 已出现分隔行，说明表格已成立、末行是**数据行**，再补分隔行会把数据行误升成新表头
+  // （组件测试 G-824 实测:| a |/| --- |/| 999 | 被错补成 …| 999 |\n| --- |）。
+  // 故:仅在"末正文行之前不存在分隔行"时补（此时末行是待成立的表头）。
+  let inFence = false
+  for (let i = 0; i < lines.length; i++) {
+    if (scan.fenceLine[i]) {
+      inFence = !inFence
+      continue
+    }
+    if (inFence) continue
+    const row = lines[i] ?? ''
+    if (TABLE_SEPARATOR_RE.test(row)) return ''
+  }
+  return `\n|${' --- |'.repeat(cells)}`
+}
+
+/**
+ * 数学块补全。吃同一份 scan:掩码只在**行数组**上做,map/join 一次都不做
+ * (旧实现 maskFenceAndInlineCode 先 map+join 出一个全文串,再 replace、再 split 回来取末行)。
+ */
+function mathSuffix(scan: HealScan): string {
+  // 精确复现 HEAD 版 mathSuffix:它吃的是"掩码后整串",displayOdd 分支用整串
+  // slice(idx) 拼接(把单 $ 移到末尾),否则整串 replace(/\$\$/g)。行内 $ 的奇偶判定
+  // 依赖这个整串的末行,所以这条路径必须重建 masked 串(其余子判据仍走惰性 scan 不重建)。
+  let masked = ''
+  let inFence = false
+  for (let i = 0; i < scan.lines.length; i++) {
+    if (i > 0) masked += '\n'
+    const line = scan.lines[i] ?? ''
+    if (scan.fenceLine[i]) {
+      inFence = !inFence
+      masked += ' '.repeat(line.length)
+      continue
+    }
+    masked += inFence ? ' '.repeat(line.length) : stripInlineCode(line)
+  }
   const displays = masked.match(/\$\$/g)
   const displayOdd = displays !== null && displays.length % 2 === 1
   let inlineBody = masked
@@ -310,26 +444,12 @@ function mathSuffix(text: string): string {
   return (closeDisplay ? '$$' : '') + closeInline
 }
 
-function maskFenceAndInlineCode(text: string): string {
-  const lines = text.split('\n')
-  let inFence = false
-  const out = lines.map((line) => {
-    if (FENCE_LINE_RE.test(line) || /^\s*```/.test(line)) {
-      inFence = !inFence
-      return ' '.repeat(line.length)
-    }
-    if (inFence) return ' '.repeat(line.length)
-    return stripInlineCode(line)
-  })
-  return out.join('\n')
-}
-
-function endsInsideFenceOrCode(text: string): boolean {
-  const lines = text.split('\n')
+function endsInsideFenceOrCode(scan: HealScan): boolean {
+  const lines = scan.lines
   let inFence = false
   let last = ''
-  for (const line of lines) {
-    if (FENCE_LINE_RE.test(line) || /^\s*```/.test(line)) {
+  for (let i = 0; i < lines.length; i++) {
+    if (scan.fenceLine[i]) {
       inFence = !inFence
       last = ''
       continue
@@ -338,7 +458,7 @@ function endsInsideFenceOrCode(text: string): boolean {
       last = ''
       continue
     }
-    last = line
+    last = lines[i] ?? ''
   }
   if (inFence) return true
   let inCode = false
