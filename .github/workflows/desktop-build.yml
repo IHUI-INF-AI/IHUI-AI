@@ -37,8 +37,13 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - name: Install Rust (stable)
-        uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+      # 2026-11-17 固定 Rust 1.99(与 release-desktop.yml 同源,详见那边注释):
+      # Rust 1.100 把 never type fallback 改到所有 edition,screenshots 0.8.10
+      # Linux 路径 E0277 编译失败;固定 1.99 让构建组合不再随 stable 漂移。
+      - name: Install Rust (1.99)
+        uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # 1.99
+        with:
+          toolchain: '1.99'
 
       - name: Cache Rust build
         uses: swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
