@@ -7,7 +7,8 @@
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
-import { Loader2, Plus, AlertCircle, RefreshCw } from 'lucide-react'
+import { Loader2, Plus, AlertCircle, RefreshCw, Shield } from 'lucide-react'
+import Link from 'next/link'
 
 import { fetchApi } from '@/lib/api'
 import { Button, CloseButton, Input, Label } from '@ihui/ui-react'
@@ -109,7 +110,15 @@ export default function WorkspacePage() {
           </h1>
           <p className="mt-1 text-body text-muted-foreground">{t('subtitle')}</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          {allow && (
+            <Button variant="outline" asChild>
+              <Link href="/workspace/permissions">
+                <Shield className="h-4 w-4" />
+                {t('permissionsPage.title')}
+              </Link>
+            </Button>
+          )}
           <Dialog open={dialogOpen} onOpenChange={handleOpenChange}>
             <DialogTrigger asChild>
               <Button>

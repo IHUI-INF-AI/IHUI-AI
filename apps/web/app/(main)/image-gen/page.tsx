@@ -6,10 +6,20 @@
 
 import * as React from 'react'
 import Image from 'next/image'
+import Link from 'next/link'
 import { useMutation } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
-import { Loader2, ImageIcon, Sparkles, Download } from 'lucide-react'
+import {
+  Loader2,
+  ImageIcon,
+  Sparkles,
+  Download,
+  Images,
+  History,
+  LayoutTemplate,
+  Heart,
+} from 'lucide-react'
 
 import { generateImage } from '@ihui/api-client'
 import type { ImageGenResult } from '@ihui/types'
@@ -65,6 +75,14 @@ export default function ImageGenPage() {
   const inputClass =
     'flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-elevation-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
 
+  // 子页入口(画廊/历史/模板/收藏):此前四个 route 只有 URL 可达,主页面无任何可见入口
+  const sections = [
+    { href: '/image-gen/gallery', label: t('gallery'), icon: Images },
+    { href: '/image-gen/history', label: t('history'), icon: History },
+    { href: '/image-gen/templates', label: t('templates'), icon: LayoutTemplate },
+    { href: '/image-gen/favorites', label: t('favorites'), icon: Heart },
+  ]
+
   return (
     <div className="px-4 py-4 mx-auto w-full max-w-4xl space-y-4">
       <BackButton />
@@ -75,6 +93,19 @@ export default function ImageGenPage() {
         </h1>
         <p className="mt-1 text-body text-muted-foreground">{t('subtitle')}</p>
       </div>
+
+      <nav className="grid grid-cols-2 gap-3 min-[768px]:grid-cols-4">
+        {sections.map(({ href, label, icon: Icon }) => (
+          <Link
+            key={href}
+            href={href}
+            className="flex items-center gap-2 rounded-lg border border-border bg-card p-3 text-body font-medium transition-colors hover:bg-accent/40"
+          >
+            <Icon className="h-4 w-4 shrink-0 text-primary" />
+            <span className="min-w-0 truncate">{label}</span>
+          </Link>
+        ))}
+      </nav>
 
       <form onSubmit={submit} className="space-y-4">
         <Card>

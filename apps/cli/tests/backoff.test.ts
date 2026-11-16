@@ -5,7 +5,7 @@
 import { describe, it, expect } from 'vitest';
 import { backoffDelayMs, retryBudget, sleep } from '../src/acp/backoff.js';
 
-describe('backoffDelayMs — 对标 Qoder 位移退避 + jitter 超越', () => {
+describe('backoffDelayMs — 对齐统一规范', () => {
   it('裸退避(jitter=none)按 2^n 增长并封顶 —— 对齐 Qoder base*(1<<n) cap', () => {
     expect(backoffDelayMs(0, { jitter: 'none' })).toBe(5000);
     expect(backoffDelayMs(1, { jitter: 'none' })).toBe(10000);

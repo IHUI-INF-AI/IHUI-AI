@@ -11757,6 +11757,7 @@
     "canvasOpenInCanvas": "Open in Canvas",
     "canvasRevert": "Revert to this version",
     "canvasVersions": "Version History",
+    "charCount": "{count} chars",
     "clearInputAriaLabel": "Clear input",
     "clearInputTitle": "Clear input content",
     "predictiveEditHint": "Predictive edit suggestion",
@@ -12021,6 +12022,11 @@
       "collapsedDesc": "Always collapse intermediate steps",
       "expanded": "Expand",
       "expandedDesc": "Always expand intermediate steps"
+    },
+    "titleAutoUpdate": {
+      "title": "Task titles",
+      "label": "Update titles automatically",
+      "desc": "After the third round, the task title is refined from the latest conversation. When off, the title stays as generated at creation"
     },
     "gapInterval": "{gap} interval",
     "generating": "Generating",
@@ -12590,7 +12596,7 @@
       "permissionFull": "Switch to full-access mode (high risk, no confirmation)",
       "plan": "Switch to plan mode (AI only makes plans, does not execute tools)",
       "polish": "Polish text",
-      "review": "Switch to Review mode (read-only, enhanced code review)",
+      "review": "Pick a review target (uncommitted diff / branch / commit)",
       "spec": "Switch to Spec mode (reverse-generate spec docs from code)",
       "summary": "Summarize current conversation",
       "translate": "Translate selected text",
@@ -12950,6 +12956,8 @@
       "confirm": "Move",
       "cancel": "Cancel"
     },
+    "titleHistoryOriginal": "Created as",
+    "titleHistoryCurrent": "Current title",
     "selectModeAriaLabel": "Toggle task multi-select mode",
     "backToHistory": "Back to History",
     "batchArchive": "Archive",
@@ -13226,6 +13234,11 @@
         "description": "Manage and dispatch AI agents",
         "keywords": ["agent", "bot", "dispatch"],
         "label": "AI Agents"
+      },
+      "automations": {
+        "description": "Create and manage scheduled AI tasks",
+        "keywords": ["automation", "schedule", "task", "cron"],
+        "label": "Scheduled Automation"
       },
       "browser": {
         "description": "Browse the web inside the workspace",
@@ -17446,14 +17459,18 @@
   },
   "imageGenPage": {
     "download": "Download",
+    "favorites": "Favorited Images",
+    "gallery": "Public Gallery",
     "generate": "Generate Image",
     "generating": "Generating...",
+    "history": "Generation History",
     "promptLabel": "Prompt",
     "promptPlaceholder": "Describe the image you want to generate...",
     "promptRequired": "Please enter a prompt",
     "sizeLabel": "Size",
     "subtitle": "Enter a prompt to generate an image",
     "success": "Generated successfully",
+    "templates": "Prompt Templates",
     "title": "AI Image Generation"
   },
   "inlineEdit": {
@@ -20310,6 +20327,14 @@
     "taskPanelAutoLastStats": "{families} families · {accepted} accepted · {claimed} claimed",
     "taskPanelAutoLastNever": "No sweep yet in this process",
     "taskPanelDesc": "One sweep of the WorkBuddy task center: accept tasks, claim rewards, redeem streak tiers, draw the lottery, cat travel, night-owl chat.",
+    "taskPanelDescDoubao": "One sweep of Doubao tasks: claim daily check-in credits, auto-complete the work-field task, and claim completed tasks and milestone rewards.",
+    "taskPanelDoubaoTag": "Doubao",
+    "taskPanelDoubaoOn": "Enabled · daily at {hours}:{minute} (after check-in)",
+    "taskPanelDoubaoDry": "Enabled but in dry-run (read-only): no real claims. Set DOUBAO_TASKS_LIVE_RUN=true on the server to write.",
+    "taskPanelDoubaoOff": "Disabled: manual only. Set DOUBAO_TASKS_ENABLED=true and restart the server.",
+    "taskPanelDoubaoNotStarted": "Configured but scheduler not started: restart ai-service after changing .env.",
+    "taskPanelDoubaoLast": "Last sweep {time} · claimed {claimed} · skipped {skipped}",
+    "taskPanelDoubaoLastNever": "No sweep in this process yet",
     "taskPanelPick": "Account",
     "taskPanelList": "Load tasks",
     "taskPanelDryRun": "Dry run (no writes)",
@@ -23914,6 +23939,7 @@
     "codeIndexEgressOptOutDesc": "Code snippets are never sent out for vector indexing",
     "autoMemoryOptOut": "Turn Off Auto Long-term Memory",
     "autoMemoryOptOutDesc": "Conversations won't be distilled into cross-session preferences",
+    "usageTitle": "Usage",
     "navTiers": {
       "title": "Simplified sidebar",
       "desc": "Hides developer and operations entries from the sidebar by default. Turn on any group below when you need it.",

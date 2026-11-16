@@ -11747,6 +11747,7 @@
     "canvasOpenInCanvas": "캔버스에서 열기",
     "canvasRevert": "이 버전으로 되돌리기",
     "canvasVersions": "버전 기록",
+    "charCount": "{count}자",
     "clearInputAriaLabel": "입력 지우기",
     "clearInputTitle": "입력 내용 지우기",
     "predictiveEditHint": "예측 편집 제안",
@@ -12011,6 +12012,11 @@
       "collapsedDesc": "중간 단계를 항상 접습니다",
       "expanded": "펼치기",
       "expandedDesc": "중간 단계를 항상 펼칩니다"
+    },
+    "titleAutoUpdate": {
+      "title": "작업 제목",
+      "label": "제목 실시간 업데이트",
+      "desc": "3번째 라운드 이후 최신 대화 내용으로 작업 제목을 다시 생성합니다. 끄면 생성 시 만들어진 제목으로 고정됩니다"
     },
     "gapInterval": "{gap} 간격",
     "generating": "생성 중...",
@@ -12580,7 +12586,7 @@
       "permissionFull": "전체 액세스 모드로 전환(고위험, 확인 없음)",
       "plan": "계획 모드로 전환(AI가 계획만 수립하고 도구를 실행하지 않습니다)",
       "polish": "텍스트 윤문",
-      "review": "리뷰 모드로 전환(읽기 전용, 강화된 코드 리뷰)",
+      "review": "리뷰 대상 선택(미커밋 diff / 브랜치 / 커밋)",
       "spec": "스펙 모드로 전환(코드에서 spec 문서 역생성)",
       "summary": "현재 대화 요약",
       "translate": "선택한 텍스트 번역",
@@ -12940,6 +12946,8 @@
       "confirm": "이동",
       "cancel": "취소"
     },
+    "titleHistoryOriginal": "생성 시 제목",
+    "titleHistoryCurrent": "현재 제목",
     "selectModeAriaLabel": "작업 다중 선택 모드 전환",
     "backToHistory": "기록으로 돌아가기",
     "batchArchive": "보관",
@@ -13216,6 +13224,11 @@
         "description": "AI 에이전트 관리 및 디스패치",
         "keywords": ["에이전트", "agent", "bot"],
         "label": "AI 에이전트"
+      },
+      "automations": {
+        "description": "정기적으로 실행되는 AI 작업 생성 및 관리",
+        "keywords": ["자동화", "스케줄", "작업", "automation"],
+        "label": "예약 자동화"
       },
       "browser": {
         "description": "작업 공간에서 웹 탐색",
@@ -17436,14 +17449,18 @@
   },
   "imageGenPage": {
     "download": "다운로드",
+    "favorites": "즐겨찾는 이미지",
+    "gallery": "공개 갤러리",
     "generate": "이미지 생성",
     "generating": "생성 중...",
+    "history": "생성 기록",
     "promptLabel": "프롬프트",
     "promptPlaceholder": "생성하고 싶은 이미지를 설명...",
     "promptRequired": "프롬프트를 입력하세요",
     "sizeLabel": "크기",
     "subtitle": "프롬프트를 입력하여 이미지 생성",
     "success": "생성 성공",
+    "templates": "프롬프트 템플릿",
     "title": "AI 이미지 생성"
   },
   "inlineEdit": {
@@ -20295,6 +20312,14 @@
     "taskPanelAutoLastStats": "{families}개 패밀리 · 수락 {accepted} · 수령 {claimed}",
     "taskPanelAutoLastNever": "이 프로세스에서는 아직 순회 없음",
     "taskPanelDesc": "WorkBuddy 작업 센터를 한 번에 순회: 작업 수락, 달성 보상 수령, 연속 로그인 교환, 추첨, 고양이 여행, 야행성 채팅.",
+    "taskPanelDescDoubao": "더우바오 작업을 한 번에 순회: 일일 체크인 크레딧 수령, 업무 분야 작업 자동 완료, 완료된 작업과 마일스톤 보상 수령.",
+    "taskPanelDoubaoTag": "더우바오",
+    "taskPanelDoubaoOn": "활성 · 매일 {hours}:{minute} 자동 순회(체크인 이후)",
+    "taskPanelDoubaoDry": "활성화되었지만 연습 모드(읽기 전용): 실제 수령 없음. 서버에서 DOUBAO_TASKS_LIVE_RUN=true 설정 필요.",
+    "taskPanelDoubaoOff": "비활성: 수동 실행만 가능. 서버에서 DOUBAO_TASKS_ENABLED=true 설정 후 재시작.",
+    "taskPanelDoubaoNotStarted": "설정되었지만 스케줄러가 시작되지 않음: .env 변경 후 ai-service 재시작 필요.",
+    "taskPanelDoubaoLast": "지난 순회 {time} · 수령 {claimed} · 건너뜀 {skipped}",
+    "taskPanelDoubaoLastNever": "이 프로세스에서 아직 순회 없음",
     "taskPanelPick": "계정",
     "taskPanelList": "작업 불러오기",
     "taskPanelDryRun": "미리보기(쓰기 없음)",
@@ -23893,6 +23918,7 @@
     "codeIndexEgressOptOutDesc": "코드 조각은 벡터화 인덱싱을 위해 외부로 전송되지 않습니다",
     "autoMemoryOptOut": "자동 장기 기억 끄기",
     "autoMemoryOptOutDesc": "대화를 세션 간 선호나 규칙으로 자동 추출하지 않습니다",
+    "usageTitle": "사용량",
     "navTiers": {
       "title": "사이드바 간편 모드",
       "desc": "개발자 및 운영용 메뉴를 기본적으로 숨깁니다. 필요할 때 아래 스위치로 다시 표시할 수 있습니다.",

@@ -11747,6 +11747,7 @@
     "canvasOpenInCanvas": "キャンバスで開く",
     "canvasRevert": "このバージョンに戻す",
     "canvasVersions": "バージョン履歴",
+    "charCount": "{count} 文字",
     "clearInputAriaLabel": "入力をクリア",
     "clearInputTitle": "入力内容をクリア",
     "predictiveEditHint": "予測編集の提案",
@@ -12011,6 +12012,11 @@
       "collapsedDesc": "中間ステップを常に折りたたむ",
       "expanded": "展開",
       "expandedDesc": "中間ステップを常に展開する"
+    },
+    "titleAutoUpdate": {
+      "title": "タスクタイトル",
+      "label": "タイトルを自動更新",
+      "desc": "3 ラウンド目以降、最新の会話内容からタスクタイトルを再生成します。オフにすると作成時に生成されたタイトルに固定されます"
     },
     "gapInterval": "{gap} 間隔",
     "generating": "...",
@@ -12580,7 +12586,7 @@
       "permissionFull": "完全アクセスモードに切替(高リスク、確認なし)",
       "plan": "計画モードに切り替え(AIは計画のみ立案し、ツールを実行しません)",
       "polish": "テキスト推敲",
-      "review": "レビューモードに切替(読み取り専用、強化コードレビュー)",
+      "review": "レビュー対象を選択(未コミット diff / ブランチ / コミット)",
       "spec": "スペックモードに切替(コードから spec 文書を逆生成)",
       "summary": "現在の会話を要約",
       "translate": "選択したテキストを翻訳",
@@ -12940,6 +12946,8 @@
       "confirm": "移動",
       "cancel": "キャンセル"
     },
+    "titleHistoryOriginal": "作成時のタイトル",
+    "titleHistoryCurrent": "現在のタイトル",
     "selectModeAriaLabel": "タスクの複数選択モードを切り替え",
     "backToHistory": "にる",
     "batchArchive": "アーカイブ",
@@ -13216,6 +13224,11 @@
         "description": "AI エージェントの管理とディスパッチ",
         "keywords": ["エージェント", "agent", "bot"],
         "label": "AI エージェント"
+      },
+      "automations": {
+        "description": "定時実行する AI タスクの作成と管理",
+        "keywords": ["自動化", "スケジュール", "タスク", "automation"],
+        "label": "定時自動化"
       },
       "browser": {
         "description": "ワークスペース内でウェブを閲覧",
@@ -17436,14 +17449,18 @@
   },
   "imageGenPage": {
     "download": "ダウンロード",
+    "favorites": "お気に入り画像",
+    "gallery": "公開ギャラリー",
     "generate": "画像を生成",
     "generating": "生成中...",
+    "history": "生成履歴",
     "promptLabel": "プロンプト",
     "promptPlaceholder": "生成したい画像を説明...",
     "promptRequired": "プロンプトを入力してください",
     "sizeLabel": "サイズ",
     "subtitle": "プロンプトを入力して画像を生成",
     "success": "生成成功",
+    "templates": "プロンプトテンプレート",
     "title": "AI 画像生成"
   },
   "inlineEdit": {
@@ -20300,6 +20317,14 @@
     "taskPanelAutoLastStats": "{families} ファミリー · 受諾 {accepted} · 受取 {claimed}",
     "taskPanelAutoLastNever": "このプロセスでは未巡回",
     "taskPanelDesc": "WorkBuddy タスクセンターを一括巡回:タスク受諾、達成報酬の受け取り、連続ログイン交換、抽選、猫の旅、夜更かしチャット。",
+    "taskPanelDescDoubao": "豆包タスクを一括巡回:毎日チェックインの受取、業務領域タスクの自動完了、完了済みタスクとマイルストーン報酬の受取。",
+    "taskPanelDoubaoTag": "豆包",
+    "taskPanelDoubaoOn": "有効 · 毎日 {hours}:{minute} に自動巡回(チェックイン後)",
+    "taskPanelDoubaoDry": "有効だが演習モード(読み取りのみ):実際の受取は行いません。サーバーで DOUBAO_TASKS_LIVE_RUN=true を設定してください。",
+    "taskPanelDoubaoOff": "無効:手動実行のみ。サーバーで DOUBAO_TASKS_ENABLED=true を設定し再起動してください。",
+    "taskPanelDoubaoNotStarted": "設定済みですがスケジューラが未起動:.env 変更後は ai-service の再起動が必要です。",
+    "taskPanelDoubaoLast": "前回巡回 {time} · 受取 {claimed} 件 · スキップ {skipped} 件",
+    "taskPanelDoubaoLastNever": "このプロセスでは未巡回",
     "taskPanelPick": "アカウント",
     "taskPanelList": "タスクを取得",
     "taskPanelDryRun": "ドライラン(書き込みなし)",
@@ -23904,6 +23929,7 @@
     "codeIndexEgressOptOutDesc": "コード断片はベクトル化インデックスのために外部へ送信されません",
     "autoMemoryOptOut": "自動長期メモリを無効化",
     "autoMemoryOptOutDesc": "会話をセッション横断の嗜好や規約に自動抽出しません",
+    "usageTitle": "使用状況",
     "navTiers": {
       "title": "サイドバー簡素モード",
       "desc": "開発者向け・運用向けの項目を既定で非表示にします。必要になったら下のスイッチで表示できます。",

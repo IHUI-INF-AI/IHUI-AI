@@ -648,7 +648,7 @@ export const AI_HUB_ITEMS: NavItem[] = [
     icon: Globe,
     children: [{ href: '/ai-world/favorites', labelKey: 'favorites', icon: Star }],
   },
-  // 2026-07-24 对标 AI 工作台的能力入口(2026-08-30 收进"高级 AI 工具"折叠子菜单)
+  // 2026-07-24 对齐 AI 工作台的能力入口(2026-08-30 收进"高级 AI 工具"折叠子菜单)
   // 2026-10-20 简洁模式:整组标 `advancedAi` —— Agent 框架内部概念,普通用户看名词不知道是什么。
   // 只标父项:14 个子项由 filterNavItemsByTier 的继承规则自动带上同一档,不逐个重复标注。
   {
@@ -680,10 +680,9 @@ export const AI_HUB_ITEMS: NavItem[] = [
   // 个人号池(2026-10-23 立):与签到助手同一批第三方账号,归属当前用户,可启停/立即签到/看同步态
   { href: '/account-pool', labelKey: 'accountPool', icon: Wallet, advancedOnly: 'experimental' },
   { href: '/workspace', labelKey: 'workspace', icon: FolderOpen },
-  // 财务部(2026-11-15 迁出 /admin、2026-11-16 收进本清单):AI 一键代账/报税板块。
+  // 2026-11-16 财务部从 AI_HUB_ITEMS 移出,改为侧边栏独立入口(financeGroup)。
   // 页面零 admin API(纯前端 + MCP 工具 ai_bookkeeping/ai_tax_filing,白名单按会话
   // 自动并入,不按角色门),故所有登录用户可用;旧 URL /admin/finance-ai 已随迁页取消。
-  { href: '/finance-ai', labelKey: 'financeAi', icon: Wallet },
   // 知识库三合一(2026-08-30):知识库/RAG/图谱 三个入口概念重叠,收进"知识库"子清单
   {
     href: '/knowledge-base',
@@ -755,6 +754,33 @@ export const HR_HUB_ITEMS: NavItem[] = [
  * 这里只留前指注释;八域清单的构成与消费者说明见那份定义的头注。
  */
 
+/**
+ * 管理域条目清单(2026-11-16 立):侧边栏收敛前的原静态管理入口。
+ *
+ * 用户反馈「管理分类没有跟其他分类一样有统一管理落地页」后,本清单不再平铺进侧边栏,
+ * 改由 /domains/admin 域入口页的卡片网格承载(ADMIN_HUB_ITEMS 与本数组同一引用,
+ * 运行期再追加 useAdminRouters 动态路由)。页面一个不删、URL 一个不改(A 方案)。
+ */
+const ADMIN_ITEMS: NavItem[] = [
+  { href: '/admin', labelKey: 'admin', icon: Shield, adminOnly: true },
+  { href: '/admin/statistics', labelKey: 'adminStatistics', icon: BarChart3, adminOnly: true },
+  { href: '/admin/user-center', labelKey: 'userCenter', icon: UserCircle, adminOnly: true },
+  { href: '/members', labelKey: 'members', icon: Users, adminOnly: true },
+  { href: '/admin/workflows', labelKey: 'adminWorkflows', icon: Workflow, adminOnly: true },
+  { href: '/admin/tags', labelKey: 'adminTags', icon: Tag, adminOnly: true },
+  { href: '/admin/logs', labelKey: 'adminLogs', icon: ScrollText, adminOnly: true },
+  // /admin/theme 9 项作为可展开子菜单(消除 /admin/theme/layout.tsx 双 aside 嵌套)
+  {
+    href: '/admin/theme',
+    labelKey: 'adminTheme',
+    icon: Palette,
+    adminOnly: true,
+    children: ADMIN_THEME_CHILDREN,
+  },
+  // 11 个 admin 运营域分组(运营/内容审核/财务/AI智能体/营销直播/课程考试/监控BI/客服工单/社区圈子/资源中心/开发者中心)
+  ...ADMIN_NAV_GROUPS.map(adminGroupToNavItem),
+]
+
 export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
   {
     label: '',
@@ -781,6 +807,14 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
     label: 'hrGroup',
     items: [{ href: '/domains/hr', labelKey: 'hrGroup', icon: UsersRound }],
   },
+  // 财务部分组(2026-11-16 立):与人事部同形态,侧边栏留一枚「财务部」入口,
+  // 直接指向 /finance-ai(财务域当前仅此单页,无需 hub 中转;后续增页时再
+  // 收敛为 /domains/finance 域入口)。labelKey 复用既有 nav.financeAi 键
+  // (五语言齐备),不新增键、不在端内硬编码中文(AGENTS §19)。
+  {
+    label: 'financeGroup',
+    items: [{ href: '/finance-ai', labelKey: 'financeAi', icon: Wallet }],
+  },
   {
     // 2026-10-23 P2 收敛第二批:本组由 14 项收敛为 1 个域入口(/domains/ai)。
     // 原 14 条顶层(连同 /models 18、/memory 14、/knowledge-base 6、/ai-world 1 子项,
@@ -793,30 +827,14 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
     label: 'aiGroupLabel',
     items: [{ href: '/domains/ai', labelKey: 'aiGroupLabel', icon: Sparkles }],
   },
-  // 管理 分组(2026-07-20 重构):
-  // 整合原 AdminNav.tsx 的 11 个运营域分组(作为二级可展开项)+ /admin/theme 9 项(作为二级可展开项)。
-  // admin 扁平 80 项通过 useAdminRouters() 动态加载,在 Sidebar 组件中合并到本组 items 前部。
-  // 仅 admin 用户可见(items 全部 adminOnly),默认折叠(见 NavGroupSection.defaultOpen;展开偏好由 localStorage 记忆)。
+  // 管理 分组(2026-07-20 重构;2026-11-16 用户反馈后收敛为单入口):
+  // 与其他域同形态(单入口 → 右侧工作区页),侧边栏只留一枚「管理」(/domains/admin);
+  // 原静态 11+ 项移入 ADMIN_ITEMS,由域入口页承载;后台动态路由(useAdminRouters)
+  // 也改由域页运行期追加,侧边栏不再拉取/平铺。仅 admin 用户可见,默认折叠。
   {
     label: 'adminGroupLabel',
     items: [
-      { href: '/admin', labelKey: 'admin', icon: Shield, adminOnly: true },
-      { href: '/admin/statistics', labelKey: 'adminStatistics', icon: BarChart3, adminOnly: true },
-      { href: '/admin/user-center', labelKey: 'userCenter', icon: UserCircle, adminOnly: true },
-      { href: '/members', labelKey: 'members', icon: Users, adminOnly: true },
-      { href: '/admin/workflows', labelKey: 'adminWorkflows', icon: Workflow, adminOnly: true },
-      { href: '/admin/tags', labelKey: 'adminTags', icon: Tag, adminOnly: true },
-      { href: '/admin/logs', labelKey: 'adminLogs', icon: ScrollText, adminOnly: true },
-      // /admin/theme 9 项作为可展开子菜单(消除 /admin/theme/layout.tsx 双 aside 嵌套)
-      {
-        href: '/admin/theme',
-        labelKey: 'adminTheme',
-        icon: Palette,
-        adminOnly: true,
-        children: ADMIN_THEME_CHILDREN,
-      },
-      // 11 个 admin 运营域分组(运营/内容审核/财务/AI智能体/营销直播/课程考试/监控BI/客服工单/社区圈子/资源中心/开发者中心)
-      ...ADMIN_NAV_GROUPS.map(adminGroupToNavItem),
+      { href: '/domains/admin', labelKey: 'adminGroupLabel', icon: ShieldCheck, adminOnly: true },
     ],
   },
   {
@@ -865,14 +883,11 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
 /**
  * 管理域条目清单(2026-11-16 立,配合 /domains/admin 域入口页)。
  *
- * 与 NAV_GROUPS 的 admin 组共用**同一数组引用**(非第二份清单,§0.6 —— 管理静态面
- * 的真相源仍是 NAV_GROUPS.adminGroupLabel.items;管理动态路由(useAdminRouters)由
- * 域页侧另行合并)。管理域收敛(8+12 平铺收为单入口 /domains/admin)属并行在飞线,
- * 那批落库后本引用自动跟随。
+ * 与 ADMIN_ITEMS 共用**同一数组引用**(非第二份清单,§0.6);管理动态路由
+ * (useAdminRouters)由域页侧运行期追加。侧边栏「管理」组已收敛为单入口
+ * /domains/admin(2026-11-16),本清单是它唯一的数据源。
  */
-export const ADMIN_HUB_ITEMS: NavItem[] = NAV_GROUPS.find(
-  (g) => g.label === 'adminGroupLabel',
-)!.items
+export const ADMIN_HUB_ITEMS: NavItem[] = ADMIN_ITEMS
 
 /**
  * 八个域入口页消费的条目清单(2026-10-23 P2 收敛第二批登记;2026-11-16 补人事/开发者/管理)。
