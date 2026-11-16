@@ -457,6 +457,55 @@ jobs:
           # 属于"看似有兜底、实际随发布路径分叉"的假能力)。
           updaterJsonPreferNsis: true
 
+      # 2026-11-17 加(Linux 诊断专用):run#105~#110 连续六轮 Linux 都是
+      # 「Build & Release exit 1、连 bundle 目录都没创建」,而 macOS 编译同一份
+      # Rust 代码全绿 ⇒ 失败在 Linux 特有的编译/链接环节。但 tauri-action 是
+      # composite action,其 step 日志需要登录才能看(API 401),本地也无 GTK 环境
+      # 可复现 ⇒ 六轮都只能看到 "Command \"tauri [build...]\" failed with exit code 1"。
+      # 本步在失败时**直接重跑一次** tauri build 并把末 80 行写进 annotation
+      # (::error:: + GITHUB_STEP_SUMMARY),让真实报错第一次可见。
+      # 重跑的代价可接受:只在 Linux 且上一步已失败时执行,成功路径零开销。
+      - name: Diagnose Linux build failure (surface real error)
+        if: failure() && runner.os == 'Linux'
+        shell: bash
+        run: |
+          set +e
+          echo "::warning::Build & Release 已失败,重跑 tauri build 以捕获真实错误(仅 Linux 诊断用)"
+
+          # 收集环境事实,这些本身就是常见失败原因
+          echo "=== 环境 ===" | tee /tmp/diag.txt
+          { echo "kernel: $(uname -a)"
+            echo "glibc: $(ldd --version | head -1)"
+            echo "pkg-config webkit: $(pkg-config --modversion webkit2gtk-4.1 2>&1)"
+            echo "pkg-config javascriptcore: $(pkg-config --modversion javascriptcoregtk-4.1 2>&1)"
+            echo "pkg-config gtk: $(pkg-config --modversion gtk+-3.0 2>&1)"
+            echo "pkg-config libsoup: $(pkg-config --modversion libsoup-3.0 2>&1)"
+            echo "rpmbuild: $(command -v rpmbuild || echo MISSING)"
+            echo "=== end env ==="
+          } >> /tmp/diag.txt 2>&1
+
+          # 直接调用 tauri CLI(与 tauri-action 内部同一条命令),捕获 stderr
+          cd apps/desktop/src-tauri
+          echo "=== tauri build (bundles=deb) ===" >> /tmp/diag.txt
+          timeout 1800 tauri build --bundles deb >> /tmp/diag.txt 2>&1
+          RC=$?
+          echo "tauri build rc=$RC" >> /tmp/diag.txt
+
+          # 只回传尾部(错误通常在最后)
+          TAIL=$(tail -80 /tmp/diag.txt)
+          echo "::error::Linux tauri build 真实输出(rc=$RC,末 80 行):"
+          # 逐行 fifo 输出,避免单行超长被截断
+          printf '%s\n' "$TAIL" | while IFS= read -r line; do
+            [ -n "$line" ] && echo "::error::$line"
+          done
+          {
+            echo '### Linux build 诊断(自动)'
+            echo '```'
+            printf '%s\n' "$TAIL"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit 0
+
       # 2026-09-18:此前 Build & Release 是 continue-on-error(为绕过非 ASCII productName 的
       # tauri-action 产物收集假失败),导致 **Windows NSIS 打包真实失败(makensis 语言文件缺失)
       # 被静默吞掉** —— job 报 success、release 缺 exe/sig,直接造成 0.1.35 无 Windows 资产。
@@ -504,8 +553,16 @@ jobs:
               check updater-tarball '*.app.tar.gz'
               ;;
             windows-x64)
+              # 只断言 nsis(.exe)。tauri.conf.json 的 bundle.targets 现读为
+              # [nsis, app, dmg, deb, rpm, appimage] —— **没有 msi**,
+              # Windows 这条链从来只产 NSIS 安装包。
+              # 2026-11-17 修:原表要求 msi,run#110 因此判红
+              # (annotation: platform=windows-x64 缺少应有产物: msi),
+              # 而同一轮 tauri build 的 outcome=success、exe 已在 Release 里
+              # ⇒ 是判据写错、不是产物缺失。(该错会在每轮都误报,属恒红型。)
+              # 若将来真要 msi,须先在 tauri.conf.json 的 targets 里声明,
+              # 再来这里加 check —— 顺序不能反,否则又造一条恒红门。
               check nsis '*.exe'
-              check msi '*.msi'
               ;;
             *)
               echo "::error::matrix.label='${{ matrix.label }}' 未登记应有产物表;请同步 Verify 的期望表(拒绝静默通过)"

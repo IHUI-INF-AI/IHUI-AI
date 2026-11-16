@@ -378,6 +378,11 @@ report.json
 # 一次性调试/校验产物(本地 Playwright 截图 + ad-hoc 验证脚本)
 .verify-*.png
 .verify-*.mjs
+# 2026-11-17:CI 产物契约变更的验证脚本(抽出 workflow 的 run 脚本对多场景实跑)。
+# 与上面 .verify-* 同族,只是文件名带 .git- 前缀以便就近复用。归 ignore 而非守门白名单:
+# 白名单只该收"合法长驻物",一次性探针归 ignore 才不再出现在 git status 里。
+.git-verify-*.sh
+.git-verify-*.py
 .tmp_*.html
 .tmp-*
 .tmp-test-out.txt
