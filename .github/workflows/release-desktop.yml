@@ -217,10 +217,23 @@ jobs:
             patchelf \
             file \
             libxdo-dev \
-            rpm \
-            libfuse2
+            rpm
+          # libfuse2 在 Ubuntu 24.04 起改名为 libfuse2t64(64 位 time_t 迁移),
+          # run#109 实证:直接装 `libfuse2` 在 ubuntu-latest 上解析不到 ⇒ 整步判红。
+          # 它只被 AppImage 的 linuxdeploy 需要,故按"任一名字装成一个即可"处理:
+          # 两个都装不上不判红(退化为不产 AppImage,由 Verify 的逐目标断言说清楚),
+          # 装上了则 AppImage 腿可用。
+          if dpkg -l libfuse2 2>/dev/null | grep -q '^ii'; then
+            echo "OK  libfuse2(已存在)"
+          elif apt-get install -y libfuse2t64 2>/dev/null; then
+            echo "OK  libfuse2t64(Ubuntu 24.04+ 改名)"
+          elif apt-get install -y libfuse2 2>/dev/null; then
+            echo "OK  libfuse2(旧命名镜像)"
+          else
+            echo "::warning::libfuse2/libfuse2t64 均不可得,AppImage 腿可能不可用(不判红,由 Verify 逐目标断言)"
+          fi
           for p in libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev \
-                   libssl-dev build-essential patchelf file libxdo-dev rpm libfuse2; do
+                   libssl-dev build-essential patchelf file libxdo-dev rpm; do
             if dpkg -l "$p" 2>/dev/null | grep -q '^ii'; then
               echo "OK  $p"
             else
