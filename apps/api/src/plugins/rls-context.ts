@@ -71,8 +71,21 @@ import {
 /** 需要设上下文的对外前缀:`/api/*`(人 + 内部)+ `/v1/*`(OpenAI 兼容对外协议面)。 */
 const SCOPED_URL_PREFIXES = ['/api/', '/v1/'] as const
 
+/**
+ * 健康探活前缀豁免(F-221 根治,2026-11-17):`/api/health*` 是纯存活探针,
+ * handler 只读 uptime / redis ping,不访问任何受数据闸保护的查询 —— 它没有主体,
+ * 却因命中 `/api/` 前缀被注入 rls-context,白白占用一条 `reserve()` 独占连接。
+ * 池被泄漏占满时,探针请求会在 `reserve()` 上无界排队 ⇒ 蓝绿 router 探活 hang、
+ * 公网 /api/health 000,而裸 /health(非 scoped 前缀)始终正常。
+ * 探针与数据面插件链解耦:豁免后它零 reserve、零 set_config,不受连接泄漏牵连。
+ */
+const HEALTH_PROBE_PATHS = ['/api/health'] as const
+
 export function isScopedContextUrl(url: string | undefined): boolean {
   const path = (url ?? '').split('?')[0] ?? ''
+  if (HEALTH_PROBE_PATHS.some((probe) => path === probe || path.startsWith(`${probe}/`))) {
+    return false
+  }
   return SCOPED_URL_PREFIXES.some((prefix) => path.startsWith(prefix))
 }
 
@@ -116,13 +129,69 @@ interface ContextLease {
 /** 每个请求最多持有一条租约;WeakMap 不持有 request,无泄漏。 */
 const requestLeases = new WeakMap<FastifyRequest, ContextLease>()
 
+/**
+ * `reserve()` 独占连接的最长等待(F-221 根治,2026-11-17)。
+ *
+ * postgres.js 的 `reserve()` 在池耗尽时**无界排队**:F-221 的连接一旦因出口漏触发
+ * 未归还,后续每个带主体的 /api/* 请求都会卡在 preHandler 的 `reserve()` 上 ——
+ * 线上症状是"进程活着、裸 /health 200、但所有 /api/* 挂起"。
+ * 超时即 fail-open 降级到池上 set_config:当前 RLS 策略已迁移删除,应用层数据闸
+ * (utils/scoped-guard.ts)才是真正在挡数据的层,降级只是回到 F-221 之前的语义,
+ * 比永久 hang 好;applyRequestContext 的 catch 已 console.error 留痕,可观测。
+ */
+const RESERVE_DEADLINE_MS = 1000
+
+/**
+ * 给 `reserve()` 加有界等待,并保证**迟到归还**。
+ *
+ * 关键坑:`Promise.race` 超时后那个仍在排队的 reserve promise 并未被取消 —— 若直接
+ * 丢弃,它最终拿到的连接永远没人 `release()`,降级反而制造新泄漏。这里在超时分支
+ * 挂 `.then(late => late.release())`,迟到连接一到手立即归还,把"无界等待"变成
+ * "有界等待 + 迟到不泄漏"。形态复用 open-idempotency 的 withinDeadline,但补上它
+ * 没有的迟到归还(redis 命令无独占资源,reserve 有,必须区别对待)。
+ *
+ * 导出为纯函数以便单测用 mock client 覆盖:正常返回 / 超时拒绝 / 迟到归还 /
+ * reserve 快速失败四条路径。
+ */
+export async function reserveWithDeadline<T>(
+  client: { reserve: () => Promise<T> },
+  deadlineMs = RESERVE_DEADLINE_MS,
+): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const reservePromise = client.reserve()
+  const deadline = new Promise<never>((_resolve, reject) => {
+    timer = setTimeout(
+      () => reject(new Error('reserve connection deadline exceeded')),
+      deadlineMs,
+    )
+  })
+  try {
+    return await Promise.race([reservePromise, deadline])
+  } catch (error) {
+    // 迟到归还:reserve 最终拿到连接时立即 release,降级不得加剧泄漏
+    void reservePromise
+      .then((late) => {
+        const handle = late as { release?: unknown }
+        if (typeof handle?.release === 'function') {
+          ;(handle.release as () => void)()
+        }
+      })
+      .catch(() => undefined)
+    throw error
+  } finally {
+    if (timer !== undefined) clearTimeout(timer)
+  }
+}
+
 /** 固定一条连接:拿到句柄就返回,失败由调用方决定是否降级(不在这里吞错)。 */
 async function acquireContextLease(): Promise<ContextLease> {
   const client = (db as unknown as { $client?: postgres.Sql }).$client
   if (!client || typeof client.reserve !== 'function') {
     throw new Error('db 未暴露底层 postgres.js 客户端($client),无法固定上下文连接')
   }
-  const reserved = await client.reserve()
+  const reserved = await reserveWithDeadline(
+    client as unknown as { reserve: () => Promise<Awaited<ReturnType<postgres.Sql['reserve']>>> },
+  )
   return {
     reserved,
     executor: drizzle(reserved) as unknown as ContextExecutor,
