@@ -35,7 +35,7 @@ describe('planAcpReplay(共享层 → ACP 帧的翻译)', () => {
     { id: 'm2', role: 'user', content: '问题二' },
     { id: 'm3', role: 'assistant', content: '回答二' },
   ]
-  const items = messages.map((m, i) => ({
+  const items = messages.map((m, _i) => ({
     id: m.id,
     kind: (m.role === 'user' ? 'user' : 'assistant') as 'user' | 'assistant',
   }))
@@ -64,7 +64,7 @@ describe('planAcpReplay(共享层 → ACP 帧的翻译)', () => {
       { id: 's0', role: 'system', content: '系统提示' },
       ...messages,
     ]
-    const withSysItems = withSystem.map((m, i) => ({
+    const withSysItems = withSystem.map((m, _i) => ({
       id: m.id,
       kind: (m.role === 'user' ? 'user' : m.role === 'assistant' ? 'assistant' : 'other') as
         | 'user'

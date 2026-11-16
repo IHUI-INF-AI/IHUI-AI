@@ -77,7 +77,7 @@ export * from './edit-resend-rollback'
 export * from './budget-note'
 // D62 语音字幕与讨论纪要(麦克风四类错误/录音↔播报互斥/静音≠隐藏字幕/双视图;复用 voice 栈不新建录音栈)
 export * from './voice-subtitles'
-// D91 四类文档批注锚点分型(PDF/PPTX/DOCX/XLSX 坐标逐字对齐原文;四类共用单一状态机,禁止各写一套)
+// D91 四类文档批注锚点分型(PDF/PPTX/DOCX/XLSX 坐标按行为规格原文;四类共用单一状态机,禁止各写一套)
 export * from './annotation-anchors'
 // D67 额度归属分型与折扣倒计时(四型归属 + 三动作族 + 「不充值可用心智」机器判据:免费档可用时判定层剔除付费动作;
 // 与 D71 error-catalog 两道闸协同,映射不到不硬塞)
@@ -86,7 +86,7 @@ export * from './quota-ownership'
 // 都不存在,而 `export * from` 一个解析不到的路径会让 @ihui/shared 的根出口整体不可用 —— 28 个
 // 走 `from '@ihui/shared'` 根 barrel 的 web 文件因此整片无法构建(部署环卡在 next build)。
 // 模块落地后逐行去掉注释即可恢复出口。
-// D43 会话内快捷笔记(录音 12 phase 状态机逐字对齐 Qoder recordingNote;转写复用既有 voice 栈,归档纯逻辑)
+// D43 会话内快捷笔记(录音 12 phase 状态机按行为规格 外部实现 recordingNote;转写复用既有 voice 栈,归档纯逻辑)
 export * from './voice-note'
 // D36 会话内输入草稿(截断上限/安全读取;分桶 key 由调用方决定,形态对齐 prompt-history)
 export * from './prompt-drafts'
@@ -164,11 +164,11 @@ export * from './element-pack-history'
 // G-274 对话投影水位协议(ACK 不构成可用基线 / 迟到重复静默丢弃 / 断档只重订阅不做本地补偿);
 // 此前消费方只能深路径 import chat/projection-watermark,barrel 缺席等于跨端出口没有登记。
 export * from './projection-watermark'
-// 对标 Qoder 借鉴清单第 9 项(准入回执配对 inputId + disposition):乐观上屏的每条消息带一个
+// 遵循统一工程规范):乐观上屏的每条消息带一个
 // 稳定 inputId,服务端回执据此把 tentative 抬成 admitted;回执缺席恒为未确认,绝不冒充已收下。
 // **服务端尚未产出该帧** —— 契约声明与接线前置见文件头注,不得读成已接线。
 export * from './send-admission'
-// 对标 Qoder 借鉴清单第 10 项(命名错误码分类处置):errorCode → 可执行下一步 + 能不能重试。
+// 遵循统一工程规范):errorCode → 可执行下一步 + 能不能重试。
 // 码表仍是 error-catalog.ts 那一份(§0.6 不建第二套),本层只补「动作」这一维。
 // __test__ 只给单测用。本模块与 utils/smooth-delta-batcher 都有同名 __test__,
 // 两条 export * 链在包根相撞(TS2308)。此处显式列举公共符号,把 __test__ 留在源文件里。

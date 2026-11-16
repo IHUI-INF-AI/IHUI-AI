@@ -12,7 +12,7 @@
  *   ④ batched 的两条触发路径(攒够数量 / 间隔到点)都要生效;
  *   ⑤ 结论只报**新增**(500 处历史告警的仓库里,全量报告等于没有报告)。
  */
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 import {
   DEFAULT_REVIEW_POLICY,

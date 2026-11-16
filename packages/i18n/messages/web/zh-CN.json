@@ -11517,7 +11517,7 @@
     "capContext": "长上下文",
     "capUnknownHint": "尚未实测",
     "capFailHint": "实测未通过",
-    "capPriceHint": "单价按每百万 token 计，倍率仅为官方对标档位",
+    "capPriceHint": "单价按每百万 token 计，倍率仅为官方对齐档位",
     "favorite": "添加收藏",
     "unfavorite": "取消收藏",
     "activityExpandMore": "展开其余 {n} 项",
@@ -11747,6 +11747,7 @@
     "canvasOpenInCanvas": "在画布打开",
     "canvasRevert": "回退到此版本",
     "canvasVersions": "版本历史",
+    "charCount": "{count} 字符",
     "clearInputAriaLabel": "清除输入",
     "clearInputTitle": "清除输入内容",
     "predictiveEditHint": "预测式编辑建议",
@@ -11785,7 +11786,7 @@
     "commandArg": {
       "goalBenchmark": {
         "description": "参考目标产品交互细节,逐项对齐实现,自验 4 状态",
-        "label": "深度对标某产品交互"
+        "label": "深度对齐某产品交互"
       },
       "goalDeadCode": {
         "description": "扫描未引用的导出/组件/工具函数,确认无依赖后删除",
@@ -12011,6 +12012,11 @@
       "collapsedDesc": "始终折叠中间步骤",
       "expanded": "展开",
       "expandedDesc": "始终展开中间步骤"
+    },
+    "titleAutoUpdate": {
+      "title": "任务标题",
+      "label": "实时更新标题",
+      "desc": "对话进行到第 3 轮后,自动根据最新对话内容重新提炼任务标题;关闭后标题固定为创建时生成的名称"
     },
     "gapInterval": "{gap} 间隔",
     "generating": "生成中",
@@ -12580,7 +12586,7 @@
       "permissionFull": "切换到完全访问模式(高风险,无确认)",
       "plan": "切换到规划模式(AI 只制定计划,不执行工具)",
       "polish": "润色文本",
-      "review": "切换到审查模式(只读审查,强化代码审查)",
+      "review": "选择审查目标(未提交 diff / 分支 / commit)",
       "spec": "切换到规格模式(从代码反向生成 spec 文档)",
       "summary": "总结当前对话",
       "translate": "翻译选中文本",
@@ -12940,6 +12946,8 @@
       "confirm": "移动",
       "cancel": "取消"
     },
+    "titleHistoryOriginal": "创建时标题",
+    "titleHistoryCurrent": "当前标题",
     "selectModeAriaLabel": "切换任务多选模式",
     "backToHistory": "返回任务列表",
     "batchArchive": "批量归档",
@@ -13216,6 +13224,11 @@
         "description": "管理并调度 AI 智能体",
         "keywords": ["智能体", "调度", "agent"],
         "label": "AI 智能体"
+      },
+      "automations": {
+        "description": "创建和管理定时运行的 AI 任务",
+        "keywords": ["自动化", "定时", "任务", "automation"],
+        "label": "定时自动化"
       },
       "browser": {
         "description": "在工作区内浏览网页",
@@ -15860,7 +15873,7 @@
           "title": "组织架构"
         },
         {
-          "desc": "正向与逆向流程分析,优化业务运转效率",
+          "desc": "正向与兼容分析流程分析,优化业务运转效率",
           "title": "流程梳理"
         },
         {
@@ -17436,14 +17449,18 @@
   },
   "imageGenPage": {
     "download": "下载",
+    "favorites": "收藏的图片",
+    "gallery": "公开画廊",
     "generate": "生成图片",
     "generating": "生成中...",
+    "history": "生成历史",
     "promptLabel": "提示词",
     "promptPlaceholder": "描述你想生成的图片...",
     "promptRequired": "请输入提示词",
     "sizeLabel": "尺寸",
     "subtitle": "输入提示词生成图片",
     "success": "生成成功",
+    "templates": "提示词模板",
     "title": "AI 图片生成"
   },
   "inlineEdit": {
@@ -18307,7 +18324,7 @@
         "title": "企业安全"
       },
       "subtitle": "工程严谨 · 智能降本 · 企业安全 · 三栈合一",
-      "title": "核心优势 · 对标行业标杆",
+      "title": "核心优势 · 对齐行业标杆",
       "titleEn": "CORE ADVANTAGES"
     },
     "brand": "品牌",
@@ -18358,7 +18375,7 @@
       "row8Feature": "智能体广场",
       "row8Us": "5+ 职能",
       "subtitle": "智汇 AI vs Claude Code vs Cursor vs ChatGPT · 9 端 + 101 模型 + 三栈合一 + 智能体广场",
-      "title": "竞品对比 · 多维对标",
+      "title": "竞品对比 · 多维对齐",
       "titleEn": "COMPETITIVE COMPARISON"
     },
     "connect": "联系我们",
@@ -18594,7 +18611,7 @@
     },
     "title": "标题",
     "typewriter": {
-      "brand": "自研 CLI 多维对标 Claude Code · ACP 嵌入 Zed/VSCode/Cursor",
+      "brand": "自研 CLI 多维对齐统一规范",
       "connect": "LangGraph + MCP + A2A 三栈 · 4557+ API 路由 · 工业级严谨",
       "content": "9 端全覆盖 · 覆盖较广的全栈 AI 平台",
       "ctaPrimary": "立即体验",
@@ -20295,6 +20312,14 @@
     "taskPanelAutoLastStats": "跑 {families} 族 · 新增 {accepted} · 领 {claimed}",
     "taskPanelAutoLastNever": "本进程尚未巡检",
     "taskPanelDesc": "一键巡检 WorkBuddy 任务中心:领任务、达标领奖、连登兑换、抽奖、猫猫旅行、夜猫子闲聊。",
+    "taskPanelDescDoubao": "一键巡检豆包任务:领取每日签到额度、自动完成工作领域任务、领取已完成任务与积分里程碑奖励。",
+    "taskPanelDoubaoTag": "豆包",
+    "taskPanelDoubaoOn": "已启用 · 每日 {hours}:{minute} 自动巡检(签到之后)",
+    "taskPanelDoubaoDry": "已启用但为演练模式(只读预检):不会真实领奖。服务端设 DOUBAO_TASKS_LIVE_RUN=true 后才会写入。",
+    "taskPanelDoubaoOff": "未启用:仅手动执行。服务端设 DOUBAO_TASKS_ENABLED=true 并重启后生效。",
+    "taskPanelDoubaoNotStarted": "配置已开但调度器未启动:改完服务端 .env 必须重启 ai-service 才生效。",
+    "taskPanelDoubaoLast": "上次巡检 {time} · 领取 {claimed} 项 · 跳过 {skipped} 项",
+    "taskPanelDoubaoLastNever": "本进程尚未巡检",
     "taskPanelPick": "选择账号",
     "taskPanelList": "读取任务",
     "taskPanelDryRun": "预演(不写入)",
@@ -23881,6 +23906,7 @@
     "codeIndexEgressOptOutDesc": "代码切片不会外发用于向量化建索引",
     "autoMemoryOptOut": "关闭自动长期记忆",
     "autoMemoryOptOutDesc": "不会把对话提炼成跨会话的偏好或约定",
+    "usageTitle": "用量统计",
     "navTiers": {
       "title": "侧边栏简洁模式",
       "desc": "侧边栏默认隐藏开发者与运维向的功能入口。需要用到时，打开下面的开关即可显示。",

@@ -8,7 +8,6 @@ import type { LucideIcon } from 'lucide-react'
 import {
   Search,
   MessageSquare,
-  MessageCircleQuestion,
   Sparkles,
   Globe,
   User,
@@ -29,8 +28,9 @@ import {
   FileDiff,
   Info,
   Minimize2,
+  Clock,
 } from 'lucide-react'
-import type { ChatMode, IDETabType } from '@ihui/types'
+import type { IDETabType } from '@ihui/types'
 
 /**
  * 统一命令注册表(1-6 键盘优先交互核心)
@@ -49,13 +49,12 @@ import type { ChatMode, IDETabType } from '@ihui/types'
 // 类型定义
 // ============================================================================
 
-export type CommandGroup = 'navigate' | 'view' | 'tools' | 'settings' | 'mode'
+export type CommandGroup = 'navigate' | 'view' | 'tools' | 'settings'
 
 export type CommandAction =
   | { type: 'navigate'; href: string }
   | { type: 'ideTab'; tab: IDETabType; href: string }
   | { type: 'workPanel' }
-  | { type: 'mode'; mode: ChatMode }
 
 export interface CommandDef {
   /** 唯一 id,i18n 用 `commandPalette.commands.<id>.*` 解析 */
@@ -80,6 +79,13 @@ export const BUILTIN_COMMANDS: CommandDef[] = [
     action: { type: 'navigate', href: '/chat' },
   },
   { id: 'drama', group: 'navigate', icon: Sparkles, action: { type: 'navigate', href: '/drama' } },
+  // 用户侧 Agent 定时自动化(/automations):此前仅 URL 可达,借命令面板提供明确入口
+  {
+    id: 'automations',
+    group: 'navigate',
+    icon: Clock,
+    action: { type: 'navigate', href: '/automations' },
+  },
   {
     id: 'search',
     group: 'navigate',
@@ -175,46 +181,12 @@ export const BUILTIN_COMMANDS: CommandDef[] = [
     action: { type: 'navigate', href: '/connectors' },
   },
 
-  // ---- mode:ChatMode 5 态(Ctrl+1-5 对应;2026-09-13 矩阵 A #24 补 modeAsk) ----
-  {
-    id: 'modeBuild',
-    group: 'mode',
-    icon: MessageSquare,
-    action: { type: 'mode', mode: 'build' },
-    shortcut: 'Ctrl+1',
-  },
-  {
-    id: 'modePlan',
-    group: 'mode',
-    icon: MessageSquare,
-    action: { type: 'mode', mode: 'plan' },
-    shortcut: 'Ctrl+2',
-  },
-  {
-    id: 'modeReview',
-    group: 'mode',
-    icon: MessageSquare,
-    action: { type: 'mode', mode: 'review' },
-    shortcut: 'Ctrl+3',
-  },
-  {
-    id: 'modeSpec',
-    group: 'mode',
-    icon: MessageSquare,
-    action: { type: 'mode', mode: 'spec' },
-    shortcut: 'Ctrl+4',
-  },
-  {
-    id: 'modeAsk',
-    group: 'mode',
-    icon: MessageCircleQuestion,
-    action: { type: 'mode', mode: 'ask' },
-    shortcut: 'Ctrl+5',
-  },
+  // 2026-11-16 用户定档:ChatMode 手动切换全部移除(命令面板不再暴露 mode* 命令,
+  // 快捷键 Ctrl+1-5 同步下线)。发送链固定全工具开放,由 AI 自主决定用不用工具。
 ]
 
 /** 分组展示顺序(与 i18n `commandPalette.groups.<group>` 对应) */
-export const COMMAND_GROUP_ORDER: CommandGroup[] = ['navigate', 'view', 'tools', 'settings', 'mode']
+export const COMMAND_GROUP_ORDER: CommandGroup[] = ['navigate', 'view', 'tools', 'settings']
 
 // ============================================================================
 // D89 ② 队列与引导命令化(2026-09-24 立,G-121)
@@ -252,7 +224,7 @@ export const CHAT_QUEUE_COMMANDS: ChatQueueCommandDef[] = [
 ]
 
 // ============================================================================
-// D117 工具型斜杠命令(G-231,2026-09-27 立,对标 Codex /diff /status /model /mcp /compact)
+// D117 工具型斜杠命令(G-231,2026-09-27 立,遵循统一工程规范)
 // ============================================================================
 
 /**
@@ -311,7 +283,6 @@ export const COMMAND_GROUP_LABEL_KEY: Record<CommandGroup, string> = {
   view: 'groups.view',
   tools: 'groups.tools',
   settings: 'groups.settings',
-  mode: 'groups.mode',
 }
 
 // ============================================================================

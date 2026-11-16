@@ -7,7 +7,7 @@
 import * as React from 'react'
 import { usePathname } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import { GripVertical, Plus, X } from 'lucide-react'
+import { ChevronDown, GripVertical, Plus, X } from 'lucide-react'
 import {
   DndContext,
   KeyboardSensor,
@@ -31,6 +31,9 @@ import { CustomNavDialog } from './CustomNavDialog'
 import { useCustomNav } from './use-custom-nav'
 import { flattenNavItems, isHrefActive } from './nav-data'
 import type { NavItem, RegisterRef } from './types'
+
+/** 自定义栏展开/收起偏好(与 NavGroupSection 的 localStorage 记忆同一口径)。 */
+const CUSTOM_OPEN_STORAGE_KEY = 'sidebar-custom-open-v1'
 
 /**
  * 「自定义」栏(2026-10-16 立):渲染在「热门」分组上方的用户自选快捷入口。
@@ -184,6 +187,30 @@ const CustomNavSection = React.memo(function CustomNavSection({
   // 不可见项由下面的 itemMap 挡在渲染之外 —— 死链在视图层就出不了门。
   const { userId, hydrated, customHrefs, addHref, removeHref, reorderHref } = useCustomNav()
   const [dialogOpen, setDialogOpen] = React.useState(false)
+  // 自定义栏可收起/展开(用户 2026-11-16 要求补回):默认展开,偏好本机记忆,
+  // 与「热门/管理」折叠分组同一交互语义(标题行箭头 + localStorage)。
+  const [open, setOpen] = React.useState(true)
+
+  React.useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem(CUSTOM_OPEN_STORAGE_KEY)
+      if (stored === '0' || stored === '1') setOpen(stored === '1')
+    } catch {
+      // localStorage 不可用时保持默认展开,不影响导航可用性
+    }
+  }, [])
+
+  const toggleOpen = React.useCallback(() => {
+    setOpen((prev) => {
+      const next = !prev
+      try {
+        window.localStorage.setItem(CUSTOM_OPEN_STORAGE_KEY, next ? '1' : '0')
+      } catch {
+        // 写失败不阻断本次交互
+      }
+      return next
+    })
+  }, [])
 
   // href -> NavItem 索引:groups 在父级已 memo,导航结构不变则零重建
   const itemMap = React.useMemo(() => {
@@ -272,16 +299,32 @@ const CustomNavSection = React.memo(function CustomNavSection({
     )
   }
 
-  // 展开态:标题行(标签 + 右侧 + 号)+ 可拖拽排序的自定义项列表 / 空态引导
+  // 展开态:标题行(标签 + 折叠箭头 + 右侧 + 号)+ 可拖拽排序的自定义项列表 / 空态引导
   return (
     <div className="pt-2">
       {/* 标题行字号/内边距对齐紧邻的「热门」等可折叠分组标题(text-sm、pb/pt-1.5);
           此前 text-xs 比所有邻居弱一档,视觉上像另一层东西。
-          + 号按钮 24×24:20×20 低于 WCAG 2.5.8 最小目标尺寸,手指/鼠标都更难点中。 */}
+          标题本身是折叠开关(与热门/管理一致),+ 号按钮 24×24 独立点击区,
+          避免嵌套按钮:标题按钮只负责展开/收起,加号只负责打开添加弹层。 */}
       <div className="flex items-center gap-1.5 px-2.5 pb-1.5 pt-1.5">
-        <span className="min-w-0 whitespace-nowrap text-left text-body font-semibold uppercase tracking-wider text-muted-foreground/60">
-          {t('customGroup')}
-        </span>
+        <button
+          type="button"
+          onClick={toggleOpen}
+          aria-expanded={open}
+          aria-label={t('customGroup')}
+          data-testid="nav-custom-toggle"
+          className="group/cgrp flex min-w-0 flex-1 items-center gap-1.5 rounded-sm text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <span className="min-w-0 whitespace-nowrap text-left text-body font-semibold uppercase tracking-wider text-muted-foreground/60">
+            {t('customGroup')}
+          </span>
+          <ChevronDown
+            className={cn(
+              'ml-auto h-4 w-4 shrink-0 text-muted-foreground/40 transition-transform group-hover/cgrp:text-muted-foreground',
+              !open && '-rotate-90',
+            )}
+          />
+        </button>
         <Tooltip content={t('customAddTitle')}>
           <button
             type="button"
@@ -295,52 +338,53 @@ const CustomNavSection = React.memo(function CustomNavSection({
         </Tooltip>
       </div>
 
-      {customItems.length === 0 ? (
-        <button
-          type="button"
-          onClick={openDialog}
-          className={cn(
-            'flex h-9 w-full min-w-0 items-center gap-2.5 rounded-sm px-2.5 py-2 text-body font-medium leading-none whitespace-nowrap transition-colors',
-            'text-muted-foreground/60 hover:bg-sidebar-item-hover-bg hover:text-foreground',
-            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-          )}
-        >
-          <Plus className="h-5 w-5 shrink-0" />
-          <span className="min-w-0 whitespace-nowrap text-left">{t('customEmptyHint')}</span>
-        </button>
-      ) : (
-        <DndContext
-          // 显式 id:不传时 dnd-kit 用 useId 生成,SSR/CSR 两侧不一致会触发
-          // hydration 警告(本仓对 hydration 一致性零容忍)。
-          id="sidebar-custom-nav-dnd"
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragEnd={handleDragEnd}
-        >
-          <SortableContext
-            items={customItems.map((i) => i.href)}
-            strategy={verticalListSortingStrategy}
+      {open &&
+        (customItems.length === 0 ? (
+          <button
+            type="button"
+            onClick={openDialog}
+            className={cn(
+              'flex h-9 w-full min-w-0 items-center gap-2.5 rounded-sm px-2.5 py-2 text-body font-medium leading-none whitespace-nowrap transition-colors',
+              'text-muted-foreground/60 hover:bg-sidebar-item-hover-bg hover:text-foreground',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+            )}
           >
-            <div className="flex flex-col gap-0.5">
-              {customItems.map((item) => (
-                <SortableCustomItem
-                  key={item.href}
-                  item={item}
-                  label={item.dynamicLabel ?? t(item.labelKey)}
-                  active={isHrefActive(item.href, pathname)}
-                  collapsed={collapsed}
-                  onCloseMobile={onCloseMobile}
-                  registerRef={registerRef}
-                  onBeforeNav={onBeforeNav}
-                  onRemove={removeHref}
-                  removeLabel={t('customRemove')}
-                  dragLabel={t('customDragHint')}
-                />
-              ))}
-            </div>
-          </SortableContext>
-        </DndContext>
-      )}
+            <Plus className="h-5 w-5 shrink-0" />
+            <span className="min-w-0 whitespace-nowrap text-left">{t('customEmptyHint')}</span>
+          </button>
+        ) : (
+          <DndContext
+            // 显式 id:不传时 dnd-kit 用 useId 生成,SSR/CSR 两侧不一致会触发
+            // hydration 警告(本仓对 hydration 一致性零容忍)。
+            id="sidebar-custom-nav-dnd"
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext
+              items={customItems.map((i) => i.href)}
+              strategy={verticalListSortingStrategy}
+            >
+              <div className="flex flex-col gap-0.5">
+                {customItems.map((item) => (
+                  <SortableCustomItem
+                    key={item.href}
+                    item={item}
+                    label={item.dynamicLabel ?? t(item.labelKey)}
+                    active={isHrefActive(item.href, pathname)}
+                    collapsed={collapsed}
+                    onCloseMobile={onCloseMobile}
+                    registerRef={registerRef}
+                    onBeforeNav={onBeforeNav}
+                    onRemove={removeHref}
+                    removeLabel={t('customRemove')}
+                    dragLabel={t('customDragHint')}
+                  />
+                ))}
+              </div>
+            </SortableContext>
+          </DndContext>
+        ))}
 
       {dialog}
     </div>
