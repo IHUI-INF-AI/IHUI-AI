@@ -60,10 +60,16 @@ import { DownloadDetailContent } from '../../app/(main)/download/[platform]/Down
 import { DOWNLOAD_ENTRY_BY_PLATFORM } from '../../app/(main)/download/[platform]/platformEntries'
 import {
   DOWNLOAD_PLATFORMS,
+  IOS_IPA_DOWNLOAD_URL,
+  getDownloadsStatus,
   getLaunchedPlatforms,
+  getPlatformMeta,
   getPlatformMetaMap,
   isDownloadPlatform,
+  isPlatformLaunched,
+  resolveIosHref,
 } from '@/config/downloads.config'
+import { getDownloadStatus, isDownloadAvailable } from '@/lib/downloads'
 
 /** 已上线端的 href(详情页只该有 /download/<端> 这一类内部入口) */
 function platformHrefs(): string[] {
@@ -118,12 +124,13 @@ describe('下载中心 /download/[platform] 的未上线平台必须走显式态
     expect(screen.queryByText('downloadAvailablePlatforms')).toBeNull()
   })
 
-  it('已登记但尚未配置资源的端(ios)保持既有「即将上线」形态,且把平台名传进占位符', () => {
+  it('iOS 底稿自足后渲染下载资源区,不再出现「即将上线」占位卡', () => {
     render(<DownloadDetailContent platform="ios" />)
 
-    // downloadComingSoonTitle 的取值带 {platform} 占位;旧调用漏传 vars ⇒ 端上拿到的是裸键
-    expect(screen.getByText(/^downloadComingSoonTitle\[/)).toBeTruthy()
-    expect(screen.queryByText('downloadComingSoonTitle')).toBeNull()
+    // ios.assets 恒定给出 IPA 直链 ⇒ hasAssets 为真,详情页走下载资源区分支
+    expect(screen.getByText('downloadAssets')).toBeTruthy()
+    // 「即将上线」卡(标题 key 带 {platform} 占位)在该分支结构上一并不再渲染
+    expect(screen.queryByText(/^downloadComingSoonTitle/)).toBeNull()
   })
 
   it('用户可控的平台段只回显安全字符(越界字符与超长串不进页面)', () => {
@@ -182,9 +189,42 @@ describe('平台清单单一真相源(收口:此前清单有两份,第二份负�
     expect(launched as string[]).not.toContain('harmony')
     expect(launched).toContain('web')
     expect(launched).toContain('desktop')
+    // 回归钉子:iOS 底稿自足后 ios.assets 非空 ⇒ 判为已上线,须进入本清单
+    expect(getLaunchedPlatforms()).toContain('ios')
     // 判据同源:详情页「已发布」徽章与这里的清单是同一个 isPlatformLaunched
     const meta = getPlatformMetaMap()
     expect(launched.every((p) => meta[p].assets.length > 0 || Boolean(meta[p].version))).toBe(true)
+  })
+})
+
+// 2026-11-16 回归锁:iOS 曾是 8 端里唯一「构建期 href 空 ∧ 运行期资产空」的端,
+// 真浏览器实测表现为侧栏 iOS App 一格置灰 + "即将上线"。下面把底稿自足的四条判据钉住,
+// 任一被改回空串/空 assets 都会在这里翻红,而不是等到有人打开页面才发现。
+describe('iOS 底稿自足(不依赖运行期解析腿 / 不依赖 App Store env)', () => {
+  it('resolveIosHref 未配 env 时回落站内详情页而非空串', () => {
+    expect(resolveIosHref()).toBe('/download/ios')
+  })
+
+  it('侧栏判据转真:isDownloadAvailable / getDownloadStatus 不再把 iOS 当未接入', () => {
+    expect(isDownloadAvailable('ios')).toBe(true)
+    expect(getDownloadStatus('ios')).toBe('available')
+  })
+
+  it('详情页判据转真:assets 恒定给出真实 IPA 直链,且格式是 TrollStore IPA', () => {
+    const ios = getPlatformMeta('ios')
+    expect(ios.assets).toHaveLength(1)
+    // 判据 import 源常量,不在测试里抄 URL 字面量(§22c);
+    // 用可选链取下标元素:本仓开了 noUncheckedIndexedAccess,裸 [0].href 会 TS2532。
+    const asset = ios.assets[0]
+    expect(asset?.href).toBe(IOS_IPA_DOWNLOAD_URL)
+    expect(asset?.format).toBe('iOS IPA (TrollStore)')
+    expect(isPlatformLaunched(ios)).toBe(true)
+  })
+
+  it('运营自检同样把 iOS 记作已配置,且已上线清单含 iOS', () => {
+    const status = getDownloadsStatus().find((s) => s.platform === 'ios')
+    expect(status?.configured).toBe(true)
+    expect(getLaunchedPlatforms()).toContain('ios')
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

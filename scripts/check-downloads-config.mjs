@@ -8,14 +8,19 @@
 /**
  * check-downloads-config.mjs — 下载配置就绪核查(2026-08-06 立)。
  *
- * 背景:downloads.config.ts 已 10 处 env 化(NEXT_PUBLIC_DOWNLOAD_*),未配置的端显示
- * "即将上线"占位。本脚本让运营/运维一键确认"哪些端已上架、缺什么 env"。
+ * 背景:downloads.config.ts 已 10 处 env 化(NEXT_PUBLIC_DOWNLOAD_*),运营/运维可一键
+ * 确认"哪些端已上架应用商店、缺什么 env"。
+ *
+ * 2026-11-16 口径收窄:**本脚本判的是「运营 env 是否填写」,不是「该端能否下载」**。
+ * iOS 自那日起底稿自足 —— 未上架 App Store 也有站内 /download/ios 与内置 IPA 直链,
+ * 所以 iOS 的 ⚠️ 只表示"尚未上架商店",不表示下载入口不可用;输出里逐端点明,
+ * 避免把"未上架"误读成"按钮该灰"(这正是本次置灰事故的认知起点)。
  *
  * 用法:
  *   node scripts/check-downloads-config.mjs           # 检查 apps/web/.env* 当前配置
  *   node scripts/check-downloads-config.mjs --strict  # 未配置的端以非 0 退出(CI 用)
  *
- * 输出:8 端状态(✅ 已配置 / ⚠️ 缺 X env),末端汇总"缺 N 项"。
+ * 输出:8 端状态(✅ 已配置 / ⚠️ 缺 X env),末端汇总"缺 N 项运营 env"。
  */
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -72,7 +77,12 @@ for (const [platform, envs] of Object.entries(REQUIRED_ENVS)) {
     console.log(`  ✅ ${label}: 已配置`)
   } else {
     missing++
-    console.log(`  ⚠️  ${label}: 未配置(需 ${envs.join(' 或 ')} 之一)`)
+    // iOS 底稿自足:缺 App Store env 只表示"未上架商店",不表示"下载入口不可用"
+    const note =
+      platform === 'ios'
+        ? ' —— 未上架商店,但站内 /download/ios + 内置 IPA 直链已可下载(不影响可用性)'
+        : ''
+    console.log(`  ⚠️  ${label}: 未配置(需 ${envs.join(' 或 ')} 之一)${note}`)
   }
 }
 
@@ -81,7 +91,9 @@ if (missing === 0) {
   console.log('✅ 全部下载端配置就绪')
   process.exit(0)
 }
-console.log(`⚠️  共 ${missing} 个下载端未配置,运营填好 env 后重新 build 即生效(详见 apps/web/.env.example)`)
+console.log(
+  `⚠️  共 ${missing} 项运营 env 未配置(仅影响 android-apk / wechat-miniapp 的展示与 App Store 上架状态;iOS 下载已底稿自足),填好 env 后重新 build 即生效(详见 apps/web/.env.example)`,
+)
 if (STRICT) process.exit(1)
 process.exit(0)
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

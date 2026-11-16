@@ -21056,7 +21056,7 @@
     "downloadGithubReleases": "GitHub Releases",
     "downloadIOS": "iOS App",
     "downloadIOSDesc": "iPhone / iPad 隨時使用",
-    "downloadIOSInstallGuide": "App Store 上架後,點擊下載按鈕將跳轉 App Store 安裝頁。",
+    "downloadIOSInstallGuide": "現在可直接下載 IPA 安裝包，需自行簽名或透過 TrollStore（巨魔商店）側載安裝，並非從 App Store 取得；將來若上架 App Store，下載按鈕會優先跳轉至 App Store 安裝頁。",
     "downloadIOSSysReq": "iOS 14.0 或更高版本",
     "downloadInstallGuide": "安裝指南",
     "downloadMiniDesc": "微信掃碼,即開即用",

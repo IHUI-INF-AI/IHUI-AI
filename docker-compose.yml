@@ -272,6 +272,9 @@ services:
       - NEXT_TELEMETRY_DISABLED=1
       - JWT_SECRET=${JWT_SECRET:?JWT_SECRET 未配置,请在 .env 设置强密钥(≥32 字符)}
       - CREDENTIALS_ENCRYPTION_KEY=${CREDENTIALS_ENCRYPTION_KEY:?CREDENTIALS_ENCRYPTION_KEY 未配置,请在 .env 设置 32 字符随机密钥}
+      # GitHub Releases API 认证透传(web downloads-live.ts);缺令牌按 60 次/h/IP 未认证配额限流,
+      # 会令侧栏 iOS 按钮置灰、桌面/iOS 下载栏降级成 snapshot 旧号。
+      - GITHUB_TOKEN=${GITHUB_TOKEN:-}
     ports:
       - '127.0.0.1:${WEB_PORT:-8801}:8801'
     depends_on:
