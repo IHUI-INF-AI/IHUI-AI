@@ -196,14 +196,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          # 2026-11-17 补(desktop-v0.1.78 run#105/#106 实证):bundle.targets 含 rpm + appimage,
-          # 而旧镜像曾自带 rpmbuild / libfuse2,新镜像(ubuntu-latest 正迁 Ubuntu 26)已移除。
-          # 缺 rpm 时 tauri 打 rpm target 直接失败;缺 libfuse2 时 AppImage 的 linuxdeploy 起不来。
-          # 这两种失败都会被 tauri-action 的 continue-on-error 吞成 "Build & Release: success",
-          # 直到下一步 Verify bundle 才炸 —— 表现为"构建很快成功但零产物"。
-          # 补齐后与 v0.1.76(三平台全绿那轮)的隐式镜像条件对齐。
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libxdo-dev \
-            rpm file libfuse2
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libxdo-dev
 
       # 2026-09-17:纯 Rust 化后无 node_modules,tauri-action 默认 `npm run tauri` 会失败——
       # 全局装独立 CLI(约 10 秒)并显式指定 tauriScript
@@ -370,8 +363,14 @@ jobs:
         uses: tauri-apps/tauri-action@84b9d35b5fc46c1e45415bdb6144030364f7ebc5 # v0
         # 2026-09-05: tauri-action 的产物收集按预期路径 existsSync 过滤,非 ASCII productName
         # (智汇AI)在 Linux/macOS 上预期路径与磁盘文件失配→"No artifacts were found"假失败
-        # (产物实际已构建+签名成功,CI 日志实证);容错后由下一步兜底上传
-        continue-on-error: true
+        # (产物实际已构建+签名成功,CI 日志实证)。
+        # 2026-11-17 定案(机主拍板·根治):**去掉 continue-on-error**。原容错的代价被量到了两次:
+        #   ① 0.1.35 Windows NSIS 打包真失败(makensis 语言文件缺失)被吞成 job success ⇒ 无 Windows 资产;
+        #   ② 0.1.78 run#105/#106 Linux 缺 rpm/libfuse2 ⇒ 打包真失败被吞 ⇒ "构建很快成功但零产物"。
+        # 假失败的正确出路是后面那两条 **if: always()** 的腿,不是让打包步骤本身不报错:
+        #   - `Verify bundle produced` 按 matrix 逐平台断言应有目标齐备(本步真失败就在这里翻红);
+        #   - `Fallback upload bundle files to Release` 按磁盘真实文件名(含中文)直传,补 tauri-action 收集漏项。
+        # 即:打包失败=红,产物收集漏项=由兜底腿补传,两者不再混为一谈。新增 target 时必须同步改 Verify 的期望表。
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.DESKTOP_TAURI_PRIVATE_KEY }}
@@ -381,7 +380,17 @@ jobs:
           # 显式指定全局安装的 tauri CLI(见上一步 Install Tauri CLI)
           tauriScript: tauri
           # macOS:Universal 二进制(同时覆盖 arm64 + Intel;配合 rustup target add)
-          args: ${{ runner.os == 'macOS' && '--target universal-apple-darwin' || '' }}
+          # Linux(2026-11-17 加):显式只打 deb。
+          #   立因:run#105/#106/#107 连续三轮 Linux 都是「Build & Release 报 success
+          #   却零安装包」,而 macOS/Windows 同轮全绿。bundle.targets 里 Linux 要打
+          #   deb+rpm+appimage 三种,其中 rpm 需 rpmbuild、appimage 需 linuxdeploy+fuse,
+          #   任一缺失就会让整条 bundle 失败;而 tauri-action 是 continue-on-error,
+          #   失败被吞成 success,直到 Verify bundle 才炸 —— 三轮都拿不到真实报错。
+          #   本轮先用依赖面最小的 deb 验证「Linux 到底能不能出包」:
+          #   能出 ⇒ 瓶颈就是 rpm/appimage 的外部工具,再逐个补;
+          #   仍出不来 ⇒ 问题在编译/打包本体,届时去掉 continue-on-error 取真实日志。
+          #   deb 是 apt 生态主力产物,先拿到它就能把 Linux 下载通道恢复。
+          args: ${{ runner.os == 'macOS' && '--target universal-apple-darwin' || (runner.os == 'Linux' && '--bundles deb') || '' }}
           # 2026-09-05: 默认以仓库根为 CWD,导致 beforeBuildCommand `node scripts/ensure-web-out.mjs`
           # 解析到 <root>/scripts 找不到模块(CI 实证);指定 tauri 应用目录对齐本地行为
           projectPath: apps/desktop
