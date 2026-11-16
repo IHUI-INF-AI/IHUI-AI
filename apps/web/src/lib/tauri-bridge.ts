@@ -2276,6 +2276,58 @@ export async function checkinTraeWebLoginProbe(): Promise<TraeWebLoginProbe> {
   return await invokeIpc<TraeWebLoginProbe>('checkin_trae_web_login_probe', {})
 }
 
+/**
+ * 豆包网页登录页(2026-11-17 立,号池「豆包网页加号」)。
+ * 与 Rust `doubao_web_login::DOUBAO_WEB_LOGIN_URL` 同值 —— 改一侧必改另一侧。
+ */
+export const DOUBAO_WEB_LOGIN_URL = 'https://www.doubao.com/login'
+
+/** 内嵌浏览器 cookie jar 里的一条会话 Cookie(与 Rust `DoubaoCookie` 对齐)。 */
+export interface DoubaoWebLoginCookie {
+  name: string
+  value: string
+  domain?: string | null
+}
+
+/**
+ * 豆包网页登录探测结果(与 Rust `DoubaoWebLoginProbe` tag= status 逐态对齐)。
+ * `ok.cookies` 直接作为导入载荷 cookies[](服务端从 uid_tt 派生 uid,前端不造第二份判据);
+ * `masked_phone` 上游实测恒为掩码;`phone_match=false` 时 Rust 已改走 error 拒绝出货。
+ */
+export type DoubaoWebLoginProbe =
+  | { status: 'no_window' }
+  | { status: 'no_cookie' }
+  | { status: 'not_logged_in'; message?: string }
+  | {
+      status: 'ok'
+      cookie: string
+      cookies: DoubaoWebLoginCookie[]
+      masked_phone?: string | null
+      phone_match?: boolean | null
+    }
+  | { status: 'error'; message: string }
+
+/**
+ * 把用户在本项目页里填的手机号填进豆包登录页输入框(尽力而为;
+ * 页面还没渲染出输入框时返回 true 但可能没填上,前端会在开窗后补打几轮)。
+ */
+export async function doubaoWebLoginAutofill(phone: string): Promise<boolean> {
+  requireTauri()
+  return await invokeIpc<boolean>('doubao_web_login_autofill', { phone })
+}
+
+/**
+ * 轮询探测豆包网页登录态(内嵌浏览器 cookie jar + 上游账号信息核验)。
+ * `phone` 传入时 Rust 侧做「填写全号 ↔ 上游掩码」一致性校验,不一致直接 error,
+ * 杜绝把 A 号的手机号落到 B 号头上。
+ */
+export async function doubaoWebLoginProbe(phone?: string): Promise<DoubaoWebLoginProbe> {
+  requireTauri()
+  return await invokeIpc<DoubaoWebLoginProbe>('doubao_web_login_probe', {
+    phone: phone && phone.trim() ? phone.trim() : null,
+  })
+}
+
 /** 十四层设备标识重置;includeMachineGuid=true 额外尝试注册表 MachineGuid(需 UAC);
  *  cleanBrowserCookies=true 额外清理 Chrome/Edge 中 TRAE 域 Cookie(浏览器运行中该层会失败并报告);
  *  deepReset=true 额外执行深度扩面层(TRAE webview Cookies 库本体/state.vscdb 身份凭据键/日志缓存/

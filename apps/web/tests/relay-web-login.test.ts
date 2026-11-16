@@ -17,17 +17,26 @@
  *   cookies[](name/value 成对,不伪造 domain/expires)。
  * - workbuddy 降 none(F-060):probe 回包剥离会话 Cookie 后 token 无源,出路话术
  *   必须点名真跑得通的导入命令(后台导入 JSON / relay-account-pool.mjs)。
+ * - 豆包网页加号 payload(2026-11-17):name/phone=用户页内填的全号(上游只回掩码,
+ *   一致性由 Rust probe 校验),token 按 sessionid 族回落,uid 绝不在前端造
+ *   (服务端 mapDoubaoImport 单源派生),keepAliveForever 显式置真。
  */
 import { describe, it, expect, vi } from 'vitest'
 
 vi.mock('@/lib/tauri-bridge', () => ({
   TRAE_WEB_LOGIN_URL: 'https://www.trae.cn/login',
+  WB_WEB_LOGIN_URL: 'https://www.workbuddy.cn/login/',
+  DOUBAO_WEB_LOGIN_URL: 'https://www.doubao.com/login',
   checkinTraeWebLoginProbe: vi.fn(async () => ({ status: 'no_cookie' })),
+  checkinWorkbuddyWebLoginProbe: vi.fn(async () => ({ status: 'no_cookie' })),
+  doubaoWebLoginAutofill: vi.fn(async () => true),
+  doubaoWebLoginProbe: vi.fn(async () => ({ status: 'no_cookie' })),
 }))
 
 import {
   RELAY_WEB_LOGIN,
   RELAY_WEB_LOGIN_PROVIDERS,
+  doubaoProbeToImportAccount,
   normalizeTraeProbe,
   relayWebLoginAccountToImport,
   webCookieHeaderToEntries,
@@ -178,5 +187,53 @@ describe('relayWebLoginAccountToImport 导入 payload', () => {
     expect(payload).not.toHaveProperty('refreshToken')
     // Cookie 形态无到期声明 ⇒ 不伪造 expiresAt
     expect(payload).not.toHaveProperty('expiresAt')
+  })
+})
+
+describe('doubaoProbeToImportAccount 豆包网页加号 payload(2026-11-17)', () => {
+  const cookies = [
+    { name: 'sessionid', value: 'sid-1', domain: '.doubao.com' },
+    { name: 'uid_tt', value: 'uid-9', domain: '.doubao.com' },
+    { name: 'ttwid', value: 'tw-1', domain: '.bytedance.com' },
+    { name: 'msToken', value: 'ms-1', domain: '.bytedance.com' },
+  ]
+
+  it('name/phone=用户填的全号(只填这一次),token 取 sessionid 族第一枚非空', () => {
+    const p = doubaoProbeToImportAccount('15754320340', cookies)
+    expect(p['name']).toBe('15754320340')
+    expect(p['phone']).toBe('15754320340')
+    expect(p['token']).toBe('sid-1')
+    expect(p['enabled']).toBe(true)
+  })
+
+  it('keepAliveForever=true 显式带上(豆包不可续期,永久保活=只告警不摘除)', () => {
+    expect(doubaoProbeToImportAccount('13800000000', cookies)['keepAliveForever']).toBe(true)
+  })
+
+  it('cookies 整包投影 {source,key,name,host,value}(uid 由服务端从 uid_tt 派生,前端不造第二份判据)', () => {
+    const p = doubaoProbeToImportAccount('15754320340', cookies)
+    expect(p).not.toHaveProperty('uid')
+    expect(p['cookies']).toEqual([
+      { source: 'cookies', key: 'sessionid', name: 'sessionid', host: '.doubao.com', value: 'sid-1' },
+      { source: 'cookies', key: 'uid_tt', name: 'uid_tt', host: '.doubao.com', value: 'uid-9' },
+      { source: 'cookies', key: 'ttwid', name: 'ttwid', host: '.bytedance.com', value: 'tw-1' },
+      { source: 'cookies', key: 'msToken', name: 'msToken', host: '.bytedance.com', value: 'ms-1' },
+    ])
+  })
+
+  it('sessionid 族缺一枚时按 sessionid→sessionid_ss→sid_tt 回落;全缺 ⇒ token 空串(由服务端校验拒,不编造)', () => {
+    const p = doubaoProbeToImportAccount('15754320340', [
+      { name: 'sessionid_ss', value: 'ss-2', domain: '.doubao.com' },
+      { name: 'uid_tt', value: 'u', domain: '.doubao.com' },
+    ])
+    expect(p['token']).toBe('ss-2')
+    expect(doubaoProbeToImportAccount('15754320340', [])['token']).toBe('')
+  })
+
+  it('domain 缺失落空串(不伪造域);不含 refreshToken/expiresAt(会话 Cookie 形态无此声明)', () => {
+    const p = doubaoProbeToImportAccount('15754320340', [{ name: 'sessionid', value: 's' }])
+    expect((p['cookies'] as Array<Record<string, unknown>>)[0]['host']).toBe('')
+    expect(p).not.toHaveProperty('refreshToken')
+    expect(p).not.toHaveProperty('expiresAt')
   })
 })
