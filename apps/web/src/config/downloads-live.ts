@@ -47,14 +47,18 @@ import {
   toDesktopLiveInfo,
 } from './downloads-live-meta'
 import type { ExtensionManifestEntry, LiveDownloads, LivePlatformInfo } from './downloads-live-meta'
-import type { DownloadPlatform } from './downloads.config'
+import {
+  IOS_IPA_ASSET_NAME as IOS_ASSET_NAME,
+  IOS_POINTER_KEY as IOS_LATEST_KEY,
+  IHUI_GITHUB_REPO as DEFAULT_REPO,
+  IOS_RELEASE_TAG,
+  type DownloadPlatform,
+} from './downloads.config'
 
-const IOS_RELEASE_TAG = 'ios-nightly'
-const IOS_ASSET_NAME = 'ihui-ai-latest.ipa'
-/** 站点腿上的恒定指针名(与 scripts/publish-mobile-ipa.mjs 的 LATEST_IPA_KEY 同形) */
-const IOS_LATEST_KEY = 'ihui-ai-latest.ipa'
+// 2026-11-16:iOS 发布源常量改从 downloads.config.ts 的单一真相源 import,这里不再抄
+// 字面量 —— 构建期底稿直链与运行期解析必须指向同一个 tag / 资产名,否则底稿会指向
+// 一个发布链根本不更新的地址(页面看着能点,实际永远是旧包)。
 const CLI_NPM_PACKAGE = 'ihui-cli'
-const DEFAULT_REPO = 'IHUI-INF-AI/IHUI-AI'
 const LOCAL_API_TIMEOUT_MS = 4000
 const NPM_TIMEOUT_MS = 8000
 /**

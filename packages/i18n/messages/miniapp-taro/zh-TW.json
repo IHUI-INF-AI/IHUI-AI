@@ -3616,7 +3616,9 @@
     "terminal": {
       "waitingInput": "等待輸入",
       "mobileUnsupported": "終端功能暫不支持行動端"
-    }
+    },
+    "questionNoSession": "無法定位會話，此題無法作答",
+    "questionFailed": "提交失敗，請重試"
   },
   "tabBar": {
     "community": "智匯社群",
@@ -7311,5 +7313,13 @@
     "score": "得分",
     "bm25": "BM25",
     "hop": "跳"
+  },
+  "toastFallback": {
+    "shareFeature": "分享功能",
+    "serviceUnavailable": "客服功能尚未開放",
+    "feedbackUnavailable": "意見回饋功能尚未開放",
+    "feedbackOpenFailed": "意見回饋頁開啟失敗,請稍後重試",
+    "navigationNotWired": "導覽未接入",
+    "pageUnsupported": "此頁面暫未支援"
   }
 }

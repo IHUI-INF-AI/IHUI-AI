@@ -36,6 +36,7 @@ vi.mock('@react-navigation/native', () => ({
 vi.mock('@react-navigation/native-stack', () => ({}))
 vi.mock('../src/context/ThemeContext', () => ({ useTheme: () => ({ resolvedTheme: 'light' }) }))
 vi.mock('../src/i18n', () => ({
+  t: (key: string) => key,
   useI18n: () => ({
     t: (key: string) => key,
     locale: localeBox.value,

@@ -85,7 +85,7 @@ function DeveloperConversationsScreen() {
         setLoading(false)
       }
     },
-    [fmtDate],
+    [fmtDate, t],
   )
 
   useEffect(() => {

@@ -178,7 +178,7 @@ function EduAttendanceScreen() {
     } finally {
       setLoading(false)
     }
-  }, [loadStats, statusLabel])
+  }, [loadStats, statusLabel, t])
 
   useEffect(() => {
     void load()

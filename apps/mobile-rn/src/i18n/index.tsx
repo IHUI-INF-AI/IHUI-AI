@@ -149,6 +149,20 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>
 }
 
+/**
+ * 组件树外的静态翻译入口(与 miniapp-taro 的 t() 同形)。
+ * 模块级纯函数 / web-stub / 非 React 上下文拿不到 useI18n(),但端内同样要零裸中文;
+ * currentLocale 由 I18nProvider 每次渲染同步,locale 切换必然触发整树重渲染,
+ * 故这些 JSX 会随所属组件重渲染而刷新,不需要额外订阅。
+ */
+export function t(key: string, params?: Record<string, string | number>): string {
+  const resolvedKey = key === 'course.pay' ? 'courseDetail.pay' : key
+  return translate(messages[currentLocale], resolvedKey, {
+    fallback: messages[DEFAULT_LOCALE],
+    params,
+  })
+}
+
 export function useI18n(): I18nContextValue {
   const ctx = useContext(I18nContext)
   if (!ctx) throw new Error('useI18n must be used within I18nProvider')

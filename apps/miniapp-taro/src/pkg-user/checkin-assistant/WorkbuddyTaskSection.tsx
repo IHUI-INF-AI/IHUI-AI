@@ -193,7 +193,7 @@ export function WorkbuddyTaskSection({ accounts, t }: WorkbuddyTaskSectionProps)
       setSweep(null)
       setSweepError(toFriendlyOr(e, t('common.loadFailed')))
     }
-  }, [])
+  }, [t])
 
   // 账号上下线时纠偏选中项:当前选中已不在列表(被删/切平台)⇒ 落回第一个可用的。
   useEffect(() => {
@@ -231,7 +231,7 @@ export function WorkbuddyTaskSection({ accounts, t }: WorkbuddyTaskSectionProps)
     } finally {
       setBusy(null)
     }
-  }, [accountId])
+  }, [accountId, t])
 
   const runAll = useCallback(
     async (dryRun: boolean) => {
@@ -250,7 +250,7 @@ export function WorkbuddyTaskSection({ accounts, t }: WorkbuddyTaskSectionProps)
         setBusy(null)
       }
     },
-    [accountId, loadTasks],
+    [accountId, loadTasks, t],
   )
 
   const sweepView = deriveSweepView(sweep, sweepError, t)

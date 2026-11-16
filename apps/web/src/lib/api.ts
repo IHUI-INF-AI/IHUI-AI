@@ -22,8 +22,13 @@ import { withRefreshLock } from '@/lib/refresh-lock'
 import {
   resolveApiBaseUrl,
   resolveStreamApiBaseUrl,
-  resolveAiServiceBaseUrl,
+  resolveAiServiceBaseUrlForEngineMode,
 } from '@/lib/api-base-url'
+// 2026-11-15:引擎模式订阅走子路径直引,禁止从 @ihui/shared 桶导入 ——
+// 桶会连带 re-export ./hooks 与 ./notifications(useState/useEffect 模块),
+// 被 Server Component(ai-news/page.tsx → api.ts)拉入时会触发
+// "importing a module that depends on useState into a React Server Component" 构建错误。
+import { subscribeGlobalEngineMode } from '@ihui/shared/stores/engine-mode-store'
 import { webDeviceFingerprintCollector } from '@/hooks/use-device-fingerprint'
 import {
   canSilentlyReLogin,
@@ -161,9 +166,17 @@ if (typeof window !== 'undefined') {
   // Tauri 本地 dev 下 REST 共享基址是本机 8802,而签到等路由只在 ai-service(8803);
   // fetchAiServiceJson 若沿用共享基址会把 /api/checkin/* 打到 8802 → Fastify 404。
   // 其余场景注入 ''(同源,浏览器 dev 走 rewrites / 生产走 nginx 反代),行为零变化。
-  setAiServiceBase(resolveAiServiceBaseUrl())
+  setAiServiceBase(resolveAiServiceBaseUrlForEngineMode())
   // 设备维度风控:注入 web 采集器,api-client 自动把指纹塞进 x-device-fingerprint header
   setDeviceFingerprintProvider(webDeviceFingerprintCollector)
+
+  // 阶段 3 接线第 ② 片(2026-11-15):ai-service 基址随引擎模式响应式更新。
+  // 此前 setAiServiceBase 在模块加载时固化一次,用户切「本地/云端」后工具链仍走旧基址。
+  // 现在订阅 engineMode 变化,每次切换重解析并注入(工具链 fetchAiServiceJson 消费它)。
+  // 注:仅订阅不立即调用 —— 上一行已按当前模式初始化过,这里只补后续变化。
+  subscribeGlobalEngineMode(() => {
+    setAiServiceBase(resolveAiServiceBaseUrlForEngineMode())
+  })
 }
 
 /**

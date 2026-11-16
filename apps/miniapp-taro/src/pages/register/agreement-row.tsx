@@ -31,6 +31,8 @@ export default function AgreementRow({
     <View className="reg-agreement">
       <View className="reg-agreement-main">
         <View
+          ariaRole="button"
+          ariaLabel={t('auth.agreeTermsCheckbox')}
           className={`reg-checkbox ${agreed ? 'reg-checkbox-checked' : ''}`}
           hoverClass="opacity-60"
           onClick={onToggle}

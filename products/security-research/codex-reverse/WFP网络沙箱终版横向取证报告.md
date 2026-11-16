@@ -1,6 +1,7 @@
 <!--
   © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
-  [IHUI-AI-PROVENANCE]: 见仓库根 AGENTS.md 同名水印段。
+  Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+  [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 -->
 
 # Codex WFP 沙箱网络层 · 终版横向取证报告
@@ -14,19 +15,19 @@
 
 ## 1. 取证覆盖度总表
 
-| # | 证据项 | 取证状态 | 来源（调用点级 / 双源） | 复现位置 |
-|---|---|---|---|---|
-| 1 | WFP API 导入清单（11 函数） | ✅ 确定 | 导入表 | `lib.rs` 模块文档 |
-| 2 | 事务化安装序列 | ✅ 确定 | 11 调用点全部落在 `0x1413b2xxx-3xxx` 同一函数群 | `install.rs` `install_plan` 文档 |
-| 3 | `FWPM_FILTER0` 四参签名 + sd=NULL | ✅ 确定 | 唯一调用点 `0x1413b30df` | `install.rs` 模块文档 |
-| 4 | `filter.action.type = 0x1001` PERMIT | ✅ 确定 | 调用点现场 | `fwp_action_type()` |
-| 5 | `filter.weight.type = 0` | ✅ 确定 | 调用点现场 | `install_plan` 指引 |
-| 6 | 条件数组运行时堆分配（40B/条） | ✅ 确定 | 调用点现场 | `install_plan` 指引 |
-| 7 | 3 个条件字段 GUID（USER_ID/PROTOCOL/REMOTE_PORT） | ✅ 确定 | **双源**：对侧 `.rdata` + fwpmu.h 权威逐字节吻合 | `condition-guids-authoritative.md` |
-| 8 | 4 个 ALE layer GUID（V4/V6 × AUTH_CONNECT/FLOW_ESTABLISHED） | ✅ 确定 | 调用点第 5 层透传的字面池 | `ale_layer` 模块 |
-| 9 | provider GUID + 人读名 + PERSISTENT flag | ✅ 确定 | 唯一调用点 `0x1413b2a1d` | `provider_object` 模块 |
-| 10 | sublayer GUID + 人读名 + PERSISTENT flag | ✅ 确定 | 唯一调用点 `0x1413b2bcd` | `provider_object` 模块 |
-| 11 | runtime 如何在 4 个 layer 间选 index | ❌ 未取证 | 需动态取证（管理员真机） | **显式不做**，不冒充 |
+| #   | 证据项                                                       | 取证状态  | 来源（调用点级 / 双源）                          | 复现位置                           |
+| --- | ------------------------------------------------------------ | --------- | ------------------------------------------------ | ---------------------------------- |
+| 1   | WFP API 导入清单（11 函数）                                  | ✅ 确定   | 导入表                                           | `lib.rs` 模块文档                  |
+| 2   | 事务化安装序列                                               | ✅ 确定   | 11 调用点全部落在 `0x1413b2xxx-3xxx` 同一函数群  | `install.rs` `install_plan` 文档   |
+| 3   | `FWPM_FILTER0` 四参签名 + sd=NULL                            | ✅ 确定   | 唯一调用点 `0x1413b30df`                         | `install.rs` 模块文档              |
+| 4   | `filter.action.type = 0x1001` PERMIT                         | ✅ 确定   | 调用点现场                                       | `fwp_action_type()`                |
+| 5   | `filter.weight.type = 0`                                     | ✅ 确定   | 调用点现场                                       | `install_plan` 指引                |
+| 6   | 条件数组运行时堆分配（40B/条）                               | ✅ 确定   | 调用点现场                                       | `install_plan` 指引                |
+| 7   | 3 个条件字段 GUID（USER_ID/PROTOCOL/REMOTE_PORT）            | ✅ 确定   | **双源**：对侧 `.rdata` + fwpmu.h 权威逐字节吻合 | `condition-guids-authoritative.md` |
+| 8   | 4 个 ALE layer GUID（V4/V6 × AUTH_CONNECT/FLOW_ESTABLISHED） | ✅ 确定   | 调用点第 5 层透传的字面池                        | `ale_layer` 模块                   |
+| 9   | provider GUID + 人读名 + PERSISTENT flag                     | ✅ 确定   | 唯一调用点 `0x1413b2a1d`                         | `provider_object` 模块             |
+| 10  | sublayer GUID + 人读名 + PERSISTENT flag                     | ✅ 确定   | 唯一调用点 `0x1413b2bcd`                         | `provider_object` 模块             |
+| 11  | runtime 如何在 4 个 layer 间选 index                         | ❌ 未取证 | 需动态取证（管理员真机）                         | **显式不做**，不冒充               |
 
 > **诚实边界**：第 1-10 项是调用点级字面值，与对侧二进制逐字节吻合。第 11 项（layer index 选择逻辑）是运行时行为，静态反汇编追到第 5 层透传即到顶，需管理员真机动态取证——**不做无验证的宣称**（§0.9）。
 
@@ -73,38 +74,38 @@ sublayer : "Persistent WFP sublayer for Codex Windows sandbox filter"
 
 ### 3.1 Provider / SubLayer 身份
 
-| 对象 | 字面 GUID | flags |
-|---|---|---|
+| 对象     | 字面 GUID                                | flags            |
+| -------- | ---------------------------------------- | ---------------- |
 | provider | `{2e31d31c-3948-4753-9117-e5d1a6496f41}` | `1` (PERSISTENT) |
 | sublayer | `{e65054fd-4d32-4c7c-95ef-621f0cf6431a}` | `1` (PERSISTENT) |
 
 ### 3.2 ALE Layer（`FWPM_FILTER0.layerKey` 透传落到的字面池）
 
-| 字面 GUID | SDK 名 | 语义 |
-|---|---|---|
-| `fd45dd17-17f0-4454-a8f5-1a335f9b1d5c` | `FWPM_LAYER_ALE_AUTH_CONNECT_V4` | IPv4 建连授权 |
-| `105e6e93-8a97-4a64-b4e5-09f5ff7a0115` | `FWPM_LAYER_ALE_AUTH_CONNECT_V6` | IPv6 建连授权 |
-| `4b2b7a2c-2ee6-4916-91b4-8f223a5c0ba9` | `FWPM_LAYER_ALE_FLOW_ESTABLISHED_V4` | IPv4 流建立 |
-| `09e40e90-8f1c-4834-a375-9b7a3d5a4d0e` | `FWPM_LAYER_ALE_FLOW_ESTABLISHED_V6` | IPv6 流建立 |
+| 字面 GUID                              | SDK 名                               | 语义          |
+| -------------------------------------- | ------------------------------------ | ------------- |
+| `fd45dd17-17f0-4454-a8f5-1a335f9b1d5c` | `FWPM_LAYER_ALE_AUTH_CONNECT_V4`     | IPv4 建连授权 |
+| `105e6e93-8a97-4a64-b4e5-09f5ff7a0115` | `FWPM_LAYER_ALE_AUTH_CONNECT_V6`     | IPv6 建连授权 |
+| `4b2b7a2c-2ee6-4916-91b4-8f223a5c0ba9` | `FWPM_LAYER_ALE_FLOW_ESTABLISHED_V4` | IPv4 流建立   |
+| `09e40e90-8f1c-4834-a375-9b7a3d5a4d0e` | `FWPM_LAYER_ALE_FLOW_ESTABLISHED_V6` | IPv6 流建立   |
 
 ### 3.3 条件字段 GUID（双源交叉验证）
 
-| 条件字段 | GUID | 双源判定 |
-|---|---|---|
-| `FWPM_CONDITION_ALE_USER_ID` | `af043a0a-b34d-4f86-979c-c90371af6e66` | 对侧 `.rdata` ≡ fwpmu.h ✅ |
-| `FWPM_CONDITION_IP_PROTOCOL` | `3971ef2b-623e-4f9a-8cb1-6e79b806b9a7` | 对侧 `.rdata` ≡ fwpmu.h ✅ |
+| 条件字段                        | GUID                                   | 双源判定                   |
+| ------------------------------- | -------------------------------------- | -------------------------- |
+| `FWPM_CONDITION_ALE_USER_ID`    | `af043a0a-b34d-4f86-979c-c90371af6e66` | 对侧 `.rdata` ≡ fwpmu.h ✅ |
+| `FWPM_CONDITION_IP_PROTOCOL`    | `3971ef2b-623e-4f9a-8cb1-6e79b806b9a7` | 对侧 `.rdata` ≡ fwpmu.h ✅ |
 | `FWPM_CONDITION_IP_REMOTE_PORT` | `c35a604d-d22b-4e1a-91b4-68f674ee674b` | 对侧 `.rdata` ≡ fwpmu.h ✅ |
 
 > 双源 = OpenAI 编译产物（来源 A）+ WireGuard Windows 官方绑定引用的微软 fwpmu.h（来源 B），两独立来源逐字节吻合，取证链闭合。
 
 ### 3.4 常量值
 
-| 常量 | 值 |
-|---|---|
-| `FWP_ACTION_BLOCK` | `0x1000` |
-| `FWP_ACTION_PERMIT` | `0x1001` |
-| `FWPM_PROVIDER_FLAG_PERSISTENT` | `1` |
-| `FWPM_FILTER_CONDITION0` 原生大小 | 40 字节 |
+| 常量                              | 值       |
+| --------------------------------- | -------- |
+| `FWP_ACTION_BLOCK`                | `0x1000` |
+| `FWP_ACTION_PERMIT`               | `0x1001` |
+| `FWPM_PROVIDER_FLAG_PERSISTENT`   | `1`      |
+| `FWPM_FILTER_CONDITION0` 原生大小 | 40 字节  |
 
 ---
 
@@ -147,24 +148,24 @@ sublayer : "Persistent WFP sublayer for Codex Windows sandbox filter"
 
 ## 5. 显式不做的（诚实边界）
 
-| 不做项 | 原因 |
-|---|---|
-| 端到端 filter 安装验证 | 需管理员会话 + 真实网卡；失败路径（驱动拒绝、策略冲突、provider 已存在）无法在无人值守环境复现 |
-| `is_effective()` 返回 true | 当前恒为 `false`——刻意不让未验证路径冒充实效 |
-| 复刻 runtime 的 layer index 选择逻辑 | 静态反汇编追到第 5 层透传即到顶，需管理员真机动态取证 |
-| 接线 `src-tauri/lib.rs` | 该文件当前为他席在飞件，不在本轮范围 |
+| 不做项                               | 原因                                                                                           |
+| ------------------------------------ | ---------------------------------------------------------------------------------------------- |
+| 端到端 filter 安装验证               | 需管理员会话 + 真实网卡；失败路径（驱动拒绝、策略冲突、provider 已存在）无法在无人值守环境复现 |
+| `is_effective()` 返回 true           | 当前恒为 `false`——刻意不让未验证路径冒充实效                                                   |
+| 复刻 runtime 的 layer index 选择逻辑 | 静态反汇编追到第 5 层透传即到顶，需管理员真机动态取证                                          |
+| 接线 `src-tauri/lib.rs`              | 该文件当前为他席在飞件，不在本轮范围                                                           |
 
 ---
 
 ## 6. 证据文件索引
 
-| 文件 | 内容 |
-|---|---|
-| `.ihui-agent/tmp/goal-codex/evidence/wfp-fwpm-filter0-fields.md` | `FWPM_FILTER0` 字段值（round 10） |
-| `.ihui-agent/tmp/goal-codex/evidence/wfp-condition-guids-authoritative.md` | 条件/layer GUID 双源交叉验证 |
-| `.ihui-agent/tmp/goal-codex/evidence/wfp-provider-sublayer-fields.md` | provider/sublayer 调用点级字段（round 12） |
-| `.ihui-agent/tmp/goal-codex/evidence/wfp-callsite-disasm.txt` | FilterAdd0 调用点反汇编现场 |
-| `apps/desktop/wfp-netfilter/` | 本 crate（策略编译层 + 安装层取证常量） |
+| 文件                                                                       | 内容                                       |
+| -------------------------------------------------------------------------- | ------------------------------------------ |
+| `.ihui-agent/tmp/goal-codex/evidence/wfp-fwpm-filter0-fields.md`           | `FWPM_FILTER0` 字段值（round 10）          |
+| `.ihui-agent/tmp/goal-codex/evidence/wfp-condition-guids-authoritative.md` | 条件/layer GUID 双源交叉验证               |
+| `.ihui-agent/tmp/goal-codex/evidence/wfp-provider-sublayer-fields.md`      | provider/sublayer 调用点级字段（round 12） |
+| `.ihui-agent/tmp/goal-codex/evidence/wfp-callsite-disasm.txt`              | FilterAdd0 调用点反汇编现场                |
+| `apps/desktop/wfp-netfilter/`                                              | 本 crate（策略编译层 + 安装层取证常量）    |
 
 ---
 
@@ -173,3 +174,4 @@ sublayer : "Persistent WFP sublayer for Codex Windows sandbox filter"
 对侧 Codex Windows 沙箱的网络层是一个**工程上严谨的 WFP 白名单实现**：全事务化安装、持久化对象、PERMIT 惯用法、失败方向安全。本 crate 已把**可静态取证到的每一项字面值**都结构化复现，并在 decision 映射、冲突检测、幂等摘要、失败方向四个轴上超越对侧。
 
 **未复现的部分只有 runtime 的 layer index 选择逻辑**——那需要管理员真机动态取证，按 §0.9 不做无验证的宣称。这是当前环境的硬边界，不是偷工减料。
+<!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->

@@ -25,10 +25,17 @@ vi.mock('react-native-safe-area-context', () => ({
 
 // FenLeiOverlay 接入 useI18n(文案国际化)后,不包 Provider/mock ⇒ 渲染即炸
 // (app-root-background-focused-route.test.tsx 同款形态)。
-vi.mock('../src/i18n', () => ({
-  I18nProvider: ({ children }: { children: unknown }) => children,
-  useI18n: () => ({ t: (key: string) => key }),
-}))
+vi.mock('../src/i18n', () => {
+  // 本用例断言的是**布局**(顶距避让状态栏),标题必须渲染成真实译文「分类」才有可定位的节点。
+  // 回显 key(=> key)会让标题变成 'helpDetail.category',面板在 DOM 里找不到 ⇒ 用例失败在
+  // 一个与布局无关的理由上。只对这一处键硬编码中文,其余仍回显 key(本用例不依赖它们)。
+  const t = (key: string) => (key === 'helpDetail.category' ? '分类' : key)
+  return {
+    t,
+    I18nProvider: ({ children }: { children: unknown }) => children,
+    useI18n: () => ({ t }),
+  }
+})
 
 import { FenLeiOverlay } from '../src/components/FenLeiOverlay'
 

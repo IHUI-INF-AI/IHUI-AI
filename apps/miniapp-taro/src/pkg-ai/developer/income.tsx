@@ -220,6 +220,7 @@ export default function DeveloperIncome() {
   }
 
   const confirmWithdraw = async () => {
+    if (submitting) return // 提交中防连点(资金操作,重复提交会重复下单)
     const num = Number(amount)
     if (!num || num <= 0) {
       onToast(tt('developer.income.invalidAmount', '请输入有效金额'), { kind: 'error' })

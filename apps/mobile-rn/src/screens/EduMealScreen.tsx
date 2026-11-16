@@ -72,7 +72,7 @@ function EduMealScreen() {
     } finally {
       setLoading(false)
     }
-  }, [weekdayLabel])
+  }, [weekdayLabel, t])
 
   useEffect(() => {
     void load()

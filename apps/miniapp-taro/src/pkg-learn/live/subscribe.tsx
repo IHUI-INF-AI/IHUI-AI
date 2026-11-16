@@ -7,7 +7,7 @@
 import { useTt } from '@/i18n'
 import { logger } from '@/utils/logger'
 import Taro, { useDidShow, usePullDownRefresh } from '@tarojs/taro'
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import { getLiveSubscriptions, unsubscribeLive } from '@/api'
 import type { Live } from '@ihui/api-client'
 import ThemeRoot from '@/components/ThemeRoot'
@@ -42,9 +42,12 @@ export default function LiveSubscribe() {
   const [loading, setLoading] = useState(false)
   // XUI-066:加载失败曾被静默成空列表,现在如实上抛给共享屏。
   const [loadError, setLoadError] = useState('')
+  const inFlightRef = useRef(false)
   const [reminder, setReminder] = useState<boolean>(Taro.getStorageSync(REMINDER_KEY) === 'true')
 
   const load = useCallback(async () => {
+    if (inFlightRef.current) return
+    inFlightRef.current = true
     setLoading(true)
     setLoadError('')
     try {
@@ -59,6 +62,7 @@ export default function LiveSubscribe() {
       setLoadError(tt('common.loadFailed', '加载失败'))
       onToast(tt('live.subscribe.loadFailed', '订阅操作失败'), { kind: 'error' })
     } finally {
+      inFlightRef.current = false
       setLoading(false)
     }
   }, [tt])

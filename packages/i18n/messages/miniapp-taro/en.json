@@ -3030,7 +3030,8 @@
     "failed5": "Unsubscribe failed, please contact support",
     "text6": "Level intro page not configured",
     "menu": {
-      "subscriptions": "My subscriptions"
+      "subscriptions": "My subscriptions",
+      "about": "About us"
     },
     "security": {
       "code": "Verification code",
@@ -3616,7 +3617,9 @@
     "terminal": {
       "waitingInput": "Waiting for input",
       "mobileUnsupported": "Terminal is not supported on mobile"
-    }
+    },
+    "questionNoSession": "Cannot locate the session — this question cannot be answered",
+    "questionFailed": "Submit failed, please retry"
   },
   "tabBar": {
     "community": "Community",
@@ -7311,5 +7314,13 @@
     "score": "Score",
     "bm25": "BM25",
     "hop": "Hop"
+  },
+  "toastFallback": {
+    "shareFeature": "Share",
+    "serviceUnavailable": "Support is coming soon",
+    "feedbackUnavailable": "Feedback is coming soon",
+    "feedbackOpenFailed": "Failed to open feedback. Please try again.",
+    "navigationNotWired": "Navigation is not available",
+    "pageUnsupported": "This page is not supported yet"
   }
 }

@@ -20,6 +20,9 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { spawn } from 'node:child_process'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+import { forceUtf8Stdio } from './lib/force-utf8-stdio.mjs'
+
+forceUtf8Stdio() // 治 Windows 控制台中文乱码:先钉 UTF-8,早于任何中文输出
 
 const HERE = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.resolve(HERE, '..')

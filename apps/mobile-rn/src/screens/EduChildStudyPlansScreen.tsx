@@ -77,7 +77,7 @@ function EduChildStudyPlansScreen() {
     } finally {
       setLoading(false)
     }
-  }, [childId, fmtDate])
+  }, [childId, fmtDate, t])
 
   useEffect(() => {
     void load()

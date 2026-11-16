@@ -54,9 +54,16 @@ function isImageUrl(icon: string): boolean {
 }
 
 function NavBarActionButton({ action }: { action: NavBarAction }) {
+  const tt = useTt()
   const IconComp = typeof action.icon === 'function' ? (action.icon as AppIcon) : null
   return (
-    <View style={ACTION_BOX_STYLE} onClick={action.onPress} hoverClass="opacity-60">
+    <View
+      ariaRole="button"
+      ariaLabel={action.a11yLabel ?? action.label ?? tt('common.actions', '操作')}
+      style={ACTION_BOX_STYLE}
+      onClick={action.onPress}
+      hoverClass="opacity-60"
+    >
       {IconComp ? (
         <IconComp size={NAVBAR_ACTION_GLYPH_PX} color="var(--color-muted-foreground)" />
       ) : isImageUrl(action.icon as string) ? (
@@ -342,7 +349,13 @@ export default function NavBar({
             ))}
             {rightAction}
             {showFeedback ? (
-              <View style={ACTION_BOX_STYLE} onClick={onFeedbackClick} hoverClass="opacity-60">
+              <View
+                ariaRole="button"
+                ariaLabel={tt('setting.feedback', '意见反馈')}
+                style={ACTION_BOX_STYLE}
+                onClick={onFeedbackClick}
+                hoverClass="opacity-60"
+              >
                 <LineIcon
                   name="message-circle"
                   size={ACTION_GLYPH_RPX_NUM}
@@ -351,7 +364,13 @@ export default function NavBar({
               </View>
             ) : null}
             {showFenLei ? (
-              <View style={ACTION_BOX_STYLE} onClick={onFenLeiClick} hoverClass="opacity-60">
+              <View
+                ariaRole="button"
+                ariaLabel={tt('a11y.menu', '菜单')}
+                style={ACTION_BOX_STYLE}
+                onClick={onFenLeiClick}
+                hoverClass="opacity-60"
+              >
                 <LineIcon
                   name="menu"
                   size={ACTION_GLYPH_RPX_NUM}
@@ -360,7 +379,13 @@ export default function NavBar({
               </View>
             ) : null}
             {showSearch ? (
-              <View style={ACTION_BOX_STYLE} onClick={onSearchClick} hoverClass="opacity-60">
+              <View
+                ariaRole="button"
+                ariaLabel={tt('common.search', '搜索')}
+                style={ACTION_BOX_STYLE}
+                onClick={onSearchClick}
+                hoverClass="opacity-60"
+              >
                 <LineIcon
                   name="search"
                   size={ACTION_GLYPH_RPX_NUM}
@@ -409,6 +434,8 @@ export default function NavBar({
               {/* 关闭键载体 = 矢量(O81 票:原为字符 × 冒充图标);
                   尺寸沿用该元素原数值档 32rpx,色档沿用 var(--color-notification-text) 不变 */}
               <LineIcon
+                ariaRole="button"
+                ariaLabel={tt('a11y.close', '关闭')}
                 name="x"
                 size={32}
                 color="var(--color-notification-text)"
@@ -502,6 +529,8 @@ export default function NavBar({
             </Text>
             {/* 关闭键载体 = 矢量(与上方 ai-home 同一处 × 同批收口);尺寸/色档同口径 */}
             <LineIcon
+              ariaRole="button"
+              ariaLabel={tt('a11y.close', '关闭')}
               name="x"
               size={32}
               color="var(--color-notification-text)"

@@ -113,7 +113,9 @@ export default function TopicListPage() {
   })
 
   usePullDownRefresh(() => {
-    load(true).then(() => Taro.stopPullDownRefresh())
+    load(true)
+      .then(() => Taro.stopPullDownRefresh())
+      .catch(() => Taro.stopPullDownRefresh())
   })
 
   useReachBottom(() => {

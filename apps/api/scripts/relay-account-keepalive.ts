@@ -535,6 +535,10 @@ export async function main(argv: string[]): Promise<number> {
     }
     // C 档(2026-11-10):接管前当场再探测一次 —— 三态由薄壳探测后经 --client-probe 传入,
     // 本层只把它转成 scheduler 的 probe 回调;表外平台 ⇒ null(未判定)⇒ 让位,方向恒为「多让」。
+    // 巡检前快照(2026-11-16):与下方巡检后的现读同取自 listKeepAliveForever 一条腿,
+    // 薄壳据此判「谁退出了喊人集合」(复活通知)。判据单源 = 薄壳的 alertTargetsOf,
+    // 本层不写第二份 —— 只递两侧读数原料。多一次 63 行的 dbRead,相对 6h 一轮可忽略。
+    const keepAliveBefore = await listKeepAliveForever()
     const res = await scheduler.sweepAccountPool(
       (providerCode) => probeMap.get(providerCode) ?? null,
     )
@@ -542,7 +546,9 @@ export async function main(argv: string[]): Promise<number> {
     // 塞不进"哪枚号被解摘/摘除"这种明细。所以读数另取一次:永久保活号的当前状态由数据面
     // 现读(listKeepAliveForever),薄壳据此判是否发信 —— 判据不住第二份实现里。
     const keepAlive = await listKeepAliveForever()
-    process.stdout.write(`${JSON.stringify({ ok: true, sweep: res, heartbeated, keepAlive })}\n`)
+    process.stdout.write(
+      `${JSON.stringify({ ok: true, sweep: res, heartbeated, keepAliveBefore, keepAlive })}\n`,
+    )
     process.stderr.write(
       `巡检完成: refreshed=${res.refreshed} failed=${res.refreshFailed} skipped=${res.refreshSkipped} ` +
         `keepalive=${res.keepalive} healthChecked=${res.healthChecked} recovered=${res.healthRecovered} ` +

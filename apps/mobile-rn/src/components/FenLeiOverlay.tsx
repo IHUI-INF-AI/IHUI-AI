@@ -101,7 +101,7 @@ export function FenLeiOverlay({
          *  不自己避让就会把首行选项压进状态栏带(真机实测 68px = 34dp,芯片曾落在 y=10..74)。 */}
         <View style={[styles.panel, { paddingTop: insets.top + PANEL_PADDING_TOP }]}>
           {/* 顶部标题(对齐 uniapp tag-head:紫色居中加粗) */}
-          <Text style={styles.headTitle}>分类</Text>
+          <Text style={styles.headTitle}>{t('helpDetail.category')}</Text>
           {/* 赛道横向单选条(统一分类栏;原 ScrollTitle informationList=agentCategory) */}
           <CategoryInlineBar
             items={trackItems}
@@ -128,7 +128,7 @@ export function FenLeiOverlay({
             accessibilityRole="button"
             accessibilityLabel={t('common.confirm')}
           >
-            <Text style={styles.confirmText}>确定</Text>
+            <Text style={styles.confirmText}>{t('aigcCover.confirmBtn')}</Text>
           </TouchableOpacity>
         </View>
       </View>

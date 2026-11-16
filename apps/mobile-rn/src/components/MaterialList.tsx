@@ -24,7 +24,7 @@
 import { tokens } from '../theme/active-tokens'
 import { formatDate } from '@ihui/shared/utils/date-utils'
 import { CategoryInlineBar } from '@ihui/rn-app'
-import { useI18n } from '../i18n'
+import { useI18n, t as tStatic } from '../i18n'
 import { FileText, Image as ImageIcon, Library, Music, Video, X } from 'lucide-react-native'
 import {
   FlatList,
@@ -194,13 +194,13 @@ function MaterialRow({
     ) : (
       <View style={[styles.thumb, styles.thumbPlaceholder]}>
         {item.type === 'audio' ? (
-          <Music size={22} color={tokens.text.tertiary} strokeWidth={1.5} />
+          <Music size={22} color={tokens.text.secondary} strokeWidth={1.5} />
         ) : item.type === 'video' ? (
-          <Video size={22} color={tokens.text.tertiary} strokeWidth={1.5} />
+          <Video size={22} color={tokens.text.secondary} strokeWidth={1.5} />
         ) : item.type === 'image' ? (
-          <ImageIcon size={22} color={tokens.text.tertiary} strokeWidth={1.5} />
+          <ImageIcon size={22} color={tokens.text.secondary} strokeWidth={1.5} />
         ) : (
-          <FileText size={22} color={tokens.text.tertiary} strokeWidth={1.5} />
+          <FileText size={22} color={tokens.text.secondary} strokeWidth={1.5} />
         )}
       </View>
     )
@@ -265,11 +265,11 @@ export default function MaterialList({
 
   const footer = loading ? (
     <View style={styles.footer}>
-      <Text style={styles.loadingMore}>加载中...</Text>
+      <Text style={styles.loadingMore}>{tStatic('about.loading')}</Text>
     </View>
   ) : !hasMore && items.length > 0 ? (
     <View style={styles.footer}>
-      <Text style={styles.noMore}>没有更多了</Text>
+      <Text style={styles.noMore}>{tStatic('common.noMore')}</Text>
     </View>
   ) : null
 
@@ -278,7 +278,7 @@ export default function MaterialList({
       {/* 标题头(对齐原版 material-header;onClose 提供时右侧渲染 X——弹窗场景免外部再造头部。
           守门 131:按压态落子 View 数组形态,不传函数形态 style) */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>我的创作</Text>
+        <Text style={styles.headerTitle}>{tStatic('common.myCreation')}</Text>
         {onClose ? (
           <Pressable
             hitSlop={8}
@@ -288,7 +288,7 @@ export default function MaterialList({
           >
             {({ pressed }) => (
               <View style={pressed ? styles.headerClosePressed : null}>
-                <X size={rnGeometry.glyphMd} color={tokens.text.tertiary} />
+                <X size={rnGeometry.glyphMd} color={tokens.text.secondary} />
               </View>
             )}
           </Pressable>
@@ -314,7 +314,7 @@ export default function MaterialList({
         ListEmptyComponent={
           !loading ? (
             <View style={styles.empty}>
-              <Library size={32} color={tokens.text.tertiary} strokeWidth={1.5} />
+              <Library size={32} color={tokens.text.secondary} strokeWidth={1.5} />
               <Text style={styles.emptyText}>{emptyText}</Text>
             </View>
           ) : null

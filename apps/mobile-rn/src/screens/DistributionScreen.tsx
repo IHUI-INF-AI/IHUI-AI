@@ -1,6 +1,7 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+// i18n-content-exempt-file: 多语言常量数据定义(label/title/description等选项值,内容体系定为中文单语,产品决策2026-11-15)
 import { useTheme } from '../context/ThemeContext'
 import { rnRadius, rnType } from '@ihui/design-tokens'
 
@@ -30,7 +31,7 @@ import { HandPlatePops } from '../components/HandPlatePops'
 import { appAlert } from '../components/BottomPops'
 import FloatBox, { type FloatBoxType } from '../components/FloatBox'
 import { useAuth } from '../context/AuthContext'
-import { useI18n } from '../i18n'
+import { useI18n, t as tStatic } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { rpx } from '../utils/rpx'
 import { toFriendlyOr } from '@ihui/shared/utils'
@@ -401,7 +402,7 @@ export function DistributionScreen() {
         <QRCode
           value={inviteLink}
           size={176}
-          color={tokens.gray.black}
+          color={tokens.text.primary}
           backgroundColor={tokens.surface.light}
           ecl="M"
         />
@@ -435,7 +436,7 @@ export function DistributionScreen() {
           >
             {({ pressed }) => (
               <View style={[shellStyles.shareBtn, pressed ? shellStyles.pressed : null]}>
-                <Text style={shellStyles.shareBtnText}>分享二维码邀请好友</Text>
+                <Text style={shellStyles.shareBtnText}>{tStatic('uiText.shareQrInvite')}</Text>
               </View>
             )}
           </Pressable>
@@ -470,12 +471,17 @@ export function DistributionScreen() {
       >
         <View style={shellStyles.withdrawDetailContent}>
           <Text style={shellStyles.withdrawDetailText}>
-            可提现金额:¥{info ? fenToYuan(info.availableCommission) : 0}
+            {tStatic('uiText.withdrawableAmountYuan')}
+            {info ? fenToYuan(info.availableCommission) : 0}
           </Text>
           <Text style={shellStyles.withdrawDetailText}>
-            已提现金额:¥{info ? fenToYuan(info.withdrawnCommission) : 0}
+            {tStatic('uiText.withdrawnAmountYuan')}
+            {info ? fenToYuan(info.withdrawnCommission) : 0}
           </Text>
-          <Text style={shellStyles.withdrawDetailText}>最低提现:¥{fenToYuan(WITHDRAW_MIN)}</Text>
+          <Text style={shellStyles.withdrawDetailText}>
+            {tStatic('uiText.minWithdrawYuan')}
+            {fenToYuan(WITHDRAW_MIN)}
+          </Text>
         </View>
       </HandPlatePops>
       {/* FloatBox 非阻断悬浮提示(对齐 Uniapp uni.showToast) */}

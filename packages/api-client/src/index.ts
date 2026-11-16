@@ -128,6 +128,10 @@ export type {
   // P1 #27(2026-11-13):done 帧携带的记忆更新载荷类型 —— 与 onMemoryUpdates 同批入入口,
   // 否则端内要写该回调就点不到参数类型(§3 类型零技术债禁止自抄或 any)。
   MemoryUpdatesEvent,
+  // hook 失败帧载荷类型(与 onHookFailure 回调同批入入口;client.ts L3188 定义,
+  // 三端消费同一份 —— 小程序 api 层与 web/RN 的 hook-failures 链此前只被端内 import 点到,
+  // barrel 缺席 ⇒ miniapp tsc TS2305,§3 类型零技术债禁止端内重定义)。
+  HookFailureEvent,
   // 控制帧 `resume_goal`(2026-10-28 立):恢复帧的回执类型 —— 与 resumeSessionGoal 同批
   // 入入口,否则端内要写 onResume 回调就点不到参数类型(§3 类型零技术债禁止自抄或 any)。
   SessionGoalResumeResult,

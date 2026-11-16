@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { useI18n } from '../../i18n'
+import { useI18n, t as tStatic } from '../../i18n'
 
 // 新建:会话内「语音笔记」插入面板(D43③)。列表只读(不归档/不删除),零副作用、不落盘。
 
@@ -218,7 +218,7 @@ export function NotesPanel({
       <Tappable style={styles.modalMask} onPress={onClose}>
         <Pressable style={listDialogStyle} onPress={(e) => e.stopPropagation()}>
           <View style={styles.listDialogHeader}>
-            <Text style={styles.listDialogTitle}>语音笔记</Text>
+            <Text style={styles.listDialogTitle}>{tStatic('chat.menuVoiceNote')}</Text>
             <Tappable
               hitSlop={8}
               onPress={onClose}
@@ -239,13 +239,13 @@ export function NotesPanel({
             {({ pressed }) => (
               <View style={[styles.newRecordBtn, pressed && styles.panelItemPressed]}>
                 <Mic size={16} color={tokens.text.primary} />
-                <Text style={styles.newRecordText}>新建录音</Text>
+                <Text style={styles.newRecordText}>{tStatic('chat.notes.recordNew')}</Text>
               </View>
             )}
           </Pressable>
 
           {loading ? (
-            <Text style={styles.loadingText}>加载中...</Text>
+            <Text style={styles.loadingText}>{tStatic('about.loading')}</Text>
           ) : error ? (
             <>
               <Text style={styles.errorText}>{error}</Text>
@@ -255,11 +255,11 @@ export function NotesPanel({
                 accessibilityRole="button"
                 accessibilityLabel={t('common.retryShort')}
               >
-                <Text style={styles.retryText}>重试</Text>
+                <Text style={styles.retryText}>{tStatic('chat.voiceNote.action.retry')}</Text>
               </Tappable>
             </>
           ) : notes.length === 0 ? (
-            <Text style={styles.emptyText}>暂无语音笔记</Text>
+            <Text style={styles.emptyText}>{tStatic('uiText.noVoiceNotes')}</Text>
           ) : (
             <ScrollView style={styles.notesScroll} showsVerticalScrollIndicator={false}>
               {notes.map((note) => (
@@ -293,7 +293,7 @@ export function NotesPanel({
             accessibilityRole="button"
             accessibilityLabel={t('common.cancel')}
           >
-            <Text style={styles.panelCancelText}>取消</Text>
+            <Text style={styles.panelCancelText}>{tStatic('auth.twoFactorCancel')}</Text>
           </Tappable>
         </Pressable>
       </Tappable>

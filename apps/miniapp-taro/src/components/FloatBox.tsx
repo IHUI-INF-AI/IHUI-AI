@@ -2,6 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
+import { t as tStatic } from '@/i18n'
 import { View, Text } from '@tarojs/components'
 import LineIcon from '@/components/LineIcon'
 import Taro from '@tarojs/taro'
@@ -14,6 +15,7 @@ import {
 } from '@ihui/shared/ui/float-box-spec'
 import { rpx } from '@/utils/rpx'
 import { onToast } from '@/host/on-toast'
+import { useTt } from '@/i18n'
 
 /**
  * FloatBox 浮动组件 — 对齐原项目 FloatBox.vue
@@ -43,12 +45,13 @@ const LABEL_TEXT_STYLE = {
 
 export default function FloatBox({ onShare, onService, onFeedback }: FloatBoxProps) {
   const [isOpen, setIsOpen] = useState(true)
+  const tt = useTt()
 
   const handleShare = () => {
     if (onShare) {
       onShare()
     } else {
-      onToast('分享功能', { kind: 'info' })
+      onToast(tt('toastFallback.shareFeature', '分享功能'), { kind: 'info' })
     }
   }
 
@@ -56,7 +59,7 @@ export default function FloatBox({ onShare, onService, onFeedback }: FloatBoxPro
     if (onService) {
       onService()
     } else {
-      onToast('客服功能暂未开放', { kind: 'error' })
+      onToast(tt('toastFallback.serviceUnavailable', '客服功能暂未开放'), { kind: 'error' })
     }
   }
 
@@ -66,7 +69,7 @@ export default function FloatBox({ onShare, onService, onFeedback }: FloatBoxPro
     } else {
       // 反馈页在 pkg-user 分包(user/feedback);/pages/feedback/index 从未存在过,点了必死
       Taro.navigateTo({ url: '/pkg-user/user/feedback' }).catch(() => {
-        onToast('反馈功能暂未开放', { kind: 'error' })
+        onToast(tt('toastFallback.feedbackUnavailable', '反馈功能暂未开放'), { kind: 'error' })
       })
     }
   }
@@ -106,6 +109,8 @@ export default function FloatBox({ onShare, onService, onFeedback }: FloatBoxPro
       >
         {/* 展开/收起箭头 — 对齐原项目 float-arrow */}
         <View
+          ariaRole="button"
+          ariaLabel={isOpen ? tt('a11y.collapse', '折叠') : tt('a11y.expand', '展开')}
           style={{
             position: 'absolute',
             left: isOpen ? '-161rpx' : '-37rpx',
@@ -174,7 +179,7 @@ export default function FloatBox({ onShare, onService, onFeedback }: FloatBoxPro
                   letterSpacing: '2rpx',
                 }}
               >
-                赚 米
+                {tStatic('uiText.earnMoney')}
               </Text>
             </View>
 
@@ -206,7 +211,7 @@ export default function FloatBox({ onShare, onService, onFeedback }: FloatBoxPro
                   letterSpacing: '2rpx',
                 }}
               >
-                客 服
+                {tStatic('uiText.customerService')}
               </Text>
             </View>
 
@@ -238,7 +243,7 @@ export default function FloatBox({ onShare, onService, onFeedback }: FloatBoxPro
                   letterSpacing: '2rpx',
                 }}
               >
-                反 馈
+                {tStatic('uiText.feedback')}
               </Text>
             </View>
           </View>

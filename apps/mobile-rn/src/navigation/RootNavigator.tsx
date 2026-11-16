@@ -1,6 +1,7 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+// i18n-content-exempt-file: 多语言常量数据定义(label/title/description等选项值,内容体系定为中文单语,产品决策2026-11-15)
 
 import { rnSpacing } from '@ihui/design-tokens'
 import { useCallback, useEffect, useRef, useState } from 'react'
@@ -907,14 +908,18 @@ function RootNavigatorInner() {
       void Promise.race([
         expireAuth().then(() => 'done'),
         new Promise((r) => setTimeout(() => r('timeout'), 8000)),
-      ]).then((outcome) => {
-        if (outcome !== 'done') {
-          console.warn(
-            `[rn-auth] 结束本地会话未在 8s 内完成(${outcome})—— 登录页已打开,不受影响;` +
-              '但"凭据有两个数据源"这一格需要单独修(auth-store 持久化 vs SecureStore 缓存)',
-          )
-        }
-      })
+      ])
+        .then((outcome) => {
+          if (outcome !== 'done') {
+            console.warn(
+              `[rn-auth] 结束本地会话未在 8s 内完成(${outcome})—— 登录页已打开,不受影响;` +
+                '但"凭据有两个数据源"这一格需要单独修(auth-store 持久化 vs SecureStore 缓存)',
+            )
+          }
+        })
+        .catch((err: unknown) => {
+          console.warn('[rn-auth] expireAuth failed (login screen already open)', err)
+        })
     })
     return () => setUnauthorizedHandler(null)
   }, [token])
@@ -990,7 +995,9 @@ function RootNavigatorInner() {
         style={{ backgroundColor: tokens.surface.bg }}
       >
         <ActivityIndicator color={tokens.brandAccent.deep} />
-        <Text style={{ color: tokens.text.secondary, marginTop: rnSpacing.md }}>加载中...</Text>
+        <Text style={{ color: tokens.text.secondary, marginTop: rnSpacing.md }}>
+          {t('about.loading')}
+        </Text>
       </View>
     )
   }

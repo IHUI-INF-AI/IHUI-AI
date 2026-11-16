@@ -265,7 +265,7 @@ export default function PublishNewScreen() {
         <Text style={styles.subtitle}>{t('publishNew.subtitle')}</Text>
 
         {loading ? (
-          <ActivityIndicator style={styles.stateBox} color={tokens.text.tertiary} />
+          <ActivityIndicator style={styles.stateBox} color={tokens.text.secondary} />
         ) : failed ? (
           <View style={styles.stateBox}>
             <Text style={styles.errorText}>{t('publishNew.accountLoadFailed')}</Text>

@@ -195,7 +195,7 @@ export default function DeveloperSubscribePage() {
             </Text>
           </View>
           <Button
-            className={`flex-shrink-0 px-[28rpx] h-[56rpx] leading-[56rpx] text-body-sm font-semibold rounded-sm border-none disabled:opacity-60 ${dev.subscribed ? 'bg-[var(--color-muted)] text-muted-foreground' : 'bg-primary text-[var(--color-surface-light)]'}`}
+            className={`flex-shrink-0 px-[28rpx] h-[56rpx] leading-[56rpx] text-body-sm font-semibold rounded-sm border-none disabled:opacity-60 ${dev.subscribed ? 'bg-[var(--color-muted)] text-muted-foreground' : 'bg-cta text-cta-foreground'}`}
             disabled={subscribing}
             onClick={toggleSubscribe}
           >
@@ -332,7 +332,7 @@ export default function DeveloperSubscribePage() {
 
         {/* 底部动作条 — 对齐 RN footerBar/footerBtn(brand 底/radius rpx(44)/text 16 600) */}
         <Button
-          className="h-[88rpx] leading-[88rpx] text-title font-semibold text-[var(--color-surface-light)] bg-primary rounded-sm border-none" /* 订阅按钮是控件 ⇒ control 档 sm(项目不允许胶囊) */
+          className="h-[88rpx] leading-[88rpx] text-title font-semibold text-cta-foreground bg-cta rounded-sm border-none" /* 订阅按钮是控件 ⇒ control 档 sm(项目不允许胶囊) */
           onClick={contactDev}
         >
           {tt('developer.subscribe.contact', '联系开发者')}

@@ -14,7 +14,7 @@ import { render, waitFor } from '@testing-library/react'
 
 const { captured } = vi.hoisted(() => ({ captured: vi.fn() }))
 
-vi.mock('@ihui/rn-app', () => ({
+vi.mock('@ihui/rn-app/features/message-center/MessageCenterScreen', () => ({
   MessageCenterScreen: (props: Record<string, unknown>) => {
     captured(props)
     return null
@@ -37,7 +37,10 @@ vi.mock('@react-navigation/native', () => ({
   useNavigation: () => ({ navigate: vi.fn(), goBack: vi.fn() }),
 }))
 vi.mock('@react-navigation/native-stack', () => ({}))
-vi.mock('../src/i18n', () => ({ useI18n: () => ({ t: (key: string) => key }) }))
+vi.mock('../src/i18n', () => ({
+  t: (key: string) => key,
+  useI18n: () => ({ t: (key: string) => key }),
+}))
 vi.mock('../src/context/ThemeContext', () => ({ useTheme: () => ({ resolvedTheme: 'light' }) }))
 vi.mock('../src/hooks', () => ({ useRefreshOnFocus: () => {} }))
 vi.mock('../src/host/use-host-ports', () => ({

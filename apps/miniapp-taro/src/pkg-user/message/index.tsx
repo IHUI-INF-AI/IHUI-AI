@@ -325,17 +325,22 @@ export default function MessageIndex() {
       content: room.name || t('messageCenter.conversations'),
       confirmText: t('common.confirm'),
       cancelText: t('common.cancel'),
-    }).then((res) => {
-      if (!res.confirm) return
-      const call = room.kind === 'private' ? deletePrivateMessage(room.id) : deleteMessage(room.id)
-      void call
-        .then(() => {
-          setList((prev) => prev.filter((r) => r.id !== room.id))
-        })
-        .catch(() => {
-          onToast(t('common.failed'), { kind: 'error' })
-        })
     })
+      .then((res) => {
+        if (!res.confirm) return
+        const call =
+          room.kind === 'private' ? deletePrivateMessage(room.id) : deleteMessage(room.id)
+        void call
+          .then(() => {
+            setList((prev) => prev.filter((r) => r.id !== room.id))
+          })
+          .catch(() => {
+            onToast(t('common.failed'), { kind: 'error' })
+          })
+      })
+      .catch(() => {
+        /* 模态框调起失败:不进入删除流程 */
+      })
   }
 
   const onOpenPrivate = async (item: PrivateMessageItem) => {

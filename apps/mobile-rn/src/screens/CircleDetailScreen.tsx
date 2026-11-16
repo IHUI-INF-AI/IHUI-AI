@@ -2,6 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
+import { t as tStatic } from '../i18n'
 import { rnSpacing, rnType } from '@ihui/design-tokens'
 import { useCallback, useEffect, useState } from 'react'
 import { useTheme } from '../context/ThemeContext'
@@ -103,7 +104,9 @@ export function CircleDetailScreen() {
         onPressPost={() => navigation.navigate('PostCreate', { circleId: circle?.id ?? id })}
         onPressMembers={() => navigation.navigate('CircleMember', { circleId: circle?.id ?? id })}
         onBack={() => navigation.goBack()}
-        onRetry={() => { void load(); }}
+        onRetry={() => {
+          void load()
+        }}
         colorScheme={resolvedTheme}
       />
       {/* 群聊入口(孤儿路由修复:CircleChat 注册无入口,圈子详情补挂)
@@ -121,7 +124,7 @@ export function CircleDetailScreen() {
       >
         {({ pressed }) => (
           <View style={[styles.chatBtn, pressed ? styles.chatBtnPressed : null]}>
-            <Text style={styles.chatBtnText}>进入群聊 ›</Text>
+            <Text style={styles.chatBtnText}>{tStatic('uiText.enterGroupChat')}</Text>
           </View>
         )}
       </Pressable>

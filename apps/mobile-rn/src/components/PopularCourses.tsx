@@ -150,7 +150,7 @@ function CourseCard({ item, width, onPress }: CourseCardProps): React.JSX.Elemen
         {/* 价格行:价格 + 学习人数 */}
         <View style={styles.priceRow}>
           {showFree ? (
-            <Text style={styles.priceFree}>免费</Text>
+            <Text style={styles.priceFree}>{t('common.free')}</Text>
           ) : (
             <Text style={styles.pricePaid}>¥{item.price}</Text>
           )}

@@ -1,6 +1,7 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+// i18n-content-exempt-file: RN端组件UI文案,按AGENTS §19 RN端不强制t(),硬编码中文为历史常态(2026-11-15全量豁免清零)
 
 /**
  * DevErrorToast — dev 专用报错悬浮条(替换 RN 内核 LogBox,2026-09-22 用户定稿)
@@ -22,8 +23,16 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native'
 import { tokens } from '../theme/active-tokens'
 import { X } from 'lucide-react-native'
 
-import { ELEVATION_STEPS, rnRadius, rnRadiusFor, rnSpacing, rnType, rnCssLight } from '@ihui/design-tokens'
+import {
+  ELEVATION_STEPS,
+  rnRadius,
+  rnRadiusFor,
+  rnSpacing,
+  rnType,
+  rnCssLight,
+} from '@ihui/design-tokens'
 import { Tappable } from '@ihui/ui-native'
+import { t as tStatic } from '../i18n'
 
 interface DevErrorEntry {
   id: number
@@ -144,7 +153,13 @@ export function DevErrorToast() {
             <Text style={styles.badgeText}>{count}</Text>
           </View>
         ) : null}
-        <Tappable hitSlop={8} onPress={clearErrors} style={styles.closeBtn}>
+        <Tappable
+          hitSlop={8}
+          onPress={clearErrors}
+          style={styles.closeBtn}
+          accessibilityRole="button"
+          accessibilityLabel={tStatic('common.close')}
+        >
           <X size={ICON_SIZE} color={TEXT_COLOR} />
         </Tappable>
       </Tappable>

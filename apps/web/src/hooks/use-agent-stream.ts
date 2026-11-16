@@ -31,11 +31,7 @@ import {
   resolveEffectiveEngineLeg,
   type EngineModeWindowContext,
 } from '@ihui/shared/stores'
-import {
-  isRemoteWindow,
-  isTauriRuntime,
-  resolveAiServiceBaseUrl,
-} from '@/lib/api-base-url'
+import { isRemoteWindow, isTauriRuntime, resolveAiServiceBaseUrl } from '@/lib/api-base-url'
 import { getStreamBaseUrl, getToken } from '@/lib/api'
 
 /**
@@ -49,10 +45,7 @@ import { getStreamBaseUrl, getToken } from '@/lib/api'
  * 鉴权消费端已带 Authorization: Bearer(getToken),ai-service jwt_auth 亦接受 Bearer。
  * 故此处只改 base + 前缀,method/query/headers 全部不变。
  */
-function resolveAgentStreamUrl(
-  threadId: string,
-  inputJson: string | undefined,
-): string {
+export function resolveAgentStreamUrl(threadId: string, inputJson: string | undefined): string {
   const query = inputJson ? `?input=${encodeURIComponent(inputJson)}` : ''
   const leg = resolveEffectiveEngineLeg(getGlobalEngineMode(), {
     isTauri: isTauriRuntime(),

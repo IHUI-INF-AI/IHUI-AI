@@ -40,6 +40,11 @@ export interface DomainHubProps {
   title: string
   /** 页面描述(已翻译) */
   description?: string
+  /**
+   * 页头图标(lucide 组件;2026-11-16 起三个新域入口页 admin/developer/hr 传 `icon`)。
+   * 缺席时头部保持无图标原形态 —— 可选件,旧调用面零行为变化。
+   */
+  icon?: React.ComponentType<{ className?: string }>
   sections: DomainHubSection[]
   className?: string
 }
@@ -113,7 +118,7 @@ function HubCard({ item }: { item: NavItem }) {
  * 域入口页。子项过多时(教育域 27 项)按 2/3/4 列响应式网格铺开,
  * 父项带 children 时展开其子项,让「模型 18 项」这类深层结构在入口页也能直达。
  */
-export function DomainHub({ title, description, sections, className }: DomainHubProps) {
+export function DomainHub({ title, description, icon: Icon, sections, className }: DomainHubProps) {
   const filterByRole = useNavVisibilityFilter()
 
   // 权限过滤:整页统一走一次,与 Sidebar 同一判据
@@ -138,7 +143,14 @@ export function DomainHub({ title, description, sections, className }: DomainHub
   return (
     <div className={cn('px-4 py-4', className)}>
       <header className="mb-4">
-        <h1 className="text-heading font-bold tracking-tight">{title}</h1>
+        {Icon ? (
+          <div className="mb-1.5 flex items-center gap-2">
+            <Icon className="h-5 w-5 text-muted-foreground" />
+            <h1 className="text-heading font-bold tracking-tight">{title}</h1>
+          </div>
+        ) : (
+          <h1 className="text-heading font-bold tracking-tight">{title}</h1>
+        )}
         {description && <p className="mt-0.5 text-label text-muted-foreground">{description}</p>}
       </header>
 

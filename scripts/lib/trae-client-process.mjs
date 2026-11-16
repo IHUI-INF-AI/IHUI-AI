@@ -19,9 +19,21 @@
 import { execFileSync, spawn } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 /** 已知 Trae 产品(与 trae-auth-extract 的 traeUserDataDirs 三档同名) */
 export const TRAE_PRODUCTS = Object.freeze(['Trae CN', 'TRAE SOLO CN', 'Trae'])
+
+/** run-as-user.ps1:跨会话终止/拉起共用的 CreateProcessAsUser 助手(2026-11-15 立) */
+const RUN_AS_USER_SCRIPT = path.join(
+  path.dirname(fileURLToPath(import.meta.url)),
+  '..',
+  '..',
+  'apps',
+  'api',
+  'scripts',
+  'run-as-user.ps1',
+)
 
 /** 探测/关闭总开关:测试或极端环境可关(关掉后运行中写回会被客户端覆写,仅用于诊断) */
 function processControlEnabled(env) {
@@ -251,13 +263,79 @@ function listFixedDriveRoots(env = process.env) {
 }
 
 /**
+ * 跨会话终止(2026-11-15 立):调 run-as-user.ps1 -KillPids,以「目标进程所在会话」的用户令牌
+ * (ProcessIdToSessionId + WTSQueryUserToken)逐个 TerminateProcess,绕开当前上下文(服务/RDP)
+ * 直接 taskkill 报「没有对此进程的操作权限」的缺口。
+ * @returns {{via:string, ok:boolean, results:{pid:number,ok:boolean,error:string}[], error:string}}
+ */
+function killPidsCrossSession(product, pids, env = process.env, run = execFileSync) {
+  const helper = RUN_AS_USER_SCRIPT
+  if (!helper || !fs.existsSync(helper)) {
+    return { via: '', ok: false, error: 'run-as-user.ps1 不存在', results: [] }
+  }
+  const pidJson = JSON.stringify(pids.map(String))
+  let stdout = ''
+  try {
+    stdout = String(
+      run(
+        powershellPath(env),
+        [
+          '-NoProfile',
+          '-NonInteractive',
+          '-ExecutionPolicy',
+          'Bypass',
+          '-File',
+          helper,
+          '-Exe',
+          'terminate',
+          '-ArgJson',
+          pidJson,
+          '-KillPids',
+        ],
+        { encoding: 'utf8', windowsHide: true, timeout: 20_000, env },
+      ) ?? '',
+    )
+  } catch (e) {
+    return {
+      via: 'cross-session',
+      ok: false,
+      error: `helper 抛错:${e instanceof Error ? e.message : String(e)}`,
+      results: [],
+    }
+  }
+  // 从 stdout 提取 JSON 数组(可能混入 PowerShell 噪音如 Add-Type 警告)
+  const start = stdout.indexOf('[')
+  const end = stdout.lastIndexOf(']')
+  if (start === -1 || end === -1 || end < start) {
+    return { via: 'cross-session', ok: false, error: 'helper 输出不含 JSON 数组', results: [] }
+  }
+  let parsed
+  try {
+    parsed = JSON.parse(stdout.slice(start, end + 1))
+  } catch {
+    return { via: 'cross-session', ok: false, error: 'JSON 解析失败', results: [] }
+  }
+  if (!Array.isArray(parsed)) {
+    return { via: 'cross-session', ok: false, error: 'JSON 不是数组', results: [] }
+  }
+  const results = parsed.map((r) => ({
+    pid: Number(r?.pid) || 0,
+    ok: r?.ok === true,
+    error: String(r?.error ?? ''),
+  }))
+  const allOk = results.every((r) => r.ok)
+  return { via: 'cross-session', ok: allOk, results, error: '' }
+}
+
+/**
  * 优雅关闭:对主进程发 WM_CLOSE(taskkill 不带 /F,等同点窗口关闭),等全部进程退出。
  * @returns {{wasRunning:boolean, closed:boolean, pids:number[]}}
  */
 export function closeProduct(product, opts = {}) {
   const env = opts.env ?? process.env
   const waitMs = Number(opts.waitMs ?? 15_000)
-  const pids = opts.pids ?? listProductPids(product, env)
+  const probe = opts.probe ?? ((prod) => listProductPids(prod, env))
+  const pids = opts.pids ?? probe(product)
   if (pids === null) return { wasRunning: false, closed: false, pids: [], unknown: true }
   if (pids.length === 0) return { wasRunning: false, closed: true, pids: [] }
   for (const pid of pids) {
@@ -270,7 +348,7 @@ export function closeProduct(product, opts = {}) {
   const waitOnce = (limit) => {
     const deadline = Date.now() + limit
     while (Date.now() < deadline) {
-      const now = listProductPids(product, env)
+      const now = probe(product)
       if (now !== null && now.length === 0) return true
       sleepSync(400)
     }
@@ -299,7 +377,29 @@ export function closeProduct(product, opts = {}) {
       /* 已退出或无权 —— 由下方轮询给出最终判定 */
     }
   }
-  return { wasRunning: true, closed: waitOnce(Math.min(8000, waitMs)), pids, forced: true }
+  if (waitOnce(Math.min(8000, waitMs))) return { wasRunning: true, closed: true, pids, forced: true }
+  /**
+   * 第四腿(2026-11-15 立):强杀在当前上下文也清零不了 —— 典型是切号跑在服务/RDP 上下文,
+   * taskkill 报「没有对此进程的操作权限」(Trae 活在桌面用户会话里)。自动升级到跨会话终止:
+   * 以「目标进程所在会话」的用户令牌(ProcessIdToSessionId + WTSQueryUserToken)逐个终止。
+   * 调用方已授权写替换(用户点过「写入并替换」),关不掉才回滚;多这一腿能把"看得到杀不掉"
+   * 这一类失败救回来,而不是直接 failed-rolled-back。
+   */
+  const cross = killPidsCrossSession(product, pids, env, opts.run ?? execFileSync)
+  const closedByCross = cross.ok && waitOnce(Math.min(8000, waitMs))
+  return {
+    wasRunning: true,
+    closed: closedByCross,
+    pids,
+    forced: true,
+    crossSession: {
+      attempted: true,
+      ok: cross.ok,
+      via: cross.via,
+      results: cross.results,
+      ...(cross.error ? { error: cross.error } : {}),
+    },
+  }
 }
 
 /**

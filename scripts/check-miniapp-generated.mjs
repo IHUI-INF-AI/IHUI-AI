@@ -91,6 +91,7 @@
  */
 
 import { existsSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs'
+import { atomicWriteFileSync } from './lib/atomic-write.mjs'
 import { spawnSync } from 'node:child_process'
 import { gunzipSync, gzipSync } from 'node:zlib'
 import { dirname, join, resolve } from 'node:path'
@@ -1394,7 +1395,9 @@ function healUiRoutes({ face, root, log = (s) => console.log(s) }) {
         continue
       }
     }
-    const restore = () => writeFileSync(join(root, art.rel), diskText, 'utf8')
+    // atomicWriteFileSync: Windows 下目标文件被编辑器/杀软短暂锁住时裸 writeFileSync 会抛
+    // UNKNOWN,钩子直接崩;atomic-write 带 EPERM/EBUSY 退避重试,治根。
+    const restore = () => atomicWriteFileSync(join(root, art.rel), diskText, { encoding: 'utf8' })
     // 安全闸②:生成器两面都得在位(面上没有 ⇒ cmd 跑到即失败,而不是"当成没有输入")。
     const genAbs = join(root, art.generator)
     if (!reader.has(art.generator) || !existsSync(genAbs)) {

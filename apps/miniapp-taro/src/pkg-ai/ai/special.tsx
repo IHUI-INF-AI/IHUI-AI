@@ -310,7 +310,7 @@ export default function SpecialModelsPage() {
                   {m.desc}
                 </Text>
                 <View
-                  className="self-start mt-[16rpx] py-[8rpx] px-[20rpx] bg-primary rounded-md"
+                  className="self-start mt-[16rpx] py-[8rpx] px-[20rpx] bg-cta text-cta-foreground rounded-md"
                   onClick={() => onEnter(m)}
                   hoverClass="opacity-60"
                 >

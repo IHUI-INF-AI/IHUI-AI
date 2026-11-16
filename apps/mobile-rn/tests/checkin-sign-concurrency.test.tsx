@@ -28,6 +28,7 @@ vi.mock('../src/context/ThemeContext', () => ({
   useTheme: () => ({ resolvedTheme: 'light' }),
 }))
 vi.mock('../src/i18n', () => ({
+  t: (key: string) => key,
   useI18n: () => ({ t: (k: string) => k }),
 }))
 vi.mock('../src/components/BottomPops', () => ({

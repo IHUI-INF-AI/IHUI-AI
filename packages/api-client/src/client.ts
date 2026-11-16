@@ -1067,47 +1067,98 @@ export function isAbortError(err: unknown): boolean {
 }
 
 /**
- * 沿 cause 链取出真 AbortError(2026-11-14 立)。
+ * 沿 `cause` 链向下找真 AbortError(2026-11-14 真机取证:登录页横幅直出英文原文)。
  *
- * 浏览器/RN 的 fetch 被 abort 时抛的是 `TypeError('fetch failed')`,真 AbortError
- * 藏在 `cause` 里 —— 只看顶层 name 判不出取消。本函数沿链下钻,返回第一个
- * AbortError;链有环、无 cause 或不是 Error 时**原样返回入参**,不改变既有语义。
+ * 浏览器 / RN / undici 在 fetch 被 abort 时**抛的是 `TypeError('fetch failed')`**,
+ * 真 `AbortError` 藏在 `cause` 里 ⇒ 仅靠 `isAbortError` 判不出,"超时/取消"被当成
+ * 未知异常,英文 message 原样进了用户可见横幅。
+ *
+ * - 递归向下剥 `cause`,直到命中 `isAbortError` 或走到链尾;
+ * - **环检测**:`cause` 指回自身(或已访问集合内)时立即回落到**原错误**,
+ *   不死循环(调用方语义 = 拿不到真身就当普通错误处理);
+ * - 无 cause / 非 Error:原样返回,调用方按普通错误路径走。
+ *
+ * 与 `isAbortError` 的分工:`isAbortError` 只判一层(裸 AbortError);
+ * 本函数负责跨 `cause` 链找真身,调用方写 `isAbortError(unwrapAbortCause(err))`。
  */
-export function unwrapAbortCause(err: unknown): unknown {
-  let cur: unknown = err
-  const seen = new Set<unknown>()
-  while (cur !== null && typeof cur === 'object' && !seen.has(cur)) {
-    if ((cur as { name?: unknown }).name === 'AbortError') return cur
+export function unwrapAbortCause(err: unknown, depth = 0): unknown {
+  // 防御性深度上限(理论 4 层足够;防御性放宽到 8,再多必是环)
+  if (depth > 8) return err
+  if (isAbortError(err)) return err
+  const cause = (err as { cause?: unknown } | null)?.cause
+  if (cause === undefined || cause === null || cause === err) return err
+  // 防自引/环:已访问集合
+  const seen = new Set<unknown>([err])
+  let cur: unknown = cause
+  for (let i = 0; i < 8; i++) {
+    if (isAbortError(cur)) return cur
+    if (typeof cur !== 'object' || cur === null) return err
+    if (seen.has(cur)) return err
     seen.add(cur)
     const next = (cur as { cause?: unknown }).cause
-    if (next === null || next === undefined) return err
+    if (next === undefined || next === null || next === cur) return err
     cur = next
   }
   return err
 }
 
-const NETWORK_FAILURE_TEXT = '网络连接异常,请检查网络后重试'
-const EMPTY_FAILURE_TEXT = '网络异常'
-const NETWORK_FAILURE_PATTERN =
-  /fetch failed|network request failed|failed to fetch|networkerror|network error|err_network|econnrefused|enetunreach|etimedout|socket hang up/i
+/**
+ * 网络类英文 message 关键词闭集(2026-11-14 立判据)。
+ *
+ * 只收**确定是网络层抛出**的英文原文;业务侧的英文(如 `Invalid or expired token`)
+ * **不在**此列 —— 它要交给 @ihui/shared 的 `toUserFriendlyMessage` 映射成
+ * 「登录已过期,请重新登录」,若在这里吞成"网络异常"会把用户引导去查网络。
+ */
+const NETWORK_ERROR_MESSAGE_PATTERNS: readonly RegExp[] = [
+  /^fetch failed\b/i, // undici / Node fetch / RN fetch abort 的外壳
+  /^Network request failed$/i, // RN iOS / Android 原生 fetch
+  /^Network Error$/i, // axios 风格兜底
+  /^Failed to fetch$/i, // 浏览器 fetch
+  /^Load failed$/i, // Safari / WebKit fetch
+]
 
 /**
- * 无 status 的传输层异常 → 用户可读文案(2026-11-14 立)。
+ * 无 status 的传输层异常 → 用户可读文案(2026-11-14 立判据)。
  *
- * 只归一**网络类**英文原文(真机出现过 `fetch failed: The operation was aborted.`
- * 直出给用户);中文业务文案与非网络类英文原样透传 —— 后者由 @ihui/shared 的
- * toUserFriendlyMessage 统一分类,本层不抢职责。原文进日志,方便定位。
+ * ## 为什么需要这一层
+ *
+ * `fetchApi` 把 `err.message` 原样塞进 `ApiResult.error`,而 239 处调用点写的是
+ * `setError(res.error || t('x'))` ⇒ 拦住 239 处的唯一出口是本函数,**不是**逐屏改文案。
+ *
+ * ## 判据
+ *
+ * 1. `cause` 链里有真 AbortError ⇒ 「网络连接异常,请检查网络后重试」
+ *    (超时 / 取消的真身被外壳包住的情况;打一条 `console.warn` 带原 message 做诊断);
+ * 2. message 命中 `NETWORK_ERROR_MESSAGE_PATTERNS` ⇒ 同上(真网络断);
+ * 3. 其他 Error 且 message 非空 ⇒ **原样透传**:
+ *    - 中文业务文案(「请先绑定手机号!」/「积分不足」)原样保留;
+ *    - 英文业务文案(`Invalid or expired token`)原样交给共享层正则分类;
+ *    - 非 Error 值(对象 / undefined / null)⇒ 「网络异常」通用兜底;
+ * 4. message 为空白 / 缺失 ⇒ 「网络异常」。
+ *
+ * ## 副作用纪律
+ *
+ * 只在命中第 1 / 2 条(确定是网络层)时打**一条** `console.warn`,带原 message 做诊断;
+ * 第 3 条(业务文案)不打 —— 调用方会自己决定要不要上报,这里刷屏是噪声。
  */
 export function transportFailureText(err: unknown): string {
-  const message = err instanceof Error ? err.message : ''
-  if (!message.trim()) return EMPTY_FAILURE_TEXT
-  const cause = unwrapAbortCause(err)
-  const isNetwork = NETWORK_FAILURE_PATTERN.test(message) || (cause !== err && isAbortError(cause))
-  if (isNetwork) {
-    console.warn('[api-client] 传输层异常(已归一为网络文案)', message)
-    return NETWORK_FAILURE_TEXT
+  // ① cause 链里有真 AbortError(裸 TypeError 包真 AbortError 的真机形态)
+  if (isAbortError(unwrapAbortCause(err))) {
+    const msg = err instanceof Error ? err.message : ''
+    console.warn('[api-client] transport abort (wrapped):', msg || '(no message)')
+    return '网络连接异常,请检查网络后重试'
   }
-  return message
+  // ② 非 Error 值 ⇒ 通用兜底(不猜)
+  if (!(err instanceof Error)) return '网络异常'
+  const msg = err.message
+  if (typeof msg !== 'string' || msg.trim() === '') return '网络异常'
+  // ③ 网络类英文原文 ⇒ 用户可读文案 + 打一条诊断日志
+  if (NETWORK_ERROR_MESSAGE_PATTERNS.some((re) => re.test(msg))) {
+    console.warn('[api-client] transport network error:', msg)
+    return '网络连接异常,请检查网络后重试'
+  }
+  // ④ 业务文案(中英皆可)原样透传,不在本层抢职责
+  return msg
 }
 
 /** 把内部抛出的错误归一化为 ApiFailure(CircuitOpenError 由调用方处理) */
@@ -1125,9 +1176,10 @@ function normalizeErrorToResult(err: unknown): ApiFailure {
       retryAfter: errAny.retryAfter,
     }
   }
+  // 无 status:走传输层文案判据(网络类英文原文 ⇒ 用户可读;业务文案原样透传)
   return {
     success: false,
-    error: transportFailureText(err),
+    error: err instanceof Error ? transportFailureText(err) : '网络异常',
   }
 }
 
@@ -1194,13 +1246,7 @@ export async function fetchApi<T>(
     ...(restOptions.headers as Record<string, string> | undefined),
   }
 
-  // 2026-11-14 修复:调用方自己写了 Authorization 时不得被登录态覆盖
-  // (API 测试页/Playground 用平台 API Key 直连 /v1 的场景,覆盖后会变成 JWT ⇒ 401)。
-  if (
-    token &&
-    !hasOwnAuthorization(restOptions.headers) &&
-    shouldAttachCredential(normalizedUrl, currentCredentialAllowedOrigins())
-  ) {
+  if (token && shouldAttachCredential(normalizedUrl, currentCredentialAllowedOrigins())) {
     headers['Authorization'] = `Bearer ${token}`
   }
 
@@ -2388,9 +2434,9 @@ export interface StreamChatOptions {
    * b76-15(2026-10-29 立):帧水位事实的**唯一读取出口**。
    *
    * 为什么必须有:水位判据此前只有写入侧 —— `_frameGapDropped` 带 `_` 前缀登记
-   * "故意未读";而载荷级四字段(`subscriptionId/logEpoch/fromSeq/toSeq`)现已由生产端
-   * `sse_frames.py::with_frame_watermark` 注入下发,本文件其余 b76-15 立因注释为
-   * 2026-10-29 快照,一律以 frame-watermark-producer 头注「现状更正」段为准。
+   * "故意未读",而载荷级四字段(`subscriptionId/logEpoch/fromSeq/toSeq`)在生产端
+   * 至今没有下发点,于是 `readFrameWatermark` 在真机上恒 `undetermined`、丢帧恒 0。
+   * 账面"判过",实际"一次都没判"(AGENTS §0.3)。
    *
    * 现在:① 每次丢弃立刻报一次(`kind` 点名是哪条腿判的);② 流终态兜底再报一次
    * (`kind: 'stream-end'`),把"全程零丢弃"也变成**可读事实** —— 上层不该靠
@@ -4426,11 +4472,11 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
     })
   }
   // 水位闸:两条来源同一事实,由 `carriesPayloadWatermark` 择一,不并行判两遍
-  // (AGENTS §0.6)。载荷级四字段现由生产端 `sse_frames.py::with_frame_watermark`
-  // 注入下发(以 frame-watermark-producer 头注「现状更正」段为准),① `readFrameWatermark`
-  // 判三维;② `id: <seq>` 行(网关确实在发)⇒ seq 维连续性,为载荷腿未携水位时的
-  // 降级路径。两腿失效方向一致:读不出 ⇒ undetermined 原样放行;gap/死帧 ⇒ 丢弃
-  // 且计数,不进渲染、不推进游标,重连后从服务端快照重建,绝不把残帧算成"已应用"。
+  // (AGENTS §0.6)。
+  //   ① 载荷级四字段(**生产端至今不下发**)⇒ `readFrameWatermark` 判三维;
+  //   ② `id: <seq>` 行(网关**确实在发**)⇒ seq 维连续性,见 b76-15 注记。
+  // 两腿的失效方向一致:读不出 ⇒ undetermined 原样放行;gap/死帧 ⇒ 丢弃且计数,
+  // 不进渲染、不推进游标,重连后从服务端快照重建,绝不把残帧算成"已应用"。
   const shouldDropByWatermark = (line: string): boolean => {
     if (!line.startsWith('data:')) return false
     const raw = line.slice(5).trim()

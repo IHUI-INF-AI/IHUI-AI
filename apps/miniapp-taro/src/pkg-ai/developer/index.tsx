@@ -295,7 +295,9 @@ export default function DeveloperIndex() {
             onClick={onSearchConfirm}
             hoverClass="opacity-60"
           >
-            <Text className="text-body font-semibold text-primary-foreground">搜索</Text>
+            <Text className="text-body font-semibold text-primary-foreground">
+              {t('common.search')}
+            </Text>
           </View>
         </View>
 

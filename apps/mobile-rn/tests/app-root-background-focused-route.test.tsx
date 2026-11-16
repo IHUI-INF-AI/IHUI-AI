@@ -89,6 +89,7 @@ vi.mock('../src/context/AuthContext', () => ({
   AuthProvider: ({ children }: { children: unknown }) => children,
 }))
 vi.mock('../src/i18n', () => ({
+  t: (key: string) => key,
   I18nProvider: ({ children }: { children: unknown }) => children,
   // AppConfirmHost(挂在 I18nProvider 子树内)调 useI18n 取默认确认按钮文案;缺它渲染 App 即炸。
   useI18n: () => ({ t: (key: string) => key }),

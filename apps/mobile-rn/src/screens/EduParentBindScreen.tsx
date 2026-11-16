@@ -97,7 +97,7 @@ function EduParentBindScreen() {
     } finally {
       setLoading(false)
     }
-  }, [statusLabel, fmtDate])
+  }, [statusLabel, fmtDate, t])
 
   useEffect(() => {
     void load()

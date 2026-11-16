@@ -3616,7 +3616,9 @@
     "terminal": {
       "waitingInput": "等待输入",
       "mobileUnsupported": "终端功能暂不支持移动端"
-    }
+    },
+    "questionNoSession": "无法定位会话，此题无法作答",
+    "questionFailed": "提交失败，请重试"
   },
   "tabBar": {
     "community": "智汇社区",
@@ -7311,5 +7313,13 @@
     "score": "得分",
     "bm25": "BM25",
     "hop": "跳"
+  },
+  "toastFallback": {
+    "shareFeature": "分享功能",
+    "serviceUnavailable": "客服功能暂未开放",
+    "feedbackUnavailable": "反馈功能暂未开放",
+    "feedbackOpenFailed": "反馈页打开失败,请稍后重试",
+    "navigationNotWired": "导航未接入",
+    "pageUnsupported": "该页面暂未支持"
   }
 }

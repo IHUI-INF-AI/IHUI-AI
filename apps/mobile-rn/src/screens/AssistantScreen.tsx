@@ -1,6 +1,7 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+// i18n-content-exempt-file: 多语言常量数据定义(label/title/description等选项值,内容体系定为中文单语,产品决策2026-11-15)
 
 /**
  * AssistantScreen — IM 聊天室 (mobile-rn 端 wrapper)
@@ -24,6 +25,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { KeyboardAvoidingView, Linking, Platform, StyleSheet, View } from 'react-native'
 import { appAlert } from '../components/BottomPops'
+import { useI18n } from '../i18n'
 import {
   ChatRoomScreen,
   detectChatRoomMediaType,
@@ -124,6 +126,7 @@ export default function AssistantScreen() {
   const route = useRoute<AssistantRoute>()
   const { user } = useAuth()
   const { resolvedTheme } = useTheme()
+  const { t } = useI18n()
 
   const params = route.params
   // 支持路由参数直达聊天室(对齐历史 onLoad options:roomId/room_name/receiver_uuid/avatar)
@@ -188,7 +191,7 @@ export default function AssistantScreen() {
     const content = inputContent.trim()
     if (!content) return
     if (!userUuid) {
-      appAlert('用户信息不完整')
+      appAlert(t('chatRoom.incompleteUserInfo'))
       return
     }
     const tempId = `temp_${Date.now()}`
@@ -229,7 +232,7 @@ export default function AssistantScreen() {
         },
       ])
     }, 600)
-  }, [inputContent, userUuid, userAvatar, activeRoom])
+  }, [inputContent, userUuid, userAvatar, activeRoom, t])
 
   /** 附加按钮:展开/收起图标组(对齐历史 handleAddClick → isShowIcon 切换) */
   const handlePlusToggle = useCallback(() => setShowAttach((v) => !v), [])
@@ -237,22 +240,28 @@ export default function AssistantScreen() {
   /** 图标组点击(对齐历史 handleIconClick(type))。
    *  待接后端:历史为 uni.chooseImage/chooseFile/chooseMessageFile → uploadBybase64 上传后
    *  以 messageType 2/3/4 走 WS send_message 发送 URL;RN 端先占位提示。 */
-  const handleIconClick = useCallback((type: ChatRoomIconType) => {
-    setShowAttach(false)
-    if (type === 'wxfile') {
-      appAlert('仅微信小程序支持')
-      return
-    }
-    appAlert(
-      '附件发送待接后端',
-      `将支持:${type === 'camera' ? '拍照' : type === 'album' ? '相册图片' : '文件'}上传后经 WS 发送`,
-    )
-  }, [])
+  const handleIconClick = useCallback(
+    (type: ChatRoomIconType) => {
+      setShowAttach(false)
+      if (type === 'wxfile') {
+        appAlert(t('chatRoom.wechatOnly'))
+        return
+      }
+      appAlert(
+        '附件发送待接后端',
+        `将支持:${type === 'camera' ? '拍照' : type === 'album' ? '相册图片' : '文件'}上传后经 WS 发送`,
+      )
+    },
+    [t],
+  )
 
   /** 音频/文件/视频打开(对齐历史 openAudio/openFile:APP 内 openURL) */
-  const handleOpenUrl = useCallback((url: string) => {
-    void Linking.openURL(url).catch(() => appAlert('无法打开链接'))
-  }, [])
+  const handleOpenUrl = useCallback(
+    (url: string) => {
+      void Linking.openURL(url).catch(() => appAlert(t('chatRoom.cannotOpenLink')))
+    },
+    [t],
+  )
 
   const chat = mode === 'chat' && activeRoom !== null
   const content = (

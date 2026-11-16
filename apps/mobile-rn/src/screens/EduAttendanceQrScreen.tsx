@@ -128,25 +128,28 @@ export function EduAttendanceQrScreen() {
     void loadClasses()
   }, [loadClasses])
 
-  const fetchQr = useCallback(async (id: string) => {
-    setGenerating(true)
-    setQrError(null)
-    try {
-      const res = await eduAttendanceQrcode<QrPayloadResult>({ classId: id })
-      if (res.success && res.data?.payload) {
-        setQr(res.data)
-        return
+  const fetchQr = useCallback(
+    async (id: string) => {
+      setGenerating(true)
+      setQrError(null)
+      try {
+        const res = await eduAttendanceQrcode<QrPayloadResult>({ classId: id })
+        if (res.success && res.data?.payload) {
+          setQr(res.data)
+          return
+        }
+        setQr(null)
+        // 400「该班未配置启用中的考勤规则或未设置扫码密钥(qrSecret)」原样上屏
+        setQrError(res.error || 'load failed')
+      } catch (e) {
+        setQr(null)
+        setQrError(toFriendlyOr(e, t('common.loadFailed')))
+      } finally {
+        setGenerating(false)
       }
-      setQr(null)
-      // 400「该班未配置启用中的考勤规则或未设置扫码密钥(qrSecret)」原样上屏
-      setQrError(res.error || 'load failed')
-    } catch (e) {
-      setQr(null)
-      setQrError(toFriendlyOr(e, t('common.loadFailed')))
-    } finally {
-      setGenerating(false)
-    }
-  }, [])
+    },
+    [t],
+  )
 
   // 选班即出码;换班重置读数,避免把上一班的码当成新一班的在倒计时
   useEffect(() => {

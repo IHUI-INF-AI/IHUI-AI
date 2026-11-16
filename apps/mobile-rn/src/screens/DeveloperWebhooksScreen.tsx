@@ -80,7 +80,7 @@ function DeveloperWebhooksScreen() {
         setLoading(false)
       }
     },
-    [toRows],
+    [toRows, t],
   )
 
   useEffect(() => {

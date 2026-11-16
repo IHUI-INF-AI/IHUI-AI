@@ -143,7 +143,7 @@ export function AddPanel({
                   </Text>
                 ) : null}
               </View>
-              <ChevronRight size={rnGeometry.glyphMd} color={tokens.text.tertiary} />
+              <ChevronRight size={rnGeometry.glyphMd} color={tokens.text.secondary} />
             </View>
           )}
         </Pressable>

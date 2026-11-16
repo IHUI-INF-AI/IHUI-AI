@@ -18,6 +18,7 @@
     "dev:safe:clean": "node scripts/run-start-dev.mjs -Clean -Force",
     "dev:safe:clean:fast": "node scripts/run-start-dev.mjs -Clean -Force && node scripts/run-start-dev.mjs -Fast",
     "dev:safe:all": "node scripts/run-start-dev.mjs -All",
+    "dev:watchdog:api": "node scripts/api-watchdog.mjs",
     "warm:routes": "node scripts/warm-dev-routes.mjs",
     "capabilities:export": "pnpm --filter @ihui/api exec tsx scripts/export-capabilities.ts",
     "capabilities:check": "pnpm --filter @ihui/api exec tsx scripts/export-capabilities.ts --check",

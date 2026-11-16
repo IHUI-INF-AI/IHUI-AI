@@ -1,6 +1,7 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+// i18n-content-exempt-file: 多语言常量数据定义(label/title/description等选项值,内容体系定为中文单语,产品决策2026-11-15)
 
 /**
  * ChatScreen — AI 对话社区主屏 (mobile-rn 端)
@@ -121,9 +122,6 @@ import {
 import { useToolApprovalQueue } from '../components/ai/ToolApprovalSheet'
 // D77(承 G-106):业务表单卡 RN 腿 —— 投影与判定全部走 @ihui/shared,端内只负责 RN 形态。
 import { useBusinessFormQueue } from '../components/ai/BusinessFormSheet'
-// D135(2026-11-14 补齐):AI 提问卡交互腿 —— 单选/多选/自由输入 + 阻塞式答复续流 +
-// legacy 回退。判定层走 @ihui/shared/chat/question-response(web 同一份),端内只负责 RN 形态。
-import { useQuestionQueue } from '../components/ai/QuestionSheet'
 // D38(承 G-42):队列交互宿主 —— 排队/撤回/编辑/重排/打断并执行入口。
 // 判定复用 @ihui/shared 的 D69+D38(queueInteractionPerms/interactionAllowed/
 // effectiveMode/reorderQueue/applyQueueEdit/interruptPlan),端内不另立第二套判定;
@@ -136,7 +134,23 @@ import {
   reorderQueue,
   type FollowUpMode,
 } from '@ihui/shared/chat/queue-interactions'
-import { apiFailureToText, logger } from '@ihui/shared/utils'
+// 差距①第 ① 腿:发送准入回执的稳定输入 ID —— 生成的唯一实现在共享层,端内不造第二源。
+import { createInputId } from '@ihui/shared/chat/send-admission'
+import {
+  HOOK_FAILURES_NAMESPACE,
+  hookFailureView,
+  readHookFailureEvent,
+} from '@ihui/shared/chat/hook-failures'
+// 2026-11-13:提问答复闭环 —— 传输走 api-client 统一封装(RN 无原生 fetch,必须经 transport),
+// 判据走共享层三档归宿(与 web / miniapp / extension / cli 同一份)。
+import { postQuestionAnswerResponse } from '@ihui/api-client'
+import {
+  buildLegacyAnswerText,
+  interpretQuestionResponse,
+  toggleOptionSelection,
+} from '@ihui/shared/chat/question-response'
+
+import { apiFailureToText, logger, toFriendlyOr } from '@ihui/shared/utils'
 import { FALLBACK_MODELS as SHARED_FALLBACK_MODELS, toUserFriendlyMessage } from '@ihui/shared'
 // 按子路径取:RN 的 vitest 把 `@ihui/shared/utils` 父别名指向测试替身,父入口取不到本模块
 import { isMaxTokensTruncatedFinishReason } from '@ihui/shared/utils/finish-reason'
@@ -256,7 +270,7 @@ import {
 import { BudgetStopNotice } from '../components/chat/BudgetStopNotice'
 import { ContextLedgerPanel } from '../components/chat/ContextLedgerPanel'
 import { CompactionBoundaryNote } from '../components/chat/CompactionBoundaryNote'
-import { useI18n } from '../i18n'
+import { useI18n, t as tStatic } from '../i18n'
 import {
   resolveRoundModel,
   shouldTerminateForModelSwitch,
@@ -357,10 +371,6 @@ const toChatScreenMessage = (m: ChatMessageWithSteer): ChatScreenMessageWithReas
   pinnedAt: m.pinnedAt ?? null,
   bookmarkedAt: m.bookmarkedAt ?? null,
   flagTargetId: m.id,
-  // 失败轮透传:error + errorCode —— 错误卡目录化(D-AI-3)用 errorCode 出目录标题 +
-  // 具体建议动作;缺了这两个,目录化判据在 mobile-rn 静默退化成兜底文案。
-  error: m.error,
-  errorCode: m.errorCode,
   // 推理过程随消息一起透传(历史/流式消息均可能带 reasoning,渲染思考过程展开块用)
   reasoning: m.reasoning,
   // G-166:交代字段同样透传(历史消息由 metadata 水合,流式消息由 SSE 回调累积)
@@ -856,13 +866,15 @@ export function ChatScreen() {
     if (!m || wrapH <= 0) return
     const inset = Math.max(0, wrapH - m.visibleLength)
     setFadeBottomInset((prev) => (Math.abs(prev - inset) > 0.5 ? inset : prev))
-  }, [fades.getLastMetrics])
+    // fades.getLastMetrics/fades.feed 均为 useChatScrollFades 内 useCallback(fn,[]) 的稳定
+    // 引用(见 ChatScrollFades.tsx:71/109),eslint 无法穿透 hook 返回值推断稳定性 ⇒ 误报。
+  }, [fades.getLastMetrics]) // eslint-disable-line react-hooks/exhaustive-deps
   const handleFadeMetrics = useCallback(
     (m: ScrollFadeMetrics): void => {
       fades.feed(m)
       syncFadeInset()
     },
-    [fades.feed, syncFadeInset],
+    [fades.feed, syncFadeInset], // eslint-disable-line react-hooks/exhaustive-deps
   )
   useEffect(() => () => fadeDetachRef.current?.(), [])
   const materialCardIdCounter = useRef(0)
@@ -888,19 +900,21 @@ export function ChatScreen() {
   const noticeSessionRef = useRef(
     `s${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`,
   )
-  /** 落一条对话内提示留痕(独立 state,不进后端上下文/历史) */
-  const recordNotice = useCallback((kind: FloatBoxType, text: string): void => {
+  /** 落一条对话内提示留痕(独立 state,不进后端上下文/历史)。返回该条 id,供撤回用。 */
+  const recordNotice = useCallback((kind: FloatBoxType, text: string): string => {
     const id = `${noticeSessionRef.current}-${++noticeIdRef.current}`
     const ts = Date.now()
     setNotices((prev) => appendNotice(prev, { id, kind, text, ts }))
+    return id
   }, [])
   const showToast = useCallback(
-    (type: FloatBoxType, message: string, opts?: { record?: boolean }): void => {
+    (type: FloatBoxType, message: string, opts?: { record?: boolean }): string | null => {
       setToastType(type)
       setToastMessage(message)
       setToastVisible(true)
       // record=false:该提示已有更持久的落点(如发送失败的错误卡片),不再重复记一条
-      if (opts?.record !== false) recordNotice(type, message)
+      if (opts?.record !== false) return recordNotice(type, message)
+      return null
     },
     [setToastType, setToastMessage, setToastVisible, recordNotice],
   )
@@ -1019,8 +1033,25 @@ export function ChatScreen() {
   const [executionVizById, setExecutionVizById] = useState<Record<string, AssistantExecutionViz>>(
     {},
   )
-  // D135 交互帧最小可视态(AI 提问 / 业务表单):先保证帧到屏可见,完整续流属后续票面
+  // D135 交互帧(AI 提问 / 业务表单)
+  //
+  // 2026-11-13 修:提问卡此前是**纯只读** —— `<Text>` 渲染 prompt 与选项、无任何 onPress,
+  // 注释还写着「刻意只做可见,不造假可交互控件」。但那不是"不造假",是**半个功能**:
+  // 用户看到 AI 在问,却无处作答,而服务端那条流挂着等到超时(阻塞式提问)。
+  // 现在补齐作答闭环:选中态 + 提交 + 撤回,走共享判据与 api-client 统一传输封装。
+  /**
+   * 会话模式(2026-11-13 立):ChatMode 5 态。null = 不传(后端按默认)。
+   * **通道在先、控件另票**:本端暂无模式选择 UI,但链路必须通 —— 否则将来加控件时
+   * 才发现请求体根本没这个字段(与 miniapp 的 plan_mode 同一条纪律)。
+   */
+  const [chatMode] = useState<string | null>(null)
   const [pendingQuestions, setPendingQuestions] = useState<PendingQuestionEntry[]>([])
+  /** 当前展开作答的提问 id(同时只展开一条:手机上多卡并排会互相挤压) */
+  const [answeringQuestionId, setAnsweringQuestionId] = useState<string | null>(null)
+  /** 已选选项(单选时恒 0 或 1 项) */
+  const [questionSelected, setQuestionSelected] = useState<string[]>([])
+  const [questionCustom, setQuestionCustom] = useState('')
+  const [questionSubmitting, setQuestionSubmitting] = useState(false)
   const [pendingForms, setPendingForms] = useState<PendingFormEntry[]>([])
   // D77:帧未带 messageId 时的锚点 = 本轮那条 assistant 占位消息(在 send() 里锁定,不在回调里现算"最后一条")。
   const formAnchorIdRef = useRef('')
@@ -1037,6 +1068,18 @@ export function ChatScreen() {
     agentDelta: 0,
     memoryUpdates: 0,
   })
+  /**
+   * 本轮是否排在队列里(存 queuedTurnId,未排队为 null)。
+   * 用于:晋升帧(accepted)到达时判断"这一轮确实排过队",只有排过才补一条"服务端已收下";
+   * 直通场景下 accepted 是首帧,不该凭空多出一条提示。
+   */
+  const queuedTurnRef = useRef<string | null>(null)
+  /**
+   * pending 态留痕 id 表(2026-11-13 立)。
+   * 存"X 秒后继续"这类未来时提示的留痕 id;正文到达时整批撤。
+   * 与 queuedTurnRef 分开:那条有精确配对凭据(queuedTurnId),这条只能按"连接已恢复"整批撤。
+   */
+  const pendingNoticeIdsRef = useRef<string[]>([])
 
   /**
    * D153b / D154:per-user 广播接线。
@@ -1172,6 +1215,73 @@ export function ChatScreen() {
   }, [navigation])
 
   // ── 发送消息(send-message 事件) ──
+  /**
+   * send 的 ref 桥(2026-11-13)。
+   * `submitQuestionAnswer` 的 legacy 分支要调 `send`,而 `send` 定义在后面 ——
+   * 直接引用撞 TDZ。ref 在 `send` 定义后赋值,副作用只在用户点击时发生。
+   */
+  const sendRefForQuestion = useRef<((text: string) => void) | null>(null)
+
+  /**
+   * 提交 AI 提问的答复(2026-11-13 立)。
+   *
+   * 判据走共享层三档归宿(端内不复制),传输走 api-client 统一封装
+   * (RN 也没有原生 fetch —— 出网统一经包内 transport)。
+   */
+  const submitQuestionAnswer = useCallback(
+    async (q: PendingQuestionEntry, action: 'answer' | 'withdraw') => {
+      if (questionSubmitting) return
+      if (action === 'answer' && questionSelected.length === 0 && questionCustom.trim() === '')
+        return
+      const sid = realtimeSessionRef.current
+      if (!sid) {
+        showToast('error', t('chat.questionNoSession'))
+        return
+      }
+      setQuestionSubmitting(true)
+      try {
+        const r = await postQuestionAnswerResponse(sid, {
+          questionId: q.questionId,
+          action,
+          selectedOptionIds: questionSelected,
+          ...(questionCustom.trim() ? { customText: questionCustom.trim() } : {}),
+        })
+        if (r.networkError !== undefined) {
+          showToast('error', t('chat.questionFailed'))
+          return
+        }
+        const outcome = interpretQuestionResponse(r.httpStatus, r.data)
+        if (outcome.kind === 'blocking') {
+          // 服务端认下 ⇒ 关卡片,流自己续跑(不能再发一轮)
+          setPendingQuestions((prev) => prev.filter((x) => x.questionId !== q.questionId))
+          setAnsweringQuestionId(null)
+          setQuestionSelected([])
+          setQuestionCustom('')
+        } else if (outcome.kind === 'legacy') {
+          // 旧服务端没有阻塞式端点 ⇒ 回退旧链路:把答案当普通消息发出去
+          // 签名吃的是 { options } 整个问题形状(共享层不依赖具体 store 类型)——
+          // 此前误传 q.options 数组 ⇒ TS2345,2026-11-16 整格对齐调用形。
+          const text = buildLegacyAnswerText(q, {
+            questionId: q.questionId,
+            action,
+            selectedOptionIds: questionSelected,
+            customText: questionCustom,
+          })
+          setPendingQuestions((prev) => prev.filter((x) => x.questionId !== q.questionId))
+          setAnsweringQuestionId(null)
+          setQuestionSelected([])
+          setQuestionCustom('')
+          if (text) sendRefForQuestion.current?.(text)
+        } else {
+          showToast('error', t('chat.questionFailed'))
+        }
+      } finally {
+        setQuestionSubmitting(false)
+      }
+    },
+    [questionSelected, questionCustom, questionSubmitting, showToast, t],
+  )
+
   const send = async (overrideText?: string, baseHistory?: ChatMessage[]): Promise<void> => {
     // 发送即收起滑出面板(对齐 Uniapp handleSendMessageabc:isShowIcon = false)
     setInputPanelVisible(false)
@@ -1285,9 +1395,25 @@ export function ChatScreen() {
     // 票 68:把 payload 交出去之前复核一次档位 —— streamChat 在触达网关前仍有 await,这期间用户
     // 换了档就得跟到新档(而不是拿入口快照发新一轮);最新档为空(回填中间态)则退回入口档。
     const roundModel = resolveRoundModel(model, modelRef.current)
+    // 差距①第 ① 腿(2026-11-13,对齐小程序端/ web 同一形态):本轮发送的稳定输入 ID。
+    // 由共享 `createInputId()` 生成(端内不造第二源);服务端凭它回显准入回执并判 duplicate。
+    // 一次 sendMessage 只生成一次 ⇒ 重连重发沿用同值,不重造(否则服务端会当成新的一条)。
+    const roundInputId = createInputId()
     await streamChat({
       model: roundModel,
       messages: apiMessages,
+      // 差距①(2026-11-13):上行两把配对键。
+      // ① inputId —— 服务端生产判据:缺席 ⇒ 不发 admission 帧。
+      // ② metadata.conversationId —— 回执**有信息量**的前提:ai-service 的 take_admission
+      //    头注写明「conversation_id 缺席 ⇒ 无从配对留痕,恒 accepted 且不登记」,而
+      //    queued/rejected 两档全由会话 lane 产生 ⇒ 只补 inputId 拿到的是恒 accepted 常量,
+      //    与本端首帧 onDelta 已证明的事同义反复(台账禁止接进没有信息量的出口)。
+      // 会话主键取本屏的会话 id:无会话(纯本地新聊)时不补 —— 那时服务端也无从配对。
+      inputId: roundInputId,
+      // 2026-11-13:会话模式通道(与 web extraBody.mode 同键)。通道在先,控件另票 ——
+      // 与 miniapp 的 plan_mode 同一条纪律:先把链路打通,不让 UI 缺位把通道也堵死。
+      ...(chatMode ? { mode: chatMode } : {}),
+      ...(conversationId ? { metadata: { conversationId } } : {}),
       // 不命中意图时连字段都不出现,请求体与改造前逐字节一致
       ...(agentTools.length > 0 ? { agentTools } : {}),
       signal: controller.signal,
@@ -1296,6 +1422,13 @@ export function ChatScreen() {
       // 容量必须跟 roundModel 走:窗口尺寸与实际发出去的模型不同源,自动压缩阈值就会算错档
       contextLimit: getModelContextCapacity(roundModel),
       onDelta: (delta) => {
+        // 2026-11-13(中间态收回):首个正文 delta 到达 = 重试已成功 ⇒ 撤掉 pending 留痕。
+        // 只撤我们自己标记过的那几条,不碰工具结果/处置结果等实事实行。
+        if (pendingNoticeIdsRef.current.length > 0) {
+          const stale = new Set(pendingNoticeIdsRef.current)
+          pendingNoticeIdsRef.current = []
+          setNotices((prev) => prev.filter((n) => !stale.has(n.id)))
+        }
         // D3(2026-11-12):帧入泵;提交节拍与 setData 由共享 smooth batcher 统一(web 同谱)
         contentBatcher.batch(delta)
       },
@@ -1472,7 +1605,10 @@ export function ChatScreen() {
       },
       // D39 重试交代:与 N8n 屏同一句词包(否则用户在流上只看到"卡住")
       onRetryScheduled: (event) => {
-        showToast(
+        // 2026-11-13(中间态收回):"第 N/M 次重试,X 秒后继续"写的是**未来时**,
+        // 重试成功后必须撤回,否则这条留痕会一直说"X 秒后",而那个 X 秒早就过去了
+        // (与 queued 提示同型的缺陷)。记下留痕 id,正文到达时撤。
+        const id = showToast(
           'info',
           t('aiAssistantN8n.gatewayRetry', {
             attempt: event.attempt,
@@ -1480,19 +1616,24 @@ export function ChatScreen() {
             seconds: Math.max(1, Math.round(event.retryInMs / 1000)),
           }),
         )
+        if (id) pendingNoticeIdsRef.current.push(id)
       },
-      // D135 补齐(2026-11-14):AI 提问走 useQuestionQueue(阻塞式 + legacy 回退),
-      // 保留 pendingQuestions 计数态驱动列表条目(与 interaction-frames 节点同层)
+      // AI 主动提问(交互帧):完整作答续流(/chat/answer)是另一条链路,先接最小可视态
       onQuestion: (question) => {
-        questionQueue.onQuestion(question)
         setPendingQuestions((prev) =>
           prev.some((q) => q.questionId === question.questionId) ? prev : [...prev, question],
         )
       },
-      // 结算帧:一个 questionId 只结算一次,questionQueue 摘卡,pendingQuestions 计数态同步清
-      onQuestionResolved: (event) => {
-        questionQueue.onQuestionResolved(event)
-        setPendingQuestions((prev) => prev.filter((q) => q.questionId !== event.questionId))
+      // 提问结算(2026-11-13 立):answered/timeout/withdrawn/interrupted 四态都会发这一帧。
+      // 此前本端只接 onQuestion 不接结算 ⇒ 超时/撤回/打断三态永远清不掉卡,
+      // 界面停在"待回答"且点了没反应(那条提问早已失效,属于假 affordance)。
+      // 按 questionId 精确清理,不无条件清空 —— 否则会误清另一条更新的提问。
+      onQuestionResolved: (resolved) => {
+        setPendingQuestions((prev) =>
+          prev.some((q) => q.questionId === resolved.questionId)
+            ? prev.filter((q) => q.questionId !== resolved.questionId)
+            : prev,
+        )
       },
       // D77 业务表单请求(交互帧):帧→渲染态投影走 @ihui/shared(与小程序 chat.tsx 同一出口),
       // 本端 pendingForms 只留"交互区可见"这一维,卡本身由 businessForm.host 渲染。
@@ -1514,6 +1655,45 @@ export function ChatScreen() {
           t('chat.reconnecting', { attempt, countdown: Math.max(1, Math.round(delayMs / 1000)) }),
         )
       },
+      // 差距①第 ③④ 腿(2026-11-13):发送准入回执上屏。
+      //
+      // 为什么必须真上屏而不是只计数:台账 `no-admission-receipt-chain` 明确记着
+      // 「回执落进没人读的内存键 = 本分组要防的复发形态」。本端 streamDiagRef 里有多个
+      // 只计数的回调(agentDelta/memoryUpdates),但那是"本端确实没有该渲染位"的最小态;
+      // 回执不同 —— 它有共享词表(streamErrors.admission.*)也有现成出口(showToast),
+      // 只计数等于把一件用户该知道的事写进开发者日志。
+      //
+      // 只对**有信息量**的档位提示:accepted 与"我发出去了"同义反复(用户已看到消息上屏),
+      // 再报一次是噪音;queued/rejected/duplicate 才是服务端新增的信息。
+      //
+      // ⚠️ accepted 时仍要做一件事(2026-11-13 修):后端在排队回合被晋升时会再发一帧
+      // `admission{disposition:'accepted', queuedTurnId}`(llm.py 现读)。本端出口是 FloatBox
+      // (会自动消失,不会像 extension 的持久 notice 那样永久停留),但若不理会晋升帧,
+      // 用户看到"已排队"然后它自己消失,**之后再无下文** —— 不知道到底开始了没有。
+      // 所以晋升时把提示改成"服务端已收下",给出明确收束(而不是让提示静默过期)。
+      onSendAdmissionReceipt: (receipt) => {
+        if (receipt.disposition === 'accepted') {
+          // 只在本轮确实排过队(记过 queuedTurnId)时才更新,避免给直通场景凭空造一条提示
+          const qid = receipt.queuedTurnId
+          if (qid && queuedTurnRef.current === qid) {
+            queuedTurnRef.current = null
+            showToast('info', t('streamErrors.admission.admitted'))
+          }
+          return
+        }
+        const key = `streamErrors.admission.${receipt.disposition}`
+        const label = t(key)
+        let text = label === key ? receipt.disposition : label
+        // queued 档带位次时补一句"前面还有 N 位"(ahead=0 表示下一位)。
+        // 缺席 = 服务端没量到,**不当成 0**(与共享层 send-admission.ts 的 ahead 语义同纪律):
+        // 把"没量到"渲染成"下一位"是在替服务端编造一个它没说的事实。
+        if (receipt.disposition === 'queued' && typeof receipt.ahead === 'number') {
+          text = `${text} · ${t('chat.admissionAhead', { n: receipt.ahead })}`
+        }
+        showToast(receipt.disposition === 'rejected' ? 'error' : 'info', text)
+        queuedTurnRef.current =
+          receipt.disposition === 'queued' ? (receipt.queuedTurnId ?? null) : null
+      },
       // response 已到达(冷启动 watchdog 信号):本端无该 watchdog,最小态 = 计数
       onResponse: () => {
         streamDiagRef.current.response += 1
@@ -1526,12 +1706,40 @@ export function ChatScreen() {
         )
       },
       // 记忆更新:主屏无「已记住」提示条,最小态 = 计数 + 日志行(条目数)
-      onMemoryUpdates: (event) => {
-        streamDiagRef.current.memoryUpdates += 1
-        console.info(
-          `[chat] memory-updates #${streamDiagRef.current.memoryUpdates} items=${event.items.length}`,
+      // 2026-11-13 修「假接」:本端此前只把该帧写进 streamDiagRef + console.info ——
+      // 那是**开发者日志**,用户看不到任何东西,而门禁按「回调已注册」判定为已接。
+      // 这正是台账反复禁止的「把用户该知道的事写进只有开发者能发现的痕迹」。
+      // 现在补上真出口:用 showToast 打一条「已记住 N 条」(与 web 的 memory-notice-bar 同语义,
+      // 折叠展开属 web 特有形态,移动端保留计数即可,不新立 UI)。
+      // 空数组 = 本轮无新记忆 ⇒ 不打扰(载荷注释明确了这个语义)。
+      // 2026-11-13:hook 执行失败交代。hook 是用户配的自动化,跑挂了不交代,
+      // 用户只会觉得"我配的没生效"。判据走共享层(端内不复制六态收窄)。
+      onHookFailure: (event) => {
+        const rec = readHookFailureEvent(event)
+        if (!rec) return
+        const view = hookFailureView(rec.state, rec.context)
+        const name = rec.context.hookName ?? rec.context.hookEvent ?? '?'
+        showToast(
+          rec.state === 'timedOut' ? 'error' : 'info',
+          `${t('chat.hookFailureTitle', { name })} · ${t(`${HOOK_FAILURES_NAMESPACE}.${view.titleKey}`)}`,
         )
       },
+      onMemoryUpdates: (event) => {
+        streamDiagRef.current.memoryUpdates += 1
+        if (event.items.length === 0) return
+        showToast('info', t('ai.stream.memoryRemembered', { n: event.items.length }))
+      },
+      // D155 下行告警(2026-11-13 收编):后端在流首产 deprecation-notice(厂商下发的
+      // `deprecation_date` 进入 30 天提醒窗口时)。不接这三条回调 ⇒ 帧被静默丢弃,
+      // 用户继续用一个即将下线的模型,直到某天它突然 404。
+      //
+      // 为什么接三条而不是一条统一回调:api-client 的解析层就是按帧分成三个
+      // callback(与 web 的 send-message.ts:1502-1510 同一组),RN 不自造第二套
+      // 归并层 —— 那会让"web 收到告警、RN 收不到"这类漂移无从对照。
+      // severity 已由解析层归一成 info/warning/critical,这里只做色阶映射。
+      onConfigWarning: (evt) => showToast('info', evt.message),
+      onDeprecationNotice: (evt) => showToast('info', evt.message),
+      onGuardianWarning: (evt) => showToast('info', evt.message),
       onError: (err, info) => {
         // D3(2026-11-12):错误前先 flush 累积 token,避免最后一批内容丢失(web #9 同纪律;
         // applyStreamError 只标错误态不裁正文,已产出的半句必须留在气泡里)
@@ -1558,17 +1766,7 @@ export function ChatScreen() {
         }
         // 失败轮要"可辨认":此前只 toast,那条空 assistant 气泡既不进上下文也不给出口,
         // 界面上看成一轮"回答完了"。标记后由 renderMessage 渲染错误卡片 + 重试。
-        // errorCode 不落在 applyStreamError 的形参上(共享层当前仅 2 参),标记后补写到
-        // 被标轮的尾部消息,保住 D92 的目录化判据(否则 live 失败轮只剩兜底文案)。
-        setMessages((prev) => {
-          const next = applyStreamError(prev, formatted.message)
-          const idx = next.length - 1
-          const tail = next[idx]
-          if (tail && tail.role === 'assistant' && tail.error && formatted.errorCode) {
-            next[idx] = { ...tail, errorCode: formatted.errorCode }
-          }
-          return next
-        })
+        setMessages((prev) => applyStreamError(prev, formatted.message))
         setIsStreaming(false)
         abortRef.current = null
         if (formatted.severity === 'auth') {
@@ -1675,6 +1873,9 @@ export function ChatScreen() {
     })
   }
 
+  // 桥接:供提问卡的 legacy 回退调用(定义在 send 之后,避免 TDZ)
+  sendRefForQuestion.current = (text: string) => void send(text)
+
   /**
    * 票 68:终止在途流的唯一出口。「停止」按钮与下面的换档 effect 都走这里,
    * 差别只在要不要给用户一个看得见的理由(notice)—— 用户自己点停止不需要解释。
@@ -1726,14 +1927,6 @@ export function ChatScreen() {
   const sendRef = useRef(send)
   useEffect(() => {
     sendRef.current = send
-  })
-
-  // D135 补齐(2026-11-14):AI 提问卡交互腿。阻塞式答复优先(帧带 sessionId 时投
-  // ai-service /question-response,不新增用户消息、不发起新一轮);404/失败/无 sessionId
-  // 回退旧链路 —— 复用 sendRef 发起回答续流(与 web send-answer.ts 的 legacy 分支同职责)。
-  // 判定层走 @ihui/shared/chat/question-response,端内不复制判据。
-  const questionQueue = useQuestionQueue({
-    sendLegacyAnswer: (answer) => sendRef.current(answer),
   })
 
   // D38/W27:流结束自动补答 —— 队列非空且生效模式为 queue 时出队队首重发
@@ -2018,7 +2211,7 @@ export function ChatScreen() {
           setPrompt((p) => (p ? `${p}\n${result.responseText}` : result.responseText))
         }
       } catch (e) {
-        showToast('warning', e instanceof Error ? e.message : t('chat.roundFailed'))
+        showToast('warning', toFriendlyOr(e, t('chat.roundFailed')))
       } finally {
         setTurnBusy(false)
       }
@@ -2469,13 +2662,18 @@ export function ChatScreen() {
   }, [])
 
   // D111 消息反馈:点赞/点踩走 @ihui/api-client 唯一出口(rateChatMessage),不裸 fetch。
-  const rateMessage = useCallback(async (messageId: string, next: MessageRating): Promise<void> => {
-    try {
-      await rateChatMessage({ messageId, rating: next })
-    } catch {
-      // 反馈提交失败不打断阅读流(与 web 端点赞失败静默同口径)
-    }
-  }, [])
+  const rateMessage = useCallback(
+    async (messageId: string, next: MessageRating): Promise<void> => {
+      try {
+        await rateChatMessage({ messageId, rating: next })
+      } catch {
+        // 原实现失败完全不吭声:用户点了赞/踩,界面没有任何变化也看不出有没有记上。
+        // 失败时给一条 toast,至少让他知道这次没成功、可以重试(成功态视觉属设计变更,不动)。
+        showToast('error', t('common.failed'))
+      }
+    },
+    [showToast, t],
+  )
 
   // 票64(2026-10-18 立):消息级钉选/收藏。两把标记各发各的维度(一次点击只动它点的那一把),
   // 成功态取服务端回写的时刻而不是本地翻转;回填按 item.id 匹配 —— 历史回放那批 id 带
@@ -2609,24 +2807,82 @@ export function ChatScreen() {
         <CompactionBoundaryNote key="compaction-boundary-note" boundary={compactionBoundary} />,
       )
     }
-    // D135 交互帧(列表条目):AI 提问 / 业务表单请求帧到了就得看得见。
-    // 2026-11-14 起 AI 提问补齐交互(useQuestionQueue 弹卡:阻塞式答复 + legacy 回退),
-    // 列表条目仍保留(与弹卡 host 同由 question 帧/pendingQuestions 驱动,弹卡开时列表条目兜底可见)。
+    // D135 交互帧最小可视态(列表条目):AI 提问 / 业务表单请求帧到了就得看得见;
+    // 完整弹窗 + 作答/填报续流属后续票面,此处刻意只读不写(不造假可交互控件)
     if (pendingQuestions.length > 0 || pendingForms.length > 0) {
       nodes.push(
         <View key="interaction-frames" style={styles.interactionCard}>
-          {pendingQuestions.map((q) => (
-            <View key={q.questionId} style={styles.interactionRow}>
-              <Text style={styles.interactionTitle}>{q.prompt}</Text>
-              {q.options.map((opt) => (
-                <Text key={opt.id} style={styles.interactionMeta}>
-                  {`· ${opt.label}`}
-                </Text>
-              ))}
-            </View>
-          ))}
-          {/* D135 补齐(2026-11-14):AI 提问交互弹卡(阻塞式 + legacy 回退),与列表条目同驱动 */}
-          {questionQueue.host}
+          {pendingQuestions.map((q) => {
+            const answering = answeringQuestionId === q.questionId
+            return (
+              <View key={q.questionId} style={styles.interactionRow}>
+                <Text style={styles.interactionTitle}>{q.prompt}</Text>
+                {/* 可作答态(2026-11-13):选中项高亮 + 提交/关闭。
+                    此前这里只有两行 Text —— 用户看得见问题却无处作答,
+                    而服务端那条阻塞式流在等答复,最终超时。 */}
+                {answering
+                  ? q.options.map((opt) => {
+                      const checked = questionSelected.includes(opt.id)
+                      return (
+                        <Tappable
+                          key={opt.id}
+                          onPress={() =>
+                            setQuestionSelected((prev) =>
+                              toggleOptionSelection(prev, opt.id, q.allowMultiple),
+                            )
+                          }
+                          style={[styles.questionOption, checked && styles.questionOptionOn]}
+                          accessibilityRole="button"
+                          accessibilityState={{ selected: checked }}
+                        >
+                          <Text style={styles.interactionMeta}>{opt.label}</Text>
+                        </Tappable>
+                      )
+                    })
+                  : q.options.map((opt) => (
+                      <Text key={opt.id} style={styles.interactionMeta}>
+                        {`· ${opt.label}`}
+                      </Text>
+                    ))}
+                {answering ? (
+                  <View style={styles.questionActions}>
+                    <Tappable
+                      onPress={() => void submitQuestionAnswer(q, 'answer')}
+                      disabled={questionSubmitting}
+                      style={styles.questionSubmit}
+                      accessibilityRole="button"
+                    >
+                      <Text style={styles.questionSubmitText}>
+                        {questionSubmitting
+                          ? t('chat.questionSubmitting')
+                          : t('chat.questionSubmit')}
+                      </Text>
+                    </Tappable>
+                    <Tappable
+                      onPress={() => void submitQuestionAnswer(q, 'withdraw')}
+                      disabled={questionSubmitting}
+                      style={styles.questionWithdraw}
+                      accessibilityRole="button"
+                    >
+                      <Text style={styles.interactionMeta}>{t('chat.questionWithdraw')}</Text>
+                    </Tappable>
+                  </View>
+                ) : (
+                  <Tappable
+                    onPress={() => {
+                      setAnsweringQuestionId(q.questionId)
+                      setQuestionSelected([])
+                      setQuestionCustom('')
+                    }}
+                    style={styles.questionAnswerBtn}
+                    accessibilityRole="button"
+                  >
+                    <Text style={styles.questionAnswerBtnText}>{t('chat.questionAnswer')}</Text>
+                  </Tappable>
+                )}
+              </View>
+            )
+          })}
           {/* D77:可填表单卡(批准带 values / 拒绝只带原因),取代此前那行只读中文文案。 */}
           {businessForm.host}
         </View>,
@@ -2697,12 +2953,15 @@ export function ChatScreen() {
     resolvedTheme,
     pendingQuestions,
     pendingForms,
-    questionQueue.host,
     businessForm.host,
     t,
     tishiShow,
     tokenQuantity,
     onNavigate,
+    answeringQuestionId,
+    questionSelected,
+    questionSubmitting,
+    submitQuestionAnswer,
   ])
 
   const renderListFooter = useCallback((): React.ReactNode => {
@@ -3558,7 +3817,9 @@ export function ChatScreen() {
                     onPress={() => materialDetailItem && handleMaterialDetail(materialDetailItem)}
                     style={styles.detailDialogRetryBtn}
                   >
-                    <Text style={styles.detailDialogRetryText}>重试</Text>
+                    <Text style={styles.detailDialogRetryText}>
+                      {tStatic('chat.voiceNote.action.retry')}
+                    </Text>
                   </Tappable>
                 </View>
               ) : materialDetailData ? (
@@ -3589,7 +3850,7 @@ export function ChatScreen() {
         <Tappable style={styles.modalMask} onPress={hideQrCode}>
           <Pressable style={styles.qrCodeContent} onPress={(e) => e.stopPropagation()}>
             <Tappable hitSlop={8} onPress={hideQrCode} style={styles.qrCodeClose}>
-              <X size={rnGeometry.glyphMd} color={tokens.text.tertiary} />
+              <X size={rnGeometry.glyphMd} color={tokens.text.secondary} />
             </Tappable>
             <Tappable
               ref={qrCodeViewRef}
@@ -3599,9 +3860,9 @@ export function ChatScreen() {
             >
               <QrCode size={240} color={tokens.text.primary} />
             </Tappable>
-            <Text style={styles.qrCodeTitle}>扫描二维码加入社区</Text>
+            <Text style={styles.qrCodeTitle}>{tStatic('home.qrHint')}</Text>
             <Tappable onLongPress={handleLongPressQrCode} style={styles.qrCodeHint}>
-              <Text style={styles.qrCodeHintText}>长按二维码可保存</Text>
+              <Text style={styles.qrCodeHintText}>{tStatic('uiText.longPressQrToSave')}</Text>
             </Tappable>
           </Pressable>
         </Tappable>
@@ -3681,13 +3942,13 @@ export function ChatScreen() {
             onPress={(e) => e.stopPropagation()}
           >
             <View style={styles.listDialogHeader}>
-              <Text style={styles.listDialogTitle}>网页链接</Text>
+              <Text style={styles.listDialogTitle}>{tStatic('chat.menuWebLink')}</Text>
               <Tappable
                 hitSlop={8}
                 onPress={() => setUrlInputVisible(false)}
                 style={styles.listDialogClose}
               >
-                <X size={rnGeometry.glyphMd} color={tokens.text.tertiary} />
+                <X size={rnGeometry.glyphMd} color={tokens.text.secondary} />
               </Tappable>
             </View>
             <View style={styles.urlInputBody}>
@@ -3696,7 +3957,7 @@ export function ChatScreen() {
                 value={urlInputValue}
                 onChangeText={setUrlInputValue}
                 placeholder={t('chat.webLinkPlaceholder')}
-                placeholderTextColor={tokens.text.tertiary}
+                placeholderTextColor={tokens.text.secondary}
                 autoCapitalize="none"
                 autoCorrect={false}
                 keyboardType="url"
@@ -3710,7 +3971,7 @@ export function ChatScreen() {
                 accessibilityRole="button"
                 accessibilityLabel={t('chat.sendLink')}
               >
-                <Text style={styles.urlInputConfirmText}>发送</Text>
+                <Text style={styles.urlInputConfirmText}>{tStatic('chat.send')}</Text>
               </Tappable>
             </View>
           </Pressable>
@@ -3730,17 +3991,17 @@ export function ChatScreen() {
             onPress={(e) => e.stopPropagation()}
           >
             <View style={styles.listDialogHeader}>
-              <Text style={styles.listDialogTitle}>文件上传</Text>
+              <Text style={styles.listDialogTitle}>{tStatic('chat.menuFileUpload')}</Text>
               <Tappable
                 hitSlop={8}
                 onPress={() => setFileUploadVisible(false)}
                 style={styles.listDialogClose}
               >
-                <X size={rnGeometry.glyphMd} color={tokens.text.tertiary} />
+                <X size={rnGeometry.glyphMd} color={tokens.text.secondary} />
               </Tappable>
             </View>
             <View style={styles.fileUploadBody}>
-              <Text style={styles.fileUploadDesc}>支持文件类型:</Text>
+              <Text style={styles.fileUploadDesc}>{tStatic('uiText.supportedFileTypes')}</Text>
               <View style={styles.fileUploadTypeList}>
                 {FILE_TYPE_BADGES.map((t) => (
                   <View key={t} style={styles.fileUploadTypeBadge}>
@@ -3748,7 +4009,7 @@ export function ChatScreen() {
                   </View>
                 ))}
               </View>
-              <Text style={styles.fileUploadHint}>选择文件后自动上传,支持常见文档/文本格式</Text>
+              <Text style={styles.fileUploadHint}>{tStatic('uiText.fileUploadHint')}</Text>
               <Tappable
                 onPress={() => void handleFileUpload()}
                 style={styles.fileUploadConfirmBtn}
@@ -3792,7 +4053,7 @@ export function ChatScreen() {
                 onPress={() => setModelListVisible(false)}
                 style={styles.listDialogClose}
               >
-                <X size={rnGeometry.glyphMd} color={tokens.text.tertiary} />
+                <X size={rnGeometry.glyphMd} color={tokens.text.secondary} />
               </Tappable>
             </View>
             <ModelPickerList
@@ -3853,7 +4114,7 @@ export function ChatScreen() {
         >
           {({ pressed }) => (
             <View style={[styles.panelCancelBtnFace, pressed && styles.panelItemPressed]}>
-              <Text style={styles.panelCancelText}>取消</Text>
+              <Text style={styles.panelCancelText}>{tStatic('auth.twoFactorCancel')}</Text>
             </View>
           )}
         </Pressable>
@@ -3890,7 +4151,7 @@ export function ChatScreen() {
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
           <View style={styles.fangdaHeader}>
-            <Text style={styles.fangdaTitle}>放大输入</Text>
+            <Text style={styles.fangdaTitle}>{tStatic('uiText.expandInput')}</Text>
             <Tappable
               hitSlop={8}
               onPress={() => setFangdaVisible(false)}
@@ -3904,7 +4165,7 @@ export function ChatScreen() {
             value={prompt}
             onChangeText={setPrompt}
             placeholder={t('chat.inputPlaceholder')}
-            placeholderTextColor={tokens.text.tertiary}
+            placeholderTextColor={tokens.text.secondary}
             multiline
             autoFocus
             textAlignVertical="top"
@@ -3917,7 +4178,7 @@ export function ChatScreen() {
                 void send()
               }}
             >
-              <Text style={styles.fangdaSendBtnText}>发送</Text>
+              <Text style={styles.fangdaSendBtnText}>{tStatic('chat.send')}</Text>
             </Tappable>
           </View>
         </KeyboardAvoidingView>
@@ -4049,6 +4310,10 @@ function mapConversationToDrawer(
 
 const BOTTOM_BAR_TOTAL = 68 // BottomActionBar 高度估值(12+44+12)
 
+// 代码块恒用暗底(gray[800]/gray[700]),不随明暗主题翻面 —— 仿 IDE 暗色代码块的固定观感。
+// 语言标签取固定语法高亮蓝(VSCode 默认),压暗底对比度 ≥4.5:1。收为命名常量避免散写 hex。
+const CODE_BLOCK_LANG_COLOR = '#9cdcfe'
+
 const styles = StyleSheet.create({
   root: {
     flex: 1,
@@ -4110,7 +4375,7 @@ const styles = StyleSheet.create({
   },
   execRowText: {
     fontSize: rpx(12),
-    color: tokens.text.tertiary,
+    color: tokens.text.medium,
   },
   interactionCard: {
     marginBottom: rpx(16),
@@ -4119,6 +4384,37 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.card,
     gap: rpx(8),
   },
+  questionOption: {
+    paddingVertical: rpx(8),
+    paddingHorizontal: rpx(10),
+    borderRadius: rnRadius.md,
+    borderWidth: 1,
+    borderColor: tokens.border.light,
+  },
+  questionOptionOn: { borderColor: tokens.brandAccent.deep, backgroundColor: tokens.surface.muted },
+  questionActions: { flexDirection: 'row', gap: rpx(8), marginTop: rpx(4) },
+  questionSubmit: {
+    paddingVertical: rpx(8),
+    paddingHorizontal: rpx(14),
+    borderRadius: rnRadius.md,
+    backgroundColor: tokens.brand.cta,
+  },
+  questionSubmitText: {
+    color: tokens.brand.ctaForeground,
+    fontWeight: '600',
+    fontSize: rnType.label.size,
+  },
+  questionWithdraw: { paddingVertical: rpx(8), paddingHorizontal: rpx(10) },
+  questionAnswerBtn: {
+    marginTop: rpx(4),
+    paddingVertical: rpx(8),
+    paddingHorizontal: rpx(14),
+    borderRadius: rnRadius.md,
+    borderWidth: 1,
+    borderColor: tokens.border.light,
+    alignSelf: 'flex-start',
+  },
+  questionAnswerBtnText: { color: tokens.text.primary, fontSize: rnType.label.size },
   interactionRow: {
     gap: rpx(4),
   },
@@ -4260,7 +4556,9 @@ const styles = StyleSheet.create({
   },
   codeBlockLang: {
     fontSize: rnType.caption.size,
-    color: '#9cdcfe',
+    // 代码块恒用暗底(gray[800]/gray[700],不随主题翻面),语言标签取固定语法高亮蓝。
+    // 原为内联散写 hex,现收敛为语义常量(全仓唯一一处,见文件顶部 CODE_BLOCK_* 区)。
+    color: CODE_BLOCK_LANG_COLOR,
     fontWeight: '600',
     flexShrink: 1,
     marginRight: rnSpacing.sm,
@@ -4310,7 +4608,7 @@ const styles = StyleSheet.create({
   },
   thinkingToggle: {
     fontSize: rnType.caption.size,
-    color: tokens.text.tertiary,
+    color: tokens.text.medium,
     marginLeft: rnSpacing.sm,
   },
   thinkingContent: {
@@ -4390,7 +4688,7 @@ const styles = StyleSheet.create({
     width: 16,
     height: 16,
     borderRadius: rnRadius.sm,
-    backgroundColor: tokens.text.tertiary,
+    backgroundColor: tokens.text.secondary,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -4594,7 +4892,7 @@ const styles = StyleSheet.create({
   detailDialogFieldLabel: {
     width: rpx(140),
     fontSize: rnGeometry.textLabel,
-    color: tokens.text.tertiary,
+    color: tokens.text.medium,
   },
   detailDialogFieldValue: {
     flex: 1,
@@ -4807,7 +5105,7 @@ const styles = StyleSheet.create({
   },
   fileUploadHint: {
     fontSize: rnGeometry.textLabel,
-    color: tokens.text.tertiary,
+    color: tokens.text.medium,
   },
   fileUploadConfirmBtn: {
     backgroundColor: tokens.brand.cta,

@@ -17,6 +17,20 @@ import { expireAuth, getToken, goToLogin } from './auth'
 import { onToast } from '@/host/on-toast'
 
 /**
+ * 401 跳转登录的单一排程位。并发多个鉴权请求同时 401 时,旧写法各起一个 800ms
+ * 定时器 ⇒ goToLogin 被连调 N 次(每次都先 requestLogin,连弹 N 条登录引导),
+ * 且用户 401 后立刻切走页面,800ms 后仍会被 switchTab 强行拉回「我的」tab。
+ */
+let loginNavTimer: ReturnType<typeof setTimeout> | null = null
+function scheduleLoginNav(): void {
+  if (loginNavTimer !== null) clearTimeout(loginNavTimer)
+  loginNavTimer = setTimeout(() => {
+    loginNavTimer = null
+    goToLogin()
+  }, 800)
+}
+
+/**
  * 解包 ApiResult,失败时 toast + throw(行为与原 request.ts 一致)。
  *
  * ⚠️ 401 分两型,此前被当成一型,那正是"小程序未登录就被踢到登录页"的闸口:
@@ -41,7 +55,7 @@ export async function unwrapApi<T>(p: Promise<ApiResult<T>>): Promise<T> {
       expireAuth()
       onToast(t('auth.expired'), { kind: 'error' })
       // 去向只有 `goToLogin()` 一个出口(登录页已删 ⇒ 这里不能再各自硬编码路由串)
-      setTimeout(goToLogin, 800)
+      scheduleLoginNav()
     } else {
       onToast(r.error, { kind: 'error' })
     }

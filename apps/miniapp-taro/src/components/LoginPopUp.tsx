@@ -283,6 +283,7 @@ export default function LoginPopUp({
           style={{ marginBottom: toUnit(LOGIN_POPUP_SECTION_GAP_PX) }}
         >
           <Button
+            ariaLabel={tt('profileEdit.avatarTip', '点击更换头像')}
             openType="chooseAvatar"
             onChooseAvatar={(e: { detail: { avatarUrl?: string } }) => {
               const url = e.detail.avatarUrl ?? ''

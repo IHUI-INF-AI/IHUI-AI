@@ -63,6 +63,39 @@ vi.mock('react-native', () => {
 // 图标由 vitest.config 的别名统一指到 tests/stubs/lucide-react-native.ts(零依赖桩),
 // 本册只判布局与文案,不引平台渲染链。
 
+// 2026-11-13:`@ihui/ui-native` 的 Tappable 走**真实模块**时,本册会在渲染中崩:
+//   `Cannot read properties of null (reading 'useState')`
+//
+// 根因是 React **双实例**:上面 `react-native` mock 为还原 RN 语义,用 createRequire
+// 从 `packages/app/node_modules/react` 加载了一个独立 React;而 Tappable
+// (packages/ui-native/src/tappable.tsx)用 forwardRef + useState,由 vitest 的主
+// 解析链加载**另一个** React。两实例的 hooks dispatcher 不共享 ⇒ 渲染期读
+// current dispatcher 得到 null。
+//
+// 为什么在这里 mock 而不是去改上面那个 require 路径:换成 `createRequire('react')`
+// 会让该 mock 的 createElement 与测试文件的 React 分属不同实例,整套 7 例全红
+// (本册已实测)。改测试基础设施的风险大于收益。
+//
+// 替身只需满足本册的两处用途:可点击(role=button + onClick)、aria-label 可查。
+// 刻意**不**模拟按压态 —— 本册判的是布局与文案,不是按压反馈(那条在 ui-native 自己的测试里)。
+vi.mock('@ihui/ui-native', () => {
+  const React = createRequire(import.meta.url)('../../../packages/app/node_modules/react/index.js')
+  const Tappable = (props: Record<string, unknown>) =>
+    React.createElement(
+      'button',
+      {
+        onClick: typeof props.onPress === 'function' ? props.onPress : undefined,
+        // 无障碍名:Tappable 的真实实现把 accessibilityLabel 透传给底层 Pressable,
+        // 本册用 getByRole('button', { name }) 定位按钮,所以这里必须保留。
+        'aria-label': props.accessibilityLabel,
+        disabled: props.disabled === true,
+        style: typeof props.style === 'function' ? undefined : props.style,
+      },
+      props.children as React.ReactNode,
+    )
+  return { Tappable }
+})
+
 import {
   ChatActionBar,
   type ChatActionBarProps,

@@ -91,7 +91,9 @@ const COLLAPSE_ANIMATION_MS = 200
 const DummyIcon = () => <span />
 
 const group = {
-  label: 'aiGroupLabel', // 命中 defaultOpen 白名单 ⇒ 首帧即展开
+  // 2026-11-15 分类收口后,只有「热门」与「管理」渲染可折叠标题;
+  // 折叠可访问性判据换到「热门」上继续钉(它同样命中 defaultOpen 白名单 ⇒ 首帧即展开)。
+  label: 'hotGroupLabel',
   items: [
     { href: '/ai/chat', labelKey: 'aiChat', icon: DummyIcon },
     { href: '/ai/agents', labelKey: 'aiAgents', icon: DummyIcon },
@@ -114,7 +116,7 @@ function renderGroup() {
 }
 
 function toggleHeader() {
-  const header = document.querySelector('[data-testid="nav-group-aiGroupLabel-toggle"]')
+  const header = document.querySelector('[data-testid="nav-group-hotGroupLabel-toggle"]')
   if (!header) throw new Error('分组标题(header)未渲染 —— 判据无从谈起')
   return header as HTMLElement
 }

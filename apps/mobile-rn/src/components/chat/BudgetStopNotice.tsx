@@ -1,6 +1,7 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+// i18n-content-exempt-file: 多语言常量数据定义(label/title/description等选项值,内容体系定为中文单语,产品决策2026-11-15)
 
 /**
  * 预算硬停止内联提示条(批次 3,2026-11-06)。
@@ -11,6 +12,7 @@
  *  - 已用/限额/百分比直接展示服务端字段,端内不重算百分比,也不把 usagePercent>100 裁平;
  *  - 刷新/换端后由屏幕查询 `/budget-stops` 回填同一条记录,不依赖一次性 toast。
  */
+import { t as tStatic } from '../../i18n'
 import { StyleSheet, Text, View } from 'react-native'
 import { rnGeometry, rnRadius } from '@ihui/design-tokens'
 import { budgetStopReasonText } from '@ihui/shared/chat/budget-stop-note'
@@ -51,12 +53,15 @@ export function BudgetStopNotice({ stop }: BudgetStopNoticeProps) {
     <View testID="budget-stop-notice" accessibilityRole="text" style={styles.card}>
       <View style={styles.titleRow}>
         <View style={styles.dot} />
-        <Text style={styles.title}>预算硬停止</Text>
+        <Text style={styles.title}>{tStatic('uiText.budgetHardStop')}</Text>
       </View>
       <Text style={styles.reason}>{budgetStopReasonText(stop.reasonCode)}</Text>
       {usageText ? <Text style={styles.usage}>{usageText}</Text> : null}
       {stop.stoppedAtIteration !== null ? (
-        <Text style={styles.meta}>触发于第 {stop.stoppedAtIteration} 轮迭代</Text>
+        <Text style={styles.meta}>
+          {tStatic('uiText.triggeredAtIterationPrefix')}
+          {stop.stoppedAtIteration} {tStatic('uiText.iterationSuffix')}
+        </Text>
       ) : null}
     </View>
   )

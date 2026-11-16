@@ -47,9 +47,16 @@ def _req(code: str, *, requested: list[str] | None = None, language: str = "pyth
     }
 
 
-def _policy(caps: list[str] | None = None) -> dict:
-    """构造形状合法的 policy(白名单制:capabilities 是显式放行的能力集合)。"""
-    return {"capabilities": list(caps or [])}
+def _policy(caps: list[str] | None = None, *, network_mode: str | None = None) -> dict:
+    """构造形状合法的 policy(白名单制:capabilities 是显式放行的能力集合)。
+
+    network_mode 可选:offline 禁令判据读 policy.network_mode(缺省不写键,
+    与既有用例的 policy 形状保持一致)。
+    """
+    pol: dict = {"capabilities": list(caps or [])}
+    if network_mode is not None:
+        pol["network_mode"] = network_mode
+    return pol
 
 
 def _findings_with(verdict: dict, cap: str) -> list[dict]:
@@ -233,4 +240,49 @@ def test_unjudged_and_denied_always_have_reason():
         assert v["verdict"] in ("unjudged", "denied")
         assert v["reason"], v
         assert v["findings"], v
+
+
+# ---- offline 网络禁令(准入层,R-DECISION-OFFLINE-NETWORK) ----
+# 范式:Codex sandbox network_rule=Offline —— 策略级 network_mode="offline" 时,
+# 网络能力在准入层先拒一次,与内核层 egress filter 兜底构成双层保险。
+
+def test_offline_mode_denies_network_touch():
+    """offline 策略 + 网络触碰 ⇒ denied,理由走 offline 专用规则而非 host-ban/default-deny。"""
+    v = sb.decide_code_execution(
+        _req("import socket\nsocket.socket()", requested=[sb.CAP_NETWORK]),
+        _policy(_ALL_CAPS, network_mode=sb.NETWORK_MODE_OFFLINE),
+    )
+    assert v["verdict"] == "denied", v
+    assert sb.CAP_NETWORK in v["detected_capabilities"], v
+    assert any(f["rule"] == sb.RULE_OFFLINE_NETWORK for f in v["findings"]), v
+    assert v["reason"], v
+
+
+def test_offline_mode_without_network_not_blocked_by_offline_rule():
+    """offline 策略但未触碰网络 ⇒ offline 规则不命中,走既有 host-ban 判据(纯计算仍放行)。"""
+    # 纯计算:offline 策略下仍 allowed(offline 只禁网络,不禁计算)
+    v = sb.decide_code_execution(
+        _req("total = sum([1, 2, 3])"), _policy(_ALL_CAPS, network_mode=sb.NETWORK_MODE_OFFLINE)
+    )
+    assert v["verdict"] == "allowed", v
+    assert not any(f["rule"] == sb.RULE_OFFLINE_NETWORK for f in v["findings"]), v
+    # 触碰非网络能力(文件写):offline 规则不命中,由 host-ban/default-deny 处理
+    v2 = sb.decide_code_execution(
+        _req("import pathlib\npathlib.Path('x').write_text('y')", requested=[sb.CAP_FS_WRITE]),
+        _policy(_ALL_CAPS, network_mode=sb.NETWORK_MODE_OFFLINE),
+    )
+    assert v2["verdict"] == "denied", v2
+    assert not any(f["rule"] == sb.RULE_OFFLINE_NETWORK for f in v2["findings"]), v2
+
+
+def test_non_offline_mode_does_not_apply_offline_rule():
+    """network_mode 非 offline(缺省/None/其他值)⇒ offline 规则绝不命中,不误伤网络触碰。"""
+    for pol in (_policy(_ALL_CAPS), _policy(_ALL_CAPS, network_mode="allowlist")):
+        v = sb.decide_code_execution(
+            _req("import socket", requested=[sb.CAP_NETWORK]), pol
+        )
+        # 网络触碰仍被 vm 准入恒禁,但走 host-ban 而非 offline 规则
+        assert v["verdict"] == "denied", v
+        assert any(f["rule"] == sb.RULE_HOST_BAN for f in v["findings"]), v
+        assert not any(f["rule"] == sb.RULE_OFFLINE_NETWORK for f in v["findings"]), v
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

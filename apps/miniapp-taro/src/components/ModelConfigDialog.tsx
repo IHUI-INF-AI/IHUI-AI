@@ -638,6 +638,8 @@ export default function ModelConfigDialog({
                   )}
                   {it.url && (
                     <View
+                      ariaRole="button"
+                      ariaLabel={tt('common.delete', '删除')}
                       className="absolute -top-1 -right-1 bg-destructive rounded-2xl flex items-center justify-center"
                       style={modelConfigDeleteBadgeStyle(toUnit)}
                       onClick={(e) => {
@@ -682,7 +684,12 @@ export default function ModelConfigDialog({
                   {/* 载体换为矢量:lucide X(登记表键 x),与 RN 音色菜单头部同槽
                       `<X size={INLINE_GLYPH} color={tokens.text.secondary}>` 同字形同档;
                       墨迹档走 spec 具名档(不新增端内字面量),前景仍是本元素原档 muted-foreground。 */}
-                  <View hoverClass="opacity-60" onClick={() => setShowAudioMenu(false)}>
+                  <View
+                    ariaRole="button"
+                    ariaLabel={tt('a11y.close', '关闭')}
+                    hoverClass="opacity-60"
+                    onClick={() => setShowAudioMenu(false)}
+                  >
                     <LineIcon
                       name="x"
                       size={MODEL_CONFIG_INLINE_GLYPH_PX * TARO_RPX_PER_PX}

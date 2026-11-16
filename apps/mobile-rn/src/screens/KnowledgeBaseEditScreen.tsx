@@ -186,7 +186,7 @@ export default function KnowledgeBaseEditScreen() {
 
       {detailLoading ? (
         <View style={styles.stateBox}>
-          <ActivityIndicator color={tokens.text.tertiary} />
+          <ActivityIndicator color={tokens.text.secondary} />
           <Text style={styles.muted}>{t('knowledgeBaseEdit.loading')}</Text>
         </View>
       ) : detailError ? (
@@ -238,7 +238,7 @@ export default function KnowledgeBaseEditScreen() {
                 <ActivityIndicator
                   style={styles.categoriesLoading}
                   size="small"
-                  color={tokens.text.tertiary}
+                  color={tokens.text.secondary}
                 />
               ) : categoriesError ? (
                 <View style={styles.inlineError}>

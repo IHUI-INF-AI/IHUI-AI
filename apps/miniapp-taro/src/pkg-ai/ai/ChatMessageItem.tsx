@@ -217,6 +217,8 @@ export default function ChatMessageItem({
       }}
       renderIcon={({ name, size, color, className, style, onClick }) => (
         <LineIcon
+          ariaRole="button"
+          ariaLabel={t('common.actions')}
           name={name as LineIconProps['name']}
           size={size}
           color={color}
@@ -281,7 +283,13 @@ export default function ChatMessageItem({
         ) : undefined
       }
       shareSlot={
-        <View className="share-btn" onClick={onShare} hoverClass="opacity-60">
+        <View
+          ariaRole="button"
+          ariaLabel={t('ai.chatMessageItem.share')}
+          className="share-btn"
+          onClick={onShare}
+          hoverClass="opacity-60"
+        >
           <Button openType="share" className="share-button">
             {t('ai.chatMessageItem.share')}
           </Button>

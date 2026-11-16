@@ -33,7 +33,7 @@ import { globMatches } from '../glob-pattern.js';
 export type EgressDecision = 'allow' | 'deny' | 'unjudged';
 
 /** 命中层:`input`=输入本身不可判,`rule`=域名规则表,`ip-literal`=内网网段,`default`=兜底档,`dns`=地址证据。 */
-type EgressLayer = 'input' | 'rule' | 'ip-literal' | 'default' | 'dns';
+type EgressLayer = 'input' | 'network-mode' | 'rule' | 'ip-literal' | 'default' | 'dns';
 
 /** enforce = 派生点据此拒绝拉起子进程;advisory = 出声 + 留痕但不拦(默认档,免得一刀切死既有工作流)。 */
 export type EgressEnforcement = 'enforce' | 'advisory';
@@ -59,6 +59,18 @@ export interface EgressPolicy {
   readonly enforcement: EgressEnforcement;
   /** 规则表出处(排障要能回答"这套限制是从哪来的")。 */
   readonly source: string;
+  /**
+   * 沙箱网络模式(逆向复现 Codex `SandboxNetworkMode`,R11)。
+   *
+   * - `blocked`      —— 离线:在**任何规则匹配 / DNS 解析之前**直接判 deny(Codex 语义 =
+   *                     WFP 栈级 BLOCK,连 DNS 都不发)。比在线裁决高一阶。
+   * - `allowlist`    —— 在线裁决(本仓既有行为):规则表 + 可选地址证据。
+   * - `unrestricted` —— 全放行(仅 danger-full-access 沙箱允许;仍保留内置 deny 行)。
+   *
+   * 认不出的取值一律落**更严一侧 = blocked**(§0.10:失效方向是多拦一次,不是多放一次行)。
+   * 缺省 = `allowlist`(不改既有在线裁决行为,零回归)。
+   */
+  readonly networkMode?: 'blocked' | 'allowlist' | 'unrestricted';
 }
 
 export interface EgressJudgement {
@@ -116,6 +128,7 @@ export const EGRESS_ENV = {
   proxyUrl: 'IHUI_EGRESS_PROXY_URL',
   ledger: 'IHUI_EGRESS_AUDIT_LOG',
   dnsTtl: 'IHUI_EGRESS_DNS_TTL',
+  networkMode: 'IHUI_EGRESS_NETWORK_MODE',
 } as const;
 
 
@@ -175,6 +188,27 @@ export function judgeEgressTarget(rawTarget: string, policy: EgressPolicy | null
     );
   }
   const policyEnforcement: EgressEnforcement = policy!.enforcement === 'enforce' ? 'enforce' : 'advisory';
+
+  /**
+   * 离线沙箱短路(逆向复现 Codex `SandboxNetworkMode.BLOCKED`,R11)。
+   *
+   * Codex 语义 = WFP 栈级 BLOCK:任何规则匹配 / DNS 解析**之前**直接判 unreachable,
+   * 连 DNS 都不发。这里在规则表匹配前短路,忠实该"更高一阶"语义。
+   * `unrestricted` 不在此短路(仍走下方规则表 —— 内置 deny 行如 .internal/.local 恒生效,
+   * 全放行只放"公网默认档",不放 SSRF 名单,否则会退化成 danger-full-access)。
+   */
+  const networkMode = policy!.networkMode ?? 'allowlist';
+  if (networkMode === 'blocked') {
+    return judgement(
+      host,
+      'deny',
+      'network-mode',
+      'sandbox-network-blocked',
+      'builtin:network-mode-blocked',
+      `the sandbox is offline (network mode blocked); no DNS resolution is attempted — switch to ${EGRESS_ENV.networkMode}=allowlist (online adjudication) or unrestricted to reach destinations`,
+      policyEnforcement,
+    );
+  }
 
   const rule = matchEgressRule(host, rules);
   if (rule !== null) {
