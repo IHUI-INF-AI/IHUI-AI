@@ -65,6 +65,19 @@ const ROOT = resolve(HERE, '..');
 const ASSETS = join(ROOT, 'apps/desktop/src-tauri/windows/installer-assets');
 const PREVIEWS = join(tmpdir(), 'ihui-installer-preview');
 
+// 平台守卫(2026-11-17 修,立因:desktop-v0.1.78 CI release-desktop run#104 Linux job 实证)。
+// 本脚本产出的是 **Windows NSIS 安装器专属** 品牌位图(installer-assets/*.bmp + ihui-assets-path.nsh),
+// NSIS 只在 Windows 上打包;但它被 tauri.conf.json 的 beforeBuildCommand 无条件调用,
+// 于是 Linux/macOS 构建也会执行 ⇒ 这些平台必然失败,连带把整条发版链判红。
+// 判据:非 win32 平台**无事可做**,直接成功退出(exit 0),不加载 sharp(避免无谓依赖失败)、
+// 不读写任何资产。Windows 行为逐字不变。
+if (process.platform !== 'win32') {
+  console.log(
+    `[desktop-installer-assets] 跳过:本脚本仅生成 Windows NSIS 安装器资产,当前平台 ${process.platform}`,
+  );
+  process.exit(0);
+}
+
 const require = createRequire(join(ROOT, 'apps/desktop/package.json'));
 const sharp = require('sharp');
 
