@@ -13,6 +13,7 @@
  * (类型在编译期擦除,运行时只需默认导出组件)。
  */
 
+import { t as tStatic } from '../../i18n'
 import { forwardRef, useImperativeHandle, useRef } from 'react'
 import { View, Text, StyleSheet, type ViewStyle, type StyleProp } from 'react-native'
 import { rnTokens as tk, rnSpacing, rnType } from '@ihui/design-tokens'
@@ -48,7 +49,7 @@ const VideoStub = forwardRef<VideoRef, VideoStubProps>(function VideoStub(props,
   const uri = props.source?.uri ?? ''
   return (
     <View ref={viewRef} style={[styles.container, props.style]}>
-      <Text style={styles.text}>视频播放暂不支持浏览器预览</Text>
+      <Text style={styles.text}>{tStatic('uiText.videoWebPreviewUnsupported')}</Text>
       {uri ? <Text style={styles.uri}>{uri}</Text> : null}
     </View>
   )

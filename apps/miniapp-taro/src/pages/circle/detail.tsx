@@ -259,6 +259,7 @@ export default function CircleDetailPage() {
                 <View className={`cd-images cd-images-${imgCount === 1 ? 'single' : 'multi'}`}>
                   {data.images?.map((img, i) => (
                     <Image
+                      ariaLabel={tt('chat.imagePreviewA11y', '图片预览')}
                       key={i}
                       className="cd-img"
                       src={img}

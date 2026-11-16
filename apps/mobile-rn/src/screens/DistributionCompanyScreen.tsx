@@ -134,7 +134,7 @@ export default function DistributionCompanyScreen() {
           ) : (
             subs.map((s, i) => (
               <View key={`${s.userId ?? i}`} style={styles.row}>
-                <Building2 size={14} color={tokens.text.tertiary} />
+                <Building2 size={14} color={tokens.text.secondary} />
                 <Text style={styles.rowText} numberOfLines={1}>
                   {s.nickname ?? t('distributionCompany.anonymousUser')}
                 </Text>

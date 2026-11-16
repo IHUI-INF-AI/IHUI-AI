@@ -68,7 +68,7 @@ function EduChildAttendanceScreen() {
     } finally {
       setLoading(false)
     }
-  }, [childId, statusLabel])
+  }, [childId, statusLabel, t])
 
   useEffect(() => {
     void load()

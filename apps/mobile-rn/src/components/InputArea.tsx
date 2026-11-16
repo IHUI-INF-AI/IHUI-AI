@@ -51,7 +51,7 @@ import {
   View,
 } from 'react-native'
 import type { TextInput } from 'react-native'
-import { useI18n } from '../i18n'
+import { useI18n, t as tStatic } from '../i18n'
 import { useUiTextField } from '../lib/use-ui-text-field'
 import { tokens, currentRnTheme } from '../theme/active-tokens'
 import { formatShortDuration } from '@ihui/shared/utils'
@@ -542,13 +542,13 @@ export function InputArea({
                     <View style={styles.transcribingRow}>
                       {/* 2026-10-16 黑白定档:转写 spinner 取中性灰,不用红色 */}
                       <ActivityIndicator size="small" color={tokens.text.secondary} />
-                      <Text style={styles.voiceAreaText}>转写中…</Text>
+                      <Text style={styles.voiceAreaText}>{tStatic('uiText.transcribing')}</Text>
                     </View>
                   ) : (
                     <>
                       <VoiceWave />
                       <Text style={styles.voiceAreaDuration}>
-                        {formatShortDuration(voiceDuration)} 松开结束
+                        {formatShortDuration(voiceDuration)} {tStatic('uiText.releaseToFinish')}
                       </Text>
                     </>
                   )}
@@ -571,7 +571,7 @@ export function InputArea({
                       )
                     }
                     placeholder={placeholder}
-                    placeholderTextColor={tokens.text.tertiary}
+                    placeholderTextColor={tokens.text.secondary}
                     maxLength={maxLength}
                     multiline
                     textAlignVertical="top"
@@ -672,7 +672,7 @@ export function InputArea({
                   )
                 }
                 placeholder={placeholder}
-                placeholderTextColor={tokens.text.tertiary}
+                placeholderTextColor={tokens.text.secondary}
                 maxLength={maxLength}
                 multiline
                 textAlignVertical="top"

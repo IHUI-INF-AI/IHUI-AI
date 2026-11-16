@@ -1244,6 +1244,44 @@ function autoPushMode() {
     writeThrottleStamp(marker, Date.now())
     process.exit(refusal ? 1 : 0)
   }
+  // 2026-11-16 根治「必拦项拖垮整批」:非备份族、peel 后非 origin/main 祖先(或对象缺失空壳)的 tag,
+  // 推送门按 fail-closed 必拦,且 --atomic 连整批陪葬(chunk1 两连死实证;109 枚空壳 3 小时老病灶同源)。
+  // 这些隔离点名(建议归口 lost-commit/* 或器件命名规范化),不拖累可推批次。
+  // 备份族本体就是"丢了也要备份"语义(门显式豁免)零触碰。放在积压闸之后:
+  // post-commit 快路(超阈值直接退出)绝不承担本筛的 merge-base 开销。
+  const ancestryQuarantine = []
+  {
+    const keep = []
+    for (const t of missing) {
+      if (isBackupNamespace(t)) { keep.push(t); continue }
+      const peeled = localMap.get(t) || ''
+      let ancestor = false
+      if (peeled) {
+        try {
+          runGit(['merge-base', '--is-ancestor', peeled, 'origin/main'])
+          ancestor = true
+        } catch {
+          ancestor = false
+        }
+      }
+      if (ancestor) { keep.push(t); continue }
+      ancestryQuarantine.push([t, peeled ? '非 origin/main 祖先(推送门必拦)' : 'peel 不到 commit(本地对象缺失)'])
+    }
+    missing = keep
+  }
+  if (ancestryQuarantine.length > 0) {
+    console.log(
+      `${C.yellow}⚔ 必拦项已隔离 ${ancestryQuarantine.length} 枚(不拖累本批;建议归口 lost-commit/*、改器件命名或由器件自管远端面):${C.reset} ${ancestryQuarantine
+        .slice(0, LIST_CAP)
+        .map(([t, r]) => `${t}〔${r}〕`)
+        .join(', ')}${ancestryQuarantine.length > LIST_CAP ? ` …另有 ${ancestryQuarantine.length - LIST_CAP} 枚` : ''}`,
+    )
+    if (missing.length === 0) {
+      console.log(`${C.dim}过滤后无可推项(其余全在备份族/链上之外),本轮结束。${C.reset}`)
+      writeThrottleStamp(marker, Date.now())
+      process.exit(refusal ? 1 : 0)
+    }
+  }
   if (missing.length <= 20) {
     for (const tag of missing) console.log(`     ${C.cyan}${tag}${C.reset}`)
   } else {

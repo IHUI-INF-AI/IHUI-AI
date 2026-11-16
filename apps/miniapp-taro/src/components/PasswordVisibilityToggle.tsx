@@ -5,6 +5,7 @@
 import { View, Text } from '@tarojs/components'
 import LineIcon from '@/components/LineIcon'
 import { type ReactElement } from 'react'
+import { useTt } from '@/i18n'
 
 /**
  * 密码可见性切换共享组件 — 对齐 zhs_app-ZZ login.vue 的 password-toggle
@@ -26,8 +27,17 @@ export default function PasswordVisibilityToggle({
   onToggle,
   label,
 }: PasswordVisibilityToggleProps): ReactElement {
+  const tt = useTt()
   return (
-    <View className="password-toggle" onClick={onToggle} hoverClass="opacity-60">
+    <View
+      ariaRole="button"
+      ariaLabel={
+        visible ? tt('a11y.hidePassword', '隐藏密码') : tt('a11y.showPassword', '显示密码')
+      }
+      className="password-toggle"
+      onClick={onToggle}
+      hoverClass="opacity-60"
+    >
       {label ? <Text className="password-toggle-label">{label}</Text> : null}
       <LineIcon
         className="eye-icon"

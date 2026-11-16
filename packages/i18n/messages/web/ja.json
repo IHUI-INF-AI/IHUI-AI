@@ -9816,12 +9816,7 @@
       "targetPlaceholder": "例:名門高校、985大学"
     },
     "options": {
-      "classLevel": [
-        "優秀(クラス上位 10%)",
-        "良好(10-30%)",
-        "普通(30-70%)",
-        "やや劣る(下位 30%)"
-      ],
+      "classLevel": ["優秀(クラス上位 10%)", "良好(10-30%)", "普通(30-70%)", "やや劣る(下位 30%)"],
       "difficulty": [
         "国語読解",
         "英語ヒアリング・スピーキング",
@@ -9838,12 +9833,7 @@
         "試験不安",
         "家庭環境の影響"
       ],
-      "school": [
-        "重点中学校",
-        "普通中学校",
-        "インターナショナルスクール",
-        "私立学校"
-      ]
+      "school": ["重点中学校", "普通中学校", "インターナショナルスクール", "私立学校"]
     },
     "result": {
       "failed": "AI 分析に失敗しました",
@@ -12064,6 +12054,7 @@
       "toggleMetadata": "メタデータ切替",
       "metadataLoading": "メタデータを読み込み中…",
       "metadataUnavailable": "メタデータを一時的に取得できません",
+      "moreActions": "その他の操作",
       "pin": "固定",
       "unpin": "固定を解除",
       "bookmark": "ブックマーク",
@@ -13188,276 +13179,151 @@
       "slashDiff": {
         "label": "セッション変更一覧",
         "description": "このセッションで AI が変更したファイルを確認",
-        "keywords": [
-          "diff",
-          "変更",
-          "確認"
-        ]
+        "keywords": ["diff", "変更", "確認"]
       },
       "slashStatus": {
         "label": "セッション状態",
         "description": "モデル・コンテキスト・権限モード・使用量を表示",
-        "keywords": [
-          "status",
-          "状態",
-          "コンテキスト"
-        ]
+        "keywords": ["status", "状態", "コンテキスト"]
       },
       "slashModel": {
         "label": "モデル切替",
         "description": "モデルセレクターを開く",
-        "keywords": [
-          "model",
-          "モデル",
-          "切替"
-        ]
+        "keywords": ["model", "モデル", "切替"]
       },
       "slashMcp": {
         "label": "MCP マーケット",
         "description": "MCP サーバーマーケットを開く",
-        "keywords": [
-          "mcp",
-          "マーケット"
-        ]
+        "keywords": ["mcp", "マーケット"]
       },
       "slashCompact": {
         "label": "コンテキスト圧縮",
         "description": "セッション履歴を圧縮してコンテキストを解放",
-        "keywords": [
-          "compact",
-          "圧縮",
-          "コンテキスト"
-        ]
+        "keywords": ["compact", "圧縮", "コンテキスト"]
       },
       "steerPrompt": {
         "label": "プロンプトをステア",
         "description": "実行中の回答に現在の入力をガイドとして注入します",
-        "keywords": [
-          "ステア",
-          "ガイド",
-          "steer"
-        ]
+        "keywords": ["ステア", "ガイド", "steer"]
       },
       "queuePrompt": {
         "label": "プロンプトをキューに追加",
         "description": "実行中の回答の終了後、現在の入力を自動送信するためにキューに追加します",
-        "keywords": [
-          "キュー",
-          "待機",
-          "queue"
-        ]
+        "keywords": ["キュー", "待機", "queue"]
       },
       "agent": {
         "description": "AI エージェントの管理とディスパッチ",
-        "keywords": [
-          "エージェント",
-          "agent",
-          "bot"
-        ],
+        "keywords": ["エージェント", "agent", "bot"],
         "label": "AI エージェント"
       },
       "browser": {
         "description": "ワークスペース内でウェブを閲覧",
-        "keywords": [
-          "ブラウザ",
-          "ウェブ",
-          "browser"
-        ],
+        "keywords": ["ブラウザ", "ウェブ", "browser"],
         "label": "組み込みブラウザ"
       },
       "capabilityMarket": {
         "description": "ケイパビリティパックの発見とインストール",
-        "keywords": [
-          "ケイパビリティ",
-          "マーケット",
-          "market",
-          "プラグイン"
-        ],
+        "keywords": ["ケイパビリティ", "マーケット", "market", "プラグイン"],
         "label": "ケイパビリティマーケット"
       },
       "codeChanges": {
         "description": "ワークスペースのコード変更を確認",
-        "keywords": [
-          "コード",
-          "変更",
-          "diff",
-          "修正"
-        ],
+        "keywords": ["コード", "変更", "diff", "修正"],
         "label": "コード変更"
       },
       "connectors": {
         "description": "外部サービス接続を管理",
-        "keywords": [
-          "コネクタ",
-          "接続",
-          "connector"
-        ],
+        "keywords": ["コネクタ", "接続", "connector"],
         "label": "コネクタ"
       },
       "document": {
         "description": "ワークスペースのドキュメントを編集",
-        "keywords": [
-          "ドキュメント",
-          "編集",
-          "doc"
-        ],
+        "keywords": ["ドキュメント", "編集", "doc"],
         "label": "ドキュメント"
       },
       "editor": {
         "description": "コードエディタを開く",
-        "keywords": [
-          "エディタ",
-          "コード",
-          "editor"
-        ],
+        "keywords": ["エディタ", "コード", "editor"],
         "label": "エディタ"
       },
       "mcp": {
         "description": "MCP サーバーとツールを管理",
-        "keywords": [
-          "MCP",
-          "サーバー",
-          "ツール"
-        ],
+        "keywords": ["MCP", "サーバー", "ツール"],
         "label": "MCP 管理"
       },
       "mcpStore": {
         "description": "MCP サービスの閲覧とインストール",
-        "keywords": [
-          "MCP",
-          "ストア",
-          "store",
-          "インストール"
-        ],
+        "keywords": ["MCP", "ストア", "store", "インストール"],
         "label": "MCP ストア"
       },
       "modeAsk": {
         "description": "質問モードへ切替(ツール無効)",
-        "keywords": [
-          "質問",
-          "ask",
-          "モード"
-        ],
+        "keywords": ["質問", "ask", "モード"],
         "label": "質問モード"
       },
       "modeBuild": {
         "description": "AI に直接構築・修正させる",
-        "keywords": [
-          "ビルド",
-          "モード",
-          "build"
-        ],
+        "keywords": ["ビルド", "モード", "build"],
         "label": "ビルドモード"
       },
       "modePlan": {
         "description": "計画を立ててから実行",
-        "keywords": [
-          "計画",
-          "モード",
-          "plan"
-        ],
+        "keywords": ["計画", "モード", "plan"],
         "label": "計画モード"
       },
       "modeReview": {
         "description": "既存コードをレビュー",
-        "keywords": [
-          "レビュー",
-          "モード",
-          "review"
-        ],
+        "keywords": ["レビュー", "モード", "review"],
         "label": "レビューモード"
       },
       "modeSpec": {
         "description": "仕様から実装を生成",
-        "keywords": [
-          "仕様",
-          "モード",
-          "spec"
-        ],
+        "keywords": ["仕様", "モード", "spec"],
         "label": "仕様モード"
       },
       "skill": {
         "description": "AI スキルの管理と呼び出し",
-        "keywords": [
-          "スキル",
-          "skill",
-          "機能"
-        ],
+        "keywords": ["スキル", "skill", "機能"],
         "label": "スキル"
       },
       "terminal": {
         "description": "統合ターミナルを開く",
-        "keywords": [
-          "ターミナル",
-          "端末",
-          "terminal"
-        ],
+        "keywords": ["ターミナル", "端末", "terminal"],
         "label": "ターミナル"
       },
       "ai-world": {
         "description": "AI アプリの世界を探索",
-        "keywords": [
-          "AI",
-          "ワールド",
-          "アプリ"
-        ],
+        "keywords": ["AI", "ワールド", "アプリ"],
         "label": "AI ワールド"
       },
       "chat": {
         "description": "AI アシスタントと会話",
-        "keywords": [
-          "チャット",
-          "会話",
-          "AI",
-          "chat"
-        ],
+        "keywords": ["チャット", "会話", "AI", "chat"],
         "label": "AI チャット"
       },
       "drama": {
         "description": "AI 生成ショートドラマ",
-        "keywords": [
-          "ドラマ",
-          "ビデオ",
-          "AI",
-          "drama"
-        ],
+        "keywords": ["ドラマ", "ビデオ", "AI", "drama"],
         "label": "AI ドラマ"
       },
       "profile": {
         "description": "プロフィールと設定を管理",
-        "keywords": [
-          "プロフィール",
-          "ユーザー",
-          "設定"
-        ],
+        "keywords": ["プロフィール", "ユーザー", "設定"],
         "label": "プロフィール"
       },
       "search": {
         "description": "グローバルコンテンツ検索",
-        "keywords": [
-          "検索",
-          "search",
-          "search"
-        ],
+        "keywords": ["検索", "search", "search"],
         "label": "検索"
       },
       "settings": {
         "description": "システム環境設定と構成",
-        "keywords": [
-          "設定",
-          "環境設定",
-          "構成"
-        ],
+        "keywords": ["設定", "環境設定", "構成"],
         "label": "設定"
       },
       "skillsMarket": {
         "description": "自己進化スキルの閲覧と導入",
-        "keywords": [
-          "skill",
-          "スキル",
-          "マーケット",
-          "market"
-        ],
+        "keywords": ["skill", "スキル", "マーケット", "market"],
         "label": "Skill マーケット"
       }
     },
@@ -16029,37 +15895,25 @@
       "quadrants": [
         {
           "description": "単純な意思決定 + 単純な実行、高頻度アプリの迅速展開",
-          "examples": [
-            "ナレッジQ&A",
-            "プロセス自動化"
-          ],
+          "examples": ["ナレッジQ&A", "プロセス自動化"],
           "tag": "Q1",
           "title": "効率的アシスタント"
         },
         {
           "description": "複雑な意思決定 + 単純な実行、深い分析と提案を提供",
-          "examples": [
-            "データ分析",
-            "意思決定サポート"
-          ],
+          "examples": ["データ分析", "意思決定サポート"],
           "tag": "Q2",
           "title": "スマートアドバイザー"
         },
         {
           "description": "単純な意思決定 + 複雑な実行、クロスシステムの複雑なタスクを処理",
-          "examples": [
-            "会議調整",
-            "承認プロセス"
-          ],
+          "examples": ["会議調整", "承認プロセス"],
           "tag": "Q3",
           "title": "実行エキスパート"
         },
         {
           "description": "複雑な意思決定 + 複雑な実行、自律計画とマルチエージェント連携",
-          "examples": [
-            "マーケティング自動化",
-            "マルチエージェント連携"
-          ],
+          "examples": ["マーケティング自動化", "マルチエージェント連携"],
           "tag": "Q4",
           "title": "オールラウンドエキスパート"
         }
@@ -16193,31 +16047,19 @@
       "items": [
         {
           "description": "オフラインコース、探求活動、相互支援コミュニティ、志を同じくする意思決定者を深くつなぐ",
-          "features": [
-            "体系化コース",
-            "実践探求",
-            "コミュニティ相互支援"
-          ],
+          "features": ["体系化コース", "実践探求", "コミュニティ相互支援"],
           "tag": "MODULE 01",
           "title": "ローカルコミュニティ"
         },
         {
           "description": "便利なオンライン交流プラットフォーム、いつでもどこでも情報とサポートを取得",
-          "features": [
-            "交流プラットフォーム",
-            "経験共有",
-            "リソースマッチング"
-          ],
+          "features": ["交流プラットフォーム", "経験共有", "リソースマッチング"],
           "tag": "MODULE 02",
           "title": "オンラインコミュニティ"
         },
         {
           "description": "プロの大規模モデルとエージェントサービス、深いAI化コンサルティングとサポートを提供",
-          "features": [
-            "プロの大規模モデル",
-            "エージェントサービス",
-            "コンサルティングサービス"
-          ],
+          "features": ["プロの大規模モデル", "エージェントサービス", "コンサルティングサービス"],
           "tag": "MODULE 03",
           "title": "AI専門サービス"
         }
@@ -19136,15 +18978,7 @@
       "title": "トップ5ページ",
       "visitsHeader": "アクセス数"
     },
-    "weekdays": [
-      "月",
-      "火",
-      "水",
-      "木",
-      "金",
-      "土",
-      "日"
-    ]
+    "weekdays": ["月", "火", "水", "木", "金", "土", "日"]
   },
   "models": {
     "relay": {
@@ -20893,6 +20727,12 @@
     "saasTenants": "SaaS テナント",
     "dashboard": "管理バックエンド",
     "financeAi": "財務部",
+    "hrGroup": "人事部",
+    "hrAdmin": "人事管理",
+    "hrAdminData": "人事データセンター",
+    "hrMyAttendance": "自分の勤怠",
+    "hrMyLeave": "自分の休暇",
+    "hrMyPayroll": "自分の給与明細",
     "sag2Lexical": "SAG2 検索",
     "users": "ユーザー管理",
     "projects": "プロジェクト管理",
@@ -30195,6 +30035,12 @@
     "title": "取引",
     "subtitle": "ウォレット、注文、会員とポイント特典"
   },
+  "hrHub": {
+    "title": "人事部",
+    "subtitle": "勤怠、休暇、給与明細と人事管理",
+    "sectionSelf": "従業員セルフサービス",
+    "sectionAdmin": "人事管理"
+  },
   "aiHub": {
     "title": "エージェントとモデル",
     "subtitle": "チャット履歴、メモリ、ナレッジベース、メディアタスクとワークスペース"
@@ -30202,6 +30048,20 @@
   "personalHub": {
     "title": "アカウント",
     "subtitle": "マイ学習、アカウント、セキュリティ、学生センター、フィードバックとヘルプ"
+  },
+  "adminHub": {
+    "title": "管理",
+    "subtitle": "運営、コンテンツ審査、財務、人事、監視、プラットフォーム運用の統合入口"
+  },
+  "developerHub": {
+    "title": "開発者",
+    "subtitle": "API 連携、キー、使用量と開発ツール"
+  },
+  "domainHub": {
+    "subItems": "{count} 個のサブ項目",
+    "functionCount": "全 {count} 機能",
+    "searchPlaceholder": "機能を検索…",
+    "empty": "一致する機能がありません"
   },
   "appUpdate": {
     "title": "新しいバージョンがあります",
@@ -30324,6 +30184,7 @@
     "colDepartment": "部門",
     "colEmployeeNo": "社員番号",
     "colPosition": "役職",
+    "colPhone": "電話番号",
     "colDate": "日付",
     "colCheckIn": "出勤",
     "colCheckOut": "退勤",
@@ -30452,7 +30313,40 @@
     "syncSyncedBatches": "同期済みバッチ",
     "syncSkippedNotImplemented": "スキップ(未対応)",
     "syncFinishedAt": "前回完了時刻",
-    "syncErrors": "{count} 件のエラー"
+    "syncErrors": "{count} 件のエラー",
+    "mySubtitle": "自分のプロフィール・出退勤・勤怠記録を確認",
+    "myRecordsTitle": "自分の勤怠記録",
+    "todayLabel": "今日",
+    "checkInAction": "出勤打刻",
+    "checkOutAction": "退勤打刻",
+    "checkInOk": "出勤を記録しました",
+    "checkOutOk": "退勤を記録しました",
+    "noEmployeeHint": "このアカウントはまだ従業員情報に紐づいていません。人事部からアカウント連携の招待を送ってもらい、ここで同意してください。",
+    "actionFailed": "操作に失敗しました。しばらくしてから再試行してください。",
+    "myLeaveSubtitle": "休暇申請を提出し、承認状況を確認",
+    "myLeavesTitle": "自分の休暇申請",
+    "leaveTypeLabel": "休暇種別",
+    "leaveTypePh": "例：年次有給 / 私用 / 病気",
+    "leaveReasonPh": "休暇の理由を入力してください",
+    "submitLeave": "休暇申請を提出",
+    "leaveSubmitted": "休暇申請を提出しました。承認待ちです",
+    "totalDaysLabel": "休暇日数",
+    "colLink": "アカウント連携",
+    "linkBound": "連携済み",
+    "linkPending": "相手の確認待ち",
+    "linkInvite": "アカウントを招待",
+    "linkInviteSend": "招待を送信",
+    "linkInviteCancel": "キャンセル",
+    "linkAccountPh": "電話番号 / メール / ユーザー名",
+    "linkRevoke": "招待を取り消す",
+    "linkInviteOk": "招待を送信しました。相手の同意をお待ちください",
+    "linkRevokeOk": "招待を取り消しました",
+    "linkPendingTitle": "確認待ちのアカウント連携",
+    "linkPendingDesc": "会社が以下の従業員記録とあなたのアカウントの連携を申請しています。同意すると、本人の勤怠・休暇・給与明細を閲覧できます。データは本人のみに表示されます。",
+    "linkAccept": "連携を同意",
+    "linkReject": "拒否",
+    "linkAcceptOk": "連携に同意しました。セルフサービスデータを有効化しています",
+    "linkRejectOk": "連携を拒否しました"
   },
   "myPayroll": {
     "title": "自分の給与",
@@ -30851,5 +30745,12 @@
     "autoContrast": "コントラストを自動修正",
     "autoContrastHint": "ライト/ダークそれぞれの背景に合わせて本文色を黒または白にします。",
     "autoContrastDone": "ライト/ダークの本文色を現在の背景に合わせて修正しました"
+  },
+  "engineMode": {
+    "title": "エージェント実行エンジン",
+    "description": "エージェントのオーケストレーション実行場所を選択。「ローカル」はローカルマシンで編成とツールを実行し、サーバーリソースを使いません。",
+    "local": "ローカル",
+    "cloud": "クラウド",
+    "auto": "自動"
   }
 }

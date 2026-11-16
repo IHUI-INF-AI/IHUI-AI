@@ -199,8 +199,39 @@ const VIEW_BASE: ViewStyle = {
   minWidth: 0,
 }
 
-function merged(style: unknown, base: ViewStyle): ViewStyle {
-  return { ...base, ...flattenStyle(style) }
+/**
+ * 合并 RN 基线与调用方样式,并按 className 让位。
+ *
+ * RN 侧 className(NativeWind) 与 style 是同一优先级按源码顺序合并;小程序侧 className
+ * 走 wxss、style 走内联,**内联恒赢**。若把 VIEW_BASE 的 flexDirection:'column' /
+ * alignItems:'stretch' / padding:0 / margin:0 原样序列化成内联,调用方的
+ * `flex-row` / `items-center` / `px-3 py-2` 会被无声覆盖(横排变竖排、间距归零)。
+ * 因此对 className 已声明的同类属性摘掉基线里对应键,让 wxss 生效;调用方 style
+ * 显式给的同名键仍然赢(与 RN 的 style 优先级一致)。
+ */
+const CLASS_OVERRIDE_RULES: ReadonlyArray<readonly [RegExp, readonly string[]]> = [
+  [/(?:^|\s)flex-(?:row|col)(?:-reverse)?(?:\s|$)/, ['flexDirection']],
+  [/(?:^|\s)items-/, ['alignItems']],
+  [/(?:^|\s)justify-/, ['justifyContent']],
+  [/(?:^|\s)(?:p|px|py|pt|pr|pb|pl)-/, ['padding']],
+  [/(?:^|\s)(?:m|mx|my|mt|mr|mb|ml)-/, ['margin']],
+]
+
+function merged(style: unknown, base: ViewStyle, className?: string): ViewStyle {
+  const flat = flattenStyle(style)
+  if (!className) return { ...base, ...flat }
+  const skipped = new Set<string>()
+  for (const [rule, keys] of CLASS_OVERRIDE_RULES) {
+    if (rule.test(className)) {
+      for (const k of keys) skipped.add(k)
+    }
+  }
+  if (skipped.size === 0) return { ...base, ...flat }
+  const effectiveBase: ViewStyle = {}
+  for (const [k, v] of Object.entries(base)) {
+    if (!skipped.has(k)) effectiveBase[k] = v
+  }
+  return { ...effectiveBase, ...flat }
 }
 
 // 事件位形状一律**从 Taro 组件自己的 props 反解**(ComponentProps),不自己写签名:
@@ -400,7 +431,9 @@ function ViewInner(props: RNCompatProps, ref: ForwardedRef<ViewInstance>) {
   return (
     <TaroView
       className={typeof p.className === 'string' ? p.className : undefined}
-      style={toTaroStyle(merged(p.style, VIEW_BASE))}
+      style={toTaroStyle(
+        merged(p.style, VIEW_BASE, typeof p.className === 'string' ? p.className : undefined),
+      )}
       id={probeId}
       onClick={onClick}
       onLongPress={p.onLongPress as EventHandler}
@@ -541,7 +574,13 @@ export function Image(props: RNBaseProps) {
     <TaroImage
       src={uri ?? ''}
       mode={RESIZE_MODE_TO_TARO[resizeMode] ?? 'aspectFill'}
-      style={toTaroStyle(merged(props.style, VIEW_BASE))}
+      style={toTaroStyle(
+        merged(
+          props.style,
+          VIEW_BASE,
+          typeof props.className === 'string' ? props.className : undefined,
+        ),
+      )}
       className={typeof props.className === 'string' ? props.className : undefined}
       onClick={clickHandler(props)}
       /**
@@ -801,7 +840,13 @@ function ScrollViewInner(props: RNBaseProps, ref: ForwardedRef<ScrollViewHandle>
       onRefresherRefresh={rc?.onRefresh ? () => rc.onRefresh?.() : undefined}
       className={typeof props.className === 'string' ? props.className : undefined}
       // viewportBox.innerStyle:flex 场景补 height/width:100%,给原生 scroll-view 一个确定基准
-      style={toTaroStyle(merged(props.style, { ...VIEW_BASE, ...base, ...viewportBox.innerStyle }))}
+      style={toTaroStyle(
+        merged(
+          props.style,
+          { ...VIEW_BASE, ...base, ...viewportBox.innerStyle },
+          typeof props.className === 'string' ? props.className : undefined,
+        ),
+      )}
       // threshold 测量用的稳定 id(共享屏自带 id 时优先用调用方的)
       id={measureId}
       // RN 的 scrollEventThrottle 在小程序没有原生对应档(旧写法把它当 Taro prop 直传,组件不认 ⇒ TS2769)
@@ -1126,7 +1171,13 @@ function TextInputInner(props: RNBaseProps, ref: ForwardedRef<TextInputHandle>) 
     // 受控焦点:focus()/blur() 改的是这一位,和 autoFocus 取或,避免首次挂载把焦点抢回来
     focus: focused || props.autoFocus === true,
     className: typeof props.className === 'string' ? props.className : undefined,
-    style: toTaroStyle(merged(props.style, VIEW_BASE)),
+    style: toTaroStyle(
+      merged(
+        props.style,
+        VIEW_BASE,
+        typeof props.className === 'string' ? props.className : undefined,
+      ),
+    ),
     confirmType,
     // RN 的 onConfirm 只在"键盘确认键"触发,与 onSubmitEditing 同义;取当前输入值随事件带出
     onConfirm: onSubmitEditing

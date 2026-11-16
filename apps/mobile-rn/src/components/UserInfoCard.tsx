@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { useI18n, getCurrentLocale } from '../i18n'
+import { useI18n, getCurrentLocale, t as tStatic } from '../i18n'
 
 /**
  * UserInfoCard 用户信息卡片 (mobile-rn 端)
@@ -184,7 +184,7 @@ function UserInfoCardNew({
     return (
       <View style={newStyles.loggedOutWrap}>
         <TouchableOpacity style={newStyles.loginBtn} activeOpacity={0.7} onPress={onLogin}>
-          <Text style={newStyles.loginBtnText}>一键登录</Text>
+          <Text style={newStyles.loginBtnText}>{tStatic('uiText.oneTapLogin')}</Text>
         </TouchableOpacity>
       </View>
     )
@@ -231,7 +231,13 @@ function UserInfoCardNew({
     <View style={newStyles.card}>
       {/* 顶部:头像 + 昵称/角色 */}
       <View style={newStyles.header}>
-        <TouchableOpacity style={newStyles.avatarWrap} activeOpacity={0.8} onPress={onEdit}>
+        <TouchableOpacity
+          style={newStyles.avatarWrap}
+          activeOpacity={0.8}
+          onPress={onEdit}
+          accessibilityRole="button"
+          accessibilityLabel={t('lp.changeAvatarA11y')}
+        >
           {hasAvatarUrl ? (
             <Image source={{ uri: avatar }} style={newStyles.avatar} />
           ) : (
@@ -248,7 +254,9 @@ function UserInfoCardNew({
                 ? t('uiCard.userGreet', { name: userInfo.username })
                 : t('common.user')}
             </Text>
-            {showRechargeBtn ? <Text style={newStyles.editText}>编辑</Text> : null}
+            {showRechargeBtn ? (
+              <Text style={newStyles.editText}>{tStatic('common.edit')}</Text>
+            ) : null}
           </TouchableOpacity>
 
           <View style={newStyles.roleRow}>
@@ -276,7 +284,7 @@ function UserInfoCardNew({
           accessibilityRole="button"
         >
           <View style={newStyles.growthLabelWrap}>
-            <Text style={newStyles.growthLabel}>成长值</Text>
+            <Text style={newStyles.growthLabel}>{tStatic('uiText.growthValue')}</Text>
             <Text style={newStyles.growthValue}>
               {growthValue}/{growthMax}
             </Text>
@@ -290,14 +298,14 @@ function UserInfoCardNew({
       {/* 邀请码(对齐 Uniapp inviteCode,带复制提示) */}
       {inviteCode ? (
         <View style={newStyles.inviteRow}>
-          <Text style={newStyles.inviteLabel}>邀请码:</Text>
+          <Text style={newStyles.inviteLabel}>{tStatic('uiText.inviteCode')}</Text>
           <Text style={newStyles.inviteCode}>{inviteCode}</Text>
           <TouchableOpacity
             style={newStyles.copyBtn}
             activeOpacity={0.7}
             onPress={handleCopyInviteCode}
           >
-            <Text style={newStyles.copyBtnText}>复制</Text>
+            <Text style={newStyles.copyBtnText}>{tStatic('chat.msg.copy')}</Text>
           </TouchableOpacity>
         </View>
       ) : null}
@@ -317,12 +325,12 @@ function UserInfoCardNew({
       {/* 智汇值 + 充值按钮(背景色对比分隔,非分割线) */}
       <View style={newStyles.tokenRow}>
         <View style={newStyles.tokenLabelWrap}>
-          <Text style={newStyles.tokenLabel}>剩余智汇值:</Text>
+          <Text style={newStyles.tokenLabel}>{tStatic('uiText.remainingCredits')}</Text>
           <Text style={newStyles.tokenValue}>{tokenStr}</Text>
         </View>
         {showRechargeBtn ? (
           <TouchableOpacity style={newStyles.rechargeBtn} activeOpacity={0.7} onPress={onRecharge}>
-            <Text style={newStyles.rechargeBtnText}>充值</Text>
+            <Text style={newStyles.rechargeBtnText}>{tStatic('wallet.recharge')}</Text>
           </TouchableOpacity>
         ) : null}
       </View>
@@ -334,7 +342,7 @@ function UserInfoCardNew({
           activeOpacity={0.7}
           onPress={onUnsubscribe}
         >
-          <Text style={newStyles.unsubscribeText}>退订</Text>
+          <Text style={newStyles.unsubscribeText}>{tStatic('uiText.unsubscribe')}</Text>
         </TouchableOpacity>
       ) : null}
 
@@ -355,22 +363,27 @@ function UserInfoCardNew({
               {vipLevel || (isVip ? t('profile.levelVip') : t('memberBenefits.tnNormal'))}
             </Text>
             {isVip && vipExpireAt ? (
-              <Text style={newStyles.modalExpireText}>到期时间:{formatDateTime(vipExpireAt)}</Text>
+              <Text style={newStyles.modalExpireText}>
+                {tStatic('uiText.expiryTime')}
+                {formatDateTime(vipExpireAt)}
+              </Text>
             ) : null}
             <Text style={newStyles.modalDesc}>
               {isVip ? t('uiCard.vipBenefitBody') : t('uiCard.normalBenefitBody')}
             </Text>
             <View style={newStyles.modalBenefitList}>
-              <Text style={newStyles.modalBenefitItem}>· AI 助手免费次数增加</Text>
-              <Text style={newStyles.modalBenefitItem}>· 部分课程免费学习</Text>
-              <Text style={newStyles.modalBenefitItem}>· 建立专属知识库</Text>
+              <Text style={newStyles.modalBenefitItem}>{tStatic('uiText.benefitAiQuota')}</Text>
+              <Text style={newStyles.modalBenefitItem}>{tStatic('uiText.benefitFreeCourses')}</Text>
+              <Text style={newStyles.modalBenefitItem}>
+                {tStatic('uiText.benefitKnowledgeBase')}
+              </Text>
             </View>
             <TouchableOpacity
               style={newStyles.modalCloseBtn}
               activeOpacity={0.7}
               onPress={() => setLevelModalVisible(false)}
             >
-              <Text style={newStyles.modalCloseBtnText}>关闭</Text>
+              <Text style={newStyles.modalCloseBtnText}>{tStatic('a11y.close')}</Text>
             </TouchableOpacity>
           </View>
         </TouchableOpacity>
@@ -568,7 +581,7 @@ const newStyles = StyleSheet.create({
     paddingVertical: USER_INFO_CARD_ACTION_PADDING_Y_PX,
     borderRadius: rnRadius.sm,
     borderWidth: 1,
-    borderColor: tokens.text.tertiary,
+    borderColor: tokens.text.secondary,
   },
   unsubscribeText: {
     fontSize: USER_INFO_CARD_SMALL_FONT_PX,

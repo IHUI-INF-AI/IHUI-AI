@@ -106,7 +106,7 @@ export default function LiveHost() {
     } catch (e) {
       const msg = e instanceof Error ? e.message : tt('liveHost.startFailed', '开启直播失败')
       setError(msg)
-      onToast(msg, { kind: 'info' })
+      onToast(msg, { kind: 'error' })
     } finally {
       setLoading(false)
     }
@@ -127,7 +127,7 @@ export default function LiveHost() {
     } catch (e) {
       const msg = e instanceof Error ? e.message : tt('liveHost.endFailed', '结束直播失败')
       setError(msg)
-      onToast(msg, { kind: 'info' })
+      onToast(msg, { kind: 'error' })
     } finally {
       setLoading(false)
     }

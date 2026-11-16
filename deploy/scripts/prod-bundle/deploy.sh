@@ -105,6 +105,13 @@ else
     ok ".env.production 已存在,跳过生成(用 --force-regen 强制重生成)"
 fi
 
+# GitHub Releases API 认证令牌占位(web 服务端 downloads-live.ts 用):真实值由步骤 3 的
+# .env.secrets.from-dev 同名 key 覆盖注入,不入库。必须留此空占位——awk 合并只覆盖已存在的
+# 同名 key、不会新增,缺了它 secrets 里的 GITHUB_TOKEN 会丢,通道即断。幂等:已有该 key 则不动。
+if ! grep -qE '^[[:space:]]*GITHUB_TOKEN=' "$ENV_FILE"; then
+    printf '\nGITHUB_TOKEN=\n' >> "$ENV_FILE"
+fi
+
 # 自动从 TUNNEL_TOKEN.local.txt 填充 token(如果 .env.production 里是占位符)
 TOKEN_FILE="$PROJECT_ROOT/deploy/prod-bundle/cloudflared/TUNNEL_TOKEN.local.txt"
 if [[ -f "$TOKEN_FILE" ]]; then

@@ -23,13 +23,14 @@ import {
   FileCode,
   Server,
   ArrowUpNarrowWide,
+  Puzzle,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
 import type { PluginViewManifest } from '@/lib/plugin-view-runtime'
 
 /**
- * REA 逆向能力目录(静态数据,2026-11-15 立,同日三轮深挖扩至 32 条)。
+ * REA 逆向能力目录(静态数据,2026-11-15 立,同日深挖扩至 37 条)。
  *
  * 单一真相源:逆向证据 = REA(js_app_map)对四个 app.asar 的现场取证,
  * evidence_id 形如 `ev_<hex>`(本会话已存,core_evidence_browse 可回放)。
@@ -54,6 +55,12 @@ import type { PluginViewManifest } from '@/lib/plugin-view-runtime'
  *  - 三次深挖结论(2026-11-15):DSH 核心架构是 session-log 事件溯源 —— 沙箱模式/审批/
  *    agent 状态全为 log-only 事件,重启靠 replay 重建无外部 config;源码提取器
  *    .box-agent-scratch/dsh-rev/asar_extract.py(纯 Python 解 asar JSON header,不依赖 CLI)。
+ *  - 四次深挖(2026-11-15 R11/R12)补 sandbox-failure-attribution(跨后端失败归因表 +
+ *    exit-gate 防误判)+ plugin-host-vm-sandbox(cordis 双半插件 host,node:vm 扣留 API 重定向)。
+ *  - 五次深挖(2026-11-15 R13,逐程序对账非 DSH 程序)补 Trae 两处真遗漏:trae-sandbox-vm
+ *    (aha_sbox_v1 沙箱 VM 本体)+ trae-process-orchestration(harness/ai_agent/toolhost
+ *    socket 端口编排)。教训:不能拿只覆盖 DSH 的 gap-matrix 宣称全收口,WorkBuddy/Trae/Qoder
+ *    须各自逐项对账。
  */
 
 export const REA_SOURCES = ['qoder', 'trae', 'workbuddy', 'deepseek', 'rea'] as const
@@ -510,6 +517,48 @@ export const REA_CAPABILITIES: ReaCapability[] = [
     },
   },
   {
+    id: 'trae-sandbox-vm',
+    name: '沙箱 VM 本体(aha_sbox_v1:aiep_vm/aiep_sbox/aiep_ipc)',
+    category: 'sandbox-fs',
+    source: 'trae',
+    icon: Boxes,
+    summary:
+      '字节系 Rust 原生沙箱 SDK(aha_sbox_v1):vm_sdk.dll + sbox_sdk.dll + aiep_vm/aiep_sbox/aiep_ipc.dll 全 x64/x86,把工具执行放进 VM 级隔离环境(非单进程 sandbox),run_helper.exe 启动子进程。与 sandbox-network-policy(网络策略层)互补 —— 那条是策略,这条是隔离本体。IHUI exec_policy 是权限检查,不是 VM 级隔离。',
+    maturity: 'C',
+    target: '(借鉴) apps/ai-service 沙箱隔离层(exec_policy → VM 级)',
+    evidence: {
+      program: 'trae',
+      probe:
+        'trae-native-runtime 取证:_b_one-sandbox.json components[sandbox,type=security,label=沙箱 VM,tag=aha_sbox_v1] + trae-modules.json 文件清单 vm_sdk/sbox_sdk/aiep_vm/aiep_sbox/aiep_ipc/run_helper(x64+x86)',
+      file: 'G:\\Trae CN\\resources\\app(_b_one-sandbox.json 取证)',
+      version: '1.107.1',
+      sha8: '5da5939b',
+      measured:
+        '实测文件级取证(trae-modules.json size,sha8 用 _b_one-sandbox.json 重算):vm_sdk.dll 2582928B + sbox_sdk.dll 2320272B + aiep_vm.dll 917392B(x64)/698256B(x86) + aiep_sbox.dll 757648B(x64)/575888B(x86) + aiep_ipc.dll 577424B(x64)/435088B(x86) + run_helper.exe 682384B(x64)/545680B(x86) + trae-sandbox.exe 1254288B;aha_sbox_v1 全套 VM 隔离,非单进程 sandbox',
+    },
+  },
+  {
+    id: 'trae-process-orchestration',
+    name: '进程化 agent 运行时(harness/ai_agent/toolhost socket 编排)',
+    category: 'agent-runtime',
+    source: 'trae',
+    icon: Workflow,
+    summary:
+      '字节系把 AI 主体整块下沉到 Rust 原生层,拆成三个巨型 DLL 独立进程:harness.dll(263MB,Agent 编排/会话主控) + ai_agent.dll(285MB,Agent 主体/工具循环) + toolhost.dll(99MB,工具宿主/执行沙箱化),用 socket 端口编排通信。阶段化日志标签 stage=... 便于追踪。IHUI agent 是服务进程内组合,无进程化拆分与 socket 编排。',
+    maturity: 'C',
+    target: '(借鉴) apps/ai-service agent 进程化拆分(服务进程内 → 独立进程 socket 编排)',
+    evidence: {
+      program: 'trae',
+      probe:
+        'trae-native-runtime 取证:_b_one-harness.json components[harness,type=backend,tag=263MB Rust] + _b_one-aiagent.json components[aiagent,tag=285MB Rust] + _b_one-toolhost.json components[toolhost,tag=99MB+101MB] + _b_one-ipcbridge.json(ICube 桥接 71 通道)',
+      file: 'G:\\Trae CN\\resources\\app(_b_one-harness.json + _b_one-aiagent.json + _b_one-toolhost.json 取证)',
+      version: '1.107.1',
+      sha8: '72bc6192',
+      measured:
+        '实测文件级取证(trae-modules.json):ai_agent.dll 285523856B + harness.dll 264456080B + agent-tool-host.exe 99315088B + toolhost.dll 97991568B;架构主线 VSCode fork 外壳 + AI 主体整块下沉 Rust;可复用点:进程化拆分(socket 端口编排) + 阶段化日志 stage=;ICube 桥接 71 通道 100 运行时计算',
+    },
+  },
+  {
     id: 'longtask-observability',
     name: '渲染长任务/心跳观测 perf:renderer-*',
     category: 'process-governance',
@@ -759,6 +808,49 @@ export const REA_CAPABILITIES: ReaCapability[] = [
       sha8: '47862150',
       measured:
         '实测 6448 文件(4513 node_modules + 1934 out):主 chunk C3VLoyTK.js 431KB 为 obfuscator.io 字符串数组混淆(非 V8 字节码,import 节点清晰可读);node_modules 暴露 @modelcontextprotocol/sdk 397 + server 271 + client 269 + core 235(合计约 1172 MCP 文件)+ hono 376(web 框架)+ node-pty 83(伪终端)+ mammoth 75/docx + pdfjs-dist 380/PDF;562 个清晰依赖文件已提取归档到 .archify(本条 probe 为 ev_d8163ce3 现场取证)',
+    },
+  },
+  {
+    id: 'sandbox-failure-attribution',
+    name: '沙箱失败跨后端归因表(denial 方言 + exit-gate 防误判)',
+    category: 'sandbox-fs',
+    source: 'deepseek',
+    icon: ShieldCheck,
+    summary:
+      '把一条受限命令的 (exit_code, stderr) 归因为 denied/runner_fatal/business_failure/oom 四态:每后端一套否认方言(bwrap read-only fs / seatbelt operation not permitted / windows-acl access denied),runner 自身致命规则带退出码 gate(防"命令仅打印签名"被误判成"没跑起来"),各后端声明执行完整性(bwrap/seatbelt=full, windows-acl=partial 因 NTFS 硬链接别名+读不设限,landlock 经 probe 定 full/partial)。IHUI os_sandbox.py 1831 行仅靠 exit code + 一处 MemoryError 字符串判断,退出码非 0 无法区分"被沙箱拒"vs"launcher 崩"vs"业务失败" —— 真缺,已复现 sandbox_failure_classifier.py(17 测试全过)。',
+    maturity: 'A',
+    target:
+      'apps/ai-service/app/core/sandbox_failure_classifier.py(已复现,classify_sandbox_failure 纯函数)',
+    evidence: {
+      program: 'deepseek',
+      probe:
+        'ev_db087d40 (js_app_map DSH 0.2.2-rc.2) dsh-sandbox-local/index.ts DENIAL_SIGNATURES(:220-231,4 后端方言)+ RUNNER_FAILURE_RULES(:245-256,exit-gate 127/125)+ STATIC_ENFORCEMENT(:201-206,bwrap/seatbelt=full windows-acl=partial);防误判契约 :237-240 "a confined command that merely PRINTS the signature is never misclassified as the command did not run"',
+      file: '.archify/deepseek-agent-core-src/dsh-sandbox-local__index.js',
+      version: 'dsh-desktop 0.2.2-rc.2',
+      sha8: 'db087d40',
+      measured:
+        '实测 DENIAL_SIGNATURES 四后端方言 + RUNNER_FAILURE_RULES(windows_acl exit-127 / landlock exit-125 informational 行)/ STATIC_ENFORCEMENT 三档;复现 sandbox_failure_classifier.py classify_sandbox_failure 纯函数(不 spawn,四态+exit-gate+enforcement),test_sandbox_failure_classifier.py 17 测试(pytest .venv 实跑 17 passed)覆盖 bwrap/seatbelt/windows-acl denied、windows_acl runner_fatal exit-gated、landlock informational 降级 denied、exit-gate 防误判、probe 覆盖静态 enforcement',
+    },
+  },
+  {
+    id: 'plugin-host-vm-sandbox',
+    name: '双半插件宿主运行时(node:vm 沙箱 + 扣留 API 重定向)',
+    category: 'plugin',
+    source: 'deepseek',
+    icon: Puzzle,
+    summary:
+      "动态包 host half 源码在全新 node:vm realm 求值:故意扣留 require/fetch/计时器(调用即抛带 cordis 服务重定向指引:inject['fs']/['web']/['bash']),只保留 tagged console/harness 注册对/编码原语;vm timeout 只限同步段(async 逃逸是接受的信任立场);跨 realm SyntaxError 判定必须用 error.name 而非 instanceof(vm 在沙箱 realm 构造错误,宿主 instanceof 静默 false)。定位:架构件(权威 gap-matrix §12 判「不复制」——IHUI 服务进程内组合,单机插件调试面不适配多租户平台),复现其沙箱边界以供借鉴 + 借扣留表/跨 realm 判定两处通用安全机制。已复现 plugin_host_vm_sandbox.py(13 测试)。",
+    maturity: 'C',
+    target: '(借鉴) apps/ai-service/app/core/plugin_host_vm_sandbox.py(沙箱构造 + 失败归类纯函数)',
+    evidence: {
+      program: 'deepseek',
+      probe:
+        'ev_db087d40 (js_app_map DSH 0.2.2-rc.2) dsh-cordis-host-runner/index.js(104837 字节)node:vm import(:510) + createSandbox(:48995,扣留表注入) + NODE_API_REDIRECTS(7 API 重定向) + isSyntaxError realm-safe 判定(:49657) + evaluateHostCode(:54214,timeout 仅同步段 + isPlugin 检查 :92236)',
+      file: '.archify/deepseek-agent-core-src/dsh-cordis-host-runner__index.js',
+      version: 'dsh-desktop 0.2.2-rc.2',
+      sha8: 'db087d40',
+      measured:
+        "实测 createSandbox 构造(nodeApiTraps + taggedConsole + harness 注册对 + btoa/atob/TextEncoder/TextDecoder + patchDualRealmInstanceof);NODE_API_REDIRECTS 表:require → cordis fs/web/bash 服务 + inject 数组,fetch → ctx.web,计时器 → TIMER_REDIRECT(禁 async 延迟);vm timeout 信任立场如实声明;isSyntaxError 用 error.name === 'SyntaxError'(realm 安全);复现 plugin_host_vm_sandbox.py(test_plugin_host_vm_sandbox.py 13 passed:扣留表完整性、require/fetch 重定向、跨 realm instanceof、四态失败归类、plugin 形状守卫、sync timeout caveat)",
     },
   },
 ]

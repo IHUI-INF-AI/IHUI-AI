@@ -37,7 +37,10 @@ vi.mock('../src/context/ThemeContext', () => ({
   useTheme: () => ({ resolvedTheme: 'light', colorScheme: 'light' }),
 }))
 vi.mock('../src/context/AuthContext', () => ({ useAuth: () => ({ user: { id: 7 } }) }))
-vi.mock('../src/i18n', () => ({ useI18n: () => ({ t: tMock }) }))
+vi.mock('../src/i18n', () => ({
+  t: (key: string) => key,
+  useI18n: () => ({ t: tMock }),
+}))
 vi.mock('@react-navigation/native', () => ({ useNavigation: () => navMock }))
 
 import { ActivityScreen } from '../src/screens/ActivityScreen'

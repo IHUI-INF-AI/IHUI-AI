@@ -144,7 +144,8 @@ export function buildChatShellProps(ctx: ChatShellCtx): ChatScreenProps {
     inputValue,
     setInputValue,
     pendingQuestion,
-    setPendingQuestion,
+    onSubmitQuestionAnswer,
+    onWithdrawQuestion,
     imgsList,
     sendMessage,
     handleImageAdd,
@@ -246,6 +247,7 @@ export function buildChatShellProps(ctx: ChatShellCtx): ChatScreenProps {
           </Text>
         </View>
         <Image
+          ariaLabel={t('ai.history.title')}
           src={fileIcon}
           className="nav-history w-[30rpx] h-[30rpx]"
           mode="aspectFit"
@@ -298,6 +300,8 @@ export function buildChatShellProps(ctx: ChatShellCtx): ChatScreenProps {
         <View className="material-tag">
           <Text className="material-tag-text">{selectedMaterial.title}</Text>
           <LineIcon
+            ariaRole="button"
+            ariaLabel={t('a11y.closeTag')}
             name="x"
             size={32}
             color="var(--color-muted-foreground)"
@@ -402,17 +406,25 @@ export function buildChatShellProps(ctx: ChatShellCtx): ChatScreenProps {
     <View className="input-box-content safe-area-bottom">
       <View className="tool-icons">
         <Image
+          ariaLabel={t('ai.materialPopup.title')}
           src={floderInputIcon}
           className="tool-icon w-[40rpx] h-[40rpx]"
           mode="aspectFit"
           onClick={openMaterialDrawer}
         />
         <LineIcon
+          ariaRole="button"
+          ariaLabel={t('aiSkill.title')}
           name="brain"
           size={40}
           color="var(--color-muted-foreground)"
           className="tool-icon w-[40rpx] h-[40rpx]"
-          onClick={openSkillsPopup}
+          onClick={(e) => {
+            // 技能图标嵌在输入区内,不 stopPropagation 会穿透触发外层 onFocus/onClick,
+            // 弹起键盘后又立刻被弹层顶掉。
+            e.stopPropagation()
+            openSkillsPopup()
+          }}
         />
       </View>
       <InputArea
@@ -543,11 +555,11 @@ export function buildChatShellProps(ctx: ChatShellCtx): ChatScreenProps {
             zIndex: 999,
             padding: '16px',
             borderRadius: rnRadius.xl,
-            backgroundColor: '#ffffff',
+            backgroundColor: 'var(--color-card)',
             boxShadow: '0 2px 12px rgba(0,0,0,0.18)',
           }}
         >
-          <Text style={{ fontSize: '15px', fontWeight: 'bold', color: '#222222' }}>
+          <Text style={{ fontSize: '15px', fontWeight: 'bold', color: 'var(--color-foreground)' }}>
             {pendingQuestion.prompt}
           </Text>
           {pendingQuestion.options.map((o: { id: string; label: string }) => (
@@ -555,26 +567,32 @@ export function buildChatShellProps(ctx: ChatShellCtx): ChatScreenProps {
               key={o.id}
               hoverClass="opacity-60"
               onClick={() => {
-                setInputValue(o.label)
-                setPendingQuestion(null)
+                // 2026-11-13 修:旧实现只把 label 填回输入框(用户还得手动发一轮普通对话),
+                // 那条挂着的流仍在等 question-response ⇒ 答了等于没答。
+                // 现在直接提交答案并续流,与 web / extension / cli 同一链路。
+                void onSubmitQuestionAnswer([o.id], '')
               }}
               style={{
                 marginTop: '10px',
                 padding: '10px',
                 borderRadius: rnRadius.lg,
                 borderWidth: '1px',
-                borderColor: '#dddddd',
+                borderColor: 'var(--color-border)',
               }}
             >
-              <Text style={{ fontSize: '14px', color: '#333333' }}>{o.label}</Text>
+              <Text style={{ fontSize: '14px', color: 'var(--color-foreground)' }}>{o.label}</Text>
             </View>
           ))}
           <View
             hoverClass="opacity-60"
-            onClick={() => setPendingQuestion(null)}
+            onClick={() => {
+              // 2026-11-13 修:旧实现只在前端清卡片,服务端那条流仍在等答复(等满超时)。
+              // 现在走 withdraw 让服务端把这一问结算掉,流才能及时收场。
+              onWithdrawQuestion()
+            }}
             style={{ marginTop: '10px', padding: '8px' }}
           >
-            <Text style={{ fontSize: '13px', color: '#888888' }}>
+            <Text style={{ fontSize: '13px', color: 'var(--color-muted-foreground)' }}>
               {pendingQuestion.allowCustom
                 ? pendingQuestion.allowMultiple
                   ? '可多选 / 自行输入,也可关闭'
@@ -627,6 +645,8 @@ export function buildChatShellProps(ctx: ChatShellCtx): ChatScreenProps {
                 {t('ai.chatMessageItem.thinkingProcess')}
               </Text>
               <LineIcon
+                ariaRole="button"
+                ariaLabel={t('a11y.close')}
                 name="x"
                 size={32}
                 color="var(--color-muted-foreground)"

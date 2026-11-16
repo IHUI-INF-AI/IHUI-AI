@@ -2083,8 +2083,23 @@ async function main(argv = process.argv.slice(2)) {
     )
     return 2
   }
+  // R5 撞号取材面(2026-11-14 收口自锁):撞号是"注册表自身的结构性自撞",而"同一枚提交里
+  // 既修撞号、又新立判据"是正确姿势 —— 只读 HEAD 会让这枚修复提交被自己刚上线的判据看着
+  // HEAD 旧面判红 ⇒ 逼人 --no-verify ⇒ 全部守门作废(与 R8/R13 在下方为同一症结开的"索引
+  // 优先"条例逐字同源)。故 --staged 档优先读索引(= 本枚提交将要带走的内容):索引里仍有
+  // 撞号 ⇒ 修复没落地,照红;索引已无撞号而 HEAD 有 ⇒ 本次正是修复提交,放行。非 --staged
+  // 档仍读 HEAD,行为不变。
+  let r5Text = runnerHead
+  if (opts.staged) {
+    const idxRunner = blobOf(`:${RUNNER_REL}`)
+    if (idxRunner === null) {
+      console.log('   ⚠️ R5 取不到索引版 guardian-runner(索引 blob 不存在)⇒ 退回 HEAD 面')
+    } else {
+      r5Text = idxRunner
+    }
+  }
   const runnerText = runnerHead
-  const dupIds = findDuplicateIds(runnerText)
+  const dupIds = findDuplicateIds(r5Text)
   // R13 两道门被合并进同一个对象 ⇒ 被吞的那道**从注册表静默消失**(R5 看不见,因为 id 不重复)。
   // 判序放在下面 R8 之后:它必须与 R8/R9 吃**同一张注册面**(--staged 读索引),否则"造出合并的那枚
   // 提交"反而能过关,红要等下一次提交才响 —— 而注册表被吞的代价正是那枚提交里的门从没跑过。

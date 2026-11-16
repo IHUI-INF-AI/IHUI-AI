@@ -28,15 +28,23 @@ export interface DistributionSummary {
 /**
  * 分销概览字段一一映射：可提现取 availableCommission（不是待结算 pendingCommission），
  * 团队人数取 invitedCount，等级取 level。原实现把待结算当可提、等级/团队恒 0。
+ *
+ * 数值归一对齐 order-normalize 的正面样板:Number("")=0 会掩盖异常、Number("abc")/Number(undefined)=NaN
+ * 会透传 UI,故用 Number.isFinite 收口,脏数据一律回落 0(与 order-normalize 同一口径,不另起第二把尺)。
  */
+function toFiniteNumber(value: number | string | null | undefined, fallback = 0): number {
+  const n = Number(value ?? fallback)
+  return Number.isFinite(n) ? n : fallback
+}
+
 export function normalizeDistributionOverview(row: DistributionOverviewRow): DistributionSummary {
   return {
-    level: Number(row.level ?? 0),
-    totalCommission: Number(row.totalCommission ?? 0),
-    available: Number(row.availableCommission ?? 0),
-    pendingCommission: Number(row.pendingCommission ?? 0),
-    withdrawn: Number(row.withdrawnCommission ?? 0),
-    teamCount: Number(row.invitedCount ?? 0),
+    level: toFiniteNumber(row.level),
+    totalCommission: toFiniteNumber(row.totalCommission),
+    available: toFiniteNumber(row.availableCommission),
+    pendingCommission: toFiniteNumber(row.pendingCommission),
+    withdrawn: toFiniteNumber(row.withdrawnCommission),
+    teamCount: toFiniteNumber(row.invitedCount),
     inviteCode: row.inviteCode ?? null,
   }
 }

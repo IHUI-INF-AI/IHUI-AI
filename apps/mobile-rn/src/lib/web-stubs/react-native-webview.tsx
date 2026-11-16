@@ -10,6 +10,7 @@
  * 渲染占位提示。调用方:WebViewScreen / ChatToolsScreen(默认导出)。
  */
 
+import { t as tStatic } from '../../i18n'
 import { View, Text, StyleSheet, type ViewStyle, type StyleProp } from 'react-native'
 import { rnTokens as tk, rnSpacing, rnType } from '@ihui/design-tokens'
 
@@ -25,7 +26,7 @@ const WebViewStub = function WebViewStub(props: WebViewStubProps) {
   const uri = props.source?.uri ?? ''
   return (
     <View style={[styles.container, props.style]}>
-      <Text style={styles.text}>内嵌网页暂不支持浏览器预览</Text>
+      <Text style={styles.text}>{tStatic('uiText.webviewWebPreviewUnsupported')}</Text>
       {uri ? <Text style={styles.uri}>{uri}</Text> : null}
     </View>
   )

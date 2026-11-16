@@ -52,7 +52,8 @@ export interface DownloadEntry {
   /** i18n desc key(可选,i18n 文件可省略) */
   descKey?: string
   /** 下载链接(内部路径或外部 URL,http(s):// 开头视为外链新窗口打开)
-   *  - 空字符串表示该端未接入,UI 显示"即将上线"占位
+   *  - 空字符串表示该端未接入,UI 显示"即将上线"占位(现仅 android-apk / 小程序)
+   *  - iOS 自 2026-11-16 起底稿自足:回落 /download/ios,不再返回空串 ⇒ 不会置灰
    *  - /download/[platform] 路由表示跳转到详情页
    *  - http(s):// 或 /downloads/... 表示直接下载文件 */
   href: string
@@ -197,6 +198,7 @@ export function isExternalDownloadHref(href: string): boolean {
  * - 角标显示 "soon" / "即将上线" Badge
  *
  * `web` 端始终可用(首页路由 /);其他端按 href 是否为空判断。
+ * iOS 自 2026-11-16 起 href 回落 /download/ios,故恒为已接入 —— 这正是不再置灰的关键。
  */
 export function isDownloadAvailable(platform: DownloadPlatform): boolean {
   if (platform === 'web') return true

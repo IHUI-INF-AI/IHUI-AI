@@ -66,7 +66,7 @@ function EduEnrollmentScreen() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [t])
 
   useEffect(() => {
     void load()

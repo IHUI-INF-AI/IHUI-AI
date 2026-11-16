@@ -18,6 +18,9 @@
  *    git-guardian 计划任务每 2 分钟常驻,由它派发本脚本才谈得上「永久」。
  *  - 发信一律经 apps/api/scripts/notify-deploy-failure.ts 唯一出口(§5e / 守门 81),
  *    收件人不在此解析(交出口自读 ALERT_EMAIL_TO),不传 --env-file。
+ *  - 喊人是双向的(2026-11-16):掉线/摘除 ⇒ warning 告警(relay-keepalive-*);
+ *    「巡检前还在告警集合、巡检后退出」⇒ info 复活通知(relay-keepalive-revival-*)。
+ *    两把身份前缀不同,互不顶掉去重窗;复活判据复用同一个 alertTargetsOf,零第二份口径。
  *  - 喊人的身份 = provider + uid 前缀,不含计数/时刻/异常原文(守门 224:抖动进身份 = 每轮一封信)。
  */
 import fs from 'node:fs'
@@ -70,6 +73,32 @@ export function alertTargetsOf(keepAlive) {
 /** 去重身份:provider + uid 前 8 位(稳定形态,不含会抖的量) */
 export function alertIdOf(row) {
   return `relay-keepalive-${row.providerCode}-${String(row.uid).slice(0, 8)}`
+}
+
+/**
+ * 复活判据(2026-11-16 补「喊人」的对称半格):机主此前只收到"死了"的通知、从没收到"活了",
+ * 状态跃迁静默 ⇒ "为什么又死了"只能靠翻面板。这里把「巡检前快照还在喊人集合、巡现读已退出」
+ * 的行如实报出来。
+ *  - 判据单源:两侧"在不在喊人集合"一律复用 alertTargetsOf,不另起一套复活定义(§0.6);
+ *  - 只在两侧快照出现同一行(id 相等)时才算复活;行消失(取消登记/出池)不算 —— 取消登记不是起死回生;
+ *  - 任一侧取不到 ⇒ null(未判定):不发信,更不得把"没有 before"写成"本轮无复活"(§0.3,
+ *    旧版 ts 产物不带 before 快照的混跑期就走这一档)。
+ */
+export function revivalTransitionsOf(before, after) {
+  if (!Array.isArray(before) || !Array.isArray(after)) return null
+  const afterById = new Map(after.map((r) => [String(r.id), r]))
+  const out = []
+  for (const b of alertTargetsOf(before)) {
+    const a = afterById.get(String(b.id))
+    if (!a) continue
+    if (alertTargetsOf([a]).length === 0) out.push({ before: b, after: a })
+  }
+  return out
+}
+
+/** 复活去重身份:与告警前缀不同(两件事两种修法);provider + uid 前 8 位,零抖动量(守门 224) */
+export function revivalAlertIdOf(row) {
+  return `relay-keepalive-revival-${row.providerCode}-${String(row.uid).slice(0, 8)}`
 }
 
 /** 跑 ts 侧脚本;stdout 只取最后一枚可解析 JSON 行(db 连接等噪音不进结论) */
@@ -195,6 +224,84 @@ function sendAlertMail(targets) {
   return sent
 }
 
+/**
+ * 复活通知发信。severity=info,同走唯一出口 notify-deploy-failure.ts(§5e/守门 81);
+ * 去重身份 = relay-keepalive-revival-*,24h 窗(号反复好坏翻转也不刷屏;真恢复必有一封)。
+ * 出口/tsx 不在位 ⇒ 报「未判定」,不冒充已发(§0.3)。返回投递枚数。
+ */
+function sendRevivalMail(transitions) {
+  if (transitions.length === 0) return 0
+  if (!fs.existsSync(MAIL_SCRIPT)) {
+    process.stderr.write('⚠️ 复活邮件未判定:唯一出口不在位(notify-deploy-failure.ts)\n')
+    return 0
+  }
+  const tsx = resolveTsxCli(ROOT)
+  if (!tsx) {
+    process.stderr.write('⚠️ 复活邮件未判定:未找到 tsx,出口无法执行\n')
+    return 0
+  }
+  fs.mkdirSync(TMP_DIR, { recursive: true })
+  let sent = 0
+  for (const t of transitions) {
+    const row = t.after
+    const msgFile = path.join(TMP_DIR, `revival-${revivalAlertIdOf(row)}.md`)
+    // 无 BOM UTF-8 正文(§5e:多行中文一律走 --message-file)
+    fs.writeFileSync(
+      msgFile,
+      [
+        `号池永久保活复活:${row.providerCode}/${row.uid}(${row.name ?? '-'})`,
+        '',
+        `本轮跃迁:健康 ${t.before.healthStatus} → ${row.healthStatus};摘除 ${t.before.tempUnschedulable ? '是' : '否'} → ${row.tempUnschedulable ? '是' : '否'}`,
+        `token 到期: ${row.tokenExpiresAt ?? '-'};最近刷新: ${row.lastRefreshAt ?? '-'}`,
+        `凭证代次 credVersion: ${t.before.credVersion ?? '?'} → ${row.credVersion ?? '?'}`,
+        `此前告警期间的错误: ${String(t.before.lastErrorMessage ?? '-').slice(0, 200)}`,
+        '',
+        '这枚号已退出「需要喊人」集合,重新纳入续期调度;无需人工动作。',
+        '若它再次掉线,会另收到「号池永久保活告警」(身份不同,不混发)。',
+        '复核出口: node scripts/relay-account-keepalive.mjs --status',
+      ].join('\n'),
+      'utf8',
+    )
+    const r = spawnSync(
+      process.execPath,
+      [
+        tsx,
+        MAIL_SCRIPT,
+        '--title',
+        `号池永久保活复活 ${row.providerCode}/${String(row.uid).slice(0, 8)}`,
+        '--severity',
+        'info',
+        '--source',
+        'relay-account-keepalive',
+        '--alert-id',
+        revivalAlertIdOf(row),
+        '--dedupe-hours',
+        '24',
+        '--message-file',
+        msgFile,
+      ],
+      {
+        cwd: ROOT,
+        windowsHide: true,
+        stdio: ['ignore', 'pipe', 'pipe'],
+        encoding: 'utf8',
+        timeout: 60_000,
+      },
+    )
+    try {
+      fs.unlinkSync(msgFile)
+    } catch {
+      /* 用完即删,删不掉不遮蔽主流程 */
+    }
+    if (r.status === 0) sent++
+    else
+      process.stderr.write(
+        `⚠️ 复活邮件未送达(${revivalAlertIdOf(row)}):${String(r.stderr ?? '').slice(-200)}\n`,
+      )
+  }
+  return sent
+}
+
 async function main(argv) {
   const parsed = parseArgs(argv)
   if (parsed.help) {
@@ -252,6 +359,22 @@ async function main(argv) {
     sent = sendAlertMail(targets)
     process.stderr.write(`保活告警:需喊人 ${targets.length} 枚,已投递 ${sent} 封\n`)
   }
+  // 复活通知(2026-11-16):两侧读数都由 ts 侧同一把 listKeepAliveForever 现读(前=巡检前,
+  // 后=巡检后);判据 = 上面同一个 alertTargetsOf。before 缺失 ⇒ null = 未判定,不冒充"无复活"。
+  // state 词汇表刻意不动(guardian 按 ok/alert/undetermined 节流);复活只进附加键。
+  const transitions = revivalTransitionsOf(
+    Array.isArray(run.json?.keepAliveBefore) ? run.json.keepAliveBefore : null,
+    Array.isArray(run.json?.keepAlive) ? run.json.keepAlive : null,
+  )
+  let recoveryMailed = 0
+  if (transitions === null) {
+    process.stderr.write('ℹ️ 复活通知未判定:汇总缺巡检前快照(keepAliveBefore),不冒充"无复活"\n')
+  } else if (transitions.length > 0) {
+    recoveryMailed = sendRevivalMail(transitions)
+    process.stderr.write(
+      `复活通知:退出喊人集合 ${transitions.length} 枚,已投递 ${recoveryMailed} 封\n`,
+    )
+  }
   // 结论行(ASCII 单行,供 git-guardian 判读):state 三态绝不并桶 ——
   // 汇总取不到 ⇒ undetermined,不得写成 ok(§0.3「没判」不写成「判过」)。
   const sweep = run.json?.sweep ?? null
@@ -262,7 +385,8 @@ async function main(argv) {
       ` refreshed=${sweep?.refreshed ?? '?'} refreshFailed=${sweep?.refreshFailed ?? '?'}` +
       ` keepalive=${sweep?.keepalive ?? '?'} heartbeat=${run.json?.heartbeated ?? '?'}` +
       ` foreverDeferred=${sweep?.foreverDeferred ?? '?'}` +
-      ` alerts=${targets.length} mailed=${sent}\n`,
+      ` alerts=${targets.length} mailed=${sent}` +
+      ` recovered=${transitions === null ? '?' : transitions.length} recoveryMailed=${transitions === null ? '?' : recoveryMailed}\n`,
   )
   return run.code
 }
@@ -277,5 +401,11 @@ if (isDirectRun) {
     })
 }
 
-export const __test__ = { parseArgs, alertTargetsOf, alertIdOf }
+export const __test__ = {
+  parseArgs,
+  alertTargetsOf,
+  alertIdOf,
+  revivalTransitionsOf,
+  revivalAlertIdOf,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

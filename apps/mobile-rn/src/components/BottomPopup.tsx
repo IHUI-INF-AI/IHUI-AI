@@ -29,7 +29,7 @@ import {
 } from 'react-native'
 import { tokens } from '../theme/active-tokens'
 import type { VipLevelItem2 } from '@ihui/rn-app'
-import { useI18n } from '../i18n'
+import { useI18n, t as tStatic } from '../i18n'
 
 export interface BottomPopupProps {
   visible: boolean
@@ -94,7 +94,7 @@ export function BottomPopup({ visible, onClose, levels, onConfirm }: BottomPopup
         <View style={styles.sheet}>
           <View style={styles.header}>
             <Text style={styles.title} numberOfLines={1}>
-              选择会员档位
+              {tStatic('uiText.selectMembershipTier')}
             </Text>
             {/* 关闭钮这一档只有宽/高/居中三条纯布局档(无底色无描边),所以盒子留在外层即可,
                 只把按压态的透明度下移到子 View —— 它没有背景可画,内外两层的观感全等;
@@ -115,7 +115,7 @@ export function BottomPopup({ visible, onClose, levels, onConfirm }: BottomPopup
               )}
             </Pressable>
           </View>
-          <Text style={styles.subtitle}>选择档位后点击立即开通</Text>
+          <Text style={styles.subtitle}>{tStatic('uiText.selectTierThenActivate')}</Text>
 
           <ScrollView
             style={styles.levelsScroll}
@@ -123,7 +123,7 @@ export function BottomPopup({ visible, onClose, levels, onConfirm }: BottomPopup
             showsVerticalScrollIndicator={false}
           >
             {levels.length === 0 ? (
-              <Text style={styles.emptyText}>暂无可选档位</Text>
+              <Text style={styles.emptyText}>{tStatic('uiText.noTiersAvailable')}</Text>
             ) : (
               levels.map((level) => {
                 const selected = selectedId === level.id
@@ -155,7 +155,8 @@ export function BottomPopup({ visible, onClose, levels, onConfirm }: BottomPopup
                             style={[styles.levelMeta, scaleText(styles.levelMeta)]}
                             allowFontScaling={false}
                           >
-                            {level.durationDays} 天 · Lv.{level.levelValue}
+                            {level.durationDays} {tStatic('uiText.daysAndLevel')}
+                            {level.levelValue}
                           </Text>
                         </View>
                         <Text
@@ -189,7 +190,7 @@ export function BottomPopup({ visible, onClose, levels, onConfirm }: BottomPopup
                   pressed ? styles.confirmButtonPressed : null,
                 ]}
               >
-                <Text style={styles.confirmButtonText}>立即开通</Text>
+                <Text style={styles.confirmButtonText}>{t('vipScreen.subscribe')}</Text>
               </View>
             )}
           </Pressable>

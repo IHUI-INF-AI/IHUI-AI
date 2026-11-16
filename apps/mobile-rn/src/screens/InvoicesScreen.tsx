@@ -244,7 +244,7 @@ export default function InvoicesScreen() {
         ) : null}
 
         {loading ? (
-          <ActivityIndicator style={styles.stateBox} color={tokens.text.tertiary} />
+          <ActivityIndicator style={styles.stateBox} color={tokens.text.secondary} />
         ) : failed ? (
           <View style={styles.stateBox}>
             <Text style={styles.errorText}>{t('invoices.loadFailed')}</Text>
@@ -254,7 +254,7 @@ export default function InvoicesScreen() {
           </View>
         ) : rows.length === 0 ? (
           <View style={styles.stateBox}>
-            <FileText size={28} color={tokens.text.tertiary} />
+            <FileText size={28} color={tokens.text.secondary} />
             <Text style={styles.muted}>{t('invoices.empty')}</Text>
           </View>
         ) : (

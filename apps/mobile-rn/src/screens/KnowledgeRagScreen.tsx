@@ -206,7 +206,7 @@ export function KnowledgeRagScreen() {
         value={query}
         onChangeText={setQuery}
         placeholder={t('common.searchPlaceholder')}
-        placeholderTextColor={dark ? tokens.text.secondary : tokens.text.tertiary}
+        placeholderTextColor={dark ? tokens.text.secondary : tokens.text.secondary}
         returnKeyType="search"
         onSubmitEditing={() => {
           void onSearch()

@@ -38,11 +38,16 @@ describe('BUG-67 提问卡:页级浮层 → 共享屏 overlaySlot', () => {
     expect(PAGE_RETURN).not.toContain('<View')
   })
 
-  it('浮层的两个业务态经 shellCtx 传入共享壳装配层', () => {
+  it('浮层的业务态经 shellCtx 传入共享壳装配层', () => {
     expect(CHAT_SRC).toMatch(/\n\s+pendingQuestion,/u)
-    expect(CHAT_SRC).toMatch(/\n\s+setPendingQuestion,/u)
     expect(SHELL_SRC).toMatch(/\n\s+pendingQuestion,/u)
-    expect(SHELL_SRC).toMatch(/\n\s+setPendingQuestion,/u)
+    // 2026-11-13 改判:`setPendingQuestion` **不再**经 shellCtx 传。
+    // 旧版把 setter 直接交给浮层,于是选项点击只能 `setInputValue(label)` + `setPendingQuestion(null)`
+    // —— 那是"填回输入框让用户手动再发"的错链路(见下一个用例的注释)。
+    // 现在壳层拿的是两个语义回调,不再持有 state setter(也顺带收窄了壳层能改的状态面)。
+    expect(SHELL_SRC).not.toMatch(/\n\s+setPendingQuestion,/u)
+    expect(SHELL_SRC).toMatch(/\n\s+onSubmitQuestionAnswer,/u)
+    expect(SHELL_SRC).toMatch(/\n\s+onWithdrawQuestion,/u)
   })
 
   it('6 个节点整体挂在 overlaySlot 内,定位与层级与原页级浮层等价', () => {
@@ -58,12 +63,25 @@ describe('BUG-67 提问卡:页级浮层 → 共享屏 overlaySlot', () => {
     expect(OVERLAY_BLOCK).toMatch(/key=\{o\.id\}/u)
   })
 
-  it('选项点击先回写输入框再收卡;关闭只收卡,不吞掉已有输入', () => {
-    expect(OVERLAY_BLOCK).toMatch(
-      /onClick=\{\(\) => \{\s*setInputValue\(o\.label\)\s*setPendingQuestion\(null\)/u,
-    )
-    // 允许 View 上带按压反馈属性(hoverClass)后再跟 onClick —— A3 交互卫生要求可点元素带反馈。
-    expect(OVERLAY_BLOCK).toMatch(/<View\b[^>]*onClick=\{\(\) => setPendingQuestion\(null\)\}/u)
+  /**
+   * 2026-11-13 改判:旧断言锁的是**错链路**,必须换掉。
+   *
+   * 旧实现:选项点击 `setInputValue(o.label)` + `setPendingQuestion(null)` ——
+   * 把 label 填回输入框,让用户手动再发一轮**普通对话**。后果三条:
+   *   ① 没调 `/question-response` 续流,服务端那条挂着的流仍在等答复(最终超时);
+   *   ② `questionId` 被丢掉,服务端无从配对;
+   *   ③ 原 assistant 的 pendingQuestion 状态永不清除。
+   * 也就是说"点了有反应",但反应与"回答这个提问"无关 —— 比不给卡片更糟。
+   *
+   * 现断言:点击走 `onSubmitQuestionAnswer`(提交答复并续流),关闭走 `onWithdrawQuestion`
+   * (让服务端把这一问结算成 withdrawn,流才能及时收场,而不是等满超时)。
+   */
+  it('选项点击提交答复并续流;关闭提交撤回(不再"填回输入框")', () => {
+    expect(OVERLAY_BLOCK).toMatch(/onSubmitQuestionAnswer\(\[o\.id\], ''\)/u)
+    expect(OVERLAY_BLOCK).toMatch(/onWithdrawQuestion\(\)/u)
+    // 反向:不得再出现"填回输入框"的旧链路,也不得只在前端清卡片
+    expect(OVERLAY_BLOCK).not.toMatch(/setInputValue\(o\.label\)/u)
+    expect(OVERLAY_BLOCK).not.toMatch(/onClick=\{\(\) => setPendingQuestion\(null\)\}/u)
   })
 
   it('可多选 / 可自定义 / 关闭三态文案与 BUG-67 原文逐字相同', () => {

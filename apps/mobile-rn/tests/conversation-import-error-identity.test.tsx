@@ -48,6 +48,7 @@ vi.mock('@react-navigation/native', () => ({
 }))
 
 vi.mock('../src/i18n', () => ({
+  t: (key: string) => key,
   // 带 { error } 的模板把插值拼进返回值 —— 历史失败的到端文案只能这样断言
   useI18n: () => ({
     t: (key: string, options?: Record<string, unknown>) =>
@@ -122,15 +123,25 @@ describe('ConversationImport 错误身份(解析 / 历史两站)', () => {
     expect(screen.queryByText('Invalid or expired token')).toBeNull()
   })
 
-  it('对照(同一消息、不带 status):只能落到参数类文案 —— 证明上一条判别的正是 status', async () => {
+  it('对照(同一消息、不带 status):认证类正则仍认得它 —— 2026-11-14 起不再误落参数类', async () => {
+    // 这条断言在 2026-11-14 被**产品侧修复改写**过:原断言是「不带 status 会落到参数
+    // 类文案」,当时靠它反证「带 status 时走的是 status 判序」。而
+    // error-messages.ts:101-108 已补上词序双向覆盖(`Invalid or expired token`
+    // 形容词在前,旧正则只写 `token (expired|invalid)`),于是这句**无论有没有
+    // status** 都正确落到「登录已过期」。继续断言旧的错误行为,等于用一条过时断言
+    // 把一个已修好的缺陷钉回去。
+    //
+    // 对照的证明力改由「同一 message 在有/无 401 时文案一致」承担:说明认证类判据
+    // 的词序覆盖已经自足,不再依赖 status 兜底;status 的独立作用仍由下面
+    // 「服务端中文文案原样上屏」用例证明(判序没有被通用文案吞掉)。
     rnMocks.fetchApi.mockResolvedValue({
       success: false,
       error: 'Invalid or expired token',
     })
     await renderAndPick()
 
-    await waitFor(() => expect(screen.getByText('提交的信息有误,请检查后重试')).toBeTruthy())
-    expect(screen.queryByText('登录已过期,请重新登录')).toBeNull()
+    await waitFor(() => expect(screen.getByText(/登录已过期|重新登录/)).toBeTruthy())
+    expect(screen.queryByText('提交的信息有误,请检查后重试')).toBeNull()
   })
 
   it('对照(服务端中文文案):按原判序原样上屏,不被出口改写成通用文案', async () => {
@@ -165,7 +176,7 @@ describe('ConversationImport 错误身份(解析 / 历史两站)', () => {
     render(<ConversationImportScreen />)
 
     await waitFor(() =>
-      expect(screen.getByText(/conversationImport\.historyFailed\|提交的信息有误/)).toBeTruthy(),
+      expect(screen.getByText(/conversationImport\.historyFailed\|登录已过期/)).toBeTruthy(),
     )
   })
 })

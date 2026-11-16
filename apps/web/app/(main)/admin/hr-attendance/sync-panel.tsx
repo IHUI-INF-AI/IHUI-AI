@@ -132,7 +132,7 @@ export function SyncPanel({ t }: { t: TFunc }) {
               <div className="font-medium text-destructive">
                 {t('syncErrors', { count: last.errors.length })}
               </div>
-              <ul className="mt-1 list-inside list-disc space-y-0.5 text-sm">
+              <ul className="font-[weight:inherit] mt-1 list-inside list-disc space-y-0.5 text-body">
                 {last.errors.map((e, i) => (
                   <li key={i} className="text-muted-foreground">
                     {e}

@@ -47,6 +47,7 @@ vi.mock('@react-navigation/native', () => ({
 }))
 
 vi.mock('../src/i18n', () => ({
+  t: (key: string) => key,
   useI18n: () => ({ t: (key: string) => key }),
 }))
 

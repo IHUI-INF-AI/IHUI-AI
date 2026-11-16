@@ -56,7 +56,7 @@ function DeveloperLimitsScreen() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [t])
 
   useEffect(() => {
     void load()

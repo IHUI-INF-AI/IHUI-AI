@@ -122,9 +122,9 @@ interface WordRowProps {
 function WordRow({ icon, label, onPress }: WordRowProps) {
   const iconColor =
     icon === 'flame'
-      ? tokens.warning.DEFAULT
+      ? tokens.warning.amberText
       : icon === 'clock'
-        ? tokens.text.tertiary
+        ? tokens.text.secondary
         : tokens.text.medium
   const Icon = icon === 'clock' ? Clock : icon === 'flame' ? Flame : Search
   return (

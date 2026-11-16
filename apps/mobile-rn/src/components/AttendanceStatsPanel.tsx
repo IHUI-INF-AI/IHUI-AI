@@ -67,12 +67,12 @@ export function AttendanceStatsPanel({
   /** 段色档:四档 tone 唯一映射(与小程序侧 TONE_BG_CLASS 同族:success/warning/destructive/中性) */
   const fillOf = (tone: ConsoleBadgeTone): string =>
     tone === 'ok'
-      ? tk.success.DEFAULT
+      ? tk.success.deep
       : tone === 'danger'
         ? tk.danger.DEFAULT
         : tone === 'warn'
-          ? tk.warning.DEFAULT
-          : tk.text.tertiary
+          ? tk.warning.amberText
+          : tk.text.secondary
 
   /** 段名:五枚协议码走屏侧取词单源,other 走独立键(词表不扩档) */
   const labelOf = (key: AttendanceTrendSegmentKey): string =>

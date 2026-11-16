@@ -61,6 +61,8 @@ import {
 } from '@/hooks/use-websocket'
 import { MessageList } from '@/components/chat/message-list'
 import { MessageInput } from '@/components/chat/message-input'
+// agent 执行引擎切换(2026-11-15):AI 面板标题栏常驻可见,本地/云端/自动 1 击切
+import { EngineModeControl } from '@/components/chat/engine-mode-button'
 import { SessionUsageBadge } from '@/components/chat/session-usage-badge'
 // D28 补齐层(2026-10-03):导入会话的来源标识 + 「用场景分析」入口。
 // 槽位(横幅 + 入口按钮)与 ChatPaneBody 共用 ImportProvenanceSlot,不各写一份;
@@ -1859,10 +1861,7 @@ export function AISidePanel() {
       const state = useAiPanelStore.getState()
       // 先收尺寸再用新尺寸收位置:窗口变小时若只收位置,浮窗仍会大于视口。
       const nextSize = getFloatSize(window.innerWidth, window.innerHeight, state.floatSize)
-      if (
-        nextSize.width !== state.floatSize.width ||
-        nextSize.height !== state.floatSize.height
-      ) {
+      if (nextSize.width !== state.floatSize.width || nextSize.height !== state.floatSize.height) {
         setFloatSize(nextSize)
       }
       const pos = state.floatPosition
@@ -2776,6 +2775,9 @@ export function AISidePanel() {
                   />
                 </span>
               </div>
+              {/* agent 执行引擎切换(2026-11-15):标题栏常驻可见,本地/云端/自动 1 击切;
+                  流式期间禁用(切引擎无意义)。放在标题右侧、工作区选择器之前。 */}
+              <EngineModeControl disabled={isStreaming} />
               {/* 工作区选择器(参考 主流 IDE 顶部 project selector):
               空工作区时显示 FolderPlus 入口,已绑定时显示 Folder 入口可切换/清除
               2026-09-17 修复:原先放在 overflow-hidden 标题容器内,displayTitle 占满宽度时

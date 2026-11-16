@@ -44,6 +44,9 @@
  *            (钮住在进程级 env,改完必须重启 api 进程;面板刻意不提供写入 —— 不做假旋钮)
  * 31. GET    /admin/relay/account-pool/reauth-status — 待人工处理账号机读面(2026-11-03 立):
  *            按 provider × reason 给 needsReauth 计数,合并号池 down/到期与签到 claim 证据
+ * 32. POST   /admin/relay/desktop-shortcut/install — 一键在 api 宿主机桌面生成
+ *            「AI 客户端一键切号」快捷方式(2026-11-15 立;驱动仓内唯一真相源
+ *            scripts/install-relay-shortcut.ps1,同机边界与 27 登录本机一致,不同机 409)
  *
  * 加密:token/refreshToken/cookies/账号级 proxyUrl 走 encryptField(AES-256-GCM),
  * 响应面永不回传密文/明文(代理只回脱敏值)。
@@ -68,6 +71,10 @@ import { db, dbRead } from '../../db/index.js'
 import { aiRelayAccountPool } from '@ihui/database'
 import { PROVIDER_HEALTH_STATUSES } from '@ihui/types'
 import { success, error, emptyToUndefined } from '../../utils/response.js'
+import {
+  installDesktopShortcut,
+  DesktopShortcutError,
+} from '../../services/relay-desktop-shortcut.js'
 import { requireAdmin } from '../../plugins/require-permission.js'
 import { paginationSchema, idParamSchema, exposeRelayPoolRoutesToPublicNetwork } from './_shared.js'
 import {
@@ -2023,6 +2030,23 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
     } catch (e) {
       request.log.error(e)
       return reply.status(500).send(error(500, '选号策略读取失败'))
+    }
+  })
+
+  // ===== 32. POST /admin/relay/desktop-shortcut/install — 一键安装桌面切号快捷方式(2026-11-15 立) =====
+  // 浏览器沙箱落不了 .lnk,唯一诚实通路 = 驱动 api 宿主机(pwsh)执行仓内唯一真相源安装器
+  // scripts/install-relay-shortcut.ps1。同机边界与 27 登录本机逐字一致:api 宿主不是
+  // win32 / 缺安装器 / 缺 pwsh 一律 409 点名出路,§0.3 不记绿也不冒充"已安装"。
+  server.post('/admin/relay/desktop-shortcut/install', async (request, reply) => {
+    try {
+      const result = await installDesktopShortcut()
+      return reply.send(success(result))
+    } catch (e) {
+      if (e instanceof DesktopShortcutError) {
+        return reply.status(e.status).send(error(e.status, e.message))
+      }
+      request.log.error(e)
+      return reply.status(500).send(error(500, '桌面切号快捷方式安装失败'))
     }
   })
 }

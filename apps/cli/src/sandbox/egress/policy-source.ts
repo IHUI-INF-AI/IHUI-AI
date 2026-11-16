@@ -39,6 +39,24 @@ function parseList(raw: string | undefined, key: string, warnings: string[]): st
 }
 
 /**
+ * 沙箱网络模式取值(逆向复现 Codex `SandboxNetworkMode`,R11)。
+ *
+ * - 缺省 = `allowlist`(不改既有在线裁决行为,零回归)。
+ * - 认不出的取值一律落**更严一侧 = `blocked`** + warning(§0.10:失效方向是多拦一次,
+ *   不是多放一次行)。
+ */
+function resolveNetworkMode(
+  raw: string | undefined,
+  warnings: string[],
+): 'blocked' | 'allowlist' | 'unrestricted' {
+  const value = raw?.trim().toLowerCase();
+  if (value === undefined || value === '') return 'allowlist';
+  if (value === 'blocked' || value === 'allowlist' || value === 'unrestricted') return value;
+  warnings.push(`egress: unknown ${EGRESS_ENV.networkMode}=${JSON.stringify(raw)}; using "blocked" (strictest)`);
+  return 'blocked';
+}
+
+/**
  * env → 生效出口策略(纯函数,零 IO)。
  *
  * 叠加规则:内置表永远在场;机主点名的 deny 行天生 enforce;
@@ -92,6 +110,11 @@ export function resolveEgressPolicy(env: Record<string, string | undefined> = pr
     warnings.push(`egress: unknown ${EGRESS_ENV.enforce}=${JSON.stringify(rawEnforce)}; using "enforce" (strictest)`);
   }
 
-  return { policy: { rules, defaultDecision, addressProof, enforcement, source: 'builtin+env' }, warnings };
+  const networkMode = resolveNetworkMode(env[EGRESS_ENV.networkMode], warnings);
+
+  return {
+    policy: { rules, defaultDecision, addressProof, enforcement, networkMode, source: 'builtin+env' },
+    warnings,
+  };
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -28,6 +28,17 @@ interface TaroRequestTask {
   abort: () => void
 }
 
+/** 把请求体字符串安全解析成 Taro 的 data;坏 body 回落 undefined 而不是抛异常 */
+function parseBodyData(body: unknown): unknown {
+  if (typeof body !== 'string') return undefined
+  try {
+    return JSON.parse(body)
+  } catch {
+    // 非 JSON 字符串体(如 form-urlencoded):原样传字符串,交服务端解释
+    return body
+  }
+}
+
 /** 创建 Taro transport 实例 */
 export function createTaroTransport(): Transport {
   return (url, init) => {
@@ -43,7 +54,7 @@ export function createTaroTransport(): Transport {
       const task = Taro.request({
         url,
         method: (init.method || 'GET') as TaroMethod,
-        data: typeof init.body === 'string' ? JSON.parse(init.body) : undefined,
+        data: parseBodyData(init.body),
         header: init.headers || {},
         // 小程序运行时没有 AbortController ⇒ client.ts 的看门狗给不出 signal,
         // 超时改由这一端原生实现;调用方自定义的 timeoutMs 必须在这里落地,不能继续写死 30s。
@@ -63,7 +74,15 @@ export function createTaroTransport(): Transport {
               get: (name: string) => headerMap[name.toLowerCase()] ?? null,
             },
             text: async () => (typeof res.data === 'string' ? res.data : JSON.stringify(res.data)),
-            json: async () => (typeof res.data === 'string' ? JSON.parse(res.data) : res.data),
+            json: async () => {
+              if (typeof res.data !== 'string') return res.data
+              try {
+                return JSON.parse(res.data)
+              } catch {
+                // 服务端返回了非 JSON(HTML 错误页/空串/截断响应) ⇒ 抛可辨识错误而非 SyntaxError
+                throw new Error(`Invalid JSON response: ${res.data.slice(0, 100)}`)
+              }
+            },
           })
         },
         fail: (err: { errMsg?: string }) => {

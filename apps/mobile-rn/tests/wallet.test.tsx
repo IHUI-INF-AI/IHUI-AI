@@ -45,6 +45,7 @@ const { stableT } = vi.hoisted(() => ({
 }))
 
 vi.mock('../src/i18n', () => ({
+  t: (key: string) => key,
   useI18n: () => ({ t: stableT }),
 }))
 

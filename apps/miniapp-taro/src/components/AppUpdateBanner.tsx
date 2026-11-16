@@ -15,7 +15,7 @@
  */
 
 import { View, Text } from '@tarojs/components'
-import { useEffect, useState, type CSSProperties } from 'react'
+import { useEffect, useState, useRef, type CSSProperties } from 'react'
 import { useLaunch } from '@tarojs/taro'
 import { useI18n } from '@/i18n'
 import { rnRadius } from '@ihui/design-tokens'
@@ -35,15 +35,35 @@ export function AppUpdateBanner() {
   const [entered, setEntered] = useState(false)
   const [closing, setClosing] = useState(false)
   const [starting, setStarting] = useState(false)
+  // 退场/重启的定时器句柄:必须在卸载或重开时清掉,否则 300ms 内组件被卸载后再挂载,
+  // 悬挂的 setMounted(false)/applyAppUpdate 会闪没刚进入的横幅或误触发原生重启。
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const updateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const clearPendingTimers = () => {
+    if (closeTimerRef.current) {
+      clearTimeout(closeTimerRef.current)
+      closeTimerRef.current = null
+    }
+    if (updateTimerRef.current) {
+      clearTimeout(updateTimerRef.current)
+      updateTimerRef.current = null
+    }
+  }
 
   // 进入可见态才挂载并播放入场;关闭走 closing 退场动画,结束再卸载(否则看不到"滑回去")
   useEffect(() => {
     if (visible) {
+      clearPendingTimers()
       setMounted(true)
       const id = setTimeout(() => setEntered(true), 16)
       return () => clearTimeout(id)
     }
+    return undefined
   }, [visible])
+
+  // 卸载时清掉退场/重启定时器,避免卸载后 setState 与误触原生重启
+  useEffect(() => clearPendingTimers, [])
 
   if (!mounted) return null
 
@@ -51,13 +71,14 @@ export function AppUpdateBanner() {
     if (starting) return
     setStarting(true)
     // 让"已点按"的禁用态先画出来,再冷重启(小程序 applyUpdate 即原生重启,无 overlay 机会)
-    setTimeout(() => applyAppUpdate(), 300)
+    updateTimerRef.current = setTimeout(() => applyAppUpdate(), 300)
   }
 
   const handleClose = () => {
     dismissAppUpdate()
     setClosing(true)
-    setTimeout(() => setMounted(false), SLIDE_MS)
+    if (closeTimerRef.current) clearTimeout(closeTimerRef.current)
+    closeTimerRef.current = setTimeout(() => setMounted(false), SLIDE_MS)
   }
 
   const wrapStyle: CSSProperties = {

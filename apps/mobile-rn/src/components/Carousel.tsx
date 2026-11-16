@@ -11,6 +11,7 @@
  * 共享类型 CarouselItem + 共享 hook useAutoPlay 已下沉到 packages,
  * 消除 mobile-rn / miniapp-taro 两端类型与自动播放逻辑重复。
  */
+import { t as tStatic } from '../i18n'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Image,
@@ -206,7 +207,7 @@ export default function Carousel({
         style={{ height, backgroundColor: tokens.surface.muted }}
       >
         <Text className="text-xs" style={{ color: tokens.text.medium }}>
-          暂无轮播图
+          {tStatic('uiText.noCarousel')}
         </Text>
       </View>
     )
@@ -248,7 +249,9 @@ export default function Carousel({
                   </Text>
                 ) : null}
                 <Text style={styles.coursePrice}>
-                  {courseMeta[index].isFree ? '免费' : `¥${courseMeta[index].price ?? ''}`}
+                  {courseMeta[index].isFree
+                    ? tStatic('course.free')
+                    : `¥${courseMeta[index].price ?? ''}`}
                 </Text>
               </View>
             ) : null}

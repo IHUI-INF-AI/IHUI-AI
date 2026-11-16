@@ -1742,6 +1742,37 @@ try {
     console.log('⏭  条件 RN global.css 同步守门(无相关 staged 改动, 跳过)')
   }
 
+  // 16c2. 条件 design-tokens 重建闸门(2026-11-14 立,仅 staged 涉及 tokens.css 或 rn-tokens.ts 时跑)
+  // 病灶(与 16b database 同型):design-tokens 的 package.json main/exports 指向 ./dist/index.js,
+  // RN 端经包入口消费的是 **dist** 而非 src。上面的 TOKEN_SYNC_TARGETS 派生腿只写回 src
+  // (sync-rn-tokens.mjs 末尾自述"仅写回 src,请接着手动 pnpm build"),而提交链上没有任何环节
+  // 重建 dist ⇒ 改了 tokens.css 一处、派生腿把 src 写对了、但 dist 仍停在旧值,RN 设备上永远吃旧色
+  // (2026-10-20 实测:glass.bg 0.66→0.3 调了四轮设备无变化,dist 停在 0.66)。
+  // 本格把 dist 重建接进提交链,与 16b database 闸门同一取向:src 与 dist 必须同进同退。
+  // failMode=block:build 失败说明 src 有编译错误,不该带着坏 dist 入库。
+  const involvesDesignTokensDist = stagedFiles.some(
+    (f) =>
+      f.includes('packages/design-tokens/src/styles/tokens.css') ||
+      f.includes('packages/design-tokens/src/rn-tokens.ts') ||
+      f.includes('packages\\design-tokens\\src\\styles\\tokens.css') ||
+      f.includes('packages\\design-tokens\\src\\rn-tokens.ts'),
+  )
+  if (involvesDesignTokensDist) {
+    if (
+      !run(
+        '📦 条件 design-tokens 重建闸门(tokens.css / rn-tokens.ts staged,RN 运行时读 dist)...',
+        'pnpm --filter @ihui/design-tokens build',
+      )
+    ) {
+      console.error(
+        '❌ @ihui/design-tokens build 失败,提交已阻止(请修复 design-tokens 编译错误后再 commit)',
+      )
+      process.exit(1)
+    }
+  } else {
+    console.log('⏭  条件 design-tokens 重建闸门(无 tokens.css / rn-tokens.ts staged 改动, 跳过)')
+  }
+
   // 16d. 条件 MiniApp-Taro dist 清理提示(仅 staged 涉及 miniapp-taro 配置时 warn)
   // 防止 config 改动后 IDE 仍指向陈旧 dist/dist-alipay,误判产物路径错误
   // 仅输出提示,不阻断(用户可手动运行 node scripts/clean-miniapp-taro-dist.mjs)

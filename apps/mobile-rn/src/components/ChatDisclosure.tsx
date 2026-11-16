@@ -106,9 +106,9 @@ export function InjectionDisclosure({
             >
               {item.fullText ? (
                 open ? (
-                  <ChevronDown size={10} color={tokens.text.tertiary} />
+                  <ChevronDown size={10} color={tokens.text.secondary} />
                 ) : (
-                  <ChevronRight size={10} color={tokens.text.tertiary} />
+                  <ChevronRight size={10} color={tokens.text.secondary} />
                 )
               ) : null}
               {/* 界面文本出自本端词表;后端中文 collapsed 仅在未知 kind 时兜底 */}
@@ -148,7 +148,7 @@ export function SteerNoticeList({
   return (
     <View style={disclosureStyles.block}>
       <View style={disclosureStyles.steerHead}>
-        <Zap size={10} color={tokens.text.tertiary} />
+        <Zap size={10} color={tokens.text.secondary} />
         <Text style={disclosureStyles.blockTitle}>
           {t('chatDisclosure.steerTitle', { count: items.length })}
         </Text>

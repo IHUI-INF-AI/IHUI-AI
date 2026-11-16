@@ -7,7 +7,7 @@ import { goToLogin } from '@/utils/auth'
 import { View, Text } from '@tarojs/components'
 import { FocusInput } from '@/components/FocusField'
 import Taro, { useDidShow } from '@tarojs/taro'
-import { useState, useMemo } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useCountdown } from '@ihui/shared'
 import { sendSmsCode, post } from '@/api'
 import PhoneAreaCodePicker from '@/components/PhoneAreaCodePicker'
@@ -40,6 +40,14 @@ export default function ForgotPassword() {
   // 截止戳派生:后台被节流后返回前台仍按墙钟对表(useDidShow 里 sync)
   const codeCountdown = useCountdown(60)
   const [submitting, setSubmitting] = useState(false)
+
+  // 重置成功后的延迟回登录:页面若在 800ms 内被返回/替换,定时器不能把用户从新页面拽走
+  const navTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => {
+    return () => {
+      if (navTimerRef.current) clearTimeout(navTimerRef.current)
+    }
+  }, [])
 
   useDidShow(() => {
     codeCountdown.sync()
@@ -98,7 +106,8 @@ export default function ForgotPassword() {
       // 用户拿旧密码仍能登录,却以为已经改过密码(2026-11-13 修)。
       await post('/auth/reset-password', { phone, code, newPassword })
       onToast(t('forgot.resetSuccess'), { kind: 'success' })
-      setTimeout(goToLogin, 800)
+      if (navTimerRef.current) clearTimeout(navTimerRef.current)
+      navTimerRef.current = setTimeout(goToLogin, 800)
     } catch {
       // 错误已由 api-bridge 统一提示;停在原页,让用户改验证码/密码后重试。
     } finally {

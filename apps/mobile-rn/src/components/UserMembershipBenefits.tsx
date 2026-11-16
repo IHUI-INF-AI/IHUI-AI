@@ -81,41 +81,59 @@ const GOLD = tokens.vip.gold
 const LEVEL_COLOR: Record<MembershipLevel, string> = {
   normal: tokens.text.secondary,
   vip: GOLD,
-  svip: tokens.success.DEFAULT,
+  svip: tokens.success.deep,
 }
 
 /** 「享受权益」标题走 i18n(§19):promoTitle 未注入时由组件内 t('memberBenefits.promoTitle') 兜底 */
 
+/**
+ * 默认价格档:label 存 i18n key 后缀(§19),渲染处 PriceLine 经 t('memberBenefits.'+label) 解析。
+ * price / originalPrice 是纯数字,无需翻译。外部传入的 vipPrice / traderPrice 已是成品字符串。
+ */
 const DEFAULT_VIP_PRICE: MembershipPrice = {
   price: '588',
   originalPrice: '1288',
-  label: '开通VIP/年',
+  label: 'memberBenefits.vipPriceLabel',
 }
 
 const DEFAULT_TRADER_PRICE: MembershipPrice = {
   price: '3888',
   originalPrice: '18888',
-  label: '开通操盘手/年',
+  label: 'memberBenefits.traderPriceLabel',
 }
 
-/** 默认三档对比表(对齐 Uniapp UserMembershipBenefits.vue listens 静态数据) */
+/**
+ * 默认三档对比表(对齐 Uniapp UserMembershipBenefits.vue listens 静态数据)。
+ * 文案字段(title/normal/member/trader)存 i18n key 后缀(§19),渲染处经 t('memberBenefits.comparison.'+key) 解析;
+ * 布尔档 true/false 是勾/叉语义,不是文案,不经解析。外部传入的 comparisonRows 已是成品字符串。
+ */
 const DEFAULT_COMPARISON_ROWS: readonly MembershipComparisonRow[] = [
   {
-    title: '终身二级分销收益',
-    normal: '分享送智汇值',
-    member: '一级分销10%',
-    trader: '一级分销40%二级分销10%',
+    title: 'comparison.r1.title',
+    normal: 'comparison.r1.normal',
+    member: 'comparison.r1.member',
+    trader: 'comparison.r1.trader',
   },
-  { title: '获取上千+智能体源码', normal: false, member: true, trader: true },
-  { title: 'AI应用Coze官方渠道发布', normal: true, member: true, trader: true },
-  { title: 'AI应用限免开放', normal: true, member: true, trader: true },
-  { title: 'Coze/N8N无缝接入', normal: true, member: true, trader: true },
-  { title: '多对一答疑陪跑', normal: false, member: true, trader: true },
-  { title: '算力值赠送', normal: '8万', member: '888万', trader: '1888万' },
-  { title: '总部入驻及线下学习实操机会', normal: false, member: false, trader: true },
-  { title: '成立一人公司', normal: true, member: true, trader: true },
-  { title: '定制Agent', normal: '原价', member: '9.5折', trader: '8折' },
-  { title: '入驻社区服务商名列', normal: false, member: false, trader: true },
+  { title: 'comparison.r2.title', normal: false, member: true, trader: true },
+  { title: 'comparison.r3.title', normal: true, member: true, trader: true },
+  { title: 'comparison.r4.title', normal: true, member: true, trader: true },
+  { title: 'comparison.r5.title', normal: true, member: true, trader: true },
+  { title: 'comparison.r6.title', normal: false, member: true, trader: true },
+  {
+    title: 'comparison.r7.title',
+    normal: 'comparison.r7.normal',
+    member: 'comparison.r7.member',
+    trader: 'comparison.r7.trader',
+  },
+  { title: 'comparison.r8.title', normal: false, member: false, trader: true },
+  { title: 'comparison.r9.title', normal: true, member: true, trader: true },
+  {
+    title: 'comparison.r10.title',
+    normal: 'comparison.r10.normal',
+    member: 'comparison.r10.member',
+    trader: 'comparison.r10.trader',
+  },
+  { title: 'comparison.r11.title', normal: false, member: false, trader: true },
 ]
 
 function renderCell(cell: MembershipCell): ReactNode {
@@ -134,7 +152,12 @@ function PriceLine({ price, color }: { price: MembershipPrice; color: string }) 
           {t('memberBenefits.yuanUnit', { price: price.originalPrice })}
         </Text>
       ) : null}
-      {price.label ? <Text style={{ color }}>{price.label}</Text> : null}
+      {price.label ? (
+        <Text style={{ color }}>
+          {/* label 带 `memberBenefits.` 前缀 = i18n key(§19),经 t 解析;外部传入的成品字符串原样渲染 */}
+          {price.label.startsWith('memberBenefits.') ? t(price.label) : price.label}
+        </Text>
+      ) : null}
     </Text>
   )
 }
@@ -210,14 +233,21 @@ export function UserMembershipBenefits({
               {t('memberBenefits.colTrader')}
             </Text>
           </View>
-          {comparisonRows.map((row, idx) => (
-            <View key={`${row.title}-${idx}`} style={styles.tableRow}>
-              <Text style={[styles.colTitle, styles.rowTitle]}>{row.title}</Text>
-              <View style={styles.colTier}>{renderCell(row.normal)}</View>
-              <View style={styles.colTier}>{renderCell(row.member)}</View>
-              <View style={styles.colTier}>{renderCell(row.trader)}</View>
-            </View>
-          ))}
+          {comparisonRows.map((row, idx) => {
+            // DEFAULT_COMPARISON_ROWS 的文案字段存 i18n key 后缀(§19):真 key 带 `comparison.` 前缀,
+            // 渲染处仅对带该前缀的字符串走 t() 解析;外部传入的 comparisonRows 是成品字符串
+            // (不含该前缀),原样渲染,不会被误当 key 查一遍。布尔档 true/false 是勾/叉语义,不经解析。
+            const cell = (v: MembershipCell): MembershipCell =>
+              typeof v === 'string' && v.startsWith('comparison.') ? t(`memberBenefits.${v}`) : v
+            return (
+              <View key={`${row.title}-${idx}`} style={styles.tableRow}>
+                <Text style={[styles.colTitle, styles.rowTitle]}>{cell(row.title)}</Text>
+                <View style={styles.colTier}>{renderCell(cell(row.normal))}</View>
+                <View style={styles.colTier}>{renderCell(cell(row.member))}</View>
+                <View style={styles.colTier}>{renderCell(cell(row.trader))}</View>
+              </View>
+            )
+          })}
         </View>
 
         {/* 立即开通(对齐 Uniapp details-button / openIntroduces;后端依赖:开通/跳转逻辑预留 onPressUpgrade) */}

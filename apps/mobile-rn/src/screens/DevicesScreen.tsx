@@ -297,7 +297,7 @@ export default function DevicesScreen() {
             <Text style={styles.cardTitle}>{t('devices.listTitle')}</Text>
           </View>
           {loading ? (
-            <ActivityIndicator style={styles.loading} color={tokens.text.tertiary} />
+            <ActivityIndicator style={styles.loading} color={tokens.text.secondary} />
           ) : loadError ? (
             <View style={styles.centerBox}>
               <Text style={styles.error}>{loadError}</Text>
@@ -325,7 +325,7 @@ export default function DevicesScreen() {
                       <Text
                         style={[
                           styles.badgeText,
-                          { color: online ? tokens.success.DEFAULT : tokens.text.tertiary },
+                          { color: online ? tokens.success.deep : tokens.text.secondary },
                         ]}
                       >
                         {online ? t('devices.online') : t('devices.offline')}
@@ -518,7 +518,7 @@ function makeStyles() {
       borderWidth: 1,
       borderColor: tokens.border.light,
     },
-    badgeOn: { borderColor: tokens.success.DEFAULT },
+    badgeOn: { borderColor: tokens.success.deep },
     badgeOff: { borderColor: tokens.border.medium },
     badgeText: { fontSize: rnType.badge.size, fontWeight: '600', color: tokens.text.secondary },
     meta: { fontSize: rnType.label.size, color: tokens.text.medium },

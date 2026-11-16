@@ -165,6 +165,31 @@ const ADMISSION_FRAME_TYPE = 'admission'
  * 为什么先自己判一次 `type` 再交给共享判据:共享判据只看载荷形状(inputId + disposition),
  * 不看帧名;若把任意 data 行都塞给它,别的帧只要碰巧带这两个键就会被误认成回执。
  */
+// ===== G-87(2026-11-13 立):hook 执行失败帧的端内认领层 =====
+// 共享 sse-parse 的 SSEEvent 联合类型不含 `hook-failed`,parseSSEChunk 也不认领
+// (web 走 api-client 的 hasHookFailure 解析开关);本端复用同一条 onRawLine 旁路自行认领 ——
+// 与 tool-approval / admission / question 同一条先例,不是新造通道。
+//
+// 判据不在本文件:六态收窄、视图映射、脱敏全部在共享层
+// `@ihui/shared/chat/hook-failures`(唯一实现)。本函数只做"这一行是不是该帧"的入口筛选。
+const HOOK_FAILED_FRAME_TYPE = 'hook-failed'
+
+/** 一行 SSE 文本 → hook 失败载荷;不是这一族 ⇒ null(丢弃,不猜)。 */
+export function parseHookFailureLine(line: string): Record<string, unknown> | null {
+  const payload = dataPayloadOfLine(line)
+  if (!payload) return null
+  // 零成本直返:绝大多数行不是这一族
+  if (!payload.includes(HOOK_FAILED_FRAME_TYPE)) return null
+  let json: Record<string, unknown>
+  try {
+    json = JSON.parse(payload) as Record<string, unknown>
+  } catch {
+    return null
+  }
+  if (json?.type !== HOOK_FAILED_FRAME_TYPE) return null
+  return json
+}
+
 export function parseAdmissionLine(line: string): SendAdmissionReceipt | null {
   const payload = dataPayloadOfLine(line)
   if (!payload) return null

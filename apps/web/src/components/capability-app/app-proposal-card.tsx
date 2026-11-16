@@ -96,7 +96,7 @@ export function CapabilityAppProposalCard({ json }: { json: string }) {
 
   if (!parsed.ok) {
     return (
-      <div className="my-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
+      <div className="font-[weight:inherit] my-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-label text-amber-700 dark:text-amber-300">
         <div className="mb-1 font-medium">{t('invalidTitle')}</div>
         <ul className="list-disc space-y-0.5 pl-4">
           {parsed.issues.slice(0, 4).map((item, index) => (
@@ -129,7 +129,7 @@ export function CapabilityAppProposalCard({ json }: { json: string }) {
           <CapabilityAppIcon name={app.icon} className="h-4 w-4" />
         </span>
         <div className="min-w-0 flex-1">
-          <div className="truncate text-sm font-medium">{app.title}</div>
+          <div className="truncate text-body font-medium">{app.title}</div>
           <div className="truncate text-[11px] text-muted-foreground">
             {app.spec.blocks.length} {t('blocks')} · {t(SLOT_KEY[app.slot])}
           </div>
@@ -137,14 +137,14 @@ export function CapabilityAppProposalCard({ json }: { json: string }) {
         <Sparkles className="h-4 w-4 text-primary" aria-hidden />
       </div>
       {app.description ? (
-        <p className="px-3 py-2 text-xs text-muted-foreground">{app.description}</p>
+        <p className="font-[weight:inherit] px-3 py-2 text-label text-muted-foreground">{app.description}</p>
       ) : null}
       <div className="flex flex-wrap items-center gap-2 border-t border-border px-3 py-2">
         <button
           type="button"
           disabled={saving}
           onClick={() => void handleCreate()}
-          className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-body font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
         >
           {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : null}
           {saving ? t('creating') : t('createAndOpen')}
@@ -152,7 +152,7 @@ export function CapabilityAppProposalCard({ json }: { json: string }) {
         <button
           type="button"
           onClick={() => setPreview((value) => !value)}
-          className="inline-flex items-center gap-1 rounded-md border border-border px-2.5 py-1.5 text-sm hover:bg-muted"
+          className="font-[weight:inherit] inline-flex items-center gap-1 rounded-md border border-border px-2.5 py-1.5 text-body hover:bg-muted"
           aria-expanded={preview}
         >
           {t('preview')}

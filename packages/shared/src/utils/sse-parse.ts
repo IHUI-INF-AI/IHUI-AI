@@ -31,6 +31,7 @@ import { normalizeToolCallArgs } from './tool-call-args'
 // 本解析器不再自持一份 `=== 'warning' || === 'critical' || === 'stopped'` 字面量副本
 // (§0.6 第二份必然漂移;漂开的表现是终态帧被静默丢弃)。表外档位整帧不产出,不猜档。
 import { isBudgetLevel } from '@ihui/types'
+import { readStreamAlert } from '../chat/stream-alerts'
 import {
   applyFrame,
   createWatermarkState,
@@ -124,6 +125,14 @@ export interface SSEEvent {
     // (判据 scripts/check-sse-parser-parity.mjs)。漏接的后果是静默的:小程序没有结算就
     // 永远停在"待回答",用户以为还能点。
     | 'question-resolved'
+    // ===== D155(2026-11-13 立):三档下行告警帧 =====
+    // 后端产的 deprecation-notice / config-warning / guardian-warning 都不带 content /
+    // delta / text,但**带 message**;若不在泛化兜底之前认领,message 会被折成 chunk
+    // 喷进气泡,真正的告警反而消失(这是本仓最反复的失效型:协议两处解析,漏接是静默的)。
+    // 判据单源 = @ihui/shared/chat/stream-alerts.ts 的 `readStreamAlert`;本解析器只调它。
+    | 'deprecation-notice'
+    | 'config-warning'
+    | 'guardian-warning'
   content?: string
   sessionId?: string
   /**
@@ -247,6 +256,23 @@ export interface SSEEvent {
     status: 'answered' | 'timeout' | 'withdrawn' | 'interrupted'
     selectedOptionIds: string[]
     customText?: string
+  }
+  /**
+   * D155 三档下行告警(2026-11-13 立)统一载荷。
+   *
+   * 后端发的三帧 `deprecation-notice` / `config-warning` / `guardian-warning` 都不带
+   * content / delta / text,但**带 message** —— 若不在泛化兜底 `typeof json.content === 'string'`
+   * 之前认领,`message` 会被折成 chunk 喷进气泡,真正的告警反而消失(2026-11-13 起
+   * shared/chat/stream-alerts.ts 已把判据抽成纯函数,本解析器只调它)。
+   *
+   * **认领纪律**:`type` 命中三档之一 ∧ `message` 是非空字符串 ⇒ 产出本事件;
+   * `message` 缺失或空 ⇒ **返回 null**(绝不滑到下方 `content/delta/text` 兜底)。
+   */
+  streamAlert?: {
+    type: 'deprecation-notice' | 'config-warning' | 'guardian-warning'
+    severity: 'info' | 'warning' | 'critical'
+    message: string
+    detail: Readonly<Record<string, string>>
   }
 }
 
@@ -664,6 +690,20 @@ function parseLineEvent(line: string): SSEEvent | null {
           ...(typeof json.messageId === 'string' ? { messageId: json.messageId } : {}),
         },
       }
+    }
+    // ===== D155(2026-11-13 立):三档下行告警帧认领 =====
+    // 必须在下方 `typeof json.content === 'string'` 泛化兜底之前认领 —— 否则上游多塞一个
+    // content 字段时,告警整帧会被折成 chunk 喷进气泡(用户在聊天正文里看到一段没人看得懂的
+    // JSON),而真正的告警反而消失了。判据单源 = @ihui/shared/chat/stream-alerts.ts 的
+    // `readStreamAlert`:type 不在闭集 / message 非串 / message 空白 ⇒ 返回 null(绝不滑兜底)。
+    if (
+      json?.type === 'deprecation-notice' ||
+      json?.type === 'config-warning' ||
+      json?.type === 'guardian-warning'
+    ) {
+      const rec = readStreamAlert(json)
+      if (!rec) return null
+      return { type: rec.type, streamAlert: rec }
     }
     // ===== D19-A1(2026-09-24 立):terminal_delta 必须在兜底抽取链之前认领 =====
     // 后端 apps/ai-service/app/services/mcp_server.py::_emit_terminal_delta 产的帧形如

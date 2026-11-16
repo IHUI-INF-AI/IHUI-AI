@@ -219,7 +219,8 @@
   --color-toast-info-bg: #1f2937;
   --color-toast-foreground: #ffffff;
 
-  /* 以下 8 档为 tokens.css 中存在而本文件尚缺,由 sync-rn-global-css.mjs 自动补入(勿手改) */
+  /* 以下 9 档为 tokens.css 中存在而本文件尚缺,由 sync-rn-global-css.mjs 自动补入(勿手改) */
+  --color-muted-soft: hsl(0 0% 94%);
   --color-stroke-subtle: rgba(0, 0, 0, 0.06);
   --color-stroke-default: rgba(0, 0, 0, 0.1);
   --color-stroke-strong: rgba(0, 0, 0, 0.18);
@@ -228,9 +229,6 @@
   --color-stroke-focus: #000000;
   --color-stroke-selected: #4a7a96;
   --color-stroke-danger: #dc2626;
-
-  /* 以下 1 档为 tokens.css 中存在而本文件尚缺,由 sync-rn-global-css.mjs 自动补入(勿手改) */
-  --color-muted-soft: hsl(0 0% 94%);
 }
 
 .dark {
@@ -361,20 +359,16 @@
   --color-warning-text: hsl(38 85% 55%);
   --color-danger-text: #f87171;
 
-  /* 以下 2 档为 tokens.css 中存在而本文件尚缺,由 sync-rn-global-css.mjs 自动补入(勿手改) */
+  /* 以下 9 档为 tokens.css 中存在而本文件尚缺,由 sync-rn-global-css.mjs 自动补入(勿手改) */
+  --color-muted-soft: hsl(0 0% 14.9%);
   --color-stroke-subtle: rgba(255, 255, 255, 0.08);
-  --color-stroke-inverse: rgba(0, 0, 0, 0.3);
-
-  /* 以下 6 档为 tokens.css 中存在而本文件尚缺,由 sync-rn-global-css.mjs 自动补入(勿手改) */
   --color-stroke-default: rgba(255, 255, 255, 0.12);
   --color-stroke-strong: rgba(255, 255, 255, 0.22);
+  --color-stroke-inverse: rgba(0, 0, 0, 0.3);
   --color-stroke-field: rgba(255, 255, 255, 0.16);
   --color-stroke-focus: #ffffff;
   --color-stroke-selected: #a3c4d6;
   --color-stroke-danger: #ef4444;
-
-  /* 以下 1 档为 tokens.css 中存在而本文件尚缺,由 sync-rn-global-css.mjs 自动补入(勿手改) */
-  --color-muted-soft: hsl(0 0% 14.9%);
 }
 
 /* 全局统一字体:对齐历史 Uniapp 项目 AlimamaFangYuanTi(2026-08-13 立,H19)

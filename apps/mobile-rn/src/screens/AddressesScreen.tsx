@@ -287,7 +287,7 @@ export default function AddressesScreen() {
             </TouchableOpacity>
 
             {loading ? (
-              <ActivityIndicator style={styles.stateBox} color={tokens.text.tertiary} />
+              <ActivityIndicator style={styles.stateBox} color={tokens.text.secondary} />
             ) : failed ? (
               <View style={styles.stateBox}>
                 <Text style={styles.errorText}>{t('addresses.loadFailed')}</Text>
@@ -297,7 +297,7 @@ export default function AddressesScreen() {
               </View>
             ) : list.length === 0 ? (
               <View style={styles.stateBox}>
-                <MapPin size={28} color={tokens.text.tertiary} />
+                <MapPin size={28} color={tokens.text.secondary} />
                 <Text style={styles.muted}>{t('addresses.empty')}</Text>
               </View>
             ) : (

@@ -361,7 +361,8 @@ export const WebInputCore = React.forwardRef<WebInputCoreHandle, WebInputCorePro
               onClick={onClear}
               disabled={isStreaming}
               className={cn(
-                'absolute right-6 top-1 inline-flex h-6 w-6 items-center justify-center rounded-sm',
+                // bg-card:悬浮在正文上时用卡片底色遮住其后的文字,避免图标和文字叠在一起
+                'absolute right-6 top-1 inline-flex h-6 w-6 items-center justify-center rounded-sm bg-card',
                 'text-muted-foreground transition-opacity',
                 'opacity-0 hover:bg-accent hover:text-accent-foreground',
                 'group-hover:opacity-100 touch-reveal focus-visible:opacity-100',
@@ -377,7 +378,7 @@ export const WebInputCore = React.forwardRef<WebInputCoreHandle, WebInputCorePro
             2026-11-15 用户定档:固定在第三行文字末尾(右下角),允许压住少量正文;
             bg-card 不透明底负责遮挡,right-6 与 textarea 的 pr-3 对齐,避开滚动条。 */}
         {text.length > 0 && (
-          <div className="pointer-events-none absolute bottom-1 left-3 right-6 flex justify-end pr-0.5">
+          <div className="pointer-events-none absolute bottom-0 left-3 right-6 flex justify-end pr-0.5">
             <span
               aria-live="polite"
               className={cn(

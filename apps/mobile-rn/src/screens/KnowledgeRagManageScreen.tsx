@@ -274,7 +274,7 @@ export default function KnowledgeRagManageScreen() {
               setRefreshing(true)
               void load()
             }}
-            tintColor={tokens.text.tertiary}
+            tintColor={tokens.text.secondary}
           />
         }
         onEndReached={() => {
@@ -340,7 +340,7 @@ export default function KnowledgeRagManageScreen() {
               </View>
             ) : null}
             {loading ? (
-              <ActivityIndicator style={styles.loading} color={tokens.text.tertiary} />
+              <ActivityIndicator style={styles.loading} color={tokens.text.secondary} />
             ) : error ? (
               <View style={styles.errorBox}>
                 <Text style={styles.errorText}>{error}</Text>
@@ -357,7 +357,7 @@ export default function KnowledgeRagManageScreen() {
               </View>
             ) : empty ? (
               <View style={styles.emptyBox}>
-                <FileText size={32} color={tokens.text.tertiary} />
+                <FileText size={32} color={tokens.text.secondary} />
                 <Text style={styles.emptyText}>
                   {isFiltered ? t('knowledgeRagManage.emptySearch') : t('knowledgeRagManage.empty')}
                 </Text>

@@ -88,7 +88,7 @@ function UserPublicScreen() {
     } finally {
       setLoading(false)
     }
-  }, [userId])
+  }, [userId, t])
 
   useEffect(() => {
     void load()

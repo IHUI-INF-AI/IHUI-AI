@@ -392,7 +392,7 @@ export function ResourcesScreen() {
               value={search}
               onChangeText={setSearch}
               placeholder={t('resources.searchPlaceholder')}
-              placeholderTextColor={tokens.text.tertiary}
+              placeholderTextColor={tokens.text.secondary}
               className="h-9 rounded-sm border border-neutral-200 bg-white px-3 text-sm text-neutral-900 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-100"
             />
           </View>

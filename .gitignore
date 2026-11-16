@@ -769,6 +769,10 @@ tmp-*.png
 # PowerShell/Windows 系统缓存残留(ModuleAnalysisCache),不进版本库
 **/Microsoft/Windows/PowerShell/
 
+# Box-Agent 会话一次性中间产物(引用保护保留,会话结束自动清理后此规则自然失效)
+.head_en.md
+.merge_en_inner.txt
+
 # 根级并行会话产物(框架保留给chat,非本仓跟踪对象)2026-11-13
 /BRIDGE_CAPABILITY_MAP.md
 /login-page.png

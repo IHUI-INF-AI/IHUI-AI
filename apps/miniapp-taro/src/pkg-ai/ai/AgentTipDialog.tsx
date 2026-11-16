@@ -84,7 +84,7 @@ export default function AgentTipDialog({ visible, onClose }: AgentTipDialogProps
           ))}
         </View>
         <View
-          className="h-[80rpx] bg-primary rounded-md flex items-center justify-center"
+          className="h-[80rpx] bg-cta text-cta-foreground rounded-md flex items-center justify-center"
           onClick={onClose}
           hoverClass="opacity-60"
         >

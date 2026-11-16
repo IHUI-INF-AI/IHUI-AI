@@ -1355,6 +1355,77 @@ export function catBatchBinary(root, revs, opts = {}) {
 }
 
 /**
+ * **批量工作树 hash 原语**(2026-11-15 立,治门 298 工作树臂的 fork 风暴)。
+ *
+ * 立因(门 298 独立审计三次 300s 超时被看门狗终止,实证见
+ * `.ihui-agent/state/hook-logs/pre-commit.log`):`check-staged-downgrade.mjs` 的工作树臂
+ * 此前逐条调 `git -c core.autocrlf=false hash-object -- <path>`,共享工作树 1393 条 M 路径
+ * × 每条一次 spawn ≈ 1393 次进程创建,Windows 上仅 spawn 开销即吃满 300s ⇒ 判据从未跑出结论。
+ * 而索引臂早已用 `catBatchOids` 一次批量 —— 不对称是病灶。
+ *
+ * 本出口与 `gitRaw(['hash-object','--',rel])` 同一把尺(`git hash-object` 默认按 blob 写入
+ * sha1,`--stdin-paths` 只是不落对象库、逐路径回显 oid),`-z` 让路径里的空格/中文不被拆错。
+ * 一次派生喂全部路径:`hash-object --stdin-paths -z` 读 NUL 分隔路径、按行回显 oid。
+ *
+ * 缺席/取不到语义与逐条版一致:`existsSync` 为 false 的路径 ⇒ 'ABSENT'(调用方
+ * `worktreeBlobOid` 的三态契约);git 整批失败 ⇒ 抛 `Undetermined`(§0.3 不折成"没有")。
+ * 单条路径 git 报错(极少:权限/换行怪档)在该路径行回非 oid ⇒ 归 'UNKNOWN',交调用方判未判定。
+ *
+ * @param {string} root 仓库根
+ * @param {string[]} rels 相对路径清单(调用方已去重)
+ * @returns {Map<string,string>} rel → 40hex oid(小写)/ 'ABSENT' / 'UNKNOWN'
+ */
+export function worktreeHashObjectBatch(root, rels, opts = {}) {
+  const map = new Map()
+  const present = []
+  for (const rel of rels) {
+    // 与逐条版 `worktreeBlobOid` 同序:先 existsSync 快判缺席,缺席的不进派生清单
+    if (!existsSync(path.resolve(root, rel))) {
+      map.set(rel, 'ABSENT')
+      continue
+    }
+    present.push(rel)
+  }
+  if (present.length === 0) return map
+  let out
+  try {
+    out = batchExecFileSync(
+      GIT,
+      // 注意:`hash-object --stdin-paths` **不支持 `-z`**(2026-11-15 实测 error: unknown switch `z`);
+      // 路径以 LF 分隔喂入,git 按行回显 oid 且与输入同序 —— 这就是为何 present 顺序必须与 rels 一致。
+      ['-c', 'safe.directory=*', '-C', root, '-c', 'core.autocrlf=false', 'hash-object', '--stdin-paths'],
+      {
+        cwd: root,
+        // LF 分隔路径(--stdin-paths 唯一接受的分隔);路径含空格安全,含换行的文件名本仓不存在。
+        input: Buffer.from(present.map((r) => `${r}\n`).join(''), 'utf8'),
+        encoding: 'utf8',
+        windowsHide: true,
+        maxBuffer: opts.maxBuffer ?? GIT_MAX_BUFFER,
+        timeout: opts.timeout ?? BATCH_TIMEOUT,
+        stdio: ['pipe', 'pipe', 'pipe'],
+      },
+    )
+  } catch (e) {
+    throw new Undetermined(
+      `git hash-object --stdin-paths 失败(${present.length} 个工作树路径),${root} 的工作树 blob 无法取材: ${gitErrText(e)}`,
+    )
+  }
+  // 无 `-z` 输出形态:每个 oid 独占一行,与输入路径同序(不回显路径)。
+  // 因此不能用「oid↔path 配对」,只能按行号对齐 present[i] ⇔ oid 行 i。
+  const lines = String(out).split('\n').map((l) => l.trim()).filter((l) => l !== '')
+  const oidByPath = new Map()
+  for (let i = 0; i < present.length && i < lines.length; i += 1) {
+    const oid = lines[i].split(/\s+/)[0]
+    if (/^[0-9a-f]{40}$/i.test(oid)) oidByPath.set(present[i], oid.toLowerCase())
+  }
+  for (const rel of present) {
+    const oid = oidByPath.get(rel)
+    map.set(rel, oid && /^[0-9a-f]{40}$/.test(oid) ? oid : 'UNKNOWN')
+  }
+  return map
+}
+
+/**
  * **纯 oid 直达分支**(2026-11-04 立,治迁移带来的 oid 面 2× 回退)。
  *
  * 立因(同机实测,`check-installed-asset-catalog` 的 192 条 / 5,004,711 字节资产面):

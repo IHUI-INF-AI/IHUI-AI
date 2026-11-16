@@ -5,7 +5,39 @@
 'use client'
 
 import * as React from 'react'
-import { Check, ChevronRight, CircleDashed, Loader2, Minus, TriangleAlert, X } from 'lucide-react'
+import {
+  Bot,
+  Brain,
+  Check,
+  ChevronRight,
+  CircleDashed,
+  FileDiff,
+  FilePen,
+  FileSearch,
+  FileText,
+  FileX,
+  Flag,
+  Globe,
+  History,
+  Image,
+  ListTodo,
+  Loader2,
+  MessageCircleQuestion,
+  MessageSquareText,
+  Minus,
+  Monitor,
+  Plug,
+  Settings2,
+  Sparkles,
+  SquareCode,
+  Terminal,
+  TriangleAlert,
+  Video,
+  Workflow,
+  Wrench,
+  X,
+} from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 import { formatDuration } from '@/components/ai/progress-sections/foldable-section'
@@ -26,6 +58,101 @@ import type { ToolMetricKind, ToolSubjectKind } from '@ihui/shared/chat'
 
 /** 活动行状态 —— 与工具/步骤/终端的原始状态词汇统一收敛到这五种 */
 export type StreamStatus = 'pending' | 'running' | 'success' | 'error' | 'skipped' | 'stub'
+
+/** 活动行语义档 —— 行首图标由「这行装的是什么」决定(容器语义图标唯一来源) */
+export type StreamKind =
+  | 'thinking'
+  | 'narration'
+  | 'steps'
+  | 'plan'
+  | 'tool'
+  | 'fileRead'
+  | 'fileWrite'
+  | 'fileDelete'
+  | 'search'
+  | 'web'
+  | 'terminal'
+  | 'preview'
+  | 'mcp'
+  | 'skill'
+  | 'image'
+  | 'video'
+  | 'question'
+  | 'env'
+  | 'end'
+  | 'subagent'
+  | 'diff'
+  | 'replay'
+  | 'code'
+
+/** 语义档 → 行首图标(全消息流唯一口径;新增容器先在此登记,调用方只经 streamKindIcon 取) */
+const STREAM_KIND_ICONS: Readonly<Record<StreamKind, LucideIcon>> = {
+  thinking: Brain,
+  narration: MessageSquareText,
+  steps: Workflow,
+  plan: ListTodo,
+  tool: Wrench,
+  fileRead: FileText,
+  fileWrite: FilePen,
+  fileDelete: FileX,
+  search: FileSearch,
+  web: Globe,
+  terminal: Terminal,
+  preview: Monitor,
+  mcp: Plug,
+  skill: Sparkles,
+  image: Image,
+  video: Video,
+  question: MessageCircleQuestion,
+  env: Settings2,
+  end: Flag,
+  subagent: Bot,
+  diff: FileDiff,
+  replay: History,
+  code: SquareCode,
+}
+
+/** 语义档 → 图标组件(折叠区段头等只需要「图标本体」的调用方从这里取) */
+export function streamKindIcon(kind: StreamKind): LucideIcon {
+  return STREAM_KIND_ICONS[kind]
+}
+
+/** 状态 → 语义图标着色(与文字同口径:运行=primary,成功=次级,失败=红,未开始/跳过=更浅) */
+const KIND_ICON_TONE: Record<StreamStatus, string> = {
+  running: 'text-primary',
+  success: 'text-muted-foreground/60',
+  error: 'text-red-500',
+  skipped: 'text-muted-foreground/40',
+  stub: 'text-muted-foreground/50',
+  pending: 'text-muted-foreground/35',
+}
+
+/**
+ * 行首语义图标:形状由语义档(kind)决定,颜色由状态(status)决定。
+ * 运行态加轻微脉冲提示活动,尊重 prefers-reduced-motion。
+ */
+export function StreamKindIcon({
+  kind,
+  status,
+  className,
+}: {
+  kind: StreamKind
+  status: StreamStatus
+  className?: string
+}) {
+  const Icon = STREAM_KIND_ICONS[kind]
+  return (
+    <Icon
+      className={cn(
+        ICON_CLASS,
+        KIND_ICON_TONE[status],
+        status === 'running' && 'animate-pulse motion-reduce:animate-none',
+        className,
+      )}
+      aria-hidden
+    />
+  )
+}
 
 /** 行模板唯一字号:12px。禁止在消息流活动区出现 9/10/11/13px 文字 */
 export const STREAM_ROW_CLASS = 'flex h-6 w-full items-center gap-1.5 text-xs leading-none'
@@ -73,6 +200,11 @@ export function StreamStatusIcon({
 
 export interface StreamRowProps {
   status: StreamStatus
+  /**
+   * 行首语义档:传入即用「容器语义图标」(形状=kind,颜色=status)替代默认状态图标。
+   * 这是 AI 面板各容器(思考/工具/文件/终端/子代理…)行首图标的统一入口。
+   */
+  kind?: StreamKind
   /** 功能名(本地化后的动宾短语,如"读取文件内容");禁止传英文工具码名 */
   title: string
   /**
@@ -115,6 +247,7 @@ export interface StreamRowProps {
  */
 export function StreamRow({
   status,
+  kind,
   title,
   titleMode = 'action',
   leading,
@@ -139,7 +272,7 @@ export function StreamRow({
   const primary = titleMode === 'primary'
   const inner = (
     <>
-      <StreamStatusIcon status={status} />
+      {kind ? <StreamKindIcon kind={kind} status={status} /> : <StreamStatusIcon status={status} />}
       {leading !== undefined && leading !== null && leading !== '' && (
         <span className="shrink-0 tabular-nums text-muted-foreground/60">{leading}</span>
       )}
@@ -312,6 +445,8 @@ export function useLiveElapsed(running: boolean, doneMs?: number | null): number
 export interface StreamGroupProps {
   /** 组内是否仍在执行(决定头行图标与措辞) */
   active: boolean
+  /** 组头语义档:传入即用「容器语义图标」(形状=kind)替代默认状态图标 */
+  kind?: StreamKind
   /** 步数(用于 "{n} 个步骤" / 用时措辞) */
   stepCount: number
   /** 收起态也显示在最前面的一句话:此刻在做什么 / 已完成 */
@@ -336,6 +471,7 @@ export interface StreamGroupProps {
  */
 export function StreamGroup({
   active,
+  kind,
   stepCount,
   headline,
   elapsedMs,
@@ -375,7 +511,11 @@ export function StreamGroup({
           )}
           data-stream-group-trigger="true"
         >
-          <StreamStatusIcon status={active ? 'running' : 'success'} />
+          {kind ? (
+            <StreamKindIcon kind={kind} status={active ? 'running' : 'success'} />
+          ) : (
+            <StreamStatusIcon status={active ? 'running' : 'success'} />
+          )}
           <span className="min-w-0 flex-1 truncate">
             {headline || (active ? t('statusRunning') : t('stepCount', { n: stepCount }))}
           </span>

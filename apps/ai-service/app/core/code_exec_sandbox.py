@@ -106,6 +106,12 @@ RULE_DEFAULT_DENY = "R-DECISION-DEFAULT-DENY"
 RULE_HOST_BAN = "R-DECISION-HOST-CAPABILITY-BAN"
 RULE_UNDECLARED = "R-DECISION-UNDECLARED"
 
+# ---- offline 网络禁令(Codex 沙箱 network_rule=Offline 范式,2026-11-15 接线)----
+# network_mode="offline" = 策略级网络全禁;在准入层(而非内核层)先拒一次,
+# 即使 AST 未命中网络符号,只要 requested 声明了 network 也被硬拒。
+NETWORK_MODE_OFFLINE = "offline"
+RULE_OFFLINE_NETWORK = "R-DECISION-OFFLINE-NETWORK"
+
 # language 未登记一律不认:绝不凭猜测按 python 解析(§0.3)。
 SUPPORTED_LANGUAGES = frozenset({"python", "python3"})
 
@@ -438,6 +444,8 @@ def decide_code_execution(request: object, policy: object) -> dict[str, Any]:
     code: str = req["code"]
     policy_caps = set(pol["capabilities"])
     requested = set(req["requested_capabilities"])
+    # offline 网络禁令:策略级 network_mode="offline" 时,准入层先拒一次网络触碰。
+    network_mode = pol.get("network_mode")
 
     try:
         tree = ast.parse(code)
@@ -469,6 +477,18 @@ def decide_code_execution(request: object, policy: object) -> dict[str, Any]:
         )
 
     # detected 非空 ⇒ vm 级能力禁令恒 denied;下面只决定拒绝的理由与证据。
+    # offline 网络禁令优先:策略声明 network_mode="offline" 时,触碰网络能力
+    # 在准入层直接拒,与内核层 egress_offline.py 的 filter 兜底双保险(范式:双层)。
+    if network_mode == NETWORK_MODE_OFFLINE and CAP_NETWORK in detected:
+        why = (
+            f"offline 网络禁令:policy.network_mode={NETWORK_MODE_OFFLINE!r} 时网络能力 "
+            f"{CAP_NETWORK} 一律不放行(准入层先拒,内核层 egress filter 兜底)"
+        )
+        findings.append(
+            _decision_finding(CAP_NETWORK, RULE_OFFLINE_NETWORK, "offline 策略下网络触碰")
+        )
+        return _result(VERDICT_DENIED, TIER_HOST_TOUCH, why, findings, detected)
+
     undeclared = sorted(detected - requested)
     if undeclared:
         why = (

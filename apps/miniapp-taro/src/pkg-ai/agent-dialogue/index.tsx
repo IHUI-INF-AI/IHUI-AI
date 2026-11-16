@@ -511,6 +511,7 @@ export default function AgentDialogue() {
       const url = msg.mediaUrl || msg.content
       return (
         <Image
+          ariaLabel={t('chat.imagePreviewA11y')}
           className="max-w-[480rpx] w-full min-w-[200rpx] min-h-[200rpx] ui-bubble rounded-2xl block bg-muted"
           src={url}
           mode="aspectFit"

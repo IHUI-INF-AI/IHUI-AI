@@ -32,7 +32,7 @@ import {
   type TextStyle,
   type ViewStyle,
 } from 'react-native'
-import { useI18n } from '../i18n'
+import { useI18n, t as tStatic } from '../i18n'
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const BG_IMAGE = require('../../assets/images/common/bjcspNew.jpg')
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -132,14 +132,14 @@ export function PersonalInformationCard({
 
       {/* 累计收入 */}
       <View style={styles.incomeRow}>
-        <Text style={styles.incomeLabel}>累计收入(元):</Text>
+        <Text style={styles.incomeLabel}>{tStatic('uiText.cumulativeIncome')}</Text>
         <Text style={styles.incomeValue}>{formatPrice(totalIncome)}</Text>
       </View>
 
       {/* 可提现金额 + 提现按钮 */}
       <View style={styles.withdrawRow}>
         <View style={styles.withdrawInfo}>
-          <Text style={styles.withdrawLabel}>可提现金额:</Text>
+          <Text style={styles.withdrawLabel}>{tStatic('uiText.withdrawableAmount')}</Text>
           <Text style={styles.withdrawValue}>{formatPrice(currentAmount)}</Text>
         </View>
         {/* 守门 131 那一型:函数形态 style 落在 Pressable 上会被 cssInterop 展开成空对象,
@@ -164,7 +164,12 @@ export function PersonalInformationCard({
       {hasLegacyInfo ? (
         <View style={styles.legacyRow}>
           {level ? <Text style={styles.legacyText}>{level}</Text> : null}
-          {inviteCode ? <Text style={styles.legacyText}>邀请码 {inviteCode}</Text> : null}
+          {inviteCode ? (
+            <Text style={styles.legacyText}>
+              {t('invite.inviteCode')}
+              {inviteCode}
+            </Text>
+          ) : null}
           {commissionRate !== undefined ? (
             <Text style={styles.legacyText}>
               {t('commission.label')}{' '}

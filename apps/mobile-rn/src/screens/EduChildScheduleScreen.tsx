@@ -74,7 +74,7 @@ function EduChildScheduleScreen() {
     } finally {
       setLoading(false)
     }
-  }, [childId, weekdayLabel])
+  }, [childId, weekdayLabel, t])
 
   useEffect(() => {
     void load()

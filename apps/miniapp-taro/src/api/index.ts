@@ -18,7 +18,7 @@ import { formatDateByTemplate } from '@ihui/shared'
 // 本文件只透传类型;解析腿在 lib/tool-approval-frame.ts 的 parseAdmissionLine,
 // 那里调用共享 readSendAdmissionReceipt —— 端内不复制四档值域判据。
 import type { SendAdmissionReceipt } from '@ihui/shared/chat/send-admission'
-import type { MemoryUpdatesEvent } from '@ihui/api-client'
+import type { MemoryUpdatesEvent, HookFailureEvent } from '@ihui/api-client'
 // #12 小程序 AI 增强,D138(承 V4 #96)收口:传输层收敛到 src/lib/sse.ts 薄壳 +
 // @ihui/api-client 的 runResumableSSEStream(重连/退避/读超时/续传游标的唯一实现);
 // 仅本端保留读超时常量传参。
@@ -86,6 +86,7 @@ import {
   parseToolApprovalLine,
   parseQuestionLine,
   parseAdmissionLine,
+  parseHookFailureLine,
 } from '@/lib/tool-approval-frame'
 import {
   parseBudgetStopData,
@@ -103,6 +104,9 @@ import {
 // 留着旁路就是同一条帧两处认领 —— 共享面改了字段口径时端内这份会静默比它旧。
 // 投影层仍从该共享件取(与 web/RN 同一份判定),只是接线改由 dispatch 承接已认领的事件。
 import type { CompactBoundary, ContextLedger, FormRequestFramePayload } from '@ihui/shared'
+// D155(2026-11-13):告警记录的收敛形状。类型取自共享判据层(唯一真相源),
+// 端内不重定义一份 —— 两份就会在加字段时静默漂开。
+import type { StreamAlertRecord } from '@ihui/shared'
 import type { ChatMessage as BaseChatMessage } from '@ihui/shared'
 import type {
   PlanUpdateEvent,
@@ -281,7 +285,7 @@ export type Live = Pick<ApiLive, 'title'> & {
 }
 
 /** 直播详情 */
-export const getLiveDetail = (id: string | number) => get<Live>(`/live/${id}`)
+export const getLiveDetail = (id: string | number) => get<Live>(`/live/${encodeURIComponent(id)}`)
 
 // 直播订阅端点已下沉 @ihui/api-client(endpoints/live.ts),端内不再自拼路径。
 // 显式具名再导出:本文件历史上有同名本地 getLiveList(已删),为防未来重名仍不能用 export * 整模块转出。
@@ -411,6 +415,8 @@ export interface MiniappStreamOptions extends ChatOptions {
    *  服务端凭它回显准入回执并判 duplicate;同一轮重发须沿用同值。
    *  缺省 ⇒ 服务端结构上不发 admission 帧(与改造前逐字等价)。 */
   inputId?: string
+  /** 2026-11-13:会话模式(与 web extraBody.mode 同键)。通道在先,控件另票。 */
+  mode?: string
 }
 
 /**
@@ -478,6 +484,8 @@ export interface StreamEventCallbacks {
   /** 记忆更新交代(2026-11-13):本轮新增写入长期记忆的条目摘要。空数组 = 无新记忆。
    *  载荷复用 @ihui/api-client 的 MemoryUpdatesEvent,端内不重复定义。 */
   onMemoryUpdates?: (event: MemoryUpdatesEvent) => void
+  /** hook 执行失败交代(2026-11-13):六态判据在共享层,端内只取词与上屏 */
+  onHookFailure?: (event: HookFailureEvent) => void
   /**
    * D152(2026-09-29 立,拍板「服务化,但存会话元数据、不建新表」):会话目标(goal)的服务端
    * 主副本变了 ⇒ 一帧 `goal_updated`。载荷复用 @ihui/api-client 的 GoalUpdateEvent。
@@ -520,6 +528,18 @@ export interface StreamEventCallbacks {
     selectedOptionIds: string[]
     customText?: string
   }) => void
+  /**
+   * D155(2026-11-13 收编):下行告警三档(config-warning / deprecation-notice /
+   * guardian-warning)。
+   *
+   * 载荷由共享解析层认领并收敛(`@ihui/shared` 的 `chat/stream-alerts.ts`:
+   * severity 归一 + 专属可选字段逐字段收窄),本层只透传、不另判 —— 三端若各判一遍,
+   * 漂开的表现是"同一个帧在有的端显示、有的端不显示"。
+   *
+   * **不注册就不显示**:后端已在 llm.py 流首产 deprecation-notice(厂商下发
+   * `deprecation_date` 且进入提醒窗口时),本回调是让那条帧真的到用户眼前的唯一出口。
+   */
+  onStreamAlert?: (evt: StreamAlertRecord) => void
   /**
    * D77(2026-10-17 落地小程序腿):对话流业务表单请求帧(form_request)。
    * 载荷由本文件 streamSSE 的 onRawLine 旁路经 parseFormRequestLine 认领解析
@@ -686,6 +706,15 @@ export const chatStream = async (
       case 'question-resolved':
         if (evt.questionResolved) callbacks?.onQuestionResolved?.(evt.questionResolved)
         break
+      // D155 下行告警三档(2026-11-13 收编):共享 sse-parse 已认领三帧并把载荷收敛成
+      // `evt.streamAlert`(severity 归一 + 专属可选字段逐字段收窄,判据在
+      // @ihui/shared 的 chat/stream-alerts.ts,端内不复算)。此前后端零生产点、
+      // 共享解析面也不认领 ⇒ 即使产帧本端也收不到,静默丢弃。
+      case 'config-warning':
+      case 'deprecation-notice':
+      case 'guardian-warning':
+        if (evt.streamAlert) callbacks?.onStreamAlert?.(evt.streamAlert)
+        break
       case 'done':
         onDone?.({
           totalTokens: evt.usage?.totalTokens,
@@ -834,6 +863,11 @@ export const chatStream = async (
     workspaceContext: options.workspaceContext,
     agentTools,
     plan_mode: options.plan_mode,
+    // 2026-11-13:ChatMode 5 态(ask/build/plan/review/spec)的会话模式。
+    // 与 web 的 extraBody.mode 同一个键(ai-service `_resolve_chat_mode` 读它);
+    // `plan_mode` 是 2026-07-28 已废弃的旧字段,语义已合并到 mode,这里不复活它。
+    // undefined 时 JSON.stringify 省略该键 ⇒ 旧调用方零行为变化。
+    mode: options.mode,
     // D130(2026-09-30 立):推理强度档位。键名按**网关** chatStreamSchema 的 camel 拼写发
     // (与本 body 里 plan_mode/tool_choice 的 snake 不同形,是网关 schema 就长这样的两套:
     // 网关只对 permissionMode/reasoningEffort 用 camel,转发行再改 snake 给 ai-service)。
@@ -882,6 +916,13 @@ export const chatStream = async (
       if (admission && callbacks && typeof callbacks.onSendAdmissionReceipt === 'function') {
         callbacks.onSendAdmissionReceipt(admission)
       }
+      // G-87(2026-11-13):hook-failed 帧认领。共享 sse-parse 不认领该帧族
+      // ⇒ 不走旁路就一路静默丢弃(与 tool-approval / admission 同一条先例)。
+      // 载荷形状由共享层 readHookFailureEvent 收窄,本层只透传。
+      const hookFailure = parseHookFailureLine(line)
+      if (hookFailure && callbacks && typeof callbacks.onHookFailure === 'function') {
+        callbacks.onHookFailure(hookFailure as never)
+      }
       // 批次 3:共享解析面只折 usage/compaction 的旧字段,七类账本与压缩边界
       // 会在那一层被静默丢掉 ⇒ 这两维在本端旁路认领(形状不认即丢弃,不猜不补)。
       const ledger = parseUsageContextLedgerLine(line)
@@ -922,7 +963,7 @@ async function fetchConversationItems(
   if (!conversationId) return []
   try {
     const result = await fetchApi<{ items?: unknown }>(
-      `/ai/chat/conversations/${encodeURIComponent(conversationId)}/${resource}`,
+      `/ai/chat/conversations/${encodeURIComponent(conversationId)}/${encodeURIComponent(resource)}`,
       { method: 'GET', params: { limit } },
     )
     if (!result.success || !result.data) return []
@@ -1058,13 +1099,18 @@ export const getIntegral = (params?: { page?: number; pageSize?: number }) =>
     }>
     total: number
   }>('/api/points/transactions', params).then((r) => ({
-    list: (r.list ?? []).map((row) => ({
-      id: row.id,
-      type: row.description ?? row.source,
-      amount: row.type === 'spend' ? -Math.abs(row.amount) : row.amount,
-      time: formatDateByTemplate(row.createdAt, 'YYYY-MM-DD HH:mm:ss'),
-    })),
-    total: r.total,
+    list: (r.list ?? []).map((row) => {
+      // 先统一强转再取负:负分支经 Math.abs 强转 number、正分支原样透传会让同字段类型漂移
+      // (string 时下游算术变拼接);total 缺席透传 undefined,下游算术会 NaN。
+      const amt = Number(row.amount ?? 0)
+      return {
+        id: row.id,
+        type: row.description ?? row.source,
+        amount: row.type === 'spend' ? -Math.abs(amt) : amt,
+        time: formatDateByTemplate(row.createdAt, 'YYYY-MM-DD HH:mm:ss'),
+      }
+    }),
+    total: r.total ?? 0,
   }))
 export const getCouponList = (params?: { status?: string }) =>
   get<{
@@ -1136,18 +1182,22 @@ export const claimAvailableCoupon = (couponId: string) =>
 /* ============ 支付 / 订单 ============ */
 
 export const getPayResult = async (orderNo: string) => {
-  const res = await get<{ order: { status: string; amount: number } }>(`/payment/orders/${orderNo}`)
-  const raw = res.order.status
+  const res = await get<{ order: { status: string; amount: number } }>(`/payment/orders/${encodeURIComponent(orderNo)}`)
+  // 订单未落库/查询无果/网关异常时后端可能回 {order:null},直接 res.order.status 会抛 TypeError
+  // 让支付结果页整页报错;order 缺席时降级为 pending 由订单页按服务端刷新,而非崩溃。
+  const order = res?.order
+  if (!order) return { status: 'pending' as const, amount: 0 }
+  const raw = order.status
   const status: 'pending' | 'paid' | 'failed' =
     raw === 'paid' ? 'paid' : raw === 'pending' ? 'pending' : 'failed'
-  return { status, amount: res.order.amount }
+  return { status, amount: order.amount ?? 0 }
 }
 /**
  * 订单详情 — 对接后端 GET /orders/:orderNo(支持 orderNo 或 UUID id 查询)。
  * 后端响应 `{ order: EduOrder }`,此处解包返回 Order 本体,保持调用方签名不变。
  */
 export const getOrderDetail = (id: string | number) =>
-  get<{ order: Order }>(`/orders/${id}`).then((r) =>
+  get<{ order: Order }>(`/orders/${encodeURIComponent(id)}`).then((r) =>
     normalizeOrderDetail((r.order ?? r) as unknown as Record<string, unknown>),
   )
 /**
@@ -1156,7 +1206,7 @@ export const getOrderDetail = (id: string | number) =>
  * refundAmount 以订单金额显式回传,保证与页面展示一致(后端另按订单金额封顶)。
  */
 export const refund = (data: { orderId: string; reason: string; refundAmount?: string }) =>
-  post(`/orders/${data.orderId}/refund`, {
+  post(`/orders/${encodeURIComponent(data.orderId)}/refund`, {
     reason: data.reason,
     ...(data.refundAmount ? { refundAmount: data.refundAmount } : {}),
   })
@@ -1181,7 +1231,7 @@ export interface RechargeCreateResult {
 }
 export const createRecharge = (amountCents: number, payMethod: 'wechat' = 'wechat') =>
   post<RechargeCreateResult>(
-    `/payments/${payMethod}/create?amount=${amountCents}&orderType=2&description=${encodeURIComponent('充值')}`,
+    `/payments/${encodeURIComponent(payMethod)}/create?amount=${encodeURIComponent(amountCents)}&orderType=2&description=${encodeURIComponent('充值')}`,
     {},
   )
 
@@ -1250,7 +1300,8 @@ export const getDistributionRank = () =>
       id: r.userId ?? '',
       nickname: r.nickname ?? '',
       avatar: r.avatar ?? undefined,
-      commission: Number(r.totalCommission),
+      // totalCommission 缺席时 Number(undefined)=NaN 会透传排行榜;兜底 0 对齐同文件归一口径
+      commission: Number(r.totalCommission ?? 0),
     })),
   }))
 
@@ -1280,7 +1331,7 @@ export interface News {
 }
 export const getNewsList = (params?: { page?: number; pageSize?: number; keyword?: string }) =>
   get<{ list: News[]; total: number }>('/news/articles', params)
-export const getNewsDetail = (id: string | number) => get<News>(`/news/articles/${id}`)
+export const getNewsDetail = (id: string | number) => get<News>(`/news/articles/${encodeURIComponent(id)}`)
 /**
  * 相关新闻推荐 — 复用 GET /news/articles/recommended(后端暂无 :id/related 端点,
  * 返回运营推荐位文章列表,语义最接近"相关推荐")。
@@ -1295,7 +1346,7 @@ export const getRelatedNews = (
  * 返回 { liked, likeCount })。调用方 detail.tsx 按返回回滚 UI 状态。
  */
 export const likeNews = (id: string | number) =>
-  post<{ liked?: boolean; likeCount?: number }>(`/news/articles/${id}/like`)
+  post<{ liked?: boolean; likeCount?: number }>(`/news/articles/${encodeURIComponent(id)}/like`)
 
 export interface Circle {
   id: string | number
@@ -1311,7 +1362,8 @@ export interface Circle {
 export const getCircleList = (params?: { page?: number; pageSize?: number }) =>
   get<{ list: Circle[]; total: number }>('/circles', params)
 export const getCircleDetail = (id: string | number) =>
-  get<{ circle: Circle }>(`/circles/${id}`).then((r) => r.circle)
+  // 数据缺失时显式回 null(逼调用方处理)而非伪装成 undefined 的正常返回,崩溃点后移到页面层
+  get<{ circle: Circle }>(`/circles/${encodeURIComponent(id)}`).then((r) => r?.circle ?? null)
 export const createCircle = (data: { title: string; content: string; images?: string[] }) =>
   post('/circles', data)
 
@@ -1328,7 +1380,8 @@ export interface Ask {
 export const getAskList = (params?: { page?: number; pageSize?: number; keyword?: string }) =>
   get<{ list: Ask[]; total: number }>('/asks', params)
 export const getAskDetail = (id: string | number) =>
-  get<{ ask: Ask }>(`/asks/${id}`).then((r) => r.ask)
+  // 数据缺失时显式回 null(逼调用方处理)而非伪装成 undefined 的正常返回
+  get<{ ask: Ask }>(`/asks/${encodeURIComponent(id)}`).then((r) => r?.ask ?? null)
 // POST /asks 的同名薄封装已退役:唯一消费方 apps/miniapp-taro/src/pages/ask/create.tsx 改打
 // @ihui/api-client 的 createAsk(endpoints/community.ts),与 web 的 asks/edit 页、RN 的
 // AskCreateScreen 同一份端点真相源(§3 共享层优先:端内不得留第二份同名封装)。
@@ -1337,19 +1390,19 @@ export const getAskDetail = (id: string | number) =>
 export const getAskCategories = () =>
   get<{ list: Array<{ id: string; name: string }> }>('/asks/categories')
 export const likeAsk = (id: string | number) =>
-  post<{ id: string; liked: boolean }>(`/asks/${id}/like`)
+  post<{ id: string; liked: boolean }>(`/asks/${encodeURIComponent(id)}/like`)
 export const favoriteAsk = (id: string | number) =>
-  post<{ id: string; favorited: boolean }>(`/asks/${id}/favorite`)
+  post<{ id: string; favorited: boolean }>(`/asks/${encodeURIComponent(id)}/favorite`)
 export const getAskComments = (id: string | number) =>
   get<{
     list: Array<{ id: string; content: string; userId: string; createdAt: string }>
     total: number
-  }>(`/asks/${id}/comments`)
+  }>(`/asks/${encodeURIComponent(id)}/comments`)
 export const createAskComment = (id: string | number, data: { content: string; pid?: string }) =>
-  post(`/asks/${id}/comments`, data)
+  post(`/asks/${encodeURIComponent(id)}/comments`, data)
 export const updateAskAnswer = (id: string, data: { content: string }) =>
-  patch(`/asks/answers/${id}`, data)
-export const deleteAskAnswer = (id: string) => del(`/asks/answers/${id}`)
+  patch(`/asks/answers/${encodeURIComponent(id)}`, data)
+export const deleteAskAnswer = (id: string) => del(`/asks/answers/${encodeURIComponent(id)}`)
 export const getAskMemberAnswers = (params: { userId: string; page?: number; pageSize?: number }) =>
   get<{
     list: Array<{ id: string; content: string; askId: string; createdAt: string }>
@@ -1363,7 +1416,7 @@ export const getTopicList = (params?: { page?: number; pageSize?: number }) =>
     total: number
   }>('/topics', params)
 export const getTopicDetail = (id: string | number) =>
-  get<{ id: string; name: string; posts: Circle[] }>(`/topics/${id}`)
+  get<{ id: string; name: string; posts: Circle[] }>(`/topics/${encodeURIComponent(id)}`)
 
 /* ============ 教育扩展 ============ */
 
@@ -1422,9 +1475,9 @@ export {
 // api-client ExamQuestion 为 { examId, type: 'single'|'multiple'|'judge'|'fill'|'essay', options: {key,value}[]|null, score: number, analysis: string|null },
 // 与后端 /exam/papers/:id/questions 的实际返回一致(经 toApiQuestionType + normalizeOptionsForApi + Number 转换)。
 // ⇒ 本端一律吃 api-client 的原始形状,渲染时才用 toShellQuestionType/toShellOptionTexts 投影。
-export const getExamPaper = (id: string) => get<{ paper: ExamPaper }>(`/exam/papers/${id}`)
+export const getExamPaper = (id: string) => get<{ paper: ExamPaper }>(`/exam/papers/${encodeURIComponent(id)}`)
 export const getExamQuestions = (id: string) =>
-  get<{ exam: ExamPaper; questions: ExamQuestion[] }>(`/exam/papers/${id}/questions`).then((r) => ({
+  get<{ exam: ExamPaper; questions: ExamQuestion[] }>(`/exam/papers/${encodeURIComponent(id)}/questions`).then((r) => ({
     list: r.questions ?? [],
   }))
 // ExamRecord 已下沉到 @ihui/api-client(endpoints/exam.ts),上方 re-export
@@ -1437,16 +1490,16 @@ export interface ExamSubmitResult {
   answers: Array<{ questionId: string; answer: unknown; isCorrect: boolean; score: number }>
 }
 export const startExamRecord = (paperId: string) =>
-  post<{ record: ExamRecord }>(`/exam/papers/${paperId}/start`)
+  post<{ record: ExamRecord }>(`/exam/papers/${encodeURIComponent(paperId)}/start`)
 export const submitExam = (data: {
   recordId: string
   answers: Array<{ questionId: string; answer: unknown }>
 }) =>
-  post<{ result: ExamSubmitResult }>(`/exam/records/${data.recordId}/submit`, {
+  post<{ result: ExamSubmitResult }>(`/exam/records/${encodeURIComponent(data.recordId)}/submit`, {
     answers: data.answers,
   })
 export const getExamResult = (id: string | number) =>
-  get<{ score: number; pass: boolean; rank?: number; total?: number }>(`/exam/${id}/result`)
+  get<{ score: number; pass: boolean; rank?: number; total?: number }>(`/exam/${encodeURIComponent(id)}/result`)
 
 /* Exam 模块扩展（D1/D2 端点） */
 export const getExamSignups = (params?: {
@@ -1466,7 +1519,7 @@ export const createExamSignup = (data: { examId: string; userId: string }) =>
 /**
  * 单条报名详情 —— 在册的是 GET /api/legacy/exam/signups/{id}
  * (同族 create/cancel/check 三条一直打在 legacy 前缀上，只有这条写成
- * `/exam/signups/${id}`；裸前缀那条只注册了列表 GET /api/exam/signups，
+ * `/exam/signups/${encodeURIComponent(id)}`；裸前缀那条只注册了列表 GET /api/exam/signups，
  * 没有 /:id ⇒ 这一调用此前必 404)。id 一并过 encodeURIComponent。
  */
 export const getExamSignup = (id: string) =>
@@ -1474,7 +1527,7 @@ export const getExamSignup = (id: string) =>
     `/api/legacy/exam/signups/${encodeURIComponent(id)}`,
   )
 export const cancelExamSignup = (id: string) =>
-  del<{ deleted: boolean }>(`/api/legacy/exam/signups/${id}`)
+  del<{ deleted: boolean }>(`/api/legacy/exam/signups/${encodeURIComponent(id)}`)
 export const checkExamSignup = (params: { examId: string; userId: string }) =>
   get<{ signed: boolean; signup: { id: string } | null }>('/api/legacy/exam/signups/check', params)
 export const getExamRecommend = () => get<{ list: Exam[] }>('/api/legacy/exam/recommend')
@@ -1482,7 +1535,7 @@ export const getExamHot = () => get<{ list: Exam[] }>('/api/legacy/exam/hot')
 export const getExamFavorites = (userId: string) =>
   get<{ list: Exam[] }>('/api/legacy/exam/favorites', { userId })
 export const deleteExamWrongQuestion = (id: string) =>
-  del<{ deleted: boolean }>(`/api/legacy/exam/wrong-questions/${id}`)
+  del<{ deleted: boolean }>(`/api/legacy/exam/wrong-questions/${encodeURIComponent(id)}`)
 
 /* ============ AI 模块 ============ */
 
@@ -1560,7 +1613,7 @@ export const getAgentList = () =>
  * 此处映射为前端 AgentDetail 兼容结构(id/desc/prompt)。
  */
 export const getAgentDetail = (id: string | number) =>
-  get<AgentRawRow>(`/agents/${id}`).then((a) => ({
+  get<AgentRawRow>(`/agents/${encodeURIComponent(id)}`).then((a) => ({
     id: String(a.agentId),
     name: a.name,
     desc: a.description ?? '',
@@ -1587,12 +1640,12 @@ export const getLiveHistory = (params?: { page?: number; pageSize?: number }) =>
   get<{ list: Live[]; total: number }>('/live/history', params)
 export const getLiveCalendar = (params?: { month?: string }) =>
   get<{ list: Array<{ date: string; lives: Live[] }> }>('/live/calendar', params)
-export const subscribeLive = (id: string | number) => post(`/live/${id}/subscribe`)
+export const subscribeLive = (id: string | number) => post(`/live/${encodeURIComponent(id)}/subscribe`)
 
 // Teacher 已下沉到 @ihui/api-client(endpoints/teacher.ts),上方 re-export
 export const getTeacherList = (params?: { page?: number; pageSize?: number; keyword?: string }) =>
   get<{ list: Teacher[]; total: number }>('/teacher/list', params)
-export const getTeacherDetail = (id: string | number) => get<Teacher>(`/teacher/${id}`)
+export const getTeacherDetail = (id: string | number) => get<Teacher>(`/teacher/${encodeURIComponent(id)}`)
 
 /* ============ 设置 / 其他 ============ */
 
@@ -1638,9 +1691,9 @@ export const setTheme = (theme: string) => post('/settings/theme', { theme })
 /* ============ 智能体市场 ============ */
 // 注：getAgentList / getAgentDetail 已在上方 AI 模块定义，此处不再重复声明
 export const getAgentCategories = () => get('/agents/categories')
-export const collectAgent = (id: string) => post(`/agents/${id}/collect`)
-export const likeAgent = (id: string) => post(`/agents/${id}/like`)
-export const recordAgentUse = (id: string) => post(`/agents/${id}/use`)
+export const collectAgent = (id: string) => post(`/agents/${encodeURIComponent(id)}/collect`)
+export const likeAgent = (id: string) => post(`/agents/${encodeURIComponent(id)}/like`)
+export const recordAgentUse = (id: string) => post(`/agents/${encodeURIComponent(id)}/use`)
 export const getAgentUseHistory = () => get('/agents/use-history')
 export const getAgentCollections = () => get('/agents/collections')
 
@@ -1705,8 +1758,8 @@ export const getPrivateMessages = (params?: { page?: number; pageSize?: number }
     pageSize: number
   }>('/messages/private/list', params)
 export const getRoomHistory = (roomId: string, page = 1) =>
-  get(`/messages/rooms/${roomId}/history`, { page })
-export const markRoomRead = (roomId: string) => post(`/messages/rooms/${roomId}/read`)
+  get(`/messages/rooms/${encodeURIComponent(roomId)}/history`, { page })
+export const markRoomRead = (roomId: string) => post(`/messages/rooms/${encodeURIComponent(roomId)}/read`)
 /** 站内消息分页(GET /messages;参数名 msgType 与后端 schema 现读对齐,RN 屏旧写法 `type=` 不在 schema 内) */
 export const getMessages = (params: { page?: number; pageSize?: number; msgType?: string }) =>
   get<{
@@ -1723,13 +1776,13 @@ export const getMessages = (params: { page?: number; pageSize?: number; msgType?
     total: number
   }>('/messages', params)
 /** 标记单条站内消息已读(PUT /messages/:id/read,后端按属主校验) */
-export const markMessageRead = (id: string) => put(`/messages/${id}/read`)
+export const markMessageRead = (id: string) => put(`/messages/${encodeURIComponent(id)}/read`)
 /** 删除单条站内消息(DELETE /messages/:id) */
-export const deleteMessage = (id: string) => del(`/messages/${id}`)
+export const deleteMessage = (id: string) => del(`/messages/${encodeURIComponent(id)}`)
 /** 标记私信已读(POST /messages/private/:pid/read) */
-export const markPrivateRead = (pid: string) => post(`/messages/private/${pid}/read`)
+export const markPrivateRead = (pid: string) => post(`/messages/private/${encodeURIComponent(pid)}/read`)
 /** 删除私信(DELETE /messages/private/:pid) */
-export const deletePrivateMessage = (pid: string) => del(`/messages/private/${pid}`)
+export const deletePrivateMessage = (pid: string) => del(`/messages/private/${encodeURIComponent(pid)}`)
 
 /* ============ 通知偏好 ============ */
 export interface NotificationPreferences {
@@ -1861,8 +1914,8 @@ export const accountCancel = () => del('/auth/account')
 
 /* ============ 学习扩展 ============ */
 export const getStudyGroups = () => get('/study/groups')
-export const getStudyGroupDetail = (id: string) => get(`/study/groups/${id}`)
-export const getVideoDetail = (id: string) => get(`/study/videos/${id}`)
+export const getStudyGroupDetail = (id: string) => get(`/study/groups/${encodeURIComponent(id)}`)
+export const getVideoDetail = (id: string) => get(`/study/videos/${encodeURIComponent(id)}`)
 export const getStudyRanking = () => get('/study/ranking')
 
 /* ============ 分销扩展 ============ */
@@ -1892,13 +1945,13 @@ export const removeContextField = (field: string) =>
 /** 保存聊天记录 */
 export const saveChatHistory = (data: unknown) => post('/chat/history', data)
 /** 删除聊天记录 */
-export const removeChatHistory = (id: string) => del(`/chat/history/${id}`)
+export const removeChatHistory = (id: string) => del(`/chat/history/${encodeURIComponent(id)}`)
 /** 查询智能体上下文 */
 export const queryAgentContext = (params: ApiParams) => get('/agent/context/query', params)
 /** 创建模型对话 */
 export const createModelChat = (data: unknown) => post('/model/chat', data)
 /** 删除模型对话 */
-export const removeModelChat = (id: string) => del(`/model/chat/${id}`)
+export const removeModelChat = (id: string) => del(`/model/chat/${encodeURIComponent(id)}`)
 
 /* ============ 语音转文字 ============ */
 /** 语音转文字（调用 DashScope Paraformer / qwen3-asr） */
@@ -1932,23 +1985,23 @@ export const generateImageKling = (data: unknown) => post('/ai/kling/image', dat
 
 /* ============ 课程 / 视频内容管理 ============ */
 /** 课程分组详情 */
-export const getGroupDetail = (id: string) => get(`/learn/group/${id}`)
+export const getGroupDetail = (id: string) => get(`/learn/group/${encodeURIComponent(id)}`)
 /** 新增课程分组 */
 export const addGroup = (data: unknown) => post('/learn/group', data)
 /** 更新课程 */
-export const coursePut = (id: string, data: unknown) => put(`/learn/course/${id}`, data)
+export const coursePut = (id: string, data: unknown) => put(`/learn/course/${encodeURIComponent(id)}`, data)
 /** 删除课程 */
-export const courseDelete = (id: string) => del(`/learn/course/${id}`)
+export const courseDelete = (id: string) => del(`/learn/course/${encodeURIComponent(id)}`)
 /** 新增视频 */
 export const addVideo = (data: unknown) => post('/learn/video', data)
 /** 更新视频 */
-export const videoPut = (id: string, data: unknown) => put(`/learn/video/${id}`, data)
+export const videoPut = (id: string, data: unknown) => put(`/learn/video/${encodeURIComponent(id)}`, data)
 /** 删除视频 */
-export const videoDelete = (id: string) => del(`/learn/video/${id}`)
+export const videoDelete = (id: string) => del(`/learn/video/${encodeURIComponent(id)}`)
 /** 发布课程 */
-export const issueCourse = (id: string) => post(`/learn/course/${id}/issue`)
+export const issueCourse = (id: string) => post(`/learn/course/${encodeURIComponent(id)}/issue`)
 /** 下架课程 */
-export const delistCourse = (id: string) => post(`/learn/course/${id}/delist`)
+export const delistCourse = (id: string) => post(`/learn/course/${encodeURIComponent(id)}/delist`)
 /** 视频评论列表 */
 export const getVideoCommentList = (params: ApiParams) => get('/learn/video/comments', params)
 /** 新增视频评论 */
@@ -1964,7 +2017,7 @@ export const getFlowList = (params: ApiParams) => get('/distribution/flow', para
 /** 分销流量订单列表 */
 export const getFlowOrderList = (params: ApiParams) => get('/distribution/flow/orders', params)
 /** 提现状态查询 */
-export const getWithdrawalStatus = (id: string) => get(`/distribution/withdrawal/${id}/status`)
+export const getWithdrawalStatus = (id: string) => get(`/distribution/withdrawal/${encodeURIComponent(id)}/status`)
 
 /* ============ 分享功能 ============ */
 /** 智能体创建分享 */
@@ -1974,7 +2027,8 @@ export const checkFirstShareStatus = () => get('/agent/creation/share/first-stat
 /** 首次分享 */
 export const firstShare = (data: unknown) => post('/api/share/first-claim', data)
 /** 根据分享码获取内容 */
-export const getShareContentByCode = (code: string) => get(`/api/share/content/${code}`)
+export const getShareContentByCode = (code: string) =>
+  get(`/api/share/content/${encodeURIComponent(code)}`)
 
 /* ============ 其他扩展 API ============ */
 /** 绑定用户 */
@@ -2001,9 +2055,9 @@ export const oneTapLogin = (data: { loginCode: string; phoneCode: string }) =>
   post<LoginResult>('/auth/wechat/mini/one-tap-login', data)
 /** 查询是否已设置密码 */
 export const pwdExist = (phone: string) =>
-  get<{ exists?: boolean }>(`/api/auth/exist/${phone}`).then((r) => !!r.exists)
+  get<{ exists?: boolean }>(`/api/auth/exist/${encodeURIComponent(phone)}`).then((r) => !!r.exists)
 /** 关闭订单 — 对接后端 POST /orders/:id/cancel(参数 :id 必须是 UUID) */
-export const closeOrder = (orderId: string) => post(`/orders/${orderId}/cancel`, {})
+export const closeOrder = (orderId: string) => post(`/orders/${encodeURIComponent(orderId)}/cancel`, {})
 /** 微信支付 JSAPI — 对齐后端 POST /payments/wechat/create(query 传参) */
 export const wechatPay = (params: {
   amount: number
@@ -2027,11 +2081,11 @@ export const getInformationCategory = () => get('/news/categories')
 /** 商品选择列表 */
 export const selectGoods = (params: ApiParams) => get('/goods/select', params)
 /** 商品详情 */
-export const getProduct = (id: string) => get(`/goods/${id}`)
+export const getProduct = (id: string) => get(`/goods/${encodeURIComponent(id)}`)
 
 /* ============ 智能体收费配置 ============ */
 /** 根据智能体 ID 获取收费配置 */
-export const getChargeInfoById = (agentId: string | number) => get(`/agents/charge/${agentId}`)
+export const getChargeInfoById = (agentId: string | number) => get(`/agents/charge/${encodeURIComponent(agentId)}`)
 /** 创建付费记录 */
 export const createPayHistory = (data: unknown) => post('/agents/charge/pay-history', data)
 /** 创建智能体收费配置 */
@@ -2039,7 +2093,7 @@ export const createZntCharge = (data: unknown) => post('/agents/charge', data)
 /** 修改智能体收费配置 */
 export const putZntCharge = (data: unknown) => put('/agents/charge', data)
 /** 删除智能体收费配置 */
-export const deleteZntCharge = (id: string | number) => del(`/agents/charge/${id}`)
+export const deleteZntCharge = (id: string | number) => del(`/agents/charge/${encodeURIComponent(id)}`)
 /** 获取智能体审核记录列表 */
 export const getZntList = (params: ApiParams) => get('/agents/charge/list', params)
 

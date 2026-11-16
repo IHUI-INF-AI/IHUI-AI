@@ -102,6 +102,55 @@ export function headBlobOf(rel, { root } = {}) {
 }
 
 /**
+ * 批量 HEAD blob(2026-11-15 立,治门 298 工作树臂 fork 风暴的第二腿)。
+ *
+ * 立因:工作树臂此前逐条调 `headBlobOf`,而 `headBlobOf` 内部**每条路径都重复 `rev-parse HEAD`**
+ * (ancestor-downgrade.mjs:74)+ 一次 `rev-parse HEAD:<rel>` ⇒ 1393 条路径 = 2786 次 spawn。
+ * 共享工作树下 HEAD 在整轮判定里恒定,重复验纯属浪费。
+ *
+ * 本出口一次派生取齐:HEAD oid 顶层验一次,`HEAD:<rel>` 全部走 `catBatchOids` 批量。
+ * 三态契约与 `headBlobOf` 逐字对齐(§0.3):
+ *   · HEAD 本身取不到/非 oid ⇒ 全体 `{ judged:false, why }`(不冒充"没有");
+ *   · `HEAD:<rel>` missing ⇒ `{ oid:null, missing:true }`(真新文件/已删);
+ *   · 其它非零 ⇒ `{ judged:false, why }`。
+ *
+ * @returns {{ headOid:string|null, byPath:Map<string,{judged:boolean,oid:string|null,missing:boolean,why:string|null}>, why:string|null }}
+ *   headOid 为 null 时 byPath 为空、why 指明 HEAD 取不到(调用方整轮未判定)。
+ */
+export function headBlobBatch(rels, { root } = {}) {
+  let head
+  try {
+    head = String(gitRaw(['rev-parse', '--verify', 'HEAD'], root)).trim()
+  } catch (e) {
+    return { headOid: null, byPath: new Map(), why: `HEAD 取不到:${String(e?.message ?? e).split('\n')[0]}` }
+  }
+  if (!/^[0-9a-f]{40}$/i.test(head)) {
+    return { headOid: null, byPath: new Map(), why: 'HEAD 取不到 oid' }
+  }
+  const byPath = new Map()
+  if (rels.length === 0) return { headOid: head.toLowerCase(), byPath, why: null }
+  const specs = rels.map((r) => `HEAD:${r}`)
+  let got
+  try {
+    got = catBatchOids(root, specs)
+  } catch (e) {
+    return { headOid: null, byPath: new Map(), why: `HEAD 面批量取不到:${String(e?.message ?? e).split('\n')[0]}` }
+  }
+  for (const rel of rels) {
+    const oid = got.get(`HEAD:${rel}`)
+    if (oid === null) {
+      // catBatchOids 把 missing 归 null;与 headBlobOf 一致:这是"真缺席"不是"取不到"
+      byPath.set(rel, { judged: true, oid: null, missing: true, why: null })
+    } else if (oid && /^[0-9a-f]{40}$/i.test(oid)) {
+      byPath.set(rel, { judged: true, oid: oid.toLowerCase(), missing: false, why: null })
+    } else {
+      byPath.set(rel, { judged: false, oid: null, missing: false, why: `HEAD:${rel} 输出非 oid` })
+    }
+  }
+  return { headOid: head.toLowerCase(), byPath, why: null }
+}
+
+/**
  * 该路径在 HEAD 之前的祖先提交清单(逐字档与归一化档共用,不再各取一遍)。
  * 三态:HEAD 取不到 / rev-list 取不到 ⇒ judged:false(§0.3,不折成"没有祖先")。
  */

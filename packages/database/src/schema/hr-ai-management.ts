@@ -186,6 +186,39 @@ export const hrLeaveRequest = pgTable(
   }),
 )
 
+/**
+ * 员工-平台账号关联申请表 (hr_employee_link_request,2026-11-16 立)。
+ *
+ * 立因:用户之间数据默认隔离,HR 只能发起「关联邀请」,被邀请账号本人在自助页同意后,
+ * 才由服务层写 hr_employee.user_id;手机号/邮箱仅用于找人,不做自动认领。
+ * 与 packages/database/drizzle/20261116120000_hr_employee_link_request.sql 逐字对齐。
+ */
+export const hrEmployeeLinkRequest = pgTable(
+  'hr_employee_link_request',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    employeeId: uuid('employee_id')
+      .notNull()
+      .references(() => hrEmployee.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    status: varchar('status', { length: 20 }).default('pending').notNull(),
+    invitedBy: uuid('invited_by').references(() => users.id, { onDelete: 'set null' }),
+    decidedAt: timestamp('decided_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    userIdx: index('ix_hr_link_req_user').on(t.userId, t.status),
+    empIdx: index('ix_hr_link_req_emp').on(t.employeeId, t.status),
+    // 同一员工同一时刻只允许一条待确认邀请
+    pendingEmpUniq: uniqueIndex('uq_hr_link_req_pending_emp')
+      .on(t.employeeId)
+      .where(sql`${t.status} = 'pending'`),
+  }),
+)
+
 export type HrDepartment = typeof hrDepartment.$inferSelect
 export type NewHrDepartment = typeof hrDepartment.$inferInsert
 export type HrEmployee = typeof hrEmployee.$inferSelect

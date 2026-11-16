@@ -59,7 +59,7 @@ function DeveloperSettingsScreen() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [t])
 
   useEffect(() => {
     void load()
