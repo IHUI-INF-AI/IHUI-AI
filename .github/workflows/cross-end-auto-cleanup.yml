@@ -196,7 +196,7 @@ jobs:
           fi
 
       - name: 上传 sha 清单备份
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: cross-end-auto-cleanup-manifest-${{ github.run_id }}
           path: |

@@ -338,7 +338,7 @@ jobs:
 
       - name: 上传产物(便于排查)
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: cross-end-cascade-report
           path: |
