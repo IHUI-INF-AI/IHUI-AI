@@ -79,14 +79,19 @@ jobs:
       # 通道 B 的第三件是 `.p8` **内容**(APPLE_API_KEY_P8),不是路径:workflow 负责落盘并
       # 把 APPLE_API_KEY_PATH 指到落盘位置(2026-11-05 补,此前只搬路径变量、文件从未存在)。
       APPLE_SIGNING_CONFIGURED: ${{ secrets.APPLE_CERTIFICATE != '' && secrets.APPLE_CERTIFICATE_PASSWORD != '' && secrets.APPLE_SIGNING_IDENTITY != '' && ((secrets.APPLE_ID != '' && secrets.APPLE_PASSWORD != '' && secrets.APPLE_TEAM_ID != '') || (secrets.APPLE_API_KEY != '' && secrets.APPLE_API_ISSUER != '' && secrets.APPLE_API_KEY_P8 != '')) }}
-      # 未签名发版开关(2026-11-16 立,机主拍板"发未签名包,跟 0.1.77 一样"):
-      # 仅 workflow_dispatch 显式勾选 allow_unsigned 时置 true。置 true 后:
-      #   - Preflight 缺口不再 exit 1(改为 warning),编译继续;
-      #   - 下方 Authenticode/公证步仍靠 SIGNPATH_CONFIGURED/APPLE_SIGNING_CONFIGURED 整体跳过;
-      #   - Tauri 更新器 .sig 正常生成(用已配置的 DESKTOP_TAURI_PRIVATE_KEY),latest.json 照常发布;
-      #   - signature-gate 的"未签名/未公证"判红改判 warning(见该 job);
-      # 注意:push tag 触发时 inputs.allow_unsigned 为空 ⇒ 默认 false ⇒ 走严格门禁,默认路径不变。
-      ALLOW_UNSIGNED: ${{ github.event_name == 'workflow_dispatch' && inputs.allow_unsigned == true }}
+      # 未签名发版开关(2026-11-16 立;2026-11-17 改 push-tag 默认未签名,机主拍板
+      # "发未签名包,跟 0.1.77 一样"):
+      # 【旧口径】只认 workflow_dispatch 的 allow_unsigned 勾选 ⇒ push tag 时恒为 false,
+      #   于是每次发版都被严格 preflight 判红(desktop-v0.1.78 run#104 实证:Windows/macOS
+      #   双双卡在 Preflight desktop signing credentials),未签名包根本发不出去。
+      # 【现口径】在 job 级 env 里**不引用 matrix**(matrix 上下文按 GitHub 语义不在 job 级
+      #   env 求值范围内),改为把两枚凭据就绪标志算在 job env、由各 step 按 runner.os 组合;
+      #   本 job 的平台与 runner.os 一一对应(windows-x64↔Windows / macos-universal↔macOS /
+      #   linux-x64↔Linux),step 级用 runner.os 判平台是安全的。
+      # 语义:① workflow_dispatch 勾选 allow_unsigned 即 true;
+      #       ② push tag 且**本平台签名凭据未配置** ⇒ 自动 true(免去每次手动勾选)。
+      # 关键:凭据一旦配齐,②自动失效 ⇒ 回到严格门禁,**不会**把已配置签名的仓库降级成未签名。
+      # 下面两枚是"是否已配置"的单一真相源,下面各 step 的 ALLOW_UNSIGNED 一律引用它们。
     strategy:
       fail-fast: false
       matrix:
@@ -135,6 +140,9 @@ jobs:
           APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
           DESKTOP_TAURI_PRIVATE_KEY: ${{ secrets.DESKTOP_TAURI_PRIVATE_KEY }}
           DESKTOP_TAURI_KEY_PASSWORD: ${{ secrets.DESKTOP_TAURI_KEY_PASSWORD }}
+          # 未签名发版口径(详见 job 顶部注释)。step 级 env 里 runner.os 可用,
+          # 因此按平台分别引用 job 级已算好的 SIGNPATH_CONFIGURED / APPLE_SIGNING_CONFIGURED。
+          ALLOW_UNSIGNED: ${{ (github.event_name == 'workflow_dispatch' && inputs.allow_unsigned == true) || runner.os == 'Linux' || (runner.os == 'Windows' && env.SIGNPATH_CONFIGURED != 'true') || (runner.os == 'macOS' && env.APPLE_SIGNING_CONFIGURED != 'true') }}
         run: |
           if [ "$ALLOW_UNSIGNED" = 'true' ]; then
             node scripts/desktop-signing-preflight.mjs --platform "${{ runner.os }}" --allow-unsigned
@@ -219,6 +227,35 @@ jobs:
             *"$V"*) ;;
             *) echo "ERROR: 安装出的 tauri-cli ($GOT) 与期望版本 $V 不符,拒绝继续(否则又是一次静默漂移)"; exit 1;;
           esac
+
+      # 2026-11-17 补:beforeBuildCommand 的依赖必须显式装(desktop-v0.1.78 run#104 实证 Linux job
+      # 走到了 Build & Release 却在 `tauri build` 内部失败;Windows 同样会栽在这里)。
+      #
+      # 立因:tauri.conf.json 的 beforeBuildCommand = `node ../../scripts/desktop-installer-assets.mjs`,
+      # 该脚本产出 Windows NSIS 品牌位图 + ihui-assets-path.nsh,而 ihui-ui.nsi 第 47 行
+      # `!ifndef IHUI_ASSETROOT → !error` 是硬依赖 ⇒ Windows 打包**必须**先跑通它。
+      # 但本 job 是"纯 Rust 化"后的形态(见上方 Install Tauri CLI 注释):全程不装 node 依赖,
+      # 而脚本开头 `require('sharp')` 取自根 workspace 的 devDependencies(sharp@0.35.3)
+      # ⇒ 没有 node_modules 时 require 直接抛 MODULE_NOT_FOUND,资产生成失败,NSIS 打不出来。
+      #
+      # 只给 Windows 装:macOS/Linux 走不到 NSIS(脚本内的平台守卫已让它们 exit 0),
+      # 装全量 workspace 依赖纯属浪费 3-6 分钟,且会牵动 lockfile 版本漂移风险。
+      #
+      # 为什么不用 pnpm install:本 job 没有 setup-node / corepack,也没有 node_modules,
+      # runner 上只有随镜像自带的 node 与 npm(见上方 Install Tauri CLI 用的就是 npm i -g)。
+      # 引 pnpm 会额外依赖 corepack 激活与网络,把一条"只要一个 native 模块"的需求放大成
+      # workspace 全量安装。这里直接装**同版本**的 sharp 到根 node_modules 即可,
+      # 版本在下方从 package.json 现读,不写死(避免与 devDependencies 漂开)。
+      - name: Install beforeBuildCommand deps (Windows NSIS assets)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          set -euo pipefail
+          V=$(node -pe "require('./package.json').devDependencies.sharp")
+          if [ -z "$V" ]; then echo "ERROR: 根 package.json 未声明 devDependencies.sharp"; exit 1; fi
+          echo "安装 sharp@$V(desktop-installer-assets.mjs 的硬依赖,版本取自根 package.json)"
+          npm install --no-save --no-audit --no-fund --loglevel=error "sharp@$V"
+          node -e "const s=require('sharp'); console.log('sharp ok, version=', require('sharp/package.json').version, '| libvips=', s.versions.vips)"
 
       # macOS 签名凭据必须先落到 GITHUB_ENV,再由下一步的 tauri build 消费。
       # 为什么不直接把 secrets 写进 Build & Release 的 env: GitHub Actions 的 env 无法按
@@ -816,9 +853,14 @@ jobs:
     needs: build
     if: always() && (startsWith(github.ref, 'refs/tags/desktop-v') || github.event_name == 'workflow_dispatch')
     env:
-      # 未签名发版开关(与 build job 同口径,见该处注释)。置 true 时下方两步验证跳过,
+      # 未签名发版开关(与 build job 同口径,见该处完整注释)。置 true 时下方两步验证跳过,
       # 由 assert-signed 打 warning + 摘要标注,不再判红阻塞 latest.json。
-      ALLOW_UNSIGNED: ${{ github.event_name == 'workflow_dispatch' && inputs.allow_unsigned == true }}
+      # 2026-11-17 起与 build 一致:push tag 且本平台凭据未配置 ⇒ 自动 true(凭据配齐即自动回到严格门禁)。
+      # 判据必须与 build 逐字同源(§0.6 单一真相源):两处若各写一套,凭据配齐那天就会只放开一半。
+      # 注意:job 级 env 里**不引用 matrix**(matrix 不在 job 级 env 求值范围),
+      # 平台维度一律下放到 step 级用 runner.os 判 —— 本 job 只含 Windows/macOS 两档。
+      SIGNPATH_CONFIGURED: ${{ secrets.SIGNPATH_API_TOKEN != '' && secrets.SIGNPATH_ORGANIZATION_ID != '' && secrets.SIGNPATH_PROJECT_SLUG != '' && secrets.SIGNPATH_SIGNING_POLICY_SLUG != '' }}
+      APPLE_SIGNING_CONFIGURED: ${{ secrets.APPLE_CERTIFICATE != '' && secrets.APPLE_CERTIFICATE_PASSWORD != '' && secrets.APPLE_SIGNING_IDENTITY != '' && ((secrets.APPLE_ID != '' && secrets.APPLE_PASSWORD != '' && secrets.APPLE_TEAM_ID != '') || (secrets.APPLE_API_KEY != '' && secrets.APPLE_API_ISSUER != '' && secrets.APPLE_API_KEY_P8 != '')) }}
     strategy:
       fail-fast: false
       matrix:
@@ -845,20 +887,22 @@ jobs:
       - name: Assert signed artifact present
         id: assert-signed
         shell: bash
+        # 这一份就是唯一判据(step 级 env 里 runner.os 可用;job 级 env 不能引用 matrix)。
+        # 旧写法把判据抄了两遍(本步 env + job env),改一处就漂一处 —— 现已收敛到此处一处。
         env:
-          ALLOW_UNSIGNED: ${{ github.event_name == 'workflow_dispatch' && inputs.allow_unsigned == true }}
+          ALLOW_UNSIGNED: ${{ (github.event_name == 'workflow_dispatch' && inputs.allow_unsigned == true) || (runner.os == 'Windows' && env.SIGNPATH_CONFIGURED != 'true') || (runner.os == 'macOS' && env.APPLE_SIGNING_CONFIGURED != 'true') }}
         run: |
           if [ ! -f signed-desktop/signature-manifest.json ]; then
             if [ "$ALLOW_UNSIGNED" = 'true' ]; then
-              # 显式未签名发版:没有签名清单是预期内形态(签名步整体跳过)。
+              # 未签名发布:没有签名清单是预期内形态(签名步整体跳过)。
               # 改判 warning,不再 exit 1 —— 否则会阻塞 publish-updater-json(latest.json 不更新)。
               # 注意:未签名产物**不会**被读成"已签名",摘要里会显式标注。
               if [ "$RUNNER_OS" = 'macOS' ]; then
-                echo "::warning::未签名发版(allow_unsigned=true,macos-universal):无签名清单 —— 本轮按未签名/未公证发布,等同 0.1.77 形态。"
+                echo "::warning::未签名发版(macos-universal):无签名清单 —— 本轮按未签名/未公证发布,等同 0.1.77 形态。"
               else
-                echo "::warning::未签名发版(allow_unsigned=true,windows-x64):无签名清单 —— 本轮按未签名发布,等同 0.1.77 形态。"
+                echo "::warning::未签名发版(windows-x64):无签名清单 —— 本轮按未签名发布,等同 0.1.77 形态。"
               fi
-              echo '### ⚠️ 未签名发版(allow_unsigned=true)' >> "$GITHUB_STEP_SUMMARY"
+              echo '### ⚠️ 未签名发版(allow_unsigned)' >> "$GITHUB_STEP_SUMMARY"
               echo '- 本轮产物无 Authenticode/公证签名(机主显式选择,等同 0.1.77)' >> "$GITHUB_STEP_SUMMARY"
               echo '- Windows 首次运行撞 SmartScreen、macOS 受 Gatekeeper 约束' >> "$GITHUB_STEP_SUMMARY"
               echo '- 更新器 .sig 正常生成,已装客户端可继续自动更新' >> "$GITHUB_STEP_SUMMARY"
@@ -875,7 +919,9 @@ jobs:
 
       - name: Verify Windows Authenticode + updater signature (independent runner)
         id: gate-windows
-        if: runner.os == 'Windows' && env.ALLOW_UNSIGNED != 'true'
+        # 未签名发版时跳过验签(无 Authenticode 可验)。判据与 assert-signed 同源,
+        # 直接内联(step 级 if 无法读本步 env 的求值结果,只能重述同一表达式)。
+        if: runner.os == 'Windows' && !(github.event_name == 'workflow_dispatch' && inputs.allow_unsigned == true || env.SIGNPATH_CONFIGURED != 'true')
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
@@ -932,7 +978,8 @@ jobs:
 
       - name: Verify macOS codesign + notarization + Gatekeeper (independent runner)
         id: gate-macos
-        if: runner.os == 'macOS' && env.ALLOW_UNSIGNED != 'true'
+        # 同 gate-windows:未签名发版时跳过验签,判据内联复述(与 assert-signed 同源)。
+        if: runner.os == 'macOS' && !(github.event_name == 'workflow_dispatch' && inputs.allow_unsigned == true || env.APPLE_SIGNING_CONFIGURED != 'true')
         shell: bash
         run: |
           set -euo pipefail
