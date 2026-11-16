@@ -314,4 +314,52 @@ test('M10 接线账面:未装车就写未装车 —— 头注不得自称已接,
   assert.equal(__test__.exitCodeFor('unjudged'), 2)
   assert.equal(__test__.exitCodeFor('typo'), 2, '未知结论按未判定上浮,不默认绿')
 })
+
+test('S-store 商店号清单与生产同源可装载(判据单源,零硬编码)', async () => {
+  const r = await __test__.loadStoreProviderCodes()
+  assert.equal(r.ok, true, r.why ?? 'ok')
+  // 与常量源逐字一致:不能出现"本尺子自己写死一张表"的第二份(§0.6)
+  assert.ok(r.codes.length >= 7, `商店号应至少 7 个,实读 ${r.codes.length}`)
+  for (const required of ['google-play', 'honor-store', 'huawei-agc', 'oppo-store', 'vivo-store', 'xiaomi-store', 'yyb-store']) {
+    assert.ok(r.codes.includes(required), `应含商店号 ${required}`)
+  }
+  assert.match(GUARD_SRC, /STORE_PLATFORMS_TS_REL/, '清单必须来自源文件常量,不许在本尺子里写死 provider code')
+})
+
+test('S-store-sql 账号池 SQL 排除商店号,key 池与哨兵行数同源(正向牙)', async () => {
+  const { codes } = await __test__.loadStoreProviderCodes()
+  const sql = __test__.buildSql(codes)
+  // 账号池查询与哨兵 account count 两处都要带排除,否则读数与哨兵行数对不上 ⇒ 恒未判定
+  const acctWhere = (sql.match(/provider_code not in \([^)]*\)/g) ?? [])
+  assert.ok(acctWhere.length >= 2, `账号池查询与哨兵计数都要排除商店号,实际 ${acctWhere.length} 处`)
+  for (const c of ['google-play', 'yyb-store']) assert.ok(sql.includes(`'${c}'`), `SQL 应含排除项 ${c}`)
+  assert.ok(sql.includes(`from ai_relay_key_pool`) && !sql.includes(`from ai_relay_key_pool where`), 'key 池不受商店号排除影响')
+})
+
+test('S-store-sql 反向牙:空清单 ⇒ 不排除(自测对照仍可跑),且单引号被转义', () => {
+  const plain = __test__.buildSql([])
+  assert.doesNotMatch(plain, /provider_code not in/, '空清单时不得拼 WHERE,保持原始口径')
+  const evil = __test__.buildSql(["o'brien"])
+  assert.ok(evil.includes("'o''brien'"), 'provider code 里的单引号必须转义,防 SQL 注入')
+})
+
+test('S-store-judge 7 个商店号被排除后不再误报归零(根因回归)', async () => {
+  const judges = await __test__.loadPoolJudges()
+  const { codes } = await __test__.loadStoreProviderCodes()
+  // 模拟:商店号全 temp_unschedulable=1,codearts 3 号也 down(真故障,必须继续报)
+  const rows = [
+    ...codes.map((p) => ({ providerCode: p, isEnabled: true, tempUnschedulable: true })),
+    { providerCode: 'codearts', isEnabled: true, tempUnschedulable: true },
+  ]
+  // 但判据输入是已被 SQL 排除商店号后的行 —— 这里喂排除后的集合
+  const afterExclude = rows.filter((r) => !codes.includes(r.providerCode))
+  const verdict = __test__.judgeCapacity({
+    judges,
+    accountRows: afterExclude,
+    keyRows: [],
+    sentinel: { accountCount: afterExclude.length, keyCount: 0 },
+  })
+  assert.equal(verdict.state, 'breach')
+  assert.deepEqual(verdict.breaches.map((b) => b.providerCode), ['codearts'], '只剩 codearts 真故障被报,7 商店号不再误报')
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

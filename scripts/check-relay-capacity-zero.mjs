@@ -227,17 +227,63 @@ export async function loadPoolJudges({ repo = REPO } = {}) {
   return { ok: true, fns: mod }
 }
 
-/** 一条 SQL 把两张池表 + 一行哨兵一起取回(-A -t -F '\t' 出裸行)。 */
-export function buildSql() {
-  const cols = (table) =>
+/** 商店号常量源文件(运营池/应用上架平台账号)。生产 `loadRelayPoolRows` 把它排除在调度容量外。 */
+const STORE_PLATFORMS_TS_REL = join(
+  'packages', 'shared', 'src', 'constants', 'store-platforms.ts',
+)
+/**
+ * 装载商店号清单 —— 判据单源(§0.6):不在本文件硬编码 provider code,而是把
+ * `store-platforms.ts` 的 `STORE_PROVIDER_CODES` 剥类型后求值,与生产 `loadRelayPoolRows`
+ * 的 `notInArray(..., STORE_PROVIDER_CODES)` 用同一张表。源文件读不到/抽不出/形状坏 ⇒
+ * `{ ok:false, why }` ⇒ 调用方落 unjudged(fail-closed:不拿"商店号清单为空"去静默放行)。
+ */
+export async function loadStoreProviderCodes({ repo = REPO } = {}) {
+  let src
+  try {
+    src = readFileSync(join(repo, STORE_PLATFORMS_TS_REL), 'utf8')
+  } catch (e) {
+    return { ok: false, why: `读不到商店号源文件 ${STORE_PLATFORMS_TS_REL}(${String(e?.code ?? e)})` }
+  }
+  let js
+  try {
+    js = ts.transpileModule(src, {
+      compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext },
+    }).outputText
+  } catch (e) {
+    return { ok: false, why: `商店号源文件剥类型失败:${String(e?.message ?? e)}` }
+  }
+  let mod
+  try {
+    mod = await import(`data:text/javascript;charset=utf-8,${encodeURIComponent(js)}`)
+  } catch (e) {
+    return { ok: false, why: `商店号常量无法求值:${String(e?.message ?? e)}` }
+  }
+  const codes = mod.STORE_PROVIDER_CODES
+  if (!Array.isArray(codes) || codes.length === 0 || !codes.every((c) => typeof c === 'string' && c.trim())) {
+    return { ok: false, why: `STORE_PROVIDER_CODES 形状坏(非非空字符串数组)⇒ 不据此排除,未判定` }
+  }
+  return { ok: true, codes }
+}
+
+/**
+ * 一条 SQL 把两张池表 + 一行哨兵一起取回(-A -t -F '\t' 出裸行)。
+ * @param {readonly string[]} [excludeAccountProviders] 账号池要排除的 provider(商店号);
+ *   与生产 `loadRelayPoolRows` 同源。传空 ⇒ 不排除,仅用于自测对照。
+ */
+export function buildSql(excludeAccountProviders = []) {
+  const ex = [...new Set((excludeAccountProviders ?? []).filter((c) => typeof c === 'string' && c.trim()))]
+  // provider code 来自常量源(受控),仍做一次单引号转义兜底,绝不把外部串直接拼进 SQL。
+  const sqlLit = (s) => `'${String(s).replace(/'/g, "''")}'`
+  const accountWhere = ex.length > 0 ? ` where provider_code not in (${ex.map(sqlLit).join(',')})` : ''
+  const cols = (table, where = '') =>
     `select '${table === 'ai_relay_account_pool' ? 'account' : 'key'}'::text as pool, ` +
     `coalesce(nullif(trim(provider_code), ''), 'unknown') as provider, ` +
     `coalesce(is_enabled, false)::text as en, ` +
-    `coalesce(temp_unschedulable, false)::text as tu from ${table}`
+    `coalesce(temp_unschedulable, false)::text as tu from ${table}${where}`
   return (
-    `${cols('ai_relay_account_pool')}\nunion all\n${cols('ai_relay_key_pool')}\nunion all\n` +
+    `${cols('ai_relay_account_pool', accountWhere)}\nunion all\n${cols('ai_relay_key_pool')}\nunion all\n` +
     `select 'sentinel'::text, '${SENTINEL}', ` +
-    `(select count(*)::text from ai_relay_account_pool), ` +
+    `(select count(*)::text from ai_relay_account_pool${accountWhere}), ` +
     `(select count(*)::text from ai_relay_key_pool);`
   )
 }
@@ -867,6 +913,11 @@ async function main() {
   if (!judges.ok) {
     return emit({ state: 'unjudged', reason: `判据装载失败:${judges.why}`, breaches: [] }, 2)
   }
+  // 商店号清单与生产同源(§0.6):读不到/形状坏 ⇒ 未判定,绝不拿空清单把它静默放行。
+  const storeCodes = await loadStoreProviderCodes()
+  if (!storeCodes.ok) {
+    return emit({ state: 'unjudged', reason: `商店号清单装载失败:${storeCodes.why}`, breaches: [] }, 2)
+  }
   const locate = locatePsqlClient()
   if (!locate.psql) {
     return emit(
@@ -907,7 +958,7 @@ async function main() {
       2,
     )
   }
-  const q = runPsql(locate.psql, dsn.dsn, ['-At', '-F', '\t', '-c', buildSql()])
+  const q = runPsql(locate.psql, dsn.dsn, ['-At', '-F', '\t', '-c', buildSql(storeCodes.codes)])
   if (!q.ok) return emit({ state: 'unjudged', reason: `查询失败:${q.why}`, breaches: [] }, 2)
   const rows = parsePoolRows(q.stdout)
   const verdict = judgeCapacity({
@@ -991,7 +1042,9 @@ export const __test__ = {
   MIN_REASON_LEN,
   SENTINEL,
   DEFAULT_BASELINE,
+  STORE_PLATFORMS_TS_REL,
   loadPoolJudges,
+  loadStoreProviderCodes,
   judgeCapacity,
   exitCodeFor,
   parsePoolRows,
