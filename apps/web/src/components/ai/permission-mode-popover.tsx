@@ -58,6 +58,8 @@ import { cn } from '@/lib/utils'
 import { isTopOverlay, popOverlay, pushOverlay } from '@/lib/overlay-stack'
 import { isFullAccessConfirmSuppressed } from './full-access-confirm-dialog'
 import { permissionTierText } from '@/lib/permission-tier-text'
+import { isTauri } from '@/lib/tauri-bridge'
+import { isBrowserHandleWorkspaceKey } from '@/lib/workspace-context-loader'
 // 79 号票(2026-10-25 立):双轴的本机记忆。本弹层由输入框常驻渲染,是最早的稳定挂载点;
 // 在此读回 localStorage,并在 store 的 permissionAxes 变化时落盘(含"跟随单轴"时的清空)。
 import { usePermissionAxesPersistence } from '@/lib/permission-axes-prefs'
@@ -784,7 +786,14 @@ export async function switchPermissionMode(
       store.setPendingPermissionMode(mode)
     }
     // 落库
-    if (store.activeWorkspace) {
+    // 2026-11-16:浏览器句柄型工作区(showDirectoryPicker 只有文件夹名)在服务端
+    // 没有 workspace_permissions 可写,强行落库会 401/400 并把刚切的档位回滚。
+    // 这类工作区的权限档只存在本地 store(工具审批仍在本地/流内完成)。
+    const handleOnlyWorkspace =
+      !!store.activeWorkspace &&
+      !isTauri() &&
+      isBrowserHandleWorkspaceKey(store.activeWorkspace.path)
+    if (store.activeWorkspace && !handleOnlyWorkspace) {
       try {
         const res = await setWorkspacePermission({
           workspacePath: store.activeWorkspace.path,

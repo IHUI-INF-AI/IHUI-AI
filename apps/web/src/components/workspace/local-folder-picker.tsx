@@ -39,7 +39,10 @@ import {
 import { cn } from '@/lib/utils'
 import { TruncatedText } from '@/components/common'
 import { isTauri, pickDirectory as pickTauriDirectory } from '@/lib/tauri-bridge'
-import { saveBrowserWorkspaceHandle } from '@/lib/workspace-context-loader'
+import {
+  resolveBrowserWorkspaceKeyForHandle,
+  saveBrowserWorkspaceHandle,
+} from '@/lib/workspace-context-loader'
 import { loadBrowserWorkspaceContextByName } from '@/hooks/use-chat/workspace'
 import { WorkspacePermissionDialog } from './workspace-permission-dialog'
 import { isTopOverlay, popOverlay, pushOverlay } from '@/lib/overlay-stack'
@@ -689,16 +692,21 @@ export function LocalFolderPicker({
         // Tauri 桌面端:直接跳转到完整路径
         navigateTo(normalizeSep(path))
         setNativeHint(t('nativePickResolved', { path }))
+      } else if (handle) {
+        // 2026-11-16:浏览器 showDirectoryPicker 已拿到句柄 ⇒ 直接绑定为工作区。
+        // 不再要求用户补全绝对路径 —— 服务端 /fs/open 需要的是服务器可见路径,
+        // 而浏览器真正能读写的是这枚句柄;先补路径再打开会把用户卡死在白名单上。
+        // 同名目录(不同父路径)用 isSameEntry 区分,避免互相覆盖句柄。
+        const key = await resolveBrowserWorkspaceKeyForHandle(handle)
+        saveBrowserWorkspaceHandle(key, handle)
+        // 立即全量索引工作区(预热缓存,后续发消息/参考块直接命中)
+        void loadBrowserWorkspaceContextByName(key)
+        onWorkspaceOpened?.(key, key, null)
+        onOpenChange(false)
       } else {
-        // 浏览器降级:预填文件夹名,引导用户补全完整路径
+        // 浏览器降级(无 showDirectoryPicker):预填文件夹名,引导用户补全完整路径
         setPathDraft(path)
         setNativeHint(t('nativePickHint', { name: path }))
-        // 保存 handle 到 module-level Map,后续 use-chat.ts 用它加载工作区文件内容
-        if (handle) {
-          saveBrowserWorkspaceHandle(path, handle)
-          // 立即全量索引工作区(预热缓存,后续发消息/参考块直接命中)
-          void loadBrowserWorkspaceContextByName(path)
-        }
       }
     } catch (err) {
       setNativeHint((err as Error).message)

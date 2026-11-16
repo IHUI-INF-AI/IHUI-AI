@@ -34,7 +34,7 @@ import {
 import {
   isRemoteWindow,
   isTauriRuntime,
-  resolveAiServiceBaseUrl,
+  resolveAiServiceBaseUrlForEngineMode,
 } from '@/lib/api-base-url'
 import { getStreamBaseUrl, getToken } from '@/lib/api'
 
@@ -49,10 +49,7 @@ import { getStreamBaseUrl, getToken } from '@/lib/api'
  * 鉴权消费端已带 Authorization: Bearer(getToken),ai-service jwt_auth 亦接受 Bearer。
  * 故此处只改 base + 前缀,method/query/headers 全部不变。
  */
-function resolveAgentStreamUrl(
-  threadId: string,
-  inputJson: string | undefined,
-): string {
+export function resolveAgentStreamUrl(threadId: string, inputJson: string | undefined): string {
   const query = inputJson ? `?input=${encodeURIComponent(inputJson)}` : ''
   const leg = resolveEffectiveEngineLeg(getGlobalEngineMode(), {
     isTauri: isTauriRuntime(),
@@ -60,7 +57,9 @@ function resolveAgentStreamUrl(
   } satisfies EngineModeWindowContext)
 
   if (leg === 'local') {
-    const aiBase = resolveAiServiceBaseUrl()
+    // 2026-11-16 修脑裂:必须用引擎感知版。此前用 resolveAiServiceBaseUrl() ——
+    // 浏览器/dev 壳返回 ''(同源)⇒ agent 流静默回落云端,而工具链仍直连 8803。
+    const aiBase = resolveAiServiceBaseUrlForEngineMode()
     if (aiBase) return `${aiBase}/api/langgraph/${encodeURIComponent(threadId)}/stream${query}`
   }
   // 云端腿(或本地 ai-service 基址未解析,回退云端语义)
