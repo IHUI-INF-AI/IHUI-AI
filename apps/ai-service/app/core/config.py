@@ -421,13 +421,12 @@ class Settings(BaseSettings):
     doubao_tasks_cron_hours: str = "0,8"  # 每日巡检小时(Asia/Shanghai,逗号分隔;签到窗口之后)
     doubao_tasks_cron_minute: int = 35  # 巡检分钟(00:35 / 08:35)
     doubao_tasks_work_fields: str = "office"  # select_work_fields 上报的工作领域 id(逗号分隔)
-    # 生成类任务(GenWord/GenExcel/GenPPT/ScheduleSkill)开关。2026-11-16 实证:
-    # 线上由豆包桌面客户端深链(doubao://doubaoapp/open-url?url=.../chat/url-action
-    # ?action=IncentiveTask_ExecuteDefaultAction)调技能执行,需客户端已登录且已装技能;
-    # 服务端 chat 只提 prompt 不会让 detail 计完成(实弹 6 次回读仍 created)。
-    # 故默认关,避免无效请求与伪报;已完成态任务/里程碑仍自动领奖。
-    doubao_tasks_auto_generate: bool = False
-    doubao_tasks_generation_timeout_s: float = 90.0  # 单次生成 prompt 超时(秒)
+    # 生成类任务(GenWord/GenExcel/GenPPT/ScheduleSkill)开关。2026-11-17 实弹实证:
+    # 服务端跑推荐 prompt 后,拿 SSE_ACK 的 question_id(用户提问消息 id)调
+    # /alice/ug/event/report(scene=campaign_type,message_id=该 id)即可把任务计完成,
+    # 再按 task_id 正常领奖;不再需要桌面客户端深链。默认开启,全部任务类型自动完成。
+    doubao_tasks_auto_generate: bool = True
+    doubao_tasks_generation_timeout_s: float = 240.0  # 单次生成 prompt 超时(秒,SSE 全量回读)
     model_config = {"env_file": ".env", "extra": "ignore"}
 
     def validate_secrets(self) -> None:

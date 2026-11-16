@@ -13,6 +13,7 @@ from app.services.checkin_doubao import (
     TASK_CODE_DAILY_WORK,
     TASK_KIND_MILESTONE,
     _classify_code,
+    _extract_generation_ids,
     _extract_prompt,
     _validate_token,
     claim_body_for,
@@ -271,3 +272,14 @@ def test_client_device_id_stable_and_distinct() -> None:
     assert doubao_client_device_id({"uid": "1", "doubao_device_id": "1976300013104096"}) == (
         "1976300013104096"
     )
+
+
+def test_extract_generation_ids_from_sse_ack() -> None:
+    sse = (
+        "event: SSE_ACK\ndata: {\"query_list\":[{\"question_id\":\"62098947715516930\","
+        "\"local_message_id\":\"x\",\"message_index\":1}],\"ack_client_meta\":"
+        "{\"conversation_id\":\"38454206016500226\",\"local_conversation_id\":\"y\","
+        "\"conversation_info\":{\"conversation_id\":\"38454206016500226\"}}}\n\n"
+    )
+    assert _extract_generation_ids(sse) == ("62098947715516930", "38454206016500226")
+    assert _extract_generation_ids("") == (None, None)

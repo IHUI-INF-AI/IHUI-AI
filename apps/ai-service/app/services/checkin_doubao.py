@@ -43,6 +43,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import re
 import time
 import uuid
 from typing import Any, Final
@@ -829,22 +830,29 @@ async def doubao_report_event(
     device_map: dict[str, Any],
     *,
     campaign_item_code: str,
-    params: dict[str, Any],
+    params: dict[str, Any] | None = None,
     scene: str = "client_action",
     code: str | None = None,
+    message_id: str | None = None,
     timeout: float = DEFAULT_TIMEOUT,
     client: httpx.AsyncClient | None = None,
 ) -> dict[str, Any]:
-    """行为类任务完成上报(select_work_fields 实证契约,线上 bundle 逐字)。
+    """任务完成上报(线上 bundle 逐字契约)。
 
-    POST /alice/ug/event/report {code?, scene, campaign_item_code, params}
+    POST /alice/ug/event/report {code?, scene, campaign_item_code, message_id?, params?}
+      - 行为类(select_work_fields): scene=client_action + params
+      - 生成类(GenWord/GenExcel/GenPPT/ScheduleSkill): scene=campaign_type +
+        message_id=SSE_ACK 里的 question_id(用户提问消息 id);2026-11-17 实证可计完成
     → data.task_status / data.task_id(实例 id,后续领奖用)。
     """
     body: dict[str, Any] = {
         "scene": scene,
         "campaign_item_code": campaign_item_code,
-        "params": params,
     }
+    if params is not None:
+        body["params"] = params
+    if message_id:
+        body["message_id"] = message_id
     if code:
         body["code"] = code
     s_status, s_body = await _db_request(
@@ -879,6 +887,22 @@ def _task_reward_text(task: dict[str, Any]) -> str:
     return f"+{reward}" if isinstance(reward, int) else ""
 
 
+def _extract_generation_ids(text: str) -> tuple[str | None, str | None]:
+    """从 /chat/completion 的 SSE 文本里取 (用户提问消息 id, 会话 id)。
+
+    SSE_ACK 的 query_list[0].question_id 就是客户端 EventReport 用的 message_id
+    (2026-11-17 实证:拿它上报生成类任务可计完成)。
+    """
+    m_msg = re.search(r'"question_id"\s*:\s*"(\d{6,})"', text)
+    m_conv = re.search(
+        r'"ack_client_meta"\s*:\s*\{[^{}]*?"conversation_id"\s*:\s*"(\d{6,})"', text
+    )
+    return (
+        m_msg.group(1) if m_msg else None,
+        m_conv.group(1) if m_conv else None,
+    )
+
+
 async def _run_generation_prompt(
     token: str,
     device_map: dict[str, Any],
@@ -889,9 +913,10 @@ async def _run_generation_prompt(
 ) -> dict[str, Any]:
     """把任务推荐 prompt 真跑一轮豆包对话(客户端指纹,与线上 schema 启动同形)。
 
-    返回 {ok,message};SSE 收到 SSE_ACK 即算上游已受理,但**不保证服务端计完成**
-    (线上生成类任务由桌面客户端深链执行,2026-11-16 实弹回读仍 created)。
-    不解析内容;仅作实验开关保留,默认不启用。
+    返回 {ok,message,message_id,conversation_id}。SSE_ACK 里的 question_id 即
+    **用户提问消息 id**;2026-11-17 实证:拿它调 /alice/ug/event/report
+    (scene=campaign_type, campaign_item_code=任务 code) 即可把生成类任务计完成,
+    再用 task_id 领奖。旧结论「服务端 chat 不计完成」是因为漏了这一步上报。
     """
     query = _client_query(device_map)
     query["web_platform"] = "browser"
@@ -990,13 +1015,34 @@ async def _run_generation_prompt(
         return {"ok": False, "message": f"生成请求异常: {e}"}
     checkin_outbound_gate.note_status(resp.status_code, "doubao")
     text = resp.text or ""
+    msg_id, conv_id = _extract_generation_ids(text)
     if resp.status_code >= 500:
-        return {"ok": False, "message": f"生成请求 HTTP {resp.status_code}"}
+        return {
+            "ok": False,
+            "message": f"生成请求 HTTP {resp.status_code}",
+            "message_id": None,
+            "conversation_id": None,
+        }
     if "SSE_ACK" in text or "STREAM_CHUNK" in text or "CHUNK_DELTA" in text:
-        return {"ok": True, "message": "生成任务已提交豆包"}
+        return {
+            "ok": True,
+            "message": "生成任务已提交豆包",
+            "message_id": msg_id,
+            "conversation_id": conv_id,
+        }
     if resp.status_code == 200 and "SSE_REPLY_END" in text:
-        return {"ok": True, "message": "生成任务已完成"}
-    return {"ok": False, "message": f"生成请求未被受理(HTTP {resp.status_code})"}
+        return {
+            "ok": True,
+            "message": "生成任务已完成",
+            "message_id": msg_id,
+            "conversation_id": conv_id,
+        }
+    return {
+        "ok": False,
+        "message": f"生成请求未被受理(HTTP {resp.status_code})",
+        "message_id": None,
+        "conversation_id": None,
+    }
 
 
 def _extract_prompt(task: dict[str, Any]) -> str | None:
@@ -1124,9 +1170,20 @@ async def doubao_task_sweep_account(
     能力边界(如实登记,不冒充):
       - select_work_fields:EventReport(client_action) 实证可完成;
       - points_milestone / 已完成普通任务 / 直接领取任务:claim 端点实证;
-      - 生成类任务(GenWord/GenExcel/GenPPT/ScheduleSkill):线上由桌面客户端深链
-        (doubao://.../chat/url-action)调技能执行,服务端 chat 提 prompt 不计完成;
-        默认关,仅保留已完成态领奖。
+      - 任务实例开启:EventReport(scene=campaign_task_click + params.campaign_group_code)
+        对 ScheduleSkill 实证返回 task_id、task_status=4;但同一账号对 GenWord 同参会被拒
+        625002003(有次数/资格门槛),且开了实例也不会让完成上报生效 ⇒ 不纳入流程;
+      - 生成类任务(GenWord/GenExcel/GenPPT):跑推荐 prompt,再拿 SSE_ACK 里的
+        question_id(用户提问消息 id)调 EventReport(scene=campaign_type,
+        campaign_item_code=任务 code, message_id=该 id)即可计完成,随后正常领奖
+        (2026-11-17 实弹实证:task_status=2);
+      - ScheduleSkill/WorkTaskMode:实例已开(4)后,本服务已能合规发出客户端
+        WorkTask 模式的 /chat/completion(mode_id=4 + mention_skill_list=["schedule"]
+        + general_task_param={runtime_type:1}),上游确实在云端跑起 general-agent
+        (get_reply 可见真实联网搜索块),但 schedule 技能未激活、未产出 job_cron;
+        单建 job_cron + run、或用该会话 question_id 上报仍被拒 625002003。
+        客户端真正激活 schedule 依赖桌面端本地技能安装(neotix.taskModeRuntime
+        .installSkill)与云端沙箱会话,服务端无法合规复刻 ⇒ 不代跑。
     """
     result = _base_task_result(name, doubao_device_map_uid(device_map))
     err = _validate_token(token)
@@ -1204,7 +1261,19 @@ async def doubao_task_sweep_account(
             result["skipped"].append(
                 {
                     "task": t["code"],
-                    "reason": "生成类任务需豆包桌面客户端深链执行(服务端无法代跑),仅保留已完成态领奖",
+                    "reason": "自动代跑未开启(DOUBAO_TASKS_AUTO_GENERATE=false),仅保留已完成态领奖",
+                }
+            )
+            continue
+        # ScheduleSkill/WorkTaskMode 走客户端 WorkTask 模式(插件 generalAgentSkillName),
+        # 已实测可合规发出 mode_id=4 + mention_skill_list=["schedule"] 的对话,云端
+        # general-agent 会真跑(联网搜索可见),但 schedule 技能需桌面端本地安装才激活,
+        # 不产出 job_cron ⇒ EventReport 恒拒 625002003;故不代跑,避免无效生成与风控。
+        if str(t.get("campaign_type") or "") in ("ScheduleSkill", "WorkTaskMode"):
+            result["skipped"].append(
+                {
+                    "task": t["code"],
+                    "reason": "需客户端 WorkTask 模式创建日程/工作任务,服务端普通对话无法计完成",
                 }
             )
             continue
@@ -1221,28 +1290,55 @@ async def doubao_task_sweep_account(
         steps.append(
             {"task": t["code"], "action": "run_prompt", "ok": run["ok"], "message": run["message"]}
         )
-        # 代跑不是「发完就算」:等服务端把任务计完成(产物事件落库有延迟),
-        # 最多等 generation_timeout 秒;计完成由 detail 回读判定,未完成不领。
-        if run["ok"]:
-            deadline = time.monotonic() + min(float(generation_timeout), 120.0)
-            while time.monotonic() < deadline:
-                await asyncio.sleep(10.0)
-                _, snap = await _fetch_campaign(
-                    token, device_map, timeout=timeout, client=client
+        if not run["ok"]:
+            continue
+        # 关键一步(2026-11-17 实证):拿 SSE_ACK 的用户提问消息 id 上报完成,
+        # 否则服务端 detail 永远停在 created(客户端正常做完也会走这步上报)。
+        ctype = str(t.get("campaign_type") or "").strip()
+        if run.get("message_id") and ctype:
+            rep = await doubao_report_event(
+                token,
+                device_map,
+                campaign_item_code=t["code"],
+                scene=ctype,
+                message_id=str(run["message_id"]),
+                timeout=timeout,
+                client=client,
+            )
+            steps.append(
+                {
+                    "task": t["code"],
+                    "action": "report_generation",
+                    "ok": rep["ok"],
+                    "message": rep["message"] or "生成任务已计完成",
+                    "task_status": rep.get("task_status"),
+                }
+            )
+            if rep["ok"] and rep.get("task_status") == TASK_STATUS_COMPLETED:
+                t["status"] = TASK_STATUS_COMPLETED
+                if rep.get("task_id"):
+                    t["task_id"] = rep["task_id"]
+                continue
+        # 上报失败才退回等待 detail 回读(仍不计完成则不领,避免伪报)
+        deadline = time.monotonic() + min(float(generation_timeout), 120.0)
+        while time.monotonic() < deadline:
+            await asyncio.sleep(10.0)
+            _, snap = await _fetch_campaign(
+                token, device_map, timeout=timeout, client=client
+            )
+            cur = next(
+                (x for x in (snap.get("tasks") or []) if x["code"] == t["code"]), None
+            )
+            if cur is not None and cur["status"] == TASK_STATUS_COMPLETED:
+                steps.append(
+                    {
+                        "task": t["code"],
+                        "action": "await_complete",
+                        "ok": True,
+                        "message": "服务端已计完成",
+                    }
                 )
-                cur = next(
-                    (x for x in (snap.get("tasks") or []) if x["code"] == t["code"]), None
-                )
-                if cur is not None and cur["status"] == TASK_STATUS_COMPLETED:
-                    steps.append(
-                        {
-                            "task": t["code"],
-                            "action": "await_complete",
-                            "ok": True,
-                            "message": "服务端已计完成",
-                        }
-                    )
-                    break
+                break
 
     # 3) 回读一次:领取所有已完成(2)任务与已达成里程碑
     daily_work = next(
