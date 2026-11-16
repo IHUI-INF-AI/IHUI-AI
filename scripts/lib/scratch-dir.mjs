@@ -19,7 +19,7 @@
 // 判据(只读、不判红、绝不代删)= `scripts/check-scratch-root-no-nesting.mjs`。
 
 import { spawnSync } from 'node:child_process'
-import { existsSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, renameSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import { basename, dirname, join, parse, resolve, sep } from 'node:path'
 import { tmpdir } from 'node:os'
 import { fileURLToPath } from 'node:url'
@@ -422,6 +422,132 @@ export function mkScratch(prefix) {
   return dir
 }
 
+/* ─────────── linked worktree 注册摘除(2026-11-17 幽灵注册根治) ─────────── */
+/**
+ * 幽灵注册根治的**根因补丁**:临时夹具里的 `git worktree add --detach` 会留下
+ * ①物理目录(scratch 下) ②git 注册(`<主gitdir>/.git/worktrees/<name>/`)。
+ * 旧链路删夹具只做 ①(`rmScratch` / scrub 的 `del()` 都是 `rmSync`),②永久残留 ⇒
+ * `git worktree list` 里堆一堆幽灵条目、编辑器 SCM 变更数虚高、workspace 分支被占。
+ * 本组函数建立不变量:**删夹具目录必先摘掉它自带的 linked worktree 注册**,
+ * 做成共享层单一真相源,rmScratch 与 scrub-temp-fixtures 的 del() 两个删除出口共用。
+ *
+ * 为什么直接删 admin dir 而非 spawn `git worktree remove/prune`:
+ *  - scratch-dir 是纯 fs 模块,被大量测试/守门在无 git 上下文里调用,不能依赖 spawn git;
+ *  - 删 `<maingit>/.git/worktrees/<name>/` 正是 `git worktree prune` 对"目录已消失"条目的
+ *    处理动作,语义等价且不需要知道主仓在哪(路径就在 .git 指针里);
+ *  - 只删**双向确认**过的注册(admin dir 的 gitdir 文件指回本夹具内的 .git),绝不误摘他人。
+ */
+
+/** 路径归一:斜杠统一 + 去尾分隔符 + 小写(Windows 大小写不敏感)。 */
+function _normPath(p) {
+  return String(p).replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase()
+}
+
+/**
+ * 解析 linked worktree 的 `.git` 指针文件内容。纯函数(输入已读到的文本)。
+ * 形如 `gitdir: G:/IHUI-AI/.git/worktrees/xxx` —— 只认含 `/worktrees/` 段的,
+ * 主工作区的 `.git`(目录)或子模块指针都不匹配,返回 null。
+ */
+export function parseLinkedWorktreeGitdir(content) {
+  if (typeof content !== 'string') return null
+  const m = /^\s*gitdir\s*:\s*(.+?)\s*$/im.exec(content)
+  if (!m) return null
+  const p = m[1].replace(/\\/g, '/')
+  return p.toLowerCase().includes('/worktrees/') ? p : null
+}
+
+/**
+ * 在夹具目录树里找它**自带**的 linked worktree 注册 admin dir。
+ * 三重闸:① `.git` 必须是普通**文件**(linked worktree 形态)且内容是 gitdir:.../worktrees/...;
+ * ② admin dir 的 `gitdir` 文件必须指回这同一个 `.git` 文件(双向确认,防误摘他仓注册);
+ * ③ 有界(深度/条目预算)+ 不穿重解析点(§26 junction 穿透清空事故同型)。
+ * 全部 IO 走 opts 注入,纯函数可构造面单测(§22c);返回 [{gitfile, adminDir}]。
+ */
+export function findFixtureWorktreeRegistrations(fixtureDir, opts = {}) {
+  const {
+    maxDepth = 2,
+    budget = 400,
+    readFile = readFileSync,
+    readdir = readdirSync,
+    lstat = lstatSync,
+  } = opts
+  const regs = []
+  let spent = 0
+  const stack = [[resolve(fixtureDir), 0]]
+  while (stack.length) {
+    const [dir, depth] = stack.pop()
+    if (depth > maxDepth) continue
+    let entries
+    try {
+      entries = readdir(dir, { withFileTypes: true })
+    } catch {
+      continue
+    }
+    for (const e of entries) {
+      if (++spent > budget) return regs // 超预算:只返回已确认的(方向 = 少摘,不滥摘)
+      const full = join(dir, e.name)
+      let st
+      try {
+        st = lstat(full)
+      } catch {
+        continue
+      }
+      if (st.isSymbolicLink()) continue // 绝不穿重解析点
+      if (e.name === '.git' && st.isFile()) {
+        let content
+        try {
+          content = readFile(full, 'utf8')
+        } catch {
+          continue
+        }
+        const adminDir = parseLinkedWorktreeGitdir(content)
+        if (!adminDir) continue
+        // 双向确认:admin dir 的 gitdir 文件必须指回这个 .git 文件,否则不是本夹具的注册
+        let back
+        try {
+          back = readFile(join(adminDir, 'gitdir'), 'utf8')
+        } catch {
+          continue
+        }
+        if (_normPath(back.trim()) !== _normPath(full)) continue
+        regs.push({ gitfile: full, adminDir })
+        continue
+      }
+      if (st.isDirectory()) stack.push([full, depth + 1])
+    }
+  }
+  return regs
+}
+
+/**
+ * 摘掉夹具自带的 linked worktree 注册。删 worktree 物理目录前的必经一步。
+ * 只删双向确认过的 admin dir(parse 二次闸确保仍在 `/worktrees/` 段下),
+ * 语义等同 `git worktree prune` 对"目录已消失"条目的处理,但不 spawn git。
+ * @returns {{detached:string[], failed:Array<{adminDir:string,error:string}>}}
+ */
+export function detachFixtureWorktreeRegistrations(fixtureDir, opts = {}) {
+  const { rm = rmSync, ...scanOpts } = opts
+  const regs = findFixtureWorktreeRegistrations(fixtureDir, scanOpts)
+  const detached = []
+  const failed = []
+  for (const { adminDir } of regs) {
+    // 二次闸:adminDir 自身必须仍是 /worktrees/<name> 形状,且 name 非空非点段
+    const tail = adminDir.split('/worktrees/')[1] || ''
+    const name = tail.split('/')[0]
+    if (!parseLinkedWorktreeGitdir(`gitdir: ${adminDir}`) || !name || name === '.' || name === '..') {
+      failed.push({ adminDir, error: 'adminDir 不是合法的 /worktrees/<name> 注册(拒摘)' })
+      continue
+    }
+    try {
+      rm(adminDir, { recursive: true, force: true, maxRetries: 3 })
+      detached.push(adminDir)
+    } catch (e) {
+      failed.push({ adminDir, error: String(e?.message ?? e) })
+    }
+  }
+  return { detached, failed }
+}
+
 // git 对象是只读文件,Windows 上首删常撞 EPERM,故带重试。
 //
 // G-286(删除侧):递归删之前先过 evaluateDeleteTarget。二阶嵌套树的父目录里装着**别的
@@ -467,6 +593,22 @@ export function rmScratch(dir, opts = {}) {
       throw new Error(`rmScratch 拒绝递归删除:${reason}`)
     }
   }
+  // 幽灵注册根治(2026-11-17):删夹具目录**之前**先摘掉它自带的 linked worktree 注册。
+  // 必须在 rmSync 之前读 `.git` 指针(目录删了就读不到);两个删除出口(bestEffort / 普通)
+  // 及"删除失败改名兜底"路径都共用这一步。摘注册失败不阻断删目录(理由同 bestEffort:
+  // 清理失败不改写判据结论),但要如实 warn —— 残留的注册由 reap 落点闸(已扩 scratch)兜。
+  // 双向确认保证只摘本夹具的注册,绝不误摘他仓/在用的 worktree(见函数注释)。
+  if (within && !opts.skipWorktreeDetach) {
+    let det
+    try {
+      det = detachFixtureWorktreeRegistrations(dir, opts.worktreeScan ?? {})
+    } catch (e) {
+      console.warn(`⚠ rmScratch 摘 worktree 注册失败:${dir} —— ${String(e?.message ?? e).slice(0, 160)}`)
+    }
+    if (det?.failed?.length)
+      for (const f of det.failed)
+        console.warn(`⚠ rmScratch 未摘掉 worktree 注册:${f.adminDir} —— ${f.error}`)
+  }
   // `rmSync` 自己也会抛:宿主的 `node-safe-delete-shim.cjs` 在批量删除闸
   // (`SAFE_DELETE_BULK_CONFIRM_REQUIRED`)命中时**直接把 `rmSync` 打断**,不经过上面的
   // `evaluateDeleteTarget` ⇒ `bestEffort` 必须连这一层一起兜住,否则该出口形同虚设。
@@ -510,7 +652,7 @@ export function rmScratch(dir, opts = {}) {
 }
 
 /**
- * 进程退出前回收**本进程创建且未被显式删除**的夹具。
+ * 回收**本进程创建且未被显式删除**的夹具(单一真相源,exit 与信号两条路共用)。
  *
  * 为什么放在共用层而不是要求各调用方写 try/finally:实测 `scripts/` 里 30 处 mkScratch 调用点
  * 中,把 `rmScratch` 写在断言之后的比比皆是 —— 一条断言失败就把夹具永久留在 Temp
@@ -519,8 +661,11 @@ export function rmScratch(dir, opts = {}) {
  *
  * 边界(为什么不会误删别人的东西):注册表只含**本进程本次运行** mkScratch 出来的路径,
  * 显式 rmScratch 过即出表;SIGKILL / 断电不在此列(那种残留由 §26 的每日 Temp 体检兜)。
+ *
+ * 幽灵注册根治(2026-11-17):本函数走 rmScratch,而 rmScratch 已内建"删目录先摘 worktree 注册"
+ * ⇒ 信号路径自动成对清理,不必碰 safe-commit 那个 1127 标签依赖的提交核心脚本。
  */
-process.on('exit', () => {
+export function cleanupLiveScratch() {
   for (const dir of [...live]) {
     try {
       rmScratch(dir)
@@ -535,5 +680,12 @@ process.on('exit', () => {
       }
     }
   }
-})
+}
+process.on('exit', cleanupLiveScratch)
+
+// 信号兜底**刻意不在共享层注册**(2026-11-17):scratch-dir 被 801 个脚本 import,其中一批
+// (gate-worker / guardian-runner / object-space-land / signal-exit.test 等)自己管理 SIGTERM
+// 退出语义;在共享层挂会 process.exit() 的 handler 会抢先退出、破坏它们的清理与退出码。
+// 信号捕获只许落在临时 worktree 的**创建方**(safe-commit),且只清它自己那两个 worktree。
+// 目录+注册成对的清理能力由 rmScratch(本文件)提供,创建方信号 handler 直接复用即可。
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

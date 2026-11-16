@@ -1035,4 +1035,35 @@ test('T37 墓碑账龄合成与 env 接线:60 分钟是下限,IHUI_SCRATCH_TOMBS
     teardownScratch(scratch, root)
   }
 })
+
+test('幽灵注册根治:del() 删 scratch 夹具时先摘掉其中的 linked worktree 注册(变异验证锚点)', () => {
+  const root = mkScratch('scrub-ghostreg')
+  try {
+    const fixture = join(root, 'gate-foreign-GHOST')
+    mkdirSync(fixture, { recursive: true })
+    const face = join(fixture, 'face')
+    mkdirSync(face, { recursive: true })
+    // 造一个双向自洽的"伪 linked worktree"注册(纯 fs,不依赖 git):
+    // face/.git → gitdir: <root>/fakegit/worktrees/wt-ghost ; 该 admin dir 的 gitdir 指回 face/.git
+    const admin = join(root, 'fakegit', 'worktrees', 'wt-ghost')
+    mkdirSync(admin, { recursive: true })
+    const gitfile = join(face, '.git')
+    writeFileSync(gitfile, `gitdir: ${admin.replace(/\\/g, '/')}\n`)
+    writeFileSync(join(admin, 'gitdir'), `${gitfile.replace(/\\/g, '/')}\n`)
+    assert.equal(existsSync(admin), true)
+
+    const r = del(resolve(root), [{ name: 'gate-foreign-GHOST', path: fixture, dir: true, bytes: 0 }])
+    assert.equal(r.ok, 1, '夹具目录删除成功')
+    assert.equal(r.fail, 0, '摘注册失败应记入 fail,这里应无失败')
+    assert.equal(r.firstError, null)
+    assert.equal(existsSync(fixture), false, '夹具目录被删')
+    assert.equal(existsSync(admin), false, '注册 admin dir 必须被同步摘除 —— del 出口的行为证明')
+  } finally {
+    try {
+      rmSync(root, { recursive: true, force: true })
+    } catch {
+      /* 清理失败不改写判据结论 */
+    }
+  }
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
