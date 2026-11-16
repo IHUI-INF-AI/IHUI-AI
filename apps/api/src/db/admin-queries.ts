@@ -5,6 +5,8 @@
 import { eq, sql, and, or, ilike, isNull, gt, desc, notInArray } from 'drizzle-orm'
 import { db } from './index.js'
 import { users, projects, refreshTokens, newsArticles } from '@ihui/database'
+// DB-35:phone/email 列存密文;搜索走 lookup 精确匹配,展示投影读出后解密
+import { contactLookupForSearch, decryptPublicContact } from '../utils/user-contact.js'
 
 // 公开字段：精确选字段，排除 password_hash
 const userPublicFields = {
@@ -88,8 +90,18 @@ export async function findUsers(
 ): Promise<{ list: AdminUser[]; total: number }> {
   const conds = []
   if (search) {
-    const like = `%${search}%`
-    conds.push(or(ilike(users.phone, like), ilike(users.email, like), ilike(users.nickname, like)))
+    // DB-35:phone/email 存密文,ilike 中缀模糊不可用;降级为 lookup 精确匹配。
+    // 无法归一成联系方式时,phone/email 分支不添加(nickname 模糊仍生效),绝不退回明文 ilike。
+    const nicknameLike = ilike(users.nickname, `%${search}%`)
+    const phoneLookup = contactLookupForSearch('phone', search)
+    const emailLookup = contactLookupForSearch('email', search)
+    conds.push(
+      or(
+        ...(phoneLookup ? [eq(users.phoneLookup, phoneLookup)] : []),
+        ...(emailLookup ? [eq(users.emailLookup, emailLookup)] : []),
+        nicknameLike,
+      ),
+    )
   }
   if (role !== undefined) conds.push(eq(users.roleId, role))
   if (deptId !== undefined) conds.push(eq(users.deptId, deptId))
@@ -114,20 +126,26 @@ export async function findUsers(
       .where(where),
   ])
 
-  return { list, total: Number(totalRows[0]?.count ?? 0) }
+  return {
+    list: list.map((r) => decryptPublicContact(r)),
+    total: Number(totalRows[0]?.count ?? 0),
+  }
 }
 
 /**
  * 按 ID 查询用户（不含 password_hash）。
  * 命名加 Admin 后缀以区分 queries.ts 的 findUserById（含 password_hash）。
+ * DB-35:phone/email 密文读出后解密。
  */
 export async function findUserByIdAdmin(id: string): Promise<AdminUser | undefined> {
   const rows = await db.select(userPublicFields).from(users).where(eq(users.id, id)).limit(1)
-  return rows[0]
+  const row = rows[0]
+  return row ? decryptPublicContact(row) : undefined
 }
 
 /**
  * 更新用户角色。
+ * DB-35:phone/email 密文 returning 读出后解密。
  */
 export async function updateUserRole(id: string, role: number): Promise<AdminUser | undefined> {
   const rows = await db
@@ -135,11 +153,13 @@ export async function updateUserRole(id: string, role: number): Promise<AdminUse
     .set({ roleId: role, updatedAt: new Date() })
     .where(eq(users.id, id))
     .returning(userPublicFields)
-  return rows[0]
+  const row = rows[0]
+  return row ? decryptPublicContact(row) : undefined
 }
 
 /**
  * 更新用户状态。
+ * DB-35:phone/email 密文 returning 读出后解密。
  */
 export async function updateUserStatus(id: string, status: number): Promise<AdminUser | undefined> {
   const rows = await db
@@ -148,7 +168,8 @@ export async function updateUserStatus(id: string, status: number): Promise<Admi
     // status-guard-exempt: 通用状态 setter——目标值由调用方传入,终态合法性由服务层/路由层裁决,非固定出向终态写点
     .where(eq(users.id, id))
     .returning(userPublicFields)
-  return rows[0]
+  const row = rows[0]
+  return row ? decryptPublicContact(row) : undefined
 }
 
 /**
@@ -163,7 +184,8 @@ export async function updateUserDept(
     .set({ deptId, updatedAt: new Date() })
     .where(eq(users.id, id))
     .returning(userPublicFields)
-  return rows[0]
+  const row = rows[0]
+  return row ? decryptPublicContact(row) : undefined
 }
 
 /**
@@ -196,7 +218,10 @@ export async function findProjectsWithOwner(
     db.select({ count: sql<number>`COUNT(*)` }).from(projects),
   ])
 
-  return { list, total: Number(totalRows[0]?.count ?? 0) }
+  return {
+    list: list.map((r) => decryptPublicContact(r, 'ownerPhone', 'ownerEmail')),
+    total: Number(totalRows[0]?.count ?? 0),
+  }
 }
 
 export type AdminProjectRow = {
@@ -233,7 +258,8 @@ export async function findProjectByIdWithOwner(id: string): Promise<AdminProject
     .leftJoin(users, eq(projects.userId, users.id))
     .where(eq(projects.id, id))
     .limit(1)
-  return rows[0]
+  const row = rows[0]
+  return row ? decryptPublicContact(row, 'ownerPhone', 'ownerEmail') : undefined
 }
 
 /** 管理员创建项目(需指定 userId)。 */

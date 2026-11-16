@@ -14,6 +14,8 @@ import {
   type AuditLog,
   type SearchHistory,
 } from '@ihui/database'
+// DB-35:phone/email 列存密文;搜索降级为 lookup 精确匹配,展示投影读出后解密
+import { contactLookupForSearch, decryptPublicContact } from '../utils/user-contact.js'
 
 // =============================================================================
 // 全局搜索
@@ -82,9 +84,10 @@ export interface GlobalSearchResult {
 
 /**
  * 用户搜索：优先使用 tsvector 全文搜索（search_vector 覆盖 nickname+email），
- * phone 未进入全文索引，仍用 ilike 兜底。
+ * DB-35:phone/email 存密文,ilike 中缀模糊不可用;nickname 走中文分词模糊 +
+ * search_vector 全文兜底,phone/email 降级为 lookup 精确匹配(整词命中,非中缀)。
  * search_vector 列由 0010 migration 创建，Drizzle schema 中未声明，
- * 若 migration 未执行则查询报错，catch 后降级为全 ilike。
+ * 若 migration 未执行则查询报错，catch 后降级为 nickname 模糊 + phone/email lookup。
  */
 async function searchUsers(q: string, like: string, limit: number): Promise<SearchUserRow[]> {
   const cols = {
@@ -94,36 +97,56 @@ async function searchUsers(q: string, like: string, limit: number): Promise<Sear
     phone: users.phone,
     avatar: users.avatar,
   }
+  // DB-35:三个返回路径都 select 了密文 email/phone,下发前统一解密
+  const decryptRows = (rows: SearchUserRow[]): SearchUserRow[] =>
+    rows.map((r) => decryptPublicContact(r))
+
+  const phoneLookup = contactLookupForSearch('phone', q)
+  const emailLookup = contactLookupForSearch('email', q)
   const chineseTokens = segmentChineseQuery(q)
   if (chineseTokens.length > 0) {
-    const conds = chineseTokens.flatMap((t) => [
-      ilike(users.nickname, `%${t}%`),
-      ilike(users.email, `%${t}%`),
-      ilike(users.phone, `%${t}%`),
-    ])
-    return (await dbRead
-      .select(cols)
-      .from(users)
-      .where(or(...conds))
-      .limit(limit)) as SearchUserRow[]
+    const conds = chineseTokens.flatMap((t) => [ilike(users.nickname, `%${t}%`)])
+    return decryptRows(
+      await dbRead
+        .select(cols)
+        .from(users)
+        .where(
+          or(
+            ...conds,
+            ...(phoneLookup ? [eq(users.phoneLookup, phoneLookup)] : []),
+            ...(emailLookup ? [eq(users.emailLookup, emailLookup)] : []),
+          ),
+        )
+        .limit(limit),
+    ) as SearchUserRow[]
   }
   try {
-    return (await dbRead
-      .select(cols)
-      .from(users)
-      .where(
-        or(
-          sql`search_vector @@ plainto_tsquery('pg_catalog.simple', ${q})`,
-          ilike(users.phone, like),
-        ),
-      )
-      .limit(limit)) as SearchUserRow[]
+    return decryptRows(
+      await dbRead
+        .select(cols)
+        .from(users)
+        .where(
+          or(
+            sql`search_vector @@ plainto_tsquery('pg_catalog.simple', ${q})`,
+            ...(phoneLookup ? [eq(users.phoneLookup, phoneLookup)] : []),
+          ),
+        )
+        .limit(limit),
+    ) as SearchUserRow[]
   } catch {
-    return (await dbRead
-      .select(cols)
-      .from(users)
-      .where(or(ilike(users.nickname, like), ilike(users.email, like), ilike(users.phone, like)))
-      .limit(limit)) as SearchUserRow[]
+    return decryptRows(
+      await dbRead
+        .select(cols)
+        .from(users)
+        .where(
+          or(
+            ilike(users.nickname, like),
+            ...(phoneLookup ? [eq(users.phoneLookup, phoneLookup)] : []),
+            ...(emailLookup ? [eq(users.emailLookup, emailLookup)] : []),
+          ),
+        )
+        .limit(limit),
+    ) as SearchUserRow[]
   }
 }
 
@@ -409,19 +432,18 @@ export async function getSearchFacets(userId: string, query: string): Promise<Fa
 }
 
 async function countUsers(q: string, like: string, chineseTokens: string[]): Promise<number> {
+  // DB-35:phone/email 存密文,ilike 不可用;与 searchUsers 保持同一 lookup 精确匹配口径,
+  // 保证 Facets 的 user 计数与 globalSearch 实际返回的 user 列表一致。
+  const phoneLookup = contactLookupForSearch('phone', q)
+  const emailLookup = contactLookupForSearch('email', q)
+  const lookupConds = [
+    ...(phoneLookup ? [eq(users.phoneLookup, phoneLookup)] : []),
+    ...(emailLookup ? [eq(users.emailLookup, emailLookup)] : []),
+  ]
   const cond =
     chineseTokens.length > 0
-      ? or(
-          ...chineseTokens.flatMap((t) => [
-            ilike(users.nickname, `%${t}%`),
-            ilike(users.email, `%${t}%`),
-            ilike(users.phone, `%${t}%`),
-          ]),
-        )
-      : or(
-          sql`search_vector @@ plainto_tsquery('pg_catalog.simple', ${q})`,
-          ilike(users.phone, like),
-        )
+      ? or(...chineseTokens.flatMap((t) => [ilike(users.nickname, `%${t}%`)]), ...lookupConds)
+      : or(sql`search_vector @@ plainto_tsquery('pg_catalog.simple', ${q})`, ...lookupConds)
   try {
     const rows = await dbRead
       .select({ count: sql<number>`COUNT(*)::int` })
@@ -432,7 +454,7 @@ async function countUsers(q: string, like: string, chineseTokens: string[]): Pro
     const fallback = await dbRead
       .select({ count: sql<number>`COUNT(*)::int` })
       .from(users)
-      .where(or(ilike(users.nickname, like), ilike(users.email, like), ilike(users.phone, like)))
+      .where(or(ilike(users.nickname, like), ...lookupConds))
     return Number(fallback[0]?.count ?? 0)
   }
 }
