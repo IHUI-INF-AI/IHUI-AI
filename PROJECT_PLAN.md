@@ -12262,7 +12262,6 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 193G. **缺陷普查 API F-193** [P2] /v1/threads/:threadId/runs 把开发者 API Key 当 Bearer 转发给 ai-service，请求恒定 401/502（证据 docs/tickets/2026-11/findings-api.md#F-193）
 - [ ] 194G. **缺陷普查 API F-194** [P2] 模型映射后计费口径不一致：预扣/缓存按 resolvedModel，成功结算按原始 model（证据 docs/tickets/2026-11/findings-api.md#F-194）
 - [ ] 204G. **缺陷普查 API F-204** [P2] Redis 故障时工作区锁静默降级为进程内锁，无 TTL、无跨实例互斥（证据 docs/tickets/2026-11/findings-api.md#F-204）
-- [ ] 214G. **缺陷普查 API F-214** [P3] 5 个家长端 :childId 端点缺 UUID 校验，畸形路径返回 500（证据 docs/tickets/2026-11/findings-api.md#F-214）
 - [ ] 222G. **缺陷普查 API F-222** [P2] 调度器在装配期 await upsertJobScheduler，Redis 不可用时启动永久挂死（证据 docs/tickets/2026-11/findings-api.md#F-222）
 - [ ] 232G. **缺陷普查 API F-232** [P2] VIP 到期降级 is_vip 无条件覆盖 + 全量/N+1，续费用户可被误降级（证据 docs/tickets/2026-11/findings-api.md#F-232）
 - [ ] 256G. **缺陷普查 API F-256** [P2] urgent 抢占只改状态不中止执行：槽位释放但任务仍在跑，并发可破上限且 preempted 被覆写 completed（证据 docs/tickets/2026-11/findings-api.md#F-256）
