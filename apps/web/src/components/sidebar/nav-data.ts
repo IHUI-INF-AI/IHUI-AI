@@ -915,6 +915,23 @@ const DOMAIN_HUB_ITEM_GROUPS: NavItem[][] = [
   ADMIN_HUB_ITEMS,
 ]
 
+/**
+ * 域内功能按域分组(2026-11-16):域收敛后这些页面不在侧边栏平铺,但仍可被收藏
+ * (侧栏渲染与 isHrefActive 都按 FLAT_NAV_ITEMS 全量解析)。自定义功能键面板
+ * 需要一份「按域浏览」的候选源,否则收敛后用户再也无法把域内页面加进自定义栏。
+ * labelKey 复用侧边栏各域入口同键,不新增词条。
+ */
+export const DOMAIN_HUB_GROUPS: { labelKey: string; items: NavItem[] }[] = [
+  { labelKey: 'hrGroup', items: HR_HUB_ITEMS },
+  { labelKey: 'aiGroupLabel', items: AI_HUB_ITEMS },
+  { labelKey: 'adminGroupLabel', items: ADMIN_HUB_ITEMS },
+  { labelKey: 'eduHubTitle', items: EDU_HUB_ITEMS },
+  { labelKey: 'contentHubTitle', items: CONTENT_HUB_ITEMS },
+  { labelKey: 'tradeHubTitle', items: TRADE_HUB_ITEMS },
+  { labelKey: 'user', items: PERSONAL_HUB_ITEMS },
+  { labelKey: 'developerTools', items: DEVELOPER_HUB_ITEMS },
+]
+
 export function flattenNavItems(items: NavItem[]): NavItem[] {
   return items.flatMap((item) => [item, ...(item.children ? flattenNavItems(item.children) : [])])
 }
@@ -940,6 +957,31 @@ export const ALL_NAV_HREFS = ALL_NAV_SOURCE_ITEMS.map((i) => i.href)
 export const FLAT_NAV_ITEMS = ALL_NAV_SOURCE_ITEMS
 
 /**
+ * 域入口 → 该域清单全部 href(含 children)。
+ *
+ * 域收敛(2026-10-19/10-23/11-16)后侧边栏只剩 /domains/*,但页面与 URL 一个不改;
+ * 若只按 href 前缀判定,进入旧页面(/edu/attendance、/models/chats、/admin/users…)
+ * 时侧栏没有任何入口高亮 —— 与 2026-11-16 用户反馈的「管理选中态丢失」同型。
+ * 别名表由各域清单自动派生(单一真相源):清单增删时高亮随之变化,不手写第二份。
+ */
+const DOMAIN_ENTRY_ITEM_HREFS: Record<string, string[]> = Object.fromEntries(
+  (
+    [
+      ['/domains/edu', EDU_HUB_ITEMS],
+      ['/domains/content', CONTENT_HUB_ITEMS],
+      ['/domains/trade', TRADE_HUB_ITEMS],
+      ['/domains/ai', AI_HUB_ITEMS],
+      ['/domains/personal', PERSONAL_HUB_ITEMS],
+      ['/domains/hr', HR_HUB_ITEMS],
+      ['/domains/developer', DEVELOPER_HUB_ITEMS],
+      ['/domains/admin', ADMIN_HUB_ITEMS],
+    ] as const
+  ).map(
+    ([entry, items]) => [entry, flattenNavItems(items).map((item) => item.href)] as const,
+  ),
+)
+
+/**
  * 纯函数判断给定 href 是否与当前 pathname 匹配为活跃路由。
  * 与 useCallback 相比:1) 不创建新函数引用,不破坏 React.memo;2) 纯函数,相同输入永远相同输出。
  * 逻辑:pathname 以 href 开头,且没有其他 nav item 的 href 更精确地匹配当前 pathname。
@@ -950,10 +992,13 @@ export function isHrefActive(href: string, pathname: string): boolean {
   // 未登记进导航表的真实路由(/plugins、/chat/:id、/login 等)一个都命中不了,
   // 于是首页被判为命中且无更精确项,导致只要不在 nav 表内路由上就高亮首页。
   if (href === '/') return pathname === '/'
-  // 管理域入口别名(2026-11-16):/domains/admin 是收敛后的域入口,后台实际页面仍在
-  // /admin/* 下;点击旧后台页时侧栏「管理」需保持高亮,否则选中态丢失。
-  if (href === '/domains/admin' && (pathname === '/admin' || pathname.startsWith('/admin/'))) {
-    return true
+  // 域入口别名(2026-11-16 深度审计):命中该域清单任一 href(含子项)即保持入口高亮。
+  // 两个域登记同一页面时(如 HR 的 /admin/hr-*)两者同时高亮,与「用户从哪个域找
+  // 都算入口在位」的既有约定一致(见 HR_HUB_ITEMS 头注)。
+  const domainItemHrefs = DOMAIN_ENTRY_ITEM_HREFS[href]
+  if (domainItemHrefs) {
+    if (pathname === href || pathname.startsWith(`${href}/`)) return true
+    return domainItemHrefs.some((h) => pathname === h || pathname.startsWith(`${h}/`))
   }
   if (!pathname.startsWith(href)) return false
   return !ALL_NAV_HREFS.some((h) => h !== href && h.startsWith(href) && pathname.startsWith(h))

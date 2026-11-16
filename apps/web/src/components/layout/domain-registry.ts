@@ -164,7 +164,9 @@ export function resolveDomainSlugForPath(pathname: string): DomainSlug | null {
   if (index.has(pathname)) return index.get(pathname) ?? null
   let best: { slug: DomainSlug; len: number } | null = null
   for (const [href, slug] of index) {
-    if (!pathname.startsWith(href)) continue
+    // 路径段边界:裸 startsWith 会把 /administrator、/live-extra 误判进域
+    // (/admin、/live 是别的路由的前缀);与 isHrefActive 同口径(2026-11-16)。
+    if (pathname !== href && !pathname.startsWith(`${href}/`)) continue
     if (!best || href.length > best.len) best = { slug, len: href.length }
   }
   return best?.slug ?? null

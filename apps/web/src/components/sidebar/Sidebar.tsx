@@ -11,7 +11,7 @@ import { cn } from '@/lib/utils'
 import { useNavigationStore, useOptimisticNavStore } from '@/stores/navigation'
 import { useMediaQuery } from '@/hooks/use-media-query'
 import { SidebarChatHistory } from '@/components/sidebar-chat-history'
-import { NAV_GROUPS, FLAT_NAV_ITEMS, flattenNavItems, isHrefActive } from './nav-data'
+import { NAV_GROUPS, FLAT_NAV_ITEMS, DOMAIN_HUB_GROUPS, flattenNavItems, isHrefActive } from './nav-data'
 import type { SidebarProps, RegisterRef } from './types'
 import { SidebarUserRow } from './SidebarUserRow'
 import { NavGroupSection } from './NavGroupSection'
@@ -287,6 +287,16 @@ const Sidebar = React.memo(function Sidebar({ id, mobileOpen, onCloseMobile }: S
   // 只查 visibleGroups 会让已收藏项静默消失(2026-11-16 修复)。
   const flatVisibleItems = React.useMemo(() => filterNav(FLAT_NAV_ITEMS), [filterNav])
 
+  // 自定义功能键面板的「域内功能」候选(2026-11-16):域收敛后侧栏不再平铺这些页面,
+  // 但收藏/高亮仍按全量清单解析;不提供候选源,用户就再也加不进自定义栏。
+  const visibleDomainGroups = React.useMemo(
+    () =>
+      DOMAIN_HUB_GROUPS.map((g) => ({ ...g, items: filterNav(g.items) })).filter(
+        (g) => g.items.length > 0,
+      ),
+    [filterNav],
+  )
+
   const visibleGroups = React.useMemo(() => {
     return NAV_GROUPS.map((g) => ({ ...g, items: filterNav(g.items) })).filter(
       (g) => g.items.length > 0,
@@ -360,6 +370,7 @@ const Sidebar = React.memo(function Sidebar({ id, mobileOpen, onCloseMobile }: S
               onBeforeNav={handleBeforeNav}
               groups={visibleGroups}
               allItems={flatVisibleItems}
+              domainGroups={visibleDomainGroups}
             />
           ) : null}
           <NavGroupSection
