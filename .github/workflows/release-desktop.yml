@@ -453,19 +453,20 @@ jobs:
           # 2026-09-05: 默认以仓库根为 CWD,导致 beforeBuildCommand `node scripts/ensure-web-out.mjs`
           # 解析到 <root>/scripts 找不到模块(CI 实证);指定 tauri 应用目录对齐本地行为
           projectPath: apps/desktop
-          # workflow_dispatch 手动触发时 ref_name 是分支名,须用 inputs.tag;
-          # tag push 触发时 ref_name 即 tag 名
-          tagName: ${{ inputs.tag || github.ref_name }}
-          releaseName: 'IHUI AI Desktop ${{ inputs.tag || github.ref_name }}'
-          releaseBody: '桌面端安装包(Tauri 2 + Rust + React)。详见 CHANGELOG。'
-          releaseDraft: false
-          prerelease: false
-          # 启用自动更新 artifacts:tauri-action 生成各平台 .sig 签名包并上传 Release assets;
-          # publish-updater-json job 聚合全部平台生成统一 latest.json 上传到本 Release。
-          # updater endpoint 已定稿为单端点 https://aizhs.top/desktop-feed.json(2026-10-05 机主拍板,
-          # 原 GitHub desktop-updater-feed 兜底端点已删除:它只由 CI 维护、本机发版通道无 GH_TOKEN,
-          # 属于"看似有兜底、实际随发布路径分叉"的假能力)。
-          updaterJsonPreferNsis: true
+          # 2026-11-17 根治"同名资产撞名判红"(desktop-v0.1.78 run#112 实证):
+          # tauri-action 上传 Release 资产时的同名删除逻辑只规范化候选名、不匹配 Release
+          # 上已有的中文名资产(productName=智汇AI),导致 POST 409 already_exists 后
+          # fail-fast 把整个 Build & Release 判红 —— 即使产物已构建成功、兜底腿随后
+          # 用 gh release upload --clobber 把资产补齐,step 仍是红的,还连带让
+          # publish-updater-json / sync-downloads 因 needs:build 被 skip(latest.json 缺失)。
+          # 正解:本步**只构建、不碰 Release**。tauri-action 源码在 !releaseId && !tagName 时
+          # 走 "skipping all uploads" 分支,故刻意不传 tagName/releaseId 一组参数。
+          # 三项职责已有幂等接管,零遗漏:
+          #   ① 资产上传 → 下方 `Fallback upload …`(gh release upload --clobber,含中文真名);
+          #   ② Release 创建 → 兜底腿 gh release view || create;
+          #   ③ latest.json → 独立 publish-updater-json job(generate-latest-json.mjs 先删后传)。
+          # .sig 由 tauri build 本地生成(env 私钥仍在),与本步是否上传无关。
+          # updater endpoint 单端点 https://aizhs.top/desktop-feed.json(2026-10-05 机主拍板)。
 
       # 2026-11-17 加(Linux 诊断专用):run#105~#110 连续六轮 Linux 都是
       # 「Build & Release exit 1、连 bundle 目录都没创建」,而 macOS 编译同一份
@@ -961,6 +962,11 @@ jobs:
             echo "::error::macOS 签名/公证步骤失败(已配置 Apple 凭据):拒绝上传可能不成对的产物"
             exit 1
           fi
+          # 2026-11-17:Release 创建提到 FILES 判空之前 —— tauri-action 已不再创建 Release
+          # (本步是唯一创建者),下游 publish-updater-json 要往它传 latest.json,必须先存在。
+          gh release view "$TAG" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1 || \
+            gh release create "$TAG" -R "$GITHUB_REPOSITORY" --title "IHUI AI Desktop $TAG" \
+              --notes "桌面端安装包(Tauri 2 + Rust + React)。详见 CHANGELOG。"
           # 2026-09-17:macOS Universal 产物在 target/universal-apple-darwin/release/bundle
           BUNDLE=apps/desktop/src-tauri/target/release/bundle
           if [ -d "apps/desktop/src-tauri/target/universal-apple-darwin/release/bundle" ]; then
@@ -974,9 +980,6 @@ jobs:
             echo "No bundle files found, skip fallback upload"
             exit 0
           fi
-          gh release view "$TAG" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1 || \
-            gh release create "$TAG" -R "$GITHUB_REPOSITORY" --title "IHUI AI Desktop $TAG" \
-              --notes "Desktop bundles (Tauri 2)"
           # ⚠️ 逐文件上传**不许吞失败**:签名步替换了 exe 字节并重算同名 .sig,这两枚必须
           # **成对**落到 Release 上。旧写法 `|| echo "WARN: upload failed"` 会让"exe 传成功、
           # .sig 传失败"照绿收工 ⇒ 自动更新拿新包配旧签名,验签必挂而 CI 全绿(静默断更)。
