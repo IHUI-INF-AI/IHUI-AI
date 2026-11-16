@@ -915,31 +915,4 @@ export async function getTeamMember(
   return row ? mapTeamMemberRow(row) : null
 }
 
-/**
- * 数值入库前的安全兜底(2026-11-12 立,api-key-group-service 用量排行用)。
- *
- * Drizzle 的 `sum(...)::int` / `coalesce(...,0)` 在 PG 侧**理论上**已保证返回 number,
- * 但跨驱动 + `sql<number>` 模板字面量下,运行时仍可能拿到 string / null / undefined:
- * - pg 驱动对 `bigint` / `numeric` 默认返 string(即使 `::int`,驱动侧不一定再 cast);
- * - 空 result set 的子查询可能漏出 null;
- * - 测试 / mock 注入的 `undefined` 不该在 `.toFixed()` / 算术里炸。
- *
- * 判据:**能转成有限数的都转,不能转一律归 0**(不抛、不 NaN 传播)。
- * 语义:用量排行只对"是数字"的值敏感,null / undefined / NaN / 非数值字符串
- * 都当作"没用量"处理 —— 与 UI 的"空态"一致,不会因为一例脏数据把整列打花。
- */
-export function toSafeAmount(value: unknown): number {
-  if (typeof value === 'number') {
-    return Number.isFinite(value) ? value : 0
-  }
-  if (typeof value === 'string') {
-    const n = Number(value)
-    return Number.isFinite(n) ? n : 0
-  }
-  if (typeof value === 'bigint') {
-    const n = Number(value)
-    return Number.isFinite(n) ? n : 0
-  }
-  return 0
-}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
