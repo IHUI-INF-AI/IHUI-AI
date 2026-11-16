@@ -196,7 +196,44 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libxdo-dev
+          # 2026-11-17 补(desktop-v0.1.78 run#105~#108 连续四轮 Linux 零产物):
+          # 原清单只有 libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev
+          # patchelf libxdo-dev,缺 tauri v2 官方要求的
+          # build-essential / libssl-dev / libayatana-appindicator3-dev。
+          # 其中 libappindicator3-dev 是 Ubuntu 22.04 起被 ayatana 取代的**旧包名**,
+          # 新 runner 镜像上解析不到 ⇒ 托盘相关链接失败。这正是
+          # 「同一份 workflow 以前能过、现在不能」的原因。
+          # 该失败原先被 tauri-action 的 continue-on-error 吞成 "Build & Release: success",
+          # 前三轮只在 Verify bundle 看到"零产物"、拿不到真实报错;
+          # run#108 改 --bundles deb 后终于把 Build & Release 判红(exit 1)才定位到打包腿。
+          # 回读判据:逐个 dpkg -l 确认包在(不靠 apt 退出码自证),
+          # 再逐个 command -v 确认 rpmbuild/dpkg-deb 二进制可用(包在 ≠ 二进制在)。
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libssl-dev \
+            build-essential \
+            patchelf \
+            file \
+            libxdo-dev \
+            rpm \
+            libfuse2
+          for p in libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev \
+                   libssl-dev build-essential patchelf file libxdo-dev rpm libfuse2; do
+            if dpkg -l "$p" 2>/dev/null | grep -q '^ii'; then
+              echo "OK  $p"
+            else
+              echo "::error::依赖未装成:$p"; exit 1
+            fi
+          done
+          for b in rpmbuild dpkg-deb; do
+            if command -v "$b" >/dev/null 2>&1; then
+              echo "OK  $b -> $(command -v $b)"
+            else
+              echo "::error::打包工具不可用:$b"; exit 1
+            fi
+          done
 
       # 2026-09-17:纯 Rust 化后无 node_modules,tauri-action 默认 `npm run tauri` 会失败——
       # 全局装独立 CLI(约 10 秒)并显式指定 tauriScript
@@ -380,17 +417,16 @@ jobs:
           # 显式指定全局安装的 tauri CLI(见上一步 Install Tauri CLI)
           tauriScript: tauri
           # macOS:Universal 二进制(同时覆盖 arm64 + Intel;配合 rustup target add)
-          # Linux(2026-11-17 加):显式只打 deb。
-          #   立因:run#105/#106/#107 连续三轮 Linux 都是「Build & Release 报 success
-          #   却零安装包」,而 macOS/Windows 同轮全绿。bundle.targets 里 Linux 要打
-          #   deb+rpm+appimage 三种,其中 rpm 需 rpmbuild、appimage 需 linuxdeploy+fuse,
-          #   任一缺失就会让整条 bundle 失败;而 tauri-action 是 continue-on-error,
-          #   失败被吞成 success,直到 Verify bundle 才炸 —— 三轮都拿不到真实报错。
-          #   本轮先用依赖面最小的 deb 验证「Linux 到底能不能出包」:
-          #   能出 ⇒ 瓶颈就是 rpm/appimage 的外部工具,再逐个补;
-          #   仍出不来 ⇒ 问题在编译/打包本体,届时去掉 continue-on-error 取真实日志。
-          #   deb 是 apt 生态主力产物,先拿到它就能把 Linux 下载通道恢复。
-          args: ${{ runner.os == 'macOS' && '--target universal-apple-darwin' || (runner.os == 'Linux' && '--bundles deb') || '' }}
+          # Linux(2026-11-17):显式列三目标,与 tauri.conf 的 Linux 目标一致,
+          # 也与 Verify 期望表一致(那边按 deb/rpm/appimage 逐项断言)。
+          #   走过的弯路:run#105~107 三轮 Linux 都「Build & Release 报 success 却零产物」,
+          #   根因是 continue-on-error 吞掉了真实失败;run#108 用 `--bundles deb` 单打
+          #   才让 Build & Release 首次判红(exit 1),确认是**打包阶段**而非"没跑"。
+          #   随后定位到依赖缺口(旧包名 libappindicator3-dev 在新镜像解析不到、缺
+          #   libayatana-appindicator3-dev / libssl-dev / build-essential / rpm / libfuse2),
+          #   已在 Install Linux deps 补齐并加 dpkg -l + command -v 双回读。
+          #   故恢复三目标,由依赖补齐保证出包。
+          args: ${{ runner.os == 'macOS' && '--target universal-apple-darwin' || (runner.os == 'Linux' && '--bundles deb,rpm,appimage') || '' }}
           # 2026-09-05: 默认以仓库根为 CWD,导致 beforeBuildCommand `node scripts/ensure-web-out.mjs`
           # 解析到 <root>/scripts 找不到模块(CI 实证);指定 tauri 应用目录对齐本地行为
           projectPath: apps/desktop
