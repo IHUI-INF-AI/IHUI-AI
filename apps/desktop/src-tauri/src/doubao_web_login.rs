@@ -48,6 +48,9 @@ use crate::IpcError;
 /// 豆包站点根(上游账号信息接口挂在它下面)。
 pub const DOUBAO_WEB_ORIGIN: &str = "https://www.doubao.com";
 /// 豆包网页登录页(内嵌浏览器打开的就是它;登录成功后站点自己跳 /chat)。
+/// 跨语言对账锚点:与前端 `tauri-bridge.ts` 的 `DOUBAO_WEB_LOGIN_URL` 同值,改一侧必改另一侧;
+/// Rust 侧不消费它(建窗 URL 由前端停靠 tab 传入),保留为逐值对照的单一真相源(§0.6)。
+#[allow(dead_code)]
 pub const DOUBAO_WEB_LOGIN_URL: &str = "https://www.doubao.com/login";
 /// 上游账号信息接口(桌面端账号面板自己的取数口,2026-11-17 实证)。
 const ACCOUNT_INFO_PATH: &str = "/alice/user/get_account_info";
