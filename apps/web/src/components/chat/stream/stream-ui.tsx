@@ -183,10 +183,12 @@ export const STREAM_HEADER_ACTION_CLASS =
 /**
  * 组内正文左让位唯一档(2026-11-16 立):StreamGroup 的引导线占 `left-[7px]`,
  * 组内**裸正文**(过程叙述这类没有底色的文字块)必须从这条线上再让 12px 起排 ⇒
- * 文字列 = 7 + 12 = 19px,与 StreamDetail 的正文列同一格(思考展开体同款)。
+ * 文字列 = 6 + 12 = 18px,略多于引导线所在的 7px 轨道(线不进字身、两侧各留 1px 呼吸),
+ * 与 StreamDetail 的正文列同一格(思考展开体同款)。
  * 不套本档的裸正文会从 0 起排,引导线就从字身和正文里的图标上穿过去(2026-11-16 用户报障)。
+ * 左让位取间距档 6px(ml-1.5)而非任意值:非色档只认档表(守门 302p 的 tierWebOffN)。
  */
-export const STREAM_GROUP_BODY_CLASS = 'ml-[7px] pl-3'
+export const STREAM_GROUP_BODY_CLASS = 'ml-1.5 pl-3'
 
 /** 对象(路径/URL/命令)一律等宽;查询词与实体名用正文体 */
 export const STREAM_SUBJECT_MONO = /path|url|command/

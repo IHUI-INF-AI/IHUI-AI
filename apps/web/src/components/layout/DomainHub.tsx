@@ -87,7 +87,7 @@ export const HUB_TOKENS = {
   searchIcon:
     'pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground',
   searchInput:
-    'h-9 w-full rounded-lg border border-border bg-background/80 pl-9 pr-3 text-body text-foreground shadow-sm outline-none transition-colors placeholder:text-muted-foreground/70 hover:border-primary/30 focus:border-primary/50 focus:ring-2 focus:ring-ring/25',
+    'h-9 w-full rounded-lg border border-border bg-background/80 pl-8 pr-3 text-body text-foreground shadow-sm outline-none transition-colors placeholder:text-muted-foreground/70 hover:border-primary/30 focus:border-primary/50 focus:ring-2 focus:ring-ring/25',
   body: 'mt-5 space-y-6',
   /** 单个分组 */
   section: 'space-y-2.5',
