@@ -185,7 +185,7 @@ jobs:
         # 下载页 iOS 地址:releases/tags/ios-nightly/download/ihui-ai-latest.ipa
         # tag 触发 → 发布到该 tag;手动/push → 发布到 ios-nightly 固定 tag
         # ios-version.json 同批上传:它是站点腿发布器唯一的版本号凭据(缺它发布器 exit 2 不猜号)
-        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
+        uses: softprops/action-gh-release@8a0cd651e5b2365bd640854a3fa5dfc70e4875f3 # v3.0.4
         with:
           tag_name: ${{ github.ref_type == 'tag' && github.ref_name || 'ios-nightly' }}
           files: |
