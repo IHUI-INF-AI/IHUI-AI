@@ -21,6 +21,8 @@
  * "子代理"等),不臆造。
  */
 
+import type { StreamKind } from '@/components/chat/stream/stream-ui'
+
 /** 类目键(稳定、与 CATEGORY_TABLE 一一对应) */
 export type CategoryKey =
   | 'file_read'
@@ -266,6 +268,37 @@ export function resolveToolCategory(toolName: string): CategoryKey {
     return 'mcp'
   }
   return 'other'
+}
+
+// ─── 类目 → 活动行容器图标档 ─────────────────────────────────────
+// 容器行行首图标的唯一出口:形状由类目决定(文件/终端/检索/代码…),状态由基元着色。
+// 与 STREAM_KIND_ICONS 分工:本表只回答"工具属于哪种容器",图标本身仍登记在 stream-ui。
+
+/** 18 类目 → 容器语义档(与 CATEGORY_TABLE 一一对应) */
+export const CATEGORY_STREAM_KIND: Readonly<Record<CategoryKey, StreamKind>> = {
+  file_read: 'fileRead',
+  file_write: 'fileWrite',
+  file_modify: 'fileWrite',
+  file_delete: 'fileDelete',
+  file_search: 'search',
+  command: 'terminal',
+  preview: 'preview',
+  web_search: 'web',
+  mcp: 'mcp',
+  skill: 'skill',
+  task_management: 'plan',
+  thinking: 'thinking',
+  user_interaction: 'question',
+  image_gen: 'image',
+  video_gen: 'video',
+  env_init: 'env',
+  end: 'end',
+  other: 'tool',
+}
+
+/** 工具名 → 容器语义档(先归类目,再映射到活动行图标档;'other' 归通用 tool 图标) */
+export function streamKindForTool(toolName: string): StreamKind {
+  return CATEGORY_STREAM_KIND[resolveToolCategory(toolName)]
 }
 
 // ─── 永不折叠例外集(语义维,2026-10-29 立,对标 Qoder 0.4.11) ──────────

@@ -12064,6 +12064,7 @@
       "toggleMetadata": "Toggle metadata",
       "metadataLoading": "Loading metadata…",
       "metadataUnavailable": "Metadata is temporarily unavailable",
+      "moreActions": "More actions",
       "pin": "Pin",
       "unpin": "Unpin",
       "bookmark": "Bookmark",
@@ -13188,273 +13189,151 @@
       "slashDiff": {
         "label": "Session changes",
         "description": "Review files the AI changed in this conversation",
-        "keywords": [
-          "diff",
-          "changes",
-          "review"
-        ]
+        "keywords": ["diff", "changes", "review"]
       },
       "slashStatus": {
         "label": "Session status",
         "description": "Show model, context usage, permission mode and spend",
-        "keywords": [
-          "status",
-          "context",
-          "usage"
-        ]
+        "keywords": ["status", "context", "usage"]
       },
       "slashModel": {
         "label": "Switch model",
         "description": "Open the model selector",
-        "keywords": [
-          "model",
-          "switch"
-        ]
+        "keywords": ["model", "switch"]
       },
       "slashMcp": {
         "label": "MCP marketplace",
         "description": "Open the MCP server marketplace",
-        "keywords": [
-          "mcp",
-          "marketplace"
-        ]
+        "keywords": ["mcp", "marketplace"]
       },
       "slashCompact": {
         "label": "Compact context",
         "description": "Compact this conversation's history to free context window",
-        "keywords": [
-          "compact",
-          "context"
-        ]
+        "keywords": ["compact", "context"]
       },
       "steerPrompt": {
         "label": "Steer prompt",
         "description": "Inject the current input as guidance into the running answer",
-        "keywords": [
-          "steer",
-          "guide",
-          "redirect"
-        ]
+        "keywords": ["steer", "guide", "redirect"]
       },
       "queuePrompt": {
         "label": "Queue prompt",
         "description": "Queue the current input; it sends automatically after the current answer finishes",
-        "keywords": [
-          "queue",
-          "pending",
-          "send later"
-        ]
+        "keywords": ["queue", "pending", "send later"]
       },
       "agent": {
         "description": "Manage and dispatch AI agents",
-        "keywords": [
-          "agent",
-          "bot",
-          "dispatch"
-        ],
+        "keywords": ["agent", "bot", "dispatch"],
         "label": "AI Agents"
       },
       "browser": {
         "description": "Browse the web inside the workspace",
-        "keywords": [
-          "browser",
-          "web",
-          "preview"
-        ],
+        "keywords": ["browser", "web", "preview"],
         "label": "Built-in Browser"
       },
       "capabilityMarket": {
         "description": "Discover and install capability packs",
-        "keywords": [
-          "capability",
-          "market",
-          "pack",
-          "install"
-        ],
+        "keywords": ["capability", "market", "pack", "install"],
         "label": "Capability Market"
       },
       "codeChanges": {
         "description": "Review workspace code changes",
-        "keywords": [
-          "changes",
-          "diff",
-          "git",
-          "code"
-        ],
+        "keywords": ["changes", "diff", "git", "code"],
         "label": "Code Changes"
       },
       "connectors": {
         "description": "Manage external service connections",
-        "keywords": [
-          "connector",
-          "integration",
-          "service"
-        ],
+        "keywords": ["connector", "integration", "service"],
         "label": "Connectors"
       },
       "document": {
         "description": "Edit workspace documents",
-        "keywords": [
-          "document",
-          "docs",
-          "edit"
-        ],
+        "keywords": ["document", "docs", "edit"],
         "label": "Documents"
       },
       "editor": {
         "description": "Open the code editor",
-        "keywords": [
-          "editor",
-          "code",
-          "monaco"
-        ],
+        "keywords": ["editor", "code", "monaco"],
         "label": "Editor"
       },
       "mcp": {
         "description": "Manage MCP servers and tools",
-        "keywords": [
-          "mcp",
-          "server",
-          "tools"
-        ],
+        "keywords": ["mcp", "server", "tools"],
         "label": "MCP Manager"
       },
       "mcpStore": {
         "description": "Browse and install MCP services",
-        "keywords": [
-          "mcp",
-          "store",
-          "market",
-          "install"
-        ],
+        "keywords": ["mcp", "store", "market", "install"],
         "label": "MCP Store"
       },
       "modeAsk": {
         "description": "Switch to Ask mode with tools disabled",
-        "keywords": [
-          "ask",
-          "question",
-          "mode"
-        ],
+        "keywords": ["ask", "question", "mode"],
         "label": "Ask mode"
       },
       "modeBuild": {
         "description": "Let the AI build and modify directly",
-        "keywords": [
-          "build",
-          "mode",
-          "generate"
-        ],
+        "keywords": ["build", "mode", "generate"],
         "label": "Build Mode"
       },
       "modePlan": {
         "description": "Plan first, then execute",
-        "keywords": [
-          "plan",
-          "mode",
-          "todo"
-        ],
+        "keywords": ["plan", "mode", "todo"],
         "label": "Plan Mode"
       },
       "modeReview": {
         "description": "Review and assess existing code",
-        "keywords": [
-          "review",
-          "mode",
-          "audit"
-        ],
+        "keywords": ["review", "mode", "audit"],
         "label": "Review Mode"
       },
       "modeSpec": {
         "description": "Generate implementations from specs",
-        "keywords": [
-          "spec",
-          "mode",
-          "generate"
-        ],
+        "keywords": ["spec", "mode", "generate"],
         "label": "Spec Mode"
       },
       "skill": {
         "description": "Manage and invoke AI skills",
-        "keywords": [
-          "skill",
-          "ability",
-          "plugin"
-        ],
+        "keywords": ["skill", "ability", "plugin"],
         "label": "Skills"
       },
       "terminal": {
         "description": "Open the integrated terminal",
-        "keywords": [
-          "terminal",
-          "shell",
-          "console"
-        ],
+        "keywords": ["terminal", "shell", "console"],
         "label": "Terminal"
       },
       "ai-world": {
         "description": "Explore the world of AI applications",
-        "keywords": [
-          "AI",
-          "world",
-          "apps"
-        ],
+        "keywords": ["AI", "world", "apps"],
         "label": "AI World"
       },
       "chat": {
         "description": "Start a conversation with AI assistant",
-        "keywords": [
-          "chat",
-          "talk",
-          "AI",
-          "conversation"
-        ],
+        "keywords": ["chat", "talk", "AI", "conversation"],
         "label": "AI Chat"
       },
       "drama": {
         "description": "AI-generated short dramas",
-        "keywords": [
-          "drama",
-          "video",
-          "AI",
-          "show"
-        ],
+        "keywords": ["drama", "video", "AI", "show"],
         "label": "AI Drama"
       },
       "profile": {
         "description": "Manage your profile and settings",
-        "keywords": [
-          "profile",
-          "user",
-          "settings"
-        ],
+        "keywords": ["profile", "user", "settings"],
         "label": "Profile"
       },
       "search": {
         "description": "Global content search",
-        "keywords": [
-          "search",
-          "find",
-          "query"
-        ],
+        "keywords": ["search", "find", "query"],
         "label": "Search"
       },
       "settings": {
         "description": "System preferences and configuration",
-        "keywords": [
-          "settings",
-          "preferences",
-          "config"
-        ],
+        "keywords": ["settings", "preferences", "config"],
         "label": "Settings"
       },
       "skillsMarket": {
         "description": "Browse and install self-evolving skills",
-        "keywords": [
-          "skill",
-          "market",
-          "plugin"
-        ],
+        "keywords": ["skill", "market", "plugin"],
         "label": "Skill Market"
       }
     },
@@ -16026,37 +15905,25 @@
       "quadrants": [
         {
           "description": "Simple decisions + simple execution, rapid deployment of high-frequency applications",
-          "examples": [
-            "Knowledge Q&A",
-            "Process automation"
-          ],
+          "examples": ["Knowledge Q&A", "Process automation"],
           "tag": "Q1",
           "title": "Efficient Assistant"
         },
         {
           "description": "Complex decisions + simple execution, providing in-depth analysis and recommendations",
-          "examples": [
-            "Data analysis",
-            "Decision support"
-          ],
+          "examples": ["Data analysis", "Decision support"],
           "tag": "Q2",
           "title": "Smart Advisor"
         },
         {
           "description": "Simple decisions + complex execution, handling cross-system complex tasks",
-          "examples": [
-            "Meeting scheduling",
-            "Approval workflows"
-          ],
+          "examples": ["Meeting scheduling", "Approval workflows"],
           "tag": "Q3",
           "title": "Execution Expert"
         },
         {
           "description": "Complex decisions + complex execution, autonomous planning and multi-agent collaboration",
-          "examples": [
-            "Marketing automation",
-            "Multi-agent collaboration"
-          ],
+          "examples": ["Marketing automation", "Multi-agent collaboration"],
           "tag": "Q4",
           "title": "All-round Expert"
         }
@@ -16190,31 +16057,19 @@
       "items": [
         {
           "description": "Offline courses, exploration activities, and a mutual-aid community, deeply connecting like-minded decision-makers",
-          "features": [
-            "Systematic courses",
-            "Hands-on exploration",
-            "Community mutual aid"
-          ],
+          "features": ["Systematic courses", "Hands-on exploration", "Community mutual aid"],
           "tag": "MODULE 01",
           "title": "Local Community"
         },
         {
           "description": "A convenient online communication platform, accessing information and support anytime, anywhere",
-          "features": [
-            "Communication platform",
-            "Experience sharing",
-            "Resource matching"
-          ],
+          "features": ["Communication platform", "Experience sharing", "Resource matching"],
           "tag": "MODULE 02",
           "title": "Online Community"
         },
         {
           "description": "Professional large models and agent services, providing in-depth AI transformation consulting and support",
-          "features": [
-            "Professional LLMs",
-            "Agent services",
-            "Consulting services"
-          ],
+          "features": ["Professional LLMs", "Agent services", "Consulting services"],
           "tag": "MODULE 03",
           "title": "AI Professional Services"
         }
@@ -19133,15 +18988,7 @@
       "title": "Top 5 Pages",
       "visitsHeader": "Visits"
     },
-    "weekdays": [
-      "Mon",
-      "Tue",
-      "Wed",
-      "Thu",
-      "Fri",
-      "Sat",
-      "Sun"
-    ]
+    "weekdays": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
   },
   "models": {
     "relay": {
@@ -20890,6 +20737,12 @@
     "saasTenants": "SaaS Tenants",
     "dashboard": "Admin Dashboard",
     "financeAi": "Finance",
+    "hrGroup": "HR Department",
+    "hrAdmin": "HR Management",
+    "hrAdminData": "HR Data Center",
+    "hrMyAttendance": "My Attendance",
+    "hrMyLeave": "My Leave",
+    "hrMyPayroll": "My Payslips",
     "sag2Lexical": "SAG2 Retrieval",
     "users": "User Management",
     "projects": "Project Management",
@@ -21081,7 +20934,7 @@
     "downloadGithubReleases": "GitHub Releases",
     "downloadIOS": "iOS App",
     "downloadIOSDesc": "iPhone / iPad anytime",
-    "downloadIOSInstallGuide": "You can now download the IPA directly and sideload it by self-signing or with TrollStore - it is not installed from the App Store. Once the app is published on the App Store, the download button will redirect to the App Store install page instead.",
+    "downloadIOSInstallGuide": "Once published on the App Store, the download button will redirect to the App Store install page.",
     "downloadIOSSysReq": "iOS 14.0 or later",
     "downloadInstallGuide": "Install guide",
     "downloadMiniDesc": "Scan QR, open and use",
@@ -30192,6 +30045,12 @@
     "title": "Trade",
     "subtitle": "Wallet, orders, membership and points benefits"
   },
+  "hrHub": {
+    "title": "HR Department",
+    "subtitle": "Attendance, leave, payslips and HR management",
+    "sectionSelf": "Employee self-service",
+    "sectionAdmin": "HR management"
+  },
   "aiHub": {
     "title": "Agents and Models",
     "subtitle": "Chat history, memory, knowledge base, media tasks and workspace"
@@ -30199,6 +30058,20 @@
   "personalHub": {
     "title": "Account",
     "subtitle": "My learning, account security, student center, feedback and help"
+  },
+  "adminHub": {
+    "title": "Admin",
+    "subtitle": "Unified entry for operations, moderation, finance, HR, monitoring and platform administration"
+  },
+  "developerHub": {
+    "title": "Developer",
+    "subtitle": "API access, keys, usage and developer tools"
+  },
+  "domainHub": {
+    "subItems": "{count} sub-items",
+    "functionCount": "{count} features",
+    "searchPlaceholder": "Search features…",
+    "empty": "No matching features"
   },
   "appUpdate": {
     "title": "New version available",
@@ -30321,6 +30194,7 @@
     "colDepartment": "Department",
     "colEmployeeNo": "Employee No.",
     "colPosition": "Position",
+    "colPhone": "Phone",
     "colDate": "Date",
     "colCheckIn": "Check-in",
     "colCheckOut": "Check-out",
@@ -30449,7 +30323,40 @@
     "syncSyncedBatches": "Synced batches",
     "syncSkippedNotImplemented": "Skipped (not implemented)",
     "syncFinishedAt": "Last finished at",
-    "syncErrors": "{count} error(s) found"
+    "syncErrors": "{count} error(s) found",
+    "mySubtitle": "View your profile, check in/out and attendance records",
+    "myRecordsTitle": "My Attendance Records",
+    "todayLabel": "Today",
+    "checkInAction": "Check in",
+    "checkOutAction": "Check out",
+    "checkInOk": "Checked in",
+    "checkOutOk": "Checked out",
+    "noEmployeeHint": "This account is not linked to an employee profile yet. Ask HR to send an account link invitation from the HR department, then accept it here.",
+    "actionFailed": "Action failed. Please try again later.",
+    "myLeaveSubtitle": "Submit leave requests and track approval status",
+    "myLeavesTitle": "My Leave Requests",
+    "leaveTypeLabel": "Leave type",
+    "leaveTypePh": "e.g. annual / personal / sick leave",
+    "leaveReasonPh": "Describe the reason for leave",
+    "submitLeave": "Submit leave request",
+    "leaveSubmitted": "Leave request submitted, pending approval",
+    "totalDaysLabel": "Leave days",
+    "colLink": "Account link",
+    "linkBound": "Linked",
+    "linkPending": "Awaiting confirmation",
+    "linkInvite": "Invite account",
+    "linkInviteSend": "Send invite",
+    "linkInviteCancel": "Cancel",
+    "linkAccountPh": "Phone / email / username",
+    "linkRevoke": "Revoke invite",
+    "linkInviteOk": "Invitation sent; waiting for the other party to accept",
+    "linkRevokeOk": "Invitation revoked",
+    "linkPendingTitle": "Pending account link",
+    "linkPendingDesc": "Your company has requested to link the employee record below to your account. Only after you accept can you view your own attendance, leave and payslips; the data stays visible only to you.",
+    "linkAccept": "Accept link",
+    "linkReject": "Reject",
+    "linkAcceptOk": "Link accepted; enabling your self-service data",
+    "linkRejectOk": "Link rejected"
   },
   "myPayroll": {
     "title": "My Payroll",
@@ -30848,5 +30755,12 @@
     "autoContrast": "Auto contrast correction",
     "autoContrastHint": "Set body text to black or white based on each light/dark background.",
     "autoContrastDone": "Body text color corrected for the current background"
+  },
+  "engineMode": {
+    "title": "Agent execution engine",
+    "description": "Choose where agent orchestration runs. \"Local\" runs orchestration and tools on this machine without using server resources.",
+    "local": "Local",
+    "cloud": "Cloud",
+    "auto": "Auto"
   }
 }

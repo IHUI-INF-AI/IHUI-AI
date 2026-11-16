@@ -61,6 +61,8 @@ import {
 } from '@/hooks/use-websocket'
 import { MessageList } from '@/components/chat/message-list'
 import { MessageInput } from '@/components/chat/message-input'
+// agent 执行引擎切换(2026-11-15):AI 面板标题栏常驻可见,本地/云端/自动 1 击切
+import { EngineModeControl } from '@/components/chat/engine-mode-button'
 import { SessionUsageBadge } from '@/components/chat/session-usage-badge'
 // D28 补齐层(2026-10-03):导入会话的来源标识 + 「用场景分析」入口。
 // 槽位(横幅 + 入口按钮)与 ChatPaneBody 共用 ImportProvenanceSlot,不各写一份;
@@ -1859,10 +1861,7 @@ export function AISidePanel() {
       const state = useAiPanelStore.getState()
       // 先收尺寸再用新尺寸收位置:窗口变小时若只收位置,浮窗仍会大于视口。
       const nextSize = getFloatSize(window.innerWidth, window.innerHeight, state.floatSize)
-      if (
-        nextSize.width !== state.floatSize.width ||
-        nextSize.height !== state.floatSize.height
-      ) {
+      if (nextSize.width !== state.floatSize.width || nextSize.height !== state.floatSize.height) {
         setFloatSize(nextSize)
       }
       const pos = state.floatPosition
@@ -2248,7 +2247,7 @@ export function AISidePanel() {
               'ai-surface-in-mount',
               isMobileSmall
                 ? 'inset-0' // 手机:全屏覆盖
-                : 'ai-float-glow rounded-xl', // 桌面/平板端:浮窗(仅投影,无描边)
+                : 'ai-float-glow rounded-xl', // 桌面/平板端:浮窗(token 描边 + 投影)
             )}
             style={
               isMobileSmall
@@ -2618,7 +2617,7 @@ export function AISidePanel() {
         <div
           // AI 面板容器(最外层,DevTools 可选中)
           // - docked 模式:relative + shrink-0 + py-2,flex 流内布局,mr-1.5 固定 6px 间距
-          // - float 模式(桌面/平板):fixed 定位,z-sticky,可拖拽,投影浮窗视觉(ai-float-glow,无描边)
+          // - float 模式(桌面/平板):fixed 定位,z-sticky,可拖拽,token 描边 + 投影浮窗视觉(ai-float-glow)
           //   rounded-xl 匹配内层 aside 圆角(光晕跟随圆角呈圆弧),去掉 py-2(浮窗无需上下间距)
           // - float 模式(手机 <640px):fixed inset-0 全屏覆盖,无光晕无圆角,最大化可用空间
           // data-testid="ai-panel-root":全局唯一最外层容器标识,DevTools / E2E 可直接选中
@@ -2653,7 +2652,7 @@ export function AISidePanel() {
             floatMode
               ? isMobileSmall
                 ? 'fixed inset-0 z-sticky' // 手机浮窗:全屏覆盖
-                : 'fixed z-sticky ai-float-glow rounded-xl' // 桌面/平板浮窗:仅投影,无描边
+                : 'fixed z-sticky ai-float-glow rounded-xl' // 桌面/平板浮窗:token 描边 + 投影
               : cn(
                   'relative hidden h-full min-[640px]:block mr-1.5 py-2',
                   // 2026-08-17 工作展示区折叠:AI 面板 flex-1 占满右侧(替代固定 width)
@@ -2776,6 +2775,9 @@ export function AISidePanel() {
                   />
                 </span>
               </div>
+              {/* agent 执行引擎切换(2026-11-15):标题栏常驻可见,本地/云端/自动 1 击切;
+                  流式期间禁用(切引擎无意义)。放在标题右侧、工作区选择器之前。 */}
+              <EngineModeControl disabled={isStreaming} />
               {/* 工作区选择器(参考 主流 IDE 顶部 project selector):
               空工作区时显示 FolderPlus 入口,已绑定时显示 Folder 入口可切换/清除
               2026-09-17 修复:原先放在 overflow-hidden 标题容器内,displayTitle 占满宽度时

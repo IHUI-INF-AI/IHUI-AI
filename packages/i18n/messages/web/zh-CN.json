@@ -9816,12 +9816,7 @@
       "targetPlaceholder": "如:重点高中、985大学"
     },
     "options": {
-      "classLevel": [
-        "优秀(班级前 10%)",
-        "良好(10-30%)",
-        "中等(30-70%)",
-        "一般(后 30%)"
-      ],
+      "classLevel": ["优秀(班级前 10%)", "良好(10-30%)", "中等(30-70%)", "一般(后 30%)"],
       "difficulty": [
         "语文阅读理解",
         "英语听力口语",
@@ -9838,12 +9833,7 @@
         "考试焦虑",
         "家庭环境影响"
       ],
-      "school": [
-        "重点中学",
-        "普通中学",
-        "国际学校",
-        "私立学校"
-      ]
+      "school": ["重点中学", "普通中学", "国际学校", "私立学校"]
     },
     "result": {
       "failed": "AI 分析失败",
@@ -12064,6 +12054,7 @@
       "toggleMetadata": "切换元数据",
       "metadataLoading": "正在加载元数据…",
       "metadataUnavailable": "元数据暂时不可用",
+      "moreActions": "更多操作",
       "pin": "钉选",
       "unpin": "取消钉选",
       "bookmark": "收藏",
@@ -13188,277 +13179,151 @@
       "slashDiff": {
         "label": "会话改动总览",
         "description": "查看本次会话 AI 改动的文件(diff 总览)",
-        "keywords": [
-          "diff",
-          "改动",
-          "审查"
-        ]
+        "keywords": ["diff", "改动", "审查"]
       },
       "slashStatus": {
         "label": "会话状态",
         "description": "查看当前模型、上下文占用、权限模式与用量",
-        "keywords": [
-          "status",
-          "状态",
-          "上下文"
-        ]
+        "keywords": ["status", "状态", "上下文"]
       },
       "slashModel": {
         "label": "切换模型",
         "description": "打开模型选择器",
-        "keywords": [
-          "model",
-          "模型",
-          "切换"
-        ]
+        "keywords": ["model", "模型", "切换"]
       },
       "slashMcp": {
         "label": "MCP 市场",
         "description": "打开 MCP 服务器市场",
-        "keywords": [
-          "mcp",
-          "插件",
-          "市场"
-        ]
+        "keywords": ["mcp", "插件", "市场"]
       },
       "slashCompact": {
         "label": "压缩上下文",
         "description": "压缩当前会话历史,释放上下文窗口",
-        "keywords": [
-          "compact",
-          "压缩",
-          "上下文"
-        ]
+        "keywords": ["compact", "压缩", "上下文"]
       },
       "steerPrompt": {
         "label": "引导提示",
         "description": "向正在运行的回复中途插入引导，无需等待当前轮完成",
-        "keywords": [
-          "引导",
-          "插话",
-          "steer"
-        ]
+        "keywords": ["引导", "插话", "steer"]
       },
       "queuePrompt": {
         "label": "将提示加入队列",
         "description": "把当前输入加入 W27 预备消息队列，流式结束后自动依次发送",
-        "keywords": [
-          "队列",
-          "排队",
-          "queue"
-        ]
+        "keywords": ["队列", "排队", "queue"]
       },
       "agent": {
         "description": "管理并调度 AI 智能体",
-        "keywords": [
-          "智能体",
-          "调度",
-          "agent"
-        ],
+        "keywords": ["智能体", "调度", "agent"],
         "label": "AI 智能体"
       },
       "browser": {
         "description": "在工作区内浏览网页",
-        "keywords": [
-          "浏览器",
-          "网页",
-          "browser"
-        ],
+        "keywords": ["浏览器", "网页", "browser"],
         "label": "内置浏览器"
       },
       "capabilityMarket": {
         "description": "发现并安装能力包",
-        "keywords": [
-          "能力",
-          "市场",
-          "插件",
-          "market"
-        ],
+        "keywords": ["能力", "市场", "插件", "market"],
         "label": "能力市场"
       },
       "codeChanges": {
         "description": "查看工作区代码改动",
-        "keywords": [
-          "代码",
-          "变更",
-          "改动",
-          "diff"
-        ],
+        "keywords": ["代码", "变更", "改动", "diff"],
         "label": "代码变更"
       },
       "connectors": {
         "description": "管理外部服务连接",
-        "keywords": [
-          "连接",
-          "外部服务",
-          "connector"
-        ],
+        "keywords": ["连接", "外部服务", "connector"],
         "label": "连接器"
       },
       "document": {
         "description": "编辑工作区文档",
-        "keywords": [
-          "文档",
-          "编辑",
-          "doc"
-        ],
+        "keywords": ["文档", "编辑", "doc"],
         "label": "文档"
       },
       "editor": {
         "description": "打开代码编辑器",
-        "keywords": [
-          "编辑器",
-          "代码",
-          "code"
-        ],
+        "keywords": ["编辑器", "代码", "code"],
         "label": "编辑器"
       },
       "mcp": {
         "description": "管理 MCP 服务器与工具",
-        "keywords": [
-          "MCP",
-          "服务器",
-          "工具"
-        ],
+        "keywords": ["MCP", "服务器", "工具"],
         "label": "MCP 管理"
       },
       "mcpStore": {
         "description": "浏览与安装 MCP 服务",
-        "keywords": [
-          "MCP",
-          "广场",
-          "市场",
-          "store"
-        ],
+        "keywords": ["MCP", "广场", "市场", "store"],
         "label": "MCP 广场"
       },
       "modeAsk": {
         "description": "切换到纯问答模式,禁用工具",
-        "keywords": [
-          "问答",
-          "ask",
-          "模式"
-        ],
+        "keywords": ["问答", "ask", "模式"],
         "label": "问答模式"
       },
       "modeBuild": {
         "description": "让 AI 直接构建与修改",
-        "keywords": [
-          "构建",
-          "模式",
-          "build"
-        ],
+        "keywords": ["构建", "模式", "build"],
         "label": "构建模式"
       },
       "modePlan": {
         "description": "先制定计划再执行",
-        "keywords": [
-          "规划",
-          "计划",
-          "plan"
-        ],
+        "keywords": ["规划", "计划", "plan"],
         "label": "规划模式"
       },
       "modeReview": {
         "description": "审查与评审现有代码",
-        "keywords": [
-          "审查",
-          "评审",
-          "review"
-        ],
+        "keywords": ["审查", "评审", "review"],
         "label": "审查模式"
       },
       "modeSpec": {
         "description": "从规格生成实现",
-        "keywords": [
-          "规格",
-          "spec",
-          "模式"
-        ],
+        "keywords": ["规格", "spec", "模式"],
         "label": "规格模式"
       },
       "skill": {
         "description": "管理与调用 AI 技能",
-        "keywords": [
-          "技能",
-          "skill",
-          "能力"
-        ],
+        "keywords": ["技能", "skill", "能力"],
         "label": "技能"
       },
       "terminal": {
         "description": "打开集成终端",
-        "keywords": [
-          "终端",
-          "命令行",
-          "terminal"
-        ],
+        "keywords": ["终端", "命令行", "terminal"],
         "label": "终端"
       },
       "ai-world": {
         "description": "探索 AI 应用世界",
-        "keywords": [
-          "AI",
-          "世界",
-          "应用"
-        ],
+        "keywords": ["AI", "世界", "应用"],
         "label": "AI 世界"
       },
       "chat": {
         "description": "与 AI 助手开始对话",
-        "keywords": [
-          "对话",
-          "聊天",
-          "AI",
-          "chat"
-        ],
+        "keywords": ["对话", "聊天", "AI", "chat"],
         "label": "AI 对话"
       },
       "drama": {
         "description": "AI 生成的精彩短剧",
-        "keywords": [
-          "短剧",
-          "视频",
-          "AI",
-          "drama"
-        ],
+        "keywords": ["短剧", "视频", "AI", "drama"],
         "label": "AI 短剧"
       },
       "profile": {
         "description": "管理个人资料和设置",
-        "keywords": [
-          "个人",
-          "资料",
-          "设置"
-        ],
+        "keywords": ["个人", "资料", "设置"],
         "label": "个人中心"
       },
       "search": {
         "description": "全局内容搜索",
-        "keywords": [
-          "搜索",
-          "查找",
-          "search"
-        ],
+        "keywords": ["搜索", "查找", "search"],
         "label": "搜索"
       },
       "settings": {
         "description": "系统偏好与配置",
-        "keywords": [
-          "设置",
-          "偏好",
-          "配置"
-        ],
+        "keywords": ["设置", "偏好", "配置"],
         "label": "系统设置"
       },
       "skillsMarket": {
         "description": "浏览并安装自进化 Skill",
-        "keywords": [
-          "skill",
-          "技能",
-          "市场",
-          "market"
-        ],
+        "keywords": ["skill", "技能", "市场", "market"],
         "label": "Skill 市场"
       }
     },
@@ -16030,37 +15895,25 @@
       "quadrants": [
         {
           "description": "简单决策 + 简单执行,快速部署高频应用",
-          "examples": [
-            "知识问答",
-            "流程自动化"
-          ],
+          "examples": ["知识问答", "流程自动化"],
           "tag": "Q1",
           "title": "高效助手"
         },
         {
           "description": "复杂决策 + 简单执行,提供深度分析与建议",
-          "examples": [
-            "数据分析",
-            "决策支持"
-          ],
+          "examples": ["数据分析", "决策支持"],
           "tag": "Q2",
           "title": "智慧顾问"
         },
         {
           "description": "简单决策 + 复杂执行,处理跨系统复杂任务",
-          "examples": [
-            "会议安排",
-            "审批流程"
-          ],
+          "examples": ["会议安排", "审批流程"],
           "tag": "Q3",
           "title": "执行专家"
         },
         {
           "description": "复杂决策 + 复杂执行,自主规划与多智能体协作",
-          "examples": [
-            "营销自动化",
-            "多智能体协同"
-          ],
+          "examples": ["营销自动化", "多智能体协同"],
           "tag": "Q4",
           "title": "全能专家"
         }
@@ -16194,31 +16047,19 @@
       "items": [
         {
           "description": "线下课程、探索活动与互助社群,深度链接志同道合的决策者",
-          "features": [
-            "系统化课程",
-            "实践探索",
-            "社群互助"
-          ],
+          "features": ["系统化课程", "实践探索", "社群互助"],
           "tag": "MODULE 01",
           "title": "在地社群"
         },
         {
           "description": "便捷的在线交流平台,随时随地获取信息与支持",
-          "features": [
-            "交流平台",
-            "经验共享",
-            "资源对接"
-          ],
+          "features": ["交流平台", "经验共享", "资源对接"],
           "tag": "MODULE 02",
           "title": "线上社群"
         },
         {
           "description": "专业大模型与智能体服务,提供深度AI化咨询与支持",
-          "features": [
-            "专业大模型",
-            "智能体服务",
-            "咨询服务"
-          ],
+          "features": ["专业大模型", "智能体服务", "咨询服务"],
           "tag": "MODULE 03",
           "title": "AI专业服务"
         }
@@ -19137,15 +18978,7 @@
       "title": "Top 5 页面",
       "visitsHeader": "访问数"
     },
-    "weekdays": [
-      "周一",
-      "周二",
-      "周三",
-      "周四",
-      "周五",
-      "周六",
-      "周日"
-    ]
+    "weekdays": ["周一", "周二", "周三", "周四", "周五", "周六", "周日"]
   },
   "models": {
     "relay": {
@@ -19893,12 +19726,7 @@
         ]
       },
       "starter": {
-        "features": [
-          "1M tokens 额度",
-          "基础模型可用",
-          "5 个 API 令牌",
-          "社区支持"
-        ]
+        "features": ["1M tokens 额度", "基础模型可用", "5 个 API 令牌", "社区支持"]
       }
     },
     "productSchema": {
@@ -20894,6 +20722,12 @@
     "saasTenants": "SaaS 租户",
     "dashboard": "管理后台",
     "financeAi": "财务部",
+    "hrGroup": "人事部",
+    "hrAdmin": "人事管理",
+    "hrAdminData": "人事数据中心",
+    "hrMyAttendance": "我的考勤",
+    "hrMyLeave": "我的请假",
+    "hrMyPayroll": "我的工资条",
     "sag2Lexical": "SAG2 检索",
     "users": "用户管理",
     "projects": "项目管理",
@@ -21085,7 +20919,7 @@
     "downloadGithubReleases": "GitHub Releases",
     "downloadIOS": "iOS App",
     "downloadIOSDesc": "iPhone / iPad 随时使用",
-    "downloadIOSInstallGuide": "现在可直接下载 IPA 安装包，需自行签名或借助 TrollStore（巨魔商店）侧载安装，并非从 App Store 获取；将来若上架 App Store，下载按钮会优先跳转至 App Store 安装页。",
+    "downloadIOSInstallGuide": "App Store 上架后,点击下载按钮将跳转 App Store 安装页。",
     "downloadIOSSysReq": "iOS 14.0 或更高版本",
     "downloadInstallGuide": "安装指南",
     "downloadMiniDesc": "微信扫码,即开即用",
@@ -21762,24 +21596,12 @@
       "enterprise": {
         "contactSales": "联系销售",
         "cta": "联系销售",
-        "features": [
-          "不限积分",
-          "私有化部署",
-          "SSO/SAML 2.0",
-          "审计日志",
-          "专属技术支持"
-        ],
+        "features": ["不限积分", "私有化部署", "SSO/SAML 2.0", "审计日志", "专属技术支持"],
         "name": "企业版"
       },
       "free": {
         "cta": "立即开始",
-        "features": [
-          "每月 1000 积分",
-          "所有 AI 模型",
-          "所有 9 个客户端",
-          "API 访问",
-          "社区支持"
-        ],
+        "features": ["每月 1000 积分", "所有 AI 模型", "所有 9 个客户端", "API 访问", "社区支持"],
         "name": "免费版"
       },
       "pro": {
@@ -23224,13 +23046,7 @@
     "cards": {
       "consulting": {
         "desc": "架构咨询 / 技术选型 / 代码 review",
-        "features": [
-          "视频会议 / 远程桌面",
-          "2 小时起",
-          "故障排查",
-          "增值税发票",
-          "响应 SLA 24h"
-        ],
+        "features": ["视频会议 / 远程桌面", "2 小时起", "故障排查", "增值税发票", "响应 SLA 24h"],
         "price": "¥999",
         "title": "技术咨询",
         "unit": "/小时"
@@ -30196,6 +30012,12 @@
     "title": "交易",
     "subtitle": "钱包、订单、会员与积分权益"
   },
+  "hrHub": {
+    "title": "人事部",
+    "subtitle": "考勤、请假、工资条与人事管理",
+    "sectionSelf": "员工自助",
+    "sectionAdmin": "人事管理"
+  },
   "aiHub": {
     "title": "智能体与模型",
     "subtitle": "对话历史、记忆、知识库、媒体任务与工作空间"
@@ -30203,6 +30025,20 @@
   "personalHub": {
     "title": "个人中心",
     "subtitle": "我的学习、账号安全、学员中心、反馈与帮助"
+  },
+  "adminHub": {
+    "title": "管理",
+    "subtitle": "运营、内容审核、财务、人事、监控与平台运维的统一入口"
+  },
+  "developerHub": {
+    "title": "开发者",
+    "subtitle": "API 接入、密钥、用量与开发工具"
+  },
+  "domainHub": {
+    "subItems": "{count} 个子项",
+    "functionCount": "共 {count} 个功能",
+    "searchPlaceholder": "搜索功能…",
+    "empty": "没有匹配的功能"
   },
   "appUpdate": {
     "title": "有新版本可用",
@@ -30325,6 +30161,7 @@
     "colDepartment": "部门",
     "colEmployeeNo": "工号",
     "colPosition": "岗位",
+    "colPhone": "手机号",
     "colDate": "日期",
     "colCheckIn": "签到",
     "colCheckOut": "签退",
@@ -30453,7 +30290,40 @@
     "syncSyncedBatches": "已同步批次",
     "syncSkippedNotImplemented": "暂不支持跳过",
     "syncFinishedAt": "上次完成时间",
-    "syncErrors": "发现 {count} 个错误"
+    "syncErrors": "发现 {count} 个错误",
+    "mySubtitle": "查看本人档案、签到签退与考勤记录",
+    "myRecordsTitle": "我的考勤记录",
+    "todayLabel": "今日",
+    "checkInAction": "签到",
+    "checkOutAction": "签退",
+    "checkInOk": "签到成功",
+    "checkOutOk": "签退成功",
+    "noEmployeeHint": "当前账号尚未关联员工档案。请 HR 在「人事部」发起账号关联邀请，你在此同意后即可使用",
+    "actionFailed": "操作失败，请稍后重试",
+    "myLeaveSubtitle": "提交请假单并跟踪审批状态",
+    "myLeavesTitle": "我的请假单",
+    "leaveTypeLabel": "请假类型",
+    "leaveTypePh": "如 年假 / 事假 / 病假",
+    "leaveReasonPh": "请填写请假事由",
+    "submitLeave": "提交请假单",
+    "leaveSubmitted": "请假单已提交，等待审批",
+    "totalDaysLabel": "请假天数",
+    "colLink": "账号关联",
+    "linkBound": "已绑定",
+    "linkPending": "待对方确认",
+    "linkInvite": "邀请关联",
+    "linkInviteSend": "发送邀请",
+    "linkInviteCancel": "取消",
+    "linkAccountPh": "手机号 / 邮箱 / 用户名",
+    "linkRevoke": "撤销邀请",
+    "linkInviteOk": "邀请已发送，等待对方同意",
+    "linkRevokeOk": "已撤销邀请",
+    "linkPendingTitle": "待确认的账号关联",
+    "linkPendingDesc": "下面是公司为你发起的员工档案关联。确认后，你才能查看本人的考勤、请假与工资条；数据仅你本人可见，其他用户无法读取。",
+    "linkAccept": "同意关联",
+    "linkReject": "拒绝",
+    "linkAcceptOk": "已同意关联，正在为你开启自助数据",
+    "linkRejectOk": "已拒绝该关联"
   },
   "myPayroll": {
     "title": "我的工资",
@@ -30852,5 +30722,12 @@
     "autoContrast": "自动修正对比度",
     "autoContrastHint": "按亮色/暗色各自的背景自动把正文设为黑或白。",
     "autoContrastDone": "已按当前背景修正亮/暗模式的正文颜色"
+  },
+  "engineMode": {
+    "title": "agent 执行引擎",
+    "description": "选择 agent 执行编排所在位置。「本地」在本机跑编排与工具,不占用线上服务器资源。",
+    "local": "本地",
+    "cloud": "云端",
+    "auto": "自动"
   }
 }
