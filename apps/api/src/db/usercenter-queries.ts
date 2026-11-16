@@ -13,6 +13,13 @@ import {
   type Department,
   type UserCertificate,
 } from '@ihui/database'
+// DB-35:phone/email 列存密文;展示层读出后经 decryptPublicContact 解密,写入层加密+维护 lookup,查重/搜索走 lookup 盲索引
+import {
+  decryptPublicContact,
+  encryptUserContact,
+  hashUserContact,
+  normalizeUserContact,
+} from '../utils/user-contact.js'
 
 // =============================================================================
 // 用户列表与状态(操作 users 表)
@@ -30,6 +37,8 @@ export interface FindUsersOpts {
  * 用户中心公开展示列(F-245):显式投影,永不 select passwordHash / twoFactorSecret /
  * twoFactorBackupCodes(以及同表任何新增敏感列)。admin 接口据此直接下发,不再依赖
  * "先查整行再删字段"的兜底剥壳。
+ * DB-35:phone/email 存密文;phoneLookup/emailLookup 是内部 HMAC 盲索引,同样永不下发,
+ * 故展示投影只 select 密文列,读取后在 map 阶段解密(见 findUsers / findUserByIdForUserCenter)。
  */
 const userCenterPublicFields = {
   id: users.id,
@@ -57,7 +66,14 @@ const userCenterPublicFields = {
   twoFactorEnabledAt: users.twoFactorEnabledAt,
 }
 
-export type UserCenterUser = Omit<User, 'passwordHash' | 'twoFactorSecret' | 'twoFactorBackupCodes'>
+/**
+ * 用户中心公开视图类型。DB-35:phoneLookup/emailLookup 是内部 HMAC 盲索引,
+ * 与 passwordHash 等密钥列同属"永不下发"集合,一并 Omit。
+ */
+export type UserCenterUser = Omit<
+  User,
+  'passwordHash' | 'twoFactorSecret' | 'twoFactorBackupCodes' | 'phoneLookup' | 'emailLookup'
+>
 
 export interface UserListItem extends UserCenterUser {
   departmentName: string | null
@@ -71,7 +87,12 @@ export async function findUsers(
 ): Promise<{ list: UserListItem[]; total: number; page: number; pageSize: number }> {
   const conds = []
   if (opts.nickname) conds.push(ilike(users.nickname, `%${opts.nickname}%`))
-  if (opts.phone) conds.push(ilike(users.phone, `%${opts.phone}%`))
+  // DB-35:phone 列存密文,ilike 中缀模糊搜索不可用;降级为 phone_lookup 精确匹配(机主已接受此代价)
+  if (opts.phone) {
+    const phoneNorm = normalizeUserContact('phone', opts.phone)
+    if (phoneNorm !== '') conds.push(eq(users.phoneLookup, hashUserContact('phone', phoneNorm)))
+    else conds.push(sql`false`)
+  }
   if (opts.status !== undefined) conds.push(eq(users.status, opts.status))
   const where = conds.length ? and(...conds) : undefined
 
@@ -89,7 +110,7 @@ export async function findUsers(
     .offset((opts.page - 1) * opts.pageSize)
 
   const list: UserListItem[] = rows.map((r) => ({
-    ...r.user,
+    ...decryptPublicContact(r.user),
     departmentName: r.departmentName,
   }))
 
@@ -101,42 +122,58 @@ export async function findUsers(
   return { list, total, page: opts.page, pageSize: opts.pageSize }
 }
 
-/** 按 ID 查用户中心公开视图(显式投影,不含任何密钥列)。 */
+/** 按 ID 查用户中心公开视图(显式投影,不含任何密钥列;phone/email 解密)。 */
 export async function findUserByIdForUserCenter(id: string): Promise<UserCenterUser | undefined> {
   const rows = await db.select(userCenterPublicFields).from(users).where(eq(users.id, id)).limit(1)
-  return rows[0]
+  const row = rows[0]
+  return row ? decryptPublicContact(row) : undefined
 }
 
-/** 按手机号查用户中心公开视图(显式投影,不含任何密钥列)。 */
+/** 按手机号查用户中心公开视图(显式投影,不含任何密钥列)。
+ * DB-35:phone 列存密文无法等值查询,改走 phone_lookup(sha256 盲索引)。 */
 export async function findUserByPhoneForUserCenter(
   phone: string,
 ): Promise<UserCenterUser | undefined> {
+  const phoneNorm = normalizeUserContact('phone', phone)
+  if (phoneNorm === '') return undefined
   const rows = await db
     .select(userCenterPublicFields)
     .from(users)
-    .where(eq(users.phone, phone))
+    .where(eq(users.phoneLookup, hashUserContact('phone', phoneNorm)))
     .limit(1)
-  return rows[0]
+  const row = rows[0]
+  return row ? decryptPublicContact(row) : undefined
 }
 
-/** 更新用户资料并只回投影后的公开列(F-245:returning 也不再整行下发)。 */
+/** 更新用户资料并只回投影后的公开列(F-245:returning 也不再整行下发)。
+ * DB-35:email 落库加密,同时维护 email_lookup 盲索引;email 为唯一性字段,变更须同步 lookup。 */
 export async function updateUserForUserCenter(
   id: string,
   data: { nickname?: string; email?: string },
 ): Promise<UserCenterUser | undefined> {
+  const emailEnc = data.email !== undefined ? encryptUserContact(data.email) : undefined
+  const emailLookup =
+    data.email !== undefined
+      ? normalizeUserContact('email', data.email) === ''
+        ? null
+        : hashUserContact('email', data.email)
+      : undefined
   const rows = await db
     .update(users)
     .set({
       ...(data.nickname !== undefined && { nickname: data.nickname }),
-      ...(data.email !== undefined && { email: data.email }),
+      ...(emailEnc !== undefined && { email: emailEnc ?? null }),
+      ...(emailLookup !== undefined && { emailLookup }),
       updatedAt: new Date(),
     })
     .where(eq(users.id, id))
     .returning(userCenterPublicFields)
-  return rows[0]
+  const row = rows[0]
+  return row ? decryptPublicContact(row) : undefined
 }
 
-/** 创建用户并只回投影后的公开列(F-245:创建响应同样不得带密钥列)。 */
+/** 创建用户并只回投影后的公开列(F-245:创建响应同样不得带密钥列)。
+ * DB-35:phone/email 落库加密 + 维护 lookup 盲索引(唯一索引在 lookup 列)。 */
 export async function createUserForUserCenter(data: {
   phone: string
   nickname?: string
@@ -144,19 +181,25 @@ export async function createUserForUserCenter(data: {
   email?: string
   status?: number
 }): Promise<UserCenterUser> {
+  const phoneNorm = normalizeUserContact('phone', data.phone)
+  const emailNorm = data.email !== undefined ? normalizeUserContact('email', data.email) : ''
   const rows = await db
     .insert(users)
     .values({
-      phone: data.phone,
+      phone: encryptUserContact(data.phone) ?? null,
+      phoneLookup: phoneNorm === '' ? null : hashUserContact('phone', phoneNorm),
+      ...(data.email !== undefined && {
+        email: encryptUserContact(data.email) ?? null,
+        emailLookup: emailNorm === '' ? null : hashUserContact('email', emailNorm),
+      }),
       passwordHash: data.passwordHash,
       ...(data.nickname !== undefined && { nickname: data.nickname }),
-      ...(data.email !== undefined && { email: data.email }),
       ...(data.status !== undefined && { status: data.status }),
     })
     .returning(userCenterPublicFields)
   const row = rows[0]
   if (!row) throw new Error('创建用户失败')
-  return row
+  return decryptPublicContact(row)
 }
 
 /**

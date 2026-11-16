@@ -5,6 +5,8 @@
 import { eq, ne, and, or, isNull, desc, asc, ilike, sql, inArray } from 'drizzle-orm'
 import { db } from './index.js'
 import { asContainsTerm } from '../utils/like-escape.js'
+// DB-35:phone/email 列存密文;phonenumber 搜索降级为 lookup 精确匹配,列表投影读出后解密
+import { contactLookupForSearch, decryptPublicContact } from '../utils/user-contact.js'
 import {
   sysMenus,
   sysRoleMenu,
@@ -1111,7 +1113,11 @@ function buildRoleUserConds(query: RoleUserListQuery, allocated: boolean) {
     )
   }
   if (query.phonenumber) {
-    conds.push(ilike(users.phone, asContainsTerm(query.phonenumber)))
+    // DB-35:phone 存密文,asContainsTerm(ilike 中缀)不可用;降级为 phone_lookup 精确匹配。
+    // 未归一成有效手机号时不添加该条件(与 admin-queries 口径一致),绝不退回明文 ilike。
+    const phoneLookup = contactLookupForSearch('phone', query.phonenumber)
+    if (phoneLookup) conds.push(eq(users.phoneLookup, phoneLookup))
+    else conds.push(sql`false`)
   }
   return and(...conds)
 }
@@ -1145,7 +1151,10 @@ export async function findAllocatedUsers(
       .from(users)
       .where(where),
   ])
-  return { list, total: Number(totalRows[0]?.count ?? 0) }
+  return {
+    list: list.map((r) => decryptPublicContact(r)),
+    total: Number(totalRows[0]?.count ?? 0),
+  }
 }
 
 export async function findUnallocatedUsers(
@@ -1177,7 +1186,10 @@ export async function findUnallocatedUsers(
       .from(users)
       .where(where),
   ])
-  return { list, total: Number(totalRows[0]?.count ?? 0) }
+  return {
+    list: list.map((r) => decryptPublicContact(r)),
+    total: Number(totalRows[0]?.count ?? 0),
+  }
 }
 
 export async function cancelUserRole(userId: string, roleId: number): Promise<number> {
