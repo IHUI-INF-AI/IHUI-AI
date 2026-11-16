@@ -7,6 +7,9 @@ import { sql } from 'drizzle-orm'
 import { db } from './index.js'
 import { users, refreshTokens, type User, type RefreshToken } from '@ihui/database'
 import { DEFAULT_USER_AVATAR_URL } from '@ihui/shared'
+// DB-35: phone/email 落库密文,登录查重走 phone_lookup/email_lookup 盲索引;
+// createUser/updateUser 写入经 contactWritePair 加密+维护 lookup
+import { contactWritePair, hashUserContact, normalizeUserContact } from '../utils/user-contact.js'
 // ihui_auth_token_revoked_total:queries 层不持有 fastify 实例,走模块级桥接函数打点
 import { recordAuthTokenRevoked } from '../plugins/business-metrics.js'
 
@@ -33,9 +36,17 @@ export interface UpdateUserInput {
 
 /**
  * 按手机号查询用户。
+ * DB-35: 输入先归一,再用 phone_lookup(sha256 盲索引) 命中;phone 列存密文无法等值查询。
+ * 空值直接返回 undefined(归一后空串的 lookup 为 '',不参与唯一性,绝不命中"未填写"用户)。
  */
 export async function findUserByPhone(phone: string): Promise<User | undefined> {
-  const rows = await db.select().from(users).where(eq(users.phone, phone)).limit(1)
+  const phoneNorm = normalizeUserContact('phone', phone)
+  if (phoneNorm === '') return undefined
+  const rows = await db
+    .select()
+    .from(users)
+    .where(eq(users.phoneLookup, hashUserContact('phone', phoneNorm)))
+    .limit(1)
   return rows[0]
 }
 
@@ -49,21 +60,40 @@ export async function findUserById(id: string): Promise<User | undefined> {
 
 /**
  * 按账号查询用户（username / phone / email 三选一）。
+ * DB-35: username 走明文 eq;phone/email 各自归一+hash,命中的才加进 or,否则跳过该分支。
  */
 export async function findUserByAccount(account: string): Promise<User | undefined> {
+  const phoneNorm = normalizeUserContact('phone', account)
+  const emailNorm = normalizeUserContact('email', account)
+  const phoneHash = phoneNorm !== '' ? hashUserContact('phone', phoneNorm) : null
+  const emailHash = emailNorm !== '' ? hashUserContact('email', emailNorm) : null
   const rows = await db
     .select()
     .from(users)
-    .where(or(eq(users.username, account), eq(users.phone, account), eq(users.email, account)))
+    .where(
+      or(
+        eq(users.username, account),
+        ...(phoneHash ? [eq(users.phoneLookup, phoneHash)] : []),
+        ...(emailHash ? [eq(users.emailLookup, emailHash)] : []),
+      ),
+    )
     .limit(1)
   return rows[0]
 }
 
 /**
  * 按邮箱查询用户。
+ * DB-35: 输入先归一,再用 email_lookup(sha256 盲索引) 命中;email 列存密文无法等值查询。
+ * 空值直接返回 undefined。
  */
 export async function findUserByEmail(email: string): Promise<User | undefined> {
-  const rows = await db.select().from(users).where(eq(users.email, email)).limit(1)
+  const emailNorm = normalizeUserContact('email', email)
+  if (emailNorm === '') return undefined
+  const rows = await db
+    .select()
+    .from(users)
+    .where(eq(users.emailLookup, hashUserContact('email', emailNorm)))
+    .limit(1)
   return rows[0]
 }
 
@@ -77,17 +107,31 @@ export async function findUserByUsername(username: string): Promise<User | undef
 
 /**
  * 检查手机号是否已注册。
+ * DB-35: 走 phone_lookup(sha256 盲索引)唯一索引。
  */
 export async function checkPhoneExists(phone: string): Promise<boolean> {
-  const rows = await db.select({ id: users.id }).from(users).where(eq(users.phone, phone)).limit(1)
+  const phoneNorm = normalizeUserContact('phone', phone)
+  if (phoneNorm === '') return false
+  const rows = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(eq(users.phoneLookup, hashUserContact('phone', phoneNorm)))
+    .limit(1)
   return rows.length > 0
 }
 
 /**
  * 检查邮箱是否已注册。
+ * DB-35: 走 email_lookup(sha256 盲索引)唯一索引。
  */
 export async function checkEmailExists(email: string): Promise<boolean> {
-  const rows = await db.select({ id: users.id }).from(users).where(eq(users.email, email)).limit(1)
+  const emailNorm = normalizeUserContact('email', email)
+  if (emailNorm === '') return false
+  const rows = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(eq(users.emailLookup, hashUserContact('email', emailNorm)))
+    .limit(1)
   return rows.length > 0
 }
 
@@ -108,7 +152,9 @@ export async function cancelUserAccount(id: string): Promise<void> {
     .set({
       status: 3,
       phone: null,
+      phoneLookup: null,
       email: null,
+      emailLookup: null,
       username: null,
       inviteCode: null,
       twoFactorSecret: null,
@@ -135,13 +181,16 @@ export async function isSystemAdminUser(id: string): Promise<boolean> {
 
 /**
  * 创建新用户。
+ * DB-35:phone/email 落库加密 + 维护 lookup 盲索引(唯一索引在 lookup 列)。
  */
 export async function createUser(data: CreateUserInput): Promise<User> {
+  const phonePair = data.phone !== undefined ? contactWritePair('phone', data.phone) : null
+  const emailPair = data.email !== undefined ? contactWritePair('email', data.email) : null
   const rows = await db
     .insert(users)
     .values({
-      phone: data.phone,
-      email: data.email,
+      ...(phonePair && { phone: phonePair.value, phoneLookup: phonePair.lookup }),
+      ...(emailPair && { email: emailPair.value, emailLookup: emailPair.lookup }),
       passwordHash: data.passwordHash,
       nickname: data.nickname,
       avatar: data.avatar?.trim() || DEFAULT_USER_AVATAR_URL,
@@ -159,16 +208,19 @@ export async function createUser(data: CreateUserInput): Promise<User> {
 
 /**
  * 更新用户信息。
+ * DB-35:phone/email 落库加密 + 维护 lookup 盲索引。
  */
 export async function updateUser(id: string, data: UpdateUserInput): Promise<User> {
+  const emailPair = data.email !== undefined ? contactWritePair('email', data.email) : null
+  const phonePair = data.phone !== undefined ? contactWritePair('phone', data.phone) : null
   const rows = await db
     .update(users)
     .set({
       ...(data.nickname !== undefined && { nickname: data.nickname }),
       ...(data.avatar !== undefined && { avatar: data.avatar }),
-      ...(data.email !== undefined && { email: data.email }),
+      ...(emailPair && { email: emailPair.value, emailLookup: emailPair.lookup }),
       ...(data.bio !== undefined && { bio: data.bio }),
-      ...(data.phone !== undefined && { phone: data.phone }),
+      ...(phonePair && { phone: phonePair.value, phoneLookup: phonePair.lookup }),
       ...(data.passwordHash !== undefined && { passwordHash: data.passwordHash }),
       ...(data.gender !== undefined && { gender: data.gender }),
       updatedAt: new Date(),
