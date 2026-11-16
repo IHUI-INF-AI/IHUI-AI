@@ -79,7 +79,9 @@ export default function FinanceAiPage() {
     useAiPanelStore.getState().openPanel()
     setBusy(taskId)
     try {
-      const sent = await sendMessage(prompt)
+      // RP-46 就地发起(2026-11-16):与 /finance-ai 新页同修复 —— 传 stayOnPage 让
+      // send-message 建会话后保留本页 pathname,不交给 chatDeeplinkPath 拽回 /chat。
+      const sent = await sendMessage(prompt, { stayOnPage: true })
       if (!sent) toast.error(t('launchFailed'))
     } finally {
       setBusy(null)

@@ -35,7 +35,6 @@ const FINANCE_PAGE = readSrc(
   '..',
   'app',
   '(main)',
-  'admin',
   'finance-ai',
   'page.tsx',
 )
@@ -70,8 +69,11 @@ describe('RP-46 财务部板块就地发起落点回归锁', () => {
     expect(FINANCE_PAGE).toMatch(/sendMessage\(\s*[\w$]+,\s*\{\s*stayOnPage:\s*true\s*\}/)
   })
 
-  it('④ 根因契约:chatDeeplinkPath 对板块页 /admin/finance-ai 恒回 /chat(证明 stayOnPage 是必要的)', () => {
-    // 板块页不在工作台前缀内 ⇒ 缺省行为必然跳 /chat;stayOnPage 正是为绕开这条换页
+  it('④ 根因契约:chatDeeplinkPath 对财务板块页恒回 /chat(证明 stayOnPage 是必要的)', () => {
+    // 板块页不在工作台前缀内 ⇒ 缺省行为必然跳 /chat;stayOnPage 正是为绕开这条换页。
+    // 现役侧边栏财务入口 = /finance-ai;旧 URL /admin/finance-ai 仍可达(A 方案不删页),
+    // 两枚板块 href 都受同一根因约束 —— 缺省都会被拽回 /chat。
+    expect(chatDeeplinkPath('/finance-ai')).toBe('/chat')
     expect(chatDeeplinkPath('/admin/finance-ai')).toBe('/chat')
     expect(chatDeeplinkPath('/chat/workbench')).toBe('/chat/workbench')
   })
