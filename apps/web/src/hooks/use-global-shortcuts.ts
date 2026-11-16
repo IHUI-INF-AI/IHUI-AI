@@ -73,17 +73,8 @@ const DEFAULT_SHORTCUTS: DefaultShortcut[] = [
   // IDE 族是编辑器内语义(VS Code 习惯),本项是跨页导航且顶栏/命令面板已有同名入口,
   // 故本项让位改绑 Shift 位(复核空闲:全仓无 Ctrl+Shift+, 处理器)。
   { key: 'Ctrl+Shift+,', description: '打开设置', event: 'global-shortcut:open-settings' },
-  // 对话模式切换(2026-07-28 立,补全 ChatMode 4态三通道)
-  // Ctrl+1/2/3/4 切换 build/plan/review/spec。此处统一做按键匹配 + preventDefault
-  // (阻止浏览器 tab 切换),派发 `global-shortcut:mode-*` 事件由 GlobalHooksProvider
-  // (根 Layout)消费并调用 modeStore.setMode —— 全页面生效,根级 hydration 即挂载
-  // (2026-08-27 根因修复:此前事件无消费者,切换逻辑深埋在 ai-side-panel 条件 effect 里)
-  { key: 'Ctrl+1', description: '切换到构建模式', event: 'global-shortcut:mode-build' },
-  { key: 'Ctrl+2', description: '切换到计划模式', event: 'global-shortcut:mode-plan' },
-  { key: 'Ctrl+3', description: '切换到审查模式', event: 'global-shortcut:mode-review' },
-  { key: 'Ctrl+4', description: '切换到规格模式', event: 'global-shortcut:mode-spec' },
-  // Ctrl+5 → ask(2026-09-13 矩阵 A #24:ChatMode 扩为 5 态,补纯问答模式)
-  { key: 'Ctrl+5', description: '切换到问答模式', event: 'global-shortcut:mode-ask' },
+  // 2026-11-16 用户定档:ChatMode 手动切换全部移除,模式由发送链固定为全工具开放,
+  // 因此原 Ctrl+1~5 模式快捷键一并下线(不再劫持浏览器 tab 切换)。
   // 输入工具栏收敛(2026-09-18 用户规则:"这里这么多按钮都重合了"):
   // - 斜杠命令面板:Ctrl+Shift+/ 触发(避开 Ctrl+/ 帮助,Ctrl+P 搜索,Ctrl+Shift+P 命令面板)
   // - @ 提及文件:Ctrl+Shift+U(原 Ctrl+Shift+A 与 use-ide-shortcuts 的 applications 视图、

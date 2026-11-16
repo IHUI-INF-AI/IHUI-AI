@@ -10,7 +10,6 @@ import * as React from 'react'
 import { useRouter } from 'next/navigation'
 import { useTheme } from 'next-themes'
 import { useTranslations } from 'next-intl'
-import type { ChatMode } from '@ihui/types'
 import { useRouteAnalytics } from '@/hooks/use-route-analytics'
 import { useRum } from '@/hooks/use-rum'
 import { useGlobalShortcuts } from '@/hooks/use-global-shortcuts'
@@ -28,8 +27,6 @@ import { useUiControlBridge } from '@/hooks/use-ui-control-bridge'
 import { useNativePushRegister } from '@/hooks/use-native-push'
 import { CommandPalette } from '@/components/layout/CommandPalette'
 import { CloseChoiceDialog } from '@/components/common/CloseChoiceDialog'
-import { toast } from '@/components/common'
-import { useModeStore } from '@/stores/mode'
 import { useChatStore } from '@/stores/chat'
 import { useNotificationStore } from '@/stores/notification'
 import { isTopOverlay, popOverlay, pushOverlay } from '@/lib/overlay-stack'
@@ -56,26 +53,7 @@ const SHORTCUT_ROUTES: Record<string, string> = {
   'global-shortcut:open-settings': SETTINGS_PATH,
 }
 
-/** Ctrl+1/2/3/4 模式切换事件 → ChatMode(与 use-global-shortcuts DEFAULT_SHORTCUTS 对应)
- *
- * 2026-08-27 修复(根因):此前 `global-shortcut:mode-*` 事件由 use-global-shortcuts
- * 全局派发但无任何消费者,实际切换逻辑只在 ai-side-panel 的条件 useEffect 里
- * (仅 AI 面板 open 且深层组件树 hydration 完成后才挂载),导致:
- * - 非 /chat 页面 Ctrl+1-4 被 preventDefault 却无任何功能(劫持浏览器 tab 切换)
- * - /chat 页面 hydration 未完成时按键静默丢失(E2E 偶发失败根因)
- * 现统一在根 Layout 的 Provider 消费事件:根级 hydration 即生效,全页面可用,
- * 与斜杠命令 + AI 关键词自动判断三通道联动(ai-side-panel 的重复监听已移除)。
- */
-const MODE_SHORTCUT_EVENTS: Record<string, ChatMode> = {
-  'global-shortcut:mode-ask': 'ask',
-  'global-shortcut:mode-build': 'build',
-  'global-shortcut:mode-plan': 'plan',
-  'global-shortcut:mode-review': 'review',
-  'global-shortcut:mode-spec': 'spec',
-}
-
-/**
- * 快捷键描述 i18n 静态映射(1-6):帮助面板(Ctrl+/)原先展示
+/** 快捷键描述 i18n 静态映射(1-6):帮助面板(Ctrl+/)原先展示
  * use-global-shortcuts DEFAULT_SHORTCUTS 的硬编码中文 description,未走 i18n,
  * 现统一经 `shortcutHelp.desc.<key>` 解析(与 DEFAULT_SHORTCUTS 的 key 一一对应)。
  */
@@ -208,32 +186,6 @@ export function GlobalHooksProvider({ children }: { children: React.ReactNode })
     // 21 项命令 + MRU)。Plus 按钮的鼠标点击弹窗保留(GlobalTopBar 内部状态)。
     window.addEventListener('global-shortcut:open-plus', openChatHandler)
 
-    // Ctrl+1/2/3/4 模式切换(2026-08-27 根因修复,见 MODE_SHORTCUT_EVENTS 注释):
-    // use-global-shortcuts 统一做按键匹配 + preventDefault 后派发事件,这里消费。
-    const MODE_LABEL_KEYS: Record<ChatMode, string> = {
-      ask: 'modeAsk',
-      build: 'modeBuild',
-      plan: 'modePlan',
-      review: 'modeReview',
-      spec: 'modeSpec',
-    }
-    const modeHandlers: Array<[string, () => void]> = Object.entries(MODE_SHORTCUT_EVENTS).map(
-      ([event, mode]) => {
-        const handler = () => {
-          const label = t(MODE_LABEL_KEYS[mode])
-          const modeStore = useModeStore.getState()
-          if (modeStore.currentMode === mode) {
-            toast.info(t('modeAlreadyActive', { mode: label }))
-            return
-          }
-          modeStore.setMode(mode)
-          toast.success(t('modeSwitched', { mode: label }))
-        }
-        window.addEventListener(event, handler)
-        return [event, handler]
-      },
-    )
-
     // inline-edit 兜底:若收到事件时焦点已离开 Monaco(竞态),回退到命令面板
     const inlineEditFallback = () => {
       const active = document.activeElement
@@ -260,9 +212,6 @@ export function GlobalHooksProvider({ children }: { children: React.ReactNode })
       for (const [event, handler] of handlers) {
         window.removeEventListener(event, handler)
       }
-      for (const [event, handler] of modeHandlers) {
-        window.removeEventListener(event, handler)
-      }
     }
   }, [router, t])
 
@@ -278,9 +227,7 @@ export function GlobalHooksProvider({ children }: { children: React.ReactNode })
   // dispatch 成功但无副作用 → 用户侧表现为"点击完全没反应"。Rust 侧
   // `let _ = window.emit(...)` 又把错误吞掉,日志也查不到。
   //
-  // 落点选在根 Provider(与 MODE_SHORTCUT_EVENTS 同一模式):根级 hydration 即生效,
-  // 不依赖 ai-side-panel 等深层组件挂载 —— 后者曾导致 global-shortcut:mode-* 在
-  // 非 /chat 页面或 hydration 未完成时按键静默丢失(见上方注释),此处不再重蹈。
+  // 落点选在根 Provider:根级 hydration 即生效,不依赖深层组件挂载。
   React.useEffect(() => {
     const onToggleTheme = () => {
       // 承继 SidebarUserRow.handleToggleTheme 的底层加固:以 <html>.dark class 为

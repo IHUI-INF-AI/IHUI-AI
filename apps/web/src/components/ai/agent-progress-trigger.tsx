@@ -5,16 +5,7 @@
 'use client'
 
 import * as React from 'react'
-import {
-  BookOpen,
-  ChevronDown,
-  FileText,
-  Hammer,
-  ListTodo,
-  MessageCircle,
-  Search,
-  Loader2,
-} from 'lucide-react'
+import { ChevronDown, Hammer, ListTodo, Loader2 } from 'lucide-react'
 import {
   COMPOSER_MENU_ROW_CHEVRON_CLASS,
   COMPOSER_MENU_ROW_CLASS,
@@ -30,21 +21,12 @@ import {
   useAgentProgressPaneStore,
 } from '@/stores/agent-progress-pane'
 import { usePaneChatStore } from '@/stores/chat-pane-context'
-import { usePaneModeStore } from '@/stores/mode'
-import type { ChatMode } from '@ihui/types'
 import { useAgentProgress } from '@/hooks/use-agent-progress'
 
-// ChatMode 5 态元信息(从 current-mode-badge.tsx 整合而来;2026-09-14 补 ask 态)
-const CHAT_MODE_META: Record<
-  ChatMode,
-  { icon: React.ComponentType<{ className?: string }>; i18nKey: string }
-> = {
-  ask: { icon: MessageCircle, i18nKey: 'modeAsk' },
-  build: { icon: Hammer, i18nKey: 'modeBuild' },
-  plan: { icon: BookOpen, i18nKey: 'modePlan' },
-  review: { icon: Search, i18nKey: 'modeReview' },
-  spec: { icon: FileText, i18nKey: 'modeSpec' },
-}
+// 2026-11-16 用户定档:ChatMode 手动入口全部移除,进度条标题恒按"构建"语义展示
+// (发送链固定全工具开放,由 AI 自主决定是否使用工具)。
+const MODE_LABEL_KEY = 'modeBuild'
+const ModeIcon = Hammer
 
 /**
  * AgentProgressTrigger — AI 输入框上方的"构建"按钮(2026-08-02 v10 恢复 Pane 版)
@@ -94,13 +76,8 @@ export function AgentProgressTrigger({
   const chatStreaming = chatStore((s) => s.isStreaming)
   const chatMessages = chatStore((s) => s.messages)
 
-  // 当前 ChatMode(从 current-mode-badge 整合);票60 普查批:按窗格寻址
-  const modeStore = usePaneModeStore()
-  const currentMode = modeStore((s) => s.currentMode)
-  const modeMeta = CHAT_MODE_META[currentMode]
-  // 左侧图标:用户自定义 > ChatMode 默认
-  const ModeIcon = leftIcon ?? modeMeta.icon
-  const modeLabel = leftIconText ?? t(modeMeta.i18nKey)
+  // 左侧文案:用户自定义 > 固定构建语义
+  const modeLabel = leftIconText ?? t(MODE_LABEL_KEY)
 
   // v10:订阅 progress 状态(实时显示当前任务)
   // 与 Pane 同源,共享 SSE 流;useAgentProgress 内部已 useMemo 缓存,无副作用。
@@ -206,7 +183,7 @@ export function AgentProgressTrigger({
         data-variant="status"
         data-popover-open={paneOpen}
         data-live-activity={hasLiveActivity}
-        data-mode={currentMode}
+        data-mode="build"
       >
         {hasLiveActivity ? (
           <Loader2
@@ -257,7 +234,7 @@ export function AgentProgressTrigger({
       data-variant={variant}
       data-popover-open={paneOpen}
       data-live-activity={hasLiveActivity}
-      data-mode={currentMode}
+      data-mode="build"
     >
       {variant === 'row' ? (
         <>

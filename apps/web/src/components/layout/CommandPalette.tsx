@@ -11,8 +11,6 @@ import { Dialog, DialogContent, SearchInput } from '@ihui/ui-react'
 import { useNavigateWithProgress } from '@/stores/navigation'
 import { useIDEWorkspace } from '@/stores/ide-workspace'
 import { useWorkPanelStore } from '@/stores/work-panel'
-import { useModeStore } from '@/stores/mode'
-import { toast } from '@/components/common'
 import {
   BUILTIN_COMMANDS,
   COMMAND_GROUP_LABEL_KEY,
@@ -53,7 +51,6 @@ export function CommandPalette({
   const setActiveTopTab = useIDEWorkspace((s) => s.setActiveTopTab)
   const toggleWorkPanel = useWorkPanelStore((s) => s.toggle)
   const t = useTranslations('commandPalette')
-  const tChat = useTranslations('chat')
   const [query, setQuery] = React.useState('')
   const [activeIndex, setActiveIndex] = React.useState(0)
   const [mruIds, setMruIds] = React.useState<string[]>([])
@@ -123,28 +120,9 @@ export function CommandPalette({
         case 'workPanel':
           toggleWorkPanel()
           break
-        case 'mode': {
-          // 与 GlobalHooksProvider Ctrl+1-4 逻辑一致:重复切换提示 + 成功提示
-          const mode = cmd.action.mode
-          const MODE_LABEL_KEYS: Record<string, string> = {
-            build: 'modeBuild',
-            plan: 'modePlan',
-            review: 'modeReview',
-            spec: 'modeSpec',
-          }
-          const label = tChat(MODE_LABEL_KEYS[mode] ?? 'modeBuild')
-          const modeStore = useModeStore.getState()
-          if (modeStore.currentMode === mode) {
-            toast.info(tChat('modeAlreadyActive', { mode: label }))
-            return
-          }
-          modeStore.setMode(mode)
-          toast.success(tChat('modeSwitched', { mode: label }))
-          break
-        }
       }
     },
-    [navigate, onOpenChange, setActiveTopTab, tChat, toggleWorkPanel],
+    [navigate, onOpenChange, setActiveTopTab, toggleWorkPanel],
   )
 
   function onKeyDown(e: React.KeyboardEvent) {

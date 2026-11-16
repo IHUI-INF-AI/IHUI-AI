@@ -19,7 +19,6 @@ import {
   type CommandAction,
 } from '@/lib/command-registry'
 import { useIDEWorkspace } from '@/stores/ide-workspace'
-import { useModeStore } from '@/stores/mode'
 import { useWorkPanelStore } from '@/stores/work-panel'
 import { UI_ROUTES } from '@/lib/ui-routes.generated'
 import { NAVIGATE_DENY_RE, buildRouteIndex } from '@/lib/ui-route-index'
@@ -348,8 +347,6 @@ function commandTarget(action: CommandAction): string {
       return action.href
     case 'ideTab':
       return action.href
-    case 'mode':
-      return action.mode
     case 'workPanel':
       return 'workPanel'
   }
@@ -357,7 +354,6 @@ function commandTarget(action: CommandAction): string {
 
 const COMMAND_GROUP_BY_ACTION: Record<CommandAction['type'], string> = {
   navigate: 'navigate',
-  mode: 'mode',
   workPanel: 'panel',
   ideTab: 'ide',
 }
@@ -784,9 +780,6 @@ export async function executeUiAction(
             break
           case 'workPanel':
             useWorkPanelStore.getState().toggle()
-            break
-          case 'mode':
-            useModeStore.getState().setMode(cmd.action.mode)
             break
         }
         return { ok: true, data: { invoked: cmd.id } }
