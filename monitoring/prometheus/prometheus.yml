@@ -120,6 +120,13 @@ scrape_configs:
   - job_name: 'postgres'
     metrics_path: '/metrics'
     scheme: 'http'
+    # 2026-11-16:exporter 扩展查询(queries.yml 的 stat_user_tables 等)在库活跃时
+    # 单次抓取可达 18.7s,超过 Prometheus 默认 10s ⇒ target 恒 down、PostgresDown
+    # 虚报(PG 本身健康、9187 最终 200)。只给这个 job 放宽(interval/timeout 必须
+    # 同步调,Prometheus 要求 timeout <= interval),不动全局、不改告警阈值 ——
+    # PG 真 down 时 exporter 仍会快速返回 pg_up=0,告警照响。
+    scrape_interval: 30s
+    scrape_timeout: 25s
     static_configs:
       - targets: ['localhost:9187']
         labels:
