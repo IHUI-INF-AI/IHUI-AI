@@ -1245,6 +1245,8 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
         deviceId: row.deviceId,
         machineId: row.machineId,
         cosy: extractCosy(row.extraMetadata),
+        extraMetadata: row.extraMetadata,
+        providerCode: row.providerCode,
         deviceKeyPem: pemFromSecrets(credentials.secrets, 'deviceKeyPem'),
         devicePubPem: pemFromSecrets(credentials.secrets, 'devicePubPem'),
         planToken: zcodePlanJwtFromSecrets(credentials.secrets),

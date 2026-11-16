@@ -44,16 +44,21 @@ TASK_CAPABILITIES: Final[dict[str, dict[str, Any]]] = {
         "write_endpoints": [
             "POST /alice/ug/campaign/landing/checkin(scene=daily_signin)",
             "POST /alice/ug/campaign/item/reward/claim/(任务/里程碑领奖,三分支参数)",
-            "POST /alice/ug/event/report(scene=client_action,select_work_fields 完成上报)",
+            "POST /alice/ug/event/report(scene=client_action / campaign_type,含 message_id)",
         ],
         "evidence": (
             "app/services/checkin_doubao.py(线上 bundle 2198.4e43149d / 709.b4632b25 / "
             "agent-explore_page.b285c6b3 逐字实证)"
         ),
         "note": (
-            "任务族清单/领奖/行为上报均已实证;生成类任务(GenWord/GenExcel/GenPPT/"
-            "ScheduleSkill)线上由桌面客户端深链执行,服务端 chat 提 prompt 不计完成"
-            "(2026-11-16 实弹回读仍 created)⇒ 默认关,仅保留已完成态领奖"
+            "任务族清单/领奖/行为上报/任务实例开启(campaign_task_click)均已实证;"
+            "生成类任务(GenWord/GenExcel/GenPPT)跑推荐 prompt 后,用 SSE_ACK 的 "
+            "question_id 调 EventReport(scene=campaign_type, message_id=question_id)"
+            "即可计完成再领奖(2026-11-17 实弹实证 task_status=2),已开启全自动;"
+            "ScheduleSkill/WorkTaskMode 需客户端 WorkTask 模式:已实证可发出 "
+            "mode_id=4 + mention_skill_list=[\"schedule\"] 的对话并驱动云端 general-agent,"
+            "但 schedule 技能依赖桌面端本地安装才激活,不产出 job_cron,上报恒被拒 "
+            "625002003,不代跑"
         ),
     },
     "raccoon": {

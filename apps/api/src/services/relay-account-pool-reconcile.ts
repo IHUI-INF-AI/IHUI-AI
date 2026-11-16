@@ -528,6 +528,8 @@ export async function reconcileCheckinSync(opts?: {
               deviceId: full.deviceId,
               machineId: full.machineId,
               cosy: extractCosy(full.extraMetadata),
+              extraMetadata: full.extraMetadata,
+              providerCode: full.providerCode,
               deviceKeyPem: pemFromSecrets(creds.secrets, 'deviceKeyPem'),
               devicePubPem: pemFromSecrets(creds.secrets, 'devicePubPem'),
               planToken: zcodePlanJwtFromSecrets(creds.secrets),
