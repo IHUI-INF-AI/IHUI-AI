@@ -21,6 +21,9 @@ import {
   type User,
 } from '@ihui/database'
 import { DEFAULT_USER_AVATAR_URL } from '@ihui/shared'
+// DB-35:phone/email 列存密文;部门用户投影读出后经 decryptPublicContact 解密,
+// createSystemUser/updateSystemUser 写入经 contactWritePair 加密+维护 lookup
+import { contactWritePair, decryptPublicContact } from '../utils/user-contact.js'
 
 /**
  * SHA256 哈希密码(仅用于兼容旧 Java 项目数据验证,新代码必须用 hashPassword)。
@@ -722,9 +725,18 @@ export async function deleteDepartment(id: string): Promise<void> {
  * 密码哈希与 2FA 凭据(密文/备份码哈希/启用时间)永不出现在该投影里;
  * twoFactorEnabled 只作布尔标记,供管理端展示「已开启 2FA」。
  */
+/**
+ * 部门用户视图类型。DB-35:phoneLookup/emailLookup 是内部 HMAC 盲索引,
+ * 与密钥列同属"永不下发"集合,一并 Omit。
+ */
 export type DepartmentUser = Omit<
   User,
-  'passwordHash' | 'twoFactorSecret' | 'twoFactorBackupCodes' | 'twoFactorEnabledAt'
+  | 'passwordHash'
+  | 'twoFactorSecret'
+  | 'twoFactorBackupCodes'
+  | 'twoFactorEnabledAt'
+  | 'phoneLookup'
+  | 'emailLookup'
 >
 
 /** 按部门查询用户列表（关联 userProfiles.departmentId）。 */
@@ -771,7 +783,12 @@ export async function findUsersByDepartment(
       .innerJoin(userProfiles, eq(userProfiles.userId, users.id))
       .where(where),
   ])
-  return { list: rows, total: totalRows[0]?.count ?? 0, page: opts.page, pageSize: opts.pageSize }
+  return {
+    list: rows.map((r) => decryptPublicContact(r)),
+    total: totalRows[0]?.count ?? 0,
+    page: opts.page,
+    pageSize: opts.pageSize,
+  }
 }
 
 /** 按 ID 查询系统用户。 */
@@ -793,13 +810,16 @@ export interface CreateSystemUserInput {
   isVip?: number
 }
 
-/** 创建系统用户。 */
+/** 创建系统用户。
+ * DB-35:phone/email 落库加密 + 维护 lookup 盲索引。 */
 export async function createSystemUser(data: CreateSystemUserInput): Promise<User> {
+  const phonePair = data.phone !== undefined ? contactWritePair('phone', data.phone) : null
+  const emailPair = data.email !== undefined ? contactWritePair('email', data.email) : null
   const rows = await db
     .insert(users)
     .values({
-      phone: data.phone,
-      email: data.email,
+      ...(phonePair && { phone: phonePair.value, phoneLookup: phonePair.lookup }),
+      ...(emailPair && { email: emailPair.value, emailLookup: emailPair.lookup }),
       username: data.username,
       passwordHash: data.passwordHash,
       nickname: data.nickname,
@@ -828,14 +848,23 @@ export interface UpdateSystemUserInput {
   isVip?: number
 }
 
-/** 更新系统用户。 */
+/** 更新系统用户。
+ * DB-35:phone/email 落库加密 + 维护 lookup 盲索引。 */
 export async function updateSystemUser(
   id: string,
   data: UpdateSystemUserInput,
 ): Promise<User | undefined> {
   const set: Record<string, unknown> = {}
-  if (data.phone !== undefined) set.phone = data.phone
-  if (data.email !== undefined) set.email = data.email
+  if (data.phone !== undefined) {
+    const p = contactWritePair('phone', data.phone)
+    set.phone = p.value
+    set.phoneLookup = p.lookup
+  }
+  if (data.email !== undefined) {
+    const e = contactWritePair('email', data.email)
+    set.email = e.value
+    set.emailLookup = e.lookup
+  }
   if (data.username !== undefined) set.username = data.username
   if (data.nickname !== undefined) set.nickname = data.nickname
   if (data.avatar !== undefined) set.avatar = data.avatar
