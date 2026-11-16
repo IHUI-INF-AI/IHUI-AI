@@ -103,7 +103,7 @@ export function inspectCredentials(platform, env, scope = 'desktop') {
   return { platform, scope, count: unique.length - missing.length, total: unique.length, missing };
 }
 
-function printReport(result) {
+function printReport(result, { allowUnsigned = false } = {}) {
   const { platform, scope, count, total, missing } = result;
   if (total === 0) {
     console.log(`无需签名凭据(scope=${scope},平台=${platform})`);
@@ -114,12 +114,20 @@ function printReport(result) {
     return 0;
   }
   const names = missing.map((m) => m.name).join(', ');
+  // --allow-unsigned(2026-11-16 立):机主显式拍板"未签名发版",与 0.1.77 形态一致
+  // (无 Authenticode/公证,但保留 Tauri 更新器 .sig)。缺口不再拦停编译,改为醒目告警,
+  // 并在摘要里写明后果,绝不伪装成"已签名"。
+  if (allowUnsigned) {
+    console.warn(`::warning::已显式选择未签名发版(--allow-unsigned):凭据缺口(scope=${scope},平台=${platform},缺 ${missing.length}/${total})不再拦停。${names}`);
+    console.warn('  后果:产物无 Authenticode/公证签名,Windows 首次运行撞 SmartScreen、macOS 受 Gatekeeper 约束;更新器 .sig 仍会正常生成,已装客户端可继续自动更新(等同 0.1.77)。');
+    return 0;
+  }
   console.error(`::error::签名凭据缺口(scope=${scope},平台=${platform},缺 ${missing.length}/${total}): ${names}`);
   for (const m of missing) console.error(`  - 缺少 secret: ${m.name} —— ${m.hint}`);
   if (scope === 'desktop' && platform === 'macos' && missing.some((m) => APPLE_ID_CHANNEL.includes(m.name) || APPLE_KEY_CHANNEL.includes(m.name))) {
     console.error('  说明:公证通道 A(APPLE_ID/PASSWORD/TEAM_ID)与通道 B(API_KEY/ISSUER/API_KEY_P8)二选一,必须整组给齐');
   }
-  console.error('  取值入口与申请步骤: docs/DESKTOP_CODE_SIGNING.md');
+  console.error('  取值入口与申请步骤: docs/DESKTOP_CODE_SIGNING.md;若本次确要未签名发版,请在 workflow_dispatch 勾选 allow_unsigned');
   return 1;
 }
 
@@ -176,11 +184,12 @@ function main(argv) {
   const platform = plIdx >= 0 ? String(argv[plIdx + 1] || '').toLowerCase() : '';
   const scIdx = argv.indexOf('--scope');
   const scope = scIdx >= 0 ? String(argv[scIdx + 1] || '').toLowerCase() : 'desktop';
+  const allowUnsigned = argv.includes('--allow-unsigned');
   if (!PLATFORMS.includes(platform) || !SCOPES.includes(scope)) {
-    console.error('用法: node scripts/desktop-signing-preflight.mjs --platform windows|macos|linux [--scope desktop|cli]');
+    console.error('用法: node scripts/desktop-signing-preflight.mjs --platform windows|macos|linux [--scope desktop|cli] [--allow-unsigned]');
     return 2;
   }
-  return printReport(inspectCredentials(platform, process.env, scope));
+  return printReport(inspectCredentials(platform, process.env, scope), { allowUnsigned });
 }
 
 if (pathToFileURL(path.resolve(process.argv[1] || '')).href === import.meta.url) {
