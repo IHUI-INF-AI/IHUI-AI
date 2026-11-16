@@ -2429,7 +2429,9 @@
     "confirmPasswordPlaceholder": "Confirm your password",
     "password": "Password",
     "passwordPlaceholder": "Enter your password",
-    "title": "Sign up"
+    "title": "Sign up",
+    "show": "Show",
+    "hide": "Hide"
   },
   "withdraw": {
     "availableBalance": "Available Balance (CNY)",
@@ -3708,11 +3710,11 @@
   "activity": {
     "empty": "No activities",
     "endTime": "End time",
-    "joining": "Submitting…",
     "loadFailed": "Failed to load",
     "participants": "Participants",
     "startTime": "Start time",
-    "title": "Activities"
+    "title": "Activities",
+    "joining": "Submitting…"
   },
   "agentDetail": {
     "creator": "Creator",
@@ -5694,14 +5696,14 @@
       "approvalPersistHit": "Reused your saved approval",
       "execPolicyApproved": "Allowed by execution policy",
       "autoSkipApproval": "Auto-approved (no approval needed)",
-      "autoReviewAllow": "Auto-review allowed",
       "skillGrantSkipApproval": "Skill grant allows this tool (no approval needed)",
       "bypassSkipApproval": "Approval skipped",
       "mcpRequiresApproval": "MCP annotations require approval",
       "policyRequiresApproval": "Policy requires approval",
       "policySkipsApproval": "Policy skips approval",
       "guardianReviewSuggested": "Review suggests a safer alternative",
-      "guardianReviewAlternativeApplied": "Safer alternative applied"
+      "guardianReviewAlternativeApplied": "Safer alternative applied",
+      "autoReviewAllow": "Auto-review allowed"
     },
     "perm": {
       "allow": "Allowed",
@@ -7545,9 +7547,9 @@
     "wrongBookTitle": "Wrong Book"
   },
   "activities": {
-    "cancelJoin": "Cancel registration",
     "join": "Join Now",
-    "notFound": "Activity not found or offline"
+    "notFound": "Activity not found or offline",
+    "cancelJoin": "Cancel registration"
   },
   "eduAttendanceQr": {
     "chooseClass": "Select class",

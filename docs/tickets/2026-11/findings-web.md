@@ -284,4 +284,50 @@ if (!orderNo || (!codeUrl && !payUrl)) { /* 兜底 */ }
 4. **work-panel 代理 iframe 的消息边界**：`postMessage` 来源校验、导航控制、跨站页面注入后的行为。
 5. **长会话性能实测**：消息列表、`toolCallChain`/事件数组的裁剪策略与渲染量，需要真实长会话数据才有结论。
 6. **时区与金额显示一致性**：服务端时间戳格式统一、分/元单位在前后端契约层的系统核对。
+
+## 前端流式渲染极致打磨（2026-11-15，第二轮）
+
+针对 D113 文件写工具流中 diff 预览（partialDiff）与入参渐进渲染（partialArgs）的前端**输出显示**优化。
+
+### 已落地改动（web + extension）
+
+**1. web `stream-ui.tsx` `StreamCode` 增强**
+- 新增 `streaming` prop：流式进行中渲染尾部光标（`animate-pulse` 竖条，teal 色），仅装饰不入 a11y 树。
+- `autoScrollToBottom` 语义明确化：增量帧增长时贴底看最新段。
+- partialDiff 预览：`autoScrollToBottom` + `streaming`（贴底 + 光标）。
+- partialArgs 预览：仅 `streaming`（光标不贴底——入参 JSON 从头读更自然，不夺滚动位置）。
+
+**2. extension `MessageContent.tsx` 抽独立 `PartialDiffPreview` 组件**
+- 原内联 `<pre>` 升级为带 `useRef`+`useEffect` 的贴底组件，与 web 同形（增长时 `scrollTop = scrollHeight`）。
+- 渲染尾部光标（同 web 样式 token）。
+- 容器级跟底/hold 纪律仍由 `use-message-list-scroll` 那侧负责（test 7/8），本组件只管自身滚动区贴底，不越权。
+
+**3. 取证结论：partialDiff 行级 diff 着色不适用**
+- 服务端 `_file_edit_preview_frames`（`apps/ai-service/app/routers/llm.py:826`）产出的是**纯新增文件正文**：write_file=完整 content、edit_file=new_string，**无 `+`/`-` 标记**。
+- 若前端按行首 `+`/`-` 着色，会对非 diff 内容错误染色、误导用户。贴底 + 光标已是正确充分的美化。
+
+**4. 上一轮遗留修绿**
+- `stream-handlers.ts:237` partialDiff patch 改 `'' + event.partialText` 显式追加形态，过 shared G-816035 反向锁（字面判据 `partialDiff: <x>.partialText` = 覆盖直写）。
+- extension `tool-delta-frames.test.ts:194` D113 源码级自证放宽：兼容 `useReducer`/`useCallback` 范式（原断言只认内联箭头直调 `applyToolDelta`），保留"回调表注册 `onToolDelta` ∧ 源码中 `applyToolDelta` 真被调用"的防丢帧意图。
+
+### 验证（现读实测）
+
+| 包 | 结果 |
+|---|---|
+| web `use-chat/__tests__` | 300/300 绿（35 files） |
+| web `use-message-list-scroll.session-restore` | 13/13 绿（partialDiff 贴底不破 stick/hold 纪律） |
+| extension 全量 | 569/569 绿（63 files） |
+| shared 全量 | 3408/3408 绿（G-816035 修绿） |
+| web/extension `tsc --noEmit` | 0 错误 |
+
+### 提交状态
+
+本机 git 共享索引（`D:/IHUI-AI-git-repo/index.lock`）被并发 agent 反复占用，暂存区含他人 `MM` 在飞内容（db/README 等），本任务不强行操作共享索引（会破坏别人提交）。5 个改动文件已全部落盘为工作树改动、测试全绿，提交放到末尾统一收口。
+
+### 仍可继续深挖的方向（前端流式渲染）
+
+1. **RN / 小程序同形**：web + extension 已优化，RN `AiAssistantN8nScreen.tsx` / 小程序 `ai-cards.tsx` 的 partialDiff 预览仍是裸 `<Text>`，需同步贴底 + 光标（依赖各端滚动容器 API，跨端非本端可控）。
+2. **光标呼吸感**：当前 `animate-pulse` 是透明度呼吸，可升级为 `caret-blink` 类硬切换（更接近真实编辑器光标）。
+3. **partialDiff 语法高亮**：若未来服务端升级为真 unified diff（带 `+`/`-`），可接入 highlight.js 行级着色——前置条件是 llm.py 改产出格式。
+4. **长文本虚拟化**：partialDiff 超 200px 滚动区后，超长 diff（千行级）可考虑虚拟滚动，当前 `overflow-auto` 已够用但非最优。
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->

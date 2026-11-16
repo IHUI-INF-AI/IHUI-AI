@@ -134,6 +134,9 @@ export interface DomainHubProps {
   /** 页面描述(已翻译) */
   description?: string
   /** 域图标,与侧边栏该分类的图标保持一致 */
+  /**
+   * 页头图标(lucide 组件;2026-11-16 起三个新域入口页 admin/developer/hr 传 `icon`)。
+   */
   icon?: React.ComponentType<{ className?: string }>
   sections: DomainHubSection[]
   className?: string

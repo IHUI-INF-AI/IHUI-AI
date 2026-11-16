@@ -48,6 +48,7 @@ import {
 import { purgeAccountUsage } from './relay-account-usage.js'
 import { pickProxyForAccount } from './relay-proxy-pool.js'
 import { reconcileCheckinSync, fetchPoolAccounts } from './relay-account-pool-reconcile.js'
+import { dedupeCrossPoolDuplicates } from './relay-account-pool-dedupe.js'
 import {
   CHECKIN_RECONCILE_MAX_PER_ROUND,
   checkinReconcileIntervalMs,
@@ -262,10 +263,12 @@ export function keepAliveForeverVerdictOf(
   now: Date,
   clientRunning: boolean | null | undefined,
 ): KeepAliveForeverVerdict {
-  if (clientRunning === true) {
+  /** 单源判据:客户端是否真握着同一枚「轮换型」refresh_token(= 池抢刷会顶号)。 */
+  const renewingClient = hasLocalRenewingClient(row.providerCode ?? '')
+  if (clientRunning === true && renewingClient) {
     return { defer: true, reason: 'client-running-or-unjudged' }
   }
-  if (clientRunning !== false) {
+  if (clientRunning !== false && renewingClient) {
     // 未判定时的默认方向必须是「多让」—— 但它只在「本机客户端手里也握着同一枚轮换型 rt」的
     // 平台上成立(判据单源 = hasLocalRenewingClient,不是 renewalPolicyOf 的开关值):
     // 让位会造成的不可逆损伤只有一种 —— 池抢刷把机主客户端顶下线;反过来,没有客户端握票的
@@ -273,10 +276,13 @@ export function keepAliveForeverVerdictOf(
     // 2026-11-10 现读反例:workbuddy 三枚 forever 号 lastRefreshAt 停在 11-03/11-04,
     // 而探针表只有 trae/qoder/minimax ⇒ 恒 null ⇒ 恒让位 ⇒ token 12-03~12-09 到期后
     // 「安静地整批死亡」,与永久保活档的立因正相反。
-    if (hasLocalRenewingClient(row.providerCode ?? '')) {
-      return { defer: true, reason: 'client-running-or-unjudged' }
-    }
+    return { defer: true, reason: 'client-running-or-unjudged' }
   }
+  // 非轮换型平台(workbuddy/codearts/zcode…):客户端刷新不废池票(非共享轮换型 rt),
+  // 故客户端在跑**不再让位** ⇒ 池离线续期,彻底消除对客户端进程的单点依赖。
+  // 根治立因(2026-11-14):workbuddy forever 号原被上面「clientRunning===true 无条件让位」
+  // 命中,续期全押在「客户端每 10 分钟回灌」那条脆弱腿上 —— 客户端一停/回灌一断即断源
+  // (实测 11-13 两枚 workbuddy 401、会话回灌连续 breach)。改后客户端在不在都由池续期。
   const activeAt = clientActiveAtOf(row)
   if (activeAt !== null && now.getTime() - activeAt.getTime() < CLIENT_ACTIVE_TTL_MS) {
     return { defer: true, reason: 'heartbeat-fresh' }
@@ -384,60 +390,17 @@ export function keepaliveIdleWhere(cutoff: Date, foreverCutoff?: Date) {
 }
 
 /**
- * 摘除来源标记(2026-11-13 F-647):`extraMetadata.unschedulableSource`。
+ * 永久保活解摘区(2026-10-31 立;2026-11-15 叠加判死闸门)。
  *
- * 立因:`tempUnschedulable` 一列同时承载巡检自动摘除与管理员人工止血,而巡检的成功
- * 回写无脑写 `tempUnschedulable=false` ⇒ 人工摘除的号会在 5 分钟内被下一轮换票顺手
- * 撤销,止血失效。来源标记落进既有 jsonb 列(不新增 schema):管理面人工摘除写
- * `'manual'`,巡检自动摘除写 `'auto'`。历史行没有标记,按「未达自动摘除失败阈值」
- * 反推为人工 —— 自动摘除必然累计到 REFRESH_FAILURE_LIMIT。
+ * 下方判死码清单与 revive 闸门是 §0.6 单一真相源(config/relay-irreversible-verdicts.json):
+ * 上游已明确判死的号不再进解摘动作(否则每 6h 拿死票再撞一次上游鉴权、失败累计到 3 再摘,
+ * 无限循环)。revive 动作只叠加排除,keepAliveReviveWhere 的既有 where 语义一字不动。
+ *
+ * 为什么需要这一档:`refreshOne` 连续失败 3 次会置 `tempUnschedulable=true`,而四档候选
+ * 全部要求未摘除 ⇒ 摘除对普通号是「停止打上游、等 admin 看一眼」,对「登不回来」的号是
+ * **永久死亡**。这里把摘除改回它名字本来的含义(临时):退避窗之后自动解摘、再给一次机会。
+ * 摘除本身保留 —— 去掉它就变成坏票每 5 分钟死撞鉴权点,那正是本仓反复点名的封号前兆型。
  */
-export const UNSCHEDULABLE_SOURCE_KEY = 'unschedulableSource'
-export type UnschedulableSource = 'manual' | 'auto'
-
-/** 读来源标记:只认两个合法字面量;缺失/坏形态 ⇒ null(不宽松转换)。 */
-export function unschedulableSourceOf(row: {
-  extraMetadata?: unknown
-}): UnschedulableSource | null {
-  const meta = row.extraMetadata
-  if (meta === null || typeof meta !== 'object' || Array.isArray(meta)) return null
-  const raw = (meta as Record<string, unknown>)[UNSCHEDULABLE_SOURCE_KEY]
-  return raw === 'manual' || raw === 'auto' ? raw : null
-}
-
-/**
- * 这枚号的摘除是不是人工做的(唯一判据)。
- * 人工摘除只能由人解除;换票成功、永久保活解摘等自动通道一律不得撤旗。
- */
-export function isManuallyUnschedulable(row: {
-  tempUnschedulable?: boolean | null
-  refreshFailureCount?: number | null
-  extraMetadata?: unknown
-}): boolean {
-  if (row.tempUnschedulable !== true) return false
-  const source = unschedulableSourceOf(row)
-  if (source === 'manual') return true
-  if (source === 'auto') return false
-  return (row.refreshFailureCount ?? 0) < REFRESH_FAILURE_LIMIT
-}
-
-/**
- * 「自动摘除」的 SQL 判据:只有巡检自己摘的号才允许被自动解摘/恢复。
- * 缺标记的历史行只有在失败计数达到自动摘除阈值时才当作自动摘除。
- */
-function autoUnschedulableCondition() {
-  return and(
-    eq(aiRelayAccountPool.tempUnschedulable, true),
-    or(
-      sql`${aiRelayAccountPool.extraMetadata}->>'unschedulableSource' = 'auto'`,
-      and(
-        sql`${aiRelayAccountPool.extraMetadata}->>'unschedulableSource' is null`,
-        gte(aiRelayAccountPool.refreshFailureCount, REFRESH_FAILURE_LIMIT),
-      ),
-    ),
-  )
-}
-
 // ── 上游「不可逆判死码」单一真相源(2026-11-15 立;与 scripts 侧同读 config JSON) ──────
 // §0.6:判据全仓只许一份。清单下沉在 config/relay-irreversible-verdicts.json(语言无关
 // 数据),mjs 侧(scripts/relay-account-keepalive.mjs)与本 ts 侧都从它编译 RegExp ——
@@ -540,17 +503,64 @@ export function revivableCandidatesOf<
 }
 
 /**
- * 永久保活号的解摘候选 where(导出供镜像测试锁形状)。
+ * 摘除来源标记(2026-11-13 F-647,2026-11-16 与判死闸门同版共存):`extraMetadata.unschedulableSource`。
  *
- * 为什么需要这一档:`refreshOne` 连续失败 3 次会置 `tempUnschedulable=true`,而四档候选
- * 全部要求未摘除 ⇒ 摘除对普通号是「停止打上游、等 admin 看一眼」,对「登不回来」的号是
- * **永久死亡**。这里把摘除改回它名字本来的含义(临时):退避窗之后自动解摘、再给一次机会。
- * 摘除本身保留 —— 去掉它就变成坏票每 5 分钟死撞鉴权点,那正是本仓反复点名的封号前兆型。
+ * 立因:`tempUnschedulable` 一列同时承载巡检自动摘除与管理员人工止血,而巡检的成功
+ * 回写无脑写 `tempUnschedulable=false` ⇒ 人工摘除的号会在 5 分钟内被下一轮换票顺手
+ * 撤销,止血失效。来源标记落进既有 jsonb 列(不新增 schema):管理面人工摘除写
+ * `'manual'`,巡检自动摘除写 `'auto'`。历史行没有标记,按「未达自动摘除失败阈值」
+ * 反推为人工 —— 自动摘除必然累计到 REFRESH_FAILURE_LIMIT。
  */
+export const UNSCHEDULABLE_SOURCE_KEY = 'unschedulableSource'
+export type UnschedulableSource = 'manual' | 'auto'
+
+/** 读来源标记:只认两个合法字面量;缺失/坏形态 ⇒ null(不宽松转换)。 */
+export function unschedulableSourceOf(row: {
+  extraMetadata?: unknown
+}): UnschedulableSource | null {
+  const meta = row.extraMetadata
+  if (meta === null || typeof meta !== 'object' || Array.isArray(meta)) return null
+  const raw = (meta as Record<string, unknown>)[UNSCHEDULABLE_SOURCE_KEY]
+  return raw === 'manual' || raw === 'auto' ? raw : null
+}
+
+/**
+ * 这枚号的摘除是不是人工做的(唯一判据)。
+ * 人工摘除只能由人解除;换票成功、永久保活解摘等自动通道一律不得撤旗。
+ */
+export function isManuallyUnschedulable(row: {
+  tempUnschedulable?: boolean | null
+  refreshFailureCount?: number | null
+  extraMetadata?: unknown
+}): boolean {
+  if (row.tempUnschedulable !== true) return false
+  const source = unschedulableSourceOf(row)
+  if (source === 'manual') return true
+  if (source === 'auto') return false
+  return (row.refreshFailureCount ?? 0) < REFRESH_FAILURE_LIMIT
+}
+
+/**
+ * 「自动摘除」的 SQL 判据:只有巡检自己摘的号才允许被自动解摘/恢复。
+ * 缺标记的历史行只有在失败计数达到自动摘除阈值时才当作自动摘除。
+ */
+function autoUnschedulableCondition() {
+  return and(
+    eq(aiRelayAccountPool.tempUnschedulable, true),
+    or(
+      sql`${aiRelayAccountPool.extraMetadata}->>'unschedulableSource' = 'auto'`,
+      and(
+        sql`${aiRelayAccountPool.extraMetadata}->>'unschedulableSource' is null`,
+        gte(aiRelayAccountPool.refreshFailureCount, REFRESH_FAILURE_LIMIT),
+      ),
+    ),
+  )
+}
+
 export function keepAliveReviveWhere(before: Date) {
   return and(
     keepAliveForeverCondition(),
-    // F-647:只解摘巡检自己摘的号;人工摘除(标记 manual)必须等人来解。
+    // F-647:解摘只吃「自动摘除」;人工止血的号由人解除,自动通道不得撤旗。
     autoUnschedulableCondition(),
     // 2026-11-12 补「解摘的前提是解摘后真能续上」:
     // 无 refreshToken 且无 cookie 的号,解摘后既进不了临期刷新(expiringRefreshWhere)、
@@ -1157,9 +1167,8 @@ async function refreshOneLocked(
         credVersion: sql`${aiRelayAccountPool.credVersion} + 1`,
         lastRefreshAt: now,
         refreshFailureCount: 0,
-        // 刷新成功即解除「凭证失效」型摘除;健康状态回 unknown 等巡检定级。
-        // F-647:人工摘除不在此列 —— 换票成功只证明票还能换,不证明止血可以撤;
-        // 只有巡检自己摘的号(含历史行按失败计数反推)才允许自动清理摘除态。
+        // 刷新成功即解除「凭证失效」型摘除(F-647:只清自动摘除;人工摘除的号保持摘除态,
+        // 由人在管理面解除 —— 否则 5 分钟内下一轮换票就把止血撤了);健康状态回 unknown 等巡检定级
         ...(isManuallyUnschedulable(row) ? {} : { tempUnschedulable: false }),
         healthStatus: row.healthStatus === 'down' ? 'unknown' : row.healthStatus,
         lastErrorMessage: null,
@@ -1429,6 +1438,26 @@ async function runSweepOnce(
 
   // ── 0. 台账保留期清理(24h 节流;每 5 分钟一轮 sweep 但不会每轮 delete) ──
   if (!scope) await maybePurgeUsageLedger()
+
+  // ── 0b. 跨池重复自愈(2026-11-14) ──
+  // 同一上游账号被导入两次会留下两条行(运营池一份 + 个人池一份):轮换式 refreshToken 是一次性
+  // 票,两条行各自续期就互相消费 —— 先刷的吃掉票,后刷的必然 401 被摘除,并每 24h 报一封
+  // 「号池保活摘除」。两套部分唯一索引只管得住同一归属内,跨归属这层结构上允许重复 ⇒ 只能业务
+  // 侧收敛,且必须每轮自动做,不依赖人工发现。点名单轮不跑(局部巡检不得顺带全池动作);
+  // 零重复只付一次 GROUP BY。删除行的签到侧由对账收敛器象限 2 兜底,这里不重复推送。
+  if (!scope) {
+    try {
+      const dedupe = await dedupeCrossPoolDuplicates()
+      if (dedupe.merged > 0) {
+        logger.warn('[relay-account-pool] 跨池重复自愈完成(同一上游账号只保留一条续期链)', {
+          merged: dedupe.merged,
+          droppedRows: dedupe.droppedRows,
+        })
+      }
+    } catch (e) {
+      logger.warn('[relay-account-pool] 跨池重复自愈失败(不阻断本轮巡检)', { err: e })
+    }
+  }
 
   // ── 1. 临期刷新(并发上限 SWEEP_CONCURRENCY) ──
   const expiringWhere = expiringRefreshWhere(deadline)

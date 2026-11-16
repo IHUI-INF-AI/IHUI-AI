@@ -58,16 +58,6 @@ mod operator;
 // plugin-store 路径越权修复:远程面只保留 store_read_entry/store_write_entry,
 // 路径经 resolve_store_path 拒绝对路径/`..` 并 canonicalize 断言落在 app_data_dir(见模块文档)。
 mod store_path;
-// 2026-11-15 立(四程序独立分析 T3§A/T4§A):终端执行会话执行层——跨平台 PTY(std)+
-// 环形缓冲封顶 + 进程树清理(Windows Job Object / POSIX 进程组)。执行层只用 std,
-// 可 `rustc --test` 单独跑单测;胶水在 terminal_ipc.rs,本文件只接线。
-mod terminal_session;
-// 终端会话 IPC 胶水:只放 #[tauri::command] + serde DTO,不碰终端状态判定。
-mod terminal_ipc;
-// 2026-11-15 立(四程序独立分析 T3§H/T4§H):防孤儿守护——主进程挂 kill-on-close 作业
-// (退出即自动清整棵进程树)+ 原生件 sha256 白名单验签。与 startup_guard(启动相位)
-// 正交:那条管"启动别互杀",这条管"退出别留孤儿"。判据纯函数 verify_artifact 可单测。
-mod orphan_guard;
 
 use serde::{Deserialize, Serialize};
 use tauri::menu::{MenuBuilder, MenuItemBuilder};
@@ -547,12 +537,6 @@ fn set_caption_button_theme(label: String, dark_bg: bool) {
 /// 的代码之后,等于没有兜底。
 fn exit_application(app: &tauri::AppHandle) {
     arm_forced_exit(app, QUIT_FORCED_EXIT_GRACE_SECS);
-    // 2026-11-15 立(终端执行层 防孤儿):退出时清空全部终端会话,Windows 走 Job Object
-    // TerminateJobObject 清整树,POSIX 走进程组 SIGTERM——不留无主子进程。
-    // 放在 arm_forced_exit 之后:即使下面 save_window_state 卡住,兜底计时器仍会强杀,
-    // 而终端清理这条尽力而为、不该阻塞退出序列。
-    app.try_state::<terminal_session::TerminalManager>()
-        .inspect(|mgr| mgr.kill_all());
     let _ = save_window_state(Some("main".to_string()), app.clone());
     let _ = save_window_state(Some("admin".to_string()), app.clone());
     app.exit(0);
@@ -4196,15 +4180,6 @@ pub fn run() {
     // 阶段没有 AppHandle、拿不到 `app.path().app_log_dir()`,只能由这里把同一枚文件名
     // 常量注入下去 —— 在 startup_guard 里再写一遍字面量就是第二个真相源。
     startup_guard::preflight(&app_identifier, APP_LOG_FILE_STEM);
-    // 2026-11-15 立(H 类 防孤儿+验签):主进程挂 kill-on-close 作业,此后所有后代
-    // 默认继承,主进程退出关闭作业句柄时内核 TerminateJobObject 清整棵进程树。
-    // 降级:建作业失败只记日志,不阻断启动(失去自动清树保险但不拒启)。
-    #[cfg(target_os = "windows")]
-    {
-        let _orphan_guard = orphan_guard::install();
-        // 故意不 move:让 OrphanGuard 在整个 run() 函数生命周期内存活,
-        // 进程退出时才 Drop 触发内核清树。move 进闭包反而会提前 Drop。
-    }
     // 2026-07-26 立:启动时清理 WebView2 缓存(Windows),彻底杜绝桌面端样式不同步问题
     // - 用户反馈"样式没同步":web dev 已更新,但 Tauri WebView2 缓存了旧 CSS chunk
     // - 2026-09-25 收窄:旧写法是 `remove_dir_all(EBWebView)`,而 `cfg(dev)` **确实会被编译**
@@ -4523,9 +4498,6 @@ pub fn run() {
         .manage(embedded_browser::BrowserManager::default())
         // 关窗「询问我」的等待闸门(2026-09-28 立):窗口事件与命令共用这一份挂账状态。
         .manage(CloseGate::default())
-        // 2026-11-15 立(终端执行层):全部终端会话住这一份宿主状态,命令与退出清理共用。
-        // 退出时由 exit_application 触发 kill_all(),防孤儿(对齐 Trae orphan_protection)。
-        .manage(terminal_session::TerminalManager::new())
         .setup(|app| {
             #[cfg(target_os = "windows")]
             webview2_runtime::check_and_report(app.handle());
@@ -4842,6 +4814,22 @@ pub fn run() {
                     }
                 }
             });
+            // 应用上架平台账号:桌面启动后自动隐藏打开 7 个后台窗口,接入 10 分钟心跳保活。
+            // 窗口独立 profile 落盘,首次手动登录后登录态跨重启保留,之后每次启动自动续。
+            {
+                let sa_app = app.handle().clone();
+                std::thread::spawn(move || {
+                    std::thread::sleep(std::time::Duration::from_secs(6));
+                    match store_browser::auto_open_store_accounts(&sa_app) {
+                        Ok(()) => log::info!(
+                            "[store-browser] 已自动打开应用上架平台账号窗口(隐藏),接入心跳保活"
+                        ),
+                        Err(e) => {
+                            log::warn!("[store-browser] 自动打开商店账号窗口失败: {}", e)
+                        }
+                    }
+                });
+            }
             let _ = app;
             Ok(())
         })
@@ -4963,16 +4951,7 @@ pub fn run() {
     // 2026-11-05 立(桌面 store 越权 P0):远程面唯一的两条 store 通道,
     // 文件/key 白名单 + 路径守卫,替代此前的 store:default 全局授权。
     store_path::store_read_entry,
-    store_path::store_write_entry,
-    // 2026-11-15 立(终端执行层,T3§A/T4§A):跨平台 PTY 会话 + 环形缓冲 + 进程树清理。
-    // 执行层 terminal_session.rs(纯 std 可单测),命令胶水 terminal_ipc.rs。
-    terminal_ipc::terminal_start,
-    terminal_ipc::terminal_poll,
-    terminal_ipc::terminal_read,
-    terminal_ipc::terminal_write,
-    terminal_ipc::terminal_kill,
-    terminal_ipc::terminal_list,
-    terminal_ipc::terminal_remove
+    store_path::store_write_entry
         ])
         .run(context)
         .unwrap_or_else(|e| {

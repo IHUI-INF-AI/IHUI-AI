@@ -1012,4 +1012,38 @@ export const LANGUAGES: { code: Language; name: string; badge: string }[] = [
   { code: 'ja', name: '日本語', badge: 'JA' },
   { code: 'ko', name: '한국어', badge: 'KO' },
 ]
+
+/**
+ * 管理域入口页清单(2026-11-16 用户反馈「管理分类没有跟其他分类一样有统一管理落地页」的落点)。
+ * 数据源 = 侧边栏 adminGroupLabel 分组收敛前的同一份(ADMIN_NAV_GROUPS.map(adminGroupToNavItem)
+ * 与 NAV_GROUPS L786 同源,§0.6 单一真相源,不另抄清单);admin 后端动态路由由页面运行期
+ * 追加并按本清单 flatten 去重(React key=href 双条目是 P1 记档的同型病)。
+ */
+export const ADMIN_HUB_ITEMS: NavItem[] = ADMIN_NAV_GROUPS.map(adminGroupToNavItem)
+
+/**
+ * 开发者域入口页清单(2026-11-16 补齐——此前 developerGroup 顶层已收敛为域入口父项,
+ * 20 个下级 href 没有任何页面渲染,侧边栏去下拉后用户在界面上看不到它们)。
+ * 摊平形:带 children 的父项由其 children 顶替(父项 /developer 与首子项同 href 是
+ * 「父项+子菜单」设计意图,页面只要一份),其余条目原位保留(含末尾 2 枚 adminOnly)——
+ * href 多重集与 p2-developer-convergence.test.tsx 的 23 条守恒判据逐字同源,不造新链接。
+ */
+export const DEVELOPER_HUB_ITEMS: NavItem[] = DEVELOPER_ITEMS.flatMap((item) =>
+  item.children && item.children.length > 0 ? item.children : [item],
+)
+
+/**
+ * 人事域入口页清单(2026-11-16 用户规范:一级分类点击后在右侧工作区单独页面展示二三级分类)。
+ * 五 href 全部真实存在:员工自助三页 apps/web/app/(main)/hr/{my-attendance,my-leave,my-payroll}、
+ * 人事管理两页 apps/web/app/(main)/admin/{hr-attendance,hr-data}(adminOnly)。
+ * labelKey 取 nav 命名空间既有条目(hrMyAttendance/hrMyLeave/hrMyPayroll/hrAdmin/hrAdminData 现读在典);
+ * 页面侧 SELF_SERVICE_ITEMS/ADMIN_ITEMS 是同一份清单的划分展示,不是第二份清单(测试钉并集恒等)。
+ */
+export const HR_HUB_ITEMS: NavItem[] = [
+  { href: '/hr/my-attendance', labelKey: 'hrMyAttendance', icon: UserCheck },
+  { href: '/hr/my-leave', labelKey: 'hrMyLeave', icon: CalendarDays },
+  { href: '/hr/my-payroll', labelKey: 'hrMyPayroll', icon: Wallet },
+  { href: '/admin/hr-attendance', labelKey: 'hrAdmin', icon: ClipboardCheck, adminOnly: true },
+  { href: '/admin/hr-data', labelKey: 'hrAdminData', icon: BarChart3, adminOnly: true },
+]
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

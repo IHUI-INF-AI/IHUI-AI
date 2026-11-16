@@ -143,6 +143,46 @@ export function isHookStatusState(value: string): value is HookStatusState {
   return STATE_SET.has(value)
 }
 
+/**
+ * wire 帧 → (六态 state, 失败上下文) 的**唯一**收窄出口(2026-11-16 补账)。
+ *
+ * 立因:RN ChatScreen 与小程序 chat.tsx 的 onHookFailure 腿(2026-11-13 装的"真出口"
+ * 修复)都按名消费本函数做 state 收窄与 context 摘取(web 的 store 全量落库腿走的是
+ * 另一条数据流,不属同一判据,不在本函数射程)——但函数当时并未落进共享层,消费端
+ * import 悬空 ⇒ miniapp tsc TS2305(台账禁止的"造好没装车"镜像形态:调用点在、判据不在)。
+ *
+ * 判据:raw 非对象 / state 缺席或不在 HOOK_STATUS_STATES 六态值域 ⇒ null(不猜态,
+ * §0.3 的"取不到不冒充");context 字段按 HookFailureContext 白名单逐格摘取,
+ * 类型不符一律 null(如 exitCode:'7' 字符串不收)。本函数**不脱敏**——脱敏仍只有
+ * buildHookFailureAttachment 一个出口(下方红线注释不变)。
+ */
+export interface HookFailureNarrow {
+  readonly state: HookStatusState
+  readonly context: HookFailureContext
+}
+
+export function readHookFailureEvent(raw: unknown): HookFailureNarrow | null {
+  if (typeof raw !== 'object' || raw === null) return null
+  const rec = raw as Record<string, unknown>
+  const state = rec.state
+  if (typeof state !== 'string' || !isHookStatusState(state)) return null
+  const strOrNull = (v: unknown): string | null => (typeof v === 'string' ? v : null)
+  const numOrNull = (v: unknown): number | null =>
+    typeof v === 'number' && Number.isFinite(v) ? v : null
+  return {
+    state,
+    context: {
+      hookName: strOrNull(rec.hookName),
+      hookEvent: strOrNull(rec.hookEvent),
+      command: strOrNull(rec.command),
+      stderr: strOrNull(rec.stderr),
+      exitCode: numOrNull(rec.exitCode),
+      durationMs: numOrNull(rec.durationMs),
+      failedAt: strOrNull(rec.failedAt),
+    },
+  }
+}
+
 function assertNeverState(state: never): never {
   throw new Error(`未知 Hook 状态: ${String(state)}`)
 }

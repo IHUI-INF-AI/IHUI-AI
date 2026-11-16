@@ -2429,7 +2429,9 @@
     "confirmPasswordPlaceholder": "비밀번호를 다시 입력하세요",
     "password": "비밀번호",
     "passwordPlaceholder": "비밀번호를 입력하세요",
-    "title": "회원가입"
+    "title": "회원가입",
+    "show": "표시",
+    "hide": "숨기기"
   },
   "withdraw": {
     "availableBalance": "출금 가능 금액(원)",
@@ -3708,11 +3710,11 @@
   "activity": {
     "empty": "활동이 없습니다",
     "endTime": "종료 시간",
-    "joining": "제출 중…",
     "loadFailed": "불러오기 실패",
     "participants": "참여 인원",
     "startTime": "시작 시간",
-    "title": "활동"
+    "title": "활동",
+    "joining": "제출 중…"
   },
   "agentDetail": {
     "creator": "제작자",
@@ -5694,14 +5696,14 @@
       "approvalPersistHit": "저장된 승인 재사용",
       "execPolicyApproved": "실행 정책에 따라 허용",
       "autoSkipApproval": "자동 승인(심사 생략)",
-      "autoReviewAllow": "자동 검토 승인",
       "skillGrantSkipApproval": "스킬 허용으로 승인 생략",
       "bypassSkipApproval": "심사 건너뜀",
       "mcpRequiresApproval": "MCP 주석이 승인 필요",
       "policyRequiresApproval": "정책상 승인 필요",
       "policySkipsApproval": "정책상 승인 생략",
       "guardianReviewSuggested": "검토가 더 안전한 경로를 제안",
-      "guardianReviewAlternativeApplied": "검토 제안 경로 적용됨"
+      "guardianReviewAlternativeApplied": "검토 제안 경로 적용됨",
+      "autoReviewAllow": "자동 검토 승인"
     },
     "perm": {
       "allow": "허용함",
@@ -7545,9 +7547,9 @@
     "wrongBookTitle": "틀림"
   },
   "activities": {
-    "cancelJoin": "참여 취소",
     "join": "지금 참여",
-    "notFound": "찾을 수 없음"
+    "notFound": "찾을 수 없음",
+    "cancelJoin": "참여 취소"
   },
   "eduAttendanceQr": {
     "chooseClass": "클래스 선택",
