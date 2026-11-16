@@ -73,7 +73,7 @@ jobs:
               - '**/coverage'
 
       - name: 分析并上传 SARIF
-        uses: github/codeql-action/analyze@4bfa242aa49c5f7c6770b98670d354a7dfac05f8 # v3
+        uses: github/codeql-action/analyze@33d7b85da1a04171e211befe2c739303b9a4c066 # v3
         with:
           category: '/language:${{ matrix.language }}'
 
