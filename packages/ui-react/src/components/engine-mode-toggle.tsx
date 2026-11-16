@@ -2,7 +2,6 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-
 /**
  * agent 执行引擎切换控件(阶段 3 第二片)
  *
@@ -38,6 +37,11 @@ export interface EngineModeToggleProps {
   ariaLabel?: string
   /** 禁用态(如流式期间切换引擎无意义,由调用方传入) */
   disabled?: boolean
+  /**
+   * 三态标签注入(2026-11-15 契约):共享组件不引 next-intl,由调用方(web 的
+   * engine-mode-button 语言包)传入 —— 缺席时回落组件内置兜底文案(旧调用面零变化)。
+   */
+  labelMap?: Partial<Record<EngineMode, string>>
 }
 
 export function EngineModeToggle({
@@ -47,15 +51,13 @@ export function EngineModeToggle({
   className,
   ariaLabel = 'agent 执行引擎',
   disabled = false,
+  labelMap,
 }: EngineModeToggleProps) {
   return (
     <div
       role="radiogroup"
       aria-label={ariaLabel}
-      className={cn(
-        'inline-flex items-center gap-0.5 rounded-md bg-muted p-0.5',
-        className,
-      )}
+      className={cn('inline-flex items-center gap-0.5 rounded-md bg-muted p-0.5', className)}
     >
       {modes.map((m) => {
         const active = m === value
@@ -76,7 +78,9 @@ export function EngineModeToggle({
                 : 'text-muted-foreground hover:text-foreground',
             )}
           >
-            {ENGINE_MODE_LABELS[m]}
+            {/* 2026-11-15 契约:语言包标签由调用方经 labelMap 注入(共享组件不引 next-intl);
+                未注入时回落内置兜底(旧调用面零行为变化)。 */}
+            {labelMap?.[m] ?? ENGINE_MODE_LABELS[m]}
           </button>
         )
       })}

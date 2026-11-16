@@ -55,22 +55,11 @@ export function canSubmitQuestionAnswer(input: {
 }
 
 /**
- * 点选行为:单选时替换、多选时切换。
- * 抽成纯函数是因为"单选却点出两个 id"会让服务端把答案读成多选 —— 静默给错语义。
+ * 勾选行为判据(2026-11-16 上提共享层 §0.6):唯一实现迁至 @ihui/shared/chat/question-response
+ * 的 toggleOptionSelection(单选替换/多选切换/单选再点同项=取消)。本行是转口不是第二份实现,
+ * 保持 sidepanel/ChatPage 等旧 import 面(./QuestionCard)零改动;判据注释与其历史因由见真源。
  */
-export function toggleOptionSelection(
-  current: readonly string[],
-  optionId: string,
-  allowMultiple: boolean,
-): string[] {
-  if (!allowMultiple) {
-    // 单选:再点一次同一项 = 取消(否则用户无法改主意)
-    return current.length === 1 && current[0] === optionId ? [] : [optionId]
-  }
-  return current.includes(optionId)
-    ? current.filter((id) => id !== optionId)
-    : [...current, optionId]
-}
+export { toggleOptionSelection } from '@ihui/shared/chat/question-response'
 
 export interface QuestionCardProps {
   model: QuestionCardModel
