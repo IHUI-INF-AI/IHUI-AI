@@ -992,7 +992,10 @@ jobs:
 
       - name: Download signed artifact
         id: fetch-signed
-        # 缺产物是**预期内**的失败形态(凭据未配),不要在这里中断,留给下一步给出明确结论
+        # 缺产物是**预期内**的失败形态(凭据未配),不要在这里中断,留给下一步给出明确结论。
+        # 但「预期内的缺」与「传输/服务侧真失败」必须分得开,否则下一步会把后者也报成
+        # 「未签名」——归因错到另一件事上,人照那个方向查永远查不到。
+        # 故本步只容错、不吞证据:`outcome` 由下一步读取并分区判定(2026-11-17 补)。
         continue-on-error: true
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
@@ -1006,8 +1009,20 @@ jobs:
         # 旧写法把判据抄了两遍(本步 env + job env),改一处就漂一处 —— 现已收敛到此处一处。
         env:
           ALLOW_UNSIGNED: ${{ (github.event_name == 'workflow_dispatch' && inputs.allow_unsigned == true) || (runner.os == 'Windows' && env.SIGNPATH_CONFIGURED != 'true') || (runner.os == 'macOS' && env.APPLE_SIGNING_CONFIGURED != 'true') }}
+          FETCH_OUTCOME: ${{ steps.fetch-signed.outcome }}
         run: |
+          # 先分区,再归因(2026-11-17 补)。旧写法只看清单在不在,于是把两类完全不同的
+          # 失败混成同一个结论「未签名」:
+          #   ① 凭据未配 ⇒ build 根本没上传 signed-desktop-* ⇒ 下载失败 = 预期内;
+          #   ② 凭据已配但下载传输/服务侧真失败 ⇒ 也是下载失败 = 真故障,却同样被报成「未签名」。
+          # 顺着 ② 给的提示去查签名凭据,永远查不到 —— 这是误诊,不是"报错不够大声"。
           if [ ! -f signed-desktop/signature-manifest.json ]; then
+            if [ "$FETCH_OUTCOME" != 'success' ] && [ "$ALLOW_UNSIGNED" != 'true' ]; then
+              # 凭据已配齐 ⇒ 产物理应存在 ⇒ 下载失败就是真故障,不再归因到签名凭据。
+              echo "::error::无法取得已签名产物(${{ matrix.label }}):下载步骤 outcome=$FETCH_OUTCOME,而本平台签名凭据已配置 ⇒ 产物本应存在。这是传输/服务侧故障或 build 侧上传缺失,与签名凭据无关;请查 Download signed artifact 步骤日志与 build 的 Upload 步骤。"
+              ls -la signed-desktop 2>/dev/null || true
+              exit 1
+            fi
             if [ "$ALLOW_UNSIGNED" = 'true' ]; then
               # 未签名发布:没有签名清单是预期内形态(签名步整体跳过)。
               # 改判 warning,不再 exit 1 —— 否则会阻塞 publish-updater-json(latest.json 不更新)。
