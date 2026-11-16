@@ -33,6 +33,8 @@ import {
   X,
 } from 'lucide-react'
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
+// 2026-11-16 立:浮层与视口边缘的统一安全间距(单一源)
+import { FLOATING_VIEWPORT_PADDING_PX } from '@ihui/shared/ui/floating-layer-spec'
 import { IconButton } from '@ihui/ui-react'
 import { rnRadius } from '@ihui/design-tokens'
 import { toast, AuthGatePrompt } from '@/components/common'
@@ -77,10 +79,8 @@ import { useChatStore, type ChatMessage } from '@/stores/chat'
 import { AI_PANEL_MAX_WIDTH, AI_PANEL_MIN_WIDTH, useAiPanelStore } from '@/stores/ai-panel'
 import { useEnvironmentInfoStore } from '@/stores/environment-info'
 import { useTerminalDockStore } from '@/stores/terminal-dock'
-import { useModeStore } from '@/stores/mode'
 import { useLoginDialogStore } from '@/stores/login-dialog'
 import { getConversation, getConversationHistory, getMessages } from '@ihui/api-client'
-import type { ChatMode } from '@ihui/types'
 import { parsePendingQuestion } from '@/lib/pending-question'
 // 2026-11:新建对话时把「提示留痕」一并归零(与 RN 的 handleDrawerCreateNewChat 同语义),
 // 否则「新建」后还能看到上一个新会话残留的提示。
@@ -362,7 +362,7 @@ const FLOAT_RESIZE_HANDLES: ReadonlyArray<{
   },
 ]
 
-/** 自定义"工作展示区"图标(对标设计稿):大圆角面板 + 短竖线,竖线两端不贴外框
+/** 自定义"工作展示区"图标(对齐设计稿):大圆角面板 + 短竖线,竖线两端不贴外框
  *  left=false 竖线在右侧(工作区展开状态);left=true 竖线在左侧(工作区收起状态) */
 function PanelRightRounded({
   left = false,
@@ -604,8 +604,6 @@ export function AISidePanel() {
     }
     return currentModel
   }, [messages, usageByMessageId, currentModel])
-  // ChatMode 4 态(2026-07-28 移除独立 PlanActToggle):订阅 currentMode 用于动态切换输入框 placeholder
-  const currentMode = useModeStore((s) => s.currentMode)
   // 登录弹窗打开状态(2026-07-31 立,双重保险):
   // AgentTaskProgressPane 内部已订阅 isLoginOpen 并 return null,但用户反馈"修了好几遍"
   // 仍未生效(可能 HMR 边界 / 父组件未订阅导致 zustand 通知链断裂)。
@@ -615,16 +613,16 @@ export function AISidePanel() {
   const { lastMessage } = useWebSocket()
   const lastWsRef = React.useRef<WSNotification | null>(null)
 
-  // 2026-08-17 环境信息 / 终端 / 工作展示区三按钮(用户需求,对标 Cursor 右上角 env info 三件套)
+  // 2026-08-17 环境信息 / 终端 / 工作展示区三按钮(用户需求,遵循统一工程规范)
   const toggleEnvInfo = useEnvironmentInfoStore((s) => s.togglePopover)
   const envInfoOpen = useEnvironmentInfoStore((s) => s.open)
   const toggleWorkPanel = useAiPanelStore((s) => s.toggleWorkAreaCollapsed)
   const workAreaCollapsed = useAiPanelStore((s) => s.workAreaCollapsed)
-  // D182 工作面全屏(对标竞品 chatSession.headerActions enter/exitWorkspaceFullscreen):
+  // D182 工作面全屏(对齐竞品 chatSession.headerActions enter/exitWorkspaceFullscreen):
   // 全屏 = AI 面板让位,work-area 占满;门槛 = 无活动会话(任务未开始)时禁用并提示
   const workAreaFullscreen = useAiPanelStore((s) => s.workAreaFullscreen)
   const setWorkAreaFullscreen = useAiPanelStore((s) => s.setWorkAreaFullscreen)
-  // D183(2026-09-29 立,对标竞品 chatSession.headerActions.createDraftPullRequest):
+  // D183(2026-09-29 立,对齐竞品 chatSession.headerActions.createDraftPullRequest):
   // 会话头部一键创建 Draft PR 写动作,与环境信息 popover 的只读 PR 状态展示互补。
   // 按需拉取 GitHub 仓库/分支状态(activeWorkspace 为准),POST /api/workspace/github/prs
   // (draft:true 透传 GitHub API);成功 toast 带 PR 链接并刷新环境快照,失败统一降级提示。
@@ -1383,38 +1381,8 @@ export function AISidePanel() {
     return () => window.removeEventListener('global-shortcut:new-chat', onNewChat)
   }, [handleNewChat, openPanel])
 
-  // Alt+P / Option+P 快捷键:切换 Plan/Act 模式(2026-07-25 立,对标 主流 AI IDE SOLO Plan 快捷键)
-  // 2026-07-28 升级:Plan/Act 概念合并到 ChatMode,Alt+P 改为在 ChatMode.plan ↔ ChatMode.build 间切换
-  // - 仅当 AI 面板打开时生效,避免污染其他页面
-  // - 不在输入框聚焦时触发(避免与 Alt+字母 输入特殊字符冲突)
-  // - 与 /plan /act 斜杠命令联动(两入口都走 ChatMode)
-  React.useEffect(() => {
-    if (!open) return
-    const onAltP = (e: KeyboardEvent) => {
-      if (!e.altKey || e.key !== 'p' || e.ctrlKey || e.metaKey || e.shiftKey) return
-      // 避免在 textarea/input 聚焦时触发(用户可能用 Alt 组合输入特殊字符)
-      const target = e.target as HTMLElement | null
-      if (
-        target &&
-        (target.tagName === 'TEXTAREA' || target.tagName === 'INPUT' || target.isContentEditable)
-      ) {
-        return
-      }
-      e.preventDefault()
-      // ChatMode:plan ↔ build 切换(语义对齐:plan=只读分析,build=正常执行)
-      const next: ChatMode = useModeStore.getState().currentMode === 'plan' ? 'build' : 'plan'
-      useModeStore.getState().setMode(next)
-    }
-    window.addEventListener('keydown', onAltP)
-    return () => window.removeEventListener('keydown', onAltP)
-  }, [open])
-
-  // Ctrl+1/2/3/4 切换 ChatMode 4态(2026-07-28 立,补全三通道)
-  // 2026-08-27 根因修复:此处监听移至 GlobalHooksProvider(根 Layout)统一消费
-  // `global-shortcut:mode-*` 事件 —— 原实现在本组件条件 useEffect 里(open 且深层
-  // 组件树 hydration 完成才挂载),非 /chat 页面被 use-global-shortcuts preventDefault
-  // 却无功能,且 /chat hydration 未完成时按键静默丢失(E2E 偶发失败根因)。
-  // 快捷键语义不变:Ctrl+1/2/3/4 → build/plan/review/spec,与 /命令 + AI 自动判断联动。
+  // 2026-11-16 用户定档:ChatMode 手动入口全部移除 —— Alt+P 与 Ctrl+1~5 不再切换模式,
+  // 发送链固定全工具开放,由 AI 自主决定是否使用工具。
 
   // 拖拽调整宽度
   // 关闭态下拖拽手柄:先 openPanel 再开始 resize,实现"拖拽即打开"
@@ -2287,7 +2255,7 @@ export function AISidePanel() {
                 onSend={sendMessage}
                 onStop={stop}
                 isStreaming={isStreaming}
-                placeholder={currentMode === 'plan' ? t('placeholderPlan') : t('placeholder')}
+                placeholder={t('placeholder')}
                 sendLabel={t('send')}
                 stopLabel={t('stop')}
                 model={currentModel}
@@ -2510,10 +2478,8 @@ export function AISidePanel() {
         onSend={sendMessage}
         onStop={stop}
         isStreaming={isStreaming}
-        // 2026-07-28 升级:placeholder 切换依据从 planMode 改为 ChatMode
-        // - ChatMode.plan → placeholderPlan(只读分析提示)
-        // - 其他(build/review/spec)→ placeholder(默认)
-        placeholder={currentMode === 'plan' ? t('placeholderPlan') : t('placeholder')}
+        // 2026-11-16:ChatMode 手动入口已移除,placeholder 恒为默认值。
+        placeholder={t('placeholder')}
         sendLabel={t('send')}
         stopLabel={t('stop')}
         model={currentModel}
@@ -2533,7 +2499,7 @@ export function AISidePanel() {
           source={importProvenance.source}
         />
       )}
-      {/* 工作区权限确认弹窗(2026-07-25 立,深度对标 Codex):
+      {/* 工作区权限确认弹窗(2026-07-25 立,深度对齐统一规范):
             用户绑定新工作区但 perm=null 时,WorkspaceSelector 写入 pendingPermissionSetup,
             这里弹 Dialog 让用户主动选择权限模式(完全访问/请求批准/替我审批),
             用户在弹窗中保存后:回写 activeWorkspace.mode + 清空 pendingPermissionSetup。 */}
@@ -2805,7 +2771,7 @@ export function AISidePanel() {
               subagent 现已改为自动派发(主 agent 在对话流中调用 dispatch_subagent 工具时,
               后端发 subagent_spawn/end SSE 事件 → 前端进度面板自动展示生命周期),
               无需用户手动触发,移除手动派发按钮。 */}
-              {/* 2026-11-04 信息架构重构(对标 ChatGPT/Claude/Cursor 的 composer/panel 结构):
+              {/* 2026-11-04 信息架构重构(对齐 ChatGPT/Claude/Cursor 的 composer/panel 结构):
                   头部只保留「标题 + ⋯」。此前 10 枚 32px 功能按钮(停靠/浮窗/最小化/
                   环境信息/终端/工作展示区/工作面全屏/向右拆分/Draft PR/任务回顾/关闭)
                   全部收进单一溢出菜单 —— 窄屏不再需要按宽度逐枚隐藏,标题也不再被按钮挤没。
@@ -2832,7 +2798,7 @@ export function AISidePanel() {
                     <DropdownMenu.Content
                       align="end"
                       sideOffset={6}
-                      collisionPadding={8}
+                      collisionPadding={FLOATING_VIEWPORT_PADDING_PX}
                       className="pointer-events-auto z-[2200] min-w-[13rem] rounded-md border border-stroke-strong bg-popover p-1 text-popover-foreground shadow-elevation-md"
                       data-testid="ai-panel-overflow-menu"
                     >

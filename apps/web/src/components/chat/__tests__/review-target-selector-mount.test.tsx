@@ -19,7 +19,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { TooltipProvider } from '@/components/feedback'
 import { MessageInput } from '@/components/chat/message-input'
-import { useModeStore } from '@/stores/mode'
 
 // 词包用 key 桩:本文件断言结构/行为,真实文案由 selector 测试的"直读五语词包"那条守。
 vi.mock('next-intl', () => ({
@@ -71,7 +70,6 @@ function renderInput(onSend = vi.fn(() => true)) {
 
 beforeEach(() => {
   window.localStorage.clear()
-  useModeStore.setState({ currentMode: 'review' })
 })
 
 afterEach(() => {
@@ -80,16 +78,18 @@ afterEach(() => {
 })
 
 describe('D06 装车行为:选择条在输入卡里真渲染', () => {
-  it('review 模式 ⇒ 选择条在 DOM,五档按钮齐(含票面三类目标)', () => {
+  it('输入 /review ⇒ 选择条在 DOM,五档按钮齐(含票面三类目标)', () => {
     renderInput()
+    fireEvent.change(screen.getByPlaceholderText('placeholder'), {
+      target: { value: '/review' },
+    })
     expect(screen.queryByTestId('review-target-selector')).not.toBeNull()
     for (const kind of ['uncommitted', 'branch', 'commit', 'file', 'snippet'] as const) {
       expect(screen.queryByTestId(`review-target-kind-${kind}`), kind).not.toBeNull()
     }
   })
 
-  it('非 review 模式 ⇒ 选择条不渲染(与既有输入区形态一致)', () => {
-    useModeStore.setState({ currentMode: 'build' })
+  it('未输入 /review ⇒ 选择条不渲染(与既有输入区形态一致)', () => {
     renderInput()
     expect(screen.queryByTestId('review-target-selector')).toBeNull()
   })
@@ -99,7 +99,13 @@ describe('D06 装车行为:选择条在输入卡里真渲染', () => {
     const send = screen.getByTestId('send-button') as HTMLButtonElement
     expect(send.disabled).toBe(true)
 
+    // 2026-11-16:选择条随 `/review` 输入浮现(模式入口已移除)
+    fireEvent.change(screen.getByPlaceholderText('placeholder'), {
+      target: { value: '/review' },
+    })
     fireEvent.click(screen.getByTestId('review-target-kind-uncommitted'))
+    // 清空正文,回到"仅目标可发"的场景(选择条因已选中目标而保持可见)
+    fireEvent.change(screen.getByPlaceholderText('placeholder'), { target: { value: '' } })
     await waitFor(() =>
       expect((screen.getByTestId('send-button') as HTMLButtonElement).disabled).toBe(false),
     )
@@ -112,7 +118,12 @@ describe('D06 装车行为:选择条在输入卡里真渲染', () => {
 
   it('指定分支:填 ref 后发送 ⇒ /review branch <ref>;填了非法 ref 则发不出去(正文为空+目标未 ready)', async () => {
     const { onSend } = renderInput()
+    fireEvent.change(screen.getByPlaceholderText('placeholder'), {
+      target: { value: '/review' },
+    })
     fireEvent.click(screen.getByTestId('review-target-kind-branch'))
+    // 清空正文,保持"正文为空 + 目标未 ready"的原判据
+    fireEvent.change(screen.getByPlaceholderText('placeholder'), { target: { value: '' } })
     const input = screen.getByTestId('review-target-branch-input')
     fireEvent.change(input, { target: { value: '--upload-pack=x' } })
     expect((screen.getByTestId('send-button') as HTMLButtonElement).disabled).toBe(true)
@@ -127,6 +138,9 @@ describe('D06 装车行为:选择条在输入卡里真渲染', () => {
 
   it('粘贴片段档 ⇒ 内联审查块进正文(带 path:line 锚点指令)', async () => {
     const { onSend } = renderInput()
+    fireEvent.change(screen.getByPlaceholderText('placeholder'), {
+      target: { value: '/review' },
+    })
     fireEvent.click(screen.getByTestId('review-target-kind-snippet'))
     fireEvent.change(screen.getByTestId('review-target-snippet-input'), {
       target: { value: 'const a = 1' },
@@ -145,6 +159,9 @@ describe('D06 装车行为:选择条在输入卡里真渲染', () => {
 
   it('发完清选择条(目标只作用于本轮,不粘到下一轮)', async () => {
     renderInput()
+    fireEvent.change(screen.getByPlaceholderText('placeholder'), {
+      target: { value: '/review' },
+    })
     fireEvent.click(screen.getByTestId('review-target-kind-uncommitted'))
     await waitFor(() => expect(screen.queryByTestId('review-target-clear')).not.toBeNull())
     fireEvent.click(screen.getByTestId('send-button'))

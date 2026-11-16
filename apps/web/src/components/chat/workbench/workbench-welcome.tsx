@@ -18,7 +18,7 @@
  */
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
-import { AtSign, Compass, Hammer, Slash } from 'lucide-react'
+import { AtSign, Slash } from 'lucide-react'
 
 import { PromptTemplates } from '@/components/ai/prompt-templates'
 import { Xiaofang } from '@/components/brand/Xiaofang'
@@ -34,20 +34,6 @@ export function WorkbenchWelcome({ onPrefill }: WorkbenchWelcomeProps) {
   const t = useTranslations('chat')
   const cards = React.useMemo(
     () => [
-      {
-        id: 'plan',
-        icon: Compass,
-        label: t('modePlan'),
-        desc: t('modePlanDesc'),
-        text: '/plan ',
-      },
-      {
-        id: 'build',
-        icon: Hammer,
-        label: t('modeBuild'),
-        desc: t('modeBuildDesc'),
-        text: '/build ',
-      },
       {
         id: 'context',
         icon: AtSign,

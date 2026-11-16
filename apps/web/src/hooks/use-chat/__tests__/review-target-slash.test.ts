@@ -8,20 +8,15 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 
 const holder = vi.hoisted(() => ({ workspacePath: 'G:/repo' as string | null }))
-const { mockRunCommand, mockSetMode, mockToastSuccess } = vi.hoisted(() => ({
+const { mockRunCommand } = vi.hoisted(() => ({
   mockRunCommand: vi.fn(),
-  mockSetMode: vi.fn(),
-  mockToastSuccess: vi.fn(),
 }))
 
 vi.mock('@/components/common', () => ({
-  toast: { success: mockToastSuccess, info: vi.fn(), error: vi.fn(), warning: vi.fn() },
+  toast: { success: vi.fn(), info: vi.fn(), error: vi.fn(), warning: vi.fn() },
 }))
 vi.mock('@/stores/ide-workspace', () => ({
   useIDEWorkspace: { getState: () => ({ workspacePath: holder.workspacePath }) },
-}))
-vi.mock('@/stores/mode', () => ({
-  useModeStore: { getState: () => ({ currentMode: 'build', setMode: mockSetMode }) },
 }))
 vi.mock('@/stores/chat', () => ({
   useChatStore: {
@@ -56,10 +51,6 @@ import {
 
 const t = (key: string, vars?: Record<string, string>) =>
   `${key}${vars ? JSON.stringify(vars) : ''}`
-
-const fakeModeStore = (currentMode: string) => ({
-  getState: () => ({ currentMode, setMode: mockSetMode }),
-})
 
 const okDiff = (stdout: string, stderr = '') => ({
   success: true,
@@ -97,15 +88,9 @@ describe('D06 /review 审查对象选择器', () => {
     expect(parseReviewTargetArgs('commit --amend')).toBeNull()
   })
 
-  it('/review <target> 命中后:切 review 模式 + 只读取 diff + diff 进正文', async () => {
+  it('/review <target> 命中后:只读取 diff + diff 进正文(不再切换模式)', async () => {
     mockRunCommand.mockResolvedValueOnce(okDiff('diff --git a/a.ts b/a.ts\n+bug\n'))
-    const prompt = await tryHandleReviewTargetSlash(
-      '/review uncommitted',
-      t,
-      fakeModeStore('build') as never,
-    )
-    expect(mockSetMode).toHaveBeenCalledWith('review')
-    expect(mockToastSuccess).toHaveBeenCalledTimes(1)
+    const prompt = await tryHandleReviewTargetSlash('/review uncommitted', t)
     expect(mockRunCommand).toHaveBeenCalledWith({
       command: 'git diff HEAD',
       workspacePath: 'G:/repo',
@@ -116,42 +101,23 @@ describe('D06 /review 审查对象选择器', () => {
   })
 
   it('反例:/review 无目标、自由文本、非命令 → null(零 git 调用)', async () => {
-    await expect(
-      tryHandleReviewTargetSlash('/review', t, fakeModeStore('review') as never),
-    ).resolves.toBeNull()
-    await expect(
-      tryHandleReviewTargetSlash('/review 看看这段', t, fakeModeStore('review') as never),
-    ).resolves.toBeNull()
-    await expect(
-      tryHandleReviewTargetSlash('请 /review uncommitted', t, fakeModeStore('review') as never),
-    ).resolves.toBeNull()
+    await expect(tryHandleReviewTargetSlash('/review', t)).resolves.toBeNull()
+    await expect(tryHandleReviewTargetSlash('/review 看看这段', t)).resolves.toBeNull()
+    await expect(tryHandleReviewTargetSlash('请 /review uncommitted', t)).resolves.toBeNull()
     expect(mockRunCommand).not.toHaveBeenCalled()
-    expect(mockSetMode).not.toHaveBeenCalled()
   })
 
   it('收集失败 / 空 diff / 无工作区都明说,不静默发空审查', async () => {
     mockRunCommand.mockResolvedValueOnce({ success: false, error: 'boom' })
-    const failed = await tryHandleReviewTargetSlash(
-      '/review branch main',
-      t,
-      fakeModeStore('review') as never,
-    )
+    const failed = await tryHandleReviewTargetSlash('/review branch main', t)
     expect(failed).toContain('could not be collected: boom')
 
     mockRunCommand.mockResolvedValueOnce(okDiff('   '))
-    const empty = await tryHandleReviewTargetSlash(
-      '/review uncommitted',
-      t,
-      fakeModeStore('review') as never,
-    )
+    const empty = await tryHandleReviewTargetSlash('/review uncommitted', t)
     expect(empty).toContain('diff is empty')
 
     holder.workspacePath = null
-    const noWorkspace = await tryHandleReviewTargetSlash(
-      '/review commit 2fc9ab9b55',
-      t,
-      fakeModeStore('review') as never,
-    )
+    const noWorkspace = await tryHandleReviewTargetSlash('/review commit 2fc9ab9b55', t)
     expect(noWorkspace).toContain('no workspace is open')
   })
 
