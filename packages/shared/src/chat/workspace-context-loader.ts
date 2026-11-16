@@ -29,12 +29,52 @@
  * 仅在 web 非 Tauri 环境下使用;Tauri 桌面端走 workspacePath 真实路径。
  */
 
-// 会话级 handle 存储(刷新页面后丢失,需用户重新选择工作区)
+// 会话级 handle 存储(内存快路径)
 const browserHandles = new Map<string, FileSystemDirectoryHandle>()
+
+// 句柄持久化(2026-11-16):FileSystemDirectoryHandle 可结构化克隆,存 IndexedDB
+// 后刷新页面不再必然丢授权。若用户在同一会话内已授权过,重新加载后 queryPermission
+// 仍为 granted,可直接复用;为 prompt 时浏览器要求用户手势重新确认,由 UI 提示重选。
+const HANDLE_DB_NAME = 'ihui-browser-workspace-handles'
+const HANDLE_DB_VERSION = 1
+const HANDLE_STORE = 'handles'
+
+function openHandleDb(): Promise<IDBDatabase | null> {
+  if (typeof indexedDB === 'undefined') return Promise.resolve(null)
+  return new Promise((resolve) => {
+    try {
+      const req = indexedDB.open(HANDLE_DB_NAME, HANDLE_DB_VERSION)
+      req.onupgradeneeded = () => {
+        const db = req.result
+        if (!db.objectStoreNames.contains(HANDLE_STORE)) db.createObjectStore(HANDLE_STORE)
+      }
+      req.onsuccess = () => resolve(req.result)
+      req.onerror = () => resolve(null)
+      req.onblocked = () => resolve(null)
+    } catch {
+      resolve(null)
+    }
+  })
+}
 
 /** 保存浏览器端工作区 handle(用户选文件夹后调用) */
 export function saveBrowserWorkspaceHandle(name: string, handle: FileSystemDirectoryHandle): void {
   browserHandles.set(name, handle)
+  void (async () => {
+    const db = await openHandleDb()
+    if (!db) return
+    try {
+      await new Promise<void>((resolve) => {
+        const tx = db.transaction(HANDLE_STORE, 'readwrite')
+        tx.objectStore(HANDLE_STORE).put(handle, name)
+        tx.oncomplete = () => resolve()
+        tx.onerror = () => resolve()
+        tx.onabort = () => resolve()
+      })
+    } finally {
+      db.close()
+    }
+  })()
 }
 
 /** 获取浏览器端工作区 handle(不存在返回 null) */
@@ -45,6 +85,82 @@ export function getBrowserWorkspaceHandle(name: string): FileSystemDirectoryHand
 /** 清除浏览器端工作区 handle(切换/移除工作区时调用) */
 export function clearBrowserWorkspaceHandle(name: string): void {
   browserHandles.delete(name)
+  void (async () => {
+    const db = await openHandleDb()
+    if (!db) return
+    try {
+      await new Promise<void>((resolve) => {
+        const tx = db.transaction(HANDLE_STORE, 'readwrite')
+        tx.objectStore(HANDLE_STORE).delete(name)
+        tx.oncomplete = () => resolve()
+        tx.onerror = () => resolve()
+        tx.onabort = () => resolve()
+      })
+    } finally {
+      db.close()
+    }
+  })()
+}
+
+/**
+ * 刷新后把 IndexedDB 里的句柄回填到内存表(应用启动/AI 面板挂载时调用一次)。
+ * 已存在的内存句柄优先(用户刚选的新授权不能被旧记录覆盖)。
+ * @returns 已持久化的全部工作区名
+ */
+export async function hydrateBrowserWorkspaceHandles(): Promise<string[]> {
+  const db = await openHandleDb()
+  if (!db) return Array.from(browserHandles.keys())
+  try {
+    return await new Promise<string[]>((resolve) => {
+      const tx = db.transaction(HANDLE_STORE, 'readonly')
+      const store = tx.objectStore(HANDLE_STORE)
+      const keysReq = store.getAllKeys()
+      const valuesReq = store.getAll()
+      tx.oncomplete = () => {
+        const keys = (keysReq.result ?? []) as string[]
+        const values = (valuesReq.result ?? []) as FileSystemDirectoryHandle[]
+        keys.forEach((key, i) => {
+          if (!browserHandles.has(key) && values[i]) browserHandles.set(key, values[i]!)
+        })
+        resolve(keys)
+      }
+      tx.onerror = () => resolve(Array.from(browserHandles.keys()))
+      tx.onabort = () => resolve(Array.from(browserHandles.keys()))
+    })
+  } finally {
+    db.close()
+  }
+}
+
+/**
+ * 读取句柄当前的目录授权状态。
+ * - 'missing':内存与 IndexedDB 都没有句柄
+ * - 'prompt':有句柄但需用户手势重新授权(刷新后的常见态)
+ */
+export async function getBrowserWorkspacePermission(
+  name: string,
+): Promise<PermissionState | 'missing'> {
+  const handle = getBrowserWorkspaceHandle(name)
+  if (!handle) return 'missing'
+  const query = (
+    handle as FileSystemDirectoryHandle & {
+      queryPermission?: (d: { mode: 'read' | 'readwrite' }) => Promise<PermissionState>
+    }
+  ).queryPermission
+  if (!query) return 'granted'
+  try {
+    return await query.call(handle, { mode: 'readwrite' })
+  } catch {
+    return 'prompt'
+  }
+}
+
+/**
+ * 句柄型工作区键:浏览器 showDirectoryPicker 只暴露文件夹名,不含任何路径分隔符。
+ * 服务端 /fs/open 返回的永远是绝对路径(含分隔符),故该判据不会误伤服务端工作区。
+ */
+export function isBrowserHandleWorkspaceKey(path: string): boolean {
+  return !!path && !/[\\/]/.test(path) && !/^[A-Za-z]:/.test(path)
 }
 
 // =============================================================================

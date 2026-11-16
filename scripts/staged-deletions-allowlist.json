@@ -134,6 +134,16 @@
     {
       "path": "apps/api/src/db/coze-chat-queries.ts",
       "reason": "2026-11-09 有意删除(Knip 棘轮票):coze 端点已 404 化,本文件为遗留死查询层。两处引用方均为 vi.mock **带 factory** 形态 —— 工厂自给全部导出,模块解析只按路径做 key,不依赖真实文件存在:\n① apps/api/src/routes/__tests__/coze-chat-history-authz.test.ts:20 vi.mock(\"../../db/coze-chat-queries.js\", () => ({ findCozeChatHistory: mockFindCozeChatHistory }));\n② apps/api/tests/f-54-155-134-admin-gates.test.ts:55 vi.mock(\"../src/db/coze-chat-queries.js\", () => ({ findCozeChatHistory: spies.findCozeChatHistory }))。\n删除后两测试仍绿(HEAD 面 CI test job 199/200 唯一红是 tool-invocation-ledger 硬编码 idx,与本件无关)。同目录 my-member-queries 等在役文件不受影响。\n问责复跑:node scripts/check-staged-deletions.mjs --staged;pnpm -C apps/api vitest run src/routes/__tests__/coze-chat-history-authz.test.ts tests/f-54-155-134-admin-gates.test.ts。"
+    },
+    {
+      "path": "apps/web/src/components/chat/__tests__/engine-mode-control.test.tsx",
+      "reason": "2026-11-16 有意删除:引擎切换控件 EngineModeControl 已从 AI 面板标题栏移除(仅保留设置页 EngineModeCard 单一入口),该测试整份绑定被删组件(render(<EngineModeControl .../>) 与 aria-checked 三态断言),无可迁移行为;组件本身按门 99 判为 no-reference(全仓零引用)。删除测试不减少任何存续行为的覆盖;设置页三态由 stores/engine-mode 的既有测试与 pages/settings/preferences 覆盖。问责复跑:node scripts/check-staged-deletions.mjs --staged。",
+      "until": "2027-06-30"
+    },
+    {
+      "path": "apps/web/src/components/ai/__tests__/engine-mode-header-mount.test.ts",
+      "reason": "2026-11-16 有意删除:该测试断言 AI 面板标题栏挂载 EngineModeControl(getByRole radio '自动'),控件随本轮从标题栏移除后断言对象不存在;标题栏不再承载引擎切换,改写只会测试不存在的挂载关系,故删除。设置页入口由 engine-mode-card 组件与 preferences 页覆盖。问责复跑:node scripts/check-staged-deletions.mjs --staged。",
+      "until": "2027-06-30"
     }
   ]
 }
