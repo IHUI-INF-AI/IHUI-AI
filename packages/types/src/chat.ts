@@ -61,6 +61,12 @@ export interface ToolCall extends TypesBaseToolCall {
   partialSeq?: number
   /** image_generation 工具返回的图片 URL(data URI 或 https URL) */
   image_url?: string
+  /**
+   * image_generation 工具返回的卡片预览图(data URI)。与 image_url 的区别:
+   * image_url 是落库的成品图地址,image_preview 是 tool-result 帧里即时回传的
+   * base64 缩略图(仅卡片预览用,不落库)。写入见 use-chat/stream-handlers.ts。
+   */
+  image_preview?: string
 }
 
 /**
