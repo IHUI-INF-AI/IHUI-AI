@@ -85,4 +85,30 @@ test('R6 复活身份稳定、与告警身份不同前缀、不含抖动量', ()
   assert.notEqual(revivalAlertIdOf(a), alertIdOf(a), '两件事两种修法:身份前缀必须不同')
   assert.equal(/[A-Za-z0-9-]+/.test(revivalAlertIdOf(a)), true)
 })
+
+test('R7 商店号(设计性摘除)被排除:7 个应用上架号不再误报保活掉线', () => {
+  const STORES = [
+    'google-play', 'honor-store', 'huawei-agc', 'oppo-store',
+    'vivo-store', 'xiaomi-store', 'yyb-store',
+  ]
+  const storeRows = STORES.map((p, i) =>
+    row({ id: `store-${i}`, providerCode: p, healthStatus: 'unknown', tempUnschedulable: true }),
+  )
+  const realDown = row({ id: 'codearts-1', providerCode: 'codearts', tempUnschedulable: true, healthStatus: 'down' })
+  // 不传排除清单 = 旧口径(向后兼容):商店号仍被算进去
+  assert.equal(alertTargetsOf([...storeRows, realDown]).length, 8)
+  // 传商店号清单 = 新口径:只剩 codearts 真故障
+  const after = alertTargetsOf([...storeRows, realDown], STORES)
+  assert.equal(after.length, 1)
+  assert.equal(after[0].providerCode, 'codearts')
+})
+
+test('R8 复活判据也排除商店号:设计态摘除不产生"复活"噪音', () => {
+  const storeBefore = row({ id: 'store-1', providerCode: 'yyb-store', tempUnschedulable: true, healthStatus: 'unknown' })
+  const storeAfter = row({ id: 'store-1', providerCode: 'yyb-store', tempUnschedulable: false, healthStatus: 'unknown' })
+  // 未排除时它会被当成"复活"
+  assert.equal(revivalTransitionsOf([storeBefore], [storeAfter]).length, 1)
+  // 排除后无复活通知
+  assert.equal(revivalTransitionsOf([storeBefore], [storeAfter], ['yyb-store']).length, 0)
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
