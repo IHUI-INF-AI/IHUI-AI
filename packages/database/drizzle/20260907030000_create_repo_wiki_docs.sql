@@ -5,7 +5,7 @@
 -- 20260907030000_create_repo_wiki_docs.sql
 -- 新增 Repo Wiki 文档表 repo_wiki_docs(2026-09-07 立,Repo Wiki MVP)。
 --
--- 背景:对标 Qoder 的 Repo Wiki——自动把代码仓库生成架构/模块知识库文档。
+-- 背景:遵循统一工程规范。
 -- 前端从用户工作区收集文件清单与关键文件内容 → 后端调 LLM 生成
 -- "仓库总览 + 模块文档"并落库到本表 → 前端浏览生成的 Wiki(markdown 渲染)。
 --

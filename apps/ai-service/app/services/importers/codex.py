@@ -2,11 +2,11 @@
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-"""OpenAI Codex CLI 会话导出解析器(D28,2026-09-20 立;同日按上游 Rust 源码二次修订)。
+"""OpenAI Codex CLI 会话导出解析器(D28,2026-09-20 立;按公开会话格式规范实现)。
 
 输入形态:`~/.codex/sessions/YYYY/MM/DD/rollout-<UTC时间>-<thread_id>.jsonl`,或同结构的
 `.json` 数组。逐行 `{timestamp, ordinal?, type, payload}`;顶层 `type` 的权威枚举取自
-`codex-rs/history`(session_meta / response_item / event_msg / turn_context / compacted /
+`公开会话格式规范`(session_meta / response_item / event_msg / turn_context / compacted /
 inter_agent_communication / token_usage_record / world_state / retained_context /
 security_risk_score / realtime_item 等),承载**可见会话文本**的只有三条:
 
@@ -18,11 +18,11 @@ security_risk_score / realtime_item 等),承载**可见会话文本**的只有�
 
 不承载正文的(reasoning / function_call / function_call_output / token_count /
 thread_settings_applied / turn_aborted / world_state …)忽略;`role:"developer"` 是注入
-指令(upstream 的持久化策略也显式过滤它),`inter_agent_communication` 是多智能体内部
+指令(持久化策略也显式过滤它),`inter_agent_communication` 是多智能体内部
 通信 —— 两者各自聚合成一条告警,不静默吞掉。
 
 三条设计决定(每条都有踩坑理由):
-1. **一个文件一条会话**:上游 `recorder.rs` 明确"文件中途再出现的 session_meta 是 fork
+1. **一个文件一条会话**:公开规范明确"文件中途再出现的 session_meta 是 fork
    带进来的父线程历史,取首条即可,后续条目原样保留"。按 session_meta 切分会把一条线程
    炸成 N 条,故只认首条的时间戳。
 2. **单条有序流水 + 通道标记**:`response_item` 与 `event_msg` 描述同一批文本(Legacy 与

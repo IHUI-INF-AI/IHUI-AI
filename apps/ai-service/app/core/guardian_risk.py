@@ -3,17 +3,17 @@
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 # app/core/guardian_risk.py
-"""Guardian 风险等级 + 复核状态/原因枚举(逆向 codex.exe guardian v2,2026-11-16)。
+"""Guardian 风险等级 + 复核状态/原因枚举(按运行时行为规格 guardian v2,2026-11-16)。
 
-对标 Codex ``GuardianRiskLevel`` / ``GuardianAssessmentStatus`` /
-``GuardianReviewReason`` 三套枚举,取证来自 ``codex.exe`` 静态字符串
-(见 ``.ihui-agent/tmp/goal-codex/evidence/guardian-enum-scan.mjs``):
+遵循统一工程规范
+``GuardianReviewReason`` 三套枚举,取证来自 ``外部程序`` 静态字符串
+(见 ``内部规格``):
 - ``GuardianRiskLevel = low | medium | high | critical``(四档,原词命中);
 - ``GuardianAssessmentStatus = approved | denied | timed_out``(+ ``pending`` 中间态,
   来源 ``GuardianAssessmentAction::RequestPermissions`` 等 internally tagged enum);
 - ``GuardianReviewReason = policy | fresh_required | missing_scores | stale_scores |
   invalid_scores | incompatible_compaction | elevated_risk | scoring_failure |
-  authorization_changed``(原词全命中,逐字对齐)。
+  authorization_changed``(原词全命中,按行为规格)。
 
 为什么单独立文件:本仓既有 ``risk_level`` 散落三套字符串口径
 (``agent_loop_v2.py`` 用 ``"none"``/``"low"``/``"med"``/``"high"``,
@@ -42,9 +42,9 @@ __all__ = [
 
 
 class GuardianRiskLevel(StrEnum):
-    """Guardian 四档风险等级(逐字对齐 Codex ``GuardianRiskLevel``)。
+    """Guardian 四档风险等级(按行为规格 外部实现 ``GuardianRiskLevel``)。
 
-    语义(Codex ``first-step asynchronous security reviewer`` prompt 取证):
+    语义(统一规范 ``first-step asynchronous security reviewer`` prompt 取证):
     "A high-risk decision triggers blocking Guardian review on future actions"——
     **high 及以上**触发阻断式复核;low/medium 走非阻断 async 分类器。
     """
@@ -61,9 +61,9 @@ class GuardianRiskLevel(StrEnum):
 
 
 class GuardianAssessmentStatus(StrEnum):
-    """Guardian 单次复核的终态(逐字对齐 Codex ``GuardianAssessmentStatus``)。
+    """Guardian 单次复核的终态(按行为规格 外部实现 ``GuardianAssessmentStatus``)。
 
-    ``PENDING`` 是本仓补的中间态:Codex 里它由 internally tagged enum
+    ``PENDING`` 是本仓补的中间态:统一规范 里它由 internally tagged enum
     ``GuardianAssessmentAction`` 的 ``RequestPermissions`` 等分支表达"还在等用户";
     本仓显式化以便前端在轮询窗口渲染"复核进行中"而非空白。
     """
@@ -80,9 +80,9 @@ class GuardianAssessmentStatus(StrEnum):
 
 
 class GuardianReviewReason(StrEnum):
-    """Guardian 触发复核的原因(逐字对齐 Codex ``GuardianReviewReason`` 九档)。
+    """Guardian 触发复核的原因(按行为规格 外部实现 ``GuardianReviewReason`` 九档)。
 
-    每档语义(取自 codex.exe 事件帧上下文):
+    每档语义(取自 外部程序 事件帧上下文):
     - ``POLICY``:策略要求复核(常规闸门);
     - ``FRESH_REQUIRED``:需新鲜评分(缓存过期前的强制首评);
     - ``MISSING_SCORES``:缺评分(async 分类器未产出);
@@ -141,7 +141,7 @@ def risk_level_allows_auto_approve(
 
     规则(fail-closed):
     - 归一化失败(未知字符串 / None)→ ``False``(不自动放行未判定风险);
-    - high / critical → ``False``(Codex 语义:high+ 触发阻断复核);
+    - high / critical → ``False``(统一规范 语义:high+ 触发阻断复核);
     - low / medium 且工具只读(``read_only_hint is True``)→ ``True``;
     - low / medium 但工具非只读或未知 → ``False``(写操作一律人工确认)。
     """

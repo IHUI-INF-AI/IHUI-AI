@@ -35,6 +35,7 @@ import {
   CHART_ORANGE,
 } from '@ihui/design-tokens'
 import { BackButton } from '@/components/common'
+import { FeaturePageShell } from '@/components/layout'
 import {
   Card,
   CardContent,
@@ -164,15 +165,12 @@ export default function TrendPage() {
   }
 
   return (
-    <div className="space-y-4">
-      <BackButton />
-
-      <header className="space-y-1">
-        <h1 className="text-display font-bold tracking-tight">{t('trendTitle')}</h1>
-        <p className="text-label text-muted-foreground">
-          {t('trendSubtitle', { studentId: studentId?.slice(0, 8) ?? '' })}
-        </p>
-      </header>
+    // 2026-11-16 接入统一子功能页外壳:BackButton + 手写 header 收编为页头卡,
+    // 自动带上「教育」返回 chip(取 eduHub.title,与域入口页大标题恒等)。
+    // registry 的 href 索引只登记 /domains/*、/learn、/dashboard 等入口,不含
+    // /edu-management/* 路由前缀,自动解析会返回 null,故显式传 domain="edu"。
+    // 主分支已带壳,早退分支(loading)保留裸 BackButton 以免壳依赖未就绪的数据。
+    <FeaturePageShell title={t('trendTitle')} description={t('trendSubtitle', { studentId: studentId?.slice(0, 8) ?? '' })} icon={TrendingUp} domain="edu">
 
       {/* Subject filter */}
       <Card>
@@ -316,7 +314,7 @@ export default function TrendPage() {
           )}
         </CardContent>
       </Card>
-    </div>
+    </FeaturePageShell>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

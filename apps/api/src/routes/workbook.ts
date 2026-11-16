@@ -5,7 +5,7 @@
 /**
  * 工作簿 agent 命令面路由(2026-11-02 立,goal-b45 F 席)。
  *
- * 对标取证:`docs/benchmark-evidence/2026-11/qoder-trae-rea-20261101/T8-sidecar-native-surface.md` §B
+ * 对齐取证:`docs/benchmark-evidence/2026-11/qoder-trae-rea-20261101/T8-sidecar-native-surface.md` §B
  * 对照件 `xlsx-sidecar.exe` 的 14 枚命令里,本仓这一格只取 **open / read_range / write_cells /
  * save / close** 五条最小集(不照抄 14 条凑数);`recalc_cells` 与 `convert_workbook` **未做**
  * —— 判据与三条红线(非破坏式保存 / 公式不回缓存值 / 不把公式换成静态值)全部住在

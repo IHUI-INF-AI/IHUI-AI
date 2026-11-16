@@ -39,7 +39,7 @@ function parseList(raw: string | undefined, key: string, warnings: string[]): st
 }
 
 /**
- * 沙箱网络模式取值(逆向复现 Codex `SandboxNetworkMode`,R11)。
+ * 沙箱网络模式取值(独立实现 外部实现 `SandboxNetworkMode`,R11)。
  *
  * - 缺省 = `allowlist`(不改既有在线裁决行为,零回归)。
  * - 认不出的取值一律落**更严一侧 = `blocked`** + warning(§0.10:失效方向是多拦一次,

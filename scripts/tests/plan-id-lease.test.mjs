@@ -426,7 +426,7 @@ test('T4b resolveIdTokens 接线:段内空闲序 / 池内新占段 / 无 machine
 })
 
 test('T4c G-14:本机段空闲但全文件已被别席占用 ⇒ 跳过该号并在 scanNotes 点名', () => {
-  // 现场逐字复刻 2026-10-22 病型:号只活在**归档占位注释**里 ⇒ 不进 parseTaskRows,
+  // 现场独立实现 2026-10-22 病型:号只活在**归档占位注释**里 ⇒ 不进 parseTaskRows,
   // usedIdsOfPrefix 看不见它,而它确实已被别席登记(同号不同题 ⇒ 复合主键门也不拦)。
   const leased = ['- [ ] G-700 基准行。', row({ start: 1, end: 50 })].join('\n')
   const occupied = `${leased}\n<!-- 已归档(2026-10-15):✅(2026-10-15) **G-1 别席既存题** —— 完整内容在归档件 -->`

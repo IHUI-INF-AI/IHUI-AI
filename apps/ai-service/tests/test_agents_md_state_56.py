@@ -24,7 +24,7 @@ from app.core.agents_md_state import (
     render_agents_md_body,
 )
 
-# 逐字对齐 codex 源字面(防止回归漂移)。
+# 按行为规格 外部实现 源字面(防止回归漂移)。
 _EXPECTED_REPLACEMENT = (
     "These AGENTS.md instructions replace all previously provided AGENTS.md instructions."
 )

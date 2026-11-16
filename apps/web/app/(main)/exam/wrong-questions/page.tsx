@@ -44,7 +44,8 @@ import {
   TableCell,
 } from '@ihui/ui-react'
 import { Badge } from '@/components/data/Badge'
-import { BackButton, AuthGatePrompt } from '@/components/common'
+import { AuthGatePrompt } from '@/components/common'
+import { FeaturePageShell } from '@/components/layout'
 import { useAuthGate } from '@/hooks/use-auth-gate'
 import type { WrongQuestionListItem as WrongQuestion } from '@ihui/types'
 
@@ -131,9 +132,7 @@ export default function WrongQuestionsPage() {
   const [explanation, setExplanation] = React.useState<{ title: string; text: string } | null>(null)
   const explainMut = useMutation({
     mutationFn: async (wq: WrongQuestion) => {
-      const r = await explainWrongQuestion<{ explanation: string; cached: boolean }>(
-        wq.questionId,
-      )
+      const r = await explainWrongQuestion<{ explanation: string; cached: boolean }>(wq.questionId)
       if (!r.success) throw new Error(r.error)
       return r.data
     },
@@ -149,17 +148,9 @@ export default function WrongQuestionsPage() {
   // 2026-09-30 登录态门:未登录时保留页面外壳,只以登录引导替换数据区
   if (!allow) {
     return (
-      <div className="px-4 py-4 mx-auto w-full max-w-6xl space-y-4">
-        <BackButton />
-        <header className="space-y-1">
-          <h1 className="flex items-center gap-2 text-heading font-bold tracking-tight min-[768px]:text-display">
-            <FileText className="h-7 w-7 text-primary" />
-            {t('title')}
-          </h1>
-          <p className="text-label text-muted-foreground">{t('subtitle')}</p>
-        </header>
+      <FeaturePageShell title={t('title')} description={t('subtitle')} icon={FileText} domain="edu">
         <AuthGatePrompt message="请先登录后查看错题本" />
-      </div>
+      </FeaturePageShell>
     )
   }
 
@@ -194,16 +185,7 @@ export default function WrongQuestionsPage() {
   }
 
   return (
-    <div className="px-4 py-4 mx-auto w-full max-w-6xl space-y-4">
-      <BackButton />
-      <header className="space-y-1">
-        <h1 className="flex items-center gap-2 text-heading font-bold tracking-tight min-[768px]:text-display">
-          <FileText className="h-7 w-7 text-primary" />
-          {t('title')}
-        </h1>
-        <p className="text-label text-muted-foreground">{t('subtitle')}</p>
-      </header>
-
+    <FeaturePageShell title={t('title')} description={t('subtitle')} icon={FileText} domain="edu">
       <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-3">
         {cards.map(({ label, value, Icon, tone }) => (
           <Card key={label} className="transition-colors hover:bg-accent">
@@ -377,7 +359,7 @@ export default function WrongQuestionsPage() {
           </div>
         </div>
       )}
-    </div>
+    </FeaturePageShell>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

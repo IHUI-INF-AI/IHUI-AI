@@ -67,7 +67,7 @@ import { usePermissionAxesPersistence } from '@/lib/permission-axes-prefs'
 /** 层栈 id(见 @/lib/overlay-stack):本弹层的 Esc 只在栈顶时被消费 */
 const PERMISSION_MODE_OVERLAY_ID = 'permission-mode-popover'
 
-/** 工作区权限模式选择器(2026-07-25 深化,深度对标 OpenAI Codex CLI approvalMode)
+/** 工作区权限模式选择器(2026-07-25 深化,深度对齐 OpenAI Codex CLI approvalMode)
  *
  * 触发器:盾牌图标 + 当前模式短名(如"完全访问" / "请求批准" / "替我审批")
  * 点击 → 弹 Codex 风格 popover:
@@ -172,7 +172,7 @@ export function PermissionModePopover({
   // 把焦点放到 currentMode 对应的 radio 卡片(而非首个 focusable=learnMore),
   // 让屏幕阅读器/键盘用户从最有意义的元素开始浏览
   const radioRefs = React.useRef<(HTMLButtonElement | null)[]>([])
-  // 首次启用高风险模式确认弹窗(2026-07-25 深化,深度对标 Codex CLI safety guard):
+  // 首次启用高风险模式确认弹窗(2026-07-25 深化,深度遵循统一工程规范):
   // 通过 ai-panel store 共享状态,popover / Shift+Tab / /permission full 三处触发共用
   // 同一个 FullAccessConfirmDialog(由 message-input 渲染)
   // popover 只负责写 store.setPendingFullAccess(true) 触发弹窗(通过 getState 实时读,
@@ -364,7 +364,7 @@ export function PermissionModePopover({
     }
   }, [isOpen, focusedMode, handleSelect])
 
-  // 确认弹窗逻辑(2026-07-25 深化,深度对标 Codex CLI safety guard):
+  // 确认弹窗逻辑(2026-07-25 深化,深度遵循统一工程规范):
   // - popover 只负责 setPendingFullAccess(true) 触发弹窗
   // - 弹窗本体由 message-input 渲染 FullAccessConfirmDialog(共享 ai-panel store)
   // - 弹窗确认回调内:FullAccessConfirmDialog 写 localStorage(markFullAccessSuppressed)
@@ -501,7 +501,7 @@ export function PermissionModePopover({
           </button>
         </Tooltip>
       )}
-      {/* 首次启用高风险模式确认弹窗(2026-07-25 深化,深度对标 Codex CLI safety guard)
+      {/* 首次启用高风险模式确认弹窗(2026-07-25 深化,深度对齐统一规范)
           - 统一由 message-input 渲染 FullAccessConfirmDialog(共享 store,Slash/Popover/Shift+Tab 共用)
           - 本组件只负责 setPendingFullAccess(true) 触发弹窗 */}
       <PortalPanel
@@ -655,7 +655,7 @@ export function PermissionModePopover({
             })}
           </div>
 
-          {/* 底部"完全访问"快捷链接(对标 Codex 顶部展开的深色卡片) */}
+          {/* 底部"完全访问"快捷链接(对齐统一规范) */}
           <button
             type="button"
             onClick={() => handleSelect('bypass-permissions')}

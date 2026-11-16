@@ -70,7 +70,7 @@ vi.mock('@/components/feedback/portal-panel', () => ({
   }): React.ReactElement | null => (open ? <div>{children}</div> : null),
 }))
 
-/** 五条工具命令(D117 / G-231 对标 Codex) */
+/** 五条工具命令(D117 / G-231 遵循统一工程规范) */
 const TOOL_COMMANDS = [
   { id: 'diff', label: '/diff', handlerId: 'slashDiff' },
   { id: 'status', label: '/status', handlerId: 'slashStatus' },
@@ -128,7 +128,10 @@ describe('SlashCommandPalette 工具命令可见性(D117 发现性格)', () => {
     const withTools = useSlashCommandsForTest()
     const withoutTools = withTools.filter((c) => c.category !== 'tools')
 
-    expect(withTools.filter((c) => c.category === 'tools').length).toBe(TOOL_COMMANDS.length)
+    // 2026-11-16:/review 以纯动作保留在 tools 分组(不再切模式)⇒ tools 档 ≥ 五条
+    expect(withTools.filter((c) => c.category === 'tools').length).toBeGreaterThanOrEqual(
+      TOOL_COMMANDS.length,
+    )
 
     render(<Host commands={withoutTools} onSelect={() => {}} />)
     for (const { label } of TOOL_COMMANDS) {

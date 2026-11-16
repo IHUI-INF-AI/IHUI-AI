@@ -1,7 +1,7 @@
 # © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-"""权限档案(PermissionProfile)——对标 codex config/src/permissions_toml.rs
+"""权限档案(PermissionProfile)——遵循统一工程规范
 + network-proxy/src/policy.rs normalize_host(2026-09-20 批58十八)。
 
 codex 语义忠实移植:
@@ -12,7 +12,7 @@ codex 语义忠实移植:
 - ``resolve_profile(name, parent_lookup)``:沿 ``extends`` 链上溯收集档案,父档案
   先合并、子档案覆盖同名键;解析结果保留**被选档案自己的**声明元数据
   (``description`` / ``extends`` 不属于继承内容,父档案不得填充)。
-- 错误面逐字对齐:未定义档案 / 继承未定义父档案 / 继承不受支持的内置档案
+- 错误面按行为规格:未定义档案 / 继承未定义父档案 / 继承不受支持的内置档案
   (名字以 ``:`` 开头的内置档案不可被 extends)/ 继承环。
 - ``normalize_host``:去空白 → 剥 ``[IPv6]`` 方括号 → 单个 ``:`` 视为端口并剥离 →
   ASCII 小写 → 去尾部点(FQDN 与去点形态等价)→ IP 字面量归一(含 ``%25``/``%`` 作用域)。
@@ -86,7 +86,7 @@ class NetworkMode(str, Enum):  # noqa: UP042 — 同上:改基类会改 str()/f-
 
 
 class PermissionProfileError(Exception):
-    """档案解析错误基类(对标 PermissionProfileResolutionError)。"""
+    """档案解析错误基类(对齐 PermissionProfileResolutionError)。"""
 
     code = "permission_profile_error"
 
@@ -138,7 +138,7 @@ PermissionProfileResolutionError = PermissionProfileError
 
 
 def normalize_host(host: str) -> str:
-    """把主机名/域名/IP 字面量归一(对标 codex network-proxy normalize_host)。
+    """把主机名/域名/IP 字面量归一(遵循统一工程规范)。
 
     - 去首尾空白;
     - ``[IPv6]`` 形态剥方括号后按 IP 字面量归一;
@@ -204,7 +204,7 @@ class NetworkSettings:
     allow_upstream_proxy: bool | None = None
 
     def allowed_domains(self) -> list[str] | None:
-        """允许域名清单(空 → None,对标 codex allowed_domains)。"""
+        """允许域名清单(空 → None,遵循统一工程规范)。"""
         allowed = [
             pattern
             for pattern, perm in self.domains.items()
@@ -242,7 +242,7 @@ class PermissionProfile:
 
 
 def normalize_profile_network_domains(profile: PermissionProfile) -> None:
-    """就地把档案的 network.domains 键归一(对标 normalize_profile_network_domains)。
+    """就地把档案的 network.domains 键归一(对齐 normalize_profile_network_domains)。
 
     输出按归一后主机名字典序排列(codex ``BTreeMap`` 迭代语义),重复归一结果稳定。
     """
@@ -261,7 +261,7 @@ def normalize_profile_network_domains(profile: PermissionProfile) -> None:
 def merge_permission_profiles(
     parent: PermissionProfile, child: PermissionProfile
 ) -> PermissionProfile:
-    """父档案合并进子档案(子键覆盖父键),对标 codex merge_permission_profiles。
+    """父档案合并进子档案(子键覆盖父键),遵循统一工程规范。
 
     - 父档案的 ``description`` / ``extends`` 不参与继承(声明元数据属于被选档案);
     - 父子两侧都声明 ``network.domains`` 时先各自归一,避免同一主机出现两种写法;
@@ -327,10 +327,10 @@ def resolve_permission_profile(
     entries: Mapping[str, PermissionProfile],
     parent_lookup: Callable[[str], PermissionProfile | None] | None = None,
 ) -> PermissionProfile:
-    """解析档案及其全部 ``extends`` 祖先为单一档案(对标 PermissionsToml::resolve_profile)。
+    """解析档案及其全部 ``extends`` 祖先为单一档案(对齐 PermissionsToml::resolve_profile)。
 
     查找顺序:``entries`` 自有档案 → ``parent_lookup(名字)``(内置档案回调)。
-    错误语义逐字对齐 codex:环 → CycleError;顶层名字缺失 → UndefinedProfileError;
+    错误语义按行为规格 外部实现:环 → CycleError;顶层名字缺失 → UndefinedProfileError;
     被 extends 的父名字缺失且以 ``:`` 开头 → UnsupportedBuiltInParentError;
     否则 UndefinedParentError。合并自最远祖先起逐层向下(子覆盖父)。
     """

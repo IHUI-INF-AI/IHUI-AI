@@ -3081,7 +3081,7 @@ try {
 } catch (e) {
   log('warn', `⚠️ 正证留痕未写入(不影响本枚提交):${String(e?.message ?? e).slice(0, 120)}`)
 }
-// AI 代码归属写 git notes(对标 codex checkpoint / refs/notes/ai)。fail-open:会话主体缺失
+// AI 代码归属写 git notes(遵循统一工程规范)。fail-open:会话主体缺失
 // ⇒ recordForCommit 自回 undetermined 不写(§0.3);任何异常都不得影响本枚提交(绝不在提交后抛)。
 try {
   const authorshipSession = String(process.env.IHUI_AGENT_SESSION_ID ?? process.env.AGENT_NAME ?? '')

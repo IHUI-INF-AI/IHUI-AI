@@ -69,7 +69,7 @@ def with_frame_trace_id(evt: str, payload: Any) -> Any:
 # 判序只许有一处(llm.py::_sse() 调用本函数,agents 流等未接线面天然不带 = 现状)。
 # 水位状态是**每流一份**的,经 ContextVar 交接:流开始处 begin、流收尾处 end,
 # 出帧时读同一上下文;字段名唯一真相源在 sse_contract.SSE_WATERMARK_PAYLOAD_KEYS
-# (与 packages/api-client/src/frame-watermark.ts 逐字对齐,错一格 = 消费侧恒 undetermined)。
+# (与 packages/api-client/src/frame-watermark.ts 按行为规格,错一格 = 消费侧恒 undetermined)。
 
 
 @dataclass

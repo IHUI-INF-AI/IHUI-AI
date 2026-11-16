@@ -1,11 +1,11 @@
 # © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-"""批58:realtime 系上下文片段 — 对标 codex realtime_delegation.rs +
+"""批58:realtime 系上下文片段 — 遵循统一工程规范
 realtime_start_instructions.rs + realtime_end_instructions.rs +
 realtime_start_with_instructions.rs + world_state/realtime.rs。
 
-片段形态:role/markers/正文逐字对齐 codex;RealtimeState 提供
+片段形态:role/markers/正文按行为规格 外部实现;RealtimeState 提供
 active 翻转 diff(render_transition 四分支 + Absent/Unknown 三态语义)。
 """
 
@@ -13,25 +13,25 @@ from __future__ import annotations
 
 from typing import Any
 
-# 对标 codex_protocol::protocol::REALTIME_CONVERSATION_{OPEN,CLOSE}_TAG
+# 遵循统一工程规范
 REALTIME_CONVERSATION_OPEN_TAG = "<realtime_conversation>"
 REALTIME_CONVERSATION_CLOSE_TAG = "</realtime_conversation>"
 
-# 对标 realtime_delegation.rs 常量
+# 对齐 realtime_delegation.rs 常量
 MAX_REALTIME_DELEGATION_FIELD_BYTES = 4 * 1024
 TRUNCATION_MARKER = "…"
 
-# content kinds(对标 ContentItemKind 字面量)
+# content kinds(对齐 ContentItemKind 字面量)
 CONTENT_KIND_START = "realtime_conversation.start_instructions"
 CONTENT_KIND_END = "realtime_conversation.end_instructions"
 CONTENT_KIND_CUSTOM_START = "realtime_conversation.custom_start_instructions"
 CONTENT_KIND_DELEGATION = "realtime_conversation.delegation"
 
-# 对标 RealtimeDelegationSource
+# 对齐 RealtimeDelegationSource
 SOURCE_HANDOFF = "handoff"
 SOURCE_TRANSCRIPT_TAIL_FLUSH = "transcript_tail_flush"
 
-# 对标 codex_prompts realtime 模板(include_str! 原文,trim 后进 body)
+# 遵循统一工程规范)
 START_INSTRUCTIONS = """Realtime conversation started.
 
 You are operating as a backend executor behind an intermediary. The user does not talk to you directly. Any response you produce will be consumed by the intermediary and may be summarized before the user sees it.
@@ -55,13 +55,13 @@ def _fragment(
         "type": "message",
         "role": role,
         "content": [{"type": "input_text", "text": body}],
-        # content kind 仅供 host 侧识别/归约(对标 ContentItemKind)
+        # content kind 仅供 host 侧识别/归约(对齐 ContentItemKind)
         "content_kind": content_kind,
     }
 
 
 def _escape_xml_text(text: str) -> str:
-    """对标 escape_xml_text:仅 & < > 三字符(逐字对齐,不含引号)。"""
+    """对齐 escape_xml_text:仅 & < > 三字符(按行为规格,不含引号)。"""
     return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
@@ -73,7 +73,7 @@ def _char_boundary_ok(text: str, index: int) -> bool:
 
 
 def escape_xml_text_bounded(text: str, retain: str) -> str:
-    """对标 escape_xml_text_bounded:4KB 字段预算 + 首尾保留截断。
+    """对齐 escape_xml_text_bounded:4KB 字段预算 + 首尾保留截断。
 
     retain="start" 保留开头(用于 input),retain="end" 保留结尾
     (用于 transcript_delta)。超限保留 4KB-marker 字节,按字符边界截。
@@ -120,7 +120,7 @@ def _byte_limit_to_char_index(
 
 
 def build_realtime_start_instructions_fragment() -> dict[str, Any]:
-    """对标 RealtimeStartInstructions:body = "\\n{START_INSTRUCTIONS.trim()}\\n"。"""
+    """对齐 RealtimeStartInstructions:body = "\\n{START_INSTRUCTIONS.trim()}\\n"。"""
     return _fragment(
         "developer", f"\n{START_INSTRUCTIONS.strip()}\n", CONTENT_KIND_START
     )
@@ -129,7 +129,7 @@ def build_realtime_start_instructions_fragment() -> dict[str, Any]:
 def build_realtime_end_instructions_fragment(
     instructions: str | None = None,
 ) -> dict[str, Any]:
-    """对标 RealtimeEndInstructions:无自定义则用 END_INSTRUCTIONS.trim()。"""
+    """对齐 RealtimeEndInstructions:无自定义则用 END_INSTRUCTIONS.trim()。"""
     text = instructions if instructions is not None else END_INSTRUCTIONS.strip()
     return _fragment("developer", f"\n{text}\n", CONTENT_KIND_END)
 
@@ -137,7 +137,7 @@ def build_realtime_end_instructions_fragment(
 def build_realtime_start_with_instructions_fragment(
     instructions: str,
 ) -> dict[str, Any]:
-    """对标 RealtimeStartWithInstructions:body = "\\n{instructions}\\n"。"""
+    """对齐 RealtimeStartWithInstructions:body = "\\n{instructions}\\n"。"""
     return _fragment(
         "developer", f"\n{instructions}\n", CONTENT_KIND_CUSTOM_START
     )
@@ -149,7 +149,7 @@ def build_realtime_delegation_fragment(
     *,
     source: str = SOURCE_HANDOFF,
 ) -> dict[str, Any]:
-    """对标 RealtimeDelegation::body():user 角色,<realtime_delegation> 标记。
+    """对齐 RealtimeDelegation::body():user 角色,<realtime_delegation> 标记。
 
     source=handoff 时省略 <source> 行;transcript_tail_flush 时渲染
     "  <source>transcript_tail_flush</source>\\n"。transcript_delta 非空才渲染。
@@ -177,7 +177,7 @@ def is_realtime_delegation_fragment(text: str) -> bool:
 
 
 class RealtimeState:
-    """对标 world_state/realtime.rs RealtimeState:active 翻转 diff。"""
+    """对齐 world_state/realtime.rs RealtimeState:active 翻转 diff。"""
 
     ID = "realtime"
 

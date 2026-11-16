@@ -11,7 +11,7 @@
  * `commands/agent.ts:dispatchEarlyTool` / `executeToolCall` 在进程内完成。
  * 所以"执行前把将要写入的内容先给用户看一眼"这件事,只能由本地执行器在
  * **执行之前**从已有的工具参数派生;派生的**算法与预算必须与服务端同一语义**,
- * 不得自创第二套判据(本文件因此与服务端逐字对齐,并由两把尺子钉住):
+ * 不得自创第二套判据(本文件因此与服务端按行为规格,并由两把尺子钉住):
  *
  *   · `apps/ai-service/tests/fixtures/file-edit-preview-cases.json` —— 由**服务端真实函数**
  *     生成的向量与期望值(Python 侧写入,TS 侧只读)。

@@ -898,7 +898,7 @@ export async function runGuardianBatch({
     '229',
   ])
   // === 只读门并行池(方案A;逃生舱:GUARDIAN_SERIAL=1 退回全串行,GUARDIAN_PAR=<n> 调并发度) ===
-  // 契约(与串行版逐字对齐的三条):
+  // 契约(与串行版按行为规格的三条):
   //   ① 只有 PAR_GATE_IDS 白名单收录的门进池(新门默认串行 = 安全向);写者门(git 索引/共享文件)照旧串行,
   //      且执行前先 flushParBuffer() 全屏障 —— 池内零在飞子进程时才跑写者 ⇒ 与只读门零交叠。
   //   ② 子进程 stdout/stderr 全部缓冲,flush 时按 checks **原序**回放(表头在派发时按序打印,

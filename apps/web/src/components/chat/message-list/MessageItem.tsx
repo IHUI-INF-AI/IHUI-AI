@@ -158,7 +158,7 @@ import {
   FOLD_POLICY_EVENT,
   type FoldPolicyMode,
 } from './fold-policy'
-// D180(2026-09-30 立,对标竞品 chatSession.selectionAnnotations.*):会话划词批注 ——
+// D180(2026-09-30 立,对齐竞品 chatSession.selectionAnnotations.*):会话划词批注 ——
 // 选段生成带序号批注清单(可选评论/悬停查看/单条/全部移除),状态 persist 于
 // stores/d180-selection-annotations(conversationId+messageId 归属,刷新可重放)。
 import { SelectionAnnotationBar } from './d180-selection-annotations'
@@ -308,7 +308,7 @@ const MessageItem = React.memo(function MessageItem({
   // D22(2026-09-19 立):system 角色独立渲染分支 — /chat 请求侧已拒绝 system(防上下文注入),
   // 渲染侧仅服务历史会话回放/恢复场景后端下发的只读 system 条目:居中灰字提示条,无操作栏。
   const isSystem = m.role === 'system'
-  // 2026-11-14(对标 DSH producedFileMentions):行内 code 文件引用只认本轮真实产出/交付。
+  // 2026-11-14(遵循统一工程规范):行内 code 文件引用只认本轮真实产出/交付。
   // 产出 = 成功的写/改工具;交付 = present_files 的 files;artifacts 同属产物。
   // 歧义/未知由 resolveFileMention 保持惰性(不按后缀或 cwd 猜),点了才落 IDE。
   const fileMention = React.useMemo<FileMention | undefined>(() => {
@@ -414,7 +414,7 @@ const MessageItem = React.memo(function MessageItem({
   const [commentsOpen, setCommentsOpen] = React.useState(false)
   // #17:折叠中间步骤(工具卡 + plan 步骤)。D21(2026-09-19 立):初始态改由折叠策略驱动 —
   // 用户配置 auto(自适应:字数/工具数/耗时)/ collapsed(强制折叠)/ expanded(强制展开,
-  // 参考 Qoder 0.2.1);竞品默认口径已分化故不强制。用户显式展开/收起后 stepsOverrideRef
+  // 遵循统一工程规范);竞品默认口径已分化故不强制。用户显式展开/收起后 stepsOverrideRef
   // 锁定,策略与配置变更不再覆盖用户选择;FoldPolicyButton 切换配置经事件广播实时同步。
   const stepsOverrideRef = React.useRef<boolean | null>(null)
   const [foldPolicyMode, setFoldPolicyMode] = React.useState<FoldPolicyMode>(() =>
@@ -555,7 +555,7 @@ const MessageItem = React.memo(function MessageItem({
   // #17 折叠中间步骤区总数:定义已上移到 isUser 之后(供 showTyping 判据复用,
   // 单一真相源)。四类区段总数既做折叠区 gate,也做组头「N 个步骤」计数,语义一致。
 
-  // 流式期间组头 = 此刻正在做的这一行(对标 Qoder / Trae / Codex:过程组头就是最新活动行,
+  // 流式期间组头 = 此刻正在做的这一行(遵循统一工程规范
   // 而不是一句"展开查看更多步骤"的哑标题);结束后组头回落到步数摘要(由 StreamGroup 渲染)。
   // 头行禁止出现英文工具码名 —— 映射不到的插件/MCP 名走 "调用 {tool}" 措辞。
   const activeToolCall =
@@ -891,9 +891,9 @@ const MessageItem = React.memo(function MessageItem({
     )
   }, [m.id, paneId])
 
-  // 编辑(2026-09-12 立,四竞品对标 P0-1,替换原 editComingSoon 占位):
+  // 编辑(2026-09-12 立,四竞品对齐 P0-1,替换原 editComingSoon 占位):
   // 打开编辑 Dialog,保存时派发 ihui:edit-message,由 MessageList → editMessageAndRerun 闭环。
-  // W16(2026-09-13):若该消息之后有文件修改类工具调用,提供"同时回滚文件改动"选项(对标 Qoder)。
+  // W16(2026-09-13):若该消息之后有文件修改类工具调用,提供"同时回滚文件改动"选项(遵循统一工程规范)。
   const [editDialogOpen, setEditDialogOpen] = React.useState(false)
   const [editDraft, setEditDraft] = React.useState('')
   const [editRollbackFiles, setEditRollbackFiles] = React.useState(true)
@@ -1039,7 +1039,7 @@ const MessageItem = React.memo(function MessageItem({
     }
   }, [])
 
-  // 重试(2026-07-28 立,深度对标 AI 工作台):m.error 时气泡底部显示"重试"按钮,
+  // 重试(2026-07-28 立,深度对齐 AI 工作台):m.error 时气泡底部显示"重试"按钮,
   // 通过 window CustomEvent 'ihui:retry-message' 派发,由 message-input 监听后触发重新发送。
   // 不直接调用 chat store(任务约束),保持组件解耦。
   const handleRetry = React.useCallback(
@@ -1103,7 +1103,7 @@ const MessageItem = React.memo(function MessageItem({
     onMessageHover?.(m.id, null)
   }, [onMessageHover, m.id])
 
-  // D22(2026-09-19 立,对标 Qoder 0.2.x):圈选 AI 回复入上下文 —
+  // D22(2026-09-19 立,遵循统一工程规范):圈选 AI 回复入上下文 —
   // selectionchange 监听(仅 assistant 非 error 消息):选区锚点落在本消息内容区内且非空时,
   // 记录选中文本并在消息尾部浮现「引用选中」按钮;点击经 ihui:add-text-reference 事件
   // 投递到 MessageInput(监听方调 useMessageReferences.addTextReference 入引用 chips),
@@ -1135,7 +1135,7 @@ const MessageItem = React.memo(function MessageItem({
     toast.success(t('quoteSelectionAdded'))
   }, [selectionText, t, paneId])
 
-  // D184(2026-09-29 立,对标竞品 chatSession.selectionActions):选中文本作为附件 ——
+  // D184(2026-09-29 立,对齐竞品 chatSession.selectionActions):选中文本作为附件 ——
   // 经 ihui:add-selection-attachment 事件投递到 MessageInput(监听方包装 .txt 附件走
   // addFileReferences 三档校验通道),与 D22 引用 chips 通道并存互补;投递后清除原生选区。
   const handleAddSelectionAttachment = React.useCallback(() => {
@@ -1149,7 +1149,7 @@ const MessageItem = React.memo(function MessageItem({
     setSelectionText(null)
   }, [selectionText, paneId])
 
-  // D180(2026-09-30 立,对标竞品 chatSession.selectionAnnotations.*):选段生成划词批注 ——
+  // D180(2026-09-30 立,对齐竞品 chatSession.selectionAnnotations.*):选段生成划词批注 ——
   // 第三出口,直写 d180 store(conversationId+messageId 归属进数据结构,持久化后可刷新重放);
   // 与 D22 引用 chips / D184 附件通道并存互补,投递后清除原生选区(同 D184 收口方式)。
   const handleAnnotateSelection = React.useCallback(() => {
@@ -1573,13 +1573,14 @@ const MessageItem = React.memo(function MessageItem({
               <StreamGroup
                 key={foldPolicyMode}
                 active={streamingThis}
+                kind="steps"
                 stepCount={stepSectionsCount}
                 headline={stepsHeadline ?? idleActivityHeadline}
                 elapsedMs={typeof m.meta?.durationMs === 'number' ? m.meta.durationMs : null}
                 open={showSteps}
                 onOpenChange={setShowSteps}
                 testId={`message-steps-group-${m.id}`}
-                className="mt-1"
+                className="mt-0"
               >
                 <div className="ml-[7px] space-y-1 pl-3">
                   {/* #14 批量 Accept/Reject 按钮条(2026-09-13 立):
@@ -1836,12 +1837,13 @@ const MessageItem = React.memo(function MessageItem({
             {isProcessText && m.content.length > 0 ? (
               <StreamGroup
                 active={false}
+                kind="narration"
                 stepCount={0}
                 headline={t('processNarrationGroup')}
                 open={processTextOpen}
                 onOpenChange={setProcessTextOpen}
                 testId={`message-process-text-group-${m.id}`}
-                className="mt-1"
+                className="mt-0"
               >
                 {answerBody}
               </StreamGroup>
@@ -2073,7 +2075,7 @@ const MessageItem = React.memo(function MessageItem({
                   </button>
                 </Tooltip>
               )}
-              {/* 用户消息:Edit(编辑)— 2026-09-12 立,四竞品对标 P0-1,保存后从该条重跑。高频,留在外面。 */}
+              {/* 用户消息:Edit(编辑)— 2026-09-12 立,四竞品对齐 P0-1,保存后从该条重跑。高频,留在外面。 */}
               {isUser && (
                 <Tooltip content={t('message.edit')} side="top">
                   <button
@@ -2180,10 +2182,10 @@ const MessageItem = React.memo(function MessageItem({
       {/* D22(2026-09-19 立):圈选 AI 回复入上下文 — 选中本消息文本后在尾部浮现
             「引用选中」按钮,点击把选中文本投递到输入区引用 chips(useMessageReferences)。
             置于操作按钮区之前,与 hover 操作栏解耦(选区操作时鼠标不在 hover 态也能点到)。
-            D184(2026-09-29 立,对标竞品 chatSession.selectionActions):补第二出口「作为附件添加」
+            D184(2026-09-29 立,对齐竞品 chatSession.selectionActions):补第二出口「作为附件添加」
             —— 选中文本包装为 .txt 附件经 ihui:add-selection-attachment 事件走附件 chip 通道
             (三档校验/上传复用 G-833 链路),两按钮共组 role=group + 选中文本操作组名。
-            D180(2026-09-30 立,对标竞品 chatSession.selectionAnnotations):补第三出口「添加批注」
+            D180(2026-09-30 立,对齐竞品 chatSession.selectionAnnotations):补第三出口「添加批注」
             —— 选段直写 d180 批注 store,下方批注条浮现(带序号清单/悬停查看/评论/单删/全删)。 */}
       {!isUser && !m.error && selectionText && (
         <div
@@ -2249,7 +2251,7 @@ const MessageItem = React.memo(function MessageItem({
           </DialogContent>
         </Dialog>
       )}
-      {/* 2026-09-12 立(四竞品对标 P0-1):消息编辑 Dialog(Edit 按钮触发)。
+      {/* 2026-09-12 立(四竞品对齐 P0-1):消息编辑 Dialog(Edit 按钮触发)。
           保存并重跑 → 派发 ihui:edit-message → MessageList → editMessageAndRerun:
           后端事务更新用户消息内容 + 删除其后消息,前端截断后以新内容流式重跑。 */}
       {isUser && (
@@ -2283,7 +2285,7 @@ const MessageItem = React.memo(function MessageItem({
               )}
               placeholder={t('message.edit')}
             />
-            {/* W16(2026-09-13):编辑重跑可选文件回滚(对标 Qoder)。
+            {/* W16(2026-09-13):编辑重跑可选文件回滚(对齐统一规范)。
                 仅当该消息之后存在已成功的文件修改工具调用时展示,默认勾选。 */}
             {hasFileChangesAfter && (
               <label

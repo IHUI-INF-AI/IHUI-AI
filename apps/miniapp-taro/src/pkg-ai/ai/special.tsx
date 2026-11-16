@@ -46,7 +46,7 @@ interface ModelEntry {
   featured?: boolean
 }
 
-/** 本地默认模型入口(对标原项目 pages/table/tools/index.vue 的特殊模型聚合) */
+/** 本地默认模型入口(对齐原项目 pages/table/tools/index.vue 的特殊模型聚合) */
 const DEFAULT_MODELS = (tt: TtFn): ModelEntry[] => [
   {
     key: 'gemini-flash',

@@ -4,7 +4,7 @@
 
 """ZCode(zcode.z.ai 桌面客户端)每日波谷额度领取引擎 — 第七平台(2026-11-12 立)。
 
-契约来源(逆向-复现-超越四步,取证见 ZCode 3.17.2 客户端包内证据):
+契约来源(工程化落地四步,取证见 外部实现 3.17.2 客户端包内证据):
 - 领取端点与信封 = 客户端计划服务里 claimManualPlan / getManualClaimPlanPreviews
   两函数读出的真实网络面(只观察行为与契约,不复制对方代码):
     GET  https://zcode.z.ai/api/v1/zcode-plan/billing/preview?app_version=&platform=

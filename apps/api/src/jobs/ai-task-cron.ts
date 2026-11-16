@@ -21,7 +21,7 @@ import {
 
 /** 同进程回环 fetch caller:把本机 /api 端点当工具调用。
  *
- * 形态逐字复制 routes/ai-task-templates.ts 的 defaultCaller;jobs 不该依赖 routes 层,
+ * 形态按行为规格 routes/ai-task-templates.ts 的 defaultCaller;jobs 不该依赖 routes 层,
  * 故就地复制这一小函数。从环境变量取本机端口,回环 fetch 到 /api 前缀端点。
  */
 const defaultCaller: TaskStepCaller = async (method, path, params) => {

@@ -4,7 +4,7 @@
 
 """外部运行时导入器 —— 对齐 Qoder「导入数据」4 维命名空间(2026-10-31 立)。
 
-对标(goal-b40 Qoder 0.5.1 本机取证,附录见 E 盘报告):Qoder 设置→导入数据
+对齐(goal-b40 Qoder 0.5.1 本机取证,附录见 E 盘报告):Qoder 设置→导入数据
 支持 6 枚来源(source_product 含 workbuddy)× 4 维命名空间
 (sessions / automations / capabilities / memory),导的是**运行时全量**而非
 聊天记录。

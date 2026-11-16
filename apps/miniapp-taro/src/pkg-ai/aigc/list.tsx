@@ -21,7 +21,7 @@ import { AigcListScreen as SharedAigcListScreen } from '@ihui/rn-app/features/ai
 import type { AigcCategory, AigcListItem } from '@ihui/types'
 import type { AigcCategoryOption, AigcFileType } from '@ihui/types'
 
-/** 文件类型枚举(对标原项目 fileType: 0=图片 1=视频 3=音频 4=文本) */
+/** 文件类型枚举(对齐原项目 fileType: 0=图片 1=视频 3=音频 4=文本) */
 type Category = AigcCategory
 
 interface AigcItem {

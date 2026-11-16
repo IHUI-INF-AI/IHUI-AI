@@ -7,7 +7,7 @@
 
 """Memory Sweeper 路由 — 长期记忆存储 + 记忆清扫策略的 REST 出口。
 
-对标 Codex / Claude Code 长期记忆衰减机制(2026-09-13 立)。
+遵循统一工程规范)。
 
 挂载说明:本模块导出 `router: APIRouter`(prefix="/memory-sweeper"),由 main.py 以
 `app.include_router(memory_sweeper_router, prefix="/api", tags=["memory-sweeper"])`

@@ -4,7 +4,7 @@
 
 """工具执行预算门控 — 补上审批/沙箱之外的真实缺口:执行配额/成本/并发门控(2026-09-03 立)。
 
-对标 Claude Code / Codex 对单轮 / 单会话工具调用的资源管控:超配额即返回
+遵循统一工程规范
 确定性错误码并阻止继续执行,附带已用 / 上限信息供上层向 agent / 用户呈现。
 
 覆盖 3 类上限(均可独立启用,0 = 不限制):
@@ -19,13 +19,13 @@ config 注入。可选接入点是同步 acquire/release + 异步上下文管理
 分维配额(2026-11-05 立,goal-b49 S4):另开四个**彼此独立**的维度 ——
 mcp_tool_limit(MCP 注册工具数上限)/ mcp_token_limit(MCP 令牌桶)/
 custom_prompt_token_limit(自定义提示 token 上限)/ history_query_limit(历史查询窗口)。
-四维各自只受自身取值管辖:**0 / 未配 ⇒ 该维关闭**(与对标产品把配额写死成内置常量
+四维各自只受自身取值管辖:**0 / 未配 ⇒ 该维关闭**(与对齐产品把配额写死成内置常量
 不同,我方四维同时进 core/capability_matrix.py 台账,可被守门 diff)。
 `enabled` 只管辖上面三类 run 循环维(向后兼容,既有语义一字未动);
 `acquire/release/record_usage/get_state` 的行为与三维默认值均不受本次改动影响。
 超限一律**具名拒绝**:reason 同时含维度名 + 实测值 + 上限值,不做静默截断。
 
-第二层配额(2026-11-06 立,goal-b49 Z20;口径见对标靶「三层装箱预算 maxChunkChars /
+第二层配额(2026-11-06 立,goal-b49 Z20;口径见对齐靶「三层装箱预算 maxChunkChars /
 maxCharsPerResult / **maxTotalChars** + maxRerankTokens」里我方缺的那一格):上面的分维
 配额全部是**单桶(层一)**尺子 —— 每个 run / 每台 server 各有一份额,配了额仍不等于
 "这一份消耗合起来有界"。本模块因此加**第二层 = 按 scope 的聚合总量层**:

@@ -108,7 +108,7 @@
   color: var(--color-muted-foreground);
 }
 
-/* ===== Tabs(对标原 TitleSwitch;视觉对齐 RN SquareScreen SingleTypeBar 分类胶囊:
+/* ===== Tabs(对齐原 TitleSwitch;视觉对齐 RN SquareScreen SingleTypeBar 分类胶囊:
    categoryBar padding 8/10 → 16/20rpx,typeItem padding 6/12 → 12/24rpx、圆角 8 → 16rpx、
    描边 1 → 2rpx,active 为 brand 底 + 对比白字) ===== */
 /* Tabs 条容器:仅页面级留白。chips 本身由统一分类条 CategoryBar 组件负责
@@ -183,7 +183,7 @@
   font-size: var(--text-label);
 }
 
-/* ===== 分类弹层(对标原 tagWrapShow) ===== */
+/* ===== 分类弹层(对齐原 tagWrapShow) ===== */
 .share-tag-panel {
   position: fixed;
   top: 0;
@@ -233,7 +233,7 @@
   animation: shareSlideDown 0.25s ease;
 }
 
-/* ===== 页面滚动锁定覆盖层(对标原 scroll-lock-overlay) ===== */
+/* ===== 页面滚动锁定覆盖层(对齐原 scroll-lock-overlay) ===== */
 .share-scroll-lock-overlay {
   position: fixed;
   inset: 0;

@@ -9,7 +9,7 @@
  两侧由 guardian 第 68 项对账)。历史拼写 auto / accept-edits / read-only /
  plan-only / accept-all 在边界归一,不再各说各话。
 
-对标 Claude Code permission modes:
+遵循统一工程规范
 - default:与现状完全一致(高危工具仍走 _request_approval 审批流,回归红线)
 - plan:循环层强制只读,白名单外工具被拦截(error 回填,不执行、不进审批)
 - acceptEdits(原 auto):只读白名单工具免审批直接执行,其余维持现有审批流

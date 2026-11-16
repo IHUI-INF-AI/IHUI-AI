@@ -19,7 +19,7 @@
  *  声明式 UI 把「AI 造应用」从「装软件」降级成「存一条配置」,这是可验证的超越轴。
  *
  * 单一真相源:
- *  - 落点枚举 `CAPABILITY_APP_SLOTS` 与 DSH 的五档同名(见 docs 取证),
+ *  - 落点枚举 `CAPABILITY_APP_SLOTS` 与 外部实现 的五档同名(见 docs 取证),
  *    消费方 = Web 渲染器;新增一档必须同批有挂载点,否则校验器与渲染器漂移。
  *  - 块枚举 `CAPABILITY_APP_BLOCK_KINDS` 的消费方 = 渲染器块注册表(Record<Kind,…>,少一档编译期即红)。
  *  - 本模块只做纯函数校验,不注册、不落库、不 fetch。
@@ -50,7 +50,7 @@ export type CapabilityAppSlot = (typeof CAPABILITY_APP_SLOTS)[number]
 
 /**
  * 应用可调用的**只读一方能力**。这是「插件包运行时」的核心:
- * DSH 的插件包靠 `contributes.tools` 携带可执行实现,宿主只能信任包作者;
+ * 外部实现 的插件包靠 `contributes.tools` 携带可执行实现,宿主只能信任包作者;
  * 我们反过来 —— 应用只声明**能力名 + 参数**,实现留在服务端白名单里,
  * 因此:可审计(每次调用落一条日志)、可撤销(白名单删名即失效)、
  * 可越权防御(用户作用域由服务端注入,应用拿不到 userId)。
@@ -205,7 +205,7 @@ export function parseCapabilityAppCallArgs(
  * 收集应用声明用到的全部能力名(`data[].call` + 动作 `tool.call`)。
  *
  * 服务端只允许调用应用自己声明过的能力 —— 一个泄露的 app id 也不等于
- * 一张任意能力的通行证。这是 "capability scoping",也是与 DSH 插件工具面
+ * 一张任意能力的通行证。这是 "capability scoping",也是与 外部实现 插件工具面
  * 最大的差别:那边插件一旦加载即持有全部 contributes.tools。
  */
 export function collectDeclaredCalls(spec: unknown): Set<CapabilityAppCallName> {

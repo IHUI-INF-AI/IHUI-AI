@@ -83,7 +83,7 @@ async def test_parallel_mode_success(monkeypatch):
         ],
     })
 
-    assert out["tool"] == "dispatch_subagent"
+    assert out["tool"] == "orchestrate_agents"
     assert out["mode"] == "parallel"
     assert out["ok"] is True
     assert out["total"] == 3
@@ -193,7 +193,7 @@ async def test_single_mode_success(monkeypatch):
         "name": "code-reviewer", "task": "审查 PR #1", "session_id": "s1",
     })
 
-    assert out["tool"] == "dispatch_subagent"
+    assert out["tool"] == "orchestrate_agents"
     assert out["mode"] == "single"
     assert out["ok"] is True
     assert out["agent"] == "code-reviewer"

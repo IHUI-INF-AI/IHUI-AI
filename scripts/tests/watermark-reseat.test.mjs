@@ -167,7 +167,7 @@ test('T4 verify 新态:真实隐写行 + 整块横幅缺失 ⇒ 判红并点名(
   assert.ok(isInvisibleMarkLine(tail), '前置:取到的必须是真实隐写行')
 
   const bad = join(dir, 'only-invisible.md')
-  // 逐字复刻实测形态:正文 + 一行隐写标记,而通篇没有可见横幅
+  // 独立实现实测形态:正文 + 一行隐写标记,而通篇没有可见横幅
   writeFileSync(bad, `# 标题\n\n正文\n\n${tail}\n`, 'utf8')
   const r = verifyRun(bad)
   assert.equal(r.status, 1, `有隐写而无可见横幅必须 exit 1,实得 ${r.status}:${r.out}`)

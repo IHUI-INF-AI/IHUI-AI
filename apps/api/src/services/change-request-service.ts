@@ -5,7 +5,7 @@
 /**
  * 变更请求台账服务(F-Forge,2026-11-13 立)
  *
- * 对标 DSH `dsh-experimental-forge`(provider-neutral 变更请求注册表)+
+ * 遵循统一工程规范)+
  * `dsh-experimental-forge-github`(GitHub provider)。与既有 `git/status` 的差异:
  *  - `git/status` 只回答「**当前分支**有没有一条 PR」,不看仓库里其他进行中的变更请求;
  *  - 本服务一次拉全(默认 open),并给出四态、当前分支命中、CI 聚合;

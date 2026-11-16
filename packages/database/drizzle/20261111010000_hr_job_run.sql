@@ -8,7 +8,7 @@
 --       (job_name, idempotency_key) 唯一 ⇒ 同一任务同一业务窗口重复触发不产生重复数据。
 --
 -- 幂等安全:IF NOT EXISTS 守门,可安全重复执行。
--- 与 packages/database/src/schema/hr-jobs-schema.ts 逐字对齐。
+-- 与 packages/database/src/schema/hr-jobs-schema.ts 按行为规格。
 --
 -- 执行方式(与项目 202610*/2026110* 系列手写 migration 一致):
 --   pnpm tsx packages/database/scripts/apply-migration.mjs drizzle/20261111010000_hr_job_run.sql

@@ -34,8 +34,8 @@ describe('preview-envelope taxonomy', () => {
   })
 
   it('FALLBACK_CODE 对齐 Qoder 实测 code', () => {
-    expect(FALLBACK_CODE.SmartartUnavailable).toBe('pptx-smartart-preview-unavailable')
-    expect(FALLBACK_CODE.OleUnavailable).toBe('pptx-ole-preview-unavailable')
+    expect(FALLBACK_CODE.SmartartUnavailable).toBe('pptx-smartart-unavailable')
+    expect(FALLBACK_CODE.OleUnavailable).toBe('pptx-ole-unavailable')
     expect(FALLBACK_CODE.ResourceTooLarge).toBe('pptx-resource-too-large')
     expect(FALLBACK_CODE.NeedsOcr).toBe('doc-needs-ocr')
   })

@@ -7,12 +7,9 @@
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import {
-  BookOpen,
   Cpu,
   FileDiff,
-  FileText,
   GitBranch,
-  Hammer,
   Info,
   MessageCircle,
   Minimize2,
@@ -76,8 +73,8 @@ export function useSlashCommands(aiSkills: AiSkillMeta[], skillsLoading: boolean
     () => [
       // 🎯 目标与循环(2026-07-29 立,置顶重点:AI 编程最主流的命令)
       // 2026-07-29 二次深化:加 argsSuggestions,点击后进入参数补全模式
-      // /goal <目标条件>:设定当前会话目标,AI 围绕目标执行(对标 AGENTS.md §8 goal 模式工作流)
-      // /loop on|off|N:设置循环执行模式(对标 ai-service slash_commands.py _loop_handler)
+      // /goal <目标条件>:设定当前会话目标,AI 围绕目标执行(对齐 AGENTS.md §8 goal 模式工作流)
+      // /loop on|off|N:设置循环执行模式(对齐 ai-service slash_commands.py _loop_handler)
       {
         id: 'goal',
         label: '/goal',
@@ -102,7 +99,7 @@ export function useSlashCommands(aiSkills: AiSkillMeta[], skillsLoading: boolean
         argsTitle: t('slashCmd.loopArgTitle'),
         argsSuggestions: createLoopArgOptions(t),
       },
-      // 🏆 Best-of-N 自动择优(2026-09-07 立,对标 Cursor 多副本择优):
+      // 🏆 Best-of-N 自动择优(2026-09-07 立,遵循统一工程规范):
       // /bestof <任务> [#N] — 同任务 N 副本并行 → LLM 评审 → 最优回复
       // 后端 ai-service slash_commands.py _bestof_handler 处理,模板填充后走普通消息流
       {
@@ -114,7 +111,7 @@ export function useSlashCommands(aiSkills: AiSkillMeta[], skillsLoading: boolean
         category: 'goal' as const,
         icon: <Trophy className="h-4 w-4" />,
       },
-      // 🔧 Smart Commit(W28,2026-09-14 立,对标 CodeBuddy AI 提交):
+      // 🔧 Smart Commit(W28,2026-09-14 立,对齐 CodeBuddy AI 提交):
       // /commit [补充说明] — AI 生成 Conventional Commits 信息并自动 add+commit
       // 前端 tryHandleCommitSlash 拦截,不走 LLM chat 流
       {
@@ -128,7 +125,7 @@ export function useSlashCommands(aiSkills: AiSkillMeta[], skillsLoading: boolean
         hasArgs: true,
         argsTitle: t('slashCmd.commitArgTitle'),
       },
-      // 💬 /side 快速侧问(D28,2026-09-20 立,对标 Cursor /btw):
+      // 💬 /side 快速侧问(D28,2026-09-20 立,遵循统一工程规范):
       // /side <问题> — 流式空闲时立即补答;流式期间入会话级侧问队列(zustand 持久化),
       // 流结束后自动逐条补答。前端 use-message-send.ts submit 拦截 + message-input.tsx
       // 流结束 effect 补答,回答以 sidechat 消息入本地流,不入主线历史
@@ -141,50 +138,11 @@ export function useSlashCommands(aiSkills: AiSkillMeta[], skillsLoading: boolean
         category: 'goal' as const,
         icon: <MessageCircle className="h-4 w-4" />,
       },
-      // ⚡ 模式切换(2026-07-25 立,对标 主流 AI IDE SOLO Plan 模式):切换 plan/act 模式
-      {
-        id: 'plan',
-        label: '/plan',
-        description: t('slashCmd.plan'),
-        kind: 'action' as const,
-        category: 'mode' as const,
-        icon: <BookOpen className="h-4 w-4" />,
-      },
-      {
-        id: 'act',
-        label: '/act',
-        description: t('slashCmd.act'),
-        kind: 'action' as const,
-        category: 'mode' as const,
-        icon: <Hammer className="h-4 w-4" />,
-      },
-      // 对话模式动作型命令(2026-07-28 立,补全 ChatMode 4态三通道):
-      // /build /review /spec 切换 ChatMode,/plan /act 同时联动 ChatMode 和 Plan/Act
-      {
-        id: 'build',
-        label: '/build',
-        description: t('slashCmd.build'),
-        kind: 'action' as const,
-        category: 'mode' as const,
-        icon: <Hammer className="h-4 w-4" />,
-      },
-      {
-        id: 'review',
-        label: '/review',
-        description: t('slashCmd.review'),
-        kind: 'action' as const,
-        category: 'mode' as const,
-        icon: <Search className="h-4 w-4" />,
-      },
-      {
-        id: 'spec',
-        label: '/spec',
-        description: t('slashCmd.spec'),
-        kind: 'action' as const,
-        category: 'mode' as const,
-        icon: <FileText className="h-4 w-4" />,
-      },
-      // 🔐 权限管理(2026-07-25 深化,深度对标 Codex approvalMode CLI):
+      // 2026-11-16 用户定档:ChatMode 手动切换全部移除(/plan /act /build /review /spec
+      // 不再作为命令面板入口)。模式由发送链固定为全工具开放,由 AI 自主决定用不用工具。
+      // `/review <target>` 仍可在输入框直接键入使用(见 slash-commands.ts 的审查目标拦截),
+      // 但它不再切换任何模式。
+      // 🔐 权限管理(2026-07-25 深化,深度遵循统一工程规范):
       // /permission ask|auto|full 切换工作区权限模式(不进入 LLM 流,纯本地 UI 状态)
       // description 用 \n 拼接短描述 + 用法提示(2026-07-25 深化,提示用户支持的 3 个子命令)
       {
@@ -211,9 +169,20 @@ export function useSlashCommands(aiSkills: AiSkillMeta[], skillsLoading: boolean
         category: 'permission' as const,
         icon: <ShieldAlert className="h-4 w-4" />,
       },
-      // 🛠 D117 工具型命令(2026-09-27 立,对标 Codex /diff /status /model /mcp /compact):
+      // 🛠 D117 工具型命令(2026-09-27 立,遵循统一工程规范):
       // 前端 tryHandleToolSlash 拦截,不走 LLM chat 流;id 清单唯一登记处
       // 是 lib/command-registry.ts 的 CHAT_TOOL_COMMANDS
+      {
+        // 2026-11-16:审查不再是"模式",入口保留为纯动作 —— 插入 /review 后
+        // 由 ReviewTargetSelector 展开目标选择条,提交时交给 tryHandleReviewTargetSlash。
+        id: 'review',
+        label: '/review',
+        description: t('slashCmd.review'),
+        usage: '/review uncommitted | branch <ref> | commit <sha>',
+        kind: 'action' as const,
+        category: 'tools' as const,
+        icon: <Search className="h-4 w-4" />,
+      },
       {
         id: 'diff',
         label: '/diff',

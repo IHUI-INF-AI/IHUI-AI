@@ -4,7 +4,7 @@
 
 """API v1 包 — 业务层 HTTP 接口(ai-service 完整业务流程)。"""
 
-# 四层记忆 + Dream 梦境系统路由(2026-07-22 立,对标 OpenClaw Mem)
+# 四层记忆 + Dream 梦境系统路由(2026-07-22 立,遵循统一工程规范)
 # DAG Worker Pool + 优先级队列路由(2026-07-22 立,对齐 agent-runtime.ts 多 Agent 并行契约)
 from .dag import router as dag_router  # noqa: E402,F401
 from .memory import router as memory_router  # noqa: E402,F401

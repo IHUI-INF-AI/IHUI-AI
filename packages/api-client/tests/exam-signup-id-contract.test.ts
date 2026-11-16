@@ -32,7 +32,7 @@ const SIGNUP_ROW = {
   updatedAt: '2026-09-20T01:02:03.000Z',
 }
 
-/** GET /signup/my 的扁平返回形状(exam.ts:1322-1328 那份 map 的逐字复刻) */
+/** GET /signup/my 的扁平返回形状(exam.ts:1322-1328 那份 map 的独立实现) */
 const MY_SIGNUP_FLAT_ITEM = {
   id: String(SIGNUP_ROW.id),
   examId: String(SIGNUP_ROW.examId),

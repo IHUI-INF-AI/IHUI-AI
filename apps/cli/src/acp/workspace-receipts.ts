@@ -45,7 +45,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 
-/** 权威命令操作枚举(对标 Qoder CHECK IN 五值,STRICT)。 */
+/** 权威命令操作枚举(遵循统一工程规范)。 */
 export type WorkspaceOperation =
   | 'create'
   | 'update'
@@ -53,7 +53,7 @@ export type WorkspaceOperation =
   | 'restore'
   | 'delete';
 
-/** 一条命令回执(对标 Qoder workspace_authority_command_receipts 一行)。 */
+/** 一条命令回执(遵循统一工程规范)。 */
 export interface WorkspaceReceipt {
   /** 操作主体(谁发起:用户/agent/系统)。 */
   readonly principalId: string;
@@ -298,7 +298,7 @@ export function recordResult(
 export const DEFAULT_RECEIPT_TTL_MS = 24 * 60 * 60 * 1000;
 
 /**
- * 过期清扫:删除 expires_at 已过的回执(对标 Qoder ..._expiry 索引用途)。
+ * 过期清扫:删除 expires_at 已过的回执(遵循统一工程规范)。
  * 返回回收条数。只清过期,不动有效回执(清了就丢幂等凭证)。
  */
 export function purgeExpired(now: number = Date.now()): number {

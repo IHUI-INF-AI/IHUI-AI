@@ -115,7 +115,7 @@ describe('parsePromptHistory', () => {
   })
 })
 
-// ===== 存储配额淘汰(Codex 对标语义) =====
+// ===== 存储配额淘汰(Codex 对齐语义) =====
 // web 接线(apps/web/src/hooks/use-prompt-history.ts)按 key 分桶持久化:
 // 全局桶 `chat:prompt-history`(未持久化会话)+ 按会话桶 `chat:prompt-history:{id}`,
 // 每个桶独立套用 50 条上限,超限淘汰最旧;淘汰发生在写入路径(pushPromptEntry)。

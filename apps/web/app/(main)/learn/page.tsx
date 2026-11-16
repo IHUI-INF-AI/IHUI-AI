@@ -5,15 +5,13 @@
 'use client'
 
 import * as React from 'react'
-import Image from 'next/image'
+import { useTranslations } from 'next-intl'
 import { useQuery } from '@tanstack/react-query'
-import { useLocale, useTranslations } from 'next-intl'
 import { GraduationCap, PlayCircle, Search, Loader2, ChevronLeft, ChevronRight } from 'lucide-react'
 import { apiOrThrow } from '@/lib/api'
 import { SELECT_CLASS } from '@/lib/select-class'
 import {
   Button,
-  Card,
   Input,
   Select,
   SelectTrigger,
@@ -22,7 +20,7 @@ import {
   SelectValue,
 } from '@ihui/ui-react'
 import { CourseCard } from '@/components/business'
-import { BackButton } from '@/components/common'
+import { FeaturePageShell } from '@/components/layout'
 
 interface Category {
   id: string
@@ -59,7 +57,6 @@ function fetchLessons(params: {
 export default function LearnPage() {
   const t = useTranslations('learn')
   const tEdu = useTranslations('eduCoursesPage')
-  const locale = useLocale()
   const [search, setSearch] = React.useState('')
   const [debounced, setDebounced] = React.useState('')
   const [categoryId, setCategoryId] = React.useState('all')
@@ -89,46 +86,14 @@ export default function LearnPage() {
   const lessons = data?.list ?? []
 
   return (
-    <div className="px-4 py-4 mx-auto w-full max-w-6xl space-y-4">
-      <BackButton />
-      <Card className="overflow-hidden">
-        <div className="relative h-40 min-[640px]:h-48">
-          {locale === 'zh-CN' && (
-            <>
-              <Image
-                src="/images/edu-illustration.png"
-                alt=""
-                aria-hidden
-                fill
-                className="object-cover"
-                loading="eager"
-                sizes="(min-width: 1024px) 72rem, 100vw"
-              />
-              <div className="absolute inset-0 bg-black/40" />
-            </>
-          )}
-          <div
-            className={
-              locale === 'zh-CN'
-                ? 'relative flex h-full flex-col justify-center gap-1 p-3 text-white'
-                : 'relative flex h-full flex-col justify-center gap-1 bg-primary/10 p-3'
-            }
-          >
-            <h1 className="flex items-center gap-2 text-heading font-bold tracking-tight min-[768px]:text-display">
-              <GraduationCap className={locale === 'zh-CN' ? 'h-7 w-7' : 'h-7 w-7 text-primary'} />
-              {t('title')}
-            </h1>
-            <p
-              className={
-                locale === 'zh-CN' ? 'text-body opacity-90' : 'text-body text-muted-foreground'
-              }
-            >
-              {t('subtitle')}
-            </p>
-          </div>
-        </div>
-      </Card>
-
+    // 2026-11-16 接入统一子功能页外壳:BackButton + 双语 hero banner(内含手写 H1)收编为页头卡,
+    // title/subtitle 迁入外壳(取 learn.title/subtitle),自动带上「教育」返回 chip。
+    <FeaturePageShell
+      title={t('title')}
+      description={t('subtitle')}
+      icon={GraduationCap}
+      domain="edu"
+    >
       <div className="flex items-center justify-between gap-2 rounded-lg border border-border bg-card px-3 py-2">
         <p className="text-body text-muted-foreground">{tEdu('subtitle')}</p>
         <Button asChild variant="outline" size="sm" className="shrink-0">
@@ -223,7 +188,7 @@ export default function LearnPage() {
           </div>
         </div>
       )}
-    </div>
+    </FeaturePageShell>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -6,7 +6,7 @@
  * 事件唤醒型云 Agent —— 触发规则表(2026-09-08 立)。
  *
  * 复检报告缺口 #5:cloud_runs / automations 仅支持手动与定时触发,缺事件订阅自动开工。
- * 本表对标 Cursor Cloud Agents 事件唤醒 / GitHub HydraFusion+Agent Merge:
+ * 本表遵循统一工程规范
  *   用户在 GitHub 配置 webhook 指向 POST /api/webhooks/github,
  *   收到 pull_request/opened、issues/opened、push 等事件后,
  *   按 (repoFullName, event) 匹配本表规则,命中则自动创建一次 agent 运行。

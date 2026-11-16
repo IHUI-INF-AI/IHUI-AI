@@ -3,7 +3,7 @@
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 # app/core/hook_runtime.py
-"""生命周期钩子运行时(2026-09-19 第三十批,对标 Codex hook_runtime.rs / codex_hooks)。
+"""生命周期钩子运行时(2026-09-19 第三十批,遵循统一工程规范)。
 
 在会话生命周期各点运行注册的钩子,聚合同类结果(Codex HookRuntimeOutcome 语义):
 
@@ -11,13 +11,13 @@
   1. ``additional_contexts``:钩子注入的附加上下文,按注册顺序拼接,
      由调用方并入模型输入(Codex ContextualUserFragment / additionalContext);
   2. ``should_stop``:任一钩子要求停止即停(带首个 stop_reason),
-     对标 UserPromptSubmitOutcome / PreCompactHookOutcome::Stopped;
+     对齐 UserPromptSubmitOutcome / PreCompactHookOutcome::Stopped;
 - **超时与隔离**:每个钩子带独立超时(默认 10s),单个钩子异常/超时
   被记录为 error 事件但不拖垮其余钩子(Codex hook run 失败隔离);
 - **PRE_TOOL_USE 决策**:allow / deny(reason) / passthrough,任一 deny
-  即拒绝(带原因),对标 PreToolUseHookResult;
+  即拒绝(带原因),对齐 PreToolUseHookResult;
 - **事件审计**:每次运行产生 HookRunEvent(name, status, duration_ms,
-  error),可下发前端/日志,对标 HookRunSummary 事件流。
+  error),可下发前端/日志,对齐 HookRunSummary 事件流。
 
 钩子本身是同步或异步可调用 ``(payload) -> dict | None``;返回 dict 可含
 ``additional_context`` / ``stop`` / ``stop_reason`` / ``decision`` 字段。
@@ -38,7 +38,7 @@ HookFunc = Callable[[dict[str, Any]], Any]
 
 
 class HookKind(StrEnum):
-    """生命周期挂载点(对标 SessionStart/UserPromptSubmit/PreToolUse/Pre·PostCompact/Stop)。"""
+    """生命周期挂载点(对齐 SessionStart/UserPromptSubmit/PreToolUse/Pre·PostCompact/Stop)。"""
 
     SESSION_START = "session_start"
     USER_PROMPT_SUBMIT = "user_prompt_submit"
@@ -68,7 +68,7 @@ class HookRunEvent:
 
 @dataclass
 class HookOutcome:
-    """一次钩子运行的聚合结果(对标 HookRuntimeOutcome)。"""
+    """一次钩子运行的聚合结果(对齐 HookRuntimeOutcome)。"""
 
     should_stop: bool = False
     stop_reason: str | None = None

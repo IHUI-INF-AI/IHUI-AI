@@ -5,13 +5,13 @@
 """Harness 细粒度能力(2026-09-18 第三批):榨干 Codex harness 剩余可学面的单测。
 
 覆盖:
-- request_permissions 内置工具(对标 RequestPermissionsTool:批准/拒绝/非法参/超时)
-- thread.enqueue 消息入队 + 自动续跑(对标 Steer/ThreadQueueChanged)
-- thread.goal 持久目标(对标 Goals:设置/清除/校验 + system 注入)
-- thread.review 审查模式(对标 review:派生审查子代理)
-- tokenBudget 预算硬停(对标 TokenBudget/RolloutBudget:BUDGET_EXHAUSTED)
-- turn.diff 回合级工作区 diff(对标 TurnDiff)
-- tool.retry 工具重试事件 + model.reroute 模型改道事件(对标 ModelReroute)
+- request_permissions 内置工具(对齐 RequestPermissionsTool:批准/拒绝/非法参/超时)
+- thread.enqueue 消息入队 + 自动续跑(对齐 Steer/ThreadQueueChanged)
+- thread.goal 持久目标(对齐 Goals:设置/清除/校验 + system 注入)
+- thread.review 审查模式(对齐 review:派生审查子代理)
+- tokenBudget 预算硬停(对齐 TokenBudget/RolloutBudget:BUDGET_EXHAUSTED)
+- turn.diff 回合级工作区 diff(对齐 TurnDiff)
+- tool.retry 工具重试事件 + model.reroute 模型改道事件(对齐 ModelReroute)
 """
 
 import asyncio
@@ -101,7 +101,7 @@ def _mock_hook_engine(monkeypatch):
 
 
 # =============================================================================
-# request_permissions 内置工具(对标 RequestPermissionsTool)
+# request_permissions 内置工具(对齐 RequestPermissionsTool)
 # =============================================================================
 
 
@@ -193,7 +193,7 @@ async def test_request_permissions_invalid_args_fail_closed():
 
 @pytest.mark.asyncio
 async def test_request_permissions_timeout_defaults_to_deny():
-    """超时未决策 → 默认拒绝(对标 Codex fail-closed 审批语义)。"""
+    """超时未决策 → 默认拒绝(遵循统一工程规范)。"""
     engine, _ = _engine()
     started = await _rpc(engine, "thread.start", {})
     thread = engine._threads[started["threadId"]]
@@ -208,7 +208,7 @@ async def test_request_permissions_timeout_defaults_to_deny():
 
 
 # =============================================================================
-# thread.enqueue(对标 Steer/ThreadQueueChanged)+ 自动续跑
+# thread.enqueue(对齐 Steer/ThreadQueueChanged)+ 自动续跑
 # =============================================================================
 
 
@@ -268,7 +268,7 @@ async def test_thread_prompt_running_rejects_concurrent_prompt():
 
 
 # =============================================================================
-# thread.goal(对标 Goals)
+# thread.goal(对齐 Goals)
 # =============================================================================
 
 
@@ -308,7 +308,7 @@ async def test_thread_goal_set_clear_validation_and_injection():
 
 
 # =============================================================================
-# tokenBudget 预算硬停(对标 TokenBudget/RolloutBudget)
+# tokenBudget 预算硬停(对齐 TokenBudget/RolloutBudget)
 # =============================================================================
 
 
@@ -359,7 +359,7 @@ async def test_initialize_capabilities_advertise_third_batch():
 
 
 # =============================================================================
-# thread.review(对标 Codex review)
+# thread.review(遵循统一工程规范)
 # =============================================================================
 
 
@@ -391,7 +391,7 @@ async def test_thread_review_spawns_transcript_subagent_and_cleans_up():
 
 
 # =============================================================================
-# turn.diff(对标 TurnDiff)
+# turn.diff(对齐 TurnDiff)
 # =============================================================================
 
 

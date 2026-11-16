@@ -18,8 +18,8 @@ request.state.user_id,解析不到且全局鉴权未启用时回落 dev 身份)�
 - PATCH  /accounts/{id}/enabled 启用/停用
 - PATCH  /accounts/{id}/name    重命名展示名
 - POST   /accounts/{id}/checkin 手动签到(尊重冷却与出站全局限流,命中 429)
-- GET    /accounts/{id}/tasks   O68 WorkBuddy growth 任务列表(只读)
-- POST   /accounts/{id}/task-run O68 执行任务族(growth/travel/activity/blackcat/redeem/lottery/all,dry_run 可选)
+- GET    /accounts/{id}/tasks   任务列表(只读):WorkBuddy growth / 豆包 v3 detail(含里程碑)
+- POST   /accounts/{id}/task-run 执行任务族(WorkBuddy 六族 / 豆包签到后任务巡检,dry_run 可选)
 - POST   /accounts/{id}/autopilot O68+ 全量自动驾驶一轮(全量选路:desktop 链/直连链/领奖,dry_run 可选;
                                 AI 会话与调度器共用同一引擎,留痕 action=task-run:autopilot)
                                 〔2026-10-31 上两条同补出站限流 + 账号冷却预检,命中 429〕
@@ -47,9 +47,11 @@ from zoneinfo import ZoneInfo
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
+from app.core.config import settings
 from app.core.jwt_auth import require_request_user_id
 from app.services import (
     checkin_credits,
+    checkin_doubao,
     checkin_minimax,
     checkin_qoder,
     checkin_store,
@@ -60,8 +62,8 @@ from app.services import (
 )
 from app.services import checkin_scheduler as checkin_scheduler_mod
 from app.services.checkin_engine import client_for, extract_user_id, get_jwt_exp
-from app.services.checkin_task_capability import task_capability_reason
 from app.services.checkin_outbound import OutboundPaused, checkin_outbound_gate
+from app.services.checkin_task_capability import task_capability_reason
 
 logger = logging.getLogger(__name__)
 
@@ -512,6 +514,44 @@ async def _outbound_risk_precheck(account_id: int) -> None:
         )
 
 
+def _doubao_tasks_for_ui(listed: dict[str, Any]) -> dict[str, Any]:
+    """豆包任务清单 → WB 面板行形状(task_code/title/status/progress/target/reward_credit)。
+
+    单一真源的字段映射:展示层不重算状态语义,直接把 status_text 摆出来;
+    milestones 也进列表(用户要看到 500/2000/5000 里程碑进度与领取态)。
+    """
+    rows: list[dict[str, Any]] = []
+    for t in listed.get("tasks") or []:
+        rows.append(
+            {
+                "task_code": t.get("code") or "",
+                "title": None,
+                "status": t.get("status_text"),
+                "progress": None,
+                "target": None,
+                "reward_credit": t.get("reward"),
+                "task_kind": t.get("kind"),
+                "task_id": t.get("task_id"),
+            }
+        )
+    for m in listed.get("milestones") or []:
+        rows.append(
+            {
+                "task_code": m.get("code") or "",
+                "title": None,
+                "status": m.get("status_text"),
+                "progress": None,
+                "target": m.get("threshold"),
+                "reward_credit": m.get("reward"),
+                "task_kind": m.get("kind"),
+                "task_id": m.get("task_id"),
+            }
+        )
+    out = dict(listed)
+    out["tasks"] = rows
+    return out
+
+
 @router.get("/accounts/{account_id}/tasks")
 async def list_account_tasks(
     account_id: int, current_user: str = Depends(require_request_user_id)
@@ -520,12 +560,27 @@ async def list_account_tasks(
     {"ok","kind":"list","tasks":[...],"reason","unjudged"};
     上游形态读不懂 ⇒ unjudged=true(§0.3 不猜零不冒绿)。"""
     account = await _wb_tasks_account_or_404(account_id, current_user)
-    if account.get("platform") != "workbuddy":
+    platform = str(account.get("platform") or "")
+    if platform == "doubao":
+        # 豆包任务清单(2026-11-16):客户端+web 双读并集,返回 tasks+milestones。
+        # 行形状对齐 WB 面板(task_code/title/status/reward_credit),前端零改动复用。
+        await _outbound_risk_precheck(account_id)
+        dm = dict(account.get("device_map") or {})
+        client, owned = client_for(dm)
+        try:
+            listed = await checkin_doubao.doubao_list_tasks(account["jwt"], dm, client=client)
+            return _doubao_tasks_for_ui(listed)
+        except OutboundPaused as e:
+            raise HTTPException(status_code=429, detail=str(e)) from e
+        finally:
+            if owned:
+                await client.aclose()
+    if platform != "workbuddy":
         return {
             "ok": False,
             "kind": "list",
             "tasks": [],
-            "reason": task_capability_reason(str(account.get("platform") or ""), "read"),
+            "reason": task_capability_reason(platform, "read"),
             "unjudged": False,
         }
     # 出站风控预检(2026-10-31):与手动查余额/手动签到同口径 —— 暂停中或冷却中的账号
@@ -611,7 +666,52 @@ async def run_account_task(
     dry_run=true ⇒ 除只读探针外零写侧调用;上游响应读不懂 ⇒ unjudged=true。
     属主校验走 get_decrypted_jwt(owner 并入 WHERE,不命中 404)。"""
     account = await _wb_tasks_account_or_404(account_id, current_user)
-    if account.get("platform") != "workbuddy":
+    platform = str(account.get("platform") or "")
+    if platform == "doubao":
+        # 豆包任务巡检(2026-11-16):body.kind 对豆包恒为单族 "doubao";
+        # dry_run=true ⇒ apply=False 零写侧。返回结构与 WB 不逐字同形,
+        # 但保留 ok/claimed/skipped/steps/credits_delta 供前端/AI 消费。
+        await _outbound_risk_precheck(account_id)
+        dm = dict(account.get("device_map") or {})
+        work_fields = [
+            x.strip()
+            for x in str(getattr(settings, "doubao_tasks_work_fields", "") or "").split(",")
+            if x.strip()
+        ] or ["office"]
+        try:
+            result = await checkin_doubao.doubao_task_sweep_account(
+                str(account.get("name") or f"doubao-{account_id}"),
+                account["jwt"],
+                dm,
+                apply=not body.dry_run,
+                work_fields=work_fields,
+                auto_generate=bool(
+                    getattr(settings, "doubao_tasks_auto_generate", False)
+                ),
+                generation_timeout=float(
+                    getattr(settings, "doubao_tasks_generation_timeout_s", 90.0)
+                ),
+            )
+        except OutboundPaused as e:
+            raise HTTPException(status_code=429, detail=str(e)) from e
+        result.setdefault("kind", body.kind)
+        result.setdefault("dry_run", body.dry_run)
+        # 面板合同对齐(claimed: string[] / credit_delta / reason / unjudged):
+        # 明细仍完整保留在 claimed_detail / skipped / steps,不丢证据。
+        result["accepted"] = [
+            str(s.get("task") or "")
+            for s in result.get("steps") or []
+            if s.get("ok") and s.get("action") in ("report_work_fields", "run_prompt")
+        ]
+        result["claimed_detail"] = list(result.get("claimed") or [])
+        result["claimed"] = [str(c.get("task") or "") for c in result.get("claimed") or []]
+        result["credit_delta"] = result.get("credits_delta")
+        result["energy_delta"] = None
+        result["reason"] = result.get("message")
+        result.setdefault("unjudged", False)
+        await _record_task_run(account_id, body.kind, body.dry_run, result)
+        return result
+    if platform != "workbuddy":
         return {
             "ok": False,
             "kind": body.kind,
@@ -619,7 +719,7 @@ async def run_account_task(
             "claimed": [],
             "credit_delta": None,
             "energy_delta": None,
-            "reason": task_capability_reason(str(account.get("platform") or ""), "write"),
+            "reason": task_capability_reason(platform, "write"),
             "unjudged": False,
         }
     # 出站风控预检(2026-10-31):一键做任务是**写侧**动作,拿冷却中的死号或被限流的

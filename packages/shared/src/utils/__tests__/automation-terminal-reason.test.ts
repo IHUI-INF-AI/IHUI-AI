@@ -8,7 +8,7 @@
  * 覆盖三类语义:
  *  1. 四个封闭集成因各自映射到正确的 i18n 键后缀与语义色调档;
  *  2. 键后缀与 packages/i18n/messages/{web,mobile-rn}/<五语>.json 的
- *     `automations.terminalReason.*` 逐字对齐(读真文件,防止有人改键名而不同步本表);
+ *     `automations.terminalReason.*` 按行为规格(读真文件,防止有人改键名而不同步本表);
  *  3. 无终态 / 未知取值 ⇒ null(绝不折成默认成因)。
  */
 import { describe, expect, it } from 'vitest'

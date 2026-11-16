@@ -131,7 +131,7 @@ describe('号池导出-重导往返(9 平台 uid/name 复现,零 DB)', () => {
     expect(payload['uid']).toBe('13800002222')
   })
 
-  it('qoder: 顶层 token 族 + cosy 设备头族/过期键逆向,载荷名复现', () => {
+  it('qoder: 顶层 token 族 + cosy 设备头族/过期键兼容分析,载荷名复现', () => {
     const row = poolRow('qoder', {
       uid: 'qoder-user-777',
       name: 'Qoder昵称',

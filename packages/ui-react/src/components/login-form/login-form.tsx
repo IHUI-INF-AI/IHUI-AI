@@ -55,7 +55,7 @@ const KNOWN_TAB_KEYS = Object.keys(TAB_LABEL_KEYS) as LoginTab[]
  * 单一来源(single source of truth):web 端 LoginFormContent 和扩展端
  * popup/sidepanel 都用这份。整合 4 tab + 8 第三方登录 + 协议复选框 + 协议弹窗。
  *
- * 视觉规范(对标 apps/web/src/components/login/LoginFormContent.tsx):
+ * 视觉规范(对齐 apps/web/src/components/login/LoginFormContent.tsx):
  *   - 容器:.login-form-scope space-y-4
  *   - 4 tab Tabs(网格 grid-cols-4)
  *   - 错误提示:每个 tab 独立,切换时清空

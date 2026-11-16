@@ -48,7 +48,7 @@ const arg = (argv, n, d = null) => {
 }
 
 /**
- * 上游档案 → 客户端 userInfo 的 account 段(字段名逐字对齐客户端本地信封,见
+ * 上游档案 → 客户端 userInfo 的 account 段(字段名按行为规格客户端本地信封,见
  * scripts/lib/trae-client-switch.mjs 的 buildClientUserInfo 与 buildMinimalAccount)。
  * 上游给的是 BodyCase,客户端要的是 snake_case + 固定默认值 —— 缺项按本仓既有档位补,
  * **不臆造**:email/organization 上游真没给就留空串(客户端这两个字段不参与登录判定)。

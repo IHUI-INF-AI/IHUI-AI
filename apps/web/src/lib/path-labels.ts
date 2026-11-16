@@ -594,7 +594,7 @@ export function resolvePathDynamicLabel(pathname: string): string | null {
 // ===== Path → Icon 解析器(2026-08-14:TagsView 标签图标)=====
 //
 // 复用 FLAT_NAV_ITEMS + ADMIN_NAV 的 icon 字段,匹配策略与 resolvePathLabelSpec 一致。
-// TagsView 渲染时根据 tag.path 解析对应路由图标,在文字前显示(对标 Chrome 标签页 favicon)。
+// TagsView 渲染时根据 tag.path 解析对应路由图标,在文字前显示(对齐 Chrome 标签页 favicon)。
 
 type IconType = ComponentType<{ className?: string }>
 

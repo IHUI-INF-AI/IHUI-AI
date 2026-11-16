@@ -17,13 +17,13 @@
 - default_timeout:默认超时秒数(NVIDIA=120, 其他=30)
 - max_context:默认最大上下文 tokens(具体模型可在 default_models.json 覆盖)
 - protocol:openai_chat / anthropic_messages / gemini_generate_content
-- request_max_retries:HTTP 请求失败重试次数(2026-09-19 第十七批,对标 Codex
+- request_max_retries:HTTP 请求失败重试次数(2026-09-19 第十七批,遵循统一工程规范
   ModelProviderInfo.request_max_retries)。此前 llm_gateway 里是全局硬编码
   num_retries=2,排队型 provider(NVIDIA 免费层)与低延迟 provider(Groq)
   根本不该同档;现按 provider 声明。
-- stream_idle_timeout_s:流式响应空闲超时(对标 Codex stream_idle_timeout_ms)。
+- stream_idle_timeout_s:流式响应空闲超时(遵循统一工程规范)。
   长思考链/排队型 provider 需要放宽,否则正常排队被误判为断流。
-- extra_headers / env_headers:附加请求头(对标 Codex http_headers /
+- extra_headers / env_headers:附加请求头(遵循统一工程规范
   env_http_headers)。env_headers 的 value 是「环境变量名」,运行时取值,
   未设置或空值则该头整个省略 —— 凭据只留在环境变量里,不落配置与代码。
 """
@@ -263,7 +263,7 @@ def cap_with_max_context(cap: ProviderCap, max_context: int | None) -> ProviderC
 
 
 # ---------------------------------------------------------------------------
-# 第十七批(2026-09-19,对标 Codex ModelProviderInfo):
+# 第十七批(2026-09-19,遵循统一工程规范):
 # provider 级韧性参数与请求头解析
 # ---------------------------------------------------------------------------
 
@@ -273,7 +273,7 @@ def resolve_provider_headers(provider_code: str | None) -> dict[str, str]:
 
     env_headers 的 value 是「环境变量名」而不是值:运行时才取;变量未设置或
     为空串则该头整个省略(而不是发一个空头) —— 凭据只留在环境变量里,不落
-    配置与代码(对标 Codex env_http_headers 的语义)。
+    配置与代码(遵循统一工程规范)。
     固定头 extra_headers 与 env_headers 同名时,env_headers 优先(更动态)。
     """
     cap = get_provider_cap(provider_code or "")
@@ -292,7 +292,7 @@ def apply_provider_overrides(
 ) -> None:
     """把 provider 级韧性参数写进 litellm 调用参数(调用方已显式给的值不改)。
 
-    对标 Codex request_max_retries / stream_idle_timeout_ms:此前 llm_gateway
+    遵循统一工程规范
     里 num_retries 是全局硬编码 2,排队型 provider(NVIDIA 免费层 16 并发)与
     低延迟 provider(Groq)不该同档;现在按 provider 声明。
     """

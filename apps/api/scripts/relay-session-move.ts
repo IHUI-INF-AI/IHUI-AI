@@ -475,7 +475,7 @@ export interface BatchMoveSkip {
 }
 
 /**
- * copy 计划(纯只读):把会话**复制**到目标账号桶,源侧保留(对标 wb-switch 的 copy_sessions_cross)。
+ * copy 计划(纯只读):把会话**复制**到目标账号桶,源侧保留(对齐 wb-switch 的 copy_sessions_cross)。
  * 目标账号 = --to 显式指定,缺省取台账归属;两者都取不到 ⇒ 拒绝(不猜)。
  * 与 move 的差异:不要求会话必须归属(显式 --to 是人的判断,输出里标注台账实况且不改台账);
  * 桶内已有同名不在 plan 阶段判冲突——apply 时 sha 相同即跳过、不同则拒做。

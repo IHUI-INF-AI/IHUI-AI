@@ -65,7 +65,7 @@ const SOURCE = 'deploy-hook'
 
 let app: FastifyInstance
 let tmpRoot = ''
-let clockNow = 1_000_000
+const clockNow = 1_000_000
 let seq = 0
 
 function sign(secret: string, payload: Record<string, unknown>): string {

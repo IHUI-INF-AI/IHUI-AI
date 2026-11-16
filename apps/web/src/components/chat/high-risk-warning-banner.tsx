@@ -14,7 +14,7 @@ import type { usePermissionAutoRevert } from '@/hooks/use-permission-auto-revert
 import { useAiPanelStore } from '@/stores/ai-panel'
 
 /**
- * 高风险模式持久化视觉警告横幅(2026-07-25 深化,深度对标 Codex 高风险提示)
+ * 高风险模式持久化视觉警告横幅(2026-07-25 深化,深度遵循统一工程规范)
  *
  * 提取自 message-input.tsx(2026-07-30),行为零变更:
  * - bypass-permissions 模式时,输入框上方加琥珀色横幅

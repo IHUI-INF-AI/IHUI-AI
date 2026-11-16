@@ -30,16 +30,14 @@ import { disposeChatStoreForPane } from '@/stores/chat-panes'
 import { disposeAiToolsPanelForPane } from '@/stores/ai-tools-panel'
 import { disposeContextMentionForPane } from '@/stores/context-mention'
 import { disposeConversationDetailModeForPane } from '@/stores/conversation-detail-mode'
-import { disposeModeStoreForPane } from '@/stores/mode'
 import { disposeTimelineStoreForPane } from '@/stores/timeline-store'
 
-/** 一个窗格的全部实例回收(chat store + 五座伴生 store),两个回收点共用一份清单 */
+/** 一个窗格的全部实例回收(chat store + 四座伴生 store),两个回收点共用一份清单 */
 function disposePaneInstances(paneId: string): void {
   disposeChatStoreForPane(paneId)
   disposeAiToolsPanelForPane(paneId)
   disposeContextMentionForPane(paneId)
   disposeConversationDetailModeForPane(paneId)
-  disposeModeStoreForPane(paneId)
   disposeTimelineStoreForPane(paneId)
 }
 

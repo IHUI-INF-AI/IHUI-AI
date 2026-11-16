@@ -2,7 +2,7 @@
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-"""网络策略修正案模块测试(2026-09-20 第二十九批,对标 codex network_policy_decision_tests.rs)。
+"""网络策略修正案模块测试(2026-09-20 第二十九批,遵循统一工程规范)。
 
 运行:cd apps/ai-service && G:/IHUI-AI/apps/ai-service/.venv/Scripts/python.exe -m pytest tests/test_network_rule_amendments_58.py -q --noconftest
 """
@@ -35,7 +35,7 @@ def _amend_ctx(action: NetworkPolicyRuleAction, protocol: NetworkApprovalProtoco
 
 
 # ---------------------------------------------------------------------------
-# A. NetworkApprovalProtocol.protocol_label (对标 network_policy_decision.rs:89-94)
+# A. NetworkApprovalProtocol.protocol_label (对齐 network_policy_decision.rs:89-94)
 # ---------------------------------------------------------------------------
 def test_protocol_label_http():
     assert NetworkApprovalProtocol.HTTP.protocol_label() == "http"
@@ -56,7 +56,7 @@ def test_protocol_label_socks5_udp():
 
 # ---------------------------------------------------------------------------
 # B. execpolicy_network_rule_amendment 八组 (4 协议 × 2 动作)
-#    对标 network_policy_decision.rs:74-102
+#    对齐 network_policy_decision.rs:74-102
 # ---------------------------------------------------------------------------
 def test_execpolicy_allow_http():
     a, c, h = _amend_ctx(NetworkPolicyRuleAction.ALLOW, NetworkApprovalProtocol.HTTP, "api.github.com")
@@ -116,7 +116,7 @@ def test_execpolicy_deny_socks5_udp():
 
 
 def test_execpolicy_codex_specific_case():
-    # 对标 network_policy_decision_tests.rs::
+    # 对齐 network_policy_decision_tests.rs::
     # execpolicy_network_rule_amendment_maps_protocol_action_and_justification
     amendment = NetworkPolicyAmendment(host="example.com", action=NetworkPolicyRuleAction.DENY)
     context = NetworkApprovalContext(host="example.com", protocol=NetworkApprovalProtocol.SOCKS5_UDP)
@@ -130,7 +130,7 @@ def test_execpolicy_codex_specific_case():
 
 # ---------------------------------------------------------------------------
 # C. network_approval_context_from_payload
-#    对标 network_policy_decision_tests.rs::
+#    对齐 network_policy_decision_tests.rs::
 #    network_approval_context_requires_ask_from_decider
 #    network_approval_context_maps_http_https_and_socks_protocols
 # ---------------------------------------------------------------------------
@@ -226,7 +226,7 @@ def test_context_http_connect_alias():
 
 
 # ---------------------------------------------------------------------------
-# D. network_rule_saved_body (对标 network_rule_saved.rs::body)
+# D. network_rule_saved_body (对齐 network_rule_saved.rs::body)
 # ---------------------------------------------------------------------------
 def test_network_rule_saved_body_allow():
     assert (
@@ -251,7 +251,7 @@ def test_network_rule_saved_body_accepts_string():
 
 # ---------------------------------------------------------------------------
 # E. network_rule_saved_fragment 片段契约
-#    对标 network_rule_saved.rs::content_kind/role/markers/body
+#    对齐 network_rule_saved.rs::content_kind/role/markers/body
 # ---------------------------------------------------------------------------
 def test_fragment_role_is_developer():
     frag = network_rule_saved_fragment(NetworkPolicyRuleAction.ALLOW, "api.github.com")
@@ -276,7 +276,7 @@ def test_fragment_body_matches_rule_saved():
 
 
 # ---------------------------------------------------------------------------
-# F. 水印头逐字节一致 (对标 rollout_budget.py 前 3 行)
+# F. 水印头逐字节一致 (对齐 rollout_budget.py 前 3 行)
 # ---------------------------------------------------------------------------
 def _head3_md5(path: str) -> str:
     with open(path, newline="", encoding="utf-8") as f:

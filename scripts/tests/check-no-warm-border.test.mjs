@@ -33,7 +33,7 @@ const SOURCE_REL = 'scripts/check-no-warm-border.mjs'
 const cases = []
 const t = (name, fn) => cases.push({ name, fn })
 
-/** 2026-10-20 实测事故原文三则(逐字节抄自当次 HEAD blob,自带出处,不依赖 HEAD 仍存在)。 */
+/** 2026-10-20 实测事故原文三则(逐字节取自当次 HEAD blob,自带出处,不依赖 HEAD 仍存在)。 */
 const BUG_CSS =
   '.ai-input-shell--high-risk:focus-within {\n  border-color: color-mix(in srgb, var(--color-amber-500) 70%, transparent);\n}\n'
 const BUG_TW = 'className="max-h-72 p-1 focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-500/40"\n'

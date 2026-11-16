@@ -9,7 +9,7 @@ import { cn } from '../lib/utils'
 /**
  * SearchInput — 全项目统一搜索框(2026-09-15 立,web + extension 唯一样式来源)。
  *
- * 视觉规范(对标 file-mention-popover 圆角输入井):
+ * 视觉规范(对齐 file-mention-popover 圆角输入井):
  * - 圆角输入井: rounded-md border border-border bg-muted/40 px-2.5
  * - 聚焦反馈: focus-within:border-primary focus-within:bg-muted/60
  * - 图标: Search(h-3.5 w-3.5 text-muted-foreground)

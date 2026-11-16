@@ -6,7 +6,7 @@
 -- 会话质量聚合(services/session-quality-stats-service.ts)按 session_id 分组、按 created_at
 -- 窗口过滤,原仅有 visit_date/ip,city 索引,三腿各扫全表(每 5s × 3 次)。此复合索引覆盖
 -- 「WHERE session_id IS NOT NULL AND created_at >= ...」的分组+过滤路径。
--- 幂等:IF NOT EXISTS,可安全重复执行。索引名与 schema 逐字对齐(visit-tracking.ts)。
+-- 幂等:IF NOT EXISTS,可安全重复执行。索引名与 schema 按行为规格(visit-tracking.ts)。
 --
 -- 执行方式:
 --   pnpm tsx packages/database/scripts/apply-migration.mjs drizzle/20261114150000_visit_logs_session_created_at_idx.sql

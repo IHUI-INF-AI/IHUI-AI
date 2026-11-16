@@ -184,6 +184,10 @@ _JOB_ID_LOCAL_SYNC = "checkin_local_creds_sync"
 # 双门控 WORKBUDDY_TASKS_ENABLED(节拍开关,默认 off)+ WORKBUDDY_TASKS_LIVE_RUN
 # (写侧开关,默认 off ⇒ 调度轮只 dry-run)。
 _JOB_ID_WB_TASKS = "workbuddy_task_sweep"
+# 豆包任务赚积分巡检(2026-11-16 立):签到之外的 select_work_fields/里程碑/已完成
+# 任务领取。双门控 DOUBAO_TASKS_ENABLED(调度)+ DOUBAO_TASKS_LIVE_RUN(写侧)。
+# 契约唯一源 = app/services/checkin_doubao.py(线上 bundle 逐字实证)。
+_JOB_ID_DOUBAO_TASKS = "doubao_task_sweep"
 # MiniMax OAuth 换票端点(2026-10-24 抓包确认,客户端不在时的服务端续期出口)
 _MINIMAX_TOKEN_URL = "https://account.minimax.cn/oauth2/token"
 
@@ -323,6 +327,27 @@ def _wb_tasks_sweep_minutes() -> int:
     两处各写一遍 int()/max() 必然漂移(前端显示 180、实际跑 5 之类),故抽此函数。
     """
     return max(5, int(settings.workbuddy_tasks_sweep_minutes))
+
+
+def _doubao_task_sweep_hours() -> list[int]:
+    """豆包任务巡检小时集合(单一真源:start() 注册与 status() 展示共用)。
+
+    DOUBAO_TASKS_CRON_HOURS 逗号分隔,越界值丢弃;全空 ⇒ [0, 8] 兜底(签到之后)。
+    去重排序,防同一小时注册两条同名 job(replace_existing 会静默覆盖,日志失真)。
+    """
+    raw = str(settings.doubao_tasks_cron_hours or "")
+    hours: list[int] = []
+    for part in raw.split(","):
+        part = part.strip()
+        if not part:
+            continue
+        try:
+            hour = int(part)
+        except ValueError:
+            continue
+        if 0 <= hour <= 23 and hour not in hours:
+            hours.append(hour)
+    return sorted(hours) or [0, 8]
 
 
 # wb_tasks.not_running_reason 的机器枚举(三端按这个字符串分支,取值只此一份)
@@ -674,6 +699,9 @@ class CheckinScheduler:
         # status() 暴露。**进程内**语义:重启即清空(不是持久账本,不写 checkin_records
         # —— 做任务 ≠ 每日签到,不混表);多 worker 部署下各进程各自一份。
         self._wb_sweep_last: dict[str, Any] | None = None
+        # 豆包任务巡检「上一轮摘要」(2026-11-16):与 WB 同语义,进程内只读快照,
+        # 不写 checkin_records(做任务 ≠ 每日签到),由 status()["doubao_tasks"] 暴露。
+        self._doubao_sweep_last: dict[str, Any] | None = None
         # Qoder 补跑轮防重入(2026-11-01):单轮最坏 200 号 × 错峰 8~45s 可跑近两
         # 小时,可能跨过下一个补跑时刻;两轮叠打会把同一批待补号打两遍。标志位只
         # 在进程内(多 worker 部署各算各的,见报告残留风险)。
@@ -797,6 +825,21 @@ class CheckinScheduler:
                 IntervalTrigger(minutes=_wb_tasks_sweep_minutes()),
                 _JOB_ID_WB_TASKS,
             )
+        # 豆包任务赚积分巡检(2026-11-16):签到窗口(00:05/08:05)之后各跑一轮,
+        # 覆盖「零点后任务刷新」与「白天做完任务晚间补领」;写侧另由
+        # DOUBAO_TASKS_LIVE_RUN 把关,false ⇒ 只读预检(零写侧调用)。
+        if settings.doubao_tasks_enabled:
+            for doubao_hour in _doubao_task_sweep_hours():
+                _add(
+                    self._doubao_task_sweep,
+                    CronTrigger(
+                        hour=doubao_hour,
+                        minute=max(0, min(59, int(settings.doubao_tasks_cron_minute))),
+                        timezone=_CN_TZ,
+                        jitter=_CRON_JITTER,
+                    ),
+                    f"{_JOB_ID_DOUBAO_TASKS}_{doubao_hour:02d}",
+                )
         scheduler.start()
         self._started = True
         retry_label = "/".join(f"{h:02d}:{m:02d}" for h, m in _qoder_retry_times())
@@ -1100,9 +1143,23 @@ class CheckinScheduler:
         next_run_zcode_retry: str | None = None
         next_run_probe: str | None = None
         next_run_wb_tasks: str | None = None
+        next_run_doubao_tasks: str | None = None
         # 观测态取材:调度器不存在 ⇒ job 必然没注册(不回落成"按配置猜")
         wb_job = self._scheduler.get_job(_JOB_ID_WB_TASKS) if self._scheduler is not None else None
         wb_job_registered = wb_job is not None
+        doubao_jobs = (
+            [
+                job
+                for job in (
+                    self._scheduler.get_job(f"{_JOB_ID_DOUBAO_TASKS}_{hour:02d}")
+                    for hour in _doubao_task_sweep_hours()
+                )
+                if job is not None
+            ]
+            if self._scheduler is not None
+            else []
+        )
+        doubao_job_registered = bool(doubao_jobs)
         if self._started and self._scheduler is not None:
             job = self._scheduler.get_job(_JOB_ID)
             if job is not None:
@@ -1164,6 +1221,13 @@ class CheckinScheduler:
                 next_run_wb_tasks = (
                     next_run_time_w.isoformat() if next_run_time_w is not None else None
                 )
+            doubao_next: list[datetime] = []
+            for job_d in doubao_jobs:
+                next_run_time_d: datetime | None = job_d.next_run_time
+                if next_run_time_d is not None:
+                    doubao_next.append(next_run_time_d)
+            if doubao_next:
+                next_run_doubao_tasks = min(doubao_next).isoformat()
         wb_tasks_enabled = bool(settings.workbuddy_tasks_enabled)
         wb_cron_enabled = _cron_enabled()
         return {
@@ -1179,6 +1243,7 @@ class CheckinScheduler:
             "next_run_zcode_retry": next_run_zcode_retry,
             "next_run_probe": next_run_probe,
             "next_run_wb_tasks": next_run_wb_tasks,
+            "next_run_doubao_tasks": next_run_doubao_tasks,
             "wb_tasks": {
                 # 观测态:只有"调度器已 start ∧ 这条 job 真在注册表里"才算在跑。
                 # 配置意图另见 tasks_enabled / cron_enabled 与 not_running_reason。
@@ -1202,6 +1267,29 @@ class CheckinScheduler:
                 # 上一轮巡检摘要(进程内;None = 本进程还没跑过)。前端据此说
                 # 「上次跑了 N 家、领了 M 项」或「上次跳过:原因」,而不是一片空白。
                 "last_sweep": self._wb_sweep_last,
+            },
+            "doubao_tasks": {
+                "enabled": bool(self._started and doubao_job_registered),
+                "tasks_enabled": bool(settings.doubao_tasks_enabled),
+                "cron_enabled": wb_cron_enabled,
+                "not_running_reason": (
+                    None
+                    if (self._started and doubao_job_registered)
+                    else (
+                        "CHECKIN_CRON_ENABLED=false"
+                        if not wb_cron_enabled
+                        else (
+                            "DOUBAO_TASKS_ENABLED=false"
+                            if not settings.doubao_tasks_enabled
+                            else "调度器未启动"
+                        )
+                    )
+                ),
+                "live_run": bool(settings.doubao_tasks_live_run),
+                "cron_hours": _doubao_task_sweep_hours(),
+                "cron_minute": max(0, min(59, int(settings.doubao_tasks_cron_minute))),
+                "auto_generate": bool(settings.doubao_tasks_auto_generate),
+                "last_sweep": self._doubao_sweep_last,
             },
             # 启动补偿(2026-11-04):配置意图 + 本进程是否已跑 + 上一轮快照。
             # last=None 表示本进程还没评估过(不是"没有补偿",是"还不知道")。
@@ -1800,6 +1888,114 @@ class CheckinScheduler:
             **stats,
             "note": note,
         }
+
+    def _record_doubao_sweep(
+        self,
+        started_at: datetime,
+        dry_run: bool,
+        stats: dict[str, int],
+        note: str | None,
+    ) -> None:
+        """豆包任务巡检的进程内摘要(status()["doubao_tasks"]["last_sweep"] 只读消费)。"""
+        self._doubao_sweep_last = {
+            "at": started_at.isoformat(),
+            "finished_at": datetime.now(UTC).isoformat(),
+            "dry_run": dry_run,
+            **stats,
+            "note": note,
+        }
+
+    async def _doubao_task_sweep(self) -> None:
+        """豆包任务赚积分巡检轮(2026-11-16)。
+
+        与签到 job 解耦:签到只领 daily_signin;本 job 负责「行为任务完成 →
+        任务/里程碑领奖」整条链(契约见 checkin_doubao.py 顶部,全部线上实证)。
+        双门控:DOUBAO_TASKS_ENABLED(start() 把关)+ DOUBAO_TASKS_LIVE_RUN
+        (false ⇒ apply=False 只读预检,零写侧调用)。冷却中账号跳过;单账号异常
+        不中断整轮;结果不写 checkin_records(做任务 ≠ 签到),只落进程内摘要。
+        """
+        started_at = datetime.now(UTC)
+        dry_run = not bool(settings.doubao_tasks_live_run)
+        stats: dict[str, int] = {
+            "accounts": 0,
+            "claimed": 0,
+            "skipped": 0,
+            "errors": 0,
+            "unjudged": 0,
+            "skipped_cooldown": 0,
+        }
+        if checkin_outbound_gate.paused_remaining() > 0:
+            logger.info("[checkin_scheduler] 出站限流暂停中,豆包任务巡检本轮跳过")
+            self._record_doubao_sweep(started_at, dry_run, stats, "出站限流暂停")
+            return
+        loaded = await self._load_accounts_and_cooldowns("豆包任务巡检")
+        if loaded is None:
+            self._record_doubao_sweep(started_at, dry_run, stats, "账号读取失败")
+            return
+        accounts, cooldowns = loaded
+        targets = [a for a in accounts if str(a.get("platform") or "") == "doubao"]
+        if not targets:
+            self._record_doubao_sweep(started_at, dry_run, stats, "无豆包账号")
+            return
+        stats["accounts"] = len(targets)
+        work_fields = [
+            x.strip()
+            for x in str(settings.doubao_tasks_work_fields or "").split(",")
+            if x.strip()
+        ] or ["office"]
+        now = datetime.now(UTC)
+        summary: list[str] = []
+        for acc in targets:
+            cd_end = cooldowns.get(acc["id"])
+            if cd_end is not None and cd_end > now:
+                stats["skipped_cooldown"] += 1
+                continue
+            try:
+                result = await checkin_doubao.doubao_task_sweep_account(
+                    str(acc.get("name") or f"doubao-{acc['id']}"),
+                    acc["jwt"],
+                    dict(acc.get("device_map") or {}),
+                    apply=not dry_run,
+                    work_fields=work_fields,
+                    auto_generate=bool(settings.doubao_tasks_auto_generate),
+                    generation_timeout=float(settings.doubao_tasks_generation_timeout_s),
+                )
+            except OutboundPaused:
+                logger.warning("[checkin_scheduler] 豆包任务巡检撞出站暂停,整轮中止")
+                self._record_doubao_sweep(
+                    started_at, dry_run, stats, "中途中止:出站限流"
+                )
+                return
+            except Exception as e:  # noqa: BLE001 — 单账号异常不中断整轮
+                logger.warning(
+                    "[checkin_scheduler] 豆包任务巡检异常 account=%s: %s", acc["id"], e
+                )
+                stats["errors"] += 1
+                continue
+            stats["claimed"] += int(result.get("claimed_count") or 0)
+            stats["skipped"] += len(result.get("skipped") or [])
+            if not result.get("ok"):
+                stats["errors"] += 1
+            if result.get("unjudged"):
+                stats["unjudged"] += 1
+            summary.append(
+                f"{acc['id']}:ok={result.get('ok')} "
+                f"claimed={result.get('claimed_count')} "
+                f"skipped={len(result.get('skipped') or [])} "
+                f"delta={result.get('credits_delta')}"
+            )
+            await asyncio.sleep(random.uniform(2.0, 8.0))
+        self._record_doubao_sweep(
+            started_at,
+            dry_run,
+            stats,
+            None if stats["accounts"] else "无可用账号(全部冷却)",
+        )
+        logger.info(
+            "[checkin_scheduler] 豆包任务巡检完成(dry_run=%s):%s",
+            dry_run,
+            "; ".join(summary) if summary else "无可用账号",
+        )
 
     async def _workbuddy_task_sweep(self) -> None:
         """O68 WorkBuddy 任务赚积分巡检轮(六族,顺序取 workbuddy_tasks.SWEEP_ORDER)。

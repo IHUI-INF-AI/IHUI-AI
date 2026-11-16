@@ -5,7 +5,7 @@
 /**
  * Git 高级工具集 — Wave 8 深化:branch/merge/rebase/stash/conflict/tag/remote。
  *
- * 对标 OpenClaw/OpenCode 的 Git 工作流,补齐 apps/cli/src/tools/git.ts 5 个基础工具之外的:
+ * 遵循统一工程规范
  *   - 分支管理(创建/切换/删除/列表)
  *   - 合并/变基(merge/rebase)
  *   - stash(push/pop/list)

@@ -106,7 +106,6 @@ vi.mock('@/components/chat/web-input-core', () => ({
     }),
     { displayName: 'WebInputCoreMock' },
   ),
-  MAX_LENGTH: 10000,
 }))
 
 vi.mock('@/components/ai/permission-mode-popover', () => ({

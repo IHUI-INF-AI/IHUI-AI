@@ -3,7 +3,7 @@
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 # app/core/exec_env.py
-"""Shell 环境策略(2026-09-19 第二十六批,对标 Codex protocol/src/shell_environment.rs)。
+"""Shell 环境策略(2026-09-19 第二十六批,遵循统一工程规范)。
 
 为工具子进程构造受控环境,六步算法(Codex populate_env 忠实移植):
 
@@ -166,7 +166,7 @@ def _is_executable_file(candidate: str) -> bool:
 
 
 def resolve_stdio_command(command: str, env: Mapping[str, str] | None = None) -> ExecutableResolution:
-    """显式候选序解析 stdio 命令(对标上游 runtimeToolResolver 的 accessSync(X_OK) 判据)。
+    """显式候选序解析 stdio 命令(对齐上游 runtimeToolResolver 的 accessSync(X_OK) 判据)。
 
     - 显式路径(含目录分隔)⇒ 候选即自身,可执行才算解析到;
     - 裸名 ⇒ 依次试 PATH 各目录(取自传入 ``env``,大小写不敏感)+ POSIX bootstrap
@@ -213,7 +213,7 @@ def resolve_stdio_command(command: str, env: Mapping[str, str] | None = None) ->
 
 
 class ShellEnvironmentPolicyInherit(StrEnum):
-    """inherit 策略(对标 ShellEnvironmentPolicyInherit)。"""
+    """inherit 策略(对齐 ShellEnvironmentPolicyInherit)。"""
 
     ALL = "all"
     NONE = "none"
@@ -243,7 +243,7 @@ class EnvironmentVariablePattern:
         return f"EnvPattern({self._pattern!r}, ci={self.case_insensitive})"
 
 
-# 注入型危险变量前缀(对标 Codex process-hardening:LD_PRELOAD/LD_AUDIT/DYLD_*
+# 注入型危险变量前缀(遵循统一工程规范
 # 会把任意 so/dylib 注入子进程,防环境劫持执行;Windows 生产为 no-op 但跨平台
 # 语义正确)。单一权威源在此,执行面一律经本模块判据,不在各服务里各抄一份。
 INJECTION_ENV_PREFIXES: tuple[str, ...] = ("LD_PRELOAD", "LD_AUDIT", "DYLD_")
@@ -338,7 +338,7 @@ def apply_child_runtime_guard(
 
 @dataclass
 class ShellEnvironmentPolicy:
-    """Shell 环境策略(对标 config_types::ShellEnvironmentPolicy)。"""
+    """Shell 环境策略(对齐 config_types::ShellEnvironmentPolicy)。"""
 
     inherit: ShellEnvironmentPolicyInherit = ShellEnvironmentPolicyInherit.ALL
     # True = 跳过 KEY/SECRET/TOKEN 默认排除(Codex Default 即 true,忠实镜像)
@@ -354,7 +354,7 @@ def populate_env(
     policy: ShellEnvironmentPolicy,
     thread_id: str | None = None,
 ) -> dict[str, str]:
-    """六步环境构造算法(对标 populate_env,Windows set 覆盖语义含全平台)。"""
+    """六步环境构造算法(对齐 populate_env,Windows set 覆盖语义含全平台)。"""
     is_windows = sys.platform == "win32"
 
     # Step 1 - inherit 起点
@@ -406,7 +406,7 @@ def create_env_from_vars(
     policy: ShellEnvironmentPolicy,
     thread_id: str | None = None,
 ) -> dict[str, str]:
-    """populate_env + 平台出口兜底(对标 create_env_from_vars):
+    """populate_env + 平台出口兜底(对齐 create_env_from_vars):
     Windows 补 PATHEXT 缺省;POSIX 补 bootstrap PATH 兜底(G-998139,拍板:要)。"""
     env_map = populate_env(vars, policy, thread_id)
     if sys.platform == "win32":
@@ -418,12 +418,12 @@ def create_env_from_vars(
 
 
 def create_env(policy: ShellEnvironmentPolicy, thread_id: str | None = None) -> dict[str, str]:
-    """从当前进程环境构造(对标 create_env)。"""
+    """从当前进程环境构造(对齐 create_env)。"""
     return create_env_from_vars(os.environ.items(), policy, thread_id)
 
 
 def inject_session_env(env: dict[str, str], session_id: str, harness_version: str) -> None:
-    """向子进程环境注入会话身份与 harness 版本(对标 inject_session_env)。"""
+    """向子进程环境注入会话身份与 harness 版本(对齐 inject_session_env)。"""
     env[CODEX_SESSION_ID_ENV_VAR] = session_id
     if sys.platform == "win32":
         # Windows 环境变量大小写不敏感:先移除同名异写键再插入

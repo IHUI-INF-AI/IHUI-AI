@@ -119,6 +119,7 @@ _CATEGORY_RULES: list[tuple[str, str]] = [
     ("screenshot_url", "media"),
     ("generate_chart", "media"),
     ("parse_document", "media"),
+    ("orchestrate_agents", "agent"),
     ("dispatch_subagent", "agent"),
     ("configure_automation_task", "agent"),
     ("schedule_task", "agent"),

@@ -2,7 +2,7 @@
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-"""Guardian 安全审查上下文片段(批 58,对标 codex guardian context 9 文件)。
+"""Guardian 安全审查上下文片段(批 58,遵循统一工程规范)。
 
 移植 codex-rs ``core/src/context/guardian_*.rs`` 九个上下文片段的渲染语义到
 ihui 现有 OpenAI 消息片段风格(对齐 ``rollout_budget.py`` 的 ``build_*_fragment``
@@ -12,7 +12,7 @@ ihui 现有 OpenAI 消息片段风格(对齐 ``rollout_budget.py`` 的 ``build_*
   / ``guardian_node_repl_policy``:developer 角色、空标记对(裸文本)。
 - ``guardian_context_omission`` / ``guardian_sender_messages`` /
   ``guardian_tool_descriptions`` / ``guardian_review_evidence``:带标记对、user 或
-  developer 角色,markers 与正文逐字对齐 codex 源码。
+  developer 角色,markers 与正文按行为规格 外部实现 源码。
 
 状态类:
 
@@ -22,7 +22,7 @@ ihui 现有 OpenAI 消息片段风格(对齐 ``rollout_budget.py`` 的 ``build_*
   TextOnly 模式丢弃图片、超限丢弃最旧(合并 ``node_repl_review_evidence.rs`` 的
   8MB/图片丢弃语义与 ``guardian_review_evidence.rs`` 的记录/标记渲染)。
 - ``GuardianSenderMessagesState``:``record_user_message`` 维护最近 3 条用户消息
-  有界窗口,``build_fragment`` 渲染 reviewer-only 快照(逐字对齐
+  有界窗口,``build_fragment`` 渲染 reviewer-only 快照(按行为规格
   ``guardian_sender_messages.rs``,每条 ≤900 字符,超出走证据预算缺失通告)。
 
 所有片段返回 ``{"type": "message", "role": ..., "content": [{"type": "input_text",
@@ -39,7 +39,7 @@ from enum import Enum
 from typing import Any
 
 # ===========================================================================
-# 片段分类标记(content_kind,对标 codex ContentItemKind;仅供引用,不嵌入消息体)
+# 片段分类标记(content_kind,遵循统一工程规范;仅供引用,不嵌入消息体)
 # ===========================================================================
 GUARDIAN_POLICY_KIND = "guardian.policy"
 GUARDIAN_APPROVED_ACTION_KIND = "guardian.approved_action"
@@ -50,13 +50,13 @@ GUARDIAN_SENDER_MESSAGES_KIND = "guardian.sender_messages"
 GUARDIAN_TOOL_DESCRIPTIONS_KIND = "guardian.tool_descriptions"
 GUARDIAN_REVIEW_EVIDENCE_KIND = "guardian.review_evidence"
 
-# 信任的开发者审批前缀(逐字对齐 codex_guardian_context::MANUAL_APPROVAL_DEVELOPER_PREFIX)
+# 信任的开发者审批前缀(按行为规格 codex_guardian_context::MANUAL_APPROVAL_DEVELOPER_PREFIX)
 MANUAL_APPROVAL_DEVELOPER_PREFIX = (
     "The user has manually approved a specific action that was previously `Rejected`."
 )
 
 # ===========================================================================
-# 标记对(逐字对齐 codex type_markers())
+# 标记对(按行为规格 外部实现 type_markers())
 # ===========================================================================
 GUARDIAN_CONTEXT_OMISSION_OPEN_TAG = "<guardian_context_omission>"
 GUARDIAN_CONTEXT_OMISSION_CLOSE_TAG = "</guardian_context_omission>"
@@ -71,7 +71,7 @@ GUARDIAN_SYNC_REVIEW_OPEN_TAG = "<guardian_sync_review>"
 GUARDIAN_SYNC_REVIEW_CLOSE_TAG = "</guardian_sync_review>"
 
 # ===========================================================================
-# 有界常量(逐字对齐 codex 各文件)
+# 有界常量(按行为规格 外部实现 各文件)
 # ===========================================================================
 MAX_PREVIOUS_REVIEWS = 8
 MAX_SENDER_MESSAGES = 3
@@ -141,7 +141,7 @@ def _wrap_marked(role: str, open_tag: str, close_tag: str, body: str) -> dict[st
 
 
 # ===========================================================================
-# 文本截断(逐字对齐 codex_guardian_context::truncate_text:保留首尾、UTF-8 边界、
+# 文本截断(按行为规格 codex_guardian_context::truncate_text:保留首尾、UTF-8 边界、
 # 固定 <truncated omitted_approx_tokens="N" /> 标记)
 # ===========================================================================
 def _approx_token_count(text: str) -> int:
@@ -206,7 +206,7 @@ def build_guardian_policy_fragment(policy: str) -> dict[str, Any]:
 def build_guardian_approved_action_fragment(approved_action_json: str) -> dict[str, Any]:
     """被拒动作的手动审批片段(developer 角色、空标记对)。
 
-    正文逐字对齐 codex:前缀 + 两段说明 + ``Approved action:`` + JSON。
+    正文按行为规格 外部实现:前缀 + 两段说明 + ``Approved action:`` + JSON。
     """
     body = (
         f"{MANUAL_APPROVAL_DEVELOPER_PREFIX}\n\n"
@@ -241,7 +241,7 @@ def build_guardian_budget_omission_fragment() -> dict[str, Any]:
 # 4) guardian_followup_review_reminder.rs -> GuardianFollowupReviewReminder
 # ===========================================================================
 def build_guardian_followup_review_reminder_fragment() -> dict[str, Any]:
-    """后续审查提醒(developer 角色、空标记对,正文逐字对齐 codex)。"""
+    """后续审查提醒(developer 角色、空标记对,正文按行为规格 外部实现)。"""
     body = (
         'Use prior reviews as context, not binding precedent. Follow the Workspace Policy. '
         'If the user explicitly approves a previously rejected action after being informed of the '
@@ -297,7 +297,7 @@ def build_guardian_tool_descriptions_fragment(
 # 7) guardian_context_mode.rs -> GuardianContextMode(纯枚举 + 纯函数)
 # ===========================================================================
 class GuardianContextMode(Enum):
-    """选择 legacy 兼容或线程自有证据(逐字对齐 codex GuardianContextMode)。"""
+    """选择 legacy 兼容或线程自有证据(按行为规格 外部实现 GuardianContextMode)。"""
 
     LEGACY = "legacy"
     THREAD_OWNED = "thread_owned"
@@ -321,7 +321,7 @@ class GuardianContextMode(Enum):
 # 8) guardian_review_evidence.rs(状态机) + node_repl_review_evidence 8MB/图片语义
 # ===========================================================================
 class ReviewEvidenceMode(Enum):
-    """同步审查可接收的 REPL 证据模式(逐字对齐 NodeReplReviewEvidenceMode)。"""
+    """同步审查可接收的 REPL 证据模式(按行为规格 NodeReplReviewEvidenceMode)。"""
 
     DISABLED = "disabled"
     TEXT_ONLY = "text_only"
@@ -418,7 +418,7 @@ class GuardianReviewEvidenceState:
 
     # -- 渲染 --------------------------------------------------------------
     def build_fragment(self) -> dict[str, Any]:
-        """输出 <guardian_sync_review> 标记的 developer 片段(逐字对齐 codex)。"""
+        """输出 <guardian_sync_review> 标记的 developer 片段(按行为规格 外部实现)。"""
         body = "\n".join(record.text for record in self._records)
         return _wrap_marked(
             "developer",

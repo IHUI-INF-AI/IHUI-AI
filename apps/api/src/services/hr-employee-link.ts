@@ -2,10 +2,12 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { and, desc, eq, inArray, isNull, ne, or, sql } from 'drizzle-orm'
+import { and, desc, eq, inArray, isNull, ne, or } from 'drizzle-orm'
 import { hrDepartment, hrEmployee, hrEmployeeLinkRequest, users } from '@ihui/database'
 import { db } from '../db/index.js'
 import { AppError } from '../errors/AppError.js'
+// DB-35:phone/email 列存密文;按 account 匹配走 lookup 盲索引,投影读出后解密再打码
+import { contactLookupForSearch, decryptPublicContact } from '../utils/user-contact.js'
 
 /**
  * 员工-平台账号关联(2026-11-16 立)。
@@ -74,32 +76,31 @@ export async function inviteEmployeeLink(params: {
       'EMPLOYEE_ALREADY_BOUND',
     )
 
+  // DB-35:phone/email 列存密文,按 account 匹配走 lookup 盲索引;username 仍明文等值。
+  // 密文列上 lower() 不可用,email 也改走 email_lookup。
+  const phoneLookup = account ? contactLookupForSearch('phone', account) : null
+  const emailLookup = account ? contactLookupForSearch('email', account) : null
+  const accountSelect = {
+    id: users.id,
+    phone: users.phone,
+    email: users.email,
+    username: users.username,
+    status: users.status,
+  }
   const [accountUser] = params.userId
     ? await db
-        .select({
-          id: users.id,
-          phone: users.phone,
-          email: users.email,
-          username: users.username,
-          status: users.status,
-        })
+        .select(accountSelect)
         .from(users)
         .where(eq(users.id, params.userId))
         .limit(1)
     : await db
-        .select({
-          id: users.id,
-          phone: users.phone,
-          email: users.email,
-          username: users.username,
-          status: users.status,
-        })
+        .select(accountSelect)
         .from(users)
         .where(
           or(
-            eq(users.phone, account ?? ''),
             eq(users.username, account ?? ''),
-            sql`lower(${users.email}) = lower(${account ?? ''})`,
+            ...(phoneLookup ? [eq(users.phoneLookup, phoneLookup)] : []),
+            ...(emailLookup ? [eq(users.emailLookup, emailLookup)] : []),
           ),
         )
         .limit(1)
@@ -145,7 +146,11 @@ export async function inviteEmployeeLink(params: {
     return created
   })
 
-  const masked = maskAccount(accountUser.phone ?? accountUser.email ?? accountUser.username)
+  // DB-35:phone/email 投影是密文,先解密再打码,否则 maskAccount 打的是密文字符串。
+  const accountDecrypted = decryptPublicContact(accountUser)
+  const masked = maskAccount(
+    accountDecrypted.phone ?? accountDecrypted.email ?? accountUser.username,
+  )
   return {
     requestId: row.id,
     employeeId,

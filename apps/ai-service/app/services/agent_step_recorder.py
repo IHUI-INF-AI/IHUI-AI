@@ -5,7 +5,7 @@
 # © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 
-"""Agent 运行步骤录制与回放(Record & Replay)(对标 WorkBuddy/Codex 可复现审计)。
+"""Agent 运行步骤录制与回放(Record & Replay)(遵循统一工程规范)。
 
 把一次 agent 运行每一步(哪个工具 / 入参摘要 / 结果摘要 / token / 耗时 / 成本 /
 状态)录成结构化 step 日志,随后可按运行 / 按步回放与审计;并聚合单运行的
@@ -23,7 +23,7 @@ Step 结构(append_step 入参缺省字段由 recorder 归一化):
     `tool_invocation_ledger` 那一行;**输入/输出哈希刻意不落本文件**:
     inputDigest/outputDigest 的唯一实现住在服务端账行(digestToolArgsStructure +
     canonicalStringify,§0.6),在录制侧自算第二份即漂移源,故只留回指编号。
-Prompt 缓存计量(P0-①,2026-09-18 立,对标 Codex Harness 的缓存可观测):
+Prompt 缓存计量(P0-①,2026-09-18 立,遵循统一工程规范):
     cached_tokens(缓存读命中)/ cache_creation_tokens(缓存写,Anthropic 5min TTL)
     —— 主循环 LLM 步骤(type=llm)与工具内嵌 LLM 用量均透传此二字段,
     供 cost_ledger 缓存感知计价与命中统计。

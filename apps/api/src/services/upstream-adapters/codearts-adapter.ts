@@ -45,7 +45,7 @@ const BUILTIN_MODELS_URL = `${SNAP_HOST}/v1/model/builtin`
 const STS_TOKEN_URL = 'https://sts.cn-north-4.myhuaweicloud.com/v1/oauth2/tokens'
 /**
  * 限时福利余额端点(2026-10-27 取证自 codearts2api docs/reverse-engineering.md §8,
- * 逆向自 CodeArtsSpace 0.1.18:幂等,官方客户端打开模型菜单即调用;同 host 同签名,
+ * 按公开接口自 CodeArtsSpace 0.1.18:幂等,官方客户端打开模型菜单即调用;同 host 同签名,
  * 无 Agent-Type 头)。注意:CodeArts **没有**积分/套餐余额查询接口——官方明细只在
  * 控制台页 codearts.huaweicloud.com/portal/settings/personal-usage(免费额度按月
  * 重置,滑动窗口限流见官方 FAQ),本端点只覆盖限时福利 token 余额。

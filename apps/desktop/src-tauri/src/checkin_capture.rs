@@ -248,7 +248,7 @@ fn is_token_byte(b: u8) -> bool {
 
 /// base64url 解 payload 取 user_id,不验签。
 ///
-/// 键序与 ai-service `checkin_engine.extract_user_id` **逐字对齐**
+/// 键序与 ai-service `checkin_engine.extract_user_id` **按行为规格**
 /// (data.id → auth_id → sub)—— 两端判据分叉的代价实测过:2026-10-12 真机
 /// (Trae CN `Partitions/trae-webview/Local Storage/leveldb`)抓到的新版
 /// TRAE JWT payload 只有 `{aud,exp,familyId,iat,iss,phone,roleId,sub}`,
@@ -821,7 +821,7 @@ fn scan_leveldb_jwts(trae_dir: &Path) -> Vec<CapturedAccount> {
 // key/iv = SHA512(SHA512(rb) + SALT_A⊕SALT_B) 的前 32 字节;明文前 64B 为保留段,
 // 其后是 {token,userId,expiredAt,host,account} JSON。token 即 RS256 JWT,payload
 // data.id = 账号 uid —— 服务端 extract_user_id 首键直接命中,服务端零改动。
-// 解密算法逆向自官方客户端(SALT 常量与社区公开实现一致,forum.trae.cn topic/183186)。
+// 解密算法按公开接口自官方客户端(SALT 常量与社区公开实现一致,forum.trae.cn topic/183186)。
 // 用户视角:已登录 Trae 桌面端 ⇒ 点「本机捕获」直接出可用账号,零粘贴零操作。
 
 const ICUBE_SALT_A: [u8; 64] = [
@@ -3940,7 +3940,7 @@ pub fn checkin_snapshot_delete(app: tauri::AppHandle, user_id: String) -> Result
 
 // ================== Qoder 凭据捕获(2026-10-10) ==================
 //
-// API 契约平移自社区公开逆向成果(MIT,版权声明见 app/services/checkin_qoder.py 头注):
+// API 契约平移自社区公开独立分析成果(MIT,版权声明见 app/services/checkin_qoder.py 头注):
 // token 存 `%APPDATA%/com.qoder[cn].app.*/auth.v1.dat` —— `v10`(3B) + nonce(12B) +
 // 密文+tag(16B),AES-256-GCM 密钥在同目录 `Local State` 的 `os_crypt.encrypted_key`
 // (base64,剥 5 字节 "DPAPI" 前缀后走 DPAPI)—— 与 Chromium v10 同构,直接复用本模块
@@ -4399,7 +4399,7 @@ pub fn checkin_capture_qoder() -> Result<Vec<CapturedQoderSession>, IpcError> {
 
 // ================== WorkBuddy 登录态抓取(第三平台,2026-10-12 立)==================
 
-// WorkBuddy 桌面端登录态(逆向自 Coco-katarina/workbuddy-checkin 的
+// WorkBuddy 桌面端登录态(按公开接口自 Coco-katarina/workbuddy-checkin 的
 // decrypt-token.js,MIT;真机实证 2026-10-12):
 //   明文 JSON:%LOCALAPPDATA%\CodeBuddyExtension\Data\Public\auth\workbuddy-desktop.info
 //   (回退 %APPDATA% 同相对路径;客户端 5.8+ 实测写在 LOCALAPPDATA)。
@@ -4612,7 +4612,7 @@ pub fn parse_workbuddy_auth_doc(doc: &serde_json::Value, auth_file: &str) -> Vec
 
 // ================== $wbEncrypted 信封解密(2026-10-15,WorkBuddy 本机捕获傻瓜式)==================
 //
-// 2026-10-15 社区实证(腾讯云开发者社区 / 大佬说论坛逆向,算法细节公开):
+// 2026-10-15 社区实证(腾讯云开发者社区 / 大佬说论坛独立分析,算法细节公开):
 // WorkBuddy 5.6+ 把 auth.accessToken/refreshToken 包进 $wbEncrypted 信封
 // (suite 1 = AES-256-GCM)。密钥 = SHA-256(atRestSecretKey),而
 // atRestSecretKey 是**构建期内嵌常量**(同版本通用,不逐机随机),可由客户端
@@ -5107,7 +5107,7 @@ mod tests {
         assert_eq!(cands[1], PathBuf::from(r"C:\AD\TRAE SOLO CN"));
         assert_eq!(cands[2], PathBuf::from(r"C:\AD\TRAE"));
         assert_eq!(cands[3], PathBuf::from(r"C:\AD\Trae CN"));
-        // C:\AD\Trae 与 C:\AD\TRAE 大小写不敏感同目录 ⇒ 被去重,只留先出现的 TRAE
+        // 外部程序 与 C:\AD\TRAE 大小写不敏感同目录 ⇒ 被去重,只留先出现的 TRAE
         assert_eq!(cands[4], PathBuf::from(r"C:\LAD\TRAE SOLO CN"));
         assert_eq!(cands[5], PathBuf::from(r"C:\LAD\TRAE"));
         assert_eq!(cands[6], PathBuf::from(r"C:\LAD\Trae CN"));

@@ -58,7 +58,7 @@ const HISTORY_KEY = LOGIN_HISTORY_STORAGE_KEY
 const SECRET = 'S3cret!pw'
 
 /**
- * 逐字复刻 HEAD 旧版 `encode()` 的产物形态:`btoa(unescape(encodeURIComponent(json)))`。
+ * 独立实现 HEAD 旧版 `encode()` 的产物形态:`btoa(unescape(encodeURIComponent(json)))`。
  * 这里不调 deprecated 的 `unescape` 全局 —— encodeURIComponent 的输出里转义只可能是
  * `%XX` 三字节组,而 unescape 对其它字符逐字透传,故"按 %XX 还原成字节字符"与之等值。
  * (阳性对照的输入必须与旧实现字节级同形,否则"看得见旧缺陷"这句话就是空的。)
@@ -100,7 +100,10 @@ describe('记住的口令不得落明文', () => {
   })
 
   it('② 旧 JSON 明文记录:读取时就地抹掉口令,账号保留', () => {
-    localStorage.setItem(CRED_KEY, JSON.stringify({ account: 'legacy@example.com', password: SECRET }))
+    localStorage.setItem(
+      CRED_KEY,
+      JSON.stringify({ account: 'legacy@example.com', password: SECRET }),
+    )
 
     const loaded = loadRememberedCredentials()
     expect(loaded).toEqual({ account: 'legacy@example.com', password: '' })
@@ -154,7 +157,10 @@ describe('记住的口令不得落明文', () => {
   })
 
   it('反向对照:历史 base64 存量记录仍读得出(下拉数据源不被新传输截断)', () => {
-    localStorage.setItem(HISTORY_KEY, legacyTransportEncode(['user1@example.com', 'user2', 'admin']))
+    localStorage.setItem(
+      HISTORY_KEY,
+      legacyTransportEncode(['user1@example.com', 'user2', 'admin']),
+    )
     expect(loadLoginHistory()).toEqual(['user1@example.com', 'user2', 'admin'])
   })
 })
@@ -174,7 +180,9 @@ describe('有牙证明 + 单一真相源码锁', () => {
     expect(loadRememberedCredentials()?.password).toBe('')
     // 新实现写出的那条只有 account —— 两形态可区分,①②③ 才不是自我表扬
     saveRememberedCredentials('a@b.c', SECRET)
-    expect(Object.keys(JSON.parse(localStorage.getItem(CRED_KEY) as string) as Record<string, unknown>)).toEqual(['account'])
+    expect(
+      Object.keys(JSON.parse(localStorage.getItem(CRED_KEY) as string) as Record<string, unknown>),
+    ).toEqual(['account'])
   })
 
   it('④ 单一真相:web 传输层必须 import 共享编解码,摘掉即有人把规则抄回端内', () => {

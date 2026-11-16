@@ -4,7 +4,7 @@
 
 """MCP Super Tool Aggregator -- 聚合多个 MCP Server 的 tools 为统一超级工具池。
 
-对标产品只做 "逐 server 打平工具";本模块把已连接的多个 MCP Server 的
+对齐产品只做 "逐 server 打平工具";本模块把已连接的多个 MCP Server 的
 所有 tools 聚合成一个去重、冲突仲裁、统一 schema 的超级工具池,作为超大
 工具集暴露给模型。这是没有对照的独有能力。
 

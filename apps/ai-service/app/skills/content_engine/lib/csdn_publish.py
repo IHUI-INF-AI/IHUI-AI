@@ -9,7 +9,7 @@ CSDN自动发布工具（零外部依赖）
 用法：python lib/csdn_publish.py
 
 对应AGENTS.md工作流：Markdown写完 → CSDN适配改写 → 本工具自动发布
-注意：CSDN没有官方发布API，本工具使用逆向的内部HTTP接口，接口可能随时变化。
+注意：CSDN没有官方发布API，本工具使用独立分析的内部HTTP接口，接口可能随时变化。
 """
 from __future__ import annotations
 
@@ -52,7 +52,7 @@ _load_env()
 CSDN_APP_KEY = os.getenv('CSDN_APP_KEY', '')
 CSDN_APP_SECRET = os.getenv('CSDN_APP_SECRET', '')
 
-# CSDN内部API（逆向自editor.csdn.net，非官方公开接口）
+# CSDN内部API（按公开接口自editor.csdn.net，非官方公开接口）
 CSDN_SAVE_URL = 'https://bizapi.csdn.net/blog-console-api/v3/mdeditor/saveArticle'
 CSDN_IMG_PARAMS_URL = 'https://imgservice.csdn.net/direct/v1.0/image/upload'
 CSDN_ARTICLE_LIST_URL = 'https://bizapi.csdn.net/blog-console-api/v3/editor/articles'

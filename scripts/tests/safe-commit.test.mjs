@@ -431,7 +431,7 @@ test('收尾顺序锁:prune 必须排在 rmScratch 之后(旧形态每轮提交�
   )
 })
 
-// ── SC11 / SC12:AI 代码归属 notes 的「主体缺失必须出声」(2026-11-01 逆向复现超越轮补) ──
+// ── SC11 / SC12:AI 代码归属 notes 的「主体缺失必须出声」(2026-11-01 工程化落地轮补) ──
 // 立因(一手现场,不是假想):读侧尺 `ai-authorship-report.mjs` 首次量真仓 ⇒
 // `refs/notes/ihui-ai` 这个 ref **根本不存在**,全史 43246 枚 0 带记录。
 // 而写侧在 safe-commit 里是接了的(`import { recordForCommit }`),问题是那段写作

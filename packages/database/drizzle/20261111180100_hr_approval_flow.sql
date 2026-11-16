@@ -12,7 +12,7 @@
 --       超时未决由 escalateTimedOut 升级到 escalation_approver_id,结果经站内信/微信订阅消息回告。
 --
 -- 幂等安全:IF NOT EXISTS 守门,可安全重复执行。
--- 与 packages/database/src/schema/hr-approval-flow.ts 逐字对齐。
+-- 与 packages/database/src/schema/hr-approval-flow.ts 按行为规格。
 --
 -- 执行方式:
 --   pnpm tsx packages/database/scripts/apply-migration.mjs drizzle/20261111180100_hr_approval_flow.sql

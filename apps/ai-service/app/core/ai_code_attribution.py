@@ -19,7 +19,7 @@
 **判据只有一份**:工具登记表与判定实现只在 ① 里(仓内 grep `AI_GENERATED_TOOLS`
 只会命中那一处);本文件只做再导出,不复制任何常量表(§0.6 单一真相源)。
 
-对标能力(取证册 docs/benchmark-evidence/2026-11/qoder-trae-workbuddy-rea-20261105/
+对齐能力(取证册 docs/benchmark-evidence/2026-11/qoder-trae-workbuddy-rea-20261105/
 T1-impl.md §3 第 5 行):按 (tool, file, hunk) 记「这段改动是 AI 生成还是人手写的」,
 并给出足以事后用 git blame 回溯的锚。
 """

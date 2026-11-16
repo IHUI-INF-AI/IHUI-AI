@@ -100,4 +100,22 @@ export function buildLegacyAnswerText(
   const custom = (response.customText ?? '').trim()
   return [...labels, custom].filter(Boolean).join(', ')
 }
+
+/**
+ * 点选行为:单选时替换、多选时切换(三端共用的唯一判据)。
+ * 抽成纯函数是因为"单选却点出两个 id"会让服务端把答案读成多选 —— 静默给错语义。
+ * 单选再点同一项 = 取消(否则用户无法改主意)。
+ */
+export function toggleOptionSelection(
+  current: readonly string[],
+  optionId: string,
+  allowMultiple: boolean,
+): string[] {
+  if (!allowMultiple) {
+    return current.length === 1 && current[0] === optionId ? [] : [optionId]
+  }
+  return current.includes(optionId)
+    ? current.filter((id) => id !== optionId)
+    : [...current, optionId]
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

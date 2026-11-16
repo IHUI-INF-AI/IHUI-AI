@@ -9,6 +9,8 @@ import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import { ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { MENU_ITEM_CLASS, MENU_ITEM_ICON_CLASS } from '@/lib/menu-item'
+// 2026-11-16 立:浮层与视口边缘的统一安全间距(单一源)
+import { FLOATING_VIEWPORT_PADDING_PX } from '@ihui/shared/ui/floating-layer-spec'
 
 export interface DropdownItem {
   key: string
@@ -63,6 +65,8 @@ function DropdownItems({ items }: { items: DropdownItem[] }) {
               <DropdownMenu.Portal>
                 <DropdownMenu.SubContent
                   sideOffset={4}
+                  // 2026-11-16 立:与视口边缘留统一安全间距,避免菜单贴屏幕边缘
+                  collisionPadding={FLOATING_VIEWPORT_PADDING_PX}
                   className={cn(
                     'z-popover min-w-[10rem] overflow-hidden rounded-md border border-stroke-strong bg-popover p-1 text-popover-foreground shadow-elevation-md',
                     'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 duration-(--duration-unified) ease-unified',
@@ -117,6 +121,8 @@ export function Dropdown({
           align={align}
           side={side}
           sideOffset={4}
+          // 2026-11-16 立:与视口边缘留统一安全间距,避免菜单贴屏幕边缘
+          collisionPadding={FLOATING_VIEWPORT_PADDING_PX}
           className={cn(
             'z-popover min-w-[10rem] overflow-hidden rounded-md border border-stroke-strong bg-popover p-1 text-popover-foreground shadow-elevation-md',
             'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 duration-(--duration-unified) ease-unified',

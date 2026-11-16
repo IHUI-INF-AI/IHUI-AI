@@ -22,7 +22,7 @@ import { Button } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 
 // ============================================================================
-// W21 Plan 五阶段状态机(2026-09-14 立,对标 CodeBuddy):
+// W21 Plan 五阶段状态机(2026-09-14 立,对齐 CodeBuddy):
 // Draft → Review → Approved → Executing → Done,含阶段徽章轨道与回退。
 // 迁移表与后端 services/plan_mode.py _PLAN_TRANSITIONS 五阶段语义对齐
 // (draft/review 对应后端 draft/pending_approval,done 允许 replan 回 draft)。

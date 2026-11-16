@@ -18,7 +18,7 @@ const INLINE_EDIT_DIALOG_OVERLAY_ID = 'inline-edit-dialog'
 /**
  * Inline Edit 对话框(Cmd+K 触发)。
  *
- * UX 对标 VSCode Cmd+K:浮在编辑器顶部居中,输入修改指令 → AI 流式生成 → Accept/Reject。
+ * UX 对齐 VSCode Cmd+K:浮在编辑器顶部居中,输入修改指令 → AI 流式生成 → Accept/Reject。
  *
  * 视觉约束(AGENTS.md §4):
  * - compact 紧凑、elegant 优雅

@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * Knowledge & RAG CLI — 知识库管理与 RAG 检索命令,对标 Web 端 /knowledge-base 和 /knowledge-rag。
+ * Knowledge & RAG CLI — 知识库管理与 RAG 检索命令,对齐 Web 端 /knowledge-base 和 /knowledge-rag。
  *
  * 对接后端:
  *  - 知识库 apps/api/src/routes/other/knowledge-base-routes.ts(注册前缀 /api):
@@ -504,13 +504,13 @@ async function ragIndex(
 // ==================== 命令注册 ====================
 
 /**
- * 在根 program 上注册 `knowledge` 命令组(对标 Web 端 /knowledge-base)。
+ * 在根 program 上注册 `knowledge` 命令组(对齐 Web 端 /knowledge-base)。
  * 使用全局 `--api-url` / `--api-key` 或 settings.json 解析后端地址。
  */
 export function registerKnowledgeCommand(program: Command): void {
   const kbCmd = program
     .command('knowledge')
-    .description('知识库管理 (对标 Web 端 /knowledge-base)');
+    .description('知识库管理 (对齐 Web 端 /knowledge-base)');
 
   kbCmd
     .command('list')
@@ -591,13 +591,13 @@ export function registerKnowledgeCommand(program: Command): void {
 }
 
 /**
- * 在根 program 上注册 `rag` 命令组(对标 Web 端 /knowledge-rag)。
+ * 在根 program 上注册 `rag` 命令组(对齐 Web 端 /knowledge-rag)。
  * 使用全局 `--api-url` / `--api-key` 或 settings.json 解析后端地址。
  */
 export function registerRagCommand(program: Command): void {
   const ragCmd = program
     .command('rag')
-    .description('RAG 检索与索引 (对标 Web 端 /knowledge-rag)');
+    .description('RAG 检索与索引 (对齐 Web 端 /knowledge-rag)');
 
   ragCmd
     .command('search <query>')

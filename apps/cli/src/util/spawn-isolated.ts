@@ -17,7 +17,7 @@
  *   - `apps/cli/src/mermaid/index.ts` 替换 MmdcCliEngine.runMmdc — 杀掉 mmdc 派生的 Chromium 进程
  *   - 任何 spawn 后需要强制 kill 的工具(代码检查器、git hook、formatter)
  *
- * 关键差异(对标 mermaid/index.ts:184-212):
+ * 关键差异(对齐 mermaid/index.ts:184-212):
  *   - 旧实现:`proc.kill('SIGTERM')` 只能杀主进程,Chromium 派生的 headless 子进程会泄漏
  *   - 新实现:Windows taskkill /T + Unix kill(-pid) 整组杀干净
  *   - 旧实现:超时后没等 child 真正退出就 resolve,可能泄露 fd

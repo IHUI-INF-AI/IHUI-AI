@@ -11,7 +11,7 @@ import { createPersistConfig } from '@/stores/persist-helpers'
 import { boundedAppend } from '@/lib/bounded-append'
 
 /**
- * Agent Hooks 事件系统(W28,2026-09-14 立,对标 CodeBuddy Hooks):
+ * Agent Hooks 事件系统(W28,2026-09-14 立,对齐 CodeBuddy Hooks):
  * - 9 类事件:tool.before / tool.after / message.send / message.receive /
  *   session.start / session.end / error / commit.before / commit.after
  * - zustand persist 本地持久化(localStorage key: ihui-agent-hooks)

@@ -6,7 +6,7 @@
 /**
  * check-plugin-manifest-integrity.mjs — 已装插件面的逐文件完整性对账(**只读**三态尺)。
  *
- * 立的因(逆向-复现-超越 §0.11,G-21 半腿,2026-11-01):
+ * 立的因(工程化落地 §0.11,G-21 半腿,2026-11-01):
  * 对照程序 Qoder CN 的插件包把逐文件 sha256 内联进 `catalog.v1.json` /
  * `bundled-resources/manifest.json`,声明"这个包里应当有哪些文件、每个文件是什么字节"。
  * 本仓的记录面(`~/.ihui/installed-plugins/registry.json` 的 `InstallRecord`)此前只有

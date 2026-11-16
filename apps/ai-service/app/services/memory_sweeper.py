@@ -7,7 +7,7 @@
 
 """Memory Sweeper — 长期记忆的 SQLite 存储 + 记忆清扫策略引擎。
 
-对标 Codex / Claude Code 的长期记忆衰减与清扫机制(2026-09-13 立):
+遵循统一工程规范):
 - 每条记忆(memory)带 `importance` 权重(0~1)与 `last_accessed_at` 时间戳;
 - 访问某记忆时 bump 其热度(importance += boost,有上限)+ 访问计数;
 - sweep(清扫)按策略淘汰过期/低价值记忆:

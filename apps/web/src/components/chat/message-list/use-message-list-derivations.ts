@@ -31,7 +31,7 @@ export function useMessageListDerivations({
   // 票60 步序四:窗格寻址。根窗格无 Provider ⇒ 单例;非根窗格读各自实例。
   const chatStore = usePaneChatStore()
   // TimelineStore:事件列表(2026-07-28 立;2026-07-31 立,移除 tab 切换,单一对话流视图)
-  // - tab 切换已移除(对标 主流 IDE 单一对话流),保留 events 供其他组件共享
+  // - tab 切换已移除(对齐 主流 IDE 单一对话流),保留 events 供其他组件共享
   // 票60 普查批(2026-10-21):按窗格寻址 —— 本 hook 每窗格都跑,setEvents 又是整体替换,
   // 走根单例时 pane-1 切会话会把根窗格时间线顶掉;Provider 外仍回落根单例(单窗格形态不变)。
   const timelineStore = usePaneTimelineStore()
@@ -66,7 +66,7 @@ export function useMessageListDerivations({
   const lastPlanStepsRef = React.useRef<PlanStep[]>([])
   const lastDerivedEventsRef = React.useRef<TimelineEvent[]>([])
 
-  // PlanStepsCard 数据源(2026-07-31 深度优化,对标 Codex /plan + 折叠态摘要设计):
+  // PlanStepsCard 数据源(2026-07-31 深度优化,遵循统一工程规范):
   // W1(2026-09-12 立):真实 SSE 事件优先,伪派生为兜底。
   //   - 优先级 1(真实):后端 plan_updated SSE 事件经 send-message.ts onPlanUpdate →
   //     useChatStore.setMessagePlanSteps 写入 msg.planSteps(权威快照,整体替换)。

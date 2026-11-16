@@ -39,7 +39,8 @@ import {
   eduTeacherScheduleUpdate,
   eduTermList,
 } from '@ihui/api-client'
-import { BackButton, TruncatedText } from '@/components/common'
+import { TruncatedText } from '@/components/common'
+import { FeaturePageShell } from '@/components/layout'
 import { useAuthGate } from '@/hooks/use-auth-gate'
 import {
   Card,
@@ -798,14 +799,12 @@ export default function SchedulingPage() {
   }
 
   return (
-    <div className="space-y-4">
-      <BackButton />
-
-      <header className="space-y-1">
-        <h1 className="text-display font-bold tracking-tight">{t('title')}</h1>
-        <p className="text-label text-muted-foreground">{t('description')}</p>
-      </header>
-
+    <FeaturePageShell
+      title={t('title')}
+      description={t('description')}
+      icon={Calendar}
+      domain="edu"
+    >
       {/* Term Selector */}
       <Card>
         <CardContent className="min-[640px]:p-3 flex flex-wrap items-center gap-3 p-3">
@@ -1265,7 +1264,7 @@ export default function SchedulingPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </FeaturePageShell>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

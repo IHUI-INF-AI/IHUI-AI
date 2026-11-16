@@ -14,7 +14,7 @@
 //
 // 票60 普查(2026-10-21):提及草稿按窗格分家 —— 此前是全局单例,而每个非根窗格的
 // MessageInput 都挂一份消费面,pane-1 选的 @file 会出现在 pane-2 输入框上方(反向亦然)。
-// 形态逐字对齐 stores/ai-tools-panel.ts:工厂 + 根单例原导出名不变(useContextMentionStore
+// 形态按行为规格 stores/ai-tools-panel.ts:工厂 + 根单例原导出名不变(useContextMentionStore
 // 既有消费面零改动可回退)+ Map<paneId, 实例> 懒建 + 空 paneId 抛错 + usePaneMentionStore()。
 
 import * as React from 'react'

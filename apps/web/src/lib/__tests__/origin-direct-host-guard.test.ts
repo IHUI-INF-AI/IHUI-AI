@@ -128,7 +128,7 @@ describe('变异对照:判据同源锁 + 接线锁(摘掉任何一环即翻红)'
     // 载体:undici Request 的 headers guard 会静默丢弃 forbidden 的 Host 头
     // (实测 new NextRequest(url,{headers:{host}}).headers.get('host') === null),
     // 而 proxy() 真读的只有 headers.get('host') / nextUrl.{pathname,search,clone} /
-    // cookies.get 三处 —— 用逐字对齐的替身驱动**真 proxy 函数体**,不是替身函数。
+    // cookies.get 三处 —— 用按行为规格的替身驱动**真 proxy 函数体**,不是替身函数。
     const req = (path: string, host: string): NextRequest => {
       const url = new URL(`http://${host}${path}`)
       const headers = new Headers({ host })

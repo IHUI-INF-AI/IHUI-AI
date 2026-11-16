@@ -7,7 +7,7 @@
 
 票面事实(现读,不是叙述):引擎 `app/services/workflow_engine.py` 早在产,`WorkflowTask`
 逐步持久化 input/output/status,重放所需的数据本来就在库里;真缺的只有两条腿 ——
-① 按调用键复用已完成步骤(对标对方 `resumeFromRunId`),② 把触发/续跑/查状态注册成
+① 按调用键复用已完成步骤(对齐对方 `resumeFromRunId`),② 把触发/续跑/查状态注册成
 MCP 工具(改前 `mcp_server` 里 workflow 工具名 0 命中)。
 
 钉死七条:

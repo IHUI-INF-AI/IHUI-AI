@@ -8,7 +8,7 @@
  * 灵感来源:参考行业 Agent 框架的 tools crate 设计,融合 openai/codex 的 apply_patch。
  * 简化策略(做减法):
  *   - write_file: 全量写入(创建或覆盖)
- *   - edit_file: search-and-replace 块(对标 codex 的 apply_patch 格式)
+ *   - edit_file: search-and-replace 块(遵循统一工程规范)
  *   - delete_file: 删除文件
  *   - 所有写操作接入 checkpoints(编辑前自动快照)+ hooks(preToolCall/postToolCall)
  *   - 读后写校验(write_file / edit_file):覆盖已存在文件前,该文件必须在本会话
@@ -648,7 +648,7 @@ export function createDeleteFileTool(ctx: EditToolContext): Tool {
 }
 
 export function createFileEditTools(ctx: EditToolContext): Tool[] {
-  // Wave 9: batch_edit + batch_undo + batch_preview(多文件原子编辑,对标 OpenClaw)
+  // Wave 9: batch_edit + batch_undo + batch_preview(多文件原子编辑,遵循统一工程规范)
   return [createWriteFileTool(ctx), createEditFileTool(ctx), createDeleteFileTool(ctx), ...createBatchEditTools(ctx)];
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

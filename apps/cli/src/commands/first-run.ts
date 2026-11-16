@@ -4,7 +4,7 @@
 
 /**
  * 首次运行引导 — 检测无 ~/.ihui/settings.json 时自动跑交互式问答,
- * 生成开箱即用的配置文件,对标 `claude` / `codex` CLI 首次启动体验。
+ * 生成开箱即用的配置文件,对齐 `claude` / `codex` CLI 首次启动体验。
  *
  * 触发条件:`~/.ihui/settings.json` 不存在。
  * 跳过条件:非 TTY(headless/CI)直接用默认值生成;--no-setup 跳过。
@@ -101,7 +101,7 @@ export async function runFirstRunSetup(stat: SettingsStat = (p) => fs.statSync(p
   console.info(chalk.dim('  修改配置:ihui settings init --force 重新生成模板,或在 REPL 内用 /config 修改\n'));
 
   // P0 CLI 友好度优化(2026-07-31):完成后展示能力摘要 + 快速入门提示
-  // 对标 codex/claude-code/mimo code 的首次引导后引导
+  // 遵循统一工程规范
   printOnboardingSummary(settings);
   return true;
 }

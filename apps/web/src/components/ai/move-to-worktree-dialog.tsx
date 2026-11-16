@@ -4,7 +4,7 @@
 
 'use client'
 
-// D102 对话移交工作树 · web 弹层(G-140,对标 Codex localConversation.moveToWorktree)。
+// D102 对话移交工作树 · web 弹层(G-140,遵循统一工程规范)。
 //
 // **数据面纪律**:本弹层**不取数** —— 分支名单 / worktree 能力检查由调用方注入
 // (`precheck` + `localBranches` + `existingWorktreeBranches`),移交动作经 `onSubmit`

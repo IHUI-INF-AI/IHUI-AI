@@ -6,7 +6,7 @@
 /**
  * 通用指数退避（exponential backoff with jitter）。
  *
- * 对标来源（Qoder，仅取证思想，代码为本仓自有实现）：
+ * 对齐来源（Qoder，仅取证思想，代码为本仓自有实现）：
  *   `rc_vm_batch_members` 的失败成员独立退避——
  *     `prepare_retry_at = now + MIN(30000, 5000*(1<<MIN(prepare_attempts,3)))`
  *   `rc_vm_uploads` 的上传退避——`retry_at` 上限 30000ms、位移退避。

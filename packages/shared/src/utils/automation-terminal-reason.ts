@@ -11,7 +11,7 @@
  * 两张表:
  *  - AUTOMATION_TERMINAL_REASON_I18N_SUFFIXES:成因 → i18n 键后缀,与
  *    packages/i18n/messages/{web,mobile-rn}/{zh-CN,zh-TW,en,ja,ko}.json 里
- *    `automations.terminalReason.*` 的键名逐字对齐(键后缀本身不含命名空间前缀,
+ *    `automations.terminalReason.*` 的键名按行为规格(键后缀本身不含命名空间前缀,
  *    因为 web 用 useTranslations('automations') 的作用域键、RN 用扁平键,前缀归各端)。
  *  - AUTOMATION_TERMINAL_REASON_TONES:成因 → 语义色调档。只落**档名**,色值不下沉 ——
  *    同 packages/shared/src/ui/badge-spec.ts 的规则 6(色值归端内 token,档名集合两端一致)。
@@ -31,7 +31,7 @@ export type { AutomationTerminalReason }
  */
 export type AutomationTerminalTone = 'neutral' | 'danger' | 'warning' | 'success'
 
-/** 成因 → i18n 键后缀(键名与 packages/i18n 的 automations.terminalReason.* 逐字对齐) */
+/** 成因 → i18n 键后缀(键名与 packages/i18n 的 automations.terminalReason.* 按行为规格) */
 export const AUTOMATION_TERMINAL_REASON_I18N_SUFFIXES = {
   manual_pause: 'manualPause',
   failed_permanent: 'failedPermanent',

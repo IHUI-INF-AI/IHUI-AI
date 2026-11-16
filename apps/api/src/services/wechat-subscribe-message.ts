@@ -116,7 +116,7 @@ export async function sendSubscribeMessage(
 /**
  * 构造人事审批通知模板 data(HR-3,2026-11-11 立;字段 key 实测对齐 2026-11-11)。
  *
- * ⚠️ 字段 key 必须与微信公众平台申请的 HR 审批通知模板逐字对齐。本仓小程序
+ * ⚠️ 字段 key 必须与微信公众平台申请的 HR 审批通知模板按行为规格。本仓小程序
  * 「AI丨智汇社」(AppID 见 WX_MINI_APPID)订阅消息「待审批通知」模板(模板编号 8538)
  * 实测字段:申请人 {{name1.DATA}} / 申请时间 {{time2.DATA}} /
  * 申请项目 {{thing4.DATA}} / 备注 {{thing6.DATA}}。

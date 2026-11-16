@@ -324,7 +324,7 @@ describe('⑥ 86E 防回潮锁:入参摘要只能走共享唯一出口,端内不
   it('缺陷正反例:键序打乱 ⇒ 旧自算形态换指纹、新出口不变;取值变化 ⇒ 新出口必换指纹', () => {
     const one = { command: 'ls', cwd: '/tmp' }
     const shuffled = { cwd: '/tmp', command: 'ls' }
-    // 旧端内形态的逐字复刻(JSON.stringify 不归一键序 + 截 12 位),只作为**对照**存在,
+    // 旧端内形态的独立实现(JSON.stringify 不归一键序 + 截 12 位),只作为**对照**存在,
     // 它不是第二份实现 —— 被测面已经接进共享出口,这里量的是"缺陷确实被消除"。
     const legacy = (v: Record<string, unknown>): string =>
       `sha256:${createHash('sha256').update(JSON.stringify(v ?? null), 'utf8').digest('hex').slice(0, 12)}`

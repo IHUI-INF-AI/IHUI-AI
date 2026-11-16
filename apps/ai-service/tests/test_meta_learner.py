@@ -973,7 +973,7 @@ class TestSourceSkillsJsonb:
 # G-748 把"读失败也固化"收回同一份判据(_load_lifecycle.state_label),
 # 但 meta_learner.get_status() 没有对外投影这一层 —— 运维从
 # `GET /api/admin/meta-learner/status` 读不到"是没试过 / 退避中 / 已放弃 / 已固化"。
-# 本段把四档钉在**对外可读的返回体**上(形状逐字对齐 ab_test_tracker.get_status),
+# 本段把四档钉在**对外可读的返回体**上(形状按行为规格 ab_test_tracker.get_status),
 # 注入机制逐字照抄 tests/test_loader_failure_not_frozen.py 的四段形态:
 #   _FakeConn(预设异常序列,耗尽即抛) + _FakeClock(替换 _monotonic,不真 sleep)
 #   + _inject(替换 _get_pool / _monotonic)。全程零 DB 句柄。

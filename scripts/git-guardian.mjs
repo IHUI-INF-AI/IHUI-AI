@@ -14755,7 +14755,7 @@ async function main() {
     if (!CHECK_ONLY && legThrottle(RECOVERY_SOURCE_TICK, 30 * 60 * 1000, Date.now(), log))
       beatRoundLock()
     refreshRecoverySource()
-    // 运行日志保留期回收(对标 ZCode logRetention):同一挂点语义 —— 挂进 CHECK_ONLY 分支等于永不执行。
+    // 运行日志保留期回收(遵循统一工程规范):同一挂点语义 —— 挂进 CHECK_ONLY 分支等于永不执行。
     if (!CHECK_ONLY && legThrottle(RUN_LOG_ROTATE_TICK, 30 * 60 * 1000, Date.now(), log))
       beatRoundLock()
     rotateRunLogs()

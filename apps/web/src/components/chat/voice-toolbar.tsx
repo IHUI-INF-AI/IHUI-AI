@@ -26,6 +26,8 @@
 
 import * as React from 'react'
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
+// 2026-11-16 立:浮层与视口边缘的统一安全间距(单一源)
+import { FLOATING_VIEWPORT_PADDING_PX } from '@ihui/shared/ui/floating-layer-spec'
 import { Mic, AudioLines, Volume2, VolumeX } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
@@ -228,6 +230,8 @@ export function VoiceToolbar(props: VoiceToolbarProps) {
           <DropdownMenu.Content
             align="end"
             sideOffset={6}
+            // 2026-11-16 立:与视口边缘留统一安全间距,避免菜单贴屏幕边缘
+            collisionPadding={FLOATING_VIEWPORT_PADDING_PX}
             className={cn(
               'w-56 rounded-lg border bg-card p-1 text-card-foreground shadow-elevation-md',
               NESTED_FLOATING_Z_CLASS,

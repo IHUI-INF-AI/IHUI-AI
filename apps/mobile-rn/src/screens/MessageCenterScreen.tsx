@@ -35,7 +35,7 @@ const PAGE_SIZE = 20
 
 /**
  * 对齐 Uniapp pagesA/message/index.vue(消息):
- * - 标题「消息」:Uniapp navigation-bars title 逐字对齐(shared 默认「消息中心」)
+ * - 标题「消息」:Uniapp navigation-bars title 按行为规格(shared 默认「消息中心」)
  * - 单导航栏:移除 wrapper 层 NavBar,消除与 shared header 的双标题栏
  *   (Uniapp 仅一层 navigation-bars;推送通知面板已由 RootNavigator 全局挂载,
  *   此处不再重复渲染局部 NotificationPanel)

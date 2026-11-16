@@ -4,7 +4,7 @@
 
 """工具面惰性装载(缺口表 ⑤):按**具名预算表**决定"本轮哪些工具 schema 进列表"。
 
-背景(2026-11-05 立,逆向-复现-超越铁律 §0.12):
+背景(2026-11-05 立,工程化落地铁律 §0.12):
     取证册 `docs/benchmark-evidence/2026-11/qoder-trae-workbuddy-rea-20261105/W1-workbuddy-main.md`
     §2 表行 21 观察到对侧 65 枚工具面里有一组**惰性装载**工具(`ToolSearch` +
     `DeferExecuteTool`),其净效果是"每一轮只把模型本轮真要用到的那部分 schema 付给

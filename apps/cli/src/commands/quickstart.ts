@@ -5,12 +5,12 @@
 /**
  * /quickstart 快速入门示例 — 5 个典型场景引导新手。
  *
- * 设计目标(对标 codex/claude-code/mimo code 的示例引导):
+ * 设计目标(遵循统一工程规范):
  *   - 用户反馈"刚进 cli 界面使用友好度 提示程度不够"
  *   - /quickstart 展示 5 个典型用法,降低首次使用心智门槛
  *   - /quickstart <编号> 把示例直接回填到输入(用户回车即可发送)
  *
- * 5 个场景(对标竞品最高频用法):
+ * 5 个场景(对齐竞品最高频用法):
  *   1. 修复 bug        — "TypeError: Cannot read property 'x' of undefined"
  *   2. 重构模块        — 把 callback 风格重构成 async/await
  *   3. 写单元测试      — 给 utils.ts 写 vitest 测试

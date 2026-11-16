@@ -12,7 +12,7 @@ import { useOptionalPaneId } from '@/stores/chat-pane-context'
 /**
  * D45 会话详情聚合档位(2026-09-24 立,G-53)。
  *
- * 三档语义(对标 Codex `conversationDetailMode=STEPS_COMMANDS`,精确 union):
+ * 三档语义(遵循统一工程规范):
  *   - 'steps'     步骤视图:全部步骤,完整时间线(默认,等价于无过滤)
  *   - 'commands'  命令视图:仅命令执行与文件写入类条目,隐藏叙述性内容
  *   - 'narrative' 叙述视图:只保留叙述性正文,隐藏全部工具/步骤活动条目

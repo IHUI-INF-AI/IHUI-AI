@@ -56,7 +56,6 @@ import {
 } from '@/lib/turn-deeplink'
 import { getProgressJumpStoreForPane } from '@/stores/progress-jump-store'
 import { usePaneChatStore } from '@/stores/chat-pane-context'
-import { usePaneModeStore } from '@/stores/mode'
 import type { ImportProvenance } from '@ihui/shared/import-analysis'
 import { readImportProvenance } from '@ihui/shared/import-analysis'
 
@@ -109,9 +108,6 @@ export function ChatPaneBody({ paneId, conversationId }: ChatPaneBodyProps) {
   const t = useTranslations('chat')
   const tcommon = useTranslations('common')
   const chatStore = usePaneChatStore()
-  // 票60 普查批:模式档按窗格分家(此前直读根单例 ⇒ 切档把根窗格一起切走)
-  const modeStore = usePaneModeStore()
-  const currentMode = modeStore((s) => s.currentMode)
   const {
     messages,
     isStreaming,
@@ -566,7 +562,7 @@ export function ChatPaneBody({ paneId, conversationId }: ChatPaneBodyProps) {
         onSend={sendMessage}
         onStop={stop}
         isStreaming={isStreaming}
-        placeholder={currentMode === 'plan' ? t('placeholderPlan') : t('placeholder')}
+        placeholder={t('placeholder')}
         sendLabel={t('send')}
         stopLabel={t('stop')}
         model={currentModel}

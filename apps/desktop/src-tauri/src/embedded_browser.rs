@@ -18,7 +18,7 @@
 //! 1. **单窗多 webview**:窗口 `embedded-browser` 由 [`tauri::window::WindowBuilder`]
 //!    建成(不带 webview),再用 `Window::add_child` 挂 N 个内容 webview
 //!    (`browser-tab-<id>`),每个 webview = 一个标签页。切换标签 = `hide()`/`show()`,
-//!    **页面状态不丢**(对标 Trae/Chrome)。`add_child` 挂在 tauri 的 `unstable`
+//!    **页面状态不丢**(遵循统一工程规范)。`add_child` 挂在 tauri 的 `unstable`
 //!    feature 下,用户 2026-10-16 拍板启用(见 Cargo.toml 注释)。
 //!
 //! 2. **工具条为什么注入,而不是另开一个工具条 webview**:Tauri 2 里"窗口内第二个

@@ -7,7 +7,7 @@
 // 起因:用户反馈"流式对话框内的内容、样式跟 Qoder / Trae / Codex 差太多,不一致"。
 // 根因是各过程区段(工具卡/计划步骤/终端/子代理/思考)各写各的字号、圆角、配色,并且
 // 行内只有功能名没有对象。现已统一到底层基元,本 spec 是防回潮闸:
-//   1. 活动行字号/行高必须全一致(唯一 12px / 24px),任何再手写 text-[9px] 档位都会红;
+//   1. 活动行字号/行高必须全一致(唯一 16px / 24px),任何再手写 text-[9px] 档位都会红;
 //   2. 界面禁止出现英文工具码名(read_file 等),必须显示本地化功能名 + 对象 + 结果度量;
 //   3. 过程信息收在 StreamGroup 里(可展开,组头带步数与用时)。
 // 用 SSE mock,不依赖真实模型,CI 可重复。
@@ -188,15 +188,18 @@ test.describe('消息流活动区设计系统', () => {
     expect(await searchRow.locator('[data-testid="stream-metric"]').textContent()).toBe('2 个结果')
   })
 
-  test('全部活动行共用一档字号与行高(12px / 24px),不允许逐处自配', async ({ adminPage: page }) => {
+  test('全部活动行共用一档字号与行高(16px / 24px),不允许逐处自配', async ({ adminPage: page }) => {
     const group = page.locator('[data-stream-group]').first()
     await expect(group).toBeVisible()
     const trigger = group.locator('[data-stream-group-trigger="true"]')
     if ((await trigger.getAttribute('aria-expanded')) !== 'true') {
       await trigger.click()
     }
-    // 只看消息流内的活动行:输入区任务状态条等不归本闸管,避免跨区段误判
-    const rows = page.locator('[data-message-id] [data-stream-status]')
+    // 只看消息流内的活动行:输入区任务状态条等不归本闸管,避免跨区段误判;
+    // 区段头行(data-section-header)是 32px 另一档,单列在下方的 headStyle 断言里
+    const rows = page.locator(
+      '[data-message-id] [data-stream-status]:not([data-section-header]):not([data-stream-group-trigger])',
+    )
     await expect(rows.first()).toBeVisible()
     const metrics = await rows.evaluateAll((els) =>
       els.map((el) => {
@@ -211,13 +214,13 @@ test.describe('消息流活动区设计系统', () => {
     )
     expect(metrics.length).toBeGreaterThanOrEqual(2)
     // 失败时点名哪一行漂了 —— 不点名会让下一次偶发红变成无从下手的哑谜
-    expect(metrics.filter((m) => m.fontSize !== '12px' || m.height !== '24px')).toEqual([])
-    // 组头与行同一档
+    expect(metrics.filter((m) => m.fontSize !== '16px' || m.height !== '24px')).toEqual([])
+    // 组头与活动行同字号,但头行多一档上下内边距(32px 高)
     const headStyle = await trigger.evaluate((el) => {
       const cs = getComputedStyle(el)
       return { fontSize: cs.fontSize, height: cs.height }
     })
-    expect(headStyle).toEqual({ fontSize: '12px', height: '24px' })
+    expect(headStyle).toEqual({ fontSize: '16px', height: '32px' })
   })
 
   test('过程组头带步数与用时摘要,展开后区段内容并入同一行模板', async ({ adminPage: page }) => {

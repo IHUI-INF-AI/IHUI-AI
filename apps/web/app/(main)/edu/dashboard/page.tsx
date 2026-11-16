@@ -22,7 +22,8 @@ import {
 import { apiOrThrow } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
-import { BackButton, AuthGatePrompt } from '@/components/common'
+import { AuthGatePrompt } from '@/components/common'
+import { FeaturePageShell } from '@/components/layout'
 import { useAuthGate } from '@/hooks/use-auth-gate'
 
 interface DashboardData {
@@ -76,13 +77,9 @@ export default function EduDashboardPage() {
   ]
 
   return (
-    <div className="space-y-4 px-4 py-4">
-      <BackButton />
-      <header className="space-y-1">
-        <h1 className="text-display font-bold tracking-tight">{t('title')}</h1>
-        <p className="text-label text-muted-foreground">{t('subtitle')}</p>
-      </header>
-
+    // 2026-11-16 接入统一子功能页外壳:BackButton + 手写 header 收编为页头卡,
+    // 自动带上「教育」返回 chip(取 eduHub.title,与域入口页大标题恒等)。
+    <FeaturePageShell title={t('title')} description={t('subtitle')} icon={BarChart3} domain="edu">
       {!allow ? (
         <AuthGatePrompt message="请先登录后查看学习面板" />
       ) : isLoading ? (
@@ -208,7 +205,7 @@ export default function EduDashboardPage() {
           </section>
         </>
       )}
-    </div>
+    </FeaturePageShell>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

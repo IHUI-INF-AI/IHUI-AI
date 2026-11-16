@@ -14,7 +14,7 @@ import type { ThirdPartyConfig, ThirdPartyPlatform, ThirdPartyProvider } from '@
 import { toMediaImageUrl } from '@/lib/media-proxy'
 
 /**
- * 8 平台 provider 静态定义(对标共享 ThirdPartyLoginButtons 3x3 网格铺排)
+ * 8 平台 provider 静态定义(对齐共享 ThirdPartyLoginButtons 3x3 网格铺排)
  * 顺序:微信/Google/GitHub → 飞书/钉钉/企业微信 → 支付宝/Apple
  * 2026-07-31 备注:web 端本地 ThirdPartyLoginButtons.tsx 已删除(dead code,
  * LoginDialog 走共享包 LoginForm → 共享 ThirdPartyLoginButtons),本 hook

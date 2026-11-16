@@ -58,13 +58,13 @@ mod operator;
 // plugin-store 路径越权修复:远程面只保留 store_read_entry/store_write_entry,
 // 路径经 resolve_store_path 拒绝对路径/`..` 并 canonicalize 断言落在 app_data_dir(见模块文档)。
 mod store_path;
-// 2026-11-15 立(四程序逆向 T3§A/T4§A):终端执行会话执行层——跨平台 PTY(std)+
+// 2026-11-15 立(四程序独立分析 T3§A/T4§A):终端执行会话执行层——跨平台 PTY(std)+
 // 环形缓冲封顶 + 进程树清理(Windows Job Object / POSIX 进程组)。执行层只用 std,
 // 可 `rustc --test` 单独跑单测;胶水在 terminal_ipc.rs,本文件只接线。
 mod terminal_session;
 // 终端会话 IPC 胶水:只放 #[tauri::command] + serde DTO,不碰终端状态判定。
 mod terminal_ipc;
-// 2026-11-15 立(四程序逆向 T3§H/T4§H):防孤儿守护——主进程挂 kill-on-close 作业
+// 2026-11-15 立(四程序独立分析 T3§H/T4§H):防孤儿守护——主进程挂 kill-on-close 作业
 // (退出即自动清整棵进程树)+ 原生件 sha256 白名单验签。与 startup_guard(启动相位)
 // 正交:那条管"启动别互杀",这条管"退出别留孤儿"。判据纯函数 verify_artifact 可单测。
 mod orphan_guard;

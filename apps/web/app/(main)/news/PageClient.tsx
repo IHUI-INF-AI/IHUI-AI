@@ -10,11 +10,14 @@ import { useQuery } from '@tanstack/react-query'
 import { NewsHeader } from './NewsHeader'
 import { NewsList } from './NewsList'
 import { NewsSidebar } from './NewsSidebar'
-import { BackButton } from '@/components/common'
+import { FeaturePageShell } from '@/components/layout'
+import { useTranslations } from 'next-intl'
+import { Newspaper } from 'lucide-react'
 import { PAGE_SIZE, api } from './helpers'
 import type { NewsArticle, NewsCategory, ArticlesData } from './types'
 
 export default function NewsPageClient() {
+  const t = useTranslations('news')
   const [search, setSearch] = React.useState('')
   const [debounced, setDebounced] = React.useState('')
   const [categoryId, setCategoryId] = React.useState<string>('all')
@@ -57,8 +60,10 @@ export default function NewsPageClient() {
   const items = data?.list ?? []
 
   return (
-    <div className="px-4 py-4 mx-auto w-full max-w-6xl space-y-4">
-      <BackButton />
+    // 2026-11-16 接入统一子功能页外壳:BackButton + NewsHeader 手写页头收编为页头卡,
+    // 标题/副标题迁入外壳(取 news.title/subtitle),NewsHeader 只保留搜索栏;
+    // 自动带上「教育」返回 chip。
+    <FeaturePageShell title={t('title')} description={t('subtitle')} icon={Newspaper} domain="edu">
       <NewsHeader search={search} onSearchChange={setSearch} />
 
       <div className="flex flex-col gap-6 min-[1024px]:flex-row">
@@ -81,7 +86,7 @@ export default function NewsPageClient() {
           pinned={pinned}
         />
       </div>
-    </div>
+    </FeaturePageShell>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -8,7 +8,7 @@ import type { FileNode } from '@ihui/types'
 import { EXT_LANG, useIDEWorkspace } from '@/stores/ide-workspace'
 
 /**
- * 2026-11-14(对标 DSH dsh-client-ui-deliverables 的文件引用打开通道):
+ * 2026-11-14(遵循统一工程规范):
  * 把「正文里的文件引用」统一落到 IDE 打开,而不是让相对路径链接变成不可点的 span。
  *
  * 纪律:

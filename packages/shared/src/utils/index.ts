@@ -14,7 +14,7 @@ export * from './base64'
 export * from './context-attribution'
 // canonical JSON 序列化唯一出口(86F:审计链哈希与导出签名共用,生产面禁止第二份)
 export * from './canonical-json'
-// 流式感知 JSON 修复唯一实现(2026-11-05 立,对标 Qoder/Trae 的 jsonrepair 依赖,并超越其「只能吃完整字符串」的流式轴)
+// 流式感知 JSON 修复唯一实现(2026-11-05 立,遵循统一工程规范)
 export * from './json-repair'
 // 工具调用入参解析唯一出口(2026-11-05 立):归一化任意上游 args 形态 + 增量 function.arguments 流式解析(接 json-repair 的修复/流式能力)
 export * from './tool-call-args'

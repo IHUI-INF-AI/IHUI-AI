@@ -8,7 +8,7 @@
  * - build: 全权执行修改
  * - review: 审查 diff,只读
  * 状态持久化到 <workspace>/.ihui-agent/modes/plan-build-state.json(跨 session 恢复)。
- * 平台独占:仅 cli(W2-2 Plan-Build 模式,对标 OpenCode Plan/Build,增强 Review + 持久化)。
+ * 平台独占:仅 cli(W2-2 Plan-Build 模式,对齐 OpenCode Plan/Build,增强 Review + 持久化)。
  *
  * 计划-执行-清单闭环(结构化计划):
  * - setPlan 接受 StructuredPlanInput:持久化到 .ihui/plan-<sessionId>.json,

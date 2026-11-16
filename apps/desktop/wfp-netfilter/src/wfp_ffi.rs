@@ -4,7 +4,7 @@
 
 //! 手写 WFP FFI 绑定 —— 静态接线层。
 //!
-//! # 为什么需要手写（对齐 AGENTS.md §0.12「逆向-复现-超越」）
+//! # 为什么需要手写（对齐 AGENTS.md §0.12「工程化落地」）
 //!
 //! `windows-sys 0.52`（`src-tauri` 的依赖，不能升级否则双副本冲突）**只导出了 WFP 的
 //! 一半符号**，探针实测（确定性）：
@@ -22,7 +22,7 @@
 //!   字段序 486–507 行）+ `fwptypes.h`（`FWP_VALUE0` union 165–189 行、`FWP_BYTE_BLOB`
 //!   151–155 行）**逐字段取证**。所有 size/align 由 [`compile_time_layout_asserts`] 钉住。
 //! - **条件字段 / layer GUID**：两个独立来源交叉验证（见
-//!   `.ihui-agent/tmp/goal-codex/evidence/wfp-condition-guids-authoritative.md`）：
+//!   `内部规格`）：
 //!   ① 对侧 `codex-windows-sandbox-service.exe` 调用点反汇编解出；
 //!   ② WireGuard Windows 绑定引用 `fwpmu.h`。三个重叠 GUID 逐字节吻合。
 //! - **常量值**：`FWP_ACTION_*`、`FWP_MATCH_EQUAL`、`FWP_DATA_*`、IPPROTO_* 均与 SDK 头一致。

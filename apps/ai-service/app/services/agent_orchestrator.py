@@ -32,6 +32,7 @@ from typing import Any
 
 from ..core.executor_switch import guard_loop_v2_pilot, take_loop_v2_handoff
 from ..core.llm_gateway import llm_gateway
+from ..core.multi_agent_config_gate import clip_messages_to_token_budget
 from ..core.permission_mode import (
     ModePolicy,
 )
@@ -1604,6 +1605,11 @@ class AgentOrchestrator:
             for it in range(agent.max_iterations):
                 iterations = it + 1
                 _emit({"phase": "thinking", "iteration": iterations})
+                # 子代理 context 预算隔离(Codex subagent_default_context_limits 对位):
+                # 每轮进 LLM 前把 messages 裁到 token 预算内(保 system + 末轮 user,
+                # 从最旧中段丢)。默认预算 32000 宽松,零配置时不改变既有 20 轮行为;
+                # 长任务撑大 messages 时作为安全网防父级上下文被拖爆。纯函数,不改原 list。
+                messages = clip_messages_to_token_budget(messages)
                 kwargs: dict[str, Any] = {}
                 if tool_defs:
                     kwargs["tools"] = tool_defs

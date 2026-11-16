@@ -49,7 +49,7 @@ const FULL_CTX: HookFailureContext = {
 }
 
 describe('G-87 Hook 失败六态 / 词汇表常量', () => {
-  it('六态常量就是 Qoder 对标的那六个,顺序即语义顺序', () => {
+  it('六态常量就是 Qoder 对齐的那六个,顺序即语义顺序', () => {
     expect(HOOK_STATUS_STATES).toEqual([
       'succeeded',
       'retryScheduled',

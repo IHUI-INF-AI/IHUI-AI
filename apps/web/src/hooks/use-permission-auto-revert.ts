@@ -14,7 +14,7 @@ import { permissionModeWire } from '@ihui/types/permission-mode'
 import { switchPermissionMode } from '@/components/ai/permission-mode-popover'
 
 /**
- * 高风险模式自动撤销倒计时(2026-07-25 深化,深度对标 Codex CLI 安全护栏)
+ * 高风险模式自动撤销倒计时(2026-07-25 深化,深度遵循统一工程规范)
  *
  * 为什么需要:
  * - 用户切到 bypass-permissions 后,5s 撤销 toast 只能覆盖"刚点错"的场景

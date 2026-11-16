@@ -44,7 +44,7 @@ interface ClassRow {
   grade?: string | null
 }
 
-/** 出码响应(字段与 handler 的 success({...}) 逐字对齐,现读于 2026-11-03)。 */
+/** 出码响应(字段与 handler 的 success({...}) 按行为规格,现读于 2026-11-03)。 */
 interface QrPayloadResult {
   payload: string
   classId: string

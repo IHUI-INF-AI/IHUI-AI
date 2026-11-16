@@ -4,7 +4,7 @@
 
 """Harness 细粒度能力(2026-09-18 第六批):run_code(code-mode)单测。
 
-覆盖(对标 Codex code-mode / V8 cell 语义):
+覆盖(遵循统一工程规范):
 - 代码执行 + print 捕获 + sessionId 会话化
 - 全局状态跨调用持久(cell 语义)+ reset 清空
 - tools.call 桥接宿主工具(tool/execute 客户端往返)+ 未知工具报错

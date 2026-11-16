@@ -4,7 +4,7 @@
 
 """仓库目录骨架的按 token 预算渲染(MCP 工具 `render_repo_tree` 的实现层)。
 
-逆向复现超越(goal-b47,2026-11-01,对齐 Qoder mtree 的
+工程化落地(goal-b47,2026-11-01,对齐 外部实现 mtree 的
 `renderTree({cwd, scope, maxTokens})`,取证见
 `docs/benchmark-evidence/2026-11/qoder-trae-rea-20261101/T9-qoder-search-engine.md` §5「窗口渲染」):
 上下文装箱不只装箱命中片,还装箱目录骨架。本仓此前**全仓零命中**(`render_tree` /

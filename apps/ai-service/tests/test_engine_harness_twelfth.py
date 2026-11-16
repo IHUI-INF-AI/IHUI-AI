@@ -4,7 +4,7 @@
 
 """Harness 钩子生命周期(2026-09-18 第十二批)单测。
 
-覆盖(对标 Codex hooks crate 的 12 个事件名中此前缺失的四项):
+覆盖(遵循统一工程规范):
 - subagent.start / subagent.stop:派生子代理前后成对发出
 - agent.stop:每轮代理工作结束时发出
 - agent.interrupt:中断生效时发出(cancel/pause 带 checkpoint)

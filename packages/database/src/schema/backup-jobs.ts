@@ -18,7 +18,7 @@ import {
 } from 'drizzle-orm/pg-core'
 
 /**
- * 数据库备份作业表(backup_jobs,2026-09-16 立,深度对标补强 V,对标竞品 /backups)。
+ * 数据库备份作业表(backup_jobs,2026-09-16 立,深度对齐补强 V,对齐竞品 /backups)。
  * 每次执行(pg_dump | gzip)一行:running → succeeded/failed,含产物路径与耗时。
  * 保留策略:成功后按 backup_settings.keepCount 清理超额产物(文件+记录)。
  */

@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * D175 任务内容聚合(2026-09-30 立,对标竞品 `chatSession.highlights.group/emptyGroup`)。
+ * D175 任务内容聚合(2026-09-30 立,对齐竞品 `chatSession.highlights.group/emptyGroup`)。
  *
  * 竞品把整个任务全程产出的**文件 / 网页 / 来源**持续汇总成三组清单。本文件只做一件事:
  * 从**既有的**会话数据里把这三组抽出来 —— 不新增采集链、不落第二份存储、不发请求。
@@ -34,7 +34,7 @@ import { describeToolCall } from '@ihui/shared/chat'
 /** 三组标识,与竞品键位同名:`group.artifact` / `group.browser` / (我方补的第三组标题位) `group.source` */
 export type TaskContentGroupKey = 'artifact' | 'browser' | 'source'
 
-/** 组序(逐字对齐票面顺序:产出 → 网页查阅 → 来源) */
+/** 组序(按行为规格票面顺序:产出 → 网页查阅 → 来源) */
 export const TASK_CONTENT_GROUPS: readonly TaskContentGroupKey[] = ['artifact', 'browser', 'source']
 
 /** 聚合输出的一条内容(三组共用同一形状,渲染层按组给标题) */
@@ -153,7 +153,8 @@ export function aggregateTaskContent(
     // ---- 来源①:消息级 citations(#11 全链路;CitationBar 用的同一份数据) ----
     for (const citation of message.citations ?? []) {
       const label = (citation.label ?? '').trim() || (citation.source ?? '').trim()
-      const url = typeof citation.url === 'string' && URL_RE.test(citation.url) ? citation.url : null
+      const url =
+        typeof citation.url === 'string' && URL_RE.test(citation.url) ? citation.url : null
       source.add({
         key: `${citation.source ?? ''}|${url ?? ''}|${label}`,
         label,
@@ -237,13 +238,13 @@ export function aggregateTaskContent(
 
 /** 三组是否全空(全空才出 `empty` + `emptyDescription` 汇总空态) */
 export function isTaskContentEmpty(groups: TaskContentGroups): boolean {
-  return (
-    groups.artifact.length === 0 && groups.browser.length === 0 && groups.source.length === 0
-  )
+  return groups.artifact.length === 0 && groups.browser.length === 0 && groups.source.length === 0
 }
 
 /** 各组条目数(标题行计数用;不合成"总条数"这种无人要的数) */
-export function taskContentGroupCounts(groups: TaskContentGroups): Record<TaskContentGroupKey, number> {
+export function taskContentGroupCounts(
+  groups: TaskContentGroups,
+): Record<TaskContentGroupKey, number> {
   return {
     artifact: groups.artifact.length,
     browser: groups.browser.length,

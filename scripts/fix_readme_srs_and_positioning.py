@@ -61,8 +61,8 @@ POSITIONING_REPLACEMENTS = [
     # L149: "一个仓库替代 6-10 个 SaaS,月省 $300+"
     ("一个仓库替代 6-10 个 SaaS,月省 $300+",
      "一个仓库集成 6-10 类 SaaS 能力,月省 $300+"),
-    # L161: "④ 商业 SaaS 基座(对标 Stripe+Auth0+Mixpanel)"
-    ("④ 商业 SaaS 基座(对标 Stripe+Auth0+Mixpanel)",
+    # L161: "④ 商业 SaaS 基座(对齐 Stripe+Auth0+Mixpanel)"
+    ("④ 商业 SaaS 基座(对齐 Stripe+Auth0+Mixpanel)",
      "④ 商业 SaaS 基座(集成中国本土支付 + RBAC + 基础可观测)"),
     # L189: "替代 Stripe($84/月)+ Auth0..."
     ("替代 Stripe($84/月)+ Auth0($35/月)+ Mailgun($35/月)+ Mixpanel($20/月)+ Dify($59/月)+ Claude Code($20/月)+ 蚁客($50/月)≈ $303/月,IHUI-AI 自托管 $0/月",

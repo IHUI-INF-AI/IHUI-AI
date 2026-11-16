@@ -6,7 +6,7 @@
 /**
  * 平台能力探测 — 探测当前 OS 可用的沙箱后端。
  *
- * 对标 Codex CLI:
+ * 遵循统一工程规范
  *   - Linux:   Landlock(内核 5.13+) / bubblewrap(bwrap) / seccomp
  *   - macOS:   sandbox-exec(Seatbelt 前端)
  *   - Windows: 受限令牌 / icacls ACL / JOB 对象(Node 无原生 API 时降级)

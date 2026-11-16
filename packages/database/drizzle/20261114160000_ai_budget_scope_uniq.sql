@@ -8,7 +8,7 @@
 -- schema 已把 (scope, scope_key, model) 提为唯一索引(nullsNotDistinct)。
 -- 本迁移:① 清理存量重复行(同 scope+scope_key+model 保留 id 最小一条);② 把普通索引
 --   替换为唯一索引。幂等安全:去重 WHERE 守门;索引 IF NOT EXISTS,可安全重复执行。
--- 与 packages/database/src/schema/ai-cost.ts 的 ai_budget_scope_idx 逐字对齐。
+-- 与 packages/database/src/schema/ai-cost.ts 的 ai_budget_scope_idx 按行为规格。
 
 -- ============ ① 清理存量重复(保留 id 最小一条) ============
 DELETE FROM "ai_budgets" a

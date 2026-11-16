@@ -567,7 +567,7 @@ def test_workbook_tools_are_bijections_not_half_tables() -> None:
 
 
 def test_command_paths_match_the_mounted_api_surface() -> None:
-    """`prefix(/api/workbook)` ∪ `routes/workbook.ts` 的五条子路由逐字对齐(装错一条 = 生产 404)。"""
+    """`prefix(/api/workbook)` ∪ `routes/workbook.ts` 的五条子路由按行为规格(装错一条 = 生产 404)。"""
     assert set(_COMMAND_PATHS) == {"open", "read", "write", "save", "close"}
     assert set(_COMMAND_PATHS.values()) == {
         "/api/workbook/open",

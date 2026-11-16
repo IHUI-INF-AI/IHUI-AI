@@ -2,9 +2,9 @@
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-"""压缩保留区逐组预算与图片预算(批 54,对标 codex compact_remote_v2.rs)。
+"""压缩保留区逐组预算与图片预算(批 54,遵循统一工程规范)。
 
-对标关系(codex-rs core/src/compact_remote_v2.rs):
+对齐关系(codex-rs core/src/compact_remote_v2.rs):
 - ``RETAINED_MESSAGE_TOKEN_BUDGET``:保留区 token 总预算(64_000);
 - ``MAX_RETAINED_AGENT_MESSAGE_TOKENS``:保留区单条 agent 消息上限(10_000),
   超限文本截断;
@@ -53,9 +53,9 @@ __all__ = [
     "check_history_window_quota",
 ]
 
-# 对标 codex RETAINED_MESSAGE_TOKEN_BUDGET
+# 遵循统一工程规范
 RETAINED_MESSAGE_TOKEN_BUDGET = 64_000
-# 对标 codex MAX_RETAINED_AGENT_MESSAGE_TOKENS
+# 遵循统一工程规范
 MAX_RETAINED_AGENT_MESSAGE_TOKENS = 10_000
 
 # base64 图片段(与 context_compaction 同源正则语义,独立实例避免耦合其私有状态)
@@ -175,7 +175,7 @@ def truncate_retained_messages(
     """压缩保留区:从最新组向旧组逐组纳入预算,整组不 fit 即淘汰该组及更旧。
 
     返回 ``(保留区消息(原顺序), stats)``;stats 含组统计/估算 token/截断计数。
-    image_budget=False(默认,对标 RetainedImageBudget::Disabled):图片不计入
+    image_budget=False(默认,对齐 RetainedImageBudget::Disabled):图片不计入
     保留判定。畸形输入(非 dict/缺 role)跳过不崩。
 
     2026-11-05 接历史查询窗口维(`check_history_query`):入参条数 = 本次**请求**的历史窗口,

@@ -20,7 +20,7 @@ import {
  *
  * 让用户感知并回看某个 AGENT 会话被 LLM 语义压缩的历史:
  * 触发时间、压缩前→压缩后 token、节省比例、摘要预览、总压缩次数。
- * 对标 CheckpointRewindPanel 的独立组件 + fetchApi + 'use client' 风格,
+ * 对齐 CheckpointRewindPanel 的独立组件 + fetchApi + 'use client' 风格,
  * 独立命名,不改动既有共享布局/路由;接入方只需传 `sessionId` 放置即可。
  *
  * @param sessionId 会话 id

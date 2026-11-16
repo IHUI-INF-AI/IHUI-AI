@@ -5,7 +5,7 @@
 /**
  * 流式工具参数解析。
  *
- * 观察（WorkBuddy @genie/agent-harness 0.2.0-beta.15，createToolInputParser，
+ * 观察（WorkBuddy 通用子智能体日志规范 0.2.0-beta.15，createToolInputParser，
  * 2026-11-07 本机已解开包）：每个 toolCallId 一份解析器，arguments 增量拼进缓冲。
  * 完整对象才算完成；`{}` 与空缓冲仍算未完成；半截对象用补括号或按键抽取，
  * 已闭合的值可以提前交给界面。完成后继续追加不再改缓冲。

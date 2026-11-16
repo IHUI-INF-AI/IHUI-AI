@@ -7,7 +7,7 @@
 -- 本迁移:① 清理存量重复行(bot_id+variable_name 重复时保留 id 最小一条);② 补复合唯一索引。
 -- 幂等安全:去重用 WHERE 守门(仅删重复);索引用 IF NOT EXISTS,可安全重复执行。
 -- 与 packages/database/src/schema/misc-extended.ts 的
---   unique('coze_variables_bot_id_variable_name_unique') 约束名逐字对齐。
+--   unique('coze_variables_bot_id_variable_name_unique') 约束名按行为规格。
 
 -- ============ ① 清理重复(同 bot 下同名变量保留 id 最小的一条) ============
 DELETE FROM "coze_variables" a

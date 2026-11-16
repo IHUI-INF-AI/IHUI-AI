@@ -5,7 +5,7 @@
 /**
  * Agent Plan Mode(计划模式)端点(2026-09-02 立)。
  *
- * 对标 Claude Code Plan Mode:先让 LLM 生成一份可编辑的执行计划(只读阶段),
+ * 遵循统一工程规范),
  * 用户确认/编辑后再同步执行。后端路由见 apps/ai-service/app/routers/agent_plan.py,
  * 经 web 8802 代理以 `/api/agent-plan*` 暴露:
  *  - POST   /api/agent-plan                  → 创建计划草稿

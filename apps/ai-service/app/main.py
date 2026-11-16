@@ -50,7 +50,7 @@ from app.middleware.response_sanitizer import setup_response_sanitizer_middlewar
 from app.middleware.trace_context import setup_trace_context_middleware
 
 # 2026-07-23 新增:AI Skills TOP 19 个 skill 路由(用户可选调用)
-# P3 深度层 Wave 11:6 大对标能力(2026-07-22 立)
+# P3 深度层 Wave 11:6 大对齐能力(2026-07-22 立)
 # 跨支柱编排中枢(2026-07-23 立,事件总线 + 联合决策 + 预算治理 + 统一遥测)
 from app.routers import (
     a2a,
@@ -137,14 +137,14 @@ from app.routers.legacy import router as legacy_router
 # L4 自进化 admin 端点(status/lessons/history/trigger,2026-07-25 立)
 from app.routers.meta_learning import router as meta_learning_router
 
-# 对标杀手锏四件套(2026-09-03 立,深度补齐 Claude Code / Codex / Qoder / WorkBuddy):
+# 对齐杀手锏四件套(2026-09-03 立,深度补齐 Claude Code / Codex / Qoder / WorkBuddy):
 # Deep Research 多轮深度研究 / Checkpoint+Rewind / 云托管会话 / Computer Use 驾驶舱 / 上下文压缩感知
 from app.routers.research import router as research_router
 from app.routers.self_healing import router as self_healing_router
 from app.routers.sso import router as sso_router
 from app.routers.step_recorder import router as step_recorder_router
 
-# Context Engineering 路由(对标 Qoder,多维 @ 提及 + 跨会话 RAG + 多源融合)
+# Context Engineering 路由(遵循统一工程规范)
 from app.services.context_engine import router as context_engine_router
 
 # IM 桥接服务(2026-07-31 立,消费 Redis im:inbound 队列 → LLM 回复 → 调 apps/api im-gateway/send)
@@ -677,7 +677,7 @@ async def lifespan(app: FastAPI) -> Any:
     # (原 load_all_lessons() 导致启动慢 + 内存峰值高)
 
     # L4 启动元学习调度器(周期扫描跨 skill 失败案例,触发 FailureClusterer 聚类
-    # + 抽取 meta_lessons,对标 Hermes Agent meta-learning cycle)
+    # + 抽取 meta_lessons,对齐 Hermes Agent meta-learning cycle)
     # 由 META_LEARNER_ENABLED 环境变量控制开关(默认 false,避免消耗 LLM tokens)
     # 失败不阻塞主服务(单次循环异常只 warning,下次循环自动恢复)
     from app.services.meta_learner_scheduler import meta_learner_scheduler
@@ -706,7 +706,7 @@ async def lifespan(app: FastAPI) -> Any:
     from app.services.publish.scheduler import publish_scheduler
     publish_scheduler.start()
 
-    # 启动后台任务调度器(APScheduler AsyncIOScheduler + Redis 持久化,对标 Codex Automations)
+    # 启动后台任务调度器(APScheduler AsyncIOScheduler + Redis 持久化,遵循统一工程规范)
     # schedule_enabled=False 时跳过;失败不阻塞主服务(stub/内存降级由 scheduler_service 内部处理)
     if getattr(settings, "schedule_enabled", True):
         try:
@@ -1198,7 +1198,7 @@ def create_app() -> FastAPI:
     app.include_router(cost_estimate.router, prefix="/api", tags=["llm"])
     # P3 #41 记忆图谱(2026-09-16 立):子图查询
     app.include_router(memory_graph.router, prefix="/api", tags=["memory"])
-    # FIM 代码补全(Monaco/CLI ghost-text 后端,2026-09-07 立,对标 Cursor Tab)
+    # FIM 代码补全(Monaco/CLI ghost-text 后端,2026-09-07 立,遵循统一工程规范)
     app.include_router(fim.router, prefix="/api", tags=["llm-fim"])
     app.include_router(tools.router, prefix="/api", tags=["tools"])
     app.include_router(web_tools.router, prefix="/api", tags=["web-tools"])
@@ -1233,7 +1233,7 @@ def create_app() -> FastAPI:
     # 媒体任务统一管理(对话内媒体工具落库的 media_tasks:列表/详情/取消,2026-09-09 立)
     from app.routers import media_tasks as media_tasks_router
     app.include_router(media_tasks_router.router, prefix="/api", tags=["media-tasks"])
-    # Artifact 图表产物静态文件服务(签名 token 鉴权,2026-09-01 立,对标 Claude Artifacts)
+    # Artifact 图表产物静态文件服务(签名 token 鉴权,2026-09-01 立,对齐 Claude Artifacts)
     app.include_router(artifacts.router, prefix="/api", tags=["artifacts"])
     # 自媒体 skill(公众号文章 + 口播稿,2026-07-20 新增)
     app.include_router(self_media.router, prefix="/api", tags=["self-media"])
@@ -1281,7 +1281,7 @@ def create_app() -> FastAPI:
     # DAP 调试路由(封装 DebugSessionManager 为 HTTP 端点,2026-07-22 新增)
     from app.api.v1 import debug as debug_router_module
     app.include_router(debug_router_module.router, prefix="/api/v1", tags=["debug"])
-    # 四层记忆 + Dream 梦境系统(2026-07-22 新增,对标 OpenClaw Mem)
+    # 四层记忆 + Dream 梦境系统(2026-07-22 新增,遵循统一工程规范)
     from app.api.memory import router as memory_router
     app.include_router(memory_router, prefix="/api", tags=["memory"])
     # 多通道消息总线(5 通道 + 优先级 + 降级 + 模板 + 批量 + 限流,
@@ -1314,7 +1314,7 @@ def create_app() -> FastAPI:
     # 路由定义在 services/spec_generator.py 末尾,打通 api 端 spec-service.ts 转发层(2026-07-24 立)
     from app.services.spec_generator import extra_router as spec_extra_router
     app.include_router(spec_extra_router, prefix="/api", tags=["spec-extended"])
-    # P3 Wave 11:Context Engineering(对标 Qoder,多维 @ 提及 +
+    # P3 Wave 11:Context Engineering(遵循统一工程规范
     # 跨会话 RAG + 多源融合 + token 预算分配)
     app.include_router(context_engine_router, prefix="/api/context", tags=["context-engine"])
     # 跨支柱编排中枢(2026-07-23 立,6 大超越支柱协同决策 + LLM 预算治理 + 统一遥测)
@@ -1362,7 +1362,7 @@ def create_app() -> FastAPI:
     from app.routers import keepalive as keepalive_router
     app.include_router(keepalive_router.router, tags=["keepalive"])
 
-    # W4(Phase 0):Plan Mode 计划模式端点族(对标 Claude Code Plan Mode,全新端点 /api/agent-plan*)
+    # W4(Phase 0):Plan Mode 计划模式端点族(遵循统一工程规范)
     from app.routers import agent_plan as agent_plan_router
     app.include_router(agent_plan_router.router, prefix="/api", tags=["agent-plan"])
 
@@ -1371,7 +1371,7 @@ def create_app() -> FastAPI:
     from app.routers import goal_verification as goal_verification_router
     app.include_router(goal_verification_router.router, tags=["goal-verification"])
 
-    # 对标杀手锏四件套路由(2026-09-03 立)——见上方 import
+    # 对齐杀手锏四件套路由(2026-09-03 立)——见上方 import
     app.include_router(research_router, prefix="/api", tags=["research"])
     app.include_router(checkpoint_rewind_router, prefix="/api", tags=["checkpoint-rewind"])
     app.include_router(cloud_runs_router, prefix="/api", tags=["cloud-runs"])
@@ -1380,11 +1380,11 @@ def create_app() -> FastAPI:
     app.include_router(computer_use_router, prefix="/api", tags=["computer-use"])
     app.include_router(context_compaction_router, prefix="/api", tags=["context-compaction"])
 
-    # 2026-09-07 立:Best-of-N 同任务多副本自动择优(对标 Cursor 多副本自动评审择优)
+    # 2026-09-07 立:Best-of-N 同任务多副本自动择优(遵循统一工程规范)
     from app.routers import best_of_n as best_of_n_router
 
     # 2026-09-13 立:Memory Sweeper(长期记忆 SQLite 存储 + 记忆清扫策略,
-    # 对标 Codex/Claude Code 记忆衰减机制;纯标准库 sqlite3,WAL + 事务 + 线程锁)
+    # 遵循统一工程规范;纯标准库 sqlite3,WAL + 事务 + 线程锁)
     from app.routers.memory_sweeper import router as memory_sweeper_router
     app.include_router(best_of_n_router.router, prefix="/api", tags=["best-of-n"])
 
@@ -1430,14 +1430,14 @@ def create_app() -> FastAPI:
     app.include_router(capability_matrix_router)
 
     # P2-③(2026-09-18 立):Agent Engine —— JSON-RPC 2.0 编排引擎传输层。
-    # 对标 Codex app-server 的"任意应用嵌入 agent 循环"能力,接口直接暴露我方差异化:
+    # 遵循统一工程规范
     # MCP 超级工具池(tools.list)/ 多模型路由(models.list)/ 成本账本(cost.report)。
     # 端点:POST /api/engine/rpc(流式方法自动升级 SSE)+ WS /api/engine/ws。
     from app.routers import engine as engine_router
 
     app.include_router(engine_router.router, prefix="/api", tags=["agent-engine"])
 
-    # P2-③ 第六批(2026-09-18):语音↔引擎回合式会话(对标 Codex realtime-webrtc
+    # P2-③ 第六批(2026-09-18):语音↔引擎回合式会话(遵循统一工程规范
     # 的会话语义):音频 → faster-whisper 本地 STT → AgentEngine 线程 → edge-tts → 音频。
     from app.routers import engine_voice as engine_voice_router
 
@@ -1454,7 +1454,7 @@ def create_app() -> FastAPI:
 
     app.include_router(figma_import.router, prefix="/api", tags=["figma-import"])
 
-    # IHUI 作为 MCP Server 对外开放(2026-09-03 立,逆向杀手锏只做客户端的对标产品)
+    # IHUI 作为 MCP Server 对外开放(2026-09-03 立,独立分析杀手锏只做客户端的对齐产品)
     # 由 ENABLE_MCP_EXPORT 环境变量控制开关,默认关闭(避免影响现有服务,不启动额外 listener)。
     # 开启后暴露两种 transport:
     #   SSE            GET /api/mcp/export/sse + POST /api/mcp/export/messages/

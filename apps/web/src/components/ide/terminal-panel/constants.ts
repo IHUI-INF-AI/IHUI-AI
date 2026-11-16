@@ -62,7 +62,7 @@ export const FONT_SIZE_MAX = 32
 /** 搜索匹配高亮上限(避免大量匹配导致 registerDecoration 性能问题) */
 export const MATCH_HIGHLIGHT_LIMIT = 200
 
-/** D199(2026-09-30 立,对标竞品 terminalPanel.switchToDark|switchToLight):终端深浅档名 */
+/** D199(2026-09-30 立,对齐竞品 terminalPanel.switchToDark|switchToLight):终端深浅档名 */
 export type TerminalThemeName = 'dark' | 'light'
 
 /**

@@ -49,7 +49,7 @@ describe('D21 折叠策略 · shouldCollapseSteps(自适应纯函数)', () => {
   })
 })
 
-describe('D21 折叠策略 · 语义例外集优先于三维阈值(2026-10-29 对标 Qoder 0.4.11)', () => {
+describe('D21 折叠策略 · 语义例外集优先于三维阈值(2026-10-29 对齐统一规范)', () => {
   // 全维超阈值的"重任务"读数:三个维度都远超阈值,纯数值判据必然折叠
   const overThreshold = {
     contentChars: AUTO_COLLAPSE_CHARS * 10,

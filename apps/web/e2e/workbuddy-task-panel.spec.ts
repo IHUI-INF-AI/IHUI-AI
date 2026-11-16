@@ -58,7 +58,7 @@ const ACCOUNT_NAME = 'E2E-WB-走查号'
 const TASK_CODE = 'WB-GROW-001'
 
 /**
- * 全局壳层的兜底响应体(形态抄自 e2e/harness-boot.ts 的 RICH,再补 voice-notes 的
+ * 全局壳层的兜底响应体(形态取自 e2e/harness-boot.ts 的 RICH,再补 voice-notes 的
  * `list`/`groups` 两键):壳层各 query 直接对 `res.data.xxx` 调 .map,少一键就整页崩。
  */
 const RICH_SHELL: Record<string, unknown> = {

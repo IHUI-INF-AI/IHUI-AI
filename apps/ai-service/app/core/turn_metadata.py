@@ -3,7 +3,7 @@
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 # app/core/turn_metadata.py
-"""Codex 会话元数据键与请求元数据构建(2026-09-19 第三十一批,对标 Codex responses_metadata.rs/turn_metadata.rs)。
+"""外部实现 会话元数据键与请求元数据构建(2026-09-19 第三十一批,遵循统一工程规范)。
 
 本模块是 codex-rs `core/src/responses_metadata.rs` 与 `core/src/turn_metadata.rs` 的可移植切片:
 只搬运**纯数据 / 纯函数**部分,供 ihui 的 Python 端复用同一套 metadata 键、截断与过滤语义。
@@ -42,7 +42,7 @@ def _empty_str_dict() -> dict[str, str]:
     return {}
 
 # ---------------------------------------------------------------------------
-# metadata 键常量(对标 responses_metadata.rs:27-57)
+# metadata 键常量(对齐 responses_metadata.rs:27-57)
 # ---------------------------------------------------------------------------
 INSTALLATION_ID_KEY: str = "installation_id"
 SESSION_ID_KEY: str = "session_id"
@@ -77,7 +77,7 @@ NODE_REPL_DISABLED_KEY: str = "node_repl_disabled"
 WORKSPACES_KEY: str = "workspaces"
 
 # ---------------------------------------------------------------------------
-# HTTP header 常量(对标 client.rs:156-163)
+# HTTP header 常量(对齐 client.rs:156-163)
 # ---------------------------------------------------------------------------
 X_CODEX_INSTALLATION_ID_HEADER: str = "x-codex-installation-id"
 X_CODEX_TURN_METADATA_HEADER: str = "x-codex-turn-metadata"
@@ -93,14 +93,14 @@ USER_INPUT_REQUESTED_DURING_TURN_KEY: str = "user_input_requested_during_turn"
 WORKSPACE_KIND_KEY: str = "workspace_kind"
 
 # ---------------------------------------------------------------------------
-# 上限常量(对标 responses_metadata.rs:105-107)
+# 上限常量(对齐 responses_metadata.rs:105-107)
 # ---------------------------------------------------------------------------
 MAX_EXTRA_METADATA_ENTRIES: int = 16
 MAX_EXTRA_METADATA_KEY_BYTES: int = 64
 MAX_EXTRA_METADATA_VALUE_BYTES: int = 128
 
 # ---------------------------------------------------------------------------
-# 保留键 / 向后兼容保留键(对标 responses_metadata.rs:61-104)
+# 保留键 / 向后兼容保留键(对齐 responses_metadata.rs:61-104)
 # ---------------------------------------------------------------------------
 # App-server 客户端可在 responsesapi_client_metadata 中额外指定 metadata,但不得覆盖 core 自有字段。
 RESERVED_METADATA_KEYS: list[str] = [
@@ -150,11 +150,11 @@ BACKWARD_COMPATIBLE_RESERVED_METADATA_KEYS: list[str] = [
 
 # ---------------------------------------------------------------------------
 # SessionSource / SubAgentSource / ThreadSource 的等价数据模型
-# (对标 protocol.rs:2820-3063;均为纯枚举,与 Session/tokio 无耦合)
+# (对齐 protocol.rs:2820-3063;均为纯枚举,与 Session/tokio 无耦合)
 # ---------------------------------------------------------------------------
 @dataclass(frozen=True)
 class SubAgentSource:
-    """子代理来源(对标 protocol.rs:2902 SubAgentSource)。"""
+    """子代理来源(对齐 protocol.rs:2902 SubAgentSource)。"""
 
     tag: str  # "review" | "compact" | "thread_spawn" | "memory_consolidation" | "other"
     label: str | None = None  # Other 变体携带的自定义标签
@@ -180,7 +180,7 @@ class SubAgentSource:
         return SubAgentSource("other", label)
 
     def kind(self) -> str:
-        """对标 protocol.rs:3042 SubAgentSource::kind()。"""
+        """对齐 protocol.rs:3042 SubAgentSource::kind()。"""
         if self.tag == "review":
             return "review"
         if self.tag == "compact":
@@ -196,7 +196,7 @@ class SubAgentSource:
 
 @dataclass(frozen=True)
 class SessionSource:
-    """会话来源(对标 protocol.rs:2820 SessionSource)。"""
+    """会话来源(对齐 protocol.rs:2820 SessionSource)。"""
 
     tag: str  # cli | vscode | exec | mcp | custom | internal | subagent | unknown
     internal: str | None = None  # internal 变体携带的 kind 字符串
@@ -238,7 +238,7 @@ class SessionSource:
 
 @dataclass(frozen=True)
 class CompactionTurnMetadata:
-    """对话压缩请求元数据(对标 responses_metadata.rs:114-121)。"""
+    """对话压缩请求元数据(对齐 responses_metadata.rs:114-121)。"""
 
     trigger: str
     reason: str
@@ -258,13 +258,13 @@ class CompactionTurnMetadata:
 
 @dataclass(frozen=True)
 class CodexResponsesRequestKind:
-    """请求种类(对标 responses_metadata.rs:156-177)。"""
+    """请求种类(对齐 responses_metadata.rs:156-177)。"""
 
     tag: str  # "turn" | "prewarm" | "compaction" | "memory"
     compaction: CompactionTurnMetadata | None = None
 
     def metadata(self) -> tuple[str | None, CompactionTurnMetadata | None]:
-        """对标 CodexResponsesRequestKind::metadata():返回 (request_kind 字符串, 压缩元数据)。"""
+        """遵循统一工程规范):返回 (request_kind 字符串, 压缩元数据)。"""
         if self.tag == "turn":
             return ("turn", None)
         if self.tag == "prewarm":
@@ -276,12 +276,12 @@ class CodexResponsesRequestKind:
         return (None, None)
 
     def has_thread_identity(self) -> bool:
-        """对标 has_thread_identity():除 Memory 外均携带线程身份。"""
+        """对齐 has_thread_identity():除 Memory 外均携带线程身份。"""
         return self.tag != "memory"
 
 
 # ---------------------------------------------------------------------------
-# subagent header / kind 生成(对标 responses_metadata.rs:435-465)
+# subagent header / kind 生成(对齐 responses_metadata.rs:435-465)
 # ---------------------------------------------------------------------------
 def subagent_header_value(session_source: SessionSource) -> str | None:
     """返回应写入 x-openai-subagent header 的值;非子代理来源返回 None。"""
@@ -311,7 +311,7 @@ def subagent_metadata_kind(session_source: SessionSource) -> str | None:
 
 
 # ---------------------------------------------------------------------------
-# extra metadata 过滤 / 校验(对标 responses_metadata.rs:473-510)
+# extra metadata 过滤 / 校验(对齐 responses_metadata.rs:473-510)
 # ---------------------------------------------------------------------------
 def valid_extra_metadata_key(key: str) -> bool:
     """键必须是:首字符 ASCII 字母,其余为 ASCII 字母数字或 _ . -。"""
@@ -348,7 +348,7 @@ def validate_extra_metadata(extra: Iterable[tuple[str, str]]) -> None:
 
 
 def filter_extra_metadata(extra: Iterable[tuple[str, str]]) -> dict[str, str]:
-    """过滤掉所有保留键(app-server 不能覆盖 core 自有字段)。对标 filter_extra_metadata。"""
+    """过滤掉所有保留键(app-server 不能覆盖 core 自有字段)。对齐 filter_extra_metadata。"""
     result: dict[str, str] = {}
     for key, value in extra:
         if key not in RESERVED_METADATA_KEYS:
@@ -360,7 +360,7 @@ def truncate_extra_metadata_value(value: str) -> str:
     """按 MAX_EXTRA_METADATA_VALUE_BYTES(128)字节上限截断值,且不在多字节字符中途切断。
 
     Rust 端通过 validate_extra_metadata 直接拒绝超长值;此处提供等价的**截断**工具,
-    使 Python 端在无法回退时仍可安全落库(对标 MAX_EXTRA_METADATA_VALUE_BYTES 上限语义)。
+    使 Python 端在无法回退时仍可安全落库(对齐 MAX_EXTRA_METADATA_VALUE_BYTES 上限语义)。
     """
     encoded = value.encode("utf-8")
     if len(encoded) <= MAX_EXTRA_METADATA_VALUE_BYTES:
@@ -373,11 +373,11 @@ def truncate_extra_metadata_value(value: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# CodexResponsesMetadata 等价 dataclass(对标 responses_metadata.rs:223-433)
+# CodexResponsesMetadata 等价 dataclass(对齐 responses_metadata.rs:223-433)
 # ---------------------------------------------------------------------------
 @dataclass
 class CodexResponsesMetadata:
-    """调用方持有的 Codex metadata 快照(对标 CodexResponsesMetadata)。
+    """调用方持有的 外部实现 metadata 快照(遵循统一工程规范)。
 
     ThreadId / Uuid 在 Rust 中是 newtype(String),此处直接以 str 承载其字符串形式。
     """
@@ -422,7 +422,7 @@ class CodexResponsesMetadata:
         thread_id: str,
         window_id: str,
     ) -> CodexResponsesMetadata:
-        """对标 CodexResponsesMetadata::new()。"""
+        """遵循统一工程规范)。"""
         return CodexResponsesMetadata(
             installation_id=installation_id,
             session_id=session_id,
@@ -431,7 +431,7 @@ class CodexResponsesMetadata:
         )
 
     def has_turn_metadata(self) -> bool:
-        """对标 has_turn_metadata():request_kind 已设置即视为有 turn metadata。"""
+        """对齐 has_turn_metadata():request_kind 已设置即视为有 turn metadata。"""
         return self.request_kind is not None
 
     def _has_thread_identity(self) -> bool:
@@ -441,7 +441,7 @@ class CodexResponsesMetadata:
         return self.request_kind is not None and self.request_kind.has_thread_identity()
 
     def as_dict(self) -> dict[str, object]:
-        """对标 turn_metadata_payload():生成 Codex turn metadata 投影(dict)。
+        """对齐 turn_metadata_payload():生成 Codex turn metadata 投影(dict)。
 
         语义同 serde(skip_serializing_if = "Option::is_none" + flatten extra):
         None 字段省略,extra 中的键拍平到顶层。
@@ -511,11 +511,11 @@ class CodexResponsesMetadata:
         return payload
 
     def as_json(self) -> str:
-        """对标 turn_metadata_json():ASCII JSON 字符串(ensure_ascii=True 等价 to_ascii_json_string)。"""
+        """对齐 turn_metadata_json():ASCII JSON 字符串(ensure_ascii=True 等价 to_ascii_json_string)。"""
         return json.dumps(self.as_dict(), ensure_ascii=True)
 
     def client_metadata(self) -> dict[str, str]:
-        """对标 client_metadata():返回扁平 client_metadata 投影(dict 形式,等价 HTTP/WebSocket 头)。"""
+        """对齐 client_metadata():返回扁平 client_metadata 投影(dict 形式,等价 HTTP/WebSocket 头)。"""
         client: dict[str, str] = {
             X_CODEX_INSTALLATION_ID_HEADER: self.installation_id,
             SESSION_ID_KEY: self.session_id,
@@ -545,11 +545,11 @@ class CodexResponsesMetadata:
 
 
 # ---------------------------------------------------------------------------
-# ExecutionMetadata.apply_to(对标 turn_metadata.rs:54-95)
+# ExecutionMetadata.apply_to(对齐 turn_metadata.rs:54-95)
 # ---------------------------------------------------------------------------
 @dataclass
 class ExecutionMetadata:
-    """捕获的本次执行配置(对标 ExecutionMetadata),shared by Responses 与 MCP metadata。"""
+    """捕获的本次执行配置(对齐 ExecutionMetadata),shared by Responses 与 MCP metadata。"""
 
     model: str
     reasoning_effort: str | None
@@ -558,7 +558,7 @@ class ExecutionMetadata:
     node_repl_auto_review_required: bool
 
     def apply_to(self, metadata: CodexResponsesMetadata) -> None:
-        """对标 ExecutionMetadata::apply_to():把执行配置写回 metadata 的布尔字段与 extra。"""
+        """对齐 ExecutionMetadata::apply_to():把执行配置写回 metadata 的布尔字段与 extra。"""
         metadata.auto_review_enabled = self.auto_review_enabled
         metadata.node_repl_auto_review_required = self.node_repl_auto_review_required
         metadata.node_repl_disabled = self.node_repl_disabled

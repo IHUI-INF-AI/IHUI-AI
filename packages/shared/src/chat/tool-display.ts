@@ -61,6 +61,7 @@ const TOOL_DISPLAY_KEYS: Readonly<Record<string, string>> = {
   voice_tts: 'toolVoiceTts',
   audio_transcription: 'toolAudioTranscription',
   vision_analyze: 'toolVisionAnalyze',
+  orchestrate_agents: 'toolDispatchSubagent',
   dispatch_subagent: 'toolDispatchSubagent',
   team_task: 'toolTeamTask',
   schedule_task: 'toolScheduleTask',
@@ -91,7 +92,7 @@ const TOOL_DISPLAY_KEYS: Readonly<Record<string, string>> = {
   edu_send_fee_reminder: 'toolEduSendReminder',
   edu_send_fee_reminder_batch: 'toolEduSendReminderBatch',
   edu_create_payment_record: 'toolEduCreatePayment',
-  // 浏览器操控族(mcp_server._TOOLS 的 browser_*,对标 Trae browser_action / Qoder browser.* 全中文)
+  // 浏览器操控族(mcp_server._TOOLS 的 browser_*,遵循统一工程规范)
   browser_navigate: 'toolBrowserNavigate',
   browser_click_element: 'toolBrowserClickElement',
   browser_type_text: 'toolBrowserTypeText',
@@ -238,7 +239,7 @@ export const __toolDisplayKeys = TOOL_DISPLAY_KEYS
  * - path:文件/目录路径;query:检索词;url:网页地址;command:shell 命令;
  * - name:实体名(子代理名/任务标题);none:无可靠对象,只显示功能名。
  */
-export type ToolSubjectKind = 'path' | 'query' | 'url' | 'command' | 'name' | 'none'
+export type ToolSubjectKind = 'path' | 'query' | 'url' | 'command' | 'name' | 'task' | 'none'
 
 /** 工具行的"结果度量"类型,渲染层用 i18n 单位键渲染成 "12 行" / "5 个结果" */
 export type ToolMetricKind = 'lines' | 'results' | 'files' | 'chars' | 'none'
@@ -278,6 +279,7 @@ const SUBJECT_KEYS: Readonly<Record<Exclude<ToolSubjectKind, 'none'>, readonly s
   url: ['url', 'uri', 'link', 'target_url', 'site_url'],
   command: ['command', 'cmd', 'script'],
   name: ['agent', 'agent_name', 'subagent_type', 'name', 'title', 'task_name', 'key', 'text'],
+  task: ['task', 'objective', 'topic', 'prompt'],
 }
 
 /** 工具 → 对象类型。未登记的走"按类型逐个试探"的通用兜底,避免每加一个工具都要改表 */
@@ -309,6 +311,7 @@ const TOOL_SUBJECT_KINDS: Readonly<Record<string, Exclude<ToolSubjectKind, 'none
   sandbox_session: 'command',
   run_in_background: 'command',
   git_operations: 'command',
+  orchestrate_agents: 'task',
   dispatch_subagent: 'name',
   schedule_task: 'name',
   configure_automation_task: 'name',
@@ -428,7 +431,7 @@ export interface DescribeToolCallInput {
 }
 
 /**
- * 把一次工具调用描述成 "功能名 + 对象 + 结果度量"(对标 Qoder / Trae / Codex 的活动行信息结构)。
+ * 把一次工具调用描述成 "功能名 + 对象 + 结果度量"(遵循统一工程规范)。
  *
  * 界面只需要这一层信息就能把一行说清楚(如「读取文件内容 apps/web/src/app/page.tsx · 128 行」),
  * 不需要各自从 args/result 里现挖,也不允许把英文工具码名当作用户可见文案。

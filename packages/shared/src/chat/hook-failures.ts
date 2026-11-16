@@ -24,7 +24,7 @@
 //   (判定层 + 六态词汇表);渲染位与 D34 hook.failed SSE 事件的补出规格见最终报告,
 //   交主会话立项。
 //
-// **对标关系**:
+// **对齐关系**:
 //   · Qoder `hook.status` 六态 —— 本模块逐一对应;其中 **`resultNotRecorded`
 //     (未记录最终结果)** 是 Qoder 有而我方**完全没有**的终态缺省:引擎侧 DLQ Redis
 //     读取失败降级返回空(hook_engine.py:1146-1149)、内存 DLQ 进程重启即丢、
@@ -83,7 +83,7 @@ export type HookEvidenceField = (typeof HOOK_EVIDENCE_FIELDS)[number]
 
 /**
  * 失败上下文(引擎侧原始输入,**未经脱敏**)。
- * 对标 Qoder hook_non_blocking_error attachment 的七字段输入;`failedAt` 为可选补充。
+ * 遵循统一工程规范;`failedAt` 为可选补充。
  * 所有字符串字段**禁止裸传 stderr/command** —— 出口 `buildHookFailureAttachment`
  * 统一过 `sanitizeEvidenceText`。
  */
@@ -99,7 +99,7 @@ export interface HookFailureContext {
 
 /**
  * 失败卡 attachment(已脱敏,可直接进 DOM/日志/工单)。
- * 形状对标 Qoder hook_non_blocking_error attachment。
+ * 形状遵循统一工程规范。
  */
 export interface HookFailureAttachment {
   readonly hookName: string
@@ -266,6 +266,46 @@ export function hookFailureView(
       }
     default:
       return assertNeverState(state)
+  }
+}
+
+/**
+ * 一条 hook 执行失败记录:六态 + 引擎侧原始上下文。
+ * 形状与 `hookFailureView(state, ctx)` 的入参逐字段对齐 —— 宿主只需把 SSE 帧填进来,
+ * 脱敏由 `hookFailureView` → `buildHookFailureAttachment` 统一做。
+ */
+export interface HookFailureEventRecord {
+  readonly state: HookStatusState
+  /** 失败上下文(未脱敏原文;出口统一过 sanitizeEvidenceText) */
+  readonly context: HookFailureContext
+}
+
+/**
+ * hook-failed 原始载荷 → 记录(**唯一**收窄点,跨端共用)。
+ *
+ * 判据纪律:
+ *  · 形状不信任何一项 —— 非对象 ⇒ null;`state` 必须过 `isHookStatusState` 收窄,
+ *    认不出的状态一律丢弃(不猜、不兜底成 resultNotRecorded,那一格是"未记录"的真事实);
+ *  · 其余字段只透传原始值,缺席归 null —— 缺席 ≠ 空串 ≠ 0(exitCode:0 是肯定结论);
+ *  · 本函数不取数、不抛异常:跑在 SSE 逐帧路径上,坏帧绝不能打断整条流。
+ */
+export function readHookFailureEvent(raw: unknown): HookFailureEventRecord | null {
+  if (!raw || typeof raw !== 'object') return null
+  const item = raw as Record<string, unknown>
+  const state = item.state
+  if (typeof state !== 'string' || !isHookStatusState(state)) return null
+  const text = (value: unknown): string | null => (typeof value === 'string' ? value : null)
+  return {
+    state,
+    context: {
+      hookName: text(item.hookName),
+      hookEvent: text(item.hookEvent),
+      command: text(item.command),
+      stderr: text(item.stderr),
+      exitCode: typeof item.exitCode === 'number' ? item.exitCode : null,
+      durationMs: typeof item.durationMs === 'number' ? item.durationMs : null,
+      failedAt: text(item.failedAt),
+    },
   }
 }
 

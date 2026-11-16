@@ -263,7 +263,7 @@ import { skillsRoutes } from './skills.js'
 import { designRoutes } from './design.js'
 // 三端联动任务调度(P3 深度层,mobile-rn → api WS → desktop 执行:dispatch/result/list/devices)
 import { tasksRoutes } from './tasks.js'
-// IM 平台 gateway 路由(P1-1,对标 Hermes Agent 25+ 平台 gateway:webhook 接收 + 出站发送 + 适配器配置)
+// IM 平台 gateway 路由(P1-1,对齐 Hermes Agent 25+ 平台 gateway:webhook 接收 + 出站发送 + 适配器配置)
 import { imGatewayRoutes } from './im-gateway.js'
 
 // R68 补建：M-64 ask 模块扩展端点
@@ -437,8 +437,8 @@ import { codebaseSearchRoutes } from './v1-codebase-search.js'
 // P3 深度层:DAP debug 代理路由(代理到 ai-service /api/v1/debug/*,2026-07-22 立)
 import { debugRoutes } from './debug.js'
 
-// P3 深度层 Wave 11:6 大对标能力(2026-07-22 立)
-// 终端集成(对标 Codex/OpenCode 内置终端,REST CRUD + WebSocket 双向流 + 进程退出清理)
+// P3 深度层 Wave 11:6 大对齐能力(2026-07-22 立)
+// 终端集成(遵循统一工程规范)
 import { terminalRoutes } from './terminal.js'
 import { wsTerminal } from '../plugins/terminal-ws.js'
 import terminalCleanup from '../plugins/terminal-cleanup.js'
@@ -450,7 +450,7 @@ import hooksRoutes from './hooks.js'
 import { messageBusRoutes } from './message-bus.js'
 // Plan/Spec 模式(spec 生成 + 模板)
 import { specRoutes } from './spec.js'
-// Context Engineering(对标 Qoder,多维 @ 提及 file/database/symbol/folder/web)
+// Context Engineering(遵循统一工程规范)
 import { contextMentionRoutes } from './context-mentions.js'
 // D166(承 V4 §9.4③):链接预览轻量探测(发送前"能不能读、读到什么标题")
 import { urlPreviewRoutes } from './url-preview.js'
@@ -487,11 +487,11 @@ import relayLogsRoutes from './admin/relay-logs.js'
 import adminRelayStatsRoutes from './admin/relay-stats.js'
 import { relayPublicRoutes } from './relay-public.js'
 import developerRelayRoutes from './developer-relay.js'
-// developer 用户侧:API Key 一键接入配置生成器(2026-09-16,对标 Sub2API)
+// developer 用户侧:API Key 一键接入配置生成器(2026-09-16,对齐 Sub2API)
 import developerRelayBootstrapRoutes from './developer-relay-bootstrap.js'
-// developer 用户侧:Key 批量管理(2026-09-16,对标 bulkEdit)
+// developer 用户侧:Key 批量管理(2026-09-16,对齐 bulkEdit)
 import developerRelayKeysAdminRoutes from './developer-relay-keys-admin.js'
-// Usage 重度分析(2026-09-16,第三轮对标补强 K)
+// Usage 重度分析(2026-09-16,第三轮对齐补强 K)
 import developerRelayUsageAnalyticsRoutes from './developer-relay-usage-analytics.js'
 // 备份作业系统(2026-09-16,补强 V)
 import adminBackupJobsRoutes from './admin/backup-jobs.js'
@@ -516,14 +516,14 @@ import adminRelayEnterpriseRoutes from './admin/relay-enterprise.js'
 import relayEnterpriseRoutes from './relay-enterprise.js'
 // 插件系统(2026-09-17,补强 59,声明式插件零代码执行)
 import adminRelayPluginsRoutes from './admin/relay-plugins.js'
-// 渠道公开监控(2026-09-16,第三轮对标补强 O)
+// 渠道公开监控(2026-09-16,第三轮对齐补强 O)
 import relayMonitorPublicRoutes from './relay-monitor-public.js'
 // 告警规则引擎管理(2026-09-16,补强 U)
 import adminRelayAlertRulesRoutes from './admin/relay-alert-rules.js'
 import developerApiKeyGroupsRoutes from './developer/api-key-groups.js'
 // P0-7 API Key 安全粒度管理(2026-07-31 立,admin 侧管理用户/租户 API Key + 过期/IP白名单/模型白名单/token上限)
 import relayApiKeysRoutes from './admin/relay-api-keys.js'
-// P0 中转站造血能力对标批次(2026-07-31 立):Anthropic 原生格式 + 兑换码 + 模型映射
+// P0 中转站造血能力对齐批次(2026-07-31 立):Anthropic 原生格式 + 兑换码 + 模型映射
 import adminModelMappingsRoutes from './admin/model-mappings.js'
 import adminRedemptionCodesRoutes from './admin/redemption-codes.js'
 import adminRelayCommissionRoutes from './admin/relay-commission.js'
@@ -1301,7 +1301,7 @@ export function registerRoutes(server: FastifyInstance) {
   // P3 深度层:DAP debug 代理(10 端点:launch/attach/sessions CRUD/breakpoints/continue/step/stack/variables/eval,2026-07-22 立)
   server.register(debugRoutes, { prefix: '/api/debug' })
 
-  // P3 深度层 Wave 11:6 大对标能力(2026-07-22 立)
+  // P3 深度层 Wave 11:6 大对齐能力(2026-07-22 立)
   // 终端集成(REST CRUD + WebSocket 双向流 + 进程退出清理)
   server.register(terminalRoutes, { prefix: '/api' })
   server.register(wsTerminal)
@@ -1377,11 +1377,11 @@ export function registerRoutes(server: FastifyInstance) {
   // 挣钱中心仪表盘后端(P0 挣钱核心,4 端点:overview/byok-trend/referral/funnel)
   server.register(earningsRoutes, { prefix: '/api/earnings' })
 
-  // ===== P0-5 模型 API 中转站(2026-07-29 立,对标 OneAPI/NewAPI)=====
+  // ===== P0-5 模型 API 中转站(2026-07-29 立,对齐 OneAPI/NewAPI)=====
   // admin 管理后台:模型上下架/Key 池/动态发现/调用日志(4 个路由文件,绝对路径字面量注册)
   server.register(relayModelsRoutes, { prefix: '/api' })
   server.register(relayKeyPoolRoutes, { prefix: '/api' })
-  // 第三方 AI IDE 账号池 + 反代(2026-10-22 立,对标码道网关)
+  // 第三方 AI IDE 账号池 + 反代(2026-10-22 立,对齐码道网关)
   server.register(relayAccountPoolRoutes, { prefix: '/api' })
   // 号池平台续期能力位只读面(2026-10-29 立,面板据此标注"该平台无自动续期通道")
   server.register(relayAccountPoolCapabilityRoutes, { prefix: '/api' })
@@ -1395,13 +1395,13 @@ export function registerRoutes(server: FastifyInstance) {
   server.register(relayPublicRoutes, { prefix: '/api/relay' })
   // developer 用户侧端点:API Key 列表(含余额)/ 用量明细 / 调用日志 / 充值
   server.register(developerRelayRoutes, { prefix: '/api' })
-  // developer 用户侧:API Key 一键接入配置生成器(2026-09-16,对标 Sub2API)
+  // developer 用户侧:API Key 一键接入配置生成器(2026-09-16,对齐 Sub2API)
   server.register(developerRelayBootstrapRoutes, { prefix: '/api' })
-  // developer 用户侧:Key 批量管理(2026-09-16,对标 bulkEdit)
+  // developer 用户侧:Key 批量管理(2026-09-16,对齐 bulkEdit)
   server.register(developerRelayKeysAdminRoutes, { prefix: '/api' })
-  // Usage 重度分析(2026-09-16,第三轮对标补强 K):四维成本/缓存命中率/延迟分位/CSV 导出
+  // Usage 重度分析(2026-09-16,第三轮对齐补强 K):四维成本/缓存命中率/延迟分位/CSV 导出
   server.register(developerRelayUsageAnalyticsRoutes, { prefix: '/api' })
-  // 渠道公开监控(2026-09-16,第三轮对标补强 O):脱敏状态页,无鉴权
+  // 渠道公开监控(2026-09-16,第三轮对齐补强 O):脱敏状态页,无鉴权
   server.register(relayMonitorPublicRoutes, { prefix: '/api' })
   // 告警规则引擎 CRUD + 立即评估(2026-09-16,补强 U)
   server.register(adminRelayAlertRulesRoutes, { prefix: '/api/admin' })
@@ -1431,7 +1431,7 @@ export function registerRoutes(server: FastifyInstance) {
   // developer API Key 分组(2026-08-01 立,多 Key 共享额度池 + 子 Key 权限继承 + 组内用量排行)
   server.register(developerApiKeyGroupsRoutes, { prefix: '/api/developer' })
 
-  // ===== P0 中转站造血能力对标批次(2026-07-31 立,8 subagent 并行)=====
+  // ===== P0 中转站造血能力对齐批次(2026-07-31 立,8 subagent 并行)=====
   // admin 模型映射管理(CRUD + 优先级 + 启用/禁用):POST /api/admin/model-mappings 等
   server.register(adminModelMappingsRoutes, { prefix: '/api/admin' })
   // admin 兑换码管理(批量生成 + 查询 + 兑换记录):POST /api/admin/redemption-codes/batch 等
@@ -1517,7 +1517,7 @@ export function registerRoutes(server: FastifyInstance) {
   // F3 真实缺口补齐(2026-08-15):元学习闭环路由(GET/POST /api/admin/meta-learner/*)
   server.register(metaLearnerRoutes, { prefix: '/api/admin/meta-learner' })
 
-  // Repo Wiki:代码仓库→架构/模块知识库(对标 Qoder Repo Wiki,2026-09-07 立)
+  // Repo Wiki:代码仓库→架构/模块知识库(遵循统一工程规范)
   server.register(repoWikiRoutes, { prefix: '/api/repo-wiki' })
 
   // Knowledge Card:仓库级任务经验卡 CRUD + 检索(2026-09-10 立,2-1 项目知识引擎)
@@ -1533,7 +1533,7 @@ export function registerRoutes(server: FastifyInstance) {
   // 同上一条的教训:路由自身测试会 app.register 挂载,注册缺失时"测试全绿而生产 404"。
   server.register(knowledgeTeamRoutes, { prefix: '/api/knowledge-team' })
 
-  // 用户侧 Agent 定时自动化(对标 WorkBuddy automations,2026-09-07 立)
+  // 用户侧 Agent 定时自动化(遵循统一工程规范)
   server.register(automationsRoutes, { prefix: '/api/automations' })
 
   // 主动巡逻 Agent(P3 #40,2026-09-17 立)

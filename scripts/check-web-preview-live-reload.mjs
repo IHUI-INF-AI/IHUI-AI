@@ -6,7 +6,7 @@
 //
 // 立尺原因(台账 G-977963 第②半):本仓反复吃过"接线绿而链路不通"的亏,这条判据
 // 验的**不是**磁盘上有没有写监听代码,而是**正在被服务的产物与运行中的通道**:
-//   A endpoint  :8806 首页 200,且能逐字提取页面注入的 bundle URL(现测含 hot=false);
+//   A endpoint  :8806 首页 200,且能按行为规格页面注入的 bundle URL(现测含 hot=false);
 //   B listener  流扫**在线 bundle**,确认页面侧重载监听真的在交付内容里
 //               (expo/src/async-require/messageSocket.ts + window.location.reload());
 //   C sockets   /hot 与 /message 两条 WebSocket 在运行进程上可升级连接;

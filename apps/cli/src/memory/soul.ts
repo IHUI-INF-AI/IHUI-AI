@@ -5,7 +5,7 @@
 /**
  * SoulMemory — 用户偏好/价值观层,存储用户画像(preferences/values/goals)。
  * JSON 持久化到 <workspace>/.ihui-agent/memory/soul.json。
- * 平台独占:仅 cli(W2-1 四层记忆第 3 层,对标 OpenClaw Mem semantic memory)。
+ * 平台独占:仅 cli(W2-1 四层记忆第 3 层,遵循统一工程规范)。
  */
 import * as fs from 'node:fs';
 import * as path from 'node:path';

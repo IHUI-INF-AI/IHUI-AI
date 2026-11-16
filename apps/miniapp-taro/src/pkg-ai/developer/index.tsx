@@ -21,13 +21,13 @@ import LineIcon from '@/components/LineIcon'
 import { EmptyState, ScreenSkeleton } from '@/components/ScreenStates.taro'
 import { onToast } from '@/host/on-toast'
 
-// 智能体小类(对标原 category() 返回的 modelTypes)
+// 智能体小类(对齐原 category() 返回的 modelTypes)
 interface ModelType {
   code: string | number
   showName: string
 }
 
-// 智能体收费配置(对标原 StateCard datas.category_info)
+// 智能体收费配置(对齐原 StateCard datas.category_info)
 interface CategoryInfo {
   agent_main_category?: string
   agent_category?: string
@@ -38,7 +38,7 @@ interface CategoryInfo {
   limit_free?: number
 }
 
-// 智能体审核记录项(对标原 getZntList 返回)
+// 智能体审核记录项(对齐原 getZntList 返回)
 // Note: 此类型来自管理端 API (getZntList),使用蛇形命名(agent_id/agent_name 等),
 // 与 @ihui/api-client 的 Agent 类型(驼峰命名)字段结构完全不同,无法用 Pick 派生。
 interface AgentItem {
@@ -53,14 +53,14 @@ interface AgentItem {
   category_info?: CategoryInfo
 }
 
-// 一级状态 tab(对标原 headTypes)
+// 一级状态 tab(对齐原 headTypes)
 const STATUS_TABS = [
   { id: 0, key: 'assistant.tabDraft', name: t('assistant.tabDraft') },
   { id: 1, key: 'order.refundList.stepReview', name: t('order.refundList.stepReview') },
   { id: 2, key: 'developer.index.published', name: t('developer.index.published') },
 ]
 
-// 二级 tab(对标原 tabbarList,仅 status ∈ {0,4,5} 显示)
+// 二级 tab(对齐原 tabbarList,仅 status ∈ {0,4,5} 显示)
 const SUB_TABS = [
   { id: 0, key: 'common.all', name: t('common.all') },
   { id: 4, key: 'assistant.subTabRejected', name: t('assistant.subTabRejected') },
@@ -125,7 +125,7 @@ export default function DeveloperIndex() {
     }
   }, [])
 
-  // 智能体小类只拉一次(对标原 mounted 中 category())
+  // 智能体小类只拉一次(对齐原 mounted 中 category())
   useEffect(() => {
     fetchModelTypes()
   }, [fetchModelTypes])

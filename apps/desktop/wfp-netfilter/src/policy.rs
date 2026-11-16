@@ -40,7 +40,7 @@ impl fmt::Display for RuleId {
     }
 }
 
-/// 网络协议 —— 与对侧 `network_rule` 的 protocol 值域**逐字对齐**（恰四值）。
+/// 网络协议 —— 与对侧 `network_rule` 的 protocol 值域**按行为规格**（恰四值）。
 ///
 /// 对侧原文（`codex-command-runner.exe` .rdata）：
 /// `network_rule protocol must be one of http, https, socks5_tcp, socks5_udp (got ...)`

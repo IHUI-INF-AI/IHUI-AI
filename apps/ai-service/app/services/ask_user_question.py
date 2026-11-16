@@ -33,7 +33,7 @@ DEFAULT_TIMEOUT_S = 300.0
 STALE_RETENTION_S = 600
 MAX_OPTIONS = 8
 
-# 定时继续(2026-11-14 立,对标 DSH dsh-tool-ask-user/timed.ts):
+# 定时继续(2026-11-14 立,遵循统一工程规范):
 # `timeout_s` 显式传入时进入 timed 模式 —— 前台等待到期后**不把问题判死**,而是
 # 返回 pending 让模型继续;登记表保留 pending 并给一段宽限期,迟到答复按
 # answer_to_pending_question 注入后续迭代。缺省(None)保持既有阻塞 300s 语义。
@@ -416,7 +416,7 @@ def drain_continued_answers(session_id: str) -> list[AskUserQuestionItem]:
     """取走该会话已答复的 continued 条目(每条只交付一次)。
 
     供带交互宿主的执行面在下一轮 LLM 调用前注入 `answer_to_pending_question`
-    用户消息 —— 对齐 DSH 的迟到答复 steering 语义。
+    用户消息 —— 对齐 外部实现 的迟到答复 steering 语义。
     """
     with _registry_lock:
         items = [
@@ -432,7 +432,7 @@ def drain_continued_answers(session_id: str) -> list[AskUserQuestionItem]:
 
 
 def continued_answer_message(item: AskUserQuestionItem) -> str:
-    """迟到答复的模型侧消息体(与 DSH answer_to_pending_question 同形,单问变体)。"""
+    """迟到答复的模型侧消息体(与 外部实现 answer_to_pending_question 同形,单问变体)。"""
     labels = [opt["label"] for opt in item.options if opt["id"] in item.selected_ids]
     return json.dumps(
         {
@@ -450,7 +450,7 @@ def continued_answer_message(item: AskUserQuestionItem) -> str:
 
 
 def pending_question_notice(item: AskUserQuestionItem, call_id: str) -> str:
-    """timed 到期后回填给模型的 pending 说明(对齐 DSH 的 pendingNotice)。"""
+    """timed 到期后回填给模型的 pending 说明(对齐 外部实现 的 pendingNotice)。"""
     return (
         "前台等待已到期,但这只是「挂起」而不是「用户跳过」:用户仍可继续作答。"
         "请继续可独立推进的工作,不要重复提问;用户答复会以 "

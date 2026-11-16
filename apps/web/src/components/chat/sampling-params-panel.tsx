@@ -7,7 +7,7 @@
 /**
  * SamplingParamsPanel — 高级参数面板(P1-7,2026-09-13 立)
  *
- * 对标 CodeX / Qoder / Trae / WorkBuddy 的「模型高级参数」入口:
+ * 对齐 CodeX / Qoder / Trae / WorkBuddy 的「模型高级参数」入口:
  * 此前 IHUI-AI 输入区只有模型选择器,温度/top_p/top_k/max_tokens 与自定义 system prompt
  * 无任何可见入口(api-client 早已支持这些字段,但前端不传 → 参数永远是模型默认)。
  *

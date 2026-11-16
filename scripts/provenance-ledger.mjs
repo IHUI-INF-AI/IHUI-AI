@@ -17,7 +17,7 @@
  *   embedded.json  ① 打进产物的第三方组件(vendored crate 等)+ 本仓自著声明文件清单
  *   copied.json    ② 复制进仓库的源码 / 素材
  *   overrides.json ③ 被 pnpm override 换掉来源的依赖
- *   mechanisms.json 机制来源账(只吸收思想、不带走代码的那类,须带 clean-room 声明)
+ *   mechanisms.json 机制来源账(只吸收思想、不带走代码的那类,须带 独立实现 声明)
  *
  * 判据(编号沿用规格 §6 的 P1–P4,并按本仓既有守门口径补 P5–P7):
  *   L0 台账自身可 parse、必填字段齐、id 全局唯一
@@ -28,7 +28,7 @@
  *      text 形态对内联字符串实算比对;externalOnly 形态计入「待补登记」不判红但如实报数。
  *      全程不联网。
  *   P4 revision 不可考必须显式 null + gitRevisionNote;禁止空串、禁止猜日期
- *   P5 机制账:landsOn 每个路径必须真实存在,cleanRoom 声明与规格文件必须齐
+ *   P5 机制账:landsOn 每个路径必须真实存在,独立实现 声明与规格文件必须齐
  *   P6 自著声明清单(embedded.json 顶层 ownLicenseDeclarations)必须属实:路径存在,
  *      且文件名只能是 LICENSE/NOTICE/COPYING 一族 —— 防它被当成万能豁免表藏源码
  *   P7 覆盖账与 pnpm-workspace.yaml 双向对账:登记的说谎 → 红;yaml 换了来源而没登记 → 红

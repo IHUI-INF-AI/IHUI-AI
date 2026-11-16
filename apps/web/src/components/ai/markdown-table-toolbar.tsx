@@ -18,7 +18,7 @@ import { OverflowShadow } from './overflow-shadow'
 /**
  * G-824 内联表格工具栏 —— DOM 回读 → 复制 GFM / 下载 CSV / 全屏(sticky 表头)。
  *
- * 结构对标上游 ai-elements/markdown-table.tsx:116-128(readRowsFromTable)、
+ * 结构对齐上游 ai-elements/markdown-table.tsx:116-128(readRowsFromTable)、
  * :93-107(buildMarkdownTableText)、:1105-1148(copy/CSV 与能力缺失分支)、
  * :1299-1318(Dialog 内 [&_th]:sticky);词条为我方自拟,非上游文案。
  *
@@ -53,7 +53,7 @@ export function readRowsFromTable(table: HTMLTableElement | null): string[][] {
 
 /**
  * 由回读得到的行文本拼 GFM 表格文本。
- * 形态对标上游 :93-107 —— 按 max 列数补空(流式半成品表列数不齐)、表头后插
+ * 形态对齐上游 :93-107 —— 按 max 列数补空(流式半成品表列数不齐)、表头后插
  * `---` 分隔行、单元格内 `|` 与 `\` 转义、换行折成 <br>
  * (GFM 表格单元格不支持裸换行,折行即丢字)。
  */

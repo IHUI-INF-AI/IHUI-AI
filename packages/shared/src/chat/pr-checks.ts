@@ -4,7 +4,7 @@
 
 // D105 PR 检查状态与动作卡 · 共享层纯函数(G-146,2026-09-23 立)
 //
-// 对标 Codex `localConversation.pullRequest.actions.*` 的一手形状,收敛为**跨端唯一**的
+// 遵循统一工程规范
 // 「CI 检查状态」判定层:
 //   · 六态 —— failed / passed / pending / skipped / neutral / unknown
 //     (含 neutral 与 unknown 两个极易漏掉的态,它们是"看着没事其实没结论"的典型)
@@ -22,7 +22,14 @@
 //   successful  —— 其余(passed / skipped / neutral;skipped 与 neutral 都不阻塞成功)
 
 /** CI 检查六态(取值即 i18n 键片段,便于各端取词) */
-export const CI_CHECK_STATES = ['failed', 'passed', 'pending', 'skipped', 'neutral', 'unknown'] as const
+export const CI_CHECK_STATES = [
+  'failed',
+  'passed',
+  'pending',
+  'skipped',
+  'neutral',
+  'unknown',
+] as const
 export type CiCheckState = (typeof CI_CHECK_STATES)[number]
 
 /** 聚合态(含空态 none) */
@@ -52,7 +59,8 @@ export function normalizeCiCheckState(raw: string | null | undefined): CiCheckSt
   const key = raw.trim().toLowerCase()
   if (key === 'success' || key === 'succeeded' || key === 'passed') return 'passed'
   if (key === 'failure' || key === 'errored' || key === 'error') return 'failed'
-  if (key === 'queued' || key === 'in_progress' || key === 'running' || key === 'pending') return 'pending'
+  if (key === 'queued' || key === 'in_progress' || key === 'running' || key === 'pending')
+    return 'pending'
   if (key === 'cancelled' || key === 'canceled' || key === 'skipped') return 'skipped'
   if (key === 'neutral' || key === 'stale') return 'neutral'
   return isCiCheckState(key) ? key : 'unknown'
@@ -104,7 +112,12 @@ export function checksSummaryKey(summary: CiChecksSummary): string {
 }
 
 /** 动作族(与 D15 / G-135 交叉引用;**不在此实现数据面**,只给稳定的动作 id 供各端接线) */
-export const PR_CHECK_ACTIONS = ['checksFix', 'checksRemove', 'commentsAddress', 'commentsRemove'] as const
+export const PR_CHECK_ACTIONS = [
+  'checksFix',
+  'checksRemove',
+  'commentsAddress',
+  'commentsRemove',
+] as const
 export type PrCheckAction = (typeof PR_CHECK_ACTIONS)[number]
 
 /** 动作 id → i18n 键名 */

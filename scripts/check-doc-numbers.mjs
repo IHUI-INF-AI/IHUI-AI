@@ -222,7 +222,7 @@ export const CLAIMS = [
     // 英文支 2026-10-11 补(G-1104173):README.en.md 头条 "2,778 test files" 与 README.md FAQ 的
     // "719 test files" 此前整型隐身 —— 缺的不是逗号归一而是整个英文分支(与 G-1117442 同型)。
     // 措辞逐字取自真 README 文本("N test files"),两支共用 NUM(3,6):位数下限(≥3 位)与
-    // 数字两侧禁粘的假阳护栏逐字对齐中文支,于是 "3 test files" 这类子量级仍不判。
+    // 数字两侧禁粘的假阳护栏按行为规格中文支,于是 "3 test files" 这类子量级仍不判。
     re: new RegExp(
       `(?<![\\d,])(${NUM(3, 6)})(?![\\d,])\\s*(?:个)?\\s*测试文件|(?<![\\d,])(${NUM(3, 6)})(?![\\d,])\\s+test\\s+files?\\b`,
       'gi',
@@ -947,7 +947,7 @@ export function selfTest() {
   )
   // S24 英文措辞分支(G-1104173):README.en.md 头条的英文总量声明必须真被看见 ——
   //     ① 阳性:真历史文本 "2,432 test files" 被点名(2432≠2103),"25 WebSocket endpoints" 计入 checked;
-  //     ② 阴性:假阳护栏逐字对齐中文支 —— <3 位的 "3/25 test files" 不判,没有数字的裸词
+  //     ② 阴性:假阳护栏按行为规格中文支 —— <3 位的 "3/25 test files" 不判,没有数字的裸词
   //        "WebSocket endpoints" 不算声明(补支不许顺手放宽护栏,假阳比漏报贵)。
   const s24a = findStaleClaims(`2,432 test files · 25 WebSocket endpoints\n${BLOCK_BEGIN}\nx\n${BLOCK_END}`, numbers)
   ok(

@@ -5,7 +5,7 @@
 
 //! 终端执行会话 —— **跨平台 PTY + 环形缓冲 + 进程树清理**。
 //!
-//! 来源（2026-11-15 四程序逆向，T3 §A / T4 §A）：Trae `icube/terminal/` 13 模块分层
+//! 来源（2026-11-15 四程序独立分析，T3 §A / T4 §A）：Trae `icube/terminal/` 13 模块分层
 //! （run/session/manager/buffer/output/stdin/send/kill/status/cleanup）与
 //! `icube/command_execution/` 7 模块（start/stop/poll/list_owned/…）；WorkBuddy 终端栈
 //! 的 **job-object**（Windows 作业对象保证整树清理）与 `os-bridge`。只取**架构模式**

@@ -78,7 +78,7 @@ function readServerSource(v: unknown): ToolCallView['serverSource'] {
  * 落库 BaseToolCall → 端内 ToolCallView。
  *
  * 线上契约用 toolName + 状态 success,视图用 name + 状态 done
- * (正向适配住在 cards/types.ts 的 toSharedToolCalls,本函数是它的逆向读数);
+ * (正向适配住在 cards/types.ts 的 toSharedToolCalls,本函数是它的独立分析读数);
  * id / toolName 缺一即整条丢弃 —— 没有名字的卡片渲染出来就是一块空白。
  *
  * D83 接线(本票):`serverSource` / `serverName` 必须一起带回。此前回放只挑 6 个字段,

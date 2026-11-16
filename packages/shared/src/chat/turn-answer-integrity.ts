@@ -5,7 +5,7 @@
 // WATERMARK-PLACEHOLDER(本行由 scripts/watermark.mjs inject 替换为横幅)
 
 /**
- * 回合答案完整性(对标 ZCode `app-turn-complete.ts:17-37` + `app-submit.ts:57-61`,2026-09-28 立)。
+ * 回合答案完整性(遵循统一工程规范)。
  *
  * ## 现读定位(为什么这一格在共享层是空的)
  * - 客户端唯一的流式追加口是 `packages/shared/src/hooks/use-chat.ts`:`:288-297` 造一条

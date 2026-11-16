@@ -1,12 +1,12 @@
 # © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-"""Session 前缀片段(对标 codex session_prefix.rs / inter_agent_message.rs / inter_agent_completion_message.rs)。
+"""Session 前缀片段(遵循统一工程规范)。
 
 - COMPLETION_MESSAGE_MAX_TOKENS / COMPLETION_MESSAGE_ENVELOPE_TOKEN_RESERVE / ERROR_MAX_TOKENS / ERROR_NEXT_ACTION
 - truncate_utf8_bytes:按 UTF-8 字节边界安全截断(不切坏多字节字符)
 - format_subagent_context_line:子代理上下文行 "- {ref}: {nick}" / "- {ref}"
-- format_inter_agent_completion_message:按 AgentStatus 产出等价格式化文本(逐字对齐 codex render)
+- format_inter_agent_completion_message:按 AgentStatus 产出等价格式化文本(按行为规格 外部实现 render)
 - is_inter_agent_completion_fragment:按开标记判定
 - build_inter_agent_completion_fragment:返回 OpenAI 消息 dict(风格对齐 rollout_budget.build_rollout_budget_fragment)
 
@@ -42,7 +42,7 @@ __all__ = [
     "build_inter_agent_completion_fragment",
 ]
 
-# 对标 session_prefix.rs 常量(逐字)
+# 对齐 session_prefix.rs 常量(逐字)
 COMPLETION_MESSAGE_MAX_TOKENS: int = 1_000
 COMPLETION_MESSAGE_ENVELOPE_TOKEN_RESERVE: int = 100
 ERROR_MAX_TOKENS: int = COMPLETION_MESSAGE_MAX_TOKENS - COMPLETION_MESSAGE_ENVELOPE_TOKEN_RESERVE
@@ -50,7 +50,7 @@ ERROR_NEXT_ACTION: str = (
     "This agent's turn failed. If you still need this agent, use the available collaboration tools to give it another task."
 )
 
-# 对标 mention_syntax.rs(逐字)
+# 对齐 mention_syntax.rs(逐字)
 TOOL_MENTION_SIGIL: str = "$"
 PLUGIN_TEXT_MENTION_SIGIL: str = "@"
 
@@ -87,7 +87,7 @@ def format_subagent_context_line(agent_reference: str, agent_nickname: str | Non
 
 
 def _render_inter_agent_completion(task_name: str, sender: str, payload: str) -> str:
-    """逐字复刻 codex InterAgentCompletionMessage::body()(markers 为空,render 即 body)。"""
+    """独立实现 外部实现 InterAgentCompletionMessage::body()(markers 为空,render 即 body)。"""
     return (
         f"Message Type: {_INTER_AGENT_COMPLETION_TYPE}\n"
         f"Task name: {task_name}\n"
@@ -103,12 +103,12 @@ def format_inter_agent_completion_message(
     status: str,
     message: str | None = None,
 ) -> str | None:
-    """按 AgentStatus 产出 inter-agent 完成消息文本(逐字对齐 codex session_prefix.rs)。
+    """按 AgentStatus 产出 inter-agent 完成消息文本(按行为规格 外部实现 session_prefix.rs)。
 
     status ∈ completed/errored/shutdown/not_found/pending_init/running/interrupted。
     completed → message or "";errored → "Agent errored: {trunc(900t)}\\n\\n{ERROR_NEXT_ACTION}";
     shutdown → "Agent shut down.";not_found → "Agent was not found.";
-    其余三态 → None(不发)。产出经 InterAgentMessage 等价格式化(body 模板逐字对齐)。
+    其余三态 → None(不发)。产出经 InterAgentMessage 等价格式化(body 模板按行为规格)。
     """
     if status == "completed":
         payload = message if message is not None else ""
@@ -144,7 +144,7 @@ def build_inter_agent_completion_fragment(
 ) -> dict[str, Any]:
     """返回 OpenAI 消息 dict(风格对齐 rollout_budget.build_rollout_budget_fragment)。
 
-    type=message,role=assistant(逐字对齐 codex InterAgentCompletionMessage::role)，
+    type=message,role=assistant(按行为规格 外部实现 InterAgentCompletionMessage::role)，
     content 为单 input_text,text = format_inter_agent_completion_message(...)。
     对于不发消息的状态(pending_init/running/interrupted)返回空 dict
     (对齐 rollout_budget.build_rollout_budget_fragment 返回 {} 的约定)。

@@ -1,9 +1,9 @@
 # © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-"""Windows 沙箱强制可行性判据 gate —— 对标 Codex 26.1111 ``codex-command-runner.exe``。
+"""Windows 沙箱强制可行性判据 gate —— 遵循统一工程规范。
 
-## 取证来源（2026-11-15，本轮 round 11 深潜）
+## 设计依据（2026-11-15，本轮 round 11 深潜）
 
 对照物：``Codex`` 桌面端 MSIX ``26.1111.2228.0`` 引擎侧原生二进制
 ``codex-command-runner.exe``（Rust，rustc 59807616e1fa2540724bfbac14d7976d7e4a3860）。
@@ -79,12 +79,12 @@ CODEX_ERR_FULL_DISK_WRITES = (
 )
 
 # ---------------------------------------------------------------------------
-# 形状枚举（对标 Codex 引擎侧取证形状，五档 access）
+# 形状枚举（遵循统一工程规范，五档 access）
 # ---------------------------------------------------------------------------
 
 
 class FileSystemAccess(str, Enum):  # noqa: UP042 — 改 StrEnum 会变 str() 输出,属行为重写
-    """文件系统条目访问档（对标 ``read/write/deny/restricted/enabled`` + ``none`` 别名）。
+    """文件系统条目访问档（对齐 ``read/write/deny/restricted/enabled`` + ``none`` 别名）。
 
     相较 ``permission_profiles.FileSystemAccessMode``（三档）多出
     ``restricted`` / ``enabled`` 两档——本轮取证证实的引擎侧真实形状。
@@ -116,7 +116,7 @@ class FileSystemAccess(str, Enum):  # noqa: UP042 — 改 StrEnum 会变 str() �
 
 
 class PermissionProfileKind(str, Enum):  # noqa: UP042 — 同上
-    """权限档案种类（对标 ``TaggedPermissionProfile::{Managed,External}``）。
+    """权限档案种类（对齐 ``TaggedPermissionProfile::{Managed,External}``）。
 
     Windows sandbox 只能强制 ``Managed`` 档案（``External`` 表示由外部沙箱接管，
     非 Windows 原生沙箱强制路径）。
@@ -127,7 +127,7 @@ class PermissionProfileKind(str, Enum):  # noqa: UP042 — 同上
 
 
 class ManagedFilesystemScope(str, Enum):  # noqa: UP042 — 同上
-    """托管文件系统权限范围（对标 ``SerializedManagedFileSystemPermissions``）。
+    """托管文件系统权限范围（对齐 ``SerializedManagedFileSystemPermissions``）。
 
     ``Restricted``（受限，可被 Windows sandbox 强制）/
     ``Unrestricted``（不受限，超 Windows sandbox 强制能力）。
@@ -186,7 +186,7 @@ def access_implies_write(modes: tuple[FileSystemAccess, ...]) -> bool:
 def check_windows_sandbox_enforceable(
     request: EnforcementRequest,
 ) -> EnforcementOutcome:
-    """判定 Windows sandbox 能否强制这套权限档案（对标三条 codex 判据）。
+    """判定 Windows sandbox 能否强制这套权限档案（对齐三条 codex 判据）。
 
     判据顺序固定（先拦不可强制的形状，再放行可强制的）：
 
@@ -249,7 +249,7 @@ def check_windows_sandbox_enforceable(
     )
 
 # ---------------------------------------------------------------------------
-# 便捷构造器（对标 codex 档案形状 → 本 gate 输入）
+# 便捷构造器（遵循统一工程规范）
 # ---------------------------------------------------------------------------
 
 

@@ -4,7 +4,7 @@
 
 """Harness 线程生命周期(2026-09-18 第七批)单测。
 
-覆盖(对标 Codex app-server thread 面 + file-watcher + compact hooks):
+覆盖(遵循统一工程规范):
 - thread.list:内存模式与 store 模式 + 分页 + includeArchived
 - thread.archive:无 store 拒绝 / store 标记 + 内存摘除 + watcher 停止
 - thread.fork:深拷贝独立演进 / running 拒绝 / 配置全量继承

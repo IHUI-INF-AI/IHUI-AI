@@ -9,7 +9,7 @@
 **公开的群机器人 Webhook 契约**实现第二通道,与 `base.py` 的 `ImAdapter` /
 `SendResult` / `OutboundGuard` 共用同一套判据,不复制幂等/配额逻辑。
 
-协议事实(公开文档,非逆向)
+协议事实(公开文档,非独立分析)
 --------------------------
 - 端点:`POST https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=<webhook_key>`;
 - 文本消息体:`{"msgtype":"text","text":{"content":"..."}}`;

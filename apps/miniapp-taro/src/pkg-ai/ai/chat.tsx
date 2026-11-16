@@ -199,7 +199,7 @@ type AgentInfo = Pick<Agent, 'name' | 'description'> & {
   id: string
   systemPrompt: string
   avatar?: string
-  /** 智能体开场白(对标原 ai_assistant.vue prologue,引导说明内容) */
+  /** 智能体开场白(对齐原 ai_assistant.vue prologue,引导说明内容) */
   prologue?: string
 }
 
@@ -463,7 +463,7 @@ export default function ChatPage() {
     [approvalSending, approvalQueue, approvalRecords],
   )
   /**
-   * D77:业务表单应答上行(卡片 onAction 的唯一出口,对标 web business-form-section)。
+   * D77:业务表单应答上行(卡片 onAction 的唯一出口,对齐 web business-form-section)。
    * 装配走 api-client 的 buildFormResponseEvent(snake 上行口径唯一源),传输走
    * postFormResponse(失败必抛)。无 sessionId = 无回传通道 ⇒ 如实置 failed,
    * 绝不"本地当成已批准"(那是把用户应答丢掉)。
@@ -539,7 +539,7 @@ export default function ChatPage() {
   const [materialTab, setMaterialTab] = useState<MaterialTab>(1)
   const [agentDrawerVisible, setAgentDrawerVisible] = useState(false)
   const [agent, setAgent] = useState<AgentInfo | null>(null)
-  // 智能体引导说明(对标原 ai_assistant.vue tishi_show + tishi_content)
+  // 智能体引导说明(对齐原 ai_assistant.vue tishi_show + tishi_content)
   const [tishiShow, setTishiShow] = useState(false)
   const [skillsPopupVisible, setSkillsPopupVisible] = useState(false)
   const [agents, setAgents] = useState<AgentItem[]>([])
@@ -552,21 +552,21 @@ export default function ChatPage() {
   // `previousModelRef` 给换档 effect 判「这一次是真的换了档,还是首帧/持久化回填」。
   const currentModelRef = useRef(currentModel)
   const previousModelRef = useRef(currentModel)
-  // 待分享消息(对标原 ai_assistant.vue 分享对话,长按消息后存入,useShareAppMessage 动态读取)
+  // 待分享消息(对齐原 ai_assistant.vue 分享对话,长按消息后存入,useShareAppMessage 动态读取)
   const shareMsgRef = useRef<ChatMessage | null>(null)
-  // 复用问题到输入框(对标原 ai_assistant.vue copyToInput)
+  // 复用问题到输入框(对齐原 ai_assistant.vue copyToInput)
   const [inputValue, setInputValue] = useState('')
-  // 附件列表(受控模式由父组件管理,对标原项目 imgs_list)
+  // 附件列表(受控模式由父组件管理,对齐原项目 imgs_list)
   const [imgsList, setImgsList] = useState<InputFileItem[]>([])
 
-  // 收藏消息(对标原 ai_assistant.vue 收藏 AI 回复,用消息 timestamp 作为 id)
+  // 收藏消息(对齐原 ai_assistant.vue 收藏 AI 回复,用消息 timestamp 作为 id)
   const [favoritedMsgs, setFavoritedMsgs] = useState<Set<string>>(new Set())
-  // 历史对话(对标原 ai_assistant.vue 历史抽屉)
+  // 历史对话(对齐原 ai_assistant.vue 历史抽屉)
   const [chatHistories, setChatHistories] = useState<ChatHistoryEntry[]>([])
   const [historyDrawerVisible, setHistoryDrawerVisible] = useState(false)
-  // 智能体提示说明弹窗(对标原 ai_index.vue,首次进入自动弹 + "?" 手动触发)
+  // 智能体提示说明弹窗(对齐原 ai_index.vue,首次进入自动弹 + "?" 手动触发)
   const [agentTipVisible, setAgentTipVisible] = useState(false)
-  // 思考过程独立浮层(对标原项目 .agent-content1-overlay,点击 AI 气泡"思考过程"按钮打开)
+  // 思考过程独立浮层(对齐原项目 .agent-content1-overlay,点击 AI 气泡"思考过程"按钮打开)
   const [reasoningPopupVisible, setReasoningPopupVisible] = useState<boolean>(false)
   const [reasoningPopupContent, setReasoningPopupContent] = useState<string>('')
   // D111:工作区权限档(null = 尚未取到/取数失败 → 整行隐藏,不假装知道档位)。
@@ -761,7 +761,7 @@ export default function ChatPage() {
   // XUI-新C:原先「思考进度 %」由随机数每秒递增伪造,是假指标冒充真实进度;
   // 服务端未提供思考进度 ⇒ 不再显示百分比,只保留「生成中」文案。
 
-  // 首次进入页面自动弹出智能体提示说明(对标原 ai_index.vue,localStorage 标记 ai_agent_tip_shown)
+  // 首次进入页面自动弹出智能体提示说明(对齐原 ai_index.vue,localStorage 标记 ai_agent_tip_shown)
   useEffect(() => {
     try {
       const shown = Taro.getStorageSync(AI_AGENT_TIP_SHOWN_KEY)
@@ -994,7 +994,7 @@ export default function ChatPage() {
     } catch {
       // 部分平台不支持截屏监听,静默跳过
     }
-    // 加载历史对话(对标原 ai_assistant.vue 加载历史)
+    // 加载历史对话(对齐原 ai_assistant.vue 加载历史)
     let restoredFromLocal = false
     try {
       const savedHistory = Taro.getStorageSync(HISTORY_STORAGE_KEY)
@@ -1059,7 +1059,7 @@ export default function ChatPage() {
           })
       }
     }
-    // 加载收藏消息(对标原 ai_assistant.vue 收藏列表)
+    // 加载收藏消息(对齐原 ai_assistant.vue 收藏列表)
     try {
       const savedFav = Taro.getStorageSync(FAVORITE_STORAGE_KEY)
       if (Array.isArray(savedFav)) setFavoritedMsgs(new Set(savedFav))
@@ -1069,7 +1069,7 @@ export default function ChatPage() {
   })
 
   useShareAppMessage(() => {
-    // 若有待分享消息(长按消息→分享),用消息内容前 50 字符作为 title(对标原 ai_assistant.vue 分享)
+    // 若有待分享消息(长按消息→分享),用消息内容前 50 字符作为 title(对齐原 ai_assistant.vue 分享)
     const shareMsg = shareMsgRef.current
     // [能力安置@255fa96933] 分享 path 带上问答快照(?souce=share&question=&content=),
     // 被分享方进入即还原一问一答不请求后端 —— 与被摘端内页的产出形态同键。
@@ -1284,7 +1284,7 @@ export default function ChatPage() {
           },
           controller.signal,
           (info) => {
-            // 后端自动压缩完成,toast 提示用户(对标 CLI /compact 命令的可见性)
+            // 后端自动压缩完成,toast 提示用户(对齐 CLI /compact 命令的可见性)
             // W5:i18n 化,文案与参数映射见 ai.stream.compact
             onToast(
               t('ai.stream.compact', {
@@ -1295,7 +1295,7 @@ export default function ChatPage() {
             )
           },
           // done 回调:把 ai-service event:done 下发的 usage.total_tokens 写入最后一条 assistant 消息
-          // 对标原 ai_assistant.vue obj.total_tokens → this.$set(agent_content_list[idx], 'total_tokens', obj.total_tokens)
+          // 对齐原 ai_assistant.vue obj.total_tokens → this.$set(agent_content_list[idx], 'total_tokens', obj.total_tokens)
           (doneInfo) => {
             // D4(2026-11-12):定稿前必须冲刺 flush —— 末批 token 还在 buffer 未提交时,
             // 紧随其后读 messages 的定稿/usage 写入会与末段内容抢同一轮,漏字即由此来(与 web #9 同纪律)。
@@ -1883,7 +1883,7 @@ export default function ChatPage() {
         setPendingQuestion(null)
       } else if (outcome.kind === 'legacy') {
         // 旧服务端没有阻塞式端点 ⇒ 回退旧链路:把答案当普通消息发出去
-        const text = buildLegacyAnswerText(q.options, {
+        const text = buildLegacyAnswerText(q, {
           questionId: q.questionId,
           action,
           selectedOptionIds: selected,
@@ -1932,7 +1932,7 @@ export default function ChatPage() {
       content: t('ai.clearConfirm'),
       success: (res) => {
         if (res.confirm) {
-          // 清空前把当前对话存入历史(对标原 ai_assistant.vue 存历史)
+          // 清空前把当前对话存入历史(对齐原 ai_assistant.vue 存历史)
           // 失败轮不是内容:排除后再存,否则错误文案会被当回答持久化并出现在历史预览里
           const contentMsgs = messages.filter((m) => !isErrorTurn(m))
           if (contentMsgs.length > 0) {
@@ -2088,7 +2088,7 @@ export default function ChatPage() {
     [t],
   )
 
-  /** 复用问题到输入框(对标原 ai_assistant.vue copyToInput) */
+  /** 复用问题到输入框(对齐原 ai_assistant.vue copyToInput) */
   const handleReuse = useCallback((question: string) => {
     if (!question) return
     setInputValue(question)
@@ -2099,7 +2099,7 @@ export default function ChatPage() {
     Taro.navigateTo({ url: '/pkg-shop/wallet/recharge/index' })
   }, [])
 
-  /** TTS 朗读(对标原 ai_assistant.vue 朗读,简化实现:跳转 voice 页传 text 参数) */
+  /** TTS 朗读(对齐原 ai_assistant.vue 朗读,简化实现:跳转 voice 页传 text 参数) */
   const handleSpeak = useCallback((content: string) => {
     if (!content) return
     Taro.navigateTo({ url: '/pkg-ai/ai/voice?text=' + encodeURIComponent(content) })
@@ -2232,7 +2232,7 @@ export default function ChatPage() {
         actions.push({
           label: t('ai.chatMessageItem.share'),
           run: () => {
-            // 分享对话(对标原 ai_assistant.vue 分享):存入待分享消息,显示分享菜单,用户点右上角···分享
+            // 分享对话(对齐原 ai_assistant.vue 分享):存入待分享消息,显示分享菜单,用户点右上角···分享
             shareMsgRef.current = msg
             Taro.showShareMenu({ withShareTicket: true })
             onToast(t('ai.chatMessageItem.share'), { kind: 'info' })
@@ -2257,7 +2257,7 @@ export default function ChatPage() {
     Taro.pageScrollTo({ scrollTop: 100000, duration: 300 })
   }, [])
 
-  /** 恢复选中的历史对话(对标原 ai_assistant.vue 恢复历史)
+  /** 恢复选中的历史对话(对齐原 ai_assistant.vue 恢复历史)
    *  恢复时清空当前输入态(附件/输入框/选中素材),开始新对话上下文 */
   const handleSelectHistory = useCallback(
     (h: ChatHistoryEntry) => {
@@ -2277,7 +2277,7 @@ export default function ChatPage() {
     [scrollToBottom, resetEarlierPaging, switchNoticeScope],
   )
 
-  /** 清空所有历史对话(对标原 ai_assistant.vue clearHistory) */
+  /** 清空所有历史对话(对齐原 ai_assistant.vue clearHistory) */
   const handleClearHistory = useCallback(() => {
     setChatHistories([])
     try {
@@ -2287,7 +2287,7 @@ export default function ChatPage() {
     }
   }, [])
 
-  /** 切换收藏状态(对标原 ai_assistant.vue toggleFavorite,持久化到本地) */
+  /** 切换收藏状态(对齐原 ai_assistant.vue toggleFavorite,持久化到本地) */
   const toggleFavorite = useCallback(
     (msg: ChatMessage) => {
       if (!msg.timestamp) return
@@ -2321,7 +2321,7 @@ export default function ChatPage() {
     if (!materials.length) loadMaterials()
   }, [materials.length, loadMaterials])
 
-  /** 关闭智能体提示说明弹窗(对标原 ai_index.vue,关闭后设置 localStorage 标记 ai_agent_tip_shown=1) */
+  /** 关闭智能体提示说明弹窗(对齐原 ai_index.vue,关闭后设置 localStorage 标记 ai_agent_tip_shown=1) */
   const closeAgentTip = useCallback(() => {
     setAgentTipVisible(false)
     try {

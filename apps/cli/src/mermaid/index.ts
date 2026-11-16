@@ -29,7 +29,7 @@ import { createHash } from 'node:crypto';
  * b76-12a 票1:图语法发射/解析侧的「任意文本不可破坏语法」契约。
  *
  * 这些文本来自 agent 名、glob 模式等**任意用户派生内容** —— so arbitrary script
- * text cannot break the diagram syntax(机制对标上游 dynamic-workflow/analysis/mermaid.ts):
+ * text cannot break the diagram syntax(机制对齐上游 dynamic-workflow/analysis/mermaid.ts):
  *   - 节点 id 一律净化(只留词字符,`ask#1` → `ask_1`;`gate-89#R9` → `gate_89_R9`);
  *   - **原始 id 保留在人读标签里**(净化只影响语法位,不销毁信息);
  *   - 标签文本统一双引号包裹,`"` 改写成 `#quot;` 实体,并剥掉反引号与换行;

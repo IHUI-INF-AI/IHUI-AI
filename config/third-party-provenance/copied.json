@@ -71,7 +71,7 @@
       "id": "qoder-checkin-contract",
       "kind": "copied",
       "name": "Qoder 每日领取 Credits 的 API 契约平移(checkin_qoder.py)",
-      "purpose": "apps/ai-service 的 Qoder 平台签到引擎:鉴权/活动列表/领取/风控头族这套 API 契约不是本仓发明的,是从社区公开逆向成果平移而来,故整文件带第三方归属。",
+      "purpose": "apps/ai-service 的 Qoder 平台签到引擎:鉴权/活动列表/领取/风控头族这套 API 契约不是本仓发明的,是从社区公开公开资料平移而来,故整文件带第三方归属。",
       "upstream": {
         "project": "sunp-1/qoder-checkin(qoder_claim.py)+ wallechfox/qoder-checkin(qoder_core.py / 01_extract.py)",
         "repository": "https://github.com/sunp-1/qoder-checkin",

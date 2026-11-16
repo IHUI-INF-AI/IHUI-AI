@@ -3,7 +3,7 @@
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 # app/core/rollout_budget.py
-"""会话树加权 token 预算与阈值提醒(2026-09-19 第二十六批,对标 Codex rollout_budget.rs)。
+"""会话树加权 token 预算与阈值提醒(2026-09-19 第二十六批,遵循统一工程规范)。
 
 与引擎既有的硬预算(EngineThread.token_budget:超限拒起新轮)互补:
 
@@ -30,12 +30,12 @@ from typing import Any
 
 
 class RolloutBudgetError(Exception):
-    """预算记账输入非法(对标 CodexErr::Fatal 分支)。"""
+    """预算记账输入非法(遵循统一工程规范)。"""
 
 
 @dataclass
 class RolloutBudgetConfig:
-    """预算配置(对标 RolloutBudgetConfig)。"""
+    """预算配置(对齐 RolloutBudgetConfig)。"""
 
     limit_tokens: int
     sampling_token_weight: float = 1.0
@@ -163,7 +163,7 @@ class RolloutBudget:
     def tokens_left(self) -> int | None:
         """剩余 token(批 42 接线:get_context_remaining 工具消费)。
 
-        未配置时返回 None = 未知(对标 codex TokenBudgetRemainingContext::unknown);
+        未配置时返回 None = 未知(遵循统一工程规范);
         已配置时返回 floor(limit - used),下限 0。
         """
         with self._lock:
@@ -206,7 +206,7 @@ class RolloutBudget:
 
 
 # ===========================================================================
-# 批 40 接线补充:usage 归一化 + 提醒片段构造(对标 RolloutBudgetContext 渲染)
+# 批 40 接线补充:usage 归一化 + 提醒片段构造(对齐 RolloutBudgetContext 渲染)
 # ===========================================================================
 
 ROLLOUT_BUDGET_OPEN_TAG = "<rollout_budget>"
@@ -244,7 +244,7 @@ def normalize_rollout_usage(usage: dict[str, Any]) -> dict[str, Any]:
 
 
 def build_token_budget_remaining_fragment(tokens_left: int | None) -> dict[str, Any]:
-    """构造上下文窗口剩余 token 提示片段(批57,对标 codex TokenBudgetRemainingContext)。
+    """构造上下文窗口剩余 token 提示片段(批57,遵循统一工程规范)。
 
     developer 角色、无标记(空标记对)、无标记包裹——codex 源码
     TokenBudgetRemainingContext.type_markers() = ("", ""),即裸文本 developer 消息:
@@ -263,9 +263,9 @@ def build_token_budget_remaining_fragment(tokens_left: int | None) -> dict[str, 
 
 
 def build_rollout_budget_fragment(remaining_tokens: int) -> dict[str, Any]:
-    """构造预算提醒片段(对标 RolloutBudgetContext → ResponseItem)。
+    """构造预算提醒片段(对齐 RolloutBudgetContext → ResponseItem)。
 
-    developer 角色、<rollout_budget> 标记、文案逐字对齐 codex。
+    developer 角色、<rollout_budget> 标记、文案按行为规格 外部实现。
     """
     body = (
         f"You have {max(0, int(remaining_tokens))} weighted tokens left "

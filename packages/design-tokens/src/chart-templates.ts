@@ -5,7 +5,7 @@
 /**
  * D46(2026-09-23 立,G-57):对话内受控图表模板注册表 —— 模板白名单唯一真源。
  *
- * 对标 Trae `dynamic-ui` 模板化思路:AI 产出的图表不再只有"自由 HTML + iframe 沙箱"一条路,
+ * 遵循统一工程规范
  * 结构化数据(chart JSON)命中本注册表时走**受控模板渲染**(design-tokens 驱动、明暗同源、
  * 圆角/字体规范内建),自由 HTML 保持既有 iframe 降级路径不变。
  *
@@ -15,14 +15,7 @@
 
 /** 模板 id 白名单(8 种,与台账 D46 列举一一对应) */
 export type ChartTemplateId =
-  | 'gantt'
-  | 'sankey'
-  | 'radar'
-  | 'heatmap'
-  | 'funnel'
-  | 'timeseries'
-  | 'treeflow'
-  | 'comparison'
+  'gantt' | 'sankey' | 'radar' | 'heatmap' | 'funnel' | 'timeseries' | 'treeflow' | 'comparison'
 
 /** 场景分类(scenes):消费方可按对话场景推荐/过滤模板 */
 export type ChartTemplateScene =
@@ -45,13 +38,38 @@ export interface ChartTemplateMeta {
 
 export const CHART_TEMPLATES: readonly ChartTemplateMeta[] = [
   { id: 'gantt', label: '甘特图', scenes: ['planning'], requiredFields: ['label', 'start', 'end'] },
-  { id: 'sankey', label: '桑基图', scenes: ['flow'], requiredFields: ['source', 'target', 'value'] },
-  { id: 'radar', label: '雷达图', scenes: ['comparison', 'distribution'], requiredFields: ['label', 'value'] },
-  { id: 'heatmap', label: '热力图', scenes: ['distribution'], requiredFields: ['row', 'col', 'value'] },
-  { id: 'funnel', label: '漏斗图', scenes: ['flow', 'comparison'], requiredFields: ['label', 'value'] },
+  {
+    id: 'sankey',
+    label: '桑基图',
+    scenes: ['flow'],
+    requiredFields: ['source', 'target', 'value'],
+  },
+  {
+    id: 'radar',
+    label: '雷达图',
+    scenes: ['comparison', 'distribution'],
+    requiredFields: ['label', 'value'],
+  },
+  {
+    id: 'heatmap',
+    label: '热力图',
+    scenes: ['distribution'],
+    requiredFields: ['row', 'col', 'value'],
+  },
+  {
+    id: 'funnel',
+    label: '漏斗图',
+    scenes: ['flow', 'comparison'],
+    requiredFields: ['label', 'value'],
+  },
   { id: 'timeseries', label: '时序图', scenes: ['trend'], requiredFields: ['t', 'v'] },
   { id: 'treeflow', label: '树流图', scenes: ['hierarchy'], requiredFields: ['label'] },
-  { id: 'comparison', label: '对比卡', scenes: ['comparison'], requiredFields: ['label', 'a', 'b'] },
+  {
+    id: 'comparison',
+    label: '对比卡',
+    scenes: ['comparison'],
+    requiredFields: ['label', 'a', 'b'],
+  },
 ] as const
 
 /** id 白名单守卫 */
@@ -97,7 +115,8 @@ export function parseChartTemplatePayload(raw: unknown): ChartTemplatePayload | 
       if (!(field in rec)) return null
     }
   }
-  const title = typeof obj['title'] === 'string' && obj['title'].trim() !== '' ? obj['title'] : undefined
+  const title =
+    typeof obj['title'] === 'string' && obj['title'].trim() !== '' ? obj['title'] : undefined
   return {
     template: obj['template'],
     ...(title !== undefined ? { title } : {}),

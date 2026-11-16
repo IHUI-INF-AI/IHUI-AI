@@ -6,7 +6,7 @@
 
 立因
 ----
-对照 Qoder 的「跨文件编辑意图」与 DSH 的「命令执行分级(commandExecution)」两项能力:
+对照 Qoder 的「跨文件编辑意图」与 外部实现 的「命令执行分级(commandExecution)」两项能力:
 本仓 ``跨文件编辑`` 零命中、``commandExecution`` 仅 3 处引用且无判据层。本模块用本仓
 Python 栈**写自己的代码**一次复现两项行为与设计,并用测试钉住(§0.12 四步之 ③④)。
 两个纯函数同住本文件:``evaluate_edit_intent``(意图一致性) 与

@@ -5,14 +5,13 @@
 /**
  * 出站 fetch 的 deadline 出口（2026-09-29 立，台账号 G-814420）。
  *
- * 为什么需要它（上游证据已整读，不必再读上游）：
- * `.ihui-agent/tmp/zcode-study/zcode/packages/services/src/bots/providers/providerRequest.ts:15-58`
- * 的写法是「setTimeout 罩住 fetch **与响应体消费整段**，finally 才 clearTimeout」，并在 :34-40 / :53-57
- * 两条注释里写明原因：
+ * 为什么需要它：
+ * 正确写法是「setTimeout 罩住 fetch **与响应体消费整段**，finally 才 clearTimeout」，
+ * 原因有二：
  *   - `fetch()` 在**响应头到达时**就 resolve。收到响应头不代表请求完成；
  *   - 若 headers 一到就 clearTimeout 并返回裸 `Response`，服务端「发完 headers 之后停滞」时
- *     这条请求既没有 deadline 也没有 abort，会**永久占住调用方的串行队列**（上游是 bot actor 队列，
- *     我方是 ai-world-sync 的逐源串行抓取与 ai-audio 的供应商调用），且没有任何错误可诊断。
+ *     这条请求既没有 deadline 也没有 abort，会**永久占住调用方的串行队列**（典型场景是 bot actor 队列，
+ *     本仓是 ai-world-sync 的逐源串行抓取与 ai-audio 的供应商调用），且没有任何错误可诊断。
  * 本仓此前两处站点（`apps/api/src/routes/ai-audio.ts` 与 `apps/api/src/jobs/ai-world-sync.ts` 的
  * `fetchWithTimeout`）正是那种旧形态：`finally { clearTimeout }` 跟在 `await fetch(...)` 之后。
  *
@@ -43,7 +42,10 @@ const BODY_CONSUMERS = ['json', 'text', 'arrayBuffer', 'blob', 'bytes', 'formDat
 const releasers = new WeakMap<object, () => void>()
 
 /** 本出口实际调用的 fetch 形态（默认 `globalThis.fetch`，代理分支注入 undici 自带 fetch）。 */
-export type FetchDeadlineImpl = (input: string | URL | Request, init: RequestInit) => Promise<Response>
+export type FetchDeadlineImpl = (
+  input: string | URL | Request,
+  init: RequestInit,
+) => Promise<Response>
 
 export interface FetchDeadlineOptions {
   /** 罩住「发出请求 → 响应体消费结束」整段的毫秒数。 */
@@ -184,7 +186,10 @@ export async function withBody<T>(
 function manageBodyConsumption(response: Response, release: () => void): Response {
   return new Proxy(response, {
     get(target, prop) {
-      if (typeof prop === 'string' && BODY_CONSUMERS.includes(prop as (typeof BODY_CONSUMERS)[number])) {
+      if (
+        typeof prop === 'string' &&
+        BODY_CONSUMERS.includes(prop as (typeof BODY_CONSUMERS)[number])
+      ) {
         const method = Reflect.get(target, prop, target) as unknown as () => Promise<unknown>
         if (typeof method !== 'function') return method
         return async (): Promise<unknown> => {
@@ -200,16 +205,16 @@ function manageBodyConsumption(response: Response, release: () => void): Respons
       // 注：`closed` 是**返回 Promise 的 getter**，不是方法，所以判据取 thenable 而不是 function。
       if (prop === 'body') {
         const raw = Reflect.get(target, 'body', target) as
-          | { closed?: { then?: unknown } }
-          | null
-          | undefined
+          { closed?: { then?: unknown } } | null | undefined
         if (raw?.closed && typeof raw.closed.then === 'function') {
           raw.closed.then(release, release)
         }
         return raw
       }
       const value = Reflect.get(target, prop, target)
-      return typeof value === 'function' ? (value as (...args: unknown[]) => unknown).bind(target) : value
+      return typeof value === 'function'
+        ? (value as (...args: unknown[]) => unknown).bind(target)
+        : value
     },
   })
 }

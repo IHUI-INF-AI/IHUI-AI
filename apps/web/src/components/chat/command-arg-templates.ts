@@ -63,7 +63,7 @@ export function createGoalArgTemplates(t: (key: string) => string): ArgSuggestio
       label: t('commandArg.goalBenchmark.label'),
       description: t('commandArg.goalBenchmark.description'),
       insertText:
-        '/goal 深度对标目标产品的交互细节,逐项对齐实现,自验默认/hover/active/dark mode 4 状态',
+        '/goal 深度对齐目标产品的交互细节,逐项对齐实现,自验默认/hover/active/dark mode 4 状态',
       icon: React.createElement(BookMarked, { className: iconCls }),
     },
     {

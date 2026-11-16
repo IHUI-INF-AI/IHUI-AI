@@ -545,7 +545,7 @@ function stalledVerdict(hookText) {
   })
 }
 
-test('三支之一 · 自跑点名本次文件 ⇒ 判 mine,并交代取证来源', () => {
+test('三支之一 · 自跑点名本次文件 ⇒ 判 mine,并交代设计依据', () => {
   const { decideWithSelfRunBatch, MY_FILES, SUMMARY, FAIL_29 } = __test__
   const v = decideWithSelfRunBatch({
     verdict: stalledVerdict(),
@@ -558,7 +558,7 @@ test('三支之一 · 自跑点名本次文件 ⇒ 判 mine,并交代取证来�
   assert.equal(v.kind, 'mine')
   assert.equal(v.batchSelfRun, true)
   assert.equal(v.selfRunOk, true)
-  assert.match(v.reason, /自跑的那一轮守门批/, 'mine 的措辞必须交代取证来源')
+  assert.match(v.reason, /自跑的那一轮守门批/, 'mine 的措辞必须交代设计依据')
   assert.match(v.reason, /禁止 --no-verify/, 'mine 的出口仍然必须是"修",不得被新分支洗软')
   assert.match(
     v.detail.join('\n'),
@@ -582,7 +582,7 @@ test('三支之二 · 自跑一个都没点名 ⇒ 可跳,但措辞只能说量�
   assert.match(green.reason, /blocking 失败 0/, '理由必须是量到的数字')
   assert.match(green.reason, /红不在守门批/)
   const line = verdictLine(green)
-  assert.match(line, /safe-commit 自跑/, '措辞必须点名取证来源,否则与"钩子里跑过了"同形')
+  assert.match(line, /safe-commit 自跑/, '措辞必须点名设计依据,否则与"钩子里跑过了"同形')
   assert.match(line, /钩子内那一轮从未跑到批量检查/)
   assert.match(line, /不得把这行读成"守门没跑"/)
   // B) 批有红、但复跑未点名本次文件 ⇒ 仍是 not-ours(旧铰链的原样结论 + 来源标注)

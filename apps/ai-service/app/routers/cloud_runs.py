@@ -5,7 +5,7 @@
 # © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 
-"""P0-7 云托管 Agent 会话历史路由(对标 OpenAI Codex Cloud)。
+"""P0-7 云托管 Agent 会话历史路由(对齐 OpenAI Codex Cloud)。
 
 挂载说明:本模块仅导出 `router: APIRouter`(prefix="/cloud-runs"),由 master 在
 main.py 以 `app.include_router(cloud_runs.router, prefix="/api", tags=["cloud-runs"])`

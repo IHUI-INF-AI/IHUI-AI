@@ -88,7 +88,7 @@ def _make_loop_factory() -> Any:
             # D201(2026-10-02):会话键过桥,工具执行期注入该线程的附加目录覆盖层
             session_key=str(spec.get("session_id") or ""),
         )
-        # 负向工具过滤(2026-09-18 第二批,对标 Codex per-app omit_tools_from)
+        # 负向工具过滤(2026-09-18 第二批,遵循统一工程规范)
         deny = spec.get("deny_tools") or []
         if deny:
             deny_set = {str(x) for x in deny}
@@ -114,7 +114,7 @@ def _make_loop_factory() -> Any:
             approval_policies=spec.get("approval_policies"),
             # 2026-09-18 第二批:生成参数透传面(temperature/top_p/reasoning_effort/...)
             model_params=spec.get("model_params"),
-            # 2026-09-18 第三批(Goals 对标):线程目标注入 system 全程可见
+            # 2026-09-18 第三批(Goals 对齐):线程目标注入 system 全程可见
             thread_goal=spec.get("goal"),
             # 接线批(2026-11-01):生命周期钩子运行时注入(与 agents._new_v2_loop
             # 同一出口 build_registered_hook_runtime;登记表为空 ⇒ 无钩子 runtime ⇒
@@ -126,7 +126,7 @@ def _make_loop_factory() -> Any:
             # 装载口补齐批(2026-11-01):参数化指令片段的声明面(唯一读口 = 服务端 env
             # AGENT_INSTRUCTIONAL_INPUTS;未设置 ⇒ {}= 八枚全不注入,与接线前逐零差异)。
             instructional_inputs=instructional_inputs_from_env(),
-            # 第七遍对标(2026-11-14):会话工作目录过桥,供循环逐迭代重算工作区
+            # 第七遍对齐(2026-11-14):会话工作目录过桥,供循环逐迭代重算工作区
             # 指令链(AGENTS.md/CLAUDE.md 深层发现 + 轮内变更补发)。None = 零行为。
             workspace=spec.get("workspace"),
         )

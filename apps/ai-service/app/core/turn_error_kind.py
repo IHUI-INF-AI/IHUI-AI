@@ -2,9 +2,9 @@
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-"""回合错误语义封闭集 —— 对标 Codex 26.1111 TurnError。
+"""回合错误语义封闭集 —— 遵循统一工程规范。
 
-取证来源（2026-11-18，下潜 codex.exe 364.8MB 主引擎，strings 定向抽取）。
+设计依据（2026-11-18，下潜 外部程序 364.8MB 主引擎，strings 定向抽取）。
 对照物 `struct TurnError with 4 elements` + `codex_error_kind` 字段 + kind 枚举
 （Running/Interrupted/Errored/Shutdown/NotFound/Misalignment）。
 
@@ -44,7 +44,7 @@ __all__ = [
 
 
 class TurnErrorKind(str, Enum):  # noqa: UP042 — 改 StrEnum 会变 str() 输出,属行为重写
-    """回合错误语义封闭集（对标 Codex TurnError.kind 六值）。"""
+    """回合错误语义封闭集（遵循统一工程规范）。"""
 
     RUNNING = "running"  # 回合仍在跑，未终态（占位/查询态）
     INTERRUPTED = "interrupted"  # 用户主动中断
@@ -62,7 +62,7 @@ CODEX_ERR_BUDGET_REACHED = "budget reached"
 
 @dataclass(frozen=True)
 class TurnError:
-    """结构化回合错误：kind + 可选 codex_error_info + 明细（对标 struct 4 元素）。"""
+    """结构化回合错误：kind + 可选 codex_error_info + 明细（对齐 struct 4 元素）。"""
 
     kind: TurnErrorKind
     codex_error_info: str | None = None

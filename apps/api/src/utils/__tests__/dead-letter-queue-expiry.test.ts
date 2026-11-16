@@ -15,7 +15,6 @@ import { DeadLetterQueue, DLQAction, DEFAULT_DLQ_CONFIG } from '../dead-letter-q
 
 /** 直接向内部 Map 注入一条指定 lastTs 的死信(绕过 push 的 maxAttempts 闸)。 */
 function injectItem(q: DeadLetterQueue, taskId: string, lastTs: number): void {
-  // @ts-expect-error 测试注入内部 Map(与生产同形:DeadLetter 结构)
   q['items'].set(taskId, {
     taskId,
     name: `job-${taskId}`,

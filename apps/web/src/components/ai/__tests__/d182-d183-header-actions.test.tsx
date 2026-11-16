@@ -4,7 +4,7 @@
 
 // @vitest-environment jsdom
 // D182「AI 面板头部 a11y 组名+工作面全屏+门槛态」/ D183「会话头部一键创建 Draft PR」
-// 合围证明(2026-09-29 立,对标竞品 chatSession.headerActions)。
+// 合围证明(2026-09-29 立,对齐竞品 chatSession.headerActions)。
 // AISidePanel 体量为仓内之最,仓内惯例(d73-side-panel-pane-mount.test.tsx)不整体挂载,
 // 本文件三层合围:
 //   行为层:真跑 ai-panel store —— 全屏为会话级开关;persist merge 强制复位:
@@ -103,7 +103,9 @@ describe('D182 锚点层:头部动作组/全屏按钮/门槛态/portal 退出键
     expect(host).toMatch(/ref=\{panelRootRef\}/)
     expect(host).toMatch(/tabIndex=\{floatMode \? -1 : undefined\}/)
     // 焦点只在目标分支真正渲染出来后才搬(否则下次 effect 再试,避免 focus 落空)
-    expect(host).toMatch(/pendingFocusRef\.current = null\n\s*el\.focus\(\{ preventScroll: true \}\)/)
+    expect(host).toMatch(
+      /pendingFocusRef\.current = null\n\s*el\.focus\(\{ preventScroll: true \}\)/,
+    )
   })
 
   it('浮窗手势:桌面拖拽松手吸边 + 手机下拉收起(只挂 header,不抢消息区滚动)', () => {
@@ -116,7 +118,7 @@ describe('D182 锚点层:头部动作组/全屏按钮/门槛态/portal 退出键
       'onPointerCancel={isMobileSmall && floatMode ? handleSheetSwipeEnd : undefined}',
     )
     // 手势期间直接写 DOM transform,不得走 state 每帧重渲染(流式消息会一起掉帧)
-    expect(host).toContain("el.style.transform = `translate3d(0, ${dy}px, 0)`")
+    expect(host).toContain('el.style.transform = `translate3d(0, ${dy}px, 0)`')
   })
 
   it('Portal 事件守卫:菜单项按下不得被 header 手势抢指针(setPointerCapture 会让点击失效)', () => {
@@ -124,10 +126,11 @@ describe('D182 锚点层:头部动作组/全屏按钮/门槛态/portal 退出键
     // 若 header 在 pointerdown 时 setPointerCapture,pointerup/click 会被重定向到 header,
     // 菜单项 onSelect 永不触发(2026-11-11 实测「点最小化没反应」)。
     // 三个 header 手势入口都必须先确认按下目标是自身 DOM 内的节点。
-    const guards = host.match(/if \(!e\.currentTarget\.contains\(e\.target as Node\)\) return/g) ?? []
+    const guards =
+      host.match(/if \(!e\.currentTarget\.contains\(e\.target as Node\)\) return/g) ?? []
     expect(guards.length).toBeGreaterThanOrEqual(3) // 窗口拖拽 / 浮窗拖拽 / 手机下拉
     // 浮窗拖拽的空白区判定统一走共享词表(菜单项是 div,[role=menuitem] 必须被排除)
-    expect(host).toContain("isDraggableBlankArea(target, '[role=\"separator\"]')")
+    expect(host).toContain('isDraggableBlankArea(target, \'[role="separator"]\')')
   })
 
   it('FAB 拖拽:最小化图标可拖动(独立坐标 + 松手吸边 + 拖后不误触展开)', () => {

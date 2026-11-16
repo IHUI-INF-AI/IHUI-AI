@@ -4,7 +4,7 @@
 
 """Plan Mode(计划模式)服务层。
 
-对标 Claude Code Plan Mode:复杂任务先在"只读工具"阶段产出可编辑计划文档,
+遵循统一工程规范
 用户确认(可改)后才进入执行。本模块提供:
 - READONLY_TOOLS:只读工具白名单(计划阶段只允许这些工具)
 - PlanStore:进程内计划存储(带 TTL,默认 2 小时)
@@ -63,7 +63,7 @@ from ..core.llm_gateway import llm_gateway
 #       注入点击/输入,产生副作用(与 agent_loop_v2 高危工具清单一致,故排除)
 READONLY_TOOLS: frozenset[str] = frozenset(
     {
-        # 内置元工具(批 42 接线,对标 codex get_context_remaining):查询上下文
+        # 内置元工具(批 42 接线,遵循统一工程规范):查询上下文
         # 剩余 token,纯只读无副作用;plan 模式同样暴露(模型规划时可感知预算)。
         "get_context_remaining",
         # 文件读
@@ -124,6 +124,7 @@ _WRITE_OR_EXEC_TOOLS: frozenset[str] = frozenset(
         "run_command",
         "git_operations",
         "db_query",
+        "orchestrate_agents",
         "dispatch_subagent",
         "schedule_task",
         "browser_click_element",

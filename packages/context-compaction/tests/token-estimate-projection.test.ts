@@ -6,7 +6,7 @@
 //
 // 三条判据各配一条反向对照,任何一条失守都会红:
 //   1. 正向对照:同一条消息挂上 reasoning ⇒ 估算必须**严格大于**只读正文的估算
-//   2. 反向锁:没有 reasoning 的消息 ⇒ 估算必须与改动前(HEAD 算法逐字复刻)**逐字节相同**
+//   2. 反向锁:没有 reasoning 的消息 ⇒ 估算必须与改动前(HEAD 算法独立实现)**逐字节相同**
 //   3. 不变量:可见正文出口不得带出 reasoning(投影分离,不许"把 reasoning 并进 content")
 //   4. 读不出的 reasoning 形态不得静默按 0 计(哨兵文本 ⇒ 仍然 > 只读正文)
 
@@ -30,7 +30,7 @@ const BODY = 'Please read the file and summarize the result. '
 /** 推理过程(不可见通道);与正文用不同词,避免 BPE 合并把差异抹平 */
 const REASONING = 'Let me weigh each alternative before answering the user. '
 
-/** HEAD(改动前)估算算法的逐字复刻:只累加 m.content ?? '' 与 tool_calls。
+/** HEAD(改动前)估算算法的独立实现:只累加 m.content ?? '' 与 tool_calls。
  *  反向锁拿它做参照 —— 谁顺手改了系数或基线,这条立刻红。 */
 function legacyEstimate(messages: ChatMessage[]): number {
   let total = 0

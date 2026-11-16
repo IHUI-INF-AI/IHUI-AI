@@ -37,11 +37,24 @@ TASK_CAPABILITIES: Final[dict[str, dict[str, Any]]] = {
     },
     "doubao": {
         "read": True,
-        "write": False,
-        "read_endpoints": ["GET /alice/ug/campaign/landing/checkin(detail 内的 tasks 列表)"],
-        "write_endpoints": ["POST /alice/ug/campaign/landing/checkin(scene=daily_signin)"],
-        "evidence": "app/services/checkin_doubao.py:17-18",
-        "note": "只实证 daily_signin 一项的领取;其余 task_kind 的领取参数未取证 ⇒ 不做通用写侧",
+        "write": True,
+        "read_endpoints": [
+            "POST /alice/ug/campaign/v3/detail/(客户端指纹:aid=582478+device_id+pc_client)",
+        ],
+        "write_endpoints": [
+            "POST /alice/ug/campaign/landing/checkin(scene=daily_signin)",
+            "POST /alice/ug/campaign/item/reward/claim/(任务/里程碑领奖,三分支参数)",
+            "POST /alice/ug/event/report(scene=client_action,select_work_fields 完成上报)",
+        ],
+        "evidence": (
+            "app/services/checkin_doubao.py(线上 bundle 2198.4e43149d / 709.b4632b25 / "
+            "agent-explore_page.b285c6b3 逐字实证)"
+        ),
+        "note": (
+            "任务族清单/领奖/行为上报均已实证;生成类任务(GenWord/GenExcel/GenPPT/"
+            "ScheduleSkill)线上由桌面客户端深链执行,服务端 chat 提 prompt 不计完成"
+            "(2026-11-16 实弹回读仍 created)⇒ 默认关,仅保留已完成态领奖"
+        ),
     },
     "raccoon": {
         "read": True,

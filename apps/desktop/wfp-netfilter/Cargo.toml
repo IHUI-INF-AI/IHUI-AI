@@ -6,7 +6,7 @@
 name = "ihui-wfp-netfilter"
 version = "0.1.0"
 edition = "2021"
-description = "Windows Filtering Platform 网络策略编译层（对标 Codex network_rule 的落地腿）"
+description = "Windows Filtering Platform 网络策略编译层（对齐统一规范）"
 license = "Apache-2.0"
 publish = false
 

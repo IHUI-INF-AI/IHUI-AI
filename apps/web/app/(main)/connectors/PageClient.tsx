@@ -103,7 +103,7 @@ function toSlug(input: string): string {
  * 中文连接器页 — 2026-09-02 新增(P2-2 中文 Connectors)
  *
  * 定位:配置语雀/飞书/企业微信/钉钉连接器(token/知识库地址),让 AI 对话能
- * 读取中文知识平台的文档。对标竞品深度开发项。
+ * 读取中文知识平台的文档。对齐竞品深度开发项。
  * 接口:GET /api/connectors(脱敏列表,无 app_id/app_secret 明文)
  *       + POST /api/connectors/config | /sync | /{key}/fetch | /enable | /disable
  *       + DELETE /api/connectors/{key}

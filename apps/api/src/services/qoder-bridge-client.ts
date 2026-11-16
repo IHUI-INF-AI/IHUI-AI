@@ -12,7 +12,7 @@
  * **不需要 PAT、不需要浏览器授权**。故 chat 必须经由本机桥进程转发，
  * 不能让 API 进程直连上游。
  *
- * 形态（对标项目内其它 start/stop 型常驻件，不新增 nssm 服务）：
+ * 形态（对齐项目内其它 start/stop 型常驻件，不新增 nssm 服务）：
  * - API 进程启动时后台唤起桥（Electron-as-Node 加载 asar 内 SDK），失败按指数退避重试；
  * - 桥只监听 127.0.0.1 随机端口，启动后 stdout 打一行 `QODER_BRIDGE_READY {json}`；
  * - 每次请求带随机 key（X-Qoder-Bridge-Key），防本机其它进程蹭用；

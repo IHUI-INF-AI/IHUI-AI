@@ -2,7 +2,7 @@
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-"""read_image 多模态工具结果契约(2026-11-14 立,对标 DSH dsh-tool-fs/read-image.ts)。
+"""read_image 多模态工具结果契约(2026-11-14 立,遵循统一工程规范)。
 
 ① 工具只回小体积元数据 + content_id,图片本体进有界暂存(不进 tool 正文/SSE 帧);
 ② 主循环在本轮 tool 消息之后追加一条 role=user 的 vision content 消息;
@@ -145,7 +145,7 @@ async def test_read_image_rejects_oversize(workspace, monkeypatch) -> None:
 
 @pytest.mark.asyncio
 async def test_read_image_rejects_pixel_bomb(workspace, monkeypatch) -> None:
-    """解压炸弹防线:字节数合规但像素总量超限也必须拒绝(对标 DSH maxImagePixels)。"""
+    """解压炸弹防线:字节数合规但像素总量超限也必须拒绝(遵循统一工程规范)。"""
     monkeypatch.setattr(delivery, "MAX_IMAGE_PIXELS", 0)
     path = _write_image(workspace)
 

@@ -79,6 +79,8 @@ import {
 } from '@ihui/database'
 import { formatMediaTime } from '@ihui/shared'
 import { hashPassword, verifyPassword } from '../utils/password-crypto.js'
+// DB-35:phone/email 列存密文;绑定/换绑的占用检查走 lookup 盲索引,写入加密+维护 lookup
+import { contactWritePair, hashUserContact, normalizeUserContact } from '../utils/user-contact.js'
 import { ensureSafeFetchUrl, safeFetch } from '../utils/ssrf-guard.js'
 import { isUuidString } from '../utils/uuid.js'
 
@@ -2491,7 +2493,7 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
   // POST /user/phone/bind — 绑定手机号(2026-10-25 补建)
   // 立因:`pkg-user/user/phone.tsx` 与 `components/VerifyCodeModal.tsx` 都调
   // `post('/user/phone/bind', { phone, code })`,而后端注册面从未有过这一条 ⇒ "绑定手机号"
-  // 这一步每次都是 404,用户点了没反应。判据逐字对齐 auth-extended 的
+  // 这一步每次都是 404,用户点了没反应。判据按行为规格 auth-extended 的
   // `/auth/change-phone/confirm`(同一验证码存储 verifyCode 消费一次、同一 409 语义、同一限频);
   // 差别只在绑定不要求"旧号验证码"—— 账号此前没有手机号,没有旧号可验。
   server.post(
@@ -2513,17 +2515,21 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
       const { phone, code } = parsed.data
       if (!(await verifyCode(phone, code)))
         return reply.status(400).send(error(400, '验证码错误或已过期'))
-      // users.phone 是 unique:号被别的账号占着不能抢(先查后写,与 change-phone 同一把尺子)
+      // DB-35:phone 列存密文,占用检查走 phone_lookup 盲索引;写入加密+维护 lookup。
+      const phoneNorm = normalizeUserContact('phone', phone)
+      if (phoneNorm === '')
+        return reply.status(400).send(error(400, '手机号格式不正确'))
       const [occupied] = await dbRead
         .select({ id: users.id })
         .from(users)
-        .where(eq(users.phone, phone))
+        .where(eq(users.phoneLookup, hashUserContact('phone', phoneNorm)))
         .limit(1)
       if (occupied && occupied.id !== request.userId)
         return reply.status(409).send(error(409, '该手机号已被其他账号绑定'))
+      const phonePair = contactWritePair('phone', phone)
       const updated = await db
         .update(users)
-        .set({ phone, updatedAt: new Date() })
+        .set({ phone: phonePair.value, phoneLookup: phonePair.lookup, updatedAt: new Date() })
         .where(eq(users.id, request.userId!))
         .returning({ id: users.id })
       if (updated.length === 0) return reply.status(404).send(error(404, '用户不存在'))
@@ -2551,16 +2557,21 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
       const { email, code } = parsed.data
       if (!(await verifyCode(email, code)))
         return reply.status(400).send(error(400, '验证码错误或已过期'))
+      // DB-35:email 列存密文,占用检查走 email_lookup 盲索引;写入加密+维护 lookup。
+      const emailNorm = normalizeUserContact('email', email)
+      if (emailNorm === '')
+        return reply.status(400).send(error(400, '邮箱格式不正确'))
       const [occupied] = await dbRead
         .select({ id: users.id })
         .from(users)
-        .where(eq(users.email, email))
+        .where(eq(users.emailLookup, hashUserContact('email', emailNorm)))
         .limit(1)
       if (occupied && occupied.id !== request.userId)
         return reply.status(409).send(error(409, '该邮箱已被其他账号绑定'))
+      const emailPair = contactWritePair('email', email)
       const updated = await db
         .update(users)
-        .set({ email, updatedAt: new Date() })
+        .set({ email: emailPair.value, emailLookup: emailPair.lookup, updatedAt: new Date() })
         .where(eq(users.id, request.userId!))
         .returning({ id: users.id })
       if (updated.length === 0) return reply.status(404).send(error(404, '用户不存在'))

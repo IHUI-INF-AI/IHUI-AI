@@ -6,7 +6,7 @@
 /**
  * check-installed-asset-catalog.mjs — 装机资产(技能包)逐文件 sha256 完整性对账。
  *
- * 立的因(逆向-复现-超越 §0.11,G-21,2026-10-31):
+ * 立的因(工程化落地 §0.11,G-21,2026-10-31):
  * 对照程序 Qoder CN 用 `catalog.v1.json` + `bundled-resources/manifest.json` 把插件 manifest
  * 与逐文件 sha256 内联,并带 `maxEntries`/`maxExpandedBytes` 解压炸弹护栏。本仓现读只有
  * git commit SHA pin(`apps/cli/src/plugins/url-shape.ts`),没有任何"装机产物逐文件摘要"。

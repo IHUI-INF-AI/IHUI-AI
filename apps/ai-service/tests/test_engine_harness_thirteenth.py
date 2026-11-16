@@ -4,7 +4,7 @@
 
 """Harness git 基线与变更状态(2026-09-18 第十三批)单测。
 
-覆盖(对标 Codex git-utils crate:GitBaselineChangeStatus/GitBaselineDiff/
+覆盖(遵循统一工程规范
 merge_base_with_head):
 - _workspace_file_status:porcelain 解析为 A/M/D git 风格状态标签
 - _git_baseline:无上游退化为 HEAD;返回 sha 与来源

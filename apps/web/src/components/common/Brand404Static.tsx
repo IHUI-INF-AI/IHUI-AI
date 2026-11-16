@@ -15,7 +15,7 @@ import { SHARED_BUTTON_BASE_CLASS, SHARED_BUTTON_VARIANT_CLASSES } from '@ihui/d
 
 import { NotFound } from './NotFound'
 
-/** ui-react Button 的 web 平台修饰(button.tsx L30/L36/L38),逐字对齐,保证与站内按钮同形。 */
+/** ui-react Button 的 web 平台修饰(button.tsx L30/L36/L38),按行为规格,保证与站内按钮同形。 */
 const BUTTON_WEB_BASE =
   'inline-flex gap-2 whitespace-nowrap rounded-sm text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50'
 const BUTTON_WEB_SIZE_DEFAULT = 'h-9 px-4 py-2'

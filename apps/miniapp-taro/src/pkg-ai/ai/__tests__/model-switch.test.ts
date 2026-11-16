@@ -5,7 +5,7 @@
 // 台账票 68 小程序腿回归:「流式中切换模型 → 终止后自动带入新模型」判据表。
 //
 // 判据实现直接从 `../model-switch` 导入(AGENTS §22c:禁止在测试里复制一份判据)。
-// 判据表逐条抄自 web 参照件 `apps/web/src/hooks/use-chat/__tests__/model-switch.test.ts`,
+// 判据表逐条取自 web 参照件 `apps/web/src/hooks/use-chat/__tests__/model-switch.test.ts`,
 // 只去掉本端不存在的三条腿(服务端 abort / #21 中断态 / 压缩预告)—— 那三样在本端没有对应链路,
 // 照搬等于给移动端凭空造一条服务端腿;其余每一条断言与 web 同值。
 //

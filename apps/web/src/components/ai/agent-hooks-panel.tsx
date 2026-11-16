@@ -20,7 +20,7 @@ import {
 } from '@/stores/agent-hooks'
 
 /**
- * AgentHooksPanel — Hooks 事件系统配置面板(W28,2026-09-14 立,对标 CodeBuddy Hooks)。
+ * AgentHooksPanel — Hooks 事件系统配置面板(W28,2026-09-14 立,对齐 CodeBuddy Hooks)。
  *
  * - 9 类事件(tool.before/after、message.send/receive、session.start/end、
  *   error、commit.before/after)可各自配置动作(log/toast/notify)

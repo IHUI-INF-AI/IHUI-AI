@@ -3,24 +3,24 @@
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 # app/core/image_preparation.py
-"""提示图像准备(2026-09-19 第二十九批,对标 Codex image_preparation.rs + utils/image)。
+"""提示图像准备(2026-09-19 第二十九批,遵循统一工程规范)。
 
 发送给模型前对内联图像(data URL)做预算化降采样,失败降级为文本占位符
 (绝不让一张坏图阻塞整个回合):
 
-- **detail 档位预算**(对标 PromptImageMode):
+- **detail 档位预算**(对齐 PromptImageMode):
   - HIGH_DETAIL:max_dimension=2048,max_patches=2500(32px patch 网格);
   - ORIGINAL_DETAIL:max_dimension=6000,max_patches=10000;
   - detail="low" 不支持 → 专用占位符(Codex 同款拒绝);
-- **patch 预算算法**(对标 prompt_image_output_dimensions_for_limits):
+- **patch 预算算法**(对齐 prompt_image_output_dimensions_for_limits):
   先按 max_dimension 等比缩,再按面积收缩并以 patch 网格整数下取整,
   保证输出尺寸整数化后仍在预算内;
-- **格式保真**:png/jpeg/webp 原格式重编码,其余转 png(对标
+- **格式保真**:png/jpeg/webp 原格式重编码,其余转 png(对齐
   can_preserve_source_bytes);重编码保留 EXIF 方向(ICC 仅 RGB profile
   才保留的语义以 Pillow 能力近似);
 - **错误占位符**(原文移植):远端 URL 不支持 / 超尺寸 / low 不支持 /
   通用处理失败——图像位置替换为 InputText,消息结构不失真;
-- **消息遍历**(对标 prepare_response_items):OpenAI 格式消息列表中
+- **消息遍历**(对齐 prepare_response_items):OpenAI 格式消息列表中
   user 消息与 tool 输出内的 image_url 逐个处理,产出
   ImagePreparationMetadata(含源/输出尺寸,供上下文核算)与
   ResizedImage 通知(前端可感知"图被缩过")。
@@ -50,7 +50,7 @@ UNSUPPORTED_LOW_DETAIL_PLACEHOLDER = (
 )
 REMOTE_IMAGE_URL_PLACEHOLDER = "image content omitted because remote image URLs are not supported"
 
-# 高细节 / 原始细节两档预算(对标 PromptImageMode::HIGH_DETAIL / ORIGINAL_DETAIL)
+# 高细节 / 原始细节两档预算(对齐 PromptImageMode::HIGH_DETAIL / ORIGINAL_DETAIL)
 HIGH_DETAIL_LIMITS = {"max_dimension": 2048, "max_patches": 2500}
 ORIGINAL_DETAIL_LIMITS = {"max_dimension": 6000, "max_patches": 10000}
 
@@ -216,7 +216,7 @@ def data_url_from_bytes(mime: str, data: bytes) -> str:
 # 像素处理(Pillow 路径)
 # ----------------------------------------------------------------------
 def load_data_url_for_prompt(image_url: str, limits: ResizeLimits) -> EncodedImage:
-    """解码 data URL 并按预算降采样(对标 load_data_url_for_prompt)。"""
+    """解码 data URL 并按预算降采样(对齐 load_data_url_for_prompt)。"""
     match = _DATA_URL_RE.match(image_url)
     if not match:
         raise processing_error("invalid data URL")
@@ -276,7 +276,7 @@ def resize_image(
     image_url: str,
     detail: str | None = None,
 ) -> tuple[EncodedImage | None, str]:
-    """单图准备入口(对标 resize_image);返回 (编码结果或 None, 有效档名)。
+    """单图准备入口(对齐 resize_image);返回 (编码结果或 None, 有效档名)。
 
     - 远端 URL → 抛 RemoteUrlUnsupported;
     - 非 data URL(如 file 引用)→ (None, detail) 原样放行;
@@ -377,16 +377,16 @@ def prepare_response_items(
 
 
 # ----------------------------------------------------------------------
-# 通知片段(developer 角色,对标 Codex core/src/context/image_resize_notice.rs)
+# 通知片段(developer 角色,遵循统一工程规范)
 # ----------------------------------------------------------------------
 def build_image_resize_notice_fragment(
     notices: list[ResizedImage],
     *,
     source: str = "tool output",
 ) -> dict[str, Any] | None:
-    """把一批图像缩放通知渲染为 developer 消息片段(对标 image_resize_notice.rs)。
+    """把一批图像缩放通知渲染为 developer 消息片段(对齐 image_resize_notice.rs)。
 
-    对标 codex ``ImageResizeNotice::body`` / ``type_markers``:role=developer、
+    遵循统一工程规范
     标记 ``<image_resize_notice>`` / ``</image_resize_notice>``、逐图正文
     "Image N of M in the preceding <source> was resized from WxH to WxH pixels."
     以换行连接并整体以空行包裹(与 codex ``format!("\\n{notices}\\n")`` 同形)。

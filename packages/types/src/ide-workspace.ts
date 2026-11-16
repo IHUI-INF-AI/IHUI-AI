@@ -108,7 +108,7 @@ export interface GitChange {
   deletions: number
 }
 
-/** 工作区 Git 状态快照(环境信息弹窗专用,2026-08-17 立,对标 Cursor env info card) */
+/** 工作区 Git 状态快照(环境信息弹窗专用,2026-08-17 立,遵循统一工程规范) */
 export interface GitStatusSnapshot {
   isRepo: boolean
   branch: string
@@ -123,7 +123,7 @@ export interface GitStatusSnapshot {
     conflicted: number
     renamed: number
   }
-  /** 行级增删统计(对标 Cursor env card 的 +N/-M,后端 git diff --numstat 聚合;老后端可能缺省) */
+  /** 行级增删统计(遵循统一工程规范;老后端可能缺省) */
   lineStats?: {
     additions: number
     deletions: number

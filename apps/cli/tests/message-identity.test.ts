@@ -142,7 +142,7 @@ describe('canonicalJson', () => {
 });
 
 describe('日志上限', () => {
-  it('四档常量与对标实现同口径', () => {
+  it('四档常量与对齐实现同口径', () => {
     expect(JOURNAL_LIMITS.maxFrameBytes).toBe(4096);
     expect(JOURNAL_LIMITS.maxTotalBytes).toBe(8 * 1024 * 1024);
     expect(JOURNAL_LIMITS.maxAttachmentFrames).toBe(2048);

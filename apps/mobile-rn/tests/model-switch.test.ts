@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 // 票 68 RN 腿用例。判据实现直接从 `../src/lib/model-switch` 导入
-// (AGENTS §22c:禁止在测试里复制一份源判据);表逐条抄自 web 参照件
+// (AGENTS §22c:禁止在测试里复制一份源判据);表逐条取自 web 参照件
 // `apps/web/src/hooks/use-chat/__tests__/model-switch.test.ts` 与小程序腿
 // `apps/miniapp-taro/src/pkg-ai/ai/__tests__/model-switch.test.ts` —— 三端只许同一套语义。
 import { describe, expect, it, vi } from 'vitest'
@@ -100,9 +100,7 @@ describe('terminateActiveStream — 终止动作只允许有一份实现', () =>
 
   it('给了 notice 且有出口 ⇒ 逐字把理由交给出口(不拼第二份中文)', () => {
     const probe = makeProbe()
-    expect(
-      terminateActiveStream({ ...probe.deps, notice: '已切换到 X,本轮回答已终止' })
-    ).toBe(true)
+    expect(terminateActiveStream({ ...probe.deps, notice: '已切换到 X,本轮回答已终止' })).toBe(true)
     expect(probe.printed).toHaveBeenCalledWith('已切换到 X,本轮回答已终止')
   })
 
@@ -174,7 +172,9 @@ describe('完整交错时序(两臂,不是只测最顺的那一条)', () => {
 
 describe('ChatScreen 接线锁(判据在位 ≠ 链路可用,这两组按结构配平判)', () => {
   it('入口快照必须被复核,且 model 与 contextLimit 同取一个 roundModel', () => {
-    expect(SCREEN_SOURCE).toMatch(/const roundModel = resolveRoundModel\(model, modelRef\.current\)/)
+    expect(SCREEN_SOURCE).toMatch(
+      /const roundModel = resolveRoundModel\(model, modelRef\.current\)/,
+    )
     expect(SCREEN_SOURCE).toMatch(/await streamChat\(\{\s*\n\s*model: roundModel,/)
     expect(SCREEN_SOURCE).toMatch(/contextLimit: getModelContextCapacity\(roundModel\)/)
     // 反向:发出去的那条 payload 里不得再残留入口快照
@@ -186,7 +186,9 @@ describe('ChatScreen 接线锁(判据在位 ≠ 链路可用,这两组按结构�
     expect(SCREEN_SOURCE.match(/abortRef\.current\?\.abort\(\)/g) ?? []).toHaveLength(0)
     expect(SCREEN_SOURCE).toMatch(/terminateActiveStream\(\{/)
     // 「清空对话」此前把 abort + 置空 + 落旗三件事 inline 再写一遍,现同走一个出口
-    expect(SCREEN_SOURCE).toMatch(/setPrompt\(''\)\s*\n\s*terminateStream\(\)\s*\n\s*abortRef\.current = null/)
+    expect(SCREEN_SOURCE).toMatch(
+      /setPrompt\(''\)\s*\n\s*terminateStream\(\)\s*\n\s*abortRef\.current = null/,
+    )
   })
 
   it('换档 effect 必须过同一张判据表,并带 i18n 键的终止理由(不硬编码中文)', () => {

@@ -6,7 +6,7 @@
 
 判据三问:
 ① inputId 在场 ⇒ 首个内容帧之前产出 admission 帧,形状与
-   packages/shared/src/chat/send-admission.ts L40-74 逐字对齐(camelCase);
+   packages/shared/src/chat/send-admission.ts L40-74 按行为规格(camelCase);
 ② inputId 缺席 ⇒ 一帧不发(旧客户端零行为变化);同一 inputId 重发 ⇒ duplicate;
 ③ 产出异常 ⇒ 降级为不发帧,主流照常走完(附加交代帧坏了不拖主链路)。
 """

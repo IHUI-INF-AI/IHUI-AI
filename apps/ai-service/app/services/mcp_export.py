@@ -4,7 +4,7 @@
 
 """IHUI 作为 MCP **服务端**对外开放工具能力。
 
-对标产品往往只做 MCP 客户端(消费外部工具),本模块把 ihui 自身能力
+对齐产品往往只做 MCP 客户端(消费外部工具),本模块把 ihui 自身能力
 反转为 MCP Server,供任何外部 LLM Host(Claude Desktop / Cursor / 自研 agent)
 连接发现与调用。支持三种 transport:
 

@@ -46,7 +46,8 @@ import {
   eduParentChildren,
 } from '@ihui/api-client'
 import { CHART_BLUE } from '@ihui/design-tokens'
-import { AuthGatePrompt, BackButton } from '@/components/common'
+import { AuthGatePrompt } from '@/components/common'
+import { FeaturePageShell } from '@/components/layout'
 import { useAuthGate } from '@/hooks/use-auth-gate'
 import { formatCny } from '@/lib/display-currency'
 import {
@@ -257,13 +258,14 @@ export default function ParentPortalPage() {
   }
 
   return (
-    <div className="space-y-4 px-4 py-4">
-      <BackButton />
-      <header className="space-y-1">
-        <h1 className="text-display font-bold tracking-tight">{t('pageTitle')}</h1>
-        <p className="text-label text-muted-foreground">{t('pageSubtitle')}</p>
-      </header>
-
+    // 2026-11-16 接入统一子功能页外壳:BackButton + 手写 header 收编为页头卡,
+    // 自动带上「教育」返回 chip(取 eduHub.title,与域入口页大标题恒等)。
+    <FeaturePageShell
+      title={t('pageTitle')}
+      description={t('pageSubtitle')}
+      icon={CalendarDays}
+      domain="edu"
+    >
       {!allow ? (
         <AuthGatePrompt message={t('needLogin')} />
       ) : (
@@ -304,7 +306,7 @@ export default function ParentPortalPage() {
           </TabsContent>
         </Tabs>
       )}
-    </div>
+    </FeaturePageShell>
   )
 }
 

@@ -5,7 +5,7 @@
 /**
  * 工作簿读写服务(2026-11-02 立,goal-b45 F 席)。
  *
- * 对标取证:`docs/benchmark-evidence/2026-11/qoder-trae-rea-20261101/T8-sidecar-native-surface.md` §B
+ * 对齐取证:`docs/benchmark-evidence/2026-11/qoder-trae-rea-20261101/T8-sidecar-native-surface.md` §B
  * —— 对照件 `xlsx-sidecar.exe`(Rust 原生,15,168 函数)把「工作簿」做成面向 agent 的
  * 命令协议(`handshake/open/read_range/…/save_archive/recalc_cells/convert_workbook`),
  * 写回 + 公式重算在册(引擎 = vendored calamine 分叉 + ironcalc_base 0.7.1)。

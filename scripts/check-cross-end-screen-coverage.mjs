@@ -351,7 +351,7 @@ const DIR_ONLY_RE = /packages\/app\/(?:src\/)?features\/([A-Za-z0-9_-]+)(?!\/[A-
 const SCREEN_TOKEN_RE = /\b(Shared)?([A-Z][A-Za-z0-9_]*?)Screen\b/g
 
 /** 形 3/形 4 的动词闸(缺动词的行一律不认,防"标识符撞名"被读成对齐声明) */
-const ALIGN_VERB_RE = /(对齐|镜像|参照|对标|还原|同形|唯一标准|视觉标准)/
+const ALIGN_VERB_RE = /(对齐|镜像|参照|对齐|还原|同形|唯一标准|视觉标准)/
 
 function buildSharedIndex(shared) {
   const bySpec = new Set()
