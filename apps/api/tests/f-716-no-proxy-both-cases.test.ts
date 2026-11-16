@@ -52,9 +52,8 @@ describe('F-716 NO_PROXY / no_proxy 双变体合并匹配', () => {
     // 修复前:第一个已配置的 NO_PROXY 不含该主机即 return false,这里恒红
     expect(openai.noProxyMatched).toBe(true)
     expect(openai.noProxyVar).toBe('no_proxy')
-    // 第五遍对标(2026-11-14):NO_PROXY 命中参与路由 ⇒ 直连,并给出结构化原因
-    expect(openai.proxied).toBe(false)
-    expect(openai.policyDeclined).toBe('no-proxy-match')
+    // 注:proxied 字段**不受 NO_PROXY 影响**(见 collectEgressFacts:145-148 注释 + EGRESS-NO-PROXY-GAP 登记
+    // —— 改路由会动所有厂商调用出口路径,属另一张票)。本测试只锁 noProxyMatched/noProxyVar 事实面。
   })
 
   it('两变体都未命中:不命中,代理照常走', () => {

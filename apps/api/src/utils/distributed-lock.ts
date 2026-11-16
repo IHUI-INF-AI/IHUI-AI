@@ -43,6 +43,13 @@ export interface AcquiredLock {
   release(): Promise<LockState>
   /** 续约，延长 TTL。成功返回 true (锁仍由本持有者持有)。 */
   renew(ttlMs?: number): Promise<boolean>
+  /**
+   * F-708:watchdog 续约失败时通知持有者的回调缝。
+   * 持有者注册它才能在「锁已被他人夺走 / Redis 异常」时收到通知并中止业务,
+   * 而不是像修复前那样 watchdog 静默停表、持有者毫不知情地继续执行。
+   * 回调只应做「记日志 / 中止业务」这类无副作用动作,不得在回调里再操作锁。
+   */
+  onLost?(reason: 'renew-false' | 'renew-error', cause?: unknown): void
 }
 
 export interface DistributedLockOptions {
@@ -56,6 +63,12 @@ export interface DistributedLockOptions {
   watchdog?: boolean
   /** watchdog 续约间隔，默认 ttl/3 */
   watchdogIntervalMs?: number
+  /**
+   * F-708:watchdog 续约失败(锁丢失)时的通知回调。
+   * 只在 options.watchdog=true 时生效;不注册 = 维持旧行为(停表但持有者不知情)。
+   * 持有者应在此中止业务(如置 AbortSignal),避免「锁已被夺走仍在跑」的互斥破窗。
+   */
+  onLost?(reason: 'renew-false' | 'renew-error', cause?: unknown): void
 }
 
 export class DistributedLockError extends AppError {
@@ -155,7 +168,8 @@ export class DistributedLock {
     const ok = await this.redis.set(name, token, 'PX', ttlMs, 'NX')
     if (ok !== 'OK') return null
     this.stats.acquired++
-    const lock = this.buildLock(name, owner, token, ttlMs)
+    // F-708:把持有者的 onLost 通知缝接进锁句柄,watchdog 续约失败时才能回调通知。
+    const lock = this.buildLock(name, owner, token, ttlMs, options.onLost)
     if (options.watchdog) {
       this.startWatchdog(lock, options.watchdogIntervalMs ?? Math.floor(ttlMs / 3))
     }
@@ -260,7 +274,13 @@ export class DistributedLock {
     return { ...this.stats }
   }
 
-  private buildLock(name: string, owner: string, token: string, ttlMs: number): AcquiredLock {
+  private buildLock(
+    name: string,
+    owner: string,
+    token: string,
+    ttlMs: number,
+    onLost?: AcquiredLock['onLost'],
+  ): AcquiredLock {
     const acquiredAt = Date.now()
     return {
       name,
@@ -271,20 +291,28 @@ export class DistributedLock {
       expiresAt: acquiredAt + ttlMs,
       release: () => this.release(name, token),
       renew: (newTtlMs?: number) => this.renew(name, token, newTtlMs ?? ttlMs),
+      ...(onLost ? { onLost } : {}),
     }
   }
 
-  /** 启动 watchdog：定时续约，锁丢失时自动停止。 */
+  /** 启动 watchdog：定时续约，锁丢失时自动停止并通知持有者。 */
   private startWatchdog(lock: AcquiredLock, intervalMs: number): void {
     const timer = setInterval(async () => {
       try {
         const ok = await lock.renew(lock.ttlMs)
         if (!ok) {
+          // F-708:续约返回 false = 锁已被他人夺走/已过期,停表并通知持有者中止业务。
+          // 此前这里只 stopWatchdog + stats.expired++,持有者毫不知情地继续执行 ——
+          // 互斥语义已破(别人持锁)而本侧还在跑,正是「锁过期但业务以为还持有」的竞态。
           this.stopWatchdog(lock.name)
           this.stats.expired++
+          lock.onLost?.('renew-false', undefined)
         }
-      } catch {
+      } catch (e) {
+        // F-708:续约抛异常(Redis 抖动/超时)同样停表并通知 —— 不能静默吞掉让持有者
+        // 误以为仍在安全续约。原因归为 renew-error,携带底层异常供持有者判日志。
         this.stopWatchdog(lock.name)
+        lock.onLost?.('renew-error', e)
       }
     }, intervalMs)
     // 不阻塞进程退出
