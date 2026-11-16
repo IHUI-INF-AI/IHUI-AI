@@ -11,7 +11,6 @@ import {
   FilePen,
   Plus,
   Minus,
-  Wrench,
   Clock,
   Terminal,
   SquarePen,
@@ -24,7 +23,8 @@ import { FoldableSection, formatDuration } from './foldable-section'
 import { ShowMoreList } from './show-more-list'
 import { ACTIVITY_VIRTUAL_THRESHOLD } from './activity-virtual-window'
 import { ConnectorGroupSection } from './connector-group-section'
-import { resolveToolCategory } from './tool-category'
+import { CATEGORY_STREAM_KIND, resolveToolCategory } from './tool-category'
+import { streamKindIcon } from '@/components/chat/stream/stream-ui'
 import { FILE_WRITE_TOOLS, fileDirname, pickFilePath, toolDisplayKey } from '@ihui/shared/chat'
 import { useAnalytics } from '@/hooks/use-analytics'
 import {
@@ -555,7 +555,7 @@ export const ToolCallSummaryCard = React.memo(function ToolCallSummaryCard({
     <FoldableSection
       title={title}
       count={effectiveSummary.totalCalls}
-      icon={Wrench}
+      icon={streamKindIcon(CATEGORY_STREAM_KIND[categoryRuns[0]?.categoryKey ?? 'other'])}
       summary={summaryText || undefined}
       defaultOpen={false}
       data-testid={testId ?? 'tool-call-summary-card'}

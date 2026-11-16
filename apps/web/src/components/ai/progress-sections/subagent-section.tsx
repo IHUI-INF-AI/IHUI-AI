@@ -5,11 +5,12 @@
 'use client'
 
 import * as React from 'react'
-import { Users, Loader2, Check, X, AlertTriangle, ChevronRight } from 'lucide-react'
+import { Loader2, Check, X, AlertTriangle, ChevronRight } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 import { Tooltip } from '@/components/feedback'
 import { FoldableSection, formatDuration, formatRelativeTime } from './foldable-section'
+import { streamKindIcon } from '@/components/chat/stream/stream-ui'
 import { CopyButton } from './copy-button'
 import { ToolCallItem } from './tool-calls-section'
 import type { Subagent, SubagentStatus } from '@/hooks/use-agent-progress'
@@ -253,7 +254,7 @@ export const SubagentSection = React.memo(function SubagentSection({
     <FoldableSection
       title={t('subagent.title')}
       count={subagents.length}
-      icon={Users}
+      icon={streamKindIcon('subagent')}
       data-testid="subagent-section"
     >
       <div className="space-y-0.5 text-[11px] leading-relaxed">

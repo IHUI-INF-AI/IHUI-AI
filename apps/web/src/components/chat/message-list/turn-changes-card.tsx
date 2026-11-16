@@ -27,7 +27,7 @@ import {
   StreamDelta,
   StreamDetail,
   StreamRow,
-  StreamStatusIcon,
+  StreamKindIcon,
   StreamTag,
 } from '@/components/chat/stream/stream-ui'
 
@@ -189,7 +189,7 @@ export function TurnChangesCard({ message, conversationId }: TurnChangesCardProp
           )}
           data-testid={`turn-changes-trigger-${message.id}`}
         >
-          <StreamStatusIcon status="success" />
+          <StreamKindIcon kind="diff" status="success" />
           <span className="min-w-0 flex-1 truncate text-foreground/80">
             {t('turnChanges.title')}
           </span>
@@ -217,6 +217,7 @@ export function TurnChangesCard({ message, conversationId }: TurnChangesCardProp
                 <div key={c.path}>
                   <StreamRow
                     status="success"
+                    kind={action === 'deletedFile' ? 'fileDelete' : 'fileWrite'}
                     title={rowTitle}
                     subject={c.name}
                     subjectKind="path"

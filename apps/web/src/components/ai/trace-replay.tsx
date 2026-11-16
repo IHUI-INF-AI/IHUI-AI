@@ -10,6 +10,7 @@ import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 import { describeToolCall } from '@ihui/shared/chat'
 import { StreamRow, type StreamStatus } from '@/components/chat/stream/stream-ui'
+import { streamKindForTool } from './progress-sections/tool-category'
 import type { ToolCall } from '@ihui/types'
 import { advancePlayback, initialPlayback, traceStepDuration } from '@/lib/trace-replay'
 
@@ -159,6 +160,7 @@ export function TraceReplay({ toolCalls }: { toolCalls: ToolCall[] }) {
                   也不得把 read_file 这类英文码名摆在界面上 */}
               <StreamRow
                 status={TRACE_STATUS[call.status]}
+                kind={streamKindForTool(call.toolName)}
                 title={title}
                 subject={view.subject}
                 subjectKind={view.subjectKind}
