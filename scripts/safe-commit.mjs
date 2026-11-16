@@ -2173,6 +2173,39 @@ if (hookFailed && commitResult.status !== 0) {
     gitStep(['worktree', 'prune'], 'git worktree prune(他人面)')
     foreignTree = null
   }
+  /**
+   * 信号兜底(2026-11-17 幽灵注册根治第二环):上面两个 dispose 只挂在 `process.on('exit')`,
+   * 而 SIGINT/SIGTERM(工具超时被杀 / Ctrl+C / taskkill 不带 /F)下 exit 事件不触发 ⇒
+   * 判据对拍树的工作目录 + `.git/worktrees` 注册一起残留(本次清理的 7 个残留正是这样来的)。
+   * 这里在信号到达时同步调用两个**幂等** dispose(各有 `if (!xxxTree) return`),它们内部的
+   * `worktree remove --force` + rmScratch(已内建摘注册) + prune 会成对清掉目录与注册。
+   *
+   * 三条护栏:
+   *  ① 只清这两个对拍 worktree —— 不碰 549 行的 git-lock release / 1545 行临时 index /
+   *     1758 行护栏目录(那些另有各自生命周期,且SIGKILL 同样捕不到,由各自兜底);
+   *  ② 退出码守 128+signum(SIGINT=130 / SIGTERM=143),不把被杀伪装成成功;
+   *  ③ 幂等 + 先摘 handler 再 exit,防信号连发重入。SIGKILL(任务管理器"结束任务" / taskkill /F)
+   *     进程完全无法捕获 —— 那是 OS 事实,该场景由 rmScratch 成对清理 + scrub TEMP 体检 + reap
+   *     落点闸(已扩 scratch)三道兜底收拾,不会攒成幽灵注册。
+   */
+  let _wtSignalCleaning = false
+  const onWorktreeSignal = (sig) => {
+    if (_wtSignalCleaning) return
+    _wtSignalCleaning = true
+    try {
+      process.off('SIGINT', onWtSigInt)
+      process.off('SIGTERM', onWtSigTerm)
+      disposeBaselineTree()
+      disposeForeignTree()
+    } catch {
+      /* 信号清理失败不改变退出语义 */
+    }
+    process.exit(sig === 'SIGINT' ? 130 : 143)
+  }
+  const onWtSigInt = () => onWorktreeSignal('SIGINT')
+  const onWtSigTerm = () => onWorktreeSignal('SIGTERM')
+  process.on('SIGINT', onWtSigInt)
+  process.on('SIGTERM', onWtSigTerm)
   const ensureForeignTree = () => {
     if (foreignTree) return foreignTree
     if (foreignWhy) return null
