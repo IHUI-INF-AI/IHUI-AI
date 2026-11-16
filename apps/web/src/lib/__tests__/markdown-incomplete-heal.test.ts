@@ -6,7 +6,7 @@ import { describe, it, expect } from 'vitest'
 import { hasUnclosedFence, healIncompleteMarkdown } from '../markdown-incomplete-heal'
 
 /**
- * 流式 markdown 未闭合 token 补全测试(2026-10-13 立,对标 Trae fillInIncompleteTokens)。
+ * 流式 markdown 未闭合 token 补全测试(2026-10-13 立,遵循统一工程规范)。
  *
  * 覆盖:围栏 / 行内代码 / 粗斜体 / 删除线 / 未闭合链接(不发明 URL) /
  * setext 末尾孤立 -/= 前插零宽 / 未闭合 HTML / $$ 与行内 $ /

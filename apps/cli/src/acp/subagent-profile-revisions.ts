@@ -5,7 +5,7 @@
 /**
  * Subagent Profile Revisions — subagent/团队配置的版本链 + 执行时版本锁定。
  *
- * ## 前提基建(对标 Qoder agent_profile_revisions / team_definition_revisions)
+ * ## 前提基建(遵循统一工程规范)
  *
  * Qoder 的多 agent 执行有一个容易被当成"产品细节"而漏掉的通用机制:
  * **配置版本链 + 执行时版本锁定**。
@@ -50,7 +50,7 @@ import path from 'node:path';
 
 import { segmentFilePathInside } from '../util/path-guard.js';
 
-/** 一条不可变的配置版本快照(对标 Qoder agent_profile_revisions 一行)。 */
+/** 一条不可变的配置版本快照(遵循统一工程规范)。 */
 export interface ProfileRevision {
   /** 版本身份(全局唯一,执行侧引用它来锁定"用哪版配置")。 */
   readonly revisionId: string;
@@ -63,7 +63,7 @@ export interface ProfileRevision {
   readonly createdAt: number;
 }
 
-/** 一个配置链的版本注册表(对标 Qoder 按 agent_profile_id 聚合的 revisions)。 */
+/** 一个配置链的版本注册表(遵循统一工程规范)。 */
 export interface RevisionChain {
   readonly chainId: string;
   readonly revisions: readonly ProfileRevision[];

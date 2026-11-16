@@ -349,7 +349,7 @@ export function checkWireMirrors(read, wireValues) {
 //
 // TS 侧 packages/types/src/permission-axis.ts ↔ Python 侧 app/core/permission_axis.py。
 // 与单轴 R1 同构:成员集、别名键与目标、Codex 三档预设、Legacy 单轴→双轴映射、
-// granular 细分键名单,五样逐字对齐。映射键集必须恰好等于单轴规范成员集
+// granular 细分键名单,五样按行为规格。映射键集必须恰好等于单轴规范成员集
 // (新增第 6 档 permission mode 而忘登记双轴映射时,这里红)。
 // 刻意只对账数据面:双轴运行时接线(消费 sandbox/approval 的执行面)未实现前,
 // 不进 R3 消费点档案 —— 接线落地时随本票下一格补档案。

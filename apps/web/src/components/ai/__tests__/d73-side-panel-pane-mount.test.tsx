@@ -167,7 +167,8 @@ describe('M3 D73 词包对账:挂载用到的每个键在五语言 ai.pane.multi
   it('拆分入口的 aria-label 与可见文案同键(无障碍名与可见文案同源)', () => {
     // 2026-11-04 信息架构重构:拆分入口从头部图标按钮 + Tooltip 收进「⋯」菜单,
     // 可见文案改为菜单行内的 {tp('splitRight')};aria-label 仍必须同键,防读屏名漂移。
-    expect(host).toMatch(/aria-label=\{tp\('([A-Za-z]+)'\)\}[\s\S]{0,200}\{tp\('\1'\)\}/)
+    // {0,400}:菜单项内 onSelect 回调 + Columns2 图标占据间距,实测 212,留余量锁「同项同键」意图。
+    expect(host).toMatch(/aria-label=\{tp\('([A-Za-z]+)'\)\}[\s\S]{0,400}\{tp\('\1'\)\}/)
   })
 })
 

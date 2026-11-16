@@ -5,7 +5,7 @@
 'use client'
 
 /**
- * 渠道公开监控页(2026-09-16 立,第三轮对标补强 O,对标 Sub2API channelMonitorV2)。
+ * 渠道公开监控页(2026-09-16 立,第三轮对齐补强 O,对齐 Sub2API channelMonitorV2)。
  * status page 形态:整体概览 + 渠道卡片(状态徽章/延迟/模型数/最近检查),
  * 数据源 GET /api/relay/monitor/status(公开脱敏,不含上游 Key/账号/URL),60s 自动刷新。
  */

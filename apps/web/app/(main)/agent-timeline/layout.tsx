@@ -11,7 +11,7 @@ export const metadata: Metadata = {
     absolute: 'Agent 全活动时间线回放 | IHUI AI',
   },
   description:
-    'IHUI AI Agent 全活动时间线回放:输入 session_id 一次拉全步骤/上下文压缩/检查点/成本/注入拦截五类活动,统一时间轴可视化与汇总统计,检查点可回滚,对标 WorkBuddy/Codex 可复现审计。',
+    'IHUI AI Agent 全活动时间线回放:输入 session_id 一次拉全步骤/上下文压缩/检查点/成本/注入拦截五类活动,统一时间轴可视化与汇总统计,检查点可回滚,对齐统一规范。',
   alternates: { canonical: '/agent-timeline' },
   openGraph: {
     type: 'website',

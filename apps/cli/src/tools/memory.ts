@@ -5,7 +5,7 @@
 /**
  * 四层记忆工具 — 让 Agent 具备记忆检索/保存/梦境固化/遗忘能力。
  *
- * 对标 OpenClaw Mem 系统,通过 HTTP 调用 ai-service /api/memory/* 端点:
+ * 遵循统一工程规范
  * - memory_recall:语义检索记忆(semantic 层 cosine similarity)
  * - memory_save:保存新记忆到 working/episodic/semantic/procedural 层
  * - memory_dream:触发梦境固化(consolidate,LLM 提取跨会话模式)

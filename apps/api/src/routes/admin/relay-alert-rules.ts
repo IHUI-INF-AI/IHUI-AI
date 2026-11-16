@@ -179,7 +179,7 @@ const adminRelayAlertRulesRoutes: FastifyPluginAsync = async (server) => {
     }
   })
 
-  // 7. 告警静默(2026-09-16 立,对标竞品 /alert-silences):维护窗口/已知故障期抑制告警。
+  // 7. 告警静默(2026-09-16 立,对齐竞品 /alert-silences):维护窗口/已知故障期抑制告警。
   //    scope=all 抑制全部规则 / scope=rule 抑制指定规则;到期自动失效,评估触发前检查。
   server.get('/relay/alert-silences', async (request, reply) => {
     try {

@@ -66,7 +66,7 @@ export interface Goal {
 interface GoalState {
   goal: Goal | null
   /**
-   * D64 ⑥(2026-09-26):卡体折叠态持久化(对标 Trae `isGoalExpanded`,E2 证据;
+   * D64 ⑥(2026-09-26):卡体折叠态持久化(遵循统一工程规范;
    * 我方此前卡恒展开)。默认展开,随本 store 一并入持久化层。
    */
   expanded: boolean

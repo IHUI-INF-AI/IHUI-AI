@@ -4,7 +4,7 @@
 
 /**
  * VectorSearch — embedding 语义检索统一封装,cosine similarity 排序。
- * 平台独占:仅 cli(W2-1 向量语义层,对标 OpenClaw Mem semantic retrieval)。
+ * 平台独占:仅 cli(W2-1 向量语义层,遵循统一工程规范)。
  * 复用 embedding.ts(EmbeddingProvider)+ hybrid-search.ts(cosineSimilarity),零冗余。
  */
 import * as crypto from 'node:crypto';

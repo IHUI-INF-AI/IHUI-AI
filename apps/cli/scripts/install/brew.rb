@@ -19,7 +19,7 @@
 #   curl -sL "https://registry.npmjs.org/ihui-cli/-/ihui-cli-$V.tgz" | sha256sum
 # 然后回填 url 里的版本号与 sha256,并删除 odie 守卫。**禁止手填猜测值。**
 class IhuiAi < Formula
-  desc "IHUI AI Coding Agent CLI — 对标 Claude Code / Codex"
+  desc "IHUI AI Coding Agent CLI — 对齐统一规范
   homepage "https://aizhs.top"
   url "https://registry.npmjs.org/ihui-cli/-/ihui-cli-1.0.0.tgz"
 

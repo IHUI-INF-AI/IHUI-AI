@@ -110,9 +110,11 @@ describe('D06① 装车证明:选择器与"选择→正文"判定在生产面被
         face,
       ),
     ).toBe(true)
-    // 渲染点 + 可见性判据(生产 = review 模式)必须同在一处,缺一都不算装车
+    // 渲染点 + 可见性判据(生产 = 输入 /review 或已选目标;模式入口已移除)必须同在一处
     expect(
-      /<ReviewTargetSelector\b[\s\S]{0,200}?visible=\{currentMode === 'review'\}/.test(face),
+      /<ReviewTargetSelector\b[\s\S]{0,200}?visible=\{reviewSelection !== null \|\| value\.trimStart\(\)\.startsWith\('\/review'\)\}/.test(
+        face,
+      ),
     ).toBe(true)
     // 选择值必须真的上抛/回填(state 受控),不是写死的展示件
     expect(/selection=\{reviewSelection\}/.test(face)).toBe(true)

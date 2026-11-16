@@ -21,7 +21,7 @@
  *     当正文带进 HEAD,或逼人二选一而静默丢一侧。这一档**拦落地**并点名行号原文。
  *
  * 判据单一真相源(§0.6/§22c):
- *   "什么算成对标记"**不在这里定义** —— 一律 import `lib/conflict-marker-triples.mjs` 的
+ *   "什么算成对齐记"**不在这里定义** —— 一律 import `lib/conflict-marker-triples.mjs` 的
  *   `findMarkerPairs`。本文件一个新正则都没有,只回答"这一对的区域内有没有正文"。
  *   模块级私有正则只有"空白行"这一条(`NON_BLANK` 的取反),它不是冲突标记判据。
  *   由此**自动继承**两条既有边界,不再各写一遍:
@@ -47,7 +47,7 @@ export const LANDING_MARKER_SKIP_ENV = 'IHUI_LAND_SKIP_CONFLICT_MARKER_GATE'
 const isBlank = (line) => String(line ?? '').trim() === ''
 
 /**
- * 把一份内容里的**成对标记区块**分型(纯函数,零副作用)。
+ * 把一份内容里的**成对齐记区块**分型(纯函数,零副作用)。
  *
  * 输入:`text` 任意文本。输出:数组,每项
  *   {

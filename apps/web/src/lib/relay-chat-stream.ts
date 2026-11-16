@@ -13,7 +13,7 @@
  * - 号池选号、熔断、字节记账全部复用服务端 forwardToChannel,本文件只做
  *   "帧 ↔ OpenAI delta" 的翻译,不重写转发语义。
  *
- * 协议(与服务端 apps/api/src/plugins/ws-relay-chat.ts 逐字对齐):
+ * 协议(与服务端 apps/api/src/plugins/ws-relay-chat.ts 按行为规格):
  *   客户端 → 服务端:{ type:'chat', id, model, messages, stream:true, conversationId? }
  *   服务端 → 客户端:ready / start / chunk / done / error
  *   chunk.data = 已剥 `data:` 前缀的 OpenAI 兼容 SSE JSON 行

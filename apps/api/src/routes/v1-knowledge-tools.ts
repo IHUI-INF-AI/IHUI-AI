@@ -154,7 +154,7 @@ import { getUserId, mintInternalJwt, jsonInit, asObj } from './v1-shared.js'
 const INTERNAL_BASE = `http://localhost:${process.env.PORT || 8802}`
 
 /**
- * ai-service message-bus 的通道取值域,抄自
+ * ai-service message-bus 的通道取值域,取自
  * apps/ai-service/app/services/message_bus.py 的 `ChannelType`(改那边必须同步改这边)。
  * 对账由 apps/api/tests/v1-message-bus-contract.test.ts 从 Python 源码解析枚举值逐值比对,
  * 任一侧漂移即红;email 已从该枚举删除,不得回升。
@@ -166,7 +166,7 @@ const MESSAGE_BUS_CHANNELS = ['im', 'websocket', 'webhook', 'sms'] as const
 type MessageBusChannel = (typeof MESSAGE_BUS_CHANNELS)[number]
 
 /**
- * ai-service `PublishRequest.priority` 默认档位(抄自该字段描述 high/normal/low)。
+ * ai-service `PublishRequest.priority` 默认档位(取自该字段描述 high/normal/low)。
  * v1 对外契约不含 priority,也不在此新增(属已发布契约变更),故出站固定用 ai-service 自身默认值。
  */
 const MESSAGE_BUS_DEFAULT_PRIORITY = 'normal' as const

@@ -94,7 +94,11 @@ interface HarnessHandle {
   readonly geometry: Geometry
   readonly result: () => MessageListScrollResult
   readonly stickCalls: () => number
-  readonly switchTo: (conversationId: string, messages: ChatMessage[], extra?: { isStreaming?: boolean }) => void
+  readonly switchTo: (
+    conversationId: string,
+    messages: ChatMessage[],
+    extra?: { isStreaming?: boolean },
+  ) => void
   readonly rerender: (messages: ChatMessage[], extra?: { isStreaming?: boolean }) => void
   readonly wheel: (deltaY: number) => void
   readonly dispatchScroll: () => void
@@ -249,7 +253,7 @@ afterEach(() => {
   useChatStore.setState({ conversationId: null, messages: [], userScrolledUp: false })
 })
 
-describe('切走:每会话保存 {offset, following}(对标 Trae 的 {offset, stickToBottom})', () => {
+describe('切走:每会话保存 {offset, following}(对齐统一规范)', () => {
   it('1. 未跟随切走:现场(offset=400, following=false)入账;新会话无账目回落跟随滚底', () => {
     useChatStore.setState({ conversationId: 'a' })
     const h = mountHarness(makeMessages(2))
@@ -348,7 +352,7 @@ describe('切回:二段恢复(先钉保存位,100ms 后按测量修正;跟随档
   })
 })
 
-describe('文件 diff 流式变更触发追底(P2b,对标 Trae"文件 diff 变更也触发追底")', () => {
+describe('文件 diff 流式变更触发追底(P2b,对齐统一规范)', () => {
   const editToolCall = (partialDiffLen: number): ToolCall[] => [
     {
       id: 't1',

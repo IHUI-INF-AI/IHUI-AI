@@ -5,7 +5,7 @@
 /**
  * PanelLeftRounded 侧边栏面板图标 (mobile-rn 端)
  *
- * 与 web 端 SidebarHeader.tsx 的 PanelLeftRounded 同源(对标设计稿):
+ * 与 web 端 SidebarHeader.tsx 的 PanelLeftRounded 同源(对齐设计稿):
  * 大圆角面板(外框) + 左侧实心竖条(面板边) + 方向箭头。
  * open=false 箭头朝左(web 展开态侧边栏的可见图标);open=true 箭头朝右(web 折叠态展开动作)。
  * NavBar 各屏抽屉触发钮取 open=false,替换原 lucide Menu 汉堡图标(2026-10-15 用户定:
@@ -44,11 +44,7 @@ export function PanelLeftRounded({ size = 20, color, open = false }: PanelLeftRo
     >
       <Rect width={18} height={18} x={3} y={3} rx={rnRadius.sm} />
       <Path d="M7.5 8.5v7" strokeWidth={2.5} />
-      {open ? (
-        <Path d="m13.75 8.5 3.5 3.5-3.5 3.5" />
-      ) : (
-        <Path d="m17.25 8.5-3.5 3.5 3.5 3.5" />
-      )}
+      {open ? <Path d="m13.75 8.5 3.5 3.5-3.5 3.5" /> : <Path d="m17.25 8.5-3.5 3.5 3.5 3.5" />}
     </Svg>
   )
 }

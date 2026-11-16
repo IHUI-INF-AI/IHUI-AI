@@ -40,6 +40,56 @@ def _contributor(name, status="completed", output="ok", conclusion="", score=Non
 
 
 # =============================================================================
+# TeamContributor.from_task_result — 结构化尾巴解析(2026-11-16)
+# =============================================================================
+
+
+def test_from_task_result_parses_conclusion_and_score_from_output():
+    """invoke_parallel 不产出 conclusion/score 时,从正文尾巴解析。"""
+    contributor = TeamContributor.from_task_result({
+        "name": "a", "task": "t", "status": "completed",
+        "output": "分析过程...\n结论：采用方案 B\n评分：88",
+        "duration_ms": 12.0,
+    })
+    assert contributor.conclusion == "采用方案 B"
+    assert contributor.score == 88.0
+
+
+def test_from_task_result_prefers_explicit_fields():
+    contributor = TeamContributor.from_task_result({
+        "name": "a", "task": "t", "status": "completed",
+        "output": "结论：正文结论\n评分：10",
+        "conclusion": "显式结论", "score": 99,
+    })
+    assert contributor.conclusion == "显式结论"
+    assert contributor.score == 99.0
+
+
+def test_from_task_result_ignores_echoed_placeholder():
+    """模型原样回抄模板占位符时,不能当成真实结论。"""
+    contributor = TeamContributor.from_task_result({
+        "name": "a", "task": "t", "status": "completed",
+        "output": "结论：<一句话结论>\n评分：<0-100 的整数>",
+    })
+    assert contributor.conclusion == ""
+    assert contributor.score is None
+
+
+def test_from_task_result_clamps_score_and_ignores_bool():
+    clamped = TeamContributor.from_task_result({
+        "name": "a", "task": "t", "status": "completed",
+        "output": "评分：180",
+    })
+    assert clamped.score == 100.0
+    boolean = TeamContributor.from_task_result({
+        "name": "b", "task": "t", "status": "completed",
+        "output": "无结构化尾巴", "score": True,
+    })
+    assert boolean.score is None
+    assert boolean.conclusion == ""
+
+
+# =============================================================================
 # ResultAggregator.aggregate — merge
 # =============================================================================
 

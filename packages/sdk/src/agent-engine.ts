@@ -6,7 +6,7 @@
  * Agent Engine 编程编排层 — createAgent()(P2-④,2026-09-18 立)。
  *
  * 定位:把 apps/ai-service 的 JSON-RPC 编排引擎(P2-③)封装成**应用内可编程的
- * 通用 agent 编排层** —— 对标 Codex SDK(TS/Python 编程编排),但模型无关:
+ * 通用 agent 编排层** —— 遵循统一工程规范),但模型无关:
  * 同一套 API 背后可路由到任意 provider(MCP 超级工具池 / 19 家模型路由 / 成本账本)。
  *
  * 与 SDK 其余模块的区别:其他模块是"调我们云 API 的 client",本模块是"在你应用里跑
@@ -482,7 +482,7 @@ class AgentEngineClient implements Agent {
     return this.runMethod('thread.prompt', normalizeInput(input), options)
   }
 
-  /** 一次性非交互执行(2026-09-18 立,对标 Codex `codex exec` headless):
+  /** 一次性非交互执行(2026-09-18 立,遵循统一工程规范):
    * 服务端临时线程跑单轮后即弃,返回结构化结果;过程事件经 onEvent 流出。 */
   async exec(
     input: unknown,
@@ -708,7 +708,7 @@ class AgentEngineClient implements Agent {
     return this.call<AgentThreadState>('thread.state', { threadId: this.threadIdValue })
   }
 
-  /** 手动压缩线程历史(2026-09-18 第二批,对标 Codex /compact;确定性压缩零 LLM 成本)。 */
+  /** 手动压缩线程历史(2026-09-18 第二批,遵循统一工程规范;确定性压缩零 LLM 成本)。 */
   async compact(keepRecent?: number): Promise<Record<string, unknown>> {
     return this.call<Record<string, unknown>>('thread.compact', {
       threadId: this.threadIdValue,
@@ -716,7 +716,7 @@ class AgentEngineClient implements Agent {
     })
   }
 
-  /** 导出线程为 JSONL(2026-09-18 第二批,对标 Codex rollout 导出;path 可选落盘)。 */
+  /** 导出线程为 JSONL(2026-09-18 第二批,遵循统一工程规范;path 可选落盘)。 */
   async exportThread(path?: string): Promise<Record<string, unknown>> {
     return this.call<Record<string, unknown>>('thread.export', {
       threadId: this.threadIdValue,
@@ -724,12 +724,12 @@ class AgentEngineClient implements Agent {
     })
   }
 
-  /** 读取线程当前计划(update_plan 内置工具写入;对标 Codex PlanUpdate 查询面)。 */
+  /** 读取线程当前计划(update_plan 内置工具写入;遵循统一工程规范)。 */
   async getPlan(): Promise<{ plan: Array<Record<string, unknown>> | null }> {
     return this.call('thread.plan', { threadId: this.threadIdValue })
   }
 
-  /** 消息入队(2026-09-18 第三批,对标 Codex Steer:轮中转向,本轮结束自动续跑)。 */
+  /** 消息入队(2026-09-18 第三批,遵循统一工程规范)。 */
   async enqueue(input: unknown): Promise<Record<string, unknown>> {
     return this.call<Record<string, unknown>>('thread.enqueue', {
       threadId: this.threadIdValue,
@@ -737,12 +737,12 @@ class AgentEngineClient implements Agent {
     })
   }
 
-  /** 设置/清除线程持久目标(2026-09-18 第三批,对标 Codex Goals;null 清除)。 */
+  /** 设置/清除线程持久目标(2026-09-18 第三批,遵循统一工程规范;null 清除)。 */
   async setGoal(goal: string | null): Promise<{ goal: string | null }> {
     return this.call('thread.goal', { threadId: this.threadIdValue, goal })
   }
 
-  /** 审查模式(2026-09-18 第三批,对标 Codex review:派生审查子代理)。 */
+  /** 审查模式(2026-09-18 第三批,遵循统一工程规范)。 */
   async review(focus?: string): Promise<Record<string, unknown>> {
     return this.call<Record<string, unknown>>('thread.review', {
       threadId: this.threadIdValue,
@@ -750,7 +750,7 @@ class AgentEngineClient implements Agent {
     })
   }
 
-  /** 线程清单(2026-09-18 第七批,对标 Codex thread/list:分页 + 运行态合并)。 */
+  /** 线程清单(2026-09-18 第七批,遵循统一工程规范)。 */
   async listThreads(options?: {
     limit?: number
     offset?: number
@@ -759,7 +759,7 @@ class AgentEngineClient implements Agent {
     return this.call<Record<string, unknown>>('thread.list', { ...options })
   }
 
-  /** 归档/恢复线程(2026-09-18 第七批,对标 Codex thread/archive;默认归档)。 */
+  /** 归档/恢复线程(2026-09-18 第七批,遵循统一工程规范;默认归档)。 */
   async archiveThread(threadId: string, archived = true): Promise<Record<string, unknown>> {
     return this.call<Record<string, unknown>>('thread.archive', {
       threadId,
@@ -767,7 +767,7 @@ class AgentEngineClient implements Agent {
     })
   }
 
-  /** 分叉线程(2026-09-18 第七批,对标 Codex thread/fork:深拷贝独立演进)。 */
+  /** 分叉线程(2026-09-18 第七批,遵循统一工程规范)。 */
   async forkThread(options?: {
     threadId?: string
     title?: string
@@ -778,7 +778,7 @@ class AgentEngineClient implements Agent {
     })
   }
 
-  /** 工具目录搜索(2026-09-18 第四批,对标 Codex tool_search 延迟装载)。 */
+  /** 工具目录搜索(2026-09-18 第四批,遵循统一工程规范)。 */
   async searchTools(query: string, limit?: number): Promise<Record<string, unknown>> {
     return this.call<Record<string, unknown>>('tools.search', {
       ...(this.threadIdValue ? { threadId: this.threadIdValue } : {}),
@@ -787,7 +787,7 @@ class AgentEngineClient implements Agent {
     })
   }
 
-  /** 装载工具进线程(2026-09-18 第四批,对标 LoadableToolSpec materialize)。 */
+  /** 装载工具进线程(2026-09-18 第四批,对齐 LoadableToolSpec materialize)。 */
   async loadTool(name: string): Promise<Record<string, unknown>> {
     return this.call<Record<string, unknown>>('tools.load', {
       threadId: this.threadIdValue,
@@ -795,7 +795,7 @@ class AgentEngineClient implements Agent {
     })
   }
 
-  /** 用户结构化提问回填(2026-09-18 第四批,对标 Codex elicitation)。 */
+  /** 用户结构化提问回填(2026-09-18 第四批,遵循统一工程规范)。 */
   async respondElicitation(
     elicitationId: string,
     value: unknown,

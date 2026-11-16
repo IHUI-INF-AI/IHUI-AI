@@ -15,7 +15,7 @@
  * 原持有者随后把 meta 写进**别人**的锁目录里,账面两个进程都认为自己持锁。
  * 这与 2026-09-25 冻结部署环 11h50m 的 G-193 同源(判据问错了主体、矛盾时无人认账),只是发生在创建侧。
  *
- * 上游证据(只读参考 `G:\IHUI-AI\.ihui-agent\tmp\zcode-study\zcode\packages\services\src\bots\channelRuntime.ts:153-238`):
+ * 上游证据(只读参考 `内部规格`):
  *   - `:172-176` 原文「锁目录和 owner 文件必须作为一个**完整状态**对外可见。先在唯一临时目录写完
  *     owner,再原子 rename,避免竞争者把尚未初始化完成的锁误判为 stale」⇒ 就是本文件的形态:
  *     唯一 pending 目录 → 写全 payload → rename 成正式锁目录;

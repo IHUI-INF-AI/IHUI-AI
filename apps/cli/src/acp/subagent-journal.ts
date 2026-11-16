@@ -5,25 +5,21 @@
 /**
  * 子智能体/会话重放日志(journal)的闭环操作。
  *
- * ## 对标依据(逆向取证)
+ * ## 设计依据
  *
- * `@genie/agent-harness` 的 `lib/subagent/journal.js`(WorkBuddy 5.11.2,REA 取证)。
- * 它维护一条「会话更新通知日志」,核心不变式是:**同一条消息 / 同一个工具调用
- * 在日志里只有一份,后续帧就地合并而不是追加**。这让重放时不会把同一条消息
- * 灌成几十条碎片帧。
+ * 会话更新通知日志的通用不变式是：**同一条消息 / 同一个工具调用在日志里只有一份，
+ * 后续帧就地合并而不是追加**。这让重放时不会把同一条消息灌成几十条碎片帧。
  *
- * 本轮已复现其 `assertMessageIdentity` / `canonicalJson` / 字节上限(见
- * `message-identity.ts`)。本模块补齐它剩下的三个闭环操作,模块路径按其
- * `lib/subagent/journal.js` 对位落到本仓 `apps/cli/src/acp/subagent-journal.ts`:
+ * 本模块提供三个闭环操作：
  *
  *   · `compactJournal` —— 幂等重写:同一 key 的帧折叠成一条,重复灌入得到同一结果。
  *   · `appendNotification` —— 增量追加:同 messageId 内容块拼接、同 toolCallId 字段合并。
- *   · `mergeHistoricalJournal` —— 历史回放合并:对齐 "两端拼接 + compact 幂等去重"
- *     (不做 KMP 边界裁剪,理由与证据见该函数注释)。
+ *   · `mergeHistoricalJournal` —— 历史回放合并:两端拼接 + compact 幂等去重
+ *     (不做 KMP 边界裁剪,理由见该函数注释)。
  *
- * ## 与对标实现的差异(超越点)
+ * ## 本实现的取舍
  *
- *   · 对标用 `messageIdentity` 边表反查 key;本模块把 key 判据收敛成纯函数
+ *   · 常见方案用 `messageIdentity` 边表反查 key;本模块把 key 判据收敛成纯函数
  *     `boundaryKey(notification)`,无需外部边表即可判定,更容易单测与复用。
  *   · 字节计数复用 `frameBytes`,不另写一份 `_()`(单一真相源,§0.6)。
  *   · 报错文案与拒绝范围更精确:缺 messageId 报 `MessageIdentityError`,
@@ -90,7 +86,7 @@ function toolJournalKey(notification: JournalNotification): string | undefined {
 }
 
 /**
- * 一条通知的日志归属 key(本模块相对对标的超越点:纯函数,无需边表)。
+ * 一条通知的日志归属 key(本模块的设计取舍:纯函数,无需边表)。
  *
  *   · 带 messageId 的消息帧 → `message:[sessionId,messageId]`;
  *   · 带.toolCallId 的工具帧 → `tool:[sessionId,tool,toolCallId]`;
@@ -322,9 +318,9 @@ export interface MergeHistoryResult {
  * 直接把两端拼接后交给 `compactJournal` 按消息身份/工具身份幂等去重 —— 重叠段
  * (同一条消息被两端各记了一次)会折叠成一份,不会在重放后出现两份。
  *
- * ## 为什么不做 KMP 边界重叠(对标 `journalBoundaryOverlap` 的取舍)
+ * ## 为什么不做 KMP 边界重叠
  *
- * 对标实现用 KMP 算「history 尾 ↔ current 头」的最长重叠,再把真正新增的
+ * 常见方案用 KMP 算「history 尾 ↔ current 头」的最长重叠,再把真正新增的
  * 前缀并进来。本仓**不需要**这一步:`compactJournal` 已经把同 key 帧折叠成
  * 一条,所以「先拼接再 compact」与「先 KMP 裁剪再拼接」的结果恒等。
  *

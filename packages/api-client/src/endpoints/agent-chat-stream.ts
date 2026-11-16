@@ -101,7 +101,7 @@ export interface AgentChatStreamHandle {
   completion: Promise<AgentChatStreamOutcome>
 }
 
-/** v2 分页读的响应形状(`pageAgentMessages` 产出,字段逐字对齐后端)。 */
+/** v2 分页读的响应形状(`pageAgentMessages` 产出,字段按行为规格后端)。 */
 export interface AgentChatMessagesPage {
   items: AgentChatMessage[]
   total: number

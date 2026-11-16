@@ -6,7 +6,7 @@
 /**
  * 目标状态机(J6)—— 把「目标」提升为**一等实体**。
  *
- * 逆向出处(2026-11-13 从 Trae `ai_agent.dll`/`harness.dll` 字符串清单逐条读出,E1 一手):
+ * 独立分析出处(2026-11-13 从 Trae `ai_agent.dll`/`harness.dll` 字符串清单逐条读出,E1 一手):
  * Trae 把目标做成持久化实体 `chat_session_goal`(表字段 goal_id / objective /
  * tokens_used / time_used_seconds / rounds_used / created_at_ms / updated_at_ms),
  * 配套三件套工具 `create_goal` / `get_goal` / `update_goal` + 模式切换 `plan_mode`

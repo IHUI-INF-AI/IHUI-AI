@@ -8,7 +8,7 @@
 """Guardian 上下文片段移植测试(批 58,对齐 codex guardian context 9 文件)。
 
 不依赖 conftest:直接 import ``app.core.guardian_context``。每片段断言 role、
-标记与正文关键句逐字对齐 codex 源码;状态机断言序列号 / 8MB 上限 / TextOnly 图片
+标记与正文关键句按行为规格 外部实现 源码;状态机断言序列号 / 8MB 上限 / TextOnly 图片
 丢弃 / 超限淘汰;SenderMessages 断言最近 3 条窗口。
 """
 

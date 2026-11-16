@@ -1733,7 +1733,7 @@ export function buildTicketScope(
     const files = raw
       .split(/\r?\n/)
       .map((l) => l.replace(/^[^:]+:/, '').trim())
-      // 排除的是"不可能算实现"的面:散文(*.md)、机读台账(*.jsonl)、逆向取证件(.archify/)
+      // 排除的是"不可能算实现"的面:散文(*.md)、机读台账(*.jsonl)、行为分析件(.archify/)
       .filter(
         (p) => p && !/\.md$/i.test(p) && !/\.(jsonl|json)$/i.test(p) && !p.startsWith('.archify/'),
       )

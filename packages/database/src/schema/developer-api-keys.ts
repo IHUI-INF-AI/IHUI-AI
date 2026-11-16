@@ -67,7 +67,7 @@ export const developerApiKeys = pgTable(
     allowedModels: jsonb('allowed_models'),
     /** 单次请求 token 上限(null = 不限制),超过拒绝 */
     maxTokensPerReq: integer('max_tokens_per_req'),
-    // --- Key 级限流窗口 + IP 黑名单(2026-09-16 立,第二批深度对标补强 B/C)---
+    // --- Key 级限流窗口 + IP 黑名单(2026-09-16 立,第二批深度对齐补强 B/C)---
     /** IP 黑名单(jsonb 字符串数组,null/空 = 无黑名单);命中即 403,优先于白名单判断 */
     blockedIps: jsonb('blocked_ips'),
     /** 5 小时窗口最大请求数(null = 不限),对齐订阅上游滚动窗口 */
@@ -90,7 +90,7 @@ export const developerApiKeys = pgTable(
     alias: varchar('alias', { length: 100 }),
     /** 备注/描述 */
     description: text('description'),
-    // --- 多租户关联字段(对标 New API,API Key 可关联到 tenant 实现组织级配额池)---
+    // --- 多租户关联字段(对齐 New API,API Key 可关联到 tenant 实现组织级配额池)---
     /** 关联的租户 ID(nullable,不关联则为个人 Key),onDelete set null 避免删租户时级联删 Key */
     tenantId: uuid('tenant_id').references(() => tenants.id, { onDelete: 'set null' }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),

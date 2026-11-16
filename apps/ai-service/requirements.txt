@@ -20,7 +20,7 @@ asyncpg>=0.31.0
 cryptography>=50.0.0
 redis[hiredis]>=8.1.0
 
-# --- 任务调度(对标 Codex Automations,2026-07-24 立)---
+# --- 任务调度(对齐统一规范)---
 # APScheduler AsyncIOScheduler:cron/date/interval 三种 trigger + 后台 worker
 # croniter:schedule_task 工具计算 cron 表达式的 next_run_at
 # APScheduler 保持 3.x(4.x 是完全重写,有重大 breaking change)

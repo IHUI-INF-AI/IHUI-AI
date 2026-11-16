@@ -6,7 +6,7 @@
  * 方法恢复策略(recovery-policy)。
  *
  * 钉四件事:
- *   ① 四档语义与对标实现同义(read/idempotent → 可重试;mutation → 结果未知;control → 不适用);
+ *   ① 四档语义与对齐实现同义(read/idempotent → 可重试;mutation → 结果未知;control → 不适用);
  *   ② **未登记方法默认 mutation(结果未知)**,不是 read —— 这是最关键的失效方向;
  *   ③ 已登记方法的名字必须在我方真实存在(不许申报不存在的方法);
  *   ④ 统计口径正确(能一眼看出"多少方法崩了不敢重试")。

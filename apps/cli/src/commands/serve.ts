@@ -7,7 +7,7 @@
  * 端口 8841(strictPort:占用即失败,不回退到其他端口)。
  * GET /health 返回 200;WS 桥 /ws 推送实时事件。
  * 复用 server/http-server.ts(node:http 创建 server)+ server/ws-bridge.ts(WS 桥)。
- * 平台独占:仅 cli(W1-2 Client/Server 架构,对标 OpenCode client/server)。
+ * 平台独占:仅 cli(W1-2 Client/Server 架构,对齐 OpenCode client/server)。
  *
  * O12 机器凭据接入:
  *   - 入站:除既有 IHUI_AGENT_TOKEN 外,还可放行服务端 API Key(`Bearer ihui_xxx`

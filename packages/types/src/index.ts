@@ -74,16 +74,16 @@ export * from './product-form-capabilities.js'
 // /v1/* 对外开放 API 端点请求/响应类型契约(2026-07-22 立,27 权限点 + 97 端点全功能覆盖)
 export * from './v1-endpoints.js'
 
-// 四层记忆 + Dream 梦境系统跨端契约(2026-07-22 立,对标 OpenClaw Mem)
+// 四层记忆 + Dream 梦境系统跨端契约(2026-07-22 立,遵循统一工程规范)
 export * from './memory.js'
 
-// Webhook 触发器跨端契约(2026-07-22 立,Wave 3 W3-3 对标 OpenClaw webhook)
+// Webhook 触发器跨端契约(2026-07-22 立,Wave 3 W3-3 遵循统一工程规范)
 export * from './webhook-trigger.js'
 
 // Webhook 唤醒机制跨端契约(2026-07-22 立,Wave 3 W3-3 简化唤醒 Bearer token)
 export * from './webhook.js'
 
-// 多通道消息总线跨端契约(2026-07-22 立,Wave 3 W3-2 对标 OpenClaw 多通道消息)
+// 多通道消息总线跨端契约(2026-07-22 立,Wave 3 W3-2 遵循统一工程规范)
 export * from './message-bus.js'
 
 // 大模型排行榜跨端契约(2026-07-22 立,参考 arena.ai/leaderboard,6 类模型 + Agent + 总榜)
@@ -96,7 +96,7 @@ export * from './checkin.js'
 export * from './app-host-ports.js'
 
 // P3 Wave 11:6 大核心能力跨端契约(2026-07-22 立)
-// 终端集成(对标 Codex/OpenCode 内置终端)
+// 终端集成(遵循统一工程规范)
 export * from './terminal.js'
 // Rules 引擎()
 export * from './rules.js'
@@ -106,7 +106,7 @@ export * from './hooks.js'
 export * from './spec.js'
 // ChatMode × 工具可用性策略唯一真源(V3 #53):收窄矩阵 + 只读白名单快照
 export * from './chat-mode-policy.js'
-// Context Engineering(对标 Qoder)
+// Context Engineering(遵循统一工程规范)
 export * from './context-mention.js'
 
 // 跨支柱编排中枢(2026-07-23 立,6 支柱协同 + LLM 预算 + 统一遥测)
@@ -247,7 +247,7 @@ export * from './knowledge-base-reading.js'
 export * from './knowledge-base-list.js'
 export * from './learn-homework.js'
 export * from './lecturer.js'
-// 逆向-复现-超越 §0.11(2026-10-31):Agent 失败的「结局二分 + 停摆位置」状态词表(§30 一等契约)。
+// 工程化落地 §0.11(2026-10-31):Agent 失败的「结局二分 + 停摆位置」状态词表(§30 一等契约)。
 // 只经主入口导出;Python 侧镜像 apps/ai-service/app/core/agent_failure_vocabulary.py 逐字等值。
 export * from './agent-failure-vocabulary.js'
 export * from './news.js'

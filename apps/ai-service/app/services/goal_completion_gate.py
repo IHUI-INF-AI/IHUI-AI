@@ -349,7 +349,7 @@ def collect_evidence(
                     id=f"digest-{spec.id}",
                     criterion_id=spec.id,
                     source="run-digest",
-                    unavailable_reason="本轮没有任何工具调用记录,可观察证据为空",
+                    unavailable_reason="本轮没有任何工具调用记录,可行为核对为空",
                 )
             )
             continue

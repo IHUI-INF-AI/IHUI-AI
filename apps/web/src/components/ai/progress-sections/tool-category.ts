@@ -58,7 +58,7 @@ export interface CategoryDef {
   /** 展开策略:
    *  - 'auto'     跟随 D21 自适应折叠策略(轻任务展开、重任务折叠)
    *  - 'collapse' 默认收起(思考/结束等阶段标记,默认让位正文)
-   *  - 'expand'   默认展开(对标 Qoder 全程可见偏好) */
+   *  - 'expand'   默认展开(遵循统一工程规范) */
   expandStrategy: ExpandStrategy
   /** 永不折叠(语义维,与上面的档位维正交,2026-10-29 立)。
    *  为 true 时该类目卡**不受任何阈值约束**(字数/工具数/耗时再大也不折);
@@ -66,7 +66,7 @@ export interface CategoryDef {
   neverFold?: boolean
 }
 
-/** 18 个具名类目(逐字对齐 D58 原文;order 单调) */
+/** 18 个具名类目(按行为规格 D58 原文;order 单调) */
 export const CATEGORY_TABLE: readonly CategoryDef[] = [
   { key: 'file_read', labelKey: 'catFileRead', order: 1, countable: true, expandStrategy: 'auto' },
   {
@@ -202,6 +202,8 @@ const EXACT_MAP: Readonly<Record<string, CategoryKey>> = {
   todo_read: 'task_management',
   // 任务编排类工具(团队任务板 / 可续跑子代理),与 Agent/Task 同档
   team_task: 'task_management',
+  orchestrate_agents: 'task_management',
+  // 旧名:历史会话的工具调用仍按 task_management 展示
   dispatch_subagent: 'task_management',
   subagent_job: 'task_management',
   // 思考
@@ -216,7 +218,7 @@ const EXACT_MAP: Readonly<Record<string, CategoryKey>> = {
   user_input: 'user_interaction',
   request_clarification: 'user_interaction',
   permission_request: 'user_interaction',
-  // 用户交互 · Qoder 0.4.11 例外集的驼峰原字面量(2026-10-29 对标登记)。
+  // 用户交互 · Qoder 0.4.11 例外集的驼峰原字面量(2026-10-29 对齐登记)。
   // 与上面蛇形名是同一族语义,收在此处而不是另起一张表 —— 例外集(NEVER_FOLD_TOOLS)
   // 只放"折叠策略"这一维,类目归属仍只由本表回答。
   AskQuestion: 'user_interaction',
@@ -234,7 +236,7 @@ const EXACT_MAP: Readonly<Record<string, CategoryKey>> = {
   text_to_image: 'image_gen',
   dalle: 'image_gen',
   imagen: 'image_gen',
-  // Qoder 0.4.11 例外集原字面量(2026-10-29 对标登记):独立 UI 型生图卡,永不折叠
+  // Qoder 0.4.11 例外集原字面量(2026-10-29 对齐登记):独立 UI 型生图卡,永不折叠
   ImageGen: 'image_gen',
   // 生视频
   video_gen: 'video_gen',
@@ -301,7 +303,7 @@ export function streamKindForTool(toolName: string): StreamKind {
   return CATEGORY_STREAM_KIND[resolveToolCategory(toolName)]
 }
 
-// ─── 永不折叠例外集(语义维,2026-10-29 立,对标 Qoder 0.4.11) ──────────
+// ─── 永不折叠例外集(语义维,2026-10-29 立,遵循统一工程规范) ──────────
 // 竞品做法(asar 字节抽取取证):折叠**不按长度阈值**,而按语义分类 + 例外集;
 // 例外集全是字面量工具名,分三族 ——
 //   ① 需要用户确认  AskQuestion / AskUserQuestion / SwitchMode

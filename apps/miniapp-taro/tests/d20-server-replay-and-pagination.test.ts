@@ -244,7 +244,7 @@ describe('① replayServerConversation 判序必须 fail-closed', () => {
   })
 })
 
-describe('①b 卡片族的逆向读数(回放不能只剩正文)', () => {
+describe('①b 卡片族的兼容读数(回放不能只剩正文)', () => {
   it('落库 toolName/success 适配成端内 name/done,脏项逐条剔除而不整表作废', () => {
     const row = mapServerMessage(
       msg({

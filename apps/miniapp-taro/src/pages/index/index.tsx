@@ -265,7 +265,7 @@ interface AiHomeState {
   isInputFocused: boolean
   // 公告文本
   announcementText: string
-  // 流式对话状态(对标原项目 conversationMessages)
+  // 流式对话状态(对齐原项目 conversationMessages)
   conversationMessages: ChatMessage[]
   isStreaming: boolean
   streamingContent: string
@@ -1139,7 +1139,7 @@ export default function Index() {
     }))
   }
 
-  /** 手动压缩上下文(对标 CLI /compact):直接调 POST /api/chat/compact */
+  /** 手动压缩上下文(对齐 CLI /compact):直接调 POST /api/chat/compact */
   const handleCompactContext = async () => {
     if (!state.isLogin) {
       onToast(tt('index.toast.loginRequired', '请先登录'), { kind: 'error' })
@@ -1523,7 +1523,7 @@ export default function Index() {
               </View>
             </View>
 
-            {/* 消息列表(对标原项目 conversationMessages 渲染)*/}
+            {/* 消息列表(对齐原项目 conversationMessages 渲染)*/}
             <ScrollView
               scrollY
               className="conversation-list"

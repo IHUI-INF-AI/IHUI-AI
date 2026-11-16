@@ -103,7 +103,7 @@ export function TypingIndicator({
     return (
       <StreamRow
         status="running"
-        kind={runningTool ? streamKindForTool(runningTool.toolName) : undefined}
+        kind={streamKindForTool(runningTool.toolName)}
         title={view.nameKey ? tStream(view.nameKey) : t('callingTool', { name: view.codeName })}
         subject={view.subject}
         subjectKind={view.subjectKind}

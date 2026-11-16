@@ -135,7 +135,7 @@ export interface Model {
   relayPriceMultiplier?: number
   /** 中转站展示名(为空时用 name/id) */
   relayDisplayName?: string
-  // --- 价格对比字段(2026-09-16 立,对标同类中转站的官方价/实付价对照) ---
+  // --- 价格对比字段(2026-09-16 立,对齐同类中转站的官方价/实付价对照) ---
   /** 官方/上游参考输入价(分/千 token) */
   relayOfficialInputPricePer1k?: number
   /** 官方/上游参考输出价(分/千 token) */

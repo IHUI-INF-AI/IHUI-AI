@@ -5,7 +5,7 @@
 
 
 /**
- * 守门:桌面壳的 CSP 默认拒绝与命令面棘轮（Round 10 对标 Codex 桌面端）。
+ * 守门:桌面壳的 CSP 默认拒绝与命令面棘轮（Round 10 遵循统一工程规范）。
  *
  * ## 取证依据（2026-11-15）
  *
@@ -262,7 +262,7 @@ function updateBaseline(_argv) {
     updatedAt: new Date().toISOString(),
     previousCommandCount: prev ? prev.commandCount : null,
     rationale:
-      '棘轮基线：桌面壳具名 Tauri 命令数上限。对标 Codex 桌面端「18 个 IPC 通道承载 144 个业务方法」的多路复用设计，' +
+      '棘轮基线：桌面壳具名 Tauri 命令数上限。对齐统一规范，' +
       '本仓命令数应逐步收窄而非扩大。新增命令必须说明为何不走多路复用。',
   }
   writeFileSync(abs, `${JSON.stringify(payload, null, 2)}\n`, 'utf8')

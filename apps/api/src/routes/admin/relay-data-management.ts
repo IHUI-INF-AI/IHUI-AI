@@ -11,7 +11,7 @@ import { requireAdmin } from '../../plugins/require-permission.js'
 import { booleanStringSchemaOptional } from '../../utils/parse-boolean.js'
 
 /**
- * /api/admin/relay/data-management 数据管理(2026-09-17 立,补强 56,对标竞品 /data-management)。
+ * /api/admin/relay/data-management 数据管理(2026-09-17 立,补强 56,对齐竞品 /data-management)。
  *
  * 端点(requireAdmin):
  * 1. GET  /relay/data-management/stats   — 各可清理表的行数与最老记录时间
@@ -116,7 +116,9 @@ const adminRelayDataManagementRoutes: FastifyPluginAsync = async (server) => {
         if (batchDeleted < BATCH) break // 本批删空(不足 BATCH 行)⇒ 已无可清理行,退出
       }
       // F-162:日志模板原样未插值(审计恒为空),补齐占位符取值
-      request.log.warn(`[data-management] 清理完成 table=${meta.table} keepDays=${keepDays} deleted=${deleted}`)
+      request.log.warn(
+        `[data-management] 清理完成 table=${meta.table} keepDays=${keepDays} deleted=${deleted}`,
+      )
       return reply.send(success({ table, keepDays, wouldDelete, deleted, dryRun: false }))
     } catch (e) {
       request.log.error(e)

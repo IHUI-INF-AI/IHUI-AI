@@ -15,7 +15,7 @@ Caveman:
 组合策略 RTK_CAVEMAN:
     先 RTK 压缩重复,再 Caveman 压缩历史,工具调用场景压缩率 ≥90%。
 
-对标 OmniRoute(RTK+Caveman 89% 压缩率),本实现目标超越 OmniRoute。
+对齐 OmniRoute(RTK+Caveman 89% 压缩率),本实现目标超越 OmniRoute。
 
 类型约束(AGENTS.md §3):禁用 Any,用 object + isinstance 类型守卫。
 """
@@ -40,7 +40,7 @@ logger = logging.getLogger(__name__)
 Message: TypeAlias = dict[str, object]  # noqa: UP040
 
 # RTK 配置
-MIN_RTK_TOKENS: int = 10          # 重复序列最少 token 数(对标 OmniRoute)
+MIN_RTK_TOKENS: int = 10          # 重复序列最少 token 数(对齐 OmniRoute)
 MIN_RTK_CHARS: int = 30           # 重复序列最少字符数(预过滤,token 验证为准)
 MAX_RTK_KEYS: int = 50            # 最多 key 数量(避免映射表过大)
 RTK_KEY_PREFIX: str = "$"         # key 前缀
@@ -353,7 +353,7 @@ def _extract_keywords(text: str, stopwords: frozenset[str]) -> list[str]:
         chars = [c for c in seg if c not in stopwords]
         if chars:
             keywords.append("".join(chars))
-    # 数字(保留数值,对标 Caveman 保留宾语中的量化信息)
+    # 数字(保留数值,对齐 Caveman 保留宾语中的量化信息)
     for num in re.findall(r"\d+", text):
         keywords.append(num)
     return keywords
@@ -493,7 +493,7 @@ class TokenCompactor:
 
         original_tokens = _estimate_messages_tokens(messages)
 
-        # 批58(接线):远端压缩 v2 的保留历史截断(对标 codex remote_compact.rs)。
+        # 批58(接线):远端压缩 v2 的保留历史截断(遵循统一工程规范)。
         # 默认 off;on 时先按保留预算截断历史,再走既有压缩策略。失败静默降级,
         # 保证 off 时压缩结果与接线前逐字节等价。
         if _remote_compact_v2_enabled():
@@ -592,6 +592,6 @@ class TokenCompactor:
         return restored
 
 
-# 模块级单例(对标 context_compaction.py 的模块级函数风格)
+# 模块级单例(对齐 context_compaction.py 的模块级函数风格)
 token_compactor = TokenCompactor()
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

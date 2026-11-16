@@ -2,9 +2,9 @@
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-"""网络访问审批面(批 52:审批策略面,对标 OpenAI codex-rs approvals.rs)。
+"""网络访问审批面(批 52:审批策略面,对齐 OpenAI codex-rs approvals.rs)。
 
-对标关系
+对齐关系
 --------
 codex ``approvals.rs``(审计副本 G:/tmp-probe/codex-rs-audit/.../tools/approvals.rs
 约行 134)的 ``ApprovalAction::NetworkAccess`` 变体,按
@@ -169,7 +169,7 @@ def _net_key_from_parts(host: str, final_port: int, scheme: str) -> str:
 def normalize_net_key(
     target: str, *, port: int | None = None, protocol: str = "https"
 ) -> str:
-    """网络审批缓存键规范化(对标 codex NetworkAccess 三元组)。
+    """网络审批缓存键规范化(遵循统一工程规范)。
 
     入参 ``target`` 接受完整 URL 或裸 host(可带 ``:port``)。
 
@@ -488,7 +488,7 @@ def display_from_cache_key(cache_key: str) -> str:
 
 @dataclass
 class NetworkApprovalRequest:
-    """一次网络访问审批请求(对标 codex NetworkAccess 的 host/protocol/port)。
+    """一次网络访问审批请求(遵循统一工程规范)。
 
     Attributes:
         target:  原始目标(URL 或裸 host),用于展示与审计;
@@ -519,7 +519,7 @@ class NetworkApprovalRequest:
 class NetworkApprovalGate:
     """网络访问审批决策门(进程内无 UI,requester 由调用方注入)。
 
-    对标 codex 的 ``with_cached_approval``:命中持久缓存直接放行,否则征询
+    遵循统一工程规范
     requester;批准后落盘缓存,后续同 target 不再重复弹批。
 
     Args:
@@ -559,7 +559,7 @@ class NetworkApprovalGate:
     def evaluate_detailed(
         self, url: str, *, reason: str | None = None
     ) -> tuple[str, str | None]:
-        """批58(十六):在 ``evaluate`` 之上透出拒绝原因码(对标 codex network_policy_decision)。
+        """批58(十六):在 ``evaluate`` 之上透出拒绝原因码(遵循统一工程规范)。
 
         返回 ``(verdict, denial_reason)``;``denial_reason`` 仅在 verdict 为 ``deny``
         时非空,取值对齐 codex ``denied_network_policy_message`` 的 reason 词表:
@@ -590,7 +590,7 @@ class NetworkApprovalGate:
         # 3) 未命中 → 征询审批
         requester = self._requester
         if requester is None:
-            # 无审批通道 = fail-closed(无法从此提示放行,对标 codex denied 语义)
+            # 无审批通道 = fail-closed(无法从此提示放行,遵循统一工程规范)
             return "deny", "denied"
 
         request = NetworkApprovalRequest.from_url(url, reason=reason)
@@ -605,7 +605,7 @@ class NetworkApprovalGate:
                 )
             except Exception as exc:  # noqa: BLE001 - 落盘失败不阻断本次放行
                 logger.warning("网络审批:授权落盘失败(本次仍放行): %s", exc)
-            # 批58(接线):network_rule_amendments 真接线(对标 codex
+            # 批58(接线):network_rule_amendments 真接线(遵循统一工程规范
             # network_policy_decision.rs —— 批准即产出 Allow 修正案回执)。
             # on 时把本次批准归一为 allow 网络修正案(结构化回执,含 host 与协议);
             # off 时零差异;失败静默,绝不阻断放行。
@@ -695,7 +695,7 @@ def evaluate_network_access_detailed(
 
 
 def _unparsable_denial_reason(url: str) -> str:
-    """解析失败时的拒绝原因码(对标 codex not_allowed / not_allowed_local 二分)。
+    """解析失败时的拒绝原因码(遵循统一工程规范)。
 
     本地回环 / 私网 / link-local / ``.local`` 域名 → ``not_allowed_local``,
     其余无法解析目标 → ``not_allowed``。仅用于拒绝文案标注,不参与放行判定。

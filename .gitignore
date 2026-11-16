@@ -775,3 +775,6 @@ scripts/data/findings-staleness.json
 
 # 凭据/账号导出(含手机号 + refresh_token + JWT),敏感数据绝不入库,仅留在本地
 /李总.json
+
+# Box-Agent 框架临时暂存目录(会话期自动创建/清空,非本仓内容)
+/.box-agent-staging/

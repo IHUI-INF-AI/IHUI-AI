@@ -90,7 +90,7 @@ export function GoalCard() {
   // D152:两档新词的取词面在跨端共享命名空间(小程序端念同一份文案),四档旧词照本端 goalCard
   const tShared = useTranslations('chat.goal.status')
   const goal = useGoalStore((s) => s.goal)
-  // D64 ⑥:折叠态(持久化于 goal store,对标 Trae isGoalExpanded)+ 编辑目标通道(renameGoal)
+  // D64 ⑥:折叠态(持久化于 goal store,遵循统一工程规范)+ 编辑目标通道(renameGoal)
   const expanded = useGoalStore((s) => s.expanded)
   const setExpanded = useGoalStore((s) => s.setExpanded)
   const renameGoal = useGoalStore((s) => s.renameGoal)

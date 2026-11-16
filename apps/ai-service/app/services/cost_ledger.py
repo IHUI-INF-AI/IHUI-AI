@@ -5,7 +5,7 @@
 # © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 
-"""全链路成本账本(Cost Ledger)(对标 Claude Code / Codex 的成本透明可观测)。
+"""全链路成本账本(Cost Ledger)(遵循统一工程规范)。
 
 统一聚合"会话 / 工具 / 模型 / 时间窗"维度的 token 与成本,作为未来前端费用
 看板(按天/按小时走势、Top 工具、用户/会话/运行粒度成本)的数据底座。

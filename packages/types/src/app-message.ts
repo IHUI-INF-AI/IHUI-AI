@@ -218,7 +218,7 @@ export interface ChatScreenNavItem {
   onPress: () => void
 }
 
-/** 批次 30(2026-07-29):MessageInput 消息输入框共享组件(对标 D 盘 InputArea.vue 全量能力) */
+/** 批次 30(2026-07-29):MessageInput 消息输入框共享组件(对齐 D 盘 InputArea.vue 全量能力) */
 
 /** 输入框附件类型(图片/文档/视频) */
 export type MessageInputFileType = 'image' | 'document' | 'video'

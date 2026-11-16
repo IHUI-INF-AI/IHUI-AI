@@ -721,7 +721,7 @@ CAPABILITY_MATRIX: list[dict[str, str]] = [
         "category": "门控类",
         "owner_module": "app.services.agent_engine",
         "doc_ref": "app/services/agent_engine.py:542",
-        "reason_if_off": "file_watcher 事件门控默认关(对标 Codex 文件监视),显式开启后生效",
+        "reason_if_off": "file_watcher 事件门控默认关(对齐统一规范),显式开启后生效",
     },
     {
         "key": "engine_editor_state",
@@ -731,7 +731,7 @@ CAPABILITY_MATRIX: list[dict[str, str]] = [
         "owner_module": "app.services.context_engine",
         "doc_ref": "app/services/context_engine.py:114",
         "reason_if_off": "编辑器状态(活动文件/光标行/选区)参与 codebase 检索优先级默认关"
-        "(对标 Trae document_action/cursor_move);关闭时 _search_codebase 完全忽略该入参,"
+        "(对齐统一规范);关闭时 _search_codebase 完全忽略该入参,"
         "检索结果与新增前逐字节等价",
     },
     {
@@ -741,7 +741,7 @@ CAPABILITY_MATRIX: list[dict[str, str]] = [
         "category": "门控类",
         "owner_module": "app.services.mcp_server",
         "doc_ref": "app/services/mcp_server.py:113",
-        "reason_if_off": "elicitation 计数暂停门控默认关(对标 codex ElicitationService)",
+        "reason_if_off": "elicitation 计数暂停门控默认关(对齐统一规范)",
     },
     # ============ 门控类(默认开,可临时关的行为护栏)============
     {
@@ -979,7 +979,7 @@ CAPABILITY_MATRIX: list[dict[str, str]] = [
         "reason_if_off": "",
     },
     {
-        # 产品形态轴(对标对侧 products.<form>{…} 一型,行为与形状复现、字节不复刻):
+        # 产品形态轴(对齐对侧 products.<form>{…} 一型,行为与形状复现、字节不复刻):
         # 取值型旋钮而非开关 —— tool_surface.PRODUCT_FORM_CAPABILITY_OVERRIDES 按该值
         # 决定哪些能力键在当前形态视为不具备;default `server` 在覆盖表里不摘任何能力,
         # ⇒ 未设置时可见工具集与接线前逐字相同(零扰动由测试 ① 钉,不是口头保证)。
@@ -995,7 +995,7 @@ CAPABILITY_MATRIX: list[dict[str, str]] = [
     # 四格同族:各自**独立**的配额旋钮,唯一读取点
     # app/services/tool_budget_governor.py 的 ToolBudgetConfig.from_env(大写键 → 常量
     # TOOL_BUDGET_*_ENV),0 / 未设置 ⇒ 该维关闭(与 run 循环三维的 enabled 无耦合)。
-    # 登记理由:对标产品把同型配额写死成内置常量(观测 aiFeatures.mcpToolLimit/
+    # 登记理由:对齐产品把同型配额写死成内置常量(观测 aiFeatures.mcpToolLimit/
     # mcpTokenLimit/customPromptTokenLimit/historyQueryLimit),我方做成**入库可 diff** 的
     # 台账格 —— 上限漂移即门 J1/J2 红,超限一律具名拒绝(维度名 + 实测值 + 上限值)。
     # 这四维都是**层一(单桶)**尺子:每个 run / 每台 server 各有一份额度。
@@ -1036,7 +1036,7 @@ CAPABILITY_MATRIX: list[dict[str, str]] = [
         "reason_if_off": "0=该维不拦:历史查询窗口上限未配置;请求条数超窗口由 check_history_query 具名拒绝,不静默截断行数",
     },
     # ============ 工具预算第二层 · 聚合层配额(goal-b49 Z20,2026-11-06 立)============
-    # 上面四维全是**层一(单桶)**额度;对标靶「三层装箱预算 maxChunkChars / maxCharsPerResult /
+    # 上面四维全是**层一(单桶)**额度;对齐靶「三层装箱预算 maxChunkChars / maxCharsPerResult /
     # maxTotalChars + maxRerankTokens」缺的正是"每桶之外的聚合总量层"这一格。这两维由
     # **既有生产消费点**驱动(guarded_tool_pipeline 的 acquire、mcp_client 的 consume_mcp_tokens),
     # 调用方无需改一行即真在管;scope 分区入参留给宿主,未显式传入即 DEFAULT_AGGREGATE_SCOPE

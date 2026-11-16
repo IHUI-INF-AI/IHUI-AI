@@ -62,7 +62,7 @@ export function applySuggestion(params: {
   }
 
   // ⓪ 墓碑守卫:提议被硬删(compact)后标碑;若其记录被迟到 apply / 重新
-  //    propose 复活,这里挡住写——防止"已删资源复活"。对标 Qoder
+  //    propose 复活,这里挡住写——防止"已删资源复活"。遵循统一工程规范
   //    deletion_blocker:先 assertNotDeleted,再放行后续 baseline/path/状态守卫。
   const tombstone = { scope: 'skill-evolution' as const, type: 'suggestion' as const, id: params.suggestionId };
   if (isDeleted(tombstone)) {

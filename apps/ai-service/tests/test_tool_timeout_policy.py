@@ -2,7 +2,7 @@
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-"""per-tool 超时预算的判据锁(对标 DSH dsh-tool-call-timeout-policy)。
+"""per-tool 超时预算的判据锁(遵循统一工程规范)。
 
 锁三件事:
   ① 纯函数判据 —— run_command 与 handler 同形夹紧(max_timeout / env 硬上限),
@@ -138,6 +138,46 @@ def test_run_command_invalid_args_do_not_explode():
     assert run_command_budget_s({"timeout": "abc"}) == 60.0
     assert run_command_budget_s({"timeout": True}) == 60.0
     assert run_command_budget_s(None) == 60.0
+
+
+def test_orchestrate_agents_uses_same_declared_budget(monkeypatch):
+    """2026-11-16 模型面改名后,新名与旧名必须拿到同一档预算。"""
+    assert resolve_tool_timeout_budget("orchestrate_agents").tool_budget_s == 300.0
+    monkeypatch.setenv("SUBAGENT_TIMEOUT_S", "420")
+    assert resolve_tool_timeout_budget("orchestrate_agents").tool_budget_s == 420.0
+
+
+def test_orchestration_budget_scales_with_mode_and_size():
+    """长编排不能被单 agent 的 300s 档误杀:按波次放大并夹到硬上限。"""
+    single = resolve_tool_timeout_budget("orchestrate_agents", {"mode": "single"})
+    assert single.tool_budget_s == 300.0
+    assert single.source == "args"
+
+    pipeline = resolve_tool_timeout_budget(
+        "orchestrate_agents",
+        {"mode": "pipeline", "steps": [{"agent": "a"}, {"agent": "b"}]},
+    )
+    assert pipeline.tool_budget_s == 600.0
+
+    debate = resolve_tool_timeout_budget(
+        "orchestrate_agents",
+        {
+            "mode": "debate",
+            "agents": ["a", "b", "c", "d", "e"],
+            "max_rounds": 3,
+        },
+    )
+    assert debate.tool_budget_s == HARD_CEILING_S
+
+    decompose = resolve_tool_timeout_budget(
+        "orchestrate_agents", {"mode": "decompose"}
+    )
+    assert decompose.tool_budget_s == HARD_CEILING_S
+
+    inferred = resolve_tool_timeout_budget(
+        "orchestrate_agents", {"steps": [{"agent": "a"}, {"agent": "b"}]}
+    )
+    assert inferred.tool_budget_s == 600.0
 
 
 def test_subagent_declared_budget_and_env(monkeypatch):

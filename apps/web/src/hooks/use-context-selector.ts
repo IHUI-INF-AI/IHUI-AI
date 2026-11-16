@@ -15,7 +15,6 @@
 
 import * as React from 'react'
 
-import { MAX_LENGTH } from '@/components/chat/web-input-core'
 import { viewOfDimensionId } from '@/components/chat/mention/dimension-views'
 import {
   dimensionsForSigil,
@@ -118,7 +117,7 @@ export function useContextSelector(options: {
     (category: ContextSelectorCategory) => {
       const dim = dimensionOf(category)
       const token = dim?.token ?? category.token
-      setValue((prev) => replaceTrailingTrigger(prev, '#', `${token} `).slice(0, MAX_LENGTH))
+      setValue((prev) => replaceTrailingTrigger(prev, '#', `${token} `))
       setDismissed(true)
       if (dim) onSelect(selectionFromDimension(dim))
       requestAnimationFrame(() => {

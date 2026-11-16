@@ -4,12 +4,12 @@
 
 """WorkBuddy(腾讯 AI 办公台)Buddy 加油站每日签到引擎 — 第三平台引擎(2026-10-12 立)。
 
-与 checkin_engine(TRAE)/ checkin_qoder 平级,API 契约平移自社区公开逆向成果
+与 checkin_engine(TRAE)/ checkin_qoder 平级,API 契约平移自社区公开独立分析成果
 (MIT 授权,原始版权与来源声明在此保留):
 - cat-xierluo/legal-skills 的 workbuddy-checkin skill(原始 v1.0.3)
 - Coco-katarina/workbuddy-checkin(Windows 适配修复版,checkin.sh 为准)
 
-接口契约(逆向自客户端,以 checkin.sh 实测为准):
+接口契约(按公开接口自客户端,以 checkin.sh 实测为准):
 1. 鉴权是 Bearer token(WorkBuddy 桌面端登录态,本机
    %LOCALAPPDATA%\\CodeBuddyExtension\\Data\\Public\\auth\\workbuddy-desktop.info);
 2. 查状态 POST https://copilot.tencent.com/billing/meter/checkin-status,空体 {},

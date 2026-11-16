@@ -5,7 +5,7 @@
 /**
  * 轮次呈现投影层(turn presentation projection)—— 纯函数 + 版本化缓存,单一真相源。
  *
- * 立因(2026-10-29,对标 Qoder CN 0.4.11 逆向出的第六层):UI **不直接渲染 messages 数组**,
+ * 立因(2026-10-29,遵循统一工程规范):UI **不直接渲染 messages 数组**,
  * 而是先把消息投影成 presentation rows。三条要学的设计(不是照抄代码,是学结构):
  *   ① 行类型有语义分级:`message`(用户消息 / 不该被聚合的助手消息)/ `thinkingAgent`
  *      (一条助手轮次的容器,聚合本轮全部助手消息)/ `activity-group`(一条助手消息内的

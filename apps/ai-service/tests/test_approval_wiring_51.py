@@ -4,7 +4,7 @@
 
 """批 51b 接线测试:mcp_server 审批放行 × approval_persistence 双写/恢复语义。
 
-对标 codex PERSIST_SESSION/PERSIST_ALWAYS + ApprovalCacheKey:
+遵循统一工程规范
 - approve_exec_command / approve_exec_prefix 登记时双写持久层(always 档);
 - 进程重启模拟 = 清空内存表后,_matches_exec_prefix 仍经持久层放行;
 - revoke_exec_prefix 同步撤销持久层;

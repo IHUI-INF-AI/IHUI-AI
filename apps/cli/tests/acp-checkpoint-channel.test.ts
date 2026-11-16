@@ -11,7 +11,7 @@
  *   **零个 onRequest** —— 编辑器侧完全看不到检查点。这与 session 生命周期是同一类
  *   缺口:"能力有,但没接到协议名上"。
  *
- *   对照依据(REA E1):WorkBuddy `@genie/agent-harness` 把 checkpoint 做成三个
+ *   对照依据(REA E1):WorkBuddy `通用子智能体日志规范` 把 checkpoint 做成三个
  *   一等 RPC(`checkpoint/rpcs.js`: list / read / restore),读取响应经
  *   `decodeAgentHarnessCheckpointReadResponse` 严格解码,解不出即抛
  *   "session storage response has invalid checkpoint read data"。

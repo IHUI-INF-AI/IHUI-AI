@@ -17,7 +17,7 @@ import type { MentionSelection } from '@ihui/shared/chat/mention-engine'
 import { PortalPanel } from '@/components/feedback/portal-panel'
 
 // ============================================================================
-// W20 九类 # 上下文选择器弹层 + 类型徽章 chips(对标 Trae)
+// W20 九类 # 上下文选择器弹层 + 类型徽章 chips(遵循统一工程规范)
 // 键盘导航(↑/↓/Enter/Tab/Esc)由 use-context-selector.ts 在 textarea 层拦截,
 // 本组件只负责渲染:列表 + hover 高亮 + 点击选中 + chip 移除。
 // ============================================================================
@@ -140,7 +140,7 @@ export function ContextSelectorChips({ rows, onRemove }: ContextSelectorChipsPro
   const t = useTranslations('contextSelector')
   if (rows.length === 0) return null
   return (
-    // 间距由唯一挂载点 ContextChipsRow 容器统一接管(2026-09-30 深度对标二轮),不再自带 mb-2;
+    // 间距由唯一挂载点 ContextChipsRow 容器统一接管(2026-09-30 深度对齐二轮),不再自带 mb-2;
     // E 节:限高 4.5rem 滚动 —— chips 再多也不把输入区顶高(独立约束,不参与 toolbar 容器查询)
     <div
       className="flex max-h-[4.5rem] flex-wrap items-center gap-1.5 overflow-y-auto"

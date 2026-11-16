@@ -12,7 +12,7 @@ import { aiServiceFetch } from '../utils/ai-service-fetch.js'
  * 元学习闭环路由(2026-09-30 改为透传代理)。
  *
  * 本文件是代理,真相源在 ai-service app/routers/meta_learning.py(prefix
- * /api/admin/meta-learner):路径与方法逐字对齐上游,不编造任何 fallback 数据。
+ * /api/admin/meta-learner):路径与方法按行为规格上游,不编造任何 fallback 数据。
  * 上游不可用/失败一律 502 明示。
  */
 

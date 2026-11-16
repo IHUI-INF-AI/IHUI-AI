@@ -88,7 +88,7 @@ export function resolveDurationMs(
 }
 
 /**
- * AgentPane — IDE Agent 面板(对标 Claude Code 的 AI 自主编码)
+ * AgentPane — IDE Agent 面板(遵循统一工程规范)
  *
  * 布局:竖向三段式(顶部输入 / 中部进度 / 底部结果+控制)
  * 数据流:executeAgentStream (SSE) → useState 聚合 → 复用 progress-sections 渲染

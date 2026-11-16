@@ -31,7 +31,7 @@ afterEach(() => {
 })
 
 // ─── next-intl mock:useTranslations 返回 t 函数,支持 key 查表 + 参数插值 ──
-// (模式对标 plan-steps-card.test.tsx;组件 useTranslations('chat') 后以相对 key 调用)
+// (模式对齐 plan-steps-card.test.tsx;组件 useTranslations('chat') 后以相对 key 调用)
 const I18N_MAP: Record<string, string> = {
   'compaction.dividerTitle': '上方历史已压缩为摘要',
   'compaction.dividerDescription':

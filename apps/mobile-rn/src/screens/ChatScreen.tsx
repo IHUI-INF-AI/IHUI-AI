@@ -1259,7 +1259,7 @@ export function ChatScreen() {
           setQuestionCustom('')
         } else if (outcome.kind === 'legacy') {
           // 旧服务端没有阻塞式端点 ⇒ 回退旧链路:把答案当普通消息发出去
-          const text = buildLegacyAnswerText(q.options, {
+          const text = buildLegacyAnswerText(q, {
             questionId: q.questionId,
             action,
             selectedOptionIds: questionSelected,

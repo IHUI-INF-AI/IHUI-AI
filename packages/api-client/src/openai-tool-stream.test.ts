@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-// 2026-11-05 立:OpenAI 兼容流式工具调用解析(逆向-复现-超越 Qoder/Trae 的 tool-call args 流式修复)。
+// 2026-11-05 立:OpenAI 兼容流式工具调用解析(工程化落地 外部实现/外部实现 的 tool-call args 流式修复)。
 // 断言面:parseOpenAiStreamLine 抽出 content/tool_calls(含 index/id/name/argsFragment)/finish_reason/
 // [DONE]/非 JSON 拒收;OpenAiToolCallAccumulator 按 index 增量累积 function.arguments,
 // 每片即出 partial/complete 态(complete 仅当原始缓冲无需修复即 JSON.parse 通过),
@@ -18,12 +18,25 @@ import {
 describe('parseOpenAiStreamLine — 行解析', () => {
   it('抽出 tool_calls 增量片段(index/id/name/argsFragment)', () => {
     const line = `data: ${JSON.stringify({
-      choices: [{ delta: { tool_calls: [{ index: 0, id: 'call_1', function: { name: 'search', arguments: '{"q":' } }] } }],
+      choices: [
+        {
+          delta: {
+            tool_calls: [
+              { index: 0, id: 'call_1', function: { name: 'search', arguments: '{"q":' } },
+            ],
+          },
+        },
+      ],
     })}`
     const frame = parseOpenAiStreamLine(line)
     expect(frame).not.toBeNull()
     expect(frame!.toolCalls).toHaveLength(1)
-    expect(frame!.toolCalls![0]).toEqual({ index: 0, id: 'call_1', name: 'search', argsFragment: '{"q":' })
+    expect(frame!.toolCalls![0]).toEqual({
+      index: 0,
+      id: 'call_1',
+      name: 'search',
+      argsFragment: '{"q":',
+    })
   })
 
   it('抽出正文增量 content', () => {
@@ -34,9 +47,13 @@ describe('parseOpenAiStreamLine — 行解析', () => {
   })
 
   it('抽出 finish_reason(含显式 null)', () => {
-    const stop = parseOpenAiStreamLine(`data: ${JSON.stringify({ choices: [{ delta: {}, finish_reason: 'stop' }] })}`)
+    const stop = parseOpenAiStreamLine(
+      `data: ${JSON.stringify({ choices: [{ delta: {}, finish_reason: 'stop' }] })}`,
+    )
     expect(stop!.finishReason).toBe('stop')
-    const nil = parseOpenAiStreamLine(`data: ${JSON.stringify({ choices: [{ delta: {}, finish_reason: null }] })}`)
+    const nil = parseOpenAiStreamLine(
+      `data: ${JSON.stringify({ choices: [{ delta: {}, finish_reason: null }] })}`,
+    )
     expect(nil!.finishReason).toBeNull()
   })
 
@@ -167,9 +184,7 @@ describe('parseToolCallArgsDeltaFrame — ai-service 逐分片帧', () => {
   it('args 为 null / 数组 ⇒ undefined;缺 index ⇒ 0;空串 id/name ⇒ undefined', () => {
     expect(parseToolCallArgsDeltaFrame(frame({ args: null }))?.args).toBeUndefined()
     expect(parseToolCallArgsDeltaFrame(frame({ args: [1, 2] }))?.args).toBeUndefined()
-    const d = parseToolCallArgsDeltaFrame(
-      frame({ index: undefined, id: '', name: '' }),
-    )
+    const d = parseToolCallArgsDeltaFrame(frame({ index: undefined, id: '', name: '' }))
     expect(d?.index).toBe(0)
     expect(d?.id).toBeUndefined()
     expect(d?.name).toBeUndefined()

@@ -6,7 +6,7 @@
 /**
  * Deletion Tombstones — 删除墓碑 + 迟到写守卫(通用的删除一致性机制)。
  *
- * ## 前提基建(对标 Qoder collaboration_deleted_resources + guard_deleted_* 触发器)
+ * ## 前提基建(遵循统一工程规范)
  *
  * Qoder 处理"删除"有一套容易被当成协作产品细节、实则通用的机制:
  *
@@ -35,8 +35,8 @@
  * ## 做减法
  *
  *   - 存储:一个墓碑表 JSON(~/.ihui/tombstones.json),不引 SQLite
- *   - 墓碑只存身份键(scope/type/id),不存正文 —— 对标"最小删除标记"
- *   - 守卫是纯函数 assertNotDeleted(抛 DeletedResourceError),对标 RAISE(ABORT)
+ *   - 墓碑只存身份键(scope/type/id),不存正文 —— 对齐"最小删除标记"
+ *   - 守卫是纯函数 assertNotDeleted(抛 DeletedResourceError),对齐 RAISE(ABORT)
  *   - 原子写 + 损坏回落空态(与其余持久模块同处置)
  */
 
@@ -44,7 +44,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
-/** 资源身份键(对标 Qoder (scope_key, source_type, source_id) 三元主键)。 */
+/** 资源身份键(遵循统一工程规范) 三元主键)。 */
 export interface ResourceKey {
   /** 命名空间(如技能进化 / inbox / 版本链 …),隔离不同模块的 id。 */
   readonly scope: string;
@@ -64,7 +64,7 @@ export class DeletedResourceError extends Error {
   constructor(readonly key: ResourceKey) {
     super(
       `资源已删除,拒绝迟到写:${key.scope}/${key.type}/${key.id}` +
-        `(对标 Qoder COLLABORATION_RESOURCE_DELETED)`,
+        `(对齐统一规范)`,
     );
     this.name = 'DeletedResourceError';
   }
@@ -136,7 +136,7 @@ export function isDeleted(key: ResourceKey): boolean {
   );
 }
 
-/** 迟到写守卫:已删则抛 DeletedResourceError(对标 RAISE(ABORT));未删则放行。 */
+/** 迟到写守卫:已删则抛 DeletedResourceError(对齐 RAISE(ABORT));未删则放行。 */
 export function assertNotDeleted(key: ResourceKey): void {
   if (isDeleted(key)) throw new DeletedResourceError(key);
 }

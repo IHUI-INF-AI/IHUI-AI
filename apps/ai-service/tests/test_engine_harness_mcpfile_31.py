@@ -4,7 +4,7 @@
 
 """OpenAI 文件参数重写 + 连接器暴露纯规则单测(第三十一批,2026-09-19)。
 
-对标 codex-rs/core/src/mcp_openai_file.rs 与 connectors.rs 的纯算法/纯规则部分。
+遵循统一工程规范。
 全部为离线纯函数,不触达服务端 API / 文件系统 / 鉴权。
 """
 
@@ -64,7 +64,7 @@ def test_infer_upload_file_name_custom_segmenter():
     def seg(p: str) -> list[str]:
         return [s for s in p.split(":") if s]
 
-    # 自定义分段器按 ":" 切分,末非空段即文件名(对标 Rust 可注入路径约定)。
+    # 自定义分段器按 ":" 切分,末非空段即文件名(对齐 Rust 可注入路径约定)。
     assert infer_upload_file_name("x:y:z", split_path_segments=seg) == "z"
     assert infer_upload_file_name("only", split_path_segments=seg) == "only"
     # 默认分段器按 / 与 \ 切分。

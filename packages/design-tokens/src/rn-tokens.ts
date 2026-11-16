@@ -191,6 +191,17 @@ export const rnTokens = {
      必须是「命名空间 + DEFAULT」而不是顶层标量:mobile-rn 的 theme/active-tokens.ts 按命名空间
      浅拷与就地覆写(clonePalette / apply),顶层字符串会被摊成字符对象 ⇒ 运行时是不合法颜色。 */
   agentName: { DEFAULT: '#517bff' } satisfies RnAgentNameTokens,
+  /* 描边角色档:值与 rnCssLight.stroke* 同源,由 sync-rn-tokens.mjs 派生 */
+  stroke: {
+    subtle: 'rgba(0, 0, 0, 0.06)',
+    default: 'rgba(0, 0, 0, 0.1)',
+    strong: 'rgba(0, 0, 0, 0.18)',
+    inverse: 'rgba(255, 255, 255, 0.2)',
+    field: 'rgba(0, 0, 0, 0.14)',
+    focus: '#000000',
+    selected: '#4a7a96',
+    danger: '#dc2626',
+  },
   gray: {
     50: '#fafafa',
     100: '#f5f5f5',
@@ -267,6 +278,17 @@ export type RnThemeTokens = {
   /* 智能体卡片名称链接色(--color-agent-name;明暗同值,派生自 tokens.css)。
      形状取 { DEFAULT } 而非裸字符串,原因见 rnTokens 内同档注释(active-tokens 逐命名空间覆写)。 */
   agentName: RnAgentNameTokens
+  /* 描边角色档(2026-11-15 立)。聚焦档是全项目唯一允许取墨的描边角色。 */
+  stroke: {
+    subtle: string
+    default: string
+    strong: string
+    inverse: string
+    field: string
+    focus: string
+    selected: string
+    danger: string
+  }
   gray: {
     50: string
     100: string
@@ -364,6 +386,17 @@ export const rnLightTokens: RnThemeTokens = {
     avBg: '#e8f5e9',
   },
   agentName: { DEFAULT: '#517bff' },
+  /* 描边角色档:值与 rnCssLight.stroke* 同源,由 sync-rn-tokens.mjs 派生(--color-stroke-*),勿手改 */
+  stroke: {
+    subtle: 'rgba(0, 0, 0, 0.06)',
+    default: 'rgba(0, 0, 0, 0.1)',
+    strong: 'rgba(0, 0, 0, 0.18)',
+    inverse: 'rgba(255, 255, 255, 0.2)',
+    field: 'rgba(0, 0, 0, 0.14)',
+    focus: '#000000',
+    selected: '#4a7a96',
+    danger: '#dc2626',
+  },
   gray: {
     50: '#fafafa',
     100: '#f5f5f5',
@@ -468,6 +501,17 @@ export const rnDarkTokens: RnThemeTokens = {
     avBg: '#e8f5e9',
   },
   agentName: { DEFAULT: '#517bff' },
+  /* 描边角色档:值与 rnCssDark.stroke* 同源,由 sync-rn-tokens.mjs 派生(--color-stroke-*),勿手改 */
+  stroke: {
+    subtle: 'rgba(255, 255, 255, 0.08)',
+    default: 'rgba(255, 255, 255, 0.12)',
+    strong: 'rgba(255, 255, 255, 0.22)',
+    inverse: 'rgba(0, 0, 0, 0.3)',
+    field: 'rgba(255, 255, 255, 0.16)',
+    focus: '#ffffff',
+    selected: '#a3c4d6',
+    danger: '#ef4444',
+  },
   gray: {
     50: '#fafafa',
     100: '#f5f5f5',

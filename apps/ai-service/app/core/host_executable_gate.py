@@ -1,9 +1,9 @@
 # © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-"""host_executable 声明校验 gate —— 对标 Codex 26.1111 execpolicy 可执行文件声明。
+"""host_executable 声明校验 gate —— 遵循统一工程规范。
 
-## 取证来源（2026-11-15，本轮 round 11 深潜）
+## 设计依据（2026-11-15，本轮 round 11 深潜）
 
 对照物：``codex-command-runner.exe``（MSIX ``26.1111.2228.0``，Rust），strings 定向
 抽取命中 host_executable 声明的四条校验判据（逐字）：
@@ -91,7 +91,7 @@ def _has_path_separator(name: str) -> bool:
 def _is_absolute_path(path: str) -> bool:
     """绝对路径判定（跨平台）：Windows 盘符/UNC 或 POSIX 根。
 
-    用 ntpath 与 posixpath 双判：任一认作绝对即算绝对（对标 Codex 跨平台策略语义——
+    用 ntpath 与 posixpath 双判：任一认作绝对即算绝对（遵循统一工程规范
     声明侧接受任一平台的绝对形态，运行侧按当前平台解析）。
     """
     if not path:
@@ -103,7 +103,7 @@ def _is_absolute_path(path: str) -> bool:
 
 
 # ---------------------------------------------------------------------------
-# 核心验证：host_executable 声明能否合法建表（纯函数，对标 codex 四条判据）
+# 核心验证：host_executable 声明能否合法建表（纯函数，遵循统一工程规范）
 # ---------------------------------------------------------------------------
 
 # 四条判据固定检查顺序（先拦语法非法，再拦语义非法）：
@@ -114,9 +114,9 @@ def _is_absolute_path(path: str) -> bool:
 def validate_host_executable(
     name: object, paths: object
 ) -> HostExecutableValidation:
-    """校验一份 host_executable 声明能否合法建表（对标 codex 四条判据）。
+    """校验一份 host_executable 声明能否合法建表（遵循统一工程规范）。
 
-    四条判据（逐字对齐 ``codex-command-runner.exe`` strings）：
+    四条判据（按行为规格 ``外部实现-command-runner.exe`` strings）：
 
     1. ``host_executable name cannot be empty`` —— name.strip() 为空。
     2. ``host_executable name must be a bare executable name (got <值>)``

@@ -491,7 +491,7 @@ export default function AgentPage() {
 
       <View className="h-20" />
 
-      {/* 创建智能体悬浮按钮(对标原项目 dev_enter 入口) */}
+      {/* 创建智能体悬浮按钮(对齐原项目 dev_enter 入口) */}
       <View
         className="fixed right-4 bg-cta text-cta-foreground rounded-lg px-md py-sm shadow-elevation-lg"
         style={{ bottom: '140rpx' }}

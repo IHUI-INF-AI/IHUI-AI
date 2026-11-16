@@ -28,7 +28,7 @@
  *  - DSN 脱敏:`sanitizeDsn`,任何输出面都不落口令(§5d);
  *  - 配置读取:`scripts/auto-triage.mjs` 的 `loadConfig`(与消费方同一份形状锁,不造第二套解析)。
  *
- * 输出格式(与 `readUserFeedback` 逐字对齐,不看票面看实现):
+ * 输出格式(与 `readUserFeedback` 按行为规格,不看票面看实现):
  *  - JSONL,一行一对象,键 = `at`(ISO-8601 带 Z)|`type`|`status`|`title`|`content`|`id`;
  *  - 只导**未结**反馈(`status NOT IN ('resolved','closed')`)—— 适配器第一件事就是丢这两档,
  *    在 SQL 侧先滤掉,少往磁盘抄一份带用户正文的数据;

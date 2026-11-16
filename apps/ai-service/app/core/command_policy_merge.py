@@ -68,7 +68,7 @@ _KIND_RANK: dict[RuleKind, int] = {
 #: 档位优先序(企业档在前 ⇒ 同严时企业胜)。
 _TIER_RANK: dict[PolicyTier, int] = {PolicyTier.ENTERPRISE: 0, PolicyTier.REPO: 1}
 
-#: 命令级三段决策名(对标对侧的 `command_rule_{deny,ask,allow}`)。
+#: 命令级三段决策名(对齐对侧的 `command_rule_{deny,ask,allow}`)。
 _COMMAND_RULE_NAMES: dict[Decision, str] = {
     Decision.DENY: "command_rule_deny",
     Decision.PROMPT: "command_rule_ask",

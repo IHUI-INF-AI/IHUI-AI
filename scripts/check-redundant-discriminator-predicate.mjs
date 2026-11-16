@@ -7,7 +7,7 @@
 /**
  * G-790 冗余判别列进谓词 —— **只读量算尺子**(2026-10-08 立,台账 G-790)。
  * ## 量什么
- * 一条 SQL/Drizzle 谓词用 **JSON 内容**当类别判别(`json_extract(col,'$.k')` / `col->>'k'` / `col @> '…'::jsonb`),而**同一条谓词里没有独立列条件**。论证原话(上游 `dwf-journal-artifacts.ts` 的同型注释;本仓那份只躺在 `.ihui-agent/tmp/zcode-study/` 下、**未入库**,故射程按我方代码面现读取,不引那份路径当出处):「今天 payload 里只有 artifact-published,它带的是嵌套 artifact.id 而不是顶层 artifactId,**但明天未必**」⇒ 不能靠"目前没有那个顶层键"这一**巧合**省掉条件。失效是安静的:某天新增一种带顶层同类键的事件,看板数据流混入无关条目,而条数与分页"看起来正常"。
+ * 一条 SQL/Drizzle 谓词用 **JSON 内容**当类别判别(`json_extract(col,'$.k')` / `col->>'k'` / `col @> '…'::jsonb`),而**同一条谓词里没有独立列条件**。论证原话(上游 `dwf-journal-artifacts.ts` 的同型注释;本仓那份只躺在 `内部规格` 下、**未入库**,故射程按我方代码面现读取,不引那份路径当出处):「今天 payload 里只有 artifact-published,它带的是嵌套 artifact.id 而不是顶层 artifactId,**但明天未必**」⇒ 不能靠"目前没有那个顶层键"这一**巧合**省掉条件。失效是安静的:某天新增一种带顶层同类键的事件,看板数据流混入无关条目,而条数与分页"看起来正常"。
  * **本票第一步是把这张清单量出来**(票面原话:只报数不立项 = 交给人猜)。本尺子因此**不判红、不接提交链、头注不自称已装车、没有应急跳过变量**;`--strict` 只多做一件事:有未判定或覆盖面未闭合 ⇒ exit 2 **拒绝出具合格证** —— 而不是把未判定冒充成违规。
  * ## 四态绝不并桶
  *  - **命中 hit**:JSON 取用处在**谓词位**,而所在谓词单元里**没有任何独立列条件**。
@@ -336,7 +336,7 @@ function enclosingArrayUnit(face, struct, idx, probeCol) {
 
 /** 谓词单元:集合成员 ⇒ 声明 + 全部成员;内联 and/or/where ⇒ 该调用实参(含 `...conds` 展开);否则整条承载文本。 */
 function buildUnit(ctx) {
-  const { face, struct, src, idx, span, unitKind, collReceiver, collDecl, lines } = ctx
+  const { face, struct, src, idx, span, unitKind: _unitKind, collReceiver, collDecl, lines } = ctx
   const probeCol = [leftColumnOf(face, idx)]
   // 集合优先于"内联 and/or/where":同一 `conds.push()` 里的第二个 ->>(前面有 OR)与第一个同属一条谓词,
   // 按 clause 切会把一条谓词拆成两半 ⇒ 合规站点被报成债。

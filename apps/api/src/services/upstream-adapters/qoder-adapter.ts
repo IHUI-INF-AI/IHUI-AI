@@ -563,7 +563,7 @@ export const qoderAdapter: RelayUpstreamAdapter = {
     return statusCode === 401
   },
 
-  /** 富分类(对标 checkin_qoder.qoder_classify_error 的 HTTP 面):401=会话死、429=限流;
+  /** 富分类(对齐 checkin_qoder.qoder_classify_error 的 HTTP 面):401=会话死、429=限流;
    *  network 归入 client(接口只接受 8 类,与 trae-adapter 同) */
   classifyUpstreamFailure(statusCode: number, _bodyText: string) {
     if (statusCode === 401) return { kind: 'session_dead' as const }

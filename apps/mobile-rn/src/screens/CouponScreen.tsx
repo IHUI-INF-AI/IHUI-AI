@@ -19,7 +19,7 @@ import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
-/** GET /api/coupons 的响应行(与 web 会员券页同一份契约,字段名逐字对齐后端投影) */
+/** GET /api/coupons 的响应行(与 web 会员券页同一份契约,字段名按行为规格后端投影) */
 interface CouponPage {
   list: Array<{
     id: string

@@ -7,7 +7,7 @@
 -- 本迁移:① 清理存量重复行(同一 news_id 保留最早 id 一条);② 补 news_id 唯一索引。
 -- 幂等安全:去重用 WHERE 守门(仅删重复);索引用 IF NOT EXISTS,可安全重复执行。
 -- 与 packages/database/src/schema/misc-extended-2.ts 的 .unique('news_tops_news_id_unique')
---   / .unique('news_recommends_news_id_unique') 逐字对齐(约束名一致)。
+--   / .unique('news_recommends_news_id_unique') 按行为规格(约束名一致)。
 --
 -- 执行方式:
 --   pnpm tsx packages/database/scripts/apply-migration.mjs drizzle/20261113230000_news_top_recommend_uniq.sql

@@ -11,7 +11,7 @@
 // 唯一能落地的出路是把形态写进 prebuild 的生成源,也就是本文件。
 //
 // 收的是哪三件事:
-//  ① `drawable/rn_edit_text_material.xml`:RN 模板那份抄自 AOSP 的 selector 第二条是
+//  ① `drawable/rn_edit_text_material.xml`:RN 模板那份取自 AOSP 的 selector 第二条是
 //     **无 state 限定的兜底 item**,恒画 `abc_textfield_activated_mtrl_alpha` 那圈 9-patch 描边。
 //     于是每个 RN TextInput 自带一圈原生描边,与 JS 层容器描边叠成"框中框"。这里生成恒透明件。
 //  ② `AppTheme` 的强调色:模板只写了 colorPrimary,`colorControlActivated` 未钉 ⇒ 回落系统强调色

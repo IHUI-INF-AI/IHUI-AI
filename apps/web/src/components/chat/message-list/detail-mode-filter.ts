@@ -20,7 +20,7 @@ import type { ConversationDetailMode } from '@/stores/conversation-detail-mode'
 
 export type { ConversationDetailMode }
 
-/** commands 档保留的类目:命令执行 + 文件写入/修改/删除(对标 Codex STEPS_COMMANDS) */
+/** commands 档保留的类目:命令执行 + 文件写入/修改/删除(遵循统一工程规范) */
 export const COMMAND_CATEGORIES: readonly CategoryKey[] = [
   'command',
   'file_write',

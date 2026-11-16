@@ -174,7 +174,7 @@ async function main() {
   }
   console.log('backed hashes:', backed.size)
 
-  // ② 悬空 commit 全量。参数与守门 30a 的 detectUnreachable 逐字对齐
+  // ② 悬空 commit 全量。参数与守门 30a 的 detectUnreachable 按行为规格
   // (--connectivity-only --unreachable --no-reflogs):否则「只经 reflog 可达」的提交
   // 会被本器当成已可达而漏备,门却仍判悬空。
   // 退出码 1/2 且 stdout 有清单 = 正常读数。命令没跑成,或非 0 且 stdout 为空 = 未判定,

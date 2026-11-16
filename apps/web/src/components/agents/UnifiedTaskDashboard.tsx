@@ -7,7 +7,7 @@
 /**
  * UnifiedTaskDashboard — 统一任务运行时看板(D25,2026-09-19 立)。
  *
- * 收敛四源任务视图为单入口(对标 Codex 0.149 agents dashboard + Qoder Quest 看板,G-32):
+ * 收敛四源任务视图为单入口(遵循统一工程规范):
  *   - kanban:DB 持久任务(GET /agents/kanban/tasks,与 KanbanBoard 共享 ['agents-kanban'] 缓存)
  *   - background:后台派单(内存,useActiveDispatches)
  *   - local:agentLoop 内存任务(GET /workspace/agent/tasks,与 AgentTasksPanel 同源)

@@ -16,6 +16,8 @@ import { requireAdmin } from '../plugins/require-permission.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
 import { isUuidString } from '../utils/uuid.js'
 import { TOKEN_FLOW_OP } from '../services/relay-billing-service.js'
+// DB-35:email/phone 列存密文;提现列表的 user 筛选降级为 lookup 精确匹配
+import { contactLookupForSearch } from '../utils/user-contact.js'
 import {
   userMargins,
   tokenFlows,
@@ -342,14 +344,21 @@ export const adminShopRoutes: FastifyPluginAsync = async (server) => {
     if (outBillNo) conds.push(ilike(withdrawalFlows.partnerTradeNo, `%${outBillNo}%`))
     if (minAmount !== undefined) conds.push(sql`${withdrawalFlows.amount} >= ${minAmount}`)
     if (maxAmount !== undefined) conds.push(sql`${withdrawalFlows.amount} <= ${maxAmount}`)
-    if (user)
+    if (user) {
+      // DB-35:email/phone 存密文,ilike 中缀不可用;降级为对应 lookup 精确匹配。
+      // 未归一成有效联系方式时不添加该分支(username/nickname 模糊仍生效)。
       conds.push(
         or(
           ilike(users.username, `%${user}%`),
-          ilike(users.email, `%${user}%`),
-          ilike(users.phone, `%${user}%`),
+          ...(contactLookupForSearch('email', user)
+            ? [eq(users.emailLookup, contactLookupForSearch('email', user)!)]
+            : []),
+          ...(contactLookupForSearch('phone', user)
+            ? [eq(users.phoneLookup, contactLookupForSearch('phone', user)!)]
+            : []),
         ),
       )
+    }
     if (userName) conds.push(ilike(users.nickname, `%${userName}%`))
     const where = conds.length ? and(...conds) : undefined
     const listRows = await db

@@ -4,7 +4,7 @@
 
 """Agent Engine —— JSON-RPC 2.0 编排引擎(P2-③,2026-09-18 立)。
 
-定位(对标 OpenAI Codex 的 app-server):
+定位(对齐 OpenAI Codex 的 app-server):
   Codex 开源 harness 的三层接入里,最锋利的是 app-server —— 让**任意应用**把 agent
   循环当引擎嵌入:持久会话、流式事件、中断、注入自有工具、审批转发。Codex 的引擎只对
   OpenAI 模型好用;本引擎把同一套协议能力建立在我们已经有的差异化之上:
@@ -25,19 +25,19 @@
   thread.resume       从 checkpoint 断点续跑
   thread.state        线程状态(状态机 + 迭代数 + checkpoint + 成本)
   thread.close        关闭线程(释放事件订阅与状态)
-  thread.compact      手动压缩线程历史(确定性压缩,对标 Codex /compact)
-  thread.export       导出线程为 JSONL(对标 Codex rollout 导出)
+  thread.compact      手动压缩线程历史(确定性压缩,遵循统一工程规范)
+  thread.export       导出线程为 JSONL(遵循统一工程规范)
   thread.plan         读取线程当前计划(update_plan 工具写入)
-  thread.enqueue      消息入队(轮中转向,本轮结束自动续跑,对标 Steer)
-  thread.goal         设置/清除线程持久目标(注入 system,对标 Goals)
-  thread.review       审查模式(派生审查子代理输出结构化结论,对标 review)
+  thread.enqueue      消息入队(轮中转向,本轮结束自动续跑,对齐 Steer)
+  thread.goal         设置/清除线程持久目标(注入 system,对齐 Goals)
+  thread.review       审查模式(派生审查子代理输出结构化结论,对齐 review)
   tools.list          MCP 超级工具池 + 宿主注入工具的合并清单
   tools.register      注入宿主自有工具(执行回传客户端,经 tool/execute 往返)
-  tools.search        工具目录模糊搜索(对标 tool_search,超量工具面延迟装载)
-  tools.load          装载搜索到的工具进线程(对标 LoadableToolSpec materialize)
+  tools.search        工具目录模糊搜索(对齐 tool_search,超量工具面延迟装载)
+  tools.load          装载搜索到的工具进线程(对齐 LoadableToolSpec materialize)
   tools.result        回传宿主工具执行结果(结算 tool/execute 请求)
   approval.respond    审批决策回填(与主循环 _approval_registry 打通)
-  elicitation.respond 用户结构化提问回填(对标 elicitation;request_user_input 等待)
+  elicitation.respond 用户结构化提问回填(对齐 elicitation;request_user_input 等待)
   cost.report         成本账本汇总(含缓存命中三段计价)
   models.list         模型路由 + 单价 + 缓存乘数清单
 
@@ -81,7 +81,7 @@ from pathlib import Path, PurePosixPath
 from typing import Any, cast
 
 from app import __version__
-from app.core.agents_md_state import AgentsMdState  # 批58:AGENTS.md 状态机(对标 codex agents_md.rs)
+from app.core.agents_md_state import AgentsMdState  # 批58:AGENTS.md 状态机(对齐统一规范)
 
 # 守门 247(2026-11-01 收口):fire-and-forget 后台任务唯一出口 —— 事件循环只握弱引用,
 # 裸 create_task 的返回值一丢,任务可能被 GC 静默回收且零报错。
@@ -106,7 +106,7 @@ from app.core.output_cleaning import strip_ansi as _strip_ansi
 from app.core.permission_mode import normalize_permission_mode, permission_mode_error
 from app.core.queue_items import build_queue_items
 from app.core.queue_ledger import get_queue_ledger
-from app.core.retained_context import (  # 批58:宿主事实账本(对标 codex retained_context.rs)
+from app.core.retained_context import (  # 批58:宿主事实账本(对齐统一规范)
     RetainedContext,
     RetainedUserMessage,
 )
@@ -146,7 +146,7 @@ logger = logging.getLogger(__name__)
 
 
 def _make_sandbox_mode_tagger() -> Any:
-    """批57:sandbox_mode 标签工厂(对标 Codex sandbox_tags.rs 诊断面)。
+    """批57:sandbox_mode 标签工厂(遵循统一工程规范)。
 
     返回闭包:传入 cwd 返回 policy_tag 字符串;任何异常返回 None(降级不填)。
     标签仅供诊断/观测,绝不用于授权判定(codex 红线)。
@@ -314,7 +314,7 @@ class HostToolSpec:
 # ---------------------------------------------------------------------------
 # 第四批常量(2026-09-18,榨干 Codex harness 剩余可学面)
 # ---------------------------------------------------------------------------
-# unified_exec 会话并发上限(对标 Codex unified_exec process_manager)
+# unified_exec 会话并发上限(遵循统一工程规范)
 _MAX_EXEC_SESSIONS = 8
 # unified_exec 单会话输出缓冲上限(字符;保留 head+tail,中间截断标注)
 _EXEC_BUFFER_HEAD = 4_000
@@ -388,11 +388,11 @@ def _shell_input_encoding_error(codec: str) -> str:
         f"命令包含当前控制台代码页({codec})无法表示的字符,已拒绝执行 —— "
         "请改写命令、改用文件或先切换到支持该字符的代码页后重试。"
     )
-# elicitation 用户提问默认超时(ms)(对标 Codex elicitation)
+# elicitation 用户提问默认超时(ms)(遵循统一工程规范)
 _DEFAULT_ELICITATION_TIMEOUT_MS = 30_000
-# auto-compact 默认触发阈值(估算 token;对标 Codex compact_token_budget)
+# auto-compact 默认触发阈值(估算 token;遵循统一工程规范)
 _AUTOCOMPACT_DEFAULT_THRESHOLD = 60_000
-# 角色模板(对标 Codex agent-roles / collaboration-mode-templates):
+# 角色模板(遵循统一工程规范):
 # spawn_subagent / thread.start 指定 role 后,模板指令追加进 system 全程可见。
 _AGENT_ROLE_TEMPLATES: dict[str, str] = {
     "implementer": "你是资深实现工程师:优先写出可运行的最小改动,显式列出改动文件与理由。",
@@ -403,7 +403,7 @@ _AGENT_ROLE_TEMPLATES: dict[str, str] = {
 }
 
 # ---------------------------------------------------------------------------
-# run_code 常量(2026-09-18 第六批,对标 Codex code-mode/V8 cell):
+# run_code 常量(2026-09-18 第六批,遵循统一工程规范):
 # 模型写 Python 代码在常驻子进程中执行,tools.call(...) 桥接引擎工具,
 # 全局状态跨调用持久(cell 语义);进程隔离 + 超时击杀 + 输出有界。
 # ---------------------------------------------------------------------------
@@ -413,12 +413,12 @@ _CODE_OUTPUT_HEAD = 4_000
 _CODE_OUTPUT_TAIL = 12_000
 _CODE_DEFAULT_TIMEOUT_MS = 60_000
 _CODE_MAX_TIMEOUT_MS = 300_000
-# 单次 run 允许的嵌套工具调用上限(防失控,对标 CodeModeNestedToolCall 治理)
+# 单次 run 允许的嵌套工具调用上限(防失控,对齐 CodeModeNestedToolCall 治理)
 _CODE_MAX_NESTED_TOOL_CALLS = 50
 
 
 def _apply_sandbox(proc: Any) -> dict[str, Any]:
-    """子进程 OS 级沙箱统一入口(第八批,对标 execpolicy 内核层;失败静默降级)。
+    """子进程 OS 级沙箱统一入口(第八批,对齐 execpolicy 内核层;失败静默降级)。
 
     计量与降级同批(2026-10-31,§5e-3):模块本身 import 不到 ⇒ 记 **undetermined**
     而不是 degraded —— 这一格的意思是"护栏装没装上都没量出来",与"量出来是没装上"
@@ -434,7 +434,7 @@ def _apply_sandbox(proc: Any) -> dict[str, Any]:
 
 
 def _sanitized_child_env() -> dict[str, str]:
-    """子进程环境消毒:剔除注入型危险变量(第十一批,对标 process-hardening)。
+    """子进程环境消毒:剔除注入型危险变量(第十一批,对齐 process-hardening)。
 
     第二十六批升级:再剥离 exec_env.NON_INHERITABLE_ENV_VARS(管理凭据/
     身份令牌类,如 IHUI_ADMIN_PASSWORD),模型可达子进程绝不继承。
@@ -444,7 +444,7 @@ def _sanitized_child_env() -> dict[str, str]:
     from app.core.exec_env import scrub_injection_env_vars, scrub_non_inheritable_env_vars
 
     return scrub_non_inheritable_env_vars(scrub_injection_env_vars(dict(os.environ)))
-# 工作区文件监视(2026-09-18 第七批,对标 Codex file-watcher)
+# 工作区文件监视(2026-09-18 第七批,遵循统一工程规范)
 _WATCH_INTERVAL = 2.0
 _WATCH_MAX_ENTRIES = 2000
 # 常驻子进程引导脚本:stdin/stdout 走 JSON 行协议;用户 print 被重定向捕获,
@@ -530,7 +530,7 @@ while True:
 
 
 def _agents_md_state_enabled_from_env() -> bool:
-    """AGENTS.md 状态机增量注入开关(对标 codex context/world_state/agents_md.rs)。
+    """AGENTS.md 状态机增量注入开关(遵循统一工程规范)。
 
     默认 off:保留原纯字符串拼接注入(逐字节不变);设为 on/1/true/yes 时启用
     AgentsMdState 状态机,内容变更发 REPLACEMENT、文件删除发 REMOVAL 通知。
@@ -541,7 +541,7 @@ def _agents_md_state_enabled_from_env() -> bool:
 
 
 def _turn_token_usage_enabled_from_env() -> bool:
-    """turn token 直方图开关(对标 codex state/turn_token_usage.rs)。
+    """turn token 直方图开关(遵循统一工程规范)。
 
     默认 off:不产生任何新事件(逐字节等价);设为 on/1/true/yes 时按模型分组
     聚合本轮用量并发出 turn_token_usage 指标事件。
@@ -552,7 +552,7 @@ def _turn_token_usage_enabled_from_env() -> bool:
 
 
 def _engine_git_metadata_enabled_from_env() -> bool:
-    """git workspaces 元数据采集开关(模块1,对标 codex turn_metadata.rs git enrichment)。
+    """git workspaces 元数据采集开关(模块1,遵循统一工程规范)。
 
     默认 off:不采集 git 信息(逐字节等价);设为 on/1/true/yes 时于 turn telemetry
     组装处采集 repo_root → {remote_urls 脱敏 / head hash / has_changes} 附加事件。
@@ -563,7 +563,7 @@ def _engine_git_metadata_enabled_from_env() -> bool:
 
 
 def _engine_thread_originator_enabled_from_env() -> bool:
-    """线程来源 originator 解析开关(模块2,对标 codex thread_manager.rs)。
+    """线程来源 originator 解析开关(模块2,遵循统一工程规范)。
 
     默认 off:线程不持有 originator(逐字节等价);设为 on/1/true/yes 时于线程
     创建/恢复处经 effective_originator_value 解析并归一挂到 thread。
@@ -586,7 +586,7 @@ def _engine_installation_id_enabled_from_env() -> bool:
 
 
 def _engine_turn_metadata_enabled_from_env() -> bool:
-    """Codex 会话元数据键与请求元数据构建开关(模块4,对标 responses_metadata.rs)。
+    """Codex 会话元数据键与请求元数据构建开关(模块4,对齐 responses_metadata.rs)。
 
     默认 off:不构建 Codex 元数据(逐字节等价);设为 on/1/true/yes 时于 turn
     telemetry 处经 CodexResponsesMetadata 构建 client_metadata 投影附加事件。
@@ -597,7 +597,7 @@ def _engine_turn_metadata_enabled_from_env() -> bool:
 
 
 def _engine_message_history_enabled_from_env() -> bool:
-    """批58 接线(对标 codex message_history.rs):宿主历史账本追加。
+    """批58 接线(遵循统一工程规范):宿主历史账本追加。
 
     默认 off:不落任何历史文件(逐字节等价);设为 on/1/true/yes 且配置了
     IHUI_MESSAGE_HISTORY_PATH 时,于 turn.start 落盘处追加(多进程安全)用户指令。
@@ -608,7 +608,7 @@ def _engine_message_history_enabled_from_env() -> bool:
 
 
 def _engine_rollout_archive_enabled_from_env() -> bool:
-    """批58 接线(对标 codex rollout 压缩 worker):导出后冷文件归档。
+    """批58 接线(遵循统一工程规范):导出后冷文件归档。
 
     默认 off:导出后不压缩(逐字节等价);设为 on/1/true/yes 时对同一目录下的
     冷导出 *.jsonl 做 gzip 归档(原子写 + 保留 mtime,单文件失败不抛出)。
@@ -619,7 +619,7 @@ def _engine_rollout_archive_enabled_from_env() -> bool:
 
 
 def _engine_rollout_truncation_enabled_from_env() -> bool:
-    """批58 接线(对标 codex rollout truncation):导出按 turn_id 截断。
+    """批58 接线(遵循统一工程规范):导出按 turn_id 截断。
 
     默认 off:导出全量(逐字节等价);设为 on/1/true/yes 且入参带
     truncateAfterTurnId 时,只导出该 turn 及其之前的内容。
@@ -630,7 +630,7 @@ def _engine_rollout_truncation_enabled_from_env() -> bool:
 
 
 def _engine_file_watcher_enabled_from_env() -> bool:
-    """批58 接线(对标 codex file_watcher.rs):文件变更事件路由。
+    """批58 接线(遵循统一工程规范):文件变更事件路由。
 
     默认 off:不持有路由器、不分发任何事件(逐字节等价);设为 on/1/true/yes 时
     引擎持有 FileWatcherRouter,补丁落盘后把变更路径分发给命中订阅方。
@@ -642,7 +642,7 @@ def _engine_file_watcher_enabled_from_env() -> bool:
 
 
 def _engine_feature_flags_enabled_from_env() -> bool:
-    """集中式特性开关注册表开关(模块5,对标 codex features crate)。
+    """集中式特性开关注册表开关(模块5,遵循统一工程规范)。
 
     默认 off:引擎不咨询注册表,各特性判定走现有直读 env 路径(逐字节等价);
     设为 on/1/true/yes 时于 initialize 处经注册表解析生效集并暴露给客户端。
@@ -679,10 +679,10 @@ class EngineThread:
     emit: Emitter | None = None
     # 当前持久化轮次(session_store turn_id,用于结束后回写 AgentMessage/Error)
     current_turn_id: str | None = None
-    # 回合标记(2026-09-19 批 43 接线,对标 codex thread/revert):user 消息索引
+    # 回合标记(2026-09-19 批 43 接线,遵循统一工程规范):user 消息索引
     # → turn_id 映射,thread.revert 据此精确裁剪内存消息(持久层同步截断)
     turn_markers: dict[int, str] = field(default_factory=dict)
-    # 工具级审批策略(2026-09-18 立,对标 Codex per-tool approval_policy;
+    # 工具级审批策略(2026-09-18 立,遵循统一工程规范;
     # "*" 为全局档,per-tool 显式值优先)
     approval_policies: dict[str, str] = field(default_factory=dict)
     # D201 多根工作区(2026-10-02):会话级附加目录集(thread.settings 的
@@ -691,71 +691,71 @@ class EngineThread:
     # 快照,供 thread.state / settings.updated 回读。生命周期 = 线程内存态
     # (与 model_params 等其余热更项一致,重启后须重新下发)。
     additional_directories: tuple[str, ...] = ()
-    # Turn Context 冻结(2026-09-18 立,对标 Codex harness TurnContext):每轮 prompt
+    # Turn Context 冻结(2026-09-18 立,遵循统一工程规范):每轮 prompt
     # 开始时快照本轮生效配置;thread.resume(checkpoint 续跑)强制用冻结副本,防
     # 「interrupt → 客户端改配置 → resume」状态串台。非 checkpoint 路径每轮刷新。
     frozen_context: dict[str, Any] | None = None
-    # 生成参数 / 推理配置(2026-09-18 第二批,对标 Codex model_reasoning 配置面):
+    # 生成参数 / 推理配置(2026-09-18 第二批,遵循统一工程规范):
     # 随 frozen_context 冻结,resume 时同样还原,防轮间配置漂移。
     model_params: dict[str, Any] = field(default_factory=dict)
     reasoning: dict[str, Any] = field(default_factory=dict)
-    # 负向工具过滤(对标 Codex per-app omit_tools_from):构造循环工具后剔除
+    # 负向工具过滤(遵循统一工程规范):构造循环工具后剔除
     deny_tools: list[str] = field(default_factory=list)
-    # 模型可见计划(update_plan 内置工具写入,对标 Codex PlanUpdate/plan tool)
+    # 模型可见计划(update_plan 内置工具写入,遵循统一工程规范)
     plan: list[dict[str, Any]] | None = None
     # 子代理嵌套深度(spawn_subagent 防递归失控,上限 _MAX_SUBAGENT_DEPTH)
     depth: int = 0
-    # 消息队列(2026-09-18 第三批,对标 Codex Steer/ThreadQueueChanged):
+    # 消息队列(2026-09-18 第三批,遵循统一工程规范):
     # 轮中入队的输入在本轮结束后自动依序续跑
     queue: list[dict[str, Any]] = field(default_factory=list)
-    # 线程持久目标(2026-09-18 第三批,对标 Codex Goals):注入 system 全程可见
+    # 线程持久目标(2026-09-18 第三批,遵循统一工程规范):注入 system 全程可见
     goal: str | None = None
-    # 线程元数据(2026-09-20 批 47,对标 codex ThreadMetadataPatch):自由 KV,
+    # 线程元数据(2026-09-20 批 47,遵循统一工程规范):自由 KV,
     # thread/metadata patch 更新;store 持久化同字段(merge=False 整写)
     metadata: dict[str, Any] = field(default_factory=dict)
-    # 下轮一次性配置(2026-09-20 批 48,对标 codex turn/settings/update):turn.settings
+    # 下轮一次性配置(2026-09-20 批 48,遵循统一工程规范):turn.settings
     # 写入,下一轮 _run_prompt_turn 在 frozen_context 刷新后 merge 进去并清空(一次性
     # 消费);实现"下轮生效、不拒绝 running"。键空间与 frozen_context 一致。
     pending_turn_settings: dict[str, Any] | None = None
-    # token 预算(2026-09-18 第三批,对标 Codex TokenBudget/RolloutBudget):
+    # token 预算(2026-09-18 第三批,遵循统一工程规范):
     # 跨回合累计 session_tokens_used,达到 token_budget 即拒起新轮
     token_budget: int | None = None
     session_tokens_used: int = 0
-    # AGENTS.md 模型可见状态机(2026-09-20 批58,对标 codex agents_md.rs):
+    # AGENTS.md 模型可见状态机(2026-09-20 批58,遵循统一工程规范):
     # 按 thread 持有,内容变更/删除经 maybe_fragment 增量通知,避免重复注入。
     agents_md_state: AgentsMdState = field(default_factory=AgentsMdState)
-    # 自动压缩(2026-09-18 第四批,对标 Codex compact_token_budget):
+    # 自动压缩(2026-09-18 第四批,遵循统一工程规范):
     # 每轮结束后估算 token 超阈值即确定性压缩(发 context.compacted, trigger=auto)
     auto_compact: bool = False
     auto_compact_threshold: int = _AUTOCOMPACT_DEFAULT_THRESHOLD
     # 用途桶用量表。缺席时压缩只看上面的绝对 token 上限。
     usage_thresholds: dict[str, Any] | None = None
     context_capacity: int | None = None
-    # 结构化终答(2026-09-18 第四批,对标 Codex output_schema):轮末校验 finalResponse
+    # 结构化终答(2026-09-18 第四批,遵循统一工程规范):轮末校验 finalResponse
     output_schema: dict[str, Any] | None = None
-    # 角色模板(2026-09-18 第四批,对标 Codex agent-roles):追加进 system
+    # 角色模板(2026-09-18 第四批,遵循统一工程规范):追加进 system
     role: str | None = None
-    # shell 快照(2026-09-18 第四批,对标 Codex shell_snapshot):
+    # shell 快照(2026-09-18 第四批,遵循统一工程规范):
     # unified_exec 最近一次会话 cwd,跨轮供模型感知工作目录漂移
     last_shell_cwd: str | None = None
-    # shell 环境快照路径(2026-09-20 批 55 接线,对标 Codex shell_snapshot.rs
+    # shell 环境快照路径(2026-09-20 批 55 接线,遵循统一工程规范
     # 复用语义):thread.start 后台预热捕获,unified_exec 新建 POSIX 会话时
     # source 注入 + 环境合并;None=尚未就绪/捕获失败(静默降级不阻塞)。
     shell_snapshot_path: str | None = None
     shell_snapshot_task: Any | None = None
-    # Turn Timing(2026-09-18 第四批,对标 Codex turn_timing):最近一轮起止
+    # Turn Timing(2026-09-18 第四批,遵循统一工程规范):最近一轮起止
     last_turn_timing: dict[str, Any] | None = None
-    # 工作区文件监视(2026-09-18 第七批,对标 Codex file-watcher):
+    # 工作区文件监视(2026-09-18 第七批,遵循统一工程规范):
     # 开启后扫描工作区变更并经 workspace.changed 事件推送(去抖聚合)
     watch_workspace: bool = False
-    # 回合净 diff 跟踪器(2026-09-19 第四十一批接线,对标 Codex TurnDiffTracker):
+    # 回合净 diff 跟踪器(2026-09-19 第四十一批接线,遵循统一工程规范):
     # 补丁提交时累计净变更,inexact 即整体失效;turn.diff 优先取净 diff
     turn_diff_tracker: Any = None
-    # 批58(接线):retained context 宿主事实账本(对标 codex retained_context.rs)。
+    # 批58(接线):retained context 宿主事实账本(遵循统一工程规范)。
     # 默认 None(off,零行为变化);IHUI_RETAINED_CONTEXT_ENABLED=1 时每轮记录
     # 已投递用户指令,压缩不过期它们,指令边界回滚才清除。
     retained_context: RetainedContext | None = None
-    # 批58(接线):线程来源(originator)解析结果(对标 codex thread_manager.rs)。
+    # 批58(接线):线程来源(originator)解析结果(遵循统一工程规范)。
     # 默认 None(off,零行为变化);ENGINE_THREAD_ORIGINATOR_ENABLED=on 时于线程
     # 创建/恢复处经 effective_originator_value 解析并归一挂到线程。
     originator: str | None = None
@@ -795,12 +795,12 @@ def _normalize_policy_dict(raw: Any) -> dict[str, str]:
 
 
 def _parse_policy_config(params: dict[str, Any]) -> dict[str, str]:
-    """解析 thread.start/exec 的策略配置(2026-09-18 立,对标 Codex harness 结构化策略)。
+    """解析 thread.start/exec 的策略配置(2026-09-18 立,遵循统一工程规范)。
 
     支持三种形态,可叠加(后者覆盖前者):
     - approvalPolicy: "never"|"on-request"|"always" → 全局档(作用于所有工具);
     - toolApprovalPolicies: {tool_name: policy} → per-tool 显式配置;
-    - policyToml: TOML 文本 → 结构化解析(对标 Codex config.toml):
+    - policyToml: TOML 文本 → 结构化解析(对齐统一规范):
         [tools.<name>]
         approval_policy = "always"
       也接受顶层 approval_policy = "..."。tomllib 解析失败/字段非法 → INVALID_PARAMS。
@@ -850,7 +850,7 @@ def _resolve_approval_policy(policies: dict[str, str], tool_name: str) -> str | 
     return policies.get("*")
 
 
-# 批58(十五):工具审批策略 → codex AskForApproval 档位映射(对标 exec_policy.rs)。
+# 批58(十五):工具审批策略 → codex AskForApproval 档位映射(对齐 exec_policy.rs)。
 # ihui 值域 never/on-request/always;未配置等价"按需询问"(ON_REQUEST)。
 _APPROVAL_POLICY_TO_ASK: dict[str, str] = {
     "never": "never",
@@ -862,7 +862,7 @@ _APPROVAL_POLICY_TO_ASK: dict[str, str] = {
 def _unmatched_command_decision_meta(
     policies: dict[str, str], tool_name: str
 ) -> dict[str, Any]:
-    """危险命令拦截回执的审批决策矩阵(对标 codex render_decision_for_unmatched_command)。
+    """危险命令拦截回执的审批决策矩阵(遵循统一工程规范)。
 
     接线面:命令已命中危险分类器硬门(拦截行为不变),本函数只把"拦截背后的策略
     语义"结构化进回执——
@@ -909,7 +909,7 @@ def _unmatched_command_decision_meta(
 
 
 # ---------------------------------------------------------------------------
-# 生成参数 / 推理配置 / 负向工具过滤(2026-09-18 第二批,对标 Codex model_reasoning
+# 生成参数 / 推理配置 / 负向工具过滤(2026-09-18 第二批,遵循统一工程规范
 # 与 per-app omit_tools_from 配置面):thread.start 可带 modelParams(白名单键 +
 # camelCase 别名)/ reasoning {effort, summary} / denyTools。
 # ---------------------------------------------------------------------------
@@ -935,7 +935,7 @@ _REASONING_EFFORTS: tuple[str, ...] = ("minimal", "low", "medium", "high", "xhig
 _REASONING_SUMMARIES: tuple[str, ...] = ("auto", "concise", "detailed")
 _VALID_PLAN_STATUSES: tuple[str, ...] = ("pending", "in_progress", "completed")
 
-# view_image 工具(对标 Codex view_image):工作区内的图片读取
+# view_image 工具(遵循统一工程规范):工作区内的图片读取
 _IMAGE_MIME_TYPES: dict[str, str] = {
     ".png": "image/png",
     ".jpg": "image/jpeg",
@@ -977,7 +977,7 @@ _VALID_PERMISSION_SCOPES: tuple[str, ...] = (
 
 
 def _parse_output_schema(raw: Any) -> dict[str, Any] | None:
-    """解析 outputSchema(2026-09-18 第四批,对标 Codex output_schema)。
+    """解析 outputSchema(2026-09-18 第四批,遵循统一工程规范)。
 
     须为 JSON Schema 子集:{"type": "object", "properties": {...},
     "required"?: [str]}。非法 → INVALID_PARAMS(构造期 fail-fast)。
@@ -1002,7 +1002,7 @@ def _parse_output_schema(raw: Any) -> dict[str, Any] | None:
 def _validate_output_schema_payload(
     schema: dict[str, Any], text: str
 ) -> dict[str, Any]:
-    """对最终答复做 outputSchema 宽松校验(零新增依赖,对标 Codex structured output)。
+    """对最终答复做 outputSchema 宽松校验(零新增依赖,遵循统一工程规范)。
 
     finalResponse 须为合法 JSON 且满足:type=object / required 全在 /
     properties 声明的基本类型一致(string/number/boolean/array/object/null)。
@@ -1041,7 +1041,7 @@ def _validate_output_schema_payload(
 
 
 # ---------------------------------------------------------------------------
-# apply_patch:unified diff 结构化补丁(2026-09-18 第五批,对标 Codex apply-patch)
+# apply_patch:unified diff 结构化补丁(2026-09-18 第五批,遵循统一工程规范)
 # ---------------------------------------------------------------------------
 
 
@@ -1219,7 +1219,7 @@ def _parse_v4a_patch(
             raise ValueError(f"第 {lineno} 行: *** Begin Patch 后出现游离内容: {raw!r}")
     if not seen_end:
         # 未闭合 = 可能被截断,应用半截补丁会写坏文件:严格拒绝 + 可操作提示
-        # (对标 Codex 对 End Patch 的强校验;此处额外给出修复指引,属体验优化)
+        # (遵循统一工程规范;此处额外给出修复指引,属体验优化)
         raise ValueError(
             "V4A 补丁缺失 *** End Patch 结束标记(可能输出被截断),未做任何修改;"
             "请重新生成完整补丁并确保以 '*** End Patch' 结尾"
@@ -1257,7 +1257,7 @@ def _parse_v4a_patch(
 def _aggregate_unified_diff(
     diff_pairs: dict[str, tuple[str | None, str | None]],
 ) -> str:
-    """按路径聚合 unified diff(对标 Codex TurnDiffTracker 的 unified_diff 输出)。
+    """按路径聚合 unified diff(遵循统一工程规范)。
 
     diff_pairs: rel → (旧内容|None=新增, 新内容|None=删除)。
     """
@@ -1622,7 +1622,7 @@ def _parse_unified_patch(
 
 
 def _model_hash(model: str | None) -> str:
-    """模型标识的稳定短哈希(对标 Codex CompactionCheckpoint 的 model_hash)。
+    """模型标识的稳定短哈希(遵循统一工程规范)。
 
     空模型名返回空串(表示"来源未知",判定时按兼容处理而非阻断)。
     """
@@ -1632,7 +1632,7 @@ def _model_hash(model: str | None) -> str:
 
 
 def _compaction_compatible(summary_model: str | None, current_model: str | None) -> bool:
-    """压缩摘要与当前模型是否兼容(第十八批,对标 Codex is_compatible_with)。
+    """压缩摘要与当前模型是否兼容(第十八批,遵循统一工程规范)。
 
     - 任一侧缺失(旧数据没有 model 字段 / 当前模型未知)→ 视为兼容:保守
       处理,不因为信息缺失而阻断 resume;
@@ -1782,7 +1782,7 @@ def _parse_generation_config(params: dict[str, Any]) -> tuple[dict[str, Any], di
 
 
 def _parse_deny_tools(params: dict[str, Any]) -> list[str]:
-    """解析 denyTools(对标 Codex per-app omit_tools_from 的负向过滤)。"""
+    """解析 denyTools(遵循统一工程规范)。"""
     deny = params.get("denyTools")
     if deny is None:
         return []
@@ -2026,7 +2026,7 @@ class AgentEngine:
         host_tool_timeout_ms: int = DEFAULT_HOST_TOOL_TIMEOUT_MS,
         store: SessionStore | None = None,
         locked_system_prompt: str | None = None,
-        # 2026-09-18 第七批(compact_remote 对标):LLM 摘要器,thread.compact
+        # 2026-09-18 第七批(compact_remote 对齐):LLM 摘要器,thread.compact
         # strategy="llm" 时用;async (text: str) -> str。未注入时 llm 策略报错。
         llm_summarizer: Callable[[str], Awaitable[str]] | None = None,
     ) -> None:
@@ -2038,7 +2038,7 @@ class AgentEngine:
         self._llm_summarizer = llm_summarizer
         self._host_tool_timeout_ms = int(host_tool_timeout_ms)
         self._threads: dict[str, EngineThread] = {}
-        # 服务端 system prompt 锁定(2026-09-18 立,对标 Codex harness server-delivered
+        # 服务端 system prompt 锁定(2026-09-18 立,遵循统一工程规范
         # prompts):非空时 thread.start 的客户端 systemPrompt 被忽略,强制用服务端值
         # (多租户合规:防客户端覆盖安全提示);回退 env AGENT_ENGINE_LOCKED_SYSTEM_PROMPT。
         self._locked_system_prompt: str | None = (
@@ -2051,21 +2051,21 @@ class AgentEngine:
         # request_permissions 工具的待决请求(requestId → 带主记录;approval.respond 结算
         # 前必须先过属主 —— 见 _PendingPermissionRequest)
         self._permission_requests: dict[str, _PendingPermissionRequest] = {}
-        # elicitation 中轮提问的待决请求(2026-09-18 第四批,对标 Codex elicitation;
+        # elicitation 中轮提问的待决请求(2026-09-18 第四批,遵循统一工程规范;
         # G-251 起存带主记录 —— 结算前必须过属主,见 _PendingElicitationRequest)
         self._elicitation_requests: dict[str, _PendingElicitationRequest] = {}
-        # unified_exec 持久 shell 会话(2026-09-18 第四批,对标 Codex unified_exec)
+        # unified_exec 持久 shell 会话(2026-09-18 第四批,遵循统一工程规范)
         self._exec_sessions: dict[str, dict[str, Any]] = {}
-        # shell 环境快照缓存(2026-09-20 批 55 接线,对标 Codex
+        # shell 环境快照缓存(2026-09-20 批 55 接线,遵循统一工程规范
         # ShellSnapshotCache/environment_selection.rs):session_id → ShellSnapshotFile。
         # thread.start 后台预热,unified_exec 新建 POSIX 会话时消费;失败静默降级。
         self._shell_snapshots: dict[str, Any] = {}
         self._shell_snapshot_tasks: dict[str, asyncio.Task[None]] = {}
-        # run_code 常驻代码会话(2026-09-18 第六批,对标 Codex code-mode cell)
+        # run_code 常驻代码会话(2026-09-18 第六批,遵循统一工程规范)
         self._code_sessions: dict[str, dict[str, Any]] = {}
-        # 工作区文件监视器(2026-09-18 第七批,对标 Codex file-watcher)
+        # 工作区文件监视器(2026-09-18 第七批,遵循统一工程规范)
         self._workspace_watchers: dict[str, asyncio.Task[None]] = {}
-        # 连接级文件监视订阅(2026-09-20 批 50,对标 codex fs/watch):
+        # 连接级文件监视订阅(2026-09-20 批 50,遵循统一工程规范):
         # watchId → 扫描任务,与线程级 _workspace_watchers 互不相干
         self._fs_watchers: dict[str, asyncio.Task[None]] = {}
         # Z32 兜底腿的关停面:watchId → 被监视根目录(fs/unwatch 摘循环后要排空一次)
@@ -2082,7 +2082,7 @@ class AgentEngine:
         self._incremental_index_identity: dict[str, str | None] = {}
         self._incremental_index_clock: Any = time.monotonic
         self._incremental_index_window_s: float | None = None
-        # 批58 接线:集中式特性开关注册表(模块5,对标 codex features crate)。
+        # 批58 接线:集中式特性开关注册表(模块5,遵循统一工程规范)。
         # 注册已知特性(含本批各 env 开关);off 时引擎不咨询注册表,判定路径与
         # 现状逐字节一致;on 时经注册表解析生效集(见 _resolve_engine_features)。
         self._feature_registry: Any = self._build_feature_registry()
@@ -2304,7 +2304,7 @@ class AgentEngine:
                 thread.thread_id,
                 metadata={
                     "model": thread.model,
-                    # 批57(对标 Codex sandbox_tags.rs record_policy_metadata):
+                    # 批57(遵循统一工程规范):
                     # turn 元数据持久化策略强度诊断标签——仅供诊断/观测,
                     # 绝不用于授权判定。引擎未接平台沙箱后端,标签按只读
                     # 策略面推导,语义与 codex detached 请求一致。
@@ -2563,7 +2563,7 @@ class AgentEngine:
                 "压缩时决策链保留(thread.state.compactionEvents)",
             ],
         }
-        # 批58 接线:集中式特性开关注册表(模块5,对标 codex features crate)。
+        # 批58 接线:集中式特性开关注册表(模块5,遵循统一工程规范)。
         # off 时不咨询注册表(判定路径与现状逐字节一致);on 时把解析生效集经
         # capabilities.featureFlags 暴露给客户端(仅 on 时新增该键)。
         if _engine_feature_flags_enabled_from_env():
@@ -2601,7 +2601,7 @@ class AgentEngine:
         approval_policies = _parse_policy_config(params)
         model_params, reasoning = _parse_generation_config(params)
         deny_tools = _parse_deny_tools(params)
-        # token 预算(2026-09-18 第三批,对标 TokenBudget):正整数或省略
+        # token 预算(2026-09-18 第三批,对齐 TokenBudget):正整数或省略
         token_budget = params.get("tokenBudget")
         if token_budget is not None:
             if isinstance(token_budget, bool) or not isinstance(token_budget, int) or token_budget <= 0:
@@ -2626,14 +2626,14 @@ class AgentEngine:
                 INVALID_PARAMS,
                 f"role 须为内置角色之一: {sorted(_AGENT_ROLE_TEMPLATES)}",
             )
-        # 文件监视(2026-09-18 第七批,对标 Codex file-watcher)
+        # 文件监视(2026-09-18 第七批,遵循统一工程规范)
         watch_workspace = bool(params.get("watchWorkspace"))
-        # 角色模板追加进 system(对标 Codex agent-roles 全程可见语义)
+        # 角色模板追加进 system(遵循统一工程规范)
         if role is not None:
             messages[0]["content"] = (
                 f"{messages[0]['content']}\n\n[角色模板] {_AGENT_ROLE_TEMPLATES[role]}"
             )
-        # 项目文档注入(2026-09-19 第二十八批,对标 Codex agents_md.rs discovery):
+        # 项目文档注入(2026-09-19 第二十八批,遵循统一工程规范):
         # 实际注入逻辑见 _inject_agents_md(批58 状态机增量注入开关);thread 构造后调用。
         _agents_workspace = params.get("workspace")
         thread = EngineThread(
@@ -2668,7 +2668,7 @@ class AgentEngine:
             messages=messages,
         )
         self._threads[thread_id] = thread
-        # 批58(接线):线程来源 originator 解析(模块2,对标 codex thread_manager.rs)。
+        # 批58(接线):线程来源 originator 解析(模块2,遵循统一工程规范)。
         # off → None(零行为变化);on → 经 effective_originator_value 解析并挂到 thread。
         if _engine_thread_originator_enabled_from_env():
             try:
@@ -2685,7 +2685,7 @@ class AgentEngine:
                 )
             except Exception as e:  # noqa: BLE001 - 解析失败降级不挂
                 logger.warning("thread originator 解析失败(降级跳过): %s", e)
-        # 批58(接线):retained context 宿主事实账本(对标 codex retained_context.rs)。
+        # 批58(接线):retained context 宿主事实账本(遵循统一工程规范)。
         # off → None(零行为变化);on → 线程持有账本,每轮记录已投递用户指令。
         if os.environ.get("IHUI_RETAINED_CONTEXT_ENABLED", "false").strip().lower() in (
             "on", "1", "true", "yes",
@@ -2704,7 +2704,7 @@ class AgentEngine:
         self._persist_thread_created(thread)
         if watch_workspace:
             self._start_workspace_watcher(thread)
-        # shell 快照后台预热(2026-09-20 批 55 接线,对标 ShellSnapshotTask):
+        # shell 快照后台预热(2026-09-20 批 55 接线,对齐 ShellSnapshotTask):
         # unified_exec 首次调用前捕获好用户登录环境;失败静默降级
         self._start_shell_snapshot_prewarm(thread)
         logger.info("[engine] thread.start %s (model=%s)", thread_id, thread.model)
@@ -2729,7 +2729,7 @@ class AgentEngine:
         }
 
     def _freeze_context(self, thread: EngineThread) -> dict[str, Any]:
-        """快照本轮生效配置(Turn Context 冻结,对标 Codex TurnContext)。"""
+        """快照本轮生效配置(Turn Context 冻结,遵循统一工程规范)。"""
         return {
             "model": thread.model,
             "permission_mode": thread.permission_mode,
@@ -2745,7 +2745,7 @@ class AgentEngine:
     async def _handle_agent_exec(
         self, params: dict[str, Any], emit: Emitter
     ) -> dict[str, Any]:
-        """一次性非交互执行(2026-09-18 立,对标 Codex `codex exec` headless 模式)。
+        """一次性非交互执行(2026-09-18 立,遵循统一工程规范)。
 
         params 与 thread.start/prompt 同构(input/model/permissionMode/tools/
         approvalPolicy/toolApprovalPolicies/policyToml/systemPrompt/...)。
@@ -2772,7 +2772,7 @@ class AgentEngine:
                 thread.status = "closed"
                 thread.touch()
                 # AIS-091:headless 执行复用线程关闭清理,释放工作区 watcher 与 shell 快照,
-                # 否则每次 exec 泄漏 watcher/临时目录(对标 _handle_thread_close)。
+                # 否则每次 exec 泄漏 watcher/临时目录(对齐 _handle_thread_close)。
                 with contextlib.suppress(Exception):
                     await self._stop_workspace_watcher_and_drain(thread)
                 with contextlib.suppress(Exception):
@@ -2789,7 +2789,7 @@ class AgentEngine:
     ) -> dict[str, Any]:
         """执行一轮:过程事件经 thread/event 通知回传,结束时返回结构化结果。
 
-        2026-09-18 第三批(Steer/ThreadQueueChanged 对标):本轮结束后若队列
+        2026-09-18 第三批(Steer/ThreadQueueChanged 对齐):本轮结束后若队列
         非空则依序自动续跑(单次 prompt 最多消化 5 条,防失控);轮中入队的
         消息由 thread.enqueue 接住。
         """
@@ -2846,17 +2846,17 @@ class AgentEngine:
         self, thread: EngineThread, text: str, emit: Emitter
     ) -> dict[str, Any]:
         """单轮执行(预算硬停 → 环境快照 → 跑 → 用量累计 → turn.diff)。"""
-        # token 预算硬停(2026-09-18 第三批,对标 TokenBudget/RolloutBudget):
+        # token 预算硬停(2026-09-18 第三批,对齐 TokenBudget/RolloutBudget):
         # 跨回合累计用量达到预算即拒起新轮(进行中的轮不打断,由循环层 budget 治理)。
         if thread.token_budget is not None and thread.session_tokens_used >= thread.token_budget:
             raise JsonRpcError(
                 BUDGET_EXHAUSTED,
                 f"token 预算已耗尽(已用 {thread.session_tokens_used} / 预算 {thread.token_budget})",
             )
-        # Turn Timing(2026-09-18 第四批,对标 Codex turn_timing)
+        # Turn Timing(2026-09-18 第四批,遵循统一工程规范)
         turn_started_at = time.time()
         thread.last_turn_timing = {"startedAt": turn_started_at}
-        # 批58(接线):retained context 记录(对标 codex retained_context.rs)。
+        # 批58(接线):retained context 记录(遵循统一工程规范)。
         # 每轮把已投递用户指令存入宿主账本(模型不可见;压缩不过期,指令边界
         # 回滚才清除)。off/None/异常均零行为变化,不阻塞回合。
         if thread.retained_context is not None and text.strip():
@@ -2872,7 +2872,7 @@ class AgentEngine:
             except Exception as e:  # noqa: BLE001 - 记录失败降级跳过
                 logger.warning("retained_context 记录失败(降级跳过): %s", e)
         before_files = await self._workspace_dirty_files(thread)
-        # 非 git 工作区兜底:回合前 mtime 快照(第十四批,对标 Codex 在无 git
+        # 非 git 工作区兜底:回合前 mtime 快照(第十四批,遵循统一工程规范
         # 仓库下仍能给出回合变更清单;上限 2000 项,失败静默降级为空)
         before_snapshot: dict[str, float] = {}
         if thread.workspace:
@@ -2884,7 +2884,7 @@ class AgentEngine:
         # Turn Context 冻结:非 checkpoint 路径每轮刷新快照(客户端在轮间改配置,
         # 新一轮用新值;轮内 interrupt→resume 走 _handle_thread_resume 的冻结副本)
         thread.frozen_context = self._freeze_context(thread)
-        # 下轮一次性配置(2026-09-20 批 48,对标 codex turn/settings/update):
+        # 下轮一次性配置(2026-09-20 批 48,遵循统一工程规范):
         # pending_turn_settings 非空 → merge 进本轮冻结快照并清空(一次性消费,
         # 不进 agent_loop_v2;键空间与 frozen_context 一致,如 model/permission_mode)。
         if thread.pending_turn_settings:
@@ -2893,7 +2893,7 @@ class AgentEngine:
                 **thread.pending_turn_settings,
             }
             thread.pending_turn_settings = None
-        # 环境快照事件(2026-09-18 第二批,对标 Codex EnvironmentSnapshot/环境上下文):
+        # 环境快照事件(2026-09-18 第二批,遵循统一工程规范):
         # 客户端每轮可感知 cwd/workspace/生成参数,排查"模型看到了什么环境"不再靠猜。
         with contextlib.suppress(Exception):
             await emit(
@@ -2918,7 +2918,7 @@ class AgentEngine:
         if turn_id is not None:
             # 批 43:记录 user 消息索引 → turn_id 映射(thread.revert 裁剪依据)
             thread.turn_markers[len(thread.messages) - 1] = turn_id
-        # TurnStarted(2026-09-18 第十批,对标 Codex TurnStarted 事件)
+        # TurnStarted(2026-09-18 第十批,遵循统一工程规范)
         with contextlib.suppress(Exception):
             await self._emit_engine_event(
                 thread, emit, "turn.started", {"turnId": turn_id, "inputChars": len(text)}
@@ -2943,7 +2943,7 @@ class AgentEngine:
         thread.session_tokens_used += int(
             (result or {}).get("totalTokensUsed") or 0
         )
-        # TurnDiff(2026-09-18 第三批,对标 Codex TurnDiff):本回合相对回合前
+        # TurnDiff(2026-09-18 第三批,遵循统一工程规范):本回合相对回合前
         # 新增变脏的工作区文件(git 工作区才有;非 git/无变化静默)。
         # 第十批升级:补齐 Codex TurnDiffEvent{unified_diff} 的 diff 正文语义。
         with contextlib.suppress(Exception):
@@ -3058,7 +3058,7 @@ class AgentEngine:
                             "diffSource": "mtime-snapshot",
                         },
                     )
-        # TurnComplete(2026-09-18 第十批,对标 Codex TurnComplete 事件)
+        # TurnComplete(2026-09-18 第十批,遵循统一工程规范)
         with contextlib.suppress(Exception):
             await self._emit_engine_event(
                 thread,
@@ -3071,7 +3071,7 @@ class AgentEngine:
                     "totalTokensUsed": int((result or {}).get("totalTokensUsed") or 0),
                 },
             )
-        # Stop(第十二批,对标 Codex Stop 钩子):本轮代理工作结束
+        # Stop(第十二批,遵循统一工程规范):本轮代理工作结束
         await self._emit_hook(
             "agent.stop",
             {
@@ -3082,7 +3082,7 @@ class AgentEngine:
                 "durationMs": thread.last_turn_timing.get("durationMs"),
             },
         )
-        # auto-compact(2026-09-18 第四批,对标 Codex compact_token_budget
+        # auto-compact(2026-09-18 第四批,遵循统一工程规范
         # inline auto-compaction):估算 token 超阈值即确定性压缩,零 LLM 成本。
         if thread.auto_compact:
             with contextlib.suppress(Exception):
@@ -3102,7 +3102,7 @@ class AgentEngine:
                     await self._compact_thread(
                         thread, keep_recent=8, emit=emit, trigger="auto"
                     )
-        # outputSchema 结构化终答校验(2026-09-18 第四批,对标 Codex output_schema):
+        # outputSchema 结构化终答校验(2026-09-18 第四批,遵循统一工程规范):
         # fail-open 观测语义——校验结果随返回体下发,违例另发事件,不硬拒答。
         if thread.output_schema is not None and isinstance(result, dict):
             validation = _validate_output_schema_payload(
@@ -3145,7 +3145,7 @@ class AgentEngine:
     @staticmethod
     async def _workspace_file_status(thread: EngineThread) -> dict[str, str]:
         """工作区文件 git 状态映射 path → 'A'|'M'|'D'(2026-09-18 第十三条,
-        对标 codex git-utils GitBaselineChangeStatus 的 git 风格状态标签)。
+        对齐统一规范)。
 
         解析 porcelain 的 XY 两列:'??'→新增(A)、'D'→删除(D)、其余→修改(M);
         非 git 目录/超时/失败 → 空字典静默降级。
@@ -3183,7 +3183,7 @@ class AgentEngine:
 
     @staticmethod
     async def _git_baseline(workspace: str | None) -> tuple[str | None, str]:
-        """回合基线 commit(对标 codex git-utils merge_base_with_head)。
+        """回合基线 commit(遵循统一工程规范)。
 
         优先取 HEAD 与上游分支的 merge-base(未推送改动也纳入 diff 范围),
         上游缺失或无 HEAD 时退化为 HEAD;任何失败返回 (None, 'none')。
@@ -3221,7 +3221,7 @@ class AgentEngine:
         thread.touch()
         host_tools = self._build_host_tool_definitions(thread)
         # 引擎内置工具(update_plan/spawn_subagent/view_image,2026-09-18 第二批,
-        # 对标 Codex plan/collab/view_image 工具面):宿主同名工具显式覆盖。
+        # 遵循统一工程规范):宿主同名工具显式覆盖。
         host_tools = host_tools + self._builtin_tool_definitions(thread)
         # 先同步订阅再开跑:主循环可能在首个 await 之前就发事件(如 session.start),
         # 若订阅晚于执行,这些事件会永久丢失(队列尚不存在,放不进去)。
@@ -3260,13 +3260,13 @@ class AgentEngine:
             payload = self._result_payload(thread, result)
             thread.last_result = payload
             thread.prompts += 1
-            # turn.usage 事件(2026-09-18 第二批,对标 Codex TokenCount):
+            # turn.usage 事件(2026-09-18 第二批,遵循统一工程规范):
             # 回合级用量经通知流出,客户端无需解析循环内部结构。
             with contextlib.suppress(Exception):
                 await self._emit_engine_event(
                     thread, emit, "turn.usage", dict(payload.get("usage") or {})
                 )
-            # turn_token_usage 直方图(批58,对标 codex state/turn_token_usage.rs):
+            # turn_token_usage 直方图(批58,遵循统一工程规范):
             # 开关 on 时按模型分组聚合本轮用量并逐样本发指标事件;off 时不产生
             # 任何新事件(逐字节等价)。分桶数据取自逐迭代精确 usage,无精确
             # 分项时只用总量(不伪造分项,与 _turn_usage 同原则)。
@@ -3404,7 +3404,7 @@ class AgentEngine:
 
     @staticmethod
     def _turn_usage(result: Any) -> dict[str, Any]:
-        """回合 token 用量(2026-09-18 第二批,对标 Codex TokenCount 事件)。
+        """回合 token 用量(2026-09-18 第二批,遵循统一工程规范)。
 
         总量取自 AgentLoopResult.total_tokens_used;逐迭代分项(有精确 usage 时)
         尽力透出,无则只回总量+迭代数(不伪造分项)。
@@ -3440,7 +3440,7 @@ class AgentEngine:
     # ------------------------------------------------------------------
 
     def _build_feature_registry(self) -> Any:
-        """构建集中式特性注册表(模块5,对标 codex features crate)。
+        """构建集中式特性注册表(模块5,遵循统一工程规范)。
 
         注册本仓已知特性(含批58 各 env 开关),供 ENGINE_FEATURE_FLAGS_ENABLED
         开启时统一解析生效集;构造失败降级为 None(不阻塞引擎启动)。
@@ -3984,7 +3984,7 @@ class AgentEngine:
     def retained_context_entries(self, thread: EngineThread) -> list[dict[str, Any]]:
         """读线程宿主事实账本的用户指令条目(批58,off/None 返回空;异常隔离)。
 
-        对标 codex retained_context.rs:宿主持有的模型不可见事实,供委托审查
+        对齐统一规范
         与诊断;不经模型上下文暴露,仅服务端/管理面可读。
         """
         if thread.retained_context is None:
@@ -4002,7 +4002,7 @@ class AgentEngine:
     ) -> bool:
         """指令边界回滚:按原用户消息边界清除账本条目(批58,异常隔离)。
 
-        对标 codex retained_context.rs::rollback —— 指令边界回滚(如 queue
+        对齐统一规范
         回退/线程分支)时清除其后的事实;压缩不过期它们。
         """
         if thread.retained_context is None:
@@ -4014,7 +4014,7 @@ class AgentEngine:
             return False
 
     def _inject_agents_md(self, thread: EngineThread) -> None:
-        """项目文档 AGENTS.md 注入(2026-09-20 批58,对标 codex agents_md.rs)。
+        """项目文档 AGENTS.md 注入(2026-09-20 批58,遵循统一工程规范)。
 
         双模式:
         - 开关 off(IHUI_AGENTS_MD_STATE_ENABLED 未开启,默认):沿用原纯字符串
@@ -4031,7 +4031,7 @@ class AgentEngine:
         try:
             from app.core.agents_md import load_workspace_instructions
 
-            # 第七遍对标(2026-11-14):线程启动时注入完整项目指令链 ——
+            # 第七遍对齐(2026-11-14):线程启动时注入完整项目指令链 ——
             # (AGENTS.override.md > AGENTS.md/CLAUDE.md > *.local.md 本地叠加),
             # 同内容去重、具体优先预算;用户全局链按 §6.3-4 不读。
             # 轮内变化由 AgentLoopV2 逐迭代补发。
@@ -4101,7 +4101,7 @@ class AgentEngine:
             await loop.cancel() if mode == "cancel" else await loop.pause()
         )
         thread.checkpoint_id = checkpoint_id or thread.checkpoint_id
-        # Interrupt(第十二批,对标 Codex Interrupt 钩子)
+        # Interrupt(第十二批,遵循统一工程规范)
         await self._emit_hook(
             "agent.interrupt",
             {
@@ -4244,7 +4244,7 @@ class AgentEngine:
             thread.model_params = dict(ctx.get("model_params") or {})
             thread.reasoning = dict(ctx.get("reasoning") or {})
             thread.deny_tools = list(ctx.get("deny_tools") or [])
-        # 第十八批(对标 Codex history::CompactionCheckpoint):换模型后旧压缩
+        # 第十八批(遵循统一工程规范):换模型后旧压缩
         # 摘要不兼容 —— 摘要是前一个模型生成的文本,继续喂给新模型会引入语义
         # 漂移。默认只标记 + 发钩子事件;客户端可显式要求就地重压缩。
         mismatch = await self._compaction_model_mismatch(thread)
@@ -4353,7 +4353,7 @@ class AgentEngine:
     async def _handle_thread_compact(
         self, params: dict[str, Any], emit: Emitter
     ) -> dict[str, Any]:
-        """手动压缩线程历史(2026-09-18 第二批,对标 Codex /compact + ContextCompacted)。
+        """手动压缩线程历史(2026-09-18 第二批,遵循统一工程规范)。
 
         复用主循环同款确定性压缩(core/context_compaction,零 LLM 额外成本);
         对话过短则原样返回 compressed=False。
@@ -4399,7 +4399,7 @@ class AgentEngine:
         trigger: str,
         custom_summary: str = "",
     ) -> dict[str, Any]:
-        """确定性压缩核心(manual/auto 共用,对标 Codex CompactionTrigger 语义)。
+        """确定性压缩核心(manual/auto 共用,遵循统一工程规范)。
 
         custom_summary 非空 = remote compact(LLM 语义摘要)通道,优先级最高。
         """
@@ -4420,7 +4420,7 @@ class AgentEngine:
             keep_recent=keep_recent,
             custom_summary=custom_summary,
         )
-        # 压缩生命周期 hook(2026-09-18 第七批,对标 Codex PreCompactHook)
+        # 压缩生命周期 hook(2026-09-18 第七批,遵循统一工程规范)
         with contextlib.suppress(Exception):
             await self._hook_bus().emit(
                 "context.pre_compact",
@@ -4447,7 +4447,7 @@ class AgentEngine:
             thread.messages = list(compressed)
             thread.touch()
             self._persist_compaction_boundary(thread, info)
-            # 压缩完成 hook(对标 Codex PostCompactHook;失败不阻塞主流程)
+            # 压缩完成 hook(遵循统一工程规范;失败不阻塞主流程)
             with contextlib.suppress(Exception):
                 await self._hook_bus().emit(
                     "context.post_compact",
@@ -4526,7 +4526,7 @@ class AgentEngine:
     async def _handle_thread_export(
         self, params: dict[str, Any], emit: Emitter
     ) -> dict[str, Any]:
-        """导出线程为 JSONL(2026-09-18 第二批,对标 Codex rollout 导出)。
+        """导出线程为 JSONL(2026-09-18 第二批,遵循统一工程规范)。
 
         优先 SessionStore items(pydantic 全量 dump,含 seq/时间戳/类型),
         无库或为空时回退线程内存消息;path 给出时落盘(utf-8),始终返回 lines
@@ -4602,21 +4602,21 @@ class AgentEngine:
     async def _handle_thread_plan(
         self, params: dict[str, Any], emit: Emitter
     ) -> dict[str, Any]:
-        """读取线程当前计划(update_plan 内置工具写入;对标 Codex PlanUpdate 查询面)。"""
+        """读取线程当前计划(update_plan 内置工具写入;遵循统一工程规范)。"""
         thread = self._require_thread(params)
         return {"threadId": thread.thread_id, "plan": thread.plan}
 
     async def _handle_thread_enqueue(
         self, params: dict[str, Any], emit: Emitter
     ) -> dict[str, Any]:
-        """消息入队(2026-09-18 第三批,对标 Codex Steer/ThreadQueueChanged)。
+        """消息入队(2026-09-18 第三批,遵循统一工程规范)。
 
         轮中入队:本轮结束后自动依序续跑;空闲入队:立即返回,下次 prompt 前的
         续跑同样消化。与直接 thread.prompt 的区别是绝不与在跑轮次并发冲突。
         """
         thread = self._require_thread(params)
         text = _coerce_input_text(params.get("input"))
-        # 批 45:队列项带 id(对标 codex QueuedItem{id,input},供 queue.list/
+        # 批 45:队列项带 id(遵循统一工程规范
         # delete/reorder 管理面按 id 操作)
         item: dict[str, Any] = {
             "id": f"q_{uuid.uuid4().hex[:12]}",
@@ -4649,12 +4649,12 @@ class AgentEngine:
     async def _handle_turn_steer(
         self, params: dict[str, Any], emit: Emitter
     ) -> dict[str, Any]:
-        """运行中转向(2026-09-19 批 44,对标 codex turn/steer + TurnSteerParams)。
+        """运行中转向(2026-09-19 批 44,遵循统一工程规范)。
 
         running → thread.loop.steer(text) 真注入:主循环下一次 LLM 调用前把
         文本追加进消息历史,同一回合继续推理(非排队新回合)。
         非 running → submitted=false(no_active_turn),客户端降级 turn/start,
-        对标 codex SteerSubmission::NotSubmitted。
+        对齐统一规范。
         """
         thread = self._require_thread(params)
         text = _coerce_input_text(params.get("input"))
@@ -4685,10 +4685,10 @@ class AgentEngine:
     async def _handle_thread_name(
         self, params: dict[str, Any], emit: Emitter
     ) -> dict[str, Any]:
-        """线程改名(2026-09-20 批 45,对标 codex thread/name/set +
+        """线程改名(2026-09-20 批 45,遵循统一工程规范
         ThreadNameUpdatedNotification)。
 
-        name 空白拒绝(对标 normalize_thread_name 返回 None 即 invalid_request);
+        name 空白拒绝(对齐 normalize_thread_name 返回 None 即 invalid_request);
         store 层写 title;内存线程同步;发 thread.name.updated 事件。
         无持久化时仅改内存并仍发事件(纯内存线程可改名)。
         """
@@ -4710,14 +4710,14 @@ class AgentEngine:
     async def _handle_thread_delete(
         self, params: dict[str, Any], emit: Emitter
     ) -> dict[str, Any]:
-        """删除线程(2026-09-20 批 45,对标 codex thread/delete)。
+        """删除线程(2026-09-20 批 45,遵循统一工程规范)。
 
         running 拒绝(THREAD_BUSY;codex 是 shutdown 等待后删,我方简化为
         忙时拒绝更安全);store 归档成墓碑(G-815919:archived=1 + archived_at
         时刻,行与 items/turns 保留可追认,业务读路径不可见 —— 删除留下的必须
         是可恢复的标记,不是行的消失);内存线程摘除(停 watcher/取消 pending);
         发 thread.deleted 事件。
-        线程不存在也发 deleted 事件并返回 deleted=False(幂等,对标
+        线程不存在也发 deleted 事件并返回 deleted=False(幂等,对齐
         delete_threads 对 ThreadNotFound 静默)。**不是你的线程走同一条路径**
         (批 61 / G-250):把 runtime 与 store 一起当"没有",于是既不删库、不摘内存线程、
         不停 watcher,返回值与事件也与"根本没这条"逐字相同 —— 而不是新造一种"被拒"形态,
@@ -4777,7 +4777,7 @@ class AgentEngine:
     async def _handle_thread_queue_list(
         self, params: dict[str, Any], emit: Emitter
     ) -> dict[str, Any]:
-        """列队列(2026-09-20 批 45,对标 codex thread/queue/list 分页语义)。"""
+        """列队列(2026-09-20 批 45,遵循统一工程规范)。"""
         thread = self._require_thread(params)
         offset = max(0, int(params.get("offset") or 0))
         limit = max(1, int(params.get("limit") or 50))
@@ -4794,7 +4794,7 @@ class AgentEngine:
     async def _handle_thread_queue_delete(
         self, params: dict[str, Any], emit: Emitter
     ) -> dict[str, Any]:
-        """删队列项(2026-09-20 批 45,对标 codex thread/queue/delete)。"""
+        """删队列项(2026-09-20 批 45,遵循统一工程规范)。"""
         thread = self._require_thread(params)
         qid = params.get("queuedSubmissionId")
         if not isinstance(qid, str) or not qid:
@@ -4820,10 +4820,10 @@ class AgentEngine:
     async def _handle_thread_queue_reorder(
         self, params: dict[str, Any], emit: Emitter
     ) -> dict[str, Any]:
-        """重排队列(2026-09-20 批 45,对标 codex thread/queue/reorder)。
+        """重排队列(2026-09-20 批 45,遵循统一工程规范)。
 
         按传入 id 顺序重排;未列出的 id 保持相对顺序追加在尾部(稳定排序,
-        对标 codex reorder 仅要求列出的项按给定顺序)。
+        对齐统一规范)。
         """
         thread = self._require_thread(params)
         ids = params.get("queuedSubmissionIds")
@@ -4850,7 +4850,7 @@ class AgentEngine:
         }
 
     # ------------------------------------------------------------------
-    # thread 只读查询面(批 46,对标 OpenAI codex app-server-protocol
+    # thread 只读查询面(批 46,对齐 OpenAI codex app-server-protocol
     # thread/search、thread/items/list、thread/turns/list、thread/read)
     # ==================================================================
     # 设计要点:查询面**不**强制内存线程存在——内存没有但 SessionStore 有
@@ -4862,7 +4862,7 @@ class AgentEngine:
     async def _handle_thread_search(
         self, params: dict[str, Any], emit: Emitter
     ) -> dict[str, Any]:
-        """全文检索(对标 codex thread/search)。
+        """全文检索(遵循统一工程规范)。
 
         params: query(必填非空) / threadId(可选过滤) / limit(默认20)。
         未启用持久化 → INVALID_PARAMS("搜索需要持久化存储")。
@@ -4906,7 +4906,7 @@ class AgentEngine:
     async def _handle_thread_items_list(
         self, params: dict[str, Any], emit: Emitter
     ) -> dict[str, Any]:
-        """列出线程 items(对标 codex thread/items/list)。
+        """列出线程 items(遵循统一工程规范)。
 
         params: threadId(必填) / afterSeq(可选,游标) / limit(默认100)。
         序列化与 thread.export 一致:body_payload() 展开 + type/seq +
@@ -4942,7 +4942,7 @@ class AgentEngine:
     async def _handle_thread_turns_list(
         self, params: dict[str, Any], emit: Emitter
     ) -> dict[str, Any]:
-        """列出线程 turns(对标 codex thread/turns/list)。
+        """列出线程 turns(遵循统一工程规范)。
 
         params: threadId(必填)。store 无此线程 → 空列表。
         **不是你的线程同样返回空列表**(与 items.list 同一条口径,批 61 / G-250)。
@@ -4979,7 +4979,7 @@ class AgentEngine:
     async def _handle_thread_read(
         self, params: dict[str, Any], emit: Emitter
     ) -> dict[str, Any]:
-        """读取线程摘要(对标 codex thread/read)。
+        """读取线程摘要(遵循统一工程规范)。
 
         params: threadId(必填)。返回 thread 元数据 camelCase 摘要 +
         首条 user 消息 preview;线程不存在 → THREAD_NOT_FOUND。
@@ -5024,7 +5024,7 @@ class AgentEngine:
     async def _handle_thread_metadata(
         self, params: dict[str, Any], emit: Emitter
     ) -> dict[str, Any]:
-        """线程元数据 patch(2026-09-20 批 47,对标 codex thread/metadata/update
+        """线程元数据 patch(2026-09-20 批 47,遵循统一工程规范
         + thread-store update_thread_metadata / ThreadMetadataPatch)。
 
         patch 值为 None 的键 = 删除该 metadata 键(codex ClearableField 语义);
@@ -5078,7 +5078,7 @@ class AgentEngine:
     async def _handle_memory_status(
         self, params: dict[str, Any], emit: Emitter
     ) -> dict[str, Any]:
-        """记忆面状态查询(2026-09-20 批 49,对标 codex memory/status)。
+        """记忆面状态查询(2026-09-20 批 49,遵循统一工程规范)。
 
         经 memory_facade 只读聚合 meta_learner lessons 状态;facade 异常
         已内部降级为 {"error": ...},不炸引擎。
@@ -5090,7 +5090,7 @@ class AgentEngine:
     async def _handle_memory_reset(
         self, params: dict[str, Any], emit: Emitter
     ) -> dict[str, Any]:
-        """记忆面重置(2026-09-20 批 49,对标 codex memory/reset)。
+        """记忆面重置(2026-09-20 批 49,遵循统一工程规范)。
 
         双确认语义:confirm 缺省 False → 只返回确认提示不动数据;显式
         confirm=true 才清空(facade 层同样兜底)。
@@ -5116,7 +5116,7 @@ class AgentEngine:
     async def _handle_memory_refresh(
         self, params: dict[str, Any], emit: Emitter
     ) -> dict[str, Any]:
-        """记忆面运行时刷新(2026-10-28 立,对标竞品 `refresh_memory` 控制帧)。
+        """记忆面运行时刷新(2026-10-28 立,对齐竞品 `refresh_memory` 控制帧)。
 
         竞品原帧语义(2026-09 取证,qoder-control-frames.md 第 26 行):
         `async refreshMemory(){await this.requireSdkMemoryEnabled(),
@@ -5138,7 +5138,7 @@ class AgentEngine:
     async def _handle_thread_settings(
         self, params: dict[str, Any], emit: Emitter
     ) -> dict[str, Any]:
-        """线程配置热更(2026-09-20 批 48,对标 codex thread/settings/update)。
+        """线程配置热更(2026-09-20 批 48,遵循统一工程规范)。
 
         running → THREAD_BUSY(配置冻结底座决定轮间热更语义:本轮用冻结副本,
         改了也不生效,故直接拒绝而非悄悄忽略)。校验类型后更新 EngineThread
@@ -5187,7 +5187,7 @@ class AgentEngine:
         if model_params is not None and not isinstance(model_params, dict):
             raise JsonRpcError(INVALID_PARAMS, "modelParams 须为对象")
         # D201:additionalDirectories —— 字符串数组,**整表替换**语义(空数组 = 清空,
-        # 对标 Qoder add_directories 的"追加/移除都走同一帧");任一目录准入失败整表拒绝。
+        # 遵循统一工程规范);任一目录准入失败整表拒绝。
         additional_dirs_raw = settings.get("additionalDirectories")
         additional_dirs: list[str] | None = None
         if additional_dirs_raw is not None:
@@ -5256,7 +5256,7 @@ class AgentEngine:
     async def _handle_turn_settings(
         self, params: dict[str, Any], emit: Emitter
     ) -> dict[str, Any]:
-        """下轮一次性配置(2026-09-20 批 48,对标 codex turn/settings/update)。
+        """下轮一次性配置(2026-09-20 批 48,遵循统一工程规范)。
 
         与 thread.settings 不同:**不**拒绝 running——写入 thread.pending_turn_settings
         (含任意 frozen_context 键),下一轮 _run_prompt_turn 在 frozen_context 刷新后
@@ -5285,7 +5285,7 @@ class AgentEngine:
     async def _handle_thread_loaded_list(
         self, params: dict[str, Any], emit: Emitter
     ) -> dict[str, Any]:
-        """内存活跃线程清单(2026-09-20 批 48,对标 codex thread/loaded/list)。
+        """内存活跃线程清单(2026-09-20 批 48,遵循统一工程规范)。
 
         仅列进程内 self._threads 的活跃线程(不依赖持久化 store);返回 threadId/
         status/prompts 摘要 + 总数。
@@ -5303,7 +5303,7 @@ class AgentEngine:
     async def _handle_thread_unsubscribe(
         self, params: dict[str, Any], emit: Emitter
     ) -> dict[str, Any]:
-        """断开当次承载连接的事件推送(2026-09-20 批 48,对标 codex thread/unsubscribe)。
+        """断开当次承载连接的事件推送(2026-09-20 批 48,遵循统一工程规范)。
 
         把 thread.emit 置 None(后续引擎自产事件不再经此连接出站);返回 unsubscribed
         并立刻用当次 emit 参数发 thread.unsubscribed(因 thread.emit 刚清,须用传入
@@ -5320,11 +5320,11 @@ class AgentEngine:
     async def _handle_fs_watch(
         self, params: dict[str, Any], emit: Emitter
     ) -> dict[str, Any]:
-        """文件监视订阅(2026-09-20 批 50,对标 codex fs/watch + FsWatchParams)。
+        """文件监视订阅(2026-09-20 批 50,遵循统一工程规范)。
 
         watch_id 连接级标识(客户端自定义,重复注册幂等覆盖);path 须为存在
         的绝对目录;扫描式变更检测复用 _scan_workspace;变更经 fs.changed
-        通知流出(对标 FsChangedNotification,带 watchId)。线程无关,纯连接级。
+        通知流出(对齐 FsChangedNotification,带 watchId)。线程无关,纯连接级。
         """
         watch_id = params.get("watchId")
         path_raw = params.get("path")
@@ -5419,7 +5419,7 @@ class AgentEngine:
     async def _handle_fs_unwatch(
         self, params: dict[str, Any], emit: Emitter
     ) -> dict[str, Any]:
-        """取消文件监视订阅(2026-09-20 批 50,对标 codex fs/unwatch)。幂等。"""
+        """取消文件监视订阅(2026-09-20 批 50,遵循统一工程规范)。幂等。"""
         watch_id = params.get("watchId")
         if not isinstance(watch_id, str) or not watch_id:
             raise JsonRpcError(INVALID_PARAMS, "watchId 须为非空字符串")
@@ -5450,10 +5450,10 @@ class AgentEngine:
     async def _handle_thread_goal(
         self, params: dict[str, Any], emit: Emitter
     ) -> dict[str, Any]:
-        """设置/清除线程持久目标(2026-09-18 第三批,对标 Codex Goals)。
+        """设置/清除线程持久目标(2026-09-18 第三批,遵循统一工程规范)。
 
         goal 非空 → 设置并经 system 注入后续每轮;goal=null → 清除。
-        发 thread.goal 事件(ThreadGoalUpdated 对标)。
+        发 thread.goal 事件(ThreadGoalUpdated 对齐)。
         """
         thread = self._require_thread(params)
         goal = params.get("goal")
@@ -5469,7 +5469,7 @@ class AgentEngine:
     async def _handle_thread_review(
         self, params: dict[str, Any], emit: Emitter
     ) -> dict[str, Any]:
-        """审查模式(2026-09-18 第三批,对标 Codex review / Guardian)。
+        """审查模式(2026-09-18 第三批,遵循统一工程规范)。
 
         派生一次性审查子代理,携带线程近期对话记录(+可选 focus)输出结构化
         审查结论;审查线程跑完即弃(store 留痕)。
@@ -5531,13 +5531,13 @@ class AgentEngine:
         }
 
     # ------------------------------------------------------------------
-    # 线程生命周期扩展(2026-09-18 第七批,对标 Codex app-server thread 面)
+    # 线程生命周期扩展(2026-09-18 第七批,遵循统一工程规范)
     # ------------------------------------------------------------------
 
     async def _handle_thread_list(
         self, params: dict[str, Any], emit: Emitter
     ) -> dict[str, Any]:
-        """线程清单(对标 Codex thread/list):store 分页 + 内存运行态合并。"""
+        """线程清单(遵循统一工程规范):store 分页 + 内存运行态合并。"""
         try:
             limit = max(1, min(int(params.get("limit") or 20), 100))
             offset = max(0, int(params.get("offset") or 0))
@@ -5615,7 +5615,7 @@ class AgentEngine:
     async def _handle_thread_archive(
         self, params: dict[str, Any], emit: Emitter
     ) -> dict[str, Any]:
-        """归档/恢复线程(对标 Codex thread/archive):store 标记 + 内存摘除。
+        """归档/恢复线程(遵循统一工程规范):store 标记 + 内存摘除。
 
         批 61 / G-250:归档过去在**任何**判定之前就把别人的线程标掉了。现在先过属主闸,
         且非属主走与"没这条线程"完全相同的那条路径(同样的 THREAD_NOT_FOUND 报文,
@@ -5653,7 +5653,7 @@ class AgentEngine:
     async def _handle_thread_fork(
         self, params: dict[str, Any], emit: Emitter
     ) -> dict[str, Any]:
-        """线程分叉(对标 Codex thread/fork):深拷贝消息 + 全部运行配置,
+        """线程分叉(遵循统一工程规范):深拷贝消息 + 全部运行配置,
         新线程独立演进;源线程不受影响。"""
         from copy import deepcopy
 
@@ -5728,7 +5728,7 @@ class AgentEngine:
     async def _handle_thread_revert(
         self, params: dict[str, Any], emit: Emitter
     ) -> dict[str, Any]:
-        """线程回退(对标 Codex thread/revert + thread-store revert_thread):
+        """线程回退(遵循统一工程规范):
         把持久历史截断到 beforeTurnId 之前(该 turn 及其后的 turns+items 删除),
         内存消息同步裁剪,并广播 thread.reverted 通知。线程在跑时拒绝。"""
         thread = self._require_thread(params)
@@ -5757,7 +5757,7 @@ class AgentEngine:
             deleted_turns = store.revert_thread(thread.thread_id, before_turn_id)
             # 内存消息裁剪:从最早的被删 turn 对应消息索引处整段截断——工具链
             # assistant/tool 消息都在该 user 消息之后,整段删除保证配对完整
-            # (对标 codex 'reverts so it ends immediately before before_turn_id')
+            # (遵循统一工程规范)
             if deleted_turns > 0 and doomed:
                 cut = min(doomed)
                 thread.messages = thread.messages[:cut]
@@ -5781,7 +5781,7 @@ class AgentEngine:
         }
 
     # ------------------------------------------------------------------
-    # 工作区文件监视(2026-09-18 第七批,对标 Codex file-watcher)
+    # 工作区文件监视(2026-09-18 第七批,遵循统一工程规范)
     # ------------------------------------------------------------------
 
     @staticmethod
@@ -5868,14 +5868,14 @@ class AgentEngine:
         return task
 
     # ------------------------------------------------------------------
-    # shell 环境快照(2026-09-20 批 55 接线,对标 Codex shell_snapshot.rs +
+    # shell 环境快照(2026-09-20 批 55 接线,遵循统一工程规范
     # environment_selection.rs 的 ShellSnapshotTask/ShellSnapshotCache)
     # ------------------------------------------------------------------
 
     _SNAPSHOT_DIRNAME = "shell-snapshots"
 
     def _shell_snapshot_dir(self, session_id: str) -> str:
-        """快照存放目录(会话级,系统临时目录下;对标 SNAPSHOT_DIR 语义)。"""
+        """快照存放目录(会话级,系统临时目录下;对齐 SNAPSHOT_DIR 语义)。"""
         import tempfile
 
         return str(
@@ -5883,7 +5883,7 @@ class AgentEngine:
         )
 
     def _start_shell_snapshot_prewarm(self, thread: EngineThread) -> None:
-        """thread.start 后台预热快照(对标 ShellSnapshotTask::schedule)。
+        """thread.start 后台预热快照(对齐 ShellSnapshotTask::schedule)。
 
         捕获用户 bash 登录环境(PATH/函数/别名/set -o),成功存入缓存并挂到
         线程;失败/超时静默降级(None),绝不阻塞开线程。非 POSIX 或 bash
@@ -5931,7 +5931,7 @@ class AgentEngine:
         return snap
 
     def _drop_shell_snapshot(self, session_id: str) -> None:
-        """线程关闭时清理快照缓存/预热任务/落盘文件(对标 cleanup_stale_snapshots)。"""
+        """线程关闭时清理快照缓存/预热任务/落盘文件(对齐 cleanup_stale_snapshots)。"""
         from app.core.shell_snapshot import cleanup_stale_snapshots
 
         task = self._shell_snapshot_tasks.pop(session_id, None)
@@ -5942,7 +5942,7 @@ class AgentEngine:
             cleanup_stale_snapshots(Path(self._shell_snapshot_dir(session_id)), session_id)
 
     async def _emit_hook(self, event: str, context: dict[str, Any]) -> None:
-        """钩子事件统一发射(对标 Codex hooks 分发;总线异常吞掉不影响主流程)。"""
+        """钩子事件统一发射(遵循统一工程规范;总线异常吞掉不影响主流程)。"""
         with contextlib.suppress(Exception):
             await self._hook_bus().emit(event, context)
 
@@ -5972,7 +5972,7 @@ class AgentEngine:
         )
 
     # ------------------------------------------------------------------
-    # 引擎内置工具(2026-09-18 第二批,对标 Codex plan/collab/view_image 工具面)
+    # 引擎内置工具(2026-09-18 第二批,遵循统一工程规范)
     # ------------------------------------------------------------------
 
     def _builtin_tool_builder(self, name: str) -> Callable[[EngineThread], Any]:
@@ -6010,7 +6010,7 @@ class AgentEngine:
         return definitions
 
     def _update_plan_tool(self, thread: EngineThread) -> Any:
-        """update_plan:模型可见执行计划(对标 Codex plan tool / PlanUpdate 事件)。"""
+        """update_plan:模型可见执行计划(遵循统一工程规范)。"""
         from .agent_loop_v2 import ToolDefinition
 
         parameters = {
@@ -6071,7 +6071,7 @@ class AgentEngine:
         )
 
     def _spawn_subagent_tool(self, thread: EngineThread) -> Any:
-        """spawn_subagent:派生一次性子代理(对标 Codex collab 多代理工具面)。"""
+        """spawn_subagent:派生一次性子代理(遵循统一工程规范)。"""
         from .agent_loop_v2 import ToolDefinition
 
         parameters = {
@@ -6162,7 +6162,7 @@ class AgentEngine:
                 sub_params["model"] = thread.model
             # 一次性子线程:headless 语义跑完即弃内存(store 留痕);事件经 noop
             # 发射器静默,不污染父线程事件流,结果结构化回传。
-            # SubagentStart(第十二批,对标 Codex SubagentStart 钩子)
+            # SubagentStart(第十二批,遵循统一工程规范)
             await self._emit_hook(
                 "subagent.start",
                 {
@@ -6185,7 +6185,7 @@ class AgentEngine:
                 thread_obj = self._threads.pop(child_id, None)
                 if thread_obj is not None:
                     thread_obj.status = "closed"
-            # SubagentStop(第十二批,对标 Codex SubagentStop 钩子)
+            # SubagentStop(第十二批,遵循统一工程规范)
             await self._emit_hook(
                 "subagent.stop",
                 {
@@ -6237,7 +6237,7 @@ class AgentEngine:
         )
 
     def _view_image_tool(self, thread: EngineThread) -> Any:
-        """view_image:工作区内图片读取(对标 Codex view_image;越界路径拒绝)。"""
+        """view_image:工作区内图片读取(遵循统一工程规范;越界路径拒绝)。"""
         from .agent_loop_v2 import ToolDefinition
 
         parameters = {
@@ -6289,7 +6289,7 @@ class AgentEngine:
             data = base64.b64encode(raw).decode("ascii")
             raw_data_url = f"data:{mime};base64,{data}"
             # 批 38 接线:经 image_preparation 按提示图像预算降采样
-            # (对标 codex-rs load_data_url_for_prompt,high 档 2048px/2500 patch)。
+            # (遵循统一工程规范)。
             # 失败安全:任何准备失败一律回退原始 dataUrl,保持既有行为不变。
             data_url = raw_data_url
             prepared_note = ""
@@ -6306,7 +6306,7 @@ class AgentEngine:
                         f"{prepared.source_width}x{prepared.source_height}"
                         f"->{prepared.width}x{prepared.height}"
                     )
-                    # 批 58 接线:缩放事实以 developer 片段回灌历史(对标 codex
+                    # 批 58 接线:缩放事实以 developer 片段回灌历史(遵循统一工程规范
                     # image_resize_notice.rs——模型须知道看到的非原图,防误判细节)。
                     # tool output 来源;append 进 loop 消息流。片段写失败只记日志,
                     # 图片字节本身仍返回(读图已经成功)。
@@ -6371,7 +6371,7 @@ class AgentEngine:
         )
 
     def _apply_patch_tool(self, thread: EngineThread) -> Any:
-        """apply_patch:unified diff 结构化补丁(2026-09-18 第五批,对标 Codex
+        """apply_patch:unified diff 结构化补丁(2026-09-18 第五批,遵循统一工程规范
         apply-patch/V4A):多文件原子应用,任一 hunk 失配整包拒绝。"""
         from .agent_loop_v2 import ToolDefinition
 
@@ -6436,7 +6436,7 @@ class AgentEngine:
                     target.relative_to(base)
                 except (OSError, ValueError):
                     return {"error": f"路径越出工作区,拒绝应用: {target_rel}"}
-                # 受保护元数据防提权(2026-09-19 第三十六批,对标 Codex WritableRoot
+                # 受保护元数据防提权(2026-09-19 第三十六批,遵循统一工程规范
                 # .is_path_writable):工作区内首段为 .git/.agents/.codex 的路径不可被
                 # 补丁改写——.git/hooks 等可被用于提权,须走受保护审批而非静默写入。
                 _first_component = PurePosixPath(
@@ -6452,7 +6452,7 @@ class AgentEngine:
                         ),
                         "protected": _first_component,
                     }
-                # 批57(对标 Codex safety.rs assess_patch_safety):审批策略三态
+                # 批57(遵循统一工程规范):审批策略三态
                 # 判定——never 恒放行;其余策略按路径是否全部落在可写根(含 move
                 # 目标)与沙箱可用性决定自动应用/转审批/拒绝。异常隔离降级不阻塞。
                 try:
@@ -6586,7 +6586,7 @@ class AgentEngine:
                 diff_pairs[target_rel] = (content, new_content)
                 planned_files.append(target_rel)
                 plan.append((target_rel, "updated", new_content))
-            # PatchApplyBegin(2026-09-18 第十批,对标 Codex PatchApplyBegin)
+            # PatchApplyBegin(2026-09-18 第十批,遵循统一工程规范)
             with contextlib.suppress(Exception):
                 await self._emit_engine_event(
                     thread,
@@ -6652,7 +6652,7 @@ class AgentEngine:
                         f"{f':{drain.reason}' if drain.reason else ''}"
                     )
             thread.touch()
-            # 批 41 接线:补丁提交进回合净 diff 跟踪器(对标 Codex TurnDiffTracker;
+            # 批 41 接线:补丁提交进回合净 diff 跟踪器(遵循统一工程规范;
             # tracker 初始化/记录失败降级跳过,不影响补丁主链路)。
             try:
                 from ..core.turn_diff_tracker import FileChange, PatchDelta, TurnDiffTracker
@@ -6684,7 +6684,7 @@ class AgentEngine:
                     )
             except Exception as _td_err:  # noqa: BLE001 - 记录失败不影响补丁应用
                 logger.warning("turn_diff_tracker 记录失败(降级跳过): %s", _td_err)
-            # 聚合 unified diff(对标 Codex TurnDiffTracker 净变更语义)
+            # 聚合 unified diff(遵循统一工程规范)
             unified_diff = _aggregate_unified_diff(diff_pairs)
             with contextlib.suppress(Exception):
                 await self._emit_engine_event(
@@ -6749,7 +6749,7 @@ class AgentEngine:
         raise LookupError(f"工具未注册或已禁用: {name}")
 
     def _run_code_tool(self, thread: EngineThread) -> Any:
-        """run_code:code-mode 常驻代码会话(2026-09-18 第六批,对标 Codex
+        """run_code:code-mode 常驻代码会话(2026-09-18 第六批,遵循统一工程规范
         code-mode/V8 cell):模型写 Python 代码,tools.call(name,args) 桥接
         引擎工具,全局状态跨调用持久;进程隔离 + 超时击杀 + 输出有界。"""
         from .agent_loop_v2 import ToolDefinition
@@ -6851,7 +6851,7 @@ class AgentEngine:
                         # 让下面的 readline() 抛 LimitOverrunError。
                         limit=PROTOCOL_FRAME_LIMIT_BYTES,
                     )
-                    # OS 级沙箱(2026-09-18 第八批,对标 execpolicy 内核层):
+                    # OS 级沙箱(2026-09-18 第八批,对齐 execpolicy 内核层):
                     # kill-on-close + 内存/进程数上限 + UI 限制;失败降级不阻塞
                     sandbox = _apply_sandbox(proc)
                 except OSError as e:
@@ -6994,7 +6994,7 @@ class AgentEngine:
         )
 
     def _web_search_tool(self, thread: EngineThread) -> Any:
-        """web_search:引擎原生网页搜索(2026-09-18 第八批,对标 Codex
+        """web_search:引擎原生网页搜索(2026-09-18 第八批,遵循统一工程规范
         web_search 内置工具):DuckDuckGo Lite 零 key 搜索,无需 MCP 装载。
 
         V3 #47 末格(2026-09-27):name/description 不再引擎面手抄 —— 经唯一出口
@@ -7021,7 +7021,7 @@ class AgentEngine:
                     for d in raw_domains
                     if str(d).strip()
                 ]
-            # WebSearchBegin/End(2026-09-18 第十批,对标 Codex WebSearch 事件对)
+            # WebSearchBegin/End(2026-09-18 第十批,遵循统一工程规范)
             with contextlib.suppress(Exception):
                 await self._emit_engine_event(
                     thread, thread.emit, "web_search.begin", {"query": query}
@@ -7097,7 +7097,7 @@ class AgentEngine:
         )
 
     def _request_permissions_tool(self, thread: EngineThread) -> Any:
-        """request_permissions:模型主动请求权限提升(对标 Codex RequestPermissionsTool)。
+        """request_permissions:模型主动请求权限提升(遵循统一工程规范)。
 
         经 approval/request 通知(kind=permissions)发往客户端,approval.respond
         结算(approve→granted / reject→denied / 超时→默认拒绝),结果结构化回模型。
@@ -7186,7 +7186,7 @@ class AgentEngine:
         )
 
     def _unified_exec_tool(self, thread: EngineThread) -> Any:
-        """unified_exec:持久 shell 会话(2026-09-18 第四批,对标 Codex unified_exec)。
+        """unified_exec:持久 shell 会话(2026-09-18 第四批,遵循统一工程规范)。
 
         首次调用新建持久进程会话(输出 head+tail 有界缓冲);后续按 sessionId
         续写 stdin 并只回传增量输出。会话上限/空闲 TTL/工具级审批策略照常生效。
@@ -7219,7 +7219,7 @@ class AgentEngine:
         }
 
         def _append_output(session: dict[str, Any], chunk: str) -> None:
-            # ANSI 清洗(第十一批,对标 Codex ansi-escape):剥离颜色/控制序列,
+            # ANSI 清洗(第十一批,遵循统一工程规范):剥离颜色/控制序列,
             # 防止 cmd/PowerShell 输出污染模型上下文
             chunk = _strip_ansi(chunk)
             buf = session["buffer"] + chunk
@@ -7264,7 +7264,7 @@ class AgentEngine:
         ) -> dict[str, Any]:
             """等待输出稳定(连续 300ms 无新增)或超时,回传增量。
 
-            常驻 shell 会话无法从进程退出判断命令完成(对标 Codex interactive
+            常驻 shell 会话无法从进程退出判断命令完成(遵循统一工程规范
             session 语义),以输出静默作为 settle 启发式;status 恒 running,
             由模型按输出内容自行判断命令是否结束。
             """
@@ -7290,7 +7290,7 @@ class AgentEngine:
             command = args.get("command")
             if not isinstance(command, str) or not command.strip():
                 return {"error": "unified_exec 需要非空 command"}
-            # 危险命令硬门(2026-09-19 第二十一批,对标 codex command_safety;
+            # 危险命令硬门(2026-09-19 第二十一批,遵循统一工程规范;
             # 批 58 补齐 stdin_approval 语义:续用 sessionId 写 stdin 的命令
             # 与新会话首条命令同门复查——在跑进程的沙箱不变,但命令本身
             # 必须逐条过分类器,防借持久会话绕过首条硬门):
@@ -7303,7 +7303,7 @@ class AgentEngine:
             _hit = _dangerous_command_match(_tokens)
             if _hit is not None:
                 label = "强制删除(rm 系 force 旗标)" if _hit == "forced_rm" else "高危操作"
-                # 批58(十五):把拦截背后的审批决策矩阵结构化进回执(对标 codex
+                # 批58(十五):把拦截背后的审批决策矩阵结构化进回执(遵循统一工程规范
                 # exec_policy.rs render_decision_for_unmatched_command)。决策=
                 # forbidden(never 档:策略层禁提示)时文案升级为"策略禁止",不再
                 # 引导模型走用户确认;决策=prompt 时维持既有"先确认再重试"语义。
@@ -7351,14 +7351,14 @@ class AgentEngine:
                         await proc_stdin.drain()
                     return await _wait_settled(existing, before, timeout_s)
                 return {"error": f"会话 stdin 已关闭(进程退出): {session_id}"}
-            # 新建常驻 shell 会话(命令经 stdin 逐条注入,对标 Codex unified_exec
+            # 新建常驻 shell 会话(命令经 stdin 逐条注入,遵循统一工程规范
             # interactive session;Windows 用 cmd /Q /K,POSIX 用 bash)
             if len(self._exec_sessions) >= _MAX_EXEC_SESSIONS:
                 return {
                     "error": f"持久会话数已达上限({_MAX_EXEC_SESSIONS}),"
                     "请复用 sessionId 或等待空闲回收"
                 }
-            # 差距⑦(2026-10-30,对标 Qoder node-repl moduleRoots 白名单):模型经
+            # 差距⑦(2026-10-30,遵循统一工程规范):模型经
             # 工具参数传入的 cwd 必须落在执行根白名单内,与 mcp_server run_command
             # 的 cwd 校验同一把尺子(复用 `_validate_path_in_workspace`,不造第二套)。
             # 合法根 = 全局工作区根 ⊕ 会话附加目录(D201) ⊕ 宿主侧线程工作区
@@ -7380,7 +7380,7 @@ class AgentEngine:
                     }
                 resolved_cwd = cwd_info
             new_id = f"shx_{uuid.uuid4().hex[:12]}"
-            # shell 环境快照注入(2026-09-20 批 55 接线,对标 Codex
+            # shell 环境快照注入(2026-09-20 批 55 接线,遵循统一工程规范
             # shell_snapshot.rs 复用语义):POSIX 会话 source 快照脚本重建
             # 用户登录环境(profile 的 PATH/函数/别名/set -o),环境变量经
             # snapshot_env_for_exec 合并(凭据键默认不还原,防泄入子进程)。
@@ -7457,7 +7457,7 @@ class AgentEngine:
         )
 
     def _new_context_tool(self, thread: EngineThread) -> Any:
-        """new_context:模型主动放弃摘要直接开新上下文窗口(批58,对标 Codex
+        """new_context:模型主动放弃摘要直接开新上下文窗口(批58,遵循统一工程规范
         tools/handlers/new_context_window.rs)。设置 loop 标志,压缩走不摘要截断分支。"""
         from .agent_loop_v2 import ToolDefinition
 
@@ -7485,7 +7485,7 @@ class AgentEngine:
         )
 
     def _clock_sleep_tool(self, thread: EngineThread) -> Any:
-        """clock_sleep:模型可调用等待(批58,对标 Codex tools/handlers/sleep.rs);
+        """clock_sleep:模型可调用等待(批58,遵循统一工程规范);
         新输入(steer/queue)提前唤醒,返回实际 wall-clock。"""
         import asyncio as _asyncio
 
@@ -7568,7 +7568,7 @@ class AgentEngine:
         )
 
     def _clock_curr_time_tool(self, thread: EngineThread) -> Any:
-        """clock_curr_time:模型主动查询当前时间(批58,对标 Codex
+        """clock_curr_time:模型主动查询当前时间(批58,遵循统一工程规范
         tools/handlers/current_time.rs);输出 "YYYY-MM-DD HH:MM:SS UTC"。"""
         from datetime import datetime
 
@@ -7594,7 +7594,7 @@ class AgentEngine:
         )
 
     def _send_message_to_user_async_tool(self, thread: EngineThread) -> Any:
-        """send_message_to_user_async:长任务不打断轮次主动告知用户(批58,对标
+        """send_message_to_user_async:长任务不打断轮次主动告知用户(批58,对齐
         Codex tools/handlers/send_message_to_user_async.rs);立即返回 {"accepted": true},
         消息经 elicitation 通知通道投递,回复经 thread.enqueue 作为新用户消息到达。"""
         from .agent_loop_v2 import ToolDefinition
@@ -7648,7 +7648,7 @@ class AgentEngine:
         )
 
     def _request_user_input_async_tool(self, thread: EngineThread) -> Any:
-        """request_user_input_async:批量非阻塞提问(批58,对标 Codex
+        """request_user_input_async:批量非阻塞提问(批58,遵循统一工程规范
         tools/handlers/request_user_input_async.rs);立即返回,回答异步到达。"""
         from .agent_loop_v2 import ToolDefinition
 
@@ -7738,7 +7738,7 @@ class AgentEngine:
 
     def _request_user_input_tool(self, thread: EngineThread) -> Any:
         """request_user_input:中轮向用户要结构化输入(2026-09-18 第四批,
-        对标 Codex elicitation):elicitation/request 通知 + elicitation.respond
+        遵循统一工程规范):elicitation/request 通知 + elicitation.respond
         结算,超时 fail-closed。"""
         from .agent_loop_v2 import ToolDefinition
 
@@ -7878,7 +7878,7 @@ class AgentEngine:
         }
 
     async def _tool_catalog(self, thread: EngineThread | None) -> list[dict[str, Any]]:
-        """合并工具目录快照(2026-09-18 第四批,对标 Codex tool_search 目录面):
+        """合并工具目录快照(2026-09-18 第四批,遵循统一工程规范):
         内置工具 + 线程宿主工具 + MCP 超级工具池(承载层注入)。
 
         V3 #47 第三格(2026-09-26):JSON-RPC 面**不再自己判断"这个名字是什么能力"** ——
@@ -7931,7 +7931,7 @@ class AgentEngine:
     async def _handle_tools_search(
         self, params: dict[str, Any], emit: Emitter
     ) -> dict[str, Any]:
-        """工具搜索(2026-09-18 第四批,对标 Codex tool_search/LoadableToolSpec):
+        """工具搜索(2026-09-18 第四批,遵循统一工程规范):
 
         超量工具面下按 query 模糊匹配 name+description,返回可装载条目;
         客户端择要 tools.load 装载进线程,避免全量 schema 撑爆上下文。
@@ -7965,7 +7965,7 @@ class AgentEngine:
     async def _handle_tools_load(
         self, params: dict[str, Any], emit: Emitter
     ) -> dict[str, Any]:
-        """装载搜索到的工具进线程(2026-09-18 第四批,对标 LoadableToolSpec
+        """装载搜索到的工具进线程(2026-09-18 第四批,对齐 LoadableToolSpec
         materialize 语义):描述/schema 可省略,缺省从目录快照回填。"""
         thread = self._require_thread(params)
         name = params.get("name")
@@ -8040,7 +8040,7 @@ class AgentEngine:
     async def _handle_elicitation_respond(
         self, params: dict[str, Any], emit: Emitter
     ) -> dict[str, Any]:
-        """elicitation 决策回填(2026-09-18 第四批,对标 Codex elicitation):
+        """elicitation 决策回填(2026-09-18 第四批,遵循统一工程规范):
         唤醒等待中的 request_user_input 工具执行。
 
         G-251(2026-09-27)补上属主闸 —— 修复前这里**只看 elicitationId**,任何读到

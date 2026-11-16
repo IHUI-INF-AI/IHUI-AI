@@ -223,7 +223,7 @@ const TerminalItem = React.memo(function TerminalItem({ term }: { term: Terminal
   const statusLabel = useStreamStatusLabel()
   const [expanded, setExpanded] = React.useState(false)
   const [showAllOutput, setShowAllOutput] = React.useState(false)
-  // 2026-09-18 立(对标 Codex/Trae 实时 stdout 行流):命令执行期间后端逐块下发
+  // 2026-09-18 立(遵循统一工程规范):命令执行期间后端逐块下发
   // terminal_delta,由 send-message.ts 写入 store.terminalOutputs(键 = terminalId)。
   // 这里按 id 精确订阅(返回原始字符串,引用稳定,zustand selector 安全)。
   const liveOutput = useChatStore((s) => s.terminalOutputs[term.id])
@@ -390,7 +390,7 @@ export const TerminalSection = React.memo(function TerminalSection({
     >
       <div className="space-y-0.5">
         <div className="flex items-center gap-1 px-1">
-          {/* G-154(对标 Codex「命令在专用终端实例中运行」):执行环境必须交代,且必须是真实陈述 ——
+          {/* G-154(对齐统一规范):执行环境必须交代,且必须是真实陈述 ——
               os_sandbox.py 的 allow_network 默认 False(H5 三平台验收),故"默认不开放网络"不是营销话术。 */}
           <StreamTag tone="neutral" testId="terminal-isolation">
             {t('terminal.isolation')}

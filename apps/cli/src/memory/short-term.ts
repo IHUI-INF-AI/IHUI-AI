@@ -4,7 +4,7 @@
 
 /**
  * ShortTermMemory — 当前 session 临时记忆,Map 存储,maxItems 100(LRU 淘汰最旧)。
- * 平台独占:仅 cli(W2-1 四层记忆第 1 层,对标 OpenClaw Mem working memory)。
+ * 平台独占:仅 cli(W2-1 四层记忆第 1 层,遵循统一工程规范)。
  * 生命周期:进程内,不持久化;dream() 周期沉淀到 LongTermMemory 后清空。
  */
 import * as crypto from 'node:crypto';

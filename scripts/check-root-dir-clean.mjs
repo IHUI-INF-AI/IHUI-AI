@@ -168,7 +168,7 @@ const ALLOWED_FILES = new Set([
   // /goal 模式运行时文件(AGENTS.md §1 唯一例外条款:goal-runtime 状态与运行日志)
   'STATE.md',
   'loop-run-log.md',
-  // 2026-10-15 显式审批:GAP-PLAN 远超对标路线图(/goal 激活的权威收敛文档,随执行迭代更新)
+  // 2026-10-15 显式审批:GAP-PLAN 远超对齐路线图(/goal 激活的权威收敛文档,随执行迭代更新)
   'GAP-PLAN.md',
   // 开源标准文档(GitHub 官方识别)
   'README.md',
@@ -301,7 +301,7 @@ const ALLOWED_HIDDEN_FILES = new Set([
   '.prettierignore',
   '.prettierrc',
   '.secrets.act.example',
-  // 2026-11-13 登记:并行会话的一次性逆向/探针产物(根级散置文件)。与 .screenshots/.runtime
+  // 2026-11-13 登记:并行会话的一次性独立分析/探针产物(根级散置文件)。与 .screenshots/.runtime
   // 同类:只登记、不搬不删(搬/删无效,工具下一轮原地重建;且非本票产物、归属无从判定)。
   // 它们以"未跟踪、非忽略"形态让守门 44 在 --staged 面报"无法判定"(exit 2)⇒ 每枚提交都被
   // 逼走应急旁路连带跳过全部守门(§12e 恒红门同型),登记即解除。
@@ -315,7 +315,7 @@ const ALLOWED_HIDDEN_DIRS = new Set([
   '.git',
   '.github',
   '.husky',
-  '.archify', // 2026-10-31:archify 技能(逆向架构取证)产物落点,见 .ihui/skills/archify
+  '.archify', // 2026-10-31:archify 技能(兼容分析架构取证)产物落点,见 .ihui/skills/archify
   '.ihui',
   '.pnpm-store',
   '.qoder',
@@ -394,7 +394,7 @@ const ALLOWED_HIDDEN_DIRS = new Set([
   // (搬/删无效,工具下一轮又会原地重建)。缺失时守门 44 在 --staged 面把"未跟踪、非忽略"的它
   // 报"无法判定"(exit 2)⇒ 每枚提交都被逼走应急旁路连带跳过全部守门(§12e 恒红门同型),登记即解除。
   '.worktrees-archive',
-  // 2026-11-13 登记:并行会话的一次性逆向/探针产物(根级)。与 .screenshots/.runtime 同类:
+  // 2026-11-13 登记:并行会话的一次性独立分析/探针产物(根级)。与 .screenshots/.runtime 同类:
   // 只登记、不搬不删(搬/删无效,工具下一轮原地重建;且非本票产物、归属无从判定)。它们以
   // "未跟踪、非忽略"形态让守门 44 在 --staged 面报"无法判定"(exit 2)⇒ 每枚提交都被逼走
   // 应急旁路连带跳过全部守门(§12e 恒红门同型),登记即解除。

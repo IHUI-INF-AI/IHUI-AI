@@ -35,7 +35,7 @@ export type ExtensionActivationEvent = (typeof EXTENSION_ACTIVATION_EVENTS)[numb
 /**
  * 允许的贡献类型(只声明,不执行)。
  *
- * **前 8 档与对侧同名同序**:Qoder CN 0.5.3 `resources/extensions/catalog.v1.json` 的
+ * **前 8 档与对侧同名同序**:外部文档渲染实现 `resources/extensions/catalog.v1.json` 的
  * `contributes` 键集现读为 8 档(另有 33 条权限名 / 15 种激活事件 / 10 枚内建插件)。
  * 取证锚点 `docs/benchmark-evidence/2026-11/qoder-trae-workbuddy-rea-20261105/`
  * `Q1-qoder-cn-main-bundle.md` §3 #8 与 §4「插件贡献/权限词表 + 激活事件(#8)」行。

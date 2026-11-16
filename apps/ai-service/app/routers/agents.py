@@ -169,7 +169,7 @@ def _convert_openai_tool_calls(
         fn = tc.get("function") or {}
         args_raw = fn.get("arguments")
         # 单一真相源：字符串形态的 args（含残缺/截断/裸键名/单引号）走 normalize_tool_call_args
-        # 修复解析（对标 Qoder/Trae 的 jsonrepair 用法；并超越其只能吃完整串的限制），使 LLM
+        # 修复解析（遵循统一工程规范；并超越其只能吃完整串的限制），使 LLM
         # 产出的残缺 arguments 不再静默丢成 {}。非字符串（已是对象等）保持原样透传，维持契约不变。
         if args_raw is None:
             args = {}
@@ -1964,7 +1964,7 @@ async def execute_agent_stream(
                             if _should_goal_rerun(result, decision) and not getattr(
                                 loop, "_cancel_requested", False
                             ):
-                                # 2026-11-14(对标 DSH dsh-goal-round-driver.renderGoalRoundPrompt):
+                                # 2026-11-14(遵循统一工程规范):
                                 # 续跑不能只复读原始目标 —— 必须带轮次、事实来源与证据收口纪律,
                                 # 否则模型会把"上一轮说过了"当成"这一轮做完了"。
                                 _round_state = getattr(decision, "round_state", None)
@@ -2136,7 +2136,7 @@ async def execute_agent_stream(
                 return
 
             # D6 第 1 步(2026-09-19 立):后端栈归一——langgraph fallback 与 v1 兜底已删除。
-            # agent_loop_v2 为唯一执行事实源(审计报告 outputs/AI能力深度对标分析报告-2026-09-19.md):
+            # agent_loop_v2 为唯一执行事实源(审计报告 outputs/AI能力深度对齐分析报告-2026-09-19.md):
             # 原「LangGraph 工作流 → v1 run_stream 降级」双兜底为死分支(langgraph_service 仅剩
             # 此处与 a2a_service 两处运行时消费),统一收敛到 AgentLoopV2。
             # 显式关闭 v2(env AGENT_EXECUTOR≠loop_v2)时返回错误帧,不再静默降级到旧引擎

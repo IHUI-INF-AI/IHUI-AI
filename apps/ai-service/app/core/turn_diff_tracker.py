@@ -3,7 +3,7 @@
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 # app/core/turn_diff_tracker.py
-"""回合净 diff 跟踪器(2026-09-19 第二十七批,对标 Codex turn_diff_tracker.rs)。
+"""回合净 diff 跟踪器(2026-09-19 第二十七批,遵循统一工程规范)。
 
 从本回合已提交的补丁变更(add/delete/update+move)在**内存中**累计净文本 diff,
 不回读文件系统;非精确变更(inexact delta)立即整体失效(Codex invalidate 语义,
@@ -29,7 +29,7 @@ ZERO_OID = "0" * 40
 DEV_NULL = "/dev/null"
 REGULAR_FILE_MODE = "100644"
 # 渲染超时无法像 similar 那样精确实现,用"超大输入跳过行级 diff"兜底,
-# 防病态输入阻塞工具完成(语义对标 DIFF_TIMEOUT 100ms 的降级路径)。
+# 防病态输入阻塞工具完成(语义对齐 DIFF_TIMEOUT 100ms 的降级路径)。
 _DIFF_MAX_LINES = 20000
 
 
@@ -265,7 +265,7 @@ class TurnDiffTracker:
         old_lines = (left_content or "").splitlines(keepends=True)
         new_lines = (right_content or "").splitlines(keepends=True)
         if len(old_lines) > _DIFF_MAX_LINES or len(new_lines) > _DIFF_MAX_LINES:
-            # 病态输入兜底:不生成行级 diff(对标 DIFF_TIMEOUT 降级)
+            # 病态输入兜底:不生成行级 diff(对齐 DIFF_TIMEOUT 降级)
             diff += f"--- {old_header}\n+++ {new_header}\n@@ 内容过大,行级 diff 省略 @@\n"
             return diff
         unified = difflib.unified_diff(

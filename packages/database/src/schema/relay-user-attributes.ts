@@ -5,7 +5,7 @@
 import { pgTable, uuid, varchar, timestamp, uniqueIndex, index } from 'drizzle-orm/pg-core'
 
 /**
- * 用户自定义属性表(relay_user_attributes,2026-09-17 立,补强 55,对标竞品 /user-attributes)。
+ * 用户自定义属性表(relay_user_attributes,2026-09-17 立,补强 55,对齐竞品 /user-attributes)。
  *
  * 用途:给中转站用户挂 KV 属性(如 tier=vip、source=referral、industry=edu),
  * 供分组、风控、运营筛选与导出使用——避免把业务标签硬编码进代码或塞进 email 等字段。

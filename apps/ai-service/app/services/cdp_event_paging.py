@@ -4,9 +4,9 @@
 
 """CDP 事件游标分页 + origin 限定 + 命令白名单纯逻辑。
 
-取证来源
+设计依据
 --------
-``.ihui-agent/tmp/goal-codex-r11/cua-confirmation-policy-and-cdp.md`` §B 逐字直读
+``内部规格`` §B 按行为规格
 ``cloud/capabilities/tab/cdp.md`` 的 CdpTabCapability 类型::
 
     readEvents → { cursor, events[], hasMore, truncated }
@@ -17,7 +17,7 @@
     作用域: raw CDP 限定在该 tab 当前 web origin
     翻页须复用同一 filters
 
-设计要点（本仓复现）
+设计要点（本仓实现）
 --------------------
 Codex 把 DevTools 事件流的可靠分页范式落成类型契约。本仓的 cursor/seq 分页散布
 在 agent_engine/session_store, 缺一个 CDP 专用的纯逻辑层。本模块抽出可判定的

@@ -56,21 +56,10 @@ export function canSubmitQuestionAnswer(input: {
 
 /**
  * 点选行为:单选时替换、多选时切换。
- * 抽成纯函数是因为"单选却点出两个 id"会让服务端把答案读成多选 —— 静默给错语义。
+ * 判据住在共享层 `@ihui/shared/chat/question-response`(RN / 小程序 / 扩展同一份),
+ * 此处 re-export 保持本组件对外 API,端内不再留第二份实现。
  */
-export function toggleOptionSelection(
-  current: readonly string[],
-  optionId: string,
-  allowMultiple: boolean,
-): string[] {
-  if (!allowMultiple) {
-    // 单选:再点一次同一项 = 取消(否则用户无法改主意)
-    return current.length === 1 && current[0] === optionId ? [] : [optionId]
-  }
-  return current.includes(optionId)
-    ? current.filter((id) => id !== optionId)
-    : [...current, optionId]
-}
+export { toggleOptionSelection } from '@ihui/shared/chat/question-response'
 
 export interface QuestionCardProps {
   model: QuestionCardModel

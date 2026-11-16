@@ -57,6 +57,7 @@
     "list_dir": "file_read",
     "list_tasks": "task_management",
     "open_preview": "preview",
+    "orchestrate_agents": "task_management",
     "permission_request": "user_interaction",
     "preview_url": "preview",
     "read_dir": "file_read",

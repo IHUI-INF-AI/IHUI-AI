@@ -5,7 +5,7 @@
 /**
  * 多文件原子编辑工具 — batch_edit / batch_undo / batch_preview。
  *
- * 对标 OpenClaw multi-file atomic edit:
+ * 遵循统一工程规范
  *   - batch_edit: 多文件事务性提交(atomic=true 默认),任一失败回滚所有已执行操作
  *   - batch_undo: 根据 checkpointId 回滚之前的 batch_edit
  *   - batch_preview: 只生成 unified diff 预览,不实际写入

@@ -278,7 +278,7 @@ export function resolveImportSpecifier(testRel, spec) {
  * 规则⑤ 的**证据维**:测试正文里必须真的 import 了这个模块。
  * 为什么点限定词要比普通同名多要这一份证据:普通 `x.test.ts` 与限定式
  * `x.<限定词>.test.ts` 的差别只在名字,名字本身不携带"指向哪个模块"的证据
- * (`tool-calls-section.classification.test.ts` 逐字复刻了组件里的判定序,却一行都没 import
+ * (`tool-calls-section.classification.test.ts` 独立实现了组件里的判定序,却一行都没 import
  * 组件 —— 组件改了它不会红)。方向仍是"多要一次说明":取不到正文 ⇒ 不认(落回缺口)。
  */
 export function referencesModule(testText, moduleRel, testRel) {

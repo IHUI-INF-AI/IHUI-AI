@@ -5,7 +5,7 @@
 'use client'
 
 /**
- * 消息常驻反馈动作(2026-10-28 立,对标 Qoder reaction 档)。
+ * 消息常驻反馈动作(2026-10-28 立,遵循统一工程规范)。
  *
  * 一句话:**把"问卷才出场的评分"降为"举手之劳的两个键"** ——
  * - D49①/D64⑤ 早就把 like/dislike+原因+评论的落库端点建全了,但 web 端唯一提交点
@@ -78,13 +78,13 @@ export function MessageFeedbackActions({
               `/api/chat/messages/${messageId}/feedback`,
               { method: 'DELETE' },
             )
-          : await fetchApi<{ rated: boolean; rating: Rating }>(
-              '/api/chat/messages/feedback',
-              { method: 'POST', body: JSON.stringify({ messageId, rating: next }) },
-            )
+          : await fetchApi<{ rated: boolean; rating: Rating }>('/api/chat/messages/feedback', {
+              method: 'POST',
+              body: JSON.stringify({ messageId, rating: next }),
+            })
         if (!res.success) throw new Error(res.error ?? '')
         setRating(undoing ? null : next)
-        // 撤销安静(按压态退回即反馈);like 也静默(对标 Qoder);dislike 轻提示可补详情
+        // 撤销安静(按压态退回即反馈);like 也静默(遵循统一工程规范);dislike 轻提示可补详情
         if (!undoing && next === 'dislike') success(t('toast.dislikeThanks'))
       } catch {
         error(t('toast.feedbackFailed'))

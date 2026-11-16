@@ -9,7 +9,7 @@
  * <workspace>/.ihui-agent/hooks/.state.json(.state.json 优先于 frontmatter.enabled)。
  * discover()/enable(name)/disable(name) 三方法;free functions 薄封装默认实例。
  *
- * 平台独占:仅 cli(W3-4 Hooks 自动发现,对标 OpenClaw hooks 自动发现)。
+ * 平台独占:仅 cli(W3-4 Hooks 自动发现,遵循统一工程规范)。
  * 与 commands/hooks-auto.ts(沙箱执行 + 热重载)互补:本模块只做发现 + 启停状态管理。
  */
 import * as fs from 'node:fs';

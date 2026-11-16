@@ -5,7 +5,7 @@
 'use client'
 
 /**
- * 权限模式快捷键帮助面板(2026-07-25 立,深度对标 OpenAI Codex CLI /help)
+ * 权限模式快捷键帮助面板(2026-07-25 立,深度对齐 OpenAI Codex CLI /help)
  *
  * 触发场景:
  * - ? 键(Shift+/)全局唤起/关闭,由 message-input 内 useEffect 监听

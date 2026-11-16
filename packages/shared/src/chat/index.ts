@@ -102,6 +102,9 @@ export * from './message-metadata-summary'
 // D65 Hook 失败可见性(定档 C:hook_engine 失败信息内存有/SSE 通道无/DLQ 消费出口无 ⇒ 本票仅契约先行
 // 六态词汇表含 resultNotRecorded 终态缺省;attachment stderr/command 过 shared/utils/redact;渲染位待 D34 补事件)
 export * from './hook-failures'
+// D155 下行告警的规范化记录与收帧判据(唯一实现):StreamAlertRecord 等符号此前只能深路径
+// import chat/stream-alerts,根 barrel 缺席等于跨端出口没有登记;小程序端按 `@ihui/shared` 取类型。
+export * from './stream-alerts'
 // D69 输入区文案族(压缩不可用三类原因因/果成对 + 排队许可纯函数 canReorder/canUndo/canInterject +
 // deniedNotice 组合矩阵非法组合 null;只读不写不碰 W27;交互本体归 D38)
 export * from './input-notices'

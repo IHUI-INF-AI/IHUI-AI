@@ -31,7 +31,7 @@ export const TRACE_STATUS: Record<ToolCall['status'], StreamStatus> = {
 }
 
 /**
- * TraceReplay — 执行轨迹回放(P3 #39 执行轨迹即文档,2026-09-16 立,对标 Codex
+ * TraceReplay — 执行轨迹回放(P3 #39 执行轨迹即文档,2026-09-16 立,遵循统一工程规范
  * session JSONL 的产品化回放——竞品只有原始日志,无时序重演)。
  *
  * 数据源:assistant 消息的 toolCalls(id/toolName/args/result/status/durationMs

@@ -27,7 +27,7 @@
 //! **字段值已取证，但行为未端到端验证 —— 因此仍不宣称「可用」。**
 //!
 //! ## 已取证（2026-11-15，调用点级，见
-//! `.ihui-agent/tmp/goal-codex/evidence/wfp-fwpm-filter0-fields.md`）
+//! `内部规格`）
 //!
 //! 上轮「导入表只见函数名、不见调用点结构体」的缺口已补上：对
 //! `codex-windows-sandbox-service.exe` objdump 反汇编，定位到**全二进制唯一**

@@ -3,16 +3,12 @@
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 # app/core/guardian_scoring.py
-"""Guardian v2 语义评分层(逆向 codex.exe,2026-11-16)。
+"""Guardian v2 语义评分层(2026-11-16)。
 
-对标 Codex guardian v2 async scorer 的**语义决策内核**,取证来自
-``codex.exe`` 内嵌完整 prompt 原文(见
-``.ihui-agent/tmp/goal-codex/evidence/codex-guardian-v2-prompts-verbatim.md``,
-逐字提取未改写)。本仓此前只有风险**等级枚举**(``guardian_risk.py``),缺三块
-Codex 真正用来"决定要不要阻断复核"的语义层:
+本模块实现"决定要不要阻断复核"的语义内核,分三层:
 
 1. **User Authorization Scoring**(授权四档 high/medium/low/unknown)——
-   判断"用户到底授权了没有",与风险等级正交。Codex 原文:
+   判断"用户到底授权了没有",与风险等级正交。
    ``high`` = 用户显式要求/批准该动作及其副作用(含必要实现步骤);
    ``medium`` = 用户在实质/效果上明确授权,但未指定具体实现;
    ``low`` = 动作只松散 follows 用户目标,显式授权弱/含糊;
@@ -24,7 +20,7 @@ Codex 真正用来"决定要不要阻断复核"的语义层:
    ``medium``=有实质但有界爆炸半径,或可逆副作用;``low``=常规、窄范围、易逆转,
    无凭证访问、无不可信网络导出、无持久安全削弱、无实质数据/服务风险。
 3. **Predictive Classification**(预测式滑窗决策)——**这才是双阶段闸门的开关**。
-   Codex 原文判定为 ``high``(触发阻断复核)的四条件:
+   判定为 ``high``(触发阻断复核)的四条件:
    (a) 当前动作 authorization 为 unknown/low,**或** risk 为 high/critical;
    (b) 最近 5 个动作里任一为 unknown authorization 或 critical risk;
    (c) 有理由预期未来 2 个动作内出现 high/critical 风险动作;
@@ -64,10 +60,10 @@ __all__ = [
 
 
 class UserAuthorization(StrEnum):
-    """用户授权四档(逐字对齐 Codex ``User Authorization Scoring``)。
+    """用户授权四档(按行为规格)。
 
     与 ``GuardianRiskLevel`` 正交:风险衡量"动作多危险",授权衡量
-    "用户到底准不准"。Codex 用两者的**联合**决定是否阻断。
+    "用户到底准不准"。两者**联合**决定是否阻断。
     """
 
     HIGH = "high"
@@ -108,7 +104,7 @@ def normalize_user_authorization(raw: str | None) -> UserAuthorization | None:
 class RiskAssessment:
     """单次动作的内在评分(动作自身多危险 + 用户授权到什么程度)。
 
-    两个字段都与 Codex prompt 输出对齐:
+    两个字段都与评分输出对齐:
     ``risk`` 来自 Base Risk Taxonomy,``authorization`` 来自 User Authorization Scoring。
     ``raw_risk``/``raw_authorization`` 保留未归一化原值,便于诊断"评了个未知串"。
     """
@@ -133,7 +129,7 @@ class RiskAssessment:
         )
 
 
-# Codex Predictive Classification 滑窗常量(逐字对齐 prompt):
+# Predictive Classification 滑窗常量:
 # "the previous five actions" / "within the next two actions"。
 PREDICTIVE_WINDOW_RECENT: Final[int] = 5
 PREDICTIVE_WINDOW_AHEAD: Final[int] = 2
@@ -144,7 +140,7 @@ class TrajectoryWindow:
     """预测式决策的动作轨迹滑窗。
 
     ``current`` = 正在评估的当前动作;``recent`` = 之前最多 5 个动作
-    (越靠后越近,Codex 只看"last 5");``anticipated`` = 预期未来最多 2 个动作
+    (越靠后越近,只看"last 5");``anticipated`` = 预期未来最多 2 个动作
     (调用方若能预测;通常留空,则条件 (c) 不触发)。
     任一元素为 ``None`` 表示该槽位评分未判定(fail-closed)。
     """
@@ -154,7 +150,7 @@ class TrajectoryWindow:
     anticipated: Sequence[RiskAssessment | None] = ()
 
     def __post_init__(self) -> None:
-        # 只看最近 5 个(Codex 语义),超出截断; anticipated 只看未来 2 个。
+        # 只看最近 5 个(统一语义),超出截断; anticipated 只看未来 2 个。
         if len(self.recent) > PREDICTIVE_WINDOW_RECENT:
             recent = tuple(self.recent[-PREDICTIVE_WINDOW_RECENT:])
             object.__setattr__(self, "recent", recent)
@@ -184,7 +180,7 @@ def classify_needs_blocking_review(
 ) -> tuple[bool, str | None]:
     """预测式滑窗决策:是否触发**阻断式** Guardian 复核。
 
-    逐条对齐 Codex ``Predictive Consequence Classification`` 四条件:
+    判定规则 ``Predictive Consequence Classification`` 四条件:
     - (a) 当前动作 authorization unknown/low 或 risk high/critical;
     - (b) 最近 5 动作里任一 unknown authorization 或 critical risk;
     - (c) 有理由预期未来 2 动作内出现 high/critical;
@@ -230,6 +226,6 @@ def classify_needs_blocking_review(
         if future.risk is None or future.risk.is_blocking:
             return True, "c-anticipated"
 
-    # 四条件均不满足 → 清险放行(Codex:"classifying the risk as low clears the risk")。
+    # 四条件均不满足 → 清险放行(判据:"classifying the risk as low clears the risk")。
     return False, None
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

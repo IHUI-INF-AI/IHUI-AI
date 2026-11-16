@@ -934,7 +934,7 @@ skill_registry = SkillRegistry()
 class SkillEvolutionService:
     """Skill 自进化服务:任务结束后 LLM 自评是否提炼可复用模式。
 
-    对标 Hermes Agent 的任务后自评机制:把 goal/steps/finalResult 喂给 LLM,
+    对齐 Hermes Agent 的任务后自评机制:把 goal/steps/finalResult 喂给 LLM,
     判断是否值得沉淀为 SKILL.md,值得则在 app/skills/auto/ 落盘并刷新注册表。
     """
 
@@ -1126,7 +1126,7 @@ skill_evolution_service = SkillEvolutionService()
 class SkillEvolutionLoop:
     """Skill 自进化闭环(P3-2):生成 → 测试 → 落盘 → 反馈追踪 → 迭代优化。
 
-    对标 Hermes Agent 的 Skill 生成后自动测试 + 使用反馈追踪 +
+    对齐 Hermes Agent 的 Skill 生成后自动测试 + 使用反馈追踪 +
     基于反馈迭代优化 + 评分系统,整合 SkillEvolutionService /
     SkillTester / SkillFeedbackTracker / SkillIterator 四组件。
     """

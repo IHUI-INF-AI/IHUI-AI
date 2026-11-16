@@ -153,7 +153,7 @@ function readMeta(dir) {
 }
 
 /**
- * ── 租约凭据 leaseToken(G-397 补的那一格,机制对标 deploy-lock 的 G-696)─────────────
+ * ── 租约凭据 leaseToken(G-397 补的那一格,机制对齐 deploy-lock 的 G-696)─────────────
  *
  * 立因:release 侧旧写法拿 `meta.pid === process.pid` 这**一个裸 pid 事实**就删锁,而 pid 会被
  * 系统复用(2026-09-25 部署锁因此冻了 11h50m,登记 G-193);`unitId` 又不入此列 —— 它是调用方

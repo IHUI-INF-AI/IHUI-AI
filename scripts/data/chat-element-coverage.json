@@ -1,6 +1,6 @@
 {
-  "$comment": "D51 对话流元素期望清单(V3种子视图)。来源=outputs/AI能力深度对标分析报告V3-2026-09-21.md 附件A-D + §6补证(G-63~G-70)。与 scripts/data/chat-flow-elements.json 的分工:本文件钉“期望有什么”(元素名/证据级别/契约事件/渲染位/跨端要求,含对手元素与我方缺失项,规划与对账用);chat-flow-elements.json 钉“已实现锚点+契约事件+条目基线”(运行时守门用,guardian第57项blocking)。两者不得各自扩围:清单变更必须同PR改本文件;新增已实现元素必须同PR改chat-flow-elements.json。 gate映射:①期望元素无渲染位→anchor-missing-*;②事件契约有帧但无消费点/③前端监听但后端不发→event-contract-drift(双向:任一端缺失即拦;逐事件消费点粒度由D44 WHITELIST与各元素anchors跟踪,不在本文件重复登记)。",
-  "source": "outputs/AI能力深度对标分析报告V3-2026-09-21.md",
+  "$comment": "D51 对话流元素期望清单(V3种子视图)。来源=outputs/AI能力深度对齐分析报告V3-2026-09-21.md 附件A-D + §6补证(G-63~G-70)。与 scripts/data/chat-flow-elements.json 的分工:本文件钉“期望有什么”(元素名/证据级别/契约事件/渲染位/跨端要求,含对手元素与我方缺失项,规划与对账用);chat-flow-elements.json 钉“已实现锚点+契约事件+条目基线”(运行时守门用,guardian第57项blocking)。两者不得各自扩围:清单变更必须同PR改本文件;新增已实现元素必须同PR改chat-flow-elements.json。 gate映射:①期望元素无渲染位→anchor-missing-*;②事件契约有帧但无消费点/③前端监听但后端不发→event-contract-drift(双向:任一端缺失即拦;逐事件消费点粒度由D44 WHITELIST与各元素anchors跟踪,不在本文件重复登记)。",
+  "source": "outputs/AI能力深度对齐分析报告V3-2026-09-21.md",
   "scope": "附件A(Qoder元素全表) + 附件B(Codex元素全表) + 附件C(Trae/WorkBuddy/Claude) + 附件D(我方基线锚点) + §6补证(G-63~G-70,含G-70反向清单)",
   "scopeNote": "同文件内§7之后轮次(G-71起/D33-D105细化/H26-H29纪律)属V3之后补证,不在本文件登记,需用时按“清单变更同PR”追加",
   "evidenceLevels": "E1一手运行态 / E2一手配置态 / E3一手资源标识(值未取到) / E4二手 / E5待证(不计入差距)",

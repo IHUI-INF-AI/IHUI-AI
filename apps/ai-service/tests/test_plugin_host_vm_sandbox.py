@@ -2,7 +2,7 @@
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-"""plugin_host_vm_sandbox 三条硬边界测试(对标 dsh-cordis-host-runner 取证)。"""
+"""plugin_host_vm_sandbox 三条硬边界测试(对齐 dsh-cordis-host-runner 取证)。"""
 from __future__ import annotations
 
 from app.core.plugin_host_vm_sandbox import (
@@ -19,7 +19,7 @@ from app.core.plugin_host_vm_sandbox import (
 
 # ---- 扣留表完整性 ----
 def test_withheld_apis_completeness():
-    """七个被扣 API 齐备(对齐 DSH NODE_API_REDIRECTS 表)。"""
+    """七个被扣 API 齐备(对齐 外部实现 NODE_API_REDIRECTS 表)。"""
     for api in ("require", "setTimeout", "setInterval", "setImmediate",
                 "clearTimeout", "clearInterval", "fetch"):
         assert api in WITHHELD_APIS
@@ -75,7 +75,7 @@ def test_classify_syntax_error_realm_safe():
 def test_classify_undefined_return():
     v = classify_host_half_error(returned_undefined=True)
     assert v.kind == "undefined_return"
-    assert "forget `return`" in v.message  # DSH teaching error 文案
+    assert "forget `return`" in v.message  # 外部实现 teaching error 文案
 
 
 def test_classify_withheld_api_fetch():

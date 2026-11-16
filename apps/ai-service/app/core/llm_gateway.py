@@ -536,7 +536,7 @@ _PREFIX_TO_PROVIDER_CODE: dict[str, str] = {
 
 
 def _llm_responses_headers_enabled_from_env() -> bool:
-    """Responses 模型级 header 注入开关(批58 接线,对标 codex responses_headers.rs)。
+    """Responses 模型级 header 注入开关(批58 接线,遵循统一工程规范)。
 
     默认 off:请求头与接线前逐字节一致;设为 on/1/true/yes 时于 call_kwargs 装配末尾
     经 build_responses_headers 追加 beta 特性头 / turn-state sticky 头。
@@ -547,7 +547,7 @@ def _llm_responses_headers_enabled_from_env() -> bool:
 
 
 def _llm_responses_assembly_enabled_from_env() -> bool:
-    """Responses 请求装配开关(批58 接线,对标 codex responses_request_assembly.rs)。
+    """Responses 请求装配开关(批58 接线,遵循统一工程规范)。
 
     默认 off:不追加 stream_options(逐字节一致);设为 on/1/true/yes 时于流式
     装配处经 build_stream_options 追加推理摘要投递选项(三条件齐备才产出)。
@@ -2525,7 +2525,7 @@ class LLMGateway:
     async def _emit_model_reroute(
         self, requested: str | None, resolved: str
     ) -> None:
-        """ModelReroute 事件(2026-09-18 第三批,对标 Codex ModelReroute)。
+        """ModelReroute 事件(2026-09-18 第三批,遵循统一工程规范)。
 
         auto 路由把请求模型改道到实际模型时发出,客户端与
         审计侧可感知"实际用了哪个模型";失败降级绝不影响主链路。
@@ -2743,7 +2743,7 @@ class LLMGateway:
             provider_code = _model_to_provider_code(used_model)
             cap = get_provider_cap(provider_code)
             call_kwargs["timeout"] = cap.default_timeout
-            # 第十七批(对标 Codex ModelProviderInfo):provider 级韧性参数取代
+            # 第十七批(遵循统一工程规范):provider 级韧性参数取代
             # 全局硬编码 num_retries=2 —— 排队型与低延迟 provider 不再同档。
             # 只补调用方没显式给的键,显式值永远优先。
             apply_provider_overrides(call_kwargs, provider_code)
@@ -4601,7 +4601,7 @@ class LLMGateway:
         return cast(list[float], response.data[0]["embedding"])
 
     # ---------------------------------------------------------------------------
-    # G7 本地 embedding 回落档(2026-10-31,goal-b42,对标 Trae ckg 的
+    # G7 本地 embedding 回落档(2026-10-31,goal-b42,遵循统一工程规范
     # `-local_embedding -embedding_storage_type=sqlite_vec` 命令行常量,T2 §8-G7)。
     # 对侧把本地向量化做成常开能力;本仓形态是"远端优先、离线可识别回落":
     # pgvector 列固定 1536 维,非 1536 维的本地神经模型(bge 等)结构上不可入列,
@@ -4645,7 +4645,7 @@ llm_gateway = LLMGateway()
 
 
 # ---------------------------------------------------------------------------
-# MoA / Fallback / CredentialPool(P2-2,对标 Hermes Agent provider 扩展)
+# MoA / Fallback / CredentialPool(P2-2,对齐 Hermes Agent provider 扩展)
 # ---------------------------------------------------------------------------
 
 

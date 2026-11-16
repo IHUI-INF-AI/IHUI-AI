@@ -872,7 +872,7 @@ export function evaluateRules(
 }
 
 /**
- * 自动复核:只接受 `ask`,只对标记 `autoReviewable` 的规则生效。
+ * 自动复核:只接受 `ask`,只对齐记 `autoReviewable` 的规则生效。
  *
  * 放行条件(全部满足):
  *  - 基础结论是 ask(deny 一律原样返回,不存在降级出口);

@@ -32,7 +32,7 @@ api_v1_router.include_router(knowledge_graph.router, prefix="/ai/knowledge-graph
 api_v1_router.include_router(knowledge_fs.router, prefix="/ai/knowledge-fs", tags=["v1-knowledge-fs"])
 # 外部运行时导入(2026-10-31,对齐 Qoder 导入数据 4 维命名空间)
 api_v1_router.include_router(external_import.router, prefix="/ai/external-import", tags=["v1-external-import"])
-# 知识卡片 agent 写面(b43,2026-10-31,对标 Qoder Repo Wiki 写工具族)
+# 知识卡片 agent 写面(b43,2026-10-31,遵循统一工程规范)
 api_v1_router.include_router(knowledge_write.router, prefix="/ai/knowledge-write", tags=["v1-knowledge-write"])
 # SAG2 词法多跳检索通道(2026-11-08,复现 SAG Wiki 行为与设计并超越:零模型建库 + 查询时关联 + 显式降级留痕)
 api_v1_router.include_router(sag2_lexical.router, prefix="/ai/sag2", tags=["v1-sag2-lexical"])

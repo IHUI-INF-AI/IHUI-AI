@@ -24,7 +24,7 @@ import { StreamingSkeleton, shouldShowStreamingSkeleton } from './streaming-skel
 import { ScrollJumpButtons } from './scroll-jump-buttons'
 import { AmbientSuggestions } from '@/components/ai/ambient-suggestions'
 import { useAppearanceStore } from '@/stores/appearance-settings'
-// 轮次呈现投影层(2026-10-29 立,对标 Qoder 0.4.11 第六层):UI 不直接渲染 messages,
+// 轮次呈现投影层(2026-10-29 立,遵循统一工程规范):UI 不直接渲染 messages,
 // 先投影成 presentation rows 再按行语义分流。本文件是它的**唯一生产消费方**
 // (装车证明见 `__tests__/presentation-wiring.test.tsx`)。
 import { createPresentationCache, type PresentationCache } from './turn-presentation'
@@ -480,7 +480,7 @@ export function MessageList({
   useFocusArtifactScroll(containerRef)
 
   // 2026-08-30 立:重新生成 / 分支事件监听(MessageItem 按钮 + 右键菜单派发)。
-  // 2026-09-12 立:编辑重跑事件监听(四竞品对标 P0-1,MessageItem 编辑 Dialog 派发)。
+  // 2026-09-12 立:编辑重跑事件监听(四竞品对齐 P0-1,MessageItem 编辑 Dialog 派发)。
   // 完整闭环在 send-message.ts 的 regenerateMessage / branchMessage / editMessageAndRerun(复用既有流式发送逻辑)。
   // D22(2026-09-19 立):引用回复事件监听(MessageItem Reply 按钮派发)——
   // 从 store 查找目标消息快照写入 quotedMessage,MessageInput 渲染引用 chip,doSend 附加正文。
@@ -731,7 +731,7 @@ export function MessageList({
   // 2026-08-16 移除:DEBUG useEffect 在 early return 之后调用(违反 Rules of Hooks,
   // lint error),且 console.log 为调试残留——删除,虚拟滚动 padding 信息无需打印。
 
-  // 单一整合对话流视图(2026-07-31 立,彻底整合,对标 主流 IDE 单一对话流)
+  // 单一整合对话流视图(2026-07-31 立,彻底整合,对齐 主流 IDE 单一对话流)
   // - 移除 tablist 切换(对话流/时间线/全部 三 tab)
   // - 移除独立时间线面板(对话流已内联工具调用/子代理/计划等,时间线是冗余汇总)
   // - 只保留对话流一个视图,工具调用/子代理/思考过程已内联在消息气泡内

@@ -5,7 +5,7 @@
 # © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 
-"""Agent 运行步骤录制路由(Record & Replay,对标 WorkBuddy/Codex 可复现审计)。
+"""Agent 运行步骤录制路由(Record & Replay,遵循统一工程规范)。
 
 挂载说明:本模块仅导出 `router: APIRouter`(prefix="/agent-recorder"),由 master 在
 main.py 以 `app.include_router(step_recorder_router, prefix="/api",

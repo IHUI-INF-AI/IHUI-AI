@@ -3,9 +3,9 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * OpenAI 兼容流式工具调用解析（逆向-复现-超越，AGENTS §0.12）
+ * OpenAI 兼容流式工具调用解析（工程化落地，AGENTS §0.12）
  *
- * 对标：Qoder / Trae 把 `jsonrepair` 用在工具调用 `arguments` 上——但 `jsonrepair` 只能吃
+ * 对齐：Qoder / Trae 把 `jsonrepair` 用在工具调用 `arguments` 上——但 `jsonrepair` 只能吃
  *       **完整字符串**，无法在分片到达过程中渐进渲染。OpenAI 流式协议把 `arguments` 拆成
  *       `choices[].delta.tool_calls[].function.arguments` 的**字符串分片**逐片下发，
  *       每一片都可能是被截断的残缺 JSON。
@@ -19,10 +19,7 @@
  * 红线：自研；不粘贴对照程序专有源码；不引入第三方 jsonrepair 包。
  */
 
-import {
-  createToolCallArgsStreamer,
-  type ToolCallArgsStreamer,
-} from './tool-call-args.js'
+import { createToolCallArgsStreamer, type ToolCallArgsStreamer } from './tool-call-args.js'
 
 /** 单条 OpenAI 流式 tool_call 增量片段（已抽出可消费的字段）。 */
 export interface OpenAiToolCallFragment {
@@ -137,7 +134,7 @@ export function parseOpenAiStreamLine(line: string): OpenAiStreamFrame | null {
 
   if ('finish_reason' in choice) {
     const fr = choice.finish_reason
-    frame.finishReason = fr === null ? null : asOptString(fr) ?? String(fr)
+    frame.finishReason = fr === null ? null : (asOptString(fr) ?? String(fr))
   }
 
   return frame

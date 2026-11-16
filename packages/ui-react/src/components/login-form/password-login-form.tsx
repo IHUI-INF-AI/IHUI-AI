@@ -81,7 +81,7 @@ export interface PasswordLoginFormProps {
 /**
  * 密码登录表单(2026-07-26 抽取到共享包,2026-07-30 恢复凭据持久化)
  *
- * 视觉规范(对标 web 端 PasswordLoginForm.tsx):
+ * 视觉规范(对齐 web 端 PasswordLoginForm.tsx):
  *   - 容器:space-y-4 pt-2
  *   - 账号 Input h-10 + Label(启用持久化时用 AccountHistoryInput 带历史下拉)
  *   - 密码 Input h-10 + Label(右侧忘记密码链接)+ 密码显示/隐藏 toggle

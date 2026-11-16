@@ -7,7 +7,7 @@
 
 """P0-7 云托管 Agent 会话运行记录存储(进程内 dict + JSON 文件持久化)。
 
-对标 OpenAI Codex Cloud:每次 agent 运行建立一条持久化记录(run_id / agent 类型 /
+对齐 OpenAI Codex Cloud:每次 agent 运行建立一条持久化记录(run_id / agent 类型 /
 输入任务 / 状态 / 最终输出 / 起止时间 / 会话别名),支持跨端(web/cli)恢复与历史查看,
 而非仅当前进程内存态。
 

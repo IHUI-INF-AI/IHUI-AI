@@ -16,7 +16,7 @@ import { recordModeChange } from '@/lib/permission-mode-history'
 /** 撤销 toast 持续时间(ms)。与 PermissionModePopover 保持一致 */
 const UNDO_TOAST_DURATION = 5000
 
-/** 首次启用高风险模式确认弹窗桥接组件(2026-07-25 深化,深度对标 Codex CLI safety guard)
+/** 首次启用高风险模式确认弹窗桥接组件(2026-07-25 深化,深度遵循统一工程规范)
  *  - 监听 ai-panel store.pendingFullAccess 控制 Dialog open
  *  - confirm:FullAccessConfirmDialog 内部已写 localStorage(suppressed 或 acknowledged),
  *    此处只关弹窗 + 触发实际切模式 + 弹 5s 撤销 toast
@@ -53,7 +53,10 @@ export function FullAccessConfirmBridge() {
           timestamp: Date.now(),
           source: 'confirm-dialog',
         })
-        updateLatestRecordSource('confirm-dialog', (e) => permissionModeWire(e.mode) === 'bypass-permissions')
+        updateLatestRecordSource(
+          'confirm-dialog',
+          (e) => permissionModeWire(e.mode) === 'bypass-permissions',
+        )
       } catch {
         // 历史模块不可用时静默
       }

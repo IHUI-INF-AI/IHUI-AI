@@ -482,7 +482,7 @@ export const ToolCallSummaryCard = React.memo(function ToolCallSummaryCard({
       label: t('toolSummaryFilesModified'),
       colorClass: 'text-amber-500/80',
     },
-    // ── 2026-10-29 补齐的三档(对标 Qoder buildToolsSummary 七项里的 directories /
+    // ── 2026-10-29 补齐的三档(遵循统一工程规范
     //    edits / terminalCommands)。插在"文件修改"之后、"行数"之前:语义上先"动了什么"
     //    再"改了多少行",与既有的 文件搜索 → 网页搜索 → 文件修改 顺序一致。
     //    取不到(undefined)的档不渲染 —— 后端 tool-summary 事件尚未携带这三键,

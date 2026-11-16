@@ -634,7 +634,7 @@ Gemini 3.5 Pro 最突出的能力是前端与视觉代码生成。SVG 生成能�
 
 但是在硬核推理、仓库级软件工程以及长链路任务上,Gemini 3.5 Pro 依然无法撼动 Fable 5 的地位。
 
-谷歌同时基于同一底座推出图像模型 Nano Banana Pro,对标 OpenAI 的 GPT-Image 2。`,
+谷歌同时基于同一底座推出图像模型 Nano Banana Pro,对齐 OpenAI 的 GPT-Image 2。`,
       category: 'AI 模型发布',
       author: 'AI 前沿观察',
       cover:
@@ -955,7 +955,7 @@ Claude Code 的 Artifacts 现在可以调用 MCP (Model Context Protocol) 连接
 
 ## 与 GPT-Red 协同
 
-Anthropic 同步推出与 OpenAI GPT-Red 对标的内部安全加固,采用 red-blue self-play,验证 Claude 在 prompt injection 下的鲁棒性提升。`,
+Anthropic 同步推出与 OpenAI GPT-Red 对齐的内部安全加固,采用 red-blue self-play,验证 Claude 在 prompt injection 下的鲁棒性提升。`,
       category: 'AI 模型发布',
       author: 'Anthropic 官方',
       cover:

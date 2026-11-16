@@ -7,7 +7,7 @@
 
 """Checkpoint / Rewind 用户可感知的撤销路由。
 
-对标 Claude Code `checkpoint /rewind`:
+遵循统一工程规范
 - GET  /api/checkpoints?session_id=...             → 该会话可回滚的 checkpoint 列表
 - GET  /api/checkpoints/file-versions?session_id=&path= → 该会话下该文件的版本清单(只读)
 - POST /api/checkpoints/{checkpoint_id}/restore    → 恢复到该 checkpoint(对话历史 +
@@ -328,7 +328,7 @@ async def restore_checkpoint(
 
 # 影响预览单文件内容嵌入上限(防止巨型文件撑爆响应;行数统计仍按全文计算)
 _IMPACT_CONTENT_CAP = 4000
-# 影响文件清单默认截断上限(对标 Trae:列前 N 个 + "等 M 个文件")
+# 影响文件清单默认截断上限(遵循统一工程规范)
 _IMPACT_FILE_LIMIT = 50
 
 
@@ -377,7 +377,7 @@ async def checkpoint_impact(
         "both", pattern="^(conversation|code|both)$", description="回退范围"
     ),
 ) -> dict[str, Any]:
-    """回退前的影响预览(对标 Trae:恢复前展示影响文件 + 逐文件 diff 确认)。
+    """回退前的影响预览(遵循统一工程规范)。
 
     - scope=conversation:仅恢复对话历史,无文件变更(files 为空)
     - scope=code / both:按 checkpoint 记录的文件版本引用,逐个比对当前磁盘内容,

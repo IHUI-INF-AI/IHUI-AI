@@ -4,7 +4,7 @@
 
 """调度算法 + 失败重试 + 故障转移(P3-3)。
 
-对标 Hermes Agent 的调度系统:
+对齐 Hermes Agent 的调度系统:
 1. TaskScheduler:基于能力匹配 / 负载均衡 / 优先级 / 轮询的 4 种调度策略
 2. execute_with_retry:失败重试(fixed / linear / exponential 退避)
 3. execute_with_failover:故障转移(主 agent 失败 → 备用 agent,含质量评估)

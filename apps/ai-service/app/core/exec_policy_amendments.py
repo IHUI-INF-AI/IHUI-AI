@@ -6,7 +6,7 @@
 # -*- coding: utf-8 -*-
 """exec_policy_amendments.py — 逐语义移植 codex-rs 的 exec policy 追加（amend）能力。
 
-对标文件与函数：
+对齐文件与函数：
 - execpolicy/src/amend.rs (全文 ~337 行)：
     * AmendError 各变体            -> 下方异常体系 (AmendError / EmptyPrefixError / ...)
     * blocking_append_allow_prefix_rule (amend.rs:65) -> append_allow_prefix_rule
@@ -46,7 +46,7 @@ __all__ = [
 
 
 # ===========================================================================
-# A. BANNED_PREFIX_SUGGESTIONS（对标 core/src/exec_policy.rs:57，共 88 条）
+# A. BANNED_PREFIX_SUGGESTIONS（对齐 core/src/exec_policy.rs:57，共 88 条）
 #    逐条从源文件解析，顺序与条数保持一致；不要凭记忆改写。
 # ===========================================================================
 BANNED_PREFIX_SUGGESTIONS: tuple[tuple[str, ...], ...] = (
@@ -142,7 +142,7 @@ BANNED_PREFIX_SUGGESTIONS: tuple[tuple[str, ...], ...] = (
 
 
 def is_banned_prefix_suggestion(prefix: Sequence[str]) -> bool:
-    """对标 codex 对 BANNED_PREFIX_SUGGESTIONS 的判定：长度相等 且 逐元素相等。
+    """遵循统一工程规范。
 
     注意：这是「精确匹配」，不是前缀包含关系。只有 prefix 与某条建议
     长度相同且每个元素逐一相等时才返回 True。
@@ -152,21 +152,21 @@ def is_banned_prefix_suggestion(prefix: Sequence[str]) -> bool:
 
 
 # ===========================================================================
-# B. 异常体系（对标 execpolicy/src/amend.rs:14 AmendError 各变体的 #.error 文案）
+# B. 异常体系（对齐 execpolicy/src/amend.rs:14 AmendError 各变体的 #.error 文案）
 # ===========================================================================
 class AmendError(Exception):
-    """对标 amend.rs:14 AmendError（基类）。"""
+    """对齐 amend.rs:14 AmendError（基类）。"""
 
 
 class EmptyPrefixError(AmendError):
-    """对标 amend.rs:16/#[error] AmendError::EmptyPrefix。"""
+    """对齐 amend.rs:16/#[error] AmendError::EmptyPrefix。"""
 
     def __str__(self) -> str:
         return "prefix rule requires at least one token"
 
 
 class InvalidNetworkRuleError(AmendError):
-    """对标 amend.rs:18/#[error] AmendError::InvalidNetworkRule("{0}")。
+    """对齐 amend.rs:18/#[error] AmendError::InvalidNetworkRule("{0}")。
 
     外层包装文案：'invalid network rule: {detail}'，其中 detail 来自
     normalize_network_rule_host 抛出的 'invalid rule: ...'（rule.rs/error.rs）。
@@ -181,7 +181,7 @@ class InvalidNetworkRuleError(AmendError):
 
 
 class MissingParentError(AmendError):
-    """对标 amend.rs:20/#[error] AmendError::MissingParent {{ path }}。"""
+    """对齐 amend.rs:20/#[error] AmendError::MissingParent {{ path }}。"""
 
     def __init__(self, path: Path) -> None:
         self.path = path
@@ -191,7 +191,7 @@ class MissingParentError(AmendError):
 
 
 class PolicyFileIOError(AmendError):
-    """对标 amend.rs 的 IO 类变体（CreatePolicyDir/OpenPolicyFile/WritePolicyFile/
+    """对齐 amend.rs 的 IO 类变体（CreatePolicyDir/OpenPolicyFile/WritePolicyFile/
     LockPolicyFile/SeekPolicyFile/ReadPolicyFile/PolicyMetadata）。
 
     action 文案：create policy directory / open policy file / write to policy file /
@@ -208,10 +208,10 @@ class PolicyFileIOError(AmendError):
 
 
 # ===========================================================================
-# C. NetworkRuleProtocol（对标 execpolicy/src/rule.rs:117）
+# C. NetworkRuleProtocol（对齐 execpolicy/src/rule.rs:117）
 # ===========================================================================
 class NetworkRuleProtocol(StrEnum):
-    """对标 rule.rs:117 NetworkRuleProtocol。"""
+    """对齐 rule.rs:117 NetworkRuleProtocol。"""
 
     HTTP = "http"
     HTTPS = "https"
@@ -219,17 +219,17 @@ class NetworkRuleProtocol(StrEnum):
     SOCKS5_UDP = "socks5_udp"
 
     def as_policy_string(self) -> str:
-        """对标 rule.rs:138 as_policy_string。"""
+        """对齐 rule.rs:138 as_policy_string。"""
         return self.value
 
 
 # ===========================================================================
-# D. normalize_network_rule_host（对标 execpolicy/src/rule.rs:156）
-#    内部异常文案逐字对齐 execpolicy/src/error.rs:32 Error::InvalidRule
+# D. normalize_network_rule_host（对齐 execpolicy/src/rule.rs:156）
+#    内部异常文案按行为规格 execpolicy/src/error.rs:32 Error::InvalidRule
 #    (显示形态为 'invalid rule: {msg}')。
 # ===========================================================================
 class _NetworkRuleError(Exception):
-    """内部错误：对标 error.rs:32 Error::InvalidRule（'invalid rule: {0}'）。"""
+    """内部错误：对齐 error.rs:32 Error::InvalidRule（'invalid rule: {0}'）。"""
 
     def __init__(self, message: str) -> None:
         super().__init__(message)
@@ -244,12 +244,12 @@ def _is_ascii_digit(value: str) -> bool:
 
 
 def _ascii_lower(value: str) -> str:
-    # 对标 Rust 的 to_ascii_lowercase：仅 ASCII 大写转小写，不触及非 ASCII 字符。
+    # 对齐 Rust 的 to_ascii_lowercase：仅 ASCII 大写转小写，不触及非 ASCII 字符。
     return "".join(chr(ord(c) + 32) if "A" <= c <= "Z" else c for c in value)
 
 
 def normalize_network_rule_host(raw: str) -> str:
-    """对标 rule.rs:156 normalize_network_rule_host，判定顺序与文案逐字一致。"""
+    """对齐 rule.rs:156 normalize_network_rule_host，判定顺序与文案逐字一致。"""
     host = raw.strip()
     if host == "":
         raise _NetworkRuleError("network_rule host cannot be empty")
@@ -294,10 +294,10 @@ def normalize_network_rule_host(raw: str) -> str:
 
 
 # ===========================================================================
-# E. 规则行格式化（对标 amend.rs:65 / amend.rs:85 的格式化部分）
+# E. 规则行格式化（对齐 amend.rs:65 / amend.rs:85 的格式化部分）
 # ===========================================================================
 def format_allow_prefix_rule(prefix: Sequence[str]) -> str:
-    """对标 amend.rs:65 blocking_append_allow_prefix_rule 的格式化部分。
+    """对齐 amend.rs:65 blocking_append_allow_prefix_rule 的格式化部分。
 
     每个 token 用 json.dumps(tok, ensure_ascii=False) 转义（等价 serde_json::to_string），
     token 间以 ', ' 连接，外层方括号。空 prefix -> EmptyPrefixError。
@@ -323,7 +323,7 @@ def format_network_rule(
     decision: str,
     justification: str | None = None,
 ) -> str:
-    """对标 amend.rs:85 blocking_append_network_rule 的格式化部分。
+    """对齐 amend.rs:85 blocking_append_network_rule 的格式化部分。
 
     参数拼接顺序固定为 host -> protocol -> decision -> justification
     （justification 为 None 则整项省略）。
@@ -354,10 +354,10 @@ def format_network_rule(
 
 
 # ===========================================================================
-# F. 追加落盘（对标 amend.rs:127 append_rule_line / amend.rs:147 append_locked_line）
+# F. 追加落盘（对齐 amend.rs:127 append_rule_line / amend.rs:147 append_locked_line）
 # ===========================================================================
 def _try_advisory_lock(handle: Any) -> None:
-    """对标 amend.rs:157 file.lock()：建议性文件锁，拿不到也不阻断写入。
+    """对齐 amend.rs:157 file.lock()：建议性文件锁，拿不到也不阻断写入。
 
     POSIX 用 fcntl.flock；Windows 用 msvcrt.locking。两者都 try/except 兜底，
     失败时保留异常文案但不抛出（不阻断写入）。
@@ -381,7 +381,7 @@ def _try_advisory_lock(handle: Any) -> None:
 
 
 def append_rule_line(policy_path: Path, line: str) -> None:
-    """对标 amend.rs:127 append_rule_line + amend.rs:147 append_locked_line。
+    """对齐 amend.rs:127 append_rule_line + amend.rs:147 append_locked_line。
 
     1) 取 parent；无 parent -> MissingParentError
     2) 创建父目录（已存在不算错）
@@ -431,7 +431,7 @@ def append_rule_line(policy_path: Path, line: str) -> None:
 
 
 def append_allow_prefix_rule(policy_path: Path, prefix: Sequence[str]) -> None:
-    """对标 amend.rs:65 blocking_append_allow_prefix_rule。"""
+    """对齐 amend.rs:65 blocking_append_allow_prefix_rule。"""
     rule = format_allow_prefix_rule(prefix)
     append_rule_line(policy_path, rule)
 
@@ -443,6 +443,6 @@ def append_network_rule(
     decision: str,
     justification: str | None = None,
 ) -> None:
-    """对标 amend.rs:85 blocking_append_network_rule。"""
+    """对齐 amend.rs:85 blocking_append_network_rule。"""
     rule = format_network_rule(host, protocol, decision, justification)
     append_rule_line(policy_path, rule)

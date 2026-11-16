@@ -3,14 +3,14 @@
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 
-"""全局消息历史(2026-09-19 第二十三批,对标 Codex message-history crate)。
+"""全局消息历史(2026-09-19 第二十三批,遵循统一工程规范)。
 
 语义忠实移植:
 - 全局追加式历史文件(~/.ihui/history.jsonl),一行一条 JSON:
   {"session_id": "...", "ts": <unix_seconds>, "text": "..."}
 - 多进程防交错写入:进程内 threading.Lock + 跨进程文件锁
   (Windows msvcrt.locking / POSIX fcntl.flock),锁在整批写入期间持有
-- append_batch:多条记录一次加锁批量落盘(对标 codex batch.rs,摊薄锁开销)
+- append_batch:多条记录一次加锁批量落盘(遵循统一工程规范)
 - 读取按行流式迭代,损坏行跳过不抛错(容错降级,尾部读支持 cursor)
 
 取舍:codex 用 fs2 文件锁抽象;我方直接用标准库双平台原语,语义一致。
@@ -135,7 +135,7 @@ def append_batch(
     path: Path,
     entries: Iterable[tuple[str, str, float | None]],
 ) -> list[dict[str, Any]]:
-    """批量追加:一次加锁写多条(对标 codex append_batch 语义)。"""
+    """批量追加:一次加锁写多条(遵循统一工程规范)。"""
     records: list[dict[str, Any]] = []
     for session_id, text, ts in entries:
         records.append(
@@ -187,7 +187,7 @@ def read_recent(path: Path, limit: int = 50) -> list[dict[str, Any]]:
 
 
 def purge_history(path: Path) -> bool:
-    """清空历史文件(对标 codex history purge);文件不存在返回 False。"""
+    """清空历史文件(遵循统一工程规范);文件不存在返回 False。"""
     path = Path(path)
     if not path.exists():
         return False

@@ -402,7 +402,7 @@ const chatStreamSchema = z.object({
   tools: z.array(z.record(z.string(), z.unknown())).max(200).optional(),
   /** 工具选择策略: 'auto'/'none'/'required' 或 {type:'function',function:{name:'xxx'}} */
   tool_choice: z.union([z.string(), z.record(z.string(), z.unknown())]).optional(),
-  /** P1-7(2026-09-13 立,四竞品对标 CodeX/Qoder 高级参数面板):
+  /** P1-7(2026-09-13 立,四竞品对齐 CodeX/Qoder 高级参数面板):
    *  会话级采样参数与自定义 system prompt。此前 model-selector 旁无参数入口,
    *  api-client streamChat 已支持这些字段(body 构造见 client.ts),
    *  但网关 schema 未声明 → zod strip 静默丢弃(与 workspaceContext/mode 同型断链)。
@@ -1474,7 +1474,7 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
         })
         // 后台预压缩(2026-09-01 立,代差能力 A):70% 占用时 fire-and-forget 预生成语义摘要
         // 缓存(进度条阈值 CONTEXT_BUDGET_THRESHOLD 与共享包一致),到 88% 真压缩时命中缓存,
-        // 首 token 零额外延迟——对标程序(Claude Code)的压缩是阻塞式的,这是关键差异点。
+        // 首 token 零额外延迟——对齐程序(Claude Code)的压缩是阻塞式的,这是关键差异点。
         // 预生成失败静默吞掉,绝不影响主链路。
         if (usageRatio >= CONTEXT_BUDGET_THRESHOLD && tokensBeforeCompress < triggerThreshold) {
           void primeSemanticSummary(request, messages, resolvedModel, metadata?.conversationId)
@@ -2231,7 +2231,7 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // POST /chat/conversations/:id/directories — D201 多根工作区(2026-10-02):
-  // 会话中途追加/移除目录(**整表替换**,空数组 = 清空,对标 Qoder add_directories
+  // 会话中途追加/移除目录(**整表替换**,空数组 = 清空,遵循统一工程规范
   // 控制帧)。顺序:auth → 属主 → 转发 ai-service(准入校验在那一侧:绝对路径/
   // 存在/是目录,任一非法整表拒绝 422,metadata 不写)→ 成功后才落会话 metadata
   // (additionalDirectories 键,空集删键)。运行时生效面 = ai-service 进程内

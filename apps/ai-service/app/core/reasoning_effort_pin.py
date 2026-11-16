@@ -1,7 +1,7 @@
 # © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-"""推理努力档位钉扎(ReasoningEffortPin)——对标 codex state/session.rs ReasoningEffortPin
+"""推理努力档位钉扎(ReasoningEffortPin)——遵循统一工程规范
 + session/reasoning_effort.rs(2026-09-20 批58十二)。
 
 codex 语义忠实移植:
@@ -57,7 +57,7 @@ class RequestEffortUsage(Enum):
 class ReasoningEffortPinState:
     """三态钉扎状态机(Unset/Compacted/Active{model, effort})。
 
-    对标 codex ReasoningEffortPin 枚举:Active 携带 model+effort,其余两态无载荷。
+    遵循统一工程规范。
     """
 
     model: str | None = None
@@ -97,7 +97,7 @@ class ReasoningEffortPinState:
 class ReasoningEffortPin:
     """请求档位解析器:总开关 + 模型白名单 + 已知档位集 + 钉扎状态。
 
-    对标 codex effort_for_configuration_update 三道门:
+    遵循统一工程规范
     - override_enabled ← services.model_client.reasoning_effort_override_enabled()
     - 模型门 ← model_info.use_responses_lite && provider.is_openai()(ihui: 白名单)
     - 档位门 ← 已知后端模式(未知 Custom 值不入持久更新,注入项有界)
@@ -184,7 +184,7 @@ class ReasoningEffortPin:
         return effort
 
     def retire_on_compaction(self) -> None:
-        """压缩成功 → 退役为 Compacted(对标 mod.rs 压缩落账内联执行点)。"""
+        """压缩成功 → 退役为 Compacted(对齐 mod.rs 压缩落账内联执行点)。"""
         self.state.retire_to_compacted()
 
 

@@ -20,7 +20,7 @@
 --       routeApprovalFlow 的应用层判据一致。
 --
 -- 幂等安全:IF NOT EXISTS / WHERE NOT EXISTS 守门,可安全重复执行。
--- 与 packages/database/src/schema/hr-approval-flow.ts 逐字对齐。
+-- 与 packages/database/src/schema/hr-approval-flow.ts 按行为规格。
 --
 -- 执行方式:
 --   pnpm tsx packages/database/scripts/apply-migration.mjs drizzle/20261112180000_hr_approval_snapshot.sql

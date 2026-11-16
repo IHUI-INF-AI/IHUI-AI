@@ -14,6 +14,14 @@ import { eq, notInArray, ilike, desc, sql, and, or } from 'drizzle-orm'
 import { paginationSchema, idParamSchema } from './_shared.js'
 import { hashPassword } from '../../utils/password-crypto.js'
 import { isSystemAdminUser, revokeAllUserRefreshTokens } from '../../db/queries.js'
+// DB-35:phone/email 列存密文;搜索/查重走 lookup 精确匹配,写入加密+维护 lookup,列表返回解密
+import {
+  contactLookupForSearch,
+  decryptPublicContact,
+  encryptUserContact,
+  hashUserContact,
+  normalizeUserContact,
+} from '../../utils/user-contact.js'
 
 import { requireAdmin } from '../../plugins/require-permission.js'
 import { isUuidString } from '../../utils/uuid.js'
@@ -73,15 +81,22 @@ const memberUsersRoutes: FastifyPluginAsync = async (server) => {
     if (!level.success) return reply.status(400).send(error(400, 'level 参数需为 0-3 的整数'))
     const includeDeleted = (request.query as { includeDeleted?: string }).includeDeleted === 'true'
     const conds = []
-    if (search)
+    if (search) {
+      // DB-35:phone/email 存密文,ilike 中缀不可用;username/nickname 仍模糊,
+      // phone/email 降级为 lookup 精确匹配。未归一成联系方式时不添加对应分支。
       conds.push(
         or(
           ilike(users.username, `%${search}%`),
           ilike(users.nickname, `%${search}%`),
-          ilike(users.phone, `%${search}%`),
-          ilike(users.email, `%${search}%`),
+          ...(contactLookupForSearch('phone', search)
+            ? [eq(users.phoneLookup, contactLookupForSearch('phone', search)!)]
+            : []),
+          ...(contactLookupForSearch('email', search)
+            ? [eq(users.emailLookup, contactLookupForSearch('email', search)!)]
+            : []),
         ),
       )
+    }
     if (status.success && status.data !== undefined) {
       conds.push(eq(users.status, status.data))
     } else if (!includeDeleted) {
@@ -117,7 +132,9 @@ const memberUsersRoutes: FastifyPluginAsync = async (server) => {
           .from(users)
           .where(where)
       )[0]?.c ?? 0
-    return reply.send(success({ list, total, page, pageSize }))
+    return reply.send(
+      success({ list: list.map((r) => decryptPublicContact(r)), total, page, pageSize }),
+    )
   })
   // GET /member/users/:id — 单用户详情(脱敏,不含 password_hash)
   server.get('/member/users/:id', async (request, reply) => {
@@ -146,7 +163,7 @@ const memberUsersRoutes: FastifyPluginAsync = async (server) => {
       .where(eq(users.id, p.data.id))
       .limit(1)
     if (!row) return reply.status(404).send(error(404, '用户不存在'))
-    return reply.send(success(row))
+    return reply.send(success(decryptPublicContact(row)))
   })
   server.patch('/member/users/:id', async (request, reply) => {
     const p = idParamSchema.safeParse(request.params)
@@ -200,10 +217,19 @@ const memberUsersRoutes: FastifyPluginAsync = async (server) => {
     if (!b.success) return reply.status(400).send(error(400, '参数错误'))
     if (!b.data.phone && !b.data.email)
       return reply.status(400).send(error(400, 'phone 与 email 至少需提供一个'))
-    // F-491:插入前按 phone/email 查重;并发窗口下的 23505 由下方 catch 收口,二者都返回 409。
+    // F-491:插入前按 phone/email 查重;DB-35:查重走 lookup 盲索引(phone/email 列存密文无法等值查询)。
+    // 并发窗口下的 23505 由下方 catch 收口,二者都返回 409。
     const dupConds = []
-    if (b.data.phone) dupConds.push(eq(users.phone, b.data.phone))
-    if (b.data.email) dupConds.push(eq(users.email, b.data.email))
+    if (b.data.phone) {
+      const phoneNorm = normalizeUserContact('phone', b.data.phone)
+      if (phoneNorm === '') return reply.status(400).send(error(400, '手机号格式不正确'))
+      dupConds.push(eq(users.phoneLookup, hashUserContact('phone', phoneNorm)))
+    }
+    if (b.data.email) {
+      const emailNorm = normalizeUserContact('email', b.data.email)
+      if (emailNorm === '') return reply.status(400).send(error(400, '邮箱格式不正确'))
+      dupConds.push(eq(users.emailLookup, hashUserContact('email', emailNorm)))
+    }
     const existing = await db
       .select({ id: users.id })
       .from(users)
@@ -211,12 +237,19 @@ const memberUsersRoutes: FastifyPluginAsync = async (server) => {
       .limit(1)
     if (existing.length > 0) return reply.status(409).send(error(409, '手机号或邮箱已被占用'))
     try {
+      // DB-35:phone/email 落库加密 + 维护 lookup 盲索引(唯一索引在 lookup 列)。
+      const phoneNorm = b.data.phone ? normalizeUserContact('phone', b.data.phone) : ''
+      const emailNorm = b.data.email ? normalizeUserContact('email', b.data.email) : ''
       const [row] = await db
         .insert(users)
         .values({
           nickname: b.data.nickname,
-          phone: b.data.phone,
-          email: b.data.email,
+          phone: b.data.phone ? (encryptUserContact(b.data.phone) ?? null) : null,
+          phoneLookup: phoneNorm === '' ? null : hashUserContact('phone', phoneNorm),
+          ...(b.data.email !== undefined && {
+            email: encryptUserContact(b.data.email) ?? null,
+            emailLookup: emailNorm === '' ? null : hashUserContact('email', emailNorm),
+          }),
           passwordHash: await hashPassword(b.data.password),
           roleId: b.data.roleId ?? 0,
           status: b.data.status ?? 1,
@@ -224,7 +257,7 @@ const memberUsersRoutes: FastifyPluginAsync = async (server) => {
         })
         .returning(memberUserResponseColumns)
       if (!row) return reply.status(500).send(error(500, '创建失败'))
-      return reply.status(201).send(success(row))
+      return reply.status(201).send(success(decryptPublicContact(row)))
     } catch (e) {
       if ((e as { code?: string })?.code === '23505')
         return reply.status(409).send(error(409, '手机号或邮箱已被占用'))
@@ -249,7 +282,7 @@ const memberUsersRoutes: FastifyPluginAsync = async (server) => {
     if (!row) return reply.status(404).send(error(404, '用户不存在'))
     // F-127(2026-11-08):软删除即置注销(3),与封禁同属非启用态,必须同步吊销 refresh token。
     await revokeAllUserRefreshTokens(p.data.id)
-    return reply.send(success({ user: row }))
+    return reply.send(success({ user: decryptPublicContact(row) }))
   })
 }
 

@@ -25,7 +25,7 @@ from pydantic import BaseModel, Field
 
 from app.services.agent_graph import AgentState, get_agent_graph
 
-# 真实云端 Agent 容器运行时(对标 Cursor Cloud Agents / Codex CI sandbox,2026-09-05 立)
+# 真实云端 Agent 容器运行时(遵循统一工程规范)
 from app.services.container_runtime import container_runtime
 from app.services.memory import unified_memory_client
 
@@ -553,7 +553,7 @@ async def add_memory(request: Request) -> dict[str, Any]:
 
 
 # ==================== 容器运行时:真实云端 Agent 执行层 ====================
-# 对标 Cursor Cloud Agents / Codex CI sandbox:容器(或本地沙箱降级)真执行,
+# 遵循统一工程规范)真执行,
 # 与 cloud_run_store 联动落记录。响应信封 {code:0,message,data} 对齐 cloud_runs.py。
 
 

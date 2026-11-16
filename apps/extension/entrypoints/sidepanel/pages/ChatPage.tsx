@@ -1343,7 +1343,7 @@ export default function ChatPage() {
       {error ? (
         <div className="bg-destructive/10 text-destructive px-2.5 py-2 rounded-md border border-destructive my-2 text-xs">
           {error}
-          {/* G-152(WorkBuddy 一手对标):错误必须带**动作**,只说"请稍后重试"等于让用户自己重打 */}
+          {/* G-152(WorkBuddy 一手对齐):错误必须带**动作**,只说"请稍后重试"等于让用户自己重打 */}
           {retryText ? (
             <button
               type="button"

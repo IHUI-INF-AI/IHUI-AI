@@ -2,10 +2,10 @@
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-# 2026-09-19 第三十一批,对标 Codex mcp_openai_file.rs/connectors.rs
+# 2026-09-19 第三十一批,遵循统一工程规范
 """OpenAI 文件参数重写 + 连接器暴露纯规则(Codex Rust 移植,纯算法版)。
 
-对标源:
+对齐源:
 - codex-rs/core/src/mcp_openai_file.rs:把 MCP 工具参数里声明的「文件输入字段」
   从本地路径重写为 OpenAI 文件存储返回的 download_url/file_id 载荷。
 - codex-rs/core/src/connectors.rs:连接器(Connector)注册/暴露/审批的纯规则。
@@ -44,19 +44,19 @@ from enum import StrEnum
 from typing import Any, Protocol, runtime_checkable
 
 # ---------------------------------------------------------------------------
-# 常量(对标 codex_api / codex_connectors 模块级常量)
+# 常量(遵循统一工程规范)
 # ---------------------------------------------------------------------------
 
-# 对标 codex_api::OPENAI_FILE_UPLOAD_LIMIT_BYTES(OpenAI Files API 单文件上限 512 MiB)。
+# 遵循统一工程规范)。
 OPENAI_FILE_UPLOAD_LIMIT_BYTES: int = 512 * 1024 * 1024
 
-# 对标 codex_connectors::CONNECTORS_CACHE_TTL(可见连接器缓存 TTL,5 分钟)。
+# 遵循统一工程规范)。
 CONNECTORS_CACHE_TTL_SECONDS: int = 300
 
-# 对标 codex_mcp::CODEX_APPS_MCP_SERVER_NAME。
+# 遵循统一工程规范。
 CODEX_APPS_MCP_SERVER_NAME: str = "codex-apps"
 
-# 对标 codex_mcp::MCP_TOOL_CODEX_APPS_META_KEY(工具 meta 中承载 codex-apps 元数据的键)。
+# 遵循统一工程规范)。
 MCP_TOOL_CODEX_APPS_META_KEY: str = "codex_apps"
 
 
@@ -67,7 +67,7 @@ MCP_TOOL_CODEX_APPS_META_KEY: str = "codex_apps"
 
 @dataclass
 class UploadedFile:
-    """对标 Rust `upload_openai_file` 成功返回的已上传文件描述。"""
+    """对齐 Rust `upload_openai_file` 成功返回的已上传文件描述。"""
 
     download_url: str
     file_id: str
@@ -79,7 +79,7 @@ class UploadedFile:
 class Uploader(Protocol):
     """上传本地文件到 OpenAI 文件存储的回调(服务端 API 调用层的抽象边界)。
 
-    对标 Rust `build_uploaded_argument_value` 内部的 `upload_openai_file` 调用,
+    对齐 Rust `build_uploaded_argument_value` 内部的 `upload_openai_file` 调用,
     及其前置的鉴权 / 沙箱 / 文件系统读取。移植时把这部分强耦合逻辑外置,
     测试可注入伪实现,生产侧再接真实 HTTP 客户端。
     """
@@ -103,7 +103,7 @@ class Uploader(Protocol):
 def _split_path_segments(file_path: str) -> list[str]:
     """跨平台路径分段(同时按 `/` 与 `\\` 切分),供文件名兜底推断使用。
 
-    对标 Rust `PathConvention::path_segments` 的跨平台语义:
+    对齐 Rust `PathConvention::path_segments` 的跨平台语义:
     末非空段即文件名候选。
     """
     return file_path.replace("\\", "/").split("/")
@@ -113,7 +113,7 @@ def infer_upload_file_name(
     file_path: str,
     split_path_segments: Callable[[str], list[str]] | None = None,
 ) -> str:
-    """从文件路径推断上传文件名(纯算法,对标 Rust basename 兜底逻辑)。
+    """从文件路径推断上传文件名(纯算法,对齐 Rust basename 兜底逻辑)。
 
     跨平台实现:直接按分隔符取「末非空段」作为文件名候选(base),与 Rust 的
     `PathUri::basename` 语义一致(不使用 `os.path.basename`,避免 Windows 把
@@ -143,7 +143,7 @@ def check_file_size_limit(
     size: int,
     limit_bytes: int = OPENAI_FILE_UPLOAD_LIMIT_BYTES,
 ) -> str | None:
-    """检查文件是否超过上传上限(纯算法,对标 Rust 大小判定)。
+    """检查文件是否超过上传上限(纯算法,对齐 Rust 大小判定)。
 
     Args:
         size: 文件字节数。
@@ -171,7 +171,7 @@ def build_uploaded_payload(
 ) -> dict[str, Any]:
     """根据声明的可选字段构造重写后的参数载荷(纯算法)。
 
-    对标 Rust `build_uploaded_argument_value` 末尾的 payload 组装:
+    对齐 Rust `build_uploaded_argument_value` 末尾的 payload 组装:
     - download_url / file_id 始终包含;
     - mime_type 仅在「声明需要」且上传结果确实携带时纳入;
     - file_name 仅在「声明需要」时纳入(上传结果恒有 file_name)。
@@ -201,7 +201,7 @@ async def rewrite_argument_value_for_openai_files(
     optional_fields: list[str],
     uploader: Uploader,
 ) -> Any | None:
-    """重写单个参数值中的文件引用(纯编排,对标同名 Rust 函数)。
+    """重写单个参数值中的文件引用(纯编排,对齐同名 Rust 函数)。
 
     支持两种形状:
     - 字符串:单个本地路径 → 上传 → 载荷;
@@ -236,9 +236,9 @@ async def rewrite_mcp_tool_arguments_for_openai_files(
     openai_file_input_fields: dict[str, list[str]] | None,
     uploader: Uploader,
 ) -> dict[str, Any] | None:
-    """重写 MCP 工具参数中的文件输入字段(纯编排,对标同名 Rust 函数)。
+    """重写 MCP 工具参数中的文件输入字段(纯编排,对齐同名 Rust 函数)。
 
-    对标 Rust 顶层入口:遍历 `openai_file_input_fields` 声明,把对应字段的
+    对齐 Rust 顶层入口:遍历 `openai_file_input_fields` 声明,把对应字段的
     本地路径重写为远端文件载荷;若一个字段都没变化则原样返回,保持引用语义。
 
     Args:
@@ -281,14 +281,14 @@ async def rewrite_mcp_tool_arguments_for_openai_files(
 
 
 class ToolSuggestDiscoverableType(StrEnum):
-    """对标 codex_config::types::ToolSuggestDiscoverableType(仅取 Connector 判定所需)。"""
+    """遵循统一工程规范)。"""
 
     CONNECTOR = "connector"
 
 
 @dataclass(frozen=True)
 class ToolSuggestDiscoverable:
-    """对标 config.tool_suggest.discoverables 中的单项(纯数据)。"""
+    """对齐 config.tool_suggest.discoverables 中的单项(纯数据)。"""
 
     kind: str  # ToolSuggestDiscoverableType 的字符串值
     id: str
@@ -296,7 +296,7 @@ class ToolSuggestDiscoverable:
 
 @dataclass(frozen=True)
 class DisabledTool:
-    """对标 config.tool_suggest.disabled_tools 中的单项(纯数据)。"""
+    """对齐 config.tool_suggest.disabled_tools 中的单项(纯数据)。"""
 
     kind: str
     id: str
@@ -309,7 +309,7 @@ def compute_tool_suggest_connector_ids(
 ) -> set[str]:
     """计算 tool_suggest 应暴露的连接器 id 集合(纯规则)。
 
-    对标 Rust `tool_suggest_connector_ids`:
+    对齐 Rust `tool_suggest_connector_ids`:
     1. 起始于已加载插件声明的连接器 id;
     2. 并入 config.tool_suggest.discoverables 中 kind==Connector 的 id;
     3. 剔除 config.tool_suggest.disabled_tools 中 kind==Connector 的 id。
@@ -339,7 +339,7 @@ def compute_tool_suggest_connector_ids(
 
 @dataclass
 class McpToolInfo:
-    """对标 codex_mcp::ToolInfo 中和暴露规则相关的字段(纯数据)。"""
+    """遵循统一工程规范)。"""
 
     server_name: str
     connector_id: str | None = None
@@ -351,7 +351,7 @@ class McpToolInfo:
 
 @dataclass
 class AppInfo:
-    """对标 codex_connectors::AppInfo(可见连接器记录,纯数据)。"""
+    """遵循统一工程规范)。"""
 
     id: str
     name: str | None = None
@@ -360,7 +360,7 @@ class AppInfo:
 
 
 def is_synthetic_link_tool(tool: McpToolInfo) -> bool:
-    """判断工具是否为合成入口链接(纯规则,对标 Rust synthetic_link 过滤)。
+    """判断工具是否为合成入口链接(纯规则,对齐 Rust synthetic_link 过滤)。
 
     规则:工具 meta 中 `MCP_TOOL_CODEX_APPS_META_KEY` 子对象的 `synthetic_link`
     为 true 时视为合成链接(应被剔除,它只是入口而非真实连接器工具)。
@@ -375,7 +375,7 @@ def is_synthetic_link_tool(tool: McpToolInfo) -> bool:
 
 
 def filter_non_synthetic_tools(tools: list[McpToolInfo]) -> list[McpToolInfo]:
-    """剔除合成入口链接工具(纯规则,对标 Rust accessible_connectors_for_app_list)。"""
+    """剔除合成入口链接工具(纯规则,对齐 Rust accessible_connectors_for_app_list)。"""
     return [t for t in tools if not is_synthetic_link_tool(t)]
 
 
@@ -385,7 +385,7 @@ def collect_accessible_connectors(
 ) -> list[AppInfo]:
     """按 server_name + connector_id 聚合可见连接器(纯规则)。
 
-    对标 Rust `collect_accessible_connectors_from_mcp_tools`:
+    对齐 Rust `collect_accessible_connectors_from_mcp_tools`:
     - 仅纳入 `server_name == CODEX_APPS_MCP_SERVER_NAME` 且 `connector_id` 非空的工;
     - 按 connector_id 分组,聚合 name / description(首见)/
       plugin_display_names(去重合并)。
@@ -427,13 +427,13 @@ def accessible_connectors_for_app_list(
     tools: list[McpToolInfo],
     server_name: str = CODEX_APPS_MCP_SERVER_NAME,
 ) -> list[AppInfo]:
-    """先剔除合成链接,再聚合可见连接器(对标 Rust 同名入口)。"""
+    """先剔除合成链接,再聚合可见连接器(对齐 Rust 同名入口)。"""
     return collect_accessible_connectors(filter_non_synthetic_tools(tools), server_name)
 
 
 @dataclass
 class PluginSourceContext:
-    """对标 codex_mcp::ToolPluginContext(纯查询,不持连接)。"""
+    """遵循统一工程规范)。"""
 
     _map: dict[str, list[str]] = field(default_factory=dict)
 
@@ -447,7 +447,7 @@ def with_app_plugin_sources(
 ) -> list[AppInfo]:
     """用插件来源信息回填每个连接器的 plugin_display_names(纯规则)。
 
-    对标 Rust `with_app_plugin_sources`:就地覆盖每个 AppInfo 的
+    对齐 Rust `with_app_plugin_sources`:就地覆盖每个 AppInfo 的
     plugin_display_names 为插件上下文提供的值。
     """
     for connector in connectors:
@@ -458,7 +458,7 @@ def with_app_plugin_sources(
 
 
 class ApprovalsReviewer(StrEnum):
-    """审批复核人档位(对标 codex_config::types::ApprovalsReviewer)。
+    """审批复核人档位(遵循统一工程规范)。
 
     档位:UNSPECIFIED(未指定) / NEVER(永不) / ALWAYS(总是) / AUTO_REVIEW(自动复核)。
     """
@@ -479,7 +479,7 @@ _APPROVALS_REVIEWER_RANK: dict[ApprovalsReviewer, int] = {
 
 @dataclass
 class Requirements:
-    """对标 codex_config::ConfigLayerStack::requirements(仅取审批判定所需)。"""
+    """遵循统一工程规范)。"""
 
     auto_review_models: frozenset[str] = field(default_factory=frozenset)
     # 配置施加的审批档位「上限」(默认 UNSPECIFIED = 不限制,任何档位均可设置)。
@@ -492,7 +492,7 @@ class Requirements:
         """配置上限是否允许设置给定档位的审批复核人。
 
         UNSPECIFIED(未指定)视为无约束,一律放行;否则仅允许设置严格度不超过
-        该上限的档位(对标 Rust ApprovalsReviewer::can_set 的约束语义)。
+        该上限的档位(对齐 Rust ApprovalsReviewer::can_set 的约束语义)。
         """
         if self.approvals_reviewer == ApprovalsReviewer.UNSPECIFIED:
             return True
@@ -528,7 +528,7 @@ def resolve_approvals_reviewer(
     connector_id: str | None,
     link_id: str | None,
 ) -> ApprovalsReviewer:
-    """解析最终审批复核人(纯规则,对标 Rust mcp_approvals_reviewer_from_layers)。
+    """解析最终审批复核人(纯规则,对齐 Rust mcp_approvals_reviewer_from_layers)。
 
     回退链:
     1. 若 model 命中「强制自动复核」模型 → AUTO_REVIEW;
@@ -578,13 +578,13 @@ def resolve_approvals_reviewer(
 
 
 # ---------------------------------------------------------------------------
-# 可见连接器缓存(对标 Rust ACCESSIBLE_CONNECTORS_CACHE 全局静态 + TTL)
+# 可见连接器缓存(对齐 Rust ACCESSIBLE_CONNECTORS_CACHE 全局静态 + TTL)
 # ---------------------------------------------------------------------------
 
 
 @dataclass(frozen=True)
 class AccessibleConnectorsCacheKey:
-    """缓存键(对标 Rust AccessibleConnectorsCacheKey)。"""
+    """缓存键(对齐 Rust AccessibleConnectorsCacheKey)。"""
 
     chatgpt_base_url: str
     account_id: str | None = None
@@ -600,7 +600,7 @@ class _CachedEntry:
 
 
 class AccessibleConnectorsCache:
-    """进程内可见连接器 TTL 缓存(对标 Rust 全局静态 + CONNECTORS_CACHE_TTL)。
+    """进程内可见连接器 TTL 缓存(对齐 Rust 全局静态 + CONNECTORS_CACHE_TTL)。
 
     为便于单测与避免全局可变状态,实现为可实例化的类;`now` 由调用方注入,
     默认取 `time.time()`。仅在未过期且键相等时命中。
@@ -643,7 +643,7 @@ def build_accessible_connectors_cache_key(
     chatgpt_base_url: str,
     auth: dict[str, Any] | None = None,
 ) -> AccessibleConnectorsCacheKey:
-    """从配置 + 鉴权构造缓存键(纯规则,对标 Rust accessible_connectors_cache_key)。
+    """从配置 + 鉴权构造缓存键(纯规则,对齐 Rust accessible_connectors_cache_key)。
 
     Args:
         chatgpt_base_url: 配置中的 ChatGPT base url。

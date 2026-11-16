@@ -296,7 +296,7 @@ export interface Settings {
     disabledVersions?: string[];
   };
   /**
-   * W4-2 Qwen3.5 本地主打 LLM 配置(OpenClaw 对标)。
+   * W4-2 Qwen3.5 本地主打 LLM 配置(OpenClaw 对齐)。
    *
    * 启用方式:settings.localQwen.enabled = true + 设 defaultModel。
    * 默认走 Ollama 原生 /api/chat 协议(ChatML stop + 32K ctx 已在 QwenLocalProvider 内置)。

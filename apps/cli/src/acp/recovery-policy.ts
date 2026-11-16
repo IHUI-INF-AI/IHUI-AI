@@ -16,9 +16,9 @@
  *
  * 所以这件事不能"看着像只读就重试",必须有**显式声明**。
  *
- * ## 对标依据
+ * ## 对齐依据
  *
- * WorkBuddy 的 `@genie/agent-harness` 用 `CODEBUDDY_HOST_METHOD_RECOVERY_POLICIES`
+ * WorkBuddy 的 `通用子智能体日志规范` 用 `CODEBUDDY_HOST_METHOD_RECOVERY_POLICIES`
  * 给每个 host 方法标了四档(`lib/runtime/codebuddy-resource-recovery.js`):
  *
  *   read                 → retry_after_recovery   只读,崩了照重试
@@ -60,7 +60,7 @@ export interface RecoveryPolicy {
   readonly crashDisposition: CrashDisposition
 }
 
-/** kind → disposition 的唯一映射(与对标实现逐字同义)。 */
+/** kind → disposition 的唯一映射(与对齐实现逐字同义)。 */
 const DISPOSITION_OF: Readonly<Record<RecoveryKind, CrashDisposition>> = {
   read: 'retry_after_recovery',
   idempotent_mutation: 'retry_after_recovery',

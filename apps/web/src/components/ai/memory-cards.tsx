@@ -13,7 +13,7 @@ import { cn } from '@/lib/utils'
 import { memoryToYaml, useMemoryStore, type MemoryCategory } from '@/stores/memory'
 
 /**
- * MemoryCards — Typed Memory 记忆卡片(W25,2026-09-14 立,对标 Qoder/CodeBuddy)。
+ * MemoryCards — Typed Memory 记忆卡片(W25,2026-09-14 立,遵循统一工程规范)。
  *
  * 四类记忆(rule/fact/preference/project)的本地管理面板:
  * - 类目 tab 切换 + 类目下条目列表

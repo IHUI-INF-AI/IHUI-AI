@@ -342,7 +342,7 @@ try {
 
 // 0c. 生成物拦截(2026-11-12 立,P0「一次 git add -A 把 9038 个生成物纳入提交面」)───────
 // 实证:`.archify/verify/snapshot-backfill` 的 33 份隔离实验目录(7128 件)、`.agent_tmp/`(828 件)、
-// 迁移目录副本 `drizzle-copy*`(800 件)、逆向抓包副本 `*.keep.ts`、编译日志,被 `git add -A`
+// 迁移目录副本 `drizzle-copy*`(800 件)、独立分析抓包副本 `*.keep.ts`、编译日志,被 `git add -A`
 // 一并收编。生成物入库会永久加重仓库历史、淹没真实代码改动,且让"这次到底改了哪些真实代码"无从判断。
 // 判据单源 `scripts/check-staged-artifacts.mjs#judgePath`(目录名 / 文件名 / 根目录错位三档),
 // 删除侧与重命名删除侧一律放行(清垃圾本身正确)。
@@ -689,7 +689,7 @@ const LINT_STAGED_EBUSY_BACKOFF_MS = [250, 750, 2000, 5000]
 // 退避拉到 10s/30s/60s:30-60s 的索引重写窗口过去后,重试通常一拍就过。
 const LINT_STAGED_INDEX_LOCK_BACKOFF_MS = [10000, 30000, 60000]
 // lint-staged 自己的 git 步骤失败指纹(全部出自 node_modules/lint-staged/lib/messages.js
-// 与 gitWorkflow.js,逐字对齐;含 17.3.0 的原文拼写错误 "hude")。
+// 与 gitWorkflow.js,按行为规格;含 17.3.0 的原文拼写错误 "hude")。
 const LINT_STAGED_GIT_STEP_FINGERPRINTS = [
   'Failed to hude unstaged changes to partially staged files',
   'Failed to stage changes from tasks',

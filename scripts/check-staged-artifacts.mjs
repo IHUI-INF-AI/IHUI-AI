@@ -9,7 +9,7 @@
  *
  * 背景:2026-11-12 一次 `git add -A` 把 9038 个生成物(架构提取沙箱 `.archify/verify/snapshot-backfill`
  *       的 33 份隔离实验目录、`.agent_tmp/` 代理临时目录、迁移目录副本 `drizzle-copy*`、
- *       逆向抓包副本 `*.keep.ts`、编译日志)一起纳入提交面。生成物入库会永久加重仓库历史、
+ *       独立分析抓包副本 `*.keep.ts`、编译日志)一起纳入提交面。生成物入库会永久加重仓库历史、
  *       淹没真实代码改动,并让"这次到底改了哪些真实代码"无从判断。
  *
  * 判据(任一命中即阻断,exit 1):
@@ -83,7 +83,7 @@ const ARTIFACT_SEGMENT_PREFIX = [/^_itmp/, /^iso-/]
 const ARTIFACT_NAME_RES = [
   [/^\.commit-msg\.txt$/, '提交信息草稿'],
   [/^\.commit-files\.txt$/, '提交文件清单草稿'],
-  [/\.keep\.(ts|js|mjs|cjs)$/, '逆向抓包副本'],
+  [/\.keep\.(ts|js|mjs|cjs)$/, '兼容分析抓包副本'],
   [/\.log$/, '运行/编译日志'],
 ]
 

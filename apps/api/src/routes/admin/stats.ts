@@ -41,6 +41,8 @@ import { paginationSchema, idParamSchema, registerCrud, fields } from './_shared
 import { requireAdmin } from '../../plugins/require-permission.js'
 import { aiServiceFetch } from '../../utils/ai-service-fetch.js'
 import { isUuidString } from '../../utils/uuid.js'
+// DB-35:phone/email 列存密文;角色用户列表的 phone 筛选降级为 lookup 精确匹配,列表读出后解密
+import { contactLookupForSearch, decryptPublicContact } from '../../utils/user-contact.js'
 
 /**
  * F-22: 金额聚合(bigint/numeric)安全转 number。
@@ -1120,7 +1122,12 @@ const statsRoutes: FastifyPluginAsync = async (server) => {
     try {
       const conds = [eq(userRoles.roleId, p.data.id)]
       if (username) conds.push(ilike(users.username, `%${username}%`))
-      if (phone) conds.push(ilike(users.phone, `%${phone}%`))
+      // DB-35:phone 存密文,ilike 中缀不可用;降级为 phone_lookup 精确匹配。
+      if (phone) {
+        const phoneLookup = contactLookupForSearch('phone', phone)
+        if (phoneLookup) conds.push(eq(users.phoneLookup, phoneLookup))
+        else conds.push(sql`false`)
+      }
       const where = and(...conds)
       const [list, totalRows] = await Promise.all([
         db
@@ -1137,7 +1144,14 @@ const statsRoutes: FastifyPluginAsync = async (server) => {
           .innerJoin(users, eq(users.id, userRoles.userId))
           .where(where),
       ])
-      return reply.send(success({ list, total: totalRows[0]?.count ?? 0, page, pageSize }))
+      return reply.send(
+        success({
+          list: list.map((r) => decryptPublicContact(r)),
+          total: totalRows[0]?.count ?? 0,
+          page,
+          pageSize,
+        }),
+      )
     } catch (e) {
       request.log.error(e)
       return reply.status(500).send(error(500, '查询授权用户失败'))
@@ -1161,7 +1175,12 @@ const statsRoutes: FastifyPluginAsync = async (server) => {
         .where(eq(userRoles.roleId, p.data.id))
       const conds = [notInArray(users.id, allocated)]
       if (username) conds.push(ilike(users.username, `%${username}%`))
-      if (phone) conds.push(ilike(users.phone, `%${phone}%`))
+      // DB-35:phone 存密文,ilike 中缀不可用;降级为 phone_lookup 精确匹配。
+      if (phone) {
+        const phoneLookup = contactLookupForSearch('phone', phone)
+        if (phoneLookup) conds.push(eq(users.phoneLookup, phoneLookup))
+        else conds.push(sql`false`)
+      }
       const where = and(...conds)
       const [list, totalRows] = await Promise.all([
         db
@@ -1176,7 +1195,14 @@ const statsRoutes: FastifyPluginAsync = async (server) => {
           .from(users)
           .where(where),
       ])
-      return reply.send(success({ list, total: totalRows[0]?.count ?? 0, page, pageSize }))
+      return reply.send(
+        success({
+          list: list.map((r) => decryptPublicContact(r)),
+          total: totalRows[0]?.count ?? 0,
+          page,
+          pageSize,
+        }),
+      )
     } catch (e) {
       request.log.error(e)
       return reply.status(500).send(error(500, '查询未授权用户失败'))

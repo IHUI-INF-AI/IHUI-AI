@@ -12,7 +12,7 @@ import type { GitStatusSnapshot } from '@ihui/types'
  *
  * 设计:
  * - session-only(不持久化):每次进入页面 popover 默认折叠,用户主动点开才加载数据。
- * - fetchStatus 每次都重新拉(对标 Cursor 行为);如已在 loading 中,直接忽略重复触发。
+ * - fetchStatus 每次都重新拉(遵循统一工程规范);如已在 loading 中,直接忽略重复触发。
  * - workspacePath 必传(无 active workspace 时,popover 渲染"未选择工作区"占位,不动 API)。
  * - 失败/超时 → snapshot 置为 null + error 写消息,UI 兜底显示降级文案。
  */

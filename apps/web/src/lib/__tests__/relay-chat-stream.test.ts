@@ -6,7 +6,7 @@
  * 号池 WS 流式客户端(2026-11-12 立)。
  *
  * 判据面:
- * ① 上行帧形状与服务端协议逐字对齐(type/model/messages/stream/conversationId);
+ * ① 上行帧形状与服务端协议按行为规格(type/model/messages/stream/conversationId);
  * ② chunk.data 的 OpenAI delta 能落进 onDelta,usage 能落进 onUsage;
  * ③ done 收束;error / 异常断连必须给 onError;用户 abort 静默收束(不报错);
  * ④ 未登录不发连接;tool 角色与非字符串正文不喂号池。

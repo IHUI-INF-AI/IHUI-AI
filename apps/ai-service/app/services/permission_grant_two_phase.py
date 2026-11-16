@@ -111,7 +111,7 @@ class UnpublishedPermissionGrant:
 
 
 class PermissionGrantCommitter:
-    """单会话的授权两阶段提交器(per-session 一实例,对标 runtime 侧)。"""
+    """单会话的授权两阶段提交器(per-session 一实例,对齐 runtime 侧)。"""
 
     def __init__(
         self,

@@ -44,7 +44,8 @@ import {
   eduTuitionStandardUpdate,
 } from '@ihui/api-client'
 import { toast } from 'sonner'
-import { BackButton, TruncatedText } from '@/components/common'
+import { TruncatedText } from '@/components/common'
+import { FeaturePageShell } from '@/components/layout'
 import {
   Card,
   CardContent,
@@ -1546,14 +1547,14 @@ export default function FinancePage() {
   }
 
   return (
-    <div className="space-y-4 px-4 py-4">
-      <BackButton />
-
-      <header className="space-y-1">
-        <h1 className="text-display font-bold tracking-tight">财务管理</h1>
-        <p className="text-label text-muted-foreground">管理学费标准、缴费记录和退费申请</p>
-      </header>
-
+    // 2026-11-16 接入统一子功能页外壳:BackButton + 手写 header 收编为页头卡,自动带上「教育」返回 chip。
+    // 本页无 i18n 命名空间,标题沿用页面既有文案(仅迁移,不新增硬编码中文)。
+    <FeaturePageShell
+      title="财务管理"
+      description="管理学费标准、缴费记录和退费申请"
+      icon={Wallet}
+      domain="edu"
+    >
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="tuition">
@@ -2501,7 +2502,7 @@ export default function FinancePage() {
         refund={approvingRefund}
         onApprove={handleApproveRefund}
       />
-    </div>
+    </FeaturePageShell>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

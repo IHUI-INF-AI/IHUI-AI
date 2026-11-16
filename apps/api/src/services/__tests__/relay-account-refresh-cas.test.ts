@@ -16,6 +16,8 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { PgDialect } from 'drizzle-orm/pg-core'
+// consistent-type-imports 禁 `typeof import('…')` 内联注解 ⇒ 用 type-only 命名空间导入(零运行时副作用)
+import type * as RelayClientSessionMirror from '../relay-client-session-mirror.js'
 
 vi.hoisted(() => {
   process.env.DATABASE_URL ??= 'postgresql://test:test@localhost:5432/test'
@@ -77,7 +79,7 @@ vi.mock('../relay-proxy-pool.js', () => ({
 // (Windows 经 run-as-user.ps1,内部 60s 上限),用例偶发超时。只换掉两个会落进程的 IO 函数:
 // pull 恒「未匹配」(null ⇒ 调用方走「客户端不在位」分支),push 恒不写;其余纯函数保留真实实现。
 vi.mock('../relay-client-session-mirror.js', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../relay-client-session-mirror.js')>()),
+  ...(await importOriginal<typeof RelayClientSessionMirror>()),
   pullClientSession: vi.fn(async () => null),
   pushClientSession: vi.fn(async () => false),
 }))

@@ -15,10 +15,10 @@
  * 客户端会把两种内容拼进同一条消息 —— 结果是用户看到自己的话混在 AI 回复里,
  * 或者 thinking 混进正文。这在重连/重放/并发写入时都可能发生。
  *
- * 对标依据:`@genie/agent-harness` 的 `lib/subagent/journal.js` 里
- * `assertMessageIdentity(e, t)` 就是这么做的 —— 它维护 `messageId → updateType`
- * 的映射,一旦同一个 id 换了 updateType 就抛 `internalError`,
- * 报错文案明确写 "… crosses X and Y"。
+ * ## 判据
+ *
+ * 同一 messageId 只能映射到唯一 updateType：一旦同一个 id 换了 updateType 就抛
+ * `MessageIdentityError`，报错文案明确写 "… crosses X and Y"。
  *
  * ## 另两个可复用点
  *
@@ -27,9 +27,9 @@
  *    键顺序可能不同,`JSON.stringify` 直接比会误判为不同。
  *
  * ② **journal 字节上限** —— 重放日志必须封顶,否则一个长会话能把内存吃光。
- *    对标实现用了四档常量(4096 / 8MB / 2048 / 128MB),分别对应
+ *    本模块采用四档常量(4096 / 8MB / 2048 / 128MB),分别对应
  *    "单条通知上限 / 总量上限 / 附件帧数上限 / 附件总量上限"。
- *    本模块用同口径的常量,并**在超限时抛结构化错误而不是静默截断** ——
+ *    超限时抛结构化错误而不是静默截断 ——
  *    静默截断会让客户端看到"少了半条消息"而不知道发生了什么。
  */
 
@@ -165,7 +165,7 @@ export class MessageIdentityTracker {
 /**
  * 稳定序列化:对象键排序、剔除 undefined 值。
  *
- * 与对标实现的 `canonicalJson` 同义。用途:算内容指纹、写重放日志、
+ * 与对齐实现的 `canonicalJson` 同义。用途:算内容指纹、写重放日志、
  * 做幂等去重 —— 任何"同一份内容必须得到同一个字符串"的场合。
  *
  * 注意数组**保持原序**(顺序是语义的一部分),只对对象键排序。
@@ -191,7 +191,7 @@ export function frameBytes(frame: unknown): number {
 }
 
 /**
- * 日志上限四档(与对标实现同口径)。
+ * 日志上限四档(与对齐实现同口径)。
  *
  * 分开四档而不是一个总数,是因为超限的四种原因需要不同处置:
  *   · `maxFrameBytes` 超 ⇒ 单帧畸形(通常是 bug),应报错而不是截断;

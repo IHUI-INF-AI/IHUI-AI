@@ -15,6 +15,8 @@ import {
   TOOLTIP_SHADOW_TIER,
   TOOLTIP_TEXT_TIER,
 } from '@ihui/shared/ui/tooltip-spec'
+// 2026-11-16 立:浮层与视口边缘的统一安全间距(单一源),禁止调用点写裸数字
+import { FLOATING_VIEWPORT_PADDING_PX } from '@ihui/shared/ui/floating-layer-spec'
 
 /**
  * 平台专属项(不下沉 tooltip-spec,两端允许不同形,逐条登记):
@@ -46,6 +48,7 @@ const TooltipContent = React.forwardRef<
     <TooltipPrimitive.Content
       ref={ref}
       sideOffset={sideOffset}
+      collisionPadding={FLOATING_VIEWPORT_PADDING_PX}
       className={cn(
         // 不带 overflow-hidden:Radix 把 Arrow 包在 translateY(100%) 的外溢 wrapper 里,
         // 裁剪会把箭头整枚切掉。本机无头实测 8801 现网构建:7/7 个悬停样本箭头落在

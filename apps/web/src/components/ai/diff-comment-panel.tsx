@@ -25,7 +25,7 @@ interface DiffCommentPanelProps {
 /**
  * DiffCommentPanel — diff 评审意见输入 + 本文件待发送意见列表(P3 #30,2026-09-16 立)。
  *
- * 交互约定(对标 Codex diff 评论):
+ * 交互约定(遵循统一工程规范):
  *  - Enter 提交 / Shift+Enter 换行(textarea 原生行为基础上补键盘拦截)
  *  - 空文本不可提交(提交按钮禁用)
  *  - 提交后清空输入框并回调 onSubmitted(父组件据此收起面板)

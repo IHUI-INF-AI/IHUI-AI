@@ -3,7 +3,7 @@
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 # app/core/command_canonicalization.py
-"""审批缓存命令规范化(2026-09-19 第二十六批,对标 Codex command_canonicalization.rs)。
+"""审批缓存命令规范化(2026-09-19 第二十六批,遵循统一工程规范)。
 
 用途:同一条命令经不同 shell 包装路径到达时(/bin/bash -lc 'git status' vs
 bash -lc 'git status' vs 直接 ['git','status']),审批决策应保持一致——
@@ -95,7 +95,7 @@ def parse_shell_lc_plain_commands(argv: Sequence[str]) -> list[list[str]] | None
     """bash -lc '<纯单命令>' → 词法化后的单条命令 argv 列表。
 
     复合脚本返回 None(调用方走保守规范化);非 shell 包装返回 None。
-    (对标 parse_shell_lc_plain_commands 的"恰好一条纯命令"用法)
+    (对齐 parse_shell_lc_plain_commands 的"恰好一条纯命令"用法)
     """
     extracted = _extract_bash_command(argv)
     if extracted is None:
@@ -113,7 +113,7 @@ def parse_shell_lc_plain_commands(argv: Sequence[str]) -> list[list[str]] | None
 
 
 def canonicalize_command_for_approval(argv: Sequence[str]) -> list[str]:
-    """审批缓存键规范化主入口(对标 canonicalize_command_for_approval)。"""
+    """审批缓存键规范化主入口(对齐 canonicalize_command_for_approval)。"""
     argv = [str(a) for a in argv]
     commands = parse_shell_lc_plain_commands(argv)
     if commands is not None and len(commands) == 1:

@@ -80,7 +80,7 @@ function stepSpanMs(agent: SubAgentActivity): number | null {
 }
 
 // =============================================================================
-// W26 Expert Team Canvas(2026-09-14 立,对标 Qoder 专家团队泳道画布):
+// W26 Expert Team Canvas(2026-09-14 立,遵循统一工程规范):
 // - 6 条专家泳道:researcher/coder/reviewer/architect/debugger 五个已知角色 + general 兜底
 // - 泳道内并行展示各专家实时状态(统一走 StreamRow,与工具卡同一字号/圆角/状态色)
 // - 选中某条泳道成员后,下方展开该专家的步骤流 + token 级流式详情

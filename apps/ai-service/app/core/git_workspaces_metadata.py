@@ -1,7 +1,7 @@
 # © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-"""批58:git workspaces 元数据采集 — 对标 codex turn_metadata.rs 的 git enrichment。
+"""批58:git workspaces 元数据采集 — 遵循统一工程规范。
 
 WorkspaceGitMetadata:repo_root -> {associated_remote_urls(脱敏), latest_git_commit_hash, has_changes}。
 采集纯函数 collect_git_workspaces(cwd):git 命令超时/失败静默降级返回空(逐字段 Option 语义)。
@@ -28,7 +28,7 @@ class SanitizedGitUrl:
 
 
 def sanitize_git_url(url: str) -> SanitizedGitUrl | None:
-    """对标 protocol/src/sanitized_git_url.rs TryFrom<&str>:
+    """对齐 protocol/src/sanitized_git_url.rs TryFrom<&str>:
     ① peel 远程 helper 前缀(`transport::` 迭代,transport 限 [A-Za-z0-9+-.];
        首段含空白 → 拒绝(helper 可能携带任意命令行));
     ② `scheme://authority/path`:authority 含 @ 时剥除 user[:password]@,

@@ -2135,17 +2135,17 @@ export function checkPathWritePermission(
   return { allowed: true };
 }
 
-// ==================== LSP Tools(Wave 1 P0:对标 OpenCode 开箱即用 LSP)====================
+// ==================== LSP Tools(Wave 1 P0:对齐 OpenCode 开箱即用 LSP)====================
 import { registerLspTools } from './lsp.js';
 export { registerLspTools };
 registerLspTools();
 
-// ==================== 四层记忆 + Dream 梦境工具(2026-07-22 新增,对标 OpenClaw Mem)====================
+// ==================== 四层记忆 + Dream 梦境工具(2026-07-22 新增,遵循统一工程规范)====================
 import { registerMemoryTools } from './memory.js';
 export { registerMemoryTools };
 registerMemoryTools();
 
-// ==================== Git 工作流深化工具(Wave 8,2026-07-22 新增,对标 OpenClaw/OpenCode)====================
+// ==================== Git 工作流深化工具(Wave 8,2026-07-22 新增,遵循统一工程规范)====================
 // 高级 Git 工具(branch/merge/rebase/stash/conflict/tag/remote)+ GitHub PR 工具(PR/Issue/Release)
 // 通过 git.ts 的 GIT_TOOLS 统一注册到 agent.ts,GIT_ADVANCED_TOOLS/GITHUB_PR_TOOLS 在此 re-export 供按需导入
 // ==================== 原生 Function Calling(OpenAI / Anthropic 兼容)====================

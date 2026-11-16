@@ -4,7 +4,7 @@
 
 """D9(2026-09-19 立):Repo Wiki 自动 wiki 化 + 增量同步 + 常驻注入 引擎。
 
-设计目标(对标 Cursor/Qoder 的项目理解层):
+设计目标(遵循统一工程规范):
 - 自动 wiki 化:扫描工作区根 README.md/根级 *.md/docs/*.md(≤30 文件),
   对每个文件用 LLM 生成一段「项目百科」摘要,汇总成整份 wiki 文本注入 system prompt。
 - 增量同步:对每个文件算 sha256,与缓存(内存 dict + 磁盘 .ihui-agent/wiki-cache/<ns>.json)

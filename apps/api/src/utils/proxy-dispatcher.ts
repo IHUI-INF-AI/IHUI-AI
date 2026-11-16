@@ -86,6 +86,8 @@ function getProxyAgent(): ProxyAgent | null {
  * 只读"存在哪个变量名 + 是否命中",取值不外带。
  */
 function readNoProxy(hostname: string): { matched: boolean; varName: EgressNoProxyVarName | null } {
+  // F-716:第一个"已配置却未命中"的变量名(循环里不提前 return,命中恒优先)
+  let firstConfiguredNoHit: EgressNoProxyVarName | null = null
   for (const name of EGRESS_NO_PROXY_VAR_NAMES) {
     const raw = process.env[name]
     if (raw === undefined || raw.trim() === '') continue
@@ -96,10 +98,13 @@ function readNoProxy(hostname: string): { matched: boolean; varName: EgressNoPro
     if (entries.includes('*')) return { matched: true, varName: name }
     if (entries.some((d) => hostname === d || hostname.endsWith(`.${d.replace(/^\./, '')}`)))
       return { matched: true, varName: name }
-    // 配了 NO_PROXY 但没命中:名字仍是事实,继续找另一个大小写档位
-    return { matched: false, varName: name }
+    // 配了但没命中:记下第一个"已配置却未命中"的名字(出口诊断事实),继续找另一个大小写档位
+    // (F-716:此前这里是 return,与上面"继续找"的注释相反 —— NO_PROXY 与 no_proxy 同配且后者
+    // 命中时,首个未命中档会提前 return 把 matched=false 顶回去。命中恒优先,未命中只在循环
+    // 结束后作为"无人命中"的兜底事实返回。)
+    firstConfiguredNoHit ??= name
   }
-  return { matched: false, varName: null }
+  return { matched: false, varName: firstConfiguredNoHit }
 }
 
 function readCustomCa(): EgressCaState {

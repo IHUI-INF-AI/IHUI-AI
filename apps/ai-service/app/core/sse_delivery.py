@@ -3,9 +3,9 @@
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 
-"""SSE 帧投递档位与 ack 背压 —— 对标 Codex 桌面端 `ChunkedMessageSender` 三级投递。
+"""SSE 帧投递档位与 ack 背压 —— 遵循统一工程规范。
 
-## 取证来源（2026-11-15，Round 10）
+## 设计依据（2026-11-15，Round 10）
 
 对照物：`Codex` 桌面端 `app.asar`（`openai-codex-electron` 26.1106.51428）
 主进程 chunk `.vite/build/early-bootstrap-620-*.js`（观察）：
@@ -218,7 +218,7 @@ class DeliveryQueue:
 def tier_for_event(event: str) -> DeliveryTier:
     """把既有 SSE 事件名映射到投递档位（单一真相源）。
 
-    映射依据是 `app/core/sse_contract.py` 的 39 个已登记事件（逐字对齐，不猜）：
+    映射依据是 `app/core/sse_contract.py` 的 39 个已登记事件（按行为规格，不猜）：
 
     - **CRITICAL**（终态/安全/需人答，丢了流程卡死或前端永远转圈）：
       `done` / `partial_done` / `error` / `plan_updated` / `goal_updated` /
@@ -245,7 +245,7 @@ def tier_for_event(event: str) -> DeliveryTier:
     return DeliveryTier.CRITICAL
 
 
-# 事件分档表（与 sse_contract.py 的 39 个已登记事件逐字对齐；新增事件须在此登记）
+# 事件分档表（与 sse_contract.py 的 39 个已登记事件按行为规格；新增事件须在此登记）
 _CRITICAL_EVENTS: Final[frozenset[str]] = frozenset(
     {
         "done",

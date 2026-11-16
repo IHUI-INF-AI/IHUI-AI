@@ -1,13 +1,13 @@
 # © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-"""会话导出文件的冷归档压缩(2026-09-19 第二十批,对标 Codex rollout crate)。
+"""会话导出文件的冷归档压缩(2026-09-19 第二十批,遵循统一工程规范)。
 
 - compress_cold_exports:把目录下「冷」的 *.jsonl 原子压缩为 .jsonl.gz,
   fire-and-forget 语义 —— 单文件失败只记入 errors,绝不抛出、绝不中断;
-  marker 文件防止重叠或过于频繁的压缩轮(对标 codex 的 run marker)。
+  marker 文件防止重叠或过于频繁的压缩轮(遵循统一工程规范)。
 - open_export_lines:透明行读取器,同时处理明文与 .gz;路径在表示切换
-  瞬间消失时短暂重试(对标 codex 的 NotFound 重试窗口)。
+  瞬间消失时短暂重试(遵循统一工程规范)。
 
 与 codex 的差异:压缩用 gzip 标准库(zstd 无第三方依赖不引入),其余语义
 (原子写、保留 mtime、marker 限频、错误隔离)逐条对齐。
@@ -95,7 +95,7 @@ def compress_cold_exports(
     min_interval_minutes: float = 30.0,
     now: float | None = None,
 ) -> dict[str, int | list[str]]:
-    """压缩目录下的冷导出文件(对标 codex spawn_rollout_compression_worker)。
+    """压缩目录下的冷导出文件(遵循统一工程规范)。
 
     - 只处理 *.jsonl(已压缩的 .jsonl.gz 跳过);
     - 冷(mtime 早于阈值)且 >= min_size_bytes 才压;
@@ -166,7 +166,7 @@ def open_export_lines(path: Path) -> Iterator[str]:
     """透明行读取器:明文 .jsonl 与压缩 .jsonl.gz 通吃。
 
     文件在表示切换瞬间(明文→压缩)可能短暂消失:NotFound 时重试最多 3 次、
-    间隔 0.05s(对标 codex MAX_NOT_FOUND_RETRIES),仍失败才抛 FileNotFoundError。
+    间隔 0.05s(遵循统一工程规范),仍失败才抛 FileNotFoundError。
     """
     last_err: OSError | None = None
     for attempt in range(_NOT_FOUND_RETRIES):

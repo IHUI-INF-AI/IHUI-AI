@@ -311,7 +311,7 @@ export function buildChatShellProps(ctx: ChatShellCtx): ChatScreenProps {
         </View>
       ) : null}
 
-      {/* 快捷按钮区(对标原 ai_assistant.vue .quick-actions-container,suggestedQuestions 横向滚动)
+      {/* 快捷按钮区(对齐原 ai_assistant.vue .quick-actions-container,suggestedQuestions 横向滚动)
           仅无消息或当前 Agent 提供 suggestedQuestions 时显示 */}
       {messages.length === 0 && suggestions.length > 0 ? (
         <View className="quick-actions-container">

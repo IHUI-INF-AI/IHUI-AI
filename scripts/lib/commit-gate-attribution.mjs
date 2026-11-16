@@ -1727,7 +1727,7 @@ export function verdictLine(v) {
 //  归因层取不到门级结论时,由 safe-commit 自己把 `guardian-runner.mjs --staged` 跑一遍,
 //  再按**完全相同的铰链**(classifyHookFailure)分流。三条出口:
 //    点名本次文件 ⇒ mine ⇒ 拒绝跳门;
-//    一个都没点名(含"批跑完且 blocking 失败 0"这一结构性证据)⇒ 可跳,但措辞必须交代取证来源;
+//    一个都没点名(含"批跑完且 blocking 失败 0"这一结构性证据)⇒ 可跳,但措辞必须交代设计依据;
 //    自跑本身也没成功 ⇒ 照旧落地,而 unattributed 的措辞必须带上**具体原因**。
 //  ⚠️ 刻意**不**把 unattributed 改成拒绝跳门:那会让"别人把我挡在 lint 外"的应急路径消失,
 //  逼人手工 `git commit --no-verify` —— 绕得更彻底,还不留痕。
@@ -1871,7 +1871,7 @@ export function decideWithSelfRunBatch({
   }
   if (hinge.kind === 'undetermined-red') {
     // 自跑拿到了门级结论(确有门红),只是那道门的基线面跑不出去 ⇒ 这一支既不是"没结论"
-    // (那才该落 unattributed),也不是"证明与本次无关"。原样保留 kind,补取证来源。
+    // (那才该落 unattributed),也不是"证明与本次无关"。原样保留 kind,补设计依据。
     return {
       ...hinge,
       batchSelfRun: true,

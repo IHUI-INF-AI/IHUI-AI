@@ -33,7 +33,7 @@ import {
   DialogDescription,
 } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
-import { BackButton } from '@/components/common'
+import { FeaturePageShell } from '@/components/layout'
 
 interface LiveCategory {
   id: string
@@ -132,18 +132,9 @@ export default function LivePage() {
   }
 
   return (
-    <div className="px-4 py-4 mx-auto w-full max-w-6xl space-y-4">
-      <div className="flex items-center justify-between">
-        <BackButton fallbackHref="/edu-ai" />
-      </div>
-      <header className="space-y-1">
-        <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
-          <Radio className="h-7 w-7 text-primary" />
-          {t('title')}
-        </h1>
-        <p className="text-label text-muted-foreground">{t('subtitle')}</p>
-      </header>
-
+    // 2026-11-16 接入统一子功能页外壳:BackButton + 手写 header 收编为页头卡,
+    // 自动带上「教育」返回 chip(取 eduHub.title,与域入口页大标题恒等)。
+    <FeaturePageShell title={t('title')} description={t('subtitle')} icon={Radio} domain="edu">
       {/* 快捷动作条:与小程序/RN 共用同一段(LiveQuickActions);web 无直播日历页 ⇒ 不传 onPressCalendar */}
       <LiveQuickActions
         labels={{ host: t('hostLink'), calendar: '', subscriptions: subsT('title') }}
@@ -354,7 +345,7 @@ export default function LivePage() {
           )}
         </DialogContent>
       </Dialog>
-    </div>
+    </FeaturePageShell>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

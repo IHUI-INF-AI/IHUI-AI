@@ -267,7 +267,7 @@ export async function deleteKey(id: string, userId: string): Promise<boolean> {
 }
 
 /**
- * Key 批量编辑(2026-09-16 立,深度对标补强 C,对标竞品 bulkEdit)。
+ * Key 批量编辑(2026-09-16 立,深度对齐补强 C,对齐竞品 bulkEdit)。
  *
  * - 仅允许安全字段(限流/过期/IP 黑白名单/三窗口限额),ids 上限 100;
  * - 归属校验:UPDATE 带 userId 条件,越权 id 自动落空(返回的 updated 为真实条数);

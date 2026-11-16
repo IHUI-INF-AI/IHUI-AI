@@ -13,7 +13,7 @@
                                     ↓
     同仓库后续任务 ← knowledge_lookup 注入(knowledge_cards 源,GET /search)
 
-设计原则(对标 memory_extractor):
+设计原则(对齐 memory_extractor):
 - LLM 失败降级返回空列表,不抛错;写卡失败降级跳过该卡,不阻塞其余卡片
 - 容错 JSON 解析(剥 ```json 围栏 → 数组正则 → 对象 extracted 字段兜底)
 - 字段标准化(kind 白名单 / tags 清洗截断 / confidence 0-1 → 0-100 整数)

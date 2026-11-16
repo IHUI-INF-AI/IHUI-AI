@@ -17,6 +17,8 @@ import { isSystemAdminUser } from '../../db/queries.js'
 import { isUuidString } from '../../utils/uuid.js'
 import { parsePagination } from './_shared.js'
 import { requireAdmin } from '../../plugins/require-permission.js'
+// DB-35:phone/email 列存密文;POST/PUT 写入经 contactWritePair 加密+维护 lookup,GET 投影解密
+import { contactWritePair, decryptPublicContact } from '../../utils/user-contact.js'
 
 const aiUserItemSchema = z.object({
   // users.id 是 uuid 列：POST /ai/users 拿它 insert().values({ id })，PUT /ai/users 拿它
@@ -63,7 +65,11 @@ const aiUsersRoutes: FastifyPluginAsync = async (server) => {
     const total = totalRows[0]?.total ?? 0
     return reply.send(
       success({
-        list: rows.map((r) => ({ ...r, createdAt: r.createdAt?.toISOString() ?? null })),
+        // DB-35:email/phone 密文读出后解密
+        list: rows.map((r) => ({
+          ...decryptPublicContact(r),
+          createdAt: r.createdAt?.toISOString() ?? null,
+        })),
         total,
         page: q.page,
         pageSize: q.pageSize,
@@ -91,7 +97,10 @@ const aiUsersRoutes: FastifyPluginAsync = async (server) => {
       .where(eq(users.id, uuid))
       .limit(1)
     if (!row) return reply.status(404).send(error(404, '用户不存在'))
-    return reply.send(success({ ...row, createdAt: row.createdAt?.toISOString() ?? null }))
+    // DB-35:email/phone 密文读出后解密
+    return reply.send(
+      success({ ...decryptPublicContact(row), createdAt: row.createdAt?.toISOString() ?? null }),
+    )
   })
 
   server.post('/ai/users', async (request, reply) => {
@@ -99,12 +108,19 @@ const aiUsersRoutes: FastifyPluginAsync = async (server) => {
     if (!body.success) return reply.status(400).send(error(400, '参数错误'))
     const id = body.data.id ?? randomUUID()
     const now = new Date()
+    // DB-35:phone/email 落库加密 + 维护 lookup 盲索引
+    const emailPair = body.data.email !== undefined && body.data.email !== null
+      ? contactWritePair('email', body.data.email)
+      : null
+    const phonePair = body.data.phone !== undefined && body.data.phone !== null
+      ? contactWritePair('phone', body.data.phone)
+      : null
     await db.insert(users).values({
       id,
       username: body.data.username ?? `ai_${id.slice(0, 8)}`,
       nickname: body.data.nickname ?? 'AI 用户',
-      email: body.data.email ?? null,
-      phone: body.data.phone ?? null,
+      ...(emailPair && { email: emailPair.value, emailLookup: emailPair.lookup }),
+      ...(phonePair && { phone: phonePair.value, phoneLookup: phonePair.lookup }),
       avatar: body.data.avatar ?? null,
       status: body.data.status ?? 1,
       createdAt: now,
@@ -120,8 +136,17 @@ const aiUsersRoutes: FastifyPluginAsync = async (server) => {
     const id = body.data.id ?? body.data.uuid!
     const patch: Record<string, unknown> = { updatedAt: new Date() }
     if (body.data.nickname !== undefined) patch.nickname = body.data.nickname
-    if (body.data.email !== undefined) patch.email = body.data.email
-    if (body.data.phone !== undefined) patch.phone = body.data.phone
+    // DB-35:email/phone 写入加密 + 维护 lookup
+    if (body.data.email !== undefined) {
+      const e = contactWritePair('email', body.data.email)
+      patch.email = e.value
+      patch.emailLookup = e.lookup
+    }
+    if (body.data.phone !== undefined) {
+      const p = contactWritePair('phone', body.data.phone)
+      patch.phone = p.value
+      patch.phoneLookup = p.lookup
+    }
     if (body.data.avatar !== undefined) patch.avatar = body.data.avatar
     if (body.data.status !== undefined) patch.status = body.data.status
     await db

@@ -6,7 +6,7 @@
 /**
  * 工具摘要维度补齐 · chip 渲染位证据(2026-10-29 立)。
  *
- * 立因:对标 Qoder `buildToolsSummary` 七项(files / directories / searches / edits /
+ * 立因:遵循统一工程规范
  * terminalCommands / webCalls / toolCalls)后,我方只剩 directories / edits /
  * terminalCommands 三档真缺。判据已接到既有映射(共享层 `FILE_WRITE_TOOLS`、类目表
  * `resolveToolCategory`、路径键 `pickFilePath`),本件咬"接上了且展示出来"。

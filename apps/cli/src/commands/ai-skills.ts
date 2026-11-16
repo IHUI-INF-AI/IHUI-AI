@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * AI Skills CLI — AI 技能 TOP 查询与管理命令,对标 Web 端 /ai-skills 2 页功能(列表 + 详情)。
+ * AI Skills CLI — AI 技能 TOP 查询与管理命令,对齐 Web 端 /ai-skills 2 页功能(列表 + 详情)。
  *
  * 对接后端 apps/ai-service/app/routers/ai_skills.py(/api/ai-skills 端点,ai-service 8803 端口):
  *  - GET /api/ai-skills         → AiSkillMeta[](19 个 skill 元数据,含状态/分类/标签)
@@ -13,7 +13,7 @@
  * 若本地存在 access token 则附带 Authorization 头(兼容未来加鉴权场景)。
  *
  * install/remove 为 CLI 本地操作(管理 ~/.ihui/ai-skills.json 已安装清单),
- * 对标 Web 端无对应功能,作为 CLI 增强:用户可标记常用 skill。
+ * 对齐 Web 端无对应功能,作为 CLI 增强:用户可标记常用 skill。
  *
  * 实现模板复用 memory.ts 的 resolveBaseUrl / resolveApiKeyAsync / apiRequest / extractData / handleError。
  *
@@ -365,7 +365,7 @@ function removeSkill(id: string, asJson: boolean): void {
 export function registerAiSkillsCommand(program: Command): void {
   const skillsCmd = program
     .command('ai-skills')
-    .description('AI 技能 TOP 查询与管理 (对标 Web 端 /ai-skills)');
+    .description('AI 技能 TOP 查询与管理 (对齐 Web 端 /ai-skills)');
 
   skillsCmd
     .command('list')

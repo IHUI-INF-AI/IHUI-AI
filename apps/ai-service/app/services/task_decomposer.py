@@ -4,7 +4,7 @@
 
 """任务自动分解服务(P3-3)。
 
-对标 Hermes Agent 的任务自动分解能力:
+对齐 Hermes Agent 的任务自动分解能力:
 1. LLM 驱动:基于任务描述 + 可用 agent 能力,分解为子任务
 2. 4 种策略:sequential(顺序)/ parallel(并行)/ dag(依赖图)/ recursive(递归)
 3. DAG 拓扑排序(Kahn 算法)+ 环检测

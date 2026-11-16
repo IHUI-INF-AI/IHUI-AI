@@ -14,7 +14,7 @@ import type { ToolTabKey } from './ai-side-panel-tools'
 // D179:监控区「关联 Issue」条(新文件组件,与本文件同挂 results 区首先例)
 import { LinkedIssueStrip } from '@/components/chat/issue-bind-dialog'
 
-/** 任务监控四区标识(G-63 对标 Qoder「任务监控」分区原文) */
+/** 任务监控四区标识(G-63 遵循统一工程规范) */
 export type TaskZone = 'progress' | 'activity' | 'results' | 'auxiliary'
 
 /**

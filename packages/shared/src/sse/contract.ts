@@ -1010,7 +1010,7 @@ export type SSEEventPayload =
       truncated?: boolean
     }>
   // 流式中断标记帧(G-815976 收口入契约,2026-10-04)。字段与 llm_gateway.py 的
-  // yield 字面量逐字对齐;reason 现值只有 'stream_interrupted',按封闭串建模。
+  // yield 字面量按行为规格;reason 现值只有 'stream_interrupted',按封闭串建模。
   | SSEEventWithMeta<{
       type: 'partial_done'
       /** 恒 false:本帧只在"未走 fallback、已发过 chunk、不可撤回"那一格发出 */
@@ -1057,7 +1057,7 @@ export type SSEEventPayload =
       messageId?: string
     }>
   // D115(2026-10-23,G-229):review 模式的结构化 finding。字段与 ai-service
-  // `app/core/review_findings.py::build_review_finding_frames` 的输出逐字对齐;
+  // `app/core/review_findings.py::build_review_finding_frames` 的输出按行为规格;
   // line = 新文件里的 1-based 行号,0 表示整文件级(端上只显示文件、不给行)。
   | SSEEventWithMeta<{
       type: 'review-finding'

@@ -11,7 +11,7 @@
 //!
 //! 落点:`<app_data_dir>/browser-bookmarks.json`(与 `desktop_prefs` 的 app_config_dir
 //! 分家:书签属于用户内容,不是行为偏好)。结构体统一 `rename_all = "camelCase"`,
-//! 与前端消费的字段名逐字对齐;时间戳为 Unix 毫秒。
+//! 与前端消费的字段名按行为规格;时间戳为 Unix 毫秒。
 //!
 //! 安全边界:只接受 `http` / `https` 地址(复用 `embedded_browser::is_browsable_url`),
 //! 系统书签导入只读 Chrome/Edge 的 Bookmarks JSON,不触碰其它文件。

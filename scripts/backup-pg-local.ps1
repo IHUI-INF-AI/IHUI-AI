@@ -5,7 +5,7 @@
 #requires -Version 7
 <#
 .SYNOPSIS
-  IHUI 本地 PG 每日备份(Windows 向, 对标 deploy/scripts/backup-db.sh)。
+  IHUI 本地 PG 每日备份(Windows 向, 对齐 deploy/scripts/backup-db.sh)。
 .DESCRIPTION
   从 apps/api/.env 的 DATABASE_URL 取连接串, pg_dump(custom 格式) 落到
   <DevEnv 根>\backups\pg\ (AGENTS.md §15b 唯一备份目录;根盘符随仓根派生,

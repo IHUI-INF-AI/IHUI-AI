@@ -4,7 +4,7 @@
 
 """image_search — 图片检索(DuckDuckGo Images,无 API key)。
 
-对标 Qoder/Trae 的 ImageSearch 工具面:给 query 返回可直接消费的图片结果
+遵循统一工程规范
 (imageUrl / thumbnailUrl / sourceUrl / 尺寸 / 标题)。出网腿与 web_search 同源
 (DuckDuckGo,无 key),不引入付费搜索栈。
 

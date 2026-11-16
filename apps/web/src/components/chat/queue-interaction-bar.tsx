@@ -4,7 +4,7 @@
 
 'use client'
 
-// D38 队列语义完整交互 —— 队列项交互条(G-42,2026-09-24 立,对标 Codex follow-up messages)。
+// D38 队列语义完整交互 —— 队列项交互条(G-42,2026-09-24 立,遵循统一工程规范)。
 //
 // **数据面纪律(同 D72 WorktreeCard)**:本条**不取数**。队列项 / 许可 / 模式全部由调用方
 // (message-input 排队区)注入;动作一律经 props 回调上抛,由调用方接到 store 的
@@ -25,7 +25,7 @@
 // 「打断并执行」只上抛 interruptPlan({stopFirst, thenRun}),停流走 W2 abort 通道、
 // 跑队首由调用方按既有消费路径执行 —— 队首选择逻辑一行不动。
 //
-// 「插到队首」快捷钮(2026-10-28 立,Qoder sendNow 形态对标,纯增量零新判据):
+// 「插到队首」快捷钮(2026-10-28 立,Qoder sendNow 形态对齐,纯增量零新判据):
 // 门完全复用 undo 同门(`canUndo` = 队列非空 ∧ 无并发漂移,D69 现判据)——刻意**不走**
 // reorder 拖拽门(那条流式锁定属 W27 出队顺序预期;插到队首恰恰要在运行中钦定"下一条")。
 // 动作 = `onReorder(index, 0)`,store 走既有 `requeue(from→to)`;队首由 shift 消费读
@@ -483,7 +483,7 @@ export function QueueInteractionBar({
           >
             {/* 2026-10-21:标签段单独包 span 并带 data-queue-denied-label —— 三段
                 (标签/条件/六格拒因)同在外层 span 顺排,textContent 是拼接串,
-                对标签的逐字断言只能按该属性精确定位。纯加属性:文案与版式零变化。 */}
+                对齐签的逐字断言只能按该属性精确定位。纯加属性:文案与版式零变化。 */}
             {deniedText ? <span data-queue-denied-label={deniedText}>{deniedText}</span> : null}
             {/* D162 ①:动作名之外必须同时给出**具体条件**(流式中锁定重排 / 队列已空 /
                 Runtime 不支持插话 …)。两串各自独立渲染并各带 data-*,用例才能断言

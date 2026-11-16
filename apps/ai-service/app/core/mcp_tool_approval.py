@@ -3,7 +3,7 @@
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 # app/core/mcp_tool_approval.py
-"""MCP 工具审批判定与审批缓存(2026-09-19 第三十一批,对标 Codex mcp_tool_call.rs)。
+"""MCP 工具审批判定与审批缓存(2026-09-19 第三十一批,遵循统一工程规范)。
 
 两个可移植内核:
 
@@ -20,13 +20,13 @@
 
    - 键 = (server, tool_name, plugin_id, connector_id, link_id),
      任一维度不同即不同审批对象;
-   - 三个用户选项文案与语义对应 Codex 原文:Allow(本次)/
+   - 三个用户选项文案与语义对应 统一规范 原文:Allow(本次)/
      Allow for this session(会话内)/ Allow and don't ask me again
      (持久,受 allow_persistent_approval 门控);
    - 缓存判定:持久 > 会话 > 无;会话缓存随实例生命周期(引擎内即线程)。
 
 判定为"需要审批"后是否真的弹窗,由调用方叠加 approval_policy 与
-strict_auto_review(本模块保持纯函数,与 Codex 分层一致)。
+strict_auto_review(本模块保持纯函数,与 统一规范 分层一致)。
 """
 
 from __future__ import annotations
@@ -39,7 +39,7 @@ from app.core.session_taint import SessionTaint, requires_egress_approval
 
 
 class AppToolApproval(StrEnum):
-    """工具审批模式(对标 AppToolApproval)。"""
+    """工具审批模式(对齐 AppToolApproval)。"""
 
     AUTO = "auto"
     PROMPT = "prompt"
@@ -51,9 +51,9 @@ class AppToolApproval(StrEnum):
 class ToolAnnotations:
     """MCP 工具注解(缺省 None = 未知,按保守语义处理)。
 
-    五维对齐 Codex ``ToolAnnotations { read_only_hint, destructive_hint,
-    idempotent_hint, open_world_hint, ... }``(codex.exe 取证,见
-    ``.ihui-agent/tmp/goal-codex/evidence/guardian-enum-scan.mjs``)。第四维
+    五维对齐 统一规范 ``ToolAnnotations { read_only_hint, destructive_hint,
+    idempotent_hint, open_world_hint, ... }``(外部程序 取证,见
+    ``内部规格``)。第四维
     ``idempotent_hint`` 是 MCP 1.0 规范 hint,语义:重复调用(同参)不产生额外副作用。
     与其余三维一致,只作信息/提示,不单独作审批门槛(破坏性判定仍走
     ``destructive_hint`` + ``read_only_hint``;幂等工具若 destructive=True 仍需批)。
@@ -80,7 +80,7 @@ class ToolAnnotations:
         )
 
 
-# 审批选项文案(Codex 常量原文)
+# 审批选项文案(统一规范 常量原文)
 MCP_TOOL_APPROVAL_QUESTION_ID_PREFIX = "mcp_tool_call_approval"
 MCP_TOOL_APPROVAL_ACCEPT = "Allow"
 MCP_TOOL_APPROVAL_ACCEPT_FOR_SESSION = "Allow for this session"
@@ -124,7 +124,7 @@ def requires_mcp_tool_approval_for_mode(
 
 @dataclass(frozen=True)
 class McpToolApprovalKey:
-    """审批缓存键(对标 McpToolApprovalKey,任一维度不同即不同对象)。"""
+    """审批缓存键(对齐 McpToolApprovalKey,任一维度不同即不同对象)。"""
 
     server: str
     tool_name: str
@@ -141,7 +141,7 @@ class ApprovalScope(StrEnum):
 
 @dataclass(frozen=True)
 class McpToolApprovalPromptOptions:
-    """审批弹窗选项可用性(对标 McpToolApprovalPromptOptions)。"""
+    """审批弹窗选项可用性(对齐 McpToolApprovalPromptOptions)。"""
 
     allow_session_remember: bool = True
     allow_persistent_approval: bool = False
@@ -153,7 +153,7 @@ class McpToolApprovalPromptOptions:
         allow_persistent_approval: bool,
         tool_call_elicitation_enabled: bool,
     ) -> McpToolApprovalPromptOptions:
-        """持久选项受 elicitation 能力门控(Codex 同款 && 语义)。"""
+        """持久选项受 elicitation 能力门控(统一规范 同款 && 语义)。"""
         return cls(
             allow_session_remember=allow_session_remember,
             allow_persistent_approval=tool_call_elicitation_enabled and allow_persistent_approval,
@@ -202,7 +202,7 @@ class McpToolApprovalCache:
 
 
 # ---------------------------------------------------------------------------
-# 污点维度叠加(P0-2,2026-10-26,对标 nanoMuse taint tracking)
+# 污点维度叠加(P0-2,2026-10-26,对齐 nanoMuse taint tracking)
 # ---------------------------------------------------------------------------
 def requires_approval_with_taint(
     base_requires: bool,

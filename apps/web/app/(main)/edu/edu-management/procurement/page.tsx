@@ -43,7 +43,8 @@ import {
 import { cn } from '@/lib/utils'
 import { fetchRaw, apiOrThrow } from '@/lib/api'
 import { useAuthGate } from '@/hooks/use-auth-gate'
-import { BackButton, toast } from '@/components/common'
+import { toast } from '@/components/common'
+import { FeaturePageShell } from '@/components/layout'
 import {
   Card,
   CardContent,
@@ -2302,12 +2303,10 @@ export default function CanteenProcurementPage() {
   }
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6 p-4 md:p-6">
-      <BackButton />
-      <header className="space-y-1">
-        <h1 className="text-display font-bold tracking-tight">{t('pageTitle')}</h1>
-        <p className="text-body text-muted-foreground">{t('pageDescription')}</p>
-      </header>
+    // 2026-11-16 接入统一子功能页外壳:BackButton + 手写 header 收编为页头卡,
+    // 自动带上「教育」返回 chip(取 eduHub.title,与域入口页大标题恒等)。
+    // 原容器 mx-auto max-w-7xl p-4 md:p-6 由外壳统一为 max-w-6xl px-4 py-5。
+    <FeaturePageShell title={t('pageTitle')} description={t('pageDescription')} icon={Receipt} domain="edu">
 
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList className="flex-wrap">
@@ -2342,7 +2341,7 @@ export default function CanteenProcurementPage() {
           <StatsTab />
         </TabsContent>
       </Tabs>
-    </div>
+    </FeaturePageShell>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

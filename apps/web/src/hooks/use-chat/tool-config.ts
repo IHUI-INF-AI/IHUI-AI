@@ -36,7 +36,7 @@ export const BROWSER_PAGE_CONTROL_TOOLS = [
 ] as const
 
 export const AGENT_TOOLS = [
-  // ===== 核心 MCP 工具(2026-07-27 补齐,对标 AI 工作台 + Codex 工具集)=====
+  // ===== 核心 MCP 工具(2026-07-27 补齐,对齐 AI 工作台 + Codex 工具集)=====
   // 之前只传 browser/computer 工具,LLM 看不到 read_file/search_codebase 等核心工具 schema,
   // 导致用户问"读一下 xxx 文件"时 LLM 无法调用 read_file,只能瞎编。
   // 现在补齐普通用户可用的核心工具(admin only 工具由后端 mcp_server 权限检查兜底)。
@@ -49,11 +49,11 @@ export const AGENT_TOOLS = [
   'search_web',
   'vision_analyze',
   'knowledge_lookup',
-  // dispatch_subagent 不进默认 AGENT_TOOLS(2026-08-02)。
-  // 只在构建模式(ChatMode build,对标 Agent/Edit)由 mergeAgentTools 按模式开关追加。
+  // orchestrate_agents 不进默认 AGENT_TOOLS(2026-08-02)。
+  // 只在构建模式(ChatMode build,对齐 Agent/Edit)由 mergeAgentTools 按模式开关追加。
   // 问答(ask)与未传模式的普通路径不带它,避免每条闲聊都进工具循环。
   'summarize_artifacts',
-  // 显式交付声明(2026-11-14,对标 DSH present):命令/文档转换产物不进 filesChanged,
+  // 显式交付声明(2026-11-14,遵循统一工程规范):命令/文档转换产物不进 filesChanged,
   // 由模型点名交付;只登记不读盘,普通用户可用。
   'present_files',
   'proactive_suggestion',
@@ -389,15 +389,15 @@ export const PLUGIN_ID_TO_TOOLS: Record<string, readonly string[]> = {
  * 调用方不携带 agentTools 字段 → 后端直接走流式 astream()(逐 token)输出,恢复打字机效果。
  * 带工具场景仍携带 AGENT_TOOLS + 插件工具,后端 tool loop 已兜底流式,不影响打字机。
  */
-/** 构建模式才放进模型工具表的派工工具。不进 AGENT_TOOLS 常量,避免问答路径连带带上。 */
-const DISPATCH_SUBAGENT_TOOL = 'dispatch_subagent'
+/** 构建模式才放进模型工具表的编排工具。不进 AGENT_TOOLS 常量,避免问答路径连带带上。 */
+const ORCHESTRATE_AGENTS_TOOL = 'orchestrate_agents'
 
 /**
  * 现有对话模式开关(stores/mode.ts 的 ChatMode)里,只有 build 是 Agent/Edit 执行档。
  * ask 是问答;plan/review 只读;spec 是规格文档。未传模式视为普通路径,不派工。
  */
 function dispatchToolForMode(mode: string | null | undefined): readonly string[] {
-  return mode === 'build' ? [DISPATCH_SUBAGENT_TOOL] : []
+  return mode === 'build' ? [ORCHESTRATE_AGENTS_TOOL] : []
 }
 
 export function mergeAgentTools(
@@ -405,7 +405,7 @@ export function mergeAgentTools(
   // 实例读取(默认单例,零回归)—— 发送链路此前读根单例:窗格输入框(MessageInput
   // 已窗格寻址)写入的是窗格实例,组装请求时读根单例 ⇒ 窗格里选的工具静默不生效。
   chatStore: ChatStore = useChatStore,
-  // 第二参是现有 ChatMode,不是新模式。缺省保持「不带 dispatch_subagent」。
+  // 第二参是现有 ChatMode,不是新模式。缺省保持「不带 orchestrate_agents」。
   mode?: string | null,
 ): string[] {
   const { selectedTools: selected, webSearchEnabled } = chatStore.getState()
@@ -413,7 +413,7 @@ export function mergeAgentTools(
   // 2026-08-29:未显式启用任何插件工具(普通问答)时不携带工具,返回空数组
   // D22(2026-09-19 立):网页搜索开关打开时,普通问答也携带 web_search 最小工具集
   // (仅 web_search 单工具,不携带全套 AGENT_TOOLS,保住打字机流式效果)
-  // 构建模式即使没选插件,也只追加 dispatch_subagent,让多步任务能派到既有 worker。
+  // 构建模式即使没选插件,也只追加 orchestrate_agents,让多步任务能派到既有 worker。
   if (selected.length === 0 && !webSearchEnabled) return [...dispatch]
   if (selected.length === 0) return [...new Set(['web_search', ...dispatch])]
   const extra = selected.flatMap((id) => PLUGIN_ID_TO_TOOLS[id] ?? [])

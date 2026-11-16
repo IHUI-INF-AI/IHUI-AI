@@ -75,7 +75,7 @@ import { stripClientCapabilityFields } from '@ihui/types'
 // 指向 src),判据 9 据此把本包钉成坏包。值出口搬到包内逐字移植(error-serialize.ts,类型仍从
 // @ihui/types 锚定,零重写),同 nullDeviceFingerprintCollector 的既有收口形态。
 import { serializeError } from './error-serialize.js'
-// 2026-11-05 立:OpenAI 兼容流式工具调用解析（逆向-复现-超越 Qoder/Trae 的 tool-call args 流式修复）。
+// 2026-11-05 立:OpenAI 兼容流式工具调用解析（工程化落地 外部实现/外部实现 的 tool-call args 流式修复）。
 // 仅在 opts.openAiCompat === true 时启用,默认走既有 Vercel AI SDK 协议解析,零行为变化。
 import {
   parseOpenAiStreamLine,
@@ -2299,7 +2299,7 @@ export interface StreamChatOptions {
    * 透传到后端用于注入 CLAUDE.md/AGENTS.md 项目记忆作为 system prompt。
    * 无绑定时为 undefined,后端使用默认 system prompt。 */
   workspacePath?: string
-  /** P1 #26(2026-09-16 立):知识库默认注入开关(对标 Qoder Knowledge Engine)。
+  /** P1 #26(2026-09-16 立):知识库默认注入开关(遵循统一工程规范)。
    *  默认 true(后端默认 top-3 知识检索注入 system_prompt,命中下发 citations 事件);
    *  仅显式 false 时写入 body(关闭知识检索,降级纯对话),undefined 不传走后端默认开。 */
   knowledgeContext?: boolean
@@ -2372,7 +2372,7 @@ export interface StreamChatOptions {
    *  缺失时前端可降级从 onToolCall 累加的 toolCalls 数组本地聚合。
    *  注意:本回调仅扩展类型签名,streamChat 实现解析逻辑由 A2/A3 任务补齐。 */
   onToolSummary?: (summary: ToolSummaryEvent) => void
-  /** OpenAI 兼容流式模式(2026-11-05 立,逆向-复现-超越 Qoder/Trae 的 tool-call args 流式修复):
+  /** OpenAI 兼容流式模式(2026-11-05 立,工程化落地 外部实现/外部实现 的 tool-call args 流式修复):
    *  上游按 OpenAI chat completion 流式协议下发(`choices[].delta.tool_calls[].function.arguments`
    *  为字符串分片)。开启后 streamChat 逐行经 parseOpenAiStreamLine 解析,tool_calls 增量喂给
    *  OpenAiToolCallAccumulator(内部用 ToolCallArgsStreamer 渐进修复/累积 args),每个分片即回调
@@ -4643,7 +4643,7 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
   // D130(2026-09-30 立):推理强度档位。仅字段存在时写入(与 permissionMode 同形):
   // undefined 不进 body ⇒ 后端走默认档,旧客户端零行为变化。
   if (opts.reasoningEffort !== undefined) body.reasoningEffort = opts.reasoningEffort
-  // 差距①(2026-10-30 立):准入配对标识上行。仅字段存在时写入(与 permissionMode 同形):
+  // 差距①(2026-10-30 立):准入配对齐识上行。仅字段存在时写入(与 permissionMode 同形):
   // undefined 不进 body ⇒ 旧服务端零行为变化。服务端在 admission 帧里逐字回显它。
   if (opts.inputId !== undefined) body.inputId = opts.inputId
   if (opts.extraBody) Object.assign(body, opts.extraBody)
@@ -6684,7 +6684,7 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
  * 默认 http://localhost:8803。非 Vite 环境(无 import.meta.env)走默认值。
  */
 /**
- * ai-service base URL 解析(2026-09-25 抽出;原文抄自 postToolResult,行为逐字不变)。
+ * ai-service base URL 解析(2026-09-25 抽出;原文取自 postToolResult,行为逐字不变)。
  *
  * 注意:webpack 只对 `process.env.NEXT_PUBLIC_X` **直接点号访问**做构建期内联,
  * 把 process.env 赋给变量再取属性不会被替换;import.meta.env 保留给 Vite 系构建(Taro/extension)。

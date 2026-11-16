@@ -1,7 +1,7 @@
 # © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-"""上下文片段组装(2026-09-19 第十九批,对标 Codex context-fragments crate)。
+"""上下文片段组装(2026-09-19 第十九批,遵循统一工程规范)。
 
 - answered_question_fragment:伴随用户答案的有界问题引用(截断/压平/引用块)
 - build_recap_prompt:给回到任务的用户的有界补课提示词(字节预算截断)
@@ -36,7 +36,7 @@ __all__ = [
 
 
 def approx_bytes_for_tokens(tokens: int) -> int:
-    """共享的 token→字节 估算法(对标 codex-utils 的 4 字节/token 保守估计)。"""
+    """共享的 token→字节 估算法(遵循统一工程规范)。"""
     return max(0, tokens) * 4
 
 
@@ -68,7 +68,7 @@ _RECAP_HISTORY_LABEL = "\n\n对话历史:\n"
 
 
 def answered_question_fragment(question: str, max_chars: int = 512) -> str:
-    """有界引用块:伴随用户答案的问题引用(对标 codex AnsweredQuestion)。
+    """有界引用块:伴随用户答案的问题引用(遵循统一工程规范)。
 
     截断按字符边界(中文等多字节字符不会被切坏)、换行压平为空格、
     `> ` 引用块格式。空问题返回空串。
@@ -83,7 +83,7 @@ def answered_question_fragment(question: str, max_chars: int = 512) -> str:
 def build_recap_prompt(
     history: str, max_estimated_tokens: int = RECAP_MAX_ESTIMATED_TOKENS
 ) -> str:
-    """有界补课提示词(对标 codex RecapPrompt):指令前缀 + 截断后的历史。
+    """有界补课提示词(遵循统一工程规范):指令前缀 + 截断后的历史。
 
     总字节预算 = approx_bytes_for_tokens(max_estimated_tokens);历史可用字节
     = 总预算 - 指令前缀与标签的字节数。超长历史按字节预算截断再丢弃残缺的
@@ -147,7 +147,7 @@ def parse_recap_response(text: str) -> dict[str, str | None]:
 def additional_context_fragment(
     key: str, value: str, role: str = "user"
 ) -> dict[str, str]:
-    """附加上下文键值对(对标 codex AdditionalContext*Fragment)。
+    """附加上下文键值对(遵循统一工程规范)。
 
     role 限定 user / developer(决定 content kind);key 不得为空白。
     """

@@ -221,7 +221,9 @@ export async function purgeUserPii(userId: string, tx?: Database): Promise<Purge
         .update(users)
         .set({
           phone: null,
+          phoneLookup: null,
           email: null,
+          emailLookup: null,
           username: baseUsername.slice(0, 64),
           passwordHash: null,
           nickname: ERASED_NICKNAME,

@@ -5,7 +5,7 @@
 import { fetchApi } from '@/lib/api'
 
 /**
- * Agent Plan 任务进度(Plan Mode)前端 API 客户端(2026-09-03 立,对标 Claude Code Plan Mode)。
+ * Agent Plan 任务进度(Plan Mode)前端 API 客户端(2026-09-03 立,遵循统一工程规范)。
  *
  * 服务端契约(apps/ai-service 的 routers/agent_plan.py,挂载到 /api/agent-plan/*):
  *  - GET /api/agent-plan/{plan_id}                     → 计划状态/内容/结果

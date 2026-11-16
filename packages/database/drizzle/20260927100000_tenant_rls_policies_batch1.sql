@@ -108,7 +108,7 @@ STABLE
 SECURITY INVOKER
 SET search_path TO pg_catalog, public
 AS $$
-  -- 与 resolveEffectiveAccess() 的团队分支逐字对齐:
+  -- 与 resolveEffectiveAccess() 的团队分支按行为规格:
   --   团队 owner/admin ⇒ 空间 owner,**不受 visibility 限制**;
   --   团队 member ⇒ 仅当 visibility = 'team' 时才是 viewer(restricted 空间不认团队默认档);
   --   其余角色值(既不是 owner/admin/member)不产生候选 ⇒ 不可见。

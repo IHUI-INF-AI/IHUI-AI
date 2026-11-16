@@ -122,10 +122,10 @@ async function main(): Promise<void> {
 
       // 逐行 UPDATE(按 id 主键;行数是存量规模,通常小)
       if ('phone' in updates) {
-        await sql`UPDATE users SET phone = ${updates.phone}, phone_lookup = ${updates.phone_lookup} WHERE id = ${row.id}`
+        await sql`UPDATE users SET phone = ${updates.phone!}, phone_lookup = ${updates.phone_lookup!} WHERE id = ${row.id}`
       }
       if ('email' in updates) {
-        await sql`UPDATE users SET email = ${updates.email}, email_lookup = ${updates.email_lookup} WHERE id = ${row.id}`
+        await sql`UPDATE users SET email = ${updates.email!}, email_lookup = ${updates.email_lookup!} WHERE id = ${row.id}`
       }
     }
 
@@ -141,9 +141,9 @@ async function main(): Promise<void> {
       FROM users
     `
     console.info(
-      `[verify] 回填后明文残留: phone=${after.phone_plain_left}, email=${after.email_plain_left} (应为 0)`,
+      `[verify] 回填后明文残留: phone=${after!.phone_plain_left}, email=${after!.email_plain_left} (应为 0)`,
     )
-    if (!DRY_RUN && (Number(after.phone_plain_left) > 0 || Number(after.email_plain_left) > 0)) {
+    if (!DRY_RUN && (Number(after!.phone_plain_left) > 0 || Number(after!.email_plain_left) > 0)) {
       console.error('[verify] ❌ 仍有明文残留,回填不完整')
       process.exitCode = 1
     }

@@ -5,7 +5,7 @@
 'use client'
 
 /**
- * 权限模式历史面板(2026-07-25 立,深度对标 OpenAI Codex CLI 审计能力)
+ * 权限模式历史面板(2026-07-25 立,深度对齐 OpenAI Codex CLI 审计能力)
  *
  * 触发场景:
  * - 用户点击 PermissionModePopover 内的"查看历史"按钮 → window.__IHUI_OPEN_HISTORY__?.()

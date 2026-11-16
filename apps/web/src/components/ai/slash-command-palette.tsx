@@ -129,7 +129,7 @@ const CATEGORY_ICON_COLOR: Record<SlashCommandCategory, string> = {
 /**
  * 斜杠命令面板(2026-07-29 深度重构:三段式布局 + 分组 + 图标 + 视觉层次 + 参数补全 + skill 接入)。
  *
- * 设计目标(对标 Cursor / Claude Code / Codex 命令面板):
+ * 设计目标(遵循统一工程规范):
  * - 三段式布局:顶部搜索框(带 Search 图标 + clear)→ 中部分组命令列表 → 底部快捷键提示
  * - 命令分组:goal(目标与循环,置顶重点)→ mode(模式切换)→ permission(权限管理)→ skill(AI 技能)→ template(内容模板)
  * - 每命令配 lucide 图标,按分组着色,提升视觉辨识度

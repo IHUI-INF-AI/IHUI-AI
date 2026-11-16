@@ -695,7 +695,7 @@ async function runAgentAndExit(
 program.hook('preAction', async () => {
   const opts = program.opts();
   // 首次运行引导:无 ~/.ihui/settings.json 时自动跑交互式问答生成配置
-  // (对标 claude / codex CLI 首次启动体验,--no-setup 可跳过)
+  // (对齐 claude / codex CLI 首次启动体验,--no-setup 可跳过)
   if (opts.setup !== false && needsFirstRunSetup()) {
     await runFirstRunSetup();
   }
@@ -1062,7 +1062,7 @@ registerReportCommand(program);
 // hooks 子命令组
 registerHooksCommand(program);
 
-// hooks-auto 子命令组 — Wave 3 W3-4 自动发现 5 目录 hooks(对标 OpenClaw hooks 系统)
+// hooks-auto 子命令组 — Wave 3 W3-4 自动发现 5 目录 hooks(遵循统一工程规范)
 registerHooksAutoCommand(program);
 
 // import 子命令组 — CLI 配置导入(cc-switch / codex++ / Claude / Codex / Gemini / Hermes)
@@ -1271,21 +1271,21 @@ program
     await connection.closed;
   });
 
-// serve 子命令 — 启动 Agent 内核 HTTP/WS server,支持远程驱动(对标 OpenCode client/server 架构)
+// serve 子命令 — 启动 Agent 内核 HTTP/WS server,支持远程驱动(对齐 OpenCode client/server 架构)
 // 平台独占:仅 cli
 registerServeCommand(program);
 // 全屏终端界面:新增子命令,不改任何既有入口的默认行为(默认档仍是行模式)。
 registerTuiCommand(program);
 
-// connect 子命令 — 作为 TUI client 连接远程 Agent server(对标 OpenCode 远程驱动)
+// connect 子命令 — 作为 TUI client 连接远程 Agent server(对齐 OpenCode 远程驱动)
 // 平台独占:仅 cli
 registerConnectCommand(program);
 
 // ============================================================================
-// Wave 2 命令 — 智能深度反超(对标 OpenClaw Mem + OpenCode Plan/Build)
+// Wave 2 命令 — 智能深度反超(遵循统一工程规范)
 // ============================================================================
 
-// undo 子命令 — 多步回滚文件改动(对标 OpenCode undo,支持多步)
+// undo 子命令 — 多步回滚文件改动(对齐 OpenCode undo,支持多步)
 program
   .command('undo [steps]')
   .description(t('cliEntry.undoDesc'))
@@ -1404,7 +1404,7 @@ program
     }
   });
 
-// share 子命令 — 生成可分享的会话快照(对标 OpenClaw share,增强 SHA-256 防篡改)
+// share 子命令 — 生成可分享的会话快照(遵循统一工程规范)
 program
   .command('share [session-id]')
   .description(t('cliEntry.shareDesc'))
@@ -1458,7 +1458,7 @@ errorExit(chalk.red(t('cliEntry.shareNoSession')));
     }
   });
 
-// mode 子命令 — 切换 Plan/Build/Review 交互模式(对标 OpenCode Plan/Build,增强 Review 模式)
+// mode 子命令 — 切换 Plan/Build/Review 交互模式(对齐 OpenCode Plan/Build,增强 Review 模式)
 program
   .command('mode [mode]')
   .description(t('cliEntry.modeDesc'))
@@ -1627,7 +1627,7 @@ auditCmd
 if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) {
   // G-18:每次 CLI 进程启动落一份 run manifest(argv/ppid/env/cwd/项目身份),写失败静默。
   writeRunManifest();
-  // G-B49 C2 启动画像登记 + 预热命中读数(opt-in 零副作用,对标对方"未开启不产生任何 I/O"):
+  // G-B49 C2 启动画像登记 + 预热命中读数(opt-in 零副作用,对齐对方"未开启不产生任何 I/O"):
   // IHUI_STARTUP_PROFILE≠1 ⇒ 只内存打点、零 I/O;开启 ⇒ stderr 两行 ASCII 读数(守门 70 惯例,
   // 与 background-drain 播报同一形态)。三态诚实:缺里程碑落 unjudged 点名,绝不以 0ms 冒充量到。
   const startupTracker = createStartupTracker(() => performance.now());

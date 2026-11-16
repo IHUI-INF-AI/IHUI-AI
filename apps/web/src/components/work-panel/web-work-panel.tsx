@@ -557,8 +557,7 @@ export function WebWorkPanel() {
   React.useEffect(() => {
     if (!isProxyMode) return
     const onMessage = (e: MessageEvent) => {
-      const frameWindow =
-        proxyFrameHostRef.current?.querySelector('iframe')?.contentWindow ?? null
+      const frameWindow = proxyFrameHostRef.current?.querySelector('iframe')?.contentWindow ?? null
       const action = parseEmbedMessage(e.data, e.source, frameWindow)
       if (!action) return
       if (action.kind === 'nav') {
@@ -569,7 +568,7 @@ export function WebWorkPanel() {
         // → 只修正当前历史条目,绝不压栈(否则 302 落点二次压栈 + 后退弹回)
         onEmbedNavigation(action.url, action.title, 'loaded')
       } else if (action.kind === 'newtab') {
-        // Ctrl/Cmd+点击代理链接 → 应用内新开 WorkPanel 标签页(对标 主流 AI IDE 浏览器)
+        // Ctrl/Cmd+点击代理链接 → 应用内新开 WorkPanel 标签页(对齐 主流 AI IDE 浏览器)
         newTab(action.url)
       } else {
         onFailed(action.message || tw('embedProxyFailed'))
@@ -630,7 +629,7 @@ export function WebWorkPanel() {
     clearHistory()
   }, [isDockedMode, clearHistory])
 
-  // 键盘快捷键(2026-09-02,对标 主流 AI IDE 内嵌浏览器):
+  // 键盘快捷键(2026-09-02,对齐 主流 AI IDE 内嵌浏览器):
   // 仅在焦点位于面板 chrome(工具栏/地址栏)时生效——代理 iframe 为跨源 sandbox(opaque origin),
   // 其键盘事件被隔离不会冒泡到父文档,这是沙箱固有限制(与 主流 AI IDE 一致)。
   // 组合:Alt+←/→ 后退/前进、Ctrl/Cmd+R 或 F5 重载、Ctrl/Cmd+L 聚焦地址栏。

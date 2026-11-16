@@ -6,15 +6,15 @@
  * 中间步骤折叠策略(D21,2026-09-19 立)。
  *
  * 对话流折叠收口:竞品已分化(Trae 默认折叠摘要 vs Qoder 0.2.1 起默认展开),
- * 故不可强制默认,须留用户配置开关(对标 Codex auto recap)。
+ * 故不可强制默认,须留用户配置开关(遵循统一工程规范)。
  *
  * 三层判定(优先级从高到低):
  *   1. 用户显式操作(展开/收起)永远最优先,策略不覆盖
  *   2. 用户配置模式:
  *      · 'auto'  自适应(默认)— 按字数/工具数/耗时三维阈值判定折叠
  *      · 'collapsed' 强制折叠(承载体量大的会话)
- *      · 'expanded'  强制展开(参考 Qoder 0.2.1,偏好全程可见)
- *   3. 'auto' 模式下的纯函数判定(**语义优先于阈值**,2026-10-29 对标 Qoder 0.4.11):
+ *      · 'expanded'  强制展开(遵循统一工程规范)
+ *   3. 'auto' 模式下的纯函数判定(**语义优先于阈值**,2026-10-29 遵循统一工程规范):
  *      · 本轮含"永不折叠"工具(例外集见 tool-category.ts 的 NEVER_FOLD_TOOLS /
  *        类目级 neverFold)⇒ **一律不折叠**,三维读数再大也不例外
  *      · 否则按三维阈值:正文(或 reasoning)字数 ≥ AUTO_COLLAPSE_CHARS → 折叠(中间步骤让位正文)
@@ -101,7 +101,7 @@ export function hasNeverFoldTool(input: FoldPolicyInput): boolean {
  * 自适应模式纯函数判定:轻查询(字数少 + 工具少 + 快)→ 展开,其余折叠。
  * 任何一维达到重任务阈值即折叠;三维全轻才展开。
  *
- * **语义优先于阈值**(2026-10-29 对标 Qoder 0.4.11):本轮只要含一枚永不折叠的工具,
+ * **语义优先于阈值**(2026-10-29 遵循统一工程规范):本轮只要含一枚永不折叠的工具,
  * 无论三维读数多大都**不折叠** —— 理由不是"体积小",而是"折了会丢掉等人回话的入口
  * 或一整块自成一体的 UI"(子代理树 / 图 / 思考块 / 计划模式确认)。
  * 这条优先级在用户显式档位之下(FoldPolicyMode 由 resolve* 先判,不在本函数射程内)。
@@ -125,7 +125,7 @@ export function resolveInitialStepsOpen(mode: FoldPolicyMode, input: FoldPolicyI
   return !shouldCollapseSteps(input)
 }
 
-// ─── 差距⑥ 追加类目:终态确认后过程文本折叠(2026-10-30 立,对标 Qoder
+// ─── 差距⑥ 追加类目:终态确认后过程文本折叠(2026-10-30 立,遵循统一工程规范
 //     finalTextConfirmed→process_text 折叠规则;Qoder-vs-IHUI-深度对比.md §3-6)──
 //
 // **追加,不是替换**:本类目不进入 `resolveInitialStepsOpen` / `shouldCollapseSteps`
@@ -202,7 +202,7 @@ export const isNeverFoldTool = isNeverFoldToolImpl
 
 /**
  * 类目卡的"默认展开态"决策(与 shouldCollapseSteps 同源,不另起判定)。
- * - 'expand'   → 恒展开(对标 Qoder 全程可见偏好)
+ * - 'expand'   → 恒展开(遵循统一工程规范)
  * - 'collapse' → 恒收起(思考/结束等阶段标记,默认让位正文)
  * - 'auto'     → 跟随 D21 自适应策略(轻任务展开、重任务折叠)
  *

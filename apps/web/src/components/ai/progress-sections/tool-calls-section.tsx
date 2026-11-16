@@ -79,7 +79,7 @@ const CATEGORY_CLS: Record<ToolCategory, string> = {
   exec: 'text-cyan-500',
   other: 'text-muted-foreground',
 }
-/** v15: 类别徽章色(对标 AI 工作台)— bg 5% + text 100% 紧凑徽章 */
+/** v15: 类别徽章色(对齐 AI 工作台)— bg 5% + text 100% 紧凑徽章 */
 const CATEGORY_BADGE_CLS: Record<ToolCategory, string> = {
   read: 'bg-blue-500/10 text-blue-600 dark:text-blue-400',
   search: 'bg-violet-500/10 text-violet-600 dark:text-violet-400',
@@ -257,7 +257,7 @@ export const ToolCallItem = React.memo(function ToolCallItem({
             tool.status === 'running' && 'animate-spin',
           )}
         />
-        {/* v15: 类别徽章(对标 AI 工作台)— read/search/write/exec 紧凑色标 */}
+        {/* v15: 类别徽章(对齐 AI 工作台)— read/search/write/exec 紧凑色标 */}
         <span
           className={cn(
             'shrink-0 rounded-sm px-1 text-[10px] font-medium uppercase tracking-wider',
@@ -483,7 +483,7 @@ export const ToolCallsSection = React.memo(function ToolCallsSection({
     }
   }, [tools, filteredTools, t])
 
-  // G-5 智能折叠(2026-09-19 立,对标 Trae SOLO):执行中保持展开,全部结束后自动折叠为摘要行。
+  // G-5 智能折叠(2026-09-19 立,遵循统一工程规范):执行中保持展开,全部结束后自动折叠为摘要行。
   // 用户手动展开/折叠(onOpenChange)后由用户接管;新一轮工具开始执行时重置回自动策略。
   // 注意:hooks 必须在条件早返回之前调用(React 规则)。
   const anyRunning = tools.some((tool) => tool.status === 'running')

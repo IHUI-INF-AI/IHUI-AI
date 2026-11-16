@@ -12,7 +12,7 @@
 //   "同一会话 × 流式" 与 "同一会话 × 工具面板开合" 两格此前在真浏览器里从未成立过。本 spec 补的就是这两格,
 //   外加第三格(它只有实机能答):同一会话下,**一格的流式 append 会不会把另一格已经离开底部的滚动位拽走**。
 //
-// 全链路 route mock + 页面内 fetch 泵(形态抄自 chat-pane-parallel-stream.spec.ts,不依赖活后端;
+// 全链路 route mock + 页面内 fetch 泵(形态取自 chat-pane-parallel-stream.spec.ts,不依赖活后端;
 // 共享机上起独立后端会与在跑席位抢 8802 watch 与 dev-lock,§12)。登录态 = localStorage `ihui-auth`
 // (zustand persist 形态)+ 非 httpOnly `auth_token` cookie(先例 sidebar-visual.spec.ts:417-444)。
 //
@@ -99,7 +99,7 @@ function convRow(spec: ConvSpec) {
 
 /**
  * 历史行:messageCount=2 给"短会话"(流式/工具面板用例);=56 给"长会话"(滚动几何用例,
- * 每条 12 个空行分段,足以把列表撑出真实可滚高度,抄自 chat-pane-split-scroll-restore)。
+ * 每条 12 个空行分段,足以把列表撑出真实可滚高度,取自 chat-pane-split-scroll-restore)。
  */
 function historyRows(spec: ConvSpec) {
   const base = Date.now() - 60 * 60_000
@@ -152,7 +152,7 @@ function json(body: unknown): { status: number; headers: Record<string, string>;
 }
 
 /**
- * auth 面 + 会话面全量 mock(注册顺序 = 兜底在前、专档在后;形态抄自 parallel-stream)。
+ * auth 面 + 会话面全量 mock(注册顺序 = 兜底在前、专档在后;形态取自 parallel-stream)。
  * cost-estimate 必须给全字段,否则 CostEstimateBar 拿 undefined.toFixed 全局崩 → 页面重载洗掉流。
  */
 async function mockBackend(page: Page, specs: readonly ConvSpec[]): Promise<void> {
@@ -462,7 +462,7 @@ async function scrollTopOf(page: Page, pane: string): Promise<number> {
   return paneList(page, pane).evaluate((el) => el.scrollTop)
 }
 
-/** 把目标消息滚到列表视区顶部(几何算式,抄自 G-934) */
+/** 把目标消息滚到列表视区顶部(几何算式,取自 G-934) */
 async function scrollToMessageTop(page: Page, pane: string, messageId: string): Promise<number> {
   await paneList(page, pane).evaluate((el, id) => {
     const target = el.querySelector<HTMLElement>(`[data-message-id="${id}"]`)
@@ -533,9 +533,6 @@ async function sendInPane(page: Page, pane: string, text: string): Promise<void>
  * 时先被"点外部关闭"吃掉一次。 */
 async function toggleToolsPanelIn(page: Page, pane: string): Promise<void> {
   await page.locator(`[data-pane-leaf="${pane}"] [data-testid="add-menu-trigger"]`).first().click()
-  const modeSwitcher = page.locator('[data-testid="mode-switcher"]')
-  await expect(modeSwitcher).toBeVisible({ timeout: 10_000 })
-  await modeSwitcher.first().click()
   const item = page.locator('[data-testid="menu-tools-panel"]')
   await expect(item).toHaveCount(1, { timeout: 10_000 })
   await item.click()

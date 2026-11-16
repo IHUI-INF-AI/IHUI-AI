@@ -25,6 +25,7 @@ import {
   BarChart3,
   ShoppingCart,
   ChefHat,
+  UtensilsCrossed,
 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
@@ -42,6 +43,7 @@ import {
   eduMealUpdate,
 } from '@ihui/api-client'
 import { BackButton, toast } from '@/components/common'
+import { FeaturePageShell } from '@/components/layout'
 import {
   Card,
   CardContent,
@@ -1109,14 +1111,10 @@ export default function MealPage() {
   }
 
   return (
-    <div className="space-y-4 px-4 py-4">
-      <BackButton />
-
-      {/* Header */}
-      <header className="space-y-1">
-        <h1 className="text-display font-bold tracking-tight">{t('page.title')}</h1>
-        <p className="text-label text-muted-foreground">{t('page.subtitle')}</p>
-      </header>
+    // 2026-11-16 接入统一子功能页外壳:BackButton + 手写 header 收编为页头卡,
+    // 自动带上「教育」返回 chip(取 eduHub.title,与域入口页大标题恒等)。
+    // 早退块(上方 mealsError)仍保留 BackButton,让加载失败时用户可返回。
+    <FeaturePageShell title={t('page.title')} description={t('page.subtitle')} icon={UtensilsCrossed} domain="edu">
 
       {/* Toolbar */}
       <Card>
@@ -1606,7 +1604,7 @@ export default function MealPage() {
           )}
         </DialogContent>
       </Dialog>
-    </div>
+    </FeaturePageShell>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -26,6 +26,8 @@ import { hashPassword } from '../src/utils/password-crypto.js'
 import { db } from '../src/db/index.js'
 import { users } from '@ihui/database'
 import { eq } from 'drizzle-orm'
+// DB-35:email 列存密文;seed 查重/写入走 email_lookup 盲索引 + 加密,与登录/查重语义一致
+import { contactWritePair } from '../src/utils/user-contact.js'
 
 /**
  * 生产库防呆(2026-09-14 立):本脚本只允许写 E2E 专用库。
@@ -114,18 +116,21 @@ async function main() {
 
   for (const u of SEED_USERS) {
     const passwordHash = await hashPassword(u.password)
+    // DB-35:email 落库加密 + email_lookup 盲索引;查重也走 lookup(明文列存密文无法等值查询)
+    const emailPair = contactWritePair('email', u.email)
     try {
       const [existing] = await db
         .select({ id: users.id })
         .from(users)
-        .where(eq(users.email, u.email))
+        .where(eq(users.emailLookup, emailPair.lookup ?? ''))
         .limit(1)
 
       if (existing) {
         await db
           .update(users)
           .set({
-            email: u.email,
+            email: emailPair.value,
+            emailLookup: emailPair.lookup,
             username: u.username,
             nickname: u.nickname,
             passwordHash,
@@ -137,7 +142,8 @@ async function main() {
         console.info(`  ✓ updated ${u.email} (roleId=${u.roleId})`)
       } else {
         await db.insert(users).values({
-          email: u.email,
+          email: emailPair.value,
+          emailLookup: emailPair.lookup,
           username: u.username,
           nickname: u.nickname,
           passwordHash,

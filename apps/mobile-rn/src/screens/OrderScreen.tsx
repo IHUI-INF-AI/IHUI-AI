@@ -35,7 +35,7 @@ function parsePayAmount(raw: unknown): number | null {
  * - order.title「我的订单」:mobile-rn zh-CN override 为「订单」,恢复 Uniapp 导航标题
  * - order.tab.shipped「待收货」:Uniapp tab3 待收货筛 status 1|2(已支付+已发货),
  *   RN 该 tab 经 tabToStatus 降级查询 'paid',查询语义一致 → 文案对齐为「待收货」
- * - order.empty「暂无订单信息」:Uniapp 空态文案逐字对齐
+ * - order.empty「暂无订单信息」:Uniapp 空态文案按行为规格
  */
 const UNIAPP_TEXT: Record<string, string> = {
   'order.title': '我的订单',

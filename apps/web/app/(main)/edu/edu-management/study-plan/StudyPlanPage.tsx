@@ -7,9 +7,10 @@
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
-import { Loader2 } from 'lucide-react'
+import { Loader2, ClipboardList } from 'lucide-react'
 
 import { BackButton } from '@/components/common'
+import { FeaturePageShell } from '@/components/layout'
 import { Alert } from '@/components/feedback'
 import {
   eduClassCreate,
@@ -593,15 +594,10 @@ export default function StudyPlanPage() {
   }
 
   return (
-    <div className="space-y-4">
-      <BackButton />
-
-      {/* Header */}
-      <header className="space-y-1">
-        <h1 className="text-display font-bold tracking-tight">{t('pageTitle')}</h1>
-        <p className="text-label text-muted-foreground">{t('pageSubtitle')}</p>
-      </header>
-
+    // 2026-11-16 接入统一子功能页外壳:BackButton + 手写 header 收编为页头卡,
+    // 自动带上「教育」返回 chip(取 eduHub.title,与域入口页大标题恒等)。
+    // 主分支已带壳,早退分支(loading/error)保留裸 BackButton 以免壳依赖未就绪的数据。
+    <FeaturePageShell title={t('pageTitle')} description={t('pageSubtitle')} icon={ClipboardList} domain="edu">
       <StudyPlanToolbar
         terms={terms}
         classes={classes}
@@ -729,7 +725,7 @@ export default function StudyPlanPage() {
           await saveClass.mutateAsync(data)
         }}
       />
-    </div>
+    </FeaturePageShell>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -80,7 +80,7 @@ class TestCellTransition:
         assert v.verdict == cm.VERDICT_ALLOWED
 
     def test_duplicate_active_cell_id(self):
-        """复用活跃 cell ID(对标 runtime reused an active cell ID)。"""
+        """复用活跃 cell ID(对齐 runtime reused an active cell ID)。"""
         v = cm.decide_cell_transition(
             cm.CELL_STATE_ADMISSION, cm.CELL_STATE_STARTED, "dup", {"dup"})
         assert v.verdict == cm.VERDICT_DENIED

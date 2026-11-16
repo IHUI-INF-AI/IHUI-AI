@@ -143,7 +143,7 @@ function json(body: unknown): { status: number; headers: Record<string, string>;
 }
 
 /**
- * auth 面 + 会话面全量 mock(形态抄自 G-934 的 mockBackend,按 id 分派历史)。
+ * auth 面 + 会话面全量 mock(形态取自 G-934 的 mockBackend,按 id 分派历史)。
  * 注册顺序 = 兜底在前、专档在后(Playwright 后注册者优先匹配)。
  */
 async function mockBackend(page: Page, specs: readonly ConvSpec[]): Promise<void> {

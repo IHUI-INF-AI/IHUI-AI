@@ -6,7 +6,7 @@
 /**
  * 会话全文检索 —— 跨会话、多词 AND、带 snippet。
  *
- * ## 对标依据(Qoder,仅取证思想,代码为本仓自有实现)
+ * ## 对齐依据(Qoder,仅取证思想,代码为本仓自有实现)
  *
  * Qoder 用 `chat_session_search_segments` 表:(session_id, message_id, turn_id,
  * sequence, position, segment_id, text, normalized_text) —— 把每条消息切成

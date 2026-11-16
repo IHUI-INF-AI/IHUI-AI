@@ -19,7 +19,7 @@ import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 import { ADD_TEXT_REFERENCE_EVENT } from '@/components/chat/annotation-anchor'
 
-/** 可编辑样式字段族(与注入端 computedStyle 采集逐字对齐,i18n 键同名) */
+/** 可编辑样式字段族(与注入端 computedStyle 采集按行为规格,i18n 键同名) */
 export const VISUAL_STYLE_FIELDS = [
   'color',
   'backgroundColor',

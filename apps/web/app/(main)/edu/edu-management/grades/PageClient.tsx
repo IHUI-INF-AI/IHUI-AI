@@ -38,7 +38,7 @@ import {
   eduTermList,
 } from '@ihui/api-client'
 import { neutralizeFormulaCell } from '@/lib/export-utils'
-import { BackButton } from '@/components/common'
+import { FeaturePageShell } from '@/components/layout'
 import { useConfirm } from '@/hooks/use-confirm'
 import {
   Card,
@@ -580,15 +580,12 @@ export default function GradesPage() {
   ]
 
   return (
-    <div className="space-y-4">
-      <BackButton />
-
-      {/* Header */}
-      <header className="space-y-1">
-        <h1 className="text-display font-bold tracking-tight">{t('pageTitle')}</h1>
-        <p className="text-label text-muted-foreground">{t('pageSubtitle')}</p>
-      </header>
-
+    <FeaturePageShell
+      title={t('pageTitle')}
+      description={t('pageSubtitle')}
+      icon={BarChart3}
+      domain="edu"
+    >
       {/* Class/Subject Selector */}
       <Card>
         <CardContent className="min-[640px]:p-3 flex flex-wrap items-center gap-3 p-3">
@@ -1074,7 +1071,7 @@ export default function GradesPage() {
       />
 
       <ConfirmDialogRenderer />
-    </div>
+    </FeaturePageShell>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

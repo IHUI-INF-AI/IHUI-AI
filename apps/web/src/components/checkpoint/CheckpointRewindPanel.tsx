@@ -49,7 +49,7 @@ async function captureImpactSnapshot(
 /**
  * Checkpoint / Rewind 撤销面板(独立组件,2026-09-03 立)。
  *
- * 对标 Claude Code `checkpoint /rewind`:让用户列出某个会话的所有可回滚 checkpoint,
+ * 遵循统一工程规范
  * 并一键恢复到任一点(对话历史 + 迭代数 + tool state,可选文件回滚)。
  *
  * 独立组件、独立命名,不改动既有共享布局/路由;接入方只需传 `sessionId` 放置即可。
@@ -110,7 +110,9 @@ export default function CheckpointRewindPanel({
       // D163:撤销前记快照 —— conversation 范围不碰文件("未发生变化"是事实);
       // code/both 真碰文件,必须拿快照留底,失败后才有得比对。
       const before =
-        scope === 'conversation' ? null : await captureImpactSnapshot(checkpointId, sessionId, scope)
+        scope === 'conversation'
+          ? null
+          : await captureImpactSnapshot(checkpointId, sessionId, scope)
       try {
         const result = await restoreCheckpoint(checkpointId, sessionId, scope)
         if (isUndoPartial(result.file_versions)) {
@@ -128,9 +130,7 @@ export default function CheckpointRewindPanel({
             ? null
             : await captureImpactSnapshot(checkpointId, sessionId, scope)
         const verdict =
-          scope === 'conversation'
-            ? 'unchanged'
-            : classifyUndoWorkspace(before, after)
+          scope === 'conversation' ? 'unchanged' : classifyUndoWorkspace(before, after)
         toast.error(t(`checkpoint.${resolveUndoFailureKey('restore-failed', verdict)}`))
       } finally {
         setRestoring(false)

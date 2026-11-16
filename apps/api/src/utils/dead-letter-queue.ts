@@ -121,13 +121,33 @@ export class DeadLetterQueue {
     }
   }
 
-  /** 获取单条死信. */
-  get(taskId: string): DeadLetter | undefined {
-    return this.items.get(taskId)
+  /** 是否已过期(F-715:统一过期判据,读路径与写路径共用一把尺子)。 */
+  private isExpired(item: DeadLetter): boolean {
+    return item.lastTs < Date.now() / 1000 - this.config.retentionSec
   }
 
-  /** 列出死信 (按入队顺序, 截断 limit). */
+  /** F-715:读路径惰性淘汰 —— 清掉已过期条目,使 get/list/replay 不再看见过期死信。 */
+  private evictExpired(): void {
+    const limit = Date.now() / 1000 - this.config.retentionSec
+    for (const [k, v] of this.items) {
+      if (v.lastTs < limit) this.items.delete(k)
+    }
+  }
+
+  /** 获取单条死信 (F-715:读路径惰性淘汰 —— 过期条目不再可见,也不可被 replay)。 */
+  get(taskId: string): DeadLetter | undefined {
+    const item = this.items.get(taskId)
+    if (!item) return undefined
+    if (this.isExpired(item)) {
+      this.items.delete(taskId)
+      return undefined
+    }
+    return item
+  }
+
+  /** 列出死信 (按入队顺序, 截断 limit;F-715:先惰性淘汰过期条目再截断)。 */
   list(limit = 100): DeadLetter[] {
+    this.evictExpired()
     return Array.from(this.items.values()).slice(0, limit)
   }
 
@@ -136,10 +156,14 @@ export class DeadLetterQueue {
     return this.items.delete(taskId)
   }
 
-  /** 重投一条死信. */
+  /** 重投一条死信 (F-715:未知 id 与过期条目一律 NOOP 式 DROP,不把过期死信当可重投)。 */
   replay(taskId: string): DLQAction {
     const item = this.items.get(taskId)
     if (!item) return DLQAction.DROP
+    if (this.isExpired(item)) {
+      this.items.delete(taskId)
+      return DLQAction.DROP
+    }
     const fn = this.replayFn
     if (!fn) return DLQAction.QUARANTINE
     let ok = false

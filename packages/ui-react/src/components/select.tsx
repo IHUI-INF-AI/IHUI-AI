@@ -9,6 +9,8 @@ import * as SelectPrimitive from '@radix-ui/react-select'
 import { Check, ChevronDown, ChevronUp } from 'lucide-react'
 import { guardEscKeyDown, mergeEscStackRef, useEscStackId } from '../lib/use-esc-stack'
 import { cn } from '../lib/utils'
+// 2026-11-16 立:浮层与视口边缘的统一安全间距(单一源)
+import { FLOATING_VIEWPORT_PADDING_PX } from '@ihui/shared/ui/floating-layer-spec'
 
 const Select = SelectPrimitive.Root
 const SelectGroup = SelectPrimitive.Group
@@ -75,6 +77,8 @@ const SelectContent = React.forwardRef<
       <SelectPrimitive.Content
         ref={escStackRef}
         onEscapeKeyDown={guardEscKeyDown(escStackId, onEscapeKeyDown)}
+        // 2026-11-16 立:下拉浮层与视口边缘留统一安全间距,避免贴屏幕边缘
+        collisionPadding={FLOATING_VIEWPORT_PADDING_PX}
         className={cn(
           'relative z-popover max-h-96 min-w-[8rem] overflow-hidden rounded-lg border border-stroke-strong bg-popover text-popover-foreground shadow-elevation-md duration-(--duration-unified) ease-unified data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2',
           position === 'popper' &&

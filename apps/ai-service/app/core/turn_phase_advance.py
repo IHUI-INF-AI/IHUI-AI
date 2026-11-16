@@ -2,9 +2,9 @@
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-"""回合前进决策（turn phase advance）—— 对标 Codex 26.1111 turn_timing。
+"""回合前进决策（turn phase advance）—— 遵循统一工程规范。
 
-取证来源（2026-11-16，下潜 codex.exe 364.8MB 主引擎，strings 定向抽取）。
+设计依据（2026-11-16，下潜 外部程序 364.8MB 主引擎，strings 定向抽取）。
 对照物 codex-core 的 `turn_timing.rs` + `session::retained_context.rs`：
 任务级 phase 枚举与 orchestrator 错误前进决策（逐字文案见下方常量）。
 
@@ -52,7 +52,7 @@ CODEX_ERR_ENDING_EARLY = (
 
 
 class TurnPhase(str, Enum):  # noqa: UP042 — 改 StrEnum 会变 str() 输出,属行为重写
-    """任务级 phase（对标 retained_context.rs 的 phase 枚举，非 http transmit 层）。
+    """任务级 phase（对齐 retained_context.rs 的 phase 枚举，非 http transmit 层）。
 
     TASK_START → TASK_REGISTERED → REGULAR_TASK_START 是正常启动链；
     CUSTOM_CA / EXPLICIT_TLS 是 TLS/CA 配置 phase（在发起请求前可降级配置）。
@@ -74,7 +74,7 @@ class OrchestratorStopPoint(str, Enum):  # noqa: UP042 — 同上
 
 
 class OrchestratorActionKind(str, Enum):  # noqa: UP042 — 同上
-    """orchestrator 遇错前进三档（逐字对齐 codex-core orchestrator）。"""
+    """orchestrator 遇错前进三档（按行为规格 外部实现-core orchestrator）。"""
 
     CONTINUING = "continuing"  # 吞非致命错误续跑
     HALTING = "halting"  # 致命错误整回合停

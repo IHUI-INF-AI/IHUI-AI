@@ -440,10 +440,10 @@ export function normalizeMessage(raw) {
   }
 }
 
-/** IM 网关单页(4213.js:539041 的请求体 + 4213.js:4130 的响应解析,逐字对齐) */
+/** IM 网关单页(4213.js:539041 的请求体 + 4213.js:4130 的响应解析,按行为规格) */
 async function postImChain({ cookieHeader, conversationId, fetchImpl, commonParams, anchorIndex, limit }) {
   const url = buildUrl('/im/chain/single', commonParams)
-  // 请求体逐字对齐客户端真实抓包(2026-11-11 Chrome 注入真票实测):
+  // 请求体按行为规格客户端真实抓包(2026-11-11 Chrome 注入真票实测):
   //  - anchor_index 从 Number.MAX_SAFE_INTEGER 起步(direction=1 OLDER,先拿最新一页),
   //    传 0 会得 712017020 数据序列化反序列化错误;
   //  - filter 只带 index_list,不带 bot_id(客户端无此字段,多传同样序列化报错);

@@ -41,7 +41,9 @@ const { mockVerifyAccessToken, mockOwnedRows, mockArchivedBatch } = vi.hoisted((
   mockArchivedBatch: vi.fn(async (): Promise<number> => 0),
 }))
 
-vi.mock('@ihui/auth', () => ({ verifyAccessToken: mockVerifyAccessToken   // 2026-11-11:生产 authenticateInner 已改 fail-closed——getTokenBlacklist() 返回 null
+vi.mock('@ihui/auth', () => ({
+  verifyAccessToken: mockVerifyAccessToken,
+  // 2026-11-11:生产 authenticateInner 已改 fail-closed——getTokenBlacklist() 返回 null
   // 即判 token「已吊销」⇒ 401。测试环境 createBlacklist 内部 new IORedis 恒连不上 ⇒ null
   // ⇒ 合法 token 被 401。覆盖为内存假黑名单(has 恒 false)。不回退生产 fail-closed 语义。
   createBlacklist: vi.fn(() => ({

@@ -19,7 +19,7 @@ import {
 } from '../../services/relay-plugins-service.js'
 
 /**
- * /api/admin/relay/plugins 插件系统(2026-09-17 立,补强 59,对标竞品 /plugins)。
+ * /api/admin/relay/plugins 插件系统(2026-09-17 立,补强 59,对齐竞品 /plugins)。
  *
  * 端点(requireAdmin):
  * 1. GET    /relay/plugins?status=       — 插件列表(status=enabled|disabled 过滤)

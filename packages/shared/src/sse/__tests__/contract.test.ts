@@ -370,7 +370,7 @@ const CUMULATIVE_PHRASES = [
   '覆盖式写入只在累积语义下安全',
 ] as const
 
-/** 契约注释必须写到的增量要素(与生产端/消费端应然形态逐字对齐)。 */
+/** 契约注释必须写到的增量要素(与生产端/消费端应然形态按行为规格)。 */
 const REQUIRED_PHRASES = ['增量', 'seq', '收敛', 'check-agent-event-parity'] as const
 
 function contractSemanticsProblems(section: string): string[] {

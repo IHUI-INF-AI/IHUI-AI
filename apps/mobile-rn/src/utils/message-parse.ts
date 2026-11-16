@@ -34,7 +34,7 @@ const VOICE_MARKER_RE =
 
 /**
  * 视频消息整行形态:`<video src="…" controls></video>`。
- * 与 web 发送侧拍平产出的确切形态**逐字对齐**(单一真相源 = `packages/shared/src/chat/user-message-parts.ts`
+ * 与 web 发送侧拍平产出的确切形态**按行为规格**(单一真相源 = `packages/shared/src/chat/user-message-parts.ts`
  * 的 VIDEO_LINE,那边改形态这边必须同改):只认整行(行尾允许空格/制表符),散文里讨论该写法的那行不动。
  * `m` 让 ^/$ 按行锚定;`g` + 游标遍历(理由同 VOICE_MARKER_RE:带 g 的 exec 自推进 lastIndex,
  * 必须对原串用游标,不能每轮切串)。

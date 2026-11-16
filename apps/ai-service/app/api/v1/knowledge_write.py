@@ -5,7 +5,7 @@
 
 """知识卡片 agent 写面路由(挂载在 /api/v1/ai/knowledge-write 前缀;2026-10-31 立)。
 
-对标 Qoder qoder-context 的 8 枚 wiki/knowledge 写工具(PostToolUse hook matcher
+遵循统一工程规范
 逐字印证),出口与身份纪律见 services/knowledge_writer.py 头注;写入判据单一真相源
 住 apps/api routes/knowledge-card.ts,本路由零复制。
 

@@ -10,6 +10,8 @@
 // 假 db 拿描述符对内存行求值并回 `[{ count }]` —— 这样"下界有没有真的下推"是可观测的:
 // 若实现退回只卡上界,①「48h 之前不计入」立刻红。
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+// consistent-type-imports 禁 `typeof import('…')` 内联注解 ⇒ 用 type-only 命名空间导入(零运行时副作用)
+import type * as DrizzleOrm from 'drizzle-orm'
 
 type Row = { action: string; createdAt: Date }
 type Cond =
@@ -21,7 +23,7 @@ type Cond =
 const state = vi.hoisted(() => ({ rows: [] as Array<{ action: string; createdAt: Date }> }))
 
 vi.mock('drizzle-orm', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('drizzle-orm')>()
+  const actual = await importOriginal<typeof DrizzleOrm>()
   return {
     ...actual,
     and: (...conds: Cond[]): Cond => ({ op: 'and', conds }),

@@ -5,7 +5,7 @@
 /**
  * 华为云 CodeArts(码道)上游签名纯函数集(2026-10-22 立)。
  *
- * SDK-HMAC-SHA256 签名逐字对齐 @huaweicloud/huaweicloud-sdk-core 的 JS signer,
+ * SDK-HMAC-SHA256 签名按行为规格 @huaweicloud/huaweicloud-sdk-core 的 JS signer,
  * 金标准向量取自 https://github.com/2951461586/CodeArts2API internal/codearts/signer_test.go
  * (期望值由独立 Python 复刻算出,任何一处 canonical 拼装改动都会让测试失败)。
  *

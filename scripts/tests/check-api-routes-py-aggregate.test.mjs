@@ -15,7 +15,7 @@ import {
 
 // 镜像测试:守门 8(check-api-routes)FastAPI **二级聚合挂载图** 扩图(2026-11-08 P2)
 //
-// 生产形态(逐字复刻 apps/ai-service/app/main.py + app/api/v1/router.py +
+// 生产形态(独立实现 apps/ai-service/app/main.py + app/api/v1/router.py +
 // app/api/v1/sag2_lexical.py 的真实挂载链):
 //   app.include_router(api_v1_router, prefix="/api/v1")        ← 聚合对象挂到根
 //   api_v1_router.include_router(sag2_lexical.router,          ← 挂载对象非 app 的二级聚合

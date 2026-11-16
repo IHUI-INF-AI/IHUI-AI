@@ -1853,7 +1853,7 @@ export function readAlphaRegistry(face) {
  * 裸 `divide-[Nrpx]` 的正解是改用轴形式(它想表达的若是线宽)。
  */
 export const R7_PREFIX_ALT = 'border-(?:[tblrxyse])|border|text|divide|ring|outline'
-/** fam → v3 实际落到的(错误)属性,全部来自上方隔离夹具的逐字摘录。 */
+/** fam → v3 实际落到的(错误)属性,全部来自上方隔离夹具的按行为规格。 */
 export const R7_WRONG_PROP = {
   text: 'color',
   border: 'border-color',

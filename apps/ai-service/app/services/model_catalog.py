@@ -27,7 +27,7 @@ TTS / ASR / 图像生成等非对话模型,以及 `-preview-09-2025` 快照、`:
 3. **fim** —— 是否适合做 FIM 代码补全(`is_fim_model`),供补全档位选型用;
    不进入 ModelUsageCategory 枚举,不影响默认展示/折叠语义。
 
-2026-09-19 D23 追加(对标 Codex/Trae/Qoder/WorkBuddy 模型能力矩阵):
+2026-09-19 D23 追加(遵循统一工程规范):
 4. **capabilities** —— 语义能力四布尔 `{vision, reasoning, tools, fim}`,
    名字规则派生 + 显式预设覆盖,随 /llm/models 透出,供前端选择器
    徽章展示与按能力过滤(auto 路由后续消费同一事实源)。
@@ -185,7 +185,7 @@ _CATEGORY_RULES: tuple[tuple[ModelCategory, str], ...] = (
 )
 
 # ---------------------------------------------------------------------------
-# FIM(补全专用)模型规则(2026-09-13 P1-9 立,对标 Trae CUE Tab)
+# FIM(补全专用)模型规则(2026-09-13 P1-9 立,遵循统一工程规范)
 #
 # 与用途分类 category 正交:补全专用模型大多本身也是 chat 模型,不能靠 category 表达。
 # 命中即给模型 dict 附加 `fim: true`,供前端/网关挑选"补全档位"模型
@@ -208,7 +208,7 @@ _FIM_MODEL_RULES: tuple[str, ...] = (
 
 
 # ---------------------------------------------------------------------------
-# 语义能力派生规则(2026-09-19 D23 立,对标 Codex/Trae/Qoder/WorkBuddy 模型能力矩阵)
+# 语义能力派生规则(2026-09-19 D23 立,遵循统一工程规范)
 #
 # 与 category(用途)/ tier(代次)/ fim(补全)正交的第三组布尔:模型"会不会什么"。
 # 产出 `capabilities: {vision, reasoning, tools, fim}`,随 /llm/models 透出,
@@ -961,7 +961,7 @@ def annotate_models(
     # 兜底只抬厂商内的最高代次,老代次的 reason 已被第二趟改掉,天然不会再被抬起来。
     _promote_unlisted_providers(models, classifications)
 
-    # ---- 第三趟:语义能力派生(2026-09-19 D23,对标四竞品模型能力矩阵) ----
+    # ---- 第三趟:语义能力派生(2026-09-19 D23,对齐四竞品模型能力矩阵) ----
     # 必须在代次比较之后:reasoning/tools 依赖**终态** model_tier(旧代次会被压成 legacy)。
     for m in models:
         model_id = str(m.get("id") or m.get("model") or "")

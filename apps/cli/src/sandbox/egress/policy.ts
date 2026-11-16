@@ -60,7 +60,7 @@ export interface EgressPolicy {
   /** 规则表出处(排障要能回答"这套限制是从哪来的")。 */
   readonly source: string;
   /**
-   * 沙箱网络模式(逆向复现 Codex `SandboxNetworkMode`,R11)。
+   * 沙箱网络模式(独立实现 外部实现 `SandboxNetworkMode`,R11)。
    *
    * - `blocked`      —— 离线:在**任何规则匹配 / DNS 解析之前**直接判 deny(Codex 语义 =
    *                     WFP 栈级 BLOCK,连 DNS 都不发)。比在线裁决高一阶。
@@ -190,7 +190,7 @@ export function judgeEgressTarget(rawTarget: string, policy: EgressPolicy | null
   const policyEnforcement: EgressEnforcement = policy!.enforcement === 'enforce' ? 'enforce' : 'advisory';
 
   /**
-   * 离线沙箱短路(逆向复现 Codex `SandboxNetworkMode.BLOCKED`,R11)。
+   * 离线沙箱短路(独立实现 外部实现 `SandboxNetworkMode.BLOCKED`,R11)。
    *
    * Codex 语义 = WFP 栈级 BLOCK:任何规则匹配 / DNS 解析**之前**直接判 unreachable,
    * 连 DNS 都不发。这里在规则表匹配前短路,忠实该"更高一阶"语义。

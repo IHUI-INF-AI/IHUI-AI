@@ -292,7 +292,7 @@ const DOUBAO_UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36'
 
 /**
- * 实证:豆包 web 统一 query 面(2026-11-10 浏览器抓包逐字复刻)。
+ * 实证:豆包 web 统一 query 面(2026-11-10 浏览器抓包独立实现)。
  * 这串参数是**必需项**不是装饰:只带 page_size 打 /samantha/* 会被回 710020702「系统错误」,
  * 补全 version_code/aid/real_aid/device_platform/device_id/pc_version 后立刻 code:0。
  */
@@ -337,7 +337,7 @@ function buildDoubaoDeltaChunk(
 }
 
 /**
- * 实证:chat 面 query 比 IM 面多一组端类型/区域参数(2026-11-10 浏览器抓包逐字复刻,
+ * 实证:chat 面 query 比 IM 面多一组端类型/区域参数(2026-11-10 浏览器抓包独立实现,
  * 纯 Node 复现可通)。故意**不带 `a_bogus`** —— 实测真票下不传也回 200(签名只影响风控评分)。
  */
 function doubaoChatQuery(ctx: AdapterAccountContext): string {

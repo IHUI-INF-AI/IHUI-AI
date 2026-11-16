@@ -76,7 +76,7 @@ function gitAt(root, args) {
 /**
  * 纯判据 + 一次 IO:候选提交的**顶层树**是否已存在于"已备份 / 已落地"面(同 tree 去重)。
  *
- * 两道面与门 30a 的放行面逐字对齐(改这里之前先读 check-commit-loss-guard.mjs 的 tree 等价档):
+ * 两道面与门 30a 的放行面按行为规格(改这里之前先读 check-commit-loss-guard.mjs 的 tree 等价档):
  *  ① `refs/tags/lost-commit/*` 下任一已备份提交的顶层树 —— 即 30a 的 backedTrees;
  *  ② `refs/heads` / `refs/remotes` 可达提交的顶层树 —— 即 30a 的 `git log --all --format=%T`
  *     (:1997-2038 那条 tree 等价放行)。

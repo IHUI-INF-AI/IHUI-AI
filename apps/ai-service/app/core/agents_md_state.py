@@ -1,19 +1,19 @@
 # © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-"""AGENTS.md 模型可见状态(2026-09-20 第五十六批,对标 Codex context/world_state/agents_md.rs)。
+"""AGENTS.md 模型可见状态(2026-09-20 第五十六批,遵循统一工程规范)。
 
-独立纯函数模块:不 import app.core.agents_md(发现/预算逻辑),仅对标 Codex
+独立纯函数模块:不 import app.core.agents_md(发现/预算逻辑),仅遵循统一工程规范
 的「模型可见 AGENTS.md 片段」渲染与状态机。
 
-Codex 源语义逐字对齐:
+外部实现 源语义按行为规格:
 - ``REPLACEMENT_NOTICE`` / ``REMOVAL_NOTICE`` 字面值取自
   ``core/src/context/world_state/agents_md.rs``。
 - 渲染模板取自 ``core/src/context/user_instructions.rs`` 的
   ``UserInstructions::body()`` + ``ContextualUserFragment::render()``:
   开标记 ``"# AGENTS.md instructions"``,可选目录后缀 ``" for {directory}"``,
   正文用 ``<INSTRUCTIONS>…</INSTRUCTIONS>`` 包裹。
-- 状态机(``AgentsMdState``)对标 ``WorldStateSection::render_diff``:
+- 状态机(``AgentsMdState``)对齐 ``WorldStateSection::render_diff``:
   与上次快照逐字节比较(模仿 app.core.environment_context.EnvironmentStateTracker);
   首次 + 内容 → 普通片段;内容变更 → REPLACEMENT 片段;文件删除(无内容)且先前
   有 → REMOVAL 片段;无变化 / 首次空 → None。
@@ -39,7 +39,7 @@ __all__ = [
     "AgentsMdState",
 ]
 
-# 逐字对齐 codex core/src/context/world_state/agents_md.rs 常量。
+# 按行为规格 外部实现 core/src/context/world_state/agents_md.rs 常量。
 REPLACEMENT_NOTICE: str = (
     "These AGENTS.md instructions replace all previously provided AGENTS.md instructions."
 )
@@ -61,7 +61,7 @@ def _normalize_directory(directory: str | None) -> str | None:
 
 
 def render_agents_md_body(directory: str | None, text: str) -> str:
-    """渲染 AGENTS.md 模型可见正文(逐字对齐 codex user_instructions.rs)。
+    """渲染 AGENTS.md 模型可见正文(按行为规格 外部实现 user_instructions.rs)。
 
     codex ``UserInstructions::body()`` 产出 ``"{directory}\\n\\n<INSTRUCTIONS>\\n{text}\\n"``,
     其中 ``directory`` = ``" for {dir}"`` 或空;再经 ``render()`` 在头尾拼接
@@ -133,21 +133,21 @@ def is_agents_md_fragment(text: str) -> bool:
 
 @dataclass
 class AgentsMdSnapshot:
-    """持久化模型可见 AGENTS.md 状态(对标 codex AgentsMdSnapshot)。"""
+    """持久化模型可见 AGENTS.md 状态(遵循统一工程规范)。"""
 
     directory: str | None = None
     text: str | None = None
 
 
 class AgentsMdState:
-    """AGENTS.md 状态机(对标 codex WorldStateSection ID="agents_md")。
+    """AGENTS.md 状态机(遵循统一工程规范)。
 
     逐字节比较风格(模仿 app.core.environment_context.EnvironmentStateTracker):
     每轮推理前调用 maybe_fragment(directory, text);与上次快照相同返回 None
     (不重复注入),变化/首次/删除按分支产出对应片段。
     """
 
-    # 对标 WorldStateSection::ID。
+    # 对齐 WorldStateSection::ID。
     ID = "agents_md"
 
     def __init__(self) -> None:

@@ -6,7 +6,7 @@ import { pgTable, uuid, varchar, timestamp, index } from 'drizzle-orm/pg-core'
 import { relayAlertRules } from './relay-alert-rules.js'
 
 /**
- * 告警静默表(relay_alert_silences,2026-09-16 立,五轮对标补强,对标竞品 /alert-silences)。
+ * 告警静默表(relay_alert_silences,2026-09-16 立,五轮对齐补强,对齐竞品 /alert-silences)。
  *
  * 用途:维护窗口/已知故障期内抑制指定规则(或全部规则)的告警,避免告警风暴与
  * "狼来了"效应。评估引擎(relay-alert-rules-service.evaluateAllAlertRules)在

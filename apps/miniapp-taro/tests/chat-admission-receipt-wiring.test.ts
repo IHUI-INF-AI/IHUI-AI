@@ -114,7 +114,7 @@ describe('差距① 解析腿:走共享判据,不复制四档值域', () => {
     ).toBeNull()
   })
 
-  it('反向:inputId 空串或缺席必须判 null(没有配对标 = 不该留)', () => {
+  it('反向:inputId 空串或缺席必须判 null(没有配对齐 = 不该留)', () => {
     expect(
       parseAdmissionLine(line({ type: 'admission', inputId: '', disposition: 'accepted' })),
     ).toBeNull()

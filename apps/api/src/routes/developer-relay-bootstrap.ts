@@ -5,7 +5,7 @@
 /**
  * /api/developer/relay/keys/:id/bootstrap — API Key 一键接入配置生成器(2026-09-16 立)。
  *
- * 对标 Sub2API:用户拿到 Key 后,平台为每种主流 CLI/客户端生成即贴可用的接入配置。
+ * 对齐 Sub2API:用户拿到 Key 后,平台为每种主流 CLI/客户端生成即贴可用的接入配置。
  * 端点:GET /developer/relay/keys/:id/bootstrap?client=<client>
  *   - requireAuth 鉴权 + 归属校验(request.userId === developerApiKeys.userId)
  *   - client 枚举:codex | codex-ws | claude-code | opencode | gemini-cli | grok-cli

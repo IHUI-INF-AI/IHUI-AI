@@ -5,7 +5,7 @@
 import { fetchApi } from '@/lib/api'
 
 /**
- * Best-of-N 前端 API 客户端(W23,2026-09-14 立,对标 Cursor 多副本自动评审择优)。
+ * Best-of-N 前端 API 客户端(W23,2026-09-14 立,遵循统一工程规范)。
  *
  * 服务端契约(apps/ai-service 的 routers/best_of_n.py,已挂载到 /api):
  *  - POST /api/best-of-n/run  body { messages, n } → BestOfNResult(candidates + winner + rationale)

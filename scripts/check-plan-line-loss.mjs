@@ -176,7 +176,7 @@ function titleMarker(rest) {
  * 有一枚并发暂存版本正整块删掉别人的守门登记,只认 G/D/P/W 会完全看不见。
  * `O\d+` / `B\d+` 两族同日补:计划里 O13b/O14b2/O19b/O20c、B15 这类任务行写成
  * `- [ ] O13b …` 裸编号,加粗正则看不见 —— 本会话 `e8d668ad77` 抹掉的第一条正是它。
- * `V3-\d+[a-z]?` 一族 2026-09-26 补:对话流对标线的登记号是 `V3-47a/47b/47c`(一枚提交一条),
+ * `V3-\d+[a-z]?` 一族 2026-09-26 补:对话流对齐线的登记号是 `V3-47a/47b/47c`(一枚提交一条),
  * 它不属于 G/D/O/P/W/B 任何一形,所以当有一枚并行暂存版本的 PROJECT_PLAN 缺这几行时,
  * 本门与 post-commit 自愈**双双看不见** —— 实测本会话落地 47b/c 后,共享索引里那三份副本
  * 只含 47a 一行。判据不能靠"这族恰好是别人写过的形态",族漏了就等于没门。
@@ -2002,6 +2002,7 @@ export function healLegs(seen, { disk, head, index }) {
  * @returns {{real:Array|null, variant:Array}} real=真缺行(非 multiSlot),variant=同号变体(只报数不判缺)
  */
 export function splitByMultiSlot(list) {
+  // eslint-disable-next-line eqeqeq -- list == null 有意为「null 或 undefined 双判」(调用方两种形态都传),改 === null 会漏判 undefined
   if (list == null) return { real: null, variant: [] }
   const real = []
   const variant = []
@@ -3053,7 +3054,7 @@ function selfTest() {
     },
   )
   t(
-    '归档放行对标题族同样成立:archive 里能找到该标题原文 ⇒ 不算丢(§1 归档 = 正当移除)',
+    '归档放行对齐题族同样成立:archive 里能找到该标题原文 ⇒ 不算丢(§1 归档 = 正当移除)',
     () => {
       const noHeading = O42SEC.split('\n').filter((l) => !l.startsWith('## O42 ')).join('\n')
       const lost = lostMarkers(O42SEC, noHeading)

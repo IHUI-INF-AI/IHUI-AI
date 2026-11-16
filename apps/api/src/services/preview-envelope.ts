@@ -3,33 +3,33 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * 文档解析结构化信封 — 借鉴 Qoder office-reader 的三件架构决策(逆向-复现-超越)。
+ * 文档解析结构化信封。
  *
- * 逆向来源(Qoder CN 0.5.6 out/renderer/office-render-worker.js):
- *   ① previewEngine 自描述:结果标注产出引擎(如 previewEngine:"docx-preview"),
- *      使降级可溯源、可观测、可调试,而非只有一段裸字符串。
- *   ② previewFallback 结构化降级:{category, code, detail, resourceId, title},
- *      taxonomy 实测为 category ∈ {codec,font,object,resource}
- *      × code ∈ {pptx-image-bytes-omitted, pptx-image-codec-unsupported,
- *                pptx-smartart-preview-unavailable, pptx-ole-preview-unavailable, ...}。
- *   ③ 部件模型:每个部件独立携带 contentType(+data+partId),格式信息随部件走。
+ * 三个设计决策：
+ *   ① previewEngine 自描述：结果标注产出引擎（如 previewEngine:"docx-preview"），
+ *      使降级可溯源、可观测、可调试，而非只有一段裸字符串。
+ *   ② previewFallback 结构化降级：{category, code, detail, resourceId, title}，
+ *      taxonomy 为 category ∈ {codec,font,object,resource}
+ *      × code ∈ {pptx-image-omitted, pptx-image-unsupported,
+ *                pptx-smartart-unavailable, pptx-ole-unavailable, ...}。
+ *   ③ 部件模型：每个部件独立携带 contentType(+data+partId)，格式信息随部件走。
  *
- * 复现(IHUI):把上面 ①② 落成一个纯 TS 信封,复用现有 anydoc / unpdf / mammoth /
- *   xlsx-parser 引擎。旧的 parseDocument(返回 string)原样保留,5 个调用方零改动;
+ * IHUI 实现：把上面 ①② 落成一个纯 TS 信封，复用现有 anydoc / unpdf / mammoth /
+ *   xlsx-parser 引擎。旧的 parseDocument（返回 string）原样保留，5 个调用方零改动；
  *   新增 parseDocumentWithEnvelope 返回带 previewEngine + fallback[] 的结构化结果。
  *
- * 超越(对照 Qoder 缺口):
- *   - Qoder 的 fallback 只在 office-render-worker 内部使用、未暴露给调用方分类统计;
- *     我们把 taxonomy 做成可枚举常量 + classify() 单源映射,调用方可据此路由
- *     (如 resource-too-large → 引导压缩,needs-ocr → 引导 OCR)。
- *   - 信封附 elapsedMs + engine 逐次记录,便于对比 anydoc/unpdf/mammoth 真实耗时。
+ * 相对外部方案的增强：
+ *   - fallback 分类统计暴露给调用方，而不只停留在渲染器内部；
+ *     我们把 taxonomy 做成可枚举常量 + classify() 单源映射，调用方可据此路由
+ *     (如 resource-too-large → 引导压缩，needs-ocr → 引导 OCR)。
+ *   - 信封附 elapsedMs + engine 逐次记录，便于对比 anydoc/unpdf/mammoth 真实耗时。
  */
 
-/** 预览/解析引擎标识(与 Qoder previewEngine 同语义,取值自描述)。 */
+/** 预览/解析引擎标识(取值自描述)。 */
 export type PreviewEngine =
   'anydoc' | 'unpdf' | 'mammoth' | 'exceljs' | 'xlsx-legacy' | 'csv' | 'html-text' | 'raw-text'
 
-/** 降级类别 taxonomy(实测对齐 Qoder office-render-worker)。 */
+/** 降级类别 taxonomy。 */
 export const FALLBACK_CATEGORY = {
   /** 编解码器不支持(如某图片 codec、某模型 3D) */
   Codec: 'codec',
@@ -51,15 +51,15 @@ export const FALLBACK_CATEGORY = {
 
 export type FallbackCategory = (typeof FALLBACK_CATEGORY)[keyof typeof FALLBACK_CATEGORY]
 
-/** 降级码 taxonomy(对齐 Qoder 实测 code,前缀表明格式族)。 */
+/** 降级码 taxonomy(前缀表明格式族)。 */
 export const FALLBACK_CODE = {
-  // —— office 渲染族(Qoder 实测)——
-  ImageBytesOmitted: 'pptx-image-bytes-omitted',
-  ImageCodecUnsupported: 'pptx-image-codec-unsupported',
+  // —— office 渲染族 ——
+  ImageBytesOmitted: 'pptx-image-omitted',
+  ImageCodecUnsupported: 'pptx-image-unsupported',
   ImageRasterizationRequired: 'pptx-image-rasterization-required',
-  Model3dUnavailable: 'pptx-model3d-preview-unavailable',
-  OleUnavailable: 'pptx-ole-preview-unavailable',
-  SmartartUnavailable: 'pptx-smartart-preview-unavailable',
+  Model3dUnavailable: 'pptx-model3d-unavailable',
+  OleUnavailable: 'pptx-ole-unavailable',
+  SmartartUnavailable: 'pptx-smartart-unavailable',
   ResourceTooLarge: 'pptx-resource-too-large',
   // —— IHUI 解析族(对齐 anydoc 错误码)——
   Malformed: 'doc-malformed',
@@ -73,7 +73,7 @@ export const FALLBACK_CODE = {
 
 export type FallbackCode = (typeof FALLBACK_CODE)[keyof typeof FALLBACK_CODE]
 
-/** 一条结构化降级(Qoder previewFallback 的 IHUI 复现)。 */
+/** 一条结构化降级。 */
 export interface PreviewFallback {
   category: FallbackCategory
   code: FallbackCode

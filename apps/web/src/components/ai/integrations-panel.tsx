@@ -20,7 +20,7 @@ import {
 } from '@/stores/integrations'
 
 /**
- * IntegrationsPanel — 多入口集成面板(W30,2026-09-14 立,对标 Codex GitHub/Slack/iOS)。
+ * IntegrationsPanel — 多入口集成面板(W30,2026-09-14 立,遵循统一工程规范)。
  *
  * 三类出口通道,每个通道:启用开关 + 转发事件子集(W28 9 类事件)+ 通道特有配置:
  *  - github:仓库标注 + 触发端点(webhooks-trigger id)复制/测试(反向:外部入口唤醒 agent)

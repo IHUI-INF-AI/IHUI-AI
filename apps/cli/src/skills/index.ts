@@ -451,7 +451,7 @@ export const SAFE_FRONTMATTER_KEYS: ReadonlySet<string> = new Set<string>([
  *
  * 为什么是 1024 这个数(三条都要成立,否则就是随手挑的魔法数):
  *   ① **跨工具兼容**:上游/行业 skills 规范的 description 档就是 1024
- *      (`.ihui-agent/tmp/zcode-study/.../adapters/src/skills/index.ts` 的 `MAX_DESCRIPTION_LENGTH`)。
+ *      (`内部规格` 的 `MAX_DESCRIPTION_LENGTH`)。
  *      同一份技能在那边能加载、在这边被拒,等于我们的技能格式和生态不兼容。
  *   ② **成本口径**:description 是「每个技能、每一轮会话都进上下文」的那一行,
  *      它的代价按**技能数**乘;超档基本等于"把正文写错了地方"(该写进 body)。

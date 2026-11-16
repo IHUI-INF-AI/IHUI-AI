@@ -97,7 +97,7 @@ def write_bytes_to_tempfile(data: bytes, suffix: str = "") -> str:
 
 
 # ---------------------------------------------------------------------------
-# 跨进程文件锁 + 崩溃接管(对标 DSH 桌面端 withFileLock / takeOverExitedLock)
+# 跨进程文件锁 + 崩溃接管(遵循统一工程规范)
 #
 # 既有 write_bytes_atomic 只解决"单次写不出现半成品";本节解决另一维:
 #   多个**进程**(如服务多实例、CLI 与服务并发)要独占写同一资源时的互斥,
@@ -109,7 +109,7 @@ def write_bytes_to_tempfile(data: bytes, suffix: str = "") -> str:
 #   - 互斥:加锁 = 原子创建锁文件(exclusive);已存在则读记录判断持有者。
 #   - 接管:持有者记录里的 pid 在**本机**已不存在 ⇒ 视为崩溃遗留,接管并改写记录。
 #   - token 用于释锁时校验"还是我持有"(防止接管者误删后来者的锁)。
-#   - 全程 sha256 参与 token 生成与校验,与 DSH 的锁记录 hash 语义对齐。
+#   - 全程 sha256 参与 token 生成与校验,与 外部实现 的锁记录 hash 语义对齐。
 #
 # 已知边界(诚实声明):pid 存活探测用 os.kill(pid, 0),只在**同一台机器**可靠;
 # 跨主机共享盘的场景不在本 helper 射程内(hostname 不匹配时不接管,宁可让路)。
@@ -188,7 +188,7 @@ def process_file_lock(
     target = Path(path)
     lock_path = target.with_name(target.name + ".lock")
     token = secrets.token_hex(16)
-    # token 参与一次 sha256,作为锁记录完整性的显式凭据(与 DSH hash 语义对齐)
+    # token 参与一次 sha256,作为锁记录完整性的显式凭据(与 外部实现 hash 语义对齐)
     _ = hashlib.sha256(token.encode()).hexdigest()
     deadline = time.monotonic() + max(0.0, max_wait_seconds)
     acquired = False

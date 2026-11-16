@@ -395,7 +395,7 @@ class SandboxLifecycleStore:
         env: dict[str, str] | None = None,
         timeout: int = 60,
     ) -> tuple[SandboxResult, list[str]]:
-        """执行命令。已暂停的沙箱会先恢复（对标 connect 自动 resume）。"""
+        """执行命令。已暂停的沙箱会先恢复（对齐 connect 自动 resume）。"""
         with self._lock:
             self._reap_unlocked()
             record = self._require(sandbox_id)

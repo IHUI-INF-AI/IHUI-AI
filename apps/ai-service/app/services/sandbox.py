@@ -2,7 +2,7 @@
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-"""沙箱执行器 — 对标 Hermes Agent 的 6 种执行后端。
+"""沙箱执行器 — 对齐 Hermes Agent 的 6 种执行后端。
 
 Local:本地 subprocess,白黑名单 + 超时
 Docker:通过 docker run 命令在容器内执行(不装 docker SDK,用 subprocess 调 docker CLI)
@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 
 
 def _exec_shell_detect_enabled_from_env() -> bool:
-    """批58 接线(对标 codex shell_detect.rs):经 shell_detect 派生执行 argv。
+    """批58 接线(遵循统一工程规范):经 shell_detect 派生执行 argv。
 
     默认 off:走现状 create_subprocess_shell(逐字节等价);设为 on/1/true/yes 时
     经 detect_shell_type + derive_exec_args 派生显式 argv,避免隐式 shell 差异。
@@ -39,7 +39,7 @@ def _exec_shell_detect_enabled_from_env() -> bool:
 
 
 def _exec_capture_policy_enabled_from_env() -> bool:
-    """批58 接线(对标 codex exec.rs):输出捕获策略档位。
+    """批58 接线(遵循统一工程规范):输出捕获策略档位。
 
     默认 off:输出原样返回(逐字节等价);设为 on/1/true/yes 时按
     EXEC_CAPTURE_POLICY(默认 shell_tool)档位对 stdout/stderr 施加保留上限。

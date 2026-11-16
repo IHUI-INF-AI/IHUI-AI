@@ -1038,7 +1038,9 @@ export default function CheckinPage() {
               ? 'WorkBuddy'
               : p.platform === 'minimax'
                 ? 'MiniMax'
-                : 'TRAE'
+                : String(p.platform) === 'doubao'
+                  ? 'Doubao'
+                  : 'TRAE'
         if (!p.executed) return `${label}: ${p.detail}`
         return `${label}: ${p.ok ? '✅' : '❌'} ${p.detail}`
       })
@@ -1855,7 +1857,9 @@ export default function CheckinPage() {
             ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-600'
             : platform === 'minimax'
               ? 'border-teal-500/40 bg-teal-500/10 text-teal-600'
-              : 'border-orange-500/40 bg-orange-500/10 text-orange-600'
+              : platform === 'doubao'
+                ? 'border-sky-500/40 bg-sky-500/10 text-sky-600'
+                : 'border-orange-500/40 bg-orange-500/10 text-orange-600'
       }`}
     >
       {platform === 'qoder'
@@ -1864,7 +1868,9 @@ export default function CheckinPage() {
           ? 'WorkBuddy'
           : platform === 'minimax'
             ? 'MiniMax'
-            : 'TRAE'}
+            : platform === 'doubao'
+              ? 'Doubao'
+              : 'TRAE'}
     </span>
   )
 
@@ -2526,7 +2532,7 @@ export default function CheckinPage() {
               )}
             </TabsContent>
 
-            {/* 积分看板(Phase1d,对标参考项目:排行 + 趋势 + 今日新增) */}
+            {/* 积分看板(Phase1d,对齐参考项目:排行 + 趋势 + 今日新增) */}
             <TabsContent value="board" className="mt-3">
               {!board.hasData ? (
                 <div className="rounded-xl border p-10 text-center text-body text-muted-foreground">

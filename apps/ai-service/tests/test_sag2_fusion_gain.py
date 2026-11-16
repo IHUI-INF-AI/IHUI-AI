@@ -19,7 +19,7 @@
   · 多跳型：答案文档不含查询词，只有 SAG2 扩展轮沿桥接词才能到达（SAG2 把
     答案排第 2）；RAG 单跳腿无扩展能力，只召回字面噪声，完全找不到答案。
 - 三个对照组（+ 1 个补充单通道对照）：
-  ① 既有双路 RRF 基线：``_baseline_equal_rrf`` 逐字复刻上一轮 ``fuse_with_rag``
+  ① 既有双路 RRF 基线：``_baseline_equal_rrf`` 独立实现上一轮 ``fuse_with_rag``
      的等权逻辑（分离命名空间 + 1/(k+rank+1)），**独立于被测实现**；
   ② SAG2 单通道：``sag2_results`` 原序；
   ③ 自适应三通道：``Sag2LexicalService.fuse_with_rag`` 默认策略；
@@ -185,7 +185,7 @@ def _build_eval(seed: int) -> tuple[list[dict], list[dict]]:
 
 
 # ---------------------------------------------------------------------------
-# ① 既有双路 RRF 基线：逐字复刻上一轮 fuse_with_rag 的等权逻辑（独立实现）
+# ① 既有双路 RRF 基线：独立实现上一轮 fuse_with_rag 的等权逻辑（独立实现）
 # ---------------------------------------------------------------------------
 def _baseline_equal_rrf(
     sag2_results: list[dict], rag_sources: list[dict], k: int = RRF_K

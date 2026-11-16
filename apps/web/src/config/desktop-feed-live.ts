@@ -318,7 +318,7 @@ function summarizeScan(scan: ReleasesScan): ReleaseScanSummary {
 }
 
 /**
- * 分页取全 release 列表。三条要求(逐字对齐 CI 侧那份的注释):
+ * 分页取全 release 列表。三条要求(按行为规格 CI 侧那份的注释):
  *  ① 翻到"短页"为止(有 maxPages 上限,防被无限分页拖死);
  *  ② 把扫到多少条/几页带回去,静默少扫与扫全不是同一个颜色;
  *  ③ 首页就失败返回 null 交给上层降级,中途失败则带着已拿到的部分继续

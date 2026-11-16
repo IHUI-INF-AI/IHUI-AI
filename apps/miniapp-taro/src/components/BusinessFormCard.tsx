@@ -5,7 +5,7 @@
 /**
  * BusinessFormCard — 小程序端「业务表单卡」(D77 本端落地位,2026-10-17 立)。
  *
- * 对标关系(逐行为抄自 web `apps/web/src/components/ai/business-form-card.tsx` +
+ * 对齐关系(逐行为取自 web `apps/web/src/components/ai/business-form-card.tsx` +
  * host `business-form-section.tsx`):
  *  - 字段表/校验/状态机/出席人折叠全部走共享判定层(@ihui/shared/chat/business-forms),
  *    端内零自判(AGENTS §0.6 判据单源);

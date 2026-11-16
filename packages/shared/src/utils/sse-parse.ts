@@ -169,7 +169,7 @@ export interface SSEEvent {
     /** G-150:incompressible = 压缩已撞到上限,界面须改口径并给"开新对话"出口 */
     trigger?: string
   }
-  /** done 事件携带的 token 用量(对标原 ai_assistant.vue total_tokens,ai-service event:done 下发)。
+  /** done 事件携带的 token 用量(对齐原 ai_assistant.vue total_tokens,ai-service event:done 下发)。
    *  G-403(2026-10-07):cacheReadTokens/cacheWriteTokens 三态(数字=真回报含 0;null/缺席=未采到),
    *  与 api-client UsageEvent、shared sse contract 的 usage 帧同口径 —— 绝不许把"没采到"写成 0。 */
   usage?: {
@@ -905,7 +905,7 @@ function parseLineEvent(line: string): SSEEvent | null {
       return { type: 'meta', sessionId: json.sessionId }
     }
     // done 事件:ai-service 在流末尾下发 {"type":"done","model":"...","usage":{"prompt_tokens":..,"completion_tokens":..,"total_tokens":..}}
-    // 解析 usage.total_tokens 填充到消息的 tokenCount(对标原 ai_assistant.vue total_tokens 显示)
+    // 解析 usage.total_tokens 填充到消息的 tokenCount(对齐原 ai_assistant.vue total_tokens 显示)
     if (json?.type === 'done') {
       const rawUsage = json.usage as Record<string, unknown> | undefined
       const usage = rawUsage

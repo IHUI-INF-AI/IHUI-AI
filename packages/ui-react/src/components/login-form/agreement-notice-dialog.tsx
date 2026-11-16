@@ -38,7 +38,7 @@ export interface AgreementNoticeDialogProps {
  *      视觉上同时尝试把焦点设到"同意"按钮(给用户焦点环反馈)
  *   3. 焦点回到原输入框,再按 Enter → 触发表单 onSubmit → agreed=true 走真实登录
  *
- * 视觉规范(对标 web 端 AgreementNoticeDialog.tsx):
+ * 视觉规范(对齐 web 端 AgreementNoticeDialog.tsx):
  *   - 容器 max-w-[420px] rounded-xl p-3 配 subtle 双层阴影
  *   - 顶部圆形 shield icon(48px bg-primary/10) + 标题 + 副标题
  *   - 中段:两条协议卡片(FileText/Lock 图标 + 标题 + ArrowUpRight),hover 描边变 primary

@@ -22,7 +22,12 @@ import {
 import { fetchAiServiceJson } from '@/lib/api'
 
 /**
- * 「自动做任务」面板(WorkBuddy 任务中心六族)。
+ * 「自动做任务」面板(WorkBuddy 任务中心六族 + 豆包任务族)。
+ *
+ * 豆包(2026-11-16):签到之外的任务赚积分链路 —— 每日签到额度、工作领域任务
+ * (EventReport client_action)、已完成任务与积分里程碑领奖(claim 三分支),
+ * 后端契约唯一源 = apps/ai-service/app/services/checkin_doubao.py(线上 bundle 实证)。
+ * 任务行与执行结果由后端映射成与 WorkBuddy 同一合同形状,面板零分叉复用。
  *
  * 后端契约(apps/ai-service/app/routers/checkin.py):
  * - GET  /api/checkin/accounts/{id}/tasks    ⇒ {ok,kind:"list",tasks:[...],reason,unjudged}
@@ -112,12 +117,23 @@ const WB_SWEEP_TONE_CLASS: Record<WbSweepTone, string> = {
 export function WorkbuddyTaskPanel({ accounts }: { accounts: TaskPanelAccount[] }) {
   const t = useTranslations('checkinAssistant')
   const wbAccounts = React.useMemo(
-    () => accounts.filter((a) => (a.platform ?? '') === 'workbuddy'),
+    // 2026-11-16:豆包任务族已实证接入(签到 + 行为任务 + 已完成任务/里程碑领奖),
+    // 与 WorkBuddy 共用同一面板;任务行/执行结果由后端映射成同一合同形状。
+    () =>
+      accounts.filter((a) => {
+        const p = a.platform ?? ''
+        return p === 'workbuddy' || p === 'doubao'
+      }),
     [accounts],
   )
 
   const [open, setOpen] = React.useState(false)
   const [accountId, setAccountId] = React.useState<number | null>(null)
+  const selectedAccount = React.useMemo(
+    () => wbAccounts.find((a) => a.id === accountId) ?? null,
+    [wbAccounts, accountId],
+  )
+  const isDoubao = (selectedAccount?.platform ?? '') === 'doubao'
   const [tasks, setTasks] = React.useState<TaskRow[] | null>(null)
   const [listReason, setListReason] = React.useState<string | null>(null)
   const [unjudged, setUnjudged] = React.useState(false)
@@ -265,11 +281,58 @@ export function WorkbuddyTaskPanel({ accounts }: { accounts: TaskPanelAccount[] 
 
       {open && (
         <div className="border-t border-border px-4 py-3">
-          <p className="text-label text-muted-foreground">{t('taskPanelDesc')}</p>
+          <p className="text-label text-muted-foreground">
+            {isDoubao ? t('taskPanelDescDoubao') : t('taskPanelDesc')}
+          </p>
 
           {/* 自动巡检态:让「有没有在自动跑、为什么没跑」在界面上直接可读,
               而不是让用户去翻 .env。档位判定来自共享判据;unknown 档明确说「状态未知」,
               不冒充未启用。配色按档位查表(七档穷举,漏一档即编译期红)。 */}
+          {isDoubao ? (
+            <div
+              className="mt-2 rounded-md border border-border bg-muted/40 px-2 py-1.5 text-[11px] text-muted-foreground"
+              data-testid="doubao-task-sweep-status"
+              data-tone={sweep === undefined ? 'loading' : sweep?.doubao_tasks?.enabled ? 'on' : 'off'}
+            >
+              {sweep === undefined ? (
+                <span>{t('taskPanelAutoLoading')}</span>
+              ) : !sweep?.doubao_tasks ? (
+                <span>{t('taskPanelAutoUnknown')}</span>
+              ) : (
+                <>
+                  <span className="font-medium">{t('taskPanelAutoTitle')}：</span>
+                  <span>
+                    {!sweep.doubao_tasks.tasks_enabled
+                      ? t('taskPanelDoubaoOff')
+                      : !sweep.doubao_tasks.enabled
+                        ? t('taskPanelDoubaoNotStarted')
+                        : !sweep.doubao_tasks.live_run
+                          ? t('taskPanelDoubaoDry')
+                          : t('taskPanelDoubaoOn', {
+                              hours: sweep.doubao_tasks.cron_hours
+                                .map((h) => String(h).padStart(2, '0'))
+                                .join('/'),
+                              minute: String(sweep.doubao_tasks.cron_minute).padStart(2, '0'),
+                            })}
+                  </span>
+                  <span className="mt-0.5 block">
+                    {(() => {
+                      const last = sweep.doubao_tasks?.last_sweep
+                      if (!last) return t('taskPanelDoubaoLastNever')
+                      return joinWbSweepParts([
+                        t('taskPanelDoubaoLast', {
+                          time: formatWbIsoMinute(last.at) ?? '—',
+                          claimed: last.claimed,
+                          skipped: last.skipped,
+                        }),
+                        last.note,
+                      ])
+                    })()}
+                  </span>
+                </>
+              )}
+            </div>
+          ) : (
           <div
             className={`mt-2 rounded-md border px-2 py-1.5 text-[11px] ${WB_SWEEP_TONE_CLASS[sweepView.tone]}`}
             data-testid="wb-task-sweep-status"
@@ -306,6 +369,7 @@ export function WorkbuddyTaskPanel({ accounts }: { accounts: TaskPanelAccount[] 
               </span>
             )}
           </div>
+          )}
 
           <div className="mt-3 flex flex-wrap items-end gap-2">
             <div className="min-w-[12rem]">
@@ -326,7 +390,7 @@ export function WorkbuddyTaskPanel({ accounts }: { accounts: TaskPanelAccount[] 
               >
                 {wbAccounts.map((a) => (
                   <option key={a.id} value={a.id}>
-                    {a.name}
+                    {a.platform === 'doubao' ? `${t('taskPanelDoubaoTag')} · ${a.name}` : a.name}
                   </option>
                 ))}
               </select>
@@ -437,9 +501,11 @@ export function WorkbuddyTaskPanel({ accounts }: { accounts: TaskPanelAccount[] 
             </div>
           )}
 
-          <p className="mt-2 text-[11px] text-muted-foreground">
-            {Object.values(KIND_LABEL).join(' · ')}
-          </p>
+          {!isDoubao && (
+            <p className="mt-2 text-[11px] text-muted-foreground">
+              {Object.values(KIND_LABEL).join(' · ')}
+            </p>
+          )}
         </div>
       )}
     </section>

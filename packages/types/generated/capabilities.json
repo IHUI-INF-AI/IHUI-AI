@@ -90,7 +90,7 @@
         "POST /v1/agents/execute/stream"
       ],
       "tools": [
-        "dispatch_subagent"
+        "orchestrate_agents"
       ],
       "rate": {
         "rpm": 30,
@@ -1561,7 +1561,7 @@
     }
   ],
   "toolScopeMap": {
-    "dispatch_subagent": "agents:call",
+    "orchestrate_agents": "agents:call",
     "vision_analyze": "chat:write",
     "proactive_suggestion": "chat:write",
     "list_models": "models:read",

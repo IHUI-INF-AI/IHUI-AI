@@ -4,7 +4,7 @@
 
 /**
  * 慢路径判定环（recorded 积压 → 模型批量判定 → 三值注记）。
- * 行为对照 DeepSeek dsh-superagent「两级过滤的第二级：模型判断」设计；
+ * 行为对照 通用实现「两级过滤的第二级：模型判断」设计；
  * 本文件为自写实现。超越点：判定不越权开工——record 档只注记；auto 档 act 也只走
  * 与人工 acceptRecorded 同一条语义通道（inferred∧auto∧规则名），机器人条目永不被自动开工。
  *

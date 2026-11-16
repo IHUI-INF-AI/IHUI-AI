@@ -6,7 +6,7 @@
 
 """钉钉 Connector(2026-09-02 立,2026-09-20 接入钉盘 Drive 真实实现)。
 
-对标"读取钉钉文档"能力:钉钉文档能力以钉盘(Drive)与知识库为主,
+对齐"读取钉钉文档"能力:钉钉文档能力以钉盘(Drive)与知识库为主,
 本模块落地"钉盘 Drive 文件列表 + 文件下载转文本"(旧版 oapi 接口):
 - token 获取:GET /gettoken(appkey + appsecret,带进程内缓存)
 - 文件列表:POST /topapi/drive/space/file/list(space_id + folder_id,
