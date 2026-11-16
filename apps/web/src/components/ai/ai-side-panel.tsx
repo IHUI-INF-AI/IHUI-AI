@@ -2248,7 +2248,7 @@ export function AISidePanel() {
               'ai-surface-in-mount',
               isMobileSmall
                 ? 'inset-0' // 手机:全屏覆盖
-                : 'ai-float-glow rounded-xl', // 桌面/平板端:浮窗(token 描边 + 投影)
+                : 'ai-float-glow rounded-xl', // 桌面/平板端:浮窗(仅投影,无描边)
             )}
             style={
               isMobileSmall
@@ -2618,7 +2618,7 @@ export function AISidePanel() {
         <div
           // AI 面板容器(最外层,DevTools 可选中)
           // - docked 模式:relative + shrink-0 + py-2,flex 流内布局,mr-1.5 固定 6px 间距
-          // - float 模式(桌面/平板):fixed 定位,z-sticky,可拖拽,token 描边 + 投影浮窗视觉(ai-float-glow)
+          // - float 模式(桌面/平板):fixed 定位,z-sticky,可拖拽,投影浮窗视觉(ai-float-glow,无描边)
           //   rounded-xl 匹配内层 aside 圆角(光晕跟随圆角呈圆弧),去掉 py-2(浮窗无需上下间距)
           // - float 模式(手机 <640px):fixed inset-0 全屏覆盖,无光晕无圆角,最大化可用空间
           // data-testid="ai-panel-root":全局唯一最外层容器标识,DevTools / E2E 可直接选中
@@ -2653,7 +2653,7 @@ export function AISidePanel() {
             floatMode
               ? isMobileSmall
                 ? 'fixed inset-0 z-sticky' // 手机浮窗:全屏覆盖
-                : 'fixed z-sticky ai-float-glow rounded-xl' // 桌面/平板浮窗:token 描边 + 投影
+                : 'fixed z-sticky ai-float-glow rounded-xl' // 桌面/平板浮窗:仅投影,无描边
               : cn(
                   'relative hidden h-full min-[640px]:block mr-1.5 py-2',
                   // 2026-08-17 工作展示区折叠:AI 面板 flex-1 占满右侧(替代固定 width)
