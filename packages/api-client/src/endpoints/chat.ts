@@ -381,7 +381,7 @@ export function regenerateConversation(conversationId: string, messageId: string
   })
 }
 
-/** 编辑重跑(2026-09-12 立,四竞品对标 P0-1):更新目标用户消息内容并删除其后的所有消息(后端事务) */
+/** 编辑重跑(2026-09-12 立,四竞品对齐 P0-1):更新目标用户消息内容并删除其后的所有消息(后端事务) */
 export function editAndRerunConversation(
   conversationId: string,
   messageId: string,
@@ -431,19 +431,30 @@ export function editAiMessageVersion(messageId: string, content: string) {
   )
 }
 
-/** 会话标题自动生成(2026-09-15 立,四竞品对标 V2 #15):
+/** 会话标题自动生成(2026-09-15 立,四竞品对齐 V2 #15):
  * 首轮回复完成后由前端 fire-and-forget 调用,LLM 依据首条用户消息生成标题。
- * 仅默认标题「新对话」会被覆盖;生成失败静默返回 ok:true/updated:false,调用方无需重试。 */
+ * 仅默认标题「新对话」会被覆盖;生成失败静默返回 ok:true/updated:false,调用方无需重试。
+ * 2026-11-16 扩参:strategy='conversation' 由服务端读最近消息重估(实时更新标题开关开启时,
+ * 第 3 轮回复后触发一次),overwriteAuto=true 才允许覆盖既有的自动标题。 */
 export function autoTitleConversation(
   conversationId: string,
   text: string,
-  options?: { model?: string },
+  options?: {
+    model?: string
+    strategy?: 'first-turn' | 'conversation'
+    overwriteAuto?: boolean
+  },
 ) {
   return fetchApi<{ ok: boolean; title?: string; updated: boolean }>(
     `/api/chat/conversations/${encodeURIComponent(conversationId)}/auto-title`,
     {
       method: 'POST',
-      body: JSON.stringify({ text, model: options?.model }),
+      body: JSON.stringify({
+        text,
+        model: options?.model,
+        strategy: options?.strategy,
+        overwriteAuto: options?.overwriteAuto,
+      }),
     },
   )
 }
@@ -790,7 +801,7 @@ export interface CompactConversationResult {
   trigger?: string
 }
 
-/** 手动压缩对话上下文(对标 CLI /compact):无视 88% 自动压缩阈值立即压缩,语义摘要 + 归档落库 */
+/** 手动压缩对话上下文(对齐 CLI /compact):无视 88% 自动压缩阈值立即压缩,语义摘要 + 归档落库 */
 export function compactConversation(conversationId: string) {
   return fetchApi<CompactConversationResult>('/api/chat/compact', {
     method: 'POST',
