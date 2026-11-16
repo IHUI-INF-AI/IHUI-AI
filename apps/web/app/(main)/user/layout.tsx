@@ -59,7 +59,7 @@ export default function UserLayout({ children }: { children: React.ReactNode }) 
   ]
 
   return (
-    <CategoryShell title={t('title')} description={t('subtitle')} navGroups={navGroups}>
+    <CategoryShell title={t('title')} description={t('subtitle')} icon={User} navGroups={navGroups}>
       {children}
     </CategoryShell>
   )

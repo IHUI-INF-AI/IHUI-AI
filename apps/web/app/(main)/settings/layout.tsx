@@ -5,6 +5,7 @@
 'use client'
 
 import { useTranslations } from 'next-intl'
+import { Settings2 } from 'lucide-react'
 import { CategoryShell, type CategoryNavGroup } from '@/components/layout'
 import { NAV_GROUPS } from './helpers'
 
@@ -20,7 +21,12 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
   }))
 
   return (
-    <CategoryShell title={t('title')} description={t('subtitle')} navGroups={navGroups}>
+    <CategoryShell
+      title={t('title')}
+      description={t('subtitle')}
+      icon={Settings2}
+      navGroups={navGroups}
+    >
       {children}
     </CategoryShell>
   )
