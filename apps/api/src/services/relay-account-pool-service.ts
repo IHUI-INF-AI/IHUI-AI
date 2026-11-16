@@ -986,7 +986,6 @@ export async function importAccounts(
         payload: acc,
         index: i,
         platformName: mapped?.name ?? null,
-export async function importAccounts(
         extraPhoneCandidates: [typeof prefClaim === 'string' ? prefClaim : null],
       })
       displayName = naming.name
