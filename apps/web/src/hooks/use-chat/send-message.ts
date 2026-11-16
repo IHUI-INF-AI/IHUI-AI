@@ -78,7 +78,11 @@ import {
 } from './stream-error-report'
 import { getModelContextCapacity } from '@/lib/model-context-capacity'
 import { isContextAtCompactionThreshold } from '@/lib/token-estimate'
-import { getBrowserWorkspaceHandle } from '@/lib/workspace-context-loader'
+import {
+  getBrowserWorkspaceHandle,
+  isBrowserHandleWorkspaceKey,
+} from '@/lib/workspace-context-loader'
+import { isTauri } from '@/lib/tauri-bridge'
 import { executeWorkspaceTool } from '@/lib/workspace-tool-executor'
 import {
   filePathOfArgs,
@@ -806,6 +810,22 @@ export function createSendMessage(
     // web 非 Tauri 环境:用 FileSystemDirectoryHandle 预加载工作区文件内容(阶段 1)
     // Tauri 桌面端返回 undefined,走原有 workspacePath 逻辑
     const workspaceContext = await loadBrowserWorkspaceContext()
+    // 2026-11-16:浏览器句柄型工作区若句柄已失效(刷新后未重新授权),
+    // workspaceContext 会为空 ⇒ 服务端不会走 tool-delegate,fs 工具必败。
+    // 在发送前明确告知,而不是让用户看到一串工具失败。
+    if (
+      !isTauri() &&
+      workspacePath &&
+      isBrowserHandleWorkspaceKey(workspacePath) &&
+      !getBrowserWorkspaceHandle(workspacePath)
+    ) {
+      toast.warning('工作区目录授权已失效', {
+        description: `「${
+          useAiPanelStore.getState().activeWorkspace?.name ?? workspacePath
+        }」需要重新选择一次该目录,AI 才能读写文件。`,
+        duration: 6000,
+      })
+    }
 
     // 2026-08-06 立:不再做 'auto' → stepfun/step-router-v1 防御性降级。
     // 原降级会把 Auto 模式绑死 stepfun 一家,违反用户反馈"应该自动切换所有可使用的模型"。

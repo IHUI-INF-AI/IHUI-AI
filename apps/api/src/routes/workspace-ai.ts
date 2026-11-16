@@ -58,6 +58,7 @@ import {
   getRegisteredWorkspaceRoots,
   isInsideRoot,
   realpathOrResolve,
+  WORKSPACE_ROOTS_ENV,
 } from '../utils/workspace-roots.js'
 
 // F-27:checkpointId 只允许 [A-Za-z0-9_-],拒绝 `..` 与路径分隔符(防越出快照目录任意读写)。
@@ -145,9 +146,23 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
       const rawPath = body.path?.trim()
       // F-278:browse 此前只校验「落在登记根内」,不查 workspace_permissions,
       // 被拒 fs.read 的工作区仍可枚举。现复用 checkWorkspace(只读枚举不阻塞人工审计)。
-      if (rawPath && request.userId) {
+      // 2026-11-16 补:未登记根时 fail-closed;且只允许「根内」或「根的祖先」路径 ——
+      // 此前 path 不在任何根内会直接放行 browse,任意登录用户可枚举整台服务器目录。
+      const roots = getRegisteredWorkspaceRoots()
+      if (roots.length === 0) {
+        return reply
+          .status(403)
+          .send(error(403, `未启用:服务端未登记任何工作区根(${WORKSPACE_ROOTS_ENV} 为空)`))
+      }
+      if (rawPath) {
         const target = realpathOrResolve(rawPath)
-        const root = getRegisteredWorkspaceRoots().find((r) => isInsideRoot(target, r))
+        const root = roots.find((r) => isInsideRoot(target, r))
+        const isAncestorOfRoot = roots.some((r) => isInsideRoot(r, target))
+        if (!root && !isAncestorOfRoot) {
+          return reply
+            .status(403)
+            .send(error(403, `路径未在服务端登记:仅允许 ${WORKSPACE_ROOTS_ENV} 白名单内的路径`))
+        }
         if (root) {
           const decision = await permissionManager.checkWorkspace({
             userId: request.userId,
@@ -184,11 +199,13 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
       const name = body.name ?? body.path.split(/[\\/]/).pop() ?? 'workspace'
       const techStack = fsBridge.detectTechStack(workspaceRoot)
       fsBridge.addRecent(request.userId, { path: workspaceRoot, name, techStack })
-      // 同步查询当前用户的权限配置,前端据此决定是否弹窗
+      // 同步查询当前用户的权限配置,前端据此决定是否弹窗。
+      // 2026-11-16:必须用归一后的 workspaceRoot —— 用原始 body.path 时,
+      // 带尾斜杠/符号链接的同一目录会被当成新工作区,已配置的权限查不到 ⇒ 反复弹 setup。
       const { getPermission, touchLastAccessed } =
         await import('../db/workspace-permission-queries.js')
-      const perm = await getPermission(request.userId, body.path)
-      if (perm) await touchLastAccessed(request.userId, body.path)
+      const perm = await getPermission(request.userId, workspaceRoot)
+      if (perm) await touchLastAccessed(request.userId, workspaceRoot)
       return reply.send(
         success({
           path: workspaceRoot,
