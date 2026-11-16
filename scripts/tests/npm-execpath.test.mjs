@@ -29,6 +29,7 @@ test('npm_execpath 是 .exe 时绝不可交给 node 直载 —— 本判据存�
   assert.equal(p.cmd, 'pnpm')
   assert.deepEqual(p.prefix, [], '不得把 .exe 路径塞进参数首位当模块名')
   assert.equal(p.shell, true, '裸 `pnpm` 要靠 shell 解析 Windows 上的 shim')
+  assert.equal(p.pm, 'pnpm', 'pnpm 侧 tauri 子命令走裸 `tauri build`')
 })
 
 test('.cmd 形态同样不得交给 node', () => {
@@ -44,6 +45,7 @@ test('npm_execpath 是 .c?js 入口时走 node 直载(npm 的既有形态,不得
     assert.equal(p.cmd, NODE, `${entry} 应当可被 node 直载`)
     assert.deepEqual(p.prefix, [entry])
     assert.equal(p.shell, false)
+    assert.equal(p.pm, 'npm', 'npm 侧 tauri 子命令必须走 `run tauri -- build`(npm 11 报 Unknown command: "tauri")')
   }
 })
 

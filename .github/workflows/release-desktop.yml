@@ -28,6 +28,11 @@ on:
       tag:
         description: 'Release tag (e.g. desktop-v0.1.0)'
         required: true
+      allow_unsigned:
+        description: '未签名发版(跳过 Authenticode/公证门,保留 Tauri .sig;等同 0.1.77 形态)'
+        type: boolean
+        required: false
+        default: false
 
 # 并发锁(2026-10-17 加,实测立因):同一个 tag 的发布**绝不允许并行跑两遍**。
 #   实测事故:desktop-v0.1.75 期间先后触发了两轮,两个 job 同时执行
@@ -74,6 +79,14 @@ jobs:
       # 通道 B 的第三件是 `.p8` **内容**(APPLE_API_KEY_P8),不是路径:workflow 负责落盘并
       # 把 APPLE_API_KEY_PATH 指到落盘位置(2026-11-05 补,此前只搬路径变量、文件从未存在)。
       APPLE_SIGNING_CONFIGURED: ${{ secrets.APPLE_CERTIFICATE != '' && secrets.APPLE_CERTIFICATE_PASSWORD != '' && secrets.APPLE_SIGNING_IDENTITY != '' && ((secrets.APPLE_ID != '' && secrets.APPLE_PASSWORD != '' && secrets.APPLE_TEAM_ID != '') || (secrets.APPLE_API_KEY != '' && secrets.APPLE_API_ISSUER != '' && secrets.APPLE_API_KEY_P8 != '')) }}
+      # 未签名发版开关(2026-11-16 立,机主拍板"发未签名包,跟 0.1.77 一样"):
+      # 仅 workflow_dispatch 显式勾选 allow_unsigned 时置 true。置 true 后:
+      #   - Preflight 缺口不再 exit 1(改为 warning),编译继续;
+      #   - 下方 Authenticode/公证步仍靠 SIGNPATH_CONFIGURED/APPLE_SIGNING_CONFIGURED 整体跳过;
+      #   - Tauri 更新器 .sig 正常生成(用已配置的 DESKTOP_TAURI_PRIVATE_KEY),latest.json 照常发布;
+      #   - signature-gate 的"未签名/未公证"判红改判 warning(见该 job);
+      # 注意:push tag 触发时 inputs.allow_unsigned 为空 ⇒ 默认 false ⇒ 走严格门禁,默认路径不变。
+      ALLOW_UNSIGNED: ${{ github.event_name == 'workflow_dispatch' && inputs.allow_unsigned == true }}
     strategy:
       fail-fast: false
       matrix:
@@ -122,7 +135,12 @@ jobs:
           APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
           DESKTOP_TAURI_PRIVATE_KEY: ${{ secrets.DESKTOP_TAURI_PRIVATE_KEY }}
           DESKTOP_TAURI_KEY_PASSWORD: ${{ secrets.DESKTOP_TAURI_KEY_PASSWORD }}
-        run: node scripts/desktop-signing-preflight.mjs --platform "${{ runner.os }}"
+        run: |
+          if [ "$ALLOW_UNSIGNED" = 'true' ]; then
+            node scripts/desktop-signing-preflight.mjs --platform "${{ runner.os }}" --allow-unsigned
+          else
+            node scripts/desktop-signing-preflight.mjs --platform "${{ runner.os }}"
+          fi
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
@@ -797,6 +815,10 @@ jobs:
     name: Signature Gate (${{ matrix.label }})
     needs: build
     if: always() && (startsWith(github.ref, 'refs/tags/desktop-v') || github.event_name == 'workflow_dispatch')
+    env:
+      # 未签名发版开关(与 build job 同口径,见该处注释)。置 true 时下方两步验证跳过,
+      # 由 assert-signed 打 warning + 摘要标注,不再判红阻塞 latest.json。
+      ALLOW_UNSIGNED: ${{ github.event_name == 'workflow_dispatch' && inputs.allow_unsigned == true }}
     strategy:
       fail-fast: false
       matrix:
@@ -823,8 +845,25 @@ jobs:
       - name: Assert signed artifact present
         id: assert-signed
         shell: bash
+        env:
+          ALLOW_UNSIGNED: ${{ github.event_name == 'workflow_dispatch' && inputs.allow_unsigned == true }}
         run: |
           if [ ! -f signed-desktop/signature-manifest.json ]; then
+            if [ "$ALLOW_UNSIGNED" = 'true' ]; then
+              # 显式未签名发版:没有签名清单是预期内形态(签名步整体跳过)。
+              # 改判 warning,不再 exit 1 —— 否则会阻塞 publish-updater-json(latest.json 不更新)。
+              # 注意:未签名产物**不会**被读成"已签名",摘要里会显式标注。
+              if [ "$RUNNER_OS" = 'macOS' ]; then
+                echo "::warning::未签名发版(allow_unsigned=true,macos-universal):无签名清单 —— 本轮按未签名/未公证发布,等同 0.1.77 形态。"
+              else
+                echo "::warning::未签名发版(allow_unsigned=true,windows-x64):无签名清单 —— 本轮按未签名发布,等同 0.1.77 形态。"
+              fi
+              echo '### ⚠️ 未签名发版(allow_unsigned=true)' >> "$GITHUB_STEP_SUMMARY"
+              echo '- 本轮产物无 Authenticode/公证签名(机主显式选择,等同 0.1.77)' >> "$GITHUB_STEP_SUMMARY"
+              echo '- Windows 首次运行撞 SmartScreen、macOS 受 Gatekeeper 约束' >> "$GITHUB_STEP_SUMMARY"
+              echo '- 更新器 .sig 正常生成,已装客户端可继续自动更新' >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
             if [ "$RUNNER_OS" = 'macOS' ]; then
               echo "::error::未公证(macos-universal):找不到签名清单 —— APPLE_CERTIFICATE / APPLE_SIGNING_IDENTITY 或公证凭据未配置,或 build 的签名/公证步骤失败。本门禁拒绝把未签名、未公证产物当成成功发布。"
             else
@@ -836,7 +875,7 @@ jobs:
 
       - name: Verify Windows Authenticode + updater signature (independent runner)
         id: gate-windows
-        if: runner.os == 'Windows'
+        if: runner.os == 'Windows' && env.ALLOW_UNSIGNED != 'true'
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
@@ -893,7 +932,7 @@ jobs:
 
       - name: Verify macOS codesign + notarization + Gatekeeper (independent runner)
         id: gate-macos
-        if: runner.os == 'macOS'
+        if: runner.os == 'macOS' && env.ALLOW_UNSIGNED != 'true'
         shell: bash
         run: |
           set -euo pipefail
