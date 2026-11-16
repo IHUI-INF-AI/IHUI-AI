@@ -32,6 +32,7 @@ import {
   WB_WEB_LOGIN_URL,
   checkinTraeWebLoginProbe,
   checkinWorkbuddyWebLoginProbe,
+  type DoubaoWebLoginCookie,
   type TraeWebLoginProbe,
   type WorkbuddyWebLoginProbe,
 } from '@/lib/tauri-bridge'
@@ -193,5 +194,37 @@ export function relayWebLoginAccountToImport(
     ...(account.expiresAt !== null
       ? { expiresAt: new Date(account.expiresAt * 1000).toISOString() }
       : {}),
+  }
+}
+
+/**
+ * 「豆包网页加号」导入载荷构造(2026-11-17 立,纯函数可单测)。
+ *
+ * 手机号由用户**在本项目页里填一次**(doubao probe 已拿它和上游掩码做过前3后2
+ * 一致性校验);uid 不在这造 —— 服务端 mapDoubaoImport 从 cookies 里的 uid_tt 派生
+ * 稳定 uid(§0.6 单一真相源),前端造第二份判据必然漂移。
+ * keepAliveForever 显式置真:豆包凭据不可续期,永久保活 = 只告警不摘除。
+ * token 取 sessionid 族里第一枚非空值(与提取器主票口径一致);整包 cookies 落
+ * cookiesEnc(转发面 buildCookieHeader 只消费 name/value,host 透传仅作留痕)。
+ */
+export function doubaoProbeToImportAccount(
+  phone: string,
+  cookies: readonly DoubaoWebLoginCookie[],
+): Record<string, unknown> {
+  const pick = (name: string) => cookies.find((c) => c.name === name && c.value)?.value ?? ''
+  const token = pick('sessionid') || pick('sessionid_ss') || pick('sid_tt')
+  return {
+    name: phone,
+    phone,
+    token,
+    enabled: true,
+    keepAliveForever: true,
+    cookies: cookies.map((c) => ({
+      source: 'cookies',
+      key: c.name,
+      name: c.name,
+      host: c.domain ?? '',
+      value: c.value,
+    })),
   }
 }

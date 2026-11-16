@@ -60,6 +60,7 @@ import {
   Wallet,
   Cpu,
 } from '@ihui/ui-react'
+import { Globe } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { BackButton } from '@/components/common'
 import { Tooltip } from '@/components/feedback'
@@ -68,17 +69,21 @@ import { useTauriIpcReady } from '@/hooks/use-desktop'
 import { useWorkPanelStore } from '@/stores/work-panel'
 import {
   closeDockedBrowser,
+  doubaoWebLoginAutofill,
+  doubaoWebLoginProbe,
   openStoreAccountBrowser,
   storeAccountBrowserUrl,
   storeAccountKeepaliveTarget,
   storeAccountProbe,
   storeAccountSession,
+  DOUBAO_WEB_LOGIN_URL,
   type StoreCookieSummary,
   type StoreProbeReport,
 } from '@/lib/tauri-bridge'
 import {
   RELAY_WEB_LOGIN,
   RELAY_WEB_LOGIN_PROVIDERS,
+  doubaoProbeToImportAccount,
   relayWebLoginAccountToImport,
   type RelayWebLoginProvider,
 } from '@/lib/relay-web-login'
@@ -627,6 +632,13 @@ export default function AdminRelayAccountPoolPage() {
   } | null>(null)
   const reloginDockTabRef = React.useRef<string | null>(null)
   const reloginDockSeenRef = React.useRef(false)
+  // 豆包网页加号(2026-11-17):手机号在本页填一次 → 停靠豆包登录页(autofill 代填)→
+  // 轮询内嵌窗 cookie jar + 上游掩码一致性核验 → ok 走同一条导入通道入池。
+  // 能力与载荷形状单源在 @/lib/relay-web-login + tauri-bridge(本组件零硬编码)。
+  const [doubaoOpen, setDoubaoOpen] = React.useState(false)
+  const [doubaoPhase, setDoubaoPhase] = React.useState<'idle' | 'waiting' | 'importing'>('idle')
+  const [doubaoPhone, setDoubaoPhone] = React.useState('')
+  const doubaoDockTabRef = React.useRef<string | null>(null)
   const [importProvider, setImportProvider] = React.useState<ProviderCode | ''>('')
   const [importText, setImportText] = React.useState('')
   const [importResult, setImportResult] = React.useState<ImportResult | null>(null)
@@ -1681,6 +1693,106 @@ export default function AdminRelayAccountPoolPage() {
     return () => clearTimeout(timer)
   }, [relogin, endReloginDock])
 
+  // ── 豆包网页加号(2026-11-17):收尾/发起/轮询,与一键重登同一停靠通道、同一条导入通道 ──
+  const endDoubaoDock = React.useCallback(() => {
+    const store = useWorkPanelStore.getState()
+    const tabId = doubaoDockTabRef.current
+    doubaoDockTabRef.current = null
+    if (tabId) store.closeTab(tabId)
+    if (useWorkPanelStore.getState().tabs.length === 0) store.closePanel()
+    void closeDockedBrowser()
+  }, [])
+
+  const startDoubaoWebLogin = () => {
+    if (!desktop || embedBrowser) {
+      toast.error('豆包网页加号要在桌面主窗里用:内嵌浏览器内容页没有 IPC,读不到登录 Cookie')
+      return
+    }
+    const phone = doubaoPhone.replace(/[\s-]/g, '')
+    if (!/^1[3-9]\d{9}$/.test(phone)) {
+      toast.error('请先填写 11 位中国大陆手机号(这个号只填这一次,登录核验后自动入池)')
+      return
+    }
+    endDoubaoDock()
+    setDoubaoPhase('waiting')
+    doubaoDockTabRef.current = useWorkPanelStore
+      .getState()
+      .openDockedTab(DOUBAO_WEB_LOGIN_URL, '豆包网页登录(号池加号)')
+    // 代填尽力而为:页面渲染有先后,没填上也只是多敲一次手机号,不影响后续核验。
+    void doubaoWebLoginAutofill(phone).catch(() => {})
+  }
+
+  // 轮询探测(2.5s):ok ⇒ 收登录窗 + 走导入通道;no_window 只在「见过窗之后」判定用户关窗;
+  // error ⇒ 如实报(Rust 侧掩码一致性拒绝也走这一态);6 分半超时兜底(与一键重登同节拍)。
+  // autofill 补打前 4 轮:建窗/导航是异步的,首帧填不上就在这几轮里追上。
+  React.useEffect(() => {
+    if (doubaoPhase !== 'waiting') return
+    let stopped = false
+    let seenWindow = false
+    let rounds = 0
+    const phone = doubaoPhone.replace(/[\s-]/g, '')
+    const tick = async () => {
+      if (stopped) return
+      rounds += 1
+      try {
+        if (rounds <= 4) await doubaoWebLoginAutofill(phone).catch(() => {})
+        const probe = await doubaoWebLoginProbe(phone)
+        if (stopped) return
+        if (probe.status === 'no_window') {
+          if (seenWindow) {
+            stopped = true
+            endDoubaoDock()
+            setDoubaoPhase('idle')
+            toast.error('登录窗已关闭,加号未完成')
+          }
+          return
+        }
+        seenWindow = true
+        if (probe.status === 'ok') {
+          stopped = true
+          endDoubaoDock()
+          setDoubaoPhase('importing')
+          importMut.mutate({
+            providerCode: 'doubao',
+            accounts: [doubaoProbeToImportAccount(phone, probe.cookies)],
+          })
+          return
+        }
+        if (probe.status === 'error') {
+          stopped = true
+          endDoubaoDock()
+          setDoubaoPhase('idle')
+          toast.error(probe.message)
+        }
+      } catch {
+        // 瞬态(窗口未建好/IPC 注入竞态):下一轮再试
+      }
+    }
+    const timer = setInterval(() => void tick(), 2500)
+    const deadline = setTimeout(() => {
+      if (stopped) return
+      stopped = true
+      clearInterval(timer)
+      endDoubaoDock()
+      setDoubaoPhase('idle')
+      toast.error('等了 6 分半还没等到登录完成,已退出;确认网络后可再点一次重试')
+    }, 390_000)
+    return () => {
+      stopped = true
+      clearInterval(timer)
+      clearTimeout(deadline)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- importMut 稳定引用;phone 在 waiting 期间冻结
+  }, [doubaoPhase, doubaoPhone, endDoubaoDock])
+
+  const closeDoubaoDialog = () => {
+    setDoubaoOpen(false)
+    if (doubaoPhase !== 'importing') {
+      endDoubaoDock()
+      setDoubaoPhase('idle')
+    }
+  }
+
   const copyUid = (uid: string) => {
     navigator.clipboard?.writeText(uid).then(
       () => toast.success('已复制 uid'),
@@ -1725,6 +1837,10 @@ export default function AdminRelayAccountPoolPage() {
           >
             <MonitorDown className="h-4 w-4" />
             {installShortcutMut.isPending ? '安装中…' : '安装桌面切号'}
+          </Button>
+          <Button variant="outline" onClick={() => setDoubaoOpen(true)}>
+            <Globe className="h-4 w-4" />
+            豆包网页加号
           </Button>
           <Button onClick={() => setImportOpen(true)}>
             <Plus className="h-4 w-4" />
@@ -3044,6 +3160,56 @@ export default function AdminRelayAccountPoolPage() {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={doubaoOpen} onOpenChange={(o) => !o && closeDoubaoDialog()}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>豆包网页加号</DialogTitle>
+          </DialogHeader>
+          {doubaoPhase === 'idle' && (
+            <div className="space-y-4">
+              <p className="text-body text-muted-foreground">
+                手机号只在这里填一次:确认后会停靠豆包登录页(自动代填手机号),
+                你只需接收并输入验证码。登录成功即自动抓会话入池 ——
+                永久保活、自动签到、同步生产,全程不用再单独提供号码。
+              </p>
+              <div className="space-y-2">
+                <Label htmlFor="doubao-add-phone">手机号</Label>
+                <Input
+                  id="doubao-add-phone"
+                  value={doubaoPhone}
+                  onChange={(e) => setDoubaoPhone(e.target.value)}
+                  placeholder="11 位中国大陆手机号(该豆包号登录使用的号码)"
+                  inputMode="tel"
+                  maxLength={13}
+                />
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={closeDoubaoDialog}>
+                  取消
+                </Button>
+                <Button onClick={startDoubaoWebLogin} disabled={!desktop || embedBrowser}>
+                  <LogIn className="h-4 w-4" />
+                  开始登录
+                </Button>
+              </DialogFooter>
+              {!desktop && (
+                <p className="text-label text-muted-foreground">
+                  此功能要在桌面主窗里用(需要内嵌浏览器 IPC 读登录 Cookie)
+                </p>
+              )}
+            </div>
+          )}
+          {(doubaoPhase === 'waiting' || doubaoPhase === 'importing') && (
+            <div className="flex items-center gap-2 py-4 text-body">
+              <Loader2 className="h-4 w-4 animate-spin text-primary" />
+              {doubaoPhase === 'waiting'
+                ? '等待你在停靠的登录页完成手机号验证码登录…(最长 6 分半)'
+                : '登录完成,正在抓取会话并入池…'}
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 
