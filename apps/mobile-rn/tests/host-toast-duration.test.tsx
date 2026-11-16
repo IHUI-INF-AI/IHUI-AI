@@ -75,7 +75,7 @@ describe('RN HostToastLayer 时长取共享单源', () => {
   })
 
   /**
-   * 与小程序端同一条屏调用逐字对齐:两端渲染层拿到的数必须相等。
+   * 与小程序端同一条屏调用按行为规格:两端渲染层拿到的数必须相等。
    * 口径来源是同一枚通道常量,所以这里比的是"两条订阅链都改吃单源"这件事本身。
    */
   it('跨端等值:RN 订阅链拿到的时长 == 小程序端口链拿到的时长 == 单源常量', async () => {
@@ -98,7 +98,9 @@ describe('RN HostToastLayer 时长取共享单源', () => {
   })
 
   it('形状锁:RN 渲染层不得再自立数字默认时长(改回各自一份即翻红)', () => {
-    const src = maskComments(readFileSync(join(__dirname, '../src/host/HostToastLayer.tsx'), 'utf8'))
+    const src = maskComments(
+      readFileSync(join(__dirname, '../src/host/HostToastLayer.tsx'), 'utf8'),
+    )
     expect([...src.matchAll(/DEFAULT_DURATION[A-Z_]*\s*=\s*\d+/g)].map((m) => m[0])).toEqual([])
     expect(src).toContain('HOST_TOAST_DEFAULT_DURATION_MS')
   })

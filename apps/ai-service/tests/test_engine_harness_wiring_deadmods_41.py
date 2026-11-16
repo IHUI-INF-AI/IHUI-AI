@@ -145,7 +145,7 @@ def test_engine_thread_has_tracker_field():
 
 
 def test_get_context_remaining_builtin():
-    """批 42:get_context_remaining 内置元工具(对标 codex get_context_remaining)。"""
+    """批 42:get_context_remaining 内置元工具(遵循统一工程规范)。"""
     import asyncio
 
     from app.services.agent_loop_v2 import AgentLoopV2, ToolCall, ToolDefinition, ToolResult
@@ -169,7 +169,7 @@ def test_get_context_remaining_builtin():
     gcr = [s for s in loop._build_tools_schema() if s["function"]["name"] == "get_context_remaining"][0]
     assert gcr["function"]["parameters"] == {"type": "object", "properties": {}}
 
-    # 2) 未启用 rollout 预算 → tokens_left=None(未知语义,对标 codex unknown)
+    # 2) 未启用 rollout 预算 → tokens_left=None(未知语义,遵循统一工程规范)
     tc = ToolCall(id="t1", name="get_context_remaining", args={})
     r = asyncio.run(loop._execute_single(tc))
     assert isinstance(r, ToolResult)
@@ -271,7 +271,7 @@ def test_vision_analyze_small_image_untouched(monkeypatch, tmp_path):
 
 
 def test_user_shell_command_fragment():
-    """批 42:user_shell_command 片段构造(对标 context/user_shell_command.rs)。"""
+    """批 42:user_shell_command 片段构造(对齐 context/user_shell_command.rs)。"""
     from app.core.user_shell_command import (
         USER_SHELL_COMMAND_CLOSE_TAG,
         USER_SHELL_COMMAND_OPEN_TAG,

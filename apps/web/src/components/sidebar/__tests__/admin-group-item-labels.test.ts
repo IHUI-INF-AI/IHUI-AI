@@ -9,9 +9,8 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 import { ADMIN_NAV_GROUPS } from '@/components/layout/AdminNav'
-import { NAV_GROUPS } from '../nav-data'
+import { ADMIN_HUB_ITEMS } from '../nav-data'
 import { mergeMessages } from '@ihui/i18n/loader'
-import type { NavItem } from '../types'
 
 /**
  * admin 分组菜单项取名回归 —— 2026-10-19「一排按钮全叫『动态路由』」的锁。
@@ -68,10 +67,14 @@ const PLACEHOLDER = new Set(LOCALES.map((loc) => String(navOf(loc).adminDynamic)
  * 判据输入与被修的对象不同源 ⇒ 后果锁根本不锁后果(AGENTS.md §22c/§0.6)。
  * 判据必须打在病灶真正发生的那一层。
  */
-const renderedItems = NAV_GROUPS.flatMap((g) =>
-  (g.items.flatMap((item) => (item.children?.length ? item.children : [item])) as NavItem[]).map(
-    (item) => ({ group: g.label, ...item }),
-  ),
+// 2026-11-16 管理组收敛为单入口 /domains/admin 后,渲染面迁到域入口页(ADMIN_HUB_ITEMS);
+// 原判据读 NAV_GROUPS.adminGroupLabel.items 会因单入口而 vacuous(③ 直接 0 项恒红)。
+// 数据源与渲染侧同源(§0.6):ADMIN_HUB_ITEMS 就是域页卡片网格的输入。
+const renderedItems = ADMIN_HUB_ITEMS.flatMap((item) =>
+  (item.children?.length ? item.children : [item]).map((child) => ({
+    group: 'adminGroupLabel',
+    ...child,
+  })),
 ).filter((item) => ADMIN_NAV_GROUPS.some((g) => g.items.some((src) => src.href === item.href)))
 
 describe('admin 分组菜单项取名(2026-10-19 回归)', () => {

@@ -6,7 +6,7 @@ import { ELEVATION_STEPS, rnRadiusFor, rnType } from '@ihui/design-tokens'
 /**
  * FloatingActionButton 悬浮发布按钮(mobile-rn 端)
  *
- * 共享组件:抽取自 LearnDevelopScreen / PlazaScreen / StudyIndexScreen 三处逐字复制的 FAB。
+ * 共享组件:抽取自 LearnDevelopScreen / PlazaScreen / StudyIndexScreen 三处按行为规格的 FAB。
  * - 48×48 品牌色圆角方块(角色档 control→sm(4),与 web @ihui/ui-react Button 基座的
  *   rounded-sm 同档;此处旧注释写"圆角 12"描述的是迁移前的内联值,已按实际取值更正)
  * - Pressable + pressed 态(opacity 0.8)

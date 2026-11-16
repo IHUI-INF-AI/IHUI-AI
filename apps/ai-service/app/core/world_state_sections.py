@@ -1,12 +1,12 @@
 # © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-"""world_state_sections(2026-09-20 第五十六批, 对标 codex model.rs /
+"""world_state_sections(2026-09-20 第五十六批, 遵循统一工程规范
 context_window_guidance.rs / token_budget_context.rs)。
 
 世界状态片段渲染: 模型切换指令(ModelInstructionsState)、上下文窗口指引
 (ContextWindowGuidanceState)、剩余 token 预算(TokenBudgetRemainingContext)、
-上下文窗口元数据(ContextWindowSection)。正文与标记逐字对齐 codex。
+上下文窗口元数据(ContextWindowSection)。正文与标记按行为规格 外部实现。
 """
 
 from __future__ import annotations
@@ -50,7 +50,7 @@ REMOVAL_NOTICE = "The previously provided context-window guidance no longer appl
 
 
 class ModelInstructionsState:
-    """模型身份与切换指令(ModelInstructionsState), 对标 codex model.rs。"""
+    """模型身份与切换指令(ModelInstructionsState), 遵循统一工程规范。"""
 
     def __init__(self, model: str, previous_model: str | None, instructions: str) -> None:
         self.model = model
@@ -73,7 +73,7 @@ class ModelInstructionsState:
 
 
 class ContextWindowGuidanceState:
-    """上下文窗口指引(ContextWindowGuidanceState), 对标 codex context_window_guidance.rs。"""
+    """上下文窗口指引(ContextWindowGuidanceState), 遵循统一工程规范。"""
 
     def __init__(self, message: str | None) -> None:
         if message is not None and not message.strip():
@@ -105,7 +105,7 @@ class ContextWindowGuidanceState:
 
 
 class TokenBudgetRemainingContext:
-    """剩余 token 预算(TokenBudgetRemainingContext), 对标 codex token_budget_context.rs。"""
+    """剩余 token 预算(TokenBudgetRemainingContext), 遵循统一工程规范。"""
 
     def __init__(self, tokens_left: int | None) -> None:
         self.tokens_left = tokens_left
@@ -115,7 +115,7 @@ class TokenBudgetRemainingContext:
 
 
 class ContextWindowSection:
-    """上下文窗口元数据(ContextWindowSection), 对标 codex token_budget_context.rs。"""
+    """上下文窗口元数据(ContextWindowSection), 遵循统一工程规范。"""
 
     def __init__(
         self,

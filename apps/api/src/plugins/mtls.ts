@@ -38,6 +38,13 @@ export interface MtlsClientIdentity {
   validFrom: string
   /** 有效期截止(原始字符串) */
   validTo: string
+  /**
+   * F-710:证书链是否通过校验(socket.authorized)。
+   * 降级模式下即使证书链不可信也会注入身份(保留出口诊断事实),但 verified=false;
+   * 下游路由**必须**用它区分「已验证身份」与「仅出示了证书」—— 授权判据只认 verified=true,
+   * 否则等于把链校验失败的证书 CN 当成可信客户端身份(修复前的漏洞)。
+   */
+  verified: boolean
 }
 
 export interface MtlsRouteConfig {
@@ -112,7 +119,7 @@ function asString(val: string | string[] | undefined): string {
 /**
  * 从 PeerCertificate 构建客户端身份信息。
  */
-function buildClientIdentity(cert: PeerCertificate): MtlsClientIdentity {
+function buildClientIdentity(cert: PeerCertificate, verified: boolean): MtlsClientIdentity {
   const cn = asString(cert.subject.CN)
   const fingerprint = (cert.fingerprint256 ?? '').replace(/:/g, '').toLowerCase()
   const issuerCn = asString(cert.issuer.CN) || asString(cert.issuer.O)
@@ -122,6 +129,7 @@ function buildClientIdentity(cert: PeerCertificate): MtlsClientIdentity {
     issuer: issuerCn,
     validFrom: cert.valid_from,
     validTo: cert.valid_to,
+    verified,
   }
 }
 
@@ -186,8 +194,11 @@ const mtlsPlugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     }
 
     // --- 1. 校验证书链(socket.authorized) ---
+    // F-710:跟踪 authorized 状态,后续 CN 白名单和身份注入都要用它区分「已验证」vs「仅出示」
+    let authorized = true
     const socket = request.raw.socket
     if (socket instanceof TLSSocket && !socket.authorized) {
+      authorized = false
       const authErr = socket.authorizationError
       const errMsg = authErr instanceof Error ? authErr.message : 'unknown'
       if (required) {
@@ -212,8 +223,17 @@ const mtlsPlugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     }
 
     // --- 3. CN 白名单检查 ---
+    // F-710:CN 白名单是授权判据,**仅在证书链可信(authorized)时生效**。
+    // 降级模式下链校验失败时,证书 CN 不可信 —— 不能拿它过白名单后注入,否则等于
+    // 把未验证证书的 CN 当成可信客户端身份。这里 fail-closed:未授权 + 配了白名单即 403。
     const cnAllowList = mtlsConfig.cnAllowList
     if (cnAllowList && cnAllowList.length > 0) {
+      if (!authorized) {
+        reply
+          .status(401)
+          .send(error(401, 'Client certificate chain not authorized; CN allow list not applicable'))
+        return
+      }
       const cn = asString(cert.subject.CN)
       if (!cnAllowList.includes(cn)) {
         reply.status(403).send(error(403, `Client certificate CN "${cn}" not in allow list`))
@@ -239,7 +259,9 @@ const mtlsPlugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     }
 
     // --- 5. 注入客户端身份到 request ---
-    request.mtlsClient = buildClientIdentity(cert)
+    // F-710:verified=authorized。降级模式下链校验失败的证书仍注入(保留出口诊断事实),
+    // 但 verified=false;下游授权判据**必须**只认 verified=true,不得拿未验证 CN 做授权。
+    request.mtlsClient = buildClientIdentity(cert, authorized)
   })
 }
 

@@ -24,7 +24,7 @@ import {
 } from '@/lib/ai-panel-bucket'
 
 /** AI 侧边 docked 面板默认宽度
- * - 2026-09-30 重构(输入框底栏单行化,深度对标 Trae/Qoder/Codex):
+ * - 2026-09-30 重构(输入框底栏单行化,深度遵循统一工程规范):
  *   底部工具栏改为单行 8 控件后,全部控件 icon-only 基线宽 ≈336px(容器 = 面板-48),
  *   300px 旧默认(容器 252)必然溢出重叠 —— 这正是用户抱怨"堆得乱七八糟"的根因之一。
  *   默认提到 480(容器 432,模型文字可显示),MIN 提到 400(容器 352,icon-only 全量可点)。
@@ -35,7 +35,7 @@ export const AI_PANEL_DEFAULT_WIDTH = 480
 export const AI_PANEL_MIN_WIDTH = 400
 export const AI_PANEL_MAX_WIDTH = 720
 
-/** AI 面板当前绑定的本地工作区(参考 Trae/Codex 顶部 project selector 设计)
+/** AI 面板当前绑定的本地工作区(遵循统一工程规范)
  *  - 用户在 AI 面板顶部"添加工作区"按钮选择本地文件夹后绑定
  *  - 绑定后标题显示 workspace.name,取代兜底"空工作区"文字
  *  - path 用于后续 AI 工具调用 fs.read/grep 等的根路径上下文
@@ -78,7 +78,7 @@ interface AiPanelState {
    */
   conversationWorkspaces: Record<string, ActiveWorkspace | null>
   /**
-   * 待确认权限的工作区(2026-07-25 立,深度对标 Codex approval setup):
+   * 待确认权限的工作区(2026-07-25 立,深度遵循统一工程规范):
    * 用户在 WorkspaceSelector 绑定新工作区但该工作区尚未配置权限(perm=null)时,
    * 写入此字段。由 ai-side-panel 监听并弹 WorkspacePermissionDialog,
    * 用户在弹窗选定模式后:回写 activeWorkspace.mode + 清空 pendingPermissionSetup。
@@ -131,7 +131,7 @@ interface AiPanelState {
   /** 工作展示区折叠态:true = 隐藏右侧 work-area,AI 面板占满(2026-08-17 用户需求) */
   workAreaCollapsed: boolean
   /**
-   * 工作面全屏(D182,对标竞品 chatSession.headerActions enter/exitWorkspaceFullscreen):
+   * 工作面全屏(D182,对齐竞品 chatSession.headerActions enter/exitWorkspaceFullscreen):
    * true = 隐藏 AI 面板,右侧审阅工作面(work-area)占满整行;退出按钮经 portal 渲染在
    * work-area 右上角。会话级 UI 态不持久化(与 floatMode 同理,刷新回到 docked 默认态)。
    */

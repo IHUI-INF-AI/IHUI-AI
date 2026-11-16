@@ -28,7 +28,11 @@ import { config } from '../config/index.js'
 import { buildInternalCallHeaders } from '../utils/internal-call-headers.js'
 import { decryptField } from '../utils/crypto.js'
 import { logger } from '../utils/logger.js'
-import { isRelayProviderCode, type RelayProviderCode } from './relay-account-format.js'
+import {
+  isRelayProviderCode,
+  resolveRelayAccountName,
+  type RelayProviderCode,
+} from './relay-account-format.js'
 import { resolveAccountProxyUrl } from './relay-proxy-pool.js'
 
 // =============================================================================
@@ -128,6 +132,10 @@ export interface PoolSyncAccountSource {
   tokenExpiresAt: Date | null
   /** ZCode plan 票(见 PoolSyncAccount.planToken 注释) */
   planToken?: string | null
+  /** 号池 extraMetadata(命名规则用:手机号优先,无手机号用用户名) */
+  extraMetadata?: unknown
+  /** 平台代码(命名规则复用导入侧单源判据;缺省不改名) */
+  providerCode?: string
 }
 
 /**
@@ -180,6 +188,47 @@ export function zcodePlanJwtFromSecrets(
   return null
 }
 
+/**
+ * 号池账号展示名规则(2026-11-16):手机号优先,没有手机号才用用户名。
+ * 手机号/用户名的键位与形态判定全部复用导入侧单源 `resolveRelayAccountName`
+ * (不在这里另抄一份手机号判据)。extraMetadata 里的候选键:
+ * - 手机号:login_phone / phone / mobile
+ * - 用户名:doubao_screen_name / display_name / nickname / screen_name
+ * 两者都没有 ⇒ 保留原 name(不拿 uid 等内部标识冒充用户名)。
+ */
+export function preferredPoolAccountName(
+  name: string,
+  extraMetadata: unknown,
+  providerCode?: string,
+): string {
+  const fallback = (name ?? '').trim().slice(0, 128)
+  if (!providerCode || !isRelayProviderCode(providerCode)) return fallback
+  let meta = extraMetadata
+  if (typeof meta === 'string') {
+    try {
+      meta = JSON.parse(meta)
+    } catch {
+      return fallback
+    }
+  }
+  if (!meta || typeof meta !== 'object' || Array.isArray(meta)) return fallback
+  const m = meta as Record<string, unknown>
+  const pick = (...keys: string[]): string => {
+    for (const k of keys) {
+      const v = m[k]
+      if (typeof v === 'string' && v.trim()) return v.trim()
+    }
+    return ''
+  }
+  const phone = pick('login_phone', 'phone', 'mobile')
+  const username = pick('doubao_screen_name', 'display_name', 'nickname', 'screen_name')
+  if (!phone && !username) return fallback
+  const payload: Record<string, unknown> = {}
+  if (phone) payload.phone = phone
+  if (username) payload.name = username
+  return resolveRelayAccountName({ providerCode, payload, platformName: fallback, index: 0 }).name
+}
+
 /** 构造推送载荷(expiresAt 统一序列化为 ISO;无效日期按 null 处理,不抛) */
 export function buildPoolSyncAccount(src: PoolSyncAccountSource): PoolSyncAccount {
   const exp =
@@ -194,7 +243,7 @@ export function buildPoolSyncAccount(src: PoolSyncAccountSource): PoolSyncAccoun
     poolAccountId: src.id,
     ownerUserId: src.ownerUserId,
     uid: src.uid,
-    name: src.name,
+    name: preferredPoolAccountName(src.name, src.extraMetadata, src.providerCode),
     token,
     refreshToken: src.refreshToken,
     credVersion: src.credVersion,
@@ -762,6 +811,8 @@ export async function retryPendingCheckinSyncs(
         deviceId: row.deviceId,
         machineId: row.machineId,
         cosy: extractCosy(row.extraMetadata),
+        extraMetadata: row.extraMetadata,
+        providerCode: row.providerCode,
         deviceKeyPem: pemFromSecrets(secretsForPem, 'deviceKeyPem'),
         devicePubPem: pemFromSecrets(secretsForPem, 'devicePubPem'),
         planToken: zcodePlanJwtFromSecrets(secretsForPem),
@@ -1179,6 +1230,8 @@ async function loadPoolSyncAccountById(id: string): Promise<PoolSyncAccount | nu
     deviceId: row.deviceId,
     machineId: row.machineId,
     cosy: extractCosy(row.extraMetadata),
+    extraMetadata: row.extraMetadata,
+    providerCode: row.providerCode,
     deviceKeyPem: pemFromSecrets(secretsForPem, 'deviceKeyPem'),
     devicePubPem: pemFromSecrets(secretsForPem, 'devicePubPem'),
     planToken: zcodePlanJwtFromSecrets(secretsForPem),

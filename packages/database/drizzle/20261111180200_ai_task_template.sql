@@ -11,7 +11,7 @@
 --       触发方式 manual / cron / event;cron 由 jobs/ai-task-cron.ts 每 5 分钟扫 triggerType=cron 模板执行。
 --
 -- 幂等安全:IF NOT EXISTS 守门,可安全重复执行。
--- 与 packages/database/src/schema/ai-task-template.ts 逐字对齐。
+-- 与 packages/database/src/schema/ai-task-template.ts 按行为规格。
 --
 -- 执行方式:
 --   pnpm tsx packages/database/scripts/apply-migration.mjs drizzle/20261111180200_ai_task_template.sql

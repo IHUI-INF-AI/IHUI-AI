@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * Models CLI — 模型市场与管理命令,对标 Web 端 /models 10+ 页功能(模型列表/密钥/用量/账单/分组)。
+ * Models CLI — 模型市场与管理命令,对齐 Web 端 /models 10+ 页功能(模型列表/密钥/用量/账单/分组)。
  *
  * 对接后端多模块(因 Web 端 /models 跨多个 API 域):
  *  - GET /api/llm/models              → { models: [{ id, name, provider, context_length, input_price }] }(LLM 网关可用模型,代理 ai-service)
@@ -467,7 +467,7 @@ async function listGroups(baseUrl: string, asJson: boolean, apiKey?: string): Pr
 export function registerModelsCommand(program: Command): void {
   const modelsCmd = program
     .command('models')
-    .description('模型市场与管理 (对标 Web 端 /models)');
+    .description('模型市场与管理 (对齐 Web 端 /models)');
 
   modelsCmd
     .command('list')

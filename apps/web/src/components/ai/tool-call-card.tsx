@@ -56,6 +56,7 @@ import {
 import { JsonCode } from '@/components/chat/stream/json-code'
 import { InlineDiffCard } from './inline-diff-card'
 import { ToolDiffJumpButton } from './open-tool-diff'
+import { streamKindForTool } from './progress-sections/tool-category'
 // 2026-10-21 首屏瘦身:走**子路径**而不是 @/components/media 的 barrel。
 // barrel 会把 ImageViewer / VideoPlayer / LivePlayer / CodeViewer / MarkdownViewer 一并
 // 拖进本文件所在的那枚 chunk(本文件在营销页的静态链上:根 layout → GlobalShell →
@@ -609,7 +610,7 @@ export interface PresentedFileEntry {
 }
 
 /**
- * 2026-11-14(对标 DSH dsh-client-ui-deliverables 的交付卡):
+ * 2026-11-14(遵循统一工程规范):
  * 解析 present_files 的成功结果。优先 `result.presented`(服务端权威),结果缺失
  * (流未收尾/旧会话回放)时退回 `args.files`;路径大小写去重、上限 8,与工具契约一致。
  */
@@ -1558,7 +1559,7 @@ export const ToolCallCard = React.memo(function ToolCallCard({
   const chartArtifact = React.useMemo(() => extractChartArtifact(result), [result])
   // 图表 Artifact 命中时替代原始 result pre 渲染(与 image/summary 处理方式一致)
   const showChartArtifact = !!chartArtifact && status === 'success'
-  // 2026-11-14(对标 DSH 交付卡):present_files 成功且解析出条目时,用交付清单替代原始 JSON。
+  // 2026-11-14(遵循统一工程规范):present_files 成功且解析出条目时,用交付清单替代原始 JSON。
   const presentedFiles = React.useMemo(
     () =>
       toolName === 'present_files' && status === 'success' ? parsePresentedFiles(args, result) : [],
@@ -1578,6 +1579,7 @@ export const ToolCallCard = React.memo(function ToolCallCard({
     <div>
       <StreamRow
         status={streamStatus}
+        kind={streamKindForTool(toolName)}
         title={rowTitle}
         subject={view.subject}
         subjectKind={view.subjectKind}

@@ -5,13 +5,13 @@
 """Harness 细粒度能力(2026-09-18 第四批):榨干 Codex harness 剩余可学面的单测。
 
 覆盖:
-- tools.search 工具目录搜索 + tools.load 延迟装载(对标 tool_search/LoadableToolSpec)
-- request_user_input 中轮结构化提问(对标 elicitation:回填/非法参/超时)
-- unified_exec 持久 shell 会话(对标 unified_exec:新建/续写增量/上限)
-- auto-compact 阈值自动压缩(对标 compact_token_budget,trigger=auto)
-- outputSchema 结构化终答校验(对标 output_schema,违例事件 + fail-open)
-- 角色模板(对标 agent-roles:thread.start / spawn_subagent role 注入)
-- turnTiming 回合计时(对标 turn_timing)+ thread.state 暴露新字段
+- tools.search 工具目录搜索 + tools.load 延迟装载(对齐 tool_search/LoadableToolSpec)
+- request_user_input 中轮结构化提问(对齐 elicitation:回填/非法参/超时)
+- unified_exec 持久 shell 会话(对齐 unified_exec:新建/续写增量/上限)
+- auto-compact 阈值自动压缩(对齐 compact_token_budget,trigger=auto)
+- outputSchema 结构化终答校验(对齐 output_schema,违例事件 + fail-open)
+- 角色模板(对齐 agent-roles:thread.start / spawn_subagent role 注入)
+- turnTiming 回合计时(对齐 turn_timing)+ thread.state 暴露新字段
 """
 
 import asyncio
@@ -111,7 +111,7 @@ def _find_builtin(engine: AgentEngine, thread: Any, name: str) -> Any:
 
 
 # =============================================================================
-# tools.search / tools.load(对标 tool_search / LoadableToolSpec)
+# tools.search / tools.load(对齐 tool_search / LoadableToolSpec)
 # =============================================================================
 
 
@@ -177,7 +177,7 @@ async def test_tools_load_registers_with_catalog_defaults():
 
 
 # =============================================================================
-# request_user_input(对标 elicitation)
+# request_user_input(对齐 elicitation)
 # =============================================================================
 
 
@@ -237,7 +237,7 @@ async def test_request_user_input_invalid_and_timeout():
 
 
 # =============================================================================
-# unified_exec(对标 Codex unified_exec)
+# unified_exec(遵循统一工程规范)
 # =============================================================================
 
 
@@ -283,7 +283,7 @@ async def test_unified_exec_session_limit(monkeypatch):
 
 
 # =============================================================================
-# auto-compact(对标 compact_token_budget)+ trigger 语义
+# auto-compact(对齐 compact_token_budget)+ trigger 语义
 # =============================================================================
 
 
@@ -327,7 +327,7 @@ async def test_auto_compact_triggers_after_turn_with_auto_trigger():
 
 
 # =============================================================================
-# outputSchema(对标 output_schema)
+# outputSchema(对齐 output_schema)
 # =============================================================================
 
 
@@ -405,7 +405,7 @@ async def test_output_schema_violation_event_and_invalid_schema_rejected():
 
 
 # =============================================================================
-# 角色模板(对标 agent-roles / collaboration-mode-templates)
+# 角色模板(对齐 agent-roles / collaboration-mode-templates)
 # =============================================================================
 
 
@@ -443,7 +443,7 @@ async def test_spawn_subagent_role_propagates():
 
 
 # =============================================================================
-# turnTiming + thread.state 暴露(对标 turn_timing)
+# turnTiming + thread.state 暴露(对齐 turn_timing)
 # =============================================================================
 
 

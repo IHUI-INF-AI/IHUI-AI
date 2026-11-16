@@ -430,7 +430,7 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // ===========================================================================
-  // 1.1 Git Status + GitHub 集成 — 环境信息弹窗专用(2026-08-17 立,对标 Cursor env card)
+  // 1.1 Git Status + GitHub 集成 — 环境信息弹窗专用(2026-08-17 立,遵循统一工程规范)
   // ===========================================================================
 
   type GitStatusSnapshot = {
@@ -598,7 +598,7 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
         }
         void rest
       }
-      // 行级增删统计(对标 Cursor env card 的 +N/-M):已暂存 + 未暂存 diff 的 numstat 聚合,
+      // 行级增删统计(遵循统一工程规范):已暂存 + 未暂存 diff 的 numstat 聚合,
       // 二进制文件(列值为 '-')不计入。失败静默降级为 0,不影响主流程。
       const lineStats = { additions: 0, deletions: 0 }
       try {

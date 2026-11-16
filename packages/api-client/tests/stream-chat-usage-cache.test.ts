@@ -162,7 +162,7 @@ describe('streamChat usage 帧的缓存两维端到端(解析面 → onUsage 载
   })
 
   it('S7 命名帧带缓存两键(G-403 后 llm.py 补发的线格式)⇒ camelCase 键被接住', async () => {
-    // 载荷键名与 llm.py _usage_frame 补发后的线格式逐字对齐(cacheReadTokens/cacheWriteTokens)
+    // 载荷键名与 llm.py _usage_frame 补发后的线格式按行为规格(cacheReadTokens/cacheWriteTokens)
     const u = await captureUsage([
       'event: usage',
       'data: {"type":"usage","messageId":"m-1","usage":{"promptTokens":1000,"completionTokens":30,"totalTokens":1030,"reasoningTokens":0,"cacheReadTokens":800,"cacheWriteTokens":50},"timing":{"firstTokenMs":420,"durationMs":3400},"model":"deepseek-chat","costUsd":0.0021}',

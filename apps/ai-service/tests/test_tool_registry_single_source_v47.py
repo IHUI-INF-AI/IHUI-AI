@@ -116,7 +116,7 @@ class monkeypatched_handler:
         ("unified_exec", "run_command"),
         ("run_code", "run_command"),
         ("view_image", "vision_analyze"),
-        ("spawn_subagent", "dispatch_subagent"),
+        ("spawn_subagent", "orchestrate_agents"),
         ("web_search", "web_search"),
     ],
 )

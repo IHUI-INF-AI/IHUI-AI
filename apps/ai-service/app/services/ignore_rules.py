@@ -4,7 +4,7 @@
 
 """AI 索引面的 ignore 规则判据(gitignore 子集,单源一把尺)。
 
-逆向对齐目标:Qoder 把 ignore 剪枝下沉进原生层,`.node` 字面量里逐字出现
+独立分析对齐目标:Qoder 把 ignore 剪枝下沉进原生层,`.node` 字面量里逐字出现
 `.gitignore` / `.qoderignore` / `.aiignore` 三文件族(取证见
 `docs/benchmark-evidence/2026-11/qoder-trae-rea-20261101/T12-mtree-and-hook-host.md` §A)。
 本仓此前**根本没有这一层**:`rg_fallback_parity` 为了两通道对账刻意给 rg 传 `--no-ignore`

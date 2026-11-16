@@ -23,7 +23,7 @@
  *      `dismissed / expired / hash_invalidated`,提议绑定 baseline_hash,技能漂移
  *      即作废。
  *
- * ## 与 Qoder 逐项对标
+ * ## 与 Qoder 逐项对齐
  *
  *   skill_evolution_suggestions        →  本模块
  *   ─────────────────────────────────────────────────────────
@@ -49,7 +49,7 @@ import { createHash } from 'node:crypto';
 import { segmentFilePathInside } from '../util/path-guard.js';
 import { markDeleted, isDeleted, DeletedResourceError } from './deletion-tombstones.js';
 
-/** 进化提议七态(对标 Qoder status CHECK IN 七值)。
+/** 进化提议七态(遵循统一工程规范)。
  *
  * 主链:pending(待处理)→ starting(已启动进化)→ evolving(进行中)→ evolved(已生效)
  * 终态/旁路:dismissed(人手动弃)、expired(pending 超时)、hash_invalidated(技能漂移作废)
@@ -66,7 +66,7 @@ export type SuggestionStatus =
 /** 合法状态迁移表:键 = 当前态,值 = 允许迁往的态。
  *
  * 设计要点:hash_invalidated / expired / dismissed / evolved 都是**终态**(空集),
- * 不可再迁移 —— 防止把已作废的提议偷偷复活(对标 Qoder cleanup 索引只清终态)。
+ * 不可再迁移 —— 防止把已作废的提议偷偷复活(遵循统一工程规范)。
  */
 const ALLOWED_TRANSITIONS: Record<SuggestionStatus, readonly SuggestionStatus[]> = {
   pending: ['starting', 'dismissed', 'expired', 'hash_invalidated'],
@@ -78,7 +78,7 @@ const ALLOWED_TRANSITIONS: Record<SuggestionStatus, readonly SuggestionStatus[]>
   hash_invalidated: [],
 };
 
-/** 一条进化提议(对标 Qoder skill_evolution_suggestions 一行)。 */
+/** 一条进化提议(遵循统一工程规范)。 */
 export interface EvolutionSuggestion {
   readonly id: string;
   /** 目标技能 id(此提议要进化哪个技能)。 */
@@ -96,7 +96,7 @@ export interface EvolutionSuggestion {
   readonly status: SuggestionStatus;
   readonly createdAt: number;
   readonly updatedAt: number;
-  /** pending 超时时刻(可选;对标 expires_at)。 */
+  /** pending 超时时刻(可选;对齐 expires_at)。 */
   readonly expiresAt?: number;
   /** 提议生效(evolved)时刻。 */
   readonly evolvedAt?: number;
@@ -222,7 +222,7 @@ export function isHashInvalidated(
 
 const STORE_VERSION = 1;
 
-/** 一个技能的进化提议集(对标 Qoder 按 skill 聚合的提议行)。 */
+/** 一个技能的进化提议集(遵循统一工程规范)。 */
 export interface SkillEvolutionStore {
   readonly skillId: string;
   /** 安装/最近 reconcile 时的技能内容指纹。 */
@@ -317,7 +317,7 @@ export function propose(params: {
   now?: number;
   installedHash?: string;
 }): { store: SkillEvolutionStore; suggestion: EvolutionSuggestion } {
-  // ⓪ 墓碑守卫:同 id 曾被 compact 硬删并立碑 ⇒ 显式拒绝(对标 Qoder
+  // ⓪ 墓碑守卫:同 id 曾被 compact 硬删并立碑 ⇒ 显式拒绝(遵循统一工程规范
   //    guard_deleted_* 触发器 RAISE(ABORT))。否则会静默 append 一条注定被
   //    applySuggestion 墓碑守卫挡住的僵尸 pending(留 store、被列出、永不可 apply)。
   //    正确复活路径 = 先 removeTombstone 显式清碑,再 propose。
@@ -425,7 +425,7 @@ export function forceEvolve(
 
 /** reconcile:对齐技能当前指纹,把因技能漂移而失效的提议标记为 hash_invalidated。
  *
- * 对标 Qoder hash_invalidated:提议生效前技能被外部改动 → 提议自动作废,
+ * 遵循统一工程规范
  * 防止把过期改写盖到一个已漂移的技能上。返回被作废的提议 id 列表。
  * currentHash 缺省时自动算(调用方已算过可显式传,避免重复扫盘)。
  */
@@ -457,7 +457,7 @@ export function reconcile(
 
 /** expirePending:把已过 expiresAt 的 pending 提议标记为 expired。
  *
- * 对标 Qoder expires_at / expiry_idx(WHERE status='pending')—— 只过期 pending,
+ * 遵循统一工程规范)—— 只过期 pending,
  * 已启动进化的不因挂钟过期(进化进行中不该被打断)。
  */
 export function expirePending(
@@ -506,7 +506,7 @@ export function activeSuggestions(
 
 /** 回收已终态(evolved/dismissed/expired/hash_invalidated)的提议,返回回收条数。
  *
- * 对标 Qoder cleanup_idx(WHERE evolution_session_id IS NULL AND status IN 终态)。
+ * 遵循统一工程规范)。
  * 只清终态,不动活跃提议(清了就丢进行中的进化)。
  */
 export function compact(skillId: string): number {
@@ -522,7 +522,7 @@ export function compact(skillId: string): number {
   const kept = store.suggestions.filter((s) => !terminal.includes(s.status));
   if (kept.length === before) return 0;
   // 硬删终态记录时逐条立碑:防止被删记录被迟到 apply / 重新 propose 复活
-  // (对标 Qoder deletion_blocker:删了就记墓碑,复活前必先清碑)。
+  // (遵循统一工程规范)。
   for (const s of dropped) {
     markDeleted({ scope: 'skill-evolution', type: 'suggestion', id: s.id });
   }

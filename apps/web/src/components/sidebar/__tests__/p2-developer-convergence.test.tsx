@@ -65,42 +65,18 @@ vi.mock('@ihui/api-client', async (importOriginal) => {
   }
 })
 
-import { NAV_GROUPS, EDU_HUB_ITEMS, flattenNavItems } from '@/components/sidebar/nav-data'
+import {
+  NAV_GROUPS,
+  DEVELOPER_HUB_ITEMS,
+  EDU_HUB_ITEMS,
+  flattenNavItems,
+} from '@/components/sidebar/nav-data'
 import { filterNavItemsByRole, filterNavItemsByTier } from '@/components/sidebar/use-nav-visibility'
 import { useNavVisibilityStore } from '@/stores/nav-visibility'
 import { DomainHub } from '@/components/layout/DomainHub'
 import type { NavAdvancedTier, NavItem } from '@/components/sidebar/types'
 
 const developerGroup = NAV_GROUPS.find((g) => g.label === 'developerGroup')!
-
-/** 收敛前(2026-10-22 HEAD)实测的 developerGroup flatten href 多重集,逐字快照。
- *  其中 /developer/webhooks 原以"父项+子项"出现 2 次,收敛后只剩子项 1 次;
- *  /developer 以"域入口父项+子项"出现 2 次 —— 总数 23 不变。 */
-const PRE_CONVERGENCE_SNAPSHOT = [
-  '/admin/meta-learner',
-  '/developer',
-  '/developer',
-  '/developer/api-docs',
-  '/developer/billing',
-  '/developer/error-codes',
-  '/developer/limits',
-  '/developer/logs',
-  '/developer/notifications',
-  '/developer/relay',
-  '/developer/relay/benefits',
-  '/developer/relay/keys',
-  '/developer/relay/subscriptions',
-  '/developer/relay/usage',
-  '/developer/sandbox',
-  '/developer/settings',
-  '/developer/subscription',
-  '/developer/team',
-  '/developer/versions',
-  '/developer/webhooks',
-  '/edu-ai/tbox',
-  '/playground',
-  '/purchase',
-]
 
 /** Sidebar 侧引用组合:与 useNavVisibilityFilter 回调体逐字同序(先 role 后 tier) */
 const sidebarStyleFilter = (
@@ -138,8 +114,10 @@ afterEach(() => {
 
 describe('P2 收敛第一批:开发者域结构', () => {
   it('① 顶层只剩 1 枚非 admin 域入口 + 2 枚 adminOnly 原位项', () => {
+    // 〔2026-11-16 用户规范〕域入口 href 改指 /domains/developer(与其他域同形态),
+    // 20 项子清单已摘出 children(侧边栏不许下拉),改由 DEVELOPER_HUB_ITEMS 承载。
     expect(developerGroup.items.map((i) => i.href)).toEqual([
-      '/developer',
+      '/domains/developer',
       '/edu-ai/tbox',
       '/admin/meta-learner',
     ])
@@ -147,25 +125,44 @@ describe('P2 收敛第一批:开发者域结构', () => {
     if (!hub) throw new Error('developerGroup 顶层首位必须是域入口')
     expect(hub.labelKey).toBe('developerTools')
     expect(hub.advancedOnly).toBe('developer')
-    expect(hub.children?.length).toBe(20)
+    // 侧边栏不再挂 children(2026-11-16 用户规范),子清单移入 DEVELOPER_HUB_ITEMS
+    expect(hub.children).toBeUndefined()
   })
 
-  it('② href 多重集逐字守恒(23 条,不丢项不造新)', () => {
-    const hrefs = flattenNavItems(developerGroup.items)
-      .map((i) => i.href)
-      .sort()
-    expect(hrefs).toEqual(PRE_CONVERGENCE_SNAPSHOT)
-  })
-
-  it('③ 零意外重复 href:唯一重复是"父项+子菜单"设计意图且 labelKey 互异', () => {
-    const counts = new Map<string, number>()
-    for (const i of flattenNavItems(developerGroup.items)) {
-      counts.set(i.href, (counts.get(i.href) ?? 0) + 1)
+  it('② href 守恒:侧边栏面收敛为域入口 + 2 admin 项,20 子项全量迁入 DEVELOPER_HUB_ITEMS', () => {
+    // 旧断言钉「侧边栏 flatten 23 条」——2026-11-16 收敛后侧边栏只剩域入口 1 枚(非 admin)
+    // + 2 枚 adminOnly;原 20 个子项未删,全量迁入 DEVELOPER_HUB_ITEMS(域入口页承载)。
+    // 这里改钉两层:侧边栏面 = 3 项;域清单 = 21 项(20 子项 + /developer 顶层入口),URL 全保留。
+    const sidebarHrefs = collectHrefs(developerGroup.items)
+    expect(sidebarHrefs).toEqual(['/admin/meta-learner', '/domains/developer', '/edu-ai/tbox'])
+    // 域清单侧:20 项(去重后 20 个唯一 href),不丢项 —— URL 全保留
+    const hubHrefs = collectHrefs(DEVELOPER_HUB_ITEMS)
+    expect(hubHrefs).toHaveLength(20)
+    for (const h of [
+      '/developer',
+      '/developer/api-docs',
+      '/developer/relay/keys',
+      '/developer/relay/subscriptions',
+      '/developer/webhooks',
+      '/playground',
+      '/purchase',
+    ]) {
+      expect(hubHrefs).toContain(h)
     }
-    const duplicated = [...counts.entries()].filter(([, n]) => n > 1)
-    expect(duplicated).toEqual([['/developer', 2]])
-    const pair = flattenNavItems(developerGroup.items).filter((i) => i.href === '/developer')
-    expect(new Set(pair.map((i) => i.labelKey)).size).toBe(2)
+  })
+
+  it('③ 零意外重复 href:侧边栏面与域清单面均无重复(父项+子菜单病已随收敛消除)', () => {
+    // 旧形状里侧边栏以"域入口父项 + /developer 子项"出现 2 次同一 href(React key=href 病);
+    // 2026-11-16 摘 children 后侧边栏只剩域入口 1 枚,域清单里 /developer 也只 1 次 —— 零重复。
+    for (const [label, items] of [
+      ['侧边栏面', developerGroup.items],
+      ['域清单', DEVELOPER_HUB_ITEMS],
+    ] as const) {
+      const counts = new Map<string, number>()
+      for (const i of flattenNavItems(items)) counts.set(i.href, (counts.get(i.href) ?? 0) + 1)
+      const duplicated = [...counts.entries()].filter(([, n]) => n > 1)
+      expect({ label, duplicated }).toEqual({ label, duplicated: [] })
+    }
   })
 
   it('④ 三层可见性判据未合并:本域无 permission;role/tier 各管一头', () => {
@@ -173,7 +170,7 @@ describe('P2 收敛第一批:开发者域结构', () => {
     expect(flattenNavItems(developerGroup.items).some((i) => i.permission !== undefined)).toBe(
       false,
     )
-    // adminOnly 只随 role 动:tier 全藏也不影响两枚 admin 项
+    // adminOnly 只随 role 动:tier 全藏也不影响两枚 admin 项(域入口已被档位藏掉)
     const adminAllTiers = sidebarStyleFilter(
       developerGroup.items,
       true,
@@ -184,14 +181,10 @@ describe('P2 收敛第一批:开发者域结构', () => {
     // tier 只随档位动:'developer' 档一藏,整域对普通用户归零(admin 项被 role 挡)
     const normalHidden = sidebarStyleFilter(developerGroup.items, false, [], ['developer'])
     expect(normalHidden).toHaveLength(0)
-    // 档位不藏时普通用户可见全 21 项(role 挡掉的只有 2 枚 adminOnly)
+    // 档位不藏时普通用户可见只剩域入口 1 枚(20 子项已移入域清单,role 挡掉的 2 枚 adminOnly)
     const normalShown = sidebarStyleFilter(developerGroup.items, false, [], [])
-    expect(flattenNavItems(normalShown)).toHaveLength(21)
-    expect(collectHrefs(normalShown)).toEqual(
-      collectHrefs(developerGroup.items).filter(
-        (h) => h !== '/edu-ai/tbox' && h !== '/admin/meta-learner',
-      ),
-    )
+    expect(flattenNavItems(normalShown)).toHaveLength(1)
+    expect(collectHrefs(normalShown)).toEqual(['/domains/developer'])
   })
 
   it('⑤ DomainHub 与 Sidebar 对同一清单过滤结果一致(共用 useNavVisibilityFilter)', () => {

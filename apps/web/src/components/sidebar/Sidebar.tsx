@@ -7,16 +7,12 @@
 import * as React from 'react'
 import { usePathname } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import { LayoutDashboard } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { useAuthStore } from '@/stores/auth'
-import { useAdminRouters } from '@/hooks/use-admin-routers'
 import { useNavigationStore, useOptimisticNavStore } from '@/stores/navigation'
 import { useMediaQuery } from '@/hooks/use-media-query'
 import { SidebarChatHistory } from '@/components/sidebar-chat-history'
-import { ADMIN_NAV_GROUPS } from '@/components/layout/AdminNav'
-import { NAV_GROUPS, flattenNavItems, isHrefActive } from './nav-data'
-import type { SidebarProps, NavItem, RegisterRef } from './types'
+import { NAV_GROUPS, FLAT_NAV_ITEMS, DOMAIN_HUB_GROUPS, flattenNavItems, isHrefActive } from './nav-data'
+import type { SidebarProps, RegisterRef } from './types'
 import { SidebarUserRow } from './SidebarUserRow'
 import { NavGroupSection } from './NavGroupSection'
 import { CustomNavSection } from './CustomNavSection'
@@ -100,10 +96,6 @@ const Sidebar = React.memo(function Sidebar({ id, mobileOpen, onCloseMobile }: S
   const t = useTranslations('nav')
   const tc = useTranslations('common')
   const pathname = usePathname()
-  // 性能修复(2026-07-25):仅订阅 user.roleId 单字段,而非整个 user 对象。
-  // 原全对象订阅导致任何 setUser(登录/profile 刷新/auth bootstrap/persist hydration)
-  // 都触发 Sidebar 根重渲染 → 80+ NavLink/ExpandableNavItem/NavGroupSection 连锁。
-  const userRoleId = useAuthStore((s) => s.user?.roleId)
 
   // 乐观路由高亮(2026-08-05 立,2026-09-13 性能重构为 store 订阅):
   // 根因:usePathname() 在 Next.js 16 中不随点击立即更新,而是等导航完成(新页面 RSC 数据返回)后才变。
@@ -160,10 +152,6 @@ const Sidebar = React.memo(function Sidebar({ id, mobileOpen, onCloseMobile }: S
     if (el) itemRefs.current.set(href, el)
     else itemRefs.current.delete(href)
   }, [])
-  const isAdmin = (userRoleId ?? 0) >= 1
-  // admin 动态路由:仅 admin 用户拉取,合并到"管理"分组 items 前部(过滤掉已分组的项)
-  const { list: adminDynamicList, loaded: adminLoaded } = useAdminRouters()
-
   const navRef = React.useRef<HTMLElement>(null)
   const mobileNavRef = React.useRef<HTMLElement>(null)
   const itemRefs = React.useRef<Map<string, HTMLElement>>(new Map())
@@ -282,24 +270,6 @@ const Sidebar = React.memo(function Sidebar({ id, mobileOpen, onCloseMobile }: S
     [sidebarWidth, effectiveCollapsed, onToggleCollapse],
   )
 
-  // admin 动态路由合并:已加载 + 有数据 + admin 用户时,把不在 ADMIN_NAV_GROUPS 分组内的
-  // 动态路由作为扁平 NavItem 合并到"管理"分组前部(放在静态 /admin 入口之后)。
-  // 静态 /admin/statistics 等保留在前,动态项跟在后面,11 个分组展开项放最后。
-  const adminDynamicItems: NavItem[] = React.useMemo(() => {
-    if (!isAdmin || !adminLoaded || adminDynamicList.length === 0) return []
-    const groupedHrefs = new Set(ADMIN_NAV_GROUPS.flatMap((g) => g.items.map((i) => i.href)))
-    return adminDynamicList
-      .filter((r) => r.visible !== 0 && r.path && !groupedHrefs.has(r.path))
-      .sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0))
-      .map((r) => ({
-        href: r.path,
-        labelKey: 'adminDynamic',
-        icon: LayoutDashboard,
-        adminOnly: true,
-        dynamicLabel: r.name,
-      }))
-  }, [isAdmin, adminLoaded, adminDynamicList])
-
   // adminOnly 递归过滤(2026-08-30 修复):原逻辑只过滤分组一级 items,不递归过滤 item.children,
   // adminOnly 子项挂在非 adminOnly 父项下时会对普通用户泄漏(此前仅靠 nav-data 配置约定保障)。
   // permission 过滤(2026-08-30 教师角色接入):按 RBAC 权限点放行,admin(roleId>=1)始终可见,
@@ -311,20 +281,27 @@ const Sidebar = React.memo(function Sidebar({ id, mobileOpen, onCloseMobile }: S
   // 变量名同步改为 filterNav —— 保留 filterByRole 会让读代码的人以为只过滤了角色。
   const filterNav = useNavVisibilityFilter()
 
+  // 管理组已收敛为单入口 /domains/admin(2026-11-16):后台动态路由改由域入口页
+  // 运行期追加渲染,侧边栏不再拉取/合并,避免单入口下又平铺出 80 项。
+  // 收藏解析用全量可见项(含域清单):域收敛后 /models、/learn 等不在 NAV_GROUPS,
+  // 只查 visibleGroups 会让已收藏项静默消失(2026-11-16 修复)。
+  const flatVisibleItems = React.useMemo(() => filterNav(FLAT_NAV_ITEMS), [filterNav])
+
+  // 自定义功能键面板的「域内功能」候选(2026-11-16):域收敛后侧栏不再平铺这些页面,
+  // 但收藏/高亮仍按全量清单解析;不提供候选源,用户就再也加不进自定义栏。
+  const visibleDomainGroups = React.useMemo(
+    () =>
+      DOMAIN_HUB_GROUPS.map((g) => ({ ...g, items: filterNav(g.items) })).filter(
+        (g) => g.items.length > 0,
+      ),
+    [filterNav],
+  )
+
   const visibleGroups = React.useMemo(() => {
-    return NAV_GROUPS.map((g) => {
-      const filtered = filterNav(g.items)
-      // 合并 admin 动态路由到"管理"分组(items[0] 是 /admin 入口,动态项插在它后面)
-      if (g.label === 'adminGroupLabel' && adminDynamicItems.length > 0) {
-        const [head, ...rest] = filtered
-        return {
-          ...g,
-          items: head ? [head, ...adminDynamicItems, ...rest] : [...adminDynamicItems, ...rest],
-        }
-      }
-      return { ...g, items: filtered }
-    }).filter((g) => g.items.length > 0)
-  }, [filterNav, adminDynamicItems])
+    return NAV_GROUPS.map((g) => ({ ...g, items: filterNav(g.items) })).filter(
+      (g) => g.items.length > 0,
+    )
+  }, [filterNav])
 
   const allVisibleItems = React.useMemo(
     () => flattenNavItems(visibleGroups.flatMap((g) => g.items)),
@@ -392,6 +369,8 @@ const Sidebar = React.memo(function Sidebar({ id, mobileOpen, onCloseMobile }: S
               registerRef={registerRef}
               onBeforeNav={handleBeforeNav}
               groups={visibleGroups}
+              allItems={flatVisibleItems}
+              domainGroups={visibleDomainGroups}
             />
           ) : null}
           <NavGroupSection

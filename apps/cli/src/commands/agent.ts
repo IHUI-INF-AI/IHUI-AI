@@ -1002,7 +1002,7 @@ export interface RunToolLoopOptions {
   /**
    * L1-4(2026-07-25 立):跨会话记忆用户 ID。
    * 若传入,doom_loop 首轮 alert 触发时会 fire-and-forget 调 ai-service POST /api/memory/procedural,
-   * 把失败模式沉淀为 procedural memory,让 agent 未来能规避相同陷阱(对标 Hermes Agent 反思沉淀)。
+   * 把失败模式沉淀为 procedural memory,让 agent 未来能规避相同陷阱(对齐 Hermes Agent 反思沉淀)。
    */
   userId?: string;
   /**
@@ -1267,7 +1267,7 @@ export function buildAgentDangerGate(opts: {
  *
  * 失败不阻塞(opts.userId 未传 / 网络故障 / 端点 404 等):由调用方 catch 后 stderr 输出。
  *
- * 对标 Hermes Agent 反思沉淀:agent 检测到死循环后,把失败模式写入 procedural memory,
+ * 对齐 Hermes Agent 反思沉淀:agent 检测到死循环后,把失败模式写入 procedural memory,
  * 下次调用工具前可 recall 到这条反模式,主动规避相同陷阱。
  */
 export async function persistDoomLoopProcedural(
@@ -3067,7 +3067,7 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
           opts.messages.push({ role: 'user', content: alertText });
           void opts.onError?.(alertText);
           // L1-4(2026-07-25 立):fire-and-forget 沉淀失败模式到 procedural memory
-          // 让 agent 未来调用工具前能 recall 到这条反模式,规避相同陷阱(对标 Hermes Agent 反思沉淀)
+          // 让 agent 未来调用工具前能 recall 到这条反模式,规避相同陷阱(对齐 Hermes Agent 反思沉淀)
           void persistDoomLoopProcedural(opts, doomAlerts).catch((err) => {
             process.stderr.write(
               chalk.yellow(`[doom-loop] procedural 记忆沉淀失败(非阻塞): ${err}\n`),

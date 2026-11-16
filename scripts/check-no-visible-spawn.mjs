@@ -71,7 +71,7 @@ const SKIP_DIR = /[\\/](node_modules|dist|build|\.next|\.turbo|coverage|android|
 
 // 自我豁免(仅本文件):self-test 样例区里的 src 字段是**故意构造**的判据字符串,不是真实派生点。
 // 全量扫描若把样例当生产违规,这道门在 CI / 全量审计场景恒红。豁免严格限定为本脚本自身
-// (SELF_EXEMPT_FILE),且必须成对标记齐全;任何其他文件写同样标记一律无效 —— 判据不因此变松,
+// (SELF_EXEMPT_FILE),且必须成对齐记齐全;任何其他文件写同样标记一律无效 —— 判据不因此变松,
 // 真实代码里 spawn('git', ...) 漏 windowsHide 仍被 BLOCK(见 tests 的注入对照用例)。
 const SELF_EXEMPT_FILE = /(^|[\\/])check-no-visible-spawn\.mjs$/
 export const SELFTEST_BEGIN = '// ihui:selftest-samples:start'

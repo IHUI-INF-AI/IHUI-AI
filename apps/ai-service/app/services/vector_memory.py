@@ -4,7 +4,7 @@
 
 """向量记忆存储(纯 Python 实现,无外部依赖)。
 
-对标 Hermes Agent 向量检索引擎:内存向量索引 + cosine similarity 检索 + embedding 生成。
+对齐 Hermes Agent 向量检索引擎:内存向量索引 + cosine similarity 检索 + embedding 生成。
 - embedding 优先调 llm_gateway.embed;失败降级为确定性 hash 伪向量(sha256 分段,128 维)。
 - cosine similarity 纯 Python 实现:dot / (norm_a * norm_b),不引入 numpy。
 - 持久化:JSON 文件快照(.data/vector_memory.json),add/update/delete 后异步写盘,启动时 hydrate 加载。

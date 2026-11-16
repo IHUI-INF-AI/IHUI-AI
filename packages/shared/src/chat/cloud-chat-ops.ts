@@ -64,7 +64,7 @@ const cellKeys = (op: CloudChatOp, phase: CloudChatOpPhase): CloudChatOpCellKeys
 
 /**
  * 动作 × 三态 → 15 格键名。**映射表穷尽**:`Record<CloudChatOp, Record<CloudChatOpPhase, …>>`
- * 缺任何一格直接编译失败(对标 agent-actions.ts 的 agentActionPhaseKey/agentActionMatrixKeys)。
+ * 缺任何一格直接编译失败(对齐 agent-actions.ts 的 agentActionPhaseKey/agentActionMatrixKeys)。
  */
 const CELL_KEYS: Readonly<Record<CloudChatOp, Record<CloudChatOpPhase, CloudChatOpCellKeys>>> = {
   attachCloudChat: {

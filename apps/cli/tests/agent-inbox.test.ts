@@ -4,7 +4,7 @@
 
 
 /**
- * agent-inbox 测试 — 跨重启持久投递行为(对标 Qoder agent_inbox_items)。
+ * agent-inbox 测试 — 跨重启持久投递行为(遵循统一工程规范)。
  *
  * 覆盖:
  *   - 入队 / 按成员读取基本流程

@@ -14,9 +14,13 @@ mod webview2_runtime;
 // 2026-10-09 立(WP-C 第一步):签到账号本地捕获——TRAE 目录探测/JWT 提取/设备标识重置/9 类快照。
 // 分层同 desktop_prefs.rs:判据纯函数 + 执行层 + 薄胶水,测试在模块内真跑。
 mod checkin_capture;
+mod checkin_capture;
 // 2026-10-12 立:WorkBuddy「网页登录自动添加账号」——内嵌 WebView 登录 + cookie jar
 // 读取(含 HttpOnly)+ /console/accounts 登录态验证,普通用户零 token 体验。
 mod checkin_web_login;
+// 2026-11-17 立(号池「豆包网页加号」):内嵌浏览器登录豆包 + cookie jar 收会话(含
+// HttpOnly)+ 上游账号信息核验/掩码一致性校验。手机号由产品页收集,不再要人单独提供。
+mod doubao_web_login;
 // 2026-10-16 立:项目内嵌浏览器(自绘工具条 + 地址栏 + Chrome UA 的 WebView2 窗口)。
 // 签到网页登录、SSO 兜底窗等"需要在浏览器里走一趟"的场景统一用它,不再外部拉 Chrome。
 mod embedded_browser;
@@ -4902,9 +4906,14 @@ pub fn run() {
             checkin_capture::checkin_capture_workbuddy,
             checkin_capture::checkin_capture_minimax,
             // 2026-10-16 内嵌浏览器版:窗口开/关统一走 embedded_browser(注册在上方),
+pub fn run() {
             // 这里只留 probe(读内嵌窗 cookie jar + 服务端验证,见 checkin_web_login.rs)。
             checkin_web_login::checkin_workbuddy_web_login_probe,
             checkin_web_login::checkin_workbuddy_web_login_probe_cookie,
+            // 2026-11-17 号池「豆包网页加号」:开窗统一走 embedded_browser(注册在上方),
+            // 这里只留 autofill(把用户填的手机号填进登录页)与 probe(收 cookie + 上游核验)。
+            doubao_web_login::doubao_web_login_autofill,
+            doubao_web_login::doubao_web_login_probe,
             checkin_capture::checkin_reset_device_ids,
             checkin_capture::checkin_get_public_ip,
             checkin_capture::checkin_one_click_reset,

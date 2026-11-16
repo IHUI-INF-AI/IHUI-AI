@@ -21,7 +21,7 @@
  * barrel 里已有 `FILE_WRITE_TOOLS`(识别白名单 Set),同名并置会让 `export *` 产出歧义):
  *  - `apps/web/src/hooks/use-chat/tool-config.ts`(re-export,保持既有 import 面不变)
  *
- * 口径逐字照搬 web 原实现,搬迁本身不改语义 —— 任何收紧/放宽都另立一票并两端同改。
+ * 口径按行为规格 web 原实现,搬迁本身不改语义 —— 任何收紧/放宽都另立一票并两端同改。
  */
 
 /**

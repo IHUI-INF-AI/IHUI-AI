@@ -87,6 +87,7 @@ describe('D58 工具名 → 类目映射(resolveToolCategory)', () => {
     expect(resolveToolCategory('read_image')).toBe('file_read')
     expect(resolveToolCategory('session_search')).toBe('file_search')
     expect(resolveToolCategory('team_task')).toBe('task_management')
+    expect(resolveToolCategory('orchestrate_agents')).toBe('task_management')
     expect(resolveToolCategory('dispatch_subagent')).toBe('task_management')
     expect(resolveToolCategory('subagent_job')).toBe('task_management')
     expect(resolveToolCategory('terminal')).toBe('command')
@@ -279,7 +280,7 @@ describe('D58 无顺序聚合(summarizeCategoriesByTool)', () => {
 })
 
 /**
- * 语义例外集(2026-10-29 对标 Qoder 0.4.11)。
+ * 语义例外集(2026-10-29 遵循统一工程规范)。
  *
  * 立因:折叠此前只看三维阈值(字数/工具数/耗时),于是"等你点一下"的确认卡、
  * 子代理树、独立 UI 块一律被当成"体量大"折掉。此处钉住两件事:

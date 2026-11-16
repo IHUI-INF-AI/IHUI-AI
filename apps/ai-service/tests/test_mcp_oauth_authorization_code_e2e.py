@@ -4,7 +4,7 @@
 
 """MCP OAuth 授权码全流程(authorization_code + PKCE + 回调)真网 E2E。
 
-对标 H2 硬性指标:MCP 远程 Streamable HTTP + OAuth 授权码全流程(含回调)。
+对齐 H2 硬性指标:MCP 远程 Streamable HTTP + OAuth 授权码全流程(含回调)。
 
 本地起三件真实设施(全部 127.0.0.1 loopback,CI 可跑,无需外网):
 1. 授权服务器(Starlette + uvicorn):

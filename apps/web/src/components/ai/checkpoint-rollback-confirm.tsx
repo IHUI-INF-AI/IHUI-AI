@@ -4,7 +4,7 @@
 
 'use client'
 
-// 回退影响预览确认层(对标 Trae:恢复前展示影响文件 + 逐文件 diff 确认)。
+// 回退影响预览确认层(遵循统一工程规范)。
 // 打开时拉取 GET /api/checkpoints/{id}/impact,列出影响文件(路径 + 增/删徽章),
 // 支持展开单文件 diff(复用 DiffPreview);确认后才由父级执行恢复。
 

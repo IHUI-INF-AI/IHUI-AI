@@ -2227,6 +2227,38 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-16**
+- 🚀 기능/개선:guardian 系列策略模块 + capabilities 页 + title-update + floating-layer-spec (6962844864a)
+
+**2026-11-16**
+- 🔧 기타:收编 ai-service/HR/api 改动 + 生成目录同步 + 计划文档更新 (b59a6c5c001)
+- 🚀 기능/개선:逆向 codex 26.1111 六组契约 + web 布局收口 + 凭据件排除入库 (f7ef4e17d61)
+
+**2026-11-16**
+- 🔧 기타:收编停留≥3分钟的未提交改动 (da07174e1a1)
+- 📚 문서:缺陷普查 91 条全量核验——82 已修结清删除，9 条未修/部分修补复核注记 (e7901ae0368)
+
+**2026-11-16**
+- 🐞 수정:导航域枢纽项拆分 + AI 面板视觉收口 (5e77deb743b)
+
+**2026-11-16**
+- 🔧 기타:收编停留≥3分钟的未提交改动 (22234bff96d)
+
+**2026-11-16**
+- 🐞 수정:AI 消息操作栏降密度——低频操作收进「更多」下拉 (995d34e572d)
+
+**2026-11-16**
+- 🔧 기타:收编停留≥3分钟的未提交改动 (40c0c5dae4c)
+
+**2026-11-16**
+- 🔧 기타:收编停留≥3分钟的未提交改动 (08dfc418e7c)
+
+**2026-11-16**
+- 🔧 기타:收编停留≥3分钟的未提交改动 (0073e7c7a84)
+
+**2026-11-16**
+- 🔧 기타:收编停留≥3分钟的未提交改动 (30661f36491)
+
+**2026-11-16**
 - 📚 문서:刷新 README 生成数字块(trackedFiles 22410=>22411) (d551b2d73ed)
 
 **2026-11-16**
@@ -2336,6 +2368,84 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 - 🐞 수정:修复 API 层路径编码缺失与响应解包空判 (b4057d9e5df)
 - 🔧 기타:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (8ee1f8d48ef)
 - 🐞 수정:商店登录态三处丢失路径收口 —— 只补缺不覆盖, 会话票转持久, 关窗先续后关 (033d69ba6e5)
+- 🐞 수정:修跨端交互/逻辑缺陷——pay applyCoupon 补 in-flight 守卫防并发改价、AppUpdateBanner 裸 setTimeout 补 cleanup 治卸载闪没、TagInput 可删列表改按 tag 值作 key 解耦下标、user 历史静默 catch 补失败 toast;ui-routes.generated.ts 按当前输入重生成对齐 (a3df780e706)
+- 📚 문서:README 派生区按 fcee207727 新 HEAD 重算(钩子自动补登最近更新条目) (2b21dab8d82)
+- 🐞 수정:README.en 最近更新区真合并 HEAD/origin 条目清冲突标记(门79);.gitignore 忽略会话一次性中间产物(治门44 未判定) (fcee2077273)
+- 🐞 수정:face-reader worktreeHashObjectBatch 去 -z,修 unknown switch z 取材失败 (329dfd7b567)
+- 🐞 수정:ancestor-downgrade 批量 HEAD blob,治门298 工作树臂第二腿 fork 风暴 (757e8748c2a)
+- 🐞 수정:face-reader 批量工作树 hash 原语,治门298 工作树臂 fork 风暴超时 (1c8c684ae57)
+- 🐞 수정:门298 提前判合法回滚声明,防工作树脏文件祖先比对超时 (c566663e2d7)
+- 🔧 기타:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (0048ce2254b)
+- 🔧 기타:门IG 追认 71c7d304c1 入库 + 门89 撞号修复(320→323) + 门322 判面层配套 + root-guard 重封 + 门89 判据取面收口 (2f95c46397b)
+- 🐞 수정:圈子页下拉刷新失效(T-03 P1) (4f3161aac0f)
+- 🐞 수정:pkg-ai 主 CTA 走 bg-cta+text-cta-foreground 同源对(T-16 P1) (4d322dc3d2e)
+- 🐞 수정:提现确认按钮防连点(T-20 P1 资金操作) (95c95fc42e9)
+- 🐞 수정:PlazaScreen 正文色去墨档系(T-19 P1) (a00bfb7dab9)
+- 🔧 기타:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (8081911764f)
+- 🐞 수정:task-status-bar 激活态描边去墨档(T-15 P0 铁律违规) (86981bcff88)
+- 🐞 수정:useTaskReceiver register/answerApproval 包 try/catch 收敛 5xx/网络异常(T-02 P0) (8e0c889bf4c)
+- 🐞 수정:实名验证弹层补关闭途径(T-01 P0) (4ce181f7542)
+- 🔧 기타:解合面冲突(PROJECT_PLAN RP-80/RP-4 union + AGENTS 门名清单 union) (71c7d304c11)
+- 🔧 기타:刷新 302p 跨端漂移基线(推送尖现读,两维恶化留档) (8835130fe3d)
+- 🔧 기타:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (4f8f58ccda9)
+- 🐞 수정:解 stash pop 格式冲突(RN) + README 超集落地清标记 (669cfb91cf7)
+- 🔧 기타:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (bfe80e6b01b)
+- 🔧 기타:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (47b2db1f354)
+- 🐞 수정:手势/触摸冲突 5 处修复 (11cc70a2a0c)
+- 🔧 기타:Carousel geometry 额度 2→3 对齐 HEAD 现值 (de8dbcd5b6a)
+- 🐞 수정:check-line-endings git 派生补显式 stdio(治门193 blocking) (2b53a1b1cfc)
+- 🔧 기타:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (3f8ec5adefb)
+- 🐞 수정:RN 色值对齐 web 源 + design-tokens dist 重建闸门 (619cc1253a1)
+- 🔧 기타:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (56d8dae2a71)
+- 🐞 수정:深度扫描第二批收口 RN/小程序端样式、交互与逻辑缺陷 (97b7a7ac968)
+- 🐞 수정:门302 rendersSharedIn 认深子路径导入(补正/反例测试);接线 check-line-endings/check-mirror-surface-parity 判面层(门312 R1);rn-miniapp 矩阵文档重生成为现值(镜像257→258,门302修复后真实现读) (ab211603b9c)
+- 🔧 기타:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (62368b7976c)
+
+**2026-11-14**
+- 🐞 수정:两端 JSX 裸中文清零 + Taro 静默失败兜底 + 延迟导航定时器清理 (9f5d9041c97)
+- 🐞 수정:深度扫描修复 RN/小程序端样式、交互与逻辑缺陷 (4a007dfecd8)
+- 🐞 수정:补齐 RN/Taro 图标按钮无障碍语义标签 (247c8da4800)
+- 🐞 수정:修复前端遗留问题——RN/Taro 冲突、i18n 源文件还原、promise、定时器 (b276b219572)
+
+**2026-11-15**
+- 🚀 기능/개선:浏览器文件/下载交付卫生(复现 Codex cloud-shared-files) (936660ec98e)
+- 🚀 기능/개선:浏览器登录凭据 handoff 协议(复现 Codex browserAuth,凭据零回传) (ebe217ca684)
+- 🚀 기능/개선:浏览器 Tab 生命周期与所有权协议(复现 Codex tab lifecycle) (4b003bf987e)
+- 🔧 기타:收拢本地工作区改动(全量提交 9 项)+撤回 4 条失效有意删除登记 (32c35c4c2de)
+- 🔧 기타:刷新 README 生成块数字(推送前文档数字对账门要求) (d12472a8288)
+- 🚀 기능/개선:改状态动作截图内嵌交付闸(复现 Codex proof-of-work) (510db7e15d6)
+- 🚀 기능/개선:浏览器改动可回滚审计账(复现 Codex management.getAuditTrail()) (f5d07dfff07)
+- 📚 문서:刷新 README「最近更新」生成块 + 补门 320 R4 点名缺口 + last-sha 指针 (d30402dbc2b)
+- 🚀 기능/개선:浏览器反爬/挑战拦截结构化上报(复现 Codex botDetection) (02f0bf86479)
+- 🔧 기타:补 4 个文件的溯源水印(push 门 47p 点名缺口,水印行由门自注入) (085e3732c1c)
+- 📚 문서:同步 README 三语「最近更新」块（补 11-15 文档刷新条目） (f4ce41abc5e)
+- 🚀 기능/개선:门324 import完整性 + 视频详情薄壳化 + toast token 源恢复 (3b353f87aed)
+- 🚀 기능/개선:浏览器能力自描述注册表(复现 Codex capabilities.list()) (b65cc53d91a)
+- 📚 문서:刷新 README 生成块数字 + 裁剪「最近更新」块到最近一条 (b087f51dcd6)
+- 🚀 기능/개선:浏览器交互参数边界 + 对话框一等 API(复现 Codex CUA) (b95b458849b)
+- 🚀 기능/개선:ElementInfo 统一元素定位快照(复现 Codex CUA ElementInfo) (96e37c8aa89)
+- 🔧 기타:补 push scope 内 7 文件溯源水印 + post-commit 自动更新登记 (f1297755397)
+- 🚀 기능/개선:浏览器动作确认分级(复现 Codex Agent Confirmations Policy) (a3ead0dfd15)
+- 🚀 기능/개선:引擎模式本地/云端切换 —— agent流+工具链+浏览器CSP接线 (c91925d3985)
+- 🚀 기능/개선:号池管理页一键安装桌面切号快捷方式(前后端) (f876894a300)
+- 🐞 수정:补齐 T1 typecheck 门反复失败的 4 处缺失导出 + 消合面冲突 (23018cf5964)
+- 🐞 수정:侧栏分类收口(热门/管理可折叠,管理默认折叠)与 AI 浮窗取消描边 —— 侧栏对外仅保留热门/管理标题:热门主题红且默认展开、管理默认折叠(偏好仍由 localStorage 记忆),展开内容右缩进 8px,非折叠分组不再渲染标题,折叠可访问性测试夹具由 aiGroupLabel 换为 hotGroupLabel;浮窗 .ai-float-glow 移除 1px border,仅保留 --shadow-elevation-xl 投影。 (ffa37ce45b4)
+- 🚀 기능/개선:egress 沙箱补 BLOCKED 离线短路(R11 复现 Codex SandboxNetworkMode) (4841b764f1b)
+- 🚀 기능/개선:代码执行沙箱补 offline 网络禁令(准入层先拒) (899e6d84f83)
+- 🔧 기타:按终尖现读全维刷新 302p 漂移基线,9 维变化逐维举证非本批引入 (38fc5989697)
+- 🔧 기타:登记 pkg-hr/hr-attendance/index 为 intentional copy(pure-copy,共享屏 packages/app HrAttendanceScreen) (50ae2ba54f9)
+- 🐞 수정:退款主动/回调路径补 F-09 并发抢占闸门 (6b1a4b539b4)
+- 🐞 수정:恢复被 69ce958a9b2 全量同步误删的 25 个文件 (314bd4d5fe5)
+- 🔧 기타:Merge origin/main: 行尾归一化+小程序RN前端修复落库 (bda89c77c08)
+- 🚀 기능/개선:逆向能力目录 34→37 条 + 复现沙箱失败归因/插件 vm 沙箱两模块 (ee4564963a9)
+- 🐞 수정:一键切号快捷方式图标改用项目桌面端 icon.ico (7a1161f1213)
+- 🔧 기타:收编停留≥3分钟的未提交改动 (510e4291b5b)
+- 🐞 수정:输入框清空按钮加卡片底色、字数统计贴住第三行末尾 (328b8dec13d)
+- 🔧 기타:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (849cb17cc1e)
+- 🐞 수정:收敛前序治理批次(i18n 文案拼接/设计令牌/交互与解包加固) (1632762bf49)
+- 🐞 수정:API 层全量路径段补 encodeURIComponent(对齐 api-client 惯例) (b2ec9922eb4)
+- 🐞 수정:修复 API 层路径编码缺失与响应解包空判 (b4057d9e5df)
+- 🔧 기타:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (8ee1f8d48ef)
 - 🐞 수정:修跨端交互/逻辑缺陷——pay applyCoupon 补 in-flight 守卫防并发改价、AppUpdateBanner 裸 setTimeout 补 cleanup 治卸载闪没、TagInput 可删列表改按 tag 值作 key 解耦下标、user 历史静默 catch 补失败 toast;ui-routes.generated.ts 按当前输入重生成对齐 (a3df780e706)
 - 📚 문서:README 派生区按 fcee207727 新 HEAD 重算(钩子自动补登最近更新条目) (2b21dab8d82)
 - 🐞 수정:README.en 最近更新区真合并 HEAD/origin 条目清冲突标记(门79);.gitignore 忽略会话一次性中间产物(治门44 未判定) (fcee2077273)

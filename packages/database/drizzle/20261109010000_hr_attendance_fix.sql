@@ -7,7 +7,7 @@
 -- 描述: 20261109000000_hr_attendance 落表时漏了两处,本迁移前向补齐(不改已入库那份):
 --       1) hr_department.parent_id 在 schema(hr-ai-management.ts)里声明了自引用外键
 --          (onDelete: 'set null'),迁移里只建了普通 uuid 列 ⇒ 库层缺引用完整性,
---          且与那份迁移头注「逐字对齐」言行不符。
+--          且与那份迁移头注「按行为规格」言行不符。
 --       2) apps/api/src/routes/hr-attendance.ts 的两档闸门只认 hr:attendance:view|manage,
 --          而这两个权限点从未写入 permissions 表(后台只有角色关联的全量替换端点,
 --          没有创建权限点的入口)⇒ 非系统管理员角色无法被授予,HR 端点恒 403。

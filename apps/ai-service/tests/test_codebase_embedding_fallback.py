@@ -4,7 +4,7 @@
 
 """G7 本地 embedding 回落档测试(2026-10-31,goal-b42)。
 
-对标 Trae ckg `-local_embedding -embedding_storage_type=sqlite_vec`(T2 §8-G7):
+遵循统一工程规范):
 远端 embedding 不可用(离线/欠费/限流)时,索引向量面不再整批落空 —— 降级为
 本地确定性哈希向量并如实标注来源(local-hash),不被冒充为在线质量。
 

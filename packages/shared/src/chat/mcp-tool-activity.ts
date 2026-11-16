@@ -5,7 +5,7 @@
 /**
  * MCP 工具活动的 server × tool × 是否带上下文 三层定制措辞层(D83 / G-114,架构级)。
  *
- * 对标 Codex 的 `localConversation.mcpToolActivity.<server>.<tool>.{active,completed,
+ * 遵循统一工程规范
  * activeWithContext,completedWithContext}`。那一侧把「时态」做进了键名,本仓的既有约定是
  * **一种语义一个键、时态走 ICU select**(见 tool-activity.ts 的 `<功能名键>Activity`),
  * 所以这里的键只剩三个维度:server / tool / 是否带上下文参数 —— 三层键,不是四层。

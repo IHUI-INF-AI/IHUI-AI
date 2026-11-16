@@ -16,6 +16,7 @@ import {
   type WaitingQuadrant,
 } from '@ihui/shared/chat'
 import { StreamRow, useLiveElapsed } from '@/components/chat/stream/stream-ui'
+import { streamKindForTool } from '@/components/ai/progress-sections/tool-category'
 import { computeMessageCostCny, formatCompactTokens, useModelPriceCny } from './use-model-price'
 import { formatCny, formatUsd } from '@/lib/display-currency'
 
@@ -102,6 +103,7 @@ export function TypingIndicator({
     return (
       <StreamRow
         status="running"
+        kind={streamKindForTool(runningTool.toolName)}
         title={view.nameKey ? tStream(view.nameKey) : t('callingTool', { name: view.codeName })}
         subject={view.subject}
         subjectKind={view.subjectKind}

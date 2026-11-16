@@ -34,7 +34,7 @@
  *     本模板不自动补配置(补什么数只有 HR 知道)。
  */
 
-/** 单步定义(与 ai_task_executor.TaskStep 逐字对齐) */
+/** 单步定义(与 ai_task_executor.TaskStep 按行为规格) */
 export interface HrPayrollTemplateStep {
   method: string
   path: string

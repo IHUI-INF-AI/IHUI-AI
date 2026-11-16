@@ -10,6 +10,7 @@ import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 import { describeToolCall } from '@ihui/shared/chat'
 import { StreamRow, type StreamStatus } from '@/components/chat/stream/stream-ui'
+import { streamKindForTool } from './progress-sections/tool-category'
 import type { ToolCall } from '@ihui/types'
 import { advancePlayback, initialPlayback, traceStepDuration } from '@/lib/trace-replay'
 
@@ -30,7 +31,7 @@ export const TRACE_STATUS: Record<ToolCall['status'], StreamStatus> = {
 }
 
 /**
- * TraceReplay — 执行轨迹回放(P3 #39 执行轨迹即文档,2026-09-16 立,对标 Codex
+ * TraceReplay — 执行轨迹回放(P3 #39 执行轨迹即文档,2026-09-16 立,遵循统一工程规范
  * session JSONL 的产品化回放——竞品只有原始日志,无时序重演)。
  *
  * 数据源:assistant 消息的 toolCalls(id/toolName/args/result/status/durationMs
@@ -159,6 +160,7 @@ export function TraceReplay({ toolCalls }: { toolCalls: ToolCall[] }) {
                   也不得把 read_file 这类英文码名摆在界面上 */}
               <StreamRow
                 status={TRACE_STATUS[call.status]}
+                kind={streamKindForTool(call.toolName)}
                 title={title}
                 subject={view.subject}
                 subjectKind={view.subjectKind}

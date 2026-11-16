@@ -10,7 +10,6 @@ import { useChatStore } from '@/stores/chat'
 import type { ChatStore } from '@/stores/chat-pane-context'
 import { useAuthStore } from '@/stores/auth'
 import { useAiPanelStore } from '@/stores/ai-panel'
-import { getModeStoreForChatStore } from '@/stores/mode'
 import { getSamplingParams } from '@/stores/sampling-params'
 import { getAppearanceConfig } from '@/stores/appearance-settings'
 import { buildAiStyleDirective } from '@/lib/ai-style-directive'
@@ -305,7 +304,8 @@ async function runResumePendingMessage(
           messageId: p.messageId,
           messages: buildResumeMessages(p, chatStore),
           model: store.currentModel,
-          mode: getModeStoreForChatStore(chatStore).getState().currentMode,
+          // 2026-11-16 用户定档:模式固定 build(全工具开放),不再由用户选择。
+          mode: 'build',
           // P1-7(2026-09-13):续接保持会话级高级参数,与 send-message/send-answer 一致
           temperature: samplingParams.temperature,
           topP: samplingParams.topP,

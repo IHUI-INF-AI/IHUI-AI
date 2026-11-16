@@ -5,6 +5,7 @@
 'use client'
 
 import * as React from 'react'
+import { streamKindIcon } from '@/components/chat/stream/stream-ui'
 import { FileEdit, FilePlus, ChevronRight } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 // b76-13 票7(2026-09-30 立):消费侧集合裁尾唯一出口 —— 裁尾与"少列了多少"原子产出,
@@ -159,7 +160,7 @@ export const ChangesSection = React.memo(function ChangesSection({ changes }: Ch
     <FoldableSection
       title={t('changes.title')}
       count={changes.length}
-      icon={FileEdit}
+      icon={streamKindIcon('diff')}
       data-testid="changes-section"
     >
       <div className="space-y-0.5 text-[11px] leading-relaxed">

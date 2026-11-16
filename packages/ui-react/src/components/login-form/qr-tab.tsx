@@ -38,7 +38,7 @@ export interface QrTabProps {
   className?: string
 }
 
-/** 默认 4 个扫码登录平台(对标 web 端 QrCodeLogin.tsx) */
+/** 默认 4 个扫码登录平台(对齐 web 端 QrCodeLogin.tsx) */
 const DEFAULT_PLATFORMS: QrPlatformConfig[] = [
   {
     key: 'wechat',
@@ -69,7 +69,7 @@ const DEFAULT_PLATFORMS: QrPlatformConfig[] = [
 /**
  * 扫码登录 tab(2026-07-26 抽取到共享包)
  *
- * 共享版策略(对标 web 端 QrCodeLogin.tsx):
+ * 共享版策略(对齐 web 端 QrCodeLogin.tsx):
  *   - 4 平台切换 Tab(wechat / enterpriseWechat / dingtalk / feishu)
  *   - 二维码面板:Q:web 端可注入带 SDK 的 QrComponent(微信 WxLogin.js / 钉钉 DTFrameLogin
  *     / 飞书 QRLogin / 企业微信 wwLogin),这些 SDK 不能在 extension 中使用(跨域 /

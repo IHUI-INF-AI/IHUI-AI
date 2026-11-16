@@ -5,7 +5,7 @@
 /**
  * ToolApprovalCard — 小程序端「页内确认卡」(D136 本端落地位,2026-10-01 立)。
  *
- * 对标关系(逐档抄自 web `apps/web/src/components/ai/tool-approval-dialog.tsx`):
+ * 对齐关系(逐档取自 web `apps/web/src/components/ai/tool-approval-dialog.tsx`):
  *  - 三档授权 once / session / always = web 的 SCOPE_OPTIONS,取词用**同一把共享键**
  *    (`editor.toolApproval.scopeOnce|scopeSession|scopeAlways`),默认 once 最小特权;
  *    本端**不得只做两档** —— 少一档就是替用户缩小授权语义,与台账里"渲染位是否存在须在

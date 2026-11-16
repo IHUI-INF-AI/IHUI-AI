@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * /api/admin/relay/accounts 第三方 AI IDE 账号池管理(2026-10-22 立,对标码道网关)。
+ * /api/admin/relay/accounts 第三方 AI IDE 账号池管理(2026-10-22 立,对齐码道网关)。
  *
  * 端点清单:
  * 1. POST   /admin/relay/accounts/import   — 批量导入(直接吃账号导出 JSON:{accounts:[...]})
@@ -1245,6 +1245,8 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
         deviceId: row.deviceId,
         machineId: row.machineId,
         cosy: extractCosy(row.extraMetadata),
+        extraMetadata: row.extraMetadata,
+        providerCode: row.providerCode,
         deviceKeyPem: pemFromSecrets(credentials.secrets, 'deviceKeyPem'),
         devicePubPem: pemFromSecrets(credentials.secrets, 'devicePubPem'),
         planToken: zcodePlanJwtFromSecrets(credentials.secrets),

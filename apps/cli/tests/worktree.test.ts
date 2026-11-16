@@ -29,7 +29,7 @@ import {
   getGitDirKind,
   type CowKind,
 } from '../src/worktree.js'
-// Worktree 并行隔离层(对标 Cursor 3.x 多并行 agent + worktree)
+// Worktree 并行隔离层(遵循统一工程规范)
 import {
   WorktreeManager,
   agentBranchName,

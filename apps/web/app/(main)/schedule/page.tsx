@@ -23,7 +23,7 @@ import {
 
 import { apiOrThrow } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle, Input, Button } from '@ihui/ui-react'
-import { BackButton } from '@/components/common'
+import { FeaturePageShell } from '@/components/layout'
 import { formatDate } from '@/lib/date-utils'
 
 interface ScheduleTask {
@@ -89,16 +89,14 @@ export default function SchedulePage() {
   }
 
   return (
-    <div className="px-4 py-4 mx-auto w-full max-w-6xl space-y-4">
-      <BackButton />
-      <header className="space-y-1">
-        <h1 className="flex items-center gap-2 text-heading font-bold tracking-tight min-[768px]:text-display">
-          <CalendarClock className="h-7 w-7 text-primary" />
-          {t('title')}
-        </h1>
-        <p className="text-label text-muted-foreground">{t('subtitle')}</p>
-      </header>
-
+    // 2026-11-16 接入统一子功能页外壳:BackButton + 手写 header 收编为页头卡,
+    // 自动带上「教育」返回 chip(取 eduHub.title,与域入口页大标题恒等)。
+    <FeaturePageShell
+      title={t('title')}
+      description={t('subtitle')}
+      icon={CalendarClock}
+      domain="edu"
+    >
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold">{t('taskList')}</h2>
         <div className="relative w-full max-w-xs">
@@ -201,7 +199,7 @@ export default function SchedulePage() {
           </div>
         </div>
       )}
-    </div>
+    </FeaturePageShell>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

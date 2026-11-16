@@ -8,7 +8,7 @@ import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { Loader2, CheckCircle2, Brain, Calendar, Flame, Gauge } from 'lucide-react'
 import { Card, CardContent, Button } from '@ihui/ui-react'
-import { BackButton } from '@/components/common'
+import { FeaturePageShell } from '@/components/layout'
 import {
   getDueReviews,
   getReviewStats,
@@ -146,16 +146,9 @@ export default function ReviewPage() {
   const finished = !current
 
   return (
-    <div className="px-4 py-4 mx-auto w-full max-w-4xl space-y-4">
-      <BackButton />
-      <header className="space-y-1">
-        <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
-          <Brain className="h-7 w-7 text-primary" />
-          {t('title')}
-        </h1>
-        <p className="text-label text-muted-foreground">{t('subtitle')}</p>
-      </header>
-
+    // 2026-11-16 接入统一子功能页外壳:BackButton + 手写 header 收编为页头卡,
+    // 自动带上「教育」返回 chip(取 eduHub.title,与域入口页大标题恒等)。
+    <FeaturePageShell title={t('title')} description={t('subtitle')} icon={Brain} domain="edu">
       <div className="grid grid-cols-2 gap-3 min-[768px]:grid-cols-4">
         <StatCard icon={Brain} label={t('statDue')} value={stats?.totalDue ?? 0} />
         <StatCard icon={CheckCircle2} label={t('statReviewedToday')} value={reviewedCount} />
@@ -280,7 +273,7 @@ export default function ReviewPage() {
           total: reviews.length,
         })}
       </div>
-    </div>
+    </FeaturePageShell>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

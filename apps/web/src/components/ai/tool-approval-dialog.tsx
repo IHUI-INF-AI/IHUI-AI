@@ -5,7 +5,7 @@
 'use client'
 
 /**
- * 工具调用审批弹窗(2026-08-30 立,对标 Codex 三档审批 + Claude Code Auto mode)。
+ * 工具调用审批弹窗(2026-08-30 立,遵循统一工程规范)。
  *
  * 高危工具(写文件/执行命令/删除/写库)执行前,agent_loop_v2 审批门通过 hook_engine
  * 发 tool.approval 事件 → ai-service SSE 转发为 tool-approval → 本组件弹窗请求用户决策。

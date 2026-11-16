@@ -193,7 +193,7 @@ export const CAPABILITY_CATALOG: readonly CapabilityEntry[] = [
       'POST /v1/agents/:id/call',
       'POST /v1/agents/execute/stream',
     ],
-    tools: ['dispatch_subagent'],
+    tools: ['orchestrate_agents'],
   }),
   // ===== Chat / LLM =====
   c({

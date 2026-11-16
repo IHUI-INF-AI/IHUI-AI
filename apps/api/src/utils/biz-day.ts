@@ -7,7 +7,7 @@
  *
  * —— 为什么必须只有一份 ——
  * "哪一天算一天"此前在 apps/api 里有 **七种**互不相同的实现:同一份 `shanghaiDayStartUtc`
- * 逐字复制在 5 个文件(db/mobile-stats-queries、routes/admin/mobile-stats、routes/admin/relay-stats、
+ * 按行为规格在 5 个文件(db/mobile-stats-queries、routes/admin/mobile-stats、routes/admin/relay-stats、
  * routes/admin-ops-wallboard、services/relay-ops-snapshot),另有 `Date.now()+8h 再 slice`
  * 变体 2 份(services/edu-ledger、services/edu-arrear-remind-service),再加上把日界钉成 UTC 的
  * `utils/checkin-helpers.todayString`(扇出 6 个签到/积分调用点)与 `db/visit-tracking-queries`

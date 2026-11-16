@@ -5,7 +5,7 @@
 /**
  * 小程序端 AI 流式执行过程工具卡片(计划「#12 小程序 AI 增强」核心交付之二)。
  *
- * 对标 web 端 ai-side-panel 的 PlanStepsCard / SubAgentActivityFeed / 终端卡片,
+ * 对齐 web 端 ai-side-panel 的 PlanStepsCard / SubAgentActivityFeed / 终端卡片,
  * 以及 mobile-rn AiAssistantN8nScreen 的工具卡,原生渲染三类卡片:
  *  1. 计划步骤(PlanStepsCard)— Codex 三状态(pending / in_progress / completed)
  *  2. 工具调用(ToolCallCard)— 名称 + 状态 + 耗时

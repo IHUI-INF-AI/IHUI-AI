@@ -40,7 +40,7 @@ import {
   type UnifiedSuggestionItem,
 } from '@/components/chat/unified-suggestion-sources'
 import { useUnifiedSuggestions } from '@/hooks/use-unified-suggestions'
-import { WebInputCore, MAX_LENGTH, type WebInputCoreHandle } from './web-input-core'
+import { WebInputCore, type WebInputCoreHandle } from './web-input-core'
 import {
   PermissionModePopover,
   isHighRiskPermissionMode,
@@ -51,8 +51,8 @@ import {
   AgentProgressTrigger,
   AgentProgressShortcutHost,
 } from '@/components/ai/agent-progress-trigger'
-import { ModeSwitcher } from '@/components/chat/mode-switcher'
 import { SamplingParamsButton, SamplingParamsPanel } from '@/components/chat/sampling-params-panel'
+import { ToolsPanelToggle } from '@/components/chat/tools-panel-toggle'
 // D130(2026-09-30 立):推理强度第三轴 —— 输入区的档位控件。摘掉下面 JSX 里那一行挂载,
 // 档位就永远进不了请求(展示件、store、发送链全都还在,typecheck/lint 一路绿),
 //  apps/web/src/components/chat/__tests__/reasoning-effort-axis-mount.test.tsx 的①③正是守这一行。
@@ -69,7 +69,6 @@ import {
   type ReviewSourceSelection,
 } from '@/components/chat/review-context'
 import { planReviewSend } from '@/components/chat/review-target-send'
-import { usePaneModeStore } from '@/stores/mode'
 import { runManualCompact } from '@/hooks/use-chat/manual-compact'
 // P3 #30 diff 意见条 / D154 MCP 状态行(2026-09-30 起)由 InputStatusSlot 统一按优先级挂载
 // 任务进度常驻状态条:输入框上方动态显示"在做什么 / 第几步 / 改了多少文件",plan_updated 驱动
@@ -155,7 +154,7 @@ import {
   type PromptPolishState,
 } from '@ihui/shared/chat/prompt-polish'
 
-// A 节单状态槽(2026-09-30 深度对标二轮):六源通知按优先级单槽展开 + +N 弹层
+// A 节单状态槽(2026-09-30 深度对齐二轮):六源通知按优先级单槽展开 + +N 弹层
 import { InputStatusSlot } from './input-status-slot'
 
 /** D82:从失败对象里取「需重启生效」原因码。后端未给则 null —— **不臆造**重启提示。 */
@@ -301,7 +300,7 @@ export function MessageInput({
   const paneId = useOptionalPaneId()
   // 2026-08-02 修复: Bug 3 — useRouter 替代 window.location.href,避免整页刷新丢失状态
   const router = useRouter()
-  // 权限模式循环切换 hook(2026-07-29 提取自本文件,深度对标 Codex CLI Shift+Tab 循环):
+  // 权限模式循环切换 hook(2026-07-29 提取自本文件,深度遵循统一工程规范):
   // - shortcutsOpen: ? 键唤起/关闭 PermissionShortcutsModal
   // - cyclePermissionMode: Shift+Tab 在 3 个模式间循环切(default → accept-edits → bypass-permissions)
   // hook 同时暴露 openShortcuts(供外部按钮触发),本组件未消费故不解构
@@ -311,7 +310,7 @@ export function MessageInput({
   const activeWorkspace = useAiPanelStore((s) => s.activeWorkspace)
   const activeWorkspaceMode = activeWorkspace?.mode
   const isHighRisk = isHighRiskPermissionMode(activeWorkspaceMode)
-  // 高风险模式自动撤销倒计时(2026-07-25 深化,深度对标 Codex CLI 安全护栏):
+  // 高风险模式自动撤销倒计时(2026-07-25 深化,深度遵循统一工程规范):
   // - 切到 bypass-permissions 时启动 1h 倒计时,显示剩余时间
   // - 倒计时归零 → 自动切回 default
   // - 用户可点"取消自动撤销"维持当前模式(但视觉警告仍存在)
@@ -349,11 +348,9 @@ export function MessageInput({
   // 读不到(404/410/5xx)/未判定(需登录/超时/内网,未判定 ≠ 读不到)。
   // fire-and-forget:预览失败绝不阻断发送(票面显式断言,探测侧已自证)。
   const linkPreview = useLinkPreview()
-  // D06 审查对象选择器(2026-10-27 装车):selection 住输入层(随窗格隔离 —— mode 档位取
-  // 窗格实例,选择条本身不读 store);消费点在 submitAndDismissLinkPreview。
+  // D06 审查对象选择器(2026-10-27 装车):selection 住输入层(随窗格隔离);
+  // 2026-11-16 模式入口移除后,选择条改为「输入 /review 或已选中目标」时出现。
   const [reviewSelection, setReviewSelection] = React.useState<ReviewSourceSelection | null>(null)
-  const reviewModeStore = usePaneModeStore()
-  const currentMode = reviewModeStore((s) => s.currentMode)
   const unifiedAddedIdsRef = React.useRef<Set<string>>(new Set())
   // V3 第 61 票(2026-09-27):`@` 与 `#` 的提及状态与正文落点都收进 useMentionWiring(下方,
   // 需在 inputCoreRef 之后构造)—— 这里原先是一份 contextChips 局部 state + addContextChip +
@@ -677,7 +674,7 @@ export function MessageInput({
     },
     [conversationId, chatStore, sideTask],
   )
-  // 流式结束后自动发送预备消息(2026-08-14 立,对标 Cursor/ChatGPT 流式期间输入下一条行为)
+  // 流式结束后自动发送预备消息(2026-08-14 立,遵循统一工程规范)
   // D28(2026-09-20):流结束后预备消息优先(W27);无预备消息时补答当前会话队首侧问
   // (每轮流结束最多补答一条,与 W27 队列同节奏)
   const wasStreamingRef = React.useRef(isStreaming)
@@ -723,7 +720,7 @@ export function MessageInput({
   // 已选工具(用户从插件市场点击"+"添加到对话的 pluginId 列表)
   const selectedToolsIds = chatStore((s) => s.selectedTools)
   const removeSelectedTool = chatStore((s) => s.removeSelectedTool)
-  // D22 引用回复(2026-09-19 立,对标 Qoder 0.2.x):待引用消息快照 chip + 清除
+  // D22 引用回复(2026-09-19 立,遵循统一工程规范):待引用消息快照 chip + 清除
   // (store 只暴露 setQuotedMessage,以 setQuotedMessage(null) 充当清除)
   const quotedMessage = chatStore((s) => s.quotedMessage)
   const setQuotedMessage = chatStore((s) => s.setQuotedMessage)
@@ -740,7 +737,7 @@ export function MessageInput({
     return () =>
       window.removeEventListener('ihui:add-text-reference', onAddTextRef as EventListener)
   }, [addTextReference, paneId])
-  // D184(2026-09-29 立,对标竞品 chatSession.selectionActions):选中文本作为附件 ——
+  // D184(2026-09-29 立,对齐竞品 chatSession.selectionActions):选中文本作为附件 ——
   // MessageItem「作为附件添加」按钮派发 ihui:add-selection-attachment,此处包装为
   // "选中的文本.txt" 附件文件走 addFileReferences 三档校验(G-833)通道;容量满(max_files)
   // 时以 attachmentLimitReached 文案回报(竞品串"附件已达 {limit} 个,请先移除一个再添加选中文本。")。
@@ -771,7 +768,7 @@ export function MessageInput({
         onAddSelectionAttachment as EventListener,
       )
   }, [addFileReferences, t, paneId])
-  // D22 会话拖入输入框引用(2026-09-19 立,对标 Qoder 0.2.x):侧栏会话行 draggable,
+  // D22 会话拖入输入框引用(2026-09-19 立,遵循统一工程规范):侧栏会话行 draggable,
   // dataTransfer 携带 application/x-ihui-conversation JSON;drop 后拉取会话消息
   // 拼成对话快照文本引用(失败回退用标题),与文件拖拽通道互不影响。
   const CONVERSATION_DRAG_TYPE = 'application/x-ihui-conversation'
@@ -839,8 +836,8 @@ export function MessageInput({
   // 2026-08-14 修改:流式期间也允许发送(保存为 pending 消息,流式结束后自动发出)
   // b75-5#1:附件未到 ready(uploading/error/terminal)时阻发,防附件断链
   const refsReady = canSendReferences(references).canSend
-  // D06 审查对象选择器:选中合法目标 + review 模式 ⇒ 即使正文为空也可发(目标本身就是本轮请求)。
-  const reviewTargetReady = currentMode === 'review' && isReviewSelectionReady(reviewSelection)
+  // D06 审查对象选择器:选中合法目标 ⇒ 即使正文为空也可发(目标本身就是本轮请求)。
+  const reviewTargetReady = isReviewSelectionReady(reviewSelection)
   const canSend = (value.trim().length > 0 || reviewTargetReady) && refsReady
   // 斜杠命令选中技能时触发的调用流程状态(2026-08-08 立)
   const [skillInvokeSkill, setSkillInvokeSkill] = React.useState<AiSkillMeta | null>(null)
@@ -882,7 +879,7 @@ export function MessageInput({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- submitAndDismissLinkPreview 是每次渲染新建的箭头,补进依赖会让这段键盘监听每渲染重挂一次
   }, [draftInput, clearDraftInput, draftAutoSend, clearDraftAutoSend, submit])
 
-  // 权限模式可发现性增强(2026-07-25 深化,深度对标 Codex CLI /help):
+  // 权限模式可发现性增强(2026-07-25 深化,深度遵循统一工程规范):
   // - infoMode: 标题栏 ⓘ 按钮点击后展示该模式的详细说明 modal
   // shortcutsOpen / cyclePermissionMode 已提取到 usePermissionModeCycle hook(2026-07-29)
   const [infoMode, setInfoMode] = React.useState<WorkspacePermissionMode | null>(null)
@@ -913,7 +910,8 @@ export function MessageInput({
   )
 
   const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const next = e.target.value.slice(0, MAX_LENGTH)
+    // 2026-11-16 用户定档:输入不设字数上限,原样接收。
+    const next = e.target.value
     // D36:用户手动编辑即脱离翻历史态,清空游标 / 草稿备份(避免 ↑ 误用旧游标)
     promptHistory.resetCursor()
     setValue(next)
@@ -949,7 +947,7 @@ export function MessageInput({
         : `\`${item.source === 'file' ? (item.detail ?? item.label) : item.label}\` `
     setValue((prev) => {
       const merged = prev && !prev.endsWith(' ') ? `${prev} ${snippet}` : `${prev}${snippet}`
-      return merged.slice(0, MAX_LENGTH)
+      return merged
     })
     setUnifiedOpen(false)
     requestAnimationFrame(() => {
@@ -993,7 +991,7 @@ export function MessageInput({
         if (!sent) {
           setValue((prev) => {
             const merged = prev && !prev.endsWith(' ') ? `${prev} ${text}` : `${prev}${text}`
-            return merged.slice(0, MAX_LENGTH)
+            return merged
           })
           requestAnimationFrame(() => inputCoreRef.current?.resize())
         }
@@ -1002,7 +1000,7 @@ export function MessageInput({
     }
     setValue((prev) => {
       const merged = prev && !prev.endsWith(' ') ? `${prev} ${text}` : `${prev}${text}`
-      return merged.slice(0, MAX_LENGTH)
+      return merged
     })
     requestAnimationFrame(() => inputCoreRef.current?.resize())
   }
@@ -1065,10 +1063,7 @@ export function MessageInput({
     }
     const onMentionFile = () => {
       if (isStreaming) return
-      const next = (value.endsWith(' ') || value === '' ? `${value}@` : `${value} @`).slice(
-        0,
-        MAX_LENGTH,
-      )
+      const next = value.endsWith(' ') || value === '' ? `${value}@` : `${value} @`
       setValue(next)
       setMentionOpen(true)
       requestAnimationFrame(() => {
@@ -1128,7 +1123,7 @@ export function MessageInput({
     // compositionend 未落"的边界会把半截中文发出去。Enter 提交完全交内部裁决
     // (shouldSubmitOnEnter 双腿判据,经 onSend={submitAndDismissLinkPreview} 同一出口),
     // 本 handler 只留 ↑↓ 历史 / Shift+Tab / Esc 三类与 Enter 无关的分支。
-    // D36 会话内输入历史上翻(对标 Codex prompt-history):
+    // D36 会话内输入历史上翻(遵循统一工程规范):
     // ↑ 回填上一条发送文本 / ↓ 返回原始草稿;斜杠 / 提及面板打开时不抢(让面板用 ↑/↓)。
     // 未消费(草稿态 ↓ / 多行非首行 ↑)时不 preventDefault,交还 textarea 默认光标移动。
     if (
@@ -1143,7 +1138,7 @@ export function MessageInput({
         return
       }
     }
-    // Shift+Tab 全局循环切权限模式(2026-07-25 深化,深度对标 Codex CLI)
+    // Shift+Tab 全局循环切权限模式(2026-07-25 深化,深度遵循统一工程规范)
     // - 斜杠面板/提及面板打开时不抢(让面板用 Tab)
     // - 阻止默认焦点切换(浏览器默认 Shift+Tab 是反向 focus)
     // - 即使 textarea 内有输入也直接切换(Codex 行为:全局生效,非 textarea 局部)
@@ -1151,7 +1146,7 @@ export function MessageInput({
       e.preventDefault()
       void cyclePermissionMode()
     }
-    // Esc 清空草稿(2026-07-31 对标 主流 AI IDE):
+    // Esc 清空草稿(2026-07-31 对齐 主流 AI IDE):
     // - 斜杠/提及面板打开时 Esc 由面板自己处理(不清空)
     // - 流式生成中禁用(避免误清下一条草稿)
     // - 有内容时清空并 resize textarea 高度
@@ -1188,7 +1183,7 @@ export function MessageInput({
     [conversationId, onStop, answerWithToast, chatStore],
   )
 
-  // #18 流式中输入框保持可输入(2026-07-25 立):流式中 textarea 不再 disabled,用户可输入下一条消息草稿(对标 Cursor/ChatGPT 行为)。
+  // #18 流式中输入框保持可输入(2026-07-25 立):流式中 textarea 不再 disabled,用户可输入下一条消息草稿(遵循统一工程规范)。
   // 发送按钮已移入 WebInputCore(由 !isStreaming 守门,流式中显示 Stop 按钮)。
   // 流式占位符(2026-07-25 立,2026-07-29 简化):直接读 i18n key,5 语言文件齐备;末尾省略号统一加 "…" 提示持续生成。
   const streamingHint = t('streamingIndicatorHint')
@@ -1200,14 +1195,14 @@ export function MessageInput({
         className={cn('mx-auto px-4 pb-px', compactTop ? 'pt-0' : 'pt-3')}
         style={{ maxWidth: 'var(--chat-content-width, 48rem)' }}
       >
-        {/* 高风险模式持久化视觉警告(2026-07-25 深化,深度对标 Codex 高风险提示)
+        {/* 高风险模式持久化视觉警告(2026-07-25 深化,深度对齐统一规范)
             - 提取到 HighRiskWarningBanner 子组件(2026-07-30),行为零变更
             - 内部消费 useAiPanelStore 计算 isHighRisk + useTranslations('chat')
             - autoRevert 由主组件透传(标题栏倒计时与横幅倒计时共享同一份 tick) */}
         <HighRiskWarningBanner autoRevert={autoRevert} />
         {/* 任务进度常驻状态条:此刻最该被看到的动态信息(流式时自动展开明细,空闲时零占位) */}
         <TaskStatusBar />
-        {/* A 节单状态槽(2026-09-30 深度对标二轮):断连/下行告警/MCP/润色保稿/diff 意见/
+        {/* A 节单状态槽(2026-09-30 深度对齐二轮):断连/下行告警/MCP/润色保稿/diff 意见/
             额度 六源按优先级只展开一条,其余折叠 +N 徽章弹层;全 inactive 整体不渲染。
             高风险横幅与任务条是行动号召,保持槽外独立。 */}
         <InputStatusSlot
@@ -1216,7 +1211,7 @@ export function MessageInput({
           polish={polish}
           onPolishRetry={handlePolish}
         />
-        {/* 统一上下文容器(2026-09-30 深度对标二轮):引用卡 / 已选工具卡 / 引用回复条 /
+        {/* 统一上下文容器(2026-09-30 深度对齐二轮):引用卡 / 已选工具卡 / 引用回复条 /
             提及 chips / 粘贴预览条 / 输入队列收进一个分组,间距由容器统一接管;
             全空时整体不渲染零占位。状态类通知不进容器(走下方状态区)。 */}
         <ContextChipsRow
@@ -1325,7 +1320,7 @@ export function MessageInput({
             指定 commit)+ 文件/片段两档补充。与 InputNoticeBanner 同区(输入框上方),
             只在 review 模式渲染;摘掉这一行 ⇒ `review-target-wiring.test.tsx` 的挂载判据红。 */}
         <ReviewTargetSelector
-          visible={currentMode === 'review'}
+          visible={reviewSelection !== null || value.trimStart().startsWith('/review')}
           selection={reviewSelection}
           onChange={setReviewSelection}
           data-testid="review-target-selector"
@@ -1338,7 +1333,7 @@ export function MessageInput({
             onSelect={mentionWiring.applyAtSelection}
             onClose={() => setMentionOpen(false)}
           />
-          {/* W20 九类 # 上下文选择器浮层(2026-09-14 立,对标 Trae):键盘导航在 textarea 层 */}
+          {/* W20 九类 # 上下文选择器浮层(2026-09-14 立,对齐统一规范):键盘导航在 textarea 层 */}
           <ContextSelectorPopover
             open={contextSelector.open}
             query={contextSelector.query}
@@ -1373,7 +1368,7 @@ export function MessageInput({
             onDragLeave={handleDragLeaveWithConversation}
             onDrop={handleDropWithConversation}
             className={cn(
-              // 聚焦反馈对标 Cursor:描边由灰向墨档半强度过渡 + 极淡外晕(见 globals.css
+              // 聚焦反馈遵循统一工程规范
               // .ai-input-shell--idle:focus-within)。2026-11-11 用户反馈 1px ring + shadow-sm
               // 太突兀,已改为纯 CSS 的轻微过渡,这里不再挂 ring/shadow 工具类。
               'ai-input-shell flex flex-col rounded-xl border bg-card transition-[border-color,box-shadow] duration-200',
@@ -1432,7 +1427,7 @@ export function MessageInput({
               onTranscript={handleVoiceTranscript}
               disabled={isStreaming}
             />
-            {/* 底部工具栏(2026-09-30 底栏单行化,深度对标 Trae/Qoder/Codex 输入卡):
+            {/* 底部工具栏(2026-09-30 底栏单行化,深度对齐统一规范):
                 单行两簇 —— 左簇"任务进度 + 添加",右簇"权限 + 模式 + 上下文 + 模型 + 语音 + 发送"。
                 相比旧版(顶部栏 5 控件 + 权限标题行 + 底栏 9 控件,三处堆叠):
                 - 顶部栏控件全部降位:任务进度→底栏左簇;权限→底栏右簇 icon-only;
@@ -1450,7 +1445,7 @@ export function MessageInput({
               {/* ── 左簇:「实时状态」芯片(仅活跃时) + 「添加 +」───────────
                   2026-11-04 信息架构重构:权限、模式、Agent、上下文环、语音、语音笔记
                   移入「+ → 更多工具」抽屉;底栏锚点 = 状态芯片(条件渲染) / + / 模型 /
-                  发送·停止 —— 空闲态仍是极简三锚点(对标 Claude/ChatGPT composer)。
+                  发送·停止 —— 空闲态仍是极简三锚点(对齐 Claude/ChatGPT composer)。
                   第四轮(用户规则):任务进度的实时状态不该降级到 2 击 —— 流式期间芯片
                   常驻显示当前任务与步数,点它开合右侧 Pane;与抽屉里的同一控件是同一
                   store 的两个入口(testid 不同名:status / trigger)。 */}
@@ -1589,8 +1584,8 @@ export function MessageInput({
                           onExplainMode={(mode) => setInfoMode(mode)}
                           variant="row"
                         />
-                        <ModeSwitcher disabled={isStreaming} variant="row" />
                         <AgentPicker variant="row" />
+                        <ToolsPanelToggle disabled={isStreaming} />
                       </div>
                     </div>
                   }
@@ -1790,14 +1785,14 @@ export function MessageInput({
             </div>
           </div>
         </div>
-        {/* AI 免责提示行放输入卡片外(2026-09-30 用户指定:对标 ChatGPT "can make mistakes" 在框外,
+        {/* AI 免责提示行放输入卡片外(2026-09-30 用户指定:对齐 ChatGPT "can make mistakes" 在框外,
             不进圆角描边卡内;字号 text-[9px] + muted;上下间距对称各 1px:上方 mt-px(卡→字),
             下方由 wrapper pb-px 承担(字→底),2026-09-30 用户指定 6px→1px) */}
         <p className="mt-px text-center text-[9px] text-muted-foreground">{t('aiDisclaimer')}</p>
         {/* 2026-07-28 用户规则调整:删除外层 hint 行,字符数固定在输入框第三行末尾(不随内容滚动),
             整体更紧凑、外层不再留空条;Enter 发送 · Shift+Enter 换行 用 textarea placeholder 承担(已有)。 */}
       </div>
-      {/* 首次启用高风险模式确认弹窗(2026-07-25 深化,深度对标 Codex CLI safety guard)
+      {/* 首次启用高风险模式确认弹窗(2026-07-25 深化,深度对齐统一规范)
           - 由 ai-panel store.pendingFullAccess 控制 open 状态
           - popover / Shift+Tab / /permission full 三处切到 bypass-permissions 时共用
           - 用户勾选"我了解"后才能点"继续启用"(内部 markFullAccessSuppressed/Acknowledged)
@@ -1808,7 +1803,7 @@ export function MessageInput({
       <AgentProgressShortcutHost />
       {/* D117:/diff 会话改动总览弹窗(全局单实例) */}
       <SessionDiffDialog />
-      {/* 权限模式快捷键帮助面板(2026-07-25 深化,深度对标 Codex CLI /help):
+      {/* 权限模式快捷键帮助面板(2026-07-25 深化,深度对齐统一规范):
           - ? 键(Shift+/)全局唤起/关闭,由本组件内 useEffect 监听
           - 排除 textarea/input/contenteditable 内,用户打字不误触
           - 3 分组:模式切换 / 高风险护栏 / 撤销与审计 */}

@@ -364,7 +364,7 @@ export default function InputArea({
     // .input-area > .input-area-back > .search-box.search-box-bor > .search-box-inner
     // search-box-inner 内:search-box1(语音) + textarea/voice-bar + 放大/缩小按钮 + 占位 search-right + 可见 search-right
     //
-    // 动态 padding(对标原项目 textareaPadding,非 iOS 分支):
+    // 动态 padding(对齐原项目 textareaPadding,非 iOS 分支):
     // - 放大态:由 CSS .textarea-input 控制,不设 padding
     // - 长文本(isamplify):12rpx 38rpx 82rpx 0(右侧 38rpx 放大按钮 + 底部 82rpx 图标组)
     // - 短文本:12rpx 134rpx 12rpx 44rpx(右侧 134rpx 图标组 + 左侧 44rpx 语音按钮)
@@ -390,8 +390,8 @@ export default function InputArea({
           } as CSSProperties
         }
       >
-        {/* 第二层:input-area-back 白底呼吸阴影(对标原项目 .input-area-back inputAreaBackAnimation)
-            放大态:对标原项目 .input_area_back(仅 height:100%,移除 box-shadow + animation) */}
+        {/* 第二层:input-area-back 白底呼吸阴影(对齐原项目 .input-area-back inputAreaBackAnimation)
+            放大态:对齐原项目 .input_area_back(仅 height:100%,移除 box-shadow + animation) */}
         <View
           className={isFangdaActive ? 'input-area-back input-area-active-bg' : 'input-area-back'}
           style={{
@@ -399,8 +399,8 @@ export default function InputArea({
             ...(isFangdaActive ? { height: '100%', boxShadow: 'none', animation: 'none' } : {}),
           }}
         >
-          {/* 第三层:search-box search-box-bor 紫色描边圆角容器(对标原项目 .search-box.search_box_bor)
-              语音模式背景色 #ECEDFC(对标原项目 isVoiceAnimationActive 判断) */}
+          {/* 第三层:search-box search-box-bor 紫色描边圆角容器(对齐原项目 .search-box.search_box_bor)
+              语音模式背景色 #ECEDFC(对齐原项目 isVoiceAnimationActive 判断) */}
           <View
             className={cn(
               'search-box',
@@ -412,7 +412,7 @@ export default function InputArea({
               ...ff.focusStyle,
             }}
           >
-            {/* 附件列表 imgs-list(对标原项目 .imgs_list,横向滚动,底部 1px 灰线分隔) */}
+            {/* 附件列表 imgs-list(对齐原项目 .imgs_list,横向滚动,底部 1px 灰线分隔) */}
             {imgsList && imgsList.length > 0 ? (
               <ScrollView scrollX className="imgs-list" style={{ flexBasis: '100%' }}>
                 {imgsList.map((item, index) => (
@@ -555,7 +555,7 @@ export default function InputArea({
               </ScrollView>
             ) : null}
 
-            {/* 内层 search-box(语音/文字输入区,对标原项目 .search-box.search-boxa) */}
+            {/* 内层 search-box(语音/文字输入区,对齐原项目 .search-box.search-boxa) */}
             <View
               className="search-box-inner"
               style={{
@@ -596,8 +596,8 @@ export default function InputArea({
                 />
               </View>
 
-              {/* textarea search-input(对标原项目 textarea.search-input)
-                  始终渲染:语音模式时通过 position:absolute + zIndex:-1 隐藏(对标原项目 disabled 控制逻辑) */}
+              {/* textarea search-input(对齐原项目 textarea.search-input)
+                  始终渲染:语音模式时通过 position:absolute + zIndex:-1 隐藏(对齐原项目 disabled 控制逻辑) */}
               <Textarea
                 className={cn(
                   'search-input',
@@ -644,7 +644,7 @@ export default function InputArea({
                 onKeyboardHeightChange={handleKeyboardHeightChange}
               />
 
-              {/* 语音波形动画 voice-bar-animation(对标原项目 v-if="isVoiceAnimationActive")
+              {/* 语音波形动画 voice-bar-animation(对齐原项目 v-if="isVoiceAnimationActive")
                   语音模式时渲染:30 根线,recording 时添加 line1~line30 类名触发动画 */}
               {mode === 'voice' ? (
                 <View
@@ -661,7 +661,7 @@ export default function InputArea({
                 </View>
               ) : null}
 
-              {/* 放大按钮(对标原项目 isamplify && !isVoiceAnimationActive && !isFangdaActive)
+              {/* 放大按钮(对齐原项目 isamplify && !isVoiceAnimationActive && !isFangdaActive)
                   位置:absolute right:0 top:12rpx 40×40 z-index:2,图标 48×48 widthFix */}
               {mode === 'text' && isamplify && !recording && !isFangdaActive ? (
                 <View
@@ -690,7 +690,7 @@ export default function InputArea({
                 </View>
               ) : null}
 
-              {/* 缩小按钮(对标原项目 isFangdaActive,含 search_suo 类)
+              {/* 缩小按钮(对齐原项目 isFangdaActive,含 search_suo 类)
                   位置:absolute right:0 top:12rpx 40×40 z-index:2,图标 48×48 widthFix */}
               {mode === 'text' && isFangdaActive ? (
                 <View
@@ -719,7 +719,7 @@ export default function InputArea({
                 </View>
               ) : null}
 
-              {/* 占位 search-right(opacity:0 + pointerEvents:none):撑开 textarea 宽度避让右侧图标(对标原项目 line 119-149) */}
+              {/* 占位 search-right(opacity:0 + pointerEvents:none):撑开 textarea 宽度避让右侧图标(对齐原项目 line 119-149) */}
               <View
                 className="search-right"
                 style={{ position: 'relative', opacity: 0, pointerEvents: 'none' }}

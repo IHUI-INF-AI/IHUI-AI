@@ -1,7 +1,7 @@
 # © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-"""批58:附加上下文存储 — 对标 codex state/additional_context.rs + context-fragments additional_context.rs。
+"""批58:附加上下文存储 — 遵循统一工程规范。
 
 AdditionalContextStore:key -> AdditionalContextEntry 去重合并存储。
 merge(values) 只为「值发生变化」的 key 产出片段(全量替换语义:merge 后 store 等于 values)。
@@ -47,7 +47,7 @@ def approx_tokens_from_byte_count(byte_count: int) -> int:
 
 
 def _truncate_middle_chars(s: str, max_bytes: int) -> str:
-    """byte 预算中段截断(保留首尾,字符边界安全)——对标 truncate_with_byte_estimate。"""
+    """byte 预算中段截断(保留首尾,字符边界安全)——对齐 truncate_with_byte_estimate。"""
     if not s:
         return ""
     total_bytes = len(s.encode("utf-8"))
@@ -91,7 +91,7 @@ def _truncate_middle_chars(s: str, max_bytes: int) -> str:
 
 
 def truncate_middle_with_token_budget(s: str, max_tokens: int) -> tuple[str, int | None]:
-    """对标 codex truncate_middle_with_token_budget:返回 (截断结果, 截断发生时的原始 token 数)。"""
+    """遵循统一工程规范)。"""
     if not s:
         return ("", None)
     if max_tokens > 0 and len(s.encode("utf-8")) <= approx_bytes_for_tokens(max_tokens):
@@ -251,7 +251,7 @@ class AdditionalContextStore:
 
 
 def is_additional_context_user_text(text: str) -> bool:
-    """对标 matches_text:识别 <external_{key}>...</external_{key}> 形态。"""
+    """对齐 matches_text:识别 <external_{key}>...</external_{key}> 形态。"""
     trimmed = text.strip()
     if not trimmed.startswith(ADDITIONAL_CONTEXT_START_MARKER_PREFIX):
         return False

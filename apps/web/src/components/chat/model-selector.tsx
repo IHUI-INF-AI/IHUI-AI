@@ -6,6 +6,8 @@
 
 import * as React from 'react'
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
+// 2026-11-16 立:浮层与视口边缘的统一安全间距(单一源)
+import { FLOATING_VIEWPORT_PADDING_PX } from '@ihui/shared/ui/floating-layer-spec'
 import { useQuery } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import {
@@ -382,7 +384,7 @@ function ModelOptionRow({
 }
 
 /** 能力摘要行末尾追加真实单价(2026-11-13 立)。
- *  倍率只是官方对标档位,横比模型必须看真实单价,否则会出现"倍率低但实际更贵"的误判。
+ *  倍率只是官方对齐档位,横比模型必须看真实单价,否则会出现"倍率低但实际更贵"的误判。
  *  单价是 CNY 元/百万 token,统一走 formatCny 按展示币种换算。 */
 function pricePerMillionText(opt: ModelOption): string | null {
   const inM = opt.inputPricePerMillion
@@ -450,7 +452,7 @@ export function ModelCapsSummary({ opt }: { opt: ModelOption }) {
           <span aria-hidden className="px-0.5 text-muted-foreground/40">
             ·
           </span>
-          {/* 真实单价:横比模型以此为准,倍率只是官方对标档位 */}
+          {/* 真实单价:横比模型以此为准,倍率只是官方对齐档位 */}
           <span className="shrink-0 text-muted-foreground" title={t('capPriceHint')}>
             {priceText}
           </span>
@@ -803,7 +805,7 @@ function withPoolModels(base: ModelOption[], pool: PoolChatModel[]): ModelOption
       // 2026-11-13 改:倍率以平台登记行为准(公共池调用会真实扣积分,不能再硬编码免费档);
       // 未登记指的上游补缺模型才回落 0(无定价,不是"免费")
       pointsMultiplier: m.pointsMultiplier ?? 0,
-      // 真实单价随行下发:倍率只作官方对标档位,横比模型以这两个数为准
+      // 真实单价随行下发:倍率只作官方对齐档位,横比模型以这两个数为准
       ...(m.inputPricePerMillion !== undefined && m.outputPricePerMillion !== undefined
         ? {
             inputPricePerMillion: m.inputPricePerMillion,
@@ -1192,6 +1194,8 @@ export function ModelSelector({
         <DropdownMenu.Content
           align="end"
           sideOffset={6}
+          // 2026-11-16 立:与视口边缘留统一安全间距,避免菜单贴屏幕边缘
+          collisionPadding={FLOATING_VIEWPORT_PADDING_PX}
           className={cn(
             'z-popover max-h-[60vh] w-fit max-w-[320px] overflow-y-auto rounded-lg border bg-card p-1 text-card-foreground shadow-elevation-md',
             ' [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-sm [&::-webkit-scrollbar-thumb]:bg-muted-foreground/30',

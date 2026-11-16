@@ -5,7 +5,7 @@
 import { fetchApi } from '@/lib/api'
 
 /**
- * Agent Step 录制回放(Record & Replay)前端 API 客户端(2026-09-03 立,对标 WorkBuddy/Codex 审计)。
+ * Agent Step 录制回放(Record & Replay)前端 API 客户端(2026-09-03 立,遵循统一工程规范)。
  *
  * 服务端契约(apps/ai-service 的 routers/step_recorder.py,挂载到 /api/agent-recorder):
  *  - GET /api/agent-recorder/runs/{run_id}/steps?page=&page_size=  → 该运行 step 序列(时间序分页)

@@ -927,7 +927,7 @@ iframe::-webkit-scrollbar {
   animation: ihui-update-ring-pulse 1.8s ease-in-out infinite;
 }
 
-/* ============ 消息高亮脉冲动画(2026-07-31 立,对标 主流 AI IDE + Codex 跳转反馈)============
+/* ============ 消息高亮脉冲动画(2026-07-31 立,对齐 主流 AI IDE + Codex 跳转反馈)============
  * PlanStepsCard 点击步骤跳转消息后,目标消息需要 1.5s 视觉脉冲反馈,
  * 让用户感知"跳到了这个消息"。
  * - 使用品牌色(--color-brand)做 box-shadow + border 双重脉冲
@@ -1069,15 +1069,13 @@ iframe::-webkit-scrollbar {
    与横线(.ai-float-resize-line--h / 浮窗上下边)共用同一份停靠点,只换渐变方向。 */
 .resize-handle-line,
 .ai-float-resize-line {
-  --resize-line-stops: transparent 0%,
-    color-mix(in srgb, var(--chart-1) 20%, transparent) 10%,
+  --resize-line-stops:
+    transparent 0%, color-mix(in srgb, var(--chart-1) 20%, transparent) 10%,
     color-mix(in srgb, var(--chart-1) 50%, transparent) 25%,
-    color-mix(in srgb, var(--chart-1) 85%, transparent) 40%,
-    var(--chart-1) 50%,
+    color-mix(in srgb, var(--chart-1) 85%, transparent) 40%, var(--chart-1) 50%,
     color-mix(in srgb, var(--chart-1) 85%, transparent) 60%,
     color-mix(in srgb, var(--chart-1) 50%, transparent) 75%,
-    color-mix(in srgb, var(--chart-1) 20%, transparent) 90%,
-    transparent 100%;
+    color-mix(in srgb, var(--chart-1) 20%, transparent) 90%, transparent 100%;
   background: linear-gradient(to bottom, var(--resize-line-stops));
   opacity: 0;
   transition:
@@ -1088,7 +1086,8 @@ iframe::-webkit-scrollbar {
 /* 暗色模式:中心色偏亮蓝,两端浅蓝,与深色背景形成对比 */
 .dark .resize-handle-line,
 .dark .ai-float-resize-line {
-  --resize-line-stops: transparent 0%,
+  --resize-line-stops:
+    transparent 0%,
     color-mix(in srgb, color-mix(in srgb, var(--chart-1) 25%, white) 20%, transparent) 10%,
     color-mix(in srgb, color-mix(in srgb, var(--chart-1) 25%, white) 50%, transparent) 25%,
     color-mix(in srgb, color-mix(in srgb, var(--chart-1) 25%, white) 85%, transparent) 40%,
@@ -1416,7 +1415,7 @@ html[data-workbench-immersive='true'] aside[data-main-sidebar] {
  *
  * 1) data-modal-dim:模态遮罩打开 → 等效压暗层瞬时到位。"遮罩 open 态禁 fade-in"是
  *    既有 blocking 守门,压暗必须第一帧生效;取消方向保留统一时长与遮罩 fade-out 同步。
- * 2) data-window-inactive:窗口失去系统焦点 → 图标/底色弱化,对标 Windows caption
+ * 2) data-window-inactive:窗口失去系统焦点 → 图标/底色弱化,对齐 Windows caption
  *    非活动态。:not(:hover):not(:focus-visible) 保证 hover 反馈(含 close 红底)不被吃掉。
  */
 [data-window-controls][data-modal-dim='1'] > [data-window-controls-dim] {
@@ -1485,7 +1484,7 @@ html[data-workbench-immersive='true'] aside[data-main-sidebar] {
 /* ============================================================
  * AI 输入框底部工具栏 container query(2026-07-20 立,2026-09-30 单行化重构)
  * ============================================================
- * 背景:输入卡恒 2 行(textarea 行 + 唯一底栏,对标 Trae/Qoder/Codex),
+ * 背景:输入卡恒 2 行(textarea 行 + 唯一底栏,遵循统一工程规范),
  * 面板宽 400-720px(默认 480px)。MessageInput 外层 mx-auto max-w-3xl px-4(32px)
  * → 容器内容宽 = 面板 - 32 - 2px 边框;.ai-input-toolbar 自身 px-2(16px)
  * → container 内容盒宽 = 面板 - 48(下称 C)。
@@ -1924,7 +1923,7 @@ body [data-sonner-toaster] [data-sonner-toast][data-styled='true'] [data-content
   padding-right: 32px;
 }
 
-/* 高风险模式脉动动画(2026-07-25 深化,深度对标 Codex CLI 高风险视觉警告)
+/* 高风险模式脉动动画(2026-07-25 深化,深度遵循统一工程规范)
  * - 仅作用于 .animate-pulse-soft(高风险模式警告横幅 + 输入框边框)
  * - 2.4s 慢节奏 + opacity 只到 0.85 + 微亮 box-shadow,不刺眼(Codex 风格)
  * - keyframes 命名加 ihui- 前缀,避免与项目其他动画冲突 */

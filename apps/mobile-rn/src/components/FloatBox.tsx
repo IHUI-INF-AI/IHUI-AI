@@ -11,8 +11,8 @@
  *   替代原纯淡入(原只动 opacity、原地出现,看起来不像 web 的 slide-down);
  * - 退场:opacity → 0 + translateY → -SLIDE,再 onHide;
  * - 4 种 type 用语义色实底(替代原统一深底 rgba(0,0,0,0.85)),前景统一白字白图标,
- *   对标 web sonner 的 richColors(error 红 / warning 黄 / success 绿 / info 深灰);
- * - 右上角关闭按钮(X),点击即退场,对标 sonner 的 closeButton;
+ *   对齐 web sonner 的 richColors(error 红 / warning 黄 / success 绿 / info 深灰);
+ * - 右上角关闭按钮(X),点击即退场,对齐 sonner 的 closeButton;
  * - 时长仍由调用方 / 共享单源常量透传,本组件不再自定默认语义时长(见下方 DEFAULT_DURATION_MS)。
  *
  * 语义色底均满足 WCAG 正文 ≥4.5:1(守门见 float-box-toast-contrast.test.tsx),
@@ -71,7 +71,7 @@ const Z_INDEX = 9999
 // 小程序端 FloatBox 的 caption 行高用的就是同一档(现值同为 20)—— 同锚即同值。
 const ICON_FONT_SIZE = 16
 const MAX_WIDTH_RATIO = 0.8
-/** 进场位移:从顶部上方滑入(对标 web sonner 的 slide-down),配合 fade 形成「滑下」观感 */
+/** 进场位移:从顶部上方滑入(对齐 web sonner 的 slide-down),配合 fade 形成「滑下」观感 */
 const SLIDE_DISTANCE_PX = 40
 
 /**

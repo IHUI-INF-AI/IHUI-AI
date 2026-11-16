@@ -76,7 +76,7 @@ test('2 反向:单行 ======= (setext 标题下划线 / 表格分隔 / ASCII 图
   assert.equal(src.findMarkerPairs(['x', END].join('\n')).pairs.length, 0)
 })
 
-test('3 未配对标记如实计数(手删一半标记的强信号),但不计入违规', () => {
+test('3 未配对齐记如实计数(手删一半标记的强信号),但不计入违规', () => {
   const half = src.findMarkerPairs([OPEN, 'x', SEP, 'y'].join('\n'))
   assert.equal(half.pairs.length, 0)
   assert.equal(half.unpairedStarts.length, 1)
@@ -159,7 +159,7 @@ test('7 judgeBuffer:违规点名路径,跳过项只计数不静默', () => {
   assert.equal(src.judgeBuffer('assets/huge.txt', bigClean, s4).length, 0)
   assert.equal(s4.tooLarge, 1, '无标记线索的大文件仍应被护栏放过并计数')
   assert.equal(s4.judged, 0)
-  // (b) 大 + 成对标记:必须照判。`PROJECT_PLAN.md` 常年 >2MB,而它是多会话唯一会真撞车的
+  // (b) 大 + 成对齐记:必须照判。`PROJECT_PLAN.md` 常年 >2MB,而它是多会话唯一会真撞车的
   //     文件 —— 实测枚 b54c79c36 把带未解标记的工作树副本提交进台账时,本门对着那一枚报绿,
   //     汇总里只留下一句"跳过 >2MB 大文件=1"。断言方向反过来是为了让那一型不再可能。
   const s4b = src.newStats()
@@ -168,7 +168,7 @@ test('7 judgeBuffer:违规点名路径,跳过项只计数不静默', () => {
     Buffer.alloc(src.MAX_BYTES, 0x61),
   ])
   const bigViolations = src.judgeBuffer('PROJECT_PLAN.md', bigDirty, s4b)
-  assert.equal(bigViolations.length, 1, '>2MB 但含成对标记 ⇒ 必须判红,不得静默跳过')
+  assert.equal(bigViolations.length, 1, '>2MB 但含成对齐记 ⇒ 必须判红,不得静默跳过')
   assert.equal(s4b.tooLarge, 0)
   assert.equal(s4b.largeWithMarkers, 1, '"照判不误"必须自己报出来,否则读者以为护栏生效了')
   assert.equal(s4b.judged, 1)
@@ -231,7 +231,7 @@ test('9 audit(--staged) 判索引内容:索引脏即红,仅工作区脏不影响
     writeFileSync(join(repo, 'a.ts'), [OPEN, 'ours', SEP, 'theirs', END].join('\n'))
     g(['add', 'a.ts'])
     const hit = src.audit(repo, { staged: true })
-    assert.equal(hit.code, 1, '索引里带成对标记必须判红')
+    assert.equal(hit.code, 1, '索引里带成对齐记必须判红')
     assert.equal(hit.violations[0].path, 'a.ts')
     assert.equal(src.trackedPaths(repo).includes('a.ts'), true)
 

@@ -495,7 +495,23 @@ const DEVELOPER_TOOLS_CHILDREN: NavItem[] = [
  * (父项与子项同 href 是 /knowledge-base、/admin/theme 既有的"父项+子菜单"设计,
  * 两者 labelKey 各不相同)。
  */
-const DEVELOPER_HUB_CHILDREN: NavItem[] = [
+/**
+ * 开发者域子页面清单(P2 六大域收敛第一批 2026-10-23 立;2026-11-16 用户规范:
+ * 「除自定义/热门外,任何左侧按钮都不得有下拉」)
+ *
+ * 历史:developerGroup 顶层曾由 7 项收敛为 1 个域入口父项「开发者工具」(/developer),
+ * 20 项二级子项挂在父项 children 上由 ExpandableNavItem 下拉渲染。
+ *
+ * 〔2026-11-16 用户规范〕侧边栏不再挂 children —— 本清单改为**域入口页 + 全局导航
+ * 索引双消费**(DOMAIN_HUB_ITEM_GROUPS → FLAT_NAV_ITEMS → 面包屑/TagsView/收藏允许集;
+ * /domains/developer 页以卡片网格承载)。URL 一个不改,页面一个不删;
+ * /developer 页自身仍用 CategoryShell 在右侧工作区展示分类导航。
+ *
+ * labelKey 去向:侧边栏入口沿用 'developerTools'(nav.developerTools 的唯一发射点,
+ * 摘掉即死键 —— 门 70b scan-dead-i18n-keys 为 blocking);首个子项用 'developer'
+ * 承接原顶层入口。
+ */
+export const DEVELOPER_HUB_ITEMS: NavItem[] = [
   { href: '/developer', labelKey: 'developer', icon: Terminal },
   { href: '/developer/api-docs', labelKey: 'developerApiDocs', icon: Code },
   // 2026-09-13:原 /developer/keys 独立入口与「中转站 → API 密钥」重复且旧页 API 不存在,
@@ -519,19 +535,19 @@ const DEVELOPER_HUB_CHILDREN: NavItem[] = [
  *
  * 2026-10-20 简洁模式:本域除末尾 2 项 adminOnly 外全部落 `developer` 档 ——
  * 整个域面向"来接 API 的外部开发者",与本站普通创作者/学习者毫无交集。
- * 收敛后**只标域入口父项一项**:20 个子项由继承规则(filterNavItemsByTier)
- * 自动带上同一档,不逐个重复标注;档位与 adminOnly/permission 是三层独立判据,
- * 禁止合并成一个字段(AGENTS §4「侧边栏可见性三层分治」)。
+ * 档位与 adminOnly/permission 是三层独立判据,禁止合并成一个字段(AGENTS §4「侧边栏
+ * 可见性三层分治」)。
  * 末尾两项 adminOnly(IoT TBox 设备后台 / Meta-Learner 自进化管理)原位保留:
  * 它们归 admin 组还是开发者组属管理域收敛批次的裁决,不在本批范围。
+ * 〔2026-11-16 用户规范〕父项 children 已摘(侧边栏不许下拉),20 项子页面清单改由
+ * DEVELOPER_HUB_ITEMS 导出;入口 href 改指域页 /domains/developer,与其他域同形态。
  */
 const DEVELOPER_ITEMS: NavItem[] = [
   {
-    href: '/developer',
+    href: '/domains/developer',
     labelKey: 'developerTools',
     icon: Terminal,
     advancedOnly: 'developer',
-    children: DEVELOPER_HUB_CHILDREN,
   },
   // 2026-08-08 feature-final2:IoT 设备管理(TBox 车载设备)——设备后台管理,仅 admin 可见
   { href: '/edu-ai/tbox', labelKey: 'eduAiTbox', icon: Cpu, adminOnly: true },
@@ -632,7 +648,7 @@ export const AI_HUB_ITEMS: NavItem[] = [
     icon: Globe,
     children: [{ href: '/ai-world/favorites', labelKey: 'favorites', icon: Star }],
   },
-  // 2026-07-24 对标 AI 工作台的能力入口(2026-08-30 收进"高级 AI 工具"折叠子菜单)
+  // 2026-07-24 对齐 AI 工作台的能力入口(2026-08-30 收进"高级 AI 工具"折叠子菜单)
   // 2026-10-20 简洁模式:整组标 `advancedAi` —— Agent 框架内部概念,普通用户看名词不知道是什么。
   // 只标父项:14 个子项由 filterNavItemsByTier 的继承规则自动带上同一档,不逐个重复标注。
   {
@@ -664,6 +680,9 @@ export const AI_HUB_ITEMS: NavItem[] = [
   // 个人号池(2026-10-23 立):与签到助手同一批第三方账号,归属当前用户,可启停/立即签到/看同步态
   { href: '/account-pool', labelKey: 'accountPool', icon: Wallet, advancedOnly: 'experimental' },
   { href: '/workspace', labelKey: 'workspace', icon: FolderOpen },
+  // 2026-11-16 财务部从 AI_HUB_ITEMS 移出,改为侧边栏独立入口(financeGroup)。
+  // 页面零 admin API(纯前端 + MCP 工具 ai_bookkeeping/ai_tax_filing,白名单按会话
+  // 自动并入,不按角色门),故所有登录用户可用;旧 URL /admin/finance-ai 已随迁页取消。
   // 知识库三合一(2026-08-30):知识库/RAG/图谱 三个入口概念重叠,收进"知识库"子清单
   {
     href: '/knowledge-base',
@@ -712,22 +731,54 @@ export const PERSONAL_HUB_ITEMS: NavItem[] = [
 ]
 
 /**
- * 五个域入口页消费的全部条目(2026-10-23 P2 收敛第二批登记)。
+ * 人事域条目全清单 —— 2026-11-16 用户规范「除自定义/热门外,其他一级分类均为
+ * 单入口 + 右侧工作区页」立(/domains/hr 承载)。
  *
- * 为什么要有这份常量:条目搬进 *_HUB_ITEMS 后就**不在 NAV_GROUPS 里**了,而
- * FLAT_NAV_ITEMS / ALL_NAV_HREFS 两个派生面原先只从 NAV_GROUPS 取源,于是
- * 这些 href 会同时从三处消费者眼里消失 —— ① path-labels 的 TagsView 取名退化成
- * 英文 Title Case 兜底;② use-custom-nav 的收藏允许集把它们当"已删除路由"剔除
- * (用户收藏的 /models 会在刷新后无声蒸发);③ isHrefActive 的精确匹配面变小。
- * 2026-10-19 那三域(教育/内容/交易)就漏了这一格且无人发现(现读 FLAT_NAV_ITEMS
- * 不含 /learn 即证)。本批把两域带进来时一并补齐,单一真相源仍是这份清单本身。
+ * 员工自助三页(我的考勤 / 我的请假 / 我的工资条)所有登录用户可见;
+ * 人事管理 / 人事数据中心两页 adminOnly(HR/管理员)。
+ * 数据面:自助页走 /api/hr-attendance/me|my-records|my-leaves 的本人作用域,
+ * 绑定仅认显式 user_id(HR 邀请 + 本人同意,见 routes/hr-attendance.ts 注释);
+ * 管理面走 hr:attendance:* 权限点。前端隐藏不承担鉴权(AGENTS §5)。
+ * 这两页与 ADMIN 域登记面允许跨清单重叠(用户从哪个域找都算入口在位)。
  */
-const DOMAIN_HUB_ITEM_GROUPS: NavItem[][] = [
-  EDU_HUB_ITEMS,
-  CONTENT_HUB_ITEMS,
-  TRADE_HUB_ITEMS,
-  AI_HUB_ITEMS,
-  PERSONAL_HUB_ITEMS,
+export const HR_HUB_ITEMS: NavItem[] = [
+  { href: '/hr/my-attendance', labelKey: 'hrMyAttendance', icon: CalendarCheck },
+  { href: '/hr/my-leave', labelKey: 'hrMyLeave', icon: CalendarDays },
+  { href: '/hr/my-payroll', labelKey: 'hrMyPayroll', icon: Wallet },
+  { href: '/admin/hr-attendance', labelKey: 'hrAdmin', icon: Users, adminOnly: true },
+  { href: '/admin/hr-data', labelKey: 'hrAdminData', icon: ClipboardCheck, adminOnly: true },
+]
+
+/**
+ * 各域入口页消费的条目清单 —— 定义在 NAV_GROUPS/ADMIN_HUB_ITEMS 之后(下方,TDZ),
+ * 这里只留前指注释;八域清单的构成与消费者说明见那份定义的头注。
+ */
+
+/**
+ * 管理域条目清单(2026-11-16 立):侧边栏收敛前的原静态管理入口。
+ *
+ * 用户反馈「管理分类没有跟其他分类一样有统一管理落地页」后,本清单不再平铺进侧边栏,
+ * 改由 /domains/admin 域入口页的卡片网格承载(ADMIN_HUB_ITEMS 与本数组同一引用,
+ * 运行期再追加 useAdminRouters 动态路由)。页面一个不删、URL 一个不改(A 方案)。
+ */
+const ADMIN_ITEMS: NavItem[] = [
+  { href: '/admin', labelKey: 'admin', icon: Shield, adminOnly: true },
+  { href: '/admin/statistics', labelKey: 'adminStatistics', icon: BarChart3, adminOnly: true },
+  { href: '/admin/user-center', labelKey: 'userCenter', icon: UserCircle, adminOnly: true },
+  { href: '/members', labelKey: 'members', icon: Users, adminOnly: true },
+  { href: '/admin/workflows', labelKey: 'adminWorkflows', icon: Workflow, adminOnly: true },
+  { href: '/admin/tags', labelKey: 'adminTags', icon: Tag, adminOnly: true },
+  { href: '/admin/logs', labelKey: 'adminLogs', icon: ScrollText, adminOnly: true },
+  // /admin/theme 9 项作为可展开子菜单(消除 /admin/theme/layout.tsx 双 aside 嵌套)
+  {
+    href: '/admin/theme',
+    labelKey: 'adminTheme',
+    icon: Palette,
+    adminOnly: true,
+    children: ADMIN_THEME_CHILDREN,
+  },
+  // 11 个 admin 运营域分组(运营/内容审核/财务/AI智能体/营销直播/课程考试/监控BI/客服工单/社区圈子/资源中心/开发者中心)
+  ...ADMIN_NAV_GROUPS.map(adminGroupToNavItem),
 ]
 
 export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
@@ -748,6 +799,22 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
       { href: '/ecosystem', labelKey: 'ecosystemHub', icon: LayoutGrid },
     ],
   },
+  // 人事部分组(2026-11-15 立,2026-11-16 用户规范统一为域入口形态):
+  // 侧边栏只留一枚「人事部」(/domains/hr),点击后右侧工作区页展示员工自助三页
+  // (我的考勤/我的请假/我的工资条,所有登录用户)与 HR 管理两页(adminOnly)。
+  // 清单 = HR_HUB_ITEMS(单一真相源);页面一个不删、URL 一个不改(A 方案)。
+  {
+    label: 'hrGroup',
+    items: [{ href: '/domains/hr', labelKey: 'hrGroup', icon: UsersRound }],
+  },
+  // 财务部分组(2026-11-16 立):与人事部同形态,侧边栏留一枚「财务部」入口,
+  // 直接指向 /finance-ai(财务域当前仅此单页,无需 hub 中转;后续增页时再
+  // 收敛为 /domains/finance 域入口)。labelKey 复用既有 nav.financeAi 键
+  // (五语言齐备),不新增键、不在端内硬编码中文(AGENTS §19)。
+  {
+    label: 'financeGroup',
+    items: [{ href: '/finance-ai', labelKey: 'financeAi', icon: Wallet }],
+  },
   {
     // 2026-10-23 P2 收敛第二批:本组由 14 项收敛为 1 个域入口(/domains/ai)。
     // 原 14 条顶层(连同 /models 18、/memory 14、/knowledge-base 6、/ai-world 1 子项,
@@ -760,30 +827,14 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
     label: 'aiGroupLabel',
     items: [{ href: '/domains/ai', labelKey: 'aiGroupLabel', icon: Sparkles }],
   },
-  // 管理 分组(2026-07-20 重构):
-  // 整合原 AdminNav.tsx 的 11 个运营域分组(作为二级可展开项)+ /admin/theme 9 项(作为二级可展开项)。
-  // admin 扁平 80 项通过 useAdminRouters() 动态加载,在 Sidebar 组件中合并到本组 items 前部。
-  // 仅 admin 用户可见(items 全部 adminOnly),默认折叠(见 NavGroupSection.defaultOpen;展开偏好由 localStorage 记忆)。
+  // 管理 分组(2026-07-20 重构;2026-11-16 用户反馈后收敛为单入口):
+  // 与其他域同形态(单入口 → 右侧工作区页),侧边栏只留一枚「管理」(/domains/admin);
+  // 原静态 11+ 项移入 ADMIN_ITEMS,由域入口页承载;后台动态路由(useAdminRouters)
+  // 也改由域页运行期追加,侧边栏不再拉取/平铺。仅 admin 用户可见,默认折叠。
   {
     label: 'adminGroupLabel',
     items: [
-      { href: '/admin', labelKey: 'admin', icon: Shield, adminOnly: true },
-      { href: '/admin/statistics', labelKey: 'adminStatistics', icon: BarChart3, adminOnly: true },
-      { href: '/admin/user-center', labelKey: 'userCenter', icon: UserCircle, adminOnly: true },
-      { href: '/members', labelKey: 'members', icon: Users, adminOnly: true },
-      { href: '/admin/workflows', labelKey: 'adminWorkflows', icon: Workflow, adminOnly: true },
-      { href: '/admin/tags', labelKey: 'adminTags', icon: Tag, adminOnly: true },
-      { href: '/admin/logs', labelKey: 'adminLogs', icon: ScrollText, adminOnly: true },
-      // /admin/theme 9 项作为可展开子菜单(消除 /admin/theme/layout.tsx 双 aside 嵌套)
-      {
-        href: '/admin/theme',
-        labelKey: 'adminTheme',
-        icon: Palette,
-        adminOnly: true,
-        children: ADMIN_THEME_CHILDREN,
-      },
-      // 11 个 admin 运营域分组(运营/内容审核/财务/AI智能体/营销直播/课程考试/监控BI/客服工单/社区圈子/资源中心/开发者中心)
-      ...ADMIN_NAV_GROUPS.map(adminGroupToNavItem),
+      { href: '/domains/admin', labelKey: 'adminGroupLabel', icon: ShieldCheck, adminOnly: true },
     ],
   },
   {
@@ -820,10 +871,65 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
     items: [{ href: '/domains/personal', labelKey: 'user', icon: User }],
   },
   // 开发者分组(2026-07-20 新增):整合原 /developer/layout.tsx 14 项页面级菜单栏
+  // 2026-11-16 用户规范:本组与其他域同为「单入口 → 右侧工作区页」形态 ——
+  // 侧边栏入口 /domains/developer(20 项子页面清单见 DEVELOPER_HUB_ITEMS,URL 全保留),
+  // 2 枚 adminOnly 管理项原位保留。
   {
     label: 'developerGroup',
     items: DEVELOPER_ITEMS,
   },
+]
+
+/**
+ * 管理域条目清单(2026-11-16 立,配合 /domains/admin 域入口页)。
+ *
+ * 与 ADMIN_ITEMS 共用**同一数组引用**(非第二份清单,§0.6);管理动态路由
+ * (useAdminRouters)由域页侧运行期追加。侧边栏「管理」组已收敛为单入口
+ * /domains/admin(2026-11-16),本清单是它唯一的数据源。
+ */
+export const ADMIN_HUB_ITEMS: NavItem[] = ADMIN_ITEMS
+
+/**
+ * 八个域入口页消费的条目清单(2026-10-23 P2 收敛第二批登记;2026-11-16 补人事/开发者/管理)。
+ *
+ * 为什么要有这份常量:条目搬进 *_HUB_ITEMS 后可能**不在 NAV_GROUPS 里**,而
+ * FLAT_NAV_ITEMS / ALL_NAV_HREFS 两个派生面原先只从 NAV_GROUPS 取源,于是
+ * 这些 href 会同时从三处消费者眼里消失 —— ① path-labels 的 TagsView 取名退化成
+ * 英文 Title Case 兜底;② use-custom-nav 的收藏允许集把它们当"已删除路由"剔除
+ * (用户收藏的 /models 会在刷新后无声蒸发);③ isHrefActive 的精确匹配面变小。
+ * 2026-10-19 那三域(教育/内容/交易)就漏了这一格且无人发现(现读 FLAT_NAV_ITEMS
+ * 不含 /learn 即证)。本批把人事/开发者/管理三域带进来时一并补齐,
+ * 单一真相源仍是各份清单本身。
+ *
+ * 位置说明:必须声明在 NAV_GROUPS 与 ADMIN_HUB_ITEMS 之后 —— ADMIN_HUB_ITEMS 引用
+ * 管理组 items,模块顶层 const 有 TDZ,提前引用会 ReferenceError(整页白屏)。
+ */
+const DOMAIN_HUB_ITEM_GROUPS: NavItem[][] = [
+  EDU_HUB_ITEMS,
+  CONTENT_HUB_ITEMS,
+  TRADE_HUB_ITEMS,
+  AI_HUB_ITEMS,
+  PERSONAL_HUB_ITEMS,
+  HR_HUB_ITEMS,
+  DEVELOPER_HUB_ITEMS,
+  ADMIN_HUB_ITEMS,
+]
+
+/**
+ * 域内功能按域分组(2026-11-16):域收敛后这些页面不在侧边栏平铺,但仍可被收藏
+ * (侧栏渲染与 isHrefActive 都按 FLAT_NAV_ITEMS 全量解析)。自定义功能键面板
+ * 需要一份「按域浏览」的候选源,否则收敛后用户再也无法把域内页面加进自定义栏。
+ * labelKey 复用侧边栏各域入口同键,不新增词条。
+ */
+export const DOMAIN_HUB_GROUPS: { labelKey: string; items: NavItem[] }[] = [
+  { labelKey: 'hrGroup', items: HR_HUB_ITEMS },
+  { labelKey: 'aiGroupLabel', items: AI_HUB_ITEMS },
+  { labelKey: 'adminGroupLabel', items: ADMIN_HUB_ITEMS },
+  { labelKey: 'eduHubTitle', items: EDU_HUB_ITEMS },
+  { labelKey: 'contentHubTitle', items: CONTENT_HUB_ITEMS },
+  { labelKey: 'tradeHubTitle', items: TRADE_HUB_ITEMS },
+  { labelKey: 'user', items: PERSONAL_HUB_ITEMS },
+  { labelKey: 'developerTools', items: DEVELOPER_HUB_ITEMS },
 ]
 
 export function flattenNavItems(items: NavItem[]): NavItem[] {
@@ -851,6 +957,31 @@ export const ALL_NAV_HREFS = ALL_NAV_SOURCE_ITEMS.map((i) => i.href)
 export const FLAT_NAV_ITEMS = ALL_NAV_SOURCE_ITEMS
 
 /**
+ * 域入口 → 该域清单全部 href(含 children)。
+ *
+ * 域收敛(2026-10-19/10-23/11-16)后侧边栏只剩 /domains/*,但页面与 URL 一个不改;
+ * 若只按 href 前缀判定,进入旧页面(/edu/attendance、/models/chats、/admin/users…)
+ * 时侧栏没有任何入口高亮 —— 与 2026-11-16 用户反馈的「管理选中态丢失」同型。
+ * 别名表由各域清单自动派生(单一真相源):清单增删时高亮随之变化,不手写第二份。
+ */
+const DOMAIN_ENTRY_ITEM_HREFS: Record<string, string[]> = Object.fromEntries(
+  (
+    [
+      ['/domains/edu', EDU_HUB_ITEMS],
+      ['/domains/content', CONTENT_HUB_ITEMS],
+      ['/domains/trade', TRADE_HUB_ITEMS],
+      ['/domains/ai', AI_HUB_ITEMS],
+      ['/domains/personal', PERSONAL_HUB_ITEMS],
+      ['/domains/hr', HR_HUB_ITEMS],
+      ['/domains/developer', DEVELOPER_HUB_ITEMS],
+      ['/domains/admin', ADMIN_HUB_ITEMS],
+    ] as const
+  ).map(
+    ([entry, items]) => [entry, flattenNavItems(items).map((item) => item.href)] as const,
+  ),
+)
+
+/**
  * 纯函数判断给定 href 是否与当前 pathname 匹配为活跃路由。
  * 与 useCallback 相比:1) 不创建新函数引用,不破坏 React.memo;2) 纯函数,相同输入永远相同输出。
  * 逻辑:pathname 以 href 开头,且没有其他 nav item 的 href 更精确地匹配当前 pathname。
@@ -861,6 +992,14 @@ export function isHrefActive(href: string, pathname: string): boolean {
   // 未登记进导航表的真实路由(/plugins、/chat/:id、/login 等)一个都命中不了,
   // 于是首页被判为命中且无更精确项,导致只要不在 nav 表内路由上就高亮首页。
   if (href === '/') return pathname === '/'
+  // 域入口别名(2026-11-16 深度审计):命中该域清单任一 href(含子项)即保持入口高亮。
+  // 两个域登记同一页面时(如 HR 的 /admin/hr-*)两者同时高亮,与「用户从哪个域找
+  // 都算入口在位」的既有约定一致(见 HR_HUB_ITEMS 头注)。
+  const domainItemHrefs = DOMAIN_ENTRY_ITEM_HREFS[href]
+  if (domainItemHrefs) {
+    if (pathname === href || pathname.startsWith(`${href}/`)) return true
+    return domainItemHrefs.some((h) => pathname === h || pathname.startsWith(`${h}/`))
+  }
   if (!pathname.startsWith(href)) return false
   return !ALL_NAV_HREFS.some((h) => h !== href && h.startsWith(href) && pathname.startsWith(h))
 }

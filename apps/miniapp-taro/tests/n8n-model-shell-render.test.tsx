@@ -223,7 +223,7 @@ describe('n8n 模型页薄壳(直载 n8n-model/N8nModelScreen)', () => {
     }
     visit(sourceFile)
 
-    // ThemeRoot 是唯一成对标签(壳根);CreateView(宿主模块入口)与共享屏都是自闭合。
+    // ThemeRoot 是唯一成对齐签(壳根);CreateView(宿主模块入口)与共享屏都是自闭合。
     // 三枚之外再多就是列表实现回潮,本锁判红。
     expect(jsxElement).toBe(1)
     expect(jsxSelfClosing).toBe(2)

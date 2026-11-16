@@ -195,6 +195,17 @@ function resolveConversationTime(item: ConversationItem): number | null {
 }
 
 /**
+ * 创建时标题(2026-11-16 立):后端在首次命名 / 首次改名时把"第一个有信息量的标题"
+ * 留档到 `metadata.originalTitle`,此后自动重估只改 title、不再覆盖它。
+ * 非法/缺失一律返回 null(侧栏据此不渲染历史提示,保持原样)。
+ */
+export function resolveOriginalTitle(metadata: unknown): string | null {
+  if (!metadata || typeof metadata !== 'object') return null
+  const value = (metadata as Record<string, unknown>).originalTitle
+  return typeof value === 'string' && value.trim().length > 0 ? value : null
+}
+
+/**
  * 侧栏会话日期分桶(2026-11-05 改批,与 sidebar-chat-date-group.test.ts 同源语义)。
  * 全部按本地时区的自然日/自然周/自然月切界:
  *  - today      : 今天 00:00 起
@@ -644,7 +655,7 @@ export function SidebarChatHistory({
     })
   }
 
-  // D186(对标竞品 nav.archiveChatTitle/archiveChatDoNotAskAgain):归档前二次确认;
+  // D186(对齐竞品 nav.archiveChatTitle/archiveChatDoNotAskAgain):归档前二次确认;
   // 勾过「不再提示」(或取消归档)走原直达路径,确认弹层只拦归档方向。
   const handleArchiveToggle = (item: ConversationItem) => {
     if (!item.archivedAt && !useArchivePrefsStore.getState().skipArchiveConfirm) {
@@ -679,7 +690,7 @@ export function SidebarChatHistory({
     )
   }
 
-  // D187:侧栏「标记为未读」入口(成功 toast 文案即竞品 nav.markUnreadSuccess 对标串)
+  // D187:侧栏「标记为未读」入口(成功 toast 文案即竞品 nav.markUnreadSuccess 对齐串)
   const handleMarkUnread = (item: ConversationItem) => {
     if (!userId) return
     markUnread(userId, item.id)
@@ -858,6 +869,10 @@ export function SidebarChatHistory({
     const orgTags = orgMeta.tags ?? []
     // D179:该行绑定的 Issue(业务元数据 metadata.issueBinding;未绑定 = null 不渲染)
     const issueBinding = resolveIssueBinding(item.metadata)
+    // 2026-11-16 立:创建时标题(后端在首次命名/首次改名时留档到 metadata.originalTitle)。
+    // 历史会话没有留档时回退为当前标题,保证悬停始终能看到「创建时 / 当前」两行对比。
+    const originalTitle = resolveOriginalTitle(item.metadata)
+    const createdTitle = originalTitle ?? item.title
     // D53:每行注意力态独立派生,pendingQuestion 只联动当前会话行
     const unreadRaw = attentionById?.[item.id]?.unread ?? item.unreadCount ?? 0
     const unread = Number.isFinite(unreadRaw) && unreadRaw > 0 ? Math.floor(unreadRaw) : 0
@@ -895,7 +910,7 @@ export function SidebarChatHistory({
             selection.selectionMode ? selection.toggleSelected(item.id) : handleSelect(item)
           }
           aria-current={active ? 'true' : undefined}
-          // D22 会话拖入输入框引用(2026-09-19 立,对标 Qoder 0.2.x):会话行可拖拽,
+          // D22 会话拖入输入框引用(2026-09-19 立,遵循统一工程规范):会话行可拖拽,
           // dataTransfer 携带会话 JSON,输入框 handleDropWithConversation 消费
           draggable
           onDragStart={(e) => {
@@ -923,7 +938,20 @@ export function SidebarChatHistory({
             />
           )}
           <span className="relative flex min-w-0 items-center gap-1">
-            <span className="min-w-0 flex-1 truncate text-[12px] font-medium">{item.title}</span>
+            <Tooltip
+              content={
+                <span className="flex flex-col gap-0.5 text-left">
+                  <span>
+                    {t('titleHistoryOriginal')} · {createdTitle}
+                  </span>
+                  <span>
+                    {t('titleHistoryCurrent')} · {item.title}
+                  </span>
+                </span>
+              }
+            >
+              <span className="min-w-0 flex-1 truncate text-[12px] font-medium">{item.title}</span>
+            </Tooltip>
             {item.pinned && (
               <Pin className="h-3 w-3 shrink-0 fill-current text-primary" aria-hidden />
             )}
@@ -1493,7 +1521,7 @@ export function SidebarChatHistory({
                 ))
               )}
               {isFetchingNextPage ? (
-                // D190:翻页加载态补文案(此前仅 Loader 图标,对标竞品 sidebarView.loadingMore)
+                // D190:翻页加载态补文案(此前仅 Loader 图标,对齐竞品 sidebarView.loadingMore)
                 <div className="flex items-center justify-center gap-1.5 py-1.5 text-[10px] text-muted-foreground">
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
                   <span>{t('loadingMore')}</span>
@@ -1535,7 +1563,7 @@ export function SidebarChatHistory({
         onCancel={() => setPendingDeleteId(null)}
       />
 
-      {/* D186:归档二次确认(对标竞品 nav.archiveChatTitle「归档“{title}”?」+「不再提示」+ 在途「正在归档...」) */}
+      {/* D186:归档二次确认(对齐竞品 nav.archiveChatTitle「归档“{title}”?」+「不再提示」+ 在途「正在归档...」) */}
       <ConfirmDialog
         open={pendingArchive !== null}
         title={t('archiveChatTitle', { title: pendingArchive?.title ?? '' })}
@@ -1569,7 +1597,7 @@ export function SidebarChatHistory({
         <DialogContent className="min-[640px]:max-w-sm">
           <DialogHeader>
             <DialogTitle>{tc('renameDialog.title')}</DialogTitle>
-            {/* D191:helper 描述行(对标竞品 nav.renameChatDescription"保持简短且易于识别") */}
+            {/* D191:helper 描述行(对齐竞品 nav.renameChatDescription"保持简短且易于识别") */}
             <DialogDescription>{tc('renameDialog.description')}</DialogDescription>
           </DialogHeader>
           <div className="space-y-2">

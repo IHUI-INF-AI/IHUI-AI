@@ -7,7 +7,7 @@ import { persist } from 'zustand/middleware'
 import { createPersistConfig } from '@/stores/persist-helpers'
 
 /**
- * Repo Wiki / 知识卡片(W29,2026-09-14 立,对标 Qoder Repo Wiki):
+ * Repo Wiki / 知识卡片(W29,2026-09-14 立,遵循统一工程规范):
  * - 四类卡片:architecture(架构)/ api(接口)/ pattern(模式)/ pitfall(陷阱)
  * - zustand persist 本地持久化(localStorage key: ihui-repo-wiki)
  * - 自动捕获:autoCapture 开启时,消息收尾(send-message.ts)调用 maybeAutoCaptureWiki,

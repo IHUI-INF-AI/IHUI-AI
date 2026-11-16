@@ -345,7 +345,7 @@
   line-height: 1.5;
 }
 
-/* 智能体引导说明(对标原 ai_assistant.vue tishi_block + tishi_box) */
+/* 智能体引导说明(对齐原 ai_assistant.vue tishi_block + tishi_box) */
 .tishi-block {
   display: flex;
   align-items: center;
@@ -394,7 +394,7 @@
   line-height: 1.6;
 }
 
-/* 历史入口按钮(对标原 ai_assistant.vue 导航栏历史图标) */
+/* 历史入口按钮(对齐原 ai_assistant.vue 导航栏历史图标) */
 .nav-history {
   font-size: var(--text-title);
   padding: 0 var(--spacing-xs-loose);
@@ -402,7 +402,7 @@
   color: var(--color-muted-foreground);
 }
 
-/* 历史对话抽屉列表(对标原 ai_assistant.vue 历史抽屉) */
+/* 历史对话抽屉列表(对齐原 ai_assistant.vue 历史抽屉) */
 .history-list {
   padding: var(--spacing-sm) var(--spacing-lg);
   max-height: 50vh;
@@ -433,7 +433,7 @@
   opacity: 0.7;
 }
 
-/* 历史清空按钮(对标原 ai_assistant.vue clearHistory) */
+/* 历史清空按钮(对齐原 ai_assistant.vue clearHistory) */
 .history-clear-btn {
   text-align: center;
   padding: var(--spacing-md);
@@ -441,27 +441,27 @@
   font-size: var(--text-body);
 }
 
-/* 收藏按钮(对标原 ai_assistant.vue 收藏爱心图标) */
+/* 收藏按钮(对齐原 ai_assistant.vue 收藏爱心图标) */
 .bubble-favorite {
   font-size: var(--text-label);
   margin-left: var(--spacing-sm-loose);
 }
 
-/* TTS 朗读按钮(对标原 ai_assistant.vue 朗读,仅 AI 消息) */
+/* TTS 朗读按钮(对齐原 ai_assistant.vue 朗读,仅 AI 消息) */
 .bubble-speak {
   font-size: var(--text-label);
   color: var(--color-info);
   margin-left: var(--spacing-sm-loose);
 }
 
-/* 分享按钮(对标原 ai_assistant.vue 分享对话) */
+/* 分享按钮(对齐原 ai_assistant.vue 分享对话) */
 .bubble-share {
   font-size: var(--text-label);
   color: var(--color-info);
   margin-left: var(--spacing-sm-loose);
 }
 
-/* 数字人跳转按钮(对标原 ai_assistant.vue 数字人跳转) */
+/* 数字人跳转按钮(对齐原 ai_assistant.vue 数字人跳转) */
 .digital-human-btn {
   margin-top: var(--spacing-xs-loose);
   padding: var(--spacing-xs) var(--spacing-sm);
@@ -473,7 +473,7 @@
   align-items: center;
 }
 
-/* 语音消息气泡(对标原 ai_assistant.vue 语音气泡) */
+/* 语音消息气泡(对齐原 ai_assistant.vue 语音气泡) */
 .voice-bubble {
   display: flex;
   align-items: center;
@@ -496,7 +496,7 @@
   color: var(--color-muted-foreground);
 }
 
-/* ============ 操作按钮图标(对标原 ai_assistant.vue .action-btn) ============ */
+/* ============ 操作按钮图标(对齐原 ai_assistant.vue .action-btn) ============ */
 .action-btn {
   width: var(--spacing-xl);
   height: var(--spacing-xl);
@@ -516,7 +516,7 @@
   opacity: 0.5;
 }
 
-/* ============ 输入区基础容器(对标原项目 .input-area) ============ */
+/* ============ 输入区基础容器(对齐原项目 .input-area) ============ */
 .input-area {
   position: relative;
   bottom: 0;
@@ -529,7 +529,7 @@
   box-sizing: border-box;
 }
 
-/* ============ 输入框背板:阴影 + 呼吸动画(对标原项目 .input-area-back inputAreaBackAnimation) ============ */
+/* ============ 输入框背板:阴影 + 呼吸动画(对齐原项目 .input-area-back inputAreaBackAnimation) ============ */
 .input-area-back {
   width: 100%;
   background: none;
@@ -548,7 +548,7 @@
   }
 }
 
-/* 全屏放大态(对标原项目 input_area_active:position fixed + z-index 999) */
+/* 全屏放大态(对齐原项目 input_area_active:position fixed + z-index 999) */
 /* 豁免类别:浮层上浮贴边影(负 y offset + 负 spread),翻转即失真,非层级投影 */
 .input-area-active {
   position: fixed;
@@ -561,7 +561,7 @@
   box-shadow: 0px -4rpx 16rpx -4rpx var(--color-black-15);
 }
 
-/* ============ 搜索框紫色描边(对标原项目 .search_box_bor) ============ */
+/* ============ 搜索框紫色描边(对齐原项目 .search_box_bor) ============ */
 .search-box {
   display: flex;
   align-items: flex-end;
@@ -578,7 +578,7 @@
   min-height: 0 !important;
 }
 
-/* ============ textarea 原生样式重置(对标原项目 textarea.search-input) ============ */
+/* ============ textarea 原生样式重置(对齐原项目 textarea.search-input) ============ */
 .input-bar textarea,
 .search-input {
   -webkit-appearance: none;
@@ -594,7 +594,7 @@
   box-sizing: border-box;
 }
 
-/* ============ textarea 放大态重排(对标原项目 .textarea_input) ============ */
+/* ============ textarea 放大态重排(对齐原项目 .textarea_input) ============ */
 .textarea-input {
   height: calc(100% - 68rpx) !important;
   position: absolute !important;
@@ -606,7 +606,7 @@
   height: var(--spacing-xl) !important;
 }
 
-/* ============ 加号旋转激活态(对标原项目 .rotate-icon + .search-box2-img transition) ============ */
+/* ============ 加号旋转激活态(对齐原项目 .rotate-icon + .search-box2-img transition) ============ */
 .search-add-icon {
   transition: transform 0.5s ease;
 }
@@ -615,7 +615,7 @@
   transition: transform 0.5s ease;
 }
 
-/* ============ 附件展示区(对标原项目 .imgs_list) ============ */
+/* ============ 附件展示区(对齐原项目 .imgs_list) ============ */
 .imgs-list {
   display: flex;
   flex-direction: row;
@@ -656,7 +656,7 @@
   border-radius: var(--radius-lg);
 }
 
-/* ============ 文档文件名滚动动画(对标原项目 .scroll-container + @keyframes scroll) ============ */
+/* ============ 文档文件名滚动动画(对齐原项目 .scroll-container + @keyframes scroll) ============ */
 .scroll-container {
   flex: 1;
   overflow: hidden;
@@ -688,12 +688,12 @@
     transform: translateX(-100%);
   }
 }
-/* 鼠标悬停时暂停滚动(对标原项目 .scroll-container:hover .scroll-content) */
+/* 鼠标悬停时暂停滚动(对齐原项目 .scroll-container:hover .scroll-content) */
 .scroll-container:hover .scroll-content {
   animation-play-state: paused;
 }
 
-/* ============ 语音波形动画(对标原项目 .voice-bar-animation + .line1~30 + @keyframes move) ============ */
+/* ============ 语音波形动画(对齐原项目 .voice-bar-animation + .line1~30 + @keyframes move) ============ */
 .voice-bar-animation {
   display: flex;
   align-items: center;
@@ -813,7 +813,7 @@
   }
 }
 
-/* ============ 思考进度条:渐变 5 色 + 流光动画 + 斜纹(对标原项目 .thinking-progress-container + .thinking-progress-bar) ============ */
+/* ============ 思考进度条:渐变 5 色 + 流光动画 + 斜纹(对齐原项目 .thinking-progress-container + .thinking-progress-bar) ============ */
 .thinking-progress-container {
   position: relative;
   width: 100%;
@@ -860,7 +860,7 @@
   }
 }
 
-/* ============ 4 点 loader 动画(对标原项目 .loader-container + .loader-dot + loaderpulse) ============ */
+/* ============ 4 点 loader 动画(对齐原项目 .loader-container + .loader-dot + loaderpulse) ============ */
 .loader-container {
   display: flex;
   align-items: center;
@@ -900,7 +900,7 @@
   }
 }
 
-/* ============ 思考过程独立浮层(对标原项目 .agent-content1 + .agent_back 旋转紫边) ============ */
+/* ============ 思考过程独立浮层(对齐原项目 .agent-content1 + .agent_back 旋转紫边) ============ */
 .agent-content1-overlay {
   position: fixed;
   top: 0;
@@ -973,7 +973,7 @@
   }
 }
 
-/* ============ tishi 渐变边框(对标原项目 .tishi_box + .tishi_box_back) ============ */
+/* ============ tishi 渐变边框(对齐原项目 .tishi_box + .tishi_box_back) ============ */
 .tishi-box-gradient {
   padding: 2rpx;
   background: linear-gradient(81deg, var(--color-ring) 54%, transparent 126%);
@@ -986,14 +986,14 @@
   padding: 10rpx 0;
 }
 
-/* ============ 思考标题(对标原项目 .agent_content_title_top) ============ */
+/* ============ 思考标题(对齐原项目 .agent_content_title_top) ============ */
 .thinking-title {
   display: flex;
   align-items: center;
   margin-bottom: var(--spacing-xs);
 }
 
-/* ============ 快捷按钮区(对标原 ai_assistant.vue .quick-actions-container + .quick-action-btn) ============ */
+/* ============ 快捷按钮区(对齐原 ai_assistant.vue .quick-actions-container + .quick-action-btn) ============ */
 .quick-actions-container {
   padding: 10rpx var(--spacing-sm-loose);
   margin-bottom: 10rpx;
@@ -1027,7 +1027,7 @@
   opacity: 0.9;
 }
 
-/* ============ 用户消息复用按钮(对标原 ai_assistant.vue .fuyong-btn) ============ */
+/* ============ 用户消息复用按钮(对齐原 ai_assistant.vue .fuyong-btn) ============ */
 .fuyong-btn {
   width: 100rpx;
   height: var(--spacing-xl);
@@ -1035,7 +1035,7 @@
   flex-shrink: 0;
 }
 
-/* ============ 用户问题容器(对标原 ai_assistant.vue .question-container) ============ */
+/* ============ 用户问题容器(对齐原 ai_assistant.vue .question-container) ============ */
 .question-container {
   width: 100%;
   display: flex;
@@ -1044,7 +1044,7 @@
   margin-top: var(--spacing-sm-loose);
 }
 
-/* ============ 操作按钮容器(对标原 ai_assistant.vue .action-buttons) ============ */
+/* ============ 操作按钮容器(对齐原 ai_assistant.vue .action-buttons) ============ */
 .bubble-actions {
   display: flex;
   justify-content: space-between;
@@ -1067,7 +1067,7 @@
   margin-left: 0;
 }
 
-/* ============ 分享按钮(对标原 ai_assistant.vue .share-btn + .share-button + .share-icon) ============ */
+/* ============ 分享按钮(对齐原 ai_assistant.vue .share-btn + .share-button + .share-icon) ============ */
 .share-btn {
   display: inline-block;
   position: relative;
@@ -1091,7 +1091,7 @@
   top: 0;
 }
 
-/* ============ 底部输入区容器(对标原 ai_assistant.vue .input_box_content + .bottom-fixed-area) ============ */
+/* ============ 底部输入区容器(对齐原 ai_assistant.vue .input_box_content + .bottom-fixed-area) ============ */
 .input-box-content {
   position: fixed;
   top: auto;
@@ -1106,7 +1106,7 @@
 }
 
 /* ============================================================
-   历史项目类名样式补充(对标 ai_assistant.vue + InputArea.vue)
+   历史项目类名样式补充(对齐 ai_assistant.vue + InputArea.vue)
    以下为 ChatMessageItem.tsx / InputArea.tsx 新 className 对应样式
    ============================================================ */
 
@@ -1149,7 +1149,7 @@
   white-space: pre-wrap;
 }
 
-/* ============ AI 图片(对标原 ai_assistant.vue .agent-content-item-img) ============ */
+/* ============ AI 图片(对齐原 ai_assistant.vue .agent-content-item-img) ============ */
 .agent-content-item-img {
   width: 100%;
   height: auto;
@@ -1157,7 +1157,7 @@
   margin-top: 10rpx;
 }
 
-/* ============ 用户消息图片(对标原 ai_assistant.vue .agent-question-item-img) ============ */
+/* ============ 用户消息图片(对齐原 ai_assistant.vue .agent-question-item-img) ============ */
 .agent-question-item-img {
   width: 100rpx;
   height: 100rpx;
@@ -1165,7 +1165,7 @@
   margin-bottom: 10rpx;
 }
 
-/* ============ 操作按钮行(对标原 ai_assistant.vue .action-buttons) ============ */
+/* ============ 操作按钮行(对齐原 ai_assistant.vue .action-buttons) ============ */
 .action-buttons {
   display: flex;
   justify-content: flex-end;
@@ -1173,7 +1173,7 @@
   align-items: center;
 }
 
-/* ============ 放大态背景(对标原 .input_area_back,放大态必须覆盖 .input-area-back 的呼吸阴影与动画) ============ */
+/* ============ 放大态背景(对齐原 .input_area_back,放大态必须覆盖 .input-area-back 的呼吸阴影与动画) ============ */
 .input-area-active-bg {
   background: var(--color-card);
   height: 100%;
@@ -1181,20 +1181,20 @@
   animation: none;
 }
 
-/* ============ search-box 紫色描边圆角(对标原 .search_box_bor) ============ */
+/* ============ search-box 紫色描边圆角(对齐原 .search_box_bor) ============ */
 .search-box-bor {
   padding: 10rpx 15rpx 10rpx 25rpx;
   border: 1px solid var(--color-input);
 }
 
-/* 放大态 search-box 子容器(对标原 .search_boxa:height 100% + space-between + flex-end) */
+/* 放大态 search-box 子容器(对齐原 .search_boxa:height 100% + space-between + flex-end) */
 .search-box-active {
   height: 100%;
   justify-content: space-between;
   align-items: flex-end;
 }
 
-/* ============ 内层 search-box(对标原 .search-box.search-boxa) ============ */
+/* ============ 内层 search-box(对齐原 .search-box.search-boxa) ============ */
 .search-box-inner {
   position: relative;
   display: flex;
@@ -1206,7 +1206,7 @@
   box-sizing: border-box;
 }
 
-/* ============ 语音切换按钮(对标原 .search-box1) ============ */
+/* ============ 语音切换按钮(对齐原 .search-box1) ============ */
 .search-box1 {
   width: 50rpx;
   height: 44rpx;
@@ -1224,7 +1224,7 @@
   display: block;
 }
 
-/* ============ textarea 补充属性(对标原 .search-input) ============ */
+/* ============ textarea 补充属性(对齐原 .search-input) ============ */
 .search-input {
   font-size: var(--text-subtitle);
   color: var(--color-foreground) !important;
@@ -1242,12 +1242,12 @@
   min-height: 44rpx;
 }
 
-/* 放大态图标栏展开时上移(对标原 .textarea_input_isShowIcon) */
+/* 放大态图标栏展开时上移(对齐原 .textarea_input_isShowIcon) */
 .textarea-input-isShowIcon {
   bottom: 292rpx !important;
 }
 
-/* ============ 右侧图标组(对标原 .search-right 绝对定位) ============ */
+/* ============ 右侧图标组(对齐原 .search-right 绝对定位) ============ */
 .search-right {
   width: auto;
   height: auto;
@@ -1263,7 +1263,7 @@
   z-index: 2;
 }
 
-/* ============ 附件按钮(对标原 .search-box2,默认可见,opacity 由 inline showFile 控制) ============ */
+/* ============ 附件按钮(对齐原 .search-box2,默认可见,opacity 由 inline showFile 控制) ============ */
 .search-box2 {
   width: 44rpx;
   height: 44rpx;
@@ -1275,7 +1275,7 @@
   display: block;
 }
 
-/* ============ 清空+发送容器(对标原 .search-box3) ============ */
+/* ============ 清空+发送容器(对齐原 .search-box3) ============ */
 .search-box3 {
   width: auto;
   display: flex;

@@ -4,7 +4,7 @@
 
 """工具面能力门:按产品形态/能力台账收口 MCP 工具面(缺口表 #7)。
 
-背景(2026-11-01 立,逆向-复现-超越铁律 §0.12):
+背景(2026-11-01 立,工程化落地铁律 §0.12):
     取证册 `docs/benchmark-evidence/2026-11/qoder-trae-rea-20261101/T12-mtree-and-hook-host.md`
     §3 B1 观察到对侧钩子宿主内置**产品能力表 + `CAPABILITY_DISABLED`** 一型:按
     `QODER_SEARCH_PRODUCT_FORM` 一类 env 决定 `products.<形态>{searchWorkspace, turnRelay,

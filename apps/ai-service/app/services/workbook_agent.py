@@ -4,7 +4,7 @@
 
 """工作簿 agent 出口(2026-11-02 立,goal-b45 F 席)。
 
-对标取证:`docs/benchmark-evidence/2026-11/qoder-trae-rea-20261101/T8-sidecar-native-surface.md` §B
+对齐取证:`docs/benchmark-evidence/2026-11/qoder-trae-rea-20261101/T8-sidecar-native-surface.md` §B
 —— 对照件 Qoder 内置 `xlsx-sidecar.exe`(Rust,15,168 函数)把「工作簿」做成面向 agent 的
 命令协议(14 枚命令,含 `save_archive` 写回 + `recalc_cells` 重算)。本仓这一格先补齐
 **最小命令集 open / read_range / write_cells / close**(写回按非破坏式落新档),

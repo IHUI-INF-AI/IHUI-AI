@@ -453,7 +453,7 @@ export default function AgentDetailPage() {
                   </View>
                 </View>
               </View>
-              {/* 标签区(对标原项目 tags 字段) */}
+              {/* 标签区(对齐原项目 tags 字段) */}
               {tags.length > 0 && (
                 <View className="flex flex-wrap mt-[24rpx]">
                   {tags.map((tag, idx) => (
@@ -512,7 +512,7 @@ export default function AgentDetailPage() {
               <Text className="text-title text-foreground leading-[44rpx]">{agent.prologue}</Text>
             </View>
           )}
-          {/* 使用教程 / 示例对话(对标原项目 exampleDialog) */}
+          {/* 使用教程 / 示例对话(对齐原项目 exampleDialog) */}
           {exampleDialogs.length > 0 && (
             <View className="mx-[20rpx] mb-[24rpx] bg-card rounded-lg border border-border p-[28rpx]">
               <Text className="text-caption text-muted-foreground mb-[16rpx] block">

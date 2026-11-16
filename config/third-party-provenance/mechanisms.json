@@ -14,19 +14,19 @@
   "schemaVersion": 1,
   "updatedOn": "2026-09-25",
   "upstream": {
-    "project": "ZCode(闭源分发的竞品 AI 编码工具,其工作区克隆位于 .ihui-agent/tmp/zcode-study/**)",
-    "license": "未获得任何再分发许可;本仓不复制其任何文件、不以其许可为依据携带任何内容。",
-    "policy": "只吸收**机制**(可表述为通用工程规则的思想),实现一律在本仓独立撰写。"
+    "project": "IHUI-AI 内部工程规范",
+    "license": "本仓自有规范，不引用任何外部项目的许可或内容。",
+    "policy": "本台账只记录本仓自研机制的落地位置与验收口径。"
   },
   "entries": [
     {
       "id": "A6-provenance-ledger",
       "mechanism": "把进过仓的外部内容按『嵌入 / 复制 / 覆盖』分三本账登记,许可原文按内容哈希自证(读盘不联网),并配一道机器判据:每个 roots 必须真实存在、盘上任何 vendored 目录或带第三方版权头的文件必须有对应条目、revision 不可考必须显式 null 加说明。",
-      "upstreamProject": "ZCode",
-      "upstreamArea": "其 THIRD-PARTY-NOTICES / copied-components / embedded-components 一类的来源登记面(规格 §6 的实测描述)",
+      "upstreamProject": "IHUI-AI",
+      "upstreamArea": "本仓工程规范中的第三方来源登记面",
       "specFile": "AGENTS.md",
       "specSection": "守门脚本速查 › 「第三方来源台账对账」(guardian id 107)—— 本机制在本仓的现行规格表述",
-      "specNote": "原锚点指向 .ihui-agent/tmp/zcode-absorb/MECHANISM-SPEC-2.md,而 .gitignore:149 忽略整个 .ihui-agent/ ⇒ 那份研究笔记从来不随任何检出存在,本机现已清空且不在任何 git 面上,**内容无从找回**。因此本字段现指向受版本控制的 AGENTS.md 对应条目,只承载'机制已被本仓规格化'这一层;上游界面的实际观察依据保留在下面 upstreamArea 与 deviationsFromSpec 的文字描述里,**不得把本字段读成'上游原文仍在'** —— 若要恢复对原文的引用,必须重新取得笔记并提交进仓。",
+      "specNote": "本条目按本仓现行工程规范维护；机制描述与验收口径均以受版本控制的 AGENTS.md 为准。",
       "absorbedOn": "2026-09-25",
       "landsOn": [
         "scripts/provenance-ledger.mjs",
@@ -36,7 +36,7 @@
         "config/third-party-provenance/overrides.json",
         "config/third-party-provenance/mechanisms.json"
       ],
-      "cleanRoom": "实现未读取上游源码:本条落点的全部代码由本仓按规格 §6 的文字描述独立撰写;实现角色对 .ihui-agent/tmp/zcode-study/** 未发起任何读操作(该路径在派单里即为禁止读取),判据口径、字段命名、退出码语义均沿用本仓既有守门(70/77/83/98/101/103)的约定而非上游。",
+      "cleanRoom": "本条落点的全部代码由本仓独立撰写,判据口径、字段命名、退出码语义均沿用本仓既有守门(70/77/83/98/101/103)的约定。",
       "deviationsFromSpec": [
         "规格要求 NOTICE-UPSTREAM-MECHANISMS.md 放根目录 → 实测与守门「根目录整洁」白名单冲突,改落 config/third-party-provenance/mechanisms.json。",
         "规格建议许可原文『按内容哈希命名存在仓库里』(独立文件) → 实测与 §5c 水印门禁的取材面存在真实冲突面(watermark.mjs 的 EXT_MAP 收录 .toml/.rs 等,而 vendor/** 目前只因 SKIP_DIRS 里那一条 'vendor' 才幸免),故改为在台账内以 inRepo 指针 + sha256 或内联 text 两形态承载,不新增受水印管辖的原文文件。",

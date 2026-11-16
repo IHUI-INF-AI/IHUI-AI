@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 // @vitest-environment jsdom
-// D175 任务监控「任务内容聚合」分组视图(2026-09-30 立,对标竞品 chatSession.highlights.group/emptyGroup)。
+// D175 任务监控「任务内容聚合」分组视图(2026-09-30 立,对齐竞品 chatSession.highlights.group/emptyGroup)。
 // 三层合围:
 //   纯函数层:aggregateTaskContent 三组抽取/去重计数/时序/空态判据(数据全部来自既有
 //             toolCalls / citations / summary_data,不新建采集链);
@@ -19,10 +19,7 @@ import { render, cleanup, screen, fireEvent } from '@testing-library/react'
 
 vi.mock('next-intl', () => ({
   // 译文字面不参与断言(词包五语言由主会话落地后另立锁),这里 echo 键名以钉"取了哪个键"
-  useTranslations:
-    () =>
-    (key: string) =>
-      key,
+  useTranslations: () => (key: string) => key,
 }))
 
 import {
@@ -50,10 +47,7 @@ describe('D175 纯函数层:三组抽取全部来自既有数据', () => {
         ],
       }),
     )
-    expect(groups.artifact.map((i) => i.label)).toEqual([
-      'apps/web/src/a.ts',
-      'apps/web/src/b.ts',
-    ])
+    expect(groups.artifact.map((i) => i.label)).toEqual(['apps/web/src/a.ts', 'apps/web/src/b.ts'])
     expect(groups.browser).toHaveLength(0)
     expect(groups.source).toHaveLength(0)
   })
@@ -63,7 +57,11 @@ describe('D175 纯函数层:三组抽取全部来自既有数据', () => {
       messages({
         toolCalls: [
           { toolName: 'fetch_url', args: { url: 'https://a.gov.cn/x' }, status: 'success' },
-          { toolName: 'browser_navigate', args: { url: 'https://b.example.com' }, status: 'success' },
+          {
+            toolName: 'browser_navigate',
+            args: { url: 'https://b.example.com' },
+            status: 'success',
+          },
           { toolName: 'web_search', args: { query: '天气' }, status: 'success' },
         ],
       }),
@@ -92,10 +90,7 @@ describe('D175 纯函数层:三组抽取全部来自既有数据', () => {
         ],
       }),
     )
-    expect(groups.source.map((i) => i.label)).toEqual([
-      '学生手册 3.2 条',
-      'https://src.example/1',
-    ])
+    expect(groups.source.map((i) => i.label)).toEqual(['学生手册 3.2 条', 'https://src.example/1'])
     // summary_data.artifacts 是既有台账字段,收进产出而不是新采集
     expect(groups.artifact.map((i) => i.label)).toEqual(['output/report.md'])
   })
@@ -174,7 +169,7 @@ describe('D175 渲染层:三分组 + 各组空态 + 全空汇总描述', () => {
             { toolName: 'fetch_url', args: { url: 'https://x.example/p' }, status: 'success' },
           ],
         })}
-      />
+      />,
     )
     expect(screen.queryByTestId('task-content-empty')).toBeNull()
     expect(screen.getByTestId('task-content-group-list-artifact').textContent).toContain('a.md (2)')

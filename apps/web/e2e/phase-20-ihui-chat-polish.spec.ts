@@ -8,7 +8,7 @@ import { setupTest, expect as baseExpect } from './fixtures'
 /**
  * Phase 20 ihui 对话细节优化 — E2E 测试(2026-07-28 立)
  *
- * 覆盖 Phase 20 深度对标业界主流对话体验后的 4 大 P1 优化:
+ * 覆盖 Phase 20 深度对齐业界主流对话体验后的 4 大 P1 优化:
  * 1. P1-1 键盘拖拽:Header 焦点 + 方向键微调位置
  * 2. P1-2 Overview 复制任务摘要:overview-section 复制按钮
  * 3. P1-3 Timeline 导出 Markdown:timeline tab 下载按钮
@@ -362,7 +362,7 @@ test.describe('Phase 20 AI 工作台 4 大 P1 细节优化', () => {
   })
 })
 
-// ───────── adminPage 深度化测试(对标 phase-19 v17) ─────────
+// ───────── adminPage 深度化测试(对齐 phase-19 v17) ─────────
 test.describe('Phase 20 v18 adminPage 4 大 P1 测试', () => {
   // ── v18.1 P1-1 键盘拖拽 ───────────
   adminTest('v18.1 P1-1 键盘:Header 焦点 + ArrowRight 持久化位置', async ({ adminPage }) => {

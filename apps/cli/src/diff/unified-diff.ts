@@ -19,7 +19,7 @@
  *   - LLM 生成的多 hunk patch 可被本模块验证
  *   - 任何需要生成 git-style diff 的工具
  *
- * 关键差异(对标旧实现):
+ * 关键差异(对齐旧实现):
  *   - 旧 `computeUnifiedDiff`(file-edit.ts:96-118):prefix 匹配,只能产生 1 个 hunk
  *   - 新 `generateUnifiedPatch`:LCS 序列化为 Equal/Insert/Delete → 状态机构造多 hunk
  */

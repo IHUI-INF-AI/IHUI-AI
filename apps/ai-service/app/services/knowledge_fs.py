@@ -4,7 +4,7 @@
 
 """KnowledgeFS —— 把 codebase 语义索引投影成只读虚拟文件系统(2026-10-31 G2 立)。
 
-对标(`docs/benchmark-evidence/2026-10/trae-rea-20261031/T2-trae-periphery.md` §1.4/§8-G2):
+对齐(`docs/benchmark-evidence/2026-10/trae-rea-20261031/T2-trae-periphery.md` §1.4/§8-G2):
 Trae CN 的 ckg 模块(39.6MB Go+CGO 原生服务,端口 50000)把代码知识挂载成一套
 `Cfs*` 虚拟文件系统(gRPC 21 枚消息:mount/read/write/stat/search/listdir/mkdir/
 rename/remove/resolve/health/listmounts),agent 用文件语义就能拿到索引结果。

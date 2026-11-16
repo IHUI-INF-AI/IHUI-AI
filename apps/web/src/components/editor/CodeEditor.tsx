@@ -24,7 +24,7 @@ import { useEditorEditIntent } from './use-edit-intent'
 import { buildAttributionDecorations } from './attribution-decorations'
 import type { AttributionSource } from '@ihui/shared/attribution'
 
-// 2026-07-31 self-host Monaco Editor(对标 主流 IDE,避免 CDN/CSP/网络问题)
+// 2026-07-31 self-host Monaco Editor(对齐 主流 IDE,避免 CDN/CSP/网络问题)
 // 默认从 cdn.jsdelivr.net 加载,GFW/网络/CSP 经常导致 vs/loader.js 加载失败。
 // 改为本地 /vs 路径(monaco-editor 包 min/vs 已复制到 apps/web/public/vs)。
 // loader.config 必须在模块顶层执行(早于 MonacoEditor 渲染),全局只配置一次。

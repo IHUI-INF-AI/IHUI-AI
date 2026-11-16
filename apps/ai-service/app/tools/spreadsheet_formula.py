@@ -4,7 +4,7 @@
 
 """表格公式求值/校验(sheet_formula_eval / sheet_formula_validate)。
 
-对标取证:`docs/benchmark-evidence/2026-11/qoder-trae-workbuddy-rea-20261114/`
+对齐取证:`docs/benchmark-evidence/2026-11/qoder-trae-workbuddy-rea-20261114/`
 (NATIVE-DELTA W11)—— WorkBuddy `workbuddy-sheetagent/mcp/server.mjs` 把
 "Apps Script 形状"的表格 DOM(SpreadsheetApp / Sheet / Range / Utility)、
 R1C1 语法与公式校验搬进本地表格 Agent,但**单次只算一条公式**、且只能"执行",

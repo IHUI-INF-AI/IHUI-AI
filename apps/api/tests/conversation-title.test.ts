@@ -9,7 +9,7 @@ import {
   DEFAULT_CONVERSATION_TITLE,
 } from '../src/utils/conversation-title.js'
 
-describe('sanitizeGeneratedTitle(四竞品对标 V2 #15 会话标题自动生成)', () => {
+describe('sanitizeGeneratedTitle(四竞品对齐 V2 #15 会话标题自动生成)', () => {
   it('普通标题原样保留(去首尾空白)', () => {
     expect(sanitizeGeneratedTitle('帮我修复登录 bug')).toBe('帮我修复登录 bug')
     expect(sanitizeGeneratedTitle('  SQLite 迁移方案  ')).toBe('SQLite 迁移方案')

@@ -36,7 +36,7 @@ export const CompressionDivider = React.memo(function CompressionDivider({
 }: CompressionDividerProps) {
   const t = useTranslations('chat')
 
-  // G-150(WorkBuddy 一手对标):压不动了必须换口径 —— 这里给一条低调分隔线是错的,
+  // G-150(WorkBuddy 一手对齐):压不动了必须换口径 —— 这里给一条低调分隔线是错的,
   // 用户需要知道"已到上限"并拿到下一步(开新对话 / 减少上下文),而不是只看到"曾压缩过"。
   if (compaction.trigger === 'incompressible') {
     return (

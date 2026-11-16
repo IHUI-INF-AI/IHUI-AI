@@ -5,7 +5,7 @@
 'use client'
 
 /**
- * 号池任务中心(2026-10-27 立,号池对标缺口清单第 4 项,机主定案「观测面+手动触发」)。
+ * 号池任务中心(2026-10-27 立,号池对齐缺口清单第 4 项,机主定案「观测面+手动触发」)。
  *
  * 数据源 GET /api/admin/relay/account-pool/tasks(四载体聚合:bullmq×4/guardian×2/
  * schtasks×1/apscheduler×1);不新造调度器、不落执行历史表(服务端 relay-task-center.ts

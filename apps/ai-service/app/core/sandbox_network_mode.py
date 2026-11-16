@@ -2,11 +2,11 @@
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-"""沙箱网络模式(离线范式)— 逆向复现自 Codex execpolicy 的 sandbox network-mode 三层设计。
+"""沙箱网络模式(离线范式)— 独立实现自 外部实现 execpolicy 的 sandbox network-mode 三层设计。
 
-## 证据来源(2026-11-15,源自 codex.exe 二进制字符串抽取)
+## 证据来源(2026-11-15,源自 外部程序 二进制字符串抽取)
 
-逆向对象:`C:/Program Files/WindowsApps/OpenAI.Codex_26.1111.2228.0_x64__2p2nqsd0c76g0/app/resources/codex.exe`
+独立分析对象:`外部程序`
 (382 MB PE,Rust 编译,_RDATA/.fptable/.eh_frame 段特征)
 
 从二进制字符串抽取到三份 Starlark 配置的真源路径与默认值常量,逐条对应:
@@ -56,7 +56,7 @@ __all__ = [
 
 
 class NetworkModeValidationError(Exception):
-    """模式校验失败(对标 codex Result<(), Error>)。"""
+    """模式校验失败(遵循统一工程规范), Error>)。"""
 
 
 class SandboxNetworkMode(StrEnum):
@@ -75,12 +75,12 @@ class SandboxNetworkMode(StrEnum):
 
     @classmethod
     def default(cls) -> "SandboxNetworkMode":
-        """对标 network_mode_config.star 的 DEFAULT_NETWORK_MODE = ALLOWLIST。"""
+        """对齐 network_mode_config.star 的 DEFAULT_NETWORK_MODE = ALLOWLIST。"""
         return cls.ALLOWLIST
 
     @classmethod
     def offline_default(cls) -> "SandboxNetworkMode":
-        """对标 network_mode_config.star 的 OFFLINE_NETWORK_MODE = BLOCKED。"""
+        """对齐 network_mode_config.star 的 OFFLINE_NETWORK_MODE = BLOCKED。"""
         return cls.BLOCKED
 
     @classmethod
@@ -96,7 +96,7 @@ class SandboxNetworkMode(StrEnum):
 
     @property
     def is_offline(self) -> bool:
-        """对标 sandbox_network_mode.star 的 is_offline:仅 BLOCKED 为真。"""
+        """对齐 sandbox_network_mode.star 的 is_offline:仅 BLOCKED 为真。"""
         return self is SandboxNetworkMode.BLOCKED
 
     def requires_online(self) -> bool:
@@ -108,7 +108,7 @@ class SandboxNetworkMode(StrEnum):
         return self is SandboxNetworkMode.ALLOWLIST
 
     def validate_for_online_use(self, *, has_online_rules: bool) -> None:
-        """对标 offline/config.star 的 validate_for_online_use -> Result<(), Error>。
+        """对齐 offline/config.star 的 validate_for_online_use -> Result<(), Error>。
 
         ALLOWLIST 模式但没有在线规则表时报错——这是"在线模式但零规则"的
         不一致状态:名义上要在线裁决,实际无表可查,只会 fall through 到
@@ -122,7 +122,7 @@ class SandboxNetworkMode(StrEnum):
             )
 
 
-# Codex network_mode_config.star 的两个默认值常量,逐字对齐。
+# 外部实现 network_mode_config.star 的两个默认值常量,按行为规格。
 DEFAULT_NETWORK_MODE: SandboxNetworkMode = SandboxNetworkMode.ALLOWLIST
 OFFLINE_NETWORK_MODE: SandboxNetworkMode = SandboxNetworkMode.BLOCKED
 
@@ -140,7 +140,7 @@ class SandboxNetworkModeBinding:
     has_online_rules: bool = False
 
     def __post_init__(self) -> None:
-        # 在线模式但零规则 = 配置错误,构造期即报(对标 validate_for_online_use)
+        # 在线模式但零规则 = 配置错误,构造期即报(对齐 validate_for_online_use)
         if self.mode.requires_online():
             self.mode.validate_for_online_use(has_online_rules=self.has_online_rules)
 

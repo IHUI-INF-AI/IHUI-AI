@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * 语义折叠归组层单测(2026-10-29,对标 Qoder 借鉴清单第 4 项)。
+ * 语义折叠归组层单测(2026-10-29,遵循统一工程规范)。
  *
  * 判据纪律:
  *  - **不复制分类表**(§0.6 / 守门 `check-test-judge-not-replicated`) —— 本文件只喂工具名、
@@ -68,9 +68,7 @@ describe('边界:空输入与单元素', () => {
 
 describe('同类连续归组', () => {
   it('连续 5 个读文件 ⇒ 一行 summary,count=5,folded=true(20 张卡变一行)', () => {
-    const rows = buildFoldRows(
-      Array.from({ length: 5 }, () => act('read_file')),
-    )
+    const rows = buildFoldRows(Array.from({ length: 5 }, () => act('read_file')))
     expect(kinds(rows)).toEqual(['summary'])
     expect(rows[0]?.count).toBe(5)
     expect(rows[0]?.folded).toBe(true)
@@ -98,11 +96,7 @@ describe('同类连续归组', () => {
   })
 
   it('同工具名连续 3 条命令 ⇒ 一行 summary(「执行 3 条命令」的形态)', () => {
-    const rows = buildFoldRows([
-      act('run_command'),
-      act('run_command'),
-      act('execute_command'),
-    ])
+    const rows = buildFoldRows([act('run_command'), act('run_command'), act('execute_command')])
     expect(kinds(rows)).toEqual(['summary'])
     expect(rows[0]?.categoryKey).toBe('command')
     expect(rows[0]?.count).toBe(3)
@@ -216,7 +210,8 @@ describe('永不折叠工具:整组保留但仍是"一行"', () => {
 // ─── 取词失败(装饰性摘要的失效方向)──────────────────────────────────
 
 describe('foldSummaryText 取词失败', () => {
-  const rows = () => buildFoldRows([act('read_file'), act('read_file'), act('run_command'), act('run_command')])
+  const rows = () =>
+    buildFoldRows([act('read_file'), act('read_file'), act('run_command'), act('run_command')])
 
   it('命中时按类目顺序以 · 连接', () => {
     expect(foldSummaryText(rows(), (key, values) => `${key}=${values?.n}`)).toBe(

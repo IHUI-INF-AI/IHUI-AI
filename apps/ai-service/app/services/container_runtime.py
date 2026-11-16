@@ -5,7 +5,7 @@
 # © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 
-"""真实云端 Agent 容器运行时(对标 Cursor Cloud Agents / Codex CI sandbox)。
+"""真实云端 Agent 容器运行时(遵循统一工程规范)。
 
 与 cloud_runs.py(仅会话历史记录 API)不同,本模块补齐"真执行层":
 - Docker 可用时:拉起一次性容器(python:3.12-slim,可经 CONTAINER_IMAGE 覆盖),

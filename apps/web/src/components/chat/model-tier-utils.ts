@@ -40,7 +40,7 @@ export interface ModelOption {
    *  - 0 = 免费模型
    *  - 优先取后端返回的 points_multiplier(后端 infer 5 档后映射为小数)或前端 tierToDisplayMultiplier */
   pointsMultiplier?: number
-  /** 真实单价(元/百万 token,2026-11-13 立):倍率只是官方对标档位,横比以单价为准。
+  /** 真实单价(元/百万 token,2026-11-13 立):倍率只是官方对齐档位,横比以单价为准。
    *  由后端模型目录带出;缺省则选择器不显示单价行。 */
   inputPricePerMillion?: number
   outputPricePerMillion?: number

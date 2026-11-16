@@ -2,11 +2,12 @@
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-"""任务族能力登记表回归(2026-11-12 立)。
+"""任务族能力登记表回归(2026-11-12 立;2026-11-16 豆包写侧取证后更新)。
 
 钉死三件事:
 1. 所有可建账号的平台都有登记(漏登 = 运行时报「未取证」而没人知道是真没有还是忘了写);
-2. 只有 WorkBuddy 同时开启读写;其余平台的写侧不得被登记为 true(§0.3 未取证不写侧);
+2. 写侧只能登记已实证平台:WorkBuddy(growth 族)+ 豆包(v3 detail/claim/event-report);
+   其余平台的写侧不得被登记为 true(§0.3 未取证不写侧);
 3. 拒绝原因必须点名证据落点,未登记平台报「未取证」而不是「平台没有」。
 """
 
@@ -25,9 +26,9 @@ def test_every_account_platform_is_registered() -> None:
     assert set(_ACCOUNT_PLATFORMS) <= set(TASK_CAPABILITIES)
 
 
-def test_only_workbuddy_has_write_side() -> None:
+def test_only_evidenced_platforms_have_write_side() -> None:
     writers = {p for p, cap in TASK_CAPABILITIES.items() if cap["write"]}
-    assert writers == {"workbuddy"}
+    assert writers == {"workbuddy", "doubao"}
 
 
 def test_evidence_is_recorded_for_every_platform() -> None:
@@ -36,9 +37,15 @@ def test_evidence_is_recorded_for_every_platform() -> None:
 
 
 def test_reason_names_evidence_and_never_claims_absence() -> None:
+    # 已取证写侧的平台:原因文案必须点名证据落点(不再落「未取证」)
     doubao = task_capability_reason("doubao", "write")
     assert "checkin_doubao.py" in doubao
-    assert "未取证" in doubao
+    assert "已取证" in doubao
+
+    # 未取证写侧的平台:原因如实报「未取证」并点名证据
+    raccoon = task_capability_reason("raccoon", "write")
+    assert "checkin_raccoon.py" in raccoon
+    assert "未取证" in raccoon
 
     unknown = task_capability_reason("brand-new-platform", "read")
     assert "未取证" in unknown and "未对接" in unknown

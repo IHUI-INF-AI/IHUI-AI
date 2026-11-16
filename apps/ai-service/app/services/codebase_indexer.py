@@ -7,7 +7,7 @@
 用 tree-sitter AST 解析代码 → 按符号(函数/类/方法/接口)切片 → 生成 embedding → 写入 codebase_chunks 表。
 AST 解析失败时降级为固定行数切片(100 行/片,50 行重叠)。
 
-2026-09-07 升级(对标 Cursor Merkle 增量同步 + CodeBuddy 三层语义索引):
+2026-09-07 升级(遵循统一工程规范):
 - Merkle 增量同步:文件内容 sha256 快照持久化,重索引时只对变更文件
   重新切片+embedding(未变文件零成本跳过),删除文件同步清除旧切片
   (DELETE /api/v1/codebase/repo/:repoId/files)。快照根 hash =
@@ -1454,7 +1454,7 @@ class CodebaseIndexer:
         return result
 
     # ==========================================================================
-    # 三层语义索引:模块层 + 架构层合成切片(2026-09-07 立,对标 CodeBuddy)
+    # 三层语义索引:模块层 + 架构层合成切片(2026-09-07 立,对齐 CodeBuddy)
     # ==========================================================================
 
     def _build_module_summary_chunks(

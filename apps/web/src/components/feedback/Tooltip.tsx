@@ -7,6 +7,8 @@
 import * as React from 'react'
 import * as TooltipPrimitive from '@radix-ui/react-tooltip'
 import { cn } from '@/lib/utils'
+// 2026-11-16 立:浮层与视口边缘的统一安全间距(单一源)
+import { FLOATING_VIEWPORT_PADDING_PX } from '@ihui/shared/ui/floating-layer-spec'
 
 interface TooltipProps {
   content: React.ReactNode
@@ -55,6 +57,8 @@ export function Tooltip({
           side={side}
           align={align}
           sideOffset={4}
+          // 2026-11-16 立:与视口边缘留统一安全间距(单一源),否则贴左/贴右边缘时 left 直接为 0
+          collisionPadding={FLOATING_VIEWPORT_PADDING_PX}
           className={cn(
             // 不带 overflow-hidden:Radix 把 Arrow 包在 translateY(100%) 的外溢 wrapper 里,
             // 裁剪会把箭头整枚切掉。同源的 package/ui-react 已在 batch-7 实证并修复(8801 现网 7/7

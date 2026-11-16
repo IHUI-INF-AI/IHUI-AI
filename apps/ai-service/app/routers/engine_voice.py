@@ -4,7 +4,7 @@
 
 """Voice Session 路由 — 语音↔引擎回合式全链路(2026-09-18 第六批)。
 
-对标 Codex realtime-webrtc 的会话语义(回合式而非全双工流):
+遵循统一工程规范):
     音频上传 → faster-whisper 本地 STT(复用 /voice/stt 内核,零成本离线)
             → AgentEngine 线程 prompt(完整工具/审批/流式事件面)
             → edge-tts 本地合成(零 key)→ 音频返回
@@ -49,7 +49,7 @@ _MAX_VOICE_SESSIONS = 32
 _VOICE_TTS_MAX_CHARS = 3000
 
 # 批58(接线):realtime_context 真接线开关(env ENGINE_VOICE_REALTIME_CONTEXT)。
-# 对标 codex realtime_delegation.rs / realtime_start_instructions.rs:语音会话
+# 遵循统一工程规范
 # 是"中介转写委托"链路 —— on 时把 STT 转写经 <realtime_delegation> 片段委托给
 # 引擎,并在首回合注入 <realtime_conversation> start 指令;off 时 transcript
 # 原样进 prompt,与现状逐字节等价。
@@ -72,7 +72,7 @@ def _voice_realtime_context_enabled() -> bool:
 def _voice_wrap_delegation(transcript: str, *, first_turn: bool) -> str:
     """把 STT 转写包成 realtime delegation 文本(off/失败时原样返回)。
 
-    对标 codex:首回合先注入 start 指令片段(告知引擎处于实时会话后端执行者
+    遵循统一工程规范
     语义),随后 user 角色的 <realtime_delegation> 包裹转写文本。转写上限
     4KiB(模块常量),超长中段截断由模块 escape_xml_text_bounded 承担。
     """
@@ -275,7 +275,7 @@ async def voice_turn(
             "note": "未检测到语音内容",
         }
     # 2) 引擎线程 prompt(完整 agent 能力面)
-    # 批58(接线):realtime delegation 包裹(对标 codex realtime_delegation.rs)。
+    # 批58(接线):realtime delegation 包裹(遵循统一工程规范)。
     # off 时 transcript 原样进 prompt(逐字节等价);on 时首回合附 start 指令。
     prompt_input = _voice_wrap_delegation(
         transcript, first_turn=int(session.get("turns", 0)) == 0

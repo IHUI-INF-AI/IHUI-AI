@@ -79,7 +79,7 @@ const SPLIT_MODES: { key: SplitMode; labelKey: string }[] = [
   { key: 'bookmarks', labelKey: 'pdfToolsPage.modeBookmarks' },
 ]
 
-/** 九宫格位置(逐字对齐 web POSITIONS 键序;仅前端预览用,后端固定居中渲染)。 */
+/** 九宫格位置(按行为规格 web POSITIONS 键序;仅前端预览用,后端固定居中渲染)。 */
 const POSITIONS: {
   key: string
   labelKey: string

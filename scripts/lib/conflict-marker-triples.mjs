@@ -6,8 +6,8 @@
  * scripts/lib/conflict-marker-triples.mjs —— Git 冲突标记「配对判据 + 剥三行」的**唯一实现**。
  *
  * 为什么要有这一层(2026-09-28 立,由 `scripts/union-converge.mjs` 的一处死循环逼出):
- * 「成对标记」这件事现在有**三个**消费者:
- *   ① 守门 `check-no-conflict-markers.mjs`(判红 —— 成对标记进 HEAD 就是事故);
+ * 「成对齐记」这件事现在有**三个**消费者:
+ *   ① 守门 `check-no-conflict-markers.mjs`(判红 —— 成对齐记进 HEAD 就是事故);
  *   ② `scripts/archive-completed-tasks.mjs`(搬运前问一句"这块里还有没解的标记吗");
  *   ③ `scripts/union-converge.mjs`(活文档并集出口 —— 见下面那条死循环)。
  * 一份判据三处各写一遍必漂,是本仓记过最多次的失败型(守门 131/135/144 各把 `code-mask` 收过一次性)。
@@ -152,7 +152,7 @@ export function stripMarkerTriples(text) {
 }
 
 /**
- * 「成对标记三行」按**区域内到底有没有正文**分成两型(2026-11-01 立,MARKERS 票)。
+ * 「成对齐记三行」按**区域内到底有没有正文**分成两型(2026-11-01 立,MARKERS 票)。
  *
  * 为什么必须分成两型(实测,不是理论洁癖):AGENTS.md 里反复回潮的那三条
  * (`<<<<<<< <sha>` / `=======` / `>>>>>>> <sha>`)是**两侧皆空的空冲突区** —— 合并双方都没有

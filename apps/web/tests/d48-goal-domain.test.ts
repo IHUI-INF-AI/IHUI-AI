@@ -16,7 +16,7 @@ import {
   type VaultEntryChannel,
 } from '@/lib/local-vault'
 
-const GOAL_TEXT = '本季目标：把对话流对标 Qoder 做到元素级一致，阻塞项是评测台未接'
+const GOAL_TEXT = '本季目标：把对话流对齐统一规范，阻塞项是评测台未接'
 
 function makeKv(): VaultKvStore & { map: Map<string, string> } {
   const map = new Map<string, string>()

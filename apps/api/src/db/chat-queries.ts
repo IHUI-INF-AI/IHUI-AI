@@ -209,7 +209,7 @@ export async function updateConversation(
 }
 
 /**
- * 仅更新对话标题(2026-09-15 立,四竞品对标 V2 #15 会话标题自动生成):
+ * 仅更新对话标题(2026-09-15 立,四竞品对齐 V2 #15 会话标题自动生成):
  * 带 ownership 校验(非本人对话返回 undefined),供 /conversations/:id/auto-title 使用。
  * 与 updateConversation 的区别:updateConversation 无属主校验(内部端点用),
  * 本函数先校验 userId 再 update,防越权改标题。
@@ -1647,7 +1647,7 @@ export async function regenerateConversationMessages(
 }
 
 /**
- * 编辑重跑(2026-09-12 立,四竞品对标 P0-1,对标 Cursor/Trae 消息编辑):
+ * 编辑重跑(2026-09-12 立,四竞品对齐 P0-1,遵循统一工程规范):
  * 事务内完成两步 —— ① 更新目标用户消息的 content;
  * ② 删除该用户消息之后的所有消息(AI 回复及后续轮次全部作废)。
  * 前端随后以新内容复用 sendMessage(regenerate 模式)重新流式生成回复。

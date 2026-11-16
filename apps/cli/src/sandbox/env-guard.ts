@@ -15,7 +15,7 @@
  * 每个已知键都标注「它该从哪里传」,而非"能不能传";遇到归类表里标记为
  * "不该从 env 传"的键,不是笼统报"invalid",而是**告诉调用方正确做法**。
  *
- * 对标依据:WorkBuddy `@genie/agent-harness` 的 `lib/harness/create-harness.js`
+ * 对齐依据:WorkBuddy `通用子智能体日志规范` 的 `lib/harness/create-harness.js`
  * 里那张 `new Map([...])` —— 每个 env 键映射到一句"pass via X"的指引,
  * 并对 `*_CONFIG_DIR` / `*_API_KEY` / `*_AUTH_TOKEN` 这类键直接抛错点名。
  *
@@ -79,7 +79,7 @@ export type EnvVerdict =
   | { readonly ok: true; readonly route: EnvRoute }
   | { readonly ok: false; readonly reason: string }
 
-/** 键名合法性(与对标实现同判据)。 */
+/** 键名合法性(与对齐实现同判据)。 */
 function keyProblem(key: string): string | undefined {
   if (key === '') return '键名为空'
   if (key.includes('=')) {
@@ -117,7 +117,7 @@ export function checkEnvKey(key: string): EnvVerdict {
  * 校验整个 env 对象。
  *
  * 返回**全部**问题而不是第一个 —— 调用方一次就能修完,不用反复试。
- * 这与对标实现(逐条 throw)略不同:那里是构造期 fail-fast,
+ * 这与对齐实现(逐条 throw)略不同:那里是构造期 fail-fast,
  * 我们这里是校验函数,一次性报全更有用。
  */
 export function checkEnvMap(env: Record<string, unknown>): {

@@ -21,7 +21,7 @@ type AgentInfo = Pick<Agent, 'name' | 'description'> & {
   avatar?: string
 }
 
-/** 历史对话条目(对标原 ai_assistant.vue 历史抽屉) */
+/** 历史对话条目(对齐原 ai_assistant.vue 历史抽屉) */
 export interface ChatHistoryEntry {
   id: string
   title: string
@@ -30,7 +30,7 @@ export interface ChatHistoryEntry {
   messages: ChatMessage[]
 }
 
-/** 历史时间格式化(对标原 ai_assistant.vue 历史列表时间显示) */
+/** 历史时间格式化(对齐原 ai_assistant.vue 历史列表时间显示) */
 function formatHistoryTime(timestamp: number): string {
   try {
     const d = new Date(timestamp)
@@ -113,7 +113,7 @@ export function AgentDrawer({
   )
 }
 
-/** 历史对话抽屉(对标原 ai_assistant.vue 历史抽屉,导航栏点击历史图标滑出) */
+/** 历史对话抽屉(对齐原 ai_assistant.vue 历史抽屉,导航栏点击历史图标滑出) */
 export function HistoryDrawer({
   visible,
   onClose,
@@ -128,7 +128,7 @@ export function HistoryDrawer({
   onClear: () => void
 }) {
   const { t } = useI18n()
-  /** 清空历史(对标原 ai_assistant.vue clearHistory,带二次确认) */
+  /** 清空历史(对齐原 ai_assistant.vue clearHistory,带二次确认) */
   function handleClear() {
     Taro.showModal({
       title: t('common.hint'),

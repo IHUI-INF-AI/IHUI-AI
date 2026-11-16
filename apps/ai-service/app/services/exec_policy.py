@@ -2,7 +2,7 @@
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-"""命令执行策略引擎(对标 Codex execpolicy)。
+"""命令执行策略引擎(遵循统一工程规范)。
 
 核心概念:
 - ``PrefixRule``: 前缀规则,``pattern`` 为 token 列表,支持两种通配:
@@ -867,7 +867,7 @@ def evaluate(command: str, shell: str = "auto", cwd: str | None = None) -> Polic
 
 
 # ---------------------------------------------------------------------------
-# 规则文件目录加载 / 热更新管理器(对标 codex ExecPolicyManager)
+# 规则文件目录加载 / 热更新管理器(遵循统一工程规范)
 # ---------------------------------------------------------------------------
 
 import asyncio
@@ -911,7 +911,7 @@ def _format_rule_line(rule: PrefixRule) -> str:
 def _read_rules_dir(rules_dir: Path) -> tuple[list[PrefixRule], list[str]]:
     """同步扫描目录,返回 (解析出的规则, 警告列表)。
 
-    对标 codex ``collect_policy_files``:仅取 ``*.rules`` 普通文件,按**文件名排序**
+    遵循统一工程规范
     保证多层叠加的确定性(低到高优先);注释(``#`` 开头)与空行跳过;解析失败的行
     进入警告列表而不中断。
     """
@@ -957,12 +957,12 @@ def _append_rule_line(target: Path, rule: PrefixRule) -> None:
 
 
 class ExecPolicyManager:
-    """规则文件目录加载 + 运行中热更新的策略管理器(对标 codex ExecPolicyManager)。
+    """规则文件目录加载 + 运行中热更新的策略管理器(遵循统一工程规范)。
 
     - ``rules_dir=None`` 时为纯内存模式,不触碰任何文件(向后兼容旧 ``ExecPolicy``)。
     - 指定 ``rules_dir`` 时构造即 ``load()``,并支持运行中 ``append_rule`` 热更新。
 
-    并发模型对标 codex:codex 用 ``ArcSwap<Policy>`` + ``Semaphore(1)`` 更新锁,读者
+    并发模型遵循统一工程规范)`` 更新锁,读者
     ``current()`` 无锁取快照;这里用 ``asyncio.Lock``(等价 ``Semaphore(1)``)串行化
     ``load``/``append_rule``,并以**引用替换** ``self._policy`` 完成原子切换——
     CPython GIL 下对象引用赋值本身即原子操作,语义等价于 ``ArcSwap::store(Arc::new(..))``,
@@ -982,7 +982,7 @@ class ExecPolicyManager:
         # 初始快照:无论内存/文件模式都先持有一个合法 ExecPolicy
         self._policy = ExecPolicy(include_defaults=include_defaults)
         if self._rules_dir is not None:
-            # 构造即加载(同步扫描,对标 codex 启动时装载规则目录)
+            # 构造即加载(同步扫描,遵循统一工程规范)
             self._reload()
 
     @property
@@ -991,7 +991,7 @@ class ExecPolicyManager:
         return self._warnings
 
     def current(self) -> ExecPolicy:
-        """返回当前策略快照(对标 codex ``current()`` 取 ArcSwap 快照)。"""
+        """返回当前策略快照(遵循统一工程规范)`` 取 ArcSwap 快照)。"""
         return self._policy
 
     def _reload(self) -> None:
@@ -1001,19 +1001,19 @@ class ExecPolicyManager:
         if self._rules_dir is not None:
             rules, warnings = _read_rules_dir(self._rules_dir)
         self._warnings = warnings
-        # 引用替换即原子切换(对标 ArcSwap::store);读者 current() 取到旧或新快照,
+        # 引用替换即原子切换(对齐 ArcSwap::store);读者 current() 取到旧或新快照,
         # 不会看到半构造状态。
         self._policy = ExecPolicy(rules, include_defaults=self._include_defaults)
 
     async def load(self) -> None:
-        """重新扫描目录并热更新策略(可在运行中多次调用,对标 codex 重载规则目录)。"""
+        """重新扫描目录并热更新策略(可在运行中多次调用,遵循统一工程规范)。"""
         async with self._lock:
             await asyncio.to_thread(self._reload)
 
     async def append_rule(
         self, rule: PrefixRule, *, file_name: str = _DEFAULT_RULE_FILE
     ) -> None:
-        """运行中追加规则(对标 codex AppendRule)。
+        """运行中追加规则(遵循统一工程规范)。
 
         先内存替换(新 ExecPolicy = 旧规则 + 新规则),再落盘追加到
         ``rules_dir/file_name``;落盘失败时回滚内存并抛错。
@@ -1024,7 +1024,7 @@ class ExecPolicyManager:
                 tuple(old_policy.rules) + (rule,),
                 include_defaults=False,
             )
-            # 1) 内存先替换(对标 codex 先 store 再返回)
+            # 1) 内存先替换(遵循统一工程规范)
             self._policy = new_policy
             if self._rules_dir is None:
                 return  # 纯内存模式:不落盘

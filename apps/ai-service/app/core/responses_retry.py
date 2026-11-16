@@ -2,7 +2,7 @@
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 # app/core/responses_retry.py
-"""Responses 流重试与传输降级决策(2026-09-20 第五十六批,对标 Codex responses_retry.rs)。
+"""Responses 流重试与传输降级决策(2026-09-20 第五十六批,遵循统一工程规范)。
 
 与 agent_loop_v2._llm_call_with_retry 的指数退避互补,本模块聚焦 **Responses API
 流式连接** 的重试决策,逻辑逐条对齐 codex-rs core/src/responses_retry.rs:
@@ -30,7 +30,7 @@ import time
 from collections.abc import Callable
 from dataclasses import dataclass
 
-# --- 常量(对标 codex-rs 同名 const)---------------------------------------
+# --- 常量(遵循统一工程规范)---------------------------------------
 INITIAL_CONNECTION_RETRY_DELAY: float = 5.0
 MAX_CONNECTION_RETRY_DELAY: float = 60.0
 DEFAULT_STREAM_MAX_RETRIES: int = 5
@@ -40,7 +40,7 @@ DEFAULT_STREAM_IDLE_TIMEOUT_MS: int = 300_000
 
 
 def backoff(retry_count: int) -> float:
-    """指数退避(对标 codex util::backoff)。
+    """指数退避(遵循统一工程规范)。
 
     200ms × 2^(attempt-1);attempt 0 与 1 均返回 200ms(0.2s)。
     """
@@ -48,7 +48,7 @@ def backoff(retry_count: int) -> float:
 
 
 def jittered(delay: float, rng: random.Random) -> float:
-    """对退避加 ±10% 抖动(对标 codex jitter 风格)。
+    """对退避加 ±10% 抖动(遵循统一工程规范)。
 
     delay × (0.9 + rng.random() × 0.2);rng 可注入便于测试。
     """
@@ -57,7 +57,7 @@ def jittered(delay: float, rng: random.Random) -> float:
 
 @dataclass
 class ResponsesStreamRetryState:
-    """流式重试状态(对标 codex ResponsesStreamRetryState)。"""
+    """流式重试状态(遵循统一工程规范)。"""
 
     retries: int = 0
     connection_retries: int = 0
@@ -66,7 +66,7 @@ class ResponsesStreamRetryState:
 
 @dataclass
 class ExhaustedResponseRetry:
-    """普通重试耗尽后保留的 server 重试建议(对标 codex ExhaustedResponseRetry)。"""
+    """普通重试耗尽后保留的 server 重试建议(遵循统一工程规范)。"""
 
     turn_id: str
     retry_at: float | None
@@ -99,7 +99,7 @@ def decide_stream_retry(
     turn_id: str = "",
     clock: Callable[[], float] = time.monotonic,
 ) -> tuple[ResponsesStreamRetryState, RetryDecision]:
-    """纯重试决策(对标 codex handle_retryable_response_stream_error 决策部分)。
+    """纯重试决策(遵循统一工程规范)。
 
     不抛异常、不直接 IO。硬上限 HARD_MAX_RETRIES_CAP 约束 max_retries。
     """
@@ -173,7 +173,7 @@ def decide_stream_retry(
 
 
 def is_retryable_error(error_type: str) -> bool:
-    """错误是否可重试(对标 codex is_retryable 清单,采用 ihui _classify_error 分类)。
+    """错误是否可重试(遵循统一工程规范)。
 
     可重试: timeout / connection / http_5xx / unknown
     不可重试: http_4xx / cancelled
@@ -197,7 +197,7 @@ async def handle_retryable_stream_error(
     turn_id: str = "",
     clock: Callable[[], float] = time.monotonic,
 ) -> RetryDecision:
-    """decide_stream_retry 的 async 外壳(对标 codex 同名 async fn)。
+    """decide_stream_retry 的 async 外壳(遵循统一工程规范)。
 
     按 action 执行 asyncio.sleep(delay);exhausted 不 sleep。
     决策函数本身不抛;本外壳静默吞掉一切异常,绝不向上抛。

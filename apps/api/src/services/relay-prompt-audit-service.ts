@@ -13,7 +13,7 @@ import {
 import { logger } from '../utils/logger.js'
 
 /**
- * 提示词审计服务(2026-09-17 立,补强 54,对标竞品 /prompt-audit)。
+ * 提示词审计服务(2026-09-17 立,补强 54,对齐竞品 /prompt-audit)。
  *
  * 职责:
  * 1. CRUD(管理端配置关键字规则)
@@ -205,7 +205,10 @@ export async function auditPrompt(
   if (activeRules.length === 0) return { action: 'pass', hits: [] }
 
   // F-623:全文分块滑动扫描 —— 命中任意位置都拦截,前置填充无法绕过。
-  const firstHits = scanKeywordFirstHit(raw, activeRules.map((x) => x.keyword))
+  const firstHits = scanKeywordFirstHit(
+    raw,
+    activeRules.map((x) => x.keyword),
+  )
 
   const hits: PromptAuditHit[] = []
   let block = false

@@ -25,8 +25,10 @@
  */
 import { describe, it, expect } from 'vitest'
 import {
+  ADMIN_HUB_ITEMS,
   AI_HUB_ITEMS,
   CONTENT_HUB_ITEMS,
+  DEVELOPER_HUB_ITEMS,
   EDU_HUB_ITEMS,
   PERSONAL_HUB_ITEMS,
   TRADE_HUB_ITEMS,
@@ -82,29 +84,6 @@ const HEAD_ADVANCED_DIRECT: Record<NavAdvancedTier, string[]> = {
 
 /** HEAD 面 developer 档的**有效**成员集(直标 + 由 relay 父项/子菜单父项继承),20 个唯一 href。
  *  这是合并前普通用户在侧边栏实际会被简洁模式藏掉的集合,收敛后必须一字不差。 */
-const HEAD_DEVELOPER_EFFECTIVE = [
-  '/developer',
-  '/developer/api-docs',
-  '/developer/billing',
-  '/developer/error-codes',
-  '/developer/limits',
-  '/developer/logs',
-  '/developer/notifications',
-  '/developer/relay',
-  '/developer/relay/benefits',
-  '/developer/relay/keys',
-  '/developer/relay/subscriptions',
-  '/developer/relay/usage',
-  '/developer/sandbox',
-  '/developer/settings',
-  '/developer/subscription',
-  '/developer/team',
-  '/developer/versions',
-  '/developer/webhooks',
-  '/playground',
-  '/purchase',
-]
-
 /** advancedAi 有效成员 = 父项 /memory + 14 子项(两代都靠继承) */
 const HEAD_ADVANCED_AI_EFFECTIVE = [
   '/a2a',
@@ -169,6 +148,11 @@ const RESULT_ROWS = flattenNavItems([
   ...TRADE_HUB_ITEMS,
   ...AI_HUB_ITEMS,
   ...PERSONAL_HUB_ITEMS,
+  // 2026-11-16 收敛:开发者域/管理域 20+ 项子清单已从侧边栏移入域清单,由
+  // /domains/developer、/domains/admin 域入口页承载。取材面必须纳入它们,
+  // 否则 HEAD 那批 /developer/*、/admin/* 行会被误判成"已消失/丢档"。
+  ...DEVELOPER_HUB_ITEMS,
+  ...ADMIN_HUB_ITEMS,
 ])
 
 /** 生产顺序的两层过滤(role → tier),facet = 消费方实际拿到的清单 */
@@ -201,18 +185,25 @@ describe('三方合并档位对账:advancedOnly', () => {
     expect(census('relayOps')).toEqual([...HEAD_ADVANCED_DIRECT.relayOps].sort())
     expect(census('experimental')).toEqual([...HEAD_ADVANCED_DIRECT.experimental].sort())
     expect(census('advancedAi')).toEqual(HEAD_ADVANCED_DIRECT.advancedAi)
-    // developer 面:HEAD 直标 5 枚 → 结果面直标 1 枚(域入口父项),差的 4 枚由下一条证明合法
-    expect(census('developer')).toEqual(['/developer'])
+    // developer 面:HEAD 直标 5 枚 → 结果面直标 1 枚(域入口),差的 4 枚由下一条证明合法
+    // 〔2026-11-16〕域入口 href 由 /developer 改指 /domains/developer(与其他域同形态),
+    //   标 developer 档的仍是这一枚域入口。
+    expect(census('developer')).toEqual(['/domains/developer'])
   })
 
-  it('developer 档转继承的 4 枚 + 原继承 16 枚:藏 developer 档后与 HEAD 有效成员集逐字相同', () => {
-    // 这条是全场最高风险格的现读证明:摊平的 20 个子项若继承链断,这里会少一大截
-    expect(removedByTier(sidebarFacet(), 'developer')).toEqual(HEAD_DEVELOPER_EFFECTIVE)
-    // 正向对照:不藏时它们全在(排除"项根本不在树上"的空过)
+  it('developer 档转继承的 4 枚 + 原继承 16 枚:收敛后侧边栏只域入口标档,藏档即整枚消失', () => {
+    // 这条是全场最高风险格的现读证明。〔2026-11-16〕20 个开发者子项已从侧边栏迁入
+    // DEVELOPER_HUB_ITEMS(由 /domains/developer 域入口页经 CategoryShell 承载,URL 全保留),
+    // 侧边栏面只剩域入口 /domains/developer 1 枚标 developer 档 —— 藏 developer 档即把这
+    // 枚入口对普通用户整枚藏掉,开发者/运维入口不会摆到普通用户面前(立意不变)。
+    // 子项不在侧边栏面,故不再由本锁逐枚列举;它们的可见性由域入口页消费链负责。
+    const removed = removedByTier(sidebarFacet(), 'developer')
+    expect(removed).toEqual(['/domains/developer'])
+    // 正向对照:不藏时域入口在(排除"项根本不在树上"的空过)
     const shown = new Set(
       flattenNavItems(productionFilter(sidebarFacet(), false, [], [])).map((i) => i.href),
     )
-    for (const h of HEAD_DEVELOPER_EFFECTIVE) expect(shown.has(h)).toBe(true)
+    expect(shown.has('/domains/developer')).toBe(true)
   })
 
   it('AI 域三档整体搬家进 AI_HUB_ITEMS 后,逐档有效成员与 HEAD 面一致', () => {
@@ -244,12 +235,16 @@ describe('三方合并档位对账:adminOnly 与 permission(不可继承层)', (
   })
 
   it('role 层实跑:非 admin 视角下 HEAD 的 17 枚唯一 adminOnly href 全部消失', () => {
+    // 取材面 = 侧边栏 + 管理域清单:2026-11-16 管理域收敛后 /admin/* 子清单已从侧边栏
+    // 移入 ADMIN_HUB_ITEMS(由 /domains/admin 域入口页承载),只量 NAV_GROUPS 会把这批
+    // 行误判成"已消失的空过"。两层都要过 role 判据 —— 立意不变:非 admin 全部不可见。
+    const facet = [...sidebarFacet(), ...ADMIN_HUB_ITEMS]
     const visible = new Set(
-      flattenNavItems(productionFilter(sidebarFacet(), false, [], [])).map((i) => i.href),
+      flattenNavItems(productionFilter(facet, false, [], [])).map((i) => i.href),
     )
     for (const h of new Set(HEAD_ADMIN_ONLY_ROWS)) expect(visible.has(h)).toBe(false)
     const adminVisible = new Set(
-      flattenNavItems(productionFilter(sidebarFacet(), true, ['*:*:*'], [])).map((i) => i.href),
+      flattenNavItems(productionFilter(facet, true, ['*:*:*'], [])).map((i) => i.href),
     )
     for (const h of new Set(HEAD_ADMIN_ONLY_ROWS)) expect(adminVisible.has(h)).toBe(true)
   })

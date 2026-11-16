@@ -114,7 +114,7 @@ def test_guardian_on_review_reminder(monkeypatch):
     loop = _make_loop()
     msgs = _capture_messages(loop)
     joined = "".join(str(m.get("content", "")) for m in msgs)
-    # reminder 正文逐字对齐 codex(不含 "guardian" 字样,以特征句断言)
+    # reminder 正文按行为规格 外部实现(不含 "guardian" 字样,以特征句断言)
     assert "Use prior reviews as context, not binding precedent" in joined
 
 
@@ -155,7 +155,7 @@ def test_voice_delegation_on_wraps(monkeypatch):
 
     importlib.reload(ev)
     wrapped_first = ev._voice_wrap_delegation("hi there", first_turn=True)
-    # 对标模块语义:正文为 <input> 包裹(开标记经 content_kind=delegation 承载)
+    # 对齐模块语义:正文为 <input> 包裹(开标记经 content_kind=delegation 承载)
     assert "<input>hi there</input>" in wrapped_first
     assert "Realtime conversation started" in wrapped_first
     # 非首回合不含 start 指令

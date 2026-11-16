@@ -14,6 +14,8 @@ describe('toolDisplayKey', () => {
     expect(toolDisplayKey('read_tool_output')).toBe('toolReadToolOutput')
     expect(toolDisplayKey('web_ui_click')).toBe('toolUiClick')
     expect(toolDisplayKey('edu_send_fee_reminder')).toBe('toolEduSendReminder')
+    expect(toolDisplayKey('orchestrate_agents')).toBe('toolDispatchSubagent')
+    expect(toolDisplayKey('dispatch_subagent')).toBe('toolDispatchSubagent')
   })
 
   it('插件/MCP 动态名返回 null(由调用方回落,不得直显英文码名当作功能名)', () => {
@@ -68,6 +70,20 @@ describe('describeToolCall 对象提取', () => {
     })
     expect(withUrl.subjectKind).toBe('url')
     expect(withUrl.subject).toBe('https://aizhs.top/docs')
+  })
+
+  it('编排工具取 task 作为对象,并复用派发子智能体标签', () => {
+    const view = describeToolCall({
+      toolName: 'orchestrate_agents',
+      args: {
+        mode: 'debate',
+        task: '要不要引入向量库',
+        agents: ['coder', 'reviewer'],
+      },
+    })
+    expect(view.subjectKind).toBe('task')
+    expect(view.subject).toBe('要不要引入向量库')
+    expect(view.nameKey).toBe('toolDispatchSubagent')
   })
 
   it('超长对象截断到固定上限,避免撑爆一行', () => {

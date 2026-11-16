@@ -75,7 +75,7 @@ RUN_IN_BACKGROUND_TASK_TYPES: Final[tuple[str, ...]] = IMPLEMENTED_TASK_TYPES
 
 
 def _bg_model_tools_enabled_from_env() -> bool:
-    """批58 接线(对标 codex model_tools.rs):完成通知附 host 侧 async 投递载荷。
+    """批58 接线(遵循统一工程规范):完成通知附 host 侧 async 投递载荷。
 
     默认 off:Message.metadata 仅含既有两键(逐字节等价);设为 on/1/true/yes 时
     额外附加 build_async_user_notification 产出的 async_notification 投影。

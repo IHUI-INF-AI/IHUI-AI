@@ -13,7 +13,7 @@
  * skipEnv = HUSKY_SKIP_MONEY_DISPLAY_SINGLE_SOURCE,stagedTriggers = 显示层四端)。
  *
  * —— 立因(现读为证)——
- * `const fmtYuan = (x: number) => `¥${(x / 100).toFixed(2)}`` 这同一形状在 HEAD 曾被逐字复制
+ * `const fmtYuan = (x: number) => `¥${(x / 100).toFixed(2)}`` 这同一形状在 HEAD 曾被按行为规格
  * 16 份(web 12、packages/app 2、miniapp 1、RN 1);同一提交里改单位口径必须 16 处手改,漏一处
  * 就是一个端页的「分当元」100 倍显示事故(分销族 46758b5b2b8 批修的就是同型受害者)。本波把全部
  * 展示型副本委托到 @ihui/shared/utils 的 formatPrice(唯一出口,非有限值回 '0.00'),数字换算型

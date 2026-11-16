@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * Chat Subcommands CLI — 对话子命令,对标 Web 端 /chat/history /chat/favorites /chat/templates /chat/settings 4 页功能。
+ * Chat Subcommands CLI — 对话子命令,对齐 Web 端 /chat/history /chat/favorites /chat/templates /chat/settings 4 页功能。
  *
  * 对接后端 apps/api/src/routes/chat.ts(/api/chat 端点,JWT Bearer 鉴权):
  *  - GET /api/chat/conversations?page=&pageSize=&search=  → { conversations, page, pageSize, total }
@@ -62,7 +62,7 @@ const DEFAULT_PAGE_SIZE = 20;
 
 // === 响应类型(本地定义,与 Web 端对齐) ===
 
-/** 对话项(GET /conversations / GET /favorites 共用,对标 conversation-list.tsx Conversation) */
+/** 对话项(GET /conversations / GET /favorites 共用,对齐 conversation-list.tsx Conversation) */
 interface Conversation {
   id: string;
   title: string;
@@ -89,7 +89,7 @@ interface FavoriteListData {
   total: number;
 }
 
-/** 对话模板(对标 templates page.tsx Template) */
+/** 对话模板(对齐 templates page.tsx Template) */
 interface Template {
   id: string;
   title: string;
@@ -109,7 +109,7 @@ interface TemplatesData {
   categories?: Category[];
 }
 
-/** 对话设置(对标 settings page.tsx ChatSettings) */
+/** 对话设置(对齐 settings page.tsx ChatSettings) */
 interface ChatSettings {
   model: string;
   temperature: number;
@@ -540,7 +540,7 @@ async function showSettings(
 export function attachChatSubcommands(chatCmd: Command): void {
   chatCmd
     .command('history [conversationId]')
-    .description('历史会话列表 (对标 Web 端 /chat/history); 带 [conversationId] 时读取该会话的 turn 分片历史')
+    .description('历史会话列表 (对齐 Web 端 /chat/history); 带 [conversationId] 时读取该会话的 turn 分片历史')
     .option('--page <n>', '页码(从 1 开始)', '1')
     .option(
       '--turns-per-page <n>',
@@ -577,7 +577,7 @@ export function attachChatSubcommands(chatCmd: Command): void {
 
   chatCmd
     .command('favorites')
-    .description('收藏对话列表 (对标 Web 端 /chat/favorites)')
+    .description('收藏对话列表 (对齐 Web 端 /chat/favorites)')
     .option('--json', '以 JSON 格式输出完整响应')
     .action(async (opts: FavoritesOptions) => {
       try {
@@ -597,7 +597,7 @@ export function attachChatSubcommands(chatCmd: Command): void {
 
   chatCmd
     .command('templates')
-    .description('对话模板列表 (对标 Web 端 /chat/templates)')
+    .description('对话模板列表 (对齐 Web 端 /chat/templates)')
     .option('--json', '以 JSON 格式输出完整响应')
     .action(async (opts: TemplatesOptions) => {
       try {
@@ -617,7 +617,7 @@ export function attachChatSubcommands(chatCmd: Command): void {
 
   chatCmd
     .command('settings')
-    .description('当前对话设置 (对标 Web 端 /chat/settings)')
+    .description('当前对话设置 (对齐 Web 端 /chat/settings)')
     .option('--json', '以 JSON 格式输出完整响应')
     .action(async (opts: SettingsOptions) => {
       try {

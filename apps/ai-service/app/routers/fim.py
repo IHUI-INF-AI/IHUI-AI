@@ -4,7 +4,7 @@
 
 """FIM(Fill-in-the-Middle)代码补全端点(2026-09-07 立)。
 
-对标 Cursor Tab(Supermaven) 的后端能力缺口:
+遵循统一工程规范) 的后端能力缺口:
 为浏览器 IDE(Monaco inline completions)与 CLI ghost-text 提供
 低延迟单轮补全推断。
 
@@ -168,7 +168,7 @@ class FIMRequest(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# 补全接受率闭环(2026-09-13 P1-9 立,对标 Trae CUE Tab 的接受率反馈)
+# 补全接受率闭环(2026-09-13 P1-9 立,遵循统一工程规范)
 #
 # 前端 CodeEditor 防抖 5s 上报**增量快照**(累计值之差,非全量累计),
 # 后端按 model × scene 聚合(scene 缺省 completion ⇒ 旧调用方仍落同一个桶),

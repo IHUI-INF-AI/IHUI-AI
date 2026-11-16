@@ -48,9 +48,6 @@ vi.mock('@/components/ai/full-access-confirm-dialog', () => ({
   isFullAccessConfirmSuppressed: () => true,
 }))
 vi.mock('@/stores/agent-hooks', () => ({ emitAgentHook: vi.fn() }))
-vi.mock('@/stores/mode', () => ({
-  useModeStore: { getState: () => ({ currentMode: 'build', setMode: vi.fn() }) },
-}))
 vi.mock('@/stores/ai-panel', () => ({
   useAiPanelStore: {
     getState: () => ({

@@ -147,7 +147,7 @@ def iter_transcribe_segments(
     *,
     stop_after: int | None = None,
 ) -> Iterator[dict[str, Any]]:
-    """流式分段转写:逐段 yield 带时间戳的转写结果(对标流式 ASR 语义)。
+    """流式分段转写:逐段 yield 带时间戳的转写结果(对齐流式 ASR 语义)。
 
     与 :func:`_transcribe_sync`(整段一次性返回)的关键差异(本模块的超越轴):
       - **首段早返回**:第一段转写完即产出,调用方可立刻上屏,不必等整段音频处理完;

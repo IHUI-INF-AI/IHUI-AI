@@ -25,7 +25,7 @@ import {
   noteKeyDown,
 } from '@ihui/shared/chat/enter-submit'
 
-export const MAX_LENGTH = 10000
+// 2026-11-16 用户定档:输入不设字数上限(移除 MAX_LENGTH 截断),字符计数仅作参考。
 const MAX_HEIGHT_PX = 320 // 拖拽上限,超出后内部滚动
 // 2026-11-15 用户定档:默认高度 = 三整行正文(不预留底部统计条净空),字数统计固定在底栏。
 // 渲染高度直接走 CSS 3lh(见 textarea 的 style),避免硬编码像素在字号缩放下错位。
@@ -68,8 +68,8 @@ export interface WebInputCoreProps {
   onClear: () => void
   /** 错误提示(可选,空字符串/null/undefined 时不渲染) */
   error?: string
-  /** 翻译函数(主组件已 useTranslations('chat'),传入 t 即可) */
-  t: (key: string) => string
+  /** 翻译函数(主组件已 useTranslations('chat'),传入 t 即可;支持带插值参数) */
+  t: (key: string, values?: Record<string, string | number>) => string
   /** 原生 change 事件(用于触发 slash/mention 面板) */
   onChange?: (e: React.ChangeEvent<HTMLTextAreaElement>) => void
   /** 原生 keydown 事件(用于 Shift+Tab 切换权限模式)。
@@ -282,8 +282,8 @@ export const WebInputCore = React.forwardRef<WebInputCoreHandle, WebInputCorePro
           ref={innerRef}
           value={text}
           onChange={(e) => {
-            const v = e.target.value.slice(0, MAX_LENGTH)
-            onTextChange(v)
+            // 2026-11-16 用户定档:不再截断,输入多少就是多少。
+            onTextChange(e.target.value)
             onChange?.(e)
           }}
           onKeyDown={(e) => {
@@ -373,21 +373,18 @@ export const WebInputCore = React.forwardRef<WebInputCoreHandle, WebInputCorePro
             </button>
           </Tooltip>
         )}
-        {/* 字符计数(2026-09-30 立):空输入时不渲染 —— 对标 Trae/Cursor,空白输入框
-            不应有任何常驻杂讯;有内容后才出现,90%+ 琥珀 / 100% 红的渐进警告不变。
-            2026-11-15 用户定档:固定在第三行文字末尾(右下角),允许压住少量正文;
-            bg-card 不透明底负责遮挡,right-6 与 textarea 的 pr-3 对齐,避开滚动条。 */}
+        {/* 字符计数(2026-09-30 立):空输入时不渲染 —— 对齐统一规范
+            不应有任何常驻杂讯;有内容后才出现。
+            2026-11-16 用户定档:不再显示上限(输入不设限),且鼠标移入输入区域时才显隐式出现
+            (group-hover),无 hover 时完全隐藏。bg-card 不透明底负责遮挡,
+            right-6 与 textarea 的 pr-3 对齐,避开滚动条。 */}
         {text.length > 0 && (
           <div className="pointer-events-none absolute bottom-0 left-3 right-6 flex justify-end pr-0.5">
             <span
               aria-live="polite"
-              className={cn(
-                'whitespace-nowrap rounded-sm bg-card px-1 text-[10px] tabular-nums text-muted-foreground/60 transition-colors',
-                text.length >= MAX_LENGTH && 'text-destructive',
-                text.length >= MAX_LENGTH * 0.9 && text.length < MAX_LENGTH && 'text-amber-500',
-              )}
+              className="whitespace-nowrap rounded-sm bg-card px-1 text-[10px] tabular-nums text-muted-foreground/60 opacity-0 transition-opacity group-hover:opacity-100"
             >
-              {text.length}/{MAX_LENGTH}
+              {t('charCount', { count: text.length })}
             </span>
           </div>
         )}

@@ -79,7 +79,7 @@ interface ShareCategoryState {
 /** 导航栏组件(对应原项目 navigationBars,功能已迁移至共享 NavBar 组件) */
 const PAGE_SIZE = 10
 
-/** 状态栏 + 胶囊按钮高度(对标 NavBar 组件,确保 fixed navbar 不遮挡状态栏) */
+/** 状态栏 + 胶囊按钮高度(对齐 NavBar 组件,确保 fixed navbar 不遮挡状态栏) */
 const NAV_PADDING_TOP = getTopBarMetrics().menuButton.top
 
 function asString(v: unknown): string {

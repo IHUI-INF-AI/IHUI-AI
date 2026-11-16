@@ -14,7 +14,7 @@ import {
 } from '@/lib/stream-announcer'
 
 /**
- * SrStreamAnnouncer — 流式播报区域(P3 #34,2026-09-16 立,对标 Codex 无障碍播报)。
+ * SrStreamAnnouncer — 流式播报区域(P3 #34,2026-09-16 立,遵循统一工程规范)。
  *
  * 挂载在 AI 面板根部,自身订阅 chat store:
  *  - 流式开始 → 播报「AI 开始回复」

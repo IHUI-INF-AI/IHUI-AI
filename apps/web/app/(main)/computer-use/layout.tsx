@@ -11,7 +11,7 @@ export const metadata: Metadata = {
     absolute: 'Computer Use 可视化驾驶舱 | IHUI AI',
   },
   description:
-    'IHUI AI Computer Use 浏览器可视化驾驶舱:真实驱动 headless Chromium,打开网页、交互元素快照、点击/输入、截图、提取文本,对标 Claude Computer Use。',
+    'IHUI AI Computer Use 浏览器可视化驾驶舱:真实驱动 headless Chromium,打开网页、交互元素快照、点击/输入、截图、提取文本,对齐 Claude Computer Use。',
   alternates: { canonical: '/computer-use' },
   openGraph: {
     type: 'website',

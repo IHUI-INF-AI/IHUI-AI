@@ -6,7 +6,7 @@ import { getBrowserWorkspaceHandle } from '@/lib/workspace-context-loader'
 import { useAiPanelStore } from '@/stores/ai-panel'
 
 /**
- * 发送前上下文引用 token 展开(对标 Trae @目录 / # 语义源,任务 #18):
+ * 发送前上下文引用 token 展开(遵循统一工程规范):
  * - #Codebase / #Terminal / #Docs(大小写不敏感)
  * - @目录:<路径>(路径不含空格/反引号)
  * 展开块包裹格式对齐 #Rule(<xxx>…</xxx>,store/持久化保留原始用户输入),
@@ -194,7 +194,7 @@ async function replaceAsync(
 }
 
 /**
- * 展开正文中的上下文引用 token(对标 #Rule 的发送前展开姿势):
+ * 展开正文中的上下文引用 token(对齐 #Rule 的发送前展开姿势):
  * 先处理 @目录:<路径>,再依次处理 #codebase / #terminal / #docs(大小写不敏感)。
  * 返回展开后的文本;若无任何 token 则原样返回。
  */

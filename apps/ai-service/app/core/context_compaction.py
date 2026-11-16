@@ -499,7 +499,7 @@ def _split_pair_groups(
 
 
 # ==================== 保留锚点(压缩原文保留策略,2026-11-06 立) ====================
-# 对标 rea:compaction 的 preserved_segment 不应当只是"边界描述",还要有**真的不被
+# 对齐 rea:compaction 的 preserved_segment 不应当只是"边界描述",还要有**真的不被
 # 摘要化的原文**。此前本模块只保留 system + 尾部 keep_recent,head 一律摘要化 ——
 # 原始任务陈述、用户硬约束、显式 pin 的消息在第一次压缩后就被摘要吞掉,长会话因此
 # 出现目标漂移。本段补一层确定性保留策略(不引 LLM、未命中的消息零差异):
@@ -581,7 +581,7 @@ def _split_anchor_groups(
 
 
 # ==================== 上下文压力五判据(只读,2026-10-31 立) ====================
-# 对标外部 agent 运行时的 token budget 判据:percent_left + 四道阈值线。本段是
+# 对齐外部 agent 运行时的 token budget 判据:percent_left + 四道阈值线。本段是
 # **唯一阈值阶梯**,不参与压缩决策(压缩触发仍走 compress_messages_if_needed 的
 # trigger_ratio),只把「当前上下文处于哪一档」如实报给调用方 / UI / 指标。
 # 阈值语义(percent_left = 窗口剩余百分比,0..100,超窗钳到 0):
@@ -1069,7 +1069,7 @@ def compress_messages_if_needed(
 
 
 # ==================== micro-compaction(旧工具结果回收) ====================
-# 对标外部 agent 运行时的 micro 档压缩:不删消息、不动 tool_calls 配对结构,只把
+# 对齐外部 agent 运行时的 micro 档压缩:不删消息、不动 tool_calls 配对结构,只把
 # 「最近 N 轮之外且足够长」的 tool 结果正文替换成占位符。阈值复用 tunables 的
 # RECLAIM_* 常量(跨端唯一真源),不再另立第二套数字。
 # 与 compress_messages_if_needed 的分工:micro 是廉价前置档(零摘要、零 LLM),

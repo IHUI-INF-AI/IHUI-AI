@@ -5,7 +5,7 @@
 
 """代码符号索引 ``CodeSymbolGraph`` —— 轻量跨语言符号图(2026-11-15 立)。
 
-来源(四程序逆向 T3§D / T4§D)
+来源(四程序独立分析 T3§D / T4§D)
 ------------------------------
 - Qoder Knowledge Graph:Claude Code 无索引,需人工 grep;Qoder 自动构建、增量维护。
 - Cursor codebase indexing:语义检索"代码库中做 X 的地方"。

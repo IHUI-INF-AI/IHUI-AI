@@ -4,7 +4,7 @@
 
 """代码改名候选检测 —— 纯函数,零 IO、零全局可变态(P85,2026-11-01 立)。
 
-逆向对齐目标(T12 §A2/§A6,取证 `docs/benchmark-evidence/2026-11/qoder-trae-rea-20261101/
+独立分析对齐目标(T12 §A2/§A6,取证 `docs/benchmark-evidence/2026-11/qoder-trae-rea-20261101/
 T12-mtree-and-hook-host.md`):对侧把 `compute_simhash` / `compute_simhash_batch` /
 `hamming_distance` 做成**原生一等导出**(`src\\core\\simhash.rs`,256 bit 指纹,
 `invalid simhash hex length: expected 64` 是它的校验串),而它的 `diffTree` 结果桶仍然

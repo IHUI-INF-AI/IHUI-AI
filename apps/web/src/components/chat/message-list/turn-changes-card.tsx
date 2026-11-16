@@ -22,12 +22,12 @@ import {
 import { toast } from '@/components/common'
 import { cn } from '@/lib/utils'
 import {
-  STREAM_ROW_CLASS,
+  STREAM_HEADER_ROW_CLASS,
   StreamCode,
   StreamDelta,
   StreamDetail,
   StreamRow,
-  StreamStatusIcon,
+  StreamKindIcon,
   StreamTag,
 } from '@/components/chat/stream/stream-ui'
 
@@ -184,15 +184,13 @@ export function TurnChangesCard({ message, conversationId }: TurnChangesCardProp
       <Collapsible open={open} onOpenChange={setOpen}>
         <CollapsibleTrigger
           className={cn(
-            STREAM_ROW_CLASS,
-            'gap-1.5 rounded-sm px-1 text-left transition-colors hover:bg-accent/40 focus-visible:bg-accent/40 focus-visible:outline-none',
+            // 2026-11-16:与思考行/过程叙述组头/代码块头同走可折叠容器头行唯一档(单层实色底)
+            STREAM_HEADER_ROW_CLASS,
           )}
           data-testid={`turn-changes-trigger-${message.id}`}
         >
-          <StreamStatusIcon status="success" />
-          <span className="min-w-0 flex-1 truncate text-foreground/80">
-            {t('turnChanges.title')}
-          </span>
+          <StreamKindIcon kind="diff" status="success" />
+          <span className="min-w-0 flex-1 truncate text-foreground">{t('turnChanges.title')}</span>
           <StreamTag tone="neutral" strong testId="turn-changes-file-count">
             {tStatus('filesChanged', { n: summary.files })}
           </StreamTag>
@@ -217,6 +215,7 @@ export function TurnChangesCard({ message, conversationId }: TurnChangesCardProp
                 <div key={c.path}>
                   <StreamRow
                     status="success"
+                    kind={action === 'deletedFile' ? 'fileDelete' : 'fileWrite'}
                     title={rowTitle}
                     subject={c.name}
                     subjectKind="path"

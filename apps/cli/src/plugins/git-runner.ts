@@ -59,7 +59,7 @@ export const GIT_BIN_ENV = 'IHUI_GIT_BIN';
  * 刻意**不在**表里的:`GIT_DIR` / `GIT_WORK_TREE` / `GIT_INDEX_FILE` / `GIT_CONFIG_GLOBAL` /
  * `GIT_CONFIG_SYSTEM` / `GIT_SSH_COMMAND` / `GIT_ASKPASS` / 任何 `*_KEY`、`*_TOKEN`、`*_SECRET`。
  * 理由与上游 `sanitizeZCodeRuntimeEnv` 不同层:上游那张表住在
- * `.ihui-agent/tmp/zcode-study/zcode/packages/shared/src/runtimeEnv.ts:212`(本票已读),
+ * `内部规格`(本票已读),
  * 它是"剥黑名单"语义,而我方要的是"默认不继承"—— 剥黑名单会随上游新增键漏过,
  * 且把"我方需要的 GIT_*"一起剥掉的风险由下面显式列出的三个 GIT_* 网络档兜住。
  */

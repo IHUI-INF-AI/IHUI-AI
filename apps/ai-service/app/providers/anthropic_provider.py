@@ -9,7 +9,7 @@
 - system prompt 独立参数(不放在 messages 里)
 - max_tokens 必填(Anthropic API 强制要求)
 
-P0-① Prompt 缓存(2026-09-18 立,对标 Codex Harness 的 prompt-cache 组装):
+P0-① Prompt 缓存(2026-09-18 立,遵循统一工程规范):
 - system 走 block 数组形态,末块打 ephemeral 断点;tools 末项再打一个断点
   (共 2 个,远低于 Anthropic 上限 4)→ 前缀稳定部分(system+tools)命中缓存后
   按 0.1x 计价,agent 长会话输入成本降一个数量级(官方数据输出 token 省 6 倍)。

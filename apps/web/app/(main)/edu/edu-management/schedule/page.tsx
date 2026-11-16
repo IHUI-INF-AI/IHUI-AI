@@ -37,6 +37,7 @@ import {
   eduTermUpdate,
 } from '@ihui/api-client'
 import { BackButton, toast, AuthGatePrompt } from '@/components/common'
+import { FeaturePageShell } from '@/components/layout'
 import { useAuthGate } from '@/hooks/use-auth-gate'
 import {
   Card,
@@ -913,15 +914,14 @@ export default function SchedulePage() {
   }
 
   return (
-    <div className="space-y-4 px-4 py-4">
-      <BackButton />
-
-      {/* Header */}
-      <header className="space-y-1">
-        <h1 className="text-display font-bold tracking-tight">{t('title')}</h1>
-        <p className="text-label text-muted-foreground">{t('description')}</p>
-      </header>
-
+    // 2026-11-16 接入统一子功能页外壳:BackButton + 手写 header 收编为页头卡,
+    // 自动带上「教育」返回 chip(取 eduHub.title,与域入口页大标题恒等)。
+    <FeaturePageShell
+      title={t('title')}
+      description={t('description')}
+      icon={CalendarDays}
+      domain="edu"
+    >
       {/* Toolbar */}
       <Card>
         <CardContent className="min-[640px]:p-3 flex flex-wrap items-center gap-3 p-3">
@@ -1250,7 +1250,7 @@ export default function SchedulePage() {
           await saveClass.mutateAsync(data)
         }}
       />
-    </div>
+    </FeaturePageShell>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

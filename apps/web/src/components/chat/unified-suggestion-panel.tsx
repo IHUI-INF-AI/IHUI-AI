@@ -364,7 +364,7 @@ export interface UnifiedPasteReferencePreviewProps {
   previews: readonly PastedReferencePreview[]
   onDismiss: () => void
   /**
-   * D185(2026-09-30 立,对标竞品 composer.referencePreview.*):传入后粘贴引用
+   * D185(2026-09-30 立,对齐竞品 composer.referencePreview.*):传入后粘贴引用
    * 预览条升级为**可编辑模拟预览编辑器** —— 草稿预填原始输入正文、可选示例能力、
    * 一键发送/新建输入;不传则保持 D68 被动有效性预览条(零回归)。
    */
@@ -509,7 +509,7 @@ export function UnifiedPasteReferencePreview({
   return (
     <div
       data-testid="unified-paste-reference-preview"
-      // E 节(2026-09-30 深度对标二轮):限高 4.5rem 滚动,粘贴预览再多也不顶高输入区
+      // E 节(2026-09-30 深度对齐二轮):限高 4.5rem 滚动,粘贴预览再多也不顶高输入区
       className="flex max-h-[4.5rem] flex-wrap items-center gap-1.5 overflow-y-auto rounded-md bg-muted/40 px-3 py-1.5"
     >
       <span className="text-[10px] font-medium text-muted-foreground">

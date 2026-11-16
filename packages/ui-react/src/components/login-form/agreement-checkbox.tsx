@@ -24,7 +24,7 @@ export interface AgreementCheckboxProps {
 /**
  * 协议复选框(2026-07-26 抽取到共享包)
  *
- * 视觉规范(对标 apps/web/src/components/auth/AgreementCheckbox.tsx):
+ * 视觉规范(对齐 apps/web/src/components/auth/AgreementCheckbox.tsx):
  *   - 16x16 方形 rounded-[4px] 边框,hover 描边加深,勾选用 Check 图标(strokeWidth=3)
  *   - 文字部分:前缀 + 主色链接(用户协议、隐私政策),target="_blank"
  *   - 完整 a11y:role="checkbox" + aria-checked + tabIndex + onKeyDown(Space/Enter) + 内嵌 sr-only input

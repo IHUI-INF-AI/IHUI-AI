@@ -2,7 +2,7 @@
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-"""联邦学习器(L7,2026-07-25 立,对标 Google Federated Learning)。
+"""联邦学习器(L7,2026-07-25 立,对齐 Google Federated Learning)。
 
 L7 联邦学习闭环:
 1. 跨用户聚合:从 agent_meta_lessons 表加载所有用户 lessons → 按类型+标题聚类
@@ -30,7 +30,7 @@ L7 联邦学习闭环:
   - 聚类后无足够样本 → 返回 0
   - load 失败 → 空内存,warning
 
-设计原则(对标 Google FL):
+设计原则(对齐 Google FL):
   - 隐私优先:user_id 不出本地,只存 hash;count/score 加 DP 噪声
   - k-anonymity:仅聚合 >= min_users 个贡献的 lesson(默认 2)
   - 不可逆:source_user_ids_hash = sha256(user_id + salt),无法反推
@@ -801,7 +801,7 @@ class FederatedLearner:
 
         G-759:`loaded`/`loadFailures`/`loadState` 三键把"读不到"与"读到但为空"
         分开报(G-748 已把判定收到 _load_lifecycle,G-759 只补这层对外投影,
-        形状逐字对齐 ab_test_tracker.get_status 与 meta_learner.get_status)。
+        形状按行为规格 ab_test_tracker.get_status 与 meta_learner.get_status)。
         四态词汇只有一份实现,不许本模块写死字面量。
         """
         lessons = list(self._cache)

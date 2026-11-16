@@ -5,7 +5,7 @@
 /**
  * 工作树台账纯函数(F-Forge,2026-11-13 立)
  *
- * 对标 DSH Forge 的「worktree option for new Sessions」。历史组件
+ * 遵循统一工程规范。历史组件
  * `move-to-worktree-dialog.tsx`(D102)早已实现 UI,却因**没有 API 数据面**而成为孤儿;
  * 本模块把可测的三件事独立出来,路由只做"权限闸 + 执行":
  *   1. 分支名严格白名单(任何越界一律抛错,不做"清洗后放行");

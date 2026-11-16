@@ -11,7 +11,6 @@ import {
   isAllowedNavigatePath,
   resolveUiTarget,
 } from '@/lib/ui-action-registry'
-import { useModeStore } from '@/stores/mode'
 
 const navigateMock = vi.fn()
 
@@ -270,8 +269,7 @@ describe('快照容量与结构', () => {
     expect(snap.elements.every((e) => e.group === snap.forms[0]!.id)).toBe(true)
     const ids = new Set(snap.commands.map((c) => c.id))
     expect(ids.has('chat')).toBe(true)
-    expect(ids.has('modePlan')).toBe(true)
-    expect(snap.commands.find((c) => c.id === 'modePlan')?.group).toBe('mode')
+    expect(ids.has('modePlan')).toBe(false)
     expect(snap.commands.find((c) => c.id === 'browser')?.group).toBe('panel')
     expect(snap.commands.find((c) => c.id === 'editor')?.group).toBe('ide')
     const routeCmds = snap.commands.filter((c) => c.id.startsWith('route:'))
@@ -290,13 +288,7 @@ describe('快照容量与结构', () => {
 })
 
 describe('invoke 命令', () => {
-  it('mode 命令切换 ChatMode 并记录 MRU;未知命令 SELECTOR_NOT_FOUND', async () => {
-    const prev = useModeStore.getState().currentMode
-    const r = await executeUiAction('invoke', { name: 'modePlan' })
-    expect(r.ok).toBe(true)
-    expect(useModeStore.getState().currentMode).toBe('plan')
-    expect(r.data?.invoked).toBe('modePlan')
-    useModeStore.getState().setMode(prev)
+  it('未知命令 SELECTOR_NOT_FOUND', async () => {
     expect((await executeUiAction('invoke', { name: 'no-such-cmd' })).errorCode).toBe(
       'SELECTOR_NOT_FOUND',
     )

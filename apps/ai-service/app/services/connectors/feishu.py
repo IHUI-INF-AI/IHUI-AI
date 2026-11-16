@@ -6,7 +6,7 @@
 
 """飞书云文档 Connector(2026-09-02 立)。
 
-对标竞品"读取飞书文档"能力:通过飞书开放平台「云文档」API,
+对齐竞品"读取飞书文档"能力:通过飞书开放平台「云文档」API,
 让 AI 对话能列出/读取飞书云文档内容并转为纯文本。
 
 - token 复用 app/services/im/feishu_lark.py 的 FeishuLarkAdapter(不重复造轮子)

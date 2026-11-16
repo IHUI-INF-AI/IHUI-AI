@@ -75,7 +75,7 @@ type AnchorT = (key: string, values?: Record<string, string | number>) => string
 
 /**
  * 锚点 → 坐标文案的**唯一**类型驱动派发点(穷尽 switch 零 default)。
- * 与 shared `anchorLabel` 的键族逐字对齐;DOCX 段锚用 D91 扩展键 `label.docxText`
+ * 与 shared `anchorLabel` 的键族按行为规格;DOCX 段锚用 D91 扩展键 `label.docxText`
  * (shared 的 docx 分型是页码坐标,预览器拿不到页码,按任务规格锚段落序号)。
  */
 export function anchorCoordinateText(

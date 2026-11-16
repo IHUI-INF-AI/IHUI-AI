@@ -11,7 +11,7 @@ export const metadata: Metadata = {
     absolute: '成本看板 Cost Dashboard | IHUI AI',
   },
   description:
-    'IHUI AI 成本看板:全链路 Agent 调用成本账本聚合,按工具/模型拆分与时间走势,总成本、Token、耗时、步数一目了然,对标 Claude Code/Codex 成本透明可观测。',
+    'IHUI AI 成本看板:全链路 Agent 调用成本账本聚合,按工具/模型拆分与时间走势,总成本、Token、耗时、步数一目了然,对齐统一规范。',
   alternates: { canonical: '/cost-dashboard' },
   openGraph: {
     type: 'website',

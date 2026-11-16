@@ -5,7 +5,7 @@
 /**
  * 贡献词表 ↔ 校验器 ↔ 注册表 ↔ 数据类默认拒 的四方对齐(goal-b49 / S2)。
  *
- * 立因:对侧 Qoder CN 0.5.3 `resources/extensions/catalog.v1.json` 的 contributes 键集现读 8 档,
+ * 立因:对侧 外部文档渲染实现 `resources/extensions/catalog.v1.json` 的 contributes 键集现读 8 档,
  * 我方词表只有 3 档,且注册表遍历贡献名时**硬编码**了那 3 档 —— 词表扩了而遍历没跟上,
  * 新档的贡献名就绕过冲突登记(注册表说"没占用"、其实被占着),那是比不注册更糟的失效形态。
  * 取证锚点:docs/benchmark-evidence/2026-11/qoder-trae-workbuddy-rea-20261105/

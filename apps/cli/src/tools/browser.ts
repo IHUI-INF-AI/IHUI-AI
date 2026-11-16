@@ -5,7 +5,7 @@
 /**
  * 浏览器自动化工具集 — 原生 Chrome DevTools Protocol (CDP) 真实实现。
  *
- * 对标 Codex/Claude Code 的 browser 工具,零新增依赖(仅用现有 ws@8.21.1 + Node 内置 http/fs):
+ * 遵循统一工程规范):
  *   - 连接:优先 IHUI_BROWSER_CDP_URL(http://127.0.0.1:9222);否则探测已运行实例;
  *     都没有则自动发现 Chrome/Edge 可执行文件,以 --headless=new --remote-debugging-port 拉起
  *   - 工具:navigate / snapshot / screenshot / click / type / press_key / evaluate / close
@@ -1145,7 +1145,7 @@ async function refQuery(
 /**
  * browser_get_bounding_box —— 取元素在视口内的矩形。
  *
- * 对标 Trae 的 browser_get_bounding_box。为什么需要独立工具:click 已返回中心坐标,
+ * 遵循统一工程规范。为什么需要独立工具:click 已返回中心坐标,
  * 但模型常要在点之前判断"这个元素是否在首屏可见区/尺寸是否合理/是否被折叠",
  * 只有点坐标不足以支撑这种判断。ref/selector 二选一,与 click 同一套定位口径。
  */
@@ -1197,7 +1197,7 @@ const browserGetBoundingBox: Tool = {
 /**
  * browser_get_state —— 一次往返取元素的可交互状态位。
  *
- * 对标 Trae 的 is_visible / is_enabled / is_checked 三个工具。合并成一个:
+ * 遵循统一工程规范。合并成一个:
  * 模型几乎总是一次想问"能不能点/是不是选中/在不在屏上",拆成三个只会让它多跑两轮。
  * 判定全部走 getClientRects + 样式,不用 offsetParent(它在 position:fixed 祖先下会误报不可见)。
  */
@@ -1262,7 +1262,7 @@ const browserGetState: Tool = {
 /**
  * browser_get_attribute —— 读元素属性 / input 值。
  *
- * 对标 Trae 的 get_attribute / get_input_value 合并:有 value 属性语义的 input/textarea/select
+ * 遵循统一工程规范
  * 取实际值(el.value),其余取 getAttribute(区分"没这个属性"= null 与"属性为空串")。
  */
 const browserGetAttribute: Tool = {

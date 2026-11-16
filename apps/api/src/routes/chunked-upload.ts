@@ -464,12 +464,26 @@ export const chunkedUploadRoutes: FastifyPluginAsync = async (server) => {
     }
 
     // 更新 status=merging
-    await db
+    // F-380:条件迁移守卫 —— 只有仍处于 uploading 的会话才允许进入 merging。
+    // 此前只按 uploadId+userId 匹配,已完成(completed)/已取消(cancelled)/已在合并(merging)
+    // 的会话可被反复合并:已完成会话被重复合并会再生成一个 fileId 并覆盖最终文件,
+    // 已取消会话被复活合并则绕过 cancel 的语义。WHERE 带 status=uploading,无返回行即 409。
+    const claimed = await db
       .update(uploadSessions)
       .set({ status: UPLOAD_SESSION_STATUS.merging, updatedAt: new Date() })
       .where(
-        and(eq(uploadSessions.uploadId, uploadId), eq(uploadSessions.userId, request.userId ?? '')),
+        and(
+          eq(uploadSessions.uploadId, uploadId),
+          eq(uploadSessions.userId, request.userId ?? ''),
+          eq(uploadSessions.status, UPLOAD_SESSION_STATUS.uploading),
+        ),
       )
+      .returning({ uploadId: uploadSessions.uploadId })
+    if (claimed.length === 0) {
+      return reply
+        .status(409)
+        .send(error(409, `上传会话状态非 uploading,无法合并(可能已完成、已取消或正在合并)`))
+    }
 
     const fileId = randomUUID()
     const finalPath = join(PUBLIC_UPLOAD_DIR, fileId)

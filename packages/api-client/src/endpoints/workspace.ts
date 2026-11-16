@@ -342,7 +342,7 @@ export async function runCommand(params: {
 }
 
 /**
- * 环境信息弹窗专用(2026-08-17 立,对标 Cursor 右上角 env info card):
+ * 环境信息弹窗专用(2026-08-17 立,遵循统一工程规范):
  * 单次调用批量拉取 git status + branch + remote + ahead/behind + PR + lastCommit + localPath/remotes。
  */
 export async function getGitStatus(params: {

@@ -30,6 +30,11 @@
 .PARAMETER NoWait
   拉起后立即返回,不等子进程退出(2026-10-28 立:重新打开客户端这类长驻 GUI 进程,
   等它退出会把调用方(depth 30s)挂死;本开关下超时不生效)。
+.PARAMETER KillPids
+  跨会话终止模式(2026-11-16 立):本开关置位时,-Exe 传哨兵 'terminate',-ArgJson 传 pid 数组。
+  以目标进程所在会话的用户令牌(ProcessIdToSessionId + WTSQueryUserToken)逐个 TerminateProcess,
+  绕开服务/RDP 上下文直接 taskkill 报「没有对此进程的操作权限」的缺口(切号关不掉客户端时)。
+  stdout 输出 [{pid,ok,error}] JSON 数组;不启动任何子进程,WorkingDirectory/NoWait 等参数在此模式忽略。
 .EXAMPLE
   powershell.exe -NoProfile -ExecutionPolicy Bypass -File run-as-user.ps1 -Exe C:\node.exe -ArgJson '["a.mjs","--stdin"]'
 #>
@@ -39,7 +44,8 @@ param(
     [string]$WorkingDirectory = '',
     [int]$SessionId = 0,
     [int]$TimeoutSeconds = 25,
-    [switch]$NoWait
+    [switch]$NoWait,
+    [switch]$KillPids
 )
 
 $ErrorActionPreference = 'Stop'
@@ -151,14 +157,16 @@ try {
     Write-HelperError 'run-as-user' "ArgJson 解析失败: $($_.Exception.Message)"
     exit 3
 }
-if (-not (Test-Path $Exe)) {
+# KillPids 模式下 -Exe 是哨兵 'terminate',不是磁盘路径,不做 Test-Path 检查
+if (-not $KillPids -and -not (Test-Path $Exe)) {
     Write-HelperError 'run-as-user' "可执行文件不存在: $Exe"
     exit 3
 }
 if (-not $WorkingDirectory) { $WorkingDirectory = (Get-Location).Path }
 
 # ── 非服务身份:原样直跑(stdin/stdout 天然继承,退出码透传)──
-if (-not (Test-ServiceIdentity)) {
+# KillPids 模式不走这里:它要跨会话终止,必须落到文件末尾的 C# KillPids 腿(与身份无关)。
+if (-not $KillPids -and -not (Test-ServiceIdentity)) {
     Push-Location -LiteralPath $WorkingDirectory
     try {
         if ($NoWait) {
@@ -186,6 +194,7 @@ $csharp = @'
 using System;
 using System.ComponentModel;
 using System.Runtime.InteropServices;
+using System.Text;
 
 public static class IHUIUserProcess
 {
@@ -293,6 +302,17 @@ public static class IHUIUserProcess
     private static extern bool GetExitCodeProcess(IntPtr hProcess, out uint lpExitCode);
     [DllImport("kernel32.dll", SetLastError = true)]
     private static extern bool TerminateProcess(IntPtr hProcess, uint uExitCode);
+    // KillPids 跨会话终止(2026-11-16):打开任意会话进程 / 取 pid 所在会话 / 模拟会话用户令牌
+    private const uint PROCESS_TERMINATE = 0x0001;
+    private const int TokenImpersonation = 2;
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern IntPtr OpenProcess(uint dwDesiredAccess, bool bInheritHandle, int dwProcessId);
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool ProcessIdToSessionId(int dwProcessId, out uint pSessionId);
+    [DllImport("advapi32.dll", SetLastError = true)]
+    private static extern bool ImpersonateLoggedOnUser(IntPtr hToken);
+    [DllImport("advapi32.dll", SetLastError = true)]
+    private static extern bool RevertToSelf();
 
     private static void EnablePrivileges()
     {
@@ -318,6 +338,108 @@ public static class IHUIUserProcess
             }
         }
         finally { CloseHandle(token); }
+    }
+
+    // ── KillPids 跨会话终止(2026-11-16)──
+    // 服务/RDP 上下文 taskkill 常报「没有对此进程的操作权限」(目标活在桌面用户会话)。
+    // 这里逐个 pid 直接 TerminateProcess:先在当前进程令牌下试(LocalSystem 持 SeDebugPrivilege
+    // 即可跨会话),不行再按目标 pid 所在会话取用户令牌模拟后终止。返回 [{pid,ok,error},...]。
+    private static void EnableSeDebugPrivilege()
+    {
+        IntPtr token;
+        if (!OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, out token)) return;
+        try
+        {
+            LUID luid;
+            if (!LookupPrivilegeValue(null, "SeDebugPrivilege", out luid)) return;
+            TOKEN_PRIVILEGES tp = new TOKEN_PRIVILEGES();
+            tp.PrivilegeCount = 1;
+            tp.Privileges.Luid = luid;
+            tp.Privileges.Attributes = SE_PRIVILEGE_ENABLED;
+            AdjustTokenPrivileges(token, false, ref tp, 0, IntPtr.Zero, IntPtr.Zero);
+        }
+        finally { CloseHandle(token); }
+    }
+
+    private static string JsonEscape(string s)
+    {
+        if (string.IsNullOrEmpty(s)) return "";
+        StringBuilder sb = new StringBuilder();
+        foreach (char c in s)
+        {
+            if (c == '"') sb.Append("\\\"");
+            else if (c == '\\') sb.Append("\\\\");
+            else if (c == '\n') sb.Append("\\n");
+            else if (c == '\r') sb.Append("\\r");
+            else if (c == '\t') sb.Append("\\t");
+            else if (c < 0x20) sb.Append("\\u").Append(((int)c).ToString("x4"));
+            else sb.Append(c);
+        }
+        return sb.ToString();
+    }
+
+    public static string KillPids(int[] pids)
+    {
+        EnableSeDebugPrivilege();
+        StringBuilder result = new StringBuilder();
+        result.Append('[');
+        for (int i = 0; i < pids.Length; i++)
+        {
+            if (i > 0) result.Append(',');
+            int pid = pids[i];
+            bool ok = false;
+            string err = "";
+            IntPtr userToken = IntPtr.Zero;
+            IntPtr dupToken = IntPtr.Zero;
+            IntPtr hProc = IntPtr.Zero;
+            bool impersonated = false;
+            try
+            {
+                // 第一路:当前令牌(LocalSystem + SeDebugPrivilege)直接打开
+                hProc = OpenProcess(PROCESS_TERMINATE, false, pid);
+                if (hProc == IntPtr.Zero)
+                {
+                    // 第二路:取 pid 所在会话的用户令牌,模拟后打开
+                    uint sessionId;
+                    if (ProcessIdToSessionId(pid, out sessionId)
+                        && WTSQueryUserToken(sessionId, out userToken))
+                    {
+                        if (DuplicateTokenEx(userToken, TOKEN_ALL_ACCESS, IntPtr.Zero,
+                                SecurityImpersonation, TokenImpersonation, out dupToken)
+                            && ImpersonateLoggedOnUser(dupToken))
+                        {
+                            impersonated = true;
+                            hProc = OpenProcess(PROCESS_TERMINATE, false, pid);
+                        }
+                    }
+                }
+                if (hProc != IntPtr.Zero)
+                {
+                    ok = TerminateProcess(hProc, 1);
+                    if (!ok) err = "TerminateProcess 失败(Win32=" + Marshal.GetLastWin32Error() + ")";
+                }
+                else
+                {
+                    err = "OpenProcess 失败(Win32=" + Marshal.GetLastWin32Error() + ",pid 可能已退出或无权限)";
+                }
+            }
+            catch (Exception ex)
+            {
+                err = ex.Message;
+            }
+            finally
+            {
+                if (impersonated) RevertToSelf();
+                if (hProc != IntPtr.Zero) CloseHandle(hProc);
+                if (dupToken != IntPtr.Zero) CloseHandle(dupToken);
+                if (userToken != IntPtr.Zero) CloseHandle(userToken);
+            }
+            result.Append("{\"pid\":").Append(pid)
+                  .Append(",\"ok\":").Append(ok ? "true" : "false")
+                  .Append(",\"error\":\"").Append(JsonEscape(err)).Append("\"}");
+        }
+        result.Append(']');
+        return result.ToString();
     }
 
     public static int RunAsInteractionUser(string exe, string cmdLine, string cwd, int sessionId, int timeoutMs, bool noWait)
@@ -419,6 +541,7 @@ try {
             $retryArgs = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $scriptPath,
                 '-Exe', $Exe, '-ArgJson', $ArgJson, '-SessionId', "$SessionId", '-TimeoutSeconds', "$TimeoutSeconds")
             if ($NoWait) { $retryArgs += '-NoWait' }
+            if ($KillPids) { $retryArgs += '-KillPids' }
             if ($WorkingDirectory) { $retryArgs += @('-WorkingDirectory', $WorkingDirectory) }
             & $pwsh @retryArgs
             exit $LASTEXITCODE
@@ -426,6 +549,21 @@ try {
     }
     Write-HelperError 'run-as-user' "内联 P/Invoke 编译失败: $compileError"
     exit 3
+}
+
+# ── KillPids 跨会话终止模式 ──
+# 把 -ArgJson 解析出的 pid 列表交给内联 C# 逐个终止,stdout 只输出 JSON 数组(调用方按 [ ... ] 截取)。
+# 不启动任何子进程,也不以身份切换运行 —— 终止发生在当前进程(LocalSystem/当前用户)令牌下。
+if ($KillPids) {
+    $pidArray = @($argList | ForEach-Object { [int]$_ })
+    try {
+        $killJson = [IHUIUserProcess]::KillPids($pidArray)
+        [Console]::Out.WriteLine($killJson)
+        exit 0
+    } catch {
+        Write-HelperError 'run-as-user' "KillPids 终止失败: $($_.Exception.Message)"
+        exit 3
+    }
 }
 
 try {

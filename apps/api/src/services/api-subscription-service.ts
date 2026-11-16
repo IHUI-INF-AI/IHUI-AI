@@ -56,7 +56,7 @@ export interface PlanInfo {
   interval: string
   features: string[]
   billingPeriod: string
-  // ── 结构化商品字段(2026-09-16 立,对标同类中转站的套餐卡片) ──
+  // ── 结构化商品字段(2026-09-16 立,对齐同类中转站的套餐卡片) ──
   /** 划线原价(分);0 = 不展示原价 */
   originalPrice: number
   /** 有效期(天);0 = 不过期 */

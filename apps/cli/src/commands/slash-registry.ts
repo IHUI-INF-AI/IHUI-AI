@@ -35,7 +35,7 @@ export const SLASH_COMMANDS: readonly SlashCommandMeta[] = [
   { name: 'tools', description: '列出可用工具', usage: '/tools', category: 'basic' },
   { name: 'init', description: '创建 AGENTS.md 模板', usage: '/init', category: 'basic' },
   { name: 'mcp', description: '列出已配置的 MCP 服务器', usage: '/mcp', category: 'basic' },
-  // P0 CLI 友好度优化(2026-07-31):4 个新命令,对标 codex/claude-code/mimo code
+  // P0 CLI 友好度优化(2026-07-31):4 个新命令,遵循统一工程规范
   { name: 'config', description: 'REPL 内查看/修改 settings.json 配置', usage: '/config [list|get <key>|set <key> <value>|path|edit|help]', category: 'basic' },
   { name: 'tasks', description: '持久化任务列表(全局 ~/.ihui/tasks.json + 项目隔离)', usage: '/tasks [list|add <内容>|done <id>|undone <id>|remove <id>|clear|help]', category: 'basic' },
   { name: 'status', description: '综合状态面板(模型/权限/MCP/skills/memory/todo/context)', usage: '/status', category: 'basic' },

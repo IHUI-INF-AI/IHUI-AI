@@ -519,7 +519,7 @@ export function locateAgentDatabase(userDataDir) {
  * 为什么不能只靠 resolveProductExe(2026-11-10 实证):
  * 那条路要查**运行中进程**的 ExecutablePath,而正库段恰恰在客户端已关闭之后才跑
  * ⇒ 一关就查不到 exe ⇒ dll 候选全空 ⇒ `no-dll` ⇒ 整条链回滚:
- *   本机实测 resolveProductExe('Trae CN') === ''(装在 G:\Trae CN 非标准盘,
+ *   本机实测 resolveProductExe('Trae CN') === ''(装在 外部程序 CN 非标准盘,
  *   LOCALAPPDATA\Programs 那条同样落空)⇒ 对话随行在本机**必然失败**。
  *
  * 改为**从数据目录反推安装根**(与进程无关,客户端关着也能定位):
@@ -533,7 +533,7 @@ export function locateAgentDll({ product, userDataDir, exePath, env = process.en
   if (exePath) candidates.push(path.join(path.dirname(exePath), rel))
   let dir = userDataDir ? path.resolve(userDataDir) : ''
   /**
-   * 本机 `%APPDATA%\Trae CN` 是指向 `G:\Trae CN\UserData` 的符号链接(客户端装 G 盘)。
+   * 本机 `%APPDATA%\Trae CN` 是指向 `外部程序 CN\UserData` 的符号链接(客户端装 G 盘)。
    * 不解析 realpath 就会从 AppData 往上翻,永远找不到 resources 目录。
    */
   if (dir) {

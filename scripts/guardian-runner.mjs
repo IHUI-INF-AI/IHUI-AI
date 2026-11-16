@@ -2501,7 +2501,7 @@ const checks = [
     onFailHint: [
       '',
       '  💡 有 errorCode 没进 `packages/shared/src/chat/error-catalog.ts`,或八类分类缺项 ⇒',
-      '     用户会看到笼统的"AI 服务异常"而不是具体原因(对标 Qoder 的码级标题)。',
+      '     用户会看到笼统的"AI 服务异常"而不是具体原因(对齐统一规范)。',
       '     修复:在该 catalog 补 `{ code: { category, titleKey, actionKey } }` 一条,',
       '     并补 `packages/i18n/messages/*/`(五语言)对应标题/动作键;分类**复用 D92 的',
       '     ViewFailureKind 15 类主干,禁止另起第二张表**(AGENTS §4/D71 硬约束)。',
@@ -7112,7 +7112,7 @@ const checks = [
     ],
   },
   // 编号 277:注册前已核本文件与 HEAD 面 `id: '277'` 均为 0(现读最大 276);现值以本文件为准
-  // (撞号由门 89 R5/R13 反查)。立因(G-21 半腿,2026-11-01,逆向-复现-超越 §0.11):
+  // (撞号由门 89 R5/R13 反查)。立因(G-21 半腿,2026-11-01,工程化落地 §0.11):
   // 对照程序把插件包逐文件 sha256 内联进 manifest,本仓记录面只有"装过哪一代"(name/version/sha),
   // 没有任何尺子能回答"盘上那份副本还是不是当时那批字节"。写侧已在
   // apps/cli/src/plugins/installer.ts 的 InstallRecord.fileDigests 落逐文件摘要,本门是读侧对账。

@@ -321,7 +321,7 @@ const regenerateSchema = z.object({
   messageId: z.uuid('messageId 必须是有效的 UUID'),
 })
 
-// 编辑重跑(2026-09-12 立,四竞品对标 P0-1):目标用户消息 id + 新内容
+// 编辑重跑(2026-09-12 立,四竞品对齐 P0-1):目标用户消息 id + 新内容
 // 2026-09-15 补回:65ecb9dd9「gitdir 灾难后完整重建」在旧基线上覆盖提交,误删本路由,
 // 而 packages/api-client 的 editAndRerunConversation 仍在调用它(前端 404)。
 const editRerunSchema = z.object({
@@ -924,7 +924,24 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
     const updated = await updateConversation(id, parsed.data)
     // 用户手动改名 → 打标 manual(2026-11-13):后续多轮标题重估只碰 auto,绝不吞用户命名
     if (parsed.data.title !== undefined && updated.title !== owned.conversation.title) {
-      await patchConversationMetadata(id, userId, { titleSource: 'manual' })
+      // 创建时标题留档(2026-11-16 立,与 auto-title 同一口径):首次改名时,若此前没有
+      // originalTitle,把改名前的标题记下来 —— 若改名前的还是默认「新对话」,则记新名字,
+      // 保证侧栏悬停展示的"创建时标题"永远是一个有信息量的名字。
+      const prevMeta = (owned.conversation.metadata ?? {}) as Record<string, unknown>
+      const hasOriginalTitle =
+        typeof prevMeta['originalTitle'] === 'string' &&
+        (prevMeta['originalTitle'] as string).trim().length > 0
+      await patchConversationMetadata(id, userId, {
+        titleSource: 'manual',
+        ...(hasOriginalTitle
+          ? {}
+          : {
+              originalTitle:
+                owned.conversation.title !== DEFAULT_CONVERSATION_TITLE
+                  ? owned.conversation.title
+                  : updated.title,
+            }),
+      })
     }
     // D153:写库成功后按"库里到底变了哪一列"广播(见 broadcastConversationMeta 判据②)
     broadcastConversationMeta(
@@ -938,7 +955,7 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ conversation: serializeConversation(updated) }))
   })
 
-  // POST /conversations/:id/auto-title - 会话标题自动生成(2026-09-15 立,四竞品对标 V2 #15)
+  // POST /conversations/:id/auto-title - 会话标题自动生成(2026-09-15 立,四竞品对齐 V2 #15)
   // 首轮回复后由前端 fire-and-forget 调用;2026-11-13 扩为双策略:
   //  - first-turn:按首条用户消息生成(默认,行为与旧版一致);
   //  - conversation:服务端读最近 20 条消息重估(第 3 轮回复后由前端触发一次)。
@@ -1002,7 +1019,17 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(404).send(error(404, '对话不存在'))
     }
     // 来源打标:后续多轮重估只覆盖自动标题,用户改名后不再被自动改
-    await patchConversationMetadata(id, userId, { titleSource: 'auto' })
+    // 创建时标题留档(2026-11-16 立):首个"有意义的标题"记入 metadata.originalTitle,
+    // 之后重估只改 title —— 侧栏悬停据此同时展示「创建时 / 当前」两行,不再丢失任务初衷。
+    const hasOriginalTitle =
+      typeof metadata['originalTitle'] === 'string' &&
+      (metadata['originalTitle'] as string).trim().length > 0
+    await patchConversationMetadata(id, userId, {
+      titleSource: 'auto',
+      ...(hasOriginalTitle
+        ? {}
+        : { originalTitle: currentTitle !== DEFAULT_CONVERSATION_TITLE ? currentTitle : title }),
+    })
     // D153:自动标题**也**要下行。这一型最容易漏,因为它是后台 fire-and-forget 写的,
     // 用户没在任何端按"重命名" —— 另一端侧栏于是长期挂着「新对话」而无人喊。
     broadcastConversationMeta(request, userId, id, ['title'], updated.updatedAt, {
@@ -1736,8 +1763,8 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
     }
   })
 
-  // POST /conversations/:id/edit-rerun - 编辑重跑(2026-09-12 立,四竞品对标 P0-1)
-  // 对标 Cursor/Trae 消息编辑:更新目标用户消息内容(事务),并删除其后的所有消息;
+  // POST /conversations/:id/edit-rerun - 编辑重跑(2026-09-12 立,四竞品对齐 P0-1)
+  // 遵循统一工程规范),并删除其后的所有消息;
   // 前端随后以新内容复用 sendMessage(regenerate 模式)重新流式生成回复。
   // 2026-09-15 补回:被 65ecb9dd9 误删,而 api-client 的 editAndRerunConversation 仍在调用。
   server.post('/conversations/:id/edit-rerun', async (request, reply) => {
@@ -2202,7 +2229,7 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
     )
   })
 
-  // POST /compact — API 端手动压缩上下文(2026-09-02 立,对标 CLI /compact + /chat/stream 自动压缩)
+  // POST /compact — API 端手动压缩上下文(2026-09-02 立,对齐 CLI /compact + /chat/stream 自动压缩)
   // 契约:POST /api/chat/compact,body { conversationId }(web 端代理同构,字段命名保持驼峰)。
   // 语义:无视 88% 自动压缩触发阈值立即压缩,复用 /chat/stream 自动压缩同一套管线:
   // LLM 语义摘要(缓存命中优先)→ compressContextIfNeeded → 归档落库 → replaceMessages 持久化。

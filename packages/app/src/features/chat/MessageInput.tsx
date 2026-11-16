@@ -46,7 +46,7 @@ const VOICE_BAR_COUNT = 30
  *
  * 平台特定(语音录制/文件选择/图片选择/键盘适配)由 wrapper 通过 props 注入。
  *
- * 对标 D 盘 Ai-WXMiniVue 项目 InputArea.vue 全量能力(2026-07-29 提取)。
+ * 对齐 D 盘 Ai-WXMiniVue 项目 InputArea.vue 全量能力(2026-07-29 提取)。
  */
 export function MessageInput({
   t,

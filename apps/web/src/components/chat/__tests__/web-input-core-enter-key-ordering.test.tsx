@@ -187,7 +187,7 @@ describe('组 B — 真实链路(useContextSelector × WebInputCore):有匹配�
       },
     })
 
-    // 逐字复刻 message-input.tsx(G-816019 修后形态)的外部处理器结构:
+    // 独立实现 message-input.tsx(G-816019 修后形态)的外部处理器结构:
     // Enter 提交支已删 —— 提交完全由 WebInputCore 内部 shouldSubmitOnEnter 双腿裁决,
     // 外部只留 contextSelector 拦截与 ↑↓/Shift+Tab/Esc(那些分支与本文件判据无关,故不列)。
     const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {

@@ -19,7 +19,7 @@ function session(id: string, msgs: ChatMessage[], createdAt = '2026-01-01T00:00:
   };
 }
 
-describe('SessionSearchIndex — 对标 Qoder chat_session_search_segments + 超越', () => {
+describe('SessionSearchIndex — 对齐统一规范', () => {
   const sessions: Session[] = [
     session('s1', [
       { id: 'm1', role: 'user', content: '怎么用 exponential backoff 重试', createdAt: 100 },

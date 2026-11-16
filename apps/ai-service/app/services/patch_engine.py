@@ -151,7 +151,7 @@ class FileResult:
     hunks: list[HunkResult] = field(default_factory=list)
     added: int = 0
     deleted: int = 0
-    # 批58(接线):unified diff 展示文本(对标 codex apply-patch 展示层)。
+    # 批58(接线):unified diff 展示文本(遵循统一工程规范)。
     # 恒为 None 除非 PATCH_DIFF_ENABLED 开启 —— to_dict 仅在非 None 时输出该键,
     # 因此开关关闭时对外 dict 与接线前逐字节等价。
     unified_diff: str | None = None
@@ -689,7 +689,7 @@ def _plan_file(root: Path, patch: FilePatch) -> _FileChange:
     result.hunks = hunk_results
     result.added = sum(h.added_count() for h in patch.hunks)
     result.deleted = sum(h.deleted_count() for h in patch.hunks)
-    # 批58(接线):patch_diff 展示层(对标 codex apply-patch 的 diff 展示)。
+    # 批58(接线):patch_diff 展示层(遵循统一工程规范)。
     # 默认 off;on 时把本次 hunk 序列渲染为 unified diff 供回执展示,失败静默降级。
     if _patch_diff_enabled():
         try:

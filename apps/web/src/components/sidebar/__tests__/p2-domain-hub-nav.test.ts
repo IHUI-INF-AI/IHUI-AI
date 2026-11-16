@@ -14,6 +14,7 @@ import {
   TRADE_HUB_ITEMS,
   isHrefActive,
 } from '@/components/sidebar/nav-data'
+import { resolveDomainSlugForPath } from '@/components/layout/domain-registry'
 
 describe('P2 域入口:TDZ 与清单完整性', () => {
   it('三个域清单可 import(声明顺序正确,无 TDZ)', () => {
@@ -69,6 +70,52 @@ describe('isHrefActive 根路径精确匹配', () => {
     expect(isHrefActive(href, '/domains/ai')).toBe(true)
     expect(isHrefActive(href, '/domains/ai/child')).toBe(true)
     expect(isHrefActive(href, '/domains/edu')).toBe(false)
+  })
+
+  // 回归锁(2026-11-16 深度审计):域收敛后页面仍在旧 URL,点击域内旧页面时
+  // 对应域入口必须保持高亮,否则整条侧栏没有任何选中态(管理选中态丢失的同型问题)。
+  it('域入口在旧 URL 子页面下保持高亮(八个域全覆盖)', () => {
+    // 教育:旧前缀 /edu、/edu-ai、/learn、/live、/exam 等
+    expect(isHrefActive('/domains/edu', '/edu/attendance')).toBe(true)
+    expect(isHrefActive('/domains/edu', '/edu-ai/policy')).toBe(true)
+    expect(isHrefActive('/domains/edu', '/learn')).toBe(true)
+    // 内容:顶层单页 + /messages 子项
+    expect(isHrefActive('/domains/content', '/plaza')).toBe(true)
+    expect(isHrefActive('/domains/content', '/messages/notice')).toBe(true)
+    // 交易:/member 与大量顶层单页
+    expect(isHrefActive('/domains/trade', '/member/dashboard')).toBe(true)
+    expect(isHrefActive('/domains/trade', '/wallet')).toBe(true)
+    // AI:/models 与子项、/agents
+    expect(isHrefActive('/domains/ai', '/models/chats')).toBe(true)
+    expect(isHrefActive('/domains/ai', '/agents')).toBe(true)
+    // 个人:/user/* 与 /favorites
+    expect(isHrefActive('/domains/personal', '/user/profile')).toBe(true)
+    expect(isHrefActive('/domains/personal', '/favorites')).toBe(true)
+    // 人事(与 ADMIN 域允许重叠)
+    expect(isHrefActive('/domains/hr', '/hr/my-attendance')).toBe(true)
+    expect(isHrefActive('/domains/hr', '/admin/hr-attendance')).toBe(true)
+    // 开发者
+    expect(isHrefActive('/domains/developer', '/developer/relay')).toBe(true)
+    // 管理:旧后台全部子页 + 侧栏静态 /members
+    expect(isHrefActive('/domains/admin', '/domains/admin')).toBe(true)
+    expect(isHrefActive('/domains/admin', '/admin')).toBe(true)
+    expect(isHrefActive('/domains/admin', '/admin/users')).toBe(true)
+    expect(isHrefActive('/domains/admin', '/members')).toBe(true)
+    expect(isHrefActive('/domains/admin', '/administrator')).toBe(false)
+  })
+
+  it('域别名的路径边界:同前缀不同段不误判', () => {
+    expect(isHrefActive('/domains/edu', '/live-extra')).toBe(false)
+    expect(isHrefActive('/domains/edu', '/domains/edu-extra')).toBe(false)
+    expect(isHrefActive('/domains/ai', '/agents-extra')).toBe(false)
+  })
+
+  // 同一口径锁在「子页归属域」的解析器上:裸前缀会把 /administrator 误归管理域
+  it('域归属解析同守路径段边界', () => {
+    expect(resolveDomainSlugForPath('/administrator')).toBeNull()
+    expect(resolveDomainSlugForPath('/live-extra')).toBeNull()
+    expect(resolveDomainSlugForPath('/admin/users')).toBe('admin')
+    expect(resolveDomainSlugForPath('/edu/attendance')).toBe('edu')
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

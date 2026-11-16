@@ -69,7 +69,7 @@ export function ChatListHeader({
           </Text>
         </View>
       ) : null}
-      {/* 智能体引导说明(对标原 ai_assistant.vue tishi_block + tishi_box,仅选中智能体时显示) */}
+      {/* 智能体引导说明(对齐原 ai_assistant.vue tishi_block + tishi_box,仅选中智能体时显示) */}
       {agent ? (
         <View className="tishi-block" onClick={onToggleTishi} hoverClass="opacity-60">
           {tishiShow ? (
@@ -102,7 +102,7 @@ export function ChatListHeader({
             <Text className="tishi-title-text">{t('ai.tishi.needInput')}</Text>
           </View>
           <View className="tishi-content">
-            {/* 对标原 v-html tishi_content,prologue 中的 \n 替换为换行展示 */}
+            {/* 对齐原 v-html tishi_content,prologue 中的 \n 替换为换行展示 */}
             {agent.prologue
               .replace(/\\n/g, '\n')
               .replace(/<br\s*\/?>/g, '\n')

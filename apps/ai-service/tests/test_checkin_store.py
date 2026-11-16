@@ -228,4 +228,19 @@ async def test_create_account_user_group_conflict_still_raises(monkeypatch):
         )
     assert conn.calls == 2
 
+
+def test_phone_mask_helpers_upgrade_semantics() -> None:
+    """2026-11-17:豆包上游只回掩码,号池归位成全号后,签到副本要认这次「掩码→全号」升级。
+
+    判据与 Node 侧 relay-account-format 同形:全号 `1[3-9]+9位`;掩码前3后2~4;
+    前后缀都吻合才允许改名,防止张冠李戴。
+    """
+    assert checkin_store._is_full_phone("15754320340")
+    assert not checkin_store._is_full_phone("157******40")
+    assert checkin_store._is_masked_phone("157******40")
+    assert checkin_store._is_masked_phone("157****0340")
+    assert checkin_store._phone_mask_matches("15754320340", "157******40")
+    assert not checkin_store._phone_mask_matches("15754320341", "157******40")
+    assert not checkin_store._phone_mask_matches("15854320340", "157******40")
+
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

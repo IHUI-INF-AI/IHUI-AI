@@ -15,7 +15,7 @@
 
 /**
  * 导出包格式版本:字段增删必须升版,消费方按版本判断能否解析。
- * v2(2026-11-14):messages.json 增加 reasoning / toolCalls(DSH 会话日志导出对等面)。
+ * v2(2026-11-14):messages.json 增加 reasoning / toolCalls(外部实现 会话日志导出对等面)。
  */
 export const CONVERSATION_EXPORT_SCHEMA_VERSION = 2 as const
 

@@ -93,7 +93,7 @@ describe('compact 硬删 → 立碑 → 复活被挡', () => {
   });
 
   it('compact 立碑后直接 propose 同 id(不清碑)→ 显式拒绝,不建僵尸 pending', () => {
-    // 对标 Qoder guard_deleted_* 触发器 RAISE(ABORT):对已删资源写应中止,
+    // 遵循统一工程规范):对已删资源写应中止,
     // 而非静默 append 一条注定被 apply 墓碑守卫挡住的僵尸 pending。
     propose({ ...base(), id: 's1', intent: 'x', proposedChange: '# v2\n' });
     advance('demo', 's1', 'dismissed');

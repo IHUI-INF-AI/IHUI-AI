@@ -12,7 +12,7 @@ import { Upload, Calculator, Wallet, FileSpreadsheet, ClipboardCheck } from 'luc
 
 import { HasPermi } from '@/components/auth/HasPermi'
 import { Button } from '@ihui/ui-react'
-import { BackButton } from '@/components/common'
+import { FeaturePageShell } from '@/components/layout'
 
 import { IMPORT_RESOURCE, IMPORT_PERM, currentMonth } from './helpers'
 import type { ImportBatch, UploadResult } from './types'
@@ -68,13 +68,10 @@ export default function HrDataPage() {
   ]
 
   return (
-    <div className="space-y-4 px-4 py-4">
-      <BackButton />
-      <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
-        <FileSpreadsheet className="h-6 w-6 text-primary" />
-        {t('title')}
-      </h1>
-
+    // 2026-11-16 接入统一子功能页外壳:BackButton + 手写 h1 收编为页头卡,
+    // 自动带上「人事部」返回 chip(取 hrHub.title,与域入口页大标题恒等)。
+    // 4 个 tabs 内容区原样保留。
+    <FeaturePageShell title={t('title')} icon={FileSpreadsheet} domain="hr">
       <div className="flex flex-wrap items-end gap-3">
         <label className="text-body">
           {t('periodMonth')}
@@ -108,7 +105,7 @@ export default function HrDataPage() {
       {tab === 'settle' && <SettleTab t={t} periodMonth={periodMonth} />}
       {tab === 'payroll' && <PayrollTab t={t} periodMonth={periodMonth} />}
       {tab === 'todo' && <TodosTab t={t} />}
-    </div>
+    </FeaturePageShell>
   )
 }
 

@@ -4,7 +4,7 @@
 
 // D103 流内多智能体批量动作卡 · 共享层动作矩阵(G-141,2026-09-23 立)
 //
-// 对标 Codex `localConversation.multiAgentAction.*` 的一手形状:**「动作 × 三态」矩阵** ——
+// 遵循统一工程规范
 // 六个动作 `spawn / resume / sendInput / interrupt / close / list`,每个动作各
 // `inProgress / completed / failed` 三态(如 创建中 / 已创建 / 创建失败)。
 //
@@ -82,6 +82,8 @@ export function agentActionStateSuffix(action: AgentAction, phase: AgentActionPh
 
 /** 动作 × 相位的完整矩阵键列表(供守门/测试逐格断言覆盖率) */
 export function agentActionMatrixKeys(): readonly string[] {
-  return AGENT_ACTION_MATRIX.flatMap((row) => row.phases.map((phase) => agentActionPhaseKey(row.action, phase)))
+  return AGENT_ACTION_MATRIX.flatMap((row) =>
+    row.phases.map((phase) => agentActionPhaseKey(row.action, phase)),
+  )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

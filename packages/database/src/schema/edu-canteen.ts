@@ -7,7 +7,7 @@
  *
  * edu_canteen_supplier: 供应商档案(分类/联系人/资质/状态);
  * edu_canteen_procurement: 采购单主表(小票图 + 总金额 + 状态机 + AI 多轮核对全记录 jsonb);
- * edu_canteen_procurement_item: 采购明细行(品名/数量/单位/单价/小计/核对标记), 随主表级联删除。
+ * edu_canteen_procurement_item: 采购明细行(品名/数量/单位/单价/小计/核对齐记), 随主表级联删除。
  *
  * 状态机: draft → ai_extracted → ai_verified / ai_conflict → confirmed(记账) → voided(作废)。
  * AI 核对流水线: 第1轮结构化抽取 → 第2轮独立交叉核对(重识别+数学自检) → 第3轮差异仲裁 → 人工确认。

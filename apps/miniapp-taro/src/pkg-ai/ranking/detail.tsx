@@ -206,7 +206,7 @@ export default function RankingDetailPage() {
 
   return (
     <View className="detail-page">
-      {/* 导航栏(对标原项目:title=detailData.title/name/"详情页", showMenu=true, showFenLei=true) */}
+      {/* 导航栏(对齐原项目:title=detailData.title/name/"详情页", showMenu=true, showFenLei=true) */}
       <View className="detail-nav">
         <Text className="detail-nav-title">{navTitle}</Text>
         <View className="detail-nav-actions">
@@ -327,7 +327,7 @@ export default function RankingDetailPage() {
         <View className="detail-bottom-spacer" />
       </ScrollView>
 
-      {/* 侧边栏抽屉(showMenu/showFenLei 触发,对标原项目 DrawerComponent) */}
+      {/* 侧边栏抽屉(showMenu/showFenLei 触发,对齐原项目 DrawerComponent) */}
       <DrawerComponent visible={drawerVisible} onClose={closeDrawer}>
         <View className="drawer-content">
           <Text className="drawer-title">

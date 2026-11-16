@@ -41,7 +41,7 @@ const CONTENT_LOSS = ['# 标题', '<<<<<<< HEAD', '本侧正文', '=======', '�
 
 test('① empty-region(三行空冲突区)⇒ strippable,不拦', () => {
   const regions = classifyMarkerRegions(EMPTY_REGION)
-  assert.equal(regions.length, 1, `应识别出 1 对标记,实得 ${regions.length}`)
+  assert.equal(regions.length, 1, `应识别出 1 对齐记,实得 ${regions.length}`)
   assert.equal(regions[0].type, 'empty-region')
   assert.equal(regions[0].verdict, 'strippable')
   assert.equal(regions[0].startLine, 3)
@@ -153,7 +153,7 @@ test('⑤ 源头判据装车:合成仓里带正文的冲突区 ⇒ plan() 判红
     run('checkout', '-q', 'main')
 
     const p = U.plan(ours, theirs, dir)
-    // 产物面必须**真**带着那对标记(证明红不是从别处飘来的):先自证夹具到位
+    // 产物面必须**真**带着那对齐记(证明红不是从别处飘来的):先自证夹具到位
     const merged = run('show', `${p.tree}:AGENTS.md`)
     assert.match(merged, /^<<<<<<< HEAD$/m, '夹具未生效:产物面里没有冲突标记区,下面那条断言测不到东西')
     const hit = p.bad.find((b) => String(b).includes('AGENTS.md') && String(b).includes('拒绝落地'))

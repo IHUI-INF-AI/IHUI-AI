@@ -14,7 +14,7 @@ import {
 } from 'drizzle-orm/pg-core'
 
 /**
- * 提示词审计规则表(relay_prompt_audit_rules,2026-09-17 立,补强 54,对标竞品 /prompt-audit)。
+ * 提示词审计规则表(relay_prompt_audit_rules,2026-09-17 立,补强 54,对齐竞品 /prompt-audit)。
  *
  * 用途:对入站提示词做风险检测(涉敏内容、提示词注入特征等),命中后按 action 处理:
  * - log  仅记录命中(默认,零影响)

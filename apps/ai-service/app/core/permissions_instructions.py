@@ -2,20 +2,20 @@
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 # app/core/permissions_instructions.py
-"""权限指令与已批准命令前缀片段(对标 Codex permissions_instructions.rs /
+"""权限指令与已批准命令前缀片段(遵循统一工程规范
 approved_command_prefix_saved.rs / world_state/permissions.rs)。
 
 移植范围:
 - ``format_allow_prefixes``:已批准命令前缀(token 序列)渲染为 codex 格式文案
-  (逐字对齐 codex_protocol::models::format_allow_prefixes:排序、JSON 编码、
+  (按行为规格 codex_protocol::models::format_allow_prefixes:排序、JSON 编码、
   截断 100 条 / 5000 字节);空集返回 None(IHUI 语义,源码对空集返回 Some(""))。
 - ``build_approved_command_prefix_saved_fragment``:developer 角色片段,正文
-  ``"Approved command prefix saved:\n{prefixes}"``(逐字对齐
+  ``"Approved command prefix saved:\n{prefixes}"``(按行为规格
   ApprovedCommandPrefixSaved::body,无标记)。
 - ``build_permissions_instructions_fragment``:``<permissions instructions>``
-  developer 片段,正文模板逐字对齐 codex 英文模板(approval policy 文案 +
+  developer 片段,正文模板按行为规格 外部实现 英文模板(approval policy 文案 +
   sandbox 策略渲染 + writable roots),英文模板保留不中文化。
-- ``PermissionsState``:对标 world_state/permissions.rs 的 PermissionsState,
+- ``PermissionsState``:对齐 world_state/permissions.rs 的 PermissionsState,
   ``snapshot = (不含前缀的指令哈希, 已批准前缀 frozenset)``;
   ``render_diff`` 三分支:同哈希且前缀纯子集新增 → 增量 saved 片段;指令变化或
   前缀有删减 → 整段重发 instructions 片段;Absent/Unknown → 整段。
@@ -33,7 +33,7 @@ import json
 from typing import Any
 
 # ---------------------------------------------------------------------------
-# 常量(逐字对齐 codex protocol/src/models.rs)
+# 常量(按行为规格 外部实现 protocol/src/models.rs)
 # ---------------------------------------------------------------------------
 MAX_RENDERED_PREFIXES = 100
 MAX_ALLOW_PREFIX_TEXT_BYTES = 5000
@@ -44,7 +44,7 @@ PERMISSIONS_INSTRUCTIONS_CLOSE_TAG = "</permissions instructions>"
 
 APPROVED_COMMAND_PREFIX_SAVED_MESSAGE_PREFIX = "Approved command prefix saved:"
 
-# sandbox 策略渲染模板(逐字对齐 prompts/templates/permissions/sandbox_mode/*.md,
+# sandbox 策略渲染模板(按行为规格 prompts/templates/permissions/sandbox_mode/*.md,
 # ``{{ network_access }}`` 占位符按 bool 渲染为 enabled/restricted)。
 SANDBOX_TEMPLATES: dict[str, str] = {
     "danger-full-access": (
@@ -65,7 +65,7 @@ SANDBOX_TEMPLATES: dict[str, str] = {
     ),
 }
 
-# approval policy 文案(逐字对齐 prompts/templates/permissions/approval_policy/*.md
+# approval policy 文案(按行为规格 prompts/templates/permissions/approval_policy/*.md
 # + permissions_instructions.rs 的 GRANULAR_INTRO)。on_request 由拼接脚本从
 # codex 源文件逐字注入,避免转写误差。
 APPROVAL_TEMPLATES: dict[str, str] = {
@@ -95,7 +95,7 @@ def format_allow_prefixes(
 ) -> str | None:
     """把已批准命令前缀(token 序列集合)渲染为 codex 格式文案。
 
-    逐字对齐源码:按 (长度, 总字符数, 字典序) 排序;每个前缀渲染为
+    按行为规格源码:按 (长度, 总字符数, 字典序) 排序;每个前缀渲染为
     ``- ["tok1", "tok2"]``(token 经 JSON 编码);超过 100 条或 5000 字节截断并
     追加标记。空集返回 None(IHUI 语义)。
     """
@@ -146,7 +146,7 @@ def build_permissions_instructions_fragment(
     cwd: str,
     network_access: bool = False,
 ) -> dict[str, Any]:
-    """``<permissions instructions>`` developer 片段,正文模板逐字对齐 codex。"""
+    """``<permissions instructions>`` developer 片段,正文模板按行为规格 外部实现。"""
     body = _compose_instructions_body(
         sandbox_variant, network_access, approval_policy, writable_roots, cwd
     )

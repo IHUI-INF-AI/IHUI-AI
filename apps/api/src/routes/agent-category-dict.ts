@@ -15,7 +15,7 @@
  * 路径:绝对路径字面量注册,确保 scripts/check-api-routes.mjs 静态扫描可识别。
  * 鉴权:公开(无 auth preHandler,字典无用户隐私);限流:每 IP 每分钟 60 次(照 public-status.ts 公开路由惯例)。
  * 返回:{ code:0, message:'success', data:{ agentCategory:[{id,name}], agentMainCategory:[{id,name}] } },
- * 与 packages/api-client/src/endpoints/agent.ts 的 AgentCategories 契约逐字对齐。
+ * 与 packages/api-client/src/endpoints/agent.ts 的 AgentCategories 契约按行为规格。
  */
 import type { FastifyPluginAsync } from 'fastify'
 import { success } from '../utils/response.js'

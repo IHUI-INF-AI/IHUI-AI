@@ -113,7 +113,7 @@ async def test_delegates_date_trigger_at_now_plus_delay(fake_scheduler: MagicMoc
     # 回调面:与 schedule_task 的 mcp_tool 派发同形(prompt 原样进 task)
     callback = args[3]
     assert callback["type"] == "mcp_tool"
-    assert callback["tool_name"] == "dispatch_subagent"
+    assert callback["tool_name"] == "orchestrate_agents"
     assert callback["args"]["task"] == "看看构建结果"
 
 

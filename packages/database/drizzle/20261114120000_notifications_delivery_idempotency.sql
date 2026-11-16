@@ -4,7 +4,7 @@
 
 -- Migration 20261114120000: 通知投递幂等 + 邮件出口两戳(F-512)
 -- 创建时间: 2026-11-14
--- 与 packages/database/src/schema/notifications.ts 逐字对齐。
+-- 与 packages/database/src/schema/notifications.ts 按行为规格。
 --
 -- 背景(F-512):notification 队列是**至少一次**语义,BullMQ 在 `attempts:3` 下会重投。
 -- 旧 worker 先 createNotification 普通 INSERT(无 onConflict)再发信,于是"落库成功、

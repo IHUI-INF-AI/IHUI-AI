@@ -440,7 +440,7 @@ function seedRule(row: {
 const snapshotRules = (): string => JSON.stringify(H.rules)
 const ruleFor = (classId: string): Record<string, unknown> | undefined =>
   H.rules.find((r) => String(r.classId) === classId)
-/** 过线后的响应体与"生产投影出口 + JSON 序列化"逐字对齐(Dates 走 ISO,不手搓字段清单)。 */
+/** 过线后的响应体与"生产投影出口 + JSON 序列化"按行为规格(Dates 走 ISO,不手搓字段清单)。 */
 const dtoJson = (classId: string): unknown => {
   const row = ruleFor(classId)
   return JSON.parse(JSON.stringify(toAttendanceRuleDto(row as unknown as AttendanceRuleRow)))

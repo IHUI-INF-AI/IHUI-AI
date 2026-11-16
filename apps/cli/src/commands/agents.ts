@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * Agents CLI — 智能体市场管理命令,对标 Web 端 /agents 5 页功能(市场列表/我的/创建/详情/统计)。
+ * Agents CLI — 智能体市场管理命令,对齐 Web 端 /agents 5 页功能(市场列表/我的/创建/详情/统计)。
  *
  * 对接后端 apps/api/src/routes/agents.ts(挂载于 /api,JWT Bearer 鉴权):
  *  - GET    /api/agents/list?page=&pageSize=&status=&categoryId=&keyword= → { list, total }
@@ -14,7 +14,7 @@
  *
  * 端点契约说明:Web 端 my/page.tsx 调 /api/agents/my、stats/page.tsx 调 /api/agents/stats;
  *   API 实际"我的 agent"端点为 /api/manage(用 request.userId 自动过滤),
- *   CLI `my` 调 /api/manage 保证可用性;`stats` 对标 Web 契约调 /api/agents/stats(API 未实现时 404 友好提示)。
+ *   CLI `my` 调 /api/manage 保证可用性;`stats` 对齐 Web 契约调 /api/agents/stats(API 未实现时 404 友好提示)。
  *
  * 实现模板复用 memory.ts 的 resolveBaseUrl / resolveApiKeyAsync / apiRequest / extractData / handleError。
  * 注:端点分散于 /api/agents/* 与 /api/manage,故 apiRequest 接受完整 path(不使用固定 API_PREFIX)。
@@ -346,7 +346,7 @@ async function statsAgent(
   } catch (err) {
     const e = err as Error & { status?: number };
     if (e.status === 404) {
-      console.error(chalk.red('✗ /api/agents/stats 端点未实现(API 暂无此端点,对标 Web 端契约保留)'));
+      console.error(chalk.red('✗ /api/agents/stats 端点未实现(API 暂无此端点,对齐 Web 端契约保留)'));
       process.exitCode = 1;
       return;
     }
@@ -383,7 +383,7 @@ async function statsAgent(
 export function registerAgentsCommand(program: Command): void {
   const agentsCmd = program
     .command('agents')
-    .description('智能体市场管理 (对标 Web 端 /agents)');
+    .description('智能体市场管理 (对齐 Web 端 /agents)');
 
   agentsCmd
     .command('list')

@@ -167,7 +167,7 @@ const SRC_RE = /\.(tsx?|jsx|css|scss|less)$/
 const SELF_EXEMPT_RE = /check-glyph-arrow-icon\.[\w.]*mjs$/
 
 /**
- * S0:三端「更多」入口的矢量出口(与 AGENTS.md §4「区段头『更多』入口单一源头」逐字对齐)
+ * S0:三端「更多」入口的矢量出口(与 AGENTS.md §4「区段头『更多』入口单一源头」按行为规格)
  * 加 2026-09-25 的小程序端返回键矢量出口(对齐 web 端 GlobalTopBar 的 TopBarBackButton)。
  * symbol = 消费方 import 里会出现的锚点名(用于判"造好了有没有装车"),**不得**按文件名猜 ——
  * `icons.ts` 的锚点是 `LineIcon`,按 basename 取会得出 `icons` 这种满屏假接线的名字。

@@ -2,17 +2,17 @@
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-"""网络策略修正案(2026-09-20 第二十九批,对标 Codex approvals.rs / network_policy_decision.rs / context/network_rule_saved.rs)。
+"""网络策略修正案(2026-09-20 第二十九批,遵循统一工程规范)。
 
 逐条移植 codex 网络策略修正案语义:
 
 - ``NetworkPolicyRuleAction`` / ``NetworkApprovalProtocol`` /
   ``NetworkPolicyAmendment`` / ``NetworkApprovalContext``
-  (对标 codex_protocol::approvals,见 protocol/src/approvals.rs:62-186)
+  (遵循统一工程规范)
 - ``execpolicy_network_rule_amendment`` / ``network_approval_context_from_payload``
-  (对标 core/src/network_policy_decision.rs:26-102)
+  (对齐 core/src/network_policy_decision.rs:26-102)
 - ``network_rule_saved_body`` / ``network_rule_saved_fragment``
-  (对标 core/src/context/network_rule_saved.rs:38-48)
+  (对齐 core/src/context/network_rule_saved.rs:38-48)
 """
 
 from __future__ import annotations
@@ -24,19 +24,19 @@ from typing import Any
 from . import instructional_fragments
 
 # https_connect / http-connect 是 codex 反序列化时的协议别名(approvals.rs:68),
-# 对标层仍把其归一为 HTTPS,与 codex serde alias 行为一致。
+# 对齐层仍把其归一为 HTTPS,与 codex serde alias 行为一致。
 _PROTOCOL_ALIASES = {"https_connect": "https", "http-connect": "https"}
 
 
 class NetworkPolicyRuleAction(StrEnum):
-    """对标 codex_protocol::approvals::NetworkPolicyRuleAction(lowercase)。"""
+    """遵循统一工程规范)。"""
 
     ALLOW = "allow"
     DENY = "deny"
 
 
 class NetworkApprovalProtocol(StrEnum):
-    """对标 codex_protocol::approvals::NetworkApprovalProtocol(snake_case)。"""
+    """遵循统一工程规范)。"""
 
     HTTP = "http"
     HTTPS = "https"
@@ -44,7 +44,7 @@ class NetworkApprovalProtocol(StrEnum):
     SOCKS5_UDP = "socks5_udp"
 
     def protocol_label(self) -> str:
-        """对标 network_policy_decision.rs 中 protocol_label 映射。
+        """对齐 network_policy_decision.rs 中 protocol_label 映射。
 
         注意 HTTPS 的 label 是 ``https_connect``(与协议字符串 ``https`` 不同,
         codex 即如此,不要合并)。
@@ -60,7 +60,7 @@ class NetworkApprovalProtocol(StrEnum):
 
 @dataclass(frozen=True)
 class NetworkApprovalContext:
-    """对标 codex_protocol::approvals::NetworkApprovalContext(host, protocol)。"""
+    """遵循统一工程规范)。"""
 
     host: str
     protocol: NetworkApprovalProtocol
@@ -68,7 +68,7 @@ class NetworkApprovalContext:
 
 @dataclass(frozen=True)
 class NetworkPolicyAmendment:
-    """对标 codex_protocol::approvals::NetworkPolicyAmendment(host, action)。"""
+    """遵循统一工程规范)。"""
 
     host: str
     action: NetworkPolicyRuleAction
@@ -76,7 +76,7 @@ class NetworkPolicyAmendment:
 
 @dataclass(frozen=True)
 class ExecPolicyNetworkRuleAmendment:
-    """对标 core/src/network_policy_decision.rs::ExecPolicyNetworkRuleAmendment。"""
+    """对齐 core/src/network_policy_decision.rs::ExecPolicyNetworkRuleAmendment。"""
 
     protocol: NetworkApprovalProtocol
     decision: str
@@ -88,7 +88,7 @@ def execpolicy_network_rule_amendment(
     network_approval_context: NetworkApprovalContext,
     host: str,
 ) -> ExecPolicyNetworkRuleAmendment:
-    """对标 core/src/network_policy_decision.rs::execpolicy_network_rule_amendment。
+    """对齐 core/src/network_policy_decision.rs::execpolicy_network_rule_amendment。
 
     - ``protocol`` 直接取 ``network_approval_context.protocol``
       (codex 把 NetworkApprovalProtocol 映射到 execpolicy 的 NetworkRuleProtocol,
@@ -96,9 +96,9 @@ def execpolicy_network_rule_amendment(
     - ``decision`` + ``action_verb``: ALLOW->("allow","Allow")、DENY->("forbidden","Deny");
     - ``justification = f"{action_verb} {protocol_label} access to {host}"``。
     """
-    # 对标:NetworkApprovalProtocol -> execpolicy NetworkRuleProtocol(1:1)
+    # 对齐:NetworkApprovalProtocol -> execpolicy NetworkRuleProtocol(1:1)
     protocol = network_approval_context.protocol
-    # 对标:Allow->(Allow,"Allow");Deny->(Forbidden,"Deny")
+    # 对齐:Allow->(Allow,"Allow");Deny->(Forbidden,"Deny")
     if amendment.action == NetworkPolicyRuleAction.ALLOW:
         decision, action_verb = "allow", "Allow"
     else:
@@ -117,7 +117,7 @@ def network_approval_context_from_payload(
     host: str | None,
     is_ask_from_decider: bool,
 ) -> NetworkApprovalContext | None:
-    """对标 core/src/network_policy_decision.rs::network_approval_context_from_payload。
+    """对齐 core/src/network_policy_decision.rs::network_approval_context_from_payload。
 
     入参设计成显式关键字参数,由调用方从自己的 payload 结构取值:
     - 非 ask-from-decider 的决策 -> None;
@@ -141,7 +141,7 @@ def network_approval_context_from_payload(
 
 
 def network_rule_saved_body(action: NetworkPolicyRuleAction | str, host: str) -> str:
-    """对标 core/src/context/network_rule_saved.rs::body。
+    """对齐 core/src/context/network_rule_saved.rs::body。
 
     Allow->("Allowed","allowlist");Deny->("Denied","denylist")。
     """

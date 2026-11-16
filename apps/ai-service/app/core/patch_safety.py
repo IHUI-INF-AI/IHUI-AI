@@ -2,7 +2,7 @@
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-"""补丁安全判定(纯规则,无 FS/网络) — 对标 codex-rs safety.rs 的 assess_patch_safety。
+"""补丁安全判定(纯规则,无 FS/网络) — 遵循统一工程规范。
 
 移植范围:
 - PatchSafetyDecision 三态:auto_approve / ask_user / reject(reason 可空);
@@ -16,7 +16,7 @@
 - extract_patch_paths:从 ihui apply_patch 文本提取涉及路径(Add/Update/Delete/Move
   的 old+new,去重保序),轻量正则行扫描,不 import apply_patch 模块以避免耦合。
 
-Reject 文案逐字对齐 codex-rs/core/src/safety.rs 的两个常量:
+Reject 文案按行为规格 外部实现-rs/core/src/safety.rs 的两个常量:
 - PATCH_REJECTED_OUTSIDE_PROJECT_REASON
 - PATCH_REJECTED_READ_ONLY_REASON
 """
@@ -28,7 +28,7 @@ from dataclasses import dataclass
 from app.core.sandbox_policy import WritableRoot
 
 # ---------------------------------------------------------------------------
-# 常量(逐字对齐 codex-rs/core/src/safety.rs)
+# 常量(按行为规格 外部实现-rs/core/src/safety.rs)
 # ---------------------------------------------------------------------------
 
 PATCH_REJECTED_OUTSIDE_PROJECT_REASON = (

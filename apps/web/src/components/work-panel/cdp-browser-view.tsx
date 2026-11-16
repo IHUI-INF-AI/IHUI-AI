@@ -7,7 +7,7 @@
 /**
  * CDP 浏览器视图(2026-07-31 立,P0 WorkPanel CDP 升级)
  *
- * 对标 主流 AI IDE 内置浏览器:canvas 渲染后端 Chromium 推送的画面帧,
+ * 对齐 主流 AI IDE 内置浏览器:canvas 渲染后端 Chromium 推送的画面帧,
  * 鼠标/键盘/滚轮事件回传 WebSocket → 后端转发到真实 Chromium。
  *
  * 数据流:
@@ -18,7 +18,7 @@
  *
  * 2026-07-31 完美化:
  * - hover 支持:mouseMoved 不再限于拖拽,节流 60ms 推送(覆盖 CSS hover/dropdown)
- * - 右键菜单:Back/Forward/Reload/Copy URL/Open External(对标 Chrome 右键菜单)
+ * - 右键菜单:Back/Forward/Reload/Copy URL/Open External(对齐 Chrome 右键菜单)
  */
 
 import * as React from 'react'

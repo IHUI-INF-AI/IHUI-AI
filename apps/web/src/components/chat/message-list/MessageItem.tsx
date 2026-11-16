@@ -31,6 +31,7 @@ import {
   MessagesSquare,
   Link2,
 } from 'lucide-react'
+import { MessageMoreMenu, type MessageMoreMenuItem } from './message-more-menu'
 import { useTranslations } from 'next-intl'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, Button } from '@ihui/ui-react'
 import type { ChatMessage } from '@/stores/chat'
@@ -157,7 +158,7 @@ import {
   FOLD_POLICY_EVENT,
   type FoldPolicyMode,
 } from './fold-policy'
-// D180(2026-09-30 立,对标竞品 chatSession.selectionAnnotations.*):会话划词批注 ——
+// D180(2026-09-30 立,对齐竞品 chatSession.selectionAnnotations.*):会话划词批注 ——
 // 选段生成带序号批注清单(可选评论/悬停查看/单条/全部移除),状态 persist 于
 // stores/d180-selection-annotations(conversationId+messageId 归属,刷新可重放)。
 import { SelectionAnnotationBar } from './d180-selection-annotations'
@@ -307,7 +308,7 @@ const MessageItem = React.memo(function MessageItem({
   // D22(2026-09-19 立):system 角色独立渲染分支 — /chat 请求侧已拒绝 system(防上下文注入),
   // 渲染侧仅服务历史会话回放/恢复场景后端下发的只读 system 条目:居中灰字提示条,无操作栏。
   const isSystem = m.role === 'system'
-  // 2026-11-14(对标 DSH producedFileMentions):行内 code 文件引用只认本轮真实产出/交付。
+  // 2026-11-14(遵循统一工程规范):行内 code 文件引用只认本轮真实产出/交付。
   // 产出 = 成功的写/改工具;交付 = present_files 的 files;artifacts 同属产物。
   // 歧义/未知由 resolveFileMention 保持惰性(不按后缀或 cwd 猜),点了才落 IDE。
   const fileMention = React.useMemo<FileMention | undefined>(() => {
@@ -413,7 +414,7 @@ const MessageItem = React.memo(function MessageItem({
   const [commentsOpen, setCommentsOpen] = React.useState(false)
   // #17:折叠中间步骤(工具卡 + plan 步骤)。D21(2026-09-19 立):初始态改由折叠策略驱动 —
   // 用户配置 auto(自适应:字数/工具数/耗时)/ collapsed(强制折叠)/ expanded(强制展开,
-  // 参考 Qoder 0.2.1);竞品默认口径已分化故不强制。用户显式展开/收起后 stepsOverrideRef
+  // 遵循统一工程规范);竞品默认口径已分化故不强制。用户显式展开/收起后 stepsOverrideRef
   // 锁定,策略与配置变更不再覆盖用户选择;FoldPolicyButton 切换配置经事件广播实时同步。
   const stepsOverrideRef = React.useRef<boolean | null>(null)
   const [foldPolicyMode, setFoldPolicyMode] = React.useState<FoldPolicyMode>(() =>
@@ -554,7 +555,7 @@ const MessageItem = React.memo(function MessageItem({
   // #17 折叠中间步骤区总数:定义已上移到 isUser 之后(供 showTyping 判据复用,
   // 单一真相源)。四类区段总数既做折叠区 gate,也做组头「N 个步骤」计数,语义一致。
 
-  // 流式期间组头 = 此刻正在做的这一行(对标 Qoder / Trae / Codex:过程组头就是最新活动行,
+  // 流式期间组头 = 此刻正在做的这一行(遵循统一工程规范
   // 而不是一句"展开查看更多步骤"的哑标题);结束后组头回落到步数摘要(由 StreamGroup 渲染)。
   // 头行禁止出现英文工具码名 —— 映射不到的插件/MCP 名走 "调用 {tool}" 措辞。
   const activeToolCall =
@@ -803,9 +804,9 @@ const MessageItem = React.memo(function MessageItem({
 
   // 分享 — 获取分享链接并复制到剪贴板
   const handleShare = React.useCallback(
-    async (e: React.MouseEvent | React.KeyboardEvent) => {
-      e.stopPropagation()
-      e.preventDefault()
+    async (e?: React.MouseEvent | React.KeyboardEvent) => {
+      e?.stopPropagation()
+      e?.preventDefault()
       const convId = chatStore.getState().conversationId
       if (!convId) return
 
@@ -854,9 +855,9 @@ const MessageItem = React.memo(function MessageItem({
   // 深链并复制(与上方会话快照短链是两条独立通道,互不混用)。
   // 序号由 MessageList 投影透传;会话未落库(无 conversationId)时静默不响应。
   const handleShareTurn = React.useCallback(
-    async (e: React.MouseEvent | React.KeyboardEvent) => {
-      e.stopPropagation()
-      e.preventDefault()
+    async (e?: React.MouseEvent | React.KeyboardEvent) => {
+      e?.stopPropagation()
+      e?.preventDefault()
       const convId = chatStore.getState().conversationId
       if (!convId) return
 
@@ -890,9 +891,9 @@ const MessageItem = React.memo(function MessageItem({
     )
   }, [m.id, paneId])
 
-  // 编辑(2026-09-12 立,四竞品对标 P0-1,替换原 editComingSoon 占位):
+  // 编辑(2026-09-12 立,四竞品对齐 P0-1,替换原 editComingSoon 占位):
   // 打开编辑 Dialog,保存时派发 ihui:edit-message,由 MessageList → editMessageAndRerun 闭环。
-  // W16(2026-09-13):若该消息之后有文件修改类工具调用,提供"同时回滚文件改动"选项(对标 Qoder)。
+  // W16(2026-09-13):若该消息之后有文件修改类工具调用,提供"同时回滚文件改动"选项(遵循统一工程规范)。
   const [editDialogOpen, setEditDialogOpen] = React.useState(false)
   const [editDraft, setEditDraft] = React.useState('')
   const [editRollbackFiles, setEditRollbackFiles] = React.useState(true)
@@ -1038,7 +1039,7 @@ const MessageItem = React.memo(function MessageItem({
     }
   }, [])
 
-  // 重试(2026-07-28 立,深度对标 AI 工作台):m.error 时气泡底部显示"重试"按钮,
+  // 重试(2026-07-28 立,深度对齐 AI 工作台):m.error 时气泡底部显示"重试"按钮,
   // 通过 window CustomEvent 'ihui:retry-message' 派发,由 message-input 监听后触发重新发送。
   // 不直接调用 chat store(任务约束),保持组件解耦。
   const handleRetry = React.useCallback(
@@ -1102,7 +1103,7 @@ const MessageItem = React.memo(function MessageItem({
     onMessageHover?.(m.id, null)
   }, [onMessageHover, m.id])
 
-  // D22(2026-09-19 立,对标 Qoder 0.2.x):圈选 AI 回复入上下文 —
+  // D22(2026-09-19 立,遵循统一工程规范):圈选 AI 回复入上下文 —
   // selectionchange 监听(仅 assistant 非 error 消息):选区锚点落在本消息内容区内且非空时,
   // 记录选中文本并在消息尾部浮现「引用选中」按钮;点击经 ihui:add-text-reference 事件
   // 投递到 MessageInput(监听方调 useMessageReferences.addTextReference 入引用 chips),
@@ -1134,7 +1135,7 @@ const MessageItem = React.memo(function MessageItem({
     toast.success(t('quoteSelectionAdded'))
   }, [selectionText, t, paneId])
 
-  // D184(2026-09-29 立,对标竞品 chatSession.selectionActions):选中文本作为附件 ——
+  // D184(2026-09-29 立,对齐竞品 chatSession.selectionActions):选中文本作为附件 ——
   // 经 ihui:add-selection-attachment 事件投递到 MessageInput(监听方包装 .txt 附件走
   // addFileReferences 三档校验通道),与 D22 引用 chips 通道并存互补;投递后清除原生选区。
   const handleAddSelectionAttachment = React.useCallback(() => {
@@ -1148,7 +1149,7 @@ const MessageItem = React.memo(function MessageItem({
     setSelectionText(null)
   }, [selectionText, paneId])
 
-  // D180(2026-09-30 立,对标竞品 chatSession.selectionAnnotations.*):选段生成划词批注 ——
+  // D180(2026-09-30 立,对齐竞品 chatSession.selectionAnnotations.*):选段生成划词批注 ——
   // 第三出口,直写 d180 store(conversationId+messageId 归属进数据结构,持久化后可刷新重放);
   // 与 D22 引用 chips / D184 附件通道并存互补,投递后清除原生选区(同 D184 收口方式)。
   const handleAnnotateSelection = React.useCallback(() => {
@@ -1300,6 +1301,130 @@ const MessageItem = React.memo(function MessageItem({
     answerBodyStyled
   )
 
+  // 票(2026-11-16):操作栏收纳 —— 高频键(可见性/复制/重新生成)留行内,
+  // 低频键收进「更多」下拉,避免窄 AI 面板里 18 键顶出右边界。
+  // 菜单项沿用原按钮的 testid / aria-pressed / disabled,行为与可测试性不因收纳改变。
+  const moreItems: MessageMoreMenuItem[] = []
+  if (!isSystem) {
+    moreItems.push({
+      key: 'pin',
+      icon: m.pinnedAt ? PinOff : Pin,
+      label: m.pinnedAt ? t('message.unpin') : t('message.pin'),
+      onSelect: () => void handleToggleFlag('pinned'),
+      testId: `message-pin-${m.id}`,
+      pressed: !!m.pinnedAt,
+      disabled: flagPending,
+    })
+    moreItems.push({
+      key: 'bookmark',
+      icon: m.bookmarkedAt ? BookmarkCheck : Bookmark,
+      label: m.bookmarkedAt ? t('message.unbookmark') : t('message.bookmark'),
+      onSelect: () => void handleToggleFlag('bookmarked'),
+      testId: `message-bookmark-${m.id}`,
+      pressed: !!m.bookmarkedAt,
+      disabled: flagPending,
+    })
+  }
+  if (!isUser) {
+    moreItems.push({
+      key: 'readAloud',
+      icon: speaking ? Square : Volume2,
+      label: speaking ? t('message.stopReadAloud') : t('message.readAloud'),
+      onSelect: () => (speaking ? stop() : void speak(m.content)),
+      testId: `message-read-aloud-${m.id}`,
+      disabled: streamingThis,
+    })
+  }
+  if (!isUser && messageImages.length > 0) {
+    moreItems.push({
+      key: 'download',
+      icon: Download,
+      label: t('message.downloadImages'),
+      onSelect: handleDownloadImages,
+      testId: `message-download-${m.id}`,
+    })
+  }
+  if (!isUser) {
+    moreItems.push({
+      key: 'share',
+      icon: Share2,
+      label: t('message.share'),
+      onSelect: () => void handleShare(),
+      testId: `message-share-${m.id}`,
+    })
+    if (typeof turnOrdinal === 'number') {
+      moreItems.push({
+        key: 'shareTurn',
+        icon: Link2,
+        label: t('message.shareTurn'),
+        onSelect: () => void handleShareTurn(),
+        testId: `message-share-turn-${m.id}`,
+      })
+    }
+    if (hasMetadata) {
+      moreItems.push({
+        key: 'metadata',
+        icon: Code,
+        label: t('message.toggleMetadata'),
+        onSelect: handleToggleMetadata,
+        testId: `message-metadata-${m.id}`,
+        pressed: metadataExpanded,
+      })
+    }
+    moreItems.push({
+      key: 'rewind',
+      icon: RotateCcw,
+      label: tAiChat('checkpoint.rewindHere'),
+      onSelect: () => setRewindDialogOpen(true),
+      testId: `message-rewind-${m.id}`,
+      disabled: !conversationId,
+    })
+    moreItems.push({
+      key: 'publish',
+      icon: Megaphone,
+      label: t('message.publishToCommunity'),
+      onSelect: () => setPublishDialogOpen(true),
+      testId: `message-publish-${m.id}`,
+    })
+  }
+  // 用户「编辑」保留在工具栏(高频),不进下拉,避免重复入口。
+  if (!isUser && !isSystem) {
+    moreItems.push({
+      key: 'aiEdit',
+      icon: Pencil,
+      label: t('message.editAiReply'),
+      onSelect: handleAiEdit,
+      testId: `message-ai-edit-${m.id}`,
+      disabled: isStreaming,
+    })
+  }
+  moreItems.push({
+    key: 'reply',
+    icon: MessageCircle,
+    label: t('message.reply'),
+    onSelect: handleReply,
+    testId: `message-reply-${m.id}`,
+  })
+  moreItems.push({
+    key: 'comments',
+    icon: MessagesSquare,
+    label: tComments('title'),
+    onSelect: () => setCommentsOpen((v) => !v),
+    testId: `message-comments-toggle-${m.id}`,
+    pressed: commentsOpen,
+    disabled: !conversationId,
+  })
+  if (isUser) {
+    moreItems.push({
+      key: 'delete',
+      icon: Trash2,
+      label: t('message.delete'),
+      onSelect: handleDelete,
+      testId: `message-delete-${m.id}`,
+      danger: true,
+    })
+  }
+
   return (
     <div
       className={cn(
@@ -1448,13 +1573,14 @@ const MessageItem = React.memo(function MessageItem({
               <StreamGroup
                 key={foldPolicyMode}
                 active={streamingThis}
+                kind="steps"
                 stepCount={stepSectionsCount}
                 headline={stepsHeadline ?? idleActivityHeadline}
                 elapsedMs={typeof m.meta?.durationMs === 'number' ? m.meta.durationMs : null}
                 open={showSteps}
                 onOpenChange={setShowSteps}
                 testId={`message-steps-group-${m.id}`}
-                className="mt-1"
+                className="mt-0"
               >
                 <div className="ml-[7px] space-y-1 pl-3">
                   {/* #14 批量 Accept/Reject 按钮条(2026-09-13 立):
@@ -1711,12 +1837,13 @@ const MessageItem = React.memo(function MessageItem({
             {isProcessText && m.content.length > 0 ? (
               <StreamGroup
                 active={false}
+                kind="narration"
                 stepCount={0}
                 headline={t('processNarrationGroup')}
                 open={processTextOpen}
                 onOpenChange={setProcessTextOpen}
                 testId={`message-process-text-group-${m.id}`}
-                className="mt-1"
+                className="mt-0"
               >
                 {answerBody}
               </StreamGroup>
@@ -1924,144 +2051,11 @@ const MessageItem = React.memo(function MessageItem({
                   )}
                 </button>
               </Tooltip>
-              {/* 票64(2026-10-18 立):钉选 / 收藏 —— 图标形态按服务端盖章的两个时刻切,
-                不引入第三份本地布尔态(那会造出"界面显示已钉选、库里没写"的不可判定态)。 */}
-              {!isSystem && (
-                <Tooltip content={m.pinnedAt ? t('message.unpin') : t('message.pin')} side="top">
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      void handleToggleFlag('pinned')
-                    }}
-                    data-testid={`message-pin-${m.id}`}
-                    aria-label={m.pinnedAt ? t('message.unpin') : t('message.pin')}
-                    aria-pressed={!!m.pinnedAt}
-                    disabled={flagPending}
-                    className={ACTION_BTN_CLASS}
-                  >
-                    {m.pinnedAt ? (
-                      <PinOff className="h-4 w-4" aria-hidden />
-                    ) : (
-                      <Pin className="h-4 w-4" aria-hidden />
-                    )}
-                  </button>
-                </Tooltip>
-              )}
-              {!isSystem && (
-                <Tooltip
-                  content={m.bookmarkedAt ? t('message.unbookmark') : t('message.bookmark')}
-                  side="top"
-                >
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      void handleToggleFlag('bookmarked')
-                    }}
-                    data-testid={`message-bookmark-${m.id}`}
-                    aria-label={m.bookmarkedAt ? t('message.unbookmark') : t('message.bookmark')}
-                    aria-pressed={!!m.bookmarkedAt}
-                    disabled={flagPending}
-                    className={ACTION_BTN_CLASS}
-                  >
-                    {m.bookmarkedAt ? (
-                      <BookmarkCheck className="h-4 w-4" aria-hidden />
-                    ) : (
-                      <Bookmark className="h-4 w-4" aria-hidden />
-                    )}
-                  </button>
-                </Tooltip>
-              )}
-              {/* AI 消息:朗读(TTS)/停止朗读 — 走 ai-service /api/voice/tts */}
-              {!isUser && (
-                <Tooltip
-                  content={speaking ? t('message.stopReadAloud') : t('message.readAloud')}
-                  side="top"
-                >
-                  <button
-                    type="button"
-                    onClick={() => (speaking ? stop() : void speak(m.content))}
-                    disabled={streamingThis}
-                    data-testid={`message-read-aloud-${m.id}`}
-                    aria-label={speaking ? t('message.stopReadAloud') : t('message.readAloud')}
-                    className={cn(
-                      ACTION_BTN_CLASS,
-                      speaking && 'text-primary bg-muted/60',
-                      'disabled:opacity-40 disabled:cursor-not-allowed',
-                    )}
-                  >
-                    {speaking ? (
-                      <Square className="h-4 w-4" aria-hidden />
-                    ) : (
-                      <Volume2 className="h-4 w-4" aria-hidden />
-                    )}
-                  </button>
-                </Tooltip>
-              )}
-              {/* AI 消息:常驻轻评分 👍/👎(2026-10-28 reaction 档;流式中禁用;
-                写面与问卷卡共写同一 upsert 端点,读面走 m.rating(服务端盖章),
-                会话内另有 rating-sync 事件把问卷折算票实时合流到同一处)。
-                `?? null`:字段缺失(老服务端)与明确无票在渲染上等价,都显示未表态。 */}
+              {/* 2026-11-16 降密度:钉选/收藏、朗读、下载、分享、分享回合、元数据、回退、发布、
+                  编辑(用户新版本/AI)、回复、评论、删除 —— 全部收进下方「更多」下拉。
+                  操作栏只保留三枚高频:可见性 / 复制 / 重新生成(或用户消息的编辑)。 */}
               {!isUser && !streamingThis && m.content.length > 0 && (
                 <MessageFeedbackActions messageId={m.id} initialRating={m.rating ?? null} />
-              )}
-              {/* AI 消息:Download(下载图片)— 原项目 downloadAssistantImages,有图片时显示 */}
-              {!isUser && messageImages.length > 0 && (
-                <Tooltip content={t('message.downloadImages')} side="top">
-                  <button
-                    type="button"
-                    onClick={handleDownloadImages}
-                    data-testid={`message-download-${m.id}`}
-                    aria-label={t('message.downloadImages')}
-                    className={ACTION_BTN_CLASS}
-                  >
-                    <Download className="h-4 w-4" aria-hidden />
-                  </button>
-                </Tooltip>
-              )}
-              {/* AI 消息:Share(分享)— 原项目 shareAssistantMessage */}
-              {!isUser && (
-                <Tooltip content={t('message.share')} side="top">
-                  <button
-                    type="button"
-                    onClick={handleShare}
-                    data-testid={`message-share-${m.id}`}
-                    aria-label={t('message.share')}
-                    className={ACTION_BTN_CLASS}
-                  >
-                    <Share2 className="h-4 w-4" aria-hidden />
-                  </button>
-                </Tooltip>
-              )}
-              {/* 差距⑤(2026-10-30):AI 消息「分享此回合」深链。序号不可推导(null)时
-                整钮不渲染 —— 验收「无序号可取的消息不渲染入口,不猜」。 */}
-              {!isUser && typeof turnOrdinal === 'number' && (
-                <Tooltip content={t('message.shareTurn')} side="top">
-                  <button
-                    type="button"
-                    onClick={handleShareTurn}
-                    data-testid={`message-share-turn-${m.id}`}
-                    aria-label={t('message.shareTurn')}
-                    className={ACTION_BTN_CLASS}
-                  >
-                    <Link2 className="h-4 w-4" aria-hidden />
-                  </button>
-                </Tooltip>
-              )}
-              {/* AI 消息:Code(元数据 toggle)— 原项目 toggleMetadata,有 metadata 时显示 */}
-              {!isUser && hasMetadata && (
-                <Tooltip content={t('message.toggleMetadata')} side="top">
-                  <button
-                    type="button"
-                    onClick={handleToggleMetadata}
-                    data-testid={`message-metadata-${m.id}`}
-                    aria-label={t('message.toggleMetadata')}
-                    className={cn(ACTION_BTN_CLASS, metadataExpanded && 'text-primary bg-muted/60')}
-                  >
-                    <Code className="h-4 w-4" aria-hidden />
-                  </button>
-                </Tooltip>
               )}
               {/* AI 消息:Regenerate(重新生成)— 原项目 regenerateMessage,streaming 时禁用 */}
               {!isUser && (
@@ -2081,40 +2075,7 @@ const MessageItem = React.memo(function MessageItem({
                   </button>
                 </Tooltip>
               )}
-              {/* AI 消息:Rewind(回退到此处)— 2026-09-12 立,修复 D9:接入 Checkpoint/Rewind 面板。
-                无会话 id 时禁用;点击后打开面板,由面板自行加载 checkpoint 列表(空态不报错)。 */}
-              {!isUser && (
-                <Tooltip content={tAiChat('checkpoint.rewindHere')} side="top">
-                  <button
-                    type="button"
-                    onClick={() => setRewindDialogOpen(true)}
-                    disabled={!conversationId}
-                    data-testid={`message-rewind-${m.id}`}
-                    aria-label={tAiChat('checkpoint.rewindHere')}
-                    className={cn(
-                      ACTION_BTN_CLASS,
-                      'disabled:opacity-40 disabled:cursor-not-allowed',
-                    )}
-                  >
-                    <RotateCcw className="h-4 w-4" aria-hidden />
-                  </button>
-                </Tooltip>
-              )}
-              {/* AI 消息:Megaphone(发布到社区)— 原项目 publishToCommunity,Promotion 图标不在 lucide-react 用 Megaphone 替代 */}
-              {!isUser && (
-                <Tooltip content={t('message.publishToCommunity')} side="top">
-                  <button
-                    type="button"
-                    onClick={() => setPublishDialogOpen(true)}
-                    data-testid={`message-publish-${m.id}`}
-                    aria-label={t('message.publishToCommunity')}
-                    className={ACTION_BTN_CLASS}
-                  >
-                    <Megaphone className="h-4 w-4" aria-hidden />
-                  </button>
-                </Tooltip>
-              )}
-              {/* 用户消息:Edit(编辑)— 2026-09-12 立,四竞品对标 P0-1,打开编辑 Dialog(保存后从该条重跑) */}
+              {/* 用户消息:Edit(编辑)— 2026-09-12 立,四竞品对齐 P0-1,保存后从该条重跑。高频,留在外面。 */}
               {isUser && (
                 <Tooltip content={t('message.edit')} side="top">
                   <button
@@ -2132,72 +2093,13 @@ const MessageItem = React.memo(function MessageItem({
                   </button>
                 </Tooltip>
               )}
-              {/* AI 消息:Edit(编辑为新版本)— 票64,保存后不重跑、不截断,只多一个可切换的版本 */}
-              {!isUser && !isSystem && (
-                <Tooltip content={t('message.editAiReply')} side="top">
-                  <button
-                    type="button"
-                    onClick={handleAiEdit}
-                    disabled={isStreaming}
-                    data-testid={`message-ai-edit-${m.id}`}
-                    aria-label={t('message.editAiReply')}
-                    className={cn(
-                      ACTION_BTN_CLASS,
-                      'disabled:opacity-40 disabled:cursor-not-allowed',
-                    )}
-                  >
-                    <Pencil className="h-4 w-4" aria-hidden />
-                  </button>
-                </Tooltip>
-              )}
-              {/* Reply(回复)— AI + 用户,原项目 replyToMessage */}
-              <Tooltip content={t('message.reply')} side="top">
-                <button
-                  type="button"
-                  onClick={handleReply}
-                  data-testid={`message-reply-${m.id}`}
-                  aria-label={t('message.reply')}
-                  className={ACTION_BTN_CLASS}
-                >
-                  <MessageCircle className="h-4 w-4" aria-hidden />
-                </button>
-              </Tooltip>
-              {/* D125(2026-10-23 立):逐消息评论开关 —— 协作会话消费面入口。
-                无会话 id(未落库的新会话)时禁用;授权判定在服务端,这里不做第二套。 */}
-              <Tooltip content={tComments('title')} side="top">
-                <button
-                  type="button"
-                  onClick={() => setCommentsOpen((v) => !v)}
-                  disabled={!conversationId}
-                  data-testid={`message-comments-toggle-${m.id}`}
-                  aria-label={tComments('title')}
-                  aria-expanded={commentsOpen}
-                  className={cn(
-                    ACTION_BTN_CLASS,
-                    commentsOpen && 'text-primary bg-muted/60',
-                    'disabled:opacity-40 disabled:cursor-not-allowed',
-                  )}
-                >
-                  <MessagesSquare className="h-4 w-4" aria-hidden />
-                </button>
-              </Tooltip>
-              {/* 用户消息:Delete(删除)— 原项目 deleteMessage,hover 红色 */}
-              {isUser && (
-                <Tooltip content={t('message.delete')} side="top">
-                  <button
-                    type="button"
-                    onClick={handleDelete}
-                    data-testid={`message-delete-${m.id}`}
-                    aria-label={t('message.delete')}
-                    className={cn(
-                      ACTION_BTN_CLASS,
-                      'hover:text-destructive hover:bg-destructive/10',
-                    )}
-                  >
-                    <Trash2 className="h-4 w-4" aria-hidden />
-                  </button>
-                </Tooltip>
-              )}
+              {/* 2026-11-16「更多」下拉:收纳其余低频操作。仅当确实存在可显示项时才渲染(≥1 条)。 */}
+              {/* testid = message-more-<id>:组件 docstring 约定的稳定锚点,pin/bookmark/share/metadata 等用例据此展开菜单。 */}
+              <MessageMoreMenu
+                label={t('message.moreActions')}
+                items={moreItems}
+                testId={`message-more-${m.id}`}
+              />
             </div>
           )}
         </div>
@@ -2280,10 +2182,10 @@ const MessageItem = React.memo(function MessageItem({
       {/* D22(2026-09-19 立):圈选 AI 回复入上下文 — 选中本消息文本后在尾部浮现
             「引用选中」按钮,点击把选中文本投递到输入区引用 chips(useMessageReferences)。
             置于操作按钮区之前,与 hover 操作栏解耦(选区操作时鼠标不在 hover 态也能点到)。
-            D184(2026-09-29 立,对标竞品 chatSession.selectionActions):补第二出口「作为附件添加」
+            D184(2026-09-29 立,对齐竞品 chatSession.selectionActions):补第二出口「作为附件添加」
             —— 选中文本包装为 .txt 附件经 ihui:add-selection-attachment 事件走附件 chip 通道
             (三档校验/上传复用 G-833 链路),两按钮共组 role=group + 选中文本操作组名。
-            D180(2026-09-30 立,对标竞品 chatSession.selectionAnnotations):补第三出口「添加批注」
+            D180(2026-09-30 立,对齐竞品 chatSession.selectionAnnotations):补第三出口「添加批注」
             —— 选段直写 d180 批注 store,下方批注条浮现(带序号清单/悬停查看/评论/单删/全删)。 */}
       {!isUser && !m.error && selectionText && (
         <div
@@ -2349,7 +2251,7 @@ const MessageItem = React.memo(function MessageItem({
           </DialogContent>
         </Dialog>
       )}
-      {/* 2026-09-12 立(四竞品对标 P0-1):消息编辑 Dialog(Edit 按钮触发)。
+      {/* 2026-09-12 立(四竞品对齐 P0-1):消息编辑 Dialog(Edit 按钮触发)。
           保存并重跑 → 派发 ihui:edit-message → MessageList → editMessageAndRerun:
           后端事务更新用户消息内容 + 删除其后消息,前端截断后以新内容流式重跑。 */}
       {isUser && (
@@ -2383,7 +2285,7 @@ const MessageItem = React.memo(function MessageItem({
               )}
               placeholder={t('message.edit')}
             />
-            {/* W16(2026-09-13):编辑重跑可选文件回滚(对标 Qoder)。
+            {/* W16(2026-09-13):编辑重跑可选文件回滚(对齐统一规范)。
                 仅当该消息之后存在已成功的文件修改工具调用时展示,默认勾选。 */}
             {hasFileChangesAfter && (
               <label

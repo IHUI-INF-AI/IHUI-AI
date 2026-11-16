@@ -4,7 +4,7 @@
 
 """Agent 通信机制(P3-3)。
 
-对标 Hermes Agent 的 agent 间通信能力:
+对齐 Hermes Agent 的 agent 间通信能力:
 1. AgentMessageBus:消息总线(点对点 / 广播 / 请求-回复)
 2. AgentBlackboard:共享黑板(agent 间共享上下文)
 3. 点名投递服务层(send_to_agent / read_agent_inbox / list_agent_peers):

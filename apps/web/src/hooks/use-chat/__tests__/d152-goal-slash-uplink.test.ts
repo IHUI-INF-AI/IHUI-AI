@@ -21,7 +21,10 @@ const { postSessionGoalMock, runCommandMock } = vi.hoisted(() => ({
   runCommandMock: vi.fn(),
 }))
 
-vi.mock('@ihui/api-client', () => ({ runCommand: runCommandMock, postSessionGoal: postSessionGoalMock }))
+vi.mock('@ihui/api-client', () => ({
+  runCommand: runCommandMock,
+  postSessionGoal: postSessionGoalMock,
+}))
 vi.mock('@/components/common', () => ({
   toast: { success: vi.fn(), info: vi.fn(), error: vi.fn(), warning: vi.fn() },
 }))
@@ -31,9 +34,6 @@ vi.mock('@/components/ai/full-access-confirm-dialog', () => ({
 }))
 vi.mock('@/stores/agent-hooks', () => ({ emitAgentHook: vi.fn() }))
 vi.mock('@/api/best-of-api', () => ({ runBestOfN: vi.fn() }))
-vi.mock('@/stores/mode', () => ({
-  useModeStore: { getState: () => ({ currentMode: 'build', setMode: vi.fn() }) },
-}))
 vi.mock('@/stores/ai-panel', () => ({
   useAiPanelStore: {
     getState: () => ({
@@ -48,7 +48,9 @@ vi.mock('@/stores/ide-workspace', () => ({
     getState: () => ({ workspacePath: null, fetchGitLog: vi.fn(), fetchDiffFiles: vi.fn() }),
   },
 }))
-vi.mock('@/stores/best-of', () => ({ useBestOfStore: { getState: () => ({ setResult: vi.fn() }) } }))
+vi.mock('@/stores/best-of', () => ({
+  useBestOfStore: { getState: () => ({ setResult: vi.fn() }) },
+}))
 
 import { tryHandleGoalSlash } from '../slash-commands'
 import { useChatStore } from '@/stores/chat'
@@ -77,7 +79,10 @@ describe('D152 /goal 乐观更新 + 上行主副本', () => {
     await flush()
     expect(postSessionGoalMock).toHaveBeenCalledTimes(1)
     expect(postSessionGoalMock.mock.calls[0]?.[0]).toBe('conv-42')
-    expect(postSessionGoalMock.mock.calls[0]?.[1]).toEqual({ action: 'set', objective: '把发布链路做完' })
+    expect(postSessionGoalMock.mock.calls[0]?.[1]).toEqual({
+      action: 'set',
+      objective: '把发布链路做完',
+    })
   })
 
   it('/goal clear ⇒ 清本地 + 上行 clear(cleared 由 status 承载,端内不建第二帧)', async () => {

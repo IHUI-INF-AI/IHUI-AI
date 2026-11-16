@@ -2,7 +2,7 @@
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-"""LLM 语义压缩服务(对标 Claude Code /compact / Codex /compact)。
+"""LLM 语义压缩服务(遵循统一工程规范)。
 
 主循环上下文超阈值时,默认自动调用 LLM 生成语义摘要(custom_summary),
 再把 custom_summary 交给 context_compaction.compress_messages_if_needed 分层规则
@@ -71,7 +71,7 @@ class CompactCancelledError(RuntimeError):
     """
 
 
-# 摘要消息识别桥(2026-09-19 第三十七批接线,对标 Codex is_summary_message):
+# 摘要消息识别桥(2026-09-19 第三十七批接线,遵循统一工程规范):
 # ① 本仓历史摘要消息以 SUMMARY_MARKER("[上下文摘要")开头(context_compaction 体系);
 # ② Codex 语义摘要以 SUMMARY_PREFIX + "\n" 开头(local_compact 规范源)。
 # 两体系并列判定,供摘要防嵌套与下游检测使用。
@@ -105,11 +105,11 @@ MIN_SUMMARY_BUDGET_TOKENS = 256
 MIN_SUMMARY_CHARS = 8
 
 # 默认摘要压缩指令(中文,保留任务目标与工具结果要点)
-# 2026-09-19 第二十五批对标 Codex prompts/templates/compact/prompt.md:
+# 2026-09-19 第二十五批遵循统一工程规范
 # - 交接定位:摘要是给"接续任务的另一个 LLM"的 handoff(而非给人读的纪要)
 # - 四要素清单:进度与关键决策 / 上下文·约束·用户偏好 / 待办与下一步 /
 #   继续任务所需的关键数据·示例·引用
-# - 首行交接框架(对标 Codex SUMMARY_PREFIX):告知新模型这是前一模型的工作,
+# - 首行交接框架(遵循统一工程规范):告知新模型这是前一模型的工作,
 #   在其基础上继续、避免重复劳动
 DEFAULT_COMPACT_INSTRUCTION = (
     "你正在执行一次上下文检查点压缩:请把以下历史对话压缩为一份「交接摘要」"
@@ -254,7 +254,7 @@ async def compact_with_llm(
             (app.core.local_compact.SUMMARY_PREFIX,英文),使下游可用
             is_compaction_summary/codex_is_summary_message 识别摘要消息;
             默认 False 保持既有纯中文行为(前缀 tokens 计入摘要预算)
-        fallback_reason: 摘要失败重试事件的原因标签(批58十七,对标 codex
+        fallback_reason: 摘要失败重试事件的原因标签(批58十七,遵循统一工程规范
             CompactionReason 词表:user_requested | context_limit |
             model_downshift | comp_hash_changed);默认 context_limit(本函数
             的默认触发源即上下文超限)。仅在摘要异常且触发重试时透出。
@@ -302,7 +302,7 @@ async def compact_with_llm(
                     summary_budget_tokens=summary_budget_tokens,
                 )
             except Exception as e:
-                # 批58(十七):摘要失败先判"是否值得用当前模型重试"(对标 codex
+                # 批58(十七):摘要失败先判"是否值得用当前模型重试"(遵循统一工程规范
                 # compact_model_fallback.rs should_retry_with_current_model)——
                 # 中止/取消/预算耗尽类错误不重试(既不尊重用户意图也不经济),
                 # 网络抖动/上游 5xx/超时类错误重试一次,避免直接退回质量更低的
@@ -423,7 +423,7 @@ async def compact_with_llm(
 
 
 # ----------------------------------------------------------------------
-# 模型回退判定(2026-09-19 第二十六批,对标 Codex compact_model_fallback.rs)
+# 模型回退判定(2026-09-19 第二十六批,遵循统一工程规范)
 # ----------------------------------------------------------------------
 # 不可回退的错误类别(Codex:TurnAborted/Interrupted/SessionBudgetExceeded):
 # 用户中断/回合作废/预算耗尽时,换当前模型重试摘要既不尊重用户意图也不经济。
@@ -440,7 +440,7 @@ _NON_RETRYABLE_COMPACT_ERROR_MARKERS = (
 def should_retry_compact_with_current_model(error: BaseException | str | None) -> bool:
     """摘要压缩失败后,是否值得用当前模型重试(而非直接放弃语义压缩)。
 
-    对标 Codex ``should_retry_with_current_model``:中止类错误返回 False,
+    遵循统一工程规范
     其余(网络抖动、上游 5xx、超时等)返回 True。
 
     批58(十七)修正:标记匹配前把文本的 ``_``/``-``/空白一并归一——真实异常

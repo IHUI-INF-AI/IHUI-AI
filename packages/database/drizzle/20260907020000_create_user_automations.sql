@@ -5,7 +5,7 @@
 -- 20260907020000_create_user_automations.sql
 -- 新增用户侧 Agent 定时自动化表 user_automations(2026-09-07 立)。
 --
--- 背景:对标 WorkBuddy automations——用户创建"定时任务"(名称 + prompt + 一次性/重复
+-- 背景:遵循统一工程规范
 -- 计划),服务端调度器(apps/api/src/services/agent-automation-scheduler.ts,60s tick)
 -- 到点调用 ai-service agent-runtime 自动执行,结果摘要写回 last_result,前端
 -- /automations 页面查看/暂停/恢复/立即运行/删除。

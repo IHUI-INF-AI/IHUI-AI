@@ -186,8 +186,9 @@ vi.mock('../../services/relay-account-pool-checkin-sync.js', () => ({
   listCheckinSyncPending: vi.fn(async () => []),
   retryPendingCheckinSyncs: vi.fn(async () => ({})),
   parseCheckinSyncMeta: vi.fn(() => ({})),
-  // checkin-resync 需要从 secrets 投影 zcode plan JWT;本套件不关心其判据,
-  // 缺这一键会让 handler 抛 TypeError 被打成 500(真实现由 checkin-sync 自身单测覆盖)
+  // checkin-resync 推送链路(checkin-sync.ts:818)会从 secrets 投影 zcode plan JWT;
+  // 本套件不关心其判据(真实现由 checkin-sync 自身单测覆盖),但缺这一键会让
+  // vi.mock factory 少导出 ⇒ handler 调用时 TypeError 被打成 500,掩盖 200/502 断言。
   zcodePlanJwtFromSecrets: vi.fn(() => null),
 }))
 

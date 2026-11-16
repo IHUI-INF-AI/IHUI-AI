@@ -46,10 +46,10 @@ describe('mergeAgentTools — D22 网页搜索开关消费(2026-09-19 立)', () 
     expect(tools.length).toBe(new Set(tools).size)
     expect(new Set(tools)).toEqual(new Set([...AGENT_TOOLS, 'write_file']))
   })
-  it('构建模式无插件时只追加 dispatch_subagent,问答与未传模式不加', () => {
-    expect(mergeAgentTools(undefined, 'build')).toEqual(['dispatch_subagent'])
+  it('构建模式无插件时只追加 orchestrate_agents,问答与未传模式不加', () => {
+    expect(mergeAgentTools(undefined, 'build')).toEqual(['orchestrate_agents'])
     storeState.state.webSearchEnabled = true
-    expect(mergeAgentTools(undefined, 'build')).toEqual(['web_search', 'dispatch_subagent'])
+    expect(mergeAgentTools(undefined, 'build')).toEqual(['web_search', 'orchestrate_agents'])
     for (const mode of ['ask', 'plan', 'review', 'spec', undefined]) {
       storeState.state.webSearchEnabled = false
       expect(mergeAgentTools(undefined, mode)).toEqual([])

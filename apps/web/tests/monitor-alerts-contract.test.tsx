@@ -38,7 +38,7 @@ vi.mock('@/components/common', () => ({ BackButton: () => null }))
 
 import AdminMonitorAlertsPage from '../app/(main)/admin/monitor/alerts/page'
 
-// —— 真列名 fixture(字段逐字对齐 packages/database/src/schema/monitor.ts)——
+// —— 真列名 fixture(字段按行为规格 packages/database/src/schema/monitor.ts)——
 const FIRING_ALERT: Alert = {
   id: '3f2a1b0c-0000-4000-8000-000000000001',
   name: '磁盘使用率超阈值',

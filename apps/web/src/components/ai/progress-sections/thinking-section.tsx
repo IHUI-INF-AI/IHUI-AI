@@ -119,7 +119,7 @@ interface ThinkingSectionProps {
 }
 
 /**
- * ThinkingSection — 思考过程折叠子区(对标 AI 工作台,2026-07-28 v2)
+ * ThinkingSection — 思考过程折叠子区(对齐 AI 工作台,2026-07-28 v2)
  *
  * 折叠时(默认):
  * - Brain 图标 + "思考过程" 标题
@@ -134,7 +134,7 @@ interface ThinkingSectionProps {
  * - 复制按钮(右上一键复制全部内容,带 1.5s "已复制" 反馈)
  * - 流式时末尾 闪烁光标
  *
- * v2 改动(对标 AI 工作台,2026-07-28):
+ * v2 改动(对齐 AI 工作台,2026-07-28):
  * - 移除 FoldableSection 包装,自渲染 header(支持 preview/duration 嵌入)
  * - 折叠态展示内容预览 + 耗时,降低信息密度但保留关键状态
  * - 展开态升级为代码块样式 + 复制按钮
@@ -202,7 +202,7 @@ export const ThinkingSection = React.memo(function ThinkingSection({
     return trimmed.length > 60 ? `…${trimmed.slice(-60)}` : trimmed
   }, [content])
 
-  // P3 #33(2026-09-16 立):reasoning 分节(对标 Codex reasoning sections)。
+  // P3 #33(2026-09-16 立):reasoning 分节(遵循统一工程规范)。
   // 按空行切段、显式 markdown 标题优先、隐式取首行截断;短内容退化为无标题单节。
   //
   // 2026-11-15 流式优化:稳定前缀引用复用。
@@ -283,7 +283,7 @@ export const ThinkingSection = React.memo(function ThinkingSection({
 
   return (
     <div
-      className="mt-1 transition-colors"
+      className="mt-0 transition-colors"
       data-testid="thinking-section"
       data-thinking-state={isStreaming ? 'streaming' : 'idle'}
       // 2026-08-29:交错增长指示(供单测/e2e 断言)
@@ -295,6 +295,7 @@ export const ThinkingSection = React.memo(function ThinkingSection({
           同一"标题 · 预览 ……… 耗时 ›"信息排布,不再自成一套 text-sm 头部 */}
       <StreamRow
         status={thinkingActive ? 'running' : 'success'}
+        kind="thinking"
         title={titleText}
         subject={expanded ? undefined : preview}
         subjectKind="none"
@@ -327,7 +328,7 @@ export const ThinkingSection = React.memo(function ThinkingSection({
           {content && (
             <div
               ref={preRef}
-              /* 2026-10-28 观感档:思考视口 200px → 320px(对标 Qoder 量级"看着它想"窗口)。
+              /* 2026-10-28 观感档:思考视口 200px → 320px(遵循统一工程规范)。
                  旧档一屏只容 ~10 行,长思考的"边生成边读"退化成窥管;尾随滚动(上方 effect)
                  与滚动容器形态不变,只扩可读纵深。 */
               className="max-h-[320px] overflow-y-auto whitespace-pre-wrap break-all text-label leading-relaxed text-foreground/75"

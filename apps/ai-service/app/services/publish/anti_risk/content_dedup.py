@@ -13,7 +13,7 @@
 3. 图片:EXIF 时间戳修改 + 轻微裁剪(1px,需 Pillow,降级跳过)
 4. 标签:顺序打乱 + 同义替换
 
-指纹算法:SimHash(对标题+正文+图片hash 计算 64 位指纹,海明距离 ≤3 视为相似)
+指纹算法:SimHash(对齐题+正文+图片hash 计算 64 位指纹,海明距离 ≤3 视为相似)
 
 相似度检查:多平台发布前检查内容相似度,>85% 告警(建议差异化)。
 
@@ -181,7 +181,7 @@ class ContentDeduplicator:
     # ----- SimHash 指纹 -----
 
     def calculate_content_fingerprint(self, content: Any) -> str:
-        """计算内容指纹(SimHash 算法,对标题+正文+图片hash)。
+        """计算内容指纹(SimHash 算法,对齐题+正文+图片hash)。
 
         SimHash 算法:
         1. 将内容分词,每个词计算 MD5(64位)

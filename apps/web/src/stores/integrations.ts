@@ -10,7 +10,7 @@ import { createPersistConfig } from '@/stores/persist-helpers'
 import { boundedAppend } from '@/lib/bounded-append'
 
 /**
- * 多入口集成(W30,2026-09-14 立,对标 Codex GitHub/Slack/iOS 多端入口):
+ * 多入口集成(W30,2026-09-14 立,遵循统一工程规范):
  * - 三类出口通道:github(外部触发端点)/ slack(incoming webhook)/ push(浏览器通知)
  * - 与 W28 Hooks 事件系统打通:emitAgentHook → forwardToChannels,
  *   按「通道启用 + 事件子集」把 agent 事件转发到外部入口(反向:Codex 由外部入口触发 agent,

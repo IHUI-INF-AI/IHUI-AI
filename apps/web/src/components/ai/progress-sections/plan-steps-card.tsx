@@ -39,7 +39,7 @@ interface PlanStepsCardProps {
  * `useStreamStatusLabel()` 出中文状态词 —— 本文件不再自配映射表与状态词函数。
  */
 
-/** 状态 → 分段进度条颜色(对标 折叠态摘要设计 状态色) */
+/** 状态 → 分段进度条颜色(对齐 折叠态摘要设计 状态色) */
 const STATUS_BAR_CLS: Record<PlanStepStatus, string> = {
   // 修复 #8:容器是 bg-muted/40,pending 段原来用 bg-muted-foreground/20 对比度不足,
   // 浅色模式下几乎不可见。改用 bg-muted-foreground/25 + dashed border 提高对比度,
@@ -426,6 +426,7 @@ function PlanStepItem({
     >
       <StreamRow
         status={rowStatus}
+        kind="plan"
         title={stepText}
         titleMode="primary"
         leading={`${index}.`}

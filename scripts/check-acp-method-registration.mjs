@@ -36,7 +36,7 @@ const AGENT_FN = 'buildAcpAgentApp'
 
 // SDK AGENT_METHODS 声明的 session/* 方法全集(取自 @agentclientprotocol/sdk@1.3.0
 // dist/schema/index.d.ts 的 AGENT_METHODS 导出;SDK 升级若增减 session/*,须同步本表)。
-// 逐字对齐 SDK 的 AGENT_METHODS(见 @agentclientprotocol/sdk/dist/schema/index.d.ts 第 2-31 行)。
+// 按行为规格 SDK 的 AGENT_METHODS(见 @agentclientprotocol/sdk/dist/schema/index.d.ts 第 2-31 行)。
 // 2026-11-12 修正:此前把 `session/request_permission` 与 `session/update` 也列进来,
 // 但这两个是 **CLIENT_METHODS**(第 32 行起)—— 由 agent 主动向客户端请求/通知,
 // 不该要求 agent 自己 .onRequest 注册。误列会让门永远判红,逼人跳过。

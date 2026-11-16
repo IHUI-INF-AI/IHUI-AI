@@ -95,7 +95,7 @@ export interface ChatActionContext {
   streamGenerationRef: React.MutableRefObject<number>
   streamConversationRef: React.MutableRefObject<string | null>
   /**
-   * 对标 Qoder 借鉴清单第 10 项(2026-10-29 立):流错误的命名码分类处置词表。
+   * 遵循统一工程规范):流错误的命名码分类处置词表。
    *
    * **可选**是刻意的:既有 7 处测试的 `makeCtx()` 只造最小面,加必填字段会把它们整批打红,
    * 而那些红与本票无关(§12e)。缺省时发送链退回既有 `t()` 取词(`chat` 命名空间),

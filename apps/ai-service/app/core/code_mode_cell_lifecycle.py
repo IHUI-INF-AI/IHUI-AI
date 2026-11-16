@@ -59,7 +59,7 @@ VERDICT_DENIED = "denied"
 VERDICT_UNJUDGED = "unjudged"
 
 # ---------------------------------------------------------------------------
-# cell 生命周期状态(对标 cell_actor/types.rs 的状态枚举)
+# cell 生命周期状态(对齐 cell_actor/types.rs 的状态枚举)
 # ---------------------------------------------------------------------------
 # 一个 cell(一次代码执行)的显式状态。Codex 的状态机:
 #   admission(准入/排队)→ started(执行中)→ outcome(出结果)→ closed(关闭)
@@ -106,13 +106,13 @@ RULE_DELEGATE_HOST_CAP = "R-DELEGATE-HOST-CAP"        # 宿主级 pending delega
 RULE_SUBSCRIPTION_CAP = "R-DELEGATE-SUBSCRIPTION-CAP"  # 工具订阅数上限
 RULE_QUEUE_FULL = "R-DELEGATE-QUEUE-FULL"             # 事件队列背压(full)
 
-# 执行边界(对标 cell_execution_limits):统一治理结构,不散在多个常量
+# 执行边界(对齐 cell_execution_limits):统一治理结构,不散在多个常量
 RULE_EXEC_TIMEOUT_CAP = "R-EXEC-TIMEOUT-CAP"
 RULE_EXEC_OUTPUT_CAP = "R-EXEC-OUTPUT-CAP"
 RULE_EXEC_SHAPE = "R-EXEC-UNJUDGED-SHAPE"  # limits 形状坏 ⇒ unjudged,绝不回退猜
 
 # ---------------------------------------------------------------------------
-# 显式执行边界(对标 cell_execution_limits):单一治理结构
+# 显式执行边界(对齐 cell_execution_limits):单一治理结构
 # ---------------------------------------------------------------------------
 @dataclass(frozen=True)
 class CellExecutionLimits:
@@ -126,12 +126,12 @@ class CellExecutionLimits:
     max_timeout_ms: int = 300_000
     output_head: int = 4_000
     output_tail: int = 12_000
-    # delegate 并发边界(两层,对标 Codex session/host 两级 pending 上限)
+    # delegate 并发边界(两层,遵循统一工程规范)
     max_pending_delegates_per_session: int = 8
     max_pending_delegates_per_host: int = 32
     max_tool_subscriptions_per_session: int = 16
     max_event_queue: int = 256
-    max_concurrent_cells: int = 4  # 对标本仓 _MAX_CODE_SESSIONS
+    max_concurrent_cells: int = 4  # 对齐本仓 _MAX_CODE_SESSIONS
 
 
 DEFAULT_CELL_LIMITS = CellExecutionLimits()
@@ -167,7 +167,7 @@ def decide_cell_transition(
     """判"能否把 cell 从 current_state 迁到 target_state"。
 
     active_cell_ids = 当前仍活跃(非终态)的 cell ID 集,用于查重
-    (对标 Codex ``runtime reused an active cell ID``)。
+    (遵循统一工程规范)。
     """
     findings: list[Finding] = []
 
@@ -206,7 +206,7 @@ def decide_cell_transition(
     if target_state == CELL_STATE_STARTED and cell_id and cell_id in active_cell_ids:
         return Verdict(VERDICT_DENIED, (
             Finding(RULE_DUPLICATE_CELL_ID,
-                    f"复用活跃 cell ID: {cell_id}(对标 Codex "
+                    f"复用活跃 cell ID: {cell_id}(对齐统一规范 "
                     "'runtime reused an active cell ID')",
                     {"cell_id": cell_id}),),
         )
@@ -215,7 +215,7 @@ def decide_cell_transition(
 
 
 # ---------------------------------------------------------------------------
-# 判据 2:并发 delegate 边界(对标 Codex delegate.rs 的两级 pending 上限 + 队列背压)
+# 判据 2:并发 delegate 边界(遵循统一工程规范)
 # ---------------------------------------------------------------------------
 def decide_delegate_admission(
     limits: CellExecutionLimits,
@@ -318,7 +318,7 @@ def validate_execution_limits(limits: Any) -> Verdict:
 
 
 def clip_output(text: str, limits: CellExecutionLimits) -> str:
-    """按执行边界做输出 head+tail 截断(对标 Codex ``output_truncation``)。
+    """按执行边界做输出 head+tail 截断(遵循统一工程规范)。
 
     与本仓 ``_CODE_OUTPUT_HEAD``/``_CODE_OUTPUT_TAIL`` 语义一致:中间省略部分用
     标记注明实际丢弃字节数,给模型一个可读的"被截断"信号。纯函数、无副作用。

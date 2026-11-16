@@ -4,7 +4,7 @@
 
 /**
  * /api/admin/relay/pricing 模型价格历史 + 限时折扣调度 + 动态调价建议
- * (2026-08-01 立,P0 中转站造血能力对标批次)。
+ * (2026-08-01 立,P0 中转站造血能力对齐批次)。
  *
  * 端点清单:
  * 1. GET    /admin/relay/pricing/history         — 价格历史(趋势曲线,?modelId=xxx&days=30)

@@ -21,7 +21,7 @@ function one(line: string) {
  * 守门 `scripts/check-sse-parser-parity.mjs` 把它报成「api-client 已解析但 sse-parse
  * 未解析 ⇒ 小程序端会静默丢帧」,本册是该帧在解析层的接线锁。
  *
- * 判据方向刻意与 api-client 逐字对齐(同一个四值 status 白名单、同一套结构校验),
+ * 判据方向刻意与 api-client 按行为规格(同一个四值 status 白名单、同一套结构校验),
  * 而不是"尽量宽松地收下" —— 旧/坏帧能伪造终态的代价比丢帧更大。
  */
 describe('sse-parse question-resolved 帧(与 api-client 同源)', () => {

@@ -8,7 +8,7 @@
  * 由 relay-account-pool-worker(BullMQ,每 5 分钟)驱动,单轮四件事:
  * 0. keepaliveIdle:距上次使用超过窗口(默认 7 天)的号主动续一次票 —— 上游会清理
  *    闲置的 refresh 会话(实测 invalid_grant/12153),被动等临期等于等着整池猝死。
- *    对标 workbuddy-switch 桌面端的「每日保活」,差别在:① 这里是服务端集中做,
+ *    遵循统一工程规范
  *    不依赖任何人开着 GUI;② client-first 平台让位本机客户端(见 shouldDeferRefresh),
  *    不会把本机手里的票顶废。env RELAY_ACCOUNT_KEEPALIVE_DAYS 调窗口,0/off/false 整档关。
  * 0b. 永久保活档(2026-10-31 立;2026-11-10 C 档改造):登记 `extraMetadata.keepAliveForever`
@@ -19,30 +19,17 @@
  *    被失败计数摘除后由 `reviveKeepAliveForeverAccounts` 退避 6h 自动解摘 —— 对「掉线就再也
  *    登不回来」的号,摘除不能是终点。详见 KEEPALIVE_FOREVER_KEY 一组常量处的立因注。
  * 1. refreshExpiring:access token 距过期 < 15 分钟且有 refreshToken → 调适配器刷新回写
- *    (对标 trae-cn-proxy-rs 的 15 分钟临期检测 + ExchangeToken 续期)
+ *    (遵循统一工程规范)
  * 2. sweepUnknown:healthStatus=unknown 的账号 → 适配器 checkHealth 定级 healthy/down
  * 3. recoverDown:down 且有 refreshToken 且刷新失败次数未超限 → 再试一次刷新,成功则回 unknown
- *    等下轮复检(对标 workbuddy-manager 的验活摘除 + 恢复)
+ *    等下轮复检(遵循统一工程规范)
  *
  * 刷新连续失败 REFRESH_FAILURE_LIMIT 次 → tempUnschedulable=true(自动摘除,admin 可见原因)。
  * 与 relay-channel-router 的进程级熔断互补:这里是「账号凭证生命周期」,那里是「渠道调用质量」。
  */
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
-import {
-  and,
-  eq,
-  gt,
-  gte,
-  isNotNull,
-  isNull,
-  lt,
-  lte,
-  or,
-  inArray,
-  sql,
-  type SQL,
-} from 'drizzle-orm'
+import { and, eq, gt, gte, isNotNull, isNull, lt, lte, or, inArray, sql, type SQL } from 'drizzle-orm'
 import { db, dbRead } from '../db/index.js'
 import { aiRelayAccountPool, type AiRelayAccountPool } from '@ihui/database'
 import {
@@ -334,7 +321,7 @@ const SWEEP_LOCK_TTL_MS = 10 * 60 * 1000
  */
 const UNKNOWN_RECHECK_MS = 30 * 60 * 1000
 
-// ── 空闲保活(2026-10-26 立,对标 workbuddy-switch 桌面端「每日保活」)──────────────
+// ── 空闲保活(2026-10-26 立,遵循统一工程规范)──────────────
 /** 默认窗口:距上次使用 ≥ 7 天即主动续票(上游清理闲置 refresh 会话前的安全边际) */
 export const KEEPALIVE_DEFAULT_DAYS = 7
 /** 单轮空闲保活上限(临期档之后执行,共用分布式锁;防刷新风暴打爆上游) */
@@ -620,30 +607,48 @@ export async function reviveKeepAliveForeverAccounts(
   // 全部看不到 ⇒ 根治「每 6h 拿死票再撞一次鉴权」的无限循环。而「判死留痕 ∧ credVersion
   // 已前进」的行 = 客户端重登后新票已进池,闸门放行解摘并原子清留痕(见 .set 的 extraMetadata)。
   // 排除落在 where 取回候选之后的 JS 层:正则判据只有 config JSON 一份,SQL 里再抄
-  // 一遍 !~* 正则就是第二份真相源(§0.6 禁);recredentialableCondition() 与既有
-  // where 语义一字不动(只叠加、不重写)。select 必带 credVersion/extraMetadata 两列。
-  const revivable = revivableCandidatesOf(stale)
-  for (const row of revivable) {
-    await db
-      .update(aiRelayAccountPool)
-      .set({
-        tempUnschedulable: false,
-        refreshFailureCount: 0,
-        // 刻意**不写** healthStatus:解摘的语义是「解除调度封锁」,不是「判它健康」。
-        // 保留 down 反而更正确 —— downRecoveryWhere 不看健康白名单,会立刻按再凭证通道重试,
-        // 刷成功时由 refreshOne 把 down 收回 unknown(既有口径),失败则继续累计并再摘。
-        // 2026-11-01 实测:凭空写 unknown 会把这条既有不变量洗掉,还与既有测试
-        // 「按 healthStatus 键存在性识别健康写入」的选取器撞形,把定级读数顶成解摘留痕。
-        lastErrorMessage: `永久保活自动解摘(摘除满 ${backoffHours}h,重新纳入续期):前因 ${(row.lastErrorMessage ?? '未知').slice(0, 200)}`,
-        updatedAt: now,
-        // 解摘成功即原子摘掉判死留痕键(jsonb - text,不整对象覆盖):留痕不摘会让下一轮
-        // 解摘继续拿旧版本比,形成假阳性(§0.6 单源表达式 = terminalVerdictRemovalPatch)。
-        extraMetadata: terminalVerdictRemovalPatch(),
+  // 一遍 !~* 正则就是第二份真相源(§0.6 禁);既有 where 语义一字不动(只叠加、不重写)。
+  const candidates = revivableCandidatesOf(stale)
+  // F-654:只把「写库成功」的行返回给调用方记「已解摘 N 个」。此前把查到的候选行
+  // 全量返回且吞掉写失败,DB 抖动时日志谎报成功、账号实际仍被摘且每轮重复失败无告警。
+  const revived: typeof stale = []
+  let failed = 0
+  for (const row of candidates) {
+    try {
+      await db
+        .update(aiRelayAccountPool)
+        .set({
+          tempUnschedulable: false,
+          refreshFailureCount: 0,
+          // 刻意**不写** healthStatus:解摘的语义是「解除调度封锁」,不是「判它健康」。
+          // 保留 down 反而更正确 —— downRecoveryWhere 不看健康白名单,会立刻按再凭证通道重试,
+          // 刷成功时由 refreshOne 把 down 收回 unknown(既有口径),失败则继续累计并再摘。
+          // 2026-11-01 实测:凭空写 unknown 会把这条既有不变量洗掉,还与既有测试
+          // 「按 healthStatus 键存在性识别健康写入」的选取器撞形,把定级读数顶成解摘留痕。
+          lastErrorMessage: `永久保活自动解摘(摘除满 ${backoffHours}h,重新纳入续期):前因 ${(row.lastErrorMessage ?? '未知').slice(0, 200)}`,
+          updatedAt: now,
+          // 解摘成功即原子摘掉判死留痕键(jsonb - text,不整对象覆盖):留痕不摘会让下一轮
+          // 解摘继续拿旧版本比,形成假阳性(§0.6 单源表达式 = terminalVerdictRemovalPatch)。
+          extraMetadata: terminalVerdictRemovalPatch(),
+        })
+        .where(eq(aiRelayAccountPool.id, row.id))
+      revived.push(row)
+    } catch (e) {
+      failed += 1
+      logger.warn('[relay-account-pool] 永久保活自动解摘写库失败(不计入已解摘)', {
+        providerCode: row.providerCode,
+        uid: row.uid,
+        error: e instanceof Error ? e.message.slice(0, 200) : String(e),
       })
-      .where(eq(aiRelayAccountPool.id, row.id))
-      .catch(() => {})
+    }
   }
-  return revivable
+  if (failed > 0) {
+    logger.warn('[relay-account-pool] 永久保活自动解摘部分失败', {
+      failed,
+      total: candidates.length,
+    })
+  }
+  return revived
 }
 
 /**
@@ -663,7 +668,7 @@ export interface AccountPoolSweepResult {
   refreshFailed: number
   refreshSkipped: number
   /**
-   * 空闲保活命中的候选账号数(2026-10-26 立,对标 workbuddy-switch 每日保活)。
+   * 空闲保活命中的候选账号数(2026-10-26 立,遵循统一工程规范)。
    * 成功/失败另计进 refreshed/refreshFailed;本键只答「这一轮有多少号被闲置窗口捞出续票」。
    */
   keepalive: number
@@ -1249,18 +1254,20 @@ async function refreshOneLocked(
       verdictId !== null && terminalVerdictOf(row) === null
         ? terminalVerdictSnapshotOf(row, verdictId)
         : null
-    // 失败落账的 extra_metadata 叠加层:既有 enteringRemove 的 keepalive 留痕 + 判死留痕,
-    // 两者都走 coalesce(...) || jsonb_build_object(...) 原子叠加,绝不整对象覆盖(并发会丢别的键)。
+    // 失败落账的 extra_metadata 叠加层:既有 enteringRemove 的 keepalive 留痕(F-647 来源
+    // 标记同层)+ 判死留痕,都走 coalesce(...) || jsonb_build_object(...) 原子叠加,绝不整
+    // 对象覆盖(并发会丢别的键)。
     const extraLayers: SQL[] = []
     if (enteringRemove) {
       extraLayers.push(
         sql`jsonb_build_object(
           'unschedulableSource', 'auto',
           'keepalive', jsonb_build_object(
-          'lastFailureAt', ${failedAt.toISOString()}::text,
-          'failureCount', ${failures}::int,
-          'lastError', ${reason.slice(0, 200)}::text
-        ))`,
+            'lastFailureAt', ${failedAt.toISOString()}::text,
+            'failureCount', ${failures}::int,
+            'lastError', ${reason.slice(0, 200)}::text
+          )
+        )`,
       )
     }
     if (snap) {
@@ -1489,7 +1496,7 @@ async function runSweepOnce(
     else out.refreshFailed++
   })
 
-  // ── 1.5 空闲保活(2026-10-26 立,对标 workbuddy-switch「每日保活」)──
+  // ── 1.5 空闲保活(2026-10-26 立,遵循统一工程规范)──
   // 上游会清理闲置的 refresh 会话(撞过 invalid_grant 才发现),临期档只救「快过期」的,
   // 救不了「长期没人用」的。这里把「闲置」单独成档:超窗就先续一把,续票失败同走
   // refreshOne 的累计与摘除,不给第二份口径。分布式锁与临期档同轮,不会多实例抢刷。

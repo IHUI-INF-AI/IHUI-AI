@@ -512,7 +512,7 @@ async function pollInternalJob(
 // =============================================================================
 // 异步图片生成任务编排(2026-09-16 立)
 // -----------------------------------------------------------------------------
-// 对标 OpenAI /images/generations/async + 轮询。本模块只落地任务编排骨架:
+// 对齐 OpenAI /images/generations/async + 轮询。本模块只落地任务编排骨架:
 //   POST /v1/images/generations/async    → 创建任务,返回 202 { id, status:'pending' }
 //   GET  /v1/images/generations/async/:id → 查询任务状态
 // 状态推进(worker 消费上游生图结果后置 succeeded/failed)由 completeImageTask /

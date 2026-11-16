@@ -2,8 +2,8 @@
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-"""双半插件宿主运行时(node:vm 沙箱),对标 DeepSeek Harness dsh-cordis-host-runner,
-2026-11-15 R12 逆向复现。
+"""双半插件宿主运行时(node:vm 沙箱),遵循统一工程规范
+2026-11-15 R12 独立实现。
 
 为什么要有这一份:IHUI 的插件是 F 类 `PluginViewManifest`(`plugin-view-runtime`)——
 **声明式视图清单**,不是可执行代码,宿主从不运行插件写的函数。而 dsh-cordis-host-runner
@@ -31,7 +31,7 @@
      做 realm 安全判定。这是最易踩的坑,单独成函数钉住。
 
 超越点(§0.12 第④步):本仓把"沙箱构造"做成纯数据 + 纯函数(`build_vm_sandbox` /
-`classify_host_half_error`),宿主侧接线与策略层完全解耦可单测;DSH 的构造嵌在类里、
+`classify_host_half_error`),宿主侧接线与策略层完全解耦可单测;外部实现 的构造嵌在类里、
 要 mock 整个 cordis 容器才能测。且本仓把"扣留表"显式数据化(NODE_API_REDIRECTS),
 重定向指引可枚举可审计。
 """
@@ -61,7 +61,7 @@ WithheldApi = Literal[
     "clearTimeout", "clearInterval", "fetch",
 ]
 
-# 计时器统一重定向文案(DSH 的 TIMER_REDIRECT 常量语义)
+# 计时器统一重定向文案(外部实现 的 TIMER_REDIRECT 常量语义)
 TIMER_REDIRECT = (
     "Timers are unavailable in the dynamic package sandbox — "
     "host halves must not spawn deferred work; return the result synchronously "
@@ -95,14 +95,14 @@ class VmSandbox:
 
     package_id: str  # dyn-<n>,用作 console tag 与 filename stem
     withheld: tuple[str, ...] = field(default_factory=lambda: WITHHELD_APIS)
-    # 沙箱内**故意保留**的原语(编码必备,DSH createSandbox 显式注入)
+    # 沙箱内**故意保留**的原语(编码必备,外部实现 createSandbox 显式注入)
     granted: tuple[str, ...] = ("console(tagged)", "harness", "btoa", "atob", "TextEncoder", "TextDecoder")
     has_dual_realm_instanceof_patch: bool = True
     sync_timeout_ms: int | None = None  # 仅限同步段,见 sync_timeout_caveat
 
 
 def build_vm_sandbox(package_id: str, *, sync_timeout_ms: int | None = None) -> VmSandbox:
-    """构造 host half 求值用的沙箱描述(对齐 DSH createSandbox :48995)。
+    """构造 host half 求值用的沙箱描述(对齐 外部实现 createSandbox :48995)。
 
     沙箱故意扣留 require/fetch/计时器,只保留 tagged console、harness 注册对、
     编码原语;并打双 realm instanceof 补丁。
@@ -155,7 +155,7 @@ def classify_host_half_error(
 ) -> HostHalfVerdict:
     """归类一次 host half 求值的失败(纯函数,不真跑代码)。
 
-    优先级对齐 DSH run lifecycle(:92236 evaluateHostCode + isPlugin 检查):
+    优先级对齐 外部实现 run lifecycle(:92236 evaluateHostCode + isPlugin 检查):
       1. 跨 realm SyntaxError(name 判定) ⇒ syntax_error,带源码上下文提示。
       2. 返回 undefined ⇒ undefined_return("did you forget return?")。
       3. 返回非 plugin 形状 ⇒ bad_plugin_shape。
@@ -169,7 +169,7 @@ def classify_host_half_error(
             message=(error_message or "SyntaxError").strip(),
             realm_safe=True,
         )
-    # 2/3. 返回值形状(DSH evaluateHostCode 后 isPlugin 检查)
+    # 2/3. 返回值形状(外部实现 evaluateHostCode 后 isPlugin 检查)
     if returned_undefined:
         return HostHalfVerdict(
             kind="undefined_return",
@@ -192,10 +192,10 @@ def classify_host_half_error(
 
 
 def assert_host_half_returns_plugin(returned_shape: Literal["undefined", "plugin_fn", "apply_object", "other"]) -> HostHalfVerdict:
-    """校验 host half 返回值形状(DSH isPlugin 语义 :92236)。
+    """校验 host half 返回值形状(外部实现 isPlugin 语义 :92236)。
 
     合法:返回 Plugin 函数,或带 apply(ctx) 的对象。undefined / 其它形状报错,
-    错误文案对齐 DSH 的 teaching error(帮模型自纠)。
+    错误文案对齐 外部实现 的 teaching error(帮模型自纠)。
     """
     if returned_shape == "undefined":
         return classify_host_half_error(returned_undefined=True)

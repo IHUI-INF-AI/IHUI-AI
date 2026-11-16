@@ -5,7 +5,7 @@
 /**
  * WorktreeManager — Git Worktree 并行隔离层(唯一公开出口 + 命令编排)。
  *
- * 对标 Cursor 3.x 的多并行 background agents + worktree 隔离:每个并行 subagent
+ * 遵循统一工程规范
  * 在独立的 git worktree 中工作,彻底消除多 subagent 共享工作目录时的文件写冲突。
  *
  * 做减法(与 src/subagents/worktree.ts 的 subagent/<id> 方案互补):

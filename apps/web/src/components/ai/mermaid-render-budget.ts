@@ -15,7 +15,7 @@
  * catch / 截断都来不及(工作已经在做)。所以门禁必须前置到"进入 render 之前"。
  *
  * 判据形状参考了竞品只读副本的三维预算 + 可见性档
- * (`.ihui-agent/tmp/zcode-study/zcode/packages/ui/src/lib/mermaidRenderBudget.ts`),
+ * (`内部规格`),
  * 但**未抄它的实现与数值**:下面三个上限全部由本仓实测形态推出,依据写在各常量注释里。
  *
  * 本文件刻意保持纯函数:不读 `document`、不读 `window`。页面可见性由调用方
@@ -68,10 +68,7 @@ export const MERMAID_RENDER_BUDGET = {
  */
 export type MermaidSkipReason =
   /** 页面在后台:不是内容问题,回到前台即渲,调用方应显示占位而非降级提示 */
-  | 'page-hidden'
-  | 'source-too-large'
-  | 'line-count-too-large'
-  | 'structural-complexity-too-large'
+  'page-hidden' | 'source-too-large' | 'line-count-too-large' | 'structural-complexity-too-large'
 
 /** 枚举全集的运行时载体:单测用它断言"提示词表没漏档",不靠人眼数。 */
 export const MERMAID_SKIP_REASONS: readonly MermaidSkipReason[] = [
@@ -83,8 +80,7 @@ export const MERMAID_SKIP_REASONS: readonly MermaidSkipReason[] = [
 
 /** 决策结论。`outcome` 而非布尔 `ok`,是为了让 skip 分支必须带 reason(类型层强制)。 */
 export type MermaidRenderDecision =
-  | { readonly outcome: 'render' }
-  | { readonly outcome: 'skip'; readonly reason: MermaidSkipReason }
+  { readonly outcome: 'render' } | { readonly outcome: 'skip'; readonly reason: MermaidSkipReason }
 
 /** 三条量纲的测量结果。 */
 export interface MermaidSourceMetrics {

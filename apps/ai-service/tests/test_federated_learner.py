@@ -2,7 +2,7 @@
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-"""联邦学习器测试(L7,2026-07-25 立,对标 Google Federated Learning)。
+"""联邦学习器测试(L7,2026-07-25 立,对齐 Google Federated Learning)。
 
 覆盖:
 - DifferentialPrivacy: laplace_noise / gaussian_noise / apply_to_count /
@@ -974,7 +974,7 @@ class TestFederatedBigintIdWrite:
 # 但 federated_learner.get_status() 没有对外投影这一层 —— 且它已有的
 # `cacheLoaded` 判据是 `len(self._cache) > 0`(缓存规模),与 `self._loaded`
 # 结构上无关:读到权威空表时它也是 False,与"从未加载"返回值完全相同。
-# 本段把四档钉在**对外可读的返回体**上(形状逐字对齐 meta_learner.get_status),
+# 本段把四档钉在**对外可读的返回体**上(形状按行为规格 meta_learner.get_status),
 # 注入机制逐字照抄同轮 8f8d013fdb 加在 tests/test_meta_learner.py 上的形态:
 #   _FakeConn(预设异常序列,耗尽即抛) + _FakeClock(替换 _monotonic,不真 sleep)
 #   + _inject(替换 _get_pool / _monotonic)。全程零 DB 句柄。
@@ -1064,7 +1064,7 @@ def _inject_fed(monkeypatch, conn: _FakeConn) -> _FakeClock:
 async def test_fed_load_state_never_tried_then_retry_backoff_then_loaded(monkeypatch):
     """四档前三档逐档可读出:never_tried → retry_backoff → loaded。
 
-    与 meta_learner 的同形用例逐字对齐:一次读失败**不得**置 loaded,
+    与 meta_learner 的同形用例按行为规格:一次读失败**不得**置 loaded,
     退避窗口内不打 DB,窗口过后真重试并固化(读到空表 = 权威的空,可固化)。
     """
     conn = _FakeConn([ConnectionError("transient db down"), []])

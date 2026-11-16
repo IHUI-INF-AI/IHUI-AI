@@ -8,7 +8,6 @@ import * as React from 'react'
 import dynamic from 'next/dynamic'
 import {
   Check,
-  ChevronRight,
   Copy,
   Download,
   FileText,
@@ -22,6 +21,11 @@ import {
   Maximize2,
   X,
 } from 'lucide-react'
+import {
+  STREAM_HEADER_ACTION_CLASS,
+  STREAM_HEADER_ROW_CLASS,
+  streamKindIcon,
+} from '@/components/chat/stream/stream-ui'
 import { useTranslations } from 'next-intl'
 import { useTheme } from 'next-themes'
 import ReactMarkdown, { type Components } from 'react-markdown'
@@ -34,7 +38,6 @@ import { useDebounce } from '@/hooks/use-debounce'
 import { cn } from '@/lib/utils'
 import { MarkdownTableBlock } from './markdown-table-toolbar'
 import { OverflowShadow } from './overflow-shadow'
-import { IconButton } from '@ihui/ui-react'
 import { Tooltip } from '@/components/feedback'
 import { useWorkPanelStore } from '@/stores/work-panel'
 import { useIDEWorkspace } from '@/stores/ide-workspace'
@@ -60,7 +63,7 @@ import {
   judgeBlockStability,
 } from '@/lib/markdown-stable-split'
 import { healIncompleteMarkdown } from '@/lib/markdown-incomplete-heal'
-// 2026-10-29(对标 Qoder §6.6):静态长文档块级虚拟化 —— 流式已完且 ≥16384 字符时
+// 2026-10-29(遵循统一工程规范):静态长文档块级虚拟化 —— 流式已完且 ≥16384 字符时
 // 只挂可视区块 + overscan,窗口外不进 React 树(用上下占位撑住总高)。
 // 刻意**不用** content-visibility / contain-intrinsic-size(AGENTS G-828 明文禁恢复)。
 import {
@@ -80,6 +83,8 @@ import { RichFilePreview } from '@/components/file-preview'
 import { tryFocusArtifactFromLink } from '@/components/media/artifact-turn-badge'
 // 语法高亮主题(对象常量,体积小,可静态导入;同时导入 dark/light 两份,运行时按主题切换)
 import { oneDark, oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism'
+
+const CodeBlockIcon = streamKindIcon('code')
 
 // 移除主题中的 background / backgroundColor,避免每行被主题样式强制染色
 function stripBackground(
@@ -127,7 +132,7 @@ interface MarkdownStreamProps {
   isStreaming?: boolean
   /** 代码块默认折叠行数阈值，超过该行数默认折叠，<=0 表示不折叠 */
   collapseLines?: number
-  /** 行内文件名引用解析(2026-11-14,对标 DSH producedFileMentions):
+  /** 行内文件名引用解析(2026-11-14,遵循统一工程规范):
    *  只在本轮真实产出/交付路径里解析;歧义/未知一律保持普通 code。 */
   fileMention?: FileMention
 }
@@ -194,8 +199,8 @@ class CodeBlockErrorBoundary extends React.PureComponent<
 const PLAIN_TEXT_LANGS = new Set(['', 'text', 'plain', 'txt'])
 
 // G-842(2026-09-29):代码块 header —— 文件图标 + 语言名映射出的示例文件名。
-// 形态对标上游 ai-elements/code-block.tsx 的「language → 示例文件名映射 + header」结构
-// (结构对标,条目为本仓自拟,非上游文案);未收录语言兜底 code.<lang>,无语言兜底 code.txt。
+// 形态对齐上游 ai-elements/code-block.tsx 的「language → 示例文件名映射 + header」结构
+// (结构对齐,条目为本仓自拟,非上游文案);未收录语言兜底 code.<lang>,无语言兜底 code.txt。
 const CODE_FILE_NAME_BY_LANGUAGE: Record<string, string> = {
   bash: 'script.sh',
   c: 'main.c',
@@ -349,7 +354,7 @@ const CodeBlockImpl = function CodeBlock({
   isStreaming?: boolean
   syntaxStyle: Record<string, React.CSSProperties>
   collapseLines?: number
-  /** 四竞品对标 V2 #17(2026-09-15):行号样式,undefined = 不显示行号(纯文本/降级路径不传) */
+  /** 四竞品对齐 V2 #17(2026-09-15):行号样式,undefined = 不显示行号(纯文本/降级路径不传) */
   lineNumberStyle?: React.CSSProperties
   /** 2026-10-29 流式观感档⑦:stable 晋升跨树 remount 时携带的"保持展开"事实(见 useState 注记) */
   preserveExpanded?: boolean
@@ -477,7 +482,7 @@ const CodeBlockImpl = function CodeBlock({
   const lang = (language ?? '').trim().toLowerCase()
   const isPlain = PLAIN_TEXT_LANGS.has(lang)
 
-  // P1 #28(2026-09-16):代码块一键运行(对标 Codex/Trae 对话内运行回显)。
+  // P1 #28(2026-09-16):代码块一键运行(遵循统一工程规范)。
   // 复用的执行 API 仅需 workspacePath(从既有 store 取值),无需 messageId,不改动 props 链。
   // 置于 mermaid 提前 return 之前,遵守 rules-of-hooks(所有 hook 在任意 return 前调用)。
   const { result: runResult, run: runCodeBlock, clear: clearRunResult } = useCodeBlockRun()
@@ -507,99 +512,115 @@ const CodeBlockImpl = function CodeBlock({
     ) : null
 
   // 代码块操作按钮组(置于 header 右侧)
-  // 2026-07-31 对标 主流 AI IDE + 与 code-generator.tsx 保持一致:
-  // 默认无背景色,hover 时显示 bg-muted(纯色),确保按钮在任意代码块背景上都可读。
-  // 2026-09-12 P0-2:追加「应用到文件」「插入光标」(对标 CodeX/Trae/Qoder 代码块动作)。
-  // 2026-09-17:折叠按钮背景统一 bg-float-indicator-bg(全局浮动指示条 token,不透明)。
-  // 2026-09-17:统一迁移到 IconButton(尺寸/圆角/focus ring 走 @ihui/design-tokens token),
-  // 代码块语境保留 text-foreground + hover:bg-muted 覆盖默认 ghost 样式。
-  const iconBtnClass = 'text-foreground hover:bg-muted'
+  // 2026-07-31 对齐 主流 AI IDE:默认无背景,hover 时显示底色。
+  // 2026-09-12 P0-2:追加「应用到文件」「插入光标」(对齐 CodeX/Trae/Qoder 代码块动作)。
+  // 2026-11-16:头行统一为 24px 后,动作按钮改走 STREAM_HEADER_ACTION_CLASS(24px 档),
+  // 不再用 32px IconButton —— 否则头行被撑高,与思考/过程叙述头行的大小不一致。
+  const actionIconClass = 'h-4 w-4'
   const copyButton = (
     <div className="ml-auto flex shrink-0 items-center gap-0.5">
-      {/* 一键运行:仅非流式且语言在可运行集合内显示(对标 Codex/Trae 对话内运行) */}
+      {/* 一键运行:仅非流式且语言在可运行集合内显示(对齐统一规范) */}
       {showRunButton && (
         <Tooltip content={isRunning ? t('codeRun.running') : t('codeRun.run')}>
           {/* disabled 按钮收不到 Radix Trigger 的 pointer 事件 → hover 提示会静默消失;
               由外层 span 承接 trigger(守门 18 Tooltip+disabled 规则) */}
-          <span className="inline-flex">
-            <IconButton
+          <span className="inline-flex h-full items-center">
+            <button
+              type="button"
               onClick={handleRun}
               disabled={isRunning}
               data-testid="run-code-button"
-              className={iconBtnClass}
+              className={STREAM_HEADER_ACTION_CLASS}
               aria-label={isRunning ? t('codeRun.running') : t('codeRun.run')}
             >
-              {isRunning ? <Loader2 className="animate-spin" /> : <Play />}
-            </IconButton>
+              {isRunning ? (
+                <Loader2 className={cn(actionIconClass, 'animate-spin')} aria-hidden="true" />
+              ) : (
+                <Play className={actionIconClass} aria-hidden="true" />
+              )}
+            </button>
           </span>
         </Tooltip>
       )}
       {/* 应用到工作区文件:仅非流式且有语言标记的代码块显示 */}
       {!isStreaming && (
         <Tooltip content={t('codeBlock.applyToFile')}>
-          <span className="inline-flex">
-            <IconButton
+          <span className="inline-flex h-full items-center">
+            <button
+              type="button"
               onClick={handleApplyToFile}
               disabled={applyState === 'applying'}
               data-testid="apply-to-file-button"
-              className={iconBtnClass}
+              className={STREAM_HEADER_ACTION_CLASS}
               aria-label={t('codeBlock.applyToFile')}
             >
               {applyState === 'done' ? (
-                <Check className="text-green-600" />
+                <Check className={cn(actionIconClass, 'text-green-600')} aria-hidden="true" />
               ) : applyState === 'applying' ? (
-                <Loader2 className="animate-spin" />
+                <Loader2 className={cn(actionIconClass, 'animate-spin')} aria-hidden="true" />
               ) : (
-                <FilePlus2 />
+                <FilePlus2 className={actionIconClass} aria-hidden="true" />
               )}
-            </IconButton>
+            </button>
           </span>
         </Tooltip>
       )}
       {/* 插入到编辑器光标处:仅非流式显示 */}
       {!isStreaming && (
         <Tooltip content={t('codeBlock.insertAtCursor')}>
-          <IconButton
+          <button
+            type="button"
             onClick={handleInsertAtCursor}
             data-testid="insert-at-cursor-button"
-            className={iconBtnClass}
+            className={STREAM_HEADER_ACTION_CLASS}
             aria-label={t('codeBlock.insertAtCursor')}
           >
-            <TextCursorInput />
-          </IconButton>
+            <TextCursorInput className={actionIconClass} aria-hidden="true" />
+          </button>
         </Tooltip>
       )}
       {/* D197:自动换行开关(偏好持久化;aria-pressed 表达当前态,文案随态切换 开启/关闭) */}
       <Tooltip content={wrap ? t('codeBlock.wrapOff') : t('codeBlock.wrapOn')}>
-        <IconButton
+        <button
+          type="button"
           onClick={toggleWrap}
           data-testid="wrap-toggle-button"
-          className={iconBtnClass}
+          className={STREAM_HEADER_ACTION_CLASS}
           aria-label={wrap ? t('codeBlock.wrapOff') : t('codeBlock.wrapOn')}
           aria-pressed={wrap}
         >
-          <TextWrap className={cn(wrap && 'text-primary')} />
-        </IconButton>
+          <TextWrap className={cn(actionIconClass, wrap && 'text-primary')} aria-hidden="true" />
+        </button>
       </Tooltip>
       {/* D198:复制为图片(代码块文本 canvas 绘制为 PNG 写入剪贴板) */}
       <Tooltip content={t('codeBlock.copyImage')}>
-        <IconButton
+        <button
+          type="button"
           onClick={handleCopyImage}
           data-testid="copy-image-button"
-          className={iconBtnClass}
+          className={STREAM_HEADER_ACTION_CLASS}
           aria-label={t('codeBlock.copyImage')}
         >
-          {imageCopied ? <Check className="text-green-600" /> : <ImageDown />}
-        </IconButton>
+          {imageCopied ? (
+            <Check className={cn(actionIconClass, 'text-green-600')} aria-hidden="true" />
+          ) : (
+            <ImageDown className={actionIconClass} aria-hidden="true" />
+          )}
+        </button>
       </Tooltip>
-      <IconButton
+      <button
+        type="button"
         onClick={() => copy(code)}
         data-testid="copy-button"
-        className={iconBtnClass}
+        className={STREAM_HEADER_ACTION_CLASS}
         aria-label={copied ? tA11y('codeCopied') : tA11y('copyCode')}
       >
-        {copied ? <Check /> : <Copy />}
-      </IconButton>
+        {copied ? (
+          <Check className={actionIconClass} aria-hidden="true" />
+        ) : (
+          <Copy className={actionIconClass} aria-hidden="true" />
+        )}
+      </button>
     </div>
   )
 
@@ -607,7 +628,7 @@ const CodeBlockImpl = function CodeBlock({
   // 观感断档;在写信号已交给硬闪光标与流式指示条,代码本体保持正常色=所见即终稿)。
   // 2026-08-02:对话文字整体放大,代码块 14px → 15px(text-[15px])
   // 2026-08-17 P3:dark 模式代码块曾用 zinc-950;2026-11-15 起统一走 --color-muted-soft 实色档
-  // G-842:边框/圆角上移到外层 frame(header + <pre> 同框),<pre> 只保留底色与排版
+  // 2026-11-16:头行独立于正文面板(与思考/过程叙述同一种头行),底色只画在正文面板上
   // D197:开启自动换行时横滚让位于 pre-wrap(白空格继承到内层 code),否则维持横滚原状
   // 2026-11-15:代码底色统一取 --color-muted-soft(与气泡/header 同一实色档,不再用 zinc 色阶)
   const preClassName = cn(
@@ -616,17 +637,15 @@ const CodeBlockImpl = function CodeBlock({
     'bg-transparent text-foreground',
   )
   // G-842:外层 frame(仿本文件 CodeRunOutput 的「外框 + header 条 + 主体」形态)
-  // 2026-11-15:底色只画在 frame 这一层,header/正文一律透明 ⇒ 同一块底面,不再有分段色差
-  // 2026-11-15:header 不要描边 ⇒ frame 去掉 border,整块只用底色+圆角
+  // 2026-11-16:代码块正文面 —— 与内联 code 同一 --color-muted-soft 实色 token(单层实色)
   const codeFrameClass = 'overflow-hidden rounded-lg bg-muted-soft'
-  // G-842:代码块 header —— 折叠开关(chevron + 文件图标 + 示例文件名)+ 右侧操作按钮组
+  // G-842:代码块 header —— 折叠开关(文件图标 + 示例文件名)+ 右侧操作按钮组
   // 2026-11-15:header 即折叠开关,默认只露 header,点击展开正文。
-  // 底色取 --color-muted-soft(与用户气泡/行内 code 同一实色档,不用 zinc + /N 透明度)。
+  // 2026-11-16:头行统一走 STREAM_HEADER_ROW_CLASS(自带单层实色底 + 32px 高 / 16px·400 字),
+  // 与思考行、过程叙述组头完全同档;嵌在同一 code frame 内 ⇒ 与正文同色无缝。
+  // 展开指示不画箭头,整行仍是折叠开关。
   const codeHeader = (
-    <div
-      data-testid="code-block-header"
-      className="flex items-center gap-1.5 bg-muted-soft pl-1 pr-1 py-1"
-    >
+    <div data-testid="code-block-header" className={STREAM_HEADER_ROW_CLASS}>
       {canCollapse ? (
         <button
           type="button"
@@ -637,27 +656,16 @@ const CodeBlockImpl = function CodeBlock({
           aria-expanded={!effectiveCollapsed}
           aria-label={effectiveCollapsed ? '展开代码' : '收起代码'}
           data-testid="code-block-toggle"
-          // 2026-11-15:去掉 hover 变色 —— header 是整块底面的一部分,悬停不得改变其颜色(用户要求上下一致)
-          className="flex min-w-0 flex-1 items-center gap-1.5 rounded-sm px-2 py-1 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          // 2026-11-16:悬停反馈由头行常量统一提供(与思考/过程叙述头行同档),开关本身不再单独变色
+          className="flex h-full min-w-0 flex-1 items-center gap-1.5 rounded-sm text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
-          <ChevronRight
-            className={cn(
-              'h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform',
-              !effectiveCollapsed && 'rotate-90',
-            )}
-            aria-hidden="true"
-          />
-          <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
-          <span className="min-w-0 truncate font-mono text-label text-muted-foreground">
-            {resolveCodeFileName(language)}
-          </span>
+          <CodeBlockIcon className="h-4 w-4 shrink-0 text-foreground" aria-hidden="true" />
+          <span className="min-w-0 truncate font-mono">{resolveCodeFileName(language)}</span>
         </button>
       ) : (
-        <div className="flex min-w-0 flex-1 items-center gap-1.5 pl-2">
-          <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
-          <span className="min-w-0 truncate font-mono text-label text-muted-foreground">
-            {resolveCodeFileName(language)}
-          </span>
+        <div className="flex h-full min-w-0 flex-1 items-center gap-1.5">
+          <CodeBlockIcon className="h-4 w-4 shrink-0 text-foreground" aria-hidden="true" />
+          <span className="min-w-0 truncate font-mono">{resolveCodeFileName(language)}</span>
         </div>
       )}
       {copyButton}
@@ -669,21 +677,25 @@ const CodeBlockImpl = function CodeBlock({
     return (
       <>
         {inlinePreview}
-        <div className={codeFrameClass}>
-          {codeHeader}
-          {/* G-827:横滚代码块的方向阴影线索。wrap 档无横向溢出,不套壳(避免无意义 DOM)。 */}
-          <div hidden={effectiveCollapsed}>
-            <CodeOverflowShell wrap={!!wrap}>
-              <pre
-                ref={preRef}
-                className={preClassName}
-                style={{
-                  fontSize: 'var(--message-code-font-size, var(--chat-code-font-size, 15px))',
-                }}
-              >
-                <code className="font-mono">{hlSource}</code>
-              </pre>
-            </CodeOverflowShell>
+        {/* 2026-11-16:代码块与上下正文的间距按用户指定定 6px(my-1.5);
+            根容器已移除 !space-y-0,margin 能真实生效。 */}
+        <div className="my-1.5">
+          <div className={codeFrameClass}>
+            {codeHeader}
+            {/* G-827:横滚代码块的方向阴影线索。wrap 档无横向溢出,不套壳(避免无意义 DOM)。 */}
+            <div hidden={effectiveCollapsed}>
+              <CodeOverflowShell wrap={!!wrap}>
+                <pre
+                  ref={preRef}
+                  className={preClassName}
+                  style={{
+                    fontSize: 'var(--message-code-font-size, var(--chat-code-font-size, 15px))',
+                  }}
+                >
+                  <code className="font-mono">{hlSource}</code>
+                </pre>
+              </CodeOverflowShell>
+            </div>
           </div>
         </div>
         {runResult && <CodeRunOutput result={runResult} onClose={clearRunResult} />}
@@ -691,54 +703,54 @@ const CodeBlockImpl = function CodeBlock({
     )
   }
 
-  // 语法高亮失败时的降级渲染
+  // 语法高亮失败时的降级渲染(头行在错误边界之外,降级只替换正文面板)
   const fallback = (
-    <div className={codeFrameClass}>
-      {codeHeader}
-      <div hidden={effectiveCollapsed}>
-        <CodeOverflowShell wrap={!!wrap}>
-          <pre
-            ref={preRef}
-            className={preClassName}
-            style={{ fontSize: 'var(--message-code-font-size, var(--chat-code-font-size, 15px))' }}
-          >
-            <code className={cn('font-mono', language && `language-${language}`)}>{hlSource}</code>
-          </pre>
-        </CodeOverflowShell>
-      </div>
+    <div hidden={effectiveCollapsed}>
+      <CodeOverflowShell wrap={!!wrap}>
+        <pre
+          ref={preRef}
+          className={preClassName}
+          style={{ fontSize: 'var(--message-code-font-size, var(--chat-code-font-size, 15px))' }}
+        >
+          <code className={cn('font-mono', language && `language-${language}`)}>{hlSource}</code>
+        </pre>
+      </CodeOverflowShell>
     </div>
   )
 
   return (
     <>
       {inlinePreview}
-      <CodeBlockErrorBoundary fallback={fallback}>
+      {/* 2026-11-16:与纯文本分支同一间距档(用户指定 6px);头行与正文同一 code 面 */}
+      <div className="my-1.5">
         <div className={codeFrameClass}>
           {codeHeader}
-          <div hidden={effectiveCollapsed}>
-            <CodeOverflowShell wrap={!!wrap}>
-              <pre ref={preRef} className={preClassName}>
-                <SyntaxHighlighter
-                  language={lang}
-                  style={syntaxStyle}
-                  showLineNumbers={!!lineNumberStyle}
-                  lineNumberStyle={lineNumberStyle}
-                  // D197:换行偏好传导进高亮器(code 标签 whiteSpace: pre-wrap;与行号并存时行转 flex)
-                  wrapLongLines={wrap}
-                  customStyle={{
-                    margin: 0,
-                    padding: 0,
-                    background: 'transparent',
-                    fontSize: 'var(--message-code-font-size, var(--chat-code-font-size, 15px))',
-                  }}
-                >
-                  {hlSource}
-                </SyntaxHighlighter>
-              </pre>
-            </CodeOverflowShell>
-          </div>
+          <CodeBlockErrorBoundary fallback={fallback}>
+            <div hidden={effectiveCollapsed}>
+              <CodeOverflowShell wrap={!!wrap}>
+                <pre ref={preRef} className={preClassName}>
+                  <SyntaxHighlighter
+                    language={lang}
+                    style={syntaxStyle}
+                    showLineNumbers={!!lineNumberStyle}
+                    lineNumberStyle={lineNumberStyle}
+                    // D197:换行偏好传导进高亮器(code 标签 whiteSpace: pre-wrap;与行号并存时行转 flex)
+                    wrapLongLines={wrap}
+                    customStyle={{
+                      margin: 0,
+                      padding: 0,
+                      background: 'transparent',
+                      fontSize: 'var(--message-code-font-size, var(--chat-code-font-size, 15px))',
+                    }}
+                  >
+                    {hlSource}
+                  </SyntaxHighlighter>
+                </pre>
+              </CodeOverflowShell>
+            </div>
+          </CodeBlockErrorBoundary>
         </div>
-      </CodeBlockErrorBoundary>
+      </div>
       {runResult && <CodeRunOutput result={runResult} onClose={clearRunResult} />}
     </>
   )
@@ -772,7 +784,7 @@ function ThemedCodeBlock(props: {
 }) {
   const { resolvedTheme } = useTheme()
   const syntaxStyle = resolvedTheme === 'dark' ? ONE_DARK : ONE_LIGHT
-  // 四竞品对标 V2 #17(2026-09-15 立):语法高亮路径显示行号(对标 Codex/Trae/Qoder)。
+  // 四竞品对齐 V2 #17(2026-09-15 立):语法高亮路径显示行号(遵循统一工程规范)。
   // 行号色随主题:dark=zinc-400 / light=zinc-500,半透明 + 禁止选中(复制不夹带行号)。
   // 纯文本/高亮降级路径不传 → 无行号(优雅降级,与高亮能力同生命周期)。
   const lineNumberStyle: React.CSSProperties =
@@ -909,7 +921,7 @@ function isOfficeLink(href: string): boolean {
 const FILE_LIKE_TARGET = /[^/?#]+\.[^/?#]+$/
 
 /**
- * 2026-11-14(对标 DSH deliverable-file-references 的可点文件引用):
+ * 2026-11-14(遵循统一工程规范):
  * 相对路径 / Windows 绝对路径 / file:// 由 workspace 语境解析成磁盘路径;
  * http(s)/mailto/# 不接管;解析失败(逃逸、非法、无法归一)保持原文不可点。
  */
@@ -1353,7 +1365,7 @@ export function MarkdownStream({
               title={mention.path}
               data-testid="inline-file-mention"
               onClick={() => fileMentionRef.current?.open(mention.path)}
-              className="rounded bg-muted-soft px-1.5 py-0.5 font-mono text-[0.85em] underline decoration-dotted underline-offset-2 hover:bg-muted"
+              className="rounded-sm bg-muted-soft px-1.5 py-0.5 font-mono text-[0.85em] underline decoration-dotted underline-offset-2 hover:bg-muted"
             >
               {children}
             </button>
@@ -1362,7 +1374,10 @@ export function MarkdownStream({
 
         // 行内 code
         return (
-          <code className="rounded bg-muted-soft px-1.5 py-0.5 font-mono text-[0.85em]" {...props}>
+          <code
+            className="rounded-sm bg-muted-soft px-1.5 py-0.5 font-mono text-[0.85em]"
+            {...props}
+          >
             {children}
           </code>
         )
@@ -1638,7 +1653,7 @@ export function MarkdownStream({
 
   const blockKeyPrefix = `b${blockLedgerRef.current.epoch}`
 
-  // 2026-10-29(对标 Qoder §6.6):静态长文档块级虚拟化。
+  // 2026-10-29(遵循统一工程规范):静态长文档块级虚拟化。
   //
   // 判据住在 `lib/markdown-block-window.ts`(纯函数,17 例钉住六条让位分支与偏移拼装),
   // 本处只做两件事:**量几何**、**接线**。
@@ -1775,9 +1790,12 @@ export function MarkdownStream({
     // 2026-10-28 观感档⑤:流式光标改 CSS ::after 内联尾随(stream-caret-host,定义在
     // animations.css)——旧 DOM span 挂在容器末尾,块级输出断行让它悬在下一行行首;
     // 现光标作为最后一个块元素的行内子盒,真·跟在末字符后。DOM 不再渲染 caret 节点。
+    // 2026-11-16:移除 !space-y-0 —— 它用 !important 把除末位外所有直接子块的
+    // margin-block 归零,代码块 my-6 / 表格 my-2 的间距全部失效(用户反馈"间距根本没有")。
+    // 各块自身已有 my-0 兜底,不需要这层强制归零。
     <div
       ref={containerRef}
-      className={cn('!m-0 !p-0 !space-y-0 text-[15px]', isStreaming && 'stream-caret-host')}
+      className={cn('!m-0 !p-0 text-[15px]', isStreaming && 'stream-caret-host')}
       style={{
         fontSize: 'calc(15px * var(--chat-font-scale, 1) * var(--message-font-multiplier, 1))',
         lineHeight: 'var(--message-line-height, var(--chat-line-height, 1.65))',
@@ -1792,7 +1810,7 @@ export function MarkdownStream({
           {/* 稳定前缀:按块冻结,各块 memo 命中时零 parse(每帧只重解析最后一块)。
               key 前缀随边界漂移 epoch 变 —— 漂移时强制整列重挂(见 renderBlocks 注记)。
 
-              2026-10-29 块级虚拟化(对标 Qoder §6.6):`blockWindow.enabled` 时只挂
+              2026-10-29 块级虚拟化(对齐统一规范):`blockWindow.enabled` 时只挂
               窗口内的块,上下各用一个 `data-markdown-block-placeholder` 占位块把总高
               撑住(滚动条长度不变、锚点位置不变)。占位高度来自实测/估计偏移表,不用
               `contain-intrinsic-size`(G-828 明令禁止恢复)。

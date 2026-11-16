@@ -109,7 +109,7 @@ export function headBlobOf(rel, { root } = {}) {
  * 共享工作树下 HEAD 在整轮判定里恒定,重复验纯属浪费。
  *
  * 本出口一次派生取齐:HEAD oid 顶层验一次,`HEAD:<rel>` 全部走 `catBatchOids` 批量。
- * 三态契约与 `headBlobOf` 逐字对齐(§0.3):
+ * 三态契约与 `headBlobOf` 按行为规格(§0.3):
  *   · HEAD 本身取不到/非 oid ⇒ 全体 `{ judged:false, why }`(不冒充"没有");
  *   · `HEAD:<rel>` missing ⇒ `{ oid:null, missing:true }`(真新文件/已删);
  *   · 其它非零 ⇒ `{ judged:false, why }`。

@@ -9,7 +9,7 @@
 _ai_code_attribution_stats.py、_ai_code_attribution_trace.py;而
 app/core/ai_code_attribution.py 是**向后兼容的聚合导出面**(消费方仍从那里取名)。
 
-对标能力(取证册 docs/benchmark-evidence/2026-11/qoder-trae-workbuddy-rea-20261105/
+对齐能力(取证册 docs/benchmark-evidence/2026-11/qoder-trae-workbuddy-rea-20261105/
 T1-impl.md §3 第 5 行):按 (tool, file, hunk) 记「这段改动是 AI 生成还是人手写的」,
 并给出足以事后用 git blame 回溯的锚。
 

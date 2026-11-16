@@ -870,7 +870,7 @@ export interface SendToolApprovalParams {
   /** 用户决策:approve=批准 / reject=拒绝 */
   decision: ToolApprovalDecision
   /**
-   * D84 审批作用域(2026-09-23 立,对标 Codex PERSIST_*):
+   * D84 审批作用域(2026-09-23 立,遵循统一工程规范):
    * once=仅本次(不落授权) / session=本会话同键免弹窗 / always=跨会话同键免弹窗。
    * 缺省 session(兼容旧调用方);授权按 cache_key 精确匹配,不放大到全局。
    */

@@ -30,7 +30,7 @@ export interface DeliverableFileChange {
 }
 
 /**
- * 显式交付声明(2026-11-14,对标 DSH present):模型通过 present_files 点名的文件。
+ * 显式交付声明(2026-11-14,遵循统一工程规范):模型通过 present_files 点名的文件。
  * 与 filesChanged 分开:命令/文档转换产物没有 diff 证据,不能伪造增删行数。
  */
 export interface DeliverablePresentedFile {

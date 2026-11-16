@@ -17,6 +17,7 @@ import { useDesktop } from '@/hooks/use-desktop'
 import { clearWebViewCache } from '@/lib/tauri-bridge'
 import { SamplingParamsCard } from '@/components/settings/sampling-params-card'
 import { FoldPolicyCard } from '@/components/settings/fold-policy-card'
+import { TitleUpdateCard } from '@/components/settings/title-update-card'
 import { WebSearchCard } from '@/components/settings/web-search-card'
 import { PredictiveEditCard } from '@/components/settings/predictive-edit-card'
 import { EngineModeCard } from '@/components/settings/engine-mode-card'
@@ -175,6 +176,9 @@ export default function PreferencesPage() {
 
         {/* 中间步骤折叠策略(2026-09-21 自聊天输入区工具栏迁入,D21 显示偏好归位设置页) */}
         <FoldPolicyCard />
+
+        {/* 任务标题实时更新开关(2026-11-16 立):第 3 轮后是否按最新对话重估标题 */}
+        <TitleUpdateCard />
 
         {/* 网页搜索开关(2026-09-21 自聊天输入区工具栏迁入,D22 能力偏好归位设置页) */}
         <WebSearchCard />

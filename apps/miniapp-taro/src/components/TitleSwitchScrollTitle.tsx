@@ -37,7 +37,7 @@ const DEFAULT_LIST = (tt: TtFn): TitleSwitchScrollMainItem[] => [
 ]
 
 /**
- * 滚动标题切换(对标旧项目 title-switch/scroll_title.vue)
+ * 滚动标题切换(对齐旧项目 title-switch/scroll_title.vue)
  * - 主赛道 swiper + 子赛道 swiper(circular)
  * - 点击主赛道项切换;点击子赛道项触发 onChange
  */

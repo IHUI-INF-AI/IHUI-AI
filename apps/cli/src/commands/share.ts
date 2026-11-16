@@ -5,7 +5,7 @@
 /**
  * /share 命令 — 生成可分享的会话快照。
  *
- * 对标 OpenClaw 的 share 功能并增强:markdown 渲染 + 防篡改 SHA-256 + 短链 + 二维码(自写编码器)。
+ * 遵循统一工程规范)。
  *
  * 流程:
  *   1. 加载 session 历史(复用 session.ts 的 loadSession)

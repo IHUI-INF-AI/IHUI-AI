@@ -40,7 +40,6 @@ const { createSession, saveSession, loadSession } = await import('../src/command
 
 let tmpDir: string
 let prevEnv: string | undefined
-let app: unknown
 let conn: { agent: { request: (m: string, p?: unknown) => Promise<unknown> }; close: () => void } | null
 
 beforeEach(() => {

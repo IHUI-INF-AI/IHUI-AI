@@ -49,6 +49,11 @@ function seed(m: ChatMessage, turnOrdinal?: number | null) {
   )
 }
 
+/** 低频键(含「分享此回合」)已收进「更多」下拉,断言/点击前先展开菜单。 */
+function openMore(id: string) {
+  fireEvent.click(screen.getByTestId(`message-more-${id}`))
+}
+
 beforeEach(() => {
   writeText = vi.fn().mockResolvedValue(undefined)
   Object.defineProperty(window.navigator, 'clipboard', {
@@ -67,6 +72,7 @@ afterEach(() => {
 describe('MessageItem · 「分享此回合」入口(差距⑤)', () => {
   it('助手消息 + 有序号 ⇒ 渲染 message-share-turn-* 入口', () => {
     seed({ id: 'a1', role: 'assistant', content: '回答', createdAt: NOW }, 3)
+    openMore('a1')
     expect(screen.getByTestId('message-share-turn-a1').getAttribute('aria-label')).toBe(
       '[message.shareTurn]',
     )
@@ -74,20 +80,24 @@ describe('MessageItem · 「分享此回合」入口(差距⑤)', () => {
 
   it('序号 null(截断/窗口不可推导)或不传 ⇒ 不渲染入口(不猜)', () => {
     seed({ id: 'a2', role: 'assistant', content: '回答', createdAt: NOW }, null)
+    openMore('a2')
     expect(screen.queryByTestId('message-share-turn-a2')).toBeNull()
     cleanup()
 
     seed({ id: 'a3', role: 'assistant', content: '回答', createdAt: NOW })
+    openMore('a3')
     expect(screen.queryByTestId('message-share-turn-a3')).toBeNull()
   })
 
   it('user 消息即使带序号也不渲染入口', () => {
     seed({ id: 'u1', role: 'user', content: '提问', createdAt: NOW }, 2)
+    openMore('u1')
     expect(screen.queryByTestId('message-share-turn-u1')).toBeNull()
   })
 
   it('点击 → 剪贴板写入回合深链,toast 成功', async () => {
     seed({ id: 'a4', role: 'assistant', content: '回答', createdAt: NOW }, 7)
+    openMore('a4')
     fireEvent.click(screen.getByTestId('message-share-turn-a4'))
     await vi.waitFor(() => {
       expect(writeText).toHaveBeenCalledWith(
@@ -112,6 +122,7 @@ describe('MessageItem · 「分享此回合」入口(差距⑤)', () => {
         />
       </TooltipProvider>,
     )
+    openMore('a5')
     fireEvent.click(screen.getByTestId('message-share-turn-a5'))
     expect(writeText).not.toHaveBeenCalled()
     expect(toastSuccess).not.toHaveBeenCalled()

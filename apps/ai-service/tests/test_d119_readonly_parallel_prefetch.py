@@ -53,7 +53,11 @@ _SLEEP_S = 0.15
 
 # 循环内有**专用分支**、不走通用 `_mcp.call_tool` 路径的工具(与本案判据无关,故从
 # 候选池排除)。这是"排除项",不是"只读名单副本" —— 白名单判据全程只问 _readonly_tools()。
-_LOOP_SPECIAL_TOOLS: tuple[str, ...] = ("dispatch_subagent", _FORM_REQUEST_TOOL_NAME)
+_LOOP_SPECIAL_TOOLS: tuple[str, ...] = (
+    "orchestrate_agents",
+    "dispatch_subagent",
+    _FORM_REQUEST_TOOL_NAME,
+)
 
 
 # ---------------------------------------------------------------------------

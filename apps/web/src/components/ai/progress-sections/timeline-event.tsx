@@ -10,9 +10,10 @@ import {
   Loader2,
   AlertCircle,
   Bot,
-  HelpCircle,
+  MessageCircleQuestion,
   Wrench,
   Brain,
+  ListTodo,
   FileText,
   Circle,
   RotateCcw,
@@ -42,10 +43,12 @@ import {
 } from '@/stores/timeline-store'
 import { useIDEWorkspace } from '@/stores/ide-workspace'
 
+// 语义档形状与 STREAM_KIND_ICONS(stream-ui.tsx) 对齐:plan→ListTodo、question→MessageCircleQuestion;
+// subagent/tool/thinking 同款;reference 是 timeline 特有档,保留 FileText。
 const TYPE_ICON: Record<TimelineEventType, React.ComponentType<{ className?: string }>> = {
-  plan: FileText,
+  plan: ListTodo,
   subagent: Bot,
-  question: HelpCircle,
+  question: MessageCircleQuestion,
   tool: Wrench,
   thinking: Brain,
   reference: FileText,

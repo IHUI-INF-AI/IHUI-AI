@@ -5,7 +5,7 @@
 /**
  * /v1/midjourney/* — Midjourney-Proxy 标准接口对接(2026-07-31 立)。
  *
- * 对标 New API 已有的 MJ 渠道能力,对接 midjourney-proxy 项目(novicezk/midjourney-proxy)。
+ * 对齐 New API 已有的 MJ 渠道能力,对接 midjourney-proxy 项目(novicezk/midjourney-proxy)。
  * 上游配置:process.env.MIDJOURNEY_PROXY_BASE + MIDJOURNEY_PROXY_API_KEY
  *
  * 端点清单(4 个):

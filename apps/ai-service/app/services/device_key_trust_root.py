@@ -4,9 +4,9 @@
 
 """设备信任根（TPM 硬件密钥）纯逻辑层。
 
-取证来源
+设计依据
 --------
-``.ihui-agent/tmp/goal-codex-r11/native-plugin-mechanisms-deep.md`` §1
+``内部规格`` §1
 remote-control-device-key.node（Rust N-API, TPM 硬件信任根）实测::
 
     N-API 导出: createDeviceKey(protectionPolicy) / getDeviceKeyPublic /
@@ -20,7 +20,7 @@ remote-control-device-key.node（Rust N-API, TPM 硬件信任根）实测::
     fail-closed: 若 CNG 返回可导出私钥 → 报错拒绝; 非 hardware-backed → 拒绝;
       曲线固定 P-256
 
-设计边界（本仓复现）
+设计边界（本仓实现）
 --------------------
 真实 CNG/NCrypt/TPM 调用需 Windows + 硬件, 本模块**不碰**。只复现其**纯逻辑
 判定层**: 错误码枚举、保护策略合法性、导出策略 fail-closed、公钥 SPKI/P-256

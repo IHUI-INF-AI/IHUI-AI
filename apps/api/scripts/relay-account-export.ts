@@ -8,16 +8,16 @@
  * 用途:把本机开发库的号池行按**各平台原生导入形状**导成 JSON,供生产库经
  * Web 导入端点(POST /admin/relay/accounts/import,强制落登录管理员个人池)原样重导,
  * 机主口径「号必须跟着账号走」—— 导出载荷的每一个键位都按 relay-account-format
- * 的槽位表 / mapXxxImport 的取值键逆向映射,不猜、不发明第二份键位。
+ * 的槽位表 / mapXxxImport 的取值键独立分析映射,不猜、不发明第二份键位。
  *
  * 判据复用(§0.6 单源,不抄第二份;纯逻辑内核在 relay-account-pool-service.ts,
  * 与导入侧 mapXxxImport 同文件互镜,零 DB 可单测):
  * - 解密:decryptAccountCredentials
- * - 逆向映射:buildExportPayload(库列 → 各平台原生导入载荷)
+ * - 独立分析映射:buildExportPayload(库列 → 各平台原生导入载荷)
  * - 硬校验:validateExportRoundTrip(路由结构镜像闸门 + uid 复现 + 统一名复现)
  *   任一条不过 ⇒ 该行**拒出**并点名原因,绝不静默产出"导不回去"的载荷。
  *
- * ⚠️ 安全:导出 JSON 含**明文凭据**(token/refreshToken/cookies/secrets 逆向回填),
+ * ⚠️ 安全:导出 JSON 含**明文凭据**(token/refreshToken/cookies/secrets 独立分析回填),
  * 只写 --out 目录(缺省 = OS 临时目录下 ihui-pool-export),**用毕即删**,
  * 严禁复制进仓库。stdout/stderr 只报平台、条数、uid、文件名,绝不回显任何凭据值。
  *
@@ -52,7 +52,7 @@ const { decryptAccountCredentials, buildExportPayload, validateExportRoundTrip }
   await import('../src/services/relay-account-pool-service.js')
 const { dbRead, closeDbPools } = await import('../src/db/index.js')
 
-const HELP = `账号池导出(按各平台原生导入形状逆向映射,供 Web 导入端点重导)
+const HELP = `账号池导出(按各平台原生导入形状兼容映射,供 Web 导入端点重导)
 
 用法:
   pnpm exec tsx scripts/relay-account-export.ts [--provider <${RELAY_PROVIDERS.join('|')}>] [--out <dir>]

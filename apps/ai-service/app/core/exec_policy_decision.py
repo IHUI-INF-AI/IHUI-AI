@@ -3,7 +3,7 @@
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 # app/core/exec_policy_decision.py
-"""未匹配命令的审批决策矩阵(2026-09-19 第三十一批,对标 Codex exec_policy.rs)。
+"""未匹配命令的审批决策矩阵(2026-09-19 第三十一批,遵循统一工程规范)。
 
 当命令未被任何 exec-policy 规则显式命中时,Codex 用一个四输入决策矩阵
 推导最终处置(render_decision_for_unmatched_command 忠实移植):
@@ -62,7 +62,7 @@ class Decision(StrEnum):
 
 
 class AskForApproval(StrEnum):
-    """审批策略(对标 AskForApproval;granular 用独立实例承载)。"""
+    """审批策略(对齐 AskForApproval;granular 用独立实例承载)。"""
 
     NEVER = "never"
     ON_REQUEST = "on_request"
@@ -102,7 +102,7 @@ REJECT_RULES_APPROVAL_REASON = (
 
 @dataclass(frozen=True)
 class UnmatchedCommandContext:
-    """未匹配命令的决策上下文(对标 UnmatchedCommandContext,输入收敛为纯量)。"""
+    """未匹配命令的决策上下文(对齐 UnmatchedCommandContext,输入收敛为纯量)。"""
 
     approval_policy: AskForApproval
     granular: GranularApproval = GranularApproval()
@@ -115,7 +115,7 @@ def render_decision_for_unmatched_command(
     dangerous: bool,
     context: UnmatchedCommandContext,
 ) -> Decision:
-    """决策矩阵主入口(对标 render_decision_for_unmatched_command_for_platform)。
+    """决策矩阵主入口(对齐 render_decision_for_unmatched_command_for_platform)。
 
     ``dangerous``:命令是否命中危险命令检测(含 PowerShell 来源专用检测);
     ``windows_managed_fs_restrictions_without_sandbox_backend``:Windows 下

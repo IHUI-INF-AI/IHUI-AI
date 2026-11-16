@@ -288,18 +288,22 @@ describe('P2 收敛第二批:AI 域 / 个人域结构', () => {
     ).toEqual({
       '(home)': 1,
       hotGroupLabel: 1,
+      hrGroup: 1,
+      financeGroup: 1,
       aiGroupLabel: 1,
-      adminGroupLabel: 20,
+      adminGroupLabel: 1,
       eduGroup: 1,
       contentGroup: 1,
       tradeGroup: 1,
       personalGroup: 1,
       developerGroup: 3,
     })
-    expect(NAV_GROUPS).toHaveLength(9)
-    expect(NAV_GROUPS.reduce((n, g) => n + g.items.length, 0)).toBe(30)
+    expect(NAV_GROUPS).toHaveLength(11)
+    expect(NAV_GROUPS.reduce((n, g) => n + g.items.length, 0)).toBe(13)
     // 条目没被删,只是不再平铺:域清单顶层条目数 == 收敛前两分组顶层条目数
     // 〔2026-10-30〕AI 域 +1(收敛后新入口 `/account-pool`,见上方快照注记)
+    // 〔2026-11-16〕财务部 `/finance-ai` 移出到独立 financeGroup —— 它本不在本快照
+    // (2026-11-16 收敛时误挂进 AI 清单且未计入快照),移出后 AI_HUB_ITEMS 顶层仍 15 项。
     expect(AI_HUB_ITEMS).toHaveLength(15)
     expect(PERSONAL_HUB_ITEMS).toHaveLength(5)
   })

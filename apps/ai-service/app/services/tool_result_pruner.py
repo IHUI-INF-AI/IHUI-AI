@@ -2,11 +2,11 @@
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-"""工具结果确定性裁剪 — 复现 DeepSeek dsh-compaction-tool-result-pruner。
+"""工具结果确定性裁剪。
 
-取证来源
+设计依据
 --------
-``.ihui-agent/tmp/dsh-src/dsh-compaction-tool-result-pruner/src/index.ts``（完整直读）::
+按行为规格::
 
     measureContent(blocks): 非 text block 计 0; text block 累加 Unicode code
       point 数（不是 UTF-16 code unit, 故保留边界不劈开代理对; grapheme 簇仍可能劈）。
@@ -40,7 +40,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-#: 默认字符预算（对齐 DSH config 默认语义; 具体 DEFAULTS 值未随 src 落盘, 取合理值）。
+#: 默认字符预算（对齐 外部实现 config 默认语义; 具体 DEFAULTS 值未随 src 落盘, 取合理值）。
 DEFAULT_THRESHOLD_CHARS: int = 20_000
 DEFAULT_HEAD_CHARS: int = 2_000
 DEFAULT_TAIL_CHARS: int = 2_000

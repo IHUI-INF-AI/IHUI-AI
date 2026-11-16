@@ -12,7 +12,7 @@ import { useTranslations } from 'next-intl'
 import { Users, MessageSquare, Loader2, Circle, Plus } from 'lucide-react'
 
 import { apiOrThrow } from '@/lib/api'
-import { BackButton } from '@/components/common'
+import { FeaturePageShell } from '@/components/layout'
 import { Button, Card, CardContent, CardHeader, CardTitle, CardDescription } from '@ihui/ui-react'
 
 interface CircleItem {
@@ -44,24 +44,22 @@ export default function CirclesPageClient() {
   const circles = data?.list ?? []
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-4 px-4 py-4">
-      <BackButton />
-      <header className="flex items-center justify-between">
-        <div className="space-y-1">
-          <h1 className="flex items-center gap-2 text-heading font-bold tracking-tight min-[768px]:text-display">
-            <Circle className="h-7 w-7 text-primary" />
-            {t('title')}
-          </h1>
-          <p className="text-label text-muted-foreground">{t('subtitle')}</p>
-        </div>
+    // 2026-11-16 接入统一子功能页外壳:BackButton + 手写 header 收编为页头卡,
+    // 页头右侧发帖操作迁入外壳 actions 槽;自动带上「教育」返回 chip。
+    <FeaturePageShell
+      title={t('title')}
+      description={t('subtitle')}
+      icon={Circle}
+      domain="edu"
+      actions={
         <Link href="/circles/post">
           <Button>
             <Plus className="h-4 w-4" />
             发帖
           </Button>
         </Link>
-      </header>
-
+      }
+    >
       {isLoading ? (
         <div className="flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
@@ -118,7 +116,7 @@ export default function CirclesPageClient() {
           ))}
         </div>
       )}
-    </div>
+    </FeaturePageShell>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

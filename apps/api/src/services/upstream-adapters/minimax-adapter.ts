@@ -16,7 +16,7 @@
  *   1008 = 余额不足,1039 = 限流 —— 三者均为**公开社区口径,未本机实证**。
  * - 凭证两类:pay-as-you-go(sk-api-…,走账户余额)与 Token Plan 订阅键(sk-cp-…,
  *   走套餐配额);额度端点只认订阅键(按量 key 会 401/403,社区调研口径)。
- * - 刷新(2026-11-06 起已实现,§0.12 逆向-复现-超越第③步):出处 = 本机 MiniMax Code 3.1.10
+ * - 刷新(2026-11-06 起已实现,§0.12 工程化落地第③步):出处 = 本机 MiniMax Code 3.1.10
  *   的 app.asar 字符串取证(@mavis/oauth-core 的 endpoint-config.js / contracts.js /
  *   oauth-client.js / auth-core.js)。端点 = `POST {accountOrigin}/oauth2/token`,
  *   form-urlencoded 五字段,除 Accept/Content-Type 外**不带任何头**(无设备证明、无签名,

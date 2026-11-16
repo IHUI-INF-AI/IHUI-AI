@@ -147,7 +147,7 @@ describe('内容级防丢闸 · 摘除台账销账', () => {
   })
 
   it('⑧ 形状锁:销账不改清单算法本身(行级包含仍是底线,只是在其上扣额度)', () => {
-    // 同一份夹具:不喂台账时的"缺行清单"必须与喂台账时的"violations 清单 + dropped 清单"逐字对齐
+    // 同一份夹具:不喂台账时的"缺行清单"必须与喂台账时的"violations 清单 + dropped 清单"按行为规格
     const bare = run(null)
     const lit = run(ledgerOf(LOST, CLOSED))
     const bareList = bare.violations.flatMap((v) => v.missingTheirs).sort()

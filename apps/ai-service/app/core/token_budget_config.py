@@ -1,7 +1,7 @@
 # © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-"""批58:token 预算配置与模型自带默认 — 对标 codex config TokenBudgetConfig。
+"""批58:token 预算配置与模型自带默认 — 遵循统一工程规范。
 
 参照源码:
 - codex-rs/core/src/config/mod.rs L1152-1240(TokenBudgetConfig + validate)
@@ -26,12 +26,12 @@ AUTO_COMPACT_FALLBACK_PROMPT_MAX_BYTES = 2000
 
 
 class TokenBudgetConfigError(ValueError):
-    """对标 codex validate() 的 InvalidInput 错误族。"""
+    """遵循统一工程规范) 的 InvalidInput 错误族。"""
 
 
 @dataclass
 class TokenBudgetConfig:
-    """对标 codex TokenBudgetConfig 六字段(逐字对齐默认值语义)。"""
+    """遵循统一工程规范)。"""
 
     use_history_notes_extension: bool = False
     reminder_threshold_tokens: int | None = None
@@ -89,14 +89,14 @@ class TokenBudgetConfig:
             )
 
     def fallback_buffer_tokens(self) -> int | None:
-        """对标 codex fallback_buffer_tokens():无兜底 prompt 时返回 None。"""
+        """遵循统一工程规范):无兜底 prompt 时返回 None。"""
         if self.auto_compact_fallback_prompt is None:
             return None
         return self.auto_compact_fallback_buffer_tokens
 
 
 def has_explicit_settings(configured: TokenBudgetConfig | None) -> bool:
-    """对标 codex has_explicit_settings():探测显式偏好(模型默认应用前)。
+    """遵循统一工程规范):探测显式偏好(模型默认应用前)。
 
     use_history_notes_extension 不算显式设置(它是开关副作用);
     其余字段任一非默认即视为显式。
@@ -119,7 +119,7 @@ def resolve_token_budget(
     use_model_defaults: bool,
     model_defaults: dict[str, Any] | None,
 ) -> TokenBudgetConfig | None:
-    """对标 codex resolve_token_budget():用户配置与模型默认合成。
+    """遵循统一工程规范):用户配置与模型默认合成。
 
     - use_model_defaults=False → 原样返回用户配置。
     - 模型无 defaults(model_messages.token_budget 缺失) → 原样返回用户配置。

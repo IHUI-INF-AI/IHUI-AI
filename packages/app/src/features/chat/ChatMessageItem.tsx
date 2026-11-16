@@ -190,7 +190,7 @@ export function ChatMessageItemView({
 
   return (
     <V onLongPress={handleLongPress}>
-      {/* 用户消息:.question-container 右浮,复用按钮在气泡外左侧(对标原 ai_assistant.vue) */}
+      {/* 用户消息:.question-container 右浮,复用按钮在气泡外左侧(对齐原 ai_assistant.vue) */}
       {msg.role === 'user' ? (
         <V className="question-container">
           {/* 复用按钮 fuyong-btn:100rpx×40rpx,在气泡外左侧 */}
@@ -268,7 +268,7 @@ export function ChatMessageItemView({
           </V>
         </V>
       ) : (
-        /* AI 消息:.agent-content-item 全宽灰色气泡(对标原 ai_assistant.vue) */
+        /* AI 消息:.agent-content-item 全宽灰色气泡(对齐原 ai_assistant.vue) */
         <V className="agent-content-item">
           {/* 失败轮 → 错误卡片(警示头 + 正文 + 重试出口),整块替换正文:失败不产出内容。 */}
           {isFailed ? (

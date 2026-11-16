@@ -5,7 +5,7 @@
 /**
  * LLM 语义摘要(2026-09-01 立):上下文压缩触发前,对"将被压缩的旧消息"预生成中文语义摘要,
  * 通过 customSummary 传给共享包 @ihui/context-compaction,替代其内置规则摘要
- * (业界第一梯队做法,对标 Claude Code / Cursor 的 LLM 压缩摘要)。
+ * (业界第一梯队做法,遵循统一工程规范)。
  *
  * 设计约束:
  * - 压缩在对话请求关键路径上,摘要调用 3 秒超时;超时/失败/stub 一律静默降级
@@ -38,7 +38,7 @@ const FALLBACK_MODEL = resolveDefaultChatModel()
 // 后台预压缩缓存层(代差能力 A,2026-09-01 立):
 // 路由层在 70% 占用阈值(CONTEXT_BUDGET_THRESHOLD)时 fire-and-forget 调
 // primeSemanticSummary 预生成摘要;88% 真正触发压缩时 getCachedSemanticSummary
-// 直接命中缓存 → 首 token 零额外延迟(对标 Claude Code 的阻塞式压缩)。
+// 直接命中缓存 → 首 token 零额外延迟(遵循统一工程规范)。
 // - key = `${conversationId}|${hash(toCompress 序列化文本)}`:被压缩的消息没变,摘要即有效
 // - 进程内 Map,上限 200 条,FIFO 淘汰,不做持久化(hash 不匹配自然失效,无需 TTL)
 const SUMMARY_CACHE_MAX = 200

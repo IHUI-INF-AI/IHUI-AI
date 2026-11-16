@@ -678,7 +678,7 @@
     "descriptionLabel": "アクティビティ",
     "empty": "アクティビティなし",
     "endedHint": "アクティビティはしました",
-    "invitationsLink": "APIテスト",
+    "invitationsLink": "招待特典",
     "join": "サークルに",
     "leave": "をキャンセル",
     "loading": "読み込み中...",
@@ -686,7 +686,7 @@
     "participants": "{count}が",
     "rulesLabel": "ルール",
     "subtitle": "のなドキュメントとAPIリファレンス",
-    "title": "APIテスト",
+    "title": "アクティビティセンター",
     "viewDetail": "View",
     "status": {
       "active": "アクティブ",
@@ -1462,7 +1462,7 @@
         "prev": "前のページ",
         "searchPlaceholder": "ドキュメント...",
         "subtitle": "のなドキュメントとAPIリファレンス",
-        "title": "APIテスト",
+        "title": "エージェント分類管理",
         "total": "合計 {total} 件",
         "updateSuccess": "更新しました"
       },
@@ -1562,7 +1562,7 @@
         "settle": "精算",
         "settleSuccess": "しました",
         "subtitle": "のなドキュメントとAPIリファレンス",
-        "title": "APIテスト",
+        "title": "エージェント精算",
         "total": "合計 {total} 件"
       },
       "subtitle": "のなドキュメントとAPIリファレンス",
@@ -2015,7 +2015,7 @@
       "public": "公開",
       "save": "保存",
       "subtitle": "のなドキュメントとAPIリファレンス",
-      "title": "APIテスト",
+      "title": "システム設定",
       "valuePlaceholder": "入力してください設定值"
     },
     "demandAudit": {
@@ -2348,7 +2348,7 @@
         "statusValid": "有効",
         "subtitle": "のと",
         "template": "テンプレート",
-        "title": "APIテスト",
+        "title": "証明書管理",
         "titleRequired": "タイトルはです",
         "totalItems": "{count}",
         "updateSuccess": "更新しました",
@@ -4117,7 +4117,7 @@
       "public": "公開",
       "save": "保存",
       "subtitle": "のなドキュメントとAPIリファレンス",
-      "title": "APIテスト",
+      "title": "教育設定",
       "valuePlaceholder": "入力してください設定值"
     },
     "eduUserPlatform": {
@@ -4237,7 +4237,7 @@
       "messageRequired": "メッセージはです",
       "noData": "なしデータ",
       "subtitle": "のなドキュメントとAPIリファレンス",
-      "title": "APIテスト",
+      "title": "システムイベント",
       "type": "タイプ"
     },
     "exchangeRates": {
@@ -4341,7 +4341,7 @@
       "save": "保存",
       "slugPlaceholder": "でから",
       "subtitle": "のなドキュメントとAPIリファレンス",
-      "title": "APIテスト",
+      "title": "ヘルプ記事管理",
       "titlePlaceholder": "titlePlaceholder"
     },
     "identityProportion": {
@@ -4574,7 +4574,7 @@
       "statusPlaceholder": "ステータスをしてください",
       "subtitle": "のなドキュメントとAPIリファレンス",
       "time": "時間",
-      "title": "APIテスト",
+      "title": "API ログ",
       "total": "合計 {total} 件",
       "user": "ユーザー",
       "userAgent": "UserAgent"
@@ -5057,7 +5057,7 @@
       "page": "{page}ページ、{total}ページ",
       "prev": "のページ",
       "subtitle": "のなドキュメントとAPIリファレンス",
-      "title": "APIテスト",
+      "title": "プロジェクト管理",
       "total": "合計 {total} 件のプロジェクト",
       "userIdPlaceholder": "ユーザー ID を",
       "userIdRequired": "プロジェクトありIDをしてください"
@@ -5106,7 +5106,7 @@
       "statsTotal": "総返金数",
       "status": "ステータス",
       "subtitle": "のなドキュメントとAPIリファレンス",
-      "title": "APIテスト",
+      "title": "返金審査管理",
       "total": "合計 {total} 件",
       "userId": "User Id",
       "view": "テーブル"
@@ -6319,7 +6319,7 @@
       "noData": "なしデータ",
       "slug": "スラッグ",
       "subtitle": "のなドキュメントとAPIリファレンス",
-      "title": "APIテスト",
+      "title": "タグ管理",
       "total": "合計 {total} 個",
       "usageCount": "せる"
     },
@@ -7029,6 +7029,7 @@
       "edit": "編集",
       "hideContent": "コンテンツを非表示",
       "like": "いいね",
+      "moreActions": "もっと見る",
       "publishToCommunity": "コミュニティに公開",
       "regenerate": "再生成",
       "reply": "返信",
@@ -7114,7 +7115,7 @@
       "send": "送信",
       "sendSuccess": "送信成功",
       "subtitle": "のなドキュメントとAPIリファレンス",
-      "title": "APIテスト",
+      "title": "API デバッガー",
       "urlRequired": "URLはです",
       "waiting": "ち..."
     },
@@ -7137,7 +7138,7 @@
       "noData": "なしデータ",
       "saveSuccess": "保存しました",
       "subtitle": "のなドキュメントとAPIリファレンス",
-      "title": "APIテスト"
+      "title": "API グループ管理"
     },
     "apiLogs": {
       "allStatus": "てステータス",
@@ -7153,7 +7154,7 @@
       "noData": "なしデータ",
       "reset": "リセット",
       "subtitle": "のなドキュメントとAPIリファレンス",
-      "title": "APIテスト",
+      "title": "API ログ",
       "total": "{count}"
     },
     "apiUsage": {
@@ -7167,7 +7168,7 @@
       "errorRate": "エラー",
       "noData": "なしデータ",
       "subtitle": "のなドキュメントとAPIリファレンス",
-      "title": "APIテスト",
+      "title": "API 使用量",
       "todayCalls": "今日コール",
       "topEndpoints": "API",
       "totalCalls": "Calls",
@@ -7271,7 +7272,7 @@
       "statusDisabled": "無効",
       "statusEnabled": "有効",
       "subtitle": "のなドキュメントとAPIリファレンス",
-      "title": "APIテスト"
+      "title": "辞書管理"
     },
     "errorDash": {
       "all": "て",
@@ -7343,7 +7344,7 @@
       "preview": "プレビュー",
       "previewMode": "プレビューモード",
       "subtitle": "のなドキュメントとAPIリファレンス",
-      "title": "APIテスト"
+      "title": "モバイル対応"
     },
     "monitor": {
       "alerts": "アラート",
@@ -7447,7 +7448,7 @@
       "colTime": "時間",
       "noData": "なしデータ",
       "subtitle": "のなドキュメントとAPIリファレンス",
-      "title": "APIテスト",
+      "title": "OAuth 監査ダッシュボード",
       "todayAuth": "今日の認証",
       "totalAuth": "総認可"
     },
@@ -11746,6 +11747,7 @@
     "canvasOpenInCanvas": "キャンバスで開く",
     "canvasRevert": "このバージョンに戻す",
     "canvasVersions": "バージョン履歴",
+    "charCount": "{count} 文字",
     "clearInputAriaLabel": "入力をクリア",
     "clearInputTitle": "入力内容をクリア",
     "predictiveEditHint": "予測編集の提案",
@@ -12010,6 +12012,11 @@
       "collapsedDesc": "中間ステップを常に折りたたむ",
       "expanded": "展開",
       "expandedDesc": "中間ステップを常に展開する"
+    },
+    "titleAutoUpdate": {
+      "title": "タスクタイトル",
+      "label": "タイトルを自動更新",
+      "desc": "3 ラウンド目以降、最新の会話内容からタスクタイトルを再生成します。オフにすると作成時に生成されたタイトルに固定されます"
     },
     "gapInterval": "{gap} 間隔",
     "generating": "...",
@@ -12579,7 +12586,7 @@
       "permissionFull": "完全アクセスモードに切替(高リスク、確認なし)",
       "plan": "計画モードに切り替え(AIは計画のみ立案し、ツールを実行しません)",
       "polish": "テキスト推敲",
-      "review": "レビューモードに切替(読み取り専用、強化コードレビュー)",
+      "review": "レビュー対象を選択(未コミット diff / ブランチ / コミット)",
       "spec": "スペックモードに切替(コードから spec 文書を逆生成)",
       "summary": "現在の会話を要約",
       "translate": "選択したテキストを翻訳",
@@ -12939,6 +12946,8 @@
       "confirm": "移動",
       "cancel": "キャンセル"
     },
+    "titleHistoryOriginal": "作成時のタイトル",
+    "titleHistoryCurrent": "現在のタイトル",
     "selectModeAriaLabel": "タスクの複数選択モードを切り替え",
     "backToHistory": "にる",
     "batchArchive": "アーカイブ",
@@ -13216,6 +13225,11 @@
         "keywords": ["エージェント", "agent", "bot"],
         "label": "AI エージェント"
       },
+      "automations": {
+        "description": "定時実行する AI タスクの作成と管理",
+        "keywords": ["自動化", "スケジュール", "タスク", "automation"],
+        "label": "定時自動化"
+      },
       "browser": {
         "description": "ワークスペース内でウェブを閲覧",
         "keywords": ["ブラウザ", "ウェブ", "browser"],
@@ -13245,6 +13259,11 @@
         "description": "コードエディタを開く",
         "keywords": ["エディタ", "コード", "editor"],
         "label": "エディタ"
+      },
+      "imageGen": {
+        "description": "プロンプトから画像を生成。公開ギャラリー・履歴・テンプレート付き",
+        "keywords": ["画像", "生成", "描画", "image"],
+        "label": "AI 画像生成"
       },
       "mcp": {
         "description": "MCP サーバーとツールを管理",
@@ -13686,7 +13705,7 @@
       "pendingCount": "い",
       "projectStatusTitle": "プロジェクトステータス",
       "subtitle": "のなドキュメントとAPIリファレンス",
-      "title": "APIテスト",
+      "title": "管理ダッシュボード",
       "totalAmountLabel": "累計成交金額",
       "totalFiles": "ファイル",
       "totalLabel": "の",
@@ -15815,7 +15834,7 @@
     "loading": "読み込み中...",
     "myPoints": "のポイント",
     "subtitle": "のなドキュメントとAPIリファレンス",
-    "title": "APIテスト"
+    "title": "教育ポイント"
   },
   "eduProgressPage": {
     "categoryProgress": "カテゴリー別進捗",
@@ -16797,7 +16816,7 @@
     "toc": "目次",
     "updatedAt": "しいしい",
     "viewCount": "{count}",
-    "title": "APIテスト",
+    "title": "ヘルプセンター",
     "loading": "読み込み中...",
     "subtitle": "ガイド・よくある質問・ヘルプ記事を探す",
     "searchPlaceholder": "ヘルプ記事を検索",
@@ -17435,14 +17454,18 @@
   },
   "imageGenPage": {
     "download": "ダウンロード",
+    "favorites": "お気に入り画像",
+    "gallery": "公開ギャラリー",
     "generate": "画像を生成",
     "generating": "生成中...",
+    "history": "生成履歴",
     "promptLabel": "プロンプト",
     "promptPlaceholder": "生成したい画像を説明...",
     "promptRequired": "プロンプトを入力してください",
     "sizeLabel": "サイズ",
     "subtitle": "プロンプトを入力して画像を生成",
     "success": "生成成功",
+    "templates": "プロンプトテンプレート",
     "title": "AI 画像生成"
   },
   "inlineEdit": {
@@ -17511,7 +17534,7 @@
     "reward": "報酬",
     "rewardValue": "+{inviter} / られる +{invitee} ポイント",
     "subtitle": "のなドキュメントとAPIリファレンス",
-    "title": "APIテスト",
+    "title": "招待特典",
     "user": "ユーザー",
     "status": {
       "expired": "期限切れ",
@@ -17664,7 +17687,7 @@
     "signedUp": "み",
     "signupCount": "{count}が",
     "subtitle": "のなドキュメントとAPIリファレンス",
-    "title": "APIテスト",
+    "title": "学習センター",
     "topic": {
       "empty": "トピックがありません",
       "free": "無料",
@@ -17874,7 +17897,7 @@
     "search": "検索ライブ",
     "startTime": "開始時間",
     "subtitle": "のなドキュメントとAPIリファレンス",
-    "title": "APIテスト",
+    "title": "ライブ講座",
     "total": "合計 {total} 個",
     "unknownLecturer": "不明講師",
     "upcoming": "開始予定",
@@ -20299,6 +20322,14 @@
     "taskPanelAutoLastStats": "{families} ファミリー · 受諾 {accepted} · 受取 {claimed}",
     "taskPanelAutoLastNever": "このプロセスでは未巡回",
     "taskPanelDesc": "WorkBuddy タスクセンターを一括巡回:タスク受諾、達成報酬の受け取り、連続ログイン交換、抽選、猫の旅、夜更かしチャット。",
+    "taskPanelDescDoubao": "豆包タスクを一括巡回:毎日チェックインの受取、業務領域タスクの自動完了、完了済みタスクとマイルストーン報酬の受取。",
+    "taskPanelDoubaoTag": "豆包",
+    "taskPanelDoubaoOn": "有効 · 毎日 {hours}:{minute} に自動巡回(チェックイン後)",
+    "taskPanelDoubaoDry": "有効だが演習モード(読み取りのみ):実際の受取は行いません。サーバーで DOUBAO_TASKS_LIVE_RUN=true を設定してください。",
+    "taskPanelDoubaoOff": "無効:手動実行のみ。サーバーで DOUBAO_TASKS_ENABLED=true を設定し再起動してください。",
+    "taskPanelDoubaoNotStarted": "設定済みですがスケジューラが未起動:.env 変更後は ai-service の再起動が必要です。",
+    "taskPanelDoubaoLast": "前回巡回 {time} · 受取 {claimed} 件 · スキップ {skipped} 件",
+    "taskPanelDoubaoLastNever": "このプロセスでは未巡回",
     "taskPanelPick": "アカウント",
     "taskPanelList": "タスクを取得",
     "taskPanelDryRun": "ドライラン(書き込みなし)",
@@ -20703,6 +20734,7 @@
     "adminRelayKeyPool": "Keyプール",
     "adminRelayLogs": "リレーログ",
     "adminRelayModels": "リレーモデル",
+    "adminRelayModelMappings": "モデルマッピング",
     "adminRelayOverview": "リレー概要",
     "adminSkillBatch": "一括操作",
     "adminSkillCategories": "スキルカテゴリ",
@@ -20727,6 +20759,12 @@
     "saasTenants": "SaaS テナント",
     "dashboard": "管理バックエンド",
     "financeAi": "財務部",
+    "financeGroup": "財務部",
+    "live": "ライブ講座",
+    "earnings": "収益",
+    "wallet": "ウォレット",
+    "playground": "プレイグラウンド",
+    "developerRelaySubscriptions": "API サブスクリプション",
     "hrGroup": "人事部",
     "hrAdmin": "人事管理",
     "hrAdminData": "人事データセンター",
@@ -21249,7 +21287,7 @@
     "save": "保存",
     "search": "ノート検索",
     "subtitle": "のなドキュメントとAPIリファレンス",
-    "title": "APIテスト",
+    "title": "マイノート",
     "titleField": "タイトル"
   },
   "notifications": {
@@ -21331,7 +21369,7 @@
     "occurredAtField": "日付",
     "save": "保存",
     "subtitle": "のなドキュメントとAPIリファレンス",
-    "title": "APIテスト",
+    "title": "オフライン学習記録",
     "titleField": "タイトル",
     "type": "タイプ",
     "typePlaceholder": "タイプ"
@@ -21508,7 +21546,7 @@
     "paperTitleField": "タイトル",
     "paperUrlField": "URL",
     "subtitle": "のなドキュメントとAPIリファレンス",
-    "title": "APIテスト",
+    "title": "マイ論文",
     "upload": "Upload"
   },
   "parentPortal": {
@@ -21683,7 +21721,7 @@
     "asksTab": "Ｑ＆Ａ",
     "circlesTab": "コミュニティ",
     "subtitle": "のなドキュメントとAPIリファレンス",
-    "title": "APIテスト",
+    "title": "コミュニティ広場",
     "viewAllAsks": "すべてのQ&Aを",
     "viewAllCircles": "すべてのサークルを",
     "publish": "投稿"
@@ -22872,7 +22910,7 @@
     "searchTask": "タスクを",
     "subtitle": "のなドキュメントとAPIリファレンス",
     "taskList": "タスクリスト",
-    "title": "APIテスト",
+    "title": "スケジュールタスク",
     "total": "合計 {total} 個"
   },
   "search": {
@@ -23805,7 +23843,7 @@
       "desc": "おいわせのカスタマーサービスチーム",
       "export": "エクスポート",
       "import": "インポート",
-      "title": "APIテスト"
+      "title": "テーマのバックアップと同期"
     },
     "themeSystem": "システム",
     "title": "設定",
@@ -23903,6 +23941,7 @@
     "codeIndexEgressOptOutDesc": "コード断片はベクトル化インデックスのために外部へ送信されません",
     "autoMemoryOptOut": "自動長期メモリを無効化",
     "autoMemoryOptOutDesc": "会話をセッション横断の嗜好や規約に自動抽出しません",
+    "usageTitle": "使用状況",
     "navTiers": {
       "title": "サイドバー簡素モード",
       "desc": "開発者向け・運用向けの項目を既定で非表示にします。必要になったら下のスイッチで表示できます。",
@@ -24284,7 +24323,7 @@
     "quickLinks": "クイックリンク",
     "subtitle": "のなドキュメントとAPIリファレンス",
     "template": "テンプレート",
-    "title": "APIテスト",
+    "title": "受講生センター",
     "totalCerts": "証明書合計",
     "totalExams": "試験合計",
     "totalLessons": "コース",
@@ -25294,7 +25333,7 @@
     "rechargeSuccessDesc": "チャージがされました",
     "rechargeTitle": "トークンをチャージ",
     "retryRecharge": "再チャージ",
-    "title": "APIテスト",
+    "title": "ウォレット",
     "viewRecords": "記録を見る",
     "withdraw": "出金",
     "withdrawAmount": "出金金額",
@@ -25450,7 +25489,7 @@
       "nameRequired": "ごエージェント",
       "steps": "ステップない",
       "submit": "作成",
-      "title": "APIテスト",
+      "title": "新規ワークフロー",
       "triggerType": "トリガータイプ"
     },
     "detail": {
@@ -25700,7 +25739,7 @@
       "tasks": "タスクリスト",
       "title": "AI ワークスペース"
     },
-    "title": "APIテスト",
+    "title": "ワークスペース",
     "uploadFailed": "アップロード",
     "uploadedAt": "アップロードみ"
   },

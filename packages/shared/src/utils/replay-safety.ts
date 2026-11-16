@@ -11,7 +11,7 @@ import {
 /**
  * 重放安全性分类(G-998106)—— 失败契约里写明"这次失败能否安全重放"。
  *
- * 上游机制(学习副本 .ihui-agent/tmp/zcode-study,zcode `browser-use/result.ts`):
+ * 上游机制(学习副本 内部规格 `browser-use/result.ts`):
  * 结果壳用 `ok` 判别联合,失败侧错误体带 `sideEffect: z.enum(["none","uncertain"]).optional()`
  * ——失败不只是"错了",还要回答"失败时副作用落到哪一步":调用方据此决定**直接重试**还是
  * **先查状态**。`none` = 失败发生在任何副作用之前(请求被前置拒绝),重放安全;

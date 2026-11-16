@@ -67,6 +67,7 @@ const HELP = `反代账号池导入
     [--name-prefix <前缀>]                 缺名称时的自动名前缀(名=<前缀->token-<12位指纹>)
     [--provider <trae|workbuddy|qoder|codearts|codex|opencode|minimax|zcode|loomy|doubao|lingma|grokbot>]   文件顶层无 providerCode 时必须给;--tokens-file 无顶层 providerCode ⇒ 必须给
     [--dry-run]                              只校验预检,不写库
+    [--all-profiles]                         仅 --from doubao:扫本机全部已登录 profile(加号后一条命令全量入池;默认只读 Default)
     [--no-health]                            跳过导入后的上游健康检查
     [--owner <users.id>]                     显式导入为该用户的个人池(优先级最高,压过默认)
     [--ops-pool]                             显式落运营池(运维逃生口,压过默认归属;与 --owner 互斥)
@@ -129,7 +130,8 @@ const FROM_PROVIDERS = Object.freeze({
   minimax: { module: 'minimax-auth-extract.mjs', fn: 'extractMinimaxAccounts' },
   zcode: { module: 'zcode-auth-extract.mjs', fn: 'extractZcodeAccounts' },
   loomy: { module: 'loomy-auth-extract.mjs', fn: 'extractLoomyAccounts' },
-  doubao: { module: 'doubao-auth-extract.mjs', fn: 'extractDoubaoAccounts' },
+  // 2026-11-17:豆包提取显式打开上游手机号读取(全号直取;掩码由号池按已知全号唯一归位)
+  doubao: { module: 'doubao-auth-extract.mjs', fn: 'extractDoubaoAccounts', fetchPhone: true },
   lingma: { module: 'lingma-auth-extract.mjs', fn: 'extractLingmaAccounts' },
   grokbot: { module: 'grokbot-auth-extract.mjs', fn: 'extractGrokbotAccounts' },
   // 2026-11-12 接车:小浣熊本机提取器就位(raccoon-auth-extract.mjs),凭据落点经 candidateAuthFiles()
@@ -159,6 +161,8 @@ function parseArgs(argv) {
     tokensFile: null,
     namePrefix: '',
     providerCode: null,
+    // 2026-11-17:豆包桌面端每个登录号各占一个 profile;开启后 --from doubao 全量扫描入池
+    allProfiles: false,
     dryRun: false,
     health: true,
     json: false,
@@ -185,6 +189,7 @@ function parseArgs(argv) {
     else if (arg === '--name-prefix') options.namePrefix = argv[++i] ?? ''
     else if (arg === '--provider') options.providerCode = argv[++i] ?? ''
     else if (arg === '--dry-run') options.dryRun = true
+    else if (arg === '--all-profiles') options.allProfiles = true
     else if (arg === '--no-health') options.health = false
     else if (arg === '--json') options.json = true
     else if (arg === '--ops-pool') options.opsPool = true
@@ -209,6 +214,9 @@ function parseArgs(argv) {
     } else return { options: null, error: `未知参数: ${arg}` }
   }
   if (options.help) return { options, error: null }
+  if (options.allProfiles && options.from !== 'doubao') {
+    return { options: null, error: '--all-profiles 仅支持 --from doubao(豆包桌面端多 profile 场景)' }
+  }
   if (options.namePrefix.startsWith('--')) {
     return { options: null, error: '--name-prefix 需要一段前缀(自动名 = <前缀->token-<12位指纹>)' }
   }
@@ -852,7 +860,11 @@ async function main(argv, injectedDeps = {}) {
     }
     let extracted
     try {
-      extracted = await extractFn()
+      const extractOpts = {
+        ...(entry.fetchPhone ? { fetchPhone: true } : {}),
+        ...(options.allProfiles ? { allProfiles: true } : {}),
+      }
+      extracted = await extractFn(extractOpts)
     } catch (e) {
       const code = e?.code ? `[${e.code}] ` : ''
       process.stderr.write(
@@ -861,6 +873,13 @@ async function main(argv, injectedDeps = {}) {
       return 2
     }
     const meta = extracted.meta
+    if (Array.isArray(meta.failures) && meta.failures.length > 0) {
+      process.stderr.write(
+        `⚠️ 有 ${meta.failures.length} 个 profile 未取到会话(已跳过): ` +
+          meta.failures.map((f) => `${f.profile}(${f.code})`).join(', ') +
+          '\n   Cookies 被客户端占用时请完全退出豆包(含托盘)后重跑。\n',
+      )
+    }
     const isSessionBased = Array.isArray(meta.sessions)
     const sessionLines = isSessionBased
       ? meta.sessions.map((s) => `  ${JSON.stringify(s)}`)

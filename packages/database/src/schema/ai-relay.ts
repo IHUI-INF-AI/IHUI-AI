@@ -49,7 +49,7 @@ export const aiRelayKeyPool = pgTable(
     isEnabled: boolean('is_enabled').default(true).notNull(),
     /** 健康状态:unknown / healthy / degraded / down */
     healthStatus: varchar('health_status', { length: 16 }).default('unknown').notNull(),
-    // ── 调度精细控制(2026-09-16 立,深度对标补强 Y,对标竞品 temp-unschedulable 等)──
+    // ── 调度精细控制(2026-09-16 立,深度对齐补强 Y,对齐竞品 temp-unschedulable 等)──
     /** 临时不可调度(admin 手动摘除,区别于 isEnabled 永久停用;选路时跳过) */
     tempUnschedulable: boolean('temp_unschedulable').default(false).notNull(),
     /** 账号级速率倍率(乘进该 Key 的有效权重,0.5 = 半速;null = 用全局) */
@@ -86,7 +86,7 @@ export const aiRelayKeyPool = pgTable(
 /**
  * 第三方 AI IDE 平台账号池表 (ai_relay_account_pool)。
  *
- * 2026-10-22 立:对标并超越码道网关(CodeArtsGateway)的「平台账号池 + 反代」子系统。
+ * 2026-10-22 立:对齐并超越码道网关(CodeArtsGateway)的「平台账号池 + 反代」子系统。
  * 与 ai_relay_key_pool 的区别:key_pool 存的是上游 API Key(Bearer 直连),
  * 本表存的是「完整账号会话凭证」(access token + refreshToken + cookies + 设备指纹),
  * 需要平台适配器负责 token 临期自动刷新、401 自愈与指纹头伪装。
@@ -98,7 +98,7 @@ export const aiRelayKeyPool = pgTable(
  * - deviceId/machineId: 客户端设备指纹(明文存储,上游会话与设备绑定校验用)
  * - healthStatus/lastRefreshAt/refreshFailureCount/consecutiveFailures: 健康检查与自愈状态
  * - priority/weight/tempUnschedulable/isEnabled: 轮转调度(与 ai_relay_key_pool 同语义)
- * - proxyUrl: 账号级出口代理(对标 workbuddy-manager WB_HTTP_PROXY,每账号独立出口 IP 降风控)
+ * - proxyUrl: 账号级出口代理(遵循统一工程规范)
  */
 export const aiRelayAccountPool = pgTable(
   'ai_relay_account_pool',

@@ -1660,7 +1660,7 @@ export function runSelfTest() {
     )
     eq('B12-Q8b 空输入 ⇒ 0 个(由 b12Outcome 折成未判定)', sqlPathsFromListing('').length, 0)
 
-    // 端到面 A:真临时仓里**确有**两份同名 .sql(逐字复刻票面那两目录) ⇒ 必须 exit 1 并点名两处,
+    // 端到面 A:真临时仓里**确有**两份同名 .sql(独立实现票面那两目录) ⇒ 必须 exit 1 并点名两处,
     // 而同一个夹具的 B1 仍然绿 ⇒ 证明"新增一维没有改弱既有判据、也没有替别人制造红"。
     try {
       const dA = keep(mkFixtureRepo('g49-b12-dup'))

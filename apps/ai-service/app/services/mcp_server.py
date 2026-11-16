@@ -37,7 +37,7 @@ if TYPE_CHECKING:
 # `agent_security_prefs.resolve_security_config(主体)` 解析 —— 进程默认 ⊕ 该用户显式覆盖。
 # 主体唯一来源是 `call_tool` 的 `user_id` 形参(承载层注入)与 agent_loop_v2 在执行工具前
 # 发布的作用域;**绝不**读 arguments 里的 `__user_id`(那是 handler 入参,模型可填的形状)。
-# 读侧登记 + 编辑前脏判定(2026-10-31,逆向-复现-超越 §0.11;对标 Trae
+# 读侧登记 + 编辑前脏判定(2026-10-31,工程化落地 §0.11;遵循统一工程规范
 # `cc_file_read_state_cache` / Qoder `file-history`,并在"本仓多会话共写一棵树"这一轴上
 # 超越):read_file 成功后登记 (会话, 路径) → 内容指纹;file_edit 落盘前判一次脏 ——
 # 默认只在返回体点名(fresh/stale/never_read/undetermined 四档不并桶),显式严格档才拒写。
@@ -153,7 +153,7 @@ def _estimate_tokens_len(text: str) -> int:
 
 
 def _network_denial_message(denial_reason: str | None, url: str) -> str:
-    """批58(十六):网络审批拒绝的用户可读消息(对标 codex network_policy_decision.rs)。
+    """批58(十六):网络审批拒绝的用户可读消息(遵循统一工程规范)。
 
     把审批门的机器原因码(denied / not_allowed / not_allowed_local)翻译为
     "为什么不能在此处放行"的可读文案,避免模型反复重试同一目标。原因码缺失/
@@ -174,7 +174,7 @@ def _network_denial_message(denial_reason: str | None, url: str) -> str:
 
         return denied_network_policy_message(str(denial_reason or "denied"), host)
     except Exception:  # noqa: BLE001 - 文案失败绝不改变拒绝语义
-        return "网络审批门拒绝: 该目标未获授权(对标 codex NetworkAccess 审批面)"
+        return "网络审批门拒绝: 该目标未获授权(对齐统一规范)"
 
 
 # ---------------------------------------------------------------------------
@@ -189,7 +189,7 @@ def _network_denial_message(denial_reason: str | None, url: str) -> str:
 def _mcp_elicitation_pause_enabled_from_env() -> bool:
     """elicitation 计数暂停开关(env MCP_ELICITATION_PAUSE_ENABLED,默认 off)。
 
-    对标 codex elicitation.rs ElicitationService。on/1/true/yes 时启用;默认 off
+    遵循统一工程规范。on/1/true/yes 时启用;默认 off
     时不持有服务实例、不参与任何计数(与现状逐零差异)。
     """
     return os.environ.get(
@@ -200,7 +200,7 @@ def _mcp_elicitation_pause_enabled_from_env() -> bool:
 def _mcp_openai_file_rewrite_enabled_from_env() -> bool:
     """OpenAI 文件参数重写开关(env MCP_OPENAI_FILE_REWRITE_ENABLED,默认 off)。
 
-    对标 codex mcp_openai_file.rs。on 时按声明字段把本地路径重写为远端文件载荷;
+    遵循统一工程规范。on 时按声明字段把本地路径重写为远端文件载荷;
     默认 off 时工具参数完全不变(逐字节等价)。
     """
     return os.environ.get(
@@ -211,7 +211,7 @@ def _mcp_openai_file_rewrite_enabled_from_env() -> bool:
 def _mcp_world_state_tools_enabled_from_env() -> bool:
     """延迟工具命名空间开关(env MCP_WORLD_STATE_TOOLS_ENABLED,默认 off)。
 
-    对标 codex context/world_state/tools.rs。on 时把延迟工具声明并入工具清单;
+    遵循统一工程规范。on 时把延迟工具声明并入工具清单;
     默认 off 时清单逐字节不变。
     """
     return os.environ.get(
@@ -222,7 +222,7 @@ def _mcp_world_state_tools_enabled_from_env() -> bool:
 def _mcp_permission_profiles_enabled_from_env() -> bool:
     """权限档案开关(env MCP_PERMISSION_PROFILES_ENABLED,默认 off)。
 
-    对标 codex permissions_toml.rs。on 时解析生效档案参与审批决策;解析失败走现状
+    遵循统一工程规范。on 时解析生效档案参与审批决策;解析失败走现状
     默认(降级跳过)。
     """
     return os.environ.get(
@@ -233,7 +233,7 @@ def _mcp_permission_profiles_enabled_from_env() -> bool:
 def _mcp_permissions_instructions_enabled_from_env() -> bool:
     """权限指令片段开关(env MCP_PERMISSIONS_INSTRUCTIONS_ENABLED,默认 off)。
 
-    对标 codex permissions_instructions.rs。on 时把权限指令片段并入回执;默认 off
+    遵循统一工程规范。on 时把权限指令片段并入回执;默认 off
     时不注入任何片段(逐字节等价)。
     """
     return os.environ.get(
@@ -502,6 +502,50 @@ def _get_subagent_timeout() -> int:
         return 300
 
 
+# ===== 统一多智能体编排(2026-11-16,遵循统一工程规范)=====
+# 唯一入口是 orchestrate_agents(旧名 dispatch_subagent 仅保留 handler 兼容):
+# 主 agent 按任务性质自主选择 —— 单任务 single / 互不依赖 parallel /
+# 前后依赖 pipeline / 多视角决策 debate·vote·critique / 复杂目标 decompose /
+# 团队聚合 team。六种编排模式与既有单/并行派发共用同一套治理
+# (agents 白名单、数量上限、并发信号量、嵌套深度、超时、工单结算、输出截断)。
+_DISPATCH_MODES: Final[tuple[str, ...]] = (
+    "single",
+    "parallel",
+    "pipeline",
+    "debate",
+    "vote",
+    "critique",
+    "decompose",
+    "team",
+)
+_ORCHESTRATION_MODES: Final[tuple[str, ...]] = (
+    "pipeline",
+    "debate",
+    "vote",
+    "critique",
+    "decompose",
+    "team",
+)
+# 单次编排的参与者/步骤/轮次上限(防一次调用打满并发与 token 预算)
+_ORCHESTRATION_MAX_AGENTS = 5
+_ORCHESTRATION_MAX_STEPS = 6
+_ORCHESTRATION_MAX_ROUNDS = 3
+_DECOMPOSE_STRATEGIES: Final[tuple[str, ...]] = (
+    "sequential",
+    "parallel",
+    "dag",
+    "recursive",
+)
+# team 模式的聚合策略(与 agent_teams.ResultAggregator 的封闭集同源)
+_TEAM_AGGREGATIONS: Final[tuple[str, ...]] = ("merge", "best_of", "consensus")
+# team 贡献者的输出契约:best_of/consensus 需要稳定的结论与评分才能择优/求共识。
+_TEAM_OUTPUT_CONTRACT: Final = (
+    "\n\n请在回答末尾严格追加两行,便于团队聚合:\n"
+    "结论：<一句话结论>\n"
+    "评分：<0-100 的整数>"
+)
+
+
 # D08②(2026-10-24):agent 间换手消息(完成/受阻/求助)的结构化事件。
 # 票面要求 SSE **复用既有 subagent_* 帧族、禁新帧**,故这里只产出一条消息的**载荷字段**;
 # 帧名仍由 llm.py 的 subagent_progress / subagent_end 承载。字段集:
@@ -578,7 +622,7 @@ def _get_workspace_roots() -> list[str]:
 
 
 # ---------------------------------------------------------------------------
-# D201 多根工作区:会话级附加目录(2026-10-02 立,票 D201;对标 Qoder/Codex/Trae
+# D201 多根工作区:会话级附加目录(2026-10-02 立,票 D201;遵循统一工程规范
 # 的 add_directories 控制帧 —— 会话中途追加目录,追加后该目录内文件可被会话读写,
 # 移除即失效)。
 #
@@ -868,7 +912,7 @@ _FILE_BASE_MAX = 256
 # AIS-082:read_file 单次读取上限,与写侧(write_file)的 10MB 门对齐。读侧此前
 # 无上限 → 整文件进内存并全量进 _FILE_BASE_CONTENT(最多 256 份),GB 级文件直接 OOM。
 _READ_FILE_MAX_BYTES = 10 * 1024 * 1024
-# 大文件分页读(对齐 DSH read 的有界分页):调用方传 offset/limit 时按行窗口返回。
+# 大文件分页读(对齐 外部实现 read 的有界分页):调用方传 offset/limit 时按行窗口返回。
 # 不传时保持旧的整文件语义,避免改变既有调用方与测试的契约。
 _READ_WINDOW_MAX_LINES = 2000
 _READ_WINDOW_MAX_LINE_CHARS = 2000
@@ -2779,7 +2823,7 @@ async def _tool_list_files(arguments: dict[str, Any]) -> dict[str, Any]:
 
 
 async def _tool_render_repo_tree(arguments: dict[str, Any]) -> dict[str, Any]:
-    """render_repo_tree: 按 token 预算渲染目录骨架(逆向复现超越 goal-b47,对齐 mtree renderTree)。
+    """render_repo_tree: 按 token 预算渲染目录骨架(工程化落地 goal-b47,对齐 mtree renderTree)。
 
     枚举不在此层重抄一遍:实现层 `repo_tree_render.render_workspace_tree` 吃
     `rg_fallback_parity.enumerate_code_files` 单源出口,所以忽略目录/扩展名白名单/
@@ -3711,7 +3755,7 @@ def _build_subprocess_env(user_env: dict[str, Any] | None) -> dict[str, str]:
 
     2026-07-24 流式升级:支持 env 参数透传,但不允许覆盖 PATH/HOME(防劫持命令查找)。
 
-    差距⑦(2026-10-30,对标 Qoder「宿主注入上下文不可被工具参数覆盖」+
+    差距⑦(2026-10-30,遵循统一工程规范
     process-hardening):出口统一剥离两类变量 —— 继承值与用户 override 同判,
     判据取 core/exec_env 单一权威源,与 agent_engine._sanitized_child_env 同尺:
     - NON_INHERITABLE_ENV_VARS(管理凭据/身份令牌,如 IHUI_ADMIN_PASSWORD);
@@ -3806,7 +3850,7 @@ _exec_approved_commands: set[str] = set()
 
 
 def _canonical_approval_key(command: str) -> str:
-    """批 41 接线:审批缓存键规范化(对标 command_canonicalization.rs)。
+    """批 41 接线:审批缓存键规范化(对齐 command_canonicalization.rs)。
 
     同一条命令经不同 shell 包装(bash -lc 'git status' vs 直接 git status)
     到达时归一为同一键,避免"换个包装就要再批一次"的体验损耗;
@@ -3834,7 +3878,7 @@ def _canonical_approval_key(command: str) -> str:
 def approve_exec_command(command: str) -> None:
     """登记一次性 exec_policy 审批放行(由 agent_loop_v2 在用户批准后调用)。
 
-    批 51b:双写持久层(always 档,对标 codex PERSIST_ALWAYS)——内存表保持
+    批 51b:双写持久层(always 档,遵循统一工程规范)——内存表保持
     一次性消费语义,持久层只做审计/恢复底账,消费后不删(一次性语义由内存表
     承担);持久层写失败静默(不阻断放行,内存表已生效)。
     """
@@ -3860,7 +3904,7 @@ def _consume_exec_approval(command: str) -> bool:
 
 
 # =====================================================================
-# 第十六批(2026-09-18,对标 Codex execpolicy::blocking_append_allow_prefix_rule):
+# 第十六批(2026-09-18,遵循统一工程规范):
 # 「前缀放行规则」登记表。用户选择"这类命令以后都允许"时登记前 N 个 token,
 # 后续同前缀命令直接放行,不再逐次弹审批 —— 一次性放行只解决一次,前缀规则
 # 解决一类(git push / pnpm install / pytest 这类高频重复命令)。
@@ -3965,7 +4009,7 @@ def approve_exec_prefix(command: str, tokens: int = 2) -> tuple[str, ...] | None
         _ap.grant(_ap.SCOPE_ALWAYS, _ap.normalize_exec_key(list(prefix)), _ap.KIND_EXEC_PREFIX)
     except Exception:  # noqa: BLE001
         pass
-    # 批58(接线):exec_policy_amendments 真接线(对标 codex amend.rs
+    # 批58(接线):exec_policy_amendments 真接线(遵循统一工程规范
     # blocking_append_allow_prefix_rule)——on 时把前缀规则同步进 ExecPolicy
     # 引擎热更新(get_or_create_manager().append_rule:内存替换+落盘 *.rules,
     # 落盘失败回滚内存并抛错,此处降级为仅内存表生效)与规则文件追加
@@ -4313,7 +4357,7 @@ async def _tool_run_command(
                     },
                     "message": "命令需要用户审批后方可执行",
                 }
-                # 批58(w3):权限档案参与审批决策(对标 codex permissions_toml.rs)
+                # 批58(w3):权限档案参与审批决策(遵循统一工程规范)
                 # on 时解析生效档案,把档位/网络模式/启用根并入回执;解析失败走现状
                 # 默认(降级跳过,绝不改变拒绝语义)。off 时回执逐字节等价。
                 if _mcp_permission_profiles_enabled_from_env():
@@ -4607,7 +4651,7 @@ async def _tool_run_command(
             stdout = stdout[:max_output] + f"\n...(已截断,共 {len(stdout)} 字符)"
         if len(stderr) > max_output:
             stderr = stderr[:max_output] + f"\n...(已截断,共 {len(stderr)} 字符)"
-        # 出库脱敏(2026-09-18 第十五批,对标 Codex secrets::redact_secrets):
+        # 出库脱敏(2026-09-18 第十五批,遵循统一工程规范):
         # 命令输出是密钥外泄的主要通道(cat .env / env / printenv / 日志抓取),
         # 截断之后、回传之前统一盖掉已知凭据形态。
         from app.core.output_cleaning import redact_secrets as _redact_secrets
@@ -4744,9 +4788,9 @@ _WEB_SEARCH_MAX_RESULTS_CAP: Final = 50
 
 
 def _normalize_web_queries(arguments: dict[str, Any]) -> tuple[list[str], dict[str, Any] | None]:
-    """归一 `query`/`queries` 两种入参(2026-11-14,对标 DSH dsh-tool-web/search.ts)。
+    """归一 `query`/`queries` 两种入参(2026-11-14,遵循统一工程规范)。
 
-    规则与 DSH `parseSearchArgs` 对齐:queries 非空、每项非空白、至多 10 个;
+    规则与 外部实现 `parseSearchArgs` 对齐:queries 非空、每项非空白、至多 10 个;
     数量上限检查在去重之前做,去重保首次出现顺序。`query` 作为单查询兼容入口,
     与 queries 同时出现时前插并以首个去重结果为准。
     """
@@ -4784,7 +4828,7 @@ def _normalize_web_queries(arguments: dict[str, Any]) -> tuple[list[str], dict[s
     if isinstance(single, str) and single.strip():
         collected.insert(0, single.strip())
 
-    # 去重保序(与 DSH `[...new Set(queries)]` 同义)
+    # 去重保序(与 外部实现 `[...new Set(queries)]` 同义)
     return list(dict.fromkeys(collected)), None
 
 
@@ -4810,7 +4854,7 @@ async def _search_queries_fanout(
 ) -> list[list[dict[str, str]]]:
     """并发执行多个查询;任一失败即取消同批其余查询,等全部收口后抛出首个失败。
 
-    与 DSH `runSearchQueries` 的失败语义一致:多查询是一个原子调用,**不**把
+    与 外部实现 `runSearchQueries` 的失败语义一致:多查询是一个原子调用,**不**把
     部分成功伪装成整体成功(否则模型会以为已覆盖全部查询)。
     """
     import httpx
@@ -4877,7 +4921,7 @@ def _merge_search_pages(
 async def _tool_search_web(arguments: dict[str, Any]) -> dict[str, Any]:
     """search_web: DuckDuckGo HTML 搜索,返回解析后的结果列表。
 
-    单查询 `query` 与多查询 `queries` 两种入参(2026-11-14,对标 DSH web_search):
+    单查询 `query` 与多查询 `queries` 两种入参(2026-11-14,遵循统一工程规范):
     多查询并发扇出后按名次轮转、URL 去重合并,截断到 max_results 并置 truncated。
     无网络或解析失败时返回结构化失败 + 错误信息。
     """
@@ -5615,7 +5659,7 @@ async def _tool_file_search(arguments: dict[str, Any]) -> dict[str, Any]:
     - pattern: 文件名 glob 匹配(默认 *)
     - query: 文件内容关键词搜索(为空则仅按文件名匹配)
     - fuzzy: true 时 query 作为文件名模糊子序列模式,按 fzf 风格相关度
-      排序返回(对标 Codex file-search/nucleo;忽略内容搜索)
+      排序返回(遵循统一工程规范;忽略内容搜索)
     - path: 搜索根目录(默认当前目录)
     - max_results: 最大返回数(默认 50)
     - 忽略常见忽略目录(node_modules/.git/__pycache__/.venv/venv/dist/build)
@@ -5720,7 +5764,7 @@ async def _tool_file_search(arguments: dict[str, Any]) -> dict[str, Any]:
             rp for rp in _rel_all if os.path.splitext(rp)[1].lower() not in _IGNORED_EXTS
         ]
 
-        # 模糊文件名搜索(2026-09-18 第十一批,对标 Codex file-search/nucleo):
+        # 模糊文件名搜索(2026-09-18 第十一批,遵循统一工程规范):
         # query 作为子序列模式对相对路径评分排序(fzf 语义:连续命中/词首加分)
         if fuzzy and query:
             from app.core.output_cleaning import fuzzy_score
@@ -6777,7 +6821,7 @@ async def _tool_configure_automation_task(arguments: dict[str, Any]) -> dict[str
             if action == "schedule":
                 execution_result = await _tool_schedule_task(arguments)
                 executed = bool(execution_result.get("ok"))
-            elif action == "dispatch_subagent":
+            elif action in ("dispatch_subagent", "orchestrate_agents"):
                 execution_result = await _tool_dispatch_subagent(arguments)
                 executed = bool(execution_result.get("ok"))
             elif action == "webhook":
@@ -6848,7 +6892,7 @@ async def _tool_configure_automation_task(arguments: dict[str, Any]) -> dict[str
             else:
                 execution_result = {
                     "ok": False, "errorCode": "INVALID_PARAMS",
-                    "error": f"不支持的 action: {action}(schedule/dispatch_subagent/webhook)",
+                    "error": f"不支持的 action: {action}(schedule/dispatch_subagent/orchestrate_agents/webhook)",
                 }
         except Exception as e:
             execution_result = {
@@ -6975,7 +7019,7 @@ async def _tool_vision_analyze(arguments: dict[str, Any]) -> dict[str, Any]:
 
     # 构造 OpenAI vision 格式消息(text + image_url content block)
     # 批 42 接线:data URL 先经 image_preparation 按提示图像预算降采样
-    # (对标 codex load_data_url_for_prompt;此前原图原样上传,超大图打爆
+    # (遵循统一工程规范;此前原图原样上传,超大图打爆
     # vision 请求或被服务端拒绝;远程 URL 保持原样交由上游拉取)。降采样
     # 失败安全:回退原图,行为与历史一致,不阻塞分析。
     vision_note = ""
@@ -7124,6 +7168,10 @@ def _get_orchestrator() -> "AgentOrchestrator":
 _DISPATCH_SUBAGENT_DESC_CORE = (
     "派发子智能体执行独立任务(子任务分解 / 多视角审查 / 并行执行)。"
     "调用后子智能体独立执行并返回结果,不污染主对话上下文。"
+    "唯一入口支持 8 种模式:single(单 agent)/parallel(tasks 并行)/"
+    "pipeline(串行流水线)/debate(多轮辩论)/vote(方案投票)/"
+    "critique(提案-批判-改进)/decompose(任务自动分解调度)/team(团队并行 + 结构化聚合)。"
+    "复杂任务按性质自主选择 mode;简单任务直接回答,不要派发。"
 )
 
 
@@ -7166,6 +7214,8 @@ def _dispatch_subagent_description() -> str:
 #      的 input_schema 仍是那一份真相)。
 # 名单不在这里抄第二份:唯一来源仍是 `_dispatch_subagent_description` → 注册表现读。
 _ADVERTISED_DESCRIPTION_PROVIDERS: dict[str, Callable[[], str]] = {
+    "orchestrate_agents": _dispatch_subagent_description,
+    # 旧名兼容:get_full_tool_schema("dispatch_subagent") 仍返回同一份现读描述。
     "dispatch_subagent": _dispatch_subagent_description,
 }
 
@@ -7225,6 +7275,404 @@ def _dispatch_tool_surface_kwargs(
     return extra, None
 
 
+def _orchestration_error(
+    mode: str, error: str, error_code: str, **extra: Any
+) -> dict[str, Any]:
+    """编排失败的结构化回包(不抛异常,与单/并行派发的错误形态一致)。"""
+    payload: dict[str, Any] = {
+        "tool": "orchestrate_agents",
+        "mode": mode,
+        "ok": False,
+        "status": "failed",
+        "error": error,
+        "errorCode": error_code,
+    }
+    payload.update(extra)
+    return payload
+
+
+def _orchestration_agents(
+    arguments: Mapping[str, Any],
+    *,
+    mode: str,
+    registry_names: set[str],
+    minimum: int = 2,
+) -> tuple[list[str], dict[str, Any] | None]:
+    """解析并校验 agents 名单(白名单 + 数量上限 + 去重)。"""
+    raw = arguments.get("agents")
+    if not isinstance(raw, list) or not raw:
+        return [], _orchestration_error(
+            mode, "agents 必须为非空字符串数组", "INVALID_PARAMS"
+        )
+    if len(raw) > _ORCHESTRATION_MAX_AGENTS:
+        return [], _orchestration_error(
+            mode,
+            f"agents 最多 {_ORCHESTRATION_MAX_AGENTS} 个(本次 {len(raw)} 个)",
+            "INVALID_PARAMS",
+        )
+    names: list[str] = []
+    for i, item in enumerate(raw):
+        if not isinstance(item, str) or not item.strip():
+            return [], _orchestration_error(
+                mode, f"agents[{i}] 须为非空字符串", "INVALID_PARAMS"
+            )
+        names.append(item.strip())
+    if len(set(names)) != len(names):
+        return [], _orchestration_error(mode, "agents 不得重复", "INVALID_PARAMS")
+    if len(names) < minimum:
+        return [], _orchestration_error(
+            mode, f"{mode} 至少需要 {minimum} 个 agent", "INVALID_PARAMS"
+        )
+    unknown = sorted({name for name in names if name not in registry_names})
+    if unknown:
+        return [], _orchestration_error(
+            mode,
+            f"Agent 不存在: {', '.join(unknown)}",
+            "UNKNOWN_AGENT",
+            availableAgents=sorted(registry_names),
+        )
+    return names, None
+
+
+async def _run_orchestration_mode(
+    *,
+    mode: str,
+    arguments: Mapping[str, Any],
+    emit: Callable[[dict[str, Any]], None],
+) -> dict[str, Any]:
+    """执行统一多智能体编排(dispatch_subagent 的编排 mode 分支)。
+
+    六种模式全部走既有 AgentOrchestrator 实现,不复制第二套编排逻辑:
+    pipeline→run_pipeline / debate→run_debate / vote→run_vote /
+    critique→run_critique / decompose→run_decomposed / team→run_with_communication。
+
+    治理与单/并行派发同源:agents 白名单、数量上限、并发信号量、嵌套深度 +1、
+    超时、结构化回包。验证失败一律回 ok=False,不抛异常。
+    """
+    try:
+        orchestrator = _get_orchestrator()
+        registry_names = set(orchestrator.registry.names())
+    except Exception as e:  # noqa: BLE001 - 编排面不可用时结构化降级
+        logger.warning("dispatch_subagent 编排注册表不可用(mode=%s): %s", mode, e)
+        return _orchestration_error(
+            mode, f"编排注册表不可用: {e}", "ORCHESTRATION_UNAVAILABLE"
+        )
+    task = str(arguments.get("task") or "").strip()
+    if not task:
+        return _orchestration_error(
+            mode, "task 不能为空(描述要解决的问题 / 主题 / 目标)", "MISSING_PARAMS"
+        )
+    # tasks 只属于并行派发;编排模式误传时明确拒绝,避免静默忽略模型的输入。
+    if arguments.get("tasks") is not None:
+        return _orchestration_error(
+            mode,
+            f"mode={mode} 不接受 tasks;并行派发请用 mode=parallel",
+            "INVALID_PARAMS",
+        )
+    # background / 工具面收窄只属于单/并行派发;编排模式的子 agent 工具面由各自定义决定。
+    if arguments.get("background"):
+        return _orchestration_error(
+            mode, "编排模式不支持 background,请直接同步执行", "INVALID_PARAMS"
+        )
+    if arguments.get("allowedTools") or arguments.get("disallowedTools"):
+        return _orchestration_error(
+            mode,
+            "编排模式不支持 allowedTools/disallowedTools(子 agent 工具面由各自定义决定)",
+            "INVALID_PARAMS",
+        )
+    # 模式专属字段不得串用:静默忽略等于给模型错误暗示。
+    if mode == "pipeline" and arguments.get("agents") is not None:
+        return _orchestration_error(
+            mode, "mode=pipeline 不接受 agents;参与者写在 steps[].agent", "INVALID_PARAMS"
+        )
+    if mode in ("debate", "vote", "critique", "team") and arguments.get("steps") is not None:
+        return _orchestration_error(
+            mode, f"mode={mode} 不接受 steps;串行流水线请用 mode=pipeline", "INVALID_PARAMS"
+        )
+    if mode == "decompose" and (
+        arguments.get("agents") is not None or arguments.get("steps") is not None
+    ):
+        return _orchestration_error(
+            mode, "mode=decompose 不接受 agents/steps;参与者由分解器自动分配", "INVALID_PARAMS"
+        )
+    if arguments.get("max_rounds") is not None and mode not in ("debate", "critique"):
+        return _orchestration_error(
+            mode, f"mode={mode} 不接受 max_rounds(仅 debate/critique)", "INVALID_PARAMS"
+        )
+    if arguments.get("strategy") is not None and mode != "decompose":
+        return _orchestration_error(
+            mode, f"mode={mode} 不接受 strategy(仅 decompose)", "INVALID_PARAMS"
+        )
+    if arguments.get("aggregation") is not None and mode != "team":
+        return _orchestration_error(
+            mode, f"mode={mode} 不接受 aggregation(仅 team)", "INVALID_PARAMS"
+        )
+
+    agents: list[str] = []
+    steps: list[dict[str, Any]] = []
+    strategy = "dag"
+    if mode in ("debate", "vote", "critique", "team"):
+        agents, err = _orchestration_agents(
+            arguments,
+            mode=mode,
+            registry_names=registry_names,
+            minimum=1 if mode == "team" else 2,
+        )
+        if err is not None:
+            return err
+    elif mode == "pipeline":
+        raw_steps = arguments.get("steps")
+        if not isinstance(raw_steps, list) or not raw_steps:
+            return _orchestration_error(
+                mode, "pipeline 需要非空 steps 数组", "INVALID_PARAMS"
+            )
+        if len(raw_steps) > _ORCHESTRATION_MAX_STEPS:
+            return _orchestration_error(
+                mode,
+                f"steps 最多 {_ORCHESTRATION_MAX_STEPS} 步(本次 {len(raw_steps)} 步)",
+                "INVALID_PARAMS",
+            )
+        for i, item in enumerate(raw_steps):
+            if not isinstance(item, dict):
+                return _orchestration_error(
+                    mode, f"steps[{i}] 须为对象", "INVALID_PARAMS"
+                )
+            agent_name = str(item.get("agent") or "").strip()
+            if not agent_name:
+                return _orchestration_error(
+                    mode, f"steps[{i}].agent 不能为空", "INVALID_PARAMS"
+                )
+            if agent_name not in registry_names:
+                return _orchestration_error(
+                    mode,
+                    f"Agent 不存在: {agent_name}",
+                    "UNKNOWN_AGENT",
+                    availableAgents=sorted(registry_names),
+                )
+            raw_template = item.get("input_template")
+            if raw_template is not None and not isinstance(raw_template, str):
+                return _orchestration_error(
+                    mode, f"steps[{i}].input_template 须为字符串", "INVALID_PARAMS"
+                )
+            steps.append({
+                "agent": agent_name,
+                "input_template": str(raw_template or "{input}"),
+            })
+    elif mode == "decompose":
+        strategy = str(arguments.get("strategy") or "dag").strip().lower()
+        if strategy not in _DECOMPOSE_STRATEGIES:
+            return _orchestration_error(
+                mode,
+                f"strategy 非法: {strategy!r},须为 {list(_DECOMPOSE_STRATEGIES)} 之一",
+                "INVALID_PARAMS",
+            )
+
+    # team 的聚合策略与 decompose 的分解策略是两个语义,各用独立参数,不共用一个枚举。
+    aggregation = "merge"
+    if mode == "team":
+        aggregation = str(arguments.get("aggregation") or "merge").strip().lower()
+        if aggregation not in _TEAM_AGGREGATIONS:
+            return _orchestration_error(
+                mode,
+                f"aggregation 非法: {aggregation!r},须为 {list(_TEAM_AGGREGATIONS)} 之一",
+                "INVALID_PARAMS",
+            )
+
+    raw_rounds = arguments.get("max_rounds")
+    if isinstance(raw_rounds, bool):
+        return _orchestration_error(mode, "max_rounds 须为整数,不能是布尔值", "INVALID_PARAMS")
+    try:
+        max_rounds = (
+            int(raw_rounds)
+            if raw_rounds is not None
+            else (3 if mode == "debate" else 2)
+        )
+    except (TypeError, ValueError):
+        return _orchestration_error(mode, "max_rounds 须为整数", "INVALID_PARAMS")
+    max_rounds = max(1, min(max_rounds, _ORCHESTRATION_MAX_ROUNDS))
+
+    raw_session = arguments.get("session_id")
+    session_id = raw_session if isinstance(raw_session, str) and raw_session.strip() else None
+
+    emit({
+        "phase": "orchestration_started",
+        "mode": mode,
+        "agents": agents or [step["agent"] for step in steps],
+        "task_preview": task[:200],
+    })
+
+    if _SUBAGENT_SEMAPHORE.locked():
+        return _orchestration_error(
+            mode,
+            f"子代理并发数已达上限({_SUBAGENT_MAX_CONCURRENT}),拒绝编排",
+            "CONCURRENCY_LIMIT_EXCEEDED",
+        )
+
+    # 编排总预算按模式/规模放大:debate 5×3、pipeline 6 步等长任务不再被 300s 误杀。
+    # 与 tool_timeout_policy.resolve_tool_timeout_budget 共用同一函数,内外层预算不会打架。
+    from app.core.tool_timeout_policy import orchestration_budget_s
+
+    timeout_s = orchestration_budget_s(arguments)
+    team_round: Any = None
+    result: Any = None
+    async with _SUBAGENT_SEMAPHORE:
+        # 与单/并行派发同一深度语义:编排期间子代理再派发会被深度闸拦住。
+        _dtok = _subagent_depth.set(_subagent_depth.get() + 1)
+        try:
+            if mode == "pipeline":
+                result = await asyncio.wait_for(
+                    orchestrator.run_pipeline(
+                        steps=steps, initial_input=task, session_id=session_id
+                    ),
+                    timeout=timeout_s,
+                )
+            elif mode == "debate":
+                result = await asyncio.wait_for(
+                    orchestrator.run_debate(
+                        agents=agents,
+                        topic=task,
+                        max_rounds=max_rounds,
+                        session_id=session_id,
+                    ),
+                    timeout=timeout_s,
+                )
+            elif mode == "vote":
+                result = await asyncio.wait_for(
+                    orchestrator.run_vote(
+                        agents=agents, topic=task, session_id=session_id
+                    ),
+                    timeout=timeout_s,
+                )
+            elif mode == "critique":
+                result = await asyncio.wait_for(
+                    orchestrator.run_critique(
+                        agents=agents,
+                        topic=task,
+                        max_rounds=max_rounds,
+                        session_id=session_id,
+                    ),
+                    timeout=timeout_s,
+                )
+            elif mode == "decompose":
+                result = await asyncio.wait_for(
+                    orchestrator.run_decomposed(
+                        task=task, strategy=strategy, session_id=session_id
+                    ),
+                    timeout=timeout_s,
+                )
+            else:  # team:fan-out + 结构化聚合(merge/best_of/consensus)
+                from .agent_teams import TeamOrchestrator
+
+                team_round = await asyncio.wait_for(
+                    TeamOrchestrator(orchestrator).run_round(
+                        objective=task,
+                        tasks=[
+                            {"name": name, "task": f"{task}{_TEAM_OUTPUT_CONTRACT}"}
+                            for name in agents
+                        ],
+                        strategy=cast(Any, aggregation),
+                        max_concurrency=min(len(agents), _SUBAGENT_MAX_CONCURRENT),
+                    ),
+                    timeout=timeout_s,
+                )
+                result = None
+        except TimeoutError:
+            return _orchestration_error(
+                mode, f"编排超时({timeout_s}s)", "ORCHESTRATION_TIMEOUT"
+            )
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:  # noqa: BLE001 - 结构化回包,不把异常抛给工具循环
+            logger.warning(
+                "dispatch_subagent 编排失败(mode=%s): %s", mode, e, exc_info=True
+            )
+            return _orchestration_error(mode, str(e), "ORCHESTRATION_FAILED")
+        finally:
+            _subagent_depth.reset(_dtok)
+
+    if team_round is not None:
+        # TeamRoundResult 与 OrchestrationResult 统一成同一个回包形状:
+        # steps 承载每个贡献者,final_output 承载聚合后的 summary_context。
+        team_status = (
+            "completed"
+            if team_round.succeeded > 0 and team_round.failed == 0
+            else "failed"
+        )
+        payload = {
+            "tool": "orchestrate_agents",
+            "mode": "team",
+            "ok": team_status == "completed",
+            "status": team_status,
+            "orchestrationId": team_round.round_id,
+            "total_duration_ms": round(
+                sum(c.duration_ms for c in team_round.contributors), 2
+            ),
+            "agents": [c.name for c in team_round.contributors],
+            "steps": [
+                {
+                    "agent": c.name,
+                    "status": c.status,
+                    "duration_ms": c.duration_ms,
+                    "output_preview": (c.output or "")[:600],
+                    "error": c.error,
+                }
+                for c in team_round.contributors
+            ],
+            "final_output": team_round.summary_context,
+            "summary": (team_round.summary_context or "")[:500],
+            "aggregate": team_round.aggregate,
+            "trace": [{
+                "strategy": team_round.strategy,
+                "succeeded": team_round.succeeded,
+                "failed": team_round.failed,
+                "partial": team_round.partial,
+            }],
+        }
+        emit({
+            "phase": "orchestration_done",
+            "mode": "team",
+            "ok": payload["ok"],
+            "status": payload["status"],
+            "total_duration_ms": payload["total_duration_ms"],
+        })
+        return payload
+
+    if result is None:  # 防御:正常路径必已赋值,不放行"空结果当成功"
+        return _orchestration_error(mode, "编排未产出结果", "ORCHESTRATION_FAILED")
+
+    payload = {
+        "tool": "orchestrate_agents",
+        "mode": mode,
+        "ok": result.status == "completed",
+        "status": result.status,
+        "orchestrationId": result.orchestration_id,
+        "total_duration_ms": result.total_duration_ms,
+        "agents": [step.agent_name for step in result.steps],
+        "steps": [
+            {
+                "agent": step.agent_name,
+                "status": step.status,
+                "duration_ms": step.duration_ms,
+                # 单步正文只留预览:完整结果由 final_output 承载,避免多份长文膨胀上下文
+                "output_preview": (step.output or "")[:600],
+                "error": step.error,
+            }
+            for step in result.steps
+        ],
+        "final_output": result.final_output,
+        "summary": (result.final_output or "")[:500],
+        "trace": result.trace,
+    }
+    emit({
+        "phase": "orchestration_done",
+        "mode": mode,
+        "ok": payload["ok"],
+        "status": payload["status"],
+        "total_duration_ms": payload["total_duration_ms"],
+    })
+    return payload
+
+
 def _settle_dispatch_ticket(ticket_id: str | None, payload: dict[str, Any]) -> None:
     """派工结束写回既有工单账。模拟结果不算成功,不把步骤收成 ready。"""
     if not ticket_id:
@@ -7255,6 +7703,12 @@ def _mark_stub_payload(payload: dict[str, Any]) -> dict[str, Any]:
     child_stub = any(
         isinstance(item, dict) and item.get("status") == "stub" for item in results
     ) if isinstance(results, list) else False
+    # 统一编排回包用 steps 承载单步结果,与 results 同一判定(不新开一套 stub 语义)。
+    steps = payload.get("steps")
+    if not child_stub and isinstance(steps, list):
+        child_stub = any(
+            isinstance(item, dict) and item.get("status") == "stub" for item in steps
+        )
     if payload.get("status") == "stub" or payload.get("stub") is True or child_stub:
         payload["ok"] = False
         payload["stub"] = True
@@ -7297,7 +7751,7 @@ async def _invoke_subagent_for_job(
 async def _tool_subagent_job(arguments: dict[str, Any]) -> dict[str, Any]:
     """subagent_job:后台子代理作业的 list/wait/send 最小闭环(2026-11-14 立)。
 
-    对齐 DSH continuable subagent:spawn(dispatch_subagent background=true)立即
+    对齐 外部实现 continuable subagent:spawn(dispatch_subagent background=true)立即
     返回 job_id;list/wait 查询;终态后 send 以同一 lineage 续跑(上一轮任务与
     输出作为上下文)。所有权只认宿主注入身份,越权与不存在同形。
     """
@@ -7413,7 +7867,7 @@ async def _tool_dispatch_subagent(
     next_depth = current_depth + 1
     if next_depth > _SUBAGENT_MAX_DEPTH:
         return {
-            "tool": "dispatch_subagent", "ok": False,
+            "tool": "orchestrate_agents", "ok": False,
             "error": (
                 f"子代理嵌套深度超过上限({_SUBAGENT_MAX_DEPTH}),"
                 f"当前深度 {current_depth},拒绝派发以阻断无限递归"
@@ -7426,7 +7880,7 @@ async def _tool_dispatch_subagent(
     # 双模式互斥校验
     if has_single and has_tasks:
         return {
-            "tool": "dispatch_subagent", "ok": False,
+            "tool": "orchestrate_agents", "ok": False,
             "error": "不可同时传 name/task 与 tasks(单 agent 模式与并行模式互斥)",
             "errorCode": "DUAL_MODE",
         }
@@ -7434,7 +7888,7 @@ async def _tool_dispatch_subagent(
     surface_extra, surface_field = _dispatch_tool_surface_kwargs(arguments)
     if surface_field is not None:
         return {
-            "tool": "dispatch_subagent",
+            "tool": "orchestrate_agents",
             "ok": False,
             "error": f"{surface_field} 须为非空字符串组成的数组",
             "errorCode": "INVALID_PARAMS",
@@ -7449,7 +7903,7 @@ async def _tool_dispatch_subagent(
         if admission.get("runs_worker") is not True:
             reason = str(admission.get("reason") or "not_admitted")
             return {
-                "tool": "dispatch_subagent",
+                "tool": "orchestrate_agents",
                 "ok": False,
                 "status": "skipped",
                 "error": reason,
@@ -7460,22 +7914,109 @@ async def _tool_dispatch_subagent(
         raw_ticket = admission.get("ticket_id")
         ticket_id = raw_ticket if isinstance(raw_ticket, str) else None
 
+    # ===== 统一多智能体编排(2026-11-16):唯一入口的 mode 分支 =====
+    # mode 省略 → 保持历史行为(单 agent / tasks 并行);显式编排 mode 才进本分支。
+    # 六种编排模式与单/并行共用同一套治理,不再新增平级工具。
+    raw_mode = arguments.get("mode")
+    if raw_mode is not None and not isinstance(raw_mode, str):
+        return {
+            "tool": "orchestrate_agents", "ok": False,
+            "error": f"mode 须为字符串,收到 {type(raw_mode).__name__}",
+            "errorCode": "INVALID_PARAMS",
+        }
+    mode = raw_mode.strip().lower() if isinstance(raw_mode, str) else ""
+    # 省略 mode 时按入参推断,与 tasks/name 的既有推断保持一致:
+    # 有 steps → pipeline;有 tasks → parallel;有 name/task → single。
+    if not mode and isinstance(arguments.get("steps"), list) and arguments.get("steps"):
+        mode = "pipeline"
+    if not mode:
+        _missing_mode_fields = [
+            key
+            for key in ("agents", "strategy", "aggregation", "max_rounds")
+            if arguments.get(key) is not None
+        ]
+        if _missing_mode_fields:
+            return {
+                "tool": "orchestrate_agents", "ok": False,
+                "error": (
+                    f"传了 {_missing_mode_fields} 但未指定 mode;"
+                    "请显式选择 debate/vote/critique/decompose/team/pipeline"
+                ),
+                "errorCode": "INVALID_PARAMS",
+            }
+    if mode and mode not in _DISPATCH_MODES:
+        return {
+            "tool": "orchestrate_agents", "ok": False,
+            "error": f"mode 非法: {raw_mode!r},须为 {list(_DISPATCH_MODES)} 之一",
+            "errorCode": "INVALID_PARAMS",
+        }
+    if mode == "single" and has_tasks:
+        return {
+            "tool": "orchestrate_agents", "ok": False, "mode": "single",
+            "error": "mode=single 不接受 tasks;多个独立子任务请用 mode=parallel",
+            "errorCode": "INVALID_PARAMS",
+        }
+    if mode == "parallel" and not has_tasks:
+        return {
+            "tool": "orchestrate_agents", "ok": False, "mode": "parallel",
+            "error": "mode=parallel 需要 tasks 数组",
+            "errorCode": "INVALID_PARAMS",
+        }
+    if mode in ("single", "parallel"):
+        # 单/并行只认 name/task/tasks;编排专属字段静默忽略会让模型误以为生效。
+        for key in ("agents", "steps", "strategy", "aggregation", "max_rounds"):
+            if arguments.get(key) is not None:
+                return {
+                    "tool": "orchestrate_agents", "ok": False, "mode": mode,
+                    "error": f"mode={mode} 不接受 {key};编排模式请显式选 mode",
+                    "errorCode": "INVALID_PARAMS",
+                }
+        if mode == "parallel" and arguments.get("background"):
+            return {
+                "tool": "orchestrate_agents", "ok": False, "mode": "parallel",
+                "error": "mode=parallel 不支持 background;后台执行请用 mode=single",
+                "errorCode": "INVALID_PARAMS",
+            }
+    if mode in _ORCHESTRATION_MODES:
+        try:
+            orchestrated = await _run_orchestration_mode(
+                mode=mode, arguments=arguments, emit=_emit
+            )
+        except asyncio.CancelledError:
+            _drop_dispatch_ticket(ticket_id)
+            raise
+        except Exception as e:  # noqa: BLE001 - 兜底:任何意外都要结清工单
+            logger.warning("orchestrate_agents 执行异常(mode=%s): %s", mode, e, exc_info=True)
+            _drop_dispatch_ticket(ticket_id)
+            return {
+                "tool": "orchestrate_agents", "ok": False, "mode": mode,
+                "error": f"编排执行失败: {e}",
+                "errorCode": "ORCHESTRATION_FAILED",
+            }
+        _mark_stub_payload(orchestrated)
+        _settle_dispatch_ticket(ticket_id, orchestrated)
+        return _truncate_tool_output(
+            orchestrated,
+            tool_name="orchestrate_agents",
+            session_id=arguments.get("session_id"),
+        )
+
     # 并行模式:tasks 数组 → invoke_parallel
     if has_tasks:
         if not isinstance(tasks, list):
             return {
-                "tool": "dispatch_subagent", "ok": False,
+                "tool": "orchestrate_agents", "ok": False,
                 "error": "tasks 必须为数组", "errorCode": "INVALID_PARAMS",
             }
         if not tasks:
             return {
-                "tool": "dispatch_subagent", "ok": False,
+                "tool": "orchestrate_agents", "ok": False,
                 "error": "tasks 列表为空", "errorCode": "EMPTY_TASKS",
             }
         for i, t in enumerate(tasks):
             if not isinstance(t, dict) or not t.get("name") or not t.get("task"):
                 return {
-                    "tool": "dispatch_subagent", "ok": False,
+                    "tool": "orchestrate_agents", "ok": False,
                     "error": f"tasks[{i}] 缺少 name 或 task 字段",
                     "errorCode": "INVALID_PARAMS",
                 }
@@ -7484,7 +8025,7 @@ async def _tool_dispatch_subagent(
             orchestrator = _get_orchestrator()
             if _SUBAGENT_SEMAPHORE.locked():
                 _limited = {
-                    "tool": "dispatch_subagent", "ok": False, "mode": "parallel",
+                    "tool": "orchestrate_agents", "ok": False, "mode": "parallel",
                     "error": f"子代理并发数已达上限({_SUBAGENT_MAX_CONCURRENT}),拒绝派发",
                     "errorCode": "CONCURRENCY_LIMIT_EXCEEDED",
                 }
@@ -7529,7 +8070,7 @@ async def _tool_dispatch_subagent(
                 ),
             })
             _payload = {
-                "tool": "dispatch_subagent", "mode": "parallel",
+                "tool": "orchestrate_agents", "mode": "parallel",
                 "ok": result.get("ok", False),
                 "total": result.get("total", 0),
                 "succeeded": result.get("succeeded", 0),
@@ -7545,7 +8086,7 @@ async def _tool_dispatch_subagent(
             # 0-6 单子代理输出限额:复用 0-2 截断助手
             return _truncate_tool_output(
                 _payload,
-                tool_name="dispatch_subagent",
+                tool_name="orchestrate_agents",
                 session_id=arguments.get("session_id"),
             )
         except asyncio.CancelledError:
@@ -7553,7 +8094,7 @@ async def _tool_dispatch_subagent(
             raise
         except Exception as e:
             _failed = {
-                "tool": "dispatch_subagent", "ok": False, "mode": "parallel",
+                "tool": "orchestrate_agents", "ok": False, "mode": "parallel",
                 "error": str(e), "errorCode": "SUBAGENT_FAILED",
             }
             _settle_dispatch_ticket(ticket_id, _failed)
@@ -7563,18 +8104,18 @@ async def _tool_dispatch_subagent(
     session_id = arguments.get("session_id")
     if not name or not task:
         _missing = {
-            "tool": "dispatch_subagent", "ok": False,
+            "tool": "orchestrate_agents", "ok": False,
             "error": "name and task are required(或传 tasks 数组启用并行模式)",
             "errorCode": "MISSING_PARAMS",
         }
         _settle_dispatch_ticket(ticket_id, _missing)
         return _missing
-    # 后台可续跑模式(2026-11-14 立,对标 DSH continuable subagent):
+    # 后台可续跑模式(2026-11-14 立,遵循统一工程规范):
     # 只支持单 agent;立即返回 job_id,父级用 subagent_job(list/wait/send)闭环。
     if bool(arguments.get("background")):
         if has_tasks:
             return {
-                "tool": "dispatch_subagent", "ok": False, "mode": "background",
+                "tool": "orchestrate_agents", "ok": False, "mode": "background",
                 "error": "background 模式只支持单 agent(name/task),不支持 tasks 并行数组",
                 "errorCode": "BACKGROUND_PARALLEL_UNSUPPORTED",
             }
@@ -7597,12 +8138,12 @@ async def _tool_dispatch_subagent(
             timeout_s=float(_get_subagent_timeout()),
         )
         if not started.get("ok"):
-            return {"tool": "dispatch_subagent", "mode": "background", **started}
+            return {"tool": "orchestrate_agents", "mode": "background", **started}
         _job = started["job"]
         # 工单不在此结算:后台作业仍在跑,结算权在整个作业结束(与同步路径同义)。
         return _truncate_tool_output(
             {
-                "tool": "dispatch_subagent",
+                "tool": "orchestrate_agents",
                 "ok": True,
                 "mode": "background",
                 "agent": name,
@@ -7614,7 +8155,7 @@ async def _tool_dispatch_subagent(
                     "等待终态,或 action='list' 查看;终态后 action='send' 可续跑同一任务线。"
                 ),
             },
-            tool_name="dispatch_subagent",
+            tool_name="orchestrate_agents",
             session_id=session_id,
         )
 
@@ -7623,7 +8164,7 @@ async def _tool_dispatch_subagent(
         orchestrator = _get_orchestrator()
         if _SUBAGENT_SEMAPHORE.locked():
             _limited = {
-                "tool": "dispatch_subagent", "ok": False, "mode": "single",
+                "tool": "orchestrate_agents", "ok": False, "mode": "single",
                 "error": f"子代理并发数已达上限({_SUBAGENT_MAX_CONCURRENT}),拒绝派发",
                 "errorCode": "CONCURRENCY_LIMIT_EXCEEDED",
             }
@@ -7660,7 +8201,7 @@ async def _tool_dispatch_subagent(
             ),
         })
         _payload = {
-            "tool": "dispatch_subagent", "mode": "single",
+            "tool": "orchestrate_agents", "mode": "single",
             "agent": name,
             "task": task,
             "status": step_result.status,
@@ -7691,7 +8232,7 @@ async def _tool_dispatch_subagent(
         # 0-6 单子代理输出限额:复用 0-2 截断助手
         return _truncate_tool_output(
             _payload,
-            tool_name="dispatch_subagent",
+            tool_name="orchestrate_agents",
             session_id=arguments.get("session_id"),
         )
     except asyncio.CancelledError:
@@ -7699,7 +8240,7 @@ async def _tool_dispatch_subagent(
         raise
     except Exception as e:
         _failed = {
-            "tool": "dispatch_subagent", "ok": False, "mode": "single",
+            "tool": "orchestrate_agents", "ok": False, "mode": "single",
             "error": str(e), "errorCode": "SUBAGENT_FAILED",
         }
         _settle_dispatch_ticket(ticket_id, _failed)
@@ -7877,7 +8418,7 @@ def _team_task_blockers(
 
 
 def _team_task_scopes_overlap(left: str, right: str) -> bool:
-    """规范化路径前缀是否相交(同 DSH scopesOverlap:相等或互为目录前缀)。"""
+    """规范化路径前缀是否相交(同 外部实现 scopesOverlap:相等或互为目录前缀)。"""
     left = left.rstrip("/")
     right = right.rstrip("/")
     return (
@@ -7893,7 +8434,7 @@ def _team_task_view(
     """条目视图:原字段 + 派生态(ready/blocked_by/文件触碰提示)。
 
     派生态只读、不回写条目;写范围重叠提示只和 `claimed`(进行中)的兄弟条目比,
-    与 DSH `projectTaskView` 只比 in_progress 同义。
+    与 外部实现 `projectTaskView` 只比 in_progress 同义。
     """
     view = dict(entry)
     blockers = _team_task_blockers(board, entry)
@@ -7980,7 +8521,7 @@ def _team_task_add(
         "created_ts": now,
         "updated_ts": now,
         "note": "",
-        # 依赖/CAS/写范围(2026-11-14 立,对标 DSH dsh-agent-team task-board):
+        # 依赖/CAS/写范围(2026-11-14 立,遵循统一工程规范):
         # revision 从 1 起,每次成功 mutation +1;depends_on 未 done 时不可 claim;
         # write_scopes 只做重叠提示,不阻断。
         "revision": 1,
@@ -8019,7 +8560,7 @@ def _team_task_claim(
     if stale_error is not None:
         return {**stale_error, "tool": "team_task", "team_id": team_id}
 
-    # 依赖闸:任何直接前置未 done 都不可认领(和 DSH taskReady 同义)。
+    # 依赖闸:任何直接前置未 done 都不可认领(和 外部实现 taskReady 同义)。
     blockers = _team_task_blockers(board, entry)
     if blockers:
         return {
@@ -8201,7 +8742,7 @@ async def _tool_team_task(arguments: dict[str, Any]) -> dict[str, Any]:
 async def _tool_terminal(arguments: dict[str, Any]) -> dict[str, Any]:
     """terminal:长驻交互式终端(open/send/read/signal/close/list)。
 
-    2026-11-14 立,对标 DSH dsh-tool-terminal。与 run_command 的差别是**同一进程
+    2026-11-14 立,遵循统一工程规范。与 run_command 的差别是**同一进程
     跨多次调用**:open 后可用 send 分步输入、read 增量取输出、signal 中断、close 收尾。
     权限:admin-only + 高危审批(与 run_command 同档);cwd 必须落在工作区白名单内;
     子进程环境走 sandbox 严档白名单,不整份继承宿主环境。
@@ -8328,9 +8869,9 @@ async def _tool_terminal(arguments: dict[str, Any]) -> dict[str, Any]:
 async def _tool_session_search(arguments: dict[str, Any]) -> dict[str, Any]:
     """session_search:跨会话全文检索(只读)。
 
-    对标 DSH dsh-tool-session-query 的 `session_search`(2026-11-14):
+    遵循统一工程规范):
     - 授权只认宿主注入的 `__user_id`(模型自报无效);命中过滤写在 SQL 里;
-    - **始终省略调用方会话**(`__session_id`),与 DSH 一致;
+    - **始终省略调用方会话**(`__session_id`),与 外部实现 一致;
     - 可显式 `thread_id` 限定单个会话,但属主不符与"不存在"同形(不做存在性预言机);
     - 无身份(未绑用户的 dev 通道)直接拒绝,不退回全量检索。
     """
@@ -8451,7 +8992,7 @@ from ..tools import (
     extract_document_assets as _extract_document_assets,
 )
 
-# P0 新增工具(chart_tools / document_tools,零新依赖,2026-09-01 竞品对标补齐)
+# P0 新增工具(chart_tools / document_tools,零新依赖,2026-09-01 竞品对齐补齐)
 # 延迟导入避免启动期探测;工具内部异常已自兜底返回结构化错误,不抛给 MCP 层
 from ..tools import (  # noqa: E402
     generate_chart as _generate_chart,
@@ -8470,7 +9011,7 @@ from ..tools import (
     parse_document as _parse_document,
 )
 
-# G1(2026-11-14,对标 WorkBuddy sheetagent):xlsx 公式重算/校验。
+# G1(2026-11-14,遵循统一工程规范):xlsx 公式重算/校验。
 # 零新增依赖(zipfile+ElementTree),逐格 provenance + 依赖图 + 结构化错误。
 from ..tools import (
     sheet_formula_eval as _sheet_formula_eval,
@@ -8554,7 +9095,7 @@ def _remember_scheduled_task(task: dict[str, Any]) -> None:
         del _SCHEDULED_TASKS[:overflow]
         scheduled_tasks_mirror_drops += overflow
 
-# 调度任务 Redis 持久化层(2026-07-24 立,对标 Codex Automations)
+# 调度任务 Redis 持久化层(2026-07-24 立,遵循统一工程规范)
 # key 规范:mcp:schedule:<task_id> hash,字段见 _SCHEDULE_REDIS_FIELDS
 import logging as _schedule_logging
 from datetime import UTC
@@ -8687,7 +9228,7 @@ def _update_schedule_task_status(
 
 
 async def _tool_fetch_url(arguments: dict[str, Any]) -> dict[str, Any]:
-    """fetch_url: 抓取 URL 内容,返回 markdown/text/html/metadata(对标 #Web + Codex in-app browser)。
+    """fetch_url: 抓取 URL 内容,返回 markdown/text/html/metadata(对齐 #Web + Codex in-app browser)。
 
     SSRF 防护:复用 screenshot_service._validate_url_ssrf,禁止内网/保留/回环地址。
     """
@@ -8721,7 +9262,7 @@ async def _tool_fetch_url(arguments: dict[str, Any]) -> dict[str, Any]:
             "message": f"SSRF 校验失败: {reason}",
         }
 
-    # 批 52b:网络审批门(对标 codex ApprovalAction::NetworkAccess)。
+    # 批 52b:网络审批门(遵循统一工程规范)。
     # SSRF 硬防线在前(不可被审批放行);审批门在后,持久授权命中免弹窗,
     # 未授权默认拒绝(fail-closed),requester 未注入时不改变现有行为。
     # 批58(十六):拒绝分支附加 codex 原因码 + 可读消息(network_policy_decision)。
@@ -8996,7 +9537,7 @@ async def _persist_image_to_disk(
 
 
 def _image_provider_chain(explicit: str | None) -> list[str]:
-    """图片 provider 自动切换链(2026-09-08 全模态自动切换,对标 video 编排)。
+    """图片 provider 自动切换链(2026-09-08 全模态自动切换,对齐 video 编排)。
 
     顺序:env `IMAGE_PROVIDER`(逗号分隔,顺序即优先级)缺省
     token6688 → agnes → kling → jimeng,仅保留凭据已配置的。
@@ -11555,7 +12096,7 @@ def _gh_error_for_status(status: int) -> str:
 
 
 async def _tool_review_pr(arguments: dict[str, Any]) -> dict[str, Any]:
-    """review_pr: GitHub PR 审查(正则模式匹配,零 LLM,对标 Codex GitHub PR Reviews)。
+    """review_pr: GitHub PR 审查(正则模式匹配,零 LLM,遵循统一工程规范)。
 
     2026-07-24 升级:
     - 新增 diff 参数(字符串),与 repo+pr_number 互斥(优先 repo+pr_number)
@@ -11723,7 +12264,7 @@ def _build_review_result(
 
 
 async def _tool_summarize_artifacts(arguments: dict[str, Any]) -> dict[str, Any]:
-    """summarize_artifacts: 聚合当前会话的 plans/sources/artifacts(对标 Codex Summary pane)。
+    """summarize_artifacts: 聚合当前会话的 plans/sources/artifacts(遵循统一工程规范)。
 
     通过 artifacts_store 读取(Redis hash 持久化,进程重启不丢;Redis 不可用降级进程内)。
     纯本地读取,不调外部 API(零算力)。
@@ -11843,14 +12384,14 @@ def _build_scheduler_params(
         }
     else:
         callback = {
-            "type": "mcp_tool", "tool_name": "dispatch_subagent",
+            "type": "mcp_tool", "tool_name": "orchestrate_agents",
             "args": {"name": "feature-planner", "task": prompt},
         }
     return trigger_type, trigger_config, callback
 
 
 async def _tool_schedule_task(arguments: dict[str, Any]) -> dict[str, Any]:
-    """schedule_task: 调度定时任务(对标 Codex Automations)。
+    """schedule_task: 调度定时任务(遵循统一工程规范)。
 
     支持 cron / date / interval 三种 trigger,任务记录持久化到 Redis
     (key: mcp:schedule:<task_id> 详细记录 + task_scheduler 内部 mcp:scheduled_task: 调度态),
@@ -12050,7 +12591,7 @@ async def _tool_cancel_scheduled_task(arguments: dict[str, Any]) -> dict[str, An
 
 
 async def _tool_schedule_wakeup(arguments: dict[str, Any]) -> dict[str, Any]:
-    """schedule_wakeup: 延迟唤醒(对标 Codex ScheduleWakeup 的"稍后叫我")。
+    """schedule_wakeup: 延迟唤醒(遵循统一工程规范)。
 
     定时工具面此前只有建/查/撤三动词,模型没有"过 N 秒再跑一次"的最小表达;
     本工具就是 schedule_task(once) 的一格特化:入参只有 delay_seconds + prompt。
@@ -12137,7 +12678,7 @@ async def _tool_schedule_wakeup(arguments: dict[str, Any]) -> dict[str, Any]:
 
 
 async def _tool_proactive_suggestion(arguments: dict[str, Any]) -> dict[str, Any]:
-    """proactive_suggestion: 基于当前会话上下文主动建议后续工作(对标 Codex Proactive work proposals)。
+    """proactive_suggestion: 基于当前会话上下文主动建议后续工作(遵循统一工程规范)。
 
     纯本地规则匹配(零算力,不调 LLM)。
     """
@@ -12216,7 +12757,7 @@ async def _tool_proactive_suggestion(arguments: dict[str, Any]) -> dict[str, Any
 
 
 def _mcp_model_tools_enabled_from_env() -> bool:
-    """批58 接线(对标 codex model_tools.rs):特殊工具结果/校验归一。
+    """批58 接线(遵循统一工程规范):特殊工具结果/校验归一。
 
     默认 off:后台 sleep 时长不校验、完成通知不带 async 投影(逐字节等价);
     设为 on/1/true/yes 时经 validate_sleep_duration 校验时长、经
@@ -12934,7 +13475,7 @@ async def _tool_send_to_session(
 
 
 # ---------------------------------------------------------------------------
-# Notebook 结构编辑(G-NotebookEdit 补齐,2026-11-01 立;对标对方 NotebookEdit 的
+# Notebook 结构编辑(G-NotebookEdit 补齐,2026-11-01 立;对齐对方 NotebookEdit 的
 # cell_id/cell_type/edit_mode 三键,本仓 MCP/CLI 工具面此前 0 命中)
 # 写盘腿纪律:定位/改写只动目标 cell,回写一律走 _tool_write_file 的串行化腿
 # (per-path 锁 + 并发漂移判定 + base 刷新),不开第二条文件写/权限腿(§0.6)。
@@ -13125,7 +13666,7 @@ async def _tool_advisor_consult(arguments: dict[str, Any]) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
-# run_workflow(逆向对齐补齐腿,2026-11-02 立):多节点 agent 工作流 +
+# run_workflow(独立分析对齐补齐腿,2026-11-02 立):多节点 agent 工作流 +
 # resume_from_run_id 入参级续跑缓存。判据本体全在 app/services/workflow_runner.py
 # (幂等键/续跑存储/分派出口全部 import 复用 task_executors 单源,§0.6),
 # 本层只接线、不复算。身份只认承载层注入 __user_id(_identity_or_error 单源),
@@ -13176,7 +13717,7 @@ async def _tool_run_workflow(arguments: dict[str, Any]) -> dict[str, Any]:
 
     resume_raw = arguments.get("resume_from_run_id")
     resume = str(resume_raw).strip() if resume_raw is not None and str(resume_raw).strip() else None
-    # 后台化(对齐 DSH tool-workflow 的 run_in_background):提交即返回 task_id,
+    # 后台化(对齐 外部实现 tool-workflow 的 run_in_background):提交即返回 task_id,
     # 工作流按同一 run_workflow 语义在后台执行,结果经 bg_task_status 取回。
     # 拒绝/禁用态显式回 BACKGROUND_REJECTED,绝不伪装成"已开始"。
     raw_bg = arguments.get("run_in_background")
@@ -13744,7 +14285,7 @@ _TOOLS: list[MCPTool] = [
             },
         },
     ),
-    # ===== 模型侧交互式终端(2026-11-14,对标 DSH dsh-tool-terminal)=====
+    # ===== 模型侧交互式终端(2026-11-14,遵循统一工程规范)=====
     MCPTool(
         name="terminal",
         description=(
@@ -14365,7 +14906,7 @@ _TOOLS: list[MCPTool] = [
             "required": ["url"],
         },
     ),
-    # ===== 图像分析工具(P2-3,对标 Hermes 多模态输入)=====
+    # ===== 图像分析工具(P2-3,对齐 Hermes 多模态输入)=====
     MCPTool(
         name="vision_analyze",
         description=(
@@ -14401,9 +14942,11 @@ _TOOLS: list[MCPTool] = [
             "required": ["task"],
         },
     ),
-    # ===== 子智能体派发工具(2026-07-24 新增)=====
+    # ===== 子智能体编排工具(2026-11-16 由 dispatch_subagent 更名为模型面唯一入口)=====
     MCPTool(
-        name="dispatch_subagent",
+        name="orchestrate_agents",
+        # 旧名 dispatch_subagent 保留为 handler/alias 兼容(CLI、历史调用、定时任务仍可用),
+        # 但不再出现在 _TOOLS 广告面 —— 模型只看到一个编排入口。
         # D145①:静态骨架;名单不在这里写死 —— 两条广告面(list_tools() 与
         # get_full_tool_schema())都用 `_ADVERTISED_DESCRIPTION_PROVIDERS` 现读拼接
         # (唯一出口 `_dispatch_subagent_description`,理由见其定义处注释)。
@@ -14467,10 +15010,65 @@ _TOOLS: list[MCPTool] = [
                         "长任务或需要与子代理并行推进时使用。"
                     ),
                 },
+                # ===== 统一多智能体编排(2026-11-16)=====
+                # 同一个工具的唯一 mode 入口:模型按任务性质自主选择,不再新增平级工具。
+                "mode": {
+                    "type": "string",
+                    "enum": list(_DISPATCH_MODES),
+                    "description": (
+                        "执行模式。省略=按入参推断(有 tasks → parallel,"
+                        "有 steps → pipeline,有 name/task → single)。"
+                        "编排模式:pipeline(串行流水线)/debate(多轮辩论)/"
+                        "vote(方案投票)/critique(提案-批判-改进)/"
+                        "decompose(任务自动分解调度)/team(共享黑板协作)。"
+                    ),
+                },
+                "agents": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": (
+                        "debate/vote/critique 需 2-5 个 agent;team 可 1-5 个。"
+                        "名字须在工具描述广告的注册表清单内。"
+                    ),
+                },
+                "steps": {
+                    "type": "array",
+                    "description": "pipeline 模式的串行步骤(1-6 步),前后步骤共享 {prev_output}",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "agent": {"type": "string"},
+                            "input_template": {
+                                "type": "string",
+                                "description": (
+                                    "可含 {input}/{prev_output}/{step} 占位符,默认 {input}"
+                                ),
+                            },
+                        },
+                        "required": ["agent"],
+                    },
+                },
+                "strategy": {
+                    "type": "string",
+                    "enum": list(_DECOMPOSE_STRATEGIES),
+                    "description": "decompose 的分解策略(默认 dag)",
+                },
+                "aggregation": {
+                    "type": "string",
+                    "enum": list(_TEAM_AGGREGATIONS),
+                    "description": (
+                        "team 的结果聚合策略:merge 合并全文 / best_of 择优 / "
+                        "consensus 共识与冲突检测(默认 merge)"
+                    ),
+                },
+                "max_rounds": {
+                    "type": "integer",
+                    "description": "debate/critique 最大轮数(1-3;默认 debate=3、critique=2)",
+                },
             },
         },
     ),
-    # ===== 可续跑 subagent 作业台(2026-11-14,对标 DSH continuable subagent)=====
+    # ===== 可续跑 subagent 作业台(2026-11-14,遵循统一工程规范)=====
     MCPTool(
         name="subagent_job",
         description=(
@@ -14478,7 +15076,7 @@ _TOOLS: list[MCPTool] = [
             "send 向**已结束**的作业追加消息,以同一任务线(lineage)续跑,"
             "上一轮任务与输出自动作为上下文;cancel 中断运行中的作业。"
             "运行中的作业 send 返回 SUBAGENT_BUSY。"
-            "spawn 入口是 dispatch_subagent(background=true)。"
+            "spawn 入口是 orchestrate_agents(background=true)。"
         ),
         input_schema={
             "type": "object",
@@ -14490,7 +15088,7 @@ _TOOLS: list[MCPTool] = [
                 },
                 "job_id": {
                     "type": "string",
-                    "description": "wait/send/cancel 必填:dispatch_subagent(background=true) 返回的 job_id",
+                    "description": "wait/send/cancel 必填:orchestrate_agents(background=true) 返回的 job_id",
                 },
                 "wait_s": {
                     "type": "integer",
@@ -14520,7 +15118,7 @@ _TOOLS: list[MCPTool] = [
             "(仅持有者可改;带 expected_revision 做 CAS,过期回 TASK_STALE_REVISION)"
             "→ list 读整表快照(含 ready/blocked_by/write_scope_warnings)。"
             "write_scopes 只是文件触碰提示(与进行中条目路径前缀重叠时告警),不阻断。"
-            "与 dispatch_subagent 搭配用:派发是一次性往返,本表补上共同事实源。"
+            "与 orchestrate_agents 搭配用:派发是一次性往返,本表补上共同事实源。"
         ),
         input_schema={
             "type": "object",
@@ -14577,7 +15175,7 @@ _TOOLS: list[MCPTool] = [
             "required": ["action"],
         },
     ),
-    # ===== 跨会话检索(2026-11-14,对标 DSH dsh-tool-session-query session_search)=====
+    # ===== 跨会话检索(2026-11-14,遵循统一工程规范)=====
     MCPTool(
         name="session_search",
         description=(
@@ -15157,7 +15755,7 @@ _TOOLS: list[MCPTool] = [
     MCPTool(
         name="schedule_wakeup",
         description=(
-            "延迟唤醒:delay_seconds 秒后把 prompt 再跑一次(对标 Codex ScheduleWakeup)。"
+            "延迟唤醒:delay_seconds 秒后把 prompt 再跑一次(对齐统一规范)。"
             "落地为 task_scheduler 的 date 触发,回调与 schedule_task 同一个派发形态。"
             "admin 专属工具:底层 add_task 无归属校验,与 schedule_task 同档。"
         ),
@@ -15605,7 +16203,7 @@ _TOOLS: list[MCPTool] = [
     MCPTool(
         name="fetch_readable",
         description=(
-            "抓取单个网页并抽取正文为干净 GFM markdown(对标 Firecrawl Scrape 的 clean markdown,"
+            "抓取单个网页并抽取正文为干净 GFM markdown(对齐 Firecrawl Scrape 的 clean markdown,"
             "剥离 nav/footer/header/script/style 等噪声)。返回可注入 LLM 上下文的正文 + title/metadata。"
             "用于阅读新闻报道、文档页、产品页等网页正文。SSRF 防护同 fetch_url。"
         ),
@@ -15623,7 +16221,7 @@ _TOOLS: list[MCPTool] = [
     MCPTool(
         name="map_site",
         description=(
-            "抓取起始页面并提取其全部站内链接, 返回站点 URL 地图(对标 Firecrawl Map)。"
+            "抓取起始页面并提取其全部站内链接, 返回站点 URL 地图(对齐 Firecrawl Map)。"
             "默认仅同域、去 fragment、去重, 附带锚文本。常用于快速摸清站点结构。SSRF 防护同 fetch_url。"
         ),
         input_schema={
@@ -15641,7 +16239,7 @@ _TOOLS: list[MCPTool] = [
     MCPTool(
         name="crawl_site",
         description=(
-            "从起始 URL 递归抓取同域名页面(对标 Firecrawl Crawl,BFS 限深度/页数/并发),"
+            "从起始 URL 递归抓取同域名页面(对齐 Firecrawl Crawl,BFS 限深度/页数/并发),"
             "输出分页清单或合并 markdown。全站探索/站点总结用。SSRF 防护 + 同域约束,"
             "默认深度 1 限 10 页(硬上限深度 3/页数 50, 单页 15s)。资源较重, 限 admin 调用。"
         ),
@@ -15661,7 +16259,7 @@ _TOOLS: list[MCPTool] = [
     MCPTool(
         name="extract_web",
         description=(
-            "按显式字段 schema 从网页抽取结构化数据(对标 Firecrawl Extract)。"
+            "按显式字段 schema 从网页抽取结构化数据(对齐 Firecrawl Extract)。"
             "fields 传 JSON 字符串如 {\"price\":\"number\",\"author\":\"string\"}。"
             "LLM 通道优先, 未配置时启发式兜底。用于价格/作者/联系方式等字段抽取。SSRF 防护同 fetch_url。"
         ),
@@ -15829,7 +16427,7 @@ _TOOLS: list[MCPTool] = [
         description=(
             "D11 浏览器自检截图:用 headless Chromium 对指定 URL 截图,返回 base64 PNG、"
             "视口宽高、页面 console 错误列表、页面标题与最终 URL。agent 完成前端/UI 任务后"
-            "用于自主截图自检(对标 Codex/Trae 的 completion verification)。"
+            "用于自主截图自检(对齐统一规范)。"
             "仅允许 http/https,禁止 file:// 等非常规协议。"
         ),
         input_schema={
@@ -16294,7 +16892,7 @@ _TOOLS: list[MCPTool] = [
         },
     ),
     # ===== Notebook 结构编辑(G-NotebookEdit 补齐,2026-11-01 立)=====
-    # 对标对方 NotebookEdit 三键(cell_id/cell_type/edit_mode);身份不入 schema
+    # 对齐对方 NotebookEdit 三键(cell_id/cell_type/edit_mode);身份不入 schema
     # (ROUTING_IDENTITY_KEYS 纪律:只认宿主注入 __user_id,模型自报即越权)。
     MCPTool(
         name="notebook_edit",
@@ -16344,7 +16942,7 @@ _TOOLS: list[MCPTool] = [
             "additionalProperties": False,
         },
     ),
-    # ===== 工作流续跑(G-逆向对齐 Workflow/RunWorkflow,2026-11-02 立)=====
+    # ===== 工作流续跑(G-独立分析对齐 Workflow/RunWorkflow,2026-11-02 立)=====
     # 身份不入 schema(ROUTING_IDENTITY_KEYS 纪律:只认宿主注入 __user_id,模型自报即越权);
     # 与 _TOOL_HANDLERS 里 "run_workflow" 同批双射,漏一侧即 test_tools_count_matches_registry 红。
     MCPTool(
@@ -16391,7 +16989,7 @@ _TOOLS: list[MCPTool] = [
         },
     ),
     # ===== 工作簿 agent 面(goal-b45 F 席,2026-11-02 立)=====
-    # 对标 Qoder 内置 xlsx-sidecar.exe 的 14 枚命令里 open/read_range/writeCells/save/close
+    # 遵循统一工程规范
     # 那一族(取证 T8-sidecar-native-surface.md §B);**只取五枚最小集**,不照抄 14 条凑数。
     # 身份不入 schema(ROUTING_IDENTITY_KEYS 纪律:只认宿主注入 __user_id,模型自报即越权);
     # 与 _TOOL_HANDLERS 里四枚 workbook_* 同批双射,漏一侧即 test_tools_count_matches_registry 红。
@@ -16666,6 +17264,8 @@ _TOOL_ALIASES: dict[str, str] = {
     "browse": "fetch_url",
     "http_request": "fetch_url",
     "open_url": "fetch_url",
+    # 多智能体编排:2026-11-16 模型面更名为 orchestrate_agents,旧名归一到新名。
+    "dispatch_subagent": "orchestrate_agents",
 }
 
 
@@ -16704,7 +17304,7 @@ def _normalize_tool_name(name: str) -> str:
 # 把"完整工具 schema"与"放进 LLM 上下文的精简定义"解耦:默认(TOOL_DEFERRAL=on)
 # 下,agent loop 把"压缩描述 + 分层参数"(内置/桥接完整保留,api_* 长尾保留键名/类型/
 # required、只删字段 description)塞进上下文,模型需要被删掉的字段说明时通过内置
-# get_tool_schema 工具按需拉取,对标 Claude Code 的工具定义瘦身(上下文占比超阈值
+# get_tool_schema 工具按需拉取,遵循统一工程规范
 # 自动 deferral)。本注册表是两来源(内置 _TOOLS / 外部 register_external_tool)的统一落点。
 _DEFERRED_TOOL_SCHEMAS: dict[str, dict[str, Any]] = {}
 
@@ -16739,6 +17339,7 @@ def get_full_tool_schema(name: str) -> dict[str, Any] | None:
     原样交回 import 期快照等于向模型广告 0 个可用名。返回浅拷贝:注册表里那份仍是
     import 期的完整 schema 真相,回写它会让两条面各自漂移(deferral 的 input_schema 不动)。
     """
+    name = _normalize_tool_name(name)
     entry = _DEFERRED_TOOL_SCHEMAS.get(name)
     if entry is None:
         return None
@@ -17021,7 +17622,7 @@ async def _tool_edu_reject_refund(args: dict[str, Any]) -> dict[str, Any]:
 
 # ---------------------------------------------------------------------------
 # 工作簿 agent 面(workbook_* 2026-11-02 立,goal-b45 F 席)
-# 对标 Qoder 内置 xlsx-sidecar.exe 的 open / read_range / writeCells / save 那一格
+# 遵循统一工程规范
 # (取证 docs/benchmark-evidence/2026-11/qoder-trae-rea-20261101/T8-sidecar-native-surface.md §B)。
 # 判据(归属 / 公式 / 形状)全部住在 apps/api src/services/workbook-service.ts —— 下面四枚
 # handler 只做薄壳,零复算(§0.6)。身份只认宿主注入的 __user_id,并先过 resolve_caller
@@ -17343,10 +17944,12 @@ _TOOL_HANDLERS: dict[str, Any] = {
     "configure_automation_task": _tool_configure_automation_task,
     # ===== 截图工具(2026-07-22 新增,WorkPanel iframe 降级)=====
     "screenshot_url": _tool_screenshot_url,
-    # ===== 图像分析(P2-3,对标 Hermes 多模态输入)=====
+    # ===== 图像分析(P2-3,对齐 Hermes 多模态输入)=====
     "vision_analyze": _tool_vision_analyze,
-    # ===== 子智能体派发(2026-07-24 新增)=====
-    "dispatch_subagent": _tool_dispatch_subagent,
+    # ===== 子智能体编排(2026-07-24 新增;2026-11-16 模型面更名为 orchestrate_agents)=====
+    # 旧名 dispatch_subagent 不占 handler 槽位:call_tool 先查 handler 失败后经
+    # _TOOL_ALIASES 归一到本名,既保住 _TOOLS ↔ _TOOL_HANDLERS 一一对应,又兼容旧调用。
+    "orchestrate_agents": _tool_dispatch_subagent,
     "subagent_job": _tool_subagent_job,
     # ===== D08①(2026-10-25):团队共享任务列表(与派发面同一协作域)=====
     "team_task": _tool_team_task,
@@ -17367,7 +17970,7 @@ _TOOL_HANDLERS: dict[str, Any] = {
     # 延迟唤醒(2026-10-31):定时面第四个动词"稍后叫我";入参只有 delay_seconds + prompt,
     # 调度判据仍走 _build_scheduler_params 单源,不另写一份。
     "proactive_suggestion": _tool_proactive_suggestion,
-    # ===== P0 新增工具(2026-09-01,竞品对标:图表生成 + 文档解析)=====
+    # ===== P0 新增工具(2026-09-01,竞品对齐:图表生成 + 文档解析)=====
     "generate_chart": _generate_chart,
     # PROJECT_PLAN #81 最小一环:报表模板生成器(2026-09-28,与 chart 共用产物基础设施)
     "generate_report": _generate_report,
@@ -17432,7 +18035,7 @@ _TOOL_HANDLERS: dict[str, Any] = {
     # Notebook 结构编辑(G-NotebookEdit,2026-11-01 立;与上方 _TOOLS 声明同批双射)
     "notebook_edit": _tool_notebook_edit,
     "advisor_consult": _tool_advisor_consult,
-    # 工作流续跑(G-逆向对齐,2026-11-02 立;与上方 _TOOLS 声明同批双射)
+    # 工作流续跑(G-独立分析对齐,2026-11-02 立;与上方 _TOOLS 声明同批双射)
     "run_workflow": _tool_run_workflow,
     # 工作簿 agent 面(goal-b45 F 席,2026-11-02 立;与上方四枚 _TOOLS 声明同批双射,
     # 漏一枚即 test_tools_count_matches_registry 红。判据全在 apps/api,这里只是薄壳)
@@ -17669,7 +18272,7 @@ class MCPServer:
                     )
             except Exception as e:  # noqa: BLE001 - 合并失败绝不改变工具清单
                 logger.warning("world_state_tools 合并失败(降级跳过): %s", e)
-        # 缺口表 #7(2026-11-01,对标对侧 products.<form> 能力表):列表面收口。
+        # 缺口表 #7(2026-11-01,对齐对侧 products.<form> 能力表):列表面收口。
         # 零扰动:未设任何 env 时声明族的能力键都取台账默认(开),本步与入参逐字同序同集
         # (tests/test_tool_surface_gate.py ① 是反向对照,不是口头保证)。
         # `deferred:<ns>` 一族不命中任何族前缀 ⇒ 不受影响。

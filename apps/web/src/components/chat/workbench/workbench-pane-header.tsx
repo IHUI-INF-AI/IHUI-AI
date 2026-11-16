@@ -17,7 +17,6 @@ import { useTranslations } from 'next-intl'
 import { Maximize2, Minimize2 } from 'lucide-react'
 
 import { ContextUsageRing } from '@/components/ai/context-usage-ring'
-import { ModeSwitcher } from '@/components/chat/mode-switcher'
 import { useChat } from '@/hooks/use-chat'
 import { Button } from '@ihui/ui-react'
 
@@ -45,9 +44,6 @@ export function WorkbenchPaneHeader({
         {title}
       </span>
       <div className="flex shrink-0 items-center gap-2">
-        {/* 模式档(ask/plan/build…)内核件:票60 普查批起窗格寻址 ⇒ 在本壳 Provider 内
-            切的是**工作台窗格**的模式,不带走根侧栏;本壳不写第二份切换逻辑。 */}
-        <ModeSwitcher />
         <ContextUsageRing model={currentModel ?? ''} isStreaming={isStreaming} />
         {onToggleImmersive && (
           <Button

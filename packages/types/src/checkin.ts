@@ -267,6 +267,52 @@ export interface CheckinWbTasksStatus {
   last_sweep?: CheckinWbSweepSummary | null
 }
 
+/** 豆包任务巡检上一轮摘要(2026-11-16;与 WB 同语义,进程内只读快照) */
+export interface CheckinDoubaoSweepSummary {
+  /** 开跑时间 ISO */
+  at: string
+  /** 收尾时间 ISO */
+  finished_at: string
+  /** 本轮是否只读预检(DOUBAO_TASKS_LIVE_RUN=false) */
+  dry_run: boolean
+  /** 覆盖账号数 */
+  accounts: number
+  /** 成功领取任务/里程碑数 */
+  claimed: number
+  /** 跳过项数(未完成/资格不符/缺参) */
+  skipped: number
+  /** 异常账号数 */
+  errors: number
+  /** 上游未下发任务(活动未开放)账号数 */
+  unjudged: number
+  /** 冷却中跳过账号数 */
+  skipped_cooldown: number
+  /** 非空 = 本轮未跑完的原因 */
+  note: string | null
+}
+
+/** 豆包任务巡检状态(观测态 + 配置意图,语义同 CheckinWbTasksStatus) */
+export interface CheckinDoubaoTasksStatus {
+  /** 观测态:job 现在真注册着 */
+  enabled: boolean
+  /** 配置意图:DOUBAO_TASKS_ENABLED 原值 */
+  tasks_enabled: boolean
+  /** 配置意图:总闸 CHECKIN_CRON_ENABLED 原值 */
+  cron_enabled: boolean
+  /** enabled=false 时点名卡在哪一层;服务端旧版本不返回 */
+  not_running_reason?: string | null
+  /** true=真实写侧;false=只读预检 */
+  live_run: boolean
+  /** 每日巡检小时(0-23) */
+  cron_hours: number[]
+  /** 每日巡检分钟 */
+  cron_minute: number
+  /** 生成类任务是否代跑推荐 prompt */
+  auto_generate: boolean
+  /** 上一轮巡检摘要;null=本进程还没跑过,undefined=服务端版本较旧 */
+  last_sweep?: CheckinDoubaoSweepSummary | null
+}
+
 /** GET /scheduler/status 响应 */
 export interface CheckinSchedulerStatusResponse {
   /** 调度总开关 */
@@ -288,8 +334,12 @@ export interface CheckinSchedulerStatusResponse {
   next_run_probe?: string | null
   /** 下次 WorkBuddy 任务巡检时间,ISO 8601 或 null */
   next_run_wb_tasks?: string | null
+  /** 下次豆包任务巡检时间,ISO 8601 或 null;旧服务端不返回 */
+  next_run_doubao_tasks?: string | null
   /** 自动做任务巡检视图;服务端版本较旧时不返回 ⇒ 前端按「状态未知」呈现 */
   wb_tasks?: CheckinWbTasksStatus
+  /** 豆包任务巡检视图;旧服务端不返回 ⇒ 前端按「状态未知」呈现 */
+  doubao_tasks?: CheckinDoubaoTasksStatus
 }
 
 /** POST /accounts/{id}/checkin 响应(本次签到记录) */

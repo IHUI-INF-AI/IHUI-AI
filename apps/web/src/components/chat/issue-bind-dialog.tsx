@@ -5,7 +5,7 @@
 'use client'
 
 /**
- * D179 会话/新对话 Issue 绑定流(2026-09-30 用户拍板立项,竞品对标):
+ * D179 会话/新对话 Issue 绑定流(2026-09-30 用户拍板立项,竞品对齐):
  * - bindIssue「绑定 Issue」:搜索对话框(来源 GitHub/Linear → searchIssues → 选中绑定/换绑)
  * - unbindIssue「改为独立任务」:解绑 = 清空会话绑定
  * - 空态:noIssues(还没有可以绑定的 Issue)/ noMatchingIssues(没有匹配的 Issue)

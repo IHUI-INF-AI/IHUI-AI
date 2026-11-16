@@ -32,7 +32,7 @@ import {
   eduTrialReservationList,
   eduTrialReservationUpdate,
 } from '@ihui/api-client'
-import { BackButton } from '@/components/common'
+import { FeaturePageShell } from '@/components/layout'
 import {
   Card,
   CardContent,
@@ -917,14 +917,14 @@ export default function EnrollmentPage() {
   }
 
   return (
-    <div className="space-y-4 px-4 py-4">
-      <BackButton />
-
-      <header className="space-y-1">
-        <h1 className="text-display font-bold tracking-tight">招生管理</h1>
-        <p className="text-label text-muted-foreground">管理线索、试听预约和报名记录</p>
-      </header>
-
+    // 2026-11-16 接入统一子功能页外壳:BackButton + 手写 header 收编为页头卡,自动带上「教育」返回 chip。
+    // 本页无 i18n 命名空间,标题沿用页面既有文案(仅迁移,不新增硬编码中文)。
+    <FeaturePageShell
+      title="招生管理"
+      description="管理线索、试听预约和报名记录"
+      icon={UserPlus}
+      domain="edu"
+    >
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="leads">
@@ -1614,7 +1614,7 @@ export default function EnrollmentPage() {
         terms={terms}
         onSave={handleAddEnrollment}
       />
-    </div>
+    </FeaturePageShell>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

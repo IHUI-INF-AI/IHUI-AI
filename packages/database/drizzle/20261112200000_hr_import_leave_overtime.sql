@@ -10,7 +10,7 @@
 --           这个核算结果,丢掉了「几点到几点、谁批的、什么倍率」的原始凭据,争议时无法举证
 --
 -- 幂等安全:ADD COLUMN IF NOT EXISTS + CREATE TABLE IF NOT EXISTS,可安全重复执行。
--- 与 packages/database/src/schema/hr-import.ts、hr-overtime.ts 逐字对齐。
+-- 与 packages/database/src/schema/hr-import.ts、hr-overtime.ts 按行为规格。
 --
 -- 执行方式:
 --   pnpm tsx packages/database/scripts/apply-migration.mjs drizzle/20261112200000_hr_import_leave_overtime.sql

@@ -2,12 +2,11 @@
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-"""子代理共享任务板 — 复现 DeepSeek dsh-agent-team / dsh-tool-agent-team。
+"""子代理共享任务板。
 
-取证来源
+设计依据
 --------
-``.ihui-agent/tmp/dsh-src/dsh-agent-team/src/{task-board,projection,validation,task-view}.ts``
-与 ``.ihui-agent/tmp/dsh-src/dsh-tool-agent-team/src/index.ts``（完整源码直读）:
+按行为规格:
 
     TeamTaskBoard.create: 建 unowned pending 任务, revision=1, subject≤200 /
       description≤16384, 依赖图校验, 超 max_tasks 报 TEAM_TASK_LIMIT。
@@ -35,7 +34,7 @@
 2. revision CAS + Lead/owner 授权 + 8 action 前置校验 + 依赖图校验;
 3. ``project_task_view``: ready + writeScopeWarnings 推导;
 4. ``required_text`` / ``write_scope``: 输入归一 + 校验;
-5. 稳定错误码（TeamError）对齐 DSH: TEAM_TASK_STALE_REVISION 等。
+5. 稳定错误码（TeamError）对齐 外部实现: TEAM_TASK_STALE_REVISION 等。
 
 与既有层关系
 --------------
@@ -50,7 +49,7 @@ import re
 from dataclasses import dataclass, field, replace
 from enum import StrEnum
 
-# ── 错误码（对齐 DSH 稳定枚举） ──────────────────────────────────────────────
+# ── 错误码（对齐 外部实现 稳定枚举） ──────────────────────────────────────────────
 
 
 class TeamErrorCode(StrEnum):

@@ -7,7 +7,7 @@
 
 """批 47:SessionStore.update_thread_metadata 线程元数据 patch 更新测试。
 
-对标 OpenAI codex thread-store update_thread_metadata + ThreadMetadataPatch。
+对齐 OpenAI codex thread-store update_thread_metadata + ThreadMetadataPatch。
 自包含,直接 from app.services.session_store import SessionStore。
 """
 
@@ -30,7 +30,7 @@ def test_merge_deep_nested_and_scalar_override(tmp_path: Path) -> None:
     assert out == {"a": {"b": 1, "d": 3}, "c": 9}
 
 
-# 2. None 删除键(对标 codex ClearableField)
+# 2. None 删除键(遵循统一工程规范)
 def test_patch_none_deletes_key(tmp_path: Path) -> None:
     store = _new_store(tmp_path)
     t = store.create_thread(metadata={"a": 1, "c": 2})

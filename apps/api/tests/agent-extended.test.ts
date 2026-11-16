@@ -739,7 +739,7 @@ describe('agent-extended routes — 路由层 mock 测试', () => {
       const dates: Date[] = []
       const seen = new Set<unknown>()
       const walk = (node: unknown): void => {
-        if (node == null || typeof node !== 'object' || seen.has(node)) return
+        if (node === null || typeof node !== 'object' || seen.has(node)) return
         seen.add(node)
         if (node instanceof Date) {
           dates.push(node)

@@ -5,7 +5,7 @@
 -- F-588:AI 预算 upsert 无唯一约束，并发激活产生重复预算行。
 -- 收敛迁移:把 ai_budgets 的定位键 (scope, scope_key, model) 统一为一条
 -- NULLS NOT DISTINCT 唯一索引 "ai_budget_scope_idx",与
--- packages/database/src/schema/ai-cost.ts 声明逐字对齐。
+-- packages/database/src/schema/ai-cost.ts 声明按行为规格。
 --
 -- 背景:历史上有两套 F-588 方案 ——
 --   · 20261114100000 走两条部分唯一索引(no_model / model);

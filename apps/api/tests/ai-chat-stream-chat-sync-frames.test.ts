@@ -362,7 +362,7 @@ describe('B02 缺口①:SSE 生成腿的 created / patched 帧', () => {
   })
 
   it('④ 帧名与契约同值(不另写同值常量)', async () => {
-    // 发射器内部走 @ihui/types 构造器;这里把三枚事件名与契约常量逐字对齐一次,
+    // 发射器内部走 @ihui/types 构造器;这里把三枚事件名与契约常量按行为规格一次,
     // 防未来"路由侧手拼字符串"漂移。
     expect(CHAT_SYNC_EVENT_NAMES.MESSAGE_CREATED).toBe('message:created')
     expect(CHAT_SYNC_EVENT_NAMES.MESSAGE_PATCHED).toBe('message:patched')

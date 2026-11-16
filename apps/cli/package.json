@@ -1,7 +1,7 @@
 {
   "name": "ihui-cli",
   "version": "1.0.0",
-  "description": "IHUI AI Coding Agent CLI — 对标 Claude Code / Codex",
+  "description": "IHUI AI Coding Agent CLI — 对齐统一规范",
   "license": "Apache-2.0",
   "private": false,
   "type": "module",

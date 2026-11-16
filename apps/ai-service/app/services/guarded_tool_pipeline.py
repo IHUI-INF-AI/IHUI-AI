@@ -52,6 +52,8 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
+from app.core.guardian_risk import GuardianRiskLevel
+
 from .agent_step_recorder import agent_step_recorder as _default_recorder
 from .injection_event_recorder import record_injection_event as _default_injection_recorder
 from .prompt_guard import act as _default_prompt_guard
@@ -301,7 +303,9 @@ class GuardedToolPipeline:
                             injection_recorder(
                                 session_id,
                                 source="tool_args",
-                                risk_level="high",
+                                # 归一化到唯一枚举:拦截事件恒为 high
+                                # (Codex 语义:危险入参命中 = 阻断级,触发 Guardian 复核)。
+                                risk_level=GuardianRiskLevel.HIGH.value,
                                 hit_types=hits,
                                 action="block",
                                 blocked=True,

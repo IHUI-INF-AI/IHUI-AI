@@ -12,7 +12,7 @@ export const metadata: Metadata = {
     absolute: '深度研究 Deep Research | IHUI AI',
   },
   description:
-    'IHUI AI 深度研究(Deep Research)Agent:输入课题即可规划问题、多源检索、深度调查与综合成稿,一键生成带来源清单的 Markdown 研究报告,对标 Claude/Perplexity 深度研究。',
+    'IHUI AI 深度研究(Deep Research)Agent:输入课题即可规划问题、多源检索、深度调查与综合成稿,一键生成带来源清单的 Markdown 研究报告,对齐 Claude/Perplexity 深度研究。',
   alternates: { canonical: '/deep-research' },
   openGraph: {
     type: 'website',

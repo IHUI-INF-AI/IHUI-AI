@@ -5,7 +5,7 @@
 /**
  * 知识库文章列表(web `/knowledge-base`)的跨端契约 —— 形状唯一真相源。
  *
- * 取值口径逐字对齐后端 `GET /api/knowledge-base`(apps/api/src/routes/other/knowledge-base-routes.ts:
+ * 取值口径按行为规格后端 `GET /api/knowledge-base`(apps/api/src/routes/other/knowledge-base-routes.ts:
  * `success({ list, total })`,行 = id/title/summary/viewCount/updatedAt/categoryId/categoryName/authorName)
  * 与 `GET /api/knowledge-base/categories`(`success({ list: [{ id, name, count }] })`)。
  *

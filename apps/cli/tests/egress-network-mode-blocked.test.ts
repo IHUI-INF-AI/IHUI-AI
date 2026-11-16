@@ -4,7 +4,7 @@
 
 
 /**
- * R11 逆向复现:Codex `SandboxNetworkMode.BLOCKED` 离线沙箱短路。
+ * R11 独立实现:外部实现 `SandboxNetworkMode.BLOCKED` 离线沙箱短路。
  *
  * Codex 语义 = WFP 栈级 BLOCK:任何规则匹配 / DNS 解析**之前**直接判 unreachable,
  * 连 DNS 都不发。本仓把它落在 `judgeEgressTarget` 顶部(规则表匹配前)。

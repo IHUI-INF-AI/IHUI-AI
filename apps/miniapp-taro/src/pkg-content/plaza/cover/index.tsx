@@ -23,7 +23,7 @@ import { DeveloperScreen } from '@ihui/rn-app/features/developer/DeveloperScreen
 import DevGuideCard from './dev-guide-card'
 import DevPasswordCard from './dev-password-card'
 
-/** 开发者账号信息(对标原项目 developer_info_body) */
+/** 开发者账号信息(对齐原项目 developer_info_body) */
 interface DeveloperInfo {
   signNickname?: string
   signPassword?: string

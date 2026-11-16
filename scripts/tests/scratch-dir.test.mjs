@@ -23,6 +23,9 @@ import {
   rmScratch,
   scanForNestedScratchRoot,
   scratchRoot,
+  parseLinkedWorktreeGitdir,
+  findFixtureWorktreeRegistrations,
+  detachFixtureWorktreeRegistrations,
 } from '../lib/scratch-dir.mjs'
 import { copyScriptWithClosure } from '../lib/scratch-module-closure.mjs'
 
@@ -382,6 +385,76 @@ test('CI 可移植性:IHUI_SCRATCH_DIR 在两条臂上都是最高优先级', ()
   const env = { IHUI_SCRATCH_DIR: '/tmp/custom-scratch' }
   assert.equal(chooseScratchRoot({ platform: 'win32', env }), '/tmp/custom-scratch')
   assert.equal(chooseScratchRoot({ platform: 'darwin', env }), '/tmp/custom-scratch')
+})
+
+// ─── 幽灵注册根治(2026-11-17) ───────────────────────────────────────────
+// 根因:临时夹具里的 `git worktree add --detach` 留下物理目录 + git 注册两份状态,
+// 旧链路删夹具只删目录不摘注册 ⇒ 幽灵注册堆积。不变量:删目录必先摘注册。
+// 这组测试同时是变异验证:把 rmScratch / del() 里的 detach 调用注释掉即翻红。
+
+test('幽灵注册根治:parseLinkedWorktreeGitdir 只认 worktree 指针,主仓/子模块形态一律拒', () => {
+  assert.equal(parseLinkedWorktreeGitdir('gitdir: G:/IHUI-AI/.git/worktrees/face\n'), 'G:/IHUI-AI/.git/worktrees/face')
+  assert.equal(parseLinkedWorktreeGitdir('gitdir: g:\\repo\\.git\\worktrees\\wt1\r\n'), 'g:/repo/.git/worktrees/wt1')
+  assert.equal(parseLinkedWorktreeGitdir('gitdir: /repo/.git'), null, '主工作区 .git 不是 worktree 指针')
+  assert.equal(parseLinkedWorktreeGitdir('gitdir: ../submod/.git/modules/x'), null, '子模块 modules 形态不匹配')
+  assert.equal(parseLinkedWorktreeGitdir('not a pointer'), null)
+  assert.equal(parseLinkedWorktreeGitdir(null), null)
+})
+
+test('幽灵注册根治:find/detach 双向确认,只摘本夹具注册且不动夹具目录', () => {
+  const fixture = mkScratch('ghostreg-find-')
+  const mainDir = mkScratch('ghostreg-main-')
+  try {
+    const face = join(fixture, 'face')
+    mkdirSync(face, { recursive: true })
+    const adminDir = join(mainDir, 'main.git', 'worktrees', 'wt-face')
+    mkdirSync(adminDir, { recursive: true })
+    const gitfile = join(face, '.git')
+    const back = `${gitfile.replace(/\\/g, '/')}\n`
+    writeFileSync(gitfile, `gitdir: ${adminDir.replace(/\\/g, '/')}\n`)
+    writeFileSync(join(adminDir, 'gitdir'), back)
+
+    const regs = findFixtureWorktreeRegistrations(fixture)
+    assert.equal(regs.length, 1, '双向确认后应找到 1 个注册')
+    const normPath = (p) => String(p).replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase()
+    assert.equal(normPath(regs[0].adminDir), normPath(adminDir))
+
+    // 反向对照:admin dir 的 gitdir 改指别处 ⇒ 不再认(防误摘他人/他仓注册)
+    writeFileSync(join(adminDir, 'gitdir'), 'G:/somewhere/else/face/.git\n')
+    assert.equal(findFixtureWorktreeRegistrations(fixture).length, 0, '指回路径不符 ⇒ 拒认')
+    writeFileSync(join(adminDir, 'gitdir'), back) // 还原
+
+    const det = detachFixtureWorktreeRegistrations(fixture)
+    assert.equal(det.detached.length, 1, '摘除应成功 1 个')
+    assert.equal(det.failed.length, 0)
+    assert.equal(existsSync(adminDir), false, '注册 admin dir 必须已被摘除')
+    assert.equal(existsSync(gitfile), true, '摘注册阶段不得动夹具目录本身')
+  } finally {
+    rmSync(fixture, { recursive: true, force: true })
+    rmSync(mainDir, { recursive: true, force: true })
+  }
+})
+
+test('幽灵注册根治:rmScratch 删夹具时成对摘掉其中的 worktree 注册(变异验证锚点)', () => {
+  const fixture = mkScratch('ghostreg-rm-')
+  const mainDir = mkScratch('ghostreg-main-')
+  try {
+    const face = join(fixture, 'face')
+    mkdirSync(face, { recursive: true })
+    const adminDir = join(mainDir, 'main.git', 'worktrees', 'wt-face')
+    mkdirSync(adminDir, { recursive: true })
+    const gitfile = join(face, '.git')
+    writeFileSync(gitfile, `gitdir: ${adminDir.replace(/\\/g, '/')}\n`)
+    writeFileSync(join(adminDir, 'gitdir'), `${gitfile.replace(/\\/g, '/')}\n`)
+    assert.equal(existsSync(adminDir), true)
+
+    rmScratch(fixture)
+    assert.equal(existsSync(fixture), false, '夹具目录被删')
+    assert.equal(existsSync(adminDir), false, '注册 admin dir 被同步摘除 —— 幽灵注册根治的行为证明')
+  } finally {
+    rmSync(fixture, { recursive: true, force: true })
+    rmSync(mainDir, { recursive: true, force: true })
+  }
 })
 
 function thrownMessage(fn) {

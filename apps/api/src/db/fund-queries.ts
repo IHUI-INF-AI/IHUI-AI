@@ -5,6 +5,7 @@
 import { eq, and, desc, asc, sql, ilike } from 'drizzle-orm'
 import { db } from './index.js'
 import { funds, fundNetValues, type Fund, type FundNetValue } from '@ihui/database'
+import { asContainsTerm } from '../utils/like-escape.js'
 
 export async function findFunds(opts: {
   page: number
@@ -12,7 +13,7 @@ export async function findFunds(opts: {
   search?: string
 }): Promise<{ list: Fund[]; total: number; page: number; pageSize: number }> {
   const conds = [eq(funds.status, 1)]
-  if (opts.search) conds.push(ilike(funds.name, `%${opts.search}%`))
+  if (opts.search) conds.push(ilike(funds.name, asContainsTerm(opts.search)))
   const where = and(...conds)
   const [list, totalRows] = await Promise.all([
     db

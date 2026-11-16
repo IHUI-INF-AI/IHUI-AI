@@ -7,7 +7,7 @@
 自研 Edit 工具(局部精细修改,优于整文件覆盖)。
 比 mcp_server.write_file(整文件覆盖)更精细,适合大文件的局部修改。
 
-行为契约(对标 Claude Code Edit tool):
+行为契约(遵循统一工程规范):
 - 文件不存在 + create_if_missing=True  → 创建新文件,内容=new_string
 - 文件不存在 + create_if_missing=False → FILE_NOT_FOUND
 - 文件存在 + 0 次命中                 → OLD_STRING_NOT_FOUND
@@ -431,7 +431,7 @@ def edit_file(
 # 存储:进程内 dict,key=(session_id, 绝对路径),value=版本列表(升序,旧→新)。
 # 测试可用 _reset_file_version_store() 复位。
 
-# 每个 (session, 路径) 最多保留的版本数(超出丢弃最旧,对标"最近若干版本"
+# 每个 (session, 路径) 最多保留的版本数(超出丢弃最旧,对齐"最近若干版本"
 # 的编辑撤销习惯)
 MAX_FILE_VERSIONS = 20
 

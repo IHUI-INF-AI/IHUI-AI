@@ -5,7 +5,7 @@
 /**
  * /status 综合状态面板 — 一屏看尽当前 REPL 全部状态。
  *
- * 设计目标(对标 codex/claude-code/mimo code 的状态可见性):
+ * 设计目标(遵循统一工程规范):
  *   - 用户反馈"提示程度不够"
  *   - 一行命令看全:模型/workspace/权限/MCP/skills/memory/todo/context
  *   - 替代散落在 /workspace /context /skills /memory /todo 多个命令的零散信息

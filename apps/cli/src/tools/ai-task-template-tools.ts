@@ -8,7 +8,7 @@
  * · ai_task_template_create:落一枚任务模板(目标 + 步骤序列 + 触发方式),POST /api/ai-tasks。
  * · ai_task_run:触发某枚模板执行(可指定 replayFromStep 从失败步续跑),POST /api/ai-tasks/:name/run。
  *
- * 端点 method/path/body 与 `apps/api/src/routes/ai-task-templates.ts` 逐字对齐(该文件 `POST /`
+ * 端点 method/path/body 与 `apps/api/src/routes/ai-task-templates.ts` 按行为规格(该文件 `POST /`
  * 挂在 `/api/ai-tasks` 前缀下,`POST /:name/run` 即 `/api/ai-tasks/:name/run`)。
  * 调用统一走 `invokeApi`(与 api-bridge 共用同一条 fetchApi 腿,AGENTS §3 共享层优先)。
  *

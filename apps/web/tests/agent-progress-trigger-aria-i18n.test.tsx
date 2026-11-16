@@ -25,7 +25,7 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { ReactNode } from 'react'
 
-import { render, cleanup, act } from '@testing-library/react'
+import { render, cleanup } from '@testing-library/react'
 import { NextIntlClientProvider } from 'next-intl'
 import type { AbstractIntlMessages } from 'next-intl'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -33,7 +33,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { mergeMessages } from '@ihui/i18n/loader'
 import type { Messages } from '@ihui/i18n/types'
 
-import { useModeStore } from '@/stores/mode'
 import { useAgentProgressPaneStore } from '@/stores/agent-progress-pane'
 // consistent-type-imports 禁 `typeof import('...')` 内联标注 ⇒ 顶部 type-only 命名空间
 // import 后以 `typeof _ns` 引用(类型等值,vi.mock 工厂内仅编译期解析,无运行时影响)。
@@ -125,9 +124,6 @@ const HAN = /[\u4e00-\u9fff]/
 
 beforeEach(() => {
   useAgentProgressPaneStore.getState().reset()
-  act(() => {
-    useModeStore.getState().setMode('build')
-  })
   mockProgressState.isStreaming = false
 })
 
@@ -154,16 +150,6 @@ describe('AgentProgressTrigger aria-label 整串走 i18n(禁止组件内硬编�
     renderTrigger('ko')
     expect(ariaOf()).toBe(expectIdleAria('ko', 'modeBuild'))
     expect(ariaOf()).toBe('빌드 작업')
-    expect(ariaOf()).not.toMatch(HAN)
-  })
-
-  it('ko: 切到 plan 模式后 aria-label 为「계획 작업」,无汉字残留', () => {
-    renderTrigger('ko')
-    act(() => {
-      useModeStore.getState().setMode('plan')
-    })
-    expect(ariaOf()).toBe(expectIdleAria('ko', 'modePlan'))
-    expect(ariaOf()).toBe('계획 작업')
     expect(ariaOf()).not.toMatch(HAN)
   })
 

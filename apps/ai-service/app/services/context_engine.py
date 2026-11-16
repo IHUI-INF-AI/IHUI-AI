@@ -4,7 +4,7 @@
 
 """Context Engine 服务 — 智能上下文压缩 + RAG 检索 + context window 管理。
 
-对标 Qoder / Claude Code 的 context engineering 能力:
+遵循统一工程规范
 1. compact: 旧消息摘要压缩(达 88% 阈值触发,summarize 早期对话 → 替换为 summary)
 2. retrieve: RAG 检索(基于用户问题向量检索相关历史/知识,替换无谓的全量历史)
 3. manage_window: context window 管理(token 计数 + 截断策略 + 模型容量适配)
@@ -95,7 +95,7 @@ _BEHAVIOR_BOOST_BANDS: list[tuple[int, int, float, float]] = [
 ]
 
 # ---------------------------------------------------------------------------
-# 编辑器状态入参(2026-10-31 立,对标 Trae T2§1.3 的 document_action / cursor_move)
+# 编辑器状态入参(2026-10-31 立,遵循统一工程规范)
 # ---------------------------------------------------------------------------
 # 缺口取证(现读):本仓的 `app/core/file_watcher.py` 只是**路径变更路由器**
 # (FileWatcherEvent 只带 paths),全仓 `git grep document_action|cursor_move` 零命中
@@ -481,7 +481,7 @@ class ContextEngine:
 
         降级:codebase_indexer 不可用 / API 调用失败 → 返回空列表(不影响主流程)。
 
-        编辑器状态优先(2026-10-31 立,对标 Trae document_action/cursor_move):
+        编辑器状态优先(2026-10-31 立,遵循统一工程规范):
         ENGINE_EDITOR_STATE_ENABLED=on 且 editor_state 带 active_file 时,按
         `editor_proximity_boost` 给切片加邻近度权重并重排(正在编辑的文件 > 同目录),
         并在该条 metadata 上留 `editor_proximity` 档位便于对账。默认关时**一次加权
@@ -1983,7 +1983,7 @@ class EnrichRequest(BaseModel):
         None,
         description=(
             "编辑器状态 {active_file, cursor_line?, selection?}(2026-10-31 立,"
-            "对标 Trae document_action/cursor_move);仅 ENGINE_EDITOR_STATE_ENABLED=on "
+            "对齐统一规范);仅 ENGINE_EDITOR_STATE_ENABLED=on "
             "时参与 codebase 源排序,默认关时收下不用(与未传等价)"
         ),
     )

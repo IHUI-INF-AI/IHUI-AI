@@ -836,7 +836,7 @@ export async function startREPL(opts: ReplOptions): Promise<void> {
   console.info(chalk.dim(hintLine));
 
   // P0 CLI 友好度优化(2026-07-31):能力摘要 + 模型/配置切换提示 + 快速入门 + todo 进度条 + statusline
-  // 对标 codex/claude-code/mimo code 的首屏可发现性
+  // 遵循统一工程规范
   const capParts: string[] = [];
   capParts.push(opts.enableMcp ? chalk.green('MCP ✓') : chalk.dim('MCP ✗'));
   capParts.push(opts.allowDangerous ? chalk.red('危险工具 ⚠') : chalk.dim('危险工具 需确认'));
@@ -1611,7 +1611,7 @@ export async function handleSlashCommand(input: string, state: ReplState, rl: re
     }
 
     case 'compact': {
-      // /compact 手动压缩(2026-09-01 立,对标 claude-code/codex /compact + 修复 reminders.ts
+      // /compact 手动压缩(2026-09-01 立,对齐 claude-code/codex /compact + 修复 reminders.ts
       // 提示了不存在命令的 bug):伪造 contextLimit = 当前 tokens / 0.87,使 v2/v1 触发检查
       // 自然通过,压缩目标 = 当前 ~69%,零共享包/Python 改动。
       if (state.history.length < 3) {
@@ -1832,7 +1832,7 @@ export async function handleSlashCommand(input: string, state: ReplState, rl: re
         console.info(chalk.cyan('╰─'));
         console.info('');
       } else if (sub === 'live') {
-        // W11 后台任务 live tail:增量跟随输出直至退出(对标 Claude Code 后台任务实时流)
+        // W11 后台任务 live tail:增量跟随输出直至退出(遵循统一工程规范)
         const id = args[1] ?? '';
         if (!id) { console.info(chalk.red('缺少 task_id')); break; }
         if (!getTaskOutput(id)) { console.info(chalk.red(`任务 ${id} 不存在`)); break; }
