@@ -5,7 +5,7 @@
 'use client'
 
 import * as React from 'react'
-import { Keyboard, TerminalSquare } from 'lucide-react'
+import { Keyboard } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { postTerminalInput } from '@ihui/api-client'
 // b76-13 票7(2026-09-30 立):消费侧集合裁尾唯一出口 —— 裁尾与"少列了多少"原子产出,
@@ -25,6 +25,7 @@ import {
   StreamLabel,
   StreamRow,
   StreamTag,
+  streamKindIcon,
   useLiveElapsed,
   useStreamStatusLabel,
   type StreamStatus,
@@ -278,6 +279,7 @@ const TerminalItem = React.memo(function TerminalItem({ term }: { term: Terminal
     <div>
       <StreamRow
         status={status}
+        kind="terminal"
         title={rowTitle}
         subject={term.command}
         subjectKind="command"
@@ -383,7 +385,7 @@ export const TerminalSection = React.memo(function TerminalSection({
     <FoldableSection
       title={t('terminal.title')}
       count={terminals.length}
-      icon={TerminalSquare}
+      icon={streamKindIcon('terminal')}
       data-testid="terminal-section"
     >
       <div className="space-y-0.5">

@@ -22,6 +22,7 @@ import {
   Maximize2,
   X,
 } from 'lucide-react'
+import { streamKindIcon } from '@/components/chat/stream/stream-ui'
 import { useTranslations } from 'next-intl'
 import { useTheme } from 'next-themes'
 import ReactMarkdown, { type Components } from 'react-markdown'
@@ -80,6 +81,8 @@ import { RichFilePreview } from '@/components/file-preview'
 import { tryFocusArtifactFromLink } from '@/components/media/artifact-turn-badge'
 // 语法高亮主题(对象常量,体积小,可静态导入;同时导入 dark/light 两份,运行时按主题切换)
 import { oneDark, oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism'
+
+const CodeBlockIcon = streamKindIcon('code')
 
 // 移除主题中的 background / backgroundColor,避免每行被主题样式强制染色
 function stripBackground(
@@ -647,14 +650,20 @@ const CodeBlockImpl = function CodeBlock({
             )}
             aria-hidden="true"
           />
-          <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+          <CodeBlockIcon
+            className="h-3.5 w-3.5 shrink-0 text-muted-foreground"
+            aria-hidden="true"
+          />
           <span className="min-w-0 truncate font-mono text-label text-muted-foreground">
             {resolveCodeFileName(language)}
           </span>
         </button>
       ) : (
         <div className="flex min-w-0 flex-1 items-center gap-1.5 pl-2">
-          <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+          <CodeBlockIcon
+            className="h-3.5 w-3.5 shrink-0 text-muted-foreground"
+            aria-hidden="true"
+          />
           <span className="min-w-0 truncate font-mono text-label text-muted-foreground">
             {resolveCodeFileName(language)}
           </span>

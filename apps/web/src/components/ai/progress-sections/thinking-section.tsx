@@ -229,6 +229,7 @@ export const ThinkingSection = React.memo(function ThinkingSection({
           同一"标题 · 预览 ……… 耗时 ›"信息排布,不再自成一套 text-sm 头部 */}
       <StreamRow
         status={thinkingActive ? 'running' : 'success'}
+        kind="thinking"
         title={titleText}
         subject={expanded ? undefined : preview}
         subjectKind="none"
