@@ -29,6 +29,7 @@ import {
   Info,
   Minimize2,
   Clock,
+  Image as ImageIcon,
 } from 'lucide-react'
 import type { IDETabType } from '@ihui/types'
 
@@ -86,6 +87,13 @@ export const BUILTIN_COMMANDS: CommandDef[] = [
     icon: Clock,
     action: { type: 'navigate', href: '/automations' },
   },
+  // AI 图片生成(/image-gen):此前仅有域页内链,借命令面板提供全局入口
+  {
+    id: 'imageGen',
+    group: 'navigate',
+    icon: ImageIcon,
+    action: { type: 'navigate', href: '/image-gen' },
+  },
   {
     id: 'search',
     group: 'navigate',
@@ -103,7 +111,7 @@ export const BUILTIN_COMMANDS: CommandDef[] = [
     id: 'profile',
     group: 'navigate',
     icon: User,
-    action: { type: 'navigate', href: '/admin/user-center' },
+    action: { type: 'navigate', href: '/user/profile' },
   },
   {
     id: 'settings',

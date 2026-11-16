@@ -13260,6 +13260,11 @@
         "keywords": ["에디터", "코드", "editor"],
         "label": "에디터"
       },
+      "imageGen": {
+        "description": "프롬프트로 이미지를 생성합니다. 공개 갤러리·기록·템플릿 제공",
+        "keywords": ["이미지", "생성", "그리기", "image"],
+        "label": "AI 이미지 생성"
+      },
       "mcp": {
         "description": "MCP 서버 및 도구 관리",
         "keywords": ["MCP", "서버", "도구"],

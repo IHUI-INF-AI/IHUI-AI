@@ -171,6 +171,7 @@ const CustomNavSection = React.memo(function CustomNavSection({
   registerRef,
   onBeforeNav,
   groups,
+  allItems,
 }: {
   collapsed: boolean
   onCloseMobile: () => void
@@ -178,6 +179,8 @@ const CustomNavSection = React.memo(function CustomNavSection({
   onBeforeNav?: (href: string) => void
   /** 已按角色/RBAC 过滤的分组(来自 Sidebar 的 visibleGroups) */
   groups: { label: string; items: NavItem[] }[]
+  /** 全量可见导航项(含域入口页清单),仅用于收藏解析;缺省回退 groups */
+  allItems?: NavItem[]
 }) {
   const t = useTranslations('nav')
   const pathname = usePathname()
@@ -188,7 +191,7 @@ const CustomNavSection = React.memo(function CustomNavSection({
   const { userId, hydrated, customHrefs, addHref, removeHref, reorderHref } = useCustomNav()
   const [dialogOpen, setDialogOpen] = React.useState(false)
   // 自定义栏可收起/展开(用户 2026-11-16 要求补回):默认展开,偏好本机记忆,
-  // 与「热门/管理」折叠分组同一交互语义(标题行箭头 + localStorage)。
+  // 与「热门」折叠分组同一交互语义(标题行箭头 + localStorage)。
   const [open, setOpen] = React.useState(true)
 
   React.useEffect(() => {
@@ -212,22 +215,33 @@ const CustomNavSection = React.memo(function CustomNavSection({
     })
   }, [])
 
-  // href -> NavItem 索引:groups 在父级已 memo,导航结构不变则零重建
+  // href -> NavItem 索引:allItems(全量可见导航,含域入口页清单)优先,缺省回退 groups。
+  // 2026-11-16 修复:域收敛后 /models、/learn 等只存在于域清单、不在 NAV_GROUPS,
+  // 旧实现只查 groups 会让已收藏项静默消失(用户以为收藏丢了)。
   const itemMap = React.useMemo(() => {
     const map = new Map<string, NavItem>()
-    for (const group of groups) {
-      for (const item of flattenNavItems(group.items)) {
-        if (!map.has(item.href)) map.set(item.href, item)
-      }
+    const source: NavItem[] = allItems ?? groups.flatMap((g) => g.items)
+    for (const item of flattenNavItems(source)) {
+      if (!map.has(item.href)) map.set(item.href, item)
     }
     return map
-  }, [groups])
+  }, [allItems, groups])
 
   // 仅渲染当前用户仍可见的收藏项(不可见项自动隐藏)
   const customItems = React.useMemo(
     () => customHrefs.map((href) => itemMap.get(href)).filter((i): i is NavItem => i !== undefined),
     [customHrefs, itemMap],
   )
+
+  // 路由命中收藏项时强制展开(2026-11-16):与热门分组「命中即展开」同语义。
+  // 折叠态下当前页在自定义栏里高亮不可见,用户会误以为收藏丢失。
+  React.useEffect(() => {
+    if (open) return
+    const hit = customItems.some(
+      (item) => pathname === item.href || pathname.startsWith(`${item.href}/`),
+    )
+    if (hit) setOpen(true)
+  }, [customItems, open, pathname])
 
   const openDialog = React.useCallback(() => setDialogOpen(true), [])
   const closeDialog = React.useCallback(() => setDialogOpen(false), [])

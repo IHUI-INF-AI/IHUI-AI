@@ -13260,6 +13260,11 @@
         "keywords": ["編輯器", "程式碼", "code"],
         "label": "編輯器"
       },
+      "imageGen": {
+        "description": "AI 圖片生成:提示詞出圖、公開畫廊、生成歷史與範本",
+        "keywords": ["圖片", "生成", "繪圖", "image"],
+        "label": "AI 圖片生成"
+      },
       "mcp": {
         "description": "管理 MCP 伺服器與工具",
         "keywords": ["MCP", "伺服器", "工具"],
