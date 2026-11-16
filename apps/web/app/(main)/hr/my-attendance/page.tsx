@@ -18,7 +18,8 @@ import { CalendarCheck, Loader2, LogIn, LogOut } from 'lucide-react'
 
 import { Card, CardContent, Button } from '@ihui/ui-react'
 import { apiOrThrow as api } from '@/lib/api'
-import { AuthGatePrompt, BackButton } from '@/components/common'
+import { AuthGatePrompt } from '@/components/common'
+import { FeaturePageShell } from '@/components/layout'
 import { HrSelfLinkPanel } from '@/components/hr/hr-self-link-panel'
 import { useAuthGate } from '@/hooks/use-auth-gate'
 
@@ -125,16 +126,15 @@ export default function MyAttendancePage() {
   const rows = recordsQuery.data?.list ?? []
 
   return (
-    <div className="px-4 py-4 mx-auto w-full max-w-5xl space-y-4">
-      <BackButton />
-      <header className="space-y-1">
-        <h1 className="flex items-center gap-2 text-heading font-bold tracking-tight min-[768px]:text-display">
-          <CalendarCheck className="h-7 w-7 text-primary" />
-          {tn('hrMyAttendance')}
-        </h1>
-        <p className="text-label text-muted-foreground">{t('mySubtitle')}</p>
-      </header>
-
+    // 2026-11-16 接入统一子功能页外壳:BackButton + 手写 header 收编为页头卡,
+    // 自动带上「人事部」返回 chip(取 hrHub.title,与域入口页大标题恒等)。
+    // 图标档位/标题档位走 workspace-tokens 单一真相源,与域入口页同一视觉语言。
+    <FeaturePageShell
+      title={tn('hrMyAttendance')}
+      description={t('mySubtitle')}
+      icon={CalendarCheck}
+      domain="hr"
+    >
       {!allow ? (
         <AuthGatePrompt message={t('mySubtitle')} />
       ) : meQuery.isLoading ? (
@@ -246,6 +246,6 @@ export default function MyAttendancePage() {
           </section>
         </>
       )}
-    </div>
+    </FeaturePageShell>
   )
 }

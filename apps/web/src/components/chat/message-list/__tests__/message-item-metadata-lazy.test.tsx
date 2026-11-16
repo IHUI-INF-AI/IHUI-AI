@@ -56,6 +56,11 @@ function renderMessage(m: ChatMessage) {
   )
 }
 
+/** metadata 是低频键,已收进「更多」下拉;点击入口前先展开菜单。 */
+function openMore() {
+  fireEvent.click(screen.getByTestId(`message-more-${ID}`))
+}
+
 beforeEach(() => {
   useChatStore.setState({ conversationId: CONVERSATION_ID, messages: [] })
 })
@@ -81,6 +86,7 @@ describe('MessageItem metadata 懒取(D35)', () => {
     renderMessage(assistantWithSummaryMetadata())
 
     // 摘要形态本地没有 usage,但按钮必须在(否则懒取结构上点不到)
+    openMore()
     fireEvent.click(screen.getByTestId(`message-metadata-${ID}`))
     // 请求未结算时先给加载占位
     expect(screen.getByTestId(`message-metadata-lazy-loading-${ID}`)).toBeTruthy()
@@ -98,6 +104,7 @@ describe('MessageItem metadata 懒取(D35)', () => {
     getMessageMetadataMock.mockRejectedValue(new Error('network down'))
     renderMessage(assistantWithSummaryMetadata())
 
+    openMore()
     fireEvent.click(screen.getByTestId(`message-metadata-${ID}`))
 
     await waitFor(() => {
@@ -114,6 +121,7 @@ describe('MessageItem metadata 懒取(D35)', () => {
     getMessageMetadataMock.mockResolvedValue({ success: false, error: { message: 'forbidden' } })
     renderMessage(assistantWithSummaryMetadata())
 
+    openMore()
     fireEvent.click(screen.getByTestId(`message-metadata-${ID}`))
 
     await waitFor(() => {

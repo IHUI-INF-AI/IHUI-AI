@@ -223,8 +223,10 @@ describe('D45 五语词包 parity', () => {
       for (const v of Object.values(pack.ambientSuggestions)) expect(v.length).toBeGreaterThan(0)
     }
     expect(modeKeys).toBe('commands,label,narrative,steps')
+    // 2026-11-16:ambientSuggestions 增补 close/restore(整组显隐)与 dismiss(忽略单条)三键,
+    // 五语 parity 已同步;此处锁死键集合做内容守门,新增/删键须人来核对五语。
     expect(ambientKeys).toBe(
-      'dismiss,suggestionAnswerQuestion,suggestionContinueTopic,suggestionResumeTask,suggestionReviewFiles,title',
+      'close,dismiss,restore,suggestionAnswerQuestion,suggestionContinueTopic,suggestionResumeTask,suggestionReviewFiles,title',
     )
   })
 })

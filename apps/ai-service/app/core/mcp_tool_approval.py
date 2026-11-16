@@ -49,11 +49,35 @@ class AppToolApproval(StrEnum):
 
 @dataclass(frozen=True)
 class ToolAnnotations:
-    """MCP 工具注解(缺省 None = 未知,按保守语义处理)。"""
+    """MCP 工具注解(缺省 None = 未知,按保守语义处理)。
+
+    五维对齐 Codex ``ToolAnnotations { read_only_hint, destructive_hint,
+    idempotent_hint, open_world_hint, ... }``(codex.exe 取证,见
+    ``.ihui-agent/tmp/goal-codex/evidence/guardian-enum-scan.mjs``)。第四维
+    ``idempotent_hint`` 是 MCP 1.0 规范 hint,语义:重复调用(同参)不产生额外副作用。
+    与其余三维一致,只作信息/提示,不单独作审批门槛(破坏性判定仍走
+    ``destructive_hint`` + ``read_only_hint``;幂等工具若 destructive=True 仍需批)。
+    """
 
     read_only_hint: bool | None = None
     destructive_hint: bool | None = None
+    idempotent_hint: bool | None = None
     open_world_hint: bool | None = None
+
+    @property
+    def is_idempotent(self) -> bool:
+        """显式 ``idempotent_hint is True`` 才算幂等(缺失/False 一律不假设)。"""
+        return self.idempotent_hint is True
+
+    @property
+    def is_known(self) -> bool:
+        """四维是否**全显式**(任一 None 即"未知注解",按保守语义处理)。"""
+        return (
+            self.read_only_hint is not None
+            and self.destructive_hint is not None
+            and self.idempotent_hint is not None
+            and self.open_world_hint is not None
+        )
 
 
 # 审批选项文案(Codex 常量原文)

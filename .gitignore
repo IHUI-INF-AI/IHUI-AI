@@ -772,3 +772,6 @@ tmp-*.png
 
 # findings 新鲜度门(check-findings-freshness.mjs)生成的快照缓存,每次运行重写,非交付源码
 scripts/data/findings-staleness.json
+
+# 凭据/账号导出(含手机号 + refresh_token + JWT),敏感数据绝不入库,仅留在本地
+/李总.json
