@@ -4,7 +4,7 @@
 
 'use client'
 
-// 统一上下文容器(2026-09-30 立,深度对标二轮;对标 Trae .chat-attachments-container)。
+// 统一上下文容器(2026-09-30 立,深度对齐二轮;遵循统一工程规范)。
 //
 // 输入框上方原本散落 6 个各自带 mb-2 的动态块(引用卡 / 已选工具卡 / 引用回复条 /
 // 提及 chips / 粘贴预览条 / 输入队列),间距各写各的、视觉上堆叠无序。本容器把它们
@@ -55,7 +55,7 @@ export interface ContextChipsRowProps {
   pastePreviews: PastedReferencePreview[]
   onDismissPastePreviews: () => void
   /**
-   * D185(2026-09-30 立,对标竞品 composer.referencePreview.*):一键发送。
+   * D185(2026-09-30 立,对齐竞品 composer.referencePreview.*):一键发送。
    * 传入后粘贴引用预览条升级为可编辑模拟预览编辑器;发送走 composer 既有
    * submit(overrideValue) 通道,本容器只透传不持有文本。
    */

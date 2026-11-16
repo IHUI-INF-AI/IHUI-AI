@@ -124,7 +124,7 @@
     },
     {
       "port": 7864,
-      "why": "§2.8 号池网关单机档(relay-standalone)唯一对外入口 —— 88xx 铁律的「显式认领」例外(理由与边界写在 docs/port-management.md §2.8):对标竞品 workbuddy2api-panel 的固定对外口 7864,客户侧 base_url 的端口号属对外契约,换口即换契约;且它是部署态的宿主发布口,不是 dev/宿主开发映射口 —— 容器内部监听仍是 web 8801 / api 8802,88xx 段内语义未被侵占。认领而非豁免:走本清单 + docs §2 双向对账,不进 scripts/check-port-registry.mjs 的 EXEMPT_PORTS(那等于给整段开一张全仓通行证,同 §2.6 口径)。来源 deploy/relay-standalone/docker-compose.yml 的 gateway.ports: '${RELAY_STANDALONE_PORT:-7864}:7864';若该档改挂统一入口、撤掉独立发布口,须同笔删本条与 §2.8 那一行"
+      "why": "§2.8 号池网关单机档(relay-standalone)唯一对外入口 —— 88xx 铁律的「显式认领」例外(理由与边界写在 docs/port-management.md §2.8):对齐竞品 workbuddy2api-panel 的固定对外口 7864,客户侧 base_url 的端口号属对外契约,换口即换契约;且它是部署态的宿主发布口,不是 dev/宿主开发映射口 —— 容器内部监听仍是 web 8801 / api 8802,88xx 段内语义未被侵占。认领而非豁免:走本清单 + docs §2 双向对账,不进 scripts/check-port-registry.mjs 的 EXEMPT_PORTS(那等于给整段开一张全仓通行证,同 §2.6 口径)。来源 deploy/relay-standalone/docker-compose.yml 的 gateway.ports: '${RELAY_STANDALONE_PORT:-7864}:7864';若该档改挂统一入口、撤掉独立发布口,须同笔删本条与 §2.8 那一行"
     }
   ]
 }

@@ -105,10 +105,8 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | — blocking | 338 | `guardianBlocking` |
 | — warn | 32 | `guardianWarn` |
 | 跟踪文件 | 22418 | `trackedFiles` |
-
 上表由 `node scripts/sync-readme-numbers.mjs`(唯一写入口,索引面取数)生成,最后核对日期 2026-11-16。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
-
 <!-- END GENERATED NUMBERS -->
 **一句话口径**:数字一律现读,文档里不写「约 N 个」——那种写法必然腐烂。
 ---
@@ -5473,10 +5471,8 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-16**
 - 📚 文档:刷新 README 生成数字块(trackedFiles 22410=>22411) (d551b2d73ed)
-
 **2026-11-16**
 - 🔧 工程/其他:floating-layer-spec 补齐溯源水印横幅 (417f5681968)
-
 **2026-11-16**
 - 🐞 修复:补 floating-layer-spec —— 修 web 生产构建 module-not-found (bbbc1db941c)
 - 🐞 修复:/metrics 与 /business-metrics 补免租户 —— Prometheus 抓取面收口 (cfa48e273cc)
@@ -5535,7 +5531,6 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🚀 新功能/改进:浏览器三级交互 API 优先级仲裁(复现 Codex 三级交互原语) (f3216c036cd)
 - 🐞 修复:跨会话强杀腿 + 验收窗口 + Windows 中文乱码 (79efa223c85)
 - 🐞 修复:排版令牌对齐 —— 定价管控台 heading/label 字号档 + ProfileScreen avatarText 走 rnType.displayXl (5a4f007eda7)
-
 **2026-11-15**
 - 🚀 新功能/改进:浏览器文件/下载交付卫生(复现 Codex cloud-shared-files) (936660ec98e)
 - 🚀 新功能/改进:浏览器登录凭据 handoff 协议(复现 Codex browserAuth,凭据零回传) (ebe217ca684)
@@ -5613,13 +5608,11 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🐞 修复:深度扫描第二批收口 RN/小程序端样式、交互与逻辑缺陷 (97b7a7ac968)
 - 🐞 修复:门302 rendersSharedIn 认深子路径导入(补正/反例测试);接线 check-line-endings/check-mirror-surface-parity 判面层(门312 R1);rn-miniapp 矩阵文档重生成为现值(镜像257→258,门302修复后真实现读) (ab211603b9c)
 - 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (62368b7976c)
-
 **2026-11-14**
 - 🐞 修复:两端 JSX 裸中文清零 + Taro 静默失败兜底 + 延迟导航定时器清理 (9f5d9041c97)
 - 🐞 修复:深度扫描修复 RN/小程序端样式、交互与逻辑缺陷 (4a007dfecd8)
 - 🐞 修复:补齐 RN/Taro 图标按钮无障碍语义标签 (247c8da4800)
 - 🐞 修复:修复前端遗留问题——RN/Taro 冲突、i18n 源文件还原、promise、定时器 (b276b219572)
-
 **2026-11-14**
 - 🐞 修复:design-token 对比度语义档迁移(brandAccent/danger/success/warning) (35d8ab967e)
 **2026-11-14**
@@ -8679,3 +8672,33 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🐞 修复:check-findings-freshness 接判面层单源 + 追认落地枚 9f05f5082db(机主授权) (a15e72bef4e)
 | 测试文件 | 5629 | `testFiles` |
 | 跟踪文件 | 22281 | `trackedFiles` |
+**容器描边角色系统**由 `scripts/check-border-system.mjs` 守门(8 角色单源、档位阶梯与聚焦契约)。
+| 数据库表 | 650 | `dbTables` |
+| 测试文件 | 5700 | `testFiles` |
+| 跟踪文件 | 22462 | `trackedFiles` |
+**接线同代与镜像面守门族**(注册与门体必须同枚入库):`scripts/check-line-endings.mjs`(行尾纪律:CRLF / LF / 孤立 CR 分判)、
+`scripts/check-mirror-surface-parity.mjs`(镜像面取值集合双向对账)、`scripts/check-border-system.mjs`(描边 8 角色单源,门 323)。
+**2026-11-16**
+- 🚀 新功能/改进:guardian 系列策略模块 + capabilities 页 + title-update + floating-layer-spec (6962844864a)
+**2026-11-16**
+- 🔧 工程/其他:收编 ai-service/HR/api 改动 + 生成目录同步 + 计划文档更新 (b59a6c5c001)
+- 🚀 新功能/改进:逆向 codex 26.1111 六组契约 + web 布局收口 + 凭据件排除入库 (f7ef4e17d61)
+**2026-11-16**
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (da07174e1a1)
+- 📚 文档:缺陷普查 91 条全量核验——82 已修结清删除，9 条未修/部分修补复核注记 (e7901ae0368)
+**2026-11-16**
+- 🐞 修复:导航域枢纽项拆分 + AI 面板视觉收口 (5e77deb743b)
+**2026-11-16**
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (22234bff96d)
+**2026-11-16**
+- 🐞 修复:AI 消息操作栏降密度——低频操作收进「更多」下拉 (995d34e572d)
+**2026-11-16**
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (40c0c5dae4c)
+**2026-11-16**
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (08dfc418e7c)
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (0073e7c7a84)
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (30661f36491)
+| 测试文件 | 5676 | `testFiles` |
+| 跟踪文件 | 22413 | `trackedFiles` |
+| 测试文件 | 5677 | `testFiles` |
+| 跟踪文件 | 22417 | `trackedFiles` |

@@ -18,7 +18,7 @@ FROM node:20-slim@sha256:2cf067cfed83d5ea958367df9f966191a942351a2df77d6f0193e16
 
 LABEL org.opencontainers.image.title="IHUI AI Coding Agent CLI"
 LABEL org.opencontainers.image.source="https://aizhs.top"
-LABEL org.opencontainers.image.description="IHUI AI Coding Agent — 对标 Claude Code / Codex"
+LABEL org.opencontainers.image.description="IHUI AI Coding Agent — 对齐统一规范
 LABEL org.opencontainers.image.licenses="MIT"
 
 # 全局安装 IHUI CLI(从 npm registry)

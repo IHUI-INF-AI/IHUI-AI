@@ -4,7 +4,7 @@
 
 """Harness 事件面对齐(2026-09-18 第十批)单测。
 
-覆盖(对标 Codex EventMsg:PatchApplyBegin/End、TurnDiff、WebSearchBegin/End、
+覆盖(遵循统一工程规范
 ViewImageToolCall、TurnStarted/TurnComplete):
 - apply_patch 发 patch.apply.begin / patch.apply.end,后者带聚合 unifiedDiff
 - turn.diff 事件带 unifiedDiff 正文(git 工作区真实 diff)

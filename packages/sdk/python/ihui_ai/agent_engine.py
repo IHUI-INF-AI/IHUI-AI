@@ -5,7 +5,7 @@
 """Agent Engine 编程编排层 — create_agent()(P2-④,2026-09-18 立)。
 
 定位:把 ai-service 的 JSON-RPC 编排引擎(P2-③)封装成**应用内可编程的通用 agent
-编排层** —— 对标 Codex SDK(TS/Python 编程编排),但模型无关:同一套 API 背后可路由
+编排层** —— 遵循统一工程规范),但模型无关:同一套 API 背后可路由
 到任意 provider(MCP 超级工具池 / 19 家模型路由 / 成本账本)。
 
 与 SDK 其余模块的区别:其他模块是"调云 API 的 client",本模块是"在你应用里跑 agent" ——
@@ -491,7 +491,7 @@ class Agent:
         on_event: Optional[EventCallback] = None,
         **params: Any,
     ) -> dict[str, Any]:
-        """一次性非交互执行(2026-09-18 立,对标 Codex ``codex exec`` headless):
+        """一次性非交互执行(2026-09-18 立,遵循统一工程规范):
         服务端临时线程跑单轮后即弃,返回结构化结果;过程事件经 ``on_event`` 流出。
         额外 kwargs(model/systemPrompt/permissionMode/...)透传引擎。"""
         for _ in self._run_stream("agent.exec", {"input": input, **params}, on_event):
@@ -504,14 +504,14 @@ class Agent:
         return dict(self._call("thread.state", {"threadId": self._thread_id}) or {})
 
     def compact(self, keep_recent: Optional[int] = None) -> dict[str, Any]:
-        """手动压缩线程历史(2026-09-18 第二批,对标 Codex /compact)。"""
+        """手动压缩线程历史(2026-09-18 第二批,遵循统一工程规范)。"""
         params: dict[str, Any] = {"threadId": self._thread_id}
         if keep_recent is not None:
             params["keepRecent"] = keep_recent
         return dict(self._call("thread.compact", params) or {})
 
     def export_thread(self, path: Optional[str] = None) -> dict[str, Any]:
-        """导出线程为 JSONL(2026-09-18 第二批,对标 Codex rollout 导出)。"""
+        """导出线程为 JSONL(2026-09-18 第二批,遵循统一工程规范)。"""
         params = {"threadId": self._thread_id}
         if path is not None:
             params["path"] = path
@@ -522,15 +522,15 @@ class Agent:
         return dict(self._call("thread.plan", {"threadId": self._thread_id}) or {})
 
     def enqueue(self, input: Any) -> dict[str, Any]:
-        """消息入队(2026-09-18 第三批,对标 Codex Steer:轮中转向自动续跑)。"""
+        """消息入队(2026-09-18 第三批,遵循统一工程规范)。"""
         return dict(self._call("thread.enqueue", {"threadId": self._thread_id, "input": input}) or {})
 
     def set_goal(self, goal: Optional[str]) -> dict[str, Any]:
-        """设置/清除线程持久目标(2026-09-18 第三批,对标 Codex Goals;None 清除)。"""
+        """设置/清除线程持久目标(2026-09-18 第三批,遵循统一工程规范;None 清除)。"""
         return dict(self._call("thread.goal", {"threadId": self._thread_id, "goal": goal}) or {})
 
     def review(self, focus: Optional[str] = None) -> dict[str, Any]:
-        """审查模式(2026-09-18 第三批,对标 Codex review:派生审查子代理)。"""
+        """审查模式(2026-09-18 第三批,遵循统一工程规范)。"""
         params: dict[str, Any] = {"threadId": self._thread_id}
         if focus is not None:
             params["focus"] = focus
@@ -542,7 +542,7 @@ class Agent:
         offset: Optional[int] = None,
         include_archived: bool = False,
     ) -> dict[str, Any]:
-        """线程清单(2026-09-18 第七批,对标 Codex thread/list:分页+运行态合并)。"""
+        """线程清单(2026-09-18 第七批,遵循统一工程规范)。"""
         params: dict[str, Any] = {"includeArchived": include_archived}
         if limit is not None:
             params["limit"] = limit
@@ -551,7 +551,7 @@ class Agent:
         return dict(self._call("thread.list", params) or {})
 
     def archive_thread(self, thread_id: str, archived: bool = True) -> dict[str, Any]:
-        """归档/恢复线程(2026-09-18 第七批,对标 Codex thread/archive)。"""
+        """归档/恢复线程(2026-09-18 第七批,遵循统一工程规范)。"""
         return dict(
             self._call("thread.archive", {"threadId": thread_id, "archived": archived})
             or {}
@@ -560,7 +560,7 @@ class Agent:
     def fork_thread(
         self, thread_id: Optional[str] = None, title: Optional[str] = None
     ) -> dict[str, Any]:
-        """分叉线程(2026-09-18 第七批,对标 Codex thread/fork:深拷贝独立演进)。"""
+        """分叉线程(2026-09-18 第七批,遵循统一工程规范)。"""
         params: dict[str, Any] = {
             "threadId": thread_id or self._thread_id,
         }
@@ -569,7 +569,7 @@ class Agent:
         return dict(self._call("thread.fork", params) or {})
 
     def search_tools(self, query: str, limit: Optional[int] = None) -> dict[str, Any]:
-        """工具目录搜索(2026-09-18 第四批,对标 Codex tool_search 延迟装载)。"""
+        """工具目录搜索(2026-09-18 第四批,遵循统一工程规范)。"""
         params: dict[str, Any] = {"query": query}
         if self._thread_id:
             params["threadId"] = self._thread_id
@@ -578,13 +578,13 @@ class Agent:
         return dict(self._call("tools.search", params) or {})
 
     def load_tool(self, name: str) -> dict[str, Any]:
-        """装载工具进线程(2026-09-18 第四批,对标 LoadableToolSpec materialize)。"""
+        """装载工具进线程(2026-09-18 第四批,对齐 LoadableToolSpec materialize)。"""
         return dict(
             self._call("tools.load", {"threadId": self._thread_id, "name": name}) or {}
         )
 
     def respond_elicitation(self, elicitation_id: str, value: Any = None) -> dict[str, Any]:
-        """用户结构化提问回填(2026-09-18 第四批,对标 Codex elicitation)。"""
+        """用户结构化提问回填(2026-09-18 第四批,遵循统一工程规范)。"""
         return dict(
             self._call(
                 "elicitation.respond", {"elicitationId": elicitation_id, "value": value}
@@ -835,29 +835,29 @@ class AsyncAgent:
         return await asyncio.to_thread(self._agent.get_plan)
 
     async def enqueue(self, input: Any) -> dict[str, Any]:
-        """消息入队(2026-09-18 第三批,对标 Codex Steer:轮中转向自动续跑)。"""
+        """消息入队(2026-09-18 第三批,遵循统一工程规范)。"""
         return await asyncio.to_thread(self._agent.enqueue, input)
 
     async def set_goal(self, goal: Optional[str]) -> dict[str, Any]:
-        """设置/清除线程持久目标(2026-09-18 第三批,对标 Codex Goals)。"""
+        """设置/清除线程持久目标(2026-09-18 第三批,遵循统一工程规范)。"""
         return await asyncio.to_thread(self._agent.set_goal, goal)
 
     async def review(self, focus: Optional[str] = None) -> dict[str, Any]:
-        """审查模式(2026-09-18 第三批,对标 Codex review:派生审查子代理)。"""
+        """审查模式(2026-09-18 第三批,遵循统一工程规范)。"""
         return await asyncio.to_thread(self._agent.review, focus)
 
     async def search_tools(self, query: str, limit: Optional[int] = None) -> dict[str, Any]:
-        """工具目录搜索(2026-09-18 第四批,对标 Codex tool_search 延迟装载)。"""
+        """工具目录搜索(2026-09-18 第四批,遵循统一工程规范)。"""
         return await asyncio.to_thread(self._agent.search_tools, query, limit)
 
     async def load_tool(self, name: str) -> dict[str, Any]:
-        """装载工具进线程(2026-09-18 第四批,对标 LoadableToolSpec materialize)。"""
+        """装载工具进线程(2026-09-18 第四批,对齐 LoadableToolSpec materialize)。"""
         return await asyncio.to_thread(self._agent.load_tool, name)
 
     async def respond_elicitation(
         self, elicitation_id: str, value: Any = None
     ) -> dict[str, Any]:
-        """用户结构化提问回填(2026-09-18 第四批,对标 Codex elicitation)。"""
+        """用户结构化提问回填(2026-09-18 第四批,遵循统一工程规范)。"""
         return await asyncio.to_thread(self._agent.respond_elicitation, elicitation_id, value)
 
     async def register_tool(

@@ -11,6 +11,7 @@ import {
   Check,
   ChevronRight,
   CircleDashed,
+  FileCode,
   FileDiff,
   FilePen,
   FileSearch,
@@ -29,7 +30,6 @@ import {
   Plug,
   Settings2,
   Sparkles,
-  SquareCode,
   Terminal,
   TriangleAlert,
   Video,
@@ -49,7 +49,7 @@ import type { ToolMetricKind, ToolSubjectKind } from '@ihui/shared/chat'
  * 共用的一套行、组、度量与状态语义。
  *
  * 为什么要有这一层:此前每个区段各自写字号(9/10/11/12/13px 五种)、各自写圆角与配色,
- * 同一个气泡里出现四种互不相干的视觉语言,读起来像四个产品的拼接。对标 Qoder / Trae /
+ * 同一个气泡里出现四种互不相干的视觉语言,读起来像四个产品的拼接。遵循统一工程规范
  * Codex 的做法是**一种行模板贯穿全部过程信息**:
  *   状态图标 · 功能名 · 对象(等宽) ………… 度量 / 耗时
  * 字号唯一(12px)、图标唯一(14px)、行高唯一(24px)、状态色唯一,
@@ -109,7 +109,7 @@ const STREAM_KIND_ICONS: Readonly<Record<StreamKind, LucideIcon>> = {
   subagent: Bot,
   diff: FileDiff,
   replay: History,
-  code: SquareCode,
+  code: FileCode,
 }
 
 /** 语义档 → 图标组件(折叠区段头等只需要「图标本体」的调用方从这里取) */
@@ -117,14 +117,14 @@ export function streamKindIcon(kind: StreamKind): LucideIcon {
   return STREAM_KIND_ICONS[kind]
 }
 
-/** 状态 → 语义图标着色(与文字同口径:运行=primary,成功=次级,失败=红,未开始/跳过=更浅) */
+/** 状态 → 语义图标着色(用户口径:图标只取纯前景色,不再压透明度;失败态保留红色语义) */
 const KIND_ICON_TONE: Record<StreamStatus, string> = {
-  running: 'text-primary',
-  success: 'text-muted-foreground/60',
+  running: 'text-foreground',
+  success: 'text-foreground',
   error: 'text-red-500',
-  skipped: 'text-muted-foreground/40',
-  stub: 'text-muted-foreground/50',
-  pending: 'text-muted-foreground/35',
+  skipped: 'text-foreground',
+  stub: 'text-foreground',
+  pending: 'text-foreground',
 }
 
 /**
@@ -154,12 +154,46 @@ export function StreamKindIcon({
   )
 }
 
-/** 行模板唯一字号:12px。禁止在消息流活动区出现 9/10/11/13px 文字 */
-export const STREAM_ROW_CLASS = 'flex h-6 w-full items-center gap-1.5 text-xs leading-none'
+/** 行模板唯一字号:16px(与 --text-title 同值,行高 24px)。禁止在消息流活动区出现其它字号 */
+export const STREAM_ROW_CLASS = 'flex h-6 w-full items-center gap-1.5 text-[16px] leading-6'
+
+/**
+ * 可折叠容器头行唯一档(2026-11-16 立):思考行 / 过程叙述组头 / 代码块头共用。
+ *
+ * 用户口径:这些头行的字号、粗细、大小、背景完全一致,且**只有一层底色** ——
+ * 32px 高(16px 字 + 上下各 4px 内边距)、16px/400 字、底色取内联 code 的
+ * --color-muted-soft 实色 token(不用 alpha 档)。
+ * 悬停不换底色,只把常态留的 1px 透明描边换成 stroke-subtle(几何零位移,AGENTS §4);
+ * 聚焦取 stroke-focus。头行的这几项只允许来自本常量,禁止再手写组合。
+ */
+export const STREAM_HEADER_ROW_CLASS = cn(
+  STREAM_ROW_CLASS,
+  'h-8 rounded-sm px-1 text-left text-foreground',
+  'border border-transparent bg-muted-soft transition-colors',
+  'hover:border-stroke-subtle focus-visible:border-stroke-focus focus-visible:outline-none',
+)
+
+/**
+ * 头行内紧凑图标动作(24px 档):头行高 24px,32px 的 IconButton 会把行撑高,
+ * 破坏头行高度一致 —— 头行内动作按钮一律走本档,图标 14px 与行内图标同档。
+ */
+export const STREAM_HEADER_ACTION_CLASS =
+  'inline-flex h-full w-6 shrink-0 items-center justify-center rounded-sm text-foreground transition-colors hover:bg-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50'
+
+/**
+ * 组内正文左让位唯一档(2026-11-16 立):StreamGroup 的引导线占 `left-[7px]`,
+ * 组内**裸正文**(过程叙述这类没有底色的文字块)必须从这条线上再让 12px 起排 ⇒
+ * 文字列 = 6 + 12 = 18px,略多于引导线所在的 7px 轨道(线不进字身、两侧各留 1px 呼吸),
+ * 与 StreamDetail 的正文列同一格(思考展开体同款)。
+ * 不套本档的裸正文会从 0 起排,引导线就从字身和正文里的图标上穿过去(2026-11-16 用户报障)。
+ * 左让位取间距档 6px(ml-1.5)而非任意值:非色档只认档表(守门 302p 的 tierWebOffN)。
+ */
+export const STREAM_GROUP_BODY_CLASS = 'ml-1.5 pl-3'
+
 /** 对象(路径/URL/命令)一律等宽;查询词与实体名用正文体 */
 export const STREAM_SUBJECT_MONO = /path|url|command/
 
-const ICON_CLASS = 'h-3.5 w-3.5 shrink-0'
+const ICON_CLASS = 'h-4 w-4 shrink-0'
 
 /** 状态 → 图标 + 颜色(全消息流唯一口径) */
 export function StreamStatusIcon({
@@ -172,29 +206,22 @@ export function StreamStatusIcon({
   switch (status) {
     case 'running':
       return (
-        <Loader2 className={cn(ICON_CLASS, 'animate-spin text-primary', className)} aria-hidden />
+        <Loader2
+          className={cn(ICON_CLASS, 'animate-spin text-foreground', className)}
+          aria-hidden
+        />
       )
     case 'success':
-      return <Check className={cn(ICON_CLASS, 'text-muted-foreground/50', className)} aria-hidden />
+      return <Check className={cn(ICON_CLASS, 'text-foreground', className)} aria-hidden />
     case 'error':
       return <X className={cn(ICON_CLASS, 'text-red-500', className)} aria-hidden />
     case 'skipped':
-      return <Minus className={cn(ICON_CLASS, 'text-muted-foreground/40', className)} aria-hidden />
+      return <Minus className={cn(ICON_CLASS, 'text-foreground', className)} aria-hidden />
     case 'stub':
-      return (
-        <TriangleAlert
-          className={cn(ICON_CLASS, 'text-muted-foreground/50', className)}
-          aria-hidden
-        />
-      )
+      return <TriangleAlert className={cn(ICON_CLASS, 'text-foreground', className)} aria-hidden />
     case 'pending':
     default:
-      return (
-        <CircleDashed
-          className={cn(ICON_CLASS, 'text-muted-foreground/35', className)}
-          aria-hidden
-        />
-      )
+      return <CircleDashed className={cn(ICON_CLASS, 'text-foreground', className)} aria-hidden />
   }
 }
 
@@ -278,7 +305,7 @@ export function StreamRow({
       )}
       <span
         className={cn(
-          'truncate text-foreground/80',
+          'truncate text-foreground',
           primary ? 'min-w-0 flex-1' : 'shrink-0 max-w-[45%]',
         )}
       >
@@ -288,7 +315,7 @@ export function StreamRow({
         <span
           data-stream-subject="true"
           className={cn(
-            'min-w-0 truncate text-foreground/55',
+            'min-w-0 truncate text-foreground/65',
             primary ? 'shrink-0 max-w-[40%]' : 'flex-1',
             STREAM_SUBJECT_MONO.test(subjectKind) && 'font-mono',
           )}
@@ -318,7 +345,7 @@ export function StreamRow({
         <ChevronRight
           className={cn(
             ICON_CLASS,
-            'shrink-0 text-muted-foreground/40 transition-all',
+            'shrink-0 text-foreground transition-all',
             expanded ? 'rotate-90 opacity-100' : 'opacity-0 group-hover/stream-row:opacity-100',
           )}
           aria-hidden
@@ -354,9 +381,9 @@ export function StreamRow({
       aria-expanded={expanded}
       aria-label={ariaLabel ?? title}
       className={cn(
-        'group/stream-row rounded-sm px-1 text-left transition-colors',
-        'hover:bg-accent/40 focus-visible:bg-accent/40 focus-visible:outline-none',
-        STREAM_ROW_CLASS,
+        // 2026-11-16:可点击活动行 = 可折叠容器头行唯一档(与思考/过程叙述/代码块头完全同档)
+        'group/stream-row',
+        STREAM_HEADER_ROW_CLASS,
         dimmed && 'opacity-60',
         className,
       )}
@@ -466,8 +493,12 @@ export interface StreamGroupProps {
 /**
  * 活动组:一段过程信息的容器。
  *
- * 刻意**不带边框与底色**:过程内容不该抢正文的视觉重量(此前是一个 rounded-lg + border +
- * bg-muted 的盒子,把 AI 回复"包"成了卡片)。这里只有一条竖向导引线和一行与行同字号的头。
+ * 除一行与行同字号的头外不设独立底色;2026-11-15 起头按钮带一档低对比描边,
+ * 与正文拉开"可展开容器"的轻量边界,但不抢正文的视觉重量。
+ *
+ * 内容侧纪律:组内**裸正文**(无底色的文字块,如过程叙述的 markdown)必须套
+ * `STREAM_GROUP_BODY_CLASS`,让出引导线所在的 7px 轨道;需要自成卡片的内容
+ * (StreamDetail / 泳道卡)自带底色,由底色承担让位,不必再套本档。
  */
 export function StreamGroup({
   active,
@@ -495,8 +526,10 @@ export function StreamGroup({
         aria-hidden
         className={cn(
           'absolute left-[7px] w-px transition-colors',
-          // 引导线只在展开且确有内容时出现,收起态保持零装饰
-          open ? 'top-6 bottom-1 bg-border/70' : 'h-0 opacity-0',
+          // 引导线只在展开且确有内容时出现,收起态保持零装饰。
+          // 起点落在头行下沿(top-8 = 头行 32px 高),不从语义图标底部钻出来 ——
+          // 图标盒占 8..24,top-6 会正好抵住图标下边缘,读起来像线黏在图标上。
+          open ? 'top-8 bottom-1 bg-border/70' : 'h-0 opacity-0',
         )}
       />
       <div className="flex items-center gap-1">
@@ -506,8 +539,9 @@ export function StreamGroup({
           aria-expanded={open}
           aria-label={ariaLabel ?? (open ? t('collapseSteps') : t('expandSteps'))}
           className={cn(
-            STREAM_ROW_CLASS,
-            'min-w-0 flex-1 rounded-sm px-1 text-left text-muted-foreground transition-colors hover:bg-accent/40 focus-visible:bg-accent/40 focus-visible:outline-none',
+            // 2026-11-16:组头与思考行/代码块头同走可折叠容器头行唯一档(含同一层实色底)
+            'min-w-0 flex-1',
+            STREAM_HEADER_ROW_CLASS,
           )}
           data-stream-group-trigger="true"
         >
@@ -535,7 +569,7 @@ export function StreamGroup({
           <ChevronRight
             className={cn(
               ICON_CLASS,
-              'shrink-0 text-muted-foreground/40 transition-transform',
+              'shrink-0 text-foreground transition-transform',
               open && 'rotate-90',
             )}
             aria-hidden

@@ -124,7 +124,7 @@ export type PersonaContracts = Record<string, PersonaContract>
 export type SessionStatus = 'running' | 'completed' | 'failed' | 'cancelled'
 
 /**
- * D103 子智能体实例七态(P 协议层;对标 Codex `localConversation.multiAgentAction.agentState`)。
+ * D103 子智能体实例七态(P 协议层;遵循统一工程规范)。
  *
  * **与 `SessionStatus` 的分工(不另建第二套枚举)**:
  *   · `SessionStatus` 是**会话级**四态(粗粒度,用于会话列表/生命周期);
@@ -213,12 +213,12 @@ export * from './agent-runtime-integrations.js'
 export * from './agent-runtime-orchestration.js'
 
 // ============================================================================
-// 多 Agent 并行执行契约(2026-07-22 立,对标 Hermes Kanban + Claude Agent Teams)
+// 多 Agent 并行执行契约(2026-07-22 立,对齐 Hermes Kanban + Claude Agent Teams)
 // 跨端共享:ai-service(DAG worker pool)+ cli(子进程并行)+ api(Kanban API)+ web(工作台 UI)
 // ============================================================================
 
 /**
- * Agent 任务 Kanban 状态机(6 列,对标 Hermes Agent Kanban)。
+ * Agent 任务 Kanban 状态机(6 列,对齐 Hermes Agent Kanban)。
  *
  * 状态流转:
  *   triage → todo → ready → in_progress → done
@@ -1014,7 +1014,7 @@ export type GitToolPermission = 'read' | 'write' | 'dangerous'
 
 // ============================================================================
 // 多文件原子编辑契约(Wave 9,2026-07-22 立)
-// 对标 OpenClaw multi-file atomic edit:atomic batch + checkpoint + rollback
+// 遵循统一工程规范
 // ============================================================================
 
 /** 多文件原子编辑操作类型 */
@@ -1059,7 +1059,7 @@ export interface BatchEditResult {
 
 // ============================================================================
 // LSP workspace 级工具类型(2026-07-22 立,Wave 9 多语言 LSP 深化)
-// 对标 OpenCode:workspace/symbol 全局符号搜索 + textDocument/rename + textDocument/codeAction
+// 对齐 OpenCode:workspace/symbol 全局符号搜索 + textDocument/rename + textDocument/codeAction
 // ============================================================================
 
 /** workspace/symbol 请求(全局符号搜索) */

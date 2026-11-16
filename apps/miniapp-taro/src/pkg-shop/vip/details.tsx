@@ -13,7 +13,7 @@ import type { VipBenefitCardItem, VipPlanOption } from '@ihui/types'
 import { VipBenefitsSection, VipPlansSection } from '@ihui/rn-app/features/vip/VipSections'
 import CompareTable from './compare-table'
 
-// 套餐方案(对标原 vip/details.vue 月度¥39.9/30天 + 年度¥299/365天)。
+// 套餐方案(对齐原 vip/details.vue 月度¥39.9/30天 + 年度¥299/365天)。
 // 卡面渲染已下沉共享 VipPlansSection;本页只保留取词与升级跳转。
 
 export default function VipDetailsPage() {

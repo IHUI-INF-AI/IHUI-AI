@@ -50,7 +50,7 @@ import { closeProduct, launchProduct, resolveProductExe } from './lib/trae-clien
 const HERE = path.dirname(fileURLToPath(import.meta.url))
 /** 服务身份下重新拉起客户端要换桌面用户身份(CreateProcessAsUser) */
 const RUN_AS_USER_SCRIPT = path.join(HERE, '..', 'apps', 'api', 'scripts', 'run-as-user.ps1')
-/** WorkBuddy 主进程镜像名 = `${PRODUCT}.exe`(实测安装于 G:\workbuddy\WorkBuddy.exe) */
+/** WorkBuddy 主进程镜像名 = `${PRODUCT}.exe`(实测安装于 外部程序) */
 const PRODUCT = 'WorkBuddy'
 const CLOSE_WAIT_MS = 20_000
 const RESTART_HINT = 'WorkBuddy 已自动重启;若未自动打开请手动启动 WorkBuddy'
@@ -261,7 +261,7 @@ export function queryMainExePath(pid, env = process.env) {
 /**
  * WorkBuddy exe 注册表兜底(2026-10-28 冷启动实弹修正):resolveProductExe 只扫标准安装根,
  * 而 WorkBuddy 可装任意盘(实测 G:\workbuddy,卸载项 InstallLocation 还是空)。卸载项
- * DisplayIcon 是权威来源(实测 "G:\workbuddy\WorkBuddy.exe,0")。只认以 workbuddy.exe
+ * DisplayIcon 是权威来源(实测 "外部程序")。只认以 workbuddy.exe
  * 结尾且真实存在的路径(workbuddy-switch 等同名条目被拒)。找不到 ⇒ ''(调用方如实回报)。
  */
 export function resolveWorkbuddyExeFromRegistry(env = process.env) {

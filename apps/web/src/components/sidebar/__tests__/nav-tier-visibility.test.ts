@@ -31,23 +31,26 @@ const itemsForNormalUser = (tree: NavItem[]): NavItem[] => filterNavItemsByRole(
 const sidebarTree = (): NavItem[] => itemsForNormalUser(NAV_GROUPS.flatMap((g) => g.items))
 
 describe('侧边栏简洁模式:可见项计量', () => {
-  it('侧边栏树普通用户可见总数守恒(现今读数 28)', () => {
+  it('侧边栏树普通用户可见总数守恒(2026-11-16 收敛后读数 10)', () => {
     // role 过滤后 adminOnly / permission 项已剔除(管理分组整组不可见)。
-    // 28 = 首页 1 + 热门 1 + AI 域入口 1 + 教育/内容/交易域入口 3 + 个人域入口 1
-    //      + 开发者域(入口父项 + 20 子项,普通用户可见)21
-    // —— AI 域那 54 项 2026-10-23 起在域入口页面上,不在本面(见下面那一条)。
+    // 10 = 首页 1 + 热门 1 + 人事域入口 1 + 财务域入口 1 + AI 域入口 1
+    //      + 教育/内容/交易域入口 3 + 个人域入口 1 + 开发者域入口 1
+    // —— 各域 20+ 项子清单 2026-11-16 起全部移入 *_HUB_ITEMS,由域入口页承载,
+    //    不在本面;侧边栏只留域入口一枚。
     // 变更 NAV_GROUPS 时须同步更新本数字与本注释。
-    expect(flattenNavItems(sidebarTree()).length).toBe(28)
+    expect(flattenNavItems(sidebarTree()).length).toBe(10)
   })
 
-  it('侧边栏树四档全隐藏后只留 7 项(即收掉 21 项)', () => {
-    // 21 = 开发者域整域(父项标 developer,20 个子项由继承规则带档)。
-    // 本数为本测试实跑读数(2026-10-23 收敛第二批后),非估算;变更 NAV_GROUPS 须同步更新。
+  it('侧边栏树四档全隐藏后只留 9 项(即收掉 1 项)', () => {
+    // 1 = 开发者域入口(/domains/developer,标 developer 档)—— 整域唯一留在侧边栏的项。
+    // 原 21 项 = 域入口 + 20 子项,但 2026-11-16 收敛后 20 子项已移入
+    // DEVELOPER_HUB_ITEMS(域入口页消费),侧边栏只剩域入口 1 枚标档。
+    // 本数为本测试实跑读数,非估算;变更 NAV_GROUPS 须同步更新。
     const all = sidebarTree()
     const full = flattenNavItems(all).length
     const simplified = flattenNavItems(filterNavItemsByTier(all, ALL_NAV_TIERS)).length
-    expect(full - simplified).toBe(21)
-    expect(simplified).toBe(7)
+    expect(full - simplified).toBe(1)
+    expect(simplified).toBe(9)
   })
 
   it('AI 域清单四档全隐藏后收掉 41 项(收敛没让档位判据失效)', () => {
@@ -95,21 +98,22 @@ describe('侧边栏简洁模式:分档归属与继承', () => {
     ])
   })
 
-  it('开发者域(P2 收敛第一批)父项标档,域入口 + 20 个子项由继承规则一并隐藏', () => {
-    // 2026-10-23 结构变更:原「开发者工具」折叠父项(/developer/webhooks)已摊平进
-    // 开发者域入口(/developer),本用例随新结构改写 —— 档位总数不变(21 项),
-    // 上面的 21/7 两枚读数因此无需改动,这正是"收敛不丢项"的旁证。
+  it('开发者域(2026-11-16 收敛)侧边栏仅域入口标档,藏档后开发者入口对普通用户消失', () => {
+    // 2026-11-16 结构变更:原「开发者工具」父项 + 20 子项已收敛为域入口
+    // /domains/developer(标 developer 档),20 个子项移入 DEVELOPER_HUB_ITEMS
+    // (域入口页 /domains/developer 经 CategoryShell 承载,URL 全保留)。
+    // 侧边栏只剩域入口 1 枚标档 —— 藏 developer 档即把外部开发者入口对普通用户整枚藏掉。
     const tree = sidebarTree()
-    const hub = tree.find((i) => i.href === '/developer')
+    const hub = tree.find((i) => i.href === '/domains/developer')
     expect(hub?.advancedOnly).toBe('developer')
     expect(hub?.labelKey).toBe('developerTools')
-    expect(hub?.children?.length).toBe(20)
-    // 子项本身一个都没标 —— 全靠继承
-    expect((hub?.children ?? []).some((c) => c.advancedOnly !== undefined)).toBe(false)
+    // 侧边栏不再挂 children(2026-11-16 用户规范:不许下拉)
+    expect(hub?.children).toBeUndefined()
     const visible = flattenNavItems(filterNavItemsByTier(tree, ['developer']))
+    // 藏档后域入口消失;子项本就不在侧边栏面(移入域清单),故同样不在可见集
+    expect(visible.some((i) => i.href === '/domains/developer')).toBe(false)
     expect(visible.some((i) => i.href === '/developer/webhooks')).toBe(false)
     expect(visible.some((i) => i.href === '/playground')).toBe(false)
-    expect(visible.some((i) => i.href === '/developer')).toBe(false)
   })
 
   it('「高级 AI 工具」整组跟随父项隐藏', () => {

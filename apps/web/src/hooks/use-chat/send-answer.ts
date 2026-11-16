@@ -7,7 +7,6 @@ import type { ChatStore } from '@/stores/chat-pane-context'
 import { useAuthStore } from '@/stores/auth'
 import { useLoginDialogStore } from '@/stores/login-dialog'
 import { useAiPanelStore } from '@/stores/ai-panel'
-import { getModeStoreForChatStore } from '@/stores/mode'
 import { getSamplingParams } from '@/stores/sampling-params'
 import { getAppearanceConfig } from '@/stores/appearance-settings'
 import { buildAiStyleDirective } from '@/lib/ai-style-directive'
@@ -28,7 +27,7 @@ import {
   type WorkspacePermissionMode,
   // G-425:done 帧携带上游 finish/stop reason(截断提示数据源)
   type FinishReasonEvent,
-  // 对标 Qoder 借鉴清单第 9 项(2026-10-30):准入两格(inputId / 回执回调)已由
+  // 遵循统一工程规范):准入两格(inputId / 回执回调)已由
   // api-client StreamChatOptions 正式导出(B 路到场,dist 已重建),桥接类型已收编删除。
   type StreamChatOptions,
 } from '@ihui/api-client'
@@ -76,7 +75,7 @@ import {
 import { createSmoothDeltaBatcher } from './smooth-delta-batcher'
 import type { PlanStep, TerminalTask } from '@ihui/types/ai'
 import type { ChatActionContext } from './types'
-// 对标 Qoder 借鉴清单第 10 项(2026-10-29):命名错误码 → 分类处置(动作 / 可重试)。
+// 遵循统一工程规范):命名错误码 → 分类处置(动作 / 可重试)。
 // 纯判据与文案键都在共享层与 lib/stream-error-view,本文件只做拼装与落地。
 import {
   emitPlannedStreamErrorToast,
@@ -84,7 +83,7 @@ import {
   presentStreamError,
   type StreamErrorPresentation,
 } from '@/lib/stream-error-view'
-// 对标 Qoder 借鉴清单第 9 项(2026-10-29):发送准入回执配对。
+// 遵循统一工程规范):发送准入回执配对。
 // 每条续答一个稳定 inputId;回执缺席时凭正文增量或流尾定性。响应头不算收下。
 // 收场时零证据落 `unconfirmed` —— 绝不把"不知道送没送到"渲染成"已收下"。
 import { createInputId, createSendAdmissionTracker } from '@ihui/shared/chat'
@@ -111,9 +110,8 @@ export function createSendAnswer(
     streamConversationRef,
     streamErrorLabels,
   } = ctx
-  // 票60 普查批(2026-10-21):mode / timeline 按 chatStore 反查 paneId 取窗格实例
-  // (根单例 chatStore ⇒ null ⇒ 回落根单例),侧问题回答不再读写根窗格的伴生态。
-  const modeStore = getModeStoreForChatStore(chatStore)
+  // 票60 普查批(2026-10-21):timeline 按 chatStore 反查 paneId 取窗格实例
+  // (根单例 chatStore ⇒ null ⇒ 回落根单例)。
   const timelineStore = getTimelineStoreForChatStore(chatStore)
   const sendAnswer = async (answer: string, opts?: { fromRetry?: boolean }) => {
     const trimmed = answer.trim()
@@ -140,7 +138,7 @@ export function createSendAnswer(
 
     // UI 上把 answer 显示为 user 消息(让用户看到自己回答了什么)
     store.addMessage({ role: 'user', content: trimmed, model })
-    // 记录续流时的工作区权限模式(2026-07-25 深化,深度对标 Codex 透明性)
+    // 记录续流时的工作区权限模式(2026-07-25 深化,深度遵循统一工程规范)
     // 2026-08-31:未绑定工作区时读暂存模式
     const permState = useAiPanelStore.getState()
     const currentMode: WorkspacePermissionMode | undefined =
@@ -325,9 +323,8 @@ export function createSendAnswer(
           // 2026-08-21 修复(C4):fromRetry 时 pending 为 null,用入口恢复的 questionId
           questionId,
           answer: trimmed,
-          // 模式透传(2026-07-22 立,对标 主流 AI IDE Plan/Spec):build/plan/review/spec
-          // 2026-07-28 移除独立 PlanActToggle 后,plan_mode 字段已废弃,仅传 mode
-          mode: modeStore.getState().currentMode,
+          // 2026-11-16 用户定档:模式固定 build(全工具开放),不再由用户选择。
+          mode: 'build',
           // P1-7:自定义 system prompt(未设置时不传,保持上游默认)
           ...(mergedSystemPrompt ? { systemPrompt: mergedSystemPrompt } : {}),
         },
@@ -641,7 +638,7 @@ export function createSendAnswer(
         ...(() => {
           const agentTools = [
             ...new Set([
-              ...mergeAgentTools(chatStore, modeStore.getState().currentMode),
+              ...mergeAgentTools(chatStore, 'build'),
               ...eduToolsFor(answer),
               ...fileToolsFor(answer),
               ...videoToolsFor(answer),

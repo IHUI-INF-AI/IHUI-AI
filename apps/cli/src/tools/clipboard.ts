@@ -255,12 +255,12 @@ export function isClipboardAvailable(): boolean {
 /**
  * 剪贴板变更序号(Win32 `GetClipboardSequenceNumber`)。
  *
- * 立票理由(2026-11-14,逆向-复现-超越 对位 Qoder CN 0.5.6 的 `bin/native_clipboard.node`):
+ * 立票理由(2026-11-14,工程化落地 对位 外部实现 CN 0.5.6 的 `bin/native_clipboard.node`):
  * 对方原生件导出三接口 readClipboard / writeClipboard / getClipboardToken —— 第三枚对应
  * Win32 的剪贴板**变更序号**(每次剪贴板被改写都 +1),用于"不搬运全文就能判断内容变没变",
  * 让 Agent 轮询等用户复制新内容成为可能。本仓此前只有纯文本读写,缺这一格。
  *
- * 逆向四步:
+ * 独立分析四步:
  *   ③ 复现 —— 不引第三方包、不编译原生件(§0.12 红线):走 PowerShell 内置 `Add-Type`
  *      P/Invoke 调 user32,与本文件既有的 PS 引擎同源(`resolvePowerShell`),零新依赖。
  *   ④ 超越 —— 对方的 getClipboardToken 只藏在编译型 .node 里(要分发原生件);

@@ -21,7 +21,7 @@ import type { PlanStep } from '@/hooks/use-agent-progress'
 /**
  * NextStepsCard — 对话终点「下一步推荐」卡片(2026-09-18 立,AI 对话下一步引导)
  *
- * 对标 Qoder 推荐下一步卡片 / Codex 队列引导:流结束时在任务进度面板庆祝横幅附近
+ * 遵循统一工程规范
  * 展示最多 3 条确定性推导(不走 LLM)的建议,点击即写入 chat store 草稿并自动发送。
  *
  * 推导规则(确定性,按优先级取第一条命中):

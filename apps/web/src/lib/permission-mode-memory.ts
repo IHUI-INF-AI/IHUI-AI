@@ -19,7 +19,7 @@
  *   这一格会把"上一台的偏好"落到"新工作区的授权"上,属产品口径,不由实现票自行拍;
  *   翻成已接线之前,任何调用点都不得私自读这个 key 去切档。
  *
- * localStorage 乐观首屏缓存边界(票 G-937982,对标上游 cuaPermissionStatusCache 的缓存纪律):
+ * localStorage 乐观首屏缓存边界(票 G-937982,对齐上游 cuaPermissionStatusCache 的缓存纪律):
  * - 落盘格式是带 `savedAt` 的信封;**TTL 7 天**,超期回 null —— 偏好越旧越不可信,
  *   超期后宁可回到 default 循环起点,也不要拿一个可能过时的档位当首屏初值。
  * - `savedAt` 在未来(时钟回拨/被篡改)无法判断新鲜度,**不采信**回 null。
@@ -110,7 +110,9 @@ function parsePreferredModeEnvelope(raw: string, now: number): WorkspacePermissi
 }
 
 /** 读回上次主动选择的档位;没有记录 / 记录认不出来 ⇒ null(不猜、不兜成某个档) */
-export function readPreferredPermissionMode(now: number = Date.now()): WorkspacePermissionMode | null {
+export function readPreferredPermissionMode(
+  now: number = Date.now(),
+): WorkspacePermissionMode | null {
   if (typeof window === 'undefined') return null
   let raw: string | null = null
   try {

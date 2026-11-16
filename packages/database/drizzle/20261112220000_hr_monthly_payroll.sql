@@ -15,7 +15,7 @@
 --         · hr_employee_tax_profile    个税专项附加扣除档案
 --
 -- 幂等安全:CREATE TABLE IF NOT EXISTS,可安全重复执行。
--- 与 packages/database/src/schema/hr-attendance-monthly.ts、hr-salary-config.ts 逐字对齐。
+-- 与 packages/database/src/schema/hr-attendance-monthly.ts、hr-salary-config.ts 按行为规格。
 --
 -- 执行方式:
 --   pnpm tsx packages/database/scripts/apply-migration.mjs drizzle/20261112220000_hr_monthly_payroll.sql

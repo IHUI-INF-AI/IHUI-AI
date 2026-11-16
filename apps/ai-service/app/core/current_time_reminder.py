@@ -2,7 +2,7 @@
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-"""当前时间提醒(2026-09-19 第四十批,对标 codex-rs 三件套):
+"""当前时间提醒(2026-09-19 第四十批,遵循统一工程规范):
 
 - context/current_time_reminder.rs:提醒片段本体(标记/正文/不可用降级)
 - session/time_reminder.rs:投递节流状态机(窗口判定 + interval 节流 +
@@ -45,13 +45,13 @@ __all__ = [
     "CurrentTimeReminderState",
 ]
 
-# 片段标记(对标 CurrentTimeReminder::type_markers)
+# 片段标记(对齐 CurrentTimeReminder::type_markers)
 CURRENT_TIME_REMINDER_OPEN_TAG = "<current_time_reminder>"
 CURRENT_TIME_REMINDER_CLOSE_TAG = "</current_time_reminder>"
-# 时钟读取失败固定文案(对标 CurrentTimeUnavailable::MESSAGE)
+# 时钟读取失败固定文案(对齐 CurrentTimeUnavailable::MESSAGE)
 CURRENT_TIME_UNAVAILABLE_MESSAGE = "failed to read current time"
 
-# 中断指导文案(对标 TurnAborted::INTERRUPTED_GUIDANCE / INTERRUPTED_DEVELOPER_GUIDANCE;
+# 中断指导文案(对齐 TurnAborted::INTERRUPTED_GUIDANCE / INTERRUPTED_DEVELOPER_GUIDANCE;
 # 按我方 checkpoint status 分档:cancelled=用户视角,cancelled/paused 共用后台进程告警)
 TURN_ABORTED_GUIDANCE_BY_STATUS: dict[str, str] = {
     "cancelled": (
@@ -66,13 +66,13 @@ TURN_ABORTED_GUIDANCE_BY_STATUS: dict[str, str] = {
     ),
 }
 
-# TurnAborted 片段标记(对标 TurnAborted::type_markers)
+# TurnAborted 片段标记(对齐 TurnAborted::type_markers)
 TURN_ABORTED_OPEN_TAG = "<turn_aborted>"
 TURN_ABORTED_CLOSE_TAG = "</turn_aborted>"
 
 
 def build_turn_aborted_fragment(status: str) -> dict[str, Any]:
-    """构造中断指导片段(对标 TurnAborted → ResponseItem;user 角色带标记)。"""
+    """构造中断指导片段(对齐 TurnAborted → ResponseItem;user 角色带标记)。"""
     guidance = TURN_ABORTED_GUIDANCE_BY_STATUS.get(status) or TURN_ABORTED_GUIDANCE_BY_STATUS[
         "cancelled"
     ]
@@ -94,7 +94,7 @@ def is_turn_aborted_fragment(text: str) -> bool:
 
 
 class TimeReminderDeliveryMode(StrEnum):
-    """投递模式(对标 CurrentTimeReminderDeliveryMode)。
+    """投递模式(对齐 CurrentTimeReminderDeliveryMode)。
 
     - ANY_INFERENCE(默认):interval 到期即在任何推理前投递。
     - AFTER_USER_OR_TOOL_OUTPUT:仅在用户输入或工具输出之后的推理投递;
@@ -106,12 +106,12 @@ class TimeReminderDeliveryMode(StrEnum):
 
 
 def _fmt_utc(dt: datetime) -> str:
-    """统一 UTC 格式化(对标 %Y-%m-%d %H:%M:%S UTC)。"""
+    """统一 UTC 格式化(对齐 %Y-%m-%d %H:%M:%S UTC)。"""
     return dt.strftime("%Y-%m-%d %H:%M:%S") + " UTC"
 
 
 def build_current_time_reminder(current_time: datetime) -> dict[str, Any]:
-    """构造时间提醒片段(对标 CurrentTimeReminder → ResponseItem)。
+    """构造时间提醒片段(对齐 CurrentTimeReminder → ResponseItem)。
 
     developer 角色、content_kind="current_time.reminder"、带标记的 input_text。
     """
@@ -129,7 +129,7 @@ def build_current_time_reminder(current_time: datetime) -> dict[str, Any]:
 
 
 def build_current_time_unavailable() -> dict[str, Any]:
-    """构造时钟不可用片段(对标 CurrentTimeUnavailable → ResponseItem)。
+    """构造时钟不可用片段(对齐 CurrentTimeUnavailable → ResponseItem)。
 
     同为 developer 角色;失败降级好过让回合失败。
     """
@@ -156,9 +156,9 @@ def is_current_time_reminder_fragment(text: str) -> bool:
 
 @dataclass
 class CurrentTimeReminderState:
-    """投递节流状态机(对标 CurrentTimeReminderState,逐字段等价)。
+    """投递节流状态机(对齐 CurrentTimeReminderState,逐字段等价)。
 
-    用法(对标 Session::maybe_record_current_time_reminder):
+    用法(对齐 Session::maybe_record_current_time_reminder):
         state = CurrentTimeReminderState()
         item = state.take_reminder(
             window_id="w1", turn_id="t1",
@@ -173,12 +173,12 @@ class CurrentTimeReminderState:
     last_window_id: str | None = None
     last_clock_failure: tuple[str, str] | None = None  # (turn_id, window_id)
     pending_user_or_tool_output_boundary: bool = False
-    # 可配置(对标 CurrentTimeReminderConfig 默认:interval=1、AnyInference)
+    # 可配置(对齐 CurrentTimeReminderConfig 默认:interval=1、AnyInference)
     reminder_interval_seconds: int = 1
     delivery_mode: TimeReminderDeliveryMode = TimeReminderDeliveryMode.ANY_INFERENCE
 
     # ------------------------------------------------------------------
-    # boundary 记录(对标 note_recorded_items:用户轮次边界或工具输出后置位)
+    # boundary 记录(对齐 note_recorded_items:用户轮次边界或工具输出后置位)
     # ------------------------------------------------------------------
     def note_recorded_items(self, items: list[dict[str, Any]]) -> None:
         """扫描将写入历史的项,遇用户消息/工具输出则标记 boundary。"""
@@ -192,7 +192,7 @@ class CurrentTimeReminderState:
                 self.pending_user_or_tool_output_boundary = True
 
     # ------------------------------------------------------------------
-    # 节流判定(对标 take_reminder_due,语义逐条对齐)
+    # 节流判定(对齐 take_reminder_due,语义逐条对齐)
     # ------------------------------------------------------------------
     def _reminder_due(
         self,
@@ -222,7 +222,7 @@ class CurrentTimeReminderState:
         return reminder_is_due
 
     # ------------------------------------------------------------------
-    # 带时钟读取的投递(对标 read_clock_for_context + maybe_record 合并入口)
+    # 带时钟读取的投递(对齐 read_clock_for_context + maybe_record 合并入口)
     # ------------------------------------------------------------------
     def take_reminder(
         self,
@@ -235,7 +235,7 @@ class CurrentTimeReminderState:
         Returns:
             - 正常:build_current_time_reminder 的片段(到期)或 None(被抑制);
             - 时钟失败:首败注入 CurrentTimeUnavailable 片段;同 (turn_id,
-              window_id) 重复失败不再注入(对标 last_clock_failure 去重)。
+              window_id) 重复失败不再注入(对齐 last_clock_failure 去重)。
         """
         try:
             current_time = time_provider()

@@ -5,7 +5,7 @@
 /**
  * Best-of-N 同任务多副本自动择优端点(2026-09-07 立)。
  *
- * 对标 Cursor 多副本择优:同一任务并行跑 N 份,由评审模型打分(0-100)选最优回写。
+ * 遵循统一工程规范)选最优回写。
  * 后端路由见 apps/ai-service/app/routers/best_of_n.py,
  * 经 web 代理以 `/api/best-of-n*` 直连 ai-service 8803:
  *  - POST /api/best-of-n/run → {messages, model?, n?, evaluatorModel?, sessionId?}

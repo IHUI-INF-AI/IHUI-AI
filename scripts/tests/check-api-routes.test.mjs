@@ -1426,7 +1426,7 @@ test('形状锁:dump 旗标取值单点化,旧的两行裸索引形态不得回�
 // ═══════════════════════════════════════════════════════════
 
 // ─── 35. 行为:mobile-rn 的"传输口在、路径抽不出"必须被逐条点名(§22c:输入逐字取自 HEAD 面真文件) ──
-// 夹具里 `fetch(\`${API_BASE_URL}/api/crash-reports\`, {` 这一行**逐字抄自 HEAD 面
+// 夹具里 `fetch(\`${API_BASE_URL}/api/crash-reports\`, {` 这一行**逐字取自 HEAD 面
 // `apps/mobile-rn/index.js:46`**(`git show HEAD:apps/mobile-rn/index.js`,2026-10-05 现读)——
 // 它正是本门看不见的那一型:传输口是裸 `fetch(`,路径前缀由变量插值给出,`pathRe` 要求引号紧邻
 // `/api/` ⇒ 一条都不进调用集。真仓 HEAD 全量档现读:这一型("传输口在代码里而路径抽不出")

@@ -3,7 +3,7 @@
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 """批58:retained context — 压缩契约外的有界宿主事实账本。
 
-对标 codex-rs/history/src/retained_context.rs(510 行,逐条移植核心语义):
+遵循统一工程规范):
 - 宿主持有的模型不可见事实,活在 compaction 契约之外;
   压缩不过期它们,指令边界回滚才清除。
 - 两族记录:VerifiedAnswer(原始问题+宿主验证回答,绝非推断授权)
@@ -81,7 +81,7 @@ def _floor_char_boundary(text: str, index: int) -> int:
 
 
 def _bound_message(message: RetainedUserMessage) -> None:
-    """对标 RetainedUserMessage::bound():超限清空正文,身份截 1024 字符边界。"""
+    """对齐 RetainedUserMessage::bound():超限清空正文,身份截 1024 字符边界。"""
     if _json_bytes(message) > MAX_RECORD_BYTES:
         message.text = ""
         message.complete = False
@@ -100,7 +100,7 @@ def _bound_answer(answer: VerifiedAnswer) -> None:
 
 
 def _bound_family(items: deque[_Ordered], incomplete: bool) -> tuple[deque[_Ordered], bool]:
-    """对标 bound_family():按接受序排序后驱逐最旧,驱逐即置 incomplete。"""
+    """对齐 bound_family():按接受序排序后驱逐最旧,驱逐即置 incomplete。"""
     ordered = sorted(items, key=_Ordered.sort_key)
     while len(ordered) > MAX_FAMILY_RECORDS or _json_bytes(
         [e.value for e in ordered]

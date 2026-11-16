@@ -17,7 +17,7 @@
  * 调度:node-cron `0 0,12 * * *`(每日 0 点 + 12 点各跑一次,12 小时间隔)
  * 失败重试:单源 3 次重试,3 次失败写 aiWorldSyncLog 表 + 跳过,不阻塞其他源
  * LLM 改写:用项目内 AI_SERVICE_URL/llm/complete,批处理 + 失败降级用原始摘要
- * 反抄袭:UI/字体/icon 用本项目 token,分类 slug 全自定义,文案用原始源原文
+ * 反对齐:UI/字体/icon 用本项目 token,分类 slug 全自定义,文案用原始源原文
  */
 
 import cron, { type ScheduledTask } from 'node-cron'

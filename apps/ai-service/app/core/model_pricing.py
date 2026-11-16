@@ -137,7 +137,7 @@ PROVIDER_PRICES_PER_1M: dict[str, dict[str, float]] = {
 DEFAULT_PRICE_PER_1M: dict[str, float] = {"input": 1.00, "output": 3.00}
 
 # ---------------------------------------------------------------------------
-# Prompt 缓存计价(P0-①,2026-09-18 立,对标 Codex Harness 的 prompt-cache 成本口径)
+# Prompt 缓存计价(P0-①,2026-09-18 立,遵循统一工程规范)
 #
 # 缓存读/写相对 input 单价的乘数(公开定价口径,2025 下半年-2026):
 #   anthropic: cache read 0.1x / cache write(5min TTL)1.25x

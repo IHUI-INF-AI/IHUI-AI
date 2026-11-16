@@ -9,7 +9,7 @@
  * 平台策略:点击跳 web 端 https://www.aizhs.top/signin?from=extension&platform=xxx,
  * web 端完成 OAuth 回调,token 写 chrome.storage(通过 web → 扩展跨域方案)。
  *
- * 视觉规范(对标 web 端 ThirdPartyLoginButtons.tsx):
+ * 视觉规范(对齐 web 端 ThirdPartyLoginButtons.tsx):
  *   - 8 平台顺序:wechat / google / github / feishu / dingtalk / enterpriseWechat / alipay / apple
  *   - 图标:内联 SVG(16x16 stroke 风格,扩展端不依赖 oauth-providers/*.svg / lucide-react)
  *   - apple:forceDisabled=true + disabledTooltip=auth.appleComingSoon(未上线)

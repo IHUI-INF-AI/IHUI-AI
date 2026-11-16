@@ -22,6 +22,7 @@ from typing import Any
 from app.services.mcp_server import (
     _TOOL_HANDLERS,
     _TOOLS,
+    _normalize_tool_name,
     mcp_server,
 )
 
@@ -61,10 +62,12 @@ def _parse_sse_events(raw: str) -> list[dict[str, Any]]:
 # =============================================================================
 
 def test_dispatch_subagent_tool_registered():
-    """dispatch_subagent 在 _TOOLS 和 _TOOL_HANDLERS 中均已注册。"""
+    """orchestrate_agents 占用 _TOOLS/handler 槽位;旧名经别名归一到同一实现。"""
     tool_names = {t.name for t in _TOOLS}
-    assert "dispatch_subagent" in tool_names
-    assert "dispatch_subagent" in _TOOL_HANDLERS
+    assert "orchestrate_agents" in tool_names
+    assert "orchestrate_agents" in _TOOL_HANDLERS
+    assert "dispatch_subagent" not in tool_names
+    assert _normalize_tool_name("dispatch_subagent") == "orchestrate_agents"
 
 
 # =============================================================================

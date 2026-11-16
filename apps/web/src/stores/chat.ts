@@ -82,7 +82,7 @@ const TERMINAL_OUTPUT_MAX_KEYS = 20
 const STEER_NOTICE_MAX_PER_MESSAGE = 8
 
 /**
- * Diff 评审意见(P3 #30 diff 评论驱动返工,2026-09-16 立,对标 Codex diff 评论)。
+ * Diff 评审意见(P3 #30 diff 评论驱动返工,2026-09-16 立,遵循统一工程规范)。
  *
  * 用户在 InlineDiffCard 上对某文件/某行留下的评审意见,暂存于 store,
  * 下一轮用户发消息时由 lib/diff-comments.ts 格式化为 `<diff_review>` 块
@@ -219,7 +219,7 @@ export interface SteerNotice {
 }
 
 /**
- * D28 快速侧问队列条目(2026-09-20 立,对标 Claude Code /btw 侧聊的「可排队」升级)。
+ * D28 快速侧问队列条目(2026-09-20 立,遵循统一工程规范)。
  * 流式期间输入的 /side 问题先入队暂存,流结束后由 message-input.tsx 逐条出队
  * 调 answerSideQuestion 补答(直调 REST,回答不入主线历史,同 W24 /btw)。
  */
@@ -275,7 +275,7 @@ export interface ChatMessage extends Omit<
   toolCalls?: ToolCall[]
   /** 该消息触发的提问(若有,渲染时显示提问卡片) */
   question?: PendingQuestion
-  /** 2026-07-25 立(深度对标 Codex 透明性):该消息生成时所使用的工作区权限模式
+  /** 2026-07-25 立(深度遵循统一工程规范):该消息生成时所使用的工作区权限模式
    * - undefined:旧消息或用户消息(不显示徽章)
    * - 'default' | 'accept-edits' | 'bypass-permissions':AI 响应生成时的模式
    * - 用于消息气泡的徽章展示,让用户事后能识别"这条回答是基于哪种权限模式生成的"
@@ -502,7 +502,7 @@ export interface ChatState {
    *  下一轮 sendMessage 时格式化为 `<diff_review>` 块定向注入 agent 上下文,注入后清空。
    *  持久化:评论可能跨刷新保留(用户评论后切走再回来仍可发送),故纳入 partialize。 */
   pendingDiffComments: DiffComment[]
-  /** 终端命令实时输出缓冲(2026-09-18 立,对标 Codex 实时 stdout 行流):
+  /** 终端命令实时输出缓冲(2026-09-18 立,遵循统一工程规范):
    *  键 = terminalId(与 terminal_start/terminal_end 一致),值 = 命令执行期间累积的增量文本。
    *  由 send-message.ts 的 onTerminalDelta 回调写入,ToolCallCard/TerminalSection 实时回显。
    *  terminal_end 后**保留**该键:live 缓冲通常比 terminal_end.output(后端截 8000 字符)更完整,
@@ -542,7 +542,7 @@ export interface ChatState {
    *  在网关定位 upstream 会话)。流开始由 send-message/send-answer 写入,收尾清空。 */
   streamingAssistantId: string | null
 
-  /** D22 引用回复(2026-09-19 立,对标 Qoder 0.2.x):待引用回复的消息快照。
+  /** D22 引用回复(2026-09-19 立,遵循统一工程规范):待引用回复的消息快照。
    *  MessageItem Reply 按钮 → ihui:reply-message → MessageList 监听写入;
    *  MessageInput 渲染引用 chip,doSend 发送时把引用摘要注入正文,成功后 clearQuotedMessage。
    *  不持久化(执行期瞬时态,刷新后需重新点 Reply)。 */
@@ -648,7 +648,7 @@ export interface ChatState {
   markAllAgentStreamsDone: () => void
   /** 清空所有 sub-agent 活动(新对话开始时调用) */
   resetSubAgentActivities: () => void
-  /** Subagent 自动派发生成(2026-07-28 立,对标 AI 工作台):
+  /** Subagent 自动派发生成(2026-07-28 立,对齐 AI 工作台):
    *  主 agent 在对话流中调用 dispatch_subagent 工具时,后端发 subagent_spawn SSE 事件,
    *  前端通过 onSubagentSpawn 回调写入 store,UI 自动展示 subagent 生命周期。 */
   addSubagentSpawn: (event: SubagentSpawnEvent) => void
@@ -794,7 +794,7 @@ export interface ChatState {
   /** D75 清理:按共享判据 `collectExpiredSideTasks` 收走过期条目并**返回**被收走项
    *  (渲染件据此显示「来自已清理的 {标题}」);running 条目结构上收不走(共享判据 L183/L229)。 */
   cleanupExpiredSideTasks: (conversationId: string, now: number) => CleanedSideTaskEntry[]
-  /** D38 队列语义完整交互(2026-09-24 立,对标 Codex followUpQueueMode)四动作。
+  /** D38 队列语义完整交互(2026-09-24 立,遵循统一工程规范)四动作。
    *  **W27 纪律**:只作用于尚未消费的队列项(重排/移除/编辑),队首选择逻辑
    *  (shiftSideQuestion + message-input.tsx 流结束 effect + use-message-send.ts 短路)一行不动。 */
   /** D38:重排指定会话桶的队列项(fromIndex → toIndex,先摘后插);越界/同位为 no-op */
@@ -813,7 +813,7 @@ export interface ChatState {
     itemId: string,
     outcome: QueueSendOutcome,
   ) => void
-  /** D38:队列模式偏好(对标 Codex followUpQueueMode),默认 'queue'(排队优先)。
+  /** D38:队列模式偏好(遵循统一工程规范),默认 'queue'(排队优先)。
    *  steer 请求在 Runtime 不支持插话时由渲染层 `effectiveMode` 降级为 queue 执行,
    *  偏好本身保留用户选择;判定唯一入口 @ihui/shared/chat/queue-interactions。 */
   followUpQueueMode: FollowUpMode
@@ -910,7 +910,7 @@ export interface ChatState {
    * 无论内核裁了什么,服务端已给出权威回答 ⇒ 本消息的 gap 坐标摘除;全部补齐 ⇒ 清旗。
    */
   applyChatSyncSnapshot: (snap: ChatSyncMessageSnapshot) => ChatSyncStoreOutcome
-  /** 编辑用户消息内容(2026-09-12 立,四竞品对标 P0-1):只改内容不改时间线,配合 truncateMessagesFrom 使用 */
+  /** 编辑用户消息内容(2026-09-12 立,四竞品对齐 P0-1):只改内容不改时间线,配合 truncateMessagesFrom 使用 */
   editMessageContent: (messageId: string, content: string) => void
   /** 截断消息列表:删除指定消息及其之后的所有消息(重新生成用,保留该消息之前的历史) */
   truncateMessagesFrom: (messageId: string) => void
@@ -949,11 +949,11 @@ export interface ChatState {
   setInterruptedMessage: (id: string | null) => void
   /** #21 中断后追加指令继续(2026-09-13 立):被中断的 assistant 消息 id,null=无 */
   interruptedMessageId: string | null
-  /** #23 撤回未执行工具卡(2026-09-13 立,对标 Trae 错误重试撤回):
+  /** #23 撤回未执行工具卡(2026-09-13 立,遵循统一工程规范):
    *  流收尾(报错/中断/超时)时,把该消息中所有仍处 running 状态的工具卡
    *  置为 cancelled(后端未返回 tool-result,不会再执行)。 */
   revokePendingToolCalls: (messageId: string) => void
-  /** W27 输入历史(2026-09-14 立,对标 Codex CLI Esc+Esc 历史导航):
+  /** W27 输入历史(2026-09-14 立,遵循统一工程规范):
    *  最近发送的消息正文(纯文本,不含附件 markdown),去重、最新在后、上限 50 条。 */
   inputHistory: string[]
   /** W27 写入输入历史(发送成功后由 useMessageSend.doSend 调用);去重 + 上限 50 */
@@ -1120,7 +1120,7 @@ const buildChatState: ChatStateCreator = (set, get) => ({
       content: msg.content,
       createdAt: Date.now(),
       model: msg.model,
-      // 透传权限模式(2026-07-25 深化,深度对标 Codex 透明性):
+      // 透传权限模式(2026-07-25 深化,深度遵循统一工程规范):
       // 用户消息不传(无模式),AI 消息由调用方传入当前工作区模式
       permissionMode: msg.permissionMode,
       // W24(2026-09-14):透传附加元数据(/btw 侧聊标记 meta.sidechat 等)
@@ -1499,7 +1499,7 @@ const buildChatState: ChatStateCreator = (set, get) => ({
     })
     return patched.result
   },
-  /** 编辑用户消息内容(2026-09-12 立,四竞品对标 P0-1):
+  /** 编辑用户消息内容(2026-09-12 立,四竞品对齐 P0-1):
    *  只更新目标消息 content,引用替换配合 React.memo 精准重渲染。 */
   editMessageContent: (messageId, content) =>
     set((s) => {
@@ -1674,14 +1674,14 @@ const buildChatState: ChatStateCreator = (set, get) => ({
 
   resetSubAgentActivities: () => set({ subAgentActivities: [] }),
 
-  // Subagent 自动派发(2026-07-28 立,对标 AI 工作台):
+  // Subagent 自动派发(2026-07-28 立,对齐 AI 工作台):
   // - addSubagentSpawn: 后端 subagent_spawn SSE 事件触发,追加新 SubAgentActivity(status='running')
   // - markSubagentEnd: 后端 subagent_end SSE 事件触发,更新现有条目状态为 completed/failed
   // 与 appendToAgentStream 的区别:appendToAgentStream 用于多 agent 多路复用的 token 流分流,
   // 而 addSubagentSpawn/markSubagentEnd 用于 dispatch_subagent 工具调用的生命周期展示。
   // 两者写入同一 subAgentActivities 数组,UI 统一通过 SubAgentActivityFeed 渲染。
   // 2026-08-01 Phase 4a:若 event.messageId 存在,同步写入 message.subagentActivities,
-  // 供消息气泡内 inline SubagentSection 实时刷新(对标 AI 工作台/Codex 消息级透明性)。
+  // 供消息气泡内 inline SubagentSection 实时刷新(对齐 AI 工作台/Codex 消息级透明性)。
   addSubagentSpawn: (event) =>
     set((s) => {
       const globalExists = s.subAgentActivities.some((a) => a.agentId === event.id)
@@ -1897,7 +1897,7 @@ const buildChatState: ChatStateCreator = (set, get) => ({
       return { messages: next }
     }),
 
-  /** #14 Diff 文件级批量状态(2026-09-13 立,对标 Qoder/WorkBuddy 逐项+文件级):
+  /** #14 Diff 文件级批量状态(2026-09-13 立,遵循统一工程规范):
    *  把消息内所有 diff 工具卡(edit_file/write_file,applyStatus 处于非终态)整体置为 status。
    *  终态(applied/rejected)与 applying 中的卡片跳过,避免覆盖已决结果。 */
   setAllDiffApplyStatus: (messageId, status) =>
@@ -2323,7 +2323,7 @@ const buildChatState: ChatStateCreator = (set, get) => ({
 
   clearFailedDraft: () => set({ failedDraft: null, failedDraftStatus: null }),
 
-  // 2026-09-18 终端实时输出(对标 Codex bash 实时回显):
+  // 2026-09-18 终端实时输出(遵循统一工程规范):
   // 命令执行期间逐块追加,terminal_end 后保留供终态渲染取更完整文本。
   // 双重封顶防内存膨胀:单键 2 万字符(保留尾部) + 最多 20 个终端键(插入序淘汰最旧)。
   appendTerminalOutput: (terminalId, text) =>

@@ -12,7 +12,7 @@ export const metadata: Metadata = {
     absolute: '云运行 Cloud Runs | IHUI AI',
   },
   description:
-    'IHUI AI 云托管 Agent 运行(Cloud Runs)记录:查看云端 Agent 会话的运行列表、状态、任务与完整输出,对标 OpenAI Codex Cloud 的运行回放。',
+    'IHUI AI 云托管 Agent 运行(Cloud Runs)记录:查看云端 Agent 会话的运行列表、状态、任务与完整输出,对齐 OpenAI Codex Cloud 的运行回放。',
   alternates: { canonical: '/cloud-run' },
   openGraph: {
     type: 'website',

@@ -16,7 +16,7 @@
 --     ③ 本次上报集合外的旧 open 条目**不自动关闭** ⇒ 防止流程半途崩溃误清待办。
 --
 -- 幂等安全:CREATE TABLE IF NOT EXISTS,可安全重复执行。
--- 与 packages/database/src/schema/workflow-todo.ts 逐字对齐。
+-- 与 packages/database/src/schema/workflow-todo.ts 按行为规格。
 --
 -- 执行方式:
 --   pnpm tsx packages/database/scripts/apply-migration.mjs drizzle/20261113100000_workflow_todo.sql

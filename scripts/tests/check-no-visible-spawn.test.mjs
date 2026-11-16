@@ -338,7 +338,7 @@ function fixtureWithRegion() {
   ].join('\n')
 }
 
-test('stripSelfTestRegions: 成对标记内清空且保留行数;标记缺失/不成对不豁免(宁红不漏)', () => {
+test('stripSelfTestRegions: 成对齐记内清空且保留行数;标记缺失/不成对不豁免(宁红不漏)', () => {
   const f = fixtureWithRegion()
   const stripped = src.stripSelfTestRegions(f)
   assert.equal(stripped.split('\n').length, f.split('\n').length, '行数必须保持不变(行号不漂移)')

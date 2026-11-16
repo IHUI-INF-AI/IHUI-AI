@@ -17,7 +17,7 @@
 -- 幂等安全:全部使用 IF NOT EXISTS / DO $$ 守门,可安全重复执行。
 --
 -- 与 packages/database/src/schema/edu-ai-management.ts 的 eduAttendanceRule 及
--- eduAttendanceRecord.studentClassDateUqIdx 逐字对齐;约束名/索引名一律用 drizzle 默认形态,
+-- eduAttendanceRecord.studentClassDateUqIdx 按行为规格;约束名/索引名一律用 drizzle 默认形态,
 -- 以免后续 `pnpm --filter @ihui/database db:generate` 产出 drop+create 噪音。
 --
 -- 执行方式(与项目 202610*/2026110* 系列手写 migration 一致):

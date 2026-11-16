@@ -4,7 +4,7 @@
 
 """step 成本核算模型 — 为已录制的运行步骤提供成本聚合与剩余额度评估(2026-09-03 立)。
 
-对标 Claude Code / Codex 的成本审计:把 AgentStepRecorder 录制的 step
+遵循统一工程规范
 (含 tokens_in / tokens_out / cost)聚合成结构化成本账本,并配合预算门控
 判断"还能执行多少"。与 tool_budget_governor 互补:
 - governor 做执行前的配额门控(提前扣)

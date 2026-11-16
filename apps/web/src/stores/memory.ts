@@ -8,7 +8,7 @@ import { persist } from 'zustand/middleware'
 import { createPersistConfig } from '@/stores/persist-helpers'
 
 /**
- * Typed Memory 记忆库(W25,2026-09-14 立,对标 Qoder/CodeBuddy):
+ * Typed Memory 记忆库(W25,2026-09-14 立,遵循统一工程规范):
  * - 四类记忆:rule(规则)/ fact(事实)/ preference(偏好)/ project(项目)
  * - zustand persist 本地持久化(localStorage key: ihui-memory)
  * - memoryToYaml() 把条目序列化为分组 YAML,供:

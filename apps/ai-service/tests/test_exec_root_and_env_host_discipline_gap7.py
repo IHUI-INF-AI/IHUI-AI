@@ -4,7 +4,7 @@
 
 """差距⑦「执行体与授权面分离」补齐回归(2026-10-30)。
 
-参照 Qoder 逆向纪律(补完报告 §2.3/§3.2,对比报告 §3-7):
+遵循统一工程规范):
   ① node-repl moduleRoots 白名单 → IHUI 对位:unified_exec 的 cwd 工具参数
      必须落在执行根白名单内(与 mcp_server run_command 的 cwd 校验同一把尺子);
   ② 宿主注入上下文不可被工具参数覆盖 → IHUI 对位:run_command 子进程 env

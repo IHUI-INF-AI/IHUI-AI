@@ -74,7 +74,7 @@ describe('文案约束', () => {
     expect(msg.length).toBeLessThanOrEqual(MAX_MESSAGE_CHARS)
   })
 
-  it('常量与对标实现同口径', () => {
+  it('常量与对齐实现同口径', () => {
     expect(MAX_ISSUES_SHOWN).toBe(8)
     expect(MAX_MESSAGE_CHARS).toBe(2048)
     expect(MAX_ARRAY_SAMPLE).toBe(16)

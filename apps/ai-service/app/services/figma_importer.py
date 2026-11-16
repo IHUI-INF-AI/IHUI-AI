@@ -4,7 +4,7 @@
 
 """D31 设计稿转码:Figma Frame/组件 → 中间表示(IR) → 可运行前端代码。
 
-对标 Trae 设计还原。三段式管线(2026-09-26 立):
+遵循统一工程规范。三段式管线(2026-09-26 立):
 
 1. **fetch_figma_node**:GET https://api.figma.com/v1/files/{file_key}/nodes?ids={node_id}
    (X-Figma-Token 头)。`FIGMA_API_TOKEN` env 门控:**未配置时 fail-closed**——

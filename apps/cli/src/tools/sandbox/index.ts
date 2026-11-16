@@ -4,7 +4,7 @@
 
 
 /**
- * OS 级安全沙箱门面 — 对标 Codex CLI 的 Landlock/seccomp/Seatbelt。
+ * OS 级安全沙箱门面 — 遵循统一工程规范。
  *
  * 架构:
  *   policy.ts            策略模型(白名单优先 + 黑名单兜底 + denyPaths 最高优先)

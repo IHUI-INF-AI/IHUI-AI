@@ -19,7 +19,7 @@
 // 禁止在端内另建第二套锚点状态判定;新增 kind 只扩 `ANNOTATION_ANCHOR_KINDS`
 // 与 `anchorLabel` 的 switch 分支,生命周期零改动。
 //
-// 坐标文案与任务原文逐字对齐(词包 `ai.pane.annotationAnchors.label`):
+// 坐标文案与任务原文按行为规格(词包 `ai.pane.annotationAnchors.label`):
 //   PDF  : `PDF 第 {page} 页`
 //   PPTX : `第 {slide} 张 · {element}` + 次标签 `批注 {element}`
 //   DOCX : `文档第 {page} 页`
@@ -95,9 +95,7 @@ export function applyAnchorAction(
       return state === 'labeled' || state === 'added' ? 'cancelled' : state
     case 'delete':
       // 删除是终态:三个非终态都可直达 deleted;deleted 保持
-      return state === 'labeled' || state === 'added' || state === 'cancelled'
-        ? 'deleted'
-        : state
+      return state === 'labeled' || state === 'added' || state === 'cancelled' ? 'deleted' : state
     case 'relabel':
       // cancelled 重新标注回 labeled;labeled 改坐标仍是 labeled;deleted 不可
       return state === 'cancelled' || state === 'labeled' ? 'labeled' : state
@@ -170,7 +168,7 @@ export interface AnchorLabel {
  * 锚点 → 标签键与插值的**唯一**派发点。
  *
  * switch 穷尽四类、**无 default**:漏改任一类 ⇒ `anchor.kind` 无法收窄为 `never`,
- * `assertNeverKind` 处编译失败。文案与任务原文逐字对齐;PPTX 无 element / XLSX 无
+ * `assertNeverKind` 处编译失败。文案与任务原文按行为规格;PPTX 无 element / XLSX 无
  * range 时退化为原文前缀形(`第 {slide} 张` / `{sheet}`),不自创措辞。
  */
 export function anchorLabel(anchor: AnnotationAnchor): AnchorLabel {
@@ -243,11 +241,7 @@ function assertNeverKind(kind: never): never {
  * `label` 缺省/为空时回退到机器可读坐标 `fallbackAnchorCoords`(诊断用,非用户文案);
  * 备注为空 ⇒ 返回 null(不可凭空添加到任务)。格式:`[{坐标标签}] {备注}`。
  */
-export function toTaskInput(
-  anchor: AnnotationAnchor,
-  note: string,
-  label: string,
-): string | null {
+export function toTaskInput(anchor: AnnotationAnchor, note: string, label: string): string | null {
   const trimmed = note.trim()
   if (!trimmed) return null
   return `[${label.trim() || fallbackAnchorCoords(anchor)}] ${trimmed}`

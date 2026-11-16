@@ -54,7 +54,7 @@ class Settings(BaseSettings):
     database_url: str = ""
     redis_url: str = ""
 
-    # 定时任务调度(schedule_task 工具,对标 Codex Automations,2026-07-24 立)
+    # 定时任务调度(schedule_task 工具,遵循统一工程规范)
     # schedule_enabled=False 时 ai-service 启动不挂载 BackgroundScheduler
     # schedule_redis_url 为空则复用 redis_url
     schedule_enabled: bool = True
@@ -68,6 +68,12 @@ class Settings(BaseSettings):
 
     # 资讯板块每日自动刷新(2026-08-12 立,每天 8:00 UTC+8 自动生成+发布新闻)
     news_cron_enabled: bool = False
+
+    # multi-agent wait_agent 最长阻塞上限(毫秒,2026-11-16 接线 multi_agent_config_gate)。
+    # 控制 wait_job/wait_agent 工具的最长阻塞时长(超过即压到该值,避免父级长时间卡死)。
+    # 默认 60000ms=60s,与 DEFAULT_CONFIG.max 对齐;env MULTI_AGENT_WAIT_MAX_TIMEOUT_MS 可调。
+    # 注意:这是 max 边界(压长不抬短);极短探测请求仍保留原值,不受 min 抬升。
+    multi_agent_wait_max_timeout_ms: int = 60000
 
     # 默认主力模型(D208 修复,2026-10-01):stepfun/step-router-v1 退役为默认链首选。
     # D150 真机探针实证:step-router-v1 经 auto-route 落到 llm7/gpt-oss:20b → 上游
@@ -91,7 +97,7 @@ class Settings(BaseSettings):
     # 续期是显式、有限、可观测的预算追加,总成本/超时/取消信号仍由既有闸门生效。
     agent_budget_renewal_turns: int = 2
 
-    # 79 号票遗留格(2026-10-25):config profiles 读取面的配置源。对标 Codex config.toml
+    # 79 号票遗留格(2026-10-25):config profiles 读取面的配置源。遵循统一工程规范
     # 的 [profiles.NAME] 顶层键子集(approval_policy / sandbox_mode / model);本服务以
     # Settings 承载原文,**不另造第二份设置仓库/DB 表**。JSON 或 TOML 文本均可:
     #   {"profile": "review", "profiles": {"review": {"sandbox_mode": "read-only"}}}
@@ -189,7 +195,7 @@ class Settings(BaseSettings):
     # 必须显式加入白名单才允许创建;留空 = 仅允许 log/notify 低危动作。
     hook_allowed_actions: str = ""
 
-    # CSDN 自动发布凭证(content_engine skill 使用,逆向自 editor.csdn.net 内部 API)
+    # CSDN 自动发布凭证(content_engine skill 使用,按公开接口自 editor.csdn.net 内部 API)
     # 空字符串=未配置,签名会失败并提示用户配置;非生产必填项,按需启用
     csdn_app_key: str = ""
     csdn_app_secret: str = ""
@@ -345,7 +351,7 @@ class Settings(BaseSettings):
     workbuddy_tasks_sweep_minutes: int = 180  # 任务巡检间隔(分钟)
     workbuddy_tasks_actionable_statuses: str = "available"  # 任务行 status ∈ 此集 ⇒ 待 accept(真机实测值 available)
     workbuddy_tasks_claimable_statuses: str = "completed"  # 任务行 status ∈ 此集 ⇒ 可 claim(真机实测任务完成后态;上报计分后由 growth 重列判定)
-    # 2026-10-31 据竞品 workbuddy2api-panel README(已逆向并真机验证)补证:
+    # 2026-10-31 据竞品 workbuddy2api-panel README(已独立分析并真机验证)补证:
     # - accept body 字段名 = task_codes(README: POST /activity/growth/tasks/accept 体 {"task_codes":[...]})
     # - claim 路径 = /activity/growth/tasks/{code}/claim,且**只在 Web 域 www.workbuddy.cn +
     #   x-client-platform: web 成功**(README 明示 "非 CLI 域——这是领奖能成功的关键")
@@ -401,6 +407,26 @@ class Settings(BaseSettings):
     workbuddy_tasks_lottery_draw_field: str = "client_token"
     # 单轮抽奖上限(实际次数 = min(chances, 此值);0 = 不抽;对齐竞品「有次数自动抽完」)
     workbuddy_tasks_lottery_draw_count: int = 5
+
+    # 豆包任务赚积分(O 立,2026-11-16)——签到之外的「任务族」自动化。
+    # 契约来源:www.doubao.com 线上 bundle(2198.4e43149d / 709.b4632b25 /
+    # agent-explore_page.b285c6b3),全部端点与参数逐字实证,见 checkin_doubao.py 顶部。
+    # - detail 必须用客户端指纹(aid=582478+device_id+client_platform=pc_client),
+    #   只有该形态才下发领奖必需的 task_id;web 指纹没有 ⇒ 领奖缺参。
+    # - select_work_fields 完成走 /alice/ug/event/report(client_action) 实证有效;
+    # - 领奖 /alice/ug/campaign/item/reward/claim/ 参数三分支已按线上决策函数复刻。
+    # 默认开启(用户明确要求号池豆包账号全自动领积分);写侧仍有 live_run 可一键降级 dry-run。
+    doubao_tasks_enabled: bool = True  # 任务巡检调度总开关
+    doubao_tasks_live_run: bool = True  # 调度轮是否真写(上报/领奖);false=只读预检
+    doubao_tasks_cron_hours: str = "0,8"  # 每日巡检小时(Asia/Shanghai,逗号分隔;签到窗口之后)
+    doubao_tasks_cron_minute: int = 35  # 巡检分钟(00:35 / 08:35)
+    doubao_tasks_work_fields: str = "office"  # select_work_fields 上报的工作领域 id(逗号分隔)
+    # 生成类任务(GenWord/GenExcel/GenPPT/ScheduleSkill)开关。2026-11-17 实弹实证:
+    # 服务端跑推荐 prompt 后,拿 SSE_ACK 的 question_id(用户提问消息 id)调
+    # /alice/ug/event/report(scene=campaign_type,message_id=该 id)即可把任务计完成,
+    # 再按 task_id 正常领奖;不再需要桌面客户端深链。默认开启,全部任务类型自动完成。
+    doubao_tasks_auto_generate: bool = True
+    doubao_tasks_generation_timeout_s: float = 240.0  # 单次生成 prompt 超时(秒,SSE 全量回读)
     model_config = {"env_file": ".env", "extra": "ignore"}
 
     def validate_secrets(self) -> None:

@@ -207,7 +207,7 @@ export const TagsViewSearchButton = React.memo(function TagsViewSearchButton() {
   // 工作区容器 overflow-hidden 会裁剪初始 translateY(-100%) 状态,形成从顶部边缘"向下滑出"的视觉效果。
   // 2026-07-28 改动:
   // - 删除内层 p-3 内边距(SearchBar 已合并为单层 div,input 直接占满父容器,p-3 会留白)
-  // - 弹窗滑出时叠加 fixed 半透明遮罩(对标 CommandPalette modal 模式),让其他区域稍微暗下去
+  // - 弹窗滑出时叠加 fixed 半透明遮罩(对齐 CommandPalette modal 模式),让其他区域稍微暗下去
   //   突出搜索弹窗(用户规则:2026-07-28 立)
   const dropdown =
     open && portalTarget
@@ -555,7 +555,7 @@ export function TagsView() {
             const isDirty = dirtyPaths.has(tag.path)
             return (
               // 标签布局(2026-08-14 修正:加入路由图标,pl-8 → pl-2.5):
-              // - [icon] [text] [X close] 三段式布局,图标在前(对标 Chrome 标签页 favicon)
+              // - [icon] [text] [X close] 三段式布局,图标在前(对齐 Chrome 标签页 favicon)
               // - pinned 标签:Pin 图标替代路由图标(图钉 = 固定状态指示)
               <Link
                 key={tag.path}

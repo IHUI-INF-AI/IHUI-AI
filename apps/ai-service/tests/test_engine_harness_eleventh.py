@@ -4,7 +4,7 @@
 
 """Harness 输出净化与模糊搜索(2026-09-18 第十一批)单测。
 
-覆盖(对标 Codex ansi-escape / file-search(nucleo)/ process-hardening):
+覆盖(遵循统一工程规范)/ process-hardening):
 - strip_ansi:CSI/OSC/单字符转义剥离;干净文本零改动
 - fuzzy_score:子序列评分/非匹配 None/连续链与词首加分
 - file_search fuzzy 模式:模糊排序返回;glob 模式行为不变

@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest'
 import { fileMentionBasename, resolveFileMention } from '../file-mention'
 
 /**
- * 行内文件名引用解析(语义对标 DSH producedFileMentions):
+ * 行内文件名引用解析(语义遵循统一工程规范):
  * 精确命中 / basename 唯一命中才可点;歧义与未知一律惰性;路径归一正反斜杠。
  */
 

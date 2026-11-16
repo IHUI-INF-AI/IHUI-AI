@@ -5,7 +5,7 @@
 /**
  * LSP workspace 级工具(Wave 9,2026-07-22 立)
  *
- * 对标 OpenCode:补齐 workspace/symbol 全局符号搜索 + textDocument/rename + textDocument/codeAction。
+ * 对齐 OpenCode:补齐 workspace/symbol 全局符号搜索 + textDocument/rename + textDocument/codeAction。
  * 复用 lsp.ts 的 LspClient 单例管理(per workspace+language)。语言集合只在
  * `apps/cli/src/lsp/language-table.ts` 一处声明(本文件不抄清单)。
  *
@@ -163,7 +163,7 @@ function formatRenamePreview(edit: WorkspaceEdit | null, workspacePath: string):
 export const lsp_workspace_symbol: Tool = {
   name: 'lsp_workspace_symbol',
   description:
-    '使用 LSP workspace/symbol 进行全局符号搜索(对标 OpenCode)。输入查询字符串,返回全工作区匹配的符号列表(name/kind/location)。用于 "找 AuthService 在哪定义" 场景。支持指定 language 限定搜索的语言 LSP server(默认 typescript)。LSP 不可用时返回空列表 + 提示。',
+    '使用 LSP workspace/symbol 进行全局符号搜索(对齐 OpenCode)。输入查询字符串,返回全工作区匹配的符号列表(name/kind/location)。用于 "找 AuthService 在哪定义" 场景。支持指定 language 限定搜索的语言 LSP server(默认 typescript)。LSP 不可用时返回空列表 + 提示。',
   dangerLevel: 'read',
   parameters: {
     query: { type: 'string', description: '符号搜索查询字符串(支持模糊匹配,如 "AuthService" / "authService" / "AuthService.login")' },
@@ -232,7 +232,7 @@ export const lsp_workspace_symbol: Tool = {
 export const lsp_rename_symbol: Tool = {
   name: 'lsp_rename_symbol',
   description:
-    '使用 LSP textDocument/rename 进行符号重命名(对标 OpenCode)。输入文件路径 + 0-based 行号/列号 + 新名称,返回所有受影响文件的 edits 预览。设置 apply=true + confirm=true 可自动应用 edits 到磁盘文件。危险操作(修改多文件),apply 时必须 confirm=true。LSP 不可用时降级提示。',
+    '使用 LSP textDocument/rename 进行符号重命名(对齐 OpenCode)。输入文件路径 + 0-based 行号/列号 + 新名称,返回所有受影响文件的 edits 预览。设置 apply=true + confirm=true 可自动应用 edits 到磁盘文件。危险操作(修改多文件),apply 时必须 confirm=true。LSP 不可用时降级提示。',
   dangerLevel: 'write',
   parameters: {
     file: { type: 'string', description: '文件路径(相对于工作区根目录)' },
@@ -324,7 +324,7 @@ export const lsp_rename_symbol: Tool = {
 export const lsp_code_actions: Tool = {
   name: 'lsp_code_actions',
   description:
-    '使用 LSP textDocument/codeAction 获取快速修复/重构建议(对标 OpenCode)。输入文件路径 + 0-based 行号/列号,返回可用的 code action 列表(title/kind/edit/command)。可选 kind 过滤(quickfix/refactor/refactor.extract/refactor.inline/refactor.rewrite/source/source.organizeImports)。LSP 不可用时降级提示。',
+    '使用 LSP textDocument/codeAction 获取快速修复/重构建议(对齐 OpenCode)。输入文件路径 + 0-based 行号/列号,返回可用的 code action 列表(title/kind/edit/command)。可选 kind 过滤(quickfix/refactor/refactor.extract/refactor.inline/refactor.rewrite/source/source.organizeImports)。LSP 不可用时降级提示。',
   dangerLevel: 'read',
   parameters: {
     file: { type: 'string', description: '文件路径(相对于工作区根目录)' },

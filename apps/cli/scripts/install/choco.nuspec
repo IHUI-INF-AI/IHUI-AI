@@ -14,7 +14,7 @@
     <projectUrl>https://aizhs.top</projectUrl>
     <licenseUrl>https://aizhs.top/license</licenseUrl>
     <requireLicenseAcceptance>false</requireLicenseAcceptance>
-    <description>IHUI AI Coding Agent CLI — 对标 Claude Code / Codex。交互式 REPL + Agent 模式 + MCP + Skills + Hooks。</description>
+    <description>IHUI AI Coding Agent CLI — 对齐统一规范。交互式 REPL + Agent 模式 + MCP + Skills + Hooks。</description>
     <summary>AI Coding Agent CLI with REPL, agent mode, MCP, skills, hooks, and client/server remote driving.</summary>
     <tags>ai coding-agent cli llm agent cli mcp ai-coding</tags>
     <dependencies>

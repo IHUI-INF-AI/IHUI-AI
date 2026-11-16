@@ -303,7 +303,7 @@ export const OUT_OF_SCOPE = [
   },
   {
     re: /^\.ihui\/skills\//,
-    why: '技能自带产物(REA 逆向讲解件与其 vendored 打包 chunk):rx/ry 出自第三方压缩产物内部实现,不是本仓 UI 的圆角取用,方档化等于改渲染库;登记于 2026-10-31,因判据 C 把这类 vendored 目录判成"新增端静默绕开本门"',
+    why: '技能自带产物(REA 兼容分析讲解件与其 vendored 打包 chunk):rx/ry 出自第三方压缩产物内部实现,不是本仓 UI 的圆角取用,方档化等于改渲染库;登记于 2026-10-31,因判据 C 把这类 vendored 目录判成"新增端静默绕开本门"',
   },
 ]
 

@@ -30,7 +30,7 @@ import { usePaneChatStore } from '@/stores/chat-pane-context'
 /**
  * AgentPicker — 对话内 Agent(专家)选择器(票 D01 / G-228,2026-10-25 立)
  *
- * 对标 WorkBuddy「点击专家即切换」:输入区模型选择器**旁边**加一枚胶囊,
+ * 遵循统一工程规范
  * 列出 ai-service `PERSONAS_CONTRACTS` 的 persona(经 GET /api/llm/personas 拉取)
  * + 各自工具白名单摘要;选中后写 chat store `selectedAgentId`,
  * 由 send-message.ts 随请求上行(personaId → 传输槽 agentId),

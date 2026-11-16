@@ -2173,7 +2173,7 @@ function listUnreachableHashes() {
   // 而本判据只取 stdout 上的 `unreachable commit` 行(git 的不可达对象清单本来就打在 stdout,
   // 诊断与警告才走 stderr)⇒ 去掉合并不会少一行,少了的行也不是判据输入。
   const ARGS = ['fsck', '--connectivity-only', '--unreachable', '--no-reflogs']
-  // 与 gitRaw 同形的派生选项,逐字对齐(绝对路径 git 由 gitBinary() 给足):
+  // 与 gitRaw 同形的派生选项,按行为规格(绝对路径 git 由 gitBinary() 给足):
   // safe.directory=* 是本仓共享工作区的硬需求,quotepath=false 防中文路径被转义。
   const argv = ['-c', 'safe.directory=*', '-c', 'core.quotepath=false', '-C', ROOT, ...ARGS]
   const opts = {

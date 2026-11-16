@@ -3,7 +3,7 @@
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 # app/core/startup_prewarm.py
-"""会话启动预热(2026-09-19 第三十批,对标 Codex session_startup_prewarm.rs)。
+"""会话启动预热(2026-09-19 第三十批,遵循统一工程规范)。
 
 线程创建即后台发起连接预热(如到 LLM 网关的 TCP/TLS/握手),首个回合到来时
 **限时兑现**:命中则零连接延迟起跑,超时/取消/失败则静默降级——
@@ -15,7 +15,7 @@
   - ``cancelled``:会话被取消(用户中断),任务中止;
   - ``unavailable``:预热任务本身失败(带 status 与耗时);
 - **age_at_first_turn**:预热发起至首回合的时延,供指标上报
-  (对标 STARTUP_PREWARM_AGE_AT_FIRST_TURN_METRIC);
+  (对齐 STARTUP_PREWARM_AGE_AT_FIRST_TURN_METRIC);
 - **abort 安全**:abandon(丢弃句柄)时底层任务被取消,不泄漏后台协程。
 
 预热体是调用方注入的异步工厂 ``async () -> T``(如网关连接句柄),
@@ -45,7 +45,7 @@ class PrewarmResolution[T]:
 
 
 class StartupPrewarmHandle[T]:
-    """一个启动预热任务的句柄(对标 SessionStartupPrewarmHandle)。"""
+    """一个启动预热任务的句柄(对齐 SessionStartupPrewarmHandle)。"""
 
     def __init__(
         self,
@@ -104,7 +104,7 @@ class StartupPrewarmHandle[T]:
             )
 
     async def abort(self) -> None:
-        """中止并等待任务结束(对标 SessionStartupPrewarmHandle::abort)。"""
+        """中止并等待任务结束(对齐 SessionStartupPrewarmHandle::abort)。"""
         self._task.cancel()
         try:
             await self._task

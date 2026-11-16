@@ -2499,7 +2499,7 @@ export function judgeNewLineDupes({
           }
         }
       } else passed++
-      // 同一批里两个新行同题(本批自己抄自己)也要认得出:索引随判随补。
+      // 同一批里两个新行同题(本批自己取自己)也要认得出:索引随判随补。
       if (fp && !fpIndex.has(fp)) fpIndex.set(fp, l)
       continue
     }

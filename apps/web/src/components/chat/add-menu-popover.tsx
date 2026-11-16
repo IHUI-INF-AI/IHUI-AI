@@ -317,7 +317,7 @@ export function AddMenuPopover(props: {
                 onSendToChat={onSkillSendToChat}
               />
             ) : mode === 'voice' ? (
-              // 语音录制面板(2026-09-14 接线 VoiceRecord 孤儿组件,对标 Qoder Quest Voice):
+              // 语音录制面板(2026-09-14 接线 VoiceRecord 孤儿组件,遵循统一工程规范):
               // 停止录制即回调 onVoiceRecordComplete(主组件 File 化入列附件)并关闭弹层
               <div className="w-60 p-3" data-testid="voice-record-panel">
                 <VoiceRecord

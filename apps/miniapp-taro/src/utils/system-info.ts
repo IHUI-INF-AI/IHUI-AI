@@ -46,7 +46,7 @@ const CAPSULE_HEIGHT = 32
 /**
  * 状态栏高度 + 右上角胶囊按钮矩形(px)。
  *
- * 背景:胶囊 API 在 H5 / 非微信宿主下取不到,此前各页面逐字复制内联兜底,与 pages/index 的
+ * 背景:胶囊 API 在 H5 / 非微信宿主下取不到,此前各页面按行为规格内联兜底,与 pages/index 的
  * `statusBarHeight || 20` 并存成三套机制、三个兜底值。取值一律经本出口。
  */
 export function getTopBarMetrics(): {

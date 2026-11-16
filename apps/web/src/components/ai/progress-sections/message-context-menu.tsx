@@ -26,7 +26,7 @@ import { Tooltip } from '@/components/feedback'
 import type { ContextMenuAction, ContextMenuItem } from '@/hooks/use-context-menu'
 
 /**
- * MessageContextMenu(2026-07-28 立,Phase 19 深度对标 AI 工作台 对话体验)
+ * MessageContextMenu(2026-07-28 立,Phase 19 深度对齐 AI 工作台 对话体验)
  *
  * 用途:为消息气泡提供 AI 工作台 风格的右键上下文菜单,支持:
  * - 复制文本(纯文本)
@@ -248,7 +248,7 @@ export const MessageContextMenu = React.memo(function MessageContextMenu({
 /**
  * MessageSearchBar(2026-07-29 立,Phase 23)
  *
- * 消息搜索栏,固定在消息列表顶部(sticky top-0),深度对标 AI 工作台 / Codex 右键菜单搜索体验。
+ * 消息搜索栏,固定在消息列表顶部(sticky top-0),深度对齐 AI 工作台 / Codex 右键菜单搜索体验。
  * - 输入关键词 → onSearch 回调(由父组件执行搜索 + 更新结果)
  * - 结果计数 "3/12" 在输入框右侧
  * - 上一个/下一个按钮(ChevronUp / ChevronDown)切换 currentIndex

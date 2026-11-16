@@ -74,7 +74,7 @@ import {
 
 const KEY = 'ihui-work-panel'
 /** 盘上实测过的形态:用户自己起的中文工作区标签名(巡检门 CJK 判据就是盯这个) */
-const CJK_TITLE = '思否逆向登录页'
+const CJK_TITLE = '思否兼容分析登录页'
 const CJK_URL = 'https://example.com/docs'
 
 /* ------------------------------------------------------------------ 夹具 */

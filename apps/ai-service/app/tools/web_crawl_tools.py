@@ -2,15 +2,15 @@
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-"""网页抓取工具集:对标开源项目 Firecrawl 的 Scrape / Map / Crawl / Extract 四大网络核心能力。
+"""网页抓取工具集:对齐开源项目 Firecrawl 的 Scrape / Map / Crawl / Extract 四大网络核心能力。
 
 firecrawl 的核心开源价值 = 把"杂乱的网页"变成"干净的 LLM-ready 数据"。本项目已融合其
 文档解析(anydoc)三件套,本模块补齐其网络抓取体系:
 
-- fetch_readable:  对标 Scrape→clean markdown,抽取网页正文为干净 GFM markdown(去导航/页脚/脚本噪声)。
-- map_site:        对标 Map,返回起始页面的站内 URL 地图(链接+锚文本)。
-- crawl_site:      对标 Crawl,从起始 URL 递归抓取同域名页面(BFS,限深度/页数/并发)。
-- extract_web:     对标 Extract,按显式字段 schema 从网页抽结构化数据(LLM 优先,启发式兜底)。
+- fetch_readable:  对齐 Scrape→clean markdown,抽取网页正文为干净 GFM markdown(去导航/页脚/脚本噪声)。
+- map_site:        对齐 Map,返回起始页面的站内 URL 地图(链接+锚文本)。
+- crawl_site:      对齐 Crawl,从起始 URL 递归抓取同域名页面(BFS,限深度/页数/并发)。
+- extract_web:     对齐 Extract,按显式字段 schema 从网页抽结构化数据(LLM 优先,启发式兜底)。
 
 安全与健壮性约束(与 document_tools / fetch_url 一致):
 - 所有网络入口先做 SSRF 校验(复用 screenshot_service._validate_url_ssrf),拒绝内网/回环/云元数据。
@@ -329,7 +329,7 @@ def _table_to_markdown(el: Any) -> str:
 
 
 def _readability_to_markdown(html: str, base_url: str = "", include_links: bool = False) -> str:
-    """把 HTML 抽成干净 GFM markdown(对标 Firecrawl Scrape 的 clean markdown)。"""
+    """把 HTML 抽成干净 GFM markdown(对齐 Firecrawl Scrape 的 clean markdown)。"""
     if not _BS4_OK:
         # 无 bs4 时退化为简单文本剥离
         text = re.sub(r"<script[^>]*>.*?</script>", "", html, flags=re.I | re.S)
@@ -490,11 +490,11 @@ async def _fetch_with_js_fallback(url: str) -> dict[str, Any] | None:
 
 
 # ============================================================================
-# fetch_readable — 对标 Scrape → clean markdown
+# fetch_readable — 对齐 Scrape → clean markdown
 # ============================================================================
 
 async def fetch_readable(arguments: dict[str, Any]) -> dict[str, Any]:
-    """抓取单个网页并抽取正文为干净 GFM markdown(对标 Firecrawl Scrape)。"""
+    """抓取单个网页并抽取正文为干净 GFM markdown(对齐 Firecrawl Scrape)。"""
     url = arguments.get("url", "")
     if not url or not isinstance(url, str):
         return _fail("fetch_readable", "缺少 url 参数", "MISSING_PARAMS")
@@ -554,7 +554,7 @@ async def fetch_readable(arguments: dict[str, Any]) -> dict[str, Any]:
 
 
 # ============================================================================
-# map_site — 对标 Map(站点 URL 地图)
+# map_site — 对齐 Map(站点 URL 地图)
 # ============================================================================
 
 async def map_site(arguments: dict[str, Any]) -> dict[str, Any]:
@@ -605,7 +605,7 @@ async def map_site(arguments: dict[str, Any]) -> dict[str, Any]:
 
 
 # ============================================================================
-# crawl_site — 对标 Crawl(整站 BFS 爬取)
+# crawl_site — 对齐 Crawl(整站 BFS 爬取)
 # ============================================================================
 
 async def _fetch_page_limited(url: str, sem: Any) -> dict[str, Any] | None:
@@ -619,7 +619,7 @@ def _url_key(url: str) -> str:
 
 
 async def crawl_site(arguments: dict[str, Any]) -> dict[str, Any]:
-    """从起始 URL 递归抓取同域名页面(BFS)。对标 Firecrawl Crawl。"""
+    """从起始 URL 递归抓取同域名页面(BFS)。对齐 Firecrawl Crawl。"""
     url = arguments.get("url", "")
     if not url or not isinstance(url, str):
         return _fail("crawl_site", "缺少 url 参数", "MISSING_PARAMS")
@@ -815,7 +815,7 @@ def _robots_cache_get(scheme: str, host: str, port: int | None) -> RobotFilePars
 
 
 # ============================================================================
-# extract_web — 对标 Extract(结构化抽取)
+# extract_web — 对齐 Extract(结构化抽取)
 # ============================================================================
 
 def _extract_heuristic(md: str, fields: dict[str, str]) -> dict[str, Any]:
@@ -853,7 +853,7 @@ def _extract_heuristic(md: str, fields: dict[str, str]) -> dict[str, Any]:
 async def _extract_via_llm(md: str, fields: dict[str, str], max_chars: int = 8000) -> dict[str, Any] | None:
     """LLM 结构化抽取通道:调用 llm_gateway 按 fields schema 抽结构化 JSON。
 
-    对标 Firecrawl Extract 的真 LLM 抽取(非正则启发式)。规则:
+    对齐 Firecrawl Extract 的真 LLM 抽取(非正则启发式)。规则:
     - 未配置任何 LLM key(stub 模式)或 llm_gateway 导入异常 → 返回 None(上层走启发式兜底)
     - LLM 成功返回合法 JSON 且至少抽到一个字段 → {fields, confidence}
     - 其余任何失败 → None, 由上层降级启发式, 绝不向调用方抛异常
@@ -917,7 +917,7 @@ async def _extract_via_llm(md: str, fields: dict[str, str], max_chars: int = 800
 
 
 async def extract_web(arguments: dict[str, Any]) -> dict[str, Any]:
-    """按字段 schema 从网页抽取结构化数据(对标 Firecrawl Extract)。"""
+    """按字段 schema 从网页抽取结构化数据(对齐 Firecrawl Extract)。"""
     url = arguments.get("url", "")
     if not url or not isinstance(url, str):
         return _fail("extract_web", "缺少 url 参数", "MISSING_PARAMS")

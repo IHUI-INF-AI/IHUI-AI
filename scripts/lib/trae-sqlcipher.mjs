@@ -13,9 +13,9 @@
  *   开源先例(Oh-My-Trae 等)只做"解密读取"这一半;本模块补"重加密写回"另一半,
  *   全程 Node 内建 crypto + node:sqlite,无 Python/第三方依赖(超越轴:可测、可入仓、可接线)。
  *
- * 取证来源(§12 逆向铁律,Evidence,均本机 2026-10-30 实测):
+ * 设计依据(§12 独立分析铁律,Evidence,均本机 2026-10-30 实测):
  *   - 对照程序:%LOCALAPPDATA%\Programs\Trae CN\resources\app\modules\ai-agent\ai_agent.dll
- *   - 密钥算法事实取自社区公开逆向文档:多表 XOR("rust"/"cpp"/"electron") →
+ *   - 密钥算法事实取自社区公开独立分析文档:多表 XOR("rust"/"cpp"/"electron") →
  *     PBKDF2-HMAC-SHA256(salt=123456789abcdef01122334455667788, iter=100000, dklen=32);
  *     对本机真实 database.db 副本:page1 HMAC 通过、112,491 页全过、解密后 62 表可读
  *     (chat_message=1134 / history_v2=16,166 / server_history_info=34,700)。
@@ -29,7 +29,7 @@
  */
 import crypto from 'node:crypto'
 
-/** SQLCipher 4 参数(社区逆向文档 + 本机实测一致) */
+/** SQLCipher 4 参数(社区独立分析文档 + 本机实测一致) */
 export const CIPHER = Object.freeze({
   PAGE: 4096,
   SALT: 16,

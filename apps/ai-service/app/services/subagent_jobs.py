@@ -2,9 +2,9 @@
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-"""可续跑 subagent 作业台(2026-11-14 立,对标 DSH dsh-subagent 的 continuable 语义)。
+"""可续跑 subagent 作业台(2026-11-14 立,遵循统一工程规范)。
 
-DSH 的委派不是"一次往返":spawn 立即返回子级名称,父级可 list/wait;
+外部实现 的委派不是"一次往返":spawn 立即返回子级名称,父级可 list/wait;
 子级完成后还能用 `send_message` 继续同一条任务线(子会话保留上下文)。
 IHUI 现状:`dispatch_subagent` 同步等子 agent 跑完,长任务期间父级只能阻塞。
 
@@ -30,6 +30,7 @@ from datetime import UTC, datetime
 from typing import Any, Final
 
 from .background_tasks import background_task_manager
+from ..core.multi_agent_config_gate import clamp_wait_timeout_s
 
 MAX_JOBS: Final = 100
 #: 单次 wait 的轮询粒度(秒):作业完成由列表自身感知,不需要额外 Event。
@@ -200,7 +201,11 @@ async def wait_job(
     session_id: str | None,
     wait_s: float = 30.0,
 ) -> dict[str, Any]:
-    """有限等待作业到终态;到期仍未完成则返回 running(父级可继续别的工作)。"""
+    """有限等待作业到终态;到期仍未完成则返回 running(父级可继续别的工作)。
+
+    wait_s 经 clamp_wait_timeout_s 夹紧到 multi-agent 配置边界
+    (缺省 [1s, 60s],None/≤0 走 default 30s),不再用裸 300s 硬上限。
+    """
     job = _jobs.get(job_id)
     if job is None or not user_id or job.user_id != user_id:
         return {
@@ -214,14 +219,15 @@ async def wait_job(
             "errorCode": "SUBAGENT_NOT_FOUND",
             "error": "作业不存在或无权访问",
         }
-    deadline = asyncio.get_running_loop().time() + max(0.0, min(wait_s, 300.0))
+    effective_wait_s = clamp_wait_timeout_s(wait_s)
+    deadline = asyncio.get_running_loop().time() + effective_wait_s
     while not job.finished and asyncio.get_running_loop().time() < deadline:
         await asyncio.sleep(_POLL_S)
     payload = job.to_dict()
     payload["ok"] = job.finished and job.ok
     payload["waited"] = True
     if not job.finished:
-        payload["message"] = f"作业仍在运行(已等待 {wait_s:g}s)"
+        payload["message"] = f"作业仍在运行(已等待 {effective_wait_s:g}s)"
     return payload
 
 
@@ -285,7 +291,7 @@ async def send_job(
 async def cancel_job(
     job_id: str, *, user_id: str | None, session_id: str | None
 ) -> dict[str, Any]:
-    """中断运行中的作业(对标 DSH subagent-control 的 interrupt)。
+    """中断运行中的作业(遵循统一工程规范)。
 
     取消是减害动作:先查归属,再交给 background_task_manager.cancel
     (置协作信号 → kill 子进程 → cancel asyncio 任务),有界等待 runner 落终态。

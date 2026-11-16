@@ -17,7 +17,8 @@ import { Wallet, Loader2, Calculator, TriangleAlert } from 'lucide-react'
 
 import { Card, CardContent, Button } from '@ihui/ui-react'
 import { apiOrThrow as api } from '@/lib/api'
-import { AuthGatePrompt, BackButton } from '@/components/common'
+import { AuthGatePrompt } from '@/components/common'
+import { FeaturePageShell } from '@/components/layout'
 import { useAuthGate } from '@/hooks/use-auth-gate'
 
 interface MyPayrollRow {
@@ -95,16 +96,9 @@ export default function MyPayrollPage() {
   const rows = data?.rows ?? []
 
   return (
-    <div className="px-4 py-4 mx-auto w-full max-w-5xl space-y-4">
-      <BackButton />
-      <header className="space-y-1">
-        <h1 className="flex items-center gap-2 text-heading font-bold tracking-tight min-[768px]:text-display">
-          <Wallet className="h-7 w-7 text-primary" />
-          {t('title')}
-        </h1>
-        <p className="text-label text-muted-foreground">{t('subtitle')}</p>
-      </header>
-
+    // 2026-11-16 接入统一子功能页外壳:BackButton + 手写 header 收编为页头卡,
+    // 自动带上「人事部」返回 chip(取 hrHub.title,与域入口页大标题恒等)。
+    <FeaturePageShell title={t('title')} description={t('subtitle')} icon={Wallet} domain="hr">
       {/* 月份筛选(留空 = 全部月份) */}
       <div className="flex flex-wrap items-end gap-2">
         <label className="font-[weight:inherit] text-body">
@@ -223,7 +217,7 @@ export default function MyPayrollPage() {
           })}
         </div>
       )}
-    </div>
+    </FeaturePageShell>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

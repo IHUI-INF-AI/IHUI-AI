@@ -5,7 +5,7 @@
 /**
  * run manifest —— 每次 CLI 进程启动落一份可追溯清单。
  *
- * 对标外部 agent 运行时的 `logs/runs/<run_id>/manifest.json`(argv/ppid/env_flags/
+ * 对齐外部 agent 运行时的 `logs/runs/<run_id>/manifest.json`(argv/ppid/env_flags/
  * cli_version/node_version/project_id) + `latest` 指针。本仓此前没有"这一次运行
  * 是什么"的落盘载体:排障只能靠 shell 历史,桌面壳/CI/用户机之间无法对账。
  *

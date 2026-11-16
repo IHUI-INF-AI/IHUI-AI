@@ -13,7 +13,7 @@
 --       月度汇总、年假余额、忘打卡自助补卡三件事不再靠人工。
 --
 -- 幂等安全:IF NOT EXISTS 守门,可安全重复执行。
--- 与 packages/database/src/schema/hr-shift-daily.ts 逐字对齐。
+-- 与 packages/database/src/schema/hr-shift-daily.ts 按行为规格。
 --
 -- 执行方式(与项目 202610*/2026110* 系列手写 migration 一致):
 --   pnpm tsx packages/database/scripts/apply-migration.mjs drizzle/20261111180000_hr_shift_daily.sql

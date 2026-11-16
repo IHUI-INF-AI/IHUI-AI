@@ -2,7 +2,7 @@
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-"""环境上下文片段(批56 扩展,对标 codex context/world_state/environment.rs
+"""环境上下文片段(批56 扩展,遵循统一工程规范
 + context/environment_context.rs)。
 
 批56 补齐(此前仅 cwd/current_date/timezone 三个子元素):
@@ -289,7 +289,7 @@ def build_environment_context_fragment(
 
 
 def format_local_date() -> str:
-    """本地日期 YYYY-MM-DD(对标 read_clock_for_context("environment_date") 的
+    """本地日期 YYYY-MM-DD(对齐 read_clock_for_context("environment_date") 的
     with_timezone(Local).format("%Y-%m-%d") 语义)。"""
     return datetime.now().astimezone().strftime("%Y-%m-%d")
 
@@ -300,7 +300,7 @@ def is_environment_context_fragment(text: str) -> bool:
 
 
 class EnvironmentStateTracker:
-    """环境状态变化检测器(对标 world_state render_diff 的最小等价实现)。
+    """环境状态变化检测器(对齐 world_state render_diff 的最小等价实现)。
 
     批56:maybe_fragment 接受全部扩展字段;与上次渲染体逐字节比较,
     仅变化时产出新片段。shell_version/current_date/timezone/network/

@@ -95,9 +95,6 @@ vi.mock('@/components/sidebar-chat-history', () => ({
     kw ? items.filter((i) => i.title.toLowerCase().includes(kw.toLowerCase())) : [...items],
   groupByDate: (items: unknown[]) => [{ key: 'today', items: items as [] }],
 }))
-vi.mock('@/components/chat/mode-switcher', () => ({
-  ModeSwitcher: () => <div data-fake-mode-switcher="" />,
-}))
 vi.mock('@/components/chat/message-list/MessageList', () => ({
   MessageList: () => <div data-fake-list="" />,
 }))
@@ -315,7 +312,6 @@ describe('workbench 壳接线', () => {
     panelOpenRef.current = false
     render(<WorkbenchShell conversationId={null} />)
     expect(document.querySelector('[data-workbench-header]')).not.toBeNull()
-    expect(document.querySelector('[data-fake-mode-switcher]')).not.toBeNull()
     expect(document.querySelector('[data-fake-ring]')?.getAttribute('data-model')).toBe('model-x')
     // 片D:空窗格 = WorkbenchWelcome(messages=[] 且未流式),不挂空 MessageList
     expect(document.querySelector('[data-workbench-welcome]')).not.toBeNull()

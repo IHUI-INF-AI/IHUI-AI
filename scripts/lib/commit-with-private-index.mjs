@@ -74,7 +74,7 @@ export function gitDirFromRepo(repo) {
  *   (`PATH_BOUND_GIT_DECL_RE`)判的正是"常量声明处绑裸名",那只是换一型继续欠债。
  */
 function git(args, env = process.env) {
-  // 与 gitRaw 同形的派生选项,逐字对齐:safe.directory 是共享工作区硬需求,
+  // 与 gitRaw 同形的派生选项,按行为规格:safe.directory 是共享工作区硬需求,
   // quotepath=false 防中文路径被转义(cwd 与 -C 双给,与层内实现一致)。
   const argv = ['-c', 'safe.directory=*', '-c', 'core.quotepath=false', '-C', REPO, ...args]
   return batchExecFileSync(gitBinary() || 'git', argv, {

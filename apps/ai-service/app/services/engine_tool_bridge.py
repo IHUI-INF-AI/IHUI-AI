@@ -85,8 +85,9 @@ ENGINE_TOOL_BRIDGE: dict[str, tuple[str | None, str | None, str]] = {
     # 且多出"交给视觉模型分析"一层 → 能力同源,执行体保留 → map。
     "view_image": ("vision_analyze", None, "map"),
     # 引擎侧派生的是**引擎线程**(带 depth 上限、角色模板、Subagent 钩子、线程树回收),
-    # 注册表 dispatch_subagent 派生的是 orchestrator 子代理;两者是同一能力的两个宿主 → map。
-    "spawn_subagent": ("dispatch_subagent", None, "map"),
+    # 注册表 orchestrate_agents(旧名 dispatch_subagent)派生的是 orchestrator 子代理;
+    # 两者是同一能力的两个宿主 → map。
+    "spawn_subagent": ("orchestrate_agents", None, "map"),
     # 唯一的 port:引擎侧执行体直接 `from .mcp_server import _tool_web_search` 调注册表那一份,
     # 自己只保留 WebSearchBegin/End 事件对与域名白名单过滤(协议适配)。
     "web_search": ("web_search", None, "port"),

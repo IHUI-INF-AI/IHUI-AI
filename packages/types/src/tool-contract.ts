@@ -76,7 +76,7 @@ export function normalizeToolEffectScope(raw: unknown): ToolEffectScope | null {
  * 形状描述符:运行时校验器读的**那一份**结构。
  *
  * 它就是 `apps/cli/src/tools/argument-validator.ts` 的入参描述(`ToolParameter`)的结构化超集
- * —— 字段名逐字对齐(`type` / `description` / `enum` / `items` / `properties` / `required`),
+ * —— 字段名按行为规格(`type` / `description` / `enum` / `items` / `properties` / `required`),
  * 使既有声明**无需改写即满足本类型**。模型可见的 JSON Schema 由 `schema-projection.ts`
  * 从这一份单向投影得到,因此"怎么校验"与"模型被告知怎么填"不可能分叉。
  *
@@ -311,9 +311,7 @@ export interface ToolNoConfirmation {
 }
 
 export type ToolConfirmationPolicy =
-  | ToolExplicitFlagConfirmation
-  | ToolInteractiveConfirmation
-  | ToolNoConfirmation
+  ToolExplicitFlagConfirmation | ToolInteractiveConfirmation | ToolNoConfirmation
 
 /** 任意输入 → 规范确认档;认不出返回 `null`(**不**回退 `'none'`,静默降级就是放行)。 */
 export function normalizeToolConfirmationMode(raw: unknown): ToolConfirmationMode | null {

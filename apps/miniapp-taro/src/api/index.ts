@@ -343,20 +343,20 @@ export interface ChatMessage extends Omit<
   role: 'user' | 'assistant'
   /** 服务端消息 id;端内流式行在拿到落库 id 前为空,故不得当必填读 */
   id?: string
-  /** 创建时间戳(ms) — 对标原 ai_assistant.vue */
+  /** 创建时间戳(ms) — 对齐原 ai_assistant.vue */
   timestamp?: number
-  /** 图片 URL 列表(对标原 ai_assistant.vue imgUrlList) */
+  /** 图片 URL 列表(对齐原 ai_assistant.vue imgUrlList) */
   images?: string[]
-  /** 视频 URL 列表(对标原 ai_assistant.vue videoUrlList) */
+  /** 视频 URL 列表(对齐原 ai_assistant.vue videoUrlList) */
   videos?: string[]
-  /** 音频 URL(对标原 ai_assistant.vue 语音消息字段;ChatMessageItem 语音气泡的播放腿,
+  /** 音频 URL(对齐原 ai_assistant.vue 语音消息字段;ChatMessageItem 语音气泡的播放腿,
    *  正文抽取补齐时由 answer-media-extract 写入首条 —— 字段住基类,渲染守卫照旧) */
   audioUrl?: string
   /** 语音时长(秒,可选;与 audioUrl 同族) */
   audioDuration?: number
-  /** token 消耗(对标原 ai_assistant.vue total_tokens) */
+  /** token 消耗(对齐原 ai_assistant.vue total_tokens) */
   tokenCount?: number
-  /** 代码块内容(对标原 ai_assistant.vue content_code) */
+  /** 代码块内容(对齐原 ai_assistant.vue content_code) */
   codeContent?: string
   /** #12 小程序 AI 增强:工具卡片渲染数据(计划 / 工具 / 终端),
    *  由 SSE 事件累积写入助手消息,随历史持久化;对齐 web 端 message.planSteps/toolCalls/terminalTasks */
@@ -504,7 +504,7 @@ export interface StreamEventCallbacks {
   /**
    * BUG-67:AI 主动提问卡(question 帧)。共享 sse-parse 不认领该帧(web/RN 走
    * tryParseQuestion 整行旁路),故本端在 streamSSE.onRawLine 旁路认领后分发到这里;
-   * 载荷形状与 @ihui/api-client streamChat.onQuestion 逐字对齐。
+   * 载荷形状与 @ihui/api-client streamChat.onQuestion 按行为规格。
    */
   onQuestion?: (question: {
     questionId: string
@@ -609,7 +609,7 @@ export const chatStream = async (
     removedCount: number
     usageRatio: number
   }) => void,
-  /** 流结束回调(对标原 ai_assistant.vue total_tokens 显示):ai-service event:done 下发 usage */
+  /** 流结束回调(对齐原 ai_assistant.vue total_tokens 显示):ai-service event:done 下发 usage */
   onDone?: (info: {
     totalTokens?: number
     promptTokens?: number
@@ -1182,7 +1182,9 @@ export const claimAvailableCoupon = (couponId: string) =>
 /* ============ 支付 / 订单 ============ */
 
 export const getPayResult = async (orderNo: string) => {
-  const res = await get<{ order: { status: string; amount: number } }>(`/payment/orders/${encodeURIComponent(orderNo)}`)
+  const res = await get<{ order: { status: string; amount: number } }>(
+    `/payment/orders/${encodeURIComponent(orderNo)}`,
+  )
   // 订单未落库/查询无果/网关异常时后端可能回 {order:null},直接 res.order.status 会抛 TypeError
   // 让支付结果页整页报错;order 缺席时降级为 pending 由订单页按服务端刷新,而非崩溃。
   const order = res?.order
@@ -1331,7 +1333,8 @@ export interface News {
 }
 export const getNewsList = (params?: { page?: number; pageSize?: number; keyword?: string }) =>
   get<{ list: News[]; total: number }>('/news/articles', params)
-export const getNewsDetail = (id: string | number) => get<News>(`/news/articles/${encodeURIComponent(id)}`)
+export const getNewsDetail = (id: string | number) =>
+  get<News>(`/news/articles/${encodeURIComponent(id)}`)
 /**
  * 相关新闻推荐 — 复用 GET /news/articles/recommended(后端暂无 :id/related 端点,
  * 返回运营推荐位文章列表,语义最接近"相关推荐")。
@@ -1475,9 +1478,12 @@ export {
 // api-client ExamQuestion 为 { examId, type: 'single'|'multiple'|'judge'|'fill'|'essay', options: {key,value}[]|null, score: number, analysis: string|null },
 // 与后端 /exam/papers/:id/questions 的实际返回一致(经 toApiQuestionType + normalizeOptionsForApi + Number 转换)。
 // ⇒ 本端一律吃 api-client 的原始形状,渲染时才用 toShellQuestionType/toShellOptionTexts 投影。
-export const getExamPaper = (id: string) => get<{ paper: ExamPaper }>(`/exam/papers/${encodeURIComponent(id)}`)
+export const getExamPaper = (id: string) =>
+  get<{ paper: ExamPaper }>(`/exam/papers/${encodeURIComponent(id)}`)
 export const getExamQuestions = (id: string) =>
-  get<{ exam: ExamPaper; questions: ExamQuestion[] }>(`/exam/papers/${encodeURIComponent(id)}/questions`).then((r) => ({
+  get<{ exam: ExamPaper; questions: ExamQuestion[] }>(
+    `/exam/papers/${encodeURIComponent(id)}/questions`,
+  ).then((r) => ({
     list: r.questions ?? [],
   }))
 // ExamRecord 已下沉到 @ihui/api-client(endpoints/exam.ts),上方 re-export
@@ -1499,7 +1505,9 @@ export const submitExam = (data: {
     answers: data.answers,
   })
 export const getExamResult = (id: string | number) =>
-  get<{ score: number; pass: boolean; rank?: number; total?: number }>(`/exam/${encodeURIComponent(id)}/result`)
+  get<{ score: number; pass: boolean; rank?: number; total?: number }>(
+    `/exam/${encodeURIComponent(id)}/result`,
+  )
 
 /* Exam 模块扩展（D1/D2 端点） */
 export const getExamSignups = (params?: {
@@ -1582,7 +1590,7 @@ interface AgentRawRow {
   usageCount: number
   isVipExclusive: boolean | null
   agentPrompt: string | null
-  /** 智能体开场白(对标原 ai_assistant.vue prologue,引导说明内容) */
+  /** 智能体开场白(对齐原 ai_assistant.vue prologue,引导说明内容) */
   prologue?: string | null
 }
 
@@ -1640,12 +1648,14 @@ export const getLiveHistory = (params?: { page?: number; pageSize?: number }) =>
   get<{ list: Live[]; total: number }>('/live/history', params)
 export const getLiveCalendar = (params?: { month?: string }) =>
   get<{ list: Array<{ date: string; lives: Live[] }> }>('/live/calendar', params)
-export const subscribeLive = (id: string | number) => post(`/live/${encodeURIComponent(id)}/subscribe`)
+export const subscribeLive = (id: string | number) =>
+  post(`/live/${encodeURIComponent(id)}/subscribe`)
 
 // Teacher 已下沉到 @ihui/api-client(endpoints/teacher.ts),上方 re-export
 export const getTeacherList = (params?: { page?: number; pageSize?: number; keyword?: string }) =>
   get<{ list: Teacher[]; total: number }>('/teacher/list', params)
-export const getTeacherDetail = (id: string | number) => get<Teacher>(`/teacher/${encodeURIComponent(id)}`)
+export const getTeacherDetail = (id: string | number) =>
+  get<Teacher>(`/teacher/${encodeURIComponent(id)}`)
 
 /* ============ 设置 / 其他 ============ */
 
@@ -1759,7 +1769,8 @@ export const getPrivateMessages = (params?: { page?: number; pageSize?: number }
   }>('/messages/private/list', params)
 export const getRoomHistory = (roomId: string, page = 1) =>
   get(`/messages/rooms/${encodeURIComponent(roomId)}/history`, { page })
-export const markRoomRead = (roomId: string) => post(`/messages/rooms/${encodeURIComponent(roomId)}/read`)
+export const markRoomRead = (roomId: string) =>
+  post(`/messages/rooms/${encodeURIComponent(roomId)}/read`)
 /** 站内消息分页(GET /messages;参数名 msgType 与后端 schema 现读对齐,RN 屏旧写法 `type=` 不在 schema 内) */
 export const getMessages = (params: { page?: number; pageSize?: number; msgType?: string }) =>
   get<{
@@ -1780,9 +1791,11 @@ export const markMessageRead = (id: string) => put(`/messages/${encodeURICompone
 /** 删除单条站内消息(DELETE /messages/:id) */
 export const deleteMessage = (id: string) => del(`/messages/${encodeURIComponent(id)}`)
 /** 标记私信已读(POST /messages/private/:pid/read) */
-export const markPrivateRead = (pid: string) => post(`/messages/private/${encodeURIComponent(pid)}/read`)
+export const markPrivateRead = (pid: string) =>
+  post(`/messages/private/${encodeURIComponent(pid)}/read`)
 /** 删除私信(DELETE /messages/private/:pid) */
-export const deletePrivateMessage = (pid: string) => del(`/messages/private/${encodeURIComponent(pid)}`)
+export const deletePrivateMessage = (pid: string) =>
+  del(`/messages/private/${encodeURIComponent(pid)}`)
 
 /* ============ 通知偏好 ============ */
 export interface NotificationPreferences {
@@ -1989,13 +2002,15 @@ export const getGroupDetail = (id: string) => get(`/learn/group/${encodeURICompo
 /** 新增课程分组 */
 export const addGroup = (data: unknown) => post('/learn/group', data)
 /** 更新课程 */
-export const coursePut = (id: string, data: unknown) => put(`/learn/course/${encodeURIComponent(id)}`, data)
+export const coursePut = (id: string, data: unknown) =>
+  put(`/learn/course/${encodeURIComponent(id)}`, data)
 /** 删除课程 */
 export const courseDelete = (id: string) => del(`/learn/course/${encodeURIComponent(id)}`)
 /** 新增视频 */
 export const addVideo = (data: unknown) => post('/learn/video', data)
 /** 更新视频 */
-export const videoPut = (id: string, data: unknown) => put(`/learn/video/${encodeURIComponent(id)}`, data)
+export const videoPut = (id: string, data: unknown) =>
+  put(`/learn/video/${encodeURIComponent(id)}`, data)
 /** 删除视频 */
 export const videoDelete = (id: string) => del(`/learn/video/${encodeURIComponent(id)}`)
 /** 发布课程 */
@@ -2017,7 +2032,8 @@ export const getFlowList = (params: ApiParams) => get('/distribution/flow', para
 /** 分销流量订单列表 */
 export const getFlowOrderList = (params: ApiParams) => get('/distribution/flow/orders', params)
 /** 提现状态查询 */
-export const getWithdrawalStatus = (id: string) => get(`/distribution/withdrawal/${encodeURIComponent(id)}/status`)
+export const getWithdrawalStatus = (id: string) =>
+  get(`/distribution/withdrawal/${encodeURIComponent(id)}/status`)
 
 /* ============ 分享功能 ============ */
 /** 智能体创建分享 */
@@ -2057,7 +2073,8 @@ export const oneTapLogin = (data: { loginCode: string; phoneCode: string }) =>
 export const pwdExist = (phone: string) =>
   get<{ exists?: boolean }>(`/api/auth/exist/${encodeURIComponent(phone)}`).then((r) => !!r.exists)
 /** 关闭订单 — 对接后端 POST /orders/:id/cancel(参数 :id 必须是 UUID) */
-export const closeOrder = (orderId: string) => post(`/orders/${encodeURIComponent(orderId)}/cancel`, {})
+export const closeOrder = (orderId: string) =>
+  post(`/orders/${encodeURIComponent(orderId)}/cancel`, {})
 /** 微信支付 JSAPI — 对齐后端 POST /payments/wechat/create(query 传参) */
 export const wechatPay = (params: {
   amount: number
@@ -2085,7 +2102,8 @@ export const getProduct = (id: string) => get(`/goods/${encodeURIComponent(id)}`
 
 /* ============ 智能体收费配置 ============ */
 /** 根据智能体 ID 获取收费配置 */
-export const getChargeInfoById = (agentId: string | number) => get(`/agents/charge/${encodeURIComponent(agentId)}`)
+export const getChargeInfoById = (agentId: string | number) =>
+  get(`/agents/charge/${encodeURIComponent(agentId)}`)
 /** 创建付费记录 */
 export const createPayHistory = (data: unknown) => post('/agents/charge/pay-history', data)
 /** 创建智能体收费配置 */
@@ -2093,7 +2111,8 @@ export const createZntCharge = (data: unknown) => post('/agents/charge', data)
 /** 修改智能体收费配置 */
 export const putZntCharge = (data: unknown) => put('/agents/charge', data)
 /** 删除智能体收费配置 */
-export const deleteZntCharge = (id: string | number) => del(`/agents/charge/${encodeURIComponent(id)}`)
+export const deleteZntCharge = (id: string | number) =>
+  del(`/agents/charge/${encodeURIComponent(id)}`)
 /** 获取智能体审核记录列表 */
 export const getZntList = (params: ApiParams) => get('/agents/charge/list', params)
 

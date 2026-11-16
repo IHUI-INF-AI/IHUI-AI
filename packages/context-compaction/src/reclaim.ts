@@ -111,6 +111,7 @@ export const NON_RECLAIMABLE_EDIT_TOOLS = [
   'memory_forget',
   'memory_dream',
   'spawn_parallel',
+  'orchestrate_agents',
   'dispatch_subagent',
 ] as const
 

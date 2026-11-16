@@ -44,7 +44,7 @@ export function indexPendingLedgerPath(root = REPO_ROOT) {
 }
 
 /**
- * 纯函数:解析 first-seen 台账文本。state 四档逐字对齐 readLedgerRecords 的口径 ——
+ * 纯函数:解析 first-seen 台账文本。state 四档按行为规格 readLedgerRecords 的口径 ——
  *   read / missing(从未写过,合法)/ unreadable(存在读不到)/ bad-json(解不出)。
  * 坏 JSON **不抛**、当空台账重新开始,但 state 必须带出去:把"读坏了"折成"没有悬留"
  * 就是 AGENTS §0.3 禁的那一格。

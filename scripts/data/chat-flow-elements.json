@@ -624,7 +624,7 @@
     },
     {
       "id": "terminal-isolation-disclosure",
-      "title": "终端执行环境隔离交代(对标 G-154:命令在专用终端实例中运行;我方真值=os_sandbox allow_network 默认 False)",
+      "title": "终端执行环境隔离交代(对齐 G-154:命令在专用终端实例中运行;我方真值=os_sandbox allow_network 默认 False)",
       "sourceTask": "D110",
       "anchors": [
         {

@@ -35,7 +35,7 @@ import type {
   HrLeaveRequest,
   ListData,
 } from './types'
-import { BackButton } from '@/components/common'
+import { FeaturePageShell } from '@/components/layout'
 
 type TabKey =
   | 'departments'
@@ -71,13 +71,10 @@ export default function HrAttendancePage() {
   ]
 
   return (
-    <div className="space-y-4 px-4 py-4">
-      <BackButton />
-      <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
-        <Users className="h-6 w-6 text-primary" />
-        {t('title')}
-      </h1>
-
+    // 2026-11-16 接入统一子功能页外壳:BackButton + 手写 h1 收编为页头卡,
+    // 自动带上「人事部」返回 chip(取 hrHub.title,与域入口页大标题恒等)。
+    // 10 个 tabs 内容区原样保留。
+    <FeaturePageShell title={t('title')} icon={Users} domain="hr">
       <div className="flex flex-wrap gap-1 border-b">
         {tabs.map((tb) => (
           <button
@@ -105,7 +102,7 @@ export default function HrAttendancePage() {
       {tab === 'salaryConfig' && <SalaryConfigTab t={t} />}
       {tab === 'payroll' && <PayrollTab t={t} />}
       {tab === 'sync' && <SyncPanel t={t} />}
-    </div>
+    </FeaturePageShell>
   )
 }
 

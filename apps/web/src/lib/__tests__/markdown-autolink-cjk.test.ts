@@ -154,7 +154,7 @@ describe('反向:URL 内部合法含全角括号 ⇒ 不剥', () => {
   })
 })
 
-describe('边界:半角/全角混排与无配对标点', () => {
+describe('边界:半角/全角混排与无配对齐点', () => {
   it('全角括号 + 全角逗号连排 ⇒ 两个字符一起剥、一起回到正文', () => {
     const container = renderMarkdown('（见 https://example.com/g），')
     expect(hrefOf(container)).toBe('https://example.com/g')

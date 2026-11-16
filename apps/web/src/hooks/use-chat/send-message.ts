@@ -7,7 +7,6 @@ import type { ChatStore } from '@/stores/chat-pane-context'
 import { useAuthStore } from '@/stores/auth'
 import { useLoginDialogStore } from '@/stores/login-dialog'
 import { useAiPanelStore } from '@/stores/ai-panel'
-import { getModeStoreForChatStore } from '@/stores/mode'
 // D152(2026-09-29 立):goal_updated 下行帧的落点。本 store 自本票起是**本地缓存**,
 // 服务端主副本变了就覆盖它(判序与幂等口径都在 applyServerGoal 里,此处只接线)。
 import { useGoalStore } from '@/stores/goal'
@@ -39,7 +38,7 @@ import {
   type GuardianWarningEvent,
   // G-425:done 帧携带上游 finish/stop reason(截断提示数据源)
   type FinishReasonEvent,
-  // 对标 Qoder 借鉴清单第 9 项(2026-10-30):准入两格(inputId / 回执回调)已由
+  // 遵循统一工程规范):准入两格(inputId / 回执回调)已由
   // api-client StreamChatOptions 正式导出(B 路到场,dist 已重建),桥接类型已收编删除。
   type StreamChatOptions,
 } from '@ihui/api-client'
@@ -53,6 +52,8 @@ import {
   markStreamReconnecting,
 } from '@/components/chat/connection-status-bar'
 import { listCheckpoints, restoreCheckpoint, type CheckpointMeta } from '@/api/checkpoint-api'
+// 2026-11-16 立:任务标题实时更新开关(关闭后第 3 轮重估不再触发,标题固定为创建时名称)
+import { readTitleAutoUpdate } from '@/components/chat/title-update-policy'
 import { expandRuleToken } from '@/stores/memory'
 import { expandContextTokens } from '@/lib/context-token-expander'
 // 2026-11-12 立:号池 WS 流式客户端 —— 选中「我的号池」模型时,主对话改走 /ws/relay/chat
@@ -139,11 +140,8 @@ import { setStreamAlert } from './stream-alerts'
 import { projectFormRequestFrame } from './form-request-frame'
 import { useBusinessFormStore } from '@/stores/business-forms'
 import {
-  tryHandlePlanModeSlash,
-  tryHandleChatModeSlash,
   tryHandleReviewTargetSlash,
   tryHandlePermissionSlash,
-  tryAutoDetectMode,
   tryHandleSelfMediaSlash,
   tryHandleGoalSlash,
   tryHandleBtwSlash,
@@ -156,15 +154,33 @@ import { applyQuestionResolvedEvent, parseQuestionResolvedPayload } from './ques
 // Runtime 插话能力声明落库口(帧载荷 → store;D69 runtimeSupportsInterjection 的数据源)
 import { noteRuntimeCapabilities } from './runtime-capabilities'
 import type { PlanStep, TerminalTask } from '@ihui/types/ai'
+/**
+ * 发送链"建会话后同步 URL"的唯一落点出口(RP-46,2026-11-16 立):
+ * - opts.stayOnPage === true:板块页就地发起 —— 保留当前 pathname,不换页;
+ * - 否则交给 chatDeeplinkPath:工作台形态留 /chat/workbench,其余恒回 /chat。
+ * 三处 router.replace 全走本函数,不得旁路(§0.6 单一真相源;复制即漂移)。
+ * 测试:src/hooks/use-chat/__tests__/finance-stay-on-page.test.ts ①②。
+ */
+function resolveDeeplinkTarget(
+  conversationId: string,
+  opts?: Pick<SendMessageOptions, 'stayOnPage'>,
+): string {
+  const sp = new URLSearchParams(window.location.search)
+  sp.set('conversationId', conversationId)
+  const path = opts?.stayOnPage === true ? window.location.pathname : chatDeeplinkPath(window.location.pathname)
+  return `${path}?${sp.toString()}`
+}
+
 // 建会话后的 URL 同步目标:侧栏/根形态恒 '/chat'(旧行为逐字),工作台形态留在 /chat/workbench
 // (两形态共享内核的"新建会话不得被拽回侧栏"钉子;判据单一真相源见 spec)。
+// RP-46 板块就地发起见上方 resolveDeeplinkTarget(2026-11-16)。
 import { chatDeeplinkPath } from '@ihui/shared/ui/chat-workbench-shell-spec'
 // G-816008 接线(2026-10-29):「已 accepted 未投影」账本的端内准入判定。
 // 判据全在 @ihui/shared/chat/pending-command-registry,本文件只调 claim / settle 两枚出口。
 import { claimPendingSend, settlePendingSend } from './pending-send'
 // 回合答案完整性(2026-10-29):空响应不伪造 agent 气泡 + 非"完成"呈现态的唯一判定层。
 import { applyTurnAnswerFallback, markEmptyTurn } from './turn-answer-fallback'
-// 对标 Qoder 借鉴清单第 10 项(2026-10-30 接线):命名错误码 → 分类处置(动作 / 可重试)。
+// 遵循统一工程规范):命名错误码 → 分类处置(动作 / 可重试)。
 // 判据与文案键都在共享层与 lib/stream-error-view,本文件只做拼装与落地(与 send-answer.ts 同谱)。
 import {
   emitPlannedStreamErrorToast,
@@ -172,7 +188,7 @@ import {
   presentStreamError,
   type StreamErrorPresentation,
 } from '@/lib/stream-error-view'
-// 对标 Qoder 借鉴清单第 9 项:发送准入回执配对。
+// 遵循统一工程规范。
 // 响应头不算收下。正文 / 流尾 / 配对回执才算。未收下就撤回乐观气泡并留住草稿。
 import {
   admissionCountsAsAccepted,
@@ -205,10 +221,16 @@ export interface SendMessageOptions {
    *  只由"被拦 toast 的『仍要发送』"传入 —— 走与普通发送**同一条**链(不另开一条绕过判定的
    *  发送路径),但准入判定按 force 语义结算旧条目后重新登记。 */
   forcePending?: boolean
+  /** RP-46 财务部板块「就地发起」(2026-11-16 立):true 时发送副产建会话后的 URL 同步
+   *  保留当前 pathname,不交给 chatDeeplinkPath 换页。
+   *  立因:chatDeeplinkPath 对任意非工作台前缀恒回 /chat,而财务部板块页(/finance-ai 等)
+   *  不在工作台前缀内 —— 缺省行为必然把用户从板块页拽到 chat 页,违背「板块就地发起」。
+   *  该选项让板块页声明"我就在本页起会话",面板照常承接流式回复。 */
+  stayOnPage?: boolean
 }
 
 /**
- * 首轮回复后自动生成会话标题(2026-09-15 立,四竞品对标 V2 #15):
+ * 首轮回复后自动生成会话标题(2026-09-15 立,四竞品对齐 V2 #15):
  * 调 POST /conversations/:id/auto-title(LLM 依据首条用户消息生成,仅默认标题「新对话」被覆盖)。
  * 成功后 invalidate 会话列表缓存,侧栏即时显示新标题。任何失败静默(不打扰用户)。
  */
@@ -226,6 +248,32 @@ async function autoTitleAfterFirstTurn(
     }
   } catch {
     // 标题生成失败:静默降级,保持默认标题(与后端静默策略对称)
+  }
+}
+
+/**
+ * 第 3 轮回复后按最近真实对话重估标题(2026-11-16 立)。
+ * 仅在设置页「实时更新标题」开启时触发:服务端读最近 20 条消息生成新标题,
+ * 且只覆盖自动生成的非默认标题 —— 用户手动改名永不被吞(服务端 titleSource 判定)。
+ * 失败静默,保持当前标题。
+ */
+async function autoTitleAfterThirdTurn(
+  queryClient: ChatActionContext['queryClient'],
+  conversationId: string,
+  model: string,
+): Promise<void> {
+  try {
+    const res = await autoTitleConversation(conversationId, '', {
+      model,
+      strategy: 'conversation',
+      overwriteAuto: true,
+    })
+    if (res.success && res.data?.updated && res.data.title) {
+      await queryClient.invalidateQueries({ queryKey: ['chat', 'conversations'] })
+      await queryClient.invalidateQueries({ queryKey: ['chat', 'favorites'] })
+    }
+  } catch {
+    // 与首轮同一静默策略:不重试、不打扰
   }
 }
 
@@ -282,10 +330,8 @@ export function createSendMessage(
   } = ctx
   // 票60 步序三:actionCtx 注册挪到与 sendInstance 同一处(文件尾),按 store 实例落账
   const sendRuntime = getStreamRuntime(chatStore)
-  // 票60 普查批(2026-10-21):mode / timeline 是伴生 store,按 chatStore 反查 paneId 取窗格实例
-  // (chat-panes 的 paneIdForChatStore;根单例 chatStore ⇒ null ⇒ 回落根单例)——
-  // 此前直接读根单例,非根窗格发送时读到的是根窗格的模式档、subagent 事件也写进根时间线。
-  const modeStore = getModeStoreForChatStore(chatStore)
+  // 票60 普查批(2026-10-21):timeline 是伴生 store,按 chatStore 反查 paneId 取窗格实例
+  // (chat-panes 的 paneIdForChatStore;根单例 chatStore ⇒ null ⇒ 回落根单例)。
   const timelineStore = getTimelineStoreForChatStore(chatStore)
   const sendMessage = async (content: string, opts?: SendMessageOptions): Promise<boolean> => {
     const text = content.trim()
@@ -301,12 +347,10 @@ export function createSendMessage(
 
     // D06 审查对象选择器(2026-10-24):`/review uncommitted|branch <ref>|commit <sha>`
     // 先把目标变更只读地收集成一段 diff 再发送;未命中返回 null = 走原链路。
-    // 放在这里(而不是 tryHandleChatModeSlash 之后)是因为后者会把整行当"纯切模式"吞掉,
-    // 而目标参数必须进入本轮请求正文才可能被审。命中时下方跳过 ChatMode 拦截。
-    const reviewPrompt = isRegenerate ? null : await tryHandleReviewTargetSlash(text, t, modeStore)
+    const reviewPrompt = isRegenerate ? null : await tryHandleReviewTargetSlash(text, t)
     // W25(2026-09-14):#Rule token 展开 —— 正文含 #Rule 时把规则 YAML 内联进发送文本,
     // 仅影响发给 LLM 的内容,store/持久化仍保留原始用户输入(避免展开块污染历史气泡)。
-    // 四竞品对标 V2 #18(2026-09-15):#Codebase/#Terminal/#Docs/@目录:<路径> 语义源展开。
+    // 四竞品对齐 V2 #18(2026-09-15):#Codebase/#Terminal/#Docs/@目录:<路径> 语义源展开。
     const baseLlmText = await expandContextTokens(expandRuleToken(reviewPrompt ?? text))
     // P3 #30(2026-09-16 立):diff 评审意见定向注入 —— 用户对上一轮代码改动的意见格式化为
     // `<diff_review>` 块追加到发给 LLM 的文本尾部(同样只影响发给 LLM 的内容)。
@@ -324,25 +368,6 @@ export function createSendMessage(
     // 所有提前 return 前必须解锁(见下方各处 sendInFlightRef.current = false)
     lastSentContentRef.current = text
 
-    // /plan & /act 动作型斜杠命令拦截(2026-07-25 立,对标 主流 AI IDE SOLO Plan 模式):
-    // - 纯 UI 模式切换,不需要登录,不调用 LLM,不创建会话
-    // - 命中即清空输入框 + toast 反馈
-    // 重新生成模式跳过:历史问题不应再次触发斜杠命令
-    if (!isRegenerate && tryHandlePlanModeSlash(text, t, modeStore)) {
-      sendInFlightRef.current = false
-      return true
-    }
-
-    // /build /review /spec 动作型斜杠命令拦截(2026-07-28 立,补全 ChatMode 4态三通道):
-    // - 纯 ChatMode 切换,不需要登录,不调用 LLM,不创建会话
-    // - 命中即清空输入框 + toast 反馈(返回 true 与 tryHandlePlanModeSlash 一致)
-    // - D06:`/review <target>` 已由上方 tryHandleReviewTargetSlash 接管(要发正文),
-    //   此处跳过,否则目标 diff 会被"纯切模式"吞掉。
-    if (!isRegenerate && reviewPrompt === null && tryHandleChatModeSlash(text, t, modeStore)) {
-      sendInFlightRef.current = false
-      return true
-    }
-
     // /goal 会话目标斜杠命令拦截(W24,2026-09-14 立):
     // - 纯 goal store 状态机操作,不需要登录,不调用 LLM,不创建会话
     // - 设定/查看/标记完成/清除,命中即清空输入框 + toast 反馈
@@ -351,7 +376,7 @@ export function createSendMessage(
       return true
     }
 
-    // /btw 临时侧聊斜杠命令拦截(W24,2026-09-14 立,对标 Claude Code 侧聊):
+    // /btw 临时侧聊斜杠命令拦截(W24,2026-09-14 立,遵循统一工程规范):
     // - 直调 REST 单副本问答,不走 LLM chat 流,不创建会话,不写主线历史
     // - 回答携带 meta.sidechat 标记,主线历史构建与持久化均过滤
     if (!isRegenerate && (await tryHandleBtwSlash(text, t, chatStore))) {
@@ -359,7 +384,7 @@ export function createSendMessage(
       return true
     }
 
-    // /commit Smart Commit 斜杠命令拦截(W28,2026-09-14 立,对标 CodeBuddy AI 提交):
+    // /commit Smart Commit 斜杠命令拦截(W28,2026-09-14 立,对齐 CodeBuddy AI 提交):
     // - AI 生成提交信息并自动 git add + commit,不走 LLM chat 流,不创建会话
     // - commit.before/after 钩子事件在此触发
     if (!isRegenerate && (await tryHandleCommitSlash(text, t, chatStore))) {
@@ -367,7 +392,7 @@ export function createSendMessage(
       return true
     }
 
-    // D117 工具型斜杠命令拦截(2026-09-27 立,对标 Codex /diff /status /model /mcp /compact):
+    // D117 工具型斜杠命令拦截(2026-09-27 立,遵循统一工程规范):
     // - 纯前端动作或直调 REST,不走 LLM chat 流,不创建会话
     // - /status 以 sidechat 消息回显;/diff 打开会话改动总览弹窗
     if (!isRegenerate && (await tryHandleToolSlash(text, t, chatStore))) {
@@ -375,7 +400,7 @@ export function createSendMessage(
       return true
     }
 
-    // /permission ask|auto|full 动作型斜杠命令拦截(2026-07-25 深化,对标 Codex approvalMode):
+    // /permission ask|auto|full 动作型斜杠命令拦截(2026-07-25 深化,遵循统一工程规范):
     // - 纯 UI 模式切换,不需要登录,不调用 LLM,不创建会话
     // - 命中即清空输入框 + toast 反馈(切 full 时弹 5s 撤销 toast)
     if (!isRegenerate && (await tryHandlePermissionSlash(text, t))) {
@@ -383,12 +408,8 @@ export function createSendMessage(
       return true
     }
 
-    // AI 自动判断 ChatMode(2026-07-28 立,移除 4 按钮后由 AI 决定用哪种模式):
-    // - 时机:所有 /命令拦截后、createConversation 前(用户敲完按发送才触发)
-    // - 静默切换,无 toast(自动判断是辅助能力,反复提示会刷屏)
-    // - 当前模式徽章(CurrentModeBadge)实时反映新模式,提供视觉反馈
-    // - 显式 /命令优先级最高(已在上方拦截,这里只处理普通对话)
-    if (!isRegenerate) tryAutoDetectMode(text, modeStore)
+    // 2026-11-16 用户定档:ChatMode 手动切换与关键词自动判定全部移除 ——
+    // 发送链固定全工具开放(见 extraBody.mode),由 AI 自主决定是否使用工具。
 
     // 未登录拦截(2026-07-24 立,修复"未登录点发送无反应"问题):
     // - 不调 createConversation(避免 401 无可见反馈)
@@ -465,9 +486,7 @@ export function createSendMessage(
         store.setConversationId(slashCid)
         // 工作区按会话隔离(2026-09-04):新会话挂上当前待绑定工作区
         useAiPanelStore.getState().bindWorkspaceToConversation(slashCid)
-        const sp = new URLSearchParams(window.location.search)
-        sp.set('conversationId', slashCid)
-        router.replace(`${chatDeeplinkPath(window.location.pathname)}?${sp.toString()}`, {
+        router.replace(resolveDeeplinkTarget(slashCid, opts), {
           scroll: false,
         })
         queryClient.invalidateQueries({ queryKey: ['chat', 'conversations'] })
@@ -547,9 +566,7 @@ export function createSendMessage(
       // 工作区按会话隔离(2026-09-04):新会话挂上当前待绑定工作区,
       // 必须先于 ai-side-panel 的换装 effect 执行,否则会被"未绑定→解绑"逻辑清掉
       useAiPanelStore.getState().bindWorkspaceToConversation(conversationId)
-      const sp = new URLSearchParams(window.location.search)
-      sp.set('conversationId', conversationId)
-      router.replace(`${chatDeeplinkPath(window.location.pathname)}?${sp.toString()}`, {
+      router.replace(resolveDeeplinkTarget(conversationId, opts), {
         scroll: false,
       })
       queryClient.invalidateQueries({ queryKey: ['chat', 'conversations'] })
@@ -606,9 +623,12 @@ export function createSendMessage(
       )
       .map((m) => ({ role: m.role, content: m.content }))
 
-    // 四竞品对标 V2 #15(2026-09-15 立):是否为该会话首轮对话(无历史 assistant 回复)。
+    // 四竞品对齐 V2 #15(2026-09-15 立):是否为该会话首轮对话(无历史 assistant 回复)。
     // 仅首轮结束后自动生成会话标题;后续轮次/重新生成不触发。
-    const isFirstAssistantTurn = !isRegenerate && !history.some((m) => m.role === 'assistant')
+    const priorAssistantTurns = history.filter((m) => m.role === 'assistant').length
+    const isFirstAssistantTurn = !isRegenerate && priorAssistantTurns === 0
+    // 2026-11-16 立:第 3 轮回复后允许一次重估(实时更新标题开关开启时)
+    const isThirdAssistantTurn = !isRegenerate && priorAssistantTurns === 2
 
     // P3 #43 阶段2(2026-09-16 立):阻塞式成本协商——位于 addMessage 副作用之前,
     // 取消时零残留。开关 off(默认)= 静默预检(v1 知情);on 且估算超阈值 = 确认条。
@@ -668,7 +688,7 @@ export function createSendMessage(
     if (!isRegenerate) {
       userMessageId = store.addMessage({ role: 'user', content: text, model: roundModel })
     }
-    // 记录该消息生成时的工作区权限模式(2026-07-25 深化,深度对标 Codex 透明性)
+    // 记录该消息生成时的工作区权限模式(2026-07-25 深化,深度遵循统一工程规范)
     // 模式用于消息气泡的徽章展示,让用户事后能识别"这条回答是基于哪种权限模式生成的"
     // 2026-08-31:未绑定工作区时读暂存模式
     const permState = useAiPanelStore.getState()
@@ -1002,11 +1022,10 @@ export function createSendMessage(
         onSendAdmissionReceipt: (receipt) => {
           if (admission.accept(receipt).changed) flushAdmission()
         },
-        // 模式透传(2026-07-22 立,对标 主流 AI IDE Plan/Spec):build/plan/review/spec
-        // Plan/Act 模式(2026-07-24 立):plan=只制定计划不执行工具,act=正常执行
+        // 2026-11-16 用户定档:不再由用户选模式,固定 build 语义 = 全工具开放,
+        // 由 AI 按任务自主决定是否写文件 / 执行命令。
         extraBody: {
-          // ChatMode 4 态唯一模式字段(2026-07-28 移除独立 PlanActToggle 后,plan_mode 字段已废弃,语义合并到 mode)
-          mode: modeStore.getState().currentMode,
+          mode: 'build',
           // P1-7:自定义 system prompt(会话级),ai-service 注入系统消息最顶部;
           // 未设置时不传该 key,保持上游默认行为。
           // 2026-11-15:外观设置里的回复风格会追加在自定义 prompt 之后(见上方合并逻辑)。
@@ -1244,7 +1263,7 @@ export function createSendMessage(
         // 不开 openAiCompat(Vercel 协议解析路径一行不动);回调只吃 ai-service
         // 的 tool-call-args-delta 帧,旧服务端不发该帧 ⇒ 零行为变化。
         onOpenAiToolCall: createOpenAiToolCallHandler(assistantId, chatStore),
-        // Subagent 自动派发(2026-07-28 立,对标 AI 工作台):
+        // Subagent 自动派发(2026-07-28 立,对齐 AI 工作台):
         // 后端 dispatch_subagent 工具执行前后发 subagent_spawn/end SSE 事件,
         // 前端通过回调写入 chat store.subAgentActivities,UI 自动展示生命周期。
         // 2026-07-29 Phase 21:同步写入 timeline-store,让 Timeline tab 实时响应。
@@ -1305,7 +1324,7 @@ export function createSendMessage(
         // 带着用例的那份工厂语义重复而**永不执行**那份 —— 表现是测试一路绿而屏幕走的是另一条腿。
         // 内联那份还漏了 toolCallId 为空的守卫:空 id 会把 partialDiff 写进一个查不到的 toolCall。
         onToolDelta: createToolDeltaHandler(assistantId, chatStore),
-        // 2026-09-18 立(对标 Codex/Trae 的 bash 实时回显):终端命令执行期间后端逐块下发
+        // 2026-09-18 立(遵循统一工程规范):终端命令执行期间后端逐块下发
         // terminal_delta(4 行/批),此处累加到 store.terminalOutputs(terminalId 为键),
         // 由终端实时面板边执行边滚动渲染。刻意不要求 messageId(事件只保证 terminalId),
         // 缺失时按 terminalId 关联即可;缓冲上限由 store 侧裁剪(20000 字符/键)。
@@ -1649,7 +1668,7 @@ export function createSendMessage(
         ...(() => {
           const agentTools = [
             ...new Set([
-              ...mergeAgentTools(chatStore, modeStore.getState().currentMode),
+              ...mergeAgentTools(chatStore, 'build'),
               ...eduToolsFor(content),
               ...uiControlToolsFor(content),
               ...fileToolsFor(content),
@@ -1931,11 +1950,19 @@ export function createSendMessage(
         // W29 Repo Wiki 自动捕获(开启 autoCapture 时):对最近一轮问答提取知识卡片,
         // fire-and-forget,失败静默不打断主链路。
         maybeAutoCaptureWiki(llmText, finalMsg?.content ?? '', conversationId ?? undefined)
-        // 四竞品对标 V2 #15(2026-09-15 立):首轮回复完成后自动生成会话标题。
+        // 四竞品对齐 V2 #15(2026-09-15 立):首轮回复完成后自动生成会话标题。
         // fire-and-forget:后端 LLM 生成失败/超时静默保持默认标题,绝不 toast 打扰;
         // 仅首轮触发(history 无 assistant),重新生成/后续轮次跳过。
         if (isFirstAssistantTurn && conversationId && finalMsg?.content) {
           void autoTitleAfterFirstTurn(queryClient, conversationId, text, model)
+        } else if (
+          // 2026-11-16 立:第 3 轮收尾且「实时更新标题」开启 → 按最新对话重估一次
+          isThirdAssistantTurn &&
+          conversationId &&
+          finalMsg?.content &&
+          readTitleAutoUpdate()
+        ) {
+          void autoTitleAfterThirdTurn(queryClient, conversationId, model)
         }
       }
       emitAgentHook('session.end', { summary: conversationId })
@@ -2026,7 +2053,7 @@ export async function regenerateMessage(
 }
 
 /**
- * 编辑重跑(2026-09-12 立,四竞品对标 P0-1,对标 Cursor/Trae 消息编辑)。
+ * 编辑重跑(2026-09-12 立,四竞品对齐 P0-1,遵循统一工程规范)。
  * 由 MessageList 监听 `ihui:edit-message` 后调用,完整闭环:
  * 1. 调后端 POST /conversations/:id/edit-rerun —— 事务更新目标用户消息 content + 删除其后所有消息
  * 2. store.editMessageContent 同步更新前端该消息内容,truncateMessagesFrom(messageId) 删除其后的消息
@@ -2036,7 +2063,7 @@ export async function regenerateMessage(
  * 但 regenerate 模式的 sendMessage 不重复 addMessage,而是把 content 直接作为历史末尾 ——
  * 因此这里先 editMessageContent 更新内容,再截断到该消息之后(保留编辑后的用户消息在 store 中)。
  *
- * 2026-09-14 W16 扩展(对标 Qoder 编辑消息可选回滚工作区文件):rollbackFiles=true 时,
+ * 2026-09-14 W16 扩展(遵循统一工程规范):rollbackFiles=true 时,
  * 在编辑重跑前先把工作区(文件 + 对话历史)回滚到目标用户消息之前最近的 checkpoint:
  * 1. listCheckpoints 找 created_at <= 目标消息 createdAt 的最近 checkpoint
  * 2. restoreCheckpoint(checkpointId, conversationId, 'both') —— 服务端恢复对话历史 + 回滚文件版本
@@ -2220,7 +2247,7 @@ export async function branchMessage(
     if (typeof window !== 'undefined') {
       const sp = new URLSearchParams(window.location.search)
       sp.set('conversationId', newId)
-      ctx.router.replace(`${chatDeeplinkPath(window.location.pathname)}?${sp.toString()}`, {
+      ctx.router.replace(resolveDeeplinkTarget(newId), {
         scroll: false,
       })
     }

@@ -218,7 +218,7 @@ export async function getAppVersions(
 
 /**
  * 获取最新版本。
- * 返回形状与服务端逐字对齐:`data.latest`(取不到行时 latest 键整体缺失 ⇒
+ * 返回形状与服务端按行为规格:`data.latest`(取不到行时 latest 键整体缺失 ⇒
  * 消费方必须判 `res.data?.latest`,不得把 data 本身当行对象读 —— 旧声明正是这么
  * 错的,线上"安卓更新卡取不到包"时 data 就是空对象,读哪都是 undefined)。
  * store 可选:同一 platform 下不同分发渠道各有一条 latest(2026-11 加列,迁移 0364)。
@@ -227,9 +227,7 @@ export async function getLatestVersion(
   platform: AppVersionPlatformInput,
   store?: AppVersionStoreInput,
 ): Promise<ApiResult<LatestVersionResult>> {
-  return fetchApi<LatestVersionResult>(
-    `/api/app-version/latest${buildQs({ platform, store })}`,
-  )
+  return fetchApi<LatestVersionResult>(`/api/app-version/latest${buildQs({ platform, store })}`)
 }
 
 /** 创建应用版本 */
@@ -565,7 +563,7 @@ export async function recordVisit(input: {
   referrer?: string
   sessionId?: string
 }): Promise<ApiResult<{ success: boolean }>> {
-  // 出站形状必须与 apps/api 的 pageRecordSchema 逐字对齐(url / sessionId / referer):
+  // 出站形状必须与 apps/api 的 pageRecordSchema 按行为规格(url / sessionId / referer):
   // 此前这里原样发 {page, referrer, duration},服务端要的 url 不在其中 ⇒ 该调用方
   // **恒 400**,一次也没成功过(2026-10-23 修)。duration 服务端没有对应列,不发了。
   return fetchApi<{ success: boolean }>('/api/visit-tracking/page/record', {

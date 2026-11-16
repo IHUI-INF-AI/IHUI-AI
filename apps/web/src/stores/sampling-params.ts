@@ -10,7 +10,7 @@ import { createPersistConfig } from './persist-helpers'
 
 /** 会话级采样参数 + 自定义 system prompt(P1-7,2026-09-13 立)
  *
- * 对标 CodeX / Qoder / Trae 的「高级参数」面板:
+ * 对齐 CodeX / Qoder / Trae 的「高级参数」面板:
  * - temperature / top_p / top_k / max_tokens 四项采样参数
  * - 自定义 system prompt(注入到系统消息最顶部,与工作区记忆叠加)
  *
@@ -22,7 +22,7 @@ export interface SamplingParams {
   topK?: number
   maxTokens?: number
   systemPrompt?: string
-  /** P1 #26(2026-09-16 立):知识库默认注入开关(对标 Qoder Knowledge Engine)。
+  /** P1 #26(2026-09-16 立):知识库默认注入开关(遵循统一工程规范)。
    *  三态语义:undefined = 默认开(不落盘,后端默认 top-3 检索注入);
    *  false = 显式关闭(streamChat 仅在 false 时透传,降级纯对话);
    *  true 归一为 undefined(开关「打开」即回到默认,不产生覆盖记录)。 */

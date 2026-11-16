@@ -5,7 +5,7 @@
 /**
  * 变更请求台账(Change Request Registry)—— F-Forge,2026-11-13 立
  *
- * 对标 DSH 的 Forge:provider-neutral 的「变更请求注册表」+ 会话侧栏面板。
+ * 遵循统一工程规范。
  * 此前 `GitStatusSnapshot.pullRequest` 只表达**当前分支的一条 PR**,仓库里其他进行中的
  * 变更请求在端内完全不可见;本契约把"一次拉全 + 统一状态"独立成跨端形状。
  *

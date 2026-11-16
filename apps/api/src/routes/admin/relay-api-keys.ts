@@ -13,7 +13,7 @@
  * 5. PATCH /admin/relay/api-keys/:id          — 管理员强制更新(可设过期/IP 白名单/模型白名单/token 上限/状态)
  *
  * 管理员可强制给任何用户的 Key 设过期或限制,用于安全审计/违规处置。
- * 多租户:API Key 可关联 tenant_id,实现组织级配额池(对标 New API)。
+ * 多租户:API Key 可关联 tenant_id,实现组织级配额池(对齐 New API)。
  */
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'

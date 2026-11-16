@@ -6,7 +6,7 @@
 
 # IHUI AI CLI
 
-> 全栈 AI 编码代理命令行工具 — 对标 Claude Code / OpenAI Codex,9 种安装方式,跨平台运行。
+> 全栈 AI 编码代理命令行工具 — 对齐统一规范。
 
 ## 安装
 

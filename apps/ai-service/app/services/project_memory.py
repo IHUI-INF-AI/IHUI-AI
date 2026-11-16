@@ -12,7 +12,7 @@
 2. build_system_prompt(session_id, workspace_path) — 将项目记忆 + 业务代号字典
    注入 Agent 系统提示
 
-对标 Claude Code 的 CLAUDE.md 机制，让 Agent 能够持久化用户项目偏好和自定义指令。
+遵循统一工程规范，让 Agent 能够持久化用户项目偏好和自定义指令。
 """
 
 from pathlib import Path

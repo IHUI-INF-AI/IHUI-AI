@@ -38,7 +38,7 @@ export interface ErrorCatalogEntry {
 export const ERROR_CATALOG_NAMESPACE = 'ai.pane.errorCatalog' as const
 
 /**
- * 台账 D71 明文点名的八类(对标原文逐字落在 zh-CN 词包里,测试逐字断言)。
+ * 台账 D71 明文点名的八类(对齐原文逐字落在 zh-CN 词包里,测试逐字断言)。
  * 其中 TIMEOUT / INTERNAL_ERROR 我方已在产出,其余六类是我方**尚未产出**的码:
  * 先在本表登记(契约先行),等后端真正产出时词包与判据都已就位。
  */

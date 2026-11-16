@@ -581,7 +581,7 @@ describe('G-815418 ② rawBody 的写侧与读侧必须落在同一个对象上'
   })
 
   it('反例(那一版落地时的实际坏法):fastify 给 parser 的第一实参是 request 而不是 request.raw ⇒ 读侧恒 undefined', () => {
-    // 逐字复刻 fastify v5 `lib/content-type-parser.js:305` 的实参形状:parser.fn(request, body, done)
+    // 独立实现 fastify v5 `lib/content-type-parser.js:305` 的实参形状:parser.fn(request, body, done)
     const raw: Record<string, unknown> = {}
     const request: Record<string, unknown> = { raw }
     attachWebhookRawBody(request, '{"a": 1,"b":2.0}')

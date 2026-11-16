@@ -4,7 +4,7 @@
 
 // RECON-NOTE@2026-11-11 本件为 9db63619 已入库主线工作;origin/main 52991b53 旧底稿同步误删本件与配套测试(其 forwarder.ts:94 仍 import 本件,干净检出必挂)。本行为 ours 侧还原处置留痕,使合并按两侧动过裁决、保留接线。
 /**
- * 号池模型级连通健康(2026-11-11 立,对标 ai-service/app/services/model_health.py 的模型级口径)。
+ * 号池模型级连通健康(2026-11-11 立,对齐 ai-service/app/services/model_health.py 的模型级口径)。
  *
  * 背景:对话模型选择器 = 平台模型(ai-service /llm/models,已有模型级连通过滤)
  * + 号池模型(GET /api/account-pool/models → listUserPoolModels,此前零过滤)。

@@ -21,7 +21,7 @@ import {
 } from '@/stores/repo-wiki'
 
 /**
- * RepoWikiPanel — Repo Wiki / 知识卡片面板(W29,2026-09-14 立,对标 Qoder Repo Wiki)。
+ * RepoWikiPanel — Repo Wiki / 知识卡片面板(W29,2026-09-14 立,遵循统一工程规范)。
  *
  * - 类目 tab(architecture/api/pattern/pitfall)+ 搜索过滤
  * - 卡片列表(标题 + 正文 + 删除)

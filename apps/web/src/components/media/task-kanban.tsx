@@ -22,7 +22,7 @@ import {
 } from './task-parts'
 
 /**
- * TaskKanban — 媒体任务三列看板(P3 #31 全局任务看板,2026-09-16 立,对标 Qoder My Quests)。
+ * TaskKanban — 媒体任务三列看板(P3 #31 全局任务看板,2026-09-16 立,遵循统一工程规范)。
  *
  * 三列语义:
  *  - Running(进行中):processing —— provider 正在生成

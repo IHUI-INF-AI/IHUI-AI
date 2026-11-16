@@ -4,7 +4,7 @@
 
 """Harness 安全与工具剩余面(2026-09-18 第八批)单测。
 
-覆盖(对标 Codex execpolicy 内核沙箱 + web_search 内置工具):
+覆盖(遵循统一工程规范):
 - proc_sandbox:Windows Job Object 应用成功 / 非 Windows 与句柄缺失降级
 - run_code / unified_exec 会话创建后带 sandbox 字段
 - web_search 内置工具:注入/空参拒绝/真实搜索降级

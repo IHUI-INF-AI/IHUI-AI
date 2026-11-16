@@ -7,7 +7,7 @@ import { db, dbRead } from '../db/index.js'
 import { relayUserAttributes, type RelayUserAttribute } from '@ihui/database'
 
 /**
- * 用户自定义属性服务(2026-09-17 立,补强 55,对标竞品 /user-attributes)。
+ * 用户自定义属性服务(2026-09-17 立,补强 55,对齐竞品 /user-attributes)。
  *
  * 给用户挂 KV 标签(如 tier=vip、source=referral),供分组/风控/运营筛选与导出。
  * 语义:同一 (userId, key) 唯一,set 为覆盖写(PUT),delete 为精确删除。

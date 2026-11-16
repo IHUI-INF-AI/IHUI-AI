@@ -95,7 +95,7 @@ export function parseQoderModelTable(stdout: string): QoderModelTable | null {
 
 /**
  * exec 注入缝(测试假实现,绝不 spawn 真 CLI)。
- * 形状对标 execFileSync(encoding:'utf8' 时返回 string);抛错即失败。
+ * 形状对齐 execFileSync(encoding:'utf8' 时返回 string);抛错即失败。
  */
 export type QoderCliExecImpl = (
   file: string,

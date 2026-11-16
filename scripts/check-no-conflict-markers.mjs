@@ -57,7 +57,7 @@
  *   node scripts/check-no-conflict-markers.mjs [--staged]
  *   node scripts/check-no-conflict-markers.mjs --rev HEAD
  *   node scripts/check-no-conflict-markers.mjs --self-test
- * 退出码:0 通过 / 1 检出成对标记(P1)或带 ours/theirs/HEAD 词尾的孤立标记(P4) / 2 脚本自身异常。
+ * 退出码:0 通过 / 1 检出成对齐记(P1)或带 ours/theirs/HEAD 词尾的孤立标记(P4) / 2 脚本自身异常。
  * 紧急跳过:HUSKY_SKIP_CONFLICT_MARKERS=1 git commit ...(确属有意保留标记的内容,请先把它放进
  *   字符串字面量或转义,而不是靠跳过守门)
  *
@@ -176,12 +176,12 @@ export function looksBinary(buf) {
 
 /**
  * 单文件判定(纯函数 + 计数副作用写进 stats)。
- * 返回 violations(成对标记数组);跳过原因只累加计数,由汇总行如实打印。
+ * 返回 violations(成对齐记数组);跳过原因只累加计数,由汇总行如实打印。
  *
  * ⚠️ **体积护栏不得挡在"文件里确实有标记线索"之前**(2026-09-28 实测的自盲):
  * `MAX_BYTES` 的本意是"位图 / 锁文件 / 压缩产物不是手写冲突的载体",而 `PROJECT_PLAN.md`
  * 长期 >2MB —— 恰是多会话唯一会真撞在一起的那份文件。实测枚 `b54c79c36`(自动归档提交)
- * 把带 `<<<<<<< ours` 的工作树副本提交进台账,而本门对那一枚报"未检出成对标记",
+ * 把带 `<<<<<<< ours` 的工作树副本提交进台账,而本门对那一枚报"未检出成对齐记",
  * 汇总行里的 `跳过 >2MB 大文件=1` 就是它唯一的痕迹(没人读)。所以次序改成:
  * **先用两次 `buf.includes(needle)` 问"有没有标记线索"(快、零字符串化),没有才按体积跳过;
  * 有标记线索的文件无论多大都必须判**(配对逻辑只跑在标记行上,不是整文件正则)。
@@ -250,7 +250,7 @@ function snippet(line) {
 export function render(modeLabel, totalPaths, violations, stats) {
   const lines = [`🔀 冲突标记守门(${modeLabel}):判定 ${stats.judged} 个内容源(候选 ${totalPaths})`]
   // 两型必须分开报数(G-588 验收②的可读面):合成一句"检出 N 对"会把 P4 的孤立标记
-  // 伪装成成对标记,读的人会去找那条并不存在的 >>>>>>> 闭合行。
+  // 伪装成成对齐记,读的人会去找那条并不存在的 >>>>>>> 闭合行。
   const pairItems = violations.filter((v) => v.kind !== 'orphan')
   const orphanItems = violations.filter((v) => v.kind === 'orphan')
   if (violations.length > 0) {
@@ -301,7 +301,7 @@ export function render(modeLabel, totalPaths, violations, stats) {
   const unpaired = stats.unpairedStarts + stats.unpairedEnds
   if (unpaired > 0) {
     lines.push(
-      `   ⚠️ 另有未配对标记 ${stats.unpairedStarts} 处孤立 \`<<<<<<<\` / ${stats.unpairedEnds} 处孤立 \`>>>>>>>\` —— 其中带 ours/theirs/HEAD 词尾的 ${stats.orphanJudged} 处已按 P4 判红(见上方清单),剩下的按 P2/P3 只报数不计红;"只剩一半"通常意味着标记被手删,请人工确认`,
+      `   ⚠️ 另有未配对齐记 ${stats.unpairedStarts} 处孤立 \`<<<<<<<\` / ${stats.unpairedEnds} 处孤立 \`>>>>>>>\` —— 其中带 ours/theirs/HEAD 词尾的 ${stats.orphanJudged} 处已按 P4 判红(见上方清单),剩下的按 P2/P3 只报数不计红;"只剩一半"通常意味着标记被手删,请人工确认`,
     )
   }
   return lines
@@ -465,7 +465,7 @@ function selfTestRun() {
     ].join('\n')
     const r1 = findMarkerPairs(conflict)
     check(
-      '1 成对标记判红(行号 + 分隔线定位正确)',
+      '1 成对齐记判红(行号 + 分隔线定位正确)',
       r1.pairs.length === 1 &&
         r1.pairs[0].startLine === 2 &&
         r1.pairs[0].endLine === 6 &&
@@ -498,7 +498,7 @@ function selfTestRun() {
       'd',
       '>>>>>>> y',
     ].join('\n')
-    check('4 同文件两对标记分别计 2', findMarkerPairs(twoPairs).pairs.length === 2)
+    check('4 同文件两对齐记分别计 2', findMarkerPairs(twoPairs).pairs.length === 2)
 
     // E1 真实形态取证:apps/cli/tests/file-edit.test.ts 的夹具里,闭合标记带模板串尾巴
     // (`>>>>>>> REPLACE`;),开始标记在块内才是行首 —— 必须按该原样钉住,否则放宽会过头。
@@ -607,12 +607,12 @@ function selfTestRun() {
     g(['add', '-A'])
     const big = audit(repo, { staged: true })
     // 20 号断言的**方向在 2026-09-28 反过来**了:原先它钉的是">2MB 就跳过、不计红",
-    // 而那份夹具正是"大文件 + 真成对标记"—— 台账 `PROJECT_PLAN.md` 天天 >2MB,
+    // 而那份夹具正是"大文件 + 真成对齐记"—— 台账 `PROJECT_PLAN.md` 天天 >2MB,
     // 于是护栏把唯一会真撞车的文件挡在射程外(实测枚 b54c79c36 把带标记的工作树副本
     // 提交进台账,本门对它报"未检出成对",汇总里只剩一句 `跳过 >2MB 大文件=1`)。
     // 现在两型分别钉:含标记线索的大文件必红,无标记线索的大文件仍按护栏跳过并计数。
     check(
-      '20 >2MB 且含成对标记 ⇒ 判红(护栏不得变成盲区)',
+      '20 >2MB 且含成对齐记 ⇒ 判红(护栏不得变成盲区)',
       big.code === 1 && big.stats.largeWithMarkers === 1 && big.violations.length === 1,
       `code=${big.code} largeWithMarkers=${big.stats.largeWithMarkers} v=${big.violations.length}`,
     )
@@ -767,7 +767,7 @@ const HELP = [
   '',
   '判据:P1 同文件内成对的 ^<<<<<<< 与 ^>>>>>>> (中间可夹 ^=======$);P4 带 ours/theirs/HEAD 词尾',
   '          的孤立标记(只剩一半)同样判红;孤立 ======= 与不带该词尾的孤立尖括号只报数不判红。',
-  `退出码:0 通过 / 1 检出 P1 成对标记或 P4 孤立带词尾标记 / 2 脚本自身异常。紧急跳过:${SKIP_ENV}=1`,
+  `退出码:0 通过 / 1 检出 P1 成对齐记或 P4 孤立带词尾标记 / 2 脚本自身异常。紧急跳过:${SKIP_ENV}=1`,
 ].join('\n')
 
 async function main() {

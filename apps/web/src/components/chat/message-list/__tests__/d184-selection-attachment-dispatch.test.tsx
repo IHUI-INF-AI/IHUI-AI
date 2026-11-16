@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 // @vitest-environment jsdom
-// D184「选中文本作为附件」MessageItem 出口装车证明(2026-09-29 立,对标竞品 chatSession.selectionActions)。
+// D184「选中文本作为附件」MessageItem 出口装车证明(2026-09-29 立,对齐竞品 chatSession.selectionActions)。
 //
 // 判据全部挂渲染结果,不读源码:
 //   ① assistant 非错误消息选中正文后,消息尾部浮现选区动作组:role=group + aria-label
@@ -18,7 +18,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 // i18n mock 只回键名:断言挂在 aria-label/文案的键位与结构位上,不依赖具体语言文案。
 vi.mock('next-intl', () => ({
-  useTranslations: () => (key: string): string => `[${key}]`,
+  useTranslations:
+    () =>
+    (key: string): string =>
+      `[${key}]`,
   useLocale: () => 'zh-CN',
 }))
 
@@ -167,9 +170,7 @@ describe('D184 选区动作组:双出口并存且结构位齐备', () => {
     act(() => {
       document.dispatchEvent(new Event('selectionchange'))
     })
-    expect(
-      user.container.querySelector('[data-testid="message-selection-actions-u1"]'),
-    ).toBeNull()
+    expect(user.container.querySelector('[data-testid="message-selection-actions-u1"]')).toBeNull()
 
     const errored = renderMessage(assistantMessage({ id: 'e1', error: true }))
     stubSelection(errored.container.firstElementChild, SELECTED)

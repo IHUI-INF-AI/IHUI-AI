@@ -155,7 +155,7 @@ _REGISTRY: list[FreeProvider] = [
         key_env_vars=["DEEPSEEK_API_KEY"],
         default_models=["deepseek-chat", "deepseek-reasoner"],
         docs_url="https://platform.deepseek.com/docs",
-        notes="R1 推理模型对标 o1,价格仅 OpenAI 1/30",
+        notes="R1 推理模型对齐 o1,价格仅 OpenAI 1/30",
         recharge_url="https://platform.deepseek.com/usage",
         balance_endpoint="https://api.deepseek.com/user/balance",
     ),

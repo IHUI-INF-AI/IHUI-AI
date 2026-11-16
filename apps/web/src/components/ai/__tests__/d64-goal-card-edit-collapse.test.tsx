@@ -4,7 +4,7 @@
 
 // @vitest-environment jsdom
 // D64 ⑥(2026-09-26):goal 卡「编辑目标」(renameGoal 保状态保进度)与「折叠态持久化」
-// (expanded 入 goal store persist,对标 Trae isGoalExpanded)两小件。
+// (expanded 入 goal store persist,遵循统一工程规范)两小件。
 // 文案走键,不依赖措辞;编辑/保存/取消措辞对齐 E1 证据 composer.threadGoal.editDialog.*。
 import { describe, it, expect, afterEach, vi } from 'vitest'
 import React from 'react'

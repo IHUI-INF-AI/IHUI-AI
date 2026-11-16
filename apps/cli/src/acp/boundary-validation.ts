@@ -14,7 +14,7 @@
  *   服务端 handler 返回了不符合契约的对象 ⇒ 客户端收到 "Invalid params"
  *   ⇒ 客户端以为自己参数写错了,去改参数,永远查不出真正的问题。
  *
- * 对标依据:WorkBuddy `@genie/agent-harness` 的 `lib/module/validation.js`:
+ * 对齐依据:WorkBuddy `通用子智能体日志规范` 的 `lib/module/validation.js`:
  *
  *     validateParams(...) ⇒ Invalid ${method} params: ${path}: ${message}   // 调用方错
  *     validateResult(...) ⇒ new JsonRpcError(internalError, "Invalid ... result")  // 服务端错
@@ -117,7 +117,7 @@ export function validateAtBoundary<T>(
   value: T,
   check: (v: T) => readonly ValidationIssue[],
 ): T {
-  // 非纯 JSON 值在入参边界直接拒(与对标实现的 `Expected a plain JSON value` 同义);
+  // 非纯 JSON 值在入参边界直接拒(与对齐实现的 `Expected a plain JSON value` 同义);
   // 返回值边界同样拒 —— 但那说明 handler 造了个不可序列化的东西,归 internal。
   if (!isPlainJsonValue(value)) {
     throw new BoundaryValidationError(boundary, method, [

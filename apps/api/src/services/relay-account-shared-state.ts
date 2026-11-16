@@ -13,10 +13,10 @@
  * (a) 账号冷却:accountId → 冷却到期毫秒时间戳,键 TTL = 剩余冷却秒级时长,
  *     Redis 自然过期,无需清扫任务。
  * (b) 会话亲和:affinityKey → accountId,PX TTL 与进程内旧实现同口径(10 分钟)。
- * (c) 巡检分布式锁:SET NX PX 原子获取,Lua 脚本按 token 原子释放(对标
+ * (c) 巡检分布式锁:SET NX PX 原子获取,Lua 脚本按 token 原子释放(对齐
  *     utils/distributed-lock.ts 的 owner+token 校验,但这里只需要「拿不到就跳过」
  *     的非阻塞语义,不排队等待)。
- * (d) 全局在途并发闸(2026-10-29 立,O93,对标 pool.max_in_flight_global):
+ * (d) 全局在途并发闸(2026-10-29 立,O93,对齐 pool.max_in_flight_global):
  *     relay:pool:inflight:global 的 INCR/DECR 原子计数,acquire 时写 TTL 安全网,
  *     并在 handle 持有期间定时续期(F-619:长流跑过 TTL 时计数不得中途清零);
  *     达上限即回绝(调用方像冷却一样换下一候选,不排队);Redis 不可用 ⇒ 进程内计数兜底。
@@ -83,7 +83,7 @@ function getRedis(): Redis | null {
 const KEY_PREFIX_COOLDOWN = 'relay:pool:cooldown:'
 const KEY_PREFIX_AFFINITY = 'relay:pool:affinity:'
 const KEY_PREFIX_LOCK = 'relay:pool:lock:'
-/** 全局在途并发计数键(O93,对标 workbuddy2api-panel pool.max_in_flight_global) */
+/** 全局在途并发计数键(O93,遵循统一工程规范) */
 const KEY_GLOBAL_INFLIGHT = 'relay:pool:inflight:global'
 
 /** 仅当 token 匹配才删除(原子释放),防误删他人持有的锁。 */
@@ -290,7 +290,7 @@ export async function tryAcquireSharedLock(
 }
 
 // =============================================================================
-// (d) 全局在途并发闸(2026-10-29 立,O93:对标 pool.max_in_flight_global)
+// (d) 全局在途并发闸(2026-10-29 立,O93:对齐 pool.max_in_flight_global)
 //     Redis INCR/DECR 原子计数 + TTL 兜底;Redis 不可用 ⇒ 进程内计数兜底。
 //     语义 = 「拿不到就跳过(像冷却一样换下一候选),绝不排队久等」——与上面
 //     分布式锁的非阻塞口径同族。钮值(IHUI_RELAY_POOL_MAX_IN_FLIGHT_GLOBAL)

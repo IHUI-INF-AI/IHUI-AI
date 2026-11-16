@@ -14,7 +14,7 @@ import {
 } from './diff-staging'
 
 /**
- * diff 暂存状态机单测(D88,对标 Codex stage/unstage)。
+ * diff 暂存状态机单测(D88,遵循统一工程规范)。
  *
  * 矩阵:三级(文件 / hunk / 全部)× 两操作(暂存 / 还原) + 与 W5 accepted 维度正交。
  * 「全部」级在无跨文件容器时由文件级 stageHunks(全 id)承担(见交付报告说明)。

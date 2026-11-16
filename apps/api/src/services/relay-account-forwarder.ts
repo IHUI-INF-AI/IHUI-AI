@@ -3,13 +3,13 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * 第三方 AI IDE 账号池转发器(2026-10-22 立,对标码道网关 CodeArtsGateway)。
+ * 第三方 AI IDE 账号池转发器(2026-10-22 立,对齐码道网关 CodeArtsGateway)。
  *
  * 定位:/v1 公开链路在「渠道 key 池无候选」时回落到账号池(trae/workbuddy/codearts),
  * 由 relay-upstream-forwarder.forwardToChannel 在 candidates.length===0 处调用。
  * 返回形状与渠道路径完全一致(ForwardResult),v1-public 消费端零改动。
  *
- * 设计(对标 + 超越码道):
+ * 设计(对齐 + 超越码道):
  * - 模型→平台反查:join ai_model_config(_models),providerCode ∈ RELAY_PROVIDERS 且启用;60s 进程缓存
  * - 选号:priority asc → 有效权重 desc → lastUsedAt asc(未用优先),跳过冷却中的号;上限 3 号 failover
  *   (O93 起策略钮与打分住 relay-pool-policy.ts 单源:weighted_random / 闲置加权 / 临期优先 /
@@ -22,7 +22,7 @@
  *   流式场景下失败号从不向客户端吐过字节,新号 SSE 从头开始、不断流
  * - 双执行路径:适配器定义 executeChat(多段式协议,如 Trae remote 两步会话)直接整体执行;
  *   否则走通用单请求路径 buildChatRequest → fetch → translateStreamChunk/translateNonStream
- * - 401 自愈:鉴权失败 → 适配器 refreshToken → 回写号池 → 重试一次(对标码道 token 自动续期)
+ * - 401 自愈:鉴权失败 → 适配器 refreshToken → 回写号池 → 重试一次(对齐码道 token 自动续期)
  * - 熔断分层(超越码道的单一冷却):
  *   · 连续 3 败 → 60s 冷却;rate → max(60s, 上游 Retry-After/x-ratelimit-reset),封顶 1h;
  *     credit → 12h;risk(4015/4019/4010/4013)→ 30m 起、连续命中翻倍;
@@ -31,7 +31,7 @@
  *   · 请求级错误(参数非法/超长/审核)不罚号(直接透传失败,不计数不冷却)
  * - 账号级并发上限(2026-10-22):同一账号在途请求默认 ≤3,超出则 failover 到下一候选
  *   (上游对单账号并发极敏感;这是与"每账号独立代理出口"配套的第二道指纹护栏)
- * - 全局在途并发闸(O93,对标 pool.max_in_flight_global):钮值住 relay-pool-policy,
+ * - 全局在途并发闸(O93,对齐 pool.max_in_flight_global):钮值住 relay-pool-policy,
  *   计数住 relay-account-shared-state(Redis INCR/DECR + TTL 安全网、内存兜底);
  *   达上限像冷却一样跳过该候选,绝不排队久等(关闭档零 Redis 往返)
  * - 出口代理:行.proxyUrl → undici ProxyAgent(按 URL 缓存连接池,每号独立出口 IP 降风控)
@@ -132,12 +132,12 @@ const MAX_ACCOUNT_CANDIDATES = 3
 /** 进程级熔断:连续失败阈值 / 冷却时长 */
 const BREAKER_FAILURES = 3
 const BREAKER_COOLDOWN_MS = 60_000
-/** 积分耗尽/日上限:12h 冷却(对标 workbuddy CoolHard) */
+/** 积分耗尽/日上限:12h 冷却(遵循统一工程规范) */
 const CREDIT_COOLDOWN_MS = 12 * 60 * 60 * 1000
 /** 风控命中(4015/4019/4010/4013):30 分钟起冷却,连续命中翻倍,封顶 6h */
 const RISK_COOLDOWN_MS = 30 * 60 * 1000
 const RISK_COOLDOWN_MAX_MS = 6 * 60 * 60 * 1000
-/** 上游限流:60s 软冷却基线(对标 workbuddy CoolSoft);上游自己给了退避时刻就按更长的来 */
+/** 上游限流:60s 软冷却基线(遵循统一工程规范);上游自己给了退避时刻就按更长的来 */
 const RATE_COOLDOWN_MS = 60_000
 /** 上游退避封顶:一句 `Retry-After: 31536000` 不该把号池锁一年(与 RISK_COOLDOWN_MAX_MS 同族) */
 const RATE_COOLDOWN_MAX_MS = 60 * 60 * 1000
@@ -618,7 +618,7 @@ function recordFailure(
   if (kind === 'request') return
   const now = Date.now()
   if (kind === 'not_found') {
-    // 上游偶发 404 抖动:短冷却但不累计错误(防雪崩,对标 workbuddy ErrNotFound)
+    // 上游偶发 404 抖动:短冷却但不累计错误(防雪崩,遵循统一工程规范)
     void setAccountCooldown(row.id, now + RATE_COOLDOWN_MS)
     // 号池模型级健康:404 上报(连续 2 次才 down;账户级 kind 一律不记。被动信号,零新增探测请求)
     if (model) recordModelNotFound(row.providerCode, model)
@@ -1851,7 +1851,7 @@ export async function forwardToAccountPool(
         lastError = `账号 ${row.name} 并发已达上限(${ACCOUNT_MAX_INFLIGHT})`
         continue
       }
-      // 全局在途闸(O93,pool.max_in_flight_global 对标):达上限像冷却一样跳过该候选,
+      // 全局在途闸(O93,pool.max_in_flight_global 对齐):达上限像冷却一样跳过该候选,
       // 不排队久等;关闭档(maxInFlightGlobal<=0)零 Redis 往返。全候选都被闸挡下 ⇒
       // 本请求以带标签的失败结论回绝(调用方回退 ai-service,不是硬中断)。
       let globalHandle: GlobalInflightHandle | null = null

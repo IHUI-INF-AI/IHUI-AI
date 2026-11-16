@@ -4,7 +4,7 @@
 
 
 /**
- * skill-evolution.ts 行为钉子(对标 Qoder skill_evolution_suggestions 语义)。
+ * skill-evolution.ts 行为钉子(遵循统一工程规范)。
  * 全部用临时目录隔离存储(IHUI_CLI_SKILL_EVOLUTION_DIR),不碰真实 ~/.ihui。
  */
 
@@ -184,7 +184,7 @@ describe('propose + advance(登记与流转编排)', () => {
   });
 });
 
-describe('reconcile(指纹失效自动作废,对标 hash_invalidated)', () => {
+describe('reconcile(指纹失效自动作废,对齐 hash_invalidated)', () => {
   it('技能漂移后 reconcile 把提议标为 hash_invalidated', () => {
     propose({ ...base(), id: 's1', intent: 'x', proposedChange: 'y' });
     // 提议生效前技能被外部改动
@@ -229,7 +229,7 @@ describe('reconcile(指纹失效自动作废,对标 hash_invalidated)', () => {
   });
 });
 
-describe('expirePending(到期作废,对标 expires_at)', () => {
+describe('expirePending(到期作废,对齐 expires_at)', () => {
   it('过期的 pending 标为 expired', () => {
     propose({ ...base(), id: 's1', intent: 'x', proposedChange: 'y', ttlMs: 1000, now: 0 });
     const { expiredIds } = expirePending('demo', 5000);

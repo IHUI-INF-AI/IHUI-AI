@@ -6,7 +6,7 @@
 /**
  * check-diagnostic-redaction — 子代理 stderr/stdout 诊断尾巴脱敏守门(G-998115 并入 T1,b76-08)。
  *
- * 判据(对标上游 zcodeAgentProcessManager.ts:248-294,1051-1069):
+ * 判据(对齐上游 zcodeAgentProcessManager.ts:248-294,1051-1069):
  *   1. 诊断文本在**入 tail 时**就脱敏(三组形状:赋值式 / Bearer·Basic 式 / 裸 sk- 式);
  *   2. **先脱敏再限长** —— 脱敏占位符可能比原文长,限长必须在脱敏之后;
  *   3. 跨进程 IPC 前再脱敏再限长(出口与入口各一道,不得只做一处)。

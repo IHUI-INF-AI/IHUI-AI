@@ -3,7 +3,6 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { toast } from '@/components/common'
-import { useModeStore, type ModeStore } from '@/stores/mode'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import { useChatStore } from '@/stores/chat'
 import type { ChatStore } from '@/stores/chat-pane-context'
@@ -22,7 +21,6 @@ import { runBestOfN } from '@/api/best-of-api'
 import { useBestOfStore } from '@/stores/best-of'
 import type { SlashCommandData, SlashCommandResult } from './types'
 import type { WorkspacePermissionMode } from '@ihui/api-client/endpoints/workspace'
-import type { ChatMode } from '@ihui/types'
 import { collectSessionFileChanges } from '@ihui/shared/chat/session-file-changes'
 import { getModelContextCapacity, formatTokenCount } from '@/lib/model-context-capacity'
 import { runManualCompact } from './manual-compact'
@@ -151,89 +149,9 @@ export async function tryHandleAutoTaskSlash(
   return true
 }
 
-/** /plan & /act 动作型斜杠命令(2026-07-25 立,对标 主流 AI IDE SOLO Plan 模式)
- * - /plan [可选说明]:切换到 ChatMode.plan(只读分析,deny write 工具)。后续说明文字被忽略(纯动作命令)。
- * - /act [可选说明]:切换到 ChatMode.build(正常执行,全工具开放,默认)。
- * - 命中即返回 true,不发送给 LLM,清空输入框。toast 给反馈。
- * - 仅当输入完全匹配 /plan /act 开头(后接空白或行尾)时命中,避免误伤。
- * - 2026-08-27 修复:/build /review /spec 不再由此 handler 拦截(移交下方
- *   tryHandleChatModeSlash)—— 原先两 handler 功能重叠,plan 版恒先命中,
- *   ChatMode 版成死代码且 toast 硬编码中文(非 zh-CN locale 泄漏中文文案)。
- * - t: next-intl 翻译函数(useChat 顶层 useTranslations('chat') 传入,与
- *   tryHandleChatModeSlash 一致,toast 文案随 locale 切换)。 */
-export function tryHandlePlanModeSlash(
-  text: string,
-  t: (key: string, vars?: Record<string, string>) => string,
-  /** 票60 普查批(2026-10-21):发送链按窗格传入该窗格的 mode 实例;缺省 = 根单例 ⇒ 既有调用面零回归 */
-  modeStore: ModeStore = useModeStore,
-): boolean {
-  const trimmed = text.trimStart()
-  // /plan /act → ChatMode(2026-07-28 移除独立 PlanActToggle 后直接走 ChatMode;
-  // act=build 语义一致,plan=plan 语义一致)
-  const m = /^\/(plan|act)\b\s*/.exec(trimmed)
-  if (!m) return false
-  const raw = m[1]
-  const target: ChatMode = raw === 'act' ? 'build' : 'plan'
-  const labelKey = target === 'build' ? 'modeBuild' : 'modePlan'
-  const descKey = target === 'build' ? 'modeBuildDesc' : 'modePlanDesc'
-  const label = t(labelKey)
-  const mode = modeStore.getState()
-  if (mode.currentMode === target) {
-    // 已是目标模式:不重复切换,仅 toast 提示当前模式
-    toast.info(t('modeAlreadyActive', { mode: label }))
-    return true
-  }
-  mode.setMode(target)
-  toast.success(t('modeSwitched', { mode: label }), { description: t(descKey) })
-  return true
-}
-
-/** /ask /build /review /spec 动作型斜杠命令(2026-07-28 立,补全 ChatMode 三通道;
- *  2026-09-13 矩阵 A #24 补 /ask)
- * - /ask:    切换到问答模式(纯问答,禁工具)
- * - /build:  切换到构建模式(正常执行,全工具开放)
- * - /review: 切换到审查模式(只读审查,deny write 工具 + 强化审查 prompt)
- * - /spec:   切换到规格模式(从代码反向生成 spec 文档)
- * - 命中即返回 true,不发送给 LLM,清空输入框。toast 给反馈。
- * - 仅当输入完全匹配 /ask /build /review /spec 开头(后接空白或行尾)时命中。
- * - t: next-intl 翻译函数(由 useChat hook 顶层 useTranslations('chat') 传入,
- *   因模块级函数无法直接调 hook,2026-07-28 i18n 补全) */
-export function tryHandleChatModeSlash(
-  text: string,
-  t: (key: string, vars?: Record<string, string>) => string,
-  /** 票60 普查批(2026-10-21):发送链按窗格传入该窗格的 mode 实例;缺省 = 根单例 ⇒ 既有调用面零回归 */
-  modeStore: ModeStore = useModeStore,
-): boolean {
-  const trimmed = text.trimStart()
-  const m = /^\/(ask|build|review|spec)\b\s*/.exec(trimmed)
-  if (!m) return false
-  const target = m[1] as 'ask' | 'build' | 'review' | 'spec'
-  const mode = modeStore.getState()
-  const labelKey =
-    target === 'ask'
-      ? 'modeAsk'
-      : target === 'build'
-        ? 'modeBuild'
-        : target === 'review'
-          ? 'modeReview'
-          : 'modeSpec'
-  const label = t(labelKey)
-  if (mode.currentMode === target) {
-    toast.info(t('modeAlreadyActive', { mode: label }))
-    return true
-  }
-  mode.setMode(target)
-  const descKey =
-    target === 'ask'
-      ? 'modeAskDesc'
-      : target === 'build'
-        ? 'modeBuildDesc'
-        : target === 'review'
-          ? 'modeReviewDesc'
-          : 'modeSpecDesc'
-  toast.success(t('modeSwitched', { mode: label }), { description: t(descKey) })
-  return true
-}
+// 2026-11-16 用户定档:ChatMode 手动切换全部移除(/plan /act /ask /build /review /spec
+// 不再作为模式开关)。此前两条 tryHandle*ChatModeSlash 处理器的职责随之取消:
+// 模式不再由用户选择,发送链固定全工具开放,由 AI 自主决定是否使用工具。
 
 // =============================================================================
 // D06 审查对象选择器:/review uncommitted | branch <ref> | commit <sha>
@@ -335,25 +253,16 @@ export function buildReviewTargetPrompt(
 
 /**
  * `/review <target>` 拦截:命中返回**发给 LLM 的文本**(含 diff),未命中返回 null。
- * 命中即切到 review 模式(与 tryHandleChatModeSlash 的 toast 同文案,不新增词条)。
+ * 2026-11-16:不再切换任何 ChatMode(模式入口已全部移除),只把审查目标内联进本轮消息。
  */
 export async function tryHandleReviewTargetSlash(
   text: string,
-  t: (key: string, vars?: Record<string, string>) => string,
-  /** 票60 普查批:发送链按窗格传入该窗格的 mode 实例;缺省 = 根单例 */
-  modeStore: ModeStore = useModeStore,
+  _t: (key: string, vars?: Record<string, string>) => string,
 ): Promise<string | null> {
   const m = /^\/review\s+([\s\S]+)$/.exec(text.trim())
   if (!m) return null
   const spec = parseReviewTargetArgs(m[1] ?? '')
   if (!spec) return null
-  const mode = modeStore.getState()
-  if (mode.currentMode !== 'review') {
-    mode.setMode('review')
-    toast.success(t('modeSwitched', { mode: t('modeReview') }), {
-      description: t('modeReviewDesc'),
-    })
-  }
   const workspacePath = useIDEWorkspace.getState().workspacePath
   if (!workspacePath) {
     return buildReviewTargetPrompt(spec, '', 'no workspace is open')
@@ -373,7 +282,7 @@ export async function tryHandleReviewTargetSlash(
   return buildReviewTargetPrompt(spec, stdout)
 }
 
-/** /permission ask|auto|full 动作型斜杠命令(2026-07-25 深化,深度对标 Codex approvalMode CLI)
+/** /permission ask|auto|full 动作型斜杠命令(2026-07-25 深化,深度遵循统一工程规范)
  * - /permission ask:切换到 default 模式(请求批准,默认)
  * - /permission auto:切换到 accept-edits 模式(自动接受编辑)
  * - /permission full:切换到 bypass-permissions 模式(完全访问,高风险)
@@ -416,7 +325,7 @@ export async function tryHandlePermissionSlash(
     toast.info(t('permissionAlreadyActive', { mode: label }))
     return true
   }
-  // 切到 full + 首次启用 + 未静默 → 弹确认弹窗(2026-07-25 深化,深度对标 Codex safety guard)
+  // 切到 full + 首次启用 + 未静默 → 弹确认弹窗(2026-07-25 深化,深度遵循统一工程规范)
   // 由 message-input 的 FullAccessConfirmBridge 监听 store.pendingFullAccess 渲染 Dialog
   if (target === 'full' && !isFullAccessConfirmSuppressed()) {
     useAiPanelStore.getState().setPendingFullAccess(true)
@@ -462,7 +371,7 @@ export async function tryHandlePermissionSlash(
   return true
 }
 
-/** /goal 会话目标斜杠命令(W24,2026-09-14 立,对标 AGENTS.md §8 goal 模式工作流)
+/** /goal 会话目标斜杠命令(W24,2026-09-14 立,对齐 AGENTS.md §8 goal 模式工作流)
  * - /goal <目标>:设定 / 更新当前会话目标(goal store 状态机置 active)
  * - /goal:查看当前目标(无目标时提示用法)
  * - /goal done:标记当前目标完成;/goal clear:清除目标
@@ -566,7 +475,7 @@ function pushGoalToServer(
     })
 }
 
-/** /btw 临时侧聊斜杠命令(W24,2026-09-14 立,对标 Claude Code 侧聊不污染主线上下文)
+/** /btw 临时侧聊斜杠命令(W24,2026-09-14 立,遵循统一工程规范)
  * - /btw <问题>:直调 REST 单副本问答(复用 /api/best-of-n/run N=1 通道),
  *   回答作为 assistant 消息写入本地消息流,但携带 meta.sidechat 标记:
  *   1) LLM 主线历史构建时过滤(send-message.ts buildHistory)
@@ -683,7 +592,7 @@ export function tryHandleSideSlash(
   return { handled: true, question: rest }
 }
 
-/** W28 Smart Commit(2026-09-14 立,对标 CodeBuddy AI 提交):
+/** W28 Smart Commit(2026-09-14 立,对齐 CodeBuddy AI 提交):
  * - /commit [补充说明]:AI 生成提交信息并自动 git add + commit
  * - 流程:commit.before 钩子 → git status 检查变更 → git diff 拿变更内容
  *   → runBestOfN(N=1) 让 LLM 生成 Conventional Commits 信息
@@ -797,81 +706,7 @@ export async function tryHandleCommitSlash(
   return true
 }
 
-/** 关键词 → ChatMode 映射(2026-07-28 立,AI 自动判断模式)
- * - 与原 mode-switcher.tsx 的 SUGGEST_KEYWORDS 完全一致,迁移到 use-chat.ts
- *   统一为单一事实源,移除 4 按钮后避免散落
- * - 关键词匹配采用"首次命中优先"策略,与文本子串 includes() 检测
- * - 优先级顺序:plan → build → review → spec → ask(数组顺序决定优先级;
- *   ask 置末位,避免"如何修复X"这类含 ask 关键词的构建任务被抢命中)
- * - 中英文混排:关键词里既包含中文("修改"/"分析")也包含英文("build"/"plan")
- *   兼容用户纯英文输入或中英混输场景 */
-export const SUGGEST_KEYWORDS: { mode: ChatMode; keywords: string[] }[] = [
-  {
-    mode: 'plan',
-    keywords: ['调研', '分析', '了解', '看看', '查看', '研究', '探索', '梳理', 'plan'],
-  },
-  {
-    mode: 'build',
-    keywords: ['修改', '实现', '重构', '添加', '删除', '编写', '创建', '修复', '更新', 'build'],
-  },
-  { mode: 'review', keywords: ['审查', '检查', '对比', '评审', 'review', 'diff'] },
-  { mode: 'spec', keywords: ['规格', '规范', '契约', 'spec', 'specification'] },
-  // ask 置末位(2026-09-13 矩阵 A #24):纯问答关键词,仅在未命中 plan/build/review/spec 时兜底
-  {
-    mode: 'ask',
-    keywords: ['什么是', '解释一下', '介绍一下', '为什么', '讲讲', 'explain', 'what is', 'why'],
-  },
-]
-
-/** 根据用户输入文本推荐 ChatMode(关键词匹配,首次命中优先)
- * - 输入为空 → 返回 null
- * - 命中关键词 → 返回对应 mode
- * - 未命中 → 返回 null(保持当前模式)
- *
- * 设计原则(2026-07-28 立,用户规则"AI 自动决策"):
- * - 保留关键词匹配 + 命中即切换的轻量启发式
- * - 不引入 LLM/embedding(轻量、毫秒级、可解释)
- * - 漏命中场景下保持当前模式,LLM 仍可正常工作(模式只是约束 write 工具) */
-export function suggestMode(userInput: string): ChatMode | null {
-  if (!userInput.trim()) return null
-  const text = userInput.toLowerCase()
-  for (const { mode, keywords } of SUGGEST_KEYWORDS) {
-    if (keywords.some((kw) => text.includes(kw.toLowerCase()))) {
-      return mode
-    }
-  }
-  return null
-}
-
-/** AI 自动判断模式(2026-07-28 立,移除 4 按钮后由 AI 决定用哪种模式)
- * - 时机:在 sendMessage 流程中,所有显式 /命令拦截后、createConversation 前
- *   用户敲完消息按发送,才触发自动切换(避免边输入边跳)
- * - 静默切换(无 toast):自动判断是辅助能力,反复提示会刷屏
- *   当前模式徽章(apps/web/src/components/chat/message-input.tsx CurrentModeBadge)会
- *   实时反映新模式,提供视觉反馈
- * - 仅当建议模式 ≠ 当前模式时才切换(避免无意义的 setState)
- * - 已在 plan/build 等模式(用户主动选择)下不打扰:
- *   例如用户已显式 /review,后续普通对话不会自动改回 build
- *   (因为关键词不命中会返回 null,保持当前模式)
- *
- * 边界场景:
- * - 短文本"看看" → 命中 plan → 自动切到只读分析
- * - 长 prompt 包含多关键词 → 数组优先级优先(plan 优先于 build)
- * - 无关键词 → 保持当前模式不变
- */
-export function tryAutoDetectMode(
-  text: string,
-  /** 票60 普查批(2026-10-21):发送链按窗格传入该窗格的 mode 实例;缺省 = 根单例 ⇒ 既有调用面零回归 */
-  modeStore: ModeStore = useModeStore,
-): void {
-  const suggested = suggestMode(text)
-  if (!suggested) return
-  const mode = modeStore.getState()
-  if (mode.currentMode === suggested) return
-  mode.setMode(suggested)
-}
-
-/** /bestof 斜杠命令:同任务 N 副本并行执行 + LLM 评审自动择优(2026-09-07 立,对标 Cursor 多副本择优)
+/** /bestof 斜杠命令:同任务 N 副本并行执行 + LLM 评审自动择优(2026-09-07 立,遵循统一工程规范)
  *  格式:/bestof <任务描述> [#N]  N=副本数 1-5,默认 3
  *  直调 POST /api/best-of-n/run(经 web 代理 → ai-service 8803),不走 LLM chat 流。
  *  耗时可达分钟级(N 副本同步执行 + 评审),timeoutMs 放大到 180s。 */
@@ -955,7 +790,7 @@ export async function tryHandleSelfMediaSlash(
 }
 
 // ============================================================================
-// D117 工具型斜杠命令(G-231,2026-09-27 立,对标 Codex /diff /status /model /mcp /compact)
+// D117 工具型斜杠命令(G-231,2026-09-27 立,遵循统一工程规范)
 // ============================================================================
 
 /** /status 会话状态报告的纯组装(无副作用,可单测)。

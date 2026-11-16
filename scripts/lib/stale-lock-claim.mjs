@@ -110,7 +110,7 @@ export function claimStaleLockCore(dir, judged, why, { archiveRoot = null, suffi
 }
 
 /**
- * 锁实例观察器(G-998104,2026-10-08 立;机制对标上游 lockInstanceObserver.ts:3-20 的
+ * 锁实例观察器(G-998104,2026-10-08 立;机制对齐上游 lockInstanceObserver.ts:3-20 的
  * `ObserveLockInstance = (lockPath, lockStat, observedAt) => number`)。
  *
  * 要补的那一半观测:一次等待里"看到的锁实例换了几个"此前没有观测量 —— 等待全程

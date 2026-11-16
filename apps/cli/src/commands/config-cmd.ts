@@ -5,7 +5,7 @@
 /**
  * /config REPL 内查看/修改 settings.json — 无需退出 REPL。
  *
- * 设计目标(对标 codex/claude-code/mimo code 的配置可达性):
+ * 设计目标(遵循统一工程规范):
  *   - 用户反馈"不知道在哪里切换模型配置模型 不明显"
  *   - REPL 内直接 /config 查看/修改,不用退到 shell 跑 `ihui settings init --force`
  *   - 支持 /config get <key> · /config set <key> <value> · /config list · /config edit · /config path

@@ -2,7 +2,7 @@
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-"""远端服务端压缩 v2 的纯装配 / 预算逻辑(2026-09-19 第三十一批,对标 Codex compact_remote_v2.rs)。
+"""远端服务端压缩 v2 的纯装配 / 预算逻辑(2026-09-19 第三十一批,遵循统一工程规范)。
 
 本模块只搬运 **不依赖 Codex Session / 服务端 Responses 流式 API** 的纯算法;
 涉及 Session、ModelClientSession、ResponseStream、rollout trace、hook runtime、
@@ -11,7 +11,7 @@
 
 移植范围(纯算法,数据模型统一下沉为 OpenAI 风格消息字典 + 轻量 Envelope 包裹):
 - 历史分段:``history_item_groups`` / ``HistoryItemGroup`` / ``is_attached_notice``
-  (对标 compact_remote_history.rs,把紧邻 developer 图像缩放通告的消息配对成组)
+  (对齐 compact_remote_history.rs,把紧邻 developer 图像缩放通告的消息配对成组)
 - client-authored developer 消息判定:``is_client_authored_developer_message``
 - 远端压缩 v2 保留过滤:``is_retained_for_remote_compaction_v2``
   (只保留 user / client developer / 特定 agent 消息;system、assistant、普通 developer 丢弃)
@@ -39,10 +39,10 @@
 - 多模态 part:``{"type": "text", "text": str}`` /
   ``{"type": "image_url", "image_url": {"url": "data:image/...;base64,..." | "file://..."}}`` /
   ``{"type": "input_audio", "input_audio": {"data": ..., "format": ...}}``
-- agent 子消息(Codex ``ResponseItem::AgentMessage`` 的对标):在消息字典上附加
+- agent 子消息(Codex ``ResponseItem::AgentMessage`` 的对齐):在消息字典上附加
   ``"agent_message": {"author": str, "recipient": str, "content": [text part, ...]}``
 - Envelope = ``{"item": 消息字典, "metadata": {"client_authored": bool} | None}``,
-  对标 Codex ``ResponseItemEnvelope { item, metadata: Option<CodexHarnessMetadata> }``。
+  遵循统一工程规范。
 """
 
 from __future__ import annotations
@@ -50,7 +50,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-# ===================== 常量(对标 compact_remote_v2.rs) =====================
+# ===================== 常量(对齐 compact_remote_v2.rs) =====================
 # 保留消息的总 token 预算(Codex: RETAINED_MESSAGE_TOKEN_BUDGET = 64_000)
 RETAINED_MESSAGE_TOKEN_BUDGET: int = 64_000
 # 单条 agent 消息可保留的最大 token(Codex: MAX_RETAINED_AGENT_MESSAGE_TOKENS = 10_000)
@@ -68,10 +68,10 @@ FILE_IMAGE_TOKEN_COST: int = IMAGE_TOKEN_PLACEHOLDER
 # 截断标记(与 app.core.context_compaction.TRUNCATE_MARKER 对齐)
 TRUNCATE_MARKER: str = "…[已截断]"
 
-# 图像缩放通告标签(对标 Codex ``ImageResizeNotice::matches_text``)
+# 图像缩放通告标签(遵循统一工程规范)
 IMAGE_RESIZE_NOTICE_TAG = "<image_resize_notice>"
 
-# agent 子消息首行标记(对标 Codex AgentMessageInputContent 文本前缀判定)
+# agent 子消息首行标记(遵循统一工程规范)
 AGENT_MESSAGE_TYPE_PREFIX = "Message Type: "
 AGENT_DESCENDANT_PROGRESS = "Message Type: MESSAGE\n"
 AGENT_COMPLETION = "Message Type: FINAL_ANSWER\n"
@@ -79,7 +79,7 @@ AGENT_COMPLETION = "Message Type: FINAL_ANSWER\n"
 
 # ===================== token / 字节 估算(轻量启发式) =====================
 def approx_token_count(text: str) -> int:
-    """文本 token 近似(对标 Codex approx_token_count:字符数 // 4,至少 1)。
+    """文本 token 近似(遵循统一工程规范)。
 
     刻意使用启发式而非 BPE,与 Codex 原实现逐语义一致,且使本模块自包含。
     """
@@ -89,7 +89,7 @@ def approx_token_count(text: str) -> int:
 
 
 def image_token_cost(url: str) -> int:
-    """单张图像 token 计费(对标 Codex approx_tokens_from_byte_count(estimate_image_reference_bytes))。
+    """单张图像 token 计费(遵循统一工程规范))。
 
     - data:image base64:按 base64 解码后的字节数近似(bytes // 1000,至少 1)
     - file:// 或 file_id 等无字节信息:保守固定占位(``FILE_IMAGE_TOKEN_COST``)
@@ -156,7 +156,7 @@ def _part_is_audio(part: dict[str, Any]) -> bool:
 
 
 def _is_image_open_tag_text(text: str) -> bool:
-    """对标 Codex is_image_open_tag_text(本地图像标签开放标记)。
+    """遵循统一工程规范)。
 
     本移植使用裸 ``image_url`` part,无文本标签,故恒 False(保留分支以备将来对接标签式图像)。
     """
@@ -164,16 +164,16 @@ def _is_image_open_tag_text(text: str) -> bool:
 
 
 def _is_image_close_tag_text(text: str) -> bool:
-    """对标 Codex is_image_close_tag_text(图像闭合标签)。裸 part 形态下恒 False。"""
+    """遵循统一工程规范)。裸 part 形态下恒 False。"""
     return False
 
 
-# ===================== 轻量 Envelope(对标 ResponseItemEnvelope) =====================
+# ===================== 轻量 Envelope(对齐 ResponseItemEnvelope) =====================
 @dataclass
 class Envelope:
-    """消息 + 元数据包裹,对标 Codex ``ResponseItemEnvelope { item, metadata }``。
+    """消息 + 元数据包裹,遵循统一工程规范。
 
-    ``metadata`` 承载 ``client_authored`` 等来源标记(对标 ``CodexHarnessMetadata``)。
+    ``metadata`` 承载 ``client_authored`` 等来源标记(对齐 ``CodexHarnessMetadata``)。
     """
 
     item: dict[str, Any]
@@ -184,9 +184,9 @@ def _envelope_item(env: Envelope) -> dict[str, Any]:
     return env.item
 
 
-# ===================== 图像缩放通告 / 分组(对标 compact_remote_history.rs) =====================
+# ===================== 图像缩放通告 / 分组(对齐 compact_remote_history.rs) =====================
 def is_attached_notice(item: dict[str, Any]) -> bool:
-    """判断是否为"附加通告"(对标 Codex is_attached_notice)。
+    """判断是否为"附加通告"(遵循统一工程规范)。
 
     规则:role 为 developer 且唯一 text part 命中图像缩放通告标签。
     """
@@ -201,7 +201,7 @@ def is_attached_notice(item: dict[str, Any]) -> bool:
 
 @dataclass
 class HistoryItemGroup:
-    """消息分组:source 消息 + 可选紧邻的附加通告(对标 Codex HistoryItemGroup)。
+    """消息分组:source 消息 + 可选紧邻的附加通告(遵循统一工程规范)。
 
     附加通告是紧跟 source 之后的 developer 图像缩放通告,在预算截断时作为
     低优先级一并计费/保留。
@@ -218,7 +218,7 @@ class HistoryItemGroup:
 
 
 def history_item_groups(items: list[Envelope]) -> list[HistoryItemGroup]:
-    """把消息序列配对成组:每条 source 后若紧邻一条附加通告则并入(对标 Codex history_item_groups)。
+    """把消息序列配对成组:每条 source 后若紧邻一条附加通告则并入(遵循统一工程规范)。
 
     实现为前瞻单步配对:``source = next``;若下一条是 ``is_attached_notice`` 则作为
     ``attached_notice`` 一并取出。
@@ -240,7 +240,7 @@ def history_item_groups(items: list[Envelope]) -> list[HistoryItemGroup]:
 
 # ===================== client developer 判定 =====================
 def is_client_authored_developer_message(env: Envelope) -> bool:
-    """对标 Codex is_client_authored_developer_message。
+    """遵循统一工程规范。
 
     同时满足:metadata.client_authored 为真,且 item.role == "developer"。
     """
@@ -251,7 +251,7 @@ def is_client_authored_developer_message(env: Envelope) -> bool:
 
 # ===================== v2 历史分组(把 client developer 通告拆成独立组) =====================
 def v2_history_item_groups(items: list[Envelope]) -> list[HistoryItemGroup]:
-    """对标 compact_remote_v2.rs::v2_history_item_groups。
+    """对齐 compact_remote_v2.rs::v2_history_item_groups。
 
     在普通 history_item_groups 之上:若某组的附加通告本身是 client-authored developer 消息,
     则把它从通告位拆出,单独成组(保留其 client 来源语义)。
@@ -271,17 +271,17 @@ def v2_history_item_groups(items: list[Envelope]) -> list[HistoryItemGroup]:
     return out
 
 
-# ===================== 保留过滤(对标 is_retained_for_remote_compaction_v2) =====================
+# ===================== 保留过滤(对齐 is_retained_for_remote_compaction_v2) =====================
 def is_retained_for_remote_compaction_v2(
     env: Envelope,
     retain_client_developer_messages: bool,
 ) -> bool:
-    """对标 Codex is_retained_for_remote_compaction_v2 的保留判定。
+    """遵循统一工程规范。
 
     语义(adapted 到 OpenAI 风格消息):
     - agent 子消息:排除"后代进度"(author 以 recipient+"/" 开头且首行 MESSAGE)与
       "完成"(首行 FINAL_ANSWER),且 token 数不超过 ``MAX_RETAINED_AGENT_MESSAGE_TOKENS``
-    - 普通消息:仅 role=="user" 保留(对标 UserMessage/HookPrompt);
+    - 普通消息:仅 role=="user" 保留(对齐 UserMessage/HookPrompt);
       role=="developer" 仅在 ``retain_client_developer_messages`` 且为 client 来源时保留;
       system / assistant / tool 等一律不保留(远端压缩产物会重新注入 system 等上下文)
     """
@@ -329,7 +329,7 @@ def _part_token_cost(part: dict[str, Any]) -> int:
 def _estimate_item_tokens(item: dict[str, Any]) -> int:
     """消息整体 token 估计(序列化近似),含消息开销 + 各 part 成本。
 
-    对标 Codex ``estimate_item_token_count`` 的近似思路(含图像字节)。
+    遵循统一工程规范)。
     """
     parts = _content_parts(item)
     total = MESSAGE_OVERHEAD_TOKENS
@@ -339,7 +339,7 @@ def _estimate_item_tokens(item: dict[str, Any]) -> int:
 
 
 def message_text_token_count(item: dict[str, Any]) -> int:
-    """仅文本 token 计数(图像/音频记 0),对标 Codex message_text_token_count。"""
+    """仅文本 token 计数(图像/音频记 0),遵循统一工程规范。"""
     total = 0
     for p in _content_parts(item):
         text = _part_text(p)
@@ -349,21 +349,21 @@ def message_text_token_count(item: dict[str, Any]) -> int:
 
 
 def message_content_token_count(item: dict[str, Any]) -> int:
-    """含图像的完整内容 token 计数(图像走字节计费),对标 Codex message_content_token_count。"""
+    """含图像的完整内容 token 计数(图像走字节计费),遵循统一工程规范。"""
     return sum(_part_token_cost(p) for p in _content_parts(item))
 
 
 def content_item_token_count(part: dict[str, Any]) -> int:
-    """对标 compact_remote_v2_images.rs::content_item_token_count。"""
+    """对齐 compact_remote_v2_images.rs::content_item_token_count。"""
     return _part_token_cost(part)
 
 
 def retained_input_image_count(item: dict[str, Any]) -> int:
-    """统计消息内输入图像数量,对标 Codex retained_input_image_count。"""
+    """统计消息内输入图像数量,遵循统一工程规范。"""
     return sum(1 for p in _content_parts(item) if _part_is_image(p))
 
 
-# ===================== 文本截断到 token 预算(对标 truncate_message_text_to_token_budget) =====================
+# ===================== 文本截断到 token 预算(对齐 truncate_message_text_to_token_budget) =====================
 def _truncate_text_to_tokens(text: str, max_tokens: int) -> str:
     """把文本截断到约 max_tokens token(保留头部),末尾追加截断标记。"""
     if max_tokens <= 0:
@@ -382,7 +382,7 @@ def truncate_message_text_to_token_budget(
     env: Envelope,
     max_tokens: int,
 ) -> Envelope | None:
-    """单条消息文本截断到 token 预算;图像/音频 part 原样保留(对标 Codex 同名函数)。
+    """单条消息文本截断到 token 预算;图像/音频 part 原样保留(遵循统一工程规范)。
 
     Returns:
         截断后的 Envelope;若全部文本被裁掉导致无内容则返回 None。
@@ -415,11 +415,11 @@ def truncate_message_text_to_token_budget(
     return Envelope(item=new_item, metadata=env.metadata)
 
 
-# ===================== 图像原子截断(对标 compact_remote_v2_images.rs::truncate_message_to_token_budget) =====================
+# ===================== 图像原子截断(对齐 compact_remote_v2_images.rs::truncate_message_to_token_budget) =====================
 def truncate_message_to_token_budget(env: Envelope, max_tokens: int) -> Envelope | None:
     """单条消息内图像原子保留的截断:从尾部迭代,图像及其相邻标签整块保留/丢弃。
 
-    对标 Codex ``truncate_message_to_token_budget``:保留边界消息靠后的图像与相邻 harness
+    遵循统一工程规范
     标签原子性,文本沿用中间截断策略;音频不计费并原样保留。
     """
     parts = list(_content_parts(env.item))
@@ -484,11 +484,11 @@ def truncate_message_to_token_budget(env: Envelope, max_tokens: int) -> Envelope
 
 
 def _is_local_image_open_tag_text(text: str) -> bool:
-    """对标 Codex is_local_image_open_tag_text(本地图像标签开放标记)。裸 part 形态下恒 False。"""
+    """遵循统一工程规范)。裸 part 形态下恒 False。"""
     return False
 
 
-# ===================== 整体预算截断(对标 truncate_retained_messages) =====================
+# ===================== 整体预算截断(对齐 truncate_retained_messages) =====================
 def truncate_retained_messages(
     envelopes: list[Envelope],
     max_tokens: int,
@@ -496,7 +496,7 @@ def truncate_retained_messages(
 ) -> list[Envelope]:
     """从最新消息向旧回溯,在整体 token 预算内保留;边界消息超预算则截断。
 
-    对标 Codex ``truncate_retained_messages``:
+    遵循统一工程规范
     - ``image_budget_enabled`` 且非 client developer 时,对图像按字节计费(charge_images)
     - 每组先计 notice_tokens(附加通告,至少 1),再计 source_tokens
     - 整体放得下则整组保留;放不下则对边界组做文本(或图像原子)截断到可用预算,并停止继续保留
@@ -576,11 +576,11 @@ def truncate_retained_messages_for_remote_compaction(
     envelopes: list[Envelope],
     max_tokens: int,
 ) -> list[Envelope]:
-    """对标 Codex ``truncate_retained_messages_for_remote_compaction``(图像预算关闭的薄包装)。"""
+    """遵循统一工程规范)。"""
     return truncate_retained_messages(envelopes, max_tokens, image_budget_enabled=False)
 
 
-# ===================== v2 压缩历史装配(对标 build_v2_compacted_history) =====================
+# ===================== v2 压缩历史装配(对齐 build_v2_compacted_history) =====================
 def build_v2_compacted_history(
     prompt_input: list[dict[str, Any]],
     prompt_input_metadata: list[dict[str, Any] | None],
@@ -590,7 +590,7 @@ def build_v2_compacted_history(
 ) -> tuple[list[dict[str, Any]], int]:
     """装配远端压缩 v2 的保留历史(纯预算/过滤逻辑,不对 Session 写入)。
 
-    流程(对标 Codex build_v2_compacted_history):
+    流程(遵循统一工程规范):
     1. input 与 metadata 配对成 Envelope
     2. 经 v2 分组 + 保留过滤(is_retained_for_remote_compaction_v2)取出应保留消息
     3. ``truncate_retained_messages`` 在 ``RETAINED_MESSAGE_TOKEN_BUDGET`` 内截断
@@ -635,10 +635,10 @@ def assemble_remote_compaction_prompt(
     output_schema: dict[str, Any] | None = None,
     cyber_access_program: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """对标 ``run_remote_compact_v2_attempt`` 中 Prompt 装配(剥离 Session / client_session)。
+    """对齐 ``run_remote_compact_v2_attempt`` 中 Prompt 装配(剥离 Session / client_session)。
 
     纯装配:把历史 input 项与工具、基础指令组装成一次远端压缩请求的描述;并在 input 末尾
-    追加 ``compaction_trigger`` 标记(对标 Codex ``ResponseItem::CompactionTrigger``),
+    追加 ``compaction_trigger`` 标记(遵循统一工程规范),
     告知服务端此处为压缩触发点。
 
     Returns:

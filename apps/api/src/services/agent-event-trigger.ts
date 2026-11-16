@@ -6,7 +6,7 @@
  * 事件唤醒型云 Agent —— 触发服务(2026-09-08 立)。
  *
  * 职责:
- * 1. GitHub webhook 签名校验(HMAC-SHA256,对标 X-Hub-Signature-256 真校验)。
+ * 1. GitHub webhook 签名校验(HMAC-SHA256,对齐 X-Hub-Signature-256 真校验)。
  * 2. 按 (repoFullName, event) 匹配 agent_event_triggers 规则。
  * 3. 命中后调用现有 agent-runtime 执行器(captureAgentRuntimeStream,与 automations
  *    调度器同源)创建一次 agent 运行 —— 复用执行器,不重写。

@@ -4,7 +4,7 @@
 
 """run_workflow — 多节点 agent 工作流 + 入参级续跑缓存(2026-11-02 立)。
 
-对标外部程序 Workflow/RunWorkflow 工具的核心语义(resume_from_run_id):
+对齐外部程序 Workflow/RunWorkflow 工具的核心语义(resume_from_run_id):
 入参未变的节点瞬时回缓存、不重跑;只有入参变化或上游失败的节点才真执行。
 
 判据单源(AGENTS §0.6,本层零复算):

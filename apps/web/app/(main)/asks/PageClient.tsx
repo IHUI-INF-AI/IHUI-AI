@@ -12,7 +12,7 @@ import { HelpCircle, Plus } from 'lucide-react'
 import { Button } from '@ihui/ui-react'
 import { createAsk, getAsks } from '@ihui/api-client'
 
-import { BackButton } from '@/components/common'
+import { FeaturePageShell } from '@/components/layout'
 import { AsksFilter } from './AsksFilter'
 import { AsksList } from './AsksList'
 import { AsksDialog } from './AsksDialog'
@@ -76,17 +76,15 @@ export default function AsksPageClient() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-4 px-4 py-4">
-      <BackButton />
-      <div className="flex items-center justify-between">
-        <div className="space-y-1">
-          <h1 className="flex items-center gap-2 text-heading font-bold tracking-tight min-[768px]:text-display">
-            <HelpCircle className="h-7 w-7 text-primary" />
-            {t('title')}
-          </h1>
-          <p className="text-body text-muted-foreground">{t('subtitle')}</p>
-        </div>
-        <div className="flex items-center gap-2">
+    // 2026-11-16 接入统一子功能页外壳:BackButton + 手写 header 收编为页头卡,
+    // 页头右侧发布操作迁入外壳 actions 槽;自动带上「教育」返回 chip。
+    <FeaturePageShell
+      title={t('title')}
+      description={t('subtitle')}
+      icon={HelpCircle}
+      domain="edu"
+      actions={
+        <>
           <Link href="/asks/edit">
             <Button variant="outline">
               <Plus className="h-4 w-4" />
@@ -108,13 +106,13 @@ export default function AsksPageClient() {
             pending={createMut.isPending}
             onSubmit={handleSubmit}
           />
-        </div>
-      </div>
-
+        </>
+      }
+    >
       <AsksFilter search={search} setSearch={setSearch} filter={filter} setFilter={setFilter} />
 
       <AsksList list={list} isLoading={isLoading} error={error} />
-    </div>
+    </FeaturePageShell>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

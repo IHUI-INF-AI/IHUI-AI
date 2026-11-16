@@ -39,22 +39,22 @@ export default function WebviewIndex() {
   const router = useRouter()
   const params = router.params
   const [url, setUrl] = useState('')
-  // fileCache 本地缓存(对标原项目 uni.getStorageSync('webviewFileCache'),用于文件下载等场景)
+  // fileCache 本地缓存(对齐原项目 uni.getStorageSync('webviewFileCache'),用于文件下载等场景)
   const fileCacheRef = useRef<unknown>(null)
-  // 标记 onLoad 逻辑是否已执行,避免重复触发(对标原项目 onLoad 只执行一次)
+  // 标记 onLoad 逻辑是否已执行,避免重复触发(对齐原项目 onLoad 只执行一次)
   const initedRef = useRef(false)
 
-  // 对标原 pagesA/webview/index.vue onLoad options 处理
+  // 对齐原 pagesA/webview/index.vue onLoad options 处理
   useEffect(() => {
     if (initedRef.current) return
     initedRef.current = true
 
-    // 标题设置(对标原项目 uni.setNavigationBarTitle;decode 已收敛到跨端唯一 safe 出口)
+    // 标题设置(对齐原项目 uni.setNavigationBarTitle;decode 已收敛到跨端唯一 safe 出口)
     if (params.title) {
       setNavigationBarTitle({ title: safeDecodeURIComponent(params.title) })
     }
 
-    // URL 参数处理(对标原项目 decodeURIComponent + 额外参数追加)
+    // URL 参数处理(对齐原项目 decodeURIComponent + 额外参数追加)
     if (params.url) {
       const decodedUrl = safeDecodeURIComponent(params.url)
       // 应用层 WebView 信任校验(纵深):仅 https 且 host 在受信白名单内才加载,
@@ -161,7 +161,7 @@ export default function WebviewIndex() {
       })
   }
 
-  // web-view 加载完成回调(对标原项目 onWebviewLoad)
+  // web-view 加载完成回调(对齐原项目 onWebviewLoad)
   const onWebviewLoad = (e: unknown) => {
     logger.info('webview', 'loaded', String(e))
   }

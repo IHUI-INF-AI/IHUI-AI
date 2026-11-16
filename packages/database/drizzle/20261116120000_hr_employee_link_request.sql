@@ -7,7 +7,7 @@
 -- 描述: 用户之间数据默认隔离。HR 只发起「关联邀请」,被邀请账号本人在自助页同意后,
 --       才由服务层写入 hr_employee.user_id。手机号/邮箱仅用于找人,不做自动认领。
 -- 幂等安全:IF NOT EXISTS,可安全重复执行。
--- 与 packages/database/src/schema/hr-ai-management.ts 逐字对齐。
+-- 与 packages/database/src/schema/hr-ai-management.ts 按行为规格。
 
 CREATE TABLE IF NOT EXISTS "hr_employee_link_request" (
   "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,

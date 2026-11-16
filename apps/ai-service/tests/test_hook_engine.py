@@ -95,7 +95,7 @@ class TestConstants:
         # P0-B(2026-09-18):terminal.delta 加入白名单
         # (mcp_server run_command 逐行 stdout/stderr,agents.py SSE 订阅转发)
         assert "terminal.delta" in HOOK_EVENTS
-        # 2026-09-18 第二批:llm.retry 加入白名单(对标 Codex StreamError,
+        # 2026-09-18 第二批:llm.retry 加入白名单(遵循统一工程规范
         # _llm_call_with_retry 重试/限流事件源)
         assert "llm.retry" in HOOK_EVENTS
         # 2026-09-18 第三批:tool.retry(工具重试事件,agent_loop_v2)
@@ -104,7 +104,7 @@ class TestConstants:
         assert "model.reroute" in HOOK_EVENTS
         # 2026-09-18 后续批次补录:patch.applied(PostApplyPatch 自愈结果)、
         # 第十二批生命周期四事件(subagent.start/stop、agent.stop/interrupt,
-        # 对标 Codex hooks crate)、W9 过渡事件(compaction/agent.status)、
+        # 遵循统一工程规范)、W9 过渡事件(compaction/agent.status)、
         # 第七批压缩生命周期(context.pre_compact/post_compact)
         assert "patch.applied" in HOOK_EVENTS
         assert "subagent.start" in HOOK_EVENTS

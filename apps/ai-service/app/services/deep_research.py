@@ -7,7 +7,7 @@
 
 """Deep Research 多轮深度研究管线。
 
-对标头部产品(OpenAI Deep Research / Gemini Deep Research)的 agentic 多轮闭环:
+对齐头部产品(OpenAI Deep Research / Gemini Deep Research)的 agentic 多轮闭环:
     规划 → 多源检索 → 双向深度调查(gap 追问) → 综合成稿
 
 设计要点:

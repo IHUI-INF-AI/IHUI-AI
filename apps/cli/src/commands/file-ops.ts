@@ -4,7 +4,7 @@
 
 /**
  * 文件操作命令 — REPL slash 命令的本地文件操作实现。
- * 对标 Claude Code 的文件查看/搜索/执行能力。
+ * 遵循统一工程规范。
  */
 
 import * as fs from 'node:fs'

@@ -686,7 +686,7 @@
     "participants": "{count}명 참여",
     "rulesLabel": "판매 규칙",
     "subtitle": "포괄적인의개발문서및API참조",
-    "title": "AI인마음페이스테스트",
+    "title": "액티비티 센터",
     "viewDetail": "View상세",
     "status": {
       "active": "활성",
@@ -1462,7 +1462,7 @@
         "prev": "이전",
         "searchPlaceholder": "검색문서...",
         "subtitle": "포괄적인의개발문서및API참조",
-        "title": "AI인마음페이스테스트",
+        "title": "에이전트 분류 관리",
         "total": "총 {total}건",
         "updateSuccess": "업데이트성공"
       },
@@ -1562,7 +1562,7 @@
         "settle": "정산",
         "settleSuccess": "정산 완료",
         "subtitle": "포괄적인의개발문서및API참조",
-        "title": "AI인마음페이스테스트",
+        "title": "에이전트 정산",
         "total": "총 {total}건"
       },
       "subtitle": "포괄적인의개발문서및API참조",
@@ -2015,7 +2015,7 @@
       "public": "공개",
       "save": "저장",
       "subtitle": "포괄적인의개발문서및API참조",
-      "title": "AI인마음페이스테스트",
+      "title": "시스템 설정",
       "valuePlaceholder": "입력값"
     },
     "demandAudit": {
@@ -4117,7 +4117,7 @@
       "public": "공개",
       "save": "저장",
       "subtitle": "포괄적인의개발문서및API참조",
-      "title": "AI인마음페이스테스트",
+      "title": "교육 설정",
       "valuePlaceholder": "입력값"
     },
     "eduUserPlatform": {
@@ -4237,7 +4237,7 @@
       "messageRequired": "메시지는 필수입니다",
       "noData": "없음데이마음",
       "subtitle": "포괄적인의개발문서및API참조",
-      "title": "AI인마음페이스테스트",
+      "title": "시스템 이벤트",
       "type": "유형"
     },
     "exchangeRates": {
@@ -4341,7 +4341,7 @@
       "save": "저장",
       "slugPlaceholder": "비워두면 자동 생성",
       "subtitle": "포괄적인의개발문서및API참조",
-      "title": "AI인마음페이스테스트",
+      "title": "도움말 문서 관리",
       "titlePlaceholder": "titlePlaceholder"
     },
     "identityProportion": {
@@ -4574,7 +4574,7 @@
       "statusPlaceholder": "상태를 선택하세요",
       "subtitle": "포괄적인의개발문서및API참조",
       "time": "시간",
-      "title": "AI인마음페이스테스트",
+      "title": "API 로그",
       "total": "총 {total}건",
       "user": "사용자",
       "userAgent": "UserAgent"
@@ -5057,7 +5057,7 @@
       "page": "{page}페이지, 총 {total}페이지",
       "prev": "이전 페이지",
       "subtitle": "포괄적인의개발문서및API참조",
-      "title": "AI인마음페이스테스트",
+      "title": "프로젝트 관리",
       "total": "총 {total}개의 프로젝트",
       "userIdPlaceholder": "사용자 ID 입력",
       "userIdRequired": "프로젝트 소유자 ID를 입력하세요"
@@ -5106,7 +5106,7 @@
       "statsTotal": "총 환불 수",
       "status": "상태",
       "subtitle": "포괄적인의개발문서및API참조",
-      "title": "AI인마음페이스테스트",
+      "title": "환불 심사 관리",
       "total": "총 {total}건",
       "userId": "User Id",
       "view": "보기상세"
@@ -6319,7 +6319,7 @@
       "noData": "없음데이마음",
       "slug": "슬러그",
       "subtitle": "포괄적인의개발문서및API참조",
-      "title": "AI인마음페이스테스트",
+      "title": "태그 관리",
       "total": "총 {total}개",
       "usageCount": "사용 횟수"
     },
@@ -7029,6 +7029,7 @@
       "edit": "편집",
       "hideContent": "내용 숨기기",
       "like": "좋아요",
+      "moreActions": "더보기",
       "publishToCommunity": "커뮤니티에 게시",
       "regenerate": "재생성",
       "reply": "답글",
@@ -7114,7 +7115,7 @@
       "send": "전송",
       "sendSuccess": "발송 성공",
       "subtitle": "포괄적인의개발문서및API참조",
-      "title": "AI인마음페이스테스트",
+      "title": "API 디버거",
       "urlRequired": "URL은 필수입니다",
       "waiting": "응답 대기 중..."
     },
@@ -7137,7 +7138,7 @@
       "noData": "없음데이마음",
       "saveSuccess": "저장 성공",
       "subtitle": "포괄적인의개발문서및API참조",
-      "title": "AI인마음페이스테스트"
+      "title": "API 그룹 관리"
     },
     "apiLogs": {
       "allStatus": "모든상태",
@@ -7153,7 +7154,7 @@
       "noData": "없음데이마음",
       "reset": "재설정",
       "subtitle": "포괄적인의개발문서및API참조",
-      "title": "AI인마음페이스테스트",
+      "title": "API 로그",
       "total": "총 {count}개"
     },
     "apiUsage": {
@@ -7167,7 +7168,7 @@
       "errorRate": "오류률",
       "noData": "없음데이마음",
       "subtitle": "포괄적인의개발문서및API참조",
-      "title": "AI인마음페이스테스트",
+      "title": "API 사용량",
       "todayCalls": "오늘 호출",
       "topEndpoints": "인기 API",
       "totalCalls": "총 호출 수",
@@ -7271,7 +7272,7 @@
       "statusDisabled": "비활성",
       "statusEnabled": "활성",
       "subtitle": "포괄적인의개발문서및API참조",
-      "title": "AI인마음페이스테스트"
+      "title": "사전 관리"
     },
     "errorDash": {
       "all": "모든",
@@ -7343,7 +7344,7 @@
       "preview": "미리보기",
       "previewMode": "미리보기 모드",
       "subtitle": "포괄적인의개발문서및API참조",
-      "title": "AI인마음페이스테스트"
+      "title": "모바일 대응"
     },
     "monitor": {
       "alerts": "알림",
@@ -7447,7 +7448,7 @@
       "colTime": "시간",
       "noData": "없음데이마음",
       "subtitle": "포괄적인의개발문서및API참조",
-      "title": "AI인마음페이스테스트",
+      "title": "OAuth 감사 대시보드",
       "todayAuth": "오늘 인증",
       "totalAuth": "총 인증"
     },
@@ -11746,6 +11747,7 @@
     "canvasOpenInCanvas": "캔버스에서 열기",
     "canvasRevert": "이 버전으로 되돌리기",
     "canvasVersions": "버전 기록",
+    "charCount": "{count}자",
     "clearInputAriaLabel": "입력 지우기",
     "clearInputTitle": "입력 내용 지우기",
     "predictiveEditHint": "예측 편집 제안",
@@ -12010,6 +12012,11 @@
       "collapsedDesc": "중간 단계를 항상 접습니다",
       "expanded": "펼치기",
       "expandedDesc": "중간 단계를 항상 펼칩니다"
+    },
+    "titleAutoUpdate": {
+      "title": "작업 제목",
+      "label": "제목 실시간 업데이트",
+      "desc": "3번째 라운드 이후 최신 대화 내용으로 작업 제목을 다시 생성합니다. 끄면 생성 시 만들어진 제목으로 고정됩니다"
     },
     "gapInterval": "{gap} 간격",
     "generating": "생성 중...",
@@ -12579,7 +12586,7 @@
       "permissionFull": "전체 액세스 모드로 전환(고위험, 확인 없음)",
       "plan": "계획 모드로 전환(AI가 계획만 수립하고 도구를 실행하지 않습니다)",
       "polish": "텍스트 윤문",
-      "review": "리뷰 모드로 전환(읽기 전용, 강화된 코드 리뷰)",
+      "review": "리뷰 대상 선택(미커밋 diff / 브랜치 / 커밋)",
       "spec": "스펙 모드로 전환(코드에서 spec 문서 역생성)",
       "summary": "현재 대화 요약",
       "translate": "선택한 텍스트 번역",
@@ -12939,6 +12946,8 @@
       "confirm": "이동",
       "cancel": "취소"
     },
+    "titleHistoryOriginal": "생성 시 제목",
+    "titleHistoryCurrent": "현재 제목",
     "selectModeAriaLabel": "작업 다중 선택 모드 전환",
     "backToHistory": "기록으로 돌아가기",
     "batchArchive": "보관",
@@ -13216,6 +13225,11 @@
         "keywords": ["에이전트", "agent", "bot"],
         "label": "AI 에이전트"
       },
+      "automations": {
+        "description": "정기적으로 실행되는 AI 작업 생성 및 관리",
+        "keywords": ["자동화", "스케줄", "작업", "automation"],
+        "label": "예약 자동화"
+      },
       "browser": {
         "description": "작업 공간에서 웹 탐색",
         "keywords": ["브라우저", "웹", "browser"],
@@ -13245,6 +13259,11 @@
         "description": "코드 에디터 열기",
         "keywords": ["에디터", "코드", "editor"],
         "label": "에디터"
+      },
+      "imageGen": {
+        "description": "프롬프트로 이미지를 생성합니다. 공개 갤러리·기록·템플릿 제공",
+        "keywords": ["이미지", "생성", "그리기", "image"],
+        "label": "AI 이미지 생성"
       },
       "mcp": {
         "description": "MCP 서버 및 도구 관리",
@@ -13686,7 +13705,7 @@
       "pendingCount": "대기 중",
       "projectStatusTitle": "프로젝트 상태 분포",
       "subtitle": "포괄적인의개발문서및API참조",
-      "title": "AI인마음페이스테스트",
+      "title": "관리 대시보드",
       "totalAmountLabel": "누적 거래 금액",
       "totalFiles": "총 파일",
       "totalLabel": "총의",
@@ -15815,7 +15834,7 @@
     "loading": "로딩 중...",
     "myPoints": "나 포인트",
     "subtitle": "포괄적인의개발문서및API참조",
-    "title": "AI인마음페이스테스트"
+    "title": "교육 포인트"
   },
   "eduProgressPage": {
     "categoryProgress": "카테고리별 진도",
@@ -16416,7 +16435,7 @@
     "contentRequired": "피드백 내용을 입력하세요",
     "success": "제출 성공, 피드백 감사합니다!",
     "failed": "제출 실패, 잠시 후 다시 시도해 주세요",
-    "title": "AI인마음페이스테스트",
+    "title": "의견 피드백",
     "type": "피드백 유형",
     "content": "피드백 내용",
     "contact": "연락처",
@@ -16797,7 +16816,7 @@
     "toc": "목차",
     "updatedAt": "업데이트시간",
     "viewCount": "{count}회 조회",
-    "title": "AI인마음페이스테스트",
+    "title": "도움말 센터",
     "loading": "설정( S)...",
     "subtitle": "가이드, FAQ, 도움말 찾기",
     "searchPlaceholder": "도움말 검색",
@@ -17435,14 +17454,18 @@
   },
   "imageGenPage": {
     "download": "다운로드",
+    "favorites": "즐겨찾는 이미지",
+    "gallery": "공개 갤러리",
     "generate": "이미지 생성",
     "generating": "생성 중...",
+    "history": "생성 기록",
     "promptLabel": "프롬프트",
     "promptPlaceholder": "생성하고 싶은 이미지를 설명...",
     "promptRequired": "프롬프트를 입력하세요",
     "sizeLabel": "크기",
     "subtitle": "프롬프트를 입력하여 이미지 생성",
     "success": "생성 성공",
+    "templates": "프롬프트 템플릿",
     "title": "AI 이미지 생성"
   },
   "inlineEdit": {
@@ -17511,7 +17534,7 @@
     "reward": "보상",
     "rewardValue": "초대자 +{inviter} / 피초대자 +{invitee} 포인트",
     "subtitle": "포괄적인의개발문서및API참조",
-    "title": "AI인마음페이스테스트",
+    "title": "초대 보상",
     "user": "사용자",
     "status": {
       "expired": "만료됨",
@@ -17664,7 +17687,7 @@
     "signedUp": "완료보고이름",
     "signupCount": "{count}명 신청",
     "subtitle": "포괄적인의개발문서및API참조",
-    "title": "AI인마음페이스테스트",
+    "title": "학습 센터",
     "topic": {
       "empty": "토픽이 없습니다",
       "free": "무료",
@@ -17874,7 +17897,7 @@
     "search": "검색",
     "startTime": "시작시간",
     "subtitle": "포괄적인의개발문서및API참조",
-    "title": "AI인마음페이스테스트",
+    "title": "라이브 강좌",
     "total": "총 {total}개",
     "unknownLecturer": "알 수 없는 강사",
     "upcoming": "시작 예정",
@@ -20294,6 +20317,14 @@
     "taskPanelAutoLastStats": "{families}개 패밀리 · 수락 {accepted} · 수령 {claimed}",
     "taskPanelAutoLastNever": "이 프로세스에서는 아직 순회 없음",
     "taskPanelDesc": "WorkBuddy 작업 센터를 한 번에 순회: 작업 수락, 달성 보상 수령, 연속 로그인 교환, 추첨, 고양이 여행, 야행성 채팅.",
+    "taskPanelDescDoubao": "더우바오 작업을 한 번에 순회: 일일 체크인 크레딧 수령, 업무 분야 작업 자동 완료, 완료된 작업과 마일스톤 보상 수령.",
+    "taskPanelDoubaoTag": "더우바오",
+    "taskPanelDoubaoOn": "활성 · 매일 {hours}:{minute} 자동 순회(체크인 이후)",
+    "taskPanelDoubaoDry": "활성화되었지만 연습 모드(읽기 전용): 실제 수령 없음. 서버에서 DOUBAO_TASKS_LIVE_RUN=true 설정 필요.",
+    "taskPanelDoubaoOff": "비활성: 수동 실행만 가능. 서버에서 DOUBAO_TASKS_ENABLED=true 설정 후 재시작.",
+    "taskPanelDoubaoNotStarted": "설정되었지만 스케줄러가 시작되지 않음: .env 변경 후 ai-service 재시작 필요.",
+    "taskPanelDoubaoLast": "지난 순회 {time} · 수령 {claimed} · 건너뜀 {skipped}",
+    "taskPanelDoubaoLastNever": "이 프로세스에서 아직 순회 없음",
     "taskPanelPick": "계정",
     "taskPanelList": "작업 불러오기",
     "taskPanelDryRun": "미리보기(쓰기 없음)",
@@ -20698,6 +20729,7 @@
     "adminRelayKeyPool": "Key 풀",
     "adminRelayLogs": "릴레이 로그",
     "adminRelayModels": "릴레이 모델",
+    "adminRelayModelMappings": "모델 매핑",
     "adminRelayOverview": "릴레이 개요",
     "adminSkillBatch": "일괄 작업",
     "adminSkillCategories": "스킬 카테고리",
@@ -20722,6 +20754,12 @@
     "saasTenants": "SaaS 테넌트",
     "dashboard": "관리 콘솔",
     "financeAi": "재무부",
+    "financeGroup": "재무부",
+    "live": "라이브 강좌",
+    "earnings": "수익",
+    "wallet": "지갑",
+    "playground": "플레이그라운드",
+    "developerRelaySubscriptions": "API 구독",
     "hrGroup": "인사부",
     "hrAdmin": "인사 관리",
     "hrAdminData": "인사 데이터 센터",
@@ -21244,7 +21282,7 @@
     "save": "저장",
     "search": "검색",
     "subtitle": "포괄적인의개발문서및API참조",
-    "title": "AI인마음페이스테스트",
+    "title": "내 노트",
     "titleField": "제목"
   },
   "notifications": {
@@ -21326,7 +21364,7 @@
     "occurredAtField": "날짜",
     "save": "저장",
     "subtitle": "포괄적인의개발문서및API참조",
-    "title": "AI인마음페이스테스트",
+    "title": "오프라인 학습 기록",
     "titleField": "제목",
     "type": "유형",
     "typePlaceholder": "유형"
@@ -21503,7 +21541,7 @@
     "paperTitleField": "논문 제목",
     "paperUrlField": "논문 URL",
     "subtitle": "포괄적인의개발문서및API참조",
-    "title": "AI인마음페이스테스트",
+    "title": "내 논문",
     "upload": "Upload"
   },
   "parentPortal": {
@@ -21672,7 +21710,7 @@
     "asksTab": "Ｑ＆Ａ",
     "circlesTab": "커뮤니티",
     "subtitle": "포괄적인의개발문서및API참조",
-    "title": "AI인마음페이스테스트",
+    "title": "커뮤니티 광장",
     "viewAllAsks": "모든 Q&A 보기",
     "viewAllCircles": "모든 서클 보기",
     "publish": "게시"
@@ -22861,7 +22899,7 @@
     "searchTask": "작업 검색",
     "subtitle": "포괄적인의개발문서및API참조",
     "taskList": "작업 목록",
-    "title": "AI인마음페이스테스트",
+    "title": "수업 일정",
     "total": "총 {total}개"
   },
   "search": {
@@ -23794,7 +23832,7 @@
       "desc": "문의하기의고객 서비스팀획득도움",
       "export": "내보내기",
       "import": "가져오기",
-      "title": "AI인마음페이스테스트"
+      "title": "테마 백업 및 동기화"
     },
     "themeSystem": "시스템 따르기",
     "title": "설정",
@@ -23892,6 +23930,7 @@
     "codeIndexEgressOptOutDesc": "코드 조각은 벡터화 인덱싱을 위해 외부로 전송되지 않습니다",
     "autoMemoryOptOut": "자동 장기 기억 끄기",
     "autoMemoryOptOutDesc": "대화를 세션 간 선호나 규칙으로 자동 추출하지 않습니다",
+    "usageTitle": "사용량",
     "navTiers": {
       "title": "사이드바 간편 모드",
       "desc": "개발자 및 운영용 메뉴를 기본적으로 숨깁니다. 필요할 때 아래 스위치로 다시 표시할 수 있습니다.",
@@ -24273,7 +24312,7 @@
     "quickLinks": "빠른신속한링크장벽",
     "subtitle": "포괄적인의개발문서및API참조",
     "template": "템플릿",
-    "title": "AI인마음페이스테스트",
+    "title": "수강생 센터",
     "totalCerts": "인증서 총수",
     "totalExams": "시험 총수",
     "totalLessons": "전체 강의 수",
@@ -25283,7 +25322,7 @@
     "rechargeSuccessDesc": "충전이 완료되었습니다",
     "rechargeTitle": "토큰 충전",
     "retryRecharge": "다시 충전",
-    "title": "AI인마음페이스테스트",
+    "title": "지갑",
     "viewRecords": "거래내역 보기",
     "withdraw": "출금",
     "withdrawAmount": "금액",
@@ -25439,7 +25478,7 @@
       "nameRequired": "에이전트 이름을 입력하세요",
       "steps": "단계적은",
       "submit": "생성",
-      "title": "AI인마음페이스테스트",
+      "title": "새 워크플로",
       "triggerType": "트리거 유형"
     },
     "detail": {
@@ -25689,7 +25728,7 @@
       "tasks": "작업 목록",
       "title": "AI 워크스페이스"
     },
-    "title": "AI인마음페이스테스트",
+    "title": "워크스페이스",
     "uploadFailed": "업로드실패",
     "uploadedAt": "업로드됨"
   },

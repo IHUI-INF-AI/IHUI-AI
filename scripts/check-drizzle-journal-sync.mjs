@@ -6,7 +6,7 @@
 /**
  * check-drizzle-journal-sync.mjs — drizzle 迁移链「文件 ↔ journal」双向对账尺(只读)。
  *
- * ## 立因(goal-b49 逆向对照实测,2026-11-04,不是预防)
+ * ## 立因(goal-b49 独立分析对照实测,2026-11-04,不是预防)
  * 现算本仓 `packages/database/drizzle/`:`meta/_journal.json` entries=364,而目录里
  * `*.sql` =366;两枚**文件有、journal 无**的孤儿(`0364_app_versions_store_channel`、
  * `20261104120000_agent_team_collab`)不会被 `migrate()` 应用 ⇒ 按链新建的库缺表且无人知

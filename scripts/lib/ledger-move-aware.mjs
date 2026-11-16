@@ -58,7 +58,7 @@
 import { parseCompletedTaskBlocks } from './plan-task-headings.mjs'
 
 /**
- * 归档器写占位时对标题文本的截断长度(`placeholderLine` 里的 `titleText.slice(0, 60)`)。
+ * 归档器写占位时对齐题文本的截断长度(`placeholderLine` 里的 `titleText.slice(0, 60)`)。
  * 两侧必须同值 —— 比宽了会把"前 60 字相同、后文不同"的两个条目并成一个(少带),
  * 比窄了则配不上对(多带,安全但失效)。由镜像测试拿归档器真产出的占位行做往返锁。
  */

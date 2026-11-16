@@ -5,7 +5,7 @@
 'use client'
 
 /**
- * 容量与趋势看板(2026-09-16 立,补强 X,对标竞品 /capacity-summary + /api-keys-trend)。
+ * 容量与趋势看板(2026-09-16 立,补强 X,对齐竞品 /capacity-summary + /api-keys-trend)。
  * 数据源 /api/admin/relay/capacity/*(实测聚合,无新表)。
  * 交互:7/14/30 天切换、刷新、柱状趋势(div 高度映射,无图表库依赖)。
  */

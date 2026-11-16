@@ -7,7 +7,7 @@
 
 """多智能体团队协作服务(P3-3)。
 
-对标 Anthropic "Agent Teams" / OpenAI "Handoff" 的团队协作杀手锏:
+对齐 Anthropic "Agent Teams" / OpenAI "Handoff" 的团队协作杀手锏:
 并行 fan-out + 结构化结果聚合 → 聚合摘要经 `summary_context` 回传给
 主/主导 agent 的下一轮上下文,形成"聚合后回传主循环"闭环。
 
@@ -35,6 +35,7 @@ D121 片一新增(团队共享任务列表,2026-10-23):
 from __future__ import annotations
 
 import logging
+import re
 import threading
 import uuid
 from collections.abc import Awaitable, Callable
@@ -57,6 +58,36 @@ logger = logging.getLogger(__name__)
 # 聚合策略(对齐 packages/types/src/agent-runtime.ts P3-3 契约)
 AggregationStrategy = Literal["merge", "best_of", "consensus"]
 
+# 贡献者输出里的结构化尾巴(2026-11-16):best_of 需要 score、consensus 需要 conclusion。
+# 没有显式字段时从正文解析,避免 invoke_parallel 不产出这两个字段导致聚合退化。
+_CONCLUSION_RE = re.compile(
+    r"(?:^|\n)\s*(?:结论|CONCLUSION)\s*[:：]\s*(.+)", re.IGNORECASE
+)
+_SCORE_RE = re.compile(
+    r"(?:^|\n)\s*(?:评分|得分|SCORE)\s*[:：]\s*(\d{1,3}(?:\.\d+)?)", re.IGNORECASE
+)
+
+
+def _extract_conclusion(output: str) -> str:
+    match = _CONCLUSION_RE.search(output or "")
+    if not match:
+        return ""
+    value = match.group(1).strip()
+    # 模型若原样回抄模板占位符,不能当成真实结论参与共识。
+    if value.startswith("<") and value.endswith(">"):
+        return ""
+    return value[:160]
+
+
+def _extract_score(output: str) -> float | None:
+    match = _SCORE_RE.search(output or "")
+    if not match:
+        return None
+    try:
+        return max(0.0, min(float(match.group(1)), 100.0))
+    except ValueError:
+        return None
+
 
 # =============================================================================
 # 数据模型
@@ -78,15 +109,35 @@ class TeamContributor:
 
     @classmethod
     def from_task_result(cls, result: dict[str, Any]) -> TeamContributor:
-        """从 invoke_parallel 结果的单条 result 构造贡献者。"""
+        """从 invoke_parallel 结果的单条 result 构造贡献者。
+
+        2026-11-16:invoke_parallel 不产出 conclusion/score,
+        因此这里按"显式字段优先、正文结构化尾巴兜底"解析,
+        保证 best_of / consensus 不是空转。
+        """
+        output = str(result.get("output", "") or "")
+        conclusion = str(result.get("conclusion", "") or "").strip()
+        if not conclusion:
+            conclusion = _extract_conclusion(output)
+
+        raw_score = result.get("score")
+        score: float | None
+        if isinstance(raw_score, bool):
+            score = None
+        elif isinstance(raw_score, (int, float)):
+            score = max(0.0, min(float(raw_score), 100.0))
+        else:
+            score = _extract_score(output)
+
         return cls(
             name=str(result.get("name", "")),
             task=str(result.get("task", "")),
             status=str(result.get("status", "failed")),
-            output=str(result.get("output", "") or ""),
+            output=output,
             error=result.get("error"),
             duration_ms=float(result.get("duration_ms", 0.0) or 0.0),
-            conclusion=str(result.get("conclusion", "") or ""),
+            conclusion=conclusion,
+            score=score,
         )
 
     def to_dict(self) -> dict[str, Any]:

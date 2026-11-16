@@ -27,6 +27,7 @@ import {
 } from '@/components/chat/stream/stream-ui'
 import type { SubAgentActivity, AgentStatus } from './types'
 import { MarkdownStream } from './markdown-stream'
+import { streamKindForTool } from './progress-sections/tool-category'
 
 interface SubAgentActivityFeedProps {
   swarmId: string
@@ -79,7 +80,7 @@ function stepSpanMs(agent: SubAgentActivity): number | null {
 }
 
 // =============================================================================
-// W26 Expert Team Canvas(2026-09-14 立,对标 Qoder 专家团队泳道画布):
+// W26 Expert Team Canvas(2026-09-14 立,遵循统一工程规范):
 // - 6 条专家泳道:researcher/coder/reviewer/architect/debugger 五个已知角色 + general 兜底
 // - 泳道内并行展示各专家实时状态(统一走 StreamRow,与工具卡同一字号/圆角/状态色)
 // - 选中某条泳道成员后,下方展开该专家的步骤流 + token 级流式详情
@@ -158,6 +159,7 @@ function SubAgentCard({ agent, testIdPrefix = 'subagent-card' }: SubAgentCardPro
     <div className="min-w-0">
       <StreamRow
         status={status}
+        kind="subagent"
         title={name}
         subject={agent.type || undefined}
         subjectKind="name"
@@ -180,6 +182,7 @@ function SubAgentCard({ agent, testIdPrefix = 'subagent-card' }: SubAgentCardPro
                 <StreamRow
                   key={`${agent.agentId}-${i}-${step.createdAt}`}
                   status={step.status === 'failed' ? 'error' : 'success'}
+                  kind={streamKindForTool(step.stepAction)}
                   title={humanizeToolText(step.stepAction, tStatus)}
                   subjectKind="none"
                   testId={`${testIdPrefix}-step-${agent.agentId}-${i}`}
@@ -188,6 +191,7 @@ function SubAgentCard({ agent, testIdPrefix = 'subagent-card' }: SubAgentCardPro
               {agent.currentStep && active && (
                 <StreamRow
                   status="running"
+                  kind={streamKindForTool(agent.currentStep)}
                   title={humanizeToolText(agent.currentStep, tStatus)}
                   tags={tags}
                   testId={`${testIdPrefix}-current-${agent.agentId}`}
@@ -305,6 +309,7 @@ export function SubAgentActivityFeed({
     <div className="min-w-0" data-testid="sub-agent-activity-feed">
       <StreamGroup
         active={groupActive}
+        kind="subagent"
         stepCount={totalSteps}
         headline={headline}
         elapsedMs={groupDoneMs}
@@ -346,6 +351,7 @@ export function SubAgentActivityFeed({
                           <StreamRow
                             key={agent.agentId}
                             status={agentStreamStatus(agent)}
+                            kind="subagent"
                             title={agent.name || t('defaultName')}
                             subject={
                               // 进行中的子代理把"此刻在做什么"顶到对象位(单行截断),

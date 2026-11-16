@@ -1566,7 +1566,7 @@ describe('AgentTaskProgressPane — v11 复制计划 + 相对时间', () => {
 })
 
 // ─── Phase 16: ProgressRing 进度环测试 ───
-describe('ProgressRing — Phase 16 进度环(对标 AI 工作台)', () => {
+describe('ProgressRing — Phase 16 进度环(对齐 AI 工作台)', () => {
   afterEach(() => {
     cleanup()
   })

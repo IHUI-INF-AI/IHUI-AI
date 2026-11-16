@@ -7,7 +7,7 @@
 -- BI 看板 routes/bi-dashboard.ts:108-117 用 status='paid' AND paid_at >= ...
 -- admin/stats.ts:528,532,565-571 用 status='paid' AND created_at >= ...
 -- 现有 orders 只有 user_id/status/order_type 三枚单列索引,无 paid_at/created_at 覆盖。
--- 本迁移补两枚复合索引,与 packages/database/src/schema/billing.ts 的 index() 声明逐字对齐。
+-- 本迁移补两枚复合索引,与 packages/database/src/schema/billing.ts 的 index() 声明按行为规格。
 -- 幂等安全:IF NOT EXISTS,可安全重复执行。
 -- 注:建索引持 ShareLock,建议低峰执行;表超千万行改 CREATE INDEX CONCURRENTLY。
 

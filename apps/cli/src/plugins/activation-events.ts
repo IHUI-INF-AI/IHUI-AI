@@ -17,7 +17,7 @@
  * 落 `reject`,否则就是"把没判写成判过"(§0.3)。
  *
  * ## 取证结论:对侧 15 ≠ 15 种档位(这是本票的发现,不是缺功能)
- * 对侧装机件现读(`G:/Qoder CN/resources/extensions/catalog.v1.json`,只取键名、未取源码正文;
+ * 对侧装机件现读(`外部程序 CN/resources/extensions/catalog.v1.json`,只取键名、未取源码正文;
  * 计数与取证册 `Q1-qoder-cn-main-bundle.md` §3 #8 的「15 种 activationEvent」对上):15 个**事件
  * 字符串**去重后只有 **3 个事件族** —— `onStartup` ×1、`onView:<viewId>` ×12、`onChatMention:<id>` ×1,
  * 即对侧是"参数化事件名 + 实例枚举",15 是实例计数而非语义档位。我方 6 档全是**无参档**,其中

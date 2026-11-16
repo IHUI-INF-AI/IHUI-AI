@@ -4,7 +4,7 @@
 
 """D84 审批作用域四件套(2026-09-23 立):once / session / always / 拒绝+原因。
 
-对标 codex PERSIST_ONCE/SESSION/ALWAYS:
+遵循统一工程规范
 - once   = 仅本次执行,绝不落任何授权(最小特权;旧版"批准即授 session"已收窄);
 - session= 同键(工具+参数归一)本会话免弹窗,服务重启/过期即失效;
 - always = 同键跨会话免弹窗(approval_grants.db 持久行);

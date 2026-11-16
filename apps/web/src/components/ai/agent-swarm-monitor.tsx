@@ -71,7 +71,7 @@ export function AgentSwarmMonitor({
     return worst
   }, [agentList])
   const results = swarmData?.results ?? []
-  // 视图切换:列表视图 / 拓扑视图(2026-07-22 立,对标 主流 AI IDE Subagent mesh 拓扑)
+  // 视图切换:列表视图 / 拓扑视图(2026-07-22 立,对齐 主流 AI IDE Subagent mesh 拓扑)
   const [viewMode, setViewMode] = React.useState<'list' | 'topology'>('list')
 
   return (
@@ -124,7 +124,7 @@ export function AgentSwarmMonitor({
             {swarmId ? t('loading') : t('notStarted')}
           </p>
         ) : viewMode === 'topology' ? (
-          /* 拓扑视图(2026-07-22 立,对标 主流 AI IDE Subagent mesh 拓扑可视化) */
+          /* 拓扑视图(2026-07-22 立,对齐 主流 AI IDE Subagent mesh 拓扑可视化) */
           <SwarmTopologyView />
         ) : (
           <>

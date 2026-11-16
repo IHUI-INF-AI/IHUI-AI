@@ -20,7 +20,6 @@ import {
   replaceTrailingTrigger,
   type MentionSelection,
 } from '@ihui/shared/chat/mention-engine'
-import { MAX_LENGTH } from '@/components/chat/web-input-core'
 
 export interface UseMentionWiringOptions {
   setValue: React.Dispatch<React.SetStateAction<string>>
@@ -61,12 +60,7 @@ export function useMentionWiring(options: UseMentionWiringOptions): UseMentionWi
   const applyAtSelection = React.useCallback(
     (selection: MentionSelection) => {
       addMention(selection)
-      setValue((prev) =>
-        replaceTrailingTrigger(prev, selection.sigil, `${selection.insertText} `).slice(
-          0,
-          MAX_LENGTH,
-        ),
-      )
+      setValue((prev) => replaceTrailingTrigger(prev, selection.sigil, `${selection.insertText} `))
       refocus()
     },
     [addMention, setValue, refocus],

@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * A/B 测试持久化表(2026-07-25 立,对标 ABTestTracker)。
+ * A/B 测试持久化表(2026-07-25 立,对齐 ABTestTracker)。
  *
  * 由 apps/ai-service(app/services/ab_test_tracker.py)以 raw SQL 读写,
  * 此处补 TS schema 定义以消除 check-db-schema-drift 的 dead migration 告警,
@@ -88,10 +88,7 @@ export const abTestResults = pgTable(
     // routes/ab-testing.ts 两处 onConflictDoUpdate({ target:[variantId,bucket] })
     // 在 drizzle-kit push / 按 20260831 重建的库上必撞 42P10,同一 variant+bucket
     // 还会重复计数。约束名沿用既成事实:ab_test_results_variant_bucket_uniq。
-    variantBucketUniq: unique('ab_test_results_variant_bucket_uniq').on(
-      t.variantId,
-      t.bucket,
-    ),
+    variantBucketUniq: unique('ab_test_results_variant_bucket_uniq').on(t.variantId, t.bucket),
   }),
 )
 

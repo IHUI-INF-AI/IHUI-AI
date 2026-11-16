@@ -80,7 +80,7 @@ export function currentOperator() {
 }
 
 /**
- * 纯函数:造一条旁路留痕(键名逐字对齐 safe-commit 那本)。
+ * 纯函数:造一条旁路留痕(键名按行为规格 safe-commit 那本)。
  * 不碰磁盘、不取时钟以外的东西 —— 构造面因此可被测试直接断言。
  * `operator` 是唯一例外:缺席时现取 `currentOperator()`(留痕不许把"谁落的"记成空)。
  */

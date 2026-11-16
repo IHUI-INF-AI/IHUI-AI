@@ -27,7 +27,7 @@ import { BackChevron } from '../../components/BackChevron'
  *    的具名 Lucide 组件,共享层不绑定任何一套图标注册表);行尾箭头是本文件自带的
  *    `ChevronRight`(packages/app 自身就依赖 lucide-react-native,BackChevron 等先例在前);
  *  - `title` 为空串 = 未命中域的空态(只渲染返回键,不渲染标题与任何文案)—— 与原 RN
- *    实现"hub 取不到就只出导航壳"的行为逐字对齐,不新增语义。
+ *    实现"hub 取不到就只出导航壳"的行为按行为规格,不新增语义。
  */
 export interface DomainHubItem {
   /** 条目身份(作为列表 key);与注入侧用的 i18n key 同源,便于对账 */

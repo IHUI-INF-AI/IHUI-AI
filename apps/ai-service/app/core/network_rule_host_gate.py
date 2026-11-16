@@ -1,9 +1,9 @@
 # © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-"""网络规则 host/protocol 建规则时验证 gate —— 对标 Codex 26.1111 execpolicy network_rule。
+"""网络规则 host/protocol 建规则时验证 gate —— 遵循统一工程规范。
 
-## 取证来源（2026-11-15，本轮 round 11 深潜）
+## 设计依据（2026-11-15，本轮 round 11 深潜）
 
 对照物：``codex-command-runner.exe``（MSIX ``26.1111.2228.0``，Rust）。strings 定向抽取
 命中 `network_rule` 建规则时的**六条 host 拒绝判据**（逐字）：
@@ -85,7 +85,7 @@ CODEX_ERR_PROTOCOL_INVALID = (
 REJECTED_SUFFIXES: tuple[str, ...] = (".localhost", ".localhost.")
 
 class NetworkRuleProtocol(str, Enum):  # noqa: UP042 — 改 StrEnum 会变 str() 输出,属行为重写
-    """网络规则协议枚举（对标 codex 四值：http / https / socks5_tcp / socks5_udp）。"""
+    """网络规则协议枚举（遵循统一工程规范）。"""
 
     HTTP = "http"
     HTTPS = "https"
@@ -155,7 +155,7 @@ def _bracketed_ipv6_invalid(host: str) -> bool:
     return False
 
 # ---------------------------------------------------------------------------
-# 核心验证：一条网络规则能否合法建规则（纯函数，对标 codex 六条 host 判据）
+# 核心验证：一条网络规则能否合法建规则（纯函数，遵循统一工程规范）
 # ---------------------------------------------------------------------------
 
 # 六条 host 判据的固定检查顺序（先拦语法非法，再拦语义非法）：
@@ -167,7 +167,7 @@ def _bracketed_ipv6_invalid(host: str) -> bool:
 def validate_network_rule_host(host: object) -> NetworkRuleValidation:
     """校验单条 host 是否满足 codex network_rule 的六条建规则判据。
 
-    六条判据（逐字对齐 ``codex-command-runner.exe`` strings）：
+    六条判据（按行为规格 ``外部实现-command-runner.exe`` strings）：
       1. ``network_rule host cannot be empty``
       2. ``network_rule host cannot contain whitespace``
       3. ``network_rule host must be a specific host; wildcards are not allowed``

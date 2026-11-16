@@ -3,7 +3,7 @@
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 # app/core/turn_timing.py
-"""回合计时画像(2026-09-19 第二十六批,对标 Codex turn_timing.rs)。
+"""回合计时画像(2026-09-19 第二十六批,遵循统一工程规范)。
 
 Codex 的 turn_timing 为每个回合维护两类状态:
 
@@ -37,7 +37,7 @@ def now_unix_timestamp_ms() -> int:
 
 
 class TurnProfilePhase(StrEnum):
-    """回合阶段(对标 TurnProfilePhase)。"""
+    """回合阶段(对齐 TurnProfilePhase)。"""
 
     SAMPLING = "sampling"
     COMPACTION = "compaction"
@@ -46,7 +46,7 @@ class TurnProfilePhase(StrEnum):
 
 @dataclass
 class TurnProfile:
-    """完成的回合画像(对标 analytics TurnProfile,毫秒桶)。"""
+    """完成的回合画像(对齐 analytics TurnProfile,毫秒桶)。"""
 
     before_first_sampling_ms: int = 0
     sampling_ms: int = 0
@@ -81,7 +81,7 @@ class TurnProfile:
 
 
 class TurnProfileTimingGuard:
-    """阶段计时守卫(RAII,对标 TurnProfileTimingGuard 的 Drop 语义)。
+    """阶段计时守卫(RAII,对齐 TurnProfileTimingGuard 的 Drop 语义)。
 
     用法::
 
@@ -109,7 +109,7 @@ class TurnProfileTimingGuard:
 
 
 class TurnTimingState:
-    """单回合计时状态(对标 TurnTimingState + TurnTimingStateInner + TurnProfileState)。
+    """单回合计时状态(对齐 TurnTimingState + TurnTimingStateInner + TurnProfileState)。
 
     生命周期:mark_turn_started → (各 record/begin_*) → complete_profile_and_duration。
     complete 之后所有写入均为 no-op(幂等,可安全重复调用)。
@@ -343,7 +343,7 @@ class TurnTimingState:
 
 
 # ----------------------------------------------------------------------
-# TTFT 资格判定便捷函数(对标 response_event_records_turn_ttft 分层)
+# TTFT 资格判定便捷函数(对齐 response_event_records_turn_ttft 分层)
 # ----------------------------------------------------------------------
 def records_turn_ttft_for_text_delta(text: str) -> bool:
     """输出文本增量 → 记 TTFT(Codex OutputTextDelta 分支)。"""

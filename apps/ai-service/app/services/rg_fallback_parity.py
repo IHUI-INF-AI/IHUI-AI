@@ -383,7 +383,7 @@ def enumerate_with_walk(
     至少不比被替换的实现慢,故用回 `os.walk`。留这段数字是为了让下一个人不必
     再花两小时重新发明同一个错误。
 
-    与 `os.walk(followlinks=False)` 的既有语义逐字对齐(它就是原实现),因此
+    与 `os.walk(followlinks=False)` 的既有语义按行为规格(它就是原实现),因此
     接入既有调用方不需要任何"新通道"分支。
     """
     t0 = time.perf_counter()

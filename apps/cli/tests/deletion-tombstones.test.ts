@@ -79,7 +79,7 @@ describe('assertNotDeleted(迟到写守卫)', () => {
     expect(() => assertNotDeleted(K)).not.toThrow();
   });
 
-  it('已删 → 抛 DeletedResourceError(对标 RAISE ABORT)', () => {
+  it('已删 → 抛 DeletedResourceError(对齐 RAISE ABORT)', () => {
     markDeleted(K);
     expect(() => assertNotDeleted(K)).toThrow(DeletedResourceError);
     try {

@@ -5,7 +5,7 @@
 # © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 
-"""D8 pgvector 向量存储层(2026-09-19 立,对标 Cursor/Qoder 专业 RAG 存储)。
+"""D8 pgvector 向量存储层(2026-09-19 立,遵循统一工程规范)。
 
 - 复用共享连接池 app/core/db_pool.get_shared_pool()(asyncpg,不新增依赖)。
 - 表 rag_chunks 幂等自建(CREATE EXTENSION IF NOT EXISTS vector + CREATE TABLE IF NOT

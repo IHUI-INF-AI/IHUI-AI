@@ -2,9 +2,9 @@
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-"""流事件工具与回合项映射(对标 Codex Rust)。
+"""流事件工具与回合项映射(遵循统一工程规范)。
 
-2026-09-19 第三十一批,对标 Codex stream_events_utils.rs/event_mapping.rs
+2026-09-19 第三十一批,遵循统一工程规范
 
 本模块为 codex-rs → Python 移植的纯函数切片,覆盖两件事:
 1. stream_events_utils.rs 中可移植的纯逻辑:
@@ -52,7 +52,7 @@ MemoryCitation = dict[str, Any]
 
 
 # ===========================================================================
-# 一、隐藏标记去噪(对标 stream_events_utils.rs: strip_citations 等)
+# 一、隐藏标记去噪(对齐 stream_events_utils.rs: strip_citations 等)
 # ===========================================================================
 
 # 引用标签(精简自 codex_utils_stream_parser::strip_citations)
@@ -119,7 +119,7 @@ def strip_hidden_assistant_markup_and_parse_memory_citation(
 
 
 # ===========================================================================
-# 二、助手正文抽取(对标 stream_events_utils.rs: raw_assistant_output_text_from_item)
+# 二、助手正文抽取(对齐 stream_events_utils.rs: raw_assistant_output_text_from_item)
 # ===========================================================================
 
 
@@ -156,7 +156,7 @@ def last_assistant_message_from_item(item: ResponseItem, plan_mode: bool) -> str
 
 
 # ===========================================================================
-# 三、外部上下文 / 邮件箱延迟判定(对标 stream_events_utils.rs)
+# 三、外部上下文 / 邮件箱延迟判定(对齐 stream_events_utils.rs)
 # ===========================================================================
 
 _EXTERNAL_CONTEXT_TYPES: frozenset[str] = frozenset(
@@ -191,7 +191,7 @@ def completed_item_defers_mailbox_delivery_to_next_turn(
 
 
 # ===========================================================================
-# 四、输入项 → 响应项转换(对标 stream_events_utils.rs: response_input_to_response_item)
+# 四、输入项 → 响应项转换(对齐 stream_events_utils.rs: response_input_to_response_item)
 # ===========================================================================
 
 
@@ -241,7 +241,7 @@ def response_input_to_response_item(input_item: ResponseInputItem) -> ResponseIt
 
 
 # ===========================================================================
-# 五、上下文片段判定(对标 event_mapping.rs: is_contextual_* 系列)
+# 五、上下文片段判定(对齐 event_mapping.rs: is_contextual_* 系列)
 # ===========================================================================
 
 # 开发者消息中可回滚裁剪的上下文前缀集(精简自 CONTEXTUAL_DEVELOPER_PREFIXES)
@@ -268,7 +268,7 @@ CONTEXTUAL_DEVELOPER_PREFIXES: frozenset[str] = frozenset(
     }
 )
 
-# 用户消息中可识别为上下文片段的前缀集(对标 codex CONTEXTUAL_USER_FRAGMENT_MATCHERS
+# 用户消息中可识别为上下文片段的前缀集(遵循统一工程规范
 # 中带文本标记的片段;2026-09-19 第四十批补齐 current_time_reminder/turn_aborted)
 USER_CONTEXTUAL_PREFIXES: frozenset[str] = frozenset(
     {
@@ -326,7 +326,7 @@ def is_contextual_user_message_content(message: list[ContentItem]) -> bool:
 
 
 # ===========================================================================
-# 六、图像/音频标签判定(对标 event_mapping.rs 中的 is_*_tag_text 辅助函数)
+# 六、图像/音频标签判定(对齐 event_mapping.rs 中的 is_*_tag_text 辅助函数)
 # ===========================================================================
 
 _IMAGE_OPEN_TAGS: frozenset[str] = frozenset({"<image>", "<local_image>"})
@@ -368,7 +368,7 @@ def is_local_audio_close_tag_text(text: str) -> bool:
 
 
 # ===========================================================================
-# 七、消息解析(对标 event_mapping.rs: parse_user_message / parse_agent_message)
+# 七、消息解析(对齐 event_mapping.rs: parse_user_message / parse_agent_message)
 # ===========================================================================
 
 
@@ -467,7 +467,7 @@ def web_search_action_detail(action: dict[str, Any] | None) -> str:
 
 
 # ===========================================================================
-# 八、事件 → 回合项映射(对标 event_mapping.rs: parse_turn_item)
+# 八、事件 → 回合项映射(对齐 event_mapping.rs: parse_turn_item)
 # ===========================================================================
 
 
@@ -536,7 +536,7 @@ def parse_turn_item(item: ResponseItem) -> TurnItem | None:
 
 
 # ===========================================================================
-# 九、流文本增量聚合 / delta 合并 / 去噪(对标 stream_events_utils.rs 的文本聚合语义)
+# 九、流文本增量聚合 / delta 合并 / 去噪(对齐 stream_events_utils.rs 的文本聚合语义)
 # ===========================================================================
 
 

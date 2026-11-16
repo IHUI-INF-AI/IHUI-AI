@@ -4,7 +4,7 @@
 
 """沙箱拦截计量与策略版本可追溯层。
 
-为什么立这一层(2026-10-31,逆向-复现-超越铁律 §0.11 的复现腿):
+为什么立这一层(2026-10-31,工程化落地铁律 §0.11 的复现腿):
 对照程序 Trae CN 3.4.12 的 ``modules/sandbox/`` 经 REA 取证(报告
 ``.ihui-agent/tmp/trae-rea/report/T2-trae-periphery.md`` §2)显示,它的拦截不是静默拒绝,
 而是**每一次拦截都被量到**:规则自带 ``risk_rule_id`` / ``risk_policy_version``,并有
@@ -31,7 +31,7 @@ Object、``services/os_sandbox.py`` 的 ACL 矩阵与档位登记表),而
      ``policy_version_state()`` 落 ``status="undetermined"`` 并点名缺哪几个符号,
      **不返回半个哈希**;
    - 判定器自己抛异常而调用方降级放行的那一格,记成 ``undetermined`` 而不是
-     ``allow``(对标对照程序的 ``block_risk_unknown_count`` 位,但比它进一步:
+     ``allow``(对齐对照程序的 ``block_risk_unknown_count`` 位,但比它进一步:
      它按丢弃计数,本仓按"没判"计数,因为放行与丢弃是两回事)。
 3. **身份必须稳定**(§5e-3 同族纪律 / 守门 224 的精神):标签值只允许
    ``_SAFE_IDENTITY_RE`` 形态的小写稳定标识。路径、pid、GetLastError 数字、异常原文

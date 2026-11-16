@@ -23,6 +23,7 @@ from __future__ import annotations
 import base64
 import json
 import os
+import re
 import secrets
 import uuid
 from collections.abc import Callable, Mapping
@@ -870,6 +871,27 @@ def pool_conflict_alias(name: str, identity_key: str) -> str | None:
     return f"{name} · {tail}"
 
 
+_FULL_PHONE_RE = re.compile(r"^1[3-9]\d{9}$")
+_MASK_PHONE_RE = re.compile(r"^1\d{2}\*{2,8}(\d{2,4})$")
+
+
+def _is_full_phone(value: str) -> bool:
+    return bool(_FULL_PHONE_RE.match((value or "").strip()))
+
+
+def _is_masked_phone(value: str) -> bool:
+    return bool(_MASK_PHONE_RE.match((value or "").strip()))
+
+
+def _phone_mask_matches(full: str, mask: str) -> bool:
+    """全号是否归位同一掩码(前3后2~4 都吻合);防止张冠李戴改错名。"""
+    m = _MASK_PHONE_RE.match((mask or "").strip())
+    phone = (full or "").strip()
+    if not m or not _FULL_PHONE_RE.match(phone):
+        return False
+    return phone.startswith(mask.strip()[:3]) and phone.endswith(m.group(1))
+
+
 async def create_account(
     owner_user_id: str,
     name: str,
@@ -895,12 +917,17 @@ async def create_account(
     """
     pool = await get_shared_pool()
     jwt_enc = _encrypt_jwt(jwt)
+    incoming_name = name
     derived = extract_display_name(jwt, device_map)
     if derived:
         name = derived
     elif uuid_shaped_name(name):
         # 派不出且传入的是 UUID 编码名 ⇒ 留待列表自愈(用户仍可行内改名)
         logger.info("[checkin_store] 录入名 %s 为 UUID 形态且派不出展示名,保持原名", name)
+    # 号池名已是全号、派生名只是掩码 ⇒ 全号优先(2026-11-17:上游豆包只回掩码,
+    # 号池侧用已知全号归位后,签到副本必须跟着升级成全号,否则对账/展示两套名)。
+    if _is_full_phone(incoming_name) and _is_masked_phone(name):
+        name = incoming_name
     identity_key = derive_account_identity(platform, jwt, device_map) or ""
     async with pool.acquire() as conn:
         if identity_key:
@@ -984,6 +1011,9 @@ async def create_account(
                 new_name = existing["name"]
                 if derived and uuid_shaped_name(new_name):
                     new_name = derived
+                elif _is_full_phone(name) and _is_masked_phone(str(new_name)) and _phone_mask_matches(name, str(new_name)):
+                    # 掩码 → 全号升级(同号前3后2吻合才改;昵称/手动改名仍尊重,不覆盖)
+                    new_name = name
                 try:
                     row = await conn.fetchrow(
                         """
@@ -1000,22 +1030,58 @@ async def create_account(
                         new_name,
                     )
                 except Exception as e:
-                    # 名字换新撞 (owner_user_id, name) 唯一约束 ⇒ 保旧名重试
+                    # 名字换新撞 (owner_user_id, name) 唯一约束 ⇒ 保旧名重试。
+                    # 2026-11-17:掩码→全号升级时若同 owner 别的平台已占用裸全号
+                    # (实测 qoder=15754320340),不能回退成掩码 —— 改落确定性别名
+                    # 「全号 · 身份尾8」,保证展示仍是手机号优先且幂等。
                     if getattr(e, "sqlstate", None) != "23505" and "duplicate key" not in str(e).lower():
                         raise
-                    row = await conn.fetchrow(
-                        """
-                        UPDATE checkin_accounts
-                        SET jwt_enc = $3, device_map = $4::jsonb, updated_at = now()
-                        WHERE id = $1 AND owner_user_id = $2
-                        RETURNING id, owner_user_id, name, device_map, enabled, account_group, platform,
-                                  created_at, updated_at
-                        """,
-                        existing["id"],
-                        owner_user_id,
-                        jwt_enc,
-                        json.dumps(device_map, ensure_ascii=False),
-                    )
+                    if new_name != existing["name"]:
+                        alias = pool_conflict_alias(new_name, identity_key)
+                        if alias is not None:
+                            try:
+                                row = await conn.fetchrow(
+                                    """
+                                    UPDATE checkin_accounts
+                                    SET jwt_enc = $3, device_map = $4::jsonb, name = $5, updated_at = now()
+                                    WHERE id = $1 AND owner_user_id = $2
+                                    RETURNING id, owner_user_id, name, device_map, enabled, account_group, platform,
+                                              created_at, updated_at
+                                    """,
+                                    existing["id"],
+                                    owner_user_id,
+                                    jwt_enc,
+                                    json.dumps(device_map, ensure_ascii=False),
+                                    alias,
+                                )
+                                logger.info(
+                                    "[checkin_store] 更名撞裸名,改用确定性别名 id=%s name=%s alias=%s",
+                                    existing["id"],
+                                    new_name,
+                                    alias,
+                                )
+                            except Exception as alias_err:  # noqa: BLE001 — 单条更新兜底
+                                if getattr(alias_err, "sqlstate", None) != "23505" and "duplicate key" not in str(alias_err).lower():
+                                    raise
+                                row = None
+                        else:
+                            row = None
+                    else:
+                        row = None
+                    if row is None:
+                        row = await conn.fetchrow(
+                            """
+                            UPDATE checkin_accounts
+                            SET jwt_enc = $3, device_map = $4::jsonb, updated_at = now()
+                            WHERE id = $1 AND owner_user_id = $2
+                            RETURNING id, owner_user_id, name, device_map, enabled, account_group, platform,
+                                      created_at, updated_at
+                            """,
+                            existing["id"],
+                            owner_user_id,
+                            jwt_enc,
+                            json.dumps(device_map, ensure_ascii=False),
+                        )
                 logger.info(
                     "[checkin_store] 同账号重复录入,已合并刷新既有行 id=%s platform=%s identity=%s",
                     existing["id"],

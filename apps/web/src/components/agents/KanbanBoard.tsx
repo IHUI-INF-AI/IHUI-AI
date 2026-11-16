@@ -49,7 +49,7 @@ import { KanbanColumn } from './KanbanColumn'
 import { TaskDetailDialog } from './TaskDetailDialog'
 
 // 列序 = 单一真相源 `@ihui/types` 的 AGENT_TASK_STATUSES(2026-09-27 D6/G3 收口)。
-// 这里曾是一份逐字复制的第六处成员清单(与 @ihui/types、apps/api 的 zod enum、
+// 这里曾是一份按行为规格的第六处成员清单(与 @ihui/types、apps/api 的 zod enum、
 // ai-service 的 dag_scheduler 各一份),而六态值是落库列 + REST + SSE 三重对外契约,
 // 改任一侧即静默分叉且全仓无判据 —— 取证见 docs/d6-convergence-audit-2026-09-27.md §2.3。
 // 尺子:scripts/check-agent-status-vocabulary-parity.mjs(SV3 判"端内第二份成员清单")。

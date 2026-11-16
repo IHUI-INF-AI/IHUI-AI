@@ -5,7 +5,7 @@
 import { fetchApi } from '@/lib/api'
 
 /**
- * Checkpoint / Rewind 前端 API 客户端(2026-09-03 立,对标 Claude Code checkpoint /rewind)。
+ * Checkpoint / Rewind 前端 API 客户端(2026-09-03 立,遵循统一工程规范)。
  *
  * 服务端契约(apps/ai-service 的 routers/checkpoint_rewind.py,已由后端挂载到 /api):
  *  - GET  /api/checkpoints?session_id=...            → 该会话可回滚的 checkpoint 列表

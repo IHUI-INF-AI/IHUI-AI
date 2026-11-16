@@ -3,12 +3,12 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * Developer & Playground CLI — 开发者平台与在线测试命令,对标 Web 端 /developer 与 /playground。
+ * Developer & Playground CLI — 开发者平台与在线测试命令,对齐 Web 端 /developer 与 /playground。
  *
  * developer 命令对接 apps/api/src/routes/developer-relay.ts(/api/developer/relay/*,JWT Bearer 鉴权):
  *  - GET /api/developer/relay/keys  → { list: DeveloperKeyInfo[] }(含余额/安全字段)
  *  - GET /api/developer/relay/logs  → { list: DeveloperLogItem[], total, page, pageSize }
- *  - GET /api/developer/team        → TeamMember[](对标 Web 端 /developer/team,可能为 stub)
+ *  - GET /api/developer/team        → TeamMember[](对齐 Web 端 /developer/team,可能为 stub)
  *
  * playground 命令对接 apps/api/src/routes/v1-public.ts(/v1/*,API Key Bearer 鉴权):
  *  - POST /v1/chat/completions  OpenAI 兼容格式,非流式
@@ -98,7 +98,7 @@ interface DeveloperLogsData {
   pageSize: number;
 }
 
-/** 团队成员(对标 Web 端 developer/team/types.ts TeamMember)。 */
+/** 团队成员(对齐 Web 端 developer/team/types.ts TeamMember)。 */
 interface TeamMember {
   id: string;
   nickname: string;
@@ -340,7 +340,7 @@ function parseNumber(v: string | undefined, fallback: number, label: string): nu
   return n;
 }
 
-/** 格式化日期(对标 AGENTS.md §4 Intl.DateTimeFormat)。 */
+/** 格式化日期(对齐 AGENTS.md §4 Intl.DateTimeFormat)。 */
 function formatDate(iso: string): string {
   try {
     return new Intl.DateTimeFormat('zh-CN', {
@@ -463,7 +463,7 @@ async function listTeam(
   try {
     resp = await httpJson(baseUrl, '/api/developer/team', { bearer: jwt });
   } catch {
-    // GET /api/developer/team 可能未实现(stub),对标 Web 端 .catch(() => []) 容错
+    // GET /api/developer/team 可能未实现(stub),对齐 Web 端 .catch(() => []) 容错
     if (asJson) {
       printJson({ code: 0, message: 'ok', data: [] });
       return;
@@ -673,13 +673,13 @@ async function comparePlayground(
 // ==================== 命令注册 ====================
 
 /**
- * 在根 program 上注册 `developer` 命令组(对标 Web 端 /developer)。
+ * 在根 program 上注册 `developer` 命令组(对齐 Web 端 /developer)。
  * 使用全局 `--api-url` / `--api-key` 或 settings.json 解析后端地址与 JWT。
  */
 export function registerDeveloperCommand(program: Command): void {
   const devCmd = program
     .command('developer')
-    .description('开发者平台管理 (对标 Web 端 /developer)');
+    .description('开发者平台管理 (对齐 Web 端 /developer)');
 
   devCmd
     .command('keys')
@@ -734,7 +734,7 @@ export function registerDeveloperCommand(program: Command): void {
 
   devCmd
     .command('team')
-    .description('查看团队成员列表 (对标 Web 端 /developer/team)')
+    .description('查看团队成员列表 (对齐 Web 端 /developer/team)')
     .option('--json', '以 JSON 格式输出完整响应')
     .action(async (opts: TeamOptions) => {
       try {
@@ -757,13 +757,13 @@ export function registerDeveloperCommand(program: Command): void {
 }
 
 /**
- * 在根 program 上注册 `playground` 命令组(对标 Web 端 /playground)。
+ * 在根 program 上注册 `playground` 命令组(对齐 Web 端 /playground)。
  * 使用用户 API Key(ihui_xxx)调用 /v1/chat/completions,支持 --api-key 显式指定或自动取首个 active Key。
  */
 export function registerPlaygroundCommand(program: Command): void {
   const pgCmd = program
     .command('playground')
-    .description('在线测试 OpenAI 兼容 API (对标 Web 端 /playground)');
+    .description('在线测试 OpenAI 兼容 API (对齐 Web 端 /playground)');
 
   pgCmd
     .command('run')

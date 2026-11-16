@@ -40,7 +40,7 @@ test('生成物目录必须命中', () => {
 
 test('一次性产物名必须命中', () => {
   assert.match(judgePath('.commit-msg.txt') ?? '', /提交信息草稿/)
-  assert.match(judgePath('apps/cli/agent.keep.ts') ?? '', /逆向抓包副本/)
+  assert.match(judgePath('apps/cli/agent.keep.ts') ?? '', /兼容分析抓包副本/)
   assert.match(judgePath('apps/api/tmp-diag.log') ?? '', /日志/)
 })
 

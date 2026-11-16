@@ -439,7 +439,7 @@ class LangGraphService:
     async def _memory_save_node(self, state: GraphState) -> GraphState:
         """图出口节点:从对话提取记忆写回 API。
 
-        L1-3 扩展(2026-07-25,对标 Hermes Agent 默认在线记忆 + 激活 P3-1 深度层):
+        L1-3 扩展(2026-07-25,对齐 Hermes Agent 默认在线记忆 + 激活 P3-1 深度层):
         - 优先调 memory_system.add_with_extraction(深度层:embedding + 向量存储 + 画像更新 + API 同步)
         - 深度层异常时降级到 memory_service.save_insights_from_conversation(简化版:仅 LLM 提取 + POST API)
         - 双层兜底,保证记忆保存不丢
@@ -600,7 +600,7 @@ class LangGraphService:
     ) -> dict[str, Any]:
         """降级:手动状态机执行(LangGraph 不可用时)。
 
-        完整流程对标 graph 模式:
+        完整流程对齐 graph 模式:
         memory_load → plan → execute → summarize → memory_save
         """
         state = WorkflowState(goal, session_id, model)

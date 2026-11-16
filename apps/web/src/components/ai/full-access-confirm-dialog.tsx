@@ -11,7 +11,7 @@ import { AlertTriangle, ShieldX } from 'lucide-react'
 import { Modal } from '@/components/feedback'
 import { cn } from '@/lib/utils'
 
-/** 首次启用高风险模式(bypass-permissions)确认弹窗(2026-07-25 深化,深度对标 Codex CLI safety guard)
+/** 首次启用高风险模式(bypass-permissions)确认弹窗(2026-07-25 深化,深度遵循统一工程规范)
  *
  * 触发场景:
  * - 用户从 default/accept-edits 切到 bypass-permissions(无论通过 Popover、Shift+Tab、还是 /permission full)

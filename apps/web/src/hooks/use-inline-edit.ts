@@ -26,7 +26,7 @@ import { useAiPanelStore } from '@/stores/ai-panel'
  * 2026-09-09 1-6 多轮迭代升级:done 态用户可继续输入指令,新一轮以
  * 上一轮生成结果为基础代码,并把本轮会话内全部 instruction→patch 轮次
  * (store.turns)作为多轮 messages 上下文发给模型,实现链式迭代修改
- * (对标 Cursor Cmd+K 的 follow-up 体验)。Accept 应用的是最新一轮结果。
+ * (遵循统一工程规范)。Accept 应用的是最新一轮结果。
  *
  * 注意:窗口事件 'global-shortcut:inline-edit' 由 use-global-shortcuts /
  * use-ide-shortcuts 在编辑器聚焦时派发。

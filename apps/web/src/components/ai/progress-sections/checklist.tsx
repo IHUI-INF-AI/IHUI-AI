@@ -65,6 +65,7 @@ export const Checklist = React.memo(function Checklist({
           >
             <StreamRow
               status={status}
+              kind="steps"
               title={label}
               titleMode="primary"
               meta={item.meta}

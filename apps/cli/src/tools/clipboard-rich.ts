@@ -5,13 +5,13 @@
 /**
  * 剪贴板富格式 — HTML / RTF 富文本读写 + 文件拖放路径读写(Windows)。
  *
- * 立票理由(2026-11-14,逆向-复现-超越 补齐 Qoder CN 0.5.6 的 native_clipboard.node):
+ * 立票理由(2026-11-14,工程化落地 补齐 外部实现 CN 0.5.6 的 native_clipboard.node):
  * 对方原生件除纯文本外,经 `RegisterClipboardFormatW` 注册 'HTML Format'、并支持
  * `DragQueryFileW`(文件拖放) ⇒ 它的 readClipboard 返回结构化 `{text, richText, attachments}`
  * (asar 内 `qoder-quick-note` 插件现读)。本仓 clipboard.ts 此前只有纯文本读写,缺富文本
  * 与文件路径两格。本文件补齐这两格。
  *
- * 逆向四步:
+ * 独立分析四步:
  *   ③ 复现 —— 不引第三方包、不编译原生件(§0.12 红线):走 PowerShell 内置
  *      `System.Windows.Forms.Clipboard`(DataFormats.Html / SetFileDropList /
  *      GetFileDropList),与本仓既有 PS 引擎同源思路。本机已端到端验证:

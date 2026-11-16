@@ -23,9 +23,9 @@
  *  - SpecGenerateResponseData / SpecTemplatesResponseData 为死代码(零消费者),已删除
  */
 
-/** 对话模式(对标 CLI mode-manager.ts 的 WorkMode,扩展 spec 五态;2026-09-13 矩阵 A #24 补 ask)
- *  ask=纯问答(禁工具) · build=构建执行(全工具,对标 Agent/Edit) · plan=只制定计划
- *  review=只读审查 · spec=规格生成(对标 Spec/Craft) */
+/** 对话模式(对齐 CLI mode-manager.ts 的 WorkMode,扩展 spec 五态;2026-09-13 矩阵 A #24 补 ask)
+ *  ask=纯问答(禁工具) · build=构建执行(全工具,对齐 Agent/Edit) · plan=只制定计划
+ *  review=只读审查 · spec=规格生成(对齐 Spec/Craft) */
 export type ChatMode = 'ask' | 'build' | 'plan' | 'review' | 'spec'
 
 /** Spec 生成统计信息(api 独有,字段与 shared SpecGenerateResult.stats 不同) */

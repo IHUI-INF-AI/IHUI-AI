@@ -27,7 +27,7 @@
  * `getaddrinfo ENOTFOUND <host>`),URL 里还可能带 query 凭据;与 §5e「失败必须响但不外带凭据」、
  * 守门 67「凭据不得进 message」是同一条禁令。
  *
- * 对标移植:ZCode `packages/services/src/providers/api/networkErrorClassifier.ts`
+ * 对齐移植:ZCode `packages/services/src/providers/api/networkErrorClassifier.ts`
  * (建连阶段白名单 + `ETIMEDOUT`/`ECONNRESET` 须有 connect 阶段证据)与
  * `feedback/feedbackHttpClient.ts`(非幂等 POST 只在「肯定没发出」时重试)。
  * 按本仓语义收严两处:① 取消/超时在本仓下游是非幂等 POST ⇒ 直接判 `result-unknown`;

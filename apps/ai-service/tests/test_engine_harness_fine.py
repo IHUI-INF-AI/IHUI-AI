@@ -6,12 +6,12 @@
 
 覆盖:
 - 生成参数 / 推理配置(modelParams + reasoning:解析/冻结/透传 spec/非法拒绝)
-- 负向工具过滤(denyTools,对标 Codex per-app omit_tools_from)
-- 引擎事件面:environment_context(环境快照)/ turn.usage(对标 TokenCount)
-- loop 侧:llm.retry 重试/限流事件(对标 Codex StreamError)+ model_params 透传
-- 引擎内置工具:update_plan(对标 plan tool)/ spawn_subagent(对标 collab)/
-  view_image(对标 view_image,工作区路径校验)
-- thread.compact(对标 /compact + ContextCompacted)/ thread.export(rollout 导出)
+- 负向工具过滤(denyTools,遵循统一工程规范)
+- 引擎事件面:environment_context(环境快照)/ turn.usage(对齐 TokenCount)
+- loop 侧:llm.retry 重试/限流事件(遵循统一工程规范)+ model_params 透传
+- 引擎内置工具:update_plan(对齐 plan tool)/ spawn_subagent(对齐 collab)/
+  view_image(对齐 view_image,工作区路径校验)
+- thread.compact(对齐 /compact + ContextCompacted)/ thread.export(rollout 导出)
 """
 
 import base64
@@ -101,7 +101,7 @@ def _mock_hook_engine(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_llm_retry_event_emitted_with_rate_limited_flag(_mock_hook_engine):
-    """LLM 调用失败重试时发 llm.retry;429 语义标注 rate_limited(对标 StreamError)。"""
+    """LLM 调用失败重试时发 llm.retry;429 语义标注 rate_limited(对齐 StreamError)。"""
     calls = {"n": 0}
 
     async def _flaky_llm(messages, tools):
@@ -216,7 +216,7 @@ async def test_generation_config_invalid_values_rejected():
 
 @pytest.mark.asyncio
 async def test_deny_tools_filters_builtins_and_enters_spec():
-    """denyTools:内置工具被剔除,deny_tools 进 spec(对标 omit_tools_from)。"""
+    """denyTools:内置工具被剔除,deny_tools 进 spec(对齐 omit_tools_from)。"""
     engine, loops = _engine()
     started = await _rpc(
         engine, "thread.start", {"denyTools": ["spawn_subagent", "view_image"]}
@@ -247,7 +247,7 @@ async def test_tools_whitelist_gates_builtins():
 
 @pytest.mark.asyncio
 async def test_environment_context_and_turn_usage_emitted():
-    """prompt 每轮发 environment_context;回合结束发 turn.usage(对标 TokenCount)。"""
+    """prompt 每轮发 environment_context;回合结束发 turn.usage(对齐 TokenCount)。"""
     engine, _ = _engine()
     notifications: list[dict[str, Any]] = []
 

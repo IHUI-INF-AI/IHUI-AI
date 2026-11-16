@@ -164,7 +164,7 @@ function addedRemovedColor(text: string, vm: TaskStatusBarViewModel): string {
  * 文案取词:优先走 cli 的 `t()`。
  * 实测 `src/i18n/index.ts` 的 MESSAGES_DIR 固定指向 `packages/i18n/messages/cli`,
  * 而 `taskStatus` 键在 `messages/shared/*`(cli 读不到),且 cli 语言包禁止在本任务内扩充;
- * 故 t() 未命中(返回键名本身)时回落到与 shared 逐字对齐的最小中文。
+ * 故 t() 未命中(返回键名本身)时回落到与 shared 按行为规格的最小中文。
  * 将来 cli 语言包补上 taskStatus.* 后,这里无需改动即自动跟随翻译。
  */
 function label(key: string, fallback: string, params?: Record<string, string | number>): string {
@@ -409,7 +409,7 @@ export function injectionNoteText(event: InjectionAppliedEvent): string {
 
 /** D39 重试交代:retryInMs=0 是"换 key 立即重试",措辞不得写"0 秒后继续"这种假精确 */
 /**
- * G-153(WorkBuddy 一手对标):权限档必须交代**后果**,只报档名等于让用户盲选。
+ * G-153(WorkBuddy 一手对齐):权限档必须交代**后果**,只报档名等于让用户盲选。
  * 未知档返回空串(调用方据此不打印) —— 不给一个回显键名的假说明。
  */
 const PERM_NOTE_KEYS: Record<string, string> = {

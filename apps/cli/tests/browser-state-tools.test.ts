@@ -6,7 +6,7 @@
 /**
  * browser 状态查询工具(browser_get_bounding_box / get_state / get_attribute)。
  *
- * 对标 Trae 的 browser_get_bounding_box + is_visible/is_enabled/is_checked +
+ * 遵循统一工程规范
  * get_attribute/get_input_value 那一整族读侧工具。它们的价值在「点之前先确认」:
  * 缺了它们,模型只能靠 snapshot 的文本猜元素状态,点禁用项 / 勾错复选框会静默发生。
  *

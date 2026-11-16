@@ -11,7 +11,7 @@ export const metadata: Metadata = {
     absolute: 'Agent Step 录制回放 | IHUI AI',
   },
   description:
-    'IHUI AI Agent Step 录制回放:输入 run_id 回放 Agent 运行的逐步工具调用时间线,含 Token、耗时、成本与成败统计,实现可复现审计,对标 WorkBuddy/Codex。',
+    'IHUI AI Agent Step 录制回放:输入 run_id 回放 Agent 运行的逐步工具调用时间线,含 Token、耗时、成本与成败统计,实现可复现审计,对齐统一规范。',
   alternates: { canonical: '/agent-step-recorder' },
   openGraph: {
     type: 'website',

@@ -239,7 +239,7 @@ export function SourceControlPanel() {
     }
   }
 
-  // D178:分支切换未提交改动保护(对标竞品 environment.preserveChangesAction"保存改动并检出")。
+  // D178:分支切换未提交改动保护(对齐竞品 environment.preserveChangesAction"保存改动并检出")。
   // 检出前先探 `git status --porcelain`:非空 → 拦下弹确认;确认后 `git stash push` 把
   // 未提交改动(含未跟踪)存入 stash 再检出,改动不丢失;探测失败按原直达路径降级。
   const handleBranchCheckout = async (target: string) => {

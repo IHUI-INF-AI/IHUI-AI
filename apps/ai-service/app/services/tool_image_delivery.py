@@ -2,7 +2,7 @@
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-"""工具结果图片交付(2026-11-14 立,对标 DSH dsh-tool-fs/src/read-image.ts)。
+"""工具结果图片交付(2026-11-14 立,遵循统一工程规范)。
 
 `read_image` 的返回值只带小体积元数据(content_id/尺寸/字节数),图片本体经进程内
 有界暂存交给 agent 循环:循环在本轮全部 tool 消息之后追加一条 role=user 的
@@ -14,7 +14,7 @@
 暂存有界(8 条)+ TTL(10 分钟)+ 弹出式消费,不构成跨会话通道;条目只含本次
 read_image 已验证过的字节,循环取不到时就不注入(降级为纯文字元数据)。
 
-与 DSH 的差异如实记录:DSH 把图片写入持久附件库并让 content block 引用 attachmentId;
+与 外部实现 的差异如实记录:外部实现 把图片写入持久附件库并让 content block 引用 attachmentId;
 IHUI 没有同一套附件库,这里用进程内有界暂存,续跑重放只回放文字元数据。
 """
 
@@ -28,7 +28,7 @@ from app.core.bounded_ttl_store import BoundedTtlDict
 
 #: 单张图片字节上限(与 vision_analyze 的本地文件上限同档)
 MAX_IMAGE_BYTES = 10 * 1024 * 1024
-#: 单边像素上限与解码像素总量上限(对标 DSH imageLimits.maxImageDimension / maxImagePixels)
+#: 单边像素上限与解码像素总量上限(遵循统一工程规范)
 MAX_IMAGE_DIMENSION = 12_000
 MAX_IMAGE_PIXELS = 50_000_000
 #: 暂存条数上限:一次工具轮最多交付几张图,超出按最旧逐出
@@ -78,9 +78,9 @@ def media_type_for_path(path: Path) -> str | None:
 def prepare_image_file(path: Path) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
     """读取并校验图片文件,返回 (交付载荷, 错误)。
 
-    校验与 DSH 同序:扩展名声明 → 文件头签名 → 解码/降采样。扩展名与签名不一致
+    校验与 外部实现 同序:扩展名声明 → 文件头签名 → 解码/降采样。扩展名与签名不一致
     直接拒绝(改错扩展名的文件交出去会让模型按错误格式理解内容)。无扩展名的
-    文件按文件头识别(与 DSH 一致)。
+    文件按文件头识别(与 外部实现 一致)。
     """
     if path.suffix and media_type_for_path(path) is None:
         return None, {
@@ -310,7 +310,7 @@ def peek_image_preview(result: Any) -> str:
 
 
 def format_image_envelope(item: dict[str, Any]) -> str:
-    """模型可读的图片信封(与 DSH formatImageReadOutput 同形)。"""
+    """模型可读的图片信封(与 外部实现 formatImageReadOutput 同形)。"""
     scaled = ""
     width = int(item.get("width") or 0)
     height = int(item.get("height") or 0)

@@ -81,7 +81,7 @@ export const chatConversations = pgTable(
     // BUG-50:分享链接过期时间。此前分享链接永不过期且无撤销入口,任何拿到 token 的人可永久查看。
     // 设为 NULL = 无过期(仅用于历史存量兼容,迁移已统一回填为有限期);新建分享必带有限期。
     shareTokenExpiresAt: timestamp('share_token_expires_at', { withTimezone: true }),
-    // D35(2026-09-24 立):长会话历史投影状态(对标 Codex thread_history_projection_state)。
+    // D35(2026-09-24 立):长会话历史投影状态(遵循统一工程规范)。
     // null = 尚未投影过;形态 { nextRolloutByteOffset, nextRolloutOrdinal, lastRolledAt }:
     // nextRolloutByteOffset 为增量回放的字节断点(流式续读),nextRolloutOrdinal 为
     // turn 级语义断点。投影器写入与消费在后续段落接线,本段先立列。
@@ -131,7 +131,7 @@ export const chatMessages = pgTable(
   (t) => ({
     // 2026-09-06 P0:按会话取消息/计数为热路径,缺 conversation_id 索引全表扫描
     convIdx: index('ix_chat_messages_conversation').on(t.conversationId),
-    // D35:turn 分片拉取热路径(对标 Codex idx_thread_items_by_turn_updated_page)
+    // D35:turn 分片拉取热路径(遵循统一工程规范)
     turnIdx: index('idx_chat_messages_by_turn').on(t.conversationId, t.turnOrdinal),
     // 2026-10-03(机主决策:不生成迁移,等机主另行拍板):留存期清理按 created_at 单列扫描
     // (`DELETE FROM chat_messages WHERE created_at < 阈值`)。原有两索引首列都是

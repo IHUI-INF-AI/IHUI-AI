@@ -8,7 +8,7 @@ import { relayErrorPassthroughRules, type RelayErrorPassthroughRule } from '@ihu
 import { logger } from '../utils/logger.js'
 
 /**
- * 上游错误透传服务(2026-09-16 立,五轮补强,对标竞品 /error-passthrough-rules)。
+ * 上游错误透传服务(2026-09-16 立,五轮补强,对齐竞品 /error-passthrough-rules)。
  *
  * 职责:
  * 1. CRUD(管理端配置规则)

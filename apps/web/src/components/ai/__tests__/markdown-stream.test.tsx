@@ -208,10 +208,12 @@ describe('MarkdownStream - P2-1 流式 Markdown 增强', () => {
     expect(button?.className).toMatch(/hover:bg-/)
     expect(button?.className).not.toMatch(/hover:border-blue/)
     expect(button?.className).not.toMatch(/hover:border-black/)
-    // 按钮尺寸 h-8 w-8(2026-09-17 用户指令:全项目图标按钮唯一尺寸 32×32),圆角 rounded-md
-    expect(button?.className).toContain('h-8')
-    expect(button?.className).toContain('w-8')
-    expect(button?.className).toContain('rounded-md')
+    // 2026-11-16 用户口径:代码块头行与思考/过程叙述头行的字号/粗细/大小/描边/背景必须一致。
+    // 头行 24px ⇒ 行内动作走 STREAM_HEADER_ACTION_CLASS(24px 紧凑档,rounded-sm),
+    // 不再用 32px IconButton(会把头行撑高,三处头行尺寸就不再相等)。
+    expect(button?.className).toContain('w-6')
+    expect(button?.className).toContain('rounded-sm')
+    expect(button?.className).not.toContain('h-8')
   })
 
   it('纯文本语言(text/plain)不走 SyntaxHighlighter,直接渲染 <pre>', () => {

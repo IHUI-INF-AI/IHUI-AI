@@ -6,7 +6,7 @@
  * 声明式权限名录入层 —— 对侧 33 条权限名的**归属表**(goal-b49/W6 立)。
  *
  * 取证锚点(现读一次,只取键名,未取任何对方源码正文):
- *   `G:/Qoder CN/resources/extensions/catalog.v1.json` → 10 枚插件的 `manifest.permissions`
+ *   `外部程序 CN/resources/extensions/catalog.v1.json` → 10 枚插件的 `manifest.permissions`
  *   去重 = **33 条点分权限名**(与取证册 `docs/benchmark-evidence/2026-11/qoder-trae-workbuddy-rea-20261105/`
  *   `Q1-qoder-cn-main-bundle.md` §3 #8 的计数一致)。对侧把它们**原样声明**给宿主,
  *   没有任何"这条权限能碰到哪一类数据"的运行期切分。

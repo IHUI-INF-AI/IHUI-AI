@@ -62,6 +62,7 @@ import { fileURLToPath } from 'node:url'
 import { execFileSync } from 'node:child_process'
 import { tmpdir } from 'node:os'
 import { gitRaw } from './lib/face-reader.mjs'
+import { scratchRoot } from './lib/scratch-dir.mjs'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 export const EXIT_OK = 0
@@ -140,9 +141,31 @@ export function isUnderWorktreesRoot(p, root = ROOT) {
  * 是"遗留工作树"积压的根因。现扩到"与主仓同盘的同级兄弟检出"——`basename` 以
  * `<主仓名>-` 起头(如 `IHUI-AI-wt-x`);仓外其它盘(C:/E:)一律不进射程。
  * gitdir 本身由调用方用 `gitDirPath` 排除,不在此处兜底。
+ *
+ * 2026-11-17 根治第二轮:scratch 家族纳入射程。safe-commit 的基线面/他人面
+ * (`gate-baseline-*`、`gate-foreign-*`)走 `git worktree add --detach` 落在
+ * `scratchRoot()`(`<repo>/.DevEnv/Temp/ihui-scratch` 或盘根同族)之下,清理靠
+ * `process.on('exit')` —— SIGKILL/超时被杀时不触发 ⇒ 目录+注册一起残留;而兜底的
+ * scrub-temp-fixtures 只删物理目录、不摘 git 注册 ⇒ 幽灵注册 + 堆积。落点闸原只认
+ * `.worktrees/` 与同盘兄弟,scratch 家族恒在射程外,故 24h 回收腿对它们结构性空转。
+ * 现把 scratch 根也列为批准落点;**安全实质仍由后四闸(非 locked ∧ 干净 ∧ 空闲 ∧
+ * 并入/tag 保活)承担,一条不弱化**,本闸只决定"看不看",不决定"删不删"。
+ * scratch 根从 scratch-dir.mjs 的 `scratchRoot()` 单源现读(§22c,不在此硬编码路径);
+ * 构造面可注入 `scratchRoots` 供自测,不与本机盘符绑定。
  */
-export function isReapLocationApproved(path, root = ROOT, worktreesRoot = WT_DIR) {
+export function isReapLocationApproved(
+  path,
+  root = ROOT,
+  worktreesRoot = WT_DIR,
+  scratchRoots = null,
+) {
   if (isUnderDir(path, worktreesRoot)) return true
+  // scratch 家族:每个 scratch 根之下的检出都进射程(供后四闸裁决)。用 resolved 比较,
+  // 且与主树/gitdir 的排除仍由调用方负责,不在本闸兜底。
+  const roots = scratchRoots ?? defaultScratchRoots()
+  for (const sr of roots) {
+    if (sr && isUnderDir(path, sr)) return true
+  }
   const rp = resolve(root)
   const p = resolve(path)
   const sameDrive =
@@ -152,6 +175,16 @@ export function isReapLocationApproved(path, root = ROOT, worktreesRoot = WT_DIR
   if (sameDrive && samePath(dirname(p), dirname(rp)) && basename(p).startsWith(`${basename(rp)}-`))
     return true
   return false
+}
+
+/** scratch 批准根的单一来源:现读 scratch-dir,取不到不计(未判定不猜红,§0.3)。 */
+function defaultScratchRoots() {
+  try {
+    const r = scratchRoot()
+    return r ? [resolve(r)] : []
+  } catch {
+    return []
+  }
 }
 
 /**
@@ -273,12 +306,16 @@ export function evaluateReapCandidate({
   worktreesRoot = join(ROOT, '.worktrees'),
   gitDirPath = null,
   tagUnmerged = false,
+  scratchRoots = null,
 } = {}) {
   // gitdir 本身(.git 指针指向处)永不进射程:删它会毁仓。
   if (gitDirPath && samePath(path, absoluteFromRoot(root, gitDirPath)))
     return { action: 'skip', reason: 'gitdir 本身不进射程' }
-  if (!isReapLocationApproved(path, root, worktreesRoot))
-    return { action: 'skip', reason: '不在批准落点(.worktrees/ 或主仓同盘兄弟检出;仓外落点不扩)' }
+  if (!isReapLocationApproved(path, root, worktreesRoot, scratchRoots))
+    return {
+      action: 'skip',
+      reason: '不在批准落点(.worktrees/ / 主仓同盘兄弟检出 / scratch 家族;仓外落点不扩)',
+    }
   // 身份形态闸(替代旧命名闸):detached 与有分支两类之外判不出形态 ⇒ 保守保留。
   // 此闸不表达安全属性、只表达"这张检出归谁/是什么",故不再按分支名收口。
   if (!detached && !branch)
@@ -381,6 +418,9 @@ export function evaluateOrphanDir({
   minIdleDays = 1,
   graceDays = 1,
   explicitPurge = false,
+  // 孤儿腿永不认 scratch 家族:scratch 根下都是活跃夹具的临时目录,不是"检出壳"。
+  // 显式空数组锁定,即便将来 listCandidateOrphanDirs 扩大扫描面也不会误伤夹具(防御性)。
+  scratchRoots = [],
 } = {}) {
   if (!isDirectory || isSymlink)
     return { action: 'skip', reason: '非普通目录或为链接/挂载点(不进射程)' }
@@ -388,7 +428,7 @@ export function evaluateOrphanDir({
   const gitDirAbs = gitDirPath ? absoluteFromRoot(root, gitDirPath) : null
   if (samePath(path, root) || (gitDirAbs && samePath(path, gitDirAbs)))
     return { action: 'skip', reason: '主工作树 / gitdir 本身绝不进射程' }
-  if (!isReapLocationApproved(path, root, worktreesRoot))
+  if (!isReapLocationApproved(path, root, worktreesRoot, scratchRoots))
     return { action: 'skip', reason: '不在批准落点' }
   if (registeredPaths.some((r) => samePath(r, path)))
     return { action: 'skip', reason: '仍在 git worktree list 登记面(归正常回收腿)' }
@@ -797,6 +837,56 @@ function selfTest() {
     }).action === 'remove',
     '根层兄弟检出应进回收射程(根治:覆盖 .worktrees/ 之外)',
   )
+  // 2026-11-17 根治第二轮:scratch 家族(safe-commit 基线面/他人面)进回收射程
+  const SCRATCH = '/repo/IHUI-AI/.DevEnv/Temp/ihui-scratch'
+  assert(
+    evaluateReapCandidate({
+      path: `${SCRATCH}/gate-foreign-abc/face`,
+      detached: true,
+      sha: 'a'.repeat(40),
+      merged: true,
+      lastActivityMs: 1,
+      now,
+      minIdleDays: 0,
+      root: '/repo/IHUI-AI',
+      worktreesRoot: '/repo/IHUI-AI/.worktrees',
+      scratchRoots: [SCRATCH],
+      gitDirPath: '/repo/IHUI-AI-git-repo',
+    }).action === 'remove',
+    'scratch 家族的干净+已并入检出应进回收射程',
+  )
+  assert(
+    evaluateReapCandidate({
+      path: `${SCRATCH}/gate-foreign-abc/face`,
+      detached: true,
+      merged: false,
+      lastActivityMs: 1,
+      now,
+      minIdleDays: 0,
+      root: '/repo/IHUI-AI',
+      worktreesRoot: '/repo/IHUI-AI/.worktrees',
+      scratchRoots: [SCRATCH],
+      tagUnmerged: true,
+      gitDirPath: '/repo/IHUI-AI-git-repo',
+    }).action === 'tag-then-remove',
+    'scratch 家族未并入检出走 tag-then-remove(保活不丢现场)',
+  )
+  assert(
+    evaluateReapCandidate({
+      path: `${SCRATCH}/gate-foreign-abc/face`,
+      detached: true,
+      merged: true,
+      dirty: true,
+      lastActivityMs: 1,
+      now,
+      minIdleDays: 0,
+      root: '/repo/IHUI-AI',
+      worktreesRoot: '/repo/IHUI-AI/.worktrees',
+      scratchRoots: [SCRATCH],
+      gitDirPath: '/repo/IHUI-AI-git-repo',
+    }).action === 'skip',
+    'scratch 家族的脏检出仍保留(安全四闸不弱化)',
+  )
   // gitdir 本身绝不进射程(即使同名前缀匹配也排除)
   assert(
     evaluateReapCandidate({
@@ -912,6 +1002,17 @@ function selfTest() {
   assert(
     evaluateOrphanDir({ ...orphan, path: '/elsewhere/IHUI-AI-wt-x' }).action === 'skip',
     '批准落点之外必须保留',
+  )
+  assert(
+    evaluateOrphanDir({
+      ...orphan,
+      path: '/repo/IHUI-AI/.DevEnv/Temp/ihui-scratch/gate-foreign-abc/face',
+      registeredPaths: [],
+      root: '/repo/IHUI-AI',
+      worktreesRoot: '/repo/IHUI-AI/.worktrees',
+      scratchRoots: [],
+    }).action === 'skip',
+    '孤儿腿永不认 scratch 家族(防御性,即便路径在批准面)',
   )
   assert(
     evaluateOrphanDir({ ...orphan, hasGitPointer: true }).action === 'skip',

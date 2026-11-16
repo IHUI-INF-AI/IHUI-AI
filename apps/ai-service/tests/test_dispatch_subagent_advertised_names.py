@@ -91,9 +91,9 @@ def _advertised_names(desc: str, marker: str = MARKER) -> list[str]:
 
 def _dispatch_tool_description() -> str:
     for t in mcp_server.list_tools():
-        if t.name == "dispatch_subagent":
+        if t.name == "orchestrate_agents":
             return t.description
-    raise AssertionError("list_tools() 里已找不到 dispatch_subagent(工具被摘线/改名)")
+    raise AssertionError("list_tools() 里已找不到 orchestrate_agents(工具被摘线/改名)")
 
 
 def test_every_advertised_name_resolves() -> None:
@@ -112,8 +112,8 @@ def test_every_advertised_name_resolves() -> None:
 
 def _deferred_description() -> str:
     """第二条广告面:deferral 反查入口(TOOL_DEFERRAL=on 时模型唯一的完整描述来源)。"""
-    schema = get_full_tool_schema("dispatch_subagent")
-    assert schema is not None, "deferral 注册表里没有 dispatch_subagent(注册面被摘线/改名)"
+    schema = get_full_tool_schema("orchestrate_agents")
+    assert schema is not None, "deferral 注册表里没有 orchestrate_agents(注册面被摘线/改名)"
     desc = schema.get("description")
     assert isinstance(desc, str) and desc, "反查面交回的描述为空"
     return desc

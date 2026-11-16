@@ -4,7 +4,7 @@
 
 /**
  * Unified Diff 模块单元测试。
- * 对标 xai-hunk-tracker/src/diff.rs::tests 的核心场景。
+ * 对齐 xai-hunk-tracker/src/diff.rs::tests 的核心场景。
  */
 
 import { describe, it, expect } from 'vitest'

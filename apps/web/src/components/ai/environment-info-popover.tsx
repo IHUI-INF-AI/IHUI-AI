@@ -242,7 +242,7 @@ function PopoverBody({
   const totalChanges = added + deleted + otherChanges
   const canCommitPush = totalChanges > 0 || ahead > 0
 
-  // 行级增删统计(对标 Cursor +N/-M);后端未返回或全 0 时降级为文件数
+  // 行级增删统计(遵循统一工程规范);后端未返回或全 0 时降级为文件数
   const lineStats = snapshot.lineStats ?? null
   const hasLineStats = !!lineStats && (lineStats.additions > 0 || lineStats.deletions > 0)
   const platform = snapshot.platform ?? 'other'

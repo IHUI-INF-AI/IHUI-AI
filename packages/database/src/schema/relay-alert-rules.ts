@@ -18,7 +18,7 @@ import {
 } from 'drizzle-orm/pg-core'
 
 /**
- * 中转站告警规则表(relay_alert_rules,2026-09-16 立,深度对标补强 U)。
+ * 中转站告警规则表(relay_alert_rules,2026-09-16 立,深度对齐补强 U)。
  *
  * 与静态 alert-notification-service 的区别:本表是**用户可自定义的规则引擎**——
  * 运营者定义"指标 + 比较符 + 阈值 + 评估窗口",评估调度器(relay-alert-evaluation

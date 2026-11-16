@@ -8,7 +8,7 @@ import { db } from '../db/index.js'
 import { relayPlugins, type RelayPlugin } from '@ihui/database'
 
 /**
- * 中转站插件服务(2026-09-17 立,补强 59,对标竞品 /plugins)。
+ * 中转站插件服务(2026-09-17 立,补强 59,对齐竞品 /plugins)。
  *
  * 设计:声明式插件,零任意代码执行——每个 plugin_type 对应一个服务层内置
  * 解释器,配置为纯 JSON(以下 zod schema 强约束),从结构上杜绝竞品代码级
@@ -222,10 +222,7 @@ export interface RequestBlockContext {
 }
 
 /** request_block 解释器:命中返回拦截文案,未命中返回 null。 */
-function evaluateRequestBlock(
-  plugins: RelayPlugin[],
-  ctx: RequestBlockContext,
-): string | null {
+function evaluateRequestBlock(plugins: RelayPlugin[], ctx: RequestBlockContext): string | null {
   for (const p of plugins) {
     if (p.pluginType !== 'request_block') continue
     const cfg = requestBlockConfigSchema.safeParse(p.config)

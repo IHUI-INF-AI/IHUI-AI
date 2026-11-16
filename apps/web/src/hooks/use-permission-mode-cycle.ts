@@ -23,7 +23,7 @@ import type { WorkspacePermissionMode } from '@ihui/api-client/endpoints/workspa
 import { permissionTierText } from '@/lib/permission-tier-text'
 // 权限档取词(G-166):档位归一与词表键的共享真相源,见 packages/shared/src/chat/permission-tier.ts
 
-/** 模式循环顺序(2026-07-25 深化,深度对标 Codex CLI Shift+Tab 循环切换)
+/** 模式循环顺序(2026-07-25 深化,深度遵循统一工程规范)
  * default(请求批准) → accept-edits(替我审批) → bypass-permissions(完全访问) → plan(只读) → default
  *
  * 两条排序依据,别随手调整:
@@ -44,7 +44,7 @@ const PERMISSION_CYCLE: WorkspacePermissionMode[] = [
  */
 
 /**
- * 权限模式循环切换 hook(2026-07-29 提取自 message-input.tsx,深度对标 Codex CLI Shift+Tab 循环)
+ * 权限模式循环切换 hook(2026-07-29 提取自 message-input.tsx,深度遵循统一工程规范)
  *
  * 职责:
  * - ? 键唤起/关闭 PermissionShortcutsModal(短按 ? 切换)
@@ -90,7 +90,7 @@ export function usePermissionModeCycle(): {
   const pendingPermissionMode = useAiPanelStore((s) => s.pendingPermissionMode)
   const activeWorkspaceMode = activeWorkspace?.mode ?? pendingPermissionMode ?? undefined
 
-  // 权限模式可发现性增强(2026-07-25 深化,深度对标 Codex CLI /help):
+  // 权限模式可发现性增强(2026-07-25 深化,深度遵循统一工程规范):
   // - shortcutsOpen: ? 键唤起/关闭 PermissionShortcutsModal
   const [shortcutsOpen, setShortcutsOpen] = React.useState(false)
 
@@ -123,7 +123,7 @@ export function usePermissionModeCycle(): {
     return () => document.removeEventListener('keydown', onKey)
   }, [])
 
-  // 权限模式快捷切换(2026-07-25 深化,深度对标 Codex CLI Shift+Tab 循环):
+  // 权限模式快捷切换(2026-07-25 深化,深度遵循统一工程规范):
   // - 模式改变时同步到 localStorage(只记忆非默认,避免污染用户)
   // - Shift+Tab 在 3 个模式间循环切,跳过斜杠面板/提及面板打开时
   // - 切到 bypass-permissions 复用 PermissionModePopover 同一撤销 toast
@@ -132,7 +132,7 @@ export function usePermissionModeCycle(): {
     rememberPreferredPermissionMode(activeWorkspaceMode)
   }, [activeWorkspaceMode])
 
-  // 权限模式切换历史记录(2026-07-25 立,深度对标 Codex CLI 审计能力):
+  // 权限模式切换历史记录(2026-07-25 立,深度遵循统一工程规范):
   // - activeWorkspaceMode 变化时追加 1 条记录到 localStorage
   // - source 暂用 'popover' 作为默认,具体来源由调用方通过 __IHUI_RECORD_MODE_CHANGE__ 句柄覆盖
   // - 不在 hook 内做来源判断(避免 popover/Shift+Tab/slash 三处分别改 1 个 if)

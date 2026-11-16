@@ -221,7 +221,7 @@ describe('D38 QueueInteractionBar / 渲染结构与四动作', () => {
     expect(onReorder).toHaveBeenCalledTimes(2)
   })
 
-  // ── 「插到队首」(Qoder sendNow 形态对标,2026-10-28):undo 同门,非队首项一键到队首 ──
+  // ── 「插到队首」(Qoder sendNow 形态对齐,2026-10-28):undo 同门,非队首项一键到队首 ──
   it('插到队首:仅非队首项渲染入口(队首项本就置顶,不给无效钮)', () => {
     const { container } = render(<QueueInteractionBar {...baseProps()} />)
     const btns = container.querySelectorAll('[data-queue-op="sendNow"]')

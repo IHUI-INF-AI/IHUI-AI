@@ -25,7 +25,7 @@ import { SpecBranchesTab } from './spec-panel/SpecBranchesTab'
 import { SpecGenerateTab } from './spec-panel/SpecGenerateTab'
 
 /**
- * Spec 模式专用面板(2026-07-22 立,对标 自研 IDE Spec 模式)。
+ * Spec 模式专用面板(2026-07-22 立,对齐 自研 IDE Spec 模式)。
  *
  * 从代码 AST 反向生成规格文档(markdown):
  * - scope 选择:单文件 / 目录 / 全工作区
@@ -34,7 +34,7 @@ import { SpecGenerateTab } from './spec-panel/SpecGenerateTab'
  * - 对比当前 → POST /api/spec/diff(unified diff 行级着色)
  * - 导出 → 下载 spec markdown 文件
  *
- * 2026-07-22 深化(对标 Copilot Workspace / Aider):
+ * 2026-07-22 深化(对齐 Copilot Workspace / Aider):
  * - 代码生成标签页:POST /api/spec/apply → LLM 生成 patch + 应用按钮
  * - 评审标签页:submit / approve / reject 状态机
  * - 任务拆分标签页:POST /api/spec/split-tasks → LLM 拆分任务

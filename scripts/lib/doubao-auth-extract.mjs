@@ -41,6 +41,8 @@ const require = createRequire(import.meta.url)
 
 /** DPAPI/Local State AES 密钥单一源:复用 codearts 提取器已实证的实现(§0.6) */
 import { readAesKeyFromLocalState } from './codearts-auth-extract.mjs'
+/** 上游账号信息(手机号)读取(2026-11-17);默认定名不联网,须显式 fetchPhone:true */
+import { fetchDoubaoAccountPhone } from './doubao-account-info.mjs'
 
 /**
  * 会话族 cookie 键名探测清单(2026-10-27 本机实证的字节 passport 族在前,
@@ -304,10 +306,107 @@ export function deriveAccountUid(validEntries) {
   }
 }
 
+/** 本机豆包所有已登录 profile(Default + Profile N),只收真的带 Cookies 库的目录 */
+export function listDoubaoProfiles(userDataDir) {
+  try {
+    return fs
+      .readdirSync(userDataDir, { withFileTypes: true })
+      .filter((d) => d.isDirectory() && /^(Default|Profile \d+)$/.test(d.name))
+      .map((d) => d.name)
+      .filter((name) => fs.existsSync(path.join(userDataDir, name, 'Network', 'Cookies')))
+      .sort((a, b) => {
+        if (a === 'Default') return -1
+        if (b === 'Default') return 1
+        return Number(a.slice('Profile '.length)) - Number(b.slice('Profile '.length))
+      })
+  } catch {
+    return []
+  }
+}
+
+/** 单 profile 提取:失败按原判据 throw(DOUBAO_NO_SESSION / DOUBAO_COOKIES_UNREADABLE) */
+async function extractSessionForProfile(dir, profile, opts) {
+  const { entries, skips, dbPath } = readCookieSessionRows(dir, profile, {
+    shellBin: opts.shellBin,
+  })
+  const { valid, skipped } = pickImportableEntries(entries)
+  if (valid.length === 0) {
+    throw Object.assign(
+      new Error(
+        `Cookies 库在盘但 0 条会话族命中(未登录或键名/域清单过期 ⇒ 未判定)。` +
+          `profile=${profile};取证注记: ${skips.join('; ') || '(无)'}`,
+      ),
+      { code: 'DOUBAO_NO_SESSION' },
+    )
+  }
+  // 捆绑单账号(2026-10-28):豆包登录态 = 一整套字节 passport 族 cookie,
+  // 拆成逐 cookie 多行号池没有意义(转发适配器 doubao-adapter 吃的就是整包 cookiesEnc)。
+  // token 取主票(按登录判据优先级);uid 用账号级稳定族(见 deriveAccountUid 头注)。
+  const primary =
+    ['sessionid', 'sessionid_ss', 'sid_tt', 'uid_tt', 'ttwid', 'odin_tt']
+      .map((n) => valid.find((e) => e.key === n))
+      .find(Boolean) ?? valid[0]
+  const { uid: bundleUid, mode: uidMode } = deriveAccountUid(valid)
+  /**
+   * 跨界载荷补 `name` 同值别名(2026-11-06 Y-25,本票缺陷本体):下游两处消费方读的都是
+   * `name` —— ① service `mapSessionEntryImport` 的稳定键分支
+   * `stableKeyMaterial(c['name']) === 'uid_tt' | 'uid_tt_ss'`;② `doubao-adapter` 的
+   * `buildCookieHeader` 逐条拼 `${name}=${value}`。本模块内部条目一直是
+   * {source,key,host,value}(meta 摘要与 seed 都读 `key`;本文件头注第 26-27 行自述的
+   * **出界**形状本就是 {host,name,value}),只在出界这一格补齐 ⇒ 账号级稳定材料真能带出去,
+   * 换 sessionid 不再换 uid。`key` 保留 ⇒ 内部消费面零改动。
+   */
+  const cookiesPayload = valid.map((e) => ({ ...e, name: e.key }))
+  // 上游手机号(2026-11-17):显式 fetchPhone 才联网;取到全号直接用,取到掩码也先落
+  // `phone`(号池导入侧会用已知全号做前3后2唯一归位,见 matchPhoneCandidates)。
+  let upstreamPhone = null
+  if (opts.fetchPhone === true) {
+    try {
+      upstreamPhone = await fetchDoubaoAccountPhone(cookiesPayload, {
+        fetchImpl: opts.fetchImpl,
+        timeoutMs: opts.phoneTimeoutMs,
+        deviceId: valid.find((e) => e.key === 'ttwid')?.value ?? undefined,
+      })
+    } catch {
+      upstreamPhone = null
+    }
+  }
+  return {
+    account: {
+      name: upstreamPhone ?? `豆包本机(${primary.key},${valid.length}票)`,
+      ...(upstreamPhone ? { phone: upstreamPhone } : {}),
+      token: primary.value,
+      uid: bundleUid,
+      cookies: cookiesPayload,
+      enabled: true,
+    },
+    meta: {
+      bundle: true,
+      profile,
+      sourceDir: dir,
+      dbPath,
+      primaryCookie: `${primary.host}/${primary.key}`,
+      count: valid.length,
+      uidMode,
+      skipped,
+      // 只回显形态不回显号码:full=上游放全号 / masked=仅掩码 / unavailable=未取到
+      phone: !upstreamPhone ? 'unavailable' : upstreamPhone.includes('*') ? 'masked' : 'full',
+      notes: skips,
+      cookieNamesProbed: SESSION_COOKIE_NAMES,
+      sessions: valid.map(summarizeEntry),
+    },
+  }
+}
+
 /**
  * 提取本机豆包会话 → 编排器 payload。目录缺失(COOKIE 库也不在)⇒ DOUBAO_NO_SESSION;
  * 0 命中 ⇒ DOUBAO_NO_SESSION;库打不开 ⇒ DOUBAO_COOKIES_UNREADABLE。绝不静默返回空。
- * @param {{userDataDir?: string, profile?: string, shellBin?: string}} [opts] 仅供测试注入
+ *
+ * allProfiles=true(2026-11-17 立):豆包桌面端每个登录号各占一个 Chromium profile,
+ * 只读 Default 会漏掉后来新增的号。开启后逐 profile 提取、按稳定 uid 去重(同 uid 取
+ * cookie 更全的一份),供「继续加号」一条命令全量入池;默认仍只读 Default(旧口径不变)。
+ * @param {{userDataDir?: string, profile?: string, shellBin?: string, allProfiles?: boolean,
+ *          fetchPhone?: boolean, fetchImpl?: typeof fetch, phoneTimeoutMs?: number}} [opts]
  */
 export async function extractDoubaoAccounts(opts = {}) {
   const dirs = opts.userDataDir ? [opts.userDataDir] : candidateUserDataDirs()
@@ -321,77 +420,75 @@ export async function extractDoubaoAccounts(opts = {}) {
       { code: 'DOUBAO_NO_SESSION' },
     )
   }
-  let lastErr = null
+  if (opts.allProfiles !== true) {
+    let lastErr = null
+    for (const dir of existing) {
+      try {
+        const one = await extractSessionForProfile(dir, opts.profile ?? 'Default', opts)
+        return { providerCode: 'doubao', accounts: [one.account], meta: one.meta }
+      } catch (e) {
+        lastErr = e
+      }
+    }
+    throw lastErr ?? Object.assign(new Error('未判定'), { code: 'DOUBAO_UNKNOWN' })
+  }
+
+  const accountsByUid = new Map()
+  const profilesMeta = []
+  const failures = []
+  let sawAnyProfile = false
   for (const dir of existing) {
-    try {
-      const { entries, skips, dbPath } = readCookieSessionRows(
-        dir,
-        opts.profile ?? 'Default',
-        { shellBin: opts.shellBin },
-      )
-      const { valid, skipped } = pickImportableEntries(entries)
-      if (valid.length === 0) {
-        throw Object.assign(
-          new Error(
-            `Cookies 库在盘但 0 条会话族命中(未登录或键名/域清单过期 ⇒ 未判定)。` +
-              `取证注记: ${skips.join('; ') || '(无)'}`,
-          ),
-          { code: 'DOUBAO_NO_SESSION' },
-        )
+    for (const profile of listDoubaoProfiles(dir)) {
+      sawAnyProfile = true
+      try {
+        const one = await extractSessionForProfile(dir, profile, opts)
+        profilesMeta.push(one.meta)
+        const prev = accountsByUid.get(one.account.uid)
+        // 同一账号可能被复制出多个 profile:保留 cookie 更全的一份,避免互相覆盖
+        if (!prev || one.account.cookies.length > prev.account.cookies.length) {
+          accountsByUid.set(one.account.uid, one)
+        }
+      } catch (e) {
+        failures.push({
+          dir,
+          profile,
+          code: e.code ?? 'DOUBAO_UNKNOWN',
+          message: e.message,
+        })
       }
-      // 捆绑单账号(2026-10-28):豆包登录态 = 一整套字节 passport 族 cookie,
-      // 拆成逐 cookie 多行号池没有意义(转发适配器 doubao-adapter 吃的就是整包 cookiesEnc)。
-      // token 取主票(按登录判据优先级);uid 用账号级稳定族(见 deriveAccountUid 头注)。
-      const primary =
-        ['sessionid', 'sessionid_ss', 'sid_tt', 'uid_tt', 'ttwid', 'odin_tt']
-          .map((n) => valid.find((e) => e.key === n))
-          .find(Boolean) ?? valid[0]
-      const { uid: bundleUid, mode: uidMode } = deriveAccountUid(valid)
-      /**
-       * 跨界载荷补 `name` 同值别名(2026-11-06 Y-25,本票缺陷本体):下游两处消费方读的都是
-       * `name` —— ① service `mapSessionEntryImport` 的稳定键分支
-       * `stableKeyMaterial(c['name']) === 'uid_tt' | 'uid_tt_ss'`;② `doubao-adapter` 的
-       * `buildCookieHeader` 逐条拼 `${name}=${value}`。本模块内部条目一直是
-       * {source,key,host,value}(meta 摘要与 seed 都读 `key`;本文件头注第 26-27 行自述的
-       * **出界**形状本就是 {host,name,value}),只在出界这一格补齐 ⇒ 账号级稳定材料真能带出去,
-       * 换 sessionid 不再换 uid。`key` 保留 ⇒ 内部消费面零改动。
-       */
-      const cookiesPayload = valid.map((e) => ({ ...e, name: e.key }))
-      return {
-        providerCode: 'doubao',
-        accounts: [
-          {
-            name: `豆包本机(${primary.key},${valid.length}票)`,
-            token: primary.value,
-            uid: bundleUid,
-            cookies: cookiesPayload,
-            enabled: true,
-          },
-        ],
-        meta: {
-          bundle: true,
-          sourceDir: dir,
-          dbPath,
-          primaryCookie: `${primary.host}/${primary.key}`,
-          count: valid.length,
-          uidMode,
-          skipped,
-          notes: skips,
-          cookieNamesProbed: SESSION_COOKIE_NAMES,
-          sessions: valid.map(summarizeEntry),
-        },
-      }
-    } catch (e) {
-      lastErr = e
     }
   }
-  throw lastErr ?? Object.assign(new Error('未判定'), { code: 'DOUBAO_UNKNOWN' })
+  const picked = [...accountsByUid.values()]
+  if (picked.length === 0) {
+    throw Object.assign(
+      new Error(
+        sawAnyProfile
+          ? `本机 ${profilesMeta.length + failures.length} 个豆包 profile 均无可用会话(未登录/库不可读)⇒ 未判定`
+          : '豆包 User Data 下没有任何带 Cookies 的 Default/Profile 目录 ⇒ 未判定',
+      ),
+      { code: 'DOUBAO_NO_SESSION' },
+    )
+  }
+  return {
+    providerCode: 'doubao',
+    accounts: picked.map((p) => p.account),
+    meta: {
+      bundle: true,
+      allProfiles: true,
+      profileCount: profilesMeta.length + failures.length,
+      importedProfiles: profilesMeta.length,
+      dedupedAccounts: picked.length,
+      failures,
+      profiles: profilesMeta,
+    },
+  }
 }
 
 export const __test__ = {
   decryptOsCryptString,
   readCookieSessionRows,
   candidateUserDataDirs,
+  listDoubaoProfiles,
   summarizeEntry,
   pickImportableEntries,
   stripDoubaoAppPrefix,

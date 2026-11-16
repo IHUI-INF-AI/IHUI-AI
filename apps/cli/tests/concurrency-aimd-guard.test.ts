@@ -20,7 +20,7 @@ import path from 'node:path'
 const here = path.dirname(fileURLToPath(import.meta.url))
 const BUDGET = path.resolve(here, '../src/subagents/concurrency-budget.ts')
 
-/** 票面调用点清单(逐条抄自 concurrency-budget.ts 头注,勿按旧文档派单)。 */
+/** 票面调用点清单(逐条取自 concurrency-budget.ts 头注,勿按旧文档派单)。 */
 const CALLSITE_FILES = [
   '../src/subagents/worker-pool.ts',
   '../src/commands/subagent-collab.ts',

@@ -36,7 +36,7 @@ import { cn } from '@/lib/utils'
 import { BackButton, AuthGatePrompt } from '@/components/common'
 import { useAuthGate } from '@/hooks/use-auth-gate'
 import { useConfirm } from '@/hooks/use-confirm'
-// 一键接入配置生成器(2026-09-16,对标 Sub2API useKeyModal)
+// 一键接入配置生成器(2026-09-16,对齐 Sub2API useKeyModal)
 import { KeyUseDialog } from '@/components/developer/KeyUseDialog'
 
 interface RelayKey {

@@ -11,7 +11,6 @@ import {
   FilePen,
   Plus,
   Minus,
-  Wrench,
   Clock,
   Terminal,
   SquarePen,
@@ -24,7 +23,8 @@ import { FoldableSection, formatDuration } from './foldable-section'
 import { ShowMoreList } from './show-more-list'
 import { ACTIVITY_VIRTUAL_THRESHOLD } from './activity-virtual-window'
 import { ConnectorGroupSection } from './connector-group-section'
-import { resolveToolCategory } from './tool-category'
+import { CATEGORY_STREAM_KIND, resolveToolCategory } from './tool-category'
+import { streamKindIcon } from '@/components/chat/stream/stream-ui'
 import { FILE_WRITE_TOOLS, fileDirname, pickFilePath, toolDisplayKey } from '@ihui/shared/chat'
 import { useAnalytics } from '@/hooks/use-analytics'
 import {
@@ -482,7 +482,7 @@ export const ToolCallSummaryCard = React.memo(function ToolCallSummaryCard({
       label: t('toolSummaryFilesModified'),
       colorClass: 'text-amber-500/80',
     },
-    // ── 2026-10-29 补齐的三档(对标 Qoder buildToolsSummary 七项里的 directories /
+    // ── 2026-10-29 补齐的三档(遵循统一工程规范
     //    edits / terminalCommands)。插在"文件修改"之后、"行数"之前:语义上先"动了什么"
     //    再"改了多少行",与既有的 文件搜索 → 网页搜索 → 文件修改 顺序一致。
     //    取不到(undefined)的档不渲染 —— 后端 tool-summary 事件尚未携带这三键,
@@ -555,7 +555,7 @@ export const ToolCallSummaryCard = React.memo(function ToolCallSummaryCard({
     <FoldableSection
       title={title}
       count={effectiveSummary.totalCalls}
-      icon={Wrench}
+      icon={streamKindIcon(CATEGORY_STREAM_KIND[categoryRuns[0]?.categoryKey ?? 'other'])}
       summary={summaryText || undefined}
       defaultOpen={false}
       data-testid={testId ?? 'tool-call-summary-card'}

@@ -7,7 +7,7 @@
 契约来源(三重实证):
 - 桌面端 3.1.1 本机 api 日志(agent.minimax.cn 真请求:host/signin 端点/
   设备参数真值/Authorization Bearer 头形态);
-- 社区公开逆向(welldo/QinglongMy minimax_checkin.py:yy/x-signature 签名
+- 社区公开独立分析(welldo/QinglongMy minimax_checkin.py:yy/x-signature 签名
   算法与设备参数顺序);
 - 本机真 token 实测:renewal 直取 OAuth accessToken(mmoat_) →
   status 200 / claim 200(claim_result=2 已领幂等)。
@@ -467,7 +467,7 @@ async def minimax_query_credits(
 ) -> dict[str, Any]:
     """签到状态查询:返回 {"remaining": int|None, "error": str|None}。
 
-    MiniMax 无公开余额端点(社区仅逆向出签到面)⇒ remaining 恒 None 并如实
+    MiniMax 无公开余额端点(社区仅独立分析出签到面)⇒ remaining 恒 None 并如实
     报 error(宁缺勿假,调度器快照按 error 跳过)。
     """
     user_id = minimax_device_map_uid(device_map)

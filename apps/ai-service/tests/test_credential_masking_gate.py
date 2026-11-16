@@ -5,7 +5,7 @@
 
 """credential_masking_gate 单测 —— 按逐字 codex 错误锚断言三态 + 降级原因。
 
-对照物 codex.exe 26.1111 network-proxy crate 的 strings 证据（2026-11-15 下潜取证）。
+对照物 外部程序 26.1111 network-proxy crate 的 strings 证据（2026-11-15 下潜取证）。
 """
 
 from __future__ import annotations

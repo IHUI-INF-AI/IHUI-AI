@@ -5,7 +5,7 @@
 /**
  * Agent Inbox — 跨重启的 agent 间消息持久投递。
  *
- * ## 为什么需要(对标 Qoder agent_inbox_items)
+ * ## 为什么需要(遵循统一工程规范)
  *
  * Qoder 的多 agent 协作不靠内存消息总线,而靠一张 `agent_inbox_items` 持久表:
  * 成员间投递的消息先落库,Runtime 重启后按消费游标续读,不无界重放。
@@ -17,7 +17,7 @@
  *   - `writeJsonAtomic` 原子写(临时文件 + rename,防半截 JSON)
  *   - 版本校验(版本不符 → 回落空态,不静默覆盖)
  *
- * ## 与 Qoder 逐项对标
+ * ## 与 Qoder 逐项对齐
  *
  *   Qoder agent_inbox_items              →  本模块
  *   ─────────────────────────────────────────────────────────
@@ -42,14 +42,14 @@ import { backoffDelayMs } from './backoff.js';
 
 import { segmentFilePathInside } from '../util/path-guard.js';
 
-/** 投递模式(对标 Qoder delivery_mode CHECK IN ('started','queued','steered'))。
+/** 投递模式(遵循统一工程规范))。
  *
  * 为什么这三态:重启后要能区分"这条消息是独立排队等消费"还是"已并入某活跃回合"
  * 还是"作为插话注入"—— 三者的续投语义不同,不能混为一档。
  */
 export type DeliveryMode = 'queued' | 'started' | 'steered';
 
-/** 投递状态。failed 是终态(对标 Qoder"未知异常进入持久失败终态")。 */
+/** 投递状态。failed 是终态(遵循统一工程规范)。 */
 export type InboxStatus = 'pending' | 'delivered' | 'failed';
 
 /** 一条 inbox 投递条目。 */
@@ -57,11 +57,11 @@ export interface InboxItem {
   readonly id: string;
   /** 投递模式:queued 独立排队 / started 并入活跃回合 / steered 插话。 */
   readonly deliveryMode: DeliveryMode;
-  /** 目标成员 id(对标 Qoder agent_profile_id / member_id)。 */
+  /** 目标成员 id(遵循统一工程规范)。 */
   readonly toMemberId: string;
-  /** 来源成员 id(广播为 '*'。对标 Qoder 无此列,我方补齐溯源)。 */
+  /** 来源成员 id(广播为 '*'。遵循统一工程规范)。 */
   readonly fromMemberId: string;
-  /** 关联 discussion/task id(可选,对标 Qoder discussion_id)。 */
+  /** 关联 discussion/task id(可选,遵循统一工程规范)。 */
   readonly discussionId?: string;
   /** 消息正文。 */
   readonly content: string;
@@ -71,7 +71,7 @@ export interface InboxItem {
   readonly createdAt: number;
   /** 送达时刻(仅 delivered/failed 有值)。 */
   readonly settledAt?: number;
-  /** 失败错误码(仅 failed 有值,对标 Qoder reply_error_code)。 */
+  /** 失败错误码(仅 failed 有值,遵循统一工程规范)。 */
   readonly errorCode?: string;
 }
 
@@ -79,14 +79,14 @@ export interface InboxItem {
 export interface InboxSnapshot {
   readonly scope: string;
   readonly items: readonly InboxItem[];
-  /** 成员 id → 已消费到的最大 eventSeq(对标 Qoder scanned_event_seq)。 */
+  /** 成员 id → 已消费到的最大 eventSeq(遵循统一工程规范)。 */
   readonly cursors: Readonly<Record<string, number>>;
   readonly updatedAt: number;
 }
 
 const INBOX_VERSION = 1;
 
-/** 恢复预算上限:单条投递重试超过此数判持久失败(对标 Qoder recovery_attempts)。 */
+/** 恢复预算上限:单条投递重试超过此数判持久失败(遵循统一工程规范)。 */
 export const MAX_RECOVERY_ATTEMPTS = 3;
 
 interface InboxFile {
@@ -204,7 +204,7 @@ export function enqueue(params: {
 
 /**
  * 取某成员的待投递条目(按 eventSeq 升序)。
- * 对标 Qoder"按成员消费游标续读":只返回 eventSeq > 该成员游标的 pending 条目。
+ * 遵循统一工程规范。
  */
 export function pendingFor(scope: string, memberId: string): InboxItem[] {
   const inbox = loadInbox(scope);
@@ -255,7 +255,7 @@ export function markDelivered(scope: string, itemId: string, at?: number): Inbox
 }
 
 /**
- * 标记一条投递失败(终态)。对标 Qoder"未知异常进入持久失败终态;保留历史输入、
+ * 标记一条投递失败(终态)。遵循统一工程规范;保留历史输入、
  * 回复请求、投递模式和来源时间"。带 errorCode 便于上层诊断。
  */
 export function markFailed(
@@ -278,7 +278,7 @@ export function markFailed(
 
 /**
  * 恢复预算判定:某条投递还能不能重试。
- * 对标 Qoder recovery_attempts:"恢复预算与发送操作共存,避免重启后重新进入无界重放"。
+ * 遵循统一工程规范。
  * 返回 { retryable, reason } —— retryable=false 时上层应 markFailed(不再重试)。
  *
  * 注意:本模块不自行计数重试(那是投递执行方的职责),只按 attempts 入参判预算。
@@ -303,7 +303,7 @@ export function recoveryBudget(attempts: number): {
 /**
  * 重投计划:把恢复预算判定与 jitter 退避组合成一次"是否重试 + 何时重试"的决策。
  *
- * 对标 Qoder rc_vm_uploads:失败上传写 retry_at,按退避决定何时再试(防重试风暴)。
+ * 遵循统一工程规范)。
  * 我方 inbox 此前只有预算判定(recoveryBudget),缺"何时重试"的退避维度 —— 本函数补齐。
  *
  * 应用 acp/backoff.ts 的 full-jitter 退避:多个成员同时失败时,退避值被抖动打散,
@@ -347,7 +347,7 @@ export function listScopes(): string[] {
 
 /** 清理全部终态(delivered/failed)条目,回收文件体积。
  *
- * 对标 Qoder"只保存清理所需的身份与资源引用,不保留已删除对象的正文"。
+ * 遵循统一工程规范。
  * 返回回收的条目数。只清终态条目,不动 pending(清了就丢消息)。
  * 终态条目不会再被 `pendingFor` 返回,所以无需等游标覆盖即可回收;
  * 序号单调性由 `nextEventSeq` 越过游标保证。

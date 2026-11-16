@@ -5,6 +5,7 @@
 import type { ComponentType } from 'react'
 import {
   LayoutDashboard,
+  BarChart3,
   User,
   Receipt,
   Link2,
@@ -92,6 +93,7 @@ export const NAV_GROUPS: readonly SettingsNavGroup[] = [
     labelKey: 'navBilling',
     items: [
       { href: '/settings/billing', labelKey: 'billingTitle', icon: Receipt },
+      { href: '/settings/usage', labelKey: 'usageTitle', icon: BarChart3 },
       { href: '/settings/data-export', labelKey: 'dataExportTitle', icon: Download },
       { href: '/settings/dashboard', labelKey: 'dashboardTitle', icon: LayoutDashboard },
     ],

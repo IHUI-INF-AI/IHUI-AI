@@ -4,7 +4,7 @@
 
 """检索召回扩边与行区间折叠的纯函数层(goal-b49 Z12,triage ② #4/#5)。
 
-逆向对照 = Trae/qoder 检索面的两跳:`expand_by_symbols`(命中符号名后再补一跳召回)
+独立分析对照 = Trae/qoder 检索面的两跳:`expand_by_symbols`(命中符号名后再补一跳召回)
 与 `adjacent_chunk_merge` + `mergeGapLines`(同文件邻近行区间就近并片)。本仓此前两格都是
 **零命中**:`codebase_indexer.search()` 只把 API 回来的切片原样交出 —— 既没有"以命中符号
 为种子再捞一次",也没有把同文件碎片并成一区间(同一片代码占两个上下文槽)。

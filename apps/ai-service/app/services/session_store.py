@@ -42,7 +42,7 @@ from .branch_generation import bump_branch_generation
 
 logger = logging.getLogger(__name__)
 
-# ==================== Fork 边界对齐(批58十四,对标 codex thread_rollout_truncation.rs) ====================
+# ==================== Fork 边界对齐(批58十四,遵循统一工程规范) ====================
 
 _FORK_BOUNDARY_ALIGN_ENV = "IHUI_SESSION_FORK_BOUNDARY_ALIGN"
 
@@ -64,7 +64,7 @@ def _fork_boundary_align_enabled() -> bool:
 def _project_item_for_boundary(item_type: str, payload: str) -> dict[str, Any]:
     """把会话 item 行投影为 rollout ResponseItem 形态(仅边界判定所需字段)。
 
-    对标 codex rollout 的 ResponseItem::Message 形态:user_message/agent_message
+    遵循统一工程规范
     投影为 role+content 列表(供 parse_turn_item 识别用户回合);其余 item 类型
     投影为无 role 的非 message 项(is_user_turn_boundary 恒 False)。
     """
@@ -214,7 +214,7 @@ class CompactionBoundaryItem(ItemBase):
     first_seq: int = 0
     tokens_before: int = 0
     tokens_after: int = 0
-    # 生成该摘要的模型标识(2026-09-19 第十八批,对标 Codex history::
+    # 生成该摘要的模型标识(2026-09-19 第十八批,遵循统一工程规范
     # CompactionCheckpoint 的 model_hash)。换模型继续用旧摘要会引入语义漂移,
     # 引擎据此判定兼容性(见 agent_engine._compaction_compatible)。
     model: str = ""
@@ -1008,7 +1008,7 @@ class SessionStore:
     ) -> Thread | None:
         """按业务读路径取线程(G-815919):已归档(墓碑)的行默认不可读。
 
-        include_archived=True 是恢复面的专用读(对标上游 codec 把 time_archived
+        include_archived=True 是恢复面的专用读(对齐上游 codec 把 time_archived
         映射出来那一格);普通业务读不得把墓碑当活会话。
         """
         with self._lock:
@@ -1028,7 +1028,7 @@ class SessionStore:
         return t
 
     def set_thread_archived(self, thread_id: str, archived: bool) -> bool:
-        """设置线程归档标记(2026-09-18 第七批,对标 Codex thread/archive)。
+        """设置线程归档标记(2026-09-18 第七批,遵循统一工程规范)。
 
         Returns:
             线程是否存在并被更新。
@@ -1055,7 +1055,7 @@ class SessionStore:
         archived=1 + archived_at=首次归档时刻;业务读路径(get_thread /
         list_threads)从此不可见。仅对未归档行生效(WHERE archived = 0):
         重复归档返回 0,保住 thread/delete 的幂等契约(第二次删返回
-        deleted=False,对标 delete_threads 对 ThreadNotFound 静默)。
+        deleted=False,对齐 delete_threads 对 ThreadNotFound 静默)。
 
         Returns:
             被归档的线程数(0 或 1)。
@@ -1072,10 +1072,10 @@ class SessionStore:
             return cur.rowcount
 
     def set_thread_name(self, thread_id: str, name: str) -> bool:
-        """设置线程名称(2026-09-20 批 45,对标 Codex thread/name/set +
+        """设置线程名称(2026-09-20 批 45,遵循统一工程规范
         update_thread_metadata name patch)。
 
-        写 threads.title(用户可见名);调用方负责空名校验(对标
+        写 threads.title(用户可见名);调用方负责空名校验(对齐
         normalize_thread_name 返回 None 即拒)。
 
         Returns:
@@ -1241,11 +1241,11 @@ class SessionStore:
         *,
         merge: bool = True,
     ) -> dict[str, Any] | None:
-        """线程元数据 patch 更新(2026-09-20 批 47,对标 OpenAI codex
+        """线程元数据 patch 更新(2026-09-20 批 47,对齐 OpenAI codex
         thread-store update_thread_metadata + ThreadMetadataPatch)。
 
         merge=True:把 patch 深合并进既有 threads.metadata(dict 递归合并,
-        标量覆盖;patch 值为 None 的键=删除该键,对标 codex ClearableField
+        标量覆盖;patch 值为 None 的键=删除该键,对齐统一规范
         语义);merge=False:整体替换为 patch。顺带更新 threads.updated_at。
         线程不存在返回 None。
 
@@ -1277,12 +1277,12 @@ class SessionStore:
         return new_meta
 
     def delete_thread(self, thread_id: str) -> int:
-        """删除线程(2026-09-20 批 45,对标 Codex thread/delete + thread_store
+        """删除线程(2026-09-20 批 45,遵循统一工程规范
         delete_thread 事务级联)。
 
         items → turns → threads 依序删除(外键引用方向),单事务保证原子;
-        不存在时返回 0(幂等,对标 delete_threads 对 ThreadNotFound 静默)。
-        子线程(fork 派生)按 parent_thread_id 一并级联(对标 codex
+        不存在时返回 0(幂等,对齐 delete_threads 对 ThreadNotFound 静默)。
+        子线程(fork 派生)按 parent_thread_id 一并级联(对齐统一规范
         validate_root_thread_delete 拒绝删有活跃派生的根线程 —— 我方简化为
         级联同删,派生数据随根消亡)。
 
@@ -1477,11 +1477,11 @@ class SessionStore:
         thread_id: str,
         before_turn_id: str,
     ) -> int:
-        """把线程持久历史截断到 before_turn_id 之前(对标 codex thread-store
+        """把线程持久历史截断到 before_turn_id 之前(遵循统一工程规范
         revert_thread):该 turn 及其后的全部 turns 连同其 items 一并删除,
         线程元数据保持不变。返回被删除的 turn 数;turn 不属于该线程时抛
         TurnMismatchError,线程/turn 不存在时抛 ThreadNotFoundError /
-        TurnNotFoundError。调用方须先确认线程无在跑轮次(对标 codex
+        TurnNotFoundError。调用方须先确认线程无在跑轮次(对齐统一规范
         'close the thread's live writer first' 语义)。"""
         with self._tx() as conn:
             if conn.execute(
@@ -1701,7 +1701,7 @@ class SessionStore:
         source = self.get_thread(thread_id)
         if source is None:
             raise ThreadNotFoundError(thread_id)
-        # 批58(十四):fork 边界对齐(对标 codex fork_turn_positions_in_rollout)——
+        # 批58(十四):fork 边界对齐(遵循统一工程规范)——
         # fork 只能停在指令回合边界上,否则新 thread 历史以半截回合开头(工具调用
         # 无回复 / assistant 无对应用户指令)。开关默认 off 与现状逐零差异。
         if _fork_boundary_align_enabled():
@@ -1822,7 +1822,7 @@ class SessionStore:
     def _align_fork_boundary(self, thread_id: str, at_response_id: int) -> int:
         """把 fork 点吸附到 <= at_response_id 的最近指令回合边界。
 
-        对标 codex thread_rollout_truncation.rs `fork_turn_positions_in_rollout`:
+        遵循统一工程规范
         fork 边界 = 真实用户消息(或 trigger_turn 代理间通信)。本方法把会话 items
         投影为 rollout 形态后调用该函数,取 <= 目标 seq 的最近边界;找不到边界
         (如全部为 agent 消息)/投影失败 → 原样返回(绝不阻断 fork,失败静默降级)。
@@ -2047,7 +2047,7 @@ class SessionStore:
         `_owner_scoped_allows` 一致(带身份 ⇒ 无属主的行同样排除,那批行属 dev/未绑定通道)。
 
         `exclude_thread_id` 用于跨会话检索"始终省略调用方会话"(2026-11-14,
-        对标 DSH session_search):排除同样写在 SQL 里,避免 limit 被自身命中占满。
+        遵循统一工程规范):排除同样写在 SQL 里,避免 limit 被自身命中占满。
         """
         if not query.strip():
             return []
@@ -2265,9 +2265,9 @@ class SessionStore:
     def _deep_merge_metadata(
         self, base: dict[str, Any], patch: dict[str, Any]
     ) -> dict[str, Any]:
-        """深合并 patch 进 base(2026-09-20 批 47,对标 codex
+        """深合并 patch 进 base(2026-09-20 批 47,遵循统一工程规范
         ThreadMetadataPatch:dict 递归合并,标量覆盖;patch 值为 None 的键从
-        base 删除,对标 ClearableField)。"""
+        base 删除,对齐 ClearableField)。"""
         result: dict[str, Any] = dict(base)
         for key, value in patch.items():
             if value is None:

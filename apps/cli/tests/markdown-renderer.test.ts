@@ -172,7 +172,7 @@ describe('renderInline — 行内标记', () => {
     expect(plain(renderInline('plain text'))).toBe('plain text');
   });
 
-  it('成对标记外的下划线不被误当斜体(snake_case 标识符保持完整)', () => {
+  it('成对齐记外的下划线不被误当斜体(snake_case 标识符保持完整)', () => {
     expect(plain(renderInline('user_name'))).toBe('user_name');
   });
 });

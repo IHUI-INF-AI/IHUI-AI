@@ -80,7 +80,7 @@ export interface GoalToolCallRecord {
   output?: string;
 }
 
-/** 送给校验轮的请求体(逐字对齐 `VerifyIn`) */
+/** 送给校验轮的请求体(按行为规格 `VerifyIn`) */
 export interface GoalVerifyRequest {
   goal: string;
   criteria: Array<{

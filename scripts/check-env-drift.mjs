@@ -707,7 +707,7 @@ export function selfTest() {
     )
 
     // ⑫ 装车证明判据本身有牙:合规形态判绿,摘线构造面必须判"未接线"
-    //    夹具形状逐字对齐 git-guardian 的落地形态(派发是注入形参 + 默认值指向唯一出口)
+    //    夹具形状按行为规格 git-guardian 的落地形态(派发是注入形参 + 默认值指向唯一出口)
     const good = [
       'const CHECK_ONLY = process.argv.includes("--check")',
       'function auditEnvDrift(opts = {}) {',

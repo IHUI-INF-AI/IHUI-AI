@@ -5,7 +5,7 @@
 /**
  * /undo /redo 命令 — 多步文件改动回滚/重做。
  *
- * 对标并反超 OpenCode:OpenCode 的 undo 只回滚最后一个文件改动,
+ * 对齐并反超 OpenCode:OpenCode 的 undo 只回滚最后一个文件改动,
  * 本实现支持多步回滚(回滚到指定步数)+ redo 重做 + 持久化(每 session 一个 JSON)。
  *
  * 持久化路径:<workspacePath>/.ihui-agent/undo-history/<sessionId>.json

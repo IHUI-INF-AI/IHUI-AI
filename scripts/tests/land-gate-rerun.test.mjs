@@ -412,7 +412,7 @@ test('T14 冲突标记自证臂:桩真被 spawn 且 argv 是 --rev HEAD;rc=1⇒v
     })
   const r1 = run(1)
   assert.equal(readFileSync(marker, 'utf8'), '--rev HEAD', '自证臂必须判落地面(HEAD 树),不是工作区副本')
-  assert.equal(r1.verdict, 1, '落地面还带着成对标记 ⇒ 拒绝报绿')
+  assert.equal(r1.verdict, 1, '落地面还带着成对齐记 ⇒ 拒绝报绿')
   assert.ok(r1.failed.some((f) => f.kind === 'conflict-markers'))
   const r2 = run(2)
   assert.equal(r2.verdict, 2, '未判定不得读成通过')

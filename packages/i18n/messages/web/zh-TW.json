@@ -7029,6 +7029,7 @@
       "edit": "編輯",
       "hideContent": "隱藏內容",
       "like": "點讚",
+      "moreActions": "更多",
       "publishToCommunity": "發佈到社群",
       "regenerate": "重新生成",
       "reply": "回覆",
@@ -11746,6 +11747,7 @@
     "canvasOpenInCanvas": "在畫布開啟",
     "canvasRevert": "回復至此版本",
     "canvasVersions": "版本歷史",
+    "charCount": "{count} 字符",
     "clearInputAriaLabel": "清除輸入",
     "clearInputTitle": "清除輸入內容",
     "predictiveEditHint": "預測式編輯建議",
@@ -12010,6 +12012,11 @@
       "collapsedDesc": "始終摺疊中間步驟",
       "expanded": "展開",
       "expandedDesc": "始終展開中間步驟"
+    },
+    "titleAutoUpdate": {
+      "title": "任務標題",
+      "label": "即時更新標題",
+      "desc": "對話進行到第 3 輪後,自動根據最新對話內容重新提煉任務標題;關閉後標題固定為建立時產生的名稱"
     },
     "gapInterval": "{gap} 間隔",
     "generating": "生成中",
@@ -12579,7 +12586,7 @@
       "permissionFull": "切換到完全訪問模式(高風險,無確認)",
       "plan": "切換到規劃模式(AI 只制定計劃,不執行工具)",
       "polish": "潤色文本",
-      "review": "切換到審查模式(只讀審查,強化代碼審查)",
+      "review": "選擇審查目標(未提交 diff / 分支 / commit)",
       "spec": "切換到規格模式(從代碼反向生成 spec 文檔)",
       "summary": "總結當前對話",
       "translate": "翻譯選中文本",
@@ -12939,6 +12946,8 @@
       "confirm": "移動",
       "cancel": "取消"
     },
+    "titleHistoryOriginal": "建立時標題",
+    "titleHistoryCurrent": "目前標題",
     "selectModeAriaLabel": "切換任務多選模式",
     "backToHistory": "返回任務列表",
     "batchArchive": "批量歸檔",
@@ -13216,6 +13225,11 @@
         "keywords": ["智能體", "調度", "agent"],
         "label": "AI 智能體"
       },
+      "automations": {
+        "description": "建立和管理定時執行的 AI 任務",
+        "keywords": ["自動化", "定時", "任務", "automation"],
+        "label": "定時自動化"
+      },
       "browser": {
         "description": "在工作區內瀏覽網頁",
         "keywords": ["瀏覽器", "網頁", "browser"],
@@ -13245,6 +13259,11 @@
         "description": "開啟程式碼編輯器",
         "keywords": ["編輯器", "程式碼", "code"],
         "label": "編輯器"
+      },
+      "imageGen": {
+        "description": "AI 圖片生成:提示詞出圖、公開畫廊、生成歷史與範本",
+        "keywords": ["圖片", "生成", "繪圖", "image"],
+        "label": "AI 圖片生成"
       },
       "mcp": {
         "description": "管理 MCP 伺服器與工具",
@@ -15859,7 +15878,7 @@
           "title": "組織架構"
         },
         {
-          "desc": "正向與逆向流程分析,優化業務運轉效率",
+          "desc": "正向與兼容分析流程分析,優化業務運轉效率",
           "title": "流程梳理"
         },
         {
@@ -17435,14 +17454,18 @@
   },
   "imageGenPage": {
     "download": "下載",
+    "favorites": "收藏的圖片",
+    "gallery": "公開畫廊",
     "generate": "生成圖片",
     "generating": "生成中...",
+    "history": "生成歷史",
     "promptLabel": "提示詞",
     "promptPlaceholder": "描述你想生成的圖片...",
     "promptRequired": "請輸入提示詞",
     "sizeLabel": "尺寸",
     "subtitle": "輸入提示詞生成圖片",
     "success": "生成成功",
+    "templates": "提示詞模板",
     "title": "AI 圖片生成"
   },
   "inlineEdit": {
@@ -20294,6 +20317,14 @@
     "taskPanelAutoLastStats": "跑 {families} 族 · 新增 {accepted} · 領 {claimed}",
     "taskPanelAutoLastNever": "本程序尚未巡檢",
     "taskPanelDesc": "一鍵巡檢 WorkBuddy 任務中心:接任務、達標領獎、連登兌換、抽獎、貓貓旅行、夜貓子閒聊。",
+    "taskPanelDescDoubao": "一鍵巡檢豆包任務:領取每日簽到額度、自動完成工作領域任務、領取已完成任務與積分里程碑獎勵。",
+    "taskPanelDoubaoTag": "豆包",
+    "taskPanelDoubaoOn": "已啟用 · 每日 {hours}:{minute} 自動巡檢(簽到之後)",
+    "taskPanelDoubaoDry": "已啟用但為演練模式(只讀預檢):不會真實領獎。服務端設 DOUBAO_TASKS_LIVE_RUN=true 後才會寫入。",
+    "taskPanelDoubaoOff": "未啟用:僅手動執行。服務端設 DOUBAO_TASKS_ENABLED=true 並重啟後生效。",
+    "taskPanelDoubaoNotStarted": "配置已開但調度器未啟動:改完服務端 .env 必須重啟 ai-service 才生效。",
+    "taskPanelDoubaoLast": "上次巡檢 {time} · 領取 {claimed} 項 · 跳過 {skipped} 項",
+    "taskPanelDoubaoLastNever": "本進程尚未巡檢",
     "taskPanelPick": "選擇帳號",
     "taskPanelList": "讀取任務",
     "taskPanelDryRun": "預演(不寫入)",
@@ -20669,6 +20700,7 @@
     "adminRelayKeyPool": "Key 池",
     "adminRelayLogs": "中轉日誌",
     "adminRelayModels": "中轉模型",
+    "adminRelayModelMappings": "模型映射",
     "adminRelayOverview": "中轉概覽",
     "adminSkillBatch": "批量操作",
     "adminSkillCategories": "技能分類",
@@ -20693,6 +20725,12 @@
     "saasTenants": "SaaS 租戶",
     "dashboard": "管理後臺",
     "financeAi": "財務部",
+    "financeGroup": "財務部",
+    "live": "直播課程",
+    "earnings": "收益",
+    "wallet": "我的錢包",
+    "playground": "線上除錯",
+    "developerRelaySubscriptions": "API 訂閱",
     "hrGroup": "人事部",
     "hrAdmin": "人事管理",
     "hrAdminData": "人事資料中心",
@@ -23851,6 +23889,7 @@
     "codeIndexEgressOptOutDesc": "程式碼片段不會外送用於向量化建索引",
     "autoMemoryOptOut": "關閉自動長期記憶",
     "autoMemoryOptOutDesc": "不會把對話提煉成跨會話的偏好或約定",
+    "usageTitle": "用量統計",
     "navTiers": {
       "title": "側邊欄精簡模式",
       "desc": "預設隱藏開發者與維運導向的功能入口。需要時打開下方開關即可顯示。",

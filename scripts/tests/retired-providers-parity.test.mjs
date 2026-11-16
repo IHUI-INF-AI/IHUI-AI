@@ -253,7 +253,7 @@ function fixtureCopy(root, rel) {
   return dst
 }
 
-/** 建一棵夹具树:全部受判文件逐字复制过去。 */
+/** 建一棵夹具树:全部受判文件按行为规格过去。 */
 function makeFixture(name) {
   const dir = join(FIXTURE_BASE, `${name}-${process.pid}-${Date.now()}`)
   rmSync(dir, { recursive: true, force: true })

@@ -339,7 +339,7 @@ describe('G-824 工具栏 —— 回读→复制/下载/全屏', () => {
     expect(document.querySelector('a[download]')).toBeNull()
   })
 
-  it('全屏 ⇒ 打开 Dialog 且表头带 sticky 类(形态对标上游 [&_th]:sticky)', async () => {
+  it('全屏 ⇒ 打开 Dialog 且表头带 sticky 类(形态对齐上游 [&_th]:sticky)', async () => {
     const { container } = render(
       <MarkdownTableBlock>
         <thead>

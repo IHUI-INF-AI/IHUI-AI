@@ -5,7 +5,7 @@
 // D78 连接器授权卡(G-107)—— 对话流内渲染件,RN/共享屏层实现。
 //
 // **与 web 端同源**:本卡的五态 / 四动词 / 决策态集合与
-// `apps/web/src/components/ai/connector-auth-card.tsx` **逐字对齐**,由
+// `apps/web/src/components/ai/connector-auth-card.tsx` **按行为规格**,由
 // `packages/app/tests/connector-auth-card.test.tsx` 解析两侧源码做集合对账钉死
 // (两端语义必须同源,不得各写一套)。**禁止**在本文件新增第五动词或第六态而不走同一条对账。
 //

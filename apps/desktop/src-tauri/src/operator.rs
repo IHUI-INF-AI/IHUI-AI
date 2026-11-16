@@ -5,7 +5,7 @@
 // 分层同本仓既有纪律(判据纯函数 + 执行层 + 薄 Tauri 胶水):`decide_actions` 是零依赖纯函数,
 // 不碰真实屏幕,可独立单测;执行层 `run_action` / `capture_screen` / `capture_decide_act` 才碰 enigo/screenshots。
 // 这是新增独立模块,不改 lib.rs 任何既有导出/函数语义。
-// 2026-11-01 补(E 席,逆向 Qoder sidecar 后对齐+超越,取证册
+// 2026-11-01 补(E 席,按运行时行为规格 sidecar 后对齐+超越,取证册
 // docs/benchmark-evidence/2026-11/qoder-trae-rea-20261101/T8-sidecar-native-surface.md §A):
 // ① 动作面补 `Drag`(对侧 drag{from_x,from_y,to_x,to_y})与 `PressKey`(对侧 press_key 的
 //    X-style 组合键 `Control_L+a` 形)—— 本仓原有 click/type_text/scroll 三档,缺这两档。

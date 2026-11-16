@@ -249,7 +249,7 @@ export async function fetchAccountQuota(row: AiRelayAccountPool): Promise<QuotaV
     // token_expires_at 可能失准(上游 401 而该列仍记未来时刻的情况已被 admin 路由点名),
     // 故只在该列确凿早于当下时才置 tokenExpired,绝不据此反向判定"未过期可救"。
     const expired =
-      row.tokenExpiresAt != null && new Date(row.tokenExpiresAt).getTime() < Date.now()
+      row.tokenExpiresAt !== null && new Date(row.tokenExpiresAt).getTime() < Date.now()
     return {
       ok: false,
       authFailed: outcome.authFailed ?? false,

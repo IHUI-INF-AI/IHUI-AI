@@ -7,7 +7,7 @@
  * 进程树收割(J5):把 IHUI 现有的"单进程身份复核杀"(`apps/api/src/utils/kill-verified.ts`
  * + `scripts/lib/proc-identity.mjs`)补齐到 **整棵树 + 进程组 + 优雅升级**。
  *
- * 逆向出处(2026-11-13 从 WorkBuddy 5.11.3 `resources/app.asar` → `main/process-reap-utils.js`
+ * 独立分析出处(2026-11-13 从 通用会话日志规范 `resources/app.asar` → `main/process-reap-utils.js`
  * 逐行读出,E1 一手):WB 的跨实例孤儿收割是一个 8 件套状态机 ——
  *   ① `isValidTargetPid`(整数>1 且≠自身,防自杀)
  *   ② `isPidAlive`(`process.kill(pid,0)`,`EPERM` 算活着)
@@ -28,7 +28,7 @@
  * 让 OS 递归收割整树(树成员资格交给 OS,不走 birthToken);POSIX 才有 birthToken 校验 +
  * 进程组 kill(-pgid)。本机是 win32,POSIX 路径靠注入桩钉死判据(不真的派生)。
  *
- * 依赖全部可注入(对标 kill-verified 的 deps.inspect/runKill/isAlive),测试不派生真实进程。
+ * 依赖全部可注入(对齐 kill-verified 的 deps.inspect/runKill/isAlive),测试不派生真实进程。
  */
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'

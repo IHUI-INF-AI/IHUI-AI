@@ -12,7 +12,7 @@ import {
 } from './tauri-bridge'
 
 /**
- * 应用菜单 dispatcher(2026-07-25 立,深度对标 Codex / Claude Desktop 菜单架构)
+ * 应用菜单 dispatcher(2026-07-25 立,深度遵循统一工程规范)
  *
  * 设计背景:
  * - 2026-07-25 前:Rust 端 build_app_menu 构建原生菜单,点击时通过

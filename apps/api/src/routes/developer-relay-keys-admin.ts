@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * /api/developer/relay/keys 批量管理端点(2026-09-16 立,深度对标补强 C)。
+ * /api/developer/relay/keys 批量管理端点(2026-09-16 立,深度对齐补强 C)。
  *
  * 端点:
  * 1. POST /developer/relay/keys/bulk — 批量编辑(限流/过期/IP 黑白名单/三窗口限额)
@@ -73,7 +73,7 @@ const developerRelayKeysAdminRoutes: FastifyPluginAsync = async (server) => {
     }
   })
 
-  // 2. 重置 Key 的窗口用量计数(L,2026-09-16 立,对标竞品 resetRateLimitUsage)
+  // 2. 重置 Key 的窗口用量计数(L,2026-09-16 立,对齐竞品 resetRateLimitUsage)
   //    客服场景:窗口计数异常/误触发上限时手动清零。归属校验 + 返回清除条数。
   server.post('/developer/relay/keys/:id/reset-windows', async (request, reply) => {
     const userId = request.userId
@@ -98,7 +98,7 @@ const developerRelayKeysAdminRoutes: FastifyPluginAsync = async (server) => {
     }
   })
 
-  // 3. 当前用户实时并发查询(M,2026-09-16 立,对标竞品 currentConcurrency 展示)
+  // 3. 当前用户实时并发查询(M,2026-09-16 立,对齐竞品 currentConcurrency 展示)
   server.get('/developer/relay/keys/concurrency', async (request, reply) => {
     const userId = request.userId
     if (!userId) return reply.status(401).send(error(401, '未登录'))

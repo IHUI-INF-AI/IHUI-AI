@@ -270,17 +270,17 @@ describe('PlanStepsCard', () => {
     const icon = li?.querySelector('[data-testid="icon-Loader2"]')
     expect(icon).toBeTruthy()
     expect(icon?.className).toContain('animate-spin')
-    expect(icon?.className).toContain('text-primary')
+    expect(icon?.className).toContain('text-foreground')
   })
 
-  it('completed 步骤图标用基元统一口径(14px 图标 + muted 色,不再自配 emerald)', () => {
+  it('completed 步骤图标用基元统一口径(16px 图标 + 纯前景色,不再自配 emerald)', () => {
     const { container } = render(
       <PlanStepsCard steps={[makeStep({ id: 's1', status: 'completed' })]} />,
     )
     const icon = container.querySelector('[data-status="completed"] [data-testid="icon-Check"]')
     expect(icon).toBeTruthy()
-    expect(icon?.className).toContain('h-3.5')
-    expect(icon?.className).toContain('text-muted-foreground/50')
+    expect(icon?.className).toContain('h-4')
+    expect(icon?.className).toContain('text-foreground')
   })
 
   it('有 durationMs 时显示耗时(formatDuration)', () => {
@@ -359,7 +359,7 @@ describe('PlanStepsCard', () => {
     expect(li?.getAttribute('data-stream-status')).toBe('skipped')
     const icon = li?.querySelector('[data-testid="icon-Minus"]')
     expect(icon).toBeTruthy()
-    expect(icon?.className).toContain('text-muted-foreground/40')
+    expect(icon?.className).toContain('text-foreground')
     // 2026-09-22 收尾接线:步骤全文是行主体(titleMode="primary"),序号走 leading 槽
     // → 两个独立 span,textContent 里不再有"1. "的空格,故分别断言序号与全文
     expect(li?.textContent).toContain('1.')

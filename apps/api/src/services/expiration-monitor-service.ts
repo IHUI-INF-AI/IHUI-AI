@@ -73,7 +73,8 @@ let redisClient: Redis | null = null
 function getRedis(): Redis {
   if (!redisClient) {
     redisClient = new IORedis(config.REDIS_URL, {
-      maxRetriesPerRequest: null,
+      maxRetriesPerRequest: 1, // 失败处理函数自身不得无限挂起（F-559）
+      commandTimeout: 3000, // 单命令 3s 超时，抖动时快速失败进 recordFailureSafely 的 catch
       lazyConnect: false,
     })
     redisClient.on('error', (err) => {
@@ -289,10 +290,11 @@ async function triggerCanaryRollback(reason: string): Promise<void> {
 /**
  * 失败处理的守卫壳（F-559）。
  *
- * 失败处理自身也在 Redis 上跑 INCR/SET：Redis 抖动（尤其 maxRetriesPerRequest:null
- * 时连接断开、命令长期 pending）会让这些裸 await 把异常抛回调度层，违反「不向调度层
- * 抛错」契约（BullMQ 重试放大 / worker 槽位被占）。这里整体 try/catch：出错只记
- * 结构化日志（监控项 + 错误摘要）并计入进程内失败计数，绝不外抛。
+ * 失败处理自身也在 Redis 上跑 INCR/SET：Redis 抖动会让这些裸 await 把异常抛回调度层，
+ * 违反「不向调度层抛错」契约（BullMQ 重试放大 / worker 槽位被占）。getRedis 已设
+ * maxRetriesPerRequest:1 + commandTimeout:3000（有限重试 + 命令级超时），连接断开或
+ * 抖动时命令会快速失败而非长期 pending。这里整体 try/catch：出错只记结构化日志
+ * （监控项 + 错误摘要）并计入进程内失败计数，绝不外抛。
  */
 async function recordFailureSafely(
   redis: Redis,

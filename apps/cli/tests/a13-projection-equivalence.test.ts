@@ -524,7 +524,7 @@ describe('A13 投影等价性(AGENTS.md:235 的可重跑载体)', () => {
       // 门的原始计数必须能被完整解释:门点到的具名工具 + 匿名 name 字面量,一条不多一条不少。
       // 注意:门的具名面**不含** FACTORY_SPEC_FILES 补进来的那批(那批门整个看不到,由本测试
       // 从 SPECS 重导出),所以这里用 `gateVisibleNamed` 而非 `gateNames` 全量来对齐末行读数 ——
-      // 逐字复刻门的扫描面,才谈得上"两侧连数到多少都对得上"。
+      // 独立实现门的扫描面,才谈得上"两侧连数到多少都对得上"。
       expect(
         gateSide.reportedCount,
         `末行 ${gateSide.reportedCount} 应等于 门具名 ${gateSide.gateVisibleNamed.length} + 匿名 (non-literal) ${gateSide.anonymousOccurrences}` +

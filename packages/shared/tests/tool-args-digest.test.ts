@@ -33,7 +33,7 @@ import {
   type ToolArgShape,
 } from '../src/utils/tool-args-digest'
 
-/** 来自 apps/cli/src/stream-tool-ledger.ts 的 canonicalizeArgs(逐字对齐的兼容预言)。 */
+/** 来自 apps/cli/src/stream-tool-ledger.ts 的 canonicalizeArgs(按行为规格的兼容预言)。 */
 function cliCanonicalize(value: unknown): string {
   if (value === null || typeof value !== 'object') return JSON.stringify(value ?? null)
   if (Array.isArray(value))

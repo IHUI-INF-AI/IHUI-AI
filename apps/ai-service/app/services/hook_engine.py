@@ -93,7 +93,7 @@ HOOK_EVENTS: tuple[str, ...] = (
     # P0-B(2026-09-18):终端实时输出事件(mcp_server run_command 逐行 stdout/stderr,
     # agents.py SSE 端点订阅并映射为 terminal-delta,供前端 TerminalSection 实时渲染)
     "terminal.delta",
-    # 2026-09-18 第十二批:对标 Codex hooks crate 的 SubagentStart/SubagentStop/
+    # 2026-09-18 第十二批:遵循统一工程规范
     # Stop/Interrupt 四个生命周期事件(engine 侧发出;此前仅协议事件无钩子入口)
     "subagent.start",
     "subagent.stop",
@@ -104,14 +104,14 @@ HOOK_EVENTS: tuple[str, ...] = (
     # "上下文压缩中/正在暂停/正在取消"状态而非只有最终 done)
     "compaction",
     "agent.status",
-    # 2026-09-18 第二批:LLM 调用重试/限流事件(_llm_call_with_retry 发出,对标
+    # 2026-09-18 第二批:LLM 调用重试/限流事件(_llm_call_with_retry 发出,对齐
     # Codex StreamError;payload 含 attempt/error_type/rate_limited/backoff)
     "llm.retry",
     # 2026-09-18 第三批:工具重试事件(_execute_single 瞬时失败重试时发出)与
-    # 模型改道事件(llm_gateway auto 路由改道时发出,对标 Codex ModelReroute)
+    # 模型改道事件(llm_gateway auto 路由改道时发出,遵循统一工程规范)
     "tool.retry",
     "model.reroute",
-    # 2026-09-18 第七批:压缩生命周期事件(_compact_thread 前后发出,对标
+    # 2026-09-18 第七批:压缩生命周期事件(_compact_thread 前后发出,对齐
     # Codex PreCompactHook/PostCompactHook;payload 含 trigger/strategy)
     "context.pre_compact",
     "context.post_compact",

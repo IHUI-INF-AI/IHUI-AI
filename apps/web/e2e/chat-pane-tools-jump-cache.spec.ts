@@ -161,7 +161,7 @@ function json(body: unknown): { status: number; headers: Record<string, string>;
 }
 
 /**
- * auth 面 + 会话面全量 mock(注册顺序 = 兜底在前、专档在后;形态抄自 parallel-stream)。
+ * auth 面 + 会话面全量 mock(注册顺序 = 兜底在前、专档在后;形态取自 parallel-stream)。
  * cost-estimate 必须给全字段,否则 CostEstimateBar 拿 undefined.toFixed 全局崩。
  */
 async function mockBackend(page: Page, specs: readonly ConvSpec[]): Promise<void> {
@@ -323,7 +323,7 @@ async function seedLoggedIn(page: Page): Promise<void> {
 }
 
 // ──────────────────────────────────────────────────────────────────────────
-// 可控 SSE 泵(形态抄自 chat-pane-parallel-stream.spec.ts:262-433,账目/把手同构)
+// 可控 SSE 泵(形态取自 chat-pane-parallel-stream.spec.ts:262-433,账目/把手同构)
 // ──────────────────────────────────────────────────────────────────────────
 
 type PumpState = 'open' | 'closed' | 'aborted'
@@ -470,7 +470,7 @@ async function scrollTopOf(page: Page, pane: string): Promise<number> {
   return paneList(page, pane).evaluate((el) => el.scrollTop)
 }
 
-/** 把目标消息滚到列表视区顶部(几何算式,抄自 G-934) */
+/** 把目标消息滚到列表视区顶部(几何算式,取自 G-934) */
 async function scrollToMessageTop(page: Page, pane: string, messageId: string): Promise<number> {
   await paneList(page, pane).evaluate((el, id) => {
     const target = el.querySelector<HTMLElement>(`[data-message-id="${id}"]`)
@@ -647,13 +647,14 @@ test.describe('G-935 片③④ 工具面板窗格化 / 跳转总线门控 / 缓�
     // 实机证据+截图),用例曾以键盘 Enter 绕行、重叠事实只落 annotations。
     // 修法=globals.css .ai-input-toolbar @container ≤335 档右簇换行避让,命中区留在本窗格内;
     // 本探针随之升级为硬断言(中心点必须命中自身),再走真实鼠标 click 腿。
-    // 2026-11-04:mode-switcher 已随输入区收敛进本格 `+` 菜单(portal 到 body),
+    // 2026-11-04:输入区控件收敛进本格 `+` 菜单(portal 到 body),
     // 先点本格可见 `+` 打开门户菜单,再在菜单里做中心点命中探针与真实鼠标点击。
+    // 2026-11-16:模式切换器下线,「工具面板」提为 + 菜单第一层独立设置行。
     await page
       .locator(`[data-pane-leaf="${SECOND_PANE}"] [data-testid="add-menu-trigger"]`)
       .first()
       .click()
-    const trigger = page.locator('[data-testid="mode-switcher"]').first()
+    const trigger = page.locator('[data-testid="menu-tools-panel"]').first()
     const overlap = await trigger.evaluate((el) => {
       const r = el.getBoundingClientRect()
       const top = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)
@@ -663,10 +664,9 @@ test.describe('G-935 片③④ 工具面板窗格化 / 跳转总线门控 / 缓�
     })
     expect(
       overlap,
-      '缺口C 回归防线:窄窗格下 mode-switcher 触发器中心命中点必须是自身(不得被 send-button 拦截)',
+      '缺口C 回归防线:窄窗格下工具面板设置行中心命中点必须是自身(不得被 send-button 拦截)',
     ).toBe('self')
     await trigger.click()
-    await page.locator('[data-testid="menu-tools-panel"]').click()
 
     // 诊断快照先落账(红也要带证据):两格可见态 + 两枚 persist 键
     const diag = await page.evaluate(() => {

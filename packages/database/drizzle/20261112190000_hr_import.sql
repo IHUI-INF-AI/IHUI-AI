@@ -13,7 +13,7 @@
 --       files.project_id 为必填且外键到 projects,人事考勤导入不属于任何项目。
 --
 -- 幂等安全:IF NOT EXISTS 守门,可安全重复执行。
--- 与 packages/database/src/schema/hr-import.ts 逐字对齐。
+-- 与 packages/database/src/schema/hr-import.ts 按行为规格。
 --
 -- 执行方式:
 --   pnpm tsx packages/database/scripts/apply-migration.mjs drizzle/20261112190000_hr_import.sql

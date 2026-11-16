@@ -4,7 +4,7 @@
 
 """工具预算「第二层(聚合层)配额」接线锁(goal-b49 Z20,2026-11-06 立)。
 
-缺口表原文口径(Z4-triage 第 58 行 / 对标靶 T9 §3 #7「三层装箱预算 maxChunkChars /
+缺口表原文口径(Z4-triage 第 58 行 / 对齐靶 T9 §3 #7「三层装箱预算 maxChunkChars /
 maxCharsPerResult / **maxTotalChars** + maxRerankTokens」):我方只有**每桶**那一层,
 缺的是"每桶之外的聚合总量层"。本文件钉四件事,缺一即本票未落地:
 

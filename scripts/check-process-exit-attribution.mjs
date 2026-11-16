@@ -6,7 +6,7 @@
 /**
  * check-process-exit-attribution — 子进程退出归因三态守门(G-998115,b76-08a)。
  *
- * 判据(对标上游 zcodeAgentProcessManager.ts:128-142,668-687,1215-1275):
+ * 判据(对齐上游 zcodeAgentProcessManager.ts:128-142,668-687,1215-1275):
  *   1. Host 主动回收必须写 terminationIntent{kind: expected|watchdog_recycle},
  *      且**首次 cleanup 原因不可被后续幂等回收改写**(首因锁定);
  *   2. exit 时按 `terminationKind ?? unexpected` 归因 —— 判据不接受"非零 code 即异常":

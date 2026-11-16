@@ -67,6 +67,8 @@ import { findScheduleConflicts, normalizeHm } from '../services/edu-schedule-con
 import { judgeStatus } from '../services/edu-attendance-rule.js'
 
 import { bizDayKey } from '../utils/biz-day.js'
+// DB-35:phone 列存密文;花名册 keyword 筛选的 phone 分支降级为 lookup 精确匹配
+import { contactLookupForSearch } from '../utils/user-contact.js'
 
 import {
   eduTerm,
@@ -5339,9 +5341,16 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     if (parsed.data.termId) conds.push(eq(eduEnrollment.termId, parsed.data.termId))
     if (parsed.data.arrearsOnly) conds.push(hasArrearsCond())
     if (parsed.data.keyword) {
+      // DB-35:phone 存密文,ilike 中缀不可用;nickname 仍模糊,phone 降级为 lookup 精确匹配。
+      // or() 在无任何分支时会返回 undefined,故只在确有 phone 分支时才把它加进 or。
       const kw = `%${parsed.data.keyword}%`
-      const kwCond = or(ilike(users.nickname, kw), ilike(users.phone, kw))
-      if (kwCond) conds.push(kwCond)
+      const phoneLookup = contactLookupForSearch('phone', parsed.data.keyword)
+      const nicknameCond = ilike(users.nickname, kw)
+      conds.push(
+        phoneLookup
+          ? or(nicknameCond, eq(users.phoneLookup, phoneLookup))!
+          : nicknameCond,
+      )
     }
     const where = and(...conds)
 

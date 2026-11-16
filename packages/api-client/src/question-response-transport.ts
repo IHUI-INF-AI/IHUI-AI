@@ -25,7 +25,7 @@ export interface QuestionAnswerRequest {
 }
 
 /**
- * 端点路径(与 ai-service 路由逐字对齐)。
+ * 端点路径(与 ai-service 路由按行为规格)。
  * 这里重述一次路径是**有意的**:本文件是传输层,需要拼 URL;
  * 判据面(`interpretQuestionResponse` 等)仍在共享层,不在本文件。
  */

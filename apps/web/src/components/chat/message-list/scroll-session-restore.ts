@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * 会话级滚动状态账目(P2,2026-10-13 立;对标 Trae 的"每会话保存 {offset, stickToBottom}")。
+ * 会话级滚动状态账目(P2,2026-10-13 立;遵循统一工程规范)。
  *
  * 立因:此前切换会话一律 `followingAtSessionStart()` + 滚底 —— 用户在会话 A 里上翻到
  * 某条历史读到一半,切到 B 再切回 A,位置被重置到最底部,阅读现场丢失。Trae 的做法是
@@ -70,7 +70,9 @@ export interface ScrollSessionStore {
  * 会话滚动账目存储(Map 插入序即最近使用序:save 先 delete 再 set 重插到尾部)。
  * 每实例独立 —— 生产用模块级单例,测试各起新例互不污染。
  */
-export function createScrollSessionStore(maxEntries: number = SCROLL_SESSION_STORE_MAX): ScrollSessionStore {
+export function createScrollSessionStore(
+  maxEntries: number = SCROLL_SESSION_STORE_MAX,
+): ScrollSessionStore {
   const map = new Map<string, ScrollSessionState>()
   return {
     save(conversationId, offset, following) {
@@ -93,10 +95,7 @@ export function createScrollSessionStore(maxEntries: number = SCROLL_SESSION_STO
 
 /** 消费失败的原因(测试逐条锁;`'not-pending'` = 已消费或从未挂起)。 */
 type RestoreConsumeReason =
-  | 'not-pending'
-  | 'conversation-mismatch'
-  | 'messages-not-ready'
-  | 'expired'
+  'not-pending' | 'conversation-mismatch' | 'messages-not-ready' | 'expired'
 
 export type RestoreConsumeOutcome =
   | { readonly kind: 'consume' }

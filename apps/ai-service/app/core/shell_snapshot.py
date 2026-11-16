@@ -3,23 +3,23 @@
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 # app/core/shell_snapshot.py
-"""Shell 环境快照(2026-09-19 第二十八批,对标 Codex shell_snapshot.rs + shell_snapshot_capture.rs)。
+"""Shell 环境快照(2026-09-19 第二十八批,遵循统一工程规范)。
 
 捕获用户真实 shell(bash/zsh/sh)登录环境——profile 加的 PATH、别名、函数、
 shopt/set -o 状态——生成可 source 的快照脚本,供工具执行时重建"用户的 shell":
 
-- **三段捕获协议**(对标 bash_snapshot_script):state(函数+set -o+shopt)
+- **三段捕获协议**(对齐 bash_snapshot_script):state(函数+set -o+shopt)
   → ``\\0`` → aliases(带计数)→ ``\\0`` → 环境快照(``env -0`` NUL 分隔,
   值可含换行不失真);
 - **冲突防护**:快照首行 ``unalias -a``(先清别名,防与同名函数冲突,Codex 同款);
-- **交互状态注入**:登录模式下先 source ``$HOME/.bashrc``(对标 shell_startup_script);
+- **交互状态注入**:登录模式下先 source ``$HOME/.bashrc``(对齐 shell_startup_script);
 - **原子落盘**:tmp 写入 → 解析校验 → rename 定稿;会话级陈旧快照清理
-  (对标 cleanup_stale_snapshots);
+  (对齐 cleanup_stale_snapshots);
 - **密钥保护**:名称匹配 KEY/SECRET/TOKEN(大小写不敏感,复用 exec_env 模式)
   的环境变量不写入快照正文,单独作为凭据返回,由调用方在执行时按策略还原
-  (对标 Codex credential broker 的"凭据不落快照"原则);
+  (遵循统一工程规范);
 - **profile 覆盖检测**:与父进程环境差分,标出 profile 修改/新增的键
-  (对标 protected_startup_env 的"启动环境被 profile 覆盖"语义);
+  (对齐 protected_startup_env 的"启动环境被 profile 覆盖"语义);
 - **执行环境合成**:``build_exec_env`` 用快照环境覆盖基础环境,再过
   exec_env.ShellEnvironmentPolicy 六步过滤——与第二十六批模块组合复用。
 """
@@ -59,7 +59,7 @@ fi
 
 
 def bash_snapshot_capture_script(interactive: bool = True) -> str:
-    """生成 bash 登录环境捕获脚本(对标 bash_snapshot_script,三段 + NUL 分隔)。"""
+    """生成 bash 登录环境捕获脚本(对齐 bash_snapshot_script,三段 + NUL 分隔)。"""
     startup = _BASH_STARTUP_PREFIX if interactive else ""
     script = f"""{_COMMAND_HELPER}
 {startup}echo '{_SNAPSHOT_HEADER}'
@@ -99,7 +99,7 @@ class ShellSnapshotData:
 
 @dataclass
 class ShellSnapshotFile:
-    """定稿快照(对标 ShellSnapshotFile)。"""
+    """定稿快照(对齐 ShellSnapshotFile)。"""
 
     path: str
     data: ShellSnapshotData
@@ -270,7 +270,7 @@ def snapshot_env_for_exec(
 ) -> dict[str, str]:
     """合成执行环境:快照环境覆盖基础环境(凭据键按需排除)。
 
-    凭据键由调用方按安全策略显式还原(对标 restore_credentials);
+    凭据键由调用方按安全策略显式还原(对齐 restore_credentials);
     本函数默认不带凭据,防止泄入不相关子进程。
     """
     merged = dict(base_env)

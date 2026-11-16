@@ -34,7 +34,7 @@ export interface ToolsScreenProps {
   onOpenTool: (tool: ToolRow) => void
 }
 
-/** 三分类渲染序与图标(逐字对齐 web CATEGORIES:ai/dev/efficiency + Zap/Code/Wrench)。 */
+/** 三分类渲染序与图标(按行为规格 web CATEGORIES:ai/dev/efficiency + Zap/Code/Wrench)。 */
 const CATEGORIES: {
   key: ToolCategory
   labelKey: 'toolsPage.categoryAi' | 'toolsPage.categoryDev' | 'toolsPage.categoryEfficiency'

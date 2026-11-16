@@ -367,7 +367,7 @@
     "sourceWechat": "微信聊天记录导出物(第三方工具或手工另存的 zip/txt)"
   },
   "cliEntry": {
-    "tagline": "IHUI AI Coding Agent — 对标 Claude Code / Codex",
+    "tagline": "IHUI AI Coding Agent — 对齐统一规范",
     "modelIdDesc": "模型 ID",
     "workspacePathDesc": "工作区路径",
     "maxIterationsDesc": "最大工具循环次数",
@@ -563,7 +563,7 @@
     "tasksHeader": "\n任务 ({length} 个):",
     "noTasks": "\n(无任务)",
     "instanceCancelled": "✓ 已取消实例 id={id} (status={status})",
-    "cmdDesc": "工作流管理与执行 (对标 Web 端 /workflows)",
+    "cmdDesc": "工作流管理与执行 (对齐 Web 端 /workflows)",
     "listDesc": "列出工作流(分页)",
     "pageDesc": "页码(默认 1)",
     "pageSizeDesc": "每页数量(默认 20)",

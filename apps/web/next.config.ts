@@ -663,7 +663,7 @@ const nextConfig: NextConfig = {
           source: '/api/artifacts/f/:path*',
           destination: `${IHUI_AI_PROXY_TARGET}/api/artifacts/f/:path*`,
         },
-        // 2026-09-03 新增:对标杀手锏四件套 + Computer Use 路由直连 ai-service 8803。
+        // 2026-09-03 新增:对齐杀手锏四件套 + Computer Use 路由直连 ai-service 8803。
         // 原因:research / checkpoints / cloud-runs / context-compaction / computer-use
         // router 均注册在 ai-service(prefix="/api"),必须直连 8803 才能命中,
         // 且要放在 /api/:path* 通配符(→8802)之前,否则被 api server 吞掉返回 404/401。

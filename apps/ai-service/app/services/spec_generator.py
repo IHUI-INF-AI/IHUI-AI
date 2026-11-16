@@ -16,7 +16,7 @@
     from app.services.spec_generator import spec_generator
     result = await spec_generator.generate(workspace_path, scope)
 
-2026-07-22 深化(对标 Copilot Workspace / Aider):
+2026-07-22 深化(对齐 Copilot Workspace / Aider):
 - Spec 驱动代码生成(apply / preview / confirm)
 - Watch 自动同步(watchdog 监听 + webhook 通知)
 - 评审工作流(draft → pending_review → approved / rejected)

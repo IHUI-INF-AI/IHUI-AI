@@ -41,7 +41,7 @@ export type ProviderHealthStatus = (typeof PROVIDER_HEALTH_STATUSES)[number]
 
 export type ToolCallSource = 'builtin' | 'plugin' | 'mcp'
 
-// ==================== 工具调用审批流(2026-08-30 立,对标 Codex/Claude Auto mode) ====================
+// ==================== 工具调用审批流(2026-08-30 立,遵循统一工程规范) ====================
 // 高危工具(写文件/执行命令/删除/写库)执行前,后端通过 hook_engine 发 tool.approval 事件,
 // 前端收到后弹窗请求用户批准/拒绝,决策回填工具结果(拒绝/超时的工具不执行)。
 // 协议对齐:后端 SSE 事件 type='tool-approval',payload 字段 snake_case;前端组件消费 camelCase。
@@ -50,7 +50,7 @@ export type ToolCallSource = 'builtin' | 'plugin' | 'mcp'
 export type ToolApprovalDecision = 'approve' | 'reject'
 
 /**
- * 审批作用域(D84 2026-09-23 立,对标 Codex PERSIST_ONCE/SESSION/ALWAYS):
+ * 审批作用域(D84 2026-09-23 立,遵循统一工程规范):
  * - once    允许一次:仅本次执行,不落任何授权(最小特权,web 弹窗默认档)
  * - session 允许此对话:同键(工具+参数归一)本会话内免弹窗(服务重启/会话结束即失效)
  * - always  始终允许:同键跨会话免弹窗(落 approval_grants.db,持久层 always 行)

@@ -30,7 +30,7 @@ export interface AiEndpointRecord {
 /** 惰性解析缓存:682 行只在首次调用时切一次。 */
 let catalogCache: AiEndpointRecord[] | null = null
 
-/** 端点目录(唯一解析点)。字段序与生成器 `serializeRow` 逐字对齐。 */
+/** 端点目录(唯一解析点)。字段序与生成器 `serializeRow` 按行为规格。 */
 export function aiEndpointCatalog(): AiEndpointRecord[] {
   if (catalogCache) return catalogCache
   const rows: AiEndpointRecord[] = []

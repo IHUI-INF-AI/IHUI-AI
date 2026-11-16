@@ -987,7 +987,7 @@ export function useMessageListScroll({
     }
   }, [recordUserIntent])
 
-  // 2026-07-28 立:Jump-to-latest 浮动按钮点击处理(深度对标 AI 工作台)
+  // 2026-07-28 立:Jump-to-latest 浮动按钮点击处理(深度对齐 AI 工作台)
   // - scrollIntoView 到 bottomRef(平滑)
   // - 重置 userScrolledUp 标记,触发自动滚动继续工作
   // 2026-09-22 收口:此前此处另派发 'ihui:jump-to-latest' 且本 hook 又自行 addEventListener
@@ -1011,7 +1011,7 @@ export function useMessageListScroll({
     applyAuthority({ following: true })
   }, [applyAuthority, markProgrammaticScroll])
 
-  // 2026-07-28 立(深度对标 AI 工作台):键盘导航 ↑/↓ 切换消息聚焦
+  // 2026-07-28 立(深度对齐 AI 工作台):键盘导航 ↑/↓ 切换消息聚焦
   // - 焦点不在 input/textarea/contenteditable 时生效(避免与输入冲突)
   // - ArrowDown / ArrowUp:切换 focused message index
   // - Enter:聚焦消息若含 reasoning → 派发切换事件(由 MessageItem 内部响应)

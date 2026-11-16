@@ -298,7 +298,7 @@ export const ADMIN_NAV: AdminNavItem[] = [
   { href: '/admin/ai-cost', labelKey: 'aiCost', icon: Coins },
   // P3-9 模型定价看板(labelKey 复用 web nav.pricing 存量键,清孤儿键)
   { href: '/admin/model-pricing', labelKey: 'pricing', icon: BadgeDollarSign },
-  { href: '/admin/agent-governance', labelKey: 'agentGovernance', icon: Gauge },
+  { href: '/admin/agents', labelKey: 'agentGovernance', icon: Gauge },
   // G6 企业治理控制台(2026-10-30 立):组织统账 + 策略编辑/留痕(/api/org/*)
   { href: '/admin/org-governance', labelKey: 'orgGovernance', icon: Building2 },
   // [2026-10-17 收敛] monitoring-dashboard / backend-health 与 Grafana monitor_health
@@ -720,7 +720,7 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
       },
       // 数据库备份作业(2026-09-17,4-2 条目 48 管理端补齐)
       { href: '/admin/backup-jobs', labelKey: 'adminBackupJobs', icon: HardDriveDownload },
-      // P0 中转站造血能力对标批次(2026-07-31 立):模型映射(渠道管理)
+      // P0 中转站造血能力对齐批次(2026-07-31 立):模型映射(渠道管理)
       { href: '/admin/relay/channels', labelKey: 'adminRelayModelMappings', icon: Shuffle },
       // P0-20b 参数覆盖规则(2026-08-01 立,转发层 applyParamOps 管理)
       { href: '/admin/relay-param-ops', labelKey: 'relayParamOps', icon: SlidersHorizontal },

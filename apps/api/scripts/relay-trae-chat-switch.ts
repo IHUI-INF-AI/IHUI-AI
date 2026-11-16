@@ -996,7 +996,7 @@ export async function main(argv: string[]): Promise<number> {
       const exePath = exe
       /**
        * 2026-11-10 修:不能再只靠 exe 目录推 dll —— 正库段在客户端**已关闭之后**才跑,
-       * 那时 resolveProductExe 查不到进程路径(本机装在 G:\Trae CN,返回 '')⇒ no-dll ⇒ 整链回滚。
+       * 那时 resolveProductExe 查不到进程路径(本机装在 外部程序 CN,返回 '')⇒ no-dll ⇒ 整链回滚。
        * 改走 `locateAgentDll`:从 userDataDir 逐级向上反推安装根,与进程无关。
        * exePath 只在前置缓存命中时才有值(关端前抓的),仍作首选。
        */

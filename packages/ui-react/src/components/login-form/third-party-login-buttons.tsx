@@ -58,7 +58,7 @@ export function sortByPlatformPriority<T extends { key: ThirdPartyPlatform }>(
 /**
  * 第三方登录按钮群(2026-07-26 抽取到共享包)
  *
- * 视觉规范(对标 web 端 ThirdPartyLoginButtons.tsx):
+ * 视觉规范(对齐 web 端 ThirdPartyLoginButtons.tsx):
  *   - 标题:"第三方登录" + 居中文本(uppercase + text-muted-foreground)
  *   - 网格:grid grid-cols-3 gap-3(3 列)
  *   - 每个按钮:Button variant="outline" h-10 内含 icon + span label

@@ -17,7 +17,7 @@
  *   - 检查点里根本没有可回滚项(无快照 / 记录读不出来)⇒ `undoUnavailable`;
  *   - 检查点有条目、但一条也没撤成(写失败 / 无权限 / 目标被占用)⇒ `undoFailed`;
  *   - 撤成一部分 ⇒ `undoPartialWarning`。
- * 键名与 web 侧逐字对齐(见 `UNDO_CLAIM_KEYS`),五语 parity 由
+ * 键名与 web 侧按行为规格(见 `UNDO_CLAIM_KEYS`),五语 parity 由
  * `apps/cli/tests/d163-undo-i18n-parity.test.ts` 逐字钉住。
  */
 

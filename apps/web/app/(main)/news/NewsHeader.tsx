@@ -4,7 +4,7 @@
 
 'use client'
 
-import { Newspaper, Search } from 'lucide-react'
+import { Search } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { Input } from '@ihui/ui-react'
 
@@ -18,16 +18,6 @@ export function NewsHeader({ search, onSearchChange }: Props) {
 
   return (
     <>
-      <header className="space-y-1">
-        <div className="flex items-center gap-2">
-          <Newspaper className="h-6 w-6 text-primary" />
-          <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">
-            {t('title')}
-          </h1>
-        </div>
-        <p className="text-label text-muted-foreground">{t('subtitle')}</p>
-      </header>
-
       <div className="relative w-full max-w-md">
         <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input

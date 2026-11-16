@@ -7,7 +7,7 @@
 # 注意:npmDepsHash 需用 `nix run nixpkgs#prefetch-npm-deps -- <package-lock.json>` 生成,
 #      首次构建会提示正确 hash,替换 fakeSha256 后重新构建。
 {
-  description = "IHUI AI Coding Agent CLI — 对标 Claude Code / Codex";
+  description = "IHUI AI Coding Agent CLI — 对齐统一规范;
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";

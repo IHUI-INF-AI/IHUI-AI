@@ -5,7 +5,7 @@
 /**
  * 持久会话回放 — 存储投影，不重放工具。
  *
- * 观察（WorkBuddy @genie/agent-harness 0.2.0-beta.15，安装位
+ * 观察（WorkBuddy 通用子智能体日志规范 0.2.0-beta.15，安装位
  * G:/workbuddy/resources/app.asar.unpacked，2026-11-07 本机字节）：
  * 会话恢复若带轮次游标，只把已落库的转录切成一页再投影成更新；
  * 不启动执行器。游标类型在对照里是厂商私有串；历史条目上限 20000；

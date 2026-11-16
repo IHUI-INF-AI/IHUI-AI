@@ -73,7 +73,7 @@ import { devEnvRoot } from './seal-c-root-stray.mjs'
 // (`<repoRoot>/.DevEnv/Temp/ihui-scratch`)之后,这里仍在扫旧仓外 `D:\DevEnv` —— 仓内
 // 240MB / 115 条夹具残留从来没人扫到,而汇总里表现为"候选 0",读起来跟"已清干净"一模一样
 // (本仓最贵的假绿正是这一型)。§0.6:同一件事只留一处实现。
-import { scratchRoot } from './lib/scratch-dir.mjs'
+import { scratchRoot, detachFixtureWorktreeRegistrations } from './lib/scratch-dir.mjs'
 
 const OUR_PREFIXES = ['ihui-', 'IHUI-', 'next-backup-', 'probe-']
 /** 整目录不碰:名字命中即跳过(按 toLowerCase 比对,大小写不敏感) */
@@ -859,6 +859,19 @@ export function del(root, candidates) {
       continue
     }
     try {
+      // 幽灵注册根治(2026-11-17):删夹具目录前先摘掉其中的 linked worktree 注册。
+      // 与 rmScratch 共用 scratch-dir.mjs 的同一份判据(单一真相源)。必须在 rmSync 之前
+      // 读 `.git` 指针;只对目录候选做(散文件不可能是 worktree),双向确认防止误摘他仓。
+      // 摘注册失败不阻断删目录(方向同 del 的既有语义:如实报数,不静默),但记入 firstError。
+      if (c.dir) {
+        try {
+          const det = detachFixtureWorktreeRegistrations(c.path)
+          for (const f of det.failed)
+            firstError = firstError || `摘 worktree 注册失败 ${f.adminDir}: ${f.error}`
+        } catch (e) {
+          firstError = firstError || `摘 worktree 注册失败 ${c.name}: ${String(e?.message ?? e).slice(0, 120)}`
+        }
+      }
       rmSync(c.path, { recursive: c.dir, force: true, maxRetries: 2 })
       ok++
       bytes += c.bytes

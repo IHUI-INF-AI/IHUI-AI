@@ -33,6 +33,11 @@ function seedMessage(m: ChatMessage) {
   )
 }
 
+/** 2026-11-16 起 AI 编辑入口收进「更多」下拉;点入口前先展开菜单。 */
+function openMore(id: string) {
+  fireEvent.click(screen.getByTestId(`message-more-${id}`))
+}
+
 function collectEditEvents(): Array<{ messageId: string; content: string }> {
   const seen: Array<{ messageId: string; content: string }> = []
   window.addEventListener('ihui:edit-ai-message', (e) => {
@@ -49,6 +54,7 @@ afterEach(() => {
 describe('MessageItem · AI 消息编辑入口(票64)', () => {
   it('AI 消息有「编辑此回复」按钮,用户/system 消息没有', () => {
     seedMessage({ id: 'a1', role: 'assistant', content: '回答', createdAt: NOW })
+    openMore('a1')
     expect(screen.getByTestId('message-ai-edit-a1').getAttribute('aria-label')).toBe(
       '[message.editAiReply]',
     )
@@ -64,6 +70,7 @@ describe('MessageItem · AI 消息编辑入口(票64)', () => {
 
   it('点开 Dialog 预填原内容,内容未改时保存按钮禁用', () => {
     seedMessage({ id: 'a2', role: 'assistant', content: '原回答', createdAt: NOW })
+    openMore('a2')
     fireEvent.click(screen.getByTestId('message-ai-edit-a2'))
     const textarea = screen.getByTestId('message-ai-edit-textarea-a2') as HTMLTextAreaElement
     expect(textarea.value).toBe('原回答')
@@ -75,6 +82,7 @@ describe('MessageItem · AI 消息编辑入口(票64)', () => {
   it('改内容后保存 → 派发 ihui:edit-ai-message,detail 带 messageId 与新内容', () => {
     const seen = collectEditEvents()
     seedMessage({ id: 'a3', role: 'assistant', content: '原回答', createdAt: NOW })
+    openMore('a3')
     fireEvent.click(screen.getByTestId('message-ai-edit-a3'))
     fireEvent.change(screen.getByTestId('message-ai-edit-textarea-a3'), {
       target: { value: '改后的回答' },
@@ -86,6 +94,7 @@ describe('MessageItem · AI 消息编辑入口(票64)', () => {
   it('只改空白 → 不派发(trim 后为空不落新版本)', () => {
     const seen = collectEditEvents()
     seedMessage({ id: 'a4', role: 'assistant', content: '原回答', createdAt: NOW })
+    openMore('a4')
     fireEvent.click(screen.getByTestId('message-ai-edit-a4'))
     fireEvent.change(screen.getByTestId('message-ai-edit-textarea-a4'), {
       target: { value: '   ' },
@@ -98,6 +107,7 @@ describe('MessageItem · AI 消息编辑入口(票64)', () => {
   it('取消 → 不派发', () => {
     const seen = collectEditEvents()
     seedMessage({ id: 'a5', role: 'assistant', content: '原回答', createdAt: NOW })
+    openMore('a5')
     fireEvent.click(screen.getByTestId('message-ai-edit-a5'))
     fireEvent.change(screen.getByTestId('message-ai-edit-textarea-a5'), {
       target: { value: '改后的回答' },

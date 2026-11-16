@@ -70,15 +70,16 @@ const NavGroupSection = React.memo(function NavGroupSection({
   isFirst,
   onBeforeNav,
 }: NavGroupSectionProps) {
-  // 分组是否参与折叠(2026-11-15 用户要求):对外分类标题只保留「自定义」与「热门」。
-  // 其余分组(原 AI 教育/内容/交易/个人等)不再显示标题,其内已收敛的域入口直接平铺;
-  // 「管理」是 admin 专属的运维分组,条目多且与普通导航不同层,保留可折叠标题避免刷屏。
-  const isCollapsible =
-    !collapsed && (group.label === 'hotGroupLabel' || group.label === 'adminGroupLabel')
+  // 分组是否参与折叠(2026-11-15 用户要求;2026-11-16 管理域收敛后补充):
+  // 对外分类标题只保留「热门」(「自定义」在 CustomNavSection 内独立实现)。
+  // 其余分组(AI/教育/内容/交易/个人/开发者)的收敛域入口直接平铺。
+  // 「管理」在 2026-11-16 收敛为单入口 /domains/admin 后与普通分类同形态,
+  // 不再保留可折叠标题 —— 单项分组再套一层折叠开关属于多余层级,点击应直达域页。
+  const isCollapsible = !collapsed && group.label === 'hotGroupLabel'
   // 分组标题:i18n 解析(group.label 是 nav namespace 下的 key,如 'adminGroupLabel' / 'hotGroupLabel')
   const groupLabel = group.label ? t(group.label) : group.label
   // 默认展开的分组(2026-11-15 调整):仅「热门」首帧展开。
-  // 「管理」admin 专属且条目多,默认折叠避免刷屏;用户手动展开后仍由 localStorage 记忆。
+  // 「管理」收敛为单入口后不再走折叠分支,此默认值只对「热门」生效。
   const defaultOpen = group.label === 'hotGroupLabel'
   // v3 后缀:版本化 key。重要:旧实现用 useEffect 在 open 变化时写 localStorage,
   // 导致首次挂载 setOpen(defaultOpen) 触发写入,污染了测试环境的 localStorage。

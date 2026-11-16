@@ -2,7 +2,7 @@
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-"""工具调用超时预算(per-tool timeout policy;对标 DSH dsh-tool-call-timeout-policy)。
+"""工具调用超时预算(per-tool timeout policy;遵循统一工程规范)。
 
 病灶(2026-11-14 第五遍取证):`AgentLoopV2` 用**单一** 60s 包住所有工具调用,而工具
 自己声明的预算普遍更长 —— `run_command` 接受 timeout/max_timeout(handler 硬上限
@@ -11,7 +11,7 @@
 掐断,模型收到"工具执行超时(60.0s)"并可能立刻重试,长构建 / 子代理 / 文档转换
 永远跑不完 —— schema 对模型承诺的预算与运行时实际预算互相矛盾。
 
-治理原则(与 DSH 同构,只抄判据不抄插件):
+治理原则(与 外部实现 同构,只取判据不取插件):
   - **工具拥有预算**:`run_command` 取调用参数 `timeout`,并被 `max_timeout` 与
     `RUN_COMMAND_TIMEOUT_S` 双重夹紧 —— 与 handler `_tool_run_command` 同一判据
     (两边都调本模块,不各写一套);
@@ -45,7 +45,9 @@ RUN_COMMAND_DEFAULT_TIMEOUT_S: Final = 60
 RUN_COMMAND_DEFAULT_MAX_TIMEOUT_S: Final = 600
 RUN_COMMAND_HARD_DEFAULT_S: Final = 120
 
-# dispatch_subagent:编排器内部单子代理超时
+# 多智能体编排:编排器内部单子代理超时。
+# 2026-11-16 模型面更名为 orchestrate_agents;旧名保留同一预算(CLI / 历史调用兼容)。
+ORCHESTRATE_AGENTS_TOOL_NAME: Final = "orchestrate_agents"
 SUBAGENT_TOOL_NAME: Final = "dispatch_subagent"
 SUBAGENT_TIMEOUT_ENV: Final = "SUBAGENT_TIMEOUT_S"
 SUBAGENT_DEFAULT_TIMEOUT_S: Final = 300
@@ -128,6 +130,52 @@ class ToolTimeoutBudget:
     source: str
 
 
+def orchestration_budget_s(args: Mapping[str, Any] | None) -> float:
+    """多智能体编排的总预算:单 agent 预算 × 波次,夹到硬上限。
+
+    波次口径与 AgentOrchestrator 的执行结构一致:
+    - single / parallel / team:1 波(team 是并行 fan-out)
+    - pipeline:步数波(步骤串行)
+    - debate / critique:轮数 × agent 数波(轮内并行、轮间串行)
+    - decompose:硬上限(分解器最多 10 个子任务,批次可能串行)
+
+    纯函数、不抛异常;非法入参一律退回单 agent 预算。
+    """
+    per = float(subagent_timeout_s())
+    if not isinstance(args, Mapping):
+        return per
+    mode = str(args.get("mode") or "").strip().lower()
+    raw_agents = args.get("agents")
+    raw_steps = args.get("steps")
+    # 与 handler 的推断保持一致:省略 mode 但有 steps → pipeline。
+    if not mode and isinstance(raw_steps, list) and raw_steps:
+        mode = "pipeline"
+    agent_count = len(raw_agents) if isinstance(raw_agents, list) and raw_agents else 1
+    step_count = len(raw_steps) if isinstance(raw_steps, list) and raw_steps else 1
+
+    if mode == "pipeline":
+        waves = max(1, step_count)
+    elif mode in ("debate", "critique"):
+        raw_rounds = args.get("max_rounds")
+        default_rounds = 3 if mode == "debate" else 2
+        if isinstance(raw_rounds, bool) or raw_rounds is None:
+            rounds = default_rounds
+        else:
+            try:
+                rounds = int(raw_rounds)
+            except (TypeError, ValueError):
+                rounds = default_rounds
+        rounds = max(1, min(rounds, 3))
+        waves = rounds * max(1, agent_count)
+    elif mode == "decompose":
+        # 分解器默认最多 10 个子任务,批次可能串行;直接给硬上限,
+        # 避免 2 波估算把长任务误杀。
+        return HARD_CEILING_S
+    else:
+        waves = 1
+    return min(per * waves, HARD_CEILING_S)
+
+
 def resolve_tool_timeout_budget(
     tool_name: str | None,
     args: Mapping[str, Any] | None = None,
@@ -149,9 +197,13 @@ def resolve_tool_timeout_budget(
     if name == RUN_COMMAND_TOOL_NAME:
         budget = run_command_budget_s(args)
         source = "args"
-    elif name == SUBAGENT_TOOL_NAME:
-        budget = float(subagent_timeout_s())
-        source = "declared"
+    elif name in (ORCHESTRATE_AGENTS_TOOL_NAME, SUBAGENT_TOOL_NAME):
+        budget = orchestration_budget_s(args)
+        source = (
+            "args"
+            if isinstance(args, Mapping) and args.get("mode")
+            else "declared"
+        )
     elif name == OFFICE_TOOL_NAME:
         budget = OFFICE_DOCUMENT_BUDGET_S
         source = "declared"

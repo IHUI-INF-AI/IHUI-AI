@@ -11,7 +11,7 @@
  * 监听),本文件执行后把 DomActionResult 形状的结果沿同一通道回给 background,
  * 由 background 走既有 `/result` 回传(单条 WS、一处回执)。
  *
- * 安全语义与 web 端 `apps/web/src/lib/ui-action-registry.ts` 逐字对齐(模型在三端看到
+ * 安全语义与 web 端 `apps/web/src/lib/ui-action-registry.ts` 按行为规格(模型在三端看到
  * 的行为一致):SENSITIVE_RE / DESTRUCTIVE_RE 判据正则照抄 web,errorCode 统一
  * PERMISSION_DENIED / DESTRUCTIVE_BLOCKED / ROUTE_NOT_ALLOWED / SELECTOR_NOT_FOUND /
  * UNSUPPORTED_ACTION。宁可如实失败,不回"ok 而界面没动"。
@@ -24,7 +24,7 @@ import type { AgentActionErrorCode, AgentActionRequest, ExtUiActionType } from '
 import { EXT_UI_ROUTES } from './ext-ui-routes.generated'
 import { PENDING_ROUTE_STORAGE_KEY } from '@ihui/shared/constants'
 
-// ===== 与 web 端逐字对齐的安全判据(apps/web/src/lib/ui-action-registry.ts:29-31) =====
+// ===== 与 web 端按行为规格的安全判据(apps/web/src/lib/ui-action-registry.ts:29-31) =====
 
 const DESTRUCTIVE_RE =
   /注销|删除|清空|提现|转账|退款|支付|确认付款|退号|delete|remove|destroy|withdraw|refund|pay/i

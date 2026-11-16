@@ -6,7 +6,7 @@ import { pgTable, uuid, varchar, integer, boolean, timestamp, index } from 'driz
 
 /**
  * 上游错误透传规则表(relay_error_passthrough_rules,2026-09-16 立,五轮补强,
- * 对标竞品 /error-passthrough-rules)。
+ * 对齐竞品 /error-passthrough-rules)。
  *
  * 用途:定义上游返回的错误如何呈现给下游 API 消费者——
  * 上游 429(限流)、上游 402(额度耗尽)、上游内容审核拒绝等,是原样透传、

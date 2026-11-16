@@ -555,7 +555,7 @@ _PREVIEW_MAX_LINES = 400
 _PREVIEW_MAX_CHARS = 32 * 1024
 
 # D120(2026-09-27,G-234):轮次预算弹性续跑 —— 接近 max_iterations 上限时自动
-# 注入"进度交代 + 续期"轮,防止长任务被硬断(对标 GPT-5.3 Codex 长时运行定位)。
+# 注入"进度交代 + 续期"轮,防止长任务被硬断(对齐 GPT-5.3 Codex 长时运行定位)。
 # 续期次数有限(默认取 settings.agent_budget_renewals = 2,env AGENT_BUDGET_RENEWALS
 # 或旧名 LLM_ITERATION_EXTEND_LIMIT 均可调,0 = 关闭);每次续期追加
 # settings.agent_budget_renewal_turns 轮(默认 +2,env AGENT_BUDGET_RENEWAL_TURNS)。
@@ -1940,7 +1940,7 @@ def _clip_terminal_output(output: str) -> tuple[str, bool, int]:
 
     截断标志与原始长度**必须随帧/随记录一起下发**:SSE 与落库都只带截断后的文本,
     刷新/回放时客户端没有 live 缓冲可比对,长度相等就看不出"后面还有内容没显示"
-    (对标 Codex/Trae 的 truncated + 总长度口径)。
+    (遵循统一工程规范)。
     """
     total = len(output)
     if total <= TERMINAL_OUTPUT_LIMIT:
@@ -2057,15 +2057,16 @@ _DEFAULT_MODELS_FILE = Path(__file__).resolve().parent.parent / "data" / "defaul
 
 
 # ===== 工具来源派生(2026-07-31 立,A2 任务:ToolCallCard 区分原生/MCP/插件工具)=====
-# _BUILTIN_AGENT_TOOLS:核心 builtin 工具名集合(对标 apps/web/src/hooks/use-chat.ts 的 AGENT_TOOLS,
+# _BUILTIN_AGENT_TOOLS:核心 builtin 工具名集合(对齐 apps/web/src/hooks/use-chat.ts 的 AGENT_TOOLS,
 #   剔除 browser_*/computer_*——这些属于插件接入类,由 _PLUGIN_TOOL_NAMES 覆盖)。
-# _PLUGIN_TOOL_NAMES:插件市场接入的工具名集合(对标 use-chat.ts 的 PLUGIN_ID_TO_TOOLS 反查表,
+# _PLUGIN_TOOL_NAMES:插件市场接入的工具名集合(对齐 use-chat.ts 的 PLUGIN_ID_TO_TOOLS 反查表,
 #   browser_* 由 playwright-mcp/puppeteer/browser-use 等 13 个浏览器插件共用,
 #   computer_* 由 anthropic-computer-use/open-interpreter/auto-gpt/babyagi 等 4 个电脑控制插件共用)。
 # _MCP_TOOL_NAMES:mcp_server.py 注册表中的全部工具名(模块加载时求值一次)。
 _BUILTIN_AGENT_TOOLS: frozenset[str] = frozenset({
     "read_file", "search_codebase", "file_search", "analyze_code", "generate_test",
-    "web_search", "search_web", "vision_analyze", "knowledge_lookup", "dispatch_subagent",
+    "web_search", "search_web", "vision_analyze", "knowledge_lookup",
+    "orchestrate_agents", "dispatch_subagent",
     "summarize_artifacts", "proactive_suggestion",
 })
 _PLUGIN_TOOL_NAMES: frozenset[str] = frozenset({
@@ -2432,7 +2433,7 @@ def _compaction_payload(info: dict[str, Any] | None) -> dict[str, Any] | None:
 def _compaction_frame(info: dict[str, Any] | None) -> str | None:
     """构造 compaction SSE 帧;无需交代时返回 None。
 
-    G-150(WorkBuddy 一手对标):过去只在 `compressed=True` 时发帧,**压缩撞到上限
+    G-150(WorkBuddy 一手对齐):过去只在 `compressed=True` 时发帧,**压缩撞到上限
     (incompressible:system/material 本身过大,截到最小仍超阈值)时用户完全无感** ——
     界面上只是"回答变慢/变笨",而竞品会直说"已达上限,建议开新对话或减少上下文"。
     现在 incompressible 同样发帧,并把 `trigger` 带出去供各端区分措辞与给动作。
@@ -3158,7 +3159,7 @@ def _inject_custom_system_prompt(
 def _inject_deliverable_guidance(
     messages: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
-    """2026-11-14(对标 DSH dsh-deliverable-file-references):交付物与文件引用规约。
+    """2026-11-14(遵循统一工程规范):交付物与文件引用规约。
 
     与 v2 引擎同段落、同标记:主聊天(v1 路径)与引擎(v2 路径)必须都看得到,否则
     模型只在"已经是 agent 任务"时才会正确内联图片、给文件加可点链接、择时 present。
@@ -3188,11 +3189,11 @@ def _inject_deliverable_guidance(
 
 
 # ===== 多 agent 编排引导 prompt(2026-07-24 立,2026-07-24 升级 5→10 agent + invoke_parallel)=====
-# 仅当请求 agent_tools 含 dispatch_subagent 时,在 tool loop 入口注入此 system message,
-# 引导 LLM 在复杂任务时主动派发子智能体而非单打独斗。
+# 仅当请求 agent_tools 含 orchestrate_agents(旧名 dispatch_subagent 兼容)时,
+# 在 tool loop 入口注入此 system message,引导 LLM 在复杂任务时主动编排子智能体。
 # agent 清单对齐 AgentOrchestrator._register_defaults 的 10 个默认 agent(5 通用 + 5 专业,2026-07-24 新增)
 _SUBAGENT_ORCHESTRATION_PROMPT = (
-    "你当前可以使用 dispatch_subagent 工具派发子智能体执行独立子任务,"
+    "你当前可以使用 orchestrate_agents 工具派发/编排子智能体执行独立子任务,"
     "子智能体独立执行后返回结果,不污染主对话上下文。\n\n"
     "通用 agent(5 个):\n"
     "- researcher:研究助手,调研任务、收集信息、生成摘要\n"
@@ -3206,19 +3207,30 @@ _SUBAGENT_ORCHESTRATION_PROMPT = (
     "- devops:DevOps 工程师,Docker/Turborepo/pnpm workspace/CI/CD,monorepo 构建\n"
     "- security-auditor:安全审计专家,OWASP Top 10/CWE 检测,RCE/SSRF/SQL注入/XSS 漏洞模式\n"
     "- test-engineer:测试工程师,Vitest/pytest/Playwright,单元/集成/E2E 测试设计\n\n"
-    "并行派发(2026-07-24 新增,对标 Codex 并行 Agent):\n"
-    "- 当任务涉及多个独立子任务时,可在单次 dispatch_subagent 调用中传入 tasks 数组批量派发\n"
+    "并行派发(2026-07-24 新增,对齐统一规范):\n"
+    "- 当任务涉及多个独立子任务时,可在单次 orchestrate_agents 调用中传入 tasks 数组批量派发\n"
     "- invoke_parallel 自动用 asyncio.Semaphore 限流(默认并发 5),单个失败不影响其他\n"
     "- 返回结构化聚合结果:total/succeeded/failed/results[]\n\n"
+    "统一编排模式(2026-11-16 升级,同一个 orchestrate_agents 工具):\n"
+    "- 任务前后依赖、需要接力 → mode=pipeline,传 steps=[{agent, input_template}]\n"
+    "- 需要多视角对抗、暴露分歧 → mode=debate,传 agents + task,可设 max_rounds(1-3)\n"
+    "- 多个方案要择优 → mode=vote,传 agents + task\n"
+    "- 先出方案再被挑刺后改进 → mode=critique,传 agents + task(第一个是提案者)\n"
+    "- 目标复杂、不知怎么拆 → mode=decompose,传 task,可设 strategy(sequential/parallel/dag/recursive)\n"
+    "- 需要多 agent 并行产出并结构化聚合(共识/冲突/择优)→ mode=team,"
+    "传 agents + task,可设 aggregation(merge/best_of/consensus)\n"
+    "- 互不依赖的多个子任务 → mode=parallel,传 tasks 数组\n"
+    "- 只有一件事 → mode=single 或省略 mode,传 name + task\n"
+    "- 选择原则:你能直接回答的不要派发;派发消耗额外 token 与时间。\n\n"
     "使用时机:\n"
-    "- 任务涉及多个独立子步骤(如\"审查代码 + 写测试\")→ 拆分为多个 dispatch_subagent 调用,每个子任务一个 agent\n"
+    "- 任务涉及多个独立子步骤(如\"审查代码 + 写测试\")→ 拆分为多个 orchestrate_agents 调用,每个子任务一个 agent\n"
     "- 任务需要多视角审查(如\"评估方案是否合理\")→ 用 reviewer\n"
     "- 任务需要专业能力而你自身不擅长(如\"调研某新技术进展\")→ 用 researcher\n"
     "- 前端 UI 改动 → 用 frontend-dev(熟悉项目 UI 约束,产出更合规)\n"
     "- 后端 API 改动 → 用 backend-dev(熟悉项目 API 约束,产出更规范)\n"
     "- 安全审查 → 用 security-auditor(产出按 severity 分级 + 修复建议)\n"
     "- 测试设计 → 用 test-engineer(覆盖 4 状态:默认/hover/active/dark mode)\n"
-    "- 简单任务(单一问题、直接回答)→ 不需要 dispatch_subagent,自己回答即可\n\n"
+    "- 简单任务(单一问题、直接回答)→ 不需要 orchestrate_agents,自己回答即可\n\n"
     "禁止滥用:\n"
     "- 不要为单一简单问题派发多个 subagent(浪费 token)\n"
     "- 不要重复派发相同任务(去重机制会跳过)"
@@ -3228,7 +3240,7 @@ _SUBAGENT_ORCHESTRATION_PROMPT = (
 def _build_subagent_orchestration_prompt() -> str:
     """构造多 agent 编排引导 system prompt。
 
-    仅当 agent_tools 含 dispatch_subagent 时由主流程注入一次(tool loop 入口),
+    仅当 agent_tools 含 orchestrate_agents(旧名 dispatch_subagent 兼容)时由主流程注入一次,
     不在每轮 iteration 重复注入。返回模块级常量,避免每次请求重新构造。
     """
     return _SUBAGENT_ORCHESTRATION_PROMPT
@@ -3359,7 +3371,7 @@ class LLMCompleteRequest(BaseModel):
     )
     temperature: float | None = Field(None, description="采样温度")
     max_tokens: int | None = Field(None, description="最大生成 token 数")
-    # P1-7(2026-09-13 立,四竞品对标:CodeX/Qoder 高级参数面板):
+    # P1-7(2026-09-13 立,四竞品对齐:CodeX/Qoder 高级参数面板):
     # 会话级采样参数与自定义 system prompt,由前端"高级参数"抽屉按会话下发。
     top_p: float | None = Field(None, description="核采样 top-p(0-1),None=用模型默认")
     top_k: int | None = Field(None, description="top-k 采样(>0),None=用模型默认")
@@ -3823,7 +3835,7 @@ async def llm_complete(req: LLMCompleteRequest, request: Request) -> dict[str, A
         messages = await _inject_memory_graph(
             messages, _last_user_text(messages), _resolve_owner_uuid(request)
         )
-    # 2026-11-14(对标 DSH dsh-deliverable-file-references):交付物与文件引用规则。
+    # 2026-11-14(遵循统一工程规范):交付物与文件引用规则。
     messages = _inject_deliverable_guidance(messages)
     # P1-7(2026-09-13 立):会话级自定义 system prompt,叠加在工作区记忆之上(置顶优先级最高)
     messages = _inject_custom_system_prompt(messages, req.system_prompt)
@@ -4516,12 +4528,12 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
         messages = await _inject_memory_graph(
             messages, _last_user_text(messages), _resolve_owner_uuid(request)
         )
-    # 2026-11-14(对标 DSH dsh-deliverable-file-references):交付物与文件引用规则。
+    # 2026-11-14(遵循统一工程规范):交付物与文件引用规则。
     # 放在会话级自定义 prompt 之前:用户指令仍置顶,本段只约束"如何呈现结果"。
     messages = _inject_deliverable_guidance(messages)
     # P1-7(2026-09-13 立):会话级自定义 system prompt,叠加在工作区记忆之上(置顶优先级最高)
     messages = _inject_custom_system_prompt(messages, req.system_prompt)
-    # D7(2026-09-19 立):主聊天自动语义检索注入(对标 Cursor @codebase 自动注入)。
+    # D7(2026-09-19 立):主聊天自动语义检索注入(遵循统一工程规范)。
     # 普通对话且工作区路径存在、索引可用时,首答前自动检索 top-k 代码块注入 system。
     # 开关:autoContext=false 关闭;IHUI_AUTO_CONTEXT_DISABLE=1 全局禁用(auto_context 模块内生效)。
     # 防重复:同一会话同一 query 60s 内不重复检索(auto_context 模块内 LRU)。
@@ -4938,7 +4950,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                 # `ahead` = 前面还有几位(0 = 下一位)。
                                 # 入队后 len-1 就是本项之前的等待者数 —— 这个值此处**现成**,
                                 # 不下发的话客户端只能显示一句"已排队",用户不知道要等多久。
-                                # 与共享层 send-admission.ts 的 ahead 语义逐字对齐:
+                                # 与共享层 send-admission.ts 的 ahead 语义按行为规格:
                                 # 只有量到了才发,不发 ⇒ 客户端读作"没量到"(不会折成 0)。
                                 _admission_payload["ahead"] = len(_lane["waiting"]) - 1
                         else:
@@ -5091,7 +5103,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                     # 当 dispatch_subagent 在 agent_tools 中时,在 tool loop 开始前注入引导 system message,
                     # 引导 LLM 在复杂任务时主动派发子智能体。注入只发生一次,不随 iteration 重复。
                     # 注入策略与 _inject_workspace_memory 一致:messages[0] 为 system 则追加,否则在开头插入。
-                    if "dispatch_subagent" in agent_tools:
+                    if {"orchestrate_agents", "dispatch_subagent"} & set(agent_tools):
                         _subagent_prompt = _build_subagent_orchestration_prompt()
                         if messages and messages[0].get("role") == "system":
                             _existing = messages[0].get("content", "")
@@ -5178,7 +5190,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                     }
                                 )
                                 _iter_budget += 1
-                        # 定时继续(2026-11-14 立,对标 DSH answer_to_pending_question):
+                        # 定时继续(2026-11-14 立,遵循统一工程规范):
                         # timed 提问到期后用户仍可答复;答复在本轮下一迭代 LLM 调用前
                         # 作为 user 消息注入(每条只交付一次)。失败隔离不阻塞主流。
                         if session_id:
@@ -5881,7 +5893,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                             # 为每个子任务发 subagent_spawn SSE 事件,前端进度面板自动展示 subagent 生命周期。
                             # _spawned_sub_ids 在本次 tool call 作用域内收集,执行后用于发 subagent_end 事件。
                             _spawned_sub_ids: list[str] = []
-                            if tool_name == "dispatch_subagent":
+                            if tool_name in ("orchestrate_agents", "dispatch_subagent"):
                                 _sa_tasks: list[dict[str, str]] = []
                                 _tasks_field = args.get("tasks")
                                 if isinstance(_tasks_field, list):
@@ -5890,6 +5902,37 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                             _sa_tasks.append({"name": str(_tk["name"]), "task": str(_tk["task"])})
                                 elif args.get("name") and args.get("task"):
                                     _sa_tasks.append({"name": str(args["name"]), "task": str(args["task"])})
+                                else:
+                                    # 统一编排模式(2026-11-16):debate/vote/critique/team 用 agents,
+                                    # pipeline 用 steps[].agent;decompose 没有显式名单,发一条总进度。
+                                    # 不补这一段 ⇒ _spawned_sub_ids 为空 ⇒ 编排走通用 call_tool,
+                                    # 既没有进度事件,也绕过 host_view 准入闸(静默降级)。
+                                    _orch_mode = str(args.get("mode") or "").strip().lower()
+                                    _orch_agents: list[str] = []
+                                    _agents_field = args.get("agents")
+                                    if isinstance(_agents_field, list):
+                                        _orch_agents = [
+                                            str(a) for a in _agents_field
+                                            if isinstance(a, str) and a.strip()
+                                        ]
+                                    if not _orch_agents:
+                                        _steps_field = args.get("steps")
+                                        if isinstance(_steps_field, list):
+                                            _orch_agents = [
+                                                str(s.get("agent")) for s in _steps_field
+                                                if isinstance(s, dict) and s.get("agent")
+                                            ]
+                                    if _orch_agents:
+                                        for _orch_name in _orch_agents:
+                                            _sa_tasks.append({
+                                                "name": _orch_name,
+                                                "task": str(args.get("task") or _orch_mode),
+                                            })
+                                    elif _orch_mode:
+                                        _sa_tasks.append({
+                                            "name": _orch_mode,
+                                            "task": str(args.get("task") or ""),
+                                        })
                                 _spawn_now = datetime.now(UTC).isoformat()
                                 for _sa_task in _sa_tasks:
                                     _sa_id = f"sub-{uuid.uuid4().hex[:8]}"
@@ -6997,7 +7040,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                             # - tool_result:agent_orchestrator.py 在 mcp_server.call_tool 返回后发出(含 tool + ok 字段)
                             # - output_ready:agent_orchestrator.py 在 3 个出口发出(无 tool_calls break / 最后一轮总结 / loop else)
                             # _progress_cb 实时转发所有 phase 到 _progress_queue → SSE yield,不延迟到 subagent_end。
-                            if tool_name == "dispatch_subagent" and _spawned_sub_ids:
+                            if tool_name in ("orchestrate_agents", "dispatch_subagent") and _spawned_sub_ids:
                                 # task_index → subagent_id 映射(并行模式多 task,单模式只有 1 个)
                                 _sub_id_by_index: dict[int, str] = dict(enumerate(_spawned_sub_ids))
                                 _single_sub_id = _spawned_sub_ids[0]
@@ -7029,6 +7072,9 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                     }
                                     for _fk in (
                                         "iteration", "tool", "ok", "output_preview",
+                                        # 统一编排模式(2026-11-16):进度帧带上 mode/status,
+                                        # 前端无需解析工具结果即可知道当前是哪种编排。
+                                        "mode", "status",
                                         # D08②:换手消息字段 —— 复用 subagent_progress 帧下发。
                                         "kind", "summary", "token_usage", "ts",
                                     ):
@@ -7249,7 +7295,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                             # status=done(成功)或 failed(失败),失败时附 failureReason(截断 500 字符)。
                             # 重复调用分支(dedup)不发 end 事件:subagent 在首次调用时已发过 spawn+end,
                             # 重复调用只是 LLM 决策被去重跳过,不应重复触发前端生命周期展示。
-                            if tool_name == "dispatch_subagent" and _spawned_sub_ids:
+                            if tool_name in ("orchestrate_agents", "dispatch_subagent") and _spawned_sub_ids:
                                 _end_now = datetime.now(UTC).isoformat()
                                 for _sa_id in _spawned_sub_ids:
                                     # D08②:完成/受阻/求助换手消息与结束帧**同帧**下发
@@ -7290,7 +7336,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                 "name": tool_name,
                                 "content": result_json,
                             })
-                            # 2026-11-14(对标 DSH read_image):只收交付凭据,
+                            # 2026-11-14(遵循统一工程规范):只收交付凭据,
                             # 图片本体在 tool 正文之外(见下方多模态消息注入)。
                             if isinstance(exec_result, dict):
                                 _img = exec_result.get("image")
@@ -8808,7 +8854,7 @@ async def reorder_steer_queue(
 # =============================================================================
 # D201 多根工作区(2026-10-02 立):会话级附加目录控制端点
 # =============================================================================
-# 对标 Qoder/Codex/Trae 的 add_directories 控制帧:会话中途追加/移除目录。
+# 遵循统一工程规范。
 # 键 = conversationId(与工具执行链 call_tool 的 session_id 同源 —— 流会话 ID
 # 每轮新生成,工具校验层认的是 conversationId),注册表在 mcp_server 模块级。
 # **整表替换**语义:paths=[] 即清空(移除即失效,不留残根);任一目录准入失败
@@ -8882,7 +8928,7 @@ def _build_persisted_tool_calls(
     """D24(2026-09-19 立):把 tool loop 的工具调用历史构造为可持久化数组。
 
     随 _fire_callback 落库到 chat_messages.metadata.toolCalls,恢复会话/
-    回放/审计时还原工具卡(对标 Codex TUI 历史完整 patch G-31)。
+    回放/审计时还原工具卡(遵循统一工程规范)。
 
     结构与 packages/types/src/ai.ts 的 BaseToolCall 对齐:
     id/toolName/status/isError/iteration/durationMs/repeated/serverSource/
@@ -9198,7 +9244,7 @@ async def _fire_callback(
 
 
 # ---------------------------------------------------------------------------
-# MoA / Vision 路由(P2-2 + P2-3,对标 Hermes Agent provider 扩展 + 多模态输入)
+# MoA / Vision 路由(P2-2 + P2-3,对齐 Hermes Agent provider 扩展 + 多模态输入)
 # ---------------------------------------------------------------------------
 
 

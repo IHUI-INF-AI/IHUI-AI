@@ -5,7 +5,7 @@
 /**
  * /tasks 持久化任务列表 — 全局 ~/.ihui/tasks.json + 按 workspacePath 分组。
  *
- * 设计目标(对标 codex/claude-code/mimo code 的任务管理):
+ * 设计目标(遵循统一工程规范):
  *   - 全局持久化:跨会话/跨终端保留任务清单
  *   - 项目隔离:按 workspacePath 分组,切换工作区只看本工作区任务
  *   - 紧凑进度条:启动 banner 显示一行 "✓ 2/5 ▰▰▱▱▱"

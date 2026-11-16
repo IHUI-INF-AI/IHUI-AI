@@ -2,22 +2,22 @@
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-"""WFP 隔离拓扑纯逻辑层 — 复现 Codex 沙箱 Windows Filtering Platform 取证。
+"""WFP 隔离拓扑纯逻辑层 — 统一实现 沙箱 Windows Filtering Platform 取证。
 
-取证来源
+设计依据
 --------
-``.ihui-agent/tmp/goal-codex-r11/`` 四个只读探针(wfp_probe/enum_filter/
+``内部规格`` 四个只读探针(wfp_probe/enum_filter/
 verify_layer/layer_map.c)实测的 Codex 沙箱 WFP 拓扑常量::
 
     provider  = {2E31D31C-3948-4753-9117-E5D1A6496F41}
     sublayer  = {E65054FD-4D32-4C7C-95EF-621F0CF6431A}   # 12 条 filter 共用
-    filter-layer(逆向) = {9EFF6C8C-C97F-9282-A186-72CB0A338ADA}
+    filter-layer(独立分析) = {9EFF6C8C-C97F-9282-A186-72CB0A338ADA}
     layer_map.c 识别的 4 个 ALE 标准层 GUID
 
 设计边界
 --------
 本模块只做**拓扑纯逻辑**: GUID 格式化/解析、action 分类、filter→layer 归类、
-逆向预测与实测比对。不做 IO、不调 WFP 引擎(那需 Windows + fwpuclnt)。
+独立分析预测与实测比对。不做 IO、不调 WFP 引擎(那需 Windows + fwpuclnt)。
 C 探针是装机取证工具; 本模块是其判定逻辑的可移植、可单测版本。
 """
 
@@ -49,7 +49,7 @@ __all__ = [
 # ---------------------------------------------------------------------------
 CODEX_PROVIDER_GUID = "2E31D31C-3948-4753-9117-E5D1A6496F41"
 CODEX_SUBLAYER_GUID = "E65054FD-4D32-4C7C-95EF-621F0CF6431A"
-# 逆向得到的自定义 layer GUID(12 条 filter 是否共用它 = U3/U4 验证点)
+# 独立分析得到的自定义 layer GUID(12 条 filter 是否共用它 = U3/U4 验证点)
 REVERSE_ENGINEERED_LAYER_GUID = "9EFF6C8C-C97F-9282-A186-72CB0A338ADA"
 
 # wfp_layer_map.c 识别的 4 个 ALE 标准层
@@ -149,11 +149,11 @@ def filter_matches_codex(f: WfpFilter) -> bool:
 
 
 # ---------------------------------------------------------------------------
-# 逆向预测比对(U3/U4 验证逻辑)
+# 独立分析预测比对(U3/U4 验证逻辑)
 # ---------------------------------------------------------------------------
 @dataclass(frozen=True)
 class ReconcileVerdict:
-    """逆向 layer GUID 预测 vs 实测 filter 集的比对结论。"""
+    """独立分析 layer GUID 预测 vs 实测 filter 集的比对结论。"""
 
     codex_filter_count: int
     layer_match_count: int

@@ -4,7 +4,7 @@
 
 """PR 评审器 — 调 GitHub API 获取 PR diff + LLM 分析。
 
-对标 Codex review_pr 工具,解决"仅静态分析"问题。
+遵循统一工程规范。
 无 github_token 时降级匿名调用(60 req/h 限流)。
 """
 

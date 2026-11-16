@@ -4,7 +4,7 @@
 
 """Plan Mode(计划模式)路由。
 
-全新端点族(不碰现有 agents.py 路由),对标 Claude Code Plan Mode:
+全新端点族(不碰现有 agents.py 路由),遵循统一工程规范
 - POST /agent-plan :创建计划草稿(只读阶段,LLM 生成可编辑计划)
 - GET  /agent-plan/{plan_id} :查询计划状态与内容
 - POST /agent-plan/{plan_id}/decision :用户批准/拒绝
@@ -127,7 +127,7 @@ def _make_loop_v2_llm(model: str | None) -> Any:
                 fn = tc.get("function") or {}
                 raw = fn.get("arguments")
                 # 单一真相源：字符串形态 args（含残缺/截断）走 normalize_tool_call_args 修复解析，
-                # 对标 Qoder/Trae 的 jsonrepair 用法；非字符串（已是对象等）原样透传，维持契约不变。
+                # 遵循统一工程规范；非字符串（已是对象等）原样透传，维持契约不变。
                 args = normalize_tool_call_args(raw) if isinstance(raw, str) else (raw or {})
                 converted.append(
                     {

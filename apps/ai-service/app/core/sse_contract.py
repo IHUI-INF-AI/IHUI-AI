@@ -485,7 +485,7 @@ SSE_EVENT_CONTRACTS: tuple[SSEEventContract, ...] = (
     # errorCode=BUDGET_EXHAUSTED 硬中断。
     # V3 #48(2026-09-26)补注生产点精确位置:apps/api/src/routes/ai-chat-stream.ts
     # 的 checkTokenBudget 三态分流(block→429 / warning,critical→extraFirstEvents
-    # 流首命名帧,两处 :776 与 :1039)。2026-09-26 对标轮曾误判本帧"零生产点"——
+    # 流首命名帧,两处 :776 与 :1039)。2026-09-26 对齐轮曾误判本帧"零生产点"——
     # 只查了 ai-service 的 llm_gateway 没查 apps/api 网关层,教训:**跨端事件先查网关**。
     SSEEventContract("budget", ("level", "percent", "usedTokens", "limitTokens", "tier", "resetAt")),
     # 流式中断标记(G-815976 收口入契约,2026-10-04):llm_gateway.py astream 异常

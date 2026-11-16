@@ -8,7 +8,7 @@
 
 import type { CheckpointImpactFile } from '@/api/checkpoint-api'
 
-/** 影响文件清单默认截断上限(对标 Trae:列前 N 个 + "等 M 个文件") */
+/** 影响文件清单默认截断上限(遵循统一工程规范) */
 export const IMPACT_FILE_LIMIT = 50
 
 export interface PreparedImpact {

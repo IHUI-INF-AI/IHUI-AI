@@ -94,7 +94,7 @@ export interface UseMessageSendResult {
   handleFileInputChange: (e: React.ChangeEvent<HTMLInputElement>) => void
   /** confirmed 为「仍要发送」一次性放行令牌,仅由 submit 内部确认分支递归传入 */
   submit: (overrideValue?: string, confirmed?: boolean) => Promise<void>
-  /** W27 输入队列(2026-09-14 立,对标 Codex/Cursor 多条排队):流式期间输入的预备消息 FIFO 队列,
+  /** W27 输入队列(2026-09-14 立,遵循统一工程规范):流式期间输入的预备消息 FIFO 队列,
    *  流式结束后自动发送队首,剩余条目随下一次流式结束继续出队 */
   pendingMessages: Array<{ text: string; refs: ReferenceItem[] }>
   /** 移除队列中指定条目(输入框上方队列条目「取消」时调用,文本退回主输入框) */
@@ -450,7 +450,7 @@ export function useMessageSend(params: UseMessageSendParams): UseMessageSendResu
         })
         .join('\n')
       const finalContent = attachmentMarkdown ? `${text}\n\n${attachmentMarkdown}` : text
-      // D22 引用回复(2026-09-19 立,对标 Qoder 0.2.x):quotedMessage 非空时把被引用
+      // D22 引用回复(2026-09-19 立,遵循统一工程规范):quotedMessage 非空时把被引用
       // 消息快照以 markdown 引用块附加到正文(用户/AI 分别标注),发送成功后清除;
       // 发送失败保留引用,便于用户重试时仍带上下文。
       const quoted = useChatStore.getState().quotedMessage
@@ -599,7 +599,7 @@ export function useMessageSend(params: UseMessageSendParams): UseMessageSendResu
         }
         return
       }
-      // 危险命令检测(2026-07-25 立,深度对标 OpenAI Codex CLI safety guard):
+      // 危险命令检测(2026-07-25 立,深度对齐 OpenAI Codex CLI safety guard):
       // - 仅在高风险模式(bypass-permissions)下拦截,其他模式不阻断(用户已选择低风险)
       // - critical/high → 弹确认 toast(带「仍要发送」action),用户点 action 才真发
       // - medium → 普通 toast 警告(不阻断,只提醒)

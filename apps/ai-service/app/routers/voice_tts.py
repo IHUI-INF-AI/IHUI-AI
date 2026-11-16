@@ -4,7 +4,7 @@
 
 """免费 TTS 语音合成(edge-tts,零 key 零成本)。
 
-对标 GPT-5 Voice / Gemini TTS:提供无需任何 API key 的中文/多语语音合成,
+对齐 GPT-5 Voice / Gemini TTS:提供无需任何 API key 的中文/多语语音合成,
 基于微软 Edge 的免费 TTS 服务(edge-tts 库)。适用于实时语音对话/朗读场景。
 
 - 零成本:不需要 DASHSCOPE_API_KEY 等任何凭据
