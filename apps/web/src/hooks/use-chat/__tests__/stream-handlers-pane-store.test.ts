@@ -155,7 +155,7 @@ describe('stream-handlers 工厂按窗格 store 注入(片2)', () => {
       expect(stores.other.getState().messages[0]?.toolCallSummary).toBeUndefined()
     })
 
-    it('createToolDeltaHandler:partialDiff 写窗格实例,另一实例零写入', () => {
+    it('createToolDeltaHandler:partialDiff 写窗格实例,另一实例零写入', async () => {
       const tc = { id: 'tc-1', toolName: 'write_file', args: {}, status: 'running' as const }
       stores.pane
         .getState()
@@ -166,6 +166,9 @@ describe('stream-handlers 工厂按窗格 store 注入(片2)', () => {
 
       const evt: ToolDeltaEvent = { toolCallId: 'tc-1', seq: 1, partialText: '+line' }
       createToolDeltaHandler(MSG_ID, stores.pane)(evt)
+      // F-723 合帧:写入归并到 microtask 边界,await 后断言
+      await Promise.resolve()
+      await Promise.resolve()
 
       expect(stores.pane.getState().messages[0]?.toolCalls?.[0]?.partialDiff).toBe('+line')
       expect(stores.other.getState().messages[0]?.toolCalls?.[0]?.partialDiff).toBeUndefined()
@@ -207,7 +210,7 @@ describe('stream-handlers 工厂按窗格 store 注入(片2)', () => {
       expect(stores.pane.getState().compactionStatus?.phase).toBe('compacting')
     })
 
-    it('省略第二参 ⇒ createToolSummaryHandler / createToolDeltaHandler 落根单例', () => {
+    it('省略第二参 ⇒ createToolSummaryHandler / createToolDeltaHandler 落根单例', async () => {
       const tc = { id: 'tc-1', toolName: 'write_file', args: {}, status: 'running' as const }
       seed(useChatStore)
       useChatStore
@@ -217,6 +220,9 @@ describe('stream-handlers 工厂按窗格 store 注入(片2)', () => {
       createToolSummaryHandler(MSG_ID)(summaryEvent())
       const evt: ToolDeltaEvent = { toolCallId: 'tc-1', seq: 1, partialText: '+line' }
       createToolDeltaHandler(MSG_ID)(evt)
+      // F-723 合帧:ToolDelta 写入归并到 microtask 边界,await 后断言
+      await Promise.resolve()
+      await Promise.resolve()
 
       expect(useChatStore.getState().messages[0]?.toolCallSummary?.totalCalls).toBe(5)
       expect(useChatStore.getState().messages[0]?.toolCalls?.[0]?.partialDiff).toBe('+line')
