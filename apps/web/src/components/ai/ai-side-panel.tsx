@@ -61,8 +61,6 @@ import {
 } from '@/hooks/use-websocket'
 import { MessageList } from '@/components/chat/message-list'
 import { MessageInput } from '@/components/chat/message-input'
-// agent 执行引擎切换(2026-11-15):AI 面板标题栏常驻可见,本地/云端/自动 1 击切
-import { EngineModeControl } from '@/components/chat/engine-mode-button'
 import { SessionUsageBadge } from '@/components/chat/session-usage-badge'
 // D28 补齐层(2026-10-03):导入会话的来源标识 + 「用场景分析」入口。
 // 槽位(横幅 + 入口按钮)与 ChatPaneBody 共用 ImportProvenanceSlot,不各写一份;
@@ -2543,7 +2541,15 @@ export function AISidePanel() {
         <WorkspacePermissionDialog
           open={!!pendingPermissionSetup}
           onOpenChange={(open) => {
-            if (!open) setPendingPermissionSetup(null)
+            if (!open) {
+              // 2026-11-16:用户取消权限 setup 时,服务端还没有该工作区的权限行。
+              // 保持绑定会留下「看起来已选中、一用就 401」的半绑定态 —— 直接解绑。
+              const ws = useAiPanelStore.getState().activeWorkspace
+              if (ws && ws.path === pendingPermissionSetup.path && !ws.mode) {
+                useAiPanelStore.getState().setActiveWorkspace(null)
+              }
+              setPendingPermissionSetup(null)
+            }
           }}
           workspacePath={pendingPermissionSetup.path}
           workspaceName={pendingPermissionSetup.name}
@@ -2775,16 +2781,13 @@ export function AISidePanel() {
                   />
                 </span>
               </div>
-              {/* agent 执行引擎切换(2026-11-15):标题栏常驻可见,本地/云端/自动 1 击切;
-                  流式期间禁用(切引擎无意义)。放在标题右侧、工作区选择器之前。 */}
-              <EngineModeControl disabled={isStreaming} />
               {/* 工作区选择器(参考 主流 IDE 顶部 project selector):
               空工作区时显示 FolderPlus 入口,已绑定时显示 Folder 入口可切换/清除
               2026-09-17 修复:原先放在 overflow-hidden 标题容器内,displayTitle 占满宽度时
               IconButton 被裁半/遮挡;现移出到右侧按钮组最左,不再受 overflow-hidden 裁切 */}
               <WorkspaceSelector />
               {/* 会话导出/分享入口(W15)已迁移至侧边栏会话"..."菜单(sidebar-chat-history) */}
-              {/* Plan/Act 模式切换(2026-07-24 立,对标 AI 工作台 plan/act toggle + Codex)
+              {/* Plan/Act 模式切换(2026-07-24 立,对齐 AI 工作台 plan/act toggle + Codex)
               2026-07-28 移除:PlanActToggle 按钮与 sidebar ModeSwitcher 4 态(ChatMode build/plan/review/spec)
               语义重叠,统一用 ModeSwitcher 控制。当前 mode 视觉指示由 sidebar ModeSwitcher 高亮态承载,
               切换入口:ModeSwitcher 4 态按钮 + Ctrl+1/2/3/4 快捷键 + /build /plan /review /spec 斜杠命令 +

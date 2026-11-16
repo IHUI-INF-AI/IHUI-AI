@@ -11,6 +11,9 @@ import { usePaneChatStore } from '@/stores/chat-pane-context'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import { fetchApi } from '@/lib/api'
 import { isUnchangedPartial } from '@/lib/hunk-diff'
+import { isTauri } from '@/lib/tauri-bridge'
+import { getBrowserWorkspaceHandle } from '@/lib/workspace-context-loader'
+import { executeWorkspaceTool } from '@/lib/workspace-tool-executor'
 import type { InlineDiffInfo } from '@/components/ai/types'
 
 /**
@@ -39,6 +42,27 @@ async function callApplyDiffApi(payload: {
   newContent: string
   workspacePath?: string
 }): Promise<{ ok: boolean; error?: string }> {
+  // 2026-11-16:浏览器句柄型工作区的文件在用户本机,服务端 /apply-diff 看不到。
+  // 有句柄时改用与 tool-delegate 同一条执行器写盘(写前核对 oldContent,防止覆盖新改动)。
+  if (!isTauri() && payload.workspacePath) {
+    const handle = getBrowserWorkspaceHandle(payload.workspacePath)
+    if (handle) {
+      if (payload.oldContent) {
+        const read = await executeWorkspaceTool('read_file', { path: payload.path }, handle)
+        if (read.error) return { ok: false, error: read.error }
+        if (typeof read.result === 'string' && read.result !== payload.oldContent) {
+          return { ok: false, error: '文件内容已变化,请重新生成 diff 后再应用' }
+        }
+      }
+      const write = await executeWorkspaceTool(
+        'write_file',
+        { path: payload.path, content: payload.newContent },
+        handle,
+      )
+      if (write.error) return { ok: false, error: write.error }
+      return { ok: true }
+    }
+  }
   const r = await fetchApi<ApplyDiffResponseBody>('/api/v1/ai/apply-diff', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
