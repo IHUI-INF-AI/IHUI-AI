@@ -66,7 +66,7 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 <!-- BEGIN GENERATED NUMBERS (node scripts/gen-doc-numbers.mjs --markdown) -->
 | 指标 | 现值 | 取数键 |
 | ---- | ---- | ------ |
-| 数据库表 | 650 | `dbTables` |
+| 数据库表 | 651 | `dbTables` |
 | schema 文件 | 252 | `dbSchemaFiles` |
 | API 路由 | 4832 | `apiRoutes` |
 | 路由文件 | 703 | `apiRouteFiles` |
