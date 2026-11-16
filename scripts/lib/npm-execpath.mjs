@@ -28,13 +28,20 @@
 const NODE_LOADABLE_RE = /\.[cm]?js$/i
 
 /**
+ * 判定"用的是哪个包管理器"(单源,§22c):
+ *   npm  = `npm_execpath` 可被 node 直载(JS 入口)→ 子命令须走 `run <script> --`;
+ *   pnpm = 原生 exe / 未设 → 裸 `<script> <sub>` 可跑(pnpm 把裸名当脚本)。
+ * 通过 `planPackageManagerSpawn().pm` 消费,调用方拼 tauri 子命令时用。
+ */
+
+/**
  * 决定"该怎么把一条包管理器命令 spawn 出去"。
  *
  * @param {string | undefined} npmExecpath 取自 `process.env.npm_execpath`
  * @param {string} [execPath] 注入点:node 可执行文件路径(默认取本进程)
- * @returns {{cmd: string, prefix: string[], shell: boolean}}
+ * @returns {{cmd: string, prefix: string[], shell: boolean, pm: 'npm'|'pnpm'}}
  *   `cmd` 要执行的程序;`prefix` 需要前置到业务参数之前的参数(直载时是入口脚本路径);
- *   `shell` 是否要开 shell。
+ *   `shell` 是否要开 shell;`pm` 包管理器口径(npm 侧拼 tauri 子命令要加 `run ... --`)。
  */
 export function planPackageManagerSpawn(npmExecpath, execPath = process.execPath) {
   const loadableByNode = !!npmExecpath && NODE_LOADABLE_RE.test(npmExecpath)
@@ -42,6 +49,7 @@ export function planPackageManagerSpawn(npmExecpath, execPath = process.execPath
     cmd: loadableByNode ? execPath : 'pnpm',
     prefix: loadableByNode ? [npmExecpath] : [],
     shell: !loadableByNode,
+    pm: loadableByNode ? 'npm' : 'pnpm',
   }
 }
 
