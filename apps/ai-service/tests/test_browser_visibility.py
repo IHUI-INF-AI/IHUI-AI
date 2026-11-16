@@ -99,3 +99,43 @@ def test_initially_visible_override():
     """允许初始可见(有 headless=False 启动参数的场景)。"""
     vis = BrowserVisibility(initially_visible=True)
     assert vis.get() is True
+
+
+# ── H5 意图细分测试 ─────────────────────────────────────────────────────────
+
+
+def test_navigation_intent_keeps_background():
+    """导航只是回答问题的手段 → 不需可见。"""
+    from app.services.browser_visibility import ShowIntent, decide_visibility_for_intent
+    d = decide_visibility_for_intent(intent=ShowIntent.NAVIGATION.value)
+    assert d.should_show is False
+    assert d.intent == ShowIntent.NAVIGATION.value
+
+
+def test_localhost_navigation_keeps_background():
+    """localhost 导航本身不需可见。"""
+    from app.services.browser_visibility import ShowIntent, decide_visibility_for_intent
+    d = decide_visibility_for_intent(intent=ShowIntent.NAVIGATION.value, is_localhost=True)
+    assert d.should_show is False
+    assert "localhost" in d.detail
+
+
+def test_present_to_user_should_show():
+    """用户请求摆到面前 → 应可见。"""
+    from app.services.browser_visibility import ShowIntent, decide_visibility_for_intent
+    d = decide_visibility_for_intent(intent=ShowIntent.PRESENT_TO_USER.value)
+    assert d.should_show is True
+
+
+def test_proof_of_work_should_show():
+    """改状态后须截图内嵌 → 应可见。"""
+    from app.services.browser_visibility import ShowIntent, decide_visibility_for_intent
+    d = decide_visibility_for_intent(intent=ShowIntent.PROOF_OF_WORK.value)
+    assert d.should_show is True
+
+
+def test_unknown_intent_defaults_background():
+    """未知意图 → 默认后台(防误触)。"""
+    from app.services.browser_visibility import decide_visibility_for_intent
+    d = decide_visibility_for_intent(intent="whatever")
+    assert d.should_show is False

@@ -160,10 +160,76 @@ def _has_show_reason(reason: VisibilityReason | str | None) -> bool:
     return rsn in (VisibilityReason.USER_REQUESTED.value, VisibilityReason.PROOF_OF_WORK.value)
 
 
+# ── H5 意图细分：导航本身不需可见 vs 展示给用户才可见 ──────────────────────
+
+
+class ShowIntent(StrEnum):
+    """浏览器可见性的意图分类(Codex §H5)。"""
+
+    NAVIGATION = "navigation"  # 导航本身(回答问题/验证行为)—— 不需可见
+    PRESENT_TO_USER = "present_to_user"  # 把页面摆到面前让用户看 —— 应可见
+    PROOF_OF_WORK = "proof_of_work"  # 改状态后须截图内嵌交付 —— 应可见
+
+
+@dataclass(frozen=True)
+class ShowDecision:
+    """可见性意图判定结果。"""
+
+    should_show: bool
+    intent: str  # ``ShowIntent`` 之一
+    detail: str
+
+
+def decide_visibility_for_intent(
+    *,
+    intent: str,
+    is_localhost: bool = False,
+) -> ShowDecision:
+    """按意图判定是否应把浏览器切到前台(纯函数)。
+
+    Codex §H5：
+    - 导航只是回答问题/验证行为的手段时**不显示**；
+    - localhost 目标与普通页面导航**本身不需要可见**；
+    - 用户请求本质是"把页面摆到面前 / 让用户看交互"才显示。
+    """
+    if intent == ShowIntent.NAVIGATION.value:
+        if is_localhost:
+            return ShowDecision(
+                should_show=False,
+                intent=intent,
+                detail="localhost 导航本身不需要可见，保持后台。",
+            )
+        return ShowDecision(
+            should_show=False,
+            intent=intent,
+            detail="导航只是回答问题/验证行为的手段，不需可见，保持后台。",
+        )
+    if intent == ShowIntent.PRESENT_TO_USER.value:
+        return ShowDecision(
+            should_show=True,
+            intent=intent,
+            detail="用户请求把页面摆到面前：应切可见(须带 user_requested 理由)。",
+        )
+    if intent == ShowIntent.PROOF_OF_WORK.value:
+        return ShowDecision(
+            should_show=True,
+            intent=intent,
+            detail="改状态后须截图内嵌交付：应切可见(须带 proof_of_work 理由)。",
+        )
+    return ShowDecision(
+        should_show=False,
+        intent=intent,
+        detail=f"未知意图 {intent!r}：默认保持后台(防误触)。",
+    )
+
+
 __all__ = [
     "VisibilityReason",
     "VisibilityError",
     "VisibilityChange",
     "BrowserVisibility",
+    "ShowIntent",
+    "ShowDecision",
+    "decide_visibility_for_intent",
 ]
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
