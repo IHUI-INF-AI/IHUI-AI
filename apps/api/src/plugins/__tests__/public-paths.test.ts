@@ -293,4 +293,27 @@ describe('BUG-4 公开面单一真相源', () => {
     })
   })
 })
+
+/**
+ * 2026-11-16 生产事故:指标端点漏登记免租户 ⇒ 4 个 Prometheus target 恒 401、
+ * ApiDown / AiBusinessMetricsDown 自 11-11 起连续 firing。免租户 ≠ 免鉴权:
+ * 端点只在 AUTH_PUBLIC_EXACT_PATHS(精确集合),且另有 isPrivateIp 回环闸。
+ */
+describe('指标抓取面免租户(2026-11-16)', () => {
+  it('/metrics 与 /business-metrics 及 /api 别名都免租户', () => {
+    for (const p of ['/metrics', '/business-metrics', '/api/metrics', '/api/business-metrics']) {
+      expect(isTenantBypassPath(p), `${p} 必须免租户`).toBe(true)
+    }
+  })
+
+  it('段边界:不放行同级兄弟路径', () => {
+    expect(isTenantBypassPath('/metricsXYZ')).toBe(false)
+    expect(isTenantBypassPath('/business-metricsXYZ')).toBe(false)
+  })
+
+  it('免租户不等于新开鉴权公开前缀', () => {
+    expect(AUTH_PUBLIC_PREFIX_PATHS).not.toContain('/metrics')
+    expect(AUTH_PUBLIC_PREFIX_PATHS).not.toContain('/business-metrics')
+  })
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
