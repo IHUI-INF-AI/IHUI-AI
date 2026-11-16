@@ -13260,6 +13260,11 @@
         "keywords": ["エディタ", "コード", "editor"],
         "label": "エディタ"
       },
+      "imageGen": {
+        "description": "プロンプトから画像を生成。公開ギャラリー・履歴・テンプレート付き",
+        "keywords": ["画像", "生成", "描画", "image"],
+        "label": "AI 画像生成"
+      },
       "mcp": {
         "description": "MCP サーバーとツールを管理",
         "keywords": ["MCP", "サーバー", "ツール"],

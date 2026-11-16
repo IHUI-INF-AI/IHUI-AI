@@ -950,6 +950,11 @@ export function isHrefActive(href: string, pathname: string): boolean {
   // 未登记进导航表的真实路由(/plugins、/chat/:id、/login 等)一个都命中不了,
   // 于是首页被判为命中且无更精确项,导致只要不在 nav 表内路由上就高亮首页。
   if (href === '/') return pathname === '/'
+  // 管理域入口别名(2026-11-16):/domains/admin 是收敛后的域入口,后台实际页面仍在
+  // /admin/* 下;点击旧后台页时侧栏「管理」需保持高亮,否则选中态丢失。
+  if (href === '/domains/admin' && (pathname === '/admin' || pathname.startsWith('/admin/'))) {
+    return true
+  }
   if (!pathname.startsWith(href)) return false
   return !ALL_NAV_HREFS.some((h) => h !== href && h.startsWith(href) && pathname.startsWith(h))
 }

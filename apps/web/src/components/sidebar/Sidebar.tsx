@@ -11,7 +11,7 @@ import { cn } from '@/lib/utils'
 import { useNavigationStore, useOptimisticNavStore } from '@/stores/navigation'
 import { useMediaQuery } from '@/hooks/use-media-query'
 import { SidebarChatHistory } from '@/components/sidebar-chat-history'
-import { NAV_GROUPS, flattenNavItems, isHrefActive } from './nav-data'
+import { NAV_GROUPS, FLAT_NAV_ITEMS, flattenNavItems, isHrefActive } from './nav-data'
 import type { SidebarProps, RegisterRef } from './types'
 import { SidebarUserRow } from './SidebarUserRow'
 import { NavGroupSection } from './NavGroupSection'
@@ -283,6 +283,10 @@ const Sidebar = React.memo(function Sidebar({ id, mobileOpen, onCloseMobile }: S
 
   // 管理组已收敛为单入口 /domains/admin(2026-11-16):后台动态路由改由域入口页
   // 运行期追加渲染,侧边栏不再拉取/合并,避免单入口下又平铺出 80 项。
+  // 收藏解析用全量可见项(含域清单):域收敛后 /models、/learn 等不在 NAV_GROUPS,
+  // 只查 visibleGroups 会让已收藏项静默消失(2026-11-16 修复)。
+  const flatVisibleItems = React.useMemo(() => filterNav(FLAT_NAV_ITEMS), [filterNav])
+
   const visibleGroups = React.useMemo(() => {
     return NAV_GROUPS.map((g) => ({ ...g, items: filterNav(g.items) })).filter(
       (g) => g.items.length > 0,
@@ -355,6 +359,7 @@ const Sidebar = React.memo(function Sidebar({ id, mobileOpen, onCloseMobile }: S
               registerRef={registerRef}
               onBeforeNav={handleBeforeNav}
               groups={visibleGroups}
+              allItems={flatVisibleItems}
             />
           ) : null}
           <NavGroupSection

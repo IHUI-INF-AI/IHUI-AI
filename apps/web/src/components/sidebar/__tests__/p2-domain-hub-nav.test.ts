@@ -70,5 +70,15 @@ describe('isHrefActive 根路径精确匹配', () => {
     expect(isHrefActive(href, '/domains/ai/child')).toBe(true)
     expect(isHrefActive(href, '/domains/edu')).toBe(false)
   })
+
+  // 回归锁(2026-11-16):管理域收敛为 /domains/admin 单入口后,旧后台页仍在 /admin/*,
+  // 点击后台子页时侧栏「管理」必须保持选中,不能因为 href 不同而丢失高亮。
+  it('管理域入口 /domains/admin 在旧后台 /admin/* 下保持高亮', () => {
+    const href = '/domains/admin'
+    expect(isHrefActive(href, '/domains/admin')).toBe(true)
+    expect(isHrefActive(href, '/admin')).toBe(true)
+    expect(isHrefActive(href, '/admin/users')).toBe(true)
+    expect(isHrefActive(href, '/administrator')).toBe(false)
+  })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
