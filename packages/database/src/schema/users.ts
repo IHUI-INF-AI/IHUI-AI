@@ -46,8 +46,14 @@ export const users = pgTable(
   'users',
   {
     id: uuid('id').defaultRandom().primaryKey(),
-    phone: varchar('phone', { length: 20 }).unique(),
-    email: varchar('email', { length: 255 }).unique(),
+    // DB-35 方案②(20261116174441 迁移):phone/email 改存密文 enc:v1:iv:tag:ct(随机 IV 非确定性),
+    // 故唯一约束从明文列迁到确定性盲索引列 phone_lookup/email_lookup(sha256(归一后值) 的 hex)。
+    // 明文列不再有唯一约束;精确匹配一律走 lookup 列,读值需 decryptCredential 解密(见 utils/user-contact.ts)。
+    // 密文长度远超原 varchar(20)/varchar(255),故改 text。
+    phone: text('phone'),
+    email: text('email'),
+    phoneLookup: varchar('phone_lookup', { length: 64 }),
+    emailLookup: varchar('email_lookup', { length: 64 }),
     username: varchar('username', { length: 64 }).unique(),
     passwordHash: text('password_hash'),
     nickname: varchar('nickname', { length: 64 }),
