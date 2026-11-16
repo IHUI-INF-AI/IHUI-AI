@@ -196,7 +196,57 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libxdo-dev
+          # 2026-11-17 补(desktop-v0.1.78 run#105~#108 连续四轮 Linux 零产物):
+          # 原清单只有 libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev
+          # patchelf libxdo-dev,缺 tauri v2 官方要求的
+          # build-essential / libssl-dev / libayatana-appindicator3-dev。
+          # 其中 libappindicator3-dev 是 Ubuntu 22.04 起被 ayatana 取代的**旧包名**,
+          # 新 runner 镜像上解析不到 ⇒ 托盘相关链接失败。这正是
+          # 「同一份 workflow 以前能过、现在不能」的原因。
+          # 该失败原先被 tauri-action 的 continue-on-error 吞成 "Build & Release: success",
+          # 前三轮只在 Verify bundle 看到"零产物"、拿不到真实报错;
+          # run#108 改 --bundles deb 后终于把 Build & Release 判红(exit 1)才定位到打包腿。
+          # 回读判据:逐个 dpkg -l 确认包在(不靠 apt 退出码自证),
+          # 再逐个 command -v 确认 rpmbuild/dpkg-deb 二进制可用(包在 ≠ 二进制在)。
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libssl-dev \
+            build-essential \
+            patchelf \
+            file \
+            libxdo-dev \
+            rpm
+          # libfuse2 在 Ubuntu 24.04 起改名为 libfuse2t64(64 位 time_t 迁移),
+          # run#109 实证:直接装 `libfuse2` 在 ubuntu-latest 上解析不到 ⇒ 整步判红。
+          # 它只被 AppImage 的 linuxdeploy 需要,故按"任一名字装成一个即可"处理:
+          # 两个都装不上不判红(退化为不产 AppImage,由 Verify 的逐目标断言说清楚),
+          # 装上了则 AppImage 腿可用。
+          if dpkg -l libfuse2 2>/dev/null | grep -q '^ii'; then
+            echo "OK  libfuse2(已存在)"
+          elif apt-get install -y libfuse2t64 2>/dev/null; then
+            echo "OK  libfuse2t64(Ubuntu 24.04+ 改名)"
+          elif apt-get install -y libfuse2 2>/dev/null; then
+            echo "OK  libfuse2(旧命名镜像)"
+          else
+            echo "::warning::libfuse2/libfuse2t64 均不可得,AppImage 腿可能不可用(不判红,由 Verify 逐目标断言)"
+          fi
+          for p in libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev \
+                   libssl-dev build-essential patchelf file libxdo-dev rpm; do
+            if dpkg -l "$p" 2>/dev/null | grep -q '^ii'; then
+              echo "OK  $p"
+            else
+              echo "::error::依赖未装成:$p"; exit 1
+            fi
+          done
+          for b in rpmbuild dpkg-deb; do
+            if command -v "$b" >/dev/null 2>&1; then
+              echo "OK  $b -> $(command -v $b)"
+            else
+              echo "::error::打包工具不可用:$b"; exit 1
+            fi
+          done
 
       # 2026-09-17:纯 Rust 化后无 node_modules,tauri-action 默认 `npm run tauri` 会失败——
       # 全局装独立 CLI(约 10 秒)并显式指定 tauriScript
@@ -380,17 +430,16 @@ jobs:
           # 显式指定全局安装的 tauri CLI(见上一步 Install Tauri CLI)
           tauriScript: tauri
           # macOS:Universal 二进制(同时覆盖 arm64 + Intel;配合 rustup target add)
-          # Linux(2026-11-17 加):显式只打 deb。
-          #   立因:run#105/#106/#107 连续三轮 Linux 都是「Build & Release 报 success
-          #   却零安装包」,而 macOS/Windows 同轮全绿。bundle.targets 里 Linux 要打
-          #   deb+rpm+appimage 三种,其中 rpm 需 rpmbuild、appimage 需 linuxdeploy+fuse,
-          #   任一缺失就会让整条 bundle 失败;而 tauri-action 是 continue-on-error,
-          #   失败被吞成 success,直到 Verify bundle 才炸 —— 三轮都拿不到真实报错。
-          #   本轮先用依赖面最小的 deb 验证「Linux 到底能不能出包」:
-          #   能出 ⇒ 瓶颈就是 rpm/appimage 的外部工具,再逐个补;
-          #   仍出不来 ⇒ 问题在编译/打包本体,届时去掉 continue-on-error 取真实日志。
-          #   deb 是 apt 生态主力产物,先拿到它就能把 Linux 下载通道恢复。
-          args: ${{ runner.os == 'macOS' && '--target universal-apple-darwin' || (runner.os == 'Linux' && '--bundles deb') || '' }}
+          # Linux(2026-11-17):显式列三目标,与 tauri.conf 的 Linux 目标一致,
+          # 也与 Verify 期望表一致(那边按 deb/rpm/appimage 逐项断言)。
+          #   走过的弯路:run#105~107 三轮 Linux 都「Build & Release 报 success 却零产物」,
+          #   根因是 continue-on-error 吞掉了真实失败;run#108 用 `--bundles deb` 单打
+          #   才让 Build & Release 首次判红(exit 1),确认是**打包阶段**而非"没跑"。
+          #   随后定位到依赖缺口(旧包名 libappindicator3-dev 在新镜像解析不到、缺
+          #   libayatana-appindicator3-dev / libssl-dev / build-essential / rpm / libfuse2),
+          #   已在 Install Linux deps 补齐并加 dpkg -l + command -v 双回读。
+          #   故恢复三目标,由依赖补齐保证出包。
+          args: ${{ runner.os == 'macOS' && '--target universal-apple-darwin' || (runner.os == 'Linux' && '--bundles deb,rpm,appimage') || '' }}
           # 2026-09-05: 默认以仓库根为 CWD,导致 beforeBuildCommand `node scripts/ensure-web-out.mjs`
           # 解析到 <root>/scripts 找不到模块(CI 实证);指定 tauri 应用目录对齐本地行为
           projectPath: apps/desktop
@@ -408,11 +457,14 @@ jobs:
           # 属于"看似有兜底、实际随发布路径分叉"的假能力)。
           updaterJsonPreferNsis: true
 
-      # 2026-09-18 兜底断言:此前 Build & Release 是 continue-on-error(为绕过非 ASCII
-      # productName 的 tauri-action 产物收集假失败),导致 **Windows NSIS 打包真实失败
-      # (makensis 语言文件缺失)被静默吞掉** —— job 报 success、release 缺 exe/sig,
-      # 直接造成 0.1.35 无 Windows 资产(下载页与 Tauri 更新 feed 双断)。
-      # 这里改成「无论如何都断言磁盘上真有产物」:产物为空即硬失败,不再允许静默成功。
+      # 2026-09-18:此前 Build & Release 是 continue-on-error(为绕过非 ASCII productName 的
+      # tauri-action 产物收集假失败),导致 **Windows NSIS 打包真实失败(makensis 语言文件缺失)
+      # 被静默吞掉** —— job 报 success、release 缺 exe/sig,直接造成 0.1.35 无 Windows 资产。
+      # 2026-11-17 定案(机主拍板·根治):容错已从打包步骤移除,本步升格为**提交面的唯一产物契约**,
+      # 由「总数 > 0」改为「按 matrix 逐平台断言应有目标齐备」。理由是旧判据有洞:
+      # Linux 上 .deb 成了就 COUNT>0 通过,而 rpm/AppImage 缺失会静默漏过(0.1.78 run#105/#106 正是这一型)。
+      # 期望表来源 = tauri.conf.json bundle.targets(现读 [nsis, app, dmg, deb, rpm, appimage])。
+      # ⚠️ 新增/删除 target 时必须同步改这张表;漏改的失效方向是"多要一次说明"(红),不是"多放一次"(绿)。
       - name: Verify bundle produced (fail loudly)
         if: always()
         shell: bash
@@ -421,13 +473,52 @@ jobs:
           if [ -d "apps/desktop/src-tauri/target/universal-apple-darwin/release/bundle" ]; then
             BUNDLE=apps/desktop/src-tauri/target/universal-apple-darwin/release/bundle
           fi
-          COUNT=$(find "$BUNDLE" -type f \( -name '*.deb' -o -name '*.rpm' -o -name '*.AppImage' \
-            -o -name '*.dmg' -o -name '*.exe' -o -name '*.msi' -o -name '*.app.tar.gz' \) 2>/dev/null | wc -l | tr -d ' ')
-          echo "tauri build 产物数量: $COUNT (Build & Release outcome: ${{ steps.tauri.outcome }})"
-          if [ "$COUNT" -eq 0 ]; then
-            echo "::error::tauri build 未产出任何安装包($BUNDLE 为空);Build & Release outcome=${{ steps.tauri.outcome }}。拒绝静默成功。"
+          echo "校验根: $BUNDLE"
+          echo "Build & Release outcome: ${{ steps.tauri.outcome }}"
+          if [ ! -d "$BUNDLE" ]; then
+            echo "::error::打包产物目录不存在: $BUNDLE(tauri build 未产出任何东西;outcome=${{ steps.tauri.outcome }})"
             exit 1
           fi
+          # 逐平台应有目标:每行「名称|find -name 模式」。模式用通配前缀,以兼容含中文
+          # productName 的实际包名。macOS 的 .app.tar.gz 是自动更新载荷(universal 目标),
+          # dmg 是分发件;Windows 的 .sig 由上传腿成对校验,这里不重复。
+          # 逐项校验用函数而非 `echo | while`:后者是子 shell,里面的计数在外面读不到。
+          have() { find "$BUNDLE" -type f -name "$2" 2>/dev/null | head -1 | grep -q . ; }
+          MISSING=''
+          check() {
+            if have "$1" "$2"; then
+              echo "  ✓ $1 ($2)"
+            else
+              echo "  ✗ $1 ($2) 缺失"
+              MISSING="$MISSING $1"
+            fi
+          }
+          case "${{ matrix.label }}" in
+            linux-x64)
+              check deb '*.deb'
+              check rpm '*.rpm'
+              check appimage '*.AppImage'
+              ;;
+            macos-universal)
+              check dmg '*.dmg'
+              check updater-tarball '*.app.tar.gz'
+              ;;
+            windows-x64)
+              check nsis '*.exe'
+              check msi '*.msi'
+              ;;
+            *)
+              echo "::error::matrix.label='${{ matrix.label }}' 未登记应有产物表;请同步 Verify 的期望表(拒绝静默通过)"
+              exit 1
+              ;;
+          esac
+          if [ -n "$MISSING" ]; then
+            echo "::error::platform=${{ matrix.label }} 缺少应有产物:$MISSING。拒绝静默成功(outcome=${{ steps.tauri.outcome }})。"
+            exit 1
+          fi
+          TOTAL=$(find "$BUNDLE" -type f \( -name '*.deb' -o -name '*.rpm' -o -name '*.AppImage' \
+            -o -name '*.dmg' -o -name '*.exe' -o -name '*.msi' -o -name '*.app.tar.gz' \) 2>/dev/null | wc -l | tr -d ' ')
+          echo "platform=${{ matrix.label }} 应有目标齐备;产物总数 $TOTAL"
 
       # ---------- SignPath Authenticode 签名(仅 Windows;凭据齐备才启用) ----------
       # 时序:必须在 tauri 打包之后、"Fallback upload … --clobber" 把资产推上 Release 之前。
@@ -914,7 +1005,10 @@ jobs:
 
       - name: Download signed artifact
         id: fetch-signed
-        # 缺产物是**预期内**的失败形态(凭据未配),不要在这里中断,留给下一步给出明确结论
+        # 缺产物是**预期内**的失败形态(凭据未配),不要在这里中断,留给下一步给出明确结论。
+        # 但「预期内的缺」与「传输/服务侧真失败」必须分得开,否则下一步会把后者也报成
+        # 「未签名」——归因错到另一件事上,人照那个方向查永远查不到。
+        # 故本步只容错、不吞证据:`outcome` 由下一步读取并分区判定(2026-11-17 补)。
         continue-on-error: true
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
@@ -928,8 +1022,20 @@ jobs:
         # 旧写法把判据抄了两遍(本步 env + job env),改一处就漂一处 —— 现已收敛到此处一处。
         env:
           ALLOW_UNSIGNED: ${{ (github.event_name == 'workflow_dispatch' && inputs.allow_unsigned == true) || (runner.os == 'Windows' && env.SIGNPATH_CONFIGURED != 'true') || (runner.os == 'macOS' && env.APPLE_SIGNING_CONFIGURED != 'true') }}
+          FETCH_OUTCOME: ${{ steps.fetch-signed.outcome }}
         run: |
+          # 先分区,再归因(2026-11-17 补)。旧写法只看清单在不在,于是把两类完全不同的
+          # 失败混成同一个结论「未签名」:
+          #   ① 凭据未配 ⇒ build 根本没上传 signed-desktop-* ⇒ 下载失败 = 预期内;
+          #   ② 凭据已配但下载传输/服务侧真失败 ⇒ 也是下载失败 = 真故障,却同样被报成「未签名」。
+          # 顺着 ② 给的提示去查签名凭据,永远查不到 —— 这是误诊,不是"报错不够大声"。
           if [ ! -f signed-desktop/signature-manifest.json ]; then
+            if [ "$FETCH_OUTCOME" != 'success' ] && [ "$ALLOW_UNSIGNED" != 'true' ]; then
+              # 凭据已配齐 ⇒ 产物理应存在 ⇒ 下载失败就是真故障,不再归因到签名凭据。
+              echo "::error::无法取得已签名产物(${{ matrix.label }}):下载步骤 outcome=$FETCH_OUTCOME,而本平台签名凭据已配置 ⇒ 产物本应存在。这是传输/服务侧故障或 build 侧上传缺失,与签名凭据无关;请查 Download signed artifact 步骤日志与 build 的 Upload 步骤。"
+              ls -la signed-desktop 2>/dev/null || true
+              exit 1
+            fi
             if [ "$ALLOW_UNSIGNED" = 'true' ]; then
               # 未签名发布:没有签名清单是预期内形态(签名步整体跳过)。
               # 改判 warning,不再 exit 1 —— 否则会阻塞 publish-updater-json(latest.json 不更新)。
