@@ -986,13 +986,31 @@ export async function importAccounts(
         payload: acc,
         index: i,
         platformName: mapped?.name ?? null,
+export async function importAccounts(
         extraPhoneCandidates: [typeof prefClaim === 'string' ? prefClaim : null],
       })
       displayName = naming.name
+      // 2026-11-17:上游只给掩码时(豆包四端实测),用签到表/号池里的已知全号做前3后2
+      // 唯一归位;命中则用全号重算统一名(命名仍只走 resolveRelayAccountName 单源)。
+      if (detectPhoneMask(displayName)) {
+        const knownFullPhone = await resolveUniqueFullPhoneForMask(displayName)
+        if (knownFullPhone) {
+          naming = resolveRelayAccountName({
+            providerCode,
+            payload: acc,
+            index: i,
+            platformName: mapped?.name ?? null,
+            extraPhoneCandidates: [
+              typeof prefClaim === 'string' ? prefClaim : null,
+              knownFullPhone,
+            ],
+          })
+          displayName = naming.name
+        }
+      }
       // CodeArts 永久密钥形态(2026-11-10):闸门已过(AK+SK 非空)而票为空 = 合法空 token 行,
       // 落 tokenEnc=encryptField('') 与库里现状同形;其余平台空凭据仍照常拒收。
       const permanentCodearts = providerCode === 'codearts' && mapped !== null && token === ''
-      if (!token && !permanentCodearts) {
         result.failed++
         pushItem(naming, {
           index: i,
@@ -1859,13 +1877,53 @@ export interface MatchPhoneReport {
   matched: Array<{ id: string; oldName: string; name: string; checkinSync: CheckinSyncOutcome }>
   ambiguous: Array<{ id: string; name: string; candidates: string[] }>
   unmatched: Array<{ id: string; name: string }>
+export interface MatchPhoneReport {
   rejected: Array<{ phone: string; reason: string }>
+}
+
+/**
+ * 掩码 → 已知全号唯一归位(2026-11-17)。
+ *
+ * 背景:豆包上游账号信息接口只回掩码(`+86 157******40`,web/desktop/android/ios
+ * 四端实测同形),全号无法从豆包上游直取;但同一手机号在签到表/号池里常以全号存在
+ * (例:15754320340 已存在于 trae/qoder/zcode 的签到账号名)。导入时按「前3后2」在两表
+ * 里做**双向唯一**命中:唯一才返回全号,多命中/零命中返回 null(绝不猜号)。
+ * 只读、无上游请求,失败一律降级为 null(保留掩码,后续可走 match-phone 人工归位)。
+ */
+async function resolveUniqueFullPhoneForMask(mask: string): Promise<string | null> {
+  const shape = detectPhoneMask(mask)
+  if (!shape) return null
+  const hits = new Set<string>()
+  const collect = (name: unknown) => {
+    if (typeof name !== 'string') return
+    for (const m of name.matchAll(/1[3-9]\d{9}/g)) {
+      if (phoneMatchesMask(m[0], shape)) hits.add(m[0])
+    }
+  }
+  try {
+    const [checkinRows, poolRows] = await Promise.all([
+      dbRead.execute(sql`
+        SELECT name FROM checkin_accounts
+        WHERE name LIKE ${`${shape.prefix}%`} AND name LIKE ${`%${shape.suffix}`}
+        LIMIT 200
+      `),
+      dbRead.execute(sql`
+        SELECT name FROM ai_relay_account_pool
+        WHERE name LIKE ${`${shape.prefix}%`} AND name LIKE ${`%${shape.suffix}`}
+        LIMIT 200
+      `),
+    ])
+    for (const row of checkinRows as Array<Record<string, unknown>>) collect(row['name'])
+    for (const row of poolRows as Array<Record<string, unknown>>) collect(row['name'])
+  } catch {
+    return null
+  }
+  return hits.size === 1 ? ([...hits][0] as string) : null
 }
 
 /**
  * 批量候选全号 → 池内掩码名账号自动归位。
  * 判据:一个掩码行只有唯一候选、且该候选也只命中这一行 ⇒ 自动改名;
- * 任一方向出现多对多 ⇒ ambiguous 挂起待人工(绝不猜号归位)。
  */
 export async function matchPhoneCandidates(phones: string[]): Promise<MatchPhoneReport> {
   const clean: string[] = []
