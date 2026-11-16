@@ -184,7 +184,7 @@ export function TurnChangesCard({ message, conversationId }: TurnChangesCardProp
       <Collapsible open={open} onOpenChange={setOpen}>
         <CollapsibleTrigger
           className={cn(
-            // 2026-11-16:与思考行/过程叙述组头/代码块头同走可折叠容器头行唯一档
+            // 2026-11-16:与思考行/过程叙述组头/代码块头同走可折叠容器头行唯一档(单层实色底)
             STREAM_HEADER_ROW_CLASS,
           )}
           data-testid={`turn-changes-trigger-${message.id}`}

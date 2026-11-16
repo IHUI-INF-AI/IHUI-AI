@@ -160,14 +160,17 @@ export const STREAM_ROW_CLASS = 'flex h-6 w-full items-center gap-1.5 text-[16px
 /**
  * 可折叠容器头行唯一档(2026-11-16 立):思考行 / 过程叙述组头 / 代码块头共用。
  *
- * 用户口径:这些头行的字号、粗细、大小、背景必须完全一致,且不要描边 ——
- * 统一为 32px 高(16px 字 + 上下各 4px 内边距)、16px/400 字、无描边、无底色,
- * 悬停时给一档浅底反馈即可 —— 头行的这几项只允许来自本常量,禁止再手写组合。
+ * 用户口径:这些头行的字号、粗细、大小、背景完全一致,且**只有一层底色** ——
+ * 32px 高(16px 字 + 上下各 4px 内边距)、16px/400 字、底色取内联 code 的
+ * --color-muted-soft 实色 token(不用 alpha 档)。
+ * 悬停不换底色,只把常态留的 1px 透明描边换成 stroke-subtle(几何零位移,AGENTS §4);
+ * 聚焦取 stroke-focus。头行的这几项只允许来自本常量,禁止再手写组合。
  */
 export const STREAM_HEADER_ROW_CLASS = cn(
   STREAM_ROW_CLASS,
   'h-8 rounded-sm px-1 text-left text-foreground',
-  'transition-colors hover:bg-accent/40 focus-visible:bg-accent/40 focus-visible:outline-none',
+  'border border-transparent bg-muted-soft transition-colors',
+  'hover:border-stroke-subtle focus-visible:border-stroke-focus focus-visible:outline-none',
 )
 
 /**
@@ -176,6 +179,14 @@ export const STREAM_HEADER_ROW_CLASS = cn(
  */
 export const STREAM_HEADER_ACTION_CLASS =
   'inline-flex h-full w-6 shrink-0 items-center justify-center rounded-sm text-foreground transition-colors hover:bg-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50'
+
+/**
+ * 组内正文左让位唯一档(2026-11-16 立):StreamGroup 的引导线占 `left-[7px]`,
+ * 组内**裸正文**(过程叙述这类没有底色的文字块)必须从这条线上再让 12px 起排 ⇒
+ * 文字列 = 7 + 12 = 19px,与 StreamDetail 的正文列同一格(思考展开体同款)。
+ * 不套本档的裸正文会从 0 起排,引导线就从字身和正文里的图标上穿过去(2026-11-16 用户报障)。
+ */
+export const STREAM_GROUP_BODY_CLASS = 'ml-[7px] pl-3'
 
 /** 对象(路径/URL/命令)一律等宽;查询词与实体名用正文体 */
 export const STREAM_SUBJECT_MONO = /path|url|command/
@@ -482,6 +493,10 @@ export interface StreamGroupProps {
  *
  * 除一行与行同字号的头外不设独立底色;2026-11-15 起头按钮带一档低对比描边,
  * 与正文拉开"可展开容器"的轻量边界,但不抢正文的视觉重量。
+ *
+ * 内容侧纪律:组内**裸正文**(无底色的文字块,如过程叙述的 markdown)必须套
+ * `STREAM_GROUP_BODY_CLASS`,让出引导线所在的 7px 轨道;需要自成卡片的内容
+ * (StreamDetail / 泳道卡)自带底色,由底色承担让位,不必再套本档。
  */
 export function StreamGroup({
   active,
@@ -509,8 +524,10 @@ export function StreamGroup({
         aria-hidden
         className={cn(
           'absolute left-[7px] w-px transition-colors',
-          // 引导线只在展开且确有内容时出现,收起态保持零装饰
-          open ? 'top-6 bottom-1 bg-border/70' : 'h-0 opacity-0',
+          // 引导线只在展开且确有内容时出现,收起态保持零装饰。
+          // 起点落在头行下沿(top-8 = 头行 32px 高),不从语义图标底部钻出来 ——
+          // 图标盒占 8..24,top-6 会正好抵住图标下边缘,读起来像线黏在图标上。
+          open ? 'top-8 bottom-1 bg-border/70' : 'h-0 opacity-0',
         )}
       />
       <div className="flex items-center gap-1">
@@ -520,7 +537,7 @@ export function StreamGroup({
           aria-expanded={open}
           aria-label={ariaLabel ?? (open ? t('collapseSteps') : t('expandSteps'))}
           className={cn(
-            // 2026-11-16:组头与思考行/代码块头同走可折叠容器头行唯一档
+            // 2026-11-16:组头与思考行/代码块头同走可折叠容器头行唯一档(含同一层实色底)
             'min-w-0 flex-1',
             STREAM_HEADER_ROW_CLASS,
           )}

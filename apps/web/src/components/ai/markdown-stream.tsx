@@ -637,17 +637,12 @@ const CodeBlockImpl = function CodeBlock({
     'bg-transparent text-foreground',
   )
   // G-842:外层 frame(仿本文件 CodeRunOutput 的「外框 + header 条 + 主体」形态)
-  // 2026-11-15:底色只画在 frame 这一层,header/正文一律透明 ⇒ 同一块底面,不再有分段色差
-  // 2026-11-16:header 已提为与思考/过程叙述完全同档的头行(24px/15px·400/无描边/无底色),
-  // 底色只留在正文面板上,展开时与头行留 4px 间距 —— 头行不再整条铺 muted-soft。
-  const codeFrameClass = cn(
-    'overflow-hidden rounded-lg bg-muted-soft',
-    !effectiveCollapsed && 'mt-1',
-  )
+  // 2026-11-16:代码块正文面 —— 与内联 code 同一 --color-muted-soft 实色 token(单层实色)
+  const codeFrameClass = 'overflow-hidden rounded-lg bg-muted-soft'
   // G-842:代码块 header —— 折叠开关(文件图标 + 示例文件名)+ 右侧操作按钮组
   // 2026-11-15:header 即折叠开关,默认只露 header,点击展开正文。
-  // 2026-11-16:头行改用 STREAM_HEADER_ROW_CLASS,与思考行/过程叙述组头逐项一致
-  // (字号 15px、粗细 400、高 24px、无描边/无底色,仅悬停浅底反馈);
+  // 2026-11-16:头行统一走 STREAM_HEADER_ROW_CLASS(自带单层实色底 + 32px 高 / 16px·400 字),
+  // 与思考行、过程叙述组头完全同档;嵌在同一 code frame 内 ⇒ 与正文同色无缝。
   // 展开指示不画箭头,整行仍是折叠开关。
   const codeHeader = (
     <div data-testid="code-block-header" className={STREAM_HEADER_ROW_CLASS}>
@@ -685,8 +680,8 @@ const CodeBlockImpl = function CodeBlock({
         {/* 2026-11-16:代码块与上下正文的间距按用户指定定 6px(my-1.5);
             根容器已移除 !space-y-0,margin 能真实生效。 */}
         <div className="my-1.5">
-          {codeHeader}
           <div className={codeFrameClass}>
+            {codeHeader}
             {/* G-827:横滚代码块的方向阴影线索。wrap 档无横向溢出,不套壳(避免无意义 DOM)。 */}
             <div hidden={effectiveCollapsed}>
               <CodeOverflowShell wrap={!!wrap}>
@@ -710,29 +705,27 @@ const CodeBlockImpl = function CodeBlock({
 
   // 语法高亮失败时的降级渲染(头行在错误边界之外,降级只替换正文面板)
   const fallback = (
-    <div className={codeFrameClass}>
-      <div hidden={effectiveCollapsed}>
-        <CodeOverflowShell wrap={!!wrap}>
-          <pre
-            ref={preRef}
-            className={preClassName}
-            style={{ fontSize: 'var(--message-code-font-size, var(--chat-code-font-size, 15px))' }}
-          >
-            <code className={cn('font-mono', language && `language-${language}`)}>{hlSource}</code>
-          </pre>
-        </CodeOverflowShell>
-      </div>
+    <div hidden={effectiveCollapsed}>
+      <CodeOverflowShell wrap={!!wrap}>
+        <pre
+          ref={preRef}
+          className={preClassName}
+          style={{ fontSize: 'var(--message-code-font-size, var(--chat-code-font-size, 15px))' }}
+        >
+          <code className={cn('font-mono', language && `language-${language}`)}>{hlSource}</code>
+        </pre>
+      </CodeOverflowShell>
     </div>
   )
 
   return (
     <>
       {inlinePreview}
-      {/* 2026-11-16:与纯文本分支同一间距档(用户指定 6px) */}
+      {/* 2026-11-16:与纯文本分支同一间距档(用户指定 6px);头行与正文同一 code 面 */}
       <div className="my-1.5">
-        {codeHeader}
-        <CodeBlockErrorBoundary fallback={fallback}>
-          <div className={codeFrameClass}>
+        <div className={codeFrameClass}>
+          {codeHeader}
+          <CodeBlockErrorBoundary fallback={fallback}>
             <div hidden={effectiveCollapsed}>
               <CodeOverflowShell wrap={!!wrap}>
                 <pre ref={preRef} className={preClassName}>
@@ -755,8 +748,8 @@ const CodeBlockImpl = function CodeBlock({
                 </pre>
               </CodeOverflowShell>
             </div>
-          </div>
-        </CodeBlockErrorBoundary>
+          </CodeBlockErrorBoundary>
+        </div>
       </div>
       {runResult && <CodeRunOutput result={runResult} onClose={clearRunResult} />}
     </>
