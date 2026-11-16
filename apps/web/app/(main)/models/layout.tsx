@@ -54,7 +54,12 @@ export default function ModelsLayout({ children }: { children: React.ReactNode }
     },
   ]
   return (
-    <CategoryShell title={t('shellTitle')} description={t('shellSubtitle')} navGroups={navGroups}>
+    <CategoryShell
+      title={t('shellTitle')}
+      description={t('shellSubtitle')}
+      icon={Bot}
+      navGroups={navGroups}
+    >
       {children}
     </CategoryShell>
   )

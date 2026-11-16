@@ -34,7 +34,12 @@ export default function DeveloperLayout({ children }: { children: React.ReactNod
     },
   ]
   return (
-    <CategoryShell title={t('shellTitle')} description={t('shellSubtitle')} navGroups={navGroups}>
+    <CategoryShell
+      title={t('shellTitle')}
+      description={t('shellSubtitle')}
+      icon={Terminal}
+      navGroups={navGroups}
+    >
       {children}
     </CategoryShell>
   )

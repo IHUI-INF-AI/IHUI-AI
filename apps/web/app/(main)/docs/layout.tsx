@@ -61,6 +61,7 @@ export default function DocsLayout({ children }: { children: React.ReactNode }) 
     <CategoryShell
       title={t('shellTitle')}
       description={t('shellSubtitle')}
+      icon={BookOpen}
       navGroups={navGroups}
       contentOwnsH1={!shellOwnsHeading}
     >
