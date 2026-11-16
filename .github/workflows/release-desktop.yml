@@ -196,7 +196,14 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libxdo-dev
+          # 2026-11-17 补(desktop-v0.1.78 run#105/#106 实证):bundle.targets 含 rpm + appimage,
+          # 而旧镜像曾自带 rpmbuild / libfuse2,新镜像(ubuntu-latest 正迁 Ubuntu 26)已移除。
+          # 缺 rpm 时 tauri 打 rpm target 直接失败;缺 libfuse2 时 AppImage 的 linuxdeploy 起不来。
+          # 这两种失败都会被 tauri-action 的 continue-on-error 吞成 "Build & Release: success",
+          # 直到下一步 Verify bundle 才炸 —— 表现为"构建很快成功但零产物"。
+          # 补齐后与 v0.1.76(三平台全绿那轮)的隐式镜像条件对齐。
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libxdo-dev \
+            rpm file libfuse2
 
       # 2026-09-17:纯 Rust 化后无 node_modules,tauri-action 默认 `npm run tauri` 会失败——
       # 全局装独立 CLI(约 10 秒)并显式指定 tauriScript
