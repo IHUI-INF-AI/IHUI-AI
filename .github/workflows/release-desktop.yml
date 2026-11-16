@@ -241,21 +241,42 @@ jobs:
       # 只给 Windows 装:macOS/Linux 走不到 NSIS(脚本内的平台守卫已让它们 exit 0),
       # 装全量 workspace 依赖纯属浪费 3-6 分钟,且会牵动 lockfile 版本漂移风险。
       #
-      # 为什么不用 pnpm install:本 job 没有 setup-node / corepack,也没有 node_modules,
-      # runner 上只有随镜像自带的 node 与 npm(见上方 Install Tauri CLI 用的就是 npm i -g)。
-      # 引 pnpm 会额外依赖 corepack 激活与网络,把一条"只要一个 native 模块"的需求放大成
-      # workspace 全量安装。这里直接装**同版本**的 sharp 到根 node_modules 即可,
-      # 版本在下方从 package.json 现读,不写死(避免与 devDependencies 漂开)。
+      # 踩过的三条死路(run#105 实测,别再走):
+      #   ① 仓库根裸跑 `npm install`:根 package.json 含 `@ihui/eslint-config: workspace:^`,
+      #      npm 不认 workspace: 协议 ⇒ EUNSUPPORTEDPROTOCOL,1 秒内 exit 1。
+      #   ② `npm install --prefix <repo-root>`:同样报错 —— npm 的 arborist 会先解析
+      #      **整个项目依赖树**,`--prefix`/`--no-save` 都拦不住它。
+      #   ③ 装到隔离目录 + NODE_PATH:无效。desktop-installer-assets.mjs 用
+      #      `createRequire(apps/desktop/package.json)` 解析 sharp,createRequire 的查找链
+      #      是「从 anchor 逐级向上找 node_modules」,**不读 NODE_PATH**。
+      #
+      # 正解:用本仓**已在用**的 pnpm 体系(见下方 sync-downloads job 的同款三步:
+      # pnpm/action-setup + setup-node(cache: pnpm) + pnpm install --frozen-lockfile)。
+      # pnpm 天然认 workspace: 协议,`--filter ihui-ai` 把根包(sharp 的声明处)装齐,
+      # sharp 落在仓库根 node_modules —— 正是 createRequire 从 apps/desktop 向上会命中的位置。
+      # 版本不写死:装的是 lockfile 里那份(与 devDependencies 一致,frozen 保证不漂)。
+      - name: Setup Node.js (Windows NSIS assets)
+        if: runner.os == 'Windows'
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Setup pnpm (Windows NSIS assets)
+        if: runner.os == 'Windows'
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+        with:
+          run_install: false
+
       - name: Install beforeBuildCommand deps (Windows NSIS assets)
         if: runner.os == 'Windows'
         shell: bash
         run: |
           set -euo pipefail
-          V=$(node -pe "require('./package.json').devDependencies.sharp")
-          if [ -z "$V" ]; then echo "ERROR: 根 package.json 未声明 devDependencies.sharp"; exit 1; fi
-          echo "安装 sharp@$V(desktop-installer-assets.mjs 的硬依赖,版本取自根 package.json)"
-          npm install --no-save --no-audit --no-fund --loglevel=error "sharp@$V"
-          node -e "const s=require('sharp'); console.log('sharp ok, version=', require('sharp/package.json').version, '| libvips=', s.versions.vips)"
+          echo "为 beforeBuildCommand 装根包依赖(sharp) —— pnpm 认 workspace: 协议,且产物落在仓库根 node_modules"
+          pnpm install --frozen-lockfile --filter ihui-ai
+          # 用脚本自己的解析方式验证(createRequire from apps/desktop):
+          # 这才是 beforeBuildCommand 真实走的那条解析链,别用 require('sharp') 糊过去。
+          node -e "const {createRequire}=require('module'); const r=createRequire(process.cwd()+'/apps/desktop/package.json'); const s=r('sharp'); console.log('sharp ok | libvips=', s.versions.vips)"
 
       # macOS 签名凭据必须先落到 GITHUB_ENV,再由下一步的 tauri build 消费。
       # 为什么不直接把 secrets 写进 Build & Release 的 env: GitHub Actions 的 env 无法按
