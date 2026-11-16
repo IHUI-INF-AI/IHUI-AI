@@ -639,7 +639,19 @@ const browserPageDrag: Tool = {
   },
 }
 
-const PAGE_ACTION_TOOLS: Record<PageActionType, Tool> = {
+/**
+ * 本端执行体覆盖的全部页内动词。
+ *
+ * 共享包 `PageActionType`（packages/dom-actions/src/page-snapshot/contract.ts）目前只声明到
+ * `page_pick_at_point`，而 `page_scroll` / `page_wait_for` / `page_drag` 三枚执行体已在本文件
+ * 落地（见下 browserPageScroll / browserPageWaitFor / browserPageDrag），却尚未进共享契约。
+ * 根因在 packages/**（界外），按边界不跨界修改；这里用超集类型钉住本端映射的穷尽性，
+ * 保留“刻意用 Record 而非数组清单”的编译期缺键检查。
+ * 待共享包补齐三枚动词后，删掉本别名并还原为 `Record<PageActionType, Tool>`。
+ */
+type CliPageActionType = PageActionType | 'page_scroll' | 'page_wait_for' | 'page_drag'
+
+const PAGE_ACTION_TOOLS: Record<CliPageActionType, Tool> = {
   page_snapshot: browserPageSnapshot,
   page_click: browserPageClick,
   page_type: browserPageType,
