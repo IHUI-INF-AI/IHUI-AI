@@ -2092,7 +2092,12 @@ const MessageItem = React.memo(function MessageItem({
                 </Tooltip>
               )}
               {/* 2026-11-16「更多」下拉:收纳其余低频操作。仅当确实存在可显示项时才渲染(≥1 条)。 */}
-              <MessageMoreMenu label={t('message.moreActions')} items={moreItems} />
+              {/* testid = message-more-<id>:组件 docstring 约定的稳定锚点,pin/bookmark/share/metadata 等用例据此展开菜单。 */}
+              <MessageMoreMenu
+                label={t('message.moreActions')}
+                items={moreItems}
+                testId={`message-more-${m.id}`}
+              />
             </div>
           )}
         </div>

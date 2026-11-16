@@ -9,7 +9,7 @@
 //     失败信封更不得改本地态(把"库没写进去"渲染成"已经钉上了"是刷新才自证其伪的那一型);
 //  ③ 历史水合按名列清单,不在清单上的字段会被静默丢掉 ⇒ 刷新后标记"看起来没存住"。
 // 与 message-item-interrupted-line.test.tsx 同纪律:喂真 store + 真 MessageItem,不 mock 组件本体。
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 const takeWordCalls: Array<string> = []
@@ -46,6 +46,11 @@ function seedMessage(m: ChatMessage) {
   )
 }
 
+/** 钉选/收藏是低频键,已收进「更多」下拉;断言/点击前先展开菜单。 */
+function openMore(id: string) {
+  fireEvent.click(screen.getByTestId(`message-more-${id}`))
+}
+
 afterEach(() => {
   cleanup()
   takeWordCalls.length = 0
@@ -56,6 +61,7 @@ afterEach(() => {
 describe('MessageItem 钉选/收藏按钮(票64 渲染位)', () => {
   it('未标记的 AI 消息 → 两枚按钮都在,按压态为 false,取词是"钉选/收藏"两个键', () => {
     seedMessage({ id: 'a1', role: 'assistant', content: '回答', createdAt: NOW })
+    openMore('a1')
     const pin = screen.getByTestId('message-pin-a1')
     const bookmark = screen.getByTestId('message-bookmark-a1')
     expect(pin.getAttribute('aria-pressed')).toBe('false')
@@ -72,6 +78,7 @@ describe('MessageItem 钉选/收藏按钮(票64 渲染位)', () => {
       createdAt: NOW,
       pinnedAt: STAMP,
     })
+    openMore('a2')
     const pin = screen.getByTestId('message-pin-a2')
     expect(pin.getAttribute('aria-pressed')).toBe('true')
     expect(pin.getAttribute('aria-label')).toBe('[message.unpin]')
@@ -83,6 +90,7 @@ describe('MessageItem 钉选/收藏按钮(票64 渲染位)', () => {
       data: { message: { id: 'a3', pinnedAt: STAMP, bookmarkedAt: null } },
     })
     seedMessage({ id: 'a3', role: 'assistant', content: '回答', createdAt: NOW })
+    openMore('a3')
     screen.getByTestId('message-pin-a3').click()
     await vi.waitFor(() => {
       expect(setMessageFlagsMock).toHaveBeenCalledWith({ messageId: 'a3', pinned: true })
@@ -103,6 +111,7 @@ describe('MessageItem 钉选/收藏按钮(票64 渲染位)', () => {
       createdAt: NOW,
       pinnedAt: STAMP,
     })
+    openMore('a4')
     screen.getByTestId('message-pin-a4').click()
     await vi.waitFor(() => {
       expect(setMessageFlagsMock).toHaveBeenCalledWith({ messageId: 'a4', pinned: false })
@@ -124,6 +133,7 @@ describe('MessageItem 钉选/收藏按钮(票64 渲染位)', () => {
       createdAt: NOW,
       bookmarkedAt: 'OLD',
     })
+    openMore('a5')
     screen.getByTestId('message-pin-a5').click()
     await vi.waitFor(() => {
       const m = useChatStore.getState().messages[0]
@@ -141,6 +151,7 @@ describe('MessageItem 钉选/收藏按钮(票64 渲染位)', () => {
       createdAt: NOW,
       pinnedAt: STAMP,
     })
+    openMore('a6')
     screen.getByTestId('message-pin-a6').click()
     await vi.waitFor(() => {
       expect(useChatStore.getState().messages[0]?.pinnedAt).toBeNull()
@@ -150,6 +161,7 @@ describe('MessageItem 钉选/收藏按钮(票64 渲染位)', () => {
   it('失败信封 → 本地态一字不改(不做乐观翻转),并取失败话术键', async () => {
     setMessageFlagsMock.mockResolvedValue({ success: false, error: '无权修改该消息', status: 403 })
     seedMessage({ id: 'a7', role: 'assistant', content: '回答', createdAt: NOW })
+    openMore('a7')
     screen.getByTestId('message-bookmark-a7').click()
     await vi.waitFor(() => {
       expect(takeWordCalls).toContain('message.flagFailed')
