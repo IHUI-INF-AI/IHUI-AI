@@ -1,11 +1,15 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
 // GENERATED FILE — DO NOT EDIT. 由 apps/miniapp-taro/scripts/generate-ui-routes.mjs 生成(pnpm gen:ui-routes)
 // 数据源:src/app.config.ts(pages/subPackages/tabBar)+ 各页 *.config.ts 的 navigationBarTitleText;
 // requiresParams 由扫描源码 navigateTo url 是否带 query 得出。改页面请改 app.config.ts 后重新生成。
 
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/miniapp-taro/scripts/generate-ui-routes.mjs
-// sourceCommit: 6962844864a06bbb36509e0d43f6d39a2c8b7899
-// inputsSha256: 34346e9c988882d717f61a92b5be61e53af2aa456c0d22f855e1dd74237ef7c1
+// sourceCommit: 7509f488a52590f3c5c923f1139763a5ad44ecdf
+// inputsSha256: df0f92e7fc3d05af1a83ece0ae3e41ddfc353eab1b80e81086003150e5eb2cfb
 // input: apps/miniapp-taro/src/api/distribution-normalize.ts 0ade93b40fc74fa0a6ee1aab60799a80d9317e4eca41f1cb6ccb878f95aadf6d
 // input: apps/miniapp-taro/src/api/index.ts b4ae4c99baa28a688ed4d3e30921556afe5d72592c72e7e883d99d2fa9f21b87
 // input: apps/miniapp-taro/src/api/order-normalize.ts ac45439228bec81c57cc4135fda449d1e667c154cce9e006b497a7107aa73e37
@@ -318,7 +322,7 @@
 // input: apps/miniapp-taro/src/pkg-ai/ai/chat-list-extras.tsx 36508cc9e8a79ec7313520317ebc449c1db98405629e56d14e4467c5abf10163
 // input: apps/miniapp-taro/src/pkg-ai/ai/chat-shell-extras.tsx f5c1b7b533996e31246a61fa95b3976981cdf7dad41d0cf51fec2b08c2c27198
 // input: apps/miniapp-taro/src/pkg-ai/ai/chat.config.ts 5cbbde710f52f07e43cc2348a0df560442c5c594d9112f128bae6057aaa17f07
-// input: apps/miniapp-taro/src/pkg-ai/ai/chat.tsx e049beac1f5bad6f773cac354ddec2aaf94d5a7531e2c1c568acee1258c0e509
+// input: apps/miniapp-taro/src/pkg-ai/ai/chat.tsx 3e139af45184b666626285d0a836a6d176a3b5630bbfe92d24f3392d92a58bf3
 // input: apps/miniapp-taro/src/pkg-ai/ai/compaction-boundary-strip.tsx d2dd65f977c01e26dbbdb12419e98ccdd0eb867c80761446f322a5f837ed32bd
 // input: apps/miniapp-taro/src/pkg-ai/ai/context-usage-strip.tsx a85b51876062564658ea3ef86fd890a12a1896762f10f8ec9ed20d67a24f47fb
 // input: apps/miniapp-taro/src/pkg-ai/ai/conversation-import-analysis.tsx 182711f9488a8a20ab82d0ff5e25c4f7261dcb6d0f2ddc047a92b1cedddcbe5e
@@ -771,7 +775,7 @@
 // input: apps/miniapp-taro/src/utils/wechat-login.ts 08992a45fbbfb70b37f5a3518c5a82d2c55b9337f6ece0e0192b3c8d9c29470e
 // scanned: 639 source files(navigateTo url 参数探测,requiresParams 的依据)
 // skipped: pagesWithoutOwnConfig=209(标题回落 app window / tabBar 文案)
-// generatedAt: 2026-11-16T09:13:31.532Z
+// generatedAt: 2026-11-16T13:57:51.276Z
 // IHUI-GEN-PIN-END
 
 /** AI 可导航页面条目:path 为 Taro 导航全路径(含前导斜杠,分包已拼 root) */
@@ -3118,3 +3122,5 @@ export const TARO_UI_ROUTES: readonly TaroUiRouteEntry[] = [
     requiresParams: false,
   },
 ]
+
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
