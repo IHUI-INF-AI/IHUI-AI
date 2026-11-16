@@ -140,4 +140,66 @@ describe('healIncompleteMarkdown', () => {
     expect(healIncompleteMarkdown(price).healed).toBe(price)
   })
 })
+
+describe('流式 GFM 表格补全(超越轴 T:remend/Streamdown/Codex++ 均未覆盖)', () => {
+  it('表头已到、分隔行未到:按列数补一条最小分隔行,表格首帧即成立', () => {
+    const out = healIncompleteMarkdown('| 名称 | 年龄')
+    expect(out.healed).toBe('| 名称 | 年龄\n| --- | --- |')
+    expect(out.healedAny).toBe(true)
+  })
+
+  it('只追加不删改:补全后文本恒以原文为前缀', () => {
+    const text = '| A | B | C'
+    const out = healIncompleteMarkdown(text)
+    expect(out.healed.startsWith(text)).toBe(true)
+    expect(out.healed).toBe('| A | B | C\n| --- | --- | --- |')
+  })
+
+  it('三列表头补三个 ---', () => {
+    expect(healIncompleteMarkdown('| x | y | z').healed).toBe('| x | y | z\n| --- | --- | --- |')
+  })
+
+  it('末行已是分隔行:不再补', () => {
+    const text = '| a | b |\n| --- | --- |'
+    const out = healIncompleteMarkdown(text)
+    expect(out.healed).toBe(text)
+    expect(out.healedAny).toBe(false)
+  })
+
+  it('完整表格后的数据行:不补(T1 回归锁,2026-11-16 实测组件 G-824)', () => {
+    // GFM 只解析首个竖线块。表头+分隔行已成立后，后续竖线行是数据行，
+    // 再补分隔行会把数据行误升成新表头。此坑曾实测漏出，故钉死。
+    const complete = '| a | b |\n| --- | --- |\n| 999 | 888 |'
+    const out = healIncompleteMarkdown(complete)
+    expect(out.healed).toBe(complete)
+    expect(out.healedAny).toBe(false)
+    expect(out.healed).not.toMatch(/\| --- \|\n\| 999 \| 888 \|\n\| --- \|/)
+  })
+
+  it('无前导竖线的裸文本竖线:不当表格,不补(负向安全)', () => {
+    const text = '参数 a | 参数 b'
+    const out = healIncompleteMarkdown(text)
+    expect(out.healed).toBe(text)
+    expect(out.healedAny).toBe(false)
+  })
+
+  it('单元格数超过上限(疑正文竖线堆叠):不补', () => {
+    const text = '|' + ' a |'.repeat(13)
+    const out = healIncompleteMarkdown(text)
+    expect(out.healed).toBe(text)
+  })
+
+  it('表格在未闭合围栏内:不补(围栏感知)', () => {
+    const text = '```md\n| a | b'
+    const out = healIncompleteMarkdown(text)
+    expect(out.fenceHealed).toBe(true)
+    // 围栏内末行不是表头 ⇒ 不补分隔行,只补围栏
+    expect(out.healed).toBe('```md\n| a | b\n```\n')
+  })
+
+  it('表头落在行内代码内的竖线不计数', () => {
+    const out = healIncompleteMarkdown('| `a|b` | c')
+    expect(out.healed).toBe('| `a|b` | c\n| --- | --- |')
+  })
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
