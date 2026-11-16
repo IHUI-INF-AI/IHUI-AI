@@ -113,15 +113,35 @@ function printReport(result, { allowUnsigned = false } = {}) {
     console.log(`签名凭据已就绪 ${count}/${total}(scope=${scope},平台=${platform})`);
     return 0;
   }
-  const names = missing.map((m) => m.name).join(', ');
-  // --allow-unsigned(2026-11-16 立):机主显式拍板"未签名发版",与 0.1.77 形态一致
-  // (无 Authenticode/公证,但保留 Tauri 更新器 .sig)。缺口不再拦停编译,改为醒目告警,
-  // 并在摘要里写明后果,绝不伪装成"已签名"。
-  if (allowUnsigned) {
-    console.warn(`::warning::已显式选择未签名发版(--allow-unsigned):凭据缺口(scope=${scope},平台=${platform},缺 ${missing.length}/${total})不再拦停。${names}`);
+  // --allow-unsigned(2026-11-16 立,2026-11-17 收窄):机主显式拍板"未签名发版",
+  // 与 0.1.77 形态一致(无 Authenticode/公证,但保留 Tauri 更新器 .sig)。
+  //
+  // 【收窄理由,2026-11-17】原先这个分支把**全部**缺口都降级成 warning,连
+  // DESKTOP_TAURI_PRIVATE_KEY / KEY_PASSWORD 也放过 —— 那是错的:tauri.conf 里
+  // createUpdaterArtifacts:true 要求私钥存在才能产出 `.sig`,私钥缺失时 tauri build
+  // 会在 30 分钟后硬失败,而本步却已经"放行"过它,等于把真正该在 30 秒内报出的
+  // 缺项拖到编译末尾。判据:未签名放行只适用于**平台代码签名**(SignPath / Apple),
+  // Tauri 更新器私钥是"能不能出 .sig"的硬前提,**任何情况下都不放宽**。
+  const hardMissing = missing.filter((m) => TAURI.includes(m.name));
+  const softMissing = missing.filter((m) => !TAURI.includes(m.name));
+
+  if (allowUnsigned && hardMissing.length === 0) {
+    console.warn(`::warning::已显式选择未签名发版(--allow-unsigned):平台签名凭据缺口(scope=${scope},平台=${platform},缺 ${softMissing.length}/${total})不再拦停。${softMissing.map((m) => m.name).join(', ')}`);
     console.warn('  后果:产物无 Authenticode/公证签名,Windows 首次运行撞 SmartScreen、macOS 受 Gatekeeper 约束;更新器 .sig 仍会正常生成,已装客户端可继续自动更新(等同 0.1.77)。');
     return 0;
   }
+
+  // 有 Tauri 私钥缺口时,即使开了 --allow-unsigned 也必须硬失败,并只点名这两枚
+  // (别把"能放行的平台签名缺口"混进来,否则真正原因被稀释)。
+  if (hardMissing.length > 0) {
+    const names = hardMissing.map((m) => m.name).join(', ');
+    console.error(`::error::Tauri 更新器私钥缺失(scope=${scope},平台=${platform},缺 ${hardMissing.length}): ${names}`);
+    for (const m of hardMissing) console.error(`  - 缺少 secret: ${m.name} —— ${m.hint}`);
+    console.error('  说明:createUpdaterArtifacts=true 必须用该私钥产出 .sig;这一项**不受 --allow-unsigned 豁免**(未签名只放开平台代码签名)。');
+    return 1;
+  }
+
+  const names = missing.map((m) => m.name).join(', ');
   console.error(`::error::签名凭据缺口(scope=${scope},平台=${platform},缺 ${missing.length}/${total}): ${names}`);
   for (const m of missing) console.error(`  - 缺少 secret: ${m.name} —— ${m.hint}`);
   if (scope === 'desktop' && platform === 'macos' && missing.some((m) => APPLE_ID_CHANNEL.includes(m.name) || APPLE_KEY_CHANNEL.includes(m.name))) {
@@ -161,6 +181,21 @@ function selfTest() {
   cases.push([inspectCredentials('windows', cliWinOk, 'cli').missing.length === 0, 'cli/windows 齐 → 0 缺项']);
   cases.push([inspectCredentials('linux', empty, 'cli').total === 0, 'cli/linux 零要求(total=0)']);
   cases.push([inspectCredentials('macos', empty, 'cli').total === 0, 'cli/macos 零要求(total=0)']);
+
+  // 2026-11-17 收窄判据的形态锁:--allow-unsigned 只放开平台签名,不放开 Tauri 私钥。
+  // 这里断言的是 inspectCredentials 的分组前提 —— 若有人把 TAURI 两枚挪出必查集,
+  // 下面第一条会立刻红。
+  const linuxOnlyTauri = inspectCredentials('linux', empty);
+  cases.push([
+    linuxOnlyTauri.missing.length === 2 && linuxOnlyTauri.missing.every((m) => TAURI.includes(m.name)),
+    'linux 的缺口恰为 Tauri 两枚(收窄判据的分组前提)',
+  ]);
+  const winNoTauri = { SIGNPATH_API_TOKEN: 'x', SIGNPATH_ORGANIZATION_ID: 'x', SIGNPATH_PROJECT_SLUG: 'x', SIGNPATH_SIGNING_POLICY_SLUG: 'x' };
+  const winNoTauriRes = inspectCredentials('windows', winNoTauri);
+  cases.push([
+    winNoTauriRes.missing.length === 2 && winNoTauriRes.missing.every((m) => TAURI.includes(m.name)),
+    'windows 只缺 Tauri 两枚时不被当成凭据就绪',
+  ]);
   return cases;
 }
 
