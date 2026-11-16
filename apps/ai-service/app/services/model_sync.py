@@ -853,6 +853,23 @@ class ModelSyncService:
                             # UNKNOWN:不重试
                             self._bump_failure(provider_code)
                             break
+                    except (FileNotFoundError, OSError) as e:
+                        # 本地基础设施自伤(2026-11-16 生产事故收口):venv/SSL CA/临时目录
+                        # 等**本机文件缺失**会在 httpx 构造 AsyncClient 建连前就抛 OSError,
+                        # 与厂商端点健康毫无关系。此类错误落进旧 UNKNOWN 分支被计入
+                        # unhealthy、永久禁用,故障消退后仍锁死 health=0 ⇒ 8 家厂商
+                        # 凭空常亮 LlmProviderUnhealthy。按告警规则自己声明的触发面
+                        # (仅网络不通/5xx/404),本地文件错误应静默跳过、不计失败。
+                        # 与 401/403 预期态同口径:health 保持 1,下轮同步自动恢复。
+                        expected_key_skip = True
+                        last_exc = e
+                        last_error_type = SyncErrorType.UNKNOWN.value
+                        logger.warning(
+                            "[ModelSyncService] %s 本地基础设施错误(%s: %s),按预期态静默跳过"
+                            "(与厂商健康无关,不计入 unhealthy)",
+                            provider_code, type(e).__name__, str(e)[:160],
+                        )
+                        break
                     except Exception as e:
                         # 其他未知错误不重试
                         last_exc = e
@@ -1095,6 +1112,11 @@ class ModelSyncService:
                     or "403" in err
                     or "key" in err.lower()
                     or "权限" in err
+                    # 本地基础设施自伤(venv/SSL CA 缺失等 FileNotFoundError/OSError)
+                    # 不是厂商健康故障,同样不得在重启后恢复成 unhealthy 失败态。
+                    or "FileNotFoundError" in err
+                    or "OSError" in err
+                    or "No such file or directory" in err
                 ):
                     break
                 streak += 1

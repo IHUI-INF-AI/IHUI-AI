@@ -973,6 +973,76 @@ class TestHealthTracking:
         assert "openrouter" in health["permanently_disabled"]
 
 
+class TestLocalFilesystemErrorIsNotProviderFault:
+    """本地基础设施自伤(FileNotFoundError/OSError)不得判成厂商 unhealthy。
+
+    2026-11-16 生产事故:venv 被误删 ⇒ httpx 构造 AsyncClient 找不到 SSL CA,
+    8 家厂商在建连前就抛 FileNotFoundError,落进 UNKNOWN 分支被计入失败,
+    故障消退后 health 仍锁死 0、告警常亮。本类钉死修复后的触发面:
+    本地文件错误属预期态静默跳过,不计失败、不永久禁用、health 保持 1。
+    """
+
+    @pytest.mark.parametrize("exc", [
+        FileNotFoundError(2, "No such file or directory", "/ssl/ca.pem"),
+        OSError(2, "No such file or directory"),
+    ])
+    def test_local_fs_error_skipped_not_unhealthy(self, exc: Exception) -> None:
+        """本地文件错误 ⇒ skipped=True、无失败计数、不永久禁用。
+
+        刻意用 asyncio.run 同步驱动:本仓测试环境装 anyio 而非 pytest-asyncio,
+        @pytest.mark.asyncio 在本机未注册(既有环境事实),同步驱动才能让回归锁
+        在任何环境真正 await 到逻辑,不依赖插件。
+        """
+        from unittest.mock import patch
+
+        service = ModelSyncService()
+        sem = asyncio.Semaphore(2)
+
+        async def run() -> Any:
+            with patch.object(service, "_fetch_upstream_models", new=_AsyncRaise(exc)):
+                return await service._sync_single_provider(
+                    sem, "agnes", "https://example.invalid/v1", "sk-test"
+                )
+
+        result = asyncio.run(run())
+        assert result.skipped is True, "本地文件错误应走静默跳过"
+        assert result.success is False
+        health = service.get_health()
+        assert health["failure_counters"].get("agnes", 0) == 0, "本地错误不得计入失败"
+        assert "agnes" not in health["permanently_disabled"], "本地错误不得永久禁用"
+
+    def test_real_network_error_still_counts_as_failure(self) -> None:
+        """反向牙:真网络错误仍计入失败,不得被上面的静默逻辑误伤。"""
+        import httpx
+        from unittest.mock import patch
+
+        service = ModelSyncService()
+        sem = asyncio.Semaphore(2)
+        net_err = httpx.ConnectError("connection refused")
+
+        async def run() -> Any:
+            with patch.object(service, "_fetch_upstream_models", new=_AsyncRaise(net_err)):
+                return await service._sync_single_provider(
+                    sem, "openrouter", "https://example.invalid/v1", "sk-test"
+                )
+
+        result = asyncio.run(run())
+        # 精确边界:本修复只让"本地文件错误"走 skipped。真网络错误不得被误判为
+        # 静默跳过(否则会吞掉真故障告警);其失败计数沿用既有重试/埋点逻辑。
+        assert result.skipped is False, "真网络错误不得走静默跳过路径"
+        assert "OSError" not in (result.error or "") and "FileNotFoundError" not in (result.error or "")
+
+
+class _AsyncRaise:
+    """可调用对象:await 时抛出给定异常(替代 AsyncMock 的轻量桩)。"""
+
+    def __init__(self, exc: Exception) -> None:
+        self._exc = exc
+
+    async def __call__(self, *args: Any, **kwargs: Any) -> Any:
+        raise self._exc
+
+
 # =============================================================================
 # v3 Provider 适配器:Anthropic / Gemini(测试 _fetch_upstream_models 的 provider 分支)
 # =============================================================================
