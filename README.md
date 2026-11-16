@@ -5472,6 +5472,9 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-16**
+- 📚 文档:刷新 README 生成数字块(trackedFiles 22410=>22411) (d551b2d73ed)
+
+**2026-11-16**
 - 🔧 工程/其他:floating-layer-spec 补齐溯源水印横幅 (417f5681968)
 
 **2026-11-16**

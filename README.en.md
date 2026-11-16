@@ -99,6 +99,9 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-16**
+- 📚 Docs:刷新 README 生成数字块(trackedFiles 22410=>22411) (d551b2d73ed)
+
+**2026-11-16**
 - 🔧 Chore/Other:floating-layer-spec 补齐溯源水印横幅 (417f5681968)
 
 **2026-11-16**
@@ -891,49 +894,6 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 - 🐞 Fix:结清 F-352 定时清理集合化分批 + F-353 积分渠道事务 + F-367 清理器显式生命周期 + F-369 订阅配额原子累加 + F-372 日成本熔断 (3320620624)
 - 🐞 Fix:ab_test_results schema 补 UNIQUE(variant_id,bucket) 表约束 + bucket NOT NULL,对齐已入库迁移 20261112000002,防 onConflict 42P10 + 回归锁 5/5 (d1b4766f6b)
 - 🔧 Chore/Other:结清 F-448 —— ab_test_results schema 侧补 UNIQUE(variant_id,bucket) 表约束 + bucket NOT NULL,对齐已入库迁移 20261112000002(证据:迁移 + 回归锁 f448 5/5) (72ec4aad2b)
-
-**2026-11-13**
-- 🚀 Feature/Improvement:findings survey 反向对账 — 12f/12g 棘轮门 + plan-tasks 派单降级 (fd5b05b9c33)
-- 🐞 Fix:E-P1 鉴权失败(401/403)归 content 不走 resume 阶梯 (f841c69006a)
-- 🔧 Chore/Other:结清 F-407 退款不冲减佣金(代码随 8784117c0a、回归锁 15/15 同批入库) (8db6cb1b38a)
-- 🐞 Fix:自愈依赖修复走受控授权通道不再 126 (0b61b43d557)
-- 🔧 Chore/Other:结清 F-375/F-436/F-443/F-455/F-526(回归锁随代码同批入库) (7c63ab0f46d)
-- 🐞 Fix:F-407 退款不冲减佣金(F-408 已随 c9fca632165 入库) —— refundOrder 补佣金冲减 (8784117c0a4)
-- 🐞 Fix:缺陷普查五票 —— F-375 事务后附属步骤补偿/F-436 嵌套事务统一tx/F-443 非流式计费模型一致/F-455 后台提现单资金闭环/F-526 embedding失败不静默 (bf989a75f0f)
-- 🔧 Chore/Other:302p 基线定向对账 tierWebOffN 228→229(终尖现读,逐维取证非本枚引入) (6c6bda40ec9)
-- 🔧 Chore/Other:302p 基线定向对账 tierWebOffN 228→229(定价批 pl-7 落账带取证) (888f730da39)
-- 🐞 Fix:补齐两处类型契约 —— AdapterCallOptions.signal 与 ModelOption 单价字段 (456ebd482b1)
-- 🐞 Fix:notice-log 形参 storage 改名 store,避开 WXT auto-import 把形参误判为 wxt/utils/storage 全局并注入(致 extension 构建失败) (7032fd5e580)
-- 🔧 Chore/Other:结清 F-186/F-374/F-394/F-408/F-415(回归锁随代码同批入库) (0330314753a)
-- 🔧 Chore/Other:推送域 103 个缺溯源水印文件按 HEAD blob 注入(只加水印头,不动正文) (824821d9d10)
-- 🐞 Fix:流式工具参数缓冲上限 + defect 终态 + errorCode 端侧接线 (4759055a3bc)
-- 🔧 Chore/Other:结清 16 票缺陷普查(F-319/397/430/435/491/516/575/665/683/686/687/688 由 d87e4779d5 对象空间 CAS 落地;F-304/401 由 0dafbf2e7a0、F-723/727 由 84e5c20d6e3 双通道复核属实) (a513d2e8e95)
-- 🐞 Fix:缺陷普查五票 —— F-186 BYOK连通性用用户Key/F-374 缺周期不写永久/F-394 token流水口径枚举/F-408 佣金入账补流水/F-415 workbook保存配额 (c9fca632165)
-- 🔧 Chore/Other:认领 F-302(routine 调度器双执行) (625459fdbfc)
-- 🔧 Chore/Other:结清 DG-13(回滚支 exit 3 + 按码记失败,7ae5d33fa1a) (4df3c5de819)
-- 🐞 Fix:按 HEAD 面重封 O6501 清单,修复 git-guardian 未重封导致的部署 fail-closed (34055a823ca)
-- 🐞 Fix:清偿回补连带两道真红 —— 47p 四文件水印 + 306p sag2 knip entry (b74611fbb41)
-- 🐞 Fix:缺陷普查批次 w1/w2 对象空间 CAS 落地 F-319/F-397/F-430/F-435/F-491/F-516/F-575/F-665/F-683/F-686/F-687/F-688 (d87e4779d5a)
-- 🔧 Chore/Other:结清 F-337/F-373/F-386/F-395/F-410/F-414(回归锁随代码同批入库) (7adca110a66)
-- 🐞 Fix:缺陷普查五票 —— F-373 订阅续期基准与上限/F-386 RAG注入边界/F-395 商品写接口判空/F-410 提现冻结即扣/F-414 workbook会话隔离 (e6aad6e5581)
-- 🐞 Fix:派发腿级失败不再吃日预算,登录过期告警单独立身份 (11a6ee9fb64)
-- 🚀 Feature/Improvement:统一定价解析器 + 定价管控台 + 调价审计 + 每日零价巡检 (6a5800a2791)
-- 📚 Docs:README trackedFiles 21667→21668(merge带入远端新增1路径) (780a444bdea)
-- 📚 Docs:补 RECONCILE-findings-staleness.md 反向对账层 (ac22d159d5c)
-- 📚 Docs:标注 8 份 findings 为过期快照并补 AIS-116 复核 (f3acab9b5c4)
-- 📚 Docs:README 生成块数字对齐现算(sync-readme-numbers 官方通道数值) (8557693e08d)
-- 🔧 Chore/Other:收敛并行会话改动(水印补注+streaming-audit+考勤HR文档+cli文档) (53848eabcbe)
-- 🐞 Fix:修复workflow-todo.ts溯源水印载荷丢失 (872f61b1255)
-- 🐞 Fix:收口新四档 CSS 等值落档、装车 finance-ai-hub、修 lander null 崩溃 (79afad39223)
-- 🐞 Fix:修复15源码文件溯源水印载荷丢失+清理4文件死变量 (26aa10cbde9)
-- 🐞 Fix:修复24源码文件溯源水印载荷丢失(hr/db/i18n/craft)+清理import类型注解 (41cd9760853)
-- 🐞 Fix:修复源码文件溯源水印载荷丢失+清理死代码 (2af1a280cc2)
-- 🐞 Fix:AI对话流式显示P1修复 —— web早退持久化/并发幂等 + ai-service网关三缺陷 (274b1b6eda6)
-- 🐞 Fix:RP-17 标头补等条件(凭证+枚举就位),避免派单器误判 actionable (547cfd5ddaa)
-- 🚀 Feature/Improvement:登记考勤 IM 同步剩余三项待办(补 scope/审批枚举/端到端联调) (e503752634a)
-- 🐞 Fix:守门基础设施文件回退到origin/main版 —— 治陈旧底稿倒退 (6d289519792)
-- 🐞 Fix:收敛 push 门3道判红 —— 193 stdio / 300 端点登记 / 303p 文案裁定 (c605db9ade1)
-- 🚀 Feature/Improvement:跨端功能更新 + DeepSeek UI 逆向复现 + 文档维护 (4b9d379d1a8)
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)
