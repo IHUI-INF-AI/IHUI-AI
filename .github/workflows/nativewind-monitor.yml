@@ -54,7 +54,7 @@ jobs:
 
       - name: 5.0 stable 已发布 - 创建 Issue 提醒升级
         if: steps.check.outputs.exit_code == '1'
-        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |
             const date = new Date().toISOString().slice(0, 10);
