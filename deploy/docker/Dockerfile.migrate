@@ -21,6 +21,7 @@ COPY package.json pnpm-workspace.yaml pnpm-lock.yaml* ./
 COPY scripts/fix-expo-metro-junction.mjs scripts/
 COPY scripts/lib/patch-lint-staged-stdio.mjs scripts/lib/
 COPY scripts/sync-mobile-app-json-version.mjs scripts/
+COPY scripts/install-git-hooks.mjs scripts/
 COPY tsconfig.base.json ./
 COPY packages/database/package.json ./packages/database/
 COPY packages/eslint-config/package.json ./packages/eslint-config/
