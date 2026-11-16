@@ -408,11 +408,14 @@ jobs:
           # 属于"看似有兜底、实际随发布路径分叉"的假能力)。
           updaterJsonPreferNsis: true
 
-      # 2026-09-18 兜底断言:此前 Build & Release 是 continue-on-error(为绕过非 ASCII
-      # productName 的 tauri-action 产物收集假失败),导致 **Windows NSIS 打包真实失败
-      # (makensis 语言文件缺失)被静默吞掉** —— job 报 success、release 缺 exe/sig,
-      # 直接造成 0.1.35 无 Windows 资产(下载页与 Tauri 更新 feed 双断)。
-      # 这里改成「无论如何都断言磁盘上真有产物」:产物为空即硬失败,不再允许静默成功。
+      # 2026-09-18:此前 Build & Release 是 continue-on-error(为绕过非 ASCII productName 的
+      # tauri-action 产物收集假失败),导致 **Windows NSIS 打包真实失败(makensis 语言文件缺失)
+      # 被静默吞掉** —— job 报 success、release 缺 exe/sig,直接造成 0.1.35 无 Windows 资产。
+      # 2026-11-17 定案(机主拍板·根治):容错已从打包步骤移除,本步升格为**提交面的唯一产物契约**,
+      # 由「总数 > 0」改为「按 matrix 逐平台断言应有目标齐备」。理由是旧判据有洞:
+      # Linux 上 .deb 成了就 COUNT>0 通过,而 rpm/AppImage 缺失会静默漏过(0.1.78 run#105/#106 正是这一型)。
+      # 期望表来源 = tauri.conf.json bundle.targets(现读 [nsis, app, dmg, deb, rpm, appimage])。
+      # ⚠️ 新增/删除 target 时必须同步改这张表;漏改的失效方向是"多要一次说明"(红),不是"多放一次"(绿)。
       - name: Verify bundle produced (fail loudly)
         if: always()
         shell: bash
@@ -421,13 +424,52 @@ jobs:
           if [ -d "apps/desktop/src-tauri/target/universal-apple-darwin/release/bundle" ]; then
             BUNDLE=apps/desktop/src-tauri/target/universal-apple-darwin/release/bundle
           fi
-          COUNT=$(find "$BUNDLE" -type f \( -name '*.deb' -o -name '*.rpm' -o -name '*.AppImage' \
-            -o -name '*.dmg' -o -name '*.exe' -o -name '*.msi' -o -name '*.app.tar.gz' \) 2>/dev/null | wc -l | tr -d ' ')
-          echo "tauri build 产物数量: $COUNT (Build & Release outcome: ${{ steps.tauri.outcome }})"
-          if [ "$COUNT" -eq 0 ]; then
-            echo "::error::tauri build 未产出任何安装包($BUNDLE 为空);Build & Release outcome=${{ steps.tauri.outcome }}。拒绝静默成功。"
+          echo "校验根: $BUNDLE"
+          echo "Build & Release outcome: ${{ steps.tauri.outcome }}"
+          if [ ! -d "$BUNDLE" ]; then
+            echo "::error::打包产物目录不存在: $BUNDLE(tauri build 未产出任何东西;outcome=${{ steps.tauri.outcome }})"
             exit 1
           fi
+          # 逐平台应有目标:每行「名称|find -name 模式」。模式用通配前缀,以兼容含中文
+          # productName 的实际包名。macOS 的 .app.tar.gz 是自动更新载荷(universal 目标),
+          # dmg 是分发件;Windows 的 .sig 由上传腿成对校验,这里不重复。
+          # 逐项校验用函数而非 `echo | while`:后者是子 shell,里面的计数在外面读不到。
+          have() { find "$BUNDLE" -type f -name "$2" 2>/dev/null | head -1 | grep -q . ; }
+          MISSING=''
+          check() {
+            if have "$1" "$2"; then
+              echo "  ✓ $1 ($2)"
+            else
+              echo "  ✗ $1 ($2) 缺失"
+              MISSING="$MISSING $1"
+            fi
+          }
+          case "${{ matrix.label }}" in
+            linux-x64)
+              check deb '*.deb'
+              check rpm '*.rpm'
+              check appimage '*.AppImage'
+              ;;
+            macos-universal)
+              check dmg '*.dmg'
+              check updater-tarball '*.app.tar.gz'
+              ;;
+            windows-x64)
+              check nsis '*.exe'
+              check msi '*.msi'
+              ;;
+            *)
+              echo "::error::matrix.label='${{ matrix.label }}' 未登记应有产物表;请同步 Verify 的期望表(拒绝静默通过)"
+              exit 1
+              ;;
+          esac
+          if [ -n "$MISSING" ]; then
+            echo "::error::platform=${{ matrix.label }} 缺少应有产物:$MISSING。拒绝静默成功(outcome=${{ steps.tauri.outcome }})。"
+            exit 1
+          fi
+          TOTAL=$(find "$BUNDLE" -type f \( -name '*.deb' -o -name '*.rpm' -o -name '*.AppImage' \
+            -o -name '*.dmg' -o -name '*.exe' -o -name '*.msi' -o -name '*.app.tar.gz' \) 2>/dev/null | wc -l | tr -d ' ')
+          echo "platform=${{ matrix.label }} 应有目标齐备;产物总数 $TOTAL"
 
       # ---------- SignPath Authenticode 签名(仅 Windows;凭据齐备才启用) ----------
       # 时序:必须在 tauri 打包之后、"Fallback upload … --clobber" 把资产推上 Release 之前。
