@@ -1883,7 +1883,9 @@ export default function ChatPage() {
         setPendingQuestion(null)
       } else if (outcome.kind === 'legacy') {
         // 旧服务端没有阻塞式端点 ⇒ 回退旧链路:把答案当普通消息发出去
-        const text = buildLegacyAnswerText(q.options, {
+        // 签名吃 { options } 整个问题形状(共享层判据,端内不复制调用形)——
+        // 此前误传 q.options 数组 ⇒ TS2345,2026-11-16 与 RN 同批对齐。
+        const text = buildLegacyAnswerText(q, {
           questionId: q.questionId,
           action,
           selectedOptionIds: selected,
