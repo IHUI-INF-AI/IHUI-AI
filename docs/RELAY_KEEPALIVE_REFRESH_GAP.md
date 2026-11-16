@@ -51,7 +51,7 @@
 | codex | 未实现 | 无公开续期协议 | — | ❌ 不续期（401 自愈靠重导） |
 | opencode | 未实现 | OAuth 端点未实证 | — | ❌ 不续期 |
 | minimax | 真实现（2026-11-06 取证） | 有（`account.minimax.cn/oauth2/token`，轮换 rt） | client-first | ✅ 真续期（回灌腿同批） |
-| zcode | 未实现（显式 false，2026-11-12 复核） | 无 | — | ❌ 不续期（会话回灌） |
+| zcode | 未实现（显式 false，2026-11-12 复核） | 无（但票无 exp，见 §3.1） | — | ✅ 长期票直用；v2 解密修复后不依赖客户端 |
 | raccoon | 未实现（显式 false） | 无 | — | ❌ 不续期（会话回灌） |
 | lingma | 未实现 | 无公开续期协议 | — | ❌ 不续期 |
 | grokbot | 未实现 | 无公开续期协议 | — | ❌ 不续期 |
@@ -64,6 +64,14 @@
   本机 `credentials.json` 解密后的全部键：`oauth:bigmodel:access_token`、`zcodejwttoken`、
   `oauth:bigmodel:user_info`、`oauth:active_provider`、`project-key-location:*` —— **没有 refresh_token**。
   ⇒ 上游既未下发 rt，客户端也没有可复用的刷新调用，适配器继续声明不可续期。
+  **2026-11-17 更正（关键）**：「没有 rt」≠「不能永久保活」。实测解出的
+  `oauth:bigmodel:access_token` 与 `zcodejwttoken` 都是 **JWT 无 `exp`**（只有 user/customer/iat claims），
+  上游按 token_version 失效而非按时间过期；号池落 `tokenExpiresAt=null`，云端可长期直用，不依赖本机。
+  同时发现 3.17.2 把值二次封装为 `enc:v2:os:`（系统钥匙串 32B 密钥 + AES-GCM），
+  旧提取器只剥外层 `enc:v1:` ⇒ **把密文当令牌回灌**，正是 `billing/balance HTTP 401` 坏号的根因；
+  `scripts/lib/zcode-auth-extract.mjs` 现已真解 v2 并拒绝密文回传，重复坏号已禁用。
+  适配器的 `refreshTokenSupported:false` 保持不动（确实没有可调用的续期端点），
+  但保活语义应读作「长期有效票 + 无需刷新」，不是「到期即死」。
 - **loomy（Loomy 0.9.39 / 讯飞 CAccount）**：登录面只有
   `/login/phone/sendMsgCode`、`/login/phone/checkCode`、`/login/account/byPwd`、`/login/account/logout`，
   会话（session）失效一律走重新登录；客户端内 `refreshTokenRequest` 仅来自打包的 `@vercel/oidc`，与本产品无关。

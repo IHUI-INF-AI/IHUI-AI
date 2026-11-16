@@ -26,6 +26,9 @@
  *   (oauthService.refreshToken 走到 `!adapter.refreshToken` 即抛"暂未提供…请重新登录");
  *   本机 credentials.json 解密后也只有 access_token,无 refresh_token 键。
  *   ⇒ 上游既未发 rt、客户端也没有可复用的刷新调用,绝不猜端点。
+ *   2026-11-17 更正:无 rt ≠ 到期即死 —— 解出的 oauth access_token / zcodejwttoken
+ *   均为**无 exp 的 JWT**(按 token_version 失效,非时间过期),号池 tokenExpiresAt=null;
+ *   3.17.2 的 enc:v2:os: 二次加密已在本机提取器真解,密文不再回灌成坏票。
  * - 凭证映射(服务端 mapZcodeImport,主会话集成):token←oauth:bigmodel:access_token
  *   (或 zcodejwttoken/项目 Key),raw 其余字段进 secretsEnc 直通。
  * - 提取器(2026-10-27):credentials.json 值为 enc:v1: AES-256-GCM 密文,解密配方见
