@@ -18,7 +18,12 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 
 import {
-  parseLsRemote, addedLines, mergeConflictFiles, classify, safetyCheck, markdownReport,
+  parseLsRemote,
+  addedLines,
+  mergeConflictFiles,
+  classify,
+  safetyCheck,
+  markdownReport,
   __test__,
 } from '../remote-branch-triage.mjs'
 
@@ -27,9 +32,17 @@ const SHA_B = 'b'.repeat(40)
 
 // 全部闸都绿的正向对照:bot 作者、无 keep、已合并、无检出、无保护前缀
 const base = () => ({
-  name: 'fix/example-1109', sha: SHA_A, hasObject: true, prState: 'ok',
-  prs: [], worktree: false, merged: true, contentLanded: false, linesLanded: false,
-  stillDiff: 0, lineMiss: 0,
+  name: 'fix/example-1109',
+  sha: SHA_A,
+  hasObject: true,
+  prState: 'ok',
+  prs: [],
+  worktree: false,
+  merged: true,
+  contentLanded: false,
+  linesLanded: false,
+  stillDiff: 0,
+  lineMiss: 0,
 })
 
 function expectVerdict(row, verdict) {
@@ -90,26 +103,80 @@ test('classify: 正向对照唯一落在 DISCARDABLE', () => {
 })
 
 test('classify: 三种落地判据各自独立成立,理由必须点名是哪一条', () => {
-  const a = base(); a.merged = false; a.contentLanded = true
+  const a = base()
+  a.merged = false
+  a.contentLanded = true
   assert.equal(classify(a).reason, 'A∩B=∅')
-  const b = base(); b.merged = false; b.linesLanded = true
+  const b = base()
+  b.merged = false
+  b.linesLanded = true
   assert.equal(classify(b).reason, '新增行 100% 落地')
-  const c = base(); c.merged = true
+  const c = base()
+  c.merged = true
   assert.equal(classify(c).reason, 'main 祖先')
-  const d = base(); d.merged = false
+  const d = base()
+  d.merged = false
   expectVerdict(d, 'NEEDS_WORK')
 })
 
 test('classify: 每条安全闸都先过正向对照再单独翻转', () => {
   const cases = [
-    ['对象缺失', (r) => { r.hasObject = false }, 'UNJUDGED'],
-    ['PR 状态未判定', (r) => { r.prState = 'unknown' }, 'UNJUDGED'],
-    ['人工作者 PR', (r) => { r.prs = [{ number: 217, author: 'lizong', labels: [] }] }, 'HOLD_PR'],
-    ['Dependabot PR(与官方清理器同口径,不许当快照删)', (r) => { r.prs = [{ number: 98, author: 'dependabot[bot]', labels: [] }] }, 'HOLD_PR'],
-    ['bot PR 带 keep', (r) => { r.prs = [{ number: 200, author: 'github-actions[bot]', labels: ['keep'] }] }, 'HOLD_PR'],
-    ['保护前缀', (r) => { r.name = 'backup/main-line-20261026' }, 'HOLD_PROTECT'],
-    ['在飞检出', (r) => { r.worktree = true }, 'HOLD_WORKTREE'],
-    ['主干', (r) => { r.name = 'main' }, 'MAIN'],
+    [
+      '对象缺失',
+      (r) => {
+        r.hasObject = false
+      },
+      'UNJUDGED',
+    ],
+    [
+      'PR 状态未判定',
+      (r) => {
+        r.prState = 'unknown'
+      },
+      'UNJUDGED',
+    ],
+    [
+      '人工作者 PR',
+      (r) => {
+        r.prs = [{ number: 217, author: 'lizong', labels: [] }]
+      },
+      'HOLD_PR',
+    ],
+    [
+      'Dependabot PR(与官方清理器同口径,不许当快照删)',
+      (r) => {
+        r.prs = [{ number: 98, author: 'dependabot[bot]', labels: [] }]
+      },
+      'HOLD_PR',
+    ],
+    [
+      'bot PR 带 keep',
+      (r) => {
+        r.prs = [{ number: 200, author: 'github-actions[bot]', labels: ['keep'] }]
+      },
+      'HOLD_PR',
+    ],
+    [
+      '保护前缀',
+      (r) => {
+        r.name = 'backup/main-line-20261026'
+      },
+      'HOLD_PROTECT',
+    ],
+    [
+      '在飞检出',
+      (r) => {
+        r.worktree = true
+      },
+      'HOLD_WORKTREE',
+    ],
+    [
+      '主干',
+      (r) => {
+        r.name = 'main'
+      },
+      'MAIN',
+    ],
   ]
   for (const [label, mutate, want] of cases) {
     const row = base()
@@ -146,7 +213,10 @@ test('classify: Dependabot PR 即使已落地也保留(与官方清理器同口�
 
 test('safetyCheck: 全绿才放行', () => {
   const r = { ...base(), verdict: 'DISCARDABLE', reason: 'main 祖先' }
-  assert.deepEqual(safetyCheck(r, { live: { [r.name]: SHA_A }, prByHead: {} }), { pass: true, reason: 'main 祖先' })
+  assert.deepEqual(safetyCheck(r, { live: { [r.name]: SHA_A }, prByHead: {} }), {
+    pass: true,
+    reason: 'main 祖先',
+  })
 })
 
 test('safetyCheck: 六种不符逐条点名,任一都不许静默放行', () => {
@@ -184,13 +254,23 @@ test('markdownReport: 必须同时含逐支行与三态计数,只报总数不算
 // 全部断言走 __test__ 的真实判据 splitStill / GENERATED_FILE 与 classify,零复制实现(§22c)。
 const { splitStill, GENERATED_FILE } = __test__
 const asText = (...files) => files.join('\n')
-const GEN_FILES = ['README.md', 'README.en.md', 'PROJECT_PLAN.md', 'x.generated.ts', 'pnpm-lock.yaml']
+const GEN_FILES = [
+  'README.md',
+  'README.en.md',
+  'PROJECT_PLAN.md',
+  'x.generated.ts',
+  'pnpm-lock.yaml',
+]
 const CODE_FILES = ['src/core.ts', 'apps/api/route.ts', 'scripts/lib/gitdir.mjs']
 
 // 只按 contentLanded 判定的中性 row:撤掉 merged / linesLanded,确保定性只由 splitStill 结果驱动。
 const contentRow = (s) => ({
-  ...base(), merged: false, linesLanded: false,
-  stillDiff: s.stillDiff, stillGenerated: s.stillGenerated, stillCode: s.stillCode,
+  ...base(),
+  merged: false,
+  linesLanded: false,
+  stillDiff: s.stillDiff,
+  stillGenerated: s.stillGenerated,
+  stillCode: s.stillCode,
   contentLanded: s.contentLanded,
 })
 
@@ -248,5 +328,17 @@ test('③b splitStill 取的是 A∩B:A 有但 B 已无差异的文件不算未�
   assert.equal(s.stillCode, 0)
   assert.equal(s.contentLanded, true)
   assert.equal(classify(contentRow(s)).verdict, 'DISCARDABLE')
+})
+
+test('①b slugFromUrl: 四种 remote URL 形态提取 owner/repo(ssh.github.com:443 带端口为 2026-11-16 本机踩坑形态)', () => {
+  const { slugFromUrl } = __test__
+  const want = 'IHUI-INF-AI/IHUI-AI'
+  assert.equal(slugFromUrl(`ssh://ssh.github.com:443/${want}.git`), want)
+  assert.equal(slugFromUrl(`https://github.com/${want}.git`), want)
+  assert.equal(slugFromUrl(`git@github.com:${want}`), want)
+  assert.equal(slugFromUrl(`https://github.com/${want}`), want)
+  // 反向牙:其他 host / 畸形 URL 不得伪造 slug
+  assert.equal(slugFromUrl('https://gitlab.com/a/b.git'), '')
+  assert.equal(slugFromUrl(''), '')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

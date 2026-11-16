@@ -208,8 +208,10 @@ describe('让位/接管 shouldDeferRefresh(C 档 2026-11-10:接管前当场再�
       reason: 'client-stopped-and-heartbeat-stale',
     })
     expect(S.shouldDeferRefresh(serverRow, NOW, process.env, undefined)).toBe(false)
-    // 明确探到「在跑」仍然让位(多让方向不变)
-    expect(S.shouldDeferRefresh(serverRow, NOW, process.env, true)).toBe(true)
+    // ⑨b 与 2026-11-14 根治对齐:非轮换型平台(workbuddy)客户端在跑也**不再让位** ——
+    // 「顶号」损伤只存在于客户端同样握着轮换型 rt 的平台;workbuddy 的客户端刷新不废池票,
+    // 让位只会让续期全押在「客户端每 10 分钟回灌」这条脆弱腿上(11-13 实测两枚 401)。
+    expect(S.shouldDeferRefresh(serverRow, NOW, process.env, true)).toBe(false)
     // client-first 档不受这条放宽影响:未判定照样让位
     const miniRow = { ...wb, providerCode: 'minimax' }
     expect(S.shouldDeferRefresh(miniRow, NOW, process.env, undefined)).toBe(true)

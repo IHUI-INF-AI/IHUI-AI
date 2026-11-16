@@ -241,6 +241,23 @@ export const TENANT_BYPASS_PREFIX_PATHS: readonly string[] = [
   '/api/vip/products',
   '/docs',
   '/openapi.json',
+  /**
+   * 指标抓取面(2026-11-16 生产事故收口):Prometheus 按回环抓 /metrics 与
+   * /business-metrics,抓取请求不带 X-Tenant-Id、也不带 Authorization。
+   * TENANT_STRICT_MODE 缺省即严格后(apps/api/src/plugins/tenant.ts 的全局 onRequest),
+   * 这两条腿被判 401 ⇒ 2026-11-11 起 4 个 target 恒 down,
+   * ApiDown(critical) / AiBusinessMetricsDown(warning) 连续 firing。
+   * 401 报文里的"或 Authorization"与 resolveTenantIdentifier 实现不符,
+   * 给 Prometheus 配 basic_auth 实测仍是同一 401 —— 这里要的不是凭据,是免租户。
+   * 两端点已同时在 AUTH_PUBLIC_EXACT_PATHS 与 NETWORK_PUBLIC_PREFIX_PATHS,
+   * 且 metrics.ts / business-metrics.ts 另有 isPrivateIp 回环闸,
+   * 免租户不放宽任何公网面。/api 别名一并对齐,免得下次抓别名再漏。
+   * 回归锁:public-paths.test.ts「指标抓取面免租户」。
+   */
+  '/metrics',
+  '/business-metrics',
+  '/api/metrics',
+  '/api/business-metrics',
 ]
 
 /**

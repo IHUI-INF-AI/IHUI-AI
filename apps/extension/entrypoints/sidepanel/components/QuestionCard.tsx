@@ -58,6 +58,9 @@ export function canSubmitQuestionAnswer(input: {
  * 点选行为:单选时替换、多选时切换。
  * 判据住在共享层 `@ihui/shared/chat/question-response`(RN / 小程序 / 扩展同一份),
  * 此处 re-export 保持本组件对外 API,端内不再留第二份实现。
+ * 勾选行为判据(2026-11-16 上提共享层 §0.6):唯一实现迁至 @ihui/shared/chat/question-response
+ * 的 toggleOptionSelection(单选替换/多选切换/单选再点同项=取消)。本行是转口不是第二份实现,
+ * 保持 sidepanel/ChatPage 等旧 import 面(./QuestionCard)零改动;判据注释与其历史因由见真源。
  */
 export { toggleOptionSelection } from '@ihui/shared/chat/question-response'
 

@@ -22,9 +22,7 @@ const h = vi.hoisted(() => {
   })
   const updateToolCall = vi.fn(
     (_messageId: string, toolCallId: string, updates: Partial<Row>): void => {
-      state.toolCalls = state.toolCalls.map((t) =>
-        t.id === toolCallId ? { ...t, ...updates } : t,
-      )
+      state.toolCalls = state.toolCalls.map((t) => (t.id === toolCallId ? { ...t, ...updates } : t))
     },
   )
   return { state, addToolCall, updateToolCall }
@@ -74,10 +72,13 @@ describe('createOpenAiToolCallHandler — 工具入参逐分片渐进渲染', ()
     })
   })
 
-  it('后续片不带 id/name:按 index 归位到同一张卡,不重复建卡', () => {
+  it('后续片不带 id/name:按 index 归位到同一张卡,不重复建卡', async () => {
     const handler = createOpenAiToolCallHandler('m1')
     handler(delta())
     handler(delta({ id: undefined, name: undefined, args: { q: 'tes' } }))
+    // F-723 合帧:后续片归并到 microtask 边界,await 后断言
+    await Promise.resolve()
+    await Promise.resolve()
     expect(h.addToolCall).toHaveBeenCalledTimes(1)
     expect(h.state.toolCalls).toHaveLength(1)
     expect(h.state.toolCalls[0]?.partialArgs).toEqual({ q: 'tes' })
@@ -87,13 +88,15 @@ describe('createOpenAiToolCallHandler — 工具入参逐分片渐进渲染', ()
   it('complete 到达:写正式 args 并清预览(正式渲染不被流式态污染)', () => {
     const handler = createOpenAiToolCallHandler('m1')
     handler(delta())
-    handler(delta({
-      id: undefined,
-      name: undefined,
-      args: { q: 'test' },
-      argsComplete: true,
-      argsPartial: false,
-    }))
+    handler(
+      delta({
+        id: undefined,
+        name: undefined,
+        args: { q: 'test' },
+        argsComplete: true,
+        argsPartial: false,
+      }),
+    )
     expect(h.state.toolCalls[0]?.args).toEqual({ q: 'test' })
     expect(h.state.toolCalls[0]?.partialArgs).toBeUndefined()
     expect(h.state.toolCalls[0]?.argsStreaming).toBeUndefined()
@@ -110,14 +113,16 @@ describe('createOpenAiToolCallHandler — 工具入参逐分片渐进渲染', ()
   it('不同 index 各自建卡,互不污染', () => {
     const handler = createOpenAiToolCallHandler('m1')
     handler(delta())
-    handler(delta({
-      index: 1,
-      id: 'call_b',
-      name: 'read_file',
-      args: { path: '/a' },
-      argsComplete: true,
-      argsPartial: false,
-    }))
+    handler(
+      delta({
+        index: 1,
+        id: 'call_b',
+        name: 'read_file',
+        args: { path: '/a' },
+        argsComplete: true,
+        argsPartial: false,
+      }),
+    )
     expect(h.addToolCall).toHaveBeenCalledTimes(2)
     expect(h.state.toolCalls[0]?.partialArgs).toEqual({ q: 'te' })
     expect(h.state.toolCalls[1]).toMatchObject({ id: 'call_b', args: { path: '/a' } })

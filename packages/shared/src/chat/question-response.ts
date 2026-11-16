@@ -105,6 +105,15 @@ export function buildLegacyAnswerText(
  * 点选行为:单选时替换、多选时切换(三端共用的唯一判据)。
  * 抽成纯函数是因为"单选却点出两个 id"会让服务端把答案读成多选 —— 静默给错语义。
  * 单选再点同一项 = 取消(否则用户无法改主意)。
+ *
+ * 勾选行为判据(三端单一真相源,2026-11-16 上提自 extension/QuestionCard.tsx):
+ * 单选时替换;多选时切换;单选再点同一枚 = 取消(允许清空重选)。
+ * 该"点勾即换"语义此前被 web 弹窗沿用为行为契约("单选却回传多个 id"会被
+ * 服务端把答案凑成多选 —— 静默错语义,extension 原注释逐字保留其因)。
+ * RN ChatScreen/miniapp question 卡自 11-13 起按本路径取名;extension 同名 re-export
+ * 已改为转口(§0.6 同族判据禁止第二份实现)。
+ *
+ * 注意:本函数纯函数、无 store 依赖,调用方以 setState(prev => toggle(prev, id, multi)) 套用。
  */
 export function toggleOptionSelection(
   current: readonly string[],
@@ -112,6 +121,7 @@ export function toggleOptionSelection(
   allowMultiple: boolean,
 ): string[] {
   if (!allowMultiple) {
+    // 单选:再点一次同一项 = 取消(避免用户无法清空重选)
     return current.length === 1 && current[0] === optionId ? [] : [optionId]
   }
   return current.includes(optionId)

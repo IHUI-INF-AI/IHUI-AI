@@ -32,6 +32,7 @@ COPY scripts/lib/atomic-build.mjs scripts/lib/flag-value.mjs scripts/lib/
 COPY scripts/fix-expo-metro-junction.mjs scripts/
 COPY scripts/lib/patch-lint-staged-stdio.mjs scripts/lib/
 COPY scripts/sync-mobile-app-json-version.mjs scripts/
+COPY scripts/install-git-hooks.mjs scripts/
 
 # 复制 packages 和 cli 源码(分层利用缓存)
 COPY packages/ ./packages/

@@ -1561,7 +1561,24 @@ export function MarkdownStream({
   //   修在 CodeBlockImpl:未亲手点过折叠钮期间,展开判定由 collapsed ∪ preserveExpanded 事实
   //   并集决定(effectiveCollapsed);用户一旦操作立即接管。权威回归 = e2e/streaming-lifecycle
   //   逐帧高度单调判据;jsdom 侧另钉"用户意志接管"与"carry 优先"两型。
-  const { stable, active } = React.useMemo(() => splitMarkdownStable(parseContent), [parseContent])
+  // 2026-11-15 流式优化:stable 引用稳定化。
+  // splitMarkdownStable 每帧返回新字符串引用(即使切点未前进、stable 内容逐字节相同),
+  // 导致下游 splitMarkdownBlocks + collectSafeCutPoints + judgeBlockStability 每帧全量重扫,
+  // 且 slice 出的每个 block 字符串引用也每帧变 ⇒ StableBlock 的 React.memo 不命中、每帧重 parse。
+  // 实测:稳定前缀在长回答里占正文 90%+,切点一旦落地便永不再动 ⇒ 这段重扫是纯浪费。
+  // 修法:记住上一帧 stable,新结果若与旧值内容相同(=== 值比较)则复用旧引用,
+  // 让 renderBlocks 的 useMemo [stable] 依赖不变 ⇒ blocks 数组与每块字符串引用恒定 ⇒ memo 全部命中。
+  const stableRef = React.useRef('')
+  const { stable, active } = React.useMemo(() => {
+    const result = splitMarkdownStable(parseContent)
+    // 切点未前进 ⇒ result.stable 与 stableRef.current 内容逐字节相同 ⇒ 复用旧引用。
+    // 切点前进或首次切分 ⇒ 内容变长 ⇒ 返回新引用(合法新前缀,下游重算一次)。
+    if (result.stable === stableRef.current) {
+      return { stable: stableRef.current, active: result.active }
+    }
+    stableRef.current = result.stable
+    return result
+  }, [parseContent])
 
   // 2026-10-30 块级增量渲染:stable 前缀按全部安全切点拆成有序块,每块一个 StableBlock。
   // 切点只会向后追加(流式纯追加 ⇒ 已落地切点不移动)⇒ 前缀块 content 字符串恒等,

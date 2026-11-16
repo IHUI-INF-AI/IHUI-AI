@@ -85,6 +85,7 @@
       "onFrameWatermarkFacts": "no-frame-watermark-diagnostics",
       "onHookFailure": "no-hook-failure-ui",
       "onReviewFinding": "no-review-finding-ui",
+      "onSendAdmissionReceipt": "no-admission-receipt-chain",
       "onRecoveryGateLedger": "no-recovery-gate-ledger-consumer"
     },
     "cli": {

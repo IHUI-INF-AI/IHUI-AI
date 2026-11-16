@@ -25,4 +25,27 @@ export function judgeDevAutostart({ env = {} } = {}) {
   }
   return { allowed: false, why: RESIDENCY_RULING }
 }
+
+// ── 2026-11-16 机主定向裁决:签到腿「最小常驻例外」────────────────────────────
+// 机主对「签到腿脱离 dev 习惯 7×24」明确拍板(逐字见 docs/tickets/2026-11/signin-residency-20261116.md)。
+// 例外只覆盖一枚进程 = ai-service(8803)的幂等自检拉起(30 分钟节拍,在位即零动作),
+// 用途固定为签到调度 + 进程内保活心跳;**不解除**上面 judgeDevAutostart 对 dev 全家桶
+// (web/api/Metro/CDN/revive-watchdog)的 11-10 锁 —— 本函数不得被 dev-stack 自啓/复活链路消费,
+// 消费方唯一 = scripts/register-signin-residency-task.mjs。
+// 关闸 = IHUI_SIGNIN_RESIDENCY_DISABLE=1:失效方向恒为「多要一次定向说明」(注册器拒装并
+// 点名原因),绝不是「多放一次跳门」(§0.10)。卸载正道 = 注销任务,不留隐式常驻。
+export const SIGNIN_RESIDENCY_RULING =
+  '2026-11-16 机主定向裁决:允许签到腿(ai-service 单进程 8803,禁 --workers/--reload 的进程级风控闸门契约)最小幂等常驻;dev-stack 全家桶自启仍按 2026-11-10 锁死'
+
+export const SIGNIN_RESIDENCY_DISABLE_ENV = 'IHUI_SIGNIN_RESIDENCY_DISABLE'
+
+export function judgeSigninLegResidency({ env = {} } = {}) {
+  if (String(env[SIGNIN_RESIDENCY_DISABLE_ENV] ?? '') === '1') {
+    return {
+      allowed: false,
+      why: `机主显式关闭签到常驻腿(${SIGNIN_RESIDENCY_DISABLE_ENV}=1),出路:去掉该变量再注册,或保持按需形态`,
+    }
+  }
+  return { allowed: true, why: SIGNIN_RESIDENCY_RULING }
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

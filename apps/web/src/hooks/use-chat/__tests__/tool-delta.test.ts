@@ -49,18 +49,26 @@ describe('createToolDeltaHandler — D113 流中 diff 预览', () => {
     h.state.toolCalls = [{ id: 'tc-1' }]
   })
 
-  it('首帧:按 seq 追加写入 (messageId, toolCallId, { partialDiff, partialSeq })', () => {
+  it('首帧:按 seq 追加写入 (messageId, toolCallId, { partialDiff, partialSeq })', async () => {
     createToolDeltaHandler('m1')(evt())
+    // F-723 合帧(2026-11-15 修正):所有分片统一归并到 microtask 边界,故首帧也在边界后可见。
+    await Promise.resolve()
+    await Promise.resolve()
     expect(h.updateToolCall).toHaveBeenCalledWith('m1', 'tc-1', {
       partialDiff: 'line1\nline2',
       partialSeq: 1,
     })
   })
 
-  it('递增 seq → 增量追加到已有 partialDiff(不是整帧覆盖)', () => {
+  it('递增 seq → 增量追加到已有 partialDiff(不是整帧覆盖)', async () => {
     const handler = createToolDeltaHandler('m1')
     handler(evt({ seq: 1, partialText: 'v1' }))
     handler(evt({ seq: 2, partialText: 'v2' }))
+    // F-723 合帧:同 tick 第二帧归并到缓冲,在 microtask 边界一次性 flush(数据零丢失,
+    // 只是可见时点从「逐帧」变为「边界」)。await 两个微任务让 Promise.resolve().then 的
+    // 合帧 flush 先落地,再断言累积结果。
+    await Promise.resolve()
+    await Promise.resolve()
     expect(h.state.toolCalls[0]?.partialDiff).toBe('v1v2')
     expect(h.state.toolCalls[0]?.partialSeq).toBe(2)
   })
@@ -74,9 +82,13 @@ describe('createToolDeltaHandler — D113 流中 diff 预览', () => {
     expect(h.state.toolCalls[0]?.partialDiff).toBe('v1v2')
   })
 
-  it('缺口(seq>partialSeq+1)照追加,不因缺口丢帧', () => {
+  it('缺口(seq>partialSeq+1)照追加,不因缺口丢帧', async () => {
     h.state.toolCalls = [{ id: 'tc-1', partialDiff: 'v1', partialSeq: 1 }]
     createToolDeltaHandler('m1')(evt({ seq: 4, partialText: 'v4' }))
+    // F-723 合帧:首个分片同步 flush,但累积读状态在缓冲里;追加基于缓冲(此处为空)
+    // + store 已存值。await 让 Promise.resolve().then 的合帧 flush 落地后再断言。
+    await Promise.resolve()
+    await Promise.resolve()
     expect(h.state.toolCalls[0]?.partialDiff).toBe('v1v4')
     expect(h.state.toolCalls[0]?.partialSeq).toBe(4)
   })

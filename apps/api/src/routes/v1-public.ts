@@ -1217,9 +1217,18 @@ async function streamChatCompletion(
 
     // P0-5 中转站计费:流式结束后聚合 token 用量写入计费
     if (opts.apiKeyId && opts.userId) {
-      const promptTokens = Math.ceil((opts.promptText ?? '').length / 4)
-      // F-89:responseText 只累计真实产出文本(错误文案走 writeChunk 不计入)
-      const completionTokens = Math.ceil(responseText.length / 4)
+      // F-679(2026-11-15):优先用上游真 usage(streamPromptTokens/streamCompletionTokens 由
+      // ai-service usage 帧 / 渠道 [USAGE] 帧捕获),缺失才回退"字符 ÷ 4"估算。旧代码无条件估算,
+      // 中文(≈1.5 字/token 而非 4)系统性少计 2~3 倍,与同函数 include_usage 分支(用真值)口径分裂。
+      // F-89:completion 估算兜底只用真实产出文本(responseText 不含错误文案)。
+      const estimatePromptTokens = Math.ceil((opts.promptText ?? '').length / 4)
+      const estimateCompletionTokens = Math.ceil(responseText.length / 4)
+      const promptTokens = streamPromptTokens > 0 ? streamPromptTokens : estimatePromptTokens
+      const completionTokens = streamError
+        ? 0
+        : streamCompletionTokens > 0
+          ? streamCompletionTokens
+          : estimateCompletionTokens
       const totalTokens = promptTokens + completionTokens
       // F-89:已产出 token 后中断记 partial(按实际结算),零产出才记 error(免单)
       const status: 'success' | 'partial' | 'error' = streamError
@@ -2699,11 +2708,11 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
         const batchFileId = `file-${randomUUID()}`
         const content = buffer.toString('utf8')
         try {
-          const { saveBatchInput, getBatchInputRedis } = await import('../queue/batch-queue.js')
+          const { saveBatchInput } = await import('../queue/batch-queue.js')
           // F-279:复用 server.redis(由 redis 插件 onClose 统一 quit),不再每请求 new IORedis
-          // —— 后者异常路径会泄漏连接与重连定时器。键按 apiKeyId 分区,他人 fileId 读不到。
-          const redis = getBatchInputRedis(server)
-          await saveBatchInput(redis, apiKey.id, batchFileId, content)
+          // —— 后者异常路径会泄漏连接与重连定时器。batch-worker 读侧同用 server.redis,
+          // 键按 fileId 唯一,不做 apiKeyId 二次分区(与 batch-queue 现签名一致)。
+          await saveBatchInput(server.redis, apiKey.id, batchFileId, content)
           return reply.status(201).send({
             id: batchFileId,
             object: 'file',

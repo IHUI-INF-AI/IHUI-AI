@@ -55,11 +55,12 @@ function Harness({
   sendLegacyAnswer: (answer: string) => Promise<void>
   frame: Parameters<ReturnType<typeof useQuestionQueue>['onQuestion']>[0]
 }) {
-  const queue = useQuestionQueue({ sendLegacyAnswer })
+  // queue 每次渲染是新对象,整只入依赖会触发无限渲染;解构引用稳定的 onQuestion(useCallback([]))
+  const { onQuestion, host } = useQuestionQueue({ sendLegacyAnswer })
   useEffect(() => {
-    queue.onQuestion(frame)
-  }, [frame, queue.onQuestion])
-  return <>{queue.host}</>
+    onQuestion(frame)
+  }, [frame, onQuestion])
+  return <>{host}</>
 }
 
 const singleFrame = {

@@ -605,17 +605,22 @@ export function StreamLabel({ children }: { children: React.ReactNode }) {
   return <p className="text-[11px] font-medium text-muted-foreground/70">{children}</p>
 }
 
-/** 明细里的等宽输出块:限高 200px 后滚动;流式输出时 autoScrollToBottom 保证贴底 */
+/** 明细里的等宽输出块:限高 200px 后滚动;`autoScrollToBottom` 时新内容追加即贴底。
+ * D113 文件写工具的 partialDiff 预览传 true(增量帧增长时始终看最新段),
+ * partialArgs 预览保持 false(入参 JSON 从头读更自然,不夺滚动位置)。 */
 export function StreamCode({
   text,
   className,
   testId,
   autoScrollToBottom = false,
+  streaming = false,
 }: {
   text: string
   className?: string
   testId?: string
   autoScrollToBottom?: boolean
+  /** 流式进行中:渲染尾部光标(仅装饰,不进 a11y 树语义) */
+  streaming?: boolean
 }) {
   const ref = React.useRef<HTMLPreElement>(null)
   React.useEffect(() => {
@@ -628,11 +633,22 @@ export function StreamCode({
       ref={ref}
       className={cn(
         'max-h-[200px] overflow-auto whitespace-pre-wrap break-all rounded-sm bg-background/60 p-1.5 font-mono text-label leading-relaxed text-foreground/75',
+        // 流式进行中:左侧 accent 边(teal)强化"正在生成"的视觉锚点;非流式保持中性无边
+        streaming && 'border-l-2 border-l-teal-500/60 dark:border-l-teal-400/60',
         className,
       )}
       data-testid={testId}
     >
       {text}
+      {streaming && (
+        // 2026-11-15 观感细化:光标由 animate-pulse(透明度呼吸,廉价感)升级为
+        // .animate-cursor-blink(1s step-end 硬切,与正文 stream-caret-host 同谱),
+        // 颜色走 var(--color-primary) design-token(禁裸色值,对齐全局光标规范)。
+        <span
+          aria-hidden="true"
+          className="ml-0.5 inline-block h-[0.95em] w-[2px] translate-y-[0.12em] animate-cursor-blink bg-[var(--color-primary)]"
+        />
+      )}
     </pre>
   )
 }

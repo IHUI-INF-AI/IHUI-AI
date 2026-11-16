@@ -276,9 +276,6 @@ export default function AskCreatePage() {
               onRemove={(index) =>
                 updateForm({ images: form.images.filter((_, i) => i !== index) })
               }
-              removeLabel={(index) =>
-                tt('ask.create.removeImage', '移除第 {index} 张图片', { index })
-              }
             />
           </View>
 

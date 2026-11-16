@@ -93,6 +93,75 @@ pub const HOME_URL: &str = "https://aizhs.top/";
 /// 内容 webview label 前缀;完整 label = `browser-tab-<id>`。
 pub(crate) const TAB_LABEL_PREFIX: &str = "browser-tab-";
 
+/// 内置浏览器的独立 profile 目录名(位于 `app_local_data_dir()` 下)。
+///
+/// **必须与主窗分开**:wry 给**每一个** webview 都新建一次
+/// `CreateCoreWebView2EnvironmentWithOptions`,而 WebView2 对「同一 user-data-folder
+/// + options 不一致」直接返回 `HRESULT(0x8007139F)` `ERROR_INVALID_STATE`。主窗由
+/// `tauri.conf.json` 创建(不传 `additional_browser_args`),浏览器标签传了
+/// [`WEBVIEW2_BROWSER_ARGS`] —— 同一 folder 下必然拒建。更糟的是
+/// `tauri-runtime-wry` 在 `Message::CreateWebview` 里 **只 `log::error!` 不回传**,
+/// 于是 `Window::add_child` 返回 `Ok`,上层误判成功:窗口亮着、标签栏在,里面全空。
+/// 实测 2026-11-15 build21:7 个标签 7 次 `0x8007139F`,而旧「独立窗」路径因为调了
+/// `.data_directory(..)` 从未踩到 —— 差别就在这里。
+const BROWSER_PROFILE_DIR: &str = "builtin-browser-profile";
+
+/// 内置浏览器专属 profile 目录(窗内所有标签共用一套,登录态按域名隔离)。
+fn browser_data_dir(app: &AppHandle) -> Option<std::path::PathBuf> {
+    let dir = app.path().app_local_data_dir().ok()?.join(BROWSER_PROFILE_DIR);
+    match std::fs::create_dir_all(&dir) {
+        Ok(()) => Some(dir),
+        Err(e) => {
+            log::warn!(
+                "[embedded-browser] 创建浏览器 profile 目录失败,回退默认目录(可能与主窗冲突): {} {}",
+                dir.display(),
+                e
+            );
+            None
+        }
+    }
+}
+
+/// 已收到过 `on_page_load` 的标签 id(诊断用)。
+///
+/// 因为 `add_child` 的失败被 runtime 吞掉,唯一可靠的「webview 真建出来了」判据就是
+/// page load 事件真的来了。建标签后起一个定时器核对:没来的打 ERROR,一眼区分
+/// 「没建成」与「建成了没加载」。
+static PAGE_LOADED_TABS: Mutex<Vec<u64>> = Mutex::new(Vec::new());
+
+fn mark_page_loaded(tab_id: u64) {
+    let mut guard = PAGE_LOADED_TABS
+        .lock()
+        .unwrap_or_else(|e| e.into_inner());
+    if !guard.contains(&tab_id) {
+        guard.push(tab_id);
+    }
+}
+
+fn page_load_seen(tab_id: u64) -> bool {
+    let guard = PAGE_LOADED_TABS
+        .lock()
+        .unwrap_or_else(|e| e.into_inner());
+    guard.contains(&tab_id)
+}
+
+/// 建标签后 6 秒核对:该标签是否真的加载过页面。
+fn spawn_page_load_watchdog(app: AppHandle, id: u64, url: String) {
+    std::thread::spawn(move || {
+        std::thread::sleep(Duration::from_secs(6));
+        if page_load_seen(id) {
+            return;
+        }
+        let still_registered = app.get_webview(&tab_label(id)).is_some();
+        log::error!(
+            "[embedded-browser] 标签 {} 建后 6s 未收到任何 page load(webview 可能没真正建出来): {} | webview_registered={} | 若是 0x8007139F,检查 user-data-folder/options 一致性",
+            id,
+            url,
+            still_registered
+        );
+    });
+}
+
 /// 哨兵导航 host(RFC 2606 保留 `.invalid`,永不解析;仅作页面→宿主的信号)。
 const SENTINEL_HOST: &str = "browser.ihui.invalid";
 
@@ -627,6 +696,11 @@ fn tab_label(id: u64) -> String {
     format!("{TAB_LABEL_PREFIX}{id}")
 }
 
+/// 标签 id → 内容 webview label(供商店账号等其他模块定位某个标签的 Cookie 罐)。
+pub(crate) fn tab_webview_label(id: u64) -> String {
+    tab_label(id)
+}
+
 /// 取当前活动标签页的 webview(供签到探针读 cookie / url 用)。
 /// 降级模式(单 webview 窗)下,窗口 label 本身就是 webview label,直接取它。
 pub fn active_webview(app: &AppHandle) -> Option<tauri::webview::Webview> {
@@ -813,10 +887,16 @@ fn build_tab_builder(
     let app_for_load = app.clone();
     // F-100:令牌在建窗时生成,只进入注入脚本与本 webview 的导航拦截闭包。
     let sentinel_token = new_sentinel_token();
-    WebviewBuilder::new(label, WebviewUrl::External(url))
+    let mut builder = WebviewBuilder::new(label, WebviewUrl::External(url))
         .user_agent(CHROME_UA)
         .additional_browser_args(WEBVIEW2_BROWSER_ARGS)
-        .devtools(true)
+        .devtools(true);
+    // 独立 profile:见 [`BROWSER_PROFILE_DIR`] 注释 —— 与主窗共用默认 folder 时,
+    // options 不一致会被 WebView2 以 `0x8007139F` 拒建,而错误又被 runtime 吞掉。
+    if let Some(dir) = browser_data_dir(app) {
+        builder = builder.data_directory(dir);
+    }
+    builder
         .background_color(Color(0x24, 0x24, 0x24, 0xff))
         .initialization_script(bar_js_with_token(&sentinel_token))
         .initialization_script(pick_js_with_token(&sentinel_token))
@@ -843,11 +923,19 @@ fn build_tab_builder(
                 true
             }
         })
-        .on_page_load(move |_wv, payload| {
+        .on_page_load(move |wv, payload| {
             // 导航完成/开始时同步标签 URL 并刷新工具条(标题由注入脚本对活动标签
             // 直接用 document.title 呈现,见 BAR_JS),否则标签栏/地址栏停在建窗初值。
             let app = app_for_load.clone();
             let url = payload.url().to_string();
+            mark_page_loaded(tab_id);
+            // 加载可观测性:商店后台这类外部站点,「窗口开着但页面没出来」只能靠这行定位
+            log::info!(
+                "[embedded-browser] 标签 {} 页面事件 {:?}: {}",
+                tab_id,
+                payload.event(),
+                url
+            );
             tauri::async_runtime::spawn(async move {
                 app.state::<BrowserManager>().with(|s| {
                     if let Some(tab) = s.tabs.iter_mut().find(|t| t.id == tab_id) {
@@ -857,6 +945,10 @@ fn build_tab_builder(
                         }
                     }
                 });
+                // 商店后台标签:此时 CoreWebView2 才真正就绪 —— 种子注入必须放在这一刻
+                // (child webview 刚 add_child 时 set_cookie 返回 Ok 但被静默丢弃,
+                // 实测 127 枚种子一枚都没落库);加载完成后顺带回写种子。
+                crate::store_browser::on_browser_page_loaded(&app, tab_id, &wv);
                 refresh_active_bar(&app);
             });
         })
@@ -893,7 +985,7 @@ fn spawn_degraded_window(
     let app_for_nav = app.clone();
     // F-100:降级窗同样注入 per-webview 令牌(单 webview 也是独立一条链路)。
     let sentinel_token = new_sentinel_token();
-    tauri::WebviewWindowBuilder::new(
+    let mut degraded_builder = tauri::WebviewWindowBuilder::new(
         app,
         BROWSER_WINDOW_LABEL,
         WebviewUrl::External(parsed.clone()),
@@ -906,7 +998,11 @@ fn spawn_degraded_window(
     .decorations(true)
     .background_color(Color(0x24, 0x24, 0x24, 0xff))
     .user_agent(CHROME_UA)
-    .additional_browser_args(WEBVIEW2_BROWSER_ARGS)
+    .additional_browser_args(WEBVIEW2_BROWSER_ARGS);
+    if let Some(dir) = browser_data_dir(app) {
+        degraded_builder = degraded_builder.data_directory(dir);
+    }
+    degraded_builder
     .initialization_script(bar_js_with_token(&sentinel_token))
     .initialization_script(pick_js_with_token(&sentinel_token))
     .on_navigation(move |url| {
@@ -961,9 +1057,43 @@ fn add_tab_webview(
     let size = window
         .inner_size()
         .map_err(|e| IpcError::internal(format!("取窗口尺寸失败: {e}")))?;
+    // 尺寸必须可观测:add_child 用显式尺寸建子 webview,若窗口尚未完成布局拿到 0×0,
+    // 页面会「加载成功但看不见」—— 这是最容易被误判成"渲染不出来"的成因。
+    log::info!(
+        "[embedded-browser] 建标签 {} 尺寸 {}x{}",
+        id,
+        size.width,
+        size.height
+    );
     // 内容 webview 随窗口缩放(auto_resize);降级路不需要(webview 即窗口)。
     let builder = build_tab_builder(app, tab_label(id), id, url.clone()).auto_resize();
-    spawn_tab_webview(window, builder, size)
+    spawn_tab_webview(window, builder, size)?;
+    // `add_child` 建出来的子 webview **不会**自动加载 Builder 里给的 URL —— 实测
+    // `on_page_load` 一次都不触发、页面全灰(窗口开着但什么都没有)。这里显式导航一次;
+    // 它同时也是种子注入的触发点(注入要等 CoreWebView2 就绪,即首次 page load)。
+    if let Some(wv) = app.get_webview(&tab_label(id)) {
+        if let Err(e) = wv.navigate(url.clone()) {
+            log::warn!("[embedded-browser] 标签 {} 首次导航失败: {}", id, e);
+        }
+    }
+    // 建窗那一刻 `inner_size()` 是**请求值**,系统随后可能按屏幕/DPI 收窄窗口,
+    // 子 webview 就比窗口大出一圈(实测 1600x1055 vs 窗口 1294x882),内容被裁且
+    // `auto_resize` 未收到 Resized 事件时不会自愈。延迟一拍按实际尺寸再校正。
+    {
+        let app_late = app.clone();
+        let win_late = window.clone();
+        let label_late = tab_label(id);
+        std::thread::spawn(move || {
+            std::thread::sleep(std::time::Duration::from_millis(700));
+            if let (Ok(sz), Some(wv)) = (win_late.inner_size(), app_late.get_webview(&label_late)) {
+                let _ = wv.set_size(sz);
+            }
+        });
+    }
+    // `add_child` 的失败会被 runtime 吞掉(见 [`BROWSER_PROFILE_DIR`] 注释),只能靠
+    // page load 是否真来判定「webview 建出来了」。
+    spawn_page_load_watchdog(app.clone(), id, url.to_string());
+    Ok(())
 }
 
 /// 打开(或复用)浏览器窗口。已存在则让当前标签导航到 `url`。
@@ -1024,6 +1154,12 @@ pub async fn open_or_navigate(
         s.next_id += 1;
         s.next_id
     });
+    // 先亮窗再建标签:`WindowBuilder` 刚 build 完时 `inner_size()` 拿到的是**请求值**
+    // (实测 1920x1290),系统随后才按屏幕可用区收窄(实际 1294x822),而 `add_child`
+    // 用的正是这个尺寸 —— 子 webview 会大出窗口一圈、内容被裁。亮窗后等一拍让
+    // tao 完成首次布局与尺寸收敛,再取实际值建子 webview。
+    let _ = window.show();
+    std::thread::sleep(Duration::from_millis(150));
     if let Err(e) = add_tab_webview(&window, &app, id, &parsed) {
         log::warn!("[embedded-browser] add_child 失败,降级单 webview: {e}");
         let _ = window.close();
@@ -1038,7 +1174,93 @@ pub async fn open_or_navigate(
         s.active = Some(id);
         s.degraded = false;
     });
+    // 关窗钩子:商店账号页进来之后,关窗要先把会话级 Cookie 转持久并回写种子。
+    // 必须在 webview 销毁**之前**跑(Rust 侧同步执行),否则 CookieManager 已经没了。
+    {
+        let app_ev = app.clone();
+        window.on_window_event(move |event| {
+            if matches!(event, tauri::WindowEvent::CloseRequested { .. }) {
+                crate::store_browser::flush_store_tabs_on_close(&app_ev);
+            }
+        });
+    }
     Ok(())
+}
+
+/// 把地址作为**新标签**打开(商店账号等其他模块复用这条建标签路径)。
+///
+/// 返回 `(标签 id, 该标签内容 webview 的 label)`:
+/// - 窗口不在时先建窗,首个标签由 [`open_or_navigate`] 建立;
+/// - 降级模式(单 webview 窗)没有多标签,退化为「当前页导航」,label 即窗口 label。
+///
+/// **必须在工作线程(async task)上调用** —— `add_child` 会阻塞等待主线程执行,
+/// 主线程直接调会自锁(见模块头「建窗时序铁律」)。
+pub(crate) async fn open_tab_for_url(
+    app: AppHandle,
+    url: String,
+    title: Option<String>,
+) -> Option<(u64, String)> {
+    if !is_browsable_url(&url) {
+        return None;
+    }
+    let parsed: Url = url.trim().parse().ok()?;
+    if app.get_window(BROWSER_WINDOW_LABEL).is_none() {
+        // 窗口标题固定用浏览器自身名字;调用方给的 title 只当**标签标题** ——
+        // 否则第一枚标签会把窗口标题改成平台名(如「华为AGC」),看着像开了个独立窗口。
+        if open_or_navigate(app.clone(), url, None).await.is_err() {
+            return None;
+        }
+        let (id, degraded) = app.state::<BrowserManager>().with(|s| (s.active, s.degraded));
+        let id = id?;
+        let label = if degraded {
+            BROWSER_WINDOW_LABEL.to_string()
+        } else {
+            tab_label(id)
+        };
+        if let Some(t) = title {
+            app.state::<BrowserManager>().with(|s| {
+                if let Some(tab) = s.tabs.iter_mut().find(|x| x.id == id) {
+                    tab.title = t;
+                }
+            });
+            refresh_active_bar(&app);
+        }
+        return Some((id, label));
+    }
+
+    let degraded = app.state::<BrowserManager>().with(|s| s.degraded);
+    if degraded {
+        if let Some(wv) = active_webview(&app) {
+            let _ = wv.navigate(parsed);
+        }
+        let id = app.state::<BrowserManager>().with(|s| s.active)?;
+        return Some((id, BROWSER_WINDOW_LABEL.to_string()));
+    }
+
+    let window = app.get_window(BROWSER_WINDOW_LABEL)?;
+    let id = app
+        .state::<BrowserManager>()
+        .with(|s| s.reserve_tab(parsed.to_string(), title.unwrap_or_else(|| parsed.to_string())))?;
+    if add_tab_webview(&window, &app, id, &parsed).is_err() {
+        app.state::<BrowserManager>().with(|s| s.release_tab(id));
+        return None;
+    }
+    // 隐藏当前标签、激活新建的这一个(与工具条 "+" 完全同一条路径)
+    let prev = app.state::<BrowserManager>().with(|s| s.activate_tab(id));
+    if let Some(prev_id) = prev {
+        if let Some(wv) = app.get_webview(&tab_label(prev_id)) {
+            let _ = wv.hide();
+        }
+    }
+    refresh_active_bar(&app);
+    let _ = window.show();
+    let _ = window.set_focus();
+    Some((id, tab_label(id)))
+}
+
+/// 把某个已存在的标签切到前台(批量开完标签后回到第一个)。
+pub(crate) async fn activate_tab(app: AppHandle, id: u64) {
+    handle_sentinel(app, SentinelAction::Switch(id)).await;
 }
 
 // ==================== 哨兵动作处理 ====================
@@ -1227,6 +1449,8 @@ async fn handle_sentinel(app: AppHandle, action: SentinelAction) {
             refresh_active_bar(&app);
         }
         SentinelAction::CloseTab(i) => {
+            // 商店后台标签:销毁 webview 之前先续期 + 回写种子(否则那一次登录票来不及转持久)
+            crate::store_browser::flush_store_tab_before_close(&app, i);
             // 降级模式:没有真标签可关,当"关窗"处理。
             let degraded = app.state::<BrowserManager>().with(|s| s.degraded);
             if degraded {

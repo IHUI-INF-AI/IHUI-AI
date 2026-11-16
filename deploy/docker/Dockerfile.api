@@ -21,6 +21,7 @@ COPY package.json pnpm-workspace.yaml pnpm-lock.yaml* ./
 COPY scripts/fix-expo-metro-junction.mjs scripts/
 COPY scripts/lib/patch-lint-staged-stdio.mjs scripts/lib/
 COPY scripts/sync-mobile-app-json-version.mjs scripts/
+COPY scripts/install-git-hooks.mjs scripts/
 COPY apps/api/package.json ./apps/api/
 # 仅复制 @ihui/api 的 workspace 传递闭包(pnpm frozen-lockfile 容忍"缺失项目",
 # 只需在场项目的 specifier 与锁文件一致)。原清单引用了不存在的 packages/config,

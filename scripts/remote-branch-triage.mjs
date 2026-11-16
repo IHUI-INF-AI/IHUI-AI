@@ -51,7 +51,8 @@ const PROTECT_PREFIX = ['main', 'backup/', 'ihui-backup/', 'cross-end-auto']
 // 与 cross-end-auto-cleanup.yml 同口径:只有自动快照作者可被覆盖。
 // dependabot[bot] 一律 HOLD_PR —— 其 PR 是真实依赖升级线,删掉只会让 Dependabot 重开,制造噪音。
 const BOT_AUTHORS = new Set(['github-actions[bot]', 'ihui-cross-end-bot'])
-const GENERATED_FILE = /(^|\/)(README[^/]*\.md|PROJECT_PLAN\.md|.*\.generated\..*|pnpm-lock\.yaml|.*\.b64\.txt|root-guard-manifest\.json)$/
+const GENERATED_FILE =
+  /(^|\/)(README[^/]*\.md|PROJECT_PLAN\.md|.*\.generated\..*|pnpm-lock\.yaml|.*\.b64\.txt|root-guard-manifest\.json)$/
 
 /** ls-remote 文本 → { name: sha };畸形行直接丢,不猜。 */
 export function parseLsRemote(text) {
@@ -59,7 +60,8 @@ export function parseLsRemote(text) {
   for (const line of String(text ?? '').split(/\r?\n/)) {
     if (!line.trim()) continue
     const [sha, ref, ...rest] = line.split('\t')
-    if (!/^[0-9a-f]{40}$/.test(sha ?? '') || !ref?.startsWith('refs/heads/') || rest.length) continue
+    if (!/^[0-9a-f]{40}$/.test(sha ?? '') || !ref?.startsWith('refs/heads/') || rest.length)
+      continue
     out[ref.slice('refs/heads/'.length)] = sha
   }
   return out
@@ -95,8 +97,16 @@ export function addedLines(diffText) {
  * 入参直接吃 git --name-only 的原始文本,run() 与 executeDeletes() 二次校验共用此函数,零复制实现。
  */
 export function splitStill(aText, bText) {
-  const as = new Set(String(aText ?? '').split(/\r?\n/).filter(Boolean))
-  const bs = new Set(String(bText ?? '').split(/\r?\n/).filter(Boolean))
+  const as = new Set(
+    String(aText ?? '')
+      .split(/\r?\n/)
+      .filter(Boolean),
+  )
+  const bs = new Set(
+    String(bText ?? '')
+      .split(/\r?\n/)
+      .filter(Boolean),
+  )
   const still = [...as].filter((f) => bs.has(f))
   const stillGenerated = still.filter((f) => GENERATED_FILE.test(f)).length
   const stillCode = still.length - stillGenerated
@@ -112,7 +122,9 @@ export function splitStill(aText, bText) {
 /** merge-tree --write-tree 输出 → 冲突文件路径集合(第一行是 tree oid,后续是 stage 行)。 */
 export function mergeConflictFiles(output) {
   const set = new Set()
-  for (const line of String(output ?? '').split(/\r?\n/).slice(1)) {
+  for (const line of String(output ?? '')
+    .split(/\r?\n/)
+    .slice(1)) {
     // 冲突段之后是 messages 段(缩进文本);遇到非 stage 行必须 break 而不是 continue,
     // 否则 messages 段里恰好带 tab 的伪 stage 行会被算成冲突面(镜像测试 C3 钉住)。
     if (!line.includes('\t') || !/^\d{6} [0-9a-f]{40,} \d\t/.test(line)) break
@@ -134,7 +146,10 @@ export function classify(row, opts = {}) {
     const author = String(pr.author ?? '')
     const labels = Array.isArray(pr.labels) ? pr.labels : []
     if (!botAuthors.has(author) || labels.includes('keep')) {
-      return { verdict: 'HOLD_PR', reason: `open PR #${pr.number} 作者=${author} keep=${labels.includes('keep')}` }
+      return {
+        verdict: 'HOLD_PR',
+        reason: `open PR #${pr.number} 作者=${author} keep=${labels.includes('keep')}`,
+      }
     }
   }
   if (protectPrefix.some((p) => name === p || name.startsWith(p))) {
@@ -153,15 +168,19 @@ export function classify(row, opts = {}) {
       why = 'main 祖先'
     } else if (row.contentLanded === true) {
       // A∩B 非空但全是被过滤的生成块时,不能谎称「A∩B=∅」,须如实带出过滤数(门 41)。
-      why = row.stillGenerated > 0
-        ? `A∩B 真代码差异=0(过滤生成块 ${row.stillGenerated}, still=${row.stillDiff})`
-        : 'A∩B=∅'
+      why =
+        row.stillGenerated > 0
+          ? `A∩B 真代码差异=0(过滤生成块 ${row.stillGenerated}, still=${row.stillDiff})`
+          : 'A∩B=∅'
     } else {
       why = '新增行 100% 落地'
     }
     return { verdict: 'DISCARDABLE', reason: why }
   }
-  return { verdict: 'NEEDS_WORK', reason: `仍有未落地内容(still=${row.stillDiff ?? '?'}, 真代码=${row.stillCode ?? '?'}, 过滤生成块=${row.stillGenerated ?? 0}, 独有行=${row.lineMiss ?? '?'})` }
+  return {
+    verdict: 'NEEDS_WORK',
+    reason: `仍有未落地内容(still=${row.stillDiff ?? '?'}, 真代码=${row.stillCode ?? '?'}, 过滤生成块=${row.stillGenerated ?? 0}, 独有行=${row.lineMiss ?? '?'})`,
+  }
 }
 
 /** 删除前的二次校验:任一项不符即整支跳过,绝不「差不多就删」。 */
@@ -170,7 +189,8 @@ export function safetyCheck(row, ctx) {
   const prByHead = ctx.prByHead ?? {}
   const name = row.name
   if (live[name] === undefined) return { pass: false, reason: 'REF_GONE' }
-  if (live[name] !== row.sha) return { pass: false, reason: `TIP_CHANGED ${row.sha.slice(0, 10)}→${live[name].slice(0, 10)}` }
+  if (live[name] !== row.sha)
+    return { pass: false, reason: `TIP_CHANGED ${row.sha.slice(0, 10)}→${live[name].slice(0, 10)}` }
   if ((prByHead[name] ?? []).length) return { pass: false, reason: 'NEW_OPEN_PR' }
   if (row.merged !== true && row.contentLanded !== true && row.linesLanded !== true) {
     return { pass: false, reason: 'LANDED_RECHECK_MISSING' }
@@ -206,14 +226,21 @@ async function api(pathname, token, method = 'GET', body) {
   })
   const text = await res.text()
   let data = null
-  try { data = text ? JSON.parse(text) : null } catch { data = text }
+  try {
+    data = text ? JSON.parse(text) : null
+  } catch {
+    data = text
+  }
   return { status: res.status, data }
 }
 
 async function fetchAllOpenPrs(repoSlug, token) {
   const out = []
   for (let page = 1; page <= 20; page += 1) {
-    const { status, data } = await api(`/repos/${repoSlug}/pulls?state=open&per_page=100&page=${page}`, token)
+    const { status, data } = await api(
+      `/repos/${repoSlug}/pulls?state=open&per_page=100&page=${page}`,
+      token,
+    )
     if (status !== 200 || !Array.isArray(data)) return { ok: false, prs: out }
     out.push(...data)
     if (data.length < 100) return { ok: true, prs: out }
@@ -221,10 +248,16 @@ async function fetchAllOpenPrs(repoSlug, token) {
   return { ok: false, prs: out }
 }
 
-function repoSlugFromRemote(repo, remote) {
-  const q = git(['remote', 'get-url', remote], repo)
-  const m = String(q.out).trim().match(/github\.com[/:]([^/]+\/[^/.]+?)(?:\.git)?$/)
+/** remote URL → owner/repo。四种实测形态:https://、git@ ssh、ssh://ssh.github.com:443/(带端口,2026-11-16 本机踩坑补)。 */
+export function slugFromUrl(rawUrl) {
+  const s = String(rawUrl ?? '')
+    .trim()
+    .replace(/\/+$/, '')
+  const m = s.match(/github\.com(?::\d+)?[/:]([^/]+\/[^/.]+?)(?:\.git)?$/)
   return m ? m[1] : ''
+}
+function repoSlugFromRemote(repo, remote) {
+  return slugFromUrl(git(['remote', 'get-url', remote], repo).out)
 }
 
 export function markdownReport(rows, meta) {
@@ -232,7 +265,9 @@ export function markdownReport(rows, meta) {
   const A = (s) => L.push(s)
   A('# 远端分支三态判定(器件生成)')
   A('')
-  A(`基线 \`${meta.base}\` · 真远端 ${rows.length} 支 · open PR ${meta.prCount} · 模式 ${meta.apply ? 'APPLY' : 'DRY-RUN'}`)
+  A(
+    `基线 \`${meta.base}\` · 真远端 ${rows.length} 支 · open PR ${meta.prCount} · 模式 ${meta.apply ? 'APPLY' : 'DRY-RUN'}`,
+  )
   A('')
   A('| 定性 | 数量 |')
   A('| --- | --- |')
@@ -244,44 +279,70 @@ export function markdownReport(rows, meta) {
   A('| --- | --- | --- | --- | --- | --- | --- | --- |')
   for (const r of [...rows].sort((a, b) => a.name.localeCompare(b.name))) {
     const pr = (r.prs ?? []).map((p) => `#${p.number}`).join(',') || '—'
-    A(`| \`${r.name}\` | \`${r.sha.slice(0, 12)}\` | ${r.verdict} | ${r.reason} | ${pr} | ${r.worktree ? 'Y' : 'N'} | ${r.stillDiff ?? '—'} | ${(r.mergeConflicts ?? []).length} |`)
+    A(
+      `| \`${r.name}\` | \`${r.sha.slice(0, 12)}\` | ${r.verdict} | ${r.reason} | ${pr} | ${r.worktree ? 'Y' : 'N'} | ${r.stillDiff ?? '—'} | ${(r.mergeConflicts ?? []).length} |`,
+    )
   }
   A('')
   return L.join('\n')
 }
 
 function printHelp() {
-  console.log([
-    'remote-branch-triage.mjs — 远端分支逐支三态判定(默认 dry-run)',
-    '',
-    '用法: node scripts/remote-branch-triage.mjs --repo <path> [options]',
-    '',
-    '  --base <rev>            判定基线,默认真远端 main(ls-remote)',
-    '  --remote <name>         默认 origin',
-    '  --json <file>           写结构化结果',
-    '  --markdown <file>       写三态表',
-    '  --from-json <file>      复用已判定报告,只跑删除段(秒级,仍做二次校验)',
-    '  --with-merge-probe      额外跑 merge-tree 只读试算(收敛队列排序用)',
-    '  --apply                 执行删除(仍逐支二次校验 + 单轮上限)',
-    '  --max-delete <n>        单轮上限,默认 100',
-    '',
-    '凭据: GH_TOKEN / GITHUB_TOKEN;缺失 ⇒ 全部降级 HOLD_PR/UNJUDGED,绝不猜 PR。',
-  ].join('\n'))
+  console.log(
+    [
+      'remote-branch-triage.mjs — 远端分支逐支三态判定(默认 dry-run)',
+      '',
+      '用法: node scripts/remote-branch-triage.mjs --repo <path> [options]',
+      '',
+      '  --base <rev>            判定基线,默认真远端 main(ls-remote)',
+      '  --remote <name>         默认 origin',
+      '  --json <file>           写结构化结果',
+      '  --markdown <file>       写三态表',
+      '  --from-json <file>      复用已判定报告,只跑删除段(秒级,仍做二次校验)',
+      '  --with-merge-probe      额外跑 merge-tree 只读试算(收敛队列排序用)',
+      '  --apply                 执行删除(仍逐支二次校验 + 单轮上限)',
+      '  --max-delete <n>        单轮上限,默认 100',
+      '',
+      '凭据: GH_TOKEN / GITHUB_TOKEN;缺失 ⇒ 全部降级 HOLD_PR/UNJUDGED,绝不猜 PR。',
+    ].join('\n'),
+  )
 }
 
 export async function run(argv = process.argv.slice(2), env = process.env) {
   const o = {
-    repo: process.cwd(), remote: 'origin', base: '', json: '', markdown: '', fromJson: '',
-    apply: false, maxDelete: 100, mergeProbe: false,
+    repo: process.cwd(),
+    remote: 'origin',
+    base: '',
+    json: '',
+    markdown: '',
+    fromJson: '',
+    apply: false,
+    maxDelete: 100,
+    mergeProbe: false,
   }
   for (let i = 0; i < argv.length; i += 1) {
     const a = argv[i]
-    if (a === '--help' || a === '-h') { printHelp(); return 0 }
-    else if (a === '--apply') o.apply = true
+    if (a === '--help' || a === '-h') {
+      printHelp()
+      return 0
+    } else if (a === '--apply') o.apply = true
     else if (a === '--with-merge-probe') o.mergeProbe = true
-    else if (['--repo', '--base', '--remote', '--json', '--markdown', '--max-delete', '--from-json'].includes(a)) {
+    else if (
+      [
+        '--repo',
+        '--base',
+        '--remote',
+        '--json',
+        '--markdown',
+        '--max-delete',
+        '--from-json',
+      ].includes(a)
+    ) {
       const v = argv[++i]
-      if (!v) { console.error(`❌ ${a} 缺值`); return 2 }
+      if (!v) {
+        console.error(`❌ ${a} 缺值`)
+        return 2
+      }
       if (a === '--repo') o.repo = v
       if (a === '--base') o.base = v
       if (a === '--remote') o.remote = v
@@ -289,24 +350,39 @@ export async function run(argv = process.argv.slice(2), env = process.env) {
       if (a === '--markdown') o.markdown = v
       if (a === '--from-json') o.fromJson = v
       if (a === '--max-delete') o.maxDelete = Number(v)
-    } else { console.error(`❌ 未知参数 ${a}(拼错必须当场失败)`); return 2 }
+    } else {
+      console.error(`❌ 未知参数 ${a}(拼错必须当场失败)`)
+      return 2
+    }
   }
-  if (!Number.isInteger(o.maxDelete) || o.maxDelete < 1) { console.error('❌ --max-delete 必须是正整数'); return 2 }
+  if (!Number.isInteger(o.maxDelete) || o.maxDelete < 1) {
+    console.error('❌ --max-delete 必须是正整数')
+    return 2
+  }
   const token = env.GH_TOKEN || env.GITHUB_TOKEN || ''
   const slug = repoSlugFromRemote(o.repo, o.remote)
-  if (!slug) { console.error('❌ 无法从 remote URL 解析 GitHub 仓库'); return 2 }
+  if (!slug) {
+    console.error('❌ 无法从 remote URL 解析 GitHub 仓库')
+    return 2
+  }
 
   // --from-json:复用一份已判定报告直接进删除段,免去 Windows 真仓约 8 分钟的全量重判。
   // 安全性不降:executeDeletes 仍会重新 ls-remote 校 tip、重拉 open PR、重跑落地判据。
   if (o.fromJson) {
     let j
-    try { j = JSON.parse(readFileSync(o.fromJson, 'utf8')) } catch (e) {
-      console.error('❌ 报告不可读:', e?.message ?? e); return 2
+    try {
+      j = JSON.parse(readFileSync(o.fromJson, 'utf8'))
+    } catch (e) {
+      console.error('❌ 报告不可读:', e?.message ?? e)
+      return 2
     }
     const rows = Array.isArray(j.rows) ? j.rows : []
     const meta = j.meta ?? {}
     o.base = o.base || meta.base || ''
-    if (!/^[0-9a-f]{40}$/.test(o.base)) { console.error('❌ 报告缺合法基线,拒绝执行'); return 2 }
+    if (!/^[0-9a-f]{40}$/.test(o.base)) {
+      console.error('❌ 报告缺合法基线,拒绝执行')
+      return 2
+    }
     const cands = rows.filter((r) => r.verdict === 'DISCARDABLE')
     console.log(`[from-json] 报告 ${rows.length} 支,基线 ${o.base},可弃 ${cands.length} 支`)
     return executeDeletes(cands, o, token, slug, meta)
@@ -314,13 +390,19 @@ export async function run(argv = process.argv.slice(2), env = process.env) {
 
   // ① 权威 tip + 基线:真远端只认 ls-remote
   const lr = git(['ls-remote', '--heads', o.remote], o.repo)
-  if (lr.rc !== 0) { console.error('❌ ls-remote 失败:', lr.err.trim().slice(0, 160)); return 2 }
+  if (lr.rc !== 0) {
+    console.error('❌ ls-remote 失败:', lr.err.trim().slice(0, 160))
+    return 2
+  }
   const live = parseLsRemote(lr.out)
   if (!o.base) {
     const m = git(['ls-remote', o.remote, 'refs/heads/main'], o.repo)
     o.base = String(m.out).trim().split('\t')[0] || ''
   }
-  if (!/^[0-9a-f]{40}$/.test(o.base)) { console.error('❌ 基线未判定,拒绝继续'); return 2 }
+  if (!/^[0-9a-f]{40}$/.test(o.base)) {
+    console.error('❌ 基线未判定,拒绝继续')
+    return 2
+  }
 
   // ② open PR:缺凭据 ⇒ 全部未判定,不猜
   let prState = 'ok'
@@ -345,12 +427,16 @@ export async function run(argv = process.argv.slice(2), env = process.env) {
   // ③ worktree 占用
   const wt = git(['worktree', 'list', '--porcelain'], o.repo)
   const wtBranches = new Set(
-    String(wt.out).split(/\r?\n/).filter((l) => l.startsWith('branch refs/heads/'))
+    String(wt.out)
+      .split(/\r?\n/)
+      .filter((l) => l.startsWith('branch refs/heads/'))
       .map((l) => l.slice('branch refs/heads/'.length)),
   )
 
   // ④ 补齐缺失对象(fetch 只加对象,不改本地 ref / 工作树)
-  const missing = Object.entries(live).filter(([, sha]) => git(['cat-file', '-e', `${sha}^{commit}`], o.repo).rc !== 0)
+  const missing = Object.entries(live).filter(
+    ([, sha]) => git(['cat-file', '-e', `${sha}^{commit}`], o.repo).rc !== 0,
+  )
   for (const [name] of missing) {
     const f = git(['fetch', '--no-tags', o.remote, `refs/heads/${name}`], o.repo)
     if (f.rc !== 0) console.log(`  ⚠️ 对象补齐失败 ${name}: ${f.err.trim().slice(0, 80)}`)
@@ -368,10 +454,21 @@ export async function run(argv = process.argv.slice(2), env = process.env) {
   }
   for (const [name, sha] of Object.entries(live)) {
     const row = {
-      name, sha, hasObject: git(['cat-file', '-e', `${sha}^{commit}`], o.repo).rc === 0,
-      prState, prs: prByHead[name] ?? [], worktree: wtBranches.has(name),
-      ahead: null, merged: null, contentLanded: null, linesLanded: null,
-      stillDiff: null, stillGenerated: null, stillCode: null, lineMiss: null, mergeConflicts: [],
+      name,
+      sha,
+      hasObject: git(['cat-file', '-e', `${sha}^{commit}`], o.repo).rc === 0,
+      prState,
+      prs: prByHead[name] ?? [],
+      worktree: wtBranches.has(name),
+      ahead: null,
+      merged: null,
+      contentLanded: null,
+      linesLanded: null,
+      stillDiff: null,
+      stillGenerated: null,
+      stillCode: null,
+      lineMiss: null,
+      mergeConflicts: [],
     }
     if (row.hasObject) {
       row.merged = git(['merge-base', '--is-ancestor', sha, o.base], o.repo).rc === 0
@@ -400,7 +497,10 @@ export async function run(argv = process.argv.slice(2), env = process.env) {
             let hit = 0
             for (const [f, lines] of adds) {
               const content = baseFile(f)
-              for (const t of lines) { total += 1; if (content.includes(t)) hit += 1 }
+              for (const t of lines) {
+                total += 1
+                if (content.includes(t)) hit += 1
+              }
             }
             row.lineTotal = total
             row.lineMiss = total - hit
@@ -418,16 +518,30 @@ export async function run(argv = process.argv.slice(2), env = process.env) {
     rows.push(row)
   }
 
-  const meta = { base: o.base, prCount: prs.length, apply: o.apply, prState, missing: missing.length }
+  const meta = {
+    base: o.base,
+    prCount: prs.length,
+    apply: o.apply,
+    prState,
+    missing: missing.length,
+  }
   const report = markdownReport(rows, meta)
   if (o.json) writeFileSync(o.json, JSON.stringify({ meta, rows }, null, 2), 'utf8')
   if (o.markdown) writeFileSync(o.markdown, report, 'utf8')
   const tally = {}
   for (const r of rows) tally[r.verdict] = (tally[r.verdict] ?? 0) + 1
-  console.log(`基线=${o.base} 真远端=${rows.length} openPR=${prs.length} PR判定=${prState} 补齐对象=${missing.length}`)
+  console.log(
+    `基线=${o.base} 真远端=${rows.length} openPR=${prs.length} PR判定=${prState} 补齐对象=${missing.length}`,
+  )
   console.log('三态=' + JSON.stringify(tally))
 
-  return executeDeletes(rows.filter((r) => r.verdict === 'DISCARDABLE'), o, token, slug, meta)
+  return executeDeletes(
+    rows.filter((r) => r.verdict === 'DISCARDABLE'),
+    o,
+    token,
+    slug,
+    meta,
+  )
 }
 
 /**
@@ -440,28 +554,47 @@ export async function executeDeletes(cands, o, token, slug, meta = {}) {
     console.log(`[dry-run] 可弃 ${cands.length} 支,未删任何 ref。--apply 才会执行。`)
     return 0
   }
-  if (!token) { console.error('❌ 无凭据,拒绝 --apply'); return 2 }
-  if (meta.prState && meta.prState !== 'ok') { console.error('❌ 报告标注 PR 状态未判定,拒绝 --apply'); return 2 }
-  if (cands.length > o.maxDelete) { console.error(`❌ 候选 ${cands.length} > 上限 ${o.maxDelete},拒绝执行`); return 2 }
+  if (!token) {
+    console.error('❌ 无凭据,拒绝 --apply')
+    return 2
+  }
+  if (meta.prState && meta.prState !== 'ok') {
+    console.error('❌ 报告标注 PR 状态未判定,拒绝 --apply')
+    return 2
+  }
+  if (cands.length > o.maxDelete) {
+    console.error(`❌ 候选 ${cands.length} > 上限 ${o.maxDelete},拒绝执行`)
+    return 2
+  }
   // 二次权威 tip + 二次 open PR
   const live2 = parseLsRemote(git(['ls-remote', '--heads', o.remote], o.repo).out)
   const prs2 = await fetchAllOpenPrs(slug, token)
-  if (!prs2.ok) { console.error('❌ 二次 PR 取证失败,拒绝删除'); return 2 }
+  if (!prs2.ok) {
+    console.error('❌ 二次 PR 取证失败,拒绝删除')
+    return 2
+  }
   const prByHead2 = {}
   for (const p of prs2.prs) (prByHead2[p?.head?.ref] ??= []).push(p)
   const ok = []
   for (const r of cands) {
     const s = safetyCheck(r, { live: live2, prByHead: prByHead2 })
-    if (!s.pass) { console.log(`  SKIP ${r.name} (${s.reason})`); continue }
+    if (!s.pass) {
+      console.log(`  SKIP ${r.name} (${s.reason})`)
+      continue
+    }
     // 判据重跑(防期间 base 前进 / 对象变化)
     let stillOk = false
-    if (r.merged === true) stillOk = git(['merge-base', '--is-ancestor', r.sha, o.base], o.repo).rc === 0
+    if (r.merged === true)
+      stillOk = git(['merge-base', '--is-ancestor', r.sha, o.base], o.repo).rc === 0
     else if (r.contentLanded === true) {
       const A = git(['diff', '--name-only', `${o.base}...${r.sha}`], o.repo)
       const B = git(['diff', '--name-only', o.base, r.sha], o.repo)
       stillOk = A.rc === 0 && B.rc === 0 && splitStill(A.out, B.out).contentLanded
     } else stillOk = r.linesLanded === true
-    if (!stillOk) { console.log(`  SKIP ${r.name} (LANDED_RECHECK_FAIL)`); continue }
+    if (!stillOk) {
+      console.log(`  SKIP ${r.name} (LANDED_RECHECK_FAIL)`)
+      continue
+    }
     ok.push(r)
     console.log(`  DELETE-CANDIDATE ${r.name}|${r.sha.slice(0, 12)}|${r.reason}`)
   }
@@ -469,7 +602,10 @@ export async function executeDeletes(cands, o, token, slug, meta = {}) {
   for (const r of ok) {
     const { status } = await api(`/repos/${slug}/git/refs/heads/${r.name}`, token, 'DELETE')
     if (status === 204) console.log(`  DELETED ${r.name}`)
-    else { failed += 1; console.log(`  FAILED ${r.name} HTTP=${status}`) }
+    else {
+      failed += 1
+      console.log(`  FAILED ${r.name} HTTP=${status}`)
+    }
   }
   console.log(`删除成功=${ok.length - failed} 失败=${failed} 跳过=${cands.length - ok.length}`)
   return failed ? 1 : 0
@@ -479,14 +615,27 @@ const isMain = process.argv[1]
   ? path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url))
   : false
 if (isMain) {
-  run().then((rc) => { process.exitCode = rc }).catch((e) => {
-    console.error('❌ 未判定异常:', e?.message ?? e)
-    process.exitCode = 2
-  })
+  run()
+    .then((rc) => {
+      process.exitCode = rc
+    })
+    .catch((e) => {
+      console.error('❌ 未判定异常:', e?.message ?? e)
+      process.exitCode = 2
+    })
 }
 
 export const __test__ = {
-  parseLsRemote, addedLines, splitStill, mergeConflictFiles, classify, safetyCheck, markdownReport,
-  PROTECT_PREFIX, BOT_AUTHORS, GENERATED_FILE,
+  parseLsRemote,
+  addedLines,
+  splitStill,
+  mergeConflictFiles,
+  classify,
+  safetyCheck,
+  markdownReport,
+  PROTECT_PREFIX,
+  BOT_AUTHORS,
+  GENERATED_FILE,
+  slugFromUrl,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

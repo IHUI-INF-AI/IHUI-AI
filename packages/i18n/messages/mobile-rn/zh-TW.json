@@ -2429,7 +2429,9 @@
     "confirmPasswordPlaceholder": "請再次輸入密碼",
     "password": "密碼",
     "passwordPlaceholder": "請輸入密碼",
-    "title": "註冊"
+    "title": "註冊",
+    "show": "顯示",
+    "hide": "隱藏"
   },
   "withdraw": {
     "availableBalance": "可提現金額(元)",
@@ -3708,11 +3710,11 @@
   "activity": {
     "empty": "暫無活動",
     "endTime": "結束時間",
-    "joining": "提交中…",
     "loadFailed": "載入失敗",
     "participants": "參與人數",
     "startTime": "開始時間",
-    "title": "活動"
+    "title": "活動",
+    "joining": "提交中…"
   },
   "agentDetail": {
     "creator": "建立者",
@@ -5694,14 +5696,14 @@
       "approvalPersistHit": "沿用你儲存的批准",
       "execPolicyApproved": "執行策略放行",
       "autoSkipApproval": "自動批准(免審批)",
-      "autoReviewAllow": "自動審查放行",
       "skillGrantSkipApproval": "技能授權放行(免審批)",
       "bypassSkipApproval": "已跳過審批",
       "mcpRequiresApproval": "MCP 標註要求確認",
       "policyRequiresApproval": "策略要求審批",
       "policySkipsApproval": "策略免審批",
       "guardianReviewSuggested": "複核建議改用更安全路徑",
-      "guardianReviewAlternativeApplied": "已改用複核建議的路徑"
+      "guardianReviewAlternativeApplied": "已改用複核建議的路徑",
+      "autoReviewAllow": "自動審查放行"
     },
     "perm": {
       "allow": "已放行",
@@ -7545,9 +7547,9 @@
     "wrongBookTitle": "錯題本"
   },
   "activities": {
-    "cancelJoin": "取消報名",
     "join": "立即參與",
-    "notFound": "活動不存在或已下線"
+    "notFound": "活動不存在或已下線",
+    "cancelJoin": "取消報名"
   },
   "eduAttendanceQr": {
     "chooseClass": "選擇班級",
