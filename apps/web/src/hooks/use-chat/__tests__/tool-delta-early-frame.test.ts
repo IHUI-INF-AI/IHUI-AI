@@ -81,10 +81,13 @@ describe('createToolDeltaHandler — A1:tool-delta 早于 tool-call-start 不丢
     expect(h.state.toolCalls[0]?.status).toBe('running')
   })
 
-  it('早到多帧 ⇒ 增量追加,seq 收敛判据照旧生效', () => {
+  it('早到多帧 ⇒ 增量追加,seq 收敛判据照旧生效', async () => {
     const handler = createToolDeltaHandler('m1')
     handler(delta({ seq: 1, partialText: 'a' }))
     handler(delta({ seq: 2, partialText: 'b' }))
+    // F-723 合帧:多帧归并到 microtask 边界,await 后断言累积结果(数据零丢失)
+    await Promise.resolve()
+    await Promise.resolve()
     expect(h.state.toolCalls[0]?.partialDiff).toBe('ab')
     expect(h.state.toolCalls[0]?.partialSeq).toBe(2)
     // 只建了一张卡,不是每帧都建
