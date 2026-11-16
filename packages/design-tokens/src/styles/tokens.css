@@ -256,7 +256,7 @@
   /* 统一金牌/品牌蓝/浅绿标签/媒体遮罩(2026-09-06 立,收编小程序端硬编码色)
    * - --color-gold:统一直播/权益/积分等处相近金色(原 #d97706 / rgba(240,173,78) / rgba(212,175,106))
    * - --color-gold-muted:金色徽章浅金底
-   * - --color-alipay-blue:支付宝品牌蓝(对标 --color-wechat-green,暗色主题恒定)
+   * - --color-alipay-blue:支付宝品牌蓝(对齐 --color-wechat-green,暗色主题恒定)
    * - --color-success-tag-bg:生效中浅绿标签(与 RN ModelPlaza 一致 #E8F5E9)
    * - --color-scrim / --color-scrim-foreground:图片/媒体黑遮罩 + 其上恒定白字(主题中性)
    * dark 覆盖见 .dark 块 */

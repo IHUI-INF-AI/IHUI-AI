@@ -12249,24 +12249,7 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - **新增件（本轮，未 commit）**：`apps/ai-service/app/services/cdp_method_gate.py`（复现 TB 行为 + 超越：结构化拒因枚举 / 显式白名单模式 / 审计钩子）+ `tests/test_cdp_method_gate.py`（32 用例）。验证：`.venv/Scripts/python -m pytest tests/test_cdp_method_gate.py -q -o addopts=""` = **32 passed**。
 - **边界**：门控模块已落地并全绿，但**尚未接入** browser_hub 转发层（无模型面 CDP 工具可挂）；接入是下一步，需先开 MCP 工具面。测试 basetemp 需换新目录（旧目录撞 CHAT_REFERENCE_PROTECTED）。
 - [ ] 43D. **缺陷普查 DB DB-35** [P2] 多类敏感字段明文落库（PII 与第三方凭据）（证据 docs/tickets/2026-11/findings-db.md#DB-35）
-  - 2026-11-16 复核: 🟡 部分修。证据: apps/api/src/utils/crypto.ts:106（enc:v1 紧凑加密格式）；apps/api/src/utils/pii-field.ts:35 encryptPiiText；apps/api/src/routes/auth-identity.ts:67,87 写前 encryptField(idCard)、:151,207 读时 decryptField；apps/api/s...
-- [ ] 84G. **缺陷普查 API F-84** [P3] ilike 通配符系统性未转义（搜索扫描放大 + 直播回调后缀匹配可能批量误改）（证据 docs/tickets/2026-11/findings-api.md#F-84）
-  - 2026-11-16 复核: 🟡 部分修。证据: 已修:live-queries.ts:253-256 直播回调 streamName 转义后缀精确匹配+status=1;certificate-queries/live-queries title/name 已用 asContainsTerm。未修:fund-queries.ts:15、knowledge-queries.ts:25、member-queries.ts:75-76/362/542...
-- [ ] 380G. **缺陷普查 API F-380** [P2] merge 入口不校验会话状态，可对已完成/已取消会话反复合并（证据 docs/tickets/2026-11/findings-api.md#F-380）
-  - 2026-11-16 复核: ❌ 未修。证据: chunked-upload.ts:466-473 合并无 `status=uploading` 条件守卫,只 eq uploadId+userId
-- [ ] 559G. **缺陷普查 API F-559** [P3] 过期监听的失败处理函数自身无保护，违反「不向调度层抛错」契约（证据 docs/tickets/2026-11/findings-api.md#F-559）
-  - 2026-11-16 复核: 🟡 部分修。证据: apps/api/src/services/expiration-monitor-service.ts:60-61(进程内失败计数兜底 localFailStreak,F-559)、289-317(recordFailureSafely 守卫壳:整体 try/catch,失败只记结构化日志并计入进程内计数,绝不外抛;373 调用点已切换)、63-89(服务自建独立 IORedis 连接);但 75...
-- [ ] 593G. **缺陷普查 API F-594** [P2] 任意登录用户可触发 agent-heat/refresh，删改任意日期的全站热度（证据 docs/tickets/2026-11/findings-api.md#F-594）
-  - 2026-11-16 复核: 🟡 部分修。证据: 已修:routes/statistics.ts:9 import requireAdmin;:414 公共挂载 `server.post('/statistics/agent-heat/refresh', { preHandler: requireAdmin }, refreshAgentHeat)`;:756 管理员前缀同名路由由插件级 preHandler requireAdmin 提供闸;d...
-- [ ] 707G. **缺陷普查 API F-708** [P2] 分布式锁 watchdog 遇到一次续约异常即永久停表，且不通知持有者（证据 docs/tickets/2026-11/findings-api.md#F-708）
-  - 2026-11-16 复核: ❌ 未修。证据: apps/api/src/utils/distributed-lock.ts:277-293(startWatchdog:renew 返回 false 或抛异常均直接 stopWatchdog + stats.expired++,catch 分支静默停表)、205-212(renew 仅返回 boolean,无超时包装,无失败回调/AbortSignal 通知持有者)
-- [ ] 709G. **缺陷普查 API F-710** [P3] mTLS 降级模式下，把链校验失败的证书 CN 当成客户端身份注入（证据 docs/tickets/2026-11/findings-api.md#F-710）
-  - 2026-11-16 复核: ❌ 未修。证据: mtls.ts:188-197 降级模式只 log warn 继续执行;:242 无条件注入 request.mtlsClient;CN 白名单 :215-222 不 gate authorized
-- [ ] 714G. **缺陷普查 API F-715** [P3] 死信队列只在 push 时清理：过期死信在 get/list 中仍可见且可重投（证据 docs/tickets/2026-11/findings-api.md#F-715）
-  - 2026-11-16 复核: ❌ 未修。证据: dead-letter-queue.ts:125-132 get/list 不淘汰;:104 evictLocked 仅 push 时调用(:77/:94);读路径无惰性清理
-- [ ] 715G. **缺陷普查 API F-716** [P3] readNoProxy 首个已配置变量未命中即 return，注释声称“继续找另一个大小写档位”（证据 docs/tickets/2026-11/findings-api.md#F-716）
-  - 2026-11-16 复核: ❌ 未修。证据: proxy-dispatcher.ts:103 首个已配置变量未命中即 return,注释说「继续找另一个大小写档位」与实现相反,应改 continue
-  - 2026-11-14 进展：凭据子切片已随 `002ade40cc0` 落地（AI 模型 apiKey / 教育平台 apiSecret / IM webhookSecret|botToken|appSecret 写库加密 + 读侧解密，15 例回归锁）；PII 子切片已落地（两张发票抬头表的税号/开户行/账号/地址/电话写读加解密 + 列宽迁移 `20261114180000_pii_invoice_title_widen.sql`；后台实名 CRUD 的 idCard 明文写/原样返回旁路修复；17 例回归锁）。残余：`users.phone/email` 与可检索身份字段（`user_auth_info.real_name/phone`）保持明文——与后台模糊搜索/唯一性语义强耦合，须先引入盲索引/哈希检索列并接受搜索降级；本机无可用 PostgreSQL，无法实跑回填与唯一索引验证。按“安全可控范围”明确不做，不虚报结清。
+  - 2026-11-16 复核: 🟡 部分修。已修面: 发票抬头(taxNo/bank/bankAccount/address/phone)经 pii-field.ts encryptPiiText 加密;auth-identity.ts:67/87 idCard 写前 encryptField、:151/207 读时 decryptField;ai-user-model-chat/education-platform/im-gateway/v1-ai-core 凭据字段加密;sms_delivery_logs/sms_unsubscribes 已有 phone_hash+phone_masked(20261026180000 迁移)。残余面: ① orders.address/:146 phone 仍明文写库(order 路由无 encryptField);② users.phone/:50 email 仍明文且 unique——需引入 phone_hash 盲索引列并接受搜索语义降级;③ user_auth_info.real_name 可检索身份字段同属此型。**硬阻塞**: ①②③ 均需新迁移(加列/盲索引/回填),本机无可用 PostgreSQL(psql/postgres 不在 PATH、无 docker PG 容器),无法实跑回填与唯一索引验证,按「安全可控范围」明确不做、不虚报结清。出路: 机主提供可验证 PG 实例后单列任务实修迁移+回填。
 - [ ] 〔归:机主收款地址面｜等:—〕 RP-37 `USDT_TRC20_ADDRESS` 仍空:地址值是机主掌握的收款信息(七份 env 备份从未有非空值;同族 `USDT_ERC20_ADDRESS` 早有值),而 sponsor 页 `CryptoDonation.tsx:36` 已硬编码 `TMtTpPEMduWurHLi6Fe8XjfcP5Y5AMMnbG` 并上线(枚 ff5ea30d1c87ee76499b9cd3848145c5f030309a)⇒ 同一信息已交付两处、env 一处为空。校验面已收口:TRON 正则 + `assertUsdtAddressFormat` 两调用点共用,新增 14 例绿(含 ERC20 不误拒/400/500 两失败路径/脏地址不落库);fail-closed 37 例绿。余两格归配置面:① env 填哪个地址(现成 sponsor 值或专用充值地址);② 两套 ERC20 地址(现读 sponsor 值与 env 值前缀不同)收敛为 env 权威。〔结清@2026-10-24/主会话-强制令:校验与失败路径已绿,余为地址值配置格〕
 <!-- 〔RP-79 裁并锚 @2026-11-03:同号双行 2→1(保留剩余面行,原 git-sync 守卫行全文并入);本行原为 Z-1 重复登记,已被 HEAD 85f1c08855 删除,此处仅作 plan-union-merge 冲突锚,无任务语义〕 -->
 - [x] RP-61 〔千段租约〕 本机=lichunchuan-4d8db25b 段=RP-52~RP-61(取号器专用行:占用面只取本行主键=段尾号 ⇒ 无租约感知的 max+1 落在段外;段内连号自段首起、由持有机取号器递增;段满由取号器另立下一段,占段撞号由 CAS 终止,不是让号自我循环)

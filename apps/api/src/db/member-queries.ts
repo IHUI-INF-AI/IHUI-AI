@@ -7,6 +7,7 @@ import { hashPassword as hashPasswordArgon2 } from '../utils/password-crypto.js'
 import { eq, and, desc, asc, sql, ilike, inArray, or } from 'drizzle-orm'
 import { AppError } from '../errors/AppError.js'
 import { db } from './index.js'
+import { asContainsTerm } from '../utils/like-escape.js'
 import {
   eduMembers,
   eduMemberLevels,
@@ -72,8 +73,8 @@ export async function findMembers(
   opts: FindMembersOpts,
 ): Promise<{ list: EduMember[]; total: number; page: number; pageSize: number }> {
   const conds = []
-  if (opts.username) conds.push(ilike(eduMembers.username, `%${opts.username}%`))
-  if (opts.mobile) conds.push(ilike(eduMembers.mobile, `%${opts.mobile}%`))
+  if (opts.username) conds.push(ilike(eduMembers.username, asContainsTerm(opts.username)))
+  if (opts.mobile) conds.push(ilike(eduMembers.mobile, asContainsTerm(opts.mobile)))
   if (opts.status !== undefined) conds.push(eq(eduMembers.status, opts.status))
   if (opts.levelId) conds.push(eq(eduMembers.levelId, opts.levelId))
   const where = and(...conds)
@@ -151,7 +152,7 @@ export async function findAuthMembers(
 ): Promise<{ list: EduMember[]; total: number; page: number; pageSize: number }> {
   const conds = [eq(eduMembers.status, 1)]
   if (opts.keyword) {
-    const kw = `%${opts.keyword}%`
+    const kw = asContainsTerm(opts.keyword)
     conds.push(
       or(
         ilike(eduMembers.username, kw),
@@ -359,7 +360,7 @@ export async function findMemberCompanies(opts: {
   pageSize: number
   name?: string
 }): Promise<{ list: MemberCompanyItem[]; total: number; page: number; pageSize: number }> {
-  const where = opts.name ? ilike(eduCompanies.name, `%${opts.name}%`) : undefined
+  const where = opts.name ? ilike(eduCompanies.name, asContainsTerm(opts.name)) : undefined
 
   const [companyRows, totalRows] = await Promise.all([
     db
@@ -539,7 +540,7 @@ export async function findCompanies(
   opts: FindCompaniesOpts,
 ): Promise<{ list: EduCompany[]; total: number; page: number; pageSize: number }> {
   const conds = []
-  if (opts.name) conds.push(ilike(eduCompanies.name, `%${opts.name}%`))
+  if (opts.name) conds.push(ilike(eduCompanies.name, asContainsTerm(opts.name)))
   if (opts.status !== undefined) conds.push(eq(eduCompanies.status, opts.status))
   const where = conds.length ? and(...conds) : undefined
   const [list, totalRows] = await Promise.all([
@@ -639,7 +640,7 @@ export async function findDepartments(
 ): Promise<{ list: EduDepartment[]; total: number; page: number; pageSize: number }> {
   const conds = []
   if (opts.companyId) conds.push(eq(eduDepartments.companyId, opts.companyId))
-  if (opts.name) conds.push(ilike(eduDepartments.name, `%${opts.name}%`))
+  if (opts.name) conds.push(ilike(eduDepartments.name, asContainsTerm(opts.name)))
   if (opts.status !== undefined) conds.push(eq(eduDepartments.status, opts.status))
   const where = conds.length ? and(...conds) : undefined
   const [list, totalRows] = await Promise.all([
