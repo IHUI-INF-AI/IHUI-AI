@@ -81,13 +81,13 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 5700 | `testFiles` |
+| 测试文件 | 5677 | `testFiles` |
 | CI 工作流 | 59 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
 | 工程守门 | 368 | `guardianGates` |
 | — blocking | 338 | `guardianBlocking` |
 | — warn | 32 | `guardianWarn` |
-| 跟踪文件 | 22462 | `trackedFiles` |
+| 跟踪文件 | 22417 | `trackedFiles` |
 
 上表由 `node scripts/sync-readme-numbers.mjs`(唯一写入口,索引面取数)生成,最后核对日期 2026-11-16。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
@@ -98,38 +98,6 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 ## Recent updates (auto-maintained)
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
-**2026-11-16**
-- 🚀 Feature/Improvement:guardian 系列策略模块 + capabilities 页 + title-update + floating-layer-spec (6962844864a)
-
-**2026-11-16**
-- 🔧 Chore/Other:收编 ai-service/HR/api 改动 + 生成目录同步 + 计划文档更新 (b59a6c5c001)
-- 🚀 Feature/Improvement:逆向 codex 26.1111 六组契约 + web 布局收口 + 凭据件排除入库 (f7ef4e17d61)
-
-**2026-11-16**
-- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (da07174e1a1)
-- 📚 Docs:缺陷普查 91 条全量核验——82 已修结清删除，9 条未修/部分修补复核注记 (e7901ae0368)
-
-**2026-11-16**
-- 🐞 Fix:导航域枢纽项拆分 + AI 面板视觉收口 (5e77deb743b)
-
-**2026-11-16**
-- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (22234bff96d)
-
-**2026-11-16**
-- 🐞 Fix:AI 消息操作栏降密度——低频操作收进「更多」下拉 (995d34e572d)
-
-**2026-11-16**
-- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (40c0c5dae4c)
-
-**2026-11-16**
-- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (08dfc418e7c)
-
-**2026-11-16**
-- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (0073e7c7a84)
-
-**2026-11-16**
-- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (30661f36491)
-
 **2026-11-16**
 - 📚 Docs:刷新 README 生成数字块(trackedFiles 22410=>22411) (d551b2d73ed)
 

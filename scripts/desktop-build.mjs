@@ -342,7 +342,7 @@ async function main(argv = process.argv.slice(2)) {
   // pnpm 在本机是 .cmd shim(实测 `where pnpm` 只有 pnpm.cmd / 无扩展名 shim),
   // `spawn('pnpm', …, { shell: false })` 直接 ENOENT(实测)⇒ 执行器选择复用 scripts/lib/npm-execpath.mjs
   // 这一份单源判据,而不是在本文件里重新决定"要不要开 shell"。
-  const { cmd, prefix, shell } = planPackageManagerSpawn(process.env.npm_execpath, process.execPath)
+  const { cmd, prefix, shell, pm } = planPackageManagerSpawn(process.env.npm_execpath, process.execPath)
   const sub = opts.dev ? 'dev' : 'build'
 
   // 未签名本地打包的**两段豁免**:给 tauri 一份只关 updater 产物的临时 config(否则它在签名步
@@ -360,15 +360,28 @@ async function main(argv = process.argv.slice(2)) {
     console.log(`[desktop-build] !! 产物未签名:不得进更新源、不得发版、不得上传任何下载/更新 CDN`)
   }
 
-  const tauriArgs = [
-    ...prefix,
-    'tauri',
-    sub,
-    ...(opts.debug ? ['--debug'] : []),
-    ...(unsignedConfig ? ['--config', unsignedConfig] : []),
-    ...opts.passthrough,
-  ]
-  console.log(`[desktop-build] 执行:${cmd} ${tauriArgs.join(' ')}(cwd=${DESKTOP}${shell ? ',shell=true' : ''})`)
+  // npm 11 把裸 `tauri` 当 npm 子命令 ⇒ `Unknown command: "tauri"`(2026-11-16 本地实测),
+  // 必须走 `npm run tauri -- build`(package.json 的 `tauri` 脚本本体即 `tauri`,`--` 后是透传参);
+  // pnpm 把裸 `tauri` 当脚本名,`tauri build` 直跑。两者都不重复出现 script 名。
+  const tauriArgs =
+    pm === 'npm'
+      ? [
+          ...prefix,
+          'run', 'tauri', '--',
+          sub,
+          ...(opts.debug ? ['--debug'] : []),
+          ...(unsignedConfig ? ['--config', unsignedConfig] : []),
+          ...opts.passthrough,
+        ]
+      : [
+          ...prefix,
+          'tauri',
+          sub,
+          ...(opts.debug ? ['--debug'] : []),
+          ...(unsignedConfig ? ['--config', unsignedConfig] : []),
+          ...opts.passthrough,
+        ]
+  console.log(`[desktop-build] 执行(${pm}):${cmd} ${tauriArgs.join(' ')}(cwd=${DESKTOP}${shell ? ',shell=true' : ''})`)
 
   // F-042:先把各出口码记下来,finally 里才能在"清理失败"时判断要不要把绿抬红。
   // 初值 2 只兜异常路径(异常照旧向外抛,不由 finally 改写)。
