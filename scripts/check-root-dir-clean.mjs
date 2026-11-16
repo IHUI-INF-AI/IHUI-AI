@@ -312,6 +312,13 @@ const ALLOWED_HIDDEN_FILES = new Set([
   '.ihui-app.apk',
   '.ihui-uidump.xml',
   '.lockwait-probe.mjs',
+  // 2026-11-17 登记:发行流水线产物契约变更的一次性 QA 探针(抽出 Verify 步骤的 run 脚本
+  // 对 10 个场景实跑:三平台齐备/部分缺失/中文包名/未登记 label/bundle 目录不存在)。
+  // 与 .lockwait-probe.mjs 同型:根级一次性探针、未跟踪未忽略 ⇒ 让守门 44 在 --staged 面
+  // 报「无法判定」(exit 2) ⇒ 每枚提交被逼走应急旁路。且 .git-verify-test.py 被会话保留策略
+  // 钉住(chat 引用保护,禁删禁移)⇒ 只登记、不搬不删。复跑产物已抄送 tmp/verify-bundle-*。
+  '.git-verify-script.sh',
+  '.git-verify-test.py',
 ])
 
 /** 合法隐藏目录(git / IDE / 工具 / 运行时锁) */
