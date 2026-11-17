@@ -238,12 +238,13 @@ export function modelSpecToWire(spec: ModelSpec): Record<string, unknown> {
   // 多档上下文:只有 >1 档才另起一键(单档时 context_window 已够,不重复宣告)
   if (spec.contextWindows.length > 1) wire['context_windows'] = spec.contextWindows
   if (spec.maxOutputTokens !== null) wire['max_output_tokens'] = spec.maxOutputTokens
-  wire['thinking'] = spec.thinking.defaultLevel
-    ? { ...spec.thinking, default_level: spec.thinking.defaultLevel }
-    : {
-        supported: spec.thinking.supported,
-        levels: spec.thinking.levels,
-      }
+  // thinking 逐字段构造:内部 camelCase 的 defaultLevel **不得**漏进对外响应
+  // (spread 会把两个拼写一起发出去,客户端会看到同义的两个档位字段)
+  wire['thinking'] = {
+    supported: spec.thinking.supported,
+    levels: spec.thinking.levels,
+    ...(spec.thinking.defaultLevel ? { default_level: spec.thinking.defaultLevel } : {}),
+  }
   return wire
 }
 

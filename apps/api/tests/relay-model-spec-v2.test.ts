@@ -54,6 +54,8 @@ describe('思考默认档', () => {
     expect(spec.thinking.defaultLevel).toBe('low')
     const wire = modelSpecToWire(spec) as { thinking: Record<string, unknown> }
     expect(wire.thinking['default_level']).toBe('low')
+    // 内部 camelCase 字段不得漏进对外响应(否则同义两键,客户端不知取哪个)
+    expect(wire.thinking).not.toHaveProperty('defaultLevel')
   })
 
   it('W5 thinkingDefault 不在档位表 ⇒ 整条拒收(不宣告不存在的档)', () => {
